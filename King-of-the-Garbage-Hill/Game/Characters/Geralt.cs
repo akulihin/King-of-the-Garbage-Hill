@@ -368,38 +368,4 @@ public class Geralt
     { "Монстр без имени", "Нашел Монстра, но в справочнике не было имени." },
     };
 
-    public static readonly Dictionary<string, string> WitcherSensesHintsEnglish = new()
-    {
-        { "Weedwick", "Wolf tracks... leading straight into a field of weed." },
-        { "Sirinoks", "Scales on the stones. Something winged nests nearby." },
-        { "Кратос", "Ash and chains. A god of war passed through here." },
-        { "Вампур", "Fang marks on the neck. Higher vampire, perhaps." },
-        { "Стая Гоблинов", "Tiny footprints. Many of them. Far too many." },
-        { "DeepList", "This one is too clever. Dangerous." },
-        { "mylorik", "A furious warrior with revenge on his mind." },
-        { "Глеб", "Sleeping... or pretending to?" },
-        { "Тигр", "A territorial beast at the summit." },
-        { "Толя", "Armored creature. Unlikely to strike first." },
-        { "Осьминожка", "Tentacles everywhere. Not a scratch on it." },
-        { "HardKitty", "A loner. Leave him alone and he may return the favor." },
-        { "LeCrisp", "An assassin in the shadows. Fast." },
-        { "Кира", "A notebook full of names. Bad sign." },
-        { "Итачи", "Sharingan. Do not meet his eyes." },
-        { "Котики", "Cats. Cats everywhere." },
-        { "Dopa", "Analyzes. Adapts. Wins." },
-        { "Наполеон", "A strategist. His ally cannot be far." },
-        { "Були", "Drowned? No. It drowned someone else." },
-        { "Штормяк", "Thunder in the distance. A storm is coming." },
-        { "Рик", "A portal and the smell of alcohol. Bad combination." },
-        { "Загадочный Спартанец в маске", "A Spartan. Best not to anger him." },
-        { "Сайтама", "One punch. Then silence." },
-        { "Краборак", "Hard shell. Sharp claws." },
-        { "Napoleon Wonnafcuk", "A commander. His army is close." },
-        { "Таинственный Суппорт", "Helping someone. The question is whom." },
-        { "Токсичный Тиммейт", "Toxic. Keep your distance." },
-        { "Юный Глеб", "Young. Studies the meta obsessively." },
-        { "The Boys", "Superheroes... or something hunting them." },
-        { "Salldorum", "Time bends strangely around this trail." },
-        { "Монстр без имени", "Found a Monster, but the reference book had no name." },
-    };
 }

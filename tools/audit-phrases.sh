@@ -30,14 +30,34 @@ if set(catalog) != fields:
     errors.extend(f"unknown English group: {name}" for name in sorted(set(catalog) - fields))
 
 for name in sorted(fields & set(catalog)):
-    english = catalog[name]
-    if len(english) != counts[name]:
-        errors.append(f"{name}: {counts[name]} Russian variants / {len(english)} English variants")
-    for index, text in enumerate(english):
-        if not isinstance(text, str) or not text.strip():
-            errors.append(f"{name}[{index}] is empty")
-        elif re.search(r"[А-Яа-яЁё]", text):
-            errors.append(f"{name}[{index}] contains Cyrillic")
+    group = catalog[name]
+    if not isinstance(group, dict):
+        errors.append(f"{name} is not a paired phrase group")
+        continue
+    passive_ru = group.get("passiveNameRussian")
+    passive_en = group.get("passiveNameEnglish")
+    pairs = group.get("phrases")
+    if not isinstance(passive_ru, str) or not passive_ru.strip():
+        errors.append(f"{name}.passiveNameRussian is empty")
+    if not isinstance(passive_en, str) or not passive_en.strip() or re.search(r"[А-Яа-яЁё]", passive_en):
+        errors.append(f"{name}.passiveNameEnglish is empty or contains Cyrillic")
+    if not isinstance(pairs, list):
+        errors.append(f"{name}.phrases is not an array")
+        continue
+    if len(pairs) != counts[name]:
+        errors.append(f"{name}: {counts[name]} Russian source variants / {len(pairs)} catalog variants")
+    for index, pair in enumerate(pairs):
+        if not isinstance(pair, dict):
+            errors.append(f"{name}[{index}] is not a Russian/English pair")
+            continue
+        russian = pair.get("russian")
+        english = pair.get("english")
+        if not isinstance(russian, str) or not russian.strip():
+            errors.append(f"{name}[{index}].russian is empty")
+        if not isinstance(english, str) or not english.strip():
+            errors.append(f"{name}[{index}].english is empty")
+        elif re.search(r"[А-Яа-яЁё]", english):
+            errors.append(f"{name}[{index}].english contains Cyrillic")
 
 if errors:
     print("Phrase localization audit FAILED:")

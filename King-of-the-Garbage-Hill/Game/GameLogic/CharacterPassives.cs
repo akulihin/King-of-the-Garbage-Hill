@@ -4703,9 +4703,10 @@ public class CharacterPassives : IServiceSingleton
                             if (string.IsNullOrWhiteSpace(hint))
                             {
                                 var english = GameLocalization.GetUserLanguage(player.DiscordId) == GameLocalization.English;
-                                var hints = english ? Geralt.WitcherSensesHintsEnglish : Geralt.WitcherSensesHints;
-                                hint = hints.TryGetValue(hintTarget.GameCharacter.Name, out var h)
-                                    ? h : english ? "Something strange. An unknown beast." : "Что-то странное. Неизвестный зверь.";
+                                hint = Geralt.WitcherSensesHints.TryGetValue(hintTarget.GameCharacter.Name, out var h)
+                                    ? h : "Что-то странное. Неизвестный зверь.";
+                                if (english)
+                                    hint = GameLocalization.Text(hint, GameLocalization.English);
                             }
 
                             player.Status.AddInGamePersonalLogs(

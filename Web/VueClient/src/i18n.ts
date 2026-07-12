@@ -1,5 +1,6 @@
 import { ref, watch } from 'vue'
 import englishCatalog from '../../../King-of-the-Garbage-Hill/DataBase/localization.en.json'
+import phrases from '../../../King-of-the-Garbage-Hill/DataBase/phrases.en.json'
 import characters from '../../../King-of-the-Garbage-Hill/DataBase/characters.json'
 
 export type AppLocale = 'ru' | 'en'
@@ -13,7 +14,14 @@ type EnglishCatalog = {
   passives: Record<string, string>
 }
 
+type PhraseGroup = {
+  passiveNameRussian: string
+  passiveNameEnglish: string
+  phrases: Array<{ russian: string, english: string }>
+}
+
 const catalog = englishCatalog as EnglishCatalog
+const phraseCatalog = phrases as Record<string, PhraseGroup>
 const contentExact = new Map<string, string>()
 const contentRussianExact = new Map<string, string>()
 for (const character of characters) {
@@ -30,6 +38,29 @@ for (const character of characters) {
     }
   }
 }
+
+function addUnambiguousPhrasePairs(
+  target: Map<string, string>, sourceKey: 'russian' | 'english', translationKey: 'russian' | 'english',
+): void {
+  const passiveNames = new Set(Object.values(phraseCatalog)
+    .map(group => sourceKey === 'russian' ? group.passiveNameRussian : group.passiveNameEnglish))
+  const values = new Map<string, Set<string>>()
+  for (const group of Object.values(phraseCatalog)) {
+    for (const pair of group.phrases) {
+      const translations = values.get(pair[sourceKey]) ?? new Set<string>()
+      translations.add(pair[translationKey])
+      values.set(pair[sourceKey], translations)
+    }
+  }
+  for (const [source, translations] of values) {
+    if (translations.size === 1 && !passiveNames.has(source) && !target.has(source)
+      && (sourceKey !== 'russian' || /[А-Яа-яЁё]/.test(source)))
+      target.set(source, translations.values().next().value as string)
+  }
+}
+
+addUnambiguousPhrasePairs(contentExact, 'russian', 'english')
+addUnambiguousPhrasePairs(contentRussianExact, 'english', 'russian')
 const localeKey = 'kotgh_locale'
 const savedLocale = localStorage.getItem(localeKey)
 
@@ -71,6 +102,16 @@ const phraseRules: Array<[RegExp, string]> = [
   [/Обменять\s+(\d+)\s+Морали\s+на\s+(\d+)\s+бонусных очков/gi, 'Trade $1 Moral for $2 bonus points'],
   [/Обменять\s+(\d+)\s+Морали\s+на\s+(\d+)\s+[CС]килла/gi, 'Trade $1 Moral for $2 Skill'],
   [/Вы не походили\. Использовался Авто Ход/gi, 'You did not act. Auto Move was used'],
+  [/You напали на игрока\s+/gi, 'You attacked '],
+  [/Вы напали на игрока\s+/gi, 'You attacked '],
+  [/за \*\*сильного\*\* врага/gi, 'for a **strong** enemy'],
+  [/за \*\*умного\*\* врага/gi, 'for a **smart** enemy'],
+  [/за \*\*быстрого\*\* врага/gi, 'for a **fast** enemy'],
+  [/за сильного врага/gi, 'for a strong enemy'],
+  [/за умного врага/gi, 'for a smart enemy'],
+  [/за быстрого врага/gi, 'for a fast enemy'],
+  [/Они скинули\s+(\*\*[^*]+\*\*|[^\r\n!]+)!\s*Сволочи!/gi, 'They threw $1 off the hill! Bastards!'],
+  [/(.+?) наконец показал свою ИСТИННУЮ СИЛУ! ONE PUUUUUUNCH!!!/gi, '$1 finally unleashed their TRUE POWER! ONE PUUUUUUNCH!!!'],
   [/#life:\s*Я прокачал (Интеллект|Силу|Скорость|Психику) на (-?\d+)!/gi, '#life: I upgraded $1 to $2!'],
   [/Первый ход:\s*(.+)/gi, 'First turn: $1'],
   [/Не размещено:\s*(.+)/gi, 'Not deployed: $1'],
@@ -153,6 +194,50 @@ function phraseFallback(passiveName: string): string {
   return canonicalName ? (catalog.phraseFallbacks[canonicalName] ?? 'Ability triggered.') : 'Ability triggered.'
 }
 
+function authoredLegacyPhrase(passiveName: string, phrase: string): string | null {
+  const groups = Object.values(phraseCatalog).filter(candidate =>
+    candidate.passiveNameRussian === passiveName || candidate.passiveNameEnglish === passiveName)
+  if (groups.length === 0) return null
+  if (groups.flatMap(group => group.phrases).some(pair => phrase.startsWith(pair.english))) return null
+
+  let translated = phrase
+  let changed = false
+  const pairs = groups.flatMap(group => group.phrases).sort((a, b) => b.russian.length - a.russian.length)
+  for (const pair of pairs) {
+    if (!translated.includes(pair.russian)) continue
+    translated = replaceAllLiteral(translated, pair.russian, pair.english)
+    changed = true
+  }
+  return changed ? translated : null
+}
+
+function resolveAuthoredLegacyMarkers(value: string): string {
+  const header = /\|>Phrase<\|([^:\r\n]+):\s*/g
+  let translated = ''
+  let cursor = 0
+  let match = header.exec(value)
+  while (match) {
+    translated += value.slice(cursor, match.index)
+    const bodyStart = header.lastIndex
+    const matched = Object.values(phraseCatalog)
+      .filter(candidate => candidate.passiveNameRussian === match![1]
+        || candidate.passiveNameEnglish === match![1])
+      .flatMap(group => group.phrases.map(pair => ({ group, pair })))
+      .sort((a, b) => b.pair.russian.length - a.pair.russian.length)
+      .find(candidate => value.startsWith(candidate.pair.russian, bodyStart))
+    if (!matched) {
+      translated += match[0]
+      cursor = bodyStart
+    } else {
+      translated += `|>Phrase<|${matched.group.passiveNameEnglish}: ${matched.pair.english}`
+      cursor = bodyStart + matched.pair.russian.length
+      header.lastIndex = cursor
+    }
+    match = header.exec(value)
+  }
+  return translated + value.slice(cursor)
+}
+
 function decodeBilingualPhrase(token: string, textOnly: boolean): string {
   try {
     const base64 = token.replace(/-/g, '+').replace(/_/g, '/')
@@ -184,12 +269,13 @@ function translate(value: string | null | undefined, translatePhraseMarkers: boo
 }
 
 function translateCore(value: string, translatePhraseMarkers: boolean): string {
-  if (currentLocale.value === 'en' && !cyrillicPattern.test(value)) return value
+  if (currentLocale.value === 'en' && !cyrillicPattern.test(value) && !value.includes('|>Phrase<|')) return value
   if (currentLocale.value === 'ru' && !/[A-Za-z]/.test(value)) return value
 
   if (translatePhraseMarkers && currentLocale.value === 'en' && value.includes('|>Phrase<|')) {
+    value = resolveAuthoredLegacyMarkers(value)
     value = value.replace(/\|>Phrase<\|([^:\r\n]+):\s*([^\r\n]*)/g, (_match, passiveName: string, phrase: string) => {
-      const translatedPhrase = translate(phrase, false)
+      const translatedPhrase = authoredLegacyPhrase(passiveName, phrase) ?? translate(phrase, false)
       const adaptedPhrase = cyrillicPattern.test(translatedPhrase)
         ? phraseFallback(passiveName)
         : translatedPhrase

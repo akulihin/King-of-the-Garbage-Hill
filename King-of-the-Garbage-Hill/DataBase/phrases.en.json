@@ -1,237 +1,4596 @@
 {
-  "AwdkaAfk": ["AFK"],
-  "AwdkaTeachToPlay": ["Somebody teach me this game", "I have no idea what I'm doing", "I'm literally useless", "Fun fact: I smurf kebab queues.", "How does this even work?", "Esports-ready!", "What is this button?", "Which one do I click again?", "Two Ignites on Wukong! Peak esports."],
-  "AwdkaTrolling": ["A trolling has occurred", "Whoa... how did I do that?", "What did I just do?"],
-  "AwdkaTrying": ["Mobility boots! Dirt cheap!", "Flash-ulted the LeBlanc clone", "Wait, I'm starting to get it", "Almost...", "Next stop: pro play!"],
-  "DarksciDysmoral": ["That's it, I'm absolutely tilted!"],
-  "DarksciFuckThisGame": ["Screw this game"],
-  "DarksciLucky": ["Golden.", "Finally!"],
-  "DarksciNotLucky": ["Of course I get the bad team!", "Every promo series. Every single one.", "What are they even doing?", "I'm tilted."],
-  "DeepListDoubtfulTacticFirstLostPhrase": ["Soon...", "Slow and steady throws the game", "I call this one: The Gambit", "Diamond-player privilege", "All according to plan", "PROBABILITY THEORY is on our side!", "I see nonsense and I'm in!"],
-  "DeepListDoubtfulTacticPhrase": ["Everything is going according to my plan", "My superior tactic will win", "I calculated everything. Somehow it works.", "Napoleon Wonnafcuk", "Secret List Technique: The Gambit"],
-  "DeepListMadnessPhrase": ["Haha. Ha. AHAHAHAHAHAHAHA!", "Wait, who... am I?", "Shut up!", "Fuck, fuck, FUCK!", "What a useful phylactery.", "The invisible wolf. IT FOUND ME!", "I am the sneakiest cockroach.", "Turn the sound on screen.", "THE BASS TRAP", "Doctor, I hear voices. The problem is... they stopped.", "Doctor Cho.", "*harmonica noises*", "*sad, badly tuned guitar noises*"],
-  "DeepListPokePhrase": ["Hehe.", "Just doing a little trolling", "I'm in!", "Two Ignites...", "*cackles*", "Who even are you?", ":)", "It's a joke. You got it?", "Where's the impact!?", "Varian?", "BARON!", "Headbutt it.", "Why'd you stop?", "Don't cut the branch you're feeding on.", "Soap leftovers.", "You're fat.", "So are you.", "As the Butcher says: people come apart.", "#", "Stop yapping!", "Bagged milk.", "Where's the Dr. Stone review?", "You're a spectacle cobra, and not because of the glasses!", "Pumpkin. Bumpkin. Lumpkin.", "Crisp.", "Hard being a genius on the idiotnet.", "Zagara turned out to be a decent teammate.", "I lost.", "Large wave of angry zergs", "LeCringe", "Who is **There**?", "Deusmans, you morons.", "I hate Sirinokses!", "Cap on. Serious mode.", "I DC'd again.", "Angry Schoolkid", "Why do hyenas laugh? Because it's funny!", "Signature **LOL**, funeral **KEK**", "Vitamin C comes from chicken and __**BEANS**__", "Pike-hands!"],
-  "DeepListSuperMindPhrase": ["After dividing entropy by zero, you realized that ", "Using flawless deduction, you realized that ", "After adding 2+2, you miraculously guessed that ", "It all makes sense. Heroin is basically weed, and ", "The enemy gave it away! I knew ages ago that ", "Psst... my sources tell me that ", "Hello, I'm your replacement brain. By the way, "],
-  "FirstСommandment": ["If you feed, at least push; if you push, make sure you feed."],
-  "FirstСommandmentLost": ["You need divine assistance.", "Blessed be your int, my child.", "You have come to God.", "Enlightenment.", "Only faith can save this lane."],
-  "FourthСommandment": ["Try playing with your hands."],
-  "SecondСommandment": ["And the Lord said: 'Ban Udyr, for I am afraid.' And the doctor said: 'No ban? Brain scan.'"],
-  "SecondСommandmentBan": ["Begone!", "Unclean creature!", "Ban Udyr."],
-  "ThirdСommandment": ["Thou shalt not flame in chat."],
-  "GlebChallengerPhrase": ["HUH? BARON?!", "Lemme show you how it's done.", "Gleb has entered the game!", "To the Challengermobile!", "LEEEEROY JENKINS!", "FLASH IN THE NIGHT! I am the flash!"],
-  "GlebChallengerSeparatePhrase": ["FULL POWER!!!", "OVER 9000", "I AM CHALLENGER!", "IT'S NASHOR'S TIME!", "IT'S FINE. I HAVE HEAL!", "KEEP PLAYING, KEEP PLAYING!", "THE RECALL GAMBIT!", "PLACE A WARD!"],
-  "GlebComeBackPhrase": ["Five minutes.", "Be right back.", "Don't start without m—"],
-  "GlebSleepyPhrase": ["Zzzz...", "I... I'm here...", "Don't remake, I'm awake. *yawns*"],
-  "GlebTeaPhrase": ["White cocoa."],
-  "GlebTeaReadyPhrase": ["I've got spare tea!__", "Tea's ready!__"],
-  "YongGlebIrelia": ["Damn, they nerfed my Irelia again. It's fine, Gleb will carry.", "What do you mean? How many nerfs does she need? That's a whole—", "Riot crossed the line. They took everything from my girl.", "How am I supposed to hit Challenger when they keep nerfing my champ?"],
-  "YongGlebCommunication": ["Excellent ward. Gleb carry."],
-  "YongGlebCommunicationReady": ["__I purchased communication.__"],
-  "YongGlebMeta": ["Play for objectives!", "Objectives, boys, objectives.", "Keep playing, keep playing.", "Challenger won't climb itself!!!!", "You win through objectives.", "You're too slow! Rotate on the first call!", "I'm basically Darien.", "I'm basically __alexich__.", "I'm **FLASH IN THE NIGHT**.", "Gleb's road to Challenger."],
-  "YongGlebTea": ["Drink some tea and calm down.", "Here, tea. Don't be sad XD XD", "Listen to that water pour.", "My favorite tea, straight from China.", "Nepius brought me this tea."],
-  "YongGlebTeaReady": ["Tea's ready!__"],
-  "HardKittyDoebatsyaAnswerPhrase": ["You got a reply to your email!"],
-  "HardKittyDoebatsyaPhrase": ["Do they sell milk in bags where you live?", "Which Windows do you use?", "What's the best build on Miss Fortune?", "Hey. Heeey...", "How does your bot work?"],
-  "HardKittyDoebatsyaLovePhrase": ["**THIS ONE'S MY SPECIAL LITTLE SHIT**, I've been pestering them my whole life..."],
-  "HardKittyLonelyPhrase": ["Hi.", "I had this dream last night...", "What are you doing?", "How's it going?"],
-  "HardKittyMutedPhrase": ["Muted"],
-  "LeCrispAssassinsPhrase": ["Fucking assassins.", "Ah, the ADC life.", "My ass failed to eat the snake. (c)", "Female dog squats to pee.", "Al tigi li ba delete.", "Malphite knocked me up, Yasuo pressed R...", "Watermelon head.", "I got laid over summer break. Nobody enjoyed it."],
-  "LeCrispBoolingPhrase": ["Why are you bulling me?", "fuk u", "Learned it from you.", "DeepList is a brain substitute.", "Just like Adept."],
-  "LeCrispImpactPhrase": ["Impact!", "Is this impact?", "shpeshmen", "Stole the camp!", "I'm MVP! I'M MVP!", "Excellent positioning.", "Pure skill.", "Hummus.", "Mazel tov!", "Nymphomaniac!", "I can literally see him zoning.", "Impact!", "Easy, easy... don't shoot without impact...", "Only shoot when it's a guaranteed last hit!", "I want my girlfriend to be just a little cringe.", "That's how you do it!", "OnlyFans... why does everything cost money here?", "I don't shoot often, but I don't miss."],
-  "LeCrispJewPhrase": ["I eat money!", "Kill secure", "OY VEY!", "Kosher.", "OY VEY!", "Hava Nagila", "Summoning Judas.", "Found a wallet on the street. Somehow it's short."],
-  "MitsukiCheekyBriki": ["Well then, punks. Wanna play?"],
-  "MitsukiGarbageSmell": ["What the hell did I step in?", "Smells like garbage..."],
-  "MitsukiSchoolboy": ["Fuck, I don't even have my own computer."],
-  "MitsukiTooMuchFucking": ["Diamond!", "Well, technically that's correct.", "Fucking nya.", "So, boys, anime?", "Enjoy the vape juice!"],
-  "MitsukiTooMuchFuckingNoAttack": ["What, you scared, bitches?", "Who's coming at me?", "1v1 or scared?"],
-  "MylorikBoolePhrase": ["Boole.", "There's... **Tahm Kench**.", "Did you notice? Icica learned to play..."],
-  "MylorikRevengeLostPhrase": ["Oh, you fucking bastards!", "MMMMPH!", "BRRRRRRRUH!", "Nerf them!", "I'LL SMASH YOU!", "NERF THEM!", "I have made my decision."],
-  "MylorikRevengeVictoryPhrase": ["THIS IS SPARTA!", "That's how it's done.", "MM!", "Weak champion!", "I'm going in.", "Cyberdate me.", "Bagged milk.", "Alexich... I'm your biggest fan... I am Pantheon.", "We take those.", "Vietnamese Tristana!", "VIETNAMESE TRISTANA!!!", "**VIETNAMESE TRISTANA!!!**"],
-  "MylorikSpanishPhrase": ["Arriba!", "Buenas noches!", "Alejandro!", "noob team"],
-  "SirinoksDragonPhrase": ["ROAR!", "HEY, FACE. ROAR!", "NO NSFW ON STREAM! ROAR!", "WHERE THE FUCK IS GLEB?! ROAR!", "LIST IS TALKING SHIT AGAIN! ROAR!", "LORIK DOESN'T UNDERSTAND ANYTHING! ROAR!", "FUCKING CRIIIISP! ROAR!", "You can fly at the push of a button!"],
-  "SirinoksFriendsPhrase": ["Party up?", "M/F?", "I lost.", "Pepega.", "Invite."],
-  "SpartanDragonSlayer": ["*got 2000 gold ahead of everyone else*"],
-  "SpartanShameMylorik": ["HE respects the art of war!"],
-  "SpartanTheyWontLikeIt": ["Your shield is nothing before my spear!", "Fully stacked Black Cleaver!", "My spear was made to pierce the HEAVENS!", "Spear toss, leap, then beat you senseless with the shield.", "I'm your fan. I'm Pantheon."],
-  "SpartanFirstBlood": ["Buying boots with this! +1 Speed"],
-  "TigrSnipe": ["FUCKING TEN-YEAR BANS"],
-  "TigrThreeZero": ["1v1 me.", "2-0.", "Easy 3-0. Get pissed on."],
-  "TigrTop": ["Tiger on top, you're just a serf!", "I'M THE #1 BERSERKER ON THE SERVER!!!"],
-  "TigrTwoBetter": ["Better with two idiots than with sane people.", "Welcome to my clan!"],
-  "MadaraIntro": ["Huh? What world is this? Hmm...\nI don't know who this King of the Garbage Hill is, but I want to see him. Has this king achieved peace?"],
-  "MadaraFirstFight": ["It seems I will find neither peace nor quiet in any universe... War follows me everywhere, like a shadow."],
-  "MadaraSecondFight": ["So this is merely another world where children play at battle. Very well. I will show them war."],
-  "MadaraTopOne": ["This is the summit of your Garbage Hill? I expected little from refuse like you."],
-  "MadaraSecondMeteorite": ["You stopped one meteor...? Then what will you do about the second?"],
-  "MadaraItachiStole": ["Itachi? Your eyes remain incomplete. You will never know the power of a god."],
-  "MadaraItachiPrediction": ["I thought Madara was another man... Then who was he?"],
-  "MadaraRoundEightTheme": ["Madara: Oi, oi. Why wait? Who in this garbage world dares challenge me?! I am Uchiha Madara."],
-  "TolyaCountPhrase": ["Ha! Calculated!", "Knew it!", "Predicted.", "Fair enough.", "To win I need paper, Jewish ingenuity, and a pen."],
-  "TolyaCountReadyPhrase": ["I am ready to calculate it.__"],
-  "TolyaJewPhrase": ["Easy money", "Worth", "Certified kosher.", "I'm not fully invested in your Jewish schemes yet.", "Hehe, yoinked it.", "One copper!", "Hnnngh.", "A real Jew knows value."],
-  "TolyaRammus2Phrase": ["I live. I burn."],
-  "TolyaRammus3Phrase": ["Easy bait."],
-  "TolyaRammus4Phrase": ["Look how much I made in one go!"],
-  "TolyaRammus5Phrase": ["Oh. That's it. GG."],
-  "TolyaRammusPhrase": ["Okay.", "Hm.", "They should, but they don't have to."],
-  "VampyrHematophagy": ["I am Vampur from London!", "Such nutritious blood.", "Vampur on a skewer!", "Fangs like a drill — Vampur!", "BEHOLD MY FINAL FORM: I am now Vampyr!"],
-  "VampyrNoAttack": ["Don't want to. Won't do it.", "Aah, I'm scawed of him.", "That's Hellsing, boss!", "He smells like garlic!", "He shoved a stake up my ass."],
-  "VampyrSuckspenStake": ["Ow.", "My Vampur heart can't take this.", "Nooooo!", "PFHAAASH!", "Goes up, goes down, goes up, goes down."],
-  "VampyrVampyr": ["A Vampur ni-i-ight!", "The mysterious Vampur."],
-  "VampyrTheLoh": ["No stats for you. Eat some garlic.", "Get outta here, shameful Vampur.", "Hey, quit biting!", "Sharpened your fangs?"],
-  "CraboRackSidewaysBoolePhrase": ["They're all ranged!", "To the breach!", "*spins in place*"],
-  "WeedwickRuthlessHunter": ["You can't hide from me.", "WOOF!", "Pseudodooooog!", "What's that smell...?"],
-  "WeedwickValuablePreyPoints1": ["SHUTDOOOOOWN"],
-  "WeedwickValuablePreyPoints2": ["TALKING DOG"],
-  "WeedwickValuablePreyPoints3": ["WOOF"],
-  "WeedwickValuablePreyPoints4": ["OMEGA-WOOF"],
-  "WeedwickValuablePreyPoints5": ["Alpha wolf!"],
-  "WeedwickValuablePreyPoints6": ["THE RICHEST PSEUDODOG"],
-  "WeedwickValuablePreyPoints7": ["Don't do drugs."],
-  "WeedwickValuablePreyDrop": ["FUCKING DOG! AWOOOOOO! DOGDOGDOG!!!", "I am psychosis incarnate!", "Here, fuck you!", "Get down here!", "WOOFWOOF GRRRRR!", "Get out of that tree!!!", "Biologists, why do dogs laugh? Because it's funny!", "I'm laughing at you!", "I'll bite! I'll pounce and bite!"],
-  "WeedwickWeedYes1": ["Weed"],
-  "WeedwickWeedYes2": ["Woof"],
-  "WeedwickWeedYes3": ["Awoooo!!!"],
-  "WeedwickWeedYes4": ["SCOOBY-DOOBY-DOOO!"],
-  "WeedwickWeedYes5": ["WEED!"],
-  "WeedwickWeedYes6": ["WEEEEEED!!!"],
-  "WeedwickWeedYes7": ["SWA$$GG"],
-  "WeedwickWeedYes8": ["D_O_double.G"],
-  "WeedwickWeedYes9": ["420"],
-  "WeedwickWeedYes10": ["81@23 !7"],
-  "WeedwickWeedYes11": ["I'm beating the WEED out of them.", "Where is that pseudodog hiding? Remember, kids: if you find its stash, do not roll it into cigarettes!"],
-  "WeedwickWeedNo": ["WHERE'S MY WEED, BITCHES?", "WHERE'S THE STUFF?", "Begging for 228 smokes, BUT WHERE ARE THEY???"],
-  "KratosEventYes": ["If all of Olympus will deny me my vengeance, then all of Olympus **will die**!"],
-  "KratosEventNo": ["My vengeance ends now!"],
-  "KratosEventFailed": ["AAAAAAAAAAAAAAAAAAAAAAAAAAA"],
-  "KratosEventKill": ["I returned from the dead to climb Olympus!", "Zeus! Your son has returned!", "I will not stop. Soon the atheists will be proven right!", "Another one...", "There will be only one god left. It is done."],
-  "KratosTarget": ["Holy shit, Pandora's loot box!", "Far cooler than Ares.", "I hate gods!", "Fuck, another god.", "What did you do with my family? HMM?!", "I will have my vengeance.", "Let me show you!", "The power to create the power to create the power to destroy!", "The Ghost of Sparta in an abandoned house... Boo!"],
-  "SaitamaBroke": ["Oh, instant noodles are on sale today!", "Saturday. Cabbage is half price!", "Being a hero is a hobby, and hobbies don't pay."],
-  "SaitamaBrokeMonster": ["If nobody saw it, does it still count as hero work?"],
-  "SaitamaUnnoticed": ["King defeated this monster! ...probably."],
-  "SaitamaHoldsBack": ["That's... it?", "Boring. I'm going home."],
-  "SaitamaSerious": ["Serious Series: Serious Punch."],
-  "RickGiantBeans": ["Ingredients... I need those beans, Morty!", "Morty, get over here. See those beans?", "These aren't just beans, Morty. They're GIANT beans!", "Now I can finally see who has the beans! The upgrades paid off! Science, bitch!!"],
-  "RickGiantBeansDrink": ["*burp* This... this is science, Morty!", "Another ingredient acquired. *burp*", "Wubba Lubba Dub Dub! Ingredient!"],
-  "RickPickleTransform": ["I'M PICKLE RIIIICK!", "PICKLE RIIICK!", "I turned myself into a pickle, Morty! I'M PICKLE RICK!"],
-  "RickPickleWin": ["Pickle Rick wins!", "You just lost to a pickle!", "Solen'ya... the Pickle Man!", "Ah, Morty, I feel like one mean pickle!"],
-  "RickPicklePenalty": ["Somebody... turn the pickle over...", "Okay, maybe the pickle idea wasn't my best."],
-  "RickPortalGunInvented": ["Portal gun invented!", "*click* Now I've got a portal gun!", "I lost everything before I built this gun..."],
-  "RickPortalGunFired": ["*click* Portal open!", "And we're in business! Portal!", "Get in the portal, Morty! Now!", "I'm the Rickest of all these fake Ricks."],
-  "RickMostWanted": ["Rick is in trouble again...", "Rick is drawing too much attention...", "The Galactic Federation is on his tail again!"],
-  "RickMostWantedProc": ["What the hell do these Feds want from me?!", "The whole universe is chasing the formula for my special fuel...", "Jeez! Can the smartest man in the universe spend one quiet day with his grandson?!"],
-  "RickMostWantedPortalFollow": ["Jeez, do you people have nothing better to do? Get a hobby!"],
-  "KiraDeathNoteKill": ["Delete... Delete... DELETE!", "I am the god of the new world!", "Justice has been served.", "Sakujo... Sakujo...", "All according to plan, Ryuk."],
-  "KiraDeathNoteFailed": ["That name... is wrong?!", "Impossible! My calculations were flawless!", "Tch... Ryuk, you could have warned me."],
-  "KiraShinigamiEyes": ["The eyes of a Shinigami see all.", "Now I see your true name...", "The deal with Ryuk is sealed."],
-  "KiraLNoFight": ["L suspects nothing...", "While L investigates, I act.", "L will never learn the truth."],
-  "KiraArrested": ["No... impossible! L... you...", "It's over. L won."],
-  "ItachiCrows": ["A black crow...", "Fly, fly, my weird little bastard!", "Caw-caw!", "Mysterious crow.", "Why do I have so many crows?", "What is false — my eyes, or my crow?", "Itachi"],
-  "ItachiIzanagi": ["Holy shit, I didn't die.", "Another forbidden technique of my clan..."],
-  "ItachiAmaterasu": ["Run, foolish little brother!", "Run, brother!", "Live — but live in fear.", "HATE ME WITH ALL YOUR HEART!", "Black flame within your heart.", "Our eyes... descend into darkness.", "I devour darkness.", "Run, and cling to your wretched life...", "You lack... hatred.", "Come back when you have the same eyes... *_*"],
-  "ItachiTsukuyomiCharge": ["Tsukuyomi is ready..."],
-  "ItachiTsukuyomiActivate": ["You are ALREADY inside my illusion."],
-  "ItachiTsukuyomiEnd": ["I'm out of chakra."],
-  "ItachiTsukuyomiSteal": ["Get confused", "My eyes! My eyes!", "I always have a crow up my sleeve.", "I planned this from the beginning.", "It was all for the village."],
-  "ItachiTsukuyomiReveal": ["It was all there in Itachi's eyes..."],
-  "SellerVparit": ["Psst... try this.", "Hey kid, today is your lucky day.", "Keep it quiet...", "It works, swear on my mother!", "The customer is always right..."],
-  "SellerVparitEnemy": ["You got sold some premium-grade crap."],
-  "SellerZakup": ["Buying wholesale!", "Low prices today!", "Quality merchandise!", "It's MY time!"],
-  "SellerProfit": ["Income tax.", "Bills paid.", "All according to contract."],
-  "SellerProfitBig": ["Now that's a margin!"],
-  "SellerSecretBuild": ["Time to start playing for real."],
-  "SellerBolshoiKushEnemy": ["Welcome, stranger.", "What are you buying? What are you selling?", "Good choice...", "VERY expensive!", "An excellent mine."],
-  "DopaVisionReady": ["Future Sight ready: I think I know his next move..."],
-  "DopaVisionProc": ["Easy and straightforward.", "Even Faker could not do that.", "My talent makes the answer obvious.", "Lucky. Golden.", "I see the future. Do not put me through a translation site."],
-  "DopaMetaChosen": ["Handsome.", "Now I'll show you."],
-  "DopaImpact": ["Impact."],
-  "DopaDomination": ["Dominating."],
-  "DopaRoam": ["Roaming."],
-  "SaldorumChronicler": ["History is written by the winners..."],
-  "NapoleonAlliance": ["Napoleon Wonnafuck invites you to an alliance..."],
-  "NapoleonConqueror": ["This land belongs to us now!"],
-  "NapoleonPeaceTreaty": ["Truce."],
-  "NapoleonFace": ["The element of surprise.", "Caught them off guard.", "Exactly as my strategy demands!", "Alamut.", "Tortoise formation."],
-  "ToxicMateIntFirstLoss": ["Ok. I'm trolling."],
-  "ToxicMateCancerInfect": ["{name} infected", "{name} is no0b", "{name} reported!", "{name} almost done", "{name} FEEDER!"],
-  "ToxicMateCancerReturn": ["Fuking idiots! All reported."],
-  "ToxicMateAggressPoint": ["LET'S TALK ABOUT IT", "SHUT UP I WON", "EZ", "Yeah stay afk!"],
-  "ToxicMateAggressWontStop": ["I. WONT. STOP."],
-  "ToxicMateTiltedReact": ["Hahaha look at this", "Are you mad?", "Go cry!", "Report this kid", "KYS", "Tilted", "OMG IDIOT", "Pepega"],
-  "ToxicMateTiltedOpenMid": ["OPEN MID!"],
-  "SupportStakes": ["STACKS!!!", "Time to deal damage!"],
-  "SupportProtect": ["Pepega"],
-  "SupportPremadeMark": ["You're my duo now..."],
-  "SupportPremadeAntiSkip": ["QSS!", "Cleanse!", "BKB!"],
-  "HighEloLoss": ["Looks like the enemy is 2K Elo!"],
-  "SirinoksGeniusPhrase": ["Intelligence **10** — you're a ***Garbage Genius***. — Sirinoks"],
-  "SirinoksBlockNoPhrase": ["NO!"],
-  "GlebDragonReaction": ["Whoa, a dragon. Holy shit."],
-  "GlebWakeUpRoli": ["ASSIGN ROLES"],
-  "GlebPsyche10": ["Living the dream."],
-  "GlebComeBackEnemy": ["You left to wait for Gleb... FOREVER..."],
-  "LeCrispStonks": ["Stonks"],
-  "DeepListMadnessHardKittyMilk": ["MORE MILK FOR HARDKITTY!"],
-  "DeepListMockeryHardKittyMilk": ["MORE MILK FOR HARDKITTY!"],
-  "GoblinTunnelEscape": ["Excellent! We escaped.", "We wriggled out of that one!", "Lost them good!!!", "Now they'll think we're Gleb, hehehe."],
-  "GoblinGrowthAttack": ["They let us smash.", "Goblins fuck!", "Goblins.", "More goblins for the Goblin God!", "I got laid over summer break... Nobody enjoyed it.", "All I care about is boobs and jam. That's my humble dream."],
-  "GoblinDeath": ["Stupid garbage made of stupid garbage.", "Hype. Meme. Flash mob.", "Underage idiots.", "Idiots.", "Pendalf the Grey."],
-  "GoblinMine": ["An excellent mine!", "Reliable as a Swiss watch!"],
-  "GoblinZigguratBuild": ["Ziggurat complete!", "Goblins can build!", "A new fortress!"],
-  "GoblinZigguratNoMoney": ["Impossible! Waaay too expensive!"],
-  "GoblinZigguratWorkerDeath": ["Worker died — crunched like it was CDPR.", "Worker died — we built the Ziggurat, but at what cost?", "Worker died — his heart gave out after seeing that palace on YouTube."],
-  "KotikiMinka": ["Meow~", "Minka purrs...", "*purr-purr*"],
-  "KotikiStormTaunt": ["Stormy hisses!", "MEEEEOW!!!"],
-  "KotikiStormWin": ["Stormy is pleased!", "Do not anger the cat."],
-  "KotikiCatDeploy": ["The cat remained in enemy territory...", "The cat lies in wait..."],
-  "KotikiCatReturn": ["The cat returned with loot!", "The cat brought you a present!"],
-  "KotikiLevelUp": ["Meow~ +1 Justice", "*purr* Justice!"],
-  "KotikiStormFightJump": ["Stormy leapt into the fight!", "Stormy charged into the brawl!", "MEEEEOW! *jumps into battle*"],
-  "KotikiStormBite": ["Stormy bites the butt!", "Stormy sneaks closer and... CHOMP!", "*chomp* Stormy strikes the tenderloin!"],
-  "KotikiStormBiteBonus": ["Stormy is pleased — the victim stayed put!"],
-  "KotikiStormVaseDrop": ["Somebody's cat knocked a vase off the shelf! It shattered..."],
-  "KotikiStormVaseCatch": ["Some giant cat knocked a vase off the shelf... Caught it! That Skill training paid off!"],
-  "TheBoysOrderNew": ["Frenchie: New contract. We work.", "Frenchie: Target acquired. Moving in.", "Frenchie: *loads shotgun* Let's go."],
-  "TheBoysOrderComplete": ["Frenchie: Contract complete. Clean.", "Frenchie: Done. Next.", "Frenchie: Another box checked."],
-  "TheBoysOrderFailed": ["Frenchie: Contract failed. Merde.", "Frenchie: Too slow. Shit.", "Frenchie: Target got away. It happens."],
-  "TheBoysChemWeapon": ["Frenchie: *sprays* Take a deep breath.", "Frenchie: Chemical weapons do not pick their victims.", "Frenchie: A little gift from France."],
-  "TheBoysPoker": ["Butcher: *swings poker* Diabolical.", "Butcher: Oi! Poker to the fucking face!", "Butcher: The poker solves everything."],
-  "TheBoysKimikoRegen": ["Kimiko: ... .., ..!", "Kimiko: ...ki...mo...chi...=)", "Kimiko: *silently clenches her fists*", "Kimiko: ...", "Kimiko: ...getting... stronger...", "Kimiko: *catches the blow* ...no.", "Kimiko: ...fa.st.er...", "Kimiko: *smiles softly, wiping away blood*", "Kimiko: ...not...yet... =)", "Kimiko: ...do. not. touch. my. boys.", "Kimiko: *bones crack, but she rises*", "Kimiko: ...daijoubu... I'm okay..."],
-  "TheBoysKimikoDisabled": ["Kimiko is wounded. Regeneration disabled.", "Kimiko: *breathing heavily* ...need time.", "Kimiko is out of action."],
-  "TheBoysKimikoRecovered": ["Kimiko is back in action!", "Kimiko: *flexes her fists* I'm back.", "Kimiko has recovered."],
-  "TheBoysKompromatGathered": ["M.M.: File assembled. This will be useful.", "M.M.: *writes in notebook* Interesting...", "M.M.: Dirt acquired. Good work."],
-  "TheBoysKompromatReward": ["M.M.: Everything checks out. Points multiplied.", "M.M.: The dirt works. Results speak for themselves."],
-  "TheBoysVirusApply": ["Frenchie: A virus for Supes... But what if it fails on the target?", "Butcher: Then we're all fucked. Ready? Let's go."],
-  "TheBoysButcherHunt": ["Butcher: Found a Supe. Vought won't pay for this, but I don't give a fuck.", "Butcher: *looks for poker* Come here, you cunt.", "Butcher: Another Supe in the queue."],
-  "SalldorumShen": ["Taunt!", "Yeah, I'm being totally subtle.", "I'll just stand here and recall."],
-  "SalldorumOchko": ["Love getting a point.", "Who's going to catch me?", "I'm just quietly standing here, recalling... so defenseless..."],
-  "SalldorumTimeCapsuleBury": ["Cola buried. I'll come back for it someday...", "Buried a cola for posterity."],
-  "SalldorumTimeCapsulePickup": ["Cola found! Energy maxed out!", "Came back for the cola. It's still cold!"],
-  "SalldorumChroniclerTriple": ["The chronicle remembers all. Triple Skill!", "The victors will be judged. Triple Skill activated."],
-  "SalldorumChroniclerRewrite": ["History has been rewritten!", "Who controls the past controls the future."],
-  "SalldorumChroniclerRewriteGlobal": ["Salldorum rewrote the history of the round", "The Chronicler changed the past..."],
-  "GeraltLoot": ["Not exactly a monster... but it'll do.", "Right... sell this, sell that too...", "Lousy hide, but it might be worth something.", "Not bad. Enough for a couple potions.", "Tooth... claw... hm. One crown, tops.", "*gathers trophies from the battlefield*"],
-  "GeraltLootMulti": ["Great. A hundred swords to carry to the first merchant again...", "Backpack full of junk. Roach can't carry this.", "Vesemir said not to be greedy. I didn't listen.", "So much loot... the merchant will be thrilled.", "The Garbage Hill is generous with junk. As always.", "Overlooted. I'll sell wholesale at the dump."],
-  "GeraltContract1": ["All that preparation for one contract...", "One contract, one strike. As it should be.", "One job. Barely a warm-up.", "Small job. But it pays, so we take it.", "One beast. One coin. Fair trade."],
-  "GeraltContract2": ["That's why witchers carry two swords!", "Two contracts, twice the work. Twice the pay.", "Silver for monsters. Steel for humans. Both for you.", "Two jobs at once. Saves time.", "A pair of contracts. Normal workday.", "How about a round of Gwent? No? Fine, we fight."],
-  "GeraltContract3": ["Igni!", "Three contracts? That's a nest.", "Witcher work is filthy, but somebody has to do it.", "Three strikes. Three monsters. All according to plan.", "Quen! Aard! Igni! Enough for three.", "Wind's howling... No, that's the Garbage Hill stinking."],
-  "GeraltContract4": ["Four contracts. Kaer Morhen taught me well.", "Aard! Quen! Igni! Yrden! Every Sign at once!", "Four beasts. The mutagens will help.", "Vesemir's training is paying dividends.", "Four fights. On Garbage Hill, that's called Tuesday."],
-  "GeraltContract5Plus": ["So many even Vesemir would be impressed.", "An army of monsters. Good thing I'm a mutant.", "This isn't a contract anymore. It's the Wild Hunt.", "The Butcher of Blaviken is back.", "So many jobs... I'll run out of potions before monsters.", "Garbage Hill is crawling with beasts. Like the Oxenfurt sewers.", "More monsters than garbage. And there's a shitload of garbage."],
-  "GeraltContractNest": ["Another nest... Need a bomb.", "Their lair. Of course.", "Familiar beast. You again.", "I've beaten this one before. Fine, let's repeat.", "Hm. That face again. Persistent."],
-  "GeraltLambert": ["Lambert, Lambert — what a prick.", "Lambert and Eskel swapped the herbs... again.", "That wasn't White Gull. It was ale.", "Eskel is laughing. Lambert pretends innocence.", "Lambert, you bastard, I'll find you.", "What the— *hic* Think I brewed that *hic* 'master alchemist's' recipe by mistake...", "What is wrong with this potion textbook?! Instead of Felix Felicis... foamy mead. Right. Some Half-Blood Prince, fuck me."],
-  "GeraltNoMoral": ["The moral of this story... there isn't one.", "My only business is driving out vermin.", "If I must choose between a greater and lesser evil, I'd rather choose the greater... lesser... I've lost track. I killed everyone. Pay me.", "*meditates by the fire*", "Place of Power. Gotta be.", "Neutrality is the only side worth taking.", "Witchers don't interfere. Witchers kill monsters for coin.", "People... worse than any monster.", "Meditating on Garbage Hill. Rock bottom has a basement.", "A Place of Power... on Garbage Hill? Seriously?", "Fire, silence, stench of trash. Romantic.", "Vesemir never taught meditation at a dump. Improvising.", "Close my eyes... Nope, smell's still here.", "Garbage Hill has no morals. Only garbage. And me.", "Ciri would laugh. Geralt of Rivia, King of Garbage Hill.", "Zen master. Garbage zen.", "Hm. Not the strangest place I've meditated. Top three.", "Yennefer would kill me if she saw this.", "Triss offered Kovir. I chose Garbage Hill. Must be the mutations."],
-  "GeraltPlotva": ["Roach! Come on, girl!", "*whistles* Roach breaks into a gallop.", "How did Roach get up there?!", "Roach is faster than the wind. When she feels like it.", "Good girl, Roach. Forward!", "Catch them! *Roach neighs*", "Roach took the rooftop shortcut again.", "Roach is on top of Garbage Hill. How did she...?", "Roach, get off the dumpster!", "Roach overtook them. Again. I'm walking; she's on a roof."],
-  "GeraltContractSpawn": ["A new contract appeared on the notice board...", "People need help again. Better investigate.", "How many of you are there?", "Another contract... Work never ends.", "Contract paid. Half up front, as usual.", "The village elder posted a notice.", "A beast appeared by the road. Peasants are panicking.", "Someone scratched *HALP PLS* onto the board.", "New contract. Payment negotiable.", "Travelers are vanishing. Better check.", "Another monster moved into Garbage Hill.", "The dump spawns monsters faster than I kill them."],
-  "GeraltBlock": ["They never fucking learn.", "Quen. Always Quen.", "*the Quen Sign deflects the blow*", "Hm. Predictable.", "Weak even for training."],
-  "GeraltAttackVampire": ["Come out and fight, you bastard!", "Silver for vampires. Shall we test it?", "Bloodsucker... I hate bloodsuckers.", "I would spare Regis. I won't spare you.", "Black Blood is active. Bite me and burn."],
-  "GeraltAttackTheBoys": ["They call me the Butcher of Blaviken.", "Butcher versus Butcher. Let's see who carves whom.", "Butcher, is it? I've got a nickname too.", "The Boys? I've seen scarier boys. In Blaviken."],
-  "GeraltAttackMonster": ["— What are you doing?!\n— Killing monsters.", "I was made for things like you.", "A witcher hunts monsters. Nothing personal.", "A monster is a monster. Silver will decide."],
-  "GeraltWin": ["Geralt: You smell wonderful.\nYen: Geralt! We're at a funeral.\nGeralt: You smell wonderful at this funeral.", "The witcher did his job.", "Another head for Roach's saddle.", "Hm. Weaker than I expected.", "*wipes the sword on the grass*", "Gwent now?"],
-  "DoomGuyModule": ["Rip and tear. Until it is done."],
-  "MonsterDeath": ["Anyone can become a monster. All it takes is the right moment.", "Johan: Dr. Tenma... you gave me life again. I will give you death.", "Look at me. Look at the monster inside yourself.", "Nothing is more terrifying than a child without a name.", "The only thing equal to life is death.", "I don't need a weapon. Words are enough."],
-  "MonsterDrop": ["They fall. Like the children of Kinderheim.", "Johan: Every fall is a little story I wrote.", "Look... the world is collapsing. Isn't it beautiful?", "Another one fell. Like in that picture book..."],
-  "MonsterTwinSteal": ["Johan: I take everything precious to you. Let's begin with justice.", "The Twin has no face of his own. But he has yours.", "Anna and Johan — two names, one darkness. Your justice is mine now.", "You came to kill the monster. The monster already took everything you had."],
-  "MonsterApocalypse": ["Johan: The true end of the world is when nobody remains to remember your name.", "The landscape of the apocalypse unfolds. The perfect suicide is taking the whole world with you.", "Johan: The last survivor will see true hell."],
-  "AutoMove": ["What are you, a bot?", "Play it yourself! Who did I make this game for?", "Hey, don't touch that button. It's for admins.", "Is taking your own turn really that hard?", "Seriously, time to show some skill. YOURSELF.", "I'll disable that button if you press it again.", "Actually, I'll block you instead. You can sit there like Tiger.", "Come on, the game's almost over... Go on... Come on... MOVE!!!", "COME ON. JUST ONE TURN.", "Holy shit. Auto Move all game... Are you alive over there? Did you die?... Gleb?"],
-  "JusticePhrase": ["You can do it!", "Just a little more!", "Believe in yourself!", "Believe in me believing in you!", "Bad luck, but you've got this!", "Justice is on our side!", "We'll show them!"]
+  "AwdkaAfk": {
+    "passiveNameRussian": "АФКА",
+    "passiveNameEnglish": "AFK",
+    "phrases": [
+      {
+        "russian": "AFKA",
+        "english": "AFK"
+      }
+    ]
+  },
+  "AwdkaTeachToPlay": {
+    "passiveNameRussian": "Научите играть",
+    "passiveNameEnglish": "Teach Me to Play",
+    "phrases": [
+      {
+        "russian": "Научите играть",
+        "english": "Somebody teach me this game"
+      },
+      {
+        "russian": "Я ничего не умею",
+        "english": "I have no idea what I'm doing"
+      },
+      {
+        "russian": "Я бесполезный",
+        "english": "I'm literally useless"
+      },
+      {
+        "russian": "Кстати, я хач.",
+        "english": "Fun fact: I smurf kebab queues."
+      },
+      {
+        "russian": "Как это работает?",
+        "english": "How does this even work?"
+      },
+      {
+        "russian": "Киберспорт!",
+        "english": "Esports-ready!"
+      },
+      {
+        "russian": "Что это?",
+        "english": "What is this button?"
+      },
+      {
+        "russian": "Как там нажимать?",
+        "english": "Which one do I click again?"
+      },
+      {
+        "russian": "Два игнайта на вуконга!",
+        "english": "Two Ignites on Wukong! Peak esports."
+      }
+    ]
+  },
+  "AwdkaTrolling": {
+    "passiveNameRussian": "Произошел троллинг",
+    "passiveNameEnglish": "Trolled Again",
+    "phrases": [
+      {
+        "russian": "Произошел троллинг",
+        "english": "A trolling has occurred"
+      },
+      {
+        "russian": "Ого... Это как?",
+        "english": "Whoa... how did I do that?"
+      },
+      {
+        "russian": "Что я сделаль?",
+        "english": "What did I just do?"
+      }
+    ]
+  },
+  "AwdkaTrying": {
+    "passiveNameRussian": "Я пытаюсь!",
+    "passiveNameEnglish": "I'm Trying!",
+    "phrases": [
+      {
+        "russian": "Сапаги сораходы! Дёшево!",
+        "english": "Mobility boots! Dirt cheap!"
+      },
+      {
+        "russian": "Флеш-ульт в клона лебланки",
+        "english": "Flash-ulted the LeBlanc clone"
+      },
+      {
+        "russian": "Что начинает получаться",
+        "english": "Wait, I'm starting to get it"
+      },
+      {
+        "russian": "Почти...",
+        "english": "Almost..."
+      },
+      {
+        "russian": "В киберспорт!",
+        "english": "Next stop: pro play!"
+      }
+    ]
+  },
+  "DarksciDysmoral": {
+    "passiveNameRussian": "Дизмораль",
+    "passiveNameEnglish": "Demoralized",
+    "phrases": [
+      {
+        "russian": "Всё, у меня горит!",
+        "english": "That's it, I'm absolutely tilted!"
+      }
+    ]
+  },
+  "DarksciFuckThisGame": {
+    "passiveNameRussian": "Да всё нахуй эту игру",
+    "passiveNameEnglish": "Screw This Game",
+    "phrases": [
+      {
+        "russian": "Нахуй эту игру",
+        "english": "Screw this game"
+      }
+    ]
+  },
+  "DarksciLucky": {
+    "passiveNameRussian": "Повезло",
+    "passiveNameEnglish": "Lucky",
+    "phrases": [
+      {
+        "russian": "Золотой",
+        "english": "Golden."
+      },
+      {
+        "russian": "Наконец-то!",
+        "english": "Finally!"
+      }
+    ]
+  },
+  "DarksciNotLucky": {
+    "passiveNameRussian": "Не повезло",
+    "passiveNameEnglish": "Unlucky",
+    "phrases": [
+      {
+        "russian": "Сука, не везет с командой!",
+        "english": "Of course I get the bad team!"
+      },
+      {
+        "russian": "И вот так каждое промо...",
+        "english": "Every promo series. Every single one."
+      },
+      {
+        "russian": "Что они творят?",
+        "english": "What are they even doing?"
+      },
+      {
+        "russian": "Я тилтед",
+        "english": "I'm tilted."
+      }
+    ]
+  },
+  "DeepListDoubtfulTacticFirstLostPhrase": {
+    "passiveNameRussian": "Сомнительная тактика",
+    "passiveNameEnglish": "Shady Tactics",
+    "phrases": [
+      {
+        "russian": "Скоро...",
+        "english": "Soon..."
+      },
+      {
+        "russian": "Тише едешь, дальше будешь",
+        "english": "Slow and steady throws the game"
+      },
+      {
+        "russian": "Я называю это \"Гамбит\"",
+        "english": "I call this one: The Gambit"
+      },
+      {
+        "russian": "Привилегия даумондов",
+        "english": "Diamond-player privilege"
+      },
+      {
+        "russian": "Это лишь часть моего плана",
+        "english": "All according to plan"
+      },
+      {
+        "russian": "На нашей стороне ТЕОРИЯ НЕВЕРОЯТНОСТИ!",
+        "english": "PROBABILITY THEORY is on our side!"
+      },
+      {
+        "russian": "Вижу хуету и я в деле!",
+        "english": "I see nonsense and I'm in!"
+      }
+    ]
+  },
+  "DeepListDoubtfulTacticPhrase": {
+    "passiveNameRussian": "Сомнительная тактика",
+    "passiveNameEnglish": "Shady Tactics",
+    "phrases": [
+      {
+        "russian": "Everything is going according to my plan",
+        "english": "Everything is going according to my plan"
+      },
+      {
+        "russian": "My superior tactic will win",
+        "english": "My superior tactic will win"
+      },
+      {
+        "russian": "Я всё рассчитал, это работает.",
+        "english": "I calculated everything. Somehow it works."
+      },
+      {
+        "russian": "Napoleon Wonnafcuk",
+        "english": "Napoleon Wonnafcuk"
+      },
+      {
+        "russian": "Техника скрытого Листа - Гамбит",
+        "english": "Secret List Technique: The Gambit"
+      }
+    ]
+  },
+  "DeepListMadnessPhrase": {
+    "passiveNameRussian": "Безумие",
+    "passiveNameEnglish": "Madness",
+    "phrases": [
+      {
+        "russian": "Хаха. Ха. АХАХАХАХАХАХАХ!",
+        "english": "Haha. Ha. AHAHAHAHAHAHAHA!"
+      },
+      {
+        "russian": "Стоп, кто... я?",
+        "english": "Wait, who... am I?"
+      },
+      {
+        "russian": "Заткнитесь!",
+        "english": "Shut up!"
+      },
+      {
+        "russian": "Да бля бля Сука бля",
+        "english": "Fuck, fuck, FUCK!"
+      },
+      {
+        "russian": "Какая полезная филактерия",
+        "english": "What a useful phylactery."
+      },
+      {
+        "russian": "Невидимый волк. Он пришел за мной!!!",
+        "english": "The invisible wolf. IT FOUND ME!"
+      },
+      {
+        "russian": "Я самый хитрый таракан",
+        "english": "I am the sneakiest cockroach."
+      },
+      {
+        "russian": "Покажите звук",
+        "english": "Turn the sound on screen."
+      },
+      {
+        "russian": "БАСЛОВУШКА",
+        "english": "THE BASS TRAP"
+      },
+      {
+        "russian": "Доктор, у меня проблема: Я слышу голоса, но сейчас их нет...",
+        "english": "Doctor, I hear voices. The problem is... they stopped."
+      },
+      {
+        "russian": "Доктор Чо",
+        "english": "Doctor Cho."
+      },
+      {
+        "russian": "*Звуки губной гармошки*",
+        "english": "*harmonica noises*"
+      },
+      {
+        "russian": "*Звуки расстроенной гитары*",
+        "english": "*sad, badly tuned guitar noises*"
+      }
+    ]
+  },
+  "DeepListPokePhrase": {
+    "passiveNameRussian": "__Стёб__",
+    "passiveNameEnglish": "__The Long Con__",
+    "phrases": [
+      {
+        "russian": "Хехе",
+        "english": "Hehe."
+      },
+      {
+        "russian": "Чисто постЕбаться",
+        "english": "Just doing a little trolling"
+      },
+      {
+        "russian": "Я в деле!",
+        "english": "I'm in!"
+      },
+      {
+        "russian": "Два игнайта...",
+        "english": "Two Ignites..."
+      },
+      {
+        "russian": "*Хохочет*",
+        "english": "*cackles*"
+      },
+      {
+        "russian": "Ты кто такой?",
+        "english": "Who even are you?"
+      },
+      {
+        "russian": "Скобочка",
+        "english": ":)"
+      },
+      {
+        "russian": "It's a joke. You got it?",
+        "english": "It's a joke. You got it?"
+      },
+      {
+        "russian": "Где импакт!?",
+        "english": "Where's the impact!?"
+      },
+      {
+        "russian": "Вариан?",
+        "english": "Varian?"
+      },
+      {
+        "russian": "Барон!",
+        "english": "BARON!"
+      },
+      {
+        "russian": "Задень головой",
+        "english": "Headbutt it."
+      },
+      {
+        "russian": "Хуле ты встал?",
+        "english": "Why'd you stop?"
+      },
+      {
+        "russian": "Не руби сук",
+        "english": "Don't cut the branch you're feeding on."
+      },
+      {
+        "russian": "Обмылки",
+        "english": "Soap leftovers."
+      },
+      {
+        "russian": "Ты жирный",
+        "english": "You're fat."
+      },
+      {
+        "russian": "Ты тоже",
+        "english": "So are you."
+      },
+      {
+        "russian": "Как говорит мясник: Люди делятся",
+        "english": "As the Butcher says: people come apart."
+      },
+      {
+        "russian": "#",
+        "english": "#"
+      },
+      {
+        "russian": "Прекрати пиздеть!",
+        "english": "Stop yapping!"
+      },
+      {
+        "russian": "Молоко в пакете",
+        "english": "Bagged milk."
+      },
+      {
+        "russian": "Где рецензия на др. Стоуна?",
+        "english": "Where's the Dr. Stone review?"
+      },
+      {
+        "russian": "Ты змея очковая, и дело не в очках!",
+        "english": "You're a spectacle cobra, and not because of the glasses!"
+      },
+      {
+        "russian": "Тыква. Выква. Мыква.",
+        "english": "Pumpkin. Bumpkin. Lumpkin."
+      },
+      {
+        "russian": "Крисп.",
+        "english": "Crisp."
+      },
+      {
+        "russian": "сложно быть гением в дебилтернете",
+        "english": "Hard being a genius on the idiotnet."
+      },
+      {
+        "russian": "Из Загары вышел хороший тиммейт",
+        "english": "Zagara turned out to be a decent teammate."
+      },
+      {
+        "russian": "Я проиграл",
+        "english": "I lost."
+      },
+      {
+        "russian": "Large wave of angry zergs",
+        "english": "Large wave of angry zergs"
+      },
+      {
+        "russian": "LeCringe",
+        "english": "LeCringe"
+      },
+      {
+        "russian": "Кто **Там**?",
+        "english": "Who is **There**?"
+      },
+      {
+        "russian": "Дэусманс, придурки",
+        "english": "Deusmans, you morons."
+      },
+      {
+        "russian": "I hate Sirinokses!",
+        "english": "I hate Sirinokses!"
+      },
+      {
+        "russian": "Надеваю кепку.",
+        "english": "Cap on. Serious mode."
+      },
+      {
+        "russian": "I DC'd again.",
+        "english": "I DC'd again."
+      },
+      {
+        "russian": "Злой Школьник",
+        "english": "Angry Schoolkid"
+      },
+      {
+        "russian": "Почему гиены смеются? Потому что смешно!",
+        "english": "Why do hyenas laugh? Because it's funny!"
+      },
+      {
+        "russian": "**Лол** коронный, **Кек** похоронный",
+        "english": "Signature **LOL**, funeral **KEK**"
+      },
+      {
+        "russian": "Витамин C содержится в курице и __**БОБАХ**__",
+        "english": "Vitamin C comes from chicken and __**BEANS**__"
+      },
+      {
+        "russian": "Руки-щуки",
+        "english": "Pike-hands!"
+      }
+    ]
+  },
+  "DeepListSuperMindPhrase": {
+    "passiveNameRussian": "Сверхразум",
+    "passiveNameEnglish": "Mastermind",
+    "phrases": [
+      {
+        "russian": "Поделив энтропию на ноль, вы поняли, что ",
+        "english": "After dividing entropy by zero, you realized that "
+      },
+      {
+        "russian": "Используя свою дедукцию, вы поняли, что ",
+        "english": "Using flawless deduction, you realized that "
+      },
+      {
+        "russian": "Сложив 2+2, вы каким-то чудом догадались, что ",
+        "english": "After adding 2+2, you miraculously guessed that "
+      },
+      {
+        "russian": "Всё ясно. Героин - Марихуана, а ",
+        "english": "It all makes sense. Heroin is basically weed, and "
+      },
+      {
+        "russian": "Враг спалился! Но я это понял еще давно. ",
+        "english": "The enemy gave it away! I knew ages ago that "
+      },
+      {
+        "russian": "Пст... у меня есть информация, что ",
+        "english": "Psst... my sources tell me that "
+      },
+      {
+        "russian": "Здравствуйте, я ваш заменитель мозга. И кстати, ",
+        "english": "Hello, I'm your replacement brain. By the way, "
+      }
+    ]
+  },
+  "FirstСommandment": {
+    "passiveNameRussian": "Первая заповедь",
+    "passiveNameEnglish": "First Commandment",
+    "phrases": [
+      {
+        "russian": "Если фидишь то пропушь, если пушишь то нафидь",
+        "english": "If you feed, at least push; if you push, make sure you feed."
+      }
+    ]
+  },
+  "FirstСommandmentLost": {
+    "passiveNameRussian": "Первая заповедь",
+    "passiveNameEnglish": "First Commandment",
+    "phrases": [
+      {
+        "russian": "Тебе нужна помощь бога",
+        "english": "You need divine assistance."
+      },
+      {
+        "russian": "Багословляю, сын мой",
+        "english": "Blessed be your int, my child."
+      },
+      {
+        "russian": "Ты пришел к богу",
+        "english": "You have come to God."
+      },
+      {
+        "russian": "Просветление",
+        "english": "Enlightenment."
+      },
+      {
+        "russian": "Только вера спасет",
+        "english": "Only faith can save this lane."
+      }
+    ]
+  },
+  "FourthСommandment": {
+    "passiveNameRussian": "Четвертая заповедь",
+    "passiveNameEnglish": "Fourth Commandment",
+    "phrases": [
+      {
+        "russian": "Играй руками",
+        "english": "Try playing with your hands."
+      }
+    ]
+  },
+  "SecondСommandment": {
+    "passiveNameRussian": "Вторая заповедь",
+    "passiveNameEnglish": "Second Commandment",
+    "phrases": [
+      {
+        "russian": "И как боженька сказал - \"Бань удира, я зассал\" - и как доктор говорит - \"Не забанил - инвалид\"",
+        "english": "And the Lord said: 'Ban Udyr, for I am afraid.' And the doctor said: 'No ban? Brain scan.'"
+      }
+    ]
+  },
+  "SecondСommandmentBan": {
+    "passiveNameRussian": "Третья заповедь",
+    "passiveNameEnglish": "Third Commandment",
+    "phrases": [
+      {
+        "russian": "Изыди!",
+        "english": "Begone!"
+      },
+      {
+        "russian": "Нечесть",
+        "english": "Unclean creature!"
+      },
+      {
+        "russian": "Бань удира.",
+        "english": "Ban Udyr."
+      }
+    ]
+  },
+  "ThirdСommandment": {
+    "passiveNameRussian": "Третья заповедь",
+    "passiveNameEnglish": "Third Commandment",
+    "phrases": [
+      {
+        "russian": "Не флейми в чате",
+        "english": "Thou shalt not flame in chat."
+      }
+    ]
+  },
+  "GlebChallengerPhrase": {
+    "passiveNameRussian": "Претендент русского сервера",
+    "passiveNameEnglish": "Russian Server Challenger",
+    "phrases": [
+      {
+        "russian": "А? БАРОН?!",
+        "english": "HUH? BARON?!"
+      },
+      {
+        "russian": "Ща я покажу как надо",
+        "english": "Lemme show you how it's done."
+      },
+      {
+        "russian": "Глебка залетает!",
+        "english": "Gleb has entered the game!"
+      },
+      {
+        "russian": "В Претендентмобиль!",
+        "english": "To the Challengermobile!"
+      },
+      {
+        "russian": "ЛИИИИРОЙ ДЖЕНКИНС",
+        "english": "LEEEEROY JENKINS!"
+      },
+      {
+        "russian": "FLASH IN THE NIGhT! Я как вспышка в ночи!",
+        "english": "FLASH IN THE NIGHT! I am the flash!"
+      }
+    ]
+  },
+  "GlebChallengerSeparatePhrase": {
+    "passiveNameRussian": "Претендент русского сервера",
+    "passiveNameEnglish": "Russian Server Challenger",
+    "phrases": [
+      {
+        "russian": "FULL POWER!!!",
+        "english": "FULL POWER!!!"
+      },
+      {
+        "russian": "OVER 9000",
+        "english": "OVER 9000"
+      },
+      {
+        "russian": "JA - PRETENDENT!",
+        "english": "I AM CHALLENGER!"
+      },
+      {
+        "russian": "IT'S NASHORS TIME!",
+        "english": "IT'S NASHOR'S TIME!"
+      },
+      {
+        "russian": "NORMALNO. U MENJA EST HEAL!",
+        "english": "IT'S FINE. I HAVE HEAL!"
+      },
+      {
+        "russian": "IGRAEM IGRAEM!",
+        "english": "KEEP PLAYING, KEEP PLAYING!"
+      },
+      {
+        "russian": "DOMOJ GAMBIT!",
+        "english": "THE RECALL GAMBIT!"
+      },
+      {
+        "russian": "POSTAVTE WARD!",
+        "english": "PLACE A WARD!"
+      }
+    ]
+  },
+  "GlebComeBackPhrase": {
+    "passiveNameRussian": "Я щас приду",
+    "passiveNameEnglish": "Be Right There",
+    "phrases": [
+      {
+        "russian": "5 минут",
+        "english": "Five minutes."
+      },
+      {
+        "russian": "Я щас приду",
+        "english": "Be right back."
+      },
+      {
+        "russian": "Без меня не начина...",
+        "english": "Don't start without m—"
+      }
+    ]
+  },
+  "GlebSleepyPhrase": {
+    "passiveNameRussian": "Спящее хуйло",
+    "passiveNameEnglish": "Sleepy Bastard",
+    "phrases": [
+      {
+        "russian": "Zzzz...",
+        "english": "Zzzz..."
+      },
+      {
+        "russian": "Я... Я тут...",
+        "english": "I... I'm here..."
+      },
+      {
+        "russian": "Только не делайте ремейк *Зевнул*",
+        "english": "Don't remake, I'm awake. *yawns*"
+      }
+    ]
+  },
+  "GlebTeaPhrase": {
+    "passiveNameRussian": "Я за чаем",
+    "passiveNameEnglish": "Gone for Tea",
+    "phrases": [
+      {
+        "russian": "Какао белого цвета",
+        "english": "White cocoa."
+      }
+    ]
+  },
+  "GlebTeaReadyPhrase": {
+    "passiveNameRussian": "__**Я за чаем**",
+    "passiveNameEnglish": "__**Gone for Tea**",
+    "phrases": [
+      {
+        "russian": "U menja est' lishnij chaj!__",
+        "english": "I've got spare tea!__"
+      },
+      {
+        "russian": "Chaj zavarilsa!__",
+        "english": "Tea's ready!__"
+      }
+    ]
+  },
+  "YongGlebIrelia": {
+    "passiveNameRussian": "Main Ирелия",
+    "passiveNameEnglish": "Irelia Main",
+    "phrases": [
+      {
+        "russian": "Blja opat' mou ireliu ponerfali. Nu ni4ego, glebka otbIgraetsa.",
+        "english": "Damn, they nerfed my Irelia again. It's fine, Gleb will carry."
+      },
+      {
+        "russian": "VsmbIsle? Skolko mozno nerfat' ee? Eto zhe celbIh",
+        "english": "What do you mean? How many nerfs does she need? That's a whole—"
+      },
+      {
+        "russian": "Rioti sovsem poputali y mojei malishki zabrali",
+        "english": "Riot crossed the line. They took everything from my girl."
+      },
+      {
+        "russian": "Da kak tak 4alanger brat' kogday personazha",
+        "english": "How am I supposed to hit Challenger when they keep nerfing my champ?"
+      }
+    ]
+  },
+  "YongGlebCommunication": {
+    "passiveNameRussian": "Коммуникация",
+    "passiveNameEnglish": "Communication",
+    "phrases": [
+      {
+        "russian": "Otli4no, postavil ward. Glebka carry",
+        "english": "Excellent ward. Gleb carry."
+      }
+    ]
+  },
+  "YongGlebCommunicationReady": {
+    "passiveNameRussian": "Коммуникация",
+    "passiveNameEnglish": "Communication",
+    "phrases": [
+      {
+        "russian": "__Ja kupil communication__",
+        "english": "__I purchased communication.__"
+      }
+    ]
+  },
+  "YongGlebMeta": {
+    "passiveNameRussian": "Следит за игрой",
+    "passiveNameEnglish": "Watching the Game",
+    "phrases": [
+      {
+        "russian": "Delajem objactivs!",
+        "english": "Play for objectives!"
+      },
+      {
+        "russian": "Igraem ot objectov pasanbI",
+        "english": "Objectives, boys, objectives."
+      },
+      {
+        "russian": "Igraem igraem",
+        "english": "Keep playing, keep playing."
+      },
+      {
+        "russian": "4alanger sam sebja ne apnet!!!!",
+        "english": "Challenger won't climb itself!!!!"
+      },
+      {
+        "russian": "viigrivaetsa on objactivs",
+        "english": "You win through objectives."
+      },
+      {
+        "russian": "vbI medlennie, nado srazy na objecti! po pervomy cally",
+        "english": "You're too slow! Rotate on the first call!"
+      },
+      {
+        "russian": "Ja kak Darien",
+        "english": "I'm basically Darien."
+      },
+      {
+        "russian": "Ja kak __alexich__",
+        "english": "I'm basically __alexich__."
+      },
+      {
+        "russian": "Ja kak **FLASH IN THE NIGHT**",
+        "english": "I'm **FLASH IN THE NIGHT**."
+      },
+      {
+        "russian": "Gleb journey to Challanger",
+        "english": "Gleb's road to Challenger."
+      }
+    ]
+  },
+  "YongGlebTea": {
+    "passiveNameRussian": "Спокойствие",
+    "passiveNameEnglish": "Composure",
+    "phrases": [
+      {
+        "russian": "VbIpij 4au, yspokojsa",
+        "english": "Drink some tea and calm down."
+      },
+      {
+        "russian": "Derji 4aj ne ynbIvai XD XD",
+        "english": "Here, tea. Don't be sad XD XD"
+      },
+      {
+        "russian": "Poslushaj kak vodi4ka l'etsa",
+        "english": "Listen to that water pour."
+      },
+      {
+        "russian": "Eto moj lubimbIj 4aj is kitaja",
+        "english": "My favorite tea, straight from China."
+      },
+      {
+        "russian": "4aj mne nepius privez",
+        "english": "Nepius brought me this tea."
+      }
+    ]
+  },
+  "YongGlebTeaReady": {
+    "passiveNameRussian": "__**Спокойствие**",
+    "passiveNameEnglish": "__**Composure**",
+    "phrases": [
+      {
+        "russian": "Chaj zavarilsa!__",
+        "english": "Tea's ready!__"
+      }
+    ]
+  },
+  "HardKittyDoebatsyaAnswerPhrase": {
+    "passiveNameRussian": "Доебаться",
+    "passiveNameEnglish": "Won't Stop Messaging",
+    "phrases": [
+      {
+        "russian": "Вам ответили на письмо!",
+        "english": "You got a reply to your email!"
+      }
+    ]
+  },
+  "HardKittyDoebatsyaPhrase": {
+    "passiveNameRussian": "Доебаться",
+    "passiveNameEnglish": "Won't Stop Messaging",
+    "phrases": [
+      {
+        "russian": "У вас продают молоко в пакетах?",
+        "english": "Do they sell milk in bags where you live?"
+      },
+      {
+        "russian": "Какой у тебя Windows?",
+        "english": "Which Windows do you use?"
+      },
+      {
+        "russian": "Что лучше взять на MF?",
+        "english": "What's the best build on Miss Fortune?"
+      },
+      {
+        "russian": "Эй, э-эй...",
+        "english": "Hey. Heeey..."
+      },
+      {
+        "russian": "Как работает твой бот?",
+        "english": "How does your bot work?"
+      }
+    ]
+  },
+  "HardKittyDoebatsyaLovePhrase": {
+    "passiveNameRussian": "Доебаться",
+    "passiveNameEnglish": "Won't Stop Messaging",
+    "phrases": [
+      {
+        "russian": "**ЭТО МОЕ ГОВНИЩЕ**, я доебывал его всю свою жизнь...",
+        "english": "**THIS ONE'S MY SPECIAL LITTLE SHIT**, I've been pestering them my whole life..."
+      }
+    ]
+  },
+  "HardKittyLonelyPhrase": {
+    "passiveNameRussian": "Одиночество",
+    "passiveNameEnglish": "Party of One",
+    "phrases": [
+      {
+        "russian": "Привет",
+        "english": "Hi."
+      },
+      {
+        "russian": "Мне сегодня снилось, что...",
+        "english": "I had this dream last night..."
+      },
+      {
+        "russian": "Что делаешь?",
+        "english": "What are you doing?"
+      },
+      {
+        "russian": "Как дела?",
+        "english": "How's it going?"
+      }
+    ]
+  },
+  "HardKittyMutedPhrase": {
+    "passiveNameRussian": "Mute",
+    "passiveNameEnglish": "Mute",
+    "phrases": [
+      {
+        "russian": "Muted",
+        "english": "Muted"
+      }
+    ]
+  },
+  "LeCrispAssassinsPhrase": {
+    "passiveNameRussian": "Гребанные ассассины",
+    "passiveNameEnglish": "Goddamn Assassins",
+    "phrases": [
+      {
+        "russian": "Гребанные ассассины",
+        "english": "Fucking assassins."
+      },
+      {
+        "russian": "Эх, жизнь АДК",
+        "english": "Ah, the ADC life."
+      },
+      {
+        "russian": "Моя жопа не смогла съесть змею. (с)",
+        "english": "My ass failed to eat the snake. (c)"
+      },
+      {
+        "russian": "Женская собака приседает и писает",
+        "english": "Female dog squats to pee."
+      },
+      {
+        "russian": "Аль тигий ли ба делет",
+        "english": "Al tigi li ba delete."
+      },
+      {
+        "russian": "Малфит подкинул, Ясуо ультанул...",
+        "english": "Malphite knocked me up, Yasuo pressed R..."
+      },
+      {
+        "russian": "Голова арбуза",
+        "english": "Watermelon head."
+      },
+      {
+        "russian": "Я трахался на летних каникулах. Никому это не понравилось ",
+        "english": "I got laid over summer break. Nobody enjoyed it."
+      }
+    ]
+  },
+  "LeCrispBoolingPhrase": {
+    "passiveNameRussian": "Булинг",
+    "passiveNameEnglish": "Cyberbullying",
+    "phrases": [
+      {
+        "russian": "Why are you bulling me?",
+        "english": "Why are you bulling me?"
+      },
+      {
+        "russian": "fuk u",
+        "english": "fuk u"
+      },
+      {
+        "russian": "У тебя учусь",
+        "english": "Learned it from you."
+      },
+      {
+        "russian": "DeepList - это заменитель мозга",
+        "english": "DeepList is a brain substitute."
+      },
+      {
+        "russian": "Как Адепт",
+        "english": "Just like Adept."
+      }
+    ]
+  },
+  "LeCrispImpactPhrase": {
+    "passiveNameRussian": "Импакт",
+    "passiveNameEnglish": "Impact",
+    "phrases": [
+      {
+        "russian": "Импакт!",
+        "english": "Impact!"
+      },
+      {
+        "russian": "Это импакт?",
+        "english": "Is this impact?"
+      },
+      {
+        "russian": "шпещьмен",
+        "english": "shpeshmen"
+      },
+      {
+        "russian": "Забрал кэмп!",
+        "english": "Stole the camp!"
+      },
+      {
+        "russian": "Я MVP, Я MVP!",
+        "english": "I'm MVP! I'M MVP!"
+      },
+      {
+        "russian": "Хорошее позицианирование",
+        "english": "Excellent positioning."
+      },
+      {
+        "russian": "Это просто навык",
+        "english": "Pure skill."
+      },
+      {
+        "russian": "Хумус",
+        "english": "Hummus."
+      },
+      {
+        "russian": "Мазальтов!",
+        "english": "Mazel tov!"
+      },
+      {
+        "russian": "Нимфоманка!",
+        "english": "Nymphomaniac!"
+      },
+      {
+        "russian": "Я прям вижу как он зонит",
+        "english": "I can literally see him zoning."
+      },
+      {
+        "russian": "Импакт!",
+        "english": "Impact!"
+      },
+      {
+        "russian": "Тихо, тихо... Без импакта не стреляй...",
+        "english": "Easy, easy... don't shoot without impact..."
+      },
+      {
+        "russian": "Стреляй только когда точно добьешь!",
+        "english": "Only shoot when it's a guaranteed last hit!"
+      },
+      {
+        "russian": "Я хочу чтобы моя девушка была немножко cringe",
+        "english": "I want my girlfriend to be just a little cringe."
+      },
+      {
+        "russian": "Как Надо!",
+        "english": "That's how you do it!"
+      },
+      {
+        "russian": "OnlyFans... Почему здесь всё стоит денег?",
+        "english": "OnlyFans... why does everything cost money here?"
+      },
+      {
+        "russian": "Стреляю редко, но метко",
+        "english": "I don't shoot often, but I don't miss."
+      }
+    ]
+  },
+  "LeCrispJewPhrase": {
+    "passiveNameRussian": "Еврей",
+    "passiveNameEnglish": "The Banker",
+    "phrases": [
+      {
+        "russian": "Я жру деньги!",
+        "english": "I eat money!"
+      },
+      {
+        "russian": "Kill secure",
+        "english": "Kill secure"
+      },
+      {
+        "russian": "ОЙ ВЕЙ!",
+        "english": "OY VEY!"
+      },
+      {
+        "russian": "Кошерно",
+        "english": "Kosher."
+      },
+      {
+        "russian": "ОЙ ВЕЙ!",
+        "english": "OY VEY!"
+      },
+      {
+        "russian": "Хава Нагила",
+        "english": "Hava Nagila"
+      },
+      {
+        "russian": "Призываю Иуду",
+        "english": "Summoning Judas."
+      },
+      {
+        "russian": "Поднимаю кошелек на улице, а там нехватает",
+        "english": "Found a wallet on the street. Somehow it's short."
+      }
+    ]
+  },
+  "MitsukiCheekyBriki": {
+    "passiveNameRussian": "Дерзкая школота",
+    "passiveNameEnglish": "Cocky Kid",
+    "phrases": [
+      {
+        "russian": "Ну чё, ёпта, поиграем?",
+        "english": "Well then, punks. Wanna play?"
+      }
+    ]
+  },
+  "MitsukiGarbageSmell": {
+    "passiveNameRussian": "Запах мусора",
+    "passiveNameEnglish": "Trash Stink",
+    "phrases": [
+      {
+        "russian": "Во что это я вляпался?",
+        "english": "What the hell did I step in?"
+      },
+      {
+        "russian": "Запахло мусором...",
+        "english": "Smells like garbage..."
+      }
+    ]
+  },
+  "MitsukiSchoolboy": {
+    "passiveNameRussian": "Школьник",
+    "passiveNameEnglish": "Schoolkid",
+    "phrases": [
+      {
+        "russian": "Да блять, своего компьютера-то нету",
+        "english": "Fuck, I don't even have my own computer."
+      }
+    ]
+  },
+  "MitsukiTooMuchFucking": {
+    "passiveNameRussian": "Много выебывается",
+    "passiveNameEnglish": "All Talk",
+    "phrases": [
+      {
+        "russian": "Алмаз!",
+        "english": "Diamond!"
+      },
+      {
+        "russian": "Ну так-то всё правильно",
+        "english": "Well, technically that's correct."
+      },
+      {
+        "russian": "Сука ня",
+        "english": "Fucking nya."
+      },
+      {
+        "russian": "Чё пацаны, аниме?",
+        "english": "So, boys, anime?"
+      },
+      {
+        "russian": "Наслаждайтесь жижей!",
+        "english": "Enjoy the vape juice!"
+      }
+    ]
+  },
+  "MitsukiTooMuchFuckingNoAttack": {
+    "passiveNameRussian": "Много выебывается",
+    "passiveNameEnglish": "All Talk",
+    "phrases": [
+      {
+        "russian": "Ну че, зассали, суки?",
+        "english": "What, you scared, bitches?"
+      },
+      {
+        "russian": "Кто на меня?",
+        "english": "Who's coming at me?"
+      },
+      {
+        "russian": "Пвп или зассал?",
+        "english": "1v1 or scared?"
+      }
+    ]
+  },
+  "MylorikBoolePhrase": {
+    "passiveNameRussian": "Буль",
+    "passiveNameEnglish": "Going Under",
+    "phrases": [
+      {
+        "russian": "Буль",
+        "english": "Boole."
+      },
+      {
+        "russian": "Там... **Кенч**",
+        "english": "There's... **Tahm Kench**."
+      },
+      {
+        "russian": "А вы заметили? Айсика научилась играть...",
+        "english": "Did you notice? Icica learned to play..."
+      }
+    ]
+  },
+  "MylorikRevengeLostPhrase": {
+    "passiveNameRussian": "Месть",
+    "passiveNameEnglish": "Vengeance",
+    "phrases": [
+      {
+        "russian": "Ах вы суки блять!",
+        "english": "Oh, you fucking bastards!"
+      },
+      {
+        "russian": "МММХ!",
+        "english": "MMMMPH!"
+      },
+      {
+        "russian": "ПРРРРРРУ",
+        "english": "BRRRRRRRUH!"
+      },
+      {
+        "russian": "Понерфайте!",
+        "english": "Nerf them!"
+      },
+      {
+        "russian": "РАААЗЪЫБУ!",
+        "english": "I'LL SMASH YOU!"
+      },
+      {
+        "russian": "Понерфайте!",
+        "english": "NERF THEM!"
+      },
+      {
+        "russian": "Я принял решение",
+        "english": "I have made my decision."
+      }
+    ]
+  },
+  "MylorikRevengeVictoryPhrase": {
+    "passiveNameRussian": "Месть",
+    "passiveNameEnglish": "Vengeance",
+    "phrases": [
+      {
+        "russian": "ЭТО СПАРТА",
+        "english": "THIS IS SPARTA!"
+      },
+      {
+        "russian": "Показал как надо",
+        "english": "That's how it's done."
+      },
+      {
+        "russian": "ММ!",
+        "english": "MM!"
+      },
+      {
+        "russian": "Слабый персонаж!",
+        "english": "Weak champion!"
+      },
+      {
+        "russian": "Лезу",
+        "english": "I'm going in."
+      },
+      {
+        "russian": "Го вирт",
+        "english": "Cyberdate me."
+      },
+      {
+        "russian": "Молоко в пакете",
+        "english": "Bagged milk."
+      },
+      {
+        "russian": "Алексич... я твой фанат... Я Пантеон.",
+        "english": "Alexich... I'm your biggest fan... I am Pantheon."
+      },
+      {
+        "russian": "Берём.",
+        "english": "We take those."
+      },
+      {
+        "russian": "Вьетнамская тристана!",
+        "english": "Vietnamese Tristana!"
+      },
+      {
+        "russian": "Вьетнамская тристана!!!",
+        "english": "VIETNAMESE TRISTANA!!!"
+      },
+      {
+        "russian": "ВЬЕТНАМСКАЯ ТРИСТАНА!!!",
+        "english": "**VIETNAMESE TRISTANA!!!**"
+      }
+    ]
+  },
+  "MylorikSpanishPhrase": {
+    "passiveNameRussian": "Испанец",
+    "passiveNameEnglish": "The Spaniard",
+    "phrases": [
+      {
+        "russian": "Ааарива!",
+        "english": "Arriba!"
+      },
+      {
+        "russian": "Буэнос ночес!",
+        "english": "Buenas noches!"
+      },
+      {
+        "russian": "Ale handro!",
+        "english": "Alejandro!"
+      },
+      {
+        "russian": "noob team",
+        "english": "noob team"
+      }
+    ]
+  },
+  "SirinoksDragonPhrase": {
+    "passiveNameRussian": "Дракон",
+    "passiveNameEnglish": "Dragon",
+    "phrases": [
+      {
+        "russian": "ROAR!",
+        "english": "ROAR!"
+      },
+      {
+        "russian": "А НУ, МОРДА. ROAR",
+        "english": "HEY, FACE. ROAR!"
+      },
+      {
+        "russian": "НИКАКОГО NSFW НА СТРИМЕ! ROAR",
+        "english": "NO NSFW ON STREAM! ROAR!"
+      },
+      {
+        "russian": "ГДЕ БЛЯТЬ ГЛЕБ!?!?! ROAR",
+        "english": "WHERE THE FUCK IS GLEB?! ROAR!"
+      },
+      {
+        "russian": "ОПЯТЬ ЛИСТ ХУЙНЮ ГОВОРИТ! ROAR",
+        "english": "LIST IS TALKING SHIT AGAIN! ROAR!"
+      },
+      {
+        "russian": "ЛОРИК НИЧЕГО НЕ ПОНИМАЕТ! ROAR",
+        "english": "LORIK DOESN'T UNDERSTAND ANYTHING! ROAR!"
+      },
+      {
+        "russian": "БЛЯТЬ КРИИИИСП! ROAR",
+        "english": "FUCKING CRIIIISP! ROAR!"
+      },
+      {
+        "russian": "You can fly in a push of a button!",
+        "english": "You can fly at the push of a button!"
+      }
+    ]
+  },
+  "SirinoksFriendsPhrase": {
+    "passiveNameRussian": "Заводить друзей",
+    "passiveNameEnglish": "Making Friends",
+    "phrases": [
+      {
+        "russian": "Го в пати",
+        "english": "Party up?"
+      },
+      {
+        "russian": "М/Ж?",
+        "english": "M/F?"
+      },
+      {
+        "russian": "Я проиграл",
+        "english": "I lost."
+      },
+      {
+        "russian": "Пепега",
+        "english": "Pepega."
+      },
+      {
+        "russian": "Invite",
+        "english": "Invite."
+      }
+    ]
+  },
+  "SpartanDragonSlayer": {
+    "passiveNameRussian": "2kxaoc",
+    "passiveNameEnglish": "2kxaoc",
+    "phrases": [
+      {
+        "russian": "*Oторвался от остальных на 2000 голды*",
+        "english": "*got 2000 gold ahead of everyone else*"
+      }
+    ]
+  },
+  "SpartanShameMylorik": {
+    "passiveNameRussian": "Искусство",
+    "passiveNameEnglish": "Art",
+    "phrases": [
+      {
+        "russian": "ОН уважает военное искуство!",
+        "english": "HE respects the art of war!"
+      }
+    ]
+  },
+  "SpartanTheyWontLikeIt": {
+    "passiveNameRussian": "Guard Break",
+    "passiveNameEnglish": "Guard Break",
+    "phrases": [
+      {
+        "russian": "Твой щит - ничто для моего копья!",
+        "english": "Your shield is nothing before my spear!"
+      },
+      {
+        "russian": "Настакал blackcleaver!",
+        "english": "Fully stacked Black Cleaver!"
+      },
+      {
+        "russian": "Мое копье создано что бы пронзить НЕБЕСА!",
+        "english": "My spear was made to pierce the HEAVENS!"
+      },
+      {
+        "russian": "Кину копье, напрыгну, отхуярю щитом",
+        "english": "Spear toss, leap, then beat you senseless with the shield."
+      },
+      {
+        "russian": "Я твой фанат. Я пантеон.",
+        "english": "I'm your fan. I'm Pantheon."
+      }
+    ]
+  },
+  "SpartanFirstBlood": {
+    "passiveNameRussian": "Первая кровь",
+    "passiveNameEnglish": "First Blood",
+    "phrases": [
+      {
+        "russian": "Кулю на эти деньги сапоги! +1 Скорость",
+        "english": "Buying boots with this! +1 Speed"
+      }
+    ]
+  },
+  "TigrSnipe": {
+    "passiveNameRussian": "Стримснайпят и банят и банят и банят",
+    "passiveNameEnglish": "Stream-Sniped, Banned, Banned Again",
+    "phrases": [
+      {
+        "russian": "ЕБАНЫЕ БАНЫ НА 10 ЛЕТ",
+        "english": "FUCKING TEN-YEAR BANS"
+      }
+    ]
+  },
+  "TigrThreeZero": {
+    "passiveNameRussian": "3-0 обоссан",
+    "passiveNameEnglish": "Humiliated 3–0",
+    "phrases": [
+      {
+        "russian": "Го 1v1",
+        "english": "1v1 me."
+      },
+      {
+        "russian": "2:0",
+        "english": "2-0."
+      },
+      {
+        "russian": "Изи 3-0, обоссан",
+        "english": "Easy 3-0. Get pissed on."
+      }
+    ]
+  },
+  "TigrTop": {
+    "passiveNameRussian": "Тигр топ, а ты холоп",
+    "passiveNameEnglish": "Tiger on Top",
+    "phrases": [
+      {
+        "russian": "Тигр топ, а ты холоп!",
+        "english": "Tiger on top, you're just a serf!"
+      },
+      {
+        "russian": "Я - ТОП1 БЕРСЕРК НА СЕРВЕРЕ!!!",
+        "english": "I'M THE #1 BERSERKER ON THE SERVER!!!"
+      }
+    ]
+  },
+  "TigrTwoBetter": {
+    "passiveNameRussian": "Лучше с двумя, чем с адекватными",
+    "passiveNameEnglish": "Two Heads Beat One Sane Mind",
+    "phrases": [
+      {
+        "russian": "Лучше с двумя, чем с адекватными",
+        "english": "Better with two idiots than with sane people."
+      },
+      {
+        "russian": "Добро пожаловать в мой клан!",
+        "english": "Welcome to my clan!"
+      }
+    ]
+  },
+  "MadaraIntro": {
+    "passiveNameRussian": "Бог шиноби",
+    "passiveNameEnglish": "God of Shinobi",
+    "phrases": [
+      {
+        "russian": "Ха? В каком я мире? Хм... \nЯ не знаю, кто такой этот Король Мусорной Горы, но я хочу его видеть! Смог ли этот Король достичь мира?",
+        "english": "Huh? What world is this? Hmm...\nI don't know who this King of the Garbage Hill is, but I want to see him. Has this king achieved peace?"
+      }
+    ]
+  },
+  "MadaraFirstFight": {
+    "passiveNameRussian": "Бог шиноби",
+    "passiveNameEnglish": "God of Shinobi",
+    "phrases": [
+      {
+        "russian": "Похоже, ни в одной вселенной я так и не найду спокойствия и мира... Всюду война преследует меня, словно тень.",
+        "english": "It seems I will find neither peace nor quiet in any universe... War follows me everywhere, like a shadow."
+      }
+    ]
+  },
+  "MadaraSecondFight": {
+    "passiveNameRussian": "Бог шиноби",
+    "passiveNameEnglish": "God of Shinobi",
+    "phrases": [
+      {
+        "russian": "Кажется, это всего лишь еще один мир, где детишки играют в сражения. Ну что же, я покажу им, что такое война.",
+        "english": "So this is merely another world where children play at battle. Very well. I will show them war."
+      }
+    ]
+  },
+  "MadaraTopOne": {
+    "passiveNameRussian": "Бог шиноби",
+    "passiveNameEnglish": "God of Shinobi",
+    "phrases": [
+      {
+        "russian": "Это и есть вершина вашей Мусорный Горы? Чего еще ждать от отбросов, вроде вас.",
+        "english": "This is the summit of your Garbage Hill? I expected little from refuse like you."
+      }
+    ]
+  },
+  "MadaraSecondMeteorite": {
+    "passiveNameRussian": "Второй метеорит",
+    "passiveNameEnglish": "Second Meteor",
+    "phrases": [
+      {
+        "russian": "Остановил метеорит..? А что будешь делать со вторым?",
+        "english": "You stopped one meteor...? Then what will you do about the second?"
+      }
+    ]
+  },
+  "MadaraItachiStole": {
+    "passiveNameRussian": "Бог шиноби",
+    "passiveNameEnglish": "God of Shinobi",
+    "phrases": [
+      {
+        "russian": "Итачи? Твои глаза далеки от завершения. Тебе никогда не познать силу Бога.",
+        "english": "Itachi? Your eyes remain incomplete. You will never know the power of a god."
+      }
+    ]
+  },
+  "MadaraItachiPrediction": {
+    "passiveNameRussian": "Клоны Сусано",
+    "passiveNameEnglish": "Susanoo Clones",
+    "phrases": [
+      {
+        "russian": "Я думал, Мадара - это другой человек... Кем же тогда он был?",
+        "english": "I thought Madara was another man... Then who was he?"
+      }
+    ]
+  },
+  "MadaraRoundEightTheme": {
+    "passiveNameRussian": "Клоны Сусано",
+    "passiveNameEnglish": "Susanoo Clones",
+    "phrases": [
+      {
+        "russian": "Мадара: Oi - oi, чего ждать! Кто из этого мусорного мира осмелится бросить мне вызов?! Я - Учиха. Мадара.",
+        "english": "Madara: Oi, oi. Why wait? Who in this garbage world dares challenge me?! I am Uchiha Madara."
+      }
+    ]
+  },
+  "TolyaCountPhrase": {
+    "passiveNameRussian": "Подсчет",
+    "passiveNameEnglish": "Number Crunching",
+    "phrases": [
+      {
+        "russian": "Ха! Подстчет!",
+        "english": "Ha! Calculated!"
+      },
+      {
+        "russian": "Так и знал!",
+        "english": "Knew it!"
+      },
+      {
+        "russian": "Предиктед",
+        "english": "Predicted."
+      },
+      {
+        "russian": "Справедливо",
+        "english": "Fair enough."
+      },
+      {
+        "russian": "Для победы мне нужны: листочек, еврейсто и ручка",
+        "english": "To win I need paper, Jewish ingenuity, and a pen."
+      }
+    ]
+  },
+  "TolyaCountReadyPhrase": {
+    "passiveNameRussian": "__**Подсчет**",
+    "passiveNameEnglish": "__**Number Crunching**",
+    "phrases": [
+      {
+        "russian": "Я готов это просчитать__",
+        "english": "I am ready to calculate it.__"
+      }
+    ]
+  },
+  "TolyaJewPhrase": {
+    "passiveNameRussian": "Еврей",
+    "passiveNameEnglish": "The Banker",
+    "phrases": [
+      {
+        "russian": "Easy money",
+        "english": "Easy money"
+      },
+      {
+        "russian": "Worth",
+        "english": "Worth"
+      },
+      {
+        "russian": "Таки кошерно",
+        "english": "Certified kosher."
+      },
+      {
+        "russian": "Я пока еще не втянулся в эти ваши еврейские схемы",
+        "english": "I'm not fully invested in your Jewish schemes yet."
+      },
+      {
+        "russian": "Хехе, спиздил",
+        "english": "Hehe, yoinked it."
+      },
+      {
+        "russian": "Одна медная!",
+        "english": "One copper!"
+      },
+      {
+        "russian": "Ыыыы",
+        "english": "Hnnngh."
+      },
+      {
+        "russian": "Настоящий еврей знает свой толк",
+        "english": "A real Jew knows value."
+      }
+    ]
+  },
+  "TolyaRammus2Phrase": {
+    "passiveNameRussian": "Раммус мейн",
+    "passiveNameEnglish": "Rammus Main",
+    "phrases": [
+      {
+        "russian": "Я живу и горю",
+        "english": "I live. I burn."
+      }
+    ]
+  },
+  "TolyaRammus3Phrase": {
+    "passiveNameRussian": "Раммус мейн",
+    "passiveNameEnglish": "Rammus Main",
+    "phrases": [
+      {
+        "russian": "Изи разбайтил",
+        "english": "Easy bait."
+      }
+    ]
+  },
+  "TolyaRammus4Phrase": {
+    "passiveNameRussian": "Раммус мейн",
+    "passiveNameEnglish": "Rammus Main",
+    "phrases": [
+      {
+        "russian": "Посмотри сколько я поднял за раз!",
+        "english": "Look how much I made in one go!"
+      }
+    ]
+  },
+  "TolyaRammus5Phrase": {
+    "passiveNameRussian": "Раммус мейн",
+    "passiveNameEnglish": "Rammus Main",
+    "phrases": [
+      {
+        "russian": "Оу, ну всё. ГГ.",
+        "english": "Oh. That's it. GG."
+      }
+    ]
+  },
+  "TolyaRammusPhrase": {
+    "passiveNameRussian": "Раммус мейн",
+    "passiveNameEnglish": "Rammus Main",
+    "phrases": [
+      {
+        "russian": "Okay.",
+        "english": "Okay."
+      },
+      {
+        "russian": "Hm.",
+        "english": "Hm."
+      },
+      {
+        "russian": "Должны, да не обязанны",
+        "english": "They should, but they don't have to."
+      }
+    ]
+  },
+  "VampyrHematophagy": {
+    "passiveNameRussian": "Гематофагия",
+    "passiveNameEnglish": "Hematophagy",
+    "phrases": [
+      {
+        "russian": "Я - Вампур из Лондона!",
+        "english": "I am Vampur from London!"
+      },
+      {
+        "russian": "Какая питательная кровь",
+        "english": "Such nutritious blood."
+      },
+      {
+        "russian": "Вампур-шампур!",
+        "english": "Vampur on a skewer!"
+      },
+      {
+        "russian": "Клыки как бур - Вампур",
+        "english": "Fangs like a drill — Vampur!"
+      },
+      {
+        "russian": "ВОТ МОЯ ФИНАЛЬНАЯ ФОРМА, теперь я - Vampyr!",
+        "english": "BEHOLD MY FINAL FORM: I am now Vampyr!"
+      }
+    ]
+  },
+  "VampyrNoAttack": {
+    "passiveNameRussian": "СОсиновый кол",
+    "passiveNameEnglish": "A Stake Through the Heart",
+    "phrases": [
+      {
+        "russian": "Не хочу, не буду",
+        "english": "Don't want to. Won't do it."
+      },
+      {
+        "russian": "Аа я баюс его",
+        "english": "Aah, I'm scawed of him."
+      },
+      {
+        "russian": "Это Хельсинг, начальнике",
+        "english": "That's Hellsing, boss!"
+      },
+      {
+        "russian": "От него пахнет чесноком!",
+        "english": "He smells like garlic!"
+      },
+      {
+        "russian": "Он мне кол в жопу засунул",
+        "english": "He shoved a stake up my ass."
+      }
+    ]
+  },
+  "VampyrSuckspenStake": {
+    "passiveNameRussian": "СОсиновый кол",
+    "passiveNameEnglish": "A Stake Through the Heart",
+    "phrases": [
+      {
+        "russian": "Ай",
+        "english": "Ow."
+      },
+      {
+        "russian": "Мое Вампурское сердце не выдержит",
+        "english": "My Vampur heart can't take this."
+      },
+      {
+        "russian": "Ниеееет!",
+        "english": "Nooooo!"
+      },
+      {
+        "russian": "Пфхаааш!",
+        "english": "PFHAAASH!"
+      },
+      {
+        "russian": "Прибавляется, отнимается, прибавляется, отнимается",
+        "english": "Goes up, goes down, goes up, goes down."
+      }
+    ]
+  },
+  "VampyrVampyr": {
+    "passiveNameRussian": "VampУr",
+    "passiveNameEnglish": "Vampoor",
+    "phrases": [
+      {
+        "russian": "Вампурская ноо-ооочь!",
+        "english": "A Vampur ni-i-ight!"
+      },
+      {
+        "russian": "Таинственный Вампур",
+        "english": "The mysterious Vampur."
+      }
+    ]
+  },
+  "VampyrTheLoh": {
+    "passiveNameRussian": "Vampyr Позорный",
+    "passiveNameEnglish": "Disgraced Vampyr",
+    "phrases": [
+      {
+        "russian": "Никаких статов для тебя, поешь чеснока",
+        "english": "No stats for you. Eat some garlic."
+      },
+      {
+        "russian": "Иди отсюда, Вампур позорный",
+        "english": "Get outta here, shameful Vampur."
+      },
+      {
+        "russian": "А ну хватит кусаться!",
+        "english": "Hey, quit biting!"
+      },
+      {
+        "russian": "Клыки наточил?",
+        "english": "Sharpened your fangs?"
+      }
+    ]
+  },
+  "CraboRackSidewaysBoolePhrase": {
+    "passiveNameRussian": "Хождение боком",
+    "passiveNameEnglish": "Sideways Thinking",
+    "phrases": [
+      {
+        "russian": "У них одни ренжевики!",
+        "english": "They're all ranged!"
+      },
+      {
+        "russian": "На Полому!",
+        "english": "To the breach!"
+      },
+      {
+        "russian": "*Кручусь на месте*",
+        "english": "*spins in place*"
+      }
+    ]
+  },
+  "WeedwickRuthlessHunter": {
+    "passiveNameRussian": "Безжалостный охотник",
+    "passiveNameEnglish": "Relentless Hunter",
+    "phrases": [
+      {
+        "russian": "От меня не спрячешься",
+        "english": "You can't hide from me."
+      },
+      {
+        "russian": "ВУФ!",
+        "english": "WOOF!"
+      },
+      {
+        "russian": "Псевдособаааакааа",
+        "english": "Pseudodooooog!"
+      },
+      {
+        "russian": "Что за запах..?",
+        "english": "What's that smell...?"
+      }
+    ]
+  },
+  "WeedwickValuablePreyPoints1": {
+    "passiveNameRussian": "Ценная добыча",
+    "passiveNameEnglish": "Valuable Quarry",
+    "phrases": [
+      {
+        "russian": "SHOTDDDDDDOWN",
+        "english": "SHUTDOOOOOWN"
+      }
+    ]
+  },
+  "WeedwickValuablePreyPoints2": {
+    "passiveNameRussian": "Ценная добыча",
+    "passiveNameEnglish": "Valuable Quarry",
+    "phrases": [
+      {
+        "russian": "ГОВОРЯЩАЯ СОБАКА",
+        "english": "TALKING DOG"
+      }
+    ]
+  },
+  "WeedwickValuablePreyPoints3": {
+    "passiveNameRussian": "Ценная добыча",
+    "passiveNameEnglish": "Valuable Quarry",
+    "phrases": [
+      {
+        "russian": "ГАФ",
+        "english": "WOOF"
+      }
+    ]
+  },
+  "WeedwickValuablePreyPoints4": {
+    "passiveNameRussian": "Ценная добыча",
+    "passiveNameEnglish": "Valuable Quarry",
+    "phrases": [
+      {
+        "russian": "ОМЕГА-ГАФ",
+        "english": "OMEGA-WOOF"
+      }
+    ]
+  },
+  "WeedwickValuablePreyPoints5": {
+    "passiveNameRussian": "Ценная добыча",
+    "passiveNameEnglish": "Valuable Quarry",
+    "phrases": [
+      {
+        "russian": "АльфоВолк!",
+        "english": "Alpha wolf!"
+      }
+    ]
+  },
+  "WeedwickValuablePreyPoints6": {
+    "passiveNameRussian": "Ценная добыча",
+    "passiveNameEnglish": "Valuable Quarry",
+    "phrases": [
+      {
+        "russian": "СААААМАЯ БОГАТАЯ ПСЕВДОСОБАКА",
+        "english": "THE RICHEST PSEUDODOG"
+      }
+    ]
+  },
+  "WeedwickValuablePreyPoints7": {
+    "passiveNameRussian": "Ценная добыча",
+    "passiveNameEnglish": "Valuable Quarry",
+    "phrases": [
+      {
+        "russian": "Не употребляйте наркотики",
+        "english": "Don't do drugs."
+      }
+    ]
+  },
+  "WeedwickValuablePreyDrop": {
+    "passiveNameRussian": "Ценная добыча",
+    "passiveNameEnglish": "Valuable Quarry",
+    "phrases": [
+      {
+        "russian": "БЛЯТЬ, СУКА, СОБАКА! АУУУУУУУУУФ! СОБАКАСОБАКАСОБАКА!!!",
+        "english": "FUCKING DOG! AWOOOOOO! DOGDOGDOG!!!"
+      },
+      {
+        "russian": "Я - Шиза воплоти!",
+        "english": "I am psychosis incarnate!"
+      },
+      {
+        "russian": "На нахуй!",
+        "english": "Here, fuck you!"
+      },
+      {
+        "russian": "Спускайся вниз!",
+        "english": "Get down here!"
+      },
+      {
+        "russian": "ГАФГАФГАФ РРРРРРРР",
+        "english": "WOOFWOOF GRRRRR!"
+      },
+      {
+        "russian": "Слезай с дерева!!!",
+        "english": "Get out of that tree!!!"
+      },
+      {
+        "russian": "Биологи, почему собаки смеются? Потому что смешно!",
+        "english": "Biologists, why do dogs laugh? Because it's funny!"
+      },
+      {
+        "russian": "Я смеюсь над тобой!",
+        "english": "I'm laughing at you!"
+      },
+      {
+        "russian": "Покусаю, покусаю! Напрыгну, укушу!",
+        "english": "I'll bite! I'll pounce and bite!"
+      }
+    ]
+  },
+  "WeedwickWeedYes1": {
+    "passiveNameRussian": "Weed",
+    "passiveNameEnglish": "Weed",
+    "phrases": [
+      {
+        "russian": "Weed",
+        "english": "Weed"
+      }
+    ]
+  },
+  "WeedwickWeedYes2": {
+    "passiveNameRussian": "Weed",
+    "passiveNameEnglish": "Weed",
+    "phrases": [
+      {
+        "russian": "Вуф",
+        "english": "Woof"
+      }
+    ]
+  },
+  "WeedwickWeedYes3": {
+    "passiveNameRussian": "Weed",
+    "passiveNameEnglish": "Weed",
+    "phrases": [
+      {
+        "russian": "Авуууу!!!",
+        "english": "Awoooo!!!"
+      }
+    ]
+  },
+  "WeedwickWeedYes4": {
+    "passiveNameRussian": "Weed",
+    "passiveNameEnglish": "Weed",
+    "phrases": [
+      {
+        "russian": "СКУБИ-ДУБИ-ДУ-УУ!",
+        "english": "SCOOBY-DOOBY-DOOO!"
+      }
+    ]
+  },
+  "WeedwickWeedYes5": {
+    "passiveNameRussian": "Weed",
+    "passiveNameEnglish": "Weed",
+    "phrases": [
+      {
+        "russian": "WEED!",
+        "english": "WEED!"
+      }
+    ]
+  },
+  "WeedwickWeedYes6": {
+    "passiveNameRussian": "Weed",
+    "passiveNameEnglish": "Weed",
+    "phrases": [
+      {
+        "russian": "WEEEEEED!!!",
+        "english": "WEEEEEED!!!"
+      }
+    ]
+  },
+  "WeedwickWeedYes7": {
+    "passiveNameRussian": "Weed",
+    "passiveNameEnglish": "Weed",
+    "phrases": [
+      {
+        "russian": "SWA$$GG",
+        "english": "SWA$$GG"
+      }
+    ]
+  },
+  "WeedwickWeedYes8": {
+    "passiveNameRussian": "Weed",
+    "passiveNameEnglish": "Weed",
+    "phrases": [
+      {
+        "russian": "D_O_double.G",
+        "english": "D_O_double.G"
+      }
+    ]
+  },
+  "WeedwickWeedYes9": {
+    "passiveNameRussian": "Weed",
+    "passiveNameEnglish": "Weed",
+    "phrases": [
+      {
+        "russian": "420",
+        "english": "420"
+      }
+    ]
+  },
+  "WeedwickWeedYes10": {
+    "passiveNameRussian": "Weed",
+    "passiveNameEnglish": "Weed",
+    "phrases": [
+      {
+        "russian": "81@23 !7",
+        "english": "81@23 !7"
+      }
+    ]
+  },
+  "WeedwickWeedYes11": {
+    "passiveNameRussian": "Weed",
+    "passiveNameEnglish": "Weed",
+    "phrases": [
+      {
+        "russian": "Я выбиваю из них ДУРЬ",
+        "english": "I'm beating the WEED out of them."
+      },
+      {
+        "russian": "Где же прячется эта псевдо-собака? Запомните, дети, если вы найдете где она прячется - не делайте из этого сигареты!",
+        "english": "Where is that pseudodog hiding? Remember, kids: if you find its stash, do not roll it into cigarettes!"
+      }
+    ]
+  },
+  "WeedwickWeedNo": {
+    "passiveNameRussian": "Weed",
+    "passiveNameEnglish": "Weed",
+    "phrases": [
+      {
+        "russian": "ГДЕ МОЙ WEED СУКИ?",
+        "english": "WHERE'S MY WEED, BITCHES?"
+      },
+      {
+        "russian": "ГДЕ ШО",
+        "english": "WHERE'S THE STUFF?"
+      },
+      {
+        "russian": "228 папиросим, НО ГДЕ???",
+        "english": "Begging for 228 smokes, BUT WHERE ARE THEY???"
+      }
+    ]
+  },
+  "KratosEventYes": {
+    "passiveNameRussian": "Возвращение из мертвых",
+    "passiveNameEnglish": "Back from the Dead",
+    "phrases": [
+      {
+        "russian": "If all of Olympus will deny me my vengeance, then all of Olympus **will die**!",
+        "english": "If all of Olympus will deny me my vengeance, then all of Olympus **will die**!"
+      }
+    ]
+  },
+  "KratosEventNo": {
+    "passiveNameRussian": "Возвращение из мертвых",
+    "passiveNameEnglish": "Back from the Dead",
+    "phrases": [
+      {
+        "russian": "My vengeance ends now!",
+        "english": "My vengeance ends now!"
+      }
+    ]
+  },
+  "KratosEventFailed": {
+    "passiveNameRussian": "Возвращение из мертвых",
+    "passiveNameEnglish": "Back from the Dead",
+    "phrases": [
+      {
+        "russian": "AAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "english": "AAAAAAAAAAAAAAAAAAAAAAAAAAA"
+      }
+    ]
+  },
+  "KratosEventKill": {
+    "passiveNameRussian": "Возвращение из мертвых",
+    "passiveNameEnglish": "Back from the Dead",
+    "phrases": [
+      {
+        "russian": "Я вернулся из мертвых, чтобы подняться на олимп!",
+        "english": "I returned from the dead to climb Olympus!"
+      },
+      {
+        "russian": "Зевс, твой сын идет за тобой!",
+        "english": "Zeus! Your son has returned!"
+      },
+      {
+        "russian": "Я не остановлюсь. Скоро атеисты окажутся правы!",
+        "english": "I will not stop. Soon the atheists will be proven right!"
+      },
+      {
+        "russian": "Еще один....",
+        "english": "Another one..."
+      },
+      {
+        "russian": "Теперь останется лишь один бог! Вот и всё.",
+        "english": "There will be only one god left. It is done."
+      }
+    ]
+  },
+  "KratosTarget": {
+    "passiveNameRussian": "Охота на богов",
+    "passiveNameEnglish": "God Hunt",
+    "phrases": [
+      {
+        "russian": "О, ебать, лутбокс Пандоры!",
+        "english": "Holy shit, Pandora's loot box!"
+      },
+      {
+        "russian": "Гораздо круче Ареса",
+        "english": "Far cooler than Ares."
+      },
+      {
+        "russian": "Ненавижу богов!",
+        "english": "I hate gods!"
+      },
+      {
+        "russian": "Сука, еще один бог",
+        "english": "Fuck, another god."
+      },
+      {
+        "russian": "Куда подевали мою семью? МММ????",
+        "english": "What did you do with my family? HMM?!"
+      },
+      {
+        "russian": "Я буду мстить",
+        "english": "I will have my vengeance."
+      },
+      {
+        "russian": "Ща как покажу!",
+        "english": "Let me show you!"
+      },
+      {
+        "russian": "The power to creater the power to creater the power to destroy!",
+        "english": "The power to create the power to create the power to destroy!"
+      },
+      {
+        "russian": "Призрак Спарты в заброшенном доме... Буууу!",
+        "english": "The Ghost of Sparta in an abandoned house... Boo!"
+      }
+    ]
+  },
+  "SaitamaBroke": {
+    "passiveNameRussian": "На мели",
+    "passiveNameEnglish": "Dead Broke",
+    "phrases": [
+      {
+        "russian": "О, сегодня скидка на доширак!",
+        "english": "Oh, instant noodles are on sale today!"
+      },
+      {
+        "russian": "Суббота. Сегодня капуста на распродаже!",
+        "english": "Saturday. Cabbage is half price!"
+      },
+      {
+        "russian": "Герой - это хобби, а хобби не приносит денег",
+        "english": "Being a hero is a hobby, and hobbies don't pay."
+      }
+    ]
+  },
+  "SaitamaBrokeMonster": {
+    "passiveNameRussian": "На мели (монстр)",
+    "passiveNameEnglish": "Dead Broke (monster)",
+    "phrases": [
+      {
+        "russian": "Если никто не видел, считается ли это за подвиг?",
+        "english": "If nobody saw it, does it still count as hero work?"
+      }
+    ]
+  },
+  "SaitamaUnnoticed": {
+    "passiveNameRussian": "Неприметность (напал кто-то еще)",
+    "passiveNameEnglish": "Unremarkable (someone else attacked)",
+    "phrases": [
+      {
+        "russian": "Этот монстр пал от руки Кинга! ...наверное.",
+        "english": "King defeated this monster! ...probably."
+      }
+    ]
+  },
+  "SaitamaHoldsBack": {
+    "passiveNameRussian": "Неприметность (снисходителен)",
+    "passiveNameEnglish": "Unremarkable (condescending)",
+    "phrases": [
+      {
+        "russian": "Это... всё?",
+        "english": "That's... it?"
+      },
+      {
+        "russian": "Скучно. Пойду домой.",
+        "english": "Boring. I'm going home."
+      }
+    ]
+  },
+  "SaitamaSerious": {
+    "passiveNameRussian": "Неприметность (топ2 по силе)",
+    "passiveNameEnglish": "Unremarkable (top 2 Strength)",
+    "phrases": [
+      {
+        "russian": "Серьёзная серия ударов.",
+        "english": "Serious Series: Serious Punch."
+      }
+    ]
+  },
+  "RickGiantBeans": {
+    "passiveNameRussian": "Гигантские бобы",
+    "passiveNameEnglish": "Giant Beans",
+    "phrases": [
+      {
+        "russian": "Вижу ингредиенты... Мне нужны эти бобы, Морти!",
+        "english": "Ingredients... I need those beans, Morty!"
+      },
+      {
+        "russian": "Морти, иди сюда. Видишь эти бобы?",
+        "english": "Morty, get over here. See those beans?"
+      },
+      {
+        "russian": "Это не просто бобы, Морти. Это ГИГАНТСКИЕ бобы!",
+        "english": "These aren't just beans, Morty. They're GIANT beans!"
+      },
+      {
+        "russian": "Теперь-то я вижу у кого эти бобы! Не зря прокачался! Да! Science beatch!!",
+        "english": "Now I can finally see who has the beans! The upgrades paid off! Science, bitch!!"
+      }
+    ]
+  },
+  "RickGiantBeansDrink": {
+    "passiveNameRussian": "Гигантские бобы",
+    "passiveNameEnglish": "Giant Beans",
+    "phrases": [
+      {
+        "russian": "*бурп* Это... это наука, Морти!",
+        "english": "*burp* This... this is science, Morty!"
+      },
+      {
+        "russian": "Еще один ингредиент собран. *бурп*",
+        "english": "Another ingredient acquired. *burp*"
+      },
+      {
+        "russian": "Wubba Lubba Dub Dub! Ингредиент!",
+        "english": "Wubba Lubba Dub Dub! Ingredient!"
+      }
+    ]
+  },
+  "RickPickleTransform": {
+    "passiveNameRussian": "Огурчик Рик",
+    "passiveNameEnglish": "Pickle Rick",
+    "phrases": [
+      {
+        "russian": "Я ОГУРЧИК РИИИК!",
+        "english": "I'M PICKLE RIIIICK!"
+      },
+      {
+        "russian": "PICKLE RIIICK!",
+        "english": "PICKLE RIIICK!"
+      },
+      {
+        "russian": "Я превратил себя в огурец, Морти! Я ОГУРЧИК РИК!",
+        "english": "I turned myself into a pickle, Morty! I'M PICKLE RICK!"
+      }
+    ]
+  },
+  "RickPickleWin": {
+    "passiveNameRussian": "Огурчик Рик",
+    "passiveNameEnglish": "Pickle Rick",
+    "phrases": [
+      {
+        "russian": "Огурчик Рик побеждает!",
+        "english": "Pickle Rick wins!"
+      },
+      {
+        "russian": "Ты только что проиграл огурцу!",
+        "english": "You just lost to a pickle!"
+      },
+      {
+        "russian": "Solenya... Огурчик мести!",
+        "english": "Solen'ya... the Pickle Man!"
+      },
+      {
+        "russian": "Ах, Морти, чувствую себя как огурчик!",
+        "english": "Ah, Morty, I feel like one mean pickle!"
+      }
+    ]
+  },
+  "RickPicklePenalty": {
+    "passiveNameRussian": "Огурчик Рик",
+    "passiveNameEnglish": "Pickle Rick",
+    "phrases": [
+      {
+        "russian": "Кто-нибудь... переверните огурец...",
+        "english": "Somebody... turn the pickle over..."
+      },
+      {
+        "russian": "Ладно, может идея с огурцом была не лучшей...",
+        "english": "Okay, maybe the pickle idea wasn't my best."
+      }
+    ]
+  },
+  "RickPortalGunInvented": {
+    "passiveNameRussian": "Портальная пушка",
+    "passiveNameEnglish": "Portal Gun",
+    "phrases": [
+      {
+        "russian": "Портальная пушка изобретена!",
+        "english": "Portal gun invented!"
+      },
+      {
+        "russian": "*щёлк* Теперь у меня есть портальная пушка!",
+        "english": "*click* Now I've got a portal gun!"
+      },
+      {
+        "russian": "Я потерял всё, прежде чем создал эту пушку...",
+        "english": "I lost everything before I built this gun..."
+      }
+    ]
+  },
+  "RickPortalGunFired": {
+    "passiveNameRussian": "Портальная пушка",
+    "passiveNameEnglish": "Portal Gun",
+    "phrases": [
+      {
+        "russian": "*щёлк* Портал открыт!",
+        "english": "*click* Portal open!"
+      },
+      {
+        "russian": "И мы в деле! Портал!",
+        "english": "And we're in business! Portal!"
+      },
+      {
+        "russian": "Заходи в портал, Морти! Быстро!",
+        "english": "Get in the portal, Morty! Now!"
+      },
+      {
+        "russian": "Я самый риканутый среди всех фальшивых Риков.",
+        "english": "I'm the Rickest of all these fake Ricks."
+      }
+    ]
+  },
+  "RickMostWanted": {
+    "passiveNameRussian": "Most wanted",
+    "passiveNameEnglish": "Most wanted",
+    "phrases": [
+      {
+        "russian": "У Рика снова проблемы...",
+        "english": "Rick is in trouble again..."
+      },
+      {
+        "russian": "Рик привлекает слишком много внимания...",
+        "english": "Rick is drawing too much attention..."
+      },
+      {
+        "russian": "Галактическая федерация опять на хвосте!",
+        "english": "The Galactic Federation is on his tail again!"
+      }
+    ]
+  },
+  "RickMostWantedProc": {
+    "passiveNameRussian": "Most wanted",
+    "passiveNameEnglish": "Most wanted",
+    "phrases": [
+      {
+        "russian": "Да чего этим федералам надо от меня?!",
+        "english": "What the hell do these Feds want from me?!"
+      },
+      {
+        "russian": "Вся вселенная гоняется за рецептом моего особого топлива...",
+        "english": "The whole universe is chasing the formula for my special fuel..."
+      },
+      {
+        "russian": "Боже! Может умнейший человек во вселенной просто спокойно провести время с внуком?!",
+        "english": "Jeez! Can the smartest man in the universe spend one quiet day with his grandson?!"
+      }
+    ]
+  },
+  "RickMostWantedPortalFollow": {
+    "passiveNameRussian": "Most wanted",
+    "passiveNameEnglish": "Most wanted",
+    "phrases": [
+      {
+        "russian": "Jeez, вам настолько нечем заняться? Заведите себе хобби!",
+        "english": "Jeez, do you people have nothing better to do? Get a hobby!"
+      }
+    ]
+  },
+  "KiraDeathNoteKill": {
+    "passiveNameRussian": "Тетрадь смерти",
+    "passiveNameEnglish": "Death Note",
+    "phrases": [
+      {
+        "russian": "Удалить... Удалить... Удалить!",
+        "english": "Delete... Delete... DELETE!"
+      },
+      {
+        "russian": "Я - бог нового мира!",
+        "english": "I am the god of the new world!"
+      },
+      {
+        "russian": "Правосудие свершилось.",
+        "english": "Justice has been served."
+      },
+      {
+        "russian": "Сакудзё... Сакудзё...",
+        "english": "Sakujo... Sakujo..."
+      },
+      {
+        "russian": "Всё по плану, Рюк.",
+        "english": "All according to plan, Ryuk."
+      }
+    ]
+  },
+  "KiraDeathNoteFailed": {
+    "passiveNameRussian": "Тетрадь смерти",
+    "passiveNameEnglish": "Death Note",
+    "phrases": [
+      {
+        "russian": "Это имя... неправильное?!",
+        "english": "That name... is wrong?!"
+      },
+      {
+        "russian": "Невозможно! Ошибка в расчетах!",
+        "english": "Impossible! My calculations were flawless!"
+      },
+      {
+        "russian": "Тч... Рюк, ты мог бы предупредить.",
+        "english": "Tch... Ryuk, you could have warned me."
+      }
+    ]
+  },
+  "KiraShinigamiEyes": {
+    "passiveNameRussian": "Глаза бога смерти",
+    "passiveNameEnglish": "Shinigami Eyes",
+    "phrases": [
+      {
+        "russian": "Глаза бога смерти видят всё.",
+        "english": "The eyes of a Shinigami see all."
+      },
+      {
+        "russian": "Теперь я вижу твоё настоящее имя...",
+        "english": "Now I see your true name..."
+      },
+      {
+        "russian": "Сделка с Рюком заключена.",
+        "english": "The deal with Ryuk is sealed."
+      }
+    ]
+  },
+  "KiraLNoFight": {
+    "passiveNameRussian": "L",
+    "passiveNameEnglish": "L",
+    "phrases": [
+      {
+        "russian": "L не подозревает ничего...",
+        "english": "L suspects nothing..."
+      },
+      {
+        "russian": "Пока L занят расследованием, я действую.",
+        "english": "While L investigates, I act."
+      },
+      {
+        "russian": "L никогда не узнает правду.",
+        "english": "L will never learn the truth."
+      }
+    ]
+  },
+  "KiraArrested": {
+    "passiveNameRussian": "L",
+    "passiveNameEnglish": "L",
+    "phrases": [
+      {
+        "russian": "Нет... это невозможно! L... ты...",
+        "english": "No... impossible! L... you..."
+      },
+      {
+        "russian": "Всё кончено. L победил.",
+        "english": "It's over. L won."
+      }
+    ]
+  },
+  "ItachiCrows": {
+    "passiveNameRussian": "Вороны",
+    "passiveNameEnglish": "The Crows",
+    "phrases": [
+      {
+        "russian": "Черный ворон...",
+        "english": "A black crow..."
+      },
+      {
+        "russian": "Лети, лети моя хуерга!",
+        "english": "Fly, fly, my weird little bastard!"
+      },
+      {
+        "russian": "Курлык-курлык!",
+        "english": "Caw-caw!"
+      },
+      {
+        "russian": "Загадочный ворон",
+        "english": "Mysterious crow."
+      },
+      {
+        "russian": "Откуда у меня столько ворон?",
+        "english": "Why do I have so many crows?"
+      },
+      {
+        "russian": "Что есть ложь - Мои глаза или моя ворона?",
+        "english": "What is false — my eyes, or my crow?"
+      },
+      {
+        "russian": "イタチ",
+        "english": "Itachi"
+      }
+    ]
+  },
+  "ItachiIzanagi": {
+    "passiveNameRussian": "Изанаги",
+    "passiveNameEnglish": "Izanagi",
+    "phrases": [
+      {
+        "russian": "О, ебать, а я не сдох",
+        "english": "Holy shit, I didn't die."
+      },
+      {
+        "russian": "Это очередная запретная техника моего клана...",
+        "english": "Another forbidden technique of my clan..."
+      }
+    ]
+  },
+  "ItachiAmaterasu": {
+    "passiveNameRussian": "Аматерасу",
+    "passiveNameEnglish": "Amaterasu",
+    "phrases": [
+      {
+        "russian": "Беги, глупый братец!",
+        "english": "Run, foolish little brother!"
+      },
+      {
+        "russian": "Беги, братишка!",
+        "english": "Run, brother!"
+      },
+      {
+        "russian": "Живи, но живи в страхе",
+        "english": "Live — but live in fear."
+      },
+      {
+        "russian": "НЕНАВИДЬ МЕНЯ ВСЕМ СЕРДЦЕМ!",
+        "english": "HATE ME WITH ALL YOUR HEART!"
+      },
+      {
+        "russian": "Черное пламя в твоем сердце",
+        "english": "Black flame within your heart."
+      },
+      {
+        "russian": "Наши глаза... погружаются во тьму",
+        "english": "Our eyes... descend into darkness."
+      },
+      {
+        "russian": "Я жру тьму",
+        "english": "I devour darkness."
+      },
+      {
+        "russian": "Беги и цепляйся за жизнь...",
+        "english": "Run, and cling to your wretched life..."
+      },
+      {
+        "russian": "Тебе нехватает... ненависти.",
+        "english": "You lack... hatred."
+      },
+      {
+        "russian": "Приходи, когда получишь такие же глаза... *_*",
+        "english": "Come back when you have the same eyes... *_*"
+      }
+    ]
+  },
+  "ItachiTsukuyomiCharge": {
+    "passiveNameRussian": "Глаза Итачи",
+    "passiveNameEnglish": "Itachi's Eyes",
+    "phrases": [
+      {
+        "russian": "Цукуеми готово...",
+        "english": "Tsukuyomi is ready..."
+      }
+    ]
+  },
+  "ItachiTsukuyomiActivate": {
+    "passiveNameRussian": "Глаза Итачи",
+    "passiveNameEnglish": "Itachi's Eyes",
+    "phrases": [
+      {
+        "russian": "Ты УЖЕ внутри моей иллюзии. ",
+        "english": "You are ALREADY inside my illusion."
+      }
+    ]
+  },
+  "ItachiTsukuyomiEnd": {
+    "passiveNameRussian": "Глаза Итачи",
+    "passiveNameEnglish": "Itachi's Eyes",
+    "phrases": [
+      {
+        "russian": "У меня кончилась чакра",
+        "english": "I'm out of chakra."
+      }
+    ]
+  },
+  "ItachiTsukuyomiSteal": {
+    "passiveNameRussian": "Глаза Итачи",
+    "passiveNameEnglish": "Itachi's Eyes",
+    "phrases": [
+      {
+        "russian": "Get confused",
+        "english": "Get confused"
+      },
+      {
+        "russian": "My eyes! My eyes!",
+        "english": "My eyes! My eyes!"
+      },
+      {
+        "russian": "У меня всегда есть ворона в рукаве",
+        "english": "I always have a crow up my sleeve."
+      },
+      {
+        "russian": "Я планировал это с самого начала",
+        "english": "I planned this from the beginning."
+      },
+      {
+        "russian": "Все это ради деревни",
+        "english": "It was all for the village."
+      }
+    ]
+  },
+  "ItachiTsukuyomiReveal": {
+    "passiveNameRussian": "Глаза Итачи",
+    "passiveNameEnglish": "Itachi's Eyes",
+    "phrases": [
+      {
+        "russian": "Всё это было в глазах у Итачи...",
+        "english": "It was all there in Itachi's eyes..."
+      }
+    ]
+  },
+  "SellerVparit": {
+    "passiveNameRussian": "Впарить говна",
+    "passiveNameEnglish": "Hard Sell",
+    "phrases": [
+      {
+        "russian": "Пст... Попробуй это.",
+        "english": "Psst... try this."
+      },
+      {
+        "russian": "Эй парень, сегодня твой счастливый день",
+        "english": "Hey kid, today is your lucky day."
+      },
+      {
+        "russian": "Только тсс...",
+        "english": "Keep it quiet..."
+      },
+      {
+        "russian": "Это работает, мамой клянусь!",
+        "english": "It works, swear on my mother!"
+      },
+      {
+        "russian": "Клиент всегда прав...",
+        "english": "The customer is always right..."
+      }
+    ]
+  },
+  "SellerVparitEnemy": {
+    "passiveNameRussian": "Впарить говна",
+    "passiveNameEnglish": "Hard Sell",
+    "phrases": [
+      {
+        "russian": "Вам впарили говна",
+        "english": "You got sold some premium-grade crap."
+      }
+    ]
+  },
+  "SellerZakup": {
+    "passiveNameRussian": "Закуп",
+    "passiveNameEnglish": "Full Buy",
+    "phrases": [
+      {
+        "russian": "Беру оптом!",
+        "english": "Buying wholesale!"
+      },
+      {
+        "russian": "Сегодня низкие цены!",
+        "english": "Low prices today!"
+      },
+      {
+        "russian": "Хороший товар!",
+        "english": "Quality merchandise!"
+      },
+      {
+        "russian": "Настало МОЁ время!",
+        "english": "It's MY time!"
+      }
+    ]
+  },
+  "SellerProfit": {
+    "passiveNameRussian": "Выгодная сделка",
+    "passiveNameEnglish": "Sweet Deal",
+    "phrases": [
+      {
+        "russian": "Подоходный налог",
+        "english": "Income tax."
+      },
+      {
+        "russian": "Плата по счетам",
+        "english": "Bills paid."
+      },
+      {
+        "russian": "Всё по контракту",
+        "english": "All according to contract."
+      }
+    ]
+  },
+  "SellerProfitBig": {
+    "passiveNameRussian": "Выгодная сделка",
+    "passiveNameEnglish": "Sweet Deal",
+    "phrases": [
+      {
+        "russian": "Какой процент!",
+        "english": "Now that's a margin!"
+      }
+    ]
+  },
+  "SellerSecretBuild": {
+    "passiveNameRussian": "Секретный билд",
+    "passiveNameEnglish": "Secret Build",
+    "phrases": [
+      {
+        "russian": "Пришло время играть по-настоящему.",
+        "english": "Time to start playing for real."
+      }
+    ]
+  },
+  "SellerBolshoiKushEnemy": {
+    "passiveNameRussian": "Выгодная сделка",
+    "passiveNameEnglish": "Sweet Deal",
+    "phrases": [
+      {
+        "russian": "Welcome, stranger.",
+        "english": "Welcome, stranger."
+      },
+      {
+        "russian": "What are you buing and what are you selling?",
+        "english": "What are you buying? What are you selling?"
+      },
+      {
+        "russian": "Good choice...",
+        "english": "Good choice..."
+      },
+      {
+        "russian": "ОЧЕНЬ дорого!",
+        "english": "VERY expensive!"
+      },
+      {
+        "russian": "Отличный рудник",
+        "english": "An excellent mine."
+      }
+    ]
+  },
+  "DopaVisionReady": {
+    "passiveNameRussian": "Взгляд в будущее",
+    "passiveNameEnglish": "Future Sight",
+    "phrases": [
+      {
+        "russian": "Взгляд в будущее готов: Кажется я знаю его следующий ход...",
+        "english": "Future Sight ready: I think I know his next move..."
+      }
+    ]
+  },
+  "DopaVisionProc": {
+    "passiveNameRussian": "Взгляд в будущее",
+    "passiveNameEnglish": "Future Sight",
+    "phrases": [
+      {
+        "russian": "쉽고 간단합니다.",
+        "english": "Easy and straightforward."
+      },
+      {
+        "russian": "Faker 그렇게 할 수 없었다.",
+        "english": "Even Faker could not do that."
+      },
+      {
+        "russian": "이것은 나의 재능으로서 명백하다.",
+        "english": "My talent makes the answer obvious."
+      },
+      {
+        "russian": "럭키. 골든.",
+        "english": "Lucky. Golden."
+      },
+      {
+        "russian": "나는 미래를 본다. 사이트를 통해 나를 번역하지 마라.",
+        "english": "I see the future. Do not put me through a translation site."
+      }
+    ]
+  },
+  "DopaMetaChosen": {
+    "passiveNameRussian": "Законодатель меты",
+    "passiveNameEnglish": "Meta Setter",
+    "phrases": [
+      {
+        "russian": "잘 생긴",
+        "english": "Handsome."
+      },
+      {
+        "russian": "이제 내가 보여줄거야.",
+        "english": "Now I'll show you."
+      }
+    ]
+  },
+  "DopaImpact": {
+    "passiveNameRussian": "Пассивный импакт",
+    "passiveNameEnglish": "Passive Impact",
+    "phrases": [
+      {
+        "russian": "Импакт.",
+        "english": "Impact."
+      }
+    ]
+  },
+  "DopaDomination": {
+    "passiveNameRussian": "Доминация",
+    "passiveNameEnglish": "Domination",
+    "phrases": [
+      {
+        "russian": "Доминирую.",
+        "english": "Dominating."
+      }
+    ]
+  },
+  "DopaRoam": {
+    "passiveNameRussian": "Роум",
+    "passiveNameEnglish": "Roam",
+    "phrases": [
+      {
+        "russian": "Роумлю.",
+        "english": "Roaming."
+      }
+    ]
+  },
+  "SaldorumChronicler": {
+    "passiveNameRussian": "Великий летописец",
+    "passiveNameEnglish": "The Great Chronicler",
+    "phrases": [
+      {
+        "russian": "История пишется победителями...",
+        "english": "History is written by the winners..."
+      }
+    ]
+  },
+  "NapoleonAlliance": {
+    "passiveNameRussian": "Вступить в союз",
+    "passiveNameEnglish": "Form an Alliance",
+    "phrases": [
+      {
+        "russian": "Napoleon Wonnafuck предлагает вам вступить в союз...",
+        "english": "Napoleon Wonnafuck invites you to an alliance..."
+      }
+    ]
+  },
+  "NapoleonConqueror": {
+    "passiveNameRussian": "Завоеватель",
+    "passiveNameEnglish": "Conqueror",
+    "phrases": [
+      {
+        "russian": "Теперь это наша земля!",
+        "english": "This land belongs to us now!"
+      }
+    ]
+  },
+  "NapoleonPeaceTreaty": {
+    "passiveNameRussian": "Мирный договор",
+    "passiveNameEnglish": "Peace Treaty",
+    "phrases": [
+      {
+        "russian": "Перемирие",
+        "english": "Truce."
+      }
+    ]
+  },
+  "NapoleonFace": {
+    "passiveNameRussian": "Меня надо знать в лицо",
+    "passiveNameEnglish": "A Face You Won't Forget",
+    "phrases": [
+      {
+        "russian": "Эффект неожиданности",
+        "english": "The element of surprise."
+      },
+      {
+        "russian": "Застал врасплох",
+        "english": "Caught them off guard."
+      },
+      {
+        "russian": "Такова моя стратегия!",
+        "english": "Exactly as my strategy demands!"
+      },
+      {
+        "russian": "Аламут",
+        "english": "Alamut."
+      },
+      {
+        "russian": "Построение Черепахи",
+        "english": "Tortoise formation."
+      }
+    ]
+  },
+  "ToxicMateIntFirstLoss": {
+    "passiveNameRussian": "INT",
+    "passiveNameEnglish": "INT",
+    "phrases": [
+      {
+        "russian": "Ok. I'm trolling.",
+        "english": "Ok. I'm trolling."
+      }
+    ]
+  },
+  "ToxicMateCancerInfect": {
+    "passiveNameRussian": "Get cancer",
+    "passiveNameEnglish": "Get cancer",
+    "phrases": [
+      {
+        "russian": "{name} infected",
+        "english": "{name} infected"
+      },
+      {
+        "russian": "{name} is no0b",
+        "english": "{name} is no0b"
+      },
+      {
+        "russian": "{name} reported!",
+        "english": "{name} reported!"
+      },
+      {
+        "russian": "{name} almost done",
+        "english": "{name} almost done"
+      },
+      {
+        "russian": "{name} FEEDER!",
+        "english": "{name} FEEDER!"
+      }
+    ]
+  },
+  "ToxicMateCancerReturn": {
+    "passiveNameRussian": "Get cancer",
+    "passiveNameEnglish": "Get cancer",
+    "phrases": [
+      {
+        "russian": "Fuking idiots! All reported.",
+        "english": "Fuking idiots! All reported."
+      }
+    ]
+  },
+  "ToxicMateAggressPoint": {
+    "passiveNameRussian": "Aggress",
+    "passiveNameEnglish": "Aggress",
+    "phrases": [
+      {
+        "russian": "LET'S TALK ABOUT IT",
+        "english": "LET'S TALK ABOUT IT"
+      },
+      {
+        "russian": "SHUT UP I WON",
+        "english": "SHUT UP I WON"
+      },
+      {
+        "russian": "EZ",
+        "english": "EZ"
+      },
+      {
+        "russian": "Yeah stay afk!",
+        "english": "Yeah stay afk!"
+      }
+    ]
+  },
+  "ToxicMateAggressWontStop": {
+    "passiveNameRussian": "Aggress",
+    "passiveNameEnglish": "Aggress",
+    "phrases": [
+      {
+        "russian": "I. WONT. STOP.",
+        "english": "I. WONT. STOP."
+      }
+    ]
+  },
+  "ToxicMateTiltedReact": {
+    "passiveNameRussian": "Tilted",
+    "passiveNameEnglish": "Tilted",
+    "phrases": [
+      {
+        "russian": "Hahaha look at this",
+        "english": "Hahaha look at this"
+      },
+      {
+        "russian": "Are you mad?",
+        "english": "Are you mad?"
+      },
+      {
+        "russian": "Go cry!",
+        "english": "Go cry!"
+      },
+      {
+        "russian": "Report this kid",
+        "english": "Report this kid"
+      },
+      {
+        "russian": "KYS",
+        "english": "KYS"
+      },
+      {
+        "russian": "Tilted",
+        "english": "Tilted"
+      },
+      {
+        "russian": "OMG IDIOT",
+        "english": "OMG IDIOT"
+      },
+      {
+        "russian": "Pepega",
+        "english": "Pepega"
+      }
+    ]
+  },
+  "ToxicMateTiltedOpenMid": {
+    "passiveNameRussian": "Tilted",
+    "passiveNameEnglish": "Tilted",
+    "phrases": [
+      {
+        "russian": "OPEN MID!",
+        "english": "OPEN MID!"
+      }
+    ]
+  },
+  "SupportStakes": {
+    "passiveNameRussian": "Stakes!",
+    "passiveNameEnglish": "Stakes!",
+    "phrases": [
+      {
+        "russian": "СТАКИ!!!",
+        "english": "STACKS!!!"
+      },
+      {
+        "russian": "Пора дамажить!",
+        "english": "Time to deal damage!"
+      }
+    ]
+  },
+  "SupportProtect": {
+    "passiveNameRussian": "Protect",
+    "passiveNameEnglish": "Protect",
+    "phrases": [
+      {
+        "russian": "Пепега",
+        "english": "Pepega"
+      }
+    ]
+  },
+  "SupportPremadeMark": {
+    "passiveNameRussian": "Premade",
+    "passiveNameEnglish": "Premade",
+    "phrases": [
+      {
+        "russian": "Ты теперь мой напарник...",
+        "english": "You're my duo now..."
+      }
+    ]
+  },
+  "SupportPremadeAntiSkip": {
+    "passiveNameRussian": "Premade",
+    "passiveNameEnglish": "Premade",
+    "phrases": [
+      {
+        "russian": "QSS!",
+        "english": "QSS!"
+      },
+      {
+        "russian": "Cleance!",
+        "english": "Cleanse!"
+      },
+      {
+        "russian": "BKB!",
+        "english": "BKB!"
+      }
+    ]
+  },
+  "HighEloLoss": {
+    "passiveNameRussian": "Хай эло",
+    "passiveNameEnglish": "High Elo",
+    "phrases": [
+      {
+        "russian": "кажется у врага 2к эло!",
+        "english": "Looks like the enemy is 2K Elo!"
+      }
+    ]
+  },
+  "SirinoksGeniusPhrase": {
+    "passiveNameRussian": "Обучение",
+    "passiveNameEnglish": "Learning Curve",
+    "phrases": [
+      {
+        "russian": "Интеллект **10** - ты ***Гений Говна*** (с) Sirinoks",
+        "english": "Intelligence **10** — you're a ***Garbage Genius***. — Sirinoks"
+      }
+    ]
+  },
+  "SirinoksBlockNoPhrase": {
+    "passiveNameRussian": "Блок",
+    "passiveNameEnglish": "Block",
+    "phrases": [
+      {
+        "russian": "НЕТ!",
+        "english": "NO!"
+      }
+    ]
+  },
+  "GlebDragonReaction": {
+    "passiveNameRussian": "Спящее хуйло",
+    "passiveNameEnglish": "Sleepy Bastard",
+    "phrases": [
+      {
+        "russian": "Ogo, drakon, nihuya sebe",
+        "english": "Whoa, a dragon. Holy shit."
+      }
+    ]
+  },
+  "GlebWakeUpRoli": {
+    "passiveNameRussian": "Спящее хуйло",
+    "passiveNameEnglish": "Sleepy Bastard",
+    "phrases": [
+      {
+        "russian": "POSTAV ROLI",
+        "english": "ASSIGN ROLES"
+      }
+    ]
+  },
+  "GlebPsyche10": {
+    "passiveNameRussian": "Прокачка",
+    "passiveNameEnglish": "Level Up",
+    "phrases": [
+      {
+        "russian": "vobshe baldej",
+        "english": "Living the dream."
+      }
+    ]
+  },
+  "GlebComeBackEnemy": {
+    "passiveNameRussian": "Я щас приду",
+    "passiveNameEnglish": "Be Right There",
+    "phrases": [
+      {
+        "russian": "ты ушел ждать глеба... НАВЕЧНО...",
+        "english": "You left to wait for Gleb... FOREVER..."
+      }
+    ]
+  },
+  "LeCrispStonks": {
+    "passiveNameRussian": "Импакт",
+    "passiveNameEnglish": "Impact",
+    "phrases": [
+      {
+        "russian": "Stonks",
+        "english": "Stonks"
+      }
+    ]
+  },
+  "DeepListMadnessHardKittyMilk": {
+    "passiveNameRussian": "Безумие",
+    "passiveNameEnglish": "Madness",
+    "phrases": [
+      {
+        "russian": "БОЛЬШЕ МОЛОКА ДЛЯ ХАРДКИТТИ!",
+        "english": "MORE MILK FOR HARDKITTY!"
+      }
+    ]
+  },
+  "DeepListMockeryHardKittyMilk": {
+    "passiveNameRussian": "Стёб",
+    "passiveNameEnglish": "The Long Con",
+    "phrases": [
+      {
+        "russian": "БОЛЬШЕ МОЛОКА ДЛЯ ХАРДКИТТИ!",
+        "english": "MORE MILK FOR HARDKITTY!"
+      }
+    ]
+  },
+  "GoblinTunnelEscape": {
+    "passiveNameRussian": "Тоннели Гоблинов",
+    "passiveNameEnglish": "Goblin Tunnels",
+    "phrases": [
+      {
+        "russian": "Отлично! Сбежали.",
+        "english": "Excellent! We escaped."
+      },
+      {
+        "russian": "Выкрутились из ситуации!",
+        "english": "We wriggled out of that one!"
+      },
+      {
+        "russian": "Хорошенько оторвались!!!",
+        "english": "Lost them good!!!"
+      },
+      {
+        "russian": "Теперь все подумают что мы Глеб, хехех",
+        "english": "Now they'll think we're Gleb, hehehe."
+      }
+    ]
+  },
+  "GoblinGrowthAttack": {
+    "passiveNameRussian": "Гоблины",
+    "passiveNameEnglish": "Goblin Math",
+    "phrases": [
+      {
+        "russian": "Дали поебаться",
+        "english": "They let us smash."
+      },
+      {
+        "russian": "Гоблины трахают!",
+        "english": "Goblins fuck!"
+      },
+      {
+        "russian": "Гоблины.",
+        "english": "Goblins."
+      },
+      {
+        "russian": "Больше гоблинов богу гоблинов!",
+        "english": "More goblins for the Goblin God!"
+      },
+      {
+        "russian": "Я трахался на летних каникулах... Никому это не понравилось",
+        "english": "I got laid over summer break... Nobody enjoyed it."
+      },
+      {
+        "russian": "Меня интересуют только сиськи и джем, это моя маленькая мечта",
+        "english": "All I care about is boobs and jam. That's my humble dream."
+      }
+    ]
+  },
+  "GoblinDeath": {
+    "passiveNameRussian": "Гоблины",
+    "passiveNameEnglish": "Goblin Math",
+    "phrases": [
+      {
+        "russian": "Тупое говно, тупого говна",
+        "english": "Stupid garbage made of stupid garbage."
+      },
+      {
+        "russian": "Хайп. Мем. Флеш-моб.",
+        "english": "Hype. Meme. Flash mob."
+      },
+      {
+        "russian": "Малолетние Дебилы.",
+        "english": "Underage idiots."
+      },
+      {
+        "russian": "Дебилы.",
+        "english": "Idiots."
+      },
+      {
+        "russian": "Пендальф серый",
+        "english": "Pendalf the Grey."
+      }
+    ]
+  },
+  "GoblinMine": {
+    "passiveNameRussian": "Отличный рудник",
+    "passiveNameEnglish": "A Fine Mine",
+    "phrases": [
+      {
+        "russian": "Отличный рудник!",
+        "english": "An excellent mine!"
+      },
+      {
+        "russian": "Надежный как швейцарские часы!",
+        "english": "Reliable as a Swiss watch!"
+      }
+    ]
+  },
+  "GoblinZigguratBuild": {
+    "passiveNameRussian": "Гоблины тупые, но не идиоты",
+    "passiveNameEnglish": "Goblins Are Dumb, Not Stupid",
+    "phrases": [
+      {
+        "russian": "Зиккурат построен!",
+        "english": "Ziggurat complete!"
+      },
+      {
+        "russian": "Гоблины умеют строить!",
+        "english": "Goblins can build!"
+      },
+      {
+        "russian": "Новая крепость!",
+        "english": "A new fortress!"
+      }
+    ]
+  },
+  "GoblinZigguratNoMoney": {
+    "passiveNameRussian": "Гоблины тупые, но не идиоты",
+    "passiveNameEnglish": "Goblins Are Dumb, Not Stupid",
+    "phrases": [
+      {
+        "russian": "Невозможно! Оочччччччччень дорого!",
+        "english": "Impossible! Waaay too expensive!"
+      }
+    ]
+  },
+  "GoblinZigguratWorkerDeath": {
+    "passiveNameRussian": "Гоблины тупые, но не идиоты",
+    "passiveNameEnglish": "Goblins Are Dumb, Not Stupid",
+    "phrases": [
+      {
+        "russian": "Трудяга умер - кранчил как в CDPR",
+        "english": "Worker died — crunched like it was CDPR."
+      },
+      {
+        "russian": "Трудяга погиб - мы построили Зиккурат, но какой ценой..?",
+        "english": "Worker died — we built the Ziggurat, but at what cost?"
+      },
+      {
+        "russian": "Трудяга погиб - его хватил сердечный приступ, когда он увидел дворец на ютубе",
+        "english": "Worker died — his heart gave out after seeing that palace on YouTube."
+      }
+    ]
+  },
+  "KotikiMinka": {
+    "passiveNameRussian": "Минька",
+    "passiveNameEnglish": "Minka",
+    "phrases": [
+      {
+        "russian": "Мяу~",
+        "english": "Meow~"
+      },
+      {
+        "russian": "Минька мурчит...",
+        "english": "Minka purrs..."
+      },
+      {
+        "russian": "*мур-мур*",
+        "english": "*purr-purr*"
+      }
+    ]
+  },
+  "KotikiStormTaunt": {
+    "passiveNameRussian": "Штормяк",
+    "passiveNameEnglish": "Stormy",
+    "phrases": [
+      {
+        "russian": "Штормяк шипит!",
+        "english": "Stormy hisses!"
+      },
+      {
+        "russian": "МЯЯЯЯУ!!!",
+        "english": "MEEEEOW!!!"
+      }
+    ]
+  },
+  "KotikiStormWin": {
+    "passiveNameRussian": "Штормяк",
+    "passiveNameEnglish": "Stormy",
+    "phrases": [
+      {
+        "russian": "Штормяк доволен!",
+        "english": "Stormy is pleased!"
+      },
+      {
+        "russian": "Не злите кота.",
+        "english": "Do not anger the cat."
+      }
+    ]
+  },
+  "KotikiCatDeploy": {
+    "passiveNameRussian": "Кошачья засада",
+    "passiveNameEnglish": "Cat Ambush",
+    "phrases": [
+      {
+        "russian": "Кот остался на вражеской территории...",
+        "english": "The cat remained in enemy territory..."
+      },
+      {
+        "russian": "Кот затаился...",
+        "english": "The cat lies in wait..."
+      }
+    ]
+  },
+  "KotikiCatReturn": {
+    "passiveNameRussian": "Кошачья засада",
+    "passiveNameEnglish": "Cat Ambush",
+    "phrases": [
+      {
+        "russian": "Кот вернулся с добычей!",
+        "english": "The cat returned with loot!"
+      },
+      {
+        "russian": "Кот принес подарок!",
+        "english": "The cat brought you a present!"
+      }
+    ]
+  },
+  "KotikiLevelUp": {
+    "passiveNameRussian": "lvl-мяк",
+    "passiveNameEnglish": "Level-Meow",
+    "phrases": [
+      {
+        "russian": "Мяу~ +1 Справедливость",
+        "english": "Meow~ +1 Justice"
+      },
+      {
+        "russian": "*мур* Справедливость!",
+        "english": "*purr* Justice!"
+      }
+    ]
+  },
+  "KotikiStormFightJump": {
+    "passiveNameRussian": "Рандомное поведение",
+    "passiveNameEnglish": "Random behavior",
+    "phrases": [
+      {
+        "russian": "Штормяк запрыгнул в бой!",
+        "english": "Stormy leapt into the fight!"
+      },
+      {
+        "russian": "Штормяк ворвался в драку!",
+        "english": "Stormy charged into the brawl!"
+      },
+      {
+        "russian": "МЯЯЯУ! *прыгает в бой*",
+        "english": "MEEEEOW! *jumps into battle*"
+      }
+    ]
+  },
+  "KotikiStormBite": {
+    "passiveNameRussian": "Рандомное поведение",
+    "passiveNameEnglish": "Random behavior",
+    "phrases": [
+      {
+        "russian": "Штормяк кусь за жопу!",
+        "english": "Stormy bites the butt!"
+      },
+      {
+        "russian": "Штормяк подкрался и... КУСЬ!",
+        "english": "Stormy sneaks closer and... CHOMP!"
+      },
+      {
+        "russian": "*кусь* Штормяк наносит удар по филейной части!",
+        "english": "*chomp* Stormy strikes the tenderloin!"
+      }
+    ]
+  },
+  "KotikiStormBiteBonus": {
+    "passiveNameRussian": "Рандомное поведение",
+    "passiveNameEnglish": "Random behavior",
+    "phrases": [
+      {
+        "russian": "Штормяк доволен — жертва осталась на месте!",
+        "english": "Stormy is pleased — the victim stayed put!"
+      }
+    ]
+  },
+  "KotikiStormVaseDrop": {
+    "passiveNameRussian": "Рандомное поведение",
+    "passiveNameEnglish": "Random behavior",
+    "phrases": [
+      {
+        "russian": "Чей-то кот скинул вазу с полки! Разбилась...",
+        "english": "Somebody's cat knocked a vase off the shelf! It shattered..."
+      }
+    ]
+  },
+  "KotikiStormVaseCatch": {
+    "passiveNameRussian": "Рандомное поведение",
+    "passiveNameEnglish": "Random behavior",
+    "phrases": [
+      {
+        "russian": "Чей-то котяра скинул вазу с полки... Поймал! Не зря набирался Скилла!",
+        "english": "Some giant cat knocked a vase off the shelf... Caught it! That Skill training paid off!"
+      }
+    ]
+  },
+  "TheBoysOrderNew": {
+    "passiveNameRussian": "Francie",
+    "passiveNameEnglish": "Francie",
+    "phrases": [
+      {
+        "russian": "Француз: Новый заказ. Работаем.",
+        "english": "Frenchie: New contract. We work."
+      },
+      {
+        "russian": "Француз: Цель определена. Приступаю.",
+        "english": "Frenchie: Target acquired. Moving in."
+      },
+      {
+        "russian": "Француз: *загружает дробовик* Погнали.",
+        "english": "Frenchie: *loads shotgun* Let's go."
+      }
+    ]
+  },
+  "TheBoysOrderComplete": {
+    "passiveNameRussian": "Francie",
+    "passiveNameEnglish": "Francie",
+    "phrases": [
+      {
+        "russian": "Француз: Заказ выполнен. Чисто.",
+        "english": "Frenchie: Contract complete. Clean."
+      },
+      {
+        "russian": "Француз: Готово. Следующий.",
+        "english": "Frenchie: Done. Next."
+      },
+      {
+        "russian": "Француз: Ещё одна галочка в списке.",
+        "english": "Frenchie: Another box checked."
+      }
+    ]
+  },
+  "TheBoysOrderFailed": {
+    "passiveNameRussian": "Francie",
+    "passiveNameEnglish": "Francie",
+    "phrases": [
+      {
+        "russian": "Француз: Заказ провален. Merde.",
+        "english": "Frenchie: Contract failed. Merde."
+      },
+      {
+        "russian": "Француз: Не успел. Дерьмо.",
+        "english": "Frenchie: Too slow. Shit."
+      },
+      {
+        "russian": "Француз: Цель ушла. Бывает.",
+        "english": "Frenchie: Target got away. It happens."
+      }
+    ]
+  },
+  "TheBoysChemWeapon": {
+    "passiveNameRussian": "Francie",
+    "passiveNameEnglish": "Francie",
+    "phrases": [
+      {
+        "russian": "Француз: *распыляет* Вдохни поглубже.",
+        "english": "Frenchie: *sprays* Take a deep breath."
+      },
+      {
+        "russian": "Француз: Хим.оружие не выбирает жертв.",
+        "english": "Frenchie: Chemical weapons do not pick their victims."
+      },
+      {
+        "russian": "Француз: Маленький подарок от Франции.",
+        "english": "Frenchie: A little gift from France."
+      }
+    ]
+  },
+  "TheBoysPoker": {
+    "passiveNameRussian": "Butcher",
+    "passiveNameEnglish": "Butcher",
+    "phrases": [
+      {
+        "russian": "Бучер: *взмах кочергой* Diabolical.",
+        "english": "Butcher: *swings poker* Diabolical."
+      },
+      {
+        "russian": "Бучер: Oi! Получи кочергой по ебалу!",
+        "english": "Butcher: Oi! Poker to the fucking face!"
+      },
+      {
+        "russian": "Бучер: Кочерга решает всё.",
+        "english": "Butcher: The poker solves everything."
+      }
+    ]
+  },
+  "TheBoysKimikoRegen": {
+    "passiveNameRussian": "Kimiko",
+    "passiveNameEnglish": "Kimiko",
+    "phrases": [
+      {
+        "russian": "Kimiko: ... .., ..!",
+        "english": "Kimiko: ... .., ..!"
+      },
+      {
+        "russian": "Kimiko: ...き...も...ち...=)",
+        "english": "Kimiko: ...ki...mo...chi...=)"
+      },
+      {
+        "russian": "Kimiko: *молча сжимает кулаки*",
+        "english": "Kimiko: *silently clenches her fists*"
+      },
+      {
+        "russian": "Kimiko: ...",
+        "english": "Kimiko: ..."
+      },
+      {
+        "russian": "Kimiko: ...つ...よ...く...なる...",
+        "english": "Kimiko: ...getting... stronger..."
+      },
+      {
+        "russian": "Kimiko: *перехватывает удар* ...нет.",
+        "english": "Kimiko: *catches the blow* ...no."
+      },
+      {
+        "russian": "Kimiko: ...mo.tto... ha.ya.ku...",
+        "english": "Kimiko: ...fa.st.er..."
+      },
+      {
+        "russian": "Kimiko: *тихо улыбается, вытирая кровь*",
+        "english": "Kimiko: *smiles softly, wiping away blood*"
+      },
+      {
+        "russian": "Kimiko: ...ま...だ... =)",
+        "english": "Kimiko: ...not...yet... =)"
+      },
+      {
+        "russian": "Kimiko: ...не. трогай. моих. пацанов.",
+        "english": "Kimiko: ...do. not. touch. my. boys."
+      },
+      {
+        "russian": "Kimiko: *кости хрустят, но она встаёт*",
+        "english": "Kimiko: *bones crack, but she rises*"
+      },
+      {
+        "russian": "Kimiko: ...da.ij.ou.bu... ...大丈夫...",
+        "english": "Kimiko: ...daijoubu... I'm okay..."
+      }
+    ]
+  },
+  "TheBoysKimikoDisabled": {
+    "passiveNameRussian": "Kimiko",
+    "passiveNameEnglish": "Kimiko",
+    "phrases": [
+      {
+        "russian": "Kimiko ранена. Регенерация отключена.",
+        "english": "Kimiko is wounded. Regeneration disabled."
+      },
+      {
+        "russian": "Kimiko: *тяжело дышит* ...нужно время.",
+        "english": "Kimiko: *breathing heavily* ...need time."
+      },
+      {
+        "russian": "Kimiko выведена из строя.",
+        "english": "Kimiko is out of action."
+      }
+    ]
+  },
+  "TheBoysKimikoRecovered": {
+    "passiveNameRussian": "Kimiko",
+    "passiveNameEnglish": "Kimiko",
+    "phrases": [
+      {
+        "russian": "Kimiko снова в строю!",
+        "english": "Kimiko is back in action!"
+      },
+      {
+        "russian": "Kimiko: *разминает кулаки* Я вернулась.",
+        "english": "Kimiko: *flexes her fists* I'm back."
+      },
+      {
+        "russian": "Kimiko восстановилась.",
+        "english": "Kimiko has recovered."
+      }
+    ]
+  },
+  "TheBoysKompromatGathered": {
+    "passiveNameRussian": "M.M.",
+    "passiveNameEnglish": "M.M.",
+    "phrases": [
+      {
+        "russian": "М.М.: Досье собрано. Это пригодится.",
+        "english": "M.M.: File assembled. This will be useful."
+      },
+      {
+        "russian": "М.М.: *записывает в блокнот* Интересно...",
+        "english": "M.M.: *writes in notebook* Interesting..."
+      },
+      {
+        "russian": "М.М.: Компромат получен. Хорошая работа.",
+        "english": "M.M.: Dirt acquired. Good work."
+      }
+    ]
+  },
+  "TheBoysKompromatReward": {
+    "passiveNameRussian": "M.M.",
+    "passiveNameEnglish": "M.M.",
+    "phrases": [
+      {
+        "russian": "М.М.: Все данные сходятся. Очки умножены.",
+        "english": "M.M.: Everything checks out. Points multiplied."
+      },
+      {
+        "russian": "М.М.: Компромат работает. Результат налицо.",
+        "english": "M.M.: The dirt works. Results speak for themselves."
+      }
+    ]
+  },
+  "TheBoysVirusApply": {
+    "passiveNameRussian": "Смертельный вирус",
+    "passiveNameEnglish": "Deadly Virus",
+    "phrases": [
+      {
+        "russian": "Francie: Вирус против Суперов... А что если он не сработает не цели?",
+        "english": "Frenchie: A virus for Supes... But what if it fails on the target?"
+      },
+      {
+        "russian": "Butcher: Тогда нам всем пиздец. Ну что, поехали?",
+        "english": "Butcher: Then we're all fucked. Ready? Let's go."
+      }
+    ]
+  },
+  "TheBoysButcherHunt": {
+    "passiveNameRussian": "Butcher",
+    "passiveNameEnglish": "Butcher",
+    "phrases": [
+      {
+        "russian": "Бучер: Нашёл супа. Vought за это не заплатит, но мне похуй.",
+        "english": "Butcher: Found a Supe. Vought won't pay for this, but I don't give a fuck."
+      },
+      {
+        "russian": "Бучер: *ищет кочергу* Иди сюда, ублюдок.",
+        "english": "Butcher: *looks for poker* Come here, you cunt."
+      },
+      {
+        "russian": "Бучер: Ещё один суп на очереди.",
+        "english": "Butcher: Another Supe in the queue."
+      }
+    ]
+  },
+  "SalldorumShen": {
+    "passiveNameRussian": "Шэн",
+    "passiveNameEnglish": "Shen",
+    "phrases": [
+      {
+        "russian": "Таунт!",
+        "english": "Taunt!"
+      },
+      {
+        "russian": "Да я без палива.",
+        "english": "Yeah, I'm being totally subtle."
+      },
+      {
+        "russian": "Я просто встану тут и бэкнусь.",
+        "english": "I'll just stand here and recall."
+      }
+    ]
+  },
+  "SalldorumOchko": {
+    "passiveNameRussian": "Очко",
+    "passiveNameEnglish": "The Point",
+    "phrases": [
+      {
+        "russian": "Люблю получать очко.",
+        "english": "Love getting a point."
+      },
+      {
+        "russian": "Кто меня поймает?",
+        "english": "Who's going to catch me?"
+      },
+      {
+        "russian": "Я просто без палива стою здесь и бэкаюсь... Такой беззащитный...",
+        "english": "I'm just quietly standing here, recalling... so defenseless..."
+      }
+    ]
+  },
+  "SalldorumTimeCapsuleBury": {
+    "passiveNameRussian": "Временная капсула",
+    "passiveNameEnglish": "Time Capsule",
+    "phrases": [
+      {
+        "russian": "Кола закопана. Когда-нибудь вернусь за ней...",
+        "english": "Cola buried. I'll come back for it someday..."
+      },
+      {
+        "russian": "Зарыл колу на память.",
+        "english": "Buried a cola for posterity."
+      }
+    ]
+  },
+  "SalldorumTimeCapsulePickup": {
+    "passiveNameRussian": "Временная капсула",
+    "passiveNameEnglish": "Time Capsule",
+    "phrases": [
+      {
+        "russian": "Кола найдена! Бодрость на максимум!",
+        "english": "Cola found! Energy maxed out!"
+      },
+      {
+        "russian": "Вернулся за колой. Она ещё холодная!",
+        "english": "Came back for the cola. It's still cold!"
+      }
+    ]
+  },
+  "SalldorumChroniclerTriple": {
+    "passiveNameRussian": "Великий летописец",
+    "passiveNameEnglish": "The Great Chronicler",
+    "phrases": [
+      {
+        "russian": "Летопись помнит всё. Тройной Скилл!",
+        "english": "The chronicle remembers all. Triple Skill!"
+      },
+      {
+        "russian": "Победителей судят. Тройной Скилл активирован.",
+        "english": "The victors will be judged. Triple Skill activated."
+      }
+    ]
+  },
+  "SalldorumChroniclerRewrite": {
+    "passiveNameRussian": "Великий летописец",
+    "passiveNameEnglish": "The Great Chronicler",
+    "phrases": [
+      {
+        "russian": "История переписана!",
+        "english": "History has been rewritten!"
+      },
+      {
+        "russian": "Кто контролирует прошлое - контролирует будущее.",
+        "english": "Who controls the past controls the future."
+      }
+    ]
+  },
+  "SalldorumChroniclerRewriteGlobal": {
+    "passiveNameRussian": "Великий летописец",
+    "passiveNameEnglish": "The Great Chronicler",
+    "phrases": [
+      {
+        "russian": "Salldorum переписал историю раунда",
+        "english": "Salldorum rewrote the history of the round"
+      },
+      {
+        "russian": "Летописец изменил прошлое...",
+        "english": "The Chronicler changed the past..."
+      }
+    ]
+  },
+  "GeraltLoot": {
+    "passiveNameRussian": "Лут",
+    "passiveNameEnglish": "Loot",
+    "phrases": [
+      {
+        "russian": "Это, конечно, не чудище... Но сойдёт.",
+        "english": "Not exactly a monster... but it'll do."
+      },
+      {
+        "russian": "Такс... это мы продадим, это тоже...",
+        "english": "Right... sell this, sell that too..."
+      },
+      {
+        "russian": "Шкура паршивая, но на что-нибудь сгодится.",
+        "english": "Lousy hide, but it might be worth something."
+      },
+      {
+        "russian": "Неплохо. Хватит на пару эликсиров.",
+        "english": "Not bad. Enough for a couple potions."
+      },
+      {
+        "russian": "Зуб... коготь... хм, за это дадут крону, не больше.",
+        "english": "Tooth... claw... hm. One crown, tops."
+      },
+      {
+        "russian": "*собирает трофеи с поля боя*",
+        "english": "*gathers trophies from the battlefield*"
+      }
+    ]
+  },
+  "GeraltLootMulti": {
+    "passiveNameRussian": "Лут",
+    "passiveNameEnglish": "Loot",
+    "phrases": [
+      {
+        "russian": "Опять до первого торговца сто мечей в рюкзаке таскать...",
+        "english": "Great. A hundred swords to carry to the first merchant again..."
+      },
+      {
+        "russian": "Полный рюкзак барахла. Плотва не потянет.",
+        "english": "Backpack full of junk. Roach can't carry this."
+      },
+      {
+        "russian": "Весемир говорил - не жадничай. Но я не послушал.",
+        "english": "Vesemir said not to be greedy. I didn't listen."
+      },
+      {
+        "russian": "Столько добычи... торговец будет рад.",
+        "english": "So much loot... the merchant will be thrilled."
+      },
+      {
+        "russian": "Мусорная Гора щедра на хлам. Как всегда.",
+        "english": "The Garbage Hill is generous with junk. As always."
+      },
+      {
+        "russian": "Оверлут. Продам оптом на Мусорке.",
+        "english": "Overlooted. I'll sell wholesale at the dump."
+      }
+    ]
+  },
+  "GeraltContract1": {
+    "passiveNameRussian": "Ведьмачьи заказы",
+    "passiveNameEnglish": "Witcher Contracts",
+    "phrases": [
+      {
+        "russian": "И стоило мне ради одного контракта готовиться...",
+        "english": "All that preparation for one contract..."
+      },
+      {
+        "russian": "Один контракт - один удар. Так и должно быть.",
+        "english": "One contract, one strike. As it should be."
+      },
+      {
+        "russian": "Один заказ - чисто размяться.",
+        "english": "One job. Barely a warm-up."
+      },
+      {
+        "russian": "Мелкая работёнка. Но платят - значит, берём.",
+        "english": "Small job. But it pays, so we take it."
+      },
+      {
+        "russian": "Одна тварь. Одна монета. Честная сделка.",
+        "english": "One beast. One coin. Fair trade."
+      }
+    ]
+  },
+  "GeraltContract2": {
+    "passiveNameRussian": "Ведьмачьи заказы",
+    "passiveNameEnglish": "Witcher Contracts",
+    "phrases": [
+      {
+        "russian": "Вот зачем ведьмаку два меча!",
+        "english": "That's why witchers carry two swords!"
+      },
+      {
+        "russian": "Два контракта - двойная работа. И двойная плата.",
+        "english": "Two contracts, twice the work. Twice the pay."
+      },
+      {
+        "russian": "Серебряный для чудовищ. Стальной для людей. Оба для тебя.",
+        "english": "Silver for monsters. Steel for humans. Both for you."
+      },
+      {
+        "russian": "Два заказа за раз. Экономлю время.",
+        "english": "Two jobs at once. Saves time."
+      },
+      {
+        "russian": "Пара контрактов. Нормальный рабочий день.",
+        "english": "A pair of contracts. Normal workday."
+      },
+      {
+        "russian": "Может, сыграем в гвинт? Нет? Ладно, тогда дерёмся.",
+        "english": "How about a round of Gwent? No? Fine, we fight."
+      }
+    ]
+  },
+  "GeraltContract3": {
+    "passiveNameRussian": "Ведьмачьи заказы",
+    "passiveNameEnglish": "Witcher Contracts",
+    "phrases": [
+      {
+        "russian": "Игни!",
+        "english": "Igni!"
+      },
+      {
+        "russian": "Три контракта? Это уже гнездо.",
+        "english": "Three contracts? That's a nest."
+      },
+      {
+        "russian": "Ведьмачья работа - грязная, но кто-то должен.",
+        "english": "Witcher work is filthy, but somebody has to do it."
+      },
+      {
+        "russian": "Три удара. Три монстра. Всё по плану.",
+        "english": "Three strikes. Three monsters. All according to plan."
+      },
+      {
+        "russian": "Квен! Аард! Игни! Хватит на троих.",
+        "english": "Quen! Aard! Igni! Enough for three."
+      },
+      {
+        "russian": "Ветер воет... Нет, это с Мусорной Горы воняет.",
+        "english": "Wind's howling... No, that's the Garbage Hill stinking."
+      }
+    ]
+  },
+  "GeraltContract4": {
+    "passiveNameRussian": "Ведьмачьи заказы",
+    "passiveNameEnglish": "Witcher Contracts",
+    "phrases": [
+      {
+        "russian": "Четыре контракта. Каэр Морхен не зря учил.",
+        "english": "Four contracts. Kaer Morhen taught me well."
+      },
+      {
+        "russian": "Аард! Квен! Игни! Ирден! Все Знаки в ход!",
+        "english": "Aard! Quen! Igni! Yrden! Every Sign at once!"
+      },
+      {
+        "russian": "Четыре твари. Мутагены пригодятся.",
+        "english": "Four beasts. The mutagens will help."
+      },
+      {
+        "russian": "Тренировка Весемира окупается с лихвой.",
+        "english": "Vesemir's training is paying dividends."
+      },
+      {
+        "russian": "Четыре боя. На Мусорной Горе это называется «вторник».",
+        "english": "Four fights. On Garbage Hill, that's called Tuesday."
+      }
+    ]
+  },
+  "GeraltContract5Plus": {
+    "passiveNameRussian": "Ведьмачьи заказы",
+    "passiveNameEnglish": "Witcher Contracts",
+    "phrases": [
+      {
+        "russian": "Их столько, что даже Весемир бы удивился.",
+        "english": "So many even Vesemir would be impressed."
+      },
+      {
+        "russian": "Целая армия монстров. Хорошо, что я мутант.",
+        "english": "An army of monsters. Good thing I'm a mutant."
+      },
+      {
+        "russian": "Это уже не контракт, а Дикая Охота.",
+        "english": "This isn't a contract anymore. It's the Wild Hunt."
+      },
+      {
+        "russian": "Мясник из Блавикена вернулся.",
+        "english": "The Butcher of Blaviken is back."
+      },
+      {
+        "russian": "Столько заказов... Эликсиры кончатся раньше, чем монстры.",
+        "english": "So many jobs... I'll run out of potions before monsters."
+      },
+      {
+        "russian": "Мусорная Гора кишит тварями. Как в канализации Оксенфурта.",
+        "english": "Garbage Hill is crawling with beasts. Like the Oxenfurt sewers."
+      },
+      {
+        "russian": "Тут монстров больше, чем мусора. А мусора тут дохера.",
+        "english": "More monsters than garbage. And there's a shitload of garbage."
+      }
+    ]
+  },
+  "GeraltContractNest": {
+    "passiveNameRussian": "Ведьмачьи заказы",
+    "passiveNameEnglish": "Witcher Contracts",
+    "phrases": [
+      {
+        "russian": "Опять гнездо... Нужна бомба.",
+        "english": "Another nest... Need a bomb."
+      },
+      {
+        "russian": "Здесь их логово. Неудивительно.",
+        "english": "Their lair. Of course."
+      },
+      {
+        "russian": "Знакомая тварь. Снова ты.",
+        "english": "Familiar beast. You again."
+      },
+      {
+        "russian": "Этого я уже бил. Ну ничего, повторим.",
+        "english": "I've beaten this one before. Fine, let's repeat."
+      },
+      {
+        "russian": "Хм. Опять эта морда. Живучий.",
+        "english": "Hm. That face again. Persistent."
+      }
+    ]
+  },
+  "GeraltLambert": {
+    "passiveNameRussian": "Медитация",
+    "passiveNameEnglish": "Meditation",
+    "phrases": [
+      {
+        "russian": "Ламберт, Ламберт - хрен моржовый. Ламберт, Ламберт - вредный хуй.",
+        "english": "Lambert, Lambert — what a prick."
+      },
+      {
+        "russian": "Ламберт с Эскелем подменили травы... опять.",
+        "english": "Lambert and Eskel swapped the herbs... again."
+      },
+      {
+        "russian": "Это была не Белая Чайка. Это был эль.",
+        "english": "That wasn't White Gull. It was ale."
+      },
+      {
+        "russian": "Эскель ржёт. Ламберт делает вид, что ни при чём.",
+        "english": "Eskel is laughing. Lambert pretends innocence."
+      },
+      {
+        "russian": "Ламберт, сука, я тебя найду.",
+        "english": "Lambert, you bastard, I'll find you."
+      },
+      {
+        "russian": "Что за?  *ик*  Кажись нечаянно заварил зелье по рецепту того  *ик*  \"высшего алхимика\"...",
+        "english": "What the— *hic* Think I brewed that *hic* 'master alchemist's' recipe by mistake..."
+      },
+      {
+        "russian": "Да что с этим учебником зельяварения!? Вместо зелья удачи... пенная медовуха... Мда... тоже мне, Принц Полукровка, блять.",
+        "english": "What is wrong with this potion textbook?! Instead of Felix Felicis... foamy mead. Right. Some Half-Blood Prince, fuck me."
+      }
+    ]
+  },
+  "GeraltNoMoral": {
+    "passiveNameRussian": "Медитация",
+    "passiveNameEnglish": "Meditation",
+    "phrases": [
+      {
+        "russian": "Мораль сей сказки... никакая.",
+        "english": "The moral of this story... there isn't one."
+      },
+      {
+        "russian": "Моё дело одно - изгонять заразу.",
+        "english": "My only business is driving out vermin."
+      },
+      {
+        "russian": "Если выбор стоит между большим злом и меньшим злом, то из двух зол я лучше выберу больше... меньше... я запутался. Короче, я всех зарезал - дайте монету.",
+        "english": "If I must choose between a greater and lesser evil, I'd rather choose the greater... lesser... I've lost track. I killed everyone. Pay me."
+      },
+      {
+        "russian": "*медитирует у костра*",
+        "english": "*meditates by the fire*"
+      },
+      {
+        "russian": "Место Силы, должно быть...",
+        "english": "Place of Power. Gotta be."
+      },
+      {
+        "russian": "Нейтралитет - единственная сторона, которую стоит занять.",
+        "english": "Neutrality is the only side worth taking."
+      },
+      {
+        "russian": "Ведьмаки не вмешиваются. Ведьмаки убивают чудовищ за деньги.",
+        "english": "Witchers don't interfere. Witchers kill monsters for coin."
+      },
+      {
+        "russian": "Люди... хуже любого чудовища.",
+        "english": "People... worse than any monster."
+      },
+      {
+        "russian": "Медитирую на Мусорной Горе. Дно пробито - но есть подвал.",
+        "english": "Meditating on Garbage Hill. Rock bottom has a basement."
+      },
+      {
+        "russian": "Место Силы... На Мусорной Горе? Серьёзно?",
+        "english": "A Place of Power... on Garbage Hill? Seriously?"
+      },
+      {
+        "russian": "Костёр, тишина, вонь мусора. Романтика.",
+        "english": "Fire, silence, stench of trash. Romantic."
+      },
+      {
+        "russian": "Весемир не учил медитировать на помойке. Приходится импровизировать.",
+        "english": "Vesemir never taught meditation at a dump. Improvising."
+      },
+      {
+        "russian": "Закрываю глаза... Нет, запах никуда не делся.",
+        "english": "Close my eyes... Nope, smell's still here."
+      },
+      {
+        "russian": "На Мусорной Горе нет морали. Только мусор. И я.",
+        "english": "Garbage Hill has no morals. Only garbage. And me."
+      },
+      {
+        "russian": "Цири бы посмеялась. Геральт из Ривии - Король Мусорной Горы.",
+        "english": "Ciri would laugh. Geralt of Rivia, King of Garbage Hill."
+      },
+      {
+        "russian": "Дзен-мастер. Мусорный дзен.",
+        "english": "Zen master. Garbage zen."
+      },
+      {
+        "russian": "Хм. Не самое странное место, где я медитировал. Но в тройке.",
+        "english": "Hm. Not the strangest place I've meditated. Top three."
+      },
+      {
+        "russian": "Йеннифэр бы меня убила, если б увидела меня тут.",
+        "english": "Yennefer would kill me if she saw this."
+      },
+      {
+        "russian": "Трисс звала в Ковир. Я выбрал Мусорную Гору. Мутации, наверное.",
+        "english": "Triss offered Kovir. I chose Garbage Hill. Must be the mutations."
+      }
+    ]
+  },
+  "GeraltPlotva": {
+    "passiveNameRussian": "Шевелись, Плотва",
+    "passiveNameEnglish": "Move It, Roach",
+    "phrases": [
+      {
+        "russian": "Плотва! Давай, девочка!",
+        "english": "Roach! Come on, girl!"
+      },
+      {
+        "russian": "*свист* Плотва несётся галопом.",
+        "english": "*whistles* Roach breaks into a gallop."
+      },
+      {
+        "russian": "Как Плотва туда забралась?!",
+        "english": "How did Roach get up there?!"
+      },
+      {
+        "russian": "Плотва быстрее ветра. Когда хочет.",
+        "english": "Roach is faster than the wind. When she feels like it."
+      },
+      {
+        "russian": "Хорошая девочка, Плотва. Вперёд!",
+        "english": "Good girl, Roach. Forward!"
+      },
+      {
+        "russian": "Догоняй! *Плотва ржёт*",
+        "english": "Catch them! *Roach neighs*"
+      },
+      {
+        "russian": "Плотва опять срезала через крышу.",
+        "english": "Roach took the rooftop shortcut again."
+      },
+      {
+        "russian": "Плотва на вершине Мусорной Горы. Как она?...",
+        "english": "Roach is on top of Garbage Hill. How did she...?"
+      },
+      {
+        "russian": "Плотва, слезь с мусорного бака!",
+        "english": "Roach, get off the dumpster!"
+      },
+      {
+        "russian": "Плотва обогнала. Опять. Я пешком, она на крыше.",
+        "english": "Roach overtook them. Again. I'm walking; she's on a roof."
+      }
+    ]
+  },
+  "GeraltContractSpawn": {
+    "passiveNameRussian": "Ведьмачьи заказы",
+    "passiveNameEnglish": "Witcher Contracts",
+    "phrases": [
+      {
+        "russian": "На доске объявлений появился новый заказ...",
+        "english": "A new contract appeared on the notice board..."
+      },
+      {
+        "russian": "Люди снова просят о помощи. Надо разобраться.",
+        "english": "People need help again. Better investigate."
+      },
+      {
+        "russian": "Сколько же вас тут развелось?",
+        "english": "How many of you are there?"
+      },
+      {
+        "russian": "Ещё один контракт... Работа найдётся всегда.",
+        "english": "Another contract... Work never ends."
+      },
+      {
+        "russian": "Заказ оплачен. Наполовину, как обычно.",
+        "english": "Contract paid. Half up front, as usual."
+      },
+      {
+        "russian": "Староста деревни повесил объявление.",
+        "english": "The village elder posted a notice."
+      },
+      {
+        "russian": "Тварь объявилась у дороги. Крестьяне в панике.",
+        "english": "A beast appeared by the road. Peasants are panicking."
+      },
+      {
+        "russian": "Кто-то нацарапал на доске: *ХЕЛПУДА*.",
+        "english": "Someone scratched *HALP PLS* onto the board."
+      },
+      {
+        "russian": "Новый заказ. Оплата - как договоримся.",
+        "english": "New contract. Payment negotiable."
+      },
+      {
+        "russian": "Путники пропадают. Надо проверить.",
+        "english": "Travelers are vanishing. Better check."
+      },
+      {
+        "russian": "На Мусорной Горе завелось ещё одно чудище.",
+        "english": "Another monster moved into Garbage Hill."
+      },
+      {
+        "russian": "Мусорка порождает монстров быстрее, чем я убиваю.",
+        "english": "The dump spawns monsters faster than I kill them."
+      }
+    ]
+  },
+  "GeraltBlock": {
+    "passiveNameRussian": "Ведьмачьи заказы",
+    "passiveNameEnglish": "Witcher Contracts",
+    "phrases": [
+      {
+        "russian": "Никак они, блять, не научатся.",
+        "english": "They never fucking learn."
+      },
+      {
+        "russian": "Квен. Всегда Квен.",
+        "english": "Quen. Always Quen."
+      },
+      {
+        "russian": "*Знак Квена отразил удар*",
+        "english": "*the Quen Sign deflects the blow*"
+      },
+      {
+        "russian": "Хм. Предсказуемо.",
+        "english": "Hm. Predictable."
+      },
+      {
+        "russian": "Это даже для тренировки слабовато.",
+        "english": "Weak even for training."
+      }
+    ]
+  },
+  "GeraltAttackVampire": {
+    "passiveNameRussian": "Ведьмачьи заказы",
+    "passiveNameEnglish": "Witcher Contracts",
+    "phrases": [
+      {
+        "russian": "Выходи и дерись, сука!",
+        "english": "Come out and fight, you bastard!"
+      },
+      {
+        "russian": "Серебро для вампиров. Проверим?",
+        "english": "Silver for vampires. Shall we test it?"
+      },
+      {
+        "russian": "Кровопийца... Ненавижу кровопийц.",
+        "english": "Bloodsucker... I hate bloodsuckers."
+      },
+      {
+        "russian": "Региса бы я не тронул. Тебя — трону.",
+        "english": "I would spare Regis. I won't spare you."
+      },
+      {
+        "russian": "Чёрная Кровь выпита. Кусай — обожжёшься.",
+        "english": "Black Blood is active. Bite me and burn."
+      }
+    ]
+  },
+  "GeraltAttackTheBoys": {
+    "passiveNameRussian": "Ведьмачьи заказы",
+    "passiveNameEnglish": "Witcher Contracts",
+    "phrases": [
+      {
+        "russian": "Меня зовут Мясник из Блавикена.",
+        "english": "They call me the Butcher of Blaviken."
+      },
+      {
+        "russian": "Мясник на мясника. Посмотрим, кто кого.",
+        "english": "Butcher versus Butcher. Let's see who carves whom."
+      },
+      {
+        "russian": "Бучер, значит? У меня тоже есть прозвище.",
+        "english": "Butcher, is it? I've got a nickname too."
+      },
+      {
+        "russian": "Пацаны? Я видел пацанов пострашнее. В Блавикене.",
+        "english": "The Boys? I've seen scarier boys. In Blaviken."
+      }
+    ]
+  },
+  "GeraltAttackMonster": {
+    "passiveNameRussian": "Ведьмачьи заказы",
+    "passiveNameEnglish": "Witcher Contracts",
+    "phrases": [
+      {
+        "russian": "— Что ты делаешь?!\n— Убиваю монстров.",
+        "english": "— What are you doing?!\n— Killing monsters."
+      },
+      {
+        "russian": "Для таких, как ты, меня и создали.",
+        "english": "I was made for things like you."
+      },
+      {
+        "russian": "Ведьмак охотится на чудовищ. Ничего личного.",
+        "english": "A witcher hunts monsters. Nothing personal."
+      },
+      {
+        "russian": "Монстр есть монстр. Серебро рассудит.",
+        "english": "A monster is a monster. Silver will decide."
+      }
+    ]
+  },
+  "GeraltWin": {
+    "passiveNameRussian": "Ведьмачьи заказы",
+    "passiveNameEnglish": "Witcher Contracts",
+    "phrases": [
+      {
+        "russian": "Геральт: От тебя чудесно пахнет.\nЙен: Геральт! Мы на похоронах.\nГеральт: От тебя чудесно пахнет на этих похоронах.",
+        "english": "Geralt: You smell wonderful.\nYen: Geralt! We're at a funeral.\nGeralt: You smell wonderful at this funeral."
+      },
+      {
+        "russian": "Ведьмак сделал свою работу.",
+        "english": "The witcher did his job."
+      },
+      {
+        "russian": "Ещё одна голова на седло Плотвы.",
+        "english": "Another head for Roach's saddle."
+      },
+      {
+        "russian": "Хм. Ты был слабее, чем я думал.",
+        "english": "Hm. Weaker than I expected."
+      },
+      {
+        "russian": "*вытирает меч об траву*",
+        "english": "*wipes the sword on the grass*"
+      },
+      {
+        "russian": "Может, теперь сыграем в гвинт?",
+        "english": "Gwent now?"
+      }
+    ]
+  },
+  "DoomGuyModule": {
+    "passiveNameRussian": "DooM Guy",
+    "passiveNameEnglish": "DooM Guy",
+    "phrases": [
+      {
+        "russian": "Rip and tear. Until it is done.",
+        "english": "Rip and tear. Until it is done."
+      }
+    ]
+  },
+  "MonsterDeath": {
+    "passiveNameRussian": "Монстр",
+    "passiveNameEnglish": "Monster",
+    "phrases": [
+      {
+        "russian": "Все люди могут стать монстрами. Нужен лишь подходящий момент.",
+        "english": "Anyone can become a monster. All it takes is the right moment."
+      },
+      {
+        "russian": "Йохан: Доктор Тэнма... вы снова подарили мне жизнь. А я подарю вам - смерть.",
+        "english": "Johan: Dr. Tenma... you gave me life again. I will give you death."
+      },
+      {
+        "russian": "Посмотри на меня. Посмотри на монстра внутри себя.",
+        "english": "Look at me. Look at the monster inside yourself."
+      },
+      {
+        "russian": "Нет ничего страшнее, чем ребёнок без имени.",
+        "english": "Nothing is more terrifying than a child without a name."
+      },
+      {
+        "russian": "Единственное, что равно жизни - это смерть.",
+        "english": "The only thing equal to life is death."
+      },
+      {
+        "russian": "Мне не нужно оружие. Мне достаточно слов.",
+        "english": "I don't need a weapon. Words are enough."
+      }
+    ]
+  },
+  "MonsterDrop": {
+    "passiveNameRussian": "Монстр",
+    "passiveNameEnglish": "Monster",
+    "phrases": [
+      {
+        "russian": "Они падают. Как дети из Кинденхайма.",
+        "english": "They fall. Like the children of Kinderheim."
+      },
+      {
+        "russian": "Йохан: Каждое падение - это маленькая история, которую я написал.",
+        "english": "Johan: Every fall is a little story I wrote."
+      },
+      {
+        "russian": "Посмотри... мир рушится. Разве это не прекрасно?",
+        "english": "Look... the world is collapsing. Isn't it beautiful?"
+      },
+      {
+        "russian": "Ещё один упал. Как в той книжке с картинками...",
+        "english": "Another one fell. Like in that picture book..."
+      }
+    ]
+  },
+  "MonsterTwinSteal": {
+    "passiveNameRussian": "Близнец",
+    "passiveNameEnglish": "Gemini",
+    "phrases": [
+      {
+        "russian": "Йохан: Я забираю всё, что тебе дорого. Начнём со справедливости.",
+        "english": "Johan: I take everything precious to you. Let's begin with justice."
+      },
+      {
+        "russian": "У Близнеца нет своего лица. Но у него есть твоё.",
+        "english": "The Twin has no face of his own. But he has yours."
+      },
+      {
+        "russian": "Анна и Йохан - два имени, одна тьма. Твоя справедливость теперь моя.",
+        "english": "Anna and Johan — two names, one darkness. Your justice is mine now."
+      },
+      {
+        "russian": "Ты пришёл убить монстра. Но монстр уже забрал всё, что у тебя было.",
+        "english": "You came to kill the monster. The monster already took everything you had."
+      }
+    ]
+  },
+  "MonsterApocalypse": {
+    "passiveNameRussian": "Пейзаж конца света",
+    "passiveNameEnglish": "End-of-the-World Scenery",
+    "phrases": [
+      {
+        "russian": "Йохан: Настоящий конец света - это когда некому вспомнить твоё имя.",
+        "english": "Johan: The true end of the world is when nobody remains to remember your name."
+      },
+      {
+        "russian": "Пейзаж конца света раскрылся. Идеальный суицид - забрать с собой весь мир.",
+        "english": "The landscape of the apocalypse unfolds. The perfect suicide is taking the whole world with you."
+      },
+      {
+        "russian": "Йохан: Последний, кто выживет, увидит настоящий ад.",
+        "english": "Johan: The last survivor will see true hell."
+      }
+    ]
+  },
+  "AutoMove": {
+    "passiveNameRussian": "Авто Ход",
+    "passiveNameEnglish": "Auto Move",
+    "phrases": [
+      {
+        "russian": "Ты что, бот?",
+        "english": "What are you, a bot?"
+      },
+      {
+        "russian": "А ну играй сам! Я для кого игру делал?",
+        "english": "Play it yourself! Who did I make this game for?"
+      },
+      {
+        "russian": "Слышь, не трогай эту кнопку, она для админов",
+        "english": "Hey, don't touch that button. It's for admins."
+      },
+      {
+        "russian": "Сложно самому походить что ли?",
+        "english": "Is taking your own turn really that hard?"
+      },
+      {
+        "russian": "Серьезно, уже пора показывать скилл. САМОМУ.",
+        "english": "Seriously, time to show some skill. YOURSELF."
+      },
+      {
+        "russian": "Я щас заблокирую это кнопку, если еще раз нажмешь.",
+        "english": "I'll disable that button if you press it again."
+      },
+      {
+        "russian": "Нет, я щас лучше тебя заблокирую. Будешь как Тигр сидеть",
+        "english": "Actually, I'll block you instead. You can sit there like Tiger."
+      },
+      {
+        "russian": "Давай-давай, игра уже щас закончится... Ну же... Ну... НУ!!! ПОХОДИ",
+        "english": "Come on, the game's almost over... Go on... Come on... MOVE!!!"
+      },
+      {
+        "russian": "ДАВАЙ, ВСЕГО ОДИН ХОД",
+        "english": "COME ON. JUST ONE TURN."
+      },
+      {
+        "russian": "Пиздец. Всю игру просидел в автоходе... Вы там вообще живой? Может вы умер?... Глеб?",
+        "english": "Holy shit. Auto Move all game... Are you alive over there? Did you die?... Gleb?"
+      }
+    ]
+  },
+  "JusticePhrase": {
+    "passiveNameRussian": "Справедливость",
+    "passiveNameEnglish": "Justice",
+    "phrases": [
+      {
+        "russian": "Ты сможешь!",
+        "english": "You can do it!"
+      },
+      {
+        "russian": "Еще немного!",
+        "english": "Just a little more!"
+      },
+      {
+        "russian": "Верь в себя!",
+        "english": "Believe in yourself!"
+      },
+      {
+        "russian": "Верь в мою веру в тебя!",
+        "english": "Believe in me believing in you!"
+      },
+      {
+        "russian": "Не повeзло, но всё получится!",
+        "english": "Bad luck, but you've got this!"
+      },
+      {
+        "russian": "Справедливость на нашей стороне!",
+        "english": "Justice is on our side!"
+      },
+      {
+        "russian": "Мы им покажем!",
+        "english": "We'll show them!"
+      }
+    ]
+  }
 }

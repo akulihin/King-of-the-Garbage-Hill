@@ -2,6 +2,7 @@
 
 import { beforeEach, describe, expect, it } from 'vitest'
 import { setLocale, translateText } from './i18n'
+import phrases from '../../../King-of-the-Garbage-Hill/DataBase/phrases.en.json'
 
 function phrasePayload(values: [string, string, string, string], textOnly = false): string {
   const bytes = new TextEncoder().encode(JSON.stringify(values))
@@ -40,6 +41,44 @@ describe('English presentation localization', () => {
       .toBe('Juicy snatches a point at the buzzer!')
   })
 
+  it('translates the newly reported character and legacy replay logs', () => {
+    expect(translateText('qqq наконец показал свою ИСТИННУЮ СИЛУ! ONE PUUUUUUNCH!!!'))
+      .toBe('qqq finally unleashed their TRUE POWER! ONE PUUUUUUNCH!!!')
+    expect(translateText('Рик Санчез')).toBe('Rick Sanchez')
+    expect(translateText('Мишень: +16 Skill (за сильного врага)'))
+      .toBe('Target: +16 Skill (for a strong enemy)')
+    expect(translateText('Мишень: +20 Skill (за умного врага)'))
+      .toBe('Target: +20 Skill (for a smart enemy)')
+    expect(translateText('Они скинули Weedwick! Сволочи!'))
+      .toBe('They threw Weedwick off the hill! Bastards!')
+    expect(translateText('100 отжиманий. 100 приседаний. 100 подъёмов корпуса. 10 км бега. КАЖДЫЙ ДЕНЬ. Побочный эффект - потеря волос.'))
+      .toBe('100 push-ups. 100 sit-ups. 100 squats. A 10 km run. EVERY SINGLE DAY. Side effect: hair loss.')
+    expect(translateText('Unremarkable (condescending): Boring. Пойду домой.'))
+      .toBe("Unremarkable (condescending): Boring. I'm going home.")
+    expect(translateText('You напали на игрока Itachi')).toBe('You attacked Itachi')
+    expect(translateText('Dead Broke (monster): Если никто не видел, считается ли это за подвиг?'))
+      .toBe('Dead Broke (monster): If nobody saw it, does it still count as hero work?')
+    expect(translateText('Чутьё: Шаринган. Не смотри в глаза. (Itachi)'))
+      .toBe('Witcher senses: Sharingan. Do not meet his eyes. (Itachi)')
+    expect(translateText('+2 regular points (Контракт+Контракт)'))
+      .toBe('+2 regular points (Contract+Contract)')
+    expect(translateText('Meditation: Закрываю глаза... Нет, запах никуда не делся.Meditation: Закрываю глаза... Нет, запах никуда не делся.'))
+      .toBe("Meditation: Close my eyes... Nope, smell's still here.Meditation: Close my eyes... Nope, smell's still here.")
+  })
+
+  it('has an exact legacy-replay translation for every authored PhraseClass variant', () => {
+    for (const group of Object.values(phrases)) {
+      for (const pair of group.phrases) {
+        const actual = translateText(`|>Phrase<|${group.passiveNameRussian}: ${pair.russian}`)
+        const allowed = group.phrases
+          .filter(candidate => candidate.russian === pair.russian)
+          .map(candidate => `|>Phrase<|${group.passiveNameEnglish}: ${candidate.english}`)
+        if (!allowed.includes(actual))
+          throw new Error(JSON.stringify({ group: group.passiveNameRussian, pair, actual, allowed }))
+      }
+    }
+  })
+
   it('translates the canonical formatted forms before replay markdown is rendered', () => {
     expect(translateText('*Справедливость*: ***+ 4!***<:e_:562879579694301184>Верь в мою веру в тебя!'))
       .toBe('*Justice*: ***+ 4!***<:e_:562879579694301184> Believe in me believing in you!')
@@ -58,18 +97,18 @@ describe('English presentation localization', () => {
 
   it('adapts canonical character phrase records in Russian replay snapshots', () => {
     expect(translateText('|>Phrase<|Одиночество: Что делаешь?'))
-      .toBe('|>Phrase<|Party of One: Look at all my friends not answering.')
+      .toBe('|>Phrase<|Party of One: What are you doing?')
     expect(translateText('|>Phrase<|Доебаться: Вам ответили на письмо!'))
-      .toBe("|>Phrase<|Won't Stop Messaging: You have 37 unread messages.")
-    expect(translateText('|>Phrase<|Лысина: Этот монстр пал от руки Кинга! ...наверное.'))
-      .toBe('|>Phrase<|Baldness: Serious Series: one very ordinary punch.')
+      .toBe("|>Phrase<|Won't Stop Messaging: You got a reply to your email!")
+    expect(translateText('|>Phrase<|Неприметность (напал кто-то еще): Этот монстр пал от руки Кинга! ...наверное.'))
+      .toBe('|>Phrase<|Unremarkable (someone else attacked): King defeated this monster! ...probably.')
     expect(translateText('|>Phrase<|Да всё нахуй эту игру: Нахуй эту игру'))
-      .toBe('|>Phrase<|Screw This Game: Screw this game.')
+      .toBe('|>Phrase<|Screw This Game: Screw this game')
   })
 
   it('repairs phrase records partially translated by older projections', () => {
     expect(translateText('|>Phrase<|Party of One: Как дела?'))
-      .toBe('|>Phrase<|Party of One: Look at all my friends not answering.')
+      .toBe("|>Phrase<|Party of One: How's it going?")
   })
 
   it('renders the exact authored variant from bilingual live and replay records', () => {

@@ -33,6 +33,15 @@ public static class GameLocalization
         (new Regex(@"Обменять\s+(\d+)\s+Морали\s+на\s+(\d+)\s+[CС]килла", RegexOptions.IgnoreCase), "Trade $1 Moral for $2 Skill"),
         (new Regex(@"Вы напали на игрока\s+", RegexOptions.IgnoreCase), "You attacked "),
         (new Regex(@"Вы напали на\s+", RegexOptions.IgnoreCase), "You attacked "),
+        (new Regex(@"You напали на игрока\s+", RegexOptions.IgnoreCase), "You attacked "),
+        (new Regex(@"за \*\*сильного\*\* врага", RegexOptions.IgnoreCase), "for a **strong** enemy"),
+        (new Regex(@"за \*\*умного\*\* врага", RegexOptions.IgnoreCase), "for a **smart** enemy"),
+        (new Regex(@"за \*\*быстрого\*\* врага", RegexOptions.IgnoreCase), "for a **fast** enemy"),
+        (new Regex(@"за сильного врага", RegexOptions.IgnoreCase), "for a strong enemy"),
+        (new Regex(@"за умного врага", RegexOptions.IgnoreCase), "for a smart enemy"),
+        (new Regex(@"за быстрого врага", RegexOptions.IgnoreCase), "for a fast enemy"),
+        (new Regex(@"Они скинули\s+(\*\*[^*]+\*\*|[^\r\n!]+)!\s*Сволочи!", RegexOptions.IgnoreCase), "They threw $1 off the hill! Bastards!"),
+        (new Regex(@"(.+?) наконец показал свою ИСТИННУЮ СИЛУ! ONE PUUUUUUNCH!!!", RegexOptions.IgnoreCase), "$1 finally unleashed their TRUE POWER! ONE PUUUUUUNCH!!!"),
         (new Regex(@"Игрок\s+(.+?)\s+победил", RegexOptions.IgnoreCase), "Player $1 won"),
         (new Regex(@"Ожидаем других игроков", RegexOptions.IgnoreCase), "Waiting for other players"),
         (new Regex(@"Вы не походили\. Использовался Авто Ход", RegexOptions.IgnoreCase), "You did not act. Auto Move was used"),
@@ -109,13 +118,15 @@ public static class GameLocalization
                 Translate(protectedText, language, catalog, translatePhraseMarkers, false),
                 renderedPhrases);
         }
-        if (language == English && !Regex.IsMatch(text, "[А-Яа-яЁё]"))
+        if (language == English && !Regex.IsMatch(text, "[А-Яа-яЁё]") &&
+            !text.Contains("|>Phrase<|", StringComparison.Ordinal))
             return text;
         if (language == Russian && !Regex.IsMatch(text, "[A-Za-z]"))
             return text;
 
         if (translatePhraseMarkers && language == English && text.Contains("|>Phrase<|", StringComparison.Ordinal))
         {
+            text = PhraseLocalization.ResolveLegacyMarkers(text, English);
             text = Regex.Replace(text, @"\|>Phrase<\|([^:\r\n]+):\s*([^\r\n]*)", match =>
                 $"|>Phrase<|{Translate(match.Groups[1].Value, English, catalog, false)}: " +
                 TranslatePhrase(match.Groups[1].Value, match.Groups[2].Value, catalog));
@@ -148,6 +159,9 @@ public static class GameLocalization
 
     private static string TranslatePhrase(string passiveName, string phrase, Catalog catalog)
     {
+        if (PhraseLocalization.TryTranslateLegacy(passiveName, phrase, English, out var authored))
+            return authored;
+
         var translated = Translate(phrase, English, catalog, false);
         if (!Regex.IsMatch(translated, "[А-Яа-яЁё]")) return translated;
 
@@ -254,6 +268,7 @@ public static class GameLocalization
                 PropertyNameCaseInsensitive = true,
             }) ?? new Catalog();
             AddCharacterContent(result, path);
+            AddPhraseContent(result);
             result.BuildSortedTerms();
             Console.WriteLine($"[i18n] Loaded {result.Exact.Count} exact phrases and {result.Terms.Count} terms.");
             return result;
@@ -283,6 +298,14 @@ public static class GameLocalization
                     catalog.Exact[passive.PassiveDescription] = passiveDescription;
             }
         }
+    }
+
+    private static void AddPhraseContent(Catalog catalog)
+    {
+        foreach (var (russian, english) in PhraseLocalization.GetUnambiguousPairs(true))
+            catalog.Exact.TryAdd(russian, english);
+        foreach (var (english, russian) in PhraseLocalization.GetUnambiguousPairs(false))
+            catalog.RussianExact.TryAdd(english, russian);
     }
 
     private sealed class Catalog
