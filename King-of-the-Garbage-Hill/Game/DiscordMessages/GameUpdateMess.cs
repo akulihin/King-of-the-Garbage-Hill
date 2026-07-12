@@ -234,32 +234,32 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
             }
 
-        // Goblin buildings — visible to all players
+        // Goblin board objects — visible only to the owner/admin
         var goblinPlayer = game.PlayersList.Find(p => p.GameCharacter.Name == "Стая Гоблинов");
-        if (goblinPlayer != null)
+        if (goblinPlayer != null && (player1.GameCharacter.Name == "Стая Гоблинов" || player1.PlayerType == 2))
         {
             if (number is 1 or 2 or 6) customString += "⛏️";
             if (goblinPlayer.Passives.GoblinZiggurat.BuiltPositions.Contains(number)) customString += "🏛️";
         }
 
-        // Protection indicators — visible to all players
-        if (player2.Passives.GoblinZiggurat.IsInZiggurat)
+        // Protection indicators follow the same owner/admin boundary
+        if ((player1.GameCharacter.Name == "Стая Гоблинов" || player1.PlayerType == 2) && player2.Passives.GoblinZiggurat.IsInZiggurat)
             customString += "🛡️";
 
         if (game.RoundNo == 10 && player2.GameCharacter.Passive.Any(
             x => x.PassiveName == "Стримснайпят и банят и банят и банят"))
             customString += "🚫";
 
-        if (Madara.IsSealed(player2))
+        if ((player1.PlayerType == 2 || player1.GetPlayerId() == player2.GetPlayerId()) && Madara.IsSealed(player2))
             customString += "🚫";
 
-        // DooM Guy demon nests are public leaderboard objectives.
-        if (game.PlayersList.Any(x => x.GameCharacter.Name == DoomGuy.CharacterName
-                                      && x.Passives.DoomGuy.DemonNests.Contains(player2.GetPlayerId())))
+        // DooM Guy demon nests — visible only to the owner/admin.
+        if ((player1.GameCharacter.Name == DoomGuy.CharacterName || player1.PlayerType == 2)
+            && game.PlayersList.Any(x => x.GameCharacter.Name == DoomGuy.CharacterName && x.Passives.DoomGuy.DemonNests.Contains(player2.GetPlayerId())))
             customString += "🔥";
 
-        // Salldorum Shen active indicator
-        if (player2.GameCharacter.Name == "Salldorum" && player2.Passives.SalldorumShen.ActiveThisTurn)
+        // Salldorum Shen active indicator — self/admin only
+        if ((player1.PlayerType == 2 || player1.GetPlayerId() == player2.GetPlayerId()) && player2.GameCharacter.Name == "Salldorum" && player2.Passives.SalldorumShen.ActiveThisTurn)
             customString += "🛡️";
 
         // Геральт — monster type icon
@@ -727,13 +727,13 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
             }
 
 
-        // Ally sees 🤝 on Napoleon
-        if (other.GameCharacter.Passive.Any(p => p.PassiveName == "Вступить в союз")
+        // Reciprocal alliance annotations are admin-only; owner-side marks are rendered in the switch above.
+        if (me.PlayerType == 2 && other.GameCharacter.Passive.Any(p => p.PassiveName == "Вступить в союз")
             && other.Passives.NapoleonAlliance.AllyId == me.GetPlayerId())
             customString += " 🤝";
 
-        // Ally sees ⚔️ on the player that Napoleon is currently targeting
-        if (other.GameCharacter.Passive.Any(p => p.PassiveName == "Вступить в союз") is false)
+        // Admin sees ⚔️ on the player that Napoleon's ally is currently targeting
+        if (me.PlayerType == 2 && other.GameCharacter.Passive.Any(p => p.PassiveName == "Вступить в союз") is false)
         {
             var napOther = game.PlayersList.Find(x =>
                 x.GameCharacter.Passive.Any(p => p.PassiveName == "Вступить в союз")
@@ -742,8 +742,8 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                 customString += " ⚔️";
         }
 
-        // Marked player sees 🤝 on Support
-        if (other.GameCharacter.Passive.Any(p => p.PassiveName == "Premade")
+        // Reciprocal Support marker is likewise admin-only
+        if (me.PlayerType == 2 && other.GameCharacter.Passive.Any(p => p.PassiveName == "Premade")
             && other.Passives.SupportPremade.MarkedPlayerId == me.GetPlayerId())
             customString += " 🤝";
 

@@ -75,8 +75,8 @@
 ## Minor
 
 ### m1. "Вампур_" typo kills a flavor Easter egg
-- `GameUpdateMess.cs:1424` checks `Name == "Вампур_"` (JSON: "Вампур") — the garlic level-up placeholder never shows.
-- **Fixed:** 2026-07-03 (pre-approved string bug) — `Name == "Вампур_"` → `"Вампур"` (`GameUpdateMess.cs:1424`); removed `BAD-NAME|Вампур_|m1` from `tools/known-warnings.txt` (audit re-run: no reappearance).
+- Before the fix, the condition now at `GameUpdateMess.cs:1504` checked `Name == "Вампур_"` (JSON: "Вампур") — the garlic level-up placeholder never showed.
+- **Fixed:** 2026-07-03 (pre-approved string bug) — `Name == "Вампур_"` → `"Вампур"` (`GameUpdateMess.cs:1504`); removed `BAD-NAME|Вампур_|m1` from `tools/known-warnings.txt` (audit re-run: no reappearance).
 
 ### m2. "Vampyr Позорный" logic is commented out
 - `GameReactions.cs:994-1000` (level-up denial) disabled; only the phrase object remains. Remove or restore.
@@ -146,11 +146,11 @@
 - **Confirmed intended** 2026-07-04 (designer verdict «ОК — по событиям»: каждый сорванный бой = очко). No code change; exact per-event behavior documented in CHARACTERS.md.
 
 ### m22. Latin "Saitama" vs JSON "Сайтама" — dead "👑 King" flair
-- `GameUpdateMess.cs:713`: Saitama's leaderboard view should mark the current #1 as "👑 King", but the check is `Name == "Saitama"` while the character is named "Сайтама" — never renders. Same bug family as C1/m1. *(Found by `tools/audit-passives.sh` on its first run.)*
-- **Fixed:** 2026-07-03 (pre-approved string bug) — `Name == "Saitama"` → `"Сайтама"` (`GameUpdateMess.cs:713`); removed `BAD-NAME|Saitama|m22` from `tools/known-warnings.txt` (audit re-run: no reappearance).
+- Before the fix, the leaderboard condition now at `GameUpdateMess.cs:751` checked `Name == "Saitama"` while the character is named "Сайтама", so the current #1 never received Saitama's "👑 King" marker. Same bug family as C1/m1. *(Found by `tools/audit-passives.sh` on its first run.)*
+- **Fixed:** 2026-07-03 (pre-approved string bug) — `Name == "Saitama"` → `"Сайтама"` (`GameUpdateMess.cs:751`); removed `BAD-NAME|Saitama|m22` from `tools/known-warnings.txt` (audit re-run: no reappearance).
 
 ### m23. Dopa's `dopa-attack-select` menu is dead UI — selections silently ignored
-- `GetDopaMenu` builds the second-action select with custom-id `dopa-attack-select` (`GameUpdateMess.cs:1384-1431`) and it is attached for the "Dopa" passive in the game-buttons builder (`GameUpdateMess.cs:1652-1654`), but the component dispatch switch (`GameReactions.cs:157` through `GameReactions.cs:417-421`) has **no case for it** — a click defers and nothing happens.
+- Before the fix, the now-deleted GetDopaMenu built a second-action select with custom-id dopa-attack-select and a dead "Dopa" passive branch attached it in the game-buttons builder. The component dispatch switch had **no case for it** (`GameReactions.cs:157,417-421`) — a click would defer and do nothing.
 - The working Макро second action flows through the regular attack/block handlers instead (`GameReactions.cs:730-737`, `GameReactions.cs:329-352`), so the menu is pure decoration that looks interactive. *(Found 2026-07-04 during the interface-docs audit; docs/DISCORD-INTERFACE.md §5.)*
 - **Fix direction**: delete `GetDopaMenu` + its attach (Макро already works via `attack-select` and `block`), or route the custom-id into `HandleAttack`.
 - **Fixed:** 2026-07-04 — deleted `GetDopaMenu` and its `case "Dopa":` attach from `GameUpdateMess.cs` (Макро's real second action already flows through the regular `attack-select`/`block` handlers). Verification correction to the finding: the menu never actually **rendered** — the attach switch iterates `passive.PassiveName` and no passive named "Dopa" exists in `characters.json` (the character's passives are Макро/Пассивный импакт/…), nor is one added at runtime, so the `case "Dopa":` was itself dead and the select was unreachable UI rather than silently-ignored UI. Removed the `dopa-attack-select` row + §11 quirk line from `docs/DISCORD-INTERFACE.md`; downstream `GameUpdateMess.cs` anchors in the docs re-pointed (−49/−53 lines).
@@ -168,7 +168,7 @@
 - The owner DTO carried the marked players' nicknames in `TheBoysStateDto.SupMarks` and rendered them inside TheBoys' own left-side widget, rather than marking the corresponding enemy rows. Conversely, `TheBoysSupOnMe` was serialized onto a marked enemy's own private card and explicitly told them `Помечен как «суп»`. These removed DTO/UI fields are retained here as the pre-fix finding, not as current code references.
 - **Impact**: the owner has to cross-reference a nickname list instead of seeing the table target, while enemies receive hidden Butcher targeting information they should not know.
 - **Fix direction**: expose a viewer-scoped boolean on each marked enemy row only when the requester is TheBoys; render a distinct sup icon on that row; remove the owner nickname chips and the target-facing sup DTO/widget.
-- **Fixed:** 2026-07-10 — added viewer-scoped `PlayerDto.IsTheBoysSupTarget`, populated only when the requester owns `Пацаны` (`GameStateDto.cs:100-108`; `GameStateMapper.cs:137-145,345-351`). Web enemy rows render a 🦸 `СУПЕР` badge (`PlayerCard.vue:738-741,4242-4260`); Discord appends 🦸 to those leaderboard rows only in TheBoys' DM (`GameUpdateMess.cs:697-719`). Removed `SupMarks` nickname chips and `TheBoysSupOnMe` DTO/type/widget, so targets and spectators receive no mark disclosure.
+- **Fixed:** 2026-07-10 — added viewer-scoped `PlayerDto.IsTheBoysSupTarget`, populated only when the requester owns `Пацаны` (`GameStateDto.cs:100-108`; `GameStateMapper.cs:137-145,345-351`). Web enemy rows render a 🦸 `СУПЕР` badge (`PlayerCard.vue:738-741,4242-4260`); Discord appends 🦸 to those leaderboard rows only in TheBoys' DM (`GameUpdateMess.cs:697-719`). Removed the obsolete SupMarks nickname chips and TheBoysSupOnMe DTO/type/widget, so targets and spectators receive no mark disclosure.
 
 ### m21. `SecureRandom` is not secure (naming hazard)
 - `Helpers/SecureRandom.cs:25-45`: the crypto implementation is commented out; the service is a plain `System.Random` wrapper. Fine for a game, but the name misleads — and `PassivesClass` carries a private copy that *does* use `RandomNumberGenerator` (`PassivesClass.cs:277-296`), so trigger schedules are crypto-random while combat rolls aren't. Unify or rename.
@@ -383,6 +383,12 @@ Worth stating because they're easy to suspect: Francie's final-turn contract win
 - **Impact:** forced-skipping bots and every bot challenging Madara on round 8 could carry unspent points into a committed action, making their fight snapshot weaker and violating the same spend-before-action rule enforced for humans.
 - **Fixed:** 2026-07-11 — bot playstyle selection and the complete level-up loop now run before every action fast path (`BotsBehavior.cs:72-132`). The readiness tick also prepares every live strict bot before the idempotent Madara challenge precommit (`CheckIfReady.cs:1027-1031`), so the M27 no-wait behavior remains intact without bypassing progression.
 
+### M35. Character-specific leaderboard icons reveal masked opponents
+- **Expected:** before the game finishes, character identity remains a guessing mechanic. Character-specific leaderboard prefixes and widget state must be visible only to the character owner (or an admin), while spectators and opponents receive no annotation that identifies a masked character. Тигр's round-10 `🚫` is the explicit exception: it represents a public system ban and remains visible to everyone as part of the joke.
+- **Actual before the fix:** the shared Discord/web prefix builder exposed Goblin mines, Ziggurats and protection, DooM Guy demon nests, sealed Мадара and active Salldorum Шэн to every player (`GameUpdateMess.cs:219-270`). Recipient-side `🤝`/`⚔️` annotations also identified Napoleon to his ally and Support to the marked Carry (`GameUpdateMess.cs:730-748`). Because the web custom-leaderboard prefix/text reuse those methods, the same leak reached live games and player-perspective replays; only spectators escaped it because they receive no populated custom board.
+- **Impact:** a single special icon could solve an opponent's character without a reveal mechanic, undermining predictions and the core hidden-roster game.
+- **Fixed:** 2026-07-12 — character-derived board objects are now owner/admin-scoped except for Тигр's intentionally public system-ban `🚫`. Goblin and DooM owners retain their target/position markers, self-only seal/Шэн status remains available, and Napoleon/Support retain their complete owner-side alliance views; opponents and recipients no longer receive the other identifying icons. The owner-only `PassiveAbilityStates` mapper and all other per-character annotations were audited and already satisfied this boundary (`GameUpdateMess.cs:219-811`; `GameStateMapper.cs:360-823`).
+
 ### m29. Three V2 achievement descriptions do not match their evaluators
 - `x_spartan_mylorik` RU copy says the **next** fight, while the tracker intentionally accepts any later fight (`AchievementClass.cs:326-332`; `DoomsdayMachine.cs:1372-1390`). `c_darksci_unstable` requires finishing alive at actual place 1 but omits “alive” in both languages (`AchievementClass.cs:284-287,513-519`). `c_kratos_olympus` says five “enemies,” although team mode counts every other player, including teammates (`AchievementClass.cs:264-267,491-492`; `CharacterPassives.cs:1730-1744`).
 - **Impact:** the achievement center can tell players a stricter, looser, or team-inaccurate requirement than the code actually evaluates.
@@ -431,7 +437,7 @@ Worth stating because they're easy to suspect: Francie's final-turn contract win
 
 ## Summary count
 
-**1 Critical** (C1) · **34 Major** (M1–M34) · **34 Minor** (m1–m34) · **11 Design questions** (D1–D11). Recommended triage order: C1, M5/M6 (Тигр), M9 (Котики), M7/M17 (Butcher), M11/M12 (forced fights & kills), M1 (Goblin win), M4/M8 (Toxic Mate), then the rest. (M13–M34 fixed; m5/m6/m7/m17/m21/m23/m25/m27/m28/m29/m30/m31/m32/m33/m34 fixed; m18 confirmed intended; m20 documented. Still open: m12, m19, m24, m26.)
+**1 Critical** (C1) · **35 Major** (M1–M35) · **34 Minor** (m1–m34) · **11 Design questions** (D1–D11). Recommended triage order: C1, M5/M6 (Тигр), M9 (Котики), M7/M17 (Butcher), M11/M12 (forced fights & kills), M1 (Goblin win), M4/M8 (Toxic Mate), then the rest. (M13–M35 fixed; m5/m6/m7/m17/m21/m23/m25/m27/m28/m29/m30/m31/m32/m33/m34 fixed; m18 confirmed intended; m20 documented. Still open: m12, m19, m24, m26.)
 
 ## Verification addendum (second pass, 2026-07-01)
 
