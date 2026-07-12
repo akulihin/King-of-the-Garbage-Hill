@@ -102,8 +102,14 @@ const skippedToEnd = ref(false)
 const lastAnimatedRound = ref<string>('')
 let timer: ReturnType<typeof setTimeout> | null = null
 const justiceUpTimers = new Set<ReturnType<typeof setTimeout>>()
-const STEP_DELAY_MS = 800
-const R3_RESULT_HOLD_MS = 450
+// Uninterrupted 1x result timelines:
+// visuals / normal audio: [0,850,850,850]
+// 3_lww audio only: [0,850,750,950]; rnd_roll starts on the R2 beat.
+const STEP_DELAY_MS = 850
+const R3_NEEDLE_MS = 850
+const R3_LWW_SOUND_DELAY_MS = 750
+let r3SoundTimer: ReturnType<typeof setTimeout> | null = null
+let r3SettleTimer: ReturnType<typeof setTimeout> | null = null
 
 // ── Fight result glow + screen shake ──────────────────────────────
 const fightResult = ref<'win' | 'loss' | null>(null)
@@ -135,6 +141,7 @@ function jumpToFightReplay(f: FightEntry) {
   )
   if (idx === -1) return
   clearTimer()
+  clearR3Timers()
   isPlaying.value = false
   skippedToEnd.value = true
   currentFightIdx.value = idx
@@ -343,15 +350,13 @@ const round1Factors = computed<Factor[]>(() => {
 })
 
 // ── Step counting for animation ─────────────────────────────────────
-// For MY fights: intro(0) → R1 factors(1..N) → R1 result(N+1) → R2(N+2)
-// → [R3 modifiers(N+3) → R3 roll(N+4)] → result(last)
+// For MY fights: intro(0) → R1 factors(1..N) → R1 result(N+1)
+// → R2 + optional R3 roll(N+2) → result(N+3)
 // For ENEMY fights: intro(0) → result(1) (just 2 steps)
 const totalSteps = computed(() => {
   if (isSpecialOutcome.value) return 2
   if (!isMyFight.value) return 2 // enemy: intro + result
-  let steps = 1 + round1Factors.value.length + 1 + 1 + 1 // intro + R1factors + R1result + R2 + finalResult
-  if (fight.value?.usedRandomRoll) steps += 2 // R3 modifiers, then the timed roll
-  return steps
+  return 1 + round1Factors.value.length + 1 + 1 + 1 // intro + R1factors + R1result + R2/R3 + finalResult
 })
 
 // ── Weighing machine bar animation ──────────────────────────────────
@@ -438,14 +443,14 @@ const showR2 = computed(() => {
 const showR3 = computed(() => {
   if (!fight.value?.usedRandomRoll) return false
   if (skippedToEnd.value || !isMyFight.value) return true
-  return currentStep.value > round1Factors.value.length + 2
+  return currentStep.value > round1Factors.value.length + 1
 })
 
-/** Show the animated roll bar one step after its modifiers. */
+/** Show R3 modifiers and its 850 ms roll together on the R2 beat. */
 const showR3Roll = computed(() => {
   if (!fight.value?.usedRandomRoll) return false
   if (skippedToEnd.value || !isMyFight.value) return true
-  return currentStep.value > round1Factors.value.length + 3
+  return currentStep.value > round1Factors.value.length + 1
 })
 
 const showFinalResult = computed(() => {
@@ -533,6 +538,10 @@ watch(showFinalResult, (show: boolean) => {
 function clearTimer() {
   if (timer) { clearTimeout(timer); timer = null }
 }
+function clearR3Timers() {
+  if (r3SoundTimer) { clearTimeout(r3SoundTimer); r3SoundTimer = null }
+  if (r3SettleTimer) { clearTimeout(r3SettleTimer); r3SettleTimer = null }
+}
 function stepDelay(): number {
   // Enemy fights are quick — short delay just to show the card briefly
   if (!isMyFight.value) return 200 / speed.value
@@ -580,14 +589,14 @@ function advanceStep() {
 
 function isR3RollStep(): boolean {
   return Boolean(fight.value?.usedRandomRoll)
-    && currentStep.value === round1Factors.value.length + 4
+    && currentStep.value === round1Factors.value.length + 2
 }
 
 function scheduleNext() {
   clearTimer()
   if (isR3RollStep()) {
     if (!r3NeedleSettled.value) return
-    timer = setTimeout(advanceStep, R3_RESULT_HOLD_MS / speed.value)
+    timer = setTimeout(advanceStep, STEP_DELAY_MS / speed.value)
     return
   }
   timer = setTimeout(advanceStep, stepDelay())
@@ -598,18 +607,19 @@ function togglePlay() {
   else { clearTimer() }
 }
 function skipToEnd() {
-  clearTimer(); isPlaying.value = false; skippedToEnd.value = true
+  clearTimer(); clearR3Timers(); isPlaying.value = false; skippedToEnd.value = true
   currentFightIdx.value = myFights.value.length - 1
   currentStep.value = totalSteps.value - 1
   emit('replay-ended')
 }
 function setSpeed(s: number) { speed.value = s }
 function restart() {
-  clearTimer(); currentFightIdx.value = 0; currentStep.value = 0
+  clearTimer(); clearR3Timers(); currentFightIdx.value = 0; currentStep.value = 0
   skippedToEnd.value = false; isPlaying.value = true; clashPhase.value = 'idle'; scheduleNext()
 }
 function restartCurrentFight() {
   clearTimer()
+  clearR3Timers()
   currentStep.value = 0
   fightResult.value = null
   fightShake.value = false
@@ -651,6 +661,7 @@ watch(() => props.fights, () => {
     nextTick(() => {
       const clamped = Math.min(idx, fights.length - 1)
       clearTimer()
+      clearR3Timers()
       isPlaying.value = false
       skippedToEnd.value = true
       currentFightIdx.value = clamped
@@ -661,9 +672,9 @@ watch(() => props.fights, () => {
 
 onUnmounted(() => {
   clearTimer()
+  clearR3Timers()
   justiceUpTimers.forEach(clearTimeout)
   justiceUpTimers.clear()
-  if (needleStartTimer) clearTimeout(needleStartTimer)
   if (weighingAnimFrame) cancelAnimationFrame(weighingAnimFrame)
   if (needleAnimFrame) cancelAnimationFrame(needleAnimFrame)
   clearSlamTimers()
@@ -762,18 +773,53 @@ watch(currentStep, (step: number) => {
       }
       void playClipsBatched(clips)
     }
+    if (hasR3) {
+      // R3 shares the R2 visual beat. Its result sound normally lands 850 ms
+      // later; 3_lww starts 100 ms early while the visual still settles at 850 ms.
+      playDoomsDayRndRoll()
+
+      const attackerWon = f.randomNumber <= f.randomForPoint
+      const weWonR3 = sign.value > 0 ? attackerWon : !attackerWon
+      const r3result: 'w' | 'l' = weWonR3 ? 'w' : 'l'
+      roundResults.value = [...roundResults.value, r3result]
+
+      const thresholdPct = f.randomForPoint / f.maxRandomNumber * 100
+      const needlePct = f.randomNumber / f.maxRandomNumber * 100
+      const distance = Math.abs(needlePct - thresholdPct)
+      const resultPath = doomsDayWinLosePath(roundResults.value, false, false)
+      const clips: SyncClip[] = [{ path: resultPath, group: 'doomsDayWinLose' }]
+      if (weWonR3 && distance < 1) {
+        clips.push({ path: 'dooms_day/round_3/round_3_win_less_1_percent.mp3', group: 'doomsDay' })
+      } else if (distance < 5) {
+        clips.push({ path: 'dooms_day/round_3/round_3_win_or_lose__less_5_percent.mp3', group: 'doomsDay' })
+      }
+
+      clearR3Timers()
+      const soundDelay = resultPath.endsWith('3_lww.mp3')
+        ? R3_LWW_SOUND_DELAY_MS
+        : R3_NEEDLE_MS
+      r3SoundTimer = setTimeout(() => {
+        r3SoundTimer = null
+        if (skippedToEnd.value || !isR3RollStep()) return
+        void playClipsBatched(clips)
+      }, soundDelay / speed.value)
+
+      const target = r3NeedleTarget()
+      r3SettleTimer = setTimeout(() => {
+        r3SettleTimer = null
+        if (skippedToEnd.value || !isR3RollStep()) return
+        if (needleAnimFrame) {
+          cancelAnimationFrame(needleAnimFrame)
+          needleAnimFrame = null
+        }
+        r3NeedlePos.value = target
+        r3NeedleSettled.value = true
+      }, R3_NEEDLE_MS / speed.value)
+    }
     return
   }
 
-  if (hasR3) {
-    // Step factorCount+3: reveal R3 modifiers and start the roll cue.
-    if (step === factorCount + 3) {
-      playDoomsDayRndRoll()
-      return
-    }
-  }
-
-  // R3 result is tied to needle settlement; final sound is tied to final reveal.
+  // R3 result is scheduled from the R2 beat; final sound is tied to final reveal.
 })
 
 // No-fights sound: fights exist but none are mine (play only once per round)
@@ -907,10 +953,9 @@ const phase3Result = computed(() => {
   return r3WeWon.value ? 1 : -1
 })
 
-/** Delay phase-tracker pip reveals to sync with animations */
+/** Phase-tracker reveals stay on the same 850 ms beat grid as the final label. */
 const phase2Revealed = computed(() => {
-  if (!isMyFight.value || skippedToEnd.value) return showR2.value
-  return slamPhase.value === 'resolved'
+  return showR2.value
 })
 const phase3Revealed = computed(() => {
   if (!isMyFight.value || skippedToEnd.value) return showR3Roll.value
@@ -920,25 +965,6 @@ const phase3Revealed = computed(() => {
 watch(r3NeedleSettled, (settled: boolean) => {
   if (!settled || !fight.value || !isMyFight.value || skippedToEnd.value) return
   if (!isR3RollStep()) return
-
-  const f = fight.value
-  const s = sign.value
-  const attackerWon = f.randomNumber <= f.randomForPoint
-  const weWonR3 = s > 0 ? attackerWon : !attackerWon
-  const r3result: 'w' | 'l' = weWonR3 ? 'w' : 'l'
-  roundResults.value = [...roundResults.value, r3result]
-
-  const thresholdPct = f.randomForPoint / f.maxRandomNumber * 100
-  const needlePct = f.randomNumber / f.maxRandomNumber * 100
-  const distance = Math.abs(needlePct - thresholdPct)
-  const clips: SyncClip[] = [{ path: doomsDayWinLosePath(roundResults.value, false, false), group: 'doomsDayWinLose' }]
-  if (weWonR3 && distance < 1) {
-    clips.push({ path: 'dooms_day/round_3/round_3_win_less_1_percent.mp3', group: 'doomsDay' })
-  } else if (distance < 5) {
-    clips.push({ path: 'dooms_day/round_3/round_3_win_or_lose__less_5_percent.mp3', group: 'doomsDay' })
-  }
-  void playClipsBatched(clips)
-
   if (isPlaying.value) scheduleNext()
 })
 
@@ -1093,10 +1119,16 @@ const r3RollPct = computed(() => {
   return s > 0 ? rollPct : 100 - rollPct
 })
 
+function r3NeedleTarget(): number {
+  let target = r3RollPct.value
+  if (r3Underflow.value && target <= r3DisplayChance.value) {
+    target = r3DisplayChance.value + 1
+  }
+  return target
+}
 
 /** Animated needle bounce animation */
 let needleAnimFrame: ReturnType<typeof requestAnimationFrame> | null = null
-let needleStartTimer: ReturnType<typeof setTimeout> | null = null
 
 function animateNeedleBounce(target: number) {
   if (needleAnimFrame) cancelAnimationFrame(needleAnimFrame)
@@ -1129,8 +1161,7 @@ function animateNeedleBounce(target: number) {
     wps[i] = Math.max(0.5, Math.min(99.5, wps[i]))
   }
 
-  const baseDuration = distance < 5 ? 1800 : distance < 15 ? 1650 : 1400
-  const duration = baseDuration / speed.value
+  const duration = R3_NEEDLE_MS / speed.value
 
   // Catmull-Rom spline for smooth continuous motion through waypoints
   const pts = [wps[0], ...wps, wps[wps.length - 1]]
@@ -1178,7 +1209,7 @@ function animateNeedleBounce(target: number) {
       needleAnimFrame = requestAnimationFrame(tick)
     } else {
       r3NeedlePos.value = target
-      r3NeedleSettled.value = true
+      needleAnimFrame = null
     }
   }
 
@@ -1186,21 +1217,15 @@ function animateNeedleBounce(target: number) {
 }
 
 watch(showR3Roll, (show: boolean) => {
-  if (needleStartTimer) { clearTimeout(needleStartTimer); needleStartTimer = null }
   if (show) {
     r3NeedlePos.value = 0
     r3NeedleSettled.value = false
-    let target = r3RollPct.value
-    if (r3Underflow.value && target <= r3DisplayChance.value) {
-      target = r3DisplayChance.value + 1
-    }
+    const target = r3NeedleTarget()
     nextTick(() => {
-      needleStartTimer = setTimeout(() => {
-        needleStartTimer = null
-        animateNeedleBounce(target)
-      }, 50 / speed.value)
+      if (showR3Roll.value && !skippedToEnd.value) animateNeedleBounce(target)
     })
   } else {
+    clearR3Timers()
     r3NeedlePos.value = 0
     r3NeedleSettled.value = false
     if (needleAnimFrame) { cancelAnimationFrame(needleAnimFrame); needleAnimFrame = null }
@@ -1384,7 +1409,7 @@ function getDisplayCharName(orig: string, u: string): string {
           <button v-for="(f, idx) in myFights" :key="idx" class="fa-thumb"
             :class="{ active: idx === currentFightIdx, 'is-block': f.outcome === 'block', 'is-skip': f.outcome === 'skip' }"
             data-sfx-utility="true"
-            @click="currentFightIdx = idx; currentStep = totalSteps - 1; skippedToEnd = true; isPlaying = false; clearTimer()"
+            @click="clearTimer(); clearR3Timers(); currentFightIdx = idx; currentStep = totalSteps - 1; skippedToEnd = true; isPlaying = false"
             :title="`${f.attackerName} vs ${f.defenderName}`">
             <span class="thumb-idx">{{ (idx as number) + 1 }}</span>
           </button>

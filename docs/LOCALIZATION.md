@@ -63,7 +63,7 @@ Development builds warn in the console when an English-rendered node still conta
 2. Use `terms` only for names or tokens safe to replace in arbitrary presentation strings.
 3. Test switching both ways after the component has reactively updated.
 
-The Chronicle is a special HTML-rendering boundary: `FightAnimation.formatLetopis` localizes the complete Discord-markdown string before replacing bold/emphasis markers with HTML. This ordering is required for templates that span formatted dynamic names, such as `Они скинули **Darksci**! Сволочи!` and target-class rewards (`FightAnimation.vue:998-1012`).
+The Chronicle is a special HTML-rendering boundary: `FightAnimation.formatLetopis` localizes the complete Discord-markdown string before replacing bold/emphasis markers with HTML. This ordering is required for templates that span formatted dynamic names, such as `Они скинули **Darksci**! Сволочи!` and target-class rewards (`FightAnimation.vue:1024-1039`).
 
 ## 6. Generated text
 
