@@ -8,7 +8,7 @@ King of the Garbage Hill — turn-based 6-player tactical game, 36 characters. H
 
 ## The docs are the source of truth — read them first, not the codebase
 
-The codebase is ~19k lines of game logic; do **not** try to load it into context. `docs/` contains a code-verified model of the whole game (every claim carries a `file:line` anchor — read the anchored code, not whole files):
+The codebase is ~19k lines of game logic; do **not** try to load it into context. `docs/` contains a code-verified model of the whole game. Use its code references to inspect the relevant symbols and nearby implementation instead of loading whole files:
 
 | You are… | Read |
 |---|---|
@@ -31,7 +31,25 @@ The codebase is ~19k lines of game logic; do **not** try to load it into context
 
 ## Documentation maintenance contract (mandatory)
 
-Every change-set that touches gameplay MUST update the docs in the same change:
+Documentation describes behavior and contracts, not the fact that code was edited. Update only the affected document sections, in the same change-set, when their behavior, public contract, invariant, inventory, or code reference changed. Do not create documentation churn for formatting, tooling, generated output, or an internal refactor that leaves documented behavior and references intact.
+
+| Change | Required documentation work |
+|---|---|
+| Gameplay/passive behavior | Update the affected character/system/interaction sections. |
+| Tunable value | Update the affected `docs/BALANCE-CONSTANTS.md` row. |
+| Web or Discord interface contract | Update only the matching interface document. |
+| Bug fix | Update the finding plus any behavioral description that is no longer true. |
+| Behavior-preserving refactor | Repair only claims or references made stale by the refactor. |
+| Formatting, tooling, or internal cleanup | No gameplay-doc update unless a documented workflow or reference changed. |
+
+Reference style is deliberately mixed:
+
+- In very large or centralized files (especially `CharacterPassives.cs`), use `File.cs:line` or `File.cs:line-line` so `tools/verify-docs.sh` can validate and drift-check the destination.
+- In smaller files, prefer the file plus a unique backticked type/method/property name when that remains unambiguous and is less likely to churn than a line number.
+- References are navigation and evidence; the prose must still state the rule, invariant, or behavior an agent needs. A bare reference is not documentation.
+- Do not bulk-convert working references just to adopt this style. Apply it when adding or already repairing a reference.
+
+Specific triggers:
 
 1. Character/passive change → update its entry in `docs/CHARACTERS.md` (+ `docs/INTERACTION-MATRIX.md` rows if it forces fights, kills, moves positions, steals/copies, or intercepts moral/psyche/Harm).
 2. Any tunable number change → update the row in `docs/BALANCE-CONSTANTS.md`.
@@ -42,6 +60,8 @@ Every change-set that touches gameplay MUST update the docs in the same change:
 7. New bug discovered → add a finding with the next free ID.
 
 Docs drift is a bug. The audit files exist so changes can be made *and verified* without re-reading the codebase.
+
+After implementation, run `bash tools/verify-docs.sh --changed`; run the full check when documentation structure, the verifier, or broad cross-cutting behavior changes. The script validates resolvable line anchors and exact catalogs, but semantic accuracy still requires reviewing the affected prose against the code.
 
 Two project hooks enforce this automatically (`.claude/settings.json`): after any edit to passive-bearing files the passive audit re-runs and reports NEW warnings; on stop, a reminder fires if game code changed without a docs update. Don't be surprised by their output — act on it.
 

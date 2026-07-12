@@ -128,7 +128,9 @@ for doc in docs/GAME-DESIGN.md docs/ARCHITECTURE.md docs/CHARACTERS.md docs/AUDI
       esac
       probe=$token
       case "$token" in *.*) probe=${token##*.};; esac   # Class.Member → match Member
-      if ! printf '%s' "$ctx" | grep -qF -- "$probe"; then
+      # A here-string avoids SIGPIPE from `grep -q` closing a large printf pipeline
+      # after its first match (the Codex shell runs with pipefail enabled).
+      if ! grep -qF -- "$probe" <<< "$ctx"; then
         heading=$(awk -v n="$docline" 'NR>n {exit} /^#{1,6} / {h=$0} END {print h}' "$doc")
         [ -z "$heading" ] && heading="# (document start)"
         echo "DRIFT?: \`$token\` in $doc [$heading] not found near its cited lines" >> "$DRIFTS"
