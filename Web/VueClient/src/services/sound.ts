@@ -291,8 +291,8 @@ export interface SyncClip {
 }
 
 /**
- * Start the timing-critical first clip on time and layer only buffers that are already ready.
- * Missing optional layers continue warming in the background instead of delaying win/lose.
+ * Start every ready clip on one AudioContext frame. Cold optional layers may use the
+ * unused part of the primary clip's bounded start window, but can never extend it.
  */
 export async function playClipsBatched(clips: SyncClip[]): Promise<void> {
   if (clips.length === 0) return
@@ -301,18 +301,27 @@ export async function playClipsBatched(clips: SyncClip[]): Promise<void> {
     const ctx = ensureAudioContext()
     const urls = clips.map(c => toSoundUrl(c.path))
     const requests = urls.map(url => getOrFetchAudioBuffer(url))
-    void Promise.allSettled(requests)
+    const allRequests = Promise.allSettled(requests)
 
     const cachedPrimary = audioBufferCache.get(urls[0])
-    let timeout: ReturnType<typeof setTimeout> | null = null
+    let deadlineTimer: ReturnType<typeof setTimeout> | null = null
+    const deadline = new Promise<null>(resolve => {
+      deadlineTimer = setTimeout(() => resolve(null), BATCH_MAX_START_DELAY_MS)
+    })
     const primary = cachedPrimary ?? await Promise.race([
       requests[0],
-      new Promise<null>(resolve => {
-        timeout = setTimeout(() => resolve(null), BATCH_MAX_START_DELAY_MS)
-      }),
+      deadline,
     ])
-    if (timeout) clearTimeout(timeout)
     if (!primary) return
+
+    // A preloaded primary used to make this function inspect optional buffers
+    // immediately. Random no-repeat layer URLs were therefore cold on every roll
+    // and silently skipped. Wait for them only inside the already-established
+    // primary deadline, then start every buffer that made that single cutoff.
+    if (clips.length > 1 && requests.some((_, index) => index > 0 && !audioBufferCache.has(urls[index]))) {
+      await Promise.race([allRequests, deadline])
+    }
+    if (deadlineTimer) clearTimeout(deadlineTimer)
 
     const buffers = clips.map((_, index) => index === 0 ? primary : audioBufferCache.get(urls[index]) ?? null)
     const now = ctx.currentTime + 0.005
