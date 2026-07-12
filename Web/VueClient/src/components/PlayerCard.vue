@@ -5,6 +5,7 @@ import { useTip } from 'src/composables/useTip'
 import ScoreOdometer from 'src/components/ScoreOdometer.vue'
 import SpecialLevelUpPanel from 'src/components/SpecialLevelUpPanel.vue'
 import { useGameStore } from 'src/store/game'
+import { currentLocale } from 'src/i18n'
 import {
   playComboHype,
   playComboPluck,
@@ -159,6 +160,60 @@ const passiveStates = computed<PassiveAbilityStates | null>(() => {
   return props.player?.passiveAbilityStates ?? null
 })
 
+function t(english: string, russian: string): string {
+  return currentLocale.value === 'ru' ? russian : english
+}
+
+const widgetHelpCopy = {
+  portal: ['At 30 INT the Portal Gun is invented. A charge turns a winning attack into a position swap.', 'При 30 INT пушка изобретается. Заряд тратится на победную атаку с обменом местами.'],
+  exploit: ['Stored EXPLOIT is waiting for the cycle to finish. The bar shows how many players have been processed.', 'Накопленный EXPLOIT ждёт завершения цикла. Шкала показывает, сколько игроков уже обработано.'],
+  tsukuyomi: ['Two charge points ready Tsukuyomi. The value below is the total score already stolen.', 'Две единицы заряда открывают Цукуёми. Ниже показана сумма уже украденных очков.'],
+  doom: ['The four slots are your current combat loadout. Card colors show active, completed, and failed modules.', 'Четыре слота — твой текущий боевой комплект. Цвет карточки показывает активный, выполненный или проваленный модуль.'],
+  pickleRick: ['Shows the turns left as Pickle Rick and the length of the penalty that follows.', 'Показывает, сколько ходов осталось в форме Огурчика и сколько длится последующий штраф.'],
+  giantBeans: ['Stacks empower the Beans. COOKING means ingredients are already assigned to the shown number of targets.', 'Заряды усиливают Бобы. ГОТОВЯТСЯ означает, что ингредиенты уже разложены на указанных целях.'],
+  eren: ['Rumbling only checks losses in round 10. Fire marks show accumulated hatred toward each enemy.', 'RUMBLING проверяет только поражения в 10-м раунде. Метки 🔥 показывают накопленную ненависть к соперникам.'],
+  bulk: ['The current chance for Boole to lose his turn. BUFFED means his zero-Psyche stat boost is active.', 'Текущий шанс Буля пропустить ход. BUFFED означает усиление характеристик при нулевой Психике.'],
+  tea: ['When tea is ready, the next attack spends it for one point and makes the target skip their next turn.', 'Когда чай готов, следующая атака потратит его: даст очко и заставит цель пропустить следующий ход.'],
+  jew: ['Tracks the Psyche accumulated by the PROFIT mechanic.', 'Счётчик показывает, сколько Психики уже накоплено механикой PROFIT.'],
+  hardKitty: ['Tracks accumulated friends. A full bar represents five friends.', 'Количество накопленных друзей. Полная шкала соответствует пяти друзьям.'],
+  training: ['After losing an attack, Sirinoks trains the shown stat until she reaches the target value.', 'После атакующего поражения Sirinoks тренирует указанную характеристику до показанной цели.'],
+  dragon: ['Countdown to the round-10 awakening and the Dragon final recalculation.', 'Отсчёт до пробуждения в 10-м раунде, когда Дракон получает финальный перерасчёт.'],
+  garbage: ['Shows how many enemies carry the smell after attacking Harry.', 'Сколько соперников уже оставили на себе запах, атаковав Гарри.'],
+  copycat: ['Shows the currently copied stat and the total number of copies made.', 'Показывает скопированную характеристику и общее число сделанных копий.'],
+  inkScreen: ['Fake defeats temporarily reverse winners. Deferred score is restored during the finale.', 'Ложные поражения временно меняют победителя. Отложенные очки будут восстановлены в финале.'],
+  tigerTop: ['ACTIVE means the Tiger window is open. The counter is the number of first-place swaps remaining.', 'АКТИВНО означает, что окно Тигра открыто. Счётчик показывает оставшиеся обмены с первым местом.'],
+  jaws: ['Speed rises for every unique enemy defeated and every new leaderboard place visited.', 'Скорость растёт за каждого уникального побеждённого врага и каждое новое посещённое место.'],
+  privilege: ['The listed players are currently marked by Privilege.', 'Отмеченные игроки участвуют в механике Привилегии; их имена собраны здесь.'],
+  vampirism: ['Bites pay Moral on even rounds. The second counter tracks Justice copied through the bypass.', 'Укусы приносят Мораль по чётным раундам; второй счётчик показывает скопированную через обход Справедливость.'],
+  weed: ['Wins grow Weed on players; a Weedwick victory harvests the target supply as Moral.', 'Победы выращивают Weed у игроков; победа Weedwick собирает запас цели в Мораль.'],
+  saitama: ['Score and Moral stored by ONE PUNCH are waiting for the final payout.', 'Очки и Мораль отложены способностью ONE PUNCH и ждут финального возврата.'],
+  shinigamiEyes: ['Once activated, the next eligible attack reveals the target’s true name.', 'После активации следующая подходящая атака раскроет настоящее имя цели.'],
+  seller: ['Cooldown, marked customers, and the hidden Skill reserve from Procurement.', 'Откат, количество отмеченных клиентов и скрытый запас Скилла от Закупа.'],
+  dopa: ['Shows the current tactic, Vision readiness, and whether a second attack is required.', 'Текущая тактика, готовность обзора и напоминание о необходимой второй атаке.'],
+  goblinSwarm: ['The bar splits the swarm by type; 1/N is the current spawn rate for each type. Badges show built Ziggurats.', 'Полоса делит стаю по типам; 1/N — текущий шанс появления типа. Значки внизу — построенные Зиккураты.'],
+  kotiki: ['Tracks taunts, current Minka and Storm carriers, and both cat cooldowns.', 'Здесь видны провокации, текущие носители Миньки и Штормяка и оставшиеся откаты котиков.'],
+  monster: ['The number of players who have become Johan pawns.', 'Количество игроков, превращённых в пешек Монстра.'],
+  tolyaCount: ['When Count is ready, the next attack can mark a target. The number is its remaining cooldown.', 'Когда Подсчёт готов, следующая атака может отметить цель. Число — оставшийся откат.'],
+  impact: ['The streak grows each round without a defensive loss and increases victory rewards.', 'Серия растёт за раунды без защитного поражения и усиливает награду за победы.'],
+  darksci: ['Shows the chosen luck style and how many unique enemies remain to be tested.', 'Выбранный стиль удачи и число уникальных соперников, которых ещё нужно проверить.'],
+  deepList: ['Tracks enemies learned and the number of Mockery triggers.', 'Сколько соперников уже изучено и сколько раз сработал Стёб.'],
+  craboRack: ['Shell charges remaining from the initial five.', 'Оставшиеся заряды Панциря из пяти начальных.'],
+  napoleon: ['Shows Napoleon’s current ally and the number of treaties made.', 'Текущий союзник Наполеона и число заключённых договоров.'],
+  support: ['The Carry currently empowered by Support as a PREMADE.', 'Имя выбранного керри, которого Суппорт усиливает как PREMADE.'],
+  toxicMate: ['Shows the infection carrier and transfer count. Returning to Toxic Mate converts the chain into a bonus.', 'Показывает носителя инфекции и число передач. Возврат к Toxic Mate превращает цепочку в бонус.'],
+  yongGleb: ['Young Gleb’s tea readiness; the number is the remaining cooldown.', 'Готовность чая Молодого Глеба; число показывает оставшийся откат.'],
+  theBoys: ['Each card is one team member with their level, active job, and progress. Bright badges are unlocked ultimates.', 'Каждая карточка — отдельный член команды: уровень, активная задача и прогресс. Яркие жетоны внизу — открытые ультимейты.'],
+  salldorum: ['Shen shows charges and target place, Cola shows the buried cache, and Rewrite shows history availability.', 'Шэн показывает заряды и выбранную позицию, Cola — место тайника, Rewrite — доступность переписывания истории.'],
+  geralt: ['Each row shows contracts and oil tier. Fighting that monster type spends every matching contract on extra bouts.', 'Каждая строка показывает число заказов типа и уровень масла. Бой с целью тратит все её заказы на дополнительные схватки.'],
+} as const
+
+type WidgetHelpKey = keyof typeof widgetHelpCopy
+
+function widgetHelp(key: WidgetHelpKey): string {
+  const copy = widgetHelpCopy[key]
+  return t(copy[0], copy[1])
+}
+
 // Mastery badge
 const masteryPoints = computed(() => props.player?.characterMasteryPoints ?? 0)
 const masteryLevel = computed(() => Math.floor(Math.sqrt(masteryPoints.value / 5)))
@@ -284,7 +339,7 @@ const invoiceTotalClass = computed(() => {
 })
 
 const demandPreviousBtnText = computed(() => {
-  return 'За прошлый (+1)'
+  return t('Previous round (+1)', 'За прошлый (+1)')
 })
 
 // Goblin population bar segment percentages
@@ -585,9 +640,9 @@ watch(
 /** Geralt oil tier label */
 function geraltOilLabel(tier: number): string {
   if (tier === 0) return '—'
-  if (tier === 1) return 'Масло'
-  if (tier === 2) return 'Улучш.'
-  return 'Отличн.'
+  if (tier === 1) return t('Oil', 'Масло')
+  if (tier === 2) return t('Improved', 'Улучш.')
+  return t('Superior', 'Отличн.')
 }
 
 /** Parse "ClassName || description" from classStatDisplayText */
@@ -643,35 +698,35 @@ function handleDoomChainsaw(passiveName: string) {
   void store.doomChainsaw(passiveName)
 }
 
-const doomStages = [
-  { key: 'Rune', icon: 'ᛟ', label: 'РУНА' },
-  { key: 'Shield', icon: '⬡', label: 'ЩИТ' },
-  { key: 'Mission', icon: '⌖', label: 'МИССИЯ' },
-  { key: 'Gun', icon: '▰', label: 'ОРУЖИЕ' },
-] as const
+const doomStages = computed(() => [
+  { key: 'Rune', icon: 'ᛟ', label: t('RUNE', 'РУНА') },
+  { key: 'Shield', icon: '⬡', label: t('SHIELD', 'ЩИТ') },
+  { key: 'Mission', icon: '⌖', label: t('MISSION', 'МИССИЯ') },
+  { key: 'Gun', icon: '▰', label: t('WEAPON', 'ОРУЖИЕ') },
+] as const)
 
 function doomModuleStatus(module: string): { text: string; state: 'live' | 'done' | 'failed' | 'idle' } {
   const d = doomGuy.value
-  if (!d || !module) return { text: 'Ожидает выбора', state: 'idle' }
+  if (!d || !module) return { text: t('Waiting for selection', 'Ожидает выбора'), state: 'idle' }
   switch (module) {
-    case 'Вознесение': return { text: `${d.ascensionIntelligenceRemaining}/8 защищённого INT осталось`, state: d.ascensionIntelligenceRemaining > 0 ? 'live' : 'done' }
-    case 'Маневры': return { text: `${d.maneuversSpeedRemaining}/5 защищённой SPD осталось`, state: d.maneuversSpeedRemaining > 0 ? 'live' : 'done' }
-    case 'Истребление': return { text: d.exterminationAwarded ? 'Все пятеро уничтожены' : `${d.exterminationVictories}/5 уникальных побед`, state: d.exterminationAwarded ? 'done' : 'live' }
-    case 'Щит-пила': return { text: 'Блок отнимает у атакующих −3 очка', state: 'live' }
-    case 'Шоковый щит': return { text: d.shockShieldUsed ? 'Разряд уже потрачен' : 'Разряд готов: следующий ход врага будет пропущен', state: d.shockShieldUsed ? 'done' : 'live' }
-    case 'Адский блок': return { text: d.hellBlockUsed ? '666 Скилла получено' : `${Math.min(2, d.blocksThisRound)}/2 атак в текущий блок`, state: d.hellBlockUsed ? 'done' : 'live' }
-    case 'Адеские гнезда': return { text: `${d.demonNestNames.length}/3 активных гнезда`, state: d.demonNestNames.length > 3 ? 'failed' : 'live' }
-    case 'Навести беспорядок': return { text: '+1 очко за каждую реальную битву', state: 'live' }
+    case 'Вознесение': return { text: t(`${d.ascensionIntelligenceRemaining}/8 protected INT remaining`, `${d.ascensionIntelligenceRemaining}/8 защищённого INT осталось`), state: d.ascensionIntelligenceRemaining > 0 ? 'live' : 'done' }
+    case 'Маневры': return { text: t(`${d.maneuversSpeedRemaining}/5 protected SPD remaining`, `${d.maneuversSpeedRemaining}/5 защищённой SPD осталось`), state: d.maneuversSpeedRemaining > 0 ? 'live' : 'done' }
+    case 'Истребление': return { text: d.exterminationAwarded ? t('All five eliminated', 'Все пятеро уничтожены') : t(`${d.exterminationVictories}/5 unique victories`, `${d.exterminationVictories}/5 уникальных побед`), state: d.exterminationAwarded ? 'done' : 'live' }
+    case 'Щит-пила': return { text: t('Blocked attackers lose 3 score', 'Блок отнимает у атакующих −3 очка'), state: 'live' }
+    case 'Шоковый щит': return { text: d.shockShieldUsed ? t('Discharge already spent', 'Разряд уже потрачен') : t('Discharge ready: the next enemy turn will be skipped', 'Разряд готов: следующий ход врага будет пропущен'), state: d.shockShieldUsed ? 'done' : 'live' }
+    case 'Адский блок': return { text: d.hellBlockUsed ? t('666 Skill collected', '666 Скилла получено') : t(`${Math.min(2, d.blocksThisRound)}/2 attacks into this block`, `${Math.min(2, d.blocksThisRound)}/2 атак в текущий блок`), state: d.hellBlockUsed ? 'done' : 'live' }
+    case 'Адеские гнезда': return { text: t(`${d.demonNestNames.length}/3 active nests`, `${d.demonNestNames.length}/3 активных гнезда`), state: d.demonNestNames.length > 3 ? 'failed' : 'live' }
+    case 'Навести беспорядок': return { text: t('+1 score for every real fight', '+1 очко за каждую реальную битву'), state: 'live' }
     case 'Стань богом':
-      if (d.becomeGodAwarded) return { text: 'Испытание завершено: +20', state: 'done' }
-      if (d.everBlocked || d.everLost) return { text: `Испытание провалено${d.everBlocked ? ': был блок' : ': было поражение'}`, state: 'failed' }
-      return { text: 'Чистый забег: без блоков и поражений', state: 'live' }
-    case 'BFG': return { text: d.bfgCharged ? 'ЗАРЯЖЕНА — ждёт атаки с рандомом' : 'Заряд потрачен', state: d.bfgCharged ? 'live' : 'done' }
-    case 'Кулаки': return { text: 'STR = 0 · каждая победа +2 очка', state: 'live' }
+      if (d.becomeGodAwarded) return { text: t('Trial complete: +20', 'Испытание завершено: +20'), state: 'done' }
+      if (d.everBlocked || d.everLost) return { text: t(`Trial failed${d.everBlocked ? ': blocked' : ': lost a fight'}`, `Испытание провалено${d.everBlocked ? ': был блок' : ': было поражение'}`), state: 'failed' }
+      return { text: t('Clean run: no blocks or losses', 'Чистый забег: без блоков и поражений'), state: 'live' }
+    case 'BFG': return { text: d.bfgCharged ? t('CHARGED — waiting for a random attack', 'ЗАРЯЖЕНА — ждёт атаки с рандомом') : t('Charge spent', 'Заряд потрачен'), state: d.bfgCharged ? 'live' : 'done' }
+    case 'Кулаки': return { text: t('STR = 0 · every victory gives +2 score', 'STR = 0 · каждая победа +2 очка'), state: 'live' }
     case 'Бензопила':
-      if (d.copiedPassiveName) return { text: `Украдено: ${d.copiedPassiveName}`, state: 'done' }
-      return { text: d.chainsawSpent ? 'Жертва распилена — выбери пассивку' : 'Готова к следующей победе', state: 'live' }
-    default: return { text: 'Модуль активен', state: 'live' }
+      if (d.copiedPassiveName) return { text: t(`Stolen: ${d.copiedPassiveName}`, `Украдено: ${d.copiedPassiveName}`), state: 'done' }
+      return { text: d.chainsawSpent ? t('Target sawed apart — choose a passive', 'Жертва распилена — выбери пассивку') : t('Ready for the next victory', 'Готова к следующей победе'), state: 'live' }
+    default: return { text: t('Module active', 'Модуль активен'), state: 'live' }
   }
 }
 </script>
@@ -897,13 +952,13 @@ function doomModuleStatus(module: string): { text: string; state: 'live' | 'done
         @click="store.shinigamiEyes()"
         title="Глаза бога смерти: потратить 25 морали, чтобы увидеть имя следующего противника"
       >
-        Shinigami Eyes (25)
+        {{ t('Shinigami Eyes (25)', 'Глаза бога смерти (25)') }}
       </button>
     </div>
 
     <!-- Geralt contract demand (replaces moral area for Geralt) -->
     <div v-if="isMe && isGeralt && geralt" class="pc-geralt-demand" :class="geraltDemandContainerClass">
-      <div class="geralt-demand-header" :style="geraltHeaderStyle">Потребовать больше монет за заказ</div>
+      <div class="geralt-demand-header" :style="geraltHeaderStyle">{{ t('Demand more coin for the contract', 'Потребовать больше монет за заказ') }}</div>
       <!-- Invoice breakdown (admin only) -->
       <div v-if="store.isAdmin && geralt.invoiceItems && geralt.invoiceItems.length > 0 && !geralt.demandedThisPhase" class="geralt-invoice">
         <div v-for="(item, idx) in geralt.invoiceItems" :key="idx" class="geralt-invoice-line">
@@ -911,13 +966,13 @@ function doomModuleStatus(module: string): { text: string; state: 'live' | 'done
           <span class="geralt-invoice-pts" :class="item.points >= 0 ? 'pts-pos' : 'pts-neg'">{{ item.points >= 0 ? '+' : '' }}{{ item.points }}</span>
         </div>
         <div class="geralt-invoice-total" :class="invoiceTotalClass">
-          <span>Итого:</span>
+          <span>{{ t('Total:', 'Итого:') }}</span>
           <span class="geralt-invoice-total-val">{{ geralt.invoiceTotal }}</span>
         </div>
         <div class="geralt-invoice-prediction">
-          <span v-if="(geralt.invoicePredictedCoins ?? 0) > 0" class="geralt-inv-coins">+{{ geralt.invoicePredictedCoins }} {{ geralt.invoicePredictedCoins === 1 ? 'очко' : 'очка' }}</span>
-          <span v-if="(geralt.invoicePredictedDispleasure ?? 0) > 0" class="geralt-inv-displ">+{{ geralt.invoicePredictedDispleasure }} недовольство</span>
-          <span v-if="(geralt.invoicePredictedCoins ?? 0) === 0 && (geralt.invoicePredictedDispleasure ?? 0) === 0" class="geralt-inv-nothing">Ничего</span>
+          <span v-if="(geralt.invoicePredictedCoins ?? 0) > 0" class="geralt-inv-coins">+{{ geralt.invoicePredictedCoins }} {{ t(geralt.invoicePredictedCoins === 1 ? 'coin' : 'coins', geralt.invoicePredictedCoins === 1 ? 'очко' : 'очка') }}</span>
+          <span v-if="(geralt.invoicePredictedDispleasure ?? 0) > 0" class="geralt-inv-displ">+{{ geralt.invoicePredictedDispleasure }} {{ t('Displeasure', 'недовольство') }}</span>
+          <span v-if="(geralt.invoicePredictedCoins ?? 0) === 0 && (geralt.invoicePredictedDispleasure ?? 0) === 0" class="geralt-inv-nothing">{{ t('Nothing', 'Ничего') }}</span>
         </div>
       </div>
       <div class="geralt-demand-btns">
@@ -926,14 +981,14 @@ function doomModuleStatus(module: string): { text: string; state: 'live' | 'done
           :disabled="!geralt.canDemandPrevious || geralt.demandedThisPhase"
           @click="store.demandContractReward('previous')"
         >
-          {{ geralt.demandedThisPhase ? 'Уже потребовал' : geralt.canDemandPrevious ? demandPreviousBtnText : 'Нет заказов' }}
+          {{ geralt.demandedThisPhase ? t('Already demanded', 'Уже потребовал') : geralt.canDemandPrevious ? demandPreviousBtnText : t('No contracts', 'Нет заказов') }}
         </button>
         <button
           class="geralt-demand-btn geralt-demand-next"
           :disabled="!geralt.canDemandNext"
           @click="store.demandContractReward('next')"
         >
-          {{ geralt.advancePending ? 'Аванс в обработке' : 'За следующий (+2)' }}
+          {{ geralt.advancePending ? t('Advance pending', 'Аванс в обработке') : t('Next round (+2)', 'За следующий (+2)') }}
         </button>
       </div>
       <div class="geralt-displeasure">
@@ -949,26 +1004,26 @@ function doomModuleStatus(module: string): { text: string; state: 'live' | 'done
     </div>
 
     <!-- Portal Gun (Rick special ability) -->
-    <div v-if="portalGun" class="pc-special-ability" :class="{ 'sa-charged': portalGun.invented && portalGun.charges > 0 }">
-      <div class="sa-header">Портальная пушка</div>
+    <div v-if="portalGun" class="pc-special-ability" :data-widget-help="widgetHelp('portal')" :aria-description="widgetHelp('portal')" tabindex="0" :class="{ 'sa-charged': portalGun.invented && portalGun.charges > 0 }">
+      <div class="sa-header">{{ t('Portal Gun', 'Портальная пушка') }}</div>
       <div v-if="!portalGun.invented" class="sa-status sa-not-invented">
-        Не изобретена (INT 30)
+        {{ t('Not invented (INT 30)', 'Не изобретена (INT 30)') }}
       </div>
       <div v-else class="sa-status sa-invented">
         <span class="sa-charge-count">{{ portalGun.charges }}</span>
-        <span class="sa-charge-label">charges</span>
+        <span class="sa-charge-label">{{ t('charges', 'зарядов') }}</span>
       </div>
     </div>
 
     <!-- Exploit state (Баг special ability) -->
-    <div v-if="exploitState" class="pc-exploit-state">
+    <div v-if="exploitState" class="pc-exploit-state" :data-widget-help="widgetHelp('exploit')" :aria-description="widgetHelp('exploit')" tabindex="0">
       <div class="exploit-header">
         <span class="exploit-title">EXPLOIT</span>
         <span class="exploit-progress">{{ exploitState.fixedCount }}/{{ exploitState.totalPlayers }}</span>
       </div>
       <div class="exploit-accumulated">
         <span class="exploit-value">{{ exploitState.totalExploit }}</span>
-        <span class="exploit-label">pending</span>
+        <span class="exploit-label">{{ t('pending', 'в ожидании') }}</span>
       </div>
       <div class="exploit-bar-bg">
         <div class="exploit-bar-fill" :style="{ width: `${exploitState.totalPlayers > 0 ? (exploitState.fixedCount / exploitState.totalPlayers) * 100 : 0}%` }" />
@@ -976,16 +1031,16 @@ function doomModuleStatus(module: string): { text: string; state: 'live' | 'done
     </div>
 
     <!-- Tsukuyomi state (Itachi special ability) -->
-    <div v-if="tsukuyomiState" class="pc-tsukuyomi-state">
+    <div v-if="tsukuyomiState" class="pc-tsukuyomi-state" :data-widget-help="widgetHelp('tsukuyomi')" :aria-description="widgetHelp('tsukuyomi')" tabindex="0">
       <div class="tsukuyomi-header">
         <span class="tsukuyomi-title">TSUKUYOMI</span>
         <span class="tsukuyomi-charge" :class="{ 'tsukuyomi-ready': tsukuyomiState.isReady }">
-          {{ tsukuyomiState.isReady ? 'READY' : `${tsukuyomiState.chargeCounter}/2` }}
+          {{ tsukuyomiState.isReady ? t('READY', 'ГОТОВО') : `${tsukuyomiState.chargeCounter}/2` }}
         </span>
       </div>
       <div class="tsukuyomi-stolen">
         <span class="tsukuyomi-value">{{ tsukuyomiState.totalStolenPoints }}</span>
-        <span class="tsukuyomi-label">stolen</span>
+        <span class="tsukuyomi-label">{{ t('stolen', 'украдено') }}</span>
       </div>
       <div class="tsukuyomi-bar-bg">
         <div class="tsukuyomi-bar-fill" :style="{ width: `${(tsukuyomiState.chargeCounter / 2) * 100}%` }" />
@@ -993,33 +1048,33 @@ function doomModuleStatus(module: string): { text: string; state: 'live' | 'done
     </div>
 
     <!-- DooM Guy module controller -->
-    <div v-if="doomGuy" class="pc-passive-widget doom-widget">
+    <div v-if="doomGuy" class="pc-passive-widget doom-widget" :data-widget-help="widgetHelp('doom')" :aria-description="widgetHelp('doom')" tabindex="0">
       <div class="pw-header">
         <div>
           <span class="pw-title doom-title">FORTRESS OF DOOM</span>
-          <span class="doom-subtitle">COMBAT LOADOUT</span>
+          <span class="doom-subtitle">{{ t('COMBAT LOADOUT', 'БОЕВОЙ КОМПЛЕКТ') }}</span>
         </div>
-        <span class="pw-status doom-mode" :class="doomGuy.rollMode ? 'doom-roll-active' : ''">{{ doomGuy.rollMode ? "LET'S ROLL" : 'MANUAL' }}</span>
+        <span class="pw-status doom-mode" :class="doomGuy.rollMode ? 'doom-roll-active' : ''">{{ doomGuy.rollMode ? "LET'S ROLL" : t('MANUAL', 'ВРУЧНУЮ') }}</span>
       </div>
       <div class="doom-module-list" :class="{ 'doom-module-list--selecting': hasLvlUpPoints }">
         <div v-for="stage in doomStages" :key="stage.key" class="doom-module-card" :class="`doom-module-card--${doomModuleStatus(doomGuy.activeModules[stage.key] || '').state}`">
           <span class="doom-module-icon">{{ stage.icon }}</span>
           <span class="doom-module-copy">
             <small>{{ stage.label }}</small>
-            <strong>{{ doomGuy.activeModules[stage.key] || 'Не выбран' }}</strong>
+            <strong>{{ doomGuy.activeModules[stage.key] || t('Not selected', 'Не выбран') }}</strong>
             <span v-if="doomGuy.activeModules[stage.key]">{{ doomModuleStatus(doomGuy.activeModules[stage.key]).text }}</span>
-            <span v-else>Откроется на ходу {{ { Rune: 3, Shield: 5, Mission: 7, Gun: 9 }[stage.key] }}</span>
+            <span v-else>{{ t('Unlocks on turn', 'Откроется на ходу') }} {{ { Rune: 3, Shield: 5, Mission: 7, Gun: 9 }[stage.key] }}</span>
           </span>
         </div>
       </div>
       <div v-if="doomGuy.demonNestNames.length" class="doom-nests">
-        <strong>🔥 ГНЕЗДА ДЕМОНОВ</strong>
+        <strong>🔥 {{ t('DEMON NESTS', 'ГНЕЗДА ДЕМОНОВ') }}</strong>
         <span v-for="name in doomGuy.demonNestNames" :key="name">{{ name }}</span>
       </div>
-      <div v-if="doomGuy.bfgCharged" class="doom-bfg"><span>●</span> BFG CHARGED</div>
+      <div v-if="doomGuy.bfgCharged" class="doom-bfg"><span>●</span> {{ t('BFG CHARGED', 'BFG ЗАРЯЖЕНА') }}</div>
       <div v-if="doomGuy.chainsawChoices.length" class="doom-chainsaw-choice">
-        <strong>БЕНЗОПИЛА: ВЫБЕРИ ТРОФЕЙ</strong>
-        <span>Gun будет навсегда заменён выбранной пассивкой.</span>
+        <strong>{{ t('CHAINSAW: CHOOSE A TROPHY', 'БЕНЗОПИЛА: ВЫБЕРИ ТРОФЕЙ') }}</strong>
+        <span>{{ t('The Gun slot will be permanently replaced by the chosen passive.', 'Gun будет навсегда заменён выбранной пассивкой.') }}</span>
         <button v-for="choice in doomGuy.chainsawChoices" :key="choice.name" :title="choice.description" @click="handleDoomChainsaw(choice.name)">
           <b>{{ choice.name }}</b>
           <small>{{ choice.description }}</small>
@@ -1028,43 +1083,43 @@ function doomModuleStatus(module: string): { text: string; state: 'live' | 'done
     </div>
 
     <!-- Pickle Rick (Rick passive) -->
-    <div v-if="passiveStates?.pickleRick" class="pc-passive-widget pickle-widget">
+    <div v-if="passiveStates?.pickleRick" class="pc-passive-widget pickle-widget" :data-widget-help="widgetHelp('pickleRick')" :aria-description="widgetHelp('pickleRick')" tabindex="0">
       <div class="pw-header">
-        <span class="pw-title pickle-title">PICKLE RICK</span>
+        <span class="pw-title pickle-title">{{ t('PICKLE RICK', 'ОГУРЧИК РИК') }}</span>
         <span class="pw-status" :class="passiveStates.pickleRick.pickleTurnsRemaining > 0 ? 'pickle-active' : (passiveStates.pickleRick.penaltyTurnsRemaining > 0 ? 'pickle-penalty' : 'pickle-off')">
-          {{ passiveStates.pickleRick.pickleTurnsRemaining > 0 ? 'PICKLE' : (passiveStates.pickleRick.penaltyTurnsRemaining > 0 ? 'PENALTY' : 'NORMAL') }}
+          {{ passiveStates.pickleRick.pickleTurnsRemaining > 0 ? t('PICKLE', 'ОГУРЧИК') : (passiveStates.pickleRick.penaltyTurnsRemaining > 0 ? t('PENALTY', 'ШТРАФ') : t('NORMAL', 'НОРМА')) }}
         </span>
       </div>
       <div class="pw-body">
         <div v-if="passiveStates.pickleRick.pickleTurnsRemaining > 0" class="pw-stat-pair">
           <span class="pw-value">{{ passiveStates.pickleRick.pickleTurnsRemaining }}</span>
-          <span class="pw-label">turns left</span>
+          <span class="pw-label">{{ t('turns left', 'ходов осталось') }}</span>
         </div>
         <div v-if="passiveStates.pickleRick.penaltyTurnsRemaining > 0" class="pw-stat-pair">
           <span class="pw-value pickle-penalty-val">{{ passiveStates.pickleRick.penaltyTurnsRemaining }}</span>
-          <span class="pw-label">penalty</span>
+          <span class="pw-label">{{ t('penalty', 'штраф') }}</span>
         </div>
         <div v-if="passiveStates.pickleRick.wasAttackedAsPickle" class="pw-stat-pair">
           <span class="pw-value pickle-attacked">!</span>
-          <span class="pw-label">attacked</span>
+          <span class="pw-label">{{ t('was attacked', 'был атакован') }}</span>
         </div>
       </div>
     </div>
 
     <!-- Giant Beans (Rick passive) -->
-    <div v-if="passiveStates?.giantBeans" class="pc-passive-widget beans-widget">
+    <div v-if="passiveStates?.giantBeans" class="pc-passive-widget beans-widget" :data-widget-help="widgetHelp('giantBeans')" :aria-description="widgetHelp('giantBeans')" tabindex="0">
       <div class="pw-header">
-        <span class="pw-title beans-title">GIANT BEANS</span>
-        <span v-if="passiveStates.giantBeans.ingredientsActive" class="pw-status beans-cooking">COOKING</span>
+        <span class="pw-title beans-title">{{ t('GIANT BEANS', 'ГИГАНТСКИЕ БОБЫ') }}</span>
+        <span v-if="passiveStates.giantBeans.ingredientsActive" class="pw-status beans-cooking">{{ t('COOKING', 'ГОТОВЯТСЯ') }}</span>
       </div>
       <div class="pw-body">
         <div class="pw-stat-pair">
           <span class="pw-value">{{ passiveStates.giantBeans.beanStacks }}</span>
-          <span class="pw-label">stacks</span>
+          <span class="pw-label">{{ t('stacks', 'зарядов') }}</span>
         </div>
         <div v-if="passiveStates.giantBeans.ingredientsActive" class="pw-stat-pair">
           <span class="pw-value">{{ passiveStates.giantBeans.ingredientTargetCount }}</span>
-          <span class="pw-label">targets</span>
+          <span class="pw-label">{{ t('targets', 'целей') }}</span>
         </div>
       </div>
     </div>
@@ -1072,17 +1127,17 @@ function doomModuleStatus(module: string): { text: string; state: 'live' | 'done
     <!-- ── Passive Ability Widgets ── -->
 
     <!-- Эрен Йегер -->
-    <div v-if="passiveStates?.eren" class="pc-passive-widget eren-widget">
+    <div v-if="passiveStates?.eren" class="pc-passive-widget eren-widget" :data-widget-help="widgetHelp('eren')" :aria-description="widgetHelp('eren')" tabindex="0">
       <div class="pw-header">
-        <span class="pw-title eren-title">RUMBLING</span>
+        <span class="pw-title eren-title">{{ t('RUMBLING', 'РОКОТ ЗЕМЛИ') }}</span>
         <span class="pw-status" :class="passiveStates.eren.losses < 2 ? 'eren-ready' : 'eren-failed'">
-          {{ passiveStates.eren.losses }}/2 поражений
+          {{ passiveStates.eren.losses }}/2 {{ t('losses', 'поражений') }}
         </span>
       </div>
       <div class="pw-body eren-stats">
-        <span>Злость +{{ passiveStates.eren.rageGained }}</span>
-        <span v-if="passiveStates.eren.attackTitanActive">⚡ Атакующий Титан</span>
-        <span v-if="passiveStates.eren.rumblingTriggered">🌋 место {{ passiveStates.eren.rumblingPlace }}</span>
+        <span>{{ t('Rage', 'Злость') }} +{{ passiveStates.eren.rageGained }}</span>
+        <span v-if="passiveStates.eren.attackTitanActive">⚡ {{ t('Attack Titan', 'Атакующий Титан') }}</span>
+        <span v-if="passiveStates.eren.rumblingTriggered">🌋 {{ t('place', 'место') }} {{ passiveStates.eren.rumblingPlace }}</span>
       </div>
       <div v-if="passiveStates.eren.hatredMarks.length" class="eren-marks">
         <span v-for="mark in passiveStates.eren.hatredMarks" :key="mark.playerName" class="eren-mark">
@@ -1092,14 +1147,14 @@ function doomModuleStatus(module: string): { text: string; state: 'live' | 'done
     </div>
 
     <!-- 1. Буль (Drowning) -->
-    <div v-if="passiveStates?.bulk" class="pc-passive-widget bulk-widget">
+    <div v-if="passiveStates?.bulk" class="pc-passive-widget bulk-widget" :data-widget-help="widgetHelp('bulk')" :aria-description="widgetHelp('bulk')" tabindex="0">
       <div class="pw-header">
-        <span class="pw-title bulk-title">DROWNING</span>
+        <span class="pw-title bulk-title">{{ t('DROWNING', 'БУЛЬ') }}</span>
       </div>
       <div class="pw-body">
         <div class="bulk-chance-wrap">
           <span class="bulk-chance-value">{{ passiveStates.bulk.drownChance }}%</span>
-          <span class="bulk-chance-label">drown chance</span>
+          <span class="bulk-chance-label">{{ t('skip chance', 'шанс пропустить ход') }}</span>
           <div class="bulk-wave-bar">
             <div class="bulk-wave-fill" :style="{ width: `${passiveStates.bulk.drownChance}%` }" />
           </div>
@@ -1109,30 +1164,30 @@ function doomModuleStatus(module: string): { text: string; state: 'live' | 'done
     </div>
 
     <!-- 2. Я за чаем (Tea Time) -->
-    <div v-if="passiveStates?.tea" class="pc-passive-widget tea-widget">
+    <div v-if="passiveStates?.tea" class="pc-passive-widget tea-widget" :data-widget-help="widgetHelp('tea')" :aria-description="widgetHelp('tea')" tabindex="0">
       <div class="pw-header">
-        <span class="pw-title tea-title">TEA TIME</span>
+        <span class="pw-title tea-title">{{ t('TEA TIME', 'Я ЗА ЧАЕМ') }}</span>
         <span class="pw-status" :class="passiveStates.tea.isReady ? 'tea-ready' : 'tea-brewing'">
-          {{ passiveStates.tea.isReady ? 'READY' : 'BREWING' }}
+          {{ passiveStates.tea.isReady ? t('READY', 'ГОТОВО') : t('BREWING', 'ЗАВАРИВАЕТСЯ') }}
         </span>
       </div>
     </div>
 
     <!-- 3. Еврей (Profit) -->
-    <div v-if="passiveStates?.jew" class="pc-passive-widget jew-widget">
+    <div v-if="passiveStates?.jew" class="pc-passive-widget jew-widget" :data-widget-help="widgetHelp('jew')" :aria-description="widgetHelp('jew')" tabindex="0">
       <div class="pw-header">
-        <span class="pw-title jew-title">PROFIT</span>
+        <span class="pw-title jew-title">{{ t('PROFIT', 'ПРОФИТ') }}</span>
       </div>
       <div class="pw-body">
         <span class="pw-value">{{ passiveStates.jew.stolenPsyche }}</span>
-        <span class="pw-label">stolen PSY</span>
+        <span class="pw-label">{{ t('Psyche stolen', 'украдено Психики') }}</span>
       </div>
     </div>
 
     <!-- 4. HardKitty (Friends) -->
-    <div v-if="passiveStates?.hardKitty" class="pc-passive-widget hardkitty-widget">
+    <div v-if="passiveStates?.hardKitty" class="pc-passive-widget hardkitty-widget" :data-widget-help="widgetHelp('hardKitty')" :aria-description="widgetHelp('hardKitty')" tabindex="0">
       <div class="pw-header">
-        <span class="pw-title hardkitty-title">FRIENDS</span>
+        <span class="pw-title hardkitty-title">{{ t('FRIENDS', 'ДРУЗЬЯ') }}</span>
         <span class="pw-status hardkitty-count">{{ passiveStates.hardKitty.friendsCount }}</span>
       </div>
       <div class="hardkitty-bar-bg">
@@ -1141,26 +1196,26 @@ function doomModuleStatus(module: string): { text: string; state: 'live' | 'done
     </div>
 
     <!-- 5. Обучение (Training) -->
-    <div v-if="passiveStates?.training" class="pc-passive-widget training-widget">
+    <div v-if="passiveStates?.training" class="pc-passive-widget training-widget" :data-widget-help="widgetHelp('training')" :aria-description="widgetHelp('training')" tabindex="0">
       <div class="pw-header">
-        <span class="pw-title training-title">TRAINING</span>
+        <span class="pw-title training-title">{{ t('TRAINING', 'ОБУЧЕНИЕ') }}</span>
         <span v-if="passiveStates.training.statName !== '—'" class="pw-status training-stat">{{ passiveStates.training.statName }}</span>
       </div>
       <div v-if="passiveStates.training.targetStatValue > 0" class="pw-body">
         <span class="pw-value">{{ passiveStates.training.targetStatValue }}</span>
-        <span class="pw-label">target to beat</span>
+        <span class="pw-label">{{ t('training target', 'цель тренировки') }}</span>
       </div>
       <div v-else class="pw-body">
-        <span class="pw-label training-waiting">need a defeat to start</span>
+        <span class="pw-label training-waiting">{{ t('Lose an attack to begin', 'Нужно атакующее поражение, чтобы начать') }}</span>
       </div>
     </div>
 
     <!-- 6. Дракон (Dragon) -->
-    <div v-if="passiveStates?.dragon" class="pc-passive-widget dragon-widget">
+    <div v-if="passiveStates?.dragon" class="pc-passive-widget dragon-widget" :data-widget-help="widgetHelp('dragon')" :aria-description="widgetHelp('dragon')" tabindex="0">
       <div class="pw-header">
-        <span class="pw-title dragon-title">DRAGON</span>
+        <span class="pw-title dragon-title">{{ t('DRAGON', 'ДРАКОН') }}</span>
         <span class="pw-status" :class="passiveStates.dragon.isAwakened ? 'dragon-awakened' : 'dragon-sleeping'">
-          {{ passiveStates.dragon.isAwakened ? 'AWAKENED' : `${passiveStates.dragon.roundsUntilAwaken} rounds` }}
+          {{ passiveStates.dragon.isAwakened ? t('AWAKENED', 'ПРОБУДИЛАСЬ') : t(`${passiveStates.dragon.roundsUntilAwaken} rounds`, `${passiveStates.dragon.roundsUntilAwaken} раунд.`) }}
         </span>
       </div>
       <div v-if="!passiveStates.dragon.isAwakened" class="dragon-bar-bg">
@@ -1169,9 +1224,9 @@ function doomModuleStatus(module: string): { text: string; state: 'live' | 'done
     </div>
 
     <!-- 7. Запах мусора (Garbage) -->
-    <div v-if="passiveStates?.garbage" class="pc-passive-widget garbage-widget">
+    <div v-if="passiveStates?.garbage" class="pc-passive-widget garbage-widget" :data-widget-help="widgetHelp('garbage')" :aria-description="widgetHelp('garbage')" tabindex="0">
       <div class="pw-header">
-        <span class="pw-title garbage-title">GARBAGE</span>
+        <span class="pw-title garbage-title">{{ t('GARBAGE SCENT', 'ЗАПАХ МУСОРА') }}</span>
         <span class="pw-status garbage-count">{{ passiveStates.garbage.markedCount }}/{{ passiveStates.garbage.totalTracked }}</span>
       </div>
       <div class="garbage-bar-bg">
@@ -1180,57 +1235,57 @@ function doomModuleStatus(module: string): { text: string; state: 'live' | 'done
     </div>
 
     <!-- 8. Научите играть (Copycat) -->
-    <div v-if="passiveStates?.copycat" class="pc-passive-widget copycat-widget">
+    <div v-if="passiveStates?.copycat" class="pc-passive-widget copycat-widget" :data-widget-help="widgetHelp('copycat')" :aria-description="widgetHelp('copycat')" tabindex="0">
       <div class="pw-header">
-        <span class="pw-title copycat-title">COPYCAT</span>
+        <span class="pw-title copycat-title">{{ t('COPYCAT', 'НАУЧИТЕ ИГРАТЬ') }}</span>
       </div>
       <div class="pw-body">
         <div class="pw-stat-pair">
           <span class="pw-value">{{ passiveStates.copycat.copiedStatName }}</span>
-          <span class="pw-label">current stat</span>
+          <span class="pw-label">{{ t('copied now', 'сейчас скопировано') }}</span>
         </div>
         <div class="pw-stat-pair">
           <span class="pw-value">{{ passiveStates.copycat.historyCount }}</span>
-          <span class="pw-label">copied</span>
+          <span class="pw-label">{{ t('copies', 'копирований') }}</span>
         </div>
       </div>
     </div>
 
     <!-- 9. Чернильная завеса (Ink Screen) -->
-    <div v-if="passiveStates?.inkScreen" class="pc-passive-widget ink-widget">
+    <div v-if="passiveStates?.inkScreen" class="pc-passive-widget ink-widget" :data-widget-help="widgetHelp('inkScreen')" :aria-description="widgetHelp('inkScreen')" tabindex="0">
       <div class="pw-header">
-        <span class="pw-title ink-title">INK SCREEN</span>
+        <span class="pw-title ink-title">{{ t('INK SCREEN', 'ЧЕРНИЛЬНАЯ ЗАВЕСА') }}</span>
       </div>
       <div class="pw-body">
         <div class="pw-stat-pair">
           <span class="pw-value">{{ passiveStates.inkScreen.fakeDefeatCount }}</span>
-          <span class="pw-label">fake defeats</span>
+          <span class="pw-label">{{ t('fake defeats', 'ложных поражений') }}</span>
         </div>
         <div class="pw-stat-pair">
           <span class="pw-value">{{ passiveStates.inkScreen.totalDeferredScore }}</span>
-          <span class="pw-label">deferred pts</span>
+          <span class="pw-label">{{ t('deferred score', 'отложено очков') }}</span>
         </div>
       </div>
     </div>
 
     <!-- 10. Тигр топ (Tiger Top) -->
-    <div v-if="passiveStates?.tigerTop" class="pc-passive-widget tigertop-widget" :class="{ 'tigertop-active': passiveStates.tigerTop.isActive }">
+    <div v-if="passiveStates?.tigerTop" class="pc-passive-widget tigertop-widget" :data-widget-help="widgetHelp('tigerTop')" :aria-description="widgetHelp('tigerTop')" tabindex="0" :class="{ 'tigertop-active': passiveStates.tigerTop.isActive }">
       <div class="pw-header">
-        <span class="pw-title tigertop-title">TIGER TOP</span>
+        <span class="pw-title tigertop-title">{{ t('TIGER TOP', 'ТИГР ТОП') }}</span>
         <span class="pw-status" :class="passiveStates.tigerTop.isActive ? 'tigertop-on' : 'tigertop-off'">
-          {{ passiveStates.tigerTop.isActive ? 'ACTIVE' : 'INACTIVE' }}
+          {{ passiveStates.tigerTop.isActive ? t('ACTIVE', 'АКТИВНО') : t('INACTIVE', 'НЕАКТИВНО') }}
         </span>
       </div>
       <div class="pw-body">
         <span class="pw-value">{{ passiveStates.tigerTop.swapsRemaining }}</span>
-        <span class="pw-label">swaps left</span>
+        <span class="pw-label">{{ t('swaps left', 'обменов осталось') }}</span>
       </div>
     </div>
 
     <!-- 11. Челюсти (Jaws) -->
-    <div v-if="passiveStates?.jaws" class="pc-passive-widget jaws-widget">
+    <div v-if="passiveStates?.jaws" class="pc-passive-widget jaws-widget" :data-widget-help="widgetHelp('jaws')" :aria-description="widgetHelp('jaws')" tabindex="0">
       <div class="pw-header">
-        <span class="pw-title jaws-title">JAWS</span>
+        <span class="pw-title jaws-title">{{ t('JAWS', 'ЧЕЛЮСТИ') }}</span>
         <svg class="jaws-shark" viewBox="0 0 40 20" :style="{ animationDuration: `${Math.max(0.3, 3 - passiveStates.jaws.currentSpeed * 0.2)}s` }">
           <path d="M2 10 L10 4 L18 8 L22 3 L28 8 L35 6 L38 10 L35 14 L28 12 L22 17 L18 12 L10 16 L2 10 Z" fill="currentColor" />
           <circle cx="32" cy="9" r="1.5" fill="var(--bg-card)" />
@@ -1239,23 +1294,23 @@ function doomModuleStatus(module: string): { text: string; state: 'live' | 'done
       <div class="pw-body jaws-body">
         <div class="pw-stat-pair">
           <span class="pw-value">{{ passiveStates.jaws.currentSpeed }}</span>
-          <span class="pw-label">speed</span>
+          <span class="pw-label">{{ t('Speed', 'Скорость') }}</span>
         </div>
         <div class="pw-stat-pair">
           <span class="pw-value">{{ passiveStates.jaws.uniqueDefeated }}</span>
-          <span class="pw-label">defeated</span>
+          <span class="pw-label">{{ t('defeated', 'побеждено') }}</span>
         </div>
         <div class="pw-stat-pair">
           <span class="pw-value">{{ passiveStates.jaws.uniquePositions }}</span>
-          <span class="pw-label">positions</span>
+          <span class="pw-label">{{ t('places visited', 'мест посещено') }}</span>
         </div>
       </div>
     </div>
 
     <!-- 12. Привилегия (Privilege) -->
-    <div v-if="passiveStates?.privilege" class="pc-passive-widget privilege-widget" :class="{ 'privilege-active': passiveStates.privilege.markedCount > 0 }">
+    <div v-if="passiveStates?.privilege" class="pc-passive-widget privilege-widget" :data-widget-help="widgetHelp('privilege')" :aria-description="widgetHelp('privilege')" tabindex="0" :class="{ 'privilege-active': passiveStates.privilege.markedCount > 0 }">
       <div class="pw-header">
-        <span class="pw-title privilege-title">PRIVILEGE</span>
+        <span class="pw-title privilege-title">{{ t('PRIVILEGE', 'ПРИВИЛЕГИЯ') }}</span>
         <span class="pw-status privilege-count">{{ passiveStates.privilege.markedCount }}</span>
       </div>
       <div v-if="passiveStates.privilege.markedNames?.length" class="pw-body privilege-names">
@@ -1264,110 +1319,110 @@ function doomModuleStatus(module: string): { text: string; state: 'live' | 'done
     </div>
 
     <!-- 13. Вампуризм (Vampirism) -->
-    <div v-if="passiveStates?.vampirism" class="pc-passive-widget vampirism-widget">
+    <div v-if="passiveStates?.vampirism" class="pc-passive-widget vampirism-widget" :data-widget-help="widgetHelp('vampirism')" :aria-description="widgetHelp('vampirism')" tabindex="0">
       <div class="pw-header">
-        <span class="pw-title vampirism-title">VAMPIRISM</span>
+        <span class="pw-title vampirism-title">{{ t('VAMPIRISM', 'ВАМПУРИЗМ') }}</span>
       </div>
       <div class="pw-body">
         <div class="pw-stat-pair">
           <span class="pw-value">{{ passiveStates.vampirism.activeFeeds }}</span>
-          <span class="pw-label">feeds</span>
+          <span class="pw-label">{{ t('active bites', 'активных укусов') }}</span>
         </div>
         <div class="pw-stat-pair">
           <span class="pw-value">{{ passiveStates.vampirism.ignoredJustice }}</span>
-          <span class="pw-label">justice bypassed</span>
+          <span class="pw-label">{{ t('Justice bypassed', 'обход Справедливости') }}</span>
         </div>
       </div>
     </div>
 
     <!-- 14. Weedwick (Weed) -->
-    <div v-if="passiveStates?.weed" class="pc-passive-widget weed-widget">
+    <div v-if="passiveStates?.weed" class="pc-passive-widget weed-widget" :data-widget-help="widgetHelp('weed')" :aria-description="widgetHelp('weed')" tabindex="0">
       <div class="pw-header">
         <span class="pw-title weed-title">WEED</span>
       </div>
       <div class="pw-body">
         <div class="pw-stat-pair">
           <span class="pw-value">{{ passiveStates.weed.totalWeedAvailable }}</span>
-          <span class="pw-label">available</span>
+          <span class="pw-label">{{ t('available', 'доступно') }}</span>
         </div>
         <div v-if="passiveStates.weed.lastHarvestRound > 0" class="pw-stat-pair">
           <span class="pw-value">{{ roundNo - passiveStates.weed.lastHarvestRound }}</span>
-          <span class="pw-label">rounds ago</span>
+          <span class="pw-label">{{ t('rounds since harvest', 'раундов без сбора') }}</span>
         </div>
       </div>
     </div>
 
     <!-- 15. Сайтама (One Punch) -->
-    <div v-if="passiveStates?.saitama" class="pc-passive-widget saitama-widget">
+    <div v-if="passiveStates?.saitama" class="pc-passive-widget saitama-widget" :data-widget-help="widgetHelp('saitama')" :aria-description="widgetHelp('saitama')" tabindex="0">
       <div class="pw-header">
         <span class="pw-title saitama-title">ONE PUNCH</span>
       </div>
       <div class="pw-body">
         <div class="pw-stat-pair">
           <span class="pw-value">{{ passiveStates.saitama.deferredPoints }}</span>
-          <span class="pw-label">deferred pts</span>
+          <span class="pw-label">{{ t('deferred score', 'отложено очков') }}</span>
         </div>
         <div class="pw-stat-pair">
           <span class="pw-value">{{ Number(passiveStates.saitama.deferredMoral).toFixed(1) }}</span>
-          <span class="pw-label">deferred moral</span>
+          <span class="pw-label">{{ t('deferred Moral', 'отложено Морали') }}</span>
         </div>
       </div>
     </div>
 
     <!-- 16. Глаза бога смерти (Shinigami Eyes) -->
-    <div v-if="passiveStates?.shinigamiEyes" class="pc-passive-widget shinigami-widget">
+    <div v-if="passiveStates?.shinigamiEyes" class="pc-passive-widget shinigami-widget" :data-widget-help="widgetHelp('shinigamiEyes')" :aria-description="widgetHelp('shinigamiEyes')" tabindex="0">
       <div class="pw-header">
-        <span class="pw-title shinigami-title">SHINIGAMI EYES</span>
+        <span class="pw-title shinigami-title">{{ t('SHINIGAMI EYES', 'ГЛАЗА БОГА СМЕРТИ') }}</span>
         <span class="pw-status" :class="passiveStates.shinigamiEyes.isActive ? 'shinigami-on' : 'shinigami-off'">
-          {{ passiveStates.shinigamiEyes.isActive ? 'ACTIVE' : 'INACTIVE' }}
+          {{ passiveStates.shinigamiEyes.isActive ? t('ACTIVE', 'АКТИВНЫ') : t('INACTIVE', 'НЕАКТИВНЫ') }}
         </span>
       </div>
     </div>
 
     <!-- 17. Продавец (Seller) -->
-    <div v-if="passiveStates?.seller" class="pc-passive-widget seller-widget">
+    <div v-if="passiveStates?.seller" class="pc-passive-widget seller-widget" :data-widget-help="widgetHelp('seller')" :aria-description="widgetHelp('seller')" tabindex="0">
       <div class="pw-header">
-        <span class="pw-title seller-title">SELLER</span>
+        <span class="pw-title seller-title">{{ t('SELLER', 'ПРОДАВЕЦ') }}</span>
       </div>
       <div class="pw-body">
         <div class="pw-stat-pair">
           <span class="pw-value">{{ passiveStates.seller.cooldown }}</span>
-          <span class="pw-label">CD</span>
+          <span class="pw-label">{{ t('cooldown', 'откат') }}</span>
         </div>
         <div class="pw-stat-pair">
           <span class="pw-value">{{ passiveStates.seller.markedCount }}</span>
-          <span class="pw-label">marked</span>
+          <span class="pw-label">{{ t('marked', 'отмечено') }}</span>
         </div>
         <div class="pw-stat-pair">
           <span class="pw-value">{{ Math.round(passiveStates.seller.secretBuildSkill) }}</span>
-          <span class="pw-label">secret sk</span>
+          <span class="pw-label">{{ t('hidden Skill', 'скрытый Скилл') }}</span>
         </div>
       </div>
     </div>
 
     <!-- 19. Dopa -->
-    <div v-if="passiveStates?.dopa" class="pc-passive-widget dopa-widget">
+    <div v-if="passiveStates?.dopa" class="pc-passive-widget dopa-widget" :data-widget-help="widgetHelp('dopa')" :aria-description="widgetHelp('dopa')" tabindex="0">
       <div class="pw-header">
         <span class="pw-title dopa-title">DOPA</span>
         <span v-if="passiveStates.dopa.chosenTactic" class="pw-status dopa-tactic">{{ passiveStates.dopa.chosenTactic }}</span>
       </div>
       <div class="pw-body">
         <div class="pw-stat-pair">
-          <span class="pw-value" :class="{ 'dopa-ready': passiveStates.dopa.visionReady }">{{ passiveStates.dopa.visionReady ? 'RDY' : passiveStates.dopa.visionCooldown }}</span>
-          <span class="pw-label">vision</span>
+          <span class="pw-value" :class="{ 'dopa-ready': passiveStates.dopa.visionReady }">{{ passiveStates.dopa.visionReady ? t('READY', 'ГОТОВО') : passiveStates.dopa.visionCooldown }}</span>
+          <span class="pw-label">{{ t('Vision', 'обзор') }}</span>
         </div>
         <div v-if="passiveStates.dopa.needSecondAttack" class="pw-stat-pair">
-          <span class="pw-value dopa-need-atk">2nd</span>
-          <span class="pw-label">attack</span>
+          <span class="pw-value dopa-need-atk">{{ t('2nd', '2-я') }}</span>
+          <span class="pw-label">{{ t('attack', 'атака') }}</span>
         </div>
       </div>
     </div>
 
     <!-- 20. Стая Гоблинов (Goblin Swarm) -->
-    <div v-if="passiveStates?.goblinSwarm" class="pc-passive-widget goblin-widget">
+    <div v-if="passiveStates?.goblinSwarm" class="pc-passive-widget goblin-widget" :data-widget-help="widgetHelp('goblinSwarm')" :aria-description="widgetHelp('goblinSwarm')" tabindex="0">
       <div class="pw-header">
-        <span class="pw-title goblin-title">СТАЯ ГОБЛИНОВ</span>
-        <span v-if="passiveStates.goblinSwarm.isInZiggurat" class="pw-status goblin-zig-active">🏛️ ZIGGURAT</span>
+        <span class="pw-title goblin-title">{{ t('GOBLIN SWARM', 'СТАЯ ГОБЛИНОВ') }}</span>
+        <span v-if="passiveStates.goblinSwarm.isInZiggurat" class="pw-status goblin-zig-active">🏛️ {{ t('ZIGGURAT', 'ЗИККУРАТ') }}</span>
       </div>
       <!-- Population bar -->
       <div class="goblin-pop-bar">
@@ -1399,75 +1454,75 @@ function doomModuleStatus(module: string): { text: string; state: 'live' | 'done
       <!-- Ziggurat positions + Festival status -->
       <div class="goblin-footer" v-if="passiveStates.goblinSwarm.zigguratPositions.length || passiveStates.goblinSwarm.festivalUsed">
         <span v-for="pos in passiveStates.goblinSwarm.zigguratPositions" :key="pos" class="goblin-zig-badge">🏛️{{ pos }}</span>
-        <span v-if="passiveStates.goblinSwarm.festivalUsed" class="goblin-festival-used">🎉 Праздник был</span>
+        <span v-if="passiveStates.goblinSwarm.festivalUsed" class="goblin-festival-used">🎉 {{ t('Festival used', 'Праздник был') }}</span>
       </div>
     </div>
 
     <!-- 21. Котики (owner widget) -->
-    <div v-if="passiveStates?.kotiki" class="pc-passive-widget kotiki-widget">
+    <div v-if="passiveStates?.kotiki" class="pc-passive-widget kotiki-widget" :data-widget-help="widgetHelp('kotiki')" :aria-description="widgetHelp('kotiki')" tabindex="0">
       <div class="pw-header">
-        <span class="pw-title kotiki-title">КОТИКИ</span>
+        <span class="pw-title kotiki-title">{{ t('CATS', 'КОТИКИ') }}</span>
       </div>
       <div class="kotiki-info">
         <div class="kotiki-row">
-          <span class="kotiki-label">Провокации:</span>
+          <span class="kotiki-label">{{ t('Taunts:', 'Провокации:') }}</span>
           <span class="kotiki-val">{{ passiveStates.kotiki.tauntedCount }}/{{ passiveStates.kotiki.tauntedMax }}</span>
         </div>
         <!-- Deployed cats -->
         <div v-if="passiveStates.kotiki.minkaOnPlayerName" class="kotiki-cat-card kotiki-cat-minka">
           <div class="kotiki-cat-header">
             <span class="kotiki-cat-icon">🐱</span>
-            <span class="kotiki-cat-name">Минька</span>
-            <span class="kotiki-cat-rounds">{{ passiveStates.kotiki.minkaRoundsOnEnemy }} р.</span>
+            <span class="kotiki-cat-name">{{ t('Minka', 'Минька') }}</span>
+            <span class="kotiki-cat-rounds">{{ passiveStates.kotiki.minkaRoundsOnEnemy }} {{ t('r.', 'р.') }}</span>
           </div>
-          <div class="kotiki-cat-target">на {{ passiveStates.kotiki.minkaOnPlayerName }}</div>
+          <div class="kotiki-cat-target">{{ t('on', 'на') }} {{ passiveStates.kotiki.minkaOnPlayerName }}</div>
         </div>
         <div v-if="passiveStates.kotiki.stormOnPlayerName" class="kotiki-cat-card kotiki-cat-storm">
           <div class="kotiki-cat-header">
             <span class="kotiki-cat-icon">🐱</span>
-            <span class="kotiki-cat-name">Штормяк</span>
+            <span class="kotiki-cat-name">{{ t('Storm', 'Штормяк') }}</span>
           </div>
-          <div class="kotiki-cat-target">на {{ passiveStates.kotiki.stormOnPlayerName }}</div>
+          <div class="kotiki-cat-target">{{ t('on', 'на') }} {{ passiveStates.kotiki.stormOnPlayerName }}</div>
         </div>
         <!-- Cooldowns -->
         <div v-if="passiveStates.kotiki.minkaCooldown > 0" class="kotiki-row kotiki-cooldown">
-          <span class="kotiki-label">Минька откат:</span>
+          <span class="kotiki-label">{{ t('Minka cooldown:', 'Минька откат:') }}</span>
           <span class="kotiki-val">{{ passiveStates.kotiki.minkaCooldown }}</span>
         </div>
         <div v-if="passiveStates.kotiki.stormCooldown > 0" class="kotiki-row kotiki-cooldown">
-          <span class="kotiki-label">Штормяк откат:</span>
+          <span class="kotiki-label">{{ t('Storm cooldown:', 'Штормяк откат:') }}</span>
           <span class="kotiki-val">{{ passiveStates.kotiki.stormCooldown }}</span>
         </div>
       </div>
     </div>
 
     <!-- 22. Монстр без имени (owner widget) -->
-    <div v-if="passiveStates?.monster" class="pc-passive-widget monster-widget">
+    <div v-if="passiveStates?.monster" class="pc-passive-widget monster-widget" :data-widget-help="widgetHelp('monster')" :aria-description="widgetHelp('monster')" tabindex="0">
       <div class="pw-header">
-        <span class="pw-title monster-title">МОНСТР</span>
+        <span class="pw-title monster-title">{{ t('MONSTER', 'МОНСТР') }}</span>
       </div>
       <div class="monster-info">
         <div class="monster-row">
-          <span class="monster-label">Пешки:</span>
+          <span class="monster-label">{{ t('Pawns:', 'Пешки:') }}</span>
           <span class="monster-val">{{ passiveStates.monster.pawnCount }}</span>
         </div>
       </div>
     </div>
 
     <!-- 23. Подсчет (Tolya Count) -->
-    <div v-if="passiveStates?.tolyaCount" class="pc-passive-widget tolya-widget">
+    <div v-if="passiveStates?.tolyaCount" class="pc-passive-widget tolya-widget" :data-widget-help="widgetHelp('tolyaCount')" :aria-description="widgetHelp('tolyaCount')" tabindex="0">
       <div class="pw-header">
-        <span class="pw-title tolya-title">ПОДСЧЕТ</span>
+        <span class="pw-title tolya-title">{{ t('COUNT', 'ПОДСЧЕТ') }}</span>
         <span class="pw-status" :class="passiveStates.tolyaCount.isReady ? 'tolya-ready' : 'tolya-cooldown'">
-          {{ passiveStates.tolyaCount.isReady ? 'READY' : passiveStates.tolyaCount.cooldown }}
+          {{ passiveStates.tolyaCount.isReady ? t('READY', 'ГОТОВО') : passiveStates.tolyaCount.cooldown }}
         </span>
       </div>
     </div>
 
     <!-- 24. Импакт (LeCrisp) -->
-    <div v-if="passiveStates?.impact" class="pc-passive-widget impact-widget">
+    <div v-if="passiveStates?.impact" class="pc-passive-widget impact-widget" :data-widget-help="widgetHelp('impact')" :aria-description="widgetHelp('impact')" tabindex="0">
       <div class="pw-header">
-        <span class="pw-title impact-title">ИМПАКТ</span>
+        <span class="pw-title impact-title">{{ t('IMPACT', 'ИМПАКТ') }}</span>
         <span class="pw-status impact-streak" :class="{ 'impact-low': passiveStates.impact.streak <= 1, 'impact-mid': passiveStates.impact.streak >= 2 && passiveStates.impact.streak <= 3, 'impact-high': passiveStates.impact.streak >= 4 }">
           {{ passiveStates.impact.streak }}x
         </span>
@@ -1475,57 +1530,57 @@ function doomModuleStatus(module: string): { text: string; state: 'live' | 'done
     </div>
 
     <!-- 25. Darksci (Luck) -->
-    <div v-if="passiveStates?.darksci" class="pc-passive-widget darksci-widget">
+    <div v-if="passiveStates?.darksci" class="pc-passive-widget darksci-widget" :data-widget-help="widgetHelp('darksci')" :aria-description="widgetHelp('darksci')" tabindex="0">
       <div class="pw-header">
-        <span class="pw-title darksci-title">{{ passiveStates.darksci.typeChosen ? (passiveStates.darksci.isStableType ? 'СТАБИЛЬНЫЙ' : 'РИСКОВЫЙ') : 'ПОВЕЗЛО' }}</span>
-        <span class="pw-status darksci-left">{{ passiveStates.darksci.uniqueEnemiesLeft }} left</span>
+        <span class="pw-title darksci-title">{{ passiveStates.darksci.typeChosen ? (passiveStates.darksci.isStableType ? t('STABLE', 'СТАБИЛЬНЫЙ') : t('RISKY', 'РИСКОВЫЙ')) : t('LUCKY', 'ПОВЕЗЛО') }}</span>
+        <span class="pw-status darksci-left">{{ t(`${passiveStates.darksci.uniqueEnemiesLeft} left`, `осталось ${passiveStates.darksci.uniqueEnemiesLeft}`) }}</span>
       </div>
     </div>
 
     <!-- 26. DeepList -->
-    <div v-if="passiveStates?.deepList" class="pc-passive-widget deeplist-widget">
+    <div v-if="passiveStates?.deepList" class="pc-passive-widget deeplist-widget" :data-widget-help="widgetHelp('deepList')" :aria-description="widgetHelp('deepList')" tabindex="0">
       <div class="pw-header">
         <span class="pw-title deeplist-title">DEEPLIST</span>
       </div>
       <div class="pw-body">
         <div class="pw-stat-pair">
           <span class="pw-value">{{ passiveStates.deepList.knownCount }}</span>
-          <span class="pw-label">known</span>
+          <span class="pw-label">{{ t('known', 'изучено') }}</span>
         </div>
         <div class="pw-stat-pair">
           <span class="pw-value">{{ passiveStates.deepList.mockeryTriggered }}</span>
-          <span class="pw-label">mocked</span>
+          <span class="pw-label">{{ t('Mockery triggers', 'срабатываний Стёба') }}</span>
         </div>
       </div>
     </div>
 
     <!-- 27. Краборак (Shell) -->
-    <div v-if="passiveStates?.craboRack" class="pc-passive-widget craborack-widget">
+    <div v-if="passiveStates?.craboRack" class="pc-passive-widget craborack-widget" :data-widget-help="widgetHelp('craboRack')" :aria-description="widgetHelp('craboRack')" tabindex="0">
       <div class="pw-header">
-        <span class="pw-title craborack-title">ПАНЦИРЬ</span>
+        <span class="pw-title craborack-title">{{ t('SHELL', 'ПАНЦИРЬ') }}</span>
         <span class="pw-status craborack-count">{{ 5 - passiveStates.craboRack.shellsUsed }}/5</span>
       </div>
     </div>
 
     <!-- 28. Napoleon (Alliance) -->
-    <div v-if="passiveStates?.napoleon" class="pc-passive-widget napoleon-widget">
+    <div v-if="passiveStates?.napoleon" class="pc-passive-widget napoleon-widget" :data-widget-help="widgetHelp('napoleon')" :aria-description="widgetHelp('napoleon')" tabindex="0">
       <div class="pw-header">
-        <span class="pw-title napoleon-title">НАПОЛЕОН</span>
+        <span class="pw-title napoleon-title">{{ t('NAPOLEON', 'НАПОЛЕОН') }}</span>
       </div>
       <div class="pw-body">
         <div class="pw-stat-pair" v-if="passiveStates.napoleon.allyName">
           <span class="pw-value">{{ passiveStates.napoleon.allyName }}</span>
-          <span class="pw-label">ally</span>
+          <span class="pw-label">{{ t('ally', 'союзник') }}</span>
         </div>
         <div class="pw-stat-pair">
           <span class="pw-value">{{ passiveStates.napoleon.treatyCount }}</span>
-          <span class="pw-label">treaties</span>
+          <span class="pw-label">{{ t('treaties', 'договоров') }}</span>
         </div>
       </div>
     </div>
 
     <!-- 29. Суппорт (Carry) -->
-    <div v-if="passiveStates?.support" class="pc-passive-widget support-widget">
+    <div v-if="passiveStates?.support" class="pc-passive-widget support-widget" :data-widget-help="widgetHelp('support')" :aria-description="widgetHelp('support')" tabindex="0">
       <div class="pw-header">
         <span class="pw-title support-title">PREMADE</span>
         <span class="pw-status support-carry">{{ passiveStates.support.carryName || '—' }}</span>
@@ -1533,37 +1588,37 @@ function doomModuleStatus(module: string): { text: string; state: 'live' | 'done
     </div>
 
     <!-- 30. Toxic Mate (Cancer owner) -->
-    <div v-if="passiveStates?.toxicMate" class="pc-passive-widget toxic-widget">
+    <div v-if="passiveStates?.toxicMate" class="pc-passive-widget toxic-widget" :data-widget-help="widgetHelp('toxicMate')" :aria-description="widgetHelp('toxicMate')" tabindex="0">
       <div class="pw-header">
         <span class="pw-title toxic-title">CANCER</span>
         <span class="pw-status" :class="passiveStates.toxicMate.cancerActive ? 'toxic-active' : 'toxic-inactive'">
-          {{ passiveStates.toxicMate.cancerActive ? 'ACTIVE' : 'DORMANT' }}
+          {{ passiveStates.toxicMate.cancerActive ? t('ACTIVE', 'АКТИВНО') : t('DORMANT', 'СПИТ') }}
         </span>
       </div>
       <div class="pw-body" v-if="passiveStates.toxicMate.cancerActive">
         <div class="pw-stat-pair">
           <span class="pw-value">{{ passiveStates.toxicMate.transferCount }}</span>
-          <span class="pw-label">transfers</span>
+          <span class="pw-label">{{ t('transfers', 'передач') }}</span>
         </div>
         <div v-if="passiveStates.toxicMate.currentHolderName" class="pw-stat-pair">
           <span class="pw-value toxic-holder">{{ passiveStates.toxicMate.currentHolderName }}</span>
-          <span class="pw-label">holder</span>
+          <span class="pw-label">{{ t('carrier', 'носитель') }}</span>
         </div>
       </div>
     </div>
 
     <!-- 31. Молодой Глеб (Tea) -->
-    <div v-if="passiveStates?.yongGleb" class="pc-passive-widget yonggleb-widget">
+    <div v-if="passiveStates?.yongGleb" class="pc-passive-widget yonggleb-widget" :data-widget-help="widgetHelp('yongGleb')" :aria-description="widgetHelp('yongGleb')" tabindex="0">
       <div class="pw-header">
-        <span class="pw-title yonggleb-title">СПОКОЙСТВИЕ</span>
+        <span class="pw-title yonggleb-title">{{ t('CALM', 'СПОКОЙСТВИЕ') }}</span>
         <span class="pw-status" :class="passiveStates.yongGleb.teaReady ? 'yonggleb-ready' : 'yonggleb-cooldown'">
-          {{ passiveStates.yongGleb.teaReady ? 'READY' : passiveStates.yongGleb.teaCooldown }}
+          {{ passiveStates.yongGleb.teaReady ? t('READY', 'ГОТОВО') : passiveStates.yongGleb.teaCooldown }}
         </span>
       </div>
     </div>
 
     <!-- 32. TheBoys -->
-    <div v-if="passiveStates?.theBoys" class="pc-passive-widget theboys-widget">
+    <div v-if="passiveStates?.theBoys" class="pc-passive-widget theboys-widget" :data-widget-help="widgetHelp('theBoys')" :aria-description="widgetHelp('theBoys')" tabindex="0">
       <div class="pw-header">
         <span class="pw-title theboys-title">THE BOYS</span>
       </div>
@@ -1572,7 +1627,7 @@ function doomModuleStatus(module: string): { text: string; state: 'live' | 'done
         <div class="theboys-member">
           <div class="theboys-member-header">
             <span class="theboys-icon">🧪</span>
-            <span class="theboys-name">Француз</span>
+            <span class="theboys-name">{{ t('Frenchie', 'Француз') }}</span>
             <span class="theboys-val">Lv{{ passiveStates.theBoys.chemWeaponLevel }}</span>
           </div>
           <div v-if="passiveStates.theBoys.orderTargetName" class="theboys-order">
@@ -1588,7 +1643,7 @@ function doomModuleStatus(module: string): { text: string; state: 'live' | 'done
         <div class="theboys-member theboys-butcher" :style="{ boxShadow: passiveStates.theBoys.pokerCount > 0 ? `0 0 ${4 + passiveStates.theBoys.pokerCount * 4}px rgba(255,50,50,${Math.min(0.2 + passiveStates.theBoys.pokerCount * 0.2, 1)})` : 'none' }">
           <div class="theboys-member-header">
             <span class="theboys-icon">🔪</span>
-            <span class="theboys-name">Бучер</span>
+            <span class="theboys-name">{{ t('Butcher', 'Бучер') }}</span>
             <span class="theboys-val theboys-poker-val">{{ passiveStates.theBoys.pokerCount }}</span>
           </div>
         </div>
@@ -1599,9 +1654,9 @@ function doomModuleStatus(module: string): { text: string; state: 'live' | 'done
             <span class="theboys-name">Kimiko</span>
             <span class="theboys-val">Lv{{ passiveStates.theBoys.regenLevel }}</span>
           </div>
-          <div v-if="passiveStates.theBoys.kimikoDisabled" class="theboys-kimiko-status">DISABLED</div>
+          <div v-if="passiveStates.theBoys.kimikoDisabled" class="theboys-kimiko-status">{{ t('DISABLED', 'ОТКЛЮЧЕНА') }}</div>
           <div v-if="passiveStates.theBoys.totalJusticeBlocked > 0" class="theboys-kimiko-blocked">
-            ⚖️ {{ passiveStates.theBoys.totalJusticeBlocked }} blocked
+            ⚖️ {{ t(`${passiveStates.theBoys.totalJusticeBlocked} blocked`, `заблокировано ${passiveStates.theBoys.totalJusticeBlocked}`) }}
           </div>
         </div>
         <!-- M.M. -->
@@ -1611,8 +1666,8 @@ function doomModuleStatus(module: string): { text: string; state: 'live' | 'done
             <span class="theboys-name">М.М.</span>
             <span class="theboys-val">Lv{{ passiveStates.theBoys.mmUpgradeLevel }} <span class="theboys-kompromat-count">📁{{ passiveStates.theBoys.kompromatCount }}</span></span>
           </div>
-          <div v-if="passiveStates.theBoys.isCalm" class="theboys-mm-active theboys-calm">🧘 СПОКОЕН</div>
-          <div v-else-if="passiveStates.theBoys.nextAttackGathersKompromat" class="theboys-mm-active">📡 ACTIVE</div>
+          <div v-if="passiveStates.theBoys.isCalm" class="theboys-mm-active theboys-calm">🧘 {{ t('CALM', 'СПОКОЕН') }}</div>
+          <div v-else-if="passiveStates.theBoys.nextAttackGathersKompromat" class="theboys-mm-active">📡 {{ t('GATHERING ACTIVE', 'СБОР АКТИВЕН') }}</div>
           <div v-if="passiveStates.theBoys.kompromatEntries?.length" class="theboys-kompromat-list">
             <div v-for="entry in passiveStates.theBoys.kompromatEntries" :key="entry.targetName" class="theboys-kompromat-entry">
               <span class="theboys-kompromat-name">{{ entry.targetName }}</span>
@@ -1623,9 +1678,9 @@ function doomModuleStatus(module: string): { text: string; state: 'live' | 'done
       </div>
       <!-- Ultimate / status indicators -->
       <div v-if="passiveStates.theBoys.superDickActive || passiveStates.theBoys.livingWeapon || passiveStates.theBoys.virusArmed" class="theboys-ultimates">
-        <span v-if="passiveStates.theBoys.superDickActive" class="theboys-ult-badge theboys-ult-superdick">💀 СуперМудень</span>
-        <span v-if="passiveStates.theBoys.livingWeapon" class="theboys-ult-badge theboys-ult-livingweapon">⚔️ Живое Оружие</span>
-        <span v-if="passiveStates.theBoys.virusArmed" class="theboys-ult-badge theboys-ult-virus">☣️ Вирус готов</span>
+        <span v-if="passiveStates.theBoys.superDickActive" class="theboys-ult-badge theboys-ult-superdick">💀 {{ t('SuperDick', 'СуперМудень') }}</span>
+        <span v-if="passiveStates.theBoys.livingWeapon" class="theboys-ult-badge theboys-ult-livingweapon">⚔️ {{ t('Living Weapon', 'Живое Оружие') }}</span>
+        <span v-if="passiveStates.theBoys.virusArmed" class="theboys-ult-badge theboys-ult-virus">☣️ {{ t('Virus ready', 'Вирус готов') }}</span>
       </div>
       <!-- Infected players (owner view) -->
       <div v-if="passiveStates.theBoys.virusNames?.length" class="theboys-marks-row">
@@ -1635,7 +1690,7 @@ function doomModuleStatus(module: string): { text: string; state: 'live' | 'done
     </div>
 
     <!-- 33. Salldorum -->
-    <div v-if="passiveStates?.salldorum" class="pc-passive-widget salldorum-widget">
+    <div v-if="passiveStates?.salldorum" class="pc-passive-widget salldorum-widget" :data-widget-help="widgetHelp('salldorum')" :aria-description="widgetHelp('salldorum')" tabindex="0">
       <div class="pw-header">
         <span class="pw-title salldorum-title">SALLDORUM</span>
       </div>
@@ -1644,51 +1699,51 @@ function doomModuleStatus(module: string): { text: string; state: 'live' | 'done
         <div class="salldorum-row">
           <span class="salldorum-label">Shen</span>
           <span class="salldorum-val">{{ passiveStates.salldorum.shenCharges }}</span>
-          <span v-if="passiveStates.salldorum.shenActive" class="salldorum-active">ACTIVE pos{{ passiveStates.salldorum.shenTargetPosition }}</span>
+          <span v-if="passiveStates.salldorum.shenActive" class="salldorum-active">{{ t('ACTIVE · place', 'АКТИВЕН · место') }} {{ passiveStates.salldorum.shenTargetPosition }}</span>
         </div>
         <!-- Cola -->
         <div v-if="passiveStates.salldorum.colaBuried" class="salldorum-row">
           <span class="salldorum-label">Cola</span>
-          <span class="salldorum-val">pos{{ passiveStates.salldorum.colaBuriedPosition }} (R{{ passiveStates.salldorum.colaBuriedRound }})</span>
+          <span class="salldorum-val">{{ t('place', 'место') }} {{ passiveStates.salldorum.colaBuriedPosition }} · {{ t('round', 'раунд') }} {{ passiveStates.salldorum.colaBuriedRound }}</span>
         </div>
         <!-- Chronicler -->
         <div class="salldorum-row">
           <span class="salldorum-label">Rewrite</span>
-          <span v-if="passiveStates.salldorum.historyRewritten" class="salldorum-used">USED</span>
-          <span v-else class="salldorum-available">READY</span>
+          <span v-if="passiveStates.salldorum.historyRewritten" class="salldorum-used">{{ t('USED', 'ИСПОЛЬЗОВАНО') }}</span>
+          <span v-else class="salldorum-available">{{ t('READY', 'ГОТОВО') }}</span>
         </div>
       </div>
     </div>
 
     <!-- 25. Геральт (owner widget) -->
-    <div v-if="passiveStates?.geralt" class="pc-passive-widget geralt-widget">
+    <div v-if="passiveStates?.geralt" class="pc-passive-widget geralt-widget" :data-widget-help="widgetHelp('geralt')" :aria-description="widgetHelp('geralt')" tabindex="0">
       <div class="pw-header">
-        <span class="pw-title geralt-title">ДОСКА ЗАКАЗОВ</span>
+        <span class="pw-title geralt-title">{{ t('CONTRACT BOARD', 'ДОСКА ЗАКАЗОВ') }}</span>
 
       </div>
       <div class="geralt-body">
         <div class="geralt-row" style="border-left-color: #3B82F6; background: #3B82F612;">
-          <span style="color: #3B82F6">💀 Утопцы</span>
+          <span style="color: #3B82F6">💀 {{ t('Drowners', 'Утопцы') }}</span>
           <span style="color: #3B82F6">x{{ passiveStates.geralt.drownersContracts }}</span>
           <span class="geralt-oil-tier">{{ geraltOilLabel(passiveStates.geralt.drownersOilTier) }}</span>
         </div>
         <div class="geralt-row" style="border-left-color: #22C55E; background: #22C55E12;">
-          <span style="color: #22C55E">🐺 Волколаки</span>
+          <span style="color: #22C55E">🐺 {{ t('Werewolves', 'Волколаки') }}</span>
           <span style="color: #22C55E">x{{ passiveStates.geralt.werewolvesContracts }}</span>
           <span class="geralt-oil-tier">{{ geraltOilLabel(passiveStates.geralt.werewolvesOilTier) }}</span>
         </div>
         <div class="geralt-row" style="border-left-color: #A855F7; background: #A855F712;">
-          <span style="color: #A855F7">🦇 Вампиры</span>
+          <span style="color: #A855F7">🦇 {{ t('Vampires', 'Вампиры') }}</span>
           <span style="color: #A855F7">x{{ passiveStates.geralt.vampiresContracts }}</span>
           <span class="geralt-oil-tier">{{ geraltOilLabel(passiveStates.geralt.vampiresOilTier) }}</span>
         </div>
         <div class="geralt-row" style="border-left-color: #EF4444; background: #EF444412;">
-          <span style="color: #EF4444">🐉 Драконы</span>
+          <span style="color: #EF4444">🐉 {{ t('Dragons', 'Драконы') }}</span>
           <span style="color: #EF4444">x{{ passiveStates.geralt.dragonsContracts }}</span>
           <span class="geralt-oil-tier">{{ geraltOilLabel(passiveStates.geralt.dragonsOilTier) }}</span>
         </div>
         <div class="geralt-status-row">
-          <span v-if="passiveStates.geralt.revealedCount > 0">Чутьё: {{ passiveStates.geralt.revealedCount }}/4</span>
+          <span v-if="passiveStates.geralt.revealedCount > 0">{{ t('Senses:', 'Чутьё:') }} {{ passiveStates.geralt.revealedCount }}/4</span>
         </div>
       </div>
     </div>
@@ -1696,7 +1751,7 @@ function doomModuleStatus(module: string): { text: string; state: 'live' | 'done
     <!-- Score + animated delta -->
     <div class="pc-score-row" :class="{ 'confetti-burst': showConfetti }">
       <ScoreOdometer :value="player.status.score" size="lg" :flash-color="animatedScoreDelta > 0 ? '#5ba85b' : animatedScoreDelta < 0 ? '#e05545' : null" class="pc-score" />
-      <span class="pc-score-label" :class="{ 'pc-score-label-geralt': isGeralt }">{{ isGeralt ? 'чеканные\nмонеты' : 'pts' }}</span>
+      <span class="pc-score-label" :class="{ 'pc-score-label-geralt': isGeralt }">{{ isGeralt ? t('minted\ncoins', 'чеканные\nмонеты') : 'pts' }}</span>
       <span v-if="animatedScoreDelta !== 0" class="pc-score-delta" :class="{ 'delta-big': allAnimHits.length >= 4, 'delta-huge': allAnimHits.length >= 6, 'delta-negative': animatedScoreDelta < 0 }" :key="animatedScoreDelta">
         {{ animatedScoreDelta > 0 ? '+' : '' }}{{ animatedScoreDelta }}
       </span>
@@ -3841,6 +3896,220 @@ function doomModuleStatus(module: string): { text: string; state: 'live' | 'done
     opacity: 0;
   }
 }
+
+/* ── Widget experience layer ─────────────────────────────────────── */
+.pc-passive-widget button:focus-visible,
+.pc-geralt-demand button:focus-visible,
+.pc-moral-actions button:focus-visible {
+  outline: 2px solid #f0c850;
+  outline-offset: 2px;
+}
+
+.pc-passive-widget,
+.pc-special-ability,
+.pc-exploit-state,
+.pc-tsukuyomi-state {
+  position: relative;
+  min-width: 0;
+  border-radius: 10px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035), 0 4px 12px rgba(0, 0, 0, 0.12);
+  transition: transform 0.18s ease, border-color 0.22s ease, box-shadow 0.22s ease;
+}
+[data-widget-help] {
+  cursor: help;
+  outline: none;
+}
+[data-widget-help]:focus-visible {
+  outline: 2px solid rgba(240, 200, 80, 0.88);
+  outline-offset: 2px;
+}
+.pc-passive-widget {
+  padding: 10px 11px;
+}
+.pc-passive-widget:hover,
+.pc-special-ability:hover,
+.pc-exploit-state:hover,
+.pc-tsukuyomi-state:hover {
+  transform: translateY(-1px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 7px 18px rgba(0, 0, 0, 0.18);
+}
+.pw-header {
+  min-height: 24px;
+  gap: 8px;
+}
+.pw-title {
+  font-size: 11px;
+  line-height: 1.25;
+  letter-spacing: 0.09em;
+}
+.pw-status {
+  display: inline-flex;
+  min-height: 22px;
+  max-width: 62%;
+  align-items: center;
+  justify-content: center;
+  padding: 3px 7px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.045);
+  font-size: 10px;
+  line-height: 1.2;
+  text-align: center;
+}
+.pw-body {
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 7px;
+}
+.pw-stat-pair {
+  min-width: 0;
+  flex: 1 1 74px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  padding: 5px 7px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.035);
+}
+.pw-value {
+  max-width: 100%;
+  overflow: hidden;
+  font-size: 18px;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+}
+.pw-label,
+.bulk-chance-label {
+  color: rgba(255, 255, 255, 0.6) !important;
+  font-size: 10px;
+  line-height: 1.25;
+}
+[data-widget-help]::after { content: none; }
+.pw-title::after,
+.sa-header::after,
+.exploit-title::after,
+.tsukuyomi-title::after {
+  content: '?';
+  display: inline-grid;
+  width: 15px;
+  height: 15px;
+  margin-left: 6px;
+  place-items: center;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  opacity: 0.38;
+  font: 800 9px/1 var(--font-mono);
+  vertical-align: 1px;
+  transition: opacity 0.16s ease, transform 0.16s ease;
+}
+[data-widget-help]:hover :is(.pw-title, .sa-header, .exploit-title, .tsukuyomi-title)::after,
+[data-widget-help]:focus :is(.pw-title, .sa-header, .exploit-title, .tsukuyomi-title)::after,
+[data-widget-help]:focus-within :is(.pw-title, .sa-header, .exploit-title, .tsukuyomi-title)::after {
+  opacity: 0.9;
+  transform: rotate(12deg) scale(1.06);
+}
+[data-widget-help]:hover::after,
+[data-widget-help]:focus::after,
+[data-widget-help]:focus-within::after {
+  content: attr(data-widget-help);
+  position: relative;
+  right: auto;
+  bottom: auto;
+  display: block;
+  width: auto;
+  height: auto;
+  margin-top: 9px;
+  padding: 8px 9px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 7px;
+  background: rgba(0, 0, 0, 0.16);
+  color: rgba(244, 246, 250, 0.76);
+  font: 500 11px/1.45 var(--font-body);
+  animation: widget-help-in 0.18s ease-out both;
+}
+@keyframes widget-help-in {
+  from { opacity: 0; transform: translateY(-3px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Character-flavored response without obscuring the state itself. */
+.pc-passive-widget .pw-title,
+.geralt-row,
+.goblin-pop-total,
+.kotiki-cat-icon,
+.impact-streak {
+  transition: transform 0.18s ease, letter-spacing 0.18s ease, text-shadow 0.18s ease;
+}
+.pc-passive-widget:hover .pw-title { letter-spacing: 0.12em; }
+.bulk-widget:hover .bulk-wave-fill { animation-duration: 0.7s; }
+.tea-widget:hover .tea-title { text-shadow: 0 0 12px rgba(212, 165, 116, 0.75); }
+.beans-widget:hover .beans-cooking { transform: rotate(-2deg) scale(1.04); }
+.jaws-widget:hover .jaws-shark { animation-duration: 0.55s !important; }
+.goblin-widget:hover .goblin-pop-total { transform: rotate(-3deg) scale(1.08); }
+.kotiki-widget:hover .kotiki-cat-icon { animation: widget-cat-hop 0.55s ease; }
+.impact-widget:hover .impact-streak { transform: scale(1.12); }
+.ink-widget:hover { box-shadow: inset 0 0 22px rgba(123, 104, 238, 0.1), 0 7px 18px rgba(0, 0, 0, 0.18); }
+.shinigami-widget:hover { box-shadow: inset 0 0 22px rgba(255, 0, 0, 0.09), 0 7px 18px rgba(0, 0, 0, 0.18); }
+.geralt-widget:hover .geralt-row:nth-child(odd) { transform: translateX(2px); }
+@keyframes widget-cat-hop {
+  0%, 100% { transform: translateY(0) rotate(0); }
+  45% { transform: translateY(-3px) rotate(-8deg); }
+}
+
+.hardkitty-bar-bg,
+.dragon-bar-bg,
+.garbage-bar-bg,
+.goblin-pop-track,
+.bulk-wave-bar,
+.exploit-bar-bg,
+.tsukuyomi-bar-bg {
+  min-height: 6px;
+}
+.moral-btn,
+.geralt-demand-btn,
+.doom-chainsaw-choice button {
+  min-height: 40px;
+}
+.geralt-demand-btn:active:not(:disabled),
+.doom-chainsaw-choice button:active {
+  transform: translateY(1px) scale(0.99);
+}
+
+@media (max-width: 600px) {
+  .player-card { padding: 11px; gap: 9px; }
+  .pc-passive-widget { padding: 11px; }
+  .pw-title { font-size: 12px; }
+  .pw-status { max-width: 58%; font-size: 10px; }
+  .pw-label,
+  .bulk-chance-label { font-size: 11px; }
+  .moral-btn,
+  .geralt-demand-btn,
+  .doom-chainsaw-choice button { min-height: 44px; }
+  .geralt-demand-btns,
+  .doom-chainsaw-choice { grid-template-columns: 1fr; }
+  .geralt-demand-btns { flex-direction: column; }
+  .geralt-demand-next { width: 100%; }
+  .doom-module-list { grid-template-columns: 1fr; }
+  .doom-module-card { min-height: 62px; }
+  .doom-module-copy strong { white-space: normal; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pc-passive-widget,
+  .pc-passive-widget *,
+  .pc-special-ability,
+  .pc-exploit-state,
+  .pc-tsukuyomi-state {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+  .pc-passive-widget:hover,
+  .pc-special-ability:hover,
+  .pc-exploit-state:hover,
+  .pc-tsukuyomi-state:hover { transform: none; }
+}
 </style>
 
 <!-- Unscoped styles for widgets that use Teleport to body -->
@@ -4027,7 +4296,7 @@ function doomModuleStatus(module: string): { text: string; state: 'live' | 'done
     #0d0d0f !important;
   box-shadow: inset 0 0 28px rgba(143, 28, 12, .12);
 }
-.doom-widget::after { content: ''; position: absolute; top: 0; right: 0; width: 42px; height: 2px; background: #ef6545; box-shadow: 0 0 12px #ef6545; }
+.doom-widget::before { content: ''; position: absolute; top: 0; right: 0; width: 42px; height: 2px; background: #ef6545; box-shadow: 0 0 12px #ef6545; }
 .doom-title { display: block; color: #ff8264; letter-spacing: .1em; }
 .doom-subtitle { display: block; margin-top: 2px; color: #74483e; font-size: 7px; font-weight: 900; letter-spacing: .16em; }
 .doom-mode { padding: 3px 6px; border: 1px solid rgba(239, 101, 69, .25); border-radius: 3px; background: rgba(239, 101, 69, .07); color: #a66b5e; font-size: 8px; }
@@ -4057,4 +4326,65 @@ function doomModuleStatus(module: string): { text: string; state: 'live' | 'done
 .doom-chainsaw-choice button b { font-size: 9px; }
 .doom-chainsaw-choice button small { overflow: hidden; color: rgba(255,255,255,.45); font-size: 7px; text-overflow: ellipsis; white-space: nowrap; }
 @keyframes doom-charge { to { text-shadow: 0 0 9px #59ff37; } }
+
+/* Dense widgets stay readable without losing their character styling. */
+.theboys-grid { gap: 7px; margin-top: 8px; }
+.theboys-member { padding: 7px 8px; border-radius: 7px; }
+.theboys-member-header { font-size: 11px; }
+.theboys-stats,
+.theboys-order,
+.theboys-kimiko-status,
+.theboys-kimiko-blocked,
+.theboys-mm-active,
+.theboys-kompromat-entry,
+.theboys-marks-row { font-size: 10px; line-height: 1.35; }
+.theboys-ult-badge { padding: 4px 7px; font-size: 10px; }
+.eren-stats { font-size: 11px; line-height: 1.4; }
+.eren-mark { padding: 3px 7px; font-size: 10px; }
+
+.doom-subtitle,
+.doom-module-copy small { font-size: 9px; }
+.doom-mode,
+.doom-module-copy > span,
+.doom-nests,
+.doom-chainsaw-choice > span { font-size: 10px; }
+.doom-module-copy strong,
+.doom-bfg,
+.doom-chainsaw-choice,
+.doom-chainsaw-choice button b { font-size: 11px; }
+.doom-chainsaw-choice button small { font-size: 10px; line-height: 1.35; white-space: normal; }
+.doom-module-card { min-height: 68px; padding: 9px; }
+.doom-module-copy { gap: 3px; }
+
+.salldorum-widget {
+  border-color: rgba(112, 174, 255, 0.32);
+  background: linear-gradient(135deg, rgba(46, 102, 176, 0.13), rgba(13, 25, 44, 0.28));
+}
+.salldorum-title { color: #75b9ff; text-shadow: 0 0 7px rgba(70, 150, 255, 0.38); }
+.salldorum-body { display: grid; gap: 5px; margin-top: 7px; }
+.salldorum-row {
+  display: grid;
+  grid-template-columns: minmax(54px, auto) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 7px;
+  border: 1px solid rgba(117, 185, 255, 0.1);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.03);
+  font-size: 11px;
+}
+.salldorum-label { color: rgba(196, 224, 255, 0.62); font-weight: 700; }
+.salldorum-val { overflow: hidden; color: #d6eaff; font-weight: 800; text-overflow: ellipsis; }
+.salldorum-active,
+.salldorum-available { color: #77e6aa; font-size: 10px; font-weight: 900; }
+.salldorum-used { color: rgba(255, 255, 255, 0.38); font-size: 10px; font-weight: 800; }
+
+@media (max-width: 600px) {
+  .theboys-grid { grid-template-columns: 1fr; }
+  .doom-module-list { grid-template-columns: 1fr; }
+  .salldorum-row { grid-template-columns: 54px minmax(0, 1fr); }
+  .salldorum-active,
+  .salldorum-available,
+  .salldorum-used { grid-column: 1 / -1; }
+}
 </style>
