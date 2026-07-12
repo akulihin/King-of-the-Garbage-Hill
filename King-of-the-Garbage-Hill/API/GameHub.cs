@@ -1175,6 +1175,17 @@ public class GameHub : Hub
         await Clients.Caller.SendAsync("BattleshipLobby", state);
     }
 
+    public async Task RequestBattleshipStats()
+    {
+        var discordId = GetDiscordId();
+        if (discordId == 0) { await SendNotAuthenticated(); return; }
+
+        var account = _userAccounts.GetAccount(discordId);
+        var stats = _battleshipService.GetPlayerStats(account);
+        if (stats != null)
+            await Clients.Caller.SendAsync("BattleshipStats", stats);
+    }
+
     public async Task CreateBattleshipGame()
     {
         var discordId = GetDiscordId();

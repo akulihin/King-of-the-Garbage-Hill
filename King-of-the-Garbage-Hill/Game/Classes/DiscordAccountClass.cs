@@ -29,6 +29,8 @@ public class DiscordAccountClass
     public int ZbsPoints { get; set; }
     public QuestData Quests { get; set; }
     public AchievementData Achievements { get; set; }
+    /// <summary>Battleship mini-game W/L record + daily meta. Null on old accounts — lazily created on first settlement.</summary>
+    public BattleshipStatsData BattleshipStats { get; set; }
 
     public ulong TotalPlays { get; set; }
     public ulong TotalWins { get; set; }
@@ -126,5 +128,20 @@ public class DiscordAccountClass
             CharacterRangeMin = characterRangeMin;
             CharacterRangeMax = characterRangeMax;
         }
+    }
+
+    /// <summary>
+    /// Battleship mini-game persistent meta. Day keys are "yyyy-MM-dd" UTC;
+    /// the daily win streak advances like QuestClass.AdvanceStreak (consecutive win-days).
+    /// </summary>
+    public class BattleshipStatsData
+    {
+        public int Wins { get; set; }
+        public int Losses { get; set; }
+        public int CurrentDailyStreak { get; set; }
+        public int BestDailyStreak { get; set; }
+        public string LastWinDayUtc { get; set; }
+        public string LastFirstWinAwardDayUtc { get; set; }
+        public int TotalZbsEarned { get; set; }
     }
 }

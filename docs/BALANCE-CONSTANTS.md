@@ -58,6 +58,12 @@ The full 12-contract catalog, selection, privacy and migration rules are in [DAI
 | Weekly journey | any 5 UTC daily completions in one ISO week; +100 ZBS | QuestClass.cs:200-206,670-675,690-723 |
 | Free reroll | 1 per UTC day; unfinished Skirmish/Ambition only | QuestClass.cs:414-474,510-540 |
 
+## Mini-game rewards
+
+| Constant | Value | Anchor |
+|---|---|---|
+| Battleship first win of the UTC day | 10 ZBS; once per account/day after combat starts | BattleshipService.cs:15-16,75-95 |
+
 ## Achievement & loot-box rewards
 
 Achievement progress targets and the complete 33-entry rule catalog are in [ACHIEVEMENTS.md](ACHIEVEMENTS.md). Reward values are centralized by rarity; the live catalog totals **2,925 ZBS + 21 boxes** (`AchievementClass.cs:65-76,184-347`).

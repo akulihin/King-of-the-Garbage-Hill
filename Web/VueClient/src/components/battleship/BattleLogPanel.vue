@@ -26,9 +26,8 @@ function logEntryClass(entry: string): string {
 </script>
 
 <template>
-  <div class="battle-log card-parchment" :style="{ maxHeight }">
+  <div class="battle-log bs-card" :style="{ maxHeight }">
     <div class="battle-log-header">
-      <span class="header-icon">&#x2693;</span>
       Боевой журнал
     </div>
     <div class="battle-log-entries">
@@ -47,22 +46,19 @@ function logEntryClass(entry: string): string {
 <style scoped>
 .battle-log {
   overflow-y: auto;
-  border-top: 3px solid var(--bs-wood-mid);
+  padding: 10px 12px;
 }
 
 .battle-log-header {
-  font-family: 'Pirata One', cursive;
-  font-size: 1.1rem;
-  color: var(--bs-gold);
+  color: var(--text-muted);
+  font-size: 0.62rem;
+  font-weight: 900;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
   padding-bottom: 6px;
   margin-bottom: 4px;
-  border-bottom: 1px solid var(--bs-parchment-dim);
+  border-bottom: 1px solid var(--glass-border);
   user-select: none;
-}
-
-.header-icon {
-  margin-right: 6px;
-  font-size: 1rem;
 }
 
 .battle-log-entries {
@@ -72,92 +68,58 @@ function logEntryClass(entry: string): string {
 }
 
 .battle-log-entry {
-  font-size: 0.75rem;
+  --log-color: var(--text-muted);
+  font-size: 0.72rem;
   padding: 3px 8px;
-  border-bottom: 1px solid var(--bs-wood-mid, rgba(74, 47, 26, 0.25));
-  border-left: 3px solid var(--bs-parchment-dim);
-  color: var(--bs-parchment-dim);
+  border-bottom: 1px solid var(--glass-border);
+  border-left: 3px solid var(--log-color);
+  color: var(--log-color);
 }
 
 /* ── Entry type colors ─────────────────────────────────── */
 
 .log-mast {
-  border-left-color: var(--bs-gold);
-  color: var(--bs-gold);
+  --log-color: var(--accent-gold);
   font-style: italic;
 }
 
 .log-sunk {
-  border-left-color: var(--bs-fire-red);
-  color: var(--bs-fire-red);
+  --log-color: var(--accent-red);
   font-weight: 600;
 }
 
-.log-destroy {
-  border-left-color: #ef8080;
-  color: #ef8080;
-}
+.log-destroy { --log-color: color-mix(in srgb, var(--accent-red) 70%, white); }
 
-.log-scratch {
-  border-left-color: #ffa500;
-  color: #ffa500;
-}
+.log-scratch { --log-color: var(--accent-orange); }
 
 .log-miss {
-  border-left-color: var(--bs-parchment-dim);
-  color: var(--bs-parchment-dim);
-  opacity: 0.7;
+  --log-color: var(--text-dim);
+  opacity: 0.8;
 }
 
-.log-dodge {
-  border-left-color: #00cc66;
-  color: #00cc66;
-}
+.log-dodge { --log-color: var(--accent-green); }
 
-.log-burn {
-  border-left-color: var(--bs-fire-orange);
-  color: var(--bs-fire-orange);
-}
+.log-burn { --log-color: var(--accent-orange); }
 
-.log-freeze {
-  border-left-color: var(--bs-ice-blue);
-  color: var(--bs-ice-blue);
-}
+.log-freeze { --log-color: var(--accent-blue); }
 
-.log-devastate {
-  border-left-color: var(--bs-cursed-purple);
-  color: var(--bs-cursed-purple);
-}
+.log-devastate { --log-color: var(--accent-purple); }
 
-.log-capture {
-  border-left-color: #b388ff;
-  color: #b388ff;
-}
+.log-capture { --log-color: color-mix(in srgb, var(--accent-purple) 75%, white); }
 
-.log-ram {
-  border-left-color: var(--bs-gold);
-  color: var(--bs-gold);
-}
+.log-ram { --log-color: var(--accent-gold); }
 
 .log-boarding {
-  border-left-color: var(--bs-fire-red);
-  color: var(--bs-fire-red);
+  --log-color: var(--accent-red);
   font-weight: 600;
 }
 
 .log-penalty {
-  border-left-color: #ff8888;
-  color: #ff8888;
+  --log-color: color-mix(in srgb, var(--accent-red) 70%, white);
   font-style: italic;
 }
 
-.log-maneuver {
-  border-left-color: var(--bs-ocean-blue);
-  color: var(--bs-ocean-blue);
-}
+.log-maneuver { --log-color: var(--accent-blue); }
 
-.log-default {
-  border-left-color: var(--bs-parchment-dim);
-  color: var(--bs-parchment-dim);
-}
+.log-default { --log-color: var(--text-muted); }
 </style>

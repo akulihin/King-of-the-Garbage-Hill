@@ -5,7 +5,9 @@ import { useBattleshipStore } from 'src/store/battleship'
 import { useGameStore } from 'src/store/game'
 import { signalrService } from 'src/services/signalr'
 import { useTip } from 'src/composables/useTip'
-import { renderIcon } from 'src/components/battleship/battleship-icons'
+import 'src/components/battleship/battleship.css'
+import BsIcon from 'src/components/battleship/BsIcon.vue'
+import StatsPanel from 'src/components/battleship/StatsPanel.vue'
 
 const { tipText, tipVisible, tipPos, showTip, moveTip, hideTip } = useTip()
 
@@ -31,12 +33,10 @@ const phaseDescriptions: Record<string, string> = {
   GameOver: 'Игра окончена',
 }
 
-const anchorIcon = renderIcon('anchor', 16)
-const compassIcon = renderIcon('compass', 20)
-
 onMounted(() => {
   store.initCallbacks()
   store.refreshLobby()
+  void store.loadStats()
 
   pollInterval = setInterval(() => {
     if (gameStore.isConnected) store.refreshLobby()
@@ -70,53 +70,57 @@ async function handleJoin(gameId: string) {
 </script>
 
 <template>
-  <div class="bs-pirate bs-lobby bs-ocean-bg">
+  <div class="bs-page bs-lobby bs-phase-lobby">
     <!-- Header -->
     <div class="lobby-header">
-      <h2 class="lobby-title bs-font-title">
-        <span class="anchor-deco" v-html="anchorIcon"></span>
+      <h2 class="lobby-title bs-title">
+        <span class="anchor-deco"><BsIcon icon="anchor" :size="20" /></span>
         MORSKOY BOY
-        <span class="anchor-deco" v-html="anchorIcon"></span>
+        <span class="anchor-deco"><BsIcon icon="anchor" :size="20" /></span>
       </h2>
       <button
-        class="btn-pirate"
+        class="bs-btn bs-btn--primary"
         :disabled="store.isCreating"
         @click="handleCreate"
       >
+        <BsIcon icon="plus" :size="15" />
         {{ store.isCreating ? 'Создание...' : 'Новая игра' }}
       </button>
     </div>
 
+    <!-- W/L record, streak, first-win bonus -->
+    <StatsPanel />
+
     <!-- Empty state -->
     <div v-if="games.length === 0" class="empty-state">
-      <span class="empty-icon" v-html="compassIcon"></span>
+      <span class="empty-icon"><BsIcon icon="compass" :size="26" /></span>
       <p>Нет активных игр. Создайте новую, чтобы начать!</p>
     </div>
 
     <!-- Game list -->
     <div v-else class="game-list">
-      <div v-for="game in games" :key="game.gameId" class="card-wood game-card">
+      <div v-for="game in games" :key="game.gameId" class="bs-card game-card">
         <div class="game-card-top">
-          <span class="game-id bs-font-data">#{{ game.gameId }}</span>
+          <span class="game-id bs-mono">#{{ game.gameId }}</span>
           <span class="phase-badge" :class="phaseBadgeClass(game.phase)" @mouseenter="showTip($event, phaseDescriptions[game.phase] ?? game.phase)" @mousemove="moveTip" @mouseleave="hideTip">{{ game.phase }}</span>
         </div>
 
         <div class="game-players">
           <span class="player-name" :class="{ 'is-bot': game.player1IsBot }" @mouseenter="game.player1IsBot ? showTip($event, 'Управляется компьютером') : undefined" @mousemove="moveTip" @mouseleave="hideTip">
-            {{ game.player1Name || '\u2014' }}
+            {{ game.player1Name || '—' }}
           </span>
           <span class="vs">vs</span>
           <span class="player-name" :class="{ 'is-bot': game.player2IsBot }" @mouseenter="game.player2IsBot ? showTip($event, 'Управляется компьютером') : undefined" @mousemove="moveTip" @mouseleave="hideTip">
-            {{ game.player2Name || '\u2014' }}
+            {{ game.player2Name || '—' }}
           </span>
         </div>
 
         <div class="game-card-footer">
-          <span v-if="game.turnNumber > 0" class="turn-info bs-font-data" @mouseenter="showTip($event, 'Текущий ход в матче')" @mousemove="moveTip" @mouseleave="hideTip">Ход {{ game.turnNumber }}</span>
+          <span v-if="game.turnNumber > 0" class="turn-info bs-mono" @mouseenter="showTip($event, 'Текущий ход в матче')" @mousemove="moveTip" @mouseleave="hideTip">Ход {{ game.turnNumber }}</span>
           <span v-else />
           <button
             v-if="game.player2IsBot && game.phase === 'Lobby'"
-            class="btn-join"
+            class="bs-btn bs-btn--primary btn-join"
             @click="handleJoin(game.gameId)"
           >
             Присоединиться
@@ -124,8 +128,9 @@ async function handleJoin(gameId: string) {
           <RouterLink
             v-else
             :to="`/battleship/spectate/${game.gameId}`"
-            class="btn-spectate"
+            class="bs-btn bs-btn--sm btn-spectate"
           >
+            <BsIcon icon="eye" :size="13" />
             Наблюдать
           </RouterLink>
         </div>
@@ -142,15 +147,10 @@ async function handleJoin(gameId: string) {
 </template>
 
 <style scoped>
-@import 'src/components/battleship/battleship-theme.css';
-
 /* ── Page root ─────────────────────────────────────────── */
 .bs-lobby {
   max-width: 800px;
-  margin: 0 auto;
-  min-height: 100vh;
   padding: 2rem 1rem;
-  background-color: var(--bs-sea-deep);
 }
 
 /* ── Header ────────────────────────────────────────────── */
@@ -158,33 +158,31 @@ async function handleJoin(gameId: string) {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
 }
 
 .lobby-title {
-  font-size: 1.5rem;
-  font-weight: 800;
-  color: var(--bs-gold);
-  margin: 0;
+  font-size: 1.4rem;
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  text-shadow: 0 2px 6px rgba(212, 168, 71, 0.3);
+  letter-spacing: 2px;
 }
 
 .anchor-deco {
   display: inline-flex;
-  color: var(--bs-gold);
-  opacity: 0.7;
+  color: var(--accent-gold);
+  opacity: 0.8;
 }
 
 /* ── Empty state ───────────────────────────────────────── */
 .empty-state {
   text-align: center;
-  color: var(--bs-parchment-dim);
+  color: var(--text-muted);
   padding: 3rem 1rem;
-  font-family: 'Crimson Text', 'Georgia', serif;
-  font-size: 1rem;
+  font-size: 0.95rem;
 }
 
 .empty-state p {
@@ -193,8 +191,8 @@ async function handleJoin(gameId: string) {
 
 .empty-icon {
   display: inline-flex;
-  color: var(--bs-parchment-dim);
-  opacity: 0.5;
+  color: var(--text-dim);
+  opacity: 0.7;
 }
 
 /* ── Game list ─────────────────────────────────────────── */
@@ -216,70 +214,53 @@ async function handleJoin(gameId: string) {
 }
 
 .game-id {
-  color: var(--bs-parchment-dim);
-  font-size: 0.8rem;
+  color: var(--text-dim);
+  font-size: 0.75rem;
 }
 
 /* ── Phase badges ──────────────────────────────────────── */
 .phase-badge {
-  font-size: 0.7rem;
-  font-weight: 700;
+  --badge-color: var(--text-muted);
+  font-size: 0.62rem;
+  font-weight: 800;
   padding: 2px 8px;
-  border-radius: 4px;
+  border-radius: 7px;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
-  font-family: 'Crimson Text', serif;
+  letter-spacing: 0.8px;
+  color: var(--badge-color);
+  background: color-mix(in srgb, var(--badge-color) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--badge-color) 28%, transparent);
 }
 
-.phase-lobby {
-  background: rgba(41, 128, 185, 0.2);
-  color: var(--bs-ocean-blue);
-}
-
+.phase-lobby { --badge-color: var(--accent-blue); }
 .phase-armyselection,
-.phase-fleetbuilding {
-  background: rgba(212, 168, 71, 0.2);
-  color: var(--bs-gold);
-}
-
-.phase-shipplacement {
-  background: rgba(39, 174, 96, 0.2);
-  color: var(--bs-poison-green);
-}
-
+.phase-fleetbuilding { --badge-color: var(--accent-gold); }
+.phase-shipplacement { --badge-color: var(--accent-green); }
 .phase-combat,
-.phase-boarding {
-  background: rgba(192, 57, 43, 0.2);
-  color: var(--bs-fire-red);
-}
-
-.phase-gameover {
-  background: rgba(176, 154, 120, 0.15);
-  color: var(--bs-parchment-dim);
-}
+.phase-boarding { --badge-color: var(--accent-red); }
+.phase-gameover { --badge-color: var(--accent-purple); }
 
 /* ── Players ───────────────────────────────────────────── */
 .game-players {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  font-size: 0.95rem;
+  font-size: 0.92rem;
 }
 
 .player-name {
-  color: var(--bs-parchment);
-  font-family: 'Crimson Text', 'Georgia', serif;
+  color: var(--text-primary);
   font-weight: 600;
 }
 
 .player-name.is-bot {
-  color: var(--bs-parchment-dim);
+  color: var(--text-muted);
   font-style: italic;
 }
 
 .vs {
-  color: var(--bs-parchment-dim);
-  font-size: 0.75rem;
+  color: var(--text-dim);
+  font-size: 0.72rem;
 }
 
 /* ── Footer ────────────────────────────────────────────── */
@@ -290,79 +271,15 @@ async function handleJoin(gameId: string) {
 }
 
 .turn-info {
-  color: var(--bs-parchment-dim);
-  font-size: 0.75rem;
+  color: var(--text-dim);
+  font-size: 0.72rem;
 }
 
-/* ── Join button (wax-seal style) ──────────────────────── */
 .btn-join {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 48px;
-  min-height: 48px;
-  padding: 10px 18px;
-  border: none;
-  border-radius: 50% / 45%;
-  cursor: pointer;
-  user-select: none;
-
-  background: var(--bs-fire-red);
-  color: var(--bs-gold-bright);
-  font-family: 'Crimson Text', 'Georgia', serif;
-  font-size: 0.8rem;
-  font-weight: 700;
-  letter-spacing: 0.03em;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
-
-  box-shadow:
-    0 3px 8px rgba(0, 0, 0, 0.4),
-    inset 0 2px 4px rgba(255, 255, 255, 0.12),
-    inset 0 -2px 4px rgba(0, 0, 0, 0.2);
-
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  min-height: 44px;
 }
 
-.btn-join:hover {
-  transform: translateY(-2px) scale(1.04);
-  box-shadow:
-    0 5px 14px rgba(0, 0, 0, 0.5),
-    0 2px 8px rgba(212, 168, 71, 0.2),
-    inset 0 2px 4px rgba(255, 255, 255, 0.15),
-    inset 0 -2px 4px rgba(0, 0, 0, 0.2);
-}
-
-.btn-join:active {
-  transform: translateY(1px) scale(0.97);
-  box-shadow:
-    0 1px 3px rgba(0, 0, 0, 0.4),
-    inset 0 3px 6px rgba(0, 0, 0, 0.3);
-}
-
-/* ── Spectate button (ghost style) ─────────────────────── */
 .btn-spectate {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 6px 14px;
-  border: 1px solid transparent;
-  border-radius: 4px;
-  cursor: pointer;
-  user-select: none;
-  text-decoration: none;
-
-  background: transparent;
-  color: var(--bs-parchment-dim);
-  font-family: 'Crimson Text', 'Georgia', serif;
-  font-size: 0.8rem;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-
-  transition: color 0.15s ease, border-color 0.15s ease;
-}
-
-.btn-spectate:hover {
-  color: var(--bs-parchment);
-  border-color: var(--bs-wood-light);
+  opacity: 0.85;
 }
 </style>

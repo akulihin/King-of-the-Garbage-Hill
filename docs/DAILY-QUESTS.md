@@ -57,6 +57,8 @@ When `Вечное Цукуеми` is active, a non-Madara account receives a pr
 - The weekly journey uses ISO year/week, stores distinct completed date keys, resets at the next ISO week, and pays at 5/7 (`QuestClass.cs:690-731`).
 - One `DateTimeOffset` is captured for the whole game settlement so six account updates cannot split across midnight (`CheckIfReady.cs:287,734`).
 
+Battleship has a separate UTC win-day streak and first-win reward; it does not advance this Daily Quest streak or the weekly journey (WEB-BACKEND.md §10; value in BALANCE-CONSTANTS.md).
+
 ## 6. Persistence and V1 migration
 
 `QuestData` keeps the active day, streak/best, weekly journey **and** the existing loot opening/pity fields in one backward-compatible container (`QuestClass.cs:118-153`). Migration replaces only the daily board; it never drops `LastLootBox`, `LastLootBoxGameId` or `LootBoxPity`.

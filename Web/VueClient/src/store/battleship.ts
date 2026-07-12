@@ -9,6 +9,7 @@ import {
   type BattleshipShipCatalogEntry,
   type BattleshipEvent,
   type BattleshipShotResult,
+  type BattleshipStats,
   type BattleshipCell,
 } from 'src/services/signalr'
 import {
@@ -16,14 +17,37 @@ import {
   playBattleshipHit,
   playBattleshipMiss,
   playBattleshipShipSunk,
-  playBattleshipWin,
-  playBattleshipLose,
   playBattleshipDeploy,
   playBattleshipBurn,
   playBattleshipDodge,
   playBattleshipFreeze,
-  playBattleshipStun,
+  playBattleshipExplode,
+  playBattleshipPhaseChange,
+  playBattleshipTurnStart,
+  playBattleshipWeaponSelect,
 } from 'src/services/sound'
+
+/** Weapon entry shown in the weapon bar / consumed by keyboard shortcuts. */
+export interface BattleshipWeaponOption {
+  type: string
+  shotType: string
+  label: string
+  ammo: number
+  hasAmmo: boolean
+  shipName: string
+  shipRange: string
+  shipRow: number
+  aimSpeed: number
+}
+
+export interface BattleshipSummonDeployMode {
+  type: string
+  pendingId?: string
+  pendingCols?: number[]
+}
+
+/** VFX impact vocabulary (mirrors useVfx ImpactType). */
+export type BattleshipImpactType = 'hit' | 'miss' | 'burn' | 'sunk' | 'destroy' | 'scratch' | 'freeze'
 
 export const useBattleshipStore = defineStore('battleship', () => {
   // -- State ------------------------------------------------------
@@ -39,9 +63,12 @@ export const useBattleshipStore = defineStore('battleship', () => {
   const selectedShipId = ref<string | null>(null)
   const placementOrientation = ref<'Horizontal' | 'Vertical'>('Horizontal')
 
-  // Combat state
+  // Combat state (shared by the page shell's keyboard handler and the phases)
   const selectedShotType = ref('Ballista')
+  const selectedWeaponType = ref('Ballista')
   const shotDelayActive = ref(false)
+  const summonDeployMode = ref<BattleshipSummonDeployMode | null>(null)
+  const summonType = ref('Ram')
 
   // Animation state
   const enemyAnimatedCells = ref(new Map<string, string>())
@@ -68,11 +95,39 @@ export const useBattleshipStore = defineStore('battleship', () => {
   // Screen shake on heavy impacts
   const screenShake = ref(false)
 
-  // Cannonball projectile arc
-  const projectileState = ref<{ row: number; col: number } | null>(null)
-
   // VFX toggle
   const vfxEnabled = ref(true)
+
+  // Client-side match stats (enemy fleet is hidden in player DTOs, so the
+  // victory screen tracks the player's own performance from ShotResult events)
+  const myShotsFired = ref(0)
+  const myShotsHit = ref(0)
+  const myShipsSunk = ref(0)
+
+  // Persistent meta (W/L record, streak, first-win bonus) for the lobby panel
+  const statsState = ref<BattleshipStats | null>(null)
+  const isStatsLoading = ref(false)
+  let statsRefreshPending = false
+
+  // -- VFX handshake ----------------------------------------------
+  // CombatPhase registers a handler that launches the projectile and calls
+  // `fire()` on impact. Returning false (or having no handler) means the
+  // caller fires the effects immediately — the fallback for reduced motion,
+  // the opponent's shots, or an unmounted canvas.
+
+  type ShotVfxHandler = (row: number, col: number, target: 'enemy' | 'my', fire: () => void) => boolean
+  type CellVfxHandler = (target: 'enemy' | 'my', row: number, col: number, type: BattleshipImpactType) => void
+
+  let shotVfxHandler: ShotVfxHandler | null = null
+  let cellVfxHandler: CellVfxHandler | null = null
+
+  function setShotVfxHandler(handler: ShotVfxHandler | null) {
+    shotVfxHandler = handler
+  }
+
+  function setCellVfxHandler(handler: CellVfxHandler | null) {
+    cellVfxHandler = handler
+  }
 
   // -- Derived State ----------------------------------------------
 
@@ -103,6 +158,36 @@ export const useBattleshipStore = defineStore('battleship', () => {
   const enemyBoard = computed(() => enemyPlayer.value?.board ?? null)
   const myFleet = computed(() => myPlayer.value?.fleet ?? [])
   const coinsRemaining = computed(() => myPlayer.value?.coinsRemaining ?? 40)
+
+  const isWinner = computed(() =>
+    !!gameState.value?.winnerId && gameState.value.winnerId === myPlayer.value?.discordId)
+
+  const myEndReward = computed(() => gameState.value?.myEndReward ?? null)
+
+  const shootableTypes = new Set(['Ballista', 'Catapult', 'Tetracatapult', 'Incendiary', 'GreekFire'])
+
+  const availableWeapons = computed<BattleshipWeaponOption[]>(() => {
+    if (!myPlayer.value?.fleet) return []
+    const weapons: BattleshipWeaponOption[] = []
+    for (const ship of myPlayer.value.fleet) {
+      if (ship.isDestroyed) continue
+      for (const w of ship.weapons) {
+        if (!shootableTypes.has(w.type)) continue
+        if (w.type === 'Tetracatapult') {
+          weapons.push({ type: w.type, shotType: 'WhiteStone', label: 'Белый камень', ammo: w.ammo, hasAmmo: w.hasAmmo, shipName: ship.name, shipRange: ship.range, shipRow: ship.row, aimSpeed: w.aimSpeed })
+          if (phase.value !== 'Boarding') {
+            weapons.push({ type: w.type, shotType: 'Buckshot', label: 'Дробь', ammo: w.ammo, hasAmmo: w.hasAmmo, shipName: ship.name, shipRange: ship.range, shipRow: ship.row, aimSpeed: w.aimSpeed })
+          }
+        } else {
+          const label = w.type === 'Incendiary' ? 'Горючка'
+            : w.type === 'GreekFire' ? 'Греческий огонь'
+            : w.type
+          weapons.push({ type: w.type, shotType: w.type, label, ammo: w.ammo, hasAmmo: w.hasAmmo, shipName: ship.name, shipRange: ship.range, shipRow: ship.row, aimSpeed: w.aimSpeed })
+        }
+      }
+    }
+    return weapons
+  })
 
   // -- Animation helpers ------------------------------------------
 
@@ -142,6 +227,7 @@ export const useBattleshipStore = defineStore('battleship', () => {
     const map = target === 'enemy' ? enemyAnimatedCells : myAnimatedCells
     const oldMap = new Map(oldCells.map(c => [`${c.row},${c.col}`, c]))
     let freezeSoundPlayed = false
+    let explodeSoundPlayed = false
     for (const cell of newCells) {
       const key = `${cell.row},${cell.col}`
       if (map.value.has(key)) continue // already animating from shot result
@@ -155,15 +241,33 @@ export const useBattleshipStore = defineStore('battleship', () => {
         triggerCellAnim(target, cell.row, cell.col, 'anim-burn-ignite', 600)
       } else if (cell.isFrozen && !old.isFrozen) {
         triggerCellAnim(target, cell.row, cell.col, 'anim-freeze', 600)
+        cellVfxHandler?.(target, cell.row, cell.col, 'freeze')
         if (!freezeSoundPlayed) { playBattleshipFreeze(); freezeSoundPlayed = true }
       } else if (cell.isDevastated && !old.isDevastated) {
         triggerCellAnim(target, cell.row, cell.col, 'anim-devastate', 600)
+        if (!explodeSoundPlayed) { playBattleshipExplode(); explodeSoundPlayed = true }
       } else if (cell.isCaptured && !old.isCaptured) {
         triggerCellAnim(target, cell.row, cell.col, 'anim-capture', 600)
       } else if (cell.isRevealed && !old.isRevealed) {
         triggerCellAnim(target, cell.row, cell.col, 'anim-reveal', 400)
       }
     }
+  }
+
+  /** A Brander that was alive and is now gone detonated — play the explosion. */
+  function detectBranderDetonation(oldState: BattleshipGameState | null, newState: BattleshipGameState) {
+    if (!oldState) return
+    const oldSummons = [
+      ...(oldState.player1?.summons ?? []),
+      ...(oldState.player2?.summons ?? []),
+    ].filter(s => s.type === 'Brander' && s.isAlive)
+    if (oldSummons.length === 0) return
+    const stillAlive = new Set(
+      [...(newState.player1?.summons ?? []), ...(newState.player2?.summons ?? [])]
+        .filter(s => s.isAlive)
+        .map(s => s.id),
+    )
+    if (oldSummons.some(s => !stillAlive.has(s.id))) playBattleshipExplode()
   }
 
   // -- SignalR Callbacks ------------------------------------------
@@ -174,8 +278,20 @@ export const useBattleshipStore = defineStore('battleship', () => {
       const oldEnemyCells = enemyPlayer.value?.board?.cells
       const oldMyCells = myPlayer.value?.board?.cells
 
-      const wasFinished = gameState.value?.isFinished ?? false
-      const oldPhase = gameState.value?.phase ?? null
+      const oldState = gameState.value
+      const oldPhase = oldState?.phase ?? null
+      const wasMyTurn = oldState?.isMyTurn ?? false
+
+      // New game → reset per-match client-side stats
+      if (oldState?.gameId !== state.gameId) {
+        myShotsFired.value = 0
+        myShotsHit.value = 0
+        myShipsSunk.value = 0
+        killStreak.value = 0
+        killStreakDisplay.value = 0
+        lastShotResult.value = null
+        lastShotCell.value = null
+      }
 
       // Track summon positions for trail visualization
       const allSummons = [
@@ -189,6 +305,8 @@ export const useBattleshipStore = defineStore('battleship', () => {
         summonTrails.value.get(key)!.add(`${s.row},${s.col}`)
       }
 
+      detectBranderDetonation(oldState, state)
+
       gameState.value = state
 
       // Sync selectedShotType from server (auto-reset after WhiteStone/Buckshot)
@@ -201,10 +319,16 @@ export const useBattleshipStore = defineStore('battleship', () => {
       if (oldPhase && state.phase !== oldPhase) {
         previousPhase.value = oldPhase
         phaseTransitionActive.value = true
+        playBattleshipPhaseChange()
         setTimeout(() => { phaseTransitionActive.value = false }, 1200)
       }
       if (state.shipCatalog) {
         shipCatalog.value = state.shipCatalog
+      }
+
+      // Turn start — my turn just began mid-combat
+      if (!wasMyTurn && state.isMyTurn && (state.phase === 'Combat' || state.phase === 'Boarding')) {
+        playBattleshipTurnStart()
       }
 
       // Diff boards for multi-cell animations (sunk ship cells, burn spread, freeze, etc.)
@@ -212,13 +336,7 @@ export const useBattleshipStore = defineStore('battleship', () => {
       const newMyCells = myPlayer.value?.board?.cells
       diffBoardAnimations(oldEnemyCells, newEnemyCells, 'enemy')
       diffBoardAnimations(oldMyCells, newMyCells, 'my')
-
-      // Play win/lose sound on game over transition
-      if (state.isFinished && !wasFinished) {
-        const me = state.player1?.isMe ? state.player1 : state.player2
-        if (me && state.winnerId === me.discordId) playBattleshipWin()
-        else playBattleshipLose()
-      }
+      // Win/lose sounds play from the GameOverCelebration modal on mount.
     }
 
     signalrService.onBattleshipLobby = (state) => {
@@ -237,6 +355,13 @@ export const useBattleshipStore = defineStore('battleship', () => {
         // Track last shot position
         const shotTarget: 'enemy' | 'my' = isMyTurn.value ? 'enemy' : 'my'
         lastShotCell.value = { target: shotTarget, row: result.row, col: result.col }
+
+        // Client-side match stats (my shots only)
+        if (isMyTurn.value) {
+          myShotsFired.value++
+          if (result.hit && !result.miss) myShotsHit.value++
+          if (result.shipSunk) myShipsSunk.value++
+        }
 
         // Kill streak tracking
         if (result.destroyed || result.shipSunk || result.burned) {
@@ -264,16 +389,11 @@ export const useBattleshipStore = defineStore('battleship', () => {
           }
         }
 
-        if (isMyTurn.value) {
-          // Cannonball arc then impact
-          projectileState.value = { row: result.row, col: result.col }
-          setTimeout(() => {
-            projectileState.value = null
-            fireShotEffects()
-          }, 250)
-        } else {
-          fireShotEffects()
-        }
+        // My shot with a mounted VFX canvas → real projectile, effects on impact.
+        // Anything else (opponent's shot, no canvas, reduced motion) → immediate.
+        const handled = isMyTurn.value && vfxEnabled.value
+          && (shotVfxHandler?.(result.row, result.col, shotTarget, fireShotEffects) ?? false)
+        if (!handled) fireShotEffects()
 
         // On hit that continues turn, add 2s delay before allowing next shot
         if (result.hit && result.turnContinues) {
@@ -285,6 +405,14 @@ export const useBattleshipStore = defineStore('battleship', () => {
 
     signalrService.onShipCatalog = (catalog) => {
       shipCatalog.value = catalog
+    }
+
+    signalrService.onBattleshipStats = (stats) => {
+      statsState.value = stats
+      const refreshAgain = statsRefreshPending
+      statsRefreshPending = false
+      isStatsLoading.value = false
+      if (refreshAgain) void loadStats()
     }
 
     signalrService.onError = (error) => {
@@ -299,12 +427,30 @@ export const useBattleshipStore = defineStore('battleship', () => {
     signalrService.onBattleshipGameCreated = null
     signalrService.onBattleshipEvent = null
     signalrService.onShipCatalog = null
+    signalrService.onBattleshipStats = null
   }
 
   // -- Actions ----------------------------------------------------
 
   async function refreshLobby() {
     await signalrService.requestBattleshipLobby()
+  }
+
+  async function loadStats() {
+    if (isStatsLoading.value) {
+      statsRefreshPending = true
+      return
+    }
+    isStatsLoading.value = true
+    try {
+      await signalrService.requestBattleshipStats()
+    }
+    catch {
+      const refreshAgain = statsRefreshPending
+      statsRefreshPending = false
+      isStatsLoading.value = false
+      if (refreshAgain) void loadStats()
+    }
   }
 
   async function createGame() {
@@ -381,15 +527,18 @@ export const useBattleshipStore = defineStore('battleship', () => {
 
   async function selectWeapon(weaponType: string, shotType: string) {
     if (!gameId.value) return
+    selectedWeaponType.value = weaponType
+    summonDeployMode.value = null
+    playBattleshipWeaponSelect()
     // Tetracatapult can fire as WhiteStone or Buckshot — use client-sent shotType
     selectedShotType.value = weaponType === 'Tetracatapult' ? shotType : weaponToShotType(weaponType)
     await signalrService.battleshipSelectWeapon(gameId.value, weaponType, shotType)
   }
 
-  async function deploySummon(summonType: string, col: number) {
+  async function deploySummon(summonTypeName: string, col: number) {
     if (!gameId.value) return
     playBattleshipDeploy()
-    await signalrService.battleshipDeploySummon(gameId.value, summonType, col)
+    await signalrService.battleshipDeploySummon(gameId.value, summonTypeName, col)
   }
 
   async function deployPendingSummon(pendingId: string, col: number) {
@@ -424,6 +573,10 @@ export const useBattleshipStore = defineStore('battleship', () => {
 
   function toggleOrientation() {
     placementOrientation.value = placementOrientation.value === 'Horizontal' ? 'Vertical' : 'Horizontal'
+  }
+
+  function cancelSummonDeploy() {
+    summonDeployMode.value = null
   }
 
   function toggleMarkedCell(row: number, col: number) {
@@ -464,7 +617,10 @@ export const useBattleshipStore = defineStore('battleship', () => {
     selectedShipId,
     placementOrientation,
     selectedShotType,
+    selectedWeaponType,
     shotDelayActive,
+    summonDeployMode,
+    summonType,
     enemyAnimatedCells,
     myAnimatedCells,
     lastShotCell,
@@ -475,8 +631,12 @@ export const useBattleshipStore = defineStore('battleship', () => {
     previousPhase,
     phaseTransitionActive,
     screenShake,
-    projectileState,
     vfxEnabled,
+    myShotsFired,
+    myShotsHit,
+    myShipsSunk,
+    statsState,
+    isStatsLoading,
 
     // Computed
     phase,
@@ -492,11 +652,17 @@ export const useBattleshipStore = defineStore('battleship', () => {
     enemyBoard,
     myFleet,
     coinsRemaining,
+    isWinner,
+    myEndReward,
+    availableWeapons,
 
     // Actions
     initCallbacks,
     cleanupCallbacks,
+    setShotVfxHandler,
+    setCellVfxHandler,
     refreshLobby,
+    loadStats,
     createGame,
     joinWebGame,
     leaveWebGame,
@@ -519,6 +685,7 @@ export const useBattleshipStore = defineStore('battleship', () => {
     requestState,
     requestCatalog,
     toggleOrientation,
+    cancelSummonDeploy,
     toggleMarkedCell,
     clearMarkedCells,
     getSummonTrailCells,

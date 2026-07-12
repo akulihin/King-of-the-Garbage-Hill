@@ -45,6 +45,7 @@ resolve() {
     UserAccounts.cs|UsersDataStorage.cs) echo "$B/LocalPersistentData/UsersAccounts/$1";;
     GameStateMapper.cs|WebGameService.cs|GameNotificationService.cs|GameStoryService.cs|BlackjackService.cs|BattleshipService.cs|ReplayService.cs)
       echo "$B/API/Services/$1";;
+    BattleshipModels.cs) echo "$B/Battleship/Models/$1";;
     GameStateDto.cs|ReplayDto.cs) echo "$B/API/DTOs/$1";;
     GameHub.cs) echo "$B/API/$1";;
     GameController.cs|WidgetController.cs) echo "$B/API/Controllers/$1";;
@@ -59,13 +60,17 @@ resolve() {
     game.ts|replay.ts|replay.spec.ts|battleship.ts) echo "$V/store/$1";;
     router.ts|main.ts|App.vue|i18n.ts|i18n.spec.ts) echo "$V/$1";;
     vite.config.ts) echo "Web/VueClient/$1";;
-    useTip.ts|useVfx.ts) echo "$V/composables/$1";;
+    useTip.ts|useVfx.ts|useFocusTrapDialog.ts) echo "$V/composables/$1";;
     Game.vue|Lobby.vue|Spectate.vue|Replay.vue|Widget.vue|Home.vue|Achievements.vue|BattleshipLobby.vue|BattleshipGame.vue|BattleshipSpectate.vue)
       echo "$V/pages/$1";;
     LoginProcess.vue|LoginSuccess.vue) echo "$V/components/Login/$1";;
     PlayerCard.vue|SkillsPanel.vue|Leaderboard.vue|FightAnimation.vue|DeathNote.vue|RoundTimer.vue|MediaMessages.vue|BattleLog.vue|ActionPanel.vue|AchievementBoard.vue|AchievementPopup.vue|LootBox.vue|DailyQuestBoard.vue|ScoreOdometer.vue)
       echo "$V/components/$1";;
     AchievementIcon.vue) echo "$V/components/achievements/$1";;
+    ActionBar.vue|BattleLogPanel.vue|BoardGrid.vue|BsIcon.vue|CellComponent.vue|ConfirmDialog.vue|FleetBuilder.vue|FleetPanel.vue|GameHeader.vue|GameOverCelebration.vue|GameOverlays.vue|StatsPanel.vue|SummonBar.vue|VfxCanvas.vue|WeaponBar.vue)
+      echo "$V/components/battleship/$1";;
+    ArmySelectPhase.vue|CombatPhase.vue|FleetBuildPhase.vue|GameOverPhase.vue|LobbyPhase.vue|PlacementPhase.vue)
+      echo "$V/components/battleship/phases/$1";;
     FortressOfDoom.vue) echo "$V/components/Home/$1";;
     *.cs) f=$(find $B/Game/Characters -name "$1" 2>/dev/null | head -1); echo "$f";;
     *) echo "";;

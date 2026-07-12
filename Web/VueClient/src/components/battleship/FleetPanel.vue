@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useTip } from 'src/composables/useTip'
-import { ICONS, renderIcon } from './battleship-icons'
+import { renderIcon } from './battleship-icons'
 
 export interface FleetShip {
   id: string
@@ -70,7 +70,7 @@ const skullHtml = renderIcon('skull', 12)
 </script>
 
 <template>
-  <div v-if="fleet.length" class="fleet-panel card-parchment" :class="{ 'enemy-panel': isEnemy }">
+  <div v-if="fleet.length" class="fleet-panel bs-card" :class="{ 'enemy-panel': isEnemy }">
     <div class="fleet-header" :class="{ 'header-enemy': isEnemy }">{{ resolvedTitle() }}</div>
     <div class="fleet-status-list">
       <div
@@ -150,22 +150,24 @@ const skullHtml = renderIcon('skull', 12)
 </template>
 
 <style scoped>
-/* ── Fleet panel (parchment card) ─────────────────────────── */
+/* ── Fleet panel (glass card) ─────────────────────────────── */
 .fleet-panel {
   margin-top: 0.5rem;
-  padding: 0.5rem 0.75rem;
+  padding: 10px 12px;
 }
 
 .fleet-header {
-  font-family: 'Pirata One', 'Cinzel', serif;
-  font-size: 0.95rem;
-  letter-spacing: 0.04em;
-  color: var(--bs-gold, #d4a847);
+  color: var(--text-muted);
+  font-size: 0.62rem;
+  font-weight: 900;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
   margin-bottom: 0.25rem;
+  user-select: none;
 }
 
 .fleet-header.header-enemy {
-  color: var(--bs-fire-red, #c0392b);
+  color: var(--accent-red);
 }
 
 /* ── Ship list ────────────────────────────────────────────── */
@@ -194,15 +196,15 @@ const skullHtml = renderIcon('skull', 12)
 /* ── Ship name ────────────────────────────────────────────── */
 .fleet-ship-name {
   font-weight: 700;
-  color: var(--bs-wood-dark, #2a1a0e);
+  color: var(--text-secondary);
   font-size: 0.75rem;
 }
 
 /* ── Range/speed meta ─────────────────────────────────────── */
 .fleet-ship-meta {
   font-size: 0.6rem;
-  color: var(--bs-parchment-dim, #b09a78);
-  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  color: var(--text-dim);
+  font-family: var(--font-mono);
 }
 
 /* ── Deck pips ────────────────────────────────────────────── */
@@ -216,22 +218,22 @@ const skullHtml = renderIcon('skull', 12)
   width: 10px;
   height: 10px;
   border-radius: 2px;
-  background: var(--bs-poison-green, #27ae60);
+  background: var(--accent-green);
 }
 
 .deck-pip.deck-damaged {
-  background: var(--bs-gold, #d4a847);
+  background: var(--accent-gold);
 }
 
 .deck-pip.deck-destroyed {
-  background: var(--bs-fire-red, #c0392b);
+  background: var(--accent-red);
   opacity: 0.6;
 }
 
 .deck-pip.deck-module-destroyed {
-  background: var(--bs-fire-red, #c0392b);
+  background: var(--accent-red);
   opacity: 0.4;
-  outline: 1px solid var(--bs-fire-red, #c0392b);
+  outline: 1px solid var(--accent-red);
 }
 
 .deck-module-dot {
@@ -241,7 +243,7 @@ const skullHtml = renderIcon('skull', 12)
   width: 4px;
   height: 4px;
   border-radius: 50%;
-  background: white;
+  background: var(--text-primary);
   opacity: 0.8;
 }
 
@@ -256,9 +258,9 @@ const skullHtml = renderIcon('skull', 12)
   font-size: 0.55rem;
   padding: 0 3px;
   border-radius: 2px;
-  background: rgba(240, 200, 80, 0.15);
-  color: var(--bs-gold, #d4a847);
-  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  background: color-mix(in srgb, var(--accent-gold) 14%, transparent);
+  color: var(--accent-gold);
+  font-family: var(--font-mono);
   font-weight: 700;
 }
 
@@ -268,7 +270,7 @@ const skullHtml = renderIcon('skull', 12)
   align-items: center;
   gap: 3px;
   font-size: 0.65rem;
-  color: var(--bs-fire-red, #c0392b);
+  color: var(--accent-red);
   font-weight: 700;
   text-transform: uppercase;
 }
@@ -276,7 +278,7 @@ const skullHtml = renderIcon('skull', 12)
 .skull-icon {
   display: inline-flex;
   align-items: center;
-  color: var(--bs-fire-red, #c0392b);
+  color: var(--accent-red);
   line-height: 0;
 }
 
@@ -284,7 +286,7 @@ const skullHtml = renderIcon('skull', 12)
 .ship-hp-bar {
   width: 40px;
   height: 4px;
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--bg-inset);
   border-radius: 2px;
   overflow: hidden;
   margin-left: auto;
@@ -292,21 +294,21 @@ const skullHtml = renderIcon('skull', 12)
 
 .ship-hp-fill {
   height: 100%;
-  background: var(--bs-poison-green, #27ae60);
+  background: var(--accent-green);
   transition: width 0.3s ease;
   border-radius: 2px;
 }
 
 .ship-hp-fill.hp-mid {
-  background: var(--bs-gold, #d4a847);
+  background: var(--accent-gold);
 }
 
 .ship-hp-fill.hp-low {
-  background: var(--bs-fire-red, #c0392b);
+  background: var(--accent-red);
 }
 
 /* ── Enemy panel accent ───────────────────────────────────── */
 .enemy-panel {
-  border-color: rgba(192, 57, 43, 0.3);
+  border-color: color-mix(in srgb, var(--accent-red) 30%, var(--glass-border));
 }
 </style>

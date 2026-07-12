@@ -137,7 +137,7 @@ function handleHover(row: number, col: number) {
 </script>
 
 <template>
-  <div class="board-container bs-pirate">
+  <div class="board-container">
     <div class="board-grid" :style="{ '--cell-size': cellSize + 'px' }">
       <!-- Column labels -->
       <div class="grid-row label-row">
@@ -188,19 +188,18 @@ function handleHover(row: number, col: number) {
   display: inline-flex;
   flex-direction: column;
   gap: 1px;
-  /* Ocean gradient background visible through gaps */
+  /* Deep-water gradient visible through the 1px cell gaps */
   background: linear-gradient(180deg,
-    var(--bs-sea-dark, #0e1f3d) 0%,
-    var(--bs-sea-mid, #142c54) 50%,
-    var(--bs-sea-dark, #0e1f3d) 100%);
-  /* Wood frame border */
-  border: 3px solid var(--bs-wood-mid, #4a2f1a);
-  border-radius: 4px;
-  padding: 2px;
-  /* Subtle inner shadow for depth */
+    color-mix(in srgb, var(--accent-blue) 14%, var(--bg-primary)) 0%,
+    color-mix(in srgb, var(--accent-blue) 22%, var(--bg-primary)) 50%,
+    color-mix(in srgb, var(--accent-blue) 14%, var(--bg-primary)) 100%);
+  border: 1px solid var(--glass-border);
+  border-radius: 10px;
+  padding: 3px;
   box-shadow:
-    inset 0 0 8px rgba(0, 0, 0, 0.3),
-    0 2px 8px rgba(0, 0, 0, 0.4);
+    inset 0 0 10px rgba(0, 0, 0, 0.3),
+    0 4px 14px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 var(--glass-highlight);
 }
 
 .grid-row {
@@ -214,7 +213,7 @@ function handleHover(row: number, col: number) {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--bs-parchment-dim, #b09a78);
+  color: var(--text-dim);
   font-size: 0.5rem;
 }
 
@@ -222,12 +221,11 @@ function handleHover(row: number, col: number) {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.65rem;
+  font-size: 0.62rem;
   font-weight: 700;
-  color: var(--bs-parchment-dim, #b09a78);
-  font-family: "Crimson Text", "Georgia", serif;
+  color: var(--text-dim);
+  font-family: var(--font-mono);
   user-select: none;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
 }
 
 .col-label {

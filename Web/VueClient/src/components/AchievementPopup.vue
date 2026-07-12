@@ -2,6 +2,7 @@
 import { computed, nextTick, onMounted, onUnmounted, ref, watch, type CSSProperties } from 'vue'
 import { Check, ChevronRight, CircleAlert, Gift, LoaderCircle, Sparkles, X } from 'lucide-vue-next'
 import AchievementIcon from 'src/components/achievements/AchievementIcon.vue'
+import { useFocusTrapDialog } from 'src/composables/useFocusTrapDialog'
 import { currentLocale } from 'src/i18n'
 import type { AchievementEntry } from 'src/services/signalr'
 import { playAchievementUnlockSound } from 'src/services/sound'
@@ -16,71 +17,20 @@ const props = defineProps<{
 const emit = defineEmits<{ dismiss: [] }>()
 const store = useGameStore()
 const currentIndex = ref(0)
-const overlayRef = ref<HTMLElement | null>(null)
-const dialogRef = ref<HTMLElement | null>(null)
-let previousBodyOverflow = ''
-let previouslyFocusedElement: HTMLElement | null = null
+const { overlayRef, dialogRef, focusFirstControl, trapTabKey } = useFocusTrapDialog()
 let isDialogMounted = false
-const isolatedBodyChildren: Array<{ element: HTMLElement; wasInert: boolean }> = []
 
 const current = computed(() => props.achievements[currentIndex.value] ?? null)
 const hasNext = computed(() => currentIndex.value < props.achievements.length - 1)
 const total = computed(() => props.achievements.length)
 
-function focusableElements(): HTMLElement[] {
-  if (!dialogRef.value) return []
-  return Array.from(dialogRef.value.querySelectorAll<HTMLElement>(
-    'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
-  )).filter(element => element.getClientRects().length > 0)
-}
-
-function focusFirstControl(): void {
-  const first = focusableElements()[0]
-  const target = first ?? dialogRef.value
-  target?.focus({ preventScroll: true })
-}
-
-function isolateBackground(): void {
-  const overlay = overlayRef.value
-  if (!overlay) return
-  for (const child of Array.from(document.body.children)) {
-    if (!(child instanceof HTMLElement) || child === overlay || child.contains(overlay)) continue
-    isolatedBodyChildren.push({ element: child, wasInert: child.inert })
-    child.inert = true
-  }
-}
-
-function restoreBackground(): void {
-  for (const { element, wasInert } of isolatedBodyChildren.splice(0)) {
-    element.inert = wasInert
-  }
-}
-
-function keepFocusInside(event: FocusEvent): void {
-  if (!(event.target instanceof Node) || dialogRef.value?.contains(event.target)) return
-  focusFirstControl()
-}
-
-onMounted(async () => {
-  previouslyFocusedElement = document.activeElement instanceof HTMLElement ? document.activeElement : null
-  previousBodyOverflow = document.body.style.overflow
-  document.body.style.overflow = 'hidden'
-  isolateBackground()
-  document.addEventListener('focusin', keepFocusInside)
+onMounted(() => {
   isDialogMounted = true
   if (store.characterList.length === 0) void store.fetchCharacterList()
-  await nextTick()
-  focusFirstControl()
 })
 
 onUnmounted(() => {
   isDialogMounted = false
-  document.removeEventListener('focusin', keepFocusInside)
-  restoreBackground()
-  document.body.style.overflow = previousBodyOverflow
-  if (previouslyFocusedElement?.isConnected) {
-    previouslyFocusedElement.focus({ preventScroll: true })
-  }
 })
 
 watch(() => props.achievements, () => {
@@ -153,24 +103,7 @@ function onDialogKeydown(event: KeyboardEvent): void {
     if (!props.isSaving) skipAll()
     return
   }
-  if (event.key !== 'Tab' || !dialogRef.value) return
-  const focusable = focusableElements()
-  if (focusable.length === 0) {
-    event.preventDefault()
-    dialogRef.value.focus()
-    return
-  }
-  const first = focusable[0]
-  const last = focusable[focusable.length - 1]
-  const active = document.activeElement
-  if (event.shiftKey && (active === first || active === dialogRef.value || !dialogRef.value.contains(active))) {
-    event.preventDefault()
-    last.focus()
-  }
-  else if (!event.shiftKey && (active === last || active === dialogRef.value || !dialogRef.value.contains(active))) {
-    event.preventDefault()
-    first.focus()
-  }
+  trapTabKey(event)
 }
 
 function particleStyle(index: number): CSSProperties {

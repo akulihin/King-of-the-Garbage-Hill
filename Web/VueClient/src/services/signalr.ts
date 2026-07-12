@@ -801,6 +801,28 @@ export type BattleshipGameState = {
   player1: BattleshipPlayerState | null
   player2: BattleshipPlayerState | null
   shipCatalog: BattleshipShipCatalogEntry[] | null
+  myEndReward: BattleshipEndReward | null
+}
+
+/** Per-player settlement summary; only ever populated for the requesting player. */
+export type BattleshipEndReward = {
+  won: boolean
+  wins: number
+  losses: number
+  currentDailyStreak: number
+  bestDailyStreak: number
+  firstWinAwarded: boolean
+  zbsAwarded: number
+}
+
+export type BattleshipStats = {
+  wins: number
+  losses: number
+  currentDailyStreak: number
+  bestDailyStreak: number
+  firstWinAvailable: boolean
+  firstWinZbs: number
+  zbsBalance: number
 }
 
 export type BattleshipPlayerState = {
@@ -1084,6 +1106,7 @@ class SignalRService {
   onBattleshipGameJoined: ((data: { gameId: string }) => void) | null = null
   onBattleshipEvent: ((event: BattleshipEvent) => void) | null = null
   onShipCatalog: ((catalog: BattleshipShipCatalogEntry[]) => void) | null = null
+  onBattleshipStats: ((stats: BattleshipStats) => void) | null = null
 
   get isConnected() {
     return this._isConnected
@@ -1213,6 +1236,10 @@ class SignalRService {
 
     this.connection.on('ShipCatalog', (catalog: BattleshipShipCatalogEntry[]) => {
       this.onShipCatalog?.(catalog)
+    })
+
+    this.connection.on('BattleshipStats', (stats: BattleshipStats) => {
+      this.onBattleshipStats?.(stats)
     })
 
     this.connection.onreconnecting(() => {
@@ -1604,6 +1631,10 @@ class SignalRService {
 
   async requestShipCatalog(): Promise<void> {
     await this.connection?.invoke('RequestShipCatalog')
+  }
+
+  async requestBattleshipStats(): Promise<void> {
+    await this.requireConnected().invoke('RequestBattleshipStats')
   }
 }
 

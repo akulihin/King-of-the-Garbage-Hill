@@ -15,7 +15,7 @@ interface CursedBoatSummon {
   waitingForDirectionChoice: boolean
 }
 
-const props = defineProps<{
+defineProps<{
   maneuverableShips: ManeuverableShip[]
   cursedBoatSummons: CursedBoatSummon[]
   shotResult: { message: string } | null
@@ -41,19 +41,30 @@ function emitManualMove(shipId: string, direction: string) {
     <div
       v-for="ship in maneuverableShips"
       :key="ship.id"
-      class="maneuver-bar card-wood"
+      class="maneuver-bar bs-bar"
     >
       <span class="action-label">Маневр: {{ ship.name }}</span>
-      <select
-        v-model.number="manualMoveDistance"
-        class="maneuver-select"
+      <div
+        class="bs-seg"
+        role="group"
+        aria-label="Расстояние маневра"
         @mouseenter="showTip($event, 'Расстояние маневра в клетках')"
         @mousemove="moveTip"
         @mouseleave="hideTip"
       >
-        <option :value="1">1 клетка</option>
-        <option :value="2">2 клетки</option>
-      </select>
+        <button
+          class="bs-seg-btn"
+          type="button"
+          :aria-pressed="manualMoveDistance === 1"
+          @click="manualMoveDistance = 1"
+        >1 клетка</button>
+        <button
+          class="bs-seg-btn"
+          type="button"
+          :aria-pressed="manualMoveDistance === 2"
+          @click="manualMoveDistance = 2"
+        >2 клетки</button>
+      </div>
       <template v-if="ship.orientation === 'Horizontal'">
         <button
           class="dir-btn"
@@ -92,7 +103,7 @@ function emitManualMove(shipId: string, direction: string) {
   <!-- Cursed Boat Direction Choice -->
   <div
     v-if="cursedBoatSummons.some(s => s.waitingForDirectionChoice)"
-    class="cursed-bar card-wood"
+    class="cursed-bar bs-bar"
   >
     <span class="action-label">Проклятый корабль — выберите направление:</span>
     <template v-for="s in cursedBoatSummons.filter(s => s.waitingForDirectionChoice)" :key="s.id">
@@ -144,52 +155,28 @@ function emitManualMove(shipId: string, direction: string) {
 /* ── Action bars (maneuver, cursed) ──────────────────────── */
 .maneuver-bar,
 .cursed-bar {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 0.75rem;
   margin-top: 0.5rem;
-  flex-wrap: wrap;
-  border-radius: 6px;
 }
 
 /* ── Labels ──────────────────────────────────────────────── */
 .action-label {
-  font-family: 'Crimson Text', 'Georgia', serif;
   font-weight: 700;
-  font-size: 0.85rem;
-  color: var(--bs-parchment, #e8d5b0);
+  font-size: 0.8rem;
+  color: var(--text-secondary);
   white-space: nowrap;
 }
 
-/* ── Distance select ─────────────────────────────────────── */
-.maneuver-select {
-  padding: 4px 8px;
-  border-radius: 4px;
-  background: var(--bs-wood-dark, #2a1a0e);
-  color: var(--bs-parchment, #e8d5b0);
-  border: 1px solid var(--bs-wood-mid, #4a2f1a);
-  font-family: 'Crimson Text', 'Georgia', serif;
-  font-size: 0.8rem;
-  cursor: pointer;
-  outline: none;
-}
-
-.maneuver-select:focus {
-  border-color: var(--bs-gold, #d4a847);
-}
-
-/* ── Direction buttons (compass-rose style) ──────────────── */
+/* ── Direction buttons (compass style) ───────────────────── */
 .dir-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
-  border: 2px solid var(--bs-wood-mid, #4a2f1a);
-  background: var(--bs-wood-dark, #2a1a0e);
-  color: var(--bs-parchment, #e8d5b0);
+  border: 1px solid var(--glass-border);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-secondary);
   font-size: 1rem;
   font-weight: 700;
   cursor: pointer;
@@ -199,14 +186,13 @@ function emitManualMove(shipId: string, direction: string) {
 }
 
 .dir-btn:hover {
-  color: var(--bs-gold-bright, #f0c850);
-  box-shadow: 0 0 8px rgba(240, 200, 80, 0.35);
-  border-color: var(--bs-gold, #d4a847);
+  color: var(--accent-gold);
+  box-shadow: var(--glow-gold);
+  border-color: color-mix(in srgb, var(--accent-gold) 50%, transparent);
 }
 
 .dir-btn:active {
   transform: scale(0.92);
-  box-shadow: 0 0 4px rgba(240, 200, 80, 0.2);
 }
 
 /* ── Shot result banner ──────────────────────────────────── */
@@ -214,49 +200,55 @@ function emitManualMove(shipId: string, direction: string) {
   text-align: center;
   padding: 0.5rem 1rem;
   margin: 0.75rem 0;
-  border-radius: 6px;
-  font-family: 'Crimson Text', 'Georgia', serif;
+  border-radius: 10px;
+  border: 1px solid var(--glass-border);
   font-weight: 700;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   animation: scroll-unroll 0.4s ease-out;
 }
 
 .shot-hit {
-  background: rgba(192, 57, 43, 0.15);
-  color: var(--bs-fire-red, #c0392b);
+  background: color-mix(in srgb, var(--accent-red) 12%, transparent);
+  border-color: color-mix(in srgb, var(--accent-red) 30%, transparent);
+  color: var(--accent-red);
 }
 
 .shot-miss {
-  background: rgba(148, 156, 164, 0.1);
-  color: var(--bs-parchment-dim, #b09a78);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-muted);
 }
 
 .shot-scratch {
-  background: rgba(255, 165, 0, 0.15);
-  color: #ffa500;
+  background: color-mix(in srgb, var(--accent-orange) 12%, transparent);
+  border-color: color-mix(in srgb, var(--accent-orange) 30%, transparent);
+  color: var(--accent-orange);
 }
 
 .shot-dodge {
-  background: rgba(0, 255, 136, 0.12);
-  color: #00cc66;
+  background: color-mix(in srgb, var(--accent-green) 10%, transparent);
+  border-color: color-mix(in srgb, var(--accent-green) 30%, transparent);
+  color: var(--accent-green);
 }
 
 .shot-sunk {
-  background: rgba(204, 0, 0, 0.2) !important;
-  color: var(--bs-fire-red, #c0392b) !important;
+  background: color-mix(in srgb, var(--accent-red) 18%, transparent) !important;
+  border-color: color-mix(in srgb, var(--accent-red) 40%, transparent) !important;
+  color: var(--accent-red) !important;
   font-size: 1rem;
   font-weight: 800;
-  animation: banner-appear 0.5s ease-out;
+  animation: bs-banner-appear 0.5s ease-out;
 }
 
 .shot-burn {
-  background: rgba(255, 102, 0, 0.2) !important;
-  color: var(--bs-fire-orange, #e67e22) !important;
+  background: color-mix(in srgb, var(--accent-orange) 16%, transparent) !important;
+  border-color: color-mix(in srgb, var(--accent-orange) 40%, transparent) !important;
+  color: var(--accent-orange) !important;
 }
 
 .shot-destroy {
-  background: rgba(192, 57, 43, 0.2) !important;
-  color: var(--bs-fire-red, #c0392b) !important;
+  background: color-mix(in srgb, var(--accent-red) 16%, transparent) !important;
+  border-color: color-mix(in srgb, var(--accent-red) 35%, transparent) !important;
+  color: var(--accent-red) !important;
 }
 
 /* ── Animations ──────────────────────────────────────────── */
@@ -270,17 +262,6 @@ function emitManualMove(shipId: string, direction: string) {
     opacity: 1;
     transform: scaleY(1);
     transform-origin: top center;
-  }
-}
-
-@keyframes banner-appear {
-  from {
-    opacity: 0;
-    transform: scale(0.9);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
   }
 }
 </style>

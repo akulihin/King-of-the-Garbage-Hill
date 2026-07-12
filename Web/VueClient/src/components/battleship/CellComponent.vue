@@ -198,20 +198,20 @@ const cellTooltip = computed(() => {
 }
 
 /* -- Base states -------------------------------------------------- */
-.cell-empty { background: var(--bs-sea-dark, #0e1f3d); }
+.cell-empty { background: color-mix(in srgb, var(--accent-blue) 8%, var(--bg-primary)); }
 .cell-fog {
-  background: var(--bs-sea-mid, #142c54);
+  background: color-mix(in srgb, var(--accent-blue) 4%, var(--bg-card));
   background-image: linear-gradient(
     160deg,
     transparent 30%,
-    rgba(255, 255, 255, 0.03) 50%,
+    var(--glass-highlight) 50%,
     transparent 70%
   );
 }
-.cell-unknown { background: var(--bs-sea-dark, #0e1f3d); }
+.cell-unknown { background: color-mix(in srgb, var(--accent-blue) 8%, var(--bg-primary)); }
 
 .cell-ship {
-  background: var(--bs-ocean-blue, #2980b9);
+  background: color-mix(in srgb, var(--accent-blue) 42%, var(--bg-card));
   background-image: linear-gradient(
     90deg,
     rgba(255, 255, 255, 0.06) 25%,
@@ -222,102 +222,102 @@ const cellTooltip = computed(() => {
     transparent 75%
   );
   background-size: 8px 8px;
-  opacity: 0.7;
+  opacity: 0.8;
   animation: ship-bob 3s ease-in-out infinite;
   animation-delay: calc(var(--cell-row, 0) * 0.15s + var(--cell-col, 0) * 0.1s);
 }
 
 .cell-hit {
-  background: linear-gradient(135deg, #4a1010 0%, #6b1a1a 50%, #4a1010 100%);
-  color: var(--bs-fire-red, #c0392b);
+  background: color-mix(in srgb, var(--bs-hit, var(--accent-red)) 30%, var(--bg-primary));
+  color: var(--bs-hit, var(--accent-red));
   transform: rotate(0.5deg);
 }
 .cell-hit-empty {
-  background: var(--bs-sea-dark, #0e1f3d);
-  color: var(--bs-parchment-dim, #b09a78);
+  background: color-mix(in srgb, var(--accent-blue) 8%, var(--bg-primary));
+  color: var(--text-dim);
 }
 .cell-miss {
-  background: var(--bs-sea-dark, #0e1f3d);
-  color: var(--bs-ocean-light, #5dade2);
+  background: color-mix(in srgb, var(--accent-blue) 8%, var(--bg-primary));
+  color: color-mix(in srgb, var(--accent-blue) 70%, var(--text-muted));
 }
 
 .cell-scratched {
-  background: var(--bs-wood-mid, #4a2f1a);
+  background: color-mix(in srgb, var(--bs-gold, var(--accent-gold)) 20%, var(--bg-primary));
   background-image: linear-gradient(
     135deg,
     transparent 40%,
-    rgba(232, 213, 176, 0.12) 45%,
-    rgba(232, 213, 176, 0.12) 55%,
+    rgba(255, 255, 255, 0.12) 45%,
+    rgba(255, 255, 255, 0.12) 55%,
     transparent 60%
   );
-  color: var(--bs-parchment, #e8d5b0);
+  color: var(--bs-gold, var(--accent-gold));
 }
 
 .cell-burning {
-  background: var(--bs-fire-orange, #e67e22);
-  color: white;
+  background: color-mix(in srgb, var(--bs-burn, var(--accent-orange)) 55%, var(--bg-primary));
+  color: var(--text-primary);
   animation: burn-pulse 0.8s ease-in-out infinite alternate;
 }
 
-/* ТЗ #17: creature = orange icon overlay, no background fill — cell statuses stay visible */
+/* Creature = icon overlay, no background fill so cell statuses stay visible */
 .cell-has-summon {
-  color: var(--bs-fire-orange, #e67e22);
+  color: var(--bs-burn, var(--accent-orange));
   font-size: 0.7rem;
 }
 .cell-has-summon :deep(svg) {
   filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.9));
 }
 
-/* ТЗ #6: Юркая единичка dodged a ballista here — static салатовый mark */
+/* A nimble ship dodged a ballista here — static green mark */
 .cell-dodge-mark {
-  background: rgba(0, 204, 102, 0.35);
-  box-shadow: inset 0 0 0 2px rgba(0, 204, 102, 0.55);
-  color: #00cc66;
+  background: color-mix(in srgb, var(--bs-poison, var(--accent-green)) 28%, var(--bg-primary));
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--bs-poison, var(--accent-green)) 55%, transparent);
+  color: var(--bs-poison, var(--accent-green));
 }
 
 .cell-destroyed {
-  background: #1a0a0a;
-  background-image: radial-gradient(circle at 30% 30%, rgba(80, 20, 0, 0.5) 0%, transparent 60%),
-                     radial-gradient(circle at 70% 70%, rgba(60, 10, 0, 0.4) 0%, transparent 50%);
-  color: rgba(255, 255, 255, 0.6);
+  background: color-mix(in srgb, var(--bs-hit, var(--accent-red)) 16%, var(--bg-inset));
+  background-image: radial-gradient(circle at 30% 30%, color-mix(in srgb, var(--bs-hit, var(--accent-red)) 22%, transparent) 0%, transparent 60%),
+                     radial-gradient(circle at 70% 70%, color-mix(in srgb, var(--bs-burn, var(--accent-orange)) 14%, transparent) 0%, transparent 50%);
+  color: var(--text-muted);
 }
 .cell-frozen {
-  background: linear-gradient(135deg, #0a2a4a, #1a3a5c, #0a2a4a);
-  color: var(--bs-ice-blue, #74b9ff);
-  box-shadow: inset 0 0 6px rgba(116, 185, 255, 0.3);
+  background: color-mix(in srgb, var(--bs-freeze, var(--accent-blue)) 26%, var(--bg-primary));
+  color: color-mix(in srgb, var(--bs-freeze, var(--accent-blue)) 75%, white);
+  box-shadow: inset 0 0 6px color-mix(in srgb, var(--bs-freeze, var(--accent-blue)) 35%, transparent);
 }
-/* BurnResist ship survived fire/explosion — dark green (ТЗ #4) */
+/* BurnResist ship survived fire/explosion — dark green */
 .cell-burn-resist {
-  background: linear-gradient(135deg, #0e3d22, #14532d, #0e3d22);
-  color: #4ade80;
-  box-shadow: inset 0 0 6px rgba(34, 197, 94, 0.35);
+  background: color-mix(in srgb, var(--bs-poison, var(--accent-green)) 28%, var(--bg-primary));
+  color: color-mix(in srgb, var(--bs-poison, var(--accent-green)) 75%, white);
+  box-shadow: inset 0 0 6px color-mix(in srgb, var(--bs-poison, var(--accent-green)) 35%, transparent);
 }
 .cell-devastated {
-  background: #1a0a1e;
-  color: var(--bs-cursed-purple, #8e44ad);
+  background: color-mix(in srgb, var(--bs-cursed, var(--accent-purple)) 20%, var(--bg-inset));
+  color: var(--bs-cursed, var(--accent-purple));
 }
 .cell-captured {
-  background: var(--bs-cursed-purple, #8e44ad);
-  color: white;
-  outline: 2px solid var(--bs-cursed-purple, #8e44ad);
+  background: color-mix(in srgb, var(--bs-cursed, var(--accent-purple)) 45%, var(--bg-primary));
+  color: var(--text-primary);
+  outline: 2px solid var(--bs-cursed, var(--accent-purple));
   outline-offset: -2px;
 }
 .cell-fire-permanent {
-  background: #cc3300;
-  color: white;
-  box-shadow: inset 0 0 8px rgba(255, 100, 0, 0.4);
+  background: color-mix(in srgb, var(--bs-burn, var(--accent-orange)) 55%, var(--bs-hit, var(--accent-red)));
+  color: var(--text-primary);
+  box-shadow: inset 0 0 8px color-mix(in srgb, var(--bs-burn, var(--accent-orange)) 55%, transparent);
 }
 
 /* -- Overlays ----------------------------------------------------- */
 .cell-blocked {
   cursor: not-allowed !important;
-  background: rgba(239, 68, 68, 0.15) !important;
-  outline: 1px solid rgba(239, 68, 68, 0.5);
+  background: color-mix(in srgb, var(--accent-red) 14%, transparent) !important;
+  outline: 1px solid color-mix(in srgb, var(--accent-red) 50%, transparent);
   outline-offset: -1px;
 }
 .cell-blocked::after {
   content: '\2717';
-  color: rgba(239, 68, 68, 0.6);
+  color: color-mix(in srgb, var(--accent-red) 60%, transparent);
   font-size: 0.7rem;
   position: absolute;
 }
@@ -325,34 +325,34 @@ const cellTooltip = computed(() => {
 .cell-clickable { cursor: pointer; }
 @media (hover: hover) {
   .cell-clickable:hover {
-    outline: 2px solid var(--bs-gold-bright, #f0c850);
+    outline: 2px solid var(--bs-gold, var(--accent-gold));
     outline-offset: -2px;
     z-index: 1;
   }
 }
 
 .cell-highlighted {
-  outline: 2px solid var(--bs-poison-green, #27ae60);
+  outline: 2px solid var(--bs-gold, var(--accent-gold));
   outline-offset: -2px;
   z-index: 1;
 }
 
 .cell-zone {
-  background: rgba(41, 128, 185, 0.1) !important;
-  outline: 1px dashed rgba(41, 128, 185, 0.4);
+  background: color-mix(in srgb, var(--accent-blue) 10%, transparent) !important;
+  outline: 1px dashed color-mix(in srgb, var(--accent-blue) 40%, transparent);
   outline-offset: -1px;
 }
 
 .cell-space {
-  background: rgba(192, 57, 43, 0.08) !important;
-  outline: 1px solid rgba(192, 57, 43, 0.45);
+  background: color-mix(in srgb, var(--accent-red) 8%, transparent) !important;
+  outline: 1px solid color-mix(in srgb, var(--accent-red) 45%, transparent);
   outline-offset: -1px;
 }
 
 .cell-preview {
-  background: var(--bs-ocean-blue, #2980b9) !important;
-  opacity: 0.5;
-  outline: 2px solid var(--bs-gold, #d4a847);
+  background: color-mix(in srgb, var(--accent-blue) 45%, var(--bg-card)) !important;
+  opacity: 0.6;
+  outline: 2px solid var(--bs-gold, var(--accent-gold));
   outline-offset: -2px;
   z-index: 1;
 }
@@ -415,78 +415,78 @@ const cellTooltip = computed(() => {
 }
 
 @keyframes cell-hit-flash {
-  0% { background: #ffffff; transform: scale(1.3); }
-  30% { background: var(--bs-fire-red, #c0392b); }
+  0% { background: var(--text-primary); transform: scale(1.3); }
+  30% { background: var(--accent-red); }
   100% { transform: scale(1); }
 }
 
 @keyframes cell-miss-ripple {
-  0% { box-shadow: inset 0 0 0 12px rgba(93, 173, 226, 0.5); transform: scale(0.85); }
-  100% { box-shadow: inset 0 0 0 0 rgba(93, 173, 226, 0); transform: scale(1); }
+  0% { box-shadow: inset 0 0 0 12px color-mix(in srgb, var(--accent-blue) 50%, transparent); transform: scale(0.85); }
+  100% { box-shadow: inset 0 0 0 0 transparent; transform: scale(1); }
 }
 
 @keyframes cell-scratch-bounce {
-  0% { transform: scale(1.2); background: var(--bs-gold, #d4a847); }
+  0% { transform: scale(1.2); background: var(--accent-gold); }
   40% { transform: scale(0.9); }
   70% { transform: scale(1.05); }
   100% { transform: scale(1); }
 }
 
 @keyframes cell-destroy-shake {
-  0% { transform: translateX(0); background: #ffffff; }
+  0% { transform: translateX(0); background: var(--text-primary); }
   15% { transform: translateX(-3px); }
-  30% { transform: translateX(3px); background: var(--bs-fire-red, #c0392b); }
+  30% { transform: translateX(3px); background: var(--accent-red); }
   45% { transform: translateX(-2px); }
-  60% { transform: translateX(2px); background: #2a0505; }
+  60% { transform: translateX(2px); background: color-mix(in srgb, var(--accent-red) 30%, var(--bg-inset)); }
   75% { transform: translateX(-1px); }
   100% { transform: translateX(0); }
 }
 
 @keyframes cell-sunk-collapse {
-  0% { transform: scale(1.15); background: #ffffff; }
-  20% { background: #8b0000; }
-  50% { transform: scale(0.9); opacity: 0.6; background: #3a0808; }
+  0% { transform: scale(1.15); background: var(--text-primary); }
+  20% { background: var(--accent-red); }
+  50% { transform: scale(0.9); opacity: 0.6; background: color-mix(in srgb, var(--accent-red) 35%, var(--bg-inset)); }
   70% { transform: scale(1.02); opacity: 0.8; }
   100% { transform: scale(1); opacity: 1; }
 }
 
 @keyframes cell-burn-ignite {
-  0% { background: #ffffff; transform: scale(1.4); }
-  25% { background: var(--bs-fire-orange, #e67e22); }
-  50% { transform: scale(1.1); background: var(--bs-fire-red, #c0392b); }
+  0% { background: var(--text-primary); transform: scale(1.4); }
+  25% { background: var(--accent-orange); }
+  50% { transform: scale(1.1); background: var(--accent-red); }
   100% { transform: scale(1); }
 }
 
 @keyframes cell-dodge-flash {
-  0% { background: var(--bs-poison-green, #27ae60); transform: scale(1.25); box-shadow: 0 0 12px rgba(39, 174, 96, 0.6); }
-  50% { background: rgba(39, 174, 96, 0.3); }
+  0% { background: var(--accent-green); transform: scale(1.25); box-shadow: 0 0 12px color-mix(in srgb, var(--accent-green) 60%, transparent); }
+  50% { background: color-mix(in srgb, var(--accent-green) 30%, transparent); }
   100% { transform: scale(1); box-shadow: none; }
 }
 
 @keyframes cell-freeze {
-  0% { background: #ffffff; transform: scale(1.2); }
-  30% { background: var(--bs-ice-blue, #74b9ff); }
+  0% { background: var(--text-primary); transform: scale(1.2); }
+  30% { background: var(--accent-blue); }
   60% { transform: scale(0.95); }
   100% { transform: scale(1); }
 }
 
 @keyframes cell-devastate {
-  0% { background: #ffffff; transform: scale(1.3); }
-  30% { background: var(--bs-cursed-purple, #8e44ad); }
+  0% { background: var(--text-primary); transform: scale(1.3); }
+  30% { background: var(--accent-purple); }
   60% { transform: scale(0.95); }
   100% { transform: scale(1); }
 }
 
 @keyframes cell-capture {
-  0% { transform: scale(1.2); box-shadow: 0 0 16px rgba(142, 68, 173, 0.8); }
+  0% { transform: scale(1.2); box-shadow: 0 0 16px color-mix(in srgb, var(--accent-purple) 80%, transparent); }
   50% { transform: scale(0.95); }
   100% { transform: scale(1); box-shadow: none; }
 }
 
 @keyframes cell-explode {
-  0% { background: #ffffff; transform: scale(1.5); box-shadow: 0 0 20px rgba(255, 100, 0, 0.8); }
-  25% { background: var(--bs-fire-orange, #e67e22); }
-  50% { background: var(--bs-fire-red, #c0392b); transform: scale(1.1); }
+  0% { background: var(--text-primary); transform: scale(1.5); box-shadow: 0 0 20px color-mix(in srgb, var(--accent-orange) 80%, transparent); }
+  25% { background: var(--accent-orange); }
+  50% { background: var(--accent-red); transform: scale(1.1); }
   100% { transform: scale(1); box-shadow: none; }
 }
 
@@ -495,14 +495,14 @@ const cellTooltip = computed(() => {
   content: '';
   position: absolute;
   inset: -2px;
-  border: 2px solid var(--bs-gold-bright, #f0c850);
+  border: 2px solid var(--bs-gold, var(--accent-gold));
   border-radius: 3px;
   animation: last-shot-pulse 1.5s ease-in-out infinite;
   z-index: 3;
   pointer-events: none;
 }
 @keyframes last-shot-pulse {
-  0%, 100% { opacity: 1; border-color: var(--bs-gold-bright, #f0c850); }
+  0%, 100% { opacity: 1; border-color: var(--bs-gold, var(--accent-gold)); }
   50% { opacity: 0.3; border-color: transparent; }
 }
 
@@ -513,7 +513,7 @@ const cellTooltip = computed(() => {
   top: 0;
   right: 1px;
   font-size: 0.5rem;
-  color: var(--bs-gold, #d4a847);
+  color: var(--bs-gold, var(--accent-gold));
   opacity: 0.8;
   pointer-events: none;
   z-index: 3;
@@ -523,10 +523,10 @@ const cellTooltip = computed(() => {
 .cell-ship-outline {
   border: none;
 }
-.ship-edge-top { border-top: 2px solid rgba(41, 128, 185, 0.6); }
-.ship-edge-right { border-right: 2px solid rgba(41, 128, 185, 0.6); }
-.ship-edge-bottom { border-bottom: 2px solid rgba(41, 128, 185, 0.6); }
-.ship-edge-left { border-left: 2px solid rgba(41, 128, 185, 0.6); }
+.ship-edge-top { border-top: 2px solid color-mix(in srgb, var(--accent-blue) 60%, transparent); }
+.ship-edge-right { border-right: 2px solid color-mix(in srgb, var(--accent-blue) 60%, transparent); }
+.ship-edge-bottom { border-bottom: 2px solid color-mix(in srgb, var(--accent-blue) 60%, transparent); }
+.ship-edge-left { border-left: 2px solid color-mix(in srgb, var(--accent-blue) 60%, transparent); }
 
 /* -- Summon trail ------------------------------------------------- */
 .cell-summon-trail::before {
@@ -535,38 +535,38 @@ const cellTooltip = computed(() => {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--bs-gold, #d4a847);
+  background: var(--bs-gold, var(--accent-gold));
   opacity: 0.2;
   pointer-events: none;
 }
 .trail-ram::before {
-  background: var(--bs-fire-red, #c0392b);
+  background: var(--accent-red);
   opacity: 0.3;
-  box-shadow: 0 0 4px rgba(192, 57, 43, 0.4);
+  box-shadow: 0 0 4px color-mix(in srgb, var(--accent-red) 40%, transparent);
 }
 .trail-scout::before {
-  background: var(--bs-ocean-blue, #2980b9);
+  background: var(--accent-blue);
   opacity: 0.25;
   width: 8px;
   height: 4px;
   border-radius: 4px;
 }
 .trail-brander::before {
-  background: var(--bs-fire-orange, #e67e22);
+  background: var(--accent-orange);
   opacity: 0.3;
   animation: trail-smolder 1.5s ease-in-out infinite alternate;
 }
 @keyframes trail-smolder {
   0% { opacity: 0.15; box-shadow: none; }
-  100% { opacity: 0.35; box-shadow: 0 0 4px rgba(230, 126, 34, 0.4); }
+  100% { opacity: 0.35; box-shadow: 0 0 4px color-mix(in srgb, var(--accent-orange) 40%, transparent); }
 }
 .trail-cursedboat::before {
-  background: var(--bs-cursed-purple, #8e44ad);
+  background: var(--accent-purple);
   opacity: 0.25;
-  box-shadow: 0 0 5px rgba(142, 68, 173, 0.3);
+  box-shadow: 0 0 5px color-mix(in srgb, var(--accent-purple) 30%, transparent);
 }
 .trail-pirateboat::before {
-  background: var(--bs-gold, #d4a847);
+  background: var(--accent-gold);
   opacity: 0.2;
 }
 
@@ -583,31 +583,31 @@ const cellTooltip = computed(() => {
   border-radius: 2px;
 }
 .range-poison::after {
-  background: rgba(39, 174, 96, 0.18);
-  border: 1px solid rgba(39, 174, 96, 0.45);
-  box-shadow: inset 0 0 6px rgba(39, 174, 96, 0.15);
+  background: color-mix(in srgb, var(--accent-green) 16%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent-green) 45%, transparent);
+  box-shadow: inset 0 0 6px color-mix(in srgb, var(--accent-green) 15%, transparent);
 }
 .range-explosion::after {
-  background: rgba(230, 126, 34, 0.18);
-  border: 1px solid rgba(230, 126, 34, 0.45);
-  box-shadow: inset 0 0 6px rgba(230, 126, 34, 0.15);
+  background: color-mix(in srgb, var(--accent-orange) 16%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent-orange) 45%, transparent);
+  box-shadow: inset 0 0 6px color-mix(in srgb, var(--accent-orange) 15%, transparent);
 }
 .range-freeze::after {
-  background: rgba(116, 185, 255, 0.18);
-  border: 1px solid rgba(116, 185, 255, 0.45);
-  box-shadow: inset 0 0 6px rgba(116, 185, 255, 0.15);
+  background: color-mix(in srgb, var(--accent-blue) 16%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent-blue) 45%, transparent);
+  box-shadow: inset 0 0 6px color-mix(in srgb, var(--accent-blue) 15%, transparent);
 }
 .range-brander::after {
-  background: rgba(230, 126, 34, 0.15);
-  border: 1px dashed rgba(230, 126, 34, 0.5);
+  background: color-mix(in srgb, var(--accent-orange) 13%, transparent);
+  border: 1px dashed color-mix(in srgb, var(--accent-orange) 50%, transparent);
 }
 .range-penalty-zone::after {
-  background: rgba(192, 57, 43, 0.12);
-  border: 1px solid rgba(192, 57, 43, 0.35);
+  background: color-mix(in srgb, var(--accent-red) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent-red) 35%, transparent);
 }
 .range-ownboard-target::after {
-  background: rgba(192, 57, 43, 0.15);
-  border: 1px solid rgba(192, 57, 43, 0.5);
+  background: color-mix(in srgb, var(--accent-red) 13%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent-red) 50%, transparent);
   animation: own-board-pulse 1.5s ease-in-out infinite;
 }
 @keyframes own-board-pulse {

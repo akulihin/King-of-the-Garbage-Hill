@@ -3,11 +3,16 @@ import { ref, computed } from 'vue'
 import { useBattleshipStore } from 'src/store/battleship'
 import type { BattleshipShipCatalogEntry, BattleshipFleetSelection } from 'src/services/signalr'
 import { useTip } from 'src/composables/useTip'
-import { renderIcon } from './battleship-icons'
+import { currentLocale } from 'src/i18n'
+import BsIcon from './BsIcon.vue'
 
 const { tipText, tipVisible, tipPos, showTip, moveTip, hideTip } = useTip()
 
 const store = useBattleshipStore()
+
+function t(english: string, russian: string): string {
+  return currentLocale.value === 'ru' ? russian : english
+}
 
 // Template: deckCount → slot count
 const TEMPLATE: Record<number, number> = { 1: 4, 2: 3, 3: 2, 4: 1 }
@@ -170,6 +175,7 @@ async function confirmFleet() {
   await store.selectFleet(selections)
 }
 
+// Full descriptions (tooltips) — pre-existing strings, kept verbatim
 function abilityLabel(a: string): string {
   switch (a) {
     case 'nimble': return 'Юркий — уклоняется от баллисты'
@@ -188,12 +194,31 @@ function abilityLabel(a: string): string {
   }
 }
 
+// Short human-readable chip labels (instead of raw keys like explode_on_hit)
+function abilityShortLabel(a: string): string {
+  switch (a) {
+    case 'nimble': return t('Nimble', 'Юркий')
+    case 'ballista_immune': return t('Ballista immune', 'Иммунитет к баллисте')
+    case 'burn_resist': return t('Fireproof', 'Огнеупорный')
+    case 'auto_dodge_bow_stern': return t('Auto-dodge', 'Авто-уклонение')
+    case 'manual_move_after_hit': return t('Maneuver', 'Маневр')
+    case 'explode_on_hit': return t('Explosive', 'Взрывной')
+    case 'spawn_pirate_boat': return t('Pirate boat', 'Пиратский кораблик')
+    case 'spawn_cursed_boat': return t('Cursed boat', 'Проклятый кораблик')
+    case 'poison_cone': return t('Poison cone', 'Ядовитый конус')
+    case 'auto_win_boarding': return t('Boarding master', 'Мастер абордажа')
+    case 'stationary': return t('Stationary', 'Неподвижный')
+    case 'freeze_nearby': return t('Freeze aura', 'Аура заморозки')
+    default: return a
+  }
+}
+
 function getRegionColor(region: string): string {
   switch (region?.toLowerCase()) {
     case 'south': case 'юг': return 'var(--accent-coral, #f87171)'
     case 'west': case 'запад': return 'var(--accent-blue)'
     case 'north': case 'север': return 'var(--accent-teal, #2dd4bf)'
-    case 'east': case 'восток': return '#fb923c'
+    case 'east': case 'восток': return 'var(--accent-orange)'
     default: return 'var(--text-muted)'
   }
 }
@@ -205,28 +230,32 @@ function catalogForDeck(dc: number) {
 </script>
 
 <template>
-  <div class="fleet-builder bs-pirate">
+  <div class="fleet-builder">
     <!-- Header -->
-    <div class="builder-header">
-      <h3 class="builder-title bs-font-title">Сборка флота</h3>
+    <div class="builder-header bs-card">
+      <div class="builder-heading">
+        <span class="bs-kicker"><BsIcon icon="sailboat" :size="13" /> {{ t('Fleet dock', 'Верфь') }}</span>
+        <h3 class="bs-title">Сборка флота</h3>
+      </div>
       <div class="header-stats">
         <div
-          class="budget bs-font-data"
+          class="bs-chip bs-chip--gold budget bs-mono"
           :class="{ 'over-budget': coinsLeft < 0 }"
           @mouseenter="showTip($event, 'Оставшийся бюджет для покупки кораблей')"
           @mousemove="moveTip"
           @mouseleave="hideTip"
         >
-          <span class="coin-icon" v-html="renderIcon('anchor', 14)"></span>
+          <BsIcon icon="coins" :size="14" />
           {{ coinsLeft }} / 40 монет
         </div>
         <div
-          class="region-counter bs-font-data"
+          class="bs-chip region-counter bs-mono"
           :class="{ 'over-budget': overRegionLimit }"
           @mouseenter="showTip($event, 'Используемые регионы (максимум 3)')"
           @mousemove="moveTip"
           @mouseleave="hideTip"
         >
+          <BsIcon icon="map" :size="14" />
           Регионы: {{ regionCount }}/3
         </div>
       </div>
@@ -235,16 +264,16 @@ function catalogForDeck(dc: number) {
 
     <!-- Fleet Slots by Deck Count -->
     <div v-for="dc in [1, 2, 3, 4]" :key="dc" class="section">
-      <div class="section-title bs-font-body">{{ DECK_LABELS[dc] }} ({{ TEMPLATE[dc] }} шт.)</div>
+      <div class="section-title">{{ DECK_LABELS[dc] }} ({{ TEMPLATE[dc] }} шт.)</div>
 
       <div class="slot-group">
-        <div v-for="{ slot, globalIndex } in slotsForDeck(dc)" :key="globalIndex" class="card-wood ship-entry" :class="{ 'slot-default': slot.isDefault }">
+        <div v-for="{ slot, globalIndex } in slotsForDeck(dc)" :key="globalIndex" class="bs-card ship-entry" :class="{ 'slot-default': slot.isDefault }">
           <div class="ship-entry-header">
-            <span class="slot-badge bs-font-data" :class="slot.isDefault ? 'badge-default' : 'badge-purchased'">
+            <span class="slot-badge bs-mono" :class="slot.isDefault ? 'badge-default' : 'badge-purchased'">
               {{ slot.isDefault ? 'стд' : 'куп' }}
             </span>
-            <span class="ship-name bs-font-body">{{ slot.isDefault ? (getShipDef(slot.definitionId)?.nameRu || slot.shipName) : slot.shipName }}</span>
-            <span v-if="!slot.isDefault" class="ship-cost bs-font-data">{{ getShipDef(slot.definitionId)?.cost ?? 0 }}c</span>
+            <span class="ship-name">{{ slot.isDefault ? (getShipDef(slot.definitionId)?.nameRu || slot.shipName) : slot.shipName }}</span>
+            <span v-if="!slot.isDefault" class="ship-cost bs-mono">{{ getShipDef(slot.definitionId)?.cost ?? 0 }}c</span>
             <button
               v-if="!slot.isDefault"
               class="remove-btn"
@@ -266,11 +295,12 @@ function catalogForDeck(dc: number) {
                 disabled
                 @mouseenter="showTip($event, 'WIP')" @mousemove="moveTip" @mouseleave="hideTip"
               >
-                {{ upg.nameRu || upg.name }} ({{ upg.cost }}c) <span class="wip-badge">WIP</span>
+                {{ upg.nameRu || upg.name }} ({{ upg.cost }}c) <span class="wip-badge bs-mono">WIP</span>
               </button>
               <button
                 v-else
                 class="upgrade-btn"
+                :aria-pressed="slot.upgrades.includes(upg.id)"
                 :class="slot.upgrades.includes(upg.id) ? 'upgrade-active' : 'upgrade-inactive'"
                 @mouseenter="showTip($event, upg.description || upg.name)"
                 @mousemove="moveTip" @mouseleave="hideTip"
@@ -282,7 +312,7 @@ function catalogForDeck(dc: number) {
 
             <!-- Boiler weapon choice -->
             <div v-if="getShipDef(slot.definitionId)!.availableUpgrades.some(u => isBoilerUpgrade(u.id))" class="boiler-choice">
-              <span class="boiler-label bs-font-data">Котельная ({{ getShipDef(slot.definitionId)!.availableUpgrades.find(u => isBoilerUpgrade(u.id))?.cost ?? 0 }}c):</span>
+              <span class="boiler-label bs-mono">Котельная ({{ getShipDef(slot.definitionId)!.availableUpgrades.find(u => isBoilerUpgrade(u.id))?.cost ?? 0 }}c):</span>
               <button class="upgrade-btn" :class="{ 'upgrade-inactive': hasBoilerUpgrade(globalIndex) }" @click="slot.upgrades = slot.upgrades.filter(u => !isBoilerUpgrade(u))" :disabled="!hasBoilerUpgrade(globalIndex)">Нет</button>
               <button class="upgrade-btn" :class="hasBoilerUpgrade(globalIndex) && boilerWeaponChoice === 'GreekFire' ? 'upgrade-active' : 'upgrade-inactive'" @click="setBoilerChoice(globalIndex, 'GreekFire')">Греческий огонь</button>
               <button class="upgrade-btn" :class="hasBoilerUpgrade(globalIndex) && boilerWeaponChoice === 'Brander' ? 'upgrade-active' : 'upgrade-inactive'" @click="setBoilerChoice(globalIndex, 'Brander')">Брандер</button>
@@ -293,22 +323,22 @@ function catalogForDeck(dc: number) {
 
       <!-- Catalog for this deck count -->
       <div v-if="catalogForDeck(dc).length" class="deck-catalog">
-        <div class="catalog-label bs-font-data">Доступные замены:</div>
+        <div class="catalog-label">Доступные замены:</div>
         <div class="ship-catalog">
-          <div v-for="def in catalogForDeck(dc)" :key="def.id" class="card-parchment catalog-card">
+          <div v-for="def in catalogForDeck(dc)" :key="def.id" class="bs-card catalog-card">
             <div class="catalog-header">
               <div class="catalog-name-row">
-                <span class="catalog-ship-name bs-font-body">{{ def.nameRu || def.name }}</span>
-                <span v-if="def.region" class="region-badge" :style="{ color: getRegionColor(def.region) }">{{ def.region }}</span>
+                <span class="catalog-ship-name">{{ def.nameRu || def.name }}</span>
+                <span v-if="def.region" class="region-badge bs-mono" :style="{ color: getRegionColor(def.region) }">{{ def.region }}</span>
               </div>
-              <span class="ship-stats bs-font-data">HP {{ def.deckHpOverrides ? def.deckHpOverrides.join('/') : def.defaultArmor }} | Скор. {{ def.speed }} | Зона {{ def.space }} | {{ def.range }} | {{ def.cost }}м</span>
+              <span class="ship-stats bs-mono">HP {{ def.deckHpOverrides ? def.deckHpOverrides.join('/') : def.defaultArmor }} | Скор. {{ def.speed }} | Зона {{ def.space }} | {{ def.range }} | {{ def.cost }}м</span>
             </div>
-            <div v-if="def.description" class="ship-desc bs-font-body">{{ def.description }}</div>
+            <div v-if="def.description" class="ship-desc">{{ def.description }}</div>
             <div v-if="def.abilities.length" class="ship-abilities">
-              <span v-for="a in def.abilities" :key="a" class="ability-tag" @mouseenter="showTip($event, abilityLabel(a))" @mousemove="moveTip" @mouseleave="hideTip">{{ a }}</span>
+              <span v-for="a in def.abilities" :key="a" class="ability-tag" @mouseenter="showTip($event, abilityLabel(a))" @mousemove="moveTip" @mouseleave="hideTip">{{ abilityShortLabel(a) }}</span>
             </div>
             <button
-              class="catalog-add-btn"
+              class="bs-btn bs-btn--primary bs-btn--sm catalog-add-btn"
               :disabled="def.cost > coinsLeft || defaultSlotsLeft(dc) === 0"
               @mouseenter="showTip($event, def.cost > coinsLeft ? `Нужно ещё ${def.cost - coinsLeft} монет` : defaultSlotsLeft(dc) === 0 ? 'Нет свободных слотов — уберите купленный корабль' : `Заменить стандартный ${DECK_LABELS[dc]} корабль`)"
               @mousemove="moveTip" @mouseleave="hideTip"
@@ -323,13 +353,13 @@ function catalogForDeck(dc: number) {
 
     <!-- Confirm Button -->
     <button
-      class="btn-pirate confirm-btn"
+      class="bs-btn bs-btn--primary bs-btn--lg confirm-btn"
       :disabled="coinsLeft < 0 || overRegionLimit"
       @mouseenter="showTip($event, coinsLeft < 0 ? 'Превышен бюджет' : overRegionLimit ? 'Слишком много регионов (макс. 3)' : 'Подтвердить выбор флота')"
       @mousemove="moveTip" @mouseleave="hideTip"
       @click="confirmFleet"
     >
-      <span class="confirm-icon" v-html="renderIcon('flag', 18)"></span>
+      <BsIcon icon="flag" :size="18" />
       Подтвердить флот
     </button>
 
@@ -343,13 +373,10 @@ function catalogForDeck(dc: number) {
 </template>
 
 <style scoped>
-@import './battleship-theme.css';
-
 .fleet-builder {
   display: flex;
   flex-direction: column;
   gap: 1rem;
-  background-color: var(--bs-sea-deep);
 }
 
 /* ── Header ────────────────────────────────────────────── */
@@ -360,46 +387,34 @@ function catalogForDeck(dc: number) {
   align-items: center;
   gap: 0.5rem;
 }
-.builder-title {
-  margin: 0;
-  color: var(--bs-gold);
-  font-size: 1.3rem;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+.builder-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
 }
 .header-stats {
   display: flex;
-  gap: 1rem;
+  gap: 0.5rem;
   align-items: center;
+  flex-wrap: wrap;
 }
 .budget {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 0.9rem;
-  font-weight: 700;
-  color: var(--bs-gold);
-}
-.coin-icon {
-  display: inline-flex;
-  color: var(--bs-gold-bright);
+  font-size: 0.78rem;
 }
 .region-counter {
-  font-size: 0.9rem;
-  font-weight: 700;
-  color: var(--bs-parchment-dim);
+  font-size: 0.78rem;
 }
 .budget.over-budget,
 .region-counter.over-budget {
-  color: var(--bs-fire-red);
+  --bs-chip-color: var(--accent-red);
 }
 .region-warning {
   width: 100%;
   font-size: 0.75rem;
-  color: var(--bs-fire-red);
+  color: var(--accent-red);
   font-weight: 600;
   text-align: right;
   margin-top: 0.25rem;
-  font-family: 'Crimson Text', 'Georgia', serif;
 }
 
 /* ── Sections ──────────────────────────────────────────── */
@@ -409,12 +424,12 @@ function catalogForDeck(dc: number) {
   gap: 0.5rem;
 }
 .section-title {
-  color: var(--bs-parchment);
-  font-size: 0.9rem;
-  font-weight: 700;
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  font-weight: 900;
   margin-bottom: 0.25rem;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 1.5px;
 }
 
 /* ── Slot group ───────────────────────────────────────── */
@@ -425,13 +440,14 @@ function catalogForDeck(dc: number) {
 }
 .ship-entry {
   padding: 0.5rem 0.75rem;
+  border-radius: 10px;
 }
 .slot-default {
-  opacity: 0.7;
-  border-left: 3px solid var(--bs-wood-mid);
+  opacity: 0.65;
+  border-left: 3px solid var(--glass-border);
 }
 .ship-entry:not(.slot-default) {
-  border-left: 3px solid var(--bs-gold);
+  border-left: 3px solid var(--accent-gold);
 }
 .ship-entry-header {
   display: flex;
@@ -443,42 +459,42 @@ function catalogForDeck(dc: number) {
   font-weight: 700;
   text-transform: uppercase;
   padding: 1px 5px;
-  border-radius: 3px;
+  border-radius: 4px;
   letter-spacing: 0.5px;
 }
 .badge-default {
-  background: var(--bs-wood-mid);
-  color: var(--bs-parchment-dim);
+  background: var(--bg-inset);
+  color: var(--text-dim);
 }
 .badge-purchased {
-  background: var(--bs-gold);
-  color: var(--bs-wood-dark);
+  background: var(--accent-gold);
+  color: var(--bg-primary);
 }
 .ship-name {
   font-weight: 700;
-  color: var(--bs-parchment);
-  font-size: 0.9rem;
+  color: var(--text-primary);
+  font-size: 0.85rem;
 }
 .ship-cost {
-  color: var(--bs-gold);
-  font-size: 0.8rem;
+  color: var(--accent-gold);
+  font-size: 0.75rem;
 }
 .remove-btn {
   margin-left: auto;
   background: transparent;
-  border: 1px solid var(--bs-fire-red);
-  color: var(--bs-fire-red);
-  border-radius: 3px;
+  border: 1px solid color-mix(in srgb, var(--accent-red) 45%, transparent);
+  color: var(--accent-red);
+  border-radius: 6px;
   padding: 2px 8px;
   cursor: pointer;
-  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-family: var(--font-mono);
   font-size: 0.7rem;
   font-weight: 700;
   transition: background 0.15s ease, color 0.15s ease;
 }
 .remove-btn:hover {
-  background: var(--bs-fire-red);
-  color: var(--bs-parchment);
+  background: var(--accent-red);
+  color: var(--bg-primary);
 }
 
 /* ── Upgrades ──────────────────────────────────────────── */
@@ -489,57 +505,54 @@ function catalogForDeck(dc: number) {
   margin-top: 0.375rem;
 }
 .upgrade-btn {
-  font-family: 'Crimson Text', 'Georgia', serif;
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   font-weight: 600;
   padding: 3px 10px;
-  border-radius: 3px;
-  border: 1px solid var(--bs-wood-light);
+  border-radius: 7px;
+  border: 1px solid var(--glass-border);
   cursor: pointer;
   transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
 }
 .upgrade-active {
-  background: var(--bs-gold);
-  color: var(--bs-wood-dark);
-  border-color: var(--bs-gold-bright);
-  text-shadow: none;
+  background: var(--accent-gold);
+  color: var(--bg-primary);
+  border-color: color-mix(in srgb, var(--accent-gold) 70%, white);
 }
 .upgrade-inactive {
-  background: var(--bs-wood-dark);
-  color: var(--bs-parchment-dim);
-  border-color: var(--bs-wood-mid);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-muted);
 }
 .upgrade-inactive:hover {
-  border-color: var(--bs-wood-light);
-  color: var(--bs-parchment);
+  border-color: var(--border-color);
+  color: var(--text-primary);
 }
 .upgrade-disabled {
-  background: var(--bs-wood-dark);
-  color: var(--bs-parchment-dim);
-  border-color: var(--bs-wood-mid);
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--text-dim);
+  border-color: var(--glass-border);
   opacity: 0.5;
   cursor: not-allowed;
 }
 .wip-badge {
   font-size: 0.55rem;
-  color: var(--bs-parchment-dim);
-  opacity: 0.5;
+  color: var(--text-dim);
+  opacity: 0.6;
   margin-left: 2px;
   text-transform: uppercase;
-  font-family: 'JetBrains Mono', 'Fira Code', monospace;
 }
 .boiler-choice {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 4px;
   width: 100%;
   margin-top: 4px;
   padding-top: 4px;
-  border-top: 1px solid var(--bs-wood-mid);
+  border-top: 1px solid var(--glass-border);
 }
 .boiler-label {
-  font-size: 0.75rem;
-  color: var(--bs-parchment-dim);
+  font-size: 0.72rem;
+  color: var(--text-dim);
   font-weight: 600;
   white-space: nowrap;
 }
@@ -549,54 +562,63 @@ function catalogForDeck(dc: number) {
   margin-top: 0.25rem;
 }
 .catalog-label {
-  font-size: 0.75rem;
-  color: var(--bs-parchment-dim);
-  font-weight: 600;
+  font-size: 0.68rem;
+  color: var(--text-dim);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
   margin-bottom: 0.25rem;
 }
 .ship-catalog {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
   gap: 0.5rem;
 }
 .catalog-card {
-  padding: 0.5rem 0.75rem;
+  --bs-accent: var(--accent-gold);
+  padding: 0.6rem 0.75rem;
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 0.3rem;
+  transition: transform 0.15s var(--ease-spring), box-shadow 0.15s ease;
+}
+.catalog-card:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 10px 28px rgba(0, 0, 0, 0.32),
+    0 0 26px color-mix(in srgb, var(--accent-gold) 10%, transparent),
+    inset 0 1px 0 var(--glass-highlight);
 }
 .catalog-header {
   display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 0.5rem;
+  flex-direction: column;
+  gap: 2px;
 }
 .catalog-name-row {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 0.375rem;
 }
 .catalog-ship-name {
-  font-weight: 700;
-  color: var(--bs-wood-dark);
-  font-size: 0.9rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  font-size: 0.88rem;
 }
 .region-badge {
   font-size: 0.6rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.3px;
-  font-family: 'JetBrains Mono', 'Fira Code', monospace;
 }
 .ship-stats {
-  font-size: 0.7rem;
-  color: var(--bs-parchment-dim);
-  white-space: nowrap;
+  font-size: 0.62rem;
+  color: var(--text-dim);
 }
 .ship-desc {
-  font-size: 0.75rem;
-  color: var(--bs-wood-mid);
-  line-height: 1.3;
+  font-size: 0.73rem;
+  color: var(--text-muted);
+  line-height: 1.4;
 }
 .ship-abilities {
   display: flex;
@@ -604,48 +626,23 @@ function catalogForDeck(dc: number) {
   gap: 4px;
 }
 .ability-tag {
-  font-size: 0.65rem;
-  font-family: 'Crimson Text', 'Georgia', serif;
-  padding: 1px 6px;
-  border-radius: 3px;
-  background: rgba(41, 128, 185, 0.12);
-  color: var(--bs-ocean-blue);
-  border: 1px solid rgba(41, 128, 185, 0.25);
+  font-size: 0.63rem;
+  font-weight: 600;
+  padding: 1px 7px;
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--accent-blue) 10%, transparent);
+  color: var(--accent-blue);
+  border: 1px solid color-mix(in srgb, var(--accent-blue) 25%, transparent);
+  cursor: help;
 }
 .catalog-add-btn {
   align-self: flex-start;
   margin-top: 0.25rem;
-  background: var(--bs-poison-green);
-  color: var(--bs-gold-bright);
-  border: 1px solid rgba(39, 174, 96, 0.6);
-  border-radius: 3px;
-  padding: 3px 12px;
-  font-family: 'Crimson Text', 'Georgia', serif;
-  font-size: 0.8rem;
-  font-weight: 700;
-  cursor: pointer;
-  transition: background 0.15s ease, transform 0.1s ease;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
-}
-.catalog-add-btn:hover:not(:disabled) {
-  background: #2ecc71;
-  transform: translateY(-1px);
-}
-.catalog-add-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-  transform: none;
 }
 
 /* ── Confirm ───────────────────────────────────────────── */
 .confirm-btn {
   align-self: center;
   margin-top: 0.5rem;
-  font-size: 1.05rem;
-  padding: 10px 32px;
-}
-.confirm-icon {
-  display: inline-flex;
-  align-items: center;
 }
 </style>

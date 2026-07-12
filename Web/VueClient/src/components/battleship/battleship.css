@@ -1,0 +1,317 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   battleship.css — Battleship UI on the app-wide semantic theme system.
+
+   Built exclusively on the semantic vars mapped in App.vue (--bg-*, --glass-*,
+   --text-*, --accent-*, --glow-*, --font-mono, --ease-spring) so every page
+   follows all app themes automatically. Imported from JS once per battleship
+   page. Everything is scoped under .bs-page.
+
+   Per-phase accent: each phase wrapper overrides --bs-accent (the same trick
+   as --rarity in LootBox.vue) and every shared class picks it up.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.bs-page {
+  /* Accent of the current surface (phase wrappers override this) */
+  --bs-accent: var(--accent-blue);
+
+  /* Status palette — cells, chips, logs all read these */
+  --bs-hit: var(--accent-red);
+  --bs-burn: var(--accent-orange);
+  --bs-freeze: var(--accent-blue);
+  --bs-poison: var(--accent-green);
+  --bs-cursed: var(--accent-purple);
+  --bs-gold: var(--accent-gold);
+
+  position: relative;
+  isolation: isolate;
+  width: 100%;
+  max-width: 1100px;
+  min-height: 100vh;
+  margin: 0 auto;
+  padding: 0.75rem;
+  color: var(--text-secondary);
+}
+
+/* Ambient layers (aurora + dot grid, per LootBox) */
+.bs-page::before {
+  content: '';
+  position: absolute;
+  z-index: -2;
+  inset: -8% -12% 55%;
+  background: radial-gradient(ellipse, color-mix(in srgb, var(--bs-accent) 14%, transparent), transparent 70%);
+  filter: blur(28px);
+  pointer-events: none;
+  transition: background 0.6s ease;
+}
+.bs-page::after {
+  content: '';
+  position: absolute;
+  z-index: -3;
+  inset: 0;
+  opacity: 0.14;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+  background-size: 22px 22px;
+  mask-image: linear-gradient(black, transparent 78%);
+  pointer-events: none;
+}
+
+/* Per-phase accents */
+.bs-phase-lobby { --bs-accent: var(--accent-blue); }
+.bs-phase-fleet { --bs-accent: var(--accent-gold); }
+.bs-phase-placement { --bs-accent: var(--accent-green); }
+.bs-phase-combat { --bs-accent: var(--accent-red); }
+.bs-phase-gameover { --bs-accent: var(--accent-purple); }
+
+/* ── Glass card ─────────────────────────────────────────────────────────── */
+.bs-card {
+  position: relative;
+  padding: 14px 16px;
+  border: 1px solid color-mix(in srgb, var(--bs-accent) 22%, var(--glass-border));
+  border-radius: 14px;
+  background: linear-gradient(155deg, color-mix(in srgb, var(--bs-accent) 7%, var(--bg-card)), var(--bg-secondary) 72%);
+  box-shadow:
+    0 8px 26px rgba(0, 0, 0, 0.28),
+    0 0 24px color-mix(in srgb, var(--bs-accent) 7%, transparent),
+    inset 0 1px 0 var(--glass-highlight);
+}
+
+/* Compact horizontal glass bar (header, weapon rack, summon bars) */
+.bs-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 8px 12px;
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+  background: linear-gradient(155deg, color-mix(in srgb, var(--bs-accent) 5%, var(--bg-card)), var(--bg-secondary) 78%);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22), inset 0 1px 0 var(--glass-highlight);
+}
+
+/* ── Buttons ────────────────────────────────────────────────────────────── */
+.bs-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 38px;
+  padding: 7px 16px;
+  border: 1px solid var(--glass-border);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  cursor: pointer;
+  user-select: none;
+  text-decoration: none;
+  transition: all 0.15s var(--ease-spring);
+}
+.bs-btn:hover:not(:disabled) {
+  color: var(--text-primary);
+  border-color: var(--border-color);
+  background: rgba(255, 255, 255, 0.07);
+  transform: translateY(-1px);
+}
+.bs-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.bs-btn--primary {
+  border-color: transparent;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--bs-accent) 78%, white), var(--bs-accent));
+  color: var(--bg-primary);
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--bs-accent) 22%, transparent);
+}
+.bs-btn--primary:hover:not(:disabled) {
+  color: var(--bg-primary);
+  border-color: transparent;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--bs-accent) 85%, white), var(--bs-accent));
+  filter: brightness(1.07);
+}
+
+.bs-btn--danger {
+  color: var(--accent-red);
+  border-color: color-mix(in srgb, var(--accent-red) 30%, transparent);
+  background: color-mix(in srgb, var(--accent-red) 8%, transparent);
+}
+.bs-btn--danger:hover:not(:disabled) {
+  color: var(--accent-red);
+  border-color: color-mix(in srgb, var(--accent-red) 55%, transparent);
+  background: color-mix(in srgb, var(--accent-red) 14%, transparent);
+  box-shadow: var(--glow-red);
+}
+
+.bs-btn--sm { min-height: 30px; padding: 4px 10px; font-size: 0.7rem; border-radius: 8px; }
+.bs-btn--lg { min-height: 46px; padding: 10px 26px; font-size: 0.95rem; border-radius: 12px; }
+
+/* ── Chips & badges ─────────────────────────────────────────────────────── */
+.bs-chip {
+  --bs-chip-color: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 25px;
+  padding: 3px 8px;
+  border: 1px solid color-mix(in srgb, var(--bs-chip-color) 30%, var(--glass-border));
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--bs-chip-color) 9%, transparent);
+  color: var(--bs-chip-color);
+  font-size: 0.7rem;
+  font-weight: 700;
+  white-space: nowrap;
+  user-select: none;
+}
+.bs-chip--red { --bs-chip-color: var(--accent-red); }
+.bs-chip--orange { --bs-chip-color: var(--accent-orange); }
+.bs-chip--blue { --bs-chip-color: var(--accent-blue); }
+.bs-chip--green { --bs-chip-color: var(--accent-green); }
+.bs-chip--purple { --bs-chip-color: var(--accent-purple); }
+.bs-chip--gold { --bs-chip-color: var(--accent-gold); }
+
+/* Tiny status badge (stun/penalty/boarding markers next to player names) */
+.bs-badge {
+  --bs-chip-color: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 6px;
+  border: 1px solid color-mix(in srgb, var(--bs-chip-color) 32%, transparent);
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--bs-chip-color) 12%, transparent);
+  color: var(--bs-chip-color);
+  font-size: 0.65rem;
+  font-weight: 700;
+  line-height: 1.3;
+  white-space: nowrap;
+  user-select: none;
+}
+.bs-badge--stun { --bs-chip-color: var(--accent-blue); }
+.bs-badge--penalty { --bs-chip-color: var(--accent-red); }
+.bs-badge--boarding { --bs-chip-color: var(--accent-gold); }
+
+/* ── Segmented chip group (replaces <select>s) ──────────────────────────── */
+.bs-seg {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.bs-seg-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 6px 12px;
+  border: 1px solid var(--glass-border);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.15s ease;
+}
+.bs-seg-btn:hover:not(:disabled) {
+  color: var(--text-primary);
+  border-color: var(--border-color);
+  background: rgba(255, 255, 255, 0.06);
+}
+.bs-seg-btn[aria-pressed='true'] {
+  color: var(--bs-accent);
+  border-color: color-mix(in srgb, var(--bs-accent) 55%, transparent);
+  background: color-mix(in srgb, var(--bs-accent) 12%, transparent);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--bs-accent) 18%, transparent);
+}
+.bs-seg-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ── Text helpers ───────────────────────────────────────────────────────── */
+.bs-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--bs-accent);
+  font-size: 0.6rem;
+  font-weight: 900;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+.bs-title {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 1.3rem;
+  font-weight: 900;
+  line-height: 1.2;
+}
+.bs-mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+.bs-dim { color: var(--text-dim); }
+.bs-muted { color: var(--text-muted); }
+
+/* ── Status banners ─────────────────────────────────────────────────────── */
+.bs-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 6px 12px;
+  margin-bottom: 0.5rem;
+  border: 1px solid var(--glass-border);
+  border-radius: 10px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-align: center;
+}
+.bs-banner--warning {
+  color: var(--accent-red);
+  border-color: color-mix(in srgb, var(--accent-red) 28%, transparent);
+  background: color-mix(in srgb, var(--accent-red) 9%, transparent);
+}
+.bs-banner--info {
+  color: var(--accent-blue);
+  border-color: color-mix(in srgb, var(--accent-blue) 28%, transparent);
+  background: color-mix(in srgb, var(--accent-blue) 9%, transparent);
+}
+.bs-banner--gold {
+  color: var(--accent-gold);
+  border-color: color-mix(in srgb, var(--accent-gold) 28%, transparent);
+  background: color-mix(in srgb, var(--accent-gold) 9%, transparent);
+}
+
+/* ── Shared keyframes ───────────────────────────────────────────────────── */
+@keyframes bs-banner-appear {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes bs-content-rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes bs-glow-pulse {
+  0%, 100% { box-shadow: 0 0 4px color-mix(in srgb, var(--bs-accent) 25%, transparent); }
+  50% { box-shadow: 0 0 14px color-mix(in srgb, var(--bs-accent) 45%, transparent); }
+}
+
+/* ── Reduced motion ─────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .bs-page *,
+  .bs-page *::before,
+  .bs-page *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

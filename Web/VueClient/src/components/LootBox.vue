@@ -12,6 +12,7 @@ import {
   Sparkles,
   WalletCards,
 } from 'lucide-vue-next'
+import { useFocusTrapDialog } from 'src/composables/useFocusTrapDialog'
 import { currentLocale } from 'src/i18n'
 import type { LootBoxOdds, LootBoxResult } from 'src/services/signalr'
 import { playLootBoxOpeningSound, playLootBoxRevealSound } from 'src/services/sound'
@@ -36,14 +37,10 @@ const emit = defineEmits<{
 }>()
 
 const phase = ref<'opening' | 'reveal'>('opening')
-const overlayRef = ref<HTMLElement | null>(null)
-const dialogRef = ref<HTMLElement | null>(null)
+const { overlayRef, dialogRef, focusFirstControl, trapTabKey } = useFocusTrapDialog()
 const openingStartedAt = Date.now()
 const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
 let revealTimer: ReturnType<typeof setTimeout> | null = null
-let previousBodyOverflow = ''
-let previouslyFocusedElement: HTMLElement | null = null
-const isolatedBodyChildren: Array<{ element: HTMLElement; wasInert: boolean }> = []
 
 const rarityClass = computed(() => phase.value === 'reveal'
   ? rarityKey(props.result?.rarity ?? 'common')
@@ -55,59 +52,12 @@ const currentRemaining = computed(() => props.result?.remainingLootBoxes ?? prop
 const pityThreshold = computed(() => Math.max(1, currentPity.value + currentGuaranteedRareIn.value))
 const pityPercent = computed(() => Math.max(0, Math.min(100, (currentPity.value / pityThreshold.value) * 100)))
 
-function focusableElements(): HTMLElement[] {
-  if (!dialogRef.value) return []
-  return Array.from(dialogRef.value.querySelectorAll<HTMLElement>(
-    'button:not([disabled]), summary, [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
-  )).filter(element => element.getClientRects().length > 0)
-}
-
-function focusFirstControl(): void {
-  const first = focusableElements()[0]
-  const target = first ?? dialogRef.value
-  target?.focus({ preventScroll: true })
-}
-
-function isolateBackground(): void {
-  const overlay = overlayRef.value
-  if (!overlay) return
-  for (const child of Array.from(document.body.children)) {
-    if (!(child instanceof HTMLElement) || child === overlay || child.contains(overlay)) continue
-    isolatedBodyChildren.push({ element: child, wasInert: child.inert })
-    child.inert = true
-  }
-}
-
-function restoreBackground(): void {
-  for (const { element, wasInert } of isolatedBodyChildren.splice(0)) {
-    element.inert = wasInert
-  }
-}
-
-function keepFocusInside(event: FocusEvent): void {
-  if (!(event.target instanceof Node) || dialogRef.value?.contains(event.target)) return
-  focusFirstControl()
-}
-
-onMounted(async () => {
-  previouslyFocusedElement = document.activeElement instanceof HTMLElement ? document.activeElement : null
-  previousBodyOverflow = document.body.style.overflow
-  document.body.style.overflow = 'hidden'
-  isolateBackground()
-  document.addEventListener('focusin', keepFocusInside)
+onMounted(() => {
   if (!props.result) playLootBoxOpeningSound()
-  await nextTick()
-  focusFirstControl()
 })
 
 onUnmounted(() => {
-  document.removeEventListener('focusin', keepFocusInside)
-  restoreBackground()
-  document.body.style.overflow = previousBodyOverflow
   if (revealTimer) clearTimeout(revealTimer)
-  if (previouslyFocusedElement?.isConnected) {
-    previouslyFocusedElement.focus({ preventScroll: true })
-  }
 })
 
 watch(() => props.result?.openingId, (openingId) => {
@@ -194,24 +144,7 @@ function onDialogKeydown(event: KeyboardEvent): void {
     continueFlow()
     return
   }
-  if (event.key !== 'Tab' || !dialogRef.value) return
-  const focusable = focusableElements()
-  if (focusable.length === 0) {
-    event.preventDefault()
-    dialogRef.value.focus()
-    return
-  }
-  const first = focusable[0]
-  const last = focusable[focusable.length - 1]
-  const active = document.activeElement
-  if (event.shiftKey && (active === first || active === dialogRef.value || !dialogRef.value.contains(active))) {
-    event.preventDefault()
-    last.focus()
-  }
-  else if (!event.shiftKey && (active === last || active === dialogRef.value || !dialogRef.value.contains(active))) {
-    event.preventDefault()
-    first.focus()
-  }
+  trapTabKey(event)
 }
 
 function sparkStyle(index: number): CSSProperties {

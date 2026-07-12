@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import type { BattleshipPlayerState, BattleshipPendingSummon } from 'src/services/signalr'
-import { ICONS, renderIcon } from './battleship-icons'
+import { renderIcon } from './battleship-icons'
 import { useTip } from 'src/composables/useTip'
 
 const { tipText, tipVisible, tipPos, showTip, moveTip, hideTip } = useTip()
@@ -59,6 +59,8 @@ const summonIconKey: Record<string, string> = {
   PirateBoat: 'pirateBoat',
 }
 
+const summonOrder = ['Ram', 'Scout', 'PirateBoat', 'Brander']
+
 function nameRu(type: string): string {
   return summonTypeNameRu[type] ?? type
 }
@@ -76,22 +78,26 @@ function posLabel(row: number, col: number): string {
 <template>
   <div class="summon-bar-root">
     <!-- 1. Summon Deployment Bar -->
-    <div class="summon-bar card-wood">
+    <div class="summon-bar bs-bar">
       <span class="sb-label">Призыв ({{ myPlayer?.summonSlotsUsed ?? 0 }}/{{ myPlayer?.maxSummonSlots ?? 4 }}):</span>
-      <select
-        v-model="summonType"
-        class="sb-select"
-        @mouseenter="showTip($event, summonDescriptions[summonType] ?? '')"
-        @mousemove="moveTip"
-        @mouseleave="hideTip"
-      >
-        <option v-if="availableSummons.includes('Ram')" value="Ram">Таран</option>
-        <option v-if="availableSummons.includes('Scout')" value="Scout">Разведчик</option>
-        <option v-if="availableSummons.includes('PirateBoat')" value="PirateBoat">Пират</option>
-        <option v-if="availableSummons.includes('Brander')" value="Brander">Брандер</option>
-      </select>
+      <div class="bs-seg" role="group" aria-label="Тип призыва">
+        <button
+          v-for="type in summonOrder.filter(t => availableSummons.includes(t))"
+          :key="type"
+          class="bs-seg-btn"
+          type="button"
+          :aria-pressed="summonType === type"
+          @mouseenter="showTip($event, summonDescriptions[type] ?? '')"
+          @mousemove="moveTip"
+          @mouseleave="hideTip"
+          @click="summonType = type"
+        >
+          <span class="sb-seg-icon" v-html="iconFor(type)" />
+          {{ nameRu(type) }}
+        </button>
+      </div>
       <button
-        class="btn-pirate sb-deploy-btn"
+        class="bs-btn bs-btn--primary sb-deploy-btn"
         :disabled="!canDeploySummon"
         @mouseenter="showTip($event, canDeploySummon ? 'Выберите клетку на строке 1 вражеского поля' : '')"
         @mousemove="moveTip"
@@ -117,17 +123,17 @@ function posLabel(row: number, col: number): string {
     </div>
 
     <!-- 2. Active Summons Status -->
-    <div v-if="myPlayer?.summons?.filter(s => s.isAlive).length" class="summon-status-bar card-wood">
+    <div v-if="myPlayer?.summons?.filter(s => s.isAlive).length" class="summon-status-bar bs-bar">
       <span class="sb-label">Активные призывы:</span>
       <span
         v-for="s in myPlayer!.summons.filter(ss => ss.isAlive)"
         :key="s.id"
-        class="summon-chip"
+        class="bs-chip"
         :class="'summon-' + s.type.toLowerCase()"
       >
         <span class="summon-chip-icon" v-html="iconFor(s.type)" />
         {{ nameRu(s.type) }}
-        <span class="summon-pos">{{ posLabel(s.row, s.col) }}</span>
+        <span class="summon-pos bs-mono">{{ posLabel(s.row, s.col) }}</span>
         <span
           v-if="s.waitingForTurnBack"
           class="summon-wait"
@@ -139,29 +145,29 @@ function posLabel(row: number, col: number): string {
     </div>
 
     <!-- 3. Pending Summons -->
-    <div v-if="myPlayer?.pendingSummons?.length" class="pending-bar card-wood">
+    <div v-if="myPlayer?.pendingSummons?.length" class="pending-bar bs-bar">
       <span class="sb-label">Ожидающие призывы:</span>
       <div v-for="ps in myPlayer!.pendingSummons" :key="ps.id" class="pending-entry">
         <span class="pending-name">{{ ps.sourceShipName || ps.type }}</span>
-        <span v-if="ps.isBoarding" class="boarding-badge">абордаж</span>
+        <span v-if="ps.isBoarding" class="bs-chip bs-chip--red boarding-badge">абордаж</span>
         <span v-if="ps.allowedColumns.length" class="sb-hint">
           (столбцы: {{ ps.allowedColumns.map(c => String.fromCharCode(65 + c)).join(', ') }})
         </span>
-        <button class="btn-pirate sb-deploy-btn" @click="emit('enterPendingDeploy', ps)">
+        <button class="bs-btn bs-btn--primary sb-deploy-btn" @click="emit('enterPendingDeploy', ps)">
           Разместить на карте
         </button>
       </div>
     </div>
 
     <!-- 4. Deploy Mode Banner -->
-    <div v-if="summonDeployMode" class="deploy-banner">
+    <div v-if="summonDeployMode" class="bs-banner bs-banner--info deploy-banner">
       <span class="deploy-banner-text">
         Выберите клетку на первой строчке вражеского поля для размещения {{ summonDeployMode.type }}
       </span>
-      <span v-if="summonDeployMode.pendingCols" class="deploy-cols">
+      <span v-if="summonDeployMode.pendingCols" class="deploy-cols bs-mono">
         (столбцы: {{ summonDeployMode.pendingCols.map(c => String.fromCharCode(65 + c)).join(', ') }})
       </span>
-      <button class="sb-cancel-btn" @click="emit('cancelDeploy')">Отмена</button>
+      <button class="bs-btn bs-btn--sm sb-cancel-btn" @click="emit('cancelDeploy')">Отмена</button>
     </div>
 
     <!-- Tooltip -->
@@ -179,17 +185,7 @@ function posLabel(row: number, col: number): string {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-}
-
-/* ── Shared bar layout (card-wood from theme) ──────────── */
-.summon-bar,
-.summon-status-bar,
-.pending-bar {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 0.75rem;
-  flex-wrap: wrap;
+  margin-top: 0.5rem;
 }
 
 .pending-bar {
@@ -199,100 +195,49 @@ function posLabel(row: number, col: number): string {
 
 /* ── Labels ────────────────────────────────────────────── */
 .sb-label {
-  font-family: 'Crimson Text', 'Georgia', serif;
-  font-weight: 700;
-  font-size: 0.8rem;
-  color: var(--bs-parchment);
+  font-weight: 900;
+  font-size: 0.62rem;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--text-dim);
   white-space: nowrap;
+  user-select: none;
 }
 
-/* ── Select dropdown ───────────────────────────────────── */
-.sb-select {
-  padding: 4px 8px;
-  border-radius: 4px;
-  background: var(--bs-wood-dark);
-  color: var(--bs-parchment);
-  border: 1px solid var(--bs-wood-mid);
-  font-family: 'Crimson Text', 'Georgia', serif;
-  font-size: 0.8rem;
-  cursor: pointer;
+.sb-seg-icon {
+  display: inline-flex;
+  align-items: center;
+  line-height: 0;
 }
 
-.sb-select:focus {
-  outline: none;
-  border-color: var(--bs-gold);
-}
-
-.sb-select option {
-  background: var(--bs-wood-dark);
-  color: var(--bs-parchment);
-}
-
-/* ── Deploy button (pirate style) ──────────────────────── */
+/* ── Deploy button ─────────────────────────────────────── */
 .sb-deploy-btn {
+  min-height: 34px;
   padding: 4px 14px;
-  font-size: 0.8rem;
+  font-size: 0.75rem;
 }
 
 /* ── Hint text ─────────────────────────────────────────── */
 .sb-hint {
   font-size: 0.7rem;
-  color: var(--bs-parchment-dim);
+  color: var(--text-dim);
 }
 
 /* ── Summon chips ──────────────────────────────────────── */
-.summon-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-  padding: 2px 8px;
-  border-radius: 12px;
-  font-family: 'Crimson Text', 'Georgia', serif;
-  font-size: 0.75rem;
-  font-weight: 600;
-  background: rgba(240, 200, 80, 0.12);
-  color: var(--bs-gold);
-}
-
 .summon-chip-icon {
   display: inline-flex;
   align-items: center;
   line-height: 0;
 }
 
-.summon-ram {
-  background: rgba(192, 57, 43, 0.15);
-  color: var(--bs-fire-red);
-  border: 1px solid rgba(192, 57, 43, 0.3);
-}
-
-.summon-scout {
-  background: rgba(41, 128, 185, 0.15);
-  color: var(--bs-ocean-blue);
-  border: 1px solid rgba(41, 128, 185, 0.3);
-}
-
-.summon-brander {
-  background: rgba(230, 126, 34, 0.15);
-  color: var(--bs-fire-orange);
-  border: 1px solid rgba(230, 126, 34, 0.3);
-}
-
-.summon-cursedboat {
-  background: rgba(142, 68, 173, 0.15);
-  color: var(--bs-cursed-purple);
-  border: 1px solid rgba(142, 68, 173, 0.3);
-}
-
-.summon-pirateboat {
-  background: rgba(212, 168, 71, 0.15);
-  color: var(--bs-gold);
-  border: 1px solid rgba(212, 168, 71, 0.3);
-}
+.summon-ram { --bs-chip-color: var(--accent-red); }
+.summon-scout { --bs-chip-color: var(--accent-blue); }
+.summon-brander { --bs-chip-color: var(--accent-orange); }
+.summon-cursedboat { --bs-chip-color: var(--accent-purple); }
+.summon-pirateboat { --bs-chip-color: var(--accent-gold); }
 
 /* ── Position label in chip ────────────────────────────── */
 .summon-pos {
-  font-family: 'JetBrains Mono', 'Fira Code', monospace;
   font-size: 0.65rem;
   opacity: 0.7;
 }
@@ -312,92 +257,38 @@ function posLabel(row: number, col: number): string {
 .pending-entry {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 0.5rem;
 }
 
 .pending-name {
-  font-family: 'Crimson Text', 'Georgia', serif;
   font-weight: 600;
-  color: var(--bs-parchment);
-  font-size: 0.85rem;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
 }
 
 /* ── Boarding badge ────────────────────────────────────── */
 .boarding-badge {
-  font-size: 0.6rem;
   text-transform: uppercase;
   letter-spacing: 0.3px;
-  padding: 1px 6px;
-  border-radius: 10px;
-  background: rgba(192, 57, 43, 0.18);
-  color: var(--bs-fire-red);
-  border: 1px solid rgba(192, 57, 43, 0.35);
-  font-family: 'Crimson Text', 'Georgia', serif;
-  font-weight: 700;
+  font-size: 0.6rem;
 }
 
 /* ── Deploy Mode Banner ────────────────────────────────── */
 .deploy-banner {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-  padding: 0.5rem 0.75rem;
-  border-radius: 6px;
-  background: rgba(41, 128, 185, 0.15);
-  border: 1px solid rgba(41, 128, 185, 0.3);
+  margin-bottom: 0;
 }
 
 .deploy-banner-text {
-  font-family: 'Crimson Text', 'Georgia', serif;
   font-weight: 700;
-  font-size: 0.85rem;
-  color: var(--bs-ocean-light);
+  font-size: 0.8rem;
 }
 
 .deploy-cols {
-  font-family: 'JetBrains Mono', 'Fira Code', monospace;
-  font-size: 0.75rem;
-  color: var(--bs-ocean-blue);
+  font-size: 0.72rem;
 }
 
-/* ── Cancel button (ghost style) ───────────────────────── */
 .sb-cancel-btn {
-  display: inline-flex;
-  align-items: center;
-  padding: 4px 12px;
   margin-left: 0.5rem;
-  border: 1px solid rgba(176, 154, 120, 0.3);
-  border-radius: 4px;
-  background: transparent;
-  color: var(--bs-parchment-dim);
-  font-family: 'Crimson Text', 'Georgia', serif;
-  font-size: 0.8rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: color 0.15s, border-color 0.15s;
-}
-
-.sb-cancel-btn:hover {
-  color: var(--bs-parchment);
-  border-color: var(--bs-parchment-dim);
-}
-
-/* ── Tooltip (matches other battleship components) ─────── */
-.pc-tooltip {
-  position: fixed;
-  z-index: 9999;
-  padding: 6px 12px;
-  border-radius: 4px;
-  background: rgba(10, 22, 40, 0.95);
-  color: var(--bs-parchment, #e8d5b0);
-  font-family: 'Crimson Text', 'Georgia', serif;
-  font-size: 0.8rem;
-  pointer-events: none;
-  white-space: pre-line;
-  max-width: 320px;
-  transform: translate(12px, -100%);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
-  border: 1px solid rgba(232, 213, 176, 0.15);
 }
 </style>

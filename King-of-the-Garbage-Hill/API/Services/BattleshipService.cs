@@ -5,17 +5,24 @@ using System.Linq;
 using System.Timers;
 using King_of_the_Garbage_Hill.Battleship.Logic;
 using King_of_the_Garbage_Hill.Battleship.Models;
+using King_of_the_Garbage_Hill.Game.Classes;
+using King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts;
 
 namespace King_of_the_Garbage_Hill.API.Services;
 
 public class BattleshipService
 {
+    /// <summary>ZBS paid for the first battleship win of the (UTC) day. Anchor: a daily quest card pays 20.</summary>
+    public const int BattleshipFirstWinZbs = 10;
+
     private readonly ConcurrentDictionary<string, BattleshipGame> _games = new();
     private readonly Timer _cleanupTimer;
+    private readonly UserAccounts _userAccounts;
     private static readonly Random Rng = new();
 
-    public BattleshipService()
+    public BattleshipService(UserAccounts userAccounts)
     {
+        _userAccounts = userAccounts;
         _cleanupTimer = new Timer
         {
             AutoReset = true,
@@ -23,6 +30,118 @@ public class BattleshipService
             Enabled = true,
         };
         _cleanupTimer.Elapsed += (_, _) => CleanupStaleGames();
+    }
+
+    // ── Meta settlement (W/L record, daily streak, first-win ZBS) ────
+
+    /// <summary>
+    /// Settle the persistent meta exactly once per finished game. The game has four
+    /// distinct end paths (LeaveGame, Forfeit, CheckAndApplyWin, Desiccator auto-win in
+    /// TriggerBoarding), so every public mutating method calls this at the end while
+    /// still holding the game lock. Lock order is always game → account; quest/lootbox
+    /// settlement only ever takes the account lock, so no cycle is possible.
+    /// </summary>
+    private void TrySettleGameEnd(BattleshipGame game)
+    {
+        if (!game.IsFinished || game.MetaSettled) return;
+        game.MetaSettled = true;
+
+        // A game abandoned before combat (lobby/setup leave) is not a played match.
+        if (!game.CombatStarted) return;
+
+        foreach (var player in game.GetPlayers())
+        {
+            // Human players only — bot ids are "bot_<gameId>" and never parse.
+            if (player?.DiscordId == null || !ulong.TryParse(player.DiscordId, out var discordId)) continue;
+            var account = _userAccounts.GetAccount(discordId);
+            if (account == null) continue;
+
+            var won = game.WinnerId == player.DiscordId;
+            game.EndRewards[player.DiscordId] = SettlePlayerMeta(account, won);
+        }
+    }
+
+    private BattleshipEndReward SettlePlayerMeta(DiscordAccountClass account, bool won)
+    {
+        lock (account)
+        {
+            var firstWinAwarded = false;
+            var zbsAwarded = 0;
+            var stats = account.BattleshipStats ??= new DiscordAccountClass.BattleshipStatsData();
+            var now = DateTime.UtcNow;
+            var today = now.ToString("yyyy-MM-dd");
+            var yesterday = now.AddDays(-1).ToString("yyyy-MM-dd");
+
+            if (won)
+            {
+                stats.Wins++;
+
+                // Daily win streak — mirrors QuestClass.AdvanceStreak (consecutive win-days)
+                if (stats.LastWinDayUtc != today)
+                {
+                    stats.CurrentDailyStreak = stats.LastWinDayUtc == yesterday ? stats.CurrentDailyStreak + 1 : 1;
+                    stats.BestDailyStreak = Math.Max(stats.BestDailyStreak, stats.CurrentDailyStreak);
+                    stats.LastWinDayUtc = today;
+                }
+
+                // First win of the day → ZBS bonus
+                if (stats.LastFirstWinAwardDayUtc != today)
+                {
+                    stats.LastFirstWinAwardDayUtc = today;
+                    account.ZbsPoints += BattleshipFirstWinZbs;
+                    stats.TotalZbsEarned += BattleshipFirstWinZbs;
+                    firstWinAwarded = true;
+                    zbsAwarded = BattleshipFirstWinZbs;
+                }
+            }
+            else
+            {
+                stats.Losses++;
+            }
+
+            // SaveAccount takes the same (re-entrant) account monitor. Keeping the
+            // save inside this critical section prevents another settlement from
+            // changing the snapshot between mutation and persistence.
+            _userAccounts.SaveAccount(account);
+
+            var streakIsFresh = stats.LastWinDayUtc == today || stats.LastWinDayUtc == yesterday;
+            return new BattleshipEndReward
+            {
+                Won = won,
+                Wins = stats.Wins,
+                Losses = stats.Losses,
+                CurrentDailyStreak = streakIsFresh ? stats.CurrentDailyStreak : 0,
+                BestDailyStreak = stats.BestDailyStreak,
+                FirstWinAwarded = firstWinAwarded,
+                ZbsAwarded = zbsAwarded,
+            };
+        }
+    }
+
+    /// <summary>Lobby stats panel data. Streak reads as 0 when stale (last win before yesterday).</summary>
+    public BattleshipStatsDto GetPlayerStats(DiscordAccountClass account)
+    {
+        if (account == null) return null;
+
+        lock (account)
+        {
+            var stats = account.BattleshipStats;
+            var now = DateTime.UtcNow;
+            var today = now.ToString("yyyy-MM-dd");
+            var yesterday = now.AddDays(-1).ToString("yyyy-MM-dd");
+            var streakIsFresh = stats?.LastWinDayUtc == today || stats?.LastWinDayUtc == yesterday;
+
+            return new BattleshipStatsDto
+            {
+                Wins = stats?.Wins ?? 0,
+                Losses = stats?.Losses ?? 0,
+                CurrentDailyStreak = streakIsFresh ? stats.CurrentDailyStreak : 0,
+                BestDailyStreak = stats?.BestDailyStreak ?? 0,
+                FirstWinAvailable = stats?.LastFirstWinAwardDayUtc != today,
+                FirstWinZbs = BattleshipFirstWinZbs,
+                ZbsBalance = account.ZbsPoints,
+            };
+        }
     }
 
     // ── Lobby ────────────────────────────────────────────────────────
@@ -120,11 +239,23 @@ public class BattleshipService
                 game.IsFinished = true;
                 game.WinnerId = game.Player2?.DiscordId;
                 game.Phase = BsGamePhase.GameOver;
+                TrySettleGameEnd(game);
                 return (true, null);
             }
 
             if (game.Player2?.DiscordId == discordId)
             {
+                if (game.CombatStarted)
+                {
+                    var leaverName = game.Player2.Username;
+                    game.IsFinished = true;
+                    game.WinnerId = game.Player1?.DiscordId;
+                    game.Phase = BsGamePhase.GameOver;
+                    game.AddLog($"{leaverName} покинул бой. Победитель: {game.Player1?.Username ?? "???"}!");
+                    TrySettleGameEnd(game);
+                    return (true, null);
+                }
+
                 // Replace with bot
                 game.Player2 = new BattleshipPlayer
                 {
@@ -140,6 +271,9 @@ public class BattleshipService
                 }
 
                 game.LastActivity = DateTime.UtcNow;
+                // Taking over can immediately run the bot's turn and finish the
+                // match. Settle the remaining human before returning in that case.
+                TrySettleGameEnd(game);
                 return (true, null);
             }
 
@@ -169,6 +303,7 @@ public class BattleshipService
 
             // Check if both players ready
             CheckPhaseTransition(game);
+            TrySettleGameEnd(game);
 
             return (true, null);
         }
@@ -216,6 +351,7 @@ public class BattleshipService
             game.LastActivity = DateTime.UtcNow;
 
             CheckPhaseTransition(game);
+            TrySettleGameEnd(game);
             return (true, null);
         }
     }
@@ -316,6 +452,7 @@ public class BattleshipService
             game.LastActivity = DateTime.UtcNow;
 
             CheckPhaseTransition(game);
+            TrySettleGameEnd(game);
             return (true, null);
         }
     }
@@ -354,6 +491,8 @@ public class BattleshipService
 
                 // Bot turn after skip
                 ProcessBotIfNeeded(game);
+
+                TrySettleGameEnd(game);
 
                 return (new ShotResult { Miss = true, TurnContinues = false, Message = "Ход пропущен!" }, null);
             }
@@ -421,6 +560,8 @@ public class BattleshipService
             if (!game.IsFinished)
                 CheckAndApplyWin(game);
 
+            TrySettleGameEnd(game);
+
             return (result, null);
         }
     }
@@ -475,6 +616,8 @@ public class BattleshipService
                     CheckAndApplyWin(game);
             }
 
+            TrySettleGameEnd(game);
+
             return (result, null);
         }
     }
@@ -501,6 +644,7 @@ public class BattleshipService
             game.WinnerId = opponent.DiscordId;
             game.Phase = BsGamePhase.GameOver;
             game.AddLog($"{player.Username} сдался. Победитель: {opponent.Username}!");
+            TrySettleGameEnd(game);
             return (true, null);
         }
     }
@@ -686,6 +830,7 @@ public class BattleshipService
                     if (warning != null) game.AddLogFor(opponent.DiscordId, warning);
                 }
 
+                TrySettleGameEnd(game);
                 return (true, null);
             }
 
@@ -750,6 +895,7 @@ public class BattleshipService
                 if (warning != null) game.AddLogFor(opponent.DiscordId, warning);
             }
 
+            TrySettleGameEnd(game);
             return (true, null);
         }
     }
@@ -824,6 +970,7 @@ public class BattleshipService
                 if (warning != null) game.AddLogFor(opponent.DiscordId, warning);
             }
 
+            TrySettleGameEnd(game);
             return (true, null);
         }
     }
@@ -877,6 +1024,7 @@ public class BattleshipService
             // at hit time (ProcessShipHit), not at move time
             game.AddLogFor(discordId, $"{ship.Name} маневрирует!");
 
+            TrySettleGameEnd(game);
             return (true, null);
         }
     }
@@ -901,6 +1049,7 @@ public class BattleshipService
 
             game.LastActivity = DateTime.UtcNow;
             game.AddLog($"Проклятый корабль меняет курс!");
+            TrySettleGameEnd(game);
             return (true, null);
         }
     }
@@ -922,6 +1071,7 @@ public class BattleshipService
             game.LastActivity = DateTime.UtcNow;
 
             CheckPhaseTransition(game);
+            TrySettleGameEnd(game);
             return (true, null);
         }
     }
@@ -1035,6 +1185,7 @@ public class BattleshipService
 
             case BsGamePhase.ShipPlacement:
                 game.Phase = BsGamePhase.Combat;
+                game.CombatStarted = true; // from here on, leaving/forfeiting counts as a loss
                 game.TurnNumber = 1;
                 // If both players have Desiccator, disable all its passives
                 BattleshipGameEngine.DisableDualDesiccators(game);
@@ -1270,6 +1421,9 @@ public class BattleshipService
             Player1 = MapPlayer(game.Player1, requestingDiscordId, isPlayer1 || isSpectator, isSpectator, game.ShotCount, game.Player2?.RevealedCellCount ?? 0),
             Player2 = MapPlayer(game.Player2, requestingDiscordId, isPlayer2 || isSpectator, isSpectator, game.ShotCount, game.Player1?.RevealedCellCount ?? 0),
             ShipCatalog = game.Phase == BsGamePhase.FleetBuilding ? GetShipCatalog() : null,
+            MyEndReward = requestingDiscordId != null && game.EndRewards.TryGetValue(requestingDiscordId, out var reward)
+                ? reward
+                : null,
         };
     }
 
@@ -1495,6 +1649,18 @@ public class BattleshipGameStateDto
     public BattleshipPlayerDto Player1 { get; set; }
     public BattleshipPlayerDto Player2 { get; set; }
     public List<ShipCatalogDto> ShipCatalog { get; set; }
+    public BattleshipEndReward MyEndReward { get; set; }
+}
+
+public class BattleshipStatsDto
+{
+    public int Wins { get; set; }
+    public int Losses { get; set; }
+    public int CurrentDailyStreak { get; set; }
+    public int BestDailyStreak { get; set; }
+    public bool FirstWinAvailable { get; set; }
+    public int FirstWinZbs { get; set; }
+    public int ZbsBalance { get; set; }
 }
 
 public class BattleshipPlayerDto

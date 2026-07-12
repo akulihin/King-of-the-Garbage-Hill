@@ -20,6 +20,13 @@ public class BattleshipGame
     public DateTime LastActivity { get; set; } = DateTime.UtcNow;
     public HashSet<(int row, int col)> PoisonZones { get; set; } = new();
 
+    /// <summary>Set when the game reaches Combat — leaving from the lobby/setup phases is not counted as a loss.</summary>
+    public bool CombatStarted { get; set; }
+    /// <summary>Idempotency guard: the W/L / ZBS settlement ran (the game has four distinct end paths).</summary>
+    public bool MetaSettled { get; set; }
+    /// <summary>Per-player settlement summary, keyed by DiscordId. Only ever sent to that player (see ToDto).</summary>
+    public Dictionary<string, BattleshipEndReward> EndRewards { get; set; } = new();
+
     public BattleshipPlayer GetPlayer(string discordId)
     {
         if (Player1?.DiscordId == discordId) return Player1;
@@ -51,6 +58,21 @@ public class BattleshipGame
     {
         GameLog.Add(new LogEntry { Text = text, VisibleTo = discordId });
     }
+}
+
+/// <summary>
+/// What the meta settlement did for one player when the game ended.
+/// Snapshot of the account stats after the update; rides the state DTO as MyEndReward.
+/// </summary>
+public class BattleshipEndReward
+{
+    public bool Won { get; set; }
+    public int Wins { get; set; }
+    public int Losses { get; set; }
+    public int CurrentDailyStreak { get; set; }
+    public int BestDailyStreak { get; set; }
+    public bool FirstWinAwarded { get; set; }
+    public int ZbsAwarded { get; set; }
 }
 
 /// <summary>
