@@ -720,6 +720,7 @@ export type DoomGuyState = {
   activeModules: Record<string, string>
   demonNestNames: string[]
   bfgCharged: boolean
+  railgunCharged: boolean
   ascensionIntelligenceRemaining: number
   maneuversSpeedRemaining: number
   exterminationVictories: number
@@ -727,12 +728,16 @@ export type DoomGuyState = {
   shockShieldUsed: boolean
   blocksThisRound: number
   hellBlockUsed: boolean
+  counterAttackMarkedNames: string[]
+  sharkShieldActive: boolean
   everBlocked: boolean
   everLost: boolean
   becomeGodAwarded: boolean
   chainsawSpent: boolean
+  chainsawSelectionsRemaining: number
   chainsawChoices: DoomCopiedPassive[]
   copiedPassiveName: string
+  copiedPassiveNames: string[]
 }
 
 export type DoomFortressState = { stages: DoomFortressStage[] }

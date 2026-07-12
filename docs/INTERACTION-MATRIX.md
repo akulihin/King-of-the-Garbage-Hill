@@ -4,20 +4,20 @@
 
 ## 1. Forced-fight sources × untargetable / no-fight states
 
-Forced-fight sources: **Монстр** two-turn no-escape (`CP:1024-1031`; `CIR:1371-1393`), **Шэн** below-position pull (`CIR:1277-1308`), **Штормяк** taunt (`CIR:1320-1354`), **Aggress** self auto-attack (`CIR:1264-1275`), **Геральт** contract multi-fight injection (`DM:315-370`), DooM Guy **BFG** wave injection (`DM:809-827`).
+Forced-fight sources: **Монстр** two-turn no-escape (`CP:1024-1031`; `CIR:1371-1393`), **Шэн** below-position pull (`CIR:1277-1308`), **Штормяк** taunt (`CIR:1320-1354`), **Aggress** self auto-attack (`CIR:1264-1275`), **Геральт** contract multi-fight injection (`DM:315-370`), DooM Guy **BFG** wave injection (`DM:855-881`) and **Рельса** one-side injection (`DM:445-491`).
 
-| State ↓ / Source → | Монстр | Шэн | Штормяк | Aggress (self) | Геральт inject | BFG wave |
-|---|---|---|---|---|---|---|
-| Dead player | ✓ excluded | ✓ excluded | ✓ excluded | ✓ targets exclude dead | n/a (dead don't fight) | ✓ excluded `DM:765` |
-| Тигр round-10 ban | ✓ carve-out `CIR:1293` | ✓ carve-out (M11 fixed, `CIR:1213`) | ✓ carve-out (M11 fixed, `CIR:1247`) | n/a | targeting already blocked (`GR:702-707`) | not special-cased; ordinary block/skip still applies |
-| Огурчик Рик (pickle) | ✓ active pickle strips IsBlock/IsSkip and wins (`DM:261-278,486-499`; M18) | pulls him; pickle accepts and wins | can taunt him; he accepts and wins | n/a | injection works; pickle accepts and wins | injected normally; pickle accepts and wins |
-| Block | attack still marks before the no-fight gate; overridden on each of the next two turns | fight happens anyway (forced list bypasses block-skip `DM:425-439`) | taunt bypasses own block (`DM:503-506`) | Aggress can't block at all | blocked Геральт = no injection (`DM:325,348`) | block stops that branch; normal penalty applies |
-| Skip (sleep/tilt/ban) | overridden (stripped) | fight happens anyway | fight happens anyway | Aggress can't skip | skipping Геральт = no injection | skip stops that branch |
-| Ziggurat lock | position only — fights unaffected | position only | position only | n/a | n/a | position only — wave follows current board order |
-| Premade Carry | n/a | n/a | n/a | n/a | anti-skip now exempts the round-10 Тигр ban (M10 fixed, `CP:5689-5704`) | n/a |
-| Эрен: Атакующий Титан | no block remains to strip; forced target still resolves with +5 stats | forced target resolves with +5 stats | taunt target resolves with +5 stats | n/a | injection resolves each fight with +5 stats | wave branches resolve with +5 stats | Block is cleared in `DM:271-281`; boost is reapplied per fight `CP:62-72,443-447,1002-1006` |
-| Мадара round 8 | targetable; own action is cleared after forced-action injection | targetable | targetable | own auto-action cleared | contract fights resolve normally | wave resolves normally | Correct locked predictions add another ordinary queued fight (`CIR:1376-1397`); Madara's ready/confirmed lock is reasserted before readiness counting and every direct web action remains blocked (`Madara.cs:197-230`; `WebGameService.cs:459-570`) |
-| Мадара sealed | all queued targets sanitized | all queued targets sanitized | all queued targets sanitized | cannot act | pre-fight targets sanitized | ✓ excluded `DM:835-841` | `Madara.SanitizeSealedActions` runs after forced injections; direct targeting says `Игрок запечатан` (`Madara.cs:231-240`; `CIR:1419-1421`) |
+| State ↓ / Source → | Монстр | Шэн | Штормяк | Aggress (self) | Геральт inject | BFG wave | Рельса |
+|---|---|---|---|---|---|---|---|
+| Dead player | ✓ excluded | ✓ excluded | ✓ excluded | ✓ targets exclude dead | n/a (dead don't fight) | ✓ excluded | ✓ excluded |
+| Тигр round-10 ban | ✓ carve-out `CIR:1293` | ✓ carve-out (M11 fixed, `CIR:1213`) | ✓ carve-out (M11 fixed, `CIR:1247`) | n/a | targeting already blocked (`GR:702-707`) | not special-cased; ordinary block/skip still applies | ✓ excluded from fan-out `DM:459-470` |
+| Огурчик Рик (pickle) | ✓ active pickle strips IsBlock/IsSkip and wins (`DM:267-284,535-548`; M18) | pulls him; pickle accepts and wins | can taunt him; he accepts and wins | n/a | injection works; pickle accepts and wins | injected normally; pickle accepts and wins | injected; pickle's authoritative defense still wins |
+| Block | attack still marks before the no-fight gate; overridden on each of the next two turns | fight happens anyway (forced list bypasses block-skip `DM:431-445`) | taunt bypasses own block | Aggress can't block at all | blocked Геральт = no injection | block stops that branch; normal penalty applies | ignored for each Railgun fight `DM:569-573` |
+| Skip (sleep/tilt/ban) | overridden (stripped) | fight happens anyway | fight happens anyway | Aggress can't skip | skipping Геральт = no injection | skip stops that branch | ignored except the excluded Тигр ban `DM:650` |
+| Ziggurat lock | position only — fights unaffected | position only | position only | n/a | n/a | position only — wave follows current board order | position only — side is captured from current order |
+| Premade Carry | n/a | n/a | n/a | n/a | anti-skip now exempts the round-10 Тигр ban (M10 fixed) | n/a | n/a |
+| Эрен: Атакующий Титан | no block remains to strip; forced target still resolves with +5 stats | forced target resolves with +5 stats | taunt target resolves with +5 stats | n/a | injection resolves each fight with +5 stats | wave branches resolve with +5 stats | every injected fight resolves with the per-fight +5 boost |
+| Мадара round 8 | targetable; own action is cleared after forced-action injection | targetable | targetable | own auto-action cleared | contract fights resolve normally | wave resolves normally | included if on the selected side | Correct locked predictions add another ordinary queued fight; Madara's action lock remains |
+| Мадара sealed | all queued targets sanitized | all queued targets sanitized | all queued targets sanitized | cannot act | pre-fight targets sanitized | ✓ excluded | ✓ excluded `DM:464` | `Madara.SanitizeSealedActions` runs after forced injections; direct targeting says `Игрок запечатан` |
 
 Bot and auto-move action selection finalizes an existing Skip both on entry and again after pending level-ups (`BotsBehavior.cs:84-128,3706-3715`). The second gate is required for Darksci's round-9 Дизмораль (M32): it cannot become an ordinary bot attack, while the forced-fight sources above still work because they inject their targets later in the readiness/fight pipeline.
 
@@ -59,6 +59,8 @@ Movers (end-of-round order): Тигр-топ swap → Portal-Gun swap → HardKi
 | Кошачья засада (cats) | physically moves passives to enemy | Минька/Штормяк vs owner | transferred cat won't buff/taunt against Котики (`CP:3010-3013`, `CIR:1229`) |
 | Ziggurat learn | copies a `Standalone` passive | everything | see §6 |
 | Бензопила (DooM Guy) | replaces Gun with one victim passive | copied passive dispatch/state | offers the victim's first four non-admin passives; explicit first-charge priming exists for Portal Gun, Шэн, Изанаги and Глаза Итачи (`DoomGuy.cs:198-225`); ordinary name-gated/game-start-only passives retain their native gates |
+| Щит-акула (DooM Guy) | temporarily adds Братишка's `Ничего не понимает` instead of resolving a submitted block | defensive passive dispatch/state | DooM Guy accepts incoming fights for that round; attackers use Int 0 and each unique attacker loses 1 persistent Int on first contact, using DooM Guy's own `SharkBoole` state; only the temporary passive is removed at round end (`DoomGuy.cs` `PrepareSharkShield`; `CP:503-513,3667-3680`) |
+| Приручить дракона (DooM Guy) | permanently adds hidden `Дракон` and changes Geralt's monster classification to Драконы when the Gun module is selected | Sirinoks transformation + passive-name interactions | the shared round-10 `Дракон` dispatcher supplies stats/score; Geralt contracts/oils/threat text, DragonSlayer and the web dragon state all see DooM Guy as a dragon (`DoomGuy.cs` `ApplySelectedModule`; `CP:1204-1217,5767-5797`) |
 | Eren passive copy | Eren's four passives are non-Standalone; Chainsaw may still offer one | DooM Guy Chainsaw | all four cases are `Name == "Эрен Йегер"` gated, so a Chainsaw copy is inert |
 | Rick Most wanted | redirects random marks to Rick | Спартанец marks, L, Сверхразум, Комментатор, hunts, tea odds | `CP:118-128, 233-236, 3780-3783, 5175-5181, 3511-3515, 1088-1094, 5036-5038`; hunters follow portal swaps `CP:2069-2084` |
 | Portal Gun swap | swaps positions + remaining attackers mid-round | Тetradь targets etc. | attacker lists rewritten `CP:2060-2067` |
@@ -77,6 +79,7 @@ Movers (end-of-round order): Тигр-топ swap → Portal-Gun swap → HardKi
 | Boole Family | immune to ordinary Harm; СуперМудень bypasses | CC:205-210 |
 | Kimiko active | TheBoys immune to ordinary Harm; СуперМудень bypasses | CC:217-228 |
 | Маневры (DooM Guy) | after otherwise successful Harm, −1 persistent Speed | CC:204-208 |
+| Контр-атака (DooM Guy) | during a marked enemy's next turn, every fight with DooM Guy forces that enemy's fight Skill and Justice to 0 | DoomGuy.cs `ApplyFightModules`; marks `CP:771-788` |
 | Испанец | ordinary Harm → +1 Moral instead; СуперМудень bypasses | CC:231-238 |
 | Много выебывается | Harm from higher-skill enemy while #1 → self-Drop | CC:223-229 |
 | Минька (winner) | deals no Harm and no fight-moral loss | DM:750, 805-806 |
@@ -103,7 +106,9 @@ Copy rule: random Standalone passive from the **last attacked** enemy, no duplic
 ## 7. Same-target stacking notes
 
 - Two attackers on one defender resolve **sequentially in leaderboard order** — the first fight's ForOneFight effects are reset before the second (`DM:388-411`, ResetFight per fight).
-- BFG branches are appended to that same sequential target queue. The primary random-stage win fans out to both neighbours; every wave fight also auto-wins if it reaches Step 3 random, while a decisive pre-random loss/block/skip ends the branch; a target is visited at most once (`DM:764-827`).
+- BFG branches are appended to that same sequential target queue. The primary random-stage win fans out to both neighbours; every wave fight also auto-wins if it reaches Step 3 random, while a decisive pre-random loss/block/skip ends the branch; a target is visited at most once (`DM:810-881`).
+- Рельса spends its one charge when it expands a submitted attack. The selected target stays first; every other living enemy on the same leaderboard side is appended once, while teammates, dead/sealed players and the round-10 banned Тигр are excluded. Railgun-tagged fights bypass Block/Skip independently and still traverse the ordinary hook/reset/outcome pipeline (`DM:445-491,531-650`).
+- DooM melee adjacency is evaluated for each resolved fight from current places. Ближник doubles only the module's bonus: Кулаки +2→+4, Glory's extra +1×Skill→+2×Skill (×3 total) and +1→+2 each stat, Бензопила one→two selections. These tags and amplifier details remain design-only (`DoomGuy.cs` `IsNearestEnemy`/`ApplyFightModules`; `CP:2620-2685`).
 - Со-attack interactions verified: Еврей steal (needs the Jew to also attack the target), Сайтама deferral (needs a co-attacker), Наполеон joint-attack auto-win (needs the ally to attack the same target).
 - Эрен mutual attack is direction-safe: only Eren's own attack branch awards +2 regular, and a per-round enemy list prevents contract/BFG repeats from paying twice (`CP:2489-2500`). An attacking enemy's hatred mark is upgraded to 2 before resolution; a later ordinary Eren loss never downgrades it to 1 (`CP:438-441,2470-2478`).
 - Мадара round 8 deliberately keeps same-target duplicates: a normal/hidden/second action and the correct-prediction clone each remain separate fights. Thresholds use **unique attackers**, including fights injected during resolution, while the sealing loss requirement counts resolved defense losses (`CIR:1376-1397`; `Madara.cs:64-131`; `DM:461`).

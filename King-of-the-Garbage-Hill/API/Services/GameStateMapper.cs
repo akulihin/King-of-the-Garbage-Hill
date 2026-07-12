@@ -427,6 +427,7 @@ public static class GameStateMapper
                                     .Select(id => game.PlayersList.Find(x => x.GetPlayerId() == id)?.DiscordUsername ?? "")
                                     .Where(x => x.Length > 0).ToList(),
                                 BfgCharged = doom.BfgCharged,
+                                RailgunCharged = doom.RailgunCharged,
                                 AscensionIntelligenceRemaining = doom.AscensionIntelligenceRemaining,
                                 ManeuversSpeedRemaining = doom.ManeuversSpeedRemaining,
                                 ExterminationVictories = doom.ExterminationVictories.Count,
@@ -434,16 +435,23 @@ public static class GameStateMapper
                                 ShockShieldUsed = doom.ShockShieldUsed,
                                 BlocksThisRound = doom.BlocksThisRound,
                                 HellBlockUsed = doom.HellBlockUsed,
+                                CounterAttackMarkedNames = doom.CounterAttackMarks
+                                    .Where(mark => mark.Value == game.RoundNo)
+                                    .Select(mark => game.PlayersList.Find(x => x.GetPlayerId() == mark.Key)?.DiscordUsername ?? "")
+                                    .Where(x => x.Length > 0).ToList(),
+                                SharkShieldActive = doom.SharkShieldActiveThisRound,
                                 EverBlocked = doom.EverBlocked,
                                 EverLost = doom.EverLost,
                                 BecomeGodAwarded = doom.BecomeGodAwarded,
                                 ChainsawSpent = doom.ChainsawSpent,
+                                ChainsawSelectionsRemaining = doom.ChainsawSelectionsRemaining,
                                 ChainsawChoices = doom.ChainsawChoices.Select(x => new DoomCopiedPassiveDto
                                 {
                                     Name = x.PassiveName,
                                     Description = x.PassiveDescription,
                                 }).ToList(),
                                 CopiedPassiveName = doom.CopiedPassiveName,
+                                CopiedPassiveNames = doom.CopiedPassiveNames.ToList(),
                             };
                             anySet = true;
                         }

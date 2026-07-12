@@ -627,7 +627,7 @@ public class GameHub : Hub
         var dto = new DTOs.DoomFortressStateDto();
         foreach (var stage in DoomGuy.StageOrder)
         {
-            var rewardModules = DoomGuy.Modules.Where(x => x.Stage == stage && x.Reward).ToList();
+            var rewardModules = DoomGuy.GetStandardRewardModules(stage).ToList();
             var remaining = rewardModules.Count(x => !account.DoomFortress.UnlockedModules.Contains(x.Name));
             dto.Stages.Add(new DTOs.DoomFortressStageDto
             {

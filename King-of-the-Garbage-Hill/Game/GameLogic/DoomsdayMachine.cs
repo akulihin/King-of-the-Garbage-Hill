@@ -240,6 +240,12 @@ public class DoomsdayMachine : IServiceSingleton
         //GameCharacter == WRITE ONLY
         //FightCharacter writes cans happens only "for one fight" not for the whole round!
         Madara.PrepareIncomingAttackers(game);
+
+        // Щит-акула replaces DooM Guy's submitted block with a fightable, non-attacking
+        // one-turn copy of Братишка's defensive passive. Prepare it before the round snapshot.
+        foreach (var doom in game.PlayersList.Where(x => x.GameCharacter.Name == DoomGuy.CharacterName))
+            DoomGuy.PrepareSharkShield(doom);
+
         DeepCopyGameCharacterToFightCharacter(game);
 
         // Геральт — Медитация: skip works as block
@@ -439,8 +445,42 @@ public class DoomsdayMachine : IServiceSingleton
                 .Where(t => t != player.GetPlayerId())
                 .Select(t => game.PlayersList.Find(x => x.GetPlayerId() == t))
                 .Where(x => x != null)
-                .Select(x => (Target: x, BfgDirection: 0))
+                .Select(x => (Target: x, BfgDirection: 0, RailgunFight: false))
                 .ToList();
+
+            var doomGunState = player.Passives.DoomGuy;
+            if (player.GameCharacter.Name == DoomGuy.CharacterName
+                && !player.Status.IsBlock && !player.Status.IsSkip
+                && doomGunState.GetActive(DoomGuy.Gun) == DoomGuy.Railgun
+                && doomGunState.RailgunCharged && targetsToFight.Count > 0)
+            {
+                var primaryTarget = targetsToFight[0].Target;
+                var attackerIndex = game.PlayersList.IndexOf(player);
+                var targetIndex = game.PlayersList.IndexOf(primaryTarget);
+                var direction = Math.Sign(targetIndex - attackerIndex);
+                if (direction != 0)
+                {
+                    var railgunTargets = new List<GamePlayerBridgeClass> { primaryTarget };
+                    railgunTargets.AddRange(game.PlayersList.Where((candidate, index) =>
+                        candidate.GetPlayerId() != primaryTarget.GetPlayerId()
+                        && Math.Sign(index - attackerIndex) == direction
+                        && !candidate.Passives.IsDead
+                        && !Madara.IsSealed(candidate)
+                        && !player.IsTeamMember(game, candidate.GetPlayerId())
+                        && !(game.RoundNo == 10 && candidate.GameCharacter.Passive.Any(x =>
+                            x.PassiveName == "Стримснайпят и банят и банят и банят"))));
+
+                    var originalExtraTargets = targetsToFight.Skip(1).ToList();
+                    targetsToFight = railgunTargets
+                        .Select(x => (Target: x, BfgDirection: 0, RailgunFight: true))
+                        .Concat(originalExtraTargets)
+                        .ToList();
+                    doomGunState.RailgunCharged = false;
+                    player.Status.AddInGamePersonalLogs(
+                        $"Рельса: атака охватывает {railgunTargets.Count} врагов на выбранной стороне таблицы.\n");
+                    game.AddGlobalLogs($"Рельса пробивает сторону таблицы от {player.DiscordUsername}!");
+                }
+            }
             var bfgWaveVisited = new HashSet<Guid> { player.GetPlayerId() };
             foreach (var initialTarget in targetsToFight) bfgWaveVisited.Add(initialTarget.Target.GetPlayerId());
 
@@ -448,6 +488,7 @@ public class DoomsdayMachine : IServiceSingleton
             {
                 var playerIamAttacking = targetsToFight[fightTargetIndex].Target;
                 var bfgWaveDirection = targetsToFight[fightTargetIndex].BfgDirection;
+                var isRailgunFight = targetsToFight[fightTargetIndex].RailgunFight;
                 // Snapshot GlobalLogs length before this fight (for hidden-fight mechanism)
                 var globalLogsLenBefore = game.GetGlobalLogs().Length;
 
@@ -490,6 +531,10 @@ public class DoomsdayMachine : IServiceSingleton
 
                 _characterPassives.HandleAttackBeforeFight(player, playerIamAttacking, game);
 
+                // These module overrides are authoritative for this one fight and therefore run
+                // after both ordinary before-fight passive dispatchers.
+                DoomGuy.ApplyFightModules(player, playerIamAttacking, game);
+
                 // This is the authoritative Pickle Rick outcome, applied after both before-fight
                 // dispatchers: the active pickle always accepts the fight and always wins it, even
                 // when a later attacker passive tried to restore block/skip or disable his victory.
@@ -524,7 +569,8 @@ public class DoomsdayMachine : IServiceSingleton
                 var isTauntBypass = playerIamAttacking.Status.IsBlock
                     && playerIamAttacking.GameCharacter.Passive.Any(x => x.PassiveName == "Штормяк")
                     && playerIamAttacking.Passives.KotikiStorm.CurrentTauntTarget == player.GetPlayerId();
-                if (playerIamAttacking.Status.IsBlock && !player.Status.IsArmorBreak && !isTauntBypass)
+                if (playerIamAttacking.Status.IsBlock && !player.Status.IsArmorBreak && !isTauntBypass
+                    && !isRailgunFight)
                 {
                     player.Status.IsTargetBlocked = playerIamAttacking.GetPlayerId();
                     // var logMess =  await _characterPassives.HandleBlock(player, playerIamAttacking, game);
@@ -601,7 +647,7 @@ public class DoomsdayMachine : IServiceSingleton
                 playerIamAttacking.Status.AddFightingData($"IsSkipBreakEnemy: {player.Status.IsSkipBreak}");
 
                 // if skip => something
-                if (playerIamAttacking.Status.IsSkip && !player.Status.IsSkipBreak)
+                if (playerIamAttacking.Status.IsSkip && !player.Status.IsSkipBreak && !isRailgunFight)
                 {
                     player.Status.IsTargetSkipped = playerIamAttacking.GetPlayerId();
                     game.SkipPlayersThisRound++;
@@ -831,7 +877,7 @@ public class DoomsdayMachine : IServiceSingleton
                         var nextTarget = game.PlayersList[nextIndex];
                         if (nextTarget.Passives.IsDead || Madara.IsSealed(nextTarget)
                             || !bfgWaveVisited.Add(nextTarget.GetPlayerId())) continue;
-                        targetsToFight.Add((nextTarget, direction));
+                        targetsToFight.Add((nextTarget, direction, false));
                     }
                 }
 

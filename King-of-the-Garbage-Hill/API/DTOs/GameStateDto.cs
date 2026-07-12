@@ -1004,6 +1004,7 @@ public class DoomGuyStateDto
     public Dictionary<string, string> ActiveModules { get; set; } = new();
     public List<string> DemonNestNames { get; set; } = new();
     public bool BfgCharged { get; set; }
+    public bool RailgunCharged { get; set; }
     public int AscensionIntelligenceRemaining { get; set; }
     public int ManeuversSpeedRemaining { get; set; }
     public int ExterminationVictories { get; set; }
@@ -1011,12 +1012,16 @@ public class DoomGuyStateDto
     public bool ShockShieldUsed { get; set; }
     public int BlocksThisRound { get; set; }
     public bool HellBlockUsed { get; set; }
+    public List<string> CounterAttackMarkedNames { get; set; } = new();
+    public bool SharkShieldActive { get; set; }
     public bool EverBlocked { get; set; }
     public bool EverLost { get; set; }
     public bool BecomeGodAwarded { get; set; }
     public bool ChainsawSpent { get; set; }
+    public int ChainsawSelectionsRemaining { get; set; }
     public List<DoomCopiedPassiveDto> ChainsawChoices { get; set; } = new();
     public string CopiedPassiveName { get; set; }
+    public List<string> CopiedPassiveNames { get; set; } = new();
 }
 
 public class DoomModuleDto

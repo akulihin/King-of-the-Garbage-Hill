@@ -779,6 +779,12 @@ public class CharacterPassives : IServiceSingleton
                         doomShield.HellBlockUsed = true;
                         target.GameCharacter.AddExtraSkill(666, DoomGuy.HellBlock);
                     }
+                    if (doomShield.GetActive(DoomGuy.Shield) == DoomGuy.CounterAttack)
+                    {
+                        doomShield.CounterAttackMarks[me.GetPlayerId()] = game.RoundNo + 1;
+                        target.Status.AddInGamePersonalLogs(
+                            $"Контр-атака: {me.DiscordUsername} уязвим на следующий ход.\n");
+                    }
                     break;
 
                 // Napoleon — Мирный договор: register treaty when enemy attacks Napoleon's block
@@ -2394,6 +2400,17 @@ public class CharacterPassives : IServiceSingleton
         TheBoysSpreadVirus(player, game);
         Madara.RecordResolvedFight(player, game, defense);
 
+        if (player.GameCharacter.Name == DoomGuy.CharacterName
+            && game.RoundNo == 10
+            && player.Status.IsWonThisCalculation != Guid.Empty)
+        {
+            var defeated = game.PlayersList.Find(x =>
+                x.GetPlayerId() == player.Status.IsWonThisCalculation);
+            if (defeated?.GameCharacter.Name == "Sirinoks"
+                && defeated.GameCharacter.Passive.Any(x => x.PassiveName == DoomGuy.DragonPassive))
+                player.Passives.DoomGuy.DefeatedDragonSirinoks = true;
+        }
+
         foreach (var p in game.PlayersList)
         foreach (var passive in p.GameCharacter.Passive.ToList())
             switch (passive.PassiveName)
@@ -2598,6 +2615,21 @@ public class CharacterPassives : IServiceSingleton
                             player.Status.AddBonusPoints(Math.Max(0, 10 - game.RoundNo), DoomGuy.Extermination);
                         }
                     }
+
+                    if (player.Status.IsWonThisCalculation != Guid.Empty
+                        && doom.GetActive(DoomGuy.Rune) == DoomGuy.GloryKill)
+                    {
+                        var defeated = game.PlayersList.Find(x =>
+                            x.GetPlayerId() == player.Status.IsWonThisCalculation);
+                        if (DoomGuy.IsNearestEnemy(game, player, defeated))
+                        {
+                            var statReward = DoomGuy.HasMeleeBonus(player) ? 2 : 1;
+                            player.GameCharacter.AddIntelligence(statReward, DoomGuy.GloryKill);
+                            player.GameCharacter.AddStrength(statReward, DoomGuy.GloryKill);
+                            player.GameCharacter.AddSpeed(statReward, DoomGuy.GloryKill);
+                            player.GameCharacter.AddPsyche(statReward, DoomGuy.GloryKill);
+                        }
+                    }
                     break;
                 }
 
@@ -2612,6 +2644,7 @@ public class CharacterPassives : IServiceSingleton
 
                     if (attack && player.Status.IsFighting != Guid.Empty
                                && doom.GetActive(DoomGuy.Mission) == DoomGuy.DemonNests
+                               && player.Status.IsWonThisCalculation == player.Status.IsFighting
                                && doom.DemonNests.Remove(player.Status.IsFighting))
                     {
                         player.Status.AddRegularPoints(1, DoomGuy.DemonNests);
@@ -2626,7 +2659,13 @@ public class CharacterPassives : IServiceSingleton
                         || player.Status.IsWonThisCalculation == Guid.Empty) break;
                     var doom = player.Passives.DoomGuy;
                     if (doom.GetActive(DoomGuy.Gun) == DoomGuy.Fists)
-                        player.Status.AddRegularPoints(2, DoomGuy.Fists);
+                    {
+                        var defeated = game.PlayersList.Find(x =>
+                            x.GetPlayerId() == player.Status.IsWonThisCalculation);
+                        var points = DoomGuy.HasMeleeBonus(player)
+                                     && DoomGuy.IsNearestEnemy(game, player, defeated) ? 4 : 2;
+                        player.Status.AddRegularPoints(points, DoomGuy.Fists);
+                    }
 
                     if (doom.GetActive(DoomGuy.Gun) == DoomGuy.Chainsaw && !doom.ChainsawSpent)
                     {
@@ -2637,6 +2676,11 @@ public class CharacterPassives : IServiceSingleton
                             doom.ChainsawChoices = defeated.GameCharacter.Passive
                                 .Where(x => x.PassiveName != "AdminPlayerType")
                                 .Take(4).Select(x => x.DeepCopy()).ToList();
+                            var requestedChoices = DoomGuy.HasMeleeBonus(player)
+                                                   && DoomGuy.IsNearestEnemy(game, player, defeated)
+                                ? 2
+                                : 1;
+                            doom.ChainsawSelectionsRemaining = Math.Min(requestedChoices, doom.ChainsawChoices.Count);
                             player.Status.AddInGamePersonalLogs($"Бензопила: {defeated.DiscordUsername} распилен. Выбери пассивку.\n");
                         }
                     }
@@ -3622,7 +3666,17 @@ public class CharacterPassives : IServiceSingleton
 
                 case "Shield":
                     if (player.GameCharacter.Name == DoomGuy.CharacterName)
+                    {
                         player.Passives.DoomGuy.BlocksThisRound = 0;
+                        var doom = player.Passives.DoomGuy;
+                        if (doom.SharkShieldActiveThisRound)
+                        {
+                            if (doom.SharkShieldAddedPassive)
+                                player.GameCharacter.Passive.RemoveAll(x => x.PassiveName == DoomGuy.SharkPassive);
+                            doom.SharkShieldActiveThisRound = false;
+                            doom.SharkShieldAddedPassive = false;
+                        }
+                    }
                     break;
 
                 case "Mission":
@@ -5009,6 +5063,10 @@ public class CharacterPassives : IServiceSingleton
                         if (player.GameCharacter.Name == DoomGuy.CharacterName)
                         {
                             var doom = player.Passives.DoomGuy;
+                            foreach (var expired in doom.CounterAttackMarks
+                                         .Where(x => x.Value < game.RoundNo)
+                                         .Select(x => x.Key).ToList())
+                                doom.CounterAttackMarks.Remove(expired);
                             if (doom.ShockSkipRound == game.RoundNo && doom.ShockSkipTarget != Guid.Empty)
                             {
                                 var shocked = game.PlayersList.Find(x => x.GetPlayerId() == doom.ShockSkipTarget);

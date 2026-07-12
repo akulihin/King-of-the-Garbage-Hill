@@ -705,7 +705,7 @@ public class CheckIfReady : IServiceSingleton
             var tracker = player.Passives.AchievementTracker;
             tracker.FinishedWithZeroPsyche = player.GameCharacter.GetPsyche() <= 0;
             tracker.FinishedWithMaxPsyche = player.GameCharacter.GetPsyche() >= 10;
-            DoomGuy.ModuleRewardResult moduleReward = null;
+            var moduleRewards = new List<DoomGuy.ModuleRewardResult>();
 
             // OpenLootBox, achievement/quest requests and periodic persistence use this same
             // account monitor. Keep the complete match settlement atomic, then persist it before
@@ -725,7 +725,12 @@ public class CheckIfReady : IServiceSingleton
                         account.CharacterMastery.GetValueOrDefault(player.GameCharacter.Name, 0) + masteryPointsToAdd;
 
                 if (player.GameCharacter.Name == DoomGuy.CharacterName)
-                    moduleReward = DoomGuy.TryAwardModule(account, player.Status.GetPlaceAtLeaderBoard());
+                {
+                    var dragonReward = DoomGuy.TryAwardDragonTaming(account, player.Passives.DoomGuy);
+                    if (dragonReward.Awarded) moduleRewards.Add(dragonReward);
+                    var placeReward = DoomGuy.TryAwardModule(account, player.Status.GetPlaceAtLeaderBoard());
+                    if (placeReward.Awarded) moduleRewards.Add(placeReward);
+                }
 
                 account.ZbsPoints += zbsPointsToGive;
 
@@ -783,7 +788,7 @@ public class CheckIfReady : IServiceSingleton
                     $"Account settlement for {account.DiscordId} could not be persisted; " +
                     "the in-memory result is retained for the periodic save retry.");
 
-            if (moduleReward?.Awarded == true)
+            foreach (var moduleReward in moduleRewards)
             {
                 var rewardText = $"Fortress of Doom: получен модуль {moduleReward.Stage} — {moduleReward.ModuleName}!";
                 player.WebMessages.Add(rewardText);

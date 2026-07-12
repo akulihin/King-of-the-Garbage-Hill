@@ -708,24 +708,32 @@ const doomStages = computed(() => [
 function doomModuleStatus(module: string): { text: string; state: 'live' | 'done' | 'failed' | 'idle' } {
   const d = doomGuy.value
   if (!d || !module) return { text: t('Waiting for selection', 'Ожидает выбора'), state: 'idle' }
+  if (d.copiedPassiveNames.length && module === d.copiedPassiveName)
+    return { text: t(`Stolen: ${d.copiedPassiveNames.join(', ')}`, `Украдено: ${d.copiedPassiveNames.join(', ')}`), state: 'done' }
   switch (module) {
     case 'Вознесение': return { text: t(`${d.ascensionIntelligenceRemaining}/8 protected INT remaining`, `${d.ascensionIntelligenceRemaining}/8 защищённого INT осталось`), state: d.ascensionIntelligenceRemaining > 0 ? 'live' : 'done' }
     case 'Маневры': return { text: t(`${d.maneuversSpeedRemaining}/5 protected SPD remaining`, `${d.maneuversSpeedRemaining}/5 защищённой SPD осталось`), state: d.maneuversSpeedRemaining > 0 ? 'live' : 'done' }
     case 'Истребление': return { text: d.exterminationAwarded ? t('All five eliminated', 'Все пятеро уничтожены') : t(`${d.exterminationVictories}/5 unique victories`, `${d.exterminationVictories}/5 уникальных побед`), state: d.exterminationAwarded ? 'done' : 'live' }
+    case 'Glory kill': return { text: t('Double Skill against adjacent enemies · wins grant stats', 'Двойной Скилл против соседних врагов · победы дают статы'), state: 'live' }
     case 'Щит-пила': return { text: t('Blocked attackers lose 3 score', 'Блок отнимает у атакующих −3 очка'), state: 'live' }
     case 'Шоковый щит': return { text: d.shockShieldUsed ? t('Discharge already spent', 'Разряд уже потрачен') : t('Discharge ready: the next enemy turn will be skipped', 'Разряд готов: следующий ход врага будет пропущен'), state: d.shockShieldUsed ? 'done' : 'live' }
     case 'Адский блок': return { text: d.hellBlockUsed ? t('666 Skill collected', '666 Скилла получено') : t(`${Math.min(2, d.blocksThisRound)}/2 attacks into this block`, `${Math.min(2, d.blocksThisRound)}/2 атак в текущий блок`), state: d.hellBlockUsed ? 'done' : 'live' }
+    case 'Контр-атака': return { text: d.counterAttackMarkedNames.length ? t(`Vulnerable: ${d.counterAttackMarkedNames.join(', ')}`, `Уязвимы: ${d.counterAttackMarkedNames.join(', ')}`) : t('Waiting for an enemy to hit the block', 'Ждёт врага, ударившего в блок'), state: 'live' }
+    case 'Щит-акула': return { text: d.sharkShieldActive ? t('Shark stance active', 'Стойка акулы активна') : t('A block will become shark stance', 'Блок станет стойкой акулы'), state: 'live' }
     case 'Адеские гнезда': return { text: t(`${d.demonNestNames.length}/3 active nests`, `${d.demonNestNames.length}/3 активных гнезда`), state: d.demonNestNames.length > 3 ? 'failed' : 'live' }
     case 'Навести беспорядок': return { text: t('+1 score for every real fight', '+1 очко за каждую реальную битву'), state: 'live' }
     case 'Стань богом':
       if (d.becomeGodAwarded) return { text: t('Trial complete: +20', 'Испытание завершено: +20'), state: 'done' }
       if (d.everBlocked || d.everLost) return { text: t(`Trial failed${d.everBlocked ? ': blocked' : ': lost a fight'}`, `Испытание провалено${d.everBlocked ? ': был блок' : ': было поражение'}`), state: 'failed' }
       return { text: t('Clean run: no blocks or losses', 'Чистый забег: без блоков и поражений'), state: 'live' }
+    case 'Ближник': return { text: t('Adjacent melee bonuses are doubled', 'Melee-бонусы против соседей удвоены'), state: 'live' }
     case 'BFG': return { text: d.bfgCharged ? t('CHARGED — waiting for a random attack', 'ЗАРЯЖЕНА — ждёт атаки с рандомом') : t('Charge spent', 'Заряд потрачен'), state: d.bfgCharged ? 'live' : 'done' }
+    case 'Рельса': return { text: d.railgunCharged ? t('CHARGED — the next attack hits one whole side', 'ЗАРЯЖЕНА — следующая атака бьёт всю сторону') : t('Charge spent', 'Заряд потрачен'), state: d.railgunCharged ? 'live' : 'done' }
+    case 'Приручить дракона': return { text: t('Dragon transformation awaits round 10', 'Превращение в дракона ждёт 10-й ход'), state: 'live' }
     case 'Кулаки': return { text: t('STR = 0 · every victory gives +2 score', 'STR = 0 · каждая победа +2 очка'), state: 'live' }
     case 'Бензопила':
       if (d.copiedPassiveName) return { text: t(`Stolen: ${d.copiedPassiveName}`, `Украдено: ${d.copiedPassiveName}`), state: 'done' }
-      return { text: d.chainsawSpent ? t('Target sawed apart — choose a passive', 'Жертва распилена — выбери пассивку') : t('Ready for the next victory', 'Готова к следующей победе'), state: 'live' }
+      return { text: d.chainsawSpent ? t(`Target sawed apart — ${d.chainsawSelectionsRemaining} choice(s) left`, `Жертва распилена — осталось выборов: ${d.chainsawSelectionsRemaining}`) : t('Ready for the next victory', 'Готова к следующей победе'), state: 'live' }
     default: return { text: t('Module active', 'Модуль активен'), state: 'live' }
   }
 }
@@ -1072,6 +1080,7 @@ function doomModuleStatus(module: string): { text: string; state: 'live' | 'done
         <span v-for="name in doomGuy.demonNestNames" :key="name">{{ name }}</span>
       </div>
       <div v-if="doomGuy.bfgCharged" class="doom-bfg"><span>●</span> {{ t('BFG CHARGED', 'BFG ЗАРЯЖЕНА') }}</div>
+      <div v-if="doomGuy.railgunCharged" class="doom-bfg"><span>●</span> {{ t('RAILGUN CHARGED', 'РЕЛЬСА ЗАРЯЖЕНА') }}</div>
       <div v-if="doomGuy.chainsawChoices.length" class="doom-chainsaw-choice">
         <strong>{{ t('CHAINSAW: CHOOSE A TROPHY', 'БЕНЗОПИЛА: ВЫБЕРИ ТРОФЕЙ') }}</strong>
         <span>{{ t('The Gun slot will be permanently replaced by the chosen passive.', 'Gun будет навсегда заменён выбранной пассивкой.') }}</span>

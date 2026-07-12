@@ -258,6 +258,12 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
             && game.PlayersList.Any(x => x.GameCharacter.Name == DoomGuy.CharacterName && x.Passives.DoomGuy.DemonNests.Contains(player2.GetPlayerId())))
             customString += "🔥";
 
+        // Counter-attack vulnerability is also owner/admin-only character knowledge.
+        if ((player1.GameCharacter.Name == DoomGuy.CharacterName || player1.PlayerType == 2)
+            && game.PlayersList.Any(x => x.GameCharacter.Name == DoomGuy.CharacterName
+                && x.Passives.DoomGuy.CounterAttackMarks.GetValueOrDefault(player2.GetPlayerId()) == game.RoundNo))
+            customString += "🎯";
+
         // Salldorum Shen active indicator — self/admin only
         if ((player1.PlayerType == 2 || player1.GetPlayerId() == player2.GetPlayerId()) && player2.GameCharacter.Name == "Salldorum" && player2.Passives.SalldorumShen.ActiveThisTurn)
             customString += "🛡️";

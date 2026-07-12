@@ -17,37 +17,57 @@ public static class DoomGuy
     public const string Ascension = "Вознесение";
     public const string Maneuvers = "Маневры";
     public const string Extermination = "Истребление";
+    public const string GloryKill = "Glory kill";
     public const string SawShield = "Щит-пила";
     public const string ShockShield = "Шоковый щит";
     public const string HellBlock = "Адский блок";
+    public const string CounterAttack = "Контр-атака";
+    public const string SharkShield = "Щит-акула";
     public const string DemonNests = "Адеские гнезда";
     public const string MakeAMess = "Навести беспорядок";
     public const string BecomeGod = "Стань богом";
+    public const string Melee = "Ближник";
     public const string Bfg = "BFG";
     public const string Fists = "Кулаки";
     public const string Chainsaw = "Бензопила";
+    public const string Railgun = "Рельса";
+    public const string TameDragon = "Приручить дракона";
+    public const string DragonPassive = "Дракон";
+    public const string SharkPassive = "Ничего не понимает";
 
     public static readonly string[] StageOrder = { Rune, Shield, Mission, Gun };
 
-    public sealed record ModuleDefinition(string Name, string Stage, string Description, bool Reward);
+    public sealed record ModuleDefinition(
+        string Name,
+        string Stage,
+        string Description,
+        bool Reward,
+        bool SpecialUnlock = false,
+        bool MeleeModule = false);
 
     public static readonly IReadOnlyList<ModuleDefinition> Modules = new List<ModuleDefinition>
     {
         new(Ascension, Rune, "+8 Интеллекта. Придется хитрить: каждое поражение отнимает по одному.", false),
         new(Maneuvers, Rune, "+5 Скорости. Уклоняйся от близких стычек: получаемый Вред отнимает по одному.", false),
         new(Extermination, Rune, "Победи каждого из пятерых врагов хотя бы раз и получишь + все статы и бонусные очки, равные количеству оставшихся ходов до завершения.", true),
+        new(GloryKill, Rune, "Использует двойной *Скилл* против ближайших по таблице врагов. Такие победы приносят +1 каждого стата.", true, MeleeModule: true),
 
         new(SawShield, Shield, "Враги, атакующие в блок, теряют втрое больше очков.", false),
         new(ShockShield, Shield, "Враг, ударивший в блок, пропустит свой следующий ход. Одноразово.", false),
         new(HellBlock, Shield, "Заблокируй две атаки одновременно, получишь 666 Скилла. Это одноразовая акция.", true),
+        new(CounterAttack, Shield, "Враги, ударившие в блок, становятся уязвимы на один ход. Лишаются справедливости и *Скилла*.", true),
+        new(SharkShield, Shield, "Ничего не понимает...", true),
 
         new(DemonNests, Mission, "На таблице каждый ход появляются гнезда демонов. +1 очко за уничтожение гнезда, но если гнезд стало больше трех — −20 очков.", false),
         new(MakeAMess, Mission, "Каждая битва дополнительно приносит очко, независимо от исхода.", false),
         new(BecomeGod, Mission, "Не используя блок, продержись до конца без единого проигрыша. Награда: 20 бонусных очков.", true),
+        new(Melee, Mission, "Удваивает бонуcы от melee модулей против ближайших по таблице врагов.", true),
 
         new(Bfg, Gun, "Одноразовая BFG гарантирует победу следующей атаки на этапе рандома и волной продолжает бой по соседним целям, пока хватает мощи.", false),
-        new(Fists, Gun, "Теряет всю силу. Победы приносят +2 очка за свэг.", false),
-        new(Chainsaw, Gun, "Следующая победа позволяет распилить врага и выбрать одну из четырех его пассивок. Пила после этого выбрасывается.", true),
+        new(Fists, Gun, "Теряет всю силу. Победы приносят +2 очка за свэг.", false, MeleeModule: true),
+        new(Chainsaw, Gun, "Следующая победа позволяет распилить врага и выбрать одну из четырех его пассивок. Пила после этого выбрасывается.", true, MeleeModule: true),
+        new(Railgun, Gun, "Сделедующая атака начнет бой сразу со всеми врагами в стороне той стороне таблицы, где находится цель относительно вас.", true),
+        new(TameDragon, Gun, "На 10м ходу всё бросает и залазит на дракона.", true, SpecialUnlock: true),
     };
 
     public static string StageForRound(int roundNo) => roundNo switch
@@ -60,6 +80,64 @@ public static class DoomGuy
     };
 
     public static ModuleDefinition FindModule(string name) => Modules.FirstOrDefault(x => x.Name == name);
+
+    public static IEnumerable<ModuleDefinition> GetStandardRewardModules(string stage) =>
+        Modules.Where(x => x.Stage == stage && x.Reward && !x.SpecialUnlock);
+
+    public static bool IsNearestEnemy(GameClass game, GamePlayerBridgeClass player, GamePlayerBridgeClass enemy)
+    {
+        if (game == null || player == null || enemy == null || enemy.Passives.IsDead
+            || player.IsTeamMember(game, enemy.GetPlayerId())) return false;
+        return Math.Abs(player.Status.GetPlaceAtLeaderBoard() - enemy.Status.GetPlaceAtLeaderBoard()) == 1;
+    }
+
+    public static bool HasMeleeBonus(GamePlayerBridgeClass player) =>
+        player?.Passives?.DoomGuy?.GetActive(Mission) == Melee;
+
+    public static void PrepareSharkShield(GamePlayerBridgeClass player)
+    {
+        if (player?.GameCharacter?.Name != CharacterName) return;
+        var state = player.Passives.DoomGuy;
+        if (state.GetActive(Shield) != SharkShield || !player.Status.IsBlock) return;
+
+        player.Status.IsBlock = false;
+        player.Status.IsSkip = false;
+        player.Status.WhoToAttackThisTurn.Clear();
+        state.SharkShieldActiveThisRound = true;
+        state.SharkShieldAddedPassive = player.GameCharacter.Passive.All(x => x.PassiveName != SharkPassive);
+        if (state.SharkShieldAddedPassive)
+            player.GameCharacter.Passive.Add(new Passive(SharkPassive, "", false));
+        player.Status.AddInGamePersonalLogs("Щит-акула: Ничего не понимает...\n");
+    }
+
+    public static void ApplyFightModules(GamePlayerBridgeClass attacker, GamePlayerBridgeClass defender, GameClass game)
+    {
+        ApplyFightModulesForOwner(attacker, defender, game);
+        ApplyFightModulesForOwner(defender, attacker, game);
+    }
+
+    private static void ApplyFightModulesForOwner(
+        GamePlayerBridgeClass doom,
+        GamePlayerBridgeClass enemy,
+        GameClass game)
+    {
+        if (doom?.GameCharacter?.Name != CharacterName || enemy == null) return;
+        var state = doom.Passives.DoomGuy;
+
+        if (state.GetActive(Rune) == GloryKill && IsNearestEnemy(game, doom, enemy))
+        {
+            var multiplier = HasMeleeBonus(doom) ? 3 : 2;
+            doom.FightCharacter.SetSkillForOneFight(
+                doom.FightCharacter.GetSkill() * multiplier, GloryKill);
+        }
+
+        if (state.GetActive(Shield) == CounterAttack
+            && state.CounterAttackMarks.GetValueOrDefault(enemy.GetPlayerId()) == game.RoundNo)
+        {
+            enemy.FightCharacter.SetSkillForOneFight(0, CounterAttack);
+            enemy.FightCharacter.Justice.SetJusticeForOneFight(0, CounterAttack);
+        }
+    }
 
     public static void EnsureFortress(DoomFortressData fortress)
     {
@@ -165,8 +243,16 @@ public static class DoomGuy
             case Bfg:
                 state.BfgCharged = true;
                 break;
+            case Railgun:
+                state.RailgunCharged = true;
+                break;
             case Fists:
                 player.GameCharacter.SetStrength(0, Fists);
+                break;
+            case TameDragon:
+                if (player.GameCharacter.Passive.All(x => x.PassiveName != DragonPassive))
+                    player.GameCharacter.Passive.Add(new Passive(DragonPassive, "", false));
+                player.Passives.GeraltMonsterType = Geralt.MonsterType.Драконы;
                 break;
         }
 
@@ -212,11 +298,16 @@ public static class DoomGuy
         var chosen = state.ChainsawChoices.Find(x => x.PassiveName == passiveName);
         if (chosen == null) return new CopiedPassiveResult(false, "Эта пассивка не входит в выбор.");
 
-        player.GameCharacter.Passive.RemoveAll(x => x.PassiveName == Gun);
+        if (state.CopiedPassiveNames.Count == 0)
+            player.GameCharacter.Passive.RemoveAll(x => x.PassiveName == Gun);
         player.GameCharacter.Passive.Add(chosen.DeepCopy());
-        state.ActiveModules[Gun] = chosen.PassiveName;
-        state.CopiedPassiveName = chosen.PassiveName;
-        state.ChainsawChoices.Clear();
+        state.CopiedPassiveNames.Add(chosen.PassiveName);
+        state.CopiedPassiveName = string.Join(" + ", state.CopiedPassiveNames);
+        state.ActiveModules[Gun] = state.CopiedPassiveName;
+        state.ChainsawChoices.Remove(chosen);
+        state.ChainsawSelectionsRemaining = Math.Max(0, state.ChainsawSelectionsRemaining - 1);
+        if (state.ChainsawSelectionsRemaining == 0)
+            state.ChainsawChoices.Clear();
 
         if (chosen.PassiveName == "Портальная пушка")
         {
@@ -251,7 +342,7 @@ public static class DoomGuy
         for (var stageIndex = highestStageIndex; stageIndex >= 0; stageIndex--)
         {
             var stage = StageOrder[stageIndex];
-            var rewards = Modules.Where(x => x.Stage == stage && x.Reward).ToList();
+            var rewards = GetStandardRewardModules(stage).ToList();
             var missing = rewards.Where(x => !account.DoomFortress.UnlockedModules.Contains(x.Name)).ToList();
             if (missing.Count == 0) continue;
 
@@ -268,6 +359,23 @@ public static class DoomGuy
         }
 
         return new ModuleRewardResult("", "", 0, false);
+    }
+
+    public static ModuleRewardResult TryAwardDragonTaming(DiscordAccountClass account, DoomGuyState state)
+    {
+        if (account == null || state?.DefeatedDragonSirinoks != true)
+            return new ModuleRewardResult(Gun, "", 0, false);
+
+        account.DoomFortress ??= new DoomFortressData();
+        EnsureFortress(account.DoomFortress);
+        if (account.DoomFortress.UnlockedModules.Contains(TameDragon))
+            return new ModuleRewardResult(Gun, "", 0, false);
+
+        account.DoomFortress.UnlockedModules.Add(TameDragon);
+        var slots = account.DoomFortress.EquippedSlots[Gun];
+        var empty = slots.FindIndex(string.IsNullOrEmpty);
+        if (empty >= 0) slots[empty] = TameDragon;
+        return new ModuleRewardResult(Gun, TameDragon, 100, true);
     }
 
     public sealed record CopiedPassiveResult(bool Success, string Error);
@@ -289,6 +397,7 @@ public class DoomGuyState
     public List<Passive> ChainsawChoices { get; set; } = new();
     public bool RollMode { get; set; }
     public bool BfgCharged { get; set; }
+    public bool RailgunCharged { get; set; }
     public int AscensionIntelligenceRemaining { get; set; }
     public int ManeuversSpeedRemaining { get; set; }
     public bool ShockShieldUsed { get; set; }
@@ -301,7 +410,13 @@ public class DoomGuyState
     public bool BecomeGodAwarded { get; set; }
     public bool ExterminationAwarded { get; set; }
     public bool ChainsawSpent { get; set; }
+    public int ChainsawSelectionsRemaining { get; set; }
     public string CopiedPassiveName { get; set; } = "";
+    public List<string> CopiedPassiveNames { get; set; } = new();
+    public Dictionary<Guid, int> CounterAttackMarks { get; set; } = new();
+    public bool SharkShieldActiveThisRound { get; set; }
+    public bool SharkShieldAddedPassive { get; set; }
+    public bool DefeatedDragonSirinoks { get; set; }
 
     public string GetActive(string stage) => ActiveModules.GetValueOrDefault(stage, "");
 }
