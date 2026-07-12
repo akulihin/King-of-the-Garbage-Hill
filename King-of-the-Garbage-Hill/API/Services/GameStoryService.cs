@@ -133,9 +133,9 @@ public class GameStoryService
     private static string GetOutputReminder(StoryLanguage language) => language switch
     {
         StoryLanguage.Russian =>
-            "\n<format-reminder>Верни непустую историю только на русском языке: максимум 250 слов и 1700 символов, без тегов, заголовков и пояснений.</format-reminder>",
+            "\n<format-reminder>Верни непустую историю только на русском языке: максимум 250 слов и 1700 символов, без тегов, заголовков и пояснений. Используй - вместо — и как можно меньше.</format-reminder>",
         _ =>
-            "\n<format-reminder>Return a non-empty English-only story: at most 250 words and 1700 characters, with no tags, headings, or explanations.</format-reminder>"
+            "\n<format-reminder>Return a non-empty English-only story: at most 250 words and 1700 characters, with no tags, headings, or explanations. Use - instead of — and as less as possible.</format-reminder>"
     };
 
     private static string StoryStatus(string story) => string.IsNullOrWhiteSpace(story) ? "unavailable" : "ok";

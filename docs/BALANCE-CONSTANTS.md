@@ -44,6 +44,13 @@
 | Mastery payout | 10/7/5/3/2/1 by place (alive only) | CIR:618-624 |
 | Loot-box inventory award | reward-place top-2 and alive (Sakura top-3 soft win uses reward place 1) | CIR:648-651,730-732 |
 
+## Generated story
+
+| Constant | Value | Anchor |
+|---|---|---|
+| Anthropic response budget | max 1,800 tokens per enabled language request | GameStoryService.cs:31-32,663-674 |
+| Prompted short-form ceiling / shape | max 250 words and 1,700 characters; 8–15 very short lines covering only the 3–5 strongest character interactions | GameStoryService.cs:448-492 |
+
 ## Daily Quest rewards
 
 The full 12-contract catalog, selection, privacy and migration rules are in [DAILY-QUESTS.md](DAILY-QUESTS.md). The three lanes always pay at most 80 card ZBS; completing the daily and weekly paths brings the direct full-board total to 100 ZBS/day plus the optional mastery box (`QuestClass.cs:200-260,638-678`).
