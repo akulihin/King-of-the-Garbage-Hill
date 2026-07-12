@@ -448,6 +448,7 @@ public class General : ModuleBaseCustom
         {
             game.IsDraftPickPhase = true;
             var allAssigned = playersList.Select(x => x.GameCharacter).ToList();
+            var strictBotCount = playersList.Count(p => p.PlayerType == 404);
             // NOTE: Can't use IsBot() here — SocketGameMessage is still null before WaitMess
             foreach (var player in playersList.Where(p => p.PlayerType != 404))
             {
@@ -455,7 +456,8 @@ public class General : ModuleBaseCustom
                 if (account == null) continue;
                 // Include the player's natural roll as first option, then roll 2 more alternatives
                 var originalCharacter = player.GameCharacter;
-                var options = _startGameLogic.RollDraftOptions(account, allAssigned, 2);
+                var options = _startGameLogic.RollDraftOptions(account, allAssigned,
+                    strictBotCount, count: 2, isTeamMode: teamCount > 0);
                 options.Insert(0, originalCharacter);
                 game.DraftOptions[player.GetPlayerId()] = options;
                 player.Status.MoveListPage = 6;

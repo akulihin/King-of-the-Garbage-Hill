@@ -2,6 +2,7 @@
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using King_of_the_Garbage_Hill.Game.Characters;
 using King_of_the_Garbage_Hill.Game.Classes;
 using Newtonsoft.Json;
 
@@ -60,7 +61,8 @@ public class CharactersPull : IServiceSingleton
     {
         var filePath = @"DataBase/characters.json";
         var json = File.ReadAllText(filePath);
-        var characters = JsonConvert.DeserializeObject<List<CharacterClass>>(json).Where(x => x.Tier != -1);
+        var characters = JsonConvert.DeserializeObject<List<CharacterClass>>(json)
+            .Where(x => x.Tier != -1 && x.Name != Naruto.CharacterName);
         var passives = new List<Passive>();
 
         foreach (var character in characters)

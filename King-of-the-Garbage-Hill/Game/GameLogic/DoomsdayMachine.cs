@@ -224,8 +224,6 @@ public class DoomsdayMachine : IServiceSingleton
         }
         //end Moral
 
-        HandleEventsBeforeCalculation(game);
-
         /*
         1-4 х1
         5-9 х2
@@ -239,8 +237,6 @@ public class DoomsdayMachine : IServiceSingleton
         //FightCharacter == READ ONLY
         //GameCharacter == WRITE ONLY
         //FightCharacter writes cans happens only "for one fight" not for the whole round!
-        Madara.PrepareIncomingAttackers(game);
-
         // Щит-акула replaces DooM Guy's submitted block with a fightable, non-attacking
         // one-turn copy of Братишка's defensive passive. Prepare it before the round snapshot.
         foreach (var doom in game.PlayersList.Where(x => x.GameCharacter.Name == DoomGuy.CharacterName))
@@ -382,6 +378,15 @@ public class DoomsdayMachine : IServiceSingleton
             }
         }
 
+        // Naruto's block replacement operates on the finalized action queues, including every
+        // readiness-stage forced action and Geralt contract expansion. Canceled queues must be gone
+        // before PointFunnel and Madara snapshot their targets.
+        Naruto.SanitizeMutualTargets(game);
+        Naruto.ResolveHaremQueues(game);
+        HandleEventsBeforeCalculation(game);
+        Madara.PrepareIncomingAttackers(game);
+        Naruto.SnapshotJustice(game);
+
         // Котики — Рандомное поведение Trick 1: pre-scan fight pairs and pick one for Storm
         Kotiki.RandomBehaviorClass stormRb = null;
         GamePlayerBridgeClass stormCarrier = null;
@@ -481,6 +486,11 @@ public class DoomsdayMachine : IServiceSingleton
                     game.AddGlobalLogs($"Рельса пробивает сторону таблицы от {player.DiscordUsername}!");
                 }
             }
+
+            if (Naruto.TryCancelHaremFights(
+                    game, player, targetsToFight.Select(entry => entry.Target.GetPlayerId())))
+                continue;
+
             var bfgWaveVisited = new HashSet<Guid> { player.GetPlayerId() };
             foreach (var initialTarget in targetsToFight) bfgWaveVisited.Add(initialTarget.Target.GetPlayerId());
 
@@ -489,6 +499,22 @@ public class DoomsdayMachine : IServiceSingleton
                 var playerIamAttacking = targetsToFight[fightTargetIndex].Target;
                 var bfgWaveDirection = targetsToFight[fightTargetIndex].BfgDirection;
                 var isRailgunFight = targetsToFight[fightTargetIndex].RailgunFight;
+
+                if (Naruto.IsNarutoPair(player, playerIamAttacking))
+                {
+                    player.Status.AddInGamePersonalLogs(PhrasePayload.Encode(
+                        Naruto.ShadowClones,
+                        "Наруто не могут нападать друг на друга. Бой отменен.",
+                        "Shadow Clones",
+                        "Narutos cannot attack one another. The fight was canceled.") + "\n");
+                    continue;
+                }
+
+                if (playerIamAttacking.Passives.Naruto.HaremActiveThisRound
+                    && Naruto.TryCancelHaremFights(game, player,
+                        targetsToFight.Skip(fightTargetIndex).Select(entry => entry.Target.GetPlayerId())))
+                    break;
+
                 // Snapshot GlobalLogs length before this fight (for hidden-fight mechanism)
                 var globalLogsLenBefore = game.GetGlobalLogs().Length;
 
@@ -534,6 +560,7 @@ public class DoomsdayMachine : IServiceSingleton
                 // These module overrides are authoritative for this one fight and therefore run
                 // after both ordinary before-fight passive dispatchers.
                 DoomGuy.ApplyFightModules(player, playerIamAttacking, game);
+                var narutoSummonAutoWin = Naruto.IsSummonAutoWin(player, playerIamAttacking);
 
                 // This is the authoritative Pickle Rick outcome, applied after both before-fight
                 // dispatchers: the active pickle always accepts the fight and always wins it, even
@@ -570,6 +597,7 @@ public class DoomsdayMachine : IServiceSingleton
                     && playerIamAttacking.GameCharacter.Passive.Any(x => x.PassiveName == "Штормяк")
                     && playerIamAttacking.Passives.KotikiStorm.CurrentTauntTarget == player.GetPlayerId();
                 if (playerIamAttacking.Status.IsBlock && !player.Status.IsArmorBreak && !isTauntBypass
+                    && !narutoSummonAutoWin
                     && !isRailgunFight)
                 {
                     player.Status.IsTargetBlocked = playerIamAttacking.GetPlayerId();
@@ -647,7 +675,8 @@ public class DoomsdayMachine : IServiceSingleton
                 playerIamAttacking.Status.AddFightingData($"IsSkipBreakEnemy: {player.Status.IsSkipBreak}");
 
                 // if skip => something
-                if (playerIamAttacking.Status.IsSkip && !player.Status.IsSkipBreak && !isRailgunFight)
+                if (playerIamAttacking.Status.IsSkip && !player.Status.IsSkipBreak
+                    && !narutoSummonAutoWin && !isRailgunFight)
                 {
                     player.Status.IsTargetSkipped = playerIamAttacking.GetPlayerId();
                     game.SkipPlayersThisRound++;
@@ -864,6 +893,11 @@ public class DoomsdayMachine : IServiceSingleton
                 }
                 //end izanagi
 
+                // A successful summon is the terminal fight result: it also overrides defensive
+                // outcome replacers such as active Pickle Rick, Octopus and Izanagi.
+                if (narutoSummonAutoWin)
+                    pointsWined = 1;
+
                 // BFG wave: a guaranteed primary win starts two outward branches. Each branch
                 // advances one leaderboard neighbour only while its previous fight was won.
                 if (pointsWined >= 1 && (bfgTriggeredThisFight || bfgWaveDirection != 0))
@@ -989,7 +1023,13 @@ public class DoomsdayMachine : IServiceSingleton
                     player.Status.IsWonThisCalculation = playerIamAttacking.GetPlayerId();
                     playerIamAttacking.Status.IsLostThisCalculation = player.GetPlayerId();
                     game.AnyFightThisRound = true; // a fight resolved this round (Tilted / M8)
-                    playerIamAttacking.Status.WhoToLostEveryRound.Add(new InGameStatus.WhoToLostPreviousRoundClass(player.GetPlayerId(), game.RoundNo, isTooGoodMe, isStatsBetterMe, isTooGoodEnemy, isStatsBettterEnemy, player.GetPlayerId(), playerIamAttacking.Status.GetPlaceAtLeaderBoard(), player.Status.GetPlaceAtLeaderBoard()));
+                    playerIamAttacking.Status.WhoToLostEveryRound.Add(
+                        new InGameStatus.WhoToLostPreviousRoundClass(
+                            player.GetPlayerId(), game.RoundNo,
+                            isTooGoodMe, isTooStronkMe, isStatsBetterMe,
+                            isTooGoodEnemy, isTooStronkEnemy, isStatsBettterEnemy,
+                            player.GetPlayerId(), playerIamAttacking.Status.GetPlaceAtLeaderBoard(),
+                            player.Status.GetPlaceAtLeaderBoard()));
 
                     //Quality — snapshot resist values before damage
                     var range = player.GameCharacter.GetSpeedQualityResistInt();
@@ -1168,7 +1208,13 @@ public class DoomsdayMachine : IServiceSingleton
                     playerIamAttacking.Status.IsWonThisCalculation = player.GetPlayerId();
                     player.Status.IsLostThisCalculation = playerIamAttacking.GetPlayerId();
                     game.AnyFightThisRound = true; // a fight resolved this round (Tilted / M8)
-                    player.Status.WhoToLostEveryRound.Add(new InGameStatus.WhoToLostPreviousRoundClass(playerIamAttacking.GetPlayerId(), game.RoundNo, isTooGoodEnemy, isStatsBettterEnemy, isTooGoodMe, isStatsBetterMe, player.GetPlayerId(), player.Status.GetPlaceAtLeaderBoard(), playerIamAttacking.Status.GetPlaceAtLeaderBoard()));
+                    player.Status.WhoToLostEveryRound.Add(
+                        new InGameStatus.WhoToLostPreviousRoundClass(
+                            playerIamAttacking.GetPlayerId(), game.RoundNo,
+                            isTooGoodEnemy, isTooStronkEnemy, isStatsBettterEnemy,
+                            isTooGoodMe, isTooStronkMe, isStatsBetterMe,
+                            player.GetPlayerId(), player.Status.GetPlaceAtLeaderBoard(),
+                            playerIamAttacking.Status.GetPlaceAtLeaderBoard()));
                 }
 
                 // ── Collect structured fight data for web animation ──
@@ -1461,6 +1507,7 @@ public class DoomsdayMachine : IServiceSingleton
 
         // Rumbling is deliberately the first post-fight passive settlement on round 10.
         _characterPassives.HandleRumblingAfterFights(game);
+        Naruto.SettleShadowClones(game);
 
 
 
@@ -1614,7 +1661,7 @@ public class DoomsdayMachine : IServiceSingleton
             }
         }
 
-        game.PlayersList = game.PlayersList.OrderByDescending(x => x.Status.GetScore()).ToList();
+        game.PlayersList = Naruto.OrderLeaderboard(game.PlayersList);
 
 
         //Тигр топ, а ты холоп
@@ -1829,6 +1876,7 @@ public class DoomsdayMachine : IServiceSingleton
 
         SortGameLogs(game);
         _characterPassives.HandleNextRoundAfterSorting(game);
+        Naruto.MoveDispersedClonesToBottom(game.PlayersList);
         if (game.RoundNo == 10)
         {
             var roundTenLast = game.PlayersList.Find(x => x.Status.GetPlaceAtLeaderBoard() == 6);

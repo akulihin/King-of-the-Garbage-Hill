@@ -4513,6 +4513,44 @@
       }
     ]
   },
+  "NarutoGamabuntaRefusal": {
+    "passiveNameRussian": "Призыв",
+    "passiveNameEnglish": "Summoning",
+    "phrases": [
+      {
+        "russian": "Гамабунта: Я занят. Разбирайся сам, Наруто.",
+        "english": "Gamabunta: I'm busy. Handle it yourself, Naruto."
+      },
+      {
+        "russian": "Гамабунта: Ты призвал меня ради этого? Не смеши.",
+        "english": "Gamabunta: You summoned me for this? Don't make me laugh."
+      },
+      {
+        "russian": "Гамабунта: Сначала научись обходиться без клонов.",
+        "english": "Gamabunta: First learn to manage without clones."
+      }
+    ]
+  },
+  "NarutoGamabuchiSuccess": {
+    "passiveNameRussian": "Призыв",
+    "passiveNameEnglish": "Summoning",
+    "phrases": [
+      {
+        "russian": "Гамабучи: Он уже победил тебя в прошлый раз. Гамабунта, поможем Наруто!",
+        "english": "Gamabuchi: He already defeated you last time. Gamabunta, let's help Naruto!"
+      }
+    ]
+  },
+  "NarutoGamabuntaSuccess": {
+    "passiveNameRussian": "Призыв",
+    "passiveNameEnglish": "Summoning",
+    "phrases": [
+      {
+        "russian": "Гамабунта: Ладно. На этот раз я раздавлю его.",
+        "english": "Gamabunta: Fine. This time, I'll crush him."
+      }
+    ]
+  },
   "AutoMove": {
     "passiveNameRussian": "Авто Ход",
     "passiveNameEnglish": "Auto Move",

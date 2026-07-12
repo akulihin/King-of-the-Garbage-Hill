@@ -268,6 +268,9 @@ public class PassivesClass
     // Эрен Йегер — owner-only state
     public ErenYeager.State Eren { get; set; } = new();
 
+    // Наруто — independent original/clone state
+    public Naruto.State Naruto { get; set; } = new();
+
     // Эрен Йегер — per-player hatred mark (0 = none, 1 = loss, 2 = attacked Eren)
     public int ErenHatredMark { get; set; } = 0;
 

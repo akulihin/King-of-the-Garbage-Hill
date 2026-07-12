@@ -801,7 +801,8 @@ public class BotsBehavior : IServiceSingleton
             //local variables
             var allTargets = game!.NanobotsList.Find(x => x.GameId == game.GameId)!.Nanobots
                 .Where(x => x.GetPlayerId() != bot.GetPlayerId()
-                    && !x.Player.Passives.IsDead).ToList();
+                    && !x.Player.Passives.IsDead
+                    && !Naruto.IsNarutoPair(bot, x.Player)).ToList();
 
             if (game.RoundNo == 10)
             {

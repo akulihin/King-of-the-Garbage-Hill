@@ -43,30 +43,11 @@ public static class ErenYeager
                 OriginalIndex = index,
                 ProjectedScore = player.Status.GetScore()
                                  + player.Status.GetScoresToGiveAtEndOfRound()
-                                 * GetRoundMultiplier(player, game),
+                                 * player.Status.GetRoundScoreMultiplier(game),
             })
             .OrderByDescending(x => x.ProjectedScore)
             .ThenBy(x => x.OriginalIndex)
             .Select(x => x.Player)
             .ToList();
-    }
-
-    private static int GetRoundMultiplier(GamePlayerBridgeClass player, GameClass game)
-    {
-        var roundNumber = game.RoundNo;
-        if (game.PlayersList.Any(tolya =>
-                tolya.GameCharacter.Passive.Any(passive => passive.PassiveName == "Подсчет")
-                && tolya.Passives.TolyaCount.TargetList.Any(target =>
-                    target.RoundNumber == game.RoundNo - 1 && target.Target == player.GetPlayerId())))
-        {
-            roundNumber = 1;
-        }
-
-        return roundNumber switch
-        {
-            <= 4 => 1,
-            <= 9 => 2,
-            _ => 4,
-        };
     }
 }

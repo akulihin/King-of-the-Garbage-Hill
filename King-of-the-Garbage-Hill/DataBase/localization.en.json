@@ -70,6 +70,8 @@
     "следующий ход пропущен.": "your next turn is skipped.",
     "следующий turn пропущен.": "your next turn is skipped.",
     "Рик Санчез": "Rick Sanchez",
+    "Наруто не могут нападать друг на друга.": "Narutos cannot attack one another.",
+    "Теневые: клоны Наруто рассеялись и передали очки оригиналу.": "Shadow Clones: Naruto's clones dispersed and transferred their points to the original.",
     "Чутьё": "Witcher senses",
     "Контракт": "Contract",
     "Пойду домой.": "I'm going home.",
@@ -916,6 +918,7 @@
     "Геральт": "Geralt",
     "Кратос": "Kratos",
     "Сайтама": "Saitama",
+    "Наруто": "Naruto",
     "Мадара": "Madara",
     "Итачи": "Itachi",
     "Кира": "Kira",
@@ -996,6 +999,10 @@
     "Изанаги": "Izanagi",
     "Глаза Итачи": "Itachi's Eyes",
     "Бог шиноби": "God of Shinobi",
+    "Гарем но джутсу": "Harem no Jutsu",
+    "Теневые": "Shadow Clones",
+    "Расенган": "Rasengan",
+    "Призыв": "Summoning",
     "Неуязвимость": "Invulnerability",
     "Тетрадь смерти": "Death Note",
     "Гений": "Genius",
@@ -1270,7 +1277,8 @@
     "Школьник": "Schoolkid energy.",
     "Шэн": "Shen has entered the fight.",
     "Я пытаюсь!": "I'm trying!",
-    "DooM Guy": "Rip and tear. Until it is done."
+    "DooM Guy": "Rip and tear. Until it is done.",
+    "Призыв": "Gamabunta might answer. Eventually."
   },
   "characters": {
     "DeepList": "At first glance, DeepList is just another madman trolling everyone he meets. He farms memes so relentlessly that he built an entire game out of them, invents deranged builds, and pulls 200-IQ high-ELO plays while pretending to be a clueless noob. But here is the catch: he never actually loses. They say he is so far ahead that everything happening in the world is merely another step in his plan — perhaps this whole game is one enormous Long Con.\n\nTop-three challenger of ZBS Gaming. 2K Elo pro. Troll.",
@@ -1311,6 +1319,7 @@
     "Геральт": "Geralt of Rivia: witcher, mutant, monster hunter. He takes contracts, brews oils, and meditates before battle. Faithful Roach is always nearby, even when she is somehow on a roof. Neutrality is his creed, but once steel is drawn the witcher shows no mercy.\n\nHumans call him the Butcher of Blaviken. Monsters call him death.",
     "DooM Guy": "The gates of Hell have opened on the Garbage Hill. For everyone else, it is the apocalypse. For DooM Guy, it is another shift. Runes, shields, missions, and weapons wait in the Fortress of Doom, ready to become a combat loadout during the match.",
     "Эрен Йегер": "Eren Yeager",
+    "Наруто": "Naruto",
     "Мадара": ""
   },
   "passives": {
@@ -1491,6 +1500,10 @@
     "Дрочун": "Every Eren defeat adds a Hatred mark to that enemy; attackers receive two immediately. Defeating them clears the marks and grants __bonus__ points per mark. If Eren and an enemy attack one another simultaneously, he gains +2 beatings. And a point.",
     "Атакующий Титан": "Instead of Blocking, Eren **ATTACKS**. He becomes a raging Titan with +5 to every stat for one turn and attacks those closest to him. Anyone who comes for him gets a fight; if nobody does, Eren rampages through his own allies and loses 2 Confidence.",
     "Rumbling": "Eren tries to push as far as possible. If he suffered fewer than two losses on turn 10, hundreds of Colossal Titans destroy the world and kill everyone standing BETWEEN Eren and Eldia.",
+    "Гарем но джутсу": "Instead of Blocking, Naruto transforms into fan service. Enemies who attacked him this turn will skip all their fights. Naruto gains one point for each skipped fight.",
+    "Теневые": "Two Naruto clones disguised themselves as bots and act independently. The Narutos cannot attack one another. At the end of the game, the clones disperse, transferring their accumulated points to the original.",
+    "Расенган": "If two Narutos attack the same target simultaneously, their combined Rasengan adds together their Justice and grants each +2 Strength in that fight.\nIf all three unite, the Rasen-Shuriken adds together their Justice and grants each +3 to every stat.",
+    "Призыв": "If Naruto attacks alone, he summons a powerful ally to help.",
     "Бог шиноби": "Madara is FAR TOO STRONG. Whoever summoned him into this world made a mistake, and now nothing can stop him. To avoid boredom he fights weak opponents with his __eyes closed__, but if several enemies arrive, he may show them “a couple of techniques.”",
     "Воскрешенное тело": "Madara is dead; only the thrill of battle can make his heart beat. Nothing else in life interests him.",
     "Второй метеорит": "If Madara's attack is Blocked, he loses nothing. He sends a second meteor, worth 2 points.",

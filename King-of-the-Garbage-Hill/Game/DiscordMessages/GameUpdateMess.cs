@@ -1430,7 +1430,8 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
             var playerToAttack = game.PlayersList.Find(x => x.Status.GetPlaceAtLeaderBoard() == i + 1);
             if (playerToAttack == null) continue;
             if (playerToAttack.DiscordId != player.DiscordId && !playerToAttack.Passives.IsDead
-                && !Madara.IsSealed(playerToAttack))
+                && !Madara.IsSealed(playerToAttack)
+                && !Naruto.IsNarutoPair(player, playerToAttack))
                 attackMenu.AddOption("Напасть на " + playerToAttack.DiscordUsername, playerToAttack.GetPlayerId().ToString(), emote: _playerChoiceAttackList[i]);
         }
 

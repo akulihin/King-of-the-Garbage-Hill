@@ -243,10 +243,55 @@ public class InGameStatus
         return BonusPointsEarnedThisRound;
     }
 
-    public void CombineRoundScoreAndGameScore(GameClass game)
+    public int GetRoundScoreMultiplier(GameClass game)
     {
         var roundNumber = game.RoundNo;
+        foreach (var player in game.PlayersList)
+        foreach (var passive in player.GameCharacter.Passive)
+        {
+            if (passive.PassiveName == "Подсчет"
+                && player.Passives.TolyaCount.TargetList.Any(x =>
+                    x.RoundNumber == game.RoundNo - 1 && x.Target == PlayerId))
+                roundNumber = 1;
+        }
 
+        return roundNumber switch
+        {
+            <= 4 => 1,
+            <= 9 => 2,
+            _ => 4,
+        };
+    }
+
+    public decimal DrainSettledScoreForTransfer(GameClass game, string reason)
+    {
+        var settledScore = Score + ScoresToGiveAtEndOfRound * GetRoundScoreMultiplier(game);
+        AddInGamePersonalLogs(PhrasePayload.Encode(
+            reason,
+            $"{settledScore} очков передано оригиналу.",
+            GameLocalization.Text(reason, GameLocalization.English),
+            $"{settledScore} points were transferred to the original.") + "\n");
+        Score = 0;
+        ScoresToGiveAtEndOfRound = 0;
+        BonusPointsEarnedThisRound = 0;
+        ScoreSource = "";
+        ScoreEntries.Clear();
+        return settledScore;
+    }
+
+    public void AddSettledScore(decimal score, string reason)
+    {
+        Score += score;
+        ScoreEntries.Add(new ScoreEntry { Source = reason, Points = score, IsBonus = true });
+        AddInGamePersonalLogs(PhrasePayload.Encode(
+            reason,
+            $"+{score} очков к финальному счету.",
+            GameLocalization.Text(reason, GameLocalization.English),
+            $"+{score} points added to the final score.") + "\n");
+    }
+
+    public void CombineRoundScoreAndGameScore(GameClass game)
+    {
         // Expected multiplier (before any passive overrides)
         ExpectedRoundMultiplier = game.RoundNo switch
         {
@@ -255,50 +300,20 @@ public class InGameStatus
             _ => 4
         };
 
-        //Подсчет
-        foreach (var player in game.PlayersList)
-        {
-            foreach (var passive in player.GameCharacter.Passive)
-                switch (passive.PassiveName)
-            {
-                    case "Подсчет":
-                        var tolyaCount = player.Passives.TolyaCount;
-                        if (tolyaCount.TargetList.Any(x => x.RoundNumber == game.RoundNo - 1 && x.Target == PlayerId))
-                            roundNumber = 1;
-                        break;
-            }
-        }
-        //end Подсчет
-
         // Actual multiplier (after passive overrides) + snapshot
-        ActualRoundMultiplier = roundNumber switch
-        {
-            <= 4 => 1,
-            <= 9 => 2,
-            _ => 4
-        };
+        ActualRoundMultiplier = GetRoundScoreMultiplier(game);
         PreviousRoundScoreEntries = new List<ScoreEntry>(ScoreEntries);
         ScoreEntries.Clear();
 
-        AddScore(GetScoresToGiveAtEndOfRound(), roundNumber);
+        AddScoreWithMultiplier(GetScoresToGiveAtEndOfRound(), ActualRoundMultiplier);
         SetScoresToGiveAtEndOfRound(0, "", false);
         BonusPointsEarnedThisRound = 0;
         ScoreSource = "";
     }
 
-    private void AddScore(decimal score, int roundNumber)
+    private void AddScoreWithMultiplier(decimal score, int multiplier)
     {
-        score *= roundNumber switch
-        { 
-            /*
-        1-4 х1
-        5-9 х2
-        10 х4
-        */
-            <= 4 => 1,
-            <= 9 => 2,
-            _ => 4
-        };
+        score *= multiplier;
 
         switch (score)
         {
@@ -364,21 +379,28 @@ public class InGameStatus
     {
         public Guid EnemyId;
         public bool IsTooGoodEnemy;
+        public bool IsTooStronkEnemy;
         public int RoundNo;
         public bool IsStatsBetterEnemy;
         public bool IsTooGoodMe;
+        public bool IsTooStronkMe;
         public bool IsStatsBetterMe;
         public Guid WhoAttacked;
         public int PlaceAtLeaderBoardMe;
         public int PlaceAtLeaderBoardEnemy;
 
-        public WhoToLostPreviousRoundClass(Guid enemyId, int roundNo, bool isTooGoodEnemy, bool isStatsBetterEnemy, bool isTooGoodMe, bool isStatsBetterMe, Guid whoAttacked, int placeAtLeaderBoardMe, int placeAtLeaderBoardEnemy)
+        public WhoToLostPreviousRoundClass(Guid enemyId, int roundNo,
+            bool isTooGoodEnemy, bool isTooStronkEnemy, bool isStatsBetterEnemy,
+            bool isTooGoodMe, bool isTooStronkMe, bool isStatsBetterMe,
+            Guid whoAttacked, int placeAtLeaderBoardMe, int placeAtLeaderBoardEnemy)
         {
             EnemyId = enemyId;
             RoundNo = roundNo;
             IsTooGoodEnemy = isTooGoodEnemy;
+            IsTooStronkEnemy = isTooStronkEnemy;
             IsStatsBetterEnemy = isStatsBetterEnemy;
             IsTooGoodMe = isTooGoodMe;
+            IsTooStronkMe = isTooStronkMe;
             IsStatsBetterMe = isStatsBetterMe;
             WhoAttacked = whoAttacked;
             PlaceAtLeaderBoardMe = placeAtLeaderBoardMe;

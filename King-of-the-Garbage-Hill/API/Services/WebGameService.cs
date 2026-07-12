@@ -50,6 +50,35 @@ public class WebGameService
 
     // ── Queries ───────────────────────────────────────────────────────
 
+    private static GamePlayerBridgeClass FindPreInitializationNaruto(GameClass game)
+    {
+        var original = game.PlayersList.Find(player =>
+            player.GameCharacter.Name == Naruto.CharacterName && !Naruto.IsClone(player));
+        return original != null && game.PlayersList.All(player => !Naruto.IsClone(player))
+            ? original
+            : null;
+    }
+
+    private static List<GamePlayerBridgeClass> GetJoinableStrictBots(GameClass game)
+    {
+        var candidates = game.PlayersList
+            .Where(player => player.PlayerType == 404 && !Naruto.IsClone(player))
+            .ToList();
+        var pendingNaruto = FindPreInitializationNaruto(game);
+        if (pendingNaruto == null) return candidates;
+
+        var strictBotCount = game.PlayersList.Count(player => player.PlayerType == 404);
+        if (strictBotCount <= 2) return new List<GamePlayerBridgeClass>();
+
+        // With exactly three bots and a bot as the pending original, replacing any
+        // other bot would leave only one clone candidate. Turn the original into the
+        // joining human instead; the other two strict bots can then become clones.
+        if (strictBotCount == 3 && pendingNaruto.PlayerType == 404)
+            return candidates.Where(player => ReferenceEquals(player, pendingNaruto)).ToList();
+
+        return candidates;
+    }
+
     public LobbyStateDto GetLobbyState()
     {
         var dto = new LobbyStateDto
@@ -59,17 +88,17 @@ public class WebGameService
 
         foreach (var game in _global.GamesList)
         {
-            var botCount = game.PlayersList.Count(p => p.IsBot());
+            var botCount = game.PlayersList.Count(p => p.PlayerType == 404);
             dto.Games.Add(new ActiveGameDto
             {
                 GameId = game.GameId,
                 RoundNo = game.RoundNo,
                 PlayerCount = game.PlayersList.Count,
-                HumanCount = game.PlayersList.Count(p => !p.IsBot()),
+                HumanCount = game.PlayersList.Count(p => p.PlayerType != 404),
                 GameMode = game.GameMode,
                 IsFinished = game.IsFinished,
                 BotCount = botCount,
-                CanJoin = botCount > 0 && !game.IsFinished,
+                CanJoin = GetJoinableStrictBots(game).Count > 0 && !game.IsFinished,
             });
         }
 
@@ -245,7 +274,9 @@ public class WebGameService
             // Draft pick: include natural roll as first option, then roll 2 alternatives
             var originalCharacter = botToReplace.GameCharacter;
             var excludedCharacters = playersList.Select(x => x.GameCharacter).ToList();
-            var draftOptions = _startGameLogic.RollDraftOptions(creatorAccount, excludedCharacters, 2);
+            var strictBotCount = playersList.Count(p => p.PlayerType == 404);
+            var draftOptions = _startGameLogic.RollDraftOptions(creatorAccount,
+                excludedCharacters, strictBotCount, count: 2);
             var newcomerDoom = draftOptions.Find(x => x.Name == DoomGuy.CharacterName);
             if (newcomerDoom != null)
             {
@@ -271,6 +302,8 @@ public class WebGameService
             // No draft: run initialization immediately (original flow)
             playersList = _characterPassives.HandleEventsBeforeFirstRound(playersList);
             game.PlayersList = playersList;
+            game.ExploitPlayersList = playersList
+                .Where(p => p.GameCharacter.Passive.All(x => x.PassiveName != "Exploit")).ToList();
             for (var i = 0; i < playersList.Count; i++)
                 playersList[i].Status.SetPlaceAtLeaderBoard(i + 1);
 
@@ -292,32 +325,39 @@ public class WebGameService
         var game = FindGame(gameId);
         if (game == null) return (false, "Game not found");
         if (game.IsFinished) return (false, "Game is finished");
-
-        // If player is already in this game, just return success
-        var existingPlayer = game.PlayersList.Find(p => p.DiscordId == playerId);
-        if (existingPlayer != null) return (true, null);
+        if (game.PlayersList.Any(p => p.DiscordId == playerId)) return (true, null);
 
         var playerAccount = _userAccounts.GetAccount(playerId);
         if (playerAccount == null) return (false, "Account not found");
-        if (playerAccount.IsPlaying) return (false, "Already in a game");
 
-        // Find a bot to replace
-        var bot = game.PlayersList.Find(p => p.IsBot());
-        if (bot == null) return (false, "No bot slots available");
+        lock (game)
+        {
+            if (game.IsFinished) return (false, "Game is finished");
 
-        // Release the bot account
-        var botAccount = _userAccounts.GetAccount(bot.DiscordId);
-        if (botAccount != null) botAccount.IsPlaying = false;
+            // If player is already in this game, just return success.
+            var existingPlayer = game.PlayersList.Find(p => p.DiscordId == playerId);
+            if (existingPlayer != null) return (true, null);
+            if (playerAccount.IsPlaying) return (false, "Already in a game");
 
-        // Replace bot with the joining player
-        bot.DiscordId = playerId;
-        bot.DiscordUsername = playerUsername;
-        bot.PlayerType = playerAccount.PlayerType;
-        bot.IsWebPlayer = true;
-        bot.PreferWeb = true;
-        bot.DiscordStatus.SocketGameMessage = null;
-        DoomGuy.InitializeForGame(bot, playerAccount);
-        playerAccount.IsPlaying = true;
+            // Clones are structural bot seats. A pending Naruto roster must also retain
+            // the two strict bot seats needed for clone initialization.
+            var bot = GetJoinableStrictBots(game).FirstOrDefault();
+            if (bot == null) return (false, "No bot slots available");
+
+            // Release the bot account
+            var botAccount = _userAccounts.GetAccount(bot.DiscordId);
+            if (botAccount != null) botAccount.IsPlaying = false;
+
+            // Replace bot with the joining player
+            bot.DiscordId = playerId;
+            bot.DiscordUsername = playerUsername;
+            bot.PlayerType = playerAccount.PlayerType;
+            bot.IsWebPlayer = true;
+            bot.PreferWeb = true;
+            bot.DiscordStatus.SocketGameMessage = null;
+            DoomGuy.InitializeForGame(bot, playerAccount);
+            playerAccount.IsPlaying = true;
+        }
 
         Console.WriteLine($"[WebAPI] Player {playerUsername} ({playerId}) joined game {gameId}");
         return (true, null);
@@ -344,6 +384,9 @@ public class WebGameService
 
             var selected = options.Find(c => c.Name == characterName);
             if (selected == null) return Task.FromResult((false, "Character not in your draft options"));
+
+            if (selected.Name == Naruto.CharacterName && !Naruto.CanInitializeForDraft(game))
+                return Task.FromResult((false, "Naruto requires at least two bot slots"));
 
             // Validate the shared game constraint before touching the account economy.
             if (game.PlayersList.Any(p => p != player && p.GameCharacter.Name == characterName))

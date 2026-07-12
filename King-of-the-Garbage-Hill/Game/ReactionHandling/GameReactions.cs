@@ -734,6 +734,13 @@ public sealed class GameReaction : IServiceSingleton
                 return false;
             }
 
+            if (Naruto.IsNarutoPair(player, whoToAttack))
+            {
+                await _help.SendMsgAndDeleteItAfterRound(
+                    player, "Наруто не могут нападать друг на друга.", 0);
+                return false;
+            }
+
             status.WhoToAttackThisTurn.Add(whoToAttack.GetPlayerId());
 
             // Pickle Rick: firing the Portal Gun (i.e. choosing a target while pickled) counts as

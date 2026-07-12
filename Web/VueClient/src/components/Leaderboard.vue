@@ -195,7 +195,7 @@ function isLastPlace(index: number, total: number): boolean {
 const attackStampId = ref<string | null>(null)
 
 function handleAttack(player: Player) {
-  if (!props.canAttack) return
+  if (!props.canAttack || player.isNarutoAlly) return
   emit('attack', player.status.place)
   // Attack stamp animation
   attackStampId.value = player.playerId
@@ -328,7 +328,7 @@ const { tipText, tipVisible, tipPos, showTip, moveTip, hideTip } = useTip()
           'is-me': player.playerId === myPlayerId,
           'is-bot': player.isBot,
           'is-ready': player.status.isReady,
-          'can-click': canAttack,
+          'can-click': canAttack && !player.isNarutoAlly,
           'is-protected': isProtected(player),
           'dropped': isDropped(player),
           'in-harm-range': player.isInMyHarmRange,
@@ -336,7 +336,7 @@ const { tipText, tipVisible, tipPos, showTip, moveTip, hideTip } = useTip()
           'attack-stamp': attackStampId === player.playerId,
           [hillTierClass(index, sorted.length)]: true,
         }"
-        :style="attackCursorStyle"
+        :style="player.isNarutoAlly ? undefined : attackCursorStyle"
         @click="handleAttack(player)"
       >
         <!-- Pink Ward shimmer overlay -->
@@ -511,7 +511,7 @@ const { tipText, tipVisible, tipPos, showTip, moveTip, hideTip } = useTip()
         </div>
 
         <!-- Attack sword icon -->
-        <span v-if="canAttack && player.playerId !== myPlayerId" class="attack-sword">⚔</span>
+        <span v-if="canAttack && player.playerId !== myPlayerId && !player.isNarutoAlly" class="attack-sword">⚔</span>
 
       </div>
     </TransitionGroup>

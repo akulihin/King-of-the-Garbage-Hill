@@ -149,7 +149,8 @@ public static class GameStateMapper
         foreach (var player in game.PlayersList)
         {
             var isMe = requestingPlayer != null && player.GetPlayerId() == requestingPlayer.GetPlayerId();
-            dto.Players.Add(MapPlayer(player, isMe, isAdmin, game.PlayersList, game, viewerIsBug, viewerIsTheBoys));
+            dto.Players.Add(MapPlayer(player, requestingPlayer, isMe, isAdmin, game.PlayersList, game,
+                viewerIsBug, viewerIsTheBoys));
         }
 
         foreach (var team in game.Teams)
@@ -215,9 +216,9 @@ public static class GameStateMapper
         return dto;
     }
 
-    private static PlayerDto MapPlayer(GamePlayerBridgeClass player, bool isMe, bool isAdmin,
-        List<GamePlayerBridgeClass> allPlayers, GameClass game = null, bool viewerIsBug = false,
-        bool viewerIsTheBoys = false)
+    private static PlayerDto MapPlayer(GamePlayerBridgeClass player, GamePlayerBridgeClass requestingPlayer,
+        bool isMe, bool isAdmin, List<GamePlayerBridgeClass> allPlayers, GameClass game = null,
+        bool viewerIsBug = false, bool viewerIsTheBoys = false)
     {
         var hasDeathNote = player.GameCharacter.Passive.Any(p => p.PassiveName == "Тетрадь смерти");
 
@@ -228,6 +229,7 @@ public static class GameStateMapper
             IsBot = player.IsBot(),
             IsWebPlayer = player.IsWebPlayer,
             TeamId = player.TeamId,
+            IsNarutoAlly = requestingPlayer != null && !isMe && Naruto.IsNarutoPair(requestingPlayer, player),
             IsDead = player.Passives.IsDead,
             DeathSource = player.Passives.DeathSource,
             IsKira = isMe && hasDeathNote,

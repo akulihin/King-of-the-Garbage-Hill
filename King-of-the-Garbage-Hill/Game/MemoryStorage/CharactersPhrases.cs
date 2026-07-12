@@ -320,6 +320,11 @@ public class CharactersUniquePhrase
     // DooM Guy
     public PhraseClass DoomGuyModule;
 
+    // Наруто
+    public PhraseClass NarutoGamabuntaRefusal;
+    public PhraseClass NarutoGamabuchiSuccess;
+    public PhraseClass NarutoGamabuntaSuccess;
+
     // Монстр без имени
     public PhraseClass MonsterDeath;
     public PhraseClass MonsterDrop;
@@ -1645,6 +1650,18 @@ public class CharactersUniquePhrase
 
         DoomGuyModule = new PhraseClass("DooM Guy");
         DoomGuyModule.PassiveLogRus.Add("Rip and tear. Until it is done.");
+
+        // Наруто
+        NarutoGamabuntaRefusal = new PhraseClass(Naruto.Summon);
+        NarutoGamabuntaRefusal.PassiveLogRus.Add("Гамабунта: Я занят. Разбирайся сам, Наруто.");
+        NarutoGamabuntaRefusal.PassiveLogRus.Add("Гамабунта: Ты призвал меня ради этого? Не смеши.");
+        NarutoGamabuntaRefusal.PassiveLogRus.Add("Гамабунта: Сначала научись обходиться без клонов.");
+
+        NarutoGamabuchiSuccess = new PhraseClass(Naruto.Summon);
+        NarutoGamabuchiSuccess.PassiveLogRus.Add("Гамабучи: Он уже победил тебя в прошлый раз. Гамабунта, поможем Наруто!");
+
+        NarutoGamabuntaSuccess = new PhraseClass(Naruto.Summon);
+        NarutoGamabuntaSuccess.PassiveLogRus.Add("Гамабунта: Ладно. На этот раз я раздавлю его.");
 
         //not in the game
 

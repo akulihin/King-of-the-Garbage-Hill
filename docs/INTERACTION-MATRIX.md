@@ -1,6 +1,6 @@
 # Interaction Matrix — cross-character rules
 
-> Hand-maintained; verified 2026-07-11. **When adding/changing a character, add or update its row in every applicable table** — the M10–M12 bugs happened precisely at holes in these matrices. ⚠ = known hole (see AUDIT-FINDINGS). `CP` = CharacterPassives.cs, `CIR` = CheckIfReady.cs, `DM` = DoomsdayMachine.cs.
+> Hand-maintained; verified 2026-07-12. **When adding/changing a character, add or update its row in every applicable table** — the M10–M12 bugs happened precisely at holes in these matrices. ⚠ = known hole (see AUDIT-FINDINGS). `CP` = CharacterPassives.cs, `CIR` = CheckIfReady.cs, `DM` = DoomsdayMachine.cs.
 
 ## 1. Forced-fight sources × untargetable / no-fight states
 
@@ -16,6 +16,7 @@ Forced-fight sources: **Монстр** two-turn no-escape (`CP:1024-1031`; `CIR:
 | Ziggurat lock | position only — fights unaffected | position only | position only | n/a | n/a | position only — wave follows current board order | position only — side is captured from current order |
 | Premade Carry | n/a | n/a | n/a | n/a | anti-skip now exempts the round-10 Тигр ban (M10 fixed) | n/a | n/a |
 | Эрен: Атакующий Титан | no block remains to strip; forced target still resolves with +5 stats | forced target resolves with +5 stats | taunt target resolves with +5 stats | n/a | injection resolves each fight with +5 stats | wave branches resolve with +5 stats | every injected fight resolves with the per-fight +5 boost |
+| Наруто: active Гарем | if the forced queue reaches Harem, the marked player's entire valid queue is canceled | pull queue canceled in full | taunt queue canceled in full | self-auto queue canceled in full | contracts expand and are spent first, then the complete queue is canceled | a dynamically reached Harem cancels the current branch and every unresolved target; earlier fights stand | if the expanded side contains Harem, the whole fan-out is canceled (`Naruto.cs` `ResolveHaremQueues`/`TryCancelHaremFights`; `DM:381-388,490-516`) |
 | Мадара round 8 | targetable; own action is cleared after forced-action injection | targetable | targetable | own auto-action cleared | contract fights resolve normally | wave resolves normally | included if on the selected side | Correct locked predictions add another ordinary queued fight; Madara's action lock remains |
 | Мадара sealed | all queued targets sanitized | all queued targets sanitized | all queued targets sanitized | cannot act | pre-fight targets sanitized | ✓ excluded | ✓ excluded `DM:464` | `Madara.SanitizeSealedActions` runs after forced injections; direct targeting says `Игрок запечатан` |
 
@@ -23,25 +24,25 @@ Bot and auto-move action selection finalizes an existing Skip both on entry and 
 
 ## 2. Kill sources × immunities
 
-Kill sources: Кира's Тетрадь (`CP:3988-4066`), Кира's L-arrest (self-kill, `CP:4670-4711`), Кратос event kills (`CP:1655-1675, 2420-2436`), Монстр Пейзаж pawn deaths (`CP:4300-4333`), Геральт pitchfork displeasure (self, `CP:4483-4490`), Эрен's Rumbling (`CP:3484-3528`).
+Kill sources: Кира's Тетрадь (`CP:3988-4066`), Кира's L-arrest (self-kill, `CP:4670-4711`), Кратос event kills (`CP:1655-1675, 2420-2436`), Монстр Пейзаж pawn deaths (`CP:4300-4333`), Геральт pitchfork displeasure (self, `CP:4483-4490`), Эрен's Rumbling (`CP:3484-3528`), Naruto's round-10 Теневые dispersal (`Naruto.cs` `SettleShadowClones`).
 
-| Immunity ↓ / Source → | Тетрадь | Кратос kill | Пейзаж pawns | Rumbling | Notes |
-|---|---|---|---|---|---|
-| Стая Гоблинов ("нельзя убить") | ✓ `CP:4009` | ✓ `CP:1660` (+arrest `CP:4686`) | ✗ **die here — intended** (M12, ОК) | ✗ die `CP:3501-3512` | design: GameDesign.txt:509; Rumbling says all strictly-between players |
-| Глаз Шусуи (Итачи) | revives next round | revives next round | revives next round | revives next round | one-time, any source (`CP:5365-5374`) |
-| Боги мне не указ (Кратос) | ✓ revives +228 Skill | n/a | ✗ not covered (source ≠ "Kira") | ✗ not covered | source-check is `== "Kira"` only (`CP:5377-5386`) |
-| Воскрешенное тело (Мадара) | ✓ `CP:4287-4300` | ✓ `CP:1725-1734` | ✓ `CP:4583-4594` | ✓ `CP:3527-3541` | unconditional external-kill immunity; sealing is an unable-to-act state, not death |
-| Dead state effects | — | — | — | already dead excluded `CP:3506` | auto-block/ready, 0 ZBS, no mastery, excluded from forced pools (`CIR:1032-1037, 622-665`) |
+| Immunity ↓ / Source → | Тетрадь | Кратос kill | Пейзаж pawns | Rumbling | Теневые | Notes |
+|---|---|---|---|---|---|---|
+| Стая Гоблинов ("нельзя убить") | ✓ `CP:4009` | ✓ `CP:1660` (+arrest `CP:4686`) | ✗ **die here — intended** (M12, ОК) | ✗ die `CP:3501-3512` | n/a: source targets only the two Naruto clone seats | design: GameDesign.txt:509; Rumbling says all strictly-between players |
+| Глаз Шусуи (Итачи) | revives next round | revives next round | revives next round | revives next round | n/a: clones have fresh Naruto-only passives | one-time, any source (`CP:5365-5374`) |
+| Боги мне не указ (Кратос) | ✓ revives +228 Skill | n/a | ✗ not covered (source ≠ "Kira") | ✗ not covered | n/a: clones have fresh Naruto-only passives | source-check is `== "Kira"` only (`CP:5377-5386`) |
+| Воскрешенное тело (Мадара) | ✓ `CP:4287-4300` | ✓ `CP:1725-1734` | ✓ `CP:4583-4594` | ✓ `CP:3527-3541` | n/a: clones have fresh Naruto-only passives | unconditional external-kill immunity; sealing is an unable-to-act state, not death |
+| Dead state effects | — | — | — | already dead excluded `CP:3506` | score is still transferred and clone is marked dispersed, but no second death/Монстр payout | auto-block/ready, 0 ZBS, no mastery, excluded from forced pools (`CIR:1032-1037, 622-665`; `Naruto.cs:333-364`) |
 
 ## 3. Position movers × position locks
 
-Movers (end-of-round order): Тигр-топ swap → Portal-Gun swap → HardKitty forced last → place assignment → **Ziggurat restore** → Storm-bite restore/swap → Quality Drop (`DM:1295-1499`). Mid-turn movers: AWDKA forced last (intended — M3, ОК) (`CIR:1112-1127`), HardKitty forced last (`CIR:1141-1151`), Шэн post-sort swap (`CP:6117-6142`).
+Movers (end-of-round order): Тигр-топ swap → Portal-Gun swap → HardKitty forced last → place assignment → **Ziggurat restore** → Storm-bite restore/swap → Quality Drop → post-sort effects → dispersed Naruto clones forced to the bottom (`DM:1295-1499,1877-1879`). Mid-turn movers: AWDKA forced last (intended — M3, ОК) (`CIR:1112-1127`), HardKitty forced last (`CIR:1141-1151`), Шэн post-sort swap (`CP:6117-6142`).
 
-| Lock ↓ / Mover → | Тигр-топ | Portal Gun | Quality Drop | Storm bite | Шэн | Овца forced-last |
-|---|---|---|---|---|---|---|
-| Ziggurat (`IsInZiggurat`) | ✓ blocked `DM:1313` | ✓ blocked `DM:1338` | ✓ can't drop onto/out `DM:1458-1469` | ✓ blocked `DM:1413,1438` | ✓ blocked `CP:6128` | n/a: Eren passives are not Standalone and name-gated |
-| HardKitty at place 6 | n/a | n/a | ✓ can't drop onto `DM:1465` | n/a | n/a | mutually exclusive in natural games `StartGameLogic.cs:245-250` |
-| Тигр ban (round 10) | ✓ swap suppressed `DM:1304-1306` | n/a | n/a | n/a | ✓ pull now respects the ban (M11 fixed, `CIR:1213`) | inactive after round 8 |
+| Lock ↓ / Mover → | Тигр-топ | Portal Gun | Quality Drop | Storm bite | Шэн | Овца forced-last | Теневые dispersal |
+|---|---|---|---|---|---|---|---|
+| Ziggurat (`IsInZiggurat`) | ✓ blocked `DM:1313` | ✓ blocked `DM:1338` | ✓ can't drop onto/out `DM:1458-1469` | ✓ blocked `DM:1413,1438` | ✓ blocked `CP:6128` | n/a: Eren passives are not Standalone and name-gated | only clone seats move; all four non-clones retain relative order but shift above them |
+| HardKitty at place 6 | n/a | n/a | ✓ can't drop onto `DM:1465` | n/a | n/a | mutually exclusive in natural games `StartGameLogic.cs:245-250` | clone-bottom invariant wins; HardKitty becomes one of places 1–4 |
+| Тигр ban (round 10) | ✓ swap suppressed `DM:1304-1306` | n/a | n/a | n/a | ✓ pull now respects the ban (M11 fixed, `CIR:1213`) | inactive after round 8 | clone-only move; banned Тигр remains above both clones |
 
 ## 4. Steal / copy / redirect chains
 
@@ -52,7 +53,7 @@ Movers (end-of-round order): Тигр-топ swap → Portal-Gun swap → HardKi
 | Цукуеми (Итачи) | copies round earnings, deducts at end | Октопус ink | victim pays once: the round-11 ink restore **skips** its debit for a victim under Цукуеми (Итачи deducts instead); both Итачи and Octopus still get their point (D11 fixed, `CP:4773-4790`) |
 | Цукуеми (Итачи) → Мадара | copies ordinary round earnings | Воскрешенное тело | score theft works normally; Madara receives the supplied personal reaction, labeled `Бог шиноби` so the hidden passive name is not leaked (`CP:4385-4397`; `CharactersPhrases.cs:352-359`) |
 | Октопус ink | fake-win now, restore at r11 | DeepList first-fight | suppressed until DeepList's scripted loss happens (`CP:6678-6685`) |
-| Kimiko Живое Оружие | **drains** attacker Justice | regular score | real transfer plus +1 regular point per Justice drained (`CP:802-815`) |
+| Kimiko Живое Оружие | **drains** attacker Justice | Расенган snapshot | real Justice is drained after the fight and pays +1 regular per point, but every joint Naruto's fight Justice comes from the once-per-calculation pre-fight snapshot; the persistent drain remains (`Naruto.cs` `SnapshotJustice`; `CP:853-875,1084-1087`) |
 | Близнец (Монстр) | **copies** the highest attacker Justice on block + equal total bonus | generic block Justice | attacker keeps Justice; Monster gets no normal +1; multiple attackers use max, not sum (`CP:936-960`; `DM:564-568`) |
 | Вампуризм | **copies** victim Justice (intended — D6) | Падальщик | +1 extra from the ignored point (`CP:1842-1846`) |
 | Premade | **copies** Carry fight-moral (intended — D9) | — | `CP:2366-2369` |
@@ -62,8 +63,10 @@ Movers (end-of-round order): Тигр-топ swap → Portal-Gun swap → HardKi
 | Щит-акула (DooM Guy) | temporarily adds Братишка's `Ничего не понимает` instead of resolving a submitted block | defensive passive dispatch/state | DooM Guy accepts incoming fights for that round; attackers use Int 0 and each unique attacker loses 1 persistent Int on first contact, using DooM Guy's own `SharkBoole` state; only the temporary passive is removed at round end (`DoomGuy.cs` `PrepareSharkShield`; `CP:503-513,3667-3680`) |
 | Приручить дракона (DooM Guy) | permanently adds hidden `Дракон` and changes Geralt's monster classification to Драконы when the Gun module is selected | Sirinoks transformation + passive-name interactions | the shared round-10 `Дракон` dispatcher supplies stats/score; Geralt contracts/oils/threat text, DragonSlayer and the web dragon state all see DooM Guy as a dragon (`DoomGuy.cs` `ApplySelectedModule`; `CP:1204-1217,5767-5797`) |
 | Eren passive copy | Eren's four passives are non-Standalone; Chainsaw may still offer one | DooM Guy Chainsaw | all four cases are `Name == "Эрен Йегер"` gated, so a Chainsaw copy is inert |
+| Naruto passive copy | Naruto's four passives are non-Standalone; Chainsaw may still offer one | Ziggurat / DooM Guy Chainsaw / ARAM | Ziggurat cannot learn them and ARAM excludes the whole Naruto definition; all central/dispatch hooks require a real initialized `Name == "Наруто"`, so a Chainsaw copy is inert (`characters.json:1455-1479`; `CharactersPull.cs:60-72`; `Naruto.cs:31-46`; `CP:1084-1105,3721-3724`) |
+| Теневые score transfer | drains two clone pots into original | Rumbling / Подсчет / Цукуеми / Монстр | runs after Rumbling; each pot is committed score + pending regular at the clone's actual multiplier, then is added directly to the original and removed from current-round earnings, so Цукуеми cannot copy/deduct it; only newly dead clones pay Монстр (`Naruto.cs` `SettleShadowClones`; `InGameStatusClass.cs:246-290`; `DM:1508-1510`) |
 | Rick Most wanted | redirects random marks to Rick | Спартанец marks, L, Сверхразум, Комментатор, hunts, tea odds | `CP:118-128, 233-236, 3780-3783, 5175-5181, 3511-3515, 1088-1094, 5036-5038`; hunters follow portal swaps `CP:2069-2084` |
-| Portal Gun swap | swaps positions + remaining attackers mid-round | Тetradь targets etc. | attacker lists rewritten `CP:2060-2067` |
+| Portal Gun swap | swaps positions + remaining attackers mid-round | Тetradь targets / Naruto siblings etc. | attacker lists are rewritten, then any newly produced Naruto-to-sibling targets are immediately removed (`CP:2235-2255`; `Naruto.cs` `SanitizeMutualTargets`) |
 
 ## 5. Moral / psyche / Harm interceptors (checked inside `AddMoral` / `MinusPsycheLog` / `LowerQualityResist`)
 
@@ -102,6 +105,7 @@ Copy rule: random Standalone passive from the **last attacked** enemy, no duplic
 | Лысина / Первая кровь / Похищение души | dead copies (game-start-only hooks) |
 | Ведьмачьи заказы | dead copy (all hooks gated `Name == "Геральт"`) |
 | Madara's first four passives | dead copies: every mechanic is gated by `Name == "Мадара"`; none is `Standalone`, and Chainsaw cannot offer the fifth hidden passive (`Madara.cs:34-45`; `DoomGuy.cs:198-225`) |
+| Naruto's four passives | excluded: all are `Standalone: false`; ARAM also excludes Naruto's entire passive set. A Chainsaw copy can be offered but remains inert because every path is name/initialized-trio gated (`characters.json:1455-1479`; `CharactersPull.cs:60-72`; `Naruto.cs:31-46`) |
 
 ## 7. Same-target stacking notes
 

@@ -278,8 +278,11 @@ public class CheckIfReady : IServiceSingleton
         game.IsCheckIfReady = false;
 
         // Геральт — pitchfork death: if Geralt finishes last
-        var geraltLast = game.PlayersList.Find(x =>
-            x.GameCharacter.Name == "Геральт" && x.Status.GetPlaceAtLeaderBoard() == 6);
+        var lastAlivePlayer = game.PlayersList
+            .Where(x => !x.Passives.IsDead)
+            .OrderByDescending(x => x.Status.GetPlaceAtLeaderBoard())
+            .FirstOrDefault();
+        var geraltLast = lastAlivePlayer?.GameCharacter.Name == "Геральт" ? lastAlivePlayer : null;
         if (geraltLast != null)
         {
             game.AddGlobalLogs("Крестьяне с вилами настигли Ведьмака... Работа неблагодарная.");
@@ -306,10 +309,13 @@ public class CheckIfReady : IServiceSingleton
             foreach (var player in from player in game.PlayersList
                      where !player.GameCharacter.Passive.Any(p => p.PassiveName == "Тетрадь смерти")
                      where !player.GameCharacter.DoomRollMode
+                     where !Naruto.IsDispersedClone(player)
                      from predict in player.Predict
                      let enemy = game.PlayersList.Find(x => x.GetPlayerId() == predict.PlayerId)
-                     where enemy!.GameCharacter.Name == predict.CharacterName
+                     where enemy != null
+                     where enemy.GameCharacter.Name == predict.CharacterName
                      where !enemy.GameCharacter.Passive.Any(p => p.PassiveName == "Выдуманный персонаж")
+                     where Naruto.PredictionAwardsPoints(player, enemy)
                      select player)
             {
                 var predBonus = player.GameCharacter.Passive.Any(p => p.PassiveName == "Великий летописец") ? 2 : 1;
@@ -331,7 +337,8 @@ public class CheckIfReady : IServiceSingleton
                 {
                     var enemy = game.PlayersList.Find(x => x.GetPlayerId() == predict.PlayerId);
                     if (enemy != null && enemy.GameCharacter.Name == predict.CharacterName
-                        && !enemy.GameCharacter.Passive.Any(p => p.PassiveName == "Выдуманный персонаж"))
+                        && !enemy.GameCharacter.Passive.Any(p => p.PassiveName == "Выдуманный персонаж")
+                        && Naruto.PredictionAwardsPoints(boysPlayer, enemy))
                         correctPredictions++;
                 }
 
@@ -393,7 +400,7 @@ public class CheckIfReady : IServiceSingleton
         // end Tsukuyomi
 
         //sort
-        game.PlayersList = game.PlayersList.OrderByDescending(x => x.Status.GetScore()).ToList();
+        game.PlayersList = Naruto.OrderLeaderboard(game.PlayersList);
         for (var k = 0; k < game.PlayersList.Count; k++)
             game.PlayersList[k].Status.SetPlaceAtLeaderBoard(k + 1);
         //end sorting
@@ -466,7 +473,7 @@ public class CheckIfReady : IServiceSingleton
                 }
 
                 //sort
-                game.PlayersList = game.PlayersList.OrderByDescending(x => x.Status.GetScore()).ToList();
+                game.PlayersList = Naruto.OrderLeaderboard(game.PlayersList);
                 for (var k = 0; k < game.PlayersList.Count; k++)
                     game.PlayersList[k].Status.SetPlaceAtLeaderBoard(k + 1);
                 //end sorting
@@ -504,7 +511,7 @@ public class CheckIfReady : IServiceSingleton
                 {
                     var diff = carryPlayer.Status.GetScore() - supportPlayer.Status.GetScore() + 1;
                     supportPlayer.Status.AddBonusPoints(diff, "Premade");
-                    game.PlayersList = game.PlayersList.OrderByDescending(x => x.Status.GetScore()).ToList();
+                    game.PlayersList = Naruto.OrderLeaderboard(game.PlayersList);
                     for (var k = 0; k < game.PlayersList.Count; k++)
                         game.PlayersList[k].Status.SetPlaceAtLeaderBoard(k + 1);
                     game.AddGlobalLogs("Суппорт и Carry оба в топ 2! Суппорт засчитан как победитель.");
@@ -524,7 +531,7 @@ public class CheckIfReady : IServiceSingleton
             var diffGob = topScoreGob - goblinZigWinner.Status.GetScore() + 1;
             if (diffGob > 0)
                 goblinZigWinner.Status.AddBonusPoints(diffGob, "Гоблины тупые, но не идиоты");
-            game.PlayersList = game.PlayersList.OrderByDescending(x => x.Status.GetScore()).ToList();
+            game.PlayersList = Naruto.OrderLeaderboard(game.PlayersList);
             for (var k = 0; k < game.PlayersList.Count; k++)
                 game.PlayersList[k].Status.SetPlaceAtLeaderBoard(k + 1);
             game.AddGlobalLogs($"Гоблины построили Зиккурат на вершине! {goblinZigWinner.DiscordUsername} побеждает!");
@@ -618,11 +625,13 @@ public class CheckIfReady : IServiceSingleton
         else
         {
             game.AddGlobalLogs(
-                game.PlayersList.FindAll(x => x.Status.GetScore() == playerWhoWon.Status.GetScore()).Count > 1
+                game.PlayersList.FindAll(x => !x.Passives.IsDead
+                    && x.Status.GetScore() == playerWhoWon.Status.GetScore()).Count > 1
                     ? "\n**Ничья**"
                     : $"\n**{playerWhoWon.DiscordUsername}** победил, играя за **{playerWhoWon.GameCharacter.Name}**");
             if (!playerWhoWon.IsBot() && !playerWhoWon.IsWebPlayer && !playerWhoWon.PreferWeb)
-                if (game.PlayersList.FindAll(x => x.Status.GetScore() == playerWhoWon.Status.GetScore())
+                if (game.PlayersList.FindAll(x => !x.Passives.IsDead
+                        && x.Status.GetScore() == playerWhoWon.Status.GetScore())
                         .Count == 1)
                 {
 #pragma warning disable CS4014
@@ -1427,6 +1436,7 @@ public class CheckIfReady : IServiceSingleton
                     Madara.SetUnableToAct(madara);
                 }
                 Madara.SanitizeSealedActions(game);
+                Naruto.SanitizeMutualTargets(game);
 
                 //delete messages from prev round. No await.
                 foreach (var player in game.PlayersList)

@@ -45,6 +45,8 @@ export type Player = {
   isBot: boolean
   isWebPlayer: boolean
   teamId: number
+  /** Whether this player is another member of the viewing Naruto's initialized trio. */
+  isNarutoAlly: boolean
   /** Whether this player is dead (killed by any mechanic). */
   isDead: boolean
   /** Who/what killed this player ("Kratos", "Kira", "Monster", etc.). Empty if alive. */

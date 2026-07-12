@@ -35,6 +35,15 @@ public class StartGameLogic : IServiceSingleton
         return Task.CompletedTask;
     }
 
+    private static bool CanNaturallyRollNaruto(DiscordAccountClass assignee, int strictBotCount, int team)
+    {
+        if (team > 0) return false;
+
+        // A human can be the original while two bots become clones. If the original
+        // is itself a bot, it must be a third bot so two other bot slots remain.
+        return Naruto.CanUseRoster(strictBotCount, assignee.PlayerType == 404);
+    }
+
 
     public int GetRangeFromTier(int tier)
     {
@@ -68,8 +77,10 @@ public class StartGameLogic : IServiceSingleton
 
         if (team > 0)
         {
-            allCharacters2 = allCharacters2.Where(x => x.Name != "HardKitty").ToList();
-            allCharacters = allCharacters.Where(x => x.Name != "HardKitty").ToList();
+            allCharacters2 = allCharacters2
+                .Where(x => x.Name != "HardKitty" && x.Name != Naruto.CharacterName).ToList();
+            allCharacters = allCharacters
+                .Where(x => x.Name != "HardKitty" && x.Name != Naruto.CharacterName).ToList();
         }
         else
         {
@@ -80,6 +91,9 @@ public class StartGameLogic : IServiceSingleton
         var reservedCharacters = new List<CharacterClass>();
         var playersList = new List<GamePlayerBridgeClass>();
 
+
+        var strictBotCount = players.Count(player =>
+            player == null || _accounts.GetAccount(player).PlayerType == 404);
 
         players = SecureRandom.Shuffle(players);   // single game RNG (seeded-sim deterministic)
 
@@ -190,6 +204,10 @@ public class StartGameLogic : IServiceSingleton
 
             foreach (var character in allCharacters.Where(x => x.Name != account.CharacterPlayedLastTime).ToList())
             {
+                if (character.Name == Naruto.CharacterName
+                    && !CanNaturallyRollNaruto(account, strictBotCount, team))
+                    continue;
+
                 // The newcomer roll is an exact 30% branch. Do not leave DooM Guy in the
                 // weighted fallback pool when that branch misses, or the real chance exceeds 30%.
                 if (newcomerDoomEligible && character.Name == DoomGuy.CharacterName) continue;
@@ -287,12 +305,19 @@ public class StartGameLogic : IServiceSingleton
         return playersList;
     }
 
-    public List<CharacterClass> RollDraftOptions(DiscordAccountClass account, List<CharacterClass> excludedCharacters, int count = 3)
+    public List<CharacterClass> RollDraftOptions(DiscordAccountClass account,
+        List<CharacterClass> excludedCharacters, int strictBotCount, int count = 3,
+        bool isTeamMode = false)
     {
         var allCharacters = _charactersPull.GetRollableCharacters();
 
         // Remove team-mode-only characters for non-team games
         allCharacters = allCharacters.Where(x => !x.TeamModeOnly).ToList();
+
+        // Draft alternatives are rolled for humans, so two strict bot slots are
+        // sufficient. Naruto is never a natural team-mode option.
+        if (strictBotCount < 2 || isTeamMode)
+            allCharacters.RemoveAll(x => x.Name == Naruto.CharacterName);
 
         // Remove already-assigned characters
         foreach (var excluded in excludedCharacters)

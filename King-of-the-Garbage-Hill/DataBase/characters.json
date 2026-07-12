@@ -1446,6 +1446,43 @@
     "Tier": 6
   },
   {
+    "Name": "Наруто",
+    "Intelligence": 3,
+    "Psyche": 5,
+    "Speed": 4,
+    "Strength": 3,
+    "Avatar": "https://r2.ozvmusic.com/kotgh/art/avatars/naruto.png",
+    "Passive": [
+      {
+        "PassiveName": "Гарем но джутсу",
+        "PassiveDescription": "Вместо блока Наруто превращается в фансервис. Враги, напавшие в этот ход, пропустят все свои бои. Наруто получит очко за каждый пропущенный бой.",
+        "Visible": true,
+        "Standalone": false
+      },
+      {
+        "PassiveName": "Теневые",
+        "PassiveDescription": "Два клона Наруто замаскеровались под ботов и действуют самостоятельно. Наруто не могут нападать друг на друга. В конце игры клоны рассеиваются, передавая накопленные очки оригиналу.",
+        "Visible": true,
+        "Standalone": false
+      },
+      {
+        "PassiveName": "Расенган",
+        "PassiveDescription": "Если два Наруто одновременно напали на одну цель, совместный расенган суммирует их справедливость и дает + 2 силы каждому в этом бою.\nА если объединились все трое, то рассен-шурикен суммирует справедливость и дает +3 всех статов каждому.",
+        "Visible": true,
+        "Standalone": false
+      },
+      {
+        "PassiveName": "Призыв",
+        "PassiveDescription": "Если Наруто нападает один, он призывает на помощь мощного союзника.",
+        "Visible": true,
+        "Standalone": false
+      }
+    ],
+    "Description": "Наруто",
+    "StoryAgent": "",
+    "Tier": 5
+  },
+  {
     "Name": "Мадара",
     "Intelligence": 7,
     "Psyche": 9,

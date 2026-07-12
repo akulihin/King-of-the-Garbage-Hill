@@ -71,9 +71,51 @@ public class CharacterPassives : IServiceSingleton
             eren.FightCharacter.GetPsyche() + 5, ErenYeager.AttackTitan);
     }
 
+    private static void ApplyRasenganBoost(
+        GamePlayerBridgeClass naruto,
+        GamePlayerBridgeClass target,
+        GameClass game)
+    {
+        var jointAttackers = Naruto.GetJointAttackers(game, target, naruto);
+        if (jointAttackers.Count < 2) return;
+
+        var justice = jointAttackers.Sum(player => player.Passives.Naruto.JusticeSnapshot);
+        naruto.FightCharacter.Justice.SetJusticeForOneFight(justice, Naruto.Rasengan);
+        if (jointAttackers.Count == 2)
+        {
+            naruto.FightCharacter.SetStrengthForOneFight(
+                naruto.FightCharacter.GetStrength() + 2, Naruto.Rasengan);
+            naruto.Status.AddInGamePersonalLogs(PhrasePayload.Encode(
+                Naruto.Rasengan,
+                $"Совместный Расенган: Справедливость {justice}, +2 Силы.",
+                "Rasengan",
+                $"Combined Rasengan: {justice} Justice, +2 Strength.") + "\n");
+            return;
+        }
+
+        naruto.FightCharacter.SetIntelligenceForOneFight(
+            naruto.FightCharacter.GetIntelligence() + 3, Naruto.Rasengan);
+        naruto.FightCharacter.SetStrengthForOneFight(
+            naruto.FightCharacter.GetStrength() + 3, Naruto.Rasengan);
+        naruto.FightCharacter.SetSpeedForOneFight(
+            naruto.FightCharacter.GetSpeed() + 3, Naruto.Rasengan);
+        naruto.FightCharacter.SetPsycheForOneFight(
+            naruto.FightCharacter.GetPsyche() + 3, Naruto.Rasengan);
+        naruto.Status.AddInGamePersonalLogs(PhrasePayload.Encode(
+            Naruto.Rasengan,
+            $"Рассен-шурикен: Справедливость {justice}, +3 всех статов.",
+            "Rasengan",
+            $"Rasen Shuriken: {justice} Justice, +3 to every stat.") + "\n");
+    }
+
 
     public List<GamePlayerBridgeClass> HandleEventsBeforeFirstRound(List<GamePlayerBridgeClass> playersList)
     {
+        Naruto.InitializeTeam(playersList, () =>
+            _charactersPull.GetAllCharactersNoFilter().Find(character =>
+                character.Name == Naruto.CharacterName)
+            ?? throw new InvalidOperationException("Наруто is missing from characters.json."));
+
         foreach (var player in playersList.ToList())
         foreach (var passive in player.GameCharacter.Passive.ToList())
             switch (passive.PassiveName)
@@ -1039,6 +1081,29 @@ public class CharacterPassives : IServiceSingleton
         foreach (var passive in me.GameCharacter.Passive.ToList())
             switch (passive.PassiveName)
             {
+                case Naruto.Rasengan:
+                    if (me.GameCharacter.Name == Naruto.CharacterName)
+                        ApplyRasenganBoost(me, target, game);
+                    break;
+
+                case Naruto.Summon:
+                    if (me.GameCharacter.Name != Naruto.CharacterName) break;
+                    me.Passives.Naruto.SummonAutoWinTarget = Guid.Empty;
+                    if (!Naruto.IsSoloAttack(game, me, target)) break;
+
+                    if (Naruto.WonPoweredFightLastRound(me, target, game))
+                    {
+                        me.Passives.Naruto.SummonAutoWinTarget = target.GetPlayerId();
+                        target.Status.IsAbleToWin = false;
+                        game.Phrases.NarutoGamabuchiSuccess.SendLog(me, false, isRandomOrder: false);
+                        game.Phrases.NarutoGamabuntaSuccess.SendLog(me, false, isRandomOrder: false);
+                    }
+                    else
+                    {
+                        game.Phrases.NarutoGamabuntaRefusal.SendLog(me, false);
+                    }
+                    break;
+
                 case "Монстр":
                     // The attack itself marks the target, even when Block/Skip prevents a fight.
                     // An absolute expiry lets different victims keep independent overlapping windows.
@@ -2185,6 +2250,8 @@ public class CharacterPassives : IServiceSingleton
                             game.Phrases.RickMostWantedPortalFollow.SendLog(me, false);
                         }
 
+                        Naruto.SanitizeMutualTargets(game);
+
                         game.Phrases.RickPortalGunFired.SendLog(me, false);
                     }
                     break;
@@ -2537,6 +2604,11 @@ public class CharacterPassives : IServiceSingleton
         foreach (var passive in player.GameCharacter.Passive.ToList())
             switch (passive.PassiveName)
             {
+                case Naruto.Summon:
+                    if (player.GameCharacter.Name == Naruto.CharacterName && attack)
+                        player.Passives.Naruto.SummonAutoWinTarget = Guid.Empty;
+                    break;
+
                 case ErenYeager.Fighter:
                 {
                     if (player.GameCharacter.Name != ErenYeager.CharacterName) break;
@@ -3646,6 +3718,11 @@ public class CharacterPassives : IServiceSingleton
         foreach (var passive in player.GameCharacter.Passive.ToList())
             switch (passive.PassiveName)
             {
+                case Naruto.HaremJutsu:
+                    if (player.GameCharacter.Name == Naruto.CharacterName)
+                        player.Passives.Naruto.HaremActiveThisRound = false;
+                    break;
+
                 case ErenYeager.Fighter:
                     if (player.GameCharacter.Name == ErenYeager.CharacterName)
                         player.Passives.Eren.MutualAttackRewardsThisRound.Clear();
@@ -4368,6 +4445,18 @@ public class CharacterPassives : IServiceSingleton
                         var dnTarget = game.PlayersList.Find(x => x.GetPlayerId() == deathNote.CurrentRoundTarget);
                         if (dnTarget != null)
                         {
+                            if (dnTarget.Passives.IsDead)
+                            {
+                                player.Status.AddInGamePersonalLogs(PhrasePayload.Encode(
+                                    "Тетрадь смерти",
+                                    "Цель уже мертва. Тетрадь не может убить её повторно.",
+                                    "Death Note",
+                                    "The target is already dead. The notebook cannot kill them twice.") + "\n");
+                                deathNote.CurrentRoundTarget = Guid.Empty;
+                                deathNote.CurrentRoundName = "";
+                                break;
+                            }
+
                             // 15% chance Kira writes on glass instead of the Death Note
                             if (_rand.Luck(15))
                             {

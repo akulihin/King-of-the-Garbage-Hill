@@ -67,6 +67,9 @@ public class PlayerDto
     public bool IsWebPlayer { get; set; }
     public int TeamId { get; set; }
 
+    /// <summary>Whether this player is another member of the viewing Naruto's initialized trio.</summary>
+    public bool IsNarutoAlly { get; set; }
+
     // Character info
     public CharacterDto Character { get; set; }
 
