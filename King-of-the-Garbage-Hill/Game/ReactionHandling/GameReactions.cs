@@ -1357,6 +1357,9 @@ public sealed class GameReaction : IServiceSingleton
                     player.Status.IsReady = true;
                     player.Status.WhoToAttackThisTurn = new List<Guid>();
                     game.Phrases.DarksciFuckThisGame.SendLog(player, true);
+
+                    if (game.RoundNo == 9 && !game.GetAllGlobalLogs().Contains("Нахуй эту игру"))
+                        game.AddGlobalLogs($"{player.DiscordUsername}: Нахуй эту игру..");
                 }
             //end Да всё нахуй эту игру: Part #2
         }

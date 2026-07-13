@@ -6622,13 +6622,6 @@ public class CharacterPassives : IServiceSingleton
                            ||
                            []
                     */
-                    //Да всё нахуй эту игру (3, 6 and 9 are in LVL up): Part #3
-                    if (game.RoundNo == 9 && player.GameCharacter.GetPsyche() < 4)
-                        if (!game.GetAllGlobalLogs().Contains("Нахуй эту игру"))
-                            game.AddGlobalLogs($"{player.DiscordUsername}: Нахуй эту игру..");
-
-
-                    //end Да всё нахуй эту игру: Part #3
                     //Да всё нахуй эту игру (3, 6 and 9 are in LVL up): Part #1
                     if (game.RoundNo != 9 && game.RoundNo != 7 && game.RoundNo != 5 && game.RoundNo != 3)
                         if (player.GameCharacter.GetPsyche() <= 0)
