@@ -44,6 +44,16 @@
 | Mastery payout | 10/7/5/3/2/1 by place (alive only) | CIR:618-624 |
 | Loot-box inventory award | reward-place top-2 and alive (Sakura top-3 soft win uses reward place 1) | CIR:648-651,730-732 |
 
+## Character store economy
+
+The multiplier changes a character's relative roll weight, not a standalone final probability; tier weights, pity, roster exclusions and the other eligible characters still apply.
+
+| Constant | Value | Anchor |
+|---|---|---|
+| Roll-weight bounds / step | ×0.50–×2.00; ±0.01 per purchased percentage point | `WebGameService.cs:1225-1227,1283-1292`; Discord guards `StoreReactions.cs:217-340` |
+| Step price | step N costs 10 + all prior purchased steps ZBS; 10-step action sums ten sequential prices | `WebGameService.cs:1430-1434`; Discord `_basePrice` `StoreReactions.cs:20` |
+| Refund | free; returns the exact arithmetic-series cost of every purchased step and restores ×1.00 | `WebGameService.cs:1319-1391,1437-1441`; Discord `StoreReactions.cs:416-515` |
+
 ## Generated story
 
 | Constant | Value | Anchor |

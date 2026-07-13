@@ -752,6 +752,28 @@ export type DoomFortressStage = {
   currentDropChance: number
 }
 
+// ── Character Store Types ─────────────────────────────────────────
+
+export type StoreState = {
+  zbsPoints: number
+  basePrice: number
+  minMultiplier: number
+  maxMultiplier: number
+  totalInvestedZbs: number
+  characters: StoreCharacter[]
+}
+
+export type StoreCharacter = {
+  name: string
+  avatar: string
+  tier: number
+  multiplier: number
+  changes: number
+  costOne: number
+  costTen: number
+  refundZbs: number
+}
+
 // ── Achievement Types ────────────────────────────────────────────────
 
 export type AchievementBoard = {
@@ -1122,6 +1144,7 @@ class SignalRService {
   onQuestState: ((state: QuestState) => void) | null = null
   onLootBoxOpened: ((result: LootBoxResult) => void) | null = null
   onAchievementBoard: ((board: AchievementBoard) => void) | null = null
+  onStoreState: ((state: StoreState) => void) | null = null
   onCharacterList: ((list: CharacterListEntry[]) => void) | null = null
   onDoomFortressState: ((state: DoomFortressState) => void) | null = null
   onBattleshipLobby: ((state: BattleshipLobbyState) => void) | null = null
@@ -1228,6 +1251,10 @@ class SignalRService {
 
     this.connection.on('AchievementBoard', (board: AchievementBoard) => {
       this.onAchievementBoard?.(board)
+    })
+
+    this.connection.on('StoreState', (state: StoreState) => {
+      this.onStoreState?.(state)
     })
 
     this.connection.on('CharacterList', (list: CharacterListEntry[]) => {
@@ -1557,6 +1584,22 @@ class SignalRService {
 
   async acknowledgeAchievements(achievementIds: string[]): Promise<void> {
     await this.requireConnected().invoke('AcknowledgeAchievements', achievementIds)
+  }
+
+  async requestStore(): Promise<void> {
+    await this.requireConnected().invoke('RequestStore')
+  }
+
+  async adjustStoreCharacter(characterName: string, percentagePoints: number): Promise<void> {
+    await this.requireConnected().invoke('AdjustStoreCharacter', characterName, percentagePoints)
+  }
+
+  async resetStoreCharacter(characterName: string): Promise<void> {
+    await this.requireConnected().invoke('ResetStoreCharacter', characterName)
+  }
+
+  async resetStoreAllCharacters(): Promise<void> {
+    await this.requireConnected().invoke('ResetStoreAllCharacters')
   }
 
   async requestDoomFortress(): Promise<void> {

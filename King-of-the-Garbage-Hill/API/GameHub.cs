@@ -576,6 +576,48 @@ public class GameHub : Hub
         Console.WriteLine($"[WebAPI] Player {discordId} set PreferWeb={preferWeb} in game {gameId}");
     }
 
+    // ── Character Store ──────────────────────────────────────────────
+
+    public async Task RequestStore()
+    {
+        var discordId = GetDiscordId();
+        if (discordId == 0) { await SendNotAuthenticated(); return; }
+
+        var (state, error) = _gameService.GetStoreState(discordId);
+        if (error != null) { await Clients.Caller.SendAsync("Error", error); return; }
+        await Clients.Caller.SendAsync("StoreState", state);
+    }
+
+    public async Task AdjustStoreCharacter(string characterName, int percentagePoints)
+    {
+        var discordId = GetDiscordId();
+        if (discordId == 0) throw new HubException("Not authenticated.");
+
+        var (state, error) = _gameService.AdjustStoreCharacter(discordId, characterName, percentagePoints);
+        if (error != null) throw new HubException(error);
+        await Clients.Caller.SendAsync("StoreState", state);
+    }
+
+    public async Task ResetStoreCharacter(string characterName)
+    {
+        var discordId = GetDiscordId();
+        if (discordId == 0) throw new HubException("Not authenticated.");
+
+        var (state, error) = _gameService.ResetStoreCharacter(discordId, characterName);
+        if (error != null) throw new HubException(error);
+        await Clients.Caller.SendAsync("StoreState", state);
+    }
+
+    public async Task ResetStoreAllCharacters()
+    {
+        var discordId = GetDiscordId();
+        if (discordId == 0) throw new HubException("Not authenticated.");
+
+        var (state, error) = _gameService.ResetStoreAllCharacters(discordId);
+        if (error != null) throw new HubException(error);
+        await Clients.Caller.SendAsync("StoreState", state);
+    }
+
     // ── Quests ─────────────────────────────────────────────────────────
 
     public async Task RequestDoomFortress()

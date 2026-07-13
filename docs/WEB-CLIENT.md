@@ -1,6 +1,6 @@
 # King of the Garbage Hill — Web Client (Vue 3 SPA)
 
-> Code-verified against the working tree of 2026-07-11 (v4.3.8). Companion docs: [WEB-BACKEND.md](WEB-BACKEND.md) (the server this SPA talks to), [ARCHITECTURE.md](ARCHITECTURE.md) (§6 state→screen, §7 the per-character 14-file pattern — steps 13-14 land here), [DISCORD-INTERFACE.md](DISCORD-INTERFACE.md), and [DAILY-QUESTS.md](DAILY-QUESTS.md). Client root: `Web/VueClient/`. All anchors below are into `Web/VueClient/src/` unless the file name says otherwise.
+> Code-verified against the working tree of 2026-07-12 (v4.3.36). Companion docs: [WEB-BACKEND.md](WEB-BACKEND.md) (the server this SPA talks to), [ARCHITECTURE.md](ARCHITECTURE.md) (§6 state→screen, §7 the per-character 14-file pattern — steps 13-14 land here), [DISCORD-INTERFACE.md](DISCORD-INTERFACE.md), and [DAILY-QUESTS.md](DAILY-QUESTS.md). Client root: `Web/VueClient/`. All anchors below are into `Web/VueClient/src/` unless the file name says otherwise.
 
 ## 1. Stack & build
 
@@ -16,26 +16,28 @@ Entry `main.ts:1-12`: createApp + createPinia + router + assets/main.css. `App.v
 
 - **Login gate**: until authenticated, renders `LoginProcess` (`App.vue:134-141`), then a `LoginSuccess` splash (`App.vue:143-150`), then top bar + RouterView (`App.vue:152-207`).
 - **Auto-login on mount** (`App.vue:44-60`): web account from localStorage `kotgh_web_id` + `kotgh_web_username` first (`App.vue:50-55`), else Discord `discordId` (`App.vue:56-59`).
-- **Top bar** (`App.vue:202-231`): nav Lobby / `Морской Бой - minigame` / Home / localized Achievements (`App.vue:208-213`), connection dot bound to `store.isConnected` (`App.vue:216-220`), user label, Logout (clears all three localStorage keys, `App.vue:150-155`), theme dropdown (`App.vue:224-231`).
+- **Top bar** (`App.vue:202-233`): nav Lobby / `Морской Бой - minigame` / Home / `Крепость Рока` / localized Store / localized Achievements (`App.vue:209-216`), connection dot bound to `store.isConnected` (`App.vue:219-222`), user label, Logout (clears all three localStorage keys, `App.vue:150-155`), theme dropdown (`App.vue:226-233`).
 - **Themes**: dark by default; five alternates applied as a `data-theme` attribute persisted in localStorage `kotgh_theme` (`App.vue:31-42`) — blood, neon, forest, dark-light, siri, defined in assets/base.css; `App.vue:215-273` maps the palette onto semantic vars (--bg-*, --text-*, --accent-gold, glows, easing).
 - **Error toast** bound to `store.errorMessage` (`App.vue:188-193`).
 - **Game version corner label** (`App.vue:196`, computed `App.vue:19-24`): faint fixed bottom-right `v4.1.8`-style label on game/spectate/replay routes only, stripped from `gameState.gameVersion` (`Версия: X` → `vX`); replays show the version recorded in the replay file, `pointer-events: none`, hidden while `gameState` is null.
 
-Routes (`router.ts:16-80`, history mode `router.ts:82-85` — needs the backend SPA fallback, WEB-BACKEND.md §1):
+Routes (`router.ts:18-92`, history mode `router.ts:94-97` — needs the backend SPA fallback, WEB-BACKEND.md §1):
 
 | Path | Name | Page | Purpose | Anchor |
 |---|---|---|---|---|
-| `/` and `/game` | — | redirect → /games | | `router.ts:16-23` |
-| `/games` | lobby | pages/Lobby.vue | game list, Daily Quest board, reward hub/loot, replays | `router.ts:24-28` |
-| `/game/:gameId` | game | pages/Game.vue | the in-game view | `router.ts:29-34` |
-| `/spectate/:gameId` | spectate | pages/Spectate.vue | read-only live view | `router.ts:35-40` |
-| `/replay/:gameId` | replay | pages/Replay.vue | REST-loaded replay browser | `router.ts:41-46` |
-| `/home` | home | pages/Home.vue | account profile/patch mocks + live Fortress of Doom loadout | `router.ts:47-51` |
-| `/achievements` | achievements | pages/Achievements.vue | dedicated searchable/filterable achievement center | `router.ts:53-57`; `Achievements.vue:1-22` |
-| `/widget` | widget | pages/Widget.vue | Discord OAuth widget sync (§13 in WEB-BACKEND §12 chain) | `router.ts:58-62` |
-| `/battleship` | battleship | pages/BattleshipLobby.vue | minigame lobby | `router.ts:63-67` |
-| `/battleship/:gameId` | battleshipGame | pages/BattleshipGame.vue | minigame board | `router.ts:68-73` |
-| `/battleship/spectate/:gameId` | battleshipSpectate | pages/BattleshipSpectate.vue | minigame spectate | `router.ts:74-79` |
+| `/` and `/game` | — | redirect → /games | | `router.ts:17-25` |
+| `/games` | lobby | pages/Lobby.vue | game list, Daily Quest board, reward hub/loot, replays | `router.ts:26-30` |
+| `/game/:gameId` | game | pages/Game.vue | the in-game view | `router.ts:31-36` |
+| `/spectate/:gameId` | spectate | pages/Spectate.vue | read-only live view | `router.ts:37-42` |
+| `/replay/:gameId` | replay | pages/Replay.vue | REST-loaded replay browser | `router.ts:43-48` |
+| `/home` | home | pages/Home.vue | account profile and patch-note mocks | `router.ts:49-53` |
+| `/fortress-of-doom` | fortressOfDoom | pages/FortressOfDoom.vue | live Fortress of Doom account loadout | `router.ts:54-58` |
+| `/store` | store | pages/Store.vue | account roll-weight storefront | `router.ts:60-64`; `Store.vue:1-352` |
+| `/achievements` | achievements | pages/Achievements.vue | dedicated searchable/filterable achievement center | `router.ts:65-69`; `Achievements.vue:1-22` |
+| `/widget` | widget | pages/Widget.vue | Discord OAuth widget sync (§13 in WEB-BACKEND §12 chain) | `router.ts:70-74` |
+| `/battleship` | battleship | pages/BattleshipLobby.vue | minigame lobby | `router.ts:75-79` |
+| `/battleship/:gameId` | battleshipGame | pages/BattleshipGame.vue | minigame board | `router.ts:80-85` |
+| `/battleship/spectate/:gameId` | battleshipSpectate | pages/BattleshipSpectate.vue | minigame spectate | `router.ts:86-91` |
 
 ## 3. Identity & session (client side)
 
@@ -46,8 +48,8 @@ Two login paths in `LoginProcess.vue`: a numeric **Discord User ID** input valid
 Singleton `signalrService` (`signalr.ts:1644`); hub URL from VITE_SIGNALR_HUB, default /gamehub (`signalr.ts:3`).
 
 - **Lifecycle**: `connect()` builds the connection `withAutomaticReconnect` at 0/1s/2s/5s/10s/30s and registers every handler (`signalr.ts:1067-1182`). A failed first start or exhausted disconnected instance is stopped and discarded so explicit login can build a fresh transport; reward invokes additionally require an authenticated session, not merely a connected socket (`signalr.ts:1053-1083,1194-1260`). **On reconnect it re-authenticates with the remembered ID and re-joins the remembered game** (`signalr.ts:1184-1195`).
-- **Server events → store** (handlers assigned in `useGameStore.connect()`, `game.ts:155-367`): every successful initial/re-authentication requests both quests and achievements, so the UTC Daily Quest board, balance, pity, inventory, resumable loot and queued celebrations recover together (`game.ts:316-338`). Quest state clears its own load/reroll error state, restores an unacknowledged loot result and starts one queued trailing refresh when a visibility/reset request arrived during the in-flight call; the achievement board rehydrates full queued cards; DooM Guy and battleship callbacks are unchanged (`game.ts:244-278,340-354`).
-- **Invoke wrappers** mirror the hub 1:1 (WEB-BACKEND.md §4), including `doomRoll`/`doomChainsaw` (`signalr.ts:1420-1425`) and account-level `requestDoomFortress`/`equipDoomModule` (`signalr.ts:1540-1546`).
+- **Server events → store** (handlers assigned in `useGameStore.connect()`, `game.ts:159-382`): quest and achievement state retain their existing recovery behavior; `StoreState` replaces the full owner-only shop snapshot after reads and durable transactions, clears the matching busy/error state, and mirrors its ZBS balance into an already-loaded quest board (`game.ts:284-293`). Re-authentication refreshes the shop only after that surface has been opened once (`game.ts:341-349`).
+- **Invoke wrappers** mirror the hub 1:1 (WEB-BACKEND.md §4), including the character-store request/adjust/reset methods (`signalr.ts:1589-1603`) and account-level `requestDoomFortress`/`equipDoomModule`.
 
 ## 5. The GameState contract (TS mirror of the server DTOs)
 
@@ -61,7 +63,7 @@ Defined at the top of `signalr.ts`; camelCase mirror of `GameStateDto.cs` (WEB-B
 | `PlayerStatus` | score (−1 when hidden), place, isReady/isBlock/isSkip/isAutoMove, confirmedPredict/confirmedSkip, lvlUpPoints, moveListPage, personalLogs/previousRoundLogs/allPersonalLogs (rounds split by `\|\|\|`), scoreSource, directMessages, mediaMessages, ARAM flags + reroll counters, placeHistory, scoreBreakdown | `signalr.ts:421-444` |
 | `PassiveAbilityStates` | owner-only widget contract, including `doomGuy` and `eren`; no target-facing `…OnMe` states are mirrored. Eren carries scheduled Rage/**round-10 loss** progress, Attack-Titan cooldown, hatred marks, Rumbling place and monotonic Tatake/Titan audio serials | `signalr.ts:133-178,226-241` |
 | `FightEntry` | structured per-fight data for the animation: participants, outcome, class/versatility, weighing deltas, justice, random roll, moral changes, drops, **attackerForOneFightMods/defenderForOneFightMods** and Storm fields (stormAppeared/stormWeighingDelta/stormFlipped) | `signalr.ts:521-624`, `ForOneFightMod` `signalr.ts:626-632` |
-| Misc | Prediction (`signalr.ts:446-455`), Team (`signalr.ts:457-460`), LobbyState/ActiveGame (`signalr.ts:462-479`), CharacterInfo (`signalr.ts:481-490`), DraftOptionDto (`signalr.ts:498-509`), MediaMessage (`signalr.ts:511-519`), Daily Quest/LootBox (`signalr.ts:634-701`), AchievementBoard/Entry (`signalr.ts:733-765`), ActionResult (`signalr.ts:767-771`), Blackjack types (`signalr.ts:332-370`), Battleship types (`signalr.ts:775-968`), Replay types (`signalr.ts:970-1039`), GameEvent (`signalr.ts:1041-1046`) | |
+| Misc | Prediction (`signalr.ts:446-455`), Team (`signalr.ts:457-460`), LobbyState/ActiveGame (`signalr.ts:462-479`), CharacterInfo (`signalr.ts:481-490`), DraftOptionDto (`signalr.ts:498-509`), MediaMessage (`signalr.ts:511-519`), Daily Quest/LootBox (`signalr.ts:634-701`), AchievementBoard/Entry (`signalr.ts:711-753`), Character Store (`signalr.ts:755-777`), ActionResult, Blackjack types (`signalr.ts:332-370`), Battleship types, Replay types, GameEvent | |
 
 Sentinels from the server: stats −1 and name "???" for masked opponents, score −1 when hidden — components branch on these rather than on nullability.
 
@@ -70,11 +72,12 @@ Sentinels from the server: stats −1 and name "???" for masked opponents, score
 ## 6. Stores (Pinia)
 
 **`useGameStore`** (`game.ts:54`) — the core store.
-- State refs (`game.ts:57-91`): identity/game/meta state plus quest state/loading/error/reroll ID, resumable `lootBoxResult`, store-owned loot-modal priority, achievement board/full celebration queue/loading/acknowledgement-error state, character list and `doomFortressState`; the DooM action wrappers and Fortress state remain in the same store.
+- State refs (`game.ts:57-97`): identity/game/meta state plus quest state/loading/error/reroll ID, resumable `lootBoxResult`, store-owned loot-modal priority, achievement board/full celebration queue/loading/acknowledgement-error state, character-store snapshot/loading/action/error state, character list and `doomFortressState`.
 - Getters: `myPlayer` by myPlayerId — null for spectators (`game.ts:96-103`); `opponents` (`game.ts:105-110`); `isMyTurn` = not ready and not skip, with round-8 Madara always locked false (`game.ts:112-116`); `roundTimeLeft` = turnLength − timePassed (`game.ts:122-125`); `isInGame`, game/admin flags and character helpers (`game.ts:127-152`).
 - `connect()` (`game.ts:154-364`) wires every SignalR callback; the `GameState` handler additionally diffs own stats for sounds, **auto-joins Blackjack when newly dead to Kira**, and captures full finish-time achievement entries once per game (`game.ts:175-238`). Quest/board callbacks restore server-held Daily Quest/loot/achievement state (`game.ts:242-275`); authentication hydrates both reward families (§4).
 - Action wrappers (`game.ts:348-573`) mirror the hub and layer client SFX: block plays block + Geralt meditation + turn-10 layer (`game.ts:354-364`), levelUp records `pendingLevelUp` for sound resolution (`game.ts:397-404`), moral exchanges play once per round (`game.ts:406-422`).
 - Daily Quest requests expose dedicated loading/error state; one in-flight request queues at most one trailing refresh (so a call spanning UTC midnight cannot strand yesterday's board), and `rerollDailyQuest` keeps the chosen card busy until the server sends its durable replacement (`game.ts:685-717`; hub wrappers `signalr.ts:1512-1518`). Loot wrappers keep acknowledgement explicit: `openLootBox` invokes `OpenLootBoxV2`, waits at most 12 s for the server event and exposes the idempotent retry path; acknowledgement refreshes current inventory, and `clearLootBoxResult` removes only the matching result (`game.ts:719-767`; wrapper `signalr.ts:1520-1526`). Achievement dismissal snapshots the IDs shown but **keeps the popup/queue visible** while saving; only a successful selective acknowledgement removes them, while failure stays inline and retryable (`game.ts:795-827`). Logout hard-resets quest/reward/modal/ack state (`game.ts:396-444`).
+- Character-store wrappers keep one account transaction in flight, expose page-local loading/errors, and rely on each returned full snapshot as the durable confirmation; requests, ±1/±10 changes, one-character refunds and refund-all live at `game.ts:815-873`.
 
 **`useReplayStore`** (`replay.ts:122`) — replay playback. State: replayData/raw currentRound/currentPlayerIndex/currentFightIndex (`replay.ts:122-129`). The round-window adapter detects format v2 versus legacy boundary files (`replay.ts:21-54`): v2 uses actual round numbers and explicit `preFightPlayers`; legacy raw URL key K remains K for old deep links but is displayed as logical combat round K−1 and obtains pre-fight state from the preceding boundary (`replay.ts:133-166`). `computedGameState` (`replay.ts:177-269`) **reconstructs a full GameState** from the chosen round + player perspective so normal in-game components render replays unchanged: `buildShiftedPlayer` takes fight-facing actions/character/passive state from pre-fight and settled score/place/death/breakdown from the atomic result, discarding its next-round status/log buffer (`replay.ts:56-120`). V2 appends only explicit HandleLastRound personal/global suffixes (`signalr.ts:1001-1019`); legacy final files retain their inseparable raw final personal buffer (`replay.ts:48-54,165-166,208-258`). Other players' private blocks remain stripped (`replay.ts:199-240`), and replay state is finished/admin-visible (`replay.ts:243-268`). Because captured private snapshots reflect the original player's presentation locale (`ReplayService.cs:301-339`), the Vue boundary re-localizes canonical and older mixed phrase records for the current replay viewer (`Web/VueClient/src/i18n.ts:146-196`). `loadReplay` fetches the anonymous REST payload and starts on the final playable logical round (`replay.ts:273-295`). Alignment fixtures cover legacy URLs/logs, v2 numbers, skip isolation, post-setup score/death/breakdown and final personal/global settlement (`replay.spec.ts:66-223`).
 
@@ -88,7 +91,9 @@ Sentinels from the server: stats −1 and name "???" for masked opponents, score
 - **Spectate** (`Spectate.vue`): joins the game room read-only (`Spectate.vue:31`) and renders `FightAnimation` (`Spectate.vue:68`), `Leaderboard` (`Spectate.vue:80`), `BattleLog` (`Spectate.vue:96`); no action UI because the myPlayer getter is null.
 - **Replay** (`Replay.vue`): public shared replay links bypass the app-wide login overlay (`App.vue:11-18,180-188`) and fetch the anonymous REST endpoint directly (`replay.ts:273-295`); no Discord or web account is required. The page feeds the reconstructed state (§6) into the same Leaderboard/PlayerCard/SkillsPanel/FightAnimation. Logical previous/next navigation skips the empty legacy opening boundary while preserving raw round query keys (`Replay.vue:310-368,449-459`; store navigation `replay.ts:297-330`), and enemy cards use the same aligned pre/result/log pair (`Replay.vue:193-212`).
 - **Widget** (`Widget.vue`): parses `access_token` from the URL fragment (`Widget.vue:22`), scrubs it from history (`Widget.vue:31-32`), POSTs to the widget sync endpoint (`Widget.vue:38`) — the tail of the OAuth chain in WEB-BACKEND.md §12.
-- **Home** (`Home.vue`): requests the authenticated account's Fortress state on mount and renders `FortressOfDoom` in the center column (`Home.vue:9-33`). The Fortress shows Rune/Shield/Mission/Gun, four slots each, unlocked category-filtered selects and the server-supplied module descriptions verbatim. Remaining reward count/live drop chance cover only standard placement rewards; special **Приручить дракона** appears after its separate unlock. Selection calls `equipDoomModule` (`FortressOfDoom.vue:1-54`).
+- **Home** (`Home.vue`): retains the account-profile and patch-note mock panels plus its legacy local navigation/logout controls (`Home.vue:1-31`).
+- **Fortress of Doom** (`FortressOfDoom.vue` page): the dedicated `/fortress-of-doom` tab requests the authenticated account's Fortress state on mount and renders the loadout at full page width (`pages/FortressOfDoom.vue:1-26`). The loadout shows Rune/Shield/Mission/Gun, four slots each, unlocked category-filtered selects and the server-supplied module descriptions verbatim. Remaining reward count/live drop chance cover only standard placement rewards; special **Приручить дракона** appears after its separate unlock. Selection calls `equipDoomModule` (`components/Home/FortressOfDoom.vue:1-54`).
+- **Store** (`Store.vue`): the dedicated `/store` surface uses the Achievement overview/card hierarchy and Loot Box reward atmosphere for a bilingual, responsive roll-weight shop. It shows wallet/refundable totals, search, tier and adjusted-only filters, per-character multiplier meters and live 1/10-step prices, affordability/bound-disabled ± actions, per-card refunds, a confirmed refund-all flow, reduced-motion handling, and explicit load/empty/retry/save states (`Store.vue:1-352`; styles `Store.vue:354-484`). Only characters the account has actually received are listed.
 
 ## 8. Component inventory (main game)
 
@@ -170,7 +175,7 @@ Generated game stories carry separate RU/EN locale containers in one artifact; t
 
 - **ARAM pick phase has no web UI**: the contract carries isAramPickPhase and the store exposes `aramReroll`/`aramConfirm` (`game.ts:562-569`; hub wrappers `signalr.ts:1358-1365`), but no component calls them — a web-preferring player in an ARAM game has no pick surface (finding **m24** in AUDIT-FINDINGS.md).
 - `ActionPanel.vue` is orphaned (§8) — extend the inline buttons in Game.vue instead.
-- Home's profile/currency and patch-notes sidebars remain hardcoded mocks, and its /about "Encyclopedia" link is still dead; the center Fortress of Doom is live account data (`Home.vue:1-33`, `router.ts:15-74`).
+- Home's profile/currency and patch-note panels remain hardcoded mocks, and its /about "Encyclopedia" link is still dead; Fortress of Doom is live account data on its dedicated route (`Home.vue:1-31`, `pages/FortressOfDoom.vue:1-26`, `router.ts:17-86`).
 - `VITE_API_BASE` undefined (§1); vitest setup file missing (§1); the eslint config ignores a generated src/services/api.ts that does not exist.
 - Blackjack21.vue line anchors are invisible to tools/verify-docs.sh (digits in the basename don't match the anchor regex) — keep its references file-level.
 

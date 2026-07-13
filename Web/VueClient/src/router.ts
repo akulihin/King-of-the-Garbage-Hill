@@ -7,6 +7,8 @@ export type AppRouteNames =
   | 'spectate'
   | 'replay'
   | 'home'
+  | 'fortressOfDoom'
+  | 'store'
   | 'achievements'
   | 'battleship'
   | 'battleshipGame'
@@ -49,6 +51,16 @@ export const routes: RouteRecordRaw[] = [
     name: 'home',
     path: '/home',
     component: () => import('./pages/Home.vue'),
+  },
+  {
+    name: 'fortressOfDoom',
+    path: '/fortress-of-doom',
+    component: () => import('./pages/FortressOfDoom.vue'),
+  },
+  {
+    name: 'store',
+    path: '/store',
+    component: () => import('./pages/Store.vue'),
   },
   {
     name: 'achievements',

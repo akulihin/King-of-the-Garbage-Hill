@@ -1056,6 +1056,30 @@ public class DoomFortressStageDto
     public double CurrentDropChance { get; set; }
 }
 
+// ── Character Store DTOs ─────────────────────────────────────────────
+
+public class StoreStateDto
+{
+    public int ZbsPoints { get; set; }
+    public int BasePrice { get; set; }
+    public double MinMultiplier { get; set; }
+    public double MaxMultiplier { get; set; }
+    public int TotalInvestedZbs { get; set; }
+    public List<StoreCharacterDto> Characters { get; set; } = new();
+}
+
+public class StoreCharacterDto
+{
+    public string Name { get; set; }
+    public string Avatar { get; set; }
+    public int Tier { get; set; }
+    public double Multiplier { get; set; }
+    public int Changes { get; set; }
+    public int CostOne { get; set; }
+    public int CostTen { get; set; }
+    public int RefundZbs { get; set; }
+}
+
 // ── Quest & Loot Box DTOs ────────────────────────────────────────────
 
 public class QuestStateDto

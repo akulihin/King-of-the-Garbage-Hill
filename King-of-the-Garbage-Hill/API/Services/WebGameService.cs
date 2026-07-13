@@ -262,6 +262,7 @@ public class WebGameService
         botToReplace.PreferWeb = true;
         DoomGuy.InitializeForGame(botToReplace, creatorAccount);
         creatorAccount.IsPlaying = true;
+        DiscoverStoreCharacter(creatorAccount, botToReplace.GameCharacter.Name);
 
         // Create game
         var game = new GameClass(playersList, gameId, creatorId) { IsCheckIfReady = false };
@@ -357,6 +358,7 @@ public class WebGameService
             bot.DiscordStatus.SocketGameMessage = null;
             DoomGuy.InitializeForGame(bot, playerAccount);
             playerAccount.IsPlaying = true;
+            DiscoverStoreCharacter(playerAccount, bot.GameCharacter.Name);
         }
 
         Console.WriteLine($"[WebAPI] Player {playerUsername} ({playerId}) joined game {gameId}");
@@ -442,6 +444,8 @@ public class WebGameService
                                 "Could not save your draft purchase. No ZBS was spent; please try again."));
                         }
                     }
+
+                    DiscoverStoreCharacter(account, selected.Name);
 
                 }
             }
@@ -1214,5 +1218,226 @@ public class WebGameService
         if (player.Status.LvlUpPoints <= 0) return (false, null);
         var isIrelia = player.GameCharacter.Passive.Any(x => x.PassiveName == "Main Ирелия");
         return (true, isIrelia ? "Риоты не прощают, нерфа не избежать" : "Остались очки прокачки — потрать их!");
+    }
+
+    // ── Character store ──────────────────────────────────────────────
+
+    public const int StoreBasePrice = 10;
+    public const double StoreMinMultiplier = 0.5;
+    public const double StoreMaxMultiplier = 2.0;
+
+    private static void DiscoverStoreCharacter(DiscordAccountClass account, string characterName)
+    {
+        lock (account)
+        {
+            account.SeenCharacters ??= new List<string>();
+            if (!account.SeenCharacters.Contains(characterName))
+                account.SeenCharacters.Add(characterName);
+
+            account.CharacterChance ??= new List<DiscordAccountClass.CharacterChances>();
+            if (account.CharacterChance.All(chance => chance.CharacterName != characterName))
+                account.CharacterChance.Add(new DiscordAccountClass.CharacterChances(characterName));
+        }
+    }
+
+    public (StoreStateDto State, string Error) GetStoreState(ulong discordId)
+    {
+        var account = _userAccounts.GetAccount(discordId);
+        if (account == null) return (null, "Account not found.");
+
+        lock (account)
+            return (BuildStoreState(account), null);
+    }
+
+    public (StoreStateDto State, string Error) AdjustStoreCharacter(
+        ulong discordId,
+        string characterName,
+        int percentagePoints)
+    {
+        if (percentagePoints is not (-10 or -1 or 1 or 10))
+            return (null, "Store adjustments must be -10, -1, 1, or 10 percentage points.");
+
+        var account = _userAccounts.GetAccount(discordId);
+        if (account == null) return (null, "Account not found.");
+
+        lock (account)
+        {
+            if (string.IsNullOrWhiteSpace(characterName)
+                || account.SeenCharacters == null
+                || !account.SeenCharacters.Contains(characterName))
+                return (null, "Play this character before changing their roll weight.");
+
+            var characterExists = _charactersPull.GetRollableCharacters()
+                .Any(character => character.Name == characterName);
+            if (!characterExists) return (null, "Character is not available in the store.");
+
+            account.CharacterChance ??= new List<DiscordAccountClass.CharacterChances>();
+            var chance = account.CharacterChance.Find(entry => entry.CharacterName == characterName);
+            var createdChance = chance == null;
+            if (createdChance)
+            {
+                chance = new DiscordAccountClass.CharacterChances(characterName);
+                account.CharacterChance.Add(chance);
+            }
+
+            var targetMultiplier = Math.Round(chance.Multiplier + percentagePoints / 100d, 2);
+            if (targetMultiplier < StoreMinMultiplier || targetMultiplier > StoreMaxMultiplier)
+            {
+                if (createdChance) account.CharacterChance.Remove(chance);
+                return (null,
+                    $"Roll weight must stay between {StoreMinMultiplier:0.00}x and {StoreMaxMultiplier:0.00}x.");
+            }
+
+            var steps = Math.Abs(percentagePoints);
+            var cost = CalculateStoreCost(chance.Changes, steps);
+            if (account.ZbsPoints < cost)
+            {
+                if (createdChance) account.CharacterChance.Remove(chance);
+                return (null, $"Not enough ZBS points. This adjustment costs {cost} ZBS.");
+            }
+
+            var previousBalance = account.ZbsPoints;
+            var previousMultiplier = chance.Multiplier;
+            var previousChanges = chance.Changes;
+            chance.Multiplier = targetMultiplier;
+            chance.Changes += steps;
+            account.ZbsPoints -= cost;
+
+            if (!_userAccounts.SaveAccount(account))
+            {
+                account.ZbsPoints = previousBalance;
+                chance.Multiplier = previousMultiplier;
+                chance.Changes = previousChanges;
+                if (createdChance) account.CharacterChance.Remove(chance);
+                return (null, "The purchase could not be saved. No ZBS was spent; please try again.");
+            }
+
+            return (BuildStoreState(account), null);
+        }
+    }
+
+    public (StoreStateDto State, string Error) ResetStoreCharacter(ulong discordId, string characterName)
+    {
+        var account = _userAccounts.GetAccount(discordId);
+        if (account == null) return (null, "Account not found.");
+
+        lock (account)
+        {
+            if (string.IsNullOrWhiteSpace(characterName)
+                || account.SeenCharacters == null
+                || !account.SeenCharacters.Contains(characterName))
+                return (null, "Character is not available in your store.");
+
+            var chance = account.CharacterChance?.Find(entry => entry.CharacterName == characterName);
+            if (chance == null || chance.Changes <= 0)
+                return (BuildStoreState(account), null);
+
+            var previousBalance = account.ZbsPoints;
+            var previousMultiplier = chance.Multiplier;
+            var previousChanges = chance.Changes;
+            account.ZbsPoints += CalculateStoreRefund(chance.Changes);
+            chance.Multiplier = 1.0;
+            chance.Changes = 0;
+
+            if (!_userAccounts.SaveAccount(account))
+            {
+                account.ZbsPoints = previousBalance;
+                chance.Multiplier = previousMultiplier;
+                chance.Changes = previousChanges;
+                return (null, "The refund could not be saved. Nothing changed; please try again.");
+            }
+
+            return (BuildStoreState(account), null);
+        }
+    }
+
+    public (StoreStateDto State, string Error) ResetStoreAllCharacters(ulong discordId)
+    {
+        var account = _userAccounts.GetAccount(discordId);
+        if (account == null) return (null, "Account not found.");
+
+        lock (account)
+        {
+            var changed = account.CharacterChance?
+                .Where(chance => chance.Changes > 0)
+                .ToList() ?? new List<DiscordAccountClass.CharacterChances>();
+            if (changed.Count == 0) return (BuildStoreState(account), null);
+
+            var previousBalance = account.ZbsPoints;
+            var previousChances = changed
+                .Select(chance => (Chance: chance, chance.Multiplier, chance.Changes))
+                .ToList();
+
+            account.ZbsPoints += changed.Sum(chance => CalculateStoreRefund(chance.Changes));
+            foreach (var chance in changed)
+            {
+                chance.Multiplier = 1.0;
+                chance.Changes = 0;
+            }
+
+            if (!_userAccounts.SaveAccount(account))
+            {
+                account.ZbsPoints = previousBalance;
+                foreach (var previous in previousChances)
+                {
+                    previous.Chance.Multiplier = previous.Multiplier;
+                    previous.Chance.Changes = previous.Changes;
+                }
+                return (null, "The refunds could not be saved. Nothing changed; please try again.");
+            }
+
+            return (BuildStoreState(account), null);
+        }
+    }
+
+    private StoreStateDto BuildStoreState(DiscordAccountClass account)
+    {
+        var rollableCharacters = _charactersPull.GetRollableCharacters()
+            .ToDictionary(character => character.Name, StringComparer.Ordinal);
+        var seenNames = (account.SeenCharacters ?? new List<string>())
+            .Distinct(StringComparer.Ordinal);
+        var chances = account.CharacterChance ?? new List<DiscordAccountClass.CharacterChances>();
+        var state = new StoreStateDto
+        {
+            ZbsPoints = account.ZbsPoints,
+            BasePrice = StoreBasePrice,
+            MinMultiplier = StoreMinMultiplier,
+            MaxMultiplier = StoreMaxMultiplier,
+            TotalInvestedZbs = chances.Sum(chance => CalculateStoreRefund(chance.Changes)),
+        };
+
+        foreach (var name in seenNames)
+        {
+            if (!rollableCharacters.TryGetValue(name, out var character)) continue;
+            var chance = chances.Find(entry => entry.CharacterName == name);
+            var changes = Math.Max(0, chance?.Changes ?? 0);
+            state.Characters.Add(new StoreCharacterDto
+            {
+                Name = name,
+                Avatar = character.Avatar,
+                Tier = character.Tier,
+                Multiplier = Math.Round(chance?.Multiplier ?? 1.0, 2),
+                Changes = changes,
+                CostOne = CalculateStoreCost(changes, 1),
+                CostTen = CalculateStoreCost(changes, 10),
+                RefundZbs = CalculateStoreRefund(changes),
+            });
+        }
+
+        return state;
+    }
+
+    private static int CalculateStoreCost(int existingChanges, int steps)
+    {
+        var changes = Math.Max(0, existingChanges);
+        return Enumerable.Range(0, Math.Max(0, steps))
+            .Sum(step => StoreBasePrice + changes + step);
+    }
+
+    private static int CalculateStoreRefund(int changes)
+    {
+        var normalizedChanges = Math.Max(0, changes);
+        return normalizedChanges * StoreBasePrice
+               + normalizedChanges * (normalizedChanges - 1) / 2;
     }
 }

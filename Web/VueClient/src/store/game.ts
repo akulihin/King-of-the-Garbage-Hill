@@ -12,6 +12,7 @@ import {
   type LootBoxResult,
   type AchievementBoard,
   type AchievementEntry,
+  type StoreState,
   type CharacterListEntry,
   type DoomFortressState,
 } from 'src/services/signalr'
@@ -86,6 +87,10 @@ export const useGameStore = defineStore('game', () => {
   const achievementsError = ref<string | null>(null)
   const isAcknowledgingAchievements = ref(false)
   const achievementAcknowledgeError = ref<string | null>(null)
+  const storeState = ref<StoreState | null>(null)
+  const isStoreLoading = ref(false)
+  const storeAction = ref<string | null>(null)
+  const storeError = ref<string | null>(null)
   const accountPlayerType = ref(0)
   const lastPlayedCharacter = ref('')
   const characterList = ref<CharacterListEntry[]>([])
@@ -276,6 +281,16 @@ export const useGameStore = defineStore('game', () => {
         achievementsError.value = null
       }
 
+      signalrService.onStoreState = (state) => {
+        storeState.value = state
+        isStoreLoading.value = false
+        storeAction.value = null
+        storeError.value = null
+        if (questState.value) {
+          questState.value = { ...questState.value, zbsPoints: state.zbsPoints }
+        }
+      }
+
       signalrService.onLobbyState = (state) => {
         lobbyState.value = state
       }
@@ -314,6 +329,11 @@ export const useGameStore = defineStore('game', () => {
           isAchievementsLoading.value = false
           achievementsError.value = error
         }
+        if (isStoreLoading.value || storeAction.value) {
+          isStoreLoading.value = false
+          storeAction.value = null
+          storeError.value = error
+        }
       }
 
       signalrService.onAuthenticated = (data) => {
@@ -324,7 +344,9 @@ export const useGameStore = defineStore('game', () => {
           discordId.value = String(data.discordId)
           accountPlayerType.value = data.playerType ?? 0
           lastPlayedCharacter.value = data.lastPlayedCharacter ?? ''
-          void Promise.allSettled([requestAchievements(), requestQuests()])
+          const requests = [requestAchievements(), requestQuests()]
+          if (storeState.value) requests.push(requestStore())
+          void Promise.allSettled(requests)
         }
       }
 
@@ -429,6 +451,10 @@ export const useGameStore = defineStore('game', () => {
     achievementsError.value = null
     isAcknowledgingAchievements.value = false
     achievementAcknowledgeError.value = null
+    storeState.value = null
+    isStoreLoading.value = false
+    storeAction.value = null
+    storeError.value = null
     accountPlayerType.value = 0
     lastPlayedCharacter.value = ''
     doomFortressState.value = null
@@ -786,6 +812,67 @@ export const useGameStore = defineStore('game', () => {
     await signalrService.requestDoomFortress()
   }
 
+  async function requestStore() {
+    if (isStoreLoading.value) return
+    isStoreLoading.value = true
+    storeError.value = null
+    try {
+      await signalrService.requestStore()
+    }
+    catch (error) {
+      isStoreLoading.value = false
+      storeError.value = error instanceof Error ? error.message : String(error)
+    }
+  }
+
+  async function adjustStoreCharacter(characterName: string, percentagePoints: number) {
+    if (storeAction.value) return
+    const action = `adjust:${characterName}`
+    storeAction.value = action
+    storeError.value = null
+    try {
+      await signalrService.adjustStoreCharacter(characterName, percentagePoints)
+    }
+    catch (error) {
+      storeError.value = error instanceof Error ? error.message : String(error)
+    }
+    finally {
+      if (storeAction.value === action) storeAction.value = null
+    }
+  }
+
+  async function resetStoreCharacter(characterName: string) {
+    if (storeAction.value) return
+    const action = `reset:${characterName}`
+    storeAction.value = action
+    storeError.value = null
+    try {
+      await signalrService.resetStoreCharacter(characterName)
+    }
+    catch (error) {
+      storeError.value = error instanceof Error ? error.message : String(error)
+    }
+    finally {
+      if (storeAction.value === action) storeAction.value = null
+    }
+  }
+
+  async function resetStoreAllCharacters() {
+    if (storeAction.value) return
+    const action = 'reset:all'
+    storeAction.value = action
+    storeError.value = null
+    try {
+      await signalrService.resetStoreAllCharacters()
+    }
+    catch (error) {
+      storeError.value = error instanceof Error ? error.message : String(error)
+    }
+    finally {
+      if (storeAction.value === action) storeAction.value = null
+    }
+  }
+
   async function equipDoomModule(stage: string, slotIndex: number, moduleName: string) {
     await signalrService.equipDoomModule(stage, slotIndex, moduleName)
   }
@@ -861,6 +948,10 @@ export const useGameStore = defineStore('game', () => {
     achievementsError,
     isAcknowledgingAchievements,
     achievementAcknowledgeError,
+    storeState,
+    isStoreLoading,
+    storeAction,
+    storeError,
     // Computed
     myPlayer,
     opponents,
@@ -933,6 +1024,10 @@ export const useGameStore = defineStore('game', () => {
     requestAchievements,
     clearNewAchievements,
     dismissAchievements,
+    requestStore,
+    adjustStoreCharacter,
+    resetStoreCharacter,
+    resetStoreAllCharacters,
     requestDoomFortress,
     equipDoomModule,
     restoreWebSession,

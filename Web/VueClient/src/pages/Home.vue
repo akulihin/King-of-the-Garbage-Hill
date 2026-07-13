@@ -7,9 +7,6 @@
     </nav>
     <div class="homeContent">
       <HomeProfile />
-      <div class="homeMain">
-        <FortressOfDoom />
-      </div>
       <PatchNotes />
     </div>
 
@@ -18,19 +15,13 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useGameStore } from 'src/store/game'
 import PatchNotes from 'src/components/Home/PatchNotes.vue'
 import HomeProfile from 'src/components/Home/HomeProfile.vue'
-import FortressOfDoom from 'src/components/Home/FortressOfDoom.vue'
 
 const store = useGameStore()
 const router = useRouter()
-
-onMounted(() => {
-  if (store.isAuthenticated) void store.requestDoomFortress()
-})
 
 function logout() {
   localStorage.removeItem('discordId')
@@ -81,11 +72,6 @@ function logout() {
   justify-content: space-between;
   padding: 1rem;
   gap: 1rem;
-}
-
-.homeMain {
-  flex: 1;
-  flex-direction: column;
 }
 
 .logoutBtn {

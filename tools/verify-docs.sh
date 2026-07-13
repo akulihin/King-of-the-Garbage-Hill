@@ -61,7 +61,7 @@ resolve() {
     router.ts|main.ts|App.vue|i18n.ts|i18n.spec.ts) echo "$V/$1";;
     vite.config.ts) echo "Web/VueClient/$1";;
     useTip.ts|useVfx.ts|useFocusTrapDialog.ts) echo "$V/composables/$1";;
-    Game.vue|Lobby.vue|Spectate.vue|Replay.vue|Widget.vue|Home.vue|Achievements.vue|BattleshipLobby.vue|BattleshipGame.vue|BattleshipSpectate.vue)
+    Game.vue|Lobby.vue|Spectate.vue|Replay.vue|Widget.vue|Home.vue|Store.vue|Achievements.vue|BattleshipLobby.vue|BattleshipGame.vue|BattleshipSpectate.vue)
       echo "$V/pages/$1";;
     LoginProcess.vue|LoginSuccess.vue) echo "$V/components/Login/$1";;
     PlayerCard.vue|SkillsPanel.vue|Leaderboard.vue|FightAnimation.vue|DeathNote.vue|RoundTimer.vue|MediaMessages.vue|BattleLog.vue|ActionPanel.vue|AchievementBoard.vue|AchievementPopup.vue|LootBox.vue|DailyQuestBoard.vue|ScoreOdometer.vue)
