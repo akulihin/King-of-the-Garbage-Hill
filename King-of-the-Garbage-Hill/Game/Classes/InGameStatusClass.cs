@@ -210,6 +210,12 @@ public class InGameStatus
 
 
     public void AddBonusPoints(decimal bonusPoints = 1, string skillName = "")
+        => AddBonusPointsCore(bonusPoints, skillName, bypassScoreFloor: false);
+
+    public void AddBonusPointsIgnoringFloor(decimal bonusPoints, string skillName)
+        => AddBonusPointsCore(bonusPoints, skillName, bypassScoreFloor: true);
+
+    private void AddBonusPointsCore(decimal bonusPoints, string skillName, bool bypassScoreFloor)
     {
         if (bonusPoints > 0)
             AddInGamePersonalLogs($"{skillName}: +{bonusPoints} __**бонусных**__ очков\n");
@@ -219,7 +225,8 @@ public class InGameStatus
         BonusPointsEarnedThisRound += bonusPoints;
         ScoreEntries.Add(new ScoreEntry { Source = skillName, Points = bonusPoints, IsBonus = true });
 
-        if (Score < 0 && GameCharacter.Passive.All(x => x.PassiveName != "Никому не нужен"))
+        if (Score < 0 && !bypassScoreFloor
+                      && GameCharacter.Passive.All(x => x.PassiveName != "Никому не нужен"))
             Score = 0;
     }
 
@@ -337,6 +344,8 @@ public class InGameStatus
             }
         }
         Score += score;
+        if (Score < 0 && GameCharacter.Passive.All(x => x.PassiveName != "Никому не нужен"))
+            Score = 0;
     }
 
     public void SetScoreToThisNumber(int score, string text)

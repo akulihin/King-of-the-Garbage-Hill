@@ -138,8 +138,22 @@ public class DoomsdayMachine : IServiceSingleton
 
     public void HandleEventsBeforeCalculation(GameClass game)
     {
-        foreach (var player in game.PlayersList.Where(UnknownBug.Is))
+        foreach (var player in game.PlayersList.Where(player =>
+                     !player.Passives.IsDead && UnknownBug.Is(player)))
             UnknownBug.SelectStreamTarget(game, player);
+    }
+
+    private static void EnforceKratosEventActions(GameClass game)
+    {
+        if (!game.IsKratosEvent) return;
+
+        foreach (var player in game.PlayersList.Where(player => player.GameCharacter.Name != "Кратос"))
+        {
+            player.Status.WhoToAttackThisTurn.Clear();
+            player.Status.IsSkip = false;
+            player.Status.IsBlock = true;
+            player.Status.IsReady = true;
+        }
     }
 
 
@@ -194,6 +208,11 @@ public class DoomsdayMachine : IServiceSingleton
         //Handle Moral
         foreach (var p in game.PlayersList)
         {
+            if (p.Passives.IsDead)
+            {
+                p.GameCharacter.SetBonusPointsFromMoral(0);
+                continue;
+            }
             var moralPoints = p.GameCharacter.GetBonusPointsFromMoral();
             if (moralPoints != 0)
                 p.Status.AddBonusPoints(moralPoints, "Мораль");
@@ -230,17 +249,19 @@ public class DoomsdayMachine : IServiceSingleton
 
         // Щит-акула replaces DooM Guy's submitted block with a fightable, non-attacking
         // one-turn copy of Братишка's defensive passive. Prepare it before the round snapshot.
-        if (!isEternalTsukuyomiRound)
-            foreach (var doom in game.PlayersList.Where(x => x.GameCharacter.Name == DoomGuy.CharacterName))
+        if (!isEternalTsukuyomiRound && !game.IsKratosEvent)
+            foreach (var doom in game.PlayersList.Where(x =>
+                         x.GameCharacter.Name == DoomGuy.CharacterName && !x.Passives.IsDead))
                 DoomGuy.PrepareSharkShield(doom);
 
         DeepCopyGameCharacterToFightCharacter(game);
 
         // Геральт — Медитация: skip works as block
-        if (!isEternalTsukuyomiRound)
+        if (!isEternalTsukuyomiRound && !game.IsKratosEvent)
             foreach (var player in game.PlayersList.Where(x =>
                 x.GameCharacter.Passive.Any(y => y.PassiveName == "Медитация") &&
                 x.GameCharacter.Name == "Геральт" &&
+                !x.Passives.IsDead &&
                 x.Status.IsSkip).ToList())
             {
                 player.Status.IsSkip = false;
@@ -254,8 +275,9 @@ public class DoomsdayMachine : IServiceSingleton
 
 
         // Pickle Rick — convert block to pickle form and keep the active pickle fightable.
-        if (!isEternalTsukuyomiRound)
-            foreach (var player in game.PlayersList.Where(x => x.GameCharacter.Passive.Any(y => y.PassiveName == "Огурчик Рик")).ToList())
+        if (!isEternalTsukuyomiRound && !game.IsKratosEvent)
+            foreach (var player in game.PlayersList.Where(x => !x.Passives.IsDead
+                         && x.GameCharacter.Passive.Any(y => y.PassiveName == "Огурчик Рик")).ToList())
             {
                 var pickle = player.Passives.RickPickle;
                 if (pickle.PickleTurnsRemaining > 0)
@@ -274,7 +296,8 @@ public class DoomsdayMachine : IServiceSingleton
             }
 
         // Эрен Йегер — block becomes Attack Titan for the whole round snapshot.
-        foreach (var player in game.PlayersList.Where(x => !isEternalTsukuyomiRound &&
+        foreach (var player in game.PlayersList.Where(x => !isEternalTsukuyomiRound && !game.IsKratosEvent &&
+                     !x.Passives.IsDead &&
                      x.GameCharacter.Name == ErenYeager.CharacterName
                      && x.GameCharacter.Passive.Any(y => y.PassiveName == ErenYeager.AttackTitan)
                      && x.Passives.Eren.AttackTitanCooldown == 0
@@ -288,7 +311,8 @@ public class DoomsdayMachine : IServiceSingleton
         }
 
         // Portal Gun — override external skip/block if Rick wants to attack
-        foreach (var player in game.PlayersList.Where(x => !isEternalTsukuyomiRound
+        foreach (var player in game.PlayersList.Where(x => !isEternalTsukuyomiRound && !game.IsKratosEvent
+                     && !x.Passives.IsDead
                      && x.GameCharacter.Passive.Any(y => y.PassiveName == "Портальная пушка")).ToList())
         {
             var gun = player.Passives.RickPortalGun;
@@ -300,7 +324,8 @@ public class DoomsdayMachine : IServiceSingleton
         }
 
         // Aggress — Toxic Mate can't block or skip
-        foreach (var player in game.PlayersList.Where(x => !isEternalTsukuyomiRound
+        foreach (var player in game.PlayersList.Where(x => !isEternalTsukuyomiRound && !game.IsKratosEvent
+                     && !x.Passives.IsDead
                      && x.GameCharacter.Passive.Any(y => y.PassiveName == "Aggress")).ToList())
         {
             if (player.Status.IsBlock || player.Status.IsSkip)
@@ -313,8 +338,9 @@ public class DoomsdayMachine : IServiceSingleton
 
         // Геральт — Ведьмачьи заказы: inject extra fights based on contract count
         // Works both when Geralt attacks AND when someone attacks Geralt
-        var geraltPlayer = isEternalTsukuyomiRound ? null : game.PlayersList.Find(x =>
+        var geraltPlayer = isEternalTsukuyomiRound || game.IsKratosEvent ? null : game.PlayersList.Find(x =>
             x.GameCharacter.Name == "Геральт" &&
+            !x.Passives.IsDead &&
             x.GameCharacter.Passive.Any(y => y.PassiveName == "Ведьмачьи заказы"));
 
         if (geraltPlayer != null)
@@ -355,6 +381,7 @@ public class DoomsdayMachine : IServiceSingleton
             foreach (var attacker in game.PlayersList)
             {
                 if (attacker.GetPlayerId() == geraltId) continue;
+                if (attacker.Passives.IsDead) continue;
                 if (attacker.Status.IsBlock || attacker.Status.IsSkip) continue;
                 if (!attacker.Status.WhoToAttackThisTurn.Contains(geraltId)) continue;
 
@@ -375,7 +402,7 @@ public class DoomsdayMachine : IServiceSingleton
         // Naruto's block replacement operates on the finalized action queues, including every
         // readiness-stage forced action and Geralt contract expansion. Canceled queues must be gone
         // before PointFunnel and Madara snapshot their targets.
-        if (!isEternalTsukuyomiRound)
+        if (!isEternalTsukuyomiRound && !game.IsKratosEvent)
         {
             var unknownBug = UnknownBug.FindOwner(game);
             var queuedExploitTarget = unknownBug == null
@@ -391,21 +418,25 @@ public class DoomsdayMachine : IServiceSingleton
                 UnknownBug.TryCommitExploit(game, unknownBug, queuedExploitTarget, false);
             HandleEventsBeforeCalculation(game);
         }
-        Madara.PrepareIncomingAttackers(game);
-        if (!isEternalTsukuyomiRound)
+        EnforceKratosEventActions(game);
+        if (!game.IsKratosEvent)
+            Madara.PrepareIncomingAttackers(game);
+        if (!isEternalTsukuyomiRound && !game.IsKratosEvent)
             Naruto.SnapshotJustice(game);
 
         // Котики — Рандомное поведение Trick 1: pre-scan fight pairs and pick one for Storm
         Kotiki.RandomBehaviorClass stormRb = null;
         GamePlayerBridgeClass stormCarrier = null;
         {
-            var kotikiOwnerDm = game.PlayersList.Find(x => x.GameCharacter.Name == "Котики");
+            var kotikiOwnerDm = game.IsKratosEvent ? null : game.PlayersList.Find(x =>
+                x.GameCharacter.Name == "Котики" && !x.Passives.IsDead);
             if (kotikiOwnerDm != null)
             {
                 stormRb = kotikiOwnerDm.Passives.KotikiRandomBehavior;
                 // Find who carries the "Рандомное поведение" passive
                 stormCarrier = game.PlayersList.Find(x =>
-                    x.GameCharacter.Passive.Any(p => p.PassiveName == "Рандомное поведение"));
+                    !x.Passives.IsDead
+                    && x.GameCharacter.Passive.Any(p => p.PassiveName == "Рандомное поведение"));
 
                 if (stormRb.SelectedTrickThisRound == 1)
                 {
@@ -413,10 +444,15 @@ public class DoomsdayMachine : IServiceSingleton
                     var fightPairs = new List<(Guid attackerId, Guid defenderId)>();
                     foreach (var pl in game.PlayersList)
                     {
+                        if (pl.Passives.IsDead) continue;
                         if ((pl.Status.IsBlock || pl.Status.IsSkip) && pl.Status.WhoToAttackThisTurn.Count == 0)
                             continue;
                         foreach (var targetId in pl.Status.WhoToAttackThisTurn.Where(t => t != pl.GetPlayerId()))
-                            fightPairs.Add((pl.GetPlayerId(), targetId));
+                        {
+                            var target = game.PlayersList.Find(x => x.GetPlayerId() == targetId);
+                            if (target != null && !target.Passives.IsDead)
+                                fightPairs.Add((pl.GetPlayerId(), targetId));
+                        }
                     }
 
                     if (fightPairs.Count > 0)
@@ -435,6 +471,7 @@ public class DoomsdayMachine : IServiceSingleton
 
         foreach (var player in game.PlayersList)
         {
+            if (player.Passives.IsDead) continue;
 
             player.Status.AddFightingData($"\n\n**Logs for round #{game.RoundNo}:**");
             //if block => no one gets points, and no redundant playerAttacked variable
@@ -457,7 +494,7 @@ public class DoomsdayMachine : IServiceSingleton
             var targetsToFight = player.Status.WhoToAttackThisTurn
                 .Where(t => t != player.GetPlayerId())
                 .Select(t => game.PlayersList.Find(x => x.GetPlayerId() == t))
-                .Where(x => x != null)
+                .Where(x => x != null && !x.Passives.IsDead)
                 .Select(x => (Target: x, BfgDirection: 0, RailgunFight: false))
                 .ToList();
 
@@ -509,7 +546,9 @@ public class DoomsdayMachine : IServiceSingleton
 
             for (var fightTargetIndex = 0; fightTargetIndex < targetsToFight.Count; fightTargetIndex++)
             {
+                if (player.Passives.IsDead) break;
                 var playerIamAttacking = targetsToFight[fightTargetIndex].Target;
+                if (playerIamAttacking.Passives.IsDead) continue;
                 var bfgWaveDirection = targetsToFight[fightTargetIndex].BfgDirection;
                 var isRailgunFight = targetsToFight[fightTargetIndex].RailgunFight;
 
@@ -1595,6 +1634,7 @@ public class DoomsdayMachine : IServiceSingleton
         // ── Achievement tracking: per-round stats (fight wins/losses tracked in fight loop above) ──
         foreach (var player in game.PlayersList)
         {
+            if (player.Passives.IsDead) continue;
             var t = player.Passives.AchievementTracker;
             // Track blocks and attacks
             if (player.Status.IsBlock)
@@ -1658,16 +1698,23 @@ public class DoomsdayMachine : IServiceSingleton
             player.Status.IsAbleToChangeMind = true;
             player.Status.RoundNumber = game.RoundNo+1;
 
-            player.GameCharacter.SetSpeedResist();
-            player.GameCharacter.NormalizeMoral();
-            var justicePhrase = player.GameCharacter.Justice.HandleEndOfRoundJustice();
-            if (justicePhrase)
+            if (!player.Passives.IsDead)
             {
-                game.Phrases.JusticePhrase.SendLogSeparateWeb(player, delete:false, isEvent:false);
+                player.GameCharacter.SetSpeedResist();
+                player.GameCharacter.NormalizeMoral();
+                var justicePhrase = player.GameCharacter.Justice.HandleEndOfRoundJustice();
+                if (justicePhrase)
+                    game.Phrases.JusticePhrase.SendLogSeparateWeb(player, delete:false, isEvent:false);
+            }
+            else
+            {
+                player.Status.SetScoresToGiveAtEndOfRound(0, "", false);
+                player.GameCharacter.SetBonusPointsFromMoral(0);
             }
 
             var scoreBeforeRoundSettlement = player.Status.GetScore();
-            player.Status.CombineRoundScoreAndGameScore(game);
+            if (!player.Passives.IsDead)
+                player.Status.CombineRoundScoreAndGameScore(game);
             if (game.RoundNo == 10)
                 player.Passives.AchievementTracker.RoundTenRegularPoints =
                     player.Status.GetScore() - scoreBeforeRoundSettlement;
@@ -1679,11 +1726,13 @@ public class DoomsdayMachine : IServiceSingleton
         //Возвращение из мертвых
         //game.PlayersList = game.PlayersList.Where(x => !x.Passives.IsDead).ToList();
 
-        if (game.PlayersList.Count(x => x.Passives.IsDead && x.GameCharacter.Name != "Кратос") == 5)
+        if (game.IsKratosEvent
+            && game.PlayersList.Count(x => x.Passives.IsDead && x.GameCharacter.Name != "Кратос") == 5)
         {
             game.IsKratosEvent = false;
             game.AddGlobalLogs("Все боги были убиты, открылась коробка Пандоры, стихийные бедствия уничтожили всё живое...");
-            game.PlayersList[0].Status.AddInGamePersonalLogs("By the gods, what have I become?\n");
+            game.PlayersList.Find(x => x.GameCharacter.Name == "Кратос")?.Status
+                .AddInGamePersonalLogs("By the gods, what have I become?\n");
         }
         //end Возвращение из мертвых
 

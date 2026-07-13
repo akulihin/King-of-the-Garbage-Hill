@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Discord;
+using King_of_the_Garbage_Hill.Game.Characters;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.DiscordMessages;
 using King_of_the_Garbage_Hill.Game.GameLogic;
@@ -115,7 +116,8 @@ public class BotGameFactory : IServiceSingleton
         {
             foreach (var player in game.PlayersList)
             {
-                foreach (var enemy in game.PlayersList.Where(x => x.GetPlayerId() != player.GetPlayerId()))
+                foreach (var enemy in game.PlayersList.Where(x =>
+                             x.GetPlayerId() != player.GetPlayerId() && !Sakura.Is(x)))
                 {
                     player.Predict.Add(new PredictClass(enemy.GameCharacter.Name, enemy.GetPlayerId()));
                 }

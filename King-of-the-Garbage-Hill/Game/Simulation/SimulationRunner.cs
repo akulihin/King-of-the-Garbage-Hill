@@ -8,6 +8,7 @@ using System.Text.Json;
 using System.Text.Unicode;
 using System.Threading.Tasks;
 using King_of_the_Garbage_Hill.Game.Classes;
+using King_of_the_Garbage_Hill.Game.Characters;
 using King_of_the_Garbage_Hill.Game.GameLogic;
 using King_of_the_Garbage_Hill.Game.MemoryStorage;
 using King_of_the_Garbage_Hill.Helpers;
@@ -639,6 +640,8 @@ public class SimulationRunner : IServiceSingleton
                     Score = x.Status.GetScore(),
                     Place = x.Status.GetPlaceAtLeaderBoard(),
                     IsDead = x.Passives.IsDead,
+                    IsWinner = game.WinnerPlayerIds.Contains(x.GetPlayerId()),
+                    IsStructuralClone = Naruto.IsDispersedClone(x),
                 })
                 .ToList(),
         };
@@ -650,7 +653,8 @@ public class SimulationRunner : IServiceSingleton
         var scoreSums = new Dictionary<string, decimal>();
         var placeSums = new Dictionary<string, int>();
 
-        foreach (var player in records.SelectMany(record => record.Players))
+        foreach (var player in records.SelectMany(record => record.Players)
+                     .Where(player => !player.IsStructuralClone))
         {
             if (!rows.TryGetValue(player.Character, out var row))
             {
@@ -661,6 +665,7 @@ public class SimulationRunner : IServiceSingleton
             }
 
             row.Games++;
+            if (player.IsWinner) row.Wins++;
             scoreSums[player.Character] += player.Score;
             placeSums[player.Character] += player.Place;
             switch (player.Place)
@@ -676,7 +681,7 @@ public class SimulationRunner : IServiceSingleton
 
         foreach (var row in rows.Values)
         {
-            row.WinRate = Math.Round(100.0 * row.Top1 / row.Games, 1);
+            row.WinRate = Math.Round(100.0 * row.Wins / row.Games, 1);
             row.AvgScore = Math.Round((double)scoreSums[row.Name] / row.Games, 1);
             row.AvgPlace = Math.Round((double)placeSums[row.Name] / row.Games, 2);
         }
@@ -700,7 +705,7 @@ public class SimulationRunner : IServiceSingleton
                               $"{string.Join(", ", stuck.Lineup ?? new List<string>())}");
 
         Console.WriteLine("[SIM] Top winrates: " + string.Join(", ",
-            report.Characters.Take(5).Select(x => $"{x.Name} {x.WinRate:0.#}% ({x.Top1}/{x.Games})")));
+            report.Characters.Take(5).Select(x => $"{x.Name} {x.WinRate:0.#}% ({x.Wins}/{x.Games})")));
         Console.WriteLine($"[SIM] Report: {reportPath}");
         Console.WriteLine($"[SIM] Exit code: {report.ExitCode}");
     }

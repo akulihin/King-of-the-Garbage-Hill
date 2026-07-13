@@ -385,7 +385,8 @@ public static class Naruto
         if (newDeaths > 0)
         {
             foreach (var monster in game.PlayersList.Where(player =>
-                         player.GameCharacter.Passive.Any(passive => passive.PassiveName == "Монстр")))
+                         !player.Passives.IsDead
+                         && player.GameCharacter.Passive.Any(passive => passive.PassiveName == "Монстр")))
             {
                 monster.Status.AddRegularPoints(newDeaths, "Монстр");
                 game.Phrases.MonsterDeath.SendLog(monster, false);
@@ -402,7 +403,8 @@ public static class Naruto
         foreach (var clone in playerList.Where(IsDispersedClone))
             clone.Status.DiscardScoreAfterDeath();
 
-        return playerList.OrderBy(IsDispersedClone)
+        return playerList.OrderBy(player => player.Passives.IsDead)
+            .ThenBy(IsDispersedClone)
             .ThenByDescending(player => player.Status.GetScore())
             .ToList();
     }

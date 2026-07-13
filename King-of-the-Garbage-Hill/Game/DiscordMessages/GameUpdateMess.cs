@@ -827,7 +827,9 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
             if (game.RoundNo >= 11 && !game.IsKratosEvent)
                 customString += $" (as **{VisibleCharacterName(me, other)}**) = {other.Status.GetScore()} Score";
 
-            var predicted = me.Predict.Find(x => x.PlayerId == other.GetPlayerId());
+            var predicted = Sakura.Is(other)
+                ? null
+                : me.Predict.Find(x => x.PlayerId == other.GetPlayerId() && !Sakura.Is(x.CharacterName));
             if (predicted != null)
             {
                 var predictedName = UnknownBug.Is(predicted.CharacterName) ? "???" : predicted.CharacterName;
@@ -1501,6 +1503,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         {
             var playerToAttack = game.PlayersList.Find(x => x.Status.GetPlaceAtLeaderBoard() == i + 1);
             if (playerToAttack == null) continue;
+            if (Sakura.Is(playerToAttack)) continue;
             if (playerToAttack.DiscordId != player.DiscordId)
                 predictMenu.AddOption(playerToAttack.DiscordUsername + " это...",
                     playerToAttack.DiscordUsername,

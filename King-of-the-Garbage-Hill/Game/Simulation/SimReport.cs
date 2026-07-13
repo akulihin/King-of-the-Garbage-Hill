@@ -73,8 +73,9 @@ public class SimCharacterRowDto
     public int Top4 { get; set; }
     public int Top5 { get; set; }
     public int Top6 { get; set; }
+    public int Wins { get; set; }
 
-    /// <summary>Top1 / Games × 100. Bot-meta statistic — needs hundreds of games for drift detection.</summary>
+    /// <summary>Declared wins / Games × 100. Bot-meta statistic — needs hundreds of games for drift detection.</summary>
     public double WinRate { get; set; }
 
     public double AvgScore { get; set; }
@@ -96,4 +97,6 @@ public class SimGamePlayerDto
     public decimal Score { get; set; }
     public int Place { get; set; }
     public bool IsDead { get; set; }
+    public bool IsWinner { get; set; }
+    public bool IsStructuralClone { get; set; }
 }

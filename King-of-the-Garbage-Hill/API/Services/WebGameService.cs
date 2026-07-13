@@ -768,7 +768,7 @@ public class WebGameService
         {
             player.Passives.IsDead = true;
             player.Passives.DeathSource = "Pitchforks";
-            player.Status.AddBonusPoints(-500, "Вилы разъяренной толпы");
+            player.Status.AddBonusPointsIgnoringFloor(-500, "Вилы разъяренной толпы");
             game.AddGlobalLogs($"Жители деревни подняли {player.DiscordUsername} на вилы за жадность! Ведьмак мёртв.");
             player.Status.AddInGamePersonalLogs("Чеканная монета: Толпа с вилами! Вы мертвы. -500 очков.\n");
         }
@@ -790,6 +790,8 @@ public class WebGameService
 
         var target = game.PlayersList.Find(p => p.GetPlayerId() == targetPlayerId);
         if (target == null) return Task.FromResult((false, "Target player not found"));
+        if (Sakura.Is(target))
+            return Task.FromResult((false, "Target is not available for predictions"));
 
         var existing = player.Predict.Find(p => p.PlayerId == targetPlayerId);
         if (existing == null)
@@ -855,6 +857,8 @@ public class WebGameService
         if (target == null) return Task.FromResult((false, "Target not found"));
         if (target.GetPlayerId() == player.GetPlayerId())
             return Task.FromResult((false, "Cannot write your own name"));
+        if (Sakura.Is(target))
+            return Task.FromResult((false, "Target is not available to the Death Note"));
         if (target.Passives.IsDead)
             return Task.FromResult((false, "Target is already dead"));
         if (dn.FailedTargets.Contains(targetPlayerId))

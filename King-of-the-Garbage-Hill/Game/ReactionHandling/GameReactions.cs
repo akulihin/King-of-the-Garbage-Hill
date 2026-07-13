@@ -665,6 +665,7 @@ public sealed class GameReaction : IServiceSingleton
             return;
         var predictedPlayer = game!.PlayersList.Find(x => x.DiscordUsername == predictedPlayerUsername);
         if (predictedPlayer == null) return;
+        if (Sakura.Is(predictedPlayer)) return;
         var predictedPlayerId = predictedPlayer.GetPlayerId();
 
         var predicted = player.Predict.Find(x => x.PlayerId == predictedPlayerId);

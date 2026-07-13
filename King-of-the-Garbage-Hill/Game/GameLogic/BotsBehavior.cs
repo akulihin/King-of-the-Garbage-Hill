@@ -701,6 +701,7 @@ public class BotsBehavior : IServiceSingleton
             var unrevealed = game.PlayersList
                 .Where(x => x.GetPlayerId() != bot.GetPlayerId()
                             && !x.Passives.IsDead
+                            && !Sakura.Is(x)
                             && !eyes.RevealedPlayers.Contains(x.GetPlayerId()))
                 .OrderBy(x => x.Status.GetPlaceAtLeaderBoard())
                 .ToList();
@@ -733,6 +734,7 @@ public class BotsBehavior : IServiceSingleton
             var candidates = game.PlayersList
                 .Where(x => x.GetPlayerId() != bot.GetPlayerId()
                             && !x.Passives.IsDead
+                            && !Sakura.Is(x)
                             && !dn.FailedTargets.Contains(x.GetPlayerId()))
                 .ToList();
 
@@ -772,13 +774,14 @@ public class BotsBehavior : IServiceSingleton
                         .ToHashSet();
 
                     var availableNames = game.PlayersList
+                        .Where(x => !Sakura.Is(x))
                         .Select(x => x.GameCharacter.Name).Distinct()
                         .Where(n => !knownNames.Contains(n) && !failedNames.Contains(n))
                         .ToList();
 
                     dn.CurrentRoundName = availableNames.Count > 0
                         ? availableNames[_rand.Random(0, availableNames.Count - 1)]
-                        : game.PlayersList[_rand.Random(0, game.PlayersList.Count - 1)].GameCharacter.Name;
+                        : availableNames.FirstOrDefault() ?? "";
                 }
             }
         }

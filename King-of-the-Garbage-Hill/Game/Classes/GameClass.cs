@@ -23,7 +23,7 @@ public class GameClass
         GlobalLogs = "";
         IsCheckIfReady = true;
         SkipPlayersThisRound = 0;
-        GameVersion = "Версия: 4.4.5";
+        GameVersion = "Версия: 4.4.6";
         GameMode = gameMode;
         CreatorId = creatorId;
         Teams = new List<TeamPlay>();
@@ -44,6 +44,7 @@ public class GameClass
     public bool IsCheckIfReady { get; set; }
     public bool IsFinished { get; set; } = false;
     public bool IsKratosEvent { get; set; } = false;
+    public List<Guid> WinnerPlayerIds { get; set; } = new();
 
     /*
      * 1 - Turn

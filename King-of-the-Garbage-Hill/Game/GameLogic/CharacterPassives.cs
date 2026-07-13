@@ -1145,7 +1145,7 @@ public class CharacterPassives : IServiceSingleton
                     if (eyes.EyesActiveForNextAttack)
                     {
                         if (target.GameCharacter.Passive.Any(x => x.PassiveName == "Выдуманный персонаж")
-                            || UnknownBug.Is(target))
+                            || UnknownBug.Is(target) || Sakura.Is(target))
                         {
                             me.Status.AddInGamePersonalLogs("Глаза бога смерти: У этого монстра нет имени...\n");
                         }
@@ -1181,7 +1181,7 @@ public class CharacterPassives : IServiceSingleton
                     if (game.RoundNo == 6)
                     {
                         if (target.GameCharacter.Passive.Any(x => x.PassiveName == "Выдуманный персонаж")
-                            || UnknownBug.Is(target))
+                            || UnknownBug.Is(target) || Sakura.Is(target))
                         {
                             me.Status.AddInGamePersonalLogs("Коммуникация: Не удалось просветить\n");
                             break;
@@ -1195,6 +1195,7 @@ public class CharacterPassives : IServiceSingleton
                         // Auto-set prediction for all players who don't already have one for this target
                         foreach (var p in game.PlayersList)
                         {
+                            if (p.Passives.IsDead) continue;
                             if (p.GetPlayerId() == target.GetPlayerId()) continue;
                             var existingPred = p.Predict.Find(pr => pr.PlayerId == target.GetPlayerId());
                             if (existingPred == null)
@@ -1863,7 +1864,8 @@ public class CharacterPassives : IServiceSingleton
                             me.Passives.AchievementTracker.EnemiesKilledAsKratos++;
                             target.Passives.AchievementTracker.WasKilledByKratos = true;
                             // Монстр без имени: +1 regular point per death
-                            foreach (var mp in game.PlayersList.Where(x => x.GameCharacter.Passive.Any(y => y.PassiveName == "Монстр")))
+                            foreach (var mp in game.PlayersList.Where(x => !x.Passives.IsDead
+                                         && x.GameCharacter.Passive.Any(y => y.PassiveName == "Монстр")))
                             {
                                 mp.Status.AddRegularPoints(1, "Монстр");
                                 game.Phrases.MonsterDeath.SendLog(mp, false);
@@ -2782,7 +2784,8 @@ public class CharacterPassives : IServiceSingleton
                         player.Passives.DeathSource = "Kratos";
                         player.Passives.AchievementTracker.WasKilledByKratos = true;
                         // Монстр без имени: +1 regular point per death
-                        foreach (var mp in game.PlayersList.Where(x => x.GameCharacter.Passive.Any(y => y.PassiveName == "Монстр")))
+                        foreach (var mp in game.PlayersList.Where(x => !x.Passives.IsDead
+                                     && x.GameCharacter.Passive.Any(y => y.PassiveName == "Монстр")))
                         {
                             mp.Status.AddRegularPoints(1, "Монстр");
                             game.Phrases.MonsterDeath.SendLog(mp, false);
@@ -2790,7 +2793,9 @@ public class CharacterPassives : IServiceSingleton
                     }
 
                     //start
-                    else if (!game.IsKratosEvent && game.RoundNo == 10 && player.Status.IsLostThisCalculation != Guid.Empty)
+                    else if (!game.IsKratosEvent && game.RoundNo == 10
+                             && player.PlayerType != 404
+                             && player.Status.IsLostThisCalculation != Guid.Empty)
                     {
                         game.IsKratosEvent = true;
                         game.AddGlobalLogs("Бегите! На Гору Мусорной Горы идёт Кратос и НИЧТО его не остановит!");
@@ -3720,7 +3725,8 @@ public class CharacterPassives : IServiceSingleton
             $"Rumbling: Колоссальные титаны уничтожили {string.Join(", ", victims.Select(x => x.DiscordUsername))}!");
 
         foreach (var monster in game.PlayersList.Where(x =>
-                     x.GameCharacter.Passive.Any(passive => passive.PassiveName == "Монстр")))
+                     !x.Passives.IsDead
+                     && x.GameCharacter.Passive.Any(passive => passive.PassiveName == "Монстр")))
         {
             monster.Status.AddRegularPoints(victims.Count, "Монстр");
             game.Phrases.MonsterDeath.SendLog(monster, false);
@@ -3732,10 +3738,23 @@ public class CharacterPassives : IServiceSingleton
     //after all fight
     public async Task HandleEndOfRound(GameClass game)
     {
+        var eventKratos = game.PlayersList.Find(x =>
+            x.GameCharacter.Name == "Кратос"
+            && x.GameCharacter.Passive.Any(passive => passive.PassiveName == "Возвращение из мертвых"));
+        if (game.IsKratosEvent && eventKratos?.Passives.IsDead == true)
+        {
+            game.IsKratosEvent = false;
+            game.AddGlobalLogs($"{UnknownBug.PublicName(eventKratos)} решил доверится богам зная последствия...");
+            await game.Phrases.KratosEventFailed.SendLogSeparateWithFile(eventKratos, false,
+                "DataBase/art/events/kratos_hell.png", false, 15000);
+        }
+
         foreach (var player in game.PlayersList)
-        foreach (var passive in player.GameCharacter.Passive.ToList())
-            switch (passive.PassiveName)
-            {
+        {
+            if (player.Passives.IsDead) continue;
+            foreach (var passive in player.GameCharacter.Passive.ToList())
+                switch (passive.PassiveName)
+                {
                 case Naruto.HaremJutsu:
                     if (player.GameCharacter.Name == Naruto.CharacterName)
                     {
@@ -3848,19 +3867,13 @@ public class CharacterPassives : IServiceSingleton
                 }
 
                 case "Возвращение из мертвых":
-                    //didn't fail but didn't succseed
-                    if (game.IsKratosEvent && game.RoundNo >= 16 && game.PlayersList.Count(x => !x.Passives.IsDead) < 5)
+                    // Six event actions are rounds 11-16. If enemies remain after action 16, Kratos loses.
+                    if (game.IsKratosEvent && game.RoundNo >= 16
+                        && game.PlayersList.Any(x => x.GameCharacter.Name != "Кратос" && !x.Passives.IsDead))
                     {
                         game.IsKratosEvent = false;
                         game.AddGlobalLogs($"У {UnknownBug.PublicName(player)}а есть тактика и он ее придерживался...");
                         await game.Phrases.KratosEventNo.SendLogSeparateWithFile(player, false, "DataBase/art/events/kratos_death.jpg", false, 15000);
-                    }
-
-                    if (game.IsKratosEvent && player.Passives.IsDead)
-                    {
-                        game.IsKratosEvent = false;
-                        game.AddGlobalLogs($"{UnknownBug.PublicName(player)} решил доверится богам зная последствия...");
-                        await game.Phrases.KratosEventFailed.SendLogSeparateWithFile(player, false, "DataBase/art/events/kratos_hell.png", false, 15000);
                     }
                     break;
 
@@ -4031,7 +4044,7 @@ public class CharacterPassives : IServiceSingleton
 
                                 // Выдуманный персонаж: Монстра нельзя просветить
                                 if (randomPlayer.GameCharacter.Passive.Any(x => x.PassiveName == "Выдуманный персонаж")
-                                    || UnknownBug.Is(randomPlayer))
+                                    || UnknownBug.Is(randomPlayer) || Sakura.Is(randomPlayer))
                                 {
                                     var tolyaFailSnippet = $"Толя попытался что-то разузнать про {randomPlayer.DiscordUsername}, но не удалось просветить";
                                     game.AddGlobalLogs(tolyaFailSnippet);
@@ -4045,6 +4058,7 @@ public class CharacterPassives : IServiceSingleton
                                     // Auto-set prediction for all players who don't already have one for this target
                                     foreach (var p in game.PlayersList)
                                     {
+                                        if (p.Passives.IsDead) continue;
                                         if (p.GetPlayerId() == randomPlayer.GetPlayerId()) continue;
                                         var existingPred = p.Predict.Find(pr => pr.PlayerId == randomPlayer.GetPlayerId());
                                         if (existingPred == null)
@@ -4501,6 +4515,15 @@ public class CharacterPassives : IServiceSingleton
                                 break;
                             }
 
+                            if (Sakura.Is(dnTarget))
+                            {
+                                player.Status.AddInGamePersonalLogs(
+                                    "Тетрадь смерти: у этой цели нет доступного имени.\n");
+                                deathNote.CurrentRoundTarget = Guid.Empty;
+                                deathNote.CurrentRoundName = "";
+                                break;
+                            }
+
                             // 15% chance Kira writes on glass instead of the Death Note
                             if (_rand.Luck(15))
                             {
@@ -4524,7 +4547,8 @@ public class CharacterPassives : IServiceSingleton
                                 if (dnTarget.GameCharacter.Name == "Кира")
                                     player.Passives.AchievementTracker.SurvivedKiraAttempt = false; // killer gets "kill_a_god" tracked at game end
                                 // Монстр без имени: +1 regular point per death
-                                foreach (var mp in game.PlayersList.Where(x => x.GameCharacter.Passive.Any(y => y.PassiveName == "Монстр")))
+                                foreach (var mp in game.PlayersList.Where(x => !x.Passives.IsDead
+                                             && x.GameCharacter.Passive.Any(y => y.PassiveName == "Монстр")))
                                 {
                                     mp.Status.AddRegularPoints(1, "Монстр");
                                     game.Phrases.MonsterDeath.SendLog(mp, false);
@@ -4997,7 +5021,7 @@ public class CharacterPassives : IServiceSingleton
                             {
                                 player.Passives.IsDead = true;
                                 player.Passives.DeathSource = "Pitchforks";
-                                player.Status.AddBonusPoints(-500, "Вилы разъяренной толпы");
+                                player.Status.AddBonusPointsIgnoringFloor(-500, "Вилы разъяренной толпы");
                                 game.AddGlobalLogs($"Жители деревни подняли {player.DiscordUsername} на вилы за жадность! Ведьмак мёртв.");
                                 player.Status.AddInGamePersonalLogs("Чеканная монета: Толпа с вилами! Вы мертвы. -500 очков.\n");
                             }
@@ -5025,12 +5049,14 @@ public class CharacterPassives : IServiceSingleton
                             player.Passives.GeraltMeditation.LambertActive = false;
                     }
                     break;
-            }
+                }
+        }
 
         // High Elo repeated loss — any player losing to a high-elo character for 2nd+ consecutive time
         var highEloNames = new HashSet<string> { "DeepList", "mylorik", "Глеб", "Dopa", "Загадочный Спартанец в маске" };
         foreach (var player in game.PlayersList)
         {
+            if (player.Passives.IsDead) continue;
             if (player.Status.IsLostThisCalculation == Guid.Empty) continue;
             var enemy = game.PlayersList.Find(x => x.GetPlayerId() == player.Status.IsLostThisCalculation);
             if (enemy == null || !highEloNames.Contains(enemy.GameCharacter.Name)) continue;
@@ -5046,6 +5072,7 @@ public class CharacterPassives : IServiceSingleton
         // LeCrisp Stonks — earned more than 10 regular points this round
         foreach (var player in game.PlayersList)
         {
+            if (player.Passives.IsDead) continue;
             if (player.GameCharacter.Name != "LeCrisp") continue;
             if (player.Status.GetScoresToGiveAtEndOfRound() > 10)
             {
@@ -5056,6 +5083,7 @@ public class CharacterPassives : IServiceSingleton
         // Salldorum — record the position actually occupied during this round.
         foreach (var player in game.PlayersList)
         {
+            if (player.Passives.IsDead) continue;
             if (player.GameCharacter.Name != "Salldorum") continue;
             var posHistory = player.Passives.SalldorumChronicler.PositionHistory;
             var currentPos = player.Status.GetPlaceAtLeaderBoard();
@@ -5067,7 +5095,7 @@ public class CharacterPassives : IServiceSingleton
         // Котики — Рандомное поведение: Trick 3 vase chain (game-wide event)
         {
             // Find the original Котики player who has RandomBehavior state
-            var kotikiOwner = game.PlayersList.Find(x => x.GameCharacter.Name == "Котики");
+            var kotikiOwner = game.PlayersList.Find(x => x.GameCharacter.Name == "Котики" && !x.Passives.IsDead);
             if (kotikiOwner != null)
             {
                 var rbVase = kotikiOwner.Passives.KotikiRandomBehavior;
@@ -5118,10 +5146,54 @@ public class CharacterPassives : IServiceSingleton
         }
     }
 
+    public void RestoreOctopusInk(GameClass game)
+    {
+        foreach (var player in game.PlayersList.Where(x =>
+                     !x.Passives.IsDead
+                     && x.GameCharacter.Passive.Any(passive => passive.PassiveName == "Чернильная завеса")))
+        {
+            var octopusInk = player.Passives.OctopusInkList;
+            var octopusInv = player.Passives.OctopusInvulnerabilityList;
+            if (octopusInk.RealScoreList.Count == 0 && octopusInv.Count == 0) continue;
+
+            foreach (var inkScore in octopusInk.RealScoreList.ToList())
+            {
+                var affectedPlayer = game.PlayersList.Find(x => x.GetPlayerId() == inkScore.PlayerId);
+                if (affectedPlayer == null) continue;
+                var scoreTarget = Naruto.ResolveScoreSuccessor(game, affectedPlayer);
+                if (scoreTarget.Passives.IsDead) continue;
+
+                // D11: when a living Itachi will reclaim the same earned point through Цукуеми,
+                // charge the victim only once while preserving Octopus's duplicated credit.
+                if (inkScore.RealScore < 0 && inkScore.PlayerId != player.GetPlayerId()
+                    && game.PlayersList.Any(itachi =>
+                        !itachi.Passives.IsDead
+                        && itachi.GameCharacter.Passive.Any(p => p.PassiveName == "Глаза Итачи")
+                        && itachi.Passives.ItachiTsukuyomi.StolenFromPlayers.TryGetValue(
+                            inkScore.PlayerId, out var stolenAmount)
+                        && stolenAmount > 0))
+                {
+                    affectedPlayer.Status.AddInGamePersonalLogs(
+                        "🐙 Чернильная завеса: это очко уже забрал Итачи — списываем один раз.\n");
+                    continue;
+                }
+
+                scoreTarget.Status.AddBonusPoints(inkScore.RealScore, "🐙");
+            }
+
+            player.Status.AddBonusPoints(octopusInv.Count, "🐙");
+            octopusInk.RealScoreList.Clear();
+            octopusInv.Count = 0;
+        }
+    }
+
     public async Task HandleNextRound(GameClass game)
     {
+        if (game.RoundNo == 11)
+            RestoreOctopusInk(game);
+
         var madara = Madara.Find(game);
-        if (madara != null)
+        if (madara != null && !madara.Passives.IsDead)
         {
             madara.GameCharacter.SetMainSkill(0, Madara.ReanimatedBody, false);
             madara.GameCharacter.SetMoral(0, Madara.ReanimatedBody, false);
@@ -5154,6 +5226,11 @@ public class CharacterPassives : IServiceSingleton
         foreach (var player in game.PlayersList)
         {
             foreach (var passive in player.GameCharacter.Passive.ToList())
+            {
+                if (player.Passives.IsDead
+                    && passive.PassiveName is not "Глаз Шусуи" and not "Боги мне не указ")
+                    continue;
+
                 switch (passive.PassiveName)
                 {
                     case ErenYeager.Sheep:
@@ -5292,12 +5369,13 @@ public class CharacterPassives : IServiceSingleton
                                         player.Passives.IsDead = true;
                                         player.Passives.DeathSource = "Kira";
                                         // Монстр без имени: +1 regular point per death
-                                        foreach (var mp in game.PlayersList.Where(x => x.GameCharacter.Passive.Any(y => y.PassiveName == "Монстр")))
+                                        foreach (var mp in game.PlayersList.Where(x => !x.Passives.IsDead
+                                                     && x.GameCharacter.Passive.Any(y => y.PassiveName == "Монстр")))
                                         {
                                             mp.Status.AddRegularPoints(1, "Монстр");
                                             game.Phrases.MonsterDeath.SendLog(mp, false);
                                         }
-                                        player.Status.AddBonusPoints(-500, "Арест Киры");
+                                        player.Status.AddBonusPointsIgnoringFloor(-500, "Арест Киры");
 
                                         game.AddGlobalLogs(
                                             "**L:** Эй, Кира.\n" +
@@ -5369,40 +5447,7 @@ public class CharacterPassives : IServiceSingleton
                         break;
 
                     case "Чернильная завеса":
-                        if (game.RoundNo == 11)
-                        {
-                            var octopusInk = player.Passives.OctopusInkList;
-                            var octopusInv = player.Passives.OctopusInvulnerabilityList;
-
-                            foreach (var t in octopusInk.RealScoreList)
-                            {
-                                var pl = game.PlayersList.Find(x => x.GetPlayerId() == t.PlayerId);
-                                if (pl == null) continue;
-                                // D11: don't charge a victim twice for the same fake point. If the victim's
-                                // earnings were also copied by an Itachi Цукуеми (which deducts them at game end),
-                                // skip Octopus's debit here — the victim pays once (to Итачи), while Octopus still
-                                // gets its own +N credit (a positive RealScore entry), so the point is duplicated
-                                // for both receivers per the D11 verdict.
-                                if (t.RealScore < 0 && t.PlayerId != player.GetPlayerId()
-                                    && game.PlayersList.Any(it =>
-                                        it.GameCharacter.Passive.Any(p => p.PassiveName == "Глаза Итачи")
-                                        && it.Passives.ItachiTsukuyomi.StolenFromPlayers.TryGetValue(t.PlayerId, out var amt)
-                                        && amt > 0))
-                                {
-                                    pl.Status.AddInGamePersonalLogs("🐙 Чернильная завеса: это очко уже забрал Итачи — списываем один раз.\n");
-                                    continue;
-                                }
-                                Naruto.ResolveScoreSuccessor(game, pl).Status.AddBonusPoints(t.RealScore, "🐙");
-                            }
-
-                            player.Status.AddBonusPoints(octopusInv.Count, "🐙");
-
-                            //sort
-                            //     game.PlayersList = game.PlayersList.OrderByDescending(x => x.Status.GetScore()).ToList();
-                            //    for (var i = 0; i < game.PlayersList.Count; i++) game.PlayersList[i].Status.GetPlaceAtLeaderBoard() = i + 1;
-                            //end sorting
-                        }
-
+                        // Settled once at the round-11 boundary (or explicitly when a Kratos event ends).
                         break;
 
                     case "Они позорят военное искусство":
@@ -5806,6 +5851,7 @@ public class CharacterPassives : IServiceSingleton
                                     var discoverablePlayers = game.PlayersList.Where(candidate =>
                                         candidate.GetPlayerId() != player.GetPlayerId()
                                         && !UnknownBug.Is(candidate)
+                                        && !Sakura.Is(candidate)
                                         && (knownCheck == null
                                             || !knownCheck.KnownPlayers.Contains(candidate.GetPlayerId()))).ToList();
                                     if (discoverablePlayers.Count == 0)
@@ -6286,6 +6332,9 @@ public class CharacterPassives : IServiceSingleton
                         }
                         break;
                 }
+            }
+
+            if (player.Passives.IsDead) continue;
 
             //Я за чаем
             var isSkip = player.Passives.GlebTeaTriggeredWhen;
@@ -6308,6 +6357,7 @@ public class CharacterPassives : IServiceSingleton
         // Таинственный Суппорт — "Premade": prevent marked player from skipping
         foreach (var supporter in game.PlayersList)
         {
+            if (supporter.Passives.IsDead) continue;
             if (!supporter.GameCharacter.Passive.Any(x => x.PassiveName == "Premade")) continue;
             var markedId = supporter.Passives.SupportPremade.MarkedPlayerId;
             if (markedId == Guid.Empty) continue;
@@ -6354,7 +6404,7 @@ public class CharacterPassives : IServiceSingleton
     public void HandleNextRoundAfterSorting(GameClass game)
     {
         var madara = Madara.Find(game);
-        if (madara != null)
+        if (madara != null && !madara.Passives.IsDead)
         {
             var state = madara.Passives.Madara;
             if (state.ResolvedFights > 0 && !state.TopOnePhraseSent
@@ -6369,9 +6419,11 @@ public class CharacterPassives : IServiceSingleton
         }
 
         foreach (var player in game.PlayersList)
-        foreach (var passive in player.GameCharacter.Passive.ToList())
-            switch (passive.PassiveName)
-            {
+        {
+            if (player.Passives.IsDead) continue;
+            foreach (var passive in player.GameCharacter.Passive.ToList())
+                switch (passive.PassiveName)
+                {
                 case ErenYeager.Sheep:
                     if (player.GameCharacter.Name == ErenYeager.CharacterName && game.RoundNo == 9)
                         player.Status.AddBonusPoints(
@@ -6770,10 +6822,12 @@ public class CharacterPassives : IServiceSingleton
                     }
                     break;
                 }
-            }
+                }
+        }
 
         // Natural score sorting can also return Salldorum to the fixed cache cell.
-        foreach (var player in game.PlayersList.Where(candidate => candidate.GameCharacter.Name == "Salldorum"))
+        foreach (var player in game.PlayersList.Where(candidate =>
+                     candidate.GameCharacter.Name == "Salldorum" && !candidate.Passives.IsDead))
             Salldorum.TryDrinkAvailableTimeCapsule(player, game);
     }
     //end after all fight
@@ -6868,6 +6922,7 @@ public class CharacterPassives : IServiceSingleton
             try
             {
                 if (!player.IsBot()) continue;
+                if (player.Passives.IsDead) continue;
                 if (game.RoundNo >= 9) continue;
                 // Kira uses Death Note, not predictions
                 if (player.GameCharacter.Passive.Any(x => x.PassiveName == "Тетрадь смерти")) continue;
@@ -6883,7 +6938,8 @@ public class CharacterPassives : IServiceSingleton
                 var effAiDifficulty = player.AiDifficulty >= 0 ? player.AiDifficulty : game.AiDifficulty;
                 if (effAiDifficulty >= 3 && game.RoundNo >= game.AiFullKnowledgeRound && player.PlayerType == 404)
                 {
-                    foreach (var enemy in game.PlayersList.Where(x => x.GetPlayerId() != player.GetPlayerId()))
+                    foreach (var enemy in game.PlayersList.Where(x =>
+                                 x.GetPlayerId() != player.GetPlayerId() && !Sakura.Is(x)))
                     {
                         var existing = player.Predict.Find(x => x.PlayerId == enemy.GetPlayerId());
                         if (existing != null) player.Predict.Remove(existing);
@@ -7060,7 +7116,7 @@ public class CharacterPassives : IServiceSingleton
                             foreach (var knownPlayer in deepList.KnownPlayers)
                             {
                                 var playerClass = game.PlayersList.Find(x => x.GetPlayerId() == knownPlayer);
-                                if (UnknownBug.Is(playerClass)) continue;
+                                if (UnknownBug.Is(playerClass) || Sakura.Is(playerClass)) continue;
 
                                 if (player.Predict.All(x => x.PlayerId != playerClass!.GetPlayerId()) &&
                                     playerClass.GetPlayerId() != player.GetPlayerId())
@@ -7194,6 +7250,10 @@ public class CharacterPassives : IServiceSingleton
             {
                 _log.Critical(exception.Message);
                 _log.Critical(exception.StackTrace);
+            }
+            finally
+            {
+                Sakura.RemoveForbiddenPredictions(game, player);
             }
     }
     //end predict bot

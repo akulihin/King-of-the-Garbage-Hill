@@ -83,11 +83,8 @@ public class CheckIfReady : IServiceSingleton
             LoopingTimer.Enabled = enabled;
     }
 
-    private void HandlePostGameEvents(GameClass game)
+    private void HandlePostGameEvents(GameClass game, GamePlayerBridgeClass playerWhoWon)
     {
-        var playerWhoWon = game.PlayersList.Where(x => !x.Passives.IsDead).FirstOrDefault()
-                           ?? game.PlayersList.First();
-
         //if won phrases
         switch (playerWhoWon.GameCharacter.Name)
         {
@@ -277,6 +274,10 @@ public class CheckIfReady : IServiceSingleton
     {
         game.IsCheckIfReady = false;
 
+        // Чернильная завеса normally settles while round 11 opens. A Kratos extension can create
+        // fresh ledger entries afterwards, so settle any remainder before final-game effects.
+        _characterPassives.RestoreOctopusInk(game);
+
         // Геральт — pitchfork death: if Geralt finishes last
         var lastAlivePlayer = game.PlayersList
             .Where(x => !x.Passives.IsDead)
@@ -295,10 +296,12 @@ public class CheckIfReady : IServiceSingleton
 
         foreach (var player in game.PlayersList)
         {
+            if (player.Passives.IsDead) continue;
             if (player.GameCharacter.Passive.Any(x => x.PassiveName == "AdminPlayerType"))
             {
                 foreach (var enemy in game.PlayersList.Where(x =>
-                             x.GetPlayerId() != player.GetPlayerId() && !UnknownBug.Is(x)))
+                             !x.Passives.IsDead && x.GetPlayerId() != player.GetPlayerId()
+                             && !UnknownBug.Is(x) && !Sakura.Is(x)))
                 {
                     player.Predict.Add(new PredictClass(enemy.GameCharacter.Name, enemy.GetPlayerId()));
                 }
@@ -309,12 +312,14 @@ public class CheckIfReady : IServiceSingleton
         if (game.PlayersList.Count == 6 && game.PlayersList.Count(x => x.IsBot()) <= 5)
             foreach (var player in from player in game.PlayersList
                      where !player.GameCharacter.Passive.Any(p => p.PassiveName == "Тетрадь смерти")
+                     where !player.Passives.IsDead
                      where !player.GameCharacter.DoomRollMode
                      where !Naruto.IsDispersedClone(player)
                      from predict in player.Predict
                      let enemy = game.PlayersList.Find(x => x.GetPlayerId() == predict.PlayerId)
-                     where enemy != null
+                     where enemy != null && !enemy.Passives.IsDead
                      where !UnknownBug.Is(enemy)
+                     where !Sakura.Is(enemy)
                      where enemy.GameCharacter.Name == predict.CharacterName
                      where !enemy.GameCharacter.Passive.Any(p => p.PassiveName == "Выдуманный персонаж")
                      where Naruto.PredictionAwardsPoints(player, enemy)
@@ -328,6 +333,7 @@ public class CheckIfReady : IServiceSingleton
         // TheBoys — M.M. (Компромат): multiply prediction bonus by kompromat count
         foreach (var boysPlayer in game.PlayersList.Where(x =>
                      x.GameCharacter.Passive.Any(p => p.PassiveName == "M.M.")
+                     && !x.Passives.IsDead
                      && !x.Passives.TheBoysButcher.SuperDickActive))
         {
             var kompromatCount = boysPlayer.Passives.TheBoysMM.KompromatTargets.Count;
@@ -338,7 +344,8 @@ public class CheckIfReady : IServiceSingleton
                 foreach (var predict in boysPlayer.Predict)
                 {
                     var enemy = game.PlayersList.Find(x => x.GetPlayerId() == predict.PlayerId);
-                    if (enemy != null && enemy.GameCharacter.Name == predict.CharacterName
+                    if (enemy != null && !enemy.Passives.IsDead && !Sakura.Is(enemy)
+                        && enemy.GameCharacter.Name == predict.CharacterName
                         && !enemy.GameCharacter.Passive.Any(p => p.PassiveName == "Выдуманный персонаж")
                         && Naruto.PredictionAwardsPoints(boysPlayer, enemy))
                         correctPredictions++;
@@ -362,12 +369,14 @@ public class CheckIfReady : IServiceSingleton
         // TheBoys — Смертельный вирус: источник (Француз) крадёт по 2 бонусных очка с каждого заражённого
         var virusStolen = new Dictionary<Guid, decimal>();
         foreach (var infected in game.PlayersList.Where(x =>
-                     x.Passives.TheBoysVirus && x.Passives.TheBoysVirusSource != Guid.Empty))
+                     !x.Passives.IsDead && x.Passives.TheBoysVirus
+                                        && x.Passives.TheBoysVirusSource != Guid.Empty))
         {
             var src = infected.Passives.TheBoysVirusSource;
             if (infected.GetPlayerId() == src) continue;
             var virusSource = game.PlayersList.Find(x => x.GetPlayerId() == src);
-            if (virusSource?.Passives.TheBoysButcher.SuperDickActive == true) continue;
+            if (virusSource == null || virusSource.Passives.IsDead
+                                    || virusSource.Passives.TheBoysButcher.SuperDickActive) continue;
             var scoreVictim = Naruto.ResolveScoreSuccessor(game, infected);
             scoreVictim.Status.AddBonusPoints(-2, "Смертельный вирус");
             scoreVictim.Status.AddInGamePersonalLogs("☣️ Смертельный вирус Француза: -2 бонусных очка\n");
@@ -386,14 +395,15 @@ public class CheckIfReady : IServiceSingleton
 
         // Tsukuyomi end-game deduction: deduct stolen points from victims
         foreach (var itachiPlayer in game.PlayersList.Where(x =>
-                     x.GameCharacter.Passive.Any(p => p.PassiveName == "Глаза Итачи")))
+                     !x.Passives.IsDead
+                     && x.GameCharacter.Passive.Any(p => p.PassiveName == "Глаза Итачи")))
         {
             var tsukuyomiEnd = itachiPlayer.Passives.ItachiTsukuyomi;
             foreach (var (victimId, stolenAmount) in tsukuyomiEnd.StolenFromPlayers)
             {
                 if (stolenAmount <= 0) continue;
                 var victim = game.PlayersList.Find(x => x.GetPlayerId() == victimId);
-                if (victim == null) continue;
+                if (victim == null || victim.Passives.IsDead) continue;
                 var scoreVictim = Naruto.ResolveScoreSuccessor(game, victim);
                 scoreVictim.Status.AddBonusPoints(-stolenAmount, "Глаза Итачи");
                 scoreVictim.Status.AddInGamePersonalLogs(
@@ -413,7 +423,8 @@ public class CheckIfReady : IServiceSingleton
         {
             //Произошел троллинг
             var awdkas = game.PlayersList.Where(x =>
-                x.GameCharacter.Passive.Any(y => y.PassiveName == "Произошел троллинг"));
+                !x.Passives.IsDead
+                && x.GameCharacter.Passive.Any(y => y.PassiveName == "Произошел троллинг"));
             foreach (var awdka in awdkas)
             {
                 var awdkaTroll = awdka.Passives.AwdkaTrollingList;
@@ -466,6 +477,8 @@ public class CheckIfReady : IServiceSingleton
                     {
                         var found = game.PlayersList.Find(x =>
                             predict.PlayerId == x.GetPlayerId() && predict.CharacterName == x.GameCharacter.Name
+                            && !x.Passives.IsDead
+                            && !Sakura.Is(x)
                             && !x.GameCharacter.Passive.Any(p => p.PassiveName == "Выдуманный персонаж"));
                         if (found != null) bonusTrolling += 1;
                     }
@@ -501,12 +514,13 @@ public class CheckIfReady : IServiceSingleton
         // Premade: if Support and Carry both in top 2, Support wins
         var supportPlayer = game.PlayersList.FirstOrDefault(x =>
             x.GameCharacter.Passive.Any(p => p.PassiveName == "Premade") &&
+            !x.Passives.IsDead &&
             x.Passives.SupportPremade.MarkedPlayerId != Guid.Empty);
         if (supportPlayer != null)
         {
             var carryPlayer = game.PlayersList.Find(x =>
                 x.GetPlayerId() == supportPlayer.Passives.SupportPremade.MarkedPlayerId);
-            if (carryPlayer != null)
+            if (carryPlayer != null && !carryPlayer.Passives.IsDead)
             {
                 var suppPos = supportPlayer.Status.GetPlaceAtLeaderBoard();
                 var carryPos = carryPlayer.Status.GetPlaceAtLeaderBoard();
@@ -540,14 +554,13 @@ public class CheckIfReady : IServiceSingleton
             game.AddGlobalLogs($"Гоблины построили Зиккурат на вершине! {goblinZigWinner.DiscordUsername} побеждает!");
         }
 
-        // Одна из трех: if player with this passive is in top 3, they win
+        // Одна из трех: solo-only and only across an uncontested top-three cutoff. If a fourth
+        // living player has Sakura's score, she did not earn a complete top-three place.
         var top3Player = game.PlayersList.FirstOrDefault(x =>
-            x.GameCharacter.Passive.Any(p => p.PassiveName == "Одна из трех") &&
-            x.Status.GetPlaceAtLeaderBoard() <= 3 &&
-            !x.Passives.IsDead);
+            Sakura.HasUncontestedSoloTopThree(game, x));
         if (top3Player != null)
         {
-            var oneOfThree = top3Player.GameCharacter.Passive.Find(x => x.PassiveName == "Одна из трех");
+            var oneOfThree = top3Player.GameCharacter.Passive.Find(x => x.PassiveName == Sakura.OneOfThree);
             if (oneOfThree != null) oneOfThree.Visible = true;
             game.AddGlobalLogs("**Sakura:** Я одна из легендарной тройки. И этого вполне достаточно!");
         }
@@ -555,7 +568,7 @@ public class CheckIfReady : IServiceSingleton
         var playerWhoWon = top3Player
                            ?? game.PlayersList.Where(x => !x.Passives.IsDead).FirstOrDefault()
                            ?? game.PlayersList.First();
-        HandlePostGameEvents(game);
+        HandlePostGameEvents(game, playerWhoWon);
 
 
         if (playerWhoWon.Status.AutoMoveTimes >= 10) playerWhoWon.DiscordUsername = "НейроБот";
@@ -570,6 +583,7 @@ public class CheckIfReady : IServiceSingleton
         decimal team2Score = 0;
         decimal team3Score = 0;
         var wonTeam = 0;
+        game.WinnerPlayerIds.Clear();
         if (game.Teams.Count > 0)
         {
             isTeam = true;
@@ -614,6 +628,12 @@ public class CheckIfReady : IServiceSingleton
                 else
                 {
                     game.AddGlobalLogs($"\nКоманда #{wonTeam} победила набрав {wonScore} Очков!");
+                    var winningTeam = game.Teams.Find(team => team.TeamId == wonTeam);
+                    if (winningTeam != null)
+                        game.WinnerPlayerIds.AddRange(game.PlayersList
+                            .Where(player => !player.Passives.IsDead
+                                             && winningTeam.TeamPlayers.Contains(player.Status.PlayerId))
+                            .Select(player => player.GetPlayerId()));
 
                     if (wonTeam != 1)
                         game.AddGlobalLogs($"\nКоманда #1 Набрала {team1Score} Очков.");
@@ -627,14 +647,16 @@ public class CheckIfReady : IServiceSingleton
         }
         else
         {
-            var isTie = game.PlayersList.FindAll(x => !x.Passives.IsDead
+            var isTie = top3Player == null && game.PlayersList.FindAll(x => !x.Passives.IsDead
                 && x.Status.GetScore() == playerWhoWon.Status.GetScore()).Count > 1;
             var winnerText = UnknownBug.Is(playerWhoWon)
                 ? $"\n**{playerWhoWon.DiscordUsername}** победил. Данные персонажа повреждены."
                 : $"\n**{playerWhoWon.DiscordUsername}** победил, играя за **{playerWhoWon.GameCharacter.Name}**";
             game.AddGlobalLogs(isTie ? "\n**Ничья**" : winnerText);
+            if (!isTie)
+                game.WinnerPlayerIds.Add(playerWhoWon.GetPlayerId());
             if (!playerWhoWon.IsBot() && !playerWhoWon.IsWebPlayer && !playerWhoWon.PreferWeb)
-                if (game.PlayersList.FindAll(x => !x.Passives.IsDead
+                if (top3Player != null || game.PlayersList.FindAll(x => !x.Passives.IsDead
                         && x.Status.GetScore() == playerWhoWon.Status.GetScore())
                         .Count == 1)
                 {
@@ -1133,11 +1155,13 @@ public class CheckIfReady : IServiceSingleton
 
                 //Возвращение из мертвых
                 if (game.IsKratosEvent)
-                    foreach (var player in players.Where(x =>
-                                 x.GameCharacter.Passive.All(y => y.PassiveName != "Возвращение из мертвых")))
+                    foreach (var player in players.Where(x => x.GameCharacter.Name != "Кратос"))
                     {
+                        player.Status.WhoToAttackThisTurn.Clear();
                         player.Status.IsReady = true;
                         player.Status.IsBlock = true;
+                        player.Status.IsSkip = false;
+                        player.Status.ConfirmedPredict = true;
                     }
 
 
@@ -1206,8 +1230,11 @@ public class CheckIfReady : IServiceSingleton
 
                 //Calculating the game
                 game.IsCheckIfReady = false;
-                Madara.PrepareIncomingAttackers(game);
-                Madara.PrepareEternalTsukuyomiRound(game);
+                if (!game.IsKratosEvent)
+                {
+                    Madara.PrepareIncomingAttackers(game);
+                    Madara.PrepareEternalTsukuyomiRound(game);
+                }
 
 
                 //If did do anything - Block
@@ -1215,6 +1242,7 @@ public class CheckIfReady : IServiceSingleton
                              !t.IsBot() && !t.Status.IsAutoMove && t.Status.WhoToAttackThisTurn.Count == 0 &&
                              t.Status.IsBlock == false && t.Status.IsSkip == false &&
                              t.Passives.RickPickle.PickleTurnsRemaining == 0 &&
+                             !t.Passives.IsDead &&
                              !(Madara.IsMadara(t) && (game.RoundNo == 8 || t.Passives.Madara.Sealed))))
                 {
                     _logs.Warning($"\nWARN: {t.DiscordUsername} didn't do anything - Auto Move!\n");
@@ -1229,7 +1257,7 @@ public class CheckIfReady : IServiceSingleton
                 foreach (var t in players.Where(t =>
                              !t.IsBot() && !t.Status.IsReady && !t.Status.IsSkip
                              && t.GameCharacter.Passive.Any(x => x.PassiveName == "Макро")
-                             && t.Status.WhoToAttackThisTurn.Count == 1))
+                             && !t.Passives.IsDead && t.Status.WhoToAttackThisTurn.Count == 1))
                 {
                     t.Status.IsAutoMove = true;
                     t.Status.AddInGamePersonalLogs("Макро: Второе действие не выбрано. Использовался Авто Ход\n");
@@ -1239,7 +1267,8 @@ public class CheckIfReady : IServiceSingleton
                 //handle bots
                 //Произошел троллинг
                 foreach (var player in game.PlayersList
-                             .Where(x => x.GameCharacter.Passive.Any(y => y.PassiveName == "Произошел троллинг"))
+                             .Where(x => !x.Passives.IsDead
+                                         && x.GameCharacter.Passive.Any(y => y.PassiveName == "Произошел троллинг"))
                              .ToList())
                 {
                     var hardIndex = game.PlayersList.IndexOf(player);
@@ -1254,7 +1283,9 @@ public class CheckIfReady : IServiceSingleton
                     game.PlayersList[k].Status.SetPlaceAtLeaderBoard(k + 1);
 
                 //end Произошел троллинг
-                foreach (var t in players.Where(x => x.IsBot() || x.Status.IsAutoMove))
+                foreach (var t in players.Where(x => !x.Passives.IsDead
+                                                      && (!game.IsKratosEvent || x.GameCharacter.Name == "Кратос")
+                                                      && (x.IsBot() || x.Status.IsAutoMove)))
                     try
                     {
                         await _botsBehavior.HandleBotBehavior(t, game);
@@ -1266,14 +1297,17 @@ public class CheckIfReady : IServiceSingleton
                     }
 
                 var madara = Madara.Find(game);
-                if (madara != null && game.RoundNo == 8 && !madara.Passives.Madara.Sealed)
+                if (!game.IsKratosEvent && madara != null && !madara.Passives.IsDead
+                    && game.RoundNo == 8 && !madara.Passives.Madara.Sealed)
                     Madara.SetUnableToAct(madara);
-                Madara.SanitizeSealedActions(game);
+                if (!game.IsKratosEvent)
+                    Madara.SanitizeSealedActions(game);
 
 
                 //Никому не нужен
                 foreach (var player in game.PlayersList
-                             .Where(x => x.GameCharacter.Passive.Any(y => y.PassiveName == "Никому не нужен")).ToList())
+                             .Where(x => !x.Passives.IsDead
+                                         && x.GameCharacter.Passive.Any(y => y.PassiveName == "Никому не нужен")).ToList())
                 {
                     var hardIndex = game.PlayersList.IndexOf(player);
 
@@ -1290,6 +1324,7 @@ public class CheckIfReady : IServiceSingleton
                 {
                     var eren = game.PlayersList.Find(x =>
                         x.GameCharacter.Name == ErenYeager.CharacterName
+                        && !x.Passives.IsDead
                         && x.GameCharacter.Passive.Any(y => y.PassiveName == ErenYeager.Sheep));
                     if (eren != null)
                         ErenYeager.MoveToLast(game.PlayersList, eren);
@@ -1308,6 +1343,7 @@ public class CheckIfReady : IServiceSingleton
                 // authoritative and cannot be converted into a defensive action.
                 foreach (var geralt in players.Where(p =>
                     p.Status.IsSkip && p.GameCharacter.Name == "Геральт"
+                    && !p.Passives.IsDead && !game.IsKratosEvent
                     && !Madara.IsEternalTsukuyomiRound(game)))
                 {
                     geralt.Status.IsSkip = false;
@@ -1316,11 +1352,14 @@ public class CheckIfReady : IServiceSingleton
 
                 // Aggress — Toxic Mate auto-attacks random target instead of auto-blocking
                 foreach (var t in players.Where(t =>
-                             t.Status.WhoToAttackThisTurn.Count == 0 && t.Status.IsBlock == false &&
+                             !game.IsKratosEvent && !t.Passives.IsDead
+                             && t.Status.WhoToAttackThisTurn.Count == 0 && t.Status.IsBlock == false &&
                              t.Status.IsSkip == false && t.GameCharacter.Passive.Any(x => x.PassiveName == "Aggress")))
                 {
                     var targets = players.Where(p => p.GetPlayerId() != t.GetPlayerId()
-                        && !p.Passives.IsDead).ToList();
+                        && !p.Passives.IsDead
+                        && !(game.RoundNo == 10 && p.GameCharacter.Passive.Any(x =>
+                            x.PassiveName == "Стримснайпят и банят и банят и банят"))).ToList();
                     if (targets.Count > 0)
                     {
                         t.Status.WhoToAttackThisTurn.Add(targets[Random.Shared.Next(targets.Count)].GetPlayerId());
@@ -1331,6 +1370,7 @@ public class CheckIfReady : IServiceSingleton
                 // Salldorum — Временная капсула: first block buries cola
                 foreach (var sallo in players.Where(p =>
                              p.GameCharacter.Name == "Salldorum" &&
+                             !p.Passives.IsDead && !game.IsKratosEvent &&
                              p.Status.IsBlock &&
                              !p.Passives.SalldorumTimeCapsule.FirstBlockUsed))
                 {
@@ -1345,7 +1385,7 @@ public class CheckIfReady : IServiceSingleton
 
                 // Штормяк — taunt on block: force random enemy to attack the blocker as second action
                 foreach (var taunter in players.Where(t =>
-                             t.Status.IsBlock &&
+                             !game.IsKratosEvent && !t.Passives.IsDead && t.Status.IsBlock &&
                              t.GameCharacter.Passive.Any(x => x.PassiveName == "Штормяк")))
                 {
                     var isOriginalKotiki = taunter.Passives.KotikiCatOwnerId == Guid.Empty;
@@ -1400,6 +1440,7 @@ public class CheckIfReady : IServiceSingleton
                 // Монстр: players Monster attacked last round cannot block or skip
                 foreach (var victim in players.Where(v =>
                     !Madara.IsEternalTsukuyomiRound(game) &&
+                    !game.IsKratosEvent &&
                     v.Passives.MonsterNoEscapeUntilRound >= game.RoundNo &&
                     !v.Passives.IsDead &&
                     !(game.RoundNo == 10 && v.GameCharacter.Passive.Any(
@@ -1414,6 +1455,8 @@ public class CheckIfReady : IServiceSingleton
                             var targets = players.Where(p =>
                                 p.GetPlayerId() != victim.GetPlayerId()
                                 && !p.Passives.IsDead
+                                && !(game.RoundNo == 10 && p.GameCharacter.Passive.Any(x =>
+                                    x.PassiveName == "Стримснайпят и банят и банят и банят"))
                                 && !Naruto.IsNarutoPair(victim, p)).ToList();
                             if (targets.Count > 0)
                                 victim.Status.WhoToAttackThisTurn.Add(
@@ -1429,10 +1472,12 @@ public class CheckIfReady : IServiceSingleton
                 // separate visible attack. Duplicates are intentional when an ordinary, second or
                 // externally forced action already targets Madara.
                 madara = Madara.Find(game);
-                if (game.RoundNo == 8 && madara != null && !madara.Passives.Madara.Sealed)
+                if (!game.IsKratosEvent && game.RoundNo == 8 && madara != null
+                    && !madara.Passives.IsDead && !madara.Passives.Madara.Sealed)
                 {
                     foreach (var predictor in players.Where(p =>
                                  p.GetPlayerId() != madara.GetPlayerId()
+                                 && !p.Passives.IsDead
                                  && p.Status.ConfirmedPredict
                                  && p.Predict.Any(prediction =>
                                      prediction.PlayerId == madara.GetPlayerId()
@@ -1449,16 +1494,20 @@ public class CheckIfReady : IServiceSingleton
 
                     Madara.SetUnableToAct(madara);
                 }
-                Madara.SanitizeSealedActions(game);
-                Naruto.SanitizeMutualTargets(game);
+                if (!game.IsKratosEvent)
+                {
+                    Madara.SanitizeSealedActions(game);
+                    Naruto.SanitizeMutualTargets(game);
+                }
 
                 // Шэн is spent by the next real submitted attack. A target ahead selects its exact
                 // cell; crossed players have their primary attack redirected instead of gaining a fight.
                 // Eternal Tsukuyomi erases the submitted attack before it can spend the charge.
-                if (!Madara.IsEternalTsukuyomiRound(game))
+                if (!game.IsKratosEvent && !Madara.IsEternalTsukuyomiRound(game))
                 {
                     Salldorum.ResolveShenDashes(game);
-                    foreach (var sallo in game.PlayersList.Where(player => player.GameCharacter.Name == "Salldorum"))
+                    foreach (var sallo in game.PlayersList.Where(player =>
+                                 player.GameCharacter.Name == "Salldorum" && !player.Passives.IsDead))
                         Salldorum.TryDrinkAvailableTimeCapsule(sallo, game);
 
                     // Shen redirects existing attacks, so apply the same sealed/mutual-target
@@ -1469,8 +1518,11 @@ public class CheckIfReady : IServiceSingleton
 
                 // Re-snapshot after bot choices and readiness-stage forced actions. If all five
                 // enemies armed Цукуеми on this turn, erase every real action before combat.
-                Madara.PrepareIncomingAttackers(game);
-                Madara.PrepareEternalTsukuyomiRound(game);
+                if (!game.IsKratosEvent)
+                {
+                    Madara.PrepareIncomingAttackers(game);
+                    Madara.PrepareEternalTsukuyomiRound(game);
+                }
 
                 //delete messages from prev round. No await.
                 foreach (var player in game.PlayersList)
@@ -1480,7 +1532,7 @@ public class CheckIfReady : IServiceSingleton
                 //moral
                 //прожать всю момаль
                 if (game.RoundNo == 10)
-                    foreach (var player in game.PlayersList)
+                    foreach (var player in game.PlayersList.Where(player => !player.Passives.IsDead))
                         while (player.GameCharacter.GetMoral() >= 5)
                             await _gameReaction.HandleMoralForScore(player);
 
@@ -1490,6 +1542,7 @@ public class CheckIfReady : IServiceSingleton
                 //end moral
                 foreach (var player in game.PlayersList)
                 {
+                    if (player.Passives.IsDead) continue;
                     player.GameCharacter.ResetMoralBonus();
                     player.GameCharacter.ResetStrengthQualityDropTimes();
                     player.Status.ResetFightingData();
@@ -1507,7 +1560,8 @@ public class CheckIfReady : IServiceSingleton
                     }
                 }
 
-                foreach (var player in game.PlayersList) player.GameCharacter.SetMoralBonus();
+                foreach (var player in game.PlayersList.Where(player => !player.Passives.IsDead))
+                    player.GameCharacter.SetMoralBonus();
 
                 foreach (var t in players.Where(x => !x.IsBot()))
                     try

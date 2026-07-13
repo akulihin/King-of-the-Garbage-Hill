@@ -4,7 +4,7 @@
 
 ## 1. Player loop
 
-Every UTC day gives an account three ordered contracts: the fixed **Anchor**, one personalized **Skirmish**, and one personalized **Ambition** (`QuestClass.cs:13-68,208-260`). The board deliberately has no character/passive names, different-character requirements, predictions, score thresholds or block counts. Progress settles only when a match finishes, from generic match facts already observed by the fight pipeline (`QuestClass.cs:358-412`; settlement call `CheckIfReady.cs:710-745`).
+Every UTC day gives an account three ordered contracts: the fixed **Anchor**, one personalized **Skirmish**, and one personalized **Ambition** (`QuestClass.cs:13-68,208-260`). The board deliberately has no character/passive names, different-character requirements, predictions, score thresholds or block counts. Progress settles only when a match finishes, from generic match facts already observed by the fight pipeline (`QuestClass.cs:358-412`; settlement call `CheckIfReady.cs:732-767`).
 
 Rewards are automatic and exactly once:
 
@@ -46,7 +46,7 @@ Each day includes one free swap for an unfinished Skirmish or Ambition card. The
 
 ## 4. Match facts and privacy
 
-The match settlement contributes: eligible matches; resolved fights; fight wins; best distinct defeated opponents; best win streak; class-advantage wins; alive/top-three finishes; best climb from a match-low; rounds at first; maximum Justice; and a team-aware winning result (`QuestClass.cs:102-116,358-412`). These are generic systems rather than named-character hooks. Team victory counts every member of the winning team; solo uses the existing alive winner-result semantics, including the established reward treatment for ties and Sakura's soft win (`CheckIfReady.cs:659-715`).
+The match settlement contributes: eligible matches; resolved fights; fight wins; best distinct defeated opponents; best win streak; class-advantage wins; alive/top-three finishes; best climb from a match-low; rounds at first; maximum Justice; and a team-aware winning result (`QuestClass.cs:102-116,358-412`). These are generic systems rather than named-character hooks. Team victory counts every member of the winning team; solo uses the existing alive winner-result semantics, including the established reward treatment for ties and Sakura's soft win (`CheckIfReady.cs:681-737`).
 
 When `Вечное Цукуеми` is active, a non-Madara account receives a private projected ending. Daily Quests still count safe participation (match completion and resolved-fight participation) but suppress every real outcome/result fact, so progress cannot contradict or reveal that private view (`QuestClass.cs:380-408`). Madara owns and sees the authoritative result, so his account evaluates normally.
 
@@ -55,7 +55,7 @@ When `Вечное Цукуеми` is active, a non-Madara account receives a pr
 - Day keys and reset timestamps use UTC; the next board begins at 00:00 UTC (`QuestClass.cs:476-489,725-731`).
 - The visible streak advances once when 2/3 is first reached. A missed UTC day resets the current streak on the next initialization, while `BestStreakDays` remains (`QuestClass.cs:283-355,681-688`).
 - The weekly journey uses ISO year/week, stores distinct completed date keys, resets at the next ISO week, and pays at 5/7 (`QuestClass.cs:690-731`).
-- One `DateTimeOffset` is captured for the whole game settlement so six account updates cannot split across midnight (`CheckIfReady.cs:290,734`).
+- One `DateTimeOffset` is captured for the whole game settlement so six account updates cannot split across midnight (`CheckIfReady.cs:291,734`).
 
 Battleship has a separate UTC win-day streak and first-win reward; it does not advance this Daily Quest streak or the weekly journey (WEB-BACKEND.md §10; value in BALANCE-CONSTANTS.md).
 
@@ -65,7 +65,7 @@ Battleship has a separate UTC win-day streak and first-win reward; it does not a
 
 Missing/null containers and unknown/duplicate lane entries are normalized. An unpaid V1 board starts V2 immediately. If the V1 board already paid its all-three reward on the current UTC day, V2 represents that day as settled and disables its reroll without issuing any card/daily/mastery reward twice (`QuestClass.cs:283-355,542-613`). The deep account snapshot preserves all daily/weekly fields and the existing loot reference for rollback (`QuestClass.cs:491-508,734-797`).
 
-Game-end reward settlement already runs under the account monitor and persists once after quests, top-two loot and achievements are applied. A failed real-account save keeps the settled in-memory state for the periodic retry (`CheckIfReady.cs:722-796`). Lazy day/week initialization and user rerolls are stricter: they save before the hub publishes state and restore on failure (`GameHub.cs:649-725`).
+Game-end reward settlement already runs under the account monitor and persists once after quests, top-two loot and achievements are applied. A failed real-account save keeps the settled in-memory state for the periodic retry (`CheckIfReady.cs:744-818`). Lazy day/week initialization and user rerolls are stricter: they save before the hub publishes state and restore on failure (`GameHub.cs:649-725`).
 
 ## 7. Web contract and experience
 

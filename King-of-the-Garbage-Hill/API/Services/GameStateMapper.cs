@@ -276,6 +276,9 @@ public static class GameStateMapper
         {
             dto.Predictions = player.Predict
                 .Where(prediction => viewerIsTerminal || !UnknownBug.Is(prediction.CharacterName))
+                .Where(prediction => !Sakura.Is(prediction.CharacterName)
+                                     && !Sakura.Is(allPlayers.Find(target =>
+                                         target.GetPlayerId() == prediction.PlayerId)))
                 .Select(p =>
                 {
                     var predDto = new PredictDto { PlayerId = p.PlayerId, CharacterName = p.CharacterName };
@@ -328,7 +331,9 @@ public static class GameStateMapper
                 LPlayerId = kiraL.LPlayerId,
                 IsArrested = kiraL.IsArrested,
                 ShinigamiEyesActive = eyes.EyesActiveForNextAttack,
-                RevealedPlayers = eyes.RevealedPlayers.Select(rp =>
+                RevealedPlayers = eyes.RevealedPlayers
+                    .Where(rp => !Sakura.Is(allPlayers.Find(x => x.GetPlayerId() == rp)))
+                    .Select(rp =>
                 {
                     var revealed = allPlayers.Find(x => x.GetPlayerId() == rp);
                     return new DeathNoteRevealedPlayerDto
