@@ -14,6 +14,7 @@ export type GameState = {
   isDraftPickPhase: boolean
   draftOptions: DraftOptionDto[] | null
   isKratosEvent: boolean
+  isRumblingWarningActive: boolean
   globalLogs: string
   /** Full history of global logs across all rounds */
   allGlobalLogs: string

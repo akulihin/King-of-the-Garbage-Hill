@@ -51,4 +51,14 @@ public static class ErenYeager
             .Select(x => x.Player)
             .ToList();
     }
+
+    public static bool IsRumblingWarningActive(GameClass game)
+    {
+        if (game.RoundNo != 10) return false;
+
+        return game.PlayersList.Any(player =>
+            player.GameCharacter.Name == CharacterName
+            && player.GameCharacter.Passive.Any(passive => passive.PassiveName == Rumbling)
+            && player.Passives.Eren.RumblingWarningPlayed);
+    }
 }

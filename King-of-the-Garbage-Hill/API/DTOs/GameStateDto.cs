@@ -19,6 +19,7 @@ public class GameStateDto
     public bool IsDraftPickPhase { get; set; }
     public List<DraftOptionDto> DraftOptions { get; set; }
     public bool IsKratosEvent { get; set; }
+    public bool IsRumblingWarningActive { get; set; }
     public string GlobalLogs { get; set; }
 
     /// <summary>Full history of all global logs across all rounds.</summary>

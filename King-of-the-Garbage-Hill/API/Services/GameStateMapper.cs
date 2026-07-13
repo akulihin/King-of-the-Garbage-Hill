@@ -135,6 +135,7 @@ public static class GameStateMapper
             IsDraftPickPhase = game.IsDraftPickPhase,
             DraftOptions = scopedDraftOptions,
             IsKratosEvent = game.IsKratosEvent,
+            IsRumblingWarningActive = ErenYeager.IsRumblingWarningActive(game),
             GlobalLogs = requestingPlayer == null
                 ? (isAdmin ? game.GetGlobalLogs() : StripHiddenLogs(game.GetGlobalLogs(), game.HiddenGlobalLogSnippets, requestingPlayer, game))
                 : GameLocalization.TextForClient(requestingPlayer.DiscordId,

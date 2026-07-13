@@ -7,6 +7,7 @@ const PREDICT_CLICK_ATTR = 'data-sfx-predict'
 type StatKey = 'intelligence' | 'strength' | 'speed' | 'psyche'
 type PlaybackChannel =
   | 'lvl-up-extra' | 'rick-theme' | 'portal-gun' | 'kira-theme' | 'geralt-theme' | 'doom-theme'
+  | 'eren-rumbling-theme'
   | 'achievement-unlock' | 'loot-box' | 'loot-box-points'
 
 // ── Volume config types ──────────────────────────────────────────────
@@ -126,6 +127,7 @@ const audioBufferCache = new Map<string, AudioBuffer>()
 const failedUrls = new Set<string>()
 const pendingBufferResolve = new Map<string, Promise<AudioBuffer | null>>()
 const channelSources = new Map<PlaybackChannel, AudioBufferSourceNode>()
+const channelGenerations = new Map<PlaybackChannel, number>()
 const BATCH_MAX_START_DELAY_MS = 180
 
 const ALL_VOLUME_GROUPS: VolumeGroup[] = [
@@ -253,10 +255,19 @@ interface PlayClipOptions {
 async function playClip(relativePath: string, options?: PlayClipOptions): Promise<boolean> {
   if (getMasterVolume() === 0) return false
   if (checkKillSwitch(relativePath)) return false
+  const channelGeneration = options?.channel == null
+    ? null
+    : (channelGenerations.get(options.channel) ?? 0) + 1
+  if (options?.channel != null && channelGeneration != null) {
+    channelGenerations.set(options.channel, channelGeneration)
+  }
   try {
     const ctx = ensureAudioContext()
     const buffer = await getOrFetchAudioBuffer(toSoundUrl(relativePath))
     if (!buffer) return false
+    if (options?.channel != null && channelGenerations.get(options.channel) !== channelGeneration) {
+      return false
+    }
 
     const source = ctx.createBufferSource()
     source.buffer = buffer
@@ -711,6 +722,7 @@ export function playAnyMoveTurn10PlusLayer(isLateGame?: boolean): void {
 
 /** Stop a named playback channel */
 export function stopChannel(channel: PlaybackChannel): void {
+  channelGenerations.set(channel, (channelGenerations.get(channel) ?? 0) + 1)
   try { channelSources.get(channel)?.stop() } catch { /* already stopped */ }
   channelSources.delete(channel)
 }
@@ -995,8 +1007,14 @@ export function playErenAttackTitan(): void {
 }
 
 export function playErenRumblingWarning(): void {
-  void playClip('character_passives/eren/rumbling/eren_final_attack_theme.mp3', { group: 'characterPassives' })
+  void playClip('character_passives/eren/rumbling/eren_final_attack_theme.mp3', {
+    channel: 'eren-rumbling-theme', group: 'characterPassives', loop: true,
+  })
   void playClip('character_passives/eren/rumbling/eren_rumbling.mp3', { group: 'characterPassives' })
+}
+
+export function stopErenRumblingWarning(): void {
+  stopChannel('eren-rumbling-theme')
 }
 
 export function playDoomGameStartTheme(): void {

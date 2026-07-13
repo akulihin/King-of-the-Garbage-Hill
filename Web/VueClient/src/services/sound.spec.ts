@@ -6,7 +6,8 @@ interface FakeBuffer {
   id: string
 }
 
-const starts: Array<{ id: string; when: number }> = []
+const starts: Array<{ id: string; when: number; loop: boolean }> = []
+const stops: string[] = []
 
 class FakeAudioContext {
   state = 'running'
@@ -18,10 +19,18 @@ class FakeAudioContext {
   }
 
   createBufferSource() {
-    const source: { buffer: FakeBuffer | null; connect: ReturnType<typeof vi.fn>; start: (when: number) => void } = {
+    const source: {
+      buffer: FakeBuffer | null
+      loop: boolean
+      connect: ReturnType<typeof vi.fn>
+      start: (when: number) => void
+      stop: () => void
+    } = {
       buffer: null,
+      loop: false,
       connect: vi.fn(),
-      start: (when: number) => starts.push({ id: source.buffer?.id ?? '', when }),
+      start: (when: number) => starts.push({ id: source.buffer?.id ?? '', when, loop: source.loop }),
+      stop: () => stops.push(source.buffer?.id ?? ''),
     }
     return source
   }
@@ -48,6 +57,7 @@ describe('batched sound layers', () => {
     vi.resetModules()
     vi.restoreAllMocks()
     starts.length = 0
+    stops.length = 0
     localStorage.clear()
     vi.stubGlobal('AudioContext', FakeAudioContext)
   })
@@ -95,5 +105,24 @@ describe('batched sound layers', () => {
 
     expect(performance.now() - startedAt).toBeLessThan(230)
     expect(starts.map(start => start.id)).toEqual(['primary'])
+  })
+
+  it('loops Eren\'s global Rumbling theme until it is stopped', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (input: string | URL) => {
+      const url = String(input)
+      if (url === '/sound-config.json') return { ok: false }
+      if (url.endsWith('/eren_final_attack_theme.mp3')) return audioResponse('rumbling-theme')
+      return audioResponse('rumbling-cue')
+    }))
+
+    const { playErenRumblingWarning, stopErenRumblingWarning } = await import('./sound')
+    playErenRumblingWarning()
+
+    await vi.waitFor(() => expect(starts).toHaveLength(2))
+    expect(starts.find(start => start.id === 'rumbling-theme')?.loop).toBe(true)
+    expect(starts.find(start => start.id === 'rumbling-cue')?.loop).toBe(false)
+
+    stopErenRumblingWarning()
+    expect(stops).toContain('rumbling-theme')
   })
 })

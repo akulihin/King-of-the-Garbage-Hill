@@ -55,6 +55,7 @@ import {
   playErenTatake,
   playErenAttackTitan,
   playErenRumblingWarning,
+  stopErenRumblingWarning,
   playGeraltQuestCompleted,
   playGeraltLevelUpAvailable,
   playGeraltOilLevelUp,
@@ -200,6 +201,7 @@ onUnmounted(() => {
   stopKiraGameStartTheme()
   stopGeraltGameStartTheme()
   stopDoomGameStartTheme()
+  stopErenRumblingWarning()
   clearPrevLogTimer()
   if (gameOverOverlayTimer) clearTimeout(gameOverOverlayTimer)
   if (finishPresentationFallbackTimer) clearTimeout(finishPresentationFallbackTimer)
@@ -269,16 +271,22 @@ watch(() => store.myPlayer?.passiveAbilityStates?.eren, (eren, previous) => {
   for (let i = previous.attackTitanSoundSerial; i < eren.attackTitanSoundSerial; i++) playErenAttackTitan()
 }, { deep: true })
 
-// Rumbling warning is global: both tracks start together for every connected player.
+// Rumbling warning is public: the server flag does not depend on viewer-masked identities.
 const rumblingAudioGameId = ref<number | null>(null)
 watch(() => store.gameState, (state) => {
-  if (!state || state.roundNo !== 10 || rumblingAudioGameId.value === state.gameId) return
-  const livingEren = state.players.some(player =>
-    player.character.name === 'Эрен Йегер' && !player.isDead)
-  if (!livingEren) return
-  rumblingAudioGameId.value = state.gameId
-  playErenRumblingWarning()
-})
+  if (state?.isRumblingWarningActive) {
+    if (rumblingAudioGameId.value === state.gameId) return
+    stopErenRumblingWarning()
+    rumblingAudioGameId.value = state.gameId
+    playErenRumblingWarning()
+    return
+  }
+
+  if (rumblingAudioGameId.value !== null) {
+    rumblingAudioGameId.value = null
+    stopErenRumblingWarning()
+  }
+}, { immediate: true })
 
 // DooM Guy: owner-only opening theme, stopped after the first committed action.
 const doomThemePlaying = ref(false)

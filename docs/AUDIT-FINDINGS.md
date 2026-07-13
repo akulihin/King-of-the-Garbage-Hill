@@ -1,6 +1,6 @@
 # Design-vs-Code Audit — Findings
 
-> Original audit of `DataBase/characters.json` (+ `Game/GameDesign.txt` intent notes, root-level update notes) against the 2026-07-01 working tree (v4.1.8); statuses and fix notes re-verified through 2026-07-13 (v4.4.9). Historical “Code” bullets describe the pre-fix implementation when a later **Fixed** note is present. `CP` = `Game/GameLogic/CharacterPassives.cs`.
+> Original audit of `DataBase/characters.json` (+ `Game/GameDesign.txt` intent notes, root-level update notes) against the 2026-07-01 working tree (v4.1.8); statuses and fix notes re-verified through 2026-07-13 (v4.4.10). Historical “Code” bullets describe the pre-fix implementation when a later **Fixed** note is present. `CP` = `Game/GameLogic/CharacterPassives.cs`.
 >
 > Severity: **Critical** = player-visible wrong outcome / broken kit promise; **Major** = mechanic silently missing/misfiring or balance-relevant hidden behavior; **Minor** = cosmetic, flavor, dead code, small numeric drift; **Design question** = code self-consistent but intent ambiguous.
 
@@ -580,6 +580,12 @@ Worth stating because they're easy to suspect: Francie's final-turn contract win
 - **Impact:** all three Naruto pilots overused Block/Гарем solely because Теневые made their own two siblings untargetable, rather than because of fight state or character strategy.
 - **Fixed:** 2026-07-13 — `Naruto.GetBotActionTargetSlotCount` adds one virtual attack slot per living sibling only to the L0/L1 attack-vs-Block roll. The siblings remain absent from every real target pool and submission gate; dead siblings add no slot. L2/L3 already base Block on target quality and history rather than target count and are unchanged (`BotsBehavior.HandleBotAttack`; `BotsBehavior.HandleBotAttackRandom`).
 
+### M47. The global Rumbling theme depended on seeing Eren's masked identity
+- **Intended:** when the public Armin warning opens round 10, every connected web viewer hears the Rumbling cue and the long theme continuously until round 11 begins.
+- **Actual before the fix:** `Game.vue` searched the viewer-scoped `players` projection for the literal name `Эрен Йегер`. During an unfinished game, every non-owner receives `???` for an opponent's character, so only Eren's own client found him and started the audio. The long theme was also a one-shot untracked clip with no round-11 stop contract (`GameStateMapper.MapCharacter`; pre-fix `Game.vue` Rumbling watcher; pre-fix `sound.ts` `playErenRumblingWarning`).
+- **Impact:** the public round-10 warning had owner-only audio in ordinary hidden-identity games, and theme duration was determined by the MP3 rather than by the round lifecycle.
+- **Fixed:** 2026-07-13 — top-level `GameStateDto.IsRumblingWarningActive` exposes only the already-public warning window, derived from `RumblingWarningPlayed` and round 10 without revealing Eren's player row. Every player and spectator projection now drives the same watcher. The long theme runs on a cancellable loop channel and is stopped when the flag clears at round 11 (or the page unmounts); the short Rumbling cue remains one-shot. Pending channel loads are generation-guarded so a slow fetch cannot start the theme after it was stopped (`ErenYeager.IsRumblingWarningActive`; `GameStateMapper.ToDto`; `Game.vue`; `sound.ts`).
+
 ### D12. Every bonus-point "steal" mints points at the 0-floor
 - Because `AddBonusPoints` floors the victim at 0 (`InGameStatusClass.cs:239`), each transfer-shaped mechanic credits the taker the **full** amount while the victim may lose less: «Выгодная сделка» (`CP:1804-1816`), Смертельный вирус, Глаза Итачи deduction, Сайтама's ledger reclaim, «Запах мусора». Zero-sum on paper, positive-sum at the floor. Acceptable pity cushion, or should takers receive only what victims actually lose?
 - **Confirmed intended:** 2026-07-13 (designer choice A) — keep the victim's zero-floor cushion and credit the receiver's full nominal amount. Documented in GAME-DESIGN §6 and INTERACTION-MATRIX §4; no code change.
@@ -635,7 +641,7 @@ Full team-mode ruleset (2х2х2/3х3 team-score win, forced ally predictions —
 
 ## Summary count
 
-**1 Critical** (C1) · **45 Major** (M1–M45) · **47 Minor** (m1–m47) · **14 Design questions** (D1–D14). Phase-6 designer review was fully implemented 2026-07-13: M37–M40 and m37–m44 fixed, D12 confirmed intended, D13–D14 fixed; m47 was discovered and fixed in the same score-floor change. M44 was discovered during the Близнец block audit; M45 was discovered and fixed during the bot-knowledge review. Still open: **m12, m19, m24, m26**.
+**1 Critical** (C1) · **47 Major** (M1–M47) · **47 Minor** (m1–m47) · **14 Design questions** (D1–D14). Phase-6 designer review was fully implemented 2026-07-13: M37–M40 and m37–m44 fixed, D12 confirmed intended, D13–D14 fixed; m47 was discovered and fixed in the same score-floor change. M44 was discovered during the Близнец block audit; M45 was discovered and fixed during the bot-knowledge review; M46–M47 were discovered and fixed in their follow-up audits. Still open: **m12, m19, m24, m26**.
 
 ## Verification addendum (second pass, 2026-07-01)
 
