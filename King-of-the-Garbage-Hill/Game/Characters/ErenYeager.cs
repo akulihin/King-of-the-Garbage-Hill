@@ -18,6 +18,7 @@ public static class ErenYeager
         public int RageGained { get; set; }
         public int Losses { get; set; }
         public bool AttackTitanActiveThisRound { get; set; }
+        public int AttackTitanCooldown { get; set; }
         public int AttackTitanSoundSerial { get; set; }
         public int TatakeSoundSerial { get; set; }
         public List<Guid> MutualAttackRewardsThisRound { get; set; } = new();

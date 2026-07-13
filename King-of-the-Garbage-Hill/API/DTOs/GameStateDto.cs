@@ -758,6 +758,7 @@ public class ErenStateDto
     public int RageGained { get; set; }
     public int Losses { get; set; }
     public bool AttackTitanActive { get; set; }
+    public int AttackTitanCooldown { get; set; }
     public int AttackTitanSoundSerial { get; set; }
     public int TatakeSoundSerial { get; set; }
     public bool RumblingTriggered { get; set; }

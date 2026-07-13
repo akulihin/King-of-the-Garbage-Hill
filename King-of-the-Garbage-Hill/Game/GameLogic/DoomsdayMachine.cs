@@ -283,6 +283,7 @@ public class DoomsdayMachine : IServiceSingleton
         foreach (var player in game.PlayersList.Where(x =>
                      x.GameCharacter.Name == ErenYeager.CharacterName
                      && x.GameCharacter.Passive.Any(y => y.PassiveName == ErenYeager.AttackTitan)
+                     && x.Passives.Eren.AttackTitanCooldown == 0
                      && x.Status.IsBlock).ToList())
         {
             player.Status.IsBlock = false;

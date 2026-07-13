@@ -204,4 +204,4 @@
 
 - none
 
-_Limitation: `switch` case labels over a Name variable outside CharacterPassives.cs (e.g. BotsBehavior) are not scanned — the Cyrillic `case "Салдорум":` at BotsBehavior.cs:1410 is only caught via its sibling `==` checks._
+_Limitation: `switch` case labels over a Name variable outside CharacterPassives.cs (e.g. BotsBehavior) are not scanned — the Cyrillic `case "Салдорум":` at BotsBehavior.cs:1409 is only caught via its sibling `==` checks._

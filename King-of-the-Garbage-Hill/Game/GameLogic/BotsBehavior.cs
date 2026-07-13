@@ -823,6 +823,8 @@ public class BotsBehavior : IServiceSingleton
                 }
             }
 
+            if (await TryForceRumblingAttack(bot, game, allTargets)) return;
+
             // L0 (Dumb): pure-random attack/block, respecting real cannot-block / cannot-attack rules.
             if (Dumb(bot, game))
             {
@@ -3764,5 +3766,37 @@ public class BotsBehavior : IServiceSingleton
             GameId = players.First().GameId;
             foreach (var t in players) Nanobots.Add(new Nanobot(t));
         }
+    }
+
+    private async Task<bool> TryForceRumblingAttack(
+        GamePlayerBridgeClass bot,
+        GameClass game,
+        List<Nanobot> allTargets)
+    {
+        // Forced skips and other unable-to-act states return before HandleBotAttack reaches this rule.
+        var rumblingEren = game.RoundNo == 10
+            ? allTargets.Find(x =>
+                x.Player.GameCharacter.Name == ErenYeager.CharacterName
+                && x.Player.GameCharacter.Passive.Any(p => p.PassiveName == ErenYeager.Rumbling))
+            : null;
+        if (rumblingEren == null
+            || bot.Status.GetPlaceAtLeaderBoard() <= rumblingEren.PlaceAtLeaderBoard()
+            || bot.Status.GetPlaceAtLeaderBoard() >= 6)
+            return false;
+
+        if (!await AttackPlayer(bot, rumblingEren.PlaceAtLeaderBoard()))
+            return false;
+
+        // Dopa's Macro keeps the turn open until a second distinct target is submitted.
+        if (!bot.Status.IsReady
+            && bot.GameCharacter.Passive.Any(x => x.PassiveName == "Макро"))
+        {
+            var secondTarget = allTargets.FirstOrDefault(x =>
+                !bot.Status.WhoToAttackThisTurn.Contains(x.GetPlayerId()));
+            if (secondTarget != null)
+                await AttackPlayer(bot, secondTarget.PlaceAtLeaderBoard());
+        }
+
+        return true;
     }
 }

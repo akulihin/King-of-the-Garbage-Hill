@@ -2609,6 +2609,14 @@ public class CharacterPassives : IServiceSingleton
                         player.Passives.Naruto.SummonAutoWinTarget = Guid.Empty;
                     break;
 
+                case ErenYeager.Sheep:
+                    if (player.GameCharacter.Name != ErenYeager.CharacterName) break;
+                    if (player.Status.IsLostThisCalculation != Guid.Empty)
+                        player.GameCharacter.AddIntelligence(1, ErenYeager.Sheep);
+                    else if (player.Status.IsWonThisCalculation != Guid.Empty)
+                        player.GameCharacter.AddIntelligence(-2, ErenYeager.Sheep);
+                    break;
+
                 case ErenYeager.Fighter:
                 {
                     if (player.GameCharacter.Name != ErenYeager.CharacterName) break;
@@ -3729,15 +3737,23 @@ public class CharacterPassives : IServiceSingleton
                     break;
 
                 case ErenYeager.AttackTitan:
-                    if (player.GameCharacter.Name == ErenYeager.CharacterName
-                        && player.Passives.Eren.AttackTitanActiveThisRound)
+                    if (player.GameCharacter.Name == ErenYeager.CharacterName)
                     {
-                        var wasAttacked = game.PlayersList.Any(enemy =>
-                            enemy.GetPlayerId() != player.GetPlayerId()
-                            && enemy.Status.WhoToAttackThisTurn.Contains(player.GetPlayerId()));
-                        if (!wasAttacked)
-                            player.MinusPsycheLog(player.GameCharacter, game, -2, ErenYeager.AttackTitan);
-                        player.Passives.Eren.AttackTitanActiveThisRound = false;
+                        var eren = player.Passives.Eren;
+                        if (eren.AttackTitanActiveThisRound)
+                        {
+                            var wasAttacked = game.PlayersList.Any(enemy =>
+                                enemy.GetPlayerId() != player.GetPlayerId()
+                                && enemy.Status.WhoToAttackThisTurn.Contains(player.GetPlayerId()));
+                            if (!wasAttacked)
+                                player.MinusPsycheLog(player.GameCharacter, game, -2, ErenYeager.AttackTitan);
+                            eren.AttackTitanActiveThisRound = false;
+                            eren.AttackTitanCooldown = 1;
+                        }
+                        else if (eren.AttackTitanCooldown > 0)
+                        {
+                            eren.AttackTitanCooldown--;
+                        }
                     }
                     break;
 
@@ -5117,11 +5133,8 @@ public class CharacterPassives : IServiceSingleton
                             && game.RoundNo is >= 2 and <= 8)
                         {
                             var eren = player.Passives.Eren;
-                            if (eren.RageGained < 8)
-                            {
-                                player.GameCharacter.AddIntelligence(1, ErenYeager.Sheep);
-                                eren.RageGained++;
-                            }
+                            player.GameCharacter.AddIntelligence(1, ErenYeager.Sheep);
+                            eren.RageGained++;
 
                             player.Status.AddInGamePersonalLogs(PhrasePayload.Encode(
                                 ErenYeager.Sheep,
@@ -6359,6 +6372,12 @@ public class CharacterPassives : IServiceSingleton
         foreach (var passive in player.GameCharacter.Passive.ToList())
             switch (passive.PassiveName)
             {
+                case ErenYeager.Sheep:
+                    if (player.GameCharacter.Name == ErenYeager.CharacterName && game.RoundNo == 9)
+                        player.Status.AddBonusPoints(
+                            player.Status.GetPlaceAtLeaderBoard(), ErenYeager.Sheep);
+                    break;
+
                 case "Weed":
                     var diff = game.RoundNo - player.Passives.WeedwickLastRoundWeed;
                     if (diff >= 2)

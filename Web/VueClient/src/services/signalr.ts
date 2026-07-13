@@ -227,6 +227,7 @@ export type ErenState = {
   rageGained: number
   losses: number
   attackTitanActive: boolean
+  attackTitanCooldown: number
   attackTitanSoundSerial: number
   tatakeSoundSerial: number
   rumblingTriggered: boolean

@@ -346,12 +346,12 @@ Worth stating because they're easy to suspect: Francie's final-turn contract win
 ### M28. Rumbling counted Eren's losses from the entire match instead of round 10
 - **Intended:** the fewer-than-two-loss gate considers only resolved losses during round 10.
 - **Actual before the fix:** every resolved loss from rounds 1–10 incremented the same `Eren.State.Losses` counter, so early-game losses could permanently disable Rumbling before its round existed.
-- **Fixed:** 2026-07-11 — the loss hook now requires `game.RoundNo == 10`; the existing post-fight gate therefore reads only round-10 losses (`CP:2623-2628,3537-3545`). The owner DTO shape is unchanged; its loss field now has the intended round-10 meaning.
+- **Fixed:** 2026-07-11 — the loss hook now requires `game.RoundNo == 10`; the existing post-fight gate therefore reads only round-10 losses (`CP:2660-2665,3672-3680`). The owner DTO shape is unchanged; its loss field now has the intended round-10 meaning.
 
 ### M29. Шоковый щит's forced skip could be replaced by bot automation and still waited for confirmation
 - **Intended:** the first attacker stopped by the one-use shield automatically skips their next turn.
 - **Actual before the fix:** the next-round hook set `IsSkip` but left it unconfirmed; bot behavior did not honor attacker-side `IsSkip` and could immediately choose an attack, while a human could remain in the readiness wait.
-- **Fixed:** 2026-07-11 — the shield clears queued attacks and auto-submits the skip (`IsReady`, `ConfirmedSkip`, `ConfirmedPredict`) when it lands (`CP:5160-5170`). Bot behavior now treats an existing forced skip as a complete action and returns without selecting an attack (`BotsBehavior.cs:84-93`).
+- **Fixed:** 2026-07-11 — the shield clears queued attacks and auto-submits the skip (`IsReady`, `ConfirmedSkip`, `ConfirmedPredict`) when it lands (`CP:5173-5184`). Bot behavior now treats an existing forced skip as a complete action and returns without selecting an attack (`BotsBehavior.cs:84-93,3712-3720`).
 
 ### M30. DooM Rune penalties consumed base and externally earned stats without a floor
 - **Intended:** Вознесение may take back only its granted +8 Int, and Маневры only its granted +5 Speed.
@@ -452,9 +452,124 @@ Worth stating because they're easy to suspect: Francie's final-turn contract win
 - **Impact**: mild bot mis-weighting in mixed line-ups; not player-visible and not exception-producing. Flagged during the AI-difficulty change-set because L2-4 (fight-history horizon) deliberately **reuses** the existing latching flag/number so it stays balance-compatible with those compensations.
 - **Status:** observation, **not fixed** — the AI-difficulty change-set is L1-preserving by contract, so touching this shared scoring pass was out of scope. Fixing it (reset the flags at the top of each iteration) would change L1 bot behavior and should be a standalone change with its own sim comparison.
 
+## Phase 6 — full cross-mechanic re-audit (2026-07-12)
+
+> **Scope:** end-game resolution order (`HandleLastRound`), round-10/11 specials × the Кратос extension, interaction-matrix re-verification with missing-cell enumeration, mechanical invariant greps (raw psyche/justice, ForOneFight placement, DeepCopy coverage, `RoundNo` hardcodes), all characters incl. the mid-audit Наруто/DooM additions, plus simulation batches (baseline 106×2 + 8 special-character lineups ×30 + Наруто lineup ×30 — **586 games, 0 exceptions, 0 freezes**). Premade/team-mode verified by code reading only (not sim-testable). Anchors verified against the post-`e5b537f` tree.
+
+### M37. A dead top-scorer keeps place 1 and takes the win statistics from the announced winner
+- **Actual:** the final sort is purely by score with dead players included (`CheckIfReady.cs:404-408`). The *announced* winner is the first **alive** player (`:554-556`, `:629-633`), but the payout loop derives `rewardPlace` from the raw board place (`:662`), so a dead player at place 1 receives `TotalWins++`, character `Wins++` and place-1 performance stats (`:730`, `:769-778`) while the announced alive winner (place 2+) gets no win credit. (ZBS/lootbox/mastery dead-gates are correct; quest `isMatchWinner` follows the announced winner — so quest-wins and account-wins disagree too.)
+- **Reachability:** any kill source that leaves score intact — Кира killing the round-8-10 leader, Пейзаж, Rumbling, Кратос event. Sim evidence: **48 of 346 games** finished with a dead player at place 1 (e.g. dead HardKitty at place 1 with 146–153 points in the Мадара lineup; 3 occurrences even in the 106-game baseline).
+- **Impact:** player-visible: the profile records a win for a game the announcement said someone else won.
+- **Fix direction:** designer decision — either sort dead players below all alive players at game end, or make `rewardPlace`/win-stats follow the announced winner. (Наруто's dispersed clones already do the former via `MoveDispersedClonesToBottom` — the pattern exists.)
+
+### M38. A bot Кратос never fights his own resurrection event
+- **Actual:** `HandleBotBehavior` hard-blocks every bot after round 10: `botChoice = -10` is a literal Block (`BotsBehavior.cs:89-93`; `GameReactions.cs:692-700`). This catches **Кратос himself**, so the event-aware bot logic (`CanBreakKnownDefense`, `BotsBehavior.cs:241-246`) is unreachable during the event. With everyone else force-blocked (`CheckIfReady.cs:1122-1128`) and the only kill path being Кратос winning **as attacker** (`CP:1817-1830`), a bot-Кратос event produces zero kills.
+- **Evidence:** the bot even has a `Kratos:Ragnarok` playstyle that engineers the round-10 loss to *trigger* the event it then blocks through. Кратос winrate across event lineups: 0–6.7%.
+- **Impact:** the marquee event is dead content in bot/mostly-bot games; see M39 for the compounding grind.
+- **Fix direction:** exempt the event Кратос (and only him) from the round>10 bot block, routing him into `HandleBotAttack`.
+
+### M39. The Кратос event usually grinds to the round-20 hard cap instead of ending at 16
+- **Described:** `docs/CHARACTERS.md` (Кратос): "event ends at round ≥16 or when 5 players are dead".
+- **Actual:** the round-16 check additionally requires **fewer than 5 alive** (i.e. ≥2 dead, `CP:3831-3841`); otherwise only the `RoundNo >= 20` hard cap ends the game (`CheckIfReady.cs:1032-1035`). Combined with M38, most event games run rounds 11–19 with everyone blocking, **each round scoring ×4** (`InGameStatusClass.cs` `GetRoundScoreMultiplier`, `_ => 4` arm).
+- **Evidence:** rounds distribution in event lineups: 24/30 (settlers lineup), 28/30 (Спартанец lineup), 16/30 (special-win lineup) games hit the round-20 cap. Block-proof round-farming kits dominate those games — Осьминожка won **80%** of the settlers lineup.
+- **Impact:** balance-relevant hidden behavior: up to 9 bonus rounds of ×4 income for kits that monetize passive rounds.
+- **Fix direction:** designer decision — make round ≥16 end the event unconditionally (matching the docs), or deliberately document/curate the ×4 extension economy.
+
+### M40. A dead Штормяк holder keeps taunting, forcing the living to fight a corpse
+- **Actual:** dead players are auto-set `IsBlock = true` every tick (`CheckIfReady.cs:1133-1138`), and the Штормяк taunt loop selects taunters by `IsBlock` + passive with **no `IsDead` filter** (`:1339-1373`). The taunt-bypass then turns the forced fight into a *real* fight against the blocking corpse (`DoomsdayMachine.cs:597-600`), and the fight-target selection has no dead guard either (`DoomsdayMachine.cs:450-455`). The corpse's `FightCharacter` has full stats, so it can win and keep earning score after death (feeding M37).
+- **Reachability:** Котики die to Кира/Пейзаж/Rumbling/Кратос. The original Котики is capped at one taunt per enemy per game; a **transferred** Storm cat (Кошачья засада) taunts every round, forever.
+- **Fix direction:** add `!t.Passives.IsDead` to the taunter filter; matrix §1 needs a "dead as *source*" row (the table only covers dead as target).
+
+### m37. Simulation winrate counts only place 1 — special winners and dead leaders are misattributed
+- **Actual:** `SimulationRunner` credits a "win" solely to final place 1 (`SimulationRunner.cs:668,679`). Sakura's «Одна из трех» soft wins are invisible (she actually won **11 of 61** sampled games while every report shows 0%); dead place-1 players (M37) are counted as winners; Наруто's clone seats inflate his denominator (21/90 for 30 games).
+- **Impact:** harness-only, but it skews every balance read taken from sim winrates.
+- **Fix direction:** attribute wins by the game's announced winner; count Наруто as one entity.
+
+### m38. A score tie suppresses Sakura's declared win but not her win announcement
+- **Actual:** Sakura's win fires her global line and reveals the passive (`CheckIfReady.cs:542-552`), then the final announcement separately prints «Ничья» if anyone ties `playerWhoWon`'s score (`:629-633`). A Sakura tied at top-3 gets both: «Я одна из легендарной тройки…» **and** «Ничья» (while still being paid first-place rewards via `rewardPlace`).
+- **Fix direction:** designer call on whether a tie beats «Одна из трех»; make the two messages agree either way.
+
+### m39. `HandlePostGameEvents` computes its own winner, so two win narratives can both print
+- **Actual:** the flavor dispatcher recomputes `playerWhoWon` as *first alive by score* (`CheckIfReady.cs:88-91`), ignoring the Sakura override decided later — with a Sakura soft-win, the real place-1 character's win phrase (Кратос/Сайтама/Монстр/Рик/HardKitty) prints alongside Sakura's win line.
+- **Fix direction:** pass the settled winner in, or skip character win-phrases when «Одна из трех» triggered.
+
+### m40. The score floor at 0 exists only in `AddBonusPoints` — the regular-point flush can leave anyone negative
+- **Actual:** `AddBonusPoints` floors `Score` at 0 unless the player has «Никому не нужен» (`InGameStatusClass.cs:227-233`); the end-of-round flush `AddScoreWithMultiplier` has **no floor** (`:324-350`). Multiplied negative regular points (e.g. «СОсиновый кол» −1 ×2/×4) can push a non-HardKitty player's visible score below zero, where it stays until the next bonus event incidentally floors it.
+- **Fix direction:** either floor in the flush too, or declare negative scores legal for everyone (then the `AddBonusPoints` floor is the anomaly).
+
+### m41. Random forced-attack pools exclude the dead but not the round-10-banned Тигр
+- **Actual:** the Монстр no-escape random redirect (`CheckIfReady.cs:1404-1421`) and the Aggress auto-attack (`:1288-1301`) pick any living target, including a round-10-banned Тигр — unlike the Шэн/Штормяк/Монстр-victim carve-outs. The attack fizzles on his forced skip (no penalty), so the victim just wastes their forced action and inflates the skip-event counter.
+- **Fix direction:** add the ban carve-out to both random pools for consistency.
+
+### m42. Round-8 Клоны Сусано attacks are granted to dead predictors
+- **Actual:** dead players are auto-`ConfirmedPredict` (`CheckIfReady.cs:1133-1138`) and the clone-attack loop has no `IsDead` filter (`:1418-1443`), so a player killed before round 8 (Death Note resolves from round 1) whose locked prediction named Мадару attacks him as a corpse.
+- **Fix direction:** add `!p.Passives.IsDead` to the predictor filter.
+
+### m43. Кира's L-arrest "−500 очков" actually floors to 0
+- **Actual:** the arrest applies `AddBonusPoints(-500, "Арест Киры")` (`CP:5272`), which floors at 0 (`InGameStatusClass.cs:232`); the global log and `docs/CHARACTERS.md` both claim −500. Zeroing is probably the intent (drop him to the bottom), but a 0-score Кира ties other zero-score players instead of sitting below them.
+- **Fix direction:** designer wording call: keep the floor and fix the log/doc text, or bypass the floor for the arrest.
+
+### m44. Чернильная завеса entries created during Кратос-event rounds never restore
+- **Actual:** the ink restore runs exactly once, at round 11 (`CP:5343-5380`). Ink ledger entries created in event rounds 11–19 (fights still reach Осьминожка via taunt/no-escape/event bypasses) are never flipped — the fake result becomes permanent.
+- **Fix direction:** re-run the restore at game end for entries newer than round 11, or stop ink recording after round 10.
+
+### m45. INTERACTION-MATRIX §7 omitted the Goblin Ziggurat step in the end-game order
+- **Actual:** the settlement order in `docs/INTERACTION-MATRIX.md` §7 listed "…sort → AWDKA → Premade → Sakura" while the code runs the M1 Goblin-Ziggurat enforced win between Premade and Sakura (`CheckIfReady.cs:524-540`).
+- **Fixed:** 2026-07-12 — §7 order line now names the Goblin step (this change-set; docs-only).
+
+### D12. Every bonus-point "steal" mints points at the 0-floor
+- Because `AddBonusPoints` floors the victim at 0 (`InGameStatusClass.cs:232`), each transfer-shaped mechanic credits the taker the **full** amount while the victim may lose less: «Выгодная сделка» (`CP:1803-1815`), Смертельный вирус, Глаза Итачи deduction, Сайтама's ledger reclaim, «Запах мусора». Zero-sum on paper, positive-sum at the floor. Acceptable pity cushion, or should takers receive only what victims actually lose?
+
+### D13. Forced-fight sources pierce the Кратос event's "everyone blocks" rule
+- During the event the loop forces `IsBlock = true` on all non-Кратос players every tick (`CheckIfReady.cs:1122-1128`) — but Штормяк's taunt *triggers on blocking* (`:1339`), and a Монстр no-escape window spanning into round 11 un-blocks its victim and forces a random attack (`:1404`). Aggress/Атакующий Титан/pickle conversions likewise strip the forced block in the fight phase. Result: real fights (at ×4) between non-Кратос players during the event, and an Октопус-style fake loss can even hand Кратос his final death. Intended chaos or event-integrity bug?
+
+### D14. Sakura's «Одна из трех» applies inside team mode
+- In a team game the announcement path is team-score-based and ignores `top3Player`, but the payout loop still pays a top-3 Sakura individual first-place rewards (`CheckIfReady.cs:566-626` vs `:662`). Should the hidden solo win condition exist in team games at all?
+
+### Phase-6 checks that passed (selection)
+- Mechanical invariants (re-run after the Наруто/DooM commits): no raw `AddJustice`; no live `GameCharacter.*ForOneFight` (only the commented-out Оборотень blocks, `CP:494-502,1240-1241`); every raw `AddPsyche(-…)` is a self-cost («Безумие», «Дерзкая школота», «СОсиновый кол») or the documented Дизмораль exception; `CharacterClass.DeepCopy` covers its only collection.
+- End-game resolution order matches the §7 spec; Итачи deduction correctly precedes the sort; AWDKA re-sort correctly precedes the Sakura check; Sakura's alive-gate, the dead-player ZBS/mastery/lootbox gates and the Мадара projection's authoritative-payout isolation are all correct (post-`041dbab` round-8 flow matches its docs).
+- Round-10 forced moral conversion cannot loop forever: every `AddMoral` interceptor still decrements or zeroes (Let's Roll zeroes moral at activation).
+- Kill census: exactly 7 `IsDead = true` sites = the 6 documented sources + Кратос's own event death; no undocumented kill source; kill×immunity rows verified incl. the Мадара/Гоблин exemptions inside the event kill path.
+- «Претендент русского сервера» ×3 regular, Тигр round-10 ban state, `RollExploit` m5 guard, Сайтама round-11 reclaim (zero-sum ledger + manual `BonusPointsFromMoral` flush), `HandleOctopus`×Еврей redirect, Пейзаж survival rules, Монстр death/drop rewards, Маневры/Вознесение remaining-grant caps — all match their docs.
+- The 35-name prediction pool is deliberate (tier <0 + «Выдуманный персонаж» exclusions enforced consistently in scoring, bots and UI).
+- Наруто integration spot-checks: `ResolveScoreSuccessor` redirects all five late liabilities (virus `CheckIfReady.cs:369`, Цукуеми `:395`, Сайтама `CP:5314`, Октопус `CP:5367`, Школьник `CP:6480`); `SettleShadowClones` runs right after Rumbling (`DoomsdayMachine.cs:1510-1511`); clone deaths incidentally satisfy the M39 `alive<5` gate, so Наруто games end events at 16. Наруто-forced sim: 30/30 clean.
+- Simulations: 586 games across 11 runs — 0 exceptions, 0 stuck games.
+
+### Phase-6 balance observations (sim data — for the designer, not findings)
+Fixed-lineup winrates, 30 games each, AI difficulty 3; subject to the sim-noise caveat (never tune off one sweep):
+- **Стая Гоблинов dominated every lineup they appeared in**: 80% (kill lineup), 86.7% (copy-chain lineup), 43.3% (Мадара lineup).
+- **AWDKA >45% twice** (53.3% special-win lineup, 46.7% Спартанец lineup) — the troll-win converts very reliably at difficulty 3.
+- **Осьминожка 80%** in the Кратос-settlers lineup is mostly the M38/M39 grind payoff.
+- Bottom across lineups: mylorik 0%, Рик Санчез 0%, Sirinoks 0–3.3%, Котики 0–17.6%, Кира 0–3.3%, Кратос 0–6.7% (see M38).
+- Sakura converted top-3-alive in 11/61 games (18%) but died in 34/61 — kill-heavy metas hit her hardest (invisible in reports until m37 is fixed).
+
+## Unfinished work backlog (2026-07-12)
+
+### Still-open findings
+- **m12** — Сайтама's round-1 "serious targets" are effectively arbitrary (skill is 0 at game start).
+- **m19** — Итачи's Crows/Izanagi charges have no web-UI representation (only Tsukuyomi state is mapped).
+- **m24** — ARAM pick phase has no web UI (hub/REST/serialization exist, no Vue component).
+- **m26** — `HandleBotAttack` scoring flags never reset per target (deliberately deferred; needs its own sim-compared change).
+
+### Bot-strength plan (Phases 2–3 remaining)
+Plan file `~/.claude/plans/mossy-mixing-hickey.md`: Phase 0 (seeded A/B harness) and Phase 1 (universal L2/L3 mastery) are done. **Phase 2**: bot random-rolls for Darksci (`IsStableType`) and Глеб→Молодой Глеб transform, mirroring the Dopa `HandleNextRound` pattern. **Phase 3**: probe-sweep the roster L2/L3-vs-L1, bespoke work on the weakest kits (expected: Продавец, Sirinoks, Краборак).
+
+### Unbuilt GameDesign.txt characters
+Торик, Rey, Lewdweak, Второй Крисп, Leshkinson a.k.a. Удир, Кнусклес, Таинственный Клоун, Бог ЛоЛа, and the Хранитель МСД / Машина Судного Дня event boss. (Named in rarity tables only, no kits: тоширка, Hitler.)
+
+### Unbuilt systems & intents (GameDesign.txt)
+Full team-mode ruleset (2х2х2/3х3 team-score win, forced ally predictions — only the TeamModeOnly pair is seeded); new-player onboarding/tier gating (no bot predictions vs newbies, tier unlocks every 10 games); player statistics command (most points/wins/performance/elo with defined formula); donation multiplier shop item; pre-release cleanup list (rename internal log strings «евреи»/«тебя усыпили», «Ты»→«Вы» sweep, hide round 11 from view, split `HandleNextRoundAfterSorting` round-11 handling into a post-loop pass). Designer margin note that Толя «Подсчет» was only half-implemented («ты это на половину сделал»).
+
+### Code TODOs & dormant blocks
+- `CheckIfReady.cs:648` — `//todo: need to redo this system` (disabled `_finishedGameLog.CreateNewLog`).
+- `GeneralCommands/HelpModule.cs:116` — `//TODO Move it as service`.
+- Commented-out «Оборотень» stat-swap blocks (`CP:494-502`, `CP:1240-1241`) — dead code awaiting a decision.
+- Root `BattleShip_update` ТЗ: all 23 items carry ✅ implemented annotations (2026-07-04/05) — can be archived.
+
 ## Summary count
 
-**1 Critical** (C1) · **36 Major** (M1–M36) · **36 Minor** (m1–m36) · **11 Design questions** (D1–D11). Recommended triage order: C1, M5/M6 (Тигр), M9 (Котики), M7/M17 (Butcher), M11/M12 (forced fights & kills), M1 (Goblin win), M4/M8 (Toxic Mate), then the rest. (M13–M36 fixed; m5/m6/m7/m17/m21/m23/m25/m27/m28/m29/m30/m31/m32/m33/m34/m35/m36 fixed; m18 confirmed intended; m20 documented. Still open: m12, m19, m24, m26.)
+**1 Critical** (C1) · **40 Major** (M1–M40) · **45 Minor** (m1–m45) · **14 Design questions** (D1–D14). Phase-6 triage order: M37 (dead-winner stats), M38+M39 (Кратос event — one conversation), M40 (dead taunter), then m38–m44 and the D12–D14 verdicts. (M13–M36 fixed; m5/m6/m7/m17/m21/m23/m25/m27/m28/m29/m30/m31/m32/m33/m34/m35/m36/m45 fixed; m18 confirmed intended; m20 documented. Still open: m12, m19, m24, m26, M37–M40, m37–m44, D12–D14.)
 
 ## Verification addendum (second pass, 2026-07-01)
 

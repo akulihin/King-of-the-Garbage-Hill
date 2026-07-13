@@ -390,6 +390,7 @@ public static class GameStateMapper
                                 RageGained = eren.RageGained,
                                 Losses = eren.Losses,
                                 AttackTitanActive = eren.AttackTitanActiveThisRound,
+                                AttackTitanCooldown = eren.AttackTitanCooldown,
                                 AttackTitanSoundSerial = eren.AttackTitanSoundSerial,
                                 TatakeSoundSerial = eren.TatakeSoundSerial,
                                 RumblingTriggered = eren.RumblingTriggered,

@@ -171,7 +171,7 @@ const widgetHelpCopy = {
   doom: ['The four slots are your current combat loadout. Card colors show active, completed, and failed modules.', 'Четыре слота — твой текущий боевой комплект. Цвет карточки показывает активный, выполненный или проваленный модуль.'],
   pickleRick: ['Shows the turns left as Pickle Rick and the length of the penalty that follows.', 'Показывает, сколько ходов осталось в форме Огурчика и сколько длится последующий штраф.'],
   giantBeans: ['Stacks empower the Beans. COOKING means ingredients are already assigned to the shown number of targets.', 'Заряды усиливают Бобы. ГОТОВЯТСЯ означает, что ингредиенты уже разложены на указанных целях.'],
-  eren: ['Rumbling only checks losses in round 10. Fire marks show accumulated hatred toward each enemy.', 'RUMBLING проверяет только поражения в 10-м раунде. Метки 🔥 показывают накопленную ненависть к соперникам.'],
+  eren: ['Rumbling only checks losses in round 10. The left counter shows Attack Titan readiness; fire marks show accumulated hatred.', 'RUMBLING проверяет только поражения в 10-м раунде. Счётчик слева показывает готовность Атакующего Титана, а метки 🔥 — накопленную ненависть.'],
   bulk: ['The current chance for Boole to lose his turn. BUFFED means his zero-Psyche stat boost is active.', 'Текущий шанс Буля пропустить ход. BUFFED означает усиление характеристик при нулевой Психике.'],
   tea: ['When tea is ready, the next attack spends it for one point and makes the target skip their next turn.', 'Когда чай готов, следующая атака потратит его: даст очко и заставит цель пропустить следующий ход.'],
   jew: ['Tracks the Psyche accumulated by the PROFIT mechanic.', 'Счётчик показывает, сколько Психики уже накоплено механикой PROFIT.'],
@@ -1144,8 +1144,15 @@ function doomModuleStatus(module: string): { text: string; state: 'live' | 'done
         </span>
       </div>
       <div class="pw-body eren-stats">
+        <span class="eren-titan-cooldown" :class="{ 'eren-titan-ready': passiveStates.eren.attackTitanCooldown === 0 }">
+          ⚡ {{ t('Attack Titan', 'Атакующий Титан') }}:
+          {{ passiveStates.eren.attackTitanActive
+            ? t('ACTIVE', 'АКТИВЕН')
+            : passiveStates.eren.attackTitanCooldown === 0
+              ? t('READY', 'ГОТОВ')
+              : passiveStates.eren.attackTitanCooldown }}
+        </span>
         <span>{{ t('Rage', 'Злость') }} +{{ passiveStates.eren.rageGained }}</span>
-        <span v-if="passiveStates.eren.attackTitanActive">⚡ {{ t('Attack Titan', 'Атакующий Титан') }}</span>
         <span v-if="passiveStates.eren.rumblingTriggered">🌋 {{ t('place', 'место') }} {{ passiveStates.eren.rumblingPlace }}</span>
       </div>
       <div v-if="passiveStates.eren.hatredMarks.length" class="eren-marks">
@@ -4291,6 +4298,8 @@ function doomModuleStatus(module: string): { text: string; state: 'live' | 'done
 .eren-ready { color: #ffb36b; }
 .eren-failed { color: #8f8f8f; }
 .eren-stats { display: flex; flex-wrap: wrap; gap: 5px 10px; color: #f0c3aa; font-size: .72em; }
+.eren-titan-cooldown { order: -1; color: rgba(240, 195, 170, .62); }
+.eren-titan-ready { color: #ffb36b; }
 .eren-marks { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 7px; }
 .eren-mark { padding: 2px 6px; border: 1px solid rgba(255, 91, 55, .35); border-radius: 4px; background: rgba(160, 38, 18, .2); color: #ffad8e; font-size: .68em; }
 
