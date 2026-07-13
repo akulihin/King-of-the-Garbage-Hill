@@ -996,6 +996,8 @@ public class DoomsdayMachine : IServiceSingleton
                         }
                         else if (player.GameCharacter.Passive.Any(x => x.PassiveName == "Никому не нужен" || x.PassiveName == "INT"))
                         {
+                            if (point != 0)
+                                winPointRecipients.Clear();
                             var winSourceNeg = "Победа";
                             if (player.GameCharacter.Name == "Геральт")
                                 winSourceNeg = player.Passives.GeraltContracts.EnemyTypes.ContainsKey(playerIamAttacking.GetPlayerId())
@@ -1182,10 +1184,14 @@ public class DoomsdayMachine : IServiceSingleton
 
                     game.AddGlobalLogs($" ⟶ {playerIamAttacking.DiscordUsername}");
 
+                    var defenderWinPointRecipients = new List<Guid>();
                     if (!teamMate)
                     {
                         if (stormFlipped && stormCarrier != null)
+                        {
                             stormCarrier.Status.AddRegularPoints(1, "Штормяк: Запрыгнул в бой!");
+                            defenderWinPointRecipients.Add(stormCarrier.GetPlayerId());
+                        }
                         else if (playerIamAttacking.GameCharacter.Passive.Any(x => x.PassiveName == "INT"))
                             // Toxic Mate "INT": "Побеждая — теряет очки" applies on a defence win too (finding M4);
                             // HardKitty's "Никому не нужен" stays attacker-only ("если напал и победил").
@@ -1198,6 +1204,7 @@ public class DoomsdayMachine : IServiceSingleton
                                                || Salldorum.FindRandomTargetMagnet(game, playerIamAttacking)?.GetPlayerId() == player.GetPlayerId()
                                     ? "Контракт" : "Лут";
                             playerIamAttacking.Status.AddWinPoints(game, playerIamAttacking, 1, defWinSource);
+                            defenderWinPointRecipients.Add(playerIamAttacking.GetPlayerId());
                         }
                     }
 
@@ -1205,14 +1212,7 @@ public class DoomsdayMachine : IServiceSingleton
                         player,
                         game.RoundNo,
                         playerIamAttacking.GetPlayerId(),
-                        teamMate
-                            ? Array.Empty<Guid>()
-                            : new[]
-                            {
-                                stormFlipped && stormCarrier != null
-                                    ? stormCarrier.GetPlayerId()
-                                    : playerIamAttacking.GetPlayerId()
-                            });
+                        defenderWinPointRecipients);
 
 
 
