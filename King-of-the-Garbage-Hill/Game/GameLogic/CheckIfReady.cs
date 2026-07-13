@@ -1309,25 +1309,6 @@ public class CheckIfReady : IServiceSingleton
                     }
                 }
 
-                // Salldorum — Шэн: force players below Shen position to attack Salldorum
-                foreach (var sallo in players.Where(p =>
-                             p.GameCharacter.Name == "Salldorum" &&
-                             p.Passives.SalldorumShen.ActiveThisTurn &&
-                             !p.Passives.IsDead))
-                {
-                    var shenPos = sallo.Passives.SalldorumShen.TargetPosition;
-                    foreach (var victim in players.Where(p =>
-                                 p.GetPlayerId() != sallo.GetPlayerId() &&
-                                 !p.Passives.IsDead &&
-                                 // Round-10-banned Тигр stays banned — mirror Монстр's carve-out (finding M11)
-                                 !(game.RoundNo == 10 && p.GameCharacter.Passive.Any(x => x.PassiveName == "Стримснайпят и банят и банят и банят")) &&
-                                 p.Status.GetPlaceAtLeaderBoard() > shenPos))
-                    {
-                        if (!victim.Status.WhoToAttackThisTurn.Contains(sallo.GetPlayerId()))
-                            victim.Status.WhoToAttackThisTurn.Add(sallo.GetPlayerId());
-                    }
-                }
-
                 // Salldorum — Временная капсула: first block buries cola
                 foreach (var sallo in players.Where(p =>
                              p.GameCharacter.Name == "Salldorum" &&
@@ -1451,6 +1432,21 @@ public class CheckIfReady : IServiceSingleton
                 }
                 Madara.SanitizeSealedActions(game);
                 Naruto.SanitizeMutualTargets(game);
+
+                // Шэн is spent by the next real submitted attack. The attacked player selects the
+                // destination: the holder jumps immediately ahead and taunts everyone below it.
+                // Eternal Tsukuyomi erases the submitted attack before it can spend the charge.
+                if (!Madara.IsEternalTsukuyomiRound(game))
+                {
+                    Salldorum.ResolveShenDashes(game);
+                    foreach (var sallo in game.PlayersList.Where(player => player.GameCharacter.Name == "Salldorum"))
+                        Salldorum.TryDrinkAvailableTimeCapsule(sallo, game);
+
+                    // Shen's taunt adds forced attacks, so apply the same sealed/mutual-target
+                    // sanitation again to the queue it just changed.
+                    Madara.SanitizeSealedActions(game);
+                    Naruto.SanitizeMutualTargets(game);
+                }
 
                 // Re-snapshot after bot choices and readiness-stage forced actions. If all five
                 // enemies armed Цукуеми on this turn, erase every real action before combat.

@@ -464,10 +464,10 @@ public class CharacterPassives : IServiceSingleton
     {
         // Salldorum — Временная капсула: apply pending speed bonus (after DeepCopy)
         var capsuleDef = target.Passives.SalldorumTimeCapsule;
-        if (capsuleDef.SpeedBonusPending)
+        if (capsuleDef.SpeedBonusPending > 0)
         {
-            target.FightCharacter.AddSpeedForOneFight(5, "Временная капсула");
-            capsuleDef.SpeedBonusPending = false;
+            target.FightCharacter.AddSpeedForOneFight(capsuleDef.SpeedBonusPending, "Временная капсула");
+            capsuleDef.SpeedBonusPending = 0;
         }
 
         foreach (var passive in target.GameCharacter.Passive.ToList())
@@ -476,6 +476,10 @@ public class CharacterPassives : IServiceSingleton
                 case Madara.GodOfShinobi:
                     if (Madara.ShouldUseHundredSkill(target))
                         target.FightCharacter.SetSkillForOneFight(100, Madara.GodOfShinobi);
+                    break;
+
+                case "Великий летописец":
+                    ApplySalldorumChroniclerMultiplier(target, me, game);
                     break;
 
                 case "Следит за игрой":
@@ -1069,10 +1073,10 @@ public class CharacterPassives : IServiceSingleton
     {
         // Salldorum — Временная капсула: apply pending speed bonus (after DeepCopy)
         var capsuleAtk = me.Passives.SalldorumTimeCapsule;
-        if (capsuleAtk.SpeedBonusPending)
+        if (capsuleAtk.SpeedBonusPending > 0)
         {
-            me.FightCharacter.AddSpeedForOneFight(5, "Временная капсула");
-            capsuleAtk.SpeedBonusPending = false;
+            me.FightCharacter.AddSpeedForOneFight(capsuleAtk.SpeedBonusPending, "Временная капсула");
+            capsuleAtk.SpeedBonusPending = 0;
         }
 
         // Seller forced loss: marked player loses next attack
@@ -1103,6 +1107,12 @@ public class CharacterPassives : IServiceSingleton
                     {
                         game.Phrases.NarutoGamabuntaRefusal.SendLog(me, false);
                     }
+                    break;
+
+                // Salldorum — Великий летописец: this multiplier must be applied before
+                // CalculateRounds reads FightCharacter.
+                case "Великий летописец":
+                    ApplySalldorumChroniclerMultiplier(me, target, game);
                     break;
 
                 case "Монстр":
@@ -1137,7 +1147,8 @@ public class CharacterPassives : IServiceSingleton
                         {
                             me.Status.AddInGamePersonalLogs("Глаза бога смерти: У этого монстра нет имени...\n");
                         }
-                        else if (target.GetPlayerId() == me.Passives.KiraL.LPlayerId)
+                        else if (target.GetPlayerId() == Salldorum.ResolveRandomTargetId(
+                                     game, me, me.Passives.KiraL.LPlayerId))
                         {
                             // Don't consume eyes on L — keep them for a useful target
                             me.Status.AddInGamePersonalLogs("Глаза бога смерти: Ты не можешь увидеть имя L...\n");
@@ -1249,7 +1260,9 @@ public class CharacterPassives : IServiceSingleton
                         game.Phrases.WeedwickRuthlessHunter.SendLog(me, false);
 
                     // Most wanted: always sense Rick regardless of Justice
-                    var isMostWantedHunter = target.GameCharacter.Passive.Any(x => x.PassiveName == "Most wanted");
+                    var isMostWantedHunter = target.GameCharacter.Passive.Any(x => x.PassiveName == "Most wanted")
+                                             || Salldorum.FindRandomTargetMagnet(game, me)?.GetPlayerId()
+                                             == target.GetPlayerId();
                     if (target.GameCharacter.Justice.GetRealJusticeNow() == 0 || isMostWantedHunter)
                     {
                         var tempSpeed = me.FightCharacter.GetSpeed() * 2;
@@ -1261,7 +1274,8 @@ public class CharacterPassives : IServiceSingleton
                 case "Им это не понравится":
                     var spartanMark = me.Passives.SpartanMark;
                     if (spartanMark != null)
-                        if (target.Status.IsBlock && spartanMark.FriendList.Contains(target.GetPlayerId()))
+                        if (target.Status.IsBlock && Salldorum.IsRedirectedRandomTarget(
+                                game, me, target, spartanMark.FriendList))
                         {
                             spartanMark.BlockedPlayer = target.GetPlayerId();
                             me.Status.IsArmorBreak = true;
@@ -1760,6 +1774,36 @@ public class CharacterPassives : IServiceSingleton
                     }
                     break;
             }
+    }
+
+    private static void ApplySalldorumChroniclerMultiplier(
+        GamePlayerBridgeClass salldorum,
+        GamePlayerBridgeClass opponent,
+        GameClass game)
+    {
+        if (salldorum.GameCharacter.Name != "Salldorum")
+            return;
+
+        // FightCharacter is reused across the round. Clear a previous Chronicler target before
+        // deciding whether this opponent receives the x3 multiplier.
+        salldorum.FightCharacter.SetSkillFightMultiplier();
+        if (game.RoundNo <= 3)
+            return;
+
+        var chroniclerRound = game.RoundNo - 3;
+        var winCounts = new Dictionary<Guid, int>();
+        foreach (var player in game.PlayersList)
+        foreach (var loss in player.Status.WhoToLostEveryRound.Where(
+                     entry => entry.RoundNo == chroniclerRound))
+            winCounts[loss.EnemyId] = winCounts.GetValueOrDefault(loss.EnemyId) + 1;
+
+        if (winCounts.Count == 0
+            || !winCounts.TryGetValue(opponent.GetPlayerId(), out var opponentWins)
+            || opponentWins != winCounts.Values.Max())
+            return;
+
+        salldorum.FightCharacter.SetSkillFightMultiplier(3);
+        game.Phrases.SalldorumChroniclerTriple.SendLog(salldorum, false);
     }
 
     public void HandleAttackAfterFight(GamePlayerBridgeClass me, GamePlayerBridgeClass target, GameClass game)
@@ -2309,37 +2353,6 @@ public class CharacterPassives : IServiceSingleton
                                     me.Status.AddBonusPoints(1, "Завоеватель");
                                     game.Phrases.NapoleonConqueror.SendLog(me, false);
                                 }
-                            }
-                        }
-                    }
-                    break;
-
-                // Salldorum — Великий летописец: tripled Skill vs player who won most 3 rounds ago
-                case "Великий летописец":
-                    if (me.GameCharacter.Name == "Salldorum" && game.RoundNo > 3)
-                    {
-                        var chroniclerRound = game.RoundNo - 3;
-                        // WhoToLostEveryRound is on each player, recording WHO they lost to (EnemyId)
-                        // Count how often each player appears as EnemyId in that round = their wins
-                        var winCountsChron = new Dictionary<Guid, int>();
-                        foreach (var p in game.PlayersList)
-                        {
-                            foreach (var loss in p.Status.WhoToLostEveryRound.Where(x => x.RoundNo == chroniclerRound))
-                            {
-                                if (!winCountsChron.ContainsKey(loss.EnemyId))
-                                    winCountsChron[loss.EnemyId] = 0;
-                                winCountsChron[loss.EnemyId]++;
-                            }
-                        }
-
-                        if (winCountsChron.Count > 0)
-                        {
-                            var maxWins = winCountsChron.Values.Max();
-                            var topWinners = winCountsChron.Where(x => x.Value == maxWins).Select(x => x.Key).ToList();
-                            if (topWinners.Contains(target.GetPlayerId()))
-                            {
-                                me.FightCharacter.SetSkillFightMultiplier(3);
-                                game.Phrases.SalldorumChroniclerTriple.SendLog(me, false);
                             }
                         }
                     }
@@ -3140,7 +3153,10 @@ public class CharacterPassives : IServiceSingleton
                 case "Им это не понравится":
                     var spartanTheyWontLikeIt = player.Passives.SpartanMark;
 
-                    if (spartanTheyWontLikeIt.FriendList.Contains(player.Status.IsWonThisCalculation))
+                    var spartanWinTarget = game.PlayersList.Find(candidate =>
+                        candidate.GetPlayerId() == player.Status.IsWonThisCalculation);
+                    if (spartanWinTarget != null && Salldorum.IsRedirectedRandomTarget(
+                            game, player, spartanWinTarget, spartanTheyWontLikeIt.FriendList))
                     {
                         player.Status.AddRegularPoints(1, "Им это не понравится");
                         player.Status.AddBonusPoints(1, "Им это не понравится");
@@ -4501,7 +4517,8 @@ public class CharacterPassives : IServiceSingleton
                                     mp.Status.AddRegularPoints(1, "Монстр");
                                     game.Phrases.MonsterDeath.SendLog(mp, false);
                                 }
-                                var isL = dnTarget.GetPlayerId() == player.Passives.KiraL.LPlayerId;
+                                var isL = dnTarget.GetPlayerId() == Salldorum.ResolveRandomTargetId(
+                                    game, player, player.Passives.KiraL.LPlayerId);
                                 var pts = isL ? 4 : 2;
                                 player.Status.AddRegularPoints(pts, "Тетрадь смерти");
                                 player.GameCharacter.AddIntelligence(-1, "Гений");
@@ -4549,10 +4566,12 @@ public class CharacterPassives : IServiceSingleton
                     if (kiraL.LPlayerId != Guid.Empty && !kiraL.IsArrested)
                     {
                         // Check if Kira and L fought this round (either lost to the other)
-                        var lPlayer = game.PlayersList.Find(x => x.GetPlayerId() == kiraL.LPlayerId);
+                        var activeL = Salldorum.ResolveRandomTargetId(game, player, kiraL.LPlayerId);
+                        var lPlayer = game.PlayersList.Find(x => x.GetPlayerId() == activeL);
                         if (lPlayer != null)
                         {
-                            var kiraLostToL = player.Status.WhoToLostEveryRound.Any(y => y.RoundNo == game.RoundNo && y.EnemyId == kiraL.LPlayerId);
+                            var kiraLostToL = player.Status.WhoToLostEveryRound.Any(y =>
+                                y.RoundNo == game.RoundNo && y.EnemyId == activeL);
                             var lLostToKira = lPlayer.Status.WhoToLostEveryRound.Any(y => y.RoundNo == game.RoundNo && y.EnemyId == player.GetPlayerId());
                             if (!kiraLostToL && !lLostToKira)
                             {
@@ -5021,15 +5040,10 @@ public class CharacterPassives : IServiceSingleton
             }
         }
 
-        // Salldorum — end of round: reset Shen, record position history
+        // Salldorum — record the position actually occupied during this round.
         foreach (var player in game.PlayersList)
         {
             if (player.GameCharacter.Name != "Salldorum") continue;
-            var shen = player.Passives.SalldorumShen;
-            shen.ActiveThisTurn = false;
-            shen.TargetPosition = -1;
-
-            // Record position in history
             var posHistory = player.Passives.SalldorumChronicler.PositionHistory;
             var currentPos = player.Status.GetPlaceAtLeaderBoard();
             while (posHistory.Count < game.RoundNo)
@@ -6304,27 +6318,6 @@ public class CharacterPassives : IServiceSingleton
             }
         }
 
-        // Salldorum — Временная капсула: auto-pickup check
-        foreach (var player in game.PlayersList)
-        {
-            if (player.GameCharacter.Name != "Salldorum") continue;
-            var capsule = player.Passives.SalldorumTimeCapsule;
-            if (capsule.Buried && !capsule.PickedUpThisTurn)
-            {
-                var currentPos = player.Status.GetPlaceAtLeaderBoard();
-                if (currentPos == capsule.BuriedAtPosition && (game.RoundNo - capsule.BuriedOnRound) >= 3)
-                {
-                    // Speed bonus applied in HandleAttackBeforeFight/HandleDefenseBeforeFight (after DeepCopy)
-                    capsule.SpeedBonusPending = true;
-                    player.Status.AddBonusPoints(2, "Временная капсула");
-                    capsule.PickedUpThisTurn = true;
-                    game.Phrases.SalldorumTimeCapsulePickup.SendLog(player, false);
-                }
-            }
-            // Reset pickup flag from previous round
-            if (capsule.PickedUpThisTurn && game.RoundNo > capsule.BuriedOnRound + 3)
-                capsule.PickedUpThisTurn = false;
-        }
     }
 
 
@@ -6741,34 +6734,6 @@ public class CharacterPassives : IServiceSingleton
                     }
                     break;
 
-                // Salldorum — Шэн: position swap after sorting
-                case "Шэн":
-                    if (player.GameCharacter.Name == "Salldorum")
-                    {
-                        var shenState = player.Passives.SalldorumShen;
-                        if (shenState.ActiveThisTurn && shenState.TargetPosition >= 1 && shenState.TargetPosition <= game.PlayersList.Count)
-                        {
-                            var targetIdx = shenState.TargetPosition - 1;
-                            var salloIdx = game.PlayersList.IndexOf(player);
-                            if (salloIdx != targetIdx)
-                            {
-                                // Check Ziggurat protection
-                                if (game.PlayersList[targetIdx].Passives.GoblinZiggurat.IsInZiggurat)
-                                {
-                                    player.Status.AddInGamePersonalLogs("Шэн: Зиккурат защищает эту позицию!\n");
-                                }
-                                else
-                                {
-                                    var displaced = game.PlayersList[targetIdx];
-                                    game.PlayersList[targetIdx] = player;
-                                    game.PlayersList[salloIdx] = displaced;
-                                    game.Phrases.SalldorumShen.SendLog(player, false);
-                                }
-                            }
-                        }
-                    }
-                    break;
-
                 // (Geralt senses moved to HandleEndOfRound Медитация)
 
                 // Котики — Рандомное поведение: bite bonus check
@@ -6799,6 +6764,10 @@ public class CharacterPassives : IServiceSingleton
                     break;
                 }
             }
+
+        // Natural score sorting can also return Salldorum to the fixed cache cell.
+        foreach (var player in game.PlayersList.Where(candidate => candidate.GameCharacter.Name == "Salldorum"))
+            Salldorum.TryDrinkAvailableTimeCapsule(player, game);
     }
     //end after all fight
 

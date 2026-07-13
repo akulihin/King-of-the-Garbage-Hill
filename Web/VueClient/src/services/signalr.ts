@@ -290,12 +290,12 @@ export type TheBoysState = {
 
 export type SalldorumState = {
   shenCharges: number
-  shenActive: boolean
-  shenTargetPosition: number
   colaBuried: boolean
   colaBuriedPosition: number
   colaBuriedRound: number
+  colaDrinks: number
   historyRewritten: boolean
+  rewrittenRound: number
   positionHistory: number[]
 }
 
@@ -1493,14 +1493,6 @@ class SignalRService {
   }
 
   // ── Salldorum Actions ──────────────────────────────────────────
-
-  async activateShen(gameId: number, position: number): Promise<void> {
-    await this.connection?.invoke('ActivateShen', gameId, position)
-  }
-
-  async deactivateShen(gameId: number): Promise<void> {
-    await this.connection?.invoke('DeactivateShen', gameId)
-  }
 
   async rewriteHistory(gameId: number, roundNumber: number): Promise<void> {
     await this.connection?.invoke('RewriteHistory', gameId, roundNumber)

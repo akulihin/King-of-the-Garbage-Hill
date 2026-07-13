@@ -242,6 +242,10 @@ public static class AchievementService
             "As Рик Санчез, successfully fire Портальная пушка twice in one match.",
             "Играя за Рик Санчез, дважды успешно примените Портальная пушка за матч.",
             AchievementCategory.Character, "portal", "rare", 2, characterNames: new[] { "Рик Санчез" }),
+        new("c_salldorum_double_cola", "History Repeats Itself", "История повторяется",
+            "As Salldorum, drink the Time Capsule cola twice in one match. Cola can be drunk twice if you know history.",
+            "Играя за Salldorum, выпейте колу из Временной капсулы дважды за матч. Колу можно выпить дважды, если знать историю.",
+            AchievementCategory.Character, "hourglass", "legendary", 2, characterNames: new[] { "Salldorum" }),
         new("c_saitama_one_punch", "One Punch", "Один удар",
             "As Сайтама, reclaim at least 20 deferred points through Ищет достойного противника.",
             "Играя за Сайтама, верните не меньше 20 отложенных очков через Ищет достойного противника.",
@@ -468,6 +472,10 @@ public static class AchievementService
 
         if (characterName == "Рик Санчез")
             SetBestProgress(account, "c_rick_portals", tracker.PortalGunFires);
+
+        if (characterName == "Salldorum")
+            SetBestProgress(account, "c_salldorum_double_cola",
+                player.Passives.SalldorumTimeCapsule.DrinkCount);
 
         if (characterName == "Сайтама")
             SetBestProgress(account, "c_saitama_one_punch", tracker.SaitamaDeferredPoints);

@@ -50,9 +50,9 @@ The multiplier changes a character's relative roll weight, not a standalone fina
 
 | Constant | Value | Anchor |
 |---|---|---|
-| Roll-weight bounds / step | ×0.50–×2.00; ±0.01 per purchased percentage point | `WebGameService.cs:1225-1227,1283-1292`; Discord guards `StoreReactions.cs:217-340` |
-| Step price | step N costs 10 + all prior purchased steps ZBS; 10-step action sums ten sequential prices | `WebGameService.cs:1430-1434`; Discord `_basePrice` `StoreReactions.cs:20` |
-| Refund | free; returns the exact arithmetic-series cost of every purchased step and restores ×1.00 | `WebGameService.cs:1319-1391,1437-1441`; Discord `StoreReactions.cs:416-515` |
+| Roll-weight bounds / step | ×0.50–×2.00; ±0.01 per purchased percentage point | `WebGameService.cs` `StoreMinMultiplier`/`StoreMaxMultiplier`/`AdjustStoreCharacter`; Discord guards `StoreReactions.cs:217-340` |
+| Step price | step N costs 10 + all prior purchased steps ZBS; 10-step action sums ten sequential prices | `WebGameService.cs` `CalculateStoreCost`; Discord `_basePrice` `StoreReactions.cs:20` |
+| Refund | free; returns the exact arithmetic-series cost of every purchased step and restores ×1.00 | `WebGameService.cs` `ResetStoreCharacter`/`ResetStoreAllCharacters`/`CalculateStoreRefund`; Discord `StoreReactions.cs:416-515` |
 
 ## Generated story
 
@@ -83,7 +83,7 @@ The full 12-contract catalog, selection, privacy and migration rules are in [DAI
 
 ## Achievement & loot-box rewards
 
-Achievement progress targets and the complete 33-entry rule catalog are in [ACHIEVEMENTS.md](ACHIEVEMENTS.md). Reward values are centralized by rarity; the live catalog totals **2,925 ZBS + 21 boxes** (`AchievementClass.cs:65-76,184-347`).
+Achievement progress targets and the complete 34-entry rule catalog are in [ACHIEVEMENTS.md](ACHIEVEMENTS.md). Reward values are centralized by rarity; the live catalog totals **3,153 ZBS + 23 boxes** (`AchievementClass.cs:65-76,184-347`).
 
 | Constant | Value | Anchor |
 |---|---|---|
@@ -222,7 +222,7 @@ Achievement progress targets and the complete 33-entry rule catalog are in [ACHI
 | TheBoys | M.M. | ±1 team Psyche; calm immunity from x1; r8 kompromat +5 Moral each; predictions ×kompromat; x4 steals/blocks Moral | CP:3684-3726,7176-7308; GR:1021-1050; CIR:320-350 |
 | TheBoys | Смертельный вирус | −2/+2 bonus per infected at game end; disabled under СуперМудень | CIR:353-375 |
 | TheBoys | СуперМудень | exact ×2 Butcher Skill/Harm/drop payout; one extra Harm per applied pool break; cap 50 Drops per turn; score-0 stop | DM:928-1006; CC:182-345 |
-| Salldorum | Шэн/капсула/летописец | +1 charge/lvl-up; capsule +2 bonus +5 Speed after 3 rounds; rewrite −1/+1 per winner (⚠ m15), +2 Psyche +2 J; ×3 skill vs 3-rounds-ago winner | GR:1168-1172, CP:5792-5812, WebGameService.cs:951-1010, CP:2213-2241 |
+| Salldorum | Шэн/капсула/летописец | +1 charge/lvl-up, auto-spent by next attack; capsule after 3 rounds = +2 bonus +5 Speed for next fight, one natural drink + at most one history-only second drink (matching history bypasses the natural wait); rewrite −/+ historical multiplier per distinct winner, +2 Psyche +2 buffered J; ×3 Skill attacking or defending vs 3-rounds-ago win leader(s) | GameReactions.cs:1278-1283; `Salldorum.cs` `ResolveShenDashes`/`TryDrinkTimeCapsule`/`RewriteHistory`; CP:481-483,1112-1116,1779-1800 |
 | Геральт | Заказы | +1 contract/round; +20 Skill per contract fight; oils T1 −1 J / T2 +2 Str / T3 ×3 Skill | CP:5674-5687, 2204-2214, 1503-1535 |
 | Геральт | Медитация | Lambert 10% once (skill 0 next round; m16); демандна экономика: advance +2 regular, смерть при Displeasure ≥ 11 (−500) | CP:4484-4491, 4454-4491 |
 | Баг | Exploit | pot = losses of exploitable players; claim on patch | DM:73-76, CP:1678-1690 |
@@ -240,7 +240,7 @@ Achievement progress targets and the complete 33-entry rule catalog are in [ACHI
 | Эрен Йегер | Дрочун mutual attack | +2 regular once per mutual enemy per round | CP:2556-2567 |
 | Эрен Йегер | Атакующий Титан | off-cooldown block removed; +5 each stat per fight for the turn; no incoming target → −2 Psyche; cooldown 1 full next turn | DM:282-294; CP:62-72,517-521,1119-1123,3739-3758 |
 | Эрен Йегер | Titan audio roll | `use_most` 50%; files 1–3 split the other 50% uniformly | sound.ts:990-995 |
-| Эрен Йегер | Rumbling gate / reach | round 10; acting bots at opening places strictly between Eren and 6 must attack Eren; fewer than 2 losses **during round 10 only**; kills projected places strictly between Eren and place 6 | BotsBehavior.cs:3759-3789; CP:2660-2665,3672-3718; ErenYeager.cs:38-53 |
+| Эрен Йегер | Rumbling gate / reach | round 10; acting bots at opening places strictly between Eren and 6 must attack Eren; fewer than 2 losses **during round 10 only**; kills projected places strictly between Eren and place 6 | `BotsBehavior.cs` `TryForceRumblingAttack`; CP:2660-2665,3672-3718; ErenYeager.cs:38-53 |
 | Наруто | base / rarity | Int 3, Str 3, Speed 4, Psyche 5; Tier 5 | characters.json:1449-1483 |
 | Наруто | Гарем но джутсу | Block replacement; +1 regular per canceled valid fight in each reaching attacker's whole queue | `Naruto.cs` `ResolveHaremQueues`, `TryCancelHaremFights` |
 | Наруто | Теневые | 2 independent strict-bot clones; r10 settlement immediately after Rumbling; sibling prediction value 0; correct enemy predictions +1 projected once; clone score/death seats end at 0 / bottom two | `Naruto.cs` `InitializeTeam`, `ProjectClonePredictionPoints`, `SettleShadowClones`, `OrderLeaderboard` |

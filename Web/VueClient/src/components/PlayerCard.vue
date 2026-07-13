@@ -203,7 +203,7 @@ const widgetHelpCopy = {
   toxicMate: ['Shows the infection carrier and transfer count. Returning to Toxic Mate converts the chain into a bonus.', 'Показывает носителя инфекции и число передач. Возврат к Toxic Mate превращает цепочку в бонус.'],
   yongGleb: ['Young Gleb’s tea readiness; the number is the remaining cooldown.', 'Готовность чая Молодого Глеба; число показывает оставшийся откат.'],
   theBoys: ['Each card is one team member with their level, active job, and progress. Bright badges are unlocked ultimates.', 'Каждая карточка — отдельный член команды: уровень, активная задача и прогресс. Яркие жетоны внизу — открытые ультимейты.'],
-  salldorum: ['Shen shows charges and target place, Cola shows the buried cache, and Rewrite shows history availability.', 'Шэн показывает заряды и выбранную позицию, Cola — место тайника, Rewrite — доступность переписывания истории.'],
+  salldorum: ['Shen charges are spent automatically by the next attack. Cola shows its cache or how many times it was drunk. Rewrite shows history availability.', 'Заряд Шэна автоматически тратится следующей атакой. Cola показывает место тайника или число выпитых бутылок, Rewrite — доступность переписывания истории.'],
   geralt: ['Each row shows contracts and oil tier. Fighting that monster type spends every matching contract on extra bouts.', 'Каждая строка показывает число заказов типа и уровень масла. Бой с целью тратит все её заказы на дополнительные схватки.'],
 } as const
 
@@ -1715,17 +1715,21 @@ function doomModuleStatus(module: string): { text: string; state: 'live' | 'done
         <div class="salldorum-row">
           <span class="salldorum-label">Shen</span>
           <span class="salldorum-val">{{ passiveStates.salldorum.shenCharges }}</span>
-          <span v-if="passiveStates.salldorum.shenActive" class="salldorum-active">{{ t('ACTIVE · place', 'АКТИВЕН · место') }} {{ passiveStates.salldorum.shenTargetPosition }}</span>
+          <span v-if="passiveStates.salldorum.shenCharges > 0" class="salldorum-active">{{ t('NEXT ATTACK', 'СЛЕДУЮЩАЯ АТАКА') }}</span>
         </div>
         <!-- Cola -->
-        <div v-if="passiveStates.salldorum.colaBuried" class="salldorum-row">
+        <div class="salldorum-row">
           <span class="salldorum-label">Cola</span>
-          <span class="salldorum-val">{{ t('place', 'место') }} {{ passiveStates.salldorum.colaBuriedPosition }} · {{ t('round', 'раунд') }} {{ passiveStates.salldorum.colaBuriedRound }}</span>
+          <span v-if="passiveStates.salldorum.colaBuried" class="salldorum-val">{{ t('place', 'место') }} {{ passiveStates.salldorum.colaBuriedPosition }} · {{ t('round', 'раунд') }} {{ passiveStates.salldorum.colaBuriedRound }}</span>
+          <span v-else-if="passiveStates.salldorum.colaDrinks > 0" class="salldorum-used">{{ t('DRUNK', 'ВЫПИТО') }} ×{{ passiveStates.salldorum.colaDrinks }}</span>
+          <span v-else class="salldorum-used">{{ t('NOT BURIED', 'НЕ ЗАКОПАНА') }}</span>
         </div>
         <!-- Chronicler -->
         <div class="salldorum-row">
           <span class="salldorum-label">Rewrite</span>
-          <span v-if="passiveStates.salldorum.historyRewritten" class="salldorum-used">{{ t('USED', 'ИСПОЛЬЗОВАНО') }}</span>
+          <span v-if="passiveStates.salldorum.historyRewritten" class="salldorum-used">
+            {{ t('USED', 'ИСПОЛЬЗОВАНО') }}<template v-if="passiveStates.salldorum.rewrittenRound > 0"> · {{ t('round', 'раунд') }} {{ passiveStates.salldorum.rewrittenRound }}</template>
+          </span>
           <span v-else class="salldorum-available">{{ t('READY', 'ГОТОВО') }}</span>
         </div>
       </div>

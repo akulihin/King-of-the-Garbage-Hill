@@ -463,28 +463,6 @@ public class GameHub : Hub
 
     // ── Salldorum Actions ───────────────────────────────────────────────
 
-    public async Task ActivateShen(ulong gameId, int position)
-    {
-        var discordId = GetDiscordId();
-        if (discordId == 0) { await SendNotAuthenticated(); return; }
-
-        var (success, error) = _gameService.ActivateShen(gameId, discordId, position);
-        await Clients.Caller.SendAsync("ActionResult", new { action = "activateShen", success, error });
-
-        if (success) await PushStateToPlayer(gameId, discordId);
-    }
-
-    public async Task DeactivateShen(ulong gameId)
-    {
-        var discordId = GetDiscordId();
-        if (discordId == 0) { await SendNotAuthenticated(); return; }
-
-        var (success, error) = _gameService.DeactivateShen(gameId, discordId);
-        await Clients.Caller.SendAsync("ActionResult", new { action = "deactivateShen", success, error });
-
-        if (success) await PushStateToPlayer(gameId, discordId);
-    }
-
     public async Task RewriteHistory(ulong gameId, int roundNumber)
     {
         var discordId = GetDiscordId();

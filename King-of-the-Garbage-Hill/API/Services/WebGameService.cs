@@ -986,116 +986,12 @@ public class WebGameService
 
     // ── Salldorum Actions ──────────────────────────────────────────────
 
-    public (bool success, string error) ActivateShen(ulong gameId, ulong discordId, int position)
-    {
-        var (game, player) = FindGameAndPlayer(gameId, discordId);
-        if (game == null) return (false, "Game not found");
-        if (player == null) return (false, "Player not in this game");
-        if (player.GameCharacter.Name != "Salldorum")
-            return (false, "Only Salldorum can use Shen");
-
-        var shen = player.Passives.SalldorumShen;
-        if (shen.Charges <= 0)
-            return (false, "No Shen charges available");
-        if (position < 1 || position > game.PlayersList.Count)
-            return (false, $"Invalid position (1-{game.PlayersList.Count})");
-
-        shen.Charges--;
-        shen.ActiveThisTurn = true;
-        shen.TargetPosition = position;
-        player.Status.AddInGamePersonalLogs($"Шэн: Активирован на позицию {position}. Зарядов: {shen.Charges}\n");
-
-        return (true, null);
-    }
-
-    public (bool success, string error) DeactivateShen(ulong gameId, ulong discordId)
-    {
-        var (game, player) = FindGameAndPlayer(gameId, discordId);
-        if (game == null) return (false, "Game not found");
-        if (player == null) return (false, "Player not in this game");
-        if (player.GameCharacter.Name != "Salldorum")
-            return (false, "Only Salldorum can use Shen");
-
-        var shen = player.Passives.SalldorumShen;
-        if (!shen.ActiveThisTurn)
-            return (false, "Shen is not active");
-
-        shen.Charges++;
-        shen.ActiveThisTurn = false;
-        shen.TargetPosition = -1;
-        player.Status.AddInGamePersonalLogs("Шэн: Деактивирован. Заряд возвращён.\n");
-
-        return (true, null);
-    }
-
     public (bool success, string error) RewriteHistory(ulong gameId, ulong discordId, int roundNumber)
     {
         var (game, player) = FindGameAndPlayer(gameId, discordId);
         if (game == null) return (false, "Game not found");
         if (player == null) return (false, "Player not in this game");
-        if (player.GameCharacter.Name != "Salldorum")
-            return (false, "Only Salldorum can rewrite history");
-
-        var chronicler = player.Passives.SalldorumChronicler;
-        if (chronicler.HistoryRewritten)
-            return (false, "History has already been rewritten");
-        if (game.RoundNo >= 8)
-            return (false, "Too late to rewrite history (before round 8 only)");
-        if (roundNumber < 1 || roundNumber >= game.RoundNo)
-            return (false, "Invalid round number");
-
-        chronicler.HistoryRewritten = true;
-        chronicler.RewrittenRound = roundNumber;
-
-        // Find enemies who beat Salldorum in that round
-        var salloLosses = player.Status.WhoToLostEveryRound
-            .Where(x => x.RoundNo == roundNumber)
-            .ToList();
-
-        // m15: steal 1 × the rewritten round's multiplier (×1 for R≤4, ×2 for R5-9) — the value the
-        // point was actually banked at that round — instead of a flat 1.
-        var roundMultiplier = roundNumber switch { <= 4 => 1m, <= 9 => 2m, _ => 4m };
-
-        // m15: a Jew (Еврей) who co-attacked Salldorum that round pocketed the winner's point (HandleJews),
-        // so reclaim it from the Jew. Best-effort — detects a Jew among that round's winners; a Jew who
-        // attacked-and-lost but still stole can't be reconstructed here (would need steal-time tracking).
-        var roundWinners = salloLosses
-            .Select(l => game.PlayersList.Find(x => x.GetPlayerId() == l.EnemyId))
-            .Where(e => e != null)
-            .ToList();
-
-        decimal totalStolen = 0;
-        foreach (var enemy in roundWinners)
-        {
-            var holder = roundWinners.FirstOrDefault(w => w!.GetPlayerId() != enemy!.GetPlayerId()
-                && w.GameCharacter.Passive.Any(x => x.PassiveName == "Еврей")) ?? enemy;
-            holder!.Status.AddBonusPoints(-roundMultiplier, "Великий летописец");
-            player.Status.AddBonusPoints(roundMultiplier, "Великий летописец");
-            totalStolen += roundMultiplier;
-        }
-
-        // Grant psyche and justice
-        player.GameCharacter.AddPsyche(2, "Великий летописец");
-        player.GameCharacter.Justice.AddJusticeForNextRoundFromSkill(2);
-
-        // Check cola pickup via time travel
-        var capsule = player.Passives.SalldorumTimeCapsule;
-        if (capsule.Buried && chronicler.PositionHistory.Count >= roundNumber)
-        {
-            var posInThatRound = chronicler.PositionHistory[roundNumber - 1];
-            if (posInThatRound == capsule.BuriedAtPosition)
-            {
-                player.FightCharacter.AddSpeedForOneFight(5);
-                player.Status.AddBonusPoints(2, "Временная капсула");
-                capsule.PickedUpThisTurn = true;
-                player.Status.AddInGamePersonalLogs("Временная капсула: Кола подобрана через путешествие во времени!\n");
-            }
-        }
-
-        player.Status.AddInGamePersonalLogs($"Великий летописец: История раунда {roundNumber} переписана! Украдено {totalStolen} очков.\n");
-        game.AddGlobalLogs($"Salldorum переписал историю раунда {roundNumber}!");
-
-        return (true, null);
+        return Salldorum.RewriteHistory(player, game, roundNumber);
     }
 
     // ── Test Game (Admin) ─────────────────────────────────────────────

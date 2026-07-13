@@ -783,6 +783,18 @@ const letopis = computed(() => {
   return parts.join('\n\n')
 })
 
+const salldorumState = computed(() => {
+  if (store.myPlayer?.character.name !== 'Salldorum') return null
+  return store.myPlayer.passiveAbilityStates?.salldorum ?? null
+})
+
+const rewriteHistoryRounds = computed(() => {
+  const game = store.gameState
+  const state = salldorumState.value
+  if (!game || !state || game.isFinished || game.roundNo >= 8 || state.historyRewritten) return []
+  return Array.from({ length: Math.max(0, game.roundNo - 1) }, (_, index) => index + 1)
+})
+
 // ── Animated Previous Round Logs ─────────────────────────────────────
 type PrevLogColor = 'purple' | 'gold' | 'green' | 'red' | 'blue' | 'orange' | 'muted'
 interface PrevLogEntry {
@@ -1428,10 +1440,13 @@ const charTint = computed(() => {
               :is-admin="store.isAdmin"
               :character-catalog="store.gameState.allCharacters || []"
               :fight-style="fightStyle"
+              :rewrite-history-rounds="rewriteHistoryRounds"
+              :rewrite-history-pending-round="store.rewritingHistoryRound"
               @resist-flash="onResistFlash"
               @justice-reset="onJusticeReset"
               @justice-transfer="onJusticeTransfer"
               @justice-up="onJusticeUp"
+              @rewrite-history="store.rewriteHistory($event)"
               @replay-ended="onReplayEnded"
             />
           </div>

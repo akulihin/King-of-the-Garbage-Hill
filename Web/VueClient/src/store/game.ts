@@ -71,6 +71,7 @@ export const useGameStore = defineStore('game', () => {
   const pendingLevelUp = ref<PendingLevelUp | null>(null)
   const lastMoralToPointsRound = ref<number | null>(null)
   const lastMoralToSkillRound = ref<number | null>(null)
+  const rewritingHistoryRound = ref<number | null>(null)
   const gameStory = ref<string | null>(null)
   const blackjackState = ref<BlackjackTableState | null>(null)
   const questState = ref<QuestState | null>(null)
@@ -434,6 +435,7 @@ export const useGameStore = defineStore('game', () => {
     pendingLevelUp.value = null
     lastMoralToPointsRound.value = null
     lastMoralToSkillRound.value = null
+    rewritingHistoryRound.value = null
     gameStory.value = null
     blackjackState.value = null
 
@@ -635,6 +637,17 @@ export const useGameStore = defineStore('game', () => {
   async function shinigamiEyes() {
     if (!gameState.value) return
     await signalrService.shinigamiEyes(gameState.value.gameId)
+  }
+
+  async function rewriteHistory(roundNumber: number) {
+    if (!gameState.value || rewritingHistoryRound.value !== null) return
+    rewritingHistoryRound.value = roundNumber
+    try {
+      await signalrService.rewriteHistory(gameState.value.gameId, roundNumber)
+    }
+    finally {
+      rewritingHistoryRound.value = null
+    }
   }
 
   // ── Blackjack Actions ──────────────────────────────────────────────
@@ -934,6 +947,7 @@ export const useGameStore = defineStore('game', () => {
     lastEvent,
     errorMessage,
     isLoading,
+    rewritingHistoryRound,
     gameStory,
     blackjackState,
     questState,
@@ -1003,6 +1017,7 @@ export const useGameStore = defineStore('game', () => {
     dopaChoice,
     deathNoteWrite,
     shinigamiEyes,
+    rewriteHistory,
     blackjackJoin,
     blackjackHit,
     blackjackStand,

@@ -246,6 +246,14 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         if ((player1.GameCharacter.Name == "Стая Гоблинов" || player1.PlayerType == 2) && player2.Passives.GoblinZiggurat.IsInZiggurat)
             customString += "🛡️";
 
+        // The cola is a fixed board-cell object. Only Salldorum and admins see its location.
+        var salldorum = game.PlayersList.Find(player => player.GameCharacter.Name == "Salldorum");
+        if (salldorum != null
+            && (player1.GetPlayerId() == salldorum.GetPlayerId() || player1.PlayerType == 2)
+            && salldorum.Passives.SalldorumTimeCapsule.Buried
+            && salldorum.Passives.SalldorumTimeCapsule.BuriedAtPosition == number)
+            customString += "🥤";
+
         if (game.RoundNo == 10 && player2.GameCharacter.Passive.Any(
             x => x.PassiveName == "Стримснайпят и банят и банят и банят"))
             customString += "🚫";
@@ -263,10 +271,6 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
             && game.PlayersList.Any(x => x.GameCharacter.Name == DoomGuy.CharacterName
                 && x.Passives.DoomGuy.CounterAttackMarks.GetValueOrDefault(player2.GetPlayerId()) == game.RoundNo))
             customString += "🎯";
-
-        // Salldorum Shen active indicator — self/admin only
-        if ((player1.PlayerType == 2 || player1.GetPlayerId() == player2.GetPlayerId()) && player2.GameCharacter.Name == "Salldorum" && player2.Passives.SalldorumShen.ActiveThisTurn)
-            customString += "🛡️";
 
         // Геральт — monster type icon
         //if (player2.Passives.GeraltMonsterType != null)
@@ -520,7 +524,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                 case "Им это не понравится":
                     var spartanMark = me.Passives.SpartanMark;
 
-                    if (spartanMark.FriendList.Contains(other.GetPlayerId()))
+                    if (Salldorum.IsRedirectedRandomTarget(game, me, other, spartanMark.FriendList))
                         customString += " <:sparta:561287745675329567>";
                     break;
 
@@ -724,10 +728,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                     if (other.GetPlayerId() == me.GetPlayerId())
                     {
                         var salShen = me.Passives.SalldorumShen;
-                        var salCap = me.Passives.SalldorumTimeCapsule;
                         customString += $" ⚡{salShen.Charges}";
-                        if (salShen.ActiveThisTurn) customString += " 🛡️";
-                        if (salCap.Buried) customString += $" 🥤pos{salCap.BuriedAtPosition}";
                     }
                     break;
             }

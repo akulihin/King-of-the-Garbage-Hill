@@ -345,19 +345,16 @@ public class DoomsdayMachine : IServiceSingleton
                 var target = game.PlayersList.Find(x => x.GetPlayerId() == targetId);
                 if (target != null)
                 {
-                    var monsterType = target.Passives.GeraltMonsterType;
-                    if (monsterType != null)
+                    var count = Salldorum.TakeGeraltContractCount(game, geraltPlayer, target);
+                    if (count > 0)
                     {
-                        var count = geraltContracts.GetCount(monsterType.Value);
                         for (int i = 1; i < count; i++)
                             geraltPlayer.Status.WhoToAttackThisTurn.Add(targetId);
 
                         geraltContracts.ContractsFoughtThisRound += count;
-                        geraltContracts.SetCount(monsterType.Value, 0);
                         geraltContracts.ContractProcsOnEnemy.TryAdd(targetId, 0);
                         geraltContracts.ContractProcsOnEnemy[targetId] += count;
-                        if (count > 0)
-                            geraltAchievements.GeraltContractFightsRemaining[targetId] = count;
+                        geraltAchievements.GeraltContractFightsRemaining[targetId] = count;
                     }
                 }
             }
@@ -371,10 +368,7 @@ public class DoomsdayMachine : IServiceSingleton
                 if (attacker.Status.IsBlock || attacker.Status.IsSkip) continue;
                 if (!attacker.Status.WhoToAttackThisTurn.Contains(geraltId)) continue;
 
-                var monsterType = attacker.Passives.GeraltMonsterType;
-                if (monsterType == null) continue;
-
-                var count = geraltContracts.GetCount(monsterType.Value);
+                var count = Salldorum.TakeGeraltContractCount(game, geraltPlayer, attacker);
                 if (count <= 0) continue;
 
                 // Add N-1 extra fights (original already in list)
@@ -382,7 +376,6 @@ public class DoomsdayMachine : IServiceSingleton
                     attacker.Status.WhoToAttackThisTurn.Add(geraltId);
 
                 geraltContracts.ContractsFoughtThisRound += count;
-                geraltContracts.SetCount(monsterType.Value, 0);
                 geraltContracts.ContractProcsOnEnemy.TryAdd(attacker.GetPlayerId(), 0);
                 geraltContracts.ContractProcsOnEnemy[attacker.GetPlayerId()] += count;
                 geraltAchievements.GeraltContractFightsRemaining[attacker.GetPlayerId()] = count;
@@ -995,6 +988,7 @@ public class DoomsdayMachine : IServiceSingleton
                             var winSourceNeg = "Победа";
                             if (player.GameCharacter.Name == "Геральт")
                                 winSourceNeg = player.Passives.GeraltContracts.EnemyTypes.ContainsKey(playerIamAttacking.GetPlayerId())
+                                               || Salldorum.FindRandomTargetMagnet(game, player)?.GetPlayerId() == playerIamAttacking.GetPlayerId()
                                     ? "Контракт" : "Лут";
                             player.Status.AddWinPoints(game, player, point * -1, winSourceNeg);
                         }
@@ -1003,6 +997,7 @@ public class DoomsdayMachine : IServiceSingleton
                             var winSource = "Победа";
                             if (player.GameCharacter.Name == "Геральт")
                                 winSource = player.Passives.GeraltContracts.EnemyTypes.ContainsKey(playerIamAttacking.GetPlayerId())
+                                            || Salldorum.FindRandomTargetMagnet(game, player)?.GetPlayerId() == playerIamAttacking.GetPlayerId()
                                     ? "Контракт" : "Лут";
                             player.Status.AddWinPoints(game, player, point, winSource);
                         }
@@ -1183,6 +1178,7 @@ public class DoomsdayMachine : IServiceSingleton
                             var defWinSource = "Победа";
                             if (playerIamAttacking.GameCharacter.Name == "Геральт")
                                 defWinSource = playerIamAttacking.Passives.GeraltContracts.EnemyTypes.ContainsKey(player.GetPlayerId())
+                                               || Salldorum.FindRandomTargetMagnet(game, playerIamAttacking)?.GetPlayerId() == player.GetPlayerId()
                                     ? "Контракт" : "Лут";
                             playerIamAttacking.Status.AddWinPoints(game, playerIamAttacking, 1, defWinSource);
                         }

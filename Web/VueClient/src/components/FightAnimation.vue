@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick, onUnmounted } from 'vue'
 import type { FightEntry, ForOneFightMod, Player, Prediction, CharacterInfo } from 'src/services/signalr'
-import { translateText } from 'src/i18n'
+import { currentLocale, translateText } from 'src/i18n'
 import FightArena from './fight/FightArena.vue'
 import FightArenaCards from './fight/FightArenaCards.vue'
 import FightArenaClassic from './fight/FightArenaClassic.vue'
@@ -37,6 +37,8 @@ const props = withDefaults(defineProps<{
   initialFightIndex?: number
   fightStyle?: 'v3' | 'v2' | 'v1'
   roundKey?: string | number
+  rewriteHistoryRounds?: number[]
+  rewriteHistoryPendingRound?: number | null
 }>(), {
   letopis: '',
   gameStory: null,
@@ -49,6 +51,8 @@ const props = withDefaults(defineProps<{
   initialFightIndex: undefined,
   fightStyle: 'v3',
   roundKey: '',
+  rewriteHistoryRounds: () => [],
+  rewriteHistoryPendingRound: null,
 })
 
 const showDetails = computed(() => props.showDetailedFactors || props.isAdmin)
@@ -59,6 +63,7 @@ const emit = defineEmits<{
   (e: 'justice-transfer'): void
   (e: 'justice-up'): void
   (e: 'replay-ended'): void
+  (e: 'rewrite-history', roundNumber: number): void
   (e: 'update:fightIndex', idx: number): void
   (e: 'update:currentFight', fight: FightEntry | null): void
 }>()
@@ -1041,6 +1046,10 @@ function formatLetopis(text: string): string {
     .replace(/\|>Phrase<\|/g, '')
     .replace(/\n/g, '<br>')
 }
+
+function chronicleText(english: string, russian: string): string {
+  return currentLocale.value === 'ru' ? russian : english
+}
 /** Softcap a factor value for non-admin bar accumulation */
 const FACTOR_CAP = 8
 function clampFactor(v: number): number {
@@ -1350,6 +1359,22 @@ function getDisplayCharName(orig: string, u: string): string {
 
     <!-- Летопись -->
     <div v-if="activeTab === 'letopis'" class="fa-letopis">
+      <div v-if="rewriteHistoryRounds.length" class="fa-rewrite-history">
+        <div v-for="roundNumber in rewriteHistoryRounds" :key="roundNumber" class="fa-rewrite-row">
+          <span class="fa-rewrite-round">{{ chronicleText(`Round #${roundNumber}`, `Раунд #${roundNumber}`) }}</span>
+          <button
+            type="button"
+            class="fa-rewrite-button"
+            data-sfx-utility="true"
+            :disabled="rewriteHistoryPendingRound !== null"
+            @click="emit('rewrite-history', roundNumber)"
+          >
+            {{ rewriteHistoryPendingRound === roundNumber
+              ? chronicleText('REWRITING…', 'ПЕРЕПИСЫВАЕМ…')
+              : chronicleText('REWRITE HISTORY', 'ПЕРЕПИСАТЬ ИСТОРИЮ') }}
+          </button>
+        </div>
+      </div>
       <div v-if="letopis.trim()" class="fa-letopis-content" v-html="formatLetopis(letopis)" />
       <div v-else class="fa-empty">История пуста</div>
     </div>
@@ -1678,12 +1703,54 @@ function getDisplayCharName(orig: string, u: string): string {
 
 /* ── Letopis ── */
 .fa-letopis { flex: 1; overflow-y: auto; padding: 4px; background: var(--bg-inset); border-radius: var(--radius); border: 1px solid var(--border-subtle); }
+.fa-rewrite-history { display: grid; gap: 5px; margin-bottom: 8px; }
+.fa-rewrite-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 7px;
+  border: 1px solid rgba(117, 185, 255, 0.2);
+  border-radius: 6px;
+  background: linear-gradient(90deg, rgba(46, 102, 176, 0.12), rgba(13, 25, 44, 0.22));
+}
+.fa-rewrite-round { color: var(--accent-gold); font-family: var(--font-mono); font-size: 11px; font-weight: 800; white-space: nowrap; }
+.fa-rewrite-button {
+  min-height: 40px;
+  padding: 7px 12px;
+  border: 1px solid rgba(117, 185, 255, 0.75);
+  border-radius: 6px;
+  background: linear-gradient(135deg, rgba(45, 112, 205, 0.92), rgba(91, 55, 177, 0.92));
+  box-shadow: 0 0 10px rgba(75, 157, 255, 0.55), inset 0 0 9px rgba(255, 255, 255, 0.08);
+  color: #fff;
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.35px;
+  text-shadow: 0 0 5px rgba(255, 255, 255, 0.38);
+  animation: rewrite-history-glow 1.45s ease-in-out infinite;
+}
+.fa-rewrite-button:hover:not(:disabled) { filter: brightness(1.15); transform: translateY(-1px); }
+.fa-rewrite-button:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.fa-rewrite-button:disabled { cursor: wait; filter: saturate(0.6); opacity: 0.6; animation: none; }
+@keyframes rewrite-history-glow {
+  0%, 100% { box-shadow: 0 0 8px rgba(75, 157, 255, 0.45), inset 0 0 8px rgba(255, 255, 255, 0.06); }
+  50% { box-shadow: 0 0 17px rgba(105, 184, 255, 0.9), 0 0 28px rgba(111, 73, 207, 0.38), inset 0 0 12px rgba(255, 255, 255, 0.12); }
+}
 .fa-letopis-content { font-size: 11px; line-height: 1.6; color: var(--text-secondary); font-family: var(--font-mono); }
 .fa-letopis-content :deep(strong) { color: var(--accent-gold); }
 .fa-letopis-content :deep(em) { color: var(--accent-blue); }
 .fa-letopis-content :deep(u) { color: var(--accent-green); }
 .fa-letopis-content :deep(del) { color: var(--text-muted); text-decoration: line-through; }
 .fa-letopis-content :deep(.lb-emoji) { width: 20px; height: 20px; vertical-align: middle; display: inline; margin: 0 2px; }
+@media (max-width: 600px) {
+  .fa-rewrite-row { align-items: stretch; flex-direction: column; }
+  .fa-rewrite-button { min-height: 44px; width: 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fa-rewrite-button { animation: none; }
+  .fa-rewrite-button:hover:not(:disabled) { transform: none; }
+}
 
 /* ── AI Story tab ── */
 .fa-tab-story { color: var(--accent-gold) !important; }

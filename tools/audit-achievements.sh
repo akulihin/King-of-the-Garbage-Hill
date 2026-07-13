@@ -20,6 +20,7 @@ c_kratos_olympus
 c_madara_tsukuyomi
 c_monster_apocalypse
 c_rick_portals
+c_salldorum_double_cola
 c_saitama_one_punch
 c_tigr_six_zero
 g_bottom_feeder
@@ -81,8 +82,8 @@ done <<< "$expected"
 global_count=$(printf '%s\n' "$definitions" | rg -c '^g_' || true)
 character_count=$(printf '%s\n' "$definitions" | rg -c '^c_' || true)
 interaction_count=$(printf '%s\n' "$definitions" | rg -c '^x_' || true)
-if [ "$global_count" -ne 11 ] || [ "$character_count" -ne 15 ] || [ "$interaction_count" -ne 7 ]; then
-  echo "BAD category counts: global=$global_count character=$character_count interaction=$interaction_count (expected 11/15/7)"
+if [ "$global_count" -ne 11 ] || [ "$character_count" -ne 16 ] || [ "$interaction_count" -ne 7 ]; then
+  echo "BAD category counts: global=$global_count character=$character_count interaction=$interaction_count (expected 11/16/7)"
   fail=1
 fi
 
@@ -98,4 +99,4 @@ if [ "$fail" -ne 0 ]; then
   exit 1
 fi
 
-echo "audit-achievements: 33 definitions (11 global / 15 character / 7 interaction), all unique and evaluated."
+echo "audit-achievements: 34 definitions (11 global / 16 character / 7 interaction), all unique and evaluated."

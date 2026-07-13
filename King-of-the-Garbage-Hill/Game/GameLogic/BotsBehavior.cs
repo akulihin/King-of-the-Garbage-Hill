@@ -2213,18 +2213,24 @@ public class BotsBehavior : IServiceSingleton
                         break;
 
                     case "Salldorum":
-                        var salChronicler = bot.Passives.SalldorumChronicler;
                         // Великий летописец: prefer player who won most 3 rounds ago (x3 skill)
-                        if (game.RoundNo > 3 && salChronicler.HistoryRewritten)
+                        if (game.RoundNo > 3)
                         {
-                            var targetWins3ago = target.Player.Status.WhoToLostEveryRound
-                                .Count(x => x.RoundNo == game.RoundNo - 3);
-                            if (targetWins3ago > 0)
-                                target.AttackPreference += targetWins3ago * 5 + 3;
+                            var chroniclerRound = game.RoundNo - 3;
+                            var winCounts = game.PlayersList
+                                .SelectMany(player => player.Status.WhoToLostEveryRound)
+                                .Where(loss => loss.RoundNo == chroniclerRound)
+                                .GroupBy(loss => loss.EnemyId)
+                                .ToDictionary(group => group.Key, group => group.Count());
+                            if (winCounts.Count > 0
+                                && winCounts.TryGetValue(target.GetPlayerId(), out var targetWins)
+                                && targetWins == winCounts.Values.Max())
+                                target.AttackPreference += targetWins * 5 + 3;
                         }
-                        // Prefer lower-ranked (easier wins + Очко synergy)
-                        if (target.Player.Status.GetPlaceAtLeaderBoard() > bot.Status.GetPlaceAtLeaderBoard())
-                            target.AttackPreference += 4;
+                        // A charged Шэн makes the next attack leap immediately ahead of its target.
+                        if (bot.Passives.SalldorumShen.Charges > 0
+                            && target.Player.Status.GetPlaceAtLeaderBoard() < bot.Status.GetPlaceAtLeaderBoard())
+                            target.AttackPreference += 8;
                         // Prefer 0 Justice
                         if (target.Player.GameCharacter.Justice.GetRealJusticeNow() == 0)
                             target.AttackPreference += 3;
@@ -3140,42 +3146,20 @@ public class BotsBehavior : IServiceSingleton
 
                 case "Salldorum":
                     var salCapsule = bot.Passives.SalldorumTimeCapsule;
-                    var salShenBlock = bot.Passives.SalldorumShen;
                     // Block once early for capsule burial
                     if (!salCapsule.FirstBlockUsed && game.RoundNo <= 3)
                         isBlock = yesBlock;
-                    // Shen: save charges, use strategically
-                    if (salShenBlock.Charges > 0 && !salShenBlock.ActiveThisTurn)
-                    {
-                        var salBotPlace = bot.Status.GetPlaceAtLeaderBoard();
-                        // Use when falling behind
-                        if (salBotPlace >= 4 && game.RoundNo >= 5)
-                        {
-                            salShenBlock.Charges--;
-                            salShenBlock.ActiveThisTurn = true;
-                            salShenBlock.TargetPosition = Math.Min(2, salBotPlace);
-                        }
-                        // Use to secure top on final rounds
-                        else if (game.RoundNo >= 9 && salBotPlace > 2)
-                        {
-                            salShenBlock.Charges--;
-                            salShenBlock.ActiveThisTurn = true;
-                            salShenBlock.TargetPosition = 1;
-                        }
-                        // Use to reach capsule position for pickup
-                        else if (salCapsule.Buried && salBotPlace != salCapsule.BuriedAtPosition
-                                 && game.RoundNo - salCapsule.BuriedOnRound >= 2)
-                        {
-                            salShenBlock.Charges--;
-                            salShenBlock.ActiveThisTurn = true;
-                            salShenBlock.TargetPosition = salCapsule.BuriedAtPosition;
-                        }
-                    }
-                    // Rewrite history mid-game
+                    // Rewrite history through the same resolver humans use.
                     if (!bot.Passives.SalldorumChronicler.HistoryRewritten && game.RoundNo >= 5 && game.RoundNo < 8)
                     {
-                        bot.Passives.SalldorumChronicler.HistoryRewritten = true;
-                        bot.Passives.SalldorumChronicler.RewrittenRound = Math.Max(1, game.RoundNo - 2);
+                        var bestRound = Enumerable.Range(1, game.RoundNo - 1)
+                            .OrderByDescending(round => bot.Status.WhoToLostEveryRound
+                                .Where(loss => loss.RoundNo == round)
+                                .Select(loss => loss.EnemyId)
+                                .Distinct()
+                                .Count() * (round <= 4 ? 1 : 2))
+                            .First();
+                        Salldorum.RewriteHistory(bot, game, bestRound);
                     }
                     break;
 

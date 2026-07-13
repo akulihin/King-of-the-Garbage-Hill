@@ -789,12 +789,12 @@ public static class GameStateMapper
                         pas.Salldorum = new SalldorumStateDto
                         {
                             ShenCharges = shen.Charges,
-                            ShenActive = shen.ActiveThisTurn,
-                            ShenTargetPosition = shen.TargetPosition,
                             ColaBuried = capsule.Buried,
                             ColaBuriedPosition = capsule.BuriedAtPosition,
                             ColaBuriedRound = capsule.BuriedOnRound,
+                            ColaDrinks = capsule.DrinkCount,
                             HistoryRewritten = chronicler.HistoryRewritten,
+                            RewrittenRound = chronicler.RewrittenRound,
                             PositionHistory = chronicler.PositionHistory.ToList(),
                         };
                         anySet = true;

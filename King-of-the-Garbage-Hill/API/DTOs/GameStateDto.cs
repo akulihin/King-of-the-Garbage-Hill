@@ -934,12 +934,12 @@ public class TheBoysKompromatEntryDto
 public class SalldorumStateDto
 {
     public int ShenCharges { get; set; }
-    public bool ShenActive { get; set; }
-    public int ShenTargetPosition { get; set; }
     public bool ColaBuried { get; set; }
     public int ColaBuriedPosition { get; set; }
     public int ColaBuriedRound { get; set; }
+    public int ColaDrinks { get; set; }
     public bool HistoryRewritten { get; set; }
+    public int RewrittenRound { get; set; }
     public List<int> PositionHistory { get; set; } = new();
 }
 

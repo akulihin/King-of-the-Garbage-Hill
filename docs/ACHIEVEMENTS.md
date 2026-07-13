@@ -4,7 +4,7 @@
 
 ## 1. Achievement model
 
-The live catalog contains exactly **33** achievements: **11 Global**, **15 Character**, and **7 Interaction**. `AchievementDefinition` owns paired EN/RU names, descriptions and secret hints plus category, icon, rarity, target, related characters and rewards (`AchievementClass.cs:12-88`). `tools/audit-achievements.sh` hard-fails unless all 33 expected IDs are unique, present and evaluated.
+The live catalog contains exactly **34** achievements: **11 Global**, **16 Character**, and **7 Interaction**. `AchievementDefinition` owns paired EN/RU names, descriptions and secret hints plus category, icon, rarity, target, related characters and rewards (`AchievementClass.cs:12-88`). `tools/audit-achievements.sh` hard-fails unless all 34 expected IDs are unique, present and evaluated.
 
 Progress has two layers:
 
@@ -31,7 +31,7 @@ Unless a row says otherwise, a target greater than 1 means “within one match.�
 | `g_untouchable` | Untouchable / Неприкасаемый | Win a solo match alive with at least 5 resolved fight wins and 0 resolved fight losses. | Epic · 100 ZBS + 1 box | `AchievementClass.cs:223-226,453-454`; fight totals `DoomsdayMachine.cs:1371-1380` |
 | `g_quad_damage` | Quad Damage / Четверной урон | Receive at least 20 net regular points from round 10, measured after its real multiplier. | Rare · 50 ZBS | `AchievementClass.cs:227-230,455-456`; settlement delta `DoomsdayMachine.cs:1542-1548` |
 
-## 3. Character achievements (15)
+## 3. Character achievements (16)
 
 Character achievements require the named character, even if another holder can copy a related passive.
 
@@ -40,6 +40,7 @@ Character achievements require the named character, even if another holder can c
 | `c_boys_orders` | French Connection / Французская связь | As TheBoys, complete all 3 Francie orders. | Uncommon · 25 ZBS | `AchievementClass.cs:233-236,459-460` |
 | `c_goblin_summit` | Built Different / Особая постройка | As Стая Гоблинов, finish alive at actual place 1 with a place-1 Ziggurat and receive its enforced win. | Legendary · 228 ZBS + 2 boxes | `AchievementClass.cs:237-240,462-466` |
 | `c_rick_portals` | Portal Authority / Портальная власть | As Рик Санчез, successfully fire Портальная пушка twice. | Rare · 50 ZBS | `AchievementClass.cs:241-244,469-470`; fire counter `CharacterPassives.cs:2193-2204` |
+| `c_salldorum_double_cola` | History Repeats Itself / История повторяется | As Salldorum, drink the Time Capsule cola twice in one match. The card directly hints: «Колу можно выпить дважды, если знать историю.» | Legendary · 228 ZBS + 2 boxes | definition/evaluator `AchievementClass.cs` `c_salldorum_double_cola`; drink counter `Salldorum.TimeCapsuleClass.DrinkCount` |
 | `c_saitama_one_punch` | One Punch / Один удар | As Сайтама, reclaim at least 20 deferred points through Ищет достойного противника. | Epic · 100 ZBS + 1 box | `AchievementClass.cs:245-248,472-473`; reclaim total `CharacterPassives.cs:5187-5203` |
 | `c_madara_tsukuyomi` | Wake Up to Reality / Очнись и вернись в реальность | As Мадара, finish with Вечное Цукуеми active and not sealed. Secret. | Legendary · 228 ZBS + 2 boxes | `AchievementClass.cs:249-255`; private-ending evaluator `AchievementClass.cs:426-439` |
 | `c_tigr_six_zero` | Six–Zero / Шесть — ноль | As Тигр, complete 3-0 обоссан against 2 different enemies. | Epic · 100 ZBS + 1 box | `AchievementClass.cs:256-259,483-485` |
@@ -77,9 +78,9 @@ These seven relationships are also indexed by subsystem in [INTERACTION-MATRIX.m
 | Uncommon | 25 ZBS | 5 |
 | Rare | 50 ZBS | 11 |
 | Epic | 100 ZBS + 1 loot box | 11 |
-| Legendary | 228 ZBS + 2 loot boxes | 5 |
+| Legendary | 228 ZBS + 2 loot boxes | 6 |
 
-The reward switch is centralized in the definition constructor (`AchievementClass.cs:65-76`). Completing the current catalog awards **2,925 ZBS and 21 loot boxes** in total. `AchievementBoard` reports earned/current-catalog totals by summing live unlocked definitions; these numbers are a catalog summary, not a historical transaction ledger (`GameHub.cs:903-947`).
+The reward switch is centralized in the definition constructor (`AchievementClass.cs:65-76`). Completing the current catalog awards **3,153 ZBS and 23 loot boxes** in total. `AchievementBoard` reports earned/current-catalog totals by summing live unlocked definitions; these numbers are a catalog summary, not a historical transaction ledger (`GameHub.cs:903-947`).
 
 ## 6. Secrets, queues, and Вечное Цукуеми
 
@@ -90,7 +91,7 @@ The reward switch is centralized in the definition constructor (`AchievementClas
 
 ## 7. V1 migration and compatibility
 
-V2 is an intentional fresh catalog. Its 33 `g_…` / `c_…` / `x_…` IDs are disjoint from the legacy achievement IDs, so old unlocks do **not** grant V2 rewards or appear as V2 completions. Existing account JSON remains readable:
+V2 is an intentional fresh catalog. Its 34 `g_…` / `c_…` / `x_…` IDs are disjoint from the legacy achievement IDs, so old unlocks do **not** grant V2 rewards or appear as V2 completions. Existing account JSON remains readable:
 
 - `EnsureInitialized` null-fills the account containers without deleting unknown legacy progress rows (`AchievementClass.cs:355-360`).
 - Board totals and detached entries are built only from `AllAchievements`, under the account monitor, and queued IDs are filtered to the live set (`GameHub.cs:903-947`).
