@@ -1370,6 +1370,8 @@ public class GameHub : Hub
         if (error != null)
         {
             await Clients.Caller.SendAsync("ActionResult", new { action = "battleshipShoot", success = false, error });
+            await Clients.Caller.SendAsync("Error", error);
+            await PushBattleshipStateToPlayer(gameId, discordId.ToString());
             return;
         }
 
@@ -1379,6 +1381,7 @@ public class GameHub : Hub
             eventType = "ShotResult",
             data = new
             {
+                result.WasSkipped,
                 result.Hit,
                 result.Miss,
                 result.Scratched,
@@ -1405,6 +1408,8 @@ public class GameHub : Hub
         if (error != null)
         {
             await Clients.Caller.SendAsync("ActionResult", new { action = "battleshipShootOwnBoard", success = false, error });
+            await Clients.Caller.SendAsync("Error", error);
+            await PushBattleshipStateToPlayer(gameId, discordId.ToString());
             return;
         }
 
@@ -1413,6 +1418,7 @@ public class GameHub : Hub
             eventType = "ShotResult",
             data = new
             {
+                result.WasSkipped,
                 result.Hit,
                 result.Miss,
                 result.Scratched,
@@ -1435,7 +1441,13 @@ public class GameHub : Hub
         var discordId = GetDiscordId();
         if (discordId == 0) { await SendNotAuthenticated(); return; }
 
-        _battleshipService.SelectWeapon(gameId, discordId.ToString(), weaponType, shotType);
+        var (success, error) = _battleshipService.SelectWeapon(gameId, discordId.ToString(), weaponType, shotType);
+        if (!success)
+        {
+            await Clients.Caller.SendAsync("Error", error);
+            await PushBattleshipStateToPlayer(gameId, discordId.ToString());
+            return;
+        }
         await PushBattleshipStateToPlayer(gameId, discordId.ToString());
     }
 

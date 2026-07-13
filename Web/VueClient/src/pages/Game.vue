@@ -66,6 +66,7 @@ const router = useRouter()
 
 const gameIdNum = computed(() => Number(props.gameId))
 let gameOverOverlayTimer: ReturnType<typeof setTimeout> | null = null
+let finishPresentationFallbackTimer: ReturnType<typeof setTimeout> | null = null
 
 const roundMultiplier = computed(() => {
   const r = store.gameState?.roundNo ?? 0
@@ -182,6 +183,7 @@ onUnmounted(() => {
   stopDoomGameStartTheme()
   clearPrevLogTimer()
   if (gameOverOverlayTimer) clearTimeout(gameOverOverlayTimer)
+  if (finishPresentationFallbackTimer) clearTimeout(finishPresentationFallbackTimer)
   if (store.isConnected && gameIdNum.value) {
     store.leaveGame(gameIdNum.value)
   }
@@ -230,41 +232,10 @@ watch(() => store.myPlayer?.deathNote?.isArrested, (arrested, prevArrested) => {
   }
 })
 
-// Game finish: global winner themes, except viewer-private Eternal Tsukuyomi victories.
+// Game-start themes stop authoritatively on finish. Winner themes are coordinated with the
+// final fight presentation below so Eternal Tsukuyomi's fake fight is not talked over.
 watch(() => store.gameState?.isFinished, (finished, prevFinished) => {
   if (finished && !prevFinished && store.gameState) {
-    const eternalTsukuyomiVictory = store.myPlayer?.status.scoreBreakdown?.entries
-      .some(entry => entry.source === 'Вечное Цукуеми') ?? false
-
-    if (eternalTsukuyomiVictory && store.myPlayer) {
-      // The ending is private: only this viewer's projected winner theme may play locally.
-      playCharacterGameWinTheme(store.myPlayer.character.name)
-    } else {
-      // Ordinary endings remain global and use the authoritative/projected place-1 list.
-      const saitamaWon = store.gameState.players.some(p => p.character.name === 'Сайтама' && p.status.place === 1)
-      if (saitamaWon) playSaitamaGameWinTheme()
-
-      const geraltWon = store.gameState.players.some(p => p.character.name === 'Геральт' && p.status.place === 1)
-      if (geraltWon) playGeraltGameWinTheme()
-
-      const kiraWon = store.gameState.players.some(p => p.character.name === 'Кира' && p.status.place === 1)
-      if (kiraWon) playKiraGameWinTheme()
-
-      const monsterWon = store.gameState.players.some(p => p.character.name === 'Монстр без имени' && p.status.place === 1)
-      if (monsterWon) playMonsterGameWinTheme()
-
-      const rickWon = store.gameState.players.some(p => p.character.name === 'Рик Санчез' && p.status.place === 1)
-      if (rickWon) playRickGameWinTheme()
-
-      const doomWon = store.gameState.players.some(p => p.character.name === 'DooM Guy' && p.status.place === 1)
-      if (doomWon) playDoomGameWinTheme()
-
-      const erenWon = store.gameState.players.some(p =>
-        p.character.name === 'Эрен Йегер' && p.status.place === 1 && !p.isDead)
-      if (erenWon) playErenGameWinTheme()
-    }
-
-    // Stop game start themes on finish
     stopKiraGameStartTheme()
     stopGeraltGameStartTheme()
     stopDoomGameStartTheme()
@@ -617,6 +588,7 @@ watch(() => store.gameState?.roundNo, (newRound, oldRound) => {
 
 // ── Game Over cinematic sequence ──────────────────────────────────
 const showGameOverOverlay = ref(false)
+const finishPresentationPending = ref(false)
 const gameOverPodium = computed(() => {
   if (!store.gameState?.isFinished) return []
   return [...store.gameState.players]
@@ -625,19 +597,68 @@ const gameOverPodium = computed(() => {
     .slice(0, 6)
 })
 
-watch(() => store.gameState?.isFinished, (finished, prev) => {
-  if (finished && !prev) {
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      showGameOverOverlay.value = false
-      return
-    }
-    showGameOverOverlay.value = true
-    if (gameOverOverlayTimer) clearTimeout(gameOverOverlayTimer)
-    gameOverOverlayTimer = setTimeout(() => {
-      showGameOverOverlay.value = false
-      gameOverOverlayTimer = null
-    }, 5000)
+function playFinishedWinnerThemes() {
+  if (!store.gameState) return
+  const eternalTsukuyomiVictory = store.myPlayer?.status.scoreBreakdown?.entries
+    .some(entry => entry.source === 'Вечное Цукуеми') ?? false
+
+  if (eternalTsukuyomiVictory && store.myPlayer) {
+    playCharacterGameWinTheme(store.myPlayer.character.name)
+    return
   }
+
+  const winners = store.gameState.players.filter(player => player.status.place === 1 && !player.isDead)
+  if (winners.some(player => player.character.name === 'Сайтама')) playSaitamaGameWinTheme()
+  if (winners.some(player => player.character.name === 'Геральт')) playGeraltGameWinTheme()
+  if (winners.some(player => player.character.name === 'Кира')) playKiraGameWinTheme()
+  if (winners.some(player => player.character.name === 'Монстр без имени')) playMonsterGameWinTheme()
+  if (winners.some(player => player.character.name === 'Рик Санчез')) playRickGameWinTheme()
+  if (winners.some(player => player.character.name === 'DooM Guy')) playDoomGameWinTheme()
+  if (winners.some(player => player.character.name === 'Эрен Йегер')) playErenGameWinTheme()
+}
+
+function revealFinishedGame() {
+  if (!store.gameState?.isFinished) return
+  finishPresentationPending.value = false
+  if (finishPresentationFallbackTimer) {
+    clearTimeout(finishPresentationFallbackTimer)
+    finishPresentationFallbackTimer = null
+  }
+
+  playFinishedWinnerThemes()
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    showGameOverOverlay.value = false
+    return
+  }
+
+  showGameOverOverlay.value = true
+  if (gameOverOverlayTimer) clearTimeout(gameOverOverlayTimer)
+  gameOverOverlayTimer = setTimeout(() => {
+    showGameOverOverlay.value = false
+    gameOverOverlayTimer = null
+  }, 5000)
+}
+
+watch(() => store.gameState?.isFinished, (finished, prev) => {
+  if (!finished || prev) return
+
+  const hasFinalFight = (store.gameState?.fightLog?.length ?? 0) > 0
+  const isEternalTsukuyomiIllusion = store.myPlayer?.status.scoreBreakdown?.entries
+    .some(entry => entry.source === 'Вечное Цукуеми') ?? false
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  if (!isEternalTsukuyomiIllusion || !hasFinalFight || reducedMotion) {
+    revealFinishedGame()
+    return
+  }
+
+  fightReplayEnded.value = false
+  finishPresentationPending.value = true
+  finishPresentationFallbackTimer = setTimeout(revealFinishedGame, 15000)
+})
+
+watch(fightReplayEnded, (ended) => {
+  if (ended && finishPresentationPending.value)
+    revealFinishedGame()
 })
 
 /** Map Discord custom emoji names to local /art/emojis/ images (mirrors C# EmojiMap). */
@@ -1398,6 +1419,7 @@ const charTint = computed(() => {
             <!-- Fight animation (all players including Kira) -->
             <FightAnimation
               :fights="store.gameState.fightLog || []"
+              :round-key="`${store.gameState.gameId}-${store.gameState.roundNo}-${store.gameState.isFinished ? 'finished' : 'live'}`"
               :letopis="letopis"
               :game-story="store.gameStory"
               :players="store.gameState.players"
@@ -1500,7 +1522,7 @@ const charTint = computed(() => {
 
         <!-- Achievement unlock popup -->
         <AchievementPopup
-          v-if="store.newlyUnlockedAchievements.length > 0 && store.gameState.isFinished && !showGameOverOverlay && !store.isLootBoxFlowActive"
+          v-if="store.newlyUnlockedAchievements.length > 0 && store.gameState.isFinished && !finishPresentationPending && !showGameOverOverlay && !store.isLootBoxFlowActive"
           :achievements="store.newlyUnlockedAchievements"
           :is-saving="store.isAcknowledgingAchievements"
           :save-error="store.achievementAcknowledgeError"

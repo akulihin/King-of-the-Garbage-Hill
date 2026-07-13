@@ -258,16 +258,14 @@ public static class BattleshipGameEngine
         cell.IsBurning = true;
         cell.IsHit = true;
 
-        // Enemy summon on own board — kill without penalty, free opponent's slot
+        // Enemy summon on own board — kill without penalty; per-match use counters persist
         if (cell.SummonRef != null && cell.SummonRef.IsAlive && cell.SummonRef.OwnerId != shooter.DiscordId)
         {
             var deadSummon = cell.SummonRef;
             deadSummon.IsAlive = false;
             cell.SummonRef = null;
-            // Brander never consumed a slot (ТЗ #10) — no refund
-            var summonOwner = game.GetOpponent(shooter.DiscordId);
-            if (deadSummon.Type != SummonType.Brander && summonOwner != null && summonOwner.SummonSlotsUsed > 0)
-                summonOwner.SummonSlotsUsed--;
+            // The four normal summons are a per-match use limit, not reusable active slots.
+            // Brander is tracked separately and neither counter is refunded on death (ТЗ #10).
             game.AddLog($"Греческий огонь сжёг призванное существо! ({(char)('A' + col)}{row + 1})");
             // ТЗ #13/#10.4: fire detonates the Brander — on the shooter's own board
             if (deadSummon.Type == SummonType.Brander)
@@ -364,10 +362,7 @@ public static class BattleshipGameEngine
         summon.IsAlive = false;
         cell.SummonRef = null;
 
-        // Free up opponent's summon slot (Brander never consumed one, ТЗ #10)
-        var opponent = game.GetOpponent(shooter.DiscordId);
-        if (summon.Type != SummonType.Brander && opponent != null && opponent.SummonSlotsUsed > 0)
-            opponent.SummonSlotsUsed--;
+        // Normal summon uses are a per-match cap and are not refunded on death (ТЗ #10).
 
         game.AddLog($"{shooter.Username} уничтожил вражеский призыв на своём поле ({(char)('A' + col)}{row + 1})");
 
@@ -1949,14 +1944,14 @@ public static class BattleshipGameEngine
     /// <summary>
     /// Generate Mast warnings when opponent deploys summon. Includes spawn coordinates.
     /// </summary>
-    public static string GenerateMastWarning(BattleshipPlayer player, SummonType summonType, int col = -1)
+    public static string GenerateMastWarning(BattleshipPlayer player, SummonType summonType, int row = -1, int col = -1)
     {
         var hasMast = player.Board.PlacedShips.Any(s =>
             !s.IsDestroyed && s.Decks.Any(d => d.Module == "mast" && !d.ModuleDestroyed));
 
         if (!hasMast) return null;
 
-        var coord = col >= 0 ? $" ({(char)('A' + col)}1)" : "";
+        var coord = row >= 0 && col >= 0 ? $" ({(char)('A' + col)}{row + 1})" : "";
 
         return summonType switch
         {

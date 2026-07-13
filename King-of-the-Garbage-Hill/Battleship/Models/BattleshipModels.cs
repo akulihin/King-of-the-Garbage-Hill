@@ -96,9 +96,9 @@ public class BattleshipPlayer
     public List<Ship> Fleet { get; set; } = new();
     public List<FleetSelection> SelectedShips { get; set; } = new();
     public bool IsReady { get; set; }
-    public int SummonSlotsUsed { get; set; }
+    public int SummonSlotsUsed { get; set; } // Normal summon uses this match; never refunded on death
     public int MaxSummonSlots { get; set; } = 4;
-    public bool BranderUsed { get; set; } // ТЗ #10: Brander is outside the 4-slot limit, max 1 per match
+    public bool BranderUsed { get; set; } // ТЗ #10: separate from the four normal uses, max 1 per match
     public List<Summon> Summons { get; set; } = new();
     public Weapon SelectedWeapon { get; set; }
     public ShotType SelectedShotType { get; set; } = ShotType.Ballista;
@@ -258,6 +258,7 @@ public class FleetSelection
 
 public class ShotResult
 {
+    public bool WasSkipped { get; set; }
     public bool Hit { get; set; }
     public bool Miss { get; set; }
     public bool Scratched { get; set; }

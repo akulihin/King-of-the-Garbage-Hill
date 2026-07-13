@@ -476,6 +476,9 @@ public class BattleshipService
             if (shooter == null)
                 return (null, "Вы не в этой игре.");
 
+            if (row < 0 || row >= 10 || col < 0 || col >= 10)
+                return (null, "Клетка за пределами поля.");
+
             // Must deploy all boarding ships before shooting
             if (shooter.PendingSummons.Any(p => p.IsBoarding))
                 return (null, "Разместите все абордажные корабли!");
@@ -494,7 +497,16 @@ public class BattleshipService
 
                 TrySettleGameEnd(game);
 
-                return (new ShotResult { Miss = true, TurnContinues = false, Message = "Ход пропущен!" }, null);
+                return (new ShotResult { WasSkipped = true, TurnContinues = false, Message = "Ход пропущен!" }, null);
+            }
+
+            // The client is advisory: a stale/forged special selection must not create ammo.
+            if (shooter.SelectedShotType != ShotType.Ballista &&
+                (shooter.SelectedWeapon == null || !shooter.SelectedWeapon.HasAmmo))
+            {
+                shooter.SelectedShotType = ShotType.Ballista;
+                shooter.SelectedWeapon = null;
+                return (null, "У выбранного оружия не осталось боеприпасов.");
             }
 
             // AimSpeed check: weapon locked until enough enemy cells revealed
@@ -518,8 +530,10 @@ public class BattleshipService
             else
                 result = BattleshipGameEngine.ProcessShot(game, shooter, row, col);
 
-            // Auto-reset WhiteStone/Buckshot/GreekFire to Ballista after firing (ТЗ #23)
-            if (shooter.SelectedShotType is ShotType.WhiteStone or ShotType.Buckshot or ShotType.GreekFire)
+            // One-shot modes reset immediately; finite-ammo modes also reset after their last
+            // projectile so the board never remains in an unusable/forgeable mode.
+            if (shooter.SelectedShotType is ShotType.WhiteStone or ShotType.Buckshot or ShotType.GreekFire ||
+                shooter.SelectedWeapon is { HasAmmo: false })
             {
                 shooter.SelectedShotType = ShotType.Ballista;
                 shooter.SelectedWeapon = null;
@@ -583,11 +597,38 @@ public class BattleshipService
             if (shooter == null)
                 return (null, "Вы не в этой игре.");
 
+            if (row < 0 || row >= 10 || col < 0 || col >= 10)
+                return (null, "Клетка за пределами поля.");
+
+            if (shooter.PendingSummons.Any(p => p.IsBoarding))
+                return (null, "Разместите все абордажные корабли!");
+
+            // Own-board fire is still a turn action. Otherwise penalty/stun can be bypassed
+            // indefinitely by targeting an approaching summon (ТЗ #1 interaction).
+            if (BattleshipGameEngine.ProcessTurnStart(game, shooter))
+            {
+                BattleshipGameEngine.MoveSummons(game);
+                SwitchTurn(game);
+                game.TurnNumber++;
+                game.LastActivity = DateTime.UtcNow;
+
+                ProcessBotIfNeeded(game);
+                TrySettleGameEnd(game);
+
+                return (new ShotResult { WasSkipped = true, TurnContinues = false, Message = "Ход пропущен!" }, null);
+            }
+
             // Greek Fire may target the own board (ТЗ #23); consumes ammo and ends the turn
             var isGreekFire = shooter.SelectedShotType == ShotType.GreekFire;
             ShotResult result;
             if (isGreekFire)
             {
+                if (shooter.SelectedWeapon == null || !shooter.SelectedWeapon.HasAmmo)
+                {
+                    shooter.SelectedShotType = ShotType.Ballista;
+                    shooter.SelectedWeapon = null;
+                    return (null, "Греческий огонь уже израсходован.");
+                }
                 shooter.SelectedWeapon?.UseAmmo();
                 result = BattleshipGameEngine.ProcessOwnBoardGreekFireShot(game, shooter, row, col);
                 // Auto-reset to Ballista after firing (ТЗ #23)
@@ -698,43 +739,43 @@ public class BattleshipService
             if (player == null)
                 return (false, "Вы не в этой игре.");
 
-            // Find and set the actual weapon object (needed for Far range validation)
-            if (Enum.TryParse<WeaponType>(weaponType, true, out var wt))
-            {
-                // Tetracatapult can fire as WhiteStone or Buckshot (player chooses)
-                if (wt == WeaponType.Tetracatapult
-                    && Enum.TryParse<ShotType>(shotType, true, out var st)
-                    && st == ShotType.Buckshot)
-                {
-                    // Buckshot disabled during boarding
-                    if (game.Phase == BsGamePhase.Boarding)
-                        return (false, "Дробь недоступна во время абордажа.");
-                    player.SelectedShotType = ShotType.Buckshot;
-                }
-                else
-                {
-                    player.SelectedShotType = WeaponTypeToShotType(wt);
-                }
+            if (!Enum.TryParse<WeaponType>(weaponType, true, out var wt) ||
+                wt is WeaponType.Mast or WeaponType.Boiler)
+                return (false, "Неизвестное оружие.");
 
-                foreach (var ship in player.Board.PlacedShips)
+            var selectedShotType = WeaponTypeToShotType(wt);
+            if (wt == WeaponType.Tetracatapult)
+            {
+                if (!Enum.TryParse<ShotType>(shotType, true, out var requested) ||
+                    requested is not (ShotType.WhiteStone or ShotType.Buckshot))
+                    return (false, "Неверный тип снаряда.");
+                if (requested == ShotType.Buckshot && game.Phase == BsGamePhase.Boarding)
+                    return (false, "Дробь недоступна во время абордажа.");
+                selectedShotType = requested;
+            }
+
+            // Ballista remains the baseline action; every special must resolve to a real,
+            // living, loaded weapon. This closes forged Greek Fire/Incendiary selections.
+            Weapon selectedWeapon = null;
+            if (wt != WeaponType.Ballista)
+            {
+                selectedWeapon = player.Board.PlacedShips
+                    .Where(s => !s.IsDestroyed)
+                    .SelectMany(s => s.Weapons)
+                    .FirstOrDefault(w => w.Type == wt && w.HasAmmo);
+                if (selectedWeapon == null)
+                    return (false, "Это оружие уничтожено или у него закончились боеприпасы.");
+
+                if (selectedWeapon.AimSpeed > 0)
                 {
-                    if (ship.IsDestroyed) continue;
-                    var weapon = ship.Weapons.Find(w => w.Type == wt && w.HasAmmo);
-                    if (weapon != null)
-                    {
-                        // AimSpeed check: weapon locked until enough enemy cells revealed
-                        if (weapon.AimSpeed > 0)
-                        {
-                            var opp = game.GetOpponent(discordId);
-                            if (opp != null && opp.RevealedCellCount < weapon.AimSpeed)
-                                return (false, $"Оружие ещё заряжается! Нужно разведать {weapon.AimSpeed - opp.RevealedCellCount} клеток.");
-                        }
-                        player.SelectedWeapon = weapon;
-                        break;
-                    }
+                    var opp = game.GetOpponent(discordId);
+                    if (opp != null && opp.RevealedCellCount < selectedWeapon.AimSpeed)
+                        return (false, $"Оружие ещё заряжается! Нужно разведать {selectedWeapon.AimSpeed - opp.RevealedCellCount} клеток.");
                 }
             }
 
+            player.SelectedShotType = selectedShotType;
+            player.SelectedWeapon = selectedWeapon;
             return (true, null);
         }
     }
@@ -756,12 +797,16 @@ public class BattleshipService
             if (!Enum.TryParse<SummonType>(summonTypeStr, true, out var summonType))
                 return (false, "Неизвестный тип призыва.");
 
-            // ТЗ #10: Brander is outside the 4-slot limit (its own once-per-match cap is below)
-            if (summonType != SummonType.Brander && player.SummonSlotsUsed >= player.MaxSummonSlots)
-                return (false, "Все слоты призыва заняты.");
+            var waitingSummon = player.Summons.FirstOrDefault(s =>
+                s.WaitingForTurnBack && s.Type == summonType);
+
+            // ТЗ #10: Brander is outside the four normal uses (its own cap is below)
+            if (waitingSummon == null && summonType != SummonType.Brander &&
+                player.SummonSlotsUsed >= player.MaxSummonSlots)
+                return (false, "Лимит обычных призывов исчерпан.");
 
             // Brander requires the boiler upgrade on Tetranavis
-            if (summonType == SummonType.Brander &&
+            if (waitingSummon == null && summonType == SummonType.Brander &&
                 !player.Fleet.Any(s => !s.IsDestroyed && s.Abilities.Contains("brander_summon")))
                 return (false, "Для призыва Брандера нужен апгрейд Котельной.");
 
@@ -781,7 +826,8 @@ public class BattleshipService
 
             // Deployment threshold: need 5 revealed cells per summon index
             var summonIndex = player.SummonSlotsUsed;
-            if (opponent != null && opponent.RevealedCellCount < 5 * (summonIndex + 1) && game.Phase != BsGamePhase.Boarding)
+            if (waitingSummon == null && opponent != null &&
+                opponent.RevealedCellCount < 5 * (summonIndex + 1) && game.Phase != BsGamePhase.Boarding)
                 return (false, $"Нужно разведать ещё {5 * (summonIndex + 1) - opponent.RevealedCellCount} клеток для призыва.");
 
             // Deployment cooldown: 2 shots between deployments
@@ -789,7 +835,6 @@ public class BattleshipService
                 return (false, "Слишком рано для нового призыва (перезарядка 2 выстрела).");
 
             // Re-send waiting summon (turn-back)
-            var waitingSummon = player.Summons.FirstOrDefault(s => s.WaitingForTurnBack && s.Type == summonType);
             if (waitingSummon != null)
             {
                 var isHorizontal = waitingSummon.MoveDirection is Direction.Left or Direction.Right;
@@ -826,7 +871,8 @@ public class BattleshipService
                 // Mast warning (personal — it's their mast)
                 if (opponent != null)
                 {
-                    var warning = BattleshipGameEngine.GenerateMastWarning(opponent, summonType, col);
+                    var warning = BattleshipGameEngine.GenerateMastWarning(
+                        opponent, summonType, waitingSummon.Row, waitingSummon.Col);
                     if (warning != null) game.AddLogFor(opponent.DiscordId, warning);
                 }
 
@@ -837,6 +883,11 @@ public class BattleshipService
             // ТЗ #10: Brander — максимум 1 за матч (redirect of a waiting one is handled above)
             if (summonType == SummonType.Brander && player.BranderUsed)
                 return (false, "Брандер уже был использован в этом матче.");
+
+            // Cursed boats only come from their ship death. Preserve re-entry above, but do
+            // not let a forged SignalR enum value create a fresh one.
+            if (summonType == SummonType.CursedBoat)
+                return (false, "Проклятую лодку можно выпустить только после гибели её корабля.");
 
             var summon = new Summon
             {
@@ -872,7 +923,7 @@ public class BattleshipService
 
             player.Summons.Add(summon);
             if (summonType == SummonType.Brander)
-                player.BranderUsed = true; // ТЗ #10: вне лимита слотов, 1 раз за матч
+                player.BranderUsed = true; // ТЗ #10: вне лимита обычных призывов, 1 раз за матч
             else
                 player.SummonSlotsUsed++;
             player.LastSummonDeployShotCount = game.ShotCount;
@@ -891,7 +942,7 @@ public class BattleshipService
             // Mast warning for opponent (ТЗ #3: include spawn cell; personal — it's their mast)
             if (opponent != null)
             {
-                var warning = BattleshipGameEngine.GenerateMastWarning(opponent, summonType, col);
+                var warning = BattleshipGameEngine.GenerateMastWarning(opponent, summonType, summon.Row, summon.Col);
                 if (warning != null) game.AddLogFor(opponent.DiscordId, warning);
             }
 
@@ -929,8 +980,8 @@ public class BattleshipService
             if (pending.AllowedColumns.Count > 0 && !pending.AllowedColumns.Contains(col))
                 return (false, $"Можно разместить только в колонках: {string.Join(", ", pending.AllowedColumns.Select(c => (char)('A' + c)))}");
 
-            if (player.SummonSlotsUsed >= player.MaxSummonSlots)
-                return (false, "Все слоты призыва заняты.");
+            if (!pending.IsFree && player.SummonSlotsUsed >= player.MaxSummonSlots)
+                return (false, "Лимит обычных призывов исчерпан.");
 
             var opponent = game.GetOpponent(discordId);
 
@@ -949,7 +1000,8 @@ public class BattleshipService
             };
 
             player.Summons.Add(summon);
-            player.SummonSlotsUsed++;
+            if (!pending.IsFree)
+                player.SummonSlotsUsed++;
             player.PendingSummons.Remove(pending);
             game.LastActivity = DateTime.UtcNow;
 
@@ -966,7 +1018,7 @@ public class BattleshipService
             // Mast warning (personal — it's their mast)
             if (opponent != null)
             {
-                var warning = BattleshipGameEngine.GenerateMastWarning(opponent, pending.Type, col);
+                var warning = BattleshipGameEngine.GenerateMastWarning(opponent, pending.Type, summon.Row, summon.Col);
                 if (warning != null) game.AddLogFor(opponent.DiscordId, warning);
             }
 
@@ -1460,6 +1512,7 @@ public class BattleshipService
                 Col = s.Col,
                 Speed = s.Speed,
                 IsAlive = s.IsAlive,
+                MoveDirection = s.MoveDirection.ToString(),
                 WaitingForTurnBack = s.WaitingForTurnBack,
                 WaitingForDirectionChoice = s.WaitingForDirectionChoice,
                 IsBoardingShip = s.IsBoardingShip,
@@ -1763,6 +1816,7 @@ public class SummonDto
     public int Col { get; set; }
     public int Speed { get; set; }
     public bool IsAlive { get; set; }
+    public string MoveDirection { get; set; }
     public bool WaitingForTurnBack { get; set; }
     public bool WaitingForDirectionChoice { get; set; }
     public bool IsBoardingShip { get; set; }

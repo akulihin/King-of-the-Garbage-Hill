@@ -978,33 +978,22 @@ public static class GameStateMapper
             return;
         }
 
-        var projectedLogs = GameLocalization.TextForUser(
-            requestingPlayer.DiscordId, Madara.GetProjectedFinalLogs(game, requestingPlayer));
-        dto.GlobalLogs = projectedLogs;
-        dto.AllGlobalLogs = projectedLogs;
-        dto.FullChronicle = projectedLogs;
-
         var madara = Madara.Find(game);
         if (madara == null) return;
 
         if (Madara.IsMadara(requestingPlayer))
         {
-            dto.FightLog = game.PlayersList
-                .Where(player => player.GetPlayerId() != madara.GetPlayerId())
-                .Select(player => new FightEntryDto
-                {
-                    AttackerName = player.DiscordUsername,
-                    AttackerCharName = player.GameCharacter.Name,
-                    AttackerAvatar = GetLocalAvatarUrl(player.GameCharacter.AvatarCurrent ?? player.GameCharacter.Avatar),
-                    DefenderName = madara.DiscordUsername,
-                    DefenderCharName = madara.GameCharacter.Name,
-                    DefenderAvatar = GetLocalAvatarUrl(madara.GameCharacter.AvatarCurrent ?? madara.GameCharacter.Avatar),
-                    Outcome = "skip",
-                    WinnerName = "",
-                })
-                .ToList();
+            // Madara alone sees the authoritative zero-fight round, real passive settlement logs
+            // and real standings. There are no synthetic skip cards: the round is genuinely empty.
+            dto.FightLog.Clear();
             return;
         }
+
+        var projectedLogs = GameLocalization.TextForUser(
+            requestingPlayer.DiscordId, Madara.GetProjectedFinalLogs(game, requestingPlayer));
+        dto.GlobalLogs = projectedLogs;
+        dto.AllGlobalLogs = projectedLogs;
+        dto.FullChronicle = projectedLogs;
 
         var illusoryBonus = Madara.GetIllusoryBonus(game, requestingPlayer);
         var projectedOrder = Madara.GetIllusoryOrder(game, requestingPlayer);
@@ -1037,49 +1026,30 @@ public static class GameStateMapper
             });
         }
 
-        var ownFight = dto.FightLog.FirstOrDefault(fight =>
-            fight.AttackerName == requestingPlayer.DiscordUsername
-            || fight.DefenderName == requestingPlayer.DiscordUsername);
-        if (ownFight != null)
-        {
-            var viewerAttacked = ownFight.AttackerName == requestingPlayer.DiscordUsername;
-            dto.FightLog = new List<FightEntryDto>
+        var illusoryTargets = Madara.GetIllusoryTargets(game, requestingPlayer)
+            .Select(targetId => game.PlayersList.Find(player => player.GetPlayerId() == targetId))
+            .Where(target => target != null)
+            .ToList();
+        if (illusoryTargets.Count == 0)
+            illusoryTargets.Add(madara);
+
+        dto.FightLog = illusoryTargets
+            .Select(target => new FightEntryDto
             {
-                new()
-                {
-                    AttackerName = ownFight.AttackerName,
-                    AttackerCharName = ownFight.AttackerCharName,
-                    AttackerAvatar = ownFight.AttackerAvatar,
-                    DefenderName = ownFight.DefenderName,
-                    DefenderCharName = ownFight.DefenderCharName,
-                    DefenderAvatar = ownFight.DefenderAvatar,
-                    Outcome = viewerAttacked ? "win" : "loss",
-                    WinnerName = requestingPlayer.DiscordUsername,
-                    TotalPointsWon = viewerAttacked ? 1 : -1,
-                    Round1PointsWon = viewerAttacked ? 1 : -1,
-                }
-            };
-        }
-        else
-        {
-            dto.FightLog = new List<FightEntryDto>
-            {
-                new()
-                {
-                    AttackerName = requestingPlayer.DiscordUsername,
-                    AttackerCharName = requestingPlayer.GameCharacter.Name,
-                    AttackerAvatar = GetLocalAvatarUrl(
-                        requestingPlayer.GameCharacter.AvatarCurrent ?? requestingPlayer.GameCharacter.Avatar),
-                    DefenderName = madara.DiscordUsername,
-                    DefenderCharName = madara.GameCharacter.Name,
-                    DefenderAvatar = GetLocalAvatarUrl(madara.GameCharacter.AvatarCurrent ?? madara.GameCharacter.Avatar),
-                    Outcome = "win",
-                    WinnerName = requestingPlayer.DiscordUsername,
-                    TotalPointsWon = 1,
-                    Round1PointsWon = 1,
-                }
-            };
-        }
+                AttackerName = requestingPlayer.DiscordUsername,
+                AttackerCharName = requestingPlayer.GameCharacter.Name,
+                AttackerAvatar = GetLocalAvatarUrl(
+                    requestingPlayer.GameCharacter.AvatarCurrent ?? requestingPlayer.GameCharacter.Avatar),
+                DefenderName = target!.DiscordUsername,
+                DefenderCharName = target.GameCharacter.Name,
+                DefenderAvatar = GetLocalAvatarUrl(
+                    target.GameCharacter.AvatarCurrent ?? target.GameCharacter.Avatar),
+                Outcome = "win",
+                WinnerName = requestingPlayer.DiscordUsername,
+                TotalPointsWon = 1,
+                Round1PointsWon = 1,
+            })
+            .ToList();
     }
 
     private static PlayerStatusDto MapStatus(GamePlayerBridgeClass player, bool isMe, bool isAdmin, bool isFinished = false)

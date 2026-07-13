@@ -14,6 +14,7 @@ public static class Madara
     public const string SusanooClones = "Клоны Сусано";
     public const string EternalTsukuyomi = "Вечное Цукуеми";
     public const string ThemeFile = "DataBase/sound/character_passives/madara/madara_tsukuemi_theme.mp3";
+    public const int RoundEightBotReactionDelaySeconds = 30;
 
     public sealed class State
     {
@@ -29,6 +30,8 @@ public static class Madara
         public bool ThemeStarted { get; set; }
         public bool Sealed { get; set; }
         public bool EternalTsukuyomiActive { get; set; }
+        public bool EternalTsukuyomiRoundPrepared { get; set; }
+        public Dictionary<Guid, List<Guid>> EternalTsukuyomiIllusoryTargets { get; set; } = new();
     }
 
     public static bool HasReanimatedBody(CharacterClass character) =>
@@ -50,6 +53,54 @@ public static class Madara
         return madara != null
                && madara.Passives.Madara.EternalTsukuyomiActive
                && !madara.Passives.Madara.Sealed;
+    }
+
+    public static bool IsEternalTsukuyomiRound(GameClass game) =>
+        game?.RoundNo == 10 && IsEternalTsukuyomiActive(game);
+
+    public static bool PrepareEternalTsukuyomiRound(GameClass game)
+    {
+        if (!IsEternalTsukuyomiRound(game)) return false;
+
+        var madara = Find(game);
+        var state = madara!.Passives.Madara;
+        if (!state.EternalTsukuyomiRoundPrepared)
+        {
+            state.EternalTsukuyomiRoundPrepared = true;
+            state.EternalTsukuyomiIllusoryTargets = game.PlayersList
+                .Where(player => player.GetPlayerId() != madara.GetPlayerId())
+                .ToDictionary(
+                    player => player.GetPlayerId(),
+                    player => player.Status.WhoToAttackThisTurn
+                        .Where(targetId => targetId != player.GetPlayerId())
+                        .ToList());
+        }
+
+        foreach (var player in game.PlayersList)
+        {
+            player.Status.IsSkip = true;
+            player.Status.IsBlock = false;
+            player.Status.IsAutoMove = false;
+            player.Status.IsReady = true;
+            player.Status.ConfirmedSkip = true;
+            player.Status.ConfirmedPredict = true;
+            player.Status.IsAbleToChangeMind = false;
+            player.Status.WhoToAttackThisTurn.Clear();
+        }
+
+        return true;
+    }
+
+    public static IReadOnlyList<Guid> GetIllusoryTargets(
+        GameClass game, GamePlayerBridgeClass viewer)
+    {
+        var madara = Find(game);
+        if (madara == null || viewer == null) return Array.Empty<Guid>();
+
+        return madara.Passives.Madara.EternalTsukuyomiIllusoryTargets
+            .TryGetValue(viewer.GetPlayerId(), out var targets)
+            ? targets
+            : Array.Empty<Guid>();
     }
 
     public static bool CanUseTooGood(GamePlayerBridgeClass player) =>
@@ -205,30 +256,18 @@ public static class Madara
         madara.Status.WhoToAttackThisTurn = new List<Guid>();
     }
 
-    public static void PrepareRoundEightBotChallenges(GameClass game)
+    public static void ForceRoundEightBotPrediction(
+        GamePlayerBridgeClass bot, GameClass game)
     {
-        if (game?.RoundNo != 8) return;
+        if (game?.RoundNo != 8 || bot?.PlayerType != 404 || bot.Passives.IsDead
+            || IsMadara(bot)) return;
+
         var madara = Find(game);
         if (madara == null || madara.Passives.Madara.Sealed) return;
-        // Reassert the round lock before readiness counting. The post-round human prediction reset
-        // used to overwrite ConfirmedPredict after HandleNextRound had already locked Madara.
-        SetUnableToAct(madara);
 
-        foreach (var bot in game.PlayersList.Where(player =>
-                     player.PlayerType == 404
-                     && player.GetPlayerId() != madara.GetPlayerId()
-                     && !player.Passives.IsDead
-                     && !player.Status.IsSkip))
-        {
-            var alreadyChallenging = bot.Status.WhoToAttackThisTurn.Count == 1
-                                     && bot.Status.WhoToAttackThisTurn[0] == madara.GetPlayerId();
-            bot.Status.IsBlock = false;
-            bot.Status.IsReady = true;
-            bot.Status.ConfirmedPredict = true;
-            bot.Status.WhoToAttackThisTurn = new List<Guid> { madara.GetPlayerId() };
-            if (!alreadyChallenging)
-                bot.Status.AddInGamePersonalLogs($"{SusanooClones}: вызов Мадаре принят.\n");
-        }
+        bot.Predict.RemoveAll(prediction => prediction.PlayerId == madara.GetPlayerId());
+        bot.Predict.Add(new PredictClass(CharacterName, madara.GetPlayerId()));
+        bot.Status.ConfirmedPredict = true;
     }
 
     public static void SanitizeSealedActions(GameClass game)

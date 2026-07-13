@@ -711,7 +711,7 @@ public static class BattleshipBotAI
         if (aliveSummons >= 2) return null;
 
         // Determine available summon types based on fleet regions.
-        // Regular summons need a free slot; Brander is outside the slot limit, 1 per match (ТЗ #10)
+        // Regular summons share four per-match uses; Brander has its own 1-per-match cap (ТЗ #10)
         var slotsFull = bot.SummonSlotsUsed >= bot.MaxSummonSlots;
         var regions = bot.Fleet.SelectMany(s => s.Regions).Distinct().ToHashSet();
         var available = new List<SummonType>();
@@ -797,7 +797,7 @@ public static class BattleshipBotAI
             }
 
             // Deploy free pending summons with some probability
-            if (pending.IsFree && bot.SummonSlotsUsed < bot.MaxSummonSlots)
+            if (pending.IsFree || bot.SummonSlotsUsed < bot.MaxSummonSlots)
             {
                 var col = pending.AllowedColumns.Count > 0
                     ? pending.AllowedColumns[Rng.Next(pending.AllowedColumns.Count)]

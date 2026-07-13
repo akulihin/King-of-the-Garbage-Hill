@@ -44,6 +44,9 @@ export interface BattleshipSummonDeployMode {
   type: string
   pendingId?: string
   pendingCols?: number[]
+  reentryDirection?: string
+  reentryRow?: number
+  reentryCol?: number
 }
 
 /** VFX impact vocabulary (mirrors useVfx ImpactType). */
@@ -254,7 +257,19 @@ export const useBattleshipStore = defineStore('battleship', () => {
     }
   }
 
-  /** A Brander that was alive and is now gone detonated — play the explosion. */
+  function newLogEntries(oldLogs: string[], newLogs: string[]): string[] {
+    const maxOverlap = Math.min(oldLogs.length, newLogs.length)
+    for (let overlap = maxOverlap; overlap > 0; overlap--) {
+      const oldTail = oldLogs.slice(oldLogs.length - overlap)
+      const newHead = newLogs.slice(0, overlap)
+      if (oldTail.every((entry, index) => entry === newHead[index])) {
+        return newLogs.slice(overlap)
+      }
+    }
+    return newLogs
+  }
+
+  /** Only a logged detonation explodes; freeze/collision remove Brander silently. */
   function detectBranderDetonation(oldState: BattleshipGameState | null, newState: BattleshipGameState) {
     if (!oldState) return
     const oldSummons = [
@@ -267,7 +282,10 @@ export const useBattleshipStore = defineStore('battleship', () => {
         .filter(s => s.isAlive)
         .map(s => s.id),
     )
-    if (oldSummons.some(s => !stillAlive.has(s.id))) playBattleshipExplode()
+    const branderDisappeared = oldSummons.some(s => !stillAlive.has(s.id))
+    const detonationLogged = newLogEntries(oldState.gameLog, newState.gameLog)
+      .some(entry => entry.includes('Брандер взорвался!'))
+    if (branderDisappeared && detonationLogged) playBattleshipExplode()
   }
 
   // -- SignalR Callbacks ------------------------------------------
@@ -291,12 +309,14 @@ export const useBattleshipStore = defineStore('battleship', () => {
         killStreakDisplay.value = 0
         lastShotResult.value = null
         lastShotCell.value = null
+        summonTrails.value = new Map()
+        markedCells.value = new Set()
       }
 
       // Track summon positions for trail visualization
       const allSummons = [
-        ...(myPlayer.value?.summons ?? []),
-        ...(enemyPlayer.value?.summons ?? []),
+        ...(state.player1?.summons ?? []),
+        ...(state.player2?.summons ?? []),
       ]
       for (const s of allSummons) {
         if (!s.isAlive) continue
@@ -313,6 +333,9 @@ export const useBattleshipStore = defineStore('battleship', () => {
       const me = state.player1?.isMe ? state.player1 : state.player2
       if (me?.selectedShotType) {
         selectedShotType.value = me.selectedShotType
+        selectedWeaponType.value = me.selectedShotType === 'WhiteStone' || me.selectedShotType === 'Buckshot'
+          ? 'Tetracatapult'
+          : me.selectedShotType
       }
 
       // Phase transition detection
@@ -350,6 +373,10 @@ export const useBattleshipStore = defineStore('battleship', () => {
     signalrService.onBattleshipEvent = (event: BattleshipEvent) => {
       if (event.eventType === 'ShotResult') {
         const result = event.data as BattleshipShotResult
+        if (result.wasSkipped) {
+          lastShotResult.value = null
+          return
+        }
         lastShotResult.value = result
 
         // Track last shot position

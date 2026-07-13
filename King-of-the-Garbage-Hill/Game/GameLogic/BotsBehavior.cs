@@ -76,10 +76,14 @@ public class BotsBehavior : IServiceSingleton
             return;
 
         // Spend every pending point before committing any kind of turn action. This must precede
-        // forced-skip confirmation and special fast paths such as the round-eight Madara challenge.
+        // forced-skip confirmation and every character-specific action path.
         EnsureBotPlaystyle(player, game);
         if (player.Status.LvlUpPoints > 0)
             await HandleLvlUpBot(player, game);
+
+        // Клоны Сусано force only the exact prediction. The bot's actual round-eight action
+        // remains a normal AI choice after the shared 30-second reaction delay.
+        Madara.ForceRoundEightBotPrediction(player, game);
 
         // Forced skips are already complete actions. In particular, Шоковый щит must not let a
         // bot immediately replace the skip with its ordinary attack decision.
@@ -98,12 +102,6 @@ public class BotsBehavior : IServiceSingleton
             return;
         }
 
-        if (game.RoundNo == 8 && player.PlayerType == 404 && Madara.Find(game) != null)
-        {
-            Madara.PrepareRoundEightBotChallenges(game);
-            return;
-        }
-
         //if (player.GameCharacter.Passive.Any(x => x.PassiveName == "Возвращение из мертвых") && game.RoundNo > 10)
         //{
         //    return;
@@ -119,16 +117,6 @@ public class BotsBehavior : IServiceSingleton
             HandleBotKira(player, game);
 
         await HandleBotAttack(player, game);
-    }
-
-    public async Task PrepareStrictBotBeforeReadiness(GamePlayerBridgeClass player, GameClass game)
-    {
-        if (player == null || player.PlayerType != 404 || player.Passives.IsDead)
-            return;
-
-        EnsureBotPlaystyle(player, game);
-        if (player.Status.LvlUpPoints > 0)
-            await HandleLvlUpBot(player, game);
     }
 
     private void EnsureBotPlaystyle(GamePlayerBridgeClass player, GameClass game)

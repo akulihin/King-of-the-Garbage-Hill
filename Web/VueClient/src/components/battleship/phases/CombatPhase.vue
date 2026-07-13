@@ -37,6 +37,8 @@ const farBlockedRows = computed<Set<number>>(() => {
   return new Set()
 })
 
+const activeBlockedRows = computed(() => store.summonDeployMode ? new Set<number>() : farBlockedRows.value)
+
 // ── Summon deployment ─────────────────────────────────────────
 const hasBranderUpgrade = computed(() => {
   return myPlayer.value?.fleet?.some(s => !s.isDestroyed && s.abilities?.includes('brander_summon')) ?? false
@@ -52,6 +54,9 @@ const availableSummons = computed<string[]>(() => {
   if (regions.has('South')) list.push('PirateBoat')
   const hasWaitingBrander = myPlayer.value?.summons?.some(s => s.type === 'Brander' && s.waitingForTurnBack) ?? false
   if (hasBranderUpgrade.value && (!myPlayer.value?.branderUsed || hasWaitingBrander)) list.push('Brander')
+  for (const waiting of myPlayer.value?.summons?.filter(s => s.waitingForTurnBack) ?? []) {
+    if (!list.includes(waiting.type)) list.push(waiting.type)
+  }
   return list
 })
 
@@ -74,17 +79,28 @@ const canDeploySummon = computed(() => {
   if (!myPlayer.value || !enemyPlayer.value) return false
   const p = myPlayer.value
   if (!availableSummons.value.includes(store.summonType)) return false
-  // ТЗ #10: Brander is outside the 4-slot limit
-  if (store.summonType !== 'Brander' && p.summonSlotsUsed >= p.maxSummonSlots) return false
+  const isReentry = p.summons?.some(s =>
+    s.type === store.summonType && s.waitingForTurnBack) ?? false
+  // ТЗ #10: Brander is outside the four normal per-match uses
+  if (!isReentry && store.summonType !== 'Brander' && p.summonSlotsUsed >= p.maxSummonSlots) return false
   const threshold = 5 * (p.summonSlotsUsed + 1)
-  if (phase.value !== 'Boarding' && enemyPlayer.value.revealedCellCount < threshold) return false
+  if (!isReentry && phase.value !== 'Boarding' && enemyPlayer.value.revealedCellCount < threshold) return false
   if (phase.value !== 'Boarding' && p.summonCooldownRemaining > 0) return false
   return true
 })
 
 function enterSummonDeployMode() {
   if (!canDeploySummon.value) return
-  store.summonDeployMode = { type: store.summonType }
+  const waiting = myPlayer.value?.summons?.find(s =>
+    s.type === store.summonType && s.waitingForTurnBack)
+  store.summonDeployMode = waiting
+    ? {
+        type: waiting.type,
+        reentryDirection: waiting.moveDirection,
+        reentryRow: waiting.row,
+        reentryCol: waiting.col,
+      }
+    : { type: store.summonType }
 }
 
 function enterPendingSummonDeployMode(ps: BattleshipPendingSummon) {
@@ -99,16 +115,31 @@ const summonDeployHighlight = ref<{ row: number; col: number }[]>([])
 
 function updateSummonDeployHighlight(row: number, col: number) {
   if (!store.summonDeployMode) { summonDeployHighlight.value = []; return }
-  if (row !== 0) { summonDeployHighlight.value = []; return }
-  if (store.summonDeployMode.pendingCols && !store.summonDeployMode.pendingCols.includes(col)) {
+  const allowed = summonDeployAllowedCells.value.some(cell => cell.row === row && cell.col === col)
+  if (!allowed) {
     summonDeployHighlight.value = []
     return
   }
-  summonDeployHighlight.value = [{ row: 0, col }]
+  summonDeployHighlight.value = [{ row, col }]
 }
 
-const summonDeployAllowedCols = computed<{ row: number; col: number }[]>(() => {
+const summonDeployAllowedCells = computed<{ row: number; col: number }[]>(() => {
   if (!store.summonDeployMode) return []
+  const mode = store.summonDeployMode
+  if (mode.reentryDirection) {
+    if (mode.reentryDirection === 'Up' || mode.reentryDirection === 'Down') {
+      const row = mode.reentryDirection === 'Down' ? 9 : 0
+      const center = mode.reentryCol ?? 0
+      return [center - 1, center, center + 1]
+        .filter(col => col >= 0 && col < 10)
+        .map(col => ({ row, col }))
+    }
+    const col = mode.reentryDirection === 'Right' ? 9 : 0
+    const center = mode.reentryRow ?? 0
+    return [center - 1, center, center + 1]
+      .filter(row => row >= 0 && row < 10)
+      .map(row => ({ row, col }))
+  }
   const cols = store.summonDeployMode.pendingCols
   if (!cols) return Array.from({ length: 10 }, (_, i) => ({ row: 0, col: i }))
   return cols.map(c => ({ row: 0, col: c }))
@@ -155,7 +186,7 @@ function updateAoeHighlight(row: number, col: number) {
 
 const enemyHighlight = computed(() => {
   if (store.summonDeployMode) {
-    const allowed = summonDeployAllowedCols.value
+    const allowed = summonDeployAllowedCells.value
     return [...allowed, ...summonDeployHighlight.value]
   }
   if (isBuckshotMode.value || isIncendiaryMode.value) return aoeHighlight.value
@@ -165,13 +196,16 @@ const enemyHighlight = computed(() => {
 // ── Handlers ─────────────────────────────────────────────────
 async function handleEnemyCellClick(row: number, col: number) {
   if (store.summonDeployMode) {
-    if (row !== 0) return
     const mode = store.summonDeployMode
-    if (mode.pendingCols && !mode.pendingCols.includes(col)) return
+    const allowed = summonDeployAllowedCells.value.some(cell => cell.row === row && cell.col === col)
+    if (!allowed) return
     if (mode.pendingId) {
       await store.deployPendingSummon(mode.pendingId, col)
     } else {
-      await store.deploySummon(mode.type, col)
+      const reentryLane = mode.reentryDirection === 'Left' || mode.reentryDirection === 'Right'
+        ? row
+        : col
+      await store.deploySummon(mode.type, reentryLane)
     }
     store.summonDeployMode = null
     return
@@ -518,7 +552,7 @@ onUnmounted(() => {
             :shot-type="store.selectedShotType"
             :clickable="(isMyTurn && !store.shotDelayActive) || !!store.summonDeployMode"
             :highlight-cells="enemyHighlight"
-            :blocked-rows="farBlockedRows"
+            :blocked-rows="activeBlockedRows"
             :animated-cells="store.enemyAnimatedCells"
             :last-shot-cell="enemyLastShot"
             :marked-cells="store.markedCells"

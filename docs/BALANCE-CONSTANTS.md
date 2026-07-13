@@ -170,8 +170,8 @@ Achievement progress targets and the complete 33-entry rule catalog are in [ACHI
 | Мадара | base / rarity | Int 7, Str 9, Speed 10, Psyche 9; Tier 5 | characters.json:1486-1521 |
 | Мадара | Бог шиноби thresholds | >1 unique attacker: TooGOOD; >2: TooSTONK; >3: fight Skill = 100 | Madara.cs:55-110; CP:461-467,1019-1025 |
 | Мадара | Второй метеорит | blocked attack: no −1 bonus; +2 regular | DM:519-544 |
-| Мадара | Клоны Сусано | round 8; live non-skipping strict bots immediately attack; +1 live Justice at >2 unique attackers; seal at all 5 unique + ≥5 losses | Madara.cs:77-110,134-230; CIR:1028,1398-1420 |
-| Мадара | Вечное Цукуеми | arm at all 5 unique attackers in one turn or place 1 entering r10; viewer bonus = max living score − viewer score + 1 (0 if sole winner) | Madara.cs:96-102,219-259; CP:6231-6232 |
+| Мадара | Клоны Сусано | round 8; live strict-bot reaction delay 30 s; forced exact bot prediction but ordinary AI action; +1 live Justice at >2 unique attackers; seal at all 5 unique + ≥5 losses | `Madara.RoundEightBotReactionDelaySeconds`; `Madara.ForceRoundEightBotPrediction`; `Madara.RefreshIncomingEffects` |
+| Мадара | Вечное Цукуеми | arm at all 5 unique attackers in one turn or place 1 entering r10; authoritative r10 = total Skip/no combat; viewer bonus = max living score − viewer score + 1 (0 if sole winner) | `Madara.PrepareEternalTsukuyomiRound`; `Madara.GetIllusoryBonus` |
 | Рик | Пушка | invention Int ≥ 30; +1 charge/lvl-up; fired round ×2 regular points | GR:1155-1165, CP:4029-4052 |
 | Рик | Бобы | stack: −1 Str/Speed/Psyche, Int = base×stacks; ≤3 ingredients per lvl-up | CP:2098-2114, GR:1174-1202 |
 | Рик | Огурчик | 2 pickle turns; +1 penalty turn if never attacked | CP:4055-4062 |
@@ -230,7 +230,7 @@ Achievement progress targets and the complete 33-entry rule catalog are in [ACHI
 | Эрен Йегер | Дрочун mutual attack | +2 regular once per mutual enemy per round | CP:2556-2567 |
 | Эрен Йегер | Атакующий Титан | off-cooldown block removed; +5 each stat per fight for the turn; no incoming target → −2 Psyche; cooldown 1 full next turn | DM:282-294; CP:62-72,517-521,1119-1123,3739-3758 |
 | Эрен Йегер | Titan audio roll | `use_most` 50%; files 1–3 split the other 50% uniformly | sound.ts:990-995 |
-| Эрен Йегер | Rumbling gate / reach | round 10; acting bots at opening places strictly between Eren and 6 must attack Eren; fewer than 2 losses **during round 10 only**; kills projected places strictly between Eren and place 6 | BotsBehavior.cs:3769-3801; CP:2660-2665,3672-3718; ErenYeager.cs:38-53 |
+| Эрен Йегер | Rumbling gate / reach | round 10; acting bots at opening places strictly between Eren and 6 must attack Eren; fewer than 2 losses **during round 10 only**; kills projected places strictly between Eren and place 6 | BotsBehavior.cs:3759-3789; CP:2660-2665,3672-3718; ErenYeager.cs:38-53 |
 | Наруто | base / rarity | Int 3, Str 3, Speed 4, Psyche 5; Tier 5 | characters.json:1449-1483 |
 | Наруто | Гарем но джутсу | Block replacement; +1 regular per canceled valid fight in each reaching attacker's whole queue | `Naruto.cs` `ResolveHaremQueues`, `TryCancelHaremFights` |
 | Наруто | Теневые | 2 independent strict-bot clones; r10 settlement immediately after Rumbling; sibling prediction value 0; correct enemy predictions +1 projected once; clone score/death seats end at 0 / bottom two | `Naruto.cs` `InitializeTeam`, `ProjectClonePredictionPoints`, `SettleShadowClones`, `OrderLeaderboard` |
@@ -246,7 +246,7 @@ Per-game `AiDifficulty` (0/1/2/3). **Default 3 everywhere** — Discord `*st`/`*
 | `AiDifficulty` | **3** | per-game bot AI level (0 random / 1 legacy / 2 smart / 3 omniscient), default 3; echoed to report JSON `options.aiDifficulty` | GC:69; parse+validate SR:79-112; clamp 0-3 BotGameFactory.cs:87; echo `AiDifficulty` SimReport.cs:40; helpers BB:45-50 |
 | `--ai-probe` / `--ab-char` (measurement) | 0-3 | one bot at a different level than the L1 field; paired A/B runs identical seeded line-ups twice and stores both arms | parse `--ai-probe` SimulationRunner.cs:81; parse `--ab-char` SimulationRunner.cs:85; paired runner SR:405-542; set BotGameFactory.cs:92-97 |
 | `AiPlaystyle` | once/match | strict L2/L3 bots roll one persistent plan and keep it for the match; recorded per player in sim/A-B JSON for plan-level analysis | GamePlayerBridgeClass.cs:57-59; BB:84-86, 107-175; SimReport.cs:91-98; SR:630-643 |
-| Bot action preparation | spend all points first | every strict bot completes its level-up loop before attacking, defending or confirming a forced skip; readiness-stage preparation happens before the round-8 Madara challenge precommit | BB:72-132; CIR:1027-1031 |
+| Bot action preparation | spend all points first | every strict bot completes its level-up loop before a forced Madara prediction, attack, defense or forced-skip confirmation; there is no readiness-stage attack precommit | `BotsBehavior.HandleBotBehavior` |
 | `Dumb` (L0) | ≤ 0 | pure-random experiment baseline: random legal-stat level-up + random attack/block; **skips** the moral & Kira sub-AIs; respects cannot-block (`Спарта`/`Aggress`), invalid-target retry (`HandleAttack` false), and the Макро two-attack rule | helper BB:47; dispatch BB:93-105/798-803; lvl-up BB:3418-3434; random attack BB:3349-3409 |
 | `AiFullKnowledgeRound` | **3** | round from which L3 bots know every enemy's character (tunable; may become 2 or 1) | GC:72 |
 | `SmartTargetTaretNumberEarly` / `…Late` (L2-1) | 3 / 2 | Мишень-target attack weight — early (round ≤ 4) / late; the biggest repeatable skill faucet (L1: 1 always) | BB:51/60, 858-860 |

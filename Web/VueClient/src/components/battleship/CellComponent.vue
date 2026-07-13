@@ -143,7 +143,9 @@ const cellTooltip = computed(() => {
   if (props.cell.hasSummon) {
     base = (props.cell.summonType && summonNames[props.cell.summonType]) ?? 'Призыв'
     // ТЗ #1: enemy creature in the penalty zone (rows 1-3 of the own board)
-    if (!props.isEnemy && props.cell.row <= 2) base = `Штраф за убийство суммона в этой зоне | ${base}`
+    if (!props.isEnemy && props.cell.row <= 2) {
+      base = `Штраф за убийство суммона в этой зоне (кроме убийства сразу после появления) | ${base}`
+    }
   }
   else if (props.cell.isDestroyed) base = `Уничтожено${ship}`
   else if (props.cell.isDevastated) base = `Опустошено`

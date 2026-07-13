@@ -36,6 +36,7 @@ const props = withDefaults(defineProps<{
   characterCatalog?: CharacterInfo[]
   initialFightIndex?: number
   fightStyle?: 'v3' | 'v2' | 'v1'
+  roundKey?: string | number
 }>(), {
   letopis: '',
   gameStory: null,
@@ -47,6 +48,7 @@ const props = withDefaults(defineProps<{
   characterCatalog: () => [],
   initialFightIndex: undefined,
   fightStyle: 'v3',
+  roundKey: '',
 })
 
 const showDetails = computed(() => props.showDetailedFactors || props.isAdmin)
@@ -632,9 +634,11 @@ function restartCurrentFight() {
   scheduleNext()
 }
 
-watch(() => props.fights, () => {
+watch([() => props.fights, () => props.roundKey], () => {
   if (!props.fights.length) return
-  const fp = props.fights.map((f: FightEntry) => `${f.attackerName}-${f.defenderName}`).join('|')
+  const fp = `${props.roundKey}|${props.fights
+    .map((f: FightEntry) => `${f.attackerName}-${f.defenderName}-${f.outcome}`)
+    .join('|')}`
   if (fp !== lastAnimatedRound.value) {
     // Mark unseen if user is on a different tab
     if (activeTab.value !== 'fights') {

@@ -953,6 +953,7 @@ export type BattleshipSummon = {
   col: number
   speed: number
   isAlive: boolean
+  moveDirection: string
   waitingForTurnBack: boolean
   waitingForDirectionChoice: boolean
 }
@@ -991,6 +992,7 @@ export type BattleshipUpgrade = {
 }
 
 export type BattleshipShotResult = {
+  wasSkipped: boolean
   hit: boolean
   miss: boolean
   scratched: boolean

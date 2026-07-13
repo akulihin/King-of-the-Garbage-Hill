@@ -238,22 +238,28 @@ public class DoomsdayMachine : IServiceSingleton
         //FightCharacter == READ ONLY
         //GameCharacter == WRITE ONLY
         //FightCharacter writes cans happens only "for one fight" not for the whole round!
+        var isEternalTsukuyomiRound = Madara.PrepareEternalTsukuyomiRound(game);
+        if (isEternalTsukuyomiRound)
+            game.AddGlobalLogs("Все игроки пропустили ход...");
+
         // Щит-акула replaces DooM Guy's submitted block with a fightable, non-attacking
         // one-turn copy of Братишка's defensive passive. Prepare it before the round snapshot.
-        foreach (var doom in game.PlayersList.Where(x => x.GameCharacter.Name == DoomGuy.CharacterName))
-            DoomGuy.PrepareSharkShield(doom);
+        if (!isEternalTsukuyomiRound)
+            foreach (var doom in game.PlayersList.Where(x => x.GameCharacter.Name == DoomGuy.CharacterName))
+                DoomGuy.PrepareSharkShield(doom);
 
         DeepCopyGameCharacterToFightCharacter(game);
 
         // Геральт — Медитация: skip works as block
-        foreach (var player in game.PlayersList.Where(x =>
-            x.GameCharacter.Passive.Any(y => y.PassiveName == "Медитация") &&
-            x.GameCharacter.Name == "Геральт" &&
-            x.Status.IsSkip).ToList())
-        {
-            player.Status.IsSkip = false;
-            player.Status.IsBlock = true;
-        }
+        if (!isEternalTsukuyomiRound)
+            foreach (var player in game.PlayersList.Where(x =>
+                x.GameCharacter.Passive.Any(y => y.PassiveName == "Медитация") &&
+                x.GameCharacter.Name == "Геральт" &&
+                x.Status.IsSkip).ToList())
+            {
+                player.Status.IsSkip = false;
+                player.Status.IsBlock = true;
+            }
 
 
 
@@ -262,26 +268,27 @@ public class DoomsdayMachine : IServiceSingleton
 
 
         // Pickle Rick — convert block to pickle form and keep the active pickle fightable.
-        foreach (var player in game.PlayersList.Where(x => x.GameCharacter.Passive.Any(y => y.PassiveName == "Огурчик Рик")).ToList())
-        {
-            var pickle = player.Passives.RickPickle;
-            if (pickle.PickleTurnsRemaining > 0)
+        if (!isEternalTsukuyomiRound)
+            foreach (var player in game.PlayersList.Where(x => x.GameCharacter.Passive.Any(y => y.PassiveName == "Огурчик Рик")).ToList())
             {
-                player.Status.IsBlock = false;
-                player.Status.IsSkip = false;
+                var pickle = player.Passives.RickPickle;
+                if (pickle.PickleTurnsRemaining > 0)
+                {
+                    player.Status.IsBlock = false;
+                    player.Status.IsSkip = false;
+                }
+                else if (player.Status.IsBlock && pickle.PenaltyTurnsRemaining == 0)
+                {
+                    player.Status.IsBlock = false;
+                    player.Status.IsSkip = false;
+                    pickle.PickleTurnsRemaining = 2;
+                    pickle.WasAttackedAsPickle = false;
+                    game.Phrases.RickPickleTransform.SendLog(player, false);
+                }
             }
-            else if (player.Status.IsBlock && pickle.PenaltyTurnsRemaining == 0)
-            {
-                player.Status.IsBlock = false;
-                player.Status.IsSkip = false;
-                pickle.PickleTurnsRemaining = 2;
-                pickle.WasAttackedAsPickle = false;
-                game.Phrases.RickPickleTransform.SendLog(player, false);
-            }
-        }
 
         // Эрен Йегер — block becomes Attack Titan for the whole round snapshot.
-        foreach (var player in game.PlayersList.Where(x =>
+        foreach (var player in game.PlayersList.Where(x => !isEternalTsukuyomiRound &&
                      x.GameCharacter.Name == ErenYeager.CharacterName
                      && x.GameCharacter.Passive.Any(y => y.PassiveName == ErenYeager.AttackTitan)
                      && x.Passives.Eren.AttackTitanCooldown == 0
@@ -295,7 +302,8 @@ public class DoomsdayMachine : IServiceSingleton
         }
 
         // Portal Gun — override external skip/block if Rick wants to attack
-        foreach (var player in game.PlayersList.Where(x => x.GameCharacter.Passive.Any(y => y.PassiveName == "Портальная пушка")).ToList())
+        foreach (var player in game.PlayersList.Where(x => !isEternalTsukuyomiRound
+                     && x.GameCharacter.Passive.Any(y => y.PassiveName == "Портальная пушка")).ToList())
         {
             var gun = player.Passives.RickPortalGun;
             if ((player.Status.IsBlock || player.Status.IsSkip) && gun.Invented && gun.Charges > 0 && player.Status.WhoToAttackThisTurn.Count > 0)
@@ -306,7 +314,8 @@ public class DoomsdayMachine : IServiceSingleton
         }
 
         // Aggress — Toxic Mate can't block or skip
-        foreach (var player in game.PlayersList.Where(x => x.GameCharacter.Passive.Any(y => y.PassiveName == "Aggress")).ToList())
+        foreach (var player in game.PlayersList.Where(x => !isEternalTsukuyomiRound
+                     && x.GameCharacter.Passive.Any(y => y.PassiveName == "Aggress")).ToList())
         {
             if (player.Status.IsBlock || player.Status.IsSkip)
             {
@@ -318,7 +327,7 @@ public class DoomsdayMachine : IServiceSingleton
 
         // Геральт — Ведьмачьи заказы: inject extra fights based on contract count
         // Works both when Geralt attacks AND when someone attacks Geralt
-        var geraltPlayer = game.PlayersList.Find(x =>
+        var geraltPlayer = isEternalTsukuyomiRound ? null : game.PlayersList.Find(x =>
             x.GameCharacter.Name == "Геральт" &&
             x.GameCharacter.Passive.Any(y => y.PassiveName == "Ведьмачьи заказы"));
 
@@ -383,11 +392,15 @@ public class DoomsdayMachine : IServiceSingleton
         // Naruto's block replacement operates on the finalized action queues, including every
         // readiness-stage forced action and Geralt contract expansion. Canceled queues must be gone
         // before PointFunnel and Madara snapshot their targets.
-        Naruto.SanitizeMutualTargets(game);
-        Naruto.ResolveHaremQueues(game);
-        HandleEventsBeforeCalculation(game);
+        if (!isEternalTsukuyomiRound)
+        {
+            Naruto.SanitizeMutualTargets(game);
+            Naruto.ResolveHaremQueues(game);
+            HandleEventsBeforeCalculation(game);
+        }
         Madara.PrepareIncomingAttackers(game);
-        Naruto.SnapshotJustice(game);
+        if (!isEternalTsukuyomiRound)
+            Naruto.SnapshotJustice(game);
 
         // Котики — Рандомное поведение Trick 1: pre-scan fight pairs and pick one for Storm
         Kotiki.RandomBehaviorClass stormRb = null;

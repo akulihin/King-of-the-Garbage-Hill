@@ -1113,7 +1113,8 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
 
         var globalLogs = game!.GetGlobalLogs();
-        if (game.RoundNo >= 11 && Madara.IsEternalTsukuyomiActive(game))
+        if (game.RoundNo >= 11 && Madara.IsEternalTsukuyomiActive(game)
+            && !Madara.IsMadara(player))
             globalLogs = Madara.GetProjectedFinalLogs(game, player);
         // Hide fight logs from non-admin players
         if (player.PlayerType != 2)

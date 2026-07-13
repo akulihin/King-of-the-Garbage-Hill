@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import type { BattleshipPlayerState, BattleshipPendingSummon } from 'src/services/signalr'
 import { renderIcon } from './battleship-icons'
 import { useTip } from 'src/composables/useTip'
@@ -12,7 +12,14 @@ const props = defineProps<{
   shotCount: number
   canDeploySummon: boolean
   availableSummons: string[]
-  summonDeployMode: { type: string; pendingId?: string; pendingCols?: number[] } | null
+  summonDeployMode: {
+    type: string
+    pendingId?: string
+    pendingCols?: number[]
+    reentryDirection?: string
+    reentryRow?: number
+    reentryCol?: number
+  } | null
 }>()
 
 const emit = defineEmits<{
@@ -39,7 +46,8 @@ const summonDescriptions: Record<string, string> = {
   Ram: 'Таран — скорость 2, урон 4, погибает при столкновении, разведка пути',
   Scout: 'Разведчик — скорость 1, отложенная разведка в Space, не открывает при заморозке',
   PirateBoat: 'Пират — скорость 1, захватывает 1-2-палубные корабли, разбивается о 3-4-палубные',
-  Brander: 'Брандер — скорость 1, вне лимита призывов (1 за матч), не проходит сквозь живые палубы, стреляйте в него для подрыва',
+  Brander: 'Брандер — скорость 1, дополнительный призыв (1 за матч), не проходит сквозь живые палубы, стреляйте в него для подрыва',
+  CursedBoat: 'Проклятая лодка — опустошает корабль, затем меняет направление и продолжает путь',
 }
 
 // ── Helpers ─────────────────────────────────────────────────────
@@ -59,7 +67,10 @@ const summonIconKey: Record<string, string> = {
   PirateBoat: 'pirateBoat',
 }
 
-const summonOrder = ['Ram', 'Scout', 'PirateBoat', 'Brander']
+const summonOrder = ['Ram', 'Scout', 'PirateBoat', 'Brander', 'CursedBoat']
+
+const selectedWaitingSummon = computed(() => props.myPlayer?.summons?.some(s =>
+  s.type === summonType.value && s.waitingForTurnBack) ?? false)
 
 function nameRu(type: string): string {
   return summonTypeNameRu[type] ?? type
@@ -79,7 +90,7 @@ function posLabel(row: number, col: number): string {
   <div class="summon-bar-root">
     <!-- 1. Summon Deployment Bar -->
     <div class="summon-bar bs-bar">
-      <span class="sb-label">Призыв ({{ myPlayer?.summonSlotsUsed ?? 0 }}/{{ myPlayer?.maxSummonSlots ?? 4 }}):</span>
+      <span class="sb-label">Обычные призывы ({{ myPlayer?.summonSlotsUsed ?? 0 }}/{{ myPlayer?.maxSummonSlots ?? 4 }}):</span>
       <div class="bs-seg" role="group" aria-label="Тип призыва">
         <button
           v-for="type in summonOrder.filter(t => availableSummons.includes(t))"
@@ -99,19 +110,19 @@ function posLabel(row: number, col: number): string {
       <button
         class="bs-btn bs-btn--primary sb-deploy-btn"
         :disabled="!canDeploySummon"
-        @mouseenter="showTip($event, canDeploySummon ? 'Выберите клетку на строке 1 вражеского поля' : '')"
+        @mouseenter="showTip($event, canDeploySummon ? (selectedWaitingSummon ? 'Выберите подсвеченную клетку на краю вражеского поля' : 'Выберите клетку на строке 1 вражеского поля') : '')"
         @mousemove="moveTip"
         @mouseleave="hideTip"
         @click="emit('enterDeploy')"
       >
-        Разместить на карте
+        {{ selectedWaitingSummon ? 'Вернуть на карту' : 'Разместить на карте' }}
       </button>
       <span v-if="!canDeploySummon && myPlayer" class="sb-hint">
-        <template v-if="summonType === 'Brander' && myPlayer.branderUsed">
+        <template v-if="!selectedWaitingSummon && summonType === 'Brander' && myPlayer.branderUsed">
           Брандер уже использован
         </template>
-        <template v-else-if="summonType !== 'Brander' && myPlayer.summonSlotsUsed >= (myPlayer.maxSummonSlots ?? 4)">
-          Все слоты заняты
+        <template v-else-if="!selectedWaitingSummon && summonType !== 'Brander' && myPlayer.summonSlotsUsed >= (myPlayer.maxSummonSlots ?? 4)">
+          Лимит обычных призывов исчерпан
         </template>
         <template v-else-if="myPlayer.summonCooldownRemaining > 0">
           Перезарядка: {{ myPlayer.summonCooldownRemaining }} выстр.
@@ -162,7 +173,12 @@ function posLabel(row: number, col: number): string {
     <!-- 4. Deploy Mode Banner -->
     <div v-if="summonDeployMode" class="bs-banner bs-banner--info deploy-banner">
       <span class="deploy-banner-text">
-        Выберите клетку на первой строчке вражеского поля для размещения {{ summonDeployMode.type }}
+        <template v-if="summonDeployMode.reentryDirection">
+          Выберите подсвеченную клетку на краю поля для возвращения {{ nameRu(summonDeployMode.type) }}
+        </template>
+        <template v-else>
+          Выберите клетку на первой строке вражеского поля для размещения {{ nameRu(summonDeployMode.type) }}
+        </template>
       </span>
       <span v-if="summonDeployMode.pendingCols" class="deploy-cols bs-mono">
         (столбцы: {{ summonDeployMode.pendingCols.map(c => String.fromCharCode(65 + c)).join(', ') }})

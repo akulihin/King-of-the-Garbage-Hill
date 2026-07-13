@@ -342,6 +342,7 @@ Worth stating because they're easy to suspect: Francie's final-turn contract win
 - **Actual before the fix:** bot actions were chosen only after the human readiness/timer gate opened. Madara was unable to act, but bot attacks did not exist yet, so bot-heavy games could appear paused until timeout processing.
 - **Fixed:** 2026-07-11 — before readiness counting, every live, non-skipping strict bot is idempotently committed to one ordinary attack on Madara (`Madara.cs:208-230`; `CheckIfReady.cs:1039`). Bot dispatch preserves that forced choice, and round-8 Madara is exempt from the ordinary 50-second readiness floor (`BotsBehavior.cs:94-105`; `CheckIfReady.cs:1166-1168`). Genuine forced skips remain authoritative.
 - **Live-human follow-up fixed:** 2026-07-11 — after round 7 entered round 8, the post-calculation human prediction loop overwrote Madara's earlier `ConfirmedPredict = true` with `false`; all-bot simulations skipped that loop, while human Madara had no prediction control that could restore readiness (`CheckIfReady.cs:1477-1501`). The loop now preserves/reasserts Madara's full unable-to-act state, and the readiness precommit reasserts the same invariant every tick before counting (`Madara.cs:197-230`). Web Block/Auto Move/Change Mind/Skip are rejected server-side during the locked round, `isMyTurn` stays false, and the misleading Change button is hidden (`WebGameService.cs:502-613,1151-1163`; `game.ts:112-116`; `Game.vue:1220-1237`).
+- **Superseded by designer rework, 2026-07-12:** bots must no longer auto-attack Madara or advance immediately. A live round 8 now waits 30 seconds; after spending level-ups, every strict bot receives only the exact Madara prediction and chooses its ordinary action through normal AI (`Madara.ForceRoundEightBotPrediction`; `BotsBehavior.HandleBotBehavior`; `CheckIfReady.TickAsync`). The Madara action lock and web gates from the follow-up remain.
 
 ### M28. Rumbling counted Eren's losses from the entire match instead of round 10
 - **Intended:** the fewer-than-two-loss gate considers only resolved losses during round 10.
@@ -382,6 +383,7 @@ Worth stating because they're easy to suspect: Francie's final-turn contract win
 - **Actual before the fix:** ordinary attack selection followed level-up, but `CompleteForcedSkip` and the Madara round-8 branch returned first. The M27 readiness precommit also assigned the Madara attack before bot behavior ran at all.
 - **Impact:** forced-skipping bots and every bot challenging Madara on round 8 could carry unspent points into a committed action, making their fight snapshot weaker and violating the same spend-before-action rule enforced for humans.
 - **Fixed:** 2026-07-11 — bot playstyle selection and the complete level-up loop now run before every action fast path (`BotsBehavior.cs:72-132`). The readiness tick also prepares every live strict bot before the idempotent Madara challenge precommit (`CheckIfReady.cs:1038-1042`), so the M27 no-wait behavior remains intact without bypassing progression.
+- **Designer rework follow-up, 2026-07-12:** the Madara readiness precommit was removed with M27's forced attack. The invariant remains: `HandleBotBehavior` spends all pending points before the forced exact round-8 prediction, a forced Skip, or the bot's ordinary action (`BotsBehavior.HandleBotBehavior`).
 
 ### M35. Character-specific leaderboard icons reveal masked opponents
 - **Expected:** before the game finishes, character identity remains a guessing mechanic. Character-specific leaderboard prefixes and widget state must be visible only to the character owner (or an admin), while spectators and opponents receive no annotation that identifies a masked character. Тигр's round-10 `🚫` is the explicit exception: it represents a public system ban and remains visible to everyone as part of the joke.
@@ -480,6 +482,10 @@ Worth stating because they're easy to suspect: Francie's final-turn contract win
 - **Reachability:** Котики die to Кира/Пейзаж/Rumbling/Кратос. The original Котики is capped at one taunt per enemy per game; a **transferred** Storm cat (Кошачья засада) taunts every round, forever.
 - **Fix direction:** add `!t.Passives.IsDead` to the taunter filter; matrix §1 needs a "dead as *source*" row (the table only covers dead as target).
 
+### M41. BattleShip_update was checkmarked while action boundaries still broke its limits and turn rules
+- **Actual before the fix:** `ShootOwnBoard` never called `ProcessTurnStart`, so a player could bypass a queued Penalty/Stun by firing at an approaching summon. `SelectWeapon` changed `SelectedShotType` before proving that a live loaded weapon existed, and `Shoot` trusted that state; a forged Greek Fire/Incendiary selection worked without the upgrade, while a depleted Incendiary stayed selected and fired forever. Two own-board summon-death paths decremented `SummonSlotsUsed`, turning the four-normal-summons-per-match limit into a partially reusable counter. Conversely, free ship/boarding pending summons were blocked by and consumed that normal limit despite `PendingSummonDeploy.IsFree` explicitly promising no slot cost; full normal usage could therefore soft-lock mandatory boarding deployment.
+- **Fixed:** 2026-07-12 — own-board fire shares the turn-start gate and skipped results carry `WasSkipped`; every special selection resolves to a living loaded weapon before state changes, every shot revalidates ammo, and the final finite projectile restores Ballista. Normal uses are never refunded, while free pending/boarding summons ignore the normal cap. Turn-back redeployment reuses the existing summon without a new cap/reveal check, and forged fresh Cursed Boats are rejected (`BattleshipService.Shoot`, `ShootOwnBoard`, `SelectWeapon`, `DeploySummon`, `DeployPendingSummon`; death paths in `BattleshipGameEngine`).
+
 ### m37. Simulation winrate counts only place 1 — special winners and dead leaders are misattributed
 - **Actual:** `SimulationRunner` credits a "win" solely to final place 1 (`SimulationRunner.cs:668,679`). Sakura's «Одна из трех» soft wins are invisible (she actually won **11 of 61** sampled games while every report shows 0%); dead place-1 players (M37) are counted as winners; Наруто's clone seats inflate his denominator (21/90 for 30 games).
 - **Impact:** harness-only, but it skews every balance read taken from sim winrates.
@@ -516,6 +522,10 @@ Worth stating because they're easy to suspect: Francie's final-turn contract win
 ### m45. INTERACTION-MATRIX §7 omitted the Goblin Ziggurat step in the end-game order
 - **Actual:** the settlement order in `docs/INTERACTION-MATRIX.md` §7 listed "…sort → AWDKA → Premade → Sakura" while the code runs the M1 Goblin-Ziggurat enforced win between Premade and Sakura (`CheckIfReady.cs:524-540`).
 - **Fixed:** 2026-07-12 — §7 order line now names the Goblin step (this change-set; docs-only).
+
+### m46. Battleship feedback lied about skipped shots, Brander deaths, trails and re-entry coordinates
+- **Actual before the fix:** every disappearing Brander played the explosion sound, including quiet Drakkar freeze and harmless live-deck collision. A skipped Penalty/Stun turn was emitted as a miss at default A1, inflating client shot statistics and triggering fake projectile/miss feedback. Mast re-entry warnings always formatted row 1 even when a summon entered at row 10 or from a side. The trail cache recorded the previous state rather than the incoming spawn/re-entry state, and penalty-zone copy omitted the no-penalty spawn exception.
+- **Fixed:** 2026-07-12 — Brander sound now requires both disappearance and a newly received detonation log; `wasSkipped` suppresses shot VFX/sound/stat changes; Mast warnings receive actual row+column; incoming state positions seed trails and new matches clear cached trails/marks; the tooltip states the spawn exception. `SummonDto.moveDirection` now drives a dedicated “Вернуть на карту” flow that highlights the actual bottom/side edge and adjacent lanes, so a sideways Cursed Boat is operable without using a fake row-1 proxy (`useBattleshipStore`, `CombatPhase.vue`, `SummonBar.vue`, `CellComponent.vue`, `GenerateMastWarning`, `GameHub.BattleshipShoot*`).
 
 ### D12. Every bonus-point "steal" mints points at the 0-floor
 - Because `AddBonusPoints` floors the victim at 0 (`InGameStatusClass.cs:232`), each transfer-shaped mechanic credits the taker the **full** amount while the victim may lose less: «Выгодная сделка» (`CP:1803-1815`), Смертельный вирус, Глаза Итачи deduction, Сайтама's ledger reclaim, «Запах мусора». Zero-sum on paper, positive-sum at the floor. Acceptable pity cushion, or should takers receive only what victims actually lose?
@@ -565,11 +575,11 @@ Full team-mode ruleset (2х2х2/3х3 team-score win, forced ally predictions —
 - `CheckIfReady.cs:648` — `//todo: need to redo this system` (disabled `_finishedGameLog.CreateNewLog`).
 - `GeneralCommands/HelpModule.cs:116` — `//TODO Move it as service`.
 - Commented-out «Оборотень» stat-swap blocks (`CP:494-502`, `CP:1240-1241`) — dead code awaiting a decision.
-- Root `BattleShip_update` ТЗ: all 23 items carry ✅ implemented annotations (2026-07-04/05) — can be archived.
+- Root `BattleShip_update` ТЗ: all 23 items were re-verified against backend, bot and Vue paths on 2026-07-12; M41/m46 document and close the cross-action/feedback gaps found behind the old ✅ annotations.
 
 ## Summary count
 
-**1 Critical** (C1) · **40 Major** (M1–M40) · **45 Minor** (m1–m45) · **14 Design questions** (D1–D14). Phase-6 triage order: M37 (dead-winner stats), M38+M39 (Кратос event — one conversation), M40 (dead taunter), then m38–m44 and the D12–D14 verdicts. (M13–M36 fixed; m5/m6/m7/m17/m21/m23/m25/m27/m28/m29/m30/m31/m32/m33/m34/m35/m36/m45 fixed; m18 confirmed intended; m20 documented. Still open: m12, m19, m24, m26, M37–M40, m37–m44, D12–D14.)
+**1 Critical** (C1) · **41 Major** (M1–M41) · **46 Minor** (m1–m46) · **14 Design questions** (D1–D14). Phase-6 triage order: M37 (dead-winner stats), M38+M39 (Кратос event — one conversation), M40 (dead taunter), then m38–m44 and the D12–D14 verdicts. (M13–M36/M41 fixed; m5/m6/m7/m17/m21/m23/m25/m27/m28/m29/m30/m31/m32/m33/m34/m35/m36/m45/m46 fixed; m18 confirmed intended; m20 documented. Still open: m12, m19, m24, m26, M37–M40, m37–m44, D12–D14.)
 
 ## Verification addendum (second pass, 2026-07-01)
 

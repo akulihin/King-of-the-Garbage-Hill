@@ -1041,10 +1041,6 @@ public class CheckIfReady : IServiceSingleton
                 }
 
                 var players = _global.GamesList[i].PlayersList;
-                if (game.RoundNo == 8 && Madara.Find(game) != null)
-                    foreach (var bot in players.Where(player => player.PlayerType == 404))
-                        await _botsBehavior.PrepareStrictBotBeforeReadiness(bot, game);
-                Madara.PrepareRoundEightBotChallenges(game);
                 var readyTargetCount = players.Count(x => !x.IsBot());
                 var readyCount = 0;
 
@@ -1177,6 +1173,15 @@ public class CheckIfReady : IServiceSingleton
                         readyCount++;
                 }
 
+                // Клоны Сусано: in a live game strict bots react only after the 30-second scene.
+                // All-bot simulations skip wall-clock waiting; their actions are still selected by
+                // the ordinary AI path when the round resolves.
+                if (game.RoundNo == 8 && Madara.Find(game) != null
+                    && players.Any(player => player.PlayerType == 404 && !player.Passives.IsDead)
+                    && players.Any(player => !player.IsBot())
+                    && game.TimePassed.Elapsed.TotalSeconds < Madara.RoundEightBotReactionDelaySeconds)
+                    continue;
+
 
                 if (readyCount != readyTargetCount &&
                     !(game.TimePassed.Elapsed.TotalSeconds >= game.TurnLengthInSecond))
@@ -1184,6 +1189,8 @@ public class CheckIfReady : IServiceSingleton
 
                 //Calculating the game
                 game.IsCheckIfReady = false;
+                Madara.PrepareIncomingAttackers(game);
+                Madara.PrepareEternalTsukuyomiRound(game);
 
 
                 //If did do anything - Block
@@ -1278,9 +1285,11 @@ public class CheckIfReady : IServiceSingleton
 
                 //end //AWDKA last
 
-                // Геральт: skip works as block (meditation)
+                // Геральт: skip works as block (meditation). Вечное Цукуеми's total skip is
+                // authoritative and cannot be converted into a defensive action.
                 foreach (var geralt in players.Where(p =>
-                    p.Status.IsSkip && p.GameCharacter.Name == "Геральт"))
+                    p.Status.IsSkip && p.GameCharacter.Name == "Геральт"
+                    && !Madara.IsEternalTsukuyomiRound(game)))
                 {
                     geralt.Status.IsSkip = false;
                     geralt.Status.IsBlock = true;
@@ -1390,6 +1399,7 @@ public class CheckIfReady : IServiceSingleton
 
                 // Монстр: players Monster attacked last round cannot block or skip
                 foreach (var victim in players.Where(v =>
+                    !Madara.IsEternalTsukuyomiRound(game) &&
                     v.Passives.MonsterNoEscapeUntilRound >= game.RoundNo &&
                     !v.Passives.IsDead &&
                     !(game.RoundNo == 10 && v.GameCharacter.Passive.Any(
@@ -1416,8 +1426,8 @@ public class CheckIfReady : IServiceSingleton
                 }
 
                 // Клоны Сусано: every locked, correct round-eight Madara prediction becomes a
-                // second visible attack. Duplicates are intentional when the player also attacked
-                // Madara normally (5 ordinary attacks + 5 prediction attacks is the maximum).
+                // separate visible attack. Duplicates are intentional when an ordinary, second or
+                // externally forced action already targets Madara.
                 madara = Madara.Find(game);
                 if (game.RoundNo == 8 && madara != null && !madara.Passives.Madara.Sealed)
                 {
@@ -1441,6 +1451,11 @@ public class CheckIfReady : IServiceSingleton
                 }
                 Madara.SanitizeSealedActions(game);
                 Naruto.SanitizeMutualTargets(game);
+
+                // Re-snapshot after bot choices and readiness-stage forced actions. If all five
+                // enemies armed Цукуеми on this turn, erase every real action before combat.
+                Madara.PrepareIncomingAttackers(game);
+                Madara.PrepareEternalTsukuyomiRound(game);
 
                 //delete messages from prev round. No await.
                 foreach (var player in game.PlayersList)
