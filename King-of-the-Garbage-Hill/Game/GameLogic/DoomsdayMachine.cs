@@ -129,6 +129,7 @@ public class DoomsdayMachine : IServiceSingleton
             player.Status.IsTargetSkipped = Guid.Empty;
             player.Status.IsTargetBlocked = Guid.Empty;
             player.Status.IsAbleToWin = true;
+            player.Passives.SaitamaUnnoticed.PretendedLossThisFight = false;
             player.Passives.AchievementTracker.SpartanRespectTriggeredThisFight = Guid.Empty;
         }
     }
@@ -1018,7 +1019,7 @@ public class DoomsdayMachine : IServiceSingleton
                         }
                     }
 
-                    if (!teamMate)
+                    if (!teamMate && !playerIamAttacking.Passives.SaitamaUnnoticed.PretendedLossThisFight)
                         playerIamAttacking.GameCharacter.Justice.AddJusticeForNextRoundFromFight();
 
                     player.Status.IsWonThisCalculation = playerIamAttacking.GetPlayerId();
@@ -1135,7 +1136,8 @@ public class DoomsdayMachine : IServiceSingleton
                     }
 
                     // Justice: loser (defender) gains +1 justice
-                    if (!teamMate) fightJusticeChange = 1;
+                    if (!teamMate && !playerIamAttacking.Passives.SaitamaUnnoticed.PretendedLossThisFight)
+                        fightJusticeChange = 1;
 
                     //end Quality
                 }
@@ -1163,7 +1165,7 @@ public class DoomsdayMachine : IServiceSingleton
                             // Toxic Mate "INT": "Побеждая — теряет очки" applies on a defence win too (finding M4);
                             // HardKitty's "Никому не нужен" stays attacker-only ("если напал и победил").
                             playerIamAttacking.Status.AddWinPoints(game, playerIamAttacking, -1, "Победа");
-                        else
+                        else if (!playerIamAttacking.GameCharacter.Passive.Any(x => x.PassiveName == "На мели"))
                         {
                             var defWinSource = "Победа";
                             if (playerIamAttacking.GameCharacter.Name == "Геральт")

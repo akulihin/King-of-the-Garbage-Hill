@@ -22,6 +22,9 @@ public class Saitama
         /// <summary>Top 2 player IDs by combat power — Saitama fights seriously against them.</summary>
         public List<Guid> SeriousTargets = new();
 
+        /// <summary>True only while Неприметность is turning a defensive win into a staged loss.</summary>
+        public bool PretendedLossThisFight;
+
         /// <summary>
         /// Bank a deferred win for <paramref name="recipientId"/>, scaling the point by the round
         /// multiplier (×1 rounds 1-4, ×2 rounds 5-9, ×4 round 10). Deferral only runs rounds 1-9 in

@@ -57,6 +57,7 @@ Movers (end-of-round order): Тигр-топ swap → Portal-Gun swap → HardKi
 | Октопус ink | fake-win now, restore at r11 | DeepList first-fight | suppressed until DeepList's scripted loss happens (`CP:6772-6779`) |
 | Kimiko Живое Оружие | **drains** attacker Justice | Расенган snapshot | real Justice is drained after the fight and pays +1 regular per point, but every joint Naruto's fight Justice comes from the once-per-calculation pre-fight snapshot; the persistent drain remains (`Naruto.cs` `SnapshotJustice`; `CP:853-875,1084-1087`) |
 | Близнец (Монстр) | **copies** the highest attacker Justice on block + equal total bonus | generic block Justice | attacker keeps Justice; Monster gets no normal +1; multiple attackers use max, not sum (`CP:978-1002`; `DM:564-568`) |
+| Неприметность (Сайтама) | stages a defensive loss against a non-serious attacker | generic loser Justice | Saitama receives no next-round Justice for the staged loss; genuine losses still grant it (`CP:667-690`; `DM:1022-1023,1138-1140`) |
 | Вампуризм | **copies** victim Justice (intended — D6) | Падальщик | +1 extra from the ignored point (`CP:1907-1911`) |
 | Premade | **copies** Carry fight-moral (intended — D9) | — | `CP:2433-2436` |
 | Кошачья засада (cats) | physically moves passives to enemy | Минька/Штормяк vs owner | transferred cat won't buff/taunt against Котики (`CP:3082-3085`, `CIR:1229`) |

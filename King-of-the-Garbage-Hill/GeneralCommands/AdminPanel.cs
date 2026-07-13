@@ -118,6 +118,53 @@ public class AdminPanel : ModuleBaseCustom
         Environment.Exit(228);
     }
 
+    [Command("lootbox")]
+    [Summary("give lootboxes to a player (Admin only)")]
+    public async Task GiveLootBoxes(IUser user, int amount)
+    {
+        if (Context.User.Id != 238337696316129280 && Context.User.Id != 181514288278536193)
+        {
+            await SendMessageAsync("only owners can use this command");
+            return;
+        }
+
+        if (amount <= 0)
+        {
+            await SendMessageAsync("lootbox amount must be greater than zero");
+            return;
+        }
+
+        var account = _accounts.GetAccount(user);
+        string error = null;
+
+        lock (account)
+        {
+            var previousAmount = account.PendingLootBoxes;
+            try
+            {
+                account.PendingLootBoxes = checked(previousAmount + amount);
+            }
+            catch (OverflowException)
+            {
+                error = "lootbox amount is too large";
+            }
+
+            if (error == null && !_accounts.SaveAccount(account))
+            {
+                account.PendingLootBoxes = previousAmount;
+                error = "failed to save the account; no lootboxes were added";
+            }
+        }
+
+        if (error != null)
+        {
+            await SendMessageAsync(error);
+            return;
+        }
+
+        await SendMessageAsync($"Done. {user.Username} received {amount} lootboxes.");
+    }
+
     [Command("игра")]
     [Alias("st")]
     [Summary("запуск игры (Admin only)")]

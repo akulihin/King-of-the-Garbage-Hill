@@ -33,7 +33,7 @@ Player-facing (module `General.cs` unless noted; aliases exact):
 | `widget_s` | — | — | post the profile-widget OAuth "Authorize" link-button (client_id 901706293977432124) | `ServerManagement.cs:124-131` |
 | `widget` | — | stat texts, number, id | push stats to the Discord profile widget; requires prior authorize (`WidgetAuthorized`, `ServerManagement.cs:157-165`) | `ServerManagement.cs:138` |
 
-Admin (`AdminPanel.cs`; gated by `[RequireOwner]` or hardcoded owner-ID checks): `getInvite`/`leaveGuild`/`ShowGuildInfo`/`ShowGuilds` (`AdminPanel.cs:44-92`), `restart` (`AdminPanel.cs:108-109`), solo test-game `игра <int>` (`AdminPanel.cs:121-122`), `SetCharacter` (`AdminPanel.cs:195`), `SetType` 0/1/2 (`AdminPanel.cs:233`), and the `SetStat`/`set` cheats — numeric stats/score/round and character/passive add-remove (`AdminPanel.cs:266-267` `AdminPanel.cs:348-349`).
+Admin (`AdminPanel.cs`; gated by `[RequireOwner]` or hardcoded owner-ID checks): `getInvite`/`leaveGuild`/`ShowGuildInfo`/`ShowGuilds` (`AdminPanel.cs:44-92`), `restart` (`AdminPanel.cs:108-109`), `lootbox <user> <amount>` — grant pending loot boxes to an account, amount validated > 0 and capped (`AdminPanel.cs:121-165`), solo test-game `игра <int>` (`AdminPanel.cs:168-169`), `SetCharacter` (`AdminPanel.cs:242`), `SetType` 0/1/2 (`AdminPanel.cs:280`), and the `SetStat`/`set` cheats — numeric stats/score/round and character/passive add-remove (`AdminPanel.cs:313-314` `AdminPanel.cs:395-396`).
 
 ## 3. Game start & lobby lifecycle (`*st`)
 

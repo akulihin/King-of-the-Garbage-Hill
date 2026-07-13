@@ -671,6 +671,7 @@ public class CharacterPassives : IServiceSingleton
                     var saitamaDefUnnoticed = target.Passives.SaitamaUnnoticed;
                     if (!saitamaDefUnnoticed.SeriousTargets.Contains(me.GetPlayerId()))
                     {
+                        saitamaDefUnnoticed.PretendedLossThisFight = true;
                         target.Status.IsAbleToWin = false;
                         game.Phrases.SaitamaHoldsBack.SendLog(target, false);
 
