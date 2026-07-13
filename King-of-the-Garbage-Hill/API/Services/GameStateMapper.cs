@@ -1136,6 +1136,9 @@ public static class GameStateMapper
         var status = player.Status;
         // Non-admin viewing an opponent: hide score (they only see place on leaderboard, unless game is finished)
         var canSeeScore = isMe || isAdmin || isFinished;
+        // A pending block/skip is private turn information. Keep it for the owner,
+        // inspectable/admin views, and completed-game projections only.
+        var canSeePrivateAction = isMe || isAdmin || isFinished;
 
         // Extract previous round logs from InGamePersonalLogsAll (split by "|||")
         var previousRoundLogs = "";
@@ -1153,11 +1156,11 @@ public static class GameStateMapper
             Score = canSeeScore ? status.GetScore() : -1,
             Place = status.GetPlaceAtLeaderBoard(),
             IsReady = status.IsReady,
-            IsBlock = status.IsBlock,
-            IsSkip = status.IsSkip,
+            IsBlock = canSeePrivateAction && status.IsBlock,
+            IsSkip = canSeePrivateAction && status.IsSkip,
             IsAutoMove = status.IsAutoMove,
             ConfirmedPredict = status.ConfirmedPredict,
-            ConfirmedSkip = status.ConfirmedSkip,
+            ConfirmedSkip = canSeePrivateAction && status.ConfirmedSkip,
             LvlUpPoints = isMe ? status.LvlUpPoints : 0,
             MoveListPage = isMe ? status.MoveListPage : 1,
             PersonalLogs = isMe ? GameLocalization.TextForClient(player.DiscordId, status.GetInGamePersonalLogs()) : "",

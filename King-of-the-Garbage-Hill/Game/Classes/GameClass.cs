@@ -23,7 +23,7 @@ public class GameClass
         GlobalLogs = "";
         IsCheckIfReady = true;
         SkipPlayersThisRound = 0;
-        GameVersion = "Версия: 4.4.7";
+        GameVersion = "Версия: 4.4.8";
         GameMode = gameMode;
         CreatorId = creatorId;
         Teams = new List<TeamPlay>();
@@ -65,13 +65,10 @@ public class GameClass
     public List<TeamPlay> Teams { get; set; }
     public uint TestFightNumber { get; set; }
 
-    /// <summary>Bot AI difficulty. 1 = legacy, 2 = smarter heuristics (same skeleton),
-    /// 3 = omniscient predictions from AiFullKnowledgeRound. Default 3 everywhere, incl.
+    /// <summary>Bot AI difficulty. 1 = legacy baseline, 2 = fair player-visible strategy,
+    /// 3 = fair strategy with longer memory and rule-based inference. Default 3 everywhere, incl.
     /// Discord/web games; the sim harness can override per-run via --ai-difficulty.</summary>
     public int AiDifficulty { get; set; } = 3;
-
-    /// <summary>Round from which AiDifficulty-3 bots know every enemy's character (tunable; may become 2 or 1).</summary>
-    public int AiFullKnowledgeRound { get; set; } = 3;
 
     public List<BotsBehavior.NanobotClass> NanobotsList { get; set; } = new();
 

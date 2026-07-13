@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using King_of_the_Garbage_Hill.DiscordFramework;
 using King_of_the_Garbage_Hill.Game.Characters;
 using King_of_the_Garbage_Hill.Game.Classes;
+using King_of_the_Garbage_Hill.Game.DiscordMessages;
 using King_of_the_Garbage_Hill.Game.MemoryStorage;
 using King_of_the_Garbage_Hill.Game.ReactionHandling;
 using King_of_the_Garbage_Hill.Helpers;
@@ -23,9 +24,12 @@ public class BotsBehavior : IServiceSingleton
     private readonly SecureRandom _rand;
     private readonly CharactersPull _charactersPull;
     private readonly CharacterPassives _characterPassives;
+    private readonly GameUpdateMess _gameUpdateMess;
+    private readonly object _fairCatalogLock = new();
+    private List<CharacterClass> _fairCatalog;
 
     public BotsBehavior(SecureRandom rand, GameReaction gameReaction, Global global, LoginFromConsole logs,
-        CharactersPull charactersPull, CharacterPassives characterPassives)
+        CharactersPull charactersPull, CharacterPassives characterPassives, GameUpdateMess gameUpdateMess)
     {
         _rand = rand;
         _gameReaction = gameReaction;
@@ -33,6 +37,7 @@ public class BotsBehavior : IServiceSingleton
         _logs = logs;
         _charactersPull = charactersPull;
         _characterPassives = characterPassives;
+        _gameUpdateMess = gameUpdateMess;
     }
 
     public Task InitializeAsync()
@@ -46,8 +51,10 @@ public class BotsBehavior : IServiceSingleton
         => p.AiDifficulty >= 0 ? p.AiDifficulty : game.AiDifficulty;
     private static bool Dumb(GamePlayerBridgeClass p, GameClass game)  => EffectiveDifficulty(p, game) <= 0;   // L0: pure random
     private static bool Smart(GamePlayerBridgeClass p, GameClass game) => EffectiveDifficulty(p, game) >= 2;   // L2+
-    private static bool Omni(GamePlayerBridgeClass p, GameClass game)  => EffectiveDifficulty(p, game) >= 3
-                                                                          && game.RoundNo >= game.AiFullKnowledgeRound;  // L3 window
+    private static bool Advanced(GamePlayerBridgeClass p, GameClass game) => EffectiveDifficulty(p, game) >= 3;
+    // Legacy branches below are unreachable for L2/L3 after the fair-policy dispatch. Keep this alias
+    // solely so the frozen L1 body remains easy to compare with old replays while it is being retired.
+    private static bool Omni(GamePlayerBridgeClass p, GameClass game) => Advanced(p, game);
     private const int SmartTargetTaretNumberEarly = 3;
     private const int SmartKnownClassNemesisNumber = 2;
     private const int SmartPredictAvoidNumber = 2;
@@ -75,6 +82,12 @@ public class BotsBehavior : IServiceSingleton
         if (player.Passives.IsDead)
             return;
 
+        // Freeze the same resolved-round projection a normal player could have retained before making
+        // this turn's choices. L2/L3 strategy below consumes this viewer-scoped memory; it never polls
+        // opponents' live action flags or private character/status objects for an answer.
+        if (Smart(player, game))
+            BotInformation.CaptureVisibleRound(player, game);
+
         // Spend every pending point before committing any kind of turn action. This must precede
         // forced-skip confirmation and every character-specific action path.
         EnsureBotPlaystyle(player, game);
@@ -83,7 +96,10 @@ public class BotsBehavior : IServiceSingleton
 
         // Клоны Сусано force only the exact prediction. The bot's actual round-eight action
         // remains a normal AI choice after the shared 30-second reaction delay.
-        Madara.ForceRoundEightBotPrediction(player, game);
+        // L1 retains its historical scripted Madara answer. L2/L3 must identify the row through their
+        // own legal prediction evidence; the public round-eight line names Madara but not his player ID.
+        if (!Smart(player, game))
+            Madara.ForceRoundEightBotPrediction(player, game);
 
         // Forced skips are already complete actions. In particular, Шоковый щит must not let a
         // bot immediately replace the skip with its ordinary attack decision.
@@ -217,7 +233,8 @@ public class BotsBehavior : IServiceSingleton
         // for an entire round merely because its choice is automated.
         player.Passives.YongGlebMetaClass = game.PlayersList
             .Where(x => x.GetPlayerId() != player.GetPlayerId() && !x.Passives.IsDead)
-            .OrderByDescending(x => EstimateOmniFightEdge(player, x))
+            .OrderByDescending(x => KnownTargetClassScore(player, x))
+            .ThenBy(x => x.Status.GetPlaceAtLeaderBoard())
             .Take(3)
             .Select(x => x.GetPlayerId())
             .ToList();
@@ -225,6 +242,14 @@ public class BotsBehavior : IServiceSingleton
 
     private static bool HasPlaystyle(GamePlayerBridgeClass player, string playstyle)
         => player.AiPlaystyle.EndsWith($":{playstyle}", StringComparison.Ordinal);
+
+    private static int KnownTargetClassScore(GamePlayerBridgeClass player, GamePlayerBridgeClass target)
+    {
+        var tell = player.Status.KnownPlayerClass.Find(known => known.EnemyId == target.GetPlayerId());
+        if (tell == null) return 0;
+        var wanted = CharacterClass.ClassToKnownKeyword(player.GameCharacter.GetSkillClassTargetType());
+        return wanted.Length > 0 && tell.Text.Contains(wanted, StringComparison.Ordinal) ? 1 : 0;
+    }
 
     private static bool CanBreakKnownDefense(GamePlayerBridgeClass bot, GamePlayerBridgeClass target, GameClass game)
     {
@@ -692,6 +717,12 @@ public class BotsBehavior : IServiceSingleton
 
     private void HandleBotKira(GamePlayerBridgeClass bot, GameClass game)
     {
+        if (Smart(bot, game))
+        {
+            HandleFairBotKira(bot, game);
+            return;
+        }
+
         var dn = bot.Passives.KiraDeathNote;
         var eyes = bot.Passives.KiraShinigamiEyes;
 
@@ -787,6 +818,151 @@ public class BotsBehavior : IServiceSingleton
         }
     }
 
+    private void HandleFairBotKira(GamePlayerBridgeClass bot, GameClass game)
+    {
+        var deathNote = bot.Passives.KiraDeathNote;
+        var eyes = bot.Passives.KiraShinigamiEyes;
+        var publicTargets = game.PlayersList.Where(target =>
+                target.GetPlayerId() != bot.GetPlayerId() && !target.Passives.IsDead)
+            .OrderBy(target => target.Status.GetPlaceAtLeaderBoard())
+            .ToList();
+
+        if (bot.GameCharacter.GetMoral() >= 25 && !eyes.EyesActiveForNextAttack)
+        {
+            var unrevealed = publicTargets.Where(target =>
+                    !eyes.RevealedPlayers.Contains(target.GetPlayerId()))
+                .ToList();
+            if (unrevealed.Count > 0 && (unrevealed.Any(target =>
+                    target.Status.GetPlaceAtLeaderBoard() <= 2) || game.RoundNo >= 7 || _rand.Luck(1, 4)))
+            {
+                bot.GameCharacter.AddMoral(-25, "Глаза бога смерти");
+                eyes.EyesActiveForNextAttack = true;
+                bot.Status.AddInGamePersonalLogs("Глаза бога смерти: Активированы!\n");
+            }
+        }
+
+        if (deathNote.CurrentRoundTarget != Guid.Empty)
+            return;
+
+        var candidates = publicTargets.Where(target =>
+                !deathNote.FailedTargets.Contains(target.GetPlayerId()))
+            .ToList();
+        if (candidates.Count == 0)
+            return;
+
+        // The Eyes widget shows these exact names to its owner. Reading the underlying identity is legal
+        // only behind that owner-held id list; unrevealed targets below are never dereferenced for a name.
+        var revealed = candidates.Where(target => eyes.RevealedPlayers.Contains(target.GetPlayerId()))
+            .OrderBy(target => target.Status.GetPlaceAtLeaderBoard())
+            .FirstOrDefault();
+        if (revealed != null)
+        {
+            deathNote.CurrentRoundTarget = revealed.GetPlayerId();
+            deathNote.CurrentRoundName = revealed.GameCharacter.Name;
+            BotInformation.RecordPrediction(bot, revealed.GetPlayerId(), revealed.GameCharacter.Name, 100,
+                "Shinigami Eyes owner reveal", game.RoundNo, true);
+            return;
+        }
+
+        var target = candidates[0];
+        deathNote.CurrentRoundTarget = target.GetPlayerId();
+        var knownNames = eyes.RevealedPlayers
+            .Select(id => game.PlayersList.Find(player => player.GetPlayerId() == id))
+            .Where(player => player != null)
+            .Select(player => player!.GameCharacter.Name) // exact owner-visible Eyes result
+            .ToHashSet(StringComparer.Ordinal);
+        var failedNames = deathNote.Entries.Where(entry =>
+                entry.TargetPlayerId == target.GetPlayerId() && !entry.WasCorrect)
+            .Select(entry => entry.WrittenName)
+            .ToHashSet(StringComparer.Ordinal);
+        var catalog = GetFairCatalog()
+            .Where(character => !Sakura.Is(character.Name) && !UnknownBug.Is(character.Name))
+            .Where(character => game.Teams.Count > 0 || !character.TeamModeOnly)
+            .Where(character => character.Name != bot.GameCharacter.Name
+                                && !knownNames.Contains(character.Name)
+                                && !failedNames.Contains(character.Name))
+            .GroupBy(character => character.Name)
+            .Select(group => group.First())
+            .ToList();
+        if (catalog.Count == 0)
+        {
+            deathNote.CurrentRoundName = "";
+            return;
+        }
+
+        CharacterClass guess;
+        int confidence;
+        if (Advanced(bot, game))
+        {
+            var ranked = catalog.Select(character => (Character: character,
+                    Score: FairKiraGuessScore(bot, target, character, game)))
+                .OrderByDescending(entry => entry.Score)
+                .ThenByDescending(entry => KiraCatalogPrior(entry.Character))
+                .ToList();
+            guess = ranked[0].Character;
+            var margin = ranked[0].Score - (ranked.Count > 1 ? ranked[1].Score : 0);
+            confidence = Math.Clamp(35 + margin / 2, 35, 90);
+        }
+        else
+        {
+            var total = catalog.Sum(KiraCatalogPrior);
+            var roll = _rand.Random(1, Math.Max(1, total));
+            guess = catalog[^1];
+            foreach (var candidate in catalog)
+            {
+                roll -= KiraCatalogPrior(candidate);
+                if (roll > 0) continue;
+                guess = candidate;
+                break;
+            }
+            confidence = 25;
+        }
+
+        deathNote.CurrentRoundName = guess.Name;
+        BotInformation.RecordPrediction(bot, target.GetPlayerId(), guess.Name, confidence,
+            Advanced(bot, game) ? "Kira public-evidence inference" : "Kira visible-catalogue prior",
+            game.RoundNo);
+    }
+
+    private static int FairKiraGuessScore(GamePlayerBridgeClass bot, GamePlayerBridgeClass target,
+        CharacterClass candidate, GameClass game)
+    {
+        var score = KiraCatalogPrior(candidate);
+        var targetId = target.GetPlayerId();
+        var memory = bot.AiKnowledge.Opponent(targetId);
+        var knownText = bot.Status.KnownPlayerClass.Find(known => known.EnemyId == targetId)?.Text
+                        ?? memory.LastObservedClass;
+        var knownClass = ParseKnownClass(knownText);
+        if (knownClass != SkillClassType.None)
+            score += candidate.GetSkillClassType() == knownClass ? 55 : -24;
+
+        var history = BotInformation.VisibleGlobalHistory(bot) + "\n"
+                      + BotInformation.VisibleCurrentGlobalLogs(bot, game);
+        if ((history.Contains($"{target.DiscordUsername}: Всё, у меня горит!", StringComparison.Ordinal)
+             || history.Contains($"{target.DiscordUsername}: ЕБАННЫЕ БАНЫ", StringComparison.Ordinal))
+            && candidate.Name == "Darksci") score += 70;
+        if (history.Contains(
+                $"Толя попытался что-то разузнать про {target.DiscordUsername}, но не удалось просветить",
+                StringComparison.Ordinal) && candidate.Name == "Монстр без имени") score += 80;
+        if (memory.PlacesByRound.Count(entry => entry.Key <= 8 && entry.Value == 6) >= 5
+            && candidate.Name == ErenYeager.CharacterName) score += 45;
+
+        var old = BotInformation.PredictionFor(bot, targetId);
+        if (old?.CharacterName == candidate.Name) score += Math.Min(12, old.Confidence / 8);
+        return score;
+    }
+
+    private static int KiraCatalogPrior(CharacterClass character) => character.Tier switch
+    {
+        >= 6 => 18,
+        5 => 14,
+        4 => 12,
+        3 => 9,
+        2 => 8,
+        1 => 7,
+        _ => 6,
+    };
+
     public async Task HandleBotAttack(GamePlayerBridgeClass bot, GameClass game)
     {
         try
@@ -799,7 +975,10 @@ public class BotsBehavior : IServiceSingleton
 
             if (game.RoundNo == 10)
             {
-                foreach (var target in allTargets.ToList().Where(target => target.Player.GameCharacter.Passive.Any(x => x.PassiveName == "Стримснайпят и банят и банят и банят")))
+                foreach (var target in allTargets.ToList().Where(target => Smart(bot, game)
+                             ? _gameUpdateMess.CustomLeaderBoardBeforeNumber(
+                                 bot, target.Player, game, target.PlaceAtLeaderBoard()).Contains("🚫", StringComparison.Ordinal)
+                             : target.Player.GameCharacter.Passive.Any(x => x.PassiveName == "Стримснайпят и банят и банят и банят")))
                 {
                     allTargets.Remove(target);
                 }
@@ -807,7 +986,13 @@ public class BotsBehavior : IServiceSingleton
 
             if (game.RoundNo is 9 or 10)
             {
-                if (game.GetAllGlobalLogs().Contains("Нахуй эту игру"))
+                if (Smart(bot, game))
+                {
+                    var visibleLogs = BotInformation.VisibleCurrentGlobalLogs(bot, game);
+                    allTargets.RemoveAll(target => visibleLogs.Contains(
+                        $"{target.Player.DiscordUsername}: Нахуй эту игру", StringComparison.Ordinal));
+                }
+                else if (game.GetAllGlobalLogs().Contains("Нахуй эту игру"))
                 {
                     foreach (var target in allTargets.ToList().Where(target => target.Player.GameCharacter.GetPsyche() <= 0 && target.Player.GameCharacter.Passive.Any(x => x.PassiveName == "Не повезло")))
                     {
@@ -816,12 +1001,20 @@ public class BotsBehavior : IServiceSingleton
                 }
             }
 
-            if (await TryForceRumblingAttack(bot, game, allTargets)) return;
+            // L0/L1 retain the scripted system override. Fair L2/L3 may strongly target an inferred
+            // Eren after the public warning, but never locate him by his hidden Name/passive fields.
+            if (!Smart(bot, game) && await TryForceRumblingAttack(bot, game, allTargets)) return;
 
             // L0 (Dumb): pure-random attack/block, respecting real cannot-block / cannot-attack rules.
             if (Dumb(bot, game))
             {
                 await HandleBotAttackRandom(bot, game, allTargets);
+                return;
+            }
+
+            if (Smart(bot, game))
+            {
+                await HandleFairBotAttack(bot, game, allTargets);
                 return;
             }
 
@@ -885,7 +1078,8 @@ public class BotsBehavior : IServiceSingleton
             //calculation Tens
             foreach (var target in allTargets)
             {
-                // L3-4: omniscient bots read the justice that actually enters the fight math
+                // Retired pre-fair L3 scaffold: this privileged read is unreachable after the L2/L3
+                // fair-policy dispatch above. L1 never satisfies Omni().
                 var targetJustice = Omni(bot, game)
                     ? target.Player.GameCharacter.Justice.GetRealJusticeNow()
                     : target.Player.GameCharacter.Justice.GetSeenJusticeNow();
@@ -1014,7 +1208,7 @@ public class BotsBehavior : IServiceSingleton
                     }
                 }
 
-                // L3-2: omniscient bots avoid enemies who counter them (reverse nemesis is a true-read = cheat)
+                // Retired pre-fair L3 scaffold: this true-read branch is unreachable after fair dispatch.
                 if (Omni(bot, game) && target.Player.GameCharacter.HasNemesisOver(bot.GameCharacter))
                     target.AttackPreference -= OmniReverseNemesisNumber;
 
@@ -3370,6 +3564,935 @@ public class BotsBehavior : IServiceSingleton
         }
     }
 
+    /// <summary>
+    /// L2/L3 policy over an ordinary player's projection. The only opponent inputs admitted here are
+    /// public place/team/menu eligibility, owner-visible leaderboard annotations, this bot's prediction,
+    /// and viewer-scoped memories captured by <see cref="BotInformation"/>. Do not add a raw opponent
+    /// GameCharacter, Passives, score, Justice, or live Status action read to this path.
+    /// </summary>
+    private async Task HandleFairBotAttack(GamePlayerBridgeClass bot, GameClass game, List<Nanobot> allTargets)
+    {
+        if (allTargets.Count == 0)
+        {
+            await _gameReaction.HandleAttack(bot, null, -10);
+            return;
+        }
+
+        InferPublicRulePatterns(bot, game, allTargets);
+        var catalog = GetFairCatalog();
+        var targets = allTargets.Select(target => BuildFairTarget(bot, game, target, catalog)).ToList();
+
+        foreach (var target in targets)
+        {
+            ApplyFairUniversalPreference(bot, game, target);
+            ApplyFairCharacterPreference(bot, game, targets, target);
+            if (target.IsTeammate && !target.AllowTeamAttack)
+                target.Score = 0;
+            target.Score = Math.Max(0, target.Score);
+            target.Nanobot.AttackPreference = target.Score;
+        }
+
+        var blockPlan = GetFairBlockPlan(bot, game, targets);
+        var mandatory = targets.Where(target => target.Mandatory && target.Score > 0)
+            .OrderByDescending(target => target.Score)
+            .ThenBy(target => target.Place)
+            .FirstOrDefault();
+
+        var attacked = mandatory != null && await AttackPlayer(bot, mandatory.Place);
+        if (!attacked && mandatory == null && ShouldFairBotBlock(bot, game, targets, blockPlan))
+        {
+            await _gameReaction.HandleAttack(bot, null, -10);
+            ResetTens(allTargets);
+            return;
+        }
+
+        var pool = targets.Where(target => target.Score > 0 && target != mandatory).ToList();
+        while (!attacked && pool.Count > 0)
+        {
+            var selected = PickFairTarget(pool, Advanced(bot, game));
+            pool.Remove(selected);
+            attacked = await AttackPlayer(bot, selected.Place);
+        }
+
+        if (!attacked)
+        {
+            await _gameReaction.HandleAttack(bot, null, -10);
+            ResetTens(allTargets);
+            return;
+        }
+
+        // Макро deliberately keeps the owner turn open for a second distinct target. Reuse the same fair
+        // evaluation; the bot's own submitted first target is legal private information.
+        if (!bot.Status.IsReady && bot.GameCharacter.Passive.Any(passive => passive.PassiveName == "Макро"))
+        {
+            var remaining = targets.Where(target => target.Score > 0
+                    && !bot.Status.WhoToAttackThisTurn.Contains(target.Id))
+                .OrderByDescending(target => target.Score)
+                .ThenBy(target => target.Place)
+                .ToList();
+            while (!bot.Status.IsReady && remaining.Count > 0)
+            {
+                var second = Advanced(bot, game)
+                    ? remaining[0]
+                    : PickFairTarget(remaining, false);
+                remaining.Remove(second);
+                await AttackPlayer(bot, second.Place);
+            }
+        }
+
+        ResetTens(allTargets);
+    }
+
+    private FairTarget BuildFairTarget(GamePlayerBridgeClass bot, GameClass game, Nanobot target,
+        IReadOnlyList<CharacterClass> catalog)
+    {
+        var player = target.Player;
+        var id = target.GetPlayerId();
+        var place = target.PlaceAtLeaderBoard();
+        var markers = _gameUpdateMess.CustomLeaderBoardBeforeNumber(bot, player, game, place)
+                      + _gameUpdateMess.CustomLeaderBoardAfterPlayer(bot, player, game, true);
+        var prediction = BotInformation.PredictionFor(bot, id);
+        var definition = prediction == null
+            ? null
+            : catalog.FirstOrDefault(character => character.Name == prediction.CharacterName);
+        var knowledge = bot.AiKnowledge.Opponent(id);
+        var knownText = bot.Status.KnownPlayerClass.Find(known => known.EnemyId == id)?.Text
+                        ?? knowledge.LastObservedClass;
+        var knownClass = ParseKnownClass(knownText);
+
+        var fair = new FairTarget(target, id, player.DiscordUsername, place,
+            bot.IsTeamMember(game, id), markers, knowledge, prediction, definition, knownClass);
+        fair.EstimatedIntelligence = EstimateOpponentStat(1, fair, catalog, game.RoundNo);
+        fair.EstimatedStrength = EstimateOpponentStat(2, fair, catalog, game.RoundNo);
+        fair.EstimatedSpeed = EstimateOpponentStat(3, fair, catalog, game.RoundNo);
+        fair.EstimatedPsyche = EstimateOpponentStat(4, fair, catalog, game.RoundNo);
+        fair.EstimatedJustice = EstimateObservedJustice(fair, game.RoundNo);
+        fair.FightEdge = EstimateFairFightEdge(bot, fair);
+        return fair;
+    }
+
+    private static void ApplyFairUniversalPreference(GamePlayerBridgeClass bot, GameClass game,
+        FairTarget target)
+    {
+        target.Score = 10;
+        if (target.Place == 1) target.Score -= 1;
+        if (target.Place < bot.Status.GetPlaceAtLeaderBoard()) target.Score += 1;
+
+        var horizon = Advanced(bot, game) ? 6 : 3;
+        var ownLosses = bot.Status.WhoToLostEveryRound.Where(loss =>
+            loss.EnemyId == target.Id && loss.RoundNo >= game.RoundNo - horizon).ToList();
+        if (ownLosses.Any(loss => loss.RoundNo == game.RoundNo - 1 && loss.IsTooGoodEnemy))
+            target.Score -= 7;
+        else if (ownLosses.Any(loss => loss.IsStatsBetterEnemy))
+            target.Score -= 5;
+
+        var oldWins = BotInformation.RecentAverage(target.Knowledge.LossesByRound, game.RoundNo, horizon);
+        var oldLosses = BotInformation.RecentAverage(target.Knowledge.WinsByRound, game.RoundNo, horizon);
+        target.Score += Math.Clamp(oldWins - oldLosses, -2, 2);
+
+        // Resolved public action history replaces the old live WhoToAttackThisTurn/IsBlock/IsSkip reads.
+        var crowded = BotInformation.RecentAverage(target.Knowledge.TimesTargetedByRound, game.RoundNo, horizon);
+        target.Score -= Math.Min(2, crowded / 2);
+        var defenseRate = BotInformation.DefenseRate(target.Knowledge, game.RoundNo, horizon);
+        if (defenseRate >= 0.60m)
+            target.Score -= ProgressesThroughExpectedDefense(bot, target) ? 1 : Advanced(bot, game) ? 4 : 2;
+
+        var myClass = bot.GameCharacter.GetSkillClassType();
+        if (target.KnownClass != SkillClassType.None)
+        {
+            if (bot.GameCharacter.GetSkillClassTargetType() == target.KnownClass && target.Score >= 5)
+                target.Score += game.RoundNo <= 4 ? SmartTargetTaretNumberEarly : SmartTargetTaretNumberLate;
+            if (CharacterClass.NemesisOf(myClass) == target.KnownClass && target.Score >= 5)
+                target.Score += 5;
+            if (CharacterClass.NemesisOf(target.KnownClass) == myClass)
+                target.Score -= Advanced(bot, game) ? 4 : 2;
+        }
+
+        if (target.EstimatedJustice.HasValue)
+        {
+            var difference = bot.GameCharacter.Justice.GetRealJusticeNow() - target.EstimatedJustice.Value;
+            if (difference > 0) target.Score += Math.Min(5, difference);
+            else if (difference == 0) target.Score -= 3;
+            else target.Score -= Math.Min(5, -difference);
+        }
+
+        if (UsesStandardWinPlan(bot))
+        {
+            if (Advanced(bot, game))
+            {
+                if (target.FightEdge >= 10) target.Score += 7;
+                else if (target.FightEdge >= 4) target.Score += 3;
+                else if (target.FightEdge <= -10) target.Score -= 8;
+                else if (target.FightEdge <= -4) target.Score -= 3;
+            }
+            else if (target.Knowledge.LastObservedFightRound >= game.RoundNo - 3)
+            {
+                if (target.Knowledge.LastObservedFightEdge >= 5) target.Score += 2;
+                if (target.Knowledge.LastObservedFightEdge <= -5) target.Score -= 3;
+            }
+        }
+
+        ApplyPredictedOpponentCaution(bot, game, target);
+    }
+
+    private static void ApplyPredictedOpponentCaution(GamePlayerBridgeClass bot, GameClass game,
+        FairTarget target)
+    {
+        if (target.Prediction == null || target.Prediction.Confidence < 35)
+            return;
+
+        var confidenceWeight = Advanced(bot, game)
+            ? Math.Clamp(target.Prediction.Confidence / 35m, 1, 2.5m)
+            : 1m;
+        switch (target.Prediction.CharacterName)
+        {
+            case "HardKitty" when game.RoundNo <= 4:
+                target.Score /= 5;
+                break;
+            case "Sirinoks" when game.RoundNo <= 4:
+                target.Score -= 4;
+                break;
+            case "Darksci" when game.RoundNo == 9:
+                target.Score += target.Score > 7 ? 10 : target.Score > 5 ? 5 : 0;
+                break;
+            case "Краборак" when target.Knowledge.FightsWithViewerByRound.Count == 0:
+            case "Осьминожка":
+            case "Монстр без имени":
+            case "Toxic Mate":
+                target.Score -= SmartPredictAvoidNumber * confidenceWeight;
+                break;
+            case "mylorik" when target.Knowledge.AttacksOnViewerByRound.Count == 0:
+                target.Score -= SmartPredictAvoidNumber * confidenceWeight;
+                break;
+            case "Толя" when BotInformation.RecentAverage(
+                    target.Knowledge.TimesTargetedByRound, game.RoundNo, Advanced(bot, game) ? 5 : 2) >= 1:
+                target.Score -= SmartPredictAvoidNumber * confidenceWeight;
+                break;
+        }
+    }
+
+    private static bool ProgressesThroughExpectedDefense(GamePlayerBridgeClass bot, FairTarget target)
+    {
+        if (bot.GameCharacter.Passive.Any(passive =>
+                passive.PassiveName == UnknownBug.AutoWin || passive.PassiveName == "Безжалостный охотник"))
+            return true;
+        if (bot.GameCharacter.Name == "Рик Санчез"
+            && bot.Passives.RickPortalGun.Invented && bot.Passives.RickPortalGun.Charges > 0)
+            return true;
+        if (bot.GameCharacter.Name == "Загадочный Спартанец в маске"
+            && bot.Passives.SpartanMark.FriendList.Contains(target.Id))
+            return true;
+        if (bot.GameCharacter.Name == "Sirinoks"
+            && bot.Passives.SirinoksFriendsList.FriendList.Contains(target.Id))
+            return true;
+        return bot.GameCharacter.Name is "Продавец Сомнительных Тактик" or "Толя" or "Кира"
+               or "Napoleon Wonnafcuk" or "Таинственный Суппорт";
+    }
+
+    private void InferPublicRulePatterns(GamePlayerBridgeClass bot, GameClass game, IReadOnlyList<Nanobot> targets)
+    {
+        if (!Advanced(bot, game) || game.RoundNo != 10
+            || !BotInformation.VisibleCurrentGlobalLogs(bot, game).Contains("Эрена Йегера", StringComparison.Ordinal))
+            return;
+
+        var candidates = targets.Select(target => new
+            {
+                Target = target,
+                PlaceSixRounds = bot.AiKnowledge.Opponent(target.GetPlayerId()).PlacesByRound
+                    .Count(entry => entry.Key <= 8 && entry.Value == 6),
+            })
+            .Where(entry => entry.PlaceSixRounds >= 5)
+            .OrderByDescending(entry => entry.PlaceSixRounds)
+            .ThenBy(entry => entry.Target.PlaceAtLeaderBoard())
+            .ToList();
+        if (candidates.Count == 0 || candidates.Count > 1
+            && candidates[0].PlaceSixRounds == candidates[1].PlaceSixRounds)
+            return;
+
+        BotInformation.RecordPrediction(bot, candidates[0].Target.GetPlayerId(), ErenYeager.CharacterName,
+            82, "round-10 warning + repeated public place-six pattern", game.RoundNo);
+    }
+
+    private static SkillClassType ParseKnownClass(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return SkillClassType.None;
+        if (text.Contains("Интеллект", StringComparison.OrdinalIgnoreCase)
+            || text.Contains("Умный", StringComparison.OrdinalIgnoreCase)) return SkillClassType.Intelligence;
+        if (text.Contains("Сила", StringComparison.OrdinalIgnoreCase)
+            || text.Contains("Сильный", StringComparison.OrdinalIgnoreCase)) return SkillClassType.Strength;
+        if (text.Contains("Скорость", StringComparison.OrdinalIgnoreCase)
+            || text.Contains("Быстрый", StringComparison.OrdinalIgnoreCase)) return SkillClassType.Speed;
+        return SkillClassType.None;
+    }
+
+    private List<CharacterClass> GetFairCatalog()
+    {
+        lock (_fairCatalogLock)
+            return _fairCatalog ??= _charactersPull.GetVisibleCharacters();
+    }
+
+    private static decimal EstimateOpponentStat(int stat, FairTarget target,
+        IReadOnlyList<CharacterClass> catalog, int round)
+    {
+        var candidates = target.KnownClass == SkillClassType.None
+            ? catalog
+            : catalog.Where(character => character.GetSkillClassType() == target.KnownClass).ToList();
+        if (candidates.Count == 0) candidates = catalog;
+        var publicAverage = candidates.Count == 0
+            ? 5m
+            : candidates.Average(character => (decimal)DefinitionStat(character, stat));
+        var confidence = target.Prediction?.Confidence ?? 0;
+        var estimate = target.Definition == null
+            ? publicAverage
+            : (DefinitionStat(target.Definition, stat) * confidence + publicAverage * (100 - confidence)) / 100m;
+
+        var upgrades = new[] { 3, 5, 7, 9 }.Count(levelRound => levelRound <= round);
+        var statClass = stat switch
+        {
+            1 => SkillClassType.Intelligence,
+            2 => SkillClassType.Strength,
+            3 => SkillClassType.Speed,
+            _ => SkillClassType.None,
+        };
+        estimate += target.KnownClass == statClass ? upgrades * 0.70m : upgrades * 0.10m;
+        return Math.Clamp(estimate, 0, 10);
+    }
+
+    private static int DefinitionStat(CharacterClass character, int stat) => stat switch
+    {
+        1 => character.GetIntelligence(),
+        2 => character.GetStrength(),
+        3 => character.GetSpeed(),
+        _ => character.GetPsyche(),
+    };
+
+    private static int? EstimateObservedJustice(FairTarget target, int currentRound)
+    {
+        if (target.Markers.Contains("<:WUF:", StringComparison.Ordinal))
+            return 0;
+        if (!target.Knowledge.LastObservedJustice.HasValue)
+            return null;
+
+        var justice = target.Knowledge.LastObservedJustice.Value;
+        for (var round = target.Knowledge.LastObservedJusticeRound + 1; round < currentRound; round++)
+        {
+            if (target.Knowledge.WinsByRound.GetValueOrDefault(round) > 0)
+                justice = 0;
+            else
+                justice += target.Knowledge.LossesByRound.GetValueOrDefault(round);
+        }
+        return Math.Max(0, justice);
+    }
+
+    private static decimal EstimateFairFightEdge(GamePlayerBridgeClass bot, FairTarget target)
+    {
+        var me = bot.GameCharacter;
+        var myScale = me.GetIntelligence() + me.GetStrength() + me.GetSpeed() + me.GetPsyche()
+                      + me.GetSkill() / 60m;
+        var targetScale = target.EstimatedIntelligence + target.EstimatedStrength + target.EstimatedSpeed
+                          + target.EstimatedPsyche + (target.Definition?.GetSkill() ?? 0) / 60m;
+        var edge = myScale - targetScale;
+        var wins = (me.GetIntelligence() > target.EstimatedIntelligence ? 1 : 0)
+                   + (me.GetStrength() > target.EstimatedStrength ? 1 : 0)
+                   + (me.GetSpeed() > target.EstimatedSpeed ? 1 : 0);
+        var losses = (me.GetIntelligence() < target.EstimatedIntelligence ? 1 : 0)
+                     + (me.GetStrength() < target.EstimatedStrength ? 1 : 0)
+                     + (me.GetSpeed() < target.EstimatedSpeed ? 1 : 0);
+        if (wins > losses) edge += 5;
+        else if (losses > wins) edge -= 5;
+        edge += PsycheFightTerm((int)Math.Round(me.GetPsyche() - target.EstimatedPsyche));
+        if (target.EstimatedJustice.HasValue)
+            edge += me.Justice.GetRealJusticeNow() - target.EstimatedJustice.Value;
+        if (target.Knowledge.LastObservedFightRound > 0)
+            edge = edge * 0.65m + target.Knowledge.LastObservedFightEdge * 0.35m;
+        return edge;
+    }
+
+    private static void ApplyFairCharacterPreference(GamePlayerBridgeClass bot, GameClass game,
+        IReadOnlyList<FairTarget> targets, FairTarget target)
+    {
+        var advanced = Advanced(bot, game);
+        var targetClass = target.KnownClass;
+        var skillTarget = bot.GameCharacter.GetSkillClassTargetType();
+        switch (bot.GameCharacter.Name)
+        {
+            case "Weedwick":
+                target.Score += MarkerNumber(target.Markers, "<:weed:");
+                target.Score += MarkerNumber(target.Markers, "<:bong:") * 2;
+                target.Score += 6 - target.Place;
+                if (bot.Status.GetPlaceAtLeaderBoard() > target.Place) target.Score += 3;
+                if (target.Markers.Contains("<:WUF:", StringComparison.Ordinal)) target.Score *= 4;
+                if (Predicted(target, "DeepList", advanced ? 55 : 70)) target.Score = 0;
+                break;
+
+            case "DeepList":
+                if (bot.Passives.DeepListMadnessTriggeredWhen.WhenToTrigger.Contains(game.RoundNo)
+                    && targetClass != SkillClassType.None && targetClass == skillTarget)
+                    target.Score += 3;
+                if (Predicted(target, "Weedwick", advanced ? 55 : 70)) target.Score = 0;
+                if (target.Markers.Contains("**лол**", StringComparison.Ordinal)) target.Score += 2;
+                if (target.Markers.Contains("**кек**", StringComparison.Ordinal)) target.Score -= 2;
+                target.AllowTeamAttack = bot.Passives.DeepListMockeryList?.WhoWonTimes
+                    .Any(entry => entry.EnemyPlayerId == target.Id && entry.Times == 1) == true;
+                break;
+
+            case "Кира":
+                if (target.Id == bot.Passives.KiraL.LPlayerId)
+                {
+                    target.Score = 0;
+                    break;
+                }
+                if (target.Place <= 2) target.Score += 3;
+                if (bot.Passives.KiraShinigamiEyes.EyesActiveForNextAttack)
+                {
+                    if (bot.Passives.KiraShinigamiEyes.RevealedPlayers.Contains(target.Id)) target.Score -= 6;
+                    else if (Predicted(target, "Монстр без имени", 65)) target.Score -= 8;
+                    else target.Score += 12;
+                }
+                break;
+
+            case "Кратос":
+                if (targetClass != SkillClassType.None && targetClass == skillTarget) target.Score += 10;
+                target.Score += targets.Count(other => Math.Abs(other.Place - target.Place) == 1) * 3;
+                if (game.RoundNo == 10 && HasPlaystyle(bot, "Ragnarok"))
+                    target.Score -= Math.Clamp(target.FightEdge, -10, 10);
+                break;
+
+            case "Тигр":
+                if (target.Markers.Contains("2:0", StringComparison.Ordinal))
+                    target.Score += target.Score >= 6 ? 12 : -5;
+                else if (target.Markers.Contains("1:0", StringComparison.Ordinal) && target.Score >= 6)
+                    target.Score += 7;
+                break;
+
+            case "AWDKA":
+                if (target.Markers.Contains("<:plat:", StringComparison.Ordinal)) target.Score -= 2;
+                if (target.Markers.Contains("<:bronze:", StringComparison.Ordinal)) target.Score += 5;
+                if (target.Markers.Contains("(**", StringComparison.Ordinal)) target.Score += 4;
+                if (game.RoundNo == 1 && advanced
+                    && target.EstimatedMaxStat >= targets.Max(other => other.EstimatedMaxStat))
+                    target.Mandatory = true;
+                target.AllowTeamAttack = true;
+                if (!target.IsTeammate && game.RoundNo < 7)
+                {
+                    var teammates = game.GetTeammates(bot);
+                    var trainedTeammates = teammates.Count(teammate => bot.Passives.AwdkaTryingList.TryingList
+                        .Any(entry => entry.EnemyPlayerId == teammate && entry.IsUnique));
+                    if (trainedTeammates < teammates.Count) target.Score = 0;
+                }
+                break;
+
+            case "Darksci":
+                if (!bot.Passives.DarksciLuckyList.TouchedPlayers.Contains(target.Id)) target.Score += 5;
+                if (HasPlaystyle(bot, "Unstable"))
+                    target.Score += target.FightEdge >= -3 ? 6 : -4;
+                target.AllowTeamAttack = !bot.Passives.DarksciLuckyList.TouchedPlayers.Contains(target.Id);
+                break;
+
+            case "Злой Школьник":
+                if (targetClass != SkillClassType.None && targetClass == skillTarget) target.Score += 3;
+                if (Predicted(target, "HardKitty", advanced ? 55 : 70))
+                {
+                    if (game.RoundNo < 5) target.Score = 0;
+                    else if (game.RoundNo > 5 && target.Score >= 5) target.Mandatory = true;
+                }
+                break;
+
+            case "mylorik":
+                var revenge = bot.Passives.MylorikRevenge.EnemyListPlayerIds
+                    .Find(entry => entry.EnemyPlayerId == target.Id);
+                var unfinished = bot.Passives.MylorikRevenge.EnemyListPlayerIds.Count(entry => entry.IsUnique);
+                var finished = bot.Passives.MylorikRevenge.EnemyListPlayerIds.Count(entry => !entry.IsUnique);
+                if (revenge == null)
+                {
+                    target.Score += 5 - bot.Passives.MylorikRevenge.EnemyListPlayerIds.Count;
+                    if (game.RoundNo <= 4 && target.EstimatedJustice > bot.GameCharacter.Justice.GetRealJusticeNow())
+                        target.Score += 12;
+                }
+                else if (revenge.IsUnique)
+                {
+                    if (game.RoundNo <= 4 && finished < 5) target.Score = 0;
+                    else if (game.RoundNo >= 5) target.Score += target.Score >= 8 ? 20 : 10;
+                    if (unfinished >= 11 - game.RoundNo) target.Score *= 3;
+                }
+                else if (finished < 5) target.Score -= 4;
+                target.AllowTeamAttack = revenge is { IsUnique: true }
+                    || finished >= 5 - game.GetTeammates(bot).Count
+                    && bot.Passives.MylorikRevenge.EnemyListPlayerIds.All(entry => entry.EnemyPlayerId != target.Id);
+                break;
+
+            case "Краборак":
+                if (targets.Any(other => other.Place >= 4 && other.Score > 0) && target.Place < 4)
+                    target.Score -= 4;
+                if (Predicted(target, "HardKitty", 55)) target.Score -= 1;
+                break;
+
+            case "Братишка":
+                if (Math.Abs(target.Place - bot.Status.GetPlaceAtLeaderBoard()) == 1) target.Score += 5;
+                break;
+
+            case "Sirinoks":
+                var friends = bot.Passives.SirinoksFriendsList.FriendList;
+                if (game.RoundNo > 1)
+                    target.Score += targetClass != SkillClassType.None && targetClass == skillTarget ? 3 : -3;
+                if (!friends.Contains(target.Id)) target.Score += 5;
+                if (friends.Count == 1 && game.RoundNo < 5)
+                {
+                    target.Score = friends.Contains(target.Id) ? target.Score : 0;
+                    if (friends.Contains(target.Id) && target.Score > 3) target.Mandatory = true;
+                }
+                if (5 - friends.Count >= 11 - game.RoundNo && !friends.Contains(target.Id))
+                    target.Mandatory = true;
+                target.AllowTeamAttack = !friends.Contains(target.Id) || friends.Count == 1;
+                break;
+
+            case "Толя":
+                var countedLastRound = bot.Passives.TolyaCount.TargetList.Any(entry =>
+                    entry.RoundNumber == game.RoundNo - 1 && entry.Target == target.Id);
+                if (countedLastRound) target.Score = target.Score * 2 + 7;
+                if (bot.Passives.TolyaCount.IsReadyToUse) target.Score = Math.Max(0, 13 - target.Score);
+                else target.Score += BotInformation.RecentAverage(target.Knowledge.TimesTargetedByRound,
+                    game.RoundNo, advanced ? 5 : 2) * (countedLastRound ? 2 : 6);
+                target.AllowTeamAttack = BotInformation.RecentAverage(target.Knowledge.TimesTargetedByRound,
+                    game.RoundNo, advanced ? 5 : 2) >= 2;
+                if (game.RoundNo == 9 && bot.Status.GetPlaceAtLeaderBoard() <= 3
+                    && bot.Passives.TolyaCount.IsReadyToUse && Predicted(target, "Глеб", advanced ? 55 : 75))
+                    target.Mandatory = true;
+                break;
+
+            case "LeCrisp":
+                target.Score += BotInformation.RecentAverage(target.Knowledge.TimesTargetedByRound,
+                    game.RoundNo, advanced ? 5 : 2) * 6;
+                target.AllowTeamAttack = BotInformation.RecentAverage(target.Knowledge.TimesTargetedByRound,
+                    game.RoundNo, advanced ? 5 : 2) >= 2;
+                break;
+
+            case "Глеб":
+                if (bot.GameCharacter.Passive.Any(passive => passive.PassiveName == "Main Ирелия"))
+                {
+                    if (bot.Passives.YongGlebMetaClass.Contains(target.Id))
+                    {
+                        target.Score += 16;
+                        target.Mandatory = true;
+                    }
+                    if (bot.Passives.YongGlebTea.IsReadyToUse)
+                    {
+                        target.Score += 5 + (6 - target.Place);
+                        if (Predicted(target, "Рик Санчез", 70)) target.Score -= 8;
+                    }
+                }
+                else if (bot.Passives.GlebTeaTriggeredWhen.WhenToTrigger.Contains(game.RoundNo))
+                    target.Score = 0;
+                else if (bot.Passives.GlebChallengerTriggeredWhen.WhenToTrigger.Contains(game.RoundNo))
+                    target.Score += 7;
+                break;
+
+            case "Загадочный Спартанец в маске":
+                var marked = bot.Passives.SpartanMark.FriendList.Contains(target.Id);
+                var shamed = bot.Passives.SpartanShame.FriendList.Contains(target.Id);
+                if (game.RoundNo <= 4) target.Score += shamed ? -3 : marked ? 10 : 0;
+                else target.Score += marked ? 6 : -4;
+                break;
+
+            case "Сайтама":
+                if (game.RoundNo < 10)
+                {
+                    if (targetClass != SkillClassType.None && targetClass == skillTarget) target.Score += 10;
+                    var oldCrowd = BotInformation.RecentAverage(target.Knowledge.TimesTargetedByRound,
+                        game.RoundNo, advanced ? 5 : 2);
+                    if (oldCrowd < 0.5m) target.Score += 6;
+                }
+                else if (target.Place == 1)
+                    target.Mandatory = true;
+                break;
+
+            case "Toxic Mate":
+                var cancer = bot.Passives.ToxicMateCancer;
+                if (!cancer.IsActive && !cancer.FirstLossTriggered)
+                    target.Score += target.FightEdge < 0 ? 8 : -3;
+                else if (!cancer.IsActive)
+                    target.Score += target.FightEdge >= 0 ? 10 : -5;
+                else
+                {
+                    if (target.Place <= 2) target.Score += 8;
+                    if (target.Id == cancer.CurrentHolder) target.Score -= 5;
+                }
+                break;
+
+            case "Dopa":
+                var oldAttention = BotInformation.RecentAverage(target.Knowledge.TimesTargetedByRound,
+                    game.RoundNo, advanced ? 5 : 2);
+                switch (bot.Passives.DopaMetaChoice.ChosenTactic)
+                {
+                    case "Стомп":
+                        if (target.FightEdge >= 0) target.Score += 7;
+                        if (target.Place is 3 or 4) target.Score += 3;
+                        break;
+                    case "Фарм":
+                        target.Score += oldAttention * (bot.Passives.DopaVision.Cooldown == 0 ? 8 : 2);
+                        if (target.FightEdge >= 0) target.Score += 3;
+                        break;
+                    case "Доминация":
+                        if (target.FightEdge >= 0) target.Score += 8;
+                        if (target.Place <= 2) target.Score += 5;
+                        break;
+                    case "Роум":
+                        var distance = Math.Abs(bot.Status.GetPlaceAtLeaderBoard() - target.Place);
+                        target.Score += distance > 1 ? 8 + distance * 2 : -3;
+                        break;
+                }
+                break;
+
+            case "Рик Санчез":
+                var gun = bot.Passives.RickPortalGun;
+                if (gun.Invented && gun.Charges > 0 && target.Place == 1) target.Mandatory = true;
+                if (bot.Passives.RickGiantBeans.IngredientsActive
+                    && bot.Passives.RickGiantBeans.IngredientTargets.Contains(target.Id))
+                    target.Score += target.FightEdge >= 0 ? 22 : 6;
+                if (gun.Invented && gun.Charges == 0) target.Score -= 2;
+                break;
+
+            case "Итачи":
+                var crows = bot.Passives.ItachiCrows.CrowCounts.GetValueOrDefault(target.Id);
+                if (bot.Passives.ItachiTsukuyomi.TsukuyomiActiveTarget == target.Id) target.Score -= 25;
+                if (crows > 0) target.Score += crows * 5 + (crows >= 3 ? 10 : 0);
+                else if (bot.Passives.ItachiCrows.CrowCounts.Count(entry => entry.Value > 0) >= 2) target.Score -= 3;
+                if (target.EstimatedSpeed < bot.GameCharacter.GetSpeed()) target.Score += 3;
+                if (Math.Abs(bot.Status.GetPlaceAtLeaderBoard() - target.Place) == 1
+                    && target.EstimatedSpeed < bot.GameCharacter.GetSpeed()) target.Score += 8;
+                if (bot.Passives.ItachiTsukuyomi.ChargeCounter >= 2 && target.Place <= 2) target.Score += 8;
+                break;
+
+            case "Вампур":
+                if (target.EstimatedJustice.HasValue) target.Score += target.EstimatedJustice.Value * 2;
+                if (bot.Passives.VampyrHematophagiaList.HematophagiaCurrent.Any(entry => entry.EnemyId == target.Id)
+                    && bot.Passives.VampyrHematophagiaList.HematophagiaCurrent.Count < 5) target.Score -= 3;
+                if (bot.Status.WhoToLostEveryRound.Any(loss =>
+                        loss.RoundNo == game.RoundNo - 1 && loss.EnemyId == target.Id)) target.Score = 0;
+                target.AllowTeamAttack = bot.Passives.VampyrHematophagiaList.HematophagiaCurrent
+                    .All(entry => entry.EnemyId != target.Id);
+                break;
+
+            case "Napoleon Wonnafcuk":
+                if (bot.Passives.NapoleonAlliance.AllyId == Guid.Empty)
+                {
+                    target.Score += target.Place <= 2 ? 10 : 0;
+                    if (target.FightEdge >= 0) target.Score += 5;
+                }
+                else
+                {
+                    if (target.Id == bot.Passives.NapoleonAlliance.AllyId) target.Score = 0;
+                    if (target.Markers.Contains("⚔️", StringComparison.Ordinal)) target.Score += 15;
+                    if (bot.Passives.NapoleonPeaceTreaty.TreatyEnemies.Contains(target.Id)) target.Score -= 3;
+                }
+                break;
+
+            case "Таинственный Суппорт":
+                var carry = bot.Passives.SupportPremade.MarkedPlayerId;
+                if (carry == Guid.Empty)
+                {
+                    target.Score += target.EstimatedStrength + target.EstimatedIntelligence + target.EstimatedSpeed;
+                    if (target.Place <= 2) target.Score += 10;
+                }
+                else if (game.RoundNo % 3 == 0 && target.Id != carry)
+                    target.Score += 12 + (target.FightEdge >= 0 ? 5 : 0);
+                else if (target.Id == carry)
+                {
+                    target.Score += 15;
+                    target.AllowTeamAttack = true;
+                }
+                break;
+
+            case "Стая Гоблинов":
+                if (HasPlaystyle(bot, "Ziggurat") && target.Definition != null
+                    && target.Prediction is { Confidence: >= 55 }
+                    && target.Definition.Passive.Any(passive => passive.Standalone
+                        && passive.PassiveName != "Еврей"
+                        && !bot.Passives.GoblinZiggurat.LearnedPassives.Contains(passive.PassiveName)))
+                    target.Score += 12;
+                if (target.Place is 1 or 2 or 6) target.Score += 3 + bot.Passives.GoblinPopulation.WorkerUpgradeLevel;
+                if (target.FightEdge >= 0) target.Score += game.RoundNo <= 4 ? 7 : 4;
+                else if (target.FightEdge <= -5) target.Score -= 5;
+                break;
+
+            case "Котики":
+                if (bot.Passives.KotikiAmbush.MinkaOnPlayer == target.Id
+                    || bot.Passives.KotikiAmbush.StormOnPlayer == target.Id)
+                    target.Score += 20;
+                if (!bot.Passives.KotikiStorm.TauntedPlayers.Contains(target.Id)) target.Score += 5;
+                else target.Score -= 3;
+                target.Score += target.EstimatedMaxStat / 2;
+                if (target.FightEdge >= 0) target.Score += 4;
+                break;
+
+            case "Монстр без имени":
+                if (ApproximatelyEqualsAnyOwnStat(bot, target)) target.Score -= 8;
+                if (target.EstimatedJustice.HasValue) target.Score += target.EstimatedJustice.Value * 2;
+                if (game.RoundNo == 10)
+                {
+                    target.Score += 10;
+                    if (target.Place <= 2) target.Score += 5;
+                }
+                break;
+
+            case "TheBoys":
+                var francie = bot.Passives.TheBoysFrancie;
+                if (francie.OrderTarget == target.Id)
+                {
+                    target.Score += 20;
+                    if (francie.OrderRoundsLeft == 1) target.Mandatory = true;
+                }
+                if (bot.Passives.TheBoysMM.NextAttackGathersKompromat
+                    && !bot.Passives.TheBoysMM.KompromatTargets.Contains(target.Id)) target.Score += 10;
+                if (francie.ChemWeaponLevel > 0 && target.FightEdge >= 0)
+                    target.Score += francie.ChemWeaponLevel * 2;
+                if (target.Markers.Contains("🦸", StringComparison.Ordinal)) target.Score += 8;
+                if (francie.VirusArmed) target.Score += 6;
+                if (target.Place <= 3) target.Score += 3;
+                break;
+
+            case "Продавец Сомнительных Тактик":
+                var seller = bot.Passives.SellerVparitGovna;
+                if (seller.Cooldown <= 0)
+                    target.Score = seller.MarkedPlayers.Contains(target.Id)
+                        ? target.Score - 5
+                        : Math.Max(SmartSellerMarkFloor, target.Score + 10);
+                else if (target.FightEdge >= 0) target.Score += 3;
+                if (game.RoundNo == 10 && seller.MarkedPlayers.Contains(target.Id))
+                    target.Score += target.Place == 1 ? 15 : 6;
+                break;
+
+            case "Salldorum":
+                var chroniclerRound = game.RoundNo - 3;
+                if (chroniclerRound > 0)
+                    target.Score += target.Knowledge.WinsByRound.GetValueOrDefault(chroniclerRound) * 5;
+                if (bot.Passives.SalldorumShen.Charges > 0
+                    && target.Place < bot.Status.GetPlaceAtLeaderBoard()) target.Score += 8;
+                if (target.EstimatedJustice == 0) target.Score += 3;
+                break;
+
+            case "Геральт":
+                var monsterType = Enum.GetValues<Geralt.MonsterType>()
+                    .FirstOrDefault(type => target.Markers.Contains(Geralt.GetMonsterTypeName(type),
+                        StringComparison.Ordinal));
+                if (target.Markers.Contains(Geralt.GetMonsterTypeName(monsterType), StringComparison.Ordinal))
+                {
+                    var contracts = bot.Passives.GeraltContracts.GetCount(monsterType);
+                    var oilTier = bot.Passives.GeraltOil.GetTier(monsterType);
+                    target.Score += contracts * 4;
+                    if (bot.Passives.GeraltOil.IsOilApplied) target.Score += oilTier * 3;
+                    if (contracts >= 3) target.Score += 8;
+                }
+                else target.Score -= 5;
+                if (bot.Status.GetPlaceAtLeaderBoard() > target.Place + 1)
+                    target.Score += 4 + targets.Count(other =>
+                        other.Place > target.Place && other.Place < bot.Status.GetPlaceAtLeaderBoard()) * 2;
+                if (target.Place <= 2) target.Score += 3;
+                break;
+
+            case ErenYeager.CharacterName:
+                target.Score += MarkerNumber(target.Markers, "🔥") * 3;
+                break;
+        }
+
+        // The round-ten warning is public; the row association remains a confidence-weighted inference.
+        if (game.RoundNo == 10 && Predicted(target, ErenYeager.CharacterName, advanced ? 60 : 80)
+            && bot.Status.GetPlaceAtLeaderBoard() > target.Place
+            && bot.Status.GetPlaceAtLeaderBoard() < 6)
+        {
+            target.Score += 30;
+            target.Mandatory = true;
+        }
+
+        var predictedBratishka = targets.FirstOrDefault(other =>
+            Predicted(other, "Братишка", advanced ? 55 : 75));
+        if (predictedBratishka != null && Math.Abs(predictedBratishka.Place - target.Place) == 1)
+            target.Score -= 1;
+    }
+
+    private static bool Predicted(FairTarget target, string characterName, int confidence)
+        => target.Prediction?.CharacterName == characterName && target.Prediction.Confidence >= confidence;
+
+    private static bool ApproximatelyEqualsAnyOwnStat(GamePlayerBridgeClass bot, FairTarget target)
+        => Math.Abs(bot.GameCharacter.GetIntelligence() - target.EstimatedIntelligence) < 0.6m
+           || Math.Abs(bot.GameCharacter.GetStrength() - target.EstimatedStrength) < 0.6m
+           || Math.Abs(bot.GameCharacter.GetSpeed() - target.EstimatedSpeed) < 0.6m
+           || Math.Abs(bot.GameCharacter.GetPsyche() - target.EstimatedPsyche) < 0.6m;
+
+    private static int MarkerNumber(string markers, string marker)
+    {
+        var index = markers.IndexOf(marker, StringComparison.Ordinal);
+        if (index < 0) return 0;
+        index += marker.Length;
+        if (marker.StartsWith("<:", StringComparison.Ordinal))
+        {
+            var emojiEnd = markers.IndexOf('>', index);
+            if (emojiEnd >= index) index = emojiEnd + 1;
+        }
+        while (index < markers.Length && !char.IsDigit(markers[index])) index++;
+        var start = index;
+        while (index < markers.Length && char.IsDigit(markers[index])) index++;
+        return start < index && int.TryParse(markers[start..index], out var value) ? value : 0;
+    }
+
+    private FairTarget PickFairTarget(IReadOnlyList<FairTarget> candidates, bool advanced)
+    {
+        if (advanced)
+        {
+            var best = candidates.Max(target => target.Score);
+            var ties = candidates.Where(target => target.Score == best).ToList();
+            return ties[_rand.Random(0, ties.Count - 1)];
+        }
+
+        var bestScore = candidates.Max(target => target.Score);
+        var weights = candidates.Select(target => Math.Max(1,
+            (int)Math.Ceiling(target.Score * (target.Score == bestScore ? SmartCommitMultiplier : 1)))).ToList();
+        var roll = _rand.Random(1, weights.Sum());
+        for (var index = 0; index < candidates.Count; index++)
+        {
+            roll -= weights[index];
+            if (roll <= 0) return candidates[index];
+        }
+        return candidates[^1];
+    }
+
+    private static FairBlockPlan GetFairBlockPlan(GamePlayerBridgeClass bot, GameClass game,
+        IReadOnlyList<FairTarget> targets)
+    {
+        switch (bot.GameCharacter.Name)
+        {
+            case "AWDKA":
+            case "Осьминожка":
+            case "HardKitty":
+            case "Глеб":
+            case "Краборак":
+            case "mylorik":
+            case "Итачи":
+            case "Toxic Mate":
+            case "Кратос":
+            case "Dopa":
+            case "TheBoys":
+                return FairBlockPlan.ForceAttack;
+            case "Сайтама":
+                if (game.RoundNo == 10) return FairBlockPlan.ForceAttack;
+                return game.RoundNo <= 3 ? FairBlockPlan.PreferBlock
+                    : game.RoundNo <= 6 ? FairBlockPlan.Neutral : FairBlockPlan.PreferAttack;
+            case "Darksci":
+                return game.RoundNo is 3 or 5 or 9 && bot.GameCharacter.GetPsyche() <= 1
+                    ? FairBlockPlan.PreferBlock : FairBlockPlan.Neutral;
+            case "Злой Школьник":
+                return game.RoundNo < 8 ? FairBlockPlan.ForceAttack : FairBlockPlan.Neutral;
+            case "DeepList" when bot.Passives.DeepListMadnessTriggeredWhen.WhenToTrigger.Contains(game.RoundNo):
+                return FairBlockPlan.ForceAttack;
+            case "Sirinoks" when game.RoundNo is 1 or 10:
+                return FairBlockPlan.ForceAttack;
+            case "Рик Санчез":
+                return bot.Passives.RickPickle.PickleTurnsRemaining > 0
+                       || bot.Passives.RickPickle.PenaltyTurnsRemaining > 0
+                       || bot.Passives.RickPortalGun.Invented && bot.Passives.RickPortalGun.Charges > 0
+                    ? FairBlockPlan.ForceAttack : FairBlockPlan.Neutral;
+            case "Толя":
+                if (HasPlaystyle(bot, "Count") && bot.Passives.TolyaCount.IsReadyToUse)
+                    return FairBlockPlan.ForceAttack;
+                if (HasPlaystyle(bot, "Rammus") && HistoricalIncoming(bot, game, targets) >= 1)
+                    return FairBlockPlan.PreferBlock;
+                return bot.Passives.TolyaCount.IsReadyToUse && game.RoundNo is 3 or 8
+                    ? FairBlockPlan.ForceBlock : FairBlockPlan.Neutral;
+            case "Napoleon Wonnafcuk":
+                if (bot.Passives.NapoleonAlliance.AllyId == Guid.Empty) return FairBlockPlan.ForceAttack;
+                return HistoricalIncoming(bot, game, targets) >= 1.5m || game.RoundNo % 3 == 0
+                    ? FairBlockPlan.PreferBlock : FairBlockPlan.Neutral;
+            case "Таинственный Суппорт":
+                if (bot.Passives.SupportPremade.MarkedPlayerId == Guid.Empty || game.RoundNo % 3 == 0
+                    || HasPlaystyle(bot, "Carry")) return FairBlockPlan.ForceAttack;
+                return game.RoundNo % 2 == 0 ? FairBlockPlan.PreferBlock : FairBlockPlan.Neutral;
+            case "Продавец Сомнительных Тактик":
+                return bot.Passives.SellerVparitGovna.Cooldown <= 0
+                    ? FairBlockPlan.ForceAttack : FairBlockPlan.Neutral;
+            case "Стая Гоблинов":
+                var population = bot.Passives.GoblinPopulation;
+                var ziggurat = bot.Passives.GoblinZiggurat;
+                var place = bot.Status.GetPlaceAtLeaderBoard();
+                var canBuild = population.Warriors >= 1 && population.Hobs >= 1 && population.Workers >= 1
+                               && bot.Status.GetScore() >= 3 && !ziggurat.BuiltPositions.Contains(place);
+                if (canBuild && (place is 1 or 2 or 6 || game.RoundNo >= 7 || HasPlaystyle(bot, "Ziggurat")))
+                    return FairBlockPlan.ForceBlock;
+                return population.TotalGoblins < 10 ? FairBlockPlan.PreferBlock : FairBlockPlan.Neutral;
+            case "Котики":
+                var catsDeployed = bot.Passives.KotikiAmbush.MinkaOnPlayer != Guid.Empty
+                                   || bot.Passives.KotikiAmbush.StormOnPlayer != Guid.Empty;
+                if (game.RoundNo >= 8 || catsDeployed) return FairBlockPlan.ForceAttack;
+                return game.RoundNo >= 2 && game.RoundNo % 3 == 0
+                    ? FairBlockPlan.ForceBlock : FairBlockPlan.Neutral;
+            case "Монстр без имени":
+                if (game.RoundNo == 10 || HasPlaystyle(bot, "Apocalypse") && game.RoundNo >= 3)
+                    return FairBlockPlan.ForceAttack;
+                if (game.RoundNo <= 2) return FairBlockPlan.ForceBlock;
+                return HasPlaystyle(bot, "Twin") && HistoricalIncoming(bot, game, targets) >= 1
+                    ? FairBlockPlan.PreferBlock : FairBlockPlan.Neutral;
+            case "Sakura":
+                return game.RoundNo >= 8 && bot.Status.GetPlaceAtLeaderBoard() <= 3
+                    && HistoricalIncoming(bot, game, targets) >= 1
+                    ? FairBlockPlan.PreferBlock : FairBlockPlan.PreferAttack;
+            case "Salldorum":
+                if (!bot.Passives.SalldorumChronicler.HistoryRewritten && game.RoundNo >= 5 && game.RoundNo < 8)
+                {
+                    var bestRound = Enumerable.Range(1, game.RoundNo - 1)
+                        .OrderByDescending(round => bot.Status.WhoToLostEveryRound
+                            .Count(loss => loss.RoundNo == round) * (round <= 4 ? 1 : 2))
+                        .First();
+                    Salldorum.RewriteHistory(bot, game, bestRound);
+                }
+                return !bot.Passives.SalldorumTimeCapsule.FirstBlockUsed && game.RoundNo <= 3
+                    ? FairBlockPlan.ForceBlock : FairBlockPlan.Neutral;
+            case "Геральт":
+                if (game.RoundNo >= 8) return FairBlockPlan.ForceAttack;
+                if (!bot.Passives.GeraltOil.IsOilApplied) return FairBlockPlan.ForceBlock;
+                return bot.Passives.GeraltMeditation.RevealedEnemies.Count < 3 && game.RoundNo <= 6
+                    ? FairBlockPlan.PreferBlock : FairBlockPlan.ForceAttack;
+            default:
+                return FairBlockPlan.Neutral;
+        }
+    }
+
+    private bool ShouldFairBotBlock(GamePlayerBridgeClass bot, GameClass game,
+        IReadOnlyList<FairTarget> targets, FairBlockPlan plan)
+    {
+        if (bot.GameCharacter.Passive.Any(passive => passive.PassiveName is "Спарта" or "Aggress"))
+            return false;
+        if (plan == FairBlockPlan.ForceAttack) return false;
+        if (plan == FairBlockPlan.ForceBlock) return true;
+
+        var available = targets.Where(target => target.Score > 0).ToList();
+        if (available.Count == 0) return true;
+        var best = available.Max(target => target.Score);
+        if (game.RoundNo == 10)
+            return bot.Status.GetPlaceAtLeaderBoard() == 1 && plan != FairBlockPlan.PreferAttack;
+
+        var incoming = HistoricalIncoming(bot, game, targets);
+        if (Advanced(bot, game))
+        {
+            if (plan == FairBlockPlan.PreferBlock && best < 15) return true;
+            if (plan == FairBlockPlan.PreferAttack) return false;
+            if (bot.Status.GetPlaceAtLeaderBoard() <= 2 && incoming >= 1.5m && best < 12) return true;
+            if (bot.Status.GetPlaceAtLeaderBoard() >= 4
+                && bot.GameCharacter.Justice.GetRealJusticeNow() <= 1 && best < 7) return true;
+            return best < 5;
+        }
+
+        if (plan == FairBlockPlan.PreferBlock) return _rand.Luck(1, 2);
+        if (plan == FairBlockPlan.PreferAttack) return _rand.Luck(1, 5);
+        if (bot.GameCharacter.Justice.GetRealJusticeNow() == 0 && best < 7) return _rand.Luck(1, 2);
+        if (bot.Status.GetPlaceAtLeaderBoard() <= 2 && incoming >= 1.5m && best < 10)
+            return _rand.Luck(2, 3);
+        return _rand.Luck(1, 4);
+    }
+
+    private static decimal HistoricalIncoming(GamePlayerBridgeClass bot, GameClass game,
+        IReadOnlyList<FairTarget> targets)
+        => targets.Sum(target => BotInformation.RecentAverage(target.Knowledge.AttacksOnViewerByRound,
+            game.RoundNo, Advanced(bot, game) ? 5 : 2));
+
     // L0 (Dumb): pure-random attack/block baseline for experiments. No strategy — but respects every
     // genuine constraint: characters that literally can't block, targets that can't be attacked, and the
     // Макро two-attack rule (so games never freeze).
@@ -3720,6 +4843,56 @@ public class BotsBehavior : IServiceSingleton
             StatIndex = statIndex;
             StatCount = statCount;
         }
+    }
+
+    private enum FairBlockPlan
+    {
+        ForceAttack,
+        PreferAttack,
+        Neutral,
+        PreferBlock,
+        ForceBlock,
+    }
+
+    private sealed class FairTarget
+    {
+        public FairTarget(Nanobot nanobot, Guid id, string username, int place, bool isTeammate,
+            string markers, BotOpponentKnowledge knowledge, BotPredictionEvidence prediction,
+            CharacterClass definition, SkillClassType knownClass)
+        {
+            Nanobot = nanobot;
+            Id = id;
+            Username = username;
+            Place = place;
+            IsTeammate = isTeammate;
+            Markers = markers;
+            Knowledge = knowledge;
+            Prediction = prediction;
+            Definition = definition;
+            KnownClass = knownClass;
+        }
+
+        public Nanobot Nanobot { get; }
+        public Guid Id { get; }
+        public string Username { get; }
+        public int Place { get; }
+        public bool IsTeammate { get; }
+        public string Markers { get; }
+        public BotOpponentKnowledge Knowledge { get; }
+        public BotPredictionEvidence Prediction { get; }
+        public CharacterClass Definition { get; }
+        public SkillClassType KnownClass { get; }
+        public decimal EstimatedIntelligence { get; set; }
+        public decimal EstimatedStrength { get; set; }
+        public decimal EstimatedSpeed { get; set; }
+        public decimal EstimatedPsyche { get; set; }
+        public decimal EstimatedMaxStat => Math.Max(Math.Max(EstimatedIntelligence, EstimatedStrength),
+            Math.Max(EstimatedSpeed, EstimatedPsyche));
+        public int? EstimatedJustice { get; set; }
+        public decimal FightEdge { get; set; }
+        public decimal Score { get; set; }
+        public bool Mandatory { get; set; }
+        public bool AllowTeamAttack { get; set; }
     }
 
     public class Nanobot

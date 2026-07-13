@@ -36,7 +36,8 @@ public class SimOptionsDto
     public List<string> Characters { get; set; }
     public double TimeoutMin { get; set; }
 
-    /// <summary>Bot AI difficulty for the run: 0 pure-random, 1 legacy, 2 smarter heuristics, 3 omniscient (default).</summary>
+    /// <summary>Bot AI difficulty for the run: 0 pure-random, 1 legacy, 2 fair strategy,
+    /// 3 fair strategy with longer memory/rule inference (default).</summary>
     public int AiDifficulty { get; set; } = 3;
 
     /// <summary>Measurement probe: difficulty applied to a single bot (the rest use AiDifficulty). -1 = no probe.</summary>

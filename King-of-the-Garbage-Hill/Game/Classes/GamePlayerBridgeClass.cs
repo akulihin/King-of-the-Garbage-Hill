@@ -59,6 +59,13 @@ public class GamePlayerBridgeClass
     /// humans; the simulation report records it so individual builds can be measured.</summary>
     public string AiPlaystyle { get; set; } = "";
 
+    /// <summary>
+    /// What a strict bot has actually observed as an ordinary player. Target selection for AI levels 2/3
+    /// must go through this memory instead of reading another bridge's hidden character/action state.
+    /// This belongs to the persistent seat, not CharacterClass/FightCharacter, so DeepCopy is unaffected.
+    /// </summary>
+    public BotKnowledgeState AiKnowledge { get; set; } = new();
+
     public List<DeleteMessagesClass> DeleteMessages { get; set; } = new();
     public List<PredictClass> Predict { get; set; } = new();
 
@@ -155,4 +162,52 @@ public class GamePlayerBridgeClass
         var ready = humans.Where(x => x.Status.IsReady);
         return (ready.Count() == humans.Count());
     }
+}
+
+/// <summary>Viewer-scoped, persistent bot memory. It is never serialized to clients or replays.</summary>
+public sealed class BotKnowledgeState
+{
+    public int LastCapturedRound { get; set; }
+    public Dictionary<int, string> VisibleGlobalLogsByRound { get; set; } = new();
+    public Dictionary<Guid, BotOpponentKnowledge> Opponents { get; set; } = new();
+    public Dictionary<Guid, BotPredictionEvidence> PredictionEvidence { get; set; } = new();
+
+    public BotOpponentKnowledge Opponent(Guid playerId)
+    {
+        if (!Opponents.TryGetValue(playerId, out var knowledge))
+        {
+            knowledge = new BotOpponentKnowledge();
+            Opponents[playerId] = knowledge;
+        }
+
+        return knowledge;
+    }
+}
+
+/// <summary>Facts derived from resolved, viewer-visible fights and public action history.</summary>
+public sealed class BotOpponentKnowledge
+{
+    public Dictionary<int, int> PlacesByRound { get; set; } = new();
+    public int? LastObservedJustice { get; set; }
+    public int LastObservedJusticeRound { get; set; }
+    public decimal LastObservedFightEdge { get; set; }
+    public int LastObservedFightRound { get; set; }
+    public string LastObservedClass { get; set; } = "";
+    public Dictionary<int, int> AttacksByRound { get; set; } = new();
+    public Dictionary<int, int> TimesTargetedByRound { get; set; } = new();
+    public Dictionary<int, int> NonFightsByRound { get; set; } = new();
+    public Dictionary<int, int> AttacksOnViewerByRound { get; set; } = new();
+    public Dictionary<int, int> FightsWithViewerByRound { get; set; } = new();
+    public Dictionary<int, int> WinsByRound { get; set; } = new();
+    public Dictionary<int, int> LossesByRound { get; set; } = new();
+}
+
+/// <summary>A bot's own hypothesis or an identity explicitly revealed to that bot.</summary>
+public sealed class BotPredictionEvidence
+{
+    public string CharacterName { get; set; } = "";
+    public int Confidence { get; set; }
+    public string Evidence { get; set; } = "";
+    public int RoundUpdated { get; set; }
+    public bool IsExactReveal { get; set; }
 }

@@ -22,6 +22,8 @@ public class CharacterPassives : IServiceSingleton
     private readonly CharactersPull _charactersPull;
     private readonly ClaudeHaikuService _haikuService;
     private readonly GameReaction _gameReaction;
+    private readonly object _fairPredictionCatalogLock = new();
+    private List<CharacterClass> _fairPredictionCatalog;
 
     public CharacterPassives(SecureRandom rand, HelperFunctions help,
         LoginFromConsole log, GameUpdateMess gameUpdateMess, CharactersPull charactersPull,
@@ -6914,6 +6916,457 @@ public class CharacterPassives : IServiceSingleton
         return characters;
     }
 
+    /// <summary>
+    /// Prediction AI for strict L2/L3 bots. This method deliberately accepts the live player objects only
+    /// as public leaderboard identities: target id, username and place. Candidate characters come from the
+    /// same visible prediction catalogue as the player UI; target GameCharacter/Passives/action flags are
+    /// never consulted. Exact entries are retained only when a player-facing reveal created them.
+    /// </summary>
+    private void HandleFairBotPredict(GamePlayerBridgeClass player, GameClass game, int effectiveDifficulty)
+    {
+        var targets = game.PlayersList
+            .Where(target => target.GetPlayerId() != player.GetPlayerId())
+            .ToList();
+        var catalog = GetFairPredictionCatalog()
+            .Where(character => !Sakura.Is(character.Name) && !UnknownBug.Is(character.Name))
+            .Where(character => game.Teams.Count > 0 || !character.TeamModeOnly)
+            .GroupBy(character => character.Name)
+            .Select(group => group.First())
+            .ToList();
+        if (catalog.Count == 0 || targets.Count == 0)
+            return;
+
+        // Include the current player projection directly as well: a round with no FightEntry rows can still
+        // contain a public reveal, and CaptureVisibleRound intentionally has no combat snapshot to retain.
+        var visibleHistory = BotInformation.VisibleGlobalHistory(player) + "\n"
+                             + BotInformation.VisibleCurrentGlobalLogs(player, game);
+        var splitPersonalLogs = player.Status.InGamePersonalLogsAll.Split("|||", StringSplitOptions.None);
+        var lastRoundPersonal = splitPersonalLogs.Length > 1 && game.RoundNo > 1
+            ? splitPersonalLogs[^2]
+            : "";
+        var currentPersonal = player.Status.GetInGamePersonalLogs();
+
+        SeedFairExactPredictions(player, game, targets, catalog, visibleHistory);
+
+        var exactByTarget = targets
+            .Select(target => (Target: target, Evidence: BotInformation.PredictionFor(player, target.GetPlayerId())))
+            .Where(pair => pair.Evidence is { IsExactReveal: true })
+            .ToDictionary(pair => pair.Target.GetPlayerId(), pair => pair.Evidence!.CharacterName);
+        var knownRosterNames = exactByTarget.Values
+            .Append(player.GameCharacter.Name)
+            .ToHashSet(StringComparer.Ordinal);
+
+        var candidates = catalog
+            .Where(character => character.Name != player.GameCharacter.Name)
+            .Where(character => !knownRosterNames.Contains(character.Name))
+            .ToList();
+        ApplyFairRosterConstraints(candidates, catalog, knownRosterNames);
+        if (candidates.Count == 0)
+            candidates = catalog.Where(character => character.Name != player.GameCharacter.Name).ToList();
+
+        var unresolvedTargets = targets
+            .Where(target => !exactByTarget.ContainsKey(target.GetPlayerId()))
+            .ToList();
+        if (effectiveDifficulty == 2)
+        {
+            foreach (var target in unresolvedTargets)
+            {
+                var scored = candidates
+                    .Select(candidate => (Candidate: candidate, Score: FairPredictionScore(
+                        player, target, candidate, game, false, lastRoundPersonal, currentPersonal,
+                        visibleHistory)))
+                    .OrderByDescending(choice => choice.Score)
+                    .ToList();
+                if (scored.Count == 0)
+                    continue;
+
+                var oldEvidence = BotInformation.PredictionFor(player, target.GetPlayerId());
+                CharacterClass selected;
+                int confidence;
+                string evidence;
+                if (scored[0].Score < 45
+                    && oldEvidence != null
+                    && candidates.Any(candidate => candidate.Name == oldEvidence.CharacterName))
+                {
+                    selected = candidates.First(candidate => candidate.Name == oldEvidence.CharacterName);
+                    confidence = Math.Max(25, oldEvidence.Confidence);
+                    evidence = oldEvidence.Evidence;
+                }
+                else if (scored[0].Score < 45)
+                {
+                    selected = PickFairPredictionByPrior(candidates);
+                    confidence = 25;
+                    evidence = "visible character-catalogue prior";
+                }
+                else
+                {
+                    var tied = scored.Where(choice => choice.Score == scored[0].Score).ToList();
+                    var selectedChoice = oldEvidence != null
+                                         && tied.Any(choice => choice.Candidate.Name == oldEvidence.CharacterName)
+                        ? tied.First(choice => choice.Candidate.Name == oldEvidence.CharacterName)
+                        : tied[_rand.Random(0, tied.Count - 1)];
+                    selected = selectedChoice.Candidate;
+                    var secondScore = scored.Count > 1 ? scored[1].Score : 0;
+                    confidence = Math.Clamp(40 + (selectedChoice.Score - secondScore) / 2, 40, 85);
+                    evidence = "earned class, own-fight or visible-log evidence";
+                }
+
+                RecordFairPredictionChoice(player, target.GetPlayerId(), selected.Name,
+                    confidence, evidence, game.RoundNo);
+            }
+
+            return;
+        }
+
+        // L3 combines the same legal evidence with roster rules. Assign the most constrained target first,
+        // then remove that character from the remaining public pool. This is inference, not a roster read.
+        var available = candidates.ToList();
+        var pending = unresolvedTargets.ToList();
+        while (pending.Count > 0 && available.Count > 0)
+        {
+            var targetChoices = pending.Select(target =>
+            {
+                var ranked = available
+                    .Select(candidate => (Candidate: candidate, Score: FairPredictionScore(
+                        player, target, candidate, game, true, lastRoundPersonal, currentPersonal,
+                        visibleHistory)))
+                    .OrderByDescending(choice => choice.Score)
+                    .ToList();
+                var margin = ranked[0].Score - (ranked.Count > 1 ? ranked[1].Score : 0);
+                return (Target: target, Ranked: ranked, Margin: margin);
+            }).OrderByDescending(choice => choice.Margin)
+              .ThenByDescending(choice => choice.Ranked[0].Score)
+              .ThenBy(choice => choice.Target.Status.GetPlaceAtLeaderBoard())
+              .First();
+
+            var best = targetChoices.Ranked[0];
+            var confidence = Math.Clamp(35 + best.Score / 3 + targetChoices.Margin / 2, 35, 92);
+            RecordFairPredictionChoice(player, targetChoices.Target.GetPlayerId(), best.Candidate.Name,
+                confidence, "accumulated public evidence plus all-different roster inference", game.RoundNo);
+
+            pending.Remove(targetChoices.Target);
+            available.RemoveAll(candidate => candidate.Name == best.Candidate.Name);
+        }
+    }
+
+    private List<CharacterClass> GetFairPredictionCatalog()
+    {
+        // CharactersPull deserializes characters.json on every call. Prediction runs once per bot per
+        // round and simulations run many games concurrently, so retain the immutable public definitions.
+        // Every consumer below creates its own filtered list before applying roster constraints.
+        if (_fairPredictionCatalog != null)
+            return _fairPredictionCatalog;
+        lock (_fairPredictionCatalogLock)
+        {
+            _fairPredictionCatalog ??= _charactersPull.GetVisibleCharacters();
+            return _fairPredictionCatalog;
+        }
+    }
+
+    private void SeedFairExactPredictions(
+        GamePlayerBridgeClass player,
+        GameClass game,
+        List<GamePlayerBridgeClass> targets,
+        List<CharacterClass> catalog,
+        string visibleHistory)
+    {
+        // Public Толя reveals include both the username and exact catalogue value.
+        foreach (var target in targets)
+        foreach (var character in catalog)
+        {
+            if (!visibleHistory.Contains(
+                    $"Толя запизделся и спалил, что {target.DiscordUsername} - {character.Name}",
+                    StringComparison.Ordinal))
+                continue;
+            BotInformation.RecordPrediction(player, target.GetPlayerId(), character.Name, 100,
+                "public Толя reveal", game.RoundNo, true);
+        }
+
+        // Сверхразум and Naruto sibling setup write the exact value into the owner's own prediction slot.
+        // The id lists are private owner-visible state; no opponent state is dereferenced here.
+        var ownerRevealIds = new HashSet<Guid>();
+        if (player.GameCharacter.Passive.Any(passive => passive.PassiveName == "Сверхразум"))
+            ownerRevealIds.UnionWith(player.Passives.DeepListSupermindKnown.KnownPlayers);
+        if (Naruto.IsNaruto(player))
+            ownerRevealIds.UnionWith(player.Passives.Naruto.NarutoPlayerIds
+                .Where(id => id != player.GetPlayerId()));
+
+        foreach (var targetId in ownerRevealIds)
+        {
+            var existing = player.Predict.Find(prediction => prediction.PlayerId == targetId);
+            if (existing == null || catalog.All(character => character.Name != existing.CharacterName))
+                continue;
+            BotInformation.RecordPrediction(player, targetId, existing.CharacterName, 100,
+                "owner-visible exact reveal", game.RoundNo, true);
+        }
+
+        // Коммуникация exposes one catalogue name globally and the UI exposes its Pink-Ward target id.
+        // Толя targets above are already resolved, so a single remaining id/name pair is unambiguous.
+        var unresolvedPinkTargets = targets.Where(target =>
+                game.PinkWardRevealedPlayerIds.Contains(target.GetPlayerId())
+                && BotInformation.PredictionFor(player, target.GetPlayerId()) is not { IsExactReveal: true })
+            .ToList();
+        var communicationNames = visibleHistory.Split('\n')
+            .Where(line => line.Contains("Пиквард просветил ", StringComparison.Ordinal))
+            .SelectMany(line => catalog.Where(character =>
+                line.Contains($"Пиквард просветил {character.Name}", StringComparison.Ordinal)))
+            .Select(character => character.Name)
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+        if (unresolvedPinkTargets.Count == 1 && communicationNames.Count == 1)
+            BotInformation.RecordPrediction(player, unresolvedPinkTargets[0].GetPlayerId(),
+                communicationNames[0], 100, "public Коммуникация reveal", game.RoundNo, true);
+    }
+
+    private static void ApplyFairRosterConstraints(
+        List<CharacterClass> candidates,
+        List<CharacterClass> catalog,
+        HashSet<string> knownRosterNames)
+    {
+        if (knownRosterNames.Contains("LeCrisp"))
+            candidates.RemoveAll(character => character.Name == "Толя");
+        if (knownRosterNames.Contains("Толя"))
+            candidates.RemoveAll(character => character.Name == "LeCrisp");
+        if (knownRosterNames.Contains("HardKitty"))
+            candidates.RemoveAll(character => character.Name == ErenYeager.CharacterName);
+        if (knownRosterNames.Contains(ErenYeager.CharacterName))
+            candidates.RemoveAll(character => character.Name == "HardKitty");
+
+        var knownTierFour = catalog.Any(character =>
+            character.Tier == 4 && knownRosterNames.Contains(character.Name));
+        if (knownTierFour)
+            candidates.RemoveAll(character => character.Tier == 4);
+    }
+
+    private CharacterClass PickFairPredictionByPrior(List<CharacterClass> candidates)
+    {
+        // Монстр is a legal catalogue hypothesis but never a useful value to submit: it cannot score and
+        // submitting any value against the real Монстр feeds his punish. Only strong reveal-failure evidence
+        // below makes the bot deliberately leave a target blank.
+        var priorCandidates = candidates.Where(candidate => candidate.Name != "Монстр без имени").ToList();
+        if (priorCandidates.Count == 0)
+            priorCandidates = candidates;
+        var total = priorCandidates.Sum(FairPredictionPrior);
+        var roll = _rand.Random(1, Math.Max(1, total));
+        foreach (var candidate in priorCandidates)
+        {
+            roll -= FairPredictionPrior(candidate);
+            if (roll <= 0)
+                return candidate;
+        }
+
+        return priorCandidates[^1];
+    }
+
+    private static void RecordFairPredictionChoice(
+        GamePlayerBridgeClass player,
+        Guid targetId,
+        string characterName,
+        int confidence,
+        string evidence,
+        int round)
+    {
+        if (characterName != "Монстр без имени")
+        {
+            BotInformation.RecordPrediction(player, targetId, characterName, confidence, evidence, round);
+            return;
+        }
+
+        var old = BotInformation.PredictionFor(player, targetId);
+        if (old != null && old.Confidence > confidence)
+            return;
+        player.AiKnowledge.PredictionEvidence[targetId] = new BotPredictionEvidence
+        {
+            CharacterName = characterName,
+            Confidence = Math.Clamp(confidence, 0, 100),
+            Evidence = evidence + "; abstain because Монстр cannot be scored",
+            RoundUpdated = round,
+        };
+        player.Predict.RemoveAll(prediction => prediction.PlayerId == targetId);
+    }
+
+    private static int FairPredictionPrior(CharacterClass candidate) => candidate.Tier switch
+    {
+        >= 6 => 18,
+        5 => 14,
+        4 => 12,
+        3 => 9,
+        2 => 8,
+        1 => 7,
+        _ => 6,
+    };
+
+    private static int FairPredictionScore(
+        GamePlayerBridgeClass player,
+        GamePlayerBridgeClass target,
+        CharacterClass candidate,
+        GameClass game,
+        bool advanced,
+        string lastRoundPersonal,
+        string currentPersonal,
+        string visibleHistory)
+    {
+        var score = FairPredictionPrior(candidate);
+        var targetId = target.GetPlayerId();
+        var knownTell = player.Status.KnownPlayerClass.Find(known => known.EnemyId == targetId);
+        var knownClass = ParseFairKnownClass(knownTell?.Text);
+        if (knownClass != SkillClassType.None)
+            score += candidate.GetSkillClassType() == knownClass ? 55 : -24;
+
+        player.AiKnowledge.Opponents.TryGetValue(targetId, out var memory);
+        if (memory != null && memory.LastObservedFightRound > 0)
+        {
+            var observedClass = ParseFairKnownClass(memory.LastObservedClass);
+            if (observedClass != SkillClassType.None)
+            {
+                var age = Math.Max(0, game.RoundNo - memory.LastObservedFightRound);
+                var classWeight = Math.Max(12, (advanced ? 48 : 34) - age * 4);
+                score += candidate.GetSkillClassType() == observedClass ? classWeight : -classWeight / 3;
+            }
+        }
+
+        var personalContext = lastRoundPersonal + "\n" + currentPersonal;
+        var targetMentioned = personalContext.Contains(target.DiscordUsername, StringComparison.Ordinal);
+        if (targetMentioned)
+        {
+            if (personalContext.Contains("Коммуникация: Не удалось просветить", StringComparison.Ordinal)
+                && candidate.Name == "Монстр без имени")
+                score += 80;
+            if (personalContext.Contains("Ничего не понимает", StringComparison.Ordinal))
+            {
+                if (candidate.Name == "Братишка") score += 48;
+                if (candidate.Name == DoomGuy.CharacterName) score += 20;
+            }
+            if (personalContext.Contains("Они позорят военное искусство", StringComparison.Ordinal)
+                && candidate.Name == "Загадочный Спартанец в маске")
+                score += 52;
+            if (personalContext.Contains("Стёб", StringComparison.Ordinal) && candidate.Name == "DeepList")
+                score += 45;
+            if (personalContext.Contains("Панцирь", StringComparison.Ordinal) && candidate.Name == "Краборак")
+                score += 38;
+        }
+
+        score += AwdkaFairPredictionScore(player, target, candidate, lastRoundPersonal);
+
+        if (!advanced)
+            return score;
+
+        // IsBot is part of the public player DTO. L3 knows the natural strict-bot roll rule, but
+        // treats it only as a prior because disconnected humans and admin-forced line-ups are exceptions.
+        if (target.IsBot())
+            score += candidate.Tier >= 4 || candidate.Name == "Кира" ? 20 : -10;
+
+        if (memory != null)
+        {
+            var attacks = BotInformation.RecentAverage(memory.AttacksByRound, game.RoundNo, 6);
+            if (attacks >= 1.5m && candidate.Name == "Dopa")
+                score += 30;
+
+            var defenseRate = BotInformation.DefenseRate(memory, game.RoundNo, 6);
+            if (defenseRate >= 0.55m && candidate.Name is "Рик Санчез" or "Геральт" or "Salldorum")
+                score += 8;
+            if (defenseRate >= 0.55m && candidate.Name == DoomGuy.CharacterName)
+                score += 12;
+        }
+
+        // These lines name their speaker in the public log. They are strong but still fallible tells,
+        // because transferred passives and copied effects exist in the ruleset.
+        if (visibleHistory.Contains($"{target.DiscordUsername}: Всё, у меня горит!", StringComparison.Ordinal)
+            && candidate.Name == "Darksci")
+            score += 72;
+        if (visibleHistory.Contains($"{target.DiscordUsername}: ЕБАННЫЕ БАНЫ", StringComparison.Ordinal)
+            && candidate.Name == "Darksci")
+            score += 72;
+        if (visibleHistory.Contains(
+                $"Толя попытался что-то разузнать про {target.DiscordUsername}, но не удалось просветить",
+                StringComparison.Ordinal)
+            && candidate.Name == "Монстр без имени")
+            score += 90;
+
+        if (target.Status.GetPlaceAtLeaderBoard() == 6 && candidate.Name == "HardKitty")
+            score += 7;
+
+        var oldEvidence = BotInformation.PredictionFor(player, targetId);
+        if (oldEvidence != null && oldEvidence.CharacterName == candidate.Name)
+            score += Math.Min(10, oldEvidence.Confidence / 10);
+
+        return score;
+    }
+
+    private static SkillClassType ParseFairKnownClass(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return SkillClassType.None;
+        if (value.Contains("Умный", StringComparison.Ordinal)
+            || value.Contains("Интеллект", StringComparison.Ordinal))
+            return SkillClassType.Intelligence;
+        if (value.Contains("Сильный", StringComparison.Ordinal)
+            || value.Contains("Сила", StringComparison.Ordinal))
+            return SkillClassType.Strength;
+        if (value.Contains("Быстрый", StringComparison.Ordinal)
+            || value.Contains("Скорость", StringComparison.Ordinal))
+            return SkillClassType.Speed;
+        return SkillClassType.None;
+    }
+
+    private static int AwdkaFairPredictionScore(
+        GamePlayerBridgeClass player,
+        GamePlayerBridgeClass target,
+        CharacterClass candidate,
+        string lastRoundPersonal)
+    {
+        if (player.GameCharacter.Name != "AWDKA"
+            || !lastRoundPersonal.Contains(target.DiscordUsername, StringComparison.Ordinal))
+            return 0;
+
+        var bonus = 0;
+        if (player.GameCharacter.GetIntelligenceString().Contains(":volibir:", StringComparison.Ordinal))
+        {
+            bonus += candidate.Name switch
+            {
+                "DeepList" when player.GameCharacter.GetIntelligence() == 10 => 65,
+                "Злой Школьник" when player.GameCharacter.GetIntelligence() == 9 => 65,
+                "Толя" when player.GameCharacter.GetIntelligence() == 8 => 65,
+                "Вампур" when player.GameCharacter.GetIntelligence() == 6 => 65,
+                "Sirinoks" when player.GameCharacter.GetIntelligence() == 5 => 65,
+                _ => 0,
+            };
+        }
+        if (player.GameCharacter.GetStrengthString().Contains(":volibir:", StringComparison.Ordinal))
+        {
+            bonus += candidate.Name switch
+            {
+                "Загадочный Спартанец в маске" when player.GameCharacter.GetStrength() == 10 => 65,
+                "Тигр" when player.GameCharacter.GetStrength() == 9 => 65,
+                _ => 0,
+            };
+        }
+        if (player.GameCharacter.GetSpeedString().Contains(":volibir:", StringComparison.Ordinal))
+        {
+            bonus += candidate.Name switch
+            {
+                "Краборак" when player.GameCharacter.GetSpeed() == 10 => 65,
+                "mylorik" when player.GameCharacter.GetSpeed() == 9 => 65,
+                "Darksci" when player.GameCharacter.GetSpeed() == 8 => 65,
+                _ => 0,
+            };
+        }
+        if (player.GameCharacter.GetPsycheString().Contains(":volibir:", StringComparison.Ordinal))
+        {
+            bonus += candidate.Name switch
+            {
+                "Осьминожка" when player.GameCharacter.GetPsyche() == 10 => 65,
+                "Краборак" when player.GameCharacter.GetPsyche() == 9 => 65,
+                "HardKitty" when player.GameCharacter.GetPsyche() == 8
+                                  && target.Status.GetPlaceAtLeaderBoard() == 6 => 65,
+                "Глеб" when player.GameCharacter.GetPsyche() == 8 => 55,
+                "LeCrisp" when player.GameCharacter.GetPsyche() == 7 => 65,
+                _ => 0,
+            };
+        }
+
+        return bonus;
+    }
+
     [SuppressMessage("ReSharper", "UnusedVariable")]
     public void HandleBotPredict(GameClass game)
     {
@@ -6923,6 +7376,11 @@ public class CharacterPassives : IServiceSingleton
             {
                 if (!player.IsBot()) continue;
                 if (player.Passives.IsDead) continue;
+                // IsBot() also includes disconnected humans. Only strict bots get autonomous AI
+                // knowledge, and their L2/L3 memory is populated through the player-visible boundary.
+                var effAiDifficulty = player.AiDifficulty >= 0 ? player.AiDifficulty : game.AiDifficulty;
+                if (player.PlayerType == 404 && effAiDifficulty >= 2)
+                    BotInformation.CaptureVisibleRound(player, game);
                 if (game.RoundNo >= 9) continue;
                 // Kira uses Death Note, not predictions
                 if (player.GameCharacter.Passive.Any(x => x.PassiveName == "Тетрадь смерти")) continue;
@@ -6933,22 +7391,10 @@ public class CharacterPassives : IServiceSingleton
                     continue;
                 }
 
-                // L3: strict bots (never AFK humans — IsBot() also matches disconnected players) know everyone.
-                // Effective difficulty honors a per-player --ai-probe override (≥0), else the game default.
-                var effAiDifficulty = player.AiDifficulty >= 0 ? player.AiDifficulty : game.AiDifficulty;
-                if (effAiDifficulty >= 3 && game.RoundNo >= game.AiFullKnowledgeRound && player.PlayerType == 404)
+                if (player.PlayerType == 404 && effAiDifficulty >= 2)
                 {
-                    foreach (var enemy in game.PlayersList.Where(x =>
-                                 x.GetPlayerId() != player.GetPlayerId() && !Sakura.Is(x)))
-                    {
-                        var existing = player.Predict.Find(x => x.PlayerId == enemy.GetPlayerId());
-                        if (existing != null) player.Predict.Remove(existing);
-                        // Never predict Монстр без имени: can't score (CIR:301) and gifts him +3 / pawn on round 9 (CP:5487-5515)
-                        if (enemy.GameCharacter.Passive.Any(p => p.PassiveName == "Выдуманный персонаж")
-                            || UnknownBug.Is(enemy)) continue;
-                        player.Predict.Add(new PredictClass(enemy.GameCharacter.Name, enemy.GetPlayerId()));
-                    }
-                    continue; // heuristics redundant once omniscient
+                    HandleFairBotPredict(player, game, effAiDifficulty);
+                    continue;
                 }
 
                 var splitLogs = player.Status.InGamePersonalLogsAll.Split("|||");

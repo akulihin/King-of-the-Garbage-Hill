@@ -1,21 +1,21 @@
 # Design-vs-Code Audit — Findings
 
-> Original audit of `DataBase/characters.json` (+ `Game/GameDesign.txt` intent notes, root-level update notes) against the 2026-07-01 working tree (v4.1.8); statuses and fix notes re-verified through 2026-07-13 (v4.4.7). Historical “Code” bullets describe the pre-fix implementation when a later **Fixed** note is present. `CP` = `Game/GameLogic/CharacterPassives.cs`.
+> Original audit of `DataBase/characters.json` (+ `Game/GameDesign.txt` intent notes, root-level update notes) against the 2026-07-01 working tree (v4.1.8); statuses and fix notes re-verified through 2026-07-13 (v4.4.8). Historical “Code” bullets describe the pre-fix implementation when a later **Fixed** note is present. `CP` = `Game/GameLogic/CharacterPassives.cs`.
 >
 > Severity: **Critical** = player-visible wrong outcome / broken kit promise; **Major** = mechanic silently missing/misfiring or balance-relevant hidden behavior; **Minor** = cosmetic, flavor, dead code, small numeric drift; **Design question** = code self-consistent but intent ambiguous.
 
 ## Critical
 
 ### C1. Cyrillic "Салдорум" vs JSON name "Salldorum" — four dead branches
-- **JSON**: character `Name` is Latin `"Salldorum"` (`characters.json:1316`). Live logic (fights, web actions, bot moral/target/block/build cases at `BotsBehavior.cs:597, 2193, 3119, 3602`) correctly checks `"Salldorum"`.
+- **JSON**: character `Name` is Latin `"Salldorum"` (`characters.json:1316`). Live logic (fights, web actions, bot moral/target/block/build cases at `BotsBehavior.cs:639,2414,3350,4750`) correctly checks `"Salldorum"`.
 - **Dead branches checking Cyrillic `"Салдорум"`** (can never match):
-  - `CheckIfReady.cs:134` — end-game "Великий летописец: испорчено N записей" log never prints.
-  - `BotsBehavior.cs:328` — bot moral policy (always moral→skill) never applies.
-  - `BotsBehavior.cs:1413` — bot attack-preference case never applies (it also reads the *legacy* `SaldorumKhokholList` — stale even if renamed).
-  - `BotsBehavior.cs:2666` — bot level-up preference (PSY-first) never applies.
+  - the pre-fix end-game branch — "Великий летописец: испорчено N записей" log never prints.
+  - the pre-fix bot moral branch — always-moral→skill policy never applies.
+  - the pre-fix bot attack-preference branch — never applies and also reads the *legacy* `SaldorumKhokholList`.
+  - the pre-fix bot level-up branch — PSY-first policy never applies.
 - **Impact**: bot Salldorum plays with untuned moral/level-up/targeting AI; an end-game log is lost. Human play unaffected.
-- **Fix direction**: rename the four checks to `"Salldorum"`; rewrite the `:1409` preference for the current kit (Шэн/rewrite), not the Khokhol legacy.
-- **Fixed:** 2026-07-03 (pre-approved string bug) — renamed the three `Name == "Салдорум"` checks to `"Salldorum"` (current anchors: `CheckIfReady.cs:142-143`, `BotsBehavior.cs:597` moral, `:3602-3603` level-up). The dead Cyrillic targeting case was **deleted**, not renamed; the live Chronicler case is `BotsBehavior.cs:2197-2224`. Removed `BAD-NAME|Салдорум|C1` from `tools/known-warnings.txt`. (`SaldorumKhokholList` remains dead — leave for m6.)
+- **Fix direction**: rename the four checks to `"Salldorum"`; rewrite the old targeting preference for the current kit (Шэн/rewrite), not the Khokhol legacy.
+- **Fixed:** 2026-07-03 (pre-approved string bug) — renamed the three `Name == "Салдорум"` checks to `"Salldorum"` (current anchors: `CheckIfReady.cs:143-144`, bot moral `BotsBehavior.cs:639-642`, level-up `:4749-4750`). The dead Cyrillic targeting case was **deleted**, not renamed; the live Chronicler case is `BotsBehavior.cs:2414-2432`. Removed `BAD-NAME|Салдорум|C1` from `tools/known-warnings.txt`. (`SaldorumKhokholList` remains dead — leave for m6.)
 
 ## Major
 
@@ -140,8 +140,9 @@
 - **Fixed:** 2026-07-03 (designer verdict 10%) — `_rand.Luck(20)` → `_rand.Luck(10)` (`CP:4501`); BALANCE-CONSTANTS row updated. (`Luck(p)` with no range = `p >= rand(0,100)` ≈ p%.)
 
 ### m17. Dopa "Взгляд в будущее" also procs on blocks
-- Proc condition (`CP:4254-4258`): either dual-target attacked the other **or either target blocked**. The description only promises the "attacked his next target" case. Lenient in Dopa's favor.
-- **Fixed:** 2026-07-05 — removed the two block-based proc conditions; Vision now fires only when one of Dopa's two targets actually attacked the other (`CP:4241-4266`). The stale Фарм bot block heuristic was removed too; current Dopa targeting uses actual co-attacker plans (`BotsBehavior.cs:1742-1804`).
+- **Actual before the fix:** either dual-target could attack the other **or either target could block**. The description promised only the "attacked his next target" case. Lenient in Dopa's favor.
+- **Fixed:** 2026-07-05 — removed the two block-based proc conditions; Vision now fires only when one of Dopa's two targets actually attacked the other (`CP:4687-4713`).
+- **Bot follow-up:** the stale Фарм block heuristic was removed too. Legacy L1 retains its actual submitted co-attacker plan; fair L2/L3 instead use resolved historical target attention through `BotsBehavior.ApplyFairCharacterPreference`, never the current hidden attack queue.
 
 ### m18. "Привет со дна" counts skip *events*, not skipping players
 - `CP:3683`: bonus = `game.SkipPlayersThisRound` (incremented once per skipped **fight**, `DoomsdayMachine.cs:595` — two attackers into one skipper = 2) + count of blockers. Mildly inflated vs "когда кто-то пропускает ход".
@@ -271,31 +272,31 @@ Worth stating because they're easy to suspect: Francie's final-turn contract win
 ## Phase 5 — simulation harness & bot robustness
 
 ### M13. Discord service-channel debug calls freeze headless sims and mask the real exception
-- Four diagnostic Discord-channel calls in the per-tick hot path were **not** null-guarded. In headless simulation (and during a Discord reconnect) they could throw and freeze the round. Current guarded sites are the two bot fallbacks (`BotsBehavior.cs:3287-3306`), the attack-handler catch (`HandleBotAttack` entry `BotsBehavior.cs:772`; log + `SimErrorSink` at `BotsBehavior.cs:3346-3349` before the guarded send), and the ready-check fallback (`CheckIfReady.cs:1349-1365`).
-- **Impact**: ~1/1000 sim games froze (sweep-20260702-191714 hit 5 batches) and the true exception (M14) was invisible — every recorded error read as the generic `CheckIfReady.cs:1305` NRE. In production a Discord reconnect at the wrong moment can freeze a live game the same way until reconnect.
-- **Fixed:** 2026-07-03 — added null-safe `Global.TrySendServiceMessage(string)`, routed the bot fallbacks through it (`BotsBehavior.cs:3287-3306`), and reordered the catch to `_logs.Critical` + `SimErrorSink?.Invoke(...)` before the guarded send (`BotsBehavior.cs:3346-3349`). Verified: previously-freezing line-up 0 stuck; 5000-game natural sim 0 errors/0 stuck.
+- Four diagnostic Discord-channel calls in the per-tick hot path were **not** null-guarded. In headless simulation (and during a Discord reconnect) they could throw and freeze the round. Current guarded sites are the two bot fallbacks (`BotsBehavior.cs:3478-3517`), the attack-handler catch (`BotsBehavior.cs:3556-3564`), and the ready-check fallback (`CheckIfReady.cs:1425-1438`).
+- **Impact**: ~1/1000 sim games froze (sweep-20260702-191714 hit 5 batches) and the true exception (M14) was invisible — every recorded error read as a generic ready-check NRE. In production a Discord reconnect at the wrong moment can freeze a live game the same way until reconnect.
+- **Fixed:** 2026-07-03 — added null-safe `Global.TrySendServiceMessage(string)`, routed the bot fallbacks through it (`BotsBehavior.cs:3478-3517`), and ordered the catch as `_logs.Critical` + `SimErrorSink?.Invoke(...)` before the guarded send (`BotsBehavior.cs:3556-3564`). Verified: previously-freezing line-up 0 stuck; 5000-game natural sim 0 errors/0 stuck.
 
 ### M14. Bot `HandleBotAttack` throws IndexOutOfRange when it has no valid targets
-- The random fallback builds `players = allTargets.ToList()` (`BotsBehavior.cs:3303`). When the pool was empty after deaths/late-round filters (`:794-819`), indexing it threw an argument-out-of-range exception. Кира-correlated; observed rounds 8–10.
-- **Impact**: the bot's turn crashes. Post-M13 it is recorded as a per-game sim error; in production the bot fails its action and auto-blocks (`CheckIfReady.cs:1295` fallback) plus debug-channel spam.
-- **Fixed:** 2026-07-03 — `if (players.Count == 0)` blocks, resets preferences and returns (`BotsBehavior.cs:3303-3312`). Verified: Kira line-up 500 games → 0 errors/0 stuck. (The early `allTargets.First()` remains round-<5 guarded.) **See M16** — its sibling `Братишка` branch (`BotsBehavior.cs:2770-2786`) runs earlier.
+- The pre-fix random fallback built `players = allTargets.ToList()`. When the pool was empty after deaths/late-round filters, indexing it threw an argument-out-of-range exception. Кира-correlated; observed rounds 8–10.
+- **Impact**: the bot's turn crashes. Post-M13 it is recorded as a per-game sim error; in production the bot fails its action and falls back to an automatic block plus debug-channel spam.
+- **Fixed:** 2026-07-03 — `if (players.Count == 0)` blocks, resets preferences and returns (`BotsBehavior.cs:3478-3489`). Verified: Kira line-up 500 games → 0 errors/0 stuck. (The early `allTargets.First()` remains round-<5 guarded.) **See M16** — its sibling `Братишка` branch (`BotsBehavior.cs:2969-2988`) runs earlier.
 
 ### M15. WebUI let players bank level-up points instead of spending before continuing
-- On Discord a granted level-up (rounds 3/5/7/9, `DoomsdayMachine.cs:1477-1481`) flips `Status.MoveListPage` to 3, so only the level-up menu renders. The web action handlers originally set readiness regardless of `LvlUpPoints`; a web player could act while carrying points into a later round. Bot/auto-move spending occurs before action at `BotsBehavior.cs:110-128` (called by `CheckIfReady.cs:1207-1262`).
+- On Discord a granted level-up (rounds 3/5/7/9, `DoomsdayMachine.cs:1477-1481`) flips `Status.MoveListPage` to 3, so only the level-up menu renders. The web action handlers originally set readiness regardless of `LvlUpPoints`; a web player could act while carrying points into a later round. Bot/auto-move spending occurs before action in `BotsBehavior.HandleBotBehavior` (`BotsBehavior.cs:91-107`; called by `CheckIfReady.cs:1286-1297`).
 - **Impact**: platform inconsistency and a real advantage — banking points to dump on demand, and dodging the round-9 Дизмораль −5 Psyche (see D1). Discord-impossible; WebUI-only.
 - **Fixed:** 2026-07-03 — generalized the `Main Ирелия` guard into `WebGameService.LevelUpGate` (blocks any `LvlUpPoints > 0` from the four turn-ending actions; Ирелия keeps "Риоты не прощают, нерфа не избежать", everyone else gets "Остались очки прокачки — потрать их!"). Mirrored client-side: `store/game.ts` adds a `mustSpendLevelUp` computed + early-returns in `attack/block/autoMove/confirmSkip`; `pages/Game.vue` disables Block/Auto/Skip, tightens the Leaderboard `:can-attack`, and shows the same prompt. No soft-lock: every character always has an enabled level-up button in `PlayerCard.vue` while points remain, and the round-end auto-move force-spends any leftover.
 
 ### M16. Bot `HandleBotAttack` throws "Sequence contains no elements" in the Братишка per-character switch on an empty target pool
-- The `Братишка` block branch (`BotsBehavior.cs:2742`) runs `allTargets.Min(...Justice...)` (`:2749`). When the late-round filters leave no targets, that used to throw before M14's fallback guard. Кира-correlated; all three failures in the cited sweep were round 10 with Братишка + Тигр + Кира.
-- **Impact**: the Братишка bot's turn crashes on round 10 when no legal target remains. Post-M13 it is recorded as a per-game sim error (3/100300 in the sweep); in production the bot fails its action and auto-blocks (`CheckIfReady.cs:1295` fallback).
-- **Fixed:** 2026-07-03 — wrapped the Justice-min nudge in `if (allTargets.Count > 0)` (`BotsBehavior.cs:2749-2759`); with no targets the ordinary block path handles the turn. The early `:1280` use is round-<5 guarded and the later checks use `.Any()`.
+- The pre-fix `Братишка` block branch ran `allTargets.Min(...Justice...)` without checking the filtered pool. When late-round filters left no targets, it threw before M14's fallback guard. Кира-correlated; all three failures in the cited sweep were round 10 with Братишка + Тигр + Кира.
+- **Impact**: the Братишка bot's turn crashes on round 10 when no legal target remains. Post-M13 it is recorded as a per-game sim error (3/100300 in the sweep); in production the bot fails its action and falls back to an automatic block.
+- **Fixed:** 2026-07-03 — wrapped the Justice-min nudge in `if (allTargets.Count > 0)` (`BotsBehavior.cs:2976-2986`); with no targets the ordinary block path handles the turn. The other `allTargets.First()` use is round-<5 guarded (`BotsBehavior.cs:1501`) and the later checks use `.Any()`.
 
 ### M17. СуперМудень does not implement its x2 / resist-chain / disable contract
 - Exact x2 is off by the untouched base term: fight Skill and base Harm use normal `1 + PokerCount`, but СуперМудень uses `1 + 2×PokerCount` (`CP:1627-1634`, `DoomsdayMachine.cs:1001-1010`). At Кочерга #4 that is ×5 → ×9, only ×1.8 instead of ×10. The resist chain then watches only Strength drops (`DoomsdayMachine.cs:1012-1024`), ignoring Intelligence/Psyche pool breaks, and ordinary Harm immunity interceptors still return before damage (`CharacterClass.cs:198-229`).
-- The promised shutdown of other members also leaks: an already seeded virus spreads (`CP:2401-2432`) and pays at game end (`CheckIfReady.cs:366-388`), M.M.'s final multiplier and `IsCalm` immunity remain live (`CheckIfReady.cs:331-363`, `GamePlayerBridgeClass.cs:102-116`), a stale Francie order still excludes a sup candidate (`CP:6313-6328`), and Kimiko's next-round state can still emit a recovery phrase (`CP:6075-6093`).
+- The promised shutdown of other members also leaks: an already seeded virus spreads (`CP:2401-2432`) and pays at game end (`CheckIfReady.cs:366-388`), M.M.'s final multiplier and `IsCalm` immunity remain live (`CheckIfReady.cs:331-363`, `GamePlayerBridgeClass.cs:111-126`), a stale Francie order still excludes a sup candidate (`CP:6313-6328`), and Kimiko's next-round state can still emit a recovery phrase (`CP:6075-6093`).
 - **Impact**: the advertised capstone is materially weaker in its own bonuses but simultaneously retains forbidden benefits from three disabled members; the missing Int/Psyche recursion changes the capstone's central late-game damage loop.
 - **Fix direction**: double the full normal Skill/Harm result; have every actual Int/Strength/Psyche negative resist effect enqueue another Harm, with the designer's 50-drop-per-turn and zero-score stops; bypass enemy Harm immunities; gate every remaining Francie/Kimiko/M.M. path while SuperМудень is active.
-- **Fixed:** 2026-07-10 — fight Skill and base Harm now double the complete `(1+poker)` result (Кочерга #4 ×5→×10 / 5→10); `LowerQualityResist` returns the number of actual Int/Str/Psyche negative effects, and the Super chain queues one Harm per effect recursively (`CP:1627-1637`; `DoomsdayMachine.cs:1001-1057`; `CharacterClass.cs:198-345`). Super Harm bypasses Madara/Boole/Kimiko/Испанец, may keep deducting Drop points at place 6, stops at victim score 0, and shares a 50-Drop counter across the turn (`TheBoys.cs:60-67`; `CP:6319-6322`). Virus spread/end payout, final компромат, calm immunity, stale-order exclusion and Kimiko recovery are all gated; post-Super member level-ups are inert/consumed (`CP:2401-2438,5914-5972`; `CheckIfReady.cs:331-392`; `GamePlayerBridgeClass.cs:102-116`; `GameReactions.cs:976-982`).
+- **Fixed:** 2026-07-10 — fight Skill and base Harm now double the complete `(1+poker)` result (Кочерга #4 ×5→×10 / 5→10); `LowerQualityResist` returns the number of actual Int/Str/Psyche negative effects, and the Super chain queues one Harm per effect recursively (`CP:1627-1637`; `DoomsdayMachine.cs:1001-1057`; `CharacterClass.cs:198-345`). Super Harm bypasses Madara/Boole/Kimiko/Испанец, may keep deducting Drop points at place 6, stops at victim score 0, and shares a 50-Drop counter across the turn (`TheBoys.cs:60-67`; `CP:6319-6322`). Virus spread/end payout, final компромат, calm immunity, stale-order exclusion and Kimiko recovery are all gated; post-Super member level-ups are inert/consumed (`CP:2401-2438,5914-5972`; `CheckIfReady.cs:331-392`; `GamePlayerBridgeClass.cs:111-126`; `GameReactions.cs:976-982`).
 
 ### M18. Active Огурчик Рик can block/skip an incoming fight and lose his guaranteed win
 - **Intended:** the player text says the pickle loses the ability to act but defeats everyone who attacks him (`characters.json:864`, Рик Санчез → «Огурчик Рик»); designer report 2026-07-10 confirms he must always accept the fight and win.
@@ -344,9 +345,9 @@ Worth stating because they're easy to suspect: Francie's final-turn contract win
 ### M27. Round-8 bot games could wait out the turn gate before challenging Мадара
 - **Intended:** strict bots immediately accept the Клоны Сусано challenge on round 8; a game where Madara is the only human must not sit on the ordinary readiness delay.
 - **Actual before the fix:** bot actions were chosen only after the human readiness/timer gate opened. Madara was unable to act, but bot attacks did not exist yet, so bot-heavy games could appear paused until timeout processing.
-- **Fixed:** 2026-07-11 — before readiness counting, every live, non-skipping strict bot is idempotently committed to one ordinary attack on Madara (`Madara.cs:208-230`; `CheckIfReady.cs:1061`). Bot dispatch preserves that forced choice, and round-8 Madara is exempt from the ordinary 50-second readiness floor (`BotsBehavior.cs:94-105`; `CheckIfReady.cs:1190-1192`). Genuine forced skips remain authoritative.
+- **Fixed:** 2026-07-11 — before readiness counting, every live, non-skipping strict bot was idempotently committed to one ordinary attack on Madara. Bot dispatch preserved that forced choice, and round-8 Madara was exempt from the ordinary readiness floor. Genuine forced skips remained authoritative. This historical implementation is superseded below.
 - **Live-human follow-up fixed:** 2026-07-11 — after round 7 entered round 8, the post-calculation human prediction loop overwrote Madara's earlier `ConfirmedPredict = true` with `false`; all-bot simulations skipped that loop, while human Madara had no prediction control that could restore readiness (`CheckIfReady.cs:1529-1554`). The loop now preserves/reasserts Madara's full unable-to-act state, and the readiness precommit reasserts the same invariant every tick before counting (`Madara.cs:197-230`). Web Block/Auto Move/Change Mind/Skip are rejected server-side during the locked round, `isMyTurn` stays false, and the misleading Change button is hidden (`WebGameService.cs:502-613,1151-1163`; `game.ts:112-116`; `Game.vue:1220-1237`).
-- **Superseded by designer rework, 2026-07-12:** bots must no longer auto-attack Madara or advance immediately. A live round 8 now waits 30 seconds; after spending level-ups, every strict bot receives only the exact Madara prediction and chooses its ordinary action through normal AI (`Madara.ForceRoundEightBotPrediction`; `BotsBehavior.HandleBotBehavior`; `CheckIfReady.TickAsync`). The Madara action lock and web gates from the follow-up remain.
+- **Superseded by designer rework, 2026-07-12:** bots must no longer auto-attack Madara or advance immediately. A live round 8 now waits 30 seconds; after spending level-ups, L0/L1 receive the scripted exact Madara prediction, while L2/L3 receive no hidden row and use fair player-visible prediction/inference. Every bot then chooses its ordinary action through normal AI (`Madara.ForceRoundEightBotPrediction`; `BotsBehavior.HandleBotBehavior`; `CharacterPassives.HandleFairBotPredict`; `CheckIfReady.TickAsync`). The Madara action lock and web gates from the follow-up remain.
 
 ### M28. Rumbling counted Eren's losses from the entire match instead of round 10
 - **Intended:** the fewer-than-two-loss gate considers only resolved losses during round 10.
@@ -356,7 +357,8 @@ Worth stating because they're easy to suspect: Francie's final-turn contract win
 ### M29. Шоковый щит's forced skip could be replaced by bot automation and still waited for confirmation
 - **Intended:** the first attacker stopped by the one-use shield automatically skips their next turn.
 - **Actual before the fix:** the next-round hook set `IsSkip` but left it unconfirmed; bot behavior did not honor attacker-side `IsSkip` and could immediately choose an attack, while a human could remain in the readiness wait.
-- **Fixed:** 2026-07-11 — the shield clears queued attacks and auto-submits the skip (`IsReady`, `ConfirmedSkip`, `ConfirmedPredict`) when it lands (`CP:5250-5261`). Bot behavior now treats an existing forced skip as a complete action and returns without selecting an attack (`BotsBehavior.cs:84-93,3712-3720`).
+- **Fixed:** 2026-07-11 — the shield clears queued attacks and auto-submits the skip (`IsReady`, `ConfirmedSkip`, `ConfirmedPredict`) when it lands (`CP:5280-5293`).
+- **Bot follow-up:** bot behavior treats an existing forced skip as a complete action through `BotsBehavior.CompleteForcedSkip` and returns without selecting an attack.
 
 ### M30. DooM Rune penalties consumed base and externally earned stats without a floor
 - **Intended:** Вознесение may take back only its granted +8 Int, and Маневры only its granted +5 Speed.
@@ -370,10 +372,10 @@ Worth stating because they're easy to suspect: Francie's final-turn contract win
 
 ### M32. Bot Darksci can attack after round-9 Дизмораль sets his Psyche to 0 and skips him
 - **Intended:** spending Darksci's mandatory round-9 level-up applies −5 Psyche; if that leaves him at 0 Psyche, «Да всё нахуй эту игру» clears his action and the turn remains skipped.
-- **Actual before the fix:** `HandleBotBehavior` checked `IsSkip` only on entry, then spent the pending level-up (`BotsBehavior.cs:72-128`). `GetLvlUp` subsequently set `IsSkip` and cleared the target list (`GameReactions.cs:862-1354`), but bot processing continued into `HandleBotAttack`, which queued a new ordinary target. The fight loop deliberately processes a skipped player with a non-empty queue for legitimate forced fights (`DoomsdayMachine.cs:464-489`), so the illegal bot action resolved. Against Геральт, the contract injector rejected the skipped attacker and added no repeats (`DoomsdayMachine.cs:374-398`), producing the reported signature of exactly one real fight.
+- **Actual before the fix:** bot behavior checked `IsSkip` only on entry, then spent the pending level-up. Spending subsequently set `IsSkip` and cleared the target list, but processing continued into ordinary attack selection and queued a new target. The fight loop deliberately processes a skipped player with a non-empty queue for legitimate forced fights (`DoomsdayMachine.cs:464-489`), so the illegal bot action resolved. Against Геральт, the contract injector rejected the skipped attacker and added no repeats (`DoomsdayMachine.cs:374-398`), producing the reported signature of exactly one real fight.
 - **Impact:** bot and auto-moved Darksci can act on the round where 0 Psyche is supposed to remove their action; the same missing post-level-up gate can turn any future level-up-triggered forced skip into an ordinary bot attack.
 - **Fix direction:** re-run the existing bot forced-skip completion immediately after pending level-ups, before any character sub-action or attack selection. Keep the fight-loop forced-action behavior unchanged.
-- **Fixed:** 2026-07-11 — extracted the existing skip finalization into `CompleteForcedSkip` and invoke it both on bot entry and immediately after pending level-ups (`BotsBehavior.cs:84-128,3706-3715`). A Дизмораль-triggered Skip now returns before attack selection; later readiness-stage forced-fight injection remains unchanged.
+- **Fixed:** 2026-07-11 — pending level-ups are spent before the action gate (`BotsBehavior.cs:91-107`). Skip finalization then runs through `CompleteForcedSkip` (`BotsBehavior.cs:4825-4834`), so a Дизмораль-triggered Skip returns before attack selection; later readiness-stage forced-fight injection remains unchanged.
 
 ### M33. Fight win/lose audio and the R3 random bar could drift away from the visual timeline
 - **Expected:** each round result starts on its reveal; R3 shows modifiers, visibly rolls to its outcome, announces that settled result, and only then reveals the whole-fight result.
@@ -386,8 +388,8 @@ Worth stating because they're easy to suspect: Francie's final-turn contract win
 - **Intended:** every strict bot spends all pending level-up points before choosing or confirming any attack, defense or skip; this also applies to the early round-8 Клоны Сусано challenge.
 - **Actual before the fix:** ordinary attack selection followed level-up, but `CompleteForcedSkip` and the Madara round-8 branch returned first. The M27 readiness precommit also assigned the Madara attack before bot behavior ran at all.
 - **Impact:** forced-skipping bots and every bot challenging Madara on round 8 could carry unspent points into a committed action, making their fight snapshot weaker and violating the same spend-before-action rule enforced for humans.
-- **Fixed:** 2026-07-11 — bot playstyle selection and the complete level-up loop now run before every action fast path (`BotsBehavior.cs:72-132`). The readiness tick also prepares every live strict bot before the idempotent Madara challenge precommit (`CheckIfReady.cs:1060-1064`), so the M27 no-wait behavior remains intact without bypassing progression.
-- **Designer rework follow-up, 2026-07-12:** the Madara readiness precommit was removed with M27's forced attack. The invariant remains: `HandleBotBehavior` spends all pending points before the forced exact round-8 prediction, a forced Skip, or the bot's ordinary action (`BotsBehavior.HandleBotBehavior`).
+- **Fixed:** 2026-07-11 — bot playstyle selection and the complete level-up loop now run before every action fast path in `BotsBehavior.HandleBotBehavior`. The then-current readiness tick also prepared every live strict bot before the idempotent Madara challenge precommit, which was later removed by the M27 designer rework.
+- **Designer rework follow-up, 2026-07-12:** the Madara readiness precommit was removed with M27's forced attack. The invariant remains: bot behavior spends all pending points before the L0/L1 scripted round-8 prediction, any fair L2/L3 prediction, a forced Skip, or the bot's ordinary action (`BotsBehavior.HandleBotBehavior`).
 
 ### M35. Character-specific leaderboard icons reveal masked opponents
 - **Expected:** before the game finishes, character identity remains a guessing mechanic. Character-specific leaderboard prefixes and widget state must be visible only to the character owner (or an admin), while spectators and opponents receive no annotation that identifies a masked character. Тигр's round-10 `🚫` is the explicit exception: it represents a public system ban and remains visible to everyone as part of the joke.
@@ -454,9 +456,9 @@ Worth stating because they're easy to suspect: Francie's final-turn contract win
 - **Actual before the fix:** Rumbling and then Naruto's Теневые settlement run before the ordinary round-10 `HandleEndOfRound` dispatcher. If Kira's queued note targeted one of those newly dead players, the Death Note branch set `IsDead`/`DeathSource` again, paid Монстр another death point and counted a kill even though the target had already died.
 - **Fixed:** 2026-07-12 — the Death Note resolves an already-dead target as an invalid duplicate: it writes a private explanation, clears the queued target/name and exits before the kill, Kira reward and Монстр payout (`CharacterPassives.cs` Death Note branch). This applies to every earlier death source, including Rumbling and Теневые.
 
-### m26. `HandleBotAttack` scoring flags are never reset inside the per-target loop
-- The boolean flags declared once per `HandleBotAttack` invocation (method `BotsBehavior.cs:772`; flags `:836-855`) remain set and are not cleared between targets. Per-character compensations later read them (mylorik `:1380-1410`, Глеб `:1595-1640`) and can therefore compensate a different target.
-- **Impact**: mild bot mis-weighting in mixed line-ups; not player-visible and not exception-producing. Flagged during the AI-difficulty change-set because L2-4 (fight-history horizon) deliberately **reuses** the existing latching flag/number so it stays balance-compatible with those compensations.
+### m26. Legacy L1 attack-scoring flags are never reset inside the per-target loop
+- The boolean flags declared once per legacy attack-scoring invocation (`BotsBehavior.cs:1061-1069`) remain set and are not cleared between targets. Per-character compensations later read them (mylorik/Спартанец path `:1601-1670`, Глеб path `:1816-1855`) and can therefore compensate a different target. M45 routes L2/L3 around this scorer.
+- **Impact**: mild L1 bot mis-weighting in mixed line-ups; not player-visible and not exception-producing.
 - **Status:** observation, **not fixed** — the AI-difficulty change-set is L1-preserving by contract, so touching this shared scoring pass was out of scope. Fixing it (reset the flags at the top of each iteration) would change L1 bot behavior and should be a standalone change with its own sim comparison.
 
 ## Phase 6 — full cross-mechanic re-audit (2026-07-12)
@@ -471,11 +473,13 @@ Worth stating because they're easy to suspect: Francie's final-turn contract win
 - **Fixed:** 2026-07-13 (designer choice A) — central `Naruto.OrderLeaderboard` now orders every living seat before every dead seat; the final payout therefore follows the announced living board leader. `GameClass.WinnerPlayerIds` additionally records the settled solo/team/Sakura winner for consumers that must not infer victory from place.
 
 ### M38. A bot Кратос never fights his own resurrection event
-- **Actual:** `HandleBotBehavior` hard-blocks every bot after round 10: `botChoice = -10` is a literal Block (`BotsBehavior.cs:89-93`; `GameReactions.cs:693-701`). This catches **Кратос himself**, so the event-aware bot logic (`CanBreakKnownDefense`, `BotsBehavior.cs:241-246`) is unreachable during the event. With everyone else force-blocked (`CheckIfReady.cs:1144-1150`) and the only kill path being Кратос winning **as attacker** (`CP:1818-1831`), a bot-Кратос event produces zero kills.
+- **Actual:** `HandleBotBehavior` hard-blocks every bot after round 10: `botChoice = -10` is a literal Block (`BotsBehavior.cs:109-113`; `GameReactions.cs:695-706`).
+- This catches **Кратос himself**, so the legacy event-aware logic `BotsBehavior.CanBreakKnownDefense` (`BotsBehavior.cs:254-270`) is unreachable during the event.
+- With everyone else force-blocked (`CheckIfReady.cs:1157-1165`) and the only kill path being Кратос winning **as attacker** (`CP:1853-1867`), a bot-Кратос event produces zero kills.
 - **Evidence:** the bot even has a `Kratos:Ragnarok` playstyle that engineers the round-10 loss to *trigger* the event it then blocks through. Кратос winrate across event lineups: 0–6.7%.
 - **Impact:** the marquee event is dead content in bot/mostly-bot games; see M39 for the compounding grind.
 - **Fix direction:** exempt the event Кратос (and only him) from the round>10 bot block, routing him into `HandleBotAttack`.
-- **Fixed:** 2026-07-13 (designer override) — the event start requires a non-bot (`PlayerType != 404`) Kratos. Test/simulation bot Kratos never opens the event, so no bot-specific event action path exists (`CP:2795-2806`).
+- **Fixed:** 2026-07-13 (designer override) — the event start requires a non-bot (`PlayerType != 404`) Kratos. Test/simulation bot Kratos never opens the event, so no bot-specific event action path exists (`CP:2798-2805`).
 
 ### M39. The Кратос event usually grinds to the round-20 hard cap instead of ending at 16
 - **Described:** `docs/CHARACTERS.md` (Кратос): "event ends at round ≥16 or when 5 players are dead".
@@ -563,12 +567,18 @@ Worth stating because they're easy to suspect: Francie's final-turn contract win
 - **Actual before the fix:** the copy lived in `HandleDefenseAfterFight`, but a successful Block exits the fight loop without calling that hook. It therefore copied nothing on the outcome named by the passive. Conversely, an ArmorBreak or another bypass could resolve a real fight while the defender retained `IsBlock`, causing the after-fight case to copy Justice and pay the bonus on the inverse outcome.
 - **Fixed:** 2026-07-13 — persistent attacker Justice is snapshotted before any ForOneFight override, but the max/copy/bonus now runs only inside the successful-block branch (`DoomsdayMachine.cs:604,658-716`). The old after-fight dispatch is an explicit no-op (`CP:1001-1016`), and the same block branch continues to suppress generic block Justice for every Близнец holder.
 
+### M45. L2/L3 bot AI read hidden identities, stats and live opponent actions
+- **Expected:** AI levels 2 and 3 must decide from the same projection as a regular player: public leaderboard rows and owner-visible marks, legal action targets, sanitized global logs, the bot's current/last personal logs, public resolved outcomes and exact detail from its own fights. Neither level may know who currently chose Block/Skip or inspect an opponent's submitted attack. L3 may know the rules and infer more from longer evidence, but may not receive privileged facts.
+- **Actual before the fix:** the shared `HandleBotAttack` scorer dereferenced opponent `GameCharacter`, `Passives`, score/Justice and private status/history, including live `IsBlock`, `IsSkip` and `WhoToAttackThisTurn`. L3 predictions were filled from every opponent's true character and its fight estimate used real target stats/Justice. The simulation factory also prefilled exact characters for every AI level. Separately, `GameStateMapper.MapStatus` sent live opponent Block/Skip flags to regular web viewers, so even a human client could observe the forbidden answer.
+- **Impact:** L2 counter-picked actions that no player could see; L3's extra strength came primarily from omniscience instead of better reasoning. Simulation results for the old L2/L3 policies overstated legal bot strength, and web players could react to current defenses.
+- **Fixed:** 2026-07-13 — strict L2/L3 now leave the legacy scorer through `BotsBehavior.HandleFairBotAttack`, `HandleFairBotKira` and `CharacterPassives.HandleFairBotPredict`. `BotInformation.CaptureVisibleRound` records a viewer-scoped `GamePlayerBridgeClass.AiKnowledge` snapshot from sanitized logs, resolved public results, public places and that bot's own fight details; fair targeting consumes owner-scoped leaderboard markers rather than raw target state. L2 keeps coherent builds and broad character objectives with weighted choices. L3 becomes stronger through longer memory, confidence-weighted public-catalogue hypotheses, public roster/rule constraints, inferred Justice/fight edge and best-target selection; every hypothesis can remain wrong. Exact predictions now require a player-visible reveal, simulation prefill is L1-only, and live `IsBlock`/`IsSkip`/`ConfirmedSkip` are projected false for opponents/spectators by `GameStateMapper.MapStatus`. L1 remains the deliberately frozen privileged legacy control. Verified with `dotnet build`, L1 10/10, L2 smoke+coverage 27/27 and L3 default smoke+coverage 108/108, all with zero errors/stuck games. Full policy review: [BOT-AI-DESIGNER-REVIEW.md](BOT-AI-DESIGNER-REVIEW.md).
+
 ### D12. Every bonus-point "steal" mints points at the 0-floor
 - Because `AddBonusPoints` floors the victim at 0 (`InGameStatusClass.cs:239`), each transfer-shaped mechanic credits the taker the **full** amount while the victim may lose less: «Выгодная сделка» (`CP:1804-1816`), Смертельный вирус, Глаза Итачи deduction, Сайтама's ledger reclaim, «Запах мусора». Zero-sum on paper, positive-sum at the floor. Acceptable pity cushion, or should takers receive only what victims actually lose?
 - **Confirmed intended:** 2026-07-13 (designer choice A) — keep the victim's zero-floor cushion and credit the receiver's full nominal amount. Documented in GAME-DESIGN §6 and INTERACTION-MATRIX §4; no code change.
 
 ### D13. Forced-fight sources pierce the Кратос event's "everyone blocks" rule
-- During the event the loop forces `IsBlock = true` on all non-Кратос players every tick (`CheckIfReady.cs:1144-1150`) — but Штормяк's taunt *triggers on blocking* (`:1339`), and a Монстр no-escape window spanning into round 11 un-blocks its victim and forces a random attack (`:1404`). Aggress/Атакующий Титан/pickle conversions likewise strip the forced block in the fight phase. Result: real fights (at ×4) between non-Кратос players during the event, and an Октопус-style fake loss can even hand Кратос his final death. Intended chaos or event-integrity bug?
+- **Actual before the fix:** during the event the loop forced `IsBlock = true` on all non-Кратос players every tick, but Штормяк's taunt and a spanning Монстр no-escape window could replace that defense with real attacks. Aggress/Атакующий Титан/pickle conversions likewise stripped the forced block in the fight phase. Result: real fights (at ×4) between non-Кратос players during the event, and an Октопус-style fake loss could even hand Кратос his final death.
 - **Fixed:** 2026-07-13 (designer choice B) — only Kratos acts. Readiness suppresses forced sources; the fight phase suppresses action conversions, contract/Naruto/Storm/Justice setup, and `EnforceKratosEventActions` authoritatively clears every non-Kratos queue before combat.
 
 ### D14. Sakura's «Одна из трех» applies inside team mode
@@ -586,7 +596,7 @@ Worth stating because they're easy to suspect: Francie's final-turn contract win
 - Simulations: 586 games across 11 runs — 0 exceptions, 0 stuck games.
 
 ### Phase-6 balance observations (sim data — for the designer, not findings)
-Fixed-lineup winrates, 30 games each, AI difficulty 3; subject to the sim-noise caveat (never tune off one sweep):
+Historical fixed-lineup winrates, 30 games each, from the **pre-M45 omniscient AI-3 implementation**; retain only as a baseline and do not compare them directly with the fair AI-3 policy:
 - **Стая Гоблинов dominated every lineup they appeared in**: 80% (kill lineup), 86.7% (copy-chain lineup), 43.3% (Мадара lineup).
 - **AWDKA >45% twice** (53.3% special-win lineup, 46.7% Спартанец lineup) — the troll-win converts very reliably at difficulty 3.
 - **Осьминожка 80%** in the Кратос-settlers lineup is mostly the M38/M39 grind payoff.
@@ -601,8 +611,8 @@ Fixed-lineup winrates, 30 games each, AI difficulty 3; subject to the sim-noise 
 - **m24** — ARAM pick phase has no web UI (hub/REST/serialization exist, no Vue component).
 - **m26** — `HandleBotAttack` scoring flags never reset per target (deliberately deferred; needs its own sim-compared change).
 
-### Bot-strength plan (Phases 2–3 remaining)
-Plan file `~/.claude/plans/mossy-mixing-hickey.md`: Phase 0 (seeded A/B harness) and Phase 1 (universal L2/L3 mastery) are done. **Phase 2**: bot random-rolls for Darksci (`IsStableType`) and Глеб→Молодой Глеб transform, mirroring the Dopa `HandleNextRound` pattern. **Phase 3**: probe-sweep the roster L2/L3-vs-L1, bespoke work on the weakest kits (expected: Продавец, Sirinoks, Краборак).
+### Bot-strength follow-up
+M45 replaced the privileged L2/L3 scorer with a fair information boundary and completed the persistent Darksci/Глеб plus character-plan work. Future balance sweeps must compare the new legal L2/L3 policies by character and `AiPlaystyle`; the editable decision catalogue and suggested review questions are in [BOT-AI-DESIGNER-REVIEW.md](BOT-AI-DESIGNER-REVIEW.md).
 
 ### Unbuilt GameDesign.txt characters
 Торик, Rey, Lewdweak, Второй Крисп, Leshkinson a.k.a. Удир, Кнусклес, Таинственный Клоун, Бог ЛоЛа, and the Хранитель МСД / Машина Судного Дня event boss. (Named in rarity tables only, no kits: тоширка, Hitler.)
@@ -618,7 +628,7 @@ Full team-mode ruleset (2х2х2/3х3 team-score win, forced ally predictions —
 
 ## Summary count
 
-**1 Critical** (C1) · **44 Major** (M1–M44) · **47 Minor** (m1–m47) · **14 Design questions** (D1–D14). Phase-6 designer review was fully implemented 2026-07-13: M37–M40 and m37–m44 fixed, D12 confirmed intended, D13–D14 fixed; m47 was discovered and fixed in the same score-floor change. M44 was discovered and fixed during the Близнец block audit. Still open: **m12, m19, m24, m26**.
+**1 Critical** (C1) · **45 Major** (M1–M45) · **47 Minor** (m1–m47) · **14 Design questions** (D1–D14). Phase-6 designer review was fully implemented 2026-07-13: M37–M40 and m37–m44 fixed, D12 confirmed intended, D13–D14 fixed; m47 was discovered and fixed in the same score-floor change. M44 was discovered during the Близнец block audit; M45 was discovered and fixed during the bot-knowledge review. Still open: **m12, m19, m24, m26**.
 
 ## Verification addendum (second pass, 2026-07-01)
 

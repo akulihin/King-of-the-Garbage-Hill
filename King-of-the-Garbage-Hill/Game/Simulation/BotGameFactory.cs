@@ -111,11 +111,18 @@ public class BotGameFactory : IServiceSingleton
         _global.GamesList.Add(game);
 
 
-        //handle predict
+        // Preserve the historical all-knowing simulation setup only for the frozen L1
+        // baseline. L2/L3 must build predictions through the same information a player sees.
         if (mode == "Bot")
         {
             foreach (var player in game.PlayersList)
             {
+                var effectiveDifficulty = player.AiDifficulty >= 0
+                    ? player.AiDifficulty
+                    : game.AiDifficulty;
+                if (player.PlayerType != 404 || effectiveDifficulty != 1)
+                    continue;
+
                 foreach (var enemy in game.PlayersList.Where(x =>
                              x.GetPlayerId() != player.GetPlayerId() && !Sakura.Is(x)))
                 {

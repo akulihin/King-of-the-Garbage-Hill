@@ -249,41 +249,41 @@ Achievement progress targets and the complete 103-entry rule catalog are in [ACH
 | Наруто | Расенган | 2 joint attackers: summed Justice, +2 Str each; 3: summed Justice, +3 Int/Str/Speed/Psyche each | CP:74-108; `Naruto.cs` `SnapshotJustice`, `GetJointAttackers` |
 | Наруто | Призыв | exactly 1 Naruto on target; prior-round loss to that target with target TooGOOD or TooSTONK → terminal auto-win, otherwise refusal only | `Naruto.cs` `IsSoloAttack`, `WonPoweredFightLastRound`; DM:880-899 |
 
-## Bot AI difficulty (`BB` = BotsBehavior.cs, `GC` = GameClass.cs, `CP` = CharacterPassives.cs, `SR` = SimulationRunner.cs)
+## Bot AI difficulty
 
-Per-game `AiDifficulty` (0/1/2/3). **Default 3 everywhere** — Discord `*st`/`*stb`, web games, and the headless sim (changed from 1 on 2026-07-05); the sim's `--ai-difficulty N` flag overrides per-run (**0-3**, sim-only); `--ai-probe N [--ai-probe-char "Name"]` runs one bot at a different level than the field for A/B measurement (per-player `GamePlayerBridgeClass.AiDifficulty`, resolved by `EffectiveDifficulty` `BB:45`). **L0 = pure-random baseline** (experiment control; see the `Dumb` row). **L1 = legacy, bit-for-bit unchanged** (every L2/L3 branch is gated by `Smart()` `BB:48` / `Omni()` `BB:49-50`, or retains the old false branch). **L2 = smarter, same decision skeleton plus a persistent character plan.** **L3 = omniscient predictions from `AiFullKnowledgeRound`, cumulative over L2, plus a composite fight-edge estimate.** Exact-stat/real-Justice reads are L3-only; L2 character plans use visible state and the legacy preference model.
+Per-game `AiDifficulty` is 0/1/2/3 and defaults to **3** for Discord, web and simulation. `--ai-difficulty N` overrides the simulation field; `--ai-probe N [--ai-probe-char "Name"]` and `--ab-char` provide per-seat A/B measurement through `GamePlayerBridgeClass.AiDifficulty` and `BotsBehavior.EffectiveDifficulty`.
 
-| Constant | Value | Meaning | Anchor |
-|---|---|---|---|
-| `AiDifficulty` | **3** | per-game bot AI level (0 random / 1 legacy / 2 smart / 3 omniscient), default 3; echoed to report JSON `options.aiDifficulty` | GC:69; parse+validate SR:79-112; clamp 0-3 BotGameFactory.cs:88; echo `AiDifficulty` SimReport.cs:40; helpers BB:45-50 |
-| `--ai-probe` / `--ab-char` (measurement) | 0-3 | one bot at a different level than the L1 field; paired A/B runs identical seeded line-ups twice and stores both arms | parse `--ai-probe` SimulationRunner.cs:82; parse `--ab-char` SimulationRunner.cs:86; paired runner SR:405-542; set BotGameFactory.cs:93-98 |
-| `AiPlaystyle` | once/match | strict L2/L3 bots roll one persistent plan and keep it for the match; recorded per player in sim/A-B JSON for plan-level analysis | GamePlayerBridgeClass.cs:57-59; BB:84-86, 107-175; SimReport.cs:92-99; SR:630-643 |
-| Bot action preparation | spend all points first | every strict bot completes its level-up loop before a forced Madara prediction, attack, defense or forced-skip confirmation; there is no readiness-stage attack precommit | `BotsBehavior.HandleBotBehavior` |
-| `Dumb` (L0) | ≤ 0 | pure-random experiment baseline: random legal-stat level-up + random attack/block; **skips** the moral & Kira sub-AIs; respects cannot-block (`Спарта`/`Aggress`), invalid-target retry (`HandleAttack` false), and the Макро two-attack rule | helper BB:47; dispatch BB:93-105/798-803; lvl-up BB:3418-3434; random attack BB:3349-3409 |
-| `AiFullKnowledgeRound` | **3** | round from which L3 bots know every enemy's character (tunable; may become 2 or 1) | GC:72 |
-| `SmartTargetTaretNumberEarly` / `…Late` (L2-1) | 3 / 2 | Мишень-target attack weight — early (round ≤ 4) / late; the biggest repeatable skill faucet (L1: 1 always) | BB:51/60, 858-860 |
-| `SmartKnownClassNemesisNumber` (L2-2) | ±2 | class-tell (`KnownPlayerClass`) nemesis target / avoid weight | BB:52, 978-991 |
-| L2-3 justice gradient | +(botJ − targetJ) | per-target seen-Justice advantage reward (L1 rewards only when **all** targets are below) | BB:1015-1025 |
-| L2-4 fight-history horizon | −5 | extend the stat-loss penalty to round − 3 | BB:932-939 |
-| `SmartPredictAvoidNumber` (L2-5) | −2 (×2 at L3) | avoid feeding predicted Краборак/Толя/Осьминожка/Монстр/Toxic Mate/mylorik mechanics | BB:53, 2387-2421 |
-| L2-6 round-10 economics | block / attack | leader force-blocks, everyone else force-attacks on the ×4 round | BB:3188-3195 |
-| `SmartMoralWaitPlace3` / `Place4` (L2-7) | 8 / 13 | place-3 / place-4 moral→points hoard threshold (L1: 5 / 8) | BB:54-55, 473-476 |
-| L2-8 zero-justice block bias | min-roll 2 | at 0 Justice with no target ≥ 6, raise block-roll floor 1→2 (rounds 2-9) | BB:3197-3205 |
-| `SmartNemesisBonus` (L2-9) | +2 | extra class-counter weight (nemesis = +2 weigh, ×1.5 skill, amplified Justice) | BB:61, 965-975 |
-| `SmartMoralWaitLeader` (L2-10) | 8 | leaders wait for the efficient 8-Moral score tier instead of dumping at 5 | BB:63, 479-483 |
-| `SmartPsycheFloor` (L2-11) | 4 | generic build keeps ≥4 Psyche once its top stat is ≥8; character builds override it | BB:64, 3464-3470 |
-| `SmartCommitMultiplier` (L2-12) | ×2 | double the unique-best target's weighted share (Толя exempt because its bespoke inversion already commits) | BB:65, 2428-2445 |
-| L2-13 leader-under-fire block | min-roll 3 | place ≤2, ≥2 known incoming attackers, no target ≥8 → defend (rounds 2-9) | BB:3207-3219 |
-| L2-14 comeback Justice bank | min-roll 2 | place ≥4 at Justice 1 with no target ≥6 → defend for next-round Justice | BB:3221-3233 |
-| `SmartSellerMarkFloor` (L2-15) | 20 | unmarked Seller targets get a dominant floor because Впарить говна applies on attack, not on win | BB:70, 2164-2174 |
-| known defense (L2-16) | −10 / +8 / −2 | avoid visible Block/Skip; instead exploit Armor/SkipBreak (+8), while mark/reveal/buff attacks that still progress take only −2 | BB:66-67, 214-252, 1027-1038 |
-| Harm/Drop (L2-17) | +1 / +4 | prefer in-range Harm; +4 more when the target's Strength pool is primed to break and Drop (Butcher Poker adds more) | BB:68, 255-267, 1040-1060 |
-| persistent character plans (L2-18) | random once | Dopa 4 tactics; Darksci Stable/Unstable; Глеб Classic/Young; TheBoys 4 members; Goblins 4 builds; Rick, Itachi, Kratos, Cats, Tolya, Monster and Support each have 2 plans. Each plan owns targeting, block/moral policy and level-up path. | BB:107-209, 1260-1380, 1580-1745, 1800-2300, 2700-3140, 3470-3670 |
-| special objective pilots (L2-19) | character-specific | Kira preserves Eyes from L/Monster; Saitama seeks solo Мишень fights; Seller spreads marks; unknown_bug farms PointFunnel, avoids the current carrier and cashes Exploit on round 10; Sakura protects only a threatened top-3 | BB:1105-1133, 1690-1725, 2160-2180, 2276-2321, 3091-3153 |
-| `OmniPredictConfidence` (L3-1) | ×2 | L3 multiplier applied to L2-5 prediction-aware avoidance | BB:56, 2387 |
-| `OmniReverseNemesisNumber` (L3-2) | −3 | avoid enemies who counter the bot (true-read reverse nemesis) | BB:57, 993-997 |
-| `OmniVersatilityNumber` (L3-3) | ±2 | true-stat versatility: ≥2 stat-wins → +, 0 stat-wins → − | BB:58, 998-1009 |
-| L3-4 true Justice read | real Justice | use `GetRealJusticeNow()` (including hidden skill-Justice) instead of seen Justice | BB:865-868 |
-| `OmniDominateNumber` (L3-5) | +3 | dominating all 3 offensive stats reaches TooGOOD territory → hunt it | BB:62, 1010-1013 |
-| composite fight edge (L3-6) | thresholds ±5 / ±13 | approximate Step 1 from nemesis, scale, versatility, Psyche, skill and real Justice; lose-to-win/special-objective kits opt out | BB:270-325, 1063-1080 |
-| L3-0 prediction auto-fill | true characters | strict bots (`PlayerType == 404`) predict every enemy's real character except Монстр без имени | CP:6434 |
+**L2 and L3 share one hard visibility boundary.** They may use the acting bot's own state, public leaderboard projection/markers, legal target menu, sanitized global logs, the acting player's current/last personal logs, public resolved fight outcomes and exact detail from fights in which that bot participated. They may not read an opponent's current Block/Skip/attack, real character, stats, passives, score, Justice or private histories. `BotInformation.CaptureVisibleRound` persists only that player-visible evidence in `GamePlayerBridgeClass.AiKnowledge`. L3 differs only in how it reasons over the evidence: longer horizons, confidence-weighted hypotheses, public roster/rule constraints and deterministic best-target selection. The full decision catalogue is [BOT-AI-DESIGNER-REVIEW.md](BOT-AI-DESIGNER-REVIEW.md).
+
+| Constant / rule | Value | Meaning | Anchor |
+|---|---:|---|---|
+| `AiDifficulty` | **3** | default level; 0 random, 1 frozen legacy, 2 fair strategic, 3 fair advanced inference | `GameClass.AiDifficulty`; `BotsBehavior.EffectiveDifficulty` |
+| `--ai-difficulty` / `--ai-probe` / `--ab-char` | 0-3 | whole-field override, one-seat probe and paired seeded A/B measurement | `SimulationRunner`; `BotGameFactory.CreatePlayers` |
+| L0 action policy | uniform legal choice | random legal level-up and random target/Block slot; respects cannot-block, rejected targets and Макро's second action | `BotsBehavior.HandleBotAttackRandom` |
+| L1 knowledge policy | legacy privileged | historical control path is intentionally frozen and is **not** covered by the L2/L3 fairness guarantee; simulation exact-prediction prefill remains L1-only | `BotsBehavior.HandleBotAttack`; `BotGameFactory.CreatePlayers` |
+| `AiPlaystyle` | once/match | L2/L3 retain one coherent build/character plan; sim reports record it | `BotsBehavior.EnsureBotPlaystyle`; `GamePlayerBridgeClass.AiPlaystyle` |
+| Bot action preparation | spend every point first | level-ups complete before forced Skip, Madara response, Kira action or attack/Block choice | `BotsBehavior.HandleBotBehavior` |
+| visible-memory retention | 10 global rounds | stored sanitized global-log snapshots older than completed round − 9 are discarded; structured opponent history remains match-scoped | `BotInformation.CaptureVisibleRound` |
+| L2 / L3 general target horizon | 3 / 6 rounds | weighted public results, targeting and defense patterns used by target scoring | `BotsBehavior.ApplyFairUniversalPreference` |
+| L2 / L3 incoming-attack horizon | 2 / 5 rounds | estimates how often each opponent publicly attacked this bot; replaces live attack-queue reads | `BotsBehavior.HistoricalIncoming` |
+| L2 / L3 target selection | weighted / best | L2 keeps variety and doubles the unique best target's weight; L3 selects the highest score, random only across exact ties | `SmartCommitMultiplier` = 2; `BotsBehavior.PickFairTarget` |
+| `SmartTargetTaretNumberEarly` / `...Late` | +3 / +2 | earned Мишень-class preference through round 4 / afterward | `BotsBehavior.ApplyFairUniversalPreference` |
+| known nemesis / reverse nemesis | +5 / −2 L2, −4 L3 | applied only after an earned class tell | `BotsBehavior.ApplyFairUniversalPreference` |
+| observed Justice comparison | −5…+5 | uses Justice seen in the bot's own fight and advances it only from later public wins/losses; unknown stays unknown | `BotsBehavior.EstimateObservedJustice` |
+| public defense-rate trigger | 60% | recent resolved Block/Skip rate causes −2 L2 or −4 L3 caution (−1 when the bot's own kit still progresses) | `BotInformation.DefenseRate`; `BotsBehavior.ApplyFairUniversalPreference` |
+| fair fight-edge blend | 65% estimate / 35% observation | L3 estimates public-catalogue stats and blends the most recent own-fight observation; thresholds ±4 / ±10 affect target score. L2 uses only its recent observed own-fight edge thresholds ±5 | `BotsBehavior.EstimateFairFightEdge`; `BotsBehavior.ApplyFairUniversalPreference` |
+| `SmartPredictAvoidNumber` | −2 | caution for sufficiently confident hypotheses about punish-passives; L3 scales it by confidence up to ×2.5 | `BotsBehavior.ApplyPredictedOpponentCaution` |
+| prediction tier prior | 18/14/12/9/8/7/6 | public-catalogue weight for tiers ≥6/5/4/3/2/1/other | `CharacterPassives.FairPredictionPrior` |
+| L2 inferred prediction | 25% prior; 40-85% evidence | stable catalogue prior when evidence score <45, otherwise earned class/own-fight/log evidence; stronger old evidence is retained | `CharacterPassives.HandleFairBotPredict` |
+| L3 inferred prediction | 35-92% | same legal evidence plus public natural-roll and incompatibility rules, longer history and an all-different assignment; it never reads the real roster | `CharacterPassives.HandleFairBotPredict`; `ApplyFairRosterConstraints` |
+| exact prediction confidence | 100% | only public Толя/Коммуникация or owner-only Сверхразум/Naruto reveal | `CharacterPassives.SeedFairExactPredictions` |
+| Monster hypothesis | abstain | the bot may infer `Монстр без имени`, but leaves the submitted prediction blank because it cannot score and can punish a guess | `CharacterPassives.RecordFairPredictionChoice` |
+| L2 generic Block odds | 1/4 neutral | PreferBlock 1/2; PreferAttack 1/5; 0 Justice + best score <7 gives 1/2; top two + historical incoming ≥1.5 + best <10 gives 2/3 | `BotsBehavior.ShouldFairBotBlock` |
+| L3 generic Block rules | deterministic | PreferBlock if best <15; top two with incoming ≥1.5 and best <12; bottom three with own Justice ≤1 and best <7; otherwise only if best <5 | `BotsBehavior.ShouldFairBotBlock` |
+| round-10 generic economy | leader Block; others attack | only the acting bot's public place is used; character-specific forced action plans still win | `BotsBehavior.ShouldFairBotBlock` |
+| `SmartMoralWaitPlace3` / `Place4` / `Leader` | 8 / 13 / 8 Moral | score-conversion patience for L2/L3 | `BotsBehavior.HandleBotMoral` |
+| `SmartPsycheFloor` | 4 | generic level-up raises Psyche once the best stat is at least 8; character plans override | `BotsBehavior.HandleLvlUpBot` |
+| `SmartSellerMarkFloor` | 20 | makes an unmarked Seller target dominant while the mark is ready | `BotsBehavior.ApplyFairCharacterPreference` |
+| persistent plans | random once | Dopa 4; Darksci 2; Глеб 2; TheBoys 4; Goblins 4; Rick/Itachi/Kratos/Cats/Tolya/Monster/Support 2 each; other characters use Adaptive | `BotsBehavior.EnsureBotPlaystyle` |
+| fair Kira confidence | L2 25%; L3 35-90%; reveal 100% | L2 uses public catalogue priors; L3 scores legal logs/class/place history; Shinigami Eyes reads an exact identity only after the target ID is in the owner's reveal list | `BotsBehavior.HandleFairBotKira`; `FairKiraGuessScore` |
+| L3 Rumbling inference | 82% | public round-10 warning plus a unique opponent observed at place 6 in at least 5 of rounds 1-8; the guess may be absent or wrong | `BotsBehavior.InferPublicRulePatterns` |

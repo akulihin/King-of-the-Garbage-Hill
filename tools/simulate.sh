@@ -12,9 +12,9 @@
 #
 # Flags: --games N | --coverage K | --characters "6 comma-separated names"
 #        --report PATH | --timeout-min M
-#        --ai-difficulty N (0-3, default 3: 0 pure-random baseline, 1 legacy bots, 2 smarter
-#        heuristics, 3 omniscient predictions from round 3; sim-only picker — Discord/web use the
-#        AiDifficulty default, currently 3)
+#        --ai-difficulty N (0-3, default 3: 0 pure-random baseline, 1 legacy bots,
+#        2 fair player-visible strategy, 3 fair strategy with longer memory/rule inference;
+#        sim-only picker — Discord/web use the AiDifficulty default, currently 3)
 #        --ai-probe N [--ai-probe-char "Name"] (run ONE bot at level N vs a field on --ai-difficulty)
 #        --seed N (deterministic sequential run: a fixed seed reproduces the whole batch)
 #        --ab-char "Name" [--ab-test N=3] [--ab-control N=1] (in-process paired A/B: plays the seeded
