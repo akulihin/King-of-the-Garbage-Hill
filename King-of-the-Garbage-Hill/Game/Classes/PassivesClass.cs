@@ -283,7 +283,9 @@ public class PassivesClass
     public int MonsterTwinHighestJusticeThisRound { get; set; } = -1;
     public Guid JohanPawnOwnerId { get; set; } = Guid.Empty;
 
-    public Guid PointFunneledTo { get; set; } = Guid.Empty;
+    // unknown_bug — owner-only stream/commit state
+    public UnknownBug.State UnknownBug { get; set; } = new();
+
     public bool IsExploitable { get; set; } = false;
     public bool IsExploitFixed { get; set; } = false;
 

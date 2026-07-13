@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Discord;
 using Discord.Commands;
 using King_of_the_Garbage_Hill.DiscordFramework.Extensions;
+using King_of_the_Garbage_Hill.Game.Characters;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.DiscordMessages;
 using King_of_the_Garbage_Hill.Game.GameLogic;
@@ -430,7 +431,7 @@ public class General : ModuleBaseCustom
                 foreach (var teamMemberId in playerTeam.TeamPlayers)
                 {
                     var teamMember = playersList.Find(x => x.GetPlayerId() == teamMemberId);
-                    if (teamPayer.GetPlayerId() == teamMember.GetPlayerId()) continue;
+                    if (teamPayer.GetPlayerId() == teamMember.GetPlayerId() || UnknownBug.Is(teamMember)) continue;
 
                     teamPayer.Predict.Add(new PredictClass(teamMember.GameCharacter.Name, teamMember.GetPlayerId()));
                 }
@@ -454,13 +455,19 @@ public class General : ModuleBaseCustom
             {
                 var account = _accounts.GetAccount(player.DiscordId);
                 if (account == null) continue;
-                // Include the player's natural roll as first option, then roll 2 more alternatives
                 var originalCharacter = player.GameCharacter;
+                player.Status.MoveListPage = 6;
+                if (UnknownBug.Is(originalCharacter))
+                {
+                    player.Status.IsDraftPickConfirmed = true;
+                    continue;
+                }
+
+                // Include the player's ordinary natural roll as first option, then roll 2 alternatives.
                 var options = _startGameLogic.RollDraftOptions(account, allAssigned,
                     strictBotCount, count: 2, isTeamMode: teamCount > 0);
                 options.Insert(0, originalCharacter);
                 game.DraftOptions[player.GetPlayerId()] = options;
-                player.Status.MoveListPage = 6;
             }
             foreach (var p in playersList.Where(p => p.PlayerType == 404))
                 p.Status.IsDraftPickConfirmed = true;

@@ -11,8 +11,6 @@ c_awdka_mastery
 c_awdka_trying
 c_boys_orders
 c_boys_ultimate
-c_bug_patch
-c_bug_release
 c_crab_fortress
 c_crab_shell
 c_darksci_stable
@@ -115,7 +113,7 @@ x_spartan_mylorik
 EOF
 )
 
-# Every one of the 40 character definitions has one approachable card and one hard card.
+# Every public or post-roll character definition has one approachable card and one hard card.
 # Difficulty is a rule-design tier, independent of reward rarity, so existing V2 card rewards stay stable.
 character_pairs=$(cat <<'EOF'
 TheBoys|c_boys_orders|c_boys_ultimate
@@ -154,7 +152,6 @@ Darksci|c_darksci_stable|c_darksci_unstable
 Weedwick|c_weedwick_smoke|c_weedwick_harvest
 Молодой Глеб|c_young_gleb_meta|c_young_gleb_ward
 Sakura|c_sakura_three|c_sakura_first
-Баг|c_bug_patch|c_bug_release
 DooM Guy|c_doom_loadout|c_doom_bfg
 Эрен Йегер|c_eren_tatake|c_eren_rumbling
 Наруто|c_naruto_harem|c_naruto_rasengan
@@ -199,8 +196,8 @@ done <<< "$expected"
 global_count=$(printf '%s\n' "$definitions" | rg -c '^g_' || true)
 character_count=$(printf '%s\n' "$definitions" | rg -c '^c_' || true)
 interaction_count=$(printf '%s\n' "$definitions" | rg -c '^x_' || true)
-if [ "$global_count" -ne 12 ] || [ "$character_count" -ne 80 ] || [ "$interaction_count" -ne 13 ]; then
-  echo "BAD category counts: global=$global_count character=$character_count interaction=$interaction_count (expected 12/80/13)"
+if [ "$global_count" -ne 12 ] || [ "$character_count" -ne 78 ] || [ "$interaction_count" -ne 13 ]; then
+  echo "BAD category counts: global=$global_count character=$character_count interaction=$interaction_count (expected 12/78/13)"
   fail=1
 fi
 
@@ -208,15 +205,15 @@ pair_count=$(printf '%s\n' "$character_pairs" | sed '/^$/d' | wc -l)
 paired_ids=$(printf '%s\n' "$character_pairs" | awk -F'|' '{ print $2; print $3 }' | sort)
 defined_character_ids=$(printf '%s\n' "$definitions" | rg '^c_' | sort)
 pair_names=$(printf '%s\n' "$character_pairs" | cut -d'|' -f1 | sort)
-roster_names=$(jq -r '.[].Name' King-of-the-Garbage-Hill/DataBase/characters.json | sort)
+roster_names=$(jq -r '.[] | select(.Name != "unknown_bug" and .Name != "Баг") | .Name' King-of-the-Garbage-Hill/DataBase/characters.json | sort)
 duplicate_pair_ids=$(printf '%s\n' "$paired_ids" | uniq -d)
 unpaired_character_ids=$(comm -23 <(printf '%s\n' "$defined_character_ids") <(printf '%s\n' "$paired_ids"))
 unknown_pair_ids=$(comm -13 <(printf '%s\n' "$defined_character_ids") <(printf '%s\n' "$paired_ids"))
 missing_roster_pairs=$(comm -23 <(printf '%s\n' "$roster_names") <(printf '%s\n' "$pair_names"))
 unknown_pair_names=$(comm -13 <(printf '%s\n' "$roster_names") <(printf '%s\n' "$pair_names"))
-if [ "$pair_count" -ne 40 ] || [ -n "$duplicate_pair_ids" ] || [ -n "$unpaired_character_ids" ] \
+if [ "$pair_count" -ne 39 ] || [ -n "$duplicate_pair_ids" ] || [ -n "$unpaired_character_ids" ] \
     || [ -n "$unknown_pair_ids" ] || [ -n "$missing_roster_pairs" ] || [ -n "$unknown_pair_names" ]; then
-  echo "BAD normal/hard character pairing coverage: pairs=$pair_count (expected 40)"
+  echo "BAD normal/hard character pairing coverage: pairs=$pair_count (expected 39)"
   [ -n "$duplicate_pair_ids" ] && printf 'DUPLICATE paired IDs:\n%s\n' "$duplicate_pair_ids"
   [ -n "$unpaired_character_ids" ] && printf 'UNPAIRED character IDs:\n%s\n' "$unpaired_character_ids"
   [ -n "$unknown_pair_ids" ] && printf 'UNKNOWN paired IDs:\n%s\n' "$unknown_pair_ids"
@@ -237,4 +234,4 @@ if [ "$fail" -ne 0 ]; then
   exit 1
 fi
 
-echo "audit-achievements: 105 definitions (12 global / 80 character / 13 interaction), 40 normal/hard character pairs, all unique and evaluated."
+echo "audit-achievements: 103 definitions (12 global / 78 character / 13 interaction), 39 normal/hard character pairs, all unique and evaluated."

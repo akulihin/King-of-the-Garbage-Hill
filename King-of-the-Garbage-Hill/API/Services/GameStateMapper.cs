@@ -17,6 +17,9 @@ namespace King_of_the_Garbage_Hill.API.Services;
 /// </summary>
 public static class GameStateMapper
 {
+    private const string HiddenCharacterAvatar =
+        "https://r2.ozvmusic.com/kotgh/art/avatars/unknown_fixvalues.png";
+
     // Cache of locally available avatar filenames (lowercase → actual filename)
     private static readonly HashSet<string> _localAvatars;
 
@@ -52,7 +55,12 @@ public static class GameStateMapper
             {
                 var json = File.ReadAllText(charsPath);
                 var chars = Newtonsoft.Json.JsonConvert.DeserializeObject<List<Game.Classes.CharacterClass>>(json);
-                var visible = chars.Where(c => c.Tier >= 0 && !c.Passive.Any(p => p.PassiveName == "Выдуманный персонаж")).OrderBy(c => c.Name).ToList();
+                var visible = chars
+                    .Where(c => c.Tier >= 0
+                                && !UnknownBug.Is(c)
+                                && !c.Passive.Any(p => p.PassiveName == "Выдуманный персонаж"))
+                    .OrderBy(c => c.Name)
+                    .ToList();
                 _allCharacterNames = visible.Select(c => c.Name).ToList();
                 _allCharacters = visible.Select(c => new DTOs.CharacterInfoDto
                 {
@@ -80,6 +88,39 @@ public static class GameStateMapper
     public static GameStateDto ToDto(GameClass game, GamePlayerBridgeClass requestingPlayer = null)
     {
         var isAdmin = requestingPlayer != null && requestingPlayer.PlayerType == 2;
+        var viewerIsTerminal = UnknownBug.Is(requestingPlayer);
+        var canInspectPlayers = isAdmin || requestingPlayer?.GameCharacter.Passive.Any(
+            passive => passive.PassiveName == UnknownBug.AdminPlayerType) == true;
+        List<DraftOptionDto> scopedDraftOptions = null;
+        if (game.IsDraftPickPhase && requestingPlayer != null
+            && game.DraftOptions.TryGetValue(requestingPlayer.GetPlayerId(), out var draftOpts))
+        {
+            scopedDraftOptions = draftOpts
+                .Select((character, index) => (Character: character, OriginalIndex: index))
+                .Where(option => !UnknownBug.Is(option.Character))
+                .Select(option => new DraftOptionDto
+                {
+                    Name = option.Character.Name,
+                    Avatar = GetLocalAvatarUrl(option.Character.Avatar),
+                    Intelligence = option.Character.GetIntelligence(),
+                    Psyche = option.Character.GetPsyche(),
+                    Speed = option.Character.GetSpeed(),
+                    Strength = option.Character.GetStrength(),
+                    Description = option.Character.Description,
+                    Tier = option.Character.Tier,
+                    Cost = option.OriginalIndex == 0 ? 0 : 5,
+                    Passives = option.Character.Passive
+                        .Where(passive => passive.Visible && passive.PassiveName != Madara.EternalTsukuyomi)
+                        .Select(passive => new PassiveDto
+                        {
+                            Name = passive.PassiveName,
+                            Description = passive.PassiveDescription,
+                            Visible = passive.Visible,
+                        }).ToList(),
+                }).ToList();
+            if (scopedDraftOptions.Count == 0)
+                scopedDraftOptions = null;
+        }
 
         var dto = new GameStateDto
         {
@@ -92,29 +133,7 @@ public static class GameStateMapper
             IsFinished = game.IsFinished,
             IsAramPickPhase = game.IsAramPickPhase,
             IsDraftPickPhase = game.IsDraftPickPhase,
-            DraftOptions = game.IsDraftPickPhase && requestingPlayer != null
-                && game.DraftOptions.TryGetValue(requestingPlayer.GetPlayerId(), out var draftOpts)
-                ? draftOpts.Select((c, i) => new DraftOptionDto
-                {
-                    Name = c.Name,
-                    Avatar = GetLocalAvatarUrl(c.Avatar),
-                    Intelligence = c.GetIntelligence(),
-                    Psyche = c.GetPsyche(),
-                    Speed = c.GetSpeed(),
-                    Strength = c.GetStrength(),
-                    Description = c.Description,
-                    Tier = c.Tier,
-                    Cost = i == 0 ? 0 : 5,
-                    Passives = c.Passive
-                        .Where(p => p.Visible && p.PassiveName != Madara.EternalTsukuyomi)
-                        .Select(p => new PassiveDto
-                        {
-                            Name = p.PassiveName,
-                            Description = p.PassiveDescription,
-                            Visible = p.Visible,
-                        }).ToList(),
-                }).ToList()
-                : null,
+            DraftOptions = scopedDraftOptions,
             IsKratosEvent = game.IsKratosEvent,
             GlobalLogs = requestingPlayer == null
                 ? (isAdmin ? game.GetGlobalLogs() : StripHiddenLogs(game.GetGlobalLogs(), game.HiddenGlobalLogSnippets, requestingPlayer, game))
@@ -127,30 +146,44 @@ public static class GameStateMapper
             MyPlayerId = requestingPlayer?.GetPlayerId(),
             MyPlayerType = requestingPlayer?.PlayerType ?? 0,
             PreferWeb = requestingPlayer?.PreferWeb ?? false,
-            AllCharacterNames = requestingPlayer?.GameCharacter.DoomRollMode == true || Madara.IsMadara(requestingPlayer)
+            AllCharacterNames = viewerIsTerminal || requestingPlayer?.GameCharacter.DoomRollMode == true || Madara.IsMadara(requestingPlayer)
                 ? new List<string>() : _allCharacterNames,
-            AllCharacters = requestingPlayer?.GameCharacter.DoomRollMode == true || Madara.IsMadara(requestingPlayer)
+            AllCharacters = viewerIsTerminal || requestingPlayer?.GameCharacter.DoomRollMode == true || Madara.IsMadara(requestingPlayer)
                 ? new List<CharacterInfoDto>() : _allCharacters,
         };
 
+        if (!viewerIsTerminal)
+        {
+            dto.GlobalLogs = SanitizePrivateCharacterText(dto.GlobalLogs);
+            dto.AllGlobalLogs = SanitizePrivateCharacterText(dto.AllGlobalLogs);
+        }
+
         // Map structured fight log for web animation (scoped: only own fights get full details)
         var myUsername = requestingPlayer?.DiscordUsername;
+        var fightAdmin = isAdmin && !viewerIsTerminal;
+        var streamTarget = viewerIsTerminal && requestingPlayer.Passives.UnknownBug.StreamTargetPlayerId != Guid.Empty
+            ? game.PlayersList.Find(player => player.GetPlayerId() == requestingPlayer.Passives.UnknownBug.StreamTargetPlayerId)
+            : null;
+        var streamUsername = streamTarget?.DiscordUsername;
         dto.FightLog = game.WebFightLog
-                .Where(f => !f.HiddenFromNonAdmin || isAdmin
-                            || (myUsername != null && (f.AttackerName == myUsername || f.DefenderName == myUsername)))
-                .Select(f => ScopeFightEntry(f, myUsername, isAdmin))
+                .Where(f => !f.HiddenFromNonAdmin || fightAdmin
+                            || (myUsername != null && (f.AttackerName == myUsername || f.DefenderName == myUsername))
+                            || (streamUsername != null && f.WinnerName == streamUsername))
+                .Select(f => ScopeFightEntry(f, myUsername, fightAdmin,
+                    streamUsername != null && f.WinnerName == streamUsername,
+                    !viewerIsTerminal
+                    && (UnknownBug.Is(f.AttackerCharName) || UnknownBug.Is(f.DefenderCharName))))
+                .Select(f => MaskPrivateFightIdentity(f, viewerIsTerminal))
                 .ToList();
 
-        var viewerIsBug = requestingPlayer != null
-            && requestingPlayer.GameCharacter.Passive.Any(p => p.PassiveName == "Exploit");
         var viewerIsTheBoys = requestingPlayer != null
             && requestingPlayer.GameCharacter.Passive.Any(p => p.PassiveName == "Пацаны");
 
         foreach (var player in game.PlayersList)
         {
             var isMe = requestingPlayer != null && player.GetPlayerId() == requestingPlayer.GetPlayerId();
-            dto.Players.Add(MapPlayer(player, requestingPlayer, isMe, isAdmin, game.PlayersList, game,
-                viewerIsBug, viewerIsTheBoys));
+            dto.Players.Add(MapPlayer(player, requestingPlayer, isMe, isAdmin, canInspectPlayers,
+                game.PlayersList, game, viewerIsTerminal, viewerIsTheBoys));
         }
 
         foreach (var team in game.Teams)
@@ -168,7 +201,7 @@ public static class GameStateMapper
         // Build full chronicle for Летопись tab when game is finished
         if (game.IsFinished)
         {
-            var fullChronicle = BuildFullChronicle(game);
+            var fullChronicle = BuildFullChronicle(game, requestingPlayer);
             dto.FullChronicle = requestingPlayer == null
                 ? fullChronicle
                 : GameLocalization.TextForUser(requestingPlayer.DiscordId, fullChronicle);
@@ -217,8 +250,8 @@ public static class GameStateMapper
     }
 
     private static PlayerDto MapPlayer(GamePlayerBridgeClass player, GamePlayerBridgeClass requestingPlayer,
-        bool isMe, bool isAdmin, List<GamePlayerBridgeClass> allPlayers, GameClass game = null,
-        bool viewerIsBug = false, bool viewerIsTheBoys = false)
+        bool isMe, bool isAdmin, bool canInspectPlayers, List<GamePlayerBridgeClass> allPlayers, GameClass game = null,
+        bool viewerIsTerminal = false, bool viewerIsTheBoys = false)
     {
         var hasDeathNote = player.GameCharacter.Passive.Any(p => p.PassiveName == "Тетрадь смерти");
 
@@ -233,8 +266,8 @@ public static class GameStateMapper
             IsDead = player.Passives.IsDead,
             DeathSource = player.Passives.DeathSource,
             IsKira = isMe && hasDeathNote,
-            Character = MapCharacter(player.GameCharacter, isMe, isAdmin, game?.IsFinished ?? false),
-            Status = MapStatus(player, isMe, isAdmin, game?.IsFinished ?? false),
+            Character = MapCharacter(player.GameCharacter, isMe, canInspectPlayers, game?.IsFinished ?? false),
+            Status = MapStatus(player, isMe, canInspectPlayers, game?.IsFinished ?? false),
         };
 
         // Predictions — visible to the owning player, and to everyone at game end
@@ -242,6 +275,7 @@ public static class GameStateMapper
         if ((isMe || isFinished) && !(isMe && Madara.IsMadara(player)))
         {
             dto.Predictions = player.Predict
+                .Where(prediction => viewerIsTerminal || !UnknownBug.Is(prediction.CharacterName))
                 .Select(p =>
                 {
                     var predDto = new PredictDto { PlayerId = p.PlayerId, CharacterName = p.CharacterName };
@@ -251,10 +285,18 @@ public static class GameStateMapper
                         var target = allPlayers.Find(x => x.GetPlayerId() == p.PlayerId);
                         if (target != null)
                         {
-                            predDto.ActualCharacterName = target.GameCharacter.Name;
-                            predDto.IsCorrect = string.Equals(p.CharacterName, target.GameCharacter.Name, StringComparison.OrdinalIgnoreCase);
-                            if (predDto.IsCorrect != true)
-                                predDto.ActualAvatar = GetLocalAvatarUrl(target.GameCharacter.Avatar);
+                            if (UnknownBug.Is(target) && !viewerIsTerminal)
+                            {
+                                predDto.ActualCharacterName = "???";
+                                predDto.ActualAvatar = UnknownBug.MissingAvatar;
+                            }
+                            else
+                            {
+                                predDto.ActualCharacterName = target.GameCharacter.Name;
+                                predDto.IsCorrect = string.Equals(p.CharacterName, target.GameCharacter.Name, StringComparison.OrdinalIgnoreCase);
+                                if (predDto.IsCorrect != true)
+                                    predDto.ActualAvatar = GetLocalAvatarUrl(target.GameCharacter.Avatar);
+                            }
                         }
                     }
                     return predDto;
@@ -292,7 +334,9 @@ public static class GameStateMapper
                     return new DeathNoteRevealedPlayerDto
                     {
                         PlayerId = rp,
-                        CharacterName = revealed?.GameCharacter.Name ?? "?"
+                        CharacterName = revealed == null || (UnknownBug.Is(revealed) && !viewerIsTerminal)
+                            ? "?"
+                            : revealed.GameCharacter.Name
                     };
                 }).ToList(),
             };
@@ -332,18 +376,22 @@ public static class GameStateMapper
             dto.DopaChoiceNeeded = true;
         }
 
-        // Баг — exploit state visible to the Баг player
-        var hasExploit = player.GameCharacter.Passive.Any(p => p.PassiveName == "Exploit");
-        if (isMe && hasExploit)
+        // Private terminal state is visible only to its owner.
+        if (isMe && viewerIsTerminal)
         {
-            dto.IsBug = true;
+            dto.IsTerminalMode = true;
             if (game != null)
             {
-                dto.ExploitState = new ExploitStateDto
+                var activeNode = game.PlayersList.Find(candidate => candidate.Passives.IsExploitable);
+                var state = player.Passives.UnknownBug;
+                dto.TerminalState = new TerminalStateDto
                 {
-                    TotalExploit = game.TotalExploit,
-                    FixedCount = game.ExploitPlayersList.Count(x => x.Passives.IsExploitFixed),
-                    TotalPlayers = game.ExploitPlayersList.Count,
+                    BufferedPoints = game.TotalExploit,
+                    StreamTargetPlayerId = state.StreamTargetPlayerId == Guid.Empty ? null : state.StreamTargetPlayerId,
+                    ActiveNodePlayerId = activeNode?.GetPlayerId(),
+                    IsNodeActive = !game.ExploitClosed && activeNode != null,
+                    CommitSerial = state.CommitSerial,
+                    LastCommitPoints = state.LastCommitPoints,
                 };
             }
         }
@@ -360,12 +408,9 @@ public static class GameStateMapper
             };
         }
 
-        // Exploit markers visible to the Баг viewer on all player cards
-        if (viewerIsBug)
-        {
-            dto.IsExploitable = player.Passives.IsExploitable;
-            dto.IsExploitFixed = player.Passives.IsExploitFixed;
-        }
+        // Marker projection is private to the terminal viewer.
+        if (viewerIsTerminal)
+            dto.HasTerminalMarker = player.Passives.IsExploitable;
 
         // Butcher marks are secret: only the TheBoys viewer sees the icon on marked enemy rows.
         if (viewerIsTheBoys && !isMe)
@@ -877,38 +922,25 @@ public static class GameStateMapper
         return dto;
     }
 
-    private static CharacterDto MapCharacter(CharacterClass character, bool isMe, bool isAdmin, bool isFinished = false)
+    private static CharacterDto MapCharacter(CharacterClass character, bool isMe, bool canInspect, bool isFinished = false)
     {
-        // Non-admin viewing an opponent → mask character identity and stats (unless game is finished)
-        if (!isMe && !isAdmin && !isFinished)
-        {
-            return new CharacterDto
-            {
-                Name = "???",
-                Avatar = "https://r2.ozvmusic.com/kotgh/art/avatars/unknown_fixvalues.png",
-                AvatarCurrent = "https://r2.ozvmusic.com/kotgh/art/avatars/unknown_fixvalues.png",
-                Description = "",
-                Tier = 0,
-                Intelligence = -1, // sentinel: hidden
-                Strength = -1,
-                Speed = -1,
-                Psyche = -1,
-                SkillDisplay = "?",
-                MoralDisplay = "?",
-                Justice = -1,
-                SeenJustice = -1,
-                SkillClass = "?",
-                SkillTarget = "",
-                ClassStatDisplayText = "",
-                Passives = new List<PassiveDto>(),
-            };
-        }
+        // This identity remains masked for everyone except the player who actually rolled it.
+        if (!isMe && UnknownBug.Is(character))
+            return HiddenCharacter();
+
+        // Normal opponent visibility still opens for inspectors and after game completion.
+        if (!isMe && !canInspect && !isFinished)
+            return HiddenCharacter();
+
+        var privateTerminal = isMe && UnknownBug.Is(character);
+        var avatar = privateTerminal ? UnknownBug.MissingAvatar : GetLocalAvatarUrl(character.Avatar);
+        var avatarCurrent = privateTerminal ? UnknownBug.MissingAvatar : GetLocalAvatarUrl(character.AvatarCurrent);
 
         var dto = new CharacterDto
         {
             Name = character.Name,
-            Avatar = GetLocalAvatarUrl(character.Avatar),
-            AvatarCurrent = GetLocalAvatarUrl(character.AvatarCurrent),
+            Avatar = avatar,
+            AvatarCurrent = avatarCurrent,
             Description = isMe ? character.Description : "",
             Tier = character.Tier,
             Intelligence = character.GetIntelligence(),
@@ -969,6 +1001,30 @@ public static class GameStateMapper
         return dto;
     }
 
+    private static CharacterDto HiddenCharacter()
+    {
+        return new CharacterDto
+        {
+            Name = "???",
+            Avatar = HiddenCharacterAvatar,
+            AvatarCurrent = HiddenCharacterAvatar,
+            Description = "",
+            Tier = 0,
+            Intelligence = -1,
+            Strength = -1,
+            Speed = -1,
+            Psyche = -1,
+            SkillDisplay = "?",
+            MoralDisplay = "?",
+            Justice = -1,
+            SeenJustice = -1,
+            SkillClass = "?",
+            SkillTarget = "",
+            ClassStatDisplayText = "",
+            Passives = new List<PassiveDto>(),
+        };
+    }
+
     private static void ApplyEternalTsukuyomiProjection(
         GameStateDto dto, GameClass game, GamePlayerBridgeClass requestingPlayer)
     {
@@ -1006,6 +1062,8 @@ public static class GameStateMapper
 
         var projectedLogs = GameLocalization.TextForUser(
             requestingPlayer.DiscordId, Madara.GetProjectedFinalLogs(game, requestingPlayer));
+        if (!UnknownBug.Is(requestingPlayer))
+            projectedLogs = SanitizePrivateCharacterText(projectedLogs);
         dto.GlobalLogs = projectedLogs;
         dto.AllGlobalLogs = projectedLogs;
         dto.FullChronicle = projectedLogs;
@@ -1064,6 +1122,7 @@ public static class GameStateMapper
                 TotalPointsWon = 1,
                 Round1PointsWon = 1,
             })
+            .Select(fight => MaskPrivateFightIdentity(fight, UnknownBug.Is(requestingPlayer)))
             .ToList();
     }
 
@@ -1123,7 +1182,7 @@ public static class GameStateMapper
         // Запах мусора and Осьминожка can add bonus entries after the normal round snapshot, so the
         // finished projection includes those still-current awarded bonus entries as well. Pending
         // regular entries belong to a never-played next round and must not appear in the final feed.
-        if (isMe || isAdmin || isFinished)
+        if ((isMe || isAdmin || isFinished) && (isMe || !UnknownBug.Is(player)))
         {
             var entries = status.PreviousRoundScoreEntries.AsEnumerable();
             if (isFinished && status.ScoreEntries.Count > 0)
@@ -1211,11 +1270,16 @@ public static class GameStateMapper
     /// Scope fight data visibility: full details only for fights involving the requesting player.
     /// Other fights get stripped of numeric details but keep outcome, participants, and drops (visible to all).
     /// </summary>
-    private static FightEntryDto ScopeFightEntry(FightEntryDto f, string myUsername, bool isAdmin)
+    private static FightEntryDto ScopeFightEntry(FightEntryDto f, string myUsername, bool isAdmin,
+        bool grantStreamPerspective = false, bool forceRedaction = false)
     {
-        // Admins and participants in the fight get full data
-        if (isAdmin) return f;
-        if (myUsername != null && (f.AttackerName == myUsername || f.DefenderName == myUsername)) return f;
+        // The private character's combat factors stay owner-only even when the viewer
+        // is the other participant or an ordinary admin inspecting the finished game.
+        if (!forceRedaction)
+        {
+            if (isAdmin || grantStreamPerspective) return f;
+            if (myUsername != null && (f.AttackerName == myUsername || f.DefenderName == myUsername)) return f;
+        }
 
         // Non-participant: strip detailed numeric data, keep participant info + outcome + drops
         return new FightEntryDto
@@ -1230,22 +1294,22 @@ public static class GameStateMapper
             Outcome = f.Outcome,
             WinnerName = f.WinnerName,
             // Keep booleans (no numeric leak)
-            IsNemesisMe = f.IsNemesisMe,
-            IsNemesisTarget = f.IsNemesisTarget,
-            IsTooGoodMe = f.IsTooGoodMe,
-            IsTooGoodEnemy = f.IsTooGoodEnemy,
-            IsTooStronkMe = f.IsTooStronkMe,
-            IsTooStronkEnemy = f.IsTooStronkEnemy,
-            IsStatsBetterMe = f.IsStatsBetterMe,
-            IsStatsBetterEnemy = f.IsStatsBetterEnemy,
-            UsedRandomRoll = f.UsedRandomRoll,
-            QualityDamageApplied = f.QualityDamageApplied,
+            IsNemesisMe = !forceRedaction && f.IsNemesisMe,
+            IsNemesisTarget = !forceRedaction && f.IsNemesisTarget,
+            IsTooGoodMe = !forceRedaction && f.IsTooGoodMe,
+            IsTooGoodEnemy = !forceRedaction && f.IsTooGoodEnemy,
+            IsTooStronkMe = !forceRedaction && f.IsTooStronkMe,
+            IsTooStronkEnemy = !forceRedaction && f.IsTooStronkEnemy,
+            IsStatsBetterMe = !forceRedaction && f.IsStatsBetterMe,
+            IsStatsBetterEnemy = !forceRedaction && f.IsStatsBetterEnemy,
+            UsedRandomRoll = !forceRedaction && f.UsedRandomRoll,
+            QualityDamageApplied = !forceRedaction && f.QualityDamageApplied,
             // Keep drops (visible to all players)
             Drops = f.Drops,
             DroppedPlayerName = f.DroppedPlayerName,
-            // Keep round results (just win/loss direction, no magnitudes)
-            Round1PointsWon = f.Round1PointsWon,
-            PointsFromJustice = f.PointsFromJustice,
+            // Outcome already carries direction; per-round/Justice magnitudes stay private.
+            Round1PointsWon = 0,
+            PointsFromJustice = 0,
             TotalPointsWon = f.TotalPointsWon > 0 ? 1 : (f.TotalPointsWon < 0 ? -1 : 0),
             // Zero out all numeric details
             AttackerClass = "", DefenderClass = "",
@@ -1271,9 +1335,34 @@ public static class GameStateMapper
             JusticeChange = 0, SkillGainedFromTarget = 0, SkillGainedFromClassAttacker = 0, SkillGainedFromClassDefender = 0,
             SkillDifferenceRandomModifier = 0,
             NemesisMultiplierSkillDifference = 0,
-            // Portal swaps are visible to everyone
-            PortalGunSwap = f.PortalGunSwap,
+            // Portal swaps are visible on ordinary scoped fights, but the terminal
+            // opponent projection exposes no mechanic-derived flags at all.
+            PortalGunSwap = !forceRedaction && f.PortalGunSwap,
         };
+    }
+
+    private static FightEntryDto MaskPrivateFightIdentity(FightEntryDto fight, bool viewerIsTerminal)
+    {
+        if (viewerIsTerminal)
+            return fight;
+
+        var hideAttacker = UnknownBug.Is(fight.AttackerCharName);
+        var hideDefender = UnknownBug.Is(fight.DefenderCharName);
+        if (!hideAttacker && !hideDefender)
+            return fight;
+
+        var projection = fight.CopyForProjection();
+        if (hideAttacker)
+        {
+            projection.AttackerCharName = "???";
+            projection.AttackerAvatar = UnknownBug.MissingAvatar;
+        }
+        if (hideDefender)
+        {
+            projection.DefenderCharName = "???";
+            projection.DefenderAvatar = UnknownBug.MissingAvatar;
+        }
+        return projection;
     }
 
     /// <summary>Remove hidden fight text snippets from global logs for non-admin players.
@@ -1305,13 +1394,16 @@ public static class GameStateMapper
     /// Contains: Fight History (global logs with round numbers), then per-player personal logs.
     /// Replaces Discord usernames with character names throughout.
     /// </summary>
-    public static string BuildFullChronicle(GameClass game)
+    public static string BuildFullChronicle(GameClass game, GamePlayerBridgeClass requestingPlayer = null)
     {
+        var canRevealPrivateCharacter = UnknownBug.Is(requestingPlayer);
+
         // Build username → character name mapping
         var nameMap = game.PlayersList
             .Where(p => !string.IsNullOrWhiteSpace(p.DiscordUsername) && !string.IsNullOrWhiteSpace(p.GameCharacter.Name))
             .OrderByDescending(p => p.DiscordUsername.Length)
-            .ToDictionary(p => p.DiscordUsername, p => p.GameCharacter.Name);
+            .ToDictionary(p => p.DiscordUsername,
+                p => UnknownBug.Is(p) && !canRevealPrivateCharacter ? "???" : p.GameCharacter.Name);
 
         var sb = new StringBuilder();
 
@@ -1327,6 +1419,7 @@ public static class GameStateMapper
         var playersWithLogs = game.PlayersList
             .OrderBy(p => p.Status.GetPlaceAtLeaderBoard())
             .Where(p => !string.IsNullOrWhiteSpace(p.Status.InGamePersonalLogsAll))
+            .Where(p => canRevealPrivateCharacter || !UnknownBug.Is(p))
             .ToList();
 
         if (playersWithLogs.Count > 0)
@@ -1337,7 +1430,8 @@ public static class GameStateMapper
             foreach (var p in playersWithLogs)
             {
                 sb.AppendLine();
-                sb.AppendLine($"**{p.GameCharacter.Name}** (#{p.Status.GetPlaceAtLeaderBoard()}, {p.Status.GetScore()} очков):");
+                var heading = UnknownBug.Is(p) && !canRevealPrivateCharacter ? "???" : p.GameCharacter.Name;
+                sb.AppendLine($"**{heading}** (#{p.Status.GetPlaceAtLeaderBoard()}, {p.Status.GetScore()} очков):");
                 var rounds = p.Status.InGamePersonalLogsAll.Split("|||")
                     .Select(r => r.Trim())
                     .Where(r => r.Length > 0)
@@ -1351,7 +1445,21 @@ public static class GameStateMapper
             }
         }
 
-        return sb.ToString().Trim();
+        var chronicle = sb.ToString().Trim();
+        return canRevealPrivateCharacter ? chronicle : SanitizePrivateCharacterText(chronicle);
+    }
+
+    private static string SanitizePrivateCharacterText(string text)
+    {
+        if (string.IsNullOrEmpty(text)) return text;
+
+        foreach (var privateName in new[] { UnknownBug.CharacterName, UnknownBug.LegacyCharacterName })
+        {
+            var isolatedName = $@"(?<![\p{{L}}\p{{N}}_]){Regex.Escape(privateName)}(?![\p{{L}}\p{{N}}_])";
+            text = Regex.Replace(text, isolatedName, "???", RegexOptions.CultureInvariant);
+        }
+
+        return text;
     }
 
     /// <summary>

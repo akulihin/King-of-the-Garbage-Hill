@@ -48,7 +48,7 @@ function player(tag: string, playerStatus: PlayerStatus): Player {
     isDead: false,
     deathSource: '',
     isKira: false,
-    isBug: false,
+    isTerminalMode: false,
     character: { name: tag } as Player['character'],
     status: playerStatus,
     customLeaderboardPrefix: `${tag}_PREFIX`,

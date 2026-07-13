@@ -7,6 +7,7 @@ using System.Text.Json;
 using System.Text.Unicode;
 using System.Threading.Tasks;
 using King_of_the_Garbage_Hill.API.DTOs;
+using King_of_the_Garbage_Hill.Game.Characters;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.DiscordMessages;
 
@@ -147,6 +148,9 @@ public class ReplayService : IServiceSingleton
 
     public ReplayDataDto BuildReplayData(GameClass game)
     {
+        if (game.PlayersList.Any(UnknownBug.Is))
+            throw new InvalidOperationException("This roster cannot be persisted as a replay.");
+
         var replay = new ReplayDataDto
         {
             GameId = game.GameId,
@@ -199,6 +203,9 @@ public class ReplayService : IServiceSingleton
 
     public void SaveReplay(ReplayDataDto replay)
     {
+        if (ContainsPrivateRoster(replay))
+            return;
+
         Directory.CreateDirectory(ReplayDir);
         var path = Path.Combine(ReplayDir, $"replay-{replay.ReplayHash}.json");
         var json = JsonSerializer.Serialize(replay, JsonOptions);
@@ -212,7 +219,8 @@ public class ReplayService : IServiceSingleton
         if (!File.Exists(path)) return null;
 
         var json = File.ReadAllText(path);
-        return JsonSerializer.Deserialize<ReplayDataDto>(json, JsonOptions);
+        var replay = JsonSerializer.Deserialize<ReplayDataDto>(json, JsonOptions);
+        return ContainsPrivateRoster(replay) ? null : replay;
     }
 
     public ReplayDataDto LoadReplayByGameId(ulong gameId)
@@ -225,7 +233,7 @@ public class ReplayService : IServiceSingleton
             {
                 var json = File.ReadAllText(file);
                 var replay = JsonSerializer.Deserialize<ReplayDataDto>(json, JsonOptions);
-                if (replay?.GameId == gameId) return replay;
+                if (replay?.GameId == gameId && !ContainsPrivateRoster(replay)) return replay;
             }
             catch { /* skip corrupt files */ }
         }
@@ -268,7 +276,7 @@ public class ReplayService : IServiceSingleton
 
                 var json = File.ReadAllText(path);
                 var replay = JsonSerializer.Deserialize<ReplayDataDto>(json, JsonOptions);
-                if (replay == null) continue;
+                if (replay == null || ContainsPrivateRoster(replay)) continue;
 
                 result.Add(new ReplayListEntryDto
                 {
@@ -297,6 +305,13 @@ public class ReplayService : IServiceSingleton
     }
 
     // ── Helpers ───────────────────────────────────────────────────────
+
+    private static bool ContainsPrivateRoster(ReplayDataDto replay)
+    {
+        return replay?.PlayerSummaries?.Any(player =>
+            string.Equals(player.CharacterName, UnknownBug.CharacterName, StringComparison.Ordinal)
+            || string.Equals(player.CharacterName, UnknownBug.LegacyCharacterName, StringComparison.Ordinal)) == true;
+    }
 
     private static List<ReplayRoundPlayerDto> CapturePlayers(
         GameClass game,

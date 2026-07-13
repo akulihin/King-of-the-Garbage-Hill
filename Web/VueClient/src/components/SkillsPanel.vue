@@ -13,8 +13,10 @@ const expandedSet = ref<Set<number>>(new Set())
 const skillCardRefs = ref<(HTMLElement | null)[]>([])
 
 const theBoys = computed(() => props.player.passiveAbilityStates?.theBoys ?? null)
+const isTerminalMode = computed(() => props.player.isTerminalMode ?? false)
 
 function toggleSkill(idx: number) {
+  if (isTerminalMode.value) return
   if (expandedSet.value.has(idx)) {
     expandedSet.value.delete(idx)
   } else {
@@ -24,7 +26,7 @@ function toggleSkill(idx: number) {
 }
 
 function isExpanded(idx: number): boolean {
-  return expandedSet.value.has(idx)
+  return isTerminalMode.value || expandedSet.value.has(idx)
 }
 
 function passiveIndexByName(name: string): number {
@@ -120,26 +122,38 @@ watch(
 </script>
 
 <template>
-  <div class="skills-panel">
+  <div class="skills-panel" :class="{ 'is-terminal-editor': isTerminalMode }">
+    <div v-if="isTerminalMode" class="terminal-editor-chrome" aria-hidden="true">
+      <span class="terminal-editor-dot red" />
+      <span class="terminal-editor-dot amber" />
+      <span class="terminal-editor-dot green" />
+      <span class="terminal-editor-tab">runtime/passives.cs</span>
+      <span class="terminal-editor-mode">INSERT // UTF-8</span>
+    </div>
     <div
       v-for="(passive, idx) in player.character.passives"
       :key="idx"
       :ref="(el) => { skillCardRefs[idx] = el as HTMLElement | null }"
       class="skill-card"
-      :class="{ expanded: isExpanded(idx) }"
+      :class="{ expanded: isExpanded(idx), 'terminal-code-block': isTerminalMode }"
+      :tabindex="isTerminalMode ? -1 : 0"
+      :role="isTerminalMode ? undefined : 'button'"
       @click="toggleSkill(idx)"
+      @keydown.enter.prevent="toggleSkill(idx)"
+      @keydown.space.prevent="toggleSkill(idx)"
     >
       <div class="skill-header">
         <div class="skill-header-left">
-          <span class="skill-dot dot-active" />
-          <span class="skill-name">{{ passive.name }}</span>
+          <span v-if="!isTerminalMode" class="skill-dot dot-active" />
+          <span v-else class="terminal-line-no">{{ String((idx * 4) + 1).padStart(2, '0') }}</span>
+          <span class="skill-name">{{ isTerminalMode ? `// ${passive.name}` : passive.name }}</span>
         </div>
         <div class="skill-header-right">
-          <span class="skill-chevron" :class="{ 'chevron-open': isExpanded(idx) }">▾</span>
+          <span v-if="!isTerminalMode" class="skill-chevron" :class="{ 'chevron-open': isExpanded(idx) }">▾</span>
         </div>
       </div>
       <Transition name="expand">
-        <div v-if="isExpanded(idx)" class="skill-desc" v-html="formatPassiveDescription(translateText(passive.description))" />
+        <div v-if="isExpanded(idx)" class="skill-desc" :class="{ 'terminal-code-copy': isTerminalMode }" v-html="formatPassiveDescription(translateText(passive.description))" />
       </Transition>
     </div>
 
@@ -176,6 +190,59 @@ watch(
   gap: 6px;
 }
 
+.skills-panel.is-terminal-editor {
+  position: relative;
+  gap: 0;
+  overflow: hidden;
+  border: 1px solid rgba(0, 255, 65, 0.4);
+  border-radius: 6px;
+  background:
+    repeating-linear-gradient(0deg, transparent 0 3px, rgba(0, 255, 65, 0.025) 4px),
+    #000b03;
+  box-shadow: 0 0 18px rgba(0, 255, 65, 0.12), inset 0 0 24px rgba(0, 255, 65, 0.035);
+  font-family: var(--font-mono);
+}
+.skills-panel.is-terminal-editor::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent 0 48%, rgba(0, 255, 65, 0.035) 50%, transparent 52%);
+  background-size: 190px 100%;
+  animation: terminal-editor-scan 7s linear infinite;
+}
+.terminal-editor-chrome {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 28px;
+  padding: 0 8px;
+  border-bottom: 1px solid rgba(0, 255, 65, 0.28);
+  background: #07130a;
+  color: rgba(126, 255, 157, 0.58);
+  font: 700 8px/1 var(--font-mono);
+}
+.terminal-editor-dot { width: 7px; height: 7px; border-radius: 50%; }
+.terminal-editor-dot.red { background: #c84c4c; }
+.terminal-editor-dot.amber { background: #c99b38; }
+.terminal-editor-dot.green { background: #00d63a; box-shadow: 0 0 5px rgba(0, 255, 65, 0.65); }
+.terminal-editor-tab {
+  align-self: stretch;
+  display: inline-flex;
+  align-items: center;
+  margin-left: 5px;
+  padding: 0 9px;
+  border-inline: 1px solid rgba(0, 255, 65, 0.18);
+  background: #000b03;
+  color: #78ff99;
+}
+.terminal-editor-mode { margin-left: auto; }
+@keyframes terminal-editor-scan {
+  to { background-position: 190px 0; }
+}
+
 .skill-card {
   background: var(--glass-bg);
   backdrop-filter: blur(8px);
@@ -202,6 +269,60 @@ watch(
   border-left-color: var(--accent-purple);
   border-color: rgba(180, 150, 255, 0.2);
 }
+
+.skill-card.terminal-code-block,
+.skill-card.terminal-code-block.expanded {
+  position: relative;
+  z-index: 1;
+  margin: 0;
+  padding: 9px 10px 10px;
+  border: 0;
+  border-bottom: 1px solid rgba(0, 255, 65, 0.13);
+  border-left: 28px solid rgba(0, 255, 65, 0.035);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+  cursor: default;
+  user-select: text;
+}
+.skill-card.terminal-code-block:hover {
+  transform: none;
+  border-color: rgba(0, 255, 65, 0.13);
+  border-left-color: rgba(0, 255, 65, 0.055);
+  background: rgba(0, 255, 65, 0.025);
+  box-shadow: inset 0 0 14px rgba(0, 255, 65, 0.025);
+}
+.terminal-code-block .skill-header-left { position: relative; }
+.terminal-line-no {
+  position: absolute;
+  right: calc(100% + 16px);
+  color: rgba(126, 255, 157, 0.24);
+  font: 600 9px/1 var(--font-mono);
+}
+.terminal-code-block .skill-name {
+  color: #6aff8d;
+  font: 700 11px/1.35 var(--font-mono);
+  letter-spacing: 0;
+  text-shadow: 0 0 6px rgba(0, 255, 65, 0.52);
+}
+.terminal-code-copy {
+  padding: 5px 0 0;
+  color: #b6e8c2;
+  font: 500 10px/1.55 var(--font-mono);
+  white-space: pre-line;
+}
+.terminal-code-copy :deep(code) {
+  display: inline-block;
+  padding: 1px 4px;
+  border: 1px solid rgba(0, 255, 65, 0.16);
+  border-radius: 2px;
+  background: rgba(0, 255, 65, 0.065);
+  color: #d1ffdc;
+  text-shadow: 0 0 5px rgba(0, 255, 65, 0.35);
+}
+.terminal-code-copy :deep(em) { color: #57baff; }
+.terminal-code-copy :deep(strong) { color: #ffe977; }
 
 .skill-header {
   display: flex;
@@ -299,6 +420,12 @@ watch(
   text-align: center;
   padding: 20px;
   font-size: 11px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skills-panel.is-terminal-editor::after,
+  .dot-active { animation: none; }
+  .skill-card.terminal-code-block { transition: none; }
 }
 </style>
 

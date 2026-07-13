@@ -179,7 +179,6 @@ public class InGameAchievementTracker
     public int NapoleonTreaties { get; set; }
     public int KotikiTaunts { get; set; }
     public int DeepListMockeries { get; set; }
-    public int ExploitsFired { get; set; }
     public int SaitamaDeferredPoints { get; set; }
     public bool DarksciChosenStable { get; set; }
     public int SellerMarksPlaced { get; set; }
@@ -587,21 +586,6 @@ public static class AchievementService
             secretHint: "Win enough arguments that nobody can call you useless from below.",
             secretHintRu: "Выиграйте достаточно споров, чтобы снизу вас уже не назвали бесполезной.",
             characterNames: new[] { "Sakura" }),
-
-        new("c_bug_patch", "Hotfix Deployed", "Хотфикс установлен",
-            "As Баг, leave 2 players with their exploit fixed.",
-            "Играя за Баг, исправьте эксплойт у 2 игроков.",
-            AchievementCategory.Character, "bug", "rare", isSecret: true,
-            secretHint: "A small patch should fix at least two unexpected features.",
-            secretHintRu: "Небольшой патч должен исправить хотя бы две неожиданные фичи.",
-            characterNames: new[] { "Баг" }),
-        new("c_bug_release", "Works on My Machine", "На моей машине работает",
-            "As Баг, leave all 5 opponents with their exploit fixed.",
-            "Играя за Баг, исправьте эксплойт у всех 5 соперников.",
-            AchievementCategory.Character, "bug", "legendary", isSecret: true,
-            secretHint: "Ship a release where everyone else has been patched.",
-            secretHintRu: "Выпустите релиз, в котором пропатчены уже все остальные.",
-            characterNames: new[] { "Баг" }),
 
         new("c_doom_loadout", "Rip, Tear, Roll", "Рви, кромсай, ролль",
             "As DooM Guy, enter Roll Mode with one active module in all 4 stages.",
@@ -1159,14 +1143,6 @@ public static class AchievementService
             SetBestProgress(account, "c_sakura_three", alive && actualPlace <= 3 ? 1 : 0);
             SetBestProgress(account, "c_sakura_first",
                 alive && actualPlace == 1 && tracker.TotalFightsWon >= 5 ? 1 : 0);
-        }
-
-        if (characterName == "Баг")
-        {
-            var fixedExploits = game.PlayersList.Count(candidate =>
-                candidate.GetPlayerId() != player.GetPlayerId() && candidate.Passives.IsExploitFixed);
-            SetBestProgress(account, "c_bug_patch", fixedExploits >= 2 ? 1 : 0);
-            SetBestProgress(account, "c_bug_release", fixedExploits >= 5 ? 1 : 0);
         }
 
         if (characterName == DoomGuy.CharacterName)

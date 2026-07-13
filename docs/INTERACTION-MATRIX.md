@@ -56,7 +56,7 @@ Movers (end-of-round order): Тигр-топ swap → Portal-Gun swap → HardKi
 | Mechanic | Direction | Interacts with | Verified behavior |
 |---|---|---|---|
 | Еврей (`HandleJews`, `CP:6687-6765`) | steals fight win point | Октопус ink | ink debits the Jew instead of the attacker (`CP:6785-6802`); Napoleon & fellow Евреи immune victims |
-| PointFunnel (Баг) | copies regular points | Еврей | funnel copies only `AddWinPoints` — Jew's stolen points not funneled |
+| PointFunnel (unknown_bug) | copies each resolved win by the selected stream target as +1 regular | Еврей / INT / score redirects / Exploit | source payout is ignored, so Jews and other target-side score transforms cannot suppress or inflate the copy. No second combat outcome is created. If the source loser carried Exploit, its private pot gains +1 (`UnknownBug.RecordResolvedFight`) |
 | Цукуеми (Итачи) | copies round earnings, deducts at end | Октопус ink | victim pays once: the round-11 ink restore **skips** its debit for a victim under Цукуеми (Итачи deducts instead); both Итачи and Octopus still get their point (D11 fixed, `CP:4863-4880`) |
 | Цукуеми (Итачи) → Мадара | copies ordinary round earnings | Воскрешенное тело | score theft works normally; Madara receives the supplied personal reaction, labeled `Бог шиноби` so the hidden passive name is not leaked (`CP:4474-4486`; `CharactersPhrases.cs:357-364`) |
 | Октопус ink | fake-win now, restore at r11 | DeepList first-fight | suppressed until DeepList's scripted loss happens (`CP:6772-6779`) |
@@ -114,6 +114,7 @@ Copy rule: random Standalone passive from the **last attacked** enemy, no duplic
 | Ведьмачьи заказы | dead copy (all hooks gated `Name == "Геральт"`) |
 | Madara's first four passives | dead copies: every mechanic is gated by `Name == "Мадара"`; none is `Standalone`, and Chainsaw cannot offer the fifth hidden passive (`Madara.cs:34-45`; `DoomGuy.cs:198-225`) |
 | Naruto's four passives | excluded: all are `Standalone: false`; ARAM also excludes Naruto's entire passive set. A Chainsaw copy can be offered but remains inert because every path is name/initialized-trio gated (`characters.json:1455-1479`; `CharactersPull.cs:60-72`; `Naruto.cs:31-46`) |
+| unknown_bug's four passives | excluded: all are `Standalone: false`, and Бензопила separately rejects `AdminPlayerType`, `AutoWin`, `PointFunnel` and `Exploit`; the secret kit cannot appear on another holder (`UnknownBug.HasSpecialPassive`; `CharacterPassives.cs:2757-2770`) |
 
 ## 7. Same-target stacking notes
 

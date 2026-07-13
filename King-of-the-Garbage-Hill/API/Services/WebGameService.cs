@@ -272,24 +272,32 @@ public class WebGameService
 
         if (EnableDraftPick)
         {
-            // Draft pick: include natural roll as first option, then roll 2 alternatives
+            // Draft pick: a private natural roll is locked immediately and is never exposed
+            // as an option that can be inspected and declined.
             var originalCharacter = botToReplace.GameCharacter;
-            var excludedCharacters = playersList.Select(x => x.GameCharacter).ToList();
-            var strictBotCount = playersList.Count(p => p.PlayerType == 404);
-            var draftOptions = _startGameLogic.RollDraftOptions(creatorAccount,
-                excludedCharacters, strictBotCount, count: 2);
-            var newcomerDoom = draftOptions.Find(x => x.Name == DoomGuy.CharacterName);
-            if (newcomerDoom != null)
+            if (UnknownBug.Is(originalCharacter))
             {
-                draftOptions.Remove(newcomerDoom);
-                draftOptions.Insert(0, newcomerDoom);
-                draftOptions.Add(originalCharacter);
+                botToReplace.Status.IsDraftPickConfirmed = true;
             }
             else
             {
-                draftOptions.Insert(0, originalCharacter);
+                var excludedCharacters = playersList.Select(x => x.GameCharacter).ToList();
+                var strictBotCount = playersList.Count(p => p.PlayerType == 404);
+                var draftOptions = _startGameLogic.RollDraftOptions(creatorAccount,
+                    excludedCharacters, strictBotCount, count: 2);
+                var newcomerDoom = draftOptions.Find(x => x.Name == DoomGuy.CharacterName);
+                if (newcomerDoom != null)
+                {
+                    draftOptions.Remove(newcomerDoom);
+                    draftOptions.Insert(0, newcomerDoom);
+                    draftOptions.Add(originalCharacter);
+                }
+                else
+                {
+                    draftOptions.Insert(0, originalCharacter);
+                }
+                game.DraftOptions[botToReplace.GetPlayerId()] = draftOptions;
             }
-            game.DraftOptions[botToReplace.GetPlayerId()] = draftOptions;
             game.IsDraftPickPhase = true;
 
             foreach (var p in playersList.Where(p => p.IsBot()))
@@ -304,10 +312,11 @@ public class WebGameService
             playersList = _characterPassives.HandleEventsBeforeFirstRound(playersList);
             game.PlayersList = playersList;
             game.ExploitPlayersList = playersList
-                .Where(p => p.GameCharacter.Passive.All(x => x.PassiveName != "Exploit")).ToList();
+                .Where(player => !UnknownBug.Is(player) && !player.Passives.IsDead).ToList();
             for (var i = 0; i < playersList.Count; i++)
                 playersList[i].Status.SetPlaceAtLeaderBoard(i + 1);
 
+            game.RollExploit();
             await _characterPassives.HandleNextRound(game);
             _characterPassives.HandleBotPredict(game);
 
@@ -386,6 +395,8 @@ public class WebGameService
 
             var selected = options.Find(c => c.Name == characterName);
             if (selected == null) return Task.FromResult((false, "Character not in your draft options"));
+            if (UnknownBug.Is(selected))
+                return Task.FromResult((false, "Character is not available as a draft choice"));
 
             if (selected.Name == Naruto.CharacterName && !Naruto.CanInitializeForDraft(game))
                 return Task.FromResult((false, "Naruto requires at least two bot slots"));
@@ -774,6 +785,8 @@ public class WebGameService
             return Task.FromResult((false, "У Мадары нет предположений"));
         if (player.GameCharacter.DoomRollMode)
             return Task.FromResult((false, "Predictions are disabled by Let's Roll!"));
+        if (!_charactersPull.GetVisibleCharacters().Any(character => character.Name == characterName))
+            return Task.FromResult((false, "Character is not available for predictions"));
 
         var target = game.PlayersList.Find(p => p.GetPlayerId() == targetPlayerId);
         if (target == null) return Task.FromResult((false, "Target player not found"));
@@ -830,6 +843,9 @@ public class WebGameService
         if (player == null) return Task.FromResult((false, "Player not in this game"));
         if (!player.GameCharacter.Passive.Any(p => p.PassiveName == "Тетрадь смерти"))
             return Task.FromResult((false, "You don't have the Death Note"));
+        var submittedName = characterName?.Trim() ?? "";
+        if (!_charactersPull.GetVisibleCharacters().Any(character => character.Name == submittedName))
+            return Task.FromResult((false, "Invalid character name"));
 
         var dn = player.Passives.KiraDeathNote;
         if (dn.CurrentRoundTarget != Guid.Empty)
@@ -845,7 +861,7 @@ public class WebGameService
             return Task.FromResult((false, "Already failed for this target"));
 
         dn.CurrentRoundTarget = targetPlayerId;
-        dn.CurrentRoundName = characterName?.Trim() ?? "";
+        dn.CurrentRoundName = submittedName;
         player.Status.AddInGamePersonalLogs($"Тетрадь смерти: Ты записал имя **{dn.CurrentRoundName}** для {target.DiscordUsername}\n");
 
         return Task.FromResult((true, (string)null));
@@ -1001,11 +1017,11 @@ public class WebGameService
     // ── Test Game (Admin) ─────────────────────────────────────────────
 
     /// <summary>
-    /// Returns the list of rollable characters for the admin character picker.
+    /// Returns the public character list used by pickers and predictions.
     /// </summary>
     public List<object> GetCharacterList()
     {
-        return _charactersPull.GetRollableCharacters()
+        return _charactersPull.GetVisibleCharacters()
             .Select(c => (object)new { name = c.Name, avatar = c.Avatar, tier = c.Tier })
             .ToList();
     }
@@ -1016,7 +1032,7 @@ public class WebGameService
     public async Task<(ulong gameId, string error)> CreateTestGame(ulong creatorId, string creatorUsername, string characterName)
     {
         // Validate character exists
-        var allCharacters = _charactersPull.GetRollableCharacters();
+        var allCharacters = _charactersPull.GetVisibleCharacters();
         var selectedChar = allCharacters.Find(c => c.Name == characterName);
         if (selectedChar == null)
             return (0, "Character not found");
@@ -1128,6 +1144,8 @@ public class WebGameService
 
     private static void DiscoverStoreCharacter(DiscordAccountClass account, string characterName)
     {
+        if (UnknownBug.Is(characterName)) return;
+
         lock (account)
         {
             account.SeenCharacters ??= new List<string>();
@@ -1162,14 +1180,15 @@ public class WebGameService
 
         lock (account)
         {
-            if (string.IsNullOrWhiteSpace(characterName)
-                || account.SeenCharacters == null
+            var characterExists = !string.IsNullOrWhiteSpace(characterName)
+                                  && _charactersPull.GetRollableCharacters().Any(character =>
+                                      !UnknownBug.Is(character) && character.Name == characterName);
+            if (!characterExists)
+                return (null, "Character is not available in the store.");
+
+            if (account.SeenCharacters == null
                 || !account.SeenCharacters.Contains(characterName))
                 return (null, "Play this character before changing their roll weight.");
-
-            var characterExists = _charactersPull.GetRollableCharacters()
-                .Any(character => character.Name == characterName);
-            if (!characterExists) return (null, "Character is not available in the store.");
 
             account.CharacterChance ??= new List<DiscordAccountClass.CharacterChances>();
             var chance = account.CharacterChance.Find(entry => entry.CharacterName == characterName);
@@ -1223,6 +1242,9 @@ public class WebGameService
 
         lock (account)
         {
+            if (UnknownBug.Is(characterName))
+                return (null, "Character is not available in your store.");
+
             if (string.IsNullOrWhiteSpace(characterName)
                 || account.SeenCharacters == null
                 || !account.SeenCharacters.Contains(characterName))
@@ -1259,7 +1281,7 @@ public class WebGameService
         lock (account)
         {
             var changed = account.CharacterChance?
-                .Where(chance => chance.Changes > 0)
+                .Where(chance => chance.Changes > 0 && !UnknownBug.Is(chance.CharacterName))
                 .ToList() ?? new List<DiscordAccountClass.CharacterChances>();
             if (changed.Count == 0) return (BuildStoreState(account), null);
 
@@ -1293,17 +1315,20 @@ public class WebGameService
     private StoreStateDto BuildStoreState(DiscordAccountClass account)
     {
         var rollableCharacters = _charactersPull.GetRollableCharacters()
+            .Where(character => !UnknownBug.Is(character.Name))
             .ToDictionary(character => character.Name, StringComparer.Ordinal);
         var seenNames = (account.SeenCharacters ?? new List<string>())
+            .Where(name => !UnknownBug.Is(name))
             .Distinct(StringComparer.Ordinal);
         var chances = account.CharacterChance ?? new List<DiscordAccountClass.CharacterChances>();
+        var storeChances = chances.Where(chance => !UnknownBug.Is(chance.CharacterName)).ToList();
         var state = new StoreStateDto
         {
             ZbsPoints = account.ZbsPoints,
             BasePrice = StoreBasePrice,
             MinMultiplier = StoreMinMultiplier,
             MaxMultiplier = StoreMaxMultiplier,
-            TotalInvestedZbs = chances.Sum(chance => CalculateStoreRefund(chance.Changes)),
+            TotalInvestedZbs = storeChances.Sum(chance => CalculateStoreRefund(chance.Changes)),
         };
 
         foreach (var name in seenNames)

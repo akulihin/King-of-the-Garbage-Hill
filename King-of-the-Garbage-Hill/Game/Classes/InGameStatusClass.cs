@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using King_of_the_Garbage_Hill.Game.Characters;
 using King_of_the_Garbage_Hill.Helpers;
 
 namespace King_of_the_Garbage_Hill.Game.Classes;
@@ -172,20 +173,9 @@ public class InGameStatus
 
     public void AddWinPoints(GameClass game, GamePlayerBridgeClass player, int regularPoints, string reason, bool isLog = true)
     {
-        if (player.GameCharacter.Passive.Any(x => x.PassiveName == "PointFunnel"))
+        if (player.GameCharacter.Passive.Any(x => x.PassiveName == UnknownBug.PointFunnel))
         {
             return;
-        }
-
-        if (player.Passives.PointFunneledTo != Guid.Empty)
-        {
-            var funnelPoints = regularPoints < 0 ? regularPoints * -1 : regularPoints;
-            var bug = game.PlayersList.Find(x => x.GetPlayerId() == player.Passives.PointFunneledTo);
-            if (bug != null)
-            {
-                bug.Status.AddRegularPoints(funnelPoints, "PointFunnel", isLog);
-                bug.Status.AddInGamePersonalLogs($"```siphon\nPointFunnel: +{funnelPoints} from {player.DiscordUsername}\n```\n");
-            }
         }
 
         AddRegularPoints(regularPoints, reason, isLog);

@@ -70,12 +70,6 @@ public class DoomsdayMachine : IServiceSingleton
                 player.GameCharacter.SetWinStreak();
             }
 
-            if (player.Status.IsLostThisCalculation != Guid.Empty && player.Passives.IsExploitable)
-            {
-               game.TotalExploit++;
-            }
-
-
             //OneFight Mechanics, reset on BOTH GameCharacter and FightCharacter
             //FightCharacter is deep-copied once per round, so ForOneFight overrides
             //set by before-fight passives would leak into subsequent fights without this.
@@ -144,27 +138,8 @@ public class DoomsdayMachine : IServiceSingleton
 
     public void HandleEventsBeforeCalculation(GameClass game)
     {
-        foreach (var player in game.PlayersList)
-        {
-            foreach (var passive in player.GameCharacter.Passive)
-            {
-                switch (passive.PassiveName)
-                {
-                        case "PointFunnel":
-                            if (player.Status.WhoToAttackThisTurn.Count > 0)
-                            {
-                                foreach (var targetId in player.Status.WhoToAttackThisTurn.Where(t => t != player.GetPlayerId()))
-                                {
-                                    var target = game.PlayersList.Find(x => x.GetPlayerId() == targetId);
-                                    if (target != null)
-                                        target.Passives.PointFunneledTo = player.GetPlayerId();
-                                }
-                            }
-                            break;
-            } 
-            }
-        }
-
+        foreach (var player in game.PlayersList.Where(UnknownBug.Is))
+            UnknownBug.SelectStreamTarget(game, player);
     }
 
 
@@ -177,6 +152,7 @@ public class DoomsdayMachine : IServiceSingleton
         watch.Start();
 
         game.AnyFightThisRound = false; // set true below whenever a fight resolves (Tilted / M8)
+        UnknownBug.EnsureExploitMarker(game);
 
         // Clear web messages from the PREVIOUS round at the START of new processing.
         // This ensures they persist long enough for the SignalR timer to broadcast them.
@@ -238,7 +214,17 @@ public class DoomsdayMachine : IServiceSingleton
         //FightCharacter == READ ONLY
         //GameCharacter == WRITE ONLY
         //FightCharacter writes cans happens only "for one fight" not for the whole round!
+        var unknownBugBeforeRoundOverride = UnknownBug.FindOwner(game);
         var isEternalTsukuyomiRound = Madara.PrepareEternalTsukuyomiRound(game);
+        if (isEternalTsukuyomiRound && unknownBugBeforeRoundOverride != null)
+        {
+            var submittedTargets = Madara.GetIllusoryTargets(game, unknownBugBeforeRoundOverride);
+            var exploitTargetBeforeRoundOverride = game.PlayersList.FirstOrDefault(target =>
+                target.Passives.IsExploitable && submittedTargets.Contains(target.GetPlayerId()));
+            if (exploitTargetBeforeRoundOverride != null)
+                UnknownBug.TryCommitExploit(
+                    game, unknownBugBeforeRoundOverride, exploitTargetBeforeRoundOverride, false);
+        }
         if (isEternalTsukuyomiRound)
             game.AddGlobalLogs("Все игроки пропустили ход...");
 
@@ -391,8 +377,18 @@ public class DoomsdayMachine : IServiceSingleton
         // before PointFunnel and Madara snapshot their targets.
         if (!isEternalTsukuyomiRound)
         {
+            var unknownBug = UnknownBug.FindOwner(game);
+            var queuedExploitTarget = unknownBug == null
+                ? null
+                : game.PlayersList.FirstOrDefault(target =>
+                    target.Passives.IsExploitable
+                    && unknownBug.Status.WhoToAttackThisTurn.Contains(target.GetPlayerId()));
+
             Naruto.SanitizeMutualTargets(game);
             Naruto.ResolveHaremQueues(game);
+            if (queuedExploitTarget != null
+                && !unknownBug.Status.WhoToAttackThisTurn.Contains(queuedExploitTarget.GetPlayerId()))
+                UnknownBug.TryCommitExploit(game, unknownBug, queuedExploitTarget, false);
             HandleEventsBeforeCalculation(game);
         }
         Madara.PrepareIncomingAttackers(game);
@@ -501,7 +497,12 @@ public class DoomsdayMachine : IServiceSingleton
 
             if (Naruto.TryCancelHaremFights(
                     game, player, targetsToFight.Select(entry => entry.Target.GetPlayerId())))
+            {
+                var exploitTarget = targetsToFight.Select(entry => entry.Target)
+                    .FirstOrDefault(target => target.Passives.IsExploitable);
+                UnknownBug.TryCommitExploit(game, player, exploitTarget, false);
                 continue;
+            }
 
             var bfgWaveVisited = new HashSet<Guid> { player.GetPlayerId() };
             foreach (var initialTarget in targetsToFight) bfgWaveVisited.Add(initialTarget.Target.GetPlayerId());
@@ -525,7 +526,13 @@ public class DoomsdayMachine : IServiceSingleton
                 if (playerIamAttacking.Passives.Naruto.HaremActiveThisRound
                     && Naruto.TryCancelHaremFights(game, player,
                         targetsToFight.Skip(fightTargetIndex).Select(entry => entry.Target.GetPlayerId())))
+                {
+                    var exploitTarget = targetsToFight.Skip(fightTargetIndex)
+                        .Select(entry => entry.Target)
+                        .FirstOrDefault(target => target.Passives.IsExploitable);
+                    UnknownBug.TryCommitExploit(game, player, exploitTarget, false);
                     break;
+                }
 
                 // Snapshot GlobalLogs length before this fight (for hidden-fight mechanism)
                 var globalLogsLenBefore = game.GetGlobalLogs().Length;
@@ -669,6 +676,8 @@ public class DoomsdayMachine : IServiceSingleton
                         SkillGainedFromClassDefender = Math.Round(skillGainedFromClassDefender, 1),
                     });
 
+                    UnknownBug.TryCommitExploit(game, player, playerIamAttacking, false);
+
                     //fight Reset
                     await _characterPassives.HandleCharacterAfterFight(player, game, true, false);
                     await _characterPassives.HandleCharacterAfterFight(playerIamAttacking, game, false, true);
@@ -712,6 +721,8 @@ public class DoomsdayMachine : IServiceSingleton
                         SkillGainedFromClassAttacker = Math.Round(skillGainedFromClassAttacker, 1),
                         SkillGainedFromClassDefender = Math.Round(skillGainedFromClassDefender, 1),
                     });
+
+                    UnknownBug.TryCommitExploit(game, player, playerIamAttacking, false);
 
                     //fight Reset
                     await _characterPassives.HandleCharacterAfterFight(player, game, true, false);
@@ -1369,6 +1380,14 @@ public class DoomsdayMachine : IServiceSingleton
                     });
                 }
 
+                var attackerWonThisFight =
+                    player.Status.IsWonThisCalculation == playerIamAttacking.GetPlayerId();
+                var resolvedWinner = attackerWonThisFight ? player : playerIamAttacking;
+                var resolvedLoser = attackerWonThisFight ? playerIamAttacking : player;
+                UnknownBug.RecordResolvedFight(game, resolvedWinner, resolvedLoser);
+                UnknownBug.TryCommitExploit(
+                    game, player, playerIamAttacking, attackerWonThisFight);
+
                 switch (isNemesisLost)
                 {
                     case 3:
@@ -1655,7 +1674,6 @@ public class DoomsdayMachine : IServiceSingleton
             player.Status.ClearInGamePersonalLogs();
             player.Status.InGamePersonalLogsAll += "|||";
 
-            player.Passives.PointFunneledTo = Guid.Empty;
         }
 
         //Возвращение из мертвых

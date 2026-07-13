@@ -18,7 +18,7 @@ const props = defineProps<{
   fightLog?: FightEntry[]
   isKira?: boolean
   deathNote?: DeathNote
-  isBug?: boolean
+  terminalMode?: boolean
   pinkWardRevealedPlayerIds?: string[]
 }>()
 
@@ -79,10 +79,15 @@ function isMasked(player: Player): boolean {
 
 /** Get display avatar for a player */
 function getDisplayAvatar(player: Player): string {
+  if (isTerminalOwner(player)) return 'https://r2.ozvmusic.com/kotgh/art/avatars/unknown.png'
   if (!isMasked(player)) return player.character.avatarCurrent || player.character.avatar
   const pred = getPredictedCharInfo(player.playerId)
   if (pred) return pred.avatar
   return 'https://r2.ozvmusic.com/kotgh/art/avatars/unknown_fixvalues.png'
+}
+
+function isTerminalOwner(player: Player): boolean {
+  return Boolean(props.terminalMode && player.playerId === props.myPlayerId)
 }
 
 /** Get display character name */
@@ -326,6 +331,7 @@ const { tipText, tipVisible, tipPos, showTip, moveTip, hideTip } = useTip()
         class="lb-row"
         :class="{
           'is-me': player.playerId === myPlayerId,
+          'is-terminal-owner': isTerminalOwner(player),
           'is-bot': player.isBot,
           'is-ready': player.status.isReady,
           'can-click': canAttack && !player.isNarutoAlly,
@@ -385,18 +391,19 @@ const { tipText, tipVisible, tipPos, showTip, moveTip, hideTip } = useTip()
               class="lb-custom"
               v-html="player.customLeaderboardText"
             />
-            <!-- Exploit markers (visible only to Баг) -->
-            <span v-if="isBug && player.isExploitable" class="badge vuln-badge">VULN</span>
-            <span v-if="isBug && player.isExploitFixed" class="badge patched-badge">PATCHED</span>
+            <span v-if="terminalMode && player.hasTerminalMarker" class="badge terminal-node-badge" title="active runtime node">◈ NODE</span>
           </div>
           <div class="lb-character" :class="{ 'masked-name': isMasked(player) && !getPrediction(player.playerId) }">
-            {{ getDisplayCharName(player) }}
+            {{ isTerminalOwner(player) ? `Name: ${player.character.name}` : getDisplayCharName(player) }}
           </div>
         </div>
 
         <!-- Mini stats (editable for non-admin opponents) -->
         <div class="lb-stats">
-          <template v-if="isMasked(player)">
+          <template v-if="isTerminalOwner(player)">
+            <span v-for="statIndex in 4" :key="statIndex" class="terminal-mini-stat">ERR: cant_get_stat</span>
+          </template>
+          <template v-else-if="isMasked(player)">
             <span class="stat stat-intelligence" title="Intelligence"><span class="gi gi-int">INT</span>
               <input
                 type="number"
@@ -972,21 +979,22 @@ const { tipText, tipVisible, tipPos, showTip, moveTip, hideTip } = useTip()
 }
 .bot-badge { background: var(--text-dim); color: var(--bg-primary); }
 .l-badge { background: #c03030; color: #fff; }
-.vuln-badge {
-  background: rgba(0, 255, 65, 0.15);
-  color: #00ff41;
-  border: 1px solid rgba(0, 255, 65, 0.3);
-  text-shadow: 0 0 4px rgba(0, 255, 65, 0.5);
-  animation: vuln-pulse 2s ease-in-out infinite;
+.terminal-node-badge {
+  position: relative;
+  overflow: hidden;
+  background: rgba(0, 255, 65, 0.16);
+  color: #76ff98;
+  border: 1px solid rgba(0, 255, 65, 0.68);
+  box-shadow: 0 0 9px rgba(0, 255, 65, 0.5), inset 0 0 7px rgba(0, 255, 65, 0.12);
+  text-shadow: 0 0 5px rgba(0, 255, 65, 0.85);
+  font-family: var(--font-mono);
+  animation: terminal-node-glitch 1.8s steps(1, end) infinite;
 }
-.patched-badge {
-  background: rgba(0, 255, 65, 0.06);
-  color: rgba(0, 255, 65, 0.4);
-  border: 1px solid rgba(0, 255, 65, 0.15);
-}
-@keyframes vuln-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.6; }
+@keyframes terminal-node-glitch {
+  0%, 84%, 100% { transform: translate(0); filter: none; }
+  86% { transform: translateX(-2px); filter: brightness(1.8); }
+  88% { transform: translateX(2px); clip-path: inset(35% 0 25% 0); }
+  90% { transform: translate(0); clip-path: none; }
 }
 
 .lb-custom {
@@ -1534,6 +1542,32 @@ const { tipText, tipVisible, tipPos, showTip, moveTip, hideTip } = useTip()
   position: relative;
   z-index: 10;
 }
+
+.lb-row.is-terminal-owner {
+  border-color: rgba(0, 255, 65, 0.48);
+  background: linear-gradient(90deg, rgba(0, 255, 65, 0.12), rgba(0, 12, 3, 0.78));
+  box-shadow: 0 0 13px rgba(0, 255, 65, 0.16);
+}
+.lb-row.is-terminal-owner .lb-character,
+.lb-row.is-terminal-owner .player-name {
+  color: #76ff98;
+  font-family: var(--font-mono);
+  text-shadow: 0 0 6px rgba(0, 255, 65, 0.62);
+}
+.lb-row.is-terminal-owner .avatar-img {
+  border-color: #00ff41;
+  filter: grayscale(0.7) sepia(0.35) hue-rotate(72deg);
+}
+.terminal-mini-stat {
+  color: #76ff98;
+  font: 700 8px/1.1 var(--font-mono);
+  text-shadow: 0 0 5px rgba(0, 255, 65, 0.62);
+}
+.lb-row.is-terminal-owner .lb-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 2px 5px;
+}
 .lb-row > .pink-ward-shimmer,
 .lb-row > .drop-overlay {
   z-index: 2;
@@ -1549,5 +1583,9 @@ const { tipText, tipVisible, tipPos, showTip, moveTip, hideTip } = useTip()
 .lb-row.on-fire .lb-place::after,
 .lb-row.on-fire .lb-score-area::before {
   z-index: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .terminal-node-badge { animation: none; }
 }
 </style>

@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Discord;
 using Discord.WebSocket;
 using King_of_the_Garbage_Hill.DiscordFramework;
+using King_of_the_Garbage_Hill.Game.Characters;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.MemoryStorage;
 using King_of_the_Garbage_Hill.Helpers;
@@ -42,7 +43,8 @@ public class StoreReactions : IServiceSingleton
             .WithPlaceholder("Выбрать персонажа");
 
 
-        foreach (var character in account.SeenCharacters) characterMenu.AddOption(character, character);
+        foreach (var character in account.SeenCharacters.Where(character => !UnknownBug.Is(character)))
+            characterMenu.AddOption(character, character);
 
         return characterMenu;
     }
@@ -76,6 +78,9 @@ public class StoreReactions : IServiceSingleton
 
     public EmbedBuilder GetStoreEmbed(IUser user, string characterName)
     {
+        if (UnknownBug.Is(characterName))
+            throw new InvalidOperationException("Character is not available in the store.");
+
         var allCharacters = _charactersPull.GetVisibleCharacters();
         var account = _userAccounts.GetAccount(user);
         var characterChance = account.CharacterChance.Find(x => x.CharacterName == characterName);
@@ -177,7 +182,9 @@ public class StoreReactions : IServiceSingleton
             DiscordAccountClass.CharacterChances character;
             lock (account)
             {
-                character = account.CharacterChance.Find(x => x.CharacterName == title[1]);
+                character = UnknownBug.Is(title[1])
+                    ? null
+                    : account.CharacterChance.Find(x => x.CharacterName == title[1]);
             }
 
             if (character == null)
@@ -189,10 +196,13 @@ public class StoreReactions : IServiceSingleton
             switch (button.Data.CustomId)
             {
                 case "store-select-character":
+                    var selectedCharacterName = string.Join("", button.Data.Values);
                     lock (account)
                     {
-                        character = account.CharacterChance.Find(
-                            x => x.CharacterName == string.Join("", button.Data.Values));
+                        character = UnknownBug.Is(selectedCharacterName)
+                            ? null
+                            : account.CharacterChance.Find(
+                                x => x.CharacterName == selectedCharacterName);
                     }
                     if (character == null)
                     {
@@ -486,11 +496,13 @@ public class StoreReactions : IServiceSingleton
                             {
                                 var previousBalance = account.ZbsPoints;
                                 var previousChances = account.CharacterChance
+                                    .Where(chance => !UnknownBug.Is(chance.CharacterName))
                                     .Select(chance => (Chance: chance, chance.Multiplier, chance.Changes))
                                     .ToList();
                                 var zbsPointsToReturn = 0;
 
-                                foreach (var chance in account.CharacterChance)
+                                foreach (var chance in account.CharacterChance.Where(chance =>
+                                             !UnknownBug.Is(chance.CharacterName)))
                                 {
                                     for (var i = 1; i < chance.Changes + 1; i++)
                                         zbsPointsToReturn += _basePrice + chance.Changes - i;

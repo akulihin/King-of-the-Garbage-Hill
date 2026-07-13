@@ -4,9 +4,9 @@
 
 ## 1. Achievement model
 
-The live catalog contains exactly **105** achievements: **12 Global**, **80 Character**, and **13 Interaction**. `AchievementDefinition` owns paired EN/RU names, descriptions and secret hints plus category, icon, rarity, target, related characters and rewards (`AchievementClass.cs` `AchievementDefinition`/`AllAchievements`). `tools/audit-achievements.sh` hard-fails unless all expected IDs are unique, present and evaluated.
+The live catalog contains exactly **103** achievements: **12 Global**, **78 Character**, and **13 Interaction**. `AchievementDefinition` owns paired EN/RU names, descriptions and secret hints plus category, icon, rarity, target, related characters and rewards (`AchievementClass.cs` `AchievementDefinition`/`AllAchievements`). `tools/audit-achievements.sh` hard-fails unless all expected IDs are unique, present and evaluated.
 
-The 80 Character-category IDs retain two catalog slots per each of the 40 character definitions/forms. `c_salldorum_double_cola` is the deliberate presentation exception: it is secret and has an empty `CharacterNames` list, so locked or character-filtered player surfaces do not associate it with Salldorum. Difficulty is not the reward rarity. In particular, the pre-existing hard cards `c_rick_portals`, `c_itachi_tax`, and `c_kotiki_reunion` remain Rare so their historic rewards stay unchanged; all other rows likewise show their live rarity explicitly.
+The 78 Character-category IDs retain two catalog slots for each of the 39 represented character definitions/forms. `c_salldorum_double_cola` is the deliberate presentation exception: it is secret and has an empty `CharacterNames` list, so locked or character-filtered player surfaces do not associate it with Salldorum. Difficulty is not the reward rarity. In particular, the pre-existing hard cards `c_rick_portals`, `c_itachi_tax`, and `c_kotiki_reunion` remain Rare so their historic rewards stay unchanged; all other rows likewise show their live rarity explicitly.
 
 Progress has two layers:
 
@@ -36,7 +36,7 @@ Unless a row says otherwise, a target greater than 1 means “within one match.�
 
 Definitions and game-end gates are centralized in `AchievementClass.cs` `AllAchievements`/`TrackGameEnd`; Auto Move's exact required-round sets are `HasUsedAutoMoveAllGame`. Fight facts come from the resolved-fight observation block in `DoomsdayMachine.cs`, while explicit Auto Move/Change Mind updates come from `GameReactions.cs:169-205` and `WebGameService.AutoMove`/`ChangeMind`.
 
-## 3. Character achievements (80: 40 Normal + Hard pairs)
+## 3. Character achievements (78: 39 Normal + Hard pairs)
 
 Character achievements require the named character/form even if another holder copies a related passive. Exceptions are deliberate identity handling: Молодой Глеб is detected by `Main Ирелия` on runtime `Глеб`; mylorik keeps its story after transforming; Братишка cards require the native form; and Наруто cards require the original, not either clone (`AchievementClass.cs` `TrackGameEnd`). “Normal” and “Hard” below describe requirement difficulty, while rarity independently determines the reward.
 
@@ -78,7 +78,6 @@ Character achievements require the named character/form even if another holder c
 | Weedwick | A Modest Harvest / Скромный урожай<br>`c_weedwick_smoke` · Common / 10 ZBS | Harvest 5 total Weed from defeated carriers. | Industrial Agriculture / Промышленное земледелие<br>`c_weedwick_harvest` · Epic / 100 ZBS + 1 box | Harvest 20 total Weed. |
 | Молодой Глеб (`Глеб` + `Main Ирелия`) | Pink Is the New Meta / Розовый — новая мета<br>`c_young_gleb_meta` · Rare / 50 ZBS | Successfully use the round-6 Pink Ward from Коммуникация. | Top Gap / Разрыв на топе<br>`c_young_gleb_ward` · Legendary / 228 ZBS + 2 boxes | Finish alive at actual place 1 with final Intelligence, Strength, Speed and Psyche each at least 7. |
 | Sakura | Still in the Story / Всё ещё в сюжете<br>`c_sakura_three` · Rare / 50 ZBS · **secret** | Finish alive in the actual top 3. | Useful After All / Всё-таки полезна<br>`c_sakura_first` · Legendary / 228 ZBS + 2 boxes · **secret** | Finish alive at actual place 1 after at least 5 resolved fight wins. |
-| Баг | Hotfix Deployed / Хотфикс установлен<br>`c_bug_patch` · Rare / 50 ZBS · **secret** | Finish with 2 other players having their exploit fixed. | Works on My Machine / На моей машине работает<br>`c_bug_release` · Legendary / 228 ZBS + 2 boxes · **secret** | Finish with all 5 opponents having their exploit fixed. |
 | DooM Guy | Rip, Tear, Roll / Рви, кромсай, ролль<br>`c_doom_loadout` · Rare / 50 ZBS | Enter Roll Mode with active modules in all 4 stages. | BFG Division / Дивизия BFG<br>`c_doom_bfg` · Epic / 100 ZBS + 1 box | Defeat at least 3 distinct players in one BFG wave, including its primary target. |
 | Эрен Йегер | Tatake! Tatake! / Татакай! Татакай!<br>`c_eren_tatake` · Uncommon / 25 ZBS | Trigger the Tatake sound twice in total. | The Rumbling / Гул Земли<br>`c_eren_rumbling` · Epic / 100 ZBS + 1 box | Kill at least 2 distinct players with Rumbling. |
 | Наруто (original) | Believe in the Harem / Поверь в гарем<br>`c_naruto_harem` · Rare / 50 ZBS | Cancel 3 fights with Гарем но джутсу. Clone actions do not count. | Shadow Hokage Dividend / Дивиденды теневого Хокаге<br>`c_naruto_rasengan` · Legendary / 228 ZBS + 2 boxes | Receive at least 30 points from Теневые and finish alive at actual place 1. |
@@ -113,11 +112,11 @@ All interaction evaluation is in `AchievementClass.cs` `TrackGameEnd`; the obser
 |---|---:|---:|
 | Common | 10 ZBS | 11 |
 | Uncommon | 25 ZBS | 25 |
-| Rare | 50 ZBS | 21 |
+| Rare | 50 ZBS | 20 |
 | Epic | 100 ZBS + 1 loot box | 33 |
-| Legendary | 228 ZBS + 2 loot boxes | 15 |
+| Legendary | 228 ZBS + 2 loot boxes | 14 |
 
-The reward switch is centralized in `AchievementClass.cs` `AchievementDefinition`. Completing the current catalog awards **8,505 ZBS and 63 loot boxes** in total. `AchievementBoard` reports earned/current-catalog totals by summing live unlocked definitions; these numbers are a catalog summary, not a historical transaction ledger (`GameHub.cs` `RequestAchievements`).
+The reward switch is centralized in `AchievementClass.cs` `AchievementDefinition`. Completing the current catalog awards **8,227 ZBS and 61 loot boxes** in total. `AchievementBoard` reports earned/current-catalog totals by summing live unlocked definitions; these numbers are a catalog summary, not a historical transaction ledger (`GameHub.cs` `RequestAchievements`).
 
 ## 6. Secrets, queues, and Вечное Цукуеми
 
@@ -128,13 +127,14 @@ The reward switch is centralized in `AchievementClass.cs` `AchievementDefinition
 
 ## 7. V1 migration and compatibility
 
-V2 was introduced as an intentional fresh catalog. Its current 105 `g_…` / `c_…` / `x_…` IDs remain disjoint from the older V1 achievement IDs, so V1 unlocks do **not** grant V2 rewards or appear as V2 completions. This expansion is **not another reset**: all original 34 V2 IDs, progress rows, unlocks and issued rewards remain intact (including the original Rare rewards on Rick, Itachi and Cats), while only the 71 new IDs begin tracking after this deployment. Existing account JSON remains readable:
+V2 was introduced as an intentional fresh catalog. Its current 103 `g_…` / `c_…` / `x_…` IDs remain disjoint from the older V1 achievement IDs, so V1 unlocks do **not** grant V2 rewards or appear as V2 completions. This expansion is **not another reset**: all original 34 V2 IDs, progress rows, unlocks and issued rewards remain intact (including the original Rare rewards on Rick, Itachi and Cats), while the 69 currently live expansion IDs begin tracking after their deployment. Existing account JSON remains readable:
 
 - `EnsureInitialized` null-fills the account containers without deleting unknown legacy progress rows (`AchievementClass.cs` `EnsureInitialized`).
+- Account startup explicitly removes the two retired secret-character IDs from persisted `Progress` and `NewlyUnlocked`; already-issued rewards are not clawed back (`UserAccounts.cs` `MigrateUnknownBugAccount`).
 - Board totals and detached entries are built only from `AllAchievements`, under the account monitor, and queued IDs are filtered to the live set (`GameHub.cs` `RequestAchievements`).
 - Legacy match-tracker fields remain deserializable for old snapshots/hooks but are explicitly not evaluated by V2 (`AchievementClass.cs` `InGameAchievementTracker`).
 
-There is no retroactive reconstruction for the 71 added cards because most requirements need per-fight/per-passive facts that history never stored. Their bests and unlocks therefore begin with matches completed after deployment; the original 34 cards continue from their existing V2 state.
+There is no retroactive reconstruction for the 69 currently live expansion cards because most requirements need per-fight/per-passive facts that history never stored. Their bests and unlocks therefore begin with matches completed after deployment; the original 34 cards continue from their existing V2 state.
 
 ## 8. Loot boxes V2
 
@@ -162,7 +162,7 @@ The displayed chances are **base odds**. On the guaranteed opening, pity changes
 - A new open decrements exactly one pending box, rolls and credits the result, and stores a result snapshot containing rarity, amount, balance, remaining inventory, pity state, timestamp and `WasPityUpgrade` (`QuestClass.cs:844-901`).
 - `AcknowledgeLootBox(openingId)` marks only the matching current result; stale/mismatched IDs are safe no-ops (`QuestClass.cs:855-871`).
 - `RequestQuests` snapshots under the account monitor and includes `LastUnacknowledgedLootBox`, odds and pity fields alongside Daily Quest V2. After a disconnect/reload, the client resumes that already-determined reveal, with current account balance/inventory mapped over the historical result snapshot, rather than rolling again (`GameHub.cs:649-803`; `GameStateDto.cs:1035-1106`).
-- V2 opens and loot/achievement acknowledgements save before confirming; write failure restores the exact affected account snapshot and returns a retryable hub error. Cached pre-V2 clients still call legacy `OpenLootBox`, which acknowledges inside the same durable transaction so they can advance without the new acknowledgement call (`GameHub.cs:811-1018,1599-1643`). Paid draft/shop operations share the account monitor too. `SaveAccount` reports atomic-replace success; game-end save failure is critical-logged with its settled in-memory state retained for the periodic retry (`UserAccounts.cs:113-139`; `UsersDataStorage.cs:28-80`; `CheckIfReady.cs:790-796`).
+- V2 opens and loot/achievement acknowledgements save before confirming; write failure restores the exact affected account snapshot and returns a retryable hub error. Cached pre-V2 clients still call legacy `OpenLootBox`, which acknowledges inside the same durable transaction so they can advance without the new acknowledgement call (`GameHub.cs:811-1018,1599-1643`). Paid draft/shop operations share the account monitor too. `SaveAccount` reports atomic-replace success; game-end save failure is critical-logged with its settled in-memory state retained for the periodic retry (`UserAccounts.cs` `SaveAccount`; `UsersDataStorage.cs:28-80`; `CheckIfReady.cs:790-796`).
 
 ## 9. Web experience and accessibility
 
@@ -187,4 +187,4 @@ pnpm --dir Web/VueClient build
 bash tools/simulate.sh
 ```
 
-`audit-achievements.sh` verifies the exact IDs/category counts, duplicate absence, evaluator references, required bilingual/reward metadata, and a Normal/Hard pair for every live `characters.json` roster name. The build checks the SignalR DTO/TypeScript mirrors; the simulation protects the gameplay hooks used as observations.
+`audit-achievements.sh` verifies the exact IDs/category counts, duplicate absence, evaluator references, required bilingual/reward metadata, and all 39 declared Normal/Hard character pairs against the eligible `characters.json` roster names. The build checks the SignalR DTO/TypeScript mirrors; the simulation protects the gameplay hooks used as observations.

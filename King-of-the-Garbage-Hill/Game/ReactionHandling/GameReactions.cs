@@ -527,6 +527,7 @@ public sealed class GameReaction : IServiceSingleton
             if (optionIndex < 0 || optionIndex >= options.Count) return;
 
             var selected = options[optionIndex];
+            if (UnknownBug.Is(selected)) return;
             if (game.PlayersList.Any(p => p != player && p.GameCharacter.Name == selected.Name))
                 return;
 
@@ -657,8 +658,11 @@ public sealed class GameReaction : IServiceSingleton
             return;
         }
 
+        if (splitted.Length != 2) return;
         var predictedPlayerUsername = splitted.First();
         var predictedCharacterName = splitted[1];
+        if (!_charactersPull.GetVisibleCharacters().Any(character => character.Name == predictedCharacterName))
+            return;
         var predictedPlayer = game!.PlayersList.Find(x => x.DiscordUsername == predictedPlayerUsername);
         if (predictedPlayer == null) return;
         var predictedPlayerId = predictedPlayer.GetPlayerId();

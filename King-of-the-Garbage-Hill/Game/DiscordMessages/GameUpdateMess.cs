@@ -56,6 +56,24 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         var character = player.GameCharacter;
 
 
+        if (UnknownBug.Is(character))
+        {
+            var terminal = new EmbedBuilder()
+                .WithColor(new Color(0, 255, 102))
+                .WithTitle("runtime://character/0x????????")
+                .WithDescription("```cs\nName: unknown_bug\nERR: cant_get_stat\nERR: cant_get_stat\nERR: cant_get_stat\nERR: cant_get_stat\n```")
+                .WithThumbnailUrl(UnknownBug.MissingAvatar)
+                .WithFooter("// WARN: unmanaged player object attached");
+
+            foreach (var passive in character.Passive.Where(passive => passive.Visible))
+            {
+                var source = passive.PassiveDescription.Replace("`", "");
+                terminal.AddField($"// module::{passive.PassiveName}", $"```cs\n{source}\n```");
+            }
+
+            return terminal;
+        }
+
         var intStr = "Интеллект";
         var strStr = "Сила";
         var speStr = "Скорость";
@@ -180,7 +198,8 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                     : shown.Status.GetScore();
                 var username = shown.DiscordUsername.Replace("_", "\\_")
                     .Replace("*", "\\*").Replace("~", "\\~").Replace("`", "\\`");
-                projectedBoard += $"{i + 1}. {username} (as **{shown.GameCharacter.Name}**) = {shownScore} Score\n\n";
+                var shownCharacter = VisibleCharacterName(player, shown);
+                projectedBoard += $"{i + 1}. {username} (as **{shownCharacter}**) = {shownScore} Score\n\n";
             }
             return projectedBoard;
         }
@@ -297,11 +316,11 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                     if (isWeb) break; // web unmasks characters natively for admins
                     if (other.GetPlayerId() == me.GetPlayerId()) break;
 
-                    customString += $" = {other.Status.GetScore()} ({other.GameCharacter.Name})";
+                    customString += $" = {other.Status.GetScore()} ({VisibleCharacterName(me, other)})";
                     break;
 
                 case "Exploit":
-                    if (!other.Passives.IsExploitFixed && other.Passives.IsExploitable)
+                    if (other.Passives.IsExploitable)
                     {
                         customString += $" **EXPLOIT {game.TotalExploit}**";
                     }
@@ -545,6 +564,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
                 case "Сверхразум":
                     if (isWeb) break; // web shows auto-predictions natively
+                    if (UnknownBug.Is(other)) break;
                     //сверхразум
                     var currentList = me.Passives.DeepListSupermindKnown;
                     if (currentList != null)
@@ -805,11 +825,14 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         if (!isWeb)
         {
             if (game.RoundNo >= 11 && !game.IsKratosEvent)
-                customString += $" (as **{other.GameCharacter.Name}**) = {other.Status.GetScore()} Score";
+                customString += $" (as **{VisibleCharacterName(me, other)}**) = {other.Status.GetScore()} Score";
 
             var predicted = me.Predict.Find(x => x.PlayerId == other.GetPlayerId());
             if (predicted != null)
-                customString += $"<:e_:562879579694301184>|<:e_:562879579694301184>{predicted.CharacterName} ?";
+            {
+                var predictedName = UnknownBug.Is(predicted.CharacterName) ? "???" : predicted.CharacterName;
+                customString += $"<:e_:562879579694301184>|<:e_:562879579694301184>{predictedName} ?";
+            }
         }
         //end predict
 
@@ -1151,7 +1174,9 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         */
 
         var isMadara = Madara.IsMadara(player);
-        var statLines = isMadara
+        var statLines = UnknownBug.Is(character)
+            ? "```cs\nName: unknown_bug\nERR: cant_get_stat\nERR: cant_get_stat\nERR: cant_get_stat\nERR: cant_get_stat\n```\n"
+            : isMadara
             ? $"**{intStr}:** {character.GetIntelligenceString()}\n"
               + $"**{strStr}:** {character.GetStrengthString()}\n"
               + $"**{speStr}:** {character.GetSpeedString()}\n"
@@ -1160,7 +1185,10 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
               + $"**{strStr}:** {character.GetStrengthString()}{character.GetStrengthQualityResist()}\n"
               + $"**{speStr}:** {character.GetSpeedString()}{character.GetSpeedQualityResist()}\n"
               + $"**{psyStr}:** {character.GetPsycheString()}{character.GetPsycheQualityResist()}\n";
-        var resourceLines = isMadara
+        var resourceLines = UnknownBug.Is(character)
+            ? $"```cs\n// runtime resources\njustice = {character.Justice.GetRealJusticeNow()};\n" +
+              $"moral = {character.GetMoral()};\nskill = {character.GetSkillDisplay()};\n```\n"
+            : isMadara
             ? $"*Справедливость: **{character.Justice.GetRealJusticeNow()}***\n"
               + $"*Класс:* {character.GetClassStatDisplayText()}\n"
             : $"*Справедливость: **{character.Justice.GetRealJusticeNow()}***\n"
@@ -1281,17 +1309,25 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         //embed.WithCurrentTimestamp();
         var intelligenceName = character.Name == ErenYeager.CharacterName ? "Злость" : "Интеллект";
         var psycheName = character.Name == ErenYeager.CharacterName ? "Самоуверенность" : "Психика";
-        embed.AddField("_____",
-            $"{text2}\n \n" +
-            $"1. **{intelligenceName}:** {character.GetIntelligence()}\n" +
-            $"2. **Сила:** {character.GetStrength()}\n" +
-            $"3. **Скорость:** {character.GetSpeed()}\n" +
-            $"4. **{psycheName}:** {character.GetPsyche()}\n");
+        var levelUpStats = UnknownBug.Is(character)
+            ? "```cs\n1. ERR: cant_get_stat\n2. ERR: cant_get_stat\n3. ERR: cant_get_stat\n4. ERR: cant_get_stat\n```"
+            : $"1. **{intelligenceName}:** {character.GetIntelligence()}\n" +
+              $"2. **Сила:** {character.GetStrength()}\n" +
+              $"3. **Скорость:** {character.GetSpeed()}\n" +
+              $"4. **{psycheName}:** {character.GetPsyche()}\n";
+        embed.AddField("_____", $"{text2}\n \n{levelUpStats}");
 
 
         embed.WithThumbnailUrl(character.AvatarCurrent);
 
         return embed;
+    }
+
+    private static string VisibleCharacterName(GamePlayerBridgeClass viewer, GamePlayerBridgeClass subject)
+    {
+        return UnknownBug.Is(subject) && viewer?.GetPlayerId() != subject.GetPlayerId()
+            ? "???"
+            : subject.GameCharacter.Name;
     }
 
 
@@ -1758,23 +1794,43 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
         if (player.Status.IsDraftPickConfirmed)
         {
+            if (UnknownBug.Is(player))
+            {
+                embed.WithColor(new Color(0, 255, 65));
+                embed.WithTitle("runtime://draft/locked");
+                embed.WithDescription(
+                    "```cs\nName: unknown_bug\nERR: cant_get_stat\nERR: cant_get_stat\nERR: cant_get_stat\nERR: cant_get_stat\n```\n" +
+                    "```txt\nselection_override=true; // waiting for other processes\n```");
+                return embed;
+            }
+
             embed.WithDescription($"**Ты выбрал: {player.GameCharacter.Name}**\nОжидаем остальных игроков...");
             embed.WithThumbnailUrl(player.GameCharacter.AvatarCurrent);
             return embed;
         }
 
-        if (!game.DraftOptions.TryGetValue(player.GetPlayerId(), out var options) || options.Count == 0)
+        if (!game.DraftOptions.TryGetValue(player.GetPlayerId(), out var options))
         {
             embed.WithDescription("Нет доступных персонажей для выбора.");
             return embed;
         }
 
-        embed.WithDescription("Выбери одного из трёх персонажей:");
-
-        for (var i = 0; i < options.Count; i++)
+        var visibleOptions = options
+            .Select((character, index) => (Character: character, OriginalIndex: index))
+            .Where(option => !UnknownBug.Is(option.Character))
+            .ToList();
+        if (visibleOptions.Count == 0)
         {
-            var c = options[i];
-            var costLabel = i == 0 ? "FREE" : "cost 5 ZBS points";
+            embed.WithDescription("Нет доступных персонажей для выбора.");
+            return embed;
+        }
+
+        embed.WithDescription("Выбери одного из доступных персонажей:");
+
+        for (var i = 0; i < visibleOptions.Count; i++)
+        {
+            var c = visibleOptions[i].Character;
+            var costLabel = visibleOptions[i].OriginalIndex == 0 ? "FREE" : "cost 5 ZBS points";
             var passiveNames = string.Join(", ", c.Passive.Where(p => p.Visible).Select(p => p.PassiveName));
             if (string.IsNullOrEmpty(passiveNames)) passiveNames = "—";
             embed.AddField(
@@ -1796,6 +1852,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
             {
                 for (var i = 0; i < options.Count; i++)
                 {
+                    if (UnknownBug.Is(options[i])) continue;
                     var label = i == 0
                         ? $"{options[i].Name} (FREE)"
                         : $"{options[i].Name} (cost 5 ZBS points)";

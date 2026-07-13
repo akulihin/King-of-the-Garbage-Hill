@@ -141,9 +141,9 @@ export const useGameStore = defineStore('game', () => {
 
   const myPortalGun = computed(() => myPlayer.value?.portalGun ?? null)
 
-  const isBug = computed(() => myPlayer.value?.isBug ?? false)
+  const isTerminalMode = computed(() => myPlayer.value?.isTerminalMode ?? false)
 
-  const myExploitState = computed(() => myPlayer.value?.exploitState ?? null)
+  const myTerminalState = computed(() => myPlayer.value?.terminalState ?? null)
 
   const myPickleRick = computed(() => myPlayer.value?.passiveAbilityStates?.pickleRick ?? null)
 
@@ -982,8 +982,8 @@ export const useGameStore = defineStore('game', () => {
     doomFortressState,
     isKira,
     myPortalGun,
-    isBug,
-    myExploitState,
+    isTerminalMode,
+    myTerminalState,
     myPickleRick,
     myGiantBeans,
     canFireGunDuringPickle,

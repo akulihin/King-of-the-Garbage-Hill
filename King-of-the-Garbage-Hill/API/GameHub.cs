@@ -71,13 +71,13 @@ public class GameHub : Hub
             return;
         }
 
-        Context.Items["discordId"] = discordId;
-        _notificationService.RegisterConnection(discordId, Context.ConnectionId);
+        BindConnectionToPlayer(discordId);
 
         // Return the ID as a string so JS doesn't lose precision, include playerType for admin checks
         var account = _userAccounts.GetAccount(discordId);
         var playerType = account?.PlayerType ?? 0;
         var lastPlayedCharacter = account?.CharacterPlayedLastTime ?? "";
+        if (UnknownBug.Is(lastPlayedCharacter)) lastPlayedCharacter = "";
         await Clients.Caller.SendAsync("Authenticated", new { success = true, discordId = discordIdStr, playerType, lastPlayedCharacter });
         Console.WriteLine($"[WebAPI] Connection {Context.ConnectionId} authenticated as Discord user {discordId}");
     }
@@ -163,9 +163,8 @@ public class GameHub : Hub
         var webId = _userAccounts.GenerateWebUserId();
         _userAccounts.CreateWebAccount(webId, username.Trim());
 
-        // Authenticate this connection with the new web ID
-        Context.Items["discordId"] = webId;
-        _notificationService.RegisterConnection(webId, Context.ConnectionId);
+        // Authenticate this connection with the new web ID.
+        BindConnectionToPlayer(webId);
 
         await Clients.Caller.SendAsync("WebAccountCreated", new { discordId = webId.ToString(), username = username.Trim() });
         Console.WriteLine($"[WebAPI] Web account created: {username} ({webId})");
@@ -1720,6 +1719,19 @@ public class GameHub : Hub
     {
         var digest = SHA256.HashData(Encoding.UTF8.GetBytes($"kotgh:hidden-achievement:{achievementId}"));
         return $"hidden-{Convert.ToHexString(digest.AsSpan(0, 8)).ToLowerInvariant()}";
+    }
+
+    private void BindConnectionToPlayer(ulong discordId)
+    {
+        if (Context.Items.TryGetValue("discordId", out var previousDiscordIdObj)
+            && previousDiscordIdObj is ulong previousDiscordId
+            && previousDiscordId != discordId)
+        {
+            _notificationService.RemoveConnection(previousDiscordId, Context.ConnectionId);
+        }
+
+        Context.Items["discordId"] = discordId;
+        _notificationService.RegisterConnection(discordId, Context.ConnectionId);
     }
 
     private ulong GetDiscordId()

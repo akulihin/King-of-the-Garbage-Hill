@@ -11,6 +11,7 @@ import { currentLocale, setLocale, type AppLocale } from './i18n'
 const store = useGameStore()
 const route = useRoute()
 const isPublicReplay = computed(() => route.name === 'replay')
+const terminalSession = computed(() => route.name === 'game' && store.isTerminalMode)
 const showRecoveredAchievementCelebration = computed(() =>
   store.isAuthenticated
   && store.newlyUnlockedAchievements.length > 0
@@ -162,7 +163,8 @@ async function changeLocale(language: AppLocale) {
 </script>
 
 <template>
-  <div class="app">
+  <div class="app" :class="{ 'is-terminal-session': terminalSession }">
+    <div v-if="terminalSession" class="terminal-crt-layer" aria-hidden="true" />
     <div class="language-switcher" role="group" aria-label="Language / Язык">
       <button
         :class="{ active: currentLocale === 'ru' }"
@@ -330,6 +332,105 @@ async function changeLocale(language: AppLocale) {
   flex-direction: column;
   min-height: 100vh;
   width: 100%;
+}
+
+.app.is-terminal-session {
+  --bg-primary: #000702;
+  --bg-secondary: #041007;
+  --bg-surface: #07170b;
+  --bg-card: #061209;
+  --bg-card-hover: #0a2110;
+  --bg-inset: #000902;
+  --glass-bg: rgba(0, 18, 5, 0.88);
+  --glass-bg-heavy: rgba(0, 12, 3, 0.96);
+  --glass-border: rgba(0, 255, 65, 0.22);
+  --glass-highlight: rgba(114, 255, 149, 0.07);
+  --text-primary: #b8ffc8;
+  --text-secondary: #78d88f;
+  --text-muted: #4c9a61;
+  --text-dim: #295c37;
+  --accent-gold: #8dffab;
+  --accent-gold-dim: #45a75d;
+  --accent-teal: #00ff41;
+  --accent-teal-dim: #087d27;
+  --accent-blue: #54d7ff;
+  --accent-green: #00ff41;
+  --accent-green-dim: #07952d;
+  --accent-purple: #4fff83;
+  --accent-orange: #d6ff4f;
+  --border-color: rgba(0, 255, 65, 0.3);
+  --border-subtle: rgba(0, 255, 65, 0.16);
+  --glow-gold: 0 0 12px rgba(0, 255, 65, 0.32);
+  --glow-green: 0 0 12px rgba(0, 255, 65, 0.45);
+  isolation: isolate;
+  overflow-x: hidden;
+  background:
+    radial-gradient(ellipse at 50% -20%, rgba(0, 255, 65, 0.12), transparent 52%),
+    linear-gradient(100deg, #000501, #020b04 52%, #000501);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  text-shadow: 0 0 4px rgba(0, 255, 65, 0.12);
+}
+
+.terminal-crt-layer {
+  position: fixed;
+  z-index: 9990;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.68;
+  background:
+    repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.12) 0 1px, transparent 1px 3px),
+    radial-gradient(ellipse at center, transparent 45%, rgba(0, 8, 2, 0.3) 82%, rgba(0, 0, 0, 0.72) 125%);
+  mix-blend-mode: multiply;
+  animation: terminal-crt-flicker 7s steps(1, end) infinite;
+}
+
+.app.is-terminal-session .top-bar {
+  border-bottom-color: rgba(0, 255, 65, 0.4);
+  background: linear-gradient(90deg, rgba(0, 7, 2, 0.98), rgba(0, 22, 6, 0.94), rgba(0, 7, 2, 0.98));
+  box-shadow: 0 0 16px rgba(0, 255, 65, 0.14);
+}
+.app.is-terminal-session .logo-icon {
+  filter: grayscale(1) sepia(1) saturate(5) hue-rotate(72deg) brightness(1.1);
+}
+.app.is-terminal-session .logo-text {
+  color: #73ff96;
+  font-family: var(--font-mono);
+  text-shadow: 2px 0 rgba(82, 255, 230, 0.3), -2px 0 rgba(0, 255, 65, 0.38), 0 0 10px #00ff41;
+  animation: terminal-logo-jitter 5s steps(1, end) infinite;
+}
+.app.is-terminal-session .top-nav a,
+.app.is-terminal-session button,
+.app.is-terminal-session input,
+.app.is-terminal-session select {
+  font-family: var(--font-mono);
+}
+.app.is-terminal-session .main-content {
+  background-image:
+    linear-gradient(rgba(0, 255, 65, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 255, 65, 0.02) 1px, transparent 1px);
+  background-size: 28px 28px;
+}
+.app.is-terminal-session :is(.card, .panel, .game-panel) {
+  border-color: rgba(0, 255, 65, 0.23);
+  box-shadow: inset 0 0 18px rgba(0, 255, 65, 0.025), 0 0 14px rgba(0, 255, 65, 0.06);
+}
+
+@keyframes terminal-crt-flicker {
+  0%, 91%, 94%, 100% { opacity: 0.68; transform: translate(0); }
+  92% { opacity: 0.48; transform: translateY(1px); }
+  93% { opacity: 0.78; transform: translateY(-1px); }
+}
+@keyframes terminal-logo-jitter {
+  0%, 86%, 100% { transform: translate(0); }
+  87% { transform: translateX(-2px); }
+  88% { transform: translateX(2px); }
+  89% { transform: translate(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .terminal-crt-layer,
+  .app.is-terminal-session .logo-text { animation: none; }
 }
 
 .language-switcher {

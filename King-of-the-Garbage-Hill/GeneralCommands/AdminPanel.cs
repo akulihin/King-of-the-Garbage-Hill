@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Discord;
 using Discord.Commands;
 using King_of_the_Garbage_Hill.DiscordFramework.Extensions;
+using King_of_the_Garbage_Hill.Game.Characters;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.DiscordMessages;
 using King_of_the_Garbage_Hill.Game.GameLogic;
@@ -176,7 +177,7 @@ public class AdminPanel : ModuleBaseCustom
             return;
         }
 
-        var allCharacters = _charactersPull.GetRollableCharacters();
+        var allCharacters = _charactersPull.GetVisibleCharacters();
 
         if (choice + 1 > allCharacters.Count)
         {
@@ -257,7 +258,9 @@ public class AdminPanel : ModuleBaseCustom
             return;
         }
 
-        var allCharacters = _charactersPull.GetAllCharactersNoFilter();
+        var allCharacters = _charactersPull.GetAllCharactersNoFilter()
+            .Where(characterDefinition => !UnknownBug.Is(characterDefinition.Name))
+            .ToList();
         var account = _accounts.GetAccount(Context.User);
 
         if (player != null) account = _accounts.GetAccount(player);
@@ -368,7 +371,11 @@ public class AdminPanel : ModuleBaseCustom
                 game.RoundNo = number;
                 break;
             case "ch":
-                var character = _charactersPull.GetAllCharactersNoFilter()[number];
+                var selectableCharacters = _charactersPull.GetAllCharactersNoFilter()
+                    .Where(characterDefinition => !UnknownBug.Is(characterDefinition.Name))
+                    .ToList();
+                if (number < 0 || number >= selectableCharacters.Count) return;
+                var character = selectableCharacters[number];
                 player.GameCharacter.Name = character.Name;
                 player.GameCharacter.Passive = new List<Passive>();
                 player.GameCharacter.Passive = character.Passive;
@@ -413,7 +420,9 @@ public class AdminPanel : ModuleBaseCustom
         switch (key.ToLower())
         {
             case "ch":
-                var character = _charactersPull.GetAllCharactersNoFilter().First(x => x.Name.ToLower() == value.ToLower());
+                var character = _charactersPull.GetAllCharactersNoFilter().FirstOrDefault(x =>
+                    !UnknownBug.Is(x.Name) && x.Name.Equals(value, StringComparison.OrdinalIgnoreCase));
+                if (character == null) return;
                 player.GameCharacter.Name = character.Name;
                 player.GameCharacter.Passive = new List<Passive>();
                 player.GameCharacter.Passive = character.Passive;
@@ -434,6 +443,7 @@ public class AdminPanel : ModuleBaseCustom
                 {
                     foreach (var p in c.Passive)
                     {
+                        if (UnknownBug.HasSpecialPassive(p)) continue;
                         if (p.PassiveName.ToLower() == value.ToLower())
                         {
                             player.GameCharacter.Passive.Add(p);

@@ -8,6 +8,7 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using King_of_the_Garbage_Hill.API.DTOs;
+using King_of_the_Garbage_Hill.Game.Characters;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Helpers;
 using Microsoft.AspNetCore.SignalR;
@@ -48,6 +49,9 @@ public class GameStoryService
     /// </summary>
     public void GenerateStoryAsync(GameClass game)
     {
+        if (game.PlayersList.Any(UnknownBug.Is))
+            return;
+
         if (string.IsNullOrWhiteSpace(_apiKey))
             return;
 

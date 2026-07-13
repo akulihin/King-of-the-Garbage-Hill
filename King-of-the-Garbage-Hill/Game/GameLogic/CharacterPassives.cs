@@ -1134,7 +1134,7 @@ public class CharacterPassives : IServiceSingleton
                         ApplyAttackTitanBoost(me);
                     break;
 
-                case "AutoWin":
+                case UnknownBug.AutoWin:
                     target.Status.IsAbleToWin = false;
                     me.Status.IsArmorBreak = true;
                     me.Status.IsSkipBreak = true;
@@ -1144,7 +1144,8 @@ public class CharacterPassives : IServiceSingleton
                     var eyes = me.Passives.KiraShinigamiEyes;
                     if (eyes.EyesActiveForNextAttack)
                     {
-                        if (target.GameCharacter.Passive.Any(x => x.PassiveName == "Выдуманный персонаж"))
+                        if (target.GameCharacter.Passive.Any(x => x.PassiveName == "Выдуманный персонаж")
+                            || UnknownBug.Is(target))
                         {
                             me.Status.AddInGamePersonalLogs("Глаза бога смерти: У этого монстра нет имени...\n");
                         }
@@ -1157,7 +1158,7 @@ public class CharacterPassives : IServiceSingleton
                         else
                         {
                             eyes.EyesActiveForNextAttack = false;
-                            me.Status.AddInGamePersonalLogs($"Глаза бога смерти: {target.DiscordUsername} - это **{target.GameCharacter.Name}**\n");
+                            me.Status.AddInGamePersonalLogs($"Глаза бога смерти: {target.DiscordUsername} - это **{UnknownBug.PublicName(target)}**\n");
                             if (!eyes.RevealedPlayers.Contains(target.GetPlayerId()))
                                 eyes.RevealedPlayers.Add(target.GetPlayerId());
                             game.Phrases.KiraShinigamiEyes.SendLog(me, false);
@@ -1179,12 +1180,13 @@ public class CharacterPassives : IServiceSingleton
                 case "Коммуникация":
                     if (game.RoundNo == 6)
                     {
-                        if (target.GameCharacter.Passive.Any(x => x.PassiveName == "Выдуманный персонаж"))
+                        if (target.GameCharacter.Passive.Any(x => x.PassiveName == "Выдуманный персонаж")
+                            || UnknownBug.Is(target))
                         {
                             me.Status.AddInGamePersonalLogs("Коммуникация: Не удалось просветить\n");
                             break;
                         }
-                        var commLogSnippet = $"Пиквард просветил {target.GameCharacter.Name}";
+                        var commLogSnippet = $"Пиквард просветил {UnknownBug.PublicName(target)}";
                         game.AddGlobalLogs(commLogSnippet);
                         game.KiraHiddenLogSnippets.Add(commLogSnippet);
                         game.Phrases.YongGlebCommunication.SendLog(me, false);
@@ -1822,21 +1824,6 @@ public class CharacterPassives : IServiceSingleton
         foreach (var passive in me.GameCharacter.Passive.ToList())
             switch (passive.PassiveName)
             {
-                case "Exploit":
-                    if (target.Passives.IsExploitable)
-                    {
-                        game.TotalExploit++;
-                        target.Passives.IsExploitable = false;
-                        target.Passives.IsExploitFixed = true;
-                        if (game.TotalExploit > 0)
-                        {
-                            me.Status.AddInGamePersonalLogs($"```fix\nExploit patched: {target.DiscordUsername}\n> +{game.TotalExploit} points (accumulated)\n```\n");
-                            me.Status.AddRegularPoints(game.TotalExploit, "Exploit", true);
-                        }
-                        game.TotalExploit = 0;
-                    }
-                    break;
-
                 case "Много выебывается":
                     if (me.Status.IsWonThisCalculation == target.GetPlayerId())
                     {
@@ -1866,7 +1853,7 @@ public class CharacterPassives : IServiceSingleton
                         {
                             // Goblins and Madara are immune to kill effects.
                             if (target.GameCharacter.Name == "Стая Гоблинов" || Madara.IsMadara(target)) break;
-                            game.AddGlobalLogs($"{me.GameCharacter.Name} **УБИЛ** {target.GameCharacter.Name}!");
+                            game.AddGlobalLogs($"{UnknownBug.PublicName(me)} **УБИЛ** {UnknownBug.PublicName(target)}!");
                             game.AddGlobalLogs($"Они скинули **{target.DiscordUsername}**! Сволочи!");
                             game.Phrases.KratosEventKill.SendLog(me, true, isRandomOrder:false);
                             target.Passives.IsDead = true;
@@ -2774,7 +2761,7 @@ public class CharacterPassives : IServiceSingleton
                         {
                             doom.ChainsawSpent = true;
                             doom.ChainsawChoices = defeated.GameCharacter.Passive
-                                .Where(x => x.PassiveName != "AdminPlayerType")
+                                .Where(x => !UnknownBug.HasSpecialPassive(x))
                                 .Take(4).Select(x => x.DeepCopy()).ToList();
                             var requestedChoices = DoomGuy.HasMeleeBonus(player)
                                                    && DoomGuy.IsNearestEnemy(game, player, defeated)
@@ -3865,14 +3852,14 @@ public class CharacterPassives : IServiceSingleton
                     if (game.IsKratosEvent && game.RoundNo >= 16 && game.PlayersList.Count(x => !x.Passives.IsDead) < 5)
                     {
                         game.IsKratosEvent = false;
-                        game.AddGlobalLogs($"У {player.GameCharacter.Name}а есть тактика и он ее придерживался...");
+                        game.AddGlobalLogs($"У {UnknownBug.PublicName(player)}а есть тактика и он ее придерживался...");
                         await game.Phrases.KratosEventNo.SendLogSeparateWithFile(player, false, "DataBase/art/events/kratos_death.jpg", false, 15000);
                     }
 
                     if (game.IsKratosEvent && player.Passives.IsDead)
                     {
                         game.IsKratosEvent = false;
-                        game.AddGlobalLogs($"{player.GameCharacter.Name} решил доверится богам зная последствия...");
+                        game.AddGlobalLogs($"{UnknownBug.PublicName(player)} решил доверится богам зная последствия...");
                         await game.Phrases.KratosEventFailed.SendLogSeparateWithFile(player, false, "DataBase/art/events/kratos_hell.png", false, 15000);
                     }
                     break;
@@ -4043,14 +4030,15 @@ public class CharacterPassives : IServiceSingleton
                                 tolyaTalked.PlayerHeTalkedAbout.Add(randomPlayer.GetPlayerId());
 
                                 // Выдуманный персонаж: Монстра нельзя просветить
-                                if (randomPlayer.GameCharacter.Passive.Any(x => x.PassiveName == "Выдуманный персонаж"))
+                                if (randomPlayer.GameCharacter.Passive.Any(x => x.PassiveName == "Выдуманный персонаж")
+                                    || UnknownBug.Is(randomPlayer))
                                 {
                                     var tolyaFailSnippet = $"Толя попытался что-то разузнать про {randomPlayer.DiscordUsername}, но не удалось просветить";
                                     game.AddGlobalLogs(tolyaFailSnippet);
                                 }
                                 else
                                 {
-                                    var tolyaLogSnippet = $"Толя запизделся и спалил, что {randomPlayer.DiscordUsername} - {randomPlayer.GameCharacter.Name}";
+                                    var tolyaLogSnippet = $"Толя запизделся и спалил, что {randomPlayer.DiscordUsername} - {UnknownBug.PublicName(randomPlayer)}";
                                     game.AddGlobalLogs(tolyaLogSnippet);
                                     game.KiraHiddenLogSnippets.Add(tolyaLogSnippet);
 
@@ -4524,7 +4512,8 @@ public class CharacterPassives : IServiceSingleton
 
                             var writtenName = deathNote.CurrentRoundName.Trim();
                             var actualName = dnTarget.GameCharacter.Name;
-                            if (string.Equals(writtenName, actualName, StringComparison.OrdinalIgnoreCase))
+                            if (!UnknownBug.Is(dnTarget)
+                                && string.Equals(writtenName, actualName, StringComparison.OrdinalIgnoreCase))
                             {
                                 // Goblins and Madara are immune to kill effects.
                                 if (dnTarget.GameCharacter.Name == "Стая Гоблинов" || Madara.IsMadara(dnTarget)) break;
@@ -4826,7 +4815,7 @@ public class CharacterPassives : IServiceSingleton
                             pawn.Passives.IsDead = true;
                             pawn.Passives.DeathSource = "Monster";
                             player.Passives.AchievementTracker.MonsterPawnExecutions++;
-                            deadNames.Add(pawn.GameCharacter.Name);
+                            deadNames.Add(UnknownBug.PublicName(pawn));
                             player.Status.AddRegularPoints(1, "Монстр");
                         }
 
@@ -4881,7 +4870,7 @@ public class CharacterPassives : IServiceSingleton
 
                             BilingualGeneratedText hint;
                             // For human players, generate one replay-safe bilingual hint via AI.
-                            if (!player.IsBot())
+                            if (!player.IsBot() && !UnknownBug.Is(hintTarget))
                             {
                                 var monsterTypeName = Geralt.GetMonsterTypeName(hintTarget.Passives.GeraltMonsterType!.Value);
                                 try
@@ -5813,25 +5802,18 @@ public class CharacterPassives : IServiceSingleton
                                 }
                                 else
                                 {
-                                    // Guard: skip if all other players are already known
                                     var knownCheck = player.Passives.DeepListSupermindKnown;
-                                    if (knownCheck != null && knownCheck.KnownPlayers.Count >= game.PlayersList.Count - 1)
+                                    var discoverablePlayers = game.PlayersList.Where(candidate =>
+                                        candidate.GetPlayerId() != player.GetPlayerId()
+                                        && !UnknownBug.Is(candidate)
+                                        && (knownCheck == null
+                                            || !knownCheck.KnownPlayers.Contains(candidate.GetPlayerId()))).ToList();
+                                    if (discoverablePlayers.Count == 0)
                                         break;
-
-                                    do
-                                    {
-                                        randPlayer = game.PlayersList[_rand.Random(0, game.PlayersList.Count - 1)];
-
-                                        var check1 = player.Passives.DeepListSupermindKnown;
-
-                                        if (check1 != null)
-                                            if (check1.KnownPlayers.Contains(randPlayer.GetPlayerId()))
-                                                randPlayer = player;
-                                    } while (randPlayer.GetPlayerId() == player.GetPlayerId());
+                                    randPlayer = discoverablePlayers[_rand.Random(0, discoverablePlayers.Count - 1)];
                                 }
 
                                 var check = player.Passives.DeepListSupermindKnown;
-
                                 check.KnownPlayers.Add(randPlayer.GetPlayerId());
 
                                 // Auto-set prediction for the discovered character
@@ -6003,7 +5985,7 @@ public class CharacterPassives : IServiceSingleton
                             var shisui = player.GameCharacter.Passive.Find(x => x.PassiveName == "Глаз Шусуи");
                             if (shisui != null) shisui.Visible = true;
                             player.Passives.AchievementTracker.WasRevived = true;
-                            game.AddGlobalLogs($"**Изанаги!**\n**{player.GameCharacter.Name}** вернулся к жизни\n\"Я планировал приберечь глаз Шисуи для кое-чего другого... но ладно.\"");
+                            game.AddGlobalLogs($"**Изанаги!**\n**{UnknownBug.PublicName(player)}** вернулся к жизни\n\"Я планировал приберечь глаз Шисуи для кое-чего другого... но ладно.\"");
                         }
                         break;
 
@@ -6019,7 +6001,7 @@ public class CharacterPassives : IServiceSingleton
                             player.Passives.AchievementTracker.WasRevived = true;
                             player.Passives.AchievementTracker.SurvivedKiraAttempt = true;
                             player.GameCharacter.AddExtraSkill(228, "Боги мне не указ");
-                            game.AddGlobalLogs($"**{player.GameCharacter.Name}:** Боги мне не указ!");
+                            game.AddGlobalLogs($"**{UnknownBug.PublicName(player)}:** Боги мне не указ!");
                         }
                         break;
 
@@ -6906,7 +6888,8 @@ public class CharacterPassives : IServiceSingleton
                         var existing = player.Predict.Find(x => x.PlayerId == enemy.GetPlayerId());
                         if (existing != null) player.Predict.Remove(existing);
                         // Never predict Монстр без имени: can't score (CIR:301) and gifts him +3 / pawn on round 9 (CP:5487-5515)
-                        if (enemy.GameCharacter.Passive.Any(p => p.PassiveName == "Выдуманный персонаж")) continue;
+                        if (enemy.GameCharacter.Passive.Any(p => p.PassiveName == "Выдуманный персонаж")
+                            || UnknownBug.Is(enemy)) continue;
                         player.Predict.Add(new PredictClass(enemy.GameCharacter.Name, enemy.GetPlayerId()));
                     }
                     continue; // heuristics redundant once omniscient
@@ -7077,6 +7060,7 @@ public class CharacterPassives : IServiceSingleton
                             foreach (var knownPlayer in deepList.KnownPlayers)
                             {
                                 var playerClass = game.PlayersList.Find(x => x.GetPlayerId() == knownPlayer);
+                                if (UnknownBug.Is(playerClass)) continue;
 
                                 if (player.Predict.All(x => x.PlayerId != playerClass!.GetPlayerId()) &&
                                     playerClass.GetPlayerId() != player.GetPlayerId())

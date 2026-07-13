@@ -1,6 +1,6 @@
 # King of the Garbage Hill — Architecture
 
-> Code-verified against the working tree of 2026-07-12 (v4.3.37). Companion docs: [GAME-DESIGN.md](GAME-DESIGN.md), [CHARACTERS.md](CHARACTERS.md), [AUDIT-FINDINGS.md](AUDIT-FINDINGS.md); account progression: [DAILY-QUESTS.md](DAILY-QUESTS.md), [ACHIEVEMENTS.md](ACHIEVEMENTS.md); interface deep-dives: [WEB-BACKEND.md](WEB-BACKEND.md), [WEB-CLIENT.md](WEB-CLIENT.md), [DISCORD-INTERFACE.md](DISCORD-INTERFACE.md).
+> Code-verified against the working tree of 2026-07-13 (v4.4.4). Companion docs: [GAME-DESIGN.md](GAME-DESIGN.md), [CHARACTERS.md](CHARACTERS.md), [AUDIT-FINDINGS.md](AUDIT-FINDINGS.md); account progression: [DAILY-QUESTS.md](DAILY-QUESTS.md), [ACHIEVEMENTS.md](ACHIEVEMENTS.md); interface deep-dives: [WEB-BACKEND.md](WEB-BACKEND.md), [WEB-CLIENT.md](WEB-CLIENT.md), [DISCORD-INTERFACE.md](DISCORD-INTERFACE.md).
 
 ## 1. Process topology
 
@@ -35,7 +35,7 @@ classDiagram
         PlayersList: List~GamePlayerBridgeClass~
         GlobalLogs / AllGameGlobalLogs
         WebFightLog / ReplayRounds
-        ExploitPlayersList / TotalExploit
+        ExploitPlayersList / TotalExploit / ExploitClosed
         Phrases: CharactersUniquePhrase
     }
     class GamePlayerBridgeClass {
@@ -100,27 +100,27 @@ Rules of thumb (violations are real bugs — see CLAUDE.md):
 
 ## 3. Passive hook execution order
 
-All hooks live in `CharacterPassives.cs` (~7.3k lines) as `switch (passive.PassiveName)` dispatchers. Call sites verified:
+All hooks live in `CharacterPassives.cs` as `switch (passive.PassiveName)` dispatchers. Call sites verified:
 
 | # | Hook | Called from | When / notes |
 |---|---|---|---|
 | 1 | `HandleEventsBeforeFirstRound` (112) | game creation / draft & ARAM confirm | initial marks, L assignment, stat rewrites |
-| 2 | `HandleDefenseBeforeFight` (463) | fight loop, defender first (`DoomsdayMachine.cs:547`) | defensive ForOneFight overrides |
-| 3 | `HandleAttackBeforeFight` (1067) | fight loop, after defense (`DoomsdayMachine.cs:558`) | offensive overrides — sees defender's mods |
-| 4 | block path | `DoomsdayMachine.cs:594-668` | attacker −1 bonus, defender justice, then hooks 8/9 for defender |
-| 5 | skip path | `DoomsdayMachine.cs:672-711` | hook 9 for defender |
-| 6 | `HandleDefenseAfterFight` (908) | after resolution (`DoomsdayMachine.cs:1345`) | defender-only reactions (counter effects) |
-| 7 | `HandleAttackAfterFight` (1764) | `DoomsdayMachine.cs:1350` | attacker-only rewards/steals |
-| 8 | `HandleDefenseAfterBlockOrFight` (808) | fight `DoomsdayMachine.cs:1346` + block `DoomsdayMachine.cs:663` | block-inclusive defensive effects |
-| 9 | `HandleDefenseAfterBlockOrFightOrSkip` (891) | fight `DoomsdayMachine.cs:1347` + block `DoomsdayMachine.cs:664` + skip `DoomsdayMachine.cs:707` | always-trigger defensive effects |
-| 10 | `HandleCharacterAfterFight` (2465) | both sides, all outcomes incl. own block/skip (`DoomsdayMachine.cs:442,661-662,705-706,1353-1354`) | per-interaction cleanup/rewards |
-| 11 | `HandleShark` (7205) | after each fight (`DoomsdayMachine.cs:1356`) | "Лежит на дне" neighbor check |
-| 12 | `HandleEndOfRound` (3715) | once per round (`DoomsdayMachine.cs:1566`) | flags still set; round-end effects |
-| 13 | `HandleNextRound` (5077) | after `RoundNo++` (`DoomsdayMachine.cs:1622-1635`) | per-round setup, trigger rolls |
-| 14 | `HandleNextRoundAfterSorting` (6341) | after sort/swaps/drops (`DoomsdayMachine.cs:1875-1878`) | position-dependent effects |
-| 15 | `HandleBotPredict` (6868) | `DoomsdayMachine.cs:1886` | bot prediction heuristics |
+| 2 | `HandleDefenseBeforeFight` (463) | fight loop, defender first (`DoomsdayMachine.cs:565`) | defensive ForOneFight overrides |
+| 3 | `HandleAttackBeforeFight` (1073) | fight loop, after defense (`DoomsdayMachine.cs:576`) | offensive overrides — sees defender's mods |
+| 4 | block path | `DoomsdayMachine.cs:617-686` | attacker −1 bonus, defender justice, then hooks 8/9 for defender |
+| 5 | skip path | `DoomsdayMachine.cs:694-731` | hook 9 for defender |
+| 6 | `HandleDefenseAfterFight` (914) | after resolution (`DoomsdayMachine.cs:1407`) | defender-only reactions (counter effects) |
+| 7 | `HandleAttackAfterFight` (1813) | `DoomsdayMachine.cs:1412` | attacker-only rewards/steals |
+| 8 | `HandleDefenseAfterBlockOrFight` (813) | fight `DoomsdayMachine.cs:1408` + block `DoomsdayMachine.cs:683` | block-inclusive defensive effects |
+| 9 | `HandleDefenseAfterBlockOrFightOrSkip` (897) | fight `DoomsdayMachine.cs:1409` + block `DoomsdayMachine.cs:684` + skip `DoomsdayMachine.cs:729` | always-trigger defensive effects |
+| 10 | `HandleCharacterAfterFight` (2469) | both sides, all outcomes incl. own block/skip (`DoomsdayMachine.cs:449,681-682,727-728,1415-1416`) | per-interaction cleanup/rewards |
+| 11 | `HandleShark` (7203) | after each resolved fight (`DoomsdayMachine.cs:1418`) | "Лежит на дне" neighbor check |
+| 12 | `HandleEndOfRound` (3733) | once per round (`DoomsdayMachine.cs:1634`) | flags still set; round-end effects |
+| 13 | `HandleNextRound` (5121) | after `RoundNo++` (`DoomsdayMachine.cs:1694-1702`) | per-round setup, trigger rolls |
+| 14 | `HandleNextRoundAfterSorting` (6354) | after sort/swaps/drops (`DoomsdayMachine.cs:1949`) | position-dependent effects |
+| 15 | `HandleBotPredict` (6864) | `DoomsdayMachine.cs:1957` | bot prediction heuristics |
 
-Special dispatchers outside the table include `HandleJews`, `HandleOctopus`, PointFunnel's `HandleEventsBeforeCalculation`, and `HandleRumblingAfterFights`. Naruto adds an explicit cross-pipeline coordinator rather than duplicating four passive cases: `InitializeTeam` runs before the first passive hook; `ResolveHaremQueues`/`TryCancelHaremFights` operate on finalized and dynamically expanded target queues; `SnapshotJustice` feeds per-fight Расенган; and `SettleShadowClones` is called immediately after Rumbling as the second post-fight settlement (`Naruto.cs`; `DoomsdayMachine.cs:381-388`; `DoomsdayMachine.cs:490-545`; `DoomsdayMachine.cs:1508-1510`). Further per-character logic is embedded in `CheckIfReady`, `GameReactions`, `BotsBehavior`, `GameUpdateMess`, `CharacterClass`, `InGameStatusClass` and `GamePlayerBridgeClass`.
+Special dispatchers outside the table include `HandleJews`, `HandleOctopus`, unknown_bug's `HandleEventsBeforeCalculation`/resolved-fight observer, and `HandleRumblingAfterFights`. `UnknownBug.SelectStreamTarget` chooses one deterministic primary target after every forced queue is finalized; `RecordResolvedFight` observes the authoritative winner/loser without fabricating a second combat result, while `TryCommitExploit` is called from resolved, Block, Skip and queue-cancel exits. Naruto adds an explicit cross-pipeline coordinator rather than duplicating four passive cases: `InitializeTeam` runs before the first passive hook; `ResolveHaremQueues`/`TryCancelHaremFights` operate on finalized and dynamically expanded target queues; `SnapshotJustice` feeds per-fight Расенган; and `SettleShadowClones` is called immediately after Rumbling as the second post-fight settlement (`Naruto.cs`; `DoomsdayMachine.cs:387-395`; `DoomsdayMachine.cs:497-526`; `DoomsdayMachine.cs:1577-1578`). Further per-character logic is embedded in `CheckIfReady`, `GameReactions`, `BotsBehavior`, `GameUpdateMess`, `CharacterClass`, `InGameStatusClass` and `GamePlayerBridgeClass`.
 
 Salldorum also has a readiness-stage coordinator: unless Вечное Цукуеми already erased the action, `Salldorum.ResolveShenDashes` consumes the next real attack. A higher target selects its exact pre-dash cell; the coordinator mutates the live order, stores the cell through the following action round, arms the current-round random-target magnet and replaces—never appends—the first real target for each crossed player's existing action. `ApplyShenPositionHolds` runs after readiness movers and after end-sort movers, with Ziggurat locks authoritative. Madara/Naruto sanitation is repeated over the redirected queues before Madara's incoming-attacker re-snapshot. A same-cell aged cola pickup is queued in passive state; its +5 Speed is applied to `FightCharacter` by the ordinary defense/attack-before hooks after DeepCopy (`CheckIfReady.cs` readiness pipeline; `DoomsdayMachine.cs` sort pipeline; `Salldorum.cs` coordinators; `CharacterPassives.cs` before-fight hooks).
 
@@ -137,7 +137,7 @@ Salldorum also has a readiness-stage coordinator: unless Вечное Цукуе
 
 `InGameStatus.Score` is private; mutation paths:
 - `AddRegularPoints` → round buffer → `CombineRoundScoreAndGameScore` multiplies (×1/×2/×4; Подсчет override) and commits (`InGameStatusClass.cs` `AddRegularPoints`, `GetRoundScoreMultiplier`, `CombineRoundScoreAndGameScore`).
-- `AddWinPoints` = regular points + Баг PointFunnel redirect handling (`:172-191`).
+- `AddWinPoints` = ordinary fight-win regular points, except unknown_bug's own base win point is discarded. PointFunnel copies are outcome-observer calls to `AddRegularPoints(1)` and therefore ignore the source winner's payout transforms (`InGameStatusClass.AddWinPoints`; `UnknownBug.RecordResolvedFight`).
 - `AddBonusPoints` → immediate, floor-at-0 unless "Никому не нужен" (`:221-233`); `HardKittyMinus` bypasses the floor.
 - `SetScoreToThisNumber` (Октопус restore etc.).
 `ScoreEntries`/`PreviousRoundScoreEntries` feed the web score breakdown; `GetBonusPointsEarnedThisRound` feeds passives like Выгодная сделка.
@@ -154,10 +154,10 @@ GameClass ──GameStateMapper.MapPlayer(viewer-specific)──▶ GameStateDto
 ```
 
 - Mapper keys widgets on **PassiveName** (`GameStateMapper.cs:362-825`) and a few on character Name. Cross-character marks stay server-side and are projected only to the passive owner through their widget/leaderboard annotations; affected players receive no `…OnMe` state unless a mechanic explicitly declares the effect public (`GameStateMapper.cs:351-360,360-823`; `GameUpdateMess.cs:219-811`).
-- Some character state rides directly on `PlayerDto` instead of `PassiveAbilityStatesDto`: DeathNote, PortalGun, ExploitState, TsukuyomiState, choice flags (Darksci/YoungGleb/Dopa).
+- Some character state rides directly on `PlayerDto` instead of `PassiveAbilityStatesDto`: DeathNote, PortalGun, owner-only `TerminalState`, TsukuyomiState, choice flags (Darksci/YoungGleb/Dopa). `IsTerminalMode` and every `HasTerminalMarker` bit are emitted only into that owner's projection; the neutral naming is intentional so the public client bundle contains no secret identity.
 - Naruto's `PlayerDto.IsNarutoAlly` is viewer-scoped rather than a widget: it is true only for the other two members of the requesting Naruto's initialized trio, allowing Vue to suppress illegal attack affordances without revealing anything to unrelated viewers or spectators (`GameStateMapper.cs` `MapPlayer`; `GameStateDto.cs` `PlayerDto`).
 - Frontend mirror: `signalr.ts` `PassiveAbilityStates` (camelCase 1:1), widgets in `PlayerCard.vue`, per-member skill UI in `SkillsPanel.vue` (TheBoys special-cased), sounds keyed by character name in `sound.ts`/`store/game.ts`.
-- Web auth via Discord ID as string; web-only accounts via `RegisterWebAccount` (`signalr.ts:1488-1494`). Spectate + Replay: format-v2 `ReplayService` stores action-locked pre-fight state, pre-transition combat logs, and an atomic post-setup score/place/death result for each same-numbered round. `HandleLastRound` refreshes that existing result and emits only explicit final log suffixes; legacy boundary files are aligned by the Vue adapter (`ReplayService.cs:35-164`; `CheckIfReady.cs:823-831`; `replay.ts:21-120,133-268`). The post-game AI story consumes those same captured round numbers and fight pairs, with settlement kept as a non-round epilogue, so normal stories stop at 10 while Kratos extensions remain visible (`GameStoryService.cs:168-314`).
+- Web auth via Discord ID as string; web-only accounts via `RegisterWebAccount` (`signalr.ts:1488-1494`). Spectate + Replay: format-v2 `ReplayService` stores action-locked pre-fight state, pre-transition combat logs, and an atomic post-setup score/place/death result for each same-numbered round. `HandleLastRound` refreshes that existing result and emits only explicit final log suffixes; legacy boundary files are aligned by the Vue adapter (`ReplayService.cs:35-164`; `CheckIfReady.cs:823-831`; `replay.ts:21-120,133-268`). Games containing unknown_bug are deliberately never persisted or story-generated; replay loaders reject legacy files containing either identity before returning/listing them (`GameNotificationService`; `ReplayService.ContainsPrivateRoster`; `GameStoryService.GenerateStoryAsync`). Normal post-game AI stories consume captured round numbers and fight pairs, with settlement kept as a non-round epilogue, so normal stories stop at 10 while Kratos extensions remain visible (`GameStoryService.cs:168-314`).
 - This section is the overview only — the full interface catalogs live in [WEB-BACKEND.md](WEB-BACKEND.md) (every endpoint/hub method/event + visibility rules), [WEB-CLIENT.md](WEB-CLIENT.md) (routes/stores/contract/widgets), and [DISCORD-INTERFACE.md](DISCORD-INTERFACE.md) (commands/custom-ids/DM flow).
 - Account rewards and the character store use separate owner-only request paths rather than the 300 ms game broadcast: game-end hooks populate the account under its monitor; quests/achievements/loot retain their snapshot and acknowledgement contracts; `RequestStore` returns only the caller's seen-character roll weights and all store spends/refunds save before publishing the replacement snapshot (`GameHub.cs:581-619`; `WebGameService.cs:1139-1337`). Full reward rules: [DAILY-QUESTS.md](DAILY-QUESTS.md) and [ACHIEVEMENTS.md](ACHIEVEMENTS.md).
 - **Turn actions** (`WebGameService.{Attack,Block,AutoMove,ConfirmSkip}`, exposed via `GameHub`/`GameController`) set `IsReady`/`ConfirmedSkip` — the web analogue of Discord's fight buttons. They enforce the level-up gate Discord gets for free from `MoveListPage 3` (which hides the fight controls until points are spent): `WebGameService.LevelUpGate` blocks all four while `LvlUpPoints > 0`, mirrored client-side by the `mustSpendLevelUp` store computed (`store/game.ts`) that disables the buttons and tightens `:can-attack` in `Game.vue` (finding M15). `LevelUp`/`ChangeMind` stay ungated so points can be spent / un-readied.
@@ -170,7 +170,7 @@ GameClass ──GameStateMapper.MapPlayer(viewer-specific)──▶ GameStateDto
 For character **X** with passive "P" (details per character in CHARACTERS.md):
 
 1. `DataBase/characters.json` — name, stats, tier, avatar, passives (`PassiveName`/`PassiveDescription`/`Visible`/`Standalone`).
-2. `Game/Characters/X.cs` — nested state classes (counters, cooldowns, trigger schedules). ⚠ file/class names don't always match the character (`Panth.cs`→class `Spartan`→"Загадочный Спартанец в маске", `Mitsuki.cs`→"Злой Школьник", `Shark.cs`→"Братишка"; `Баг` has no file).
+2. `Game/Characters/X.cs` — nested state classes (counters, cooldowns, trigger schedules). ⚠ file/class names don't always match the character (`Panth.cs`→class `Spartan`→"Загадочный Спартанец в маске", `Mitsuki.cs`→"Злой Школьник", `Shark.cs`→"Братишка"; `UnknownBug.cs` owns the renamed ultra-secret character's identity, privacy helpers and mechanics).
 3. `Game/Classes/PassivesClass.cs` — instances of those state classes per player; also per-player marks other characters put on you.
 4. `Game/MemoryStorage/CharactersPhrases.cs` — `PhraseClass` fields + registration.
 5. `Game/GameLogic/CharacterPassives.cs` — `case "P":` in the relevant hooks (§3).
@@ -188,26 +188,26 @@ DooM Guy exercises the expanded form of this pattern: its persistent Home surfac
 
 Naruto is another expanded form: roster eligibility and two strict-bot seat conversion touch `StartGameLogic`/`WebGameService`; sibling legality is enforced independently in Discord/web menus, the shared action handler, bot target selection, forced-target sanitization and the core loop; final death/score ownership crosses `DoomsdayMachine`, `CheckIfReady` and `InGameStatus`. The helper identity is the original player's Guid stored in all three `PassivesClass.Naruto` states; the clones receive fresh deserialized `CharacterClass` and `PassivesClass` instances so no status, stat, level-up or passive state is shared (`Naruto.cs:17-147`).
 
-## 8. File map (backend, sizes as of this tree)
+## 8. File map (backend)
 
-| File | Lines | Role |
-|---|---|---|
-| `Game/GameLogic/CharacterPassives.cs` | 6874 | all passive hooks (§3 line map) |
-| `Game/GameLogic/BotsBehavior.cs` | 3724 | bot AI + Nanobot preference model; difficulty-gated global mechanics and persistent per-character plans (`Smart()`/`Omni()`, L1 unchanged) |
-| `Game/GameLogic/DoomsdayMachine.cs` | 1559 | fight execution + round pipeline |
-| `Game/GameLogic/CheckIfReady.cs` | 1382 | turn loop, forced actions, game end |
-| `Game/GameLogic/CalculateRounds.cs` | 497 | pure fight math (3 steps) |
-| `Game/GameLogic/StartGameLogic.cs` | 425 | rolls (normal/ARAM/draft), tiers |
-| `Game/Classes/CharacterClass.cs` | 1751 | stats, skill, moral, justice, quality |
-| `Game/Classes/InGameStatusClass.cs` | 426 | score, place, flags, personal logs |
-| `Game/Classes/PassivesClass.cs` | 355 | per-player passive state container |
-| `Game/Classes/GameClass.cs` | 170 | game container, exploit roll |
-| `Game/Classes/GamePlayerBridgeClass.cs` | 140 | account↔player bridge, MinusPsycheLog |
-| `Game/Classes/AchievementClass.cs` | ~590 | V2 definitions, match observations, best-single-match evaluation and unlock rewards |
-| `Game/Classes/QuestClass.cs` | ~920 | Daily Quest V2 catalog/metrics/selection/rewards/migration plus server-owned loot odds, pity and idempotent opening |
-| `Game/ReactionHandling/GameReactions.cs` | ~1300 | buttons: lvl-up, moral, predictions |
-| `Game/DiscordMessages/GameUpdateMess.cs` | ~1700 | Discord rendering |
-| `API/Services/GameStateMapper.cs` | ~1200 | web DTO mapping |
+| File | Role |
+|---|---|
+| `Game/GameLogic/CharacterPassives.cs` | all passive hooks (§3 line map) |
+| `Game/GameLogic/BotsBehavior.cs` | bot AI + Nanobot preference model; difficulty-gated global mechanics and persistent per-character plans (`Smart()`/`Omni()`, L1 unchanged) |
+| `Game/GameLogic/DoomsdayMachine.cs` | fight execution + round pipeline |
+| `Game/GameLogic/CheckIfReady.cs` | turn loop, forced actions, game end |
+| `Game/GameLogic/CalculateRounds.cs` | pure fight math (3 steps) |
+| `Game/GameLogic/StartGameLogic.cs` | rolls (normal/ARAM/draft), tiers |
+| `Game/Classes/CharacterClass.cs` | stats, skill, moral, justice, quality |
+| `Game/Classes/InGameStatusClass.cs` | score, place, flags, personal logs |
+| `Game/Classes/PassivesClass.cs` | per-player passive state container |
+| `Game/Classes/GameClass.cs` | game container, exploit roll |
+| `Game/Classes/GamePlayerBridgeClass.cs` | account↔player bridge, MinusPsycheLog |
+| `Game/Classes/AchievementClass.cs` | V2 definitions, match observations, best-single-match evaluation and unlock rewards |
+| `Game/Classes/QuestClass.cs` | Daily Quest V2 catalog/metrics/selection/rewards/migration plus server-owned loot odds, pity and idempotent opening |
+| `Game/ReactionHandling/GameReactions.cs` | buttons: lvl-up, moral, predictions |
+| `Game/DiscordMessages/GameUpdateMess.cs` | Discord rendering |
+| `API/Services/GameStateMapper.cs` | web DTO mapping |
 
 Legacy/dead code is catalogued in AUDIT-FINDINGS; the m6 batch (2026-07-04) deleted the known dead files (LolGod.cs, single-L Saldorum.cs and their orphaned passive cases/state/phrases, CraboRack.BokoBoole). `GameDesign.txt` still holds unbuilt future characters by design.
 

@@ -53,22 +53,20 @@ export type Player = {
   deathSource: string
   /** Whether this player is Kira (uses Death Note instead of predictions). */
   isKira: boolean
-  /** Whether this player is Баг (sees exploit markers). */
-  isBug: boolean
+  /** Enables the owner-only terminal presentation and private fight projection. */
+  isTerminalMode: boolean
   /** Death Note state (only populated for the Kira player). */
   deathNote?: DeathNote
   /** Portal Gun state (only populated for Rick). */
   portalGun?: PortalGun
-  /** Exploit state (only populated for the Баг player). */
-  exploitState?: ExploitState
+  /** Owner-only terminal state. */
+  terminalState?: TerminalState
   /** Tsukuyomi state (only populated for the Itachi player). */
   tsukuyomiState?: TsukuyomiState
   /** Passive ability widget states (only populated for the owning player). */
   passiveAbilityStates?: PassiveAbilityStates
-  /** Whether this player is currently marked as exploitable (only visible to Баг). */
-  isExploitable?: boolean
-  /** Whether this player's exploit has been fixed by Баг. */
-  isExploitFixed?: boolean
+  /** Owner-scoped marker projected onto the current terminal node. */
+  hasTerminalMarker?: boolean
   /** Butcher's secret sup marker; only supplied to the TheBoys viewer. */
   isTheBoysSupTarget?: boolean
   /** True when Darksci needs to choose stable/unstable (round 1). */
@@ -118,10 +116,13 @@ export type PortalGun = {
   charges: number
 }
 
-export type ExploitState = {
-  totalExploit: number
-  fixedCount: number
-  totalPlayers: number
+export type TerminalState = {
+  bufferedPoints: number
+  streamTargetPlayerId?: string
+  activeNodePlayerId?: string
+  isNodeActive: boolean
+  commitSerial: number
+  lastCommitPoints: number
 }
 
 export type TsukuyomiState = {

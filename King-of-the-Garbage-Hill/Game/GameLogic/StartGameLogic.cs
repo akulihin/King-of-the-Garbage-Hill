@@ -228,9 +228,9 @@ public class StartGameLogic : IServiceSingleton
                 if (character.Passive.Any(x => x.PassiveName == "Top Laner")) range = (int)(range * topLaner);
                 var pityBonus = account.TierPity.GetValueOrDefault(character.Tier, 0);
                 range = (int)(range * (1.0 + pityBonus * 0.03));
-                var temp = totalPool +
-                    Convert.ToInt32(range * account.CharacterChance.Find(x => x.CharacterName == character.Name)
-                        .Multiplier) - 1;
+                var chanceEntry = account.CharacterChance.Find(x => x.CharacterName == character.Name);
+                var rollMultiplier = UnknownBug.Is(character.Name) ? 1.0 : chanceEntry?.Multiplier ?? 1.0;
+                var temp = totalPool + Convert.ToInt32(range * rollMultiplier) - 1;
                 allAvailableCharacters.Add(new DiscordAccountClass.CharacterRollClass(character.Name, totalPool, temp));
                 totalPool = temp + 1;
             }
@@ -307,7 +307,8 @@ public class StartGameLogic : IServiceSingleton
             var account = _accounts.GetAccount(player);
 
             foreach (var playerInGame in playersList.Where(playerInGame =>
-                         !account.SeenCharacters.Contains(playerInGame.GameCharacter.Name)))
+                         !UnknownBug.Is(playerInGame.GameCharacter.Name)
+                         && !account.SeenCharacters.Contains(playerInGame.GameCharacter.Name)))
                 if (playerInGame.DiscordId == player.Id)
                     account.SeenCharacters.Add(playerInGame.GameCharacter.Name);
         }
@@ -320,6 +321,7 @@ public class StartGameLogic : IServiceSingleton
         bool isTeamMode = false)
     {
         var allCharacters = _charactersPull.GetRollableCharacters();
+        allCharacters.RemoveAll(character => UnknownBug.Is(character.Name));
 
         // Remove team-mode-only characters for non-team games
         allCharacters = allCharacters.Where(x => !x.TeamModeOnly).ToList();
@@ -460,23 +462,29 @@ public class StartGameLogic : IServiceSingleton
     public EmbedBuilder GetStatsEmbed(DiscordAccountClass account)
     {
         var embed = new EmbedBuilder();
-        var mostWins = account.CharacterStatistics.OrderByDescending(x => x.Wins).ToList().ElementAtOrDefault(0);
-        var leastWins = account.CharacterStatistics.OrderByDescending(x => x.Wins)
-            .ElementAtOrDefault(account.CharacterStatistics.Count - 1);
-        var mostPlays = account.CharacterStatistics.OrderByDescending(x => x.Plays).ElementAtOrDefault(0);
-        var leastPlays = account.CharacterStatistics.OrderByDescending(x => x.Plays)
-            .ElementAtOrDefault(account.CharacterStatistics.Count - 1);
+        var characterStatistics = account.CharacterStatistics
+            .Where(stat => !UnknownBug.Is(stat.CharacterName))
+            .ToList();
+        var matchHistory = account.MatchHistory
+            .Where(match => !UnknownBug.Is(match.CharacterName))
+            .ToList();
+        var characterChances = account.CharacterChance
+            .Where(chance => !UnknownBug.Is(chance.CharacterName))
+            .ToList();
+        var mostWins = characterStatistics.OrderByDescending(x => x.Wins).FirstOrDefault();
+        var leastWins = characterStatistics.OrderByDescending(x => x.Wins).LastOrDefault();
+        var mostPlays = characterStatistics.OrderByDescending(x => x.Plays).FirstOrDefault();
+        var leastPlays = characterStatistics.OrderByDescending(x => x.Plays).LastOrDefault();
         var mostPlace = account.PerformanceStatistics.OrderByDescending(x => x.Place).ElementAtOrDefault(0);
         var leastPlace = account.PerformanceStatistics.OrderByDescending(x => x.Place)
             .ElementAtOrDefault(account.PerformanceStatistics.Count - 1);
-        var topPoints = account.MatchHistory.OrderByDescending(x => x.Score).ElementAtOrDefault(0);
-        var mostChance = account.CharacterChance.OrderByDescending(x => x.Multiplier).ElementAtOrDefault(0);
-        var leastChance = account.CharacterChance.OrderByDescending(x => x.Multiplier)
-            .ElementAtOrDefault(account.CharacterChance.Count - 1);
+        var topPoints = matchHistory.OrderByDescending(x => x.Score).FirstOrDefault();
+        var mostChance = characterChances.OrderByDescending(x => x.Multiplier).FirstOrDefault();
+        var leastChance = characterChances.OrderByDescending(x => x.Multiplier).LastOrDefault();
 
         ulong totalPoints = 0;
 
-        foreach (var v in account.MatchHistory)
+        foreach (var v in matchHistory)
             if (v.Score > 0)
                 totalPoints += (ulong)v.Score;
             else

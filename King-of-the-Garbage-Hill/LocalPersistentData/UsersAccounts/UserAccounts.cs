@@ -1,10 +1,12 @@
 ﻿using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
 using System.Timers;
 using Discord;
 using Discord.WebSocket;
+using King_of_the_Garbage_Hill.Game.Characters;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Helpers;
 
@@ -30,7 +32,11 @@ public sealed class UserAccounts : IServiceSingleton
         _usersDataStorage = usersDataStorage;
         _userAccountsDictionary = _usersDataStorage.LoadAllAccounts();
         foreach (var (userId, account) in _userAccountsDictionary)
+        {
+            if (MigrateUnknownBugAccount(account))
+                _usersDataStorage.SaveAccountSettings(account, userId);
             GameLocalization.SetUserLanguage(userId, account.Language);
+        }
         ClearPlayingStatus();
         SaveAllAccountsTimer();
         _executionPath = System.IO.Path.GetDirectoryName(Assembly.GetEntryAssembly()?.Location);
@@ -118,6 +124,132 @@ public sealed class UserAccounts : IServiceSingleton
         {
             return _usersDataStorage.SaveAccountSettings(account, account.DiscordId);
         }
+    }
+
+    private static bool MigrateUnknownBugAccount(DiscordAccountClass account)
+    {
+        if (account == null) return false;
+
+        var changed = false;
+
+        if (account.CharacterChance != null)
+        {
+            var secretChances = account.CharacterChance
+                .Where(chance => UnknownBug.Is(chance.CharacterName))
+                .ToList();
+            if (secretChances.Count > 0)
+            {
+                var mergedChance = secretChances.Find(chance =>
+                                       chance.CharacterName == UnknownBug.CharacterName)
+                                   ?? secretChances[0];
+                var refund = secretChances.Sum(chance => CalculateStoreRefund(chance.Changes));
+                if (refund > 0)
+                    account.ZbsPoints += refund;
+
+                if (secretChances.Count > 1
+                    || mergedChance.CharacterName != UnknownBug.CharacterName
+                    || mergedChance.Multiplier != 1.0
+                    || mergedChance.Changes != 0)
+                    changed = true;
+
+                account.CharacterChance.RemoveAll(chance =>
+                    UnknownBug.Is(chance.CharacterName) && !ReferenceEquals(chance, mergedChance));
+                mergedChance.CharacterName = UnknownBug.CharacterName;
+                mergedChance.Multiplier = 1.0;
+                mergedChance.Changes = 0;
+            }
+        }
+
+        if (account.SeenCharacters != null
+            && account.SeenCharacters.RemoveAll(UnknownBug.Is) > 0)
+            changed = true;
+
+        if (account.CharacterStatistics != null)
+        {
+            var secretStatistics = account.CharacterStatistics
+                .Where(stat => UnknownBug.Is(stat.CharacterName))
+                .ToList();
+            if (secretStatistics.Count > 0)
+            {
+                var mergedStatistics = secretStatistics.Find(stat =>
+                                           stat.CharacterName == UnknownBug.CharacterName)
+                                       ?? secretStatistics[0];
+                var mergedPlays = secretStatistics.Aggregate(0UL, (total, stat) => total + stat.Plays);
+                var mergedWins = secretStatistics.Aggregate(0UL, (total, stat) => total + stat.Wins);
+                var lastPlayedAt = secretStatistics.Max(stat => stat.LastPlayedAt);
+
+                if (secretStatistics.Count > 1
+                    || mergedStatistics.CharacterName != UnknownBug.CharacterName)
+                    changed = true;
+
+                account.CharacterStatistics.RemoveAll(stat =>
+                    UnknownBug.Is(stat.CharacterName) && !ReferenceEquals(stat, mergedStatistics));
+                mergedStatistics.CharacterName = UnknownBug.CharacterName;
+                mergedStatistics.Plays = mergedPlays;
+                mergedStatistics.Wins = mergedWins;
+                mergedStatistics.LastPlayedAt = lastPlayedAt;
+            }
+        }
+
+        if (account.MatchHistory != null)
+        {
+            foreach (var match in account.MatchHistory.Where(match =>
+                         UnknownBug.Is(match.CharacterName)
+                         && match.CharacterName != UnknownBug.CharacterName))
+            {
+                match.CharacterName = UnknownBug.CharacterName;
+                changed = true;
+            }
+        }
+
+        if (account.CharacterMastery != null)
+        {
+            var secretMastery = account.CharacterMastery
+                .Where(entry => UnknownBug.Is(entry.Key))
+                .ToList();
+            if (secretMastery.Count > 0)
+            {
+                var mergedMastery = secretMastery.Sum(entry => entry.Value);
+                if (secretMastery.Count > 1
+                    || secretMastery[0].Key != UnknownBug.CharacterName)
+                    changed = true;
+
+                foreach (var entry in secretMastery)
+                    account.CharacterMastery.Remove(entry.Key);
+                account.CharacterMastery[UnknownBug.CharacterName] = mergedMastery;
+            }
+        }
+
+        if (UnknownBug.Is(account.CharacterPlayedLastTime)
+            && account.CharacterPlayedLastTime != UnknownBug.CharacterName)
+        {
+            account.CharacterPlayedLastTime = UnknownBug.CharacterName;
+            changed = true;
+        }
+
+        if (UnknownBug.Is(account.CharacterToGiveNextTime))
+        {
+            account.CharacterToGiveNextTime = null;
+            changed = true;
+        }
+
+        if (account.Achievements?.Progress != null
+            && account.Achievements.Progress.RemoveAll(progress =>
+                progress.AchievementId is "c_bug_patch" or "c_bug_release") > 0)
+            changed = true;
+        if (account.Achievements?.NewlyUnlocked != null
+            && account.Achievements.NewlyUnlocked.RemoveAll(id =>
+                id is "c_bug_patch" or "c_bug_release") > 0)
+            changed = true;
+
+        return changed;
+    }
+
+    private static int CalculateStoreRefund(int changes)
+    {
+        var normalizedChanges = System.Math.Max(0, changes);
+        return normalizedChanges * 10
+               + normalizedChanges * (normalizedChanges - 1) / 2;
     }
 
     private void SaveAllAccounts(object sender, ElapsedEventArgs e)

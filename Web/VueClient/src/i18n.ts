@@ -1,7 +1,5 @@
 import { ref, watch } from 'vue'
-import englishCatalog from '../../../King-of-the-Garbage-Hill/DataBase/localization.en.json'
-import phrases from '../../../King-of-the-Garbage-Hill/DataBase/phrases.en.json'
-import characters from '../../../King-of-the-Garbage-Hill/DataBase/characters.json'
+import { characters, englishCatalog, phrases } from 'virtual:public-localization'
 
 export type AppLocale = 'ru' | 'en'
 

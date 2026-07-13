@@ -8,6 +8,7 @@ using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 using King_of_the_Garbage_Hill.DiscordFramework;
+using King_of_the_Garbage_Hill.Game.Characters;
 using King_of_the_Garbage_Hill.Game.MemoryStorage;
 using King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts;
 
@@ -41,7 +42,9 @@ public class DiscordWidgetService : IServiceSingleton
 
         // Snapshot to avoid "collection modified during enumeration" — CharacterStatistics
         // is mutated by game-end stamping on another thread.
-        var statsSnapshot = account.CharacterStatistics.ToList();
+        var statsSnapshot = account.CharacterStatistics
+            .Where(stat => !UnknownBug.Is(stat.CharacterName))
+            .ToList();
 
         var recentChars = statsSnapshot
             .OrderByDescending(x => x.LastPlayedAt)

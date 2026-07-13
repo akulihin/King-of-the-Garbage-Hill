@@ -228,7 +228,8 @@ public class BotsBehavior : IServiceSingleton
 
     private static bool CanBreakKnownDefense(GamePlayerBridgeClass bot, GamePlayerBridgeClass target, GameClass game)
     {
-        if (bot.GameCharacter.Passive.Any(x => x.PassiveName is "AutoWin" or "Безжалостный охотник"))
+        if (bot.GameCharacter.Passive.Any(x =>
+                x.PassiveName == UnknownBug.AutoWin || x.PassiveName == "Безжалостный охотник"))
             return true;
         if (game.IsKratosEvent && bot.GameCharacter.Passive.Any(x => x.PassiveName == "Возвращение из мертвых"))
             return true;
@@ -284,7 +285,8 @@ public class BotsBehavior : IServiceSingleton
 
     private static bool UsesStandardWinPlan(GamePlayerBridgeClass bot)
     {
-        if (bot.GameCharacter.Name is "Toxic Mate" or "mylorik" or "DeepList" or "AWDKA" or "HardKitty" or "Баг")
+        if (bot.GameCharacter.Name is "Toxic Mate" or "mylorik" or "DeepList" or "AWDKA" or "HardKitty"
+            || UnknownBug.Is(bot))
             return false;
         if (bot.GameCharacter.Name == "Продавец Сомнительных Тактик"
             && bot.Passives.SellerVparitGovna.Cooldown <= 0)
@@ -2274,12 +2276,13 @@ public class BotsBehavior : IServiceSingleton
                         if (geraltTargetPos <= 2)
                             target.AttackPreference += 3;
                         break;
-                    case "Баг":
+                    case UnknownBug.CharacterName:
+                    case UnknownBug.LegacyCharacterName:
                         if (!Smart(bot, game))
                             break;
 
-                        // Exploit is a global pot. Patching early permanently removes a carrier and usually
-                        // cashes almost nothing; let losses accumulate, then guarantee the round-10 cash-out.
+                        // Exploit is a one-shot global pot. Committing early closes it for the whole game;
+                        // let copied wins accumulate, then guarantee the round-10 cash-out.
                         if (target.Player.Passives.IsExploitable)
                         {
                             if (game.RoundNo == 10)
@@ -2295,13 +2298,16 @@ public class BotsBehavior : IServiceSingleton
                             break;
                         }
 
-                        // PointFunnel copies this target's win points. Prefer players who have committed
-                        // outgoing attacks, especially multi-attackers and (at L3) visibly favorable fights.
+                        // PointFunnel copies exactly +1 per resolved win by the primary stream target.
+                        // Prefer committed multi-attackers and targets who can defeat the active carrier.
                         var funnelTargets = target.Player.Status.WhoToAttackThisTurn
                             .Select(id => game.PlayersList.Find(x => x.GetPlayerId() == id))
                             .Where(x => x != null && x.GetPlayerId() != target.GetPlayerId())
                             .ToList();
                         target.AttackPreference += funnelTargets.Count * 5;
+                        if (game.ExploitActive && funnelTargets.Any(x =>
+                                x!.GetPlayerId() == game.CurrentExploitTargetPlayerId))
+                            target.AttackPreference += 12;
                         if (Omni(bot, game))
                             target.AttackPreference += funnelTargets.Count(x =>
                                 EstimateOmniFightEdge(target.Player, x!) >= 0) * 4;
@@ -3138,9 +3144,9 @@ public class BotsBehavior : IServiceSingleton
                     }
                     break;
 
-                case "Баг":
-                    if (Smart(bot, game) && game.RoundNo == 10
-                        && game.ExploitPlayersList.Any(x => x.Passives.IsExploitable))
+                case UnknownBug.CharacterName:
+                case UnknownBug.LegacyCharacterName:
+                    if (Smart(bot, game) && game.RoundNo == 10 && game.ExploitActive)
                         isBlock = noBlock;
                     break;
 
@@ -3287,20 +3293,29 @@ public class BotsBehavior : IServiceSingleton
                 whoToAttack = players[_rand.Random(0, players.Count - 1)].Player.Status.GetPlaceAtLeaderBoard();
 
                 if (maxRandomNumber > 0)
+                {
+                    var randomTarget = allTargets.Find(x =>
+                        x.Player.Status.GetPlaceAtLeaderBoard() == whoToAttack)?.Player;
                     await _global.TrySendServiceMessage(
-                        $"**{bot.GameCharacter.Name}** Поставил блок, а ему нельзя. {randomNumber}/{maxRandomNumber} <= {totalPreference}\n" +
+                        $"**{UnknownBug.PublicName(bot)}** Поставил блок, а ему нельзя. {randomNumber}/{maxRandomNumber} <= {totalPreference}\n" +
                         $"Round: {game.RoundNo}\n" +
-                        $"Randomly Attacking {allTargets.Find(x => x.Player.Status.GetPlaceAtLeaderBoard() == whoToAttack).Player.GameCharacter.Name}");
+                        $"Randomly Attacking {UnknownBug.PublicName(randomTarget)}");
+                }
 
                 await AttackPlayer(bot, whoToAttack);
             }
             else if (!isAttacked)
             {
-                var passives = bot.GameCharacter.Passive.Aggregate("(", (current, passive) => current + $"{passive.PassiveName}, ");
-                passives = passives.Remove(passives.Length - 2);
-                passives += ")";
+                var passives = "(private)";
+                if (!UnknownBug.Is(bot))
+                {
+                    passives = bot.GameCharacter.Passive.Aggregate("(",
+                        (current, passive) => current + $"{passive.PassiveName}, ");
+                    passives = passives.Remove(passives.Length - 2);
+                    passives += ")";
+                }
                 await _global.TrySendServiceMessage(
-                    $"**{bot.GameCharacter.Name}** {passives} не напал ни на кого.\n" +
+                    $"**{UnknownBug.PublicName(bot)}** {passives} не напал ни на кого.\n" +
                     $"Round: {game.RoundNo}\n");
                 await _gameReaction.HandleAttack(bot, null, -10);
             }

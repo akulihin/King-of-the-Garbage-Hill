@@ -571,7 +571,7 @@ onUnmounted(() => {
             :fight-log="store.gameState.fightLog || []"
             :is-kira="false"
             :death-note="undefined"
-            :is-bug="false"
+            :terminal-mode="false"
           />
         </div>
 

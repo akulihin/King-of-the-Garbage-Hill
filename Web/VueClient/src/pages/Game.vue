@@ -14,6 +14,8 @@ import MediaMessages from 'src/components/MediaMessages.vue'
 import RoundTimer from 'src/components/RoundTimer.vue'
 import Blackjack21 from 'src/components/Blackjack21.vue'
 import AchievementPopup from 'src/components/AchievementPopup.vue'
+import TerminalCommitOverlay from 'src/components/TerminalCommitOverlay.vue'
+import type { Player } from 'src/services/signalr'
 import {
   playAttackSelection,
   playAnyMoveTurn10PlusLayer,
@@ -67,6 +69,23 @@ const router = useRouter()
 const gameIdNum = computed(() => Number(props.gameId))
 let gameOverOverlayTimer: ReturnType<typeof setTimeout> | null = null
 let finishPresentationFallbackTimer: ReturnType<typeof setTimeout> | null = null
+let terminalCommitTimer: ReturnType<typeof setTimeout> | null = null
+
+const terminalCommitVisible = ref(false)
+const terminalCommitPoints = ref(0)
+
+watch(() => store.myTerminalState?.commitSerial, (serial, previousSerial) => {
+  if (!store.isTerminalMode || serial == null || previousSerial == null || serial <= previousSerial) return
+  const committedPoints = store.myTerminalState?.lastCommitPoints ?? 0
+  if (committedPoints <= 20) return
+  terminalCommitPoints.value = committedPoints
+  terminalCommitVisible.value = true
+  if (terminalCommitTimer) clearTimeout(terminalCommitTimer)
+  terminalCommitTimer = setTimeout(() => {
+    terminalCommitVisible.value = false
+    terminalCommitTimer = null
+  }, 4200)
+})
 
 const roundMultiplier = computed(() => {
   const r = store.gameState?.roundNo ?? 0
@@ -184,6 +203,7 @@ onUnmounted(() => {
   clearPrevLogTimer()
   if (gameOverOverlayTimer) clearTimeout(gameOverOverlayTimer)
   if (finishPresentationFallbackTimer) clearTimeout(finishPresentationFallbackTimer)
+  if (terminalCommitTimer) clearTimeout(terminalCommitTimer)
   if (store.isConnected && gameIdNum.value) {
     store.leaveGame(gameIdNum.value)
   }
@@ -430,6 +450,15 @@ function goToLobby() {
 
 // ── Header status (moved from ActionPanel) ──────────────────────────
 const me = computed(() => store.myPlayer)
+const missingAvatarUrl = 'https://r2.ozvmusic.com/kotgh/art/avatars/unknown.png'
+const ownerAvatar = computed(() => {
+  if (store.isTerminalMode) return missingAvatarUrl
+  return me.value?.character.avatarCurrent || me.value?.character.avatar || missingAvatarUrl
+})
+function gameoverAvatar(player: Player): string {
+  if (player.isTerminalMode) return missingAvatarUrl
+  return player.character.avatarCurrent || player.character.avatar || missingAvatarUrl
+}
 const isMadara = computed(() => me.value?.character.name === 'Мадара')
 const isMadaraRoundEight = computed(() => isMadara.value && store.gameState?.roundNo === 8)
 
@@ -1055,6 +1084,7 @@ watch(() => mergeEvents(), (newVal: string | undefined) => {
 }, { immediate: true })
 
 const charTint = computed(() => {
+  if (store.isTerminalMode) return 'rgba(0, 255, 65, 0.035)'
   const name = store.myPlayer?.character.name
   if (!name) return ''
   const tints: Record<string, string> = {
@@ -1073,7 +1103,8 @@ const charTint = computed(() => {
 </script>
 
 <template>
-  <div class="game-page" :style="charTint ? { background: charTint } : {}">
+  <div class="game-page" :class="{ 'is-terminal-game': store.isTerminalMode }" :style="charTint ? { background: charTint } : {}">
+    <TerminalCommitOverlay v-if="terminalCommitVisible" :points="terminalCommitPoints" />
     <!-- Round announce cinematic overlay -->
     <Transition name="round-announce">
       <div v-if="showRoundOverlay" class="round-announce" :key="overlayRoundNo">
@@ -1101,7 +1132,7 @@ const charTint = computed(() => {
               :style="{ animationDelay: `${(gameOverPodium.length - 1 - idx) * 0.3 + 0.5}s` }"
             >
               <span class="gameover-place-num">{{ idx + 1 }}</span>
-              <img :src="p.character.avatarCurrent || p.character.avatar" class="gameover-avatar" :alt="p.character.name">
+              <img :src="gameoverAvatar(p)" class="gameover-avatar" :alt="p.character.name">
               <span class="gameover-name">{{ p.discordUsername }}</span>
               <span class="gameover-score">{{ p.status.score >= 0 ? p.status.score : '?' }}</span>
             </div>
@@ -1405,7 +1436,7 @@ const charTint = computed(() => {
             :fight-log="store.gameState.fightLog || []"
             :is-kira="store.isKira"
             :death-note="store.myPlayer?.deathNote"
-            :is-bug="store.isBug"
+            :terminal-mode="store.isTerminalMode"
             :pink-ward-revealed-player-ids="store.gameState.pinkWardRevealedPlayerIds"
             @attack="onAttack"
             @predict="store.predict($event.playerId, $event.characterName)"
@@ -1437,7 +1468,9 @@ const charTint = computed(() => {
               :players="store.gameState.players"
               :my-player-id="store.myPlayer?.playerId"
               :predictions="store.myPlayer?.predictions"
-              :is-admin="store.isAdmin"
+              :is-admin="store.isAdmin && !store.isTerminalMode"
+              :terminal-mode="store.isTerminalMode"
+              :show-detailed-factors="store.isAdmin || store.isTerminalMode"
               :character-catalog="store.gameState.allCharacters || []"
               :fight-style="fightStyle"
               :rewrite-history-rounds="rewriteHistoryRounds"
@@ -1590,21 +1623,18 @@ const charTint = computed(() => {
         <div v-if="me" class="gr-avatar-section">
           <div class="gr-avatar-wrap" :class="[placeTier]">
             <img
-              v-if="me.character.avatarCurrent"
-              :src="me.character.avatarCurrent"
+              :src="ownerAvatar"
               :alt="me.character.name"
               class="gr-avatar-img"
+              @error="(event: Event) => (event.target as HTMLImageElement).src = missingAvatarUrl"
             >
-            <div v-else class="gr-avatar-fallback">
-              {{ me.character.name.charAt(0) }}
-            </div>
           </div>
           <div class="gr-identity">
             <div class="gr-name">
-              {{ me.character.name }}
-              <span v-if="charTier > 0" class="rarity-badge" :class="rarityClass">{{ rarityLabel }}</span>
+              {{ store.isTerminalMode ? `Name: ${me.character.name}` : me.character.name }}
+              <span v-if="!store.isTerminalMode && charTier > 0" class="rarity-badge" :class="rarityClass">{{ rarityLabel }}</span>
             </div>
-            <div v-if="masteryLevel > 0" class="mastery-badge" :class="'mastery-' + masteryTier">
+            <div v-if="!store.isTerminalMode && masteryLevel > 0" class="mastery-badge" :class="'mastery-' + masteryTier">
               <span class="mastery-level">{{ masteryLevel }}</span>
               <span class="mastery-label">{{ masteryTier }}</span>
             </div>
@@ -1625,6 +1655,39 @@ const charTint = computed(() => {
   gap: 5px;
   height: calc(100vh - 44px - 2rem); /* viewport minus top-bar (44px) minus main-content padding (1rem * 2) */
   min-height: 0;
+}
+
+.game-page.is-terminal-game {
+  position: relative;
+  color: #9bffb3;
+  font-family: var(--font-mono);
+}
+.game-page.is-terminal-game::before {
+  content: 'SYS://SESSION_OVERRIDE  //  TRACE=OFF  //  WATCHDOG=BYPASSED';
+  position: absolute;
+  z-index: 20;
+  top: -11px;
+  left: 12px;
+  padding: 0 6px;
+  background: #000902;
+  color: rgba(89, 255, 129, 0.42);
+  font: 700 7px/1.2 var(--font-mono);
+  letter-spacing: 0.1em;
+  pointer-events: none;
+}
+.game-page.is-terminal-game :deep(.game-header),
+.game-page.is-terminal-game :deep(.log-panel),
+.game-page.is-terminal-game :deep(.leaderboard) {
+  border-color: rgba(0, 255, 65, 0.28);
+  background-color: rgba(0, 10, 3, 0.88);
+}
+.game-page.is-terminal-game .round-badge,
+.game-page.is-terminal-game .multiplier-badge,
+.game-page.is-terminal-game .status-chip {
+  border-color: rgba(0, 255, 65, 0.34);
+  background: rgba(0, 255, 65, 0.07);
+  color: #74ff96;
+  text-shadow: 0 0 6px rgba(0, 255, 65, 0.55);
 }
 
 .loading {
@@ -2718,6 +2781,59 @@ const charTint = computed(() => {
   animation: gr-avatar-breathe 4s ease-in-out infinite;
   transition: filter 0.5s ease;
 }
+.game-page.is-terminal-game .gr-avatar-wrap,
+.game-page.is-terminal-game .gr-avatar-wrap.place-1,
+.game-page.is-terminal-game .gr-avatar-wrap.place-2,
+.game-page.is-terminal-game .gr-avatar-wrap.place-3,
+.game-page.is-terminal-game .gr-avatar-wrap.place-mid,
+.game-page.is-terminal-game .gr-avatar-wrap.place-last {
+  border: 2px solid rgba(0, 255, 65, 0.62);
+  background: #000;
+  box-shadow: 0 0 16px rgba(0, 255, 65, 0.3), inset 0 0 24px rgba(0, 255, 65, 0.08);
+  filter: none;
+  animation: terminal-avatar-frame 3.8s steps(1, end) infinite;
+}
+.game-page.is-terminal-game .gr-avatar-wrap::after {
+  content: '';
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  padding: 0;
+  border-radius: 0;
+  background:
+    repeating-linear-gradient(0deg, transparent 0 3px, rgba(0, 255, 65, 0.08) 4px),
+    linear-gradient(90deg, transparent 49%, rgba(0, 255, 65, 0.08) 50%, transparent 51%);
+  mask: none;
+  -webkit-mask: none;
+  animation: none;
+  pointer-events: none;
+}
+.game-page.is-terminal-game .gr-avatar-img {
+  filter: grayscale(1) sepia(0.55) hue-rotate(72deg) contrast(1.28) brightness(0.78);
+  animation: terminal-avatar-glitch 4.6s steps(1, end) infinite;
+}
+.game-page.is-terminal-game .gr-name {
+  color: #8dffa8;
+  font-family: var(--font-mono);
+  letter-spacing: 0.035em;
+  text-shadow: 2px 0 rgba(0, 255, 213, 0.3), -2px 0 rgba(0, 255, 65, 0.4), 0 0 9px #00ff41;
+}
+.game-page.is-terminal-game .gr-username {
+  color: rgba(116, 255, 150, 0.46);
+  font-family: var(--font-mono);
+}
+@keyframes terminal-avatar-frame {
+  0%, 90%, 100% { transform: translate(0); }
+  92% { transform: translate(-2px, 1px); }
+  94% { transform: translate(2px, -1px); }
+  96% { transform: translate(0); }
+}
+@keyframes terminal-avatar-glitch {
+  0%, 86%, 100% { transform: scale(1.01); clip-path: none; }
+  88% { transform: scale(1.025) translateX(-3px); clip-path: inset(12% 0 66% 0); }
+  90% { transform: scale(1.025) translateX(3px); clip-path: inset(62% 0 13% 0); }
+  92% { transform: scale(1.01); clip-path: none; }
+}
 .place-1 .gr-avatar-img,
 .place-2 .gr-avatar-img {
   filter: contrast(1.05) brightness(1.05);
@@ -3168,6 +3284,10 @@ const charTint = computed(() => {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .game-page.is-terminal-game .gr-avatar-wrap,
+  .game-page.is-terminal-game .gr-avatar-img {
+    animation: none !important;
+  }
   .gameover-title,
   .gameover-entry,
   .gameover-confetti,

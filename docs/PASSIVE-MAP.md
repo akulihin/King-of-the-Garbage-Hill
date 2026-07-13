@@ -11,15 +11,15 @@
 |---|---|---:|---:|---|
 | 2kxaoc | Загадочный Спартанец в маске | 0 | 1 | NAME-KEYED (D4) |
 | 3-0 обоссан | Тигр | 2 | 2 | ok |
-| AdminPlayerType | Баг | 0 | 4 | ok |
+| AdminPlayerType | unknown_bug | 0 | 4 | ok |
 | Aggress | Toxic Mate | 2 | 6 | ok |
-| AutoWin | Баг | 1 | 2 | ok |
+| AutoWin | unknown_bug | 0 | 1 | ok |
 | Boole Family | Осьминожка, Братишка, Краборак | 0 | 2 | ok |
 | Buffing | Таинственный Суппорт | 1 | 1 | ok |
 | Butcher | TheBoys | 3 | 5 | ok |
 | DeepList Pet | DeepList | 1 | 3 | ok |
 | DragonSlayer | Загадочный Спартанец в маске | 1 | 1 | ok |
-| Exploit | Баг | 1 | 7 | ok |
+| Exploit | unknown_bug | 0 | 3 | ok |
 | FF 20 | Toxic Mate | 1 | 1 | ok |
 | Francie | TheBoys | 3 | 3 | ok |
 | Fuck this game, I'm done. | Toxic Mate | 1 | 1 | ok |
@@ -34,7 +34,7 @@
 | Mission | DooM Guy | 3 | 2 | ok |
 | Most wanted | Рик Санчез | 0 | 2 | ok |
 | Mute | HardKitty | 1 | 1 | ok |
-| PointFunnel | Баг | 0 | 2 | ok |
+| PointFunnel | unknown_bug | 0 | 1 | ok |
 | Premade | Таинственный Суппорт | 2 | 4 | ok |
 | Protect | Таинственный Суппорт | 1 | 1 | ok |
 | Rumbling | Эрен Йегер | 0 | 2 | ok |

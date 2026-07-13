@@ -297,7 +297,8 @@ public class CheckIfReady : IServiceSingleton
         {
             if (player.GameCharacter.Passive.Any(x => x.PassiveName == "AdminPlayerType"))
             {
-                foreach (var enemy in game.PlayersList.Where(x  => x.GetPlayerId() != player.GetPlayerId()))
+                foreach (var enemy in game.PlayersList.Where(x =>
+                             x.GetPlayerId() != player.GetPlayerId() && !UnknownBug.Is(x)))
                 {
                     player.Predict.Add(new PredictClass(enemy.GameCharacter.Name, enemy.GetPlayerId()));
                 }
@@ -313,6 +314,7 @@ public class CheckIfReady : IServiceSingleton
                      from predict in player.Predict
                      let enemy = game.PlayersList.Find(x => x.GetPlayerId() == predict.PlayerId)
                      where enemy != null
+                     where !UnknownBug.Is(enemy)
                      where enemy.GameCharacter.Name == predict.CharacterName
                      where !enemy.GameCharacter.Passive.Any(p => p.PassiveName == "Выдуманный персонаж")
                      where Naruto.PredictionAwardsPoints(player, enemy)
@@ -448,7 +450,6 @@ public class CheckIfReady : IServiceSingleton
                         "Рик Санчез" => "Рик Затроллился, Wubba Lubba Dub Dub!",
                         "Кира" => "Кира записал себя в тетрадь...",
                         "Молодой Глеб" => "Молодой Глеб Затроллился, но хотя бы не уснул",
-                        "Баг" => "Баг Затроллился, ошибка 404",
                         "Кратос" => "Кратос пал от руки троллинга!",
                         "Итачи" => "Итачи попал в свою же иллюзию!",
                         _ => ""
@@ -626,11 +627,12 @@ public class CheckIfReady : IServiceSingleton
         }
         else
         {
-            game.AddGlobalLogs(
-                game.PlayersList.FindAll(x => !x.Passives.IsDead
-                    && x.Status.GetScore() == playerWhoWon.Status.GetScore()).Count > 1
-                    ? "\n**Ничья**"
-                    : $"\n**{playerWhoWon.DiscordUsername}** победил, играя за **{playerWhoWon.GameCharacter.Name}**");
+            var isTie = game.PlayersList.FindAll(x => !x.Passives.IsDead
+                && x.Status.GetScore() == playerWhoWon.Status.GetScore()).Count > 1;
+            var winnerText = UnknownBug.Is(playerWhoWon)
+                ? $"\n**{playerWhoWon.DiscordUsername}** победил. Данные персонажа повреждены."
+                : $"\n**{playerWhoWon.DiscordUsername}** победил, играя за **{playerWhoWon.GameCharacter.Name}**";
+            game.AddGlobalLogs(isTie ? "\n**Ничья**" : winnerText);
             if (!playerWhoWon.IsBot() && !playerWhoWon.IsWebPlayer && !playerWhoWon.PreferWeb)
                 if (game.PlayersList.FindAll(x => !x.Passives.IsDead
                         && x.Status.GetScore() == playerWhoWon.Status.GetScore())
@@ -861,6 +863,9 @@ public class CheckIfReady : IServiceSingleton
     {
         foreach (var player in game.PlayersList)
         {
+            if (UnknownBug.Is(player))
+                continue;
+
             _global.WinRates.TryGetValue(player.GameCharacter.Name, out var winrate);
             if (winrate == null)
                 _global.WinRates.TryAdd(player.GameCharacter.Name, new Global.WinRateClass(player.GameCharacter.Name));
@@ -905,7 +910,7 @@ public class CheckIfReady : IServiceSingleton
         //top1 winrate
         if (_finishedGames == game.TestFightNumber)
         {
-            var winRates = _global.WinRates.Values.ToList();
+                var winRates = _global.WinRates.Values.Where(x => !UnknownBug.Is(x.CharacterName)).ToList();
 
             var text =
                 $"**--------------------------------------------------------------------**\nTotal Games: {_global.GetLastGamePlayingAndId()}\n**TOP1**\n";
@@ -925,7 +930,7 @@ public class CheckIfReady : IServiceSingleton
         //elo winrate
         if (_finishedGames == game.TestFightNumber)
         {
-            var winRates = _global.WinRates.Values.ToList();
+            var winRates = _global.WinRates.Values.Where(x => !UnknownBug.Is(x.CharacterName)).ToList();
 
 
             var text = "**____**\n**ELO**\n";
@@ -966,14 +971,16 @@ public class CheckIfReady : IServiceSingleton
             if (game.GameMode == "ShowResult")
             {
                 var channel = _global.Client.GetGuild(561282595799826432).GetTextChannel(935324189437624340);
+                static string ShowResultCharacter(GamePlayerBridgeClass player) =>
+                    UnknownBug.Is(player) ? "???" : player.GameCharacter.Name;
                 await channel.SendMessageAsync($"Game #{game.GameId}\n" +
                                                $"Vesrion: {game.GameVersion}\n" +
-                                               $"1. **{game.PlayersList.First().GameCharacter.Name} - {game.PlayersList.First().Status.GetScore()}**\n" +
-                                               $"2. {game.PlayersList[1].GameCharacter.Name} - {game.PlayersList[1].Status.GetScore()}\n" +
-                                               $"3. {game.PlayersList[2].GameCharacter.Name} - {game.PlayersList[2].Status.GetScore()}\n" +
-                                               $"4. {game.PlayersList[3].GameCharacter.Name} - {game.PlayersList[3].Status.GetScore()}\n" +
-                                               $"5. {game.PlayersList[4].GameCharacter.Name} - {game.PlayersList[4].Status.GetScore()}\n" +
-                                               $"6. {game.PlayersList[5].GameCharacter.Name} - {game.PlayersList[5].Status.GetScore()}\n<:e_:562879579694301184>\n");
+                                               $"1. **{ShowResultCharacter(game.PlayersList.First())} - {game.PlayersList.First().Status.GetScore()}**\n" +
+                                               $"2. {ShowResultCharacter(game.PlayersList[1])} - {game.PlayersList[1].Status.GetScore()}\n" +
+                                               $"3. {ShowResultCharacter(game.PlayersList[2])} - {game.PlayersList[2].Status.GetScore()}\n" +
+                                               $"4. {ShowResultCharacter(game.PlayersList[3])} - {game.PlayersList[3].Status.GetScore()}\n" +
+                                               $"5. {ShowResultCharacter(game.PlayersList[4])} - {game.PlayersList[4].Status.GetScore()}\n" +
+                                               $"6. {ShowResultCharacter(game.PlayersList[5])} - {game.PlayersList[5].Status.GetScore()}\n<:e_:562879579694301184>\n");
             }
         }
         catch (Exception exception)
@@ -1076,6 +1083,15 @@ public class CheckIfReady : IServiceSingleton
                 // Draft Pick phase — wait until all humans have selected a character
                 if (game.IsDraftPickPhase)
                 {
+                    // Defensive live-upgrade guard: a naturally rolled private character is
+                    // already the final assignment, never a draft choice that may be declined.
+                    foreach (var lockedPlayer in game.PlayersList.Where(UnknownBug.Is))
+                    {
+                        lockedPlayer.Status.IsDraftPickConfirmed = true;
+                        lockedPlayer.Status.MoveListPage = 6;
+                        game.DraftOptions.Remove(lockedPlayer.GetPlayerId());
+                    }
+
                     if (game.PlayersList.All(x => x.Status.IsDraftPickConfirmed))
                     {
                         game.IsDraftPickPhase = false;
@@ -1092,11 +1108,12 @@ public class CheckIfReady : IServiceSingleton
 
                         // Rebuild ExploitPlayersList with fresh references
                         game.ExploitPlayersList = draftPlayersList
-                            .Where(p => p.GameCharacter.Passive.All(x => x.PassiveName != "Exploit")).ToList();
+                            .Where(player => !UnknownBug.Is(player) && !player.Passives.IsDead).ToList();
 
                         for (var j = 0; j < draftPlayersList.Count; j++)
                             draftPlayersList[j].Status.SetPlaceAtLeaderBoard(j + 1);
 
+                        game.RollExploit();
                         await _characterPassives.HandleNextRound(game);
                         _characterPassives.HandleBotPredict(game);
 
@@ -1373,7 +1390,7 @@ public class CheckIfReady : IServiceSingleton
                     t.Status.IsBlock = true;
                     t.Status.IsReady = true;
                     var text =
-                        $"\nCRIT: round #{game.RoundNo} | {t.DiscordUsername} ({t.GameCharacter.Name}) didn't do anything and auto move didn't as well.!\n";
+                        $"\nCRIT: round #{game.RoundNo} | {t.DiscordUsername} ({UnknownBug.PublicName(t)}) didn't do anything and auto move didn't as well.!\n";
                     // Route through the null-safe helper: a throw here used to abort round resolution
                     // (before game.IsCheckIfReady=true) and freeze the game in headless sim. See M13.
                     await _global.TrySendServiceMessage(text);

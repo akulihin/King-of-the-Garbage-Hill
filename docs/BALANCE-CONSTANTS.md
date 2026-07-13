@@ -1,6 +1,6 @@
 # Balance Constants — every tunable number with its code anchor
 
-> Hand-maintained. **Update the row when you change the number** (and re-run `tools/audit-passives.sh` for name changes). Verified against the working tree of 2026-07-12. `CP` = `Game/GameLogic/CharacterPassives.cs`, `CC` = `Game/Classes/CharacterClass.cs`, `DM` = `Game/GameLogic/DoomsdayMachine.cs`, `CIR` = `Game/GameLogic/CheckIfReady.cs`, `GR` = `Game/ReactionHandling/GameReactions.cs`.
+> Hand-maintained. **Update the row when you change the number** (and re-run `tools/audit-passives.sh` for name changes). Verified against the working tree of 2026-07-13 (v4.4.4). `CP` = `Game/GameLogic/CharacterPassives.cs`, `CC` = `Game/Classes/CharacterClass.cs`, `DM` = `Game/GameLogic/DoomsdayMachine.cs`, `CIR` = `Game/GameLogic/CheckIfReady.cs`, `GR` = `Game/ReactionHandling/GameReactions.cs`.
 >
 > RNG note: `Luck(x)` ≈ x%, `Luck(a,b)` ≈ a-in-b (rounded to whole %); see `Helpers/SecureRandom.cs:35-45`.
 
@@ -53,6 +53,7 @@ The multiplier changes a character's relative roll weight, not a standalone fina
 | Roll-weight bounds / step | ×0.50–×2.00; ±0.01 per purchased percentage point | `WebGameService.cs` `StoreMinMultiplier`/`StoreMaxMultiplier`/`AdjustStoreCharacter`; Discord guards `StoreReactions.cs:217-340` |
 | Step price | step N costs 10 + all prior purchased steps ZBS; 10-step action sums ten sequential prices | `WebGameService.cs` `CalculateStoreCost`; Discord `_basePrice` `StoreReactions.cs:20` |
 | Refund | free; returns the exact arithmetic-series cost of every purchased step and restores ×1.00 | `WebGameService.cs` `ResetStoreCharacter`/`ResetStoreAllCharacters`/`CalculateStoreRefund`; Discord `StoreReactions.cs:416-515` |
+| unknown_bug shop weight | fixed at the untouched ×1.00 baseline; never listed, discovered or adjustable. Legacy investments are refunded during account migration | `StartGameLogic.cs` roll weighting; `UserAccounts.MigrateUnknownBugAccount`; web/Discord store filters |
 
 ## Generated story
 
@@ -83,7 +84,7 @@ The full 12-contract catalog, selection, privacy and migration rules are in [DAI
 
 ## Achievement & loot-box rewards
 
-Achievement progress targets and the complete 105-entry rule catalog are in [ACHIEVEMENTS.md](ACHIEVEMENTS.md). Reward values are centralized by rarity; the live catalog contains 11 Common, 25 Uncommon, 21 Rare, 33 Epic and 15 Legendary cards, totalling **8,505 ZBS + 63 boxes** (`AchievementClass.cs` `AchievementDefinition`/`AllAchievements`).
+Achievement progress targets and the complete 103-entry rule catalog are in [ACHIEVEMENTS.md](ACHIEVEMENTS.md). Reward values are centralized by rarity; the live catalog contains 11 Common, 25 Uncommon, 20 Rare, 33 Epic and 14 Legendary cards, totalling **8,227 ZBS + 61 boxes** (`AchievementClass.cs` `AchievementDefinition`/`AllAchievements`).
 
 | Constant | Value | Anchor |
 |---|---|---|
@@ -116,7 +117,7 @@ Achievement progress targets and the complete 105-entry rule catalog are in [ACH
 | Constant | Value | Anchor |
 |---|---|---|
 | Tier ranges | 6→150, 5→100, 4→90, 3→80, 2→70, 1→60, 0→50, −1→40 | StartGameLogic.cs:47-61 |
-| Tier semantics | −1 secret-rollable (hidden from menus), −2 transform-only | CharactersPull.cs:29-51 |
+| Tier semantics | −1 secret-rollable, −2 transform-only. unknown_bug is additionally excluded from every public/draft/store/achievement surface and its roll ignores store multipliers | `CharactersPull.cs` `GetRollableCharacters`; `StartGameLogic.cs` roll weighting; `UnknownBug` guards |
 | Tier pity | +3% per game without that tier; reset round 2 | StartGameLogic.cs:181-182, CIR:1317-1324 |
 | Bot rules | tier 4 ×3; no tier <4 except Кира at ½ tier-1 range | StartGameLogic.cs:177-179 |
 | Top Laner decay | ×1.0 → −0.2 per Top Laner rolled (floor 0) | StartGameLogic.cs:180, 172-177 |
@@ -225,7 +226,7 @@ Achievement progress targets and the complete 105-entry rule catalog are in [ACH
 | Salldorum | Шэн/капсула/летописец | +1 charge/lvl-up, auto-spent by next attack; successful forward dash uses the target's exact cell, holds through the next action round and redirects one existing primary attack per crossed player (adds 0 fights); capsule after 3 rounds = +2 bonus +5 Speed for next fight, one natural drink + at most one history-only second drink (matching history bypasses the natural wait); rewrite −/+ historical multiplier per distinct winner, +2 Psyche +2 buffered J; ×3 Skill attacking or defending vs 3-rounds-ago win leader(s) | `Salldorum.cs` `ResolveShenDashes`/`ApplyShenPositionHolds`/`TryDrinkTimeCapsule`/`RewriteHistory`; `GameReactions.cs` level-up handler; CP:481-483,1112-1116,1779-1807 |
 | Геральт | Заказы | +1 contract/round; +20 Skill per contract fight; oils T1 −1 J / T2 +2 Str / T3 ×3 Skill | CP:5674-5687, 2204-2214, 1503-1535 |
 | Геральт | Медитация | Lambert 10% once (skill 0 next round; m16); демандна экономика: advance +2 regular, смерть при Displeasure ≥ 11 (−500) | CP:4484-4491, 4454-4491 |
-| Баг | Exploit | pot = losses of exploitable players; claim on patch | DM:73-76, CP:1678-1690 |
+| unknown_bug | Exploit | +1 pot when a copied source win defeats the current carrier; direct carrier win adds +1; any direct carrier attack then closes globally and pays raw pot as regular × current round multiplier; full-screen commit alarm at post-multiplier >20 | `UnknownBug.RecordResolvedFight` / `TryCommitExploit`; `GameClass.RollExploit` / `CloseExploit` |
 | Sakura | — | top-3 = narrative win | CIR:496-508 |
 | DooM Guy | base / newcomer | Int 2, Str 5, Speed 5, Psyche 5, Tier 4; exact 30% protected roll while TotalPlays < 10 | characters.json:1383-1413, StartGameLogic.cs:201-233 |
 | DooM Guy | stages / random mode | Rune r3, Shield r5, Mission r7, Gun r9; Let's Roll random pick pays +2 regular each stage | DoomGuy.cs:53-60, 170-175 |
@@ -277,7 +278,7 @@ Per-game `AiDifficulty` (0/1/2/3). **Default 3 everywhere** — Discord `*st`/`*
 | known defense (L2-16) | −10 / +8 / −2 | avoid visible Block/Skip; instead exploit Armor/SkipBreak (+8), while mark/reveal/buff attacks that still progress take only −2 | BB:66-67, 214-252, 1027-1038 |
 | Harm/Drop (L2-17) | +1 / +4 | prefer in-range Harm; +4 more when the target's Strength pool is primed to break and Drop (Butcher Poker adds more) | BB:68, 255-267, 1040-1060 |
 | persistent character plans (L2-18) | random once | Dopa 4 tactics; Darksci Stable/Unstable; Глеб Classic/Young; TheBoys 4 members; Goblins 4 builds; Rick, Itachi, Kratos, Cats, Tolya, Monster and Support each have 2 plans. Each plan owns targeting, block/moral policy and level-up path. | BB:107-209, 1260-1380, 1580-1745, 1800-2300, 2700-3140, 3470-3670 |
-| special objective pilots (L2-19) | character-specific | Kira preserves Eyes from L/Monster; Saitama seeks solo Мишень fights; Seller spreads marks; Bug farms PointFunnel and cashes Exploit on round 10; Sakura protects only a threatened top-3 | BB:1105-1133, 1690-1725, 2160-2180, 2248-2283, 3091-3130 |
+| special objective pilots (L2-19) | character-specific | Kira preserves Eyes from L/Monster; Saitama seeks solo Мишень fights; Seller spreads marks; unknown_bug farms PointFunnel, avoids the current carrier and cashes Exploit on round 10; Sakura protects only a threatened top-3 | BB:1105-1133, 1690-1725, 2160-2180, 2276-2321, 3091-3153 |
 | `OmniPredictConfidence` (L3-1) | ×2 | L3 multiplier applied to L2-5 prediction-aware avoidance | BB:56, 2387 |
 | `OmniReverseNemesisNumber` (L3-2) | −3 | avoid enemies who counter the bot (true-read reverse nemesis) | BB:57, 993-997 |
 | `OmniVersatilityNumber` (L3-3) | ±2 | true-stat versatility: ≥2 stat-wins → +, 0 stat-wins → − | BB:58, 998-1009 |

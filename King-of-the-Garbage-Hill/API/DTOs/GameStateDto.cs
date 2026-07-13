@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Text.Json.Serialization;
 
 namespace King_of_the_Garbage_Hill.API.DTOs;
 
@@ -88,8 +89,9 @@ public class PlayerDto
     /// <summary>Whether this player is Kira (uses Death Note instead of predictions).</summary>
     public bool IsKira { get; set; }
 
-    /// <summary>Whether the viewing player is Баг (sees exploit markers on all players).</summary>
-    public bool IsBug { get; set; }
+    /// <summary>Whether this is the requesting player's private terminal-mode projection.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool IsTerminalMode { get; set; }
 
     /// <summary>Death Note state (only populated for the Kira player viewing their own state).</summary>
     public DeathNoteDto DeathNote { get; set; }
@@ -97,14 +99,13 @@ public class PlayerDto
     /// <summary>Portal Gun state (only populated for Rick viewing their own state).</summary>
     public PortalGunDto PortalGun { get; set; }
 
-    /// <summary>Exploit state (only populated for the Баг player viewing their own state).</summary>
-    public ExploitStateDto ExploitState { get; set; }
+    /// <summary>Private terminal state, populated only on the owning player's row.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public TerminalStateDto TerminalState { get; set; }
 
-    /// <summary>Whether this player is currently marked as exploitable (only visible to Баг).</summary>
-    public bool IsExploitable { get; set; }
-
-    /// <summary>Whether this player's exploit has been permanently fixed by Баг.</summary>
-    public bool IsExploitFixed { get; set; }
+    /// <summary>Whether this row is the active private terminal marker.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool HasTerminalMarker { get; set; }
 
     /// <summary>Butcher sup marker, serialized only when the viewing player is TheBoys.</summary>
     public bool IsTheBoysSupTarget { get; set; }
@@ -359,6 +360,8 @@ public class CharacterInfoDto
 
 public class FightEntryDto
 {
+    internal FightEntryDto CopyForProjection() => (FightEntryDto)MemberwiseClone();
+
     // Participants
     public string AttackerName { get; set; }
     public string AttackerCharName { get; set; }
@@ -511,16 +514,16 @@ public class PortalGunDto
     public int Charges { get; set; }
 }
 
-// ── Exploit (Баг) DTOs ──────────────────────────────────────────────
+// ── Private terminal DTOs ───────────────────────────────────────────
 
-public class ExploitStateDto
+public class TerminalStateDto
 {
-    /// <summary>Current accumulated exploit counter.</summary>
-    public int TotalExploit { get; set; }
-    /// <summary>Number of players permanently fixed.</summary>
-    public int FixedCount { get; set; }
-    /// <summary>Total exploitable players (excluding Баг).</summary>
-    public int TotalPlayers { get; set; }
+    public int BufferedPoints { get; set; }
+    public Guid? StreamTargetPlayerId { get; set; }
+    public Guid? ActiveNodePlayerId { get; set; }
+    public bool IsNodeActive { get; set; }
+    public int CommitSerial { get; set; }
+    public int LastCommitPoints { get; set; }
 }
 
 // ── Tsukuyomi DTOs ──────────────────────────────────────────────────

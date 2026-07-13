@@ -3,6 +3,7 @@ using System.Threading.Tasks;
 using Discord;
 using Discord.Commands;
 using King_of_the_Garbage_Hill.DiscordFramework.Extensions;
+using King_of_the_Garbage_Hill.Game.Characters;
 using King_of_the_Garbage_Hill.Game.ReactionHandling;
 using King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts;
 
@@ -28,17 +29,22 @@ public class Store : ModuleBaseCustom
     {
         var account = _accounts.GetAccount(Context.User);
 
-        if (account.SeenCharacters.Count == 0)
+        var firstStoreCharacter = account.SeenCharacters.FirstOrDefault(character => !UnknownBug.Is(character));
+        if (firstStoreCharacter == null)
         {
             await SendMessageAsync("Вы еще ни разу не сыграли. Магазин закрыт.");
             return;
         }
 
-
-        var character = account.CharacterChance.Find(x => x.CharacterName == account.SeenCharacters.First());
+        var character = account.CharacterChance.Find(x => x.CharacterName == firstStoreCharacter);
+        if (character == null)
+        {
+            await SendMessageAsync("Персонаж пока недоступен в магазине.");
+            return;
+        }
 
         var builder = new ComponentBuilder();
-        var embed = _storeReactionHandling.GetStoreEmbed(Context.User, character!.CharacterName);
+        var embed = _storeReactionHandling.GetStoreEmbed(Context.User, character.CharacterName);
 
         var i = 0;
         foreach (var b in _storeReactionHandling.GetStoreButtons())

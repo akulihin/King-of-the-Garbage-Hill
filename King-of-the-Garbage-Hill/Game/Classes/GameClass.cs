@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using King_of_the_Garbage_Hill.API.DTOs;
+using King_of_the_Garbage_Hill.Game.Characters;
 using King_of_the_Garbage_Hill.Game.GameLogic;
 using King_of_the_Garbage_Hill.Game.MemoryStorage;
 
@@ -22,11 +23,11 @@ public class GameClass
         GlobalLogs = "";
         IsCheckIfReady = true;
         SkipPlayersThisRound = 0;
-        GameVersion = "Версия: 4.4.3";
+        GameVersion = "Версия: 4.4.4";
         GameMode = gameMode;
         CreatorId = creatorId;
         Teams = new List<TeamPlay>();
-        ExploitPlayersList = [.. PlayersList.Where(player => player.GameCharacter.Passive.All(x => x.PassiveName != "Exploit"))];
+        ExploitPlayersList = [.. PlayersList.Where(player => !UnknownBug.Is(player) && !player.Passives.IsDead)];
         RollExploit();
     }
 
@@ -80,6 +81,13 @@ public class GameClass
     public List<GamePlayerBridgeClass> ExploitPlayersList { get; set; }
     public int LastExploit { get; set; } = -1;
     public int TotalExploit { get; set; } = 0;
+    public Guid CurrentExploitTargetPlayerId { get; set; } = Guid.Empty;
+    public bool ExploitClosed { get; set; }
+    public bool ExploitActive => !ExploitClosed
+                                 && CurrentExploitTargetPlayerId != Guid.Empty
+                                 && PlayersList.Any(player =>
+                                     player.GetPlayerId() == CurrentExploitTargetPlayerId
+                                     && player.Passives.IsExploitable);
 
     /// <summary>Structured fight log for the current round (persists until next round starts).</summary>
     public List<FightEntryDto> WebFightLog { get; set; } = new();
@@ -148,42 +156,47 @@ public class GameClass
 
     public void RollExploit()
     {
-        // no Баг in this game — nobody can consume the exploit (m5)
-        if (ExploitPlayersList.Count == PlayersList.Count)
-        {
-            return;
-        }
-        if (ExploitPlayersList.Count(x => x.Passives.IsExploitFixed) == ExploitPlayersList.Count)
-        {
-            return;
-        }
-        LastExploit++;
-        if (LastExploit >= ExploitPlayersList.Count)
-        {
-            LastExploit = 0;
-        }
+        var previousTargetId = CurrentExploitTargetPlayerId;
+        if (previousTargetId == Guid.Empty)
+            previousTargetId = PlayersList.FirstOrDefault(player => player.Passives.IsExploitable)
+                ?.GetPlayerId() ?? Guid.Empty;
 
-        foreach (var player in ExploitPlayersList)
-        {
+        foreach (var player in PlayersList)
             player.Passives.IsExploitable = false;
-        }
 
-        while (true)
-        {
-            if (LastExploit >= ExploitPlayersList.Count)
-            {
-                LastExploit = 0;
-            }
+        var owner = UnknownBug.FindOwner(this);
+        ExploitPlayersList = PlayersList
+            .Where(player => owner == null || player.GetPlayerId() != owner.GetPlayerId())
+            .ToList();
 
-            if (ExploitPlayersList[LastExploit].Passives.IsExploitFixed)
-            {
-                LastExploit++;
-            }
-            else
-            {
-                ExploitPlayersList[LastExploit].Passives.IsExploitable = true;
-                break;
-            }
-        }
+        CurrentExploitTargetPlayerId = Guid.Empty;
+        LastExploit = -1;
+        var availableTargets = ExploitPlayersList.Where(player => !player.Passives.IsDead).ToList();
+        if (owner == null || owner.Passives.IsDead || ExploitClosed || availableTargets.Count == 0)
+            return;
+
+        var previousIndex = ExploitPlayersList.FindIndex(player =>
+            player.GetPlayerId() == previousTargetId && !player.Passives.IsDead);
+        var nextIndex = previousIndex + 1;
+        var canContinueQueue = previousIndex >= 0
+                               && nextIndex < ExploitPlayersList.Count
+                               && !ExploitPlayersList[nextIndex].Passives.IsDead;
+        var nextTarget = canContinueQueue ? ExploitPlayersList[nextIndex] : availableTargets[0];
+        LastExploit = ExploitPlayersList.IndexOf(nextTarget);
+
+        nextTarget.Passives.IsExploitFixed = false;
+        nextTarget.Passives.IsExploitable = true;
+        CurrentExploitTargetPlayerId = nextTarget.GetPlayerId();
+    }
+
+    public void CloseExploit(GamePlayerBridgeClass target)
+    {
+        ExploitClosed = true;
+        CurrentExploitTargetPlayerId = Guid.Empty;
+        LastExploit = -1;
+        foreach (var player in PlayersList)
+            player.Passives.IsExploitable = false;
+        if (target != null)
+            target.Passives.IsExploitFixed = true;
     }
 }

@@ -32,6 +32,7 @@ const props = withDefaults(defineProps<{
   myPlayerId?: string
   predictions?: Prediction[]
   isAdmin?: boolean
+  terminalMode?: boolean
   showDetailedFactors?: boolean
   characterCatalog?: CharacterInfo[]
   initialFightIndex?: number
@@ -46,6 +47,7 @@ const props = withDefaults(defineProps<{
   myPlayerId: '',
   predictions: () => [],
   isAdmin: false,
+  terminalMode: false,
   showDetailedFactors: false,
   characterCatalog: () => [],
   initialFightIndex: undefined,
@@ -54,6 +56,13 @@ const props = withDefaults(defineProps<{
   rewriteHistoryRounds: () => [],
   rewriteHistoryPendingRound: null,
 })
+
+type DisplayFight = FightEntry & {
+  injected?: boolean
+  injectedKey?: string
+}
+
+const missingAvatarUrl = 'https://r2.ozvmusic.com/kotgh/art/avatars/unknown.png'
 
 const showDetails = computed(() => props.showDetailedFactors || props.isAdmin)
 
@@ -131,21 +140,45 @@ const r3NeedleSettled = ref(false)
 // ── My username and character (for filtering) ──────────────────────────
 const myPlayer = computed(() => props.players.find((pl: Player) => pl.playerId === props.myPlayerId) ?? null)
 const myUsername = computed(() => myPlayer.value?.discordUsername ?? '')
-const myCharacterName = computed(() => myPlayer.value?.character.name ?? '')
+const streamTarget = computed(() => {
+  if (!props.terminalMode) return null
+  const targetId = myPlayer.value?.terminalState?.streamTargetPlayerId
+  if (!targetId) return null
+  return props.players.find((player: Player) => player.playerId === targetId) ?? null
+})
+const perspectiveUsername = computed(() => {
+  if (props.terminalMode) return streamTarget.value?.discordUsername ?? ''
+  return myUsername.value
+})
+const myCharacterName = computed(() => {
+  if (props.terminalMode) return streamTarget.value?.character.name ?? ''
+  return myPlayer.value?.character.name ?? ''
+})
 
-function isFightMine(f: FightEntry): boolean {
-  if (props.isAdmin) return true
+function isViewerFight(f: FightEntry): boolean {
   if (!myUsername.value) return false
   return f.attackerName === myUsername.value || f.defenderName === myUsername.value
 }
 
+function isStreamWin(f: FightEntry): boolean {
+  if (!perspectiveUsername.value) return false
+  return f.winnerName === perspectiveUsername.value
+    && f.outcome !== 'block'
+    && f.outcome !== 'skip'
+}
+
+function isReplayFight(f: FightEntry): boolean {
+  if (props.terminalMode) {
+    return isStreamWin(f) && !isViewerFight(f)
+  }
+  if (props.isAdmin) return true
+  return isViewerFight(f)
+}
+
 /** Find the index of a fight from the full list within myFights and jump to its replay */
 function jumpToFightReplay(f: FightEntry) {
-  if (!isFightMine(f)) return
-  // Find which myFights index this fight corresponds to
-  const idx = myFights.value.findIndex((mf: FightEntry) =>
-    mf.attackerName === f.attackerName && mf.defenderName === f.defenderName
-  )
+  if (!isReplayFight(f) || isInjectedFight(f)) return
+  const idx = myFights.value.indexOf(f)
   if (idx === -1) return
   clearTimer()
   clearR3Timers()
@@ -158,7 +191,8 @@ function jumpToFightReplay(f: FightEntry) {
 }
 
 /** Fights shown in the replay — only own fights (admins see all) */
-const myFights = computed(() => props.fights.filter(isFightMine))
+const myFights = computed(() => props.fights.filter(isReplayFight))
+const streamWinningFights = computed(() => props.terminalMode ? props.fights.filter(isStreamWin) : [])
 
 const fight = computed<FightEntry | null>(() => {
   if (!myFights.value.length) return null
@@ -176,18 +210,17 @@ const isSpecialOutcome = computed(() => {
 // ── Is this MY fight? ───────────────────────────────────────────────
 const isMyFight = computed(() => {
   if (!fight.value) return false
+  if (props.terminalMode) return true
   if (props.isAdmin) return true
-  if (!myUsername.value) return false
-  return fight.value.attackerName === myUsername.value ||
-         fight.value.defenderName === myUsername.value
+  return isViewerFight(fight.value)
 })
 
 /** True when we are the defender — need to flip left/right so we're always on the left */
 const isFlipped = computed(() => {
-  if (!fight.value || !myUsername.value) return false
+  if (!fight.value || !perspectiveUsername.value) return false
   // Admin viewing someone else's fight: don't flip, show as-is (attacker left)
-  if (props.isAdmin && fight.value.attackerName !== myUsername.value && fight.value.defenderName !== myUsername.value) return false
-  return fight.value.defenderName === myUsername.value
+  if (props.isAdmin && !props.terminalMode && fight.value.attackerName !== myUsername.value && fight.value.defenderName !== myUsername.value) return false
+  return fight.value.defenderName === perspectiveUsername.value
 })
 
 // ── Display accessors (flipped when we are defender) ────────────────
@@ -477,10 +510,11 @@ watch(showFinalResult, (show: boolean) => {
   // Our pre-fight justice value
   const ourPreFightJustice = isFlipped.value ? f.justiceTarget : f.justiceMe
 
-  // Justice resets when we win AND we had justice > 0
-  if (weWon && ourPreFightJustice > 0) {
-    emit('justice-reset')
-  }
+  const viewerParticipates = isViewerFight(f)
+
+  // Card-side justice/resistance feedback belongs only to the actual viewer.
+  // A terminal replay is rendered from the stream target's perspective.
+  if (viewerParticipates && weWon && ourPreFightJustice > 0) emit('justice-reset')
 
   // Fight result glow
   if (weWon) {
@@ -502,7 +536,7 @@ watch(showFinalResult, (show: boolean) => {
   setTimeout(() => { fightResult.value = null }, 2000)
 
   // Resist flash when we lost
-  if (weLost) {
+  if (viewerParticipates && weLost) {
     const flashStats: string[] = []
     if (f.intellectualDamage) flashStats.push('intelligence')
     if (f.emotionalDamage) flashStats.push('psyche')
@@ -639,9 +673,9 @@ function restartCurrentFight() {
   scheduleNext()
 }
 
-watch([() => props.fights, () => props.roundKey], () => {
-  if (!props.fights.length) return
-  const fp = `${props.roundKey}|${props.fights
+watch([myFights, () => props.roundKey, perspectiveUsername], () => {
+  if (!myFights.value.length) return
+  const fp = `${props.roundKey}|${perspectiveUsername.value}|${myFights.value
     .map((f: FightEntry) => `${f.attackerName}-${f.defenderName}-${f.outcome}`)
     .join('|')}`
   if (fp !== lastAnimatedRound.value) {
@@ -1284,14 +1318,54 @@ function allFightCenterLabel(f: FightEntry): string {
   return '→'
 }
 
-const sortedFights = computed(() =>
-  [...props.fights].sort((a, b) => {
+const injectedFights = computed<DisplayFight[]>(() => {
+  if (!props.terminalMode || !myPlayer.value || !myUsername.value) return []
+
+  return streamWinningFights.value.map((source, index) => {
+    const loserIsAttacker = source.winnerName !== source.attackerName
+    const loserName = loserIsAttacker ? source.attackerName : source.defenderName
+    const loserCharName = loserIsAttacker ? source.attackerCharName : source.defenderCharName
+    const loserAvatar = loserIsAttacker ? source.attackerAvatar : source.defenderAvatar
+
+    return {
+      ...source,
+      attackerName: myUsername.value,
+      attackerCharName: myPlayer.value!.character.name,
+      attackerAvatar: missingAvatarUrl,
+      defenderName: loserName,
+      defenderCharName: loserCharName,
+      defenderAvatar: loserAvatar,
+      outcome: 'win',
+      winnerName: myUsername.value,
+      drops: 0,
+      droppedPlayerName: '',
+      portalGunSwap: false,
+      injected: true,
+      injectedKey: `${source.attackerName}-${source.defenderName}-${index}`,
+    }
+  })
+})
+
+function isInjectedFight(f: FightEntry): boolean {
+  return (f as DisplayFight).injected === true
+}
+
+function fightRowKey(f: FightEntry, index: number): string {
+  const displayFight = f as DisplayFight
+  return displayFight.injectedKey
+    ? `injected-${displayFight.injectedKey}`
+    : `fight-${f.attackerName}-${f.defenderName}-${index}`
+}
+
+const sortedFights = computed<DisplayFight[]>(() => {
+  const regular = [...props.fights].sort((a, b) => {
     const aN = a.outcome === 'block' || a.outcome === 'skip'
     const bN = b.outcome === 'block' || b.outcome === 'skip'
     if (aN !== bN) return aN ? 1 : -1
     return (a.winnerName ?? '').localeCompare(b.winnerName ?? '')
   })
-)
+  return [...regular, ...injectedFights.value]
+})
 
 const perfectRoundPlayers = computed(() => {
   const wins = new Set<string>()
@@ -1334,6 +1408,7 @@ function getPredictionForPlayer(u: string): string {
   return pred?.characterName ?? ''
 }
 function getDisplayAvatar(orig: string, u: string): string {
+  if (props.terminalMode && u === myUsername.value) return missingAvatarUrl
   if (!isPlayerMasked(u)) return orig
   const predName = getPredictionForPlayer(u)
   if (predName && charCatalogMap.value[predName]) return charCatalogMap.value[predName].avatar
@@ -1386,10 +1461,10 @@ function getDisplayCharName(orig: string, u: string): string {
 
     <!-- All Fights (compact results list) -->
     <div v-else-if="activeTab === 'all'" class="fa-all-fights">
-      <div v-if="!fights.length" class="fa-empty">Бои еще не начались</div>
+      <div v-if="!sortedFights.length" class="fa-empty">Бои еще не начались</div>
       <div v-else class="fa-all-list">
-        <div v-for="(f, idx) in sortedFights" :key="idx"
-          class="fa-all-row" :class="{ 'my-attack': isMyAttack(f), 'clickable': isFightMine(f) }"
+        <div v-for="(f, idx) in sortedFights" :key="fightRowKey(f, idx)"
+          class="fa-all-row" :class="{ 'my-attack': isMyAttack(f), 'clickable': isReplayFight(f) && !isInjectedFight(f), 'is-injected': isInjectedFight(f) }"
           @click="jumpToFightReplay(f)">
           <!-- Left name (loser / defender for block-skip) -->
           <span class="fa-all-name fa-all-name-left" :class="{ 'name-winner': allFightLeft(f).isWinner }" :title="allFightLeft(f).name">
@@ -1415,15 +1490,16 @@ function getDisplayCharName(orig: string, u: string): string {
           </span>
           <!-- Portal badge -->
           <span v-if="f.portalGunSwap" class="fa-portal-badge">PORTAL</span>
+          <span v-if="isInjectedFight(f)" class="fa-injected-badge">INJECTED</span>
           <!-- Play button for own fights -->
-          <span v-if="isFightMine(f)" class="fa-all-play" title="Смотреть бой">▶</span>
+          <span v-if="isReplayFight(f) && !isInjectedFight(f)" class="fa-all-play" title="Смотреть бой">▶</span>
         </div>
       </div>
     </div>
 
     <!-- Fight animation (replay) -->
     <template v-else>
-    <div v-if="!myFights.length" class="fa-empty">Нет ваших боев в этом раунде</div>
+    <div v-if="!myFights.length" class="fa-empty">{{ terminalMode ? 'STREAM: no winning packets received' : 'Нет ваших боев в этом раунде' }}</div>
     <template v-else>
       <!-- Controls + fight thumbnails -->
       <div class="fa-controls">
@@ -1673,12 +1749,51 @@ function getDisplayCharName(orig: string, u: string): string {
 /* ── All Fights list ── */
 .fa-all-fights { flex: 1; overflow-y: auto; }
 .fa-all-list { display: flex; flex-direction: column; gap: 3px; max-width: 480px; margin: 0 auto; }
-.fa-all-row { display: grid; grid-template-columns: 1fr auto 1fr auto; align-items: center; gap: 4px; padding: 5px 8px; border-radius: var(--radius); background: var(--bg-inset); font-size: 12px; border: 1px solid transparent; transition: all 0.15s; }
+.fa-all-row { position: relative; display: grid; grid-template-columns: 1fr auto 1fr auto; align-items: center; gap: 4px; padding: 5px 8px; border-radius: var(--radius); background: var(--bg-inset); font-size: 12px; border: 1px solid transparent; transition: all 0.15s; overflow: hidden; }
 .fa-all-row.my-attack { border-left: 2px solid var(--accent-gold-dim); }
 .fa-all-row.clickable { cursor: pointer; }
 .fa-all-row.clickable:hover { background: rgba(180, 150, 255, 0.12); border-color: rgba(180, 150, 255, 0.3); }
 .fa-all-play { font-size: 10px; color: var(--text-dim); flex-shrink: 0; opacity: 0.4; transition: opacity 0.15s; }
 .fa-all-row.clickable:hover .fa-all-play { opacity: 1; color: var(--accent-gold); }
+.fa-all-row.is-injected {
+  margin: 2px 0;
+  border-color: #35ff72;
+  background:
+    linear-gradient(90deg, rgba(0, 255, 65, 0.2), rgba(0, 18, 6, 0.92) 24%, rgba(0, 255, 65, 0.12)),
+    var(--bg-inset);
+  box-shadow: 0 0 15px rgba(0, 255, 65, 0.42), inset 0 0 12px rgba(0, 255, 65, 0.14);
+  animation: injected-row-glitch 2.2s steps(1, end) infinite;
+}
+.fa-all-row.is-injected::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(0deg, transparent 0 3px, rgba(74, 255, 118, 0.09) 4px);
+  mix-blend-mode: screen;
+}
+.fa-all-row.is-injected .fa-all-name,
+.fa-all-row.is-injected .fa-all-center { color: #7dff9e; text-shadow: 0 0 7px rgba(0, 255, 65, 0.9); }
+.fa-all-row.is-injected .fa-all-ava { border-color: #35ff72; box-shadow: 0 0 10px rgba(0, 255, 65, 0.75); }
+.fa-injected-badge {
+  position: absolute;
+  top: 2px;
+  right: 4px;
+  z-index: 2;
+  padding: 1px 4px;
+  border: 1px solid rgba(125, 255, 158, 0.75);
+  background: #001b08;
+  color: #7dff9e;
+  font: 800 7px/1.2 var(--font-mono);
+  letter-spacing: 0.12em;
+  text-shadow: 0 0 5px #00ff41;
+}
+@keyframes injected-row-glitch {
+  0%, 89%, 100% { transform: translate(0); filter: none; }
+  90% { transform: translate(-2px, 1px); filter: hue-rotate(22deg) contrast(1.25); }
+  92% { transform: translate(3px, -1px); clip-path: inset(25% 0 42% 0); }
+  94% { transform: translate(-1px); clip-path: none; }
+}
 
 /* Portal badge (All Fights compact list) */
 .fa-portal-badge {
@@ -1748,7 +1863,8 @@ function getDisplayCharName(orig: string, u: string): string {
   .fa-rewrite-button { min-height: 44px; width: 100%; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .fa-rewrite-button { animation: none; }
+  .fa-rewrite-button,
+  .fa-all-row.is-injected { animation: none; }
   .fa-rewrite-button:hover:not(:disabled) { transform: none; }
 }
 

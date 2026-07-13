@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch, onUnmounted } from 'vue'
-import type { Player, PortalGun, ExploitState, TsukuyomiState, PassiveAbilityStates, ScoreBreakdown } from 'src/services/signalr'
+import type { Player, PortalGun, TerminalState, TsukuyomiState, PassiveAbilityStates, ScoreBreakdown } from 'src/services/signalr'
 import { useTip } from 'src/composables/useTip'
 import ScoreOdometer from 'src/components/ScoreOdometer.vue'
 import SpecialLevelUpPanel from 'src/components/SpecialLevelUpPanel.vue'
@@ -35,8 +35,10 @@ const props = withDefaults(defineProps<{
 const store = useGameStore()
 type LevelUpStatIndex = 1 | 2 | 3 | 4
 
+const isTerminalMode = computed(() => props.player?.isTerminalMode ?? false)
 const hasLvlUpPoints = computed(() => props.isMe && (props.player?.status.lvlUpPoints ?? 0) > 0)
 const lvlUpPoints = computed(() => props.player?.status.lvlUpPoints ?? 0)
+const terminalLevelUpQuotes = ['> sudo patch --stat', '0x1337', 'hotfix --force']
 
 /** Level-up flavor quips per character */
 const levelUpQuotes: Record<string, string[]> = {
@@ -57,7 +59,6 @@ const levelUpQuotes: Record<string, string[]> = {
   'DeepList': ['гек?'],
   'Братишка': ['Буль!'],
   'Дезморалист': ['Всё бесполезно...', 'Сдавайся...', 'Нет смысла...'],
-  'Баг': ['> sudo levelup', '0x1337', 'exploit.exe'],
   'Допа': ['Тактика решает.', 'По плану.', 'Рассчитано.'],
   'Geralt': ['Ветер воет...', 'Место Силы...'],
   'Молодой Глеб': ['Опять нерфят...', 'Сколько можно?!', 'Риоты совсем...', 'Да как так?!'],
@@ -68,6 +69,10 @@ const levelUpQuotes: Record<string, string[]> = {
 const levelUpQuip = computed(() => {
   const name = props.player?.character.name
   if (!name || !hasLvlUpPoints.value) return ''
+  if (isTerminalMode.value) {
+    const roundNo = store.gameState?.roundNo ?? 1
+    return terminalLevelUpQuotes[(roundNo - 1) % terminalLevelUpQuotes.length]
+  }
   const quotes = levelUpQuotes[name]
   if (!quotes) return ''
   // Deterministic pick based on round number
@@ -87,7 +92,6 @@ const levelUpTintColors: Record<string, string> = {
   'Кира': 'rgba(142,68,173,0.05)',
   'Братишка': 'rgba(52,152,219,0.05)',
   'DeepList': 'rgba(231,76,60,0.05)',
-  'Баг': 'rgba(0,255,65,0.05)',
   'Молодой Глеб': 'rgba(239,80,80,0.05)',
   'TheBoys': 'rgba(220,40,40,0.06)',
   'DooM Guy': 'rgba(214,54,30,0.08)',
@@ -96,6 +100,7 @@ const levelUpTintColors: Record<string, string> = {
 const levelUpTint = computed(() => {
   const name = props.player?.character.name
   if (!name || !hasLvlUpPoints.value) return ''
+  if (isTerminalMode.value) return 'rgba(0,255,65,0.08)'
   return levelUpTintColors[name] || ''
 })
 
@@ -133,8 +138,6 @@ const portalGun = computed<PortalGun | null>(() => {
   return props.player?.portalGun ?? null
 })
 
-const isBug = computed(() => props.player?.isBug ?? false)
-
 // Position-based avatar glow tier (1=top, 6=bottom)
 const placeTier = computed(() => {
   const place = props.player?.status?.place ?? 3
@@ -145,10 +148,18 @@ const placeTier = computed(() => {
   return 'place-last'
 })
 
-const exploitState = computed<ExploitState | null>(() => {
+const terminalState = computed<TerminalState | null>(() => {
   if (!props.isMe) return null
-  return props.player?.exploitState ?? null
+  return props.player?.terminalState ?? null
 })
+
+function playerNameById(playerId?: string): string {
+  if (!playerId) return 'null'
+  return store.gameState?.players.find(player => player.playerId === playerId)?.discordUsername ?? 'unresolved'
+}
+
+const terminalStreamName = computed(() => playerNameById(terminalState.value?.streamTargetPlayerId))
+const terminalNodeName = computed(() => playerNameById(terminalState.value?.activeNodePlayerId))
 
 const tsukuyomiState = computed<TsukuyomiState | null>(() => {
   if (!props.isMe) return null
@@ -166,7 +177,7 @@ function t(english: string, russian: string): string {
 
 const widgetHelpCopy = {
   portal: ['At 30 INT the Portal Gun is invented. A charge turns a winning attack into a position swap.', 'При 30 INT пушка изобретается. Заряд тратится на победную атаку с обменом местами.'],
-  exploit: ['Stored EXPLOIT is waiting for the cycle to finish. The bar shows how many players have been processed.', 'Накопленный EXPLOIT ждёт завершения цикла. Шкала показывает, сколько игроков уже обработано.'],
+  terminal: ['Buffered packets are committed when the active node closes. STREAM is the perspective used for copied wins.', 'Пакеты копятся до закрытия активного узла. STREAM — перспектива, из которой копируются победы.'],
   tsukuyomi: ['Two charge points ready Tsukuyomi. The value below is the total score already stolen.', 'Две единицы заряда открывают Цукуёми. Ниже показана сумма уже украденных очков.'],
   doom: ['The four slots are your current combat loadout. Card colors show active, completed, and failed modules.', 'Четыре слота — твой текущий боевой комплект. Цвет карточки показывает активный, выполненный или проваленный модуль.'],
   pickleRick: ['Shows the turns left as Pickle Rick and the length of the penalty that follows.', 'Показывает, сколько ходов осталось в форме Огурчика и сколько длится последующий штраф.'],
@@ -741,7 +752,7 @@ function doomModuleStatus(module: string): { text: string; state: 'live' | 'done
 </script>
 
 <template>
-  <div class="player-card" :class="{ 'is-me': isMe, 'is-bug': isBug, 'is-dragon': passiveStates?.dragon, 'is-awakened': passiveStates?.dragon?.isAwakened, 'is-last-place': isMe && (player?.status?.place ?? 0) >= 6 }"
+  <div class="player-card" :class="{ 'is-me': isMe, 'is-terminal': isTerminalMode, 'is-dragon': passiveStates?.dragon, 'is-awakened': passiveStates?.dragon?.isAwakened, 'is-last-place': isMe && (player?.status?.place ?? 0) >= 6 }"
     :style="passiveStates?.privilege && passiveStates.privilege.markedCount > 0 ? { borderColor: 'rgba(205, 127, 50, 0.5)', boxShadow: '0 0 12px rgba(205, 127, 50, 0.2)' } : {}"
   >
     <div v-if="player.isTheBoysSupTarget" class="theboys-sup-target-badge" title="Супер — цель Бучера">
@@ -754,7 +765,7 @@ function doomModuleStatus(module: string): { text: string; state: 'live' | 'done
     <div class="pc-top-left">
 
     <!-- Stats with bars + resist/quality -->
-    <div class="pc-stats">
+    <div v-if="!isTerminalMode" class="pc-stats">
       <div v-if="hasLvlUpPoints" class="lvl-up-badge" :class="{ 'nerf-badge': isIrelia }" :style="levelUpTint ? { background: levelUpTint } : {}">
         {{ usesSpecialLevelUpPanel ? `${lvlUpPoints} особый выбор` : `+${lvlUpPoints} очков` }}
         <span v-if="levelUpQuip" class="lvl-up-quip">{{ levelUpQuip }}</span>
@@ -838,8 +849,26 @@ function doomModuleStatus(module: string): { text: string; state: 'live' | 'done
       </TransitionGroup>
     </div>
 
+    <div v-else class="pc-terminal-stats" aria-label="stat read failed">
+      <div v-if="hasLvlUpPoints" class="lvl-up-badge" :style="levelUpTint ? { background: levelUpTint } : {}">
+        +{{ lvlUpPoints }} patch token{{ lvlUpPoints === 1 ? '' : 's' }}
+        <span class="lvl-up-quip">{{ levelUpQuip }}</span>
+      </div>
+      <div v-for="statIndex in 4" :key="statIndex" class="terminal-stat-row">
+        <code>ERR: cant_get_stat</code>
+        <button
+          v-if="hasLvlUpPoints && !usesSpecialLevelUpPanel"
+          class="lvl-btn terminal-lvl-btn"
+          data-sfx-skip-default="true"
+          :disabled="store.isLevelingUp"
+          :title="`patch register #${statIndex}`"
+          @click="handleLevelUp(statIndex as LevelUpStatIndex)"
+        >+</button>
+      </div>
+    </div>
+
     <!-- Psyche (separated — different stat type, hidden during kotiki lvl-up) -->
-    <div class="pc-psyche-box">
+    <div v-if="!isTerminalMode" class="pc-psyche-box">
       <div class="stat-block" :class="{ 'resist-hit': resistFlash.includes('psyche'), 'lvl-up-available': hasLvlUpPoints, 'stat-pulse': pulsingStats.has('psyche') }">
         <div class="stat-row">
           <span class="gi gi-lg gi-psy">{{ isEren ? 'Самоуверенность' : 'PSY' }}</span>
@@ -1024,18 +1053,15 @@ function doomModuleStatus(module: string): { text: string; state: 'live' | 'done
       </div>
     </div>
 
-    <!-- Exploit state (Баг special ability) -->
-    <div v-if="exploitState" class="pc-exploit-state" :data-widget-help="widgetHelp('exploit')" :aria-description="widgetHelp('exploit')" tabindex="0">
-      <div class="exploit-header">
-        <span class="exploit-title">EXPLOIT</span>
-        <span class="exploit-progress">{{ exploitState.fixedCount }}/{{ exploitState.totalPlayers }}</span>
+    <div v-if="terminalState" class="pc-terminal-state" :data-widget-help="widgetHelp('terminal')" :aria-description="widgetHelp('terminal')" tabindex="0">
+      <div class="terminal-state-chrome">
+        <span>runtime.packet_buffer</span>
+        <span class="terminal-state-led" :class="{ active: terminalState.isNodeActive }">{{ terminalState.isNodeActive ? 'LIVE' : 'CLOSED' }}</span>
       </div>
-      <div class="exploit-accumulated">
-        <span class="exploit-value">{{ exploitState.totalExploit }}</span>
-        <span class="exploit-label">{{ t('pending', 'в ожидании') }}</span>
-      </div>
-      <div class="exploit-bar-bg">
-        <div class="exploit-bar-fill" :style="{ width: `${exploitState.totalPlayers > 0 ? (exploitState.fixedCount / exploitState.totalPlayers) * 100 : 0}%` }" />
+      <div class="terminal-state-lines">
+        <code><b>STREAM</b> = {{ terminalStreamName }};</code>
+        <code><b>CURSOR</b> = {{ terminalNodeName }};</code>
+        <code><b>PAYLOAD</b> += <strong>{{ terminalState.bufferedPoints }}</strong>;</code>
       </div>
     </div>
 
@@ -3000,10 +3026,10 @@ function doomModuleStatus(module: string): { text: string; state: 'live' | 'done
   }
 }
 
-/* ── Matrix theme for Баг ── */
-.player-card.is-bug {
-  border-color: rgba(0, 255, 65, 0.25);
-  box-shadow: 0 0 12px rgba(0, 255, 65, 0.08);
+/* ── Corrupted terminal presentation ── */
+.player-card.is-terminal {
+  border-color: rgba(0, 255, 65, 0.32);
+  box-shadow: 0 0 12px rgba(0, 255, 65, 0.1);
   background:
     repeating-linear-gradient(
       0deg,
@@ -3013,81 +3039,110 @@ function doomModuleStatus(module: string): { text: string; state: 'live' | 'done
       rgba(0, 255, 65, 0.015) 4px
     ),
     var(--bg-card);
+  font-family: var(--font-mono);
 }
-.player-card.is-bug.is-me {
-  border-color: rgba(0, 255, 65, 0.35);
-  box-shadow: 0 0 16px rgba(0, 255, 65, 0.12), 0 0 40px rgba(0, 255, 65, 0.04);
+.player-card.is-terminal.is-me {
+  border-color: rgba(0, 255, 65, 0.52);
+  box-shadow: 0 0 18px rgba(0, 255, 65, 0.18), 0 0 42px rgba(0, 255, 65, 0.06);
 }
-.player-card.is-bug .pc-name {
+.player-card.is-terminal .pc-name {
   color: #00ff41;
   text-shadow: 0 0 6px rgba(0, 255, 65, 0.4);
   font-family: var(--font-mono);
 }
-.player-card.is-bug .pc-username {
+.player-card.is-terminal .pc-username {
   color: rgba(0, 255, 65, 0.5);
 }
-.player-card.is-bug .pc-score {
+.player-card.is-terminal .pc-score {
   color: #00ff41;
   text-shadow: 0 0 8px rgba(0, 255, 65, 0.3);
 }
-.player-card.is-bug .pc-score-row {
+.player-card.is-terminal .pc-score-row {
   border-top-color: rgba(0, 255, 65, 0.15);
 }
-.player-card.is-bug .justice-value {
+.player-card.is-terminal .justice-value {
   color: #00ff41;
   text-shadow: 0 0 10px rgba(0, 255, 65, 0.3);
 }
-.player-card.is-bug .pc-justice-row {
+.player-card.is-terminal .pc-justice-row {
   background: linear-gradient(135deg, rgba(0, 255, 65, 0.06), rgba(0, 255, 65, 0.02));
   border-color: rgba(0, 255, 65, 0.2);
 }
-.player-card.is-bug .justice-label {
+.player-card.is-terminal .justice-label {
   color: rgba(0, 255, 65, 0.6);
 }
-
-/* Exploit state box */
-.pc-exploit-state {
-  padding: 6px 8px;
-  background: linear-gradient(135deg, rgba(0, 255, 65, 0.08), rgba(0, 255, 65, 0.02));
-  border: 1px solid rgba(0, 255, 65, 0.25);
+.pc-terminal-stats {
+  display: grid;
+  gap: 5px;
+  padding: 8px;
+  border: 1px solid rgba(0, 255, 65, 0.28);
   border-radius: var(--radius);
+  background: rgba(0, 12, 3, 0.78);
 }
-.exploit-header {
-  display: flex; justify-content: space-between; align-items: center;
+.terminal-stat-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  min-height: 28px;
+  padding: 3px 6px;
+  border-left: 2px solid rgba(0, 255, 65, 0.42);
+  background: linear-gradient(90deg, rgba(0, 255, 65, 0.08), transparent);
 }
-.exploit-title {
-  font-size: 10px; font-weight: 900; color: #00ff41;
-  text-transform: uppercase; letter-spacing: 1px;
-  font-family: var(--font-mono);
-  text-shadow: 0 0 4px rgba(0, 255, 65, 0.4);
+.terminal-stat-row code {
+  color: #75ff98;
+  font: 700 12px/1.2 var(--font-mono);
+  text-shadow: 0 0 6px rgba(0, 255, 65, 0.55);
 }
-.exploit-progress {
-  font-size: 10px; font-weight: 700; color: rgba(0, 255, 65, 0.6);
-  font-family: var(--font-mono);
-}
-.exploit-accumulated {
-  display: flex; align-items: baseline; gap: 4px;
-  margin-top: 2px;
-}
-.exploit-value {
-  font-size: 20px; font-weight: 900; font-family: var(--font-mono);
-  color: #00ff41; text-shadow: 0 0 10px rgba(0, 255, 65, 0.4);
-}
-.exploit-label {
-  font-size: 10px; color: rgba(0, 255, 65, 0.5);
-  font-family: var(--font-mono);
-}
-.exploit-bar-bg {
-  height: 3px; margin-top: 4px;
+.terminal-lvl-btn {
+  border-color: rgba(0, 255, 65, 0.55);
   background: rgba(0, 255, 65, 0.1);
-  border-radius: 2px; overflow: hidden;
+  color: #75ff98;
 }
-.exploit-bar-fill {
-  height: 100%;
-  background: linear-gradient(90deg, #00ff41, #00cc33);
-  border-radius: 2px;
-  transition: width 0.5s ease;
-  box-shadow: 0 0 4px rgba(0, 255, 65, 0.3);
+.pc-terminal-state {
+  position: relative;
+  overflow: hidden;
+  padding: 7px 8px;
+  border: 1px solid rgba(0, 255, 65, 0.34);
+  border-radius: var(--radius);
+  background: linear-gradient(135deg, rgba(0, 255, 65, 0.11), rgba(0, 8, 2, 0.88));
+  box-shadow: inset 0 0 15px rgba(0, 255, 65, 0.05);
+}
+.pc-terminal-state::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(0deg, transparent 0 3px, rgba(0, 255, 65, 0.055) 4px);
+}
+.terminal-state-chrome {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 5px;
+  color: rgba(117, 255, 152, 0.72);
+  font: 800 9px/1.2 var(--font-mono);
+  letter-spacing: 0.08em;
+}
+.terminal-state-led {
+  padding: 1px 4px;
+  border: 1px solid rgba(0, 255, 65, 0.32);
+  color: rgba(117, 255, 152, 0.52);
+}
+.terminal-state-led.active {
+  color: #b3ffc5;
+  border-color: #00ff41;
+  box-shadow: 0 0 8px rgba(0, 255, 65, 0.62);
+  animation: terminal-led-pulse 1.1s steps(2, end) infinite;
+}
+.terminal-state-lines { display: grid; gap: 3px; }
+.terminal-state-lines code {
+  color: rgba(117, 255, 152, 0.78);
+  font: 600 10px/1.35 var(--font-mono);
+}
+.terminal-state-lines b { color: #00ff41; }
+.terminal-state-lines strong { color: #d0ffda; font-size: 15px; text-shadow: 0 0 8px #00ff41; }
+@keyframes terminal-led-pulse {
+  50% { opacity: 0.45; filter: brightness(1.8); }
 }
 
 /* Tsukuyomi state box */
@@ -3946,7 +4001,7 @@ function doomModuleStatus(module: string): { text: string; state: 'live' | 'done
 
 .pc-passive-widget,
 .pc-special-ability,
-.pc-exploit-state,
+.pc-terminal-state,
 .pc-tsukuyomi-state {
   position: relative;
   min-width: 0;
@@ -3967,7 +4022,7 @@ function doomModuleStatus(module: string): { text: string; state: 'live' | 'done
 }
 .pc-passive-widget:hover,
 .pc-special-ability:hover,
-.pc-exploit-state:hover,
+.pc-terminal-state:hover,
 .pc-tsukuyomi-state:hover {
   transform: translateY(-1px);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 7px 18px rgba(0, 0, 0, 0.18);
@@ -4026,7 +4081,7 @@ function doomModuleStatus(module: string): { text: string; state: 'live' | 'done
 [data-widget-help]::after { content: none; }
 .pw-title::after,
 .sa-header::after,
-.exploit-title::after,
+.terminal-state-chrome::after,
 .tsukuyomi-title::after {
   content: '?';
   display: inline-grid;
@@ -4041,9 +4096,9 @@ function doomModuleStatus(module: string): { text: string; state: 'live' | 'done
   vertical-align: 1px;
   transition: opacity 0.16s ease, transform 0.16s ease;
 }
-[data-widget-help]:hover :is(.pw-title, .sa-header, .exploit-title, .tsukuyomi-title)::after,
-[data-widget-help]:focus :is(.pw-title, .sa-header, .exploit-title, .tsukuyomi-title)::after,
-[data-widget-help]:focus-within :is(.pw-title, .sa-header, .exploit-title, .tsukuyomi-title)::after {
+[data-widget-help]:hover :is(.pw-title, .sa-header, .terminal-state-chrome, .tsukuyomi-title)::after,
+[data-widget-help]:focus :is(.pw-title, .sa-header, .terminal-state-chrome, .tsukuyomi-title)::after,
+[data-widget-help]:focus-within :is(.pw-title, .sa-header, .terminal-state-chrome, .tsukuyomi-title)::after {
   opacity: 0.9;
   transform: rotate(12deg) scale(1.06);
 }
@@ -4100,7 +4155,6 @@ function doomModuleStatus(module: string): { text: string; state: 'live' | 'done
 .garbage-bar-bg,
 .goblin-pop-track,
 .bulk-wave-bar,
-.exploit-bar-bg,
 .tsukuyomi-bar-bg {
   min-height: 6px;
 }
@@ -4137,7 +4191,9 @@ function doomModuleStatus(module: string): { text: string; state: 'live' | 'done
   .pc-passive-widget,
   .pc-passive-widget *,
   .pc-special-ability,
-  .pc-exploit-state,
+  .pc-terminal-state,
+  .pc-terminal-state *,
+  .pc-terminal-stats *,
   .pc-tsukuyomi-state {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
@@ -4146,7 +4202,7 @@ function doomModuleStatus(module: string): { text: string; state: 'live' | 'done
   }
   .pc-passive-widget:hover,
   .pc-special-ability:hover,
-  .pc-exploit-state:hover,
+  .pc-terminal-state:hover,
   .pc-tsukuyomi-state:hover { transform: none; }
 }
 </style>
