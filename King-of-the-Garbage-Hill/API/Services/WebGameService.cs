@@ -1017,11 +1017,14 @@ public class WebGameService
     // ── Test Game (Admin) ─────────────────────────────────────────────
 
     /// <summary>
-    /// Returns the public character list used by pickers and predictions.
+    /// Returns the public character list, optionally extended for the admin test picker.
     /// </summary>
-    public List<object> GetCharacterList()
+    public List<object> GetCharacterList(bool includePrivateTestCharacters = false)
     {
-        return _charactersPull.GetVisibleCharacters()
+        var characters = includePrivateTestCharacters
+            ? _charactersPull.GetAdminSelectableCharacters()
+            : _charactersPull.GetVisibleCharacters();
+        return characters
             .Select(c => (object)new { name = c.Name, avatar = c.Avatar, tier = c.Tier })
             .ToList();
     }
@@ -1032,7 +1035,7 @@ public class WebGameService
     public async Task<(ulong gameId, string error)> CreateTestGame(ulong creatorId, string creatorUsername, string characterName)
     {
         // Validate character exists
-        var allCharacters = _charactersPull.GetVisibleCharacters();
+        var allCharacters = _charactersPull.GetAdminSelectableCharacters();
         var selectedChar = allCharacters.Find(c => c.Name == characterName);
         if (selectedChar == null)
             return (0, "Character not found");
@@ -1105,7 +1108,8 @@ public class WebGameService
             game.DraftOptions.Remove(oldPlayerId);
         }
 
-        Console.WriteLine($"[WebAPI] Test game {gameId} created by {creatorUsername} ({creatorId}) with character {characterName}");
+        var loggedCharacter = UnknownBug.Is(selectedChar) ? "(private)" : selectedChar.Name;
+        Console.WriteLine($"[WebAPI] Test game {gameId} created by {creatorUsername} ({creatorId}) with character {loggedCharacter}");
         return (gameId, null);
     }
 

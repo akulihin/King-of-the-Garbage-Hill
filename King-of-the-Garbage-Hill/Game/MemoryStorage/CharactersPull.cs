@@ -41,6 +41,18 @@ public class CharactersPull : IServiceSingleton
         return characters;
     }
 
+    public List<CharacterClass> GetAdminSelectableCharacters()
+    {
+        var filePath = @"DataBase/characters.json";
+        var json = File.ReadAllText(filePath);
+        var allCharacters = JsonConvert.DeserializeObject<List<CharacterClass>>(json);
+        var characters = allCharacters.Where(x => x.Tier >= 0).ToList();
+        var privateCharacter = allCharacters.FirstOrDefault(UnknownBug.Is);
+        if (privateCharacter != null)
+            characters.Add(privateCharacter);
+        return characters;
+    }
+
     public List<CharacterClass> GetRollableCharacters()
     {
         var filePath = @"DataBase/characters.json";

@@ -1,6 +1,6 @@
 # King of the Garbage Hill — Web Backend (API, SignalR, push, auth)
 
-> Code-verified against the working tree of 2026-07-13 (v4.4.4). Companion docs: [ARCHITECTURE.md](ARCHITECTURE.md) (§1 process topology, §6 state→screen), [WEB-CLIENT.md](WEB-CLIENT.md) (the Vue SPA consuming this surface), [DISCORD-INTERFACE.md](DISCORD-INTERFACE.md) (the other frontend), and [DAILY-QUESTS.md](DAILY-QUESTS.md) (the quest economy). This doc is the deep catalog of the ASP.NET Core surface: every endpoint, hub method, pushed event, and visibility rule.
+> Code-verified against the working tree of 2026-07-13 (v4.4.5). Companion docs: [ARCHITECTURE.md](ARCHITECTURE.md) (§1 process topology, §6 state→screen), [WEB-CLIENT.md](WEB-CLIENT.md) (the Vue SPA consuming this surface), [DISCORD-INTERFACE.md](DISCORD-INTERFACE.md) (the other frontend), and [DAILY-QUESTS.md](DAILY-QUESTS.md) (the quest economy). This doc is the deep catalog of the ASP.NET Core surface: every endpoint, hub method, pushed event, and visibility rule.
 
 ## 1. Startup & topology
 
@@ -81,8 +81,8 @@ Every game-action method starts with `GetDiscordId()` (`GameHub.cs:1682-1687`) a
 | `RegisterWebAccount(username)` | create web account (§2), auto-auth after removing any previous player binding for the same connection, `WebAccountCreated` | `GameHub.RegisterWebAccount` / `BindConnectionToPlayer` |
 | `CreateWebGame()` | `WebGameService.CreateGame` (1 human + 5 bots, §8), auto-join room, `GameCreated` | `GameHub.cs:174-194` |
 | `JoinWebGame(gameId)` | replace a bot (§8), auto-join room, `GameJoined` + state push | `GameHub.cs:200-223` |
-| `CreateTestGame(characterName)` | **admin-only**, non-admin gets `Error` (`GameHub.cs:515-519`); validation uses the public Tier ≥ 0 list, so the ultra-secret natural roll cannot be forced from this surface | `GameHub.cs:510-535`; `WebGameService.CreateTestGame` |
-| `GetCharacterList()` | replies `CharacterList` (name/avatar/tier of public Tier ≥ 0 characters) | `GameHub.cs:501-505`; `CharactersPull.GetVisibleCharacters` |
+| `CreateTestGame(characterName)` | **admin-only**, non-admin gets `Error`; validation uses the admin test catalog: public Tier ≥ 0 plus unknown_bug as its sole private entry | `GameHub.cs` / `WebGameService.cs` `CreateTestGame`; `CharactersPull.cs` `GetAdminSelectableCharacters` |
+| `GetCharacterList()` | authenticated viewer-scoped request: regular accounts receive the public Tier ≥ 0 catalog; `PlayerType == 2` receives that catalog plus the sole private test choice. This preserves public achievement filters without crossing the private entry into a regular response | `GameHub.cs` / `WebGameService.cs` `GetCharacterList`; `CharactersPull.cs` `GetAdminSelectableCharacters` |
 | `FinishGame(gameId)` | leave mid-game → replaced by bot via `EndGame` (`WebGameService.cs:972-984`) | `GameHub.cs:543-550` |
 | `SetPreferWeb(gameId, preferWeb)` | sets `player.PreferWeb` directly — suppresses the player's Discord DMs (see DISCORD-INTERFACE.md §4) | `GameHub.cs:558-573` |
 | `RequestGameState(gameId)` | on-demand push (player-scoped, falls back to spectator) | `GameHub.cs:1021-1041` |
@@ -114,7 +114,7 @@ Every game-action method starts with `GetDiscordId()` (`GameHub.cs:1682-1687`) a
 | `LootBoxOpened` | immutable opening result: ID, rarity/ZBS, current balance/inventory, opening pity and pity-upgrade flag | durable new open or retry before acknowledgement | `GameHub.cs:811-869`; DTO `GameStateDto.cs:1087-1106` |
 | `AchievementBoard` | all live entries plus unlocked/catalog totals and unacknowledged live IDs | on request | `GameHub.cs:903-947`; DTO `GameStateDto.cs:1108-1142` |
 | `StoreState` | ZBS balance, base/bounds/refundable total, and each seen rollable character's avatar/tier/multiplier/change count/next 1+10 prices/refund | on request and after every successful durable store mutation | `GameHub.cs:581-619`; DTO `GameStateDto.cs:1061-1082` |
-| `CharacterList` | name/avatar/tier list | on request | `GameHub.cs:501-504` |
+| `CharacterList` | viewer-scoped name/avatar/tier catalog: public Tier ≥ 0 normally; plus the sole private test choice for `PlayerType == 2` | authenticated request | `GameHub.cs` `GetCharacterList` |
 | `DoomFortressState` | four stages: slots, unlocked module definitions, remaining **standard** reward count/chance (special Приручить дракона excluded until its Sirinoks condition unlocks it) | request or successful equip | `GameHub.cs:581-646` |
 | `BlackjackState` | personalized table state | after any blackjack action | `GameHub.cs:1051-1170` |
 | `BattleshipLobby`, `BattleshipStats`, `BattleshipGameCreated`, `BattleshipGameJoined`, `BattleshipState`, `BattleshipEvent` (eventType `ShotResult`), `ShipCatalog` | lobby list; caller-only persistent W/L/streak/first-win/ZBS snapshot; personalized game state; shot event (`wasSkipped` distinguishes a consumed Penalty/Stun turn from an actual shot); catalog | battleship flow | `GameHub.cs:1172-1229` `GameHub.cs:1247-1259` `GameHub.cs:1364-1437` `GameHub.cs:1541-1576` |

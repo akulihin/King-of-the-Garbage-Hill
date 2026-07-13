@@ -1,6 +1,6 @@
 # King of the Garbage Hill — Discord Interface (bot commands & in-game UI)
 
-> Code-verified against the working tree of 2026-07-13 (v4.4.4). Companion docs: [ARCHITECTURE.md](ARCHITECTURE.md) (§1 topology — the bot shares the process and `GamesList` with the web server), [WEB-BACKEND.md](WEB-BACKEND.md) (the other frontend; web actions reuse the handlers described here), [GAME-DESIGN.md](GAME-DESIGN.md) (what the actions mean). Russian labels and custom-ids below are load-bearing strings — never paraphrase them.
+> Code-verified against the working tree of 2026-07-13 (v4.4.5). Companion docs: [ARCHITECTURE.md](ARCHITECTURE.md) (§1 topology — the bot shares the process and `GamesList` with the web server), [WEB-BACKEND.md](WEB-BACKEND.md) (the other frontend; web actions reuse the handlers described here), [GAME-DESIGN.md](GAME-DESIGN.md) (what the actions mean). Russian labels and custom-ids below are load-bearing strings — never paraphrase them.
 
 ## 1. Interaction model
 
@@ -33,7 +33,7 @@ Player-facing (module `General.cs` unless noted; aliases exact):
 | `widget_s` | — | — | post the profile-widget OAuth "Authorize" link-button (client_id 901706293977432124) | `ServerManagement.cs:124-131` |
 | `widget` | — | stat texts, number, id | push stats to the Discord profile widget; requires prior authorize (`WidgetAuthorized`, `ServerManagement.cs:157-165`) | `ServerManagement.cs:138` |
 
-Admin (`AdminPanel.cs`; gated by `[RequireOwner]` or hardcoded owner-ID checks): `getInvite`/`leaveGuild`/`ShowGuildInfo`/`ShowGuilds` (`AdminPanel.cs:44-92`), `restart` (`AdminPanel.cs:108-109`), `lootbox <user> <amount>` — grant pending loot boxes to an account, amount validated > 0 and capped (`AdminPanel.cs:121-165`), solo test-game `игра <int>` (`AdminPanel.cs:168-169`), `SetCharacter` (`AdminPanel.cs:242`), `SetType` 0/1/2 (`AdminPanel.cs:280`), and the `SetStat`/`set` cheats — numeric stats/score/round and character/passive add-remove (`AdminPanel.cs:313-314` `AdminPanel.cs:395-396`).
+Admin (`AdminPanel.cs`; gated by `[RequireOwner]`, hardcoded owner-ID checks, or the command-specific account check): `getInvite`/`leaveGuild`/`ShowGuildInfo`/`ShowGuilds` (`AdminPanel.cs:44-92`), `restart` (`AdminPanel.cs:108-109`), `lootbox <user> <amount>` — grant pending loot boxes to an account, amount validated > 0 and capped (`AdminPanel.cs:121-165`), solo test-game `игра <int>` / `st <int>` (`AdminPanel.cs:172`) for persistent `PlayerType == 2`, `SetCharacter` (`AdminPanel.cs:242`), `SetType` 0/1/2 (`AdminPanel.cs:280`), and the `SetStat`/`set` cheats — numeric stats/score/round and character/passive add-remove (`AdminPanel.cs:313-314` `AdminPanel.cs:395-396`). The numeric test catalog preserves the public Tier ≥ 0 order and appends unknown_bug as its sole private choice; ordinary `*st` without the numeric test choice remains the regular random game command.
 
 ## 3. Game start & lobby lifecycle (`*st`)
 
@@ -50,7 +50,7 @@ Admin (`AdminPanel.cs`; gated by `[RequireOwner]` or hardcoded owner-ID checks):
 
 ARAM/draft phase resolution happens inside the loop: ARAM waits for all 6 `IsAramRollConfirmed` then re-sends character sheets and flips to page 1 (`CheckIfReady` ARAM branch); draft defensively auto-confirms any private natural roll/removes its options, waits for all `IsDraftPickConfirmed`, then runs the deferred init (fresh Nanobots/Exploit lists, round 0, timer restart) (`CheckIfReady` draft branch).
 
-Naruto is a natural/draft option only in free-for-all games with two strict bot seats available for clones (a bot original therefore requires a third bot). Round-0 initialization converts those two seats and pre-fills each Naruto's predictions for the other two; ARAM never offers his passive set (`StartGameLogic.cs` `CanNaturallyRollNaruto`, `RollDraftOptions`; `General.cs` draft setup; `Naruto.cs` `InitializeTeam`; `CharactersPull.cs` `GetAramPassives`). unknown_bug is natural-roll-only: it never enters Discord/web selectable draft options or any admin character picker/force-next catalog, and a private natural result under draft is silently locked rather than exposed.
+Naruto is a natural/draft option only in free-for-all games with two strict bot seats available for clones (a bot original therefore requires a third bot). Round-0 initialization converts those two seats and pre-fills each Naruto's predictions for the other two; ARAM never offers his passive set (`StartGameLogic.cs` `CanNaturallyRollNaruto`, `RollDraftOptions`; `General.cs` draft setup; `Naruto.cs` `InitializeTeam`; `CharactersPull.cs` `GetAramPassives`). For regular users unknown_bug is natural-roll-only: it never enters selectable draft options, store/public catalogs or ordinary force-next mutations, and a private natural result under draft is silently locked rather than exposed. Persistent `PlayerType == 2` accounts alone may select it through the numeric `*st <int>` overload (`AdminPanel.cs:172`) or the web “Тестовая игра” picker.
 
 ## 4. The in-game DM UI
 

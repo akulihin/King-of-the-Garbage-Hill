@@ -476,11 +476,15 @@ public class GameHub : Hub
     // ── Admin: Test Game ──────────────────────────────────────────────
 
     /// <summary>
-    /// Returns the list of rollable characters (for admin character picker).
+    /// Returns the public character list, extended with private test choices for admins.
     /// </summary>
     public async Task GetCharacterList()
     {
-        var characters = _gameService.GetCharacterList();
+        var discordId = GetDiscordId();
+        if (discordId == 0) { await SendNotAuthenticated(); return; }
+
+        var account = _userAccounts.GetAccount(discordId);
+        var characters = _gameService.GetCharacterList(account?.PlayerType == 2);
         await Clients.Caller.SendAsync("CharacterList", characters);
     }
 

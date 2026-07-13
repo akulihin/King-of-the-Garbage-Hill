@@ -171,13 +171,14 @@ public class AdminPanel : ModuleBaseCustom
     [Summary("запуск игры (Admin only)")]
     public async Task StartGameTestMode(int choice)
     {
-        if (Context.User.Id != 238337696316129280 && Context.User.Id != 181514288278536193)
+        var account = _accounts.GetAccount(Context.User);
+        if (account?.PlayerType != 2)
         {
-            await SendMessageAsync("only owners can use this command");
+            await SendMessageAsync("only admins can use this command");
             return;
         }
 
-        var allCharacters = _charactersPull.GetVisibleCharacters();
+        var allCharacters = _charactersPull.GetAdminSelectableCharacters();
 
         if (choice + 1 > allCharacters.Count)
         {
@@ -186,7 +187,6 @@ public class AdminPanel : ModuleBaseCustom
             return;
         }
 
-        var account = _accounts.GetAccount(Context.User);
         account.CharacterToGiveNextTime = allCharacters[choice].Name;
 
         var players = new List<IUser>
