@@ -95,7 +95,7 @@
 | Доминация | Dopa | 1 | 3 | ok |
 | Дракон | Sirinoks | 1 | 6 | ok |
 | Дрочун | Эрен Йегер | 0 | 1 | ok |
-| Еврей | LeCrisp, Толя | 1 | 6 | ok |
+| Еврей | LeCrisp, Толя | 1 | 5 | ok |
 | Живое Оружие | TheBoys | 0 | 2 | ok |
 | Заводить друзей | Sirinoks | 2 | 2 | ok |
 | Завоеватель | Napoleon Wonnafcuk | 1 | 1 | ok |

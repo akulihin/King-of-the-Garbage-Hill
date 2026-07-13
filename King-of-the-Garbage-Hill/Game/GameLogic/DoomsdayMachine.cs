@@ -341,7 +341,11 @@ public class DoomsdayMachine : IServiceSingleton
             // Attack side: Geralt attacks someone — inject extra fights for Geralt
             if (!geraltPlayer.Status.IsBlock && !geraltPlayer.Status.IsSkip && geraltPlayer.Status.WhoToAttackThisTurn.Count > 0)
             {
-                var targetId = geraltPlayer.Status.WhoToAttackThisTurn[0];
+                var shenMagnet = Salldorum.FindRandomTargetMagnet(game, geraltPlayer);
+                var targetId = shenMagnet != null
+                               && geraltPlayer.Status.WhoToAttackThisTurn.Contains(shenMagnet.GetPlayerId())
+                    ? shenMagnet.GetPlayerId()
+                    : geraltPlayer.Status.WhoToAttackThisTurn[0];
                 var target = game.PlayersList.Find(x => x.GetPlayerId() == targetId);
                 if (target != null)
                 {
@@ -961,6 +965,7 @@ public class DoomsdayMachine : IServiceSingleton
                     var dealsHarm = player.GameCharacter.Name != Madara.CharacterName;
 
                     var point = 1;
+                    var winPointRecipients = new List<Guid>();
                     //сильный
                     if (player.FightCharacter.GetSkillClass() == "Сила")
                         skillGainedFromClassAttacker = player.GameCharacter.AddExtraSkill(4 * player.GameCharacter.GetClassSkillMultiplier(), "Класс");
@@ -970,7 +975,11 @@ public class DoomsdayMachine : IServiceSingleton
 
                     //еврей
                     if (!teamMate)
-                        point = await _characterPassives.HandleJews(player, playerIamAttacking, game);
+                    {
+                        var jewResult = await _characterPassives.HandleJews(player, playerIamAttacking, game);
+                        point = jewResult.Point;
+                        winPointRecipients = jewResult.Recipients;
+                    }
                     if (point == 0) player.Status.AddInGamePersonalLogs("Евреи...\n");
                     //end еврей
 
@@ -982,6 +991,8 @@ public class DoomsdayMachine : IServiceSingleton
                         {
                             // Storm redirects the +1 regular point to Storm's carrier
                             stormCarrier.Status.AddRegularPoints(point, "Штормяк: Запрыгнул в бой!");
+                            if (point != 0)
+                                winPointRecipients = new List<Guid> { stormCarrier.GetPlayerId() };
                         }
                         else if (player.GameCharacter.Passive.Any(x => x.PassiveName == "Никому не нужен" || x.PassiveName == "INT"))
                         {
@@ -1002,6 +1013,12 @@ public class DoomsdayMachine : IServiceSingleton
                             player.Status.AddWinPoints(game, player, point, winSource);
                         }
                     }
+
+                    Salldorum.RecordWinPointRecipients(
+                        playerIamAttacking,
+                        game.RoundNo,
+                        player.GetPlayerId(),
+                        winPointRecipients);
 
 
                     if (!teamMate)
@@ -1183,6 +1200,19 @@ public class DoomsdayMachine : IServiceSingleton
                             playerIamAttacking.Status.AddWinPoints(game, playerIamAttacking, 1, defWinSource);
                         }
                     }
+
+                    Salldorum.RecordWinPointRecipients(
+                        player,
+                        game.RoundNo,
+                        playerIamAttacking.GetPlayerId(),
+                        teamMate
+                            ? Array.Empty<Guid>()
+                            : new[]
+                            {
+                                stormFlipped && stormCarrier != null
+                                    ? stormCarrier.GetPlayerId()
+                                    : playerIamAttacking.GetPlayerId()
+                            });
 
 
 

@@ -31,6 +31,35 @@ public class Salldorum
         public bool HistoryRewritten { get; set; } = false;
         public int RewrittenRound { get; set; } = -1;
         public List<int> PositionHistory { get; set; } = new(); // index=round-1, value=position
+        public Dictionary<int, Dictionary<Guid, List<Guid>>> WinPointRecipients { get; set; } = new();
+    }
+
+    public static void RecordWinPointRecipients(
+        GamePlayerBridgeClass defeated,
+        int roundNumber,
+        Guid winnerId,
+        IEnumerable<Guid> recipientIds)
+    {
+        if (defeated.GameCharacter.Name != "Salldorum")
+            return;
+
+        var ledger = defeated.Passives.SalldorumChronicler.WinPointRecipients;
+        if (!ledger.TryGetValue(roundNumber, out var roundLedger))
+        {
+            roundLedger = new Dictionary<Guid, List<Guid>>();
+            ledger[roundNumber] = roundLedger;
+        }
+
+        // Chronicler rewrites one win per distinct enemy, even if that enemy beat
+        // Salldorum more than once in the selected round. Keep the recipients of
+        // the first such win; an empty list deliberately records a scoreless ally win.
+        if (roundLedger.ContainsKey(winnerId))
+            return;
+
+        roundLedger[winnerId] = recipientIds
+            .Where(id => id != Guid.Empty)
+            .Distinct()
+            .ToList();
     }
 
     public static bool TryDrinkTimeCapsule(
@@ -209,6 +238,8 @@ public class Salldorum
     {
         if (player.GameCharacter.Name != "Salldorum")
             return (false, "Only Salldorum can rewrite history");
+        if (player.Passives.IsDead)
+            return (false, "Dead Salldorum cannot rewrite history");
 
         var chronicler = player.Passives.SalldorumChronicler;
         if (chronicler.HistoryRewritten)
@@ -234,12 +265,19 @@ public class Salldorum
         decimal totalStolen = 0;
         foreach (var enemy in roundWinners)
         {
-            var holder = roundWinners.FirstOrDefault(winner =>
-                winner!.GetPlayerId() != enemy!.GetPlayerId()
-                && winner.GameCharacter.Passive.Any(passive => passive.PassiveName == "Еврей")) ?? enemy;
-            holder!.Status.AddBonusPoints(-roundMultiplier, "Великий летописец");
-            player.Status.AddBonusPoints(roundMultiplier, "Великий летописец");
-            totalStolen += roundMultiplier;
+            var winnerId = enemy!.GetPlayerId();
+            var recipientIds = chronicler.WinPointRecipients.TryGetValue(roundNumber, out var roundLedger)
+                               && roundLedger.TryGetValue(winnerId, out var recordedRecipients)
+                ? recordedRecipients
+                : new List<Guid> { winnerId };
+
+            foreach (var recipientId in recipientIds.Distinct())
+            {
+                var holder = game.PlayersList.Find(candidate => candidate.GetPlayerId() == recipientId) ?? enemy;
+                holder.Status.AddBonusPoints(-roundMultiplier, "Великий летописец");
+                player.Status.AddBonusPoints(roundMultiplier, "Великий летописец");
+                totalStolen += roundMultiplier;
+            }
         }
 
         player.GameCharacter.AddPsyche(2, "Великий летописец");

@@ -7217,13 +7217,20 @@ public class CharacterPassives : IServiceSingleton
             }
     }
 
-    public async Task<int> HandleJews(GamePlayerBridgeClass me, GamePlayerBridgeClass target, GameClass game)
+    public async Task<(int Point, List<Guid> Recipients)> HandleJews(
+        GamePlayerBridgeClass me,
+        GamePlayerBridgeClass target,
+        GameClass game)
     {
         var jews = new List<GamePlayerBridgeClass>();
+        var creditedRecipients = new List<Guid>();
         var toReturn = 1;
 
-        if (me.GameCharacter.Passive.Any(x => x.PassiveName == "Еврей")) return toReturn;
-        if (me.GameCharacter.Passive.Any(x => x.PassiveName == "Вступить в союз")) return toReturn;
+        if (me.GameCharacter.Passive.Any(x => x.PassiveName == "Еврей")
+            || me.GameCharacter.Passive.Any(x => x.PassiveName == "Вступить в союз"))
+        {
+            return (toReturn, new List<Guid> { me.GetPlayerId() });
+        }
 
         foreach (var player in game.PlayersList)
         foreach (var passive in player.GameCharacter.Passive.ToList())
@@ -7238,7 +7245,7 @@ public class CharacterPassives : IServiceSingleton
         switch (jews.Count)
         {
             case 0:
-                return toReturn;
+                return (toReturn, new List<Guid> { me.GetPlayerId() });
             default:
                 //1 jews or more!
                 foreach (var jew in jews)
@@ -7250,6 +7257,7 @@ public class CharacterPassives : IServiceSingleton
                     }
 
                     jew.Status.AddRegularPoints(1, "Еврей");
+                    creditedRecipients.Add(jew.GetPlayerId());
                     switch (jew.GameCharacter.Name)
                     {
                         case "Толя":
@@ -7293,7 +7301,9 @@ public class CharacterPassives : IServiceSingleton
                 break;
         }
 
-        return toReturn;
+        return (toReturn, toReturn == 0
+            ? creditedRecipients
+            : new List<Guid> { me.GetPlayerId() });
     }
 
     public async Task<int> HandleOctopus(GamePlayerBridgeClass octopus, GamePlayerBridgeClass attacker, GameClass game)
@@ -7315,7 +7325,7 @@ public class CharacterPassives : IServiceSingleton
         var enemyIds = new List<Guid> { attacker.GetPlayerId() };
 
         //jew
-        var point = await HandleJews(attacker, octopus, game);
+        var (point, _) = await HandleJews(attacker, octopus, game);
 
         if (point == 0)
         {
