@@ -182,7 +182,7 @@ Achievement progress targets and the complete 103-entry rule catalog are in [ACH
 | Мадара | base / rarity | Int 7, Str 9, Speed 10, Psyche 9; Tier 5 | characters.json:1486-1521 |
 | Мадара | Бог шиноби thresholds | >1 unique attacker: TooGOOD; >2: TooSTONK; >3: fight Skill = 100 | Madara.cs:55-110; CP:461-467,1019-1025 |
 | Мадара | Второй метеорит | blocked attack: no −1 bonus; +2 regular | DM:519-544 |
-| Мадара | Клоны Сусано | round 8; live strict-bot reaction delay 30 s; forced exact bot prediction but ordinary AI action; +1 live Justice at >2 unique attackers; seal at all 5 unique + ≥5 losses | `Madara.RoundEightBotReactionDelaySeconds`; `Madara.ForceRoundEightBotPrediction`; `Madara.RefreshIncomingEffects` |
+| Мадара | Клоны Сусано | round 8; live strict-bot reaction delay 30 s; L0/L1 exact prediction but ordinary action; strict-bot Наруто/Sakura/Итачи exact-predict + attack at every level; +1 live Justice at >2 unique attackers; seal at all 5 unique + ≥5 losses | `Madara.RoundEightBotReactionDelaySeconds`; `Madara.ForceRoundEightBotPrediction`; `Madara.MustAcceptRoundEightBotChallenge`; `Madara.RefreshIncomingEffects` |
 | Мадара | Вечное Цукуеми | arm at all 5 unique attackers in one turn or place 1 entering r10; authoritative r10 = total Skip/no combat; viewer bonus = max living score − viewer score + 1 (0 if sole winner) | `Madara.PrepareEternalTsukuyomiRound`; `Madara.GetIllusoryBonus` |
 | Рик | Пушка | invention Int ≥ 30; +1 charge/lvl-up; fired round ×2 regular points | GR:1155-1165, CP:4042-4066 |
 | Рик | Бобы | stack: −1 Str/Speed/Psyche, Int = base×stacks; ≤3 ingredients per lvl-up | CP:2100-2116, GR:1174-1202 |
@@ -245,7 +245,7 @@ Achievement progress targets and the complete 103-entry rule catalog are in [ACH
 | Эрен Йегер | Rumbling gate / reach | round 10; acting bots at opening places strictly between Eren and 6 must attack Eren; fewer than 2 losses **during round 10 only**; kills projected places strictly between Eren and place 6 | `BotsBehavior.cs` `TryForceRumblingAttack`; CP:2662-2667,3672-3718; ErenYeager.cs:38-53 |
 | Наруто | base / rarity | Int 3, Str 3, Speed 4, Psyche 5; Tier 5 | characters.json:1449-1483 |
 | Наруто | Гарем но джутсу | Block replacement while ready; +1 regular per canceled valid fight in each reaching attacker's whole queue; cooldown 2 full following turns after every use | `Naruto.cs` `HaremCooldownTurns`, `ResolveHaremQueues`, `TryCancelHaremFights`; CP:3771-3784 |
-| Наруто | Теневые | 2 independent strict-bot clones; r10 settlement immediately after Rumbling; sibling prediction value 0; correct enemy predictions +1 projected once; clone score/death seats end at 0 / bottom two | `Naruto.cs` `InitializeTeam`, `ProjectClonePredictionPoints`, `SettleShadowClones`, `OrderLeaderboard` |
+| Наруто | Теневые | 2 independent strict-bot clones; sibling attacks illegal but living siblings are virtual L0/L1 action slots; r10 settlement immediately after Rumbling; sibling prediction value 0; correct enemy predictions +1 projected once; clone score/death seats end at 0 / bottom two | `Naruto.cs` `InitializeTeam`, `GetBotActionTargetSlotCount`, `ProjectClonePredictionPoints`, `SettleShadowClones`, `OrderLeaderboard` |
 | Наруто | Расенган | 2 joint attackers: summed Justice, +2 Str each; 3: summed Justice, +3 Int/Str/Speed/Psyche each | CP:74-108; `Naruto.cs` `SnapshotJustice`, `GetJointAttackers` |
 | Наруто | Призыв | exactly 1 Naruto on target; prior-round loss to that target with target TooGOOD or TooSTONK → terminal auto-win, otherwise refusal only | `Naruto.cs` `IsSoloAttack`, `WonPoweredFightLastRound`; DM:880-899 |
 
@@ -259,7 +259,7 @@ Per-game `AiDifficulty` is 0/1/2/3 and defaults to **3** for Discord, web and si
 |---|---:|---|---|
 | `AiDifficulty` | **3** | default level; 0 random, 1 frozen legacy, 2 fair strategic, 3 fair advanced inference | `GameClass.AiDifficulty`; `BotsBehavior.EffectiveDifficulty` |
 | `--ai-difficulty` / `--ai-probe` / `--ab-char` | 0-3 | whole-field override, one-seat probe and paired seeded A/B measurement | `SimulationRunner`; `BotGameFactory.CreatePlayers` |
-| L0 action policy | uniform legal choice | random legal level-up and random target/Block slot; respects cannot-block, rejected targets and Макро's second action | `BotsBehavior.HandleBotAttackRandom` |
+| L0 action policy | uniform legal choice | random legal level-up and random target/Block slot; Naruto's two living illegal siblings remain virtual attack slots only for these odds; respects cannot-block, rejected targets and Макро's second action | `BotsBehavior.HandleBotAttackRandom`; `Naruto.GetBotActionTargetSlotCount` |
 | L1 knowledge policy | legacy privileged | historical control path is intentionally frozen and is **not** covered by the L2/L3 fairness guarantee; simulation exact-prediction prefill remains L1-only | `BotsBehavior.HandleBotAttack`; `BotGameFactory.CreatePlayers` |
 | `AiPlaystyle` | once/match | L2/L3 retain one coherent build/character plan; sim reports record it | `BotsBehavior.EnsureBotPlaystyle`; `GamePlayerBridgeClass.AiPlaystyle` |
 | Bot action preparation | spend every point first | level-ups complete before forced Skip, Madara response, Kira action or attack/Block choice | `BotsBehavior.HandleBotBehavior` |
@@ -276,7 +276,7 @@ Per-game `AiDifficulty` is 0/1/2/3 and defaults to **3** for Discord, web and si
 | prediction tier prior | 18/14/12/9/8/7/6 | public-catalogue weight for tiers ≥6/5/4/3/2/1/other | `CharacterPassives.FairPredictionPrior` |
 | L2 inferred prediction | 25% prior; 40-85% evidence | stable catalogue prior when evidence score <45, otherwise earned class/own-fight/log evidence; stronger old evidence is retained | `CharacterPassives.HandleFairBotPredict` |
 | L3 inferred prediction | 35-92% | same legal evidence plus public natural-roll and incompatibility rules, longer history and an all-different assignment; it never reads the real roster | `CharacterPassives.HandleFairBotPredict`; `ApplyFairRosterConstraints` |
-| exact prediction confidence | 100% | only public Толя/Коммуникация or owner-only Сверхразум/Naruto reveal | `CharacterPassives.SeedFairExactPredictions` |
+| exact prediction confidence | 100% | public Толя/Коммуникация, owner-only Сверхразум/Naruto reveal, or the explicit round-8 strict-bot Naruto/Sakura/Itachi Madara challenge | `CharacterPassives.SeedFairExactPredictions`; `Madara.ForceRoundEightBotPrediction` |
 | Monster hypothesis | abstain | the bot may infer `Монстр без имени`, but leaves the submitted prediction blank because it cannot score and can punish a guess | `CharacterPassives.RecordFairPredictionChoice` |
 | L2 generic Block odds | 1/4 neutral | PreferBlock 1/2; PreferAttack 1/5; 0 Justice + best score <7 gives 1/2; top two + historical incoming ≥1.5 + best <10 gives 2/3 | `BotsBehavior.ShouldFairBotBlock` |
 | L3 generic Block rules | deterministic | PreferBlock if best <15; top two with incoming ≥1.5 and best <12; bottom three with own Justice ≤1 and best <7; otherwise only if best <5 | `BotsBehavior.ShouldFairBotBlock` |

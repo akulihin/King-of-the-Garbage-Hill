@@ -270,6 +270,19 @@ public static class Madara
         bot.Status.ConfirmedPredict = true;
     }
 
+    public static bool MustAcceptRoundEightBotChallenge(
+        GamePlayerBridgeClass bot, GameClass game)
+    {
+        if (game?.RoundNo != 8 || bot?.PlayerType != 404 || bot.Passives.IsDead
+            || IsMadara(bot)) return false;
+
+        var madara = Find(game);
+        if (madara == null || madara.Passives.IsDead || madara.Passives.Madara.Sealed)
+            return false;
+
+        return bot.GameCharacter.Name is Naruto.CharacterName or Sakura.CharacterName or "Итачи";
+    }
+
     public static void SanitizeSealedActions(GameClass game)
     {
         var madara = Find(game);

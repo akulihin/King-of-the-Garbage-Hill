@@ -48,6 +48,20 @@ public static class Naruto
         return originalId != Guid.Empty && originalId == second.Passives.Naruto.OriginalPlayerId;
     }
 
+    public static int GetBotActionTargetSlotCount(
+        GamePlayerBridgeClass player,
+        GameClass game,
+        int legalTargetCount)
+    {
+        if (!IsNaruto(player) || game == null) return legalTargetCount;
+
+        // Naruto's two living siblings are deliberately illegal targets, but the count-based L0/L1
+        // action roll must retain the same attack-vs-Block balance as every other six-player bot.
+        var livingSiblingCount = game.PlayersList.Count(target =>
+            !target.Passives.IsDead && IsNarutoPair(player, target));
+        return legalTargetCount + livingSiblingCount;
+    }
+
     public static bool CanUseRoster(int strictBotCount, bool originalIsBot) =>
         strictBotCount - (originalIsBot ? 1 : 0) >= 2;
 

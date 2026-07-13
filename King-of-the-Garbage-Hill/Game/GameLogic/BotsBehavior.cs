@@ -94,11 +94,10 @@ public class BotsBehavior : IServiceSingleton
         if (player.Status.LvlUpPoints > 0)
             await HandleLvlUpBot(player, game);
 
-        // Клоны Сусано force only the exact prediction. The bot's actual round-eight action
-        // remains a normal AI choice after the shared 30-second reaction delay.
-        // L1 retains its historical scripted Madara answer. L2/L3 must identify the row through their
-        // own legal prediction evidence; the public round-eight line names Madara but not his player ID.
-        if (!Smart(player, game))
+        // L0/L1 retain the historical exact prediction. Naruto, Sakura and Itachi are the designer's
+        // explicit challenge exception at every AI level: they also identify Madara and must attack him.
+        var mustAcceptMadaraChallenge = Madara.MustAcceptRoundEightBotChallenge(player, game);
+        if (!Smart(player, game) || mustAcceptMadaraChallenge)
             Madara.ForceRoundEightBotPrediction(player, game);
 
         // Forced skips are already complete actions. In particular, Шоковый щит must not let a
@@ -131,6 +130,13 @@ public class BotsBehavior : IServiceSingleton
         // Kira bot: write Death Note and use Shinigami Eyes
         if (!Dumb(player, game) && player.GameCharacter.Passive.Any(x => x.PassiveName == "Тетрадь смерти"))
             HandleBotKira(player, game);
+
+        if (mustAcceptMadaraChallenge)
+        {
+            var madara = Madara.Find(game);
+            if (madara != null && await AttackPlayer(player, madara.Status.GetPlaceAtLeaderBoard()))
+                return;
+        }
 
         await HandleBotAttack(player, game);
     }
@@ -1019,7 +1025,7 @@ public class BotsBehavior : IServiceSingleton
             }
 
             decimal maxRandomNumber = 0;
-            var isBlock = allTargets.Count;
+            var isBlock = Naruto.GetBotActionTargetSlotCount(bot, game, allTargets.Count);
             var minimumRandomNumberForBlock = 1;
             var maximumRandomNumberForBlock = 4;
             var mandatoryAttack = -1;
@@ -4511,8 +4517,11 @@ public class BotsBehavior : IServiceSingleton
         var canBlock = !bot.GameCharacter.Passive.Any(x =>
             x.PassiveName == "Спарта" || x.PassiveName == "Aggress");
 
-        // Uniform over {N targets, +1 block slot if allowed}: ~1/(N+1) block chance.
-        var slots = allTargets.Count + (canBlock ? 1 : 0);
+        // Uniform over {N target slots, +1 block slot if allowed}: ~1/(N+1) block chance. Naruto's
+        // two living siblings remain illegal targets but count as virtual attack slots, so clones do not
+        // block more often merely because their team removes two choices from the menu.
+        var attackSlots = Naruto.GetBotActionTargetSlotCount(bot, game, allTargets.Count);
+        var slots = attackSlots + (canBlock ? 1 : 0);
         if (canBlock && _rand.Random(1, slots) == slots)
         {
             await _gameReaction.HandleAttack(bot, null, -10);
