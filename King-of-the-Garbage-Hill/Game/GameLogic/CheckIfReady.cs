@@ -1282,6 +1282,8 @@ public class CheckIfReady : IServiceSingleton
                 for (var k = 0; k < game.PlayersList.Count; k++)
                     game.PlayersList[k].Status.SetPlaceAtLeaderBoard(k + 1);
 
+                // A successful Shen dash owns its selected cell through this full action round.
+                Salldorum.ApplyShenPositionHolds(game);
 
                 //end //AWDKA last
 
@@ -1433,8 +1435,8 @@ public class CheckIfReady : IServiceSingleton
                 Madara.SanitizeSealedActions(game);
                 Naruto.SanitizeMutualTargets(game);
 
-                // Шэн is spent by the next real submitted attack. The attacked player selects the
-                // destination: the holder jumps immediately ahead and taunts everyone below it.
+                // Шэн is spent by the next real submitted attack. A target ahead selects its exact
+                // cell; crossed players have their primary attack redirected instead of gaining a fight.
                 // Eternal Tsukuyomi erases the submitted attack before it can spend the charge.
                 if (!Madara.IsEternalTsukuyomiRound(game))
                 {
@@ -1442,7 +1444,7 @@ public class CheckIfReady : IServiceSingleton
                     foreach (var sallo in game.PlayersList.Where(player => player.GameCharacter.Name == "Salldorum"))
                         Salldorum.TryDrinkAvailableTimeCapsule(sallo, game);
 
-                    // Shen's taunt adds forced attacks, so apply the same sealed/mutual-target
+                    // Shen redirects existing attacks, so apply the same sealed/mutual-target
                     // sanitation again to the queue it just changed.
                     Madara.SanitizeSealedActions(game);
                     Naruto.SanitizeMutualTargets(game);

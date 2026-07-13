@@ -2227,7 +2227,7 @@ public class BotsBehavior : IServiceSingleton
                                 && targetWins == winCounts.Values.Max())
                                 target.AttackPreference += targetWins * 5 + 3;
                         }
-                        // A charged Шэн makes the next attack leap immediately ahead of its target.
+                        // A charged Шэн makes the next attack occupy the selected target's cell.
                         if (bot.Passives.SalldorumShen.Charges > 0
                             && target.Player.Status.GetPlaceAtLeaderBoard() < bot.Status.GetPlaceAtLeaderBoard())
                             target.AttackPreference += 8;

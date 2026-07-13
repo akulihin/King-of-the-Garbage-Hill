@@ -105,6 +105,7 @@ Do NOT `git commit` or `git push`. Write the commit message to `docs/commit-mess
 - Forcing fights on blocking/skipping players works via `WhoToAttackThisTurn` (the fight loop processes forced fights); respect the round-10 Тигр-ban carve-out pattern (`CheckIfReady.cs:1270`).
 - **Never edit `PassiveDescription`/`Description` texts in `characters.json`** — they are deliberately vague, written for players to interpret; that vagueness is game design. The precise mechanics belong in `docs/CHARACTERS.md` (which you DO keep exact). If a change genuinely needs new player-facing wording, ask — the designer writes it (or hands you exact text to paste verbatim).
 - Passive dispatch is stringly-typed (`case "PassiveName"`, `Name == "…"`). Renames silently orphan logic — run the audit script.
+- **Never translate Russian англицизмы into native-Russian equivalents.** Preserve them verbatim in code, documentation, UI text, names, and identifiers.
 - **Never edit a passive's logic without first reading ALL its `case` blocks across every hook plus its state class** — grep the exact passive name (and the character `Name`) first. Reading more context is always preferred over a blind edit; the docs tell you *where* to read, not what to skip.
 
 ## Conventions

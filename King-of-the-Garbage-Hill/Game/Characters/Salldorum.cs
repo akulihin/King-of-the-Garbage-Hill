@@ -13,6 +13,8 @@ public class Salldorum
     {
         public int Charges { get; set; } = 0;
         public int RandomTargetMagnetRound { get; set; } = -1;
+        public int HeldPosition { get; set; } = -1;
+        public int HoldThroughRound { get; set; } = -1;
     }
 
     public class TimeCapsuleClass
@@ -122,8 +124,21 @@ public class Salldorum
 
             shen.Charges--;
             var originalOrder = game.PlayersList.ToList();
+            var originalPosition = player.Status.GetPlaceAtLeaderBoard();
+            var selectedPosition = target.Status.GetPlaceAtLeaderBoard();
+            if (selectedPosition >= originalPosition)
+            {
+                player.Status.AddInGamePersonalLogs(
+                    $"Шэн: Атака на {target.DiscordUsername}. Цель уже позади, заряд потрачен. Осталось: {shen.Charges}.\n");
+                continue;
+            }
+
+            var crossedPlayers = originalOrder.Where(candidate =>
+                    candidate.Status.GetPlaceAtLeaderBoard() > selectedPosition
+                    && candidate.Status.GetPlaceAtLeaderBoard() < originalPosition)
+                .ToList();
             var projectedOrder = originalOrder.Where(candidate => candidate.GetPlayerId() != player.GetPlayerId()).ToList();
-            projectedOrder.Insert(projectedOrder.IndexOf(target), player);
+            projectedOrder.Insert(selectedPosition - 1, player);
             var movesLockedPosition = originalOrder.Any(candidate =>
                 candidate.Passives.GoblinZiggurat.IsInZiggurat
                 && originalOrder.IndexOf(candidate) != projectedOrder.IndexOf(candidate));
@@ -135,27 +150,72 @@ public class Salldorum
                 continue;
             }
 
-            game.PlayersList.Clear();
-            game.PlayersList.AddRange(projectedOrder);
-            for (var index = 0; index < game.PlayersList.Count; index++)
-                game.PlayersList[index].Status.SetPlaceAtLeaderBoard(index + 1);
+            ApplyOrder(game, projectedOrder);
 
             game.Phrases.SalldorumShen.SendLog(player, false);
             shen.RandomTargetMagnetRound = game.RoundNo;
-            player.Status.AddInGamePersonalLogs(
-                $"Шэн: Перепрыгнул {target.DiscordUsername}. Зарядов осталось: {shen.Charges}.\n");
+            shen.HeldPosition = selectedPosition;
+            shen.HoldThroughRound = game.RoundNo + 1;
 
-            foreach (var victim in game.PlayersList.Where(candidate =>
-                         candidate.GetPlayerId() != player.GetPlayerId()
-                         && !candidate.Passives.IsDead
-                         && candidate.Status.GetPlaceAtLeaderBoard() > player.Status.GetPlaceAtLeaderBoard()
-                         && !(game.RoundNo == 10 && candidate.GameCharacter.Passive.Any(
-                             passive => passive.PassiveName == "Стримснайпят и банят и банят и банят"))))
+            var redirectedActions = 0;
+            foreach (var victim in crossedPlayers.Where(candidate =>
+                         !candidate.Passives.IsDead
+                         && !(game.RoundNo == 10 && candidate.GameCharacter.Passive.Any(passive =>
+                             passive.PassiveName == "Стримснайпят и банят и банят и банят"))))
             {
-                if (!victim.Status.WhoToAttackThisTurn.Contains(player.GetPlayerId()))
-                    victim.Status.WhoToAttackThisTurn.Add(player.GetPlayerId());
+                var mainAttackIndex = victim.Status.WhoToAttackThisTurn.FindIndex(
+                    targetId => targetId != victim.GetPlayerId());
+                if (mainAttackIndex < 0)
+                    continue;
+
+                victim.Status.WhoToAttackThisTurn[mainAttackIndex] = player.GetPlayerId();
+                redirectedActions++;
             }
+
+            player.Status.AddInGamePersonalLogs(
+                $"Шэн: Переместился на место {selectedPosition} через {target.DiscordUsername}. " +
+                $"Зарядов осталось: {shen.Charges}. Перенаправлено действий: {redirectedActions}.\n");
         }
+    }
+
+    public static void ApplyShenPositionHolds(GameClass game)
+    {
+        foreach (var player in game.PlayersList.Where(holder =>
+                     holder.GameCharacter.Passive.Any(passive => passive.PassiveName == "Шэн")).ToList())
+        {
+            var shen = player.Passives.SalldorumShen;
+            if (player.Passives.IsDead || shen.HoldThroughRound < game.RoundNo)
+            {
+                shen.HeldPosition = -1;
+                shen.HoldThroughRound = -1;
+                continue;
+            }
+
+            if (shen.HeldPosition < 1
+                || shen.HeldPosition > game.PlayersList.Count
+                || player.Status.GetPlaceAtLeaderBoard() == shen.HeldPosition)
+                continue;
+
+            var originalOrder = game.PlayersList.ToList();
+            var projectedOrder = originalOrder
+                .Where(candidate => candidate.GetPlayerId() != player.GetPlayerId())
+                .ToList();
+            projectedOrder.Insert(shen.HeldPosition - 1, player);
+
+            var movesLockedPosition = originalOrder.Any(candidate =>
+                candidate.Passives.GoblinZiggurat.IsInZiggurat
+                && originalOrder.IndexOf(candidate) != projectedOrder.IndexOf(candidate));
+            if (!movesLockedPosition)
+                ApplyOrder(game, projectedOrder);
+        }
+    }
+
+    private static void ApplyOrder(GameClass game, IEnumerable<GamePlayerBridgeClass> order)
+    {
+        game.PlayersList.Clear();
+        game.PlayersList.AddRange(order);
+        for (var index = 0; index < game.PlayersList.Count; index++)
+            game.PlayersList[index].Status.SetPlaceAtLeaderBoard(index + 1);
     }
 
     public static GamePlayerBridgeClass FindRandomTargetMagnet(

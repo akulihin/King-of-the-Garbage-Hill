@@ -605,6 +605,7 @@ public class PassiveAbilityStatesDto
     public GeraltStateDto Geralt { get; set; }
     public DoomGuyStateDto DoomGuy { get; set; }
     public ErenStateDto Eren { get; set; }
+    public NarutoStateDto Naruto { get; set; }
 }
 
 public class BulkStateDto
@@ -772,6 +773,14 @@ public class ErenHatredMarkDto
     public int Marks { get; set; }
 }
 
+// ── Наруто DTOs ──────────────────────────────────────────────────────
+
+public class NarutoStateDto
+{
+    public bool HaremActive { get; set; }
+    public int HaremCooldown { get; set; }
+}
+
 // ── Rick Sanchez Passive DTOs ────────────────────────────────────────
 
 public class PickleRickStateDto
@@ -937,6 +946,8 @@ public class SalldorumStateDto
     public bool ColaBuried { get; set; }
     public int ColaBuriedPosition { get; set; }
     public int ColaBuriedRound { get; set; }
+    public bool ColaReady { get; set; }
+    public int ColaReadyRound { get; set; }
     public int ColaDrinks { get; set; }
     public bool HistoryRewritten { get; set; }
     public int RewrittenRound { get; set; }

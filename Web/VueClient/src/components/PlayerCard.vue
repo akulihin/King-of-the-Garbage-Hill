@@ -172,6 +172,7 @@ const widgetHelpCopy = {
   pickleRick: ['Shows the turns left as Pickle Rick and the length of the penalty that follows.', 'Показывает, сколько ходов осталось в форме Огурчика и сколько длится последующий штраф.'],
   giantBeans: ['Stacks empower the Beans. COOKING means ingredients are already assigned to the shown number of targets.', 'Заряды усиливают Бобы. ГОТОВЯТСЯ означает, что ингредиенты уже разложены на указанных целях.'],
   eren: ['Rumbling only checks losses in round 10. The left counter shows Attack Titan readiness; fire marks show accumulated hatred.', 'RUMBLING проверяет только поражения в 10-м раунде. Счётчик слева показывает готовность Атакующего Титана, а метки 🔥 — накопленную ненависть.'],
+  naruto: ['A ready Harem replaces Block. After use it recharges for two turns; Block remains ordinary while cooling down.', 'Готовый Гарем заменяет Блок. После использования он перезаряжается два хода; во время отката Блок остаётся обычным.'],
   bulk: ['The current chance for Boole to lose his turn. BUFFED means his zero-Psyche stat boost is active.', 'Текущий шанс Буля пропустить ход. BUFFED означает усиление характеристик при нулевой Психике.'],
   tea: ['When tea is ready, the next attack spends it for one point and makes the target skip their next turn.', 'Когда чай готов, следующая атака потратит его: даст очко и заставит цель пропустить следующий ход.'],
   jew: ['Tracks the Psyche accumulated by the PROFIT mechanic.', 'Счётчик показывает, сколько Психики уже накоплено механикой PROFIT.'],
@@ -203,7 +204,7 @@ const widgetHelpCopy = {
   toxicMate: ['Shows the infection carrier and transfer count. Returning to Toxic Mate converts the chain into a bonus.', 'Показывает носителя инфекции и число передач. Возврат к Toxic Mate превращает цепочку в бонус.'],
   yongGleb: ['Young Gleb’s tea readiness; the number is the remaining cooldown.', 'Готовность чая Молодого Глеба; число показывает оставшийся откат.'],
   theBoys: ['Each card is one team member with their level, active job, and progress. Bright badges are unlocked ultimates.', 'Каждая карточка — отдельный член команды: уровень, активная задача и прогресс. Яркие жетоны внизу — открытые ультимейты.'],
-  salldorum: ['Shen charges are spent automatically by the next attack. Cola shows its cache or how many times it was drunk. Rewrite shows history availability.', 'Заряд Шэна автоматически тратится следующей атакой. Cola показывает место тайника или число выпитых бутылок, Rewrite — доступность переписывания истории.'],
+  salldorum: ['Shen charges are spent automatically by the next attack. Cola shows its cache and pickup readiness. Rewrite shows history availability.', 'Заряд Шэна автоматически тратится следующей атакой. Cola показывает место тайника и готовность к подбору, Rewrite — доступность переписывания истории.'],
   geralt: ['Each row shows contracts and oil tier. Fighting that monster type spends every matching contract on extra bouts.', 'Каждая строка показывает число заказов типа и уровень масла. Бой с целью тратит все её заказы на дополнительные схватки.'],
 } as const
 
@@ -1162,6 +1163,20 @@ function doomModuleStatus(module: string): { text: string; state: 'live' | 'done
       </div>
     </div>
 
+    <!-- Наруто -->
+    <div v-if="passiveStates?.naruto" class="pc-passive-widget naruto-widget" :data-widget-help="widgetHelp('naruto')" :aria-description="widgetHelp('naruto')" tabindex="0">
+      <div class="pw-header">
+        <span class="pw-title naruto-title">{{ t('HAREM NO JUTSU', 'ГАРЕМ НО ДЖУТСУ') }}</span>
+        <span class="pw-status" :class="passiveStates.naruto.haremCooldown === 0 ? 'naruto-ready' : 'naruto-cooldown'">
+          {{ passiveStates.naruto.haremActive
+            ? t('ACTIVE', 'АКТИВЕН')
+            : passiveStates.naruto.haremCooldown === 0
+              ? t('READY', 'ГОТОВ')
+              : `${t('COOLDOWN', 'ОТКАТ')}: ${passiveStates.naruto.haremCooldown}` }}
+        </span>
+      </div>
+    </div>
+
     <!-- 1. Буль (Drowning) -->
     <div v-if="passiveStates?.bulk" class="pc-passive-widget bulk-widget" :data-widget-help="widgetHelp('bulk')" :aria-description="widgetHelp('bulk')" tabindex="0">
       <div class="pw-header">
@@ -1720,8 +1735,12 @@ function doomModuleStatus(module: string): { text: string; state: 'live' | 'done
         <!-- Cola -->
         <div class="salldorum-row">
           <span class="salldorum-label">Cola</span>
-          <span v-if="passiveStates.salldorum.colaBuried" class="salldorum-val">{{ t('place', 'место') }} {{ passiveStates.salldorum.colaBuriedPosition }} · {{ t('round', 'раунд') }} {{ passiveStates.salldorum.colaBuriedRound }}</span>
-          <span v-else-if="passiveStates.salldorum.colaDrinks > 0" class="salldorum-used">{{ t('DRUNK', 'ВЫПИТО') }} ×{{ passiveStates.salldorum.colaDrinks }}</span>
+          <span v-if="passiveStates.salldorum.colaBuried" class="salldorum-val">
+            {{ t('place', 'место') }} {{ passiveStates.salldorum.colaBuriedPosition }} ·
+            <span v-if="passiveStates.salldorum.colaReady" class="salldorum-available">{{ t('READY TO PICK UP', 'ГОТОВА К ПОДБОРУ') }}</span>
+            <span v-else>{{ t('ready in round', 'готова в раунде') }} {{ passiveStates.salldorum.colaReadyRound }}</span>
+          </span>
+          <span v-else-if="passiveStates.salldorum.colaDrinks > 0" class="salldorum-used">{{ t('Spent', 'Потрачено') }}</span>
           <span v-else class="salldorum-used">{{ t('NOT BURIED', 'НЕ ЗАКОПАНА') }}</span>
         </div>
         <!-- Chronicler -->
@@ -4306,6 +4325,11 @@ function doomModuleStatus(module: string): { text: string; state: 'live' | 'done
 .eren-titan-ready { color: #ffb36b; }
 .eren-marks { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 7px; }
 .eren-mark { padding: 2px 6px; border: 1px solid rgba(255, 91, 55, .35); border-radius: 4px; background: rgba(160, 38, 18, .2); color: #ffad8e; font-size: .68em; }
+
+.naruto-widget { border-color: rgba(245, 130, 52, .55) !important; background: linear-gradient(135deg, rgba(62, 30, 12, .35), rgba(17, 14, 13, .96)) !important; }
+.naruto-title { color: #ff9b4a; letter-spacing: .08em; }
+.naruto-ready { color: #ffc36b; text-shadow: 0 0 6px rgba(255, 155, 74, .45); }
+.naruto-cooldown { color: rgba(255, 195, 107, .58); }
 
 .doom-widget {
   position: relative;

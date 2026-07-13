@@ -168,6 +168,7 @@ export type PassiveAbilityStates = {
   geralt?: GeraltState
   doomGuy?: DoomGuyState
   eren?: ErenState
+  naruto?: NarutoState
 }
 
 export type BulkState = { drownChance: number; isBuffed: boolean }
@@ -240,6 +241,11 @@ export type ErenHatredMark = {
   marks: number
 }
 
+export type NarutoState = {
+  haremActive: boolean
+  haremCooldown: number
+}
+
 export type PickleRickState = {
   pickleTurnsRemaining: number
   wasAttackedAsPickle: boolean
@@ -293,6 +299,8 @@ export type SalldorumState = {
   colaBuried: boolean
   colaBuriedPosition: number
   colaBuriedRound: number
+  colaReady: boolean
+  colaReadyRound: number
   colaDrinks: number
   historyRewritten: boolean
   rewrittenRound: number

@@ -381,6 +381,18 @@ public static class GameStateMapper
             {
                 switch (passive.PassiveName)
                 {
+                    case Naruto.HaremJutsu:
+                        if (player.GameCharacter.Name == Naruto.CharacterName)
+                        {
+                            pas.Naruto = new NarutoStateDto
+                            {
+                                HaremActive = player.Passives.Naruto.HaremActiveThisRound,
+                                HaremCooldown = player.Passives.Naruto.HaremCooldown,
+                            };
+                            anySet = true;
+                        }
+                        break;
+
                     case ErenYeager.Sheep:
                         if (player.GameCharacter.Name == ErenYeager.CharacterName)
                         {
@@ -792,6 +804,9 @@ public static class GameStateMapper
                             ColaBuried = capsule.Buried,
                             ColaBuriedPosition = capsule.BuriedAtPosition,
                             ColaBuriedRound = capsule.BuriedOnRound,
+                            ColaReady = capsule.Buried
+                                        && game.RoundNo - capsule.BuriedOnRound >= Salldorum.TimeCapsuleMinimumAge,
+                            ColaReadyRound = capsule.BuriedOnRound + Salldorum.TimeCapsuleMinimumAge,
                             ColaDrinks = capsule.DrinkCount,
                             HistoryRewritten = chronicler.HistoryRewritten,
                             RewrittenRound = chronicler.RewrittenRound,

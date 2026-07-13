@@ -13,6 +13,7 @@ public static class Naruto
     public const string ShadowClones = "Теневые";
     public const string Rasengan = "Расенган";
     public const string Summon = "Призыв";
+    public const int HaremCooldownTurns = 2;
 
     public sealed class State
     {
@@ -20,6 +21,7 @@ public static class Naruto
         public Guid OriginalPlayerId { get; set; }
         public List<Guid> NarutoPlayerIds { get; set; } = new();
         public bool HaremActiveThisRound { get; set; }
+        public int HaremCooldown { get; set; }
         public int HaremSkippedFights { get; set; }
         public int JusticeSnapshot { get; set; }
         public Guid SummonAutoWinTarget { get; set; }
@@ -174,6 +176,7 @@ public static class Naruto
             IsNaruto(player)
             && !player.Passives.IsDead
             && player.Status.IsBlock
+            && player.Passives.Naruto.HaremCooldown == 0
             && player.GameCharacter.Passive.Any(passive => passive.PassiveName == HaremJutsu)).ToList();
         if (harems.Count == 0) return;
 
@@ -210,15 +213,9 @@ public static class Naruto
         {
             var attacker = game.PlayersList.Find(player => player.GetPlayerId() == attackerId);
             if (attacker == null) continue;
-            var skipped = queues[attackerId].Count;
             attacker.Status.WhoToAttackThisTurn.Clear();
             attacker.Status.IsBlock = false;
             attacker.Status.IsSkip = true;
-            attacker.Status.AddInGamePersonalLogs(PhrasePayload.Encode(
-                HaremJutsu,
-                $"Фансервис Наруто заставил вас пропустить все бои: {skipped}.",
-                "Harem no Jutsu",
-                $"Naruto's fanservice made you skip every fight: {skipped}.") + "\n");
         }
     }
 
@@ -245,11 +242,6 @@ public static class Naruto
         attacker.Status.WhoToAttackThisTurn.Clear();
         attacker.Status.IsBlock = false;
         attacker.Status.IsSkip = true;
-        attacker.Status.AddInGamePersonalLogs(PhrasePayload.Encode(
-            HaremJutsu,
-            $"Фансервис Наруто заставил вас пропустить все бои: {validTargets.Count}.",
-            "Harem no Jutsu",
-            $"Naruto's fanservice made you skip every fight: {validTargets.Count}.") + "\n");
         return true;
     }
 

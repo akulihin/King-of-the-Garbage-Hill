@@ -1921,6 +1921,10 @@ public class DoomsdayMachine : IServiceSingleton
         }
         //end //Quality Drop
 
+        // A successful Shen dash keeps its selected cell through the next full action round.
+        // Apply after ordinary movers so position-based next-round passives see the held cell.
+        Salldorum.ApplyShenPositionHolds(game);
+
         // Round-10 "Ziggurat at place 1 ⇒ win" is enforced authoritatively in HandleLastRound (finding M1) —
         // it can't fire here because the round-10 ziggurat isn't built until HandleNextRoundAfterSorting below.
 

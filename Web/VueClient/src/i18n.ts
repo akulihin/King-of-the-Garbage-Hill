@@ -171,7 +171,7 @@ const phraseRules: Array<[RegExp, string]> = [
   [/Получено вреда:\s*(\d+)/gi, 'Harm taken: $1'],
   [/Команда\s+#(\d+)\s+победила набрав\s+(-?\d+)\s+(?:Очков|points)/gi, 'Team #$1 won with $2 points'],
   [/Команда\s+#(\d+)\s+Набрала\s+(-?\d+)\s+(?:Очков|points)/gi, 'Team #$1 scored $2 points'],
-  [/Шэн:\s*Перепрыгнул\s+(.+?)\.\s*Зарядов осталось:\s*(\d+)/gi, 'Shen: jumped over $1. Charges left: $2'],
+  [/Шэн:\s*Переместился на место\s+(\d+)\s+через\s+(.+?)\.\s*Зарядов осталось:\s*(\d+)\.\s*Перенаправлено действий:\s*(\d+)/gi, 'Shen: moved to place $1 through $2. Charges left: $3. Actions redirected: $4'],
   [/Шэн:\s*Атака на\s+(.+?)\.\s*Цель уже позади, заряд потрачен\.\s*Осталось:\s*(\d+)/gi, 'Shen: attacked $1. The target was already behind you; charge spent. Left: $2'],
   [/Шэн:\s*Зиккурат перекрыл прыжок через\s+(.+?)\.\s*Заряд потрачен/gi, 'Shen: a Ziggurat blocked the jump over $1. Charge spent'],
   [/Временная капсула:\s*Кола найдена в переписанной истории!/gi, 'Time Capsule: cola recovered from rewritten history!'],

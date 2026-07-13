@@ -3751,7 +3751,18 @@ public class CharacterPassives : IServiceSingleton
             {
                 case Naruto.HaremJutsu:
                     if (player.GameCharacter.Name == Naruto.CharacterName)
-                        player.Passives.Naruto.HaremActiveThisRound = false;
+                    {
+                        var naruto = player.Passives.Naruto;
+                        if (naruto.HaremActiveThisRound)
+                        {
+                            naruto.HaremActiveThisRound = false;
+                            naruto.HaremCooldown = Naruto.HaremCooldownTurns;
+                        }
+                        else if (naruto.HaremCooldown > 0)
+                        {
+                            naruto.HaremCooldown--;
+                        }
+                    }
                     break;
 
                 case ErenYeager.Fighter:
