@@ -874,7 +874,10 @@ public sealed class GameReaction : IServiceSingleton
         {
             var stage = DoomGuy.StageForRound(game?.RoundNo ?? 0);
             var options = DoomGuy.GetOptions(player.Passives.DoomGuy, stage);
-            if (player.IsBot() && options.Count > 0 && (skillNumber < 1 || skillNumber > options.Count))
+            // Auto-move humans get stat picks (1-4) from the bot path — reroll them into the
+            // module range like bot picks, or the point is never spent (M50 freeze loop).
+            if ((player.IsBot() || player.Status.IsAutoMove) && options.Count > 0 &&
+                (skillNumber < 1 || skillNumber > options.Count))
                 skillNumber = _random.Random(1, options.Count);
             if (skillNumber < 1 || skillNumber > options.Count) return;
             if (DoomGuy.ApplySelectedModule(player, game, options[skillNumber - 1].Name, false))

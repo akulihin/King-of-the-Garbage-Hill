@@ -622,6 +622,27 @@ Historical fixed-lineup winrates, 30 games each, from the **pre-M45 omniscient A
 - Bottom across lineups: mylorik 0%, Рик Санчез 0%, Sirinoks 0–3.3%, Котики 0–17.6%, Кира 0–3.3%, Кратос 0–6.7% (see M38).
 - Sakura converted top-3-alive in 11/61 games (18%) but died in 34/61 — kill-heavy metas hit her hardest (invisible in reports until m37 is fixed).
 
+## Production runtime errors (2026-07-13)
+
+> **Scope:** triage of three production stack traces (Discord 50035 `BASE_TYPE_REQUIRED`, `Convert.ToInt32("Обмен")` in `SortLogs`, embed > 6000 in `EmbedBuilder.Build`) reported from the live server (`runtime_errors`, Game #3 rounds 7/11).
+
+### M48. Newline-less personal-log writes glue entries into one line and crash the «Обмен Морали» log aggregator
+- **Actual:** six `AddInGamePersonalLogs` writes did not end with `\n` — the four end-game loser phrases and Salldorum's «Великий летописец» summary (`CheckIfReady.cs:130-148`) and Глеб's «Я щас приду: +9 *Морали*. …Празднуем!» (`CP:930`). The next log entry (typically the moral exchange, written by every player who presses the exchange button and by the round-10 forced conversion at `CheckIfReady.cs:1534-1537`) is appended to the same line. `SortLogs`' «Обмен Морали» aggregation then does `Split(":")[1].Split(".")` and `Convert.ToInt32` on each `Морали`/`Cкилла` segment (`GameUpdateMess.cs:941-979`, the `Обмен Морали` case in `SortLogs`); a glued line with a colon and a period before the exchange text yields a non-numeric segment — e.g. `…с врагом.` + `Обмен Морали: …` produces exactly `Convert.ToInt32("Обмен")` — and the whole `FightPage`/`UpdateMessage` render throws (production: Game #3, rounds 7 and 11).
+- **Failure scenario:** a Глеб friend gets the «Я щас приду» bonus and exchanges moral the same round → that player's Discord game message stops updating for the round (every render throws until the logs rotate out).
+- **Fix direction:** newline-terminate every personal-log write; make the aggregation parse tolerant (`int.TryParse`, mirroring the «Класс» guard).
+- **Fixed:** 2026-07-13 — all six writers now end with `\n`; the «Обмен Морали» case skips non-numeric segments via `int.TryParse`. Fuzz-model of `AddInGamePersonalLogs`+`SortLogs` confirmed the glue produced the crash family and that no crash inputs survive the guard.
+
+### M49. Game embeds/components can violate Discord's server-side payload rules (50035, embed > 6000)
+- **Actual:** three gaps between Discord.Net's local validation and the server's rules, all funneled through `ModifyGameMessage`:
+  1. `FightPage` chunks long logs into 1020-char fields with no cap on the count; description + leaderboard + chunk fields can exceed the 6000-char total, so `EmbedBuilder.Build()` throws inside `ModifyAsync` (production error #3).
+  2. A 1020-char chunk that lands on whitespace-only text throws `ArgumentException` locally at `AddField` (latent sibling of the same overflow).
+  3. A select menu with **zero options** passes `Build()` locally but the server rejects the payload with `50035 BASE_TYPE_REQUIRED` (production error #1). The only producible empty select was `GetLvlUpMenu`'s DooM Guy branch: `DoomGuy.StageForRound` returns `""` outside rounds 3/5/7/9, `GetOptions(state, "")` returns an empty list, and the menu had no fallback (every other select has a `kratos-death`-style guard) — reachable whenever a module point survives past its stage round (see M50).
+- **Fixed:** 2026-07-13 — `ModifyGameMessage` now sanitizes the localized payload before sending: whitespace-only field values → `\u200b`, embed trimmed to ≤ 6000 by truncating the longest fields (description last), empty select menus and empty action rows stripped (`HelperFunctions.cs` `SanitizeEmbedForDiscord`/`RemoveEmptySelectMenus`); `FightPage` skips whitespace-only chunks; the DooM Guy level-up menu shows a disabled «Нет доступных модулей» placeholder when no modules are available. Verified against real Discord.Net 3.20.1 via reflection harness (8182→6000 trim, empty-select strip, valid payloads untouched).
+
+### M50. A DooM Guy level-up point can become unspendable and spin the auto-move level-up loop forever
+- **Actual:** `GetLvlUp`'s DooM Guy branch re-rolled an out-of-range pick into the module range **only for bots** (`GameReactions.cs:875-882`); auto-move humans arrive through the same bot path (`HandleLvlUpBot`) with stat picks 1–4. With 2 starter modules, a deterministic pick of 3/4 returned without decrementing `LvlUpPoints`, and both `HandleLvlUpBot` loops (`BotsBehavior.cs:4576`, `:4593`) recompute the same pick — an infinite loop freezing the game tick. Off-stage rounds (stage `""`, zero options) made **every** pick unspendable, which is also what stranded the point behind M49's empty menu.
+- **Fixed:** 2026-07-13 — auto-move humans get the same in-range re-roll as bots; both bot level-up loops break when a `HandleLvlUp` call makes no progress (the point stays banked for the next module round instead of spinning). Covers Геральт's maxed-oil `return` paths too.
+
 ## Unfinished work backlog (2026-07-12)
 
 ### Still-open findings
@@ -647,7 +668,7 @@ Full team-mode ruleset (2х2х2/3х3 team-score win, forced ally predictions —
 
 ## Summary count
 
-**1 Critical** (C1) · **47 Major** (M1–M47) · **48 Minor** (m1–m48) · **14 Design questions** (D1–D14). Phase-6 designer review was fully implemented 2026-07-13: M37–M40 and m37–m44 fixed, D12 confirmed intended, D13–D14 fixed; m47 was discovered and fixed in the same score-floor change. M44 was discovered during the Близнец block audit; M45 was discovered and fixed during the bot-knowledge review; M46–M47 were discovered and fixed in their follow-up audits. m48 was reproduced from replay `2fb5f271` and fixed by restoring Darksci's same-transition public log. Still open: **m12, m19, m24, m26**.
+**1 Critical** (C1) · **50 Major** (M1–M50) · **48 Minor** (m1–m48) · **14 Design questions** (D1–D14). Phase-6 designer review was fully implemented 2026-07-13: M37–M40 and m37–m44 fixed, D12 confirmed intended, D13–D14 fixed; m47 was discovered and fixed in the same score-floor change. M44 was discovered during the Близнец block audit; M45 was discovered and fixed during the bot-knowledge review; M46–M47 were discovered and fixed in their follow-up audits. m48 was reproduced from replay `2fb5f271` and fixed by restoring Darksci's same-transition public log. M48–M50 were triaged from production runtime errors and fixed 2026-07-13. Still open: **m12, m19, m24, m26**.
 
 ## Verification addendum (second pass, 2026-07-01)
 

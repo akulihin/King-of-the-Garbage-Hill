@@ -233,10 +233,16 @@ public sealed class HelperFunctions : IServiceSingleton
             }
             _embedQueue.Add(player.GetPlayerId());
 
+            var localizedEmbed = GameLocalization.EmbedForUser(player.DiscordId, embed);
+            SanitizeEmbedForDiscord(localizedEmbed);
+            var builtEmbed = localizedEmbed.Build();
+            var localizedComponents = GameLocalization.ComponentsForUser(player.DiscordId, components);
+            RemoveEmptySelectMenus(localizedComponents);
+            var builtComponents = localizedComponents.Build();
             await player.DiscordStatus.SocketGameMessage.ModifyAsync(message =>
             {
-                message.Embed = GameLocalization.EmbedForUser(player.DiscordId, embed).Build();
-                message.Components = GameLocalization.ComponentsForUser(player.DiscordId, components).Build();
+                message.Embed = builtEmbed;
+                message.Components = builtComponents;
             });
 
             if (extraText.Length > 0)
@@ -258,6 +264,49 @@ public sealed class HelperFunctions : IServiceSingleton
         }
     }
 
+
+    //An empty select menu (or an empty action row) passes Build() locally but Discord rejects
+    //the whole payload with 50035 BASE_TYPE_REQUIRED (M49). Rows hold SelectMenuBuilder when
+    //assembled via WithSelectMenu and SelectMenuComponent when rebuilt FromComponents.
+    private static void RemoveEmptySelectMenus(ComponentBuilder builder)
+    {
+        if (builder.ActionRows == null) return;
+        foreach (var row in builder.ActionRows)
+            row.Components.RemoveAll(c =>
+                (c is SelectMenuBuilder menuBuilder && menuBuilder.Options.Count == 0) ||
+                (c is SelectMenuComponent menu && menu.Options.Count == 0));
+        builder.ActionRows.RemoveAll(row => row.Components.Count == 0);
+    }
+
+    //Discord hard limits (M49): field values must be non-blank and the whole embed ≤ 6000 chars,
+    //both checked server-side after trimming — Build() alone does not guarantee acceptance.
+    private static void SanitizeEmbedForDiscord(EmbedBuilder embed)
+    {
+        foreach (var field in embed.Fields)
+            if (field.Value is not string value || string.IsNullOrWhiteSpace(value))
+                field.Value = "\u200b";
+
+        while (embed.Length > EmbedBuilder.MaxEmbedLength && embed.Fields.Count > 0)
+        {
+            var overflow = embed.Length - EmbedBuilder.MaxEmbedLength;
+            var longest = embed.Fields.OrderByDescending(x => (x.Value as string)?.Length ?? 0).First();
+            var text = longest.Value as string ?? "";
+            if (text.Length <= overflow + 1)
+            {
+                embed.Fields.Remove(longest);
+                continue;
+            }
+            longest.Value = text[..(text.Length - overflow - 1)] + "…";
+        }
+
+        if (embed.Length > EmbedBuilder.MaxEmbedLength && embed.Description != null)
+        {
+            var overflow = embed.Length - EmbedBuilder.MaxEmbedLength;
+            embed.Description = embed.Description.Length > overflow + 1
+                ? embed.Description[..(embed.Description.Length - overflow - 1)] + "…"
+                : "\u200b";
+        }
+    }
 
     public async Task SendMsgAndDeleteItAfterRound(GamePlayerBridgeClass player, string msg, int delayMs)
     {

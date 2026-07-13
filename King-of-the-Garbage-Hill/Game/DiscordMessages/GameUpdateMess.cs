@@ -956,11 +956,14 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                                 line.Replace("*", "").Replace("+", "").Split(":")[1].Split(".").ToList();
                             foreach (var moral in moralChangeSplit)
                             {
-                                if (moral.Contains("Морали"))
-                                    totalMoral += Convert.ToInt32(moral.Replace("Морали", "").Replace(" ", ""));
+                                // TryParse: glued log lines (M48) can put non-numeric text into these segments
+                                if (moral.Contains("Морали") &&
+                                    int.TryParse(moral.Replace("Морали", "").Replace(" ", ""), out var moralDelta))
+                                    totalMoral += moralDelta;
 
-                                if (moral.Contains("Cкилла"))
-                                    totalSkill += Convert.ToInt32(moral.Replace("Cкилла", "").Replace(" ", ""));
+                                if (moral.Contains("Cкилла") &&
+                                    int.TryParse(moral.Replace("Cкилла", "").Replace(" ", ""), out var skillDelta))
+                                    totalSkill += skillDelta;
                             }
                         }
 
@@ -1222,7 +1225,9 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
             }
             else
             {
-                var textSplit = _helperFunctions.Split(text, 1020).ToList();
+                // whitespace-only chunks are rejected by Discord (50035 BASE_TYPE_REQUIRED, M49)
+                var textSplit = _helperFunctions.Split(text, 1020)
+                    .Where(x => !string.IsNullOrWhiteSpace(x)).ToList();
                 for (var i = 0; i < textSplit.Count; i++)
                 {
                     var t = textSplit[i];
@@ -1247,7 +1252,9 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         }
         else
         {
-            var textSplit = _helperFunctions.Split(text, 1020).ToList();
+            // whitespace-only chunks are rejected by Discord (50035 BASE_TYPE_REQUIRED, M49)
+            var textSplit = _helperFunctions.Split(text, 1020)
+                .Where(x => !string.IsNullOrWhiteSpace(x)).ToList();
             for (var i = 0; i < textSplit.Count; i++)
             {
                 var t = textSplit[i];
@@ -1545,6 +1552,13 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
             for (var i = 0; i < modules.Count; i++)
                 doomMenu.AddOption(modules[i].Name, (i + 1).ToString(),
                     modules[i].Description.Length > 90 ? modules[i].Description[..90] : modules[i].Description);
+            if (modules.Count == 0)
+            {
+                // A select menu without options is rejected by Discord (50035 BASE_TYPE_REQUIRED, M49).
+                // A module point held outside its stage round stays banked until the next module round.
+                doomMenu.AddOption("Нет доступных модулей", "0");
+                doomMenu.WithDisabled(true);
+            }
             return doomMenu;
         }
 

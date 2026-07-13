@@ -1,4 +1,3 @@
-DRIFT?: `"Salldorum"` in docs/AUDIT-FINDINGS.md [### C1. Cyrillic "Салдорум" vs JSON name "Salldorum" — four dead branches] not found near its cited lines
 DRIFT?: `"Вампур"` in docs/AUDIT-FINDINGS.md [### m1. "Вампур_" typo kills a flavor Easter egg] not found near its cited lines
 DRIFT?: `"Сайтама"` in docs/AUDIT-FINDINGS.md [### m22. Latin "Saitama" vs JSON "Сайтама" — dead "👑 King" flair] not found near its cited lines
 DRIFT?: `#life` in docs/AUDIT-FINDINGS.md [### m31. English replay viewers still saw Russian phrase bodies, system logs and class values] not found near its cited lines
@@ -44,7 +43,6 @@ DRIFT?: `AutoWin` in docs/INTERACTION-MATRIX.md [## 6. Ziggurat-copyable invento
 DRIFT?: `BlackjackMessage` in docs/WEB-BACKEND.md [## 5. Server→client events] not found near its cited lines
 DRIFT?: `BokoBoole` in docs/CHARACTERS.md [## Краборак — Tier 4, Int 2 / Str 3 / Speed 1 / Psyche 9 (file `CraboRack.cs`)] not found near its cited lines
 DRIFT?: `BonusPointsFromMoral` in docs/GAME-DESIGN.md [### Мораль (Moral)] not found near its cited lines
-DRIFT?: `BotsBehavior.HandleBotBehavior` in docs/ARCHITECTURE.md [## 6. Web layer (state → screen)] not found near its cited lines
 DRIFT?: `BotsBehavior.HandleBotKira` in docs/CHARACTERS.md [## Кира — Tier 1, Int 5+4 / Str 3 / Speed 6 / Psyche 4] not found near its cited lines
 DRIFT?: `BotsBehavior` in docs/ARCHITECTURE.md [## 3. Passive hook execution order] not found near its cited lines
 DRIFT?: `BuildFullChronicle` in docs/CHARACTERS.md [## unknown_bug — Tier −1 (regular users: ultra-secret natural roll; humans only), internal Int 1 / Str 3 / Speed 3 / Psyche 7] not found near its cited lines
@@ -54,7 +52,6 @@ DRIFT?: `CalculateRounds` in docs/AUDIT-FINDINGS.md [### m10. Francie Хим.о�
 DRIFT?: `CalculateStoreCost` in docs/BALANCE-CONSTANTS.md [## Character store economy] not found near its cited lines
 DRIFT?: `CalculateStoreRefund` in docs/BALANCE-CONSTANTS.md [## Character store economy] not found near its cited lines
 DRIFT?: `CanAct` in docs/WEB-BACKEND.md [## 8. `WebGameService` — the bridge into game logic] not found near its cited lines
-DRIFT?: `CanBreakKnownDefense` in docs/AUDIT-FINDINGS.md [### M38. A bot Кратос never fights his own resurrection event] not found near its cited lines
 DRIFT?: `CanNaturallyRollNaruto` in docs/CHARACTERS.md [## Наруто — Tier 5, Int 3 / Str 3 / Speed 4 / Psyche 5] not found near its cited lines
 DRIFT?: `CanNaturallyRollNaruto` in docs/DISCORD-INTERFACE.md [## 3. Game start & lobby lifecycle (`*st`)] not found near its cited lines
 DRIFT?: `CharacterClass.DeepCopy` in docs/ARCHITECTURE.md [## 6. Web layer (state → screen)] not found near its cited lines
@@ -66,24 +63,20 @@ DRIFT?: `CharacterPassives.HandleOctopus` in docs/CHARACTERS.md [## Осьмин
 DRIFT?: `CharacterStatistics` in docs/WEB-BACKEND.md [## 12. Discord profile widget (the one OAuth-verified flow)] not found near its cited lines
 DRIFT?: `CharactersPull.GetRollableCharacters` in docs/AUDIT-FINDINGS.md [### m6. Dead legacy code catalogue] not found near its cited lines
 DRIFT?: `CharactersPull.GetRollableCharacters` in docs/CHARACTERS.md [## Молодой Глеб — Tier −2 (transform-only), Int 8 / Str 8 / Speed 8 / Psyche 8] not found near its cited lines
-DRIFT?: `CheckIfReady.HandleLastRound` in docs/ARCHITECTURE.md [## 6. Web layer (state → screen)] not found near its cited lines
 DRIFT?: `CheckIfReady.HandleLastRound` in docs/CHARACTERS.md [## Sakura — Tier −1 (secret, rollable), Int 6 / Str 10 / Speed 6 / Psyche 10] not found near its cited lines
 DRIFT?: `CheckIfReady.HandleLastRound` in docs/CHARACTERS.md [## Осьминожка — Tier 4, Int 2 / Str 2 / Speed 8 / Psyche 10] not found near its cited lines
-DRIFT?: `CheckIfReady.TickAsync` in docs/ARCHITECTURE.md [## 6. Web layer (state → screen)] not found near its cited lines
 DRIFT?: `CheckIfReady.TickAsync` in docs/BALANCE-CONSTANTS.md [## Per-character numbers] not found near its cited lines
-DRIFT?: `CheckIfReady.TickAsync` in docs/CHARACTERS.md [## Кратос — Tier 1, Int 0 / Str 9 / Speed 8 / Psyche 0] not found near its cited lines
+DRIFT?: `CheckIfReady.TickAsync` in docs/CHARACTERS.md [## Кратос — Tier 1, Int 0 / Str 9 / Speed 8 / Psyche 0] not found near its cited lines
 DRIFT?: `CheckIfReady.TickAsync` in docs/CHARACTERS.md [## Эрен Йегер — Tier 6, Злость 0 / Str 4 / Speed 4 / Самоуверенность 10] not found near its cited lines
 DRIFT?: `CheckIfReady` in docs/ARCHITECTURE.md [## 3. Passive hook execution order] not found near its cited lines
-DRIFT?: `CheckIfReady` in docs/ARCHITECTURE.md [## 7. Per-character plumbing pattern (the "~14 files")] not found near its cited lines
 DRIFT?: `ClaudeHaikuService.GenerateWitcherHintPairAsync` in docs/DISCORD-INTERFACE.md [## 10. Claude integration (Geralt's Медитация)] not found near its cited lines
 DRIFT?: `ClearNewAchievements` in docs/WEB-BACKEND.md [## 4. SignalR hub `/gamehub` — client-callable methods] not found near its cited lines
 DRIFT?: `ClearPlayingStatus` in docs/WEB-BACKEND.md [## 2. Identity & auth — the trust model (Доверие)] not found near its cited lines
-DRIFT?: `ConfirmedPredict` in docs/AUDIT-FINDINGS.md [### M29. Шоковый щит's forced skip could be replaced by bot automation and still waited for confirmation] not found near its cited lines
 DRIFT?: `ConfirmedPredict` in docs/AUDIT-FINDINGS.md [### m42. Round-8 Клоны Сусано attacks are granted to dead predictors] not found near its cited lines
 DRIFT?: `ConfirmedPredict` in docs/WEB-BACKEND.md [## 8. `WebGameService` — the bridge into game logic] not found near its cited lines
-DRIFT?: `ConfirmedSkip` in docs/AUDIT-FINDINGS.md [### M29. Шоковый щит's forced skip could be replaced by bot automation and still waited for confirmation] not found near its cited lines
 DRIFT?: `ConfirmedSkip` in docs/WEB-BACKEND.md [## 8. `WebGameService` — the bridge into game logic] not found near its cited lines
 DRIFT?: `Context.Items["discordId"]` in docs/WEB-BACKEND.md [## 2. Identity & auth — the trust model (Доверие)] not found near its cited lines
+DRIFT?: `Convert.ToInt32` in docs/AUDIT-FINDINGS.md [### M48. Newline-less personal-log writes glue entries into one line and crash the «Обмен Морали» log aggregator] not found near its cited lines
 DRIFT?: `CopyChainsawPassive` in docs/BALANCE-CONSTANTS.md [## Per-character numbers] not found near its cited lines
 DRIFT?: `CopyChainsawPassive` in docs/CHARACTERS.md [## DooM Guy — Tier 4, Int 2 / Str 5 / Speed 5 / Psyche 5] not found near its cited lines
 DRIFT?: `CreateBotAccount` in docs/WEB-BACKEND.md [## 2. Identity & auth — the trust model (Доверие)] not found near its cited lines
@@ -100,7 +93,7 @@ DRIFT?: `DiscordWidgetService` in docs/DISCORD-INTERFACE.md [## 9. Accounts & me
 DRIFT?: `DoomsdayMachine.CalculateAllFights` in docs/BALANCE-CONSTANTS.md [## Per-character numbers] not found near its cited lines
 DRIFT?: `DoomsdayMachine.CalculateAllFights` in docs/CHARACTERS.md [## Эрен Йегер — Tier 6, Злость 0 / Str 4 / Speed 4 / Самоуверенность 10] not found near its cited lines
 DRIFT?: `DoomsdayMachine.EnforceKratosEventActions` in docs/BALANCE-CONSTANTS.md [## Per-character numbers] not found near its cited lines
-DRIFT?: `DoomsdayMachine.EnforceKratosEventActions` in docs/CHARACTERS.md [## Кратос — Tier 1, Int 0 / Str 9 / Speed 8 / Psyche 0] not found near its cited lines
+DRIFT?: `DoomsdayMachine.EnforceKratosEventActions` in docs/CHARACTERS.md [## Кратос — Tier 1, Int 0 / Str 9 / Speed 8 / Psyche 0] not found near its cited lines
 DRIFT?: `DoomsdayMachine` in docs/ARCHITECTURE.md [## 7. Per-character plumbing pattern (the "~14 files")] not found near its cited lines
 DRIFT?: `DoomsdayMachine` in docs/CHARACTERS.md [## Осьминожка — Tier 4, Int 2 / Str 2 / Speed 8 / Psyche 10] not found near its cited lines
 DRIFT?: `EndGame` in docs/DISCORD-INTERFACE.md [## 5. Buttons & selects catalog (main game message)] not found near its cited lines
@@ -112,9 +105,9 @@ DRIFT?: `EnsureFortress` in docs/GAME-DESIGN.md [## 11. Character acquisition (r
 DRIFT?: `Error` in docs/WEB-BACKEND.md [## 4. SignalR hub `/gamehub` — client-callable methods] not found near its cited lines
 DRIFT?: `Exploit` in docs/INTERACTION-MATRIX.md [## 6. Ziggurat-copyable inventory (`Standalone: true`)] not found near its cited lines
 DRIFT?: `FightAnimation.formatLetopis` in docs/LOCALIZATION.md [## 5. Vue boundary] not found near its cited lines
-DRIFT?: `FightCharacter` in docs/ARCHITECTURE.md [## 6. Web layer (state → screen)] not found near its cited lines
 DRIFT?: `FightCharacter` in docs/AUDIT-FINDINGS.md [### M40. A dead Штормяк holder keeps taunting, forcing the living to fight a corpse] not found near its cited lines
 DRIFT?: `FightEnemyWasTooGood/Stronk` in docs/AUDIT-FINDINGS.md [### m10. Francie Хим.оружие ignores enemy-difficulty scaling] not found near its cited lines
+DRIFT?: `FightPage` in docs/AUDIT-FINDINGS.md [### M48. Newline-less personal-log writes glue entries into one line and crash the «Обмен Морали» log aggregator] not found near its cited lines
 DRIFT?: `FindGameAndPlayer` in docs/WEB-BACKEND.md [## 8. `WebGameService` — the bridge into game logic] not found near its cited lines
 DRIFT?: `ForOneFightMod` in docs/ARCHITECTURE.md [### GameCharacter vs FightCharacter — the rule that breaks people] not found near its cited lines
 DRIFT?: `GameCharacter.*ForOneFight` in docs/AUDIT-FINDINGS.md [### Phase-6 checks that passed (selection)] not found near its cited lines
@@ -126,7 +119,6 @@ DRIFT?: `GameNotificationService` in docs/CHARACTERS.md [## unknown_bug — Tier
 DRIFT?: `GameNotificationService` in docs/WEB-BACKEND.md [## 6. Push model — who sends `GameState` when] not found near its cited lines
 DRIFT?: `GamePlayerBridgeClass` in docs/ARCHITECTURE.md [## 3. Passive hook execution order] not found near its cited lines
 DRIFT?: `GameReactions` in docs/ARCHITECTURE.md [## 3. Passive hook execution order] not found near its cited lines
-DRIFT?: `GameStateMapper.ApplyEternalTsukuyomiProjection` in docs/ARCHITECTURE.md [## 6. Web layer (state → screen)] not found near its cited lines
 DRIFT?: `GameStateMapper.MapCharacter` in docs/CHARACTERS.md [## unknown_bug — Tier −1 (regular users: ultra-secret natural roll; humans only), internal Int 1 / Str 3 / Speed 3 / Psyche 7] not found near its cited lines
 DRIFT?: `GameStateMapper.MapCharacter` in docs/WEB-BACKEND.md [## 7. State mapping & hidden information (`GameStateMapper`)] not found near its cited lines
 DRIFT?: `GameStateMapper.ToDto` in docs/WEB-BACKEND.md [## 7. State mapping & hidden information (`GameStateMapper`)] not found near its cited lines
@@ -142,8 +134,11 @@ DRIFT?: `GetAramPassives` in docs/DISCORD-INTERFACE.md [## 3. Game start & lobby
 DRIFT?: `GetAttackMenu` in docs/DISCORD-INTERFACE.md [## 5. Buttons & selects catalog (main game message)] not found near its cited lines
 DRIFT?: `GetCharacterList` in docs/CHARACTERS.md [## unknown_bug — Tier −1 (regular users: ultra-secret natural roll; humans only), internal Int 1 / Str 3 / Speed 3 / Psyche 7] not found near its cited lines
 DRIFT?: `GetGameButtons` in docs/DISCORD-INTERFACE.md [## 5. Buttons & selects catalog (main game message)] not found near its cited lines
+DRIFT?: `GetLvlUpMenu` in docs/CHARACTERS.md [## DooM Guy — Tier 4, Int 2 / Str 5 / Speed 5 / Psyche 5] not found near its cited lines
 DRIFT?: `GetLvlUpMenu` in docs/DISCORD-INTERFACE.md [## 5. Buttons & selects catalog (main game message)] not found near its cited lines
 DRIFT?: `GetLvlUp` in docs/AUDIT-FINDINGS.md [### D1. Darksci can dodge "Дизмораль" by hoarding the round-9 level-up] not found near its cited lines
+DRIFT?: `GetLvlUp` in docs/AUDIT-FINDINGS.md [### M50. A DooM Guy level-up point can become unspendable and spin the auto-move level-up loop forever] not found near its cited lines
+DRIFT?: `GetLvlUp` in docs/CHARACTERS.md [## DooM Guy — Tier 4, Int 2 / Str 5 / Speed 5 / Psyche 5] not found near its cited lines
 DRIFT?: `GetLvlUp` in docs/DISCORD-INTERFACE.md [## 5. Buttons & selects catalog (main game message)] not found near its cited lines
 DRIFT?: `GetOptions` in docs/CHARACTERS.md [## DooM Guy — Tier 4, Int 2 / Str 5 / Speed 5 / Psyche 5] not found near its cited lines
 DRIFT?: `GetPredictMenu` in docs/DISCORD-INTERFACE.md [## 5. Buttons & selects catalog (main game message)] not found near its cited lines
@@ -154,8 +149,6 @@ DRIFT?: `GetSpeedQualityKiteBonus` in docs/GAME-DESIGN.md [## 7. Quality, Вре
 DRIFT?: `GetStandardRewardModules` in docs/GAME-DESIGN.md [## 11. Character acquisition (roll system)] not found near its cited lines
 DRIFT?: `HandleAramRoll` in docs/DISCORD-INTERFACE.md [## 3. Game start & lobby lifecycle (`*st`)] not found near its cited lines
 DRIFT?: `HandleAttack` in docs/DISCORD-INTERFACE.md [## 5. Buttons & selects catalog (main game message)] not found near its cited lines
-DRIFT?: `HandleBotAttack` in docs/AUDIT-FINDINGS.md [### M13. Discord service-channel debug calls freeze headless sims and mask the real exception] not found near its cited lines
-DRIFT?: `HandleBotAttack` in docs/AUDIT-FINDINGS.md [### m26. `HandleBotAttack` scoring flags are never reset inside the per-target loop] not found near its cited lines
 DRIFT?: `HandleBotBehavior` in docs/AUDIT-FINDINGS.md [### M38. A bot Кратос never fights his own resurrection event] not found near its cited lines
 DRIFT?: `HandleDrop` in docs/GAME-DESIGN.md [## 7. Quality, Вред (Harm), Скинуть (Drop)] not found near its cited lines
 DRIFT?: `HandleEndOfRoundJustice` in docs/GAME-DESIGN.md [### Justice (Справедливость)] not found near its cited lines
@@ -173,6 +166,8 @@ DRIFT?: `HandleLastRound` in docs/AUDIT-FINDINGS.md [### M1. Goblin "round-10 Zi
 DRIFT?: `HandleLastRound` in docs/CHARACTERS.md [## Осьминожка — Tier 4, Int 2 / Str 2 / Speed 8 / Psyche 10] not found near its cited lines
 DRIFT?: `HandleLastRound` in docs/CHARACTERS.md [## Стая Гоблинов — Tier 1, Int 0 / Str 0 / Speed 10 / Psyche 5] not found near its cited lines
 DRIFT?: `HandleLastRound` in docs/GAME-DESIGN.md [## 2. Core loop] not found near its cited lines
+DRIFT?: `HandleLvlUpBot` in docs/AUDIT-FINDINGS.md [### M50. A DooM Guy level-up point can become unspendable and spin the auto-move level-up loop forever] not found near its cited lines
+DRIFT?: `HandleLvlUpBot` in docs/CHARACTERS.md [## DooM Guy — Tier 4, Int 2 / Str 5 / Speed 5 / Psyche 5] not found near its cited lines
 DRIFT?: `HandleLvlUp` in docs/DISCORD-INTERFACE.md [## 5. Buttons & selects catalog (main game message)] not found near its cited lines
 DRIFT?: `HandleMoralForScore` in docs/DISCORD-INTERFACE.md [## 5. Buttons & selects catalog (main game message)] not found near its cited lines
 DRIFT?: `HandleMoralForSkill` in docs/DISCORD-INTERFACE.md [## 5. Buttons & selects catalog (main game message)] not found near its cited lines
@@ -188,7 +183,6 @@ DRIFT?: `HasUsedAutoMoveAllGame` in docs/ACHIEVEMENTS.md [## 2. Global achieveme
 DRIFT?: `HiddenGlobalLogSnippets` in docs/DISCORD-INTERFACE.md [## 7. Privacy in Discord] not found near its cited lines
 DRIFT?: `IUser` in docs/DISCORD-INTERFACE.md [## 2. Command inventory] not found near its cited lines
 DRIFT?: `InGameStatusClass` in docs/ARCHITECTURE.md [## 3. Passive hook execution order] not found near its cited lines
-DRIFT?: `InGameStatus` in docs/ARCHITECTURE.md [## 7. Per-character plumbing pattern (the "~14 files")] not found near its cited lines
 DRIFT?: `InitializeTeam` in docs/ARCHITECTURE.md [## 3. Passive hook execution order] not found near its cited lines
 DRIFT?: `InitializeTeam` in docs/CHARACTERS.md [## Наруто — Tier 5, Int 3 / Str 3 / Speed 4 / Psyche 5] not found near its cited lines
 DRIFT?: `InitializeTeam` in docs/DISCORD-INTERFACE.md [## 3. Game start & lobby lifecycle (`*st`)] not found near its cited lines
@@ -202,7 +196,6 @@ DRIFT?: `IsDead` in docs/AUDIT-FINDINGS.md [### M40. A dead Штормяк holde
 DRIFT?: `IsDead` in docs/AUDIT-FINDINGS.md [### m42. Round-8 Клоны Сусано attacks are granted to dead predictors] not found near its cited lines
 DRIFT?: `IsPlaying` in docs/DISCORD-INTERFACE.md [## 3. Game start & lobby lifecycle (`*st`)] not found near its cited lines
 DRIFT?: `IsPlaying` in docs/WEB-BACKEND.md [## 2. Identity & auth — the trust model (Доверие)] not found near its cited lines
-DRIFT?: `IsReady` in docs/AUDIT-FINDINGS.md [### M29. Шоковый щит's forced skip could be replaced by bot automation and still waited for confirmation] not found near its cited lines
 DRIFT?: `IsTheBoysSupTarget=true` in docs/WEB-BACKEND.md [## 7. State mapping & hidden information (`GameStateMapper`)] not found near its cited lines
 DRIFT?: `IsWonThisCalculation` in docs/CHARACTERS.md [## Toxic Mate — Tier 3, Int 5 / Str 3 / Speed 7 / Psyche 3] not found near its cited lines
 DRIFT?: `IsWonThisRound` in docs/GAME-DESIGN.md [### Win/loss consequences (`DoomsdayMachine.cs:815-1024`)] not found near its cited lines
@@ -214,9 +207,6 @@ DRIFT?: `LobbyState` in docs/WEB-BACKEND.md [## 4. SignalR hub `/gamehub` — cl
 DRIFT?: `LobbyState` in docs/WEB-BACKEND.md [## 5. Server→client events] not found near its cited lines
 DRIFT?: `LootBoxOpened` in docs/WEB-BACKEND.md [## 5. Server→client events] not found near its cited lines
 DRIFT?: `Luck` in docs/ARCHITECTURE.md [## 9. Conventions & pitfalls (verified)] not found near its cited lines
-DRIFT?: `LvlUpPoints` in docs/AUDIT-FINDINGS.md [### M15. WebUI let players bank level-up points instead of spending before continuing] not found near its cited lines
-DRIFT?: `Madara.ForceRoundEightBotPrediction` in docs/ARCHITECTURE.md [## 6. Web layer (state → screen)] not found near its cited lines
-DRIFT?: `Madara.PrepareEternalTsukuyomiRound` in docs/ARCHITECTURE.md [## 6. Web layer (state → screen)] not found near its cited lines
 DRIFT?: `MapStatus` in docs/AUDIT-FINDINGS.md [### m28. Final Mitsuki/Осьминожка point debits are absent from the web score feed] not found near its cited lines
 DRIFT?: `MapStatus` in docs/CHARACTERS.md [## unknown_bug — Tier −1 (regular users: ultra-secret natural roll; humans only), internal Int 1 / Str 3 / Speed 3 / Psyche 7] not found near its cited lines
 DRIFT?: `MinusPsycheLog` in docs/CHARACTERS.md [## Молодой Глеб — Tier −2 (transform-only), Int 8 / Str 8 / Speed 8 / Psyche 8] not found near its cited lines
@@ -227,7 +217,6 @@ DRIFT?: `ModuleBaseCustom` in docs/LOCALIZATION.md [## 4. Backend boundaries] no
 DRIFT?: `MoveListPage` in docs/DISCORD-INTERFACE.md [## 2. Command inventory] not found near its cited lines
 DRIFT?: `MoveListPage` in docs/DISCORD-INTERFACE.md [## 3. Game start & lobby lifecycle (`*st`)] not found near its cited lines
 DRIFT?: `MoveListPage` in docs/DISCORD-INTERFACE.md [## 4. The in-game DM UI] not found near its cited lines
-DRIFT?: `Nanobot` in docs/GAME-DESIGN.md [## 12. Global systemics] not found near its cited lines
 DRIFT?: `NemesisOf` in docs/GAME-DESIGN.md [### Class (Класс)] not found near its cited lines
 DRIFT?: `OpenLootBoxV2` in docs/WEB-CLIENT.md [## 6. Stores (Pinia)] not found near its cited lines
 DRIFT?: `OrderLeaderboard` in docs/ARCHITECTURE.md [## 5. Score plumbing] not found near its cited lines
@@ -299,7 +288,6 @@ DRIFT?: `SettleShadowClones` in docs/ARCHITECTURE.md [## 5. Score plumbing] not 
 DRIFT?: `SettleShadowClones` in docs/AUDIT-FINDINGS.md [### Phase-6 checks that passed (selection)] not found near its cited lines
 DRIFT?: `SettleShadowClones` in docs/CHARACTERS.md [## Наруто — Tier 5, Int 3 / Str 3 / Speed 4 / Psyche 5] not found near its cited lines
 DRIFT?: `SettleShadowClones` in docs/INTERACTION-MATRIX.md [## 2. Kill sources × immunities] not found near its cited lines
-DRIFT?: `SimErrorSink` in docs/AUDIT-FINDINGS.md [### M13. Discord service-channel debug calls freeze headless sims and mask the real exception] not found near its cited lines
 DRIFT?: `SimulationRunner` in docs/AUDIT-FINDINGS.md [### m37. Simulation winrate counts only place 1 — special winners and dead leaders are misattributed] not found near its cited lines
 DRIFT?: `SkillExtra` in docs/GAME-DESIGN.md [### Skill (Скилл)] not found near its cited lines
 DRIFT?: `SkillFightMultiplier` in docs/GAME-DESIGN.md [### Skill (Скилл)] not found near its cited lines
@@ -309,12 +297,12 @@ DRIFT?: `SnapshotJustice` in docs/BALANCE-CONSTANTS.md [## Per-character numbers
 DRIFT?: `SnapshotJustice` in docs/CHARACTERS.md [## Наруто — Tier 5, Int 3 / Str 3 / Speed 4 / Psyche 5] not found near its cited lines
 DRIFT?: `SnapshotJustice` in docs/INTERACTION-MATRIX.md [## 4. Steal / copy / redirect chains] not found near its cited lines
 DRIFT?: `SnapshotJustice` in docs/INTERACTION-MATRIX.md [## 7. Same-target stacking notes] not found near its cited lines
+DRIFT?: `SortLogs` in docs/AUDIT-FINDINGS.md [### M48. Newline-less personal-log writes glue entries into one line and crash the «Обмен Морали» log aggregator] not found near its cited lines
 DRIFT?: `SortLogs` in docs/DISCORD-INTERFACE.md [## 7. Privacy in Discord] not found near its cited lines
 DRIFT?: `SpawnDemonNest` in docs/BALANCE-CONSTANTS.md [## Per-character numbers] not found near its cited lines
 DRIFT?: `SpawnDemonNest` in docs/CHARACTERS.md [## DooM Guy — Tier 4, Int 2 / Str 5 / Speed 5 / Psyche 5] not found near its cited lines
 DRIFT?: `Standalone` in docs/INTERACTION-MATRIX.md [## 6. Ziggurat-copyable inventory (`Standalone: true`)] not found near its cited lines
 DRIFT?: `StartGameLogic.GetStatsEmbed` in docs/DISCORD-INTERFACE.md [## 9. Accounts & meta surfaces] not found near its cited lines
-DRIFT?: `StartGameLogic` in docs/ARCHITECTURE.md [## 7. Per-character plumbing pattern (the "~14 files")] not found near its cited lines
 DRIFT?: `StartGameLogic` in docs/WEB-BACKEND.md [## 4. SignalR hub `/gamehub` — client-callable methods] not found near its cited lines
 DRIFT?: `State` in docs/CHARACTERS.md [## Наруто — Tier 5, Int 3 / Str 3 / Speed 4 / Psyche 5] not found near its cited lines
 DRIFT?: `Status.MoveListPage` in docs/AUDIT-FINDINGS.md [### M15. WebUI let players bank level-up points instead of spending before continuing] not found near its cited lines
@@ -322,9 +310,9 @@ DRIFT?: `StoreMaxMultiplier` in docs/BALANCE-CONSTANTS.md [## Character store ec
 DRIFT?: `StoreMinMultiplier` in docs/BALANCE-CONSTANTS.md [## Character store economy] not found near its cited lines
 DRIFT?: `SubstituteUserWithBot` in docs/DISCORD-INTERFACE.md [## 3. Game start & lobby lifecycle (`*st`)] not found near its cited lines
 DRIFT?: `SyncAsync` in docs/WEB-BACKEND.md [## 12. Discord profile widget (the one OAuth-verified flow)] not found near its cited lines
-DRIFT?: `TheBoysMoralBlockedByMM` in docs/CHARACTERS.md [## TheBoys (Пацаны) — Tier 3, Int 3 / Str 5 / Speed 6 / Psyche 2] not found near its cited lines
+DRIFT?: `TheBoysMoralBlockedByMM` in docs/CHARACTERS.md [## TheBoys (Пацаны) — Tier 3, Int 3 / Str 5 / Speed 6 / Psyche 2] not found near its cited lines
 DRIFT?: `TheBoysSupMark` in docs/AUDIT-FINDINGS.md [### M7. Butcher pays his point on any win, spec says on a Drop] not found near its cited lines
-DRIFT?: `TheBoysSupMark` in docs/CHARACTERS.md [## TheBoys (Пацаны) — Tier 3, Int 3 / Str 5 / Speed 6 / Psyche 2] not found near its cited lines
+DRIFT?: `TheBoysSupMark` in docs/CHARACTERS.md [## TheBoys (Пацаны) — Tier 3, Int 3 / Str 5 / Speed 6 / Psyche 2] not found near its cited lines
 DRIFT?: `TigrTopWhen` in docs/AUDIT-FINDINGS.md [### M5. "Тигр топ, а ты холоп" has an undocumented second window at game start] not found near its cited lines
 DRIFT?: `TigrTopWhen` in docs/CHARACTERS.md [## Тигр — Tier 5, Int 1 / Str 9 / Speed 9 / Psyche 1] not found near its cited lines
 DRIFT?: `TooGOOD` in docs/CHARACTERS.md [## Наруто — Tier 5, Int 3 / Str 3 / Speed 4 / Psyche 5] not found near its cited lines
@@ -340,10 +328,10 @@ DRIFT?: `TryDrinkAvailableTimeCapsule` in docs/CHARACTERS.md [## Salldorum — T
 DRIFT?: `TryDrinkTimeCapsule` in docs/BALANCE-CONSTANTS.md [## Per-character numbers] not found near its cited lines
 DRIFT?: `TryDrinkTimeCapsule` in docs/CHARACTERS.md [## Salldorum — Tier 2, Int 6 / Str 1 / Speed 2 / Psyche 8] not found near its cited lines
 DRIFT?: `TryForceRumblingAttack` in docs/BALANCE-CONSTANTS.md [## Per-character numbers] not found near its cited lines
-DRIFT?: `TryForceRumblingAttack` in docs/CHARACTERS.md [## Эрен Йегер — Tier 6, Злость 0 / Str 4 / Speed 4 / Самоуверенность 10] not found near its cited lines
 DRIFT?: `TurnLengthInSecond` in docs/DISCORD-INTERFACE.md [## 3. Game start & lobby lifecycle (`*st`)] not found near its cited lines
 DRIFT?: `UnknownBug.Is` in docs/CHARACTERS.md [## unknown_bug — Tier −1 (regular users: ultra-secret natural roll; humans only), internal Int 1 / Str 3 / Speed 3 / Psyche 7] not found near its cited lines
 DRIFT?: `UnknownBug.SelectStreamTarget` in docs/ARCHITECTURE.md [## 3. Passive hook execution order] not found near its cited lines
+DRIFT?: `UpdateMessage` in docs/AUDIT-FINDINGS.md [### M48. Newline-less personal-log writes glue entries into one line and crash the «Обмен Морали» log aggregator] not found near its cited lines
 DRIFT?: `UpdateMessage` in docs/DISCORD-INTERFACE.md [## 3. Game start & lobby lifecycle (`*st`)] not found near its cited lines
 DRIFT?: `UpdateMessage` in docs/DISCORD-INTERFACE.md [## 4. The in-game DM UI] not found near its cited lines
 DRIFT?: `UpdateXResist` in docs/GAME-DESIGN.md [## 7. Quality, Вред (Harm), Скинуть (Drop)] not found near its cited lines
@@ -357,14 +345,12 @@ DRIFT?: `WebGameService.DemandContractReward` in docs/AUDIT-FINDINGS.md [### m47
 DRIFT?: `WebGameService.DemandContractReward` in docs/BALANCE-CONSTANTS.md [## Per-character numbers] not found near its cited lines
 DRIFT?: `WebGameService.DemandContractReward` in docs/CHARACTERS.md [## Геральт — Tier 5, Int 4 / Str 4 / Speed 5 / Psyche 10] not found near its cited lines
 DRIFT?: `WebGameService.LevelUpGate` in docs/CHARACTERS.md [## Молодой Глеб — Tier −2 (transform-only), Int 8 / Str 8 / Speed 8 / Psyche 8] not found near its cited lines
-DRIFT?: `WebGameService` in docs/ARCHITECTURE.md [## 7. Per-character plumbing pattern (the "~14 files")] not found near its cited lines
 DRIFT?: `WebMessages` in docs/DISCORD-INTERFACE.md [## 4. The in-game DM UI] not found near its cited lines
 DRIFT?: `WebMessages` in docs/WEB-BACKEND.md [## 8. `WebGameService` — the bridge into game logic] not found near its cited lines
 DRIFT?: `WhoToAttackThisTurn` in docs/AUDIT-FINDINGS.md [### M11. Шэн and Штормяк forced attacks ignore the round-10 Тигр ban] not found near its cited lines
 DRIFT?: `Wins++` in docs/AUDIT-FINDINGS.md [### M37. A dead top-scorer keeps place 1 and takes the win statistics from the announced winner] not found near its cited lines
 DRIFT?: `YongGlebMetaClass` in docs/CHARACTERS.md [## Молодой Глеб — Tier −2 (transform-only), Int 8 / Str 8 / Speed 8 / Psyche 8] not found near its cited lines
 DRIFT?: `[0,850,850,850]` in docs/AUDIT-FINDINGS.md [### M33. Fight win/lose audio and the R3 random bar could drift away from the visual timeline] not found near its cited lines
-DRIFT?: `_logs.Critical` in docs/AUDIT-FINDINGS.md [### M13. Discord service-channel debug calls freeze headless sims and mask the real exception] not found near its cited lines
 DRIFT?: `alive<5` in docs/AUDIT-FINDINGS.md [### Phase-6 checks that passed (selection)] not found near its cited lines
 DRIFT?: `aramConfirm` in docs/WEB-CLIENT.md [## 14. Known gaps & dead surface] not found near its cited lines
 DRIFT?: `aramReroll` in docs/WEB-CLIENT.md [## 14. Known gaps & dead surface] not found near its cited lines
@@ -384,7 +370,6 @@ DRIFT?: `discordEmojiMap` in docs/WEB-CLIENT.md [## 10. Logs & real-time UX] not
 DRIFT?: `dopa-attack-select` in docs/DISCORD-INTERFACE.md [## 12. Known quirks] not found near its cited lines
 DRIFT?: `draft_pick_wait` in docs/DISCORD-INTERFACE.md [## 5. Buttons & selects catalog (main game message)] not found near its cited lines
 DRIFT?: `emptyOutDir` in docs/WEB-CLIENT.md [## 1. Stack & build] not found near its cited lines
-DRIFT?: `equipDoomModule` in docs/WEB-CLIENT.md [## 4. SignalR client (`signalr.ts`)] not found near its cited lines
 DRIFT?: `exact` in docs/LOCALIZATION.md [## 3. Shared catalogs] not found near its cited lines
 DRIFT?: `game.PlayersList` in docs/AUDIT-FINDINGS.md [### M6. Тигр "Лучше с двумя, чем с адекватными" counts Тигр himself] not found near its cited lines
 DRIFT?: `game.SkipPlayersThisRound` in docs/AUDIT-FINDINGS.md [### m18. "Привет со дна" counts skip *events*, not skipping players] not found near its cited lines
@@ -441,7 +426,6 @@ DRIFT?: `x_spartan_dragon` in docs/INTERACTION-MATRIX.md [## 8. Achievement V2 i
 DRIFT?: `x_spartan_kratos` in docs/INTERACTION-MATRIX.md [## 8. Achievement V2 interaction observations] not found near its cited lines
 DRIFT?: `x_spartan_mylorik` in docs/AUDIT-FINDINGS.md [### m29. Three V2 achievement descriptions do not match their evaluators] not found near its cited lines
 DRIFT?: `x_spartan_mylorik` in docs/INTERACTION-MATRIX.md [## 8. Achievement V2 interaction observations] not found near its cited lines
-DRIFT?: `Братишка` in docs/AUDIT-FINDINGS.md [### M16. Bot `HandleBotAttack` throws "Sequence contains no elements" in the Братишка per-character switch on an empty target pool] not found near its cited lines
 DRIFT?: `Быстрый` in docs/AUDIT-FINDINGS.md [### m31. English replay viewers still saw Russian phrase bodies, system logs and class values] not found near its cited lines
 DRIFT?: `Дебаг` in docs/DISCORD-INTERFACE.md [## 12. Known quirks] not found near its cited lines
 DRIFT?: `Дебаг` in docs/DISCORD-INTERFACE.md [## 5. Buttons & selects catalog (main game message)] not found near its cited lines

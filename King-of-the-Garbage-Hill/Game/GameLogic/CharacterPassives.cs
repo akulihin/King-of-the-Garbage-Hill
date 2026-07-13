@@ -927,7 +927,7 @@ public class CharacterPassives : IServiceSingleton
                     {
                         glebSkipFriendListDone.FriendList.Add(me.GetPlayerId());
                         me.GameCharacter.AddMoral(9, "Я щас приду", false);
-                        me.Status.AddInGamePersonalLogs("Я щас приду: +9 *Морали*. Вы дождались Глеба!!! Празднуем!");
+                        me.Status.AddInGamePersonalLogs("Я щас приду: +9 *Морали*. Вы дождались Глеба!!! Празднуем!\n");
                     }
 
                     break;

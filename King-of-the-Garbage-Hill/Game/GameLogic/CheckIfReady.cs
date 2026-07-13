@@ -127,16 +127,16 @@ public class CheckIfReady : IServiceSingleton
             switch (player.GameCharacter.Name)
             {
                 case "HardKitty":
-                    player.Status.AddInGamePersonalLogs("Даже имя мое написать нормально не можете");
+                    player.Status.AddInGamePersonalLogs("Даже имя мое написать нормально не можете\n");
                     break;
                 case "Злой Школьник":
-                    player.Status.AddInGamePersonalLogs("Блять, суки, че вы меня таким слабым сделали?");
+                    player.Status.AddInGamePersonalLogs("Блять, суки, че вы меня таким слабым сделали?\n");
                     break;
                 case "Тигр":
-                    player.Status.AddInGamePersonalLogs("Обоссанная игра, обоссанный баланс");
+                    player.Status.AddInGamePersonalLogs("Обоссанная игра, обоссанный баланс\n");
                     break;
                 case "Saitama":
-                    player.Status.AddInGamePersonalLogs("Да ну эти видеоигры! Монстров убивать проще... Как Кинг всё время выигрывает?");
+                    player.Status.AddInGamePersonalLogs("Да ну эти видеоигры! Монстров убивать проще... Как Кинг всё время выигрывает?\n");
                     break;
             }
 
@@ -145,7 +145,7 @@ public class CheckIfReady : IServiceSingleton
         {
             if (player.Passives.SaldorumCorruptionCount > 0)
                 player.Status.AddInGamePersonalLogs(
-                    $"Великий летописец: испорчено {player.Passives.SaldorumCorruptionCount} записей за игру");
+                    $"Великий летописец: испорчено {player.Passives.SaldorumCorruptionCount} записей за игру\n");
         }
 
         //unique

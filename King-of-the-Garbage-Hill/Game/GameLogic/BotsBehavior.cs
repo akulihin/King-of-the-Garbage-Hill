@@ -4581,7 +4581,9 @@ public class BotsBehavior : IServiceSingleton
                 if (player.GameCharacter.GetSpeed() < 10) options.Add(3);
                 if (player.GameCharacter.GetPsyche() < 10) options.Add(4);
                 var pick = options.Count > 0 ? options[_rand.Random(0, options.Count - 1)] : 4;
+                var pointsBefore = player.Status.LvlUpPoints;
                 await _gameReaction.HandleLvlUp(player, null, pick);
+                if (player.Status.LvlUpPoints == pointsBefore) break; // unspendable point (M50) — bank it, don't spin
             }
 
             player.Status.MoveListPage = 1;
@@ -4825,7 +4827,9 @@ public class BotsBehavior : IServiceSingleton
                     skillNumber = 1;
             }
 
+            var pointsBefore = player.Status.LvlUpPoints;
             await _gameReaction.HandleLvlUp(player, null, skillNumber);
+            if (player.Status.LvlUpPoints == pointsBefore) break; // unspendable point (M50) — bank it, don't spin
         } while (player.Status.LvlUpPoints > 0);
 
         player.Status.MoveListPage = 1;
