@@ -241,7 +241,7 @@ Achievement progress targets and the complete 103-entry rule catalog are in [ACH
 | Эрен Йегер | Дрочун marks / cash-in | loss mark 1; attacking-Eren mark 2; cap 2; victory cashes target mark as 1/2 bonus | PassivesClass.cs:270-274, CP:480-483,2465-2486 |
 | Эрен Йегер | Дрочун mutual attack | +2 regular once per mutual enemy per round | CP:2558-2569 |
 | Эрен Йегер | Атакующий Титан | off-cooldown block removed; +5 each stat per fight for the turn; no incoming target → −2 Psyche; cooldown 1 full next turn | DM:282-294; CP:62-72,517-521,1119-1123,3739-3758 |
-| Эрен Йегер | Titan audio roll | `use_most` 50%; files 1–3 split the other 50% uniformly | sound.ts:990-995 |
+| Эрен Йегер | Titan audio roll | `use_most` 50%; files 1–3 split the other 50% uniformly | sound.ts:1002-1006 |
 | Эрен Йегер | Rumbling gate / reach | round 10; acting bots at opening places strictly between Eren and 6 must attack Eren; fewer than 2 losses **during round 10 only**; kills projected places strictly between Eren and place 6 | `BotsBehavior.cs` `TryForceRumblingAttack`; CP:2662-2667,3672-3718; ErenYeager.cs:38-53 |
 | Наруто | base / rarity | Int 3, Str 3, Speed 4, Psyche 5; Tier 5 | characters.json:1449-1483 |
 | Наруто | Гарем но джутсу | Block replacement while ready; +1 regular per canceled valid fight in each reaching attacker's whole queue; cooldown 2 full following turns after every use | `Naruto.cs` `HaremCooldownTurns`, `ResolveHaremQueues`, `TryCancelHaremFights`; CP:3771-3784 |
