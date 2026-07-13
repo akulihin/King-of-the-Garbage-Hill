@@ -601,6 +601,7 @@ public class DoomsdayMachine : IServiceSingleton
                 // Snapshot original class before ForOneFight overrides
                 var attackerOriginalClass = player.FightCharacter.GetSkillClass();
                 var defenderOriginalClass = playerIamAttacking.FightCharacter.GetSkillClass();
+                var attackerRealJusticeBeforeFight = player.GameCharacter.Justice.GetRealJusticeNow();
 
                 _characterPassives.HandleDefenseBeforeFight(playerIamAttacking, player, game);
 
@@ -696,8 +697,23 @@ public class DoomsdayMachine : IServiceSingleton
                         doomShield.ShockSkipRound = game.RoundNo + 1;
                     }
 
-                    if (!playerIamAttacking.GameCharacter.Passive.Any(x => x.PassiveName == "Близнец"))
+                    if (playerIamAttacking.GameCharacter.Passive.Any(x => x.PassiveName == "Близнец"))
+                    {
+                        var previousHighest = playerIamAttacking.Passives.MonsterTwinHighestJusticeThisRound;
+                        if (attackerRealJusticeBeforeFight > previousHighest)
+                        {
+                            playerIamAttacking.Passives.MonsterTwinHighestJusticeThisRound = attackerRealJusticeBeforeFight;
+                            playerIamAttacking.GameCharacter.Justice.SetRealJusticeNow(
+                                attackerRealJusticeBeforeFight, "Близнец");
+                            playerIamAttacking.Status.AddBonusPoints(
+                                attackerRealJusticeBeforeFight - Math.Max(0, previousHighest), "Близнец");
+                            game.Phrases.MonsterTwinSteal.SendLog(playerIamAttacking, false);
+                        }
+                    }
+                    else
+                    {
                         playerIamAttacking.GameCharacter.Justice.AddJusticeForNextRoundFromFight();
+                    }
 
                     // Web fight entry for block
                     game.WebFightLog.Add(new FightEntryDto

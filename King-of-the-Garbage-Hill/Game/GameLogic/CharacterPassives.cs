@@ -999,20 +999,20 @@ public class CharacterPassives : IServiceSingleton
                     break;
 
                 case "Близнец":
-                    // target = Монстр (defender/blocker), me = attacker. Twin copies (does not
-                    // drain) the highest Justice among all attackers stopped by this round's block.
-                    if (target.Status.IsBlock)
-                    {
-                        var copiedJustice = me.FightCharacter.Justice.GetRealJusticeNow();
-                        var previousHighest = target.Passives.MonsterTwinHighestJusticeThisRound;
-                        if (copiedJustice > previousHighest)
-                        {
-                            target.Passives.MonsterTwinHighestJusticeThisRound = copiedJustice;
-                            target.GameCharacter.Justice.SetRealJusticeNow(copiedJustice, "Близнец");
-                            target.Status.AddBonusPoints(copiedJustice - Math.Max(0, previousHighest), "Близнец");
-                            game.Phrases.MonsterTwinSteal.SendLog(target, false);
-                        }
-                    }
+                    // Justice copying intentionally does not happen in this hook.
+                    // HandleDefenseAfterFight runs only for resolved fights.
+                    // A successful Block exits before reaching it.
+                    // Conversely, block-bypassing attacks reach this hook while
+                    // the defender may still have IsBlock == true.
+                    //
+                    // The authoritative block branch in DoomsdayMachine:
+                    //   * confirms the fight was stopped;
+                    //   * reads the attacker's persistent pre-fight Justice;
+                    //   * tracks the per-round maximum;
+                    //   * grants only incremental bonus points;
+                    //   * suppresses generic block Justice.
+                    //
+                    // Keep this explicit no-op so copied/transferred holders cannot regain fight-side dispatch here.
                     break;
 
                 // TheBoys — Kimiko: выведение из строя при поражении в обороне (Живое Оружие даёт иммунитет)

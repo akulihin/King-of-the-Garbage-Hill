@@ -106,22 +106,22 @@ All hooks live in `CharacterPassives.cs` as `switch (passive.PassiveName)` dispa
 | # | Hook | Called from | When / notes |
 |---|---|---|---|
 | 1 | `HandleEventsBeforeFirstRound` (112) | game creation / draft & ARAM confirm | initial marks, L assignment, stat rewrites |
-| 2 | `HandleDefenseBeforeFight` (463) | fight loop, defender first (`DoomsdayMachine.cs:604`) | defensive ForOneFight overrides |
-| 3 | `HandleAttackBeforeFight` (1073) | fight loop, after defense (`DoomsdayMachine.cs:615`) | offensive overrides — sees defender's mods |
-| 4 | block path | `DoomsdayMachine.cs:656-725` | attacker −1 bonus, defender justice, then hooks 8/9 for defender |
-| 5 | skip path | `DoomsdayMachine.cs:733-770` | hook 9 for defender |
-| 6 | `HandleDefenseAfterFight` (914) | after resolution (`DoomsdayMachine.cs:1446`) | defender-only reactions (counter effects) |
-| 7 | `HandleAttackAfterFight` (1813) | `DoomsdayMachine.cs:1451` | attacker-only rewards/steals |
-| 8 | `HandleDefenseAfterBlockOrFight` (813) | fight `DoomsdayMachine.cs:1447` + block `DoomsdayMachine.cs:722` | block-inclusive defensive effects |
-| 9 | `HandleDefenseAfterBlockOrFightOrSkip` (897) | fight `DoomsdayMachine.cs:1448` + block `DoomsdayMachine.cs:723` + skip `DoomsdayMachine.cs:768` | always-trigger defensive effects |
-| 10 | `HandleCharacterAfterFight` (2469) | both sides, all outcomes incl. own block/skip (`DoomsdayMachine.cs:486,681-682,727-728,1415-1416`) | per-interaction cleanup/rewards |
-| 11 | `HandleShark` (7203) | after each resolved fight (`DoomsdayMachine.cs:1457`) | "Лежит на дне" neighbor check |
-| 12 | `HandleEndOfRound` (3733) | once per round (`DoomsdayMachine.cs:1674`) | flags still set; round-end effects |
-| 13 | `HandleNextRound` (5121) | after `RoundNo++` (`DoomsdayMachine.cs:1743-1751`) | per-round setup, trigger rolls |
-| 14 | `HandleNextRoundAfterSorting` (6354) | after sort/swaps/drops (`DoomsdayMachine.cs:1998`) | position-dependent effects |
-| 15 | `HandleBotPredict` (6864) | `DoomsdayMachine.cs:2006` | bot prediction heuristics |
+| 2 | `HandleDefenseBeforeFight` (463) | fight loop, defender first (`DoomsdayMachine.cs:606`) | defensive ForOneFight overrides |
+| 3 | `HandleAttackBeforeFight` (1073) | fight loop, after defense (`DoomsdayMachine.cs:617`) | offensive overrides — sees defender's mods |
+| 4 | block path | `DoomsdayMachine.cs:658-744` | attacker −1 bonus; Близнец copies the highest blocked attacker's real Justice here, otherwise the defender gains generic next-round Justice; then hooks 8/9 run for the defender |
+| 5 | skip path | `DoomsdayMachine.cs:754-789` | hook 9 for defender |
+| 6 | `HandleDefenseAfterFight` (914) | after resolution (`DoomsdayMachine.cs:1463`) | defender-only reactions (counter effects) |
+| 7 | `HandleAttackAfterFight` (1814) | `DoomsdayMachine.cs:1468` | attacker-only rewards/steals |
+| 8 | `HandleDefenseAfterBlockOrFight` (813) | fight `DoomsdayMachine.cs:1464` + block `DoomsdayMachine.cs:739` | block-inclusive defensive effects |
+| 9 | `HandleDefenseAfterBlockOrFightOrSkip` (897) | fight `DoomsdayMachine.cs:1465` + block `DoomsdayMachine.cs:740` + skip `DoomsdayMachine.cs:785` | always-trigger defensive effects |
+| 10 | `HandleCharacterAfterFight` (2471) | both sides, all outcomes incl. own block/skip (`DoomsdayMachine.cs:487,737-738,783-784,1471-1472`) | per-interaction cleanup/rewards |
+| 11 | `HandleShark` (7263) | after each resolved fight (`DoomsdayMachine.cs:1474`) | "Лежит на дне" neighbor check |
+| 12 | `HandleEndOfRound` (3739) | once per round (`DoomsdayMachine.cs:1691`) | flags still set; round-end effects |
+| 13 | `HandleNextRound` (5190) | after `RoundNo++` (`DoomsdayMachine.cs:1760-1768`) | per-round setup, trigger rolls |
+| 14 | `HandleNextRoundAfterSorting` (6404) | after sort/swaps/drops (`DoomsdayMachine.cs:2015`) | position-dependent effects |
+| 15 | `HandleBotPredict` (6918) | `DoomsdayMachine.cs:2023` | bot prediction heuristics |
 
-Special dispatchers outside the table include `HandleJews`, `HandleOctopus`, unknown_bug's `HandleEventsBeforeCalculation`/resolved-fight observer, and `HandleRumblingAfterFights`. `UnknownBug.SelectStreamTarget` chooses one deterministic primary target after every forced queue is finalized; `RecordResolvedFight` observes the authoritative winner/loser without fabricating a second combat result, while `TryCommitExploit` is called from resolved, Block, Skip and queue-cancel exits. Naruto adds an explicit cross-pipeline coordinator rather than duplicating four passive cases: `InitializeTeam` runs before the first passive hook; `ResolveHaremQueues`/`TryCancelHaremFights` operate on finalized and dynamically expanded target queues; `SnapshotJustice` feeds per-fight Расенган; and `SettleShadowClones` is called immediately after Rumbling as the second post-fight settlement (`Naruto.cs`; `DoomsdayMachine.cs:414-424`; `DoomsdayMachine.cs:534-565`; `DoomsdayMachine.cs:1616-1617`). Further per-character logic is embedded in `CheckIfReady`, `GameReactions`, `BotsBehavior`, `GameUpdateMess`, `CharacterClass`, `InGameStatusClass` and `GamePlayerBridgeClass`.
+Special dispatchers outside the table include `HandleJews`, `HandleOctopus`, unknown_bug's `HandleEventsBeforeCalculation`/resolved-fight observer, and `HandleRumblingAfterFights` (`CharacterPassives.cs:3687`; call `DoomsdayMachine.cs:1633`). `UnknownBug.SelectStreamTarget` chooses one deterministic primary target after every forced queue is finalized; `RecordResolvedFight` observes the authoritative winner/loser without fabricating a second combat result, while `TryCommitExploit` is called from resolved, Block, Skip and queue-cancel exits. Naruto adds an explicit cross-pipeline coordinator rather than duplicating four passive cases: `InitializeTeam` runs before the first passive hook; `ResolveHaremQueues`/`TryCancelHaremFights` operate on finalized and dynamically expanded target queues; `SnapshotJustice` feeds per-fight Расенган; and `SettleShadowClones` is called immediately after Rumbling as the second post-fight settlement (`Naruto.cs`; `DoomsdayMachine.cs:414-424`; `DoomsdayMachine.cs:534-565`; `DoomsdayMachine.cs:1633-1634`). Further per-character logic is embedded in `CheckIfReady`, `GameReactions`, `BotsBehavior`, `GameUpdateMess`, `CharacterClass`, `InGameStatusClass` and `GamePlayerBridgeClass`.
 
 Salldorum also has a readiness-stage coordinator: unless Вечное Цукуеми already erased the action, `Salldorum.ResolveShenDashes` consumes the next real attack. A higher target selects its exact pre-dash cell; the coordinator mutates the live order, stores the cell through the following action round, arms the current-round random-target magnet and replaces—never appends—the first real target for each crossed player's existing action. `ApplyShenPositionHolds` runs after readiness movers and after end-sort movers, with Ziggurat locks authoritative. Madara/Naruto sanitation is repeated over the redirected queues before Madara's incoming-attacker re-snapshot. A same-cell aged cola pickup is queued in passive state; its +5 Speed is applied to `FightCharacter` by the ordinary defense/attack-before hooks after DeepCopy (`CheckIfReady.cs` readiness pipeline; `DoomsdayMachine.cs` sort pipeline; `Salldorum.cs` coordinators; `CharacterPassives.cs` before-fight hooks).
 

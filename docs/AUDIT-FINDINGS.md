@@ -1,6 +1,6 @@
 # Design-vs-Code Audit — Findings
 
-> Original audit of `DataBase/characters.json` (+ `Game/GameDesign.txt` intent notes, root-level update notes) against the 2026-07-01 working tree (v4.1.8); statuses and fix notes re-verified through 2026-07-13 (v4.4.6). Historical “Code” bullets describe the pre-fix implementation when a later **Fixed** note is present. `CP` = `Game/GameLogic/CharacterPassives.cs`.
+> Original audit of `DataBase/characters.json` (+ `Game/GameDesign.txt` intent notes, root-level update notes) against the 2026-07-01 working tree (v4.1.8); statuses and fix notes re-verified through 2026-07-13 (v4.4.7). Historical “Code” bullets describe the pre-fix implementation when a later **Fixed** note is present. `CP` = `Game/GameLogic/CharacterPassives.cs`.
 >
 > Severity: **Critical** = player-visible wrong outcome / broken kit promise; **Major** = mechanic silently missing/misfiring or balance-relevant hidden behavior; **Minor** = cosmetic, flavor, dead code, small numeric drift; **Design question** = code self-consistent but intent ambiguous.
 
@@ -339,7 +339,7 @@ Worth stating because they're easy to suspect: Francie's final-turn contract win
 ### M26. Близнец drained and summed every block attacker's Justice and also received generic block Justice
 - **Intended:** Monster gets no ordinary +1 Justice from blocks. He copies, without draining, the highest Justice among enemies attacking that block and receives bonus points equal to that maximum.
 - **Actual before the fix:** every blocked attacker was zeroed and their full Justice was added to Monster immediately; several attackers therefore summed, and the generic block path also buffered +1 Justice.
-- **Fixed:** 2026-07-11 — the block path suppresses generic Justice for a Близнец holder (`DoomsdayMachine.cs:630-634`). A per-round maximum now sets Monster's live Justice without touching the attacker and awards only the incremental difference, so total bonus equals the maximum rather than the sum (`CP:978-1002,5936-5939`; state `PassivesClass.cs:283`).
+- **Fixed:** 2026-07-11 — the block path suppresses generic Justice for a Близнец holder. A per-round maximum now sets Monster's live Justice without touching the attacker and awards only the incremental difference, so total bonus equals the maximum rather than the sum (current implementation `DoomsdayMachine.cs:604,658-716`; reset `CP:6186-6188`; state `PassivesClass.cs:283`). M44 later moved the copy itself into that authoritative branch so successful blocks actually trigger it and bypassed blocks cannot.
 
 ### M27. Round-8 bot games could wait out the turn gate before challenging Мадара
 - **Intended:** strict bots immediately accept the Клоны Сусано challenge on round 8; a game where Madara is the only human must not sit on the ordinary readiness delay.
@@ -558,6 +558,11 @@ Worth stating because they're easy to suspect: Francie's final-turn contract win
 - **Fixed:** 2026-07-13 — renamed the private identity to `unknown_bug`, made the missing portrait authoritative, and centralized owner/public checks in `UnknownBug`. A natural draft roll is silently auto-locked; public submissions validate against public allowlists; bots, team seeding, final predictions, ordinary admin mutations, store/stat/widget surfaces, service diagnostics and account migration all fail closed. The two character achievements were retired, private rosters create neither replay nor story, non-owner state/chronicle/fight projections mask the identity and redact combat factors, and the Vue build strips the exact private definition/localization payload from its public catalog modules. The owner alone receives the terminal DTO and CRT/glitch presentation (`UnknownBug`; `StartGameLogic`; `WebGameService`; `GameStateMapper`; `ReplayService`; `GameStoryService`; `vite.config.ts`).
 - **Admin-test correction:** 2026-07-13 — the admin-only web “Тестовая игра” picker and numeric Discord `*st <int>` overload are the two deliberate selection exceptions. Both require the persistent account's `PlayerType == 2` and use `CharactersPull.cs` `GetAdminSelectableCharacters`, which appends only this private definition to the unchanged public Tier ≥ 0 catalog. Regular users, drafts, `SetCharacter`/`SetStat`, stores and public character-list consumers still cannot select or enumerate it; service diagnostics continue to print `(private)`.
 
+### M44. Близнец did not copy Justice on successful Block and copied it on bypassed Block
+- **Intended:** only attackers actually stopped by Monster's Block contribute to Близнец's per-round maximum and bonus payout; an ArmorBreak, Штормяк-taunt, summon or railgun bypass resolves as a fight and must not count.
+- **Actual before the fix:** the copy lived in `HandleDefenseAfterFight`, but a successful Block exits the fight loop without calling that hook. It therefore copied nothing on the outcome named by the passive. Conversely, an ArmorBreak or another bypass could resolve a real fight while the defender retained `IsBlock`, causing the after-fight case to copy Justice and pay the bonus on the inverse outcome.
+- **Fixed:** 2026-07-13 — persistent attacker Justice is snapshotted before any ForOneFight override, but the max/copy/bonus now runs only inside the successful-block branch (`DoomsdayMachine.cs:604,658-716`). The old after-fight dispatch is an explicit no-op (`CP:1001-1016`), and the same block branch continues to suppress generic block Justice for every Близнец holder.
+
 ### D12. Every bonus-point "steal" mints points at the 0-floor
 - Because `AddBonusPoints` floors the victim at 0 (`InGameStatusClass.cs:239`), each transfer-shaped mechanic credits the taker the **full** amount while the victim may lose less: «Выгодная сделка» (`CP:1804-1816`), Смертельный вирус, Глаза Итачи deduction, Сайтама's ledger reclaim, «Запах мусора». Zero-sum on paper, positive-sum at the floor. Acceptable pity cushion, or should takers receive only what victims actually lose?
 - **Confirmed intended:** 2026-07-13 (designer choice A) — keep the victim's zero-floor cushion and credit the receiver's full nominal amount. Documented in GAME-DESIGN §6 and INTERACTION-MATRIX §4; no code change.
@@ -613,7 +618,7 @@ Full team-mode ruleset (2х2х2/3х3 team-score win, forced ally predictions —
 
 ## Summary count
 
-**1 Critical** (C1) · **43 Major** (M1–M43) · **47 Minor** (m1–m47) · **14 Design questions** (D1–D14). Phase-6 designer review was fully implemented 2026-07-13: M37–M40 and m37–m44 fixed, D12 confirmed intended, D13–D14 fixed; m47 was discovered and fixed in the same score-floor change. Still open: **m12, m19, m24, m26**.
+**1 Critical** (C1) · **44 Major** (M1–M44) · **47 Minor** (m1–m47) · **14 Design questions** (D1–D14). Phase-6 designer review was fully implemented 2026-07-13: M37–M40 and m37–m44 fixed, D12 confirmed intended, D13–D14 fixed; m47 was discovered and fixed in the same score-floor change. M44 was discovered and fixed during the Близнец block audit. Still open: **m12, m19, m24, m26**.
 
 ## Verification addendum (second pass, 2026-07-01)
 
