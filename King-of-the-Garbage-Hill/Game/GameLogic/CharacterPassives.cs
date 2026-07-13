@@ -3994,11 +3994,17 @@ public class CharacterPassives : IServiceSingleton
                             {
                                 var randomPlayer = game.PlayersList[_rand.Random(0, game.PlayersList.Count - 1)];
 
-                                //Most wanted — force Rick as target
-                                var rickMw = game.PlayersList.Find(x => x.GameCharacter.Passive.Any(y => y.PassiveName == "Most wanted"));
-                                if (rickMw != null && rickMw.GetPlayerId() != player.GetPlayerId() && !tolyaTalked.PlayerHeTalkedAbout.Contains(rickMw.GetPlayerId()))
+                                // A successful Shen leap temporarily overrides Most wanted for
+                                // current-round random revelations too.
+                                var shenMagnet = Salldorum.FindRandomTargetMagnet(game, player);
+                                var rickMw = game.PlayersList.Find(x =>
+                                    x.GameCharacter.Passive.Any(y => y.PassiveName == "Most wanted"));
+                                if (shenMagnet != null
+                                    && !tolyaTalked.PlayerHeTalkedAbout.Contains(shenMagnet.GetPlayerId()))
+                                    randomPlayer = shenMagnet;
+                                else if (rickMw != null && rickMw.GetPlayerId() != player.GetPlayerId()
+                                                        && !tolyaTalked.PlayerHeTalkedAbout.Contains(rickMw.GetPlayerId()))
                                     randomPlayer = rickMw;
-                                //end Most wanted
 
                                 while (tolyaTalked.PlayerHeTalkedAbout.Contains(randomPlayer.GetPlayerId()))
                                     randomPlayer = game.PlayersList[_rand.Random(0, game.PlayersList.Count - 1)];
