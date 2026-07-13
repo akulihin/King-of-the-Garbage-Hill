@@ -77,7 +77,7 @@
 | Вступить в союз | Napoleon Wonnafcuk | 2 | 3 | ok |
 | Второй метеорит | Мадара | 0 | 1 | ok |
 | Выгодная сделка | Продавец Сомнительных Тактик | 3 | 1 | ok |
-| Выдуманный персонаж | Монстр без имени | 1 | 5 | ok |
+| Выдуманный персонаж | Монстр без имени | 1 | 6 | ok |
 | Гарем но джутсу | Наруто | 0 | 1 | ok |
 | Гематофагия | Вампур | 2 | 2 | ok |
 | Гений | Кира | 1 | 2 | ok |
@@ -178,7 +178,7 @@
 | Стёб | DeepList | 1 | 2 | ok |
 | СуперМудень | TheBoys | 0 | 1 | ok |
 | Теневые | Наруто | 0 | 1 | ok |
-| Тетрадь смерти | Кира | 1 | 6 | ok |
+| Тетрадь смерти | Кира | 1 | 7 | ok |
 | Тигр топ, а ты холоп | Тигр | 3 | 3 | ok |
 | Тоннели Гоблинов | Стая Гоблинов | 1 | 1 | ok |
 | Тупорылая Акула | mylorik | 1 | 1 | ok |
@@ -204,4 +204,4 @@
 
 - none
 
-_Limitation: `switch` case labels over a Name variable outside CharacterPassives.cs (e.g. BotsBehavior) are not scanned — the Cyrillic `case "Салдорум":` at BotsBehavior.cs:1409 is only caught via its sibling `==` checks._
+_Limitation: `switch` case labels over a Name variable outside CharacterPassives.cs (e.g. BotsBehavior) are not scanned — the Cyrillic `case "Салдорум":` at BotsBehavior.cs:1410 is only caught via its sibling `==` checks._

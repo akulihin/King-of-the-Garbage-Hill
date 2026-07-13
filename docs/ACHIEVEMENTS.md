@@ -11,7 +11,7 @@ Progress has two layers:
 - `InGameAchievementTracker` records match-local observations only; its sets use player/character IDs where uniqueness matters (`AchievementClass.cs:94-134`).
 - `AchievementProgress.Current` is the **best result achieved in one match**, not a cumulative total. `SetBestProgress` compares the current attempt with the stored best for display, but tests the **current attempt** against the target before unlocking; two partial matches can never combine (`AchievementClass.cs:362-403`).
 - An unlock is permanent and exactly-once. Under the account monitor it stamps `UnlockedAt`, queues the ID in `NewlyUnlocked`, credits the rarity reward immediately, and refuses later credits once `IsUnlocked` is true (`AchievementClass.cs:375-401`).
-- Game-end evaluation runs after final place/reward-place and match facts are known, in the same account-locked settlement that pays ZBS, Daily Quests and top-two loot boxes (`CheckIfReady.cs:711-743`; evaluator `AchievementClass.cs:412-560`).
+- Game-end evaluation runs after final place/reward-place and match facts are known, in the same account-locked settlement that pays ZBS, Daily Quests and top-two loot boxes (`CheckIfReady.cs:722-754`; evaluator `AchievementClass.cs:412-560`).
 
 Unless a row says otherwise, a target greater than 1 means “within one match.” Solo gates are explicit: team mode cannot unlock `g_clean_sweep`, `g_round10_comeback`, or `g_untouchable` (`AchievementClass.cs:421-456`).
 
@@ -19,17 +19,17 @@ Unless a row says otherwise, a target greater than 1 means “within one match.�
 
 | ID | Achievement (EN / RU) | Single-match requirement | Rarity / reward | Code |
 |---|---|---|---|---|
-| `g_bottom_feeder` | Bottom Feeder / Со дна | Attack from current place 6 and defeat the current place-1 player. | Uncommon · 25 ZBS | definition `AchievementClass.cs:187-190`; fight observation/evaluation `DoomsdayMachine.cs:1295-1304`, `AchievementClass.cs:442` |
-| `g_class_advantage` | Rock, Paper, Crown / Камень, ножницы, корона | Win 3 resolved fights while holding the Nemesis class advantage; attack and defence both count. | Rare · 50 ZBS | `AchievementClass.cs:191-194,443`; both sides `DoomsdayMachine.cs:1295-1320` |
-| `g_target_routine` | Bullseye / В яблочко | Gain Main Skill from Мишень in 3 different rounds. Repeats within one round count once. | Common · 10 ZBS | `AchievementClass.cs:195-198,444`; `DoomsdayMachine.cs:643-650` |
-| `g_maximum_sentence` | Maximum Sentence / Высшая мера | Win a resolved fight while holding 5 live Justice. | Uncommon · 25 ZBS | `AchievementClass.cs:199-202,445`; `DoomsdayMachine.cs:1295-1320` |
-| `g_three_drops` | Down the Chute / Вниз по жёлобу | Personally cause 3 Drops. Multi-Drop effects count the actual number caused. | Rare · 50 ZBS | `AchievementClass.cs:203-206,446`; `DoomsdayMachine.cs:1017-1023` |
+| `g_bottom_feeder` | Bottom Feeder / Со дна | Attack from current place 6 and defeat the current place-1 player. | Uncommon · 25 ZBS | definition `AchievementClass.cs:187-190`; fight observation/evaluation `DoomsdayMachine.cs:1341-1350`, `AchievementClass.cs:442` |
+| `g_class_advantage` | Rock, Paper, Crown / Камень, ножницы, корона | Win 3 resolved fights while holding the Nemesis class advantage; attack and defence both count. | Rare · 50 ZBS | `AchievementClass.cs:191-194,443`; both sides `DoomsdayMachine.cs:1341-1366` |
+| `g_target_routine` | Bullseye / В яблочко | Gain Main Skill from Мишень in 3 different rounds. Repeats within one round count once. | Common · 10 ZBS | `AchievementClass.cs:195-198,444`; `DoomsdayMachine.cs:716-724` |
+| `g_maximum_sentence` | Maximum Sentence / Высшая мера | Win a resolved fight while holding 5 live Justice. | Uncommon · 25 ZBS | `AchievementClass.cs:199-202,445`; `DoomsdayMachine.cs:1341-1366` |
+| `g_three_drops` | Down the Chute / Вниз по жёлобу | Personally cause 3 Drops. Multi-Drop effects count the actual number caused. | Rare · 50 ZBS | `AchievementClass.cs:203-206,446`; `DoomsdayMachine.cs:1057-1063` |
 | `g_twenty_moral` | Moral Bankruptcy / Моральное банкротство | In one exchange, convert 20 Moral into 10 bonus points. | Uncommon · 25 ZBS | `AchievementClass.cs:207-210,447`; `GameReactions.cs:102-114` |
 | `g_open_book` | Open Book / Открытая книга | Correctly predict every eligible opponent, with at least 3 eligible targets. Admin, Кира, Мадара and Let's Roll attempts are ineligible; fictional/admin targets are excluded. | Rare · 50 ZBS | `AchievementClass.cs:211-214,448`; eligibility `AchievementClass.cs:562-585` |
-| `g_clean_sweep` | Garbage Collector / Сборщик мусора | In solo mode, defeat all 5 distinct opponents at least once. | Rare · 50 ZBS | `AchievementClass.cs:215-218,449`; unique-victim tracking `DoomsdayMachine.cs:1325-1334` |
-| `g_round10_comeback` | From Sixth to King / Из шестого — в короли | In solo mode, open round 10 in place 6, then finish alive at actual place 1. | Epic · 100 ZBS + 1 box | `AchievementClass.cs:219-222,450-451`; round-10 snapshot `DoomsdayMachine.cs:1769-1777` |
-| `g_untouchable` | Untouchable / Неприкасаемый | Win a solo match alive with at least 5 resolved fight wins and 0 resolved fight losses. | Epic · 100 ZBS + 1 box | `AchievementClass.cs:223-226,453-454`; fight totals `DoomsdayMachine.cs:1325-1334` |
-| `g_quad_damage` | Quad Damage / Четверной урон | Receive at least 20 net regular points from round 10, measured after its real multiplier. | Rare · 50 ZBS | `AchievementClass.cs:227-230,455-456`; settlement delta `DoomsdayMachine.cs:1495-1501` |
+| `g_clean_sweep` | Garbage Collector / Сборщик мусора | In solo mode, defeat all 5 distinct opponents at least once. | Rare · 50 ZBS | `AchievementClass.cs:215-218,449`; unique-victim tracking `DoomsdayMachine.cs:1371-1380` |
+| `g_round10_comeback` | From Sixth to King / Из шестого — в короли | In solo mode, open round 10 in place 6, then finish alive at actual place 1. | Epic · 100 ZBS + 1 box | `AchievementClass.cs:219-222,450-451`; round-10 snapshot `DoomsdayMachine.cs:1816-1824` |
+| `g_untouchable` | Untouchable / Неприкасаемый | Win a solo match alive with at least 5 resolved fight wins and 0 resolved fight losses. | Epic · 100 ZBS + 1 box | `AchievementClass.cs:223-226,453-454`; fight totals `DoomsdayMachine.cs:1371-1380` |
+| `g_quad_damage` | Quad Damage / Четверной урон | Receive at least 20 net regular points from round 10, measured after its real multiplier. | Rare · 50 ZBS | `AchievementClass.cs:227-230,455-456`; settlement delta `DoomsdayMachine.cs:1542-1548` |
 
 ## 3. Character achievements (15)
 
@@ -39,19 +39,19 @@ Character achievements require the named character, even if another holder can c
 |---|---|---|---|---|
 | `c_boys_orders` | French Connection / Французская связь | As TheBoys, complete all 3 Francie orders. | Uncommon · 25 ZBS | `AchievementClass.cs:233-236,459-460` |
 | `c_goblin_summit` | Built Different / Особая постройка | As Стая Гоблинов, finish alive at actual place 1 with a place-1 Ziggurat and receive its enforced win. | Legendary · 228 ZBS + 2 boxes | `AchievementClass.cs:237-240,462-466` |
-| `c_rick_portals` | Portal Authority / Портальная власть | As Рик Санчез, successfully fire Портальная пушка twice. | Rare · 50 ZBS | `AchievementClass.cs:241-244,469-470`; fire counter `CharacterPassives.cs:2128-2139` |
-| `c_saitama_one_punch` | One Punch / Один удар | As Сайтама, reclaim at least 20 deferred points through Ищет достойного противника. | Epic · 100 ZBS + 1 box | `AchievementClass.cs:245-248,472-473`; reclaim total `CharacterPassives.cs:5097-5113` |
+| `c_rick_portals` | Portal Authority / Портальная власть | As Рик Санчез, successfully fire Портальная пушка twice. | Rare · 50 ZBS | `AchievementClass.cs:241-244,469-470`; fire counter `CharacterPassives.cs:2193-2204` |
+| `c_saitama_one_punch` | One Punch / Один удар | As Сайтама, reclaim at least 20 deferred points through Ищет достойного противника. | Epic · 100 ZBS + 1 box | `AchievementClass.cs:245-248,472-473`; reclaim total `CharacterPassives.cs:5187-5203` |
 | `c_madara_tsukuyomi` | Wake Up to Reality / Очнись и вернись в реальность | As Мадара, finish with Вечное Цукуеми active and not sealed. Secret. | Legendary · 228 ZBS + 2 boxes | `AchievementClass.cs:249-255`; private-ending evaluator `AchievementClass.cs:426-439` |
 | `c_tigr_six_zero` | Six–Zero / Шесть — ноль | As Тигр, complete 3-0 обоссан against 2 different enemies. | Epic · 100 ZBS + 1 box | `AchievementClass.cs:256-259,483-485` |
 | `c_itachi_tax` | Tax Collector / Сборщик налогов | As Итачи, copy at least 20 total points through Глаза Итачи. | Rare · 50 ZBS | `AchievementClass.cs:260-263,487-489` |
-| `c_kratos_olympus` | Ghost of Sparta / Призрак Спарты | As Кратос, personally kill all 5 other players during Возвращение из мертвых. Kratos's own death is not a victim. | Legendary · 228 ZBS + 2 boxes | `AchievementClass.cs:264-267,491-492`; distinct victims `CharacterPassives.cs:1737-1745` |
+| `c_kratos_olympus` | Ghost of Sparta / Призрак Спарты | As Кратос, personally kill all 5 other players during Возвращение из мертвых. Kratos's own death is not a victim. | Legendary · 228 ZBS + 2 boxes | `AchievementClass.cs:264-267,491-492`; distinct victims `CharacterPassives.cs:1802-1810` |
 | `c_kira_perfect_crime` | Perfect Crime / Идеальное преступление | As Кира, make 3 successful Тетрадь смерти kills against distinct victims. | Epic · 100 ZBS + 1 box | `AchievementClass.cs:268-271`; distinct correct entries `AchievementClass.cs:494-501` |
-| `c_monster_apocalypse` | Beautiful Apocalypse / Прекрасный апокалипсис | As Монстр без имени, execute at least 2 pawns through Пейзаж конца света. | Epic · 100 ZBS + 1 box | `AchievementClass.cs:272-275,504-505`; `CharacterPassives.cs:4596-4607` |
-| `c_geralt_contracts` | Witcher’s Payday / Ведьмачья получка | As Геральт, resolve 3 contract fights. | Uncommon · 25 ZBS | `AchievementClass.cs:276-279,507-508`; `DoomsdayMachine.cs:1357-1369` |
-| `c_kotiki_reunion` | The Cats Came Back / Котики вернулись | As Котики, reclaim both Минька and Штормяк by winning their return attacks. | Rare · 50 ZBS | `AchievementClass.cs:280-283,510-511`; unique cat returns `CharacterPassives.cs:3284-3293` |
+| `c_monster_apocalypse` | Beautiful Apocalypse / Прекрасный апокалипсис | As Монстр без имени, execute at least 2 pawns through Пейзаж конца света. | Epic · 100 ZBS + 1 box | `AchievementClass.cs:272-275,504-505`; `CharacterPassives.cs:4685-4696` |
+| `c_geralt_contracts` | Witcher’s Payday / Ведьмачья получка | As Геральт, resolve 3 contract fights. | Uncommon · 25 ZBS | `AchievementClass.cs:276-279,507-508`; `DoomsdayMachine.cs:1403-1415` |
+| `c_kotiki_reunion` | The Cats Came Back / Котики вернулись | As Котики, reclaim both Минька and Штормяк by winning their return attacks. | Rare · 50 ZBS | `AchievementClass.cs:280-283,510-511`; unique cat returns `CharacterPassives.cs:3356-3365` |
 | `c_darksci_unstable` | Against All Odds / Вопреки всему | As Darksci, choose unstable, trigger Повезло, and finish alive at actual place 1. | Epic · 100 ZBS + 1 box | `AchievementClass.cs:284-287,513-519` |
-| `c_eren_rumbling` | The Rumbling / Гул Земли | As Эрен Йегер, kill at least 2 distinct players with Rumbling. | Epic · 100 ZBS + 1 box | `AchievementClass.cs:288-291,522-523`; victims `CharacterPassives.cs:3548-3558` |
-| `c_doom_bfg` | BFG Division / Дивизия BFG | As DooM Guy, defeat at least 3 distinct players in one BFG wave, including its primary target. | Epic · 100 ZBS + 1 box | `AchievementClass.cs:292-295,525-526`; wave tracking `DoomsdayMachine.cs:1295-1305` |
+| `c_eren_rumbling` | The Rumbling / Гул Земли | As Эрен Йегер, kill at least 2 distinct players with Rumbling. | Epic · 100 ZBS + 1 box | `AchievementClass.cs:288-291,522-523`; victims `CharacterPassives.cs:3620-3630` |
+| `c_doom_bfg` | BFG Division / Дивизия BFG | As DooM Guy, defeat at least 3 distinct players in one BFG wave, including its primary target. | Epic · 100 ZBS + 1 box | `AchievementClass.cs:292-295,525-526`; wave tracking `DoomsdayMachine.cs:1341-1351` |
 
 ## 4. Interaction achievements (7, all secret)
 
@@ -59,13 +59,13 @@ Locked interaction cards expose only a deliberately vague hint. The exact rules 
 
 | ID | Achievement (EN / RU) | Single-match interaction | Rarity / reward | Code |
 |---|---|---|---|---|
-| `x_spartan_dragon` | Dragon Slayer / Убийца драконов | As Загадочный Спартанец в маске, trigger DragonSlayer against round-10 Sirinoks/Дракон and defeat her. | Epic · 100 ZBS + 1 box | `AchievementClass.cs:298-304,528-533`; trigger/result `CharacterPassives.cs:1191-1202`, `DoomsdayMachine.cs:1307-1312` |
-| `x_kira_kratos` | Gods Don’t Tell Me What to Do / Боги мне не указ | As Кратос, die to Kira's Тетрадь смерти and revive through Боги мне не указ. | Legendary · 228 ZBS + 2 boxes | `AchievementClass.cs:305-311,536-537`; revive state `CharacterPassives.cs:5768-5790` |
-| `x_itachi_madara` | Eyes Meet Eyes / Глаза встретились | As Итачи, correctly lock Мадара in round 8 and receive the extra Клоны Сусано attack. | Rare · 50 ZBS | `AchievementClass.cs:312-318,539-541`; grant `CheckIfReady.cs:1392-1402` |
+| `x_spartan_dragon` | Dragon Slayer / Убийца драконов | As Загадочный Спартанец в маске, trigger DragonSlayer against round-10 Sirinoks/Дракон and defeat her. | Epic · 100 ZBS + 1 box | `AchievementClass.cs:298-304,528-533`; trigger/result `CharacterPassives.cs:1256-1267`, `DoomsdayMachine.cs:1353-1358` |
+| `x_kira_kratos` | Gods Don’t Tell Me What to Do / Боги мне не указ | As Кратос, die to Kira's Тетрадь смерти and revive through Боги мне не указ. | Legendary · 228 ZBS + 2 boxes | `AchievementClass.cs:305-311,536-537`; revive state `CharacterPassives.cs:5860-5882` |
+| `x_itachi_madara` | Eyes Meet Eyes / Глаза встретились | As Итачи, correctly lock Мадара in round 8 and receive the extra Клоны Сусано attack. | Rare · 50 ZBS | `AchievementClass.cs:312-318,539-541`; grant `CheckIfReady.cs:1403-1415` |
 | `x_deeplist_weedwick` | Pet Project / Любимый проект | As DeepList or Weedwick, finish with both characters alive in the final top 3. Both accounts earn it. | Epic · 100 ZBS + 1 box | `AchievementClass.cs:319-325,543-551` |
-| `x_spartan_mylorik` | Mutual Respect / Взаимное уважение | As Загадочный Спартанец в маске, trigger the mutual-Psyche interaction with mylorik, then defeat him in a later fight. | Rare · 50 ZBS | `AchievementClass.cs:326-332,529-533`; respect/result `CharacterPassives.cs:1207-1218`, `DoomsdayMachine.cs:1382-1393` |
-| `x_boys_madara` | Nothing Is Immune / Нет неприкасаемых | As TheBoys with СуперМудень, successfully deal Harm through Мадара's Воскрешенное тело. | Legendary · 228 ZBS + 2 boxes | `AchievementClass.cs:333-339,554-556`; bypass observation `DoomsdayMachine.cs:1003-1015` |
-| `x_monster_witness` | I Saw the Beast / Я видел Зверя | As a non-pawn, attack Монстр без имени in round 10 and receive the Пейзаж конца света payout. | Rare · 50 ZBS | `AchievementClass.cs:340-346,558-559`; witness flag `CharacterPassives.cs:4615-4626` |
+| `x_spartan_mylorik` | Mutual Respect / Взаимное уважение | As Загадочный Спартанец в маске, trigger the mutual-Psyche interaction with mylorik, then defeat him in a later fight. | Rare · 50 ZBS | `AchievementClass.cs:326-332,529-533`; respect/result `CharacterPassives.cs:1272-1283`, `DoomsdayMachine.cs:1428-1439` |
+| `x_boys_madara` | Nothing Is Immune / Нет неприкасаемых | As TheBoys with СуперМудень, successfully deal Harm through Мадара's Воскрешенное тело. | Legendary · 228 ZBS + 2 boxes | `AchievementClass.cs:333-339,554-556`; bypass observation `DoomsdayMachine.cs:1043-1055` |
+| `x_monster_witness` | I Saw the Beast / Я видел Зверя | As a non-pawn, attack Монстр без имени in round 10 and receive the Пейзаж конца света payout. | Rare · 50 ZBS | `AchievementClass.cs:340-346,558-559`; witness flag `CharacterPassives.cs:4704-4715` |
 
 These seven relationships are also indexed by subsystem in [INTERACTION-MATRIX.md](INTERACTION-MATRIX.md) §8.
 
@@ -83,9 +83,9 @@ The reward switch is centralized in the definition constructor (`AchievementClas
 
 ## 6. Secrets, queues, and Вечное Цукуеми
 
-- A locked secret's exact name, descriptions and character list are not sent to the client; only its hint, category, rarity, target/reward framing and a stable SHA-256-derived opaque public ID are exposed. Once unlocked, the real ID and full paired metadata are returned (`GameHub.cs:903-947,1645-1679`; DTO `GameStateDto.cs:1105-1139`).
+- A locked secret's exact name, descriptions and character list are not sent to the client; only its hint, category, rarity, target/reward framing and a stable SHA-256-derived opaque public ID are exposed. Once unlocked, the real ID and full paired metadata are returned (`GameHub.cs:903-947,1645-1679`; DTO `GameStateDto.cs:1108-1142`).
 - `NewlyUnlocked` is an acknowledgement queue, not a match-local toast flag. Match completion does not clear it. `AcknowledgeAchievements` removes only the live IDs actually shown; both it and legacy `ClearNewAchievements` snapshot/restore the queue and reject retryably if saving fails. This selective acknowledgement prevents a concurrent unlock from being erased with an older popup (`AchievementClass.cs:89-92`; `GameHub.cs:949-1018`).
-- The finished personalized game-state DTO carries full entries for that player's queued live IDs so the in-game UI can celebrate them; spectators and other players receive none. The finish path attaches a detached progress/queue snapshot, so a second tab acknowledging the persistent queue cannot invalidate enumeration during the final broadcast (`CheckIfReady.cs:740-743`; `AchievementClass.cs:592-608`; `GameStateMapper.cs:173-208`).
+- The finished personalized game-state DTO carries full entries for that player's queued live IDs so the in-game UI can celebrate them; spectators and other players receive none. The finish path attaches a detached progress/queue snapshot, so a second tab acknowledging the persistent queue cannot invalidate enumeration during the final broadcast (`CheckIfReady.cs:751-754`; `AchievementClass.cs:592-608`; `GameStateMapper.cs:174-209`).
 - While Вечное Цукуеми is active, evaluating real-result achievements for non-Madara accounts would reveal or contradict their private projected ending. Achievement V2 therefore evaluates only Madara's own hidden-ending achievement and returns without evaluating anything else for any player (`AchievementClass.cs:426-439`).
 
 ## 7. V1 migration and compatibility
@@ -110,7 +110,7 @@ There is no retroactive reconstruction from match history because most requireme
 | Epic | 2.5% | 300–450 |
 | Legendary | 0.5% | 750 |
 
-The server owns both the table and roll; the client receives the table only for explanation. Rarity uses the shared cryptographic RNG over 10,000 equally likely outcomes with exact cumulative thresholds, and variable rewards use its inclusive bounds (`QuestClass.cs:268-274,873-912`). A box is earned by finishing alive in the reward top 2, including Sakura's first-place reward treatment; Epic/Legendary achievements and Daily Quest 3/3 mastery add boxes to the same inventory (`CheckIfReady.cs:648-651,736-743`; quest mastery `QuestClass.cs:663-668`). Existing pending inventory is preserved and uses the V2 table when opened.
+The server owns both the table and roll; the client receives the table only for explanation. Rarity uses the shared cryptographic RNG over 10,000 equally likely outcomes with exact cumulative thresholds, and variable rewards use its inclusive bounds (`QuestClass.cs:268-274,873-912`). A box is earned by finishing alive in the reward top 2, including Sakura's first-place reward treatment; Epic/Legendary achievements and Daily Quest 3/3 mastery add boxes to the same inventory (`CheckIfReady.cs:659-662,736-743`; quest mastery `QuestClass.cs:663-668`). Existing pending inventory is preserved and uses the V2 table when opened.
 
 ### Rare+ pity
 
@@ -123,8 +123,8 @@ The displayed chances are **base odds**. On the guaranteed opening, pity changes
 - Opening is serialized on the account monitor. If a prior result has not been acknowledged, repeated `OpenLootBoxV2` calls return that same `OpeningId` and do not consume another box or grant ZBS again (`QuestClass.cs:804-852`; hub transaction `GameHub.cs:811-869`).
 - A new open decrements exactly one pending box, rolls and credits the result, and stores a result snapshot containing rarity, amount, balance, remaining inventory, pity state, timestamp and `WasPityUpgrade` (`QuestClass.cs:844-901`).
 - `AcknowledgeLootBox(openingId)` marks only the matching current result; stale/mismatched IDs are safe no-ops (`QuestClass.cs:855-871`).
-- `RequestQuests` snapshots under the account monitor and includes `LastUnacknowledgedLootBox`, odds and pity fields alongside Daily Quest V2. After a disconnect/reload, the client resumes that already-determined reveal, with current account balance/inventory mapped over the historical result snapshot, rather than rolling again (`GameHub.cs:649-803`; `GameStateDto.cs:1032-1103`).
-- V2 opens and loot/achievement acknowledgements save before confirming; write failure restores the exact affected account snapshot and returns a retryable hub error. Cached pre-V2 clients still call legacy `OpenLootBox`, which acknowledges inside the same durable transaction so they can advance without the new acknowledgement call (`GameHub.cs:811-1018,1599-1643`). Paid draft/shop operations share the account monitor too. `SaveAccount` reports atomic-replace success; game-end save failure is critical-logged with its settled in-memory state retained for the periodic retry (`UserAccounts.cs:113-139`; `UsersDataStorage.cs:28-80`; `CheckIfReady.cs:779-785`).
+- `RequestQuests` snapshots under the account monitor and includes `LastUnacknowledgedLootBox`, odds and pity fields alongside Daily Quest V2. After a disconnect/reload, the client resumes that already-determined reveal, with current account balance/inventory mapped over the historical result snapshot, rather than rolling again (`GameHub.cs:649-803`; `GameStateDto.cs:1035-1106`).
+- V2 opens and loot/achievement acknowledgements save before confirming; write failure restores the exact affected account snapshot and returns a retryable hub error. Cached pre-V2 clients still call legacy `OpenLootBox`, which acknowledges inside the same durable transaction so they can advance without the new acknowledgement call (`GameHub.cs:811-1018,1599-1643`). Paid draft/shop operations share the account monitor too. `SaveAccount` reports atomic-replace success; game-end save failure is critical-logged with its settled in-memory state retained for the periodic retry (`UserAccounts.cs:113-139`; `UsersDataStorage.cs:28-80`; `CheckIfReady.cs:790-796`).
 
 ## 9. Web experience and accessibility
 

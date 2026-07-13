@@ -89,6 +89,7 @@ public class StartGameLogic : IServiceSingleton
         }
 
         var reservedCharacters = new List<CharacterClass>();
+        var reservedCharacterOwners = new HashSet<ulong>();
         var playersList = new List<GamePlayerBridgeClass>();
 
 
@@ -99,15 +100,19 @@ public class StartGameLogic : IServiceSingleton
 
         //handle custom selected character part #1 (uses unfiltered pool so admins can force TeamModeOnly characters)
         var unfilteredCharacters = _charactersPull.GetRollableCharacters();
-        foreach (var character in from player in players
-                 where player != null
-                 select _accounts.GetAccount(player)
-                 into account
-                 where account.CharacterToGiveNextTime != null
-                 select unfilteredCharacters.Find(x => x.Name == account.CharacterToGiveNextTime))
+        foreach (var account in players.Where(player => player != null)
+                     .Select(player => _accounts.GetAccount(player)))
         {
-            if (character == null) continue;
+            if (account.CharacterToGiveNextTime == null) continue;
+            if (account.CharacterToGiveNextTime == Naruto.CharacterName
+                && !CanNaturallyRollNaruto(account, strictBotCount, team))
+                continue;
+
+            var character = unfilteredCharacters.Find(x => x.Name == account.CharacterToGiveNextTime);
+            if (character == null || reservedCharacters.Any(existing => existing.Name == character.Name))
+                continue;
             reservedCharacters.Add(character);
+            reservedCharacterOwners.Add(account.DiscordId);
             allCharacters.RemoveAll(x => x.Name == character.Name);
         }
         if (reservedCharacters.Any(x => x.Name == ErenYeager.CharacterName))
@@ -153,6 +158,10 @@ public class StartGameLogic : IServiceSingleton
             {
                 var forcedName = forcedCharacters[forcedIndex];
                 forcedIndex++;
+                if (forcedName == Naruto.CharacterName
+                    && !CanNaturallyRollNaruto(account, strictBotCount, team))
+                    throw new ArgumentException(
+                        "Forced Наруто requires two other strict bot seats in a free-for-all game.");
                 var forcedCharacter = unfilteredCharacters.Find(x => x.Name == forcedName)
                                       ?? throw new ArgumentException($"Forced character not found: {forcedName}");
                 allCharacters.RemoveAll(x => x.Name == forcedName);
@@ -176,7 +185,8 @@ public class StartGameLogic : IServiceSingleton
             //end forced line-up
 
             //handle custom selected character part #2
-            if (account.CharacterToGiveNextTime != null)
+            if (account.CharacterToGiveNextTime != null
+                && reservedCharacterOwners.Contains(account.DiscordId))
             {
                 playersList.Add(new GamePlayerBridgeClass
                     (reservedCharacters.Find(x => x.Name == account.CharacterToGiveNextTime),

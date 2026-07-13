@@ -366,8 +366,9 @@ public class CheckIfReady : IServiceSingleton
             if (infected.GetPlayerId() == src) continue;
             var virusSource = game.PlayersList.Find(x => x.GetPlayerId() == src);
             if (virusSource?.Passives.TheBoysButcher.SuperDickActive == true) continue;
-            infected.Status.AddBonusPoints(-2, "Смертельный вирус");
-            infected.Status.AddInGamePersonalLogs("☣️ Смертельный вирус Француза: -2 бонусных очка\n");
+            var scoreVictim = Naruto.ResolveScoreSuccessor(game, infected);
+            scoreVictim.Status.AddBonusPoints(-2, "Смертельный вирус");
+            scoreVictim.Status.AddInGamePersonalLogs("☣️ Смертельный вирус Француза: -2 бонусных очка\n");
             virusStolen.TryGetValue(src, out var cur);
             virusStolen[src] = cur + 2;
         }
@@ -391,10 +392,11 @@ public class CheckIfReady : IServiceSingleton
                 if (stolenAmount <= 0) continue;
                 var victim = game.PlayersList.Find(x => x.GetPlayerId() == victimId);
                 if (victim == null) continue;
-                victim.Status.AddBonusPoints(-stolenAmount, "Глаза Итачи");
-                victim.Status.AddInGamePersonalLogs(
+                var scoreVictim = Naruto.ResolveScoreSuccessor(game, victim);
+                scoreVictim.Status.AddBonusPoints(-stolenAmount, "Глаза Итачи");
+                scoreVictim.Status.AddInGamePersonalLogs(
                     $"Вы заработали *{stolenAmount} очков*, но всё это было в глазах у Итачи...\n*-{stolenAmount} очков*\n");
-                game.Phrases.ItachiTsukuyomiReveal.SendLog(victim, false);
+                game.Phrases.ItachiTsukuyomiReveal.SendLog(scoreVictim, false);
             }
         }
         // end Tsukuyomi
@@ -1400,7 +1402,9 @@ public class CheckIfReady : IServiceSingleton
                         if (victim.Status.WhoToAttackThisTurn.Count == 0)
                         {
                             var targets = players.Where(p =>
-                                p.GetPlayerId() != victim.GetPlayerId() && !p.Passives.IsDead).ToList();
+                                p.GetPlayerId() != victim.GetPlayerId()
+                                && !p.Passives.IsDead
+                                && !Naruto.IsNarutoPair(victim, p)).ToList();
                             if (targets.Count > 0)
                                 victim.Status.WhoToAttackThisTurn.Add(
                                     targets[Random.Shared.Next(targets.Count)].GetPlayerId());

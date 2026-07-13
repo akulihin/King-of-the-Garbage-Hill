@@ -315,6 +315,41 @@ public static class Naruto
         GamePlayerBridgeClass target) =>
         !IsDispersedClone(predictor) && !IsNarutoPair(predictor, target);
 
+    public static GamePlayerBridgeClass ResolveScoreSuccessor(
+        GameClass game,
+        GamePlayerBridgeClass player)
+    {
+        if (!IsDispersedClone(player)) return player;
+
+        return game.PlayersList.Find(candidate =>
+                   IsNaruto(candidate)
+                   && !candidate.Passives.Naruto.IsClone
+                   && candidate.GetPlayerId() == player.Passives.Naruto.OriginalPlayerId)
+               ?? player;
+    }
+
+    private static int ProjectClonePredictionPoints(
+        GameClass game,
+        GamePlayerBridgeClass clone)
+    {
+        if (game.PlayersList.Count != 6 || game.PlayersList.Count(player => player.IsBot()) > 5)
+            return 0;
+        if (clone.GameCharacter.DoomRollMode
+            || clone.GameCharacter.Passive.Any(passive => passive.PassiveName == "Тетрадь смерти"))
+            return 0;
+
+        return clone.Predict.Count(prediction =>
+        {
+            var target = game.PlayersList.Find(player =>
+                player.GetPlayerId() == prediction.PlayerId);
+            return target != null
+                   && target.GameCharacter.Name == prediction.CharacterName
+                   && target.GameCharacter.Passive.All(passive =>
+                       passive.PassiveName != "Выдуманный персонаж")
+                   && PredictionAwardsPoints(clone, target);
+        });
+    }
+
     public static void SettleShadowClones(GameClass game)
     {
         if (game.RoundNo != 10) return;
@@ -335,6 +370,10 @@ public static class Naruto
         var newDeaths = 0;
         foreach (var clone in clones)
         {
+            var predictionPoints = ProjectClonePredictionPoints(game, clone);
+            if (predictionPoints > 0)
+                clone.Status.AddBonusPoints(predictionPoints, "Предположение");
+
             total += clone.Status.DrainSettledScoreForTransfer(game, ShadowClones);
             if (!clone.Passives.IsDead)
             {
@@ -365,13 +404,22 @@ public static class Naruto
     }
 
     public static List<GamePlayerBridgeClass> OrderLeaderboard(
-        IEnumerable<GamePlayerBridgeClass> players) =>
-        players.OrderBy(IsDispersedClone)
+        IEnumerable<GamePlayerBridgeClass> players)
+    {
+        var playerList = players.ToList();
+        foreach (var clone in playerList.Where(IsDispersedClone))
+            clone.Status.DiscardScoreAfterDeath();
+
+        return playerList.OrderBy(IsDispersedClone)
             .ThenByDescending(player => player.Status.GetScore())
             .ToList();
+    }
 
     public static void MoveDispersedClonesToBottom(List<GamePlayerBridgeClass> players)
     {
+        foreach (var clone in players.Where(IsDispersedClone))
+            clone.Status.DiscardScoreAfterDeath();
+
         var ordered = players.Where(player => !IsDispersedClone(player))
             .Concat(players.Where(IsDispersedClone))
             .ToList();

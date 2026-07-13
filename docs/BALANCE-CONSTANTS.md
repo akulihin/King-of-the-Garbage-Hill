@@ -1,6 +1,6 @@
 # Balance Constants — every tunable number with its code anchor
 
-> Hand-maintained. **Update the row when you change the number** (and re-run `tools/audit-passives.sh` for name changes). Verified against the working tree of 2026-07-11. `CP` = `Game/GameLogic/CharacterPassives.cs`, `CC` = `Game/Classes/CharacterClass.cs`, `DM` = `Game/GameLogic/DoomsdayMachine.cs`, `CIR` = `Game/GameLogic/CheckIfReady.cs`, `GR` = `Game/ReactionHandling/GameReactions.cs`.
+> Hand-maintained. **Update the row when you change the number** (and re-run `tools/audit-passives.sh` for name changes). Verified against the working tree of 2026-07-12. `CP` = `Game/GameLogic/CharacterPassives.cs`, `CC` = `Game/Classes/CharacterClass.cs`, `DM` = `Game/GameLogic/DoomsdayMachine.cs`, `CIR` = `Game/GameLogic/CheckIfReady.cs`, `GR` = `Game/ReactionHandling/GameReactions.cs`.
 >
 > RNG note: `Luck(x)` ≈ x%, `Luck(a,b)` ≈ a-in-b (rounded to whole %); see `Helpers/SecureRandom.cs:35-45`.
 
@@ -27,7 +27,7 @@
 | Constant | Value | Anchor |
 |---|---|---|
 | Rounds / game end | 10 fight rounds; end at RoundNo ≥ 11; hard cap 20 (Kratos) | CIR:934-937 |
-| Regular-point round multiplier | r1-4 ×1, r5-9 ×2, r10 ×4 | InGameStatusClass.cs:288-300 |
+| Regular-point round multiplier | r1-4 ×1, r5-9 ×2, r10 ×4 | `InGameStatusClass.cs` `GetRoundScoreMultiplier` |
 | Level-up rounds | 3, 5, 7, 9 (+1 point each) | DM:1375-1379 |
 | Turn length | 300 s default; ARAM round 2+ = 300 s | GameClass.cs:13, DM:1260-1263 |
 | Block: attacker cost / defender gain | −1 bonus point / +1 next-round justice | DM:489-491 |
@@ -105,131 +105,137 @@ Achievement progress targets and the complete 33-entry rule catalog are in [ACHI
 
 | Constant | Value | Anchor |
 |---|---|---|
-| Tier ranges | 6→150, 5→100, 4→90, 3→80, 2→70, 1→60, 0→50, −1→40 | StartGameLogic.cs:38-52 |
-| Tier semantics | −1 secret-rollable (hidden from menus), −2 transform-only | CharactersPull.cs:28-50 |
-| Tier pity | +3% per game without that tier; reset round 2 | StartGameLogic.cs:158-159, CIR:1317-1324 |
-| Bot rules | tier 4 ×3; no tier <4 except Кира at ½ tier-1 range | StartGameLogic.cs:154-156 |
-| Top Laner decay | ×1.0 → −0.2 per Top Laner rolled (floor 0) | StartGameLogic.cs:157, 172-177 |
-| Exclusivity | LeCrisp ⊕ Толя; single Tier-4 per game; no repeat of last character | StartGameLogic.cs:180-201 |
+| Tier ranges | 6→150, 5→100, 4→90, 3→80, 2→70, 1→60, 0→50, −1→40 | StartGameLogic.cs:47-61 |
+| Tier semantics | −1 secret-rollable (hidden from menus), −2 transform-only | CharactersPull.cs:29-51 |
+| Tier pity | +3% per game without that tier; reset round 2 | StartGameLogic.cs:181-182, CIR:1317-1324 |
+| Bot rules | tier 4 ×3; no tier <4 except Кира at ½ tier-1 range | StartGameLogic.cs:177-179 |
+| Top Laner decay | ×1.0 → −0.2 per Top Laner rolled (floor 0) | StartGameLogic.cs:180, 172-177 |
+| Exclusivity | LeCrisp ⊕ Толя; single Tier-4 per game; no repeat of last character | StartGameLogic.cs:204-229 |
+| Naruto roster eligibility | FFA only; human original requires ≥2 strict bots, bot original requires ≥3 strict bots total; exactly 2 become clones | `StartGameLogic.cs` `CanNaturallyRollNaruto`; `Naruto.cs` `CanUseRoster`, `InitializeTeam` |
 
 ## Per-character numbers
 
 | Character | Constant | Value | Anchor |
 |---|---|---|---|
-| DeepList | Безумие schedule / skill mult / stats | 2(+≤1) rounds in 4-7; ×4 multipliers; stats random 0-10 | PassivesClass.cs:21, CP:5217-5280 |
+| DeepList | Безумие schedule / skill mult / stats | 2(+≤1) rounds in 4-7; ×4 multipliers; stats random 0-10 | PassivesClass.cs:21, CP:5309-5372 |
 | DeepList | Сверхразум discoveries | 1(+≤2) in rounds 1-5 | PassivesClass.cs:16 |
-| DeepList | Стёб | 2nd win: −1 Psyche (Школьник −2), +1 regular; <4 Psyche → −1 J | CP:2487-2542 |
-| mylorik | Спарта multipliers | ×2/×4/×8/×16 by losses to target | CP:1275-1300 |
-| mylorik | Буль | skip 1/(10+5·psyche) below 7; psyche-0 rage +2 Str +22 Skill | CP:4792-4821 |
-| mylorik | Испанец | 50% (pity: every 2nd) → +10 Skill −1 Psyche; Harm→+1 Moral | CP:2575-2599, CC:213-221 |
-| mylorik | Месть | +2 regular +3 Moral +1 Psyche per revenge | CP:2544-2572 |
-| Глеб | Сон / Претендент | 2(+≤2) sleeps (−30 Skill); Претендент: stats 9, +99 Skill, Мишень ×3, points ×3; round-10 pity 1/(40−place×4) | PassivesClass.cs:44-61, CP:5055-5134, 3422-3453 |
-| Глеб | Чай | ready 1/8 (1/7 chall., 1/4 Rick), guaranteed r9; +1 regular, target skips | CP:5027-5053, 1166-1177 |
-| LeCrisp | Ассассины | surrender at Str diff ≥ 3; +1 Psyche/next-round per non-assassin | CP:485-504, 776-784 |
-| LeCrisp | Импакт | +1 bonus +1 J per clean round; wins +(streak+1) Moral; Speed-resist 6 / kite 2 | CP:3483-3499, 2619-2628, CC:396-442 |
-| Толя | Раммус | +1 J, Moral = attackers² | CP:3565-3602 |
-| Толя | Подсчет | initial cd 2-3; recharge 4-5 (⚠ m8); +2 regular +2 J per target loss; target ×1 multiplier | PassivesClass.cs:31, CP:1058-1066, 2298-2312 |
-| Толя | Комментатор | rounds 3-6, 20%/round, max 2 reveals | CP:3501-3563 |
-| HardKitty | Одиночество | −30 score at start; +1 regular per attack; letters 1/2/4 by round | CP:159-168, 517-553 |
-| HardKitty | Доебаться | stacks ×2 regular on cash-in; ≥7 stacks +10 | CP:2649-2667 |
-| Sirinoks | Обучение | +1 stat/round; completion +3 Moral +10% Skill | CP:3611-3663 |
-| Sirinoks | Дракон | stats 10; bonus = Skill/10 − friends below | CP:5284-5315 |
-| Школьник | Дерзкая школота | +100 Skill start; −20 Skill & −2 random stats/round | CP:185-191, 3807-3847 |
-| Школьник | Запах мусора | −5 bonus per double-attacker after r10 | CP:5841-5864 |
-| Школьник | Школьник | 1 forced skip in rounds 2-9; +5 next-round J | PassivesClass.cs:39, CP:4876-4892 |
-| AWDKA | Я пытаюсь | 2nd loss: +2 lvl-ups +20 Skill; ×2 skill vs stacked | CP:4911-4925, 1246-1250 |
-| AWDKA | АФКА | skip 1/(32−4·roundsSinceMoral), min 1/1 | CP:4894-4909 |
+| DeepList | Стёб | 2nd win: −1 Psyche (Школьник −2), +1 regular; <4 Psyche → −1 J | CP:2554-2614 |
+| mylorik | Спарта multipliers | ×2/×4/×8/×16 by losses to target | CP:1340-1365 |
+| mylorik | Буль | skip 1/(10+5·psyche) below 7; psyche-0 rage +2 Str +22 Skill | CP:4882-4911 |
+| mylorik | Испанец | 50% (pity: every 2nd) → +10 Skill −1 Psyche; Harm→+1 Moral | CP:2647-2671, CC:213-221 |
+| mylorik | Месть | +2 regular +3 Moral +1 Psyche per revenge | CP:2616-2644 |
+| Глеб | Сон / Претендент | 2(+≤2) sleeps (−30 Skill); Претендент: stats 9, +99 Skill, Мишень ×3, points ×3; round-10 pity 1/(40−place×4) | PassivesClass.cs:44-61, CP:5145-5224, 3422-3453 |
+| Глеб | Чай | ready 1/8 (1/7 chall., 1/4 Rick), guaranteed r9; +1 regular, target skips | CP:5117-5143, 1166-1177 |
+| LeCrisp | Ассассины | surrender at Str diff ≥ 3; +1 Psyche/next-round per non-assassin | CP:527-546, 776-784 |
+| LeCrisp | Импакт | +1 bonus +1 J per clean round; wins +(streak+1) Moral; Speed-resist 6 / kite 2 | CP:3555-3571, 2619-2628, CC:396-442 |
+| Толя | Раммус | +1 J, Moral = attackers² | CP:3637-3674 |
+| Толя | Подсчет | initial cd 2-3; recharge 4-5 (⚠ m8); +2 regular +2 J per target loss; target ×1 multiplier | PassivesClass.cs:31, CP:1123-1131, 2298-2312 |
+| Толя | Комментатор | rounds 3-6, 20%/round, max 2 reveals | CP:3573-3635 |
+| HardKitty | Одиночество | −30 score at start; +1 regular per attack; letters 1/2/4 by round | CP:201-210, 517-553 |
+| HardKitty | Доебаться | stacks ×2 regular on cash-in; ≥7 stacks +10 | CP:2721-2739 |
+| Sirinoks | Обучение | +1 stat/round; completion +3 Moral +10% Skill | CP:3683-3740 |
+| Sirinoks | Дракон | stats 10; bonus = Skill/10 − friends below | CP:5376-5407 |
+| Школьник | Дерзкая школота | +100 Skill start; −20 Skill & −2 random stats/round | CP:227-233, 3807-3847 |
+| Школьник | Запах мусора | −5 bonus per double-attacker after r10 | CP:5933-5956 |
+| Школьник | Школьник | 1 forced skip in rounds 2-9; +5 next-round J | PassivesClass.cs:39, CP:4966-4982 |
+| AWDKA | Я пытаюсь | 2nd loss: +2 lvl-ups +20 Skill; ×2 skill vs stacked | CP:5001-5015, 1246-1250 |
+| AWDKA | АФКА | skip 1/(32−4·roundsSinceMoral), min 1/1 | CP:4984-4999 |
 | AWDKA | Троллинг | (top1-recorded-score+1)/2 + correct predictions | CIR:434-445 |
-| Осьминожка | Привет со дна | any moral gain = +4; +1 bonus per block/skip event | CC:1143-1153, CP:3605-3609 |
-| Darksci | Повезло | stable +100% score/+2/+2; unstable +200%/+4/+4 | CP:1913-1938 |
-| Darksci | Не повезло (stable) | +20 Skill +2 Moral per round | CP:5897-5906 |
+| Осьминожка | Привет со дна | any moral gain = +4; +1 bonus per block/skip event | CC:1143-1153, CP:3677-3681 |
+| Darksci | Повезло | stable +100% score/+2/+2; unstable +200%/+4/+4 | CP:1978-2003 |
+| Darksci | Не повезло (stable) | +20 Skill +2 Moral per round | CP:5989-5998 |
 | Darksci | Дизмораль | −5 Psyche on round 9 (via level-up ⚠ D1) | GR:1226-1231 |
-| Тигр | Лучше с двумя | +3 bonus per Int/Psyche match (⚠ self-counts, M6) | CP:3377-3393 |
-| Тигр | 3-0 | 3 wins: +3 regular +30 Skill +3 Moral; victim −1 Int −1 Psyche | CP:3671-3739 |
-| Тигр | Тигр топ | TimeCount 3; random re-arm 1(+≤1) in rounds 1-8 (⚠ game-start window, M5); #1 → +1 Psyche +3 Moral (r2-9) | Tigr.cs:10, PassivesClass.cs:26-28, CP:5822-5829 |
-| Братишка | Челюсти | +1 Speed per unique win & new place | CP:2744-2757, 5807-5818 |
-| Спартанец | Привилегия | win r5+: victim +1 extra J, self −1 Int; extra Str-Harm vs top-3 by skill ratio | CP:2782-2790, CC:237-277 |
-| Спартанец | Первая кровь | ×2 skill all game; ±1 Speed on first-attack outcome | CP:105-107, 2759-2778 |
-| Спартанец | Позорят | −1 Str −1 Speed per unique first attack (mylorik/Кратос spared: +1 Psyche both) | CP:1138-1163 |
-| Вампур | Гематофагия | +2 stat per unique win; Psyche-priority ≤8 (max 2) | CP:2803-2864 |
-| Вампур | СОсиновый кол | loss: −2 stat −1 regular | CP:3895-3922 |
-| Вампур | Вампуризм | +victim J (copy) next round; even rounds +Moral/bite | CP:1842-1846, 3926-3931 |
-| Краборак | Панцирь | first attack per enemy: auto-block +3 Moral +33 Skill | CP:427-439 |
+| Тигр | Лучше с двумя | +3 bonus per Int/Psyche match (⚠ self-counts, M6) | CP:3449-3465 |
+| Тигр | 3-0 | 3 wins: +3 regular +30 Skill +3 Moral; victim −1 Int −1 Psyche | CP:3748-3816 |
+| Тигр | Тигр топ | TimeCount 3; random re-arm 1(+≤1) in rounds 1-8 (⚠ game-start window, M5); #1 → +1 Psyche +3 Moral (r2-9) | Tigr.cs:10, PassivesClass.cs:26-28, CP:5914-5921 |
+| Братишка | Челюсти | +1 Speed per unique win & new place | CP:2816-2829, 5807-5818 |
+| Спартанец | Привилегия | win r5+: victim +1 extra J, self −1 Int; extra Str-Harm vs top-3 by skill ratio | CP:2854-2862, CC:237-277 |
+| Спартанец | Первая кровь | ×2 skill all game; ±1 Speed on first-attack outcome | CP:147-149, 2759-2778 |
+| Спартанец | Позорят | −1 Str −1 Speed per unique first attack (mylorik/Кратос spared: +1 Psyche both) | CP:1203-1228 |
+| Вампур | Гематофагия | +2 stat per unique win; Psyche-priority ≤8 (max 2) | CP:2875-2936 |
+| Вампур | СОсиновый кол | loss: −2 stat −1 regular | CP:3972-3999 |
+| Вампур | Вампуризм | +victim J (copy) next round; even rounds +Moral/bite | CP:1907-1911, 3926-3931 |
+| Краборак | Панцирь | first attack per enemy: auto-block +3 Moral +33 Skill | CP:469-481 |
 | Краборак | Болевой порог | 50% per J point → +1 regular instead | CC:1654-1672 |
-| Краборак | Хождение боком | attacker Speed 0; 3 scheduled Speed-10 rounds | CP:441-443, PassivesClass.cs:64-66 |
-| Краборак | Водоросли | +1 bonus attacking places 4-6 | CP:1309-1310 |
-| Weedwick | Охотник | Speed ×2 vs 0-J/Rick | CP:1088-1094 |
-| Weedwick | Добыча | +winstreak points; Harm rolls 1/place, 1/5, +1/3 vs #1 | CP:1727-1820 |
-| Weedwick | Weed | −1 Psyche after 2 dry rounds | CP:5754-5760 |
-| Кратос | Класс-мульт | ×2 base, ×4 in event; event = rounds 11-16 | CP:73-75, 2446, 3362 |
-| Молодой Глеб | Спокойствие чай | cd 3; +1 regular, target skips | CP:1179-1191, 5992-6001 |
-| Молодой Глеб | Мета | up to 3 targets/round; +1 bonus per hit | CP:4627-4667 |
-| Сайтама | Лысина | +1000 Skill | CP:210-213 |
-| Сайтама | Неприметность | serious = top-2 by Skill (recomputed each round); off at r10 | CP:242-251, 3933-3942 |
-| Мадара | base / rarity | Int 7, Str 9, Speed 10, Psyche 9; Tier 5 | characters.json:1449-1484 |
-| Мадара | Бог шиноби thresholds | >1 unique attacker: TooGOOD; >2: TooSTONK; >3: fight Skill = 100 | Madara.cs:55-110; CP:419-425,1019-1025 |
+| Краборак | Хождение боком | attacker Speed 0; 3 scheduled Speed-10 rounds | CP:483-485, PassivesClass.cs:64-66 |
+| Краборак | Водоросли | +1 bonus attacking places 4-6 | CP:1374-1375 |
+| Weedwick | Охотник | Speed ×2 vs 0-J/Rick | CP:1153-1159 |
+| Weedwick | Добыча | +winstreak points; Harm rolls 1/place, 1/5, +1/3 vs #1 | CP:1792-1885 |
+| Weedwick | Weed | −1 Psyche after 2 dry rounds | CP:5846-5852 |
+| Кратос | Класс-мульт | ×2 base, ×4 in event; event = rounds 11-16 | CP:73-112, 2446, 3362 |
+| Молодой Глеб | Спокойствие чай | cd 3; +1 regular, target skips | CP:1244-1256, 5992-6001 |
+| Молодой Глеб | Мета | up to 3 targets/round; +1 bonus per hit | CP:4716-4756 |
+| Сайтама | Лысина | +1000 Skill | CP:252-255 |
+| Сайтама | Неприметность | serious = top-2 by Skill (recomputed each round); off at r10 | CP:284-293, 3933-3942 |
+| Мадара | base / rarity | Int 7, Str 9, Speed 10, Psyche 9; Tier 5 | characters.json:1486-1521 |
+| Мадара | Бог шиноби thresholds | >1 unique attacker: TooGOOD; >2: TooSTONK; >3: fight Skill = 100 | Madara.cs:55-110; CP:461-467,1019-1025 |
 | Мадара | Второй метеорит | blocked attack: no −1 bonus; +2 regular | DM:519-544 |
 | Мадара | Клоны Сусано | round 8; live non-skipping strict bots immediately attack; +1 live Justice at >2 unique attackers; seal at all 5 unique + ≥5 losses | Madara.cs:77-110,134-230; CIR:1028,1398-1420 |
-| Мадара | Вечное Цукуеми | arm at all 5 unique attackers in one turn or place 1 entering r10; viewer bonus = max living score − viewer score + 1 (0 if sole winner) | Madara.cs:96-102,219-259; CP:6139-6140 |
-| Рик | Пушка | invention Int ≥ 30; +1 charge/lvl-up; fired round ×2 regular points | GR:1155-1165, CP:3952-3975 |
-| Рик | Бобы | stack: −1 Str/Speed/Psyche, Int = base×stacks; ≤3 ingredients per lvl-up | CP:2033-2049, GR:1174-1202 |
-| Рик | Огурчик | 2 pickle turns; +1 penalty turn if never attacked | CP:3978-3985 |
-| Кира | Тетрадь | +2 regular per kill (+4 for L); 15% glass fizzle; Гений −1 Int per kill | CP:3988-4066 |
-| Кира | Глаза | 25 Moral; not consumed on L/Монстр | WebGameService.cs:747-764 |
-| Кира | L | +5 Moral per round avoiding L; arrest from round 8, −500 | CP:4069-4086, 4670-4711 |
-| Итачи | Вороны | −20% Speed per crow (both directions) | CP:1339-1347, 607-615 |
+| Мадара | Вечное Цукуеми | arm at all 5 unique attackers in one turn or place 1 entering r10; viewer bonus = max living score − viewer score + 1 (0 if sole winner) | Madara.cs:96-102,219-259; CP:6231-6232 |
+| Рик | Пушка | invention Int ≥ 30; +1 charge/lvl-up; fired round ×2 regular points | GR:1155-1165, CP:4029-4052 |
+| Рик | Бобы | stack: −1 Str/Speed/Psyche, Int = base×stacks; ≤3 ingredients per lvl-up | CP:2098-2114, GR:1174-1202 |
+| Рик | Огурчик | 2 pickle turns; +1 penalty turn if never attacked | CP:4055-4062 |
+| Кира | Тетрадь | +2 regular per kill (+4 for L); 15% glass fizzle; Гений −1 Int per kill | CP:4065-4143 |
+| Кира | Глаза | 25 Moral; not consumed on L/Монстр | WebGameService.cs:790-807 |
+| Кира | L | +5 Moral per round avoiding L; arrest from round 8, −500 | CP:4146-4163, 4670-4711 |
+| Итачи | Вороны | −20% Speed per crow (both directions) | CP:1404-1412, 607-615 |
 | Итачи | Изанаги | 2 uses | Itachi.cs:18 |
-| Итачи | Цукуеми | charge 2; recharge from −2 (⚠ 4 rounds, m9); steals round earnings ×multiplier | CP:2939, 4089-4125 |
-| Продавец | Впарить | +500 Skill, 4 rounds, cd 2 | CP:1362-1385 |
+| Итачи | Цукуеми | charge 2; recharge from −2 (⚠ 4 rounds, m9); steals round earnings ×multiplier | CP:3011, 4089-4125 |
+| Продавец | Впарить | +500 Skill, 4 rounds, cd 2 | CP:1427-1450 |
 | Продавец | Закуп | level-up +10 | GR:1007-1011 |
-| Продавец | Сделка | +1 bonus & +5 Moral per deal; round-10 debt steal ⌈debt/2⌉ | CP:2328-2340, 4128-4138, 1638-1649 |
-| Продавец | Куш | 10% → attacker steals 2 bonus | CP:2343-2354 |
-| Dopa | Взгляд | +2 regular (+4 Фарм) +50 Skill, cd 1 | CP:4150-4175 |
-| Dopa | Тактики | Стомп +9 Str +99 Skill; Доминация +20 Skill/−1 bonus/33% −1 Psyche; Роум steal 1 bonus + 3 Moral | CP:5728-5747, 2134-2159 |
-| Napoleon | Союз | joint attack: can't lose, +3 Moral; Завоеватель +1 bonus | CP:1394-1409, 2122-2145 |
-| Суппорт | Premade | ±1 regular per carry result; Stakes every 3rd round +1; Protect +1 J | CP:2356-2371, 2944-2953, 4217-4224 |
+| Продавец | Сделка | +1 bonus & +5 Moral per deal; round-10 debt steal ⌈debt/2⌉ | CP:2395-2407, 4128-4138, 1638-1649 |
+| Продавец | Куш | 10% → attacker steals 2 bonus | CP:2410-2421 |
+| Dopa | Взгляд | +2 regular (+4 Фарм) +50 Skill, cd 1 | CP:4227-4252 |
+| Dopa | Тактики | Стомп +9 Str +99 Skill; Доминация +20 Skill/−1 bonus/33% −1 Psyche; Роум steal 1 bonus + 3 Moral | CP:5820-5839, 2134-2159 |
+| Napoleon | Союз | joint attack: can't lose, +3 Moral; Завоеватель +1 bonus | CP:1459-1474, 2122-2145 |
+| Суппорт | Premade | ±1 regular per carry result; Stakes every 3rd round +1; Protect +1 J | CP:2423-2438, 2944-2953, 4217-4224 |
 | Суппорт | End-game | both top-2 → support = carry − support + 1 bonus | CIR:472-494 |
-| Гоблины | Population | start 20; rates W 1/5, Worker 1/10, Hob 1/15; growth 1+Hobs (×2 +1/+2 on wins) | GoblinSwarm.cs:10-15, CP:2178-2189 |
-| Гоблины | Deaths | (10 + 0.5R²/3)% +5/+5 TooGood/Stronk, min 1 | CP:2190-2200 |
+| Гоблины | Population | start 20; rates W 1/5, Worker 1/10, Hob 1/15; growth 1+Hobs (×2 +1/+2 on wins) | GoblinSwarm.cs:10-15, CP:2243-2256 |
+| Гоблины | Deaths | (10 + 0.5R²/3)% +5/+5 TooGood/Stronk, min 1 | CP:2257-2267 |
 | Гоблины | Upgrades | Hob 14→11; Warrior 4→2 (floor 2); Worker 9→6; Festival ×2 once | GR:779-833 |
-| Гоблины | Ziggurat | needs 1 of each + score > 3; −3 bonus −1 worker; +1 J +5 Moral/round | CP:6459-6532 |
-| Гоблины | Tunnels | 50% escape if Speed ≥ attacker+2 | CP:641-652 |
-| Гоблины | Mines | places 1, 2, 6 → +Workers bonus | CP:4244-4258, 1458-1471 |
-| Котики | Засада | Минька return +2 bonus +33×rounds Skill; Штормяк eats ½ total score (⚠ M9); cd 2 | CP:3067-3138 |
-| Котики | Тrick pool | fight 3/7, bite 1/7 (+10 bonus), vase 3/7 once (catch Skill/3 %, ±1 bonus) | CP:5610-5664, 4559-4610 |
-| Toxic Mate | Стартовые | −1000 Moral, −20 bonus | CP:254-261 |
-| Toxic Mate | Cancer | +2×transfers on return | CP:2390-2398 |
-| Toxic Mate | Tilted | +1 bonus per skip (⚠ M8); +50 if all passive | CP:4226-4242 |
-| Монстр | Пейзаж | pawn deaths +1 regular each; attackers +7 regular (×4!) +10 bonus (⚠ D8) | CP:4300-4333 |
-| Монстр | no-escape | every attack marks before Block/Skip; next 2 turns attack-only; per-target overlapping expiry | CP:1024-1031; CIR:1371-1393 |
-| Монстр | Близнец | no generic block J; copies max attacker J without draining (+total bonus = max J) | CP:936-960; DM:564-568 |
-| Монстр | Выдуманный | +3 bonus on r9 if guessed-at | CP:5471-5498 |
+| Гоблины | Ziggurat | needs 1 of each + score > 3; −3 bonus −1 worker; +1 J +5 Moral/round | CP:6552-6625 |
+| Гоблины | Tunnels | 50% escape if Speed ≥ attacker+2 | CP:683-694 |
+| Гоблины | Mines | places 1, 2, 6 → +Workers bonus | CP:4321-4335, 1458-1471 |
+| Котики | Засада | Минька return +2 bonus +33×rounds Skill; Штормяк eats ½ total score (⚠ M9); cd 2 | CP:3139-3210 |
+| Котики | Тrick pool | fight 3/7, bite 1/7 (+10 bonus), vase 3/7 once (catch Skill/3 %, ±1 bonus) | CP:5702-5756, 4559-4610 |
+| Toxic Mate | Стартовые | −1000 Moral, −20 bonus | CP:296-303 |
+| Toxic Mate | Cancer | +2×transfers on return | CP:2457-2465 |
+| Toxic Mate | Tilted | +1 bonus per skip (⚠ M8); +50 if all passive | CP:4303-4319 |
+| Монстр | Пейзаж | pawn deaths +1 regular each; attackers +7 regular (×4!) +10 bonus (⚠ D8) | CP:4377-4410 |
+| Монстр | no-escape | every attack marks before Block/Skip; next 2 turns attack-only; per-target overlapping expiry | CP:1066-1073; CIR:1371-1393 |
+| Монстр | Близнец | no generic block J; copies max attacker J without draining (+total bonus = max J) | CP:978-1002; DM:564-568 |
+| Монстр | Выдуманный | +3 bonus on r9 if guessed-at | CP:5563-5590 |
 | TheBoys | Члены | +2 stat per lvl-up; ultimates at ×4; post-СуперМудень upgrades inert/consumed | GR:968-1057 |
-| TheBoys | Francie | orders r1/4/7, window 3, completion/expiry ±1 bonus; chem `level × (1 + harder-tier)` per eligible win | CP:314-330, 3405-3437, 5914-5943 |
-| TheBoys | Butcher | 2 rotating sup marks + permanent heroes/Young Gleb/Challenger Gleb; hunt Skill +10/+20; **+1/+2 regular per actual Drop**; poker Skill/Harm ×`(1+n)` / exact SD ×`2(1+n)`; recursive any-pool breaks, 50 Drops/turn | CP:1561-1571,3464-3483,6181-6215; DM:928-1006 |
-| TheBoys | Kimiko | Regen x1+ ignores up to level Justice and enables disable/recovery; base defense +10/+20 Skill; Living Weapon drains Justice + same regular points | CP:704-723,793-816,951-961,5947-5972 |
-| TheBoys | M.M. | ±1 team Psyche; calm immunity from x1; r8 kompromat +5 Moral each; predictions ×kompromat; x4 steals/blocks Moral | CP:3612-3649,7176-7308; GR:1021-1050; CIR:320-350 |
+| TheBoys | Francie | orders r1/4/7, window 3, completion/expiry ±1 bonus; chem `level × (1 + harder-tier)` per eligible win | CP:356-372, 3405-3437, 5914-5943 |
+| TheBoys | Butcher | 2 rotating sup marks + permanent heroes/Young Gleb/Challenger Gleb; hunt Skill +10/+20; **+1/+2 regular per actual Drop**; poker Skill/Harm ×`(1+n)` / exact SD ×`2(1+n)`; recursive any-pool breaks, 50 Drops/turn | CP:1626-1636,3464-3483,6181-6215; DM:928-1006 |
+| TheBoys | Kimiko | Regen x1+ ignores up to level Justice and enables disable/recovery; base defense +10/+20 Skill; Living Weapon drains Justice + same regular points | CP:746-765,793-816,951-961,5947-5972 |
+| TheBoys | M.M. | ±1 team Psyche; calm immunity from x1; r8 kompromat +5 Moral each; predictions ×kompromat; x4 steals/blocks Moral | CP:3684-3726,7176-7308; GR:1021-1050; CIR:320-350 |
 | TheBoys | Смертельный вирус | −2/+2 bonus per infected at game end; disabled under СуперМудень | CIR:353-375 |
 | TheBoys | СуперМудень | exact ×2 Butcher Skill/Harm/drop payout; one extra Harm per applied pool break; cap 50 Drops per turn; score-0 stop | DM:928-1006; CC:182-345 |
-| Salldorum | Шэн/капсула/летописец | +1 charge/lvl-up; capsule +2 bonus +5 Speed after 3 rounds; rewrite −1/+1 per winner (⚠ m15), +2 Psyche +2 J; ×3 skill vs 3-rounds-ago winner | GR:1168-1172, CP:5700-5720, WebGameService.cs:908-967, CP:2148-2176 |
-| Геральт | Заказы | +1 contract/round; +20 Skill per contract fight; oils T1 −1 J / T2 +2 Str / T3 ×3 Skill | CP:5582-5595, 2204-2214, 1503-1535 |
-| Геральт | Медитация | Lambert 10% once (skill 0 next round; m16); демандна экономика: advance +2 regular, смерть при Displeasure ≥ 11 (−500) | CP:4395-4402, 4454-4491 |
-| Баг | Exploit | pot = losses of exploitable players; claim on patch | DM:73-76, CP:1613-1625 |
+| Salldorum | Шэн/капсула/летописец | +1 charge/lvl-up; capsule +2 bonus +5 Speed after 3 rounds; rewrite −1/+1 per winner (⚠ m15), +2 Psyche +2 J; ×3 skill vs 3-rounds-ago winner | GR:1168-1172, CP:5792-5812, WebGameService.cs:951-1010, CP:2213-2241 |
+| Геральт | Заказы | +1 contract/round; +20 Skill per contract fight; oils T1 −1 J / T2 +2 Str / T3 ×3 Skill | CP:5674-5687, 2204-2214, 1503-1535 |
+| Геральт | Медитация | Lambert 10% once (skill 0 next round; m16); демандна экономика: advance +2 regular, смерть при Displeasure ≥ 11 (−500) | CP:4484-4491, 4454-4491 |
+| Баг | Exploit | pot = losses of exploitable players; claim on patch | DM:73-76, CP:1678-1690 |
 | Sakura | — | top-3 = narrative win | CIR:496-508 |
-| DooM Guy | base / newcomer | Int 2, Str 5, Speed 5, Psyche 5, Tier 4; exact 30% protected roll while TotalPlays < 10 | characters.json:1383-1413, StartGameLogic.cs:177-205 |
+| DooM Guy | base / newcomer | Int 2, Str 5, Speed 5, Psyche 5, Tier 4; exact 30% protected roll while TotalPlays < 10 | characters.json:1383-1413, StartGameLogic.cs:201-233 |
 | DooM Guy | stages / random mode | Rune r3, Shield r5, Mission r7, Gun r9; Let's Roll random pick pays +2 regular each stage | DoomGuy.cs:53-60, 170-175 |
-| DooM Guy | Rune | Вознесение +8 Int, at most 8 × −1/loss; Маневры +5 Speed, at most 5 × −1/Harm; Истребление +1 all stats + max(0, 10−round) bonus; Glory kill neighbour Skill ×2 and win +1 all stats | DoomGuy.cs `ApplySelectedModule`/`ApplyFightModules`; CP:2587-2632; CharacterClass.cs:213-221 |
-| DooM Guy | Shield | Щит-пила block penalty −3; Шоковый щит 1 auto-submitted forced skip; Адский блок +666 Skill once after 2 blocked attacks; Контр-атака next-turn fight Skill/Justice 0; Щит-акула block→1-turn Ничего не понимает stance | DM:240-249,584-613; CP:771-788,5062-5085; DoomGuy.cs `ApplyFightModules` |
-| DooM Guy | Mission | 1 new nest/setup, overflow >3 → −20 bonus + clear; only attack-win nest kill +1 regular; every resolved fight +1 regular; flawless no-block mission +20 bonus; Ближник neighbour melee bonus ×2 (Кулаки +4, Glory total Skill ×3/+2 stats, Бензопила 2 picks) | DoomGuy.cs `SpawnDemonNest`/`ApplyFightModules`; CP:2620-2685,3682-3695 |
-| DooM Guy | Gun | BFG 1 charge; primary + every wave Step-3 random auto-wins; Кулаки Str=0 and +2 regular/win; Бензопила 1 victim, up to 4 choices and 1 pick; Рельса 1 charge and whole selected side, Block/Skip bypass except Тигр ban; Приручить дракона = round-10 Дракон transform | DoomGuy.cs `ApplySelectedModule`/`CopyChainsawPassive`; DM:445-491,569-650,810-881; CP:2656-2685,5767-5797 |
-| DooM Guy | module reward | place 4/3/2/1 ceiling = Rune/Shield/Mission/Gun; fallback downward; standard chance = 0 complete, 5% last, otherwise `5 + 75×(remaining−1)/(total−1)`; Приручить дракона excluded and guaranteed only after round-10 win over Sirinoks/Дракон | DoomGuy.cs `TryAwardModule`/`TryAwardDragonTaming`; CP:2400-2410; CheckIfReady.cs:725-735 |
-| Эрен Йегер | base / rarity / exclusion | Злость(Int) 0, Str 3, Speed 3, Самоуверенность(Psyche) 8; Tier 6; cannot naturally coexist with HardKitty | characters.json:1416-1446, StartGameLogic.cs:245-250 |
-| Эрен Йегер | Овца в загоне | forced place 6 through r8; +1 Int at starts r2-8; gain cap 8 (normal interval yields 7) | CP:182-186,4869-4883; CIR:1215-1223; DM:1458-1465 |
-| Эрен Йегер | Дрочун marks / cash-in | loss mark 1; attacking-Eren mark 2; cap 2; victory cashes target mark as 1/2 bonus | PassivesClass.cs:270-271, CP:438-441,2465-2486 |
-| Эрен Йегер | Дрочун mutual attack | +2 regular once per mutual enemy per round | CP:2489-2500 |
+| DooM Guy | Rune | Вознесение +8 Int, at most 8 × −1/loss; Маневры +5 Speed, at most 5 × −1/Harm; Истребление +1 all stats + max(0, 10−round) bonus; Glory kill neighbour Skill ×2 and win +1 all stats | DoomGuy.cs `ApplySelectedModule`/`ApplyFightModules`; CP:2659-2704; CharacterClass.cs:213-221 |
+| DooM Guy | Shield | Щит-пила block penalty −3; Шоковый щит 1 auto-submitted forced skip; Адский блок +666 Skill once after 2 blocked attacks; Контр-атака next-turn fight Skill/Justice 0; Щит-акула block→1-turn Ничего не понимает stance | DM:240-249,584-613; CP:813-830,5062-5085; DoomGuy.cs `ApplyFightModules` |
+| DooM Guy | Mission | 1 new nest/setup, overflow >3 → −20 bonus + clear; only attack-win nest kill +1 regular; every resolved fight +1 regular; flawless no-block mission +20 bonus; Ближник neighbour melee bonus ×2 (Кулаки +4, Glory total Skill ×3/+2 stats, Бензопила 2 picks) | DoomGuy.cs `SpawnDemonNest`/`ApplyFightModules`; CP:2692-2757,3682-3695 |
+| DooM Guy | Gun | BFG 1 charge; primary + every wave Step-3 random auto-wins; Кулаки Str=0 and +2 regular/win; Бензопила 1 victim, up to 4 choices and 1 pick; Рельса 1 charge and whole selected side, Block/Skip bypass except Тигр ban; Приручить дракона = round-10 Дракон transform | DoomGuy.cs `ApplySelectedModule`/`CopyChainsawPassive`; DM:445-491,569-650,810-881; CP:2728-2757,5767-5797 |
+| DooM Guy | module reward | place 4/3/2/1 ceiling = Rune/Shield/Mission/Gun; fallback downward; standard chance = 0 complete, 5% last, otherwise `5 + 75×(remaining−1)/(total−1)`; Приручить дракона excluded and guaranteed only after round-10 win over Sirinoks/Дракон | DoomGuy.cs `TryAwardModule`/`TryAwardDragonTaming`; CP:2467-2477; CheckIfReady.cs:736-746 |
+| Эрен Йегер | base / rarity / exclusion | Злость(Int) 0, Str 3, Speed 3, Самоуверенность(Psyche) 8; Tier 6; cannot naturally coexist with HardKitty | characters.json:1416-1446, StartGameLogic.cs:273-278 |
+| Эрен Йегер | Овца в загоне | forced place 6 through r8; +1 Int at starts r2-8; gain cap 8 (normal interval yields 7) | CP:224-228,4869-4883; CIR:1215-1223; DM:1458-1465 |
+| Эрен Йегер | Дрочун marks / cash-in | loss mark 1; attacking-Eren mark 2; cap 2; victory cashes target mark as 1/2 bonus | PassivesClass.cs:270-274, CP:480-483,2465-2486 |
+| Эрен Йегер | Дрочун mutual attack | +2 regular once per mutual enemy per round | CP:2556-2567 |
 | Эрен Йегер | Атакующий Титан | block removed; +5 each stat per fight for the turn; no incoming target → −2 Psyche | DM:271-281; CP:62-72,443-447,1002-1006,3545-3555 |
 | Эрен Йегер | Titan audio roll | `use_most` 50%; files 1–3 split the other 50% uniformly | sound.ts:990-995 |
-| Эрен Йегер | Rumbling gate / reach | round 10; fewer than 2 losses **during round 10 only**; kills projected places strictly between Eren and place 6 | CP:2551-2556,3537-3586; ErenYeager.cs:37-71 |
+| Эрен Йегер | Rumbling gate / reach | round 10; fewer than 2 losses **during round 10 only**; kills projected places strictly between Eren and place 6 | CP:2623-2628,3537-3586; ErenYeager.cs:37-52 |
+| Наруто | base / rarity | Int 3, Str 3, Speed 4, Psyche 5; Tier 5 | characters.json:1449-1483 |
+| Наруто | Гарем но джутсу | Block replacement; +1 regular per canceled valid fight in each reaching attacker's whole queue | `Naruto.cs` `ResolveHaremQueues`, `TryCancelHaremFights` |
+| Наруто | Теневые | 2 independent strict-bot clones; r10 settlement immediately after Rumbling; sibling prediction value 0; correct enemy predictions +1 projected once; clone score/death seats end at 0 / bottom two | `Naruto.cs` `InitializeTeam`, `ProjectClonePredictionPoints`, `SettleShadowClones`, `OrderLeaderboard` |
+| Наруто | Расенган | 2 joint attackers: summed Justice, +2 Str each; 3: summed Justice, +3 Int/Str/Speed/Psyche each | CP:74-108; `Naruto.cs` `SnapshotJustice`, `GetJointAttackers` |
+| Наруто | Призыв | exactly 1 Naruto on target; prior-round loss to that target with target TooGOOD or TooSTONK → terminal auto-win, otherwise refusal only | `Naruto.cs` `IsSoloAttack`, `WonPoweredFightLastRound`; DM:880-899 |
 
 ## Bot AI difficulty (`BB` = BotsBehavior.cs, `GC` = GameClass.cs, `CP` = CharacterPassives.cs, `SR` = SimulationRunner.cs)
 
@@ -268,4 +274,4 @@ Per-game `AiDifficulty` (0/1/2/3). **Default 3 everywhere** — Discord `*st`/`*
 | L3-4 true Justice read | real Justice | use `GetRealJusticeNow()` (including hidden skill-Justice) instead of seen Justice | BB:865-868 |
 | `OmniDominateNumber` (L3-5) | +3 | dominating all 3 offensive stats reaches TooGOOD territory → hunt it | BB:62, 1010-1013 |
 | composite fight edge (L3-6) | thresholds ±5 / ±13 | approximate Step 1 from nemesis, scale, versatility, Psyche, skill and real Justice; lose-to-win/special-objective kits opt out | BB:270-325, 1063-1080 |
-| L3-0 prediction auto-fill | true characters | strict bots (`PlayerType == 404`) predict every enemy's real character except Монстр без имени | CP:6290 |
+| L3-0 prediction auto-fill | true characters | strict bots (`PlayerType == 404`) predict every enemy's real character except Монстр без имени | CP:6382 |

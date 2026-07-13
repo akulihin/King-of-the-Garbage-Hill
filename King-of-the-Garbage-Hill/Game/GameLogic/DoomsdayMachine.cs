@@ -878,12 +878,12 @@ public class DoomsdayMachine : IServiceSingleton
 
 
                 //octopus  // playerIamAttacking is octopus
-                if (pointsWined <= 0)
+                if (!narutoSummonAutoWin && pointsWined <= 0)
                     pointsWined = await _characterPassives.HandleOctopus(playerIamAttacking, player, game);
                 //end octopus
 
                 //izanagi  // playerIamAttacking is Itachi (defender)
-                if (pointsWined >= 1
+                if (!narutoSummonAutoWin && pointsWined >= 1
                     && playerIamAttacking.GameCharacter.Passive.Any(p => p.PassiveName == "Изанаги")
                     && playerIamAttacking.Passives.ItachiIzanagi.UsesRemaining > 0)
                 {

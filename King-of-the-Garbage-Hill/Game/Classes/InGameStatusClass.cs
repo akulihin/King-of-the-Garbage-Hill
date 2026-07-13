@@ -279,6 +279,16 @@ public class InGameStatus
         return settledScore;
     }
 
+    public void DiscardScoreAfterDeath()
+    {
+        Score = 0;
+        ScoresToGiveAtEndOfRound = 0;
+        BonusPointsEarnedThisRound = 0;
+        ScoreSource = "";
+        ScoreEntries.Clear();
+        PreviousRoundScoreEntries.Clear();
+    }
+
     public void AddSettledScore(decimal score, string reason)
     {
         Score += score;

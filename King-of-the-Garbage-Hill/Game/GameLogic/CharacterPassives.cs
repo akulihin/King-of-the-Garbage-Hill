@@ -4778,6 +4778,7 @@ public class CharacterPassives : IServiceSingleton
 
                         // Non-pawns who fought Monster this round get a reward
                         foreach (var fighter in game.PlayersList.Where(x =>
+                            !Naruto.IsDispersedClone(x) &&
                             !x.Passives.IsJohanPawn &&
                             x.GetPlayerId() != player.GetPlayerId() &&
                             x.Status.WhoToAttackThisTurn.Contains(player.GetPlayerId())))
@@ -5296,7 +5297,9 @@ public class CharacterPassives : IServiceSingleton
                                     foreach (var entry in saitamaWorthy.Ledger)
                                     {
                                         var recipient = game.PlayersList.Find(x => x.GetPlayerId() == entry.RecipientId);
-                                        recipient?.Status.AddBonusPoints(-entry.Points, "Ищет достойного противника");
+                                        if (recipient != null)
+                                            Naruto.ResolveScoreSuccessor(game, recipient).Status
+                                                .AddBonusPoints(-entry.Points, "Ищет достойного противника");
                                     }
                                     saitamaWorthy.Ledger.Clear();
                                 }
@@ -5348,7 +5351,7 @@ public class CharacterPassives : IServiceSingleton
                                     pl.Status.AddInGamePersonalLogs("🐙 Чернильная завеса: это очко уже забрал Итачи — списываем один раз.\n");
                                     continue;
                                 }
-                                pl.Status.AddBonusPoints(t.RealScore, "🐙");
+                                Naruto.ResolveScoreSuccessor(game, pl).Status.AddBonusPoints(t.RealScore, "🐙");
                             }
 
                             player.Status.AddBonusPoints(octopusInv.Count, "🐙");
@@ -6455,9 +6458,10 @@ public class CharacterPassives : IServiceSingleton
                                 var player2 = game.PlayersList.Find(x => x.GetPlayerId() == t.EnemyId);
                                 if (player2 != null)
                                 {
-                                    player2.Status.AddBonusPoints(-5, "Запах мусора");
+                                    var scoreTarget = Naruto.ResolveScoreSuccessor(game, player2);
+                                    scoreTarget.Status.AddBonusPoints(-5, "Запах мусора");
 
-                                    game.Phrases.MitsukiGarbageSmell.SendLog(player2, true);
+                                    game.Phrases.MitsukiGarbageSmell.SendLog(scoreTarget, true);
                                     count++;
                                 }
                             }
@@ -6759,7 +6763,8 @@ public class CharacterPassives : IServiceSingleton
                     if (rbBite.BiteBonusPending && rbBite.BiteLockActiveUntilRound < game.RoundNo)
                     {
                         var biteTarget = game.PlayersList.Find(x => x.GetPlayerId() == rbBite.BiteTargetId);
-                        if (biteTarget != null && rbBite.BiteLockPosition > 0 &&
+                        if (!Naruto.IsDispersedClone(player)
+                            && biteTarget != null && rbBite.BiteLockPosition > 0 &&
                             biteTarget.Status.GetPlaceAtLeaderBoard() == rbBite.BiteLockPosition)
                         {
                             // Storm carrier gets +10 bonus points
