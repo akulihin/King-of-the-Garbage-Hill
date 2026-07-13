@@ -1144,8 +1144,10 @@ public class DoomsdayMachine : IServiceSingleton
                     resistStrAfter = playerIamAttacking.GameCharacter.GetStrengthQualityResistInt();
                     resistPsycheAfter = playerIamAttacking.GameCharacter.GetPsycheQualityResistInt();
                     dropsAfter = playerIamAttacking.GameCharacter.GetStrengthQualityDropTimes();
-                    player.Passives.AchievementTracker.DropsCaused +=
-                        Math.Max(0, dropsAfter - dropsBefore);
+                    var achievementDrops = Math.Max(0, dropsAfter - dropsBefore);
+                    player.Passives.AchievementTracker.DropsCaused += achievementDrops;
+                    if (player.Passives.TheBoysButcher.SuperDickActive)
+                        player.Passives.AchievementTracker.SuperDickDropsCaused += achievementDrops;
                     // Detect if intel/psyche resist broke (went below 0 and was reset)
                     intellectualDamage = qualityDamageApplied && resistIntelAfter > resistIntelBefore;
                     emotionalDamage = qualityDamageApplied && resistPsycheAfter > resistPsycheBefore;
@@ -1434,6 +1436,12 @@ public class DoomsdayMachine : IServiceSingleton
                 // ── Achievement tracking: fight wins/losses (before ResetFight clears flags) ──
                 var achievementAttackerWon = player.Status.IsWonThisCalculation == playerIamAttacking.GetPlayerId();
                 var achievementDefenderWon = playerIamAttacking.Status.IsWonThisCalculation == player.GetPlayerId();
+
+                if (achievementAttackerWon || achievementDefenderWon)
+                {
+                    player.Passives.AchievementTracker.FoughtCharacterNames.Add(playerIamAttacking.GameCharacter.Name);
+                    playerIamAttacking.Passives.AchievementTracker.FoughtCharacterNames.Add(player.GameCharacter.Name);
+                }
 
                 if (achievementAttackerWon)
                 {

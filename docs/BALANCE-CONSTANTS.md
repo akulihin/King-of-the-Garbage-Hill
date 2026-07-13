@@ -83,7 +83,7 @@ The full 12-contract catalog, selection, privacy and migration rules are in [DAI
 
 ## Achievement & loot-box rewards
 
-Achievement progress targets and the complete 34-entry rule catalog are in [ACHIEVEMENTS.md](ACHIEVEMENTS.md). Reward values are centralized by rarity; the live catalog totals **3,153 ZBS + 23 boxes** (`AchievementClass.cs:65-76,184-347`).
+Achievement progress targets and the complete 105-entry rule catalog are in [ACHIEVEMENTS.md](ACHIEVEMENTS.md). Reward values are centralized by rarity; the live catalog contains 11 Common, 25 Uncommon, 21 Rare, 33 Epic and 15 Legendary cards, totalling **8,505 ZBS + 63 boxes** (`AchievementClass.cs` `AchievementDefinition`/`AllAchievements`).
 
 | Constant | Value | Anchor |
 |---|---|---|

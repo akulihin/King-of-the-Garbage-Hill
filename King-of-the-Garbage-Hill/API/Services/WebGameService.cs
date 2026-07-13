@@ -566,6 +566,7 @@ public class WebGameService
         if (lvlBlocked) return Task.FromResult((false, lvlError));
 
         player.Status.AutoMoveTimes++;
+        player.Passives.AchievementTracker.ExplicitAutoMoveRounds.Add(game.RoundNo);
         var text = "Вы использовали Авто Ход\n";
         player.Status.AddInGamePersonalLogs(text);
         player.Status.ChangeMindWhat = text;
@@ -592,7 +593,10 @@ public class WebGameService
         player.Status.WhoToAttackThisTurn = new List<Guid>();
 
         if (player.Status.ChangeMindWhat.Contains("Вы использовали Авто Ход"))
+        {
             player.Status.AutoMoveTimes--;
+            player.Passives.AchievementTracker.ExplicitAutoMoveRounds.Remove(game.RoundNo);
+        }
 
         var newLogs = player.Status.GetInGamePersonalLogs()
             .Replace(player.Status.ChangeMindWhat, $"~~{player.Status.ChangeMindWhat.Replace("\n", "~~\n")}");

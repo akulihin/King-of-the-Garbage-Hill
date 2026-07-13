@@ -874,6 +874,7 @@ public class CharacterPassives : IServiceSingleton
                             target.FightCharacter.Justice.AddRealJusticeNow(stolenJustice);
                             target.Status.AddRegularPoints(stolenJustice, "Живое Оружие");
                             kimikoAfter.TotalJusticeBlocked += stolenJustice;
+                            target.Passives.AchievementTracker.LivingWeaponJusticeBlocked += stolenJustice;
                             target.Status.AddInGamePersonalLogs(
                                 $"Живое Оружие: Kimiko забрала {stolenJustice} Справедливости у {me.DiscordUsername}\n");
                         }
@@ -1187,6 +1188,7 @@ public class CharacterPassives : IServiceSingleton
                         game.AddGlobalLogs(commLogSnippet);
                         game.KiraHiddenLogSnippets.Add(commLogSnippet);
                         game.Phrases.YongGlebCommunication.SendLog(me, false);
+                        me.Passives.AchievementTracker.YoungGlebPinkWardUsed = true;
 
                         // Auto-set prediction for all players who don't already have one for this target
                         foreach (var p in game.PlayersList)
@@ -1886,6 +1888,7 @@ public class CharacterPassives : IServiceSingleton
                     if (me.Status.IsWonThisCalculation == target.GetPlayerId())
                         if (target.Passives.WeedwickWeed > 0)
                         {
+                            me.Passives.AchievementTracker.WeedHarvested += target.Passives.WeedwickWeed;
                             me.GameCharacter.AddMoral(target.Passives.WeedwickWeed, "Weed");
 
                             switch (target.Passives.WeedwickWeed)
@@ -2591,6 +2594,9 @@ public class CharacterPassives : IServiceSingleton
                             if (cancerTarget.GetPlayerId() == p.GetPlayerId())
                             {
                                 // Cancer returned to Toxic Mate — award bonus points and deactivate
+                                p.Passives.AchievementTracker.ToxicCancerReturns++;
+                                if (cancerAll.TransferCount > p.Passives.AchievementTracker.ToxicMaxTransferCount)
+                                    p.Passives.AchievementTracker.ToxicMaxTransferCount = cancerAll.TransferCount;
                                 var cancerBonus = cancerAll.TransferCount * 2;
                                 p.Status.AddBonusPoints(cancerBonus, "Get cancer");
                                 cancerAll.IsActive = false;
@@ -4675,6 +4681,7 @@ public class CharacterPassives : IServiceSingleton
                         player.Status.AddRegularPoints(pointsAward, "Взгляд в будущее");
                         player.GameCharacter.AddExtraSkill(50, "Взгляд в будущее");
                         player.Passives.DopaVision.Cooldown = 1;
+                        player.Passives.AchievementTracker.DopaVisionProcs++;
                         game.Phrases.DopaVisionProc.SendLog(player, false);
                     }
                     break;
@@ -6631,6 +6638,7 @@ public class CharacterPassives : IServiceSingleton
                 case "Тупорылая Акула":
                     if (player.GameCharacter.GetPsyche() == 10 && !player.IsBot())
                     {
+                        player.Passives.AchievementTracker.TransformedFromMylorik = true;
                         player.GameCharacter.Name = "Братишка";
                         player.GameCharacter.Passive = new List<Passive>();
                         player.GameCharacter.Passive = _charactersPull.GetRollableCharacters().Find(x => x.Name == "Братишка").Passive;

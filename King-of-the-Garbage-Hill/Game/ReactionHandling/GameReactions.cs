@@ -168,6 +168,7 @@ public sealed class GameReaction : IServiceSingleton
 
                     case "auto-move":
                         player.Status.AutoMoveTimes++;
+                        player.Passives.AchievementTracker.ExplicitAutoMoveRounds.Add(game!.RoundNo);
                         await game!.Phrases.AutoMove.SendLogSeparate(player, true, 7000, false);
 
                         var textAutomove = $"Вы использовали Авто Ход\n";
@@ -201,6 +202,7 @@ public sealed class GameReaction : IServiceSingleton
                         if (status.ChangeMindWhat.Contains("Вы использовали Авто Ход"))
                         {
                             player.Status.AutoMoveTimes--;
+                            player.Passives.AchievementTracker.ExplicitAutoMoveRounds.Remove(game!.RoundNo);
                         }
 
                         var newInGameLogs = player.Status.GetInGamePersonalLogs().Replace(status.ChangeMindWhat, $"~~{status.ChangeMindWhat.Replace("\n", "~~\n")}");

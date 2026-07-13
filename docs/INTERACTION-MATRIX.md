@@ -129,16 +129,22 @@ Copy rule: random Standalone passive from the **last attacked** enemy, no duplic
 
 ## 8. Achievement V2 interaction observations
 
-These hooks are **observational**: they record an already-resolved interaction and do not add a win, death, Harm, position change or resource effect. All seven cards are secret until unlocked; exact copy/rewards are catalogued in [ACHIEVEMENTS.md](ACHIEVEMENTS.md) §4.
+These hooks are **observational**: they record an already-resolved interaction and do not add a win, death, Harm, position change or resource effect. All 13 cards are secret until unlocked; exact copy/rewards are catalogued in [ACHIEVEMENTS.md](ACHIEVEMENTS.md) §4.
 
 | Achievement | Required characters | Observation point | Account(s) that earn it |
 |---|---|---|---|
-| `x_spartan_dragon` Dragon Slayer | Загадочный Спартанец в маске × Sirinoks/Дракон | DragonSlayer armed in the round-10 before-fight hook, then the Spartan actually wins that fight (`CP:1256-1267`; `DoomsdayMachine.cs:1353-1358`) | Spartan only (`AchievementClass.cs:528-533`) |
-| `x_kira_kratos` Gods Don’t Tell Me What to Do | Кира × Кратос | Kira's correct Тетрадь смерти kill reaches Kratos, then Боги мне не указ revives him (`CP:5860-5882`) | Kratos only (`AchievementClass.cs:536-537`) |
-| `x_itachi_madara` Eyes Meet Eyes | Итачи × Мадара | round-8 correct locked prediction grants the extra Клоны Сусано attack (`CheckIfReady.cs:1403-1415`) | Itachi only (`AchievementClass.cs:539-541`) |
-| `x_deeplist_weedwick` Pet Project | DeepList × Weedwick | final authoritative board has both alive at places 1–3 (`AchievementClass.cs:543-551`) | both accounts |
-| `x_spartan_mylorik` Mutual Respect | Загадочный Спартанец в маске × mylorik | mutual-Psyche respect is recorded, then a later resolved fight is won by the Spartan (`CP:1272-1283`; `DoomsdayMachine.cs:1428-1439`) | Spartan only (`AchievementClass.cs:529-533`) |
-| `x_boys_madara` Nothing Is Immune | TheBoys/СуперМудень × Мадара/Воскрешенное тело | an actual Super Harm application passes the resurrected-body immunity (`DoomsdayMachine.cs:1043-1055`) | TheBoys only (`AchievementClass.cs:554-556`) |
-| `x_monster_witness` I Saw the Beast | any non-pawn attacker × Монстр без имени | round-10 attacker receives the non-pawn Пейзаж конца света payout (`CP:4704-4715`) | that attacker (`AchievementClass.cs:558-559`) |
+| `x_spartan_dragon` Dragon Slayer | Загадочный Спартанец в маске × Sirinoks/Дракон | DragonSlayer is armed in the round-10 before-fight hook, then the Spartan actually wins that fight (`CP:1290-1307`; `DoomsdayMachine.cs:1458-1462`) | Spartan only (`AchievementClass.cs` `TrackGameEnd`) |
+| `x_kira_kratos` Gods Don’t Tell Me What to Do | Кира × Кратос | Kira's correct Тетрадь смерти kill reaches Kratos, then Боги мне не указ revives him (`CP:5997-6007`) | Kratos only (`AchievementClass.cs` `TrackGameEnd`) |
+| `x_itachi_madara` Eyes Meet Eyes | Итачи × Мадара | round-8 correct locked prediction grants the extra Клоны Сусано attack (`CheckIfReady.cs:1422-1428`) | Itachi only (`AchievementClass.cs` `TrackGameEnd`) |
+| `x_deeplist_weedwick` Pet Project | DeepList × Weedwick | final authoritative board has both alive at places 1–3 | both accounts (`AchievementClass.cs` `TrackGameEnd`) |
+| `x_spartan_mylorik` Mutual Respect | Загадочный Спартанец в маске × mylorik | mutual-Psyche respect is recorded, then a later resolved fight is won by the Spartan (`CP:1317-1328`; `DoomsdayMachine.cs:1535-1541`) | Spartan only (`AchievementClass.cs` `TrackGameEnd`) |
+| `x_boys_madara` Nothing Is Immune | TheBoys/СуперМудень × Мадара/Воскрешенное тело | an actual Super Harm application passes the resurrected-body immunity (`DoomsdayMachine.cs:1136-1140`) | TheBoys only (`AchievementClass.cs` `TrackGameEnd`) |
+| `x_monster_witness` I Saw the Beast | any non-pawn attacker × Монстр без имени | round-10 attacker receives the non-pawn Пейзаж конца света payout (`CP:4833-4838`) | that attacker (`AchievementClass.cs` `TrackGameEnd`) |
+| `x_doom_dragon` How to Tame Your Dragon | DooM Guy × Sirinoks/Дракон | DooM Guy wins a round-10 fight after Sirinoks carries Дракон; the same observed fact unlocks Приручить дракона (`CP:2487-2495`; `DoomGuy.cs` `TryAwardDragonTaming`) | DooM Guy only |
+| `x_rick_most_wanted` Interdimensional Most Wanted | Рик Санчез × Кира × Загадочный Спартанец в маске × Weedwick | Rick participates in resolved fights against all three specially drawn opponents in one match; attack or defence counts (`DoomsdayMachine.cs:1436-1443`) | Rick only |
+| `x_spartan_kratos` Spartans Need No Introduction | Загадочный Спартанец в маске × Кратос | their first encounter enters Kratos in the Spartan's Они позорят военное искусство list and gives the special mutual +1 Psyche (`CP:1317-1339`) | both accounts |
+| `x_deeplist_octopus` Eight Arms in the Plan | DeepList × Осьминожка | DeepList first has Octopus in Сомнительная тактика's friend list, then reaches a triggered Стёб entry for her (`CP:2832-2848,2854-2901`; `DeepList.cs` `MockerySub.Triggered`) | DeepList only |
+| `x_goblin_bad_architecture` Building Code Violation | Стая Гоблинов × Братишка/mylorik | the Goblin Ziggurat learns the standalone passive Булькает and the Goblin player finishes alive (`GoblinSwarm.cs` `ZigguratClass.LearnedPassives`) | Goblins only |
+| `x_eren_goblins` Tiny Titans | Эрен Йегер × Стая Гоблинов | Goblins are among the players killed by Eren's round-10 Rumbling (`CP:3718-3723`) | Eren only |
 
-Active Вечное Цукуеми is a global privacy exception: game-end evaluation returns before every non-Madara achievement, including these interactions, so the real authoritative result cannot contradict the viewer-specific ending (`AchievementClass.cs:426-439`).
+Active Вечное Цукуеми is a global privacy exception: game-end evaluation returns before every non-Madara achievement, including these interactions, so the real authoritative result cannot contradict the viewer-specific ending (`AchievementClass.cs` `TrackGameEnd`).
