@@ -215,6 +215,7 @@ async function changeLocale(language: AppLocale) {
           <RouterLink to="/fortress-of-doom">Крепость Рока</RouterLink>
           <RouterLink to="/store">{{ currentLocale === 'ru' ? 'Магазин' : 'Store' }}</RouterLink>
           <RouterLink to="/achievements">{{ currentLocale === 'ru' ? 'Достижения' : 'Achievements' }}</RouterLink>
+          <RouterLink to="/fight-calculator">{{ currentLocale === 'ru' ? 'Калькулятор боя' : 'Fight Lab' }}</RouterLink>
         </nav>
 
         <div class="top-bar-right">

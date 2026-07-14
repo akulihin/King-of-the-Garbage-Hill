@@ -10,6 +10,7 @@ export type AppRouteNames =
   | 'fortressOfDoom'
   | 'store'
   | 'achievements'
+  | 'fightCalculator'
   | 'battleship'
   | 'battleshipGame'
   | 'battleshipSpectate'
@@ -66,6 +67,11 @@ export const routes: RouteRecordRaw[] = [
     name: 'achievements',
     path: '/achievements',
     component: () => import('./pages/Achievements.vue'),
+  },
+  {
+    name: 'fightCalculator',
+    path: '/fight-calculator',
+    component: () => import('./pages/FightCalculator.vue'),
   },
   {
     name: 'widget',
