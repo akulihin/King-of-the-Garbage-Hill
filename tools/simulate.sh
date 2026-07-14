@@ -23,7 +23,8 @@
 # Report: DataBase/Simulations/sim-<timestamp>.json (relative to the project dir, gitignored).
 #
 # Sim errors are FINDINGS — triage them via /fix-finding, don't ignore them.
-# Don't run while a dev server shares this DataBase/ (accounts JSON races).
+# Simulation account persistence is disabled; parallel simulator processes and a dev
+# server do not share or mutate account JSON.
 #
 # Run from anywhere: bash tools/simulate.sh [flags]
 
@@ -31,8 +32,8 @@ set -u
 cd "$(dirname "$0")/../King-of-the-Garbage-Hill" || exit 2
 
 # The app resolves DataBase/* against the CWD. Running from the project dir means the sim
-# reads the CURRENT characters.json (bin/Debug copies go stale) and keeps sim bot accounts
-# in the project-level DataBase/UserAccounts — fully isolated from real account files.
+# reads the CURRENT characters.json (bin/Debug copies go stale). Simulation mode disables
+# account persistence before DI starts, so bot accounts stay in this process's memory.
 mkdir -p DataBase/UserAccounts DataBase/ServerAccounts DataBase/Simulations
 if [ ! -f DataBase/config.json ]; then
     echo '{"Token":"","AnthropicApiKey":""}' > DataBase/config.json

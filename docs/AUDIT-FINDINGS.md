@@ -1,6 +1,6 @@
 # Design-vs-Code Audit — Findings
 
-> Original audit of `DataBase/characters.json` (+ `Game/GameDesign.txt` intent notes, root-level update notes) against the 2026-07-01 working tree (v4.1.8); statuses and fix notes re-verified through 2026-07-13 (v4.4.11). Historical “Code” bullets describe the pre-fix implementation when a later **Fixed** note is present. `CP` = `Game/GameLogic/CharacterPassives.cs`.
+> Original audit of `DataBase/characters.json` (+ `Game/GameDesign.txt` intent notes, root-level update notes) against the 2026-07-01 working tree (v4.1.8); statuses and fix notes re-verified through 2026-07-14 (v4.5.2). Historical “Code” bullets describe the pre-fix implementation when a later **Fixed** note is present. `CP` = `Game/GameLogic/CharacterPassives.cs`.
 >
 > Severity: **Critical** = player-visible wrong outcome / broken kit promise; **Major** = mechanic silently missing/misfiring or balance-relevant hidden behavior; **Minor** = cosmetic, flavor, dead code, small numeric drift; **Design question** = code self-consistent but intent ambiguous.
 
@@ -505,6 +505,7 @@ Worth stating because they're easy to suspect: Francie's final-turn contract win
 - **Impact:** harness-only, but it skews every balance read taken from sim winrates.
 - **Fix direction:** attribute wins by the game's announced winner; count Наруто as one entity.
 - **Fixed:** 2026-07-13 — per-game sim rows carry `IsWinner` from `GameClass.WinnerPlayerIds`; aggregates count those declared wins and exclude dispersed structural Naruto clones from games/wins/averages. Printed summaries now show declared wins/games (`SimReport`; `SimulationRunner.BuildCharacterRows`).
+- **Corrected:** 2026-07-14 — the separate large-sweep merger still recomputed `winRate` from `top1`, reopening the same attribution bug after otherwise-correct batches. The four-level merger now aggregates authoritative per-game `isWinner` rows (and exact score/place samples), so special winners, dead leaders and structural clones stay correct through the final charts (`tools/sweep-report.py`; `tools/sweep.sh`).
 
 ### m38. A score tie suppresses Sakura's declared win but not her win announcement
 - **Actual:** Sakura's win fires her global line and reveals the passive (`CheckIfReady.cs:556-565`), then the final announcement separately prints «Ничья» if anyone ties `playerWhoWon`'s score (`:629-633`). A Sakura tied at top-3 gets both: «Я одна из легендарной тройки…» **and** «Ничья» (while still being paid first-place rewards via `rewardPlace`).
