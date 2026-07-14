@@ -59,6 +59,27 @@ public sealed class UserAccountsDataStorage : IServiceSingleton
         }
     }
 
+    /// <summary>
+    /// Reads one account file, tolerating the brief window in which a concurrent atomic replace
+    /// (temp file + move) can make an already-listed file unreadable — on a Windows-backed mount that
+    /// replace is not truly atomic. Retries rather than skips: a silently dropped account would be
+    /// recreated empty and then flushed over the real file, so an unreadable file must still throw.
+    /// </summary>
+    private static string ReadAccountFile(string filePath)
+    {
+        for (var attempt = 1; ; attempt++)
+        {
+            try
+            {
+                return File.ReadAllText(filePath);
+            }
+            catch (IOException) when (attempt < 4)
+            {
+                System.Threading.Thread.Sleep(50 * attempt);
+            }
+        }
+    }
+
     private static void WriteJsonAtomically(string filePath, string json)
     {
         var directory = Path.GetDirectoryName(filePath);
@@ -96,7 +117,7 @@ public sealed class UserAccountsDataStorage : IServiceSingleton
                 || id == 0)
                 continue;
 
-            var json = File.ReadAllText(file);
+            var json = ReadAccountFile(file);
 
 
             try

@@ -14,6 +14,7 @@ using King_of_the_Garbage_Hill.DiscordFramework.Extensions;
 using King_of_the_Garbage_Hill.Game.ReactionHandling;
 using King_of_the_Garbage_Hill.Game.Simulation;
 using King_of_the_Garbage_Hill.Helpers;
+using King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts;
 using Lamar;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
@@ -35,6 +36,9 @@ public class ProgramKingOfTheGarbageHill
 
     public async Task MainAsync(string[] args)
     {
+        // Must precede the container: UserAccounts loads the account store in its constructor.
+        UserAccounts.DisableDiskPersistence = args.Contains("--sim");
+
         _client = new DiscordShardedClient(_shardIds, new DiscordSocketConfig
         {
             LogLevel = LogSeverity.Verbose,

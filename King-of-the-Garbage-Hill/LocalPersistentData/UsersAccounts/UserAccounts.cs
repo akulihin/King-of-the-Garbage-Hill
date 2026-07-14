@@ -26,11 +26,23 @@ public sealed class UserAccounts : IServiceSingleton
     private static ulong _nextWebId = 9_000_000_000_000_000_000;
     private static readonly object _webIdLock = new();
 
+    /// <summary>
+    /// Set by <c>--sim</c> before the container is built. The harness only ever plays bot accounts,
+    /// which it resets at start anyway, so it neither loads nor writes the account store: startup skips
+    /// ~12k file reads, the 60s flush never runs, and — decisively — several simulator processes can run
+    /// in parallel without racing each other on <c>DataBase/UserAccounts</c> (a concurrent atomic-replace
+    /// could otherwise make a listed file vanish before it was read, killing startup) or corrupting each
+    /// other's bot pity/history mid-run.
+    /// </summary>
+    public static bool DisableDiskPersistence { get; set; }
+
     public UserAccounts(DiscordShardedClient client, UserAccountsDataStorage usersDataStorage)
     {
         _client = client;
         _usersDataStorage = usersDataStorage;
-        _userAccountsDictionary = _usersDataStorage.LoadAllAccounts();
+        _userAccountsDictionary = DisableDiskPersistence
+            ? new ConcurrentDictionary<ulong, DiscordAccountClass>()
+            : _usersDataStorage.LoadAllAccounts();
         foreach (var (userId, account) in _userAccountsDictionary)
         {
             if (MigrateUnknownBugAccount(account))
@@ -38,7 +50,8 @@ public sealed class UserAccounts : IServiceSingleton
             GameLocalization.SetUserLanguage(userId, account.Language);
         }
         ClearPlayingStatus();
-        SaveAllAccountsTimer();
+        if (!DisableDiskPersistence)
+            SaveAllAccountsTimer();
         _executionPath = System.IO.Path.GetDirectoryName(Assembly.GetEntryAssembly()?.Location);
     }
 
@@ -119,6 +132,9 @@ public sealed class UserAccounts : IServiceSingleton
     public bool SaveAccount(DiscordAccountClass account)
     {
         if (account == null) return false;
+        // Reported as a successful write: sim accounts are in-memory only, and callers roll a
+        // transaction back on false.
+        if (DisableDiskPersistence) return true;
 
         lock (account)
         {
