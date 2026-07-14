@@ -76,6 +76,9 @@ public class GamePlayerBridgeClass
 
     public int CharacterMasteryPoints { get; set; }
 
+    /// <summary>True only when this seat consumed a queued loot-box character reward.</summary>
+    public bool IsLootBoxCharacterReward { get; set; }
+
     /// <summary>When true, suppress Discord messages and only use the web UI.</summary>
     public bool PreferWeb { get; set; }
 

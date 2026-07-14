@@ -164,6 +164,12 @@ public class LootBoxResult
     public int RemainingLootBoxes { get; set; }
     public int LootBoxPity { get; set; }
     public int GuaranteedRareIn { get; set; }
+    public string CharacterName { get; set; }
+    public string CharacterAvatar { get; set; }
+    public int CharacterTier { get; set; }
+    public int RollWeightBonusPercentagePoints { get; set; }
+    public bool GuaranteedForNextGame { get; set; }
+    public int PendingGuaranteedCharacters { get; set; }
 }
 
 public class LootBoxOddsTier
@@ -172,13 +178,23 @@ public class LootBoxOddsTier
     public double Chance { get; set; }
     public int MinZbs { get; set; }
     public int MaxZbs { get; set; }
+    public int RollWeightBonusPercentagePoints { get; set; }
+    public int? GuaranteedCharacterMaxTier { get; set; }
 
-    public LootBoxOddsTier(string rarity, double chance, int minZbs, int maxZbs)
+    public LootBoxOddsTier(
+        string rarity,
+        double chance,
+        int minZbs,
+        int maxZbs,
+        int rollWeightBonusPercentagePoints,
+        int? guaranteedCharacterMaxTier = null)
     {
         Rarity = rarity;
         Chance = chance;
         MinZbs = minZbs;
         MaxZbs = maxZbs;
+        RollWeightBonusPercentagePoints = rollWeightBonusPercentagePoints;
+        GuaranteedCharacterMaxTier = guaranteedCharacterMaxTier;
     }
 }
 
@@ -264,14 +280,15 @@ public static class QuestService
         DailyQuestCatalog.ToDictionary(definition => definition.Id, StringComparer.Ordinal);
 
     public const int RarePityLimit = 10;
+    public const int MaxRollWeightPercentage = 200;
 
     public static readonly IReadOnlyList<LootBoxOddsTier> LootBoxOdds = new List<LootBoxOddsTier>
     {
-        new("Common", 60.0, 15, 30),
-        new("Uncommon", 25.0, 40, 75),
-        new("Rare", 12.0, 100, 175),
-        new("Epic", 2.5, 300, 450),
-        new("Legendary", 0.5, 750, 750),
+        new("Common", 60.0, 15, 30, 1),
+        new("Uncommon", 25.0, 40, 75, 2),
+        new("Rare", 12.0, 100, 175, 3),
+        new("Epic", 2.5, 300, 450, 5, guaranteedCharacterMaxTier: 2),
+        new("Legendary", 0.5, 750, 750, 10, guaranteedCharacterMaxTier: 1),
     };
 
     public static QuestDefinition GetDefinition(string questId)
@@ -822,7 +839,10 @@ public static class QuestService
     /// Atomically opens one pending box. Repeated calls return the same unacknowledged
     /// opening without consuming or crediting another box.
     /// </summary>
-    public static LootBoxOpenOutcome OpenLootBox(DiscordAccountClass account, ulong gameId)
+    public static LootBoxOpenOutcome OpenLootBox(
+        DiscordAccountClass account,
+        ulong gameId,
+        IReadOnlyList<CharacterClass> availableCharacters)
     {
         if (account == null)
             return new LootBoxOpenOutcome { Error = "Account not found." };
@@ -844,7 +864,7 @@ public static class QuestService
                 return new LootBoxOpenOutcome { Error = "No loot boxes available." };
 
             account.PendingLootBoxes--;
-            var result = GenerateLootBox(account);
+            var result = GenerateLootBox(account, availableCharacters);
             account.Quests.LastLootBox = result;
             account.Quests.LastLootBoxGameId = gameId;
 
@@ -870,7 +890,9 @@ public static class QuestService
         }
     }
 
-    private static LootBoxResult GenerateLootBox(DiscordAccountClass account)
+    private static LootBoxResult GenerateLootBox(
+        DiscordAccountClass account,
+        IReadOnlyList<CharacterClass> availableCharacters)
     {
         var pityBefore = Math.Clamp(account.Quests.LootBoxPity, 0, RarePityLimit - 1);
         var tier = RollLootBoxTier();
@@ -885,6 +907,54 @@ public static class QuestService
             : SecureRandom.Next(tier.MinZbs, tier.MaxZbs);
         account.ZbsPoints += zbsAmount;
 
+        account.CharacterChance ??= new List<DiscordAccountClass.CharacterChances>();
+        account.SeenCharacters ??= new List<string>();
+        account.LootBoxCharacterQueue ??= new List<string>();
+
+        var publicCharacters = (availableCharacters ?? Array.Empty<CharacterClass>())
+            .Where(character => character != null
+                                && character.Tier >= 0
+                                && !UnknownBug.Is(character.Name))
+            .GroupBy(character => character.Name, StringComparer.Ordinal)
+            .Select(group => group.First())
+            .ToList();
+        var rewardPool = tier.GuaranteedCharacterMaxTier.HasValue
+            ? publicCharacters.Where(character =>
+                    character.Tier > 0 && character.Tier <= tier.GuaranteedCharacterMaxTier.Value)
+                .ToList()
+            : publicCharacters;
+        var charactersBelowCap = rewardPool.Where(character =>
+        {
+            var chance = account.CharacterChance.Find(entry => entry.CharacterName == character.Name);
+            return Math.Round((chance?.GetEffectiveMultiplier() ?? 1.0) * 100) < MaxRollWeightPercentage;
+        }).ToList();
+        if (charactersBelowCap.Count > 0)
+            rewardPool = charactersBelowCap;
+
+        CharacterClass rewardCharacter = null;
+        var actualRollWeightBonus = 0;
+        if (rewardPool.Count > 0)
+        {
+            rewardCharacter = rewardPool[SecureRandom.Next(0, rewardPool.Count - 1)];
+            var chance = account.CharacterChance.Find(entry => entry.CharacterName == rewardCharacter.Name);
+            if (chance == null)
+            {
+                chance = new DiscordAccountClass.CharacterChances(rewardCharacter.Name);
+                account.CharacterChance.Add(chance);
+            }
+
+            var currentPercentage = (int)Math.Round(chance.GetEffectiveMultiplier() * 100);
+            actualRollWeightBonus = Math.Min(
+                tier.RollWeightBonusPercentagePoints,
+                Math.Max(0, MaxRollWeightPercentage - currentPercentage));
+            chance.LootBoxBonusPercentagePoints += actualRollWeightBonus;
+
+            if (!account.SeenCharacters.Contains(rewardCharacter.Name, StringComparer.Ordinal))
+                account.SeenCharacters.Add(rewardCharacter.Name);
+            if (tier.GuaranteedCharacterMaxTier.HasValue)
+                account.LootBoxCharacterQueue.Add(rewardCharacter.Name);
+        }
+
         return new LootBoxResult
         {
             OpeningId = Guid.NewGuid().ToString("N"),
@@ -897,6 +967,12 @@ public static class QuestService
             RemainingLootBoxes = account.PendingLootBoxes,
             LootBoxPity = account.Quests.LootBoxPity,
             GuaranteedRareIn = GetGuaranteedRareIn(account.Quests.LootBoxPity),
+            CharacterName = rewardCharacter?.Name,
+            CharacterAvatar = rewardCharacter?.Avatar,
+            CharacterTier = rewardCharacter?.Tier ?? 0,
+            RollWeightBonusPercentagePoints = actualRollWeightBonus,
+            GuaranteedForNextGame = rewardCharacter != null && tier.GuaranteedCharacterMaxTier.HasValue,
+            PendingGuaranteedCharacters = account.LootBoxCharacterQueue.Count,
         };
     }
 

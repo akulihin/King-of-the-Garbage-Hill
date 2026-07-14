@@ -44,6 +44,42 @@ public class StartGameLogic : IServiceSingleton
         return Naruto.CanUseRoster(strictBotCount, assignee.PlayerType == 404);
     }
 
+    private static (string Name, bool IsLootBoxReward) PeekNextCharacterAssignment(
+        DiscordAccountClass account)
+    {
+        lock (account)
+        {
+            if (!string.IsNullOrWhiteSpace(account.CharacterToGiveNextTime))
+                return (account.CharacterToGiveNextTime, false);
+
+            account.LootBoxCharacterQueue ??= new List<string>();
+            return account.LootBoxCharacterQueue.Count > 0
+                ? (account.LootBoxCharacterQueue[0], true)
+                : (null, false);
+        }
+    }
+
+    private static void ConsumeNextCharacterAssignment(
+        DiscordAccountClass account,
+        string characterName,
+        bool isLootBoxReward)
+    {
+        lock (account)
+        {
+            if (!isLootBoxReward)
+            {
+                if (string.Equals(account.CharacterToGiveNextTime, characterName, StringComparison.Ordinal))
+                    account.CharacterToGiveNextTime = null;
+                return;
+            }
+
+            account.LootBoxCharacterQueue ??= new List<string>();
+            if (account.LootBoxCharacterQueue.Count > 0
+                && string.Equals(account.LootBoxCharacterQueue[0], characterName, StringComparison.Ordinal))
+                account.LootBoxCharacterQueue.RemoveAt(0);
+        }
+    }
+
 
     public int GetRangeFromTier(int tier)
     {
@@ -90,6 +126,7 @@ public class StartGameLogic : IServiceSingleton
 
         var reservedCharacters = new List<CharacterClass>();
         var reservedCharacterOwners = new HashSet<ulong>();
+        var reservedAssignments = new Dictionary<ulong, (string Name, bool IsLootBoxReward)>();
         var playersList = new List<GamePlayerBridgeClass>();
 
 
@@ -103,16 +140,18 @@ public class StartGameLogic : IServiceSingleton
         foreach (var account in players.Where(player => player != null)
                      .Select(player => _accounts.GetAccount(player)))
         {
-            if (account.CharacterToGiveNextTime == null) continue;
-            if (account.CharacterToGiveNextTime == Naruto.CharacterName
+            var assignment = PeekNextCharacterAssignment(account);
+            if (assignment.Name == null) continue;
+            if (assignment.Name == Naruto.CharacterName
                 && !CanNaturallyRollNaruto(account, strictBotCount, team))
                 continue;
 
-            var character = unfilteredCharacters.Find(x => x.Name == account.CharacterToGiveNextTime);
+            var character = unfilteredCharacters.Find(x => x.Name == assignment.Name);
             if (character == null || reservedCharacters.Any(existing => existing.Name == character.Name))
                 continue;
             reservedCharacters.Add(character);
             reservedCharacterOwners.Add(account.DiscordId);
+            reservedAssignments[account.DiscordId] = assignment;
             allCharacters.RemoveAll(x => x.Name == character.Name);
         }
         if (reservedCharacters.Any(x => x.Name == ErenYeager.CharacterName))
@@ -185,21 +224,29 @@ public class StartGameLogic : IServiceSingleton
             //end forced line-up
 
             //handle custom selected character part #2
-            if (account.CharacterToGiveNextTime != null
-                && reservedCharacterOwners.Contains(account.DiscordId))
+            if (reservedCharacterOwners.Contains(account.DiscordId)
+                && reservedAssignments.TryGetValue(account.DiscordId, out var reservedAssignment))
             {
+                var reservedCharacter = reservedCharacters.Find(x => x.Name == reservedAssignment.Name);
                 playersList.Add(new GamePlayerBridgeClass
-                    (reservedCharacters.Find(x => x.Name == account.CharacterToGiveNextTime),
+                    (reservedCharacter,
                         new InGameStatus(),
                         account.DiscordId,
                         gameId,
                         account.DiscordUserName,
                         account.PlayerType)
                 );
-                playersList.Last().CharacterMasteryPoints = account.CharacterMastery.GetValueOrDefault(account.CharacterToGiveNextTime, 0);
+                playersList.Last().CharacterMasteryPoints =
+                    account.CharacterMastery.GetValueOrDefault(reservedAssignment.Name, 0);
+                playersList.Last().IsLootBoxCharacterReward = reservedAssignment.IsLootBoxReward;
                 DoomGuy.InitializeForGame(playersList.Last(), account);
-                account.CharacterPlayedLastTime = account.CharacterToGiveNextTime;
-                account.CharacterToGiveNextTime = null;
+                account.CharacterPlayedLastTime = reservedAssignment.Name;
+                ConsumeNextCharacterAssignment(
+                    account,
+                    reservedAssignment.Name,
+                    reservedAssignment.IsLootBoxReward);
+                if (reservedAssignment.IsLootBoxReward)
+                    _accounts.SaveAccount(account);
                 continue;
             }
             //end
@@ -229,7 +276,9 @@ public class StartGameLogic : IServiceSingleton
                 var pityBonus = account.TierPity.GetValueOrDefault(character.Tier, 0);
                 range = (int)(range * (1.0 + pityBonus * 0.03));
                 var chanceEntry = account.CharacterChance.Find(x => x.CharacterName == character.Name);
-                var rollMultiplier = UnknownBug.Is(character.Name) ? 1.0 : chanceEntry?.Multiplier ?? 1.0;
+                var rollMultiplier = UnknownBug.Is(character.Name)
+                    ? 1.0
+                    : chanceEntry?.GetEffectiveMultiplier() ?? 1.0;
                 var temp = totalPool + Convert.ToInt32(range * rollMultiplier) - 1;
                 allAvailableCharacters.Add(new DiscordAccountClass.CharacterRollClass(character.Name, totalPool, temp));
                 totalPool = temp + 1;
@@ -374,7 +423,7 @@ public class StartGameLogic : IServiceSingleton
                 range = (int)(range * (1.0 + pityBonus * 0.03));
                 var chanceEntry = account.CharacterChance.Find(x => x.CharacterName == character.Name);
                 if (chanceEntry == null) continue;
-                var temp = totalPool + Convert.ToInt32(range * chanceEntry.Multiplier) - 1;
+                var temp = totalPool + Convert.ToInt32(range * chanceEntry.GetEffectiveMultiplier()) - 1;
                 allAvailableCharacters.Add(new DiscordAccountClass.CharacterRollClass(character.Name, totalPool, temp));
                 totalPool = temp + 1;
             }
@@ -479,8 +528,8 @@ public class StartGameLogic : IServiceSingleton
         var leastPlace = account.PerformanceStatistics.OrderByDescending(x => x.Place)
             .ElementAtOrDefault(account.PerformanceStatistics.Count - 1);
         var topPoints = matchHistory.OrderByDescending(x => x.Score).FirstOrDefault();
-        var mostChance = characterChances.OrderByDescending(x => x.Multiplier).FirstOrDefault();
-        var leastChance = characterChances.OrderByDescending(x => x.Multiplier).LastOrDefault();
+        var mostChance = characterChances.OrderByDescending(x => x.GetEffectiveMultiplier()).FirstOrDefault();
+        var leastChance = characterChances.OrderByDescending(x => x.GetEffectiveMultiplier()).LastOrDefault();
 
         ulong totalPoints = 0;
 
@@ -526,11 +575,11 @@ public class StartGameLogic : IServiceSingleton
                 true);
         if (mostChance != null)
             embed.AddField("Самый большой шанс",
-                $"{mostChance.CharacterName} - {mostChance.Multiplier} ",
+                $"{mostChance.CharacterName} - {mostChance.GetEffectiveMultiplier()} ",
                 true);
         if (leastChance != null)
             embed.AddField("Самый маленький шанс",
-                $"{leastChance.CharacterName} - {leastChance.Multiplier} ",
+                $"{leastChance.CharacterName} - {leastChance.GetEffectiveMultiplier()} ",
                 true);
 
         embed.WithFooter("циферки");

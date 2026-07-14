@@ -1089,6 +1089,7 @@ public class StoreCharacterDto
     public string Avatar { get; set; }
     public int Tier { get; set; }
     public double Multiplier { get; set; }
+    public int LootBoxBonusPercentagePoints { get; set; }
     public int Changes { get; set; }
     public int CostOne { get; set; }
     public int CostTen { get; set; }
@@ -1125,6 +1126,8 @@ public class QuestStateDto
     public int GuaranteedRareIn { get; set; }
     public List<LootBoxOddsDto> LootBoxOdds { get; set; } = new();
     public LootBoxResultDto LastUnacknowledgedLootBox { get; set; }
+    public int PendingGuaranteedCharacters { get; set; }
+    public string NextGuaranteedCharacterName { get; set; }
 }
 
 public class QuestProgressDto
@@ -1158,6 +1161,12 @@ public class LootBoxResultDto
     public bool WasPityUpgrade { get; set; }
     public int LootBoxPity { get; set; }
     public int GuaranteedRareIn { get; set; }
+    public string CharacterName { get; set; }
+    public string CharacterAvatar { get; set; }
+    public int CharacterTier { get; set; }
+    public int RollWeightBonusPercentagePoints { get; set; }
+    public bool GuaranteedForNextGame { get; set; }
+    public int PendingGuaranteedCharacters { get; set; }
 }
 
 public class LootBoxOddsDto
@@ -1166,6 +1175,8 @@ public class LootBoxOddsDto
     public double Chance { get; set; }
     public int MinZbs { get; set; }
     public int MaxZbs { get; set; }
+    public int RollWeightBonusPercentagePoints { get; set; }
+    public int? GuaranteedCharacterMaxTier { get; set; }
 }
 
 // ── Achievement DTOs ─────────────────────────────────────────────────

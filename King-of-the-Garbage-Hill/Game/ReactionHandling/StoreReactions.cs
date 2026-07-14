@@ -97,7 +97,12 @@ public class StoreReactions : IServiceSingleton
         embed.WithTitle($"Магазин - {characterChance.CharacterName}");
 
         embed.AddField("Персонаж:", $"{characterChance.CharacterName}", true);
-        embed.AddField("Бонусный шанс:", $"{Math.Round(characterChance.Multiplier, 2)}", true);
+        embed.AddField("Бонусный шанс:", $"{characterChance.GetEffectiveMultiplier()}", true);
+        if (characterChance.LootBoxBonusPercentagePoints > 0)
+            embed.AddField(
+                "Бонус из лутбоксов:",
+                $"+{characterChance.LootBoxBonusPercentagePoints}% (не возвращается)",
+                true);
         embed.AddField("ZBS Points:", $"{account.ZbsPoints}");
         embed.AddField("Стоимость", $"Уменьшить шанс на 1% - {cost} ZP\n" +
                                     $"Уменьшить шанс на 10% - {cost10} ZP\n\n" +
@@ -222,10 +227,10 @@ public class StoreReactions : IServiceSingleton
                         {
                             error = $"ERROR: character named {title[1]} was not found";
                         }
-                        else if (character.Multiplier <= 0.5)
+                        else if (character.GetEffectiveMultiplier() - 0.01 < 0.5)
                         {
                             error =
-                                $"У персонажа {character.CharacterName} и так минимальный бонусный шанс - {character.Multiplier}";
+                                $"У персонажа {character.CharacterName} минимальный бонусный шанс - {character.GetEffectiveMultiplier()}";
                         }
                         else
                         {
@@ -273,10 +278,10 @@ public class StoreReactions : IServiceSingleton
                         {
                             error = $"ERROR: character named {title[1]} was not found";
                         }
-                        else if (character.Multiplier <= 0.5)
+                        else if (character.GetEffectiveMultiplier() - 0.1 < 0.5)
                         {
                             error =
-                                $"У персонажа {character.CharacterName} и так минимальный бонусный шанс - {character.Multiplier}";
+                                $"У персонажа {character.CharacterName} минимальный бонусный шанс - {character.GetEffectiveMultiplier()}";
                         }
                         else
                         {
@@ -328,10 +333,10 @@ public class StoreReactions : IServiceSingleton
                         {
                             error = $"ERROR: character named {title[1]} was not found";
                         }
-                        else if (character.Multiplier >= 2.0)
+                        else if (character.GetEffectiveMultiplier() + 0.01 > 2.0)
                         {
                             error =
-                                $"У персонажа {character.CharacterName} и так максимальный бонусный шанс - {character.Multiplier}";
+                                $"У персонажа {character.CharacterName} максимальный бонусный шанс - {character.GetEffectiveMultiplier()}";
                         }
                         else
                         {
@@ -379,10 +384,10 @@ public class StoreReactions : IServiceSingleton
                         {
                             error = $"ERROR: character named {title[1]} was not found";
                         }
-                        else if (character.Multiplier >= 2.0)
+                        else if (character.GetEffectiveMultiplier() + 0.1 > 2.0)
                         {
                             error =
-                                $"У персонажа {character.CharacterName} и так максимальный бонусный шанс - {character.Multiplier}";
+                                $"У персонажа {character.CharacterName} максимальный бонусный шанс - {character.GetEffectiveMultiplier()}";
                         }
                         else
                         {

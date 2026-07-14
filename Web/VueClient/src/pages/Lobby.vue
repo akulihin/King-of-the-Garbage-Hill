@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed, nextTick, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { Gift, PackageOpen, ShieldCheck, Sparkles, Trophy } from 'lucide-vue-next'
+import { Dices, Gift, PackageOpen, ShieldCheck, Sparkles, Trophy } from 'lucide-vue-next'
 import { useGameStore } from 'src/store/game'
 import { signalrService, type ReplayListEntry, type CharacterListEntry } from 'src/services/signalr'
 import LootBox from 'src/components/LootBox.vue'
@@ -29,6 +29,8 @@ const pendingLootBoxes = computed(() => store.questState?.pendingLootBoxes ?? 0)
 const lootBoxPity = computed(() => store.questState?.lootBoxPity ?? 0)
 const guaranteedRareIn = computed(() => store.questState?.guaranteedRareIn ?? 0)
 const lootBoxOdds = computed(() => store.questState?.lootBoxOdds ?? [])
+const pendingGuaranteedCharacters = computed(() => store.questState?.pendingGuaranteedCharacters ?? 0)
+const nextGuaranteedCharacterName = computed(() => store.questState?.nextGuaranteedCharacterName ?? '')
 const achievementProgress = computed(() => {
   const board = store.achievementBoard
   if (!board || board.totalAchievements <= 0) return 0
@@ -285,6 +287,20 @@ function handleVisibilityChange() {
               'Финишируйте в топ-2 живым, чтобы получить новый лутбокс.',
             ) }}
           </p>
+
+          <div v-if="pendingGuaranteedCharacters > 0 && nextGuaranteedCharacterName" class="queued-character">
+            <Dices :size="16" aria-hidden="true" />
+            <span>
+              <small>{{ t('Next new game', 'Следующая новая игра') }}</small>
+              <strong>{{ nextGuaranteedCharacterName }}</strong>
+              <span v-if="pendingGuaranteedCharacters > 1">
+                {{ t(
+                  `+${pendingGuaranteedCharacters - 1} queued`,
+                  `ещё в очереди: ${pendingGuaranteedCharacters - 1}`,
+                ) }}
+              </span>
+            </span>
+          </div>
 
           <div class="hub-pity">
             <div class="hub-pity-label">
@@ -878,6 +894,11 @@ function handleVisibilityChange() {
 .hub-card-title small { display: block; color: var(--text-dim); font-size: 8px; font-weight: 850; letter-spacing: 1px; text-transform: uppercase; }
 .hub-card-title h3 { color: var(--text-primary); font-size: 16px; font-weight: 850; line-height: 1.2; }
 .reward-hub-card > p { min-height: 35px; color: var(--text-muted); font-size: 10px; line-height: 1.55; }
+.queued-character { display: flex; align-items: center; gap: 8px; padding: 8px 9px; color: var(--accent-gold); border: 1px solid rgba(240, 200, 80, .2); border-radius: 9px; background: rgba(240, 200, 80, .06); }
+.queued-character > span { min-width: 0; display: flex; flex: 1; flex-direction: column; }
+.queued-character small { color: var(--text-dim); font-size: 7px; font-weight: 850; letter-spacing: .6px; text-transform: uppercase; }
+.queued-character strong { overflow: hidden; color: var(--text-secondary); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.queued-character span span { color: var(--text-dim); font-size: 7px; }
 .hub-pity { padding: 9px 10px; border: 1px solid var(--glass-border); border-radius: 10px; background: rgba(0, 0, 0, 0.13); }
 .hub-pity-label { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
 .hub-pity-label span { display: inline-flex; align-items: center; gap: 5px; color: var(--text-muted); font-size: 9px; font-weight: 750; }

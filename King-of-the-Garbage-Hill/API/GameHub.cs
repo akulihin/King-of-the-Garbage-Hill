@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using King_of_the_Garbage_Hill.API.Services;
 using King_of_the_Garbage_Hill.Game.Characters;
 using King_of_the_Garbage_Hill.Game.Classes;
+using King_of_the_Garbage_Hill.Game.MemoryStorage;
 using King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts;
 using King_of_the_Garbage_Hill.Helpers;
 using Microsoft.AspNetCore.SignalR;
@@ -29,8 +30,9 @@ public class GameHub : Hub
     private readonly BlackjackService _blackjackService;
     private readonly GameStoryService _storyService;
     private readonly BattleshipService _battleshipService;
+    private readonly CharactersPull _charactersPull;
 
-    public GameHub(WebGameService gameService, GameNotificationService notificationService, Global global, UserAccounts userAccounts, BlackjackService blackjackService, GameStoryService storyService, BattleshipService battleshipService)
+    public GameHub(WebGameService gameService, GameNotificationService notificationService, Global global, UserAccounts userAccounts, BlackjackService blackjackService, GameStoryService storyService, BattleshipService battleshipService, CharactersPull charactersPull)
     {
         _gameService = gameService;
         _notificationService = notificationService;
@@ -39,6 +41,7 @@ public class GameHub : Hub
         _blackjackService = blackjackService;
         _storyService = storyService;
         _battleshipService = battleshipService;
+        _charactersPull = charactersPull;
     }
 
     public override async Task OnConnectedAsync()
@@ -788,6 +791,8 @@ public class GameHub : Hub
                 lastUnacknowledgedLootBox,
                 account.ZbsPoints,
                 account.PendingLootBoxes),
+            PendingGuaranteedCharacters = account.LootBoxCharacterQueue?.Count ?? 0,
+            NextGuaranteedCharacterName = account.LootBoxCharacterQueue?.FirstOrDefault(),
             Quests = active.Quests
                 .Select(quest => MapDailyQuestProgress(quest, active))
                 .Where(quest => quest != null)
@@ -857,7 +862,10 @@ public class GameHub : Hub
         lock (account)
         {
             var snapshot = CaptureLootBoxAccountState(account);
-            var outcome = Game.Classes.QuestService.OpenLootBox(account, 0);
+            var outcome = Game.Classes.QuestService.OpenLootBox(
+                account,
+                0,
+                _charactersPull.GetVisibleCharacters());
             if (outcome.Result == null)
             {
                 openError = outcome.Error ?? "Unable to open loot box.";
@@ -1619,6 +1627,8 @@ public class GameHub : Hub
             Chance = tier.Chance,
             MinZbs = tier.MinZbs,
             MaxZbs = tier.MaxZbs,
+            RollWeightBonusPercentagePoints = tier.RollWeightBonusPercentagePoints,
+            GuaranteedCharacterMaxTier = tier.GuaranteedCharacterMaxTier,
         }).ToList();
     }
 
@@ -1640,6 +1650,12 @@ public class GameHub : Hub
             WasPityUpgrade = result.WasPityUpgrade,
             LootBoxPity = result.LootBoxPity,
             GuaranteedRareIn = result.GuaranteedRareIn,
+            CharacterName = result.CharacterName,
+            CharacterAvatar = result.CharacterAvatar,
+            CharacterTier = result.CharacterTier,
+            RollWeightBonusPercentagePoints = result.RollWeightBonusPercentagePoints,
+            GuaranteedForNextGame = result.GuaranteedForNextGame,
+            PendingGuaranteedCharacters = result.PendingGuaranteedCharacters,
         };
     }
 
@@ -1652,6 +1668,9 @@ public class GameHub : Hub
         public bool LastLootBoxAcknowledged { get; init; }
         public ulong LastLootBoxGameId { get; init; }
         public int LootBoxPity { get; init; }
+        public List<DiscordAccountClass.CharacterChances> CharacterChance { get; init; }
+        public List<string> SeenCharacters { get; init; }
+        public List<string> LootBoxCharacterQueue { get; init; }
     }
 
     /// <summary>The caller must hold the account monitor.</summary>
@@ -1667,6 +1686,19 @@ public class GameHub : Hub
             LastLootBoxAcknowledged = quests?.LastLootBox?.Acknowledged ?? false,
             LastLootBoxGameId = quests?.LastLootBoxGameId ?? 0,
             LootBoxPity = quests?.LootBoxPity ?? 0,
+            CharacterChance = account.CharacterChance?.Select(chance =>
+            {
+                var copy = new DiscordAccountClass.CharacterChances(
+                    chance.CharacterName,
+                    chance.Multiplier)
+                {
+                    Changes = chance.Changes,
+                    LootBoxBonusPercentagePoints = chance.LootBoxBonusPercentagePoints,
+                };
+                return copy;
+            }).ToList(),
+            SeenCharacters = account.SeenCharacters?.ToList(),
+            LootBoxCharacterQueue = account.LootBoxCharacterQueue?.ToList(),
         };
     }
 
@@ -1678,6 +1710,9 @@ public class GameHub : Hub
         account.ZbsPoints = snapshot.ZbsPoints;
         account.PendingLootBoxes = snapshot.PendingLootBoxes;
         account.Quests = snapshot.Quests;
+        account.CharacterChance = snapshot.CharacterChance;
+        account.SeenCharacters = snapshot.SeenCharacters;
+        account.LootBoxCharacterQueue = snapshot.LootBoxCharacterQueue;
 
         if (snapshot.Quests == null) return;
 

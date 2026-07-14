@@ -4,6 +4,7 @@ import {
   CalendarClock,
   ChevronRight,
   CircleAlert,
+  Dices,
   Gift,
   LoaderCircle,
   Package,
@@ -236,12 +237,41 @@ function sparkStyle(index: number): CSSProperties {
               </div>
 
               <span class="revealed-rarity">{{ rarityLabel(result.rarity) }}</span>
-              <h2 id="loot-result-title">{{ t('ZBS cache', 'Тайник ZBS') }}</h2>
+              <h2 id="loot-result-title">
+                {{ result.characterName
+                  ? t('ZBS & character cache', 'Тайник ZBS и персонажа')
+                  : t('ZBS cache', 'Тайник ZBS') }}
+              </h2>
               <div class="reward-amount">
                 <img :src="'/art/emojis/zbs.png'" alt="ZBS">
                 <strong>+{{ result.zbsAmount }}</strong>
                 <span>ZBS</span>
               </div>
+
+              <div v-if="result.characterName" class="character-reward">
+                <img v-if="result.characterAvatar" :src="result.characterAvatar" :alt="result.characterName">
+                <span class="character-reward-copy">
+                  <small>{{ t('Permanent roll-weight boost', 'Постоянный бонус веса выпадения') }}</small>
+                  <strong>{{ result.characterName }}</strong>
+                  <span>
+                    T{{ result.characterTier }} ·
+                    {{ result.rollWeightBonusPercentagePoints > 0
+                      ? `+${result.rollWeightBonusPercentagePoints}%`
+                      : t('weight cap reached', 'достигнут лимит веса') }}
+                  </span>
+                </span>
+                <span v-if="result.guaranteedForNextGame" class="next-game-reward">
+                  <Dices :size="15" aria-hidden="true" />
+                  {{ t('Queued for your next new game', 'В очереди на следующую новую игру') }}
+                </span>
+              </div>
+
+              <p v-if="result.guaranteedForNextGame && result.pendingGuaranteedCharacters > 1" class="queued-rewards-copy">
+                {{ t(
+                  `${result.pendingGuaranteedCharacters} guaranteed characters are now queued.`,
+                  `Гарантированных персонажей в очереди: ${result.pendingGuaranteedCharacters}.`,
+                ) }}
+              </p>
 
               <div class="reward-summary">
                 <div>
@@ -275,7 +305,16 @@ function sparkStyle(index: number): CSSProperties {
                   <div v-for="entry in odds" :key="entry.rarity" :class="`odds-${rarityKey(entry.rarity)}`">
                     <span class="odds-rarity">{{ rarityLabel(entry.rarity) }}</span>
                     <strong>{{ chanceText(entry.chance) }}</strong>
-                    <span>{{ entry.minZbs === entry.maxZbs ? `${entry.minZbs} ZBS` : `${entry.minZbs}–${entry.maxZbs} ZBS` }}</span>
+                    <span>
+                      {{ entry.minZbs === entry.maxZbs ? `${entry.minZbs} ZBS` : `${entry.minZbs}–${entry.maxZbs} ZBS` }}
+                      · +{{ entry.rollWeightBonusPercentagePoints }}%
+                    </span>
+                    <small v-if="entry.guaranteedCharacterMaxTier">
+                      {{ t(
+                        `Next-game character: Tier ${entry.guaranteedCharacterMaxTier} or rarer`,
+                        `Персонаж на следующую игру: тир ${entry.guaranteedCharacterMaxTier} или реже`,
+                      ) }}
+                    </small>
                   </div>
                 </div>
                 <p class="odds-note">
@@ -388,6 +427,14 @@ function sparkStyle(index: number): CSSProperties {
 .has-opening-error .opening-sparks { display: none; }
 .opening-meta { display: flex; justify-content: center; flex-wrap: wrap; gap: 7px; }
 .opening-meta span { display: inline-flex; align-items: center; gap: 5px; padding: 5px 8px; color: var(--text-muted); border: 1px solid var(--glass-border); border-radius: 8px; background: rgba(255, 255, 255, 0.03); font-size: 9px; font-weight: 750; }
+.character-reward { position: relative; width: 100%; display: flex; align-items: center; gap: 11px; margin-top: 12px; padding: 10px; border: 1px solid color-mix(in srgb, var(--rarity) 30%, var(--glass-border)); border-radius: 13px; background: color-mix(in srgb, var(--rarity) 7%, rgba(0, 0, 0, .15)); text-align: left; }
+.character-reward > img { width: 58px; height: 58px; flex: 0 0 auto; object-fit: cover; border: 1px solid color-mix(in srgb, var(--rarity) 45%, transparent); border-radius: 11px; }
+.character-reward-copy { min-width: 0; display: flex; flex: 1; flex-direction: column; gap: 2px; }
+.character-reward-copy small { color: var(--text-dim); font-size: 7px; font-weight: 850; letter-spacing: .6px; text-transform: uppercase; }
+.character-reward-copy strong { overflow: hidden; color: var(--text-primary); font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+.character-reward-copy span { color: var(--rarity); font: 850 9px/1.2 var(--font-mono); }
+.next-game-reward { max-width: 126px; display: inline-flex; align-items: center; gap: 5px; padding: 6px 7px; color: var(--accent-gold); border: 1px solid rgba(240, 200, 80, .24); border-radius: 8px; background: rgba(240, 200, 80, .07); font-size: 7px; font-weight: 850; line-height: 1.35; }
+.queued-rewards-copy { margin: 6px 0 0; color: var(--text-dim); font-size: 8px; }
 .opening-error { width: 100%; display: flex; align-items: flex-start; gap: 9px; margin-top: 13px; padding: 10px 11px; color: var(--accent-red); border: 1px solid rgba(239, 128, 128, 0.24); border-radius: 10px; background: rgba(239, 128, 128, 0.08); text-align: left; }
 .opening-error > span { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
 .opening-error strong { color: var(--text-secondary); font-size: 10px; font-weight: 850; }
@@ -423,6 +470,7 @@ function sparkStyle(index: number): CSSProperties {
 .odds-list > div { --odds-color: var(--text-muted); display: grid; grid-template-columns: 1fr auto 90px; gap: 8px; align-items: center; padding: 5px 2px; border-top: 1px solid var(--glass-border); font-size: 9px; }
 .odds-list strong { color: var(--odds-color); font-family: var(--font-mono); }
 .odds-list > div > span:last-child { color: var(--text-dim); text-align: right; }
+.odds-list > div > small { grid-column: 1 / -1; color: var(--text-dim); font-size: 7px; }
 .odds-rarity { color: var(--odds-color); font-weight: 800; }
 .odds-note { margin: 0 10px 10px; color: var(--text-dim); font-size: 8px; line-height: 1.45; }
 .odds-uncommon { --odds-color: #67d391 !important; }
@@ -471,6 +519,8 @@ function sparkStyle(index: number): CSSProperties {
   .loot-actions .btn,
   .opening-error-actions .btn { min-height: 46px; width: 100%; }
   .opening-error-actions { flex-direction: column-reverse; }
+  .character-reward { align-items: flex-start; flex-wrap: wrap; }
+  .next-game-reward { max-width: none; width: 100%; justify-content: center; }
 }
 
 @media (prefers-reduced-motion: reduce) {

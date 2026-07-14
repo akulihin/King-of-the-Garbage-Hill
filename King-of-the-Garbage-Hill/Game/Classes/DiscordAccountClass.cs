@@ -37,6 +37,8 @@ public class DiscordAccountClass
 
     public string CharacterToGiveNextTime { get; set; }
     public string CharacterPlayedLastTime { get; set; }
+    /// <summary>FIFO account rewards. The next entry is consumed when a newly created game assigns it.</summary>
+    public List<string> LootBoxCharacterQueue { get; set; } = new();
 
     public Dictionary<int, int> TierPity { get; set; } = new();
     public Dictionary<string, int> CharacterMastery { get; set; } = new();
@@ -63,14 +65,21 @@ public class DiscordAccountClass
     {
         public int Changes;
         public string CharacterName;
+        /// <summary>Paid store adjustment around the 1.00 baseline.</summary>
         public double Multiplier;
+        /// <summary>Permanent, non-refundable percentage points awarded by loot boxes.</summary>
+        public int LootBoxBonusPercentagePoints;
 
         public CharacterChances(string characterName, double multiplier = 1.0)
         {
             CharacterName = characterName;
             Multiplier = multiplier;
             Changes = 0;
+            LootBoxBonusPercentagePoints = 0;
         }
+
+        public double GetEffectiveMultiplier() =>
+            Math.Round(Multiplier + LootBoxBonusPercentagePoints / 100d, 2);
     }
 
     public class CharacterStatisticsClass

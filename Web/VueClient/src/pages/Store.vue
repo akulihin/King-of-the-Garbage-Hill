@@ -30,7 +30,9 @@ const filteredCharacters = computed(() => {
   const query = searchQuery.value.trim().toLocaleLowerCase()
   return characters.value
     .filter(character => selectedTier.value === 0 || character.tier === selectedTier.value)
-    .filter(character => !adjustedOnly.value || character.changes > 0)
+    .filter(character => !adjustedOnly.value
+      || character.changes > 0
+      || character.lootBoxBonusPercentagePoints > 0)
     .filter(character => !query || character.name.toLocaleLowerCase().includes(query))
     .sort((a, b) => a.tier - b.tier || a.name.localeCompare(b.name, 'ru'))
 })
@@ -161,8 +163,8 @@ function clearFilters(): void {
         <p>
           <strong>{{ t('This changes roll weight, not an exact probability.', 'Это вес выпадения, а не точная вероятность.') }}</strong>
           {{ t(
-            `A 1-point change starts at ${state.basePrice} ZBS. Pity, tier rules, and the other characters in a game still affect the final roll.`,
-            `Изменение на 1 пункт начинается с ${state.basePrice} ZBS. На итог всё ещё влияют pity, тир и остальные персонажи в игре.`,
+            `A 1-point change starts at ${state.basePrice} ZBS. Loot-box bonuses are permanent and non-refundable. Pity, tier rules, and the other characters in a game still affect the final roll.`,
+            `Изменение на 1 пункт начинается с ${state.basePrice} ZBS. Бонусы из лутбоксов постоянны и не возвращаются. На итог всё ещё влияют pity, тир и остальные персонажи в игре.`,
           ) }}
         </p>
       </div>
@@ -234,7 +236,7 @@ function clearFilters(): void {
           v-for="character in filteredCharacters"
           :key="character.name"
           class="character-card"
-          :class="[`tier-${character.tier}`, { adjusted: character.changes > 0, busy: isCharacterBusy(character) }]"
+          :class="[`tier-${character.tier}`, { adjusted: character.changes > 0 || character.lootBoxBonusPercentagePoints > 0, busy: isCharacterBusy(character) }]"
           role="listitem"
         >
           <div class="card-accent" aria-hidden="true" />
@@ -302,7 +304,15 @@ function clearFilters(): void {
           </div>
 
           <footer class="character-footer">
-            <span>{{ t(`${character.changes} purchased steps`, `Куплено шагов: ${character.changes}`) }}</span>
+            <span>
+              {{ t(`${character.changes} purchased steps`, `Куплено шагов: ${character.changes}`) }}
+              <strong v-if="character.lootBoxBonusPercentagePoints > 0" class="loot-weight-bonus">
+                {{ t(
+                  ` · +${character.lootBoxBonusPercentagePoints}% from loot`,
+                  ` · +${character.lootBoxBonusPercentagePoints}% из лутбоксов`,
+                ) }}
+              </strong>
+            </span>
             <button
               class="reset-character"
               type="button"
@@ -327,8 +337,8 @@ function clearFilters(): void {
           <span class="section-kicker">{{ t('Fresh start', 'Начать заново') }}</span>
           <h2 id="refund-all-title">{{ t('Reset every character', 'Сбросить всех персонажей') }}</h2>
           <p>{{ t(
-            `Return every roll weight to 100% and refund ${state.totalInvestedZbs} ZBS.`,
-            `Вернуть вес всех персонажей к 100% и получить обратно ${state.totalInvestedZbs} ZBS.`,
+            `Refund every purchased adjustment for ${state.totalInvestedZbs} ZBS. Permanent loot-box bonuses stay.`,
+            `Вернуть ${state.totalInvestedZbs} ZBS за все купленные изменения. Постоянные бонусы из лутбоксов останутся.`,
           ) }}</p>
         </div>
         <div v-if="!confirmResetAll" class="refund-actions">
@@ -430,6 +440,7 @@ function clearFilters(): void {
 .adjust-button:disabled { opacity: .34; cursor: not-allowed; }
 .character-footer { min-height: 39px; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 7px 14px; border-top: 1px solid var(--glass-border); background: rgba(0, 0, 0, .08); }
 .character-footer > span { color: var(--text-dim); font-size: 8px; }
+.loot-weight-bonus { color: var(--accent-purple); font-weight: 850; }
 .reset-character { min-height: 27px; display: inline-flex; align-items: center; gap: 5px; padding: 0 8px; color: var(--text-muted); border: 1px solid transparent; border-radius: 7px; background: transparent; font-size: 8px; font-weight: 800; cursor: pointer; }
 .reset-character:hover:not(:disabled) { color: #d6bbf5; border-color: rgba(190, 145, 242, .18); background: rgba(168, 112, 229, .07); }
 .reset-character:disabled { opacity: .35; cursor: not-allowed; }

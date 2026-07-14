@@ -676,6 +676,8 @@ export type QuestState = {
   guaranteedRareIn: number
   lootBoxOdds: LootBoxOdds[]
   lastUnacknowledgedLootBox: LootBoxResult | null
+  pendingGuaranteedCharacters: number
+  nextGuaranteedCharacterName: string | null
 }
 
 export type QuestProgress = {
@@ -707,6 +709,12 @@ export type LootBoxResult = {
   wasPityUpgrade: boolean
   lootBoxPity: number
   guaranteedRareIn: number
+  characterName: string | null
+  characterAvatar: string | null
+  characterTier: number
+  rollWeightBonusPercentagePoints: number
+  guaranteedForNextGame: boolean
+  pendingGuaranteedCharacters: number
 }
 
 export type LootBoxOdds = {
@@ -714,6 +722,8 @@ export type LootBoxOdds = {
   chance: number
   minZbs: number
   maxZbs: number
+  rollWeightBonusPercentagePoints: number
+  guaranteedCharacterMaxTier: number | null
 }
 
 export type DoomModule = {
@@ -778,6 +788,7 @@ export type StoreCharacter = {
   avatar: string
   tier: number
   multiplier: number
+  lootBoxBonusPercentagePoints: number
   changes: number
   costOne: number
   costTen: number

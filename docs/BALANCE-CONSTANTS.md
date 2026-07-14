@@ -1,6 +1,6 @@
 # Balance Constants — every tunable number with its code anchor
 
-> Hand-maintained. **Update the row when you change the number** (and re-run `tools/audit-passives.sh` for name changes). Verified against the working tree of 2026-07-13 (v4.4.6). `CP` = `Game/GameLogic/CharacterPassives.cs`, `CC` = `Game/Classes/CharacterClass.cs`, `DM` = `Game/GameLogic/DoomsdayMachine.cs`, `CIR` = `Game/GameLogic/CheckIfReady.cs`, `GR` = `Game/ReactionHandling/GameReactions.cs`.
+> Hand-maintained. **Update the row when you change the number** (and re-run `tools/audit-passives.sh` for name changes). Verified against the working tree of 2026-07-13 (v4.5.1). `CP` = `Game/GameLogic/CharacterPassives.cs`, `CC` = `Game/Classes/CharacterClass.cs`, `DM` = `Game/GameLogic/DoomsdayMachine.cs`, `CIR` = `Game/GameLogic/CheckIfReady.cs`, `GR` = `Game/ReactionHandling/GameReactions.cs`.
 >
 > RNG note: `Luck(x)` ≈ x%, `Luck(a,b)` ≈ a-in-b (rounded to whole %); see `Helpers/SecureRandom.cs:35-45`.
 
@@ -53,7 +53,8 @@ The multiplier changes a character's relative roll weight, not a standalone fina
 |---|---|---|
 | Roll-weight bounds / step | ×0.50–×2.00; ±0.01 per purchased percentage point | `WebGameService.cs` `StoreMinMultiplier`/`StoreMaxMultiplier`/`AdjustStoreCharacter`; Discord guards `StoreReactions.cs:217-340` |
 | Step price | step N costs 10 + all prior purchased steps ZBS; 10-step action sums ten sequential prices | `WebGameService.cs` `CalculateStoreCost`; Discord `_basePrice` `StoreReactions.cs:20` |
-| Refund | free; returns the exact arithmetic-series cost of every purchased step and restores ×1.00 | `WebGameService.cs` `ResetStoreCharacter`/`ResetStoreAllCharacters`/`CalculateStoreRefund`; Discord `StoreReactions.cs:416-515` |
+| Refund | free; returns the exact arithmetic-series cost of every purchased step and restores the paid component to ×1.00; permanent loot-box points remain | `WebGameService.cs` `ResetStoreCharacter`/`ResetStoreAllCharacters`/`CalculateStoreRefund`; Discord `StoreReactions.cs:416-515` |
+| Loot-box roll-weight bonus | Common/Uncommon/Rare/Epic/Legendary add +1/+2/+3/+5/+10 percentage points to one public character, non-refundable; effective weight remains capped at ×2.00 | `QuestService.LootBoxOdds`/`GenerateLootBox`; `CharacterChances.GetEffectiveMultiplier` |
 | unknown_bug shop weight | fixed at the untouched ×1.00 baseline; never listed, discovered or adjustable. Legacy investments are refunded during account migration | `StartGameLogic.cs` roll weighting; `UserAccounts.MigrateUnknownBugAccount`; web/Discord store filters |
 
 ## Generated story
@@ -94,13 +95,13 @@ Achievement progress targets and the complete 103-entry rule catalog are in [ACH
 | Rare achievement reward | 50 ZBS | AchievementClass.cs:65-76 |
 | Epic achievement reward | 100 ZBS + 1 loot box | AchievementClass.cs:65-76 |
 | Legendary achievement reward | 228 ZBS + 2 loot boxes | AchievementClass.cs:65-76 |
-| Loot Common | 60%; 15–30 ZBS inclusive | QuestClass.cs:268-274 |
-| Loot Uncommon | 25%; 40–75 ZBS inclusive | QuestClass.cs:268-274 |
-| Loot Rare | 12%; 100–175 ZBS inclusive | QuestClass.cs:268-274 |
-| Loot Epic | 2.5%; 300–450 ZBS inclusive | QuestClass.cs:268-274 |
-| Loot Legendary | 0.5%; 750 ZBS | QuestClass.cs:268-274 |
-| Loot rarity RNG | `SecureRandom.Next(1,10000)` inclusive; exact cumulative cutoffs 50/300/1500/4000 | QuestClass.cs:903-912 |
-| Rare+ pity | after 9 consecutive below-Rare results, box 10 preserves natural Rare+ or upgrades Common/Uncommon to Rare; Rare+ resets counter | QuestClass.cs:799-801,873-922 |
+| Loot Common | 60%; 15–30 ZBS inclusive; random public character +1 roll-weight point | `QuestService.LootBoxOdds` |
+| Loot Uncommon | 25%; 40–75 ZBS inclusive; random public character +2 roll-weight points | `QuestService.LootBoxOdds` |
+| Loot Rare | 12%; 100–175 ZBS inclusive; random public character +3 roll-weight points | `QuestService.LootBoxOdds` |
+| Loot Epic | 2.5%; 300–450 ZBS inclusive; Tier 1–2 character +5 roll-weight points and queued for next new game | `QuestService.LootBoxOdds` |
+| Loot Legendary | 0.5%; 750 ZBS; Tier 1 character +10 roll-weight points and queued for next new game | `QuestService.LootBoxOdds` |
+| Loot rarity RNG | `SecureRandom.Next(1,10000)` inclusive; exact cumulative cutoffs 50/300/1500/4000 | `QuestService.RollLootBoxTier` |
+| Rare+ pity | after 9 consecutive below-Rare results, box 10 preserves natural Rare+ or upgrades Common/Uncommon to Rare; Rare+ resets counter | `QuestService.OpenLootBox`/`GenerateLootBox`/`NormalizeLootBoxPity` |
 
 ## Quality / resists / Harm
 

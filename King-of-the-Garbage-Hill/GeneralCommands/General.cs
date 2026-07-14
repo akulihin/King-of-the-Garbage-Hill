@@ -457,7 +457,7 @@ public class General : ModuleBaseCustom
                 if (account == null) continue;
                 var originalCharacter = player.GameCharacter;
                 player.Status.MoveListPage = 6;
-                if (UnknownBug.Is(originalCharacter))
+                if (UnknownBug.Is(originalCharacter) || player.IsLootBoxCharacterReward)
                 {
                     player.Status.IsDraftPickConfirmed = true;
                     continue;

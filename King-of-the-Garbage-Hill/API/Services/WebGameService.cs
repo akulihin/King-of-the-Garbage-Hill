@@ -250,8 +250,59 @@ public class WebGameService
         playersList = playersList.OrderBy(_ => Guid.NewGuid()).ToList();
         playersList = playersList.OrderByDescending(x => x.Status.GetScore()).ToList();
 
-        // Replace the first bot with the creator
-        var botToReplace = playersList[0];
+        // Replace the matching bot when a loot box queued a guaranteed character. If that
+        // character did not naturally enter this roster, replace the ordinary first bot with it.
+        string queuedCharacterName;
+        lock (creatorAccount)
+        {
+            creatorAccount.LootBoxCharacterQueue ??= new List<string>();
+            queuedCharacterName = creatorAccount.LootBoxCharacterQueue.FirstOrDefault();
+        }
+        var queuedCharacter = string.IsNullOrWhiteSpace(queuedCharacterName)
+            ? null
+            : _charactersPull.GetVisibleCharacters().Find(character =>
+                character.Name == queuedCharacterName);
+        if (queuedCharacter != null)
+        {
+            lock (creatorAccount)
+            {
+                if (creatorAccount.LootBoxCharacterQueue.Count == 0
+                    || !string.Equals(
+                        creatorAccount.LootBoxCharacterQueue[0],
+                        queuedCharacterName,
+                        StringComparison.Ordinal))
+                {
+                    queuedCharacter = null;
+                }
+                else
+                {
+                    creatorAccount.LootBoxCharacterQueue.RemoveAt(0);
+                }
+            }
+        }
+        var botToReplace = queuedCharacter == null
+            ? playersList[0]
+            : playersList.Find(player => player.GameCharacter.Name == queuedCharacter.Name)
+              ?? playersList[0];
+        if (queuedCharacter != null && botToReplace.GameCharacter.Name != queuedCharacter.Name)
+        {
+            var replacementIndex = playersList.IndexOf(botToReplace);
+            botToReplace = new GamePlayerBridgeClass(
+                queuedCharacter,
+                new InGameStatus(),
+                botToReplace.DiscordId,
+                gameId,
+                botToReplace.DiscordUsername,
+                botToReplace.PlayerType);
+            playersList[replacementIndex] = botToReplace;
+        }
+
+        if (queuedCharacter != null)
+        {
+            botToReplace.IsLootBoxCharacterReward = true;
+            creatorAccount.CharacterPlayedLastTime = queuedCharacter.Name;
+        }
+
         var oldBotAccount = _userAccounts.GetAccount(botToReplace.DiscordId);
         if (oldBotAccount != null) oldBotAccount.IsPlaying = false;
 
@@ -260,9 +311,14 @@ public class WebGameService
         botToReplace.PlayerType = creatorAccount.PlayerType;
         botToReplace.IsWebPlayer = true;
         botToReplace.PreferWeb = true;
+        if (queuedCharacter != null)
+            botToReplace.CharacterMasteryPoints =
+                creatorAccount.CharacterMastery.GetValueOrDefault(queuedCharacter.Name, 0);
         DoomGuy.InitializeForGame(botToReplace, creatorAccount);
         creatorAccount.IsPlaying = true;
         DiscoverStoreCharacter(creatorAccount, botToReplace.GameCharacter.Name);
+        if (queuedCharacter != null)
+            _userAccounts.SaveAccount(creatorAccount);
 
         // Create game
         var game = new GameClass(playersList, gameId, creatorId) { IsCheckIfReady = false };
@@ -275,7 +331,7 @@ public class WebGameService
             // Draft pick: a private natural roll is locked immediately and is never exposed
             // as an option that can be inspected and declined.
             var originalCharacter = botToReplace.GameCharacter;
-            if (UnknownBug.Is(originalCharacter))
+            if (UnknownBug.Is(originalCharacter) || botToReplace.IsLootBoxCharacterReward)
             {
                 botToReplace.Status.IsDraftPickConfirmed = true;
             }
@@ -1208,7 +1264,11 @@ public class WebGameService
             }
 
             var targetMultiplier = Math.Round(chance.Multiplier + percentagePoints / 100d, 2);
-            if (targetMultiplier < StoreMinMultiplier || targetMultiplier > StoreMaxMultiplier)
+            var targetEffectiveMultiplier = Math.Round(
+                targetMultiplier + chance.LootBoxBonusPercentagePoints / 100d,
+                2);
+            if (targetEffectiveMultiplier < StoreMinMultiplier
+                || targetEffectiveMultiplier > StoreMaxMultiplier)
             {
                 if (createdChance) account.CharacterChance.Remove(chance);
                 return (null,
@@ -1349,7 +1409,8 @@ public class WebGameService
                 Name = name,
                 Avatar = character.Avatar,
                 Tier = character.Tier,
-                Multiplier = Math.Round(chance?.Multiplier ?? 1.0, 2),
+                Multiplier = chance?.GetEffectiveMultiplier() ?? 1.0,
+                LootBoxBonusPercentagePoints = chance?.LootBoxBonusPercentagePoints ?? 0,
                 Changes = changes,
                 CostOne = CalculateStoreCost(changes, 1),
                 CostTen = CalculateStoreCost(changes, 10),
