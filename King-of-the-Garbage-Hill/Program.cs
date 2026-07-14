@@ -61,6 +61,10 @@ public class ProgramKingOfTheGarbageHill
         if (args.Contains("--sim"))
         {
             ClaudeHaikuService.Disabled = true;
+            // Nothing in the harness reads a replay (no OnReplaySave hook, no web clients), yet capturing
+            // one projects and localizes all six players three times per round — snapshots that are then
+            // discarded. Off, the simulator spends its time on game logic instead.
+            ReplayService.CaptureEnabled = false;
             var exitCode = await _services.GetRequiredService<SimulationRunner>().RunAsync(args);
             Environment.Exit(exitCode);
         }

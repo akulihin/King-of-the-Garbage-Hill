@@ -27,6 +27,14 @@ public class ReplayService : IServiceSingleton
         WriteIndented = false,
     };
 
+    /// <summary>
+    /// Per-round capture switch. The headless bot simulation sets this to false: it never saves or
+    /// serves a replay, so every captured snapshot is discarded — yet capturing one costs a full
+    /// six-player <see cref="GameStateMapper.ToDto"/> projection (including localization) three times
+    /// per round, which dominated the simulator's runtime and heap. Production leaves it enabled.
+    /// </summary>
+    public static bool CaptureEnabled { get; set; } = true;
+
     public Task InitializeAsync()
     {
         Directory.CreateDirectory(ReplayDir);
@@ -38,9 +46,12 @@ public class ReplayService : IServiceSingleton
     /// <summary>
     /// Starts a v2 replay round with the action-locked state used by the fight calculation.
     /// Result-only score/place are captured later as one post-setup snapshot.
+    /// Returns null when capture is disabled, which short-circuits the rest of the round's capture.
     /// </summary>
     public static ReplayRoundDto BeginRound(GameClass game, GameUpdateMess gameUpdateMess)
     {
+        if (!CaptureEnabled) return null;
+
         try
         {
             return new ReplayRoundDto
@@ -110,6 +121,8 @@ public class ReplayService : IServiceSingleton
     /// </summary>
     public static void CaptureFinalState(GameClass game, GameUpdateMess gameUpdateMess)
     {
+        if (!CaptureEnabled) return;
+
         var round = game.ReplayRounds.OrderByDescending(x => x.RoundNo).FirstOrDefault();
         if (round == null) return;
 

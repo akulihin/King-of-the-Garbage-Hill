@@ -21,6 +21,18 @@ public static class GameLocalization
     private static readonly ConcurrentDictionary<ulong, string> UserLanguages = new();
     private static readonly Lazy<Catalog> EnglishCatalog = new(LoadEnglishCatalog);
 
+    // Translation is a pure function of (text, language, catalog), and the projection layer re-translates
+    // the same bounded strings (character/passive/class names, stat labels) for every player of every round.
+    // Memoize them; long one-off log blocks are not worth caching and are cheap anyway (see ReplaceTerm).
+    private static readonly ConcurrentDictionary<(string Language, bool ResolveBilingual, string Text), string>
+        TranslationCache = new();
+    private const int TranslationCacheLimit = 50_000;
+    private const int TranslationCacheMaxTextLength = 512;
+
+    private static readonly Regex CyrillicProbe = new("[А-Яа-яЁё]", RegexOptions.Compiled);
+    private static readonly Regex LatinProbe = new("[A-Za-z]", RegexOptions.Compiled);
+    private static readonly Regex WordTermProbe = new(@"^[\p{L}\p{N}_.-]+$", RegexOptions.Compiled);
+
     private static readonly (Regex Pattern, string Replacement)[] PhraseRules =
     {
         (new Regex(@"Раунд\s*#(\d+)", RegexOptions.IgnoreCase), "Round #$1"),
@@ -101,7 +113,7 @@ public static class GameLocalization
     public static string TextForClient(ulong userId, string text)
     {
         if (string.IsNullOrEmpty(text)) return text;
-        return Translate(text, GetUserLanguage(userId), EnglishCatalog.Value, true, false);
+        return Memoized(text, GetUserLanguage(userId), false);
     }
 
     public static string Text(string text, string language)
@@ -109,8 +121,23 @@ public static class GameLocalization
         if (string.IsNullOrEmpty(text))
             return text;
 
+        return Memoized(text, Normalize(language), true);
+    }
+
+    private static string Memoized(string text, string language, bool resolveBilingualPhrases)
+    {
         var catalog = EnglishCatalog.Value;
-        return Translate(text, Normalize(language), catalog, true);
+        if (text.Length > TranslationCacheMaxTextLength)
+            return Translate(text, language, catalog, true, resolveBilingualPhrases);
+
+        var key = (language, resolveBilingualPhrases, text);
+        if (TranslationCache.TryGetValue(key, out var cached))
+            return cached;
+
+        var translated = Translate(text, language, catalog, true, resolveBilingualPhrases);
+        if (TranslationCache.Count < TranslationCacheLimit)
+            TranslationCache[key] = translated;
+        return translated;
     }
 
     public static string PhraseForUser(ulong userId, string passiveName, string phrase)
@@ -133,10 +160,10 @@ public static class GameLocalization
                 Translate(protectedText, language, catalog, translatePhraseMarkers, false),
                 renderedPhrases);
         }
-        if (language == English && !Regex.IsMatch(text, "[А-Яа-яЁё]") &&
+        if (language == English && !CyrillicProbe.IsMatch(text) &&
             !text.Contains("|>Phrase<|", StringComparison.Ordinal))
             return text;
-        if (language == Russian && !Regex.IsMatch(text, "[A-Za-z]"))
+        if (language == Russian && !LatinProbe.IsMatch(text))
             return text;
 
         if (translatePhraseMarkers && language == English && text.Contains("|>Phrase<|", StringComparison.Ordinal))
@@ -167,8 +194,7 @@ public static class GameLocalization
         foreach (var (pattern, replacement) in PhraseRules)
             translated = pattern.Replace(translated, replacement);
         translated = ReplaceCatalogEntries(translated, catalog.SortedExact);
-        foreach (var (russian, english) in catalog.SortedTerms)
-            translated = ReplaceTerm(translated, russian, english);
+        translated = ReplaceCatalogEntries(translated, catalog.SortedTerms);
         return translated;
     }
 
@@ -192,21 +218,50 @@ public static class GameLocalization
             : "Ability triggered.";
     }
 
-    private static string ReplaceCatalogEntries(
-        string text, IReadOnlyList<KeyValuePair<string, string>> entries)
+    private static string ReplaceCatalogEntries(string text, IReadOnlyList<CatalogEntry> entries)
     {
         var translated = text;
-        foreach (var (source, replacement) in entries)
-            translated = ReplaceTerm(translated, source, replacement);
+        foreach (var entry in entries)
+            translated = ReplaceTerm(translated, entry);
         return translated;
     }
 
-    private static string ReplaceTerm(string text, string source, string translation)
+    /// <summary>
+    /// Applies one catalog entry. Both branches below (ordinal Replace and the case-sensitive
+    /// word-boundary Regex) can only match when the source occurs literally in the text, so the
+    /// ordinal scan is an exact pre-filter: it skips the overwhelming majority of the ~1000 catalog
+    /// entries for any given string without changing the result. The boundary Regex is compiled once
+    /// per entry (see <see cref="CatalogEntry"/>) — building it per call funnelled ~1000 distinct
+    /// patterns through the 15-entry static Regex cache, so nearly every call recompiled its pattern.
+    /// </summary>
+    private static string ReplaceTerm(string text, CatalogEntry entry)
     {
-        if (!Regex.IsMatch(source, @"^[\p{L}\p{N}_.-]+$"))
-            return text.Replace(source, translation, StringComparison.Ordinal);
-        var pattern = $@"(?<![\p{{L}}\p{{N}}]){Regex.Escape(source)}(?![\p{{L}}\p{{N}}])";
-        return Regex.Replace(text, pattern, _ => translation);
+        if (!text.Contains(entry.Source, StringComparison.Ordinal))
+            return text;
+        if (entry.Boundary == null)
+            return text.Replace(entry.Source, entry.Replacement, StringComparison.Ordinal);
+        return entry.Boundary.Replace(text, entry.Evaluator);
+    }
+
+    /// <summary>One catalog row with its matching strategy resolved once, at load time.</summary>
+    private sealed class CatalogEntry
+    {
+        public CatalogEntry(string source, string replacement)
+        {
+            Source = source;
+            Replacement = replacement;
+            if (!WordTermProbe.IsMatch(source)) return;
+            Boundary = new Regex(
+                $@"(?<![\p{{L}}\p{{N}}]){Regex.Escape(source)}(?![\p{{L}}\p{{N}}])", RegexOptions.Compiled);
+            Evaluator = _ => replacement;
+        }
+
+        public string Source { get; }
+        public string Replacement { get; }
+
+        /// <summary>Null for entries replaced ordinally (phrases); set for single-token terms.</summary>
+        public Regex Boundary { get; }
+        public MatchEvaluator Evaluator { get; }
     }
 
     public static EmbedBuilder EmbedForUser(ulong userId, EmbedBuilder embed) =>
@@ -331,16 +386,22 @@ public static class GameLocalization
         public Dictionary<string, string> PhraseFallbacks { get; set; } = new(StringComparer.Ordinal);
         public Dictionary<string, string> Characters { get; set; } = new(StringComparer.Ordinal);
         public Dictionary<string, string> Passives { get; set; } = new(StringComparer.Ordinal);
-        public List<KeyValuePair<string, string>> SortedExact { get; private set; } = new();
-        public List<KeyValuePair<string, string>> SortedRussianExact { get; private set; } = new();
-        public List<KeyValuePair<string, string>> SortedTerms { get; private set; } = new();
+        public List<CatalogEntry> SortedExact { get; private set; } = new();
+        public List<CatalogEntry> SortedRussianExact { get; private set; } = new();
+        public List<CatalogEntry> SortedTerms { get; private set; } = new();
 
         public void BuildSortedTerms()
         {
-            SortedExact = Exact.OrderByDescending(x => x.Key.Length).ToList();
-            SortedRussianExact = RussianExact.OrderByDescending(x => x.Key.Length).ToList();
-            SortedTerms = Terms.OrderByDescending(x => x.Key.Length).ToList();
+            SortedExact = Prepare(Exact);
+            SortedRussianExact = Prepare(RussianExact);
+            SortedTerms = Prepare(Terms);
         }
+
+        // Longest-first ordering is load-bearing: a longer phrase must win over a shorter fragment of it.
+        private static List<CatalogEntry> Prepare(Dictionary<string, string> entries) =>
+            entries.OrderByDescending(x => x.Key.Length)
+                .Select(x => new CatalogEntry(x.Key, x.Value))
+                .ToList();
     }
 
     private sealed class CharacterContent
