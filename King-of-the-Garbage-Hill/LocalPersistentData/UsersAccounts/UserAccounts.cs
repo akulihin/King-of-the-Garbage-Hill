@@ -207,15 +207,6 @@ public sealed class UserAccounts : IServiceSingleton
                 mergedStatistics.Wins = mergedWins;
                 mergedStatistics.LastPlayedAt = lastPlayedAt;
             }
-
-            if (!account.HasNaturallyRolledUnknownBug
-                && secretStatistics.Any(stat => stat.Plays > 0))
-            {
-                // Completed legacy games are conclusive evidence that the private natural
-                // roll happened at least once, even though old account files lacked the bit.
-                account.HasNaturallyRolledUnknownBug = true;
-                changed = true;
-            }
         }
 
         if (account.MatchHistory != null)

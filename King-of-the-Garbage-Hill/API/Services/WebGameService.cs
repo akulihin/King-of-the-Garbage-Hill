@@ -233,7 +233,10 @@ public class WebGameService
     /// Creates a new 6-player game from the web (1 creator + 5 bots).
     /// Mirrors the flow in General.cs StartGame but skips Discord DMs.
     /// </summary>
-    public async Task<(ulong gameId, string error)> CreateGame(ulong creatorId, string creatorUsername)
+    public async Task<(ulong gameId, string error)> CreateGame(
+        ulong creatorId,
+        string creatorUsername,
+        bool recordNaturalUnknownBugRoll = true)
     {
         var creatorAccount = _userAccounts.GetAccount(creatorId);
         if (creatorAccount == null)
@@ -261,7 +264,8 @@ public class WebGameService
             players,
             gameId,
             mode: "bot",
-            accountForFirstBotSlot: rollCreatorDirectly ? creatorAccount : null);
+            accountForFirstBotSlot: rollCreatorDirectly ? creatorAccount : null,
+            recordNaturalUnknownBugRoll: recordNaturalUnknownBugRoll);
 
         // Shuffle and sort
         playersList = playersList.OrderBy(_ => Guid.NewGuid()).ToList();
@@ -1167,7 +1171,10 @@ public class WebGameService
             return (0, "Character not found");
 
         // Create a normal game first
-        var (gameId, error) = await CreateGame(creatorId, creatorUsername);
+        var (gameId, error) = await CreateGame(
+            creatorId,
+            creatorUsername,
+            recordNaturalUnknownBugRoll: false);
         if (error != null)
             return (0, error);
 

@@ -120,7 +120,7 @@ Achievement progress targets and the complete 106-entry rule catalog are in [ACH
 |---|---|---|
 | Tier ranges | 6→150, 5→100, 4→90, 3→80, 2→70, 1→60, 0→50, −1→40 | StartGameLogic.cs:47-61 |
 | Tier semantics | −1 secret-rollable, −2 transform-only. unknown_bug is additionally excluded from every public/draft/store/achievement surface and its roll ignores store/loot multipliers | `CharactersPull.cs` `GetRollableCharacters`; `StartGameLogic.cs` roll weighting; `UnknownBug` guards |
-| unknown_bug all-rolled boost | ×100 natural weight (Tier −1 baseline 40 → 4000) once unknown_bug has naturally rolled at least once for every human participant; the private bit is persisted at assignment, forced/admin selection does not count, bot seats are ignored and ordinary eligibility/no-repeat gates still apply | `DiscordAccountClass.HasNaturallyRolledUnknownBug`; `StartGameLogic.HandleCharacterRoll`; `UserAccounts.MigrateUnknownBugAccount` |
+| unknown_bug all-rolled boost | ×100 natural weight (Tier −1 baseline 40 → 4000) once unknown_bug has naturally rolled at least once for every human participant; the private bit is persisted at natural assignment, forced/admin/test-preliminary selection does not count, bot seats are ignored and ordinary eligibility/no-repeat gates still apply; ambiguous legacy statistics do not backfill it | `DiscordAccountClass.HasNaturallyRolledUnknownBug`; `StartGameLogic.HandleCharacterRoll`; `WebGameService.CreateTestGame` |
 | Tier pity | +3% per game without that tier; reset round 2 | StartGameLogic.cs:181-182, CIR:1317-1324 |
 | Bot rules | tier 4 ×3; no tier <4 except Кира at ½ tier-1 range | StartGameLogic.cs:177-179 |
 | Top Laner decay | ×1.0 → −0.2 per Top Laner rolled (floor 0) | StartGameLogic.cs:180, 172-177 |

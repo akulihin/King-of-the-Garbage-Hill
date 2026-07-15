@@ -100,7 +100,8 @@ public class StartGameLogic : IServiceSingleton
 
     public List<GamePlayerBridgeClass> HandleCharacterRoll(List<IUser> players, ulong gameId, int team = 0,
         string mode = "normal", List<string> forcedCharacters = null,
-        DiscordAccountClass accountForFirstBotSlot = null)
+        DiscordAccountClass accountForFirstBotSlot = null,
+        bool recordNaturalUnknownBugRoll = true)
     {
         var allCharacters2 = _charactersPull.GetRollableCharacters();
         var allCharacters = _charactersPull.GetRollableCharacters();
@@ -370,7 +371,8 @@ public class StartGameLogic : IServiceSingleton
             playersList.Last().CharacterMasteryPoints = account.CharacterMastery.GetValueOrDefault(characterToAssign.Name, 0);
             DoomGuy.InitializeForGame(playersList.Last(), account);
             account.CharacterPlayedLastTime = characterToAssign.Name;
-            if (!account.IsBot()
+            if (recordNaturalUnknownBugRoll
+                && !account.IsBot()
                 && UnknownBug.Is(characterToAssign)
                 && !account.HasNaturallyRolledUnknownBug)
             {
