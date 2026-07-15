@@ -10,7 +10,10 @@ import { currentLocale, setLocale, type AppLocale } from './i18n'
 
 const store = useGameStore()
 const route = useRoute()
-const isPublicExperience = computed(() => ['replay', 'lastChances'].includes(route.name as string))
+const localPublicRouteNames = new Set(['lastChances', 'empiresEndgame'])
+const isLocalPublicRoute = (name: unknown) => typeof name === 'string' && localPublicRouteNames.has(name)
+const isLocalPublicExperience = computed(() => isLocalPublicRoute(route.name))
+const isPublicExperience = computed(() => route.name === 'replay' || isLocalPublicExperience.value)
 const terminalSession = computed(() => route.name === 'game' && store.isTerminalMode)
 const showRecoveredAchievementCelebration = computed(() =>
   store.isAuthenticated
@@ -64,12 +67,12 @@ onMounted(async () => {
   if (currentTheme.value) {
     document.documentElement.setAttribute('data-theme', currentTheme.value)
   }
-  if (route.name === 'lastChances') return
+  if (isLocalPublicExperience.value) return
   await restoreSavedSession()
 })
 
 watch(() => route.name, (name, previousName) => {
-  if (previousName === 'lastChances' && name !== 'lastChances') void restoreSavedSession()
+  if (isLocalPublicRoute(previousName) && !isLocalPublicRoute(name)) void restoreSavedSession()
 })
 
 onUnmounted(() => {
@@ -224,6 +227,7 @@ async function changeLocale(language: AppLocale) {
           <RouterLink to="/achievements">{{ currentLocale === 'ru' ? 'Достижения' : 'Achievements' }}</RouterLink>
           <RouterLink to="/fight-calculator">{{ currentLocale === 'ru' ? 'Калькулятор боя' : 'Fight Lab' }}</RouterLink>
           <RouterLink to="/99lc">99 Last Chances</RouterLink>
+          <RouterLink to="/empires-endgame">Empire's Endgame</RouterLink>
         </nav>
 
         <div class="top-bar-right">

@@ -8,6 +8,9 @@
     "dev": "vite",
     "build": "vite build",
     "serve": "vite preview --port 4137",
+    "test:empires": "vitest run src/features/empires-endgame/config.spec.ts src/features/empires-endgame/engine.spec.ts src/features/empires-endgame/qa.spec.ts --coverage.enabled=false",
+    "test:empires:e2e": "cypress run --config-file cypress.config.ts --spec cypress/e2e/empires-endgame.cy.ts",
+    "test:empires:browser": "bash ../../tools/test-empires-endgame.sh",
     "type-check": "vue-tsc --noEmit",
     "lint": "eslint --fix ."
   },

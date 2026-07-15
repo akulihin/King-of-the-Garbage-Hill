@@ -1,6 +1,6 @@
 # Design-vs-Code Audit — Findings
 
-> Original audit of `DataBase/characters.json` (+ `Game/GameDesign.txt` intent notes, root-level update notes) against the 2026-07-01 working tree (v4.1.8); statuses and fix notes re-verified through 2026-07-14 (v4.5.6). Historical “Code” bullets describe the pre-fix implementation when a later **Fixed** note is present. `CP` = `Game/GameLogic/CharacterPassives.cs`.
+> Original audit of `DataBase/characters.json` (+ `Game/GameDesign.txt` intent notes, root-level update notes) against the 2026-07-01 working tree (v4.1.8); statuses and fix notes re-verified through 2026-07-14 (v4.6.1). Historical “Code” bullets describe the pre-fix implementation when a later **Fixed** note is present. `CP` = `Game/GameLogic/CharacterPassives.cs`.
 >
 > Severity: **Critical** = player-visible wrong outcome / broken kit promise; **Major** = mechanic silently missing/misfiring or balance-relevant hidden behavior; **Minor** = cosmetic, flavor, dead code, small numeric drift; **Design question** = code self-consistent but intent ambiguous.
 
@@ -665,6 +665,70 @@ Historical fixed-lineup winrates, 30 games each, from the **pre-M45 omniscient A
 - **Impact:** the same carrier loss paid one stack when unknown_bug initiated it and zero when the carrier initiated it, undercounting the eventual Exploit commit.
 - **Fixed:** 2026-07-14 — the authoritative resolved-fight observer now records both PointFunnel source wins over the carrier and unknown_bug's own carrier wins from either side. Commit consumes the already-observed attacking result without adding it again; a genuine Block/Skip no-fight exit still closes without a win stack. Eternal Tsukuyomi was subsequently made unable to clear Bug's action, so it no longer needs a synthetic cancellation commit (`UnknownBug.RecordResolvedFight` / `TryCommitExploit`; `DoomsdayMachine`; `Madara.PrepareEternalTsukuyomiRound`).
 
+## Empire's Endgame browser-game triage (2026-07-14)
+
+### M54. Durak take/finish controls stay stale and can soft-lock an empty hand until reload
+- **Expected:** after the defender finishes covering cards or declares a take, the current attacker immediately sees `Бито` / `Хватит подкидывать`; an attacker with no remaining card must always be able to resolve the bout and trigger the automatic refill.
+- **Actual before the fix:** `playerCanTake` and `playerCanFinish` read only methods on a `shallowRef` engine. Engine commits replaced the separate reactive snapshot but did not invalidate those computed values, so both stayed at their initial `false`. A reload reconstructed the engine and made the missing button appear. The face-down deck was intentionally inert because refill happens only inside `resolveBout`, leaving the player with no alternative control (`pages/EmpiresEndgame.vue` `playerCanTake`/`playerCanFinish`; `components/empires-endgame/DurakTable.vue`).
+- **Failure scenario:** play the last usable attack, let God cover it, and have no matching throw-in — the table says it is the emperor's turn but offers no button; refreshing reveals `Хватит подкидывать`.
+- **Fix direction:** invalidate engine-backed computed state on every subscription emission, and automatically close a resolved bout when the player has no card left to play; cover the transition in a browser test without reloading.
+- **Fixed:** 2026-07-14 — every engine subscription now invalidates the `shallowRef`-backed action computeds, and `runGodTurns` automatically calls `endAttack('player')` when an otherwise-resolvable player attack has an empty hand. The deck is non-control markup labelled `автодобор`. Named seeded fixtures plus Cypress verify both immediate `Хватит подкидывать` and empty-hand recovery without a reload (`EmpiresEndgame.vue` `initializeEngine`/`runGodTurns`; `qa.ts`; `cypress/e2e/empires-endgame.cy.ts`).
+
+### M55. Opening the Empire's Endgame constructor throws `DataCloneError`
+- **Expected:** `Конструктор` opens a detached editable definition from every phase.
+- **Actual before the fix:** `cloneEmpiresConfig` called `structuredClone(config)`. After the first assignment, Vue wrapped the config in a reactive Proxy; browsers cannot structured-clone that Proxy, so `openEditor` threw `DataCloneError: #<Object> could not be cloned` (`features/empires-endgame/config.ts` `cloneEmpiresConfig`; `pages/EmpiresEndgame.vue` `openEditor`).
+- **Fix direction:** clone the JSON-safe definition through serialization (or explicitly unwrap it), then browser-test opening, editing and saving the drawer.
+- **Fixed:** 2026-07-14 — the central definition clone uses JSON serialization, which matches the validated JSON-only schema and safely detaches Vue Proxies; `BuilderDrawer` uses that same clone boundary. A reactive-config unit test and a browser error listener cover the original exception (`config.ts` `cloneEmpiresConfig`; `config.spec.ts`; `cypress/e2e/empires-endgame.cy.ts`).
+
+### M56. Council-card CSS makes cards unreadable and their main surface is non-interactive
+- **Expected:** held cards remain legible in `Совет карт`, can be selected, and clearly expose improvement/restoration availability.
+- **Actual before the fix:** the broad `.council-grid button` rule also restyled the nested `EmpireCard` root buttons, replacing their light/inverted card surfaces with a nearly black translucent action-button background. Those cards were not marked `interactive`, so clicking the visually dominant surface emitted nothing; with zero points the only other buttons were disabled without an explanatory selected state (`pages/EmpiresEndgame.vue` council template/styles; `components/empires-endgame/EmpireCard.vue`).
+- **Fix direction:** scope action-button CSS to the action row, make council cards selectable, and show why actions are unavailable; cover contrast/selection in browser tests.
+- **Fixed:** 2026-07-14 — only direct `.council-actions` buttons receive the dark action style; every retained card is interactive/selectable and the zero-point state explains how points are earned. Non-interactive cards elsewhere render as articles instead of fake buttons. Cypress checks computed card luminance, selection and a real point-spending improvement (`EmpiresEndgame.vue` Council template/styles; `EmpireCard.vue`; `cypress/e2e/empires-endgame.cy.ts`).
+
+### M57. Technology coordinates are interpreted as percentages, pushing nearly the whole tree off-canvas
+- **Expected:** all configured doctrine/technology nodes are reachable on a scrollable tree; constructor mode permits dragging and relinking them.
+- **Actual before the fix:** the default definition stores authored canvas coordinates such as x=180..900 and y=40..1,360, but `TechTree` appended `%` and clipped overflow in a fixed 600px canvas. Only the x=20/y=40 root remained visible; the other nodes and their edges were off-screen, and therefore could not be selected or dragged (`public/empires-endgame/game-config.json` technology `position`; `components/empires-endgame/TechTree.vue`).
+- **Fix direction:** render authored coordinates on a sized, scrollable canvas and keep drag emissions in the same coordinate space; browser-test node reachability, selection and editor dragging.
+- **Fixed:** 2026-07-14 — `TechTree` now derives a world-pixel canvas from all configured extents and exposes scrollbar, background-pan, touch and keyboard navigation. Nodes/edges share one origin; constructor drag accounts for scroll and grab offset before emitting integer world coordinates. The detail panel also exposes full costs and blocking dependencies. Cypress reaches all 62 configured nodes, selects the last one and verifies an editor drag changes its position (`TechTree.vue`; `EmpiresEndgame.vue` `technologyNodes`; `cypress/e2e/empires-endgame.cy.ts`).
+
+### M58. Hand-card flag passives stack permanently after cards leave the hand
+- **Expected:** only cards currently held during an empire phase contribute their normal/inverted passive flags.
+- **Actual before the fix:** `startEmpirePhase` included `flag` in card phase effects, and `applyEffects` added those values directly to persistent `state.empire.flags`. No transition removed or rebuilt the contribution, so repeated cons accumulated ghost bonuses and penalties from cards no longer held (`features/empires-endgame/engine.ts` `startEmpirePhase`/`applyEffects`).
+- **Fix direction:** serialize the current hand-card flag contribution separately, subtract it when the empire/event phase ends and before rebuilding the next one, and preserve permanent flags from gifts, events and research.
+- **Fixed:** 2026-07-14 — serialized `cardFlagBonuses` records only the current hand's contribution; the engine subtracts it before rebuilding a card empire and when leaving empire/event flow, without touching permanent flags. Legacy empire/event snapshots reconstruct active contribution ownership from their held card faces; other phases default it empty. Focused tests prove temporary and permanent values separate correctly (`engine.ts` `heldCardFlagBonuses`/`recordCardFlagBonuses`/`clearCardFlagBonuses`/`validateAndCloneSnapshot`; `engine.spec.ts`).
+
+### M59. The table exposes the next draw as the trump card
+- **Expected:** the visible bottom card supplies the trump suit and remains the last card drawn.
+- **Actual before the fix:** the engine draws with `deck.pop()` and derives trump from the bottom/index-0 side, but the page rendered `deck.at(-1)`. The UI therefore exposed the next draw and could show a suit unrelated to the real trump (`features/empires-endgame/engine.ts` `drawToHand`/`resolveTrumpSuit`; `pages/EmpiresEndgame.vue` `trumpCardView`).
+- **Fix direction:** render `deck[0]` and assert the preview matches the engine's trump in deterministic tests.
+- **Fixed:** 2026-07-14 — `trumpCardView` renders `deck[0]`; the deterministic deck inspector/test separately identifies index 0 as the trump source and the final element as the next `pop()` draw (`EmpiresEndgame.vue` `trumpCardView`; `qa.ts` `inspectEmpiresQaDeck`; `qa.spec.ts`).
+
+### M60. Legacy empire saves cannot release card flags already folded into persistent state
+- **Expected:** a schema-v1 save made before M58 still removes its active held-card flags when the restored empire/event phase ends.
+- **Actual before the fix:** the migration filled a missing `cardFlagBonuses` field with `{}`. Those old saves already contained the current hand's flag values in `empire.flags`, so the later cleanup had no ownership record to subtract and made the bonuses permanent (`engine.ts` pre-fix `validateAndCloneSnapshot`).
+- **Fixed:** 2026-07-14 — restoration reconstructs the contribution from each held card's current side and level during empire/event phases without applying it a second time. A regression restores both phase shapes and proves event resolution returns the flag to its permanent baseline (`engine.ts` `heldCardFlagBonuses`/`validateAndCloneSnapshot`; `engine.spec.ts`).
+
+### M61. QA controls can overwrite or delete a real local campaign
+- **Expected:** `?qa=1` is an isolated test stand; reseeding, importing, starting over and exercising the constructor must not touch the player's production campaign or custom definition.
+- **Actual before the fix:** subscription autosave was guarded, but successful save import still wrote the production campaign, New Campaign cleared it, and constructor save/reset wrote or deleted production configuration/storage (`pages/EmpiresEndgame.vue` pre-fix `importSave`/`startNewCampaign`/`saveEditor`/`resetEditor`).
+- **Fixed:** 2026-07-14 — all four paths are explicitly ephemeral in QA mode, use QA-specific confirmation/status text, and constructor reset loads the bundled definition directly without clearing local storage. Cypress plants byte-identical campaign/config sentinels, executes every mutation including a valid import, and verifies both survive (`config.ts` `loadBundledEmpiresConfig`; `EmpiresEndgame.vue`; `cypress/e2e/empires-endgame.cy.ts`).
+
+### M62. Recruited soldiers remain in the civilian population and workforce
+- **Expected:** every unit's population cost consumes ready military population and the corresponding people/classes from the city; food safety must reflect the smaller workforce and the new army.
+- **Actual before the fix:** recruitment decremented only `militaryPopulation`. Total/class population, civilian food demand and available workers stayed unchanged while army upkeep was added, counting the same people on both sides of the economy (`engine.ts` pre-fix `recruitUnits`).
+- **Fixed:** 2026-07-14 — recruitment proportionally consumes only configured `canRecruit` classes (with a classless fallback), total population and the ready pool. Validation projects the post-recruit population, operational-building shutdowns, production, civilian consumption and army upkeep before spending resources. Focused tests cover exact class deductions and a farm that becomes food-unsafe after its workers enlist (`engine.ts` `consumeRecruitmentPopulation`/`recruitUnits`; `engine.spec.ts`).
+
+### M63. The browser harness can run Cypress against a stale server
+- **Expected:** the self-starting QA command proves that the Vite process it launched owns the requested port before browser tests begin.
+- **Actual before the fix:** readiness checked `curl` before child liveness. If another process already answered on the port, the request succeeded while strict-port Vite was still starting and about to exit, so Cypress targeted the unrelated service (`tools/test-empires-endgame.sh` pre-fix readiness loop).
+- **Fixed:** 2026-07-14 — readiness now requires Vite's own `Local:` marker, a successful request and a live launched PID. An occupied-port reproduction exits 1 with Vite's strict-port error instead of starting Cypress (`tools/test-empires-endgame.sh`).
+
+### M64. Position-less custom technologies collapse on the pixel tree
+- **Expected:** `position` remains optional in a valid definition; omitted nodes receive reachable, non-overlapping world-pixel coordinates.
+- **Actual before the fix:** fallback values retained the former percentage-scale spacing (roughly 10–100) after the tree moved to pixels, so custom nodes overlapped one another and authored nodes (`pages/EmpiresEndgame.vue` pre-fix `technologyNodes`; `types.ts` optional `position`).
+- **Fixed:** 2026-07-14 — missing nodes use a 210×88-pixel tier grid beginning 250 pixels to the right of the greatest authored X coordinate. A mixed 62-node browser fixture removes half the positions and pairwise-checks every rendered node rectangle (`EmpiresEndgame.vue` `technologyNodes`; `cypress/e2e/empires-endgame.cy.ts`).
+
 ## Unfinished work backlog (2026-07-12)
 
 ### Still-open findings
@@ -690,7 +754,7 @@ Full team-mode ruleset (2х2х2/3х3 team-score win, forced ally predictions —
 
 ## Summary count
 
-**1 Critical** (C1) · **53 Major** (M1–M53) · **48 Minor** (m1–m48) · **14 Design questions** (D1–D14). Phase-6 designer review was fully implemented 2026-07-13: M37–M40 and m37–m44 fixed, D12 confirmed intended, D13–D14 fixed; m47 was discovered and fixed in the same score-floor change. M44 was discovered during the Близнец block audit; M45 was discovered and fixed during the bot-knowledge review; M46–M47 were discovered and fixed in their follow-up audits. m48 was reproduced from replay `2fb5f271` and fixed by restoring Darksci's same-transition public log. M48–M50 were triaged from production runtime errors and fixed 2026-07-13; M51–M52 closed the simulator performance/concurrency failures; M53 fixed unknown_bug's missing defensive Exploit stack. Still open: **m12, m19, m24, m26**.
+**1 Critical** (C1) · **64 Major** (M1–M64) · **48 Minor** (m1–m48) · **14 Design questions** (D1–D14). Phase-6 designer review was fully implemented 2026-07-13: M37–M40 and m37–m44 fixed, D12 confirmed intended, D13–D14 fixed; m47 was discovered and fixed in the same score-floor change. M44 was discovered during the Близнец block audit; M45 was discovered and fixed during the bot-knowledge review; M46–M47 were discovered and fixed in their follow-up audits. m48 was reproduced from replay `2fb5f271` and fixed by restoring Darksci's same-transition public log. M48–M50 were triaged from production runtime errors and fixed 2026-07-13; M51–M52 closed the simulator performance/concurrency failures; M53 fixed unknown_bug's missing defensive Exploit stack. M54–M64 catalogue and close the interactive Empire's Endgame browser-game and QA hardening pass. Still open: **m12, m19, m24, m26**.
 
 ## Verification addendum (second pass, 2026-07-01)
 

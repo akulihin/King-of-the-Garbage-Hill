@@ -12,6 +12,7 @@ export type AppRouteNames =
   | 'achievements'
   | 'fightCalculator'
   | 'lastChances'
+  | 'empiresEndgame'
   | 'battleship'
   | 'battleshipGame'
   | 'battleshipSpectate'
@@ -78,6 +79,11 @@ export const routes: RouteRecordRaw[] = [
     name: 'lastChances',
     path: '/99lc',
     component: () => import('./pages/LastChances.vue'),
+  },
+  {
+    name: 'empiresEndgame',
+    path: '/empires-endgame',
+    component: () => import('./pages/EmpiresEndgame.vue'),
   },
   {
     name: 'widget',
