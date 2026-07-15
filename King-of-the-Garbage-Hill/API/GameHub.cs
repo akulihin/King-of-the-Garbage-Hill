@@ -252,6 +252,37 @@ public class GameHub : Hub
         if (success) await PushStateToPlayer(gameId, discordId);
     }
 
+    public async Task AnnounceHalfLife3(ulong gameId)
+    {
+        var discordId = GetDiscordId();
+        if (discordId == 0) { await SendNotAuthenticated(); return; }
+
+        var (success, error) = await _gameService.AnnounceHalfLife3(gameId, discordId);
+        await Clients.Caller.SendAsync("ActionResult", new { action = "announceHalfLife3", success, error });
+        if (success) await PushStateToPlayer(gameId, discordId);
+    }
+
+    public async Task WakeGordon(ulong gameId)
+    {
+        var discordId = GetDiscordId();
+        if (discordId == 0) { await SendNotAuthenticated(); return; }
+
+        var (success, error) = await _gameService.WakeGordon(gameId, discordId);
+        await Clients.Caller.SendAsync("ActionResult", new { action = "wakeGordon", success, error });
+        if (success) await PushStateToPlayer(gameId, discordId);
+    }
+
+    public async Task ResolveHalfLife3Decision(ulong gameId, int serial, string choice)
+    {
+        var discordId = GetDiscordId();
+        if (discordId == 0) { await SendNotAuthenticated(); return; }
+
+        var (success, error) = await _gameService.ResolveHalfLife3Decision(
+            gameId, discordId, serial, choice);
+        await Clients.Caller.SendAsync("ActionResult", new { action = "resolveHalfLife3Decision", success, error });
+        if (success) await PushStateToPlayer(gameId, discordId);
+    }
+
     public async Task DoAutoMove(ulong gameId)
     {
         var discordId = GetDiscordId();

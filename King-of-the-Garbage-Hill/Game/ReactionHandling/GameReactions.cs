@@ -156,9 +156,52 @@ public sealed class GameReaction : IServiceSingleton
                 var game = _global.GamesList.Find(x => x.GameId == player.GameId);
                 var extraText = "";
 
+                var isHalfLifeDecision =
+                    button.Data.CustomId.StartsWith("gordon-hl3-freeze:", StringComparison.Ordinal)
+                    || button.Data.CustomId.StartsWith("gordon-hl3-postpone:", StringComparison.Ordinal);
+                if (game?.IsRoundTransitionPaused == true && !isHalfLifeDecision)
+                {
+                    await button.FollowupAsync(
+                        "Halflife 3: ожидаем решение Гордона Фримена.", ephemeral: true);
+                    return;
+                }
+
+                if (isHalfLifeDecision)
+                {
+                    var separator = button.Data.CustomId.LastIndexOf(':');
+                    var serialText = separator >= 0
+                        ? button.Data.CustomId[(separator + 1)..]
+                        : "";
+                    var choice = button.Data.CustomId.StartsWith(
+                        "gordon-hl3-postpone:", StringComparison.Ordinal)
+                        ? "postpone"
+                        : "freeze";
+                    if (int.TryParse(serialText, out var serial)
+                        && GordonFreeman.ResolveHalfLifeDecision(player, game, serial, choice))
+                    {
+                        await _upd.UpdateMessage(player);
+                    }
+                    else
+                    {
+                        await button.FollowupAsync(
+                            "Это решение по Halflife 3 уже устарело.", ephemeral: true);
+                    }
+                    return;
+                }
+
 
                 switch (button.Data.CustomId)
                 {
+                    case "gordon-hl3-announce":
+                        if (GordonFreeman.AnnounceHalfLife3(player, game))
+                            await _upd.UpdateMessage(player);
+                        break;
+
+                    case "gordon-wake":
+                        if (GordonFreeman.Wake(player, game))
+                            await _upd.UpdateMessage(player);
+                        break;
+
                     case "mobile-device":
                         player.IsMobile = true;
                         var embed = _upd.FightPage(player);
@@ -333,6 +376,13 @@ public sealed class GameReaction : IServiceSingleton
 
 
                     case "block":
+                        if (GordonFreeman.Is(player))
+                        {
+                            if (GordonFreeman.AnnounceHalfLife3(player, game))
+                                await _upd.UpdateMessage(player);
+                            break;
+                        }
+
                         if (player.GameCharacter.Passive.Any(x => x.PassiveName == "Спарта"))
                         {
                             await _help.SendMsgAndDeleteItAfterRound(player, "Спартанцы не капитулируют!!", 0);
@@ -695,9 +745,33 @@ public sealed class GameReaction : IServiceSingleton
     public async Task<bool> HandleAttack(GamePlayerBridgeClass player, SocketMessageComponent button, int botChoice = -1)
     {
         var status = player.Status;
+        var game = _global.GamesList.Find(x => x.GameId == player.GameId);
 
         if (botChoice == -10)
         {
+            if (GordonFreeman.Is(player))
+            {
+                if (GordonFreeman.AnnounceHalfLife3(player, game))
+                    return true;
+
+                // Block no longer exists after the one announcement. A bot fallback retries a
+                // legal attack instead; if no living target exists, it safely skips the turn.
+                var fallbackTarget = game?.PlayersList.FirstOrDefault(target =>
+                    target.GetPlayerId() != player.GetPlayerId()
+                    && !target.Passives.IsDead
+                    && !Madara.IsSealed(target)
+                    && !Naruto.IsNarutoPair(player, target)
+                    && !player.IsTeamMember(game, target.GetPlayerId()));
+                if (fallbackTarget != null)
+                    return await HandleAttack(
+                        player, null, fallbackTarget.Status.GetPlaceAtLeaderBoard());
+
+                status.IsSkip = true;
+                status.ConfirmedSkip = true;
+                status.IsReady = true;
+                return true;
+            }
+
             var blockText = "Вы поставили блок\n";
             status.AddInGamePersonalLogs(blockText);
             status.ChangeMindWhat = blockText;
@@ -705,8 +779,6 @@ public sealed class GameReaction : IServiceSingleton
             status.IsReady = true;
             return true;
         }
-
-            var game = _global.GamesList.Find(x => x.GameId == player.GameId);
 
             GamePlayerBridgeClass whoToAttack;
             if (!player.IsBot() && !player.Status.IsAutoMove)

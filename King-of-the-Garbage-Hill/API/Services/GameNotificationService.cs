@@ -232,6 +232,7 @@ public class GameNotificationService
                 var currentRound = game.RoundNo;
                 var currentTime = game.TimePassed.Elapsed.TotalSeconds;
                 var anyReady = game.PlayersList.Any(p => p.Status.IsReady);
+                var stateRevision = game.StateRevision;
 
                 _lastSnapshot.TryGetValue(gameId, out var last);
                 last ??= new GameSnapshot();
@@ -250,14 +251,16 @@ public class GameNotificationService
                 // Push every 0.5s for smooth timer, or immediately on round/ready changes
                 var timeChanged = Math.Abs(currentTime - last.TimeSeconds) > 0.5;
                 var readyChanged = anyReady != last.AnyReady;
+                var revisionChanged = stateRevision != last.StateRevision;
 
-                if (roundChanged || timeChanged || readyChanged)
+                if (roundChanged || timeChanged || readyChanged || revisionChanged)
                 {
                     _lastSnapshot[gameId] = new GameSnapshot
                     {
                         RoundNo = currentRound,
                         TimeSeconds = currentTime,
                         AnyReady = anyReady,
+                        StateRevision = stateRevision,
                     };
 
                     await BroadcastGameState(game);
@@ -280,5 +283,6 @@ public class GameNotificationService
         public int RoundNo { get; set; }
         public double TimeSeconds { get; set; }
         public bool AnyReady { get; set; }
+        public long StateRevision { get; set; }
     }
 }

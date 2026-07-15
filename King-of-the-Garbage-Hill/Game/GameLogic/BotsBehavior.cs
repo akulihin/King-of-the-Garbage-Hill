@@ -3326,6 +3326,11 @@ public class BotsBehavior : IServiceSingleton
                     isBlock = noBlock;
                     break;
 
+                case GordonFreeman.CharacterName:
+                    // His first block is the one-time announcement; afterwards Block no longer exists.
+                    isBlock = GordonFreeman.CanAnnounceHalfLife3(bot, game) ? yesBlock : noBlock;
+                    break;
+
                 case "Sakura":
                     if (Smart(bot, game) && game.RoundNo >= 8)
                     {

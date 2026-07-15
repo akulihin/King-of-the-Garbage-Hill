@@ -139,6 +139,9 @@ public class InGameAchievementTracker
     public bool ItachiMadaraCloneAttackGranted { get; set; }
     public bool DamagedReanimatedMadaraWithSuperDick { get; set; }
     public bool WitnessedMonsterApocalypse { get; set; }
+    public int GordonHeadcrabsRemoved { get; set; }
+    public bool GordonHalfLifeReleased { get; set; }
+    public bool GordonCrowbarStoppedSuperDick { get; set; }
 
     // Legacy fields are intentionally tolerated because old server snapshots and older hooks may
     // still populate them. Achievement V2 never evaluates these counters.
@@ -614,6 +617,17 @@ public static class AchievementService
             "Играя за оригинального Наруто, получите 30 очков от Теневые и завершите матч живым на 1-м месте.",
             AchievementCategory.Character, "sparkles", "legendary", 30, characterNames: new[] { "Наруто" }),
 
+        new("c_gordon_rescue", "Unforeseen Consequences", "Непредвиденные последствия",
+            "As Гордон Фримен, remove 3 headcrabs.",
+            "Играя за Гордон Фримен, снимите 3 хэдкраба.",
+            AchievementCategory.Character, "bug", "uncommon", 3,
+            characterNames: new[] { "Гордон Фримен" }),
+        new("c_gordon_halflife3", "Half-Life 3 Confirmed", "Halflife 3 подтверждён",
+            "As Гордон Фримен, successfully release Halflife 3.",
+            "Играя за Гордон Фримен, успешно выпустите Halflife 3.",
+            AchievementCategory.Character, "games", "epic",
+            characterNames: new[] { "Гордон Фримен" }),
+
         // Secret interactions
         new("x_spartan_dragon", "Dragon Slayer", "Убийца драконов",
             "As Загадочный Спартанец в маске, trigger DragonSlayer against round-10 Sirinoks/Дракон and defeat her.",
@@ -706,6 +720,12 @@ public static class AchievementService
             secretHint: "A very large march meets a very numerous little problem.",
             secretHintRu: "Очень большой марш встречает очень многочисленную маленькую проблему.",
             characterNames: new[] { "Эрен Йегер", "Стая Гоблинов" }),
+        new("x_gordon_theboys", "There Is No Counter to a Crowbar but Another Crowbar!",
+            "Против лома нет приема, кроме другого лома!",
+            "The Hero with a Crowbar stopped the Super Crowbar.",
+            "СуперКочергу остановил Герой с Кочергой",
+            AchievementCategory.Interaction, "axe", "legendary", isSecret: true,
+            characterNames: new[] { "TheBoys", "Гордон Фримен" }),
     };
 
     private static readonly Dictionary<string, AchievementDefinition> ById =
@@ -1167,6 +1187,12 @@ public static class AchievementService
                 alive && actualPlace == 1);
         }
 
+        if (characterName == "Гордон Фримен")
+        {
+            SetBestProgress(account, "c_gordon_rescue", tracker.GordonHeadcrabsRemoved);
+            SetBestProgress(account, "c_gordon_halflife3", tracker.GordonHalfLifeReleased ? 1 : 0);
+        }
+
         // Secret interactions
         if (characterName == "Загадочный Спартанец в маске")
         {
@@ -1244,6 +1270,10 @@ public static class AchievementService
             SetBestProgress(account, "x_eren_goblins",
                 goblins != null && tracker.RumblingVictimIds.Contains(goblins.GetPlayerId()) ? 1 : 0);
         }
+
+        if (characterName == "Гордон Фримен")
+            SetBestProgress(account, "x_gordon_theboys",
+                tracker.GordonCrowbarStoppedSuperDick ? 1 : 0);
     }
 
     private static bool HasUsedAutoMoveAllGame(

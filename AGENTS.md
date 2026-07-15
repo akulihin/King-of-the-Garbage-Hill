@@ -4,7 +4,7 @@ Guidance for Codex in this repository.
 
 ## Project
 
-King of the Garbage Hill — turn-based 6-player tactical game, 39 character definitions (including secret/transform-only entries). Hybrid **Discord bot + ASP.NET Core web server** (single process, .NET 10, Lamar DI, Discord.Net 3.20), **Vue 3 + TypeScript** client via SignalR. Mixed Russian/English; **Russian passive/character names are load-bearing string identifiers** — never paraphrase or "fix" them.
+King of the Garbage Hill — turn-based 6-player tactical game, 41 character definitions (including secret/transform-only entries). Hybrid **Discord bot + ASP.NET Core web server** (single process, .NET 10, Lamar DI, Discord.Net 3.20), **Vue 3 + TypeScript** client via SignalR. Mixed Russian/English; **Russian passive/character names are load-bearing string identifiers** — never paraphrase or "fix" them.
 
 ## The docs are the source of truth — read them first, not the codebase
 

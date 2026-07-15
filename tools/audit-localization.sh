@@ -70,7 +70,8 @@ if jq -r '.exact[], .terms[], .phraseFallbacks[], .characters[], .passives[]' "$
 fi
 
 grep -q 'DataBase\\localization.en.json' King-of-the-Garbage-Hill/King-of-the-Garbage-Hill.csproj
-grep -q 'localization.en.json' Web/VueClient/src/i18n.ts
+grep -q 'virtual:public-localization' Web/VueClient/src/i18n.ts
+grep -q 'localization.en.json' Web/VueClient/vite.config.ts
 grep -q 'SortedExact' King-of-the-Garbage-Hill/Helpers/GameLocalization.cs
 grep -q 'russianExactEntries' Web/VueClient/src/i18n.ts
 grep -q 'PhraseFallbacks' King-of-the-Garbage-Hill/Helpers/GameLocalization.cs

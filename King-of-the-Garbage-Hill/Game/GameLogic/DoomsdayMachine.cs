@@ -20,6 +20,9 @@ public class DoomsdayMachine : IServiceSingleton
     private readonly CalculateRounds _calculateRounds;
     private readonly GameUpdateMess _gameUpdateMess;
     private readonly SecureRandom _rand;
+    private readonly Dictionary<ulong, PendingRoundContinuation> _pendingRounds = new();
+
+    private sealed record PendingRoundContinuation(ReplayRoundDto ReplayRound, Stopwatch Watch);
 
     public DoomsdayMachine(CharacterPassives characterPassives, LoginFromConsole logs, CalculateRounds calculateRounds, GameUpdateMess gameUpdateMess, SecureRandom rand)
     {
@@ -160,7 +163,28 @@ public class DoomsdayMachine : IServiceSingleton
 
 
     //пристрій судного дня
-    public async Task CalculateAllFights(GameClass game)
+    public bool HasPendingRound(GameClass game) =>
+        game != null && _pendingRounds.ContainsKey(game.GameId);
+
+    public async Task<bool> ResumePendingRound(GameClass game)
+    {
+        if (game == null || !_pendingRounds.TryGetValue(game.GameId, out var continuation))
+            return false;
+
+        GordonFreeman.ResolveHalfLifeTimeout(game);
+        var gordon = GordonFreeman.Find(game);
+        if (gordon?.Passives.Gordon.HalfLife.PendingDecision == true)
+            return false;
+
+        _pendingRounds.Remove(game.GameId);
+        game.IsRoundTransitionPaused = false;
+        game.TransitionDeadlineUtc = null;
+        continuation.Watch.Start();
+        await CompleteRoundAsync(game, continuation.ReplayRound, continuation.Watch);
+        return true;
+    }
+
+    public async Task<bool> CalculateAllFights(GameClass game)
     {
         var watch = new Stopwatch();
         watch.Start();
@@ -245,7 +269,9 @@ public class DoomsdayMachine : IServiceSingleton
                     game, unknownBugBeforeRoundOverride, exploitTargetBeforeRoundOverride, false);
         }
         if (isEternalTsukuyomiRound)
-            game.AddGlobalLogs("Все игроки пропустили ход...");
+            game.AddGlobalLogs(GordonFreeman.Find(game)?.Passives.Gordon.WakeReservedForEternalTsukuyomi == true
+                ? "Все игроки, кроме Гордона Фримена, пропустили ход..."
+                : "Все игроки пропустили ход...");
 
         // Щит-акула replaces DooM Guy's submitted block with a fightable, non-attacking
         // one-turn copy of Братишка's defensive passive. Prepare it before the round snapshot.
@@ -789,6 +815,10 @@ public class DoomsdayMachine : IServiceSingleton
                     continue;
                 }
 
+                // Монтировка counts only fights that survived every Block/Skip gate.
+                var gordonCrowbarWin = GordonFreeman.BeginResolvedFight(
+                    player, playerIamAttacking, out var crowbarGordon);
+
                 //round 1 (nemesis)
 
                 // Skill target gain (moved after block/skip checks so blocked/skipped targets don't give free skill)
@@ -956,12 +986,12 @@ public class DoomsdayMachine : IServiceSingleton
 
 
                 //octopus  // playerIamAttacking is octopus
-                if (!narutoSummonAutoWin && pointsWined <= 0)
+                if (!gordonCrowbarWin && !narutoSummonAutoWin && pointsWined <= 0)
                     pointsWined = await _characterPassives.HandleOctopus(playerIamAttacking, player, game);
                 //end octopus
 
                 //izanagi  // playerIamAttacking is Itachi (defender)
-                if (!narutoSummonAutoWin && pointsWined >= 1
+                if (!gordonCrowbarWin && !narutoSummonAutoWin && pointsWined >= 1
                     && playerIamAttacking.GameCharacter.Passive.Any(p => p.PassiveName == "Изанаги")
                     && playerIamAttacking.Passives.ItachiIzanagi.UsesRemaining > 0)
                 {
@@ -973,8 +1003,17 @@ public class DoomsdayMachine : IServiceSingleton
 
                 // A successful summon is the terminal fight result: it also overrides defensive
                 // outcome replacers such as active Pickle Rick, Octopus and Izanagi.
-                if (narutoSummonAutoWin)
+                if (!gordonCrowbarWin && narutoSummonAutoWin)
                     pointsWined = 1;
+
+                // The third resolved fight is Gordon's terminal result, including against
+                // Pickle, Octopus, Izanagi and Naruto's summon.
+                if (gordonCrowbarWin)
+                {
+                    pointsWined = crowbarGordon.GetPlayerId() == player.GetPlayerId() ? 1 : -1;
+                    crowbarGordon.Status.AddInGamePersonalLogs(
+                        $"{GordonFreeman.Crowbar}: третий состоявшийся бой выигран.\n");
+                }
 
                 // BFG wave: a guaranteed primary win starts two outward branches. Each branch
                 // advances one leaderboard neighbour only while its previous fight was won.
@@ -1439,6 +1478,14 @@ public class DoomsdayMachine : IServiceSingleton
                     player.Status.IsWonThisCalculation == playerIamAttacking.GetPlayerId();
                 var resolvedWinner = attackerWonThisFight ? player : playerIamAttacking;
                 var resolvedLoser = attackerWonThisFight ? playerIamAttacking : player;
+
+                if (gordonCrowbarWin
+                    && player.GameCharacter.Name == "TheBoys"
+                    && player.Passives.TheBoysButcher.SuperDickActive
+                    && GordonFreeman.Is(playerIamAttacking)
+                    && resolvedWinner.GetPlayerId() == playerIamAttacking.GetPlayerId())
+                    playerIamAttacking.Passives.AchievementTracker.GordonCrowbarStoppedSuperDick = true;
+
                 UnknownBug.RecordResolvedFight(game, resolvedWinner, resolvedLoser);
                 UnknownBug.TryCommitExploit(
                     game, player, playerIamAttacking, attackerWonThisFight);
@@ -1690,6 +1737,23 @@ public class DoomsdayMachine : IServiceSingleton
 
         await _characterPassives.HandleEndOfRound(game);
 
+        if (GordonFreeman.PrepareHalfLifeSettlement(game))
+        {
+            watch.Stop();
+            _pendingRounds[game.GameId] = new PendingRoundContinuation(replayRound, watch);
+            return false;
+        }
+
+        await CompleteRoundAsync(game, replayRound, watch);
+        return true;
+    }
+
+    private async Task CompleteRoundAsync(
+        GameClass game,
+        ReplayRoundDto replayRound,
+        Stopwatch watch)
+    {
+
         foreach (var player in game.PlayersList)
         {
             player.Status.TimesUpdated = 0;
@@ -1730,7 +1794,8 @@ public class DoomsdayMachine : IServiceSingleton
 
             var scoreBeforeRoundSettlement = player.Status.GetScore();
             if (!player.Passives.IsDead)
-                player.Status.CombineRoundScoreAndGameScore(game);
+                player.Status.CombineRoundScoreAndGameScore(
+                    game, GordonFreeman.ConsumeSettlementOverride(player));
             if (game.RoundNo == 10)
                 player.Passives.AchievementTracker.RoundTenRegularPoints =
                     player.Status.GetScore() - scoreBeforeRoundSettlement;

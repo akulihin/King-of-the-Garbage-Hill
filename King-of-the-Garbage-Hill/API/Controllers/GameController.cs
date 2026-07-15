@@ -76,6 +76,35 @@ public class GameController : ControllerBase
         return success ? Ok(new { success = true }) : BadRequest(new { error });
     }
 
+    [HttpPost("{gameId}/gordon/announce-halflife3")]
+    public async Task<IActionResult> AnnounceHalfLife3(ulong gameId)
+    {
+        var discordId = GetDiscordId();
+        if (discordId == 0) return Unauthorized(new { error = "Missing X-Discord-Id header" });
+        var (success, error) = await _gameService.AnnounceHalfLife3(gameId, discordId);
+        return success ? Ok(new { success = true }) : BadRequest(new { error });
+    }
+
+    [HttpPost("{gameId}/gordon/wake")]
+    public async Task<IActionResult> WakeGordon(ulong gameId)
+    {
+        var discordId = GetDiscordId();
+        if (discordId == 0) return Unauthorized(new { error = "Missing X-Discord-Id header" });
+        var (success, error) = await _gameService.WakeGordon(gameId, discordId);
+        return success ? Ok(new { success = true }) : BadRequest(new { error });
+    }
+
+    [HttpPost("{gameId}/gordon/halflife3-decision")]
+    public async Task<IActionResult> ResolveHalfLife3Decision(
+        ulong gameId, [FromBody] GordonHalfLifeDecisionRequest request)
+    {
+        var discordId = GetDiscordId();
+        if (discordId == 0) return Unauthorized(new { error = "Missing X-Discord-Id header" });
+        var (success, error) = await _gameService.ResolveHalfLife3Decision(
+            gameId, discordId, request.Serial, request.Choice);
+        return success ? Ok(new { success = true }) : BadRequest(new { error });
+    }
+
     [HttpPost("{gameId}/auto-move")]
     public async Task<IActionResult> AutoMove(ulong gameId)
     {

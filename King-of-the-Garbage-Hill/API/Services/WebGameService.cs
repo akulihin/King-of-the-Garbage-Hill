@@ -529,9 +529,12 @@ public class WebGameService
         return _global.GamesList.Find(g => g.GameId == gameId);
     }
 
-    private (GameClass game, GamePlayerBridgeClass player) FindGameAndPlayer(ulong gameId, ulong discordId)
+    private (GameClass game, GamePlayerBridgeClass player) FindGameAndPlayer(
+        ulong gameId, ulong discordId, bool allowPausedTransition = false)
     {
         var game = FindGame(gameId);
+        if (game?.IsRoundTransitionPaused == true && !allowPausedTransition)
+            return (game, null);
         var player = game?.PlayersList.Find(p => p.DiscordId == discordId);
         return (game, player);
     }
@@ -581,6 +584,11 @@ public class WebGameService
         var (lvlBlocked, lvlError) = LevelUpGate(player);
         if (lvlBlocked) return Task.FromResult((false, lvlError));
 
+        if (GordonFreeman.Is(player))
+            return Task.FromResult(GordonFreeman.AnnounceHalfLife3(player, game)
+                ? (true, (string)null)
+                : (false, "Halflife 3 cannot be announced right now"));
+
         // Check Sparta passive (cannot block)
         if (player.GameCharacter.Passive.Any(x => x.PassiveName == "Спарта"))
             return Task.FromResult((false, "Спартанцы не капитулируют!!"));
@@ -620,6 +628,41 @@ public class WebGameService
         player.Status.ChangeMindWhat = text;
 
         return Task.FromResult((true, (string)null));
+    }
+
+    public Task<(bool success, string error)> AnnounceHalfLife3(ulong gameId, ulong discordId)
+    {
+        var (game, player) = FindGameAndPlayer(gameId, discordId);
+        if (game == null) return Task.FromResult((false, "Game not found"));
+        if (player == null) return Task.FromResult((false, "Player not in this game"));
+        var (levelBlocked, levelError) = LevelUpGate(player);
+        if (levelBlocked) return Task.FromResult((false, levelError));
+        return Task.FromResult(GordonFreeman.AnnounceHalfLife3(player, game)
+            ? (true, (string)null)
+            : (false, "Halflife 3 cannot be announced right now"));
+    }
+
+    public Task<(bool success, string error)> WakeGordon(ulong gameId, ulong discordId)
+    {
+        var (game, player) = FindGameAndPlayer(gameId, discordId);
+        if (game == null) return Task.FromResult((false, "Game not found"));
+        if (player == null) return Task.FromResult((false, "Player not in this game"));
+        return Task.FromResult(GordonFreeman.Wake(player, game)
+            ? (true, (string)null)
+            : (false, "Gordon cannot wake right now"));
+    }
+
+    public Task<(bool success, string error)> ResolveHalfLife3Decision(
+        ulong gameId, ulong discordId, int serial, string choice)
+    {
+        var (game, player) = FindGameAndPlayer(gameId, discordId, allowPausedTransition: true);
+        if (game == null) return Task.FromResult((false, "Game not found"));
+        if (player == null) return Task.FromResult((false, "Player not in this game"));
+        if (choice is not "freeze" and not "postpone")
+            return Task.FromResult((false, "Invalid Halflife 3 decision"));
+        return Task.FromResult(GordonFreeman.ResolveHalfLifeDecision(player, game, serial, choice)
+            ? (true, (string)null)
+            : (false, "Halflife 3 decision is stale or unavailable"));
     }
 
     public Task<(bool success, string error)> AutoMove(ulong gameId, ulong discordId)

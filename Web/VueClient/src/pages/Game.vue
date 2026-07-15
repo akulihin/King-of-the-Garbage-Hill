@@ -15,6 +15,7 @@ import RoundTimer from 'src/components/RoundTimer.vue'
 import Blackjack21 from 'src/components/Blackjack21.vue'
 import AchievementPopup from 'src/components/AchievementPopup.vue'
 import TerminalCommitOverlay from 'src/components/TerminalCommitOverlay.vue'
+import HalfLife3Transition from 'src/components/HalfLife3Transition.vue'
 import type { Player } from 'src/services/signalr'
 import {
   playAttackSelection,
@@ -167,6 +168,7 @@ function onReplayEnded() {
 }
 
 function onAttack(place: number) {
+  if (store.gameState?.isRoundTransitionPaused) return
   const roundNo = store.gameState?.roundNo ?? 0
   const charName = store.myPlayer?.character.name
   void playAttackSelection(charName, roundNo)
@@ -469,6 +471,45 @@ function gameoverAvatar(player: Player): string {
 }
 const isMadara = computed(() => me.value?.character.name === 'Мадара')
 const isMadaraRoundEight = computed(() => isMadara.value && store.gameState?.roundNo === 8)
+const isGordon = computed(() => me.value?.character.name === 'Гордон Фримен')
+const gordonState = computed(() => me.value?.passiveAbilityStates?.gordon ?? null)
+const gordonHalfLife = computed(() => gordonState.value?.halfLife ?? null)
+const transitionPaused = computed(() => store.gameState?.isRoundTransitionPaused ?? false)
+const gordonActionPending = ref(false)
+
+async function announceHalfLife3(): Promise<void> {
+  if (gordonActionPending.value || transitionPaused.value || !gordonHalfLife.value?.canAnnounce) return
+  gordonActionPending.value = true
+  try {
+    await store.announceHalfLife3()
+  }
+  finally {
+    gordonActionPending.value = false
+  }
+}
+
+async function wakeGordon(): Promise<void> {
+  if (gordonActionPending.value || transitionPaused.value || !gordonState.value?.canWake) return
+  gordonActionPending.value = true
+  try {
+    await store.wakeGordon()
+  }
+  finally {
+    gordonActionPending.value = false
+  }
+}
+
+async function resolveHalfLife3Decision(choice: 'freeze' | 'postpone'): Promise<void> {
+  const serial = gordonHalfLife.value?.decisionSerial
+  if (gordonActionPending.value || serial == null || !gordonHalfLife.value?.pendingDecision) return
+  gordonActionPending.value = true
+  try {
+    await store.resolveHalfLife3Decision(serial, choice)
+  }
+  finally {
+    gordonActionPending.value = false
+  }
+}
 
 // ── Avatar / identity (rendered in game-right) ────────────────────
 const placeTier = computed(() => {
@@ -1113,6 +1154,14 @@ const charTint = computed(() => {
 <template>
   <div class="game-page" :class="{ 'is-terminal-game': store.isTerminalMode }" :style="charTint ? { background: charTint } : {}">
     <TerminalCommitOverlay v-if="terminalCommitVisible" :points="terminalCommitPoints" />
+    <HalfLife3Transition
+      v-if="transitionPaused"
+      :is-gordon="isGordon"
+      :half-life="gordonHalfLife"
+      :transition-deadline-utc="store.gameState?.transitionDeadlineUtc"
+      :is-submitting="gordonActionPending"
+      @resolve="resolveHalfLife3Decision"
+    />
     <!-- Round announce cinematic overlay -->
     <Transition name="round-announce">
       <div v-if="showRoundOverlay" class="round-announce" :key="overlayRoundNo">
@@ -1291,56 +1340,74 @@ const charTint = computed(() => {
         <div
           v-if="store.myPlayer && !store.gameState.isFinished"
           class="game-actions"
-          :class="{ 'can-act': store.isMyTurn }"
+          :class="{ 'can-act': store.isMyTurn && !transitionPaused, 'transition-paused': transitionPaused }"
         >
           <div v-if="store.mustSpendLevelUp" class="lvlup-gate-hint">
             ⚠ Остались очки прокачки — потрать их!
           </div>
           <div v-if="!isMadaraRoundEight" class="act-group">
-            <button class="act-btn shield" :disabled="!store.isMyTurn || store.mustSpendLevelUp" title="Block" @click="store.block()">
+            <button v-if="!isGordon" class="act-btn shield" :disabled="!store.isMyTurn || store.mustSpendLevelUp || transitionPaused" title="Block" @click="store.block()">
               <span class="gi gi-lg gi-def">DEF</span> Block
             </button>
-            <button class="act-btn auto" :disabled="!store.isMyTurn || store.mustSpendLevelUp" title="Auto Move" @click="store.autoMove()">
+            <button
+              v-else-if="gordonHalfLife?.canAnnounce"
+              class="act-btn half-life"
+              :disabled="!store.isMyTurn || store.mustSpendLevelUp || transitionPaused || gordonActionPending"
+              title="Анонсировать Halflife 3"
+              @click="announceHalfLife3"
+            >
+              <span class="half-life-lambda">λ</span> Halflife 3
+            </button>
+            <button class="act-btn auto" :disabled="!store.isMyTurn || store.mustSpendLevelUp || transitionPaused" title="Auto Move" @click="store.autoMove()">
               <span class="gi gi-lg gi-auto">AUTO</span> Move
             </button>
-            <button v-if="me?.status.isReady && !me?.status.isSkip" class="act-btn undo" title="Change Mind" @click="store.changeMind()">
+            <button v-if="me?.status.isReady && !me?.status.isSkip" class="act-btn undo" :disabled="transitionPaused" title="Change Mind" @click="store.changeMind()">
               <span class="gi gi-lg gi-undo">UNDO</span> Change
             </button>
-            <button v-if="!me?.status.confirmedSkip" :disabled="store.mustSpendLevelUp" class="act-btn skip" title="Confirm Skip" @click="store.confirmSkip()">
+            <button v-if="!me?.status.confirmedSkip" :disabled="store.mustSpendLevelUp || transitionPaused" class="act-btn skip" title="Confirm Skip" @click="store.confirmSkip()">
               <span class="gi gi-lg gi-skip">SKIP</span>
+            </button>
+            <button
+              v-if="gordonState?.canWake"
+              class="act-btn gordon-wake"
+              :disabled="transitionPaused || gordonActionPending"
+              title="Просыпайтесь, мистер Фримен"
+              @click="wakeGordon"
+            >
+              <span aria-hidden="true">⏰</span> Проснуться
             </button>
           </div>
 
           <div v-if="me?.darksciChoiceNeeded" class="act-group">
-            <button class="act-btn darksci-stable" title="Стабильный: +20 Skill, +2 Moral" @click="store.darksciChoice(true)">
+            <button class="act-btn darksci-stable" :disabled="transitionPaused" title="Стабильный: +20 Skill, +2 Moral" @click="store.darksciChoice(true)">
               Мне не везёт...
             </button>
-            <button class="act-btn darksci-unstable" title="Нестабильный: удача решит" @click="store.darksciChoice(false)">
+            <button class="act-btn darksci-unstable" :disabled="transitionPaused" title="Нестабильный: удача решит" @click="store.darksciChoice(false)">
               Мне повезёт!
             </button>
           </div>
 
           <div v-if="me?.youngGlebAvailable" class="act-group">
-            <button class="act-btn young-gleb" title="Трансформироваться в Молодого Глеба" @click="store.youngGleb()">
+            <button class="act-btn young-gleb" :disabled="transitionPaused" title="Трансформироваться в Молодого Глеба" @click="store.youngGleb()">
               Вспомнить Молодость
             </button>
           </div>
 
           <div v-if="me?.passiveAbilityStates?.doomGuy?.rollAvailable" class="act-group">
-            <button class="act-btn doom-roll" title="Отключить Мораль и Предположения; получать случайные модули и +2 очка" @click="store.doomRoll()">
+            <button class="act-btn doom-roll" :disabled="transitionPaused" title="Отключить Мораль и Предположения; получать случайные модули и +2 очка" @click="store.doomRoll()">
               Let's Roll!
             </button>
           </div>
 
           <div v-if="me?.dopaChoiceNeeded" class="act-group">
-            <button class="act-btn dopa-stomp" title="Стомп: +9 Силы и 99 Скилла" @click="store.dopaChoice('Стомп')">Стомп</button>
-            <button class="act-btn dopa-farm" title="Фарм: Взгляд в будущее x2" @click="store.dopaChoice('Фарм')">Фарм</button>
-            <button class="act-btn dopa-domination" title="Доминация: +20 Skill/win, target -1 bonus" @click="store.dopaChoice('Доминация')">Доминация</button>
-            <button class="act-btn dopa-roam" title="Роум: Steal from non-adjacent" @click="store.dopaChoice('Роум')">Роум</button>
+            <button class="act-btn dopa-stomp" :disabled="transitionPaused" title="Стомп: +9 Силы и 99 Скилла" @click="store.dopaChoice('Стомп')">Стомп</button>
+            <button class="act-btn dopa-farm" :disabled="transitionPaused" title="Фарм: Взгляд в будущее x2" @click="store.dopaChoice('Фарм')">Фарм</button>
+            <button class="act-btn dopa-domination" :disabled="transitionPaused" title="Доминация: +20 Skill/win, target -1 bonus" @click="store.dopaChoice('Доминация')">Доминация</button>
+            <button class="act-btn dopa-roam" :disabled="transitionPaused" title="Роум: Steal from non-adjacent" @click="store.dopaChoice('Роум')">Роум</button>
           </div>
 
           <div v-if="(store.gameState.roundNo ?? 0) >= 8 && !store.isKira && !isMadara && !me?.status.confirmedPredict" class="act-group">
-            <button class="act-btn predict-confirm" title="Confirm Predictions" @click="store.confirmPredict()">
+            <button class="act-btn predict-confirm" :disabled="transitionPaused" title="Confirm Predictions" @click="store.confirmPredict()">
               Confirm Prediction
             </button>
           </div>
@@ -1366,8 +1433,8 @@ const charTint = computed(() => {
               Finished
             </span>
             <!-- Status chip (moved from ActionPanel) -->
-            <span v-if="me && !store.gameState.isFinished" class="status-chip" :class="{ ready: me.status.isReady, waiting: !me.status.isReady }">
-              {{ me.status.isReady ? '✓ Ready' : me.status.isSkip ? '⏭ Skip' : '⏳ Your turn' }}
+            <span v-if="me && !store.gameState.isFinished" class="status-chip" :class="{ ready: me.status.isReady && !transitionPaused, waiting: !me.status.isReady || transitionPaused }">
+              {{ transitionPaused ? '⏸ Round transition' : me.status.isReady ? '✓ Ready' : me.status.isSkip ? '⏭ Skip' : '⏳ Your turn' }}
             </span>
           </div>
           <div class="header-right">
@@ -1413,7 +1480,7 @@ const charTint = computed(() => {
               @click="cycleFightStyle()">
               {{ fightStyle }}
             </button>
-            <RoundTimer v-if="!store.gameState.isFinished" />
+            <RoundTimer v-if="!store.gameState.isFinished && !transitionPaused" />
             <!-- Finish game -->
             <button v-if="me && !store.gameState.isFinished"
               class="btn btn-ghost btn-sm finish-btn"
@@ -1433,7 +1500,7 @@ const charTint = computed(() => {
           <Leaderboard
             :players="store.gameState.players"
             :my-player-id="store.myPlayer?.playerId"
-            :can-attack="!store.gameState.isFinished && (store.isMyTurn || store.canFireGunDuringPickle) && !store.mustSpendLevelUp"
+            :can-attack="!store.gameState.isFinished && !transitionPaused && (store.isMyTurn || store.canFireGunDuringPickle) && !store.mustSpendLevelUp"
             :predictions="store.myPlayer?.predictions"
             :character-names="store.gameState.allCharacterNames || []"
             :character-catalog="store.gameState.allCharacters || []"
@@ -1981,6 +2048,23 @@ const charTint = computed(() => {
 .act-btn.auto { border-left: 3px solid var(--accent-green); }
 .act-btn.undo { border-left: 3px solid var(--accent-orange); }
 .act-btn.skip { border-left: 3px solid var(--text-dim); }
+.act-btn.half-life {
+  border-left: 3px solid #e78124;
+  border-color: rgba(231, 129, 36, 0.42);
+  background: linear-gradient(135deg, rgba(231, 129, 36, 0.12), var(--bg-secondary));
+  color: #ffc06d;
+}
+.half-life-lambda {
+  color: #ff9b3d;
+  font: 900 16px/1 Arial, sans-serif;
+  text-shadow: 0 0 7px rgba(231, 129, 36, 0.6);
+}
+.act-btn.gordon-wake {
+  border-left: 3px solid #b8d8b2;
+  border-color: rgba(184, 216, 178, 0.34);
+  background: linear-gradient(135deg, rgba(124, 167, 116, 0.11), var(--bg-secondary));
+  color: #d6ebd2;
+}
 
 .act-btn:active:not(:disabled)::after {
   content: '';
@@ -2027,6 +2111,8 @@ const charTint = computed(() => {
 .act-btn.auto:hover:not(:disabled) { border-color: var(--accent-green); box-shadow: 0 3px 8px rgba(0,0,0,0.3), 0 0 8px rgba(63, 167, 61, 0.15); }
 .act-btn.undo:hover { border-color: var(--accent-orange); box-shadow: 0 3px 8px rgba(0,0,0,0.3), 0 0 8px rgba(230, 148, 74, 0.15); }
 .act-btn.skip:hover:not(:disabled) { border-color: var(--text-muted); }
+.act-btn.half-life:hover:not(:disabled) { border-color: #e78124; box-shadow: 0 3px 8px rgba(0,0,0,0.3), 0 0 10px rgba(231, 129, 36, 0.22); }
+.act-btn.gordon-wake:hover:not(:disabled) { border-color: #b8d8b2; box-shadow: 0 3px 8px rgba(0,0,0,0.3), 0 0 10px rgba(124, 167, 116, 0.18); }
 
 .act-btn.predict-confirm {
   background: rgba(180, 150, 255, 0.06);

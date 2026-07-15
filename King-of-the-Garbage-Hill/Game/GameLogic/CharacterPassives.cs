@@ -118,6 +118,8 @@ public class CharacterPassives : IServiceSingleton
                 character.Name == Naruto.CharacterName)
             ?? throw new InvalidOperationException("Наруто is missing from characters.json."));
 
+        GordonFreeman.PlantInitialHeadcrabs(playersList);
+
         foreach (var player in playersList.ToList())
         foreach (var passive in player.GameCharacter.Passive.ToList())
             switch (passive.PassiveName)
@@ -475,6 +477,11 @@ public class CharacterPassives : IServiceSingleton
         foreach (var passive in target.GameCharacter.Passive.ToList())
             switch (passive.PassiveName)
             {
+                case GordonFreeman.Crowbar:
+                    if (target.GameCharacter.Name == GordonFreeman.CharacterName)
+                        GordonFreeman.ApplyHevBattery(target);
+                    break;
+
                 case Madara.GodOfShinobi:
                     if (Madara.ShouldUseHundredSkill(target))
                         target.FightCharacter.SetSkillForOneFight(100, Madara.GodOfShinobi);
@@ -1089,6 +1096,11 @@ public class CharacterPassives : IServiceSingleton
         foreach (var passive in me.GameCharacter.Passive.ToList())
             switch (passive.PassiveName)
             {
+                case GordonFreeman.Crowbar:
+                    if (me.GameCharacter.Name == GordonFreeman.CharacterName)
+                        GordonFreeman.ApplyHevBattery(me);
+                    break;
+
                 case Naruto.Rasengan:
                     if (me.GameCharacter.Name == Naruto.CharacterName)
                         ApplyRasenganBoost(me, target, game);
@@ -2475,6 +2487,15 @@ public class CharacterPassives : IServiceSingleton
         TheBoysSpreadVirus(player, game);
         Madara.RecordResolvedFight(player, game, defense);
 
+        if (attack && GordonFreeman.Is(player)
+            && (player.Status.IsWonThisCalculation != Guid.Empty
+                || player.Status.IsLostThisCalculation != Guid.Empty))
+        {
+            var target = game.PlayersList.Find(candidate =>
+                candidate.GetPlayerId() == player.Status.IsFighting);
+            GordonFreeman.RescueHeadcrab(player, target);
+        }
+
         if (player.GameCharacter.Name == DoomGuy.CharacterName
             && game.RoundNo == 10
             && player.Status.IsWonThisCalculation != Guid.Empty)
@@ -2766,6 +2787,10 @@ public class CharacterPassives : IServiceSingleton
                             doom.ChainsawSpent = true;
                             doom.ChainsawChoices = defeated.GameCharacter.Passive
                                 .Where(x => !UnknownBug.HasSpecialPassive(x))
+                                .Where(x => x.PassiveName is not GordonFreeman.Crowbar
+                                    and not GordonFreeman.SilentHero
+                                    and not GordonFreeman.WakeUp
+                                    and not GordonFreeman.HalfLife3)
                                 .Take(4).Select(x => x.DeepCopy()).ToList();
                             var requestedChoices = DoomGuy.HasMeleeBonus(player)
                                                    && DoomGuy.IsNearestEnemy(game, player, defeated)
@@ -4634,7 +4659,10 @@ public class CharacterPassives : IServiceSingleton
                             // round they were stolen on (HandleEndOfRound runs before RoundNo++).
                             // Bonus points are flat everywhere, so they stay unscaled.
                             var roundMultiplier = game.RoundNo switch { <= 4 => 1, <= 9 => 2, _ => 4 };
-                            var stolenPoints = tsukuyomiVictim.Status.GetScoresToGiveAtEndOfRound() * roundMultiplier
+                            var stolenRegularPoints = GordonFreeman.Is(tsukuyomiVictim)
+                                ? GordonFreeman.ProjectRegularSettlement(tsukuyomiVictim, game)
+                                : tsukuyomiVictim.Status.GetScoresToGiveAtEndOfRound() * roundMultiplier;
+                            var stolenPoints = stolenRegularPoints
                                              + tsukuyomiVictim.Status.GetBonusPointsEarnedThisRound();
                             if (stolenPoints > 0)
                             {
@@ -5146,6 +5174,8 @@ public class CharacterPassives : IServiceSingleton
                 }
             }
         }
+
+        GordonFreeman.MatureHeadcrabs(game);
     }
 
     public void RestoreOctopusInk(GameClass game)
@@ -5193,6 +5223,13 @@ public class CharacterPassives : IServiceSingleton
     {
         if (game.RoundNo == 11)
             RestoreOctopusInk(game);
+
+        if (game.RoundNo is 4 or 7 or 10)
+            GordonFreeman.PlantHeadcrabs(game);
+
+        var gordon = GordonFreeman.Find(game);
+        if (gordon != null)
+            GordonFreeman.HandleJusticePhrases(gordon, game);
 
         var madara = Madara.Find(game);
         if (madara != null && !madara.Passives.IsDead)

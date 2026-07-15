@@ -43,8 +43,7 @@ public static class ErenYeager
                 Player = player,
                 OriginalIndex = index,
                 ProjectedScore = player.Status.GetScore()
-                                 + player.Status.GetScoresToGiveAtEndOfRound()
-                                 * player.Status.GetRoundScoreMultiplier(game),
+                                 + GordonFreeman.ProjectRegularSettlement(player, game),
             })
             .OrderByDescending(x => x.ProjectedScore)
             .ThenBy(x => x.OriginalIndex)

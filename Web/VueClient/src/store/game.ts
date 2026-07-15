@@ -117,6 +117,7 @@ export const useGameStore = defineStore('game', () => {
 
   const isMyTurn = computed(() => {
     if (!myPlayer.value) return false
+    if (gameState.value?.isRoundTransitionPaused) return false
     if (gameState.value?.roundNo === 8 && myPlayer.value.character.name === 'Мадара') return false
     return !myPlayer.value.status.isReady && !myPlayer.value.status.isSkip
   })
@@ -519,6 +520,29 @@ export const useGameStore = defineStore('game', () => {
       playAnyMoveTurn10PlusLayer(charName ? isLateGameCharacter(charName) : false)
     }
     await signalrService.block(gameState.value.gameId)
+  }
+
+  async function announceHalfLife3() {
+    if (!gameState.value || gameState.value.isRoundTransitionPaused) return
+    if (mustSpendLevelUp.value) return
+    await signalrService.announceHalfLife3(gameState.value.gameId)
+  }
+
+  async function wakeGordon() {
+    if (!gameState.value || gameState.value.isRoundTransitionPaused) return
+    await signalrService.wakeGordon(gameState.value.gameId)
+  }
+
+  async function resolveHalfLife3Decision(
+    decisionSerial: number,
+    choice: 'freeze' | 'postpone',
+  ) {
+    if (!gameState.value) return
+    await signalrService.resolveHalfLife3Decision(
+      gameState.value.gameId,
+      decisionSerial,
+      choice,
+    )
   }
 
   async function autoMove() {
@@ -998,6 +1022,9 @@ export const useGameStore = defineStore('game', () => {
     refreshGameState,
     attack,
     block,
+    announceHalfLife3,
+    wakeGordon,
+    resolveHalfLife3Decision,
     autoMove,
     changeMind,
     confirmSkip,

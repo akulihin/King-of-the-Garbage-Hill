@@ -297,7 +297,7 @@ public class InGameStatus
             $"+{score} points added to the final score.") + "\n");
     }
 
-    public void CombineRoundScoreAndGameScore(GameClass game)
+    public void CombineRoundScoreAndGameScore(GameClass game, decimal? regularScoreOverride = null)
     {
         // Expected multiplier (before any passive overrides)
         ExpectedRoundMultiplier = game.RoundNo switch
@@ -308,11 +308,25 @@ public class InGameStatus
         };
 
         // Actual multiplier (after passive overrides) + snapshot
-        ActualRoundMultiplier = GetRoundScoreMultiplier(game);
+        ActualRoundMultiplier = regularScoreOverride.HasValue ? 1 : GetRoundScoreMultiplier(game);
         PreviousRoundScoreEntries = new List<ScoreEntry>(ScoreEntries);
         ScoreEntries.Clear();
 
-        AddScoreWithMultiplier(GetScoresToGiveAtEndOfRound(), ActualRoundMultiplier);
+        var rawScore = GetScoresToGiveAtEndOfRound();
+        if (regularScoreOverride.HasValue)
+        {
+            PreviousRoundScoreEntries.Add(new ScoreEntry
+            {
+                Source = GordonFreeman.HalfLife3,
+                Points = regularScoreOverride.Value - rawScore,
+                IsBonus = false,
+            });
+            AddScoreWithMultiplier(regularScoreOverride.Value, 1);
+        }
+        else
+        {
+            AddScoreWithMultiplier(rawScore, ActualRoundMultiplier);
+        }
         SetScoresToGiveAtEndOfRound(0, "", false);
         BonusPointsEarnedThisRound = 0;
         ScoreSource = "";

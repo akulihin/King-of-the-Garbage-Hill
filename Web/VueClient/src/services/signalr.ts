@@ -14,6 +14,10 @@ export type GameState = {
   isDraftPickPhase: boolean
   draftOptions: DraftOptionDto[] | null
   isKratosEvent: boolean
+  /** True while the round pipeline is waiting for an inter-round character decision. */
+  isRoundTransitionPaused: boolean
+  /** Server-authoritative deadline for the current transition decision. */
+  transitionDeadlineUtc?: string
   isRumblingWarningActive: boolean
   globalLogs: string
   /** Full history of global logs across all rounds */
@@ -171,6 +175,7 @@ export type PassiveAbilityStates = {
   doomGuy?: DoomGuyState
   eren?: ErenState
   naruto?: NarutoState
+  gordon?: GordonState
 }
 
 export type BulkState = { drownChance: number; isBuffed: boolean }
@@ -246,6 +251,43 @@ export type ErenHatredMark = {
 export type NarutoState = {
   haremActive: boolean
   haremCooldown: number
+}
+
+export type GordonHeadcrabState = {
+  playerId: string
+  playerName: string
+  roundsLeft: number
+}
+
+export type GordonHalfLifeState = {
+  announced: boolean
+  finished: boolean
+  released: boolean
+  postponements: number
+  canAnnounce: boolean
+  pendingDecision: boolean
+  decisionSerial: number
+  deadlineUtc?: string
+  rawPoints: number
+  baseMultiplier: number
+  exponent: number
+  finalPoints: number
+  freezeLabel: string
+  postponeLabel: string
+  failureMessage: string
+}
+
+export type GordonState = {
+  resolvedFights: number
+  crowbarProgress: number
+  justiceBoost: number
+  wakeUsed: boolean
+  canWake: boolean
+  wakeReservedForTsukuyomi: boolean
+  headcrabsRemoved: number
+  zombieCount: number
+  activeHeadcrabs: GordonHeadcrabState[]
+  halfLife: GordonHalfLifeState
 }
 
 export type PickleRickState = {
@@ -1425,6 +1467,22 @@ class SignalRService {
 
   async block(gameId: number): Promise<void> {
     await this.connection?.invoke('Block', gameId)
+  }
+
+  async announceHalfLife3(gameId: number): Promise<void> {
+    await this.connection?.invoke('AnnounceHalfLife3', gameId)
+  }
+
+  async wakeGordon(gameId: number): Promise<void> {
+    await this.connection?.invoke('WakeGordon', gameId)
+  }
+
+  async resolveHalfLife3Decision(
+    gameId: number,
+    decisionSerial: number,
+    choice: 'freeze' | 'postpone',
+  ): Promise<void> {
+    await this.connection?.invoke('ResolveHalfLife3Decision', gameId, decisionSerial, choice)
   }
 
   async autoMove(gameId: number): Promise<void> {

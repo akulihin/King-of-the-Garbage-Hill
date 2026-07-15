@@ -1259,7 +1259,7 @@ public class CharacterClass
     
     public void AddIntelligence(int howMuchToAdd, string skillName, bool isLog = true)
     {
-        if (howMuchToAdd < 0 && Madara.HasReanimatedBody(this)) return;
+        if (howMuchToAdd < 0 && Madara.HasReanimatedBody(this) && skillName != GordonFreeman.SilentHero) return;
         if (skillName != "Прокачка" && skillName != "Читы")
         {
             skillName = $"|>Stat<|{skillName}";
@@ -1301,7 +1301,7 @@ public class CharacterClass
 
     public void SetIntelligence(int howMuchToSet, string skillName, bool isLog = true)
     {
-        if (howMuchToSet < GetIntelligence() && Madara.HasReanimatedBody(this)) return;
+        if (howMuchToSet < GetIntelligence() && Madara.HasReanimatedBody(this) && skillName != GordonFreeman.SilentHero) return;
         if (skillName != "Прокачка" && skillName != "Читы")
         {
             skillName = $"|>Stat<|{skillName}";

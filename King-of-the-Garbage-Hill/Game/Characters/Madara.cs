@@ -78,6 +78,14 @@ public static class Madara
 
         foreach (var player in game.PlayersList)
         {
+            if (GordonFreeman.IsAwakeForEternalTsukuyomi(player, game))
+            {
+                player.Status.IsSkip = false;
+                player.Status.IsSkipBreak = true;
+                player.Status.ConfirmedSkip = true;
+                continue;
+            }
+
             player.Status.IsSkip = true;
             player.Status.IsBlock = false;
             player.Status.IsAutoMove = false;

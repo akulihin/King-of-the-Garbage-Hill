@@ -4,9 +4,9 @@
 
 ## 1. Achievement model
 
-The live catalog contains exactly **103** achievements: **12 Global**, **78 Character**, and **13 Interaction**. `AchievementDefinition` owns paired EN/RU names, descriptions and secret hints plus category, icon, rarity, target, related characters and rewards (`AchievementClass.cs` `AchievementDefinition`/`AllAchievements`). `tools/audit-achievements.sh` hard-fails unless all expected IDs are unique, present and evaluated.
+The live catalog contains exactly **106** achievements: **12 Global**, **80 Character**, and **14 Interaction**. `AchievementDefinition` owns paired EN/RU names, descriptions and secret hints plus category, icon, rarity, target, related characters and rewards (`AchievementClass.cs` `AchievementDefinition`/`AllAchievements`). `tools/audit-achievements.sh` hard-fails unless all expected IDs are unique, present and evaluated.
 
-The 78 Character-category IDs retain two catalog slots for each of the 39 represented character definitions/forms. `c_salldorum_double_cola` is the deliberate presentation exception: it is secret and has an empty `CharacterNames` list, so locked or character-filtered player surfaces do not associate it with Salldorum. Difficulty is not the reward rarity. In particular, the pre-existing hard cards `c_rick_portals`, `c_itachi_tax`, and `c_kotiki_reunion` remain Rare so their historic rewards stay unchanged; all other rows likewise show their live rarity explicitly.
+The 80 Character-category IDs retain two catalog slots for each of the 40 represented character definitions/forms. `c_salldorum_double_cola` is the deliberate presentation exception: it is secret and has an empty `CharacterNames` list, so locked or character-filtered player surfaces do not associate it with Salldorum. Difficulty is not the reward rarity. In particular, the pre-existing hard cards `c_rick_portals`, `c_itachi_tax`, and `c_kotiki_reunion` remain Rare so their historic rewards stay unchanged; all other rows likewise show their live rarity explicitly.
 
 Progress has two layers:
 
@@ -36,7 +36,7 @@ Unless a row says otherwise, a target greater than 1 means “within one match.�
 
 Definitions and game-end gates are centralized in `AchievementClass.cs` `AllAchievements`/`TrackGameEnd`; Auto Move's exact required-round sets are `HasUsedAutoMoveAllGame`. Fight facts come from the resolved-fight observation block in `DoomsdayMachine.cs`, while explicit Auto Move/Change Mind updates come from `GameReactions.cs:169-205` and `WebGameService.AutoMove`/`ChangeMind`.
 
-## 3. Character achievements (78: 39 Normal + Hard pairs)
+## 3. Character achievements (80: 40 Normal + Hard pairs)
 
 Character achievements require the named character/form even if another holder copies a related passive. Exceptions are deliberate identity handling: Молодой Глеб is detected by `Main Ирелия` on runtime `Глеб`; mylorik keeps its story after transforming; Братишка cards require the native form; and Наруто cards require the original, not either clone (`AchievementClass.cs` `TrackGameEnd`). “Normal” and “Hard” below describe requirement difficulty, while rarity independently determines the reward.
 
@@ -81,10 +81,11 @@ Character achievements require the named character/form even if another holder c
 | DooM Guy | Rip, Tear, Roll / Рви, кромсай, ролль<br>`c_doom_loadout` · Rare / 50 ZBS | Enter Roll Mode with active modules in all 4 stages. | BFG Division / Дивизия BFG<br>`c_doom_bfg` · Epic / 100 ZBS + 1 box | Defeat at least 3 distinct players in one BFG wave, including its primary target. |
 | Эрен Йегер | Tatake! Tatake! / Татакай! Татакай!<br>`c_eren_tatake` · Uncommon / 25 ZBS | Trigger the Tatake sound twice in total. | The Rumbling / Гул Земли<br>`c_eren_rumbling` · Epic / 100 ZBS + 1 box | Kill at least 2 distinct players with Rumbling. |
 | Наруто (original) | Believe in the Harem / Поверь в гарем<br>`c_naruto_harem` · Rare / 50 ZBS | Cancel 3 fights with Гарем но джутсу. Clone actions do not count. | Shadow Hokage Dividend / Дивиденды теневого Хокаге<br>`c_naruto_rasengan` · Legendary / 228 ZBS + 2 boxes | Receive at least 30 points from Теневые and finish alive at actual place 1. |
+| Гордон Фримен | Unforeseen Consequences / Непредвиденные последствия<br>`c_gordon_rescue` · Uncommon / 25 ZBS | Remove 3 headcrabs in one match. | Half-Life 3 Confirmed / Halflife 3 подтверждён<br>`c_gordon_halflife3` · Epic / 100 ZBS + 1 box | Successfully release Halflife 3. |
 
 The live definitions and every paired condition are in `AchievementClass.cs` `AllAchievements`/`TrackGameEnd`; the relevant passive state types and observation hooks are catalogued character-by-character in [CHARACTERS.md](CHARACTERS.md).
 
-## 4. Interaction achievements (13, all secret)
+## 4. Interaction achievements (14, all secret)
 
 Locked interaction cards expose only a deliberately vague hint. The exact rules below are implementation documentation, not player-facing card copy.
 
@@ -103,6 +104,7 @@ Locked interaction cards expose only a deliberately vague hint. The exact rules 
 | `x_deeplist_octopus` | Eight Arms in the Plan / Восемь щупалец по плану | DeepList gets Осьминожка into Сомнительная тактика's friend list and later reaches a triggered Стёб entry against her. DeepList earns it. | Epic · 100 ZBS + 1 box |
 | `x_goblin_bad_architecture` | Building Code Violation / Нарушение строительных норм | Стая Гоблинов's Ziggurat learns Булькает from Братишка (or transformed mylorik) and the Goblin player finishes alive. Goblins earn it. | Rare · 50 ZBS |
 | `x_eren_goblins` | Tiny Titans / Крошечные титаны | Эрен Йегер kills Стая Гоблинов with Rumbling. Eren earns it. | Epic · 100 ZBS + 1 box |
+| `x_gordon_theboys` | There Is No Counter to a Crowbar but Another Crowbar! / Против лома нет приема, кроме другого лома! | TheBoys attacks Гордон Фримен while СуперМудень is active, but Gordon's third-fight Монтировка victory stops the attack. Gordon earns it. The locked card exposes no hint or character association. | Legendary · 228 ZBS + 2 boxes |
 
 All interaction evaluation is in `AchievementClass.cs` `TrackGameEnd`; the observation point and recipient for each relationship are indexed by subsystem in [INTERACTION-MATRIX.md](INTERACTION-MATRIX.md) §8.
 
@@ -111,12 +113,12 @@ All interaction evaluation is in `AchievementClass.cs` `TrackGameEnd`; the obser
 | Rarity | Unlock reward | Catalog use |
 |---|---:|---:|
 | Common | 10 ZBS | 11 |
-| Uncommon | 25 ZBS | 25 |
+| Uncommon | 25 ZBS | 26 |
 | Rare | 50 ZBS | 20 |
-| Epic | 100 ZBS + 1 loot box | 33 |
-| Legendary | 228 ZBS + 2 loot boxes | 14 |
+| Epic | 100 ZBS + 1 loot box | 34 |
+| Legendary | 228 ZBS + 2 loot boxes | 15 |
 
-The reward switch is centralized in `AchievementClass.cs` `AchievementDefinition`. Completing the current catalog awards **8,227 ZBS and 61 loot boxes** in total. `AchievementBoard` reports earned/current-catalog totals by summing live unlocked definitions; these numbers are a catalog summary, not a historical transaction ledger (`GameHub.cs` `RequestAchievements`).
+The reward switch is centralized in `AchievementClass.cs` `AchievementDefinition`. Completing the current catalog awards **8,580 ZBS and 64 loot boxes** in total. `AchievementBoard` reports earned/current-catalog totals by summing live unlocked definitions; these numbers are a catalog summary, not a historical transaction ledger (`GameHub.cs` `RequestAchievements`).
 
 ## 6. Secrets, queues, and Вечное Цукуеми
 
@@ -127,14 +129,14 @@ The reward switch is centralized in `AchievementClass.cs` `AchievementDefinition
 
 ## 7. V1 migration and compatibility
 
-V2 was introduced as an intentional fresh catalog. Its current 103 `g_…` / `c_…` / `x_…` IDs remain disjoint from the older V1 achievement IDs, so V1 unlocks do **not** grant V2 rewards or appear as V2 completions. This expansion is **not another reset**: all original 34 V2 IDs, progress rows, unlocks and issued rewards remain intact (including the original Rare rewards on Rick, Itachi and Cats), while the 69 currently live expansion IDs begin tracking after their deployment. Existing account JSON remains readable:
+V2 was introduced as an intentional fresh catalog. Its current 106 `g_…` / `c_…` / `x_…` IDs remain disjoint from the older V1 achievement IDs, so V1 unlocks do **not** grant V2 rewards or appear as V2 completions. This expansion is **not another reset**: all original 34 V2 IDs, progress rows, unlocks and issued rewards remain intact (including the original Rare rewards on Rick, Itachi and Cats), while the 72 currently live expansion IDs begin tracking after their deployment. Existing account JSON remains readable:
 
 - `EnsureInitialized` null-fills the account containers without deleting unknown legacy progress rows (`AchievementClass.cs` `EnsureInitialized`).
 - Account startup explicitly removes the two retired secret-character IDs from persisted `Progress` and `NewlyUnlocked`; already-issued rewards are not clawed back (`UserAccounts.cs` `MigrateUnknownBugAccount`).
 - Board totals and detached entries are built only from `AllAchievements`, under the account monitor, and queued IDs are filtered to the live set (`GameHub.cs` `RequestAchievements`).
 - Legacy match-tracker fields remain deserializable for old snapshots/hooks but are explicitly not evaluated by V2 (`AchievementClass.cs` `InGameAchievementTracker`).
 
-There is no retroactive reconstruction for the 69 currently live expansion cards because most requirements need per-fight/per-passive facts that history never stored. Their bests and unlocks therefore begin with matches completed after deployment; the original 34 cards continue from their existing V2 state.
+There is no retroactive reconstruction for the 72 currently live expansion cards because most requirements need per-fight/per-passive facts that history never stored. Their bests and unlocks therefore begin with matches completed after deployment; the original 34 cards continue from their existing V2 state.
 
 ## 8. Loot boxes V2
 

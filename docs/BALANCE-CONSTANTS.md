@@ -1,6 +1,6 @@
 # Balance Constants — every tunable number with its code anchor
 
-> Hand-maintained. **Update the row when you change the number** (and re-run `tools/audit-passives.sh` for name changes). Verified against the working tree of 2026-07-13 (v4.5.1). `CP` = `Game/GameLogic/CharacterPassives.cs`, `CC` = `Game/Classes/CharacterClass.cs`, `DM` = `Game/GameLogic/DoomsdayMachine.cs`, `CIR` = `Game/GameLogic/CheckIfReady.cs`, `GR` = `Game/ReactionHandling/GameReactions.cs`.
+> Hand-maintained. **Update the row when you change the number** (and re-run `tools/audit-passives.sh` for name changes). Verified against the working tree of 2026-07-14 (v4.5.6). `CP` = `Game/GameLogic/CharacterPassives.cs`, `CC` = `Game/Classes/CharacterClass.cs`, `DM` = `Game/GameLogic/DoomsdayMachine.cs`, `CIR` = `Game/GameLogic/CheckIfReady.cs`, `GR` = `Game/ReactionHandling/GameReactions.cs`.
 >
 > RNG note: `Luck(x)` ≈ x%, `Luck(a,b)` ≈ a-in-b (rounded to whole %); see `Helpers/SecureRandom.cs:35-45`.
 
@@ -86,7 +86,7 @@ The full 12-contract catalog, selection, privacy and migration rules are in [DAI
 
 ## Achievement & loot-box rewards
 
-Achievement progress targets and the complete 103-entry rule catalog are in [ACHIEVEMENTS.md](ACHIEVEMENTS.md). Reward values are centralized by rarity; the live catalog contains 11 Common, 25 Uncommon, 20 Rare, 33 Epic and 14 Legendary cards, totalling **8,227 ZBS + 61 boxes** (`AchievementClass.cs` `AchievementDefinition`/`AllAchievements`).
+Achievement progress targets and the complete 106-entry rule catalog are in [ACHIEVEMENTS.md](ACHIEVEMENTS.md). Reward values are centralized by rarity; the live catalog contains 11 Common, 26 Uncommon, 20 Rare, 34 Epic and 15 Legendary cards, totalling **8,580 ZBS + 64 boxes** (`AchievementClass.cs` `AchievementDefinition`/`AllAchievements`).
 
 | Constant | Value | Anchor |
 |---|---|---|
@@ -249,6 +249,12 @@ Achievement progress targets and the complete 103-entry rule catalog are in [ACH
 | Наруто | Теневые | 2 independent strict-bot clones; sibling attacks illegal but living siblings are virtual L0/L1 action slots; r10 settlement immediately after Rumbling; sibling prediction value 0; correct enemy predictions +1 projected once; clone score/death seats end at 0 / bottom two | `Naruto.cs` `InitializeTeam`, `GetBotActionTargetSlotCount`, `ProjectClonePredictionPoints`, `SettleShadowClones`, `OrderLeaderboard` |
 | Наруто | Расенган | 2 joint attackers: summed Justice, +2 Str each; 3: summed Justice, +3 Int/Str/Speed/Psyche each | CP:74-108; `Naruto.cs` `SnapshotJustice`, `GetJointAttackers` |
 | Наруто | Призыв | exactly 1 Naruto on target; prior-round loss to that target with target TooGOOD or TooSTONK → terminal auto-win, otherwise refusal only | `Naruto.cs` `IsSoloAttack`, `WonPoweredFightLastRound`; DM:880-899 |
+| Гордон Фримен | base / rarity / copy exclusions | Int 7, Str 2, Speed 3, Psyche 9; Tier 5; all 4 passives non-Standalone; complete kit excluded from ARAM and Бензопила | `characters.json` Гордон Фримен; `CharactersPull.GetAramPassives`; CP:2790-2793 |
+| Гордон Фримен | Монтировка / H.E.V. | every 3rd resolved attack-or-defense fight is a terminal Gordon win; each fight gets +current Justice Str and +current Justice Speed without consuming Justice; phrase thresholds 3/4/5 Justice | `GordonFreeman.ApplyHevBattery`/`BeginResolvedFight`/`HandleJusticePhrases`; DM:817-819,1008-1015 |
+| Гордон Фримен | headcrab schedule / rescue | 2 unique eligible targets before r1 and at starts r4/r7/r10; maturity after 3 turns (after r3/r6/r9 for batches that can mature); resolved Gordon attack rescue +3 bonus | `GordonFreeman.PlantInitialHeadcrabs`/`PlantHeadcrabs`/`MatureHeadcrabs`/`RescueHeadcrab` |
+| Гордон Фримен | zombie penalty | mature target loses all current persistent Int; only when all 5 other roster players are zombies, Gordon settled score = 0 and pending regular = 0; dead seats still count and any Краборак prevents the condition | `GordonFreeman.MatureHeadcrabs`/`ApplyAllZombiesPenalty`; `CharacterClass.AddIntelligence` |
+| Гордон Фримен | Просыпайтесь, мистер Фримен | 1 use/game; any living non-Kratos-event Skip; optional r9 reserve only while Вечное Цукуеми is already armed preserves Gordon's real r10 action | `GordonFreeman.CanWake`/`Wake`; `Madara.IsEternalTsukuyomiActive`/`PrepareEternalTsukuyomiRound` |
+| Гордон Фримен | Halflife 3 | 1 announcement before r10; next-round settlement `M^P` (`M` actual multiplier, `P` raw regular points); success at `P ≥ 3`; failed human decision timeout 20 s, bot auto-postpones; postpone costs 1×M / 2×M / 3×M from that attempt, fourth failure cancels | `GordonFreeman.AnnounceHalfLife3`/`PrepareHalfLifeSettlement`/`ResolveHalfLifeDecision` |
 
 ## Bot AI difficulty
 

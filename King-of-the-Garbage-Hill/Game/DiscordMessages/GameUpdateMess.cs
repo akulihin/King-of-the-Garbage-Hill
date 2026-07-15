@@ -184,7 +184,8 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         var game = _global.GamesList.Find(x => x.GameId == player.GameId);
         if (game == null) return "ERROR 404";
 
-        if (game.RoundNo >= 11 && Madara.IsEternalTsukuyomiActive(game))
+        if (game.RoundNo >= 11 && Madara.IsEternalTsukuyomiActive(game)
+            && !GordonFreeman.SeesEternalTsukuyomiReality(player, game))
         {
             var projected = Madara.GetIllusoryOrder(game, player)
                 .Where(x => !x.Passives.IsDead || x.GetPlayerId() == player.GetPlayerId())
@@ -290,6 +291,27 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
             && game.PlayersList.Any(x => x.GameCharacter.Name == DoomGuy.CharacterName
                 && x.Passives.DoomGuy.CounterAttackMarks.GetValueOrDefault(player2.GetPlayerId()) == game.RoundNo))
             customString += "🎯";
+
+        // Headcrabs are Gordon-private information. Краборак always looks like a crab to him,
+        // but is never an active mark and therefore can never be rescued for points.
+        if (GordonFreeman.Is(player1))
+        {
+            if (player2.GameCharacter.Name == "Краборак")
+            {
+                customString += "🦀";
+            }
+            else if (player2.Passives.GordonHeadcrab.IsZombie)
+            {
+                customString += "🧟";
+            }
+            else if (player2.Passives.GordonHeadcrab.IsActive
+                     && player2.Passives.GordonHeadcrab.SourceId == player1.GetPlayerId())
+            {
+                var roundsLeft = Math.Max(0,
+                    player2.Passives.GordonHeadcrab.ExpiresAfterRound - game.RoundNo + 1);
+                customString += $"🦀{roundsLeft}";
+            }
+        }
 
         // Геральт — monster type icon
         //if (player2.Passives.GeraltMonsterType != null)
@@ -1143,7 +1165,8 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
         var globalLogs = game!.GetGlobalLogs();
         if (game.RoundNo >= 11 && Madara.IsEternalTsukuyomiActive(game)
-            && !Madara.IsMadara(player))
+            && !Madara.IsMadara(player)
+            && !GordonFreeman.SeesEternalTsukuyomiReality(player, game))
             globalLogs = Madara.GetProjectedFinalLogs(game, player);
         // Hide fight logs from non-admin players
         if (player.PlayerType != 2)
@@ -1691,7 +1714,34 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         SelectMenuBuilder predictMenu = null)
     {
         var components = new ComponentBuilder();
+
+        if (game.IsRoundTransitionPaused)
+        {
+            var halfLife = player.Passives.Gordon.HalfLife;
+            if (GordonFreeman.Is(player) && halfLife.PendingDecision)
+            {
+                components.WithButton(new ButtonBuilder(
+                    GordonFreeman.GetFreezeLabel(player.Passives.Gordon),
+                    $"gordon-hl3-freeze:{halfLife.DecisionSerial}", ButtonStyle.Danger));
+                components.WithButton(new ButtonBuilder(
+                    GordonFreeman.GetPostponeLabel(player.Passives.Gordon),
+                    $"gordon-hl3-postpone:{halfLife.DecisionSerial}", ButtonStyle.Primary));
+            }
+            else
+            {
+                components.WithButton(new ButtonBuilder(
+                    "Ожидаем решение по Halflife 3", "gordon-hl3-wait",
+                    ButtonStyle.Secondary, isDisabled: true));
+            }
+
+            return components;
+        }
+
         components.WithButton(GetBlockButton(player, game));
+
+        if (GordonFreeman.CanWake(player, game))
+            components.WithButton(new ButtonBuilder(
+                "Проснуться", "gordon-wake", ButtonStyle.Primary));
 
         if (game.GameMode != "Aram" && player.GameCharacter.Tier > 3)
         {
@@ -1889,6 +1939,14 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
     public ButtonBuilder GetBlockButton(GamePlayerBridgeClass player, GameClass game)
     {
+        if (GordonFreeman.Is(player))
+            return new ButtonBuilder(
+                "Halflife 3",
+                "gordon-hl3-announce",
+                ButtonStyle.Success,
+                isDisabled: player.Status.IsReady
+                            || !GordonFreeman.CanAnnounceHalfLife3(player, game));
+
         var playerIsReady = player.Status.IsBlock || player.Status.IsSkip || player.Status.IsReady;
         //Возвращение из мертвых
         if (game.RoundNo > 10 && game.IsKratosEvent &&

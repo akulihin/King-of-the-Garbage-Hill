@@ -20,6 +20,8 @@ public class GameStateDto
     public List<DraftOptionDto> DraftOptions { get; set; }
     public bool IsKratosEvent { get; set; }
     public bool IsRumblingWarningActive { get; set; }
+    public bool IsRoundTransitionPaused { get; set; }
+    public string TransitionDeadlineUtc { get; set; }
     public string GlobalLogs { get; set; }
 
     /// <summary>Full history of all global logs across all rounds.</summary>
@@ -289,6 +291,12 @@ public class LevelUpRequest
 {
     /// <summary>1=Intelligence, 2=Strength, 3=Speed, 4=Psyche</summary>
     public int StatIndex { get; set; }
+}
+
+public class GordonHalfLifeDecisionRequest
+{
+    public int Serial { get; set; }
+    public string Choice { get; set; }
 }
 
 public class PredictRequest
@@ -610,6 +618,47 @@ public class PassiveAbilityStatesDto
     public DoomGuyStateDto DoomGuy { get; set; }
     public ErenStateDto Eren { get; set; }
     public NarutoStateDto Naruto { get; set; }
+    public GordonStateDto Gordon { get; set; }
+}
+
+public class GordonStateDto
+{
+    public int ResolvedFights { get; set; }
+    public int CrowbarProgress { get; set; }
+    public int JusticeBoost { get; set; }
+    public bool WakeUsed { get; set; }
+    public bool CanWake { get; set; }
+    public bool WakeReservedForTsukuyomi { get; set; }
+    public int HeadcrabsRemoved { get; set; }
+    public int ZombieCount { get; set; }
+    public List<GordonHeadcrabDto> ActiveHeadcrabs { get; set; } = new();
+    public GordonHalfLifeStateDto HalfLife { get; set; }
+}
+
+public class GordonHeadcrabDto
+{
+    public Guid PlayerId { get; set; }
+    public string PlayerName { get; set; }
+    public int RoundsLeft { get; set; }
+}
+
+public class GordonHalfLifeStateDto
+{
+    public bool Announced { get; set; }
+    public bool Finished { get; set; }
+    public bool Released { get; set; }
+    public int Postponements { get; set; }
+    public bool CanAnnounce { get; set; }
+    public bool PendingDecision { get; set; }
+    public int DecisionSerial { get; set; }
+    public string DeadlineUtc { get; set; }
+    public decimal RawPoints { get; set; }
+    public int BaseMultiplier { get; set; }
+    public decimal Exponent { get; set; }
+    public decimal FinalPoints { get; set; }
+    public string FreezeLabel { get; set; }
+    public string PostponeLabel { get; set; }
+    public string FailureMessage { get; set; }
 }
 
 public class BulkStateDto

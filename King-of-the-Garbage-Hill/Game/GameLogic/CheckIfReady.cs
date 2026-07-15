@@ -1014,6 +1014,57 @@ public class CheckIfReady : IServiceSingleton
     }
 
 
+    private async Task HandleCompletedRound(GameClass game, IEnumerable<GamePlayerBridgeClass> players)
+    {
+        // Pity system: reset played tier on round 2 (skip round 1 remakes).
+        if (game.RoundNo == 2)
+        {
+            foreach (var player in game.PlayersList)
+            {
+                var account = _accounts.GetAccount(player.DiscordId);
+                account.TierPity[player.GameCharacter.Tier] = 0;
+            }
+        }
+
+        foreach (var player in game.PlayersList.Where(player => !player.Passives.IsDead))
+            player.GameCharacter.SetMoralBonus();
+
+        foreach (var player in players.Where(player => !player.IsBot()))
+        {
+            try
+            {
+                var extraText = "";
+                if (game.RoundNo == 8 && game.GameMode != "Aram")
+                {
+                    if (Madara.IsMadara(player))
+                    {
+                        Madara.SetUnableToAct(player);
+                    }
+                    else
+                    {
+                        player.Status.ConfirmedPredict = false;
+                        extraText = "Это последний раунд, когда можно сделать **предложение**!";
+                        if (player.GameCharacter.Passive.Any(passive =>
+                                passive.PassiveName == "Тетрадь смерти"))
+                            player.Status.ConfirmedPredict = true;
+                    }
+                }
+
+                if (game.RoundNo == 9)
+                    player.Status.ConfirmedPredict = true;
+
+                await _upd.UpdateMessage(player, extraText);
+            }
+            catch (Exception exception)
+            {
+                _logs.Critical(exception.Message);
+                _logs.Critical(exception.StackTrace);
+            }
+        }
+
+        game.IsCheckIfReady = true;
+    }
+
     public async Task<string> API_PlayerIsReady(string body = "default value")
     {
         _logs.Info("Player is ready");
@@ -1053,6 +1104,15 @@ public class CheckIfReady : IServiceSingleton
             try
             {
                 var game = games[i];
+
+                if (_round.HasPendingRound(game))
+                {
+                    if (!await _round.ResumePendingRound(game))
+                        continue;
+
+                    await HandleCompletedRound(game, game.PlayersList);
+                    continue;
+                }
 
                 //protection against double calculations
                 if (!game.IsCheckIfReady) continue;
@@ -1241,6 +1301,7 @@ public class CheckIfReady : IServiceSingleton
                 foreach (var t in players.Where(t =>
                              !t.IsBot() && !t.Status.IsAutoMove && t.Status.WhoToAttackThisTurn.Count == 0 &&
                              t.Status.IsBlock == false && t.Status.IsSkip == false &&
+                             !t.Passives.Gordon.HalfLife.ActionSubmittedThisRound &&
                              t.Passives.RickPickle.PickleTurnsRemaining == 0 &&
                              !t.Passives.IsDead &&
                              !(Madara.IsMadara(t) && (game.RoundNo == 8 || t.Passives.Madara.Sealed))))
@@ -1425,6 +1486,7 @@ public class CheckIfReady : IServiceSingleton
                 foreach (var t in players.Where(t =>
                              t.Status.WhoToAttackThisTurn.Count == 0 && t.Status.IsBlock == false &&
                              t.Status.IsSkip == false
+                             && !t.Passives.Gordon.HalfLife.ActionSubmittedThisRound
                              && !(Madara.IsMadara(t) && (game.RoundNo == 8 || t.Passives.Madara.Sealed))))
                 {
                     t.Status.IsBlock = true;
@@ -1548,54 +1610,16 @@ public class CheckIfReady : IServiceSingleton
                     player.Status.ResetFightingData();
                 }
 
-                await _round.CalculateAllFights(game);
-
-                // Pity system: reset played tier on round 2 (skip round 1 remakes)
-                if (game.RoundNo == 2)
+                var roundCompleted = await _round.CalculateAllFights(game);
+                if (!roundCompleted)
                 {
-                    foreach (var player in game.PlayersList)
-                    {
-                        var acc = _accounts.GetAccount(player.DiscordId);
-                        acc.TierPity[player.GameCharacter.Tier] = 0;
-                    }
+                    game.IsCheckIfReady = true;
+                    foreach (var human in players.Where(player => !player.IsBot()))
+                        await _upd.UpdateMessage(human);
+                    continue;
                 }
 
-                foreach (var player in game.PlayersList.Where(player => !player.Passives.IsDead))
-                    player.GameCharacter.SetMoralBonus();
-
-                foreach (var t in players.Where(x => !x.IsBot()))
-                    try
-                    {
-                        var extraText = "";
-
-                        if (game.RoundNo == 8 && game.GameMode != "Aram")
-                        {
-                            if (Madara.IsMadara(t))
-                            {
-                                Madara.SetUnableToAct(t);
-                            }
-                            else
-                            {
-                                t.Status.ConfirmedPredict = false;
-                                extraText = "Это последний раунд, когда можно сделать **предложение**!";
-
-                                // Kira uses Death Note instead of predictions — auto-confirm
-                                if (t.GameCharacter.Passive.Any(p => p.PassiveName == "Тетрадь смерти"))
-                                    t.Status.ConfirmedPredict = true;
-                            }
-                        }
-
-                        if (game.RoundNo == 9) t.Status.ConfirmedPredict = true;
-
-                        await _upd.UpdateMessage(t, extraText);
-                    }
-                    catch (Exception exception)
-                    {
-                        _logs.Critical(exception.Message);
-                        _logs.Critical(exception.StackTrace);
-                    }
-
-                game.IsCheckIfReady = true;
+                await HandleCompletedRound(game, players);
             }
             catch (Exception exception)
             {

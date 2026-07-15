@@ -29,6 +29,8 @@ c_gleb_challenger
 c_gleb_return
 c_goblin_architect
 c_goblin_summit
+c_gordon_halflife3
+c_gordon_rescue
 c_hardkitty_letters
 c_hardkitty_love
 c_itachi_crows
@@ -103,6 +105,7 @@ x_deeplist_weedwick
 x_doom_dragon
 x_eren_goblins
 x_goblin_bad_architecture
+x_gordon_theboys
 x_itachi_madara
 x_kira_kratos
 x_monster_witness
@@ -155,6 +158,7 @@ Sakura|c_sakura_three|c_sakura_first
 DooM Guy|c_doom_loadout|c_doom_bfg
 Эрен Йегер|c_eren_tatake|c_eren_rumbling
 Наруто|c_naruto_harem|c_naruto_rasengan
+Гордон Фримен|c_gordon_rescue|c_gordon_halflife3
 EOF
 )
 
@@ -196,8 +200,8 @@ done <<< "$expected"
 global_count=$(printf '%s\n' "$definitions" | rg -c '^g_' || true)
 character_count=$(printf '%s\n' "$definitions" | rg -c '^c_' || true)
 interaction_count=$(printf '%s\n' "$definitions" | rg -c '^x_' || true)
-if [ "$global_count" -ne 12 ] || [ "$character_count" -ne 78 ] || [ "$interaction_count" -ne 13 ]; then
-  echo "BAD category counts: global=$global_count character=$character_count interaction=$interaction_count (expected 12/78/13)"
+if [ "$global_count" -ne 12 ] || [ "$character_count" -ne 80 ] || [ "$interaction_count" -ne 14 ]; then
+  echo "BAD category counts: global=$global_count character=$character_count interaction=$interaction_count (expected 12/80/14)"
   fail=1
 fi
 
@@ -211,9 +215,9 @@ unpaired_character_ids=$(comm -23 <(printf '%s\n' "$defined_character_ids") <(pr
 unknown_pair_ids=$(comm -13 <(printf '%s\n' "$defined_character_ids") <(printf '%s\n' "$paired_ids"))
 missing_roster_pairs=$(comm -23 <(printf '%s\n' "$roster_names") <(printf '%s\n' "$pair_names"))
 unknown_pair_names=$(comm -13 <(printf '%s\n' "$roster_names") <(printf '%s\n' "$pair_names"))
-if [ "$pair_count" -ne 39 ] || [ -n "$duplicate_pair_ids" ] || [ -n "$unpaired_character_ids" ] \
+if [ "$pair_count" -ne 40 ] || [ -n "$duplicate_pair_ids" ] || [ -n "$unpaired_character_ids" ] \
     || [ -n "$unknown_pair_ids" ] || [ -n "$missing_roster_pairs" ] || [ -n "$unknown_pair_names" ]; then
-  echo "BAD normal/hard character pairing coverage: pairs=$pair_count (expected 39)"
+  echo "BAD normal/hard character pairing coverage: pairs=$pair_count (expected 40)"
   [ -n "$duplicate_pair_ids" ] && printf 'DUPLICATE paired IDs:\n%s\n' "$duplicate_pair_ids"
   [ -n "$unpaired_character_ids" ] && printf 'UNPAIRED character IDs:\n%s\n' "$unpaired_character_ids"
   [ -n "$unknown_pair_ids" ] && printf 'UNKNOWN paired IDs:\n%s\n' "$unknown_pair_ids"
@@ -234,4 +238,4 @@ if [ "$fail" -ne 0 ]; then
   exit 1
 fi
 
-echo "audit-achievements: 103 definitions (12 global / 78 character / 13 interaction), 39 normal/hard character pairs, all unique and evaluated."
+echo "audit-achievements: 106 definitions (12 global / 80 character / 14 interaction), 40 normal/hard character pairs, all unique and evaluated."

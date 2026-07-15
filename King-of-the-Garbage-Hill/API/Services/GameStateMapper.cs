@@ -136,6 +136,8 @@ public static class GameStateMapper
             DraftOptions = scopedDraftOptions,
             IsKratosEvent = game.IsKratosEvent,
             IsRumblingWarningActive = ErenYeager.IsRumblingWarningActive(game),
+            IsRoundTransitionPaused = game.IsRoundTransitionPaused,
+            TransitionDeadlineUtc = game.TransitionDeadlineUtc?.ToString("o"),
             GlobalLogs = requestingPlayer == null
                 ? (isAdmin ? game.GetGlobalLogs() : StripHiddenLogs(game.GetGlobalLogs(), game.HiddenGlobalLogSnippets, requestingPlayer, game))
                 : GameLocalization.TextForClient(requestingPlayer.DiscordId,
@@ -432,6 +434,56 @@ public static class GameStateMapper
             {
                 switch (passive.PassiveName)
                 {
+                    case GordonFreeman.Crowbar:
+                        if (player.GameCharacter.Name == GordonFreeman.CharacterName
+                            && pas.Gordon == null)
+                        {
+                            var gordon = player.Passives.Gordon;
+                            var halfLife = gordon.HalfLife;
+                            pas.Gordon = new GordonStateDto
+                            {
+                                ResolvedFights = gordon.ResolvedFights,
+                                CrowbarProgress = gordon.ResolvedFights % 3,
+                                JusticeBoost = player.GameCharacter.Justice.GetRealJusticeNow(),
+                                WakeUsed = gordon.WakeUsed,
+                                CanWake = GordonFreeman.CanWake(player, game),
+                                WakeReservedForTsukuyomi = gordon.WakeReservedForEternalTsukuyomi,
+                                HeadcrabsRemoved = gordon.HeadcrabsRemoved,
+                                ZombieCount = game.PlayersList.Count(candidate =>
+                                    candidate.Passives.GordonHeadcrab.IsZombie),
+                                ActiveHeadcrabs = game.PlayersList
+                                    .Where(candidate => candidate.Passives.GordonHeadcrab.IsActive
+                                                        && candidate.Passives.GordonHeadcrab.SourceId == player.GetPlayerId())
+                                    .Select(candidate => new GordonHeadcrabDto
+                                    {
+                                        PlayerId = candidate.GetPlayerId(),
+                                        PlayerName = candidate.DiscordUsername,
+                                        RoundsLeft = Math.Max(0,
+                                            candidate.Passives.GordonHeadcrab.ExpiresAfterRound - game.RoundNo + 1),
+                                    }).ToList(),
+                                HalfLife = new GordonHalfLifeStateDto
+                                {
+                                    Announced = halfLife.Announced,
+                                    Finished = halfLife.Finished,
+                                    Released = halfLife.Released,
+                                    Postponements = halfLife.Postponements,
+                                    CanAnnounce = GordonFreeman.CanAnnounceHalfLife3(player, game),
+                                    PendingDecision = halfLife.PendingDecision,
+                                    DecisionSerial = halfLife.DecisionSerial,
+                                    DeadlineUtc = halfLife.DeadlineUtc?.ToString("o"),
+                                    RawPoints = halfLife.RawPoints,
+                                    BaseMultiplier = halfLife.BaseMultiplier,
+                                    Exponent = halfLife.Exponent,
+                                    FinalPoints = halfLife.FinalPoints,
+                                    FreezeLabel = GordonFreeman.GetFreezeLabel(gordon),
+                                    PostponeLabel = GordonFreeman.GetPostponeLabel(gordon),
+                                    FailureMessage = GordonFreeman.HalfLifeFailure,
+                                },
+                            };
+                            anySet = true;
+                        }
+                        break;
+
                     case Naruto.HaremJutsu:
                         if (player.GameCharacter.Name == Naruto.CharacterName)
                         {
@@ -1058,7 +1110,8 @@ public static class GameStateMapper
         var madara = Madara.Find(game);
         if (madara == null) return;
 
-        if (Madara.IsMadara(requestingPlayer))
+        if (Madara.IsMadara(requestingPlayer)
+            || GordonFreeman.SeesEternalTsukuyomiReality(requestingPlayer, game))
         {
             // Madara alone sees the authoritative zero-fight round, real passive settlement logs
             // and real standings. There are no synthetic skip cards: the round is genuinely empty.

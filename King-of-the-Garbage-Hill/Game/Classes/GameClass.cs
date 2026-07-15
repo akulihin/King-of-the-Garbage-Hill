@@ -23,7 +23,7 @@ public class GameClass
         GlobalLogs = "";
         IsCheckIfReady = true;
         SkipPlayersThisRound = 0;
-        GameVersion = "Версия: 4.5.5";
+        GameVersion = "Версия: 4.5.6";
         GameMode = gameMode;
         CreatorId = creatorId;
         Teams = new List<TeamPlay>();
@@ -58,6 +58,11 @@ public class GameClass
     /// <summary>True once at least one fight is resolved this round. Reset at the start of CalculateAllFights,
     /// set when a winner is decided. Used by Toxic Mate's "Tilted" (+50 only on a zero-battle round, finding M8).</summary>
     public bool AnyFightThisRound { get; set; }
+
+    /// <summary>Halflife 3 can suspend only this game's between-round settlement for 20 seconds.</summary>
+    public bool IsRoundTransitionPaused { get; set; }
+    public DateTimeOffset? TransitionDeadlineUtc { get; set; }
+    public long StateRevision { get; set; }
 
     private string GlobalLogs { get; set; }
     public string GameMode { get; set; }

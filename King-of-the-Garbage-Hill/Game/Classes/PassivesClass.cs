@@ -286,6 +286,10 @@ public class PassivesClass
     // unknown_bug — owner-only stream/commit state
     public UnknownBug.State UnknownBug { get; set; } = new();
 
+    // Гордон Фримен — owner-only state plus a mark carried by any player.
+    public GordonFreeman.State Gordon { get; set; } = new();
+    public GordonFreeman.HeadcrabState GordonHeadcrab { get; set; } = new();
+
     public bool IsExploitable { get; set; } = false;
     public bool IsExploitFixed { get; set; } = false;
 
