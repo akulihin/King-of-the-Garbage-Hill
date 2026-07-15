@@ -14,6 +14,15 @@ export type LastChancesAttackKind = typeof LAST_CHANCES_ATTACK_KINDS[number]
 export type LastChancesPhase = 'planning' | 'playing' | 'dead' | 'won' | 'outOfChances'
 export type LastChancesEnemyState = 'idle' | 'noticing' | 'alerted' | 'chasing' | 'attacking' | 'dead'
 export type LastChancesRoomArchetype = 'combat' | 'chest' | 'rest' | 'event'
+export type LastChancesGestureInputPhase =
+  | 'idle'
+  | 'pressing'
+  | 'doubleTapWindow'
+  | 'secondPress'
+  | 'holdFollowUpWindow'
+  | 'holdFollowUp'
+export type LastChancesGamepadProfile = 'standard' | 'sony-raw' | 'generic'
+export type LastChancesGamepadStatus = 'unsupported' | 'disconnected' | 'idle' | 'active'
 
 export interface LastChancesVector {
   x: number
@@ -244,6 +253,25 @@ export interface LastChancesGestureSnapshot {
   atMs: number
 }
 
+export interface LastChancesGestureInputSnapshot {
+  hand: LastChancesHand
+  phase: LastChancesGestureInputPhase
+  pressed: boolean
+  progress: number
+  remainingMs: number
+}
+
+export interface LastChancesGamepadSnapshot {
+  supported: boolean
+  connected: boolean
+  status: LastChancesGamepadStatus
+  activeIndex: number | null
+  connectedCount: number
+  id: string | null
+  mapping: string | null
+  profile: LastChancesGamepadProfile | null
+}
+
 export interface LastChancesSnapshot {
   phase: LastChancesPhase
   paused: boolean
@@ -260,6 +288,9 @@ export interface LastChancesSnapshot {
   projectiles: LastChancesProjectileSnapshot[]
   cooldowns: LastChancesCooldownSnapshot[]
   lastGesture: LastChancesGestureSnapshot | null
+  gestureInputs: LastChancesGestureInputSnapshot[]
+  gamepad: LastChancesGamepadSnapshot
+  selectedNodeId: string | null
 }
 
 export interface LastChancesEngineCallbacks {

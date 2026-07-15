@@ -1,7 +1,11 @@
-import type { LastChancesGesture, LastChancesHand } from './types'
+import type {
+  LastChancesGesture,
+  LastChancesGestureInputSnapshot,
+  LastChancesHand,
+} from './types'
 
-type PressSequence = 'first' | 'secondTap' | 'afterHoldFirstTap' | 'afterHoldSecondTap'
-type PendingGesture = 'tap' | 'hold' | 'holdFirstTap'
+type PressSequence = 'first' | 'secondTap' | 'afterHoldTap'
+type PendingGesture = 'tap' | 'hold'
 
 interface HandGestureState {
   down: boolean
@@ -42,9 +46,13 @@ export class LastChancesGestureRecognizer {
   ) {}
 
   press(hand: LastChancesHand, atMs: number): void {
-    this.update(atMs)
     const state = this.states[hand]
     if (state.down) return
+    if (state.pending && atMs > state.pendingUntil) {
+      const gesture = state.pending === 'tap' ? 'tap' : 'hold'
+      state.pending = null
+      this.emit(hand, gesture, state.pendingUntil)
+    }
     state.down = true
     state.pressedAt = atMs
     state.consumed = false
@@ -52,15 +60,13 @@ export class LastChancesGestureRecognizer {
       state.sequence = 'secondTap'
       state.pending = null
     } else if (state.pending === 'hold' && atMs <= state.pendingUntil) {
-      state.sequence = 'afterHoldFirstTap'
-      state.pending = null
-    } else if (state.pending === 'holdFirstTap' && atMs <= state.pendingUntil) {
-      state.sequence = 'afterHoldSecondTap'
+      state.sequence = 'afterHoldTap'
       state.pending = null
     } else {
       state.sequence = 'first'
       state.pending = null
     }
+    this.update(atMs)
   }
 
   release(hand: LastChancesHand, atMs: number): void {
@@ -74,16 +80,7 @@ export class LastChancesGestureRecognizer {
       this.emit(hand, heldFor >= this.timings.holdMs ? 'doubleTapHold' : 'doubleTap', atMs)
       return
     }
-    if (state.sequence === 'afterHoldFirstTap') {
-      if (heldFor >= this.timings.holdMs) {
-        this.emit(hand, 'hold', atMs)
-      } else {
-        state.pending = 'holdFirstTap'
-        state.pendingUntil = atMs + this.timings.doubleTapMs
-      }
-      return
-    }
-    if (state.sequence === 'afterHoldSecondTap') {
+    if (state.sequence === 'afterHoldTap') {
       this.emit(hand, heldFor < this.timings.holdMs ? 'holdThenDoubleTap' : 'hold', atMs)
       return
     }
@@ -121,5 +118,52 @@ export class LastChancesGestureRecognizer {
 
   isPressed(hand: LastChancesHand): boolean {
     return this.states[hand].down
+  }
+
+  snapshot(hand: LastChancesHand, atMs: number): LastChancesGestureInputSnapshot {
+    const state = this.states[hand]
+    if (state.down) {
+      const heldFor = Math.max(0, atMs - state.pressedAt)
+      if (state.sequence === 'secondTap') {
+        return {
+          hand,
+          phase: 'secondPress',
+          pressed: true,
+          progress: Math.min(1, heldFor / this.timings.holdMs),
+          remainingMs: Math.max(0, this.timings.holdMs - heldFor),
+        }
+      }
+      if (state.sequence === 'afterHoldTap') {
+        return { hand, phase: 'holdFollowUp', pressed: true, progress: 1, remainingMs: 0 }
+      }
+      return {
+        hand,
+        phase: 'pressing',
+        pressed: true,
+        progress: Math.min(1, heldFor / this.timings.holdMs),
+        remainingMs: Math.max(0, this.timings.holdMs - heldFor),
+      }
+    }
+    if (state.pending === 'tap') {
+      const remainingMs = Math.max(0, state.pendingUntil - atMs)
+      return {
+        hand,
+        phase: 'doubleTapWindow',
+        pressed: false,
+        progress: 1 - Math.min(1, remainingMs / this.timings.doubleTapMs),
+        remainingMs,
+      }
+    }
+    if (state.pending === 'hold') {
+      const remainingMs = Math.max(0, state.pendingUntil - atMs)
+      return {
+        hand,
+        phase: 'holdFollowUpWindow',
+        pressed: false,
+        progress: 1 - Math.min(1, remainingMs / this.timings.holdThenDoubleTapWindowMs),
+        remainingMs,
+      }
+    }
+    return { hand, phase: 'idle', pressed: false, progress: 0, remainingMs: 0 }
   }
 }

@@ -8,6 +8,8 @@
     "dev": "vite",
     "build": "vite build",
     "serve": "vite preview --port 4137",
+    "test:99lc": "vitest run src/features/last-chances/config.spec.ts src/features/last-chances/engine.spec.ts src/features/last-chances/gamepad.spec.ts src/features/last-chances/gestures.spec.ts --coverage.enabled=false",
+    "test:99lc:e2e": "cypress run --config-file cypress.config.ts --spec cypress/e2e/last-chances.cy.ts",
     "test:empires": "vitest run src/features/empires-endgame/config.spec.ts src/features/empires-endgame/engine.spec.ts src/features/empires-endgame/qa.spec.ts --coverage.enabled=false",
     "test:empires:e2e": "cypress run --config-file cypress.config.ts --spec cypress/e2e/empires-endgame.cy.ts",
     "test:empires:browser": "bash ../../tools/test-empires-endgame.sh",

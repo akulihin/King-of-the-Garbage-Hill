@@ -4,6 +4,11 @@ import {
   validateLastChancesConfig,
 } from './config'
 import { LastChancesGestureRecognizer } from './gestures'
+import {
+  createLastChancesGamepadAdapter,
+  type LastChancesGamepadAdapter,
+  type LastChancesGamepadReading,
+} from './gamepad'
 import { buildLastChancesPlan } from './plan'
 import { createLastChancesRng } from './rng'
 import { LAST_CHANCES_GESTURES, LAST_CHANCES_HANDS } from './types'
@@ -16,6 +21,7 @@ import type {
   LastChancesEnemyState,
   LastChancesEngineCallbacks,
   LastChancesGamePlan,
+  LastChancesGamepadSnapshot,
   LastChancesGesture,
   LastChancesGestureSnapshot,
   LastChancesHand,
@@ -179,6 +185,7 @@ export class LastChancesEngine {
   private readonly pressedKeys = new Set<string>()
   private readonly cooldownEnds = new Map<string, number>()
   private readonly gamepadButtons: Record<LastChancesHand, boolean> = { left: false, right: false }
+  private readonly gamepadAdapter: LastChancesGamepadAdapter
 
   private plan: LastChancesGamePlan
   private generation = 1
@@ -207,6 +214,9 @@ export class LastChancesEngine {
   private gamepadMove: LastChancesVector = { x: 0, y: 0 }
   private gamepadAim: LastChancesVector = { x: 0, y: 0 }
   private pointerAim: LastChancesVector = { x: 1, y: 0 }
+  private selectedNodeId: string | null = null
+  private gamepadMenuAxisEngaged = false
+  private gamepadState: LastChancesGamepadSnapshot
   private cssWidth = 800
   private cssHeight = 600
   private dpr = 1
@@ -226,6 +236,22 @@ export class LastChancesEngine {
     this.context = context
     this.callbacks = callbacks
     this.config = cloneLastChancesConfig(config)
+    this.gamepadAdapter = createLastChancesGamepadAdapter({
+      deadZone: this.config.input.gamepadDeadZone,
+      leftButton: this.config.input.gamepadLeftButton,
+      rightButton: this.config.input.gamepadRightButton,
+    })
+    const gamepadSupported = typeof navigator !== 'undefined' && typeof navigator.getGamepads === 'function'
+    this.gamepadState = {
+      supported: gamepadSupported,
+      connected: false,
+      status: gamepadSupported ? 'disconnected' : 'unsupported',
+      activeIndex: null,
+      connectedCount: 0,
+      id: null,
+      mapping: null,
+      profile: null,
+    }
     this.chances = this.config.chances
     this.enemyDefinitions = new Map(this.config.enemies.map(enemy => [enemy.id, enemy]))
     this.weapons = new Map(this.config.weapons.map(weapon => [weapon.hand, weapon]))
@@ -243,6 +269,7 @@ export class LastChancesEngine {
       this.performAttack(hand, gesture)
     })
     this.availableNodeIds = this.plan.tiers[0].map(node => node.id)
+    this.selectedNodeId = this.availableNodeIds[0] ?? null
     this.attachEvents()
     this.resizeObserver = typeof ResizeObserver === 'undefined'
       ? null
@@ -293,6 +320,7 @@ export class LastChancesEngine {
     this.currentNode = node
     this.attemptPath.push(node.id)
     this.availableNodeIds = []
+    this.selectedNodeId = null
     this.player.position = { ...node.arena.playerSpawn }
     this.player.aim = { ...this.pointerAim }
     this.projectiles = []
@@ -711,6 +739,7 @@ export class LastChancesEngine {
     if (this.currentNode.tierIndex >= this.plan.tiers.length - 1) {
       this.phase = 'won'
       this.availableNodeIds = []
+      this.selectedNodeId = null
     } else {
       this.player.hp = Math.min(
         this.player.stats.maxHp,
@@ -722,6 +751,7 @@ export class LastChancesEngine {
       )
       this.phase = 'planning'
       this.availableNodeIds = [...this.currentNode.nextNodeIds]
+      this.selectedNodeId = this.availableNodeIds[0] ?? null
     }
     this.projectiles = []
     this.activeDash = null
@@ -734,6 +764,8 @@ export class LastChancesEngine {
     this.paused = false
     this.currentNode = null
     this.availableNodeIds = this.plan.tiers[0].map(node => node.id)
+    this.selectedNodeId = this.availableNodeIds[0] ?? null
+    this.gamepadMenuAxisEngaged = false
     this.attemptPath = []
     this.deathReason = null
     this.lastGesture = null
@@ -795,40 +827,84 @@ export class LastChancesEngine {
   }
 
   private resolveAim(): LastChancesVector {
-    if (vectorLength(this.touchAim) > this.config.input.aimDeadZone) return this.touchAim
     if (vectorLength(this.gamepadAim) > this.config.input.aimDeadZone) return this.gamepadAim
+    if (vectorLength(this.touchAim) > this.config.input.aimDeadZone) return this.touchAim
     return this.pointerAim
   }
 
   private pollGamepad(): void {
-    if (typeof navigator === 'undefined' || typeof navigator.getGamepads !== 'function') return
-    const gamepad = Array.from(navigator.getGamepads()).find(candidate => candidate?.connected)
-    if (!gamepad) {
-      this.gamepadMove = { x: 0, y: 0 }
-      this.gamepadAim = { x: 0, y: 0 }
-      for (const hand of LAST_CHANCES_HANDS) {
-        if (this.gamepadButtons[hand]) this.release(hand)
-        this.gamepadButtons[hand] = false
-      }
+    if (typeof navigator === 'undefined' || typeof navigator.getGamepads !== 'function') {
+      this.applyGamepadReading(null)
       return
     }
-    const deadZone = this.config.input.gamepadDeadZone
-    const axis = (index: number): number => {
-      const value = gamepad.axes[index] ?? 0
-      return Math.abs(value) >= deadZone ? value : 0
+    this.applyGamepadReading(this.gamepadAdapter.poll(Array.from(navigator.getGamepads())))
+  }
+
+  private applyGamepadReading(reading: LastChancesGamepadReading | null): void {
+    const nextState: LastChancesGamepadSnapshot = reading
+      ? {
+          supported: true,
+          connected: reading.activeIndex !== null,
+          status: reading.status,
+          activeIndex: reading.activeIndex,
+          connectedCount: reading.connectedCount,
+          id: reading.id,
+          mapping: reading.mapping,
+          profile: reading.profile,
+        }
+      : {
+          supported: false,
+          connected: false,
+          status: 'unsupported',
+          activeIndex: null,
+          connectedCount: 0,
+          id: null,
+          mapping: null,
+          profile: null,
+        }
+    const metadataChanged = JSON.stringify(nextState) !== JSON.stringify(this.gamepadState)
+    this.gamepadState = nextState
+    this.gamepadMove = reading?.move ?? { x: 0, y: 0 }
+    this.gamepadAim = reading?.aim ?? { x: 0, y: 0 }
+
+    const nextButtons: Record<LastChancesHand, boolean> = reading?.buttons ?? { left: false, right: false }
+    const leftPressed = nextButtons.left && !this.gamepadButtons.left
+    const rightPressed = nextButtons.right && !this.gamepadButtons.right
+
+    if (this.phase === 'planning' && !this.paused) {
+      const menuAxis = reading?.move ?? { x: 0, y: 0 }
+      const dominantAxis = Math.abs(menuAxis.x) >= Math.abs(menuAxis.y) ? menuAxis.x : menuAxis.y
+      if (Math.abs(dominantAxis) >= 0.55 && !this.gamepadMenuAxisEngaged) {
+        this.cycleSelectedNode(dominantAxis > 0 ? 1 : -1)
+        this.gamepadMenuAxisEngaged = true
+      } else if (Math.abs(dominantAxis) <= 0.25) {
+        this.gamepadMenuAxisEngaged = false
+      }
+      if (leftPressed) this.cycleSelectedNode(1)
+      if (rightPressed && this.selectedNodeId) this.chooseNode(this.selectedNodeId)
+    } else if (!this.paused && this.phase === 'playing') {
+      for (const hand of LAST_CHANCES_HANDS) {
+        const pressed = nextButtons[hand]
+        if (pressed && !this.gamepadButtons[hand]) this.press(hand)
+        if (!pressed && this.gamepadButtons[hand]) this.release(hand)
+      }
+    } else if (rightPressed && !this.paused) {
+      if (this.phase === 'dead') this.retryAttempt()
+      if (this.phase === 'won' || this.phase === 'outOfChances') this.newGeneration()
     }
-    this.gamepadMove = normalizeInput(axis(0), axis(1))
-    this.gamepadAim = normalizeInput(axis(2), axis(3))
-    const buttonIndexes: Record<LastChancesHand, number> = {
-      left: this.config.input.gamepadLeftButton,
-      right: this.config.input.gamepadRightButton,
-    }
-    for (const hand of LAST_CHANCES_HANDS) {
-      const pressed = gamepad.buttons[buttonIndexes[hand]]?.pressed ?? false
-      if (pressed && !this.gamepadButtons[hand]) this.press(hand)
-      if (!pressed && this.gamepadButtons[hand]) this.release(hand)
-      this.gamepadButtons[hand] = pressed
-    }
+
+    this.gamepadButtons.left = nextButtons.left
+    this.gamepadButtons.right = nextButtons.right
+    if (metadataChanged) this.emitSnapshot(true)
+  }
+
+  private cycleSelectedNode(direction: number): void {
+    if (this.availableNodeIds.length === 0) return
+    const currentIndex = this.selectedNodeId === null ? -1 : this.availableNodeIds.indexOf(this.selectedNodeId)
+    const nextIndex = (Math.max(0, currentIndex) + direction + this.availableNodeIds.length)
+      % this.availableNodeIds.length
+    this.selectedNodeId = this.availableNodeIds[nextIndex]
+    this.emitSnapshot(true)
   }
 
   private attachEvents(): void {
@@ -875,6 +951,11 @@ export class LastChancesEngine {
   private readonly handleBlur = (): void => {
     this.pressedKeys.clear()
     this.touchMove = { x: 0, y: 0 }
+    this.gamepadMove = { x: 0, y: 0 }
+    this.gamepadAim = { x: 0, y: 0 }
+    this.gamepadButtons.left = false
+    this.gamepadButtons.right = false
+    this.gamepadMenuAxisEngaged = false
     this.gestures.reset()
   }
 
@@ -958,6 +1039,7 @@ export class LastChancesEngine {
   }
 
   private createSnapshot(): LastChancesSnapshot {
+    const now = performance.now()
     const enemies: LastChancesEnemySnapshot[] = this.enemies.map(enemy => ({
       id: enemy.id,
       definitionId: enemy.definition.id,
@@ -1009,6 +1091,9 @@ export class LastChancesEngine {
       })),
       cooldowns,
       lastGesture: this.lastGesture ? { ...this.lastGesture } : null,
+      gestureInputs: LAST_CHANCES_HANDS.map(hand => this.gestures.snapshot(hand, now)),
+      gamepad: { ...this.gamepadState },
+      selectedNodeId: this.selectedNodeId,
     }
   }
 

@@ -96,9 +96,11 @@ const copy = {
     doubleTap: 'Double-tap window (ms)',
     hold: 'Hold threshold (ms)',
     holdMax: 'Hold combo limit (ms)',
-    holdDouble: 'Hold + double-tap window (ms)',
+    holdDouble: 'Hold follow-up tap window (ms)',
     aimDeadZone: 'Aim dead zone',
     gamepadDeadZone: 'Gamepad dead zone',
+    gamepadLeftButton: 'Primary button index',
+    gamepadRightButton: 'Secondary button index',
     damage: 'Damage',
     cooldown: 'Cooldown (ms)',
     range: 'Range',
@@ -184,9 +186,11 @@ const copy = {
     doubleTap: 'Окно двойного нажатия (мс)',
     hold: 'Порог задержки (мс)',
     holdMax: 'Предел задержки для комбинации (мс)',
-    holdDouble: 'Окно задержки + двойного нажатия (мс)',
+    holdDouble: 'Окно повтора после задержки (мс)',
     aimDeadZone: 'Мёртвая зона прицела',
     gamepadDeadZone: 'Мёртвая зона геймпада',
+    gamepadLeftButton: 'Индекс основной кнопки',
+    gamepadRightButton: 'Индекс вторичной кнопки',
     damage: 'Урон',
     cooldown: 'Откат (мс)',
     range: 'Дальность',
@@ -448,6 +452,8 @@ function exportJson() {
                   <label>{{ t.holdDouble }}<input v-model.number="draft.input.holdThenDoubleTapWindowMs" type="number" min="1" step="10" /></label>
                   <label>{{ t.aimDeadZone }}<input v-model.number="draft.input.aimDeadZone" type="number" min="0" max="1" step="0.01" /></label>
                   <label>{{ t.gamepadDeadZone }}<input v-model.number="draft.input.gamepadDeadZone" type="number" min="0" max="1" step="0.01" /></label>
+                  <label>{{ t.gamepadLeftButton }}<input v-model.number="draft.input.gamepadLeftButton" type="number" min="0" max="31" step="1" /></label>
+                  <label>{{ t.gamepadRightButton }}<input v-model.number="draft.input.gamepadRightButton" type="number" min="0" max="31" step="1" /></label>
                 </div>
               </fieldset>
 

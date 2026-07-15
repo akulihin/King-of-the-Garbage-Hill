@@ -48,7 +48,7 @@ describe('99LC five-gesture recognizer', () => {
     ])
   })
 
-  it('requires two short presses after a hold for holdThenDoubleTap', () => {
+  it('recognizes a hold followed by one timely repeat tap', () => {
     const events: GestureEvent[] = []
     const recognizer = makeRecognizer(events)
 
@@ -56,9 +56,6 @@ describe('99LC five-gesture recognizer', () => {
     recognizer.release('left', 700)
     recognizer.press('left', 810)
     recognizer.release('left', 850)
-    expect(events).toEqual([])
-    recognizer.press('left', 970)
-    recognizer.release('left', 1010)
 
     expect(events).toEqual([{ hand: 'left', gesture: 'holdThenDoubleTap' }])
   })
@@ -69,11 +66,57 @@ describe('99LC five-gesture recognizer', () => {
 
     recognizer.press('right', 0)
     recognizer.release('right', 700)
-    recognizer.press('right', 820)
-    recognizer.release('right', 860)
-    recognizer.update(1120)
+    recognizer.update(1180)
 
     expect(events).toEqual([{ hand: 'right', gesture: 'hold' }])
+  })
+
+  it('exposes press and timing windows for immediate input feedback', () => {
+    const events: GestureEvent[] = []
+    const recognizer = makeRecognizer(events)
+
+    recognizer.press('left', 0)
+    expect(recognizer.snapshot('left', 325)).toMatchObject({
+      phase: 'pressing',
+      pressed: true,
+      progress: 0.5,
+      remainingMs: 325,
+    })
+    recognizer.release('left', 700)
+    expect(recognizer.snapshot('left', 820)).toMatchObject({
+      phase: 'holdFollowUpWindow',
+      pressed: false,
+      progress: 0.25,
+      remainingMs: 360,
+    })
+    recognizer.press('left', 900)
+    expect(recognizer.snapshot('left', 920)).toMatchObject({
+      phase: 'holdFollowUp',
+      pressed: true,
+      progress: 1,
+    })
+  })
+
+  it('keeps the hold follow-up boundary inclusive and falls back just outside it', () => {
+    const events: GestureEvent[] = []
+    const recognizer = makeRecognizer(events)
+
+    recognizer.press('left', 0)
+    recognizer.release('left', 700)
+    recognizer.press('left', 1180)
+    recognizer.release('left', 1200)
+    expect(events).toEqual([{ hand: 'left', gesture: 'holdThenDoubleTap' }])
+
+    recognizer.press('right', 0)
+    recognizer.release('right', 700)
+    recognizer.press('right', 1181)
+    recognizer.release('right', 1200)
+    recognizer.update(1460)
+    expect(events).toEqual([
+      { hand: 'left', gesture: 'holdThenDoubleTap' },
+      { hand: 'right', gesture: 'hold' },
+      { hand: 'right', gesture: 'tap' },
+    ])
   })
 
   it('does not open the combo window after a hold longer than one second', () => {

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { CircleDot, MousePointerClick, TimerReset } from 'lucide-vue-next'
+import type { LastChancesGestureInputSnapshot } from '../../features/last-chances'
 import type { LastChancesLocale } from './RunMapOverlay.vue'
 import type { AttackHand } from './TouchControls.vue'
 
@@ -18,6 +19,7 @@ export type WeaponCooldown = {
   hand: AttackHand
   name: string
   gestures: GestureCooldown[]
+  input?: LastChancesGestureInputSnapshot
 }
 
 const props = defineProps<{
@@ -34,6 +36,14 @@ const copy = {
     ready: 'Ready',
     cooling: 'Cooldown',
     empty: 'Waiting for the loadout',
+    input: {
+      idle: 'Ready for input',
+      pressing: 'Holding · release or keep charging',
+      doubleTapWindow: 'Tap again for double tap',
+      secondPress: 'Second press · release or hold',
+      holdFollowUpWindow: 'Tap once now for the hold follow-up',
+      holdFollowUp: 'Hold follow-up registered',
+    },
     gestures: {
       tap: 'Tap',
       doubleTap: 'Double tap',
@@ -50,6 +60,14 @@ const copy = {
     ready: 'Готово',
     cooling: 'Откат',
     empty: 'Ожидание экипировки',
+    input: {
+      idle: 'Ожидание нажатия',
+      pressing: 'Удержание · отпустите или продолжайте заряд',
+      doubleTapWindow: 'Нажмите ещё раз для даблтапа',
+      secondPress: 'Второе нажатие · отпустите или удерживайте',
+      holdFollowUpWindow: 'Нажмите один раз для продолжения задержки',
+      holdFollowUp: 'Продолжение задержки принято',
+    },
     gestures: {
       tap: 'Нажатие',
       doubleTap: 'Двойное',
@@ -98,6 +116,16 @@ function remainingLabel(gesture: GestureCooldown): string {
           </div>
           <CircleDot :size="15" aria-hidden="true" />
         </header>
+
+        <div
+          class="lc-input-feedback"
+          :class="[`is-${weapon.input?.phase ?? 'idle'}`, { 'is-pressed': weapon.input?.pressed }]"
+          role="status"
+        >
+          <span>{{ t.input[weapon.input?.phase ?? 'idle'] }}</span>
+          <small v-if="weapon.input?.remainingMs">{{ Math.ceil(weapon.input.remainingMs) }} ms</small>
+          <i aria-hidden="true"><b :style="{ width: `${(weapon.input?.progress ?? 0) * 100}%` }" /></i>
+        </div>
 
         <ol class="lc-gesture-list">
           <li
@@ -197,6 +225,16 @@ function remainingLabel(gesture: GestureCooldown): string {
 .lc-weapon header small { display: block; color: #666b69; font-size: 0.48rem; font-weight: 800; letter-spacing: 0.09em; text-transform: uppercase; }
 .lc-weapon header h3 { max-width: 13rem; margin: 0.08rem 0 0; overflow: hidden; color: #dedbd2; font-size: 0.7rem; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
 
+.lc-input-feedback { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0.35rem; padding: 0.35rem 0.6rem 0.42rem; overflow: hidden; border-bottom: 1px solid rgba(255, 255, 255, 0.04); color: #666b69; background: rgba(255, 255, 255, 0.015); font-size: 0.5rem; }
+.lc-input-feedback span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lc-input-feedback small { color: #aa9469; font: 700 0.47rem/1 var(--font-mono, monospace); }
+.lc-input-feedback > i { position: absolute; inset: auto 0 0; height: 2px; background: rgba(255, 255, 255, 0.035); }
+.lc-input-feedback > i b { display: block; height: 100%; background: #c7a45d; transition: width 0.06s linear; }
+.is-secondary .lc-input-feedback > i b { background: #b35d63; }
+.lc-input-feedback:not(.is-idle) { color: #ddd6c5; background: rgba(190, 153, 77, 0.075); }
+.is-secondary .lc-input-feedback:not(.is-idle) { background: rgba(158, 57, 65, 0.085); }
+.lc-input-feedback.is-pressed { box-shadow: inset 0 0 0.8rem rgba(215, 180, 104, 0.06); }
+
 .lc-gesture-list { display: grid; gap: 0; margin: 0; padding: 0; list-style: none; }
 .lc-gesture-list li { position: relative; display: grid; padding: 0.4rem 0.55rem 0.34rem; border-bottom: 1px solid rgba(255, 255, 255, 0.035); opacity: 0.67; }
 .lc-gesture-list li:last-child { border-bottom: 0; }
@@ -237,6 +275,7 @@ function remainingLabel(gesture: GestureCooldown): string {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .lc-cooldown-track i { transition: none; }
+  .lc-cooldown-track i,
+  .lc-input-feedback > i b { transition: none; }
 }
 </style>

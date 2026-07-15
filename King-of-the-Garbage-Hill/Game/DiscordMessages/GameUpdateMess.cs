@@ -1095,19 +1095,19 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                         var fightLineSplitSplit = fightLineSplit.First().Split("<:war:561287719838547981>");
 
 
-                        if (fightLineSplitSplit.Length > 1)
+                        if (fightLineSplitSplit.Length > 1 && fightLineSplit.Length > 1)
                         {
                             stdout = true;
                             fightLine = fightLineSplitSplit.First().Contains($"{player.DiscordUsername}")
                                 ? $"{fightLineSplitSplit.First()} <:war:561287719838547981> {fightLineSplitSplit[1]}"
                                 : $"{fightLineSplitSplit[1]} <:war:561287719838547981> {fightLineSplitSplit.First()}";
 
-
                             fightLine += $" ⟶ {fightLineSplit[1]}";
 
                             sortedGameLogs += $"{fightLine}\n";
                             logsSplit.RemoveAt(i);
                             i--;
+                            break;
                         }
                     }
                 }

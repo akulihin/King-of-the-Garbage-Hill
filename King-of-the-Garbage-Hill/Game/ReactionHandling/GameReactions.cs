@@ -755,17 +755,21 @@ public sealed class GameReaction : IServiceSingleton
                     return true;
 
                 // Block no longer exists after the one announcement. A bot fallback retries a
-                // legal attack instead; if no living target exists, it safely skips the turn.
-                var fallbackTarget = game?.PlayersList.FirstOrDefault(target =>
-                    target.GetPlayerId() != player.GetPlayerId()
-                    && !target.Passives.IsDead
-                    && !Madara.IsSealed(target)
-                    && !Naruto.IsNarutoPair(player, target)
-                    && !player.IsTeamMember(game, target.GetPlayerId()));
-                if (fallbackTarget != null)
-                    return await HandleAttack(
-                        player, null, fallbackTarget.Status.GetPlaceAtLeaderBoard());
+                // legal attack instead; if no candidate is accepted, it safely skips the turn.
+                var fallbackTargets = game?.PlayersList.Where(target =>
+                        target.GetPlayerId() != player.GetPlayerId()
+                        && !target.Passives.IsDead
+                        && !Madara.IsSealed(target)
+                        && !Naruto.IsNarutoPair(player, target)
+                        && !player.IsTeamMember(game, target.GetPlayerId()))
+                    .OrderBy(target => target.Status.GetPlaceAtLeaderBoard())
+                    .ToList() ?? new List<GamePlayerBridgeClass>();
+                foreach (var fallbackTarget in fallbackTargets)
+                    if (await HandleAttack(player, null, fallbackTarget.Status.GetPlaceAtLeaderBoard()))
+                        return true;
 
+                status.WhoToAttackThisTurn.Clear();
+                status.IsBlock = false;
                 status.IsSkip = true;
                 status.ConfirmedSkip = true;
                 status.IsReady = true;
@@ -790,7 +794,6 @@ public sealed class GameReaction : IServiceSingleton
             {
                 whoToAttack = game!.PlayersList.Find(x => x.Status.GetPlaceAtLeaderBoard() == botChoice);
             }
-
             if (whoToAttack == null) 
                 return false;
 
@@ -799,20 +802,17 @@ public sealed class GameReaction : IServiceSingleton
                 await _help.SendMsgAndDeleteItAfterRound(player, "Игрок запечатан", 0);
                 return false;
             }
-
             if (Madara.IsMadara(player) && game.RoundNo == 8)
             {
                 await _help.SendMsgAndDeleteItAfterRound(player, "Мадара ждёт, кто осмелится бросить ему вызов.", 0);
                 return false;
             }
-
             if (Madara.IsSealed(whoToAttack))
             {
                 status.WhoToAttackThisTurn = new List<Guid>();
                 await _help.SendMsgAndDeleteItAfterRound(player, "Игрок запечатан", 0);
                 return false;
             }
-
             if (Naruto.IsNarutoPair(player, whoToAttack))
             {
                 await _help.SendMsgAndDeleteItAfterRound(

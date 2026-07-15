@@ -92,4 +92,53 @@ describe('99LC engine attempt lifecycle', () => {
       vi.restoreAllMocks()
     }
   })
+
+  it('lets a connected standard gamepad select and enter the opening route', () => {
+    const axes = [0, 0, 0, 0]
+    const buttons = Array.from({ length: 16 }, () => ({ pressed: false, value: 0 }))
+    const gamepad = {
+      axes,
+      buttons,
+      connected: true,
+      id: 'DualSense Wireless Controller',
+      index: 0,
+      mapping: 'standard',
+    }
+    vi.stubGlobal('navigator', { getGamepads: () => [gamepad] })
+    const snapshots: LastChancesSnapshot[] = []
+    const engine = new LastChancesEngine(makeCanvas(), defaultConfig, {
+      onSnapshot: snapshot => snapshots.push(snapshot),
+    })
+    const testAccess = engine as unknown as { pollGamepad: () => void }
+
+    try {
+      const opening = snapshots.at(-1) as LastChancesSnapshot
+      expect(opening.availableNodeIds.length).toBeGreaterThan(1)
+      expect(opening.selectedNodeId).toBe(opening.availableNodeIds[0])
+
+      axes[0] = 1
+      testAccess.pollGamepad()
+      const cycled = snapshots.at(-1) as LastChancesSnapshot
+      expect(cycled.selectedNodeId).toBe(opening.availableNodeIds[1])
+      expect(cycled.gamepad).toMatchObject({
+        connected: true,
+        id: 'DualSense Wireless Controller',
+        profile: 'standard',
+      })
+
+      axes[0] = 0
+      testAccess.pollGamepad()
+      buttons[0] = { pressed: true, value: 1 }
+      testAccess.pollGamepad()
+
+      const entered = snapshots.at(-1) as LastChancesSnapshot
+      expect(entered.phase).toBe('playing')
+      expect(entered.currentNodeId).toBe(opening.availableNodeIds[1])
+      expect(entered.selectedNodeId).toBeNull()
+    } finally {
+      engine.destroy()
+      vi.unstubAllGlobals()
+      vi.restoreAllMocks()
+    }
+  })
 })

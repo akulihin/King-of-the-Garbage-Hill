@@ -14,8 +14,8 @@
     "holdThenDoubleTapWindowMs": 480,
     "aimDeadZone": 0.12,
     "gamepadDeadZone": 0.18,
-    "gamepadLeftButton": 0,
-    "gamepadRightButton": 1,
+    "gamepadLeftButton": 2,
+    "gamepadRightButton": 0,
     "leftKeys": ["KeyJ", "Space"],
     "rightKeys": ["KeyK", "ShiftLeft", "ShiftRight"]
   },

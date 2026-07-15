@@ -30,8 +30,10 @@ const props = withDefaults(defineProps<{
   edges: RunMapEdge[]
   seed: string
   allowClose?: boolean
+  selectedNodeId?: string | null
 }>(), {
   allowClose: true,
+  selectedNodeId: null,
 })
 
 const emit = defineEmits<{
@@ -189,10 +191,16 @@ function edgeState(from: PositionedNode, to: PositionedNode): string {
             v-for="node in positionedNodes"
             :key="node.id"
             class="lc-route-node"
-            :class="[`is-${node.state}`, `is-${node.kind.toLowerCase()}`]"
+            :class="[
+              `is-${node.state}`,
+              `is-${node.kind.toLowerCase()}`,
+              { 'is-gamepad-selected': node.id === selectedNodeId },
+            ]"
             :style="{ left: `${node.x}%`, top: `${node.y}%` }"
             :disabled="node.state !== 'available'"
             type="button"
+            :data-node-id="node.id"
+            :aria-current="node.id === selectedNodeId ? 'true' : undefined"
             :aria-label="`${node.name}. ${t.tier} ${node.tier}. ${nodeStateLabel(node.state)}`"
             @click="emit('choose', node.id)"
           >
@@ -401,11 +409,14 @@ function edgeState(from: PositionedNode, to: PositionedNode): string {
 }
 
 .lc-route-node.is-available:hover,
-.lc-route-node.is-available:focus-visible {
+.lc-route-node.is-available:focus-visible,
+.lc-route-node.is-available.is-gamepad-selected {
   transform: translate(-50%, -50%) scale(1.045);
   border-color: rgba(238, 207, 139, 0.92);
-  box-shadow: 0 0 2rem rgba(204, 163, 79, 0.24);
+  box-shadow: 0 0 0 2px rgba(245, 218, 157, 0.22), 0 0 2rem rgba(204, 163, 79, 0.34);
 }
+
+.lc-route-node.is-gamepad-selected .lc-node-medallion { color: #fff2cb; background: #493718; }
 
 .lc-node-medallion {
   position: relative;

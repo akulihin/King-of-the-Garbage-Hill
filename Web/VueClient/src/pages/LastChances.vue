@@ -107,6 +107,10 @@ const copy = {
     gamepad: 'Gamepad',
     gamepadMove: 'Left stick moves · right stick aims',
     gamepadAttack: 'Buttons',
+    gamepadConnected: 'Connected',
+    gamepadDisconnected: 'Press a controller button to connect',
+    gamepadUnsupported: 'This browser does not expose the Gamepad API',
+    gamepadMenu: 'Map: stick / Square cycles · Cross selects',
     touch: 'Touch',
     touchMove: 'Left stick moves · aim pad aims',
     touchAttack: 'Use either hand button for gestures',
@@ -192,6 +196,10 @@ const copy = {
     gamepad: 'Геймпад',
     gamepadMove: 'Левый стик — движение · правый — прицел',
     gamepadAttack: 'Кнопки',
+    gamepadConnected: 'Подключён',
+    gamepadDisconnected: 'Нажмите кнопку геймпада для подключения',
+    gamepadUnsupported: 'Браузер не предоставляет Gamepad API',
+    gamepadMenu: 'Карта: стик / Square — выбор · Cross — вход',
     touch: 'Сенсорный экран',
     touchMove: 'Левый стик — движение · площадка — прицел',
     touchAttack: 'Используйте кнопки обеих рук для жестов',
@@ -279,6 +287,7 @@ const weaponCooldowns = computed<WeaponCooldown[]>(() => {
   return config.value.weapons.map((weapon) => ({
     hand: weapon.hand === 'left' ? 'primary' : 'secondary',
     name: weapon.name,
+    input: snapshot.value?.gestureInputs.find(input => input.hand === weapon.hand),
     gestures: LAST_CHANCES_GESTURES.map((gesture) => {
       const cooldown = snapshot.value?.cooldowns.find(item => item.hand === weapon.hand && item.gesture === gesture)
       const lastGesture = snapshot.value?.lastGesture
@@ -294,6 +303,15 @@ const weaponCooldowns = computed<WeaponCooldown[]>(() => {
       }
     }),
   }))
+})
+
+const gamepadStatusText = computed(() => {
+  const gamepad = snapshot.value?.gamepad
+  if (!gamepad?.supported) return t.value.gamepadUnsupported
+  if (!gamepad.connected) return t.value.gamepadDisconnected
+  const padNumber = gamepad.activeIndex === null ? '' : ` #${gamepad.activeIndex + 1}`
+  const profile = gamepad.profile ? ` · ${gamepad.profile}` : ''
+  return `${t.value.gamepadConnected}${padNumber} · ${gamepad.id ?? t.value.gamepad}${profile}`
 })
 
 const runMapNodes = computed<RunMapNode[]>(() => {
@@ -353,6 +371,7 @@ function setToast(message: string) {
 }
 
 function onSnapshot(nextSnapshot: LastChancesSnapshot) {
+  const previousPhase = snapshot.value?.phase
   const previousGeneration = snapshot.value?.generation
   if (previousGeneration !== undefined && previousGeneration !== nextSnapshot.generation) {
     visitedNodeIds.value = new Set()
@@ -362,6 +381,11 @@ function onSnapshot(nextSnapshot: LastChancesSnapshot) {
   visitedNodeIds.value = nextVisited
   snapshot.value = nextSnapshot
   if (nextSnapshot.phase === 'planning' && nextSnapshot.availableNodeIds.length > 0) routeMapOpen.value = true
+  if (previousPhase === 'planning' && nextSnapshot.phase === 'playing') {
+    routeMapOpen.value = false
+    resumeAfterMap = false
+    void nextTick(() => canvas.value?.focus())
+  }
 }
 
 async function createEngine(nextConfig: LastChancesConfig, createNewGeneration = false) {
@@ -509,6 +533,21 @@ function formatKey(code: string): string {
   if (code.startsWith('Key')) return code.slice(3)
   if (code.startsWith('Digit')) return code.slice(5)
   return code.replace('Arrow', '↑').replace('Space', 'Space')
+}
+
+function formatGamepadButton(index: number | undefined, fallback: number): string {
+  const resolved = index ?? fallback
+  const labels: Record<number, string> = {
+    0: '× Cross',
+    1: '○ Circle',
+    2: '□ Square',
+    3: '△ Triangle',
+    4: 'L1',
+    5: 'R1',
+    6: 'L2',
+    7: 'R2',
+  }
+  return labels[resolved] ?? `#${resolved}`
 }
 
 function formatNumber(value: number): string {
@@ -728,9 +767,20 @@ onBeforeUnmount(() => {
           <MousePointer2 :size="18" aria-hidden="true" />
           <div><strong>{{ t.mouse }}</strong><span>{{ t.mouseAim }}</span><small>{{ t.mouseAttack }}</small></div>
         </article>
-        <article>
+        <article
+          :class="{ 'is-connected': snapshot?.gamepad.connected }"
+          :data-gamepad-status="snapshot?.gamepad.status"
+          :data-gamepad-id="snapshot?.gamepad.id"
+          :data-gamepad-profile="snapshot?.gamepad.profile"
+          aria-live="polite"
+        >
           <Gamepad2 :size="18" aria-hidden="true" />
-          <div><strong>{{ t.gamepad }}</strong><span>{{ t.gamepadMove }}</span><small>{{ t.gamepadAttack }} L{{ config?.input.gamepadLeftButton ?? 4 }} / R{{ config?.input.gamepadRightButton ?? 5 }}</small></div>
+          <div>
+            <strong>{{ t.gamepad }}</strong>
+            <span :title="gamepadStatusText">{{ gamepadStatusText }}</span>
+            <small>{{ t.gamepadMove }} · {{ t.gamepadAttack }} {{ formatGamepadButton(config?.input.gamepadLeftButton, 2) }} / {{ formatGamepadButton(config?.input.gamepadRightButton, 0) }}</small>
+            <small>{{ t.gamepadMenu }}</small>
+          </div>
         </article>
         <article>
           <Smartphone :size="18" aria-hidden="true" />
@@ -752,6 +802,7 @@ onBeforeUnmount(() => {
       :edges="runMapEdges"
       :seed="plan?.seed ?? config?.seed ?? '—'"
       :allow-close="snapshot?.phase === 'playing'"
+      :selected-node-id="snapshot?.selectedNodeId ?? null"
       @choose="chooseNode"
       @close="closeMap"
     />
