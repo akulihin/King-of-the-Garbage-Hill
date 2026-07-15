@@ -461,13 +461,16 @@ function goToLobby() {
 // ── Header status (moved from ActionPanel) ──────────────────────────
 const me = computed(() => store.myPlayer)
 const missingAvatarUrl = 'https://r2.ozvmusic.com/kotgh/art/avatars/unknown.png'
-const ownerAvatar = computed(() => {
-  if (store.isTerminalMode) return missingAvatarUrl
-  return me.value?.character.avatarCurrent || me.value?.character.avatar || missingAvatarUrl
-})
+const ownerAvatar = computed(() => me.value?.character.avatarCurrent || me.value?.character.avatar || missingAvatarUrl)
 function gameoverAvatar(player: Player): string {
-  if (player.isTerminalMode) return missingAvatarUrl
   return player.character.avatarCurrent || player.character.avatar || missingAvatarUrl
+}
+function handleOwnerAvatarError(event: Event): void {
+  // The terminal's deliberately absent portrait is itself the presentation.
+  // Ordinary missing images keep the established generic fallback.
+  if (store.isTerminalMode) return
+  const image = event.target as HTMLImageElement
+  if (image.src !== missingAvatarUrl) image.src = missingAvatarUrl
 }
 const isMadara = computed(() => me.value?.character.name === 'Мадара')
 const isMadaraRoundEight = computed(() => isMadara.value && store.gameState?.roundNo === 8)
@@ -1701,7 +1704,7 @@ const charTint = computed(() => {
               :src="ownerAvatar"
               :alt="me.character.name"
               class="gr-avatar-img"
-              @error="(event: Event) => (event.target as HTMLImageElement).src = missingAvatarUrl"
+              @error="handleOwnerAvatarError"
             >
           </div>
           <div class="gr-identity">

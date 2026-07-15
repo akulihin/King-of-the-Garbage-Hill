@@ -113,6 +113,10 @@ public class GamePlayerBridgeClass
 
     public void MinusPsycheLog(CharacterClass playerCharacter, GameClass game, int howMuchToRemove, string skillName)
     {
+        if (UnknownBug.Is(playerCharacter))
+        {
+            return;
+        }
         if (Madara.HasReanimatedBody(playerCharacter))
         {
             return;

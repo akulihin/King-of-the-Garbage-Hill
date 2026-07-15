@@ -99,17 +99,11 @@ public class StartGameLogic : IServiceSingleton
 
 
     public List<GamePlayerBridgeClass> HandleCharacterRoll(List<IUser> players, ulong gameId, int team = 0,
-        string mode = "normal", List<string> forcedCharacters = null)
+        string mode = "normal", List<string> forcedCharacters = null,
+        DiscordAccountClass accountForFirstBotSlot = null)
     {
         var allCharacters2 = _charactersPull.GetRollableCharacters();
         var allCharacters = _charactersPull.GetRollableCharacters();
-
-        if (mode == "bot")
-        {
-            foreach (var c in allCharacters.Where(c => c.Tier >= 4)) c.Tier = 6;
-
-            foreach (var c in allCharacters2.Where(c => c.Tier >= 4)) c.Tier = 6;
-        }
 
         if (team > 0)
         {
@@ -130,15 +124,37 @@ public class StartGameLogic : IServiceSingleton
         var playersList = new List<GamePlayerBridgeClass>();
 
 
-        var strictBotCount = players.Count(player =>
-            player == null || _accounts.GetAccount(player).PlayerType == 404);
+        var participantAccounts = players
+            .Select(player => player == null ? null : _accounts.GetAccount(player))
+            .ToList();
+        if (accountForFirstBotSlot != null)
+        {
+            if (participantAccounts.Any(account =>
+                    account?.DiscordId == accountForFirstBotSlot.DiscordId))
+                throw new ArgumentException("The supplied roll account is already a participant.");
 
-        players = SecureRandom.Shuffle(players);   // single game RNG (seeded-sim deterministic)
+            var firstBotSlot = participantAccounts.FindIndex(account => account == null);
+            if (firstBotSlot < 0)
+                throw new ArgumentException("The supplied roll account requires an empty bot slot.");
+            participantAccounts[firstBotSlot] = accountForFirstBotSlot;
+        }
+
+        var strictBotCount = participantAccounts.Count(account =>
+            account == null || account.PlayerType == 404);
+
+        var humanParticipantAccounts = participantAccounts
+            .Where(account => account != null)
+            .Where(account => !account.IsBot())
+            .ToList();
+        var everyHumanHasRolledUnknownBug = humanParticipantAccounts.Count > 0
+                                             && humanParticipantAccounts.All(account =>
+                                                 account.HasNaturallyRolledUnknownBug);
+
+        participantAccounts = SecureRandom.Shuffle(participantAccounts); // single game RNG (seeded-sim deterministic)
 
         //handle custom selected character part #1 (uses unfiltered pool so admins can force TeamModeOnly characters)
         var unfilteredCharacters = _charactersPull.GetRollableCharacters();
-        foreach (var account in players.Where(player => player != null)
-                     .Select(player => _accounts.GetAccount(player)))
+        foreach (var account in participantAccounts.Where(account => account != null))
         {
             var assignment = PeekNextCharacterAssignment(account);
             if (assignment.Name == null) continue;
@@ -163,8 +179,8 @@ public class StartGameLogic : IServiceSingleton
 
         double topLaner = 1;
         var forcedIndex = 0;
-        foreach (var account in players.Select(player =>
-                     player != null ? _accounts.GetAccount(player.Id) : _helperFunctions.GetFreeBot(playersList)))
+        foreach (var account in participantAccounts.Select(account =>
+                     account ?? _helperFunctions.GetFreeBot(playersList)))
         {
             account.IsPlaying = true;
 
@@ -268,16 +284,19 @@ public class StartGameLogic : IServiceSingleton
                 // The newcomer roll is an exact 30% branch. Do not leave DooM Guy in the
                 // weighted fallback pool when that branch misses, or the real chance exceeds 30%.
                 if (newcomerDoomEligible && character.Name == DoomGuy.CharacterName) continue;
-                var range = GetRangeFromTier(character.Tier);
-                if (character.Tier == 4 && account.IsBot()) range *= 3;
+                var rollTier = mode == "bot" && account.IsBot() && character.Tier >= 4
+                    ? 6
+                    : character.Tier;
+                var range = GetRangeFromTier(rollTier);
+                if (mode != "bot" && character.Tier == 4 && account.IsBot()) range *= 3;
                 if (character.Tier < 4 && account.IsBot() && character.Name != "Кира") continue;
                 if (character.Name == "Кира" && account.IsBot()) range = GetRangeFromTier(1) / 2;
                 if (character.Passive.Any(x => x.PassiveName == "Top Laner")) range = (int)(range * topLaner);
-                var pityBonus = account.TierPity.GetValueOrDefault(character.Tier, 0);
+                var pityBonus = account.TierPity.GetValueOrDefault(rollTier, 0);
                 range = (int)(range * (1.0 + pityBonus * 0.03));
                 var chanceEntry = account.CharacterChance.Find(x => x.CharacterName == character.Name);
                 var rollMultiplier = UnknownBug.Is(character.Name)
-                    ? 1.0
+                    ? everyHumanHasRolledUnknownBug ? 100.0 : 1.0
                     : chanceEntry?.GetEffectiveMultiplier() ?? 1.0;
                 var temp = totalPool + Convert.ToInt32(range * rollMultiplier) - 1;
                 allAvailableCharacters.Add(new DiscordAccountClass.CharacterRollClass(character.Name, totalPool, temp));
@@ -296,6 +315,11 @@ public class StartGameLogic : IServiceSingleton
                     randomIndex >= x.CharacterRangeMin && randomIndex <= x.CharacterRangeMax);
                 characterToAssign = allCharacters.Find(x => x.Name == rolledCharacter!.CharacterName);
             }
+
+            // Bot-only games historically normalize every public high-tier result to Tier 6.
+            // Keep that contract on bot seats without mutating a human web creator's shared pool.
+            if (mode == "bot" && account.IsBot() && characterToAssign.Tier >= 4)
+                characterToAssign.Tier = 6;
 
             if (characterToAssign.Passive.Any(x => x.PassiveName == "Top Laner"))
             {
@@ -346,6 +370,13 @@ public class StartGameLogic : IServiceSingleton
             playersList.Last().CharacterMasteryPoints = account.CharacterMastery.GetValueOrDefault(characterToAssign.Name, 0);
             DoomGuy.InitializeForGame(playersList.Last(), account);
             account.CharacterPlayedLastTime = characterToAssign.Name;
+            if (!account.IsBot()
+                && UnknownBug.Is(characterToAssign)
+                && !account.HasNaturallyRolledUnknownBug)
+            {
+                account.HasNaturallyRolledUnknownBug = true;
+                _accounts.SaveAccount(account);
+            }
             allCharacters.Remove(characterToAssign);
         }
 

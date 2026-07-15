@@ -1111,11 +1111,13 @@ public static class GameStateMapper
         if (madara == null) return;
 
         if (Madara.IsMadara(requestingPlayer)
+            || UnknownBug.Is(requestingPlayer)
             || GordonFreeman.SeesEternalTsukuyomiReality(requestingPlayer, game))
         {
-            // Madara alone sees the authoritative zero-fight round, real passive settlement logs
-            // and real standings. There are no synthetic skip cards: the round is genuinely empty.
-            dto.FightLog.Clear();
+            // Madara/Gordon see the authoritative ending; immune unknown_bug also keeps its
+            // submitted action and therefore receives its real fight log and standings.
+            if (!UnknownBug.Is(requestingPlayer))
+                dto.FightLog.Clear();
             return;
         }
 

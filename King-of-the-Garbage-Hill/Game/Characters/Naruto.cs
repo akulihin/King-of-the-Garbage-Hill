@@ -209,6 +209,7 @@ public static class Naruto
         {
             var attackers = game.PlayersList.Where(attacker =>
                 attacker.GetPlayerId() != harem.GetPlayerId()
+                && !UnknownBug.Is(attacker)
                 && queues[attacker.GetPlayerId()].Contains(harem.GetPlayerId())).ToList();
             var skipped = attackers.Sum(attacker => queues[attacker.GetPlayerId()].Count);
             if (skipped > 0)
@@ -238,6 +239,8 @@ public static class Naruto
         GamePlayerBridgeClass attacker,
         IEnumerable<Guid> queuedTargetIds)
     {
+        if (UnknownBug.Is(attacker)) return false;
+
         var validTargets = ValidFightTargets(game, attacker, queuedTargetIds).ToList();
         var haremTargets = validTargets
             .Select(id => game.PlayersList.Find(player => player.GetPlayerId() == id))

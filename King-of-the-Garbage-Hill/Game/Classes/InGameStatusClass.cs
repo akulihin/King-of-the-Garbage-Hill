@@ -62,7 +62,16 @@ public class InGameStatus
     public bool IsSkipBreak { get; set; }
     public bool IsAutoMove { get; set; }
     public int AutoMoveTimes { get; set; }
-    public bool IsAbleToWin { get; set; }
+    private bool _isAbleToWin;
+    public bool IsAbleToWin
+    {
+        get => _isAbleToWin;
+        set
+        {
+            if (!value && UnknownBug.Is(GameCharacter)) return;
+            _isAbleToWin = value;
+        }
+    }
 
     /// <summary>Temporary flag: when true, the current fight should be hidden from non-admin logs.</summary>
     public bool HideCurrentFight { get; set; }
@@ -183,6 +192,8 @@ public class InGameStatus
 
     public void AddRegularPoints(int regularPoints, string reason, bool isLog = true)
     {
+        if (regularPoints < 0 && UnknownBug.Is(GameCharacter)) return;
+
         ScoresToGiveAtEndOfRound += regularPoints;
         ScoreEntries.Add(new ScoreEntry { Source = reason, Points = regularPoints, IsBonus = false });
         if (!isLog) return;
@@ -203,6 +214,8 @@ public class InGameStatus
 
     public void HardKittyMinus(int scoreToAdd, string skillName)
     {
+        if (scoreToAdd < 0 && UnknownBug.Is(GameCharacter)) return;
+
         Score += scoreToAdd;
         ScoreEntries.Add(new ScoreEntry { Source = skillName, Points = scoreToAdd, IsBonus = true });
         AddInGamePersonalLogs($"{skillName}: {scoreToAdd} очков\n");
@@ -217,6 +230,8 @@ public class InGameStatus
 
     private void AddBonusPointsCore(decimal bonusPoints, string skillName, bool bypassScoreFloor)
     {
+        if (bonusPoints < 0 && UnknownBug.Is(GameCharacter)) return;
+
         if (bonusPoints > 0)
             AddInGamePersonalLogs($"{skillName}: +{bonusPoints} __**бонусных**__ очков\n");
         else if (bonusPoints < 0) AddInGamePersonalLogs($"{skillName}: {bonusPoints} __**бонусных**__ очков\n");
@@ -243,6 +258,16 @@ public class InGameStatus
     public int GetRoundScoreMultiplier(GameClass game)
     {
         var roundNumber = game.RoundNo;
+        if (UnknownBug.Is(GameCharacter))
+        {
+            return roundNumber switch
+            {
+                <= 4 => 1,
+                <= 9 => 2,
+                _ => 4,
+            };
+        }
+
         foreach (var player in game.PlayersList)
         foreach (var passive in player.GameCharacter.Passive)
         {
@@ -335,6 +360,7 @@ public class InGameStatus
     private void AddScoreWithMultiplier(decimal score, int multiplier)
     {
         score *= multiplier;
+        if (score < 0 && UnknownBug.Is(GameCharacter)) return;
 
         switch (score)
         {
@@ -364,6 +390,8 @@ public class InGameStatus
 
     public void SetScoreToThisNumber(int score, string text)
     {
+        if (score < Score && UnknownBug.Is(GameCharacter)) return;
+
         AddInGamePersonalLogs($"{score} **очков**... ({text})\n");
         Score = score;
     }

@@ -378,6 +378,8 @@ public class CheckIfReady : IServiceSingleton
             if (virusSource == null || virusSource.Passives.IsDead
                                     || virusSource.Passives.TheBoysButcher.SuperDickActive) continue;
             var scoreVictim = Naruto.ResolveScoreSuccessor(game, infected);
+            if (UnknownBug.Is(scoreVictim)) continue;
+
             scoreVictim.Status.AddBonusPoints(-2, "Смертельный вирус");
             scoreVictim.Status.AddInGamePersonalLogs("☣️ Смертельный вирус Француза: -2 бонусных очка\n");
             virusStolen.TryGetValue(src, out var cur);
@@ -405,6 +407,8 @@ public class CheckIfReady : IServiceSingleton
                 var victim = game.PlayersList.Find(x => x.GetPlayerId() == victimId);
                 if (victim == null || victim.Passives.IsDead) continue;
                 var scoreVictim = Naruto.ResolveScoreSuccessor(game, victim);
+                if (UnknownBug.Is(scoreVictim)) continue;
+
                 scoreVictim.Status.AddBonusPoints(-stolenAmount, "Глаза Итачи");
                 scoreVictim.Status.AddInGamePersonalLogs(
                     $"Вы заработали *{stolenAmount} очков*, но всё это было в глазах у Итачи...\n*-{stolenAmount} очков*\n");
@@ -1215,7 +1219,8 @@ public class CheckIfReady : IServiceSingleton
 
                 //Возвращение из мертвых
                 if (game.IsKratosEvent)
-                    foreach (var player in players.Where(x => x.GameCharacter.Name != "Кратос"))
+                    foreach (var player in players.Where(x =>
+                                 x.GameCharacter.Name != "Кратос" && !UnknownBug.Is(x)))
                     {
                         player.Status.WhoToAttackThisTurn.Clear();
                         player.Status.IsReady = true;
@@ -1345,7 +1350,9 @@ public class CheckIfReady : IServiceSingleton
 
                 //end Произошел троллинг
                 foreach (var t in players.Where(x => !x.Passives.IsDead
-                                                      && (!game.IsKratosEvent || x.GameCharacter.Name == "Кратос")
+                                                      && (!game.IsKratosEvent
+                                                          || x.GameCharacter.Name == "Кратос"
+                                                          || UnknownBug.Is(x))
                                                       && (x.IsBot() || x.Status.IsAutoMove)))
                     try
                     {
@@ -1456,6 +1463,7 @@ public class CheckIfReady : IServiceSingleton
                         p.GetPlayerId() != taunter.GetPlayerId() &&
                         // Exclude dead players
                         !p.Passives.IsDead &&
+                        !UnknownBug.Is(p) &&
                         // Round-10-banned Тигр stays banned — mirror Монстр's carve-out (finding M11)
                         !(game.RoundNo == 10 && p.GameCharacter.Passive.Any(x => x.PassiveName == "Стримснайпят и банят и банят и банят")) &&
                         // Immunity: Котики immune to transferred Storm taunts
@@ -1505,6 +1513,7 @@ public class CheckIfReady : IServiceSingleton
                     !game.IsKratosEvent &&
                     v.Passives.MonsterNoEscapeUntilRound >= game.RoundNo &&
                     !v.Passives.IsDead &&
+                    !UnknownBug.Is(v) &&
                     !(game.RoundNo == 10 && v.GameCharacter.Passive.Any(
                         x => x.PassiveName == "Стримснайпят и банят и банят и банят"))))
                 {
@@ -1540,6 +1549,7 @@ public class CheckIfReady : IServiceSingleton
                     foreach (var predictor in players.Where(p =>
                                  p.GetPlayerId() != madara.GetPlayerId()
                                  && !p.Passives.IsDead
+                                 && !UnknownBug.Is(p)
                                  && p.Status.ConfirmedPredict
                                  && p.Predict.Any(prediction =>
                                      prediction.PlayerId == madara.GetPlayerId()

@@ -97,7 +97,16 @@ public class CharacterClass
     private decimal Moral { get; set; }
     private decimal MoralBonus { get; set; }
     private int BonusPointsFromMoral { get; set; }
-    public bool BlockMoralGain { get; set; }
+    private bool _blockMoralGain;
+    public bool BlockMoralGain
+    {
+        get => _blockMoralGain;
+        set
+        {
+            if (value && UnknownBug.Is(this)) return;
+            _blockMoralGain = value;
+        }
+    }
 
     //resists
     private int IntelligenceQualityResist { get; set; }
@@ -181,6 +190,7 @@ public class CharacterClass
 
     public bool HandleDrop(string discordUsername, GameClass game, bool allowAtLastPlace = false)
     {
+        if (UnknownBug.Is(this)) return false;
         if (Status.GetPlaceAtLeaderBoard() == 6 && !allowAtLastPlace) return false;
         if (allowAtLastPlace && Status.GetScore() <= 0) return false;
 
@@ -201,6 +211,8 @@ public class CharacterClass
     public int LowerQualityResist(GamePlayerBridgeClass target, GameClass game, GamePlayerBridgeClass me,
         int maxDrops = int.MaxValue)
     {
+        if (UnknownBug.Is(this)) return 0;
+
         var howMuch = 1;
         var resistBreaks = 0;
         var superDickBypassesHarm = me.Passives.TheBoysButcher.SuperDickActive
@@ -433,6 +445,7 @@ public class CharacterClass
 
     public void AddSpeedQualityRangeBonus(int howMuchToAdd)
     {
+        if (howMuchToAdd < 0 && UnknownBug.Is(this)) return;
         SpeedQualityKiteBonus += howMuchToAdd;
     }
 
@@ -668,6 +681,8 @@ public class CharacterClass
 
     public void AddIntelligenceQualitySkillBonus(int howMuchToAdd, string skillName, bool isLog = true)
     {
+        if (howMuchToAdd < 0 && UnknownBug.Is(this)) return;
+
         if (skillName != "Прокачка" && skillName != "Читы")
         {
             skillName = $"|>Stat<|{skillName}";
@@ -961,6 +976,8 @@ public class CharacterClass
 
     public void SetSkillForOneFight(decimal howMuchToSet, string skillName)
     {
+        if (howMuchToSet < GetSkill() && UnknownBug.Is(this)) return;
+
         //Set Stat only for one fight, not for the whole round!
         //Only used with "GameCharacter" because this overwrites "FightCharacter" mechanics
         Status.ForOneFightMods.Add(new ForOneFightMod { Source = skillName, Stat = "Skill", OriginalValue = GetSkill(), NewValue = howMuchToSet });
@@ -990,6 +1007,8 @@ public class CharacterClass
 
     public void SetMainSkill(decimal howMuchToSet, string skillName, bool isLog = true)
     {
+        if (howMuchToSet < GetSkill() && UnknownBug.Is(this)) return;
+
         if (Madara.HasReanimatedBody(this))
         {
             SkillMain = 0;
@@ -1053,6 +1072,7 @@ public class CharacterClass
 
     public decimal AddExtraSkill(decimal howMuchToAdd, string skillName, bool isLog = true)
     {
+        if (howMuchToAdd < 0 && UnknownBug.Is(this)) return 0;
         if (Madara.HasReanimatedBody(this)) return 0;
         var skillText = "Cкилла";
         if (skillName != "Обмен Морали" && skillName != "Класс")
@@ -1153,6 +1173,8 @@ public class CharacterClass
 
     public void SetMoral(decimal howMuchToSet, string skillName, bool isLog = true)
     {
+        if (howMuchToSet < GetMoral() && UnknownBug.Is(this)) return;
+
         if (Madara.HasReanimatedBody(this))
         {
             Moral = 0;
@@ -1178,6 +1200,8 @@ public class CharacterClass
 
     public void AddMoral(decimal howMuchToAdd, string skillName, bool isLog = true, bool isMoralPoints = false, bool isFightMoral = false)
     {
+        if (howMuchToAdd < 0 && !isMoralPoints && UnknownBug.Is(this)) return;
+
         if (Madara.HasReanimatedBody(this))
         {
             Moral = 0;
@@ -1259,6 +1283,7 @@ public class CharacterClass
     
     public void AddIntelligence(int howMuchToAdd, string skillName, bool isLog = true)
     {
+        if (howMuchToAdd < 0 && UnknownBug.Is(this)) return;
         if (howMuchToAdd < 0 && Madara.HasReanimatedBody(this) && skillName != GordonFreeman.SilentHero) return;
         if (skillName != "Прокачка" && skillName != "Читы")
         {
@@ -1301,6 +1326,7 @@ public class CharacterClass
 
     public void SetIntelligence(int howMuchToSet, string skillName, bool isLog = true)
     {
+        if (howMuchToSet < GetIntelligence() && UnknownBug.Is(this)) return;
         if (howMuchToSet < GetIntelligence() && Madara.HasReanimatedBody(this) && skillName != GordonFreeman.SilentHero) return;
         if (skillName != "Прокачка" && skillName != "Читы")
         {
@@ -1330,6 +1356,7 @@ public class CharacterClass
 
     public void SetIntelligenceForOneFight(int howMuchToSet, string skillName)
     {
+        if (howMuchToSet < GetIntelligence() && UnknownBug.Is(this)) return;
         if (howMuchToSet < GetIntelligence() && Madara.HasReanimatedBody(this)) return;
         //Set Stat only for one fight, not for the whole round!
         //Only used with "GameCharacter" because this overwrites "FightCharacter" mechanics
@@ -1353,6 +1380,7 @@ public class CharacterClass
 
     public void AddPsyche(int howMuchToAdd, string skillName, bool isLog = true)
     {
+        if (howMuchToAdd < 0 && UnknownBug.Is(this)) return;
         if (howMuchToAdd < 0 && Madara.HasReanimatedBody(this)) return;
         if (skillName != "Прокачка" && skillName != "Читы")
         {
@@ -1402,6 +1430,7 @@ public class CharacterClass
 
     public void SetPsyche(int howMuchToSet, string skillName, bool isLog = true)
     {
+        if (howMuchToSet < GetPsyche() && UnknownBug.Is(this)) return;
         if (howMuchToSet < GetPsyche() && Madara.HasReanimatedBody(this)) return;
         if (skillName != "Прокачка" && skillName != "Читы")
         {
@@ -1442,6 +1471,7 @@ public class CharacterClass
 
     public void SetPsycheForOneFight(int howMuchToSet, string skillName)
     {
+        if (howMuchToSet < GetPsyche() && UnknownBug.Is(this)) return;
         if (howMuchToSet < GetPsyche() && Madara.HasReanimatedBody(this)) return;
         //Set Stat only for one fight, not for the whole round!
         //Only used with "GameCharacter" because this overwrites "FightCharacter" mechanics
@@ -1466,6 +1496,7 @@ public class CharacterClass
 
     public void AddSpeed(int howMuchToAdd, string skillName, bool isLog = true)
     {
+        if (howMuchToAdd < 0 && UnknownBug.Is(this)) return;
         if (howMuchToAdd < 0 && Madara.HasReanimatedBody(this)) return;
         if (skillName != "Прокачка" && skillName != "Читы")
         {
@@ -1500,6 +1531,7 @@ public class CharacterClass
 
     public void SetSpeed(int howMuchToSet, string skillName, bool isLog = true)
     {
+        if (howMuchToSet < GetSpeed() && UnknownBug.Is(this)) return;
         if (howMuchToSet < GetSpeed() && Madara.HasReanimatedBody(this)) return;
         if (skillName != "Прокачка" && skillName != "Читы")
         {
@@ -1527,6 +1559,7 @@ public class CharacterClass
 
     public void AddSpeedForOneFight(int howMuchToAdd, string source = "")
     {
+        if (howMuchToAdd < 0 && UnknownBug.Is(this)) return;
         if (howMuchToAdd < 0 && Madara.HasReanimatedBody(this)) return;
         //Add delta to current speed for one fight only
         var current = GetSpeed();
@@ -1538,6 +1571,7 @@ public class CharacterClass
 
     public void SetSpeedForOneFight(int howMuchToSet, string skillName)
     {
+        if (howMuchToSet < GetSpeed() && UnknownBug.Is(this)) return;
         if (howMuchToSet < GetSpeed() && Madara.HasReanimatedBody(this)) return;
         //Set Stat only for one fight, not for the whole round!
         //Only used with "GameCharacter" because this overwrites "FightCharacter" mechanics
@@ -1561,6 +1595,7 @@ public class CharacterClass
 
     public void AddStrength(int howMuchToAdd, string skillName, bool isLog = true)
     {
+        if (howMuchToAdd < 0 && UnknownBug.Is(this)) return;
         if (howMuchToAdd < 0 && Madara.HasReanimatedBody(this)) return;
         if (skillName != "Прокачка" && skillName != "Читы")
         {
@@ -1595,6 +1630,7 @@ public class CharacterClass
 
     public void SetStrength(int howMuchToSet, string skillName, bool isLog = true)
     {
+        if (howMuchToSet < GetStrength() && UnknownBug.Is(this)) return;
         if (howMuchToSet < GetStrength() && Madara.HasReanimatedBody(this)) return;
         if (skillName != "Прокачка" && skillName != "Читы")
         {
@@ -1622,6 +1658,7 @@ public class CharacterClass
 
     public void SetStrengthForOneFight(int howMuchToSet, string skillName)
     {
+        if (howMuchToSet < GetStrength() && UnknownBug.Is(this)) return;
         if (howMuchToSet < GetStrength() && Madara.HasReanimatedBody(this)) return;
         //Set Stat only for one fight, not for the whole round!
         //Only used with "GameCharacter" because this overwrites "FightCharacter" mechanics
@@ -1794,6 +1831,7 @@ public class JusticeClass
 
     public void AddRealJusticeNow(int howMuchToAdd = 1)
     {
+        if (howMuchToAdd < 0 && UnknownBug.Is(Status?.GameCharacter)) return;
         RealJusticeNow += howMuchToAdd;
 
         if (RealJusticeNow < 0)
@@ -1804,6 +1842,8 @@ public class JusticeClass
 
     public void SetRealJusticeNow(int howMuchToSet, string skillName, bool isLog = true)
     {
+        if (howMuchToSet < GetRealJusticeNow() && UnknownBug.Is(Status?.GameCharacter)) return;
+
         if (skillName != "Прокачка" && skillName != "Читы")
         {
             skillName = $"|>Stat<|{skillName}";
@@ -1815,6 +1855,8 @@ public class JusticeClass
 
     public void SetJusticeForOneFight(int howMuchToSet, string skillName)
     {
+        if (howMuchToSet < GetRealJusticeNow() && UnknownBug.Is(Status?.GameCharacter)) return;
+
         //Set Stat only for one fight, not for the whole round!
         //Only used with "GameCharacter" because this overwrites "FightCharacter" mechanics
 
@@ -1832,11 +1874,13 @@ public class JusticeClass
 
     public void AddJusticeForNextRoundFromFight(int howMuchToAdd = 1)
     {
+        if (howMuchToAdd < 0 && UnknownBug.Is(Status?.GameCharacter)) return;
         JusticeForNextRoundFromFights += howMuchToAdd;
     }
 
     public void AddJusticeForNextRoundFromSkill(int howMuchToAdd = 1)
     {
+        if (howMuchToAdd < 0 && UnknownBug.Is(Status?.GameCharacter)) return;
         JusticeForNextRoundFromSkills += howMuchToAdd;
     }
 

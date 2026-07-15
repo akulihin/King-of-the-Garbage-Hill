@@ -121,6 +121,8 @@ public class Salldorum
                                              && candidate.GetPlayerId() != player.GetPlayerId());
             if (target == null)
                 continue;
+            if (UnknownBug.Is(target))
+                continue;
 
             shen.Charges--;
             var originalOrder = game.PlayersList.ToList();
@@ -142,11 +144,15 @@ public class Salldorum
             var movesLockedPosition = originalOrder.Any(candidate =>
                 candidate.Passives.GoblinZiggurat.IsInZiggurat
                 && originalOrder.IndexOf(candidate) != projectedOrder.IndexOf(candidate));
+            var movesProtectedBug = originalOrder.Any(candidate =>
+                UnknownBug.Is(candidate)
+                && originalOrder.IndexOf(candidate) != projectedOrder.IndexOf(candidate));
 
-            if (movesLockedPosition)
+            if (movesLockedPosition || movesProtectedBug)
             {
-                player.Status.AddInGamePersonalLogs(
-                    $"Шэн: Зиккурат перекрыл прыжок через {target.DiscordUsername}. Заряд потрачен.\n");
+                if (movesLockedPosition)
+                    player.Status.AddInGamePersonalLogs(
+                        $"Шэн: Зиккурат перекрыл прыжок через {target.DiscordUsername}. Заряд потрачен.\n");
                 continue;
             }
 
@@ -160,6 +166,7 @@ public class Salldorum
             var redirectedActions = 0;
             foreach (var victim in crossedPlayers.Where(candidate =>
                          !candidate.Passives.IsDead
+                         && !UnknownBug.Is(candidate)
                          && !(game.RoundNo == 10 && candidate.GameCharacter.Passive.Any(passive =>
                              passive.PassiveName == "Стримснайпят и банят и банят и банят"))))
             {
@@ -205,7 +212,10 @@ public class Salldorum
             var movesLockedPosition = originalOrder.Any(candidate =>
                 candidate.Passives.GoblinZiggurat.IsInZiggurat
                 && originalOrder.IndexOf(candidate) != projectedOrder.IndexOf(candidate));
-            if (!movesLockedPosition)
+            var movesProtectedBug = originalOrder.Any(candidate =>
+                UnknownBug.Is(candidate)
+                && originalOrder.IndexOf(candidate) != projectedOrder.IndexOf(candidate));
+            if (!movesLockedPosition && !movesProtectedBug)
                 ApplyOrder(game, projectedOrder);
         }
     }
@@ -334,6 +344,8 @@ public class Salldorum
             foreach (var recipientId in recipientIds.Distinct())
             {
                 var holder = game.PlayersList.Find(candidate => candidate.GetPlayerId() == recipientId) ?? enemy;
+                if (UnknownBug.Is(holder)) continue;
+
                 holder.Status.AddBonusPoints(-roundMultiplier, "Великий летописец");
                 player.Status.AddBonusPoints(roundMultiplier, "Великий летописец");
                 totalStolen += roundMultiplier;

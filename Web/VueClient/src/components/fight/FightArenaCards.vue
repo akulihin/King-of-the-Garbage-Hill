@@ -65,6 +65,7 @@ const props = defineProps<{
   isPortalSwap: boolean
   // Display helpers
   getDisplayAvatar: (orig: string, u: string) => string
+  handleAvatarError: (event: Event, username: string) => void
   getDisplayCharName: (orig: string, u: string) => string
   fofBadgeText: (mod: ForOneFightMod) => string
   isFofBuff: (mod: ForOneFightMod) => boolean
@@ -162,7 +163,7 @@ function outcomeClass(f: FightEntry): string {
         <!-- Left character card -->
         <div class="char-card char-card-left" :class="classColor(leftClass)">
           <img :src="props.getDisplayAvatar(props.leftAvatar, props.leftName)" class="char-avatar"
-            @error="(e: Event) => (e.target as HTMLImageElement).src = 'https://r2.ozvmusic.com/kotgh/art/avatars/unknown.png'">
+            @error="(event: Event) => props.handleAvatarError(event, props.leftName)">
           <div class="char-info">
             <span class="char-player-name">{{ props.leftName }}</span>
           </div>
@@ -186,7 +187,7 @@ function outcomeClass(f: FightEntry): string {
         <!-- Right character card -->
         <div class="char-card char-card-right" :class="classColor(rightClass)">
           <img :src="props.getDisplayAvatar(props.rightAvatar, props.rightName)" class="char-avatar"
-            @error="(e: Event) => (e.target as HTMLImageElement).src = 'https://r2.ozvmusic.com/kotgh/art/avatars/unknown.png'">
+            @error="(event: Event) => props.handleAvatarError(event, props.rightName)">
           <div class="char-info">
             <span class="char-player-name">{{ props.rightName }}</span>
           </div>
@@ -211,7 +212,7 @@ function outcomeClass(f: FightEntry): string {
             {{ leftClass === 'Интеллект' ? 'INT' : leftClass === 'Сила' ? 'STR' : leftClass === 'Скорость' ? 'SPD' : '?' }}
           </div>
           <img :src="props.getDisplayAvatar(props.leftAvatar, props.leftName)" class="char-avatar"
-            @error="(e: Event) => (e.target as HTMLImageElement).src = 'https://r2.ozvmusic.com/kotgh/art/avatars/unknown.png'">
+            @error="(event: Event) => props.handleAvatarError(event, props.leftName)">
           <div class="char-info">
             <span class="char-name">{{ props.getDisplayCharName(props.leftCharName, props.leftName) }}</span>
             <span class="char-player-name">{{ props.leftName }}</span>
@@ -359,7 +360,7 @@ function outcomeClass(f: FightEntry): string {
             {{ rightClass === 'Интеллект' ? 'INT' : rightClass === 'Сила' ? 'STR' : rightClass === 'Скорость' ? 'SPD' : '?' }}
           </div>
           <img :src="props.getDisplayAvatar(props.rightAvatar, props.rightName)" class="char-avatar"
-            @error="(e: Event) => (e.target as HTMLImageElement).src = 'https://r2.ozvmusic.com/kotgh/art/avatars/unknown.png'">
+            @error="(event: Event) => props.handleAvatarError(event, props.rightName)">
           <div class="char-info">
             <span class="char-name">{{ props.getDisplayCharName(props.rightCharName, props.rightName) }}</span>
             <span class="char-player-name">{{ props.rightName }}</span>

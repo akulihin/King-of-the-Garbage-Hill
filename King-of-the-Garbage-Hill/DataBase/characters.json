@@ -781,28 +781,28 @@
     "Psyche": 7,
     "Speed": 3,
     "Strength": 3,
-    "Avatar": "https://r2.ozvmusic.com/kotgh/art/avatars/unknown.png",
+    "Avatar": "https://r2.ozvmusic.com/kotgh/art/avatars/unknown_bug.png",
     "Passive": [
       {
-        "PassiveDescription": "`me.PlayerType = 2;`\n//Видит всех врагов и их статы",
+        "PassiveDescription": "`me.PlayerType = 2;`\n//видит всех врагов и их статы. походу имеет доступ к консоли",
         "PassiveName": "AdminPlayerType",
         "Visible": true,
         "Standalone": false
       },
       {
-        "PassiveDescription": "`!target.Status.IsAbleToWin;`\n// Всегда побеждает",
+        "PassiveDescription": "`!target.Status.IsAbleToWin;`\n//всегда побеждает. наверное Darksi виноват, все баги от него. не персонаж, а сплошной костыль. надо его выпилить, пока лист не видит. ",
         "PassiveName": "AutoWin",
         "Visible": true,
         "Standalone": false
       },
       {
-        "PassiveDescription": "`target.Passives.PointFunneledTo = me.GetPlayerId();`\n //баг не получает очки за свои победы, но багу засчитываются те же победы что и тому, на кого он напал на этом ходу",
+        "PassiveDescription": "`target.Passives.PointFunneledTo = me.GetPlayerId();`\n//баг не получает очки за свои победы, но ему начисляются победы раунда от цели на которую он напал. видимо оно дублирует победы цели и зачисляет дубликаты багу на том же раунде.",
         "PassiveName": "PointFunnel",
         "Visible": true,
         "Standalone": false
       },
       {
-        "PassiveDescription": "`target.Passives.IsExploitable = true;`\n//на каждом игроке по очереди появляется значок \"эксплойт\", после первого нападения на такого игрока, лорик закрывает эксплойт навсегда и приносит очки за каждую победу бага над носителями экслойта",
+        "PassiveDescription": "`target.Passives.IsExploitable = true;`\n//на каждом игроке по очереди появляется значок \"эксплойт\", после первого нападения на такого игрока, лорик закрывает эксплойт навсегда. А закрытие почему-то приносит багу очки за каждую победу **бага** над **носителями** эксплойта. но как вообще баг настакивает победы, если при первом же нападением на них эксплойт сразу закрывается?",
         "PassiveName": "Exploit",
         "Visible": true,
         "Standalone": false

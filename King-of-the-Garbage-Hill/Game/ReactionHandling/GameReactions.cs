@@ -835,9 +835,13 @@ public sealed class GameReaction : IServiceSingleton
                 var whoToAttack2 = game.PlayersList.Find(x => x.Status.GetPlaceAtLeaderBoard() == targetPlace - 1);
                 var whoToAttack3 = game.PlayersList.Find(x => x.Status.GetPlaceAtLeaderBoard() == targetPlace + 1);
 
-                if (whoToAttack2 != null && whoToAttack2.GetPlayerId() != player.GetPlayerId())
+                if (whoToAttack2 != null
+                    && whoToAttack2.GetPlayerId() != player.GetPlayerId()
+                    && !UnknownBug.Is(whoToAttack2))
                     status.WhoToAttackThisTurn.Add(whoToAttack2.GetPlayerId());
-                if (whoToAttack3 != null && whoToAttack3.GetPlayerId() != player.GetPlayerId())
+                if (whoToAttack3 != null
+                    && whoToAttack3.GetPlayerId() != player.GetPlayerId()
+                    && !UnknownBug.Is(whoToAttack3))
                     status.WhoToAttackThisTurn.Add(whoToAttack3.GetPlayerId());
             }
             //end Клинки хаоса
@@ -1162,7 +1166,7 @@ public sealed class GameReaction : IServiceSingleton
                         foreach (var targetId in mm.KompromatTargets)
                         {
                             var kompromatTarget = game.PlayersList.Find(x => x.GetPlayerId() == targetId);
-                            if (kompromatTarget == null) continue;
+                            if (kompromatTarget == null || UnknownBug.Is(kompromatTarget)) continue;
                             var theirMoral = kompromatTarget.GameCharacter.GetMoral();
                             if (theirMoral > 0)
                             {

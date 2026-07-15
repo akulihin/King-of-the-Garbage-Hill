@@ -79,7 +79,7 @@ function isMasked(player: Player): boolean {
 
 /** Get display avatar for a player */
 function getDisplayAvatar(player: Player): string {
-  if (isTerminalOwner(player)) return 'https://r2.ozvmusic.com/kotgh/art/avatars/unknown.png'
+  if (isTerminalOwner(player)) return player.character.avatarCurrent || player.character.avatar
   if (!isMasked(player)) return player.character.avatarCurrent || player.character.avatar
   const pred = getPredictedCharInfo(player.playerId)
   if (pred) return pred.avatar

@@ -132,6 +132,7 @@ public static class DoomGuy
         }
 
         if (state.GetActive(Shield) == CounterAttack
+            && !UnknownBug.Is(enemy)
             && state.CounterAttackMarks.GetValueOrDefault(enemy.GetPlayerId()) == game.RoundNo)
         {
             enemy.FightCharacter.SetSkillForOneFight(0, CounterAttack);

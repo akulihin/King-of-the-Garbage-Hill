@@ -150,7 +150,8 @@ public class DoomsdayMachine : IServiceSingleton
     {
         if (!game.IsKratosEvent) return;
 
-        foreach (var player in game.PlayersList.Where(player => player.GameCharacter.Name != "Кратос"))
+        foreach (var player in game.PlayersList.Where(player =>
+                     player.GameCharacter.Name != "Кратос" && !UnknownBug.Is(player)))
         {
             player.Status.WhoToAttackThisTurn.Clear();
             player.Status.IsSkip = false;
@@ -257,21 +258,17 @@ public class DoomsdayMachine : IServiceSingleton
         //FightCharacter == READ ONLY
         //GameCharacter == WRITE ONLY
         //FightCharacter writes cans happens only "for one fight" not for the whole round!
-        var unknownBugBeforeRoundOverride = UnknownBug.FindOwner(game);
         var isEternalTsukuyomiRound = Madara.PrepareEternalTsukuyomiRound(game);
-        if (isEternalTsukuyomiRound && unknownBugBeforeRoundOverride != null)
-        {
-            var submittedTargets = Madara.GetIllusoryTargets(game, unknownBugBeforeRoundOverride);
-            var exploitTargetBeforeRoundOverride = game.PlayersList.FirstOrDefault(target =>
-                target.Passives.IsExploitable && submittedTargets.Contains(target.GetPlayerId()));
-            if (exploitTargetBeforeRoundOverride != null)
-                UnknownBug.TryCommitExploit(
-                    game, unknownBugBeforeRoundOverride, exploitTargetBeforeRoundOverride, false);
-        }
         if (isEternalTsukuyomiRound)
-            game.AddGlobalLogs(GordonFreeman.Find(game)?.Passives.Gordon.WakeReservedForEternalTsukuyomi == true
-                ? "Все игроки, кроме Гордона Фримена, пропустили ход..."
-                : "Все игроки пропустили ход...");
+        {
+            var livingBugActs = game.PlayersList.Any(player =>
+                UnknownBug.Is(player) && !player.Passives.IsDead
+                                      && player.Status.WhoToAttackThisTurn.Count > 0);
+            if (!livingBugActs)
+                game.AddGlobalLogs(GordonFreeman.Find(game)?.Passives.Gordon.WakeReservedForEternalTsukuyomi == true
+                    ? "Все игроки, кроме Гордона Фримена, пропустили ход..."
+                    : "Все игроки пропустили ход...");
+        }
 
         // Щит-акула replaces DooM Guy's submitted block with a fightable, non-attacking
         // one-turn copy of Братишка's defensive passive. Prepare it before the round snapshot.
@@ -385,7 +382,7 @@ public class DoomsdayMachine : IServiceSingleton
                     ? shenMagnet.GetPlayerId()
                     : geraltPlayer.Status.WhoToAttackThisTurn[0];
                 var target = game.PlayersList.Find(x => x.GetPlayerId() == targetId);
-                if (target != null)
+                if (target != null && !UnknownBug.Is(target))
                 {
                     var count = Salldorum.TakeGeraltContractCount(game, geraltPlayer, target);
                     if (count > 0)
@@ -408,6 +405,7 @@ public class DoomsdayMachine : IServiceSingleton
             {
                 if (attacker.GetPlayerId() == geraltId) continue;
                 if (attacker.Passives.IsDead) continue;
+                if (UnknownBug.Is(attacker)) continue;
                 if (attacker.Status.IsBlock || attacker.Status.IsSkip) continue;
                 if (!attacker.Status.WhoToAttackThisTurn.Contains(geraltId)) continue;
 
@@ -442,9 +440,9 @@ public class DoomsdayMachine : IServiceSingleton
             if (queuedExploitTarget != null
                 && !unknownBug.Status.WhoToAttackThisTurn.Contains(queuedExploitTarget.GetPlayerId()))
                 UnknownBug.TryCommitExploit(game, unknownBug, queuedExploitTarget, false);
-            HandleEventsBeforeCalculation(game);
         }
         EnforceKratosEventActions(game);
+        HandleEventsBeforeCalculation(game);
         if (!game.IsKratosEvent)
             Madara.PrepareIncomingAttackers(game);
         if (!isEternalTsukuyomiRound && !game.IsKratosEvent)
@@ -470,13 +468,13 @@ public class DoomsdayMachine : IServiceSingleton
                     var fightPairs = new List<(Guid attackerId, Guid defenderId)>();
                     foreach (var pl in game.PlayersList)
                     {
-                        if (pl.Passives.IsDead) continue;
+                        if (pl.Passives.IsDead || UnknownBug.Is(pl)) continue;
                         if ((pl.Status.IsBlock || pl.Status.IsSkip) && pl.Status.WhoToAttackThisTurn.Count == 0)
                             continue;
                         foreach (var targetId in pl.Status.WhoToAttackThisTurn.Where(t => t != pl.GetPlayerId()))
                         {
                             var target = game.PlayersList.Find(x => x.GetPlayerId() == targetId);
-                            if (target != null && !target.Passives.IsDead)
+                            if (target != null && !target.Passives.IsDead && !UnknownBug.Is(target))
                                 fightPairs.Add((pl.GetPlayerId(), targetId));
                         }
                     }
@@ -541,6 +539,7 @@ public class DoomsdayMachine : IServiceSingleton
                         candidate.GetPlayerId() != primaryTarget.GetPlayerId()
                         && Math.Sign(index - attackerIndex) == direction
                         && !candidate.Passives.IsDead
+                        && !UnknownBug.Is(candidate)
                         && !Madara.IsSealed(candidate)
                         && !player.IsTeamMember(game, candidate.GetPlayerId())
                         && !(game.RoundNo == 10 && candidate.GameCharacter.Passive.Any(x =>
@@ -548,7 +547,7 @@ public class DoomsdayMachine : IServiceSingleton
 
                     var originalExtraTargets = targetsToFight.Skip(1).ToList();
                     targetsToFight = railgunTargets
-                        .Select(x => (Target: x, BfgDirection: 0, RailgunFight: true))
+                        .Select(x => (Target: x, BfgDirection: 0, RailgunFight: !UnknownBug.Is(x)))
                         .Concat(originalExtraTargets)
                         .ToList();
                     doomGunState.RailgunCharged = false;
@@ -645,13 +644,15 @@ public class DoomsdayMachine : IServiceSingleton
                 // These module overrides are authoritative for this one fight and therefore run
                 // after both ordinary before-fight passive dispatchers.
                 DoomGuy.ApplyFightModules(player, playerIamAttacking, game);
-                var narutoSummonAutoWin = Naruto.IsSummonAutoWin(player, playerIamAttacking);
+                var narutoSummonAutoWin = !UnknownBug.Is(playerIamAttacking)
+                                          && Naruto.IsSummonAutoWin(player, playerIamAttacking);
 
                 // This is the authoritative Pickle Rick outcome, applied after both before-fight
                 // dispatchers: the active pickle always accepts the fight and always wins it, even
                 // when a later attacker passive tried to restore block/skip or disable his victory.
                 if (playerIamAttacking.GameCharacter.Passive.Any(x => x.PassiveName == "Огурчик Рик")
-                    && playerIamAttacking.Passives.RickPickle.PickleTurnsRemaining > 0)
+                    && playerIamAttacking.Passives.RickPickle.PickleTurnsRemaining > 0
+                    && !UnknownBug.Is(player))
                 {
                     playerIamAttacking.Passives.RickPickle.WasAttackedAsPickle = true;
                     playerIamAttacking.Status.IsBlock = false;
@@ -708,7 +709,7 @@ public class DoomsdayMachine : IServiceSingleton
                         player.Status.AddRegularPoints(2, Madara.SecondMeteorite);
                         game.Phrases.MadaraSecondMeteorite.SendLog(player, false, isRandomOrder: false);
                     }
-                    else
+                    else if (!UnknownBug.Is(player))
                     {
                         player.Status.AddBonusPoints(blockPenalty, "Блок");
                     }
@@ -716,7 +717,8 @@ public class DoomsdayMachine : IServiceSingleton
                     var doomShield = playerIamAttacking.Passives.DoomGuy;
                     if (playerIamAttacking.GameCharacter.Name == DoomGuy.CharacterName
                         && doomShield.GetActive(DoomGuy.Shield) == DoomGuy.ShockShield
-                        && !doomShield.ShockShieldUsed)
+                        && !doomShield.ShockShieldUsed
+                        && !UnknownBug.Is(player))
                     {
                         doomShield.ShockShieldUsed = true;
                         doomShield.ShockSkipTarget = player.GetPlayerId();
@@ -818,6 +820,8 @@ public class DoomsdayMachine : IServiceSingleton
                 // Монтировка counts only fights that survived every Block/Skip gate.
                 var gordonCrowbarWin = GordonFreeman.BeginResolvedFight(
                     player, playerIamAttacking, out var crowbarGordon);
+                if (UnknownBug.Is(player) || UnknownBug.Is(playerIamAttacking))
+                    gordonCrowbarWin = false;
 
                 //round 1 (nemesis)
 
@@ -904,7 +908,8 @@ public class DoomsdayMachine : IServiceSingleton
                 var stormFlipped = false;
                 if (stormRb != null && stormRb.SelectedTrickThisRound == 1 && !stormRb.FightProcessed &&
                     stormRb.FightTargetAttackerId == player.GetPlayerId() &&
-                    stormRb.FightTargetDefenderId == playerIamAttacking.GetPlayerId())
+                    stormRb.FightTargetDefenderId == playerIamAttacking.GetPlayerId() &&
+                    !UnknownBug.Is(player) && !UnknownBug.Is(playerIamAttacking))
                 {
                     stormAppeared = true;
                     stormRb.FightProcessed = true;
@@ -950,10 +955,12 @@ public class DoomsdayMachine : IServiceSingleton
                     var isBfgPrimary = player.GameCharacter.Name == DoomGuy.CharacterName
                                        && bfgWaveDirection == 0
                                        && doomGun.GetActive(DoomGuy.Gun) == DoomGuy.Bfg
-                                       && doomGun.BfgCharged;
+                                       && doomGun.BfgCharged
+                                       && !UnknownBug.Is(playerIamAttacking);
                     var isBfgWaveFight = player.GameCharacter.Name == DoomGuy.CharacterName
                                          && bfgWaveDirection != 0
-                                         && doomGun.GetActive(DoomGuy.Gun) == DoomGuy.Bfg;
+                                         && doomGun.GetActive(DoomGuy.Gun) == DoomGuy.Bfg
+                                         && !UnknownBug.Is(playerIamAttacking);
                     if (isBfgPrimary || isBfgWaveFight)
                     {
                         if (isBfgPrimary)
@@ -993,7 +1000,8 @@ public class DoomsdayMachine : IServiceSingleton
                 //izanagi  // playerIamAttacking is Itachi (defender)
                 if (!gordonCrowbarWin && !narutoSummonAutoWin && pointsWined >= 1
                     && playerIamAttacking.GameCharacter.Passive.Any(p => p.PassiveName == "Изанаги")
-                    && playerIamAttacking.Passives.ItachiIzanagi.UsesRemaining > 0)
+                    && playerIamAttacking.Passives.ItachiIzanagi.UsesRemaining > 0
+                    && !UnknownBug.Is(player))
                 {
                     playerIamAttacking.Passives.ItachiIzanagi.UsesRemaining--;
                     pointsWined = -1;
@@ -1015,6 +1023,13 @@ public class DoomsdayMachine : IServiceSingleton
                         $"{GordonFreeman.Crowbar}: третий состоявшийся бой выигран.\n");
                 }
 
+                // AutoWin is the final combat invariant: terminal outcome replacers may not
+                // turn a resolved unknown_bug fight into a loss from either direction.
+                if (UnknownBug.Is(player))
+                    pointsWined = 1;
+                else if (UnknownBug.Is(playerIamAttacking))
+                    pointsWined = -1;
+
                 // BFG wave: a guaranteed primary win starts two outward branches. Each branch
                 // advances one leaderboard neighbour only while its previous fight was won.
                 if (pointsWined >= 1 && (bfgTriggeredThisFight || bfgWaveDirection != 0))
@@ -1027,6 +1042,7 @@ public class DoomsdayMachine : IServiceSingleton
                         if (nextIndex < 0 || nextIndex >= game.PlayersList.Count) continue;
                         var nextTarget = game.PlayersList[nextIndex];
                         if (nextTarget.Passives.IsDead || Madara.IsSealed(nextTarget)
+                            || UnknownBug.Is(nextTarget)
                             || !bfgWaveVisited.Add(nextTarget.GetPlayerId())) continue;
                         targetsToFight.Add((nextTarget, direction, false));
                     }
@@ -1311,7 +1327,8 @@ public class DoomsdayMachine : IServiceSingleton
                                                || Salldorum.FindRandomTargetMagnet(game, playerIamAttacking)?.GetPlayerId() == player.GetPlayerId()
                                     ? "Контракт" : "Лут";
                             playerIamAttacking.Status.AddWinPoints(game, playerIamAttacking, 1, defWinSource);
-                            defenderWinPointRecipients.Add(playerIamAttacking.GetPlayerId());
+                            if (!UnknownBug.Is(playerIamAttacking))
+                                defenderWinPointRecipients.Add(playerIamAttacking.GetPlayerId());
                         }
                     }
 
@@ -1788,12 +1805,15 @@ public class DoomsdayMachine : IServiceSingleton
             }
             else
             {
-                player.Status.SetScoresToGiveAtEndOfRound(0, "", false);
-                player.GameCharacter.SetBonusPointsFromMoral(0);
+                if (!UnknownBug.Is(player))
+                {
+                    player.Status.SetScoresToGiveAtEndOfRound(0, "", false);
+                    player.GameCharacter.SetBonusPointsFromMoral(0);
+                }
             }
 
             var scoreBeforeRoundSettlement = player.Status.GetScore();
-            if (!player.Passives.IsDead)
+            if (!player.Passives.IsDead || UnknownBug.Is(player))
                 player.Status.CombineRoundScoreAndGameScore(
                     game, GordonFreeman.ConsumeSettlementOverride(player));
             if (game.RoundNo == 10)
@@ -1876,10 +1896,12 @@ public class DoomsdayMachine : IServiceSingleton
 
             if (tigr is { TimeCount: > 0 })
             {
-                // Can't swap a player in ziggurat
-                if (game.PlayersList.First().Passives.GoblinZiggurat.IsInZiggurat)
+                // Can't swap a player in ziggurat or displace unknown_bug.
+                if (game.PlayersList.First().Passives.GoblinZiggurat.IsInZiggurat
+                    || UnknownBug.Is(game.PlayersList.First()))
                 {
-                    player.WebMessages.Add("🏛️ Зиккурат Гоблинов защищает первое место!");
+                    if (game.PlayersList.First().Passives.GoblinZiggurat.IsInZiggurat)
+                        player.WebMessages.Add("🏛️ Зиккурат Гоблинов защищает первое место!");
                     continue;
                 }
 
@@ -1977,6 +1999,9 @@ public class DoomsdayMachine : IServiceSingleton
             var savedIdx = kvp.Value;
             if (currentIdx != savedIdx && savedIdx < game.PlayersList.Count)
             {
+                if (UnknownBug.Is(game.PlayersList[savedIdx]))
+                    continue;
+
                 game.PlayersList[currentIdx] = game.PlayersList[savedIdx];
                 game.PlayersList[savedIdx] = zigPlayer;
                 // Re-assign places
@@ -1995,7 +2020,10 @@ public class DoomsdayMachine : IServiceSingleton
             if (currentBiteIdx != savedBiteIdx && savedBiteIdx < game.PlayersList.Count)
             {
                 // Check Ziggurat immunity on the player in target position
-                if (game.PlayersList[savedBiteIdx].Passives.GoblinZiggurat.IsInZiggurat) continue;
+                if (game.PlayersList[savedBiteIdx].Passives.GoblinZiggurat.IsInZiggurat
+                    || UnknownBug.Is(biteLockedPlayer)
+                    || UnknownBug.Is(game.PlayersList[savedBiteIdx]))
+                    continue;
 
                 game.PlayersList[currentBiteIdx] = game.PlayersList[savedBiteIdx];
                 game.PlayersList[savedBiteIdx] = biteLockedPlayer;
@@ -2020,7 +2048,9 @@ public class DoomsdayMachine : IServiceSingleton
                         {
                             var aboveIdx = biteIdx - 1;
                             // Check Ziggurat immunity on above player
-                            if (!game.PlayersList[aboveIdx].Passives.GoblinZiggurat.IsInZiggurat)
+                            if (!game.PlayersList[aboveIdx].Passives.GoblinZiggurat.IsInZiggurat
+                                && !UnknownBug.Is(biteTarget)
+                                && !UnknownBug.Is(game.PlayersList[aboveIdx]))
                             {
                                 game.PlayersList[biteIdx] = game.PlayersList[aboveIdx];
                                 game.PlayersList[aboveIdx] = biteTarget;

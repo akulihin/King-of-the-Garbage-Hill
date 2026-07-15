@@ -1331,7 +1331,9 @@ const injectedFights = computed<DisplayFight[]>(() => {
       ...source,
       attackerName: myUsername.value,
       attackerCharName: myPlayer.value!.character.name,
-      attackerAvatar: missingAvatarUrl,
+      attackerAvatar: myPlayer.value!.character.avatarCurrent
+        || myPlayer.value!.character.avatar
+        || missingAvatarUrl,
       defenderName: loserName,
       defenderCharName: loserCharName,
       defenderAvatar: loserAvatar,
@@ -1408,11 +1410,17 @@ function getPredictionForPlayer(u: string): string {
   return pred?.characterName ?? ''
 }
 function getDisplayAvatar(orig: string, u: string): string {
-  if (props.terminalMode && u === myUsername.value) return missingAvatarUrl
   if (!isPlayerMasked(u)) return orig
   const predName = getPredictionForPlayer(u)
   if (predName && charCatalogMap.value[predName]) return charCatalogMap.value[predName].avatar
   return 'https://r2.ozvmusic.com/kotgh/art/avatars/unknown_fixvalues.png'
+}
+function handleAvatarError(event: Event, username: string): void {
+  // unknown_bug intentionally keeps its missing image; ordinary failed art still
+  // receives the long-standing generic placeholder.
+  if (props.terminalMode && username === myUsername.value) return
+  const image = event.target as HTMLImageElement
+  if (image.src !== missingAvatarUrl) image.src = missingAvatarUrl
 }
 function getDisplayCharName(orig: string, u: string): string {
   if (!isPlayerMasked(u)) return orig
@@ -1474,7 +1482,7 @@ function getDisplayCharName(orig: string, u: string): string {
           <div class="fa-all-mid">
             <img :src="getDisplayAvatar(allFightLeft(f).avatar, allFightLeft(f).name)"
               class="fa-all-ava" :class="{ 'ava-winner': allFightLeft(f).isWinner, 'ava-perfect': allFightLeft(f).isWinner && perfectRoundPlayers.has(allFightLeft(f).name) }"
-              @error="(e: Event) => (e.target as HTMLImageElement).src = 'https://r2.ozvmusic.com/kotgh/art/avatars/unknown.png'">
+              @error="(event: Event) => handleAvatarError(event, allFightLeft(f).name)">
             <span class="fa-all-center" :class="{
               'center-neutral': f.outcome === 'block' || f.outcome === 'skip',
               'center-drop': f.drops > 0 && f.outcome !== 'block' && f.outcome !== 'skip',
@@ -1482,7 +1490,7 @@ function getDisplayCharName(orig: string, u: string): string {
             }">{{ allFightCenterLabel(f) }}</span>
             <img :src="getDisplayAvatar(allFightRight(f).avatar, allFightRight(f).name)"
               class="fa-all-ava" :class="{ 'ava-winner': allFightRight(f).isWinner, 'ava-perfect': allFightRight(f).isWinner && perfectRoundPlayers.has(allFightRight(f).name) }"
-              @error="(e: Event) => (e.target as HTMLImageElement).src = 'https://r2.ozvmusic.com/kotgh/art/avatars/unknown.png'">
+              @error="(event: Event) => handleAvatarError(event, allFightRight(f).name)">
           </div>
           <!-- Right name (winner / attacker for block-skip) -->
           <span class="fa-all-name fa-all-name-right" :class="{ 'name-winner': allFightRight(f).isWinner }" :title="allFightRight(f).name">
@@ -1575,6 +1583,7 @@ function getDisplayCharName(orig: string, u: string): string {
         :is-portal-swap="isPortalSwap"
         :clash-phase="clashPhase"
         :get-display-avatar="getDisplayAvatar"
+        :handle-avatar-error="handleAvatarError"
         :get-display-char-name="getDisplayCharName"
         :fof-badge-text="fofBadgeText"
         :is-fof-buff="isFofBuff"
@@ -1634,6 +1643,7 @@ function getDisplayCharName(orig: string, u: string): string {
         :fight-shake="fightShake"
         :is-portal-swap="isPortalSwap"
         :get-display-avatar="getDisplayAvatar"
+        :handle-avatar-error="handleAvatarError"
         :get-display-char-name="getDisplayCharName"
         :fof-badge-text="fofBadgeText"
         :is-fof-buff="isFofBuff"
@@ -1693,6 +1703,7 @@ function getDisplayCharName(orig: string, u: string): string {
         :fight-shake="fightShake"
         :is-portal-swap="isPortalSwap"
         :get-display-avatar="getDisplayAvatar"
+        :handle-avatar-error="handleAvatarError"
         :get-display-char-name="getDisplayCharName"
         :fof-badge-text="fofBadgeText"
         :is-fof-buff="isFofBuff"

@@ -78,6 +78,10 @@ public static class Madara
 
         foreach (var player in game.PlayersList)
         {
+            // Terminal isolation: the world-wide skip cannot rewrite Bug's submitted action.
+            if (UnknownBug.Is(player))
+                continue;
+
             if (GordonFreeman.IsAwakeForEternalTsukuyomi(player, game))
             {
                 player.Status.IsSkip = false;

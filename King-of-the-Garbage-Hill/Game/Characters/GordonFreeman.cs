@@ -136,6 +136,7 @@ public static class GordonFreeman
             .Where(player => gordon.TeamId <= 0 || player.TeamId != gordon.TeamId)
             .Where(player => !player.Passives.IsDead)
             .Where(player => player.GameCharacter.Name != "Краборак")
+            .Where(player => !UnknownBug.Is(player))
             .Where(player => !player.Passives.GordonHeadcrab.IsZombie)
             .Where(player => !player.Passives.GordonHeadcrab.IsActive)
             .ToList();

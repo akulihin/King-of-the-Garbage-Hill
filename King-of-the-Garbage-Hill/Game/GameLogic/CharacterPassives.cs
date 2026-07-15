@@ -53,12 +53,21 @@ public class CharacterPassives : IServiceSingleton
     private static Guid ResolveDeferredRecipient(GameClass game, GamePlayerBridgeClass saitama, Guid fightTargetId,
         Guid naturalRecipientId)
     {
+        var naturalRecipient = game.PlayersList.Find(player => player.GetPlayerId() == naturalRecipientId);
+        if (naturalRecipient != null
+            && UnknownBug.Is(Naruto.ResolveScoreSuccessor(game, naturalRecipient)))
+            return Guid.Empty;
+
         var jew = game.PlayersList.FirstOrDefault(p =>
             p.GetPlayerId() != saitama.GetPlayerId() &&
             p.GetPlayerId() != naturalRecipientId &&
             p.GameCharacter.Passive.Any(x => x.PassiveName == "Еврей") &&
             p.Status.WhoToAttackThisTurn.Contains(fightTargetId));
-        return jew?.GetPlayerId() ?? naturalRecipientId;
+        var recipientId = jew?.GetPlayerId() ?? naturalRecipientId;
+        var recipient = game.PlayersList.Find(player => player.GetPlayerId() == recipientId);
+        return recipient != null && UnknownBug.Is(Naruto.ResolveScoreSuccessor(game, recipient))
+            ? Guid.Empty
+            : recipientId;
     }
 
     private static void ApplyAttackTitanBoost(GamePlayerBridgeClass eren)
@@ -184,7 +193,9 @@ public class CharacterPassives : IServiceSingleton
                 case "Им это не понравится":
                     var excludedNames = new HashSet<string> { "Злой Школьник", "Глеб", "mylorik", "Загадочный Спартанец в маске" };
                     var candidates = playersList
-                        .Where(p => p.GetPlayerId() != player.GetPlayerId() && !excludedNames.Contains(p.GameCharacter.Name))
+                        .Where(p => p.GetPlayerId() != player.GetPlayerId()
+                                    && !UnknownBug.Is(p)
+                                    && !excludedNames.Contains(p.GameCharacter.Name))
                         .ToList();
 
                     Guid enemy1;
@@ -216,7 +227,8 @@ public class CharacterPassives : IServiceSingleton
                     else
                     {
                         // Fallback: pick any non-self player
-                        var fallback = playersList.Where(p => p.GetPlayerId() != player.GetPlayerId()).ToList();
+                        var fallback = playersList.Where(p => p.GetPlayerId() != player.GetPlayerId()
+                                                             && !UnknownBug.Is(p)).ToList();
                         enemy1 = fallback[_rand.Random(0, fallback.Count - 1)].GetPlayerId();
                     }
 
@@ -228,7 +240,9 @@ public class CharacterPassives : IServiceSingleton
                     else
                     {
                         // Fallback: pick any non-self, non-enemy1 player
-                        var fallback2 = playersList.Where(p => p.GetPlayerId() != player.GetPlayerId() && p.GetPlayerId() != enemy1).ToList();
+                        var fallback2 = playersList.Where(p => p.GetPlayerId() != player.GetPlayerId()
+                                                              && p.GetPlayerId() != enemy1
+                                                              && !UnknownBug.Is(p)).ToList();
                         enemy2 = fallback2.Count > 0
                             ? fallback2[_rand.Random(0, fallback2.Count - 1)].GetPlayerId()
                             : enemy1; // extreme edge case: only 2 players
@@ -262,7 +276,7 @@ public class CharacterPassives : IServiceSingleton
                 case "Тигр топ, а ты холоп":
                     var tigr = player.Passives.TigrTop;
 
-                    if (tigr is { TimeCount: > 0 })
+                    if (tigr is { TimeCount: > 0 } && !UnknownBug.Is(playersList.First()))
                     {
                         var tigrIndex = playersList.IndexOf(player);
 
@@ -289,11 +303,14 @@ public class CharacterPassives : IServiceSingleton
                     player.GameCharacter.SetPsyche(8, "Main Ирелия", false);
                     break;
 
-                    case "Много выебывается": 
-                        //first place
-                    playerIndex = playersList.IndexOf(player);
-                    playersList[playerIndex] = playersList.First();
-                    playersList[0] = player;
+                    case "Много выебывается":
+                        // First place, unless that would displace terminal-isolated unknown_bug.
+                    if (!UnknownBug.Is(playersList.First()))
+                    {
+                        playerIndex = playersList.IndexOf(player);
+                        playersList[playerIndex] = playersList.First();
+                        playersList[0] = player;
+                    }
 
                     //x3 class for target
                     //player.GameCharacter.SetTargetSkillMultiplier(2);
@@ -400,7 +417,8 @@ public class CharacterPassives : IServiceSingleton
                     if (player.GameCharacter.Name == "Геральт")
                     {
                         var geraltContracts = player.Passives.GeraltContracts;
-                        var enemies = playersList.Where(x => x.GetPlayerId() != player.GetPlayerId()).ToList();
+                        var enemies = playersList.Where(x => x.GetPlayerId() != player.GetPlayerId()
+                                                           && !UnknownBug.Is(x)).ToList();
 
                         // Fixed type assignments
                         var fixedTypes = new Dictionary<string, Geralt.MonsterType>
@@ -523,7 +541,7 @@ public class CharacterPassives : IServiceSingleton
                     break;
 
                 case ErenYeager.Fighter:
-                    if (target.GameCharacter.Name == ErenYeager.CharacterName)
+                    if (target.GameCharacter.Name == ErenYeager.CharacterName && !UnknownBug.Is(me))
                         me.Passives.ErenHatredMark = 2;
                     break;
 
@@ -617,7 +635,7 @@ public class CharacterPassives : IServiceSingleton
                     break;
 
                 case "Раммус мейн":
-                    if (target.Status.IsBlock && game.RoundNo <= 10)
+                    if (target.Status.IsBlock && game.RoundNo <= 10 && !UnknownBug.Is(me))
                     {
                         // target.Status.IsBlock = false;
                         me.Status.IsAbleToWin = false;
@@ -666,6 +684,8 @@ public class CharacterPassives : IServiceSingleton
                     break;
 
                 case "Запах мусора":
+                    if (UnknownBug.Is(me)) break;
+
                     var mitsuki = target.Passives.MitsukiGarbageList;
 
 
@@ -693,7 +713,8 @@ public class CharacterPassives : IServiceSingleton
                         // this defensive fight (IsAbleToWin=false → he scores 0, the attacker gets +1), so we
                         // must NOT also dock him a regular point — that was double-penalising him.
                         var defRecipient = ResolveDeferredRecipient(game, target, target.GetPlayerId(), me.GetPlayerId());
-                        saitamaAtkUnnoticedAfter.AddDeferred(defRecipient, game.RoundNo);
+                        if (defRecipient != Guid.Empty)
+                            saitamaAtkUnnoticedAfter.AddDeferred(defRecipient, game.RoundNo);
 
                         // Bank the foregone underdog moral too (only applies when Saitama had the worse place).
                         // Deferred-only as well — no upfront moral loss; it is restored/converted on round 10.
@@ -710,7 +731,7 @@ public class CharacterPassives : IServiceSingleton
                     break;
 
                 case "Огурчик Рик":
-                    if (target.Passives.RickPickle.PickleTurnsRemaining > 0)
+                    if (!UnknownBug.Is(me) && target.Passives.RickPickle.PickleTurnsRemaining > 0)
                     {
                         target.Passives.RickPickle.WasAttackedAsPickle = true;
                         me.Status.IsAbleToWin = false;
@@ -733,7 +754,8 @@ public class CharacterPassives : IServiceSingleton
 
                 // Napoleon — Мирный договор: enforce treaty from previous round
                 case "Мирный договор":
-                    if (target.Passives.NapoleonPeaceTreaty.TreatyEnemies.Contains(me.GetPlayerId()))
+                    if (!UnknownBug.Is(me)
+                        && target.Passives.NapoleonPeaceTreaty.TreatyEnemies.Contains(me.GetPlayerId()))
                     {
                         me.Status.IsAbleToWin = false;
                         target.Passives.NapoleonPeaceTreaty.TreatyEnemies.Remove(me.GetPlayerId());
@@ -744,7 +766,7 @@ public class CharacterPassives : IServiceSingleton
                 // Napoleon — Меня надо знать в лицо: auto-win first fight vs each unique attacker
                 case "Меня надо знать в лицо":
                     var napFirstFight = target.Passives.NapoleonFirstFightList;
-                    if (!napFirstFight.FriendList.Contains(me.GetPlayerId()))
+                    if (!UnknownBug.Is(me) && !napFirstFight.FriendList.Contains(me.GetPlayerId()))
                     {
                         napFirstFight.FriendList.Add(me.GetPlayerId());
                         me.Status.IsAbleToWin = false;
@@ -774,7 +796,10 @@ public class CharacterPassives : IServiceSingleton
                     var kimikoDefBefore = target.Passives.TheBoysKimiko;
                     if (target.Passives.TheBoysButcher.SuperDickActive) break; // СуперМудень отключает Кимико
                     // Живое Оружие крадёт ВСЮ справедливость после боя (по настоящему значению) — здесь игнор не применяем
-                    if (!kimikoDefBefore.LivingWeapon && !kimikoDefBefore.IsDisabled && kimikoDefBefore.RegenLevel > 0)
+                    if (!UnknownBug.Is(me)
+                        && !kimikoDefBefore.LivingWeapon
+                        && !kimikoDefBefore.IsDisabled
+                        && kimikoDefBefore.RegenLevel > 0)
                     {
                         var currentJustice = me.FightCharacter.Justice.GetRealJusticeNow();
                         var reduction = Math.Min(currentJustice, kimikoDefBefore.RegenLevel);
@@ -811,7 +836,8 @@ public class CharacterPassives : IServiceSingleton
         var napoleonForAlly = game.PlayersList.Find(x =>
             x.GameCharacter.Passive.Any(p => p.PassiveName == "Мирный договор") &&
             x.Passives.NapoleonAlliance.AllyId == target.GetPlayerId());
-        if (napoleonForAlly != null && napoleonForAlly.Passives.NapoleonPeaceTreaty.TreatyEnemies.Contains(me.GetPlayerId()))
+        if (!UnknownBug.Is(me) && napoleonForAlly != null
+                                      && napoleonForAlly.Passives.NapoleonPeaceTreaty.TreatyEnemies.Contains(me.GetPlayerId()))
         {
             me.Status.IsAbleToWin = false;
             napoleonForAlly.Passives.NapoleonPeaceTreaty.TreatyEnemies.Remove(me.GetPlayerId());
@@ -837,15 +863,18 @@ public class CharacterPassives : IServiceSingleton
                     }
                     if (doomShield.GetActive(DoomGuy.Shield) == DoomGuy.CounterAttack)
                     {
-                        doomShield.CounterAttackMarks[me.GetPlayerId()] = game.RoundNo + 1;
-                        target.Status.AddInGamePersonalLogs(
-                            $"Контр-атака: {me.DiscordUsername} уязвим на следующий ход.\n");
+                        if (!UnknownBug.Is(me))
+                        {
+                            doomShield.CounterAttackMarks[me.GetPlayerId()] = game.RoundNo + 1;
+                            target.Status.AddInGamePersonalLogs(
+                                $"Контр-атака: {me.DiscordUsername} уязвим на следующий ход.\n");
+                        }
                     }
                     break;
 
                 // Napoleon — Мирный договор: register treaty when enemy attacks Napoleon's block
                 case "Мирный договор":
-                    if (target.Status.IsBlock)
+                    if (target.Status.IsBlock && !UnknownBug.Is(me))
                     {
                         if (!target.Passives.NapoleonPeaceTreaty.TreatyEnemies.Contains(me.GetPlayerId()))
                             target.Passives.NapoleonPeaceTreaty.TreatyEnemies.Add(me.GetPlayerId());
@@ -874,7 +903,7 @@ public class CharacterPassives : IServiceSingleton
                         target.GameCharacter.AddExtraSkill(10, "Kimiko");
 
                     // Живое Оружие: украсть настоящую справедливость атакующего (независимо от исхода)
-                    if (kimikoAfter.LivingWeapon)
+                    if (kimikoAfter.LivingWeapon && !UnknownBug.Is(me))
                     {
                         var stolenJustice = me.FightCharacter.Justice.GetRealJusticeNow();
                         if (stolenJustice > 0)
@@ -897,7 +926,8 @@ public class CharacterPassives : IServiceSingleton
             var napoleonForAllyBlock = game.PlayersList.Find(x =>
                 x.GameCharacter.Passive.Any(p => p.PassiveName == "Мирный договор") &&
                 x.Passives.NapoleonAlliance.AllyId == target.GetPlayerId());
-            if (napoleonForAllyBlock != null && !napoleonForAllyBlock.Passives.NapoleonPeaceTreaty.TreatyEnemies.Contains(me.GetPlayerId()))
+            if (!UnknownBug.Is(me) && napoleonForAllyBlock != null
+                                      && !napoleonForAllyBlock.Passives.NapoleonPeaceTreaty.TreatyEnemies.Contains(me.GetPlayerId()))
                 napoleonForAllyBlock.Passives.NapoleonPeaceTreaty.TreatyEnemies.Add(me.GetPlayerId());
         }
     }
@@ -1109,7 +1139,7 @@ public class CharacterPassives : IServiceSingleton
                 case Naruto.Summon:
                     if (me.GameCharacter.Name != Naruto.CharacterName) break;
                     me.Passives.Naruto.SummonAutoWinTarget = Guid.Empty;
-                    if (!Naruto.IsSoloAttack(game, me, target)) break;
+                    if (UnknownBug.Is(target) || !Naruto.IsSoloAttack(game, me, target)) break;
 
                     if (Naruto.WonPoweredFightLastRound(me, target, game))
                     {
@@ -1133,8 +1163,9 @@ public class CharacterPassives : IServiceSingleton
                 case "Монстр":
                     // The attack itself marks the target, even when Block/Skip prevents a fight.
                     // An absolute expiry lets different victims keep independent overlapping windows.
-                    target.Passives.MonsterNoEscapeUntilRound = Math.Max(
-                        target.Passives.MonsterNoEscapeUntilRound, game.RoundNo + 2);
+                    if (!UnknownBug.Is(target))
+                        target.Passives.MonsterNoEscapeUntilRound = Math.Max(
+                            target.Passives.MonsterNoEscapeUntilRound, game.RoundNo + 2);
                     break;
 
                 case Madara.GodOfShinobi:
@@ -1229,7 +1260,7 @@ public class CharacterPassives : IServiceSingleton
                     break;
 
                 case "Возвращение из мертвых":
-                    if (game.RoundNo >= 10)
+                    if (game.RoundNo >= 10 && !UnknownBug.Is(target))
                     {
                         me.Status.IsArmorBreak = true;
                         me.Status.IsSkipBreak = true;
@@ -1251,7 +1282,9 @@ public class CharacterPassives : IServiceSingleton
                 case "Подсчет":
                     var tolya = me.Passives.TolyaCount;
 
-                    if (tolya.IsReadyToUse && me.Status.WhoToAttackThisTurn.Count != 0)
+                    if (tolya.IsReadyToUse
+                        && me.Status.WhoToAttackThisTurn.Count != 0
+                        && !UnknownBug.Is(target))
                     {
                         tolya.TargetList.Add(new Tolya.TolyaCountSubClass(target.GetPlayerId(), game.RoundNo));
                         tolya.IsReadyToUse = false;
@@ -1273,10 +1306,13 @@ public class CharacterPassives : IServiceSingleton
                     break;
 
                 case "Безжалостный охотник":
-                    me.Status.IsArmorBreak = true;
-                    me.Status.IsSkipBreak = true;
-                    if (target.Status.IsBlock || target.Status.IsSkip)
-                        game.Phrases.WeedwickRuthlessHunter.SendLog(me, false);
+                    if (!UnknownBug.Is(target))
+                    {
+                        me.Status.IsArmorBreak = true;
+                        me.Status.IsSkipBreak = true;
+                        if (target.Status.IsBlock || target.Status.IsSkip)
+                            game.Phrases.WeedwickRuthlessHunter.SendLog(me, false);
+                    }
 
                     // Most wanted: always sense Rick regardless of Justice
                     var isMostWantedHunter = target.GameCharacter.Passive.Any(x => x.PassiveName == "Most wanted")
@@ -1293,7 +1329,8 @@ public class CharacterPassives : IServiceSingleton
                 case "Им это не понравится":
                     var spartanMark = me.Passives.SpartanMark;
                     if (spartanMark != null)
-                        if (target.Status.IsBlock && Salldorum.IsRedirectedRandomTarget(
+                        if (!UnknownBug.Is(target)
+                            && target.Status.IsBlock && Salldorum.IsRedirectedRandomTarget(
                                 game, me, target, spartanMark.FriendList))
                         {
                             spartanMark.BlockedPlayer = target.GetPlayerId();
@@ -1365,7 +1402,8 @@ public class CharacterPassives : IServiceSingleton
                 case "Я за чаем":
                     var geblTea = me.Passives.GlebTea;
 
-                    if (geblTea.Ready && me.Status.WhoToAttackThisTurn.Count != 0)
+                    if (geblTea.Ready && me.Status.WhoToAttackThisTurn.Count != 0
+                                      && !UnknownBug.Is(target))
                     {
                         geblTea.Ready = false;
                         target.Passives.GlebTeaTriggeredWhen = new WhenToTriggerClass(game.RoundNo + 1);
@@ -1378,7 +1416,8 @@ public class CharacterPassives : IServiceSingleton
                 case "Спокойствие":
                     var yongGlebTea = me.Passives.YongGlebTea;
 
-                    if (yongGlebTea.IsReadyToUse && me.Status.WhoToAttackThisTurn.Count != 0)
+                    if (yongGlebTea.IsReadyToUse && me.Status.WhoToAttackThisTurn.Count != 0
+                                                 && !UnknownBug.Is(target))
                     {
                         yongGlebTea.IsReadyToUse = false;
                         yongGlebTea.Cooldown = 3;
@@ -1394,7 +1433,7 @@ public class CharacterPassives : IServiceSingleton
                     var siriAttack = me.Passives.SirinoksFriendsAttack;
 
                     if (siri != null && siriAttack != null)
-                        if (siri.FriendList.Contains(target.GetPlayerId()))
+                        if (!UnknownBug.Is(target) && siri.FriendList.Contains(target.GetPlayerId()))
                             if (target.Status.IsBlock || target.Status.IsSkip)
                             {
                                 siriAttack.EnemyId = target.GetPlayerId();
@@ -1450,7 +1489,8 @@ public class CharacterPassives : IServiceSingleton
 
 
                 case "Падальщик":
-                    if (target.Status.WhoToLostEveryRound.Any(x => x.RoundNo == game.RoundNo - 1))
+                    if (!UnknownBug.Is(target)
+                        && target.Status.WhoToLostEveryRound.Any(x => x.RoundNo == game.RoundNo - 1))
                         if (target.GameCharacter.Justice.GetRealJusticeNow() > 0)
                         {
                             var howMuchIgnores = 1;
@@ -1526,7 +1566,7 @@ public class CharacterPassives : IServiceSingleton
 
                 case "Портальная пушка":
                     var gunAtk = me.Passives.RickPortalGun;
-                    if (gunAtk.Invented && gunAtk.Charges > 0)
+                    if (gunAtk.Invented && gunAtk.Charges > 0 && !UnknownBug.Is(target))
                     {
                         target.Status.IsAbleToWin = false;
                         me.Status.IsArmorBreak = true;
@@ -1560,7 +1600,7 @@ public class CharacterPassives : IServiceSingleton
 
                 case "Впарить говна":
                     var sellerVparit = me.Passives.SellerVparitGovna;
-                    if (sellerVparit.Cooldown <= 0)
+                    if (sellerVparit.Cooldown <= 0 && !UnknownBug.Is(target))
                     {
                         // Add 500 skill BEFORE enabling siphon (so 500 is excluded)
                         var savedSiphon = target.GameCharacter.SkillSiphonBox;
@@ -1850,7 +1890,9 @@ public class CharacterPassives : IServiceSingleton
                     break;
 
                 case "Выгодная сделка":
-                    if (game.RoundNo == 10 && me.Status.IsWonThisCalculation == target.GetPlayerId())
+                    if (game.RoundNo == 10
+                        && me.Status.IsWonThisCalculation == target.GetPlayerId()
+                        && !UnknownBug.Is(target))
                     {
                         var debt = target.Passives.SellerTacticBonusEarned;
                         if (debt > 0)
@@ -1867,7 +1909,9 @@ public class CharacterPassives : IServiceSingleton
                         if (me.Status.IsWonThisCalculation == target.GetPlayerId())
                         {
                             // Goblins and Madara are immune to kill effects.
-                            if (target.GameCharacter.Name == "Стая Гоблинов" || Madara.IsMadara(target)) break;
+                            if (target.GameCharacter.Name == "Стая Гоблинов"
+                                || Madara.IsMadara(target)
+                                || UnknownBug.Is(target)) break;
                             game.AddGlobalLogs($"{UnknownBug.PublicName(me)} **УБИЛ** {UnknownBug.PublicName(target)}!");
                             game.AddGlobalLogs($"Они скинули **{target.DiscordUsername}**! Сволочи!");
                             game.Phrases.KratosEventKill.SendLog(me, true, isRandomOrder:false);
@@ -2232,7 +2276,8 @@ public class CharacterPassives : IServiceSingleton
                             // value, attributed to the co-attacker who got the kill (or a Jew who steals it).
                             me.Status.AddRegularPoints(-1, "Неприметность");
                             var atkRecipient = ResolveDeferredRecipient(game, me, target.GetPlayerId(), coAttacker.GetPlayerId());
-                            saitamaAtkUnnoticedAfter.AddDeferred(atkRecipient, game.RoundNo);
+                            if (atkRecipient != Guid.Empty)
+                                saitamaAtkUnnoticedAfter.AddDeferred(atkRecipient, game.RoundNo);
 
                             // Defer moral too (underdog moral only applies when we had worse place)
                             var moralGain = me.Status.GetPlaceAtLeaderBoard() - target.Status.GetPlaceAtLeaderBoard();
@@ -2268,7 +2313,9 @@ public class CharacterPassives : IServiceSingleton
 
                 case "Портальная пушка":
                     var gunAfter = me.Passives.RickPortalGun;
-                    if (gunAfter.Invented && gunAfter.Charges > 0 && me.Status.IsWonThisCalculation == target.GetPlayerId())
+                    if (gunAfter.Invented && gunAfter.Charges > 0
+                        && me.Status.IsWonThisCalculation == target.GetPlayerId()
+                        && !UnknownBug.Is(target))
                     {
                         gunAfter.Charges--;
                         me.Passives.AchievementTracker.PortalGunFires++;
@@ -2276,6 +2323,10 @@ public class CharacterPassives : IServiceSingleton
                         gunAfter.SwappedWith = target.GetPlayerId();
                         gunAfter.FiredThisRound = true;
                         foreach (var p in game.PlayersList)
+                        {
+                            if (UnknownBug.Is(p))
+                                continue;
+
                             for (int i = 0; i < p.Status.WhoToAttackThisTurn.Count; i++)
                             {
                                 if (p.Status.WhoToAttackThisTurn[i] == me.GetPlayerId())
@@ -2283,6 +2334,7 @@ public class CharacterPassives : IServiceSingleton
                                 else if (p.Status.WhoToAttackThisTurn[i] == target.GetPlayerId())
                                     p.Status.WhoToAttackThisTurn[i] = me.GetPlayerId();
                             }
+                        }
 
                         // Most wanted: headhunters follow Rick through the portal
                         foreach (var hunter in game.PlayersList.Where(p =>
@@ -2316,7 +2368,8 @@ public class CharacterPassives : IServiceSingleton
                     if (me.Status.IsWonThisCalculation != Guid.Empty)
                     {
                         me.GameCharacter.AddExtraSkill(20, "Доминация");
-                        target.Status.AddBonusPoints(-1, "Доминация");
+                        if (!UnknownBug.Is(target))
+                            target.Status.AddBonusPoints(-1, "Доминация");
                         if (_rand.Luck(1, 3))
                             target.MinusPsycheLog(target.GameCharacter, game, -1, "Доминация");
                         game.Phrases.DopaDomination.SendLog(me, false);
@@ -2330,8 +2383,11 @@ public class CharacterPassives : IServiceSingleton
                         var targetPlace = target.Status.GetPlaceAtLeaderBoard();
                         if (Math.Abs(myPlace - targetPlace) > 1)
                         {
-                            target.Status.AddBonusPoints(-1, "Роум");
-                            me.Status.AddBonusPoints(1, "Роум");
+                            if (!UnknownBug.Is(target))
+                            {
+                                target.Status.AddBonusPoints(-1, "Роум");
+                                me.Status.AddBonusPoints(1, "Роум");
+                            }
                             target.GameCharacter.AddMoral(-3, "Роум");
                             me.GameCharacter.AddMoral(3, "Роум");
                             game.Phrases.DopaRoam.SendLog(me, false);
@@ -2467,14 +2523,16 @@ public class CharacterPassives : IServiceSingleton
 
         // Источник (Француз) вирусом не заражается.
         if (player.Passives.TheBoysVirus && !opp.Passives.TheBoysVirus
-            && opp.GetPlayerId() != player.Passives.TheBoysVirusSource)
+            && opp.GetPlayerId() != player.Passives.TheBoysVirusSource
+            && !UnknownBug.Is(opp))
         {
             opp.Passives.TheBoysVirus = true;
             opp.Passives.TheBoysVirusSource = player.Passives.TheBoysVirusSource;
             game.AddGlobalLogs($"☣️ Вирус распространился на **{opp.DiscordUsername}**!");
         }
         else if (opp.Passives.TheBoysVirus && !player.Passives.TheBoysVirus
-            && player.GetPlayerId() != opp.Passives.TheBoysVirusSource)
+            && player.GetPlayerId() != opp.Passives.TheBoysVirusSource
+            && !UnknownBug.Is(player))
         {
             player.Passives.TheBoysVirus = true;
             player.Passives.TheBoysVirusSource = opp.Passives.TheBoysVirusSource;
@@ -2594,7 +2652,7 @@ public class CharacterPassives : IServiceSingleton
                         && player.Passives.HasToxicMateCancer && player.Passives.ToxicMateCancerSourceId == p.GetPlayerId())
                     {
                         var cancerTarget = game.PlayersList.Find(x => x.GetPlayerId() == player.Status.IsWonThisCalculation);
-                        if (cancerTarget != null)
+                        if (cancerTarget != null && !UnknownBug.Is(cancerTarget))
                         {
                             // Remove cancer from current holder
                             player.Passives.HasToxicMateCancer = false;
@@ -2658,7 +2716,7 @@ public class CharacterPassives : IServiceSingleton
                     {
                         var winner = game.PlayersList.Find(x =>
                             x.GetPlayerId() == player.Status.IsLostThisCalculation);
-                        if (winner != null)
+                        if (winner != null && !UnknownBug.Is(winner))
                             winner.Passives.ErenHatredMark = Math.Max(1, winner.Passives.ErenHatredMark);
                     }
 
@@ -3293,7 +3351,9 @@ public class CharacterPassives : IServiceSingleton
                         var crowTargetId = player.Status.IsWonThisCalculation != Guid.Empty
                             ? player.Status.IsWonThisCalculation
                             : player.Status.IsLostThisCalculation;
-                        if (crowTargetId != Guid.Empty)
+                        var crowTarget = game.PlayersList.Find(candidate =>
+                            candidate.GetPlayerId() == crowTargetId);
+                        if (crowTarget != null && !UnknownBug.Is(crowTarget))
                         {
                             if (!crowsAfter.CrowCounts.ContainsKey(crowTargetId))
                                 crowsAfter.CrowCounts[crowTargetId] = 0;
@@ -3310,6 +3370,8 @@ public class CharacterPassives : IServiceSingleton
                     var itachiFoughtTarget = player.Status.IsWonThisCalculation != Guid.Empty
                         ? player.Status.IsWonThisCalculation
                         : player.Status.IsLostThisCalculation;
+                    var itachiFoughtPlayer = game.PlayersList.Find(candidate =>
+                        candidate.GetPlayerId() == itachiFoughtTarget);
 
                     // Re-attack interrupt: attacking a target already under Tsukuyomi cancels it (no steal this turn)
                     if (attack && itachiFoughtTarget != Guid.Empty
@@ -3321,7 +3383,9 @@ public class CharacterPassives : IServiceSingleton
                         break;
                     }
 
-                    if (attack && itachiTsuk.ChargeCounter >= 2 && itachiFoughtTarget != Guid.Empty)
+                    if (attack && itachiTsuk.ChargeCounter >= 2 && itachiFoughtTarget != Guid.Empty
+                               && (itachiFoughtPlayer == null
+                                   || !UnknownBug.Is(Naruto.ResolveScoreSuccessor(game, itachiFoughtPlayer))))
                     {
                         itachiTsuk.TsukuyomiTargetThisRound = itachiFoughtTarget;
                         itachiTsuk.TsukuyomiActiveTarget = itachiFoughtTarget;
@@ -3361,7 +3425,7 @@ public class CharacterPassives : IServiceSingleton
                     if (attack && player.Status.IsWonThisCalculation != Guid.Empty && !cancerOwn.IsActive)
                     {
                         var cancerVictim = game.PlayersList.Find(x => x.GetPlayerId() == player.Status.IsWonThisCalculation);
-                        if (cancerVictim != null)
+                        if (cancerVictim != null && !UnknownBug.Is(cancerVictim))
                         {
                             cancerOwn.IsActive = true;
                             cancerOwn.CurrentHolder = cancerVictim.GetPlayerId();
@@ -3496,7 +3560,7 @@ public class CharacterPassives : IServiceSingleton
                                         // (score delta since deploy), not half of their entire score (finding M9).
                                         var earnedWhileSat = fightEnemy.Status.GetScore() - ambush.StormScoreSnapshot;
                                         var stolenPoints = Math.Floor(earnedWhileSat / 2);
-                                        if (stolenPoints > 0)
+                                        if (stolenPoints > 0 && !UnknownBug.Is(fightEnemy))
                                         {
                                             fightEnemy.Status.AddBonusPoints(-stolenPoints, "Кошачья засада");
                                             player.Status.AddBonusPoints(stolenPoints, "Кошачья засада (Штормяк)");
@@ -3533,7 +3597,8 @@ public class CharacterPassives : IServiceSingleton
                                 }
                             }
                             // Cat deploy: only on attack, 100% deploy, 50% cat choice, only 1 cat out at a time
-                            else if (attack && fightEnemy.Passives.KotikiCatOwnerId == Guid.Empty)
+                            else if (attack && fightEnemy.Passives.KotikiCatOwnerId == Guid.Empty
+                                            && !UnknownBug.Is(fightEnemy))
                             {
                                 // Only 1 cat deployed at a time
                                 var minkaOut = ambush.MinkaOnPlayer != Guid.Empty;
@@ -3642,7 +3707,7 @@ public class CharacterPassives : IServiceSingleton
                         if (virusTargetId != Guid.Empty)
                         {
                             var virusTarget = game.PlayersList.Find(x => x.GetPlayerId() == virusTargetId);
-                            if (virusTarget != null)
+                            if (virusTarget != null && !UnknownBug.Is(virusTarget))
                             {
                                 virusTarget.Passives.TheBoysVirus = true;
                                 virusTarget.Passives.TheBoysVirusSource = player.GetPlayerId();
@@ -3732,7 +3797,9 @@ public class CharacterPassives : IServiceSingleton
         var victims = projected
             .Skip(erenIndex + 1)
             .Take(Math.Max(0, projected.Count - erenIndex - 2))
-            .Where(player => !player.Passives.IsDead && !Madara.IsMadara(player))
+            .Where(player => !player.Passives.IsDead
+                             && !Madara.IsMadara(player)
+                             && !UnknownBug.Is(player))
             .ToList();
 
         foreach (var victim in victims)
@@ -4313,6 +4380,8 @@ public class CharacterPassives : IServiceSingleton
                                 enemy1 = player.GetPlayerId();
                             if (game.PlayersList[randIndex].GameCharacter.Name is "Вампур" && game.RoundNo >= 4)
                                 enemy1 = player.GetPlayerId();
+                            if (UnknownBug.Is(game.PlayersList[randIndex]))
+                                enemy1 = player.GetPlayerId();
                         } while (enemy1 == player.GetPlayerId());
 
                         // Most wanted: force Rick as enemy1
@@ -4330,6 +4399,8 @@ public class CharacterPassives : IServiceSingleton
                             if (game.PlayersList[randIndex].GameCharacter.Name is "Злой Школьник" && game.RoundNo < 4)
                                 enemy2 = player.GetPlayerId();
                             if (game.PlayersList[randIndex].GameCharacter.Name is "Вампур" && game.RoundNo >= 4)
+                                enemy2 = player.GetPlayerId();
+                            if (UnknownBug.Is(game.PlayersList[randIndex]))
                                 enemy2 = player.GetPlayerId();
                             if (enemy2 == enemy1)
                                 enemy2 = player.GetPlayerId();
@@ -4653,7 +4724,8 @@ public class CharacterPassives : IServiceSingleton
                     if (tsukuyomi.TsukuyomiActiveTarget != Guid.Empty)
                     {
                         var tsukuyomiVictim = game.PlayersList.Find(x => x.GetPlayerId() == tsukuyomi.TsukuyomiActiveTarget);
-                        if (tsukuyomiVictim != null)
+                        if (tsukuyomiVictim != null
+                            && !UnknownBug.Is(Naruto.ResolveScoreSuccessor(game, tsukuyomiVictim)))
                         {
                             // Stolen regular points scale by the round multiplier (×1/×2/×4) of the
                             // round they were stolen on (HandleEndOfRound runs before RoundNo++).
@@ -4862,7 +4934,8 @@ public class CharacterPassives : IServiceSingleton
                         foreach (var pawn in game.PlayersList.Where(x =>
                             x.Passives.IsJohanPawn &&
                             x.Passives.JohanPawnOwnerId == player.GetPlayerId() &&
-                            !x.Passives.IsDead))
+                            !x.Passives.IsDead &&
+                            !UnknownBug.Is(x)))
                         {
                             // Pawns who blocked or skipped survive
                             if (pawn.Status.IsBlock || pawn.Status.IsSkip || Madara.IsMadara(pawn)) continue;
@@ -5136,7 +5209,7 @@ public class CharacterPassives : IServiceSingleton
                     {
                         if (rbVase.VaseImmunePlayerIds.Contains(targetId)) continue;
                         var vaseTarget = game.PlayersList.Find(x => x.GetPlayerId() == targetId);
-                        if (vaseTarget == null || vaseTarget.Passives.IsDead) continue;
+                        if (vaseTarget == null || vaseTarget.Passives.IsDead || UnknownBug.Is(vaseTarget)) continue;
 
                         var skill = vaseTarget.FightCharacter.GetSkill();
                         bool caught;
@@ -5187,6 +5260,16 @@ public class CharacterPassives : IServiceSingleton
             var octopusInk = player.Passives.OctopusInkList;
             var octopusInv = player.Passives.OctopusInvulnerabilityList;
             if (octopusInk.RealScoreList.Count == 0 && octopusInv.Count == 0) continue;
+            var protectedBugScore = octopusInk.RealScoreList
+                .Where(entry => entry.RealScore < 0)
+                .Where(entry =>
+                {
+                    var affectedPlayer = game.PlayersList.Find(candidate =>
+                        candidate.GetPlayerId() == entry.PlayerId);
+                    return affectedPlayer != null
+                           && UnknownBug.Is(Naruto.ResolveScoreSuccessor(game, affectedPlayer));
+                })
+                .Sum(entry => -entry.RealScore);
 
             foreach (var inkScore in octopusInk.RealScoreList.ToList())
             {
@@ -5194,6 +5277,7 @@ public class CharacterPassives : IServiceSingleton
                 if (affectedPlayer == null) continue;
                 var scoreTarget = Naruto.ResolveScoreSuccessor(game, affectedPlayer);
                 if (scoreTarget.Passives.IsDead) continue;
+                if (inkScore.RealScore < 0 && UnknownBug.Is(scoreTarget)) continue;
 
                 // D11: when a living Itachi will reclaim the same earned point through Цукуеми,
                 // charge the victim only once while preserving Octopus's duplicated credit.
@@ -5210,7 +5294,11 @@ public class CharacterPassives : IServiceSingleton
                     continue;
                 }
 
-                scoreTarget.Status.AddBonusPoints(inkScore.RealScore, "🐙");
+                var restoredScore = inkScore.RealScore;
+                if (affectedPlayer.GetPlayerId() == player.GetPlayerId() && restoredScore > 0)
+                    restoredScore = Math.Max(0, restoredScore - protectedBugScore);
+                if (restoredScore != 0)
+                    scoreTarget.Status.AddBonusPoints(restoredScore, "🐙");
             }
 
             player.Status.AddBonusPoints(octopusInv.Count, "🐙");
@@ -5317,7 +5405,7 @@ public class CharacterPassives : IServiceSingleton
                             if (doom.ShockSkipRound == game.RoundNo && doom.ShockSkipTarget != Guid.Empty)
                             {
                                 var shocked = game.PlayersList.Find(x => x.GetPlayerId() == doom.ShockSkipTarget);
-                                if (shocked != null && !shocked.Passives.IsDead)
+                                if (shocked != null && !shocked.Passives.IsDead && !UnknownBug.Is(shocked))
                                 {
                                     shocked.Status.IsSkip = true;
                                     shocked.Status.ConfirmedSkip = true;
@@ -5443,7 +5531,14 @@ public class CharacterPassives : IServiceSingleton
                             if (saitamaBeatTop1.Count > 0)
                             {
                                 // ONE PUUUUUUNCH! Reclaim all deferred points (zero-sum) and convert restored moral to score.
-                                var totalDeferred = saitamaWorthy.GetTotalDeferred();
+                                var reclaimableLedger = saitamaWorthy.Ledger.Where(entry =>
+                                {
+                                    var recipient = game.PlayersList.Find(candidate =>
+                                        candidate.GetPlayerId() == entry.RecipientId);
+                                    return recipient != null
+                                           && !UnknownBug.Is(Naruto.ResolveScoreSuccessor(game, recipient));
+                                }).ToList();
+                                var totalDeferred = reclaimableLedger.Sum(entry => entry.Points);
                                 // Record the restored amount for the "one_punch" achievement (≥20 → unlock).
                                 player.Passives.AchievementTracker.SaitamaDeferredPoints = totalDeferred;
                                 if (totalDeferred > 0)
@@ -5452,15 +5547,15 @@ public class CharacterPassives : IServiceSingleton
                                     player.Status.AddBonusPoints(totalDeferred, "🐙🐙🐙Ищет достойного противника🐙🐙🐙");
 
                                     // ...and take it back from each player who pocketed it (or the Jew who stole it).
-                                    foreach (var entry in saitamaWorthy.Ledger)
+                                    foreach (var entry in reclaimableLedger)
                                     {
                                         var recipient = game.PlayersList.Find(x => x.GetPlayerId() == entry.RecipientId);
                                         if (recipient != null)
                                             Naruto.ResolveScoreSuccessor(game, recipient).Status
                                                 .AddBonusPoints(-entry.Points, "Ищет достойного противника");
                                     }
-                                    saitamaWorthy.Ledger.Clear();
                                 }
+                                saitamaWorthy.Ledger.Clear();
 
                                 var deferredMoral = saitamaWorthy.DeferredMoral;
                                 if (deferredMoral > 0)
@@ -6178,7 +6273,7 @@ public class CharacterPassives : IServiceSingleton
                             foreach (var prediction in player.Predict)
                             {
                                 var predTarget = game.PlayersList.Find(x => x.GetPlayerId() == prediction.PlayerId);
-                                if (predTarget != null &&
+                                if (predTarget != null && !UnknownBug.Is(predTarget) &&
                                     string.Equals(predTarget.GameCharacter.Name, prediction.CharacterName, StringComparison.OrdinalIgnoreCase))
                                 {
                                     predTarget.Passives.IsJohanPawn = true;
@@ -6331,7 +6426,9 @@ public class CharacterPassives : IServiceSingleton
                                 {
                                     // Target pool: all players except 1st place; CAN include Storm's owner
                                     var biteCandidates = game.PlayersList
-                                        .Where(x => x.Status.GetPlaceAtLeaderBoard() != 1 && !x.Passives.IsDead)
+                                        .Where(x => x.Status.GetPlaceAtLeaderBoard() != 1
+                                                    && !x.Passives.IsDead
+                                                    && !UnknownBug.Is(x))
                                         .ToList();
                                     if (biteCandidates.Count > 0)
                                     {
@@ -6353,7 +6450,9 @@ public class CharacterPassives : IServiceSingleton
                                     rb.VaseUsed = true;
                                     // Select a target (exclude passive holder)
                                     var vaseCandidates = game.PlayersList
-                                        .Where(x => x.GetPlayerId() != player.GetPlayerId() && !x.Passives.IsDead)
+                                        .Where(x => x.GetPlayerId() != player.GetPlayerId()
+                                                    && !x.Passives.IsDead
+                                                    && !UnknownBug.Is(x))
                                         .ToList();
                                     if (vaseCandidates.Count > 0)
                                     {
@@ -6381,7 +6480,7 @@ public class CharacterPassives : IServiceSingleton
             var hasPortalGun = player.GameCharacter.Passive.Any(x => x.PassiveName == "Портальная пушка") &&
                 player.Passives.RickPortalGun.Invented && player.Passives.RickPortalGun.Charges > 0;
 
-            if (isSkip.WhenToTrigger.Contains(game.RoundNo) && !hasPortalGun)
+            if (isSkip.WhenToTrigger.Contains(game.RoundNo) && !hasPortalGun && !UnknownBug.Is(player))
             {
                 player.Status.IsSkip = true;
                 player.Status.ConfirmedSkip = false;
@@ -6498,7 +6597,8 @@ public class CharacterPassives : IServiceSingleton
                     var butcherOrderTarget = player.Passives.TheBoysButcher.SuperDickActive
                         ? Guid.Empty
                         : player.Passives.TheBoysFrancie.OrderTarget;
-                    var enemies = game.PlayersList.Where(x => x.GetPlayerId() != player.GetPlayerId()).ToList();
+                    var enemies = game.PlayersList.Where(x => x.GetPlayerId() != player.GetPlayerId()
+                                                            && !UnknownBug.Is(x)).ToList();
 
                     // 1) супергерои помечаются всегда (бесплатная метка)
                     foreach (var enemy in enemies)
@@ -6569,6 +6669,8 @@ public class CharacterPassives : IServiceSingleton
                                 if (player2 != null)
                                 {
                                     var scoreTarget = Naruto.ResolveScoreSuccessor(game, player2);
+                                    if (UnknownBug.Is(scoreTarget)) continue;
+
                                     scoreTarget.Status.AddBonusPoints(-5, "Запах мусора");
 
                                     game.Phrases.MitsukiGarbageSmell.SendLog(scoreTarget, true);
@@ -7761,6 +7863,11 @@ public class CharacterPassives : IServiceSingleton
         GamePlayerBridgeClass target,
         GameClass game)
     {
+        // unknown_bug has no base victory point to steal; do not mint one for a Jew or
+        // expose a fake recipient to delayed score ledgers.
+        if (UnknownBug.Is(me))
+            return (1, new List<Guid>());
+
         var jews = new List<GamePlayerBridgeClass>();
         var creditedRecipients = new List<Guid>();
         var toReturn = 1;
@@ -7860,6 +7967,8 @@ public class CharacterPassives : IServiceSingleton
         }
         //end Сомнительная тактика
 
+        if (UnknownBug.Is(Naruto.ResolveScoreSuccessor(game, attacker))) return 1;
+
 
         var enemyIds = new List<Guid> { attacker.GetPlayerId() };
 
@@ -7882,6 +7991,13 @@ public class CharacterPassives : IServiceSingleton
             }
         }
         //end jew
+
+        enemyIds = enemyIds.Where(enemyId =>
+        {
+            var scoreRecipient = game.PlayersList.Find(player => player.GetPlayerId() == enemyId);
+            return scoreRecipient == null
+                   || !UnknownBug.Is(Naruto.ResolveScoreSuccessor(game, scoreRecipient));
+        }).ToList();
 
         foreach (var enemyId in enemyIds)
         {

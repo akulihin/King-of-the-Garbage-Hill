@@ -63,6 +63,7 @@ const props = defineProps<{
   isPortalSwap: boolean
   // Display helpers
   getDisplayAvatar: (orig: string, u: string) => string
+  handleAvatarError: (event: Event, username: string) => void
   getDisplayCharName: (orig: string, u: string) => string
   fofBadgeText: (mod: ForOneFightMod) => string
   isFofBuff: (mod: ForOneFightMod) => boolean
@@ -119,7 +120,7 @@ const justiceUseBlocks = false
     <div v-if="isSpecialOutcome" class="fa-special">
       <div class="fa-bar-container">
         <div class="fa-id-left">
-          <img :src="getDisplayAvatar(leftAvatar, leftName)" class="fa-ava-sm" @error="(e: Event) => (e.target as HTMLImageElement).src = 'https://r2.ozvmusic.com/kotgh/art/avatars/unknown.png'">
+          <img :src="getDisplayAvatar(leftAvatar, leftName)" class="fa-ava-sm" @error="(event: Event) => props.handleAvatarError(event, leftName)">
           <div class="fa-id-info">
             <span class="fa-id-name">{{ leftName }}</span>
           </div>
@@ -137,7 +138,7 @@ const justiceUseBlocks = false
           <div class="fa-id-info" style="text-align:right">
             <span class="fa-id-name">{{ rightName }}</span>
           </div>
-          <img :src="getDisplayAvatar(rightAvatar, rightName)" class="fa-ava-sm" @error="(e: Event) => (e.target as HTMLImageElement).src = 'https://r2.ozvmusic.com/kotgh/art/avatars/unknown.png'">
+          <img :src="getDisplayAvatar(rightAvatar, rightName)" class="fa-ava-sm" @error="(event: Event) => props.handleAvatarError(event, rightName)">
         </div>
       </div>
     </div>
@@ -147,7 +148,7 @@ const justiceUseBlocks = false
       <!-- Compact scale row: avatar+name | bar | avatar+name -->
       <div class="fa-bar-container">
         <div class="fa-id-left" :class="{ winner: leftWon, 'entrance-active': currentStep === 0 && !skippedToEnd }">
-          <img :src="getDisplayAvatar(leftAvatar, leftName)" class="fa-ava-sm" @error="(e: Event) => (e.target as HTMLImageElement).src = 'https://r2.ozvmusic.com/kotgh/art/avatars/unknown.png'">
+          <img :src="getDisplayAvatar(leftAvatar, leftName)" class="fa-ava-sm" @error="(event: Event) => props.handleAvatarError(event, leftName)">
           <div class="fa-id-info">
             <span class="fa-id-name">{{ leftName }}</span>
             <span class="fa-id-char">{{ getDisplayCharName(leftCharName, leftName) }}</span>
@@ -201,7 +202,7 @@ const justiceUseBlocks = false
             <span class="fa-id-name">{{ rightName }}</span>
             <span class="fa-id-char">{{ getDisplayCharName(rightCharName, rightName) }}</span>
           </div>
-          <img :src="getDisplayAvatar(rightAvatar, rightName)" class="fa-ava-sm" @error="(e: Event) => (e.target as HTMLImageElement).src = 'https://r2.ozvmusic.com/kotgh/art/avatars/unknown.png'">
+          <img :src="getDisplayAvatar(rightAvatar, rightName)" class="fa-ava-sm" @error="(event: Event) => props.handleAvatarError(event, rightName)">
         </div>
       </div>
 

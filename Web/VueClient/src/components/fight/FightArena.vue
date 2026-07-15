@@ -66,6 +66,7 @@ const props = defineProps<{
   clashPhase: 'idle' | 'hit' | 'recoil' | 'settled'
   // Display helpers
   getDisplayAvatar: (orig: string, u: string) => string
+  handleAvatarError: (event: Event, username: string) => void
   getDisplayCharName: (orig: string, u: string) => string
   fofBadgeText: (mod: ForOneFightMod) => string
   isFofBuff: (mod: ForOneFightMod) => boolean
@@ -211,7 +212,7 @@ const hasEnemyBadges = computed(() => enemyDebuffBadges.value.length > 0)
             {{ classAbbrev(leftClass) }}
           </div>
           <img :src="props.getDisplayAvatar(props.leftAvatar, props.leftName)" class="char-avatar"
-            @error="(e: Event) => (e.target as HTMLImageElement).src = 'https://r2.ozvmusic.com/kotgh/art/avatars/unknown.png'">
+            @error="(event: Event) => props.handleAvatarError(event, props.leftName)">
           <div class="char-info">
             <span class="char-name">{{ props.getDisplayCharName(props.leftCharName, props.leftName) }}</span>
             <span class="char-player-name">{{ props.leftName }}</span>
@@ -243,7 +244,7 @@ const hasEnemyBadges = computed(() => enemyDebuffBadges.value.length > 0)
             {{ classAbbrev(rightClass) }}
           </div>
           <img :src="props.getDisplayAvatar(props.rightAvatar, props.rightName)" class="char-avatar"
-            @error="(e: Event) => (e.target as HTMLImageElement).src = 'https://r2.ozvmusic.com/kotgh/art/avatars/unknown.png'">
+            @error="(event: Event) => props.handleAvatarError(event, props.rightName)">
           <div class="char-info">
             <span class="char-name">{{ props.getDisplayCharName(props.rightCharName, props.rightName) }}</span>
             <span class="char-player-name">{{ props.rightName }}</span>
@@ -276,7 +277,7 @@ const hasEnemyBadges = computed(() => enemyDebuffBadges.value.length > 0)
             {{ classAbbrev(leftClass) }}
           </div>
           <img :src="props.getDisplayAvatar(props.leftAvatar, props.leftName)" class="char-avatar"
-            @error="(e: Event) => (e.target as HTMLImageElement).src = 'https://r2.ozvmusic.com/kotgh/art/avatars/unknown.png'">
+            @error="(event: Event) => props.handleAvatarError(event, props.leftName)">
           <div class="char-info">
             <span class="char-name">{{ props.getDisplayCharName(props.leftCharName, props.leftName) }}</span>
             <span class="char-player-name">{{ props.leftName }}</span>
@@ -414,7 +415,7 @@ const hasEnemyBadges = computed(() => enemyDebuffBadges.value.length > 0)
             {{ classAbbrev(rightClass) }}
           </div>
           <img :src="props.getDisplayAvatar(props.rightAvatar, props.rightName)" class="char-avatar"
-            @error="(e: Event) => (e.target as HTMLImageElement).src = 'https://r2.ozvmusic.com/kotgh/art/avatars/unknown.png'">
+            @error="(event: Event) => props.handleAvatarError(event, props.rightName)">
           <div class="char-info">
             <span class="char-name">{{ props.getDisplayCharName(props.rightCharName, props.rightName) }}</span>
             <span class="char-player-name">{{ props.rightName }}</span>

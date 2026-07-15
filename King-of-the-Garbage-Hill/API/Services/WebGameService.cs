@@ -241,10 +241,27 @@ public class WebGameService
         if (creatorAccount.IsPlaying)
             return (0, "Already in a game");
 
-        // Roll characters for 6 bots (null = bot slot)
+        string queuedCharacterName;
+        string forcedCharacterName;
+        bool rollCreatorDirectly;
+        lock (creatorAccount)
+        {
+            creatorAccount.LootBoxCharacterQueue ??= new List<string>();
+            queuedCharacterName = creatorAccount.LootBoxCharacterQueue.FirstOrDefault();
+            forcedCharacterName = creatorAccount.CharacterToGiveNextTime;
+            rollCreatorDirectly = string.IsNullOrWhiteSpace(queuedCharacterName);
+        }
+
+        // A normal web creator owns one real roll seat. That direct path also lets the
+        // shared roller consume a forced-next assignment; queued loot retains its legacy
+        // guaranteed replacement path.
         var gameId = _global.GetNewtGamePlayingAndId();
         var players = new List<Discord.IUser> { null, null, null, null, null, null };
-        var playersList = _startGameLogic.HandleCharacterRoll(players, gameId, mode: "bot");
+        var playersList = _startGameLogic.HandleCharacterRoll(
+            players,
+            gameId,
+            mode: "bot",
+            accountForFirstBotSlot: rollCreatorDirectly ? creatorAccount : null);
 
         // Shuffle and sort
         playersList = playersList.OrderBy(_ => Guid.NewGuid()).ToList();
@@ -252,12 +269,6 @@ public class WebGameService
 
         // Replace the matching bot when a loot box queued a guaranteed character. If that
         // character did not naturally enter this roster, replace the ordinary first bot with it.
-        string queuedCharacterName;
-        lock (creatorAccount)
-        {
-            creatorAccount.LootBoxCharacterQueue ??= new List<string>();
-            queuedCharacterName = creatorAccount.LootBoxCharacterQueue.FirstOrDefault();
-        }
         var queuedCharacter = string.IsNullOrWhiteSpace(queuedCharacterName)
             ? null
             : _charactersPull.GetVisibleCharacters().Find(character =>
@@ -281,7 +292,9 @@ public class WebGameService
             }
         }
         var botToReplace = queuedCharacter == null
-            ? playersList[0]
+            ? rollCreatorDirectly
+                ? playersList.Find(player => player.DiscordId == creatorId) ?? playersList[0]
+                : playersList[0]
             : playersList.Find(player => player.GameCharacter.Name == queuedCharacter.Name)
               ?? playersList[0];
         if (queuedCharacter != null && botToReplace.GameCharacter.Name != queuedCharacter.Name)
@@ -304,7 +317,8 @@ public class WebGameService
         }
 
         var oldBotAccount = _userAccounts.GetAccount(botToReplace.DiscordId);
-        if (oldBotAccount != null) oldBotAccount.IsPlaying = false;
+        if (oldBotAccount != null && oldBotAccount.DiscordId != creatorId)
+            oldBotAccount.IsPlaying = false;
 
         botToReplace.DiscordId = creatorId;
         botToReplace.DiscordUsername = creatorUsername;
@@ -314,7 +328,8 @@ public class WebGameService
         if (queuedCharacter != null)
             botToReplace.CharacterMasteryPoints =
                 creatorAccount.CharacterMastery.GetValueOrDefault(queuedCharacter.Name, 0);
-        DoomGuy.InitializeForGame(botToReplace, creatorAccount);
+        if (!rollCreatorDirectly)
+            DoomGuy.InitializeForGame(botToReplace, creatorAccount);
         creatorAccount.IsPlaying = true;
         DiscoverStoreCharacter(creatorAccount, botToReplace.GameCharacter.Name);
         if (queuedCharacter != null)
@@ -331,7 +346,15 @@ public class WebGameService
             // Draft pick: a private natural roll is locked immediately and is never exposed
             // as an option that can be inspected and declined.
             var originalCharacter = botToReplace.GameCharacter;
-            if (UnknownBug.Is(originalCharacter) || botToReplace.IsLootBoxCharacterReward)
+            var forcedCharacterAssigned = rollCreatorDirectly
+                                          && !string.IsNullOrWhiteSpace(forcedCharacterName)
+                                          && string.Equals(
+                                              originalCharacter.Name,
+                                              forcedCharacterName,
+                                              StringComparison.Ordinal);
+            if (UnknownBug.Is(originalCharacter)
+                || botToReplace.IsLootBoxCharacterReward
+                || forcedCharacterAssigned)
             {
                 botToReplace.Status.IsDraftPickConfirmed = true;
             }

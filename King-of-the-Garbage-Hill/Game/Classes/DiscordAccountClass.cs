@@ -37,6 +37,8 @@ public class DiscordAccountClass
 
     public string CharacterToGiveNextTime { get; set; }
     public string CharacterPlayedLastTime { get; set; }
+    /// <summary>Private durable history bit used only by unknown_bug's natural-roll gate.</summary>
+    public bool HasNaturallyRolledUnknownBug { get; set; }
     /// <summary>FIFO account rewards. The next entry is consumed when a newly created game assigns it.</summary>
     public List<string> LootBoxCharacterQueue { get; set; } = new();
 

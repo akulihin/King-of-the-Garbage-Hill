@@ -13,7 +13,7 @@ public static class UnknownBug
     public const string PointFunnel = "PointFunnel";
     public const string Exploit = "Exploit";
     public const string MissingAvatar =
-        "https://r2.ozvmusic.com/kotgh/art/avatars/unknown.png";
+        "https://r2.ozvmusic.com/kotgh/art/avatars/unknown_bug.png";
 
     public sealed class State
     {
@@ -91,33 +91,33 @@ public static class UnknownBug
         if (game == null || winner == null || loser == null) return;
 
         var owner = FindOwner(game);
-        if (owner == null || owner.Passives.IsDead
-            || owner.Passives.UnknownBug.StreamTargetPlayerId != winner.GetPlayerId())
-            return;
+        if (owner == null || owner.Passives.IsDead) return;
+
+        var copiedWinner = owner.Passives.UnknownBug.StreamTargetPlayerId == winner.GetPlayerId();
+        var bugDefeatedCarrier = Is(winner);
+        if (!game.ExploitClosed
+            && game.CurrentExploitTargetPlayerId == loser.GetPlayerId()
+            && loser.Passives.IsExploitable
+            && (copiedWinner || bugDefeatedCarrier))
+            game.TotalExploit++;
+
+        if (!copiedWinner) return;
 
         owner.Status.AddRegularPoints(1, PointFunnel);
         owner.Status.AddInGamePersonalLogs(
             $"```cs\nPointFunnel.CopyWin({winner.DiscordUsername}); // +1\n```\n");
-
-        if (!game.ExploitClosed
-            && game.CurrentExploitTargetPlayerId == loser.GetPlayerId()
-            && loser.Passives.IsExploitable)
-            game.TotalExploit++;
     }
 
     public static bool TryCommitExploit(
         GameClass game,
         GamePlayerBridgeClass attacker,
         GamePlayerBridgeClass target,
-        bool attackerWon)
+        bool _attackerWon)
     {
         if (game == null || game.ExploitClosed || !Is(attacker) || target == null
             || game.CurrentExploitTargetPlayerId != target.GetPlayerId()
             || !target.Passives.IsExploitable)
             return false;
-
-        if (attackerWon)
-            game.TotalExploit++;
 
         var rawPoints = game.TotalExploit;
         var state = attacker.Passives.UnknownBug;
@@ -125,6 +125,11 @@ public static class UnknownBug
         state.CommitSerial++;
 
         game.CloseExploit(target);
+        if (game.PlayersList.Any(player => player.GameCharacter.Name == "DeepList"))
+            game.AddGlobalLogs("DeepList: Что за баг? Раньше его не было! Раньше было лучше.");
+        if (game.PlayersList.Any(player => player.GameCharacter.Name == "mylorik"
+                                           || player.Passives.AchievementTracker.TransformedFromMylorik))
+            game.AddGlobalLogs("mylorik: Это что, опять баг? Надо его пофиксить. ММММ!!!");
         if (rawPoints > 0)
             attacker.Status.AddRegularPoints(rawPoints, Exploit);
         attacker.Status.AddInGamePersonalLogs(

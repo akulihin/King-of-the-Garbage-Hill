@@ -62,7 +62,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                 .WithColor(new Color(0, 255, 102))
                 .WithTitle("runtime://character/0x????????")
                 .WithDescription("```cs\nName: unknown_bug\nERR: cant_get_stat\nERR: cant_get_stat\nERR: cant_get_stat\nERR: cant_get_stat\n```")
-                .WithThumbnailUrl(UnknownBug.MissingAvatar)
+                .WithImageUrl(UnknownBug.MissingAvatar)
                 .WithFooter("// WARN: unmanaged player object attached");
 
             foreach (var passive in character.Passive.Where(passive => passive.Visible))
@@ -185,6 +185,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         if (game == null) return "ERROR 404";
 
         if (game.RoundNo >= 11 && Madara.IsEternalTsukuyomiActive(game)
+            && !UnknownBug.Is(player)
             && !GordonFreeman.SeesEternalTsukuyomiReality(player, game))
         {
             var projected = Madara.GetIllusoryOrder(game, player)
@@ -1166,6 +1167,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         var globalLogs = game!.GetGlobalLogs();
         if (game.RoundNo >= 11 && Madara.IsEternalTsukuyomiActive(game)
             && !Madara.IsMadara(player)
+            && !UnknownBug.Is(player)
             && !GordonFreeman.SeesEternalTsukuyomiReality(player, game))
             globalLogs = Madara.GetProjectedFinalLogs(game, player);
         // Hide fight logs from non-admin players
@@ -1286,7 +1288,9 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         }
         
 
-        if(!player.IsMobile)
+        if (UnknownBug.Is(character))
+            embed.WithImageUrl(character.AvatarCurrent);
+        else if (!player.IsMobile)
             embed.WithThumbnailUrl(character.AvatarCurrent);
         
         //embed.WithImageUrl(character.AvatarCurrent);
@@ -1350,7 +1354,10 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         embed.AddField("_____", $"{text2}\n \n{levelUpStats}");
 
 
-        embed.WithThumbnailUrl(character.AvatarCurrent);
+        if (UnknownBug.Is(character))
+            embed.WithImageUrl(character.AvatarCurrent);
+        else
+            embed.WithThumbnailUrl(character.AvatarCurrent);
 
         return embed;
     }
@@ -1437,7 +1444,8 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
         //Возвращение из мертвых
         if (game.RoundNo > 10 && game.IsKratosEvent &&
-            player.GameCharacter.Passive.Any(x => x.PassiveName == "Возвращение из мертвых"))
+            (player.GameCharacter.Passive.Any(x => x.PassiveName == "Возвращение из мертвых")
+             || UnknownBug.Is(player)))
         {
         }
         //end Возвращение из мертвых
@@ -1454,12 +1462,13 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
         if (player.Status.IsAutoMove) placeHolder = "Вы использовали Авто Ход!";
 
-        if (game.RoundNo > 10) placeHolder = "gg wp";
+        if (game.RoundNo > 10 && !(game.IsKratosEvent && UnknownBug.Is(player)))
+            placeHolder = "gg wp";
 
         //Возвращение из мертвых
         if (game.IsKratosEvent && player.GameCharacter.Passive.Any(x => x.PassiveName == "Возвращение из мертвых"))
             placeHolder = "УБИТЬ!";
-        else if (game.IsKratosEvent) placeHolder = "ЭТО БОГ ВОЙНЫ! БЕГИ!";
+        else if (game.IsKratosEvent && !UnknownBug.Is(player)) placeHolder = "ЭТО БОГ ВОЙНЫ! БЕГИ!";
         //end Возвращение из мертвых
 
         if (player.Status.IsReady)
@@ -1868,6 +1877,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                 embed.WithDescription(
                     "```cs\nName: unknown_bug\nERR: cant_get_stat\nERR: cant_get_stat\nERR: cant_get_stat\nERR: cant_get_stat\n```\n" +
                     "```txt\nselection_override=true; // waiting for other processes\n```");
+                embed.WithImageUrl(UnknownBug.MissingAvatar);
                 return embed;
             }
 
@@ -1950,7 +1960,8 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         var playerIsReady = player.Status.IsBlock || player.Status.IsSkip || player.Status.IsReady;
         //Возвращение из мертвых
         if (game.RoundNo > 10 && game.IsKratosEvent &&
-            player.GameCharacter.Passive.Any(x => x.PassiveName == "Возвращение из мертвых"))
+            (player.GameCharacter.Passive.Any(x => x.PassiveName == "Возвращение из мертвых")
+             || UnknownBug.Is(player)))
         {
         }
         //end Возвращение из мертвых

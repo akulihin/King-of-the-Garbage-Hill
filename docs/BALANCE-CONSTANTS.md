@@ -119,7 +119,8 @@ Achievement progress targets and the complete 106-entry rule catalog are in [ACH
 | Constant | Value | Anchor |
 |---|---|---|
 | Tier ranges | 6→150, 5→100, 4→90, 3→80, 2→70, 1→60, 0→50, −1→40 | StartGameLogic.cs:47-61 |
-| Tier semantics | −1 secret-rollable, −2 transform-only. unknown_bug is additionally excluded from every public/draft/store/achievement surface and its roll ignores store multipliers | `CharactersPull.cs` `GetRollableCharacters`; `StartGameLogic.cs` roll weighting; `UnknownBug` guards |
+| Tier semantics | −1 secret-rollable, −2 transform-only. unknown_bug is additionally excluded from every public/draft/store/achievement surface and its roll ignores store/loot multipliers | `CharactersPull.cs` `GetRollableCharacters`; `StartGameLogic.cs` roll weighting; `UnknownBug` guards |
+| unknown_bug all-rolled boost | ×100 natural weight (Tier −1 baseline 40 → 4000) once unknown_bug has naturally rolled at least once for every human participant; the private bit is persisted at assignment, forced/admin selection does not count, bot seats are ignored and ordinary eligibility/no-repeat gates still apply | `DiscordAccountClass.HasNaturallyRolledUnknownBug`; `StartGameLogic.HandleCharacterRoll`; `UserAccounts.MigrateUnknownBugAccount` |
 | Tier pity | +3% per game without that tier; reset round 2 | StartGameLogic.cs:181-182, CIR:1317-1324 |
 | Bot rules | tier 4 ×3; no tier <4 except Кира at ½ tier-1 range | StartGameLogic.cs:177-179 |
 | Top Laner decay | ×1.0 → −0.2 per Top Laner rolled (floor 0) | StartGameLogic.cs:180, 172-177 |
@@ -175,7 +176,7 @@ Achievement progress targets and the complete 106-entry rule catalog are in [ACH
 | Weedwick | Охотник | Speed ×2 vs 0-J/Rick | CP:1153-1159 |
 | Weedwick | Добыча | +winstreak points; Harm rolls 1/place, 1/5, +1/3 vs #1 | CP:1793-1887 |
 | Weedwick | Weed | −1 Psyche after 2 dry rounds | CP:5892-5898 |
-| Кратос | Класс-мульт / event | ×2 base, ×4 in event; human-only; exactly six actions r11-16, only Kratos acts | CP:73-112,2795-2806,3872-3882; `DoomsdayMachine.EnforceKratosEventActions` |
+| Кратос | Класс-мульт / event | ×2 base, ×4 in event; human-only; exactly six Kratos actions r11-16. unknown_bug alone also retains its own action and defeats Kratos in any resolved mutual fight | CP `Возвращение из мертвых`; `DoomsdayMachine.EnforceKratosEventActions`; `UnknownBug.Is` |
 | Молодой Глеб | Спокойствие чай | cd 3; +1 regular, target skips | CP:1245-1257, 5992-6001 |
 | Молодой Глеб | Мета | up to 3 targets/round; +1 bonus per hit | CP:4740-4780 |
 | Сайтама | Лысина | +1000 Skill | CP:252-255 |
@@ -184,7 +185,7 @@ Achievement progress targets and the complete 106-entry rule catalog are in [ACH
 | Мадара | Бог шиноби thresholds | >1 unique attacker: TooGOOD; >2: TooSTONK; >3: fight Skill = 100 | Madara.cs:55-110; CP:461-467,1019-1025 |
 | Мадара | Второй метеорит | blocked attack: no −1 bonus; +2 regular | DM:519-544 |
 | Мадара | Клоны Сусано | round 8; live strict-bot reaction delay 30 s; L0/L1 exact prediction but ordinary action; strict-bot Наруто/Sakura/Итачи exact-predict + attack at every level; +1 live Justice at >2 unique attackers; seal at all 5 unique + ≥5 losses | `Madara.RoundEightBotReactionDelaySeconds`; `Madara.ForceRoundEightBotPrediction`; `Madara.MustAcceptRoundEightBotChallenge`; `Madara.RefreshIncomingEffects` |
-| Мадара | Вечное Цукуеми | arm at all 5 unique attackers in one turn or place 1 entering r10; authoritative r10 = total Skip/no combat; viewer bonus = max living score − viewer score + 1 (0 if sole winner) | `Madara.PrepareEternalTsukuyomiRound`; `Madara.GetIllusoryBonus` |
+| Мадара | Вечное Цукуеми | arm at all 5 unique attackers in one turn or place 1 entering r10; authoritative r10 skips every ordinary player, while unknown_bug and reserved-Wake Gordon retain real actions; fooled-viewer bonus = max living score − viewer score + 1 (0 if sole winner) | `Madara.PrepareEternalTsukuyomiRound`; `Madara.GetIllusoryBonus`; `UnknownBug.Is` |
 | Рик | Пушка | invention Int ≥ 30; +1 charge/lvl-up; fired round ×2 regular points | GR:1155-1165, CP:4042-4066 |
 | Рик | Бобы | stack: −1 Str/Speed/Psyche, Int = base×stacks; ≤3 ingredients per lvl-up | CP:2100-2116, GR:1174-1202 |
 | Рик | Огурчик | 2 pickle turns; +1 penalty turn if never attacked | CP:4069-4076 |
@@ -228,7 +229,7 @@ Achievement progress targets and the complete 106-entry rule catalog are in [ACH
 | Salldorum | Шэн/капсула/летописец | +1 charge/lvl-up, auto-spent by next attack; successful forward dash uses the target's exact cell, holds through the next action round and redirects one existing primary attack per crossed player (adds 0 fights); capsule after 3 rounds = +2 bonus +5 Speed for next fight, one natural drink + at most one history-only second drink (matching history bypasses the natural wait); rewrite −/+ historical multiplier per distinct winner, +2 Psyche +2 buffered J; ×3 Skill attacking or defending vs 3-rounds-ago win leader(s) | `Salldorum.cs` `ResolveShenDashes`/`ApplyShenPositionHolds`/`TryDrinkTimeCapsule`/`RewriteHistory`; `GameReactions.cs` level-up handler; CP:481-483,1112-1116,1779-1807 |
 | Геральт | Заказы | +1 contract/round; +20 Skill per contract fight; oils T1 −1 J / T2 +2 Str / T3 ×3 Skill | CP:5719-5732, 2204-2214, 1503-1535 |
 | Геральт | Медитация | Lambert 10% once (skill 0 next round; m16); демандна экономика: advance +2 regular, смерть при Displeasure ≥ 11 (true −500 through floor) | CP:5007-5028; `WebGameService.DemandContractReward` |
-| unknown_bug | Exploit | +1 pot when a copied source win defeats the current carrier; direct carrier win adds +1; any direct carrier attack then closes globally and pays raw pot as regular × current round multiplier; full-screen commit alarm at post-multiplier >20 | `UnknownBug.RecordResolvedFight` / `TryCommitExploit`; `GameClass.RollExploit` / `CloseExploit` |
+| unknown_bug | Exploit | +1 pot when a copied source win defeats the current carrier or unknown_bug defeats the carrier as attacker/defender; unknown_bug directly attacking the carrier then closes globally and pays raw pot as regular × current round multiplier; full-screen commit alarm at post-multiplier >20 | `UnknownBug.RecordResolvedFight` / `TryCommitExploit`; `GameClass.RollExploit` / `CloseExploit` |
 | Sakura | Одна из трех | solo-only complete top-3 cutoff; a fourth living tie suppresses; factual place but first-place rewards | `Sakura.HasUncontestedSoloTopThree`; `CheckIfReady.HandleLastRound` |
 | DooM Guy | base / newcomer | Int 2, Str 5, Speed 5, Psyche 5, Tier 4; exact 30% protected roll while TotalPlays < 10 | characters.json:1383-1413, StartGameLogic.cs:201-233 |
 | DooM Guy | stages / random mode | Rune r3, Shield r5, Mission r7, Gun r9; Let's Roll random pick pays +2 regular each stage | DoomGuy.cs:53-60, 170-175 |

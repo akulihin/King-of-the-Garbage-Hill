@@ -105,7 +105,7 @@ public class BotsBehavior : IServiceSingleton
         if (CompleteForcedSkip(player))
             return;
 
-        if (game.RoundNo > 10)
+        if (game.RoundNo > 10 && !(game.IsKratosEvent && UnknownBug.Is(player)))
         {
             await _gameReaction.HandleAttack(player, null, -10);
             return;
