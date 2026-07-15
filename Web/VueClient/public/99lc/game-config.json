@@ -1,0 +1,501 @@
+{
+  "schemaVersion": 1,
+  "title": "99 Last Chances",
+  "seed": "99LC-prototype",
+  "chances": 99,
+  "graph": {
+    "choicesPerNode": 2,
+    "generationSeedStep": 7919
+  },
+  "input": {
+    "doubleTapMs": 260,
+    "holdMs": 650,
+    "holdMaxMs": 1000,
+    "holdThenDoubleTapWindowMs": 480,
+    "aimDeadZone": 0.12,
+    "gamepadDeadZone": 0.18,
+    "gamepadLeftButton": 0,
+    "gamepadRightButton": 1,
+    "leftKeys": ["KeyJ", "Space"],
+    "rightKeys": ["KeyK", "ShiftLeft", "ShiftRight"]
+  },
+  "player": {
+    "radius": 22,
+    "invulnerabilityMs": 420,
+    "baseStats": {
+      "maxHp": 100,
+      "maxMentalHealth": 100,
+      "attackPower": 100,
+      "moveSpeed": 220,
+      "armor": 4
+    }
+  },
+  "mentalHealth": {
+    "calmRecoveryPerSecond": 2,
+    "restoreOnKill": 7,
+    "maxPressurePerSecond": 12
+  },
+  "progression": {
+    "roomHpRecovery": 8,
+    "roomMentalRecovery": 12,
+    "tiers": [
+      {
+        "id": "tier-1",
+        "label": "I · Знакомые коридоры",
+        "kind": "normal",
+        "nodeCount": 2,
+        "enemyCount": [2, 3],
+        "deathCost": 1,
+        "erosion": { "maxHp": 1, "maxMentalHealth": 1, "attackPower": 1, "moveSpeed": 0, "armor": 0 },
+        "enemyPool": [
+          { "enemyId": "servant", "weight": 8 },
+          { "enemyId": "spider-knife", "weight": 2 }
+        ],
+        "roomTemplateIds": ["combat-hall", "chest-gallery"],
+        "accent": "#a6c88b"
+      },
+      {
+        "id": "tier-2",
+        "label": "II · Неверные детали",
+        "kind": "normal",
+        "nodeCount": 3,
+        "enemyCount": [3, 4],
+        "deathCost": 1,
+        "erosion": { "maxHp": 1, "maxMentalHealth": 1, "attackPower": 1, "moveSpeed": 0.25, "armor": 0 },
+        "enemyPool": [
+          { "enemyId": "servant", "weight": 6 },
+          { "enemyId": "guard", "weight": 3 },
+          { "enemyId": "spider-knife", "weight": 2 }
+        ],
+        "roomTemplateIds": ["combat-hall", "chest-gallery", "rest-conservatory"],
+        "accent": "#9db5a3"
+      },
+      {
+        "id": "tier-3",
+        "label": "III · Комнаты помнят",
+        "kind": "normal",
+        "nodeCount": 3,
+        "enemyCount": [3, 5],
+        "deathCost": 1,
+        "erosion": { "maxHp": 1, "maxMentalHealth": 1.5, "attackPower": 1, "moveSpeed": 0.25, "armor": 0 },
+        "enemyPool": [
+          { "enemyId": "servant", "weight": 4 },
+          { "enemyId": "guard", "weight": 4 },
+          { "enemyId": "spider-knife", "weight": 3 }
+        ],
+        "roomTemplateIds": ["combat-hall", "rest-conservatory", "wrong-shadow-event"],
+        "accent": "#a68eac"
+      },
+      {
+        "id": "tier-4",
+        "label": "IV · Живые стены",
+        "kind": "normal",
+        "nodeCount": 3,
+        "enemyCount": [4, 5],
+        "deathCost": 1,
+        "erosion": { "maxHp": 1.5, "maxMentalHealth": 1.5, "attackPower": 1, "moveSpeed": 0.5, "armor": 0 },
+        "enemyPool": [
+          { "enemyId": "guard", "weight": 4 },
+          { "enemyId": "chimera", "weight": 2 },
+          { "enemyId": "spider-knife", "weight": 4 }
+        ],
+        "roomTemplateIds": ["chest-gallery", "rest-conservatory", "wrong-shadow-event"],
+        "accent": "#a67982"
+      },
+      {
+        "id": "tier-5",
+        "label": "V · Фальшивые тела",
+        "kind": "normal",
+        "nodeCount": 2,
+        "enemyCount": [4, 6],
+        "deathCost": 1,
+        "erosion": { "maxHp": 2, "maxMentalHealth": 2, "attackPower": 1, "moveSpeed": 0.5, "armor": 0.1 },
+        "enemyPool": [
+          { "enemyId": "guard", "weight": 3 },
+          { "enemyId": "chimera", "weight": 4 },
+          { "enemyId": "spider-knife", "weight": 4 }
+        ],
+        "roomTemplateIds": ["combat-hall", "wrong-shadow-event"],
+        "accent": "#a9606f"
+      },
+      {
+        "id": "tier-6",
+        "label": "VI · Перед дворцом",
+        "kind": "normal",
+        "nodeCount": 2,
+        "enemyCount": [5, 7],
+        "deathCost": 1,
+        "erosion": { "maxHp": 2, "maxMentalHealth": 2.5, "attackPower": 1, "moveSpeed": 0.75, "armor": 0.15 },
+        "enemyPool": [
+          { "enemyId": "guard", "weight": 2 },
+          { "enemyId": "chimera", "weight": 5 },
+          { "enemyId": "spider-knife", "weight": 5 }
+        ],
+        "roomTemplateIds": ["rest-conservatory", "wrong-shadow-event"],
+        "accent": "#bb4c65"
+      },
+      {
+        "id": "boss",
+        "label": "Босс · Куратор",
+        "kind": "boss",
+        "nodeCount": 1,
+        "enemyCount": [1, 1],
+        "deathCost": 1,
+        "erosion": { "maxHp": 3, "maxMentalHealth": 3, "attackPower": 1, "moveSpeed": 1, "armor": 0.25 },
+        "enemyPool": [
+          { "enemyId": "curator-shadow", "weight": 1 }
+        ],
+        "roomTemplateIds": ["curator-threshold"],
+        "accent": "#ef3e58"
+      }
+    ]
+  },
+  "rooms": [
+    {
+      "id": "combat-hall",
+      "name": "Зал столкновения",
+      "archetype": "combat",
+      "width": 960,
+      "height": 680,
+      "playerSpawn": { "x": 120, "y": 340 },
+      "enemySpawns": [
+        { "x": 700, "y": 170 }, { "x": 805, "y": 335 }, { "x": 690, "y": 520 },
+        { "x": 510, "y": 120 }, { "x": 520, "y": 560 }, { "x": 370, "y": 325 },
+        { "x": 835, "y": 95 }, { "x": 850, "y": 580 }
+      ],
+      "obstacles": [
+        { "x": 360, "y": 120, "width": 100, "height": 150, "elevation": 80 },
+        { "x": 360, "y": 410, "width": 100, "height": 150, "elevation": 80 },
+        { "x": 640, "y": 285, "width": 90, "height": 110, "elevation": 62 }
+      ]
+    },
+    {
+      "id": "chest-gallery",
+      "name": "Галерея закрытого сундука",
+      "archetype": "chest",
+      "width": 920,
+      "height": 700,
+      "playerSpawn": { "x": 105, "y": 350 },
+      "enemySpawns": [
+        { "x": 730, "y": 160 }, { "x": 790, "y": 345 }, { "x": 720, "y": 550 },
+        { "x": 540, "y": 145 }, { "x": 555, "y": 545 }, { "x": 425, "y": 345 },
+        { "x": 820, "y": 85 }, { "x": 825, "y": 620 }
+      ],
+      "obstacles": [
+        { "x": 425, "y": 280, "width": 125, "height": 140, "elevation": 105 },
+        { "x": 650, "y": 70, "width": 70, "height": 180, "elevation": 65 },
+        { "x": 650, "y": 450, "width": 70, "height": 180, "elevation": 65 }
+      ]
+    },
+    {
+      "id": "rest-conservatory",
+      "name": "Оранжерея для отдыха",
+      "archetype": "rest",
+      "width": 1000,
+      "height": 720,
+      "playerSpawn": { "x": 120, "y": 360 },
+      "enemySpawns": [
+        { "x": 770, "y": 170 }, { "x": 855, "y": 355 }, { "x": 770, "y": 555 },
+        { "x": 580, "y": 120 }, { "x": 590, "y": 605 }, { "x": 430, "y": 360 },
+        { "x": 875, "y": 95 }, { "x": 875, "y": 625 }
+      ],
+      "obstacles": [
+        { "x": 300, "y": 95, "width": 110, "height": 200, "elevation": 92 },
+        { "x": 300, "y": 425, "width": 110, "height": 200, "elevation": 92 },
+        { "x": 610, "y": 275, "width": 150, "height": 170, "elevation": 48 }
+      ]
+    },
+    {
+      "id": "wrong-shadow-event",
+      "name": "Комната неправильной тени",
+      "archetype": "event",
+      "width": 980,
+      "height": 700,
+      "playerSpawn": { "x": 110, "y": 350 },
+      "enemySpawns": [
+        { "x": 755, "y": 145 }, { "x": 840, "y": 345 }, { "x": 755, "y": 560 },
+        { "x": 560, "y": 105 }, { "x": 570, "y": 595 }, { "x": 420, "y": 345 },
+        { "x": 875, "y": 85 }, { "x": 875, "y": 620 }
+      ],
+      "obstacles": [
+        { "x": 390, "y": 70, "width": 65, "height": 250, "elevation": 120 },
+        { "x": 525, "y": 380, "width": 65, "height": 250, "elevation": 120 },
+        { "x": 690, "y": 265, "width": 105, "height": 170, "elevation": 72 }
+      ]
+    },
+    {
+      "id": "curator-threshold",
+      "name": "Порог Куратора",
+      "archetype": "event",
+      "width": 1100,
+      "height": 760,
+      "playerSpawn": { "x": 120, "y": 380 },
+      "enemySpawns": [
+        { "x": 820, "y": 380 }, { "x": 900, "y": 200 }, { "x": 900, "y": 560 },
+        { "x": 690, "y": 140 }, { "x": 690, "y": 620 }, { "x": 530, "y": 380 }
+      ],
+      "obstacles": [
+        { "x": 430, "y": 90, "width": 95, "height": 210, "elevation": 145 },
+        { "x": 430, "y": 460, "width": 95, "height": 210, "elevation": 145 },
+        { "x": 760, "y": 85, "width": 75, "height": 175, "elevation": 105 },
+        { "x": 760, "y": 500, "width": 75, "height": 175, "elevation": 105 }
+      ]
+    }
+  ],
+  "enemies": [
+    {
+      "id": "servant",
+      "name": "Слуга",
+      "maxHp": 28,
+      "radius": 20,
+      "moveSpeed": 105,
+      "visionRange": 300,
+      "visionAngleDegrees": 90,
+      "noticeMs": 520,
+      "alertPauseMs": 420,
+      "attackRange": 52,
+      "attackDamage": 8,
+      "attackCooldownMs": 1250,
+      "attackWindupMs": 360,
+      "mentalPressurePerSecond": 1.1,
+      "color": "#9b887c"
+    },
+    {
+      "id": "guard",
+      "name": "Стражник",
+      "maxHp": 52,
+      "radius": 23,
+      "moveSpeed": 92,
+      "visionRange": 350,
+      "visionAngleDegrees": 105,
+      "noticeMs": 430,
+      "alertPauseMs": 360,
+      "attackRange": 82,
+      "attackDamage": 13,
+      "attackCooldownMs": 1450,
+      "attackWindupMs": 520,
+      "mentalPressurePerSecond": 1.5,
+      "color": "#77828e"
+    },
+    {
+      "id": "chimera",
+      "name": "Химера",
+      "maxHp": 86,
+      "radius": 30,
+      "moveSpeed": 118,
+      "visionRange": 390,
+      "visionAngleDegrees": 125,
+      "noticeMs": 390,
+      "alertPauseMs": 300,
+      "attackRange": 68,
+      "attackDamage": 18,
+      "attackCooldownMs": 1150,
+      "attackWindupMs": 440,
+      "mentalPressurePerSecond": 2.2,
+      "color": "#835c78"
+    },
+    {
+      "id": "spider-knife",
+      "name": "Нож-паук",
+      "maxHp": 24,
+      "radius": 16,
+      "moveSpeed": 205,
+      "visionRange": 330,
+      "visionAngleDegrees": 150,
+      "noticeMs": 230,
+      "alertPauseMs": 180,
+      "attackRange": 42,
+      "attackDamage": 7,
+      "attackCooldownMs": 680,
+      "attackWindupMs": 170,
+      "mentalPressurePerSecond": 1.35,
+      "color": "#c7a757"
+    },
+    {
+      "id": "curator-shadow",
+      "name": "Тень Куратора",
+      "maxHp": 420,
+      "radius": 42,
+      "moveSpeed": 138,
+      "visionRange": 620,
+      "visionAngleDegrees": 220,
+      "noticeMs": 900,
+      "alertPauseMs": 850,
+      "attackRange": 105,
+      "attackDamage": 24,
+      "attackCooldownMs": 1050,
+      "attackWindupMs": 620,
+      "mentalPressurePerSecond": 5.5,
+      "color": "#4e2947"
+    }
+  ],
+  "weapons": [
+    {
+      "id": "primary-spear",
+      "name": "Копьё",
+      "hand": "left",
+      "attacks": {
+        "tap": {
+          "name": "Рассекающий удар",
+          "kind": "melee",
+          "damage": 16,
+          "cooldownMs": 280,
+          "range": 128,
+          "radius": 18,
+          "arcDegrees": 115,
+          "durationMs": 190,
+          "projectileSpeed": 0,
+          "pierce": 0,
+          "knockback": 16,
+          "color": "#e8d7a5"
+        },
+        "doubleTap": {
+          "name": "Тычок на дистанции",
+          "kind": "melee",
+          "damage": 24,
+          "cooldownMs": 850,
+          "range": 180,
+          "radius": 12,
+          "arcDegrees": 34,
+          "durationMs": 170,
+          "projectileSpeed": 0,
+          "pierce": 1,
+          "knockback": 24,
+          "color": "#f4df9f"
+        },
+        "doubleTapHold": {
+          "name": "Таран копьём",
+          "kind": "dash",
+          "damage": 31,
+          "cooldownMs": 3600,
+          "range": 310,
+          "radius": 24,
+          "arcDegrees": 28,
+          "durationMs": 520,
+          "projectileSpeed": 0,
+          "pierce": 6,
+          "knockback": 42,
+          "color": "#ffcd72"
+        },
+        "hold": {
+          "name": "Бросок копья",
+          "kind": "projectile",
+          "damage": 38,
+          "cooldownMs": 2800,
+          "range": 690,
+          "radius": 12,
+          "arcDegrees": 16,
+          "durationMs": 1200,
+          "projectileSpeed": 620,
+          "pierce": 2,
+          "knockback": 34,
+          "color": "#ffe5a8"
+        },
+        "holdThenDoubleTap": {
+          "name": "Круг над головой",
+          "kind": "burst",
+          "damage": 29,
+          "cooldownMs": 4300,
+          "range": 175,
+          "radius": 30,
+          "arcDegrees": 360,
+          "durationMs": 520,
+          "projectileSpeed": 0,
+          "pierce": 8,
+          "knockback": 38,
+          "color": "#ffd66b"
+        }
+      }
+    },
+    {
+      "id": "secondary-magic-knife",
+      "name": "Магия и нож",
+      "hand": "right",
+      "attacks": {
+        "tap": {
+          "name": "Укол ножом",
+          "kind": "melee",
+          "damage": 12,
+          "cooldownMs": 210,
+          "range": 72,
+          "radius": 10,
+          "arcDegrees": 55,
+          "durationMs": 130,
+          "projectileSpeed": 0,
+          "pierce": 0,
+          "knockback": 5,
+          "color": "#b9e8ee"
+        },
+        "doubleTap": {
+          "name": "Магическая игла",
+          "kind": "projectile",
+          "damage": 19,
+          "cooldownMs": 980,
+          "range": 520,
+          "radius": 9,
+          "arcDegrees": 20,
+          "durationMs": 1100,
+          "projectileSpeed": 560,
+          "pierce": 0,
+          "knockback": 10,
+          "color": "#76d7e6"
+        },
+        "doubleTapHold": {
+          "name": "Шаг за спину",
+          "kind": "dash",
+          "damage": 22,
+          "cooldownMs": 3200,
+          "range": 245,
+          "radius": 18,
+          "arcDegrees": 45,
+          "durationMs": 300,
+          "projectileSpeed": 0,
+          "pierce": 3,
+          "knockback": 8,
+          "color": "#84e1de"
+        },
+        "hold": {
+          "name": "Всплеск рассудка",
+          "kind": "burst",
+          "damage": 20,
+          "cooldownMs": 2500,
+          "range": 145,
+          "radius": 28,
+          "arcDegrees": 360,
+          "durationMs": 430,
+          "projectileSpeed": 0,
+          "pierce": 5,
+          "knockback": 48,
+          "color": "#68cbd4"
+        },
+        "holdThenDoubleTap": {
+          "name": "Ложное тело",
+          "kind": "projectile",
+          "damage": 46,
+          "cooldownMs": 4800,
+          "range": 760,
+          "radius": 22,
+          "arcDegrees": 30,
+          "durationMs": 1450,
+          "projectileSpeed": 510,
+          "pierce": 4,
+          "knockback": 54,
+          "color": "#d395da"
+        }
+      }
+    }
+  ],
+  "renderer": {
+    "maxDpr": 2,
+    "snapshotHz": 20,
+    "floorGridSize": 100,
+    "background": "#0d0b13",
+    "floor": "#24202b",
+    "floorGrid": "rgba(214, 194, 218, 0.075)",
+    "obstacleTop": "#3c3542",
+    "obstacleSide": "#211d28",
+    "player": "#d8e1d1",
+    "playerAccent": "#9ce5d7",
+    "mental": "#bb87cf"
+  }
+}

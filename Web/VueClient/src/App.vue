@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useGameStore } from './store/game'
 import LoginProcess from 'src/components/Login/LoginProcess.vue'
@@ -10,7 +10,7 @@ import { currentLocale, setLocale, type AppLocale } from './i18n'
 
 const store = useGameStore()
 const route = useRoute()
-const isPublicReplay = computed(() => route.name === 'replay')
+const isPublicExperience = computed(() => ['replay', 'lastChances'].includes(route.name as string))
 const terminalSession = computed(() => route.name === 'game' && store.isTerminalMode)
 const showRecoveredAchievementCelebration = computed(() =>
   store.isAuthenticated
@@ -36,6 +36,18 @@ let removeGlobalButtonSound: (() => void) | null = null
 
 const currentTheme = ref(localStorage.getItem('kotgh_theme') || '')
 
+async function restoreSavedSession() {
+  if (store.isAuthenticated || loginBusy.value) return
+  const savedWebId = localStorage.getItem('kotgh_web_id')
+  const savedWebUsername = localStorage.getItem('kotgh_web_username')
+  if (savedWebId && savedWebUsername) {
+    await connectAndAuthWeb(savedWebId, savedWebUsername)
+    return
+  }
+  const stored = localStorage.getItem('discordId')
+  if (stored) await connectAndAuth(stored)
+}
+
 function setTheme(theme: string) {
   currentTheme.value = theme
   if (theme) {
@@ -52,17 +64,12 @@ onMounted(async () => {
   if (currentTheme.value) {
     document.documentElement.setAttribute('data-theme', currentTheme.value)
   }
-  // Check for saved web account first
-  const savedWebId = localStorage.getItem('kotgh_web_id')
-  const savedWebUsername = localStorage.getItem('kotgh_web_username')
-  if (savedWebId && savedWebUsername) {
-    await connectAndAuthWeb(savedWebId, savedWebUsername)
-    return
-  }
-  const stored = localStorage.getItem('discordId')
-  if (stored) {
-    await connectAndAuth(stored)
-  }
+  if (route.name === 'lastChances') return
+  await restoreSavedSession()
+})
+
+watch(() => route.name, (name, previousName) => {
+  if (previousName === 'lastChances' && name !== 'lastChances') void restoreSavedSession()
 })
 
 onUnmounted(() => {
@@ -180,7 +187,7 @@ async function changeLocale(language: AppLocale) {
       >ENG</button>
     </div>
     <!-- Login screen (designer's layout) -->
-    <div v-if="showLogin && !store.isAuthenticated && !isPublicReplay" class="logins">
+    <div v-if="showLogin && !store.isAuthenticated && !isPublicExperience" class="logins">
       <LoginProcess
         version="1.0"
         :loading="loginBusy || store.isLoading"
@@ -216,6 +223,7 @@ async function changeLocale(language: AppLocale) {
           <RouterLink to="/store">{{ currentLocale === 'ru' ? 'Магазин' : 'Store' }}</RouterLink>
           <RouterLink to="/achievements">{{ currentLocale === 'ru' ? 'Достижения' : 'Achievements' }}</RouterLink>
           <RouterLink to="/fight-calculator">{{ currentLocale === 'ru' ? 'Калькулятор боя' : 'Fight Lab' }}</RouterLink>
+          <RouterLink to="/99lc">99 Last Chances</RouterLink>
         </nav>
 
         <div class="top-bar-right">
