@@ -102,4 +102,43 @@ describe('99 Last Chances controller flow', () => {
 
     cy.get('.lc-gesture-toast').should('contain.text', 'Круг над головой')
   })
+
+  it('saves an override without disrupting the attempt and applies it only to a fresh generation', () => {
+    cy.visit('/99lc', {
+      onBeforeLoad(window) {
+        window.localStorage.clear()
+      },
+    })
+
+    cy.get('.lc-route-node.is-available').first().click()
+    cy.get('.lc-map-backdrop').should('not.exist')
+    cy.get('.lc-room-readout strong').invoke('text').then((roomName) => {
+      cy.get('.lc-header-actions .is-builder').click()
+      cy.contains('.lc-fields-grid label', 'Starting Chances').find('input').clear().type('77')
+      cy.contains('.lc-builder-apply-actions button', 'Save browser override').click()
+      cy.window().then((window) => {
+        const override = JSON.parse(window.localStorage.getItem('99lc:game-config') ?? '{}') as {
+          chances?: number
+        }
+        expect(override.chances).to.equal(77)
+      })
+
+      cy.contains('.lc-builder-file-actions button', 'Clear override').click()
+      cy.window().then((window) => {
+        expect(window.localStorage.getItem('99lc:game-config')).to.equal(null)
+      })
+
+      cy.get('.lc-builder').should('be.visible')
+      cy.get('.lc-builder-header button[aria-label="Close builder"]').click()
+      cy.get('.lc-map-backdrop').should('not.exist')
+      cy.get('.lc-room-readout strong').should('have.text', roomName)
+      cy.get('.lc-chance-orb > span').should('have.text', '99')
+
+      cy.get('.lc-header-actions .is-builder').click()
+      cy.contains('.lc-builder-apply-actions button', 'Apply & start fresh generation').click()
+      cy.get('.lc-map-backdrop').should('be.visible')
+      cy.get('.lc-chance-orb > span').should('have.text', '77')
+      cy.contains('.lc-run-card dt', 'Generation').parent().find('dd').should('have.text', '#1')
+    })
+  })
 })

@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "title": "99 Last Chances",
   "seed": "99LC-prototype",
   "chances": 99,
@@ -9,6 +9,7 @@
   },
   "input": {
     "doubleTapMs": 260,
+    "tapComboWindowMs": 900,
     "holdMs": 650,
     "holdMaxMs": 1000,
     "holdThenDoubleTapWindowMs": 480,
@@ -158,10 +159,23 @@
       "width": 960,
       "height": 680,
       "playerSpawn": { "x": 120, "y": 340 },
-      "enemySpawns": [
-        { "x": 700, "y": 170 }, { "x": 805, "y": 335 }, { "x": 690, "y": 520 },
-        { "x": 510, "y": 120 }, { "x": 520, "y": 560 }, { "x": 370, "y": 325 },
-        { "x": 835, "y": 95 }, { "x": 850, "y": 580 }
+      "spawnLayouts": [
+        {
+          "id": "east-crossfire",
+          "name": "Восточный перекрёстный огонь",
+          "enemySpawns": [
+            { "x": 700, "y": 170 }, { "x": 805, "y": 335 }, { "x": 690, "y": 520 },
+            { "x": 510, "y": 120 }, { "x": 520, "y": 560 }, { "x": 370, "y": 325 }
+          ]
+        },
+        {
+          "id": "broken-columns",
+          "name": "Сломанные колонны",
+          "enemySpawns": [
+            { "x": 560, "y": 180 }, { "x": 830, "y": 160 }, { "x": 850, "y": 500 },
+            { "x": 580, "y": 540 }, { "x": 545, "y": 335 }, { "x": 300, "y": 335 }
+          ]
+        }
       ],
       "obstacles": [
         { "x": 360, "y": 120, "width": 100, "height": 150, "elevation": 80 },
@@ -176,10 +190,23 @@
       "width": 920,
       "height": 700,
       "playerSpawn": { "x": 105, "y": 350 },
-      "enemySpawns": [
-        { "x": 730, "y": 160 }, { "x": 790, "y": 345 }, { "x": 720, "y": 550 },
-        { "x": 540, "y": 145 }, { "x": 555, "y": 545 }, { "x": 425, "y": 345 },
-        { "x": 820, "y": 85 }, { "x": 825, "y": 620 }
+      "spawnLayouts": [
+        {
+          "id": "gallery-pincer",
+          "name": "Клещи галереи",
+          "enemySpawns": [
+            { "x": 780, "y": 160 }, { "x": 790, "y": 345 }, { "x": 785, "y": 550 },
+            { "x": 540, "y": 145 }, { "x": 555, "y": 545 }
+          ]
+        },
+        {
+          "id": "sealed-aisles",
+          "name": "Запечатанные проходы",
+          "enemySpawns": [
+            { "x": 825, "y": 95 }, { "x": 835, "y": 350 }, { "x": 825, "y": 605 },
+            { "x": 570, "y": 145 }, { "x": 570, "y": 555 }
+          ]
+        }
       ],
       "obstacles": [
         { "x": 425, "y": 280, "width": 125, "height": 140, "elevation": 105 },
@@ -194,10 +221,25 @@
       "width": 1000,
       "height": 720,
       "playerSpawn": { "x": 120, "y": 360 },
-      "enemySpawns": [
-        { "x": 770, "y": 170 }, { "x": 855, "y": 355 }, { "x": 770, "y": 555 },
-        { "x": 580, "y": 120 }, { "x": 590, "y": 605 }, { "x": 430, "y": 360 },
-        { "x": 875, "y": 95 }, { "x": 875, "y": 625 }
+      "spawnLayouts": [
+        {
+          "id": "overgrown-ring",
+          "name": "Заросшее кольцо",
+          "enemySpawns": [
+            { "x": 770, "y": 170 }, { "x": 855, "y": 355 }, { "x": 770, "y": 555 },
+            { "x": 580, "y": 120 }, { "x": 590, "y": 605 }, { "x": 430, "y": 360 },
+            { "x": 875, "y": 95 }
+          ]
+        },
+        {
+          "id": "glasshouse-wave",
+          "name": "Волна оранжереи",
+          "enemySpawns": [
+            { "x": 820, "y": 100 }, { "x": 900, "y": 220 }, { "x": 850, "y": 360 },
+            { "x": 900, "y": 500 }, { "x": 820, "y": 650 }, { "x": 520, "y": 180 },
+            { "x": 520, "y": 540 }
+          ]
+        }
       ],
       "obstacles": [
         { "x": 300, "y": 95, "width": 110, "height": 200, "elevation": 92 },
@@ -212,10 +254,25 @@
       "width": 980,
       "height": 700,
       "playerSpawn": { "x": 110, "y": 350 },
-      "enemySpawns": [
-        { "x": 755, "y": 145 }, { "x": 840, "y": 345 }, { "x": 755, "y": 560 },
-        { "x": 560, "y": 105 }, { "x": 570, "y": 595 }, { "x": 420, "y": 345 },
-        { "x": 875, "y": 85 }, { "x": 875, "y": 620 }
+      "spawnLayouts": [
+        {
+          "id": "miscast-reflection",
+          "name": "Неверное отражение",
+          "enemySpawns": [
+            { "x": 755, "y": 145 }, { "x": 840, "y": 345 }, { "x": 755, "y": 560 },
+            { "x": 560, "y": 105 }, { "x": 650, "y": 595 }, { "x": 420, "y": 370 },
+            { "x": 875, "y": 85 }
+          ]
+        },
+        {
+          "id": "long-shadow",
+          "name": "Длинная тень",
+          "enemySpawns": [
+            { "x": 860, "y": 120 }, { "x": 900, "y": 250 }, { "x": 880, "y": 390 },
+            { "x": 900, "y": 540 }, { "x": 850, "y": 650 }, { "x": 640, "y": 120 },
+            { "x": 640, "y": 500 }
+          ]
+        }
       ],
       "obstacles": [
         { "x": 390, "y": 70, "width": 65, "height": 250, "elevation": 120 },
@@ -230,9 +287,17 @@
       "width": 1100,
       "height": 760,
       "playerSpawn": { "x": 120, "y": 380 },
-      "enemySpawns": [
-        { "x": 820, "y": 380 }, { "x": 900, "y": 200 }, { "x": 900, "y": 560 },
-        { "x": 690, "y": 140 }, { "x": 690, "y": 620 }, { "x": 530, "y": 380 }
+      "spawnLayouts": [
+        {
+          "id": "threshold-center",
+          "name": "Центр порога",
+          "enemySpawns": [{ "x": 820, "y": 380 }]
+        },
+        {
+          "id": "threshold-far",
+          "name": "Дальний порог",
+          "enemySpawns": [{ "x": 960, "y": 380 }]
+        }
       ],
       "obstacles": [
         { "x": 430, "y": 90, "width": 95, "height": 210, "elevation": 145 },
@@ -249,11 +314,13 @@
       "maxHp": 28,
       "radius": 20,
       "moveSpeed": 105,
+      "idleTurnRadiansPerSecond": 0.28,
       "visionRange": 300,
       "visionAngleDegrees": 90,
       "noticeMs": 520,
       "alertPauseMs": 420,
       "attackRange": 52,
+      "preferredAttackRangeRatio": 0.72,
       "attackDamage": 8,
       "attackCooldownMs": 1250,
       "attackWindupMs": 360,
@@ -266,11 +333,13 @@
       "maxHp": 52,
       "radius": 23,
       "moveSpeed": 92,
+      "idleTurnRadiansPerSecond": 0.2,
       "visionRange": 350,
       "visionAngleDegrees": 105,
       "noticeMs": 430,
       "alertPauseMs": 360,
       "attackRange": 82,
+      "preferredAttackRangeRatio": 0.78,
       "attackDamage": 13,
       "attackCooldownMs": 1450,
       "attackWindupMs": 520,
@@ -283,11 +352,13 @@
       "maxHp": 86,
       "radius": 30,
       "moveSpeed": 118,
+      "idleTurnRadiansPerSecond": 0.34,
       "visionRange": 390,
       "visionAngleDegrees": 125,
       "noticeMs": 390,
       "alertPauseMs": 300,
       "attackRange": 68,
+      "preferredAttackRangeRatio": 0.68,
       "attackDamage": 18,
       "attackCooldownMs": 1150,
       "attackWindupMs": 440,
@@ -300,11 +371,13 @@
       "maxHp": 24,
       "radius": 16,
       "moveSpeed": 205,
+      "idleTurnRadiansPerSecond": 0.52,
       "visionRange": 330,
       "visionAngleDegrees": 150,
       "noticeMs": 230,
       "alertPauseMs": 180,
       "attackRange": 42,
+      "preferredAttackRangeRatio": 0.62,
       "attackDamage": 7,
       "attackCooldownMs": 680,
       "attackWindupMs": 170,
@@ -317,11 +390,13 @@
       "maxHp": 420,
       "radius": 42,
       "moveSpeed": 138,
+      "idleTurnRadiansPerSecond": 0.16,
       "visionRange": 620,
       "visionAngleDegrees": 220,
       "noticeMs": 900,
       "alertPauseMs": 850,
       "attackRange": 105,
+      "preferredAttackRangeRatio": 0.8,
       "attackDamage": 24,
       "attackCooldownMs": 1050,
       "attackWindupMs": 620,
@@ -329,17 +404,51 @@
       "color": "#4e2947"
     }
   ],
+  "loadout": {
+    "primaryWeaponId": "primary-spear",
+    "secondaryWeaponId": "secondary-magic-knife"
+  },
   "weapons": [
     {
       "id": "primary-spear",
       "name": "Копьё",
-      "hand": "left",
+      "equipMode": "hybrid",
+      "tapCombo": [
+        {
+          "name": "Обратный рассекатель",
+          "kind": "melee",
+          "damage": 18,
+          "cooldownMs": 0,
+          "range": 122,
+          "radius": 20,
+          "arcDegrees": 105,
+          "durationMs": 180,
+          "projectileSpeed": 0,
+          "pierce": 0,
+          "knockback": 18,
+          "color": "#efd99c"
+        },
+        {
+          "name": "Шаг и выпад",
+          "kind": "melee",
+          "damage": 21,
+          "cooldownMs": 0,
+          "range": 158,
+          "radius": 12,
+          "arcDegrees": 42,
+          "durationMs": 200,
+          "projectileSpeed": 0,
+          "pierce": 1,
+          "knockback": 22,
+          "color": "#ffe4a1"
+        }
+      ],
       "attacks": {
         "tap": {
           "name": "Рассекающий удар",
           "kind": "melee",
           "damage": 16,
-          "cooldownMs": 280,
+          "cooldownMs": 0,
           "range": 128,
           "radius": 18,
           "arcDegrees": 115,
@@ -405,18 +514,122 @@
           "knockback": 38,
           "color": "#ffd66b"
         }
+      },
+      "secondaryTapCombo": [
+        {
+          "name": "Отвод древком",
+          "kind": "burst",
+          "damage": 5,
+          "cooldownMs": 0,
+          "range": 102,
+          "radius": 26,
+          "arcDegrees": 360,
+          "durationMs": 190,
+          "projectileSpeed": 0,
+          "pierce": 8,
+          "knockback": 42,
+          "color": "#f3dda0"
+        }
+      ],
+      "secondaryAttacks": {
+        "tap": {
+          "name": "Быстрое парирование",
+          "kind": "dash",
+          "damage": 4,
+          "cooldownMs": 0,
+          "range": 1,
+          "radius": 80,
+          "arcDegrees": 360,
+          "durationMs": 180,
+          "projectileSpeed": 0,
+          "pierce": 8,
+          "knockback": 12,
+          "color": "#fff1c2"
+        },
+        "doubleTap": {
+          "name": "Широкий толчок древком",
+          "kind": "burst",
+          "damage": 7,
+          "cooldownMs": 1150,
+          "range": 118,
+          "radius": 32,
+          "arcDegrees": 150,
+          "durationMs": 260,
+          "projectileSpeed": 0,
+          "pierce": 8,
+          "knockback": 58,
+          "color": "#edd18e"
+        },
+        "doubleTapHold": {
+          "name": "Бронированный пинок",
+          "kind": "dash",
+          "damage": 15,
+          "cooldownMs": 3300,
+          "range": 92,
+          "radius": 22,
+          "arcDegrees": 38,
+          "durationMs": 380,
+          "projectileSpeed": 0,
+          "pierce": 5,
+          "knockback": 82,
+          "color": "#ffc968"
+        },
+        "hold": {
+          "name": "Режущая стойка",
+          "kind": "melee",
+          "damage": 23,
+          "cooldownMs": 2450,
+          "range": 188,
+          "radius": 20,
+          "arcDegrees": 118,
+          "durationMs": 760,
+          "projectileSpeed": 0,
+          "pierce": 5,
+          "knockback": 24,
+          "color": "#ffe3a1"
+        },
+        "holdThenDoubleTap": {
+          "name": "Прыжок с шестом",
+          "kind": "dash",
+          "damage": 18,
+          "cooldownMs": 5100,
+          "range": 285,
+          "radius": 24,
+          "arcDegrees": 45,
+          "durationMs": 620,
+          "projectileSpeed": 0,
+          "pierce": 8,
+          "knockback": 30,
+          "color": "#ffe9b0"
+        }
       }
     },
     {
       "id": "secondary-magic-knife",
       "name": "Магия и нож",
-      "hand": "right",
+      "equipMode": "secondaryOnly",
+      "tapCombo": [
+        {
+          "name": "Обратный порез",
+          "kind": "melee",
+          "damage": 14,
+          "cooldownMs": 0,
+          "range": 78,
+          "radius": 11,
+          "arcDegrees": 72,
+          "durationMs": 145,
+          "projectileSpeed": 0,
+          "pierce": 0,
+          "knockback": 7,
+          "color": "#9edfe7"
+        }
+      ],
       "attacks": {
         "tap": {
           "name": "Укол ножом",
           "kind": "melee",
           "damage": 12,
-          "cooldownMs": 210,
+          "cooldownMs": 0,
           "range": 72,
           "radius": 10,
           "arcDegrees": 55,

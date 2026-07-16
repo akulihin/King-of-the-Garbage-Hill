@@ -64,6 +64,18 @@ The multiplier changes a character's relative roll weight, not a standalone fina
 | Anthropic response budget | max 1,800 tokens per enabled language request | GameStoryService.cs:31-32,663-674 |
 | Prompted short-form ceiling / shape | max 250 words and 1,700 characters; 8–15 very short lines covering only the 3–5 strongest character interactions | GameStoryService.cs:448-492 |
 
+## 99 Last Chances standalone prototype
+
+The complete browser-prototype definition remains externally editable in `Web/VueClient/public/99lc/game-config.json`; these rows record the combat timing changed during the GDD compliance pass.
+
+| Constant | Value | Anchor |
+|---|---:|---|
+| Basic-tap cooldown | none; `tap` bypasses the special cooldown map and shipped tap fields are 0 ms | `features/last-chances/engine.ts` `performAttack`; `public/99lc/game-config.json` weapon `tap` entries |
+| Basic-combo continuation window | 900 ms default, externally editable | `public/99lc/game-config.json` `input.tapComboWindowMs`; `features/last-chances/engine.ts` `advanceTapCombo` |
+| Enemy idle scan / preferred attack-range ratio | Слуга 0.28 / 0.72; Стражник 0.20 / 0.78; Химера 0.34 / 0.68; Нож-паук 0.52 / 0.62; Тень Куратора 0.16 / 0.80 | `public/99lc/game-config.json` enemy `idleTurnRadiansPerSecond` / `preferredAttackRangeRatio`; `features/last-chances/engine.ts` `updateEnemies` |
+| Attack target budget | every executor damages `pierce + 1` unique targets; `pierce: 0` means one target | `features/last-chances/engine.ts` `performProjectile`/`performDash`/`startActiveArea` |
+| Authored attack and spawn-layout tuning | every basic-combo step, special, secondary spear move and named formation carries its complete numeric definition in the no-rebuild runtime JSON | `public/99lc/game-config.json` `weapons[*]` / `rooms[*].spawnLayouts` |
+
 ## Daily Quest rewards
 
 The full 12-contract catalog, selection, privacy and migration rules are in [DAILY-QUESTS.md](DAILY-QUESTS.md). The three lanes always pay at most 80 card ZBS; completing the daily and weekly paths brings the direct full-board total to 100 ZBS/day plus the optional mastery box (`QuestClass.cs:200-260,638-678`).

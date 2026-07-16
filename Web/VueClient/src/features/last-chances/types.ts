@@ -7,10 +7,18 @@ export const LAST_CHANCES_GESTURES = [
   'holdThenDoubleTap',
 ] as const
 export const LAST_CHANCES_ATTACK_KINDS = ['melee', 'projectile', 'dash', 'burst'] as const
+export const LAST_CHANCES_EQUIP_MODES = [
+  'twoHanded',
+  'eitherHand',
+  'primaryOnly',
+  'secondaryOnly',
+  'hybrid',
+] as const
 
 export type LastChancesHand = typeof LAST_CHANCES_HANDS[number]
 export type LastChancesGesture = typeof LAST_CHANCES_GESTURES[number]
 export type LastChancesAttackKind = typeof LAST_CHANCES_ATTACK_KINDS[number]
+export type LastChancesEquipMode = typeof LAST_CHANCES_EQUIP_MODES[number]
 export type LastChancesPhase = 'planning' | 'playing' | 'dead' | 'won' | 'outOfChances'
 export type LastChancesEnemyState = 'idle' | 'noticing' | 'alerted' | 'chasing' | 'attacking' | 'dead'
 export type LastChancesRoomArchetype = 'combat' | 'chest' | 'rest' | 'event'
@@ -63,8 +71,30 @@ export interface LastChancesAttackDefinition {
 export interface LastChancesWeaponDefinition {
   id: string
   name: string
+  /** Legacy equipped slot. New definitions use equipMode plus config.loadout. */
+  hand?: LastChancesHand
+  equipMode?: LastChancesEquipMode
+  attacks: Record<LastChancesGesture, LastChancesAttackDefinition>
+  /** Follow-up basic strikes after attacks.tap, advanced cyclically inside the combo window. */
+  tapCombo?: LastChancesAttackDefinition[]
+  /** The second input set used while a two-handed or unsupplemented hybrid weapon occupies both hands. */
+  secondaryAttacks?: Record<LastChancesGesture, LastChancesAttackDefinition>
+  /** Follow-ups after secondaryAttacks.tap. */
+  secondaryTapCombo?: LastChancesAttackDefinition[]
+}
+
+export interface LastChancesLoadoutDefinition {
+  primaryWeaponId: string
+  /** Null leaves an ordinary off-hand empty; two-handed and unsupplemented hybrid weapons fill it themselves. */
+  secondaryWeaponId: string | null
+}
+
+export interface LastChancesResolvedWeapon {
+  id: string
+  name: string
   hand: LastChancesHand
   attacks: Record<LastChancesGesture, LastChancesAttackDefinition>
+  tapCombo: LastChancesAttackDefinition[]
 }
 
 export interface LastChancesEnemyDefinition {
@@ -73,11 +103,15 @@ export interface LastChancesEnemyDefinition {
   maxHp: number
   radius: number
   moveSpeed: number
+  /** Schema-v2 authored idle facing rotation; v1 falls back to the prototype default. */
+  idleTurnRadiansPerSecond?: number
   visionRange: number
   visionAngleDegrees: number
   noticeMs: number
   alertPauseMs: number
   attackRange: number
+  /** Distance the chaser tries to retain as a fraction of attackRange. */
+  preferredAttackRangeRatio?: number
   attackDamage: number
   attackCooldownMs: number
   attackWindupMs: number
@@ -111,6 +145,12 @@ export interface LastChancesObstacleDefinition {
   elevation: number
 }
 
+export interface LastChancesSpawnLayoutDefinition {
+  id: string
+  name: string
+  enemySpawns: LastChancesVector[]
+}
+
 export interface LastChancesRoomTemplate {
   id: string
   name: string
@@ -118,12 +158,14 @@ export interface LastChancesRoomTemplate {
   width: number
   height: number
   playerSpawn: LastChancesVector
-  enemySpawns: LastChancesVector[]
+  /** Schema-v1 fallback. New rooms author at least two named deterministic layouts. */
+  enemySpawns?: LastChancesVector[]
+  spawnLayouts?: LastChancesSpawnLayoutDefinition[]
   obstacles: LastChancesObstacleDefinition[]
 }
 
 export interface LastChancesConfig {
-  schemaVersion: 1
+  schemaVersion: 1 | 2
   title: string
   seed: string
   chances: number
@@ -133,6 +175,8 @@ export interface LastChancesConfig {
   }
   input: {
     doubleTapMs: number
+    /** Basic-tap combo progress resets after this much game time without another tap. */
+    tapComboWindowMs?: number
     holdMs: number
     holdMaxMs: number
     holdThenDoubleTapWindowMs: number
@@ -161,6 +205,8 @@ export interface LastChancesConfig {
   rooms: LastChancesRoomTemplate[]
   enemies: LastChancesEnemyDefinition[]
   weapons: LastChancesWeaponDefinition[]
+  /** Optional catalog-backed equipment selection. Omitted schema-v1 definitions retain their legacy hand slots. */
+  loadout?: LastChancesLoadoutDefinition
   renderer: {
     maxDpr: number
     snapshotHz: number
@@ -190,6 +236,7 @@ export interface LastChancesPlanNode {
   label: string
   accent: string
   roomTemplateId: string
+  spawnLayoutId: string
   roomName: string
   roomArchetype: LastChancesRoomArchetype
   seed: number
@@ -251,6 +298,8 @@ export interface LastChancesGestureSnapshot {
   gesture: LastChancesGesture
   attackName: string
   atMs: number
+  /** One-based basic-combo step. Special gestures intentionally leave it undefined. */
+  comboStep?: number
 }
 
 export interface LastChancesGestureInputSnapshot {

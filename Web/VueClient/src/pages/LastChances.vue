@@ -33,6 +33,7 @@ import {
   LastChancesEngine,
   LAST_CHANCES_GESTURES,
   loadLastChancesConfig,
+  resolveLastChancesLoadout,
   saveLastChancesConfig as saveLastChancesConfigOverride,
   type LastChancesConfig,
   type LastChancesGamePlan,
@@ -95,6 +96,7 @@ const copy = {
     calm: 'No enemy has noticed you',
     noticed: 'Something has seen you',
     recognized: 'Gesture recognized',
+    combo: 'Combo',
     stageLabel: '99 Last Chances isometric combat arena',
     controls: 'Control language',
     controlsHelp: 'Every device feeds the same two-hand gesture system.',
@@ -119,7 +121,7 @@ const copy = {
     doubleTap: 'Double tap',
     doubleTapHold: 'Double tap + hold',
     hold: 'Hold / release',
-    holdThenDoubleTap: 'Hold + double tap',
+    holdThenDoubleTap: 'Hold + tap',
     pauseTitle: 'The room holds its breath',
     pauseBody: 'Nothing advances while you are paused.',
     deathEyebrow: 'A Chance was spent',
@@ -136,9 +138,9 @@ const copy = {
     killedBy: 'Killed by',
     mindCollapsed: 'Your mental health collapsed',
     attemptEnded: 'The attempt ended',
-    saved: 'Browser override saved.',
-    cleared: 'Browser override cleared; server definition restored.',
-    applied: 'Builder definition applied to a fresh attempt.',
+    saved: 'Browser override saved; the current attempt is unchanged.',
+    cleared: 'Browser override cleared; the current attempt is unchanged.',
+    applied: 'Builder definition applied to a fresh generation.',
   },
   ru: {
     eyebrow: 'Первый игровой прототип · детерминированная память',
@@ -184,6 +186,7 @@ const copy = {
     calm: 'Ни один враг вас не заметил',
     noticed: 'Что-то вас увидело',
     recognized: 'Распознан жест',
+    combo: 'Комбо',
     stageLabel: 'Изометрическая боевая арена 99 Last Chances',
     controls: 'Язык управления',
     controlsHelp: 'Все устройства используют одну систему жестов для двух рук.',
@@ -208,7 +211,7 @@ const copy = {
     doubleTap: 'Двойное нажатие',
     doubleTapHold: 'Двойное нажатие + задержка',
     hold: 'Задержка / отпускание',
-    holdThenDoubleTap: 'Задержка + двойное нажатие',
+    holdThenDoubleTap: 'Задержка + нажатие',
     pauseTitle: 'Комната затаила дыхание',
     pauseBody: 'Пока игра на паузе, ничто не движется.',
     deathEyebrow: 'Один Шанс потрачен',
@@ -225,9 +228,9 @@ const copy = {
     killedBy: 'Убит врагом',
     mindCollapsed: 'Ваше ментальное здоровье иссякло',
     attemptEnded: 'Попытка завершена',
-    saved: 'Замена конфигурации сохранена в браузере.',
-    cleared: 'Замена очищена; восстановлена конфигурация сервера.',
-    applied: 'Конфигурация применена к новой попытке.',
+    saved: 'Замена сохранена в браузере; текущая попытка не изменена.',
+    cleared: 'Замена в браузере очищена; текущая попытка не изменена.',
+    applied: 'Конфигурация применена в новой генерации.',
   },
 } as const
 
@@ -266,8 +269,11 @@ const chancePercent = computed(() => snapshot.value && config.value
 const activeTierIndex = computed(() => snapshot.value?.currentTierIndex ?? 0)
 const activeTier = computed(() => config.value?.progression.tiers[activeTierIndex.value] ?? null)
 const nextDeathCost = computed(() => activeTier.value?.deathCost ?? 1)
-const leftWeapon = computed(() => config.value?.weapons.find(weapon => weapon.hand === 'left') ?? null)
-const rightWeapon = computed(() => config.value?.weapons.find(weapon => weapon.hand === 'right') ?? null)
+const equippedLoadout = computed(() => config.value
+  ? resolveLastChancesLoadout(config.value)
+  : { left: null, right: null })
+const leftWeapon = computed(() => equippedLoadout.value.left)
+const rightWeapon = computed(() => equippedLoadout.value.right)
 
 const erosionStats = computed(() => {
   if (!config.value || !snapshot.value) return []
@@ -284,7 +290,9 @@ const erosionStats = computed(() => {
 
 const weaponCooldowns = computed<WeaponCooldown[]>(() => {
   if (!config.value) return []
-  return config.value.weapons.map((weapon) => ({
+  const weapons = [equippedLoadout.value.left, equippedLoadout.value.right]
+    .flatMap(weapon => weapon ? [weapon] : [])
+  return weapons.map((weapon) => ({
     hand: weapon.hand === 'left' ? 'primary' : 'secondary',
     name: weapon.name,
     input: snapshot.value?.gestureInputs.find(input => input.hand === weapon.hand),
@@ -293,7 +301,9 @@ const weaponCooldowns = computed<WeaponCooldown[]>(() => {
       const lastGesture = snapshot.value?.lastGesture
       return {
         key: gesture,
-        name: weapon.attacks[gesture].name,
+        name: gesture === 'tap'
+          ? weapon.tapCombo.map(attack => attack.name).join(' → ')
+          : weapon.attacks[gesture].name,
         remainingMs: cooldown?.remainingMs ?? 0,
         totalMs: cooldown?.totalMs ?? weapon.attacks[gesture].cooldownMs,
         active: !!lastGesture
@@ -388,7 +398,7 @@ function onSnapshot(nextSnapshot: LastChancesSnapshot) {
   }
 }
 
-async function createEngine(nextConfig: LastChancesConfig, createNewGeneration = false) {
+async function createEngine(nextConfig: LastChancesConfig) {
   engine.value?.destroy()
   engine.value = null
   config.value = cloneLastChancesConfig(nextConfig)
@@ -402,7 +412,6 @@ async function createEngine(nextConfig: LastChancesConfig, createNewGeneration =
     onSnapshot,
   })
   engine.value = instance
-  if (createNewGeneration) instance.newGeneration()
   instance.start()
   routeMapOpen.value = true
 }
@@ -477,9 +486,9 @@ function closeBuilder() {
   void nextTick(() => canvas.value?.focus())
 }
 
-async function applyBuilder(nextConfig: LastChancesConfig, restart: boolean) {
+async function applyBuilder(nextConfig: LastChancesConfig) {
   try {
-    await createEngine(nextConfig, restart)
+    await createEngine(nextConfig)
     builderOpen.value = false
     resumeAfterBuilder = false
     setToast(t.value.applied)
@@ -497,9 +506,8 @@ function saveBuilderOverride(nextConfig: LastChancesConfig) {
   }
 }
 
-async function clearBuilderOverride() {
+function clearBuilderOverride() {
   clearLastChancesConfigOverride()
-  await loadDefinition(false)
   setToast(t.value.cleared)
 }
 
@@ -645,7 +653,7 @@ onBeforeUnmount(() => {
             <div v-if="recentGesture" :key="recentGesture.atMs" class="lc-gesture-toast">
               <Sparkles :size="13" aria-hidden="true" />
               <span>{{ t.recognized }}</span>
-              <strong>{{ recentGesture.attackName }}</strong>
+              <strong>{{ recentGesture.attackName }}{{ recentGesture.comboStep ? ` · ${t.combo} ×${recentGesture.comboStep}` : '' }}</strong>
             </div>
           </Transition>
 

@@ -11,6 +11,7 @@ import type {
   LastChancesPlanEnemy,
   LastChancesPlanNode,
   LastChancesRoomTemplate,
+  LastChancesSpawnLayoutDefinition,
   LastChancesTierDefinition,
   LastChancesVector,
 } from './types'
@@ -21,27 +22,26 @@ function copyVector(value: LastChancesVector): LastChancesVector {
 
 function makeEnemyPlan(
   tier: LastChancesTierDefinition,
-  room: LastChancesRoomTemplate,
+  enemySpawns: LastChancesVector[],
   nodeId: string,
   rng: () => number,
 ): LastChancesPlanEnemy[] {
   const count = lastChancesRandomInt(rng, tier.enemyCount[0], tier.enemyCount[1])
-  const spawns = lastChancesShuffle(room.enemySpawns, rng)
+  const spawns = lastChancesShuffle(enemySpawns, rng)
   return Array.from({ length: count }, (_, index) => {
-    const base = spawns[index % spawns.length]
-    const cycle = Math.floor(index / spawns.length)
-    const angle = rng() * Math.PI * 2
-    const jitter = cycle * 26
+    const spawn = spawns[index]
     const poolEntry = pickLastChancesWeighted(tier.enemyPool, rng)
     return {
       id: `${nodeId}-enemy-${index + 1}`,
       definitionId: poolEntry.enemyId,
-      position: {
-        x: Math.max(0, Math.min(room.width, base.x + Math.cos(angle) * jitter)),
-        y: Math.max(0, Math.min(room.height, base.y + Math.sin(angle) * jitter)),
-      },
+      position: copyVector(spawn),
     }
   })
+}
+
+function roomSpawnLayouts(room: LastChancesRoomTemplate): LastChancesSpawnLayoutDefinition[] {
+  if (room.spawnLayouts?.length) return room.spawnLayouts
+  return [{ id: 'legacy', name: 'Legacy layout', enemySpawns: room.enemySpawns ?? [] }]
 }
 
 function makeNode(
@@ -56,6 +56,8 @@ function makeNode(
   const rng = createLastChancesRng(seed)
   const roomId = tier.roomTemplateIds[Math.floor(rng() * tier.roomTemplateIds.length)]
   const room = config.rooms.find(candidate => candidate.id === roomId) as LastChancesRoomTemplate
+  const layouts = roomSpawnLayouts(room)
+  const spawnLayout = layouts[Math.floor(rng() * layouts.length)]
   return {
     id,
     tierIndex,
@@ -64,6 +66,7 @@ function makeNode(
     label: `${tier.label} · ${room.name}`,
     accent: tier.accent,
     roomTemplateId: room.id,
+    spawnLayoutId: spawnLayout.id,
     roomName: room.name,
     roomArchetype: room.archetype,
     seed,
@@ -73,7 +76,7 @@ function makeNode(
       playerSpawn: copyVector(room.playerSpawn),
       obstacles: room.obstacles.map(obstacle => ({ ...obstacle })),
     },
-    enemies: makeEnemyPlan(tier, room, id, rng),
+    enemies: makeEnemyPlan(tier, spawnLayout.enemySpawns, id, rng),
     nextNodeIds: [],
   }
 }
@@ -83,16 +86,20 @@ function connectTiers(config: LastChancesConfig, planSeed: string, tiers: LastCh
     const currentTier = tiers[tierIndex]
     const nextTier = tiers[tierIndex + 1]
     const choiceCount = Math.min(config.graph.choicesPerNode, nextTier.length)
+
+    // Cover every next-tier node first without exceeding the authored per-node cap.
+    // Config validation rejects graphs whose total outgoing capacity is insufficient.
+    const coverageRng = createLastChancesRng(`${planSeed}:coverage:${tierIndex}`)
+    const coverage = lastChancesShuffle(nextTier.map(node => node.id), coverageRng)
+    coverage.forEach((nextNodeId, nextIndex) => {
+      currentTier[nextIndex % currentTier.length].nextNodeIds.push(nextNodeId)
+    })
+
     for (const node of currentTier) {
       const rng = createLastChancesRng(`${planSeed}:connections:${node.id}`)
-      node.nextNodeIds = lastChancesShuffle(nextTier.map(next => next.id), rng).slice(0, choiceCount)
-    }
-
-    for (let nextIndex = 0; nextIndex < nextTier.length; nextIndex += 1) {
-      const nextNode = nextTier[nextIndex]
-      if (currentTier.some(node => node.nextNodeIds.includes(nextNode.id))) continue
-      const parent = currentTier[nextIndex % currentTier.length]
-      parent.nextNodeIds.push(nextNode.id)
+      const remaining = lastChancesShuffle(nextTier.map(next => next.id), rng)
+        .filter(nextNodeId => !node.nextNodeIds.includes(nextNodeId))
+      node.nextNodeIds.push(...remaining.slice(0, choiceCount - node.nextNodeIds.length))
     }
   }
 }

@@ -18,6 +18,7 @@ import {
 import {
   cloneLastChancesConfig,
   LAST_CHANCES_GESTURES,
+  migrateLastChancesConfig,
   type LastChancesConfig,
   type LastChancesGesture,
   validateLastChancesConfig,
@@ -32,7 +33,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   close: []
-  apply: [config: LastChancesConfig, restart: boolean]
+  apply: [config: LastChancesConfig]
   save: [config: LastChancesConfig]
   clear: []
 }>()
@@ -51,17 +52,16 @@ const copy = {
     invalid: 'Needs attention',
     noConfig: 'The definition is still loading.',
     validate: 'Validate',
-    apply: 'Apply live',
-    restart: 'Apply & restart',
+    apply: 'Apply & start fresh generation',
     save: 'Save browser override',
     clear: 'Clear override',
     import: 'Import JSON',
     export: 'Export JSON',
     imported: 'Imported definition is ready to apply.',
     exported: 'Definition exported.',
-    applied: 'Definition applied.',
-    saved: 'Browser override requested.',
-    cleared: 'Browser override cleared.',
+    applied: 'Definition applied to a fresh generation.',
+    saved: 'Browser override saved; the current attempt is unchanged.',
+    cleared: 'Browser override cleared; the current attempt is unchanged.',
     parseError: 'JSON cannot be parsed',
     validationErrors: 'Validation errors',
     jsonHelp: 'Edit the complete runtime definition. Validate before applying.',
@@ -94,6 +94,7 @@ const copy = {
     erosionArmor: 'Armor erosion',
     erosionAttack: 'Attack erosion',
     doubleTap: 'Double-tap window (ms)',
+    tapCombo: 'Basic-combo continuation window (ms)',
     hold: 'Hold threshold (ms)',
     holdMax: 'Hold combo limit (ms)',
     holdDouble: 'Hold follow-up tap window (ms)',
@@ -103,8 +104,9 @@ const copy = {
     gamepadRightButton: 'Secondary button index',
     damage: 'Damage',
     cooldown: 'Cooldown (ms)',
+    tapNoCooldown: 'Basic tap is always cooldown-free.',
     range: 'Range',
-    attackRadius: 'Area radius',
+    attackRadius: 'Hitbox padding',
     arc: 'Arc (degrees)',
     duration: 'Duration (ms)',
     projectileSpeed: 'Projectile speed',
@@ -113,11 +115,13 @@ const copy = {
     enemyHp: 'Health',
     enemyRadius: 'Hit radius',
     enemySpeed: 'Move speed',
+    enemyIdleTurn: 'Idle turn speed (rad/sec)',
     visionRange: 'Vision range',
     visionAngle: 'Vision angle',
     notice: 'Notice delay (ms)',
     alertPause: 'Alert pause (ms)',
     enemyAttackRange: 'Attack range',
+    preferredAttackRange: 'Preferred range ratio',
     enemyDamage: 'Attack damage',
     enemyCooldown: 'Attack cooldown (ms)',
     windup: 'Attack wind-up (ms)',
@@ -127,7 +131,7 @@ const copy = {
       doubleTap: 'Double tap',
       doubleTapHold: 'Double + hold',
       hold: 'Hold',
-      holdThenDoubleTap: 'Hold + double tap',
+      holdThenDoubleTap: 'Hold + tap',
     },
   },
   ru: {
@@ -141,17 +145,16 @@ const copy = {
     invalid: 'Нужны исправления',
     noConfig: 'Конфигурация ещё загружается.',
     validate: 'Проверить',
-    apply: 'Применить сразу',
-    restart: 'Применить и начать заново',
+    apply: 'Применить в новой генерации',
     save: 'Сохранить в браузере',
     clear: 'Очистить замену',
     import: 'Импорт JSON',
     export: 'Экспорт JSON',
     imported: 'Импортированная конфигурация готова к применению.',
     exported: 'Конфигурация экспортирована.',
-    applied: 'Конфигурация применена.',
-    saved: 'Запрошено сохранение замены в браузере.',
-    cleared: 'Замена в браузере очищена.',
+    applied: 'Конфигурация применена в новой генерации.',
+    saved: 'Замена сохранена в браузере; текущая попытка не изменена.',
+    cleared: 'Замена в браузере очищена; текущая попытка не изменена.',
     parseError: 'JSON не удалось разобрать',
     validationErrors: 'Ошибки проверки',
     jsonHelp: 'Редактируйте полную конфигурацию. Проверьте её перед применением.',
@@ -184,6 +187,7 @@ const copy = {
     erosionArmor: 'Истощение брони',
     erosionAttack: 'Истощение атаки',
     doubleTap: 'Окно двойного нажатия (мс)',
+    tapCombo: 'Окно продолжения базового комбо (мс)',
     hold: 'Порог задержки (мс)',
     holdMax: 'Предел задержки для комбинации (мс)',
     holdDouble: 'Окно повтора после задержки (мс)',
@@ -193,8 +197,9 @@ const copy = {
     gamepadRightButton: 'Индекс вторичной кнопки',
     damage: 'Урон',
     cooldown: 'Откат (мс)',
+    tapNoCooldown: 'У базового нажатия отката нет.',
     range: 'Дальность',
-    attackRadius: 'Радиус области',
+    attackRadius: 'Допуск хитбокса',
     arc: 'Дуга (градусы)',
     duration: 'Длительность (мс)',
     projectileSpeed: 'Скорость снаряда',
@@ -203,11 +208,13 @@ const copy = {
     enemyHp: 'Здоровье',
     enemyRadius: 'Радиус попадания',
     enemySpeed: 'Скорость движения',
+    enemyIdleTurn: 'Скорость поворота в покое (рад/с)',
     visionRange: 'Дальность зрения',
     visionAngle: 'Угол зрения',
     notice: 'Задержка обнаружения (мс)',
     alertPause: 'Пауза после тревоги (мс)',
     enemyAttackRange: 'Дальность атаки',
+    preferredAttackRange: 'Доля предпочитаемой дистанции',
     enemyDamage: 'Урон атаки',
     enemyCooldown: 'Откат атаки (мс)',
     windup: 'Подготовка атаки (мс)',
@@ -217,7 +224,7 @@ const copy = {
       doubleTap: 'Двойное нажатие',
       doubleTapHold: 'Двойное + задержка',
       hold: 'Задержка',
-      holdThenDoubleTap: 'Задержка + двойное нажатие',
+      holdThenDoubleTap: 'Задержка + нажатие',
     },
   },
 } as const
@@ -266,7 +273,7 @@ watch(draft, (value) => {
 
 function parseRaw(): LastChancesConfig | null {
   try {
-    const value = JSON.parse(rawJson.value) as unknown
+    const value = migrateLastChancesConfig(JSON.parse(rawJson.value) as unknown)
     const result = validateLastChancesConfig(value)
     if (!result.valid) {
       rawError.value = result.errors.join('\n')
@@ -285,6 +292,7 @@ function validateRaw() {
   if (!value) return
   syncingRaw = true
   draft.value = cloneLastChancesConfig(value)
+  rawJson.value = JSON.stringify(value, null, 2)
   syncingRaw = false
   notice.value = t.value.valid
 }
@@ -295,6 +303,7 @@ function switchTab(nextTab: BuilderTab) {
     if (!value) return
     syncingRaw = true
     draft.value = cloneLastChancesConfig(value)
+    rawJson.value = JSON.stringify(value, null, 2)
     syncingRaw = false
   }
   if (nextTab === 'json' && draft.value) rawJson.value = JSON.stringify(draft.value, null, 2)
@@ -313,10 +322,10 @@ function currentValidDraft(): LastChancesConfig | null {
   return cloneLastChancesConfig(draft.value)
 }
 
-function apply(restart: boolean) {
+function apply() {
   const value = currentValidDraft()
   if (!value) return
-  emit('apply', value, restart)
+  emit('apply', value)
   notice.value = t.value.applied
 }
 
@@ -342,6 +351,7 @@ async function importJson(event: Event) {
   if (value) {
     syncingRaw = true
     draft.value = cloneLastChancesConfig(value)
+    rawJson.value = JSON.stringify(value, null, 2)
     syncingRaw = false
     notice.value = t.value.imported
   }
@@ -447,6 +457,7 @@ function exportJson() {
                 <legend><span><Zap :size="15" aria-hidden="true" />{{ t.input }}</span><small>{{ t.inputHelp }}</small></legend>
                 <div class="lc-fields-grid">
                   <label>{{ t.doubleTap }}<input v-model.number="draft.input.doubleTapMs" type="number" min="1" step="10" /></label>
+                  <label>{{ t.tapCombo }}<input v-model.number="draft.input.tapComboWindowMs" type="number" min="1" step="10" /></label>
                   <label>{{ t.hold }}<input v-model.number="draft.input.holdMs" type="number" min="1" step="10" /></label>
                   <label>{{ t.holdMax }}<input v-model.number="draft.input.holdMaxMs" type="number" min="1" step="10" /></label>
                   <label>{{ t.holdDouble }}<input v-model.number="draft.input.holdThenDoubleTapWindowMs" type="number" min="1" step="10" /></label>
@@ -473,7 +484,11 @@ function exportJson() {
                 </div>
                 <div v-if="selectedAttack" class="lc-fields-grid">
                   <label>{{ t.damage }}<input v-model.number="selectedAttack.damage" type="number" min="0" step="1" /></label>
-                  <label>{{ t.cooldown }}<input v-model.number="selectedAttack.cooldownMs" type="number" min="0" step="25" /></label>
+                  <label :title="selectedGesture === 'tap' ? t.tapNoCooldown : undefined">
+                    {{ t.cooldown }}
+                    <input v-model.number="selectedAttack.cooldownMs" type="number" min="0" step="25" :disabled="selectedGesture === 'tap'" />
+                    <small v-if="selectedGesture === 'tap'">{{ t.tapNoCooldown }}</small>
+                  </label>
                   <label>{{ t.range }}<input v-model.number="selectedAttack.range" type="number" min="0" step="1" /></label>
                   <label>{{ t.attackRadius }}<input v-model.number="selectedAttack.radius" type="number" min="0" step="1" /></label>
                   <label>{{ t.arc }}<input v-model.number="selectedAttack.arcDegrees" type="number" min="0" step="1" /></label>
@@ -497,11 +512,13 @@ function exportJson() {
                   <label>{{ t.enemyHp }}<input v-model.number="selectedEnemy.maxHp" type="number" min="1" step="1" /></label>
                   <label>{{ t.enemyRadius }}<input v-model.number="selectedEnemy.radius" type="number" min="1" step="1" /></label>
                   <label>{{ t.enemySpeed }}<input v-model.number="selectedEnemy.moveSpeed" type="number" min="1" step="1" /></label>
+                  <label>{{ t.enemyIdleTurn }}<input v-model.number="selectedEnemy.idleTurnRadiansPerSecond" type="number" min="0" step="0.01" /></label>
                   <label>{{ t.visionRange }}<input v-model.number="selectedEnemy.visionRange" type="number" min="1" step="1" /></label>
                   <label>{{ t.visionAngle }}<input v-model.number="selectedEnemy.visionAngleDegrees" type="number" min="0" step="1" /></label>
                   <label>{{ t.notice }}<input v-model.number="selectedEnemy.noticeMs" type="number" min="1" step="25" /></label>
                   <label>{{ t.alertPause }}<input v-model.number="selectedEnemy.alertPauseMs" type="number" min="1" step="25" /></label>
                   <label>{{ t.enemyAttackRange }}<input v-model.number="selectedEnemy.attackRange" type="number" min="1" step="1" /></label>
+                  <label>{{ t.preferredAttackRange }}<input v-model.number="selectedEnemy.preferredAttackRangeRatio" type="number" min="0.01" max="1" step="0.01" /></label>
                   <label>{{ t.enemyDamage }}<input v-model.number="selectedEnemy.attackDamage" type="number" min="0" step="1" /></label>
                   <label>{{ t.enemyCooldown }}<input v-model.number="selectedEnemy.attackCooldownMs" type="number" min="1" step="25" /></label>
                   <label>{{ t.windup }}<input v-model.number="selectedEnemy.attackWindupMs" type="number" min="1" step="25" /></label>
@@ -530,14 +547,11 @@ function exportJson() {
               <input ref="fileInput" class="sr-only" type="file" accept="application/json,.json" @change="importJson" />
               <button type="button" @click="fileInput?.click()"><Upload :size="14" aria-hidden="true" />{{ t.import }}</button>
               <button type="button" @click="exportJson"><Download :size="14" aria-hidden="true" />{{ t.export }}</button>
-            </div>
-            <div class="lc-builder-persist-actions">
-              <button type="button" @click="save"><Save :size="14" aria-hidden="true" />{{ t.save }}</button>
               <button type="button" class="is-danger" @click="clearOverride"><Eraser :size="14" aria-hidden="true" />{{ t.clear }}</button>
             </div>
             <div class="lc-builder-apply-actions">
-              <button type="button" :disabled="!validation.valid || !!rawError" @click="apply(false)">{{ t.apply }}</button>
-              <button type="button" class="is-primary" :disabled="!validation.valid || !!rawError" @click="apply(true)"><RotateCcw :size="14" aria-hidden="true" />{{ t.restart }}</button>
+              <button type="button" :disabled="!validation.valid || !!rawError" @click="save"><Save :size="14" aria-hidden="true" />{{ t.save }}</button>
+              <button type="button" class="is-primary" :disabled="!validation.valid || !!rawError" @click="apply"><RotateCcw :size="14" aria-hidden="true" />{{ t.apply }}</button>
             </div>
           </footer>
         </template>

@@ -1,8 +1,10 @@
 import {
   cloneLastChancesConfig,
   LastChancesConfigError,
+  migrateLastChancesConfig,
   validateLastChancesConfig,
 } from './config'
+import { resolveLastChancesLoadout } from './equipment'
 import { LastChancesGestureRecognizer } from './gestures'
 import {
   createLastChancesGamepadAdapter,
@@ -28,10 +30,10 @@ import type {
   LastChancesObstacleDefinition,
   LastChancesPhase,
   LastChancesPlanNode,
+  LastChancesResolvedWeapon,
   LastChancesSnapshot,
   LastChancesStats,
   LastChancesVector,
-  LastChancesWeaponDefinition,
 } from './types'
 
 interface RuntimePlayer {
@@ -78,7 +80,23 @@ interface RuntimeDash {
   radius: number
   knockback: number
   hitIds: Set<string>
+  remainingHits: number
   color: string
+}
+
+interface RuntimeActiveArea {
+  kind: 'melee' | 'burst'
+  origin: LastChancesVector
+  direction: LastChancesVector
+  damage: number
+  knockback: number
+  range: number
+  radius: number
+  arcDegrees: number
+  remainingMs: number
+  totalMs: number
+  hitIds: Set<string>
+  remainingHits: number
 }
 
 interface RuntimeEffect {
@@ -91,6 +109,11 @@ interface RuntimeEffect {
   color: string
   remainingMs: number
   totalMs: number
+}
+
+interface RuntimeTapCombo {
+  step: number
+  expiresAtMs: number
 }
 
 interface IsometricLayout {
@@ -180,10 +203,14 @@ export class LastChancesEngine {
   private readonly context: CanvasRenderingContext2D
   private readonly callbacks: LastChancesEngineCallbacks
   private readonly enemyDefinitions: Map<string, LastChancesEnemyDefinition>
-  private readonly weapons: Map<LastChancesHand, LastChancesWeaponDefinition>
+  private readonly weapons: Map<LastChancesHand, LastChancesResolvedWeapon>
   private readonly gestures: LastChancesGestureRecognizer
   private readonly pressedKeys = new Set<string>()
   private readonly cooldownEnds = new Map<string, number>()
+  private readonly tapCombos: Record<LastChancesHand, RuntimeTapCombo> = {
+    left: { step: 0, expiresAtMs: 0 },
+    right: { step: 0, expiresAtMs: 0 },
+  }
   private readonly gamepadButtons: Record<LastChancesHand, boolean> = { left: false, right: false }
   private readonly gamepadAdapter: LastChancesGamepadAdapter
 
@@ -204,6 +231,7 @@ export class LastChancesEngine {
   private deathReason: string | null = null
   private enemies: RuntimeEnemy[] = []
   private projectiles: RuntimeProjectile[] = []
+  private activeAreas: RuntimeActiveArea[] = []
   private effects: RuntimeEffect[] = []
   private activeDash: RuntimeDash | null = null
   private nextProjectileId = 1
@@ -227,7 +255,8 @@ export class LastChancesEngine {
     config: LastChancesConfig,
     callbacks: LastChancesEngineCallbacks = {},
   ) {
-    const validation = validateLastChancesConfig(config)
+    const migratedConfig = migrateLastChancesConfig(config) as LastChancesConfig
+    const validation = validateLastChancesConfig(migratedConfig)
     if (!validation.valid) throw new LastChancesConfigError('Invalid 99LC engine config', validation.errors)
     const context = canvas.getContext('2d')
     if (!context) throw new Error('99LC requires a Canvas 2D rendering context')
@@ -235,7 +264,7 @@ export class LastChancesEngine {
     this.canvas = canvas
     this.context = context
     this.callbacks = callbacks
-    this.config = cloneLastChancesConfig(config)
+    this.config = cloneLastChancesConfig(migratedConfig)
     this.gamepadAdapter = createLastChancesGamepadAdapter({
       deadZone: this.config.input.gamepadDeadZone,
       leftButton: this.config.input.gamepadLeftButton,
@@ -254,7 +283,10 @@ export class LastChancesEngine {
     }
     this.chances = this.config.chances
     this.enemyDefinitions = new Map(this.config.enemies.map(enemy => [enemy.id, enemy]))
-    this.weapons = new Map(this.config.weapons.map(weapon => [weapon.hand, weapon]))
+    const loadout = resolveLastChancesLoadout(this.config)
+    this.weapons = new Map()
+    if (loadout.left) this.weapons.set('left', loadout.left)
+    if (loadout.right) this.weapons.set('right', loadout.right)
     this.plan = buildLastChancesPlan(this.config, this.generation)
     const baseStats = copyStats(this.config.player.baseStats)
     this.player = {
@@ -298,6 +330,7 @@ export class LastChancesEngine {
     this.detachEvents()
     this.pressedKeys.clear()
     this.gestures.reset()
+    this.activeAreas = []
   }
 
   setPaused(paused: boolean): void {
@@ -324,9 +357,11 @@ export class LastChancesEngine {
     this.player.position = { ...node.arena.playerSpawn }
     this.player.aim = { ...this.pointerAim }
     this.projectiles = []
+    this.activeAreas = []
     this.effects = []
     this.activeDash = null
     this.cooldownEnds.clear()
+    this.resetTapCombos()
     this.gestures.reset()
     this.enemies = node.enemies.map((enemy) => {
       const definition = this.enemyDefinitions.get(enemy.definitionId) as LastChancesEnemyDefinition
@@ -428,6 +463,7 @@ export class LastChancesEngine {
     this.updatePlayer(deltaSeconds)
     this.updateProjectiles(deltaSeconds, deltaMs)
     this.updateEnemies(deltaSeconds, deltaMs)
+    this.updateActiveAreas(deltaMs)
     this.updateMentalHealth(deltaSeconds)
     this.effects.forEach(effect => effect.remainingMs -= deltaMs)
     this.effects = this.effects.filter(effect => effect.remainingMs > 0)
@@ -445,10 +481,12 @@ export class LastChancesEngine {
       }, this.config.player.radius)
       this.activeDash.remainingDistance -= travel
       for (const enemy of this.enemies) {
+        if (this.activeDash.remainingHits <= 0) break
         if (enemy.state === 'dead' || this.activeDash.hitIds.has(enemy.id)) continue
         const hitRange = this.config.player.radius + enemy.definition.radius + this.activeDash.radius
         if (distanceSquared(this.player.position, enemy.position) <= hitRange * hitRange) {
           this.activeDash.hitIds.add(enemy.id)
+          this.activeDash.remainingHits -= 1
           this.damageEnemy(enemy, this.activeDash.damage, this.activeDash.knockback, this.activeDash.direction)
         }
       }
@@ -503,7 +541,8 @@ export class LastChancesEngine {
       const distance = vectorLength(toPlayer)
 
       if (enemy.state === 'idle') {
-        const angle = Math.atan2(enemy.facing.y, enemy.facing.x) + deltaSeconds * 0.28
+        const angle = Math.atan2(enemy.facing.y, enemy.facing.x)
+          + deltaSeconds * (enemy.definition.idleTurnRadiansPerSecond ?? 0.28)
         enemy.facing = { x: Math.cos(angle), y: Math.sin(angle) }
       }
       const seesPlayer = this.enemyCanSeePlayer(enemy)
@@ -548,7 +587,8 @@ export class LastChancesEngine {
         enemy.attackWindupMs = enemy.definition.attackWindupMs
         continue
       }
-      const desiredDistance = enemy.definition.attackRange * 0.72
+      const desiredDistance = enemy.definition.attackRange
+        * (enemy.definition.preferredAttackRangeRatio ?? 0.72)
       if (distance > desiredDistance) {
         this.moveCircle(enemy.position, {
           x: enemy.facing.x * enemy.definition.moveSpeed * deltaSeconds,
@@ -583,11 +623,22 @@ export class LastChancesEngine {
     if (this.phase !== 'playing' || this.paused || !this.currentNode) return
     const weapon = this.weapons.get(hand)
     if (!weapon) return
-    const attack = weapon.attacks[gesture]
     const key = cooldownKey(hand, gesture)
-    if ((this.cooldownEnds.get(key) ?? 0) > this.elapsedMs) return
-    this.cooldownEnds.set(key, this.elapsedMs + attack.cooldownMs)
-    this.lastGesture = { hand, gesture, attackName: attack.name, atMs: this.elapsedMs }
+    if (gesture !== 'tap') {
+      if ((this.cooldownEnds.get(key) ?? 0) > this.elapsedMs) return
+    }
+    const comboStep = gesture === 'tap' ? this.advanceTapCombo(hand) : undefined
+    const attack = comboStep === undefined
+      ? weapon.attacks[gesture]
+      : weapon.tapCombo[(comboStep - 1) % weapon.tapCombo.length]
+    if (gesture !== 'tap') this.cooldownEnds.set(key, this.elapsedMs + attack.cooldownMs)
+    this.lastGesture = {
+      hand,
+      gesture,
+      attackName: attack.name,
+      atMs: this.elapsedMs,
+      ...(comboStep === undefined ? {} : { comboStep }),
+    }
     const direction = normalize(this.player.aim)
 
     if (attack.kind === 'melee') this.performMelee(attack, direction)
@@ -596,19 +647,27 @@ export class LastChancesEngine {
     if (attack.kind === 'burst') this.performBurst(attack, direction)
   }
 
-  private performMelee(attack: LastChancesAttackDefinition, direction: LastChancesVector): void {
-    for (const enemy of this.enemies) {
-      if (enemy.state === 'dead') continue
-      const toEnemy = { x: enemy.position.x - this.player.position.x, y: enemy.position.y - this.player.position.y }
-      const distance = vectorLength(toEnemy)
-      if (distance > attack.range + enemy.definition.radius) continue
-      if (attack.arcDegrees < 360) {
-        const unit = normalize(toEnemy)
-        const dot = unit.x * direction.x + unit.y * direction.y
-        if (dot < Math.cos(attack.arcDegrees * Math.PI / 360)) continue
-      }
-      this.damageEnemy(enemy, attack.damage, attack.knockback, direction)
+  private advanceTapCombo(hand: LastChancesHand): number {
+    const combo = this.tapCombos[hand]
+    combo.step = combo.step > 0 && this.elapsedMs <= combo.expiresAtMs
+      ? combo.step + 1
+      : 1
+    combo.expiresAtMs = this.elapsedMs + (
+      this.config.input.tapComboWindowMs
+      ?? Math.max(600, this.config.input.doubleTapMs * 2)
+    )
+    return combo.step
+  }
+
+  private resetTapCombos(): void {
+    for (const hand of LAST_CHANCES_HANDS) {
+      this.tapCombos[hand].step = 0
+      this.tapCombos[hand].expiresAtMs = 0
     }
+  }
+
+  private performMelee(attack: LastChancesAttackDefinition, direction: LastChancesVector): void {
+    this.startActiveArea('melee', attack, direction)
     this.addEffect('melee', attack, direction)
   }
 
@@ -644,6 +703,7 @@ export class LastChancesEngine {
       radius: attack.radius,
       knockback: attack.knockback,
       hitIds: new Set(),
+      remainingHits: attack.pierce + 1,
       color: attack.color,
     }
     this.player.invulnerableMs = Math.max(this.player.invulnerableMs, attack.durationMs)
@@ -651,18 +711,66 @@ export class LastChancesEngine {
   }
 
   private performBurst(attack: LastChancesAttackDefinition, direction: LastChancesVector): void {
-    for (const enemy of this.enemies) {
-      if (enemy.state === 'dead') continue
-      const range = attack.range + enemy.definition.radius
-      if (distanceSquared(this.player.position, enemy.position) <= range * range) {
-        const away = normalize({
-          x: enemy.position.x - this.player.position.x,
-          y: enemy.position.y - this.player.position.y,
-        }, direction)
-        this.damageEnemy(enemy, attack.damage, attack.knockback, away)
-      }
-    }
+    this.startActiveArea('burst', attack, direction)
     this.addEffect('burst', attack, direction)
+  }
+
+  private startActiveArea(
+    kind: RuntimeActiveArea['kind'],
+    attack: LastChancesAttackDefinition,
+    direction: LastChancesVector,
+  ): void {
+    const area: RuntimeActiveArea = {
+      kind,
+      origin: { ...this.player.position },
+      direction: { ...direction },
+      damage: attack.damage,
+      knockback: attack.knockback,
+      range: attack.range,
+      radius: attack.radius,
+      arcDegrees: attack.arcDegrees,
+      remainingMs: attack.durationMs,
+      totalMs: attack.durationMs,
+      hitIds: new Set(),
+      remainingHits: attack.pierce + 1,
+    }
+    this.applyActiveAreaHits(area)
+    if (area.remainingMs > 0 && area.remainingHits > 0) this.activeAreas.push(area)
+  }
+
+  private updateActiveAreas(deltaMs: number): void {
+    for (const area of this.activeAreas) {
+      area.remainingMs = Math.max(0, area.remainingMs - deltaMs)
+      this.applyActiveAreaHits(area)
+    }
+    this.activeAreas = this.activeAreas.filter(area => area.remainingMs > 0 && area.remainingHits > 0)
+  }
+
+  private applyActiveAreaHits(area: RuntimeActiveArea): void {
+    for (const enemy of this.enemies) {
+      if (area.remainingHits <= 0) break
+      if (enemy.state === 'dead' || area.hitIds.has(enemy.id)) continue
+      const toEnemy = {
+        x: enemy.position.x - area.origin.x,
+        y: enemy.position.y - area.origin.y,
+      }
+      const authoredReach = area.kind === 'burst' && area.totalMs > 0
+        ? area.range * clamp(1 - area.remainingMs / area.totalMs, 0, 1)
+        : area.range
+      const hitRange = authoredReach + area.radius + enemy.definition.radius
+      if (distanceSquared(area.origin, enemy.position) > hitRange * hitRange) continue
+      if (area.arcDegrees < 360) {
+        const unit = normalize(toEnemy)
+        const dot = unit.x * area.direction.x + unit.y * area.direction.y
+        if (dot < Math.cos(area.arcDegrees * Math.PI / 360)) continue
+      }
+      area.hitIds.add(enemy.id)
+      area.remainingHits -= 1
+      const knockbackDirection = area.kind === 'burst'
+        ? normalize(toEnemy, area.direction)
+        : area.direction
+      this.damageEnemy(enemy, area.damage, area.knockback, knockbackDirection)
+    }
   }
 
   private addEffect(
@@ -670,7 +778,9 @@ export class LastChancesEngine {
     attack: LastChancesAttackDefinition,
     direction: LastChancesVector,
   ): void {
-    const duration = Math.max(160, attack.durationMs)
+    const duration = kind === 'melee' || kind === 'burst'
+      ? Math.max(1, attack.durationMs)
+      : Math.max(160, attack.durationMs)
     this.effects.push({
       kind,
       position: { ...this.player.position },
@@ -729,6 +839,7 @@ export class LastChancesEngine {
       armor: Math.max(0, this.player.stats.armor - erosion.armor),
     }
     this.activeDash = null
+    this.activeAreas = []
     this.deathReason = reason
     this.phase = this.chances > 0 ? 'dead' : 'outOfChances'
     this.emitSnapshot(true)
@@ -755,7 +866,9 @@ export class LastChancesEngine {
     }
     this.projectiles = []
     this.activeDash = null
+    this.activeAreas = []
     this.gestures.reset()
+    this.resetTapCombos()
     this.emitSnapshot(true)
   }
 
@@ -771,9 +884,11 @@ export class LastChancesEngine {
     this.lastGesture = null
     this.enemies = []
     this.projectiles = []
+    this.activeAreas = []
     this.effects = []
     this.activeDash = null
     this.cooldownEnds.clear()
+    this.resetTapCombos()
     this.gestures.reset()
     this.pressedKeys.clear()
     this.touchMove = { x: 0, y: 0 }
@@ -1059,8 +1174,11 @@ export class LastChancesEngine {
       const weapon = this.weapons.get(hand)
       if (!weapon) continue
       for (const gesture of LAST_CHANCES_GESTURES) {
-        const remainingMs = Math.max(0, (this.cooldownEnds.get(cooldownKey(hand, gesture)) ?? 0) - this.elapsedMs)
-        cooldowns.push({ hand, gesture, remainingMs, totalMs: weapon.attacks[gesture].cooldownMs })
+        const totalMs = gesture === 'tap' ? 0 : weapon.attacks[gesture].cooldownMs
+        const remainingMs = gesture === 'tap'
+          ? 0
+          : Math.max(0, (this.cooldownEnds.get(cooldownKey(hand, gesture)) ?? 0) - this.elapsedMs)
+        cooldowns.push({ hand, gesture, remainingMs, totalMs })
       }
     }
     return {
@@ -1338,10 +1456,26 @@ export class LastChancesEngine {
     context.lineWidth = 2 + (1 - progress) * 5
     if (effect.kind === 'burst') {
       const worldRadius = effect.range * progress
-      const screenRadius = Math.max(2, worldRadius * this.entityScale(node))
-      context.beginPath()
-      context.ellipse(origin.x, origin.y, screenRadius * 1.8, screenRadius * 0.8, 0, 0, Math.PI * 2)
-      context.stroke()
+      if (effect.arcDegrees >= 360) {
+        const screenRadius = Math.max(2, worldRadius * this.entityScale(node))
+        context.beginPath()
+        context.ellipse(origin.x, origin.y, screenRadius * 1.8, screenRadius * 0.8, 0, 0, Math.PI * 2)
+        context.stroke()
+      } else {
+        const facing = Math.atan2(effect.direction.y, effect.direction.x)
+        const halfArc = effect.arcDegrees * Math.PI / 360
+        context.beginPath()
+        for (let step = 0; step <= 18; step += 1) {
+          const angle = facing - halfArc + (halfArc * 2 * step) / 18
+          const point = this.worldToScreen({
+            x: effect.position.x + Math.cos(angle) * worldRadius,
+            y: effect.position.y + Math.sin(angle) * worldRadius,
+          }, node)
+          if (step === 0) context.moveTo(point.x, point.y)
+          else context.lineTo(point.x, point.y)
+        }
+        context.stroke()
+      }
     } else {
       context.beginPath()
       context.moveTo(origin.x, origin.y)

@@ -49,7 +49,7 @@ const copy = {
       doubleTap: 'Double tap',
       doubleTapHold: 'Double + hold',
       hold: 'Hold / release',
-      holdThenDoubleTap: 'Hold + double tap',
+      holdThenDoubleTap: 'Hold + tap',
     },
   },
   ru: {
@@ -73,7 +73,7 @@ const copy = {
       doubleTap: 'Двойное',
       doubleTapHold: 'Двойное + задержка',
       hold: 'Задержка / отпускание',
-      holdThenDoubleTap: 'Задержка + двойное нажатие',
+      holdThenDoubleTap: 'Задержка + нажатие',
     },
   },
 } as const
