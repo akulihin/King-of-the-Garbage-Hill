@@ -1,7 +1,10 @@
 import {
   LAST_CHANCES_ATTACK_KINDS,
+  LAST_CHANCES_ENEMY_ATTACK_KINDS,
+  LAST_CHANCES_ENEMY_ROLES,
   LAST_CHANCES_EQUIP_MODES,
   LAST_CHANCES_GESTURES,
+  LAST_CHANCES_HAZARD_KINDS,
   LAST_CHANCES_HANDS,
 } from './types'
 import type {
@@ -193,6 +196,7 @@ function validateAttack(value: unknown, path: string, errors: string[]): void {
   requireNumber(record, 'radius', path, errors)
   requireNumber(record, 'arcDegrees', path, errors)
   requireNumber(record, 'durationMs', path, errors)
+  if (record.lingerMs !== undefined) requireNumber(record, 'lingerMs', path, errors)
   requireNumber(record, 'projectileSpeed', path, errors)
   requireInteger(record, 'pierce', path, errors)
   requireNumber(record, 'knockback', path, errors)
@@ -233,6 +237,100 @@ function validateTapCombo(
   })
 }
 
+function validateHazards(value: unknown, path: string, errors: string[]): void {
+  if (value === undefined) return
+  if (!Array.isArray(value)) {
+    errors.push(`${path} must be an array`)
+    return
+  }
+  const ids = new Set<string>()
+  value.forEach((hazardValue, index) => {
+    const hazardPath = `${path}[${index}]`
+    const hazard = asRecord(hazardValue, hazardPath, errors)
+    if (!hazard) return
+    requireString(hazard, 'id', hazardPath, errors)
+    requireString(hazard, 'name', hazardPath, errors)
+    if (!LAST_CHANCES_HAZARD_KINDS.includes(
+      hazard.kind as typeof LAST_CHANCES_HAZARD_KINDS[number],
+    )) {
+      errors.push(`${hazardPath}.kind must be one of ${LAST_CHANCES_HAZARD_KINDS.join(', ')}`)
+    }
+    for (const key of ['x', 'y', 'damage', 'mentalDamagePerSecond', 'phaseOffsetMs'] as const) {
+      requireNumber(hazard, key, hazardPath, errors)
+    }
+    for (const key of ['width', 'height', 'cycleMs', 'activeMs'] as const) {
+      requirePositiveNumber(hazard, key, hazardPath, errors)
+    }
+    requireString(hazard, 'color', hazardPath, errors)
+    if (typeof hazard.activeMs === 'number' && typeof hazard.cycleMs === 'number'
+      && hazard.activeMs > hazard.cycleMs) {
+      errors.push(`${hazardPath}.activeMs must be <= cycleMs`)
+    }
+    if (typeof hazard.id === 'string') {
+      if (ids.has(hazard.id)) errors.push(`${hazardPath}.id duplicates ${hazard.id}`)
+      ids.add(hazard.id)
+    }
+  })
+}
+
+function validateInteraction(value: unknown, path: string, errors: string[]): void {
+  if (value === undefined) return
+  const interaction = asRecord(value, path, errors)
+  if (!interaction) return
+  requireString(interaction, 'title', path, errors)
+  requireString(interaction, 'body', path, errors)
+  if (!Array.isArray(interaction.choices) || interaction.choices.length === 0) {
+    errors.push(`${path}.choices must be a non-empty array`)
+    return
+  }
+  const ids = new Set<string>()
+  interaction.choices.forEach((choiceValue, index) => {
+    const choicePath = `${path}.choices[${index}]`
+    const choice = asRecord(choiceValue, choicePath, errors)
+    if (!choice) return
+    requireString(choice, 'id', choicePath, errors)
+    requireString(choice, 'label', choicePath, errors)
+    requireString(choice, 'description', choicePath, errors)
+    const effect = asRecord(choice.effect, `${choicePath}.effect`, errors)
+    if (effect) {
+      if (effect.chanceCost !== undefined) requireInteger(effect, 'chanceCost', `${choicePath}.effect`, errors)
+      if (effect.hp !== undefined) {
+        const hp = effect.hp
+        if (typeof hp !== 'number' || !Number.isFinite(hp)) {
+          errors.push(`${choicePath}.effect.hp must be a finite number`)
+        }
+      }
+      if (effect.mentalHealth !== undefined) {
+        const mental = effect.mentalHealth
+        if (typeof mental !== 'number' || !Number.isFinite(mental)) {
+          errors.push(`${choicePath}.effect.mentalHealth must be a finite number`)
+        }
+      }
+      if (effect.stats !== undefined) {
+        const stats = asRecord(effect.stats, `${choicePath}.effect.stats`, errors)
+        if (stats) {
+          for (const key of ['maxHp', 'maxMentalHealth', 'attackPower', 'moveSpeed', 'armor'] as const) {
+            if (stats[key] !== undefined
+              && (typeof stats[key] !== 'number' || !Number.isFinite(stats[key]))) {
+              errors.push(`${choicePath}.effect.stats.${key} must be a finite number`)
+            }
+          }
+        }
+      }
+      if (effect.primaryWeaponId !== undefined) {
+        requireString(effect, 'primaryWeaponId', `${choicePath}.effect`, errors)
+      }
+      if (effect.secondaryWeaponId !== undefined && effect.secondaryWeaponId !== null) {
+        requireString(effect, 'secondaryWeaponId', `${choicePath}.effect`, errors)
+      }
+    }
+    if (typeof choice.id === 'string') {
+      if (ids.has(choice.id)) errors.push(`${choicePath}.id duplicates ${choice.id}`)
+      ids.add(choice.id)
+    }
+  })
+}
+
 function validateRooms(value: unknown, errors: string[], requireSpawnLayouts: boolean): Set<string> {
   const ids = new Set<string>()
   if (!Array.isArray(value) || value.length === 0) {
@@ -245,8 +343,8 @@ function validateRooms(value: unknown, errors: string[], requireSpawnLayouts: bo
     if (!room) return
     requireString(room, 'id', path, errors)
     requireString(room, 'name', path, errors)
-    if (!['combat', 'chest', 'rest', 'event'].includes(String(room.archetype))) {
-      errors.push(`${path}.archetype must be combat, chest, rest, or event`)
+    if (!['combat', 'chest', 'rest', 'event', 'merchant', 'trap', 'puzzle'].includes(String(room.archetype))) {
+      errors.push(`${path}.archetype must be combat, chest, rest, event, merchant, trap, or puzzle`)
     }
     requirePositiveNumber(room, 'width', path, errors)
     requirePositiveNumber(room, 'height', path, errors)
@@ -301,6 +399,8 @@ function validateRooms(value: unknown, errors: string[], requireSpawnLayouts: bo
         requireNumber(obstacle, 'elevation', obstaclePath, errors)
       })
     }
+    validateHazards(room.hazards, `${path}.hazards`, errors)
+    validateInteraction(room.interaction, `${path}.interaction`, errors)
     if (typeof room.id === 'string') {
       if (ids.has(room.id)) errors.push(`${path}.id duplicates ${room.id}`)
       ids.add(room.id)
@@ -333,6 +433,52 @@ function validateEnemies(value: unknown, errors: string[], schemaVersion: number
       if (typeof enemy.preferredAttackRangeRatio === 'number'
         && enemy.preferredAttackRangeRatio > 1) {
         errors.push(`${path}.preferredAttackRangeRatio must be <= 1`)
+      }
+    }
+    if (enemy.role !== undefined
+      && !LAST_CHANCES_ENEMY_ROLES.includes(enemy.role as typeof LAST_CHANCES_ENEMY_ROLES[number])) {
+      errors.push(`${path}.role must be one of ${LAST_CHANCES_ENEMY_ROLES.join(', ')}`)
+    }
+    if (enemy.attackKind !== undefined
+      && !LAST_CHANCES_ENEMY_ATTACK_KINDS.includes(
+        enemy.attackKind as typeof LAST_CHANCES_ENEMY_ATTACK_KINDS[number],
+      )) {
+      errors.push(`${path}.attackKind must be one of ${LAST_CHANCES_ENEMY_ATTACK_KINDS.join(', ')}`)
+    }
+    for (const key of ['attackRadius', 'projectileSpeed', 'leapDistance', 'leapDurationMs',
+      'targetLockMs', 'parryWindowMs'] as const) {
+      if (enemy[key] !== undefined) requireNumber(enemy, key, path, errors)
+    }
+    if (enemy.invisibleUntilAlerted !== undefined && typeof enemy.invisibleUntilAlerted !== 'boolean') {
+      errors.push(`${path}.invisibleUntilAlerted must be a boolean`)
+    }
+    if (enemy.bossPhases !== undefined) {
+      if (!Array.isArray(enemy.bossPhases) || enemy.bossPhases.length === 0) {
+        errors.push(`${path}.bossPhases must be a non-empty array`)
+      } else {
+        enemy.bossPhases.forEach((phaseValue, phaseIndex) => {
+          const phasePath = `${path}.bossPhases[${phaseIndex}]`
+          const phase = asRecord(phaseValue, phasePath, errors)
+          if (!phase) return
+          requireString(phase, 'name', phasePath, errors)
+          requireNumber(phase, 'minimumHealthRatio', phasePath, errors)
+          if (typeof phase.minimumHealthRatio === 'number' && phase.minimumHealthRatio > 1) {
+            errors.push(`${phasePath}.minimumHealthRatio must be <= 1`)
+          }
+          if (!LAST_CHANCES_ENEMY_ATTACK_KINDS.includes(
+            phase.attackKind as typeof LAST_CHANCES_ENEMY_ATTACK_KINDS[number],
+          )) {
+            errors.push(`${phasePath}.attackKind must be one of ${LAST_CHANCES_ENEMY_ATTACK_KINDS.join(', ')}`)
+          }
+          for (const key of ['attackRange', 'attackRadius', 'attackDamage', 'attackCooldownMs',
+            'attackWindupMs'] as const) {
+            requireNumber(phase, key, phasePath, errors)
+          }
+          for (const key of ['projectileSpeed', 'leapDistance', 'leapDurationMs',
+            'targetLockMs', 'parryWindowMs'] as const) {
+            if (phase[key] !== undefined) requireNumber(phase, key, phasePath, errors)
+          }
+        })
       }
     }
     requireNumber(enemy, 'visionAngleDegrees', path, errors)
@@ -435,6 +581,11 @@ function validateWeapons(
     if (!weapon) return
     requireString(weapon, 'id', path, errors)
     requireString(weapon, 'name', path, errors)
+    if (weapon.description !== undefined) requireString(weapon, 'description', path, errors)
+    if (weapon.chanceCost !== undefined) requireInteger(weapon, 'chanceCost', path, errors)
+    if (weapon.corpseBound !== undefined && typeof weapon.corpseBound !== 'boolean') {
+      errors.push(`${path}.corpseBound must be a boolean`)
+    }
     if (weapon.hand !== undefined
       && !LAST_CHANCES_HANDS.includes(weapon.hand as typeof LAST_CHANCES_HANDS[number])) {
       errors.push(`${path}.hand must be left or right`)
@@ -734,6 +885,20 @@ function validateSpawnGeometry(root: UnknownRecord, errors: string[]): void {
         }
       })
     }
+    if (roomWidth !== null && roomHeight !== null && Array.isArray(room.hazards)) {
+      room.hazards.forEach((hazardValue, hazardIndex) => {
+        if (typeof hazardValue !== 'object' || hazardValue === null || Array.isArray(hazardValue)) return
+        const hazard = hazardValue as UnknownRecord
+        const x = finiteRecordNumber(hazard, 'x')
+        const y = finiteRecordNumber(hazard, 'y')
+        const width = finiteRecordNumber(hazard, 'width')
+        const height = finiteRecordNumber(hazard, 'height')
+        if (x !== null && y !== null && width !== null && height !== null
+          && (x + width > roomWidth || y + height > roomHeight)) {
+          errors.push(`${roomPath}.hazards[${hazardIndex}] must fit inside its room`)
+        }
+      })
+    }
     validateSpawnPoint(room.playerSpawn, `${roomPath}.playerSpawn`, playerRadius, room, errors)
     const enemyRadius = typeof room.id === 'string'
       ? roomEnemyRadii.get(room.id) ?? globalEnemyRadius
@@ -783,6 +948,53 @@ function validateGraphCapacity(root: UnknownRecord, errors: string[]): void {
       errors.push(`graph.choicesPerNode cannot connect every progression.tiers[${index + 1}] node`)
     }
   }
+}
+
+function validateNarrative(value: unknown, errors: string[]): void {
+  if (value === undefined) return
+  const narrative = asRecord(value, 'narrative', errors)
+  if (!narrative) return
+  for (const key of ['prologue', 'victory', 'exhaustedVictory'] as const) {
+    const pages = narrative[key]
+    if (!Array.isArray(pages) || pages.length === 0) {
+      errors.push(`narrative.${key} must be a non-empty array`)
+      continue
+    }
+    pages.forEach((pageValue, index) => {
+      const pagePath = `narrative.${key}[${index}]`
+      const page = asRecord(pageValue, pagePath, errors)
+      if (!page) return
+      requireString(page, 'text', pagePath, errors)
+      if (page.speaker !== undefined) requireString(page, 'speaker', pagePath, errors)
+    })
+  }
+  requireInteger(narrative, 'exhaustedDeathThreshold', 'narrative', errors, 1)
+}
+
+function validateContentReferences(root: UnknownRecord, errors: string[]): void {
+  if (!Array.isArray(root.weapons) || !Array.isArray(root.rooms)) return
+  const weaponIds = new Set(root.weapons.flatMap((weaponValue) => {
+    if (typeof weaponValue !== 'object' || weaponValue === null || Array.isArray(weaponValue)) return []
+    const id = (weaponValue as UnknownRecord).id
+    return typeof id === 'string' ? [id] : []
+  }))
+  root.rooms.forEach((roomValue, roomIndex) => {
+    if (typeof roomValue !== 'object' || roomValue === null || Array.isArray(roomValue)) return
+    const interaction = (roomValue as UnknownRecord).interaction
+    if (typeof interaction !== 'object' || interaction === null || Array.isArray(interaction)
+      || !Array.isArray((interaction as UnknownRecord).choices)) return
+    ((interaction as UnknownRecord).choices as unknown[]).forEach((choiceValue, choiceIndex) => {
+      if (typeof choiceValue !== 'object' || choiceValue === null || Array.isArray(choiceValue)) return
+      const effect = (choiceValue as UnknownRecord).effect
+      if (typeof effect !== 'object' || effect === null || Array.isArray(effect)) return
+      for (const key of ['primaryWeaponId', 'secondaryWeaponId'] as const) {
+        const weaponId = (effect as UnknownRecord)[key]
+        if (typeof weaponId === 'string' && !weaponIds.has(weaponId)) {
+          errors.push(`rooms[${roomIndex}].interaction.choices[${choiceIndex}].effect.${key} references unknown weapon ${weaponId}`)
+        }
+      }
+    })
+  })
 }
 
 export function validateLastChancesConfig(value: unknown): LastChancesConfigValidation {
@@ -850,6 +1062,8 @@ export function validateLastChancesConfig(value: unknown): LastChancesConfigVali
   validateGraphCapacity(root, errors)
   validateSpawnGeometry(root, errors)
   validateWeapons(root.weapons, root.loadout, errors, schemaVersion)
+  validateContentReferences(root, errors)
+  validateNarrative(root.narrative, errors)
 
   const renderer = asRecord(root.renderer, 'renderer', errors)
   if (renderer) {

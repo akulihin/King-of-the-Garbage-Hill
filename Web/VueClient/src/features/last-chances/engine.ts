@@ -18,7 +18,10 @@ import type {
   LastChancesAttackDefinition,
   LastChancesConfig,
   LastChancesCooldownSnapshot,
+  LastChancesEnemyAttackKind,
+  LastChancesEnemyBossPhaseDefinition,
   LastChancesEnemyDefinition,
+  LastChancesEnemyRole,
   LastChancesEnemySnapshot,
   LastChancesEnemyState,
   LastChancesEngineCallbacks,
@@ -27,6 +30,10 @@ import type {
   LastChancesGesture,
   LastChancesGestureSnapshot,
   LastChancesHand,
+  LastChancesHazardDefinition,
+  LastChancesInteractionChoice,
+  LastChancesInteractionSnapshot,
+  LastChancesLoadoutDefinition,
   LastChancesObstacleDefinition,
   LastChancesPhase,
   LastChancesPlanNode,
@@ -56,6 +63,11 @@ interface RuntimeEnemy {
   alertMs: number
   attackCooldownMs: number
   attackWindupMs: number
+  lockedAttackDirection: LastChancesVector | null
+  leapRemainingDistance: number
+  leapSpeed: number
+  leapHit: boolean
+  revealedMs: number
 }
 
 interface RuntimeProjectile {
@@ -70,6 +82,8 @@ interface RuntimeProjectile {
   remainingHits: number
   hitIds: Set<string>
   color: string
+  source: 'player' | 'enemy'
+  sourceName: string
 }
 
 interface RuntimeDash {
@@ -114,6 +128,22 @@ interface RuntimeEffect {
 interface RuntimeTapCombo {
   step: number
   expiresAtMs: number
+}
+
+interface RuntimeEnemyCombatProfile {
+  phaseName: string | null
+  role: LastChancesEnemyRole
+  attackKind: LastChancesEnemyAttackKind
+  attackRange: number
+  attackRadius: number
+  attackDamage: number
+  attackCooldownMs: number
+  attackWindupMs: number
+  projectileSpeed: number
+  leapDistance: number
+  leapDurationMs: number
+  targetLockMs: number
+  parryWindowMs: number
 }
 
 interface IsometricLayout {
@@ -203,7 +233,7 @@ export class LastChancesEngine {
   private readonly context: CanvasRenderingContext2D
   private readonly callbacks: LastChancesEngineCallbacks
   private readonly enemyDefinitions: Map<string, LastChancesEnemyDefinition>
-  private readonly weapons: Map<LastChancesHand, LastChancesResolvedWeapon>
+  private readonly weapons = new Map<LastChancesHand, LastChancesResolvedWeapon>()
   private readonly gestures: LastChancesGestureRecognizer
   private readonly pressedKeys = new Set<string>()
   private readonly cooldownEnds = new Map<string, number>()
@@ -225,6 +255,10 @@ export class LastChancesEngine {
   private elapsedMs = 0
   private lastSnapshotAt = Number.NEGATIVE_INFINITY
   private chances: number
+  private totalDeaths = 0
+  private generationBaseStats: LastChancesStats
+  private activeLoadout: LastChancesLoadoutDefinition | null
+  private corpseBoundPrimaryWeaponId: string | null = null
   private currentNode: LastChancesPlanNode | null = null
   private availableNodeIds: string[] = []
   private attemptPath: string[] = []
@@ -233,6 +267,9 @@ export class LastChancesEngine {
   private projectiles: RuntimeProjectile[] = []
   private activeAreas: RuntimeActiveArea[] = []
   private effects: RuntimeEffect[] = []
+  private roomElapsedMs = 0
+  private readonly hazardHitCycles = new Map<string, number>()
+  private interactionResolved = false
   private activeDash: RuntimeDash | null = null
   private nextProjectileId = 1
   private lastGesture: LastChancesGestureSnapshot | null = null
@@ -283,12 +320,11 @@ export class LastChancesEngine {
     }
     this.chances = this.config.chances
     this.enemyDefinitions = new Map(this.config.enemies.map(enemy => [enemy.id, enemy]))
-    const loadout = resolveLastChancesLoadout(this.config)
-    this.weapons = new Map()
-    if (loadout.left) this.weapons.set('left', loadout.left)
-    if (loadout.right) this.weapons.set('right', loadout.right)
+    this.activeLoadout = this.config.loadout ? { ...this.config.loadout } : null
+    this.rebuildWeapons()
     this.plan = buildLastChancesPlan(this.config, this.generation)
     const baseStats = copyStats(this.config.player.baseStats)
+    this.generationBaseStats = copyStats(baseStats)
     this.player = {
       position: { x: 0, y: 0 },
       aim: { x: 1, y: 0 },
@@ -360,6 +396,9 @@ export class LastChancesEngine {
     this.activeAreas = []
     this.effects = []
     this.activeDash = null
+    this.roomElapsedMs = 0
+    this.hazardHitCycles.clear()
+    this.interactionResolved = false
     this.cooldownEnds.clear()
     this.resetTapCombos()
     this.gestures.reset()
@@ -378,11 +417,28 @@ export class LastChancesEngine {
         alertMs: 0,
         attackCooldownMs: 0,
         attackWindupMs: 0,
+        lockedAttackDirection: null,
+        leapRemainingDistance: 0,
+        leapSpeed: 0,
+        leapHit: false,
+        revealedMs: 0,
       }
     })
     this.phase = 'playing'
     this.deathReason = null
     if (this.enemies.length === 0) this.completeRoom()
+    this.render()
+    this.emitSnapshot(true)
+    return true
+  }
+
+  chooseInteraction(choiceId: string): boolean {
+    if (this.phase !== 'interaction' || !this.currentNode?.interaction || this.interactionResolved) return false
+    const choice = this.currentNode.interaction.choices.find(candidate => candidate.id === choiceId)
+    if (!choice || !this.interactionChoiceAvailable(choice)) return false
+    this.applyInteractionChoice(choice)
+    this.interactionResolved = true
+    this.finishRoomTransition()
     this.render()
     this.emitSnapshot(true)
     return true
@@ -400,10 +456,13 @@ export class LastChancesEngine {
     this.generation += 1
     this.plan = buildLastChancesPlan(this.config, this.generation, seedOverride)
     this.chances = this.config.chances
+    this.totalDeaths = 0
+    this.corpseBoundPrimaryWeaponId = null
     this.elapsedMs = 0
     this.lastSnapshotAt = Number.NEGATIVE_INFINITY
     this.nextProjectileId = 1
-    this.player.stats = copyStats(this.config.player.baseStats)
+    this.generationBaseStats = copyStats(this.config.player.baseStats)
+    this.player.stats = copyStats(this.generationBaseStats)
     this.resetAttempt()
     this.emitPlan()
     this.render()
@@ -459,11 +518,13 @@ export class LastChancesEngine {
   }
 
   private update(deltaSeconds: number, deltaMs: number): void {
+    this.roomElapsedMs += deltaMs
     this.player.invulnerableMs = Math.max(0, this.player.invulnerableMs - deltaMs)
     this.updatePlayer(deltaSeconds)
     this.updateProjectiles(deltaSeconds, deltaMs)
     this.updateEnemies(deltaSeconds, deltaMs)
     this.updateActiveAreas(deltaMs)
+    this.updateHazards(deltaSeconds)
     this.updateMentalHealth(deltaSeconds)
     this.effects.forEach(effect => effect.remainingMs -= deltaMs)
     this.effects = this.effects.filter(effect => effect.remainingMs > 0)
@@ -487,6 +548,7 @@ export class LastChancesEngine {
         if (distanceSquared(this.player.position, enemy.position) <= hitRange * hitRange) {
           this.activeDash.hitIds.add(enemy.id)
           this.activeDash.remainingHits -= 1
+          this.tryParryEnemy(enemy)
           this.damageEnemy(enemy, this.activeDash.damage, this.activeDash.knockback, this.activeDash.direction)
         }
       }
@@ -514,6 +576,14 @@ export class LastChancesEngine {
         projectile.remainingHits = 0
         continue
       }
+      if (projectile.source === 'enemy') {
+        const hitRange = projectile.radius + this.config.player.radius
+        if (distanceSquared(projectile.position, this.player.position) <= hitRange * hitRange) {
+          projectile.remainingHits = 0
+          this.damagePlayer(projectile.damage, projectile.sourceName)
+        }
+        continue
+      }
       for (const enemy of this.enemies) {
         if (enemy.state === 'dead' || projectile.hitIds.has(enemy.id)) continue
         const hitRange = projectile.radius + enemy.definition.radius
@@ -521,6 +591,7 @@ export class LastChancesEngine {
         projectile.hitIds.add(enemy.id)
         projectile.remainingHits -= 1
         const direction = normalize(projectile.velocity)
+        this.tryParryEnemy(enemy)
         this.damageEnemy(enemy, projectile.damage, projectile.knockback, direction)
         if (projectile.remainingHits <= 0) break
       }
@@ -531,14 +602,19 @@ export class LastChancesEngine {
   }
 
   private updateEnemies(deltaSeconds: number, deltaMs: number): void {
+    let queuedAttackerActive = this.enemies.some((enemy) => {
+      return enemy.state === 'attacking' && this.enemyCombatProfile(enemy).role !== 'creep'
+    })
     for (const enemy of this.enemies) {
       if (enemy.state === 'dead') continue
+      enemy.revealedMs = Math.max(0, enemy.revealedMs - deltaMs)
       enemy.attackCooldownMs = Math.max(0, enemy.attackCooldownMs - deltaMs)
       const toPlayer = {
         x: this.player.position.x - enemy.position.x,
         y: this.player.position.y - enemy.position.y,
       }
       const distance = vectorLength(toPlayer)
+      const profile = this.enemyCombatProfile(enemy)
 
       if (enemy.state === 'idle') {
         const angle = Math.atan2(enemy.facing.y, enemy.facing.x)
@@ -571,23 +647,17 @@ export class LastChancesEngine {
 
       enemy.facing = normalize(toPlayer, enemy.facing)
       if (enemy.state === 'attacking') {
-        enemy.attackWindupMs -= deltaMs
-        if (enemy.attackWindupMs <= 0) {
-          if (distance <= enemy.definition.attackRange + this.config.player.radius) {
-            this.damagePlayer(enemy.definition.attackDamage, enemy.definition.name)
-          }
-          enemy.attackCooldownMs = enemy.definition.attackCooldownMs
-          enemy.state = 'chasing'
-        }
+        this.updateEnemyAttack(enemy, profile, deltaSeconds, deltaMs, distance)
         continue
       }
 
-      if (distance <= enemy.definition.attackRange && enemy.attackCooldownMs <= 0) {
-        enemy.state = 'attacking'
-        enemy.attackWindupMs = enemy.definition.attackWindupMs
+      const mayUseQueue = profile.role === 'creep' || !queuedAttackerActive
+      if (distance <= profile.attackRange && enemy.attackCooldownMs <= 0 && mayUseQueue) {
+        this.startEnemyAttack(enemy, profile)
+        if (profile.role !== 'creep') queuedAttackerActive = true
         continue
       }
-      const desiredDistance = enemy.definition.attackRange
+      const desiredDistance = profile.attackRange
         * (enemy.definition.preferredAttackRangeRatio ?? 0.72)
       if (distance > desiredDistance) {
         this.moveCircle(enemy.position, {
@@ -596,6 +666,139 @@ export class LastChancesEngine {
         }, enemy.definition.radius)
       }
     }
+  }
+
+  private enemyCombatProfile(enemy: RuntimeEnemy): RuntimeEnemyCombatProfile {
+    const definition = enemy.definition
+    const healthRatio = enemy.hp / Math.max(1, definition.maxHp)
+    const phase = definition.bossPhases
+      ? [...definition.bossPhases]
+          .sort((a, b) => b.minimumHealthRatio - a.minimumHealthRatio)
+          .find(candidate => healthRatio >= candidate.minimumHealthRatio)
+      : undefined
+    const source: Partial<LastChancesEnemyBossPhaseDefinition> = phase ?? {}
+    const attackWindupMs = source.attackWindupMs ?? definition.attackWindupMs
+    return {
+      phaseName: phase?.name ?? null,
+      role: definition.role ?? (definition.bossPhases ? 'boss' : 'standard'),
+      attackKind: source.attackKind ?? definition.attackKind ?? 'melee',
+      attackRange: source.attackRange ?? definition.attackRange,
+      attackRadius: source.attackRadius ?? definition.attackRadius ?? 0,
+      attackDamage: source.attackDamage ?? definition.attackDamage,
+      attackCooldownMs: source.attackCooldownMs ?? definition.attackCooldownMs,
+      attackWindupMs,
+      projectileSpeed: source.projectileSpeed ?? definition.projectileSpeed ?? 300,
+      leapDistance: source.leapDistance ?? definition.leapDistance ?? definition.attackRange,
+      leapDurationMs: source.leapDurationMs ?? definition.leapDurationMs ?? 320,
+      targetLockMs: source.targetLockMs ?? definition.targetLockMs ?? Math.min(220, attackWindupMs),
+      parryWindowMs: source.parryWindowMs ?? definition.parryWindowMs ?? Math.min(180, attackWindupMs),
+    }
+  }
+
+  private enemyVisible(enemy: RuntimeEnemy): boolean {
+    return !enemy.definition.invisibleUntilAlerted
+      || enemy.revealedMs > 0
+      || enemy.state === 'alerted'
+      || enemy.state === 'chasing'
+      || enemy.state === 'attacking'
+      || enemy.state === 'dead'
+  }
+
+  private startEnemyAttack(enemy: RuntimeEnemy, profile: RuntimeEnemyCombatProfile): void {
+    enemy.state = 'attacking'
+    enemy.attackWindupMs = profile.attackWindupMs
+    enemy.lockedAttackDirection = null
+    enemy.leapRemainingDistance = 0
+    enemy.leapSpeed = 0
+    enemy.leapHit = false
+  }
+
+  private updateEnemyAttack(
+    enemy: RuntimeEnemy,
+    profile: RuntimeEnemyCombatProfile,
+    deltaSeconds: number,
+    deltaMs: number,
+    distance: number,
+  ): void {
+    if (profile.attackKind === 'leap' && enemy.leapRemainingDistance > 0) {
+      const travel = Math.min(enemy.leapRemainingDistance, enemy.leapSpeed * deltaSeconds)
+      const direction = enemy.lockedAttackDirection ?? enemy.facing
+      this.moveCircle(enemy.position, { x: direction.x * travel, y: direction.y * travel }, enemy.definition.radius)
+      enemy.leapRemainingDistance -= travel
+      const hitRange = enemy.definition.radius + this.config.player.radius
+      if (!enemy.leapHit && distanceSquared(enemy.position, this.player.position) <= hitRange * hitRange) {
+        enemy.leapHit = true
+        this.damagePlayer(profile.attackDamage, enemy.definition.name)
+      }
+      if (enemy.leapRemainingDistance <= EPSILON) this.finishEnemyAttack(enemy, profile)
+      return
+    }
+
+    enemy.attackWindupMs = Math.max(0, enemy.attackWindupMs - deltaMs)
+    if (profile.attackKind === 'leap'
+      && enemy.attackWindupMs <= profile.targetLockMs
+      && !enemy.lockedAttackDirection) {
+      enemy.lockedAttackDirection = normalize({
+        x: this.player.position.x - enemy.position.x,
+        y: this.player.position.y - enemy.position.y,
+      }, enemy.facing)
+    }
+    if (enemy.attackWindupMs > 0) return
+
+    if (profile.attackKind === 'leap') {
+      const durationSeconds = Math.max(0.08, profile.leapDurationMs / 1000)
+      enemy.lockedAttackDirection ??= enemy.facing
+      enemy.leapRemainingDistance = profile.leapDistance
+      enemy.leapSpeed = profile.leapDistance / durationSeconds
+      return
+    }
+    if (profile.attackKind === 'projectile') {
+      this.spawnEnemyProjectile(enemy, profile)
+      this.finishEnemyAttack(enemy, profile)
+      return
+    }
+    const reach = profile.attackRange + this.config.player.radius
+      + (profile.attackKind === 'heavy' ? profile.attackRadius : 0)
+    if (distance <= reach) this.damagePlayer(profile.attackDamage, enemy.definition.name)
+    this.finishEnemyAttack(enemy, profile)
+  }
+
+  private finishEnemyAttack(enemy: RuntimeEnemy, profile: RuntimeEnemyCombatProfile): void {
+    enemy.attackCooldownMs = profile.attackCooldownMs
+    enemy.attackWindupMs = 0
+    enemy.lockedAttackDirection = null
+    enemy.leapRemainingDistance = 0
+    enemy.leapSpeed = 0
+    enemy.leapHit = false
+    if (enemy.state !== 'dead') enemy.state = 'chasing'
+  }
+
+  private spawnEnemyProjectile(enemy: RuntimeEnemy, profile: RuntimeEnemyCombatProfile): void {
+    const direction = normalize({
+      x: this.player.position.x - enemy.position.x,
+      y: this.player.position.y - enemy.position.y,
+    }, enemy.facing)
+    const radius = Math.max(5, profile.attackRadius)
+    const speed = Math.max(1, profile.projectileSpeed)
+    this.projectiles.push({
+      id: this.nextProjectileId,
+      position: {
+        x: enemy.position.x + direction.x * (enemy.definition.radius + radius + 2),
+        y: enemy.position.y + direction.y * (enemy.definition.radius + radius + 2),
+      },
+      velocity: { x: direction.x * speed, y: direction.y * speed },
+      radius,
+      damage: profile.attackDamage,
+      knockback: 0,
+      remainingDistance: profile.attackRange,
+      remainingMs: profile.attackRange / speed * 1000,
+      remainingHits: 1,
+      hitIds: new Set(),
+      color: enemy.definition.color,
+      source: 'enemy',
+      sourceName: enemy.definition.name,
+    })
+    this.nextProjectileId += 1
   }
 
   private updateMentalHealth(deltaSeconds: number): void {
@@ -617,6 +820,37 @@ export class LastChancesEngine {
       )
     }
     if (this.player.mentalHealth <= 0) this.killPlayer('Mental health collapsed')
+  }
+
+  private hazardActive(hazard: LastChancesHazardDefinition): boolean {
+    const phase = (this.roomElapsedMs + hazard.phaseOffsetMs) % hazard.cycleMs
+    return phase < hazard.activeMs
+  }
+
+  private playerTouchesHazard(hazard: LastChancesHazardDefinition): boolean {
+    const nearestX = clamp(this.player.position.x, hazard.x, hazard.x + hazard.width)
+    const nearestY = clamp(this.player.position.y, hazard.y, hazard.y + hazard.height)
+    return distanceSquared(this.player.position, { x: nearestX, y: nearestY })
+      <= this.config.player.radius * this.config.player.radius
+  }
+
+  private updateHazards(deltaSeconds: number): void {
+    if (!this.currentNode) return
+    for (const hazard of this.currentNode.arena.hazards) {
+      if (!this.hazardActive(hazard) || !this.playerTouchesHazard(hazard)) continue
+      if (hazard.kind === 'mentalFog') {
+        this.player.mentalHealth = Math.max(
+          0,
+          this.player.mentalHealth - hazard.mentalDamagePerSecond * deltaSeconds,
+        )
+        if (this.player.mentalHealth <= 0) this.killPlayer(`Mental health collapsed in ${hazard.name}`)
+        continue
+      }
+      const cycle = Math.floor((this.roomElapsedMs + hazard.phaseOffsetMs) / hazard.cycleMs)
+      if (this.hazardHitCycles.get(hazard.id) === cycle) continue
+      this.hazardHitCycles.set(hazard.id, cycle)
+      this.damagePlayer(hazard.damage, hazard.name)
+    }
   }
 
   private performAttack(hand: LastChancesHand, gesture: LastChancesGesture): void {
@@ -688,6 +922,8 @@ export class LastChancesEngine {
       remainingHits: attack.pierce + 1,
       hitIds: new Set(),
       color: attack.color,
+      source: 'player',
+      sourceName: 'Player',
     })
     this.nextProjectileId += 1
     this.addEffect('hit', attack, direction)
@@ -729,8 +965,8 @@ export class LastChancesEngine {
       range: attack.range,
       radius: attack.radius,
       arcDegrees: attack.arcDegrees,
-      remainingMs: attack.durationMs,
-      totalMs: attack.durationMs,
+      remainingMs: attack.durationMs + (attack.lingerMs ?? 0),
+      totalMs: attack.durationMs + (attack.lingerMs ?? 0),
       hitIds: new Set(),
       remainingHits: attack.pierce + 1,
     }
@@ -766,6 +1002,7 @@ export class LastChancesEngine {
       }
       area.hitIds.add(enemy.id)
       area.remainingHits -= 1
+      this.tryParryEnemy(enemy)
       const knockbackDirection = area.kind === 'burst'
         ? normalize(toEnemy, area.direction)
         : area.direction
@@ -779,7 +1016,7 @@ export class LastChancesEngine {
     direction: LastChancesVector,
   ): void {
     const duration = kind === 'melee' || kind === 'burst'
-      ? Math.max(1, attack.durationMs)
+      ? Math.max(1, attack.durationMs + (attack.lingerMs ?? 0))
       : Math.max(160, attack.durationMs)
     this.effects.push({
       kind,
@@ -794,6 +1031,16 @@ export class LastChancesEngine {
     })
   }
 
+  private tryParryEnemy(enemy: RuntimeEnemy): boolean {
+    if (enemy.state !== 'attacking' || enemy.leapRemainingDistance > 0) return false
+    const profile = this.enemyCombatProfile(enemy)
+    if (enemy.attackWindupMs <= 0 || enemy.attackWindupMs > profile.parryWindowMs) return false
+    this.finishEnemyAttack(enemy, profile)
+    enemy.attackCooldownMs += profile.parryWindowMs
+    enemy.revealedMs = 1200
+    return true
+  }
+
   private damageEnemy(
     enemy: RuntimeEnemy,
     damage: number,
@@ -801,6 +1048,7 @@ export class LastChancesEngine {
     direction: LastChancesVector,
   ): void {
     if (enemy.state === 'dead') return
+    enemy.revealedMs = 900
     const scaledDamage = damage * this.player.stats.attackPower / 100
     enemy.hp = Math.max(0, enemy.hp - scaledDamage)
     if (knockback > 0) {
@@ -827,17 +1075,23 @@ export class LastChancesEngine {
 
   private killPlayer(reason: string): void {
     if (this.phase !== 'playing') return
+    const activePrimary = this.activeLoadout
+      ? this.config.weapons.find(weapon => weapon.id === this.activeLoadout?.primaryWeaponId)
+      : null
+    if (activePrimary?.corpseBound) this.corpseBoundPrimaryWeaponId = activePrimary.id
     const tierIndex = this.currentNode?.tierIndex ?? 0
     const tier = this.config.progression.tiers[tierIndex]
     this.chances = Math.max(0, this.chances - tier.deathCost)
+    this.totalDeaths += 1
     const erosion = tier.erosion
-    this.player.stats = {
-      maxHp: Math.max(1, this.player.stats.maxHp - erosion.maxHp),
-      maxMentalHealth: Math.max(1, this.player.stats.maxMentalHealth - erosion.maxMentalHealth),
-      attackPower: Math.max(1, this.player.stats.attackPower - erosion.attackPower),
-      moveSpeed: Math.max(1, this.player.stats.moveSpeed - erosion.moveSpeed),
-      armor: Math.max(0, this.player.stats.armor - erosion.armor),
+    this.generationBaseStats = {
+      maxHp: Math.max(1, this.generationBaseStats.maxHp - erosion.maxHp),
+      maxMentalHealth: Math.max(1, this.generationBaseStats.maxMentalHealth - erosion.maxMentalHealth),
+      attackPower: Math.max(1, this.generationBaseStats.attackPower - erosion.attackPower),
+      moveSpeed: Math.max(1, this.generationBaseStats.moveSpeed - erosion.moveSpeed),
+      armor: Math.max(0, this.generationBaseStats.armor - erosion.armor),
     }
+    this.player.stats = copyStats(this.generationBaseStats)
     this.activeDash = null
     this.activeAreas = []
     this.deathReason = reason
@@ -847,6 +1101,22 @@ export class LastChancesEngine {
 
   private completeRoom(): void {
     if (!this.currentNode || this.phase !== 'playing') return
+    this.projectiles = []
+    this.activeDash = null
+    this.activeAreas = []
+    this.gestures.reset()
+    this.resetTapCombos()
+    if (this.currentNode.interaction && !this.interactionResolved) {
+      this.phase = 'interaction'
+      this.emitSnapshot(true)
+      return
+    }
+    this.finishRoomTransition()
+    this.emitSnapshot(true)
+  }
+
+  private finishRoomTransition(): void {
+    if (!this.currentNode) return
     if (this.currentNode.tierIndex >= this.plan.tiers.length - 1) {
       this.phase = 'won'
       this.availableNodeIds = []
@@ -864,12 +1134,71 @@ export class LastChancesEngine {
       this.availableNodeIds = [...this.currentNode.nextNodeIds]
       this.selectedNodeId = this.availableNodeIds[0] ?? null
     }
-    this.projectiles = []
-    this.activeDash = null
-    this.activeAreas = []
-    this.gestures.reset()
-    this.resetTapCombos()
-    this.emitSnapshot(true)
+  }
+
+  private interactionChoiceAvailable(choice: LastChancesInteractionChoice): boolean {
+    if (this.chances < (choice.effect.chanceCost ?? 0)) return false
+    if (!this.activeLoadout || (choice.effect.primaryWeaponId === undefined
+      && choice.effect.secondaryWeaponId === undefined)) return true
+    const candidate = {
+      primaryWeaponId: choice.effect.primaryWeaponId ?? this.activeLoadout.primaryWeaponId,
+      secondaryWeaponId: choice.effect.secondaryWeaponId !== undefined
+        ? choice.effect.secondaryWeaponId
+        : this.activeLoadout.secondaryWeaponId,
+    }
+    const candidateConfig = cloneLastChancesConfig(this.config)
+    candidateConfig.loadout = candidate
+    const resolved = resolveLastChancesLoadout(candidateConfig)
+    return resolved.left?.id === candidate.primaryWeaponId
+      && (candidate.secondaryWeaponId === null || resolved.right?.id === candidate.secondaryWeaponId)
+  }
+
+  private applyInteractionChoice(choice: LastChancesInteractionChoice): void {
+    const effect = choice.effect
+    this.chances = Math.max(0, this.chances - (effect.chanceCost ?? 0))
+    if (effect.stats) {
+      this.player.stats = {
+        maxHp: Math.max(1, this.player.stats.maxHp + (effect.stats.maxHp ?? 0)),
+        maxMentalHealth: Math.max(
+          1,
+          this.player.stats.maxMentalHealth + (effect.stats.maxMentalHealth ?? 0),
+        ),
+        attackPower: Math.max(1, this.player.stats.attackPower + (effect.stats.attackPower ?? 0)),
+        moveSpeed: Math.max(1, this.player.stats.moveSpeed + (effect.stats.moveSpeed ?? 0)),
+        armor: Math.max(0, this.player.stats.armor + (effect.stats.armor ?? 0)),
+      }
+    }
+    this.player.hp = clamp(
+      this.player.hp + (effect.hp ?? 0),
+      1,
+      this.player.stats.maxHp,
+    )
+    this.player.mentalHealth = clamp(
+      this.player.mentalHealth + (effect.mentalHealth ?? 0),
+      1,
+      this.player.stats.maxMentalHealth,
+    )
+    if (this.activeLoadout && (effect.primaryWeaponId !== undefined
+      || effect.secondaryWeaponId !== undefined)) {
+      this.activeLoadout = {
+        primaryWeaponId: effect.primaryWeaponId ?? this.activeLoadout.primaryWeaponId,
+        secondaryWeaponId: effect.secondaryWeaponId !== undefined
+          ? effect.secondaryWeaponId
+          : this.activeLoadout.secondaryWeaponId,
+      }
+      this.rebuildWeapons()
+      this.cooldownEnds.clear()
+      this.resetTapCombos()
+    }
+  }
+
+  private rebuildWeapons(): void {
+    this.weapons.clear()
+    const loadoutConfig = cloneLastChancesConfig(this.config)
+    if (this.activeLoadout) loadoutConfig.loadout = { ...this.activeLoadout }
+    const loadout = resolveLastChancesLoadout(loadoutConfig)
+    if (loadout.left) this.weapons.set('left', loadout.left)
+    if (loadout.right) this.weapons.set('right', loadout.right)
   }
 
   private resetAttempt(): void {
@@ -882,11 +1211,22 @@ export class LastChancesEngine {
     this.attemptPath = []
     this.deathReason = null
     this.lastGesture = null
+    this.activeLoadout = this.config.loadout ? { ...this.config.loadout } : null
+    if (this.activeLoadout && this.corpseBoundPrimaryWeaponId) {
+      this.activeLoadout = {
+        primaryWeaponId: this.corpseBoundPrimaryWeaponId,
+        secondaryWeaponId: null,
+      }
+    }
+    this.rebuildWeapons()
     this.enemies = []
     this.projectiles = []
     this.activeAreas = []
     this.effects = []
     this.activeDash = null
+    this.roomElapsedMs = 0
+    this.hazardHitCycles.clear()
+    this.interactionResolved = false
     this.cooldownEnds.clear()
     this.resetTapCombos()
     this.gestures.reset()
@@ -897,6 +1237,7 @@ export class LastChancesEngine {
     this.gamepadAim = { x: 0, y: 0 }
     this.player.position = { x: 0, y: 0 }
     this.player.aim = { x: 1, y: 0 }
+    this.player.stats = copyStats(this.generationBaseStats)
     this.player.hp = this.player.stats.maxHp
     this.player.mentalHealth = this.player.stats.maxMentalHealth
     this.player.invulnerableMs = 0
@@ -1003,6 +1344,11 @@ export class LastChancesEngine {
         if (pressed && !this.gamepadButtons[hand]) this.press(hand)
         if (!pressed && this.gamepadButtons[hand]) this.release(hand)
       }
+    } else if (rightPressed && !this.paused && this.phase === 'interaction') {
+      const choice = this.currentNode?.interaction?.choices.find(candidate => (
+        this.interactionChoiceAvailable(candidate)
+      ))
+      if (choice) this.chooseInteraction(choice.id)
     } else if (rightPressed && !this.paused) {
       if (this.phase === 'dead') this.retryAttempt()
       if (this.phase === 'won' || this.phase === 'outOfChances') this.newGeneration()
@@ -1153,22 +1499,48 @@ export class LastChancesEngine {
     this.callbacks.onSnapshot(this.createSnapshot())
   }
 
+  private interactionSnapshot(): LastChancesInteractionSnapshot | null {
+    if (this.phase !== 'interaction' || !this.currentNode?.interaction) return null
+    return {
+      title: this.currentNode.interaction.title,
+      body: this.currentNode.interaction.body,
+      choices: this.currentNode.interaction.choices.map(choice => ({
+        ...(JSON.parse(JSON.stringify(choice)) as LastChancesInteractionChoice),
+        available: this.interactionChoiceAvailable(choice),
+      })),
+    }
+  }
+
   private createSnapshot(): LastChancesSnapshot {
     const now = performance.now()
-    const enemies: LastChancesEnemySnapshot[] = this.enemies.map(enemy => ({
-      id: enemy.id,
-      definitionId: enemy.definition.id,
-      name: enemy.definition.name,
-      position: { ...enemy.position },
-      facing: { ...enemy.facing },
-      hp: enemy.hp,
-      maxHp: enemy.definition.maxHp,
-      state: enemy.state,
-      noticeProgress: enemy.state === 'noticing'
-        ? clamp(enemy.noticeMs / enemy.definition.noticeMs, 0, 1)
-        : enemy.state === 'alerted' || enemy.state === 'chasing' || enemy.state === 'attacking' ? 1 : 0,
-      attackCooldownMs: enemy.attackCooldownMs,
-    }))
+    const enemies: LastChancesEnemySnapshot[] = this.enemies.map((enemy) => {
+      const profile = this.enemyCombatProfile(enemy)
+      return {
+        id: enemy.id,
+        definitionId: enemy.definition.id,
+        name: enemy.definition.name,
+        position: { ...enemy.position },
+        facing: { ...enemy.facing },
+        hp: enemy.hp,
+        maxHp: enemy.definition.maxHp,
+        state: enemy.state,
+        noticeProgress: enemy.state === 'noticing'
+          ? clamp(enemy.noticeMs / enemy.definition.noticeMs, 0, 1)
+          : enemy.state === 'alerted' || enemy.state === 'chasing' || enemy.state === 'attacking' ? 1 : 0,
+        attackCooldownMs: enemy.attackCooldownMs,
+        role: profile.role,
+        attackKind: profile.attackKind,
+        attackWindupProgress: enemy.state === 'attacking' && enemy.leapRemainingDistance <= 0
+          ? 1 - clamp(enemy.attackWindupMs / Math.max(1, profile.attackWindupMs), 0, 1)
+          : 0,
+        parryWindowOpen: enemy.state === 'attacking'
+          && enemy.leapRemainingDistance <= 0
+          && enemy.attackWindupMs > 0
+          && enemy.attackWindupMs <= profile.parryWindowMs,
+        phaseName: profile.phaseName,
+        visible: this.enemyVisible(enemy),
+      }
+    })
     const cooldowns: LastChancesCooldownSnapshot[] = []
     for (const hand of LAST_CHANCES_HANDS) {
       const weapon = this.weapons.get(hand)
@@ -1186,6 +1558,7 @@ export class LastChancesEngine {
       paused: this.paused,
       generation: this.generation,
       chances: this.chances,
+      totalDeaths: this.totalDeaths,
       elapsedMs: this.elapsedMs,
       currentNodeId: this.currentNode?.id ?? null,
       currentTierIndex: this.currentNode?.tierIndex ?? null,
@@ -1206,7 +1579,16 @@ export class LastChancesEngine {
         position: { ...projectile.position },
         radius: projectile.radius,
         color: projectile.color,
+        source: projectile.source,
       })),
+      hazards: (this.currentNode?.arena.hazards ?? []).map(hazard => ({
+        id: hazard.id,
+        name: hazard.name,
+        kind: hazard.kind,
+        active: this.hazardActive(hazard),
+      })),
+      interaction: this.interactionSnapshot(),
+      loadout: this.activeLoadout ? { ...this.activeLoadout } : null,
       cooldowns,
       lastGesture: this.lastGesture ? { ...this.lastGesture } : null,
       gestureInputs: LAST_CHANCES_HANDS.map(hand => this.gestures.snapshot(hand, now)),
@@ -1246,6 +1628,7 @@ export class LastChancesEngine {
 
   private renderArena(node: LastChancesPlanNode): void {
     this.renderFloor(node)
+    for (const hazard of node.arena.hazards) this.renderHazard(hazard, node)
     for (const enemy of this.enemies) this.renderVision(enemy, node)
     const items: Array<{ depth: number, draw: () => void }> = []
     for (const obstacle of node.arena.obstacles) {
@@ -1271,6 +1654,29 @@ export class LastChancesEngine {
     })
     items.sort((a, b) => a.depth - b.depth).forEach(item => item.draw())
     for (const effect of this.effects) this.renderEffect(effect, node)
+  }
+
+  private renderHazard(hazard: LastChancesHazardDefinition, node: LastChancesPlanNode): void {
+    const context = this.context
+    const points = [
+      this.worldToScreen({ x: hazard.x, y: hazard.y }, node),
+      this.worldToScreen({ x: hazard.x + hazard.width, y: hazard.y }, node),
+      this.worldToScreen({ x: hazard.x + hazard.width, y: hazard.y + hazard.height }, node),
+      this.worldToScreen({ x: hazard.x, y: hazard.y + hazard.height }, node),
+    ]
+    context.save()
+    context.globalAlpha = this.hazardActive(hazard) ? 0.48 : 0.12
+    context.beginPath()
+    points.forEach((point, index) => index === 0
+      ? context.moveTo(point.x, point.y)
+      : context.lineTo(point.x, point.y))
+    context.closePath()
+    context.fillStyle = hazard.color
+    context.fill()
+    context.strokeStyle = hazard.color
+    context.lineWidth = this.hazardActive(hazard) ? 2.5 : 1
+    context.stroke()
+    context.restore()
   }
 
   private renderFloor(node: LastChancesPlanNode): void {
@@ -1336,7 +1742,10 @@ export class LastChancesEngine {
   }
 
   private renderVision(enemy: RuntimeEnemy, node: LastChancesPlanNode): void {
-    if (enemy.state === 'dead' || enemy.state === 'chasing' || enemy.state === 'attacking') return
+    if (!this.enemyVisible(enemy)
+      || enemy.state === 'dead'
+      || enemy.state === 'chasing'
+      || enemy.state === 'attacking') return
     const context = this.context
     const origin = this.worldToScreen(enemy.position, node)
     const facingAngle = Math.atan2(enemy.facing.y, enemy.facing.x)
@@ -1368,6 +1777,10 @@ export class LastChancesEngine {
     const context = this.context
     const point = this.worldToScreen(enemy.position, node)
     const radius = Math.max(7, enemy.definition.radius * this.entityScale(node) * 1.45)
+    const profile = this.enemyCombatProfile(enemy)
+    const visible = this.enemyVisible(enemy)
+    context.save()
+    context.globalAlpha = visible ? 1 : enemy.state === 'noticing' ? 0.18 : 0.07
     context.save()
     context.translate(point.x, point.y)
     context.scale(1, 0.46)
@@ -1376,13 +1789,34 @@ export class LastChancesEngine {
     context.fillStyle = 'rgba(0,0,0,.38)'
     context.fill()
     context.restore()
-    context.beginPath()
-    context.arc(point.x, point.y - radius * 0.8, radius, 0, Math.PI * 2)
-    context.fillStyle = enemy.definition.color
-    context.fill()
+    this.renderEnemyBody(enemy, point, radius)
     context.strokeStyle = enemy.state === 'attacking' ? '#ff4b4b' : 'rgba(255,255,255,.3)'
     context.lineWidth = enemy.state === 'attacking' ? 3 : 1
     context.stroke()
+
+    if (enemy.state === 'attacking') {
+      const windup = 1 - clamp(enemy.attackWindupMs / Math.max(1, profile.attackWindupMs), 0, 1)
+      context.beginPath()
+      context.arc(point.x, point.y - radius * 0.8, radius * (1.35 + windup * 0.65), 0, Math.PI * 2)
+      context.strokeStyle = enemy.attackWindupMs <= profile.parryWindowMs && enemy.attackWindupMs > 0
+        ? '#9cf2df'
+        : '#ff5964'
+      context.lineWidth = 1.5 + windup * 2
+      context.stroke()
+      if (profile.attackKind === 'leap' && enemy.lockedAttackDirection) {
+        const target = this.worldToScreen({
+          x: enemy.position.x + enemy.lockedAttackDirection.x * profile.leapDistance,
+          y: enemy.position.y + enemy.lockedAttackDirection.y * profile.leapDistance,
+        }, node)
+        context.beginPath()
+        context.moveTo(point.x, point.y - radius)
+        context.lineTo(target.x, target.y - radius)
+        context.setLineDash([5, 5])
+        context.strokeStyle = 'rgba(255, 89, 100, .7)'
+        context.stroke()
+        context.setLineDash([])
+      }
+    }
 
     const barWidth = radius * 2.5
     context.fillStyle = 'rgba(0,0,0,.7)'
@@ -1395,6 +1829,58 @@ export class LastChancesEngine {
       context.fillStyle = enemy.state === 'alerted' ? '#ff5964' : '#ffd36a'
       context.fillText(enemy.state === 'alerted' ? '!!' : '!', point.x, point.y - radius * 2.65)
     }
+    if (profile.phaseName) {
+      context.font = `600 ${Math.max(8, radius * 0.62)}px system-ui`
+      context.textAlign = 'center'
+      context.fillStyle = '#c7a56b'
+      context.fillText(profile.phaseName, point.x, point.y + radius * 1.15)
+    }
+    context.restore()
+  }
+
+  private renderEnemyBody(enemy: RuntimeEnemy, point: LastChancesVector, radius: number): void {
+    const context = this.context
+    context.beginPath()
+    if (enemy.definition.id === 'spider-knife') {
+      for (const side of [-1, 1]) {
+        for (let leg = 0; leg < 3; leg += 1) {
+          const y = point.y - radius * (1.2 - leg * 0.42)
+          context.moveTo(point.x + side * radius * 0.35, y)
+          context.lineTo(point.x + side * radius * 1.45, y + (leg - 1) * radius * 0.35)
+        }
+      }
+      context.strokeStyle = enemy.definition.color
+      context.lineWidth = Math.max(1.5, radius * 0.18)
+      context.stroke()
+      context.beginPath()
+      context.moveTo(point.x, point.y - radius * 2)
+      context.lineTo(point.x + radius * 0.58, point.y - radius * 0.65)
+      context.lineTo(point.x, point.y + radius * 0.25)
+      context.lineTo(point.x - radius * 0.58, point.y - radius * 0.65)
+      context.closePath()
+    } else if (enemy.definition.id === 'invisible-wolf') {
+      context.moveTo(point.x - radius, point.y - radius * 0.35)
+      context.lineTo(point.x - radius * 0.45, point.y - radius * 1.85)
+      context.lineTo(point.x, point.y - radius * 1.25)
+      context.lineTo(point.x + radius * 0.45, point.y - radius * 1.85)
+      context.lineTo(point.x + radius, point.y - radius * 0.35)
+      context.lineTo(point.x, point.y + radius * 0.15)
+      context.closePath()
+    } else if (enemy.definition.id === 'running-stapler') {
+      context.roundRect(
+        point.x - radius * 1.2,
+        point.y - radius * 1.45,
+        radius * 2.4,
+        radius * 1.25,
+        radius * 0.24,
+      )
+    } else if (enemy.definition.id === 'infinite-cube') {
+      context.rect(point.x - radius, point.y - radius * 1.8, radius * 2, radius * 2)
+    } else {
+      context.arc(point.x, point.y - radius * 0.8, radius, 0, Math.PI * 2)
+    }
+    context.fillStyle = enemy.definition.color
+    context.fill()
   }
 
   private renderPlayer(node: LastChancesPlanNode): void {
@@ -1437,6 +1923,11 @@ export class LastChancesEngine {
     this.context.shadowColor = projectile.color
     this.context.shadowBlur = 12
     this.context.fill()
+    if (projectile.source === 'enemy') {
+      this.context.strokeStyle = '#ff5964'
+      this.context.lineWidth = 2
+      this.context.stroke()
+    }
     this.context.shadowBlur = 0
   }
 
@@ -1550,6 +2041,9 @@ export class LastChancesEngine {
     } else if (this.phase === 'won') {
       title = 'THE TERMINAL TIER IS CLEARED'
       subtitle = 'The Curator is watching the next generation'
+    } else if (this.phase === 'interaction') {
+      title = 'THE ROOM OFFERS A CHOICE'
+      subtitle = this.currentNode?.interaction?.title ?? 'Choose what the attempt carries forward'
     }
     context.fillText(title, this.cssWidth / 2, centerY - 8)
     context.font = '500 13px system-ui'

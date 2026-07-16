@@ -75,7 +75,11 @@ function makeNode(
       height: room.height,
       playerSpawn: copyVector(room.playerSpawn),
       obstacles: room.obstacles.map(obstacle => ({ ...obstacle })),
+      hazards: (room.hazards ?? []).map(hazard => ({ ...hazard })),
     },
+    interaction: room.interaction
+      ? JSON.parse(JSON.stringify(room.interaction)) as LastChancesPlanNode['interaction']
+      : null,
     enemies: makeEnemyPlan(tier, spawnLayout.enemySpawns, id, rng),
     nextNodeIds: [],
   }

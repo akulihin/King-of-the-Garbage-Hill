@@ -230,7 +230,31 @@
         { "x": 265, "y": 70, "width": 120, "height": 105, "elevation": 55 },
         { "x": 270, "y": 340, "width": 150, "height": 90, "elevation": 48 },
         { "x": 470, "y": 190, "width": 80, "height": 140, "elevation": 75 }
-      ]
+      ],
+      "interaction": {
+        "title": "Ящик без ножей",
+        "body": "Все кухонные ножи исчезли, кроме одного слишком маленького, чтобы принадлежать этой квартире.",
+        "choices": [
+          {
+            "id": "take-apartment-dagger",
+            "label": "Взять маленький кинжал",
+            "description": "Быстрое оружие для любой руки. На металле уже есть засохшая кровь.",
+            "effect": { "primaryWeaponId": "either-dagger" }
+          },
+          {
+            "id": "study-empty-slots",
+            "label": "Осмотреть пустые места",
+            "description": "Признать, что ножи забрали намеренно: −8 рассудка, +12 силы атаки до следующей смерти.",
+            "effect": { "mentalHealth": -8, "stats": { "attackPower": 12 } }
+          },
+          {
+            "id": "leave-apartment-drawer",
+            "label": "Закрыть ящик",
+            "description": "Не брать ничего из квартиры, которая только притворяется домом.",
+            "effect": {}
+          }
+        ]
+      }
     },
     {
       "id": "office-memory",
@@ -313,6 +337,12 @@
             "effect": { "chanceCost": 3, "primaryWeaponId": "twohand-bow", "secondaryWeaponId": null }
           },
           {
+            "id": "buy-sword",
+            "label": "Купить меч",
+            "description": "Гибридное оружие: свободная вторая рука открывает стойку, а щит или сфера заменяют её.",
+            "effect": { "chanceCost": 2, "primaryWeaponId": "hybrid-sword" }
+          },
+          {
             "id": "leave-merchant",
             "label": "Не торговать",
             "description": "Сохранить Шансы и уйти с текущей сборкой.",
@@ -334,7 +364,7 @@
           "name": "Чередующиеся зубья",
           "enemySpawns": [
             { "x": 860, "y": 95 }, { "x": 855, "y": 255 }, { "x": 860, "y": 445 },
-            { "x": 855, "y": 605 }, { "x": 655, "y": 350 }
+            { "x": 855, "y": 605 }, { "x": 650, "y": 540 }
           ]
         },
         {
@@ -441,7 +471,37 @@
         { "x": 425, "y": 280, "width": 125, "height": 140, "elevation": 105 },
         { "x": 650, "y": 70, "width": 70, "height": 180, "elevation": 65 },
         { "x": 650, "y": 450, "width": 70, "height": 180, "elevation": 65 }
-      ]
+      ],
+      "interaction": {
+        "title": "Сундук помнит предыдущего владельца",
+        "body": "Замок открывается только после боя. Внутри лежат предметы, которые требуют не золото, а будущие попытки.",
+        "choices": [
+          {
+            "id": "claim-corpse-sword",
+            "label": "Забрать меч покойника",
+            "description": "Очень сильный двуручный меч. После смерти его можно вернуть из памяти тела.",
+            "effect": { "chanceCost": 3, "primaryWeaponId": "corpse-sword", "secondaryWeaponId": null }
+          },
+          {
+            "id": "claim-hammer",
+            "label": "Забрать молот",
+            "description": "Медленные широкие удары, длинные опасные следы и огромный отбрасывающий импульс.",
+            "effect": { "chanceCost": 2, "primaryWeaponId": "twohand-hammer", "secondaryWeaponId": null }
+          },
+          {
+            "id": "claim-orb",
+            "label": "Забрать магическую сферу",
+            "description": "Вторая рука получает снаряды, круговые волны и короткие перемещения.",
+            "effect": { "chanceCost": 1, "secondaryWeaponId": "secondary-magic-orb" }
+          },
+          {
+            "id": "leave-chest",
+            "label": "Закрыть сундук",
+            "description": "Сохранить Шансы и продолжить с текущей экипировкой.",
+            "effect": {}
+          }
+        ]
+      }
     },
     {
       "id": "rest-conservatory",
@@ -474,7 +534,31 @@
         { "x": 300, "y": 95, "width": 110, "height": 200, "elevation": 92 },
         { "x": 300, "y": 425, "width": 110, "height": 200, "elevation": 92 },
         { "x": 610, "y": 275, "width": 150, "height": 170, "elevation": 48 }
-      ]
+      ],
+      "interaction": {
+        "title": "Место, где тело ещё слушается",
+        "body": "Тепло оранжереи позволяет восстановиться или перестроить тело до следующей смерти.",
+        "choices": [
+          {
+            "id": "rest-body",
+            "label": "Спать среди растений",
+            "description": "Восстановить 42 физического и 34 ментального здоровья.",
+            "effect": { "hp": 42, "mentalHealth": 34 }
+          },
+          {
+            "id": "wear-heavy-bark",
+            "label": "Надеть кору как броню",
+            "description": "+7 брони, но −38 скорости до следующей смерти.",
+            "effect": { "stats": { "armor": 7, "moveSpeed": -38 } }
+          },
+          {
+            "id": "sharpen-nerves",
+            "label": "Не давать себе уснуть",
+            "description": "+18 силы атаки, но −16 максимального рассудка до следующей смерти.",
+            "effect": { "stats": { "attackPower": 18, "maxMentalHealth": -16 } }
+          }
+        ]
+      }
     },
     {
       "id": "wrong-shadow-event",
@@ -507,7 +591,42 @@
         { "x": 390, "y": 70, "width": 65, "height": 250, "elevation": 120 },
         { "x": 525, "y": 380, "width": 65, "height": 250, "elevation": 120 },
         { "x": 690, "y": 265, "width": 105, "height": 170, "elevation": 72 }
-      ]
+      ],
+      "hazards": [
+        {
+          "id": "wrong-shadow-fog",
+          "name": "Тень, отстающая от тела",
+          "kind": "mentalFog",
+          "x": 270, "y": 250, "width": 500, "height": 200,
+          "damage": 0, "mentalDamagePerSecond": 10,
+          "cycleMs": 4200, "activeMs": 2400, "phaseOffsetMs": 750,
+          "color": "#735d8f"
+        }
+      ],
+      "interaction": {
+        "title": "Тень предлагает поменяться местами",
+        "body": "Отражение повторяет движения с задержкой и держит в ладони предмет, которого у героя никогда не было.",
+        "choices": [
+          {
+            "id": "take-shadow-shield",
+            "label": "Вырвать щит из отражения",
+            "description": "Щит создаёт широкие активные окна для парирования и сильного отбрасывания.",
+            "effect": { "mentalHealth": -12, "secondaryWeaponId": "secondary-shield" }
+          },
+          {
+            "id": "accept-shadow-strength",
+            "label": "Позволить тени войти",
+            "description": "+24 силы атаки и +2 брони, но −24 максимального рассудка до следующей смерти.",
+            "effect": { "stats": { "attackPower": 24, "armor": 2, "maxMentalHealth": -24 } }
+          },
+          {
+            "id": "refuse-shadow",
+            "label": "Не смотреть в отражение",
+            "description": "Восстановить 18 рассудка и уйти.",
+            "effect": { "mentalHealth": 18 }
+          }
+        ]
+      }
     },
     {
       "id": "curator-threshold",
@@ -550,11 +669,39 @@
       "alertPauseMs": 420,
       "attackRange": 52,
       "preferredAttackRangeRatio": 0.72,
+      "role": "creep",
+      "attackKind": "melee",
+      "attackRadius": 8,
       "attackDamage": 8,
       "attackCooldownMs": 1250,
       "attackWindupMs": 360,
+      "parryWindowMs": 110,
       "mentalPressurePerSecond": 1.1,
       "color": "#9b887c"
+    },
+    {
+      "id": "running-stapler",
+      "name": "Бегущий степлер",
+      "maxHp": 20,
+      "radius": 16,
+      "moveSpeed": 145,
+      "idleTurnRadiansPerSecond": 0.7,
+      "visionRange": 420,
+      "visionAngleDegrees": 135,
+      "noticeMs": 260,
+      "alertPauseMs": 180,
+      "attackRange": 390,
+      "preferredAttackRangeRatio": 0.82,
+      "role": "creep",
+      "attackKind": "projectile",
+      "attackRadius": 7,
+      "projectileSpeed": 470,
+      "attackDamage": 7,
+      "attackCooldownMs": 1180,
+      "attackWindupMs": 340,
+      "parryWindowMs": 95,
+      "mentalPressurePerSecond": 0.9,
+      "color": "#b56d63"
     },
     {
       "id": "guard",
@@ -569,9 +716,13 @@
       "alertPauseMs": 360,
       "attackRange": 82,
       "preferredAttackRangeRatio": 0.78,
+      "role": "standard",
+      "attackKind": "melee",
+      "attackRadius": 14,
       "attackDamage": 13,
       "attackCooldownMs": 1450,
       "attackWindupMs": 520,
+      "parryWindowMs": 150,
       "mentalPressurePerSecond": 1.5,
       "color": "#77828e"
     },
@@ -586,11 +737,15 @@
       "visionAngleDegrees": 125,
       "noticeMs": 390,
       "alertPauseMs": 300,
-      "attackRange": 68,
-      "preferredAttackRangeRatio": 0.68,
-      "attackDamage": 18,
-      "attackCooldownMs": 1150,
-      "attackWindupMs": 440,
+      "attackRange": 105,
+      "preferredAttackRangeRatio": 0.74,
+      "role": "elite",
+      "attackKind": "heavy",
+      "attackRadius": 62,
+      "attackDamage": 22,
+      "attackCooldownMs": 1900,
+      "attackWindupMs": 920,
+      "parryWindowMs": 190,
       "mentalPressurePerSecond": 2.2,
       "color": "#835c78"
     },
@@ -605,30 +760,104 @@
       "visionAngleDegrees": 150,
       "noticeMs": 230,
       "alertPauseMs": 180,
-      "attackRange": 42,
-      "preferredAttackRangeRatio": 0.62,
-      "attackDamage": 7,
-      "attackCooldownMs": 680,
-      "attackWindupMs": 170,
+      "attackRange": 255,
+      "preferredAttackRangeRatio": 0.8,
+      "role": "standard",
+      "attackKind": "leap",
+      "attackRadius": 10,
+      "leapDistance": 285,
+      "leapDurationMs": 390,
+      "targetLockMs": 170,
+      "attackDamage": 12,
+      "attackCooldownMs": 1320,
+      "attackWindupMs": 680,
+      "parryWindowMs": 125,
       "mentalPressurePerSecond": 1.35,
       "color": "#c7a757"
     },
     {
+      "id": "invisible-wolf",
+      "name": "Невидимый волк",
+      "maxHp": 94,
+      "radius": 28,
+      "moveSpeed": 176,
+      "idleTurnRadiansPerSecond": 0.22,
+      "visionRange": 510,
+      "visionAngleDegrees": 165,
+      "noticeMs": 560,
+      "alertPauseMs": 260,
+      "attackRange": 96,
+      "preferredAttackRangeRatio": 0.76,
+      "role": "elite",
+      "attackKind": "heavy",
+      "attackRadius": 48,
+      "attackDamage": 25,
+      "attackCooldownMs": 1760,
+      "attackWindupMs": 780,
+      "parryWindowMs": 145,
+      "invisibleUntilAlerted": true,
+      "mentalPressurePerSecond": 3.4,
+      "color": "#8fa9b6"
+    },
+    {
       "id": "curator-shadow",
       "name": "Тень Куратора",
-      "maxHp": 420,
-      "radius": 42,
+      "maxHp": 460,
+      "radius": 44,
       "moveSpeed": 138,
       "idleTurnRadiansPerSecond": 0.16,
       "visionRange": 620,
       "visionAngleDegrees": 220,
       "noticeMs": 900,
       "alertPauseMs": 850,
-      "attackRange": 105,
+      "attackRange": 130,
       "preferredAttackRangeRatio": 0.8,
+      "role": "boss",
+      "attackKind": "heavy",
+      "attackRadius": 72,
       "attackDamage": 24,
       "attackCooldownMs": 1050,
       "attackWindupMs": 620,
+      "parryWindowMs": 150,
+      "bossPhases": [
+        {
+          "name": "Наблюдатель у двери",
+          "minimumHealthRatio": 0.67,
+          "attackKind": "melee",
+          "attackRange": 135,
+          "attackRadius": 26,
+          "attackDamage": 22,
+          "attackCooldownMs": 1180,
+          "attackWindupMs": 640,
+          "parryWindowMs": 155
+        },
+        {
+          "name": "Архив чужих смертей",
+          "minimumHealthRatio": 0.34,
+          "attackKind": "projectile",
+          "attackRange": 760,
+          "attackRadius": 16,
+          "attackDamage": 20,
+          "attackCooldownMs": 880,
+          "attackWindupMs": 540,
+          "projectileSpeed": 520,
+          "parryWindowMs": 135
+        },
+        {
+          "name": "Тьма перед пробуждением",
+          "minimumHealthRatio": 0,
+          "attackKind": "leap",
+          "attackRange": 390,
+          "attackRadius": 24,
+          "attackDamage": 31,
+          "attackCooldownMs": 760,
+          "attackWindupMs": 720,
+          "leapDistance": 430,
+          "leapDurationMs": 430,
+          "targetLockMs": 165,
+          "parryWindowMs": 120
+        }
+      ],
       "mentalPressurePerSecond": 5.5,
       "color": "#4e2947"
     }
@@ -924,6 +1153,168 @@
           "knockback": 54,
           "color": "#d395da"
         }
+      }
+    },
+    {
+      "id": "twohand-bow",
+      "name": "Лук памяти",
+      "equipMode": "twoHanded",
+      "description": "Две руки разделяют точные выстрелы, контроль дистанции и круговой залп.",
+      "chanceCost": 3,
+      "tapCombo": [
+        { "name": "Вторая стрела", "kind": "projectile", "damage": 13, "cooldownMs": 0, "range": 620, "radius": 7, "arcDegrees": 10, "durationMs": 1200, "projectileSpeed": 660, "pierce": 0, "knockback": 6, "color": "#c8df9d" }
+      ],
+      "attacks": {
+        "tap": { "name": "Быстрая стрела", "kind": "projectile", "damage": 12, "cooldownMs": 0, "range": 600, "radius": 7, "arcDegrees": 10, "durationMs": 1150, "projectileSpeed": 650, "pierce": 0, "knockback": 5, "color": "#badb91" },
+        "doubleTap": { "name": "Сквозная стрела", "kind": "projectile", "damage": 25, "cooldownMs": 980, "range": 760, "radius": 9, "arcDegrees": 8, "durationMs": 1300, "projectileSpeed": 720, "pierce": 3, "knockback": 12, "color": "#def2aa" },
+        "doubleTapHold": { "name": "Прорыв сквозь строй", "kind": "dash", "damage": 15, "cooldownMs": 3100, "range": 260, "radius": 18, "arcDegrees": 35, "durationMs": 360, "projectileSpeed": 0, "pierce": 4, "knockback": 34, "color": "#a8c985" },
+        "hold": { "name": "Натянутая тетива", "kind": "projectile", "damage": 43, "cooldownMs": 2650, "range": 920, "radius": 12, "arcDegrees": 6, "durationMs": 1600, "projectileSpeed": 780, "pierce": 5, "knockback": 28, "color": "#f0efae" },
+        "holdThenDoubleTap": { "name": "Дождь по памяти", "kind": "burst", "damage": 24, "cooldownMs": 4700, "range": 230, "radius": 38, "arcDegrees": 360, "durationMs": 720, "projectileSpeed": 0, "pierce": 10, "knockback": 18, "color": "#9fbd7c" }
+      },
+      "secondaryTapCombo": [
+        { "name": "Удар плечом", "kind": "melee", "damage": 9, "cooldownMs": 0, "range": 72, "radius": 18, "arcDegrees": 95, "durationMs": 170, "projectileSpeed": 0, "pierce": 1, "knockback": 28, "color": "#9ebc83" }
+      ],
+      "secondaryAttacks": {
+        "tap": { "name": "Толчок луком", "kind": "melee", "damage": 7, "cooldownMs": 0, "range": 78, "radius": 17, "arcDegrees": 120, "durationMs": 160, "projectileSpeed": 0, "pierce": 1, "knockback": 32, "color": "#98b47e" },
+        "doubleTap": { "name": "Веер осколков", "kind": "burst", "damage": 16, "cooldownMs": 1250, "range": 145, "radius": 28, "arcDegrees": 160, "durationMs": 360, "projectileSpeed": 0, "pierce": 5, "knockback": 20, "color": "#bed59b" },
+        "doubleTapHold": { "name": "Охотничий рывок", "kind": "dash", "damage": 12, "cooldownMs": 2850, "range": 215, "radius": 20, "arcDegrees": 40, "durationMs": 300, "projectileSpeed": 0, "pierce": 3, "knockback": 24, "color": "#a5c58b" },
+        "hold": { "name": "Метка охотника", "kind": "projectile", "damage": 28, "cooldownMs": 2400, "range": 720, "radius": 18, "arcDegrees": 12, "durationMs": 1450, "projectileSpeed": 520, "pierce": 1, "knockback": 40, "color": "#d3dfa0" },
+        "holdThenDoubleTap": { "name": "Кольцо стрел", "kind": "burst", "damage": 20, "cooldownMs": 4200, "range": 190, "radius": 34, "arcDegrees": 360, "durationMs": 610, "projectileSpeed": 0, "pierce": 9, "knockback": 42, "color": "#d8e7a6" }
+      }
+    },
+    {
+      "id": "twohand-hammer",
+      "name": "Молот длинного следа",
+      "equipMode": "twoHanded",
+      "description": "Тяжёлые телеграфируемые удары оставляют опасный след и разбрасывают толпу.",
+      "chanceCost": 2,
+      "tapCombo": [
+        { "name": "Обратный взмах", "kind": "melee", "damage": 25, "cooldownMs": 0, "range": 118, "radius": 27, "arcDegrees": 135, "durationMs": 250, "lingerMs": 190, "projectileSpeed": 0, "pierce": 4, "knockback": 52, "color": "#d7a875" }
+      ],
+      "attacks": {
+        "tap": { "name": "Тяжёлый взмах", "kind": "melee", "damage": 23, "cooldownMs": 0, "range": 120, "radius": 28, "arcDegrees": 130, "durationMs": 260, "lingerMs": 180, "projectileSpeed": 0, "pierce": 4, "knockback": 48, "color": "#c89568" },
+        "doubleTap": { "name": "Двойной раскол", "kind": "melee", "damage": 36, "cooldownMs": 1350, "range": 150, "radius": 34, "arcDegrees": 105, "durationMs": 310, "lingerMs": 220, "projectileSpeed": 0, "pierce": 5, "knockback": 68, "color": "#e0b17a" },
+        "doubleTapHold": { "name": "Таран молотом", "kind": "dash", "damage": 42, "cooldownMs": 3900, "range": 270, "radius": 32, "arcDegrees": 55, "durationMs": 520, "projectileSpeed": 0, "pierce": 6, "knockback": 88, "color": "#edbb79" },
+        "hold": { "name": "Удар по полу", "kind": "burst", "damage": 39, "cooldownMs": 3100, "range": 210, "radius": 46, "arcDegrees": 360, "durationMs": 660, "lingerMs": 160, "projectileSpeed": 0, "pierce": 10, "knockback": 72, "color": "#bf8061" },
+        "holdThenDoubleTap": { "name": "Колокол комнаты", "kind": "burst", "damage": 55, "cooldownMs": 5600, "range": 280, "radius": 54, "arcDegrees": 360, "durationMs": 900, "lingerMs": 220, "projectileSpeed": 0, "pierce": 12, "knockback": 96, "color": "#f0c487" }
+      },
+      "secondaryTapCombo": [
+        { "name": "Короткий удар рукоятью", "kind": "melee", "damage": 12, "cooldownMs": 0, "range": 74, "radius": 20, "arcDegrees": 110, "durationMs": 170, "projectileSpeed": 0, "pierce": 2, "knockback": 36, "color": "#c59b74" }
+      ],
+      "secondaryAttacks": {
+        "tap": { "name": "Удар рукоятью", "kind": "melee", "damage": 10, "cooldownMs": 0, "range": 78, "radius": 18, "arcDegrees": 105, "durationMs": 160, "projectileSpeed": 0, "pierce": 1, "knockback": 34, "color": "#b8906e" },
+        "doubleTap": { "name": "Круговая защита", "kind": "burst", "damage": 14, "cooldownMs": 1100, "range": 125, "radius": 32, "arcDegrees": 360, "durationMs": 400, "projectileSpeed": 0, "pierce": 8, "knockback": 66, "color": "#d0aa82" },
+        "doubleTapHold": { "name": "Бронированный шаг", "kind": "dash", "damage": 18, "cooldownMs": 3200, "range": 160, "radius": 28, "arcDegrees": 60, "durationMs": 520, "projectileSpeed": 0, "pierce": 4, "knockback": 74, "color": "#d9ad78" },
+        "hold": { "name": "Медленный заслон", "kind": "melee", "damage": 21, "cooldownMs": 2600, "range": 135, "radius": 38, "arcDegrees": 180, "durationMs": 950, "lingerMs": 260, "projectileSpeed": 0, "pierce": 7, "knockback": 58, "color": "#d6aa7a" },
+        "holdThenDoubleTap": { "name": "Разворот палача", "kind": "burst", "damage": 32, "cooldownMs": 4700, "range": 190, "radius": 42, "arcDegrees": 360, "durationMs": 720, "projectileSpeed": 0, "pierce": 10, "knockback": 84, "color": "#e5b67b" }
+      }
+    },
+    {
+      "id": "either-dagger",
+      "name": "Кинжал из неверной квартиры",
+      "equipMode": "eitherHand",
+      "description": "Быстрый одноручный набор с короткими рывками и метанием.",
+      "chanceCost": 2,
+      "tapCombo": [
+        { "name": "Обратный порез кинжалом", "kind": "melee", "damage": 13, "cooldownMs": 0, "range": 76, "radius": 12, "arcDegrees": 80, "durationMs": 130, "projectileSpeed": 0, "pierce": 0, "knockback": 7, "color": "#e5d7c8" },
+        { "name": "Третий укол", "kind": "melee", "damage": 17, "cooldownMs": 0, "range": 88, "radius": 10, "arcDegrees": 45, "durationMs": 145, "projectileSpeed": 0, "pierce": 1, "knockback": 10, "color": "#f0ddd0" }
+      ],
+      "attacks": {
+        "tap": { "name": "Быстрый порез кинжалом", "kind": "melee", "damage": 11, "cooldownMs": 0, "range": 72, "radius": 11, "arcDegrees": 76, "durationMs": 125, "projectileSpeed": 0, "pierce": 0, "knockback": 6, "color": "#d9c8bb" },
+        "doubleTap": { "name": "Два шага внутрь", "kind": "dash", "damage": 19, "cooldownMs": 850, "range": 140, "radius": 14, "arcDegrees": 35, "durationMs": 220, "projectileSpeed": 0, "pierce": 2, "knockback": 12, "color": "#f1d1c0" },
+        "doubleTapHold": { "name": "Серия из тени", "kind": "melee", "damage": 25, "cooldownMs": 2700, "range": 105, "radius": 18, "arcDegrees": 155, "durationMs": 520, "lingerMs": 110, "projectileSpeed": 0, "pierce": 4, "knockback": 14, "color": "#cf9ca7" },
+        "hold": { "name": "Бросок кинжала", "kind": "projectile", "damage": 27, "cooldownMs": 2100, "range": 540, "radius": 8, "arcDegrees": 10, "durationMs": 1100, "projectileSpeed": 610, "pierce": 1, "knockback": 16, "color": "#e7dde0" },
+        "holdThenDoubleTap": { "name": "Вскрыть круг", "kind": "burst", "damage": 24, "cooldownMs": 3900, "range": 145, "radius": 24, "arcDegrees": 360, "durationMs": 460, "projectileSpeed": 0, "pierce": 7, "knockback": 32, "color": "#b97889" }
+      }
+    },
+    {
+      "id": "secondary-shield",
+      "name": "Щит отражения",
+      "equipMode": "secondaryOnly",
+      "description": "Широкие активные окна рассчитаны на столкновение с телеграфом атаки.",
+      "chanceCost": 2,
+      "tapCombo": [
+        { "name": "Кромка щита", "kind": "melee", "damage": 9, "cooldownMs": 0, "range": 74, "radius": 22, "arcDegrees": 115, "durationMs": 210, "lingerMs": 90, "projectileSpeed": 0, "pierce": 2, "knockback": 34, "color": "#a9c2ca" }
+      ],
+      "attacks": {
+        "tap": { "name": "Быстрый блок", "kind": "burst", "damage": 4, "cooldownMs": 0, "range": 82, "radius": 26, "arcDegrees": 160, "durationMs": 260, "lingerMs": 100, "projectileSpeed": 0, "pierce": 6, "knockback": 38, "color": "#b6cbd0" },
+        "doubleTap": { "name": "Удар щитом", "kind": "melee", "damage": 18, "cooldownMs": 1050, "range": 92, "radius": 24, "arcDegrees": 95, "durationMs": 220, "projectileSpeed": 0, "pierce": 2, "knockback": 72, "color": "#d0d9d4" },
+        "doubleTapHold": { "name": "Щитовой прорыв", "kind": "dash", "damage": 22, "cooldownMs": 3200, "range": 210, "radius": 30, "arcDegrees": 55, "durationMs": 520, "projectileSpeed": 0, "pierce": 6, "knockback": 82, "color": "#b9d2d5" },
+        "hold": { "name": "Неподвижная стена", "kind": "burst", "damage": 7, "cooldownMs": 2450, "range": 108, "radius": 38, "arcDegrees": 180, "durationMs": 880, "lingerMs": 220, "projectileSpeed": 0, "pierce": 9, "knockback": 54, "color": "#91afb8" },
+        "holdThenDoubleTap": { "name": "Отразить комнату", "kind": "burst", "damage": 21, "cooldownMs": 4800, "range": 185, "radius": 45, "arcDegrees": 360, "durationMs": 640, "projectileSpeed": 0, "pierce": 12, "knockback": 90, "color": "#c7e0df" }
+      }
+    },
+    {
+      "id": "secondary-magic-orb",
+      "name": "Магическая сфера",
+      "equipMode": "secondaryOnly",
+      "description": "Дальние снаряды и импульсы контроля для свободной второй руки.",
+      "chanceCost": 1,
+      "tapCombo": [
+        { "name": "Вторая искра", "kind": "projectile", "damage": 12, "cooldownMs": 0, "range": 490, "radius": 10, "arcDegrees": 14, "durationMs": 1100, "projectileSpeed": 530, "pierce": 0, "knockback": 10, "color": "#a992d1" }
+      ],
+      "attacks": {
+        "tap": { "name": "Искра сферы", "kind": "projectile", "damage": 11, "cooldownMs": 0, "range": 470, "radius": 9, "arcDegrees": 14, "durationMs": 1050, "projectileSpeed": 520, "pierce": 0, "knockback": 9, "color": "#9b84c7" },
+        "doubleTap": { "name": "Двойной импульс", "kind": "burst", "damage": 18, "cooldownMs": 950, "range": 132, "radius": 32, "arcDegrees": 360, "durationMs": 420, "projectileSpeed": 0, "pierce": 6, "knockback": 36, "color": "#b59cd4" },
+        "doubleTapHold": { "name": "Скольжение сферы", "kind": "dash", "damage": 16, "cooldownMs": 2800, "range": 225, "radius": 20, "arcDegrees": 45, "durationMs": 340, "projectileSpeed": 0, "pierce": 4, "knockback": 26, "color": "#b69bdd" },
+        "hold": { "name": "Сгусток неправильной тени", "kind": "projectile", "damage": 34, "cooldownMs": 2600, "range": 700, "radius": 20, "arcDegrees": 18, "durationMs": 1450, "projectileSpeed": 480, "pierce": 3, "knockback": 42, "color": "#765c9f" },
+        "holdThenDoubleTap": { "name": "Орбита памяти", "kind": "burst", "damage": 29, "cooldownMs": 4500, "range": 210, "radius": 40, "arcDegrees": 360, "durationMs": 780, "lingerMs": 140, "projectileSpeed": 0, "pierce": 10, "knockback": 58, "color": "#c39ce0" }
+      }
+    },
+    {
+      "id": "hybrid-sword",
+      "name": "Меч странствующего торговца",
+      "equipMode": "hybrid",
+      "description": "Основная рука режет, свободная вторая рука парирует и меняет дистанцию.",
+      "chanceCost": 2,
+      "tapCombo": [
+        { "name": "Обратный диагональный удар", "kind": "melee", "damage": 19, "cooldownMs": 0, "range": 108, "radius": 19, "arcDegrees": 108, "durationMs": 190, "lingerMs": 80, "projectileSpeed": 0, "pierce": 2, "knockback": 18, "color": "#e2ccb0" },
+        { "name": "Прямой выпад мечом", "kind": "melee", "damage": 23, "cooldownMs": 0, "range": 142, "radius": 13, "arcDegrees": 45, "durationMs": 210, "projectileSpeed": 0, "pierce": 2, "knockback": 24, "color": "#f0d8b6" }
+      ],
+      "attacks": {
+        "tap": { "name": "Диагональный удар мечом", "kind": "melee", "damage": 17, "cooldownMs": 0, "range": 110, "radius": 18, "arcDegrees": 110, "durationMs": 185, "lingerMs": 70, "projectileSpeed": 0, "pierce": 2, "knockback": 16, "color": "#d9c2a5" },
+        "doubleTap": { "name": "Крестовый разрез", "kind": "melee", "damage": 28, "cooldownMs": 980, "range": 138, "radius": 22, "arcDegrees": 135, "durationMs": 310, "lingerMs": 120, "projectileSpeed": 0, "pierce": 4, "knockback": 26, "color": "#ead0a9" },
+        "doubleTapHold": { "name": "Рывок фехтовальщика", "kind": "dash", "damage": 30, "cooldownMs": 3300, "range": 285, "radius": 20, "arcDegrees": 38, "durationMs": 390, "projectileSpeed": 0, "pierce": 5, "knockback": 38, "color": "#f2d196" },
+        "hold": { "name": "Длинная режущая стойка", "kind": "melee", "damage": 35, "cooldownMs": 2750, "range": 175, "radius": 24, "arcDegrees": 125, "durationMs": 720, "lingerMs": 230, "projectileSpeed": 0, "pierce": 6, "knockback": 34, "color": "#ebd4b1" },
+        "holdThenDoubleTap": { "name": "Круг клинка", "kind": "burst", "damage": 33, "cooldownMs": 4400, "range": 195, "radius": 36, "arcDegrees": 360, "durationMs": 620, "projectileSpeed": 0, "pierce": 10, "knockback": 48, "color": "#f0be7f" }
+      },
+      "secondaryTapCombo": [
+        { "name": "Контрудар свободной рукой", "kind": "melee", "damage": 11, "cooldownMs": 0, "range": 80, "radius": 18, "arcDegrees": 95, "durationMs": 180, "lingerMs": 90, "projectileSpeed": 0, "pierce": 2, "knockback": 30, "color": "#c4cdd0" }
+      ],
+      "secondaryAttacks": {
+        "tap": { "name": "Парирование ладонью", "kind": "burst", "damage": 5, "cooldownMs": 0, "range": 88, "radius": 24, "arcDegrees": 150, "durationMs": 260, "lingerMs": 100, "projectileSpeed": 0, "pierce": 6, "knockback": 36, "color": "#c9d0d0" },
+        "doubleTap": { "name": "Удар гардой", "kind": "melee", "damage": 16, "cooldownMs": 1050, "range": 82, "radius": 17, "arcDegrees": 85, "durationMs": 210, "projectileSpeed": 0, "pierce": 2, "knockback": 48, "color": "#d8d2c4" },
+        "doubleTapHold": { "name": "Смена стороны", "kind": "dash", "damage": 18, "cooldownMs": 2900, "range": 205, "radius": 20, "arcDegrees": 45, "durationMs": 330, "projectileSpeed": 0, "pierce": 4, "knockback": 28, "color": "#d9c29b" },
+        "hold": { "name": "Открытая стойка", "kind": "melee", "damage": 19, "cooldownMs": 2300, "range": 120, "radius": 26, "arcDegrees": 180, "durationMs": 820, "lingerMs": 210, "projectileSpeed": 0, "pierce": 6, "knockback": 44, "color": "#d5d9d0" },
+        "holdThenDoubleTap": { "name": "Ответ по кругу", "kind": "burst", "damage": 27, "cooldownMs": 4100, "range": 175, "radius": 34, "arcDegrees": 360, "durationMs": 570, "projectileSpeed": 0, "pierce": 9, "knockback": 56, "color": "#e3d4b7" }
+      }
+    },
+    {
+      "id": "corpse-sword",
+      "name": "Меч, остающийся у тела",
+      "equipMode": "twoHanded",
+      "description": "Оплаченный Шансами клинок остаётся доступным после смерти; его удары долго живут в пространстве.",
+      "chanceCost": 3,
+      "corpseBound": true,
+      "tapCombo": [
+        { "name": "Возврат мёртвого клинка", "kind": "melee", "damage": 31, "cooldownMs": 0, "range": 145, "radius": 28, "arcDegrees": 135, "durationMs": 260, "lingerMs": 260, "projectileSpeed": 0, "pierce": 5, "knockback": 44, "color": "#d7a0a1" }
+      ],
+      "attacks": {
+        "tap": { "name": "Разрез чужой попытки", "kind": "melee", "damage": 29, "cooldownMs": 0, "range": 148, "radius": 27, "arcDegrees": 130, "durationMs": 250, "lingerMs": 250, "projectileSpeed": 0, "pierce": 5, "knockback": 42, "color": "#cb8e92" },
+        "doubleTap": { "name": "Две запомненные смерти", "kind": "melee", "damage": 46, "cooldownMs": 1250, "range": 178, "radius": 31, "arcDegrees": 155, "durationMs": 390, "lingerMs": 300, "projectileSpeed": 0, "pierce": 7, "knockback": 58, "color": "#e0a0a1" },
+        "doubleTapHold": { "name": "Вернуться к телу", "kind": "dash", "damage": 52, "cooldownMs": 3650, "range": 330, "radius": 30, "arcDegrees": 50, "durationMs": 480, "projectileSpeed": 0, "pierce": 8, "knockback": 64, "color": "#edacad" },
+        "hold": { "name": "След прошлой попытки", "kind": "melee", "damage": 57, "cooldownMs": 3050, "range": 220, "radius": 38, "arcDegrees": 125, "durationMs": 880, "lingerMs": 420, "projectileSpeed": 0, "pierce": 9, "knockback": 62, "color": "#c4747d" },
+        "holdThenDoubleTap": { "name": "Девяносто девятый разрез", "kind": "burst", "damage": 68, "cooldownMs": 5900, "range": 310, "radius": 58, "arcDegrees": 360, "durationMs": 1050, "lingerMs": 330, "projectileSpeed": 0, "pierce": 14, "knockback": 92, "color": "#f0a0a5" }
+      },
+      "secondaryTapCombo": [
+        { "name": "Перехват второй рукой", "kind": "melee", "damage": 18, "cooldownMs": 0, "range": 95, "radius": 23, "arcDegrees": 115, "durationMs": 210, "lingerMs": 140, "projectileSpeed": 0, "pierce": 3, "knockback": 38, "color": "#b78e92" }
+      ],
+      "secondaryAttacks": {
+        "tap": { "name": "Удар навершием", "kind": "melee", "damage": 16, "cooldownMs": 0, "range": 90, "radius": 22, "arcDegrees": 110, "durationMs": 200, "lingerMs": 120, "projectileSpeed": 0, "pierce": 3, "knockback": 36, "color": "#aa8589" },
+        "doubleTap": { "name": "Отбить смерть", "kind": "burst", "damage": 20, "cooldownMs": 1100, "range": 125, "radius": 34, "arcDegrees": 180, "durationMs": 430, "lingerMs": 170, "projectileSpeed": 0, "pierce": 8, "knockback": 70, "color": "#c2a1a2" },
+        "doubleTapHold": { "name": "Шаг через труп", "kind": "dash", "damage": 31, "cooldownMs": 3150, "range": 240, "radius": 27, "arcDegrees": 48, "durationMs": 430, "projectileSpeed": 0, "pierce": 6, "knockback": 54, "color": "#d18e92" },
+        "hold": { "name": "Стойка у тела", "kind": "melee", "damage": 33, "cooldownMs": 2700, "range": 160, "radius": 35, "arcDegrees": 190, "durationMs": 980, "lingerMs": 360, "projectileSpeed": 0, "pierce": 9, "knockback": 56, "color": "#bb9295" },
+        "holdThenDoubleTap": { "name": "Круг возвращения", "kind": "burst", "damage": 44, "cooldownMs": 5000, "range": 235, "radius": 48, "arcDegrees": 360, "durationMs": 820, "lingerMs": 250, "projectileSpeed": 0, "pierce": 12, "knockback": 78, "color": "#dda1a3" }
       }
     }
   ],

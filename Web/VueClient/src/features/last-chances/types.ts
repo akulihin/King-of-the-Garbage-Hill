@@ -7,6 +7,9 @@ export const LAST_CHANCES_GESTURES = [
   'holdThenDoubleTap',
 ] as const
 export const LAST_CHANCES_ATTACK_KINDS = ['melee', 'projectile', 'dash', 'burst'] as const
+export const LAST_CHANCES_ENEMY_ROLES = ['creep', 'standard', 'elite', 'boss'] as const
+export const LAST_CHANCES_ENEMY_ATTACK_KINDS = ['melee', 'leap', 'projectile', 'heavy'] as const
+export const LAST_CHANCES_HAZARD_KINDS = ['spikes', 'mentalFog'] as const
 export const LAST_CHANCES_EQUIP_MODES = [
   'twoHanded',
   'eitherHand',
@@ -18,10 +21,20 @@ export const LAST_CHANCES_EQUIP_MODES = [
 export type LastChancesHand = typeof LAST_CHANCES_HANDS[number]
 export type LastChancesGesture = typeof LAST_CHANCES_GESTURES[number]
 export type LastChancesAttackKind = typeof LAST_CHANCES_ATTACK_KINDS[number]
+export type LastChancesEnemyRole = typeof LAST_CHANCES_ENEMY_ROLES[number]
+export type LastChancesEnemyAttackKind = typeof LAST_CHANCES_ENEMY_ATTACK_KINDS[number]
+export type LastChancesHazardKind = typeof LAST_CHANCES_HAZARD_KINDS[number]
 export type LastChancesEquipMode = typeof LAST_CHANCES_EQUIP_MODES[number]
-export type LastChancesPhase = 'planning' | 'playing' | 'dead' | 'won' | 'outOfChances'
+export type LastChancesPhase = 'planning' | 'playing' | 'interaction' | 'dead' | 'won' | 'outOfChances'
 export type LastChancesEnemyState = 'idle' | 'noticing' | 'alerted' | 'chasing' | 'attacking' | 'dead'
-export type LastChancesRoomArchetype = 'combat' | 'chest' | 'rest' | 'event'
+export type LastChancesRoomArchetype =
+  | 'combat'
+  | 'chest'
+  | 'rest'
+  | 'event'
+  | 'merchant'
+  | 'trap'
+  | 'puzzle'
 export type LastChancesGestureInputPhase =
   | 'idle'
   | 'pressing'
@@ -62,6 +75,8 @@ export interface LastChancesAttackDefinition {
   radius: number
   arcDegrees: number
   durationMs: number
+  /** Extra time that a melee/burst hitbox remains dangerous after its authored swing. */
+  lingerMs?: number
   projectileSpeed: number
   pierce: number
   knockback: number
@@ -74,6 +89,11 @@ export interface LastChancesWeaponDefinition {
   /** Legacy equipped slot. New definitions use equipMode plus config.loadout. */
   hand?: LastChancesHand
   equipMode?: LastChancesEquipMode
+  description?: string
+  /** Chances paid when this weapon is claimed from an interaction. */
+  chanceCost?: number
+  /** Marks the exported concept whose weapon remains associated with the place of death. */
+  corpseBound?: boolean
   attacks: Record<LastChancesGesture, LastChancesAttackDefinition>
   /** Follow-up basic strikes after attacks.tap, advanced cyclically inside the combo window. */
   tapCombo?: LastChancesAttackDefinition[]
@@ -97,6 +117,22 @@ export interface LastChancesResolvedWeapon {
   tapCombo: LastChancesAttackDefinition[]
 }
 
+export interface LastChancesEnemyBossPhaseDefinition {
+  name: string
+  minimumHealthRatio: number
+  attackKind: LastChancesEnemyAttackKind
+  attackRange: number
+  attackRadius: number
+  attackDamage: number
+  attackCooldownMs: number
+  attackWindupMs: number
+  projectileSpeed?: number
+  leapDistance?: number
+  leapDurationMs?: number
+  targetLockMs?: number
+  parryWindowMs?: number
+}
+
 export interface LastChancesEnemyDefinition {
   id: string
   name: string
@@ -112,6 +148,17 @@ export interface LastChancesEnemyDefinition {
   attackRange: number
   /** Distance the chaser tries to retain as a fraction of attackRange. */
   preferredAttackRangeRatio?: number
+  /** Combat role controls attack queuing: creeps ignore the shared queue. */
+  role?: LastChancesEnemyRole
+  attackKind?: LastChancesEnemyAttackKind
+  attackRadius?: number
+  projectileSpeed?: number
+  leapDistance?: number
+  leapDurationMs?: number
+  targetLockMs?: number
+  parryWindowMs?: number
+  invisibleUntilAlerted?: boolean
+  bossPhases?: LastChancesEnemyBossPhaseDefinition[]
   attackDamage: number
   attackCooldownMs: number
   attackWindupMs: number
@@ -145,6 +192,44 @@ export interface LastChancesObstacleDefinition {
   elevation: number
 }
 
+export interface LastChancesHazardDefinition {
+  id: string
+  name: string
+  kind: LastChancesHazardKind
+  x: number
+  y: number
+  width: number
+  height: number
+  damage: number
+  mentalDamagePerSecond: number
+  cycleMs: number
+  activeMs: number
+  phaseOffsetMs: number
+  color: string
+}
+
+export interface LastChancesInteractionEffect {
+  chanceCost?: number
+  hp?: number
+  mentalHealth?: number
+  stats?: Partial<LastChancesStats>
+  primaryWeaponId?: string
+  secondaryWeaponId?: string | null
+}
+
+export interface LastChancesInteractionChoice {
+  id: string
+  label: string
+  description: string
+  effect: LastChancesInteractionEffect
+}
+
+export interface LastChancesRoomInteractionDefinition {
+  title: string
+  body: string
+  choices: LastChancesInteractionChoice[]
+}
+
 export interface LastChancesSpawnLayoutDefinition {
   id: string
   name: string
@@ -162,6 +247,20 @@ export interface LastChancesRoomTemplate {
   enemySpawns?: LastChancesVector[]
   spawnLayouts?: LastChancesSpawnLayoutDefinition[]
   obstacles: LastChancesObstacleDefinition[]
+  hazards?: LastChancesHazardDefinition[]
+  interaction?: LastChancesRoomInteractionDefinition
+}
+
+export interface LastChancesStoryPage {
+  speaker?: string
+  text: string
+}
+
+export interface LastChancesNarrativeDefinition {
+  prologue: LastChancesStoryPage[]
+  victory: LastChancesStoryPage[]
+  exhaustedVictory: LastChancesStoryPage[]
+  exhaustedDeathThreshold: number
 }
 
 export interface LastChancesConfig {
@@ -207,6 +306,7 @@ export interface LastChancesConfig {
   weapons: LastChancesWeaponDefinition[]
   /** Optional catalog-backed equipment selection. Omitted schema-v1 definitions retain their legacy hand slots. */
   loadout?: LastChancesLoadoutDefinition
+  narrative?: LastChancesNarrativeDefinition
   renderer: {
     maxDpr: number
     snapshotHz: number
@@ -245,7 +345,9 @@ export interface LastChancesPlanNode {
     height: number
     playerSpawn: LastChancesVector
     obstacles: LastChancesObstacleDefinition[]
+    hazards: LastChancesHazardDefinition[]
   }
+  interaction: LastChancesRoomInteractionDefinition | null
   enemies: LastChancesPlanEnemy[]
   nextNodeIds: string[]
 }
@@ -277,6 +379,12 @@ export interface LastChancesEnemySnapshot {
   state: LastChancesEnemyState
   noticeProgress: number
   attackCooldownMs: number
+  role: LastChancesEnemyRole
+  attackKind: LastChancesEnemyAttackKind
+  attackWindupProgress: number
+  parryWindowOpen: boolean
+  phaseName: string | null
+  visible: boolean
 }
 
 export interface LastChancesProjectileSnapshot {
@@ -284,6 +392,22 @@ export interface LastChancesProjectileSnapshot {
   position: LastChancesVector
   radius: number
   color: string
+  source: 'player' | 'enemy'
+}
+
+export interface LastChancesHazardSnapshot {
+  id: string
+  name: string
+  kind: LastChancesHazardKind
+  active: boolean
+}
+
+export interface LastChancesInteractionSnapshot {
+  title: string
+  body: string
+  choices: Array<LastChancesInteractionChoice & {
+    available: boolean
+  }>
 }
 
 export interface LastChancesCooldownSnapshot {
@@ -326,6 +450,7 @@ export interface LastChancesSnapshot {
   paused: boolean
   generation: number
   chances: number
+  totalDeaths: number
   elapsedMs: number
   currentNodeId: string | null
   currentTierIndex: number | null
@@ -335,6 +460,9 @@ export interface LastChancesSnapshot {
   player: LastChancesPlayerSnapshot
   enemies: LastChancesEnemySnapshot[]
   projectiles: LastChancesProjectileSnapshot[]
+  hazards: LastChancesHazardSnapshot[]
+  interaction: LastChancesInteractionSnapshot | null
+  loadout: LastChancesLoadoutDefinition | null
   cooldowns: LastChancesCooldownSnapshot[]
   lastGesture: LastChancesGestureSnapshot | null
   gestureInputs: LastChancesGestureInputSnapshot[]

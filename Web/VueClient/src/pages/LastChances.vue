@@ -39,6 +39,7 @@ import {
   type LastChancesGamePlan,
   type LastChancesHand,
   type LastChancesSnapshot,
+  type LastChancesStoryPage,
 } from '../features/last-chances'
 import BuilderDrawer from '../components/last-chances/BuilderDrawer.vue'
 import RunMapOverlay, {
@@ -133,6 +134,14 @@ const copy = {
     victoryEyebrow: 'Terminal tier cleared',
     victoryTitle: 'You reached the other side',
     victoryBody: 'The route is complete. The next generation will not be so familiar.',
+    interactionEyebrow: 'The room remembers the offer',
+    interactionChoose: 'Take this outcome',
+    interactionUnavailable: 'Unavailable for the current loadout or Chances',
+    interactionCost: 'Cost',
+    storyContinue: 'Continue',
+    storyBegin: 'Enter the remembered run',
+    storyClose: 'Close the memory',
+    deaths: 'Deaths remembered',
     beginAgain: 'Begin a new generation',
     chooseRoute: 'Choose the next room',
     killedBy: 'Killed by',
@@ -223,6 +232,14 @@ const copy = {
     victoryEyebrow: 'Последний уровень зачищен',
     victoryTitle: 'Вы добрались до другой стороны',
     victoryBody: 'Маршрут завершён. Следующая генерация не будет такой знакомой.',
+    interactionEyebrow: 'Комната помнит предложение',
+    interactionChoose: 'Принять этот исход',
+    interactionUnavailable: 'Недоступно с текущей экипировкой или запасом Шансов',
+    interactionCost: 'Цена',
+    storyContinue: 'Продолжить',
+    storyBegin: 'Войти в запомненный забег',
+    storyClose: 'Закрыть воспоминание',
+    deaths: 'Запомнено смертей',
     beginAgain: 'Начать новую генерацию',
     chooseRoute: 'Выбрать следующую комнату',
     killedBy: 'Убит врагом',
@@ -247,6 +264,8 @@ const routeMapOpen = ref(false)
 const builderOpen = ref(false)
 const toast = ref('')
 const visitedNodeIds = ref(new Set<string>())
+const storyPages = ref<LastChancesStoryPage[]>([])
+const storyIndex = ref(0)
 let loadController: AbortController | null = null
 let resumeAfterMap = false
 let resumeAfterBuilder = false
@@ -269,11 +288,19 @@ const chancePercent = computed(() => snapshot.value && config.value
 const activeTierIndex = computed(() => snapshot.value?.currentTierIndex ?? 0)
 const activeTier = computed(() => config.value?.progression.tiers[activeTierIndex.value] ?? null)
 const nextDeathCost = computed(() => activeTier.value?.deathCost ?? 1)
-const equippedLoadout = computed(() => config.value
-  ? resolveLastChancesLoadout(config.value)
-  : { left: null, right: null })
+const equippedLoadout = computed(() => {
+  if (!config.value) return { left: null, right: null }
+  const activeConfig = cloneLastChancesConfig(config.value)
+  if (snapshot.value?.loadout) activeConfig.loadout = { ...snapshot.value.loadout }
+  return resolveLastChancesLoadout(activeConfig)
+})
 const leftWeapon = computed(() => equippedLoadout.value.left)
 const rightWeapon = computed(() => equippedLoadout.value.right)
+const storyPage = computed(() => storyPages.value[storyIndex.value] ?? null)
+const storyOpen = computed(() => storyPages.value.length > 0 && !!storyPage.value)
+const storyFinalLabel = computed(() => snapshot.value?.phase === 'planning'
+  ? t.value.storyBegin
+  : t.value.storyClose)
 
 const erosionStats = computed(() => {
   if (!config.value || !snapshot.value) return []
@@ -332,7 +359,7 @@ const runMapNodes = computed<RunMapNode[]>(() => {
   return plan.value.nodes.map((node) => {
     let state: RunMapNode['state'] = 'locked'
     if (available.has(node.id)) state = 'available'
-    else if (node.id === current && snapshot.value?.phase === 'playing') state = 'current'
+    else if (node.id === current && ['playing', 'interaction'].includes(snapshot.value?.phase ?? '')) state = 'current'
     else if (attempt.has(node.id)) state = 'cleared'
     else if (visitedNodeIds.value.has(node.id)) state = 'visited'
     const tier = config.value?.progression.tiers[node.tierIndex]
@@ -374,6 +401,24 @@ const recentGesture = computed(() => {
   return state.elapsedMs - state.lastGesture.atMs < 850 ? state.lastGesture : null
 })
 
+function beginStory(pages: LastChancesStoryPage[] | undefined) {
+  storyPages.value = pages ? pages.map(page => ({ ...page })) : []
+  storyIndex.value = 0
+  if (storyPages.value.length > 0) routeMapOpen.value = false
+}
+
+function advanceStory() {
+  if (!storyOpen.value) return
+  if (storyIndex.value < storyPages.value.length - 1) {
+    storyIndex.value += 1
+    return
+  }
+  storyPages.value = []
+  storyIndex.value = 0
+  if (snapshot.value?.phase === 'planning') routeMapOpen.value = true
+  void nextTick(() => canvas.value?.focus())
+}
+
 function setToast(message: string) {
   toast.value = message
   if (toastTimer !== null) window.clearTimeout(toastTimer)
@@ -390,11 +435,24 @@ function onSnapshot(nextSnapshot: LastChancesSnapshot) {
   nextSnapshot.attemptPath.forEach(id => nextVisited.add(id))
   visitedNodeIds.value = nextVisited
   snapshot.value = nextSnapshot
-  if (nextSnapshot.phase === 'planning' && nextSnapshot.availableNodeIds.length > 0) routeMapOpen.value = true
+  if (nextSnapshot.phase === 'planning' && nextSnapshot.availableNodeIds.length > 0 && !storyOpen.value) {
+    routeMapOpen.value = true
+  }
   if (previousPhase === 'planning' && nextSnapshot.phase === 'playing') {
     routeMapOpen.value = false
     resumeAfterMap = false
     void nextTick(() => canvas.value?.focus())
+  }
+  if (previousPhase !== 'won' && nextSnapshot.phase === 'won' && config.value?.narrative) {
+    const narrative = config.value.narrative
+    beginStory(nextSnapshot.totalDeaths >= narrative.exhaustedDeathThreshold
+      ? narrative.exhaustedVictory
+      : narrative.victory)
+  }
+  if (previousPhase !== 'outOfChances'
+    && nextSnapshot.phase === 'outOfChances'
+    && config.value?.narrative) {
+    beginStory(config.value.narrative.exhaustedVictory)
   }
 }
 
@@ -402,6 +460,7 @@ async function createEngine(nextConfig: LastChancesConfig) {
   engine.value?.destroy()
   engine.value = null
   config.value = cloneLastChancesConfig(nextConfig)
+  beginStory(config.value.narrative?.prologue)
   plan.value = null
   snapshot.value = null
   visitedNodeIds.value = new Set()
@@ -413,7 +472,7 @@ async function createEngine(nextConfig: LastChancesConfig) {
   })
   engine.value = instance
   instance.start()
-  routeMapOpen.value = true
+  routeMapOpen.value = !storyOpen.value
 }
 
 async function loadDefinition(useBrowserOverride = true) {
@@ -468,9 +527,14 @@ function retryAttempt() {
 }
 
 function newGeneration() {
+  beginStory(config.value?.narrative?.prologue)
   engine.value?.newGeneration()
-  routeMapOpen.value = true
+  routeMapOpen.value = !storyOpen.value
   builderOpen.value = false
+}
+
+function chooseInteraction(choiceId: string) {
+  engine.value?.chooseInteraction(choiceId)
 }
 
 function openBuilder() {
@@ -565,7 +629,7 @@ function formatNumber(value: number): string {
 function deathReason(): string {
   const reason = snapshot.value?.deathReason
   if (!reason) return t.value.attemptEnded
-  if (reason === 'Mental health collapsed') return t.value.mindCollapsed
+  if (reason.startsWith('Mental health collapsed')) return t.value.mindCollapsed
   if (reason.startsWith('Killed by ')) return `${t.value.killedBy} ${reason.slice('Killed by '.length)}`
   return reason
 }
@@ -658,6 +722,32 @@ onBeforeUnmount(() => {
           </Transition>
 
           <Transition name="lc-phase-fade">
+            <div v-if="snapshot?.interaction" class="lc-interaction-overlay">
+              <div class="lc-interaction-card">
+                <p>{{ t.interactionEyebrow }}</p>
+                <h2>{{ snapshot.interaction.title }}</h2>
+                <span>{{ snapshot.interaction.body }}</span>
+                <div class="lc-interaction-choices">
+                  <button
+                    v-for="choice in snapshot.interaction.choices"
+                    :key="choice.id"
+                    type="button"
+                    :disabled="!choice.available"
+                    @click="chooseInteraction(choice.id)"
+                  >
+                    <strong>{{ choice.label }}</strong>
+                    <span>{{ choice.description }}</span>
+                    <small v-if="choice.effect.chanceCost">
+                      {{ t.interactionCost }}: −{{ choice.effect.chanceCost }} {{ choice.effect.chanceCost === 1 ? t.chanceSingular : t.chancePlural }}
+                    </small>
+                    <small v-else>{{ choice.available ? t.interactionChoose : t.interactionUnavailable }}</small>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </Transition>
+
+          <Transition name="lc-phase-fade">
             <div v-if="phaseOverlay" class="lc-phase-overlay" :class="`is-${phaseOverlay.kind}`">
               <div class="lc-phase-card">
                 <Skull v-if="phaseOverlay.kind === 'dead' || phaseOverlay.kind === 'game-over'" :size="30" aria-hidden="true" />
@@ -684,6 +774,22 @@ onBeforeUnmount(() => {
                   <button type="button" @click="openBuilder"><Settings2 :size="15" aria-hidden="true" />{{ t.builder }}</button>
                 </div>
               </div>
+            </div>
+          </Transition>
+
+          <Transition name="lc-phase-fade">
+            <div v-if="storyOpen && storyPage" class="lc-story-overlay">
+              <article class="lc-story-card">
+                <small>{{ storyPage.speaker || t.title }}</small>
+                <p>{{ storyPage.text }}</p>
+                <footer>
+                  <span>{{ storyIndex + 1 }} / {{ storyPages.length }}</span>
+                  <button type="button" class="is-primary" @click="advanceStory">
+                    {{ storyIndex < storyPages.length - 1 ? t.storyContinue : storyFinalLabel }}
+                    <ChevronRight :size="15" aria-hidden="true" />
+                  </button>
+                </footer>
+              </article>
             </div>
           </Transition>
 
@@ -737,6 +843,7 @@ onBeforeUnmount(() => {
             <div><dt>{{ t.tier }}</dt><dd>{{ (snapshot?.currentTierIndex ?? 0) + 1 }} / {{ config?.progression.tiers.length ?? 7 }}</dd></div>
             <div><dt>{{ t.room }}</dt><dd>{{ currentNode?.roomName ?? t.noRoom }}</dd></div>
             <div><dt>{{ t.enemies }}</dt><dd>{{ livingEnemies.length }}</dd></div>
+            <div><dt>{{ t.deaths }}</dt><dd>{{ snapshot?.totalDeaths ?? 0 }}</dd></div>
             <div><dt>{{ t.generation }}</dt><dd>#{{ snapshot?.generation ?? 1 }}</dd></div>
             <div class="is-seed"><dt>{{ t.seed }}</dt><dd>{{ plan?.seed ?? config?.seed ?? '—' }}</dd></div>
           </dl>
@@ -923,7 +1030,28 @@ onBeforeUnmount(() => {
 .lc-gesture-toast strong { grid-column: 1 / -1; color: #e3ded1; font-size: 0.62rem; font-weight: 700; text-align: center; }
 
 .lc-phase-overlay,
+.lc-interaction-overlay,
+.lc-story-overlay,
 .lc-loading-overlay { position: absolute; z-index: 30; inset: 0; display: grid; place-items: center; padding: 1rem; background: rgba(4, 5, 6, 0.78); backdrop-filter: blur(5px); }
+.lc-interaction-overlay { z-index: 31; background: rgba(4, 5, 6, 0.84); }
+.lc-story-overlay { z-index: 34; background: radial-gradient(circle at 50% 28%, rgba(88, 58, 71, 0.2), transparent 45%), rgba(3, 4, 5, 0.93); }
+.lc-interaction-card { width: min(42rem, 100%); padding: clamp(1rem, 3vw, 1.8rem); border: 1px solid rgba(201, 167, 94, 0.18); border-radius: 0.9rem; background: #0d1011; box-shadow: 0 1.5rem 4rem rgba(0, 0, 0, 0.58); }
+.lc-interaction-card > p { margin: 0; color: #b08d4f; font-size: 0.55rem; font-weight: 800; letter-spacing: 0.15em; text-transform: uppercase; }
+.lc-interaction-card h2 { margin: 0.25rem 0; color: #f1ece1; font: 600 clamp(1.2rem, 3vw, 1.8rem)/1.1 Georgia, serif; }
+.lc-interaction-card > span { display: block; color: #858986; font-size: 0.68rem; line-height: 1.5; }
+.lc-interaction-choices { display: grid; grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); gap: 0.55rem; margin-top: 1rem; }
+.lc-interaction-choices button { min-height: 7rem; display: grid; align-content: start; gap: 0.3rem; padding: 0.75rem; border: 1px solid rgba(201, 167, 94, 0.16); border-radius: 0.55rem; text-align: left; color: #ded8ca; background: rgba(201, 167, 94, 0.045); }
+.lc-interaction-choices button:hover:not(:disabled) { border-color: rgba(214, 181, 105, 0.42); background: rgba(201, 167, 94, 0.09); }
+.lc-interaction-choices button:disabled { opacity: 0.38; cursor: not-allowed; }
+.lc-interaction-choices strong { font: 600 0.82rem/1.25 Georgia, serif; }
+.lc-interaction-choices span { color: #777d79; font-size: 0.58rem; line-height: 1.42; }
+.lc-interaction-choices small { margin-top: auto; color: #b69855; font-size: 0.52rem; font-weight: 800; text-transform: uppercase; }
+.lc-story-card { width: min(38rem, 100%); padding: clamp(1.2rem, 4vw, 2.2rem); border: 1px solid rgba(226, 218, 198, 0.12); border-radius: 0.85rem; background: linear-gradient(145deg, rgba(255, 255, 255, 0.025), rgba(7, 8, 9, 0.97)); box-shadow: 0 2rem 6rem rgba(0, 0, 0, 0.72); }
+.lc-story-card > small { color: #a3474e; font-size: 0.55rem; font-weight: 800; letter-spacing: 0.15em; text-transform: uppercase; }
+.lc-story-card > p { min-height: 6rem; margin: 0.75rem 0 1.2rem; white-space: pre-line; color: #d7d2c7; font: 500 clamp(0.86rem, 2vw, 1.05rem)/1.7 Georgia, serif; }
+.lc-story-card footer { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.lc-story-card footer span { color: #666c68; font: 700 0.55rem/1 var(--font-mono, monospace); }
+.lc-story-card button { min-height: 2.35rem; display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.45rem 0.75rem; border: 1px solid #c7a55d; border-radius: 0.42rem; color: #17130d; background: linear-gradient(135deg, #d5b66d, #9e732d); font-size: 0.6rem; font-weight: 800; }
 .lc-phase-card { width: min(30rem, 100%); display: grid; justify-items: center; padding: clamp(1.2rem, 4vw, 2.2rem); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 0.9rem; text-align: center; background: radial-gradient(circle at 50% 0, rgba(137, 43, 50, 0.17), transparent 45%), #0d1011; box-shadow: 0 1.5rem 4rem rgba(0, 0, 0, 0.55); }
 .lc-phase-card > svg { color: #a7474e; }
 .lc-phase-overlay.is-victory .lc-phase-card > svg { color: #c8aa62; }

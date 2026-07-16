@@ -37,11 +37,16 @@ function secondaryAttacks(prefix: string) {
   return attacks
 }
 
+function removeRoomInteractions(config: LastChancesConfig): void {
+  config.rooms.forEach(room => { delete room.interaction })
+}
+
 function previousShippedSchemaV1Config(): LastChancesConfig {
   const config = cloneLastChancesConfig(defaultConfig)
   config.schemaVersion = 1
   delete config.input.tapComboWindowMs
   delete config.loadout
+  removeRoomInteractions(config)
   const previousSpawns: Record<string, Array<{ x: number, y: number }>> = {
     'combat-hall': [
       { x: 700, y: 170 }, { x: 805, y: 335 }, { x: 690, y: 520 }, { x: 510, y: 120 },
@@ -65,13 +70,14 @@ function previousShippedSchemaV1Config(): LastChancesConfig {
     ],
   }
   config.rooms.forEach((room) => {
-    room.enemySpawns = previousSpawns[room.id]
+    room.enemySpawns = previousSpawns[room.id] ?? room.spawnLayouts?.[0].enemySpawns
     delete room.spawnLayouts
   })
   config.enemies.forEach((enemy) => {
     delete enemy.idleTurnRadiansPerSecond
     delete enemy.preferredAttackRangeRatio
   })
+  config.weapons = config.weapons.slice(0, 2)
   config.weapons.forEach((weapon, index) => {
     weapon.hand = index === 0 ? 'left' : 'right'
     delete weapon.equipMode
@@ -116,10 +122,23 @@ describe('99LC config and deterministic plan', () => {
     })
     expect(defaultConfig.enemies.map(enemy => enemy.name)).toEqual(expect.arrayContaining([
       'Слуга',
+      'Бегущий степлер',
       'Стражник',
       'Химера',
       'Нож-паук',
+      'Невидимый волк',
       'Тень Куратора',
+    ]))
+    expect(defaultConfig.rooms.filter(room => room.interaction)).toHaveLength(5)
+    expect(defaultConfig.rooms.flatMap(room => room.hazards ?? [])).toHaveLength(4)
+    expect(defaultConfig.weapons.map(weapon => weapon.id)).toEqual(expect.arrayContaining([
+      'twohand-bow',
+      'twohand-hammer',
+      'either-dagger',
+      'secondary-shield',
+      'secondary-magic-orb',
+      'hybrid-sword',
+      'corpse-sword',
     ]))
   })
 
@@ -181,12 +200,13 @@ describe('99LC config and deterministic plan', () => {
 
   it('rejects authored player and enemy spawns that overlap room geometry', () => {
     const invalid = cloneLastChancesConfig(defaultConfig)
-    invalid.rooms[1].spawnLayouts![0].enemySpawns[0] = { x: 675, y: 120 }
-    invalid.rooms[1].playerSpawn = { x: 445, y: 330 }
+    const roomIndex = invalid.rooms.findIndex(room => room.id === 'chest-gallery')
+    invalid.rooms[roomIndex].spawnLayouts![0].enemySpawns[0] = { x: 675, y: 120 }
+    invalid.rooms[roomIndex].playerSpawn = { x: 445, y: 330 }
 
     expect(validateLastChancesConfig(invalid).errors).toEqual(expect.arrayContaining([
-      expect.stringContaining('rooms[1].spawnLayouts[0].enemySpawns[0] overlaps room obstacle 1'),
-      expect.stringContaining('rooms[1].playerSpawn overlaps room obstacle 0'),
+      expect.stringContaining(`rooms[${roomIndex}].spawnLayouts[0].enemySpawns[0] overlaps room obstacle 1`),
+      expect.stringContaining(`rooms[${roomIndex}].playerSpawn overlaps room obstacle 0`),
     ]))
   })
 
@@ -195,16 +215,17 @@ describe('99LC config and deterministic plan', () => {
     invalid.rooms[0].spawnLayouts![0].enemySpawns[0] = { ...invalid.rooms[0].playerSpawn }
 
     expect(validateLastChancesConfig(invalid).errors).toContain(
-      'rooms[0].spawnLayouts[0].enemySpawns[0] overlaps playerSpawn with combined radius 52',
+      'rooms[0].spawnLayouts[0].enemySpawns[0] overlaps playerSpawn with combined radius 42',
     )
   })
 
   it('rejects a named spawn layout that cannot hold its tier maximum', () => {
     const invalid = cloneLastChancesConfig(defaultConfig)
-    invalid.rooms[2].spawnLayouts![0].enemySpawns.length = 6
+    const roomIndex = invalid.rooms.findIndex(room => room.id === 'rest-conservatory')
+    invalid.rooms[roomIndex].spawnLayouts![0].enemySpawns.length = 6
 
     expect(validateLastChancesConfig(invalid).errors).toContain(
-      'rooms[2].spawnLayouts[0].enemySpawns needs at least 7 points for eligible tiers',
+      `rooms[${roomIndex}].spawnLayouts[0].enemySpawns needs at least 7 points for eligible tiers`,
     )
   })
 
@@ -261,6 +282,8 @@ describe('99LC config and deterministic plan', () => {
       delete enemy.idleTurnRadiansPerSecond
       delete enemy.preferredAttackRangeRatio
     }
+    removeRoomInteractions(legacy)
+    legacy.weapons = legacy.weapons.slice(0, 2)
     legacy.weapons.forEach((weapon, index) => {
       weapon.hand = index === 0 ? 'left' : 'right'
       delete weapon.equipMode
@@ -350,6 +373,7 @@ describe('99LC config and deterministic plan', () => {
       const weapon = makeWeapon('greatblade', 'twoHanded')
       weapon.secondaryAttacks = secondaryAttacks('greatblade-secondary')
       const supplemental = makeWeapon('sidearm', 'secondaryOnly', 1)
+      removeRoomInteractions(config)
       config.weapons = [weapon, supplemental]
       config.loadout = { primaryWeaponId: weapon.id, secondaryWeaponId: null }
 
@@ -372,6 +396,7 @@ describe('99LC config and deterministic plan', () => {
     it('allows an either-hand weapon in one slot or duplicated into both slots', () => {
       const config = cloneLastChancesConfig(defaultConfig)
       const weapon = makeWeapon('shortsword', 'eitherHand')
+      removeRoomInteractions(config)
       config.weapons = [weapon]
       config.loadout = { primaryWeaponId: weapon.id, secondaryWeaponId: weapon.id }
 
@@ -390,6 +415,7 @@ describe('99LC config and deterministic plan', () => {
       const config = cloneLastChancesConfig(defaultConfig)
       const primary = makeWeapon('spear', 'primaryOnly')
       const secondary = makeWeapon('knife', 'secondaryOnly', 1)
+      removeRoomInteractions(config)
       config.weapons = [primary, secondary]
       config.loadout = { primaryWeaponId: primary.id, secondaryWeaponId: secondary.id }
 
@@ -410,6 +436,7 @@ describe('99LC config and deterministic plan', () => {
       hybrid.secondaryAttacks = secondaryAttacks('hybrid-secondary')
       const supplemental = makeWeapon('shield', 'secondaryOnly', 1)
       supplemental.attacks.tap.name = 'shield-tap'
+      removeRoomInteractions(config)
       config.weapons = [hybrid, supplemental]
       config.loadout = { primaryWeaponId: hybrid.id, secondaryWeaponId: null }
 

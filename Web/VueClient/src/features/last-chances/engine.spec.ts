@@ -48,13 +48,18 @@ function makeCanvas(): HTMLCanvasElement {
 type EngineTestAccess = {
   enemies: Array<{
     id: string
-    definition: { radius: number }
+    definition: { maxHp: number, radius: number, attackCooldownMs: number }
     position: { x: number, y: number }
     hp: number
+    state: 'idle' | 'noticing' | 'alerted' | 'chasing' | 'attacking' | 'dead'
+    attackCooldownMs: number
+    attackWindupMs: number
+    lockedAttackDirection: { x: number, y: number } | null
   }>
   createSnapshot: () => LastChancesSnapshot
   elapsedMs: number
   handleBlur: () => void
+  killPlayer: (reason: string) => void
   player: { position: { x: number, y: number } }
   performDash: (attack: LastChancesAttackDefinition, direction: { x: number, y: number }) => void
   performAttack: (hand: LastChancesHand, gesture: LastChancesGesture) => void
@@ -64,6 +69,7 @@ type EngineTestAccess = {
     direction: { x: number, y: number },
   ) => void
   updateActiveAreas: (deltaMs: number) => void
+  updateEnemies: (deltaSeconds: number, deltaMs: number) => void
   updatePlayer: (deltaSeconds: number) => void
 }
 
@@ -231,6 +237,169 @@ describe('99LC engine attempt lifecycle', () => {
     }
   })
 
+  it('spends Chances on room offers, resets ordinary loot on death, and recovers corpse-bound weapons', () => {
+    const ordinaryConfig = cloneLastChancesConfig(defaultConfig)
+    ordinaryConfig.progression.tiers[0].enemyCount = [0, 0]
+    ordinaryConfig.progression.tiers[0].roomTemplateIds = ['merchant-crossing']
+    const ordinaryEngine = new LastChancesEngine(makeCanvas(), ordinaryConfig)
+    const ordinaryAccess = ordinaryEngine as unknown as EngineTestAccess
+
+    try {
+      expect(ordinaryEngine.chooseNode(ordinaryAccess.createSnapshot().availableNodeIds[0])).toBe(true)
+      expect(ordinaryAccess.createSnapshot().phase).toBe('interaction')
+      expect(ordinaryEngine.chooseInteraction('buy-bow')).toBe(true)
+      expect(ordinaryAccess.createSnapshot()).toMatchObject({
+        chances: ordinaryConfig.chances - 3,
+        loadout: { primaryWeaponId: 'twohand-bow', secondaryWeaponId: null },
+      })
+
+      expect(ordinaryEngine.chooseNode(ordinaryAccess.createSnapshot().availableNodeIds[0])).toBe(true)
+      ordinaryAccess.killPlayer('Loot reset test')
+      expect(ordinaryEngine.retryAttempt()).toBe(true)
+      expect(ordinaryAccess.createSnapshot().loadout).toEqual(ordinaryConfig.loadout)
+    } finally {
+      ordinaryEngine.destroy()
+      vi.restoreAllMocks()
+    }
+
+    const corpseConfig = cloneLastChancesConfig(defaultConfig)
+    corpseConfig.progression.tiers[0].enemyCount = [0, 0]
+    corpseConfig.progression.tiers[0].roomTemplateIds = ['chest-gallery']
+    const corpseEngine = new LastChancesEngine(makeCanvas(), corpseConfig)
+    const corpseAccess = corpseEngine as unknown as EngineTestAccess
+
+    try {
+      expect(corpseEngine.chooseNode(corpseAccess.createSnapshot().availableNodeIds[0])).toBe(true)
+      expect(corpseEngine.chooseInteraction('claim-corpse-sword')).toBe(true)
+      expect(corpseAccess.createSnapshot().loadout).toEqual({
+        primaryWeaponId: 'corpse-sword',
+        secondaryWeaponId: null,
+      })
+
+      expect(corpseEngine.chooseNode(corpseAccess.createSnapshot().availableNodeIds[0])).toBe(true)
+      corpseAccess.killPlayer('Corpse recovery test')
+      expect(corpseEngine.retryAttempt()).toBe(true)
+      expect(corpseAccess.createSnapshot().loadout).toEqual({
+        primaryWeaponId: 'corpse-sword',
+        secondaryWeaponId: null,
+      })
+    } finally {
+      corpseEngine.destroy()
+      vi.restoreAllMocks()
+    }
+  })
+
+  it('queues standard attackers and lets a timed weapon collision parry the active one', () => {
+    const config = cloneLastChancesConfig(defaultConfig)
+    config.progression.tiers[0].enemyCount = [2, 2]
+    config.progression.tiers[0].enemyPool = [{ enemyId: 'guard', weight: 1 }]
+    config.progression.tiers[0].roomTemplateIds = ['combat-hall']
+    const engine = new LastChancesEngine(makeCanvas(), config)
+    const testAccess = engine as unknown as EngineTestAccess
+
+    try {
+      expect(engine.chooseNode(testAccess.createSnapshot().availableNodeIds[0])).toBe(true)
+      testAccess.enemies.forEach((enemy) => {
+        enemy.state = 'chasing'
+        enemy.attackCooldownMs = 0
+        enemy.position = {
+          x: testAccess.player.position.x + 45,
+          y: testAccess.player.position.y,
+        }
+      })
+
+      testAccess.updateEnemies(0, 16)
+      const attackers = testAccess.enemies.filter(enemy => enemy.state === 'attacking')
+      expect(attackers).toHaveLength(1)
+
+      attackers[0].attackWindupMs = 100
+      testAccess.performAttack('left', 'tap')
+      expect(attackers[0].state).toBe('chasing')
+      expect(attackers[0].attackCooldownMs).toBeGreaterThan(
+        attackers[0].definition.attackCooldownMs,
+      )
+    } finally {
+      engine.destroy()
+      vi.restoreAllMocks()
+    }
+  })
+
+  it('locks the knife-spider leap before travel and exposes authored boss phases', () => {
+    const leapConfig = cloneLastChancesConfig(defaultConfig)
+    leapConfig.progression.tiers[0].enemyCount = [1, 1]
+    leapConfig.progression.tiers[0].enemyPool = [{ enemyId: 'spider-knife', weight: 1 }]
+    leapConfig.progression.tiers[0].roomTemplateIds = ['combat-hall']
+    const leapEngine = new LastChancesEngine(makeCanvas(), leapConfig)
+    const leapAccess = leapEngine as unknown as EngineTestAccess
+
+    try {
+      expect(leapEngine.chooseNode(leapAccess.createSnapshot().availableNodeIds[0])).toBe(true)
+      const spider = leapAccess.enemies[0]
+      spider.state = 'chasing'
+      spider.position = {
+        x: leapAccess.player.position.x + 200,
+        y: leapAccess.player.position.y,
+      }
+      leapAccess.updateEnemies(0, 1)
+      leapAccess.updateEnemies(0, 520)
+      expect(spider.lockedAttackDirection).toMatchObject({ x: -1, y: 0 })
+
+      leapAccess.player.position.y += 180
+      leapAccess.updateEnemies(0, 160)
+      const beforeTravel = { ...spider.position }
+      leapAccess.updateEnemies(0.1, 100)
+      expect(spider.position.x).toBeLessThan(beforeTravel.x)
+      expect(spider.position.y).toBeCloseTo(beforeTravel.y, 5)
+    } finally {
+      leapEngine.destroy()
+      vi.restoreAllMocks()
+    }
+
+    const bossConfig = cloneLastChancesConfig(defaultConfig)
+    bossConfig.progression.tiers[0].enemyCount = [1, 1]
+    bossConfig.progression.tiers[0].enemyPool = [{ enemyId: 'curator-shadow', weight: 1 }]
+    bossConfig.progression.tiers[0].roomTemplateIds = ['curator-threshold']
+    const bossEngine = new LastChancesEngine(makeCanvas(), bossConfig)
+    const bossAccess = bossEngine as unknown as EngineTestAccess
+
+    try {
+      expect(bossEngine.chooseNode(bossAccess.createSnapshot().availableNodeIds[0])).toBe(true)
+      const boss = bossAccess.enemies[0]
+      boss.hp = boss.definition.maxHp * 0.5
+      expect(bossAccess.createSnapshot().enemies[0]).toMatchObject({
+        phaseName: 'Архив чужих смертей',
+        attackKind: 'projectile',
+      })
+      boss.hp = boss.definition.maxHp * 0.2
+      expect(bossAccess.createSnapshot().enemies[0]).toMatchObject({
+        phaseName: 'Тьма перед пробуждением',
+        attackKind: 'leap',
+      })
+    } finally {
+      bossEngine.destroy()
+      vi.restoreAllMocks()
+    }
+  })
+
+  it('keeps the invisible wolf hidden until it becomes alerted', () => {
+    const config = cloneLastChancesConfig(defaultConfig)
+    config.progression.tiers[0].enemyCount = [1, 1]
+    config.progression.tiers[0].enemyPool = [{ enemyId: 'invisible-wolf', weight: 1 }]
+    config.progression.tiers[0].roomTemplateIds = ['combat-hall']
+    const engine = new LastChancesEngine(makeCanvas(), config)
+    const testAccess = engine as unknown as EngineTestAccess
+
+    try {
+      expect(engine.chooseNode(testAccess.createSnapshot().availableNodeIds[0])).toBe(true)
+      expect(testAccess.createSnapshot().enemies[0].visible).toBe(false)
+      testAccess.enemies[0].state = 'alerted'
+      expect(testAccess.createSnapshot().enemies[0].visible).toBe(true)
+    } finally {
+      engine.destroy()
+      vi.restoreAllMocks()
+    }
+  })
+
   it('uses the resolved secondary attack set for a two-handed weapon', () => {
     const config = cloneLastChancesConfig(defaultConfig)
     const twoHanded = config.weapons[0]
@@ -240,6 +409,7 @@ describe('99LC engine attempt lifecycle', () => {
     delete twoHanded.hand
     secondaryAttacks.tap.name = 'Resolved rear-hand tap'
     twoHanded.secondaryAttacks = secondaryAttacks
+    config.rooms.forEach(room => { delete room.interaction })
     config.weapons = [twoHanded]
     config.loadout = { primaryWeaponId: twoHanded.id, secondaryWeaponId: null }
     const engine = new LastChancesEngine(makeCanvas(), config)
