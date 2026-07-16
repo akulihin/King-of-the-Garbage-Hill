@@ -442,6 +442,7 @@ public class DoomsdayMachine : IServiceSingleton
                 UnknownBug.TryCommitExploit(game, unknownBug, queuedExploitTarget, false);
         }
         EnforceKratosEventActions(game);
+        TheBoys.DisablePassivesBeforeFights(game);
         HandleEventsBeforeCalculation(game);
         if (!game.IsKratosEvent)
             Madara.PrepareIncomingAttackers(game);
@@ -524,6 +525,7 @@ public class DoomsdayMachine : IServiceSingleton
 
             var doomGunState = player.Passives.DoomGuy;
             if (player.GameCharacter.Name == DoomGuy.CharacterName
+                && player.GameCharacter.Passive.Any(passive => passive.PassiveName == DoomGuy.Gun)
                 && !player.Status.IsBlock && !player.Status.IsSkip
                 && doomGunState.GetActive(DoomGuy.Gun) == DoomGuy.Railgun
                 && doomGunState.RailgunCharged && targetsToFight.Count > 0)
@@ -646,6 +648,21 @@ public class DoomsdayMachine : IServiceSingleton
                 DoomGuy.ApplyFightModules(player, playerIamAttacking, game);
                 var narutoSummonAutoWin = !UnknownBug.Is(playerIamAttacking)
                                           && Naruto.IsSummonAutoWin(player, playerIamAttacking);
+                var isTauntBypass = playerIamAttacking.Status.IsBlock
+                                    && playerIamAttacking.GameCharacter.Passive.Any(x =>
+                                        x.PassiveName == "Штормяк")
+                                    && playerIamAttacking.Passives.KotikiStorm.CurrentTauntTarget
+                                    == player.GetPlayerId();
+                var fightWillResolve =
+                    (!playerIamAttacking.Status.IsBlock || player.Status.IsArmorBreak
+                                                          || isTauntBypass || narutoSummonAutoWin
+                                                          || isRailgunFight)
+                    && (!playerIamAttacking.Status.IsSkip || player.Status.IsSkipBreak
+                                                            || narutoSummonAutoWin
+                                                            || isRailgunFight);
+                if (fightWillResolve)
+                    TheBoys.ApplyKillingCoupleJustice(
+                        player, playerIamAttacking, _calculateRounds);
 
                 // This is the authoritative Pickle Rick outcome, applied after both before-fight
                 // dispatchers: the active pickle always accepts the fight and always wins it, even
@@ -679,9 +696,6 @@ public class DoomsdayMachine : IServiceSingleton
 
                 //if block => no one gets points
                 // Штормяк taunt bypass: provoked player fights the taunter normally (not as block)
-                var isTauntBypass = playerIamAttacking.Status.IsBlock
-                    && playerIamAttacking.GameCharacter.Passive.Any(x => x.PassiveName == "Штормяк")
-                    && playerIamAttacking.Passives.KotikiStorm.CurrentTauntTarget == player.GetPlayerId();
                 if (playerIamAttacking.Status.IsBlock && !player.Status.IsArmorBreak && !isTauntBypass
                     && !narutoSummonAutoWin
                     && !isRailgunFight)
@@ -700,6 +714,8 @@ public class DoomsdayMachine : IServiceSingleton
 
 
                     var blockPenalty = playerIamAttacking.GameCharacter.Name == DoomGuy.CharacterName
+                                       && playerIamAttacking.GameCharacter.Passive.Any(passive =>
+                                           passive.PassiveName == DoomGuy.Shield)
                                        && playerIamAttacking.Passives.DoomGuy.GetActive(DoomGuy.Shield) == DoomGuy.SawShield
                         ? -3
                         : -1;
@@ -716,6 +732,8 @@ public class DoomsdayMachine : IServiceSingleton
 
                     var doomShield = playerIamAttacking.Passives.DoomGuy;
                     if (playerIamAttacking.GameCharacter.Name == DoomGuy.CharacterName
+                        && playerIamAttacking.GameCharacter.Passive.Any(passive =>
+                            passive.PassiveName == DoomGuy.Shield)
                         && doomShield.GetActive(DoomGuy.Shield) == DoomGuy.ShockShield
                         && !doomShield.ShockShieldUsed
                         && !UnknownBug.Is(player))
@@ -953,11 +971,15 @@ public class DoomsdayMachine : IServiceSingleton
                 {
                     var doomGun = player.Passives.DoomGuy;
                     var isBfgPrimary = player.GameCharacter.Name == DoomGuy.CharacterName
+                                       && player.GameCharacter.Passive.Any(passive =>
+                                           passive.PassiveName == DoomGuy.Gun)
                                        && bfgWaveDirection == 0
                                        && doomGun.GetActive(DoomGuy.Gun) == DoomGuy.Bfg
                                        && doomGun.BfgCharged
                                        && !UnknownBug.Is(playerIamAttacking);
                     var isBfgWaveFight = player.GameCharacter.Name == DoomGuy.CharacterName
+                                         && player.GameCharacter.Passive.Any(passive =>
+                                             passive.PassiveName == DoomGuy.Gun)
                                          && bfgWaveDirection != 0
                                          && doomGun.GetActive(DoomGuy.Gun) == DoomGuy.Bfg
                                          && !UnknownBug.Is(playerIamAttacking);
@@ -1198,8 +1220,9 @@ public class DoomsdayMachine : IServiceSingleton
                     {
                         // TheBoys Butcher — normal Кочерга is (1 + poker) Harm; СуперМудень doubles
                         // the complete result, not only the poker bonus: Кочерга #4 = 5 → 10 Harm.
-                        var isButcher = player.GameCharacter.Passive.Any(x => x.PassiveName == "Butcher");
                         var butcherState = player.Passives.TheBoysButcher;
+                        var isButcher = !butcherState.ButcherLeft
+                                        && player.GameCharacter.Passive.Any(x => x.PassiveName == "Butcher");
                         var superDick = isButcher && butcherState.SuperDickActive;
                         var harmRepeat = isButcher ? 1 + butcherState.PokerCount : 1;
                         if (superDick) harmRepeat *= 2;
@@ -1278,6 +1301,7 @@ public class DoomsdayMachine : IServiceSingleton
                     // The +10 Skill for hunting a sup stays in the CP "Butcher" case (win or loss).
                     if (dropsAfter > dropsBefore
                         && player.GameCharacter.Passive.Any(x => x.PassiveName == "Butcher")
+                        && !player.Passives.TheBoysButcher.ButcherLeft
                         && playerIamAttacking.Passives.TheBoysSupMark)
                     {
                         var dropReward = (dropsAfter - dropsBefore)
@@ -1977,6 +2001,7 @@ public class DoomsdayMachine : IServiceSingleton
                 game.PlayersList[i].Status.LvlUpPoints++;
                 game.PlayersList[i].Status.MoveListPage = 3;
                 if (game.PlayersList[i].GameCharacter.Name == DoomGuy.CharacterName
+                    && !game.PlayersList[i].Passives.PassiveAbilitiesDisabledByKimiko
                     && game.PlayersList[i].Passives.DoomGuy.RollMode
                     && DoomGuy.ApplyRandomModule(game.PlayersList[i], game, _rand))
                 {

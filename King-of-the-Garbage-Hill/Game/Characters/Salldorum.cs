@@ -91,7 +91,8 @@ public class Salldorum
 
     public static void TryDrinkAvailableTimeCapsule(GamePlayerBridgeClass player, GameClass game)
     {
-        if (player.GameCharacter.Name != "Salldorum")
+        if (player.GameCharacter.Name != "Salldorum"
+            || player.Passives.PassiveAbilitiesDisabledByKimiko)
             return;
 
         var capsule = player.Passives.SalldorumTimeCapsule;

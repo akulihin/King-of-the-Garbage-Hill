@@ -179,7 +179,9 @@ public class BotsBehavior : IServiceSingleton
                     ApplyYoungGleb(player, game);
                 break;
             case "TheBoys":
-                player.AiPlaystyle = $"TheBoys:{Pick("Francie", "Butcher", "Kimiko", "M.M.")}";
+                player.AiPlaystyle = $"TheBoys:{Pick(
+                    "Francie", "Butcher", "Kimiko", "M.M.",
+                    "KillingCouple", "NoButcher", "Unstoppable", "SausageParty", "TheBoys")}";
                 break;
             case "Стая Гоблинов":
                 player.AiPlaystyle = $"Goblins:{Pick("Horde", "Army", "Economy", "Ziggurat")}";
@@ -309,7 +311,8 @@ public class BotsBehavior : IServiceSingleton
         {
             var kimiko = target.Passives.TheBoysKimiko;
             return !target.Passives.TheBoysButcher.SuperDickActive
-                   && (kimiko.LivingWeapon || !kimiko.IsDisabled);
+                   && kimiko.RegenLevel > 0
+                   && !kimiko.IsDisabled;
         }
         return false;
     }
@@ -1279,7 +1282,9 @@ public class BotsBehavior : IServiceSingleton
                             target.AttackPreference += SmartDropReadyBonus;
                             if (bot.GameCharacter.Name == "TheBoys")
                             {
-                                var butcherHarms = 1 + bot.Passives.TheBoysButcher.PokerCount;
+                                var butcherHarms = bot.Passives.TheBoysButcher.ButcherLeft
+                                    ? 1
+                                    : 1 + bot.Passives.TheBoysButcher.PokerCount;
                                 if (bot.Passives.TheBoysButcher.SuperDickActive) butcherHarms *= 2;
                                 target.AttackPreference += butcherHarms - 1;
                             }
@@ -4681,10 +4686,19 @@ public class BotsBehavior : IServiceSingleton
 
             if (Smart(player, game) && player.GameCharacter.Name == "TheBoys")
             {
+                var boysUpgradeIndex = player.Passives.TheBoysFrancie.ChemWeaponLevel
+                                       + player.Passives.TheBoysButcher.PokerCount
+                                       + player.Passives.TheBoysKimiko.RegenLevel
+                                       + player.Passives.TheBoysMM.UpgradeLevel;
                 skillNumber = HasPlaystyle(player, "Francie") ? 1
                     : HasPlaystyle(player, "Butcher") ? 2
                     : HasPlaystyle(player, "Kimiko") ? 3
-                    : 4; // M.M.; four focused upgrades unlock the selected ultimate
+                    : HasPlaystyle(player, "M.M.") ? 4
+                    : HasPlaystyle(player, "KillingCouple") ? new[] { 1, 3, 1, 3 }[Math.Min(3, boysUpgradeIndex)]
+                    : HasPlaystyle(player, "NoButcher") ? new[] { 1, 3, 4, 1 }[Math.Min(3, boysUpgradeIndex)]
+                    : HasPlaystyle(player, "Unstoppable") ? new[] { 2, 3, 2, 3 }[Math.Min(3, boysUpgradeIndex)]
+                    : HasPlaystyle(player, "SausageParty") ? new[] { 1, 2, 4, 1 }[Math.Min(3, boysUpgradeIndex)]
+                    : new[] { 1, 2, 3, 4 }[Math.Min(3, boysUpgradeIndex)];
             }
 
             if (Smart(player, game) && player.GameCharacter.Name == "Кратос")

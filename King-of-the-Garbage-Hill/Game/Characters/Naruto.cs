@@ -31,7 +31,8 @@ public static class Naruto
     }
 
     public static bool IsNaruto(GamePlayerBridgeClass player) =>
-        player?.GameCharacter?.Name == CharacterName;
+        player?.GameCharacter?.Name == CharacterName
+        && !player.Passives.PassiveAbilitiesDisabledByKimiko;
 
     public static bool IsClone(GamePlayerBridgeClass player) =>
         IsNaruto(player) && player.Passives.Naruto.IsClone;

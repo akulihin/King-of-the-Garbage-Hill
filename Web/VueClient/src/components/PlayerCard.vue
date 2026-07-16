@@ -297,12 +297,11 @@ const hasPassive = (name: string) => props.player?.character.passives.some((pass
 // prevents a new special branch from accidentally exposing misleading + buttons.
 const usesSpecialLevelUpPanel = computed(() => {
   const name = props.player?.character.name
-  return name === 'DooM Guy'
-    || name === 'Стая Гоблинов'
-    || name === 'Геральт'
-    || name === 'TheBoys'
-    || name === 'Котики'
-    || name === 'Вампур'
+  return (name === 'DooM Guy' && !!doomGuy.value)
+    || (name === 'Стая Гоблинов' && !!goblin.value)
+    || (name === 'Геральт' && !!geralt.value)
+    || (name === 'TheBoys' && !!theBoys.value)
+    || (name === 'Котики' && !!passiveStates.value?.kotiki)
     || hasPassive('Vampyr Позорный')
     || hasPassive('Main Ирелия')
     || hasPassive('Закуп')
@@ -1754,7 +1753,7 @@ function doomModuleStatus(module: string): { text: string; state: 'live' | 'done
       </div>
       <div class="theboys-grid">
         <!-- Francie -->
-        <div class="theboys-member">
+        <div class="theboys-member" :class="{ 'theboys-member-locked': passiveStates.theBoys.superDickActive }">
           <div class="theboys-member-header">
             <span class="theboys-icon">🧪</span>
             <span class="theboys-name">{{ t('Frenchie', 'Француз') }}</span>
@@ -1770,7 +1769,7 @@ function doomModuleStatus(module: string): { text: string; state: 'live' | 'done
           </div>
         </div>
         <!-- Butcher -->
-        <div class="theboys-member theboys-butcher" :style="{ boxShadow: passiveStates.theBoys.pokerCount > 0 ? `0 0 ${4 + passiveStates.theBoys.pokerCount * 4}px rgba(255,50,50,${Math.min(0.2 + passiveStates.theBoys.pokerCount * 0.2, 1)})` : 'none' }">
+        <div class="theboys-member theboys-butcher" :class="{ 'theboys-member-locked': passiveStates.theBoys.butcherLeft }" :style="{ boxShadow: passiveStates.theBoys.pokerCount > 0 && !passiveStates.theBoys.butcherLeft ? `0 0 ${4 + passiveStates.theBoys.pokerCount * 4}px rgba(255,50,50,${Math.min(0.2 + passiveStates.theBoys.pokerCount * 0.2, 1)})` : 'none' }">
           <div class="theboys-member-header">
             <span class="theboys-icon">🔪</span>
             <span class="theboys-name">{{ t('Butcher', 'Бучер') }}</span>
@@ -1778,7 +1777,7 @@ function doomModuleStatus(module: string): { text: string; state: 'live' | 'done
           </div>
         </div>
         <!-- Kimiko -->
-        <div class="theboys-member" :class="{ 'theboys-disabled': passiveStates.theBoys.kimikoDisabled }">
+        <div class="theboys-member" :class="{ 'theboys-disabled': passiveStates.theBoys.kimikoDisabled, 'theboys-member-locked': passiveStates.theBoys.superDickActive }">
           <div class="theboys-member-header">
             <span class="theboys-icon">💚</span>
             <span class="theboys-name">Kimiko</span>
@@ -1786,11 +1785,11 @@ function doomModuleStatus(module: string): { text: string; state: 'live' | 'done
           </div>
           <div v-if="passiveStates.theBoys.kimikoDisabled" class="theboys-kimiko-status">{{ t('DISABLED', 'ОТКЛЮЧЕНА') }}</div>
           <div v-if="passiveStates.theBoys.totalJusticeBlocked > 0" class="theboys-kimiko-blocked">
-            ⚖️ {{ t(`${passiveStates.theBoys.totalJusticeBlocked} blocked`, `заблокировано ${passiveStates.theBoys.totalJusticeBlocked}`) }}
+            ⚖️ {{ t(`${passiveStates.theBoys.totalJusticeBlocked} absorbed`, `поглощено ${passiveStates.theBoys.totalJusticeBlocked}`) }}
           </div>
         </div>
         <!-- M.M. -->
-        <div class="theboys-member" :class="{ 'theboys-calm-member': passiveStates.theBoys.isCalm }">
+        <div class="theboys-member" :class="{ 'theboys-calm-member': passiveStates.theBoys.isCalm, 'theboys-member-locked': passiveStates.theBoys.superDickActive }">
           <div class="theboys-member-header">
             <span class="theboys-icon">📋</span>
             <span class="theboys-name">М.М.</span>
@@ -1807,10 +1806,11 @@ function doomModuleStatus(module: string): { text: string; state: 'live' | 'done
         </div>
       </div>
       <!-- Ultimate / status indicators -->
-      <div v-if="passiveStates.theBoys.superDickActive || passiveStates.theBoys.livingWeapon || passiveStates.theBoys.virusArmed" class="theboys-ultimates">
+      <div v-if="passiveStates.theBoys.superDickActive || passiveStates.theBoys.livingWeapon || passiveStates.theBoys.virusArmed || passiveStates.theBoys.activeCombination" class="theboys-ultimates">
         <span v-if="passiveStates.theBoys.superDickActive" class="theboys-ult-badge theboys-ult-superdick">💀 {{ t('SuperDick', 'СуперМудень') }}</span>
         <span v-if="passiveStates.theBoys.livingWeapon" class="theboys-ult-badge theboys-ult-livingweapon">⚔️ {{ t('Living Weapon', 'Живое Оружие') }}</span>
         <span v-if="passiveStates.theBoys.virusArmed" class="theboys-ult-badge theboys-ult-virus">☣️ {{ t('Virus ready', 'Вирус готов') }}</span>
+        <span v-if="passiveStates.theBoys.activeCombination" class="theboys-ult-badge theboys-combination-badge">🔗 {{ passiveStates.theBoys.activeCombination }}</span>
       </div>
       <!-- Infected players (owner view) -->
       <div v-if="passiveStates.theBoys.virusNames?.length" class="theboys-marks-row">
@@ -4407,6 +4407,12 @@ function doomModuleStatus(module: string): { text: string; state: 'live' | 'done
 .theboys-ult-superdick { background: rgba(150, 0, 0, 0.3); color: #ff5252; border: 1px solid rgba(255, 60, 60, 0.5); animation: theboys-pulse 1.2s ease-in-out infinite; }
 .theboys-ult-livingweapon { background: rgba(120, 40, 160, 0.28); color: #ce93d8; border: 1px solid rgba(206, 147, 216, 0.5); }
 .theboys-ult-virus { background: rgba(60, 140, 40, 0.28); color: #aed581; border: 1px solid rgba(174, 213, 129, 0.5); }
+.theboys-combination-badge { background: rgba(170, 95, 25, 0.24); color: #ffcc80; border: 1px solid rgba(255, 183, 77, 0.48); }
+.theboys-member-locked {
+  opacity: 0.38;
+  filter: grayscale(0.8);
+  box-shadow: inset 0 0 0 1px rgba(175, 175, 190, 0.14) !important;
+}
 .theboys-sup-target-badge {
   position: absolute;
   top: -9px;

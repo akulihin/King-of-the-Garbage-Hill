@@ -322,6 +322,8 @@ export type TheBoysState = {
   virusUsed: boolean
   pokerCount: number
   superDickActive: boolean
+  butcherLeft: boolean
+  activeCombination: string
   regenLevel: number
   kimikoDisabled: boolean
   totalJusticeBlocked: number
@@ -333,7 +335,8 @@ export type TheBoysState = {
   kompromatEntries: { targetName: string; hint: string }[]
   lastRevealedMember: string
   revealSerial: number
-  lastUnlockedUltimate: string
+  lastUnlockedAbility: string
+  lastUnlockWasCombination: boolean
   unlockSerial: number
   virusNames: string[]
 }

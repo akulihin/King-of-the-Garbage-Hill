@@ -283,7 +283,10 @@ public class CheckIfReady : IServiceSingleton
             .Where(x => !x.Passives.IsDead)
             .OrderByDescending(x => x.Status.GetPlaceAtLeaderBoard())
             .FirstOrDefault();
-        var geraltLast = lastAlivePlayer?.GameCharacter.Name == "Геральт" ? lastAlivePlayer : null;
+        var geraltLast = lastAlivePlayer?.GameCharacter.Name == "Геральт"
+                         && !lastAlivePlayer.Passives.PassiveAbilitiesDisabledByKimiko
+            ? lastAlivePlayer
+            : null;
         if (geraltLast != null)
         {
             game.AddGlobalLogs("Крестьяне с вилами настигли Ведьмака... Работа неблагодарная.");
@@ -545,6 +548,7 @@ public class CheckIfReady : IServiceSingleton
         var goblinZigWinner = game.PlayersList.FirstOrDefault(x =>
             x.GameCharacter.Name == "Стая Гоблинов" &&
             !x.Passives.IsDead &&
+            !x.Passives.PassiveAbilitiesDisabledByKimiko &&
             x.Passives.GoblinZiggurat.BuiltPositions.Contains(1));
         if (goblinZigWinner != null && goblinZigWinner.Status.GetPlaceAtLeaderBoard() != 1)
         {
@@ -1412,6 +1416,7 @@ public class CheckIfReady : IServiceSingleton
                 foreach (var geralt in players.Where(p =>
                     p.Status.IsSkip && p.GameCharacter.Name == "Геральт"
                     && !p.Passives.IsDead && !game.IsKratosEvent
+                    && !p.Passives.PassiveAbilitiesDisabledByKimiko
                     && !Madara.IsEternalTsukuyomiRound(game)))
                 {
                     geralt.Status.IsSkip = false;
@@ -1439,6 +1444,7 @@ public class CheckIfReady : IServiceSingleton
                 foreach (var sallo in players.Where(p =>
                              p.GameCharacter.Name == "Salldorum" &&
                              !p.Passives.IsDead && !game.IsKratosEvent &&
+                             !p.Passives.PassiveAbilitiesDisabledByKimiko &&
                              p.Status.IsBlock &&
                              !p.Passives.SalldorumTimeCapsule.FirstBlockUsed))
                 {
@@ -1579,7 +1585,9 @@ public class CheckIfReady : IServiceSingleton
                 {
                     Salldorum.ResolveShenDashes(game);
                     foreach (var sallo in game.PlayersList.Where(player =>
-                                 player.GameCharacter.Name == "Salldorum" && !player.Passives.IsDead))
+                                 player.GameCharacter.Name == "Salldorum"
+                                 && !player.Passives.IsDead
+                                 && !player.Passives.PassiveAbilitiesDisabledByKimiko))
                         Salldorum.TryDrinkAvailableTimeCapsule(sallo, game);
 
                     // Shen redirects existing attacks, so apply the same sealed/mutual-target

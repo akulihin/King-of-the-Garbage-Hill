@@ -110,7 +110,12 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
         foreach (var passive in player.GameCharacter.Passive)
         {
-            if (!passive.Visible) continue;
+            if (!passive.Visible)
+            {
+                if (character.Name == "TheBoys")
+                    embed.AddField("🔒", "Способность закрыта");
+                continue;
+            }
             embed.AddField(passive.PassiveName, passive.PassiveDescription);
         }
 
@@ -743,30 +748,6 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                     }
                     break;
 
-                case "Пацаны":
-                    if (other.GetPlayerId() == me.GetPlayerId())
-                    {
-                        var tbFrancie = me.Passives.TheBoysFrancie;
-                        var tbButcher = me.Passives.TheBoysButcher;
-                        var tbKimiko = me.Passives.TheBoysKimiko;
-                        var tbMM = me.Passives.TheBoysMM;
-                        customString += $" 🔪{tbButcher.PokerCount} 🧪{tbFrancie.ChemWeaponLevel} 💚{tbKimiko.RegenLevel} 🧠{tbMM.UpgradeLevel}(📋{tbMM.KompromatTargets.Count})";
-                        if (tbButcher.SuperDickActive) customString += " | 💀СуперМудень";
-                        if (tbFrancie.OrderTarget != Guid.Empty)
-                        {
-                            var orderName = game.PlayersList.Find(x => x.GetPlayerId() == tbFrancie.OrderTarget)?.DiscordUsername ?? "?";
-                            customString += $" | 🎯{orderName}({tbFrancie.OrderRoundsLeft})";
-                        }
-                        if (tbKimiko.LivingWeapon) customString += " | ⚔️ЖивоеОружие";
-                        else if (tbKimiko.IsDisabled) customString += " | ❌Kimiko";
-                        if (tbMM.IsCalm) customString += " | 🧘Спокоен";
-                    }
-                    else if (other.Passives.TheBoysSupMark)
-                    {
-                        customString += " 🦸";
-                    }
-                    break;
-
                 case "Шэн":
                     if (other.GetPlayerId() == me.GetPlayerId())
                     {
@@ -775,6 +756,34 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                     }
                     break;
             }
+
+        if (me.GameCharacter.Name == "TheBoys")
+        {
+            if (other.GetPlayerId() == me.GetPlayerId())
+            {
+                var tbFrancie = me.Passives.TheBoysFrancie;
+                var tbButcher = me.Passives.TheBoysButcher;
+                var tbKimiko = me.Passives.TheBoysKimiko;
+                var tbMM = me.Passives.TheBoysMM;
+                customString += $" 🔪{tbButcher.PokerCount} 🧪{tbFrancie.ChemWeaponLevel} 💚{tbKimiko.RegenLevel} 🧠{tbMM.UpgradeLevel}(📋{tbMM.KompromatTargets.Count})";
+                if (tbButcher.SuperDickActive) customString += " | 💀СуперМудень";
+                if (tbButcher.ButcherLeft) customString += " | 🚪Бучер";
+                if (tbButcher.ActiveCombination.Length > 0)
+                    customString += $" | 🔗{tbButcher.ActiveCombination}";
+                if (tbFrancie.OrderTarget != Guid.Empty && !tbButcher.SuperDickActive)
+                {
+                    var orderName = game.PlayersList.Find(x => x.GetPlayerId() == tbFrancie.OrderTarget)?.DiscordUsername ?? "?";
+                    customString += $" | 🎯{orderName}({tbFrancie.OrderRoundsLeft})";
+                }
+                if (tbKimiko.LivingWeapon) customString += " | ⚔️ЖивоеОружие";
+                else if (tbKimiko.IsDisabled) customString += " | ❌Kimiko";
+                if (tbMM.IsCalm && !tbButcher.SuperDickActive) customString += " | 🧘Спокоен";
+            }
+            else if (other.Passives.TheBoysSupMark)
+            {
+                customString += " 🦸";
+            }
+        }
 
 
         // Reciprocal alliance annotations are admin-only; owner-side marks are rendered in the switch above.
@@ -1428,6 +1437,11 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         {
             var passive = player.GameCharacter.Passive[i];
             if (passive.PassiveName == Madara.EternalTsukuyomi) continue;
+            if (player.GameCharacter.Name == "TheBoys" && !passive.Visible)
+            {
+                embed.AddField($"{i+1}. 🔒", "Способность закрыта");
+                continue;
+            }
             embed.AddField($"{i+1}. {passive.PassiveName}", passive.PassiveDescription);
         }
 

@@ -965,6 +965,8 @@ public class TheBoysStateDto
     // Butcher
     public int PokerCount { get; set; }
     public bool SuperDickActive { get; set; }
+    public bool ButcherLeft { get; set; }
+    public string ActiveCombination { get; set; }
     // Kimiko
     public int RegenLevel { get; set; }
     public bool KimikoDisabled { get; set; }
@@ -979,7 +981,8 @@ public class TheBoysStateDto
     // UI signals (front follows serial changes to fire cinematic reveal/unlock animations)
     public string LastRevealedMember { get; set; }
     public int RevealSerial { get; set; }
-    public string LastUnlockedUltimate { get; set; }
+    public string LastUnlockedAbility { get; set; }
+    public bool LastUnlockWasCombination { get; set; }
     public int UnlockSerial { get; set; }
     // Enemies the Boys player currently sees infected (owner view)
     public List<string> VirusNames { get; set; }

@@ -179,8 +179,7 @@ public static class GameStateMapper
                 .Select(f => MaskPrivateFightIdentity(f, viewerIsTerminal))
                 .ToList();
 
-        var viewerIsTheBoys = requestingPlayer != null
-            && requestingPlayer.GameCharacter.Passive.Any(p => p.PassiveName == "Пацаны");
+        var viewerIsTheBoys = requestingPlayer?.GameCharacter.Name == "TheBoys";
 
         foreach (var player in game.PlayersList)
         {
@@ -851,52 +850,6 @@ public static class GameStateMapper
                         };
                         anySet = true;
                         break;
-                    case "Пацаны":
-                        var tbFrancie = player.Passives.TheBoysFrancie;
-                        var tbButcher = player.Passives.TheBoysButcher;
-                        var tbKimiko = player.Passives.TheBoysKimiko;
-                        var tbMM = player.Passives.TheBoysMM;
-                        pas.TheBoys = new TheBoysStateDto
-                        {
-                            ChemWeaponLevel = tbFrancie.ChemWeaponLevel,
-                            OrderTargetName = tbFrancie.OrderTarget != Guid.Empty
-                                ? game.PlayersList.Find(x => x.GetPlayerId() == tbFrancie.OrderTarget)?.DiscordUsername ?? ""
-                                : "",
-                            OrderRoundsLeft = tbFrancie.OrderRoundsLeft,
-                            OrdersCompleted = tbFrancie.OrdersCompleted,
-                            OrdersFailed = tbFrancie.OrdersFailed,
-                            VirusArmed = tbFrancie.VirusArmed,
-                            VirusUsed = tbFrancie.VirusUsed,
-                            PokerCount = tbButcher.PokerCount,
-                            SuperDickActive = tbButcher.SuperDickActive,
-                            RegenLevel = tbKimiko.RegenLevel,
-                            KimikoDisabled = tbKimiko.IsDisabled,
-                            TotalJusticeBlocked = tbKimiko.TotalJusticeBlocked,
-                            LivingWeapon = tbKimiko.LivingWeapon,
-                            MMUpgradeLevel = tbMM.UpgradeLevel,
-                            KompromatCount = tbMM.KompromatTargets.Count,
-                            NextAttackGathersKompromat = tbMM.NextAttackGathersKompromat,
-                            IsCalm = tbMM.IsCalm,
-                            KompromatEntries = tbMM.KompromatTargets.Select(targetId =>
-                            {
-                                var target = game.PlayersList.Find(x => x.GetPlayerId() == targetId);
-                                return new TheBoysKompromatEntryDto
-                                {
-                                    TargetName = target?.DiscordUsername ?? "",
-                                    Hint = tbMM.KompromatHints.GetValueOrDefault(targetId, ""),
-                                };
-                            }).ToList(),
-                            LastRevealedMember = player.Passives.TheBoysLastRevealedMember,
-                            RevealSerial = player.Passives.TheBoysRevealSerial,
-                            LastUnlockedUltimate = player.Passives.TheBoysLastUnlockedUltimate,
-                            UnlockSerial = player.Passives.TheBoysUnlockSerial,
-                            VirusNames = game.PlayersList
-                                .Where(x => x.Passives.TheBoysVirus && x.Passives.TheBoysVirusSource == player.GetPlayerId())
-                                .Select(x => x.DiscordUsername)
-                                .ToList(),
-                        };
-                        anySet = true;
-                        break;
                     case "Шэн":
                         var shen = player.Passives.SalldorumShen;
                         var capsule = player.Passives.SalldorumTimeCapsule;
@@ -974,6 +927,57 @@ public static class GameStateMapper
                 }
             }
 
+            if (player.GameCharacter.Name == "TheBoys")
+            {
+                var tbFrancie = player.Passives.TheBoysFrancie;
+                var tbButcher = player.Passives.TheBoysButcher;
+                var tbKimiko = player.Passives.TheBoysKimiko;
+                var tbMM = player.Passives.TheBoysMM;
+                pas.TheBoys = new TheBoysStateDto
+                {
+                    ChemWeaponLevel = tbFrancie.ChemWeaponLevel,
+                    OrderTargetName = tbFrancie.OrderTarget != Guid.Empty
+                        ? game.PlayersList.Find(x => x.GetPlayerId() == tbFrancie.OrderTarget)?.DiscordUsername ?? ""
+                        : "",
+                    OrderRoundsLeft = tbFrancie.OrderRoundsLeft,
+                    OrdersCompleted = tbFrancie.OrdersCompleted,
+                    OrdersFailed = tbFrancie.OrdersFailed,
+                    VirusArmed = tbFrancie.VirusArmed,
+                    VirusUsed = tbFrancie.VirusUsed,
+                    PokerCount = tbButcher.PokerCount,
+                    SuperDickActive = tbButcher.SuperDickActive,
+                    ButcherLeft = tbButcher.ButcherLeft,
+                    ActiveCombination = tbButcher.ActiveCombination,
+                    RegenLevel = tbKimiko.RegenLevel,
+                    KimikoDisabled = tbKimiko.IsDisabled,
+                    TotalJusticeBlocked = tbKimiko.TotalJusticeBlocked,
+                    LivingWeapon = tbKimiko.LivingWeapon,
+                    MMUpgradeLevel = tbMM.UpgradeLevel,
+                    KompromatCount = tbMM.KompromatTargets.Count,
+                    NextAttackGathersKompromat = tbMM.NextAttackGathersKompromat,
+                    IsCalm = tbMM.IsCalm,
+                    KompromatEntries = tbMM.KompromatTargets.Select(targetId =>
+                    {
+                        var target = game.PlayersList.Find(x => x.GetPlayerId() == targetId);
+                        return new TheBoysKompromatEntryDto
+                        {
+                            TargetName = target?.DiscordUsername ?? "",
+                            Hint = tbMM.KompromatHints.GetValueOrDefault(targetId, ""),
+                        };
+                    }).ToList(),
+                    LastRevealedMember = player.Passives.TheBoysLastRevealedMember,
+                    RevealSerial = player.Passives.TheBoysRevealSerial,
+                    LastUnlockedAbility = player.Passives.TheBoysLastUnlockedAbility,
+                    LastUnlockWasCombination = player.Passives.TheBoysLastUnlockWasCombination,
+                    UnlockSerial = player.Passives.TheBoysUnlockSerial,
+                    VirusNames = game.PlayersList
+                        .Where(x => x.Passives.TheBoysVirus && x.Passives.TheBoysVirusSource == player.GetPlayerId())
+                        .Select(x => x.DiscordUsername)
+                        .ToList(),
+                };
+                anySet = true;
+            }
+
             if (anySet) dto.PassiveAbilityStates = pas;
         }
 
@@ -1041,7 +1045,8 @@ public static class GameStateMapper
             dto.PsycheBonusText = "";
         }
 
-        // Hidden passives stay absent until their mechanic explicitly reveals them by setting Visible=true.
+        // Hidden passives normally stay absent until revealed. TheBoys alone receives anonymous locked
+        // placeholders so its four ultimates and secret combinations remain visible as unopened slots.
         foreach (var passive in character.Passive)
         {
             if (passive.PassiveName == Madara.EternalTsukuyomi) continue;
@@ -1052,6 +1057,15 @@ public static class GameStateMapper
                     Name = passive.PassiveName,
                     Description = passive.PassiveDescription,
                     Visible = passive.Visible,
+                });
+            }
+            else if (isMe && character.Name == "TheBoys")
+            {
+                dto.Passives.Add(new PassiveDto
+                {
+                    Name = "",
+                    Description = "",
+                    Visible = false,
                 });
             }
         }

@@ -795,22 +795,41 @@ public class CharacterPassives : IServiceSingleton
                 case "Kimiko":
                     var kimikoDefBefore = target.Passives.TheBoysKimiko;
                     if (target.Passives.TheBoysButcher.SuperDickActive) break; // СуперМудень отключает Кимико
-                    // Живое Оружие крадёт ВСЮ справедливость после боя (по настоящему значению) — здесь игнор не применяем
-                    if (!UnknownBug.Is(me)
-                        && !kimikoDefBefore.LivingWeapon
-                        && !kimikoDefBefore.IsDisabled
-                        && kimikoDefBefore.RegenLevel > 0)
+                    if (UnknownBug.Is(me)) break;
+                    var currentJustice = me.FightCharacter.Justice.GetRealJusticeNow();
+                    if (kimikoDefBefore.RegenLevel == 0)
                     {
-                        var currentJustice = me.FightCharacter.Justice.GetRealJusticeNow();
-                        var reduction = Math.Min(currentJustice, kimikoDefBefore.RegenLevel);
+                        if (kimikoDefBefore.IsDisabled) break;
+                        var reduction = Math.Min(currentJustice, 1);
                         if (reduction > 0)
                         {
                             me.FightCharacter.Justice.SetJusticeForOneFight(
-                                Math.Max(0, currentJustice - reduction), "Регенерация Кимико");
+                                Math.Max(0, currentJustice - reduction), "Воля к жизни Кимико");
                             kimikoDefBefore.TotalJusticeBlocked += reduction;
                             target.Status.AddInGamePersonalLogs(
                                 $"Kimiko поглотила {reduction} Справедливости (всего: {kimikoDefBefore.TotalJusticeBlocked})\n");
                             game.Phrases.TheBoysKimikoRegen.SendLog(target, false);
+                        }
+                    }
+                    else
+                    {
+                        var stealLimit = kimikoDefBefore.RegenLevel + 1;
+                        var justiceBeforeSteal = currentJustice;
+                        me.FightCharacter.Justice.SetRealJusticeNow(
+                            Math.Max(0, currentJustice - stealLimit), "Регенирация");
+                        var stolenJustice = justiceBeforeSteal - me.FightCharacter.Justice.GetRealJusticeNow();
+                        if (stolenJustice > 0)
+                        {
+                            target.FightCharacter.Justice.AddRealJusticeNow(stolenJustice);
+                            kimikoDefBefore.TotalJusticeBlocked += stolenJustice;
+                            target.Status.AddInGamePersonalLogs(
+                                $"Kimiko похитила {stolenJustice} Справедливости (всего: {kimikoDefBefore.TotalJusticeBlocked})\n");
+                            game.Phrases.TheBoysKimikoRegen.SendLog(target, false);
+                            if (kimikoDefBefore.LivingWeapon)
+                            {
+                                target.Status.AddRegularPoints(stolenJustice, "Живое Оружие");
+                                target.Passives.AchievementTracker.LivingWeaponJusticeBlocked += stolenJustice;
+                            }
                         }
                     }
                     break;
@@ -893,30 +912,13 @@ public class CharacterPassives : IServiceSingleton
                     }
                     break;
 
-                // TheBoys — Kimiko: +10 Скилла за победу в обороне, +20 за успешный блок; Живое Оружие крадёт справедливость
+                // TheBoys — Kimiko: +10 Скилла за победу в обороне, +20 за успешный блок
                 case "Kimiko":
                     if (target.Passives.TheBoysButcher.SuperDickActive) break; // СуперМудень отключает Кимико
-                    var kimikoAfter = target.Passives.TheBoysKimiko;
                     if (target.Status.IsBlock)
                         target.GameCharacter.AddExtraSkill(20, "Kimiko (блок)");
                     else if (target.Status.IsWonThisCalculation != Guid.Empty)
                         target.GameCharacter.AddExtraSkill(10, "Kimiko");
-
-                    // Живое Оружие: украсть настоящую справедливость атакующего (независимо от исхода)
-                    if (kimikoAfter.LivingWeapon && !UnknownBug.Is(me))
-                    {
-                        var stolenJustice = me.FightCharacter.Justice.GetRealJusticeNow();
-                        if (stolenJustice > 0)
-                        {
-                            me.FightCharacter.Justice.SetRealJusticeNow(0, "Живое Оружие");
-                            target.FightCharacter.Justice.AddRealJusticeNow(stolenJustice);
-                            target.Status.AddRegularPoints(stolenJustice, "Живое Оружие");
-                            kimikoAfter.TotalJusticeBlocked += stolenJustice;
-                            target.Passives.AchievementTracker.LivingWeaponJusticeBlocked += stolenJustice;
-                            target.Status.AddInGamePersonalLogs(
-                                $"Живое Оружие: Kimiko забрала {stolenJustice} Справедливости у {me.DiscordUsername}\n");
-                        }
-                    }
                     break;
             }
 
@@ -1056,9 +1058,8 @@ public class CharacterPassives : IServiceSingleton
 
                 // TheBoys — Kimiko: выведение из строя при поражении в обороне (Живое Оружие даёт иммунитет)
                 case "Kimiko":
-                    if (!target.Passives.TheBoysKimiko.LivingWeapon
-                        && !target.Passives.TheBoysButcher.SuperDickActive
-                        && target.Passives.TheBoysKimiko.RegenLevel > 0
+                    if (!target.Passives.TheBoysButcher.SuperDickActive
+                        && target.Passives.TheBoysKimiko.RegenLevel == 0
                         && target.Status.IsLostThisCalculation != Guid.Empty)
                     {
                         target.Passives.TheBoysKimiko.DisabledNextRound = true;
@@ -1729,6 +1730,7 @@ public class CharacterPassives : IServiceSingleton
                 // TheBoys — Butcher: кочерга умножает Скилл в бою (СуперМудень удваивает)
                 case "Butcher":
                     var butcherAtk = me.Passives.TheBoysButcher;
+                    if (butcherAtk.ButcherLeft) break;
                     var pokerCount = butcherAtk.PokerCount;
                     if (pokerCount > 0)
                     {
@@ -3677,7 +3679,7 @@ public class CharacterPassives : IServiceSingleton
                             player.Passives.AchievementTracker.TheBoysOrdersCompleted++;
                             francieAfter.OrderTarget = Guid.Empty;
                             francieAfter.OrderRoundsLeft = 0;
-                            player.Status.AddBonusPoints(1, "Заказ Француза");
+                            player.Status.AddRegularPoints(1, "Заказ Француза");
                             game.Phrases.TheBoysOrderComplete.SendLog(player, false);
                         }
 
@@ -3722,6 +3724,7 @@ public class CharacterPassives : IServiceSingleton
 
                 // TheBoys — Butcher: охота на супов (+Скилл за нападение на супа, очко если Скинул)
                 case "Butcher":
+                    if (player.Passives.TheBoysButcher.ButcherLeft) break;
                     if (attack)
                     {
                         var fightTargetId = player.Status.IsWonThisCalculation != Guid.Empty
@@ -6331,7 +6334,7 @@ public class CharacterPassives : IServiceSingleton
                             if (francieNR.OrderTarget != Guid.Empty)
                             {
                                 francieNR.OrdersFailed++;
-                                player.Status.AddBonusPoints(-1, "Заказ Француза");
+                                player.Status.AddRegularPoints(-1, "Заказ Француза");
                                 game.Phrases.TheBoysOrderFailed.SendLog(player, false);
                                 francieNR.OrderTarget = Guid.Empty;
                                 francieNR.OrderRoundsLeft = 0;
@@ -6354,16 +6357,16 @@ public class CharacterPassives : IServiceSingleton
                         }
                         break;
 
-                    // TheBoys — Kimiko: recovery/disable state (Живое Оружие — иммунитет)
+                    // TheBoys — Kimiko: recovery/disable state (Регенирация x1+ даёт иммунитет)
                     case "Kimiko":
                         var kimikoNR = player.Passives.TheBoysKimiko;
-                        if (player.Passives.TheBoysButcher.SuperDickActive || kimikoNR.RegenLevel == 0)
+                        if (player.Passives.TheBoysButcher.SuperDickActive)
                         {
                             kimikoNR.IsDisabled = false;
                             kimikoNR.DisabledNextRound = false;
                             break;
                         }
-                        if (kimikoNR.LivingWeapon)
+                        if (kimikoNR.RegenLevel > 0)
                         {
                             kimikoNR.IsDisabled = false;
                             kimikoNR.DisabledNextRound = false;
@@ -6593,6 +6596,7 @@ public class CharacterPassives : IServiceSingleton
                     {
                         pl.Passives.TheBoysSupMark = false;
                     }
+                    if (player.Passives.TheBoysButcher.ButcherLeft) break;
 
                     var butcherOrderTarget = player.Passives.TheBoysButcher.SuperDickActive
                         ? Guid.Empty

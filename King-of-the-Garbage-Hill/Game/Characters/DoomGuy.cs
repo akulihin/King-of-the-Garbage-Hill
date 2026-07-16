@@ -96,7 +96,9 @@ public static class DoomGuy
 
     public static void PrepareSharkShield(GamePlayerBridgeClass player)
     {
-        if (player?.GameCharacter?.Name != CharacterName) return;
+        if (player?.GameCharacter?.Name != CharacterName
+            || player.Passives.PassiveAbilitiesDisabledByKimiko)
+            return;
         var state = player.Passives.DoomGuy;
         if (state.GetActive(Shield) != SharkShield || !player.Status.IsBlock) return;
 
@@ -121,7 +123,9 @@ public static class DoomGuy
         GamePlayerBridgeClass enemy,
         GameClass game)
     {
-        if (doom?.GameCharacter?.Name != CharacterName || enemy == null) return;
+        if (doom?.GameCharacter?.Name != CharacterName || enemy == null
+                                                   || doom.Passives.PassiveAbilitiesDisabledByKimiko)
+            return;
         var state = doom.Passives.DoomGuy;
 
         if (state.GetActive(Rune) == GloryKill && IsNearestEnemy(game, doom, enemy))

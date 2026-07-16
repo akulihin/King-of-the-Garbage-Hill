@@ -16,7 +16,7 @@ const theBoys = computed(() => props.player.passiveAbilityStates?.theBoys ?? nul
 const isTerminalMode = computed(() => props.player.isTerminalMode ?? false)
 
 function toggleSkill(idx: number) {
-  if (isTerminalMode.value) return
+  if (isTerminalMode.value || !props.player.character.passives[idx]?.visible) return
   if (expandedSet.value.has(idx)) {
     expandedSet.value.delete(idx)
   } else {
@@ -26,7 +26,8 @@ function toggleSkill(idx: number) {
 }
 
 function isExpanded(idx: number): boolean {
-  return isTerminalMode.value || expandedSet.value.has(idx)
+  return (isTerminalMode.value || expandedSet.value.has(idx))
+    && props.player.character.passives[idx]?.visible !== false
 }
 
 function passiveIndexByName(name: string): number {
@@ -37,7 +38,7 @@ function passiveIndexByName(name: string): number {
 const projectileEl = ref<HTMLElement | null>(null)
 const flyActive = ref(false)
 const ring = ref<{ x: number; y: number; w: number; h: number } | null>(null)
-const unlockOverlay = ref<{ name: string } | null>(null)
+const unlockOverlay = ref<{ name: string; isCombination: boolean } | null>(null)
 
 function showRing(rect: DOMRect, ttl = 2200) {
   ring.value = { x: rect.left - 6, y: rect.top - 6, w: rect.width + 12, h: rect.height + 12 }
@@ -81,18 +82,19 @@ async function triggerRevealVfx(idx: number) {
 }
 
 // Unlock: full-screen announce overlay + a strong ring drawing attention to the freshly-unlocked card.
-async function triggerUnlockVfx(name: string, idx: number) {
-  unlockOverlay.value = { name }
-  playTheBoysUnlock()
+async function triggerUnlockVfx(name: string, idx: number, isCombination: boolean) {
+  unlockOverlay.value = { name, isCombination }
+  if (isCombination) playTheBoysReveal()
+  else playTheBoysUnlock()
   window.setTimeout(() => {
     unlockOverlay.value = null
-  }, 3200)
+  }, isCombination ? 2200 : 3200)
   if (idx >= 0) {
     expandedSet.value.add(idx)
     expandedSet.value = new Set(expandedSet.value)
     await nextTick()
     const el = skillCardRefs.value[idx]
-    if (el) showRing(el.getBoundingClientRect(), 3200)
+    if (el) showRing(el.getBoundingClientRect(), isCombination ? 2200 : 3200)
   }
 }
 
@@ -115,8 +117,12 @@ watch(
   () => theBoys.value?.unlockSerial,
   (nv, ov) => {
     if (nv == null || ov == null || nv === ov) return
-    const name = theBoys.value?.lastUnlockedUltimate ?? ''
-    void triggerUnlockVfx(name, passiveIndexByName(name))
+    const name = theBoys.value?.lastUnlockedAbility ?? ''
+    void triggerUnlockVfx(
+      name,
+      passiveIndexByName(name),
+      theBoys.value?.lastUnlockWasCombination ?? false,
+    )
   },
 )
 </script>
@@ -135,25 +141,26 @@ watch(
       :key="idx"
       :ref="(el) => { skillCardRefs[idx] = el as HTMLElement | null }"
       class="skill-card"
-      :class="{ expanded: isExpanded(idx), 'terminal-code-block': isTerminalMode }"
-      :tabindex="isTerminalMode ? -1 : 0"
-      :role="isTerminalMode ? undefined : 'button'"
+      :class="{ expanded: isExpanded(idx), locked: !passive.visible, 'terminal-code-block': isTerminalMode }"
+      :tabindex="isTerminalMode || !passive.visible ? -1 : 0"
+      :role="isTerminalMode || !passive.visible ? undefined : 'button'"
       @click="toggleSkill(idx)"
       @keydown.enter.prevent="toggleSkill(idx)"
       @keydown.space.prevent="toggleSkill(idx)"
     >
       <div class="skill-header">
         <div class="skill-header-left">
-          <span v-if="!isTerminalMode" class="skill-dot dot-active" />
+          <span v-if="!isTerminalMode && passive.visible" class="skill-dot dot-active" />
+          <span v-else-if="!isTerminalMode" class="skill-lock" aria-label="Закрытая способность">🔒</span>
           <span v-else class="terminal-line-no">{{ String((idx * 4) + 1).padStart(2, '0') }}</span>
-          <span class="skill-name">{{ isTerminalMode ? `// ${passive.name}` : passive.name }}</span>
+          <span v-if="isTerminalMode || passive.visible" class="skill-name">{{ isTerminalMode ? `// ${passive.name}` : passive.name }}</span>
         </div>
         <div class="skill-header-right">
-          <span v-if="!isTerminalMode" class="skill-chevron" :class="{ 'chevron-open': isExpanded(idx) }">▾</span>
+          <span v-if="!isTerminalMode && passive.visible" class="skill-chevron" :class="{ 'chevron-open': isExpanded(idx) }">▾</span>
         </div>
       </div>
       <Transition name="expand">
-        <div v-if="isExpanded(idx)" class="skill-desc" :class="{ 'terminal-code-copy': isTerminalMode }" v-html="formatPassiveDescription(translateText(passive.description))" />
+        <div v-if="passive.visible && isExpanded(idx)" class="skill-desc" :class="{ 'terminal-code-copy': isTerminalMode }" v-html="formatPassiveDescription(translateText(passive.description))" />
       </Transition>
     </div>
 
@@ -171,9 +178,9 @@ watch(
       :style="{ left: `${ring.x}px`, top: `${ring.y}px`, width: `${ring.w}px`, height: `${ring.h}px` }"
     />
     <Transition name="tb-unlock">
-      <div v-if="unlockOverlay" class="tb-unlock-overlay">
+      <div v-if="unlockOverlay" class="tb-unlock-overlay" :class="{ 'is-combination': unlockOverlay.isCombination }">
         <div class="tb-unlock-card">
-          <div class="tb-unlock-label">СПОСОБНОСТЬ ОТКРЫТА</div>
+          <div class="tb-unlock-label">{{ unlockOverlay.isCombination ? 'КОМБИНАЦИЯ ОТКРЫТА' : 'СПОСОБНОСТЬ ОТКРЫТА' }}</div>
           <div class="tb-unlock-lock">🔓</div>
           <div class="tb-unlock-name">{{ unlockOverlay.name }}</div>
           <div class="tb-unlock-sub">The Boys</div>
@@ -262,6 +269,26 @@ watch(
   border-left-color: var(--kh-c-secondary-purple-300);
   transform: translateX(2px);
   box-shadow: 0 0 12px rgba(180, 150, 255, 0.12), 0 2px 8px rgba(0, 0, 0, 0.15), inset 0 1px 0 var(--glass-highlight);
+}
+
+.skill-card.locked,
+.skill-card.locked:hover {
+  min-height: 36px;
+  border-left-color: rgba(150, 150, 165, 0.35);
+  border-color: rgba(150, 150, 165, 0.16);
+  background: rgba(25, 25, 32, 0.48);
+  box-shadow: inset 0 0 14px rgba(0, 0, 0, 0.25);
+  cursor: default;
+  transform: none;
+}
+
+.skill-lock {
+  width: 18px;
+  color: rgba(205, 205, 220, 0.72);
+  font-size: 13px;
+  line-height: 1;
+  text-align: center;
+  filter: grayscale(0.35);
 }
 
 .skill-card.expanded {
@@ -472,6 +499,9 @@ watch(
   background: radial-gradient(circle at 70% 50%, rgba(60, 0, 0, 0.55), rgba(0, 0, 0, 0.78));
   pointer-events: none;
 }
+.tb-unlock-overlay.is-combination {
+  background: radial-gradient(circle at 70% 50%, rgba(48, 18, 4, 0.34), rgba(0, 0, 0, 0.56));
+}
 .tb-unlock-card {
   text-align: center;
   padding: 28px 44px;
@@ -480,6 +510,24 @@ watch(
   background: linear-gradient(160deg, rgba(40, 0, 0, 0.92), rgba(15, 0, 0, 0.92));
   box-shadow: 0 0 60px rgba(255, 40, 40, 0.5), inset 0 0 30px rgba(255, 40, 40, 0.15);
   animation: tb-unlock-pop 0.5s cubic-bezier(0.2, 1.4, 0.4, 1);
+}
+.tb-unlock-overlay.is-combination .tb-unlock-card {
+  padding: 20px 34px;
+  border-color: rgba(255, 174, 90, 0.55);
+  background: linear-gradient(160deg, rgba(42, 20, 3, 0.9), rgba(18, 8, 1, 0.9));
+  box-shadow: 0 0 34px rgba(255, 145, 55, 0.32), inset 0 0 20px rgba(255, 145, 55, 0.1);
+  animation-duration: 0.38s;
+}
+.tb-unlock-overlay.is-combination .tb-unlock-lock {
+  font-size: 36px;
+}
+.tb-unlock-overlay.is-combination .tb-unlock-name {
+  font-size: 24px;
+  text-shadow: 0 0 12px rgba(255, 160, 70, 0.65);
+}
+.tb-unlock-overlay.is-combination .tb-unlock-label,
+.tb-unlock-overlay.is-combination .tb-unlock-sub {
+  color: #ffb067;
 }
 .tb-unlock-label {
   font-size: 12px;

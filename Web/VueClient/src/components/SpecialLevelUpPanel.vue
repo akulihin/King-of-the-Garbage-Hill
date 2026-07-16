@@ -35,12 +35,12 @@ const hasPassive = (name: string) => props.player.character.passives.some(passiv
 
 const kind = computed(() => {
   const name = props.player.character.name
-  if (name === 'DooM Guy') return 'doom'
-  if (name === 'Стая Гоблинов') return 'goblin'
-  if (name === 'Геральт') return 'geralt'
-  if (name === 'TheBoys') return 'theboys'
-  if (name === 'Котики') return 'kotiki'
-  if (name === 'Вампур' || hasPassive('Vampyr Позорный')) return 'vampyr'
+  if (name === 'DooM Guy' && doom.value) return 'doom'
+  if (name === 'Стая Гоблинов' && goblin.value) return 'goblin'
+  if (name === 'Геральт' && geralt.value) return 'geralt'
+  if (name === 'TheBoys' && theBoys.value) return 'theboys'
+  if (name === 'Котики' && states.value?.kotiki) return 'kotiki'
+  if (hasPassive('Vampyr Позорный')) return 'vampyr'
   if (hasPassive('Main Ирелия')) return 'irelia'
   if (hasPassive('Закуп')) return 'seller'
   return ''
@@ -64,7 +64,7 @@ const header = computed(() => {
     }
     case 'goblin': return { eyebrow: 'СОВЕТ СТАИ', title: 'Куда пустить новых гоблинов?', hint: 'Сравни текущее производство с результатом следующего уровня.' }
     case 'geralt': return { eyebrow: 'ВЕДЬМАЧЬЯ АЛХИМИЯ', title: 'Подготовить масло', hint: 'Масло срабатывает после Медитации против соответствующего типа чудовищ.' }
-    case 'theboys': return { eyebrow: 'VOUGHT FIELD TEAM', title: theBoys.value?.superDickActive ? 'Butcher работает один' : 'Кого прокачать?', hint: theBoys.value?.superDickActive ? 'СуперМудень отключил остальные ветки. Следующее очко будет потрачено без усиления.' : 'Каждый выбор даёт +2 к связанному стату; x4 открывает ультимейт.' }
+    case 'theboys': return { eyebrow: 'VOUGHT FIELD TEAM', title: theBoys.value?.superDickActive ? 'Butcher работает один' : 'Кого прокачать?', hint: theBoys.value?.superDickActive ? 'СуперМудень отключил остальные ветки. Следующее очко будет потрачено без усиления.' : 'Каждый выбор даёт +2 к связанному стату. Первые четыре выбора могут открыть скрытую комбинацию, а x4 одной ветки — ультимейт.' }
     case 'kotiki': return { eyebrow: 'LVL-МЯК', title: 'Справедливости много не бывает', hint: 'Котики не качают статы — это очко сразу превращается в живую Справедливость.' }
     case 'vampyr': return { eyebrow: 'VAMPYR ПОЗОРНЫЙ', title: 'Никаких статов для тебя', hint: 'Выбор характеристики — обманка: очко тратится, но ни один стат не растёт.' }
     case 'irelia': return { eyebrow: 'RIOT BALANCE TEAM', title: 'Нерфа не избежать', hint: 'Выбери характеристику, которая потеряет 1. Очко прокачки будет потрачено.' }
@@ -176,12 +176,23 @@ const choices = computed<Choice[]>(() => {
       const b = theBoys.value
       if (!b) return []
       if (b.superDickActive) return [{ index: 2, icon: '🔪', title: 'СуперМудень', kicker: 'НЕОБРАТИМО', description: 'Butcher больше не делится прокачкой с командой.', outcome: 'Потратить очко без усиления', badge: 'SOLO' }]
-      return [
+      const choices = [
         boysChoice(1, '🧪', 'Francie', b.chemWeaponLevel, 'INT', c.intelligence, 'Хим.оружие', 'Вирус V'),
         boysChoice(2, '🔪', 'Butcher', b.pokerCount, 'STR', c.strength, 'Кочерга', 'СуперМудень'),
-        boysChoice(3, '💚', 'Kimiko', b.regenLevel, 'SPD', c.speed, 'Регенерация', 'Живое Оружие'),
+        boysChoice(3, '💚', 'Kimiko', b.regenLevel, 'SPD', c.speed, 'Регенирация', 'Живое Оружие'),
         boysChoice(4, '📋', 'M.M.', b.mmUpgradeLevel, 'PSY', c.psyche, 'Компромат', 'Оковы Правосудия'),
       ]
+      if (b.butcherLeft) {
+        choices[1] = {
+          ...choices[1],
+          kicker: 'Бучер покинул команду',
+          description: 'Эта ветка больше недоступна.',
+          outcome: 'Нахер Бучера',
+          badge: 'УШЁЛ',
+          disabled: true,
+        }
+      }
+      return choices
     }
     case 'kotiki':
       return [{ index: 1, icon: '⚖️', title: 'Получить Справедливость', kicker: `СЕЙЧАС ${c.justice}`, description: 'Срабатывает сразу и не меняет характеристики.', outcome: `${c.justice} → ${Math.min(5, c.justice + 1)} Справедливости`, badge: '+1' }]

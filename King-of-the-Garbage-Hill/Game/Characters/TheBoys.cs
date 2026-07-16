@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using King_of_the_Garbage_Hill.Game.Classes;
+using King_of_the_Garbage_Hill.Game.GameLogic;
 
 namespace King_of_the_Garbage_Hill.Game.Characters;
 
@@ -11,9 +12,9 @@ public class TheBoys
     public const string FrancieUpgradeLine =
         "\n\n✦ **Хим.оружие**: Француз улучшает своё хим.оружие. При победе каждое улучшение хим.оружия приносит __бонусное очко__ в зависимости от сложности врага.";
     public const string ButcherUpgradeLine =
-        "\n\n✦ **Кочерга**: При прокачке получает кочергу. Каждая кочерга умножает Скилл в бою и **Вред** при победе.";
+        "\n\nПри прокачке Бучер получает кочергу.";
     public const string KimikoUpgradeLine =
-        "\n\n✦ **Регенерация**: При прокачке повышает волю к жизни и регенерацию: игнорирует всё больше вражеской справедливости при обороне.";
+        "\n\n**Регенирация**\nКимико никогда больше не отключается. Ничто не наносит ей **Вред**.\nОна начинает **похищать** справедливость атакующих врагов, и с каждой прокачкой всё больше.";
     public const string MMUpgradeLine =
         "\n\n✦ **Компромат**: Теперь M.M. занят делом и он __спокоен__! Следующая атака после прокачки позволяет M.M. добыть компромат на цель. Если на 8м ходу весь компромат сработал, М.М. доволен и получает +5 **Морали** за каждый.\nВ конце игры очки за верные предположения увеличиваются за каждый собранный компромат.";
 
@@ -26,6 +27,26 @@ public class TheBoys
     public const string SuperDickUltimate = "СуперМудень";
     public const string LivingWeaponUltimate = "Живое Оружие";
     public const string ShacklesUltimate = "Оковы Правосудия";
+    public const string KillingCoupleCombination = "Убийственная Парочка";
+    public const string NoButcherCombination = "Нахер Бучера";
+    public const string UnstoppableCombination = "Неудержимые";
+    public const string SausagePartyCombination = "Sausage Party";
+    public const string TheBoysCombination = "TheBoys";
+
+    private static readonly HashSet<string> NonButcherPassiveNames = new(StringComparer.Ordinal)
+    {
+        FrancieName,
+        KimikoName,
+        MMName,
+        VirusUltimate,
+        LivingWeaponUltimate,
+        ShacklesUltimate,
+        KillingCoupleCombination,
+        NoButcherCombination,
+        UnstoppableCombination,
+        SausagePartyCombination,
+        TheBoysCombination,
+    };
 
     // Супергерои, которых Бучер помечает всегда (см. решение по спеке).
     public static readonly string[] Superheroes = { "Сайтама", "Кратос", "Загадочный Спартанец в маске", "Кира" };
@@ -40,6 +61,79 @@ public class TheBoys
         return enemy.GameCharacter.Passive.Any(passive => passive.PassiveName == "Претендент русского сервера")
                && (enemy.Passives.GlebChallengerList.RoundItTriggered == roundNo
                    || enemy.Passives.GlebChallengerTriggeredWhen.WhenToTrigger.Contains(roundNo));
+    }
+
+    public static void LockNonButcherPassives(GamePlayerBridgeClass player)
+    {
+        foreach (var passive in player.GameCharacter.Passive.Where(passive =>
+                     NonButcherPassiveNames.Contains(passive.PassiveName)))
+            passive.Visible = false;
+        player.Passives.TheBoysButcher.ActiveCombination = "";
+    }
+
+    public static void DisablePassivesBeforeFights(GameClass game)
+    {
+        var boys = game.PlayersList.Find(player =>
+            player.GameCharacter.Name == "TheBoys"
+            && !player.Passives.IsDead
+            && player.Passives.TheBoysKimiko.LivingWeapon
+            && !player.Passives.TheBoysButcher.SuperDickActive
+            && player.GameCharacter.Passive.Any(passive =>
+                passive.PassiveName == LivingWeaponUltimate));
+        if (boys == null) return;
+
+        foreach (var targetId in boys.Status.WhoToAttackThisTurn.Distinct())
+        {
+            var target = game.PlayersList.Find(player => player.GetPlayerId() == targetId);
+            if (target == null || target.Passives.IsDead
+                               || target.GetPlayerId() == boys.GetPlayerId()
+                               || UnknownBug.Is(target)
+                               || target.Status.IsBlock
+                               || target.Status.IsSkip
+                               || target.GameCharacter.Passive.Count == 0)
+                continue;
+
+            target.GameCharacter.Passive.Clear();
+            target.FightCharacter.Passive.Clear();
+            target.Passives.PassiveAbilitiesDisabledByKimiko = true;
+            boys.Status.AddInGamePersonalLogs(
+                $"Живое Оружие: способности {target.DiscordUsername} отключены до конца игры.\n");
+            target.Status.AddInGamePersonalLogs(
+                "Живое Оружие: Kimiko лишила вас пассивных способностей до конца игры.\n");
+        }
+    }
+
+    public static void ApplyKillingCoupleJustice(
+        GamePlayerBridgeClass attacker,
+        GamePlayerBridgeClass defender,
+        CalculateRounds calculateRounds)
+    {
+        var boys = attacker.GameCharacter.Passive.Any(passive =>
+            passive.PassiveName == KillingCoupleCombination)
+            ? attacker
+            : defender.GameCharacter.Passive.Any(passive =>
+                passive.PassiveName == KillingCoupleCombination)
+                ? defender
+                : null;
+        if (boys == null) return;
+        if (boys.Passives.TheBoysButcher.SuperDickActive) return;
+
+        var enemy = boys.GetPlayerId() == attacker.GetPlayerId() ? defender : attacker;
+        if (UnknownBug.Is(enemy)) return;
+
+        var quality = calculateRounds.CalculateStep1(boys, enemy);
+        if (!quality.IsTooGoodEnemy && !quality.IsTooStronkEnemy) return;
+
+        var justiceBefore = enemy.FightCharacter.Justice.GetRealJusticeNow();
+        if (justiceBefore <= 0) return;
+
+        enemy.FightCharacter.Justice.SetRealJusticeNow(0, KillingCoupleCombination);
+        var stolenJustice = justiceBefore - enemy.FightCharacter.Justice.GetRealJusticeNow();
+        if (stolenJustice <= 0) return;
+
+        boys.FightCharacter.Justice.AddRealJusticeNow(stolenJustice);
+        boys.Status.AddInGamePersonalLogs(
+            $"{KillingCoupleCombination}: похищено {stolenJustice} Справедливости у {enemy.DiscordUsername}.\n");
     }
 
     public class FrancieClass
@@ -60,6 +154,9 @@ public class TheBoys
     public class ButcherClass
     {
         public int PokerCount { get; set; } = 0;
+        public bool FourthUpgradeResolved { get; set; } = false;
+        public bool ButcherLeft { get; set; } = false;
+        public string ActiveCombination { get; set; } = "";
 
         // Ультимейт: СуперМудень (Butcher x4)
         public bool SuperDickActive { get; set; } = false; // отключает Francie/Kimiko/M.M., x2 бонусы, пробитие резистов

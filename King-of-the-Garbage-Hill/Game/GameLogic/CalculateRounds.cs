@@ -328,7 +328,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         playerIamAttacking.Status.AddFightingData($"**WhoIsTooSTONK: Me**");
                     }
 
-                    if (playerIamAttacking.DiscordId == 238337696316129280)
+                    if (isLog && playerIamAttacking.DiscordId == 238337696316129280)
                     {
                         playerIamAttacking.Status.AddInGamePersonalLogs(
                             $"DEBUG: You tooSTONK {(int)Math.Ceiling(skillDifference)} " +

@@ -930,20 +930,111 @@ public sealed class GameReaction : IServiceSingleton
         player.Passives.TheBoysRevealSerial++;
     }
 
-    // TheBoys: открыть скрытую ультимативную пассивку (Visible=true) + сигнал для анимации анлока
-    private static void TheBoysUnlockUltimate(GamePlayerBridgeClass player, string ultimateName)
+    // TheBoys: открыть скрытую ультимативную пассивку/комбинацию + сигнал для анимации анлока
+    private static void TheBoysUnlockAbility(
+        GamePlayerBridgeClass player, string abilityName, bool isCombination = false)
     {
-        var passive = player.GameCharacter.Passive.Find(x => x.PassiveName == ultimateName);
+        var passive = player.GameCharacter.Passive.Find(x => x.PassiveName == abilityName);
         if (passive != null)
             passive.Visible = true;
-        player.Passives.TheBoysLastUnlockedUltimate = ultimateName;
+        player.Passives.TheBoysLastUnlockedAbility = abilityName;
+        player.Passives.TheBoysLastUnlockWasCombination = isCombination;
         player.Passives.TheBoysUnlockSerial++;
-        player.Status.AddInGamePersonalLogs($"🔓 Открыта ультимативная способность: {ultimateName}!\n");
+        player.Status.AddInGamePersonalLogs(
+            isCombination
+                ? $"🔓 Открыта комбинация: {abilityName}!\n"
+                : $"🔓 Открыта ультимативная способность: {abilityName}!\n");
+    }
+
+    private static void ResolveTheBoysFourthUpgrade(GamePlayerBridgeClass player, GameClass game)
+    {
+        var francie = player.Passives.TheBoysFrancie;
+        var butcher = player.Passives.TheBoysButcher;
+        var kimiko = player.Passives.TheBoysKimiko;
+        var mm = player.Passives.TheBoysMM;
+        var totalUpgrades = francie.ChemWeaponLevel + butcher.PokerCount + kimiko.RegenLevel + mm.UpgradeLevel;
+        if (butcher.FourthUpgradeResolved || totalUpgrades != 4) return;
+
+        butcher.FourthUpgradeResolved = true;
+        string combination = null;
+
+        if (francie.ChemWeaponLevel == 2 && kimiko.RegenLevel == 2
+                                                 && butcher.PokerCount == 0 && mm.UpgradeLevel == 0)
+            combination = TheBoys.KillingCoupleCombination;
+        else if (butcher.PokerCount == 0 && francie.ChemWeaponLevel > 0
+                                          && kimiko.RegenLevel > 0 && mm.UpgradeLevel > 0)
+            combination = TheBoys.NoButcherCombination;
+        else if (francie.ChemWeaponLevel == 0 && mm.UpgradeLevel == 0
+                                                && butcher.PokerCount > 0 && kimiko.RegenLevel > 0)
+            combination = TheBoys.UnstoppableCombination;
+        else if (kimiko.RegenLevel == 0 && francie.ChemWeaponLevel > 0
+                                          && butcher.PokerCount > 0 && mm.UpgradeLevel > 0)
+            combination = TheBoys.SausagePartyCombination;
+        else if (francie.ChemWeaponLevel == 1 && butcher.PokerCount == 1
+                                                 && kimiko.RegenLevel == 1 && mm.UpgradeLevel == 1)
+            combination = TheBoys.TheBoysCombination;
+
+        if (combination == null) return;
+
+        butcher.ActiveCombination = combination;
+        switch (combination)
+        {
+            case TheBoys.NoButcherCombination:
+                butcher.ButcherLeft = true;
+                foreach (var target in game.PlayersList)
+                    target.Passives.TheBoysSupMark = false;
+                player.GameCharacter.Justice.SetMinimumRealJustice(1);
+                break;
+            case TheBoys.UnstoppableCombination:
+                var qualityMultiplier = player.GameCharacter.GetIntelligenceQualitySkillBonus();
+                var accumulatedSkill = qualityMultiplier == 0
+                    ? 0
+                    : player.GameCharacter.GetSkillForOneFight() / qualityMultiplier;
+                player.GameCharacter.AddExtraSkill(
+                    accumulatedSkill, TheBoys.UnstoppableCombination);
+                break;
+            case TheBoys.SausagePartyCombination:
+                player.GameCharacter.AddIntelligence(1, TheBoys.SausagePartyCombination);
+                player.GameCharacter.AddStrength(1, TheBoys.SausagePartyCombination);
+                player.GameCharacter.AddPsyche(1, TheBoys.SausagePartyCombination);
+                break;
+            case TheBoys.TheBoysCombination:
+                francie.ChemWeaponLevel++;
+                butcher.PokerCount++;
+                kimiko.RegenLevel++;
+                mm.UpgradeLevel++;
+                break;
+        }
+
+        TheBoysUnlockAbility(player, combination, isCombination: true);
     }
 
     private async Task GetLvlUp(GamePlayerBridgeClass player, int skillNumber)
     {
         var game = _global.GamesList.Find(x => x.GameId == player.GameId);
+
+        if (player.Passives.PassiveAbilitiesDisabledByKimiko)
+        {
+            switch (skillNumber)
+            {
+                case 1:
+                    player.GameCharacter.AddIntelligence(1, "Прокачка");
+                    break;
+                case 2:
+                    player.GameCharacter.AddStrength(1, "Прокачка");
+                    break;
+                case 3:
+                    player.GameCharacter.AddSpeed(1, "Прокачка");
+                    break;
+                case 4:
+                    player.GameCharacter.AddPsyche(1, "Прокачка");
+                    break;
+                default:
+                    return;
+            }
+            player.Status.LvlUpPoints--;
+            return;
+        }
 
         // DooM Guy — each normal level-up selects one configured module for the current stage.
         if (player.GameCharacter.Name == DoomGuy.CharacterName)
@@ -1116,10 +1207,15 @@ public sealed class GameReaction : IServiceSingleton
                     if (francie.ChemWeaponLevel == 4)
                     {
                         francie.VirusArmed = true;
-                        TheBoysUnlockUltimate(player, TheBoys.VirusUltimate);
+                        TheBoysUnlockAbility(player, TheBoys.VirusUltimate);
                     }
                     break;
                 case 2: // Strength → Бучер (Кочерга)
+                    if (butcher.ButcherLeft)
+                    {
+                        player.Status.AddInGamePersonalLogs("Нахер Бучера: Бучер ушёл из команды.\n");
+                        return;
+                    }
                     if (butcher.PokerCount >= 4) { player.Status.AddInGamePersonalLogs("Butcher: уже максимум (x4)!\n"); return; }
                     player.GameCharacter.AddStrength(2, "Пацаны");
                     butcher.PokerCount++;
@@ -1129,7 +1225,8 @@ public sealed class GameReaction : IServiceSingleton
                     if (butcher.PokerCount == 4)
                     {
                         butcher.SuperDickActive = true;
-                        TheBoysUnlockUltimate(player, TheBoys.SuperDickUltimate);
+                        TheBoys.LockNonButcherPassives(player);
+                        TheBoysUnlockAbility(player, TheBoys.SuperDickUltimate);
                     }
                     break;
                 case 3: // Speed → Кимико (Регенерация)
@@ -1144,7 +1241,7 @@ public sealed class GameReaction : IServiceSingleton
                     if (kimiko.RegenLevel == 4)
                     {
                         kimiko.LivingWeapon = true;
-                        TheBoysUnlockUltimate(player, TheBoys.LivingWeaponUltimate);
+                        TheBoysUnlockAbility(player, TheBoys.LivingWeaponUltimate);
                     }
                     break;
                 case 4: // Psyche → М.М. (Компромат)
@@ -1160,7 +1257,7 @@ public sealed class GameReaction : IServiceSingleton
                     }
                     if (mm.UpgradeLevel == 4)
                     {
-                        TheBoysUnlockUltimate(player, TheBoys.ShacklesUltimate);
+                        TheBoysUnlockAbility(player, TheBoys.ShacklesUltimate);
                         // Оковы Правосудия: заблокировать и похитить мораль у всех, на кого собран компромат
                         decimal stolenMoral = 0;
                         foreach (var targetId in mm.KompromatTargets)
@@ -1181,6 +1278,7 @@ public sealed class GameReaction : IServiceSingleton
                     }
                     break;
             }
+            ResolveTheBoysFourthUpgrade(player, game);
             player.Status.LvlUpPoints--;
             return;
         }

@@ -84,7 +84,8 @@ public static class GordonFreeman
     }
 
     public static bool Is(GamePlayerBridgeClass player) =>
-        player?.GameCharacter?.Name == CharacterName;
+        player?.GameCharacter?.Name == CharacterName
+        && !player.Passives.PassiveAbilitiesDisabledByKimiko;
 
     public static GamePlayerBridgeClass Find(GameClass game) =>
         game?.PlayersList.Find(Is);

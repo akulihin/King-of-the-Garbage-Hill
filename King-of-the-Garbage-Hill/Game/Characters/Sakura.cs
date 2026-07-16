@@ -9,7 +9,8 @@ public static class Sakura
     public const string OneOfThree = "Одна из трех";
 
     public static bool Is(GamePlayerBridgeClass player)
-        => player?.GameCharacter?.Name == CharacterName;
+        => player?.GameCharacter?.Name == CharacterName
+           && !player.Passives.PassiveAbilitiesDisabledByKimiko;
 
     public static bool Is(CharacterClass character)
         => character?.Name == CharacterName;

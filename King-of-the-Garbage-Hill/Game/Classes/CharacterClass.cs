@@ -224,6 +224,7 @@ public class CharacterClass
 
         // DooM Guy — Маневры: every received Harm burns one point of the granted Speed.
         if (target.GameCharacter.Name == DoomGuy.CharacterName
+            && target.GameCharacter.Passive.Count > 0
             && target.Passives.DoomGuy.GetActive(DoomGuy.Rune) == DoomGuy.Maneuvers
             && target.Passives.DoomGuy.ManeuversSpeedRemaining > 0)
         {
@@ -231,12 +232,12 @@ public class CharacterClass
             target.GameCharacter.AddSpeed(-1, DoomGuy.Maneuvers);
         }
 
-        //Kimiko — пока активна, Пацанам не наносится Вред (СуперМудень отключает; Живое Оружие держит защиту всегда)
+        //Kimiko — с первой Регенирации Пацанам не наносится Вред; СуперМудень отключает Кимико.
         if (Status.GameCharacter.Passive.Any(x => x.PassiveName == "Kimiko"))
         {
             var kimikoGuard = target.Passives.TheBoysKimiko;
             if (!superDickBypassesHarm && !target.Passives.TheBoysButcher.SuperDickActive
-                && (kimikoGuard.LivingWeapon || !kimikoGuard.IsDisabled))
+                && kimikoGuard.RegenLevel > 0 && !kimikoGuard.IsDisabled)
             {
                 Status.AddInGamePersonalLogs("Kimiko: Вред не причинён — Пацаны под защитой.\n");
                 return 0;
@@ -1229,7 +1230,8 @@ public class CharacterClass
         }
 
         //Геральт — blocks ALL moral (Ведьмак не подвержен эмоциям)
-        if (Status.GameCharacter.Name == "Геральт")
+        if (Status.GameCharacter.Name == "Геральт"
+            && Status.GameCharacter.Passive.Count > 0)
             return;
 
         //BlockMoralGain (Toxic Mate cancer)
@@ -1749,11 +1751,20 @@ public class JusticeClass
     private int JusticeForNextRoundFromSkills{ get; set; }
     public bool IsWonThisRound { get; set; }
     private InGameStatus Status { get; set; }
+    private int MinimumRealJustice { get; set; }
 
 
     public void SetStatus(InGameStatus status)
     {
         Status = status;
+    }
+
+    public void SetMinimumRealJustice(int minimum)
+    {
+        MinimumRealJustice = Math.Clamp(minimum, 0, 5);
+        RealJusticeNow = Math.Max(RealJusticeNow, MinimumRealJustice);
+        if (JusticeForOneFight != -228)
+            JusticeForOneFight = Math.Max(JusticeForOneFight, MinimumRealJustice);
     }
 
 
@@ -1796,15 +1807,18 @@ public class JusticeClass
             if (extraPoints > 0)
                 Status.AddRegularPoints(extraPoints, "Болевой порог");
             if (howMuchToAdd == 0)
+            {
+                RealJusticeNow = Math.Max(RealJusticeNow, MinimumRealJustice);
                 return false;
+            }
         }
         //end Болевой порог
 
 
 
         RealJusticeNow += howMuchToAdd;
-        if (RealJusticeNow < 0)
-            RealJusticeNow = 0;
+        if (RealJusticeNow < MinimumRealJustice)
+            RealJusticeNow = MinimumRealJustice;
         if (RealJusticeNow > 5)
             RealJusticeNow = 5;
 
@@ -1834,8 +1848,8 @@ public class JusticeClass
         if (howMuchToAdd < 0 && UnknownBug.Is(Status?.GameCharacter)) return;
         RealJusticeNow += howMuchToAdd;
 
-        if (RealJusticeNow < 0)
-            RealJusticeNow = 0;
+        if (RealJusticeNow < MinimumRealJustice)
+            RealJusticeNow = MinimumRealJustice;
         if (RealJusticeNow > 5)
             RealJusticeNow = 5;
     }
@@ -1850,7 +1864,7 @@ public class JusticeClass
         }
         if (isLog)
             Status.AddInGamePersonalLogs($"{skillName}={howMuchToSet} Справедливости\n");
-        RealJusticeNow = howMuchToSet;
+        RealJusticeNow = Math.Max(howMuchToSet, MinimumRealJustice);
     }
 
     public void SetJusticeForOneFight(int howMuchToSet, string skillName)
@@ -1860,6 +1874,7 @@ public class JusticeClass
         //Set Stat only for one fight, not for the whole round!
         //Only used with "GameCharacter" because this overwrites "FightCharacter" mechanics
 
+        howMuchToSet = Math.Max(howMuchToSet, MinimumRealJustice);
         Status.ForOneFightMods.Add(new ForOneFightMod { Source = skillName, Stat = "Justice", OriginalValue = GetRealJusticeNow(), NewValue = howMuchToSet });
         Status.IsJusticeForOneFight = true;
         JusticeForOneFight = howMuchToSet;

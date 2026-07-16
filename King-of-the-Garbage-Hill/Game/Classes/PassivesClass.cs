@@ -244,12 +244,14 @@ public class PassivesClass
     public bool TheBoysVirus { get; set; } = false;            // Francie: заражён смертельным вирусом
     public Guid TheBoysVirusSource { get; set; } = Guid.Empty; // кто из Пацанов создал вирус (для кражи очков в конце)
     public bool TheBoysMoralBlockedByMM { get; set; } = false; // Оковы Правосудия: мораль заблокирована, кнопка недоступна
+    public bool PassiveAbilitiesDisabledByKimiko { get; set; } = false;
 
     // TheBoys — UI signals (owner-only): фронт следит за сменой серийников для анимаций
     public string TheBoysLastRevealedMember { get; set; } = ""; // имя члена, чью прокачку только что раскрыли
     public int TheBoysRevealSerial { get; set; } = 0;           // ++ при раскрытии текста прокачки
-    public string TheBoysLastUnlockedUltimate { get; set; } = ""; // имя раскрытой ультимативной пассивки
-    public int TheBoysUnlockSerial { get; set; } = 0;           // ++ при анлоке ультимейта
+    public string TheBoysLastUnlockedAbility { get; set; } = ""; // имя раскрытой ультимативной пассивки/комбинации
+    public bool TheBoysLastUnlockWasCombination { get; set; } = false;
+    public int TheBoysUnlockSerial { get; set; } = 0;           // ++ при анлоке ультимейта/комбинации
 
     // Salldorum
     public Salldorum.ShenClass SalldorumShen { get; set; } = new();
