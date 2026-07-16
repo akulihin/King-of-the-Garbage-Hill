@@ -259,10 +259,14 @@ function parsePrevLogs(raw: string): PrevLogEntry[] {
   return lines.map((line: string) => {
     const isPhrase = line.includes('|>Phrase<|') && !line.includes('|>Stat<|')
     const clean = cleanDiscord(line)
+    const isHalfLifeWin = clean.includes('Hilfelife 3')
+      && (clean.includes('Игра Тысячилетия') || clean.includes('Game of the Millennium'))
     let type: PrevLogColor = 'muted'
     let comboCount = 0
 
-    if (isPhrase) {
+    if (isHalfLifeWin) {
+      type = 'gold'
+    } else if (isPhrase) {
       type = 'purple'
     } else if (/[Сс]килла/i.test(clean) || /Справедливость/i.test(clean) || /Cкилла/i.test(clean) || /Морали/i.test(clean)) {
       type = 'green'
@@ -283,6 +287,10 @@ function parsePrevLogs(raw: string): PrevLogEntry[] {
       .replace(/__(.*?)__/g, '<u>$1</u>')
       .replace(/\*(.*?)\*/g, '<em>$1</em>')
       .replace(/~~(.*?)~~/g, '<del>$1</del>')
+      .replace(
+        /<strong>(Hilfelife 3[^<]*(?:Игра Тысячилетия|Game of the Millennium)[^<]*)<\/strong>/g,
+        '<strong class="halflife-win-callout">$1</strong>',
+      )
 
     return { raw: clean, html, type, comboCount, isPhrase }
   })
@@ -834,6 +842,16 @@ onUnmounted(() => {
 .prev-log-text :deep(strong) { color: var(--accent-gold); }
 .prev-log-text :deep(em) { color: var(--accent-blue); }
 .prev-log-text :deep(u) { color: var(--accent-green); }
+.prev-log-text :deep(.halflife-win-callout) {
+  color: #ffe56d;
+  font-weight: 950;
+  text-shadow: 0 0 5px #ffd84d, 0 0 15px rgba(255, 216, 77, 0.95), 0 0 30px rgba(255, 174, 45, 0.72);
+  animation: halflife-win-callout-pulse 1.1s ease-in-out infinite alternate;
+}
+@keyframes halflife-win-callout-pulse {
+  from { filter: brightness(1); }
+  to { filter: brightness(1.55); }
+}
 .prev-log-text :deep(.lb-emoji) {
   width: 20px;
   height: 20px;

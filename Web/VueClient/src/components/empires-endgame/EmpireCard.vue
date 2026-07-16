@@ -21,6 +21,7 @@ const props = withDefaults(defineProps<{
   trump?: boolean
   interactive?: boolean
   badge?: string
+  deferredReason?: string
 }>(), {
   id: '',
   name: '',
@@ -40,6 +41,7 @@ const props = withDefaults(defineProps<{
   trump: false,
   interactive: false,
   badge: '',
+  deferredReason: '',
 })
 
 const emit = defineEmits<{ choose: [id: string] }>()
@@ -80,6 +82,7 @@ function choose() {
         disabled,
         interactive,
         trump,
+        deferred: Boolean(deferredReason),
         'face-down': faceDown,
       },
     ]"
@@ -119,10 +122,12 @@ function choose() {
         <span v-if="trump" class="trump-seal">Козырь</span>
         <span v-if="inverted" class="inverted-seal"><RotateCcw :size="11" /> Перевёрнута</span>
         <span v-if="badge" class="custom-badge">{{ badge }}</span>
+        <span v-if="deferredReason" class="deferred-seal" :title="deferredReason">Будущая механика</span>
       </div>
 
       <div class="card-copy">
         <span class="suit-label">{{ suitLabel }}</span>
+        <span v-if="deferredReason" class="deferred-status" :title="deferredReason">Будущая механика</span>
         <h3>{{ title || `${rank} ${suitSymbol}` }}</h3>
         <p>{{ description || 'Пассивная способность ещё не описана.' }}</p>
       </div>
@@ -131,7 +136,9 @@ function choose() {
         <div class="upgrade-pips" :title="`Улучшений: ${upgrades}`">
           <span v-for="n in Math.max(1, Math.min(5, upgrades + 1))" :key="n" :class="{ filled: n <= upgrades }" />
         </div>
-        <small>{{ inverted ? 'вредит империи' : 'служит империи' }}</small>
+        <small :title="deferredReason || undefined">
+          {{ deferredReason ? 'эффект пока отключён' : inverted ? 'вредит империи' : 'служит империи' }}
+        </small>
       </footer>
     </template>
   </component>
@@ -182,12 +189,16 @@ function choose() {
 .art-placeholder { position: absolute; inset: 0; display: grid; place-content: center; place-items: center; gap: 4px; color: color-mix(in srgb, var(--suit-deep) 83%, #1c1914); background: radial-gradient(circle, color-mix(in srgb, var(--suit) 25%, transparent), transparent 58%), repeating-linear-gradient(42deg, transparent 0 12px, rgba(255,255,255,.055) 13px 14px); }
 .art-sigil { position: absolute; opacity: .12; font: 800 7rem/1 Georgia, serif; }
 .art-crown { margin-bottom: -5px; }
-.trump-seal,.inverted-seal,.custom-badge { position: absolute; z-index: 2; display: inline-flex; align-items: center; gap: 3px; padding: 3px 5px; border-radius: 4px; color: #261d0f; background: #e1bd68; font: 900 .48rem/1 var(--font-mono, monospace); text-transform: uppercase; }
+.trump-seal,.inverted-seal,.custom-badge,.deferred-seal { position: absolute; z-index: 2; display: inline-flex; align-items: center; gap: 3px; padding: 3px 5px; border-radius: 4px; color: #261d0f; background: #e1bd68; font: 900 .48rem/1 var(--font-mono, monospace); text-transform: uppercase; }
 .trump-seal { top: 6px; right: 6px; }
 .inverted-seal { right: 6px; bottom: 6px; color: #f5d8dc; background: #632b39; }
 .custom-badge { top: 6px; left: 6px; color: #e8e0cf; background: rgba(28,27,23,.82); }
+.deferred-seal { top: 6px; left: 6px; color: #f5dfb7; background: rgba(91, 61, 30, .9); }
+.custom-badge + .deferred-seal { top: 30px; }
+.empire-card.deferred { border-style: dashed; }
 .card-copy { position: relative; z-index: 1; min-height: 0; padding: 8px 11px 4px; }
 .suit-label { display: block; margin-bottom: 3px; color: var(--suit-deep); font: 900 .48rem/1 var(--font-mono, monospace); letter-spacing: .1em; text-transform: uppercase; }
+.deferred-status { display: block; width: fit-content; margin: 0 0 4px; padding: 2px 4px; border-radius: 3px; color: #f4dfbe; background: #76502d; font: 900 .43rem/1 var(--font-mono, monospace); letter-spacing: .05em; text-transform: uppercase; }
 .card-copy h3 { display: -webkit-box; margin: 0 0 4px; overflow: hidden; color: #2b2218; font: 800 .78rem/1.12 Georgia, serif; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
 .card-copy p { display: -webkit-box; margin: 0; overflow: hidden; color: rgba(43,34,24,.72); font-size: .57rem; line-height: 1.35; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
 .card-footer { position: relative; z-index: 1; display: flex; align-items: center; justify-content: space-between; gap: 5px; padding: 5px 10px 8px; }
@@ -227,6 +238,7 @@ function choose() {
 .compact .card-numbers svg { display: none; }
 .compact .card-copy { padding: 5px 7px 2px; }
 .compact .suit-label { display: none; }
+.compact .deferred-status { overflow: hidden; max-width: 100%; font-size: .36rem; text-overflow: ellipsis; white-space: nowrap; }
 .compact .card-copy h3 { margin-bottom: 2px; font-size: .57rem; -webkit-line-clamp: 1; }
 .compact .card-copy p { font-size: .43rem; line-height: 1.2; -webkit-line-clamp: 2; }
 .compact .card-footer { padding: 3px 6px 5px; }

@@ -4630,23 +4630,5 @@
         "english": "We'll show them!"
       }
     ]
-  },
-  "GordonCrowbarJustice": {
-    "passiveNameRussian": "Монтировка",
-    "passiveNameEnglish": "Crowbar",
-    "phrases": [
-      {
-        "russian": "Major fracture detected",
-        "english": "Major fracture detected"
-      },
-      {
-        "russian": "Morphine administered",
-        "english": "Morphine administered"
-      },
-      {
-        "russian": "User death imminent",
-        "english": "User death imminent"
-      }
-    ]
   }
 }

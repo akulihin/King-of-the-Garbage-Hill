@@ -8,7 +8,11 @@ type QaScenario =
   | 'pending-take'
   | 'empty-hand-pending-finish'
   | 'divine-gift'
+  | 'target-city-resources'
+  | 'target-meteor-city'
   | 'empire-council-with-points'
+  | 'destroyed-west'
+  | 'relic-production-levels'
   | 'event'
   | 'victory'
   | 'defeat'
@@ -110,6 +114,52 @@ describe('Empire\'s Endgame deterministic browser scenarios', () => {
     })
   })
 
+  it('keeps a deferred card playable in Durak while labelling its empire face', () => {
+    visitScenario('pending-take')
+    cy.get('.player-hand .empire-card.interactive:not(:disabled)')
+      .scrollIntoView()
+      .should('have.length', 1)
+      .and('have.class', 'deferred')
+      .within(() => {
+        cy.get('.deferred-status')
+          .should('exist')
+          .and('contain.text', 'Будущая механика')
+          .and('have.attr', 'title')
+      })
+    cy.get('[data-testid="qa-digest"]').invoke('text').then((beforeDigest) => {
+      cy.get('.player-hand .empire-card.interactive:not(:disabled)').click()
+      cy.get('[data-testid="qa-digest"]').should(($digest) => {
+        expect($digest.text().trim()).not.to.equal(beforeDigest.trim())
+      })
+    })
+  })
+
+  it('labels and blocks deferred technologies and buildings in the live empire UI', () => {
+    visitScenario('empire-council-with-points')
+    cy.get('[data-testid="tab-technology"]').click()
+    cy.get('[data-testid="technology-node-tech-fair"]')
+      .scrollIntoView()
+      .should('have.class', 'deferred')
+      .click({ force: true })
+    cy.get('.tech-detail .deferred-reason')
+      .should('be.visible')
+      .and('contain.text', 'Будущая механика')
+    cy.get('.tech-detail .research-button')
+      .should('be.disabled')
+      .and('contain.text', 'Будущая механика')
+
+    cy.get('[data-testid="tab-city"]').click()
+    cy.get('[data-testid="city-building-building-smithy"]')
+      .should('have.class', 'deferred')
+      .click()
+    cy.get('.improvement-drawer .deferred-note')
+      .should('be.visible')
+      .and('contain.text', 'Будущая механика')
+    cy.get('.improvement-drawer .primary-action:not(.editor-action)')
+      .should('be.disabled')
+      .and('contain.text', 'Будущая механика')
+  })
+
   it('opens the constructor without structuredClone/DataCloneError failures', () => {
     const browserErrors: string[] = []
     visitScenario('empire-council-with-points', (window) => {
@@ -173,10 +223,14 @@ describe('Empire\'s Endgame deterministic browser scenarios', () => {
   })
 
   it('accepts one of three deterministic divine gifts and enters the empire phase', () => {
+    const immediateGift = bundledConfig.gifts.definitions.find((gift) => {
+      const kind = gift.resolution?.kind
+      return !gift.deferredReason && kind !== 'cityResources' && kind !== 'meteorCity'
+    })
     visitScenario('divine-gift')
     cy.get('.gift-card:not(.empty-card)')
       .should('have.length', 3)
-      .first()
+    cy.contains('.gift-card:not(.empty-card)', immediateGift?.name ?? 'Землетрясение')
       .should('be.visible')
       .and('be.enabled')
       .click()
@@ -184,6 +238,116 @@ describe('Empire\'s Endgame deterministic browser scenarios', () => {
       .should('contain.text', 'empire')
       .and('not.contain.text', 'divineGift')
     cy.get('.empire-toolbar').should('be.visible')
+  })
+
+  it('targets one city for the resource grant and leaves every other city ledger unchanged', () => {
+    const fixture = createEmpiresQaScenarios(bundledConfig, { seed: QA_SEED })['target-city-resources']
+    const pending = fixture.snapshot.pendingResolution
+    expect(pending?.kind).to.equal('cityResources')
+    if (!pending || pending.kind !== 'cityResources') throw new Error('Missing city-resource fixture.')
+    const targetId = pending.eligibleTargetIds[0]
+    const otherId = pending.eligibleTargetIds.find(id => id !== targetId) as string
+    const resourceId = bundledConfig.gifts.definitions
+      .find(gift => gift.id === pending.giftId)?.effects
+      .find(effect => effect.kind === 'resource')?.resourceId as string
+
+    visitScenario('target-city-resources')
+    cy.get('[data-testid="target-resolution-dialog"]').should('be.visible')
+    cy.get(`[data-testid="target-city-${targetId}"]`)
+      .should('be.visible')
+      .and('be.enabled')
+      .and('contain.text', '→')
+      .click()
+
+    cy.get('[data-testid="qa-digest"]').should('contain.text', 'empire')
+    cy.get('.city-selector-row select').should('have.value', targetId)
+    cy.get(`[data-testid="city-resource-${resourceId}"]`)
+      .should('have.attr', 'data-city-id', targetId)
+      .and(($resource) => {
+        expect($resource.text().trim()).not.to.match(/\b0$/)
+      })
+
+    cy.get('.city-selector-row select').select(otherId)
+    cy.get(`[data-testid="city-resource-${resourceId}"]`)
+      .should('have.attr', 'data-city-id', otherId)
+      .and(($resource) => {
+        expect($resource.text().trim()).to.match(/\b0$/)
+      })
+  })
+
+  it('targets one city for a meteor strike and downgrades only that city', () => {
+    const fixture = createEmpiresQaScenarios(bundledConfig, { seed: QA_SEED })['target-meteor-city']
+    const pending = fixture.snapshot.pendingResolution
+    expect(pending?.kind).to.equal('meteorCity')
+    if (!pending || pending.kind !== 'meteorCity') throw new Error('Missing meteor fixture.')
+    const targetId = pending.eligibleTargetIds.find((id) => {
+      const city = fixture.snapshot.empire.cities.find(item => item.id === id)
+      return (city?.buildingLevels['building-farm'] ?? 0) > 0
+    }) as string
+    const otherId = pending.eligibleTargetIds.find(id => id !== targetId) as string
+    const targetBuildings = fixture.snapshot.empire.cities
+      .find(city => city.id === targetId)?.buildingLevels ?? {}
+    const [targetBuildingId, targetBefore] = Object.entries(targetBuildings)
+      .filter(([buildingId, level]) => (
+        level > 0
+        && !bundledConfig.empire.buildings.find(building => building.id === buildingId)?.deferredReason
+      ))
+      .sort(([leftId, leftLevel], [rightId, rightLevel]) => (
+        rightLevel - leftLevel || leftId.localeCompare(rightId)
+      ))[0]
+    const otherBefore = fixture.snapshot.empire.cities
+      .find(city => city.id === otherId)?.buildingLevels[targetBuildingId] ?? 0
+    const expectedTarget = Math.max(0, targetBefore - pending.damageLevels)
+    const buildingMax = Math.max(...bundledConfig.empire.buildings
+      .find(building => building.id === targetBuildingId)!
+      .levels.map(level => level.level))
+
+    visitScenario('target-meteor-city')
+    cy.get(`[data-testid="target-city-${targetId}"]`).should('be.enabled').click()
+    cy.get('.city-selector-row select').should('have.value', targetId)
+    cy.get(`[data-testid="city-building-level-${targetBuildingId}"]`)
+      .should('contain.text', `Ур. ${expectedTarget}/${buildingMax}`)
+
+    cy.get('.city-selector-row select').select(otherId)
+    cy.get(`[data-testid="city-building-level-${targetBuildingId}"]`)
+      .should('contain.text', `Ур. ${otherBefore}/${buildingMax}`)
+  })
+
+  it('keeps a destroyed region inspectable while blocking its cities', () => {
+    visitScenario('destroyed-west')
+    cy.get('[data-testid="map-region-west"]')
+      .should('be.visible')
+      .and('not.be.disabled')
+      .click()
+    cy.get('[data-testid="region-lost-west"]')
+      .should('be.visible')
+      .and('contain.text', 'Доступ к региону потерян')
+    cy.get('[data-testid="map-city-city-west-green-bastion"]')
+      .should('be.disabled')
+      .and('contain.text', 'Недоступен')
+
+    cy.get('[data-testid="tab-city"]').click()
+    cy.get('.city-selector-row option[value="city-west-green-bastion"]').should('be.disabled')
+  })
+
+  it('shows relic-adjusted current and maximum farm and lumber levels', () => {
+    const fixture = createEmpiresQaScenarios(bundledConfig, { seed: QA_SEED })['relic-production-levels']
+    const city = fixture.snapshot.empire.cities.find(item =>
+      (item.buildingLevels['building-farm'] ?? 0) > 0
+      && (item.buildingLevels['building-lumber'] ?? 0) > 0)
+    expect(city).to.not.equal(undefined)
+    const baseFarm = city?.buildingLevels['building-farm'] ?? 0
+    const farmMax = Math.max(...bundledConfig.empire.buildings
+      .find(building => building.id === 'building-farm')!
+      .levels.map(level => level.level))
+
+    visitScenario('relic-production-levels')
+    cy.get('[data-testid="tab-city"]').click()
+    cy.get('.city-selector-row select').select(city?.id ?? '')
+    cy.get('[data-testid="city-building-building-farm"]').click()
+    cy.get('[data-testid="building-level-building-farm"]')
+      .should('contain.text', `${baseFarm + 1}/${farmMax + 1}`)
+    cy.contains('.effective-level-note', 'Реликвия').should('be.visible')
   })
 
   it('renders legible Council cards and spends an upgrade point on click', () => {

@@ -31,6 +31,9 @@ import EmpireMap from '../components/empires-endgame/EmpireMap.vue'
 import EventDialog from '../components/empires-endgame/EventDialog.vue'
 import GiftDraft from '../components/empires-endgame/GiftDraft.vue'
 import PopulationDialog from '../components/empires-endgame/PopulationDialog.vue'
+import TargetResolutionDialog, {
+  type TargetResolutionOption,
+} from '../components/empires-endgame/TargetResolutionDialog.vue'
 import TechTree from '../components/empires-endgame/TechTree.vue'
 import {
   clearCustomEmpiresConfig,
@@ -67,6 +70,7 @@ import type {
   EmpiresEffect,
   EmpiresEndgameConfig,
   EmpiresMapObjectDefinition,
+  EmpiresPendingGiftResolution,
   EmpiresPoint,
   EmpiresUnitDefinition,
 } from '../features/empires-endgame/types'
@@ -157,7 +161,72 @@ const giftDraftChoices = computed(() => giftChoices.value.map(gift => ({
   weight: Math.max(0, gift.baseWeight + gift.performanceWeight * (state.value?.performanceScore ?? 0)),
   imageUrl: gift.image,
   effects: gift.effects.map(effectText),
+  disabled: Boolean(gift.deferredReason),
+  disabledReason: gift.deferredReason,
 })))
+
+const pendingResolution = computed<EmpiresPendingGiftResolution | null>(() =>
+  state.value?.pendingResolution ?? null)
+
+const pendingGift = computed(() => workingConfig.value?.gifts.definitions
+  .find(gift => gift.id === pendingResolution.value?.giftId) ?? null)
+
+function targetPreview(
+  pending: EmpiresPendingGiftResolution,
+  city: EmpiresCityState,
+): string[] {
+  if (pending.kind === 'cityResources') {
+    return (pendingGift.value?.effects ?? []).flatMap((effect) => {
+      if (effect.kind !== 'resource') return []
+      const resource = workingConfig.value?.empire.resources.find(item => item.id === effect.resourceId)
+      const before = city.resources[effect.resourceId] ?? 0
+      return [`${resource?.name ?? effect.resourceId}: ${formatNumber(before)} → ${formatNumber(before + effect.amount)}`]
+    })
+  }
+
+  const target = Object.entries(city.buildingLevels)
+    .filter(([buildingId, level]) => {
+      const building = workingConfig.value?.empire.buildings.find(item => item.id === buildingId)
+      return level > 0 && Boolean(building && !building.deferredReason)
+    })
+    .sort(([leftId, leftLevel], [rightId, rightLevel]) => (
+      rightLevel - leftLevel || leftId.localeCompare(rightId)
+    ))[0]
+  if (target) {
+    const [buildingId, level] = target
+    const building = workingConfig.value?.empire.buildings.find(item => item.id === buildingId)
+    return [`${building?.name ?? buildingId}: ${level} → ${Math.max(0, level - pending.damageLevels)}`]
+  }
+  return ['В городе нет построенных зданий, которые может повредить удар.']
+}
+
+const targetResolutionOptions = computed<TargetResolutionOption[]>(() => {
+  const pending = pendingResolution.value
+  if (!pending || !engine.value || !workingConfig.value || !state.value) return []
+  const eligible = new Set(pending.eligibleTargetIds)
+  return state.value.empire.cities
+    .filter(city => eligible.has(city.id))
+    .map((city) => {
+      const definition = workingConfig.value?.empire.cities.find(item => item.id === city.id)
+      const region = workingConfig.value?.empire.map.regions.find(item => item.id === city.regionId)
+      const accessible = engine.value?.isCityAccessible(city.id) ?? false
+      return {
+        id: city.id,
+        name: definition?.name ?? city.name,
+        regionName: region?.name,
+        summary: pending.kind === 'cityResources'
+          ? 'Все указанные ресурсы поступят только в этот городской запас.'
+          : `Метеорит повредит одну самую развитую постройку на ${pending.damageLevels} ур.`,
+        preview: targetPreview(pending, city),
+        disabled: !accessible,
+        disabledReason: accessible ? undefined : 'Город находится в уничтоженном регионе.',
+      }
+    })
+})
+
+const targetResolutionPrompt = computed(() => pendingResolution.value?.kind === 'meteorCity'
+  ? 'Выберите город для удара. Изменение необратимо.'
+  : 'Выберите единственный город, который получит ресурсы.')
 
 const eventChoiceViews = computed(() => currentEvent.value?.choices.map(choice => {
   const missing = choice.resourceCosts?.find(cost =>
@@ -169,8 +238,10 @@ const eventChoiceViews = computed(() => currentEvent.value?.choices.map(choice =
     description: choice.description ?? '',
     costs: costsText(choice.resourceCosts),
     effects: choice.effects.map(effectText),
-    disabled: Boolean(missing),
-    disabledReason: missing ? `Не хватает ресурса: ${missing.resourceId}` : undefined,
+    disabled: Boolean(currentEvent.value?.deferredReason || choice.deferredReason || missing),
+    disabledReason: currentEvent.value?.deferredReason
+      ?? choice.deferredReason
+      ?? (missing ? `Не хватает ресурса: ${missing.resourceId}` : undefined),
   }
 }) ?? [])
 
@@ -356,6 +427,7 @@ function cardView(instanceId: string) {
     value: definition.value,
     description: face.description,
     image: face.image,
+    deferredReason: face.deferredReason,
     inverted: instance.inverted,
     upgrades: instance.level,
     trump: definition.suit === state.value.durak.trumpSuit,
@@ -400,8 +472,22 @@ function playCard(cardId: string) {
 
 function chooseGift(giftId: string) {
   if (!engine.value) return
-  action(engine.value.chooseGift(giftId), false)
-  activeEmpireTab.value = 'map'
+  const result = engine.value.chooseGift(giftId)
+  action(result, false)
+  if (result.ok && !engine.value.state.pendingResolution && engine.value.state.phase === 'empire') {
+    activeEmpireTab.value = 'map'
+  }
+}
+
+function resolvePendingTarget(cityId: string) {
+  if (!engine.value) return
+  const result = engine.value.resolvePendingTarget(cityId)
+  action(result, false)
+  if (!result.ok || engine.value.state.phase !== 'empire') return
+  const city = workingConfig.value?.empire.cities.find(item => item.id === cityId)
+  activeCityId.value = cityId
+  if (city) activeRegionId.value = city.regionId
+  activeEmpireTab.value = 'city'
 }
 
 function chooseEvent(choiceId: string) {
@@ -570,21 +656,29 @@ const mapRegionViews = computed(() => {
     return cityId ? [cityId] : []
   }))
   return current.empire.map.regions.map(region => {
-    const objects = current.empire.map.objects.filter(object => object.regionId === region.id).map(object => ({
-      id: object.id,
-      kind: objectVisualKind(object),
-      label: object.name,
-      x: mapPointToPercent(object.position, 'x', region.id),
-      y: mapPointToPercent(object.position, 'y', region.id),
-      cityId: typeof object.properties?.cityId === 'string' ? object.properties.cityId : undefined,
-      image: object.image,
-      size: object.size ? {
-        x: object.size.x / regionBounds(region.id).width * 100,
-        y: object.size.y / regionBounds(region.id).height * 100,
-      } : undefined,
-      rotation: object.rotation,
-    }))
+    const regionAccessible = editorOpen.value || (engine.value?.isRegionAccessible(region.id) ?? true)
+    const objects = current.empire.map.objects.filter(object => object.regionId === region.id).map((object) => {
+      const cityId = typeof object.properties?.cityId === 'string' ? object.properties.cityId : undefined
+      const cityAccessible = !cityId || editorOpen.value || (engine.value?.isCityAccessible(cityId) ?? true)
+      return {
+        id: object.id,
+        kind: objectVisualKind(object),
+        label: object.name,
+        x: mapPointToPercent(object.position, 'x', region.id),
+        y: mapPointToPercent(object.position, 'y', region.id),
+        cityId,
+        image: object.image,
+        size: object.size ? {
+          x: object.size.x / regionBounds(region.id).width * 100,
+          y: object.size.y / regionBounds(region.id).height * 100,
+        } : undefined,
+        rotation: object.rotation,
+        accessible: cityAccessible,
+        disabledReason: cityAccessible ? undefined : 'Город недоступен: регион уничтожен.',
+      }
+    })
     current.empire.cities.filter(city => city.regionId === region.id && !cityObjectIds.has(city.id)).forEach(city => {
+      const cityAccessible = editorOpen.value || (engine.value?.isCityAccessible(city.id) ?? true)
       objects.push({
         id: `city:${city.id}`,
         kind: city.id.toLowerCase().includes('capital') ? 'capital' : 'city',
@@ -595,6 +689,8 @@ const mapRegionViews = computed(() => {
         image: undefined,
         size: undefined,
         rotation: undefined,
+        accessible: cityAccessible,
+        disabledReason: cityAccessible ? undefined : 'Город недоступен: регион уничтожен.',
       })
     })
     return {
@@ -603,7 +699,13 @@ const mapRegionViews = computed(() => {
       shortName: region.name.split(' ')[0],
       biome: region.biome,
       accent: ({ ice: '#b7d5df', forest: '#8ba36d', desert: '#d6a45d', swamp: '#739488', central: '#cfb46d' } as Record<string, string>)[region.biome] ?? '#cfb46d',
-      description: `${region.subregionIds.length} земель · ${region.cityIds.length} городов`,
+      description: regionAccessible
+        ? `${region.subregionIds.length} земель · ${region.cityIds.length} городов`
+        : 'Регион уничтожен. Города, здания и ресурсы больше недоступны.',
+      accessible: regionAccessible,
+      disabledReason: regionAccessible
+        ? undefined
+        : 'Эта земля была принесена в жертву и навсегда потеряна для империи.',
       objects,
     }
   })
@@ -721,6 +823,10 @@ function removeSubregion(regionId: string, subregionId: string) {
 }
 
 function openCity(cityId: string) {
+  if (!editorOpen.value && engine.value && !engine.value.isCityAccessible(cityId)) {
+    showMessage('Этот город недоступен: его регион уничтожен.')
+    return
+  }
   activeCityId.value = cityId
   const city = workingConfig.value?.empire.cities.find(item => item.id === cityId)
   if (city) activeRegionId.value = city.regionId
@@ -762,40 +868,102 @@ function firstMissingDependency(
   const city = state.value.empire.cities.find(item => item.id === cityId)
   for (const dependency of dependencies) {
     if (dependency.kind === 'technology') {
-      if (!state.value.empire.researchedTechnologyIds.includes(dependency.technologyId)) return dependencyLabel(dependency)
+      const technology = workingConfig.value?.empire.technologies.find(
+        item => item.id === dependency.technologyId,
+      )
+      if (
+        !technology
+        || technology.deferredReason
+        || !state.value.empire.researchedTechnologyIds.includes(dependency.technologyId)
+      ) return dependencyLabel(dependency)
       continue
     }
     if (dependency.kind === 'flag') {
       if ((state.value.empire.flags[dependency.flagId] ?? 0) < dependency.minimum) return dependencyLabel(dependency)
       continue
     }
-    const candidateCities = dependency.scope !== 'anyCity' && city ? [city] : state.value.empire.cities
+    const candidateCities = (dependency.scope !== 'anyCity' && city ? [city] : state.value.empire.cities)
+      .filter(candidate => engine.value?.isCityAccessible(candidate.id) ?? true)
     const useOperational = operationalSameCityBuildings && dependency.scope !== 'anyCity' && Boolean(city)
     const available = candidateCities.some((candidate) => {
+      const building = workingConfig.value?.empire.buildings.find(
+        item => item.id === dependency.buildingId,
+      )
+      if (!building || building.deferredReason) return false
+      if (candidate.buildingInteractionLocks[dependency.buildingId] === state.value?.con) return false
       const levels = useOperational ? candidate.operationalBuildingLevels : candidate.buildingLevels
-      return (levels[dependency.buildingId] ?? 0) >= dependency.level
+      const rawLevel = levels[dependency.buildingId] ?? 0
+      if (rawLevel <= 0) return false
+      const purchasedLevel = candidate.buildingLevels[dependency.buildingId] ?? 0
+      const effectivePurchased = engine.value?.effectiveBuildingLevel(candidate.id, dependency.buildingId)
+        ?? purchasedLevel
+      const levelBonus = Math.max(0, effectivePurchased - purchasedLevel)
+      return rawLevel + levelBonus >= dependency.level
     })
     if (!available) return dependencyLabel(dependency)
   }
   return null
 }
 
-function constructionBlockedReason(city: EmpiresCityState, level: EmpiresBuildingLevelDefinition) {
+function isStableBuilding(building: EmpiresBuildingDefinition) {
+  const identity = `${building.id} ${building.name}`.toLocaleLowerCase('ru-RU')
+  return identity.includes('stable') || identity.includes('конюш')
+}
+
+function constructionDependencies(
+  building: EmpiresBuildingDefinition,
+  level: EmpiresBuildingLevelDefinition,
+) {
+  if (!isStableBuilding(building) || (state.value?.empire.flags.stableWithoutLivestock ?? 0) <= 0) {
+    return level.dependencies
+  }
+  return level.dependencies.filter(
+    dependency => dependency.kind !== 'flag' || dependency.flagId !== 'livestockAvailable',
+  )
+}
+
+function constructionResourceCosts(
+  building: EmpiresBuildingDefinition,
+  level: EmpiresBuildingLevelDefinition,
+) {
+  return level.resourceCosts.filter((cost) => {
+    if (building.slot === 'smithy'
+      && cost.resourceId === 'iron'
+      && (state.value?.empire.flags.smithyWithoutIron ?? 0) > 0) return false
+    if (isStableBuilding(building)
+      && cost.resourceId === 'horses'
+      && (state.value?.empire.flags.stableWithoutLivestock ?? 0) > 0) return false
+    return true
+  })
+}
+
+function combinedResourceAmount(city: EmpiresCityState, resourceId: string) {
+  return engine.value?.cityAvailableResource(city.id, resourceId)
+    ?? (city.resources[resourceId] ?? 0) + (state.value?.empire.resources[resourceId] ?? 0)
+}
+
+function constructionBlockedReason(
+  city: EmpiresCityState,
+  building: EmpiresBuildingDefinition,
+  level: EmpiresBuildingLevelDefinition,
+) {
   if (!state.value || !workingConfig.value) return 'Состояние империи недоступно'
-  const missingDependency = firstMissingDependency(level.dependencies, city.id)
+  if (building.deferredReason) return building.deferredReason
+  if (!(engine.value?.isCityAccessible(city.id) ?? true)) return 'Город находится в уничтоженном регионе'
+  if (city.buildingInteractionLocks[building.id] === state.value.con) {
+    return 'Постройка заблокирована до следующего кона'
+  }
+  const missingDependency = firstMissingDependency(constructionDependencies(building, level), city.id)
   if (missingDependency) return `Нужно: ${missingDependency}`
   if (state.value.empire.daysRemaining < level.timeCostDays) return `Нужно ${level.timeCostDays} дней`
-  const missingResource = level.resourceCosts.find(cost =>
-    (state.value?.empire.resources[cost.resourceId] ?? 0) < cost.amount,
+  const missingResource = constructionResourceCosts(building, level).find(cost =>
+    combinedResourceAmount(city, cost.resourceId) < cost.amount,
   )
   if (missingResource) {
     const name = workingConfig.value.empire.resources.find(item => item.id === missingResource.resourceId)?.name
       ?? missingResource.resourceId
     return `Не хватает ресурса: ${name}`
   }
-  const foodProduction = cityProduction(city.id)[foodResourceId.value] ?? city.lastProduction[foodResourceId.value] ?? 0
-  const foodConsumption = engine.value?.cityFoodConsumption(city.id) ?? city.population
-  if (foodProduction - foodConsumption - city.foodCommitted < level.foodCost) return 'Не хватает свободной еды'
   for (const lock of level.facilityLocks) {
     if (city.lockedFacilities[lock]) return `${lock === 'mine' ? 'Шахта' : 'Лесопилка'} уже занята`
     const providerId = workingConfig.value.empire.lockProviderBuildingIds[lock]
@@ -808,24 +976,26 @@ function constructionBlockedReason(city: EmpiresCityState, level: EmpiresBuildin
 
 function recruitmentBlockedReason(city: EmpiresCityState, unit: EmpiresUnitDefinition) {
   if (!state.value || !workingConfig.value) return 'Состояние империи недоступно'
+  if (unit.deferredReason) return unit.deferredReason
+  if (!(engine.value?.isCityAccessible(city.id) ?? true)) return 'Город находится в уничтоженном регионе'
   if ((state.value.empire.flags.recruitmentDisabled ?? 0) > 0) {
     return 'Набор войск отключён эффектом карты на эту имперскую фазу'
+  }
+  if (engine.value?.cityRecruitmentRemaining(city.id) === 0) {
+    return 'Город исчерпал лимит снаряжённого набора'
   }
   const missingDependency = firstMissingDependency(unit.dependencies, city.id, true)
   if (missingDependency) return `Нужно: ${missingDependency}`
   if (city.militaryPopulation < unit.populationCost) return 'Не хватает военного резерва'
   if (state.value.empire.daysRemaining < unit.timeCostDays) return `Нужно ${unit.timeCostDays} дней`
   const missingResource = unit.resourceCosts.find(cost =>
-    (state.value?.empire.resources[cost.resourceId] ?? 0) < cost.amount,
+    combinedResourceAmount(city, cost.resourceId) < cost.amount,
   )
   if (missingResource) {
     const name = workingConfig.value.empire.resources.find(item => item.id === missingResource.resourceId)?.name
       ?? missingResource.resourceId
     return `Не хватает ресурса: ${name}`
   }
-  const foodProduction = cityProduction(city.id)[foodResourceId.value] ?? city.lastProduction[foodResourceId.value] ?? 0
-  const foodConsumption = engine.value?.cityFoodConsumption(city.id) ?? city.population
-  if (foodProduction - foodConsumption - city.foodCommitted < unit.foodUpkeep) return 'Не хватает свободной еды'
   return null
 }
 
@@ -843,15 +1013,31 @@ const cityViews = computed(() => {
     const assignedBuildingIds = new Set(Object.values(slotAssignments).filter((id): id is string => Boolean(id)))
 
     const facilityView = (building: EmpiresBuildingDefinition, slotId: string) => {
-      const level = city.buildingLevels[building.id] ?? 0
-      const currentLevel = building.levels.find(item => item.level === level)
-      const operationalLevel = city.operationalBuildingLevels[building.id] ?? level
-      const productiveLevel = building.levels.find(item => item.level === operationalLevel)
-      const nextLevel = building.levels.find(item => item.level === level + 1)
-      const blockedReason = nextLevel ? constructionBlockedReason(city, nextLevel) : null
+      const baseLevel = city.buildingLevels[building.id] ?? 0
+      const baseMaxLevel = Math.max(0, ...building.levels.map(item => item.level))
+      const level = editorOpen.value
+        ? baseLevel
+        : engine.value?.effectiveBuildingLevel(city.id, building.id) ?? baseLevel
+      const maxLevel = editorOpen.value
+        ? baseMaxLevel
+        : engine.value?.effectiveBuildingMaxLevel(building.id) ?? baseMaxLevel
+      const levelBonus = Math.max(0, level - baseLevel)
+      const currentLevel = editorOpen.value
+        ? building.levels.find(item => item.level === baseLevel)
+        : engine.value?.projectedBuildingLevel(building.id, level)
+          ?? building.levels.find(item => item.level === baseLevel)
+      const operationalLevel = editorOpen.value
+        ? city.operationalBuildingLevels[building.id] ?? baseLevel
+        : engine.value?.effectiveOperationalBuildingLevel(city.id, building.id) ?? 0
+      const productiveLevel = editorOpen.value
+        ? building.levels.find(item => item.level === operationalLevel)
+        : engine.value?.projectedBuildingLevel(building.id, operationalLevel)
+      const nextLevel = building.levels.find(item => item.level === baseLevel + 1)
+      const blockedReason = nextLevel ? constructionBlockedReason(city, building, nextLevel) : null
       const busyLock = building.slot === 'mine' || building.slot === 'lumber'
         ? city.lockedFacilities[building.slot]
         : undefined
+      const interactionLocked = city.buildingInteractionLocks[building.id] === state.value?.con
       const boosted = engine.value?.hasProductionBoost(city.id, building.id) ?? false
       const boostMultiplier = boosted ? (state.value?.empire.flags.productionBoostPercent ?? 200) / 100 : 1
       const output = productiveLevel?.production?.map((item) => {
@@ -868,37 +1054,54 @@ const cityViews = computed(() => {
         description: currentLevel?.description ?? (level === 0 ? 'Здание ещё не возведено.' : undefined),
         imageUrl: currentLevel?.image ?? building.image,
         level,
-        maxLevel: Math.max(...building.levels.map(item => item.level)),
-        workforce: currentLevel?.workerDemand ?? 0,
+        maxLevel,
+        baseLevel,
+        baseMaxLevel,
+        workforce: productiveLevel?.workerDemand ?? 0,
         requiredWorkforce: currentLevel?.workerDemand ?? 0,
         output,
         busy: Boolean(busyLock),
-        locked: Boolean(blockedReason),
+        locked: Boolean(blockedReason || interactionLocked),
         boostEligible: ['farm', 'lumber', 'mine'].includes(building.slot) && operationalLevel >= 1,
         boosted,
         boostPercent: state.value?.empire.flags.productionBoostPercent ?? 200,
-        stateMessage: busyLock
+        deferredReason: building.deferredReason,
+        stateMessage: interactionLocked
+          ? 'Постройка повреждена и недоступна до следующего кона'
+          : busyLock
           ? `Занято проектом ${busyLock}`
           : operationalLevel < level
-          ? `Рабочих хватает только на ${operationalLevel} из ${level} уровней`
+          ? `Рабочих хватает только на ${operationalLevel} из ${level} эффективных уровней`
           : blockedReason ?? (city.lastStarvationLoss > 0
           ? `После голода потеряно ${formatNumber(city.lastStarvationLoss)}`
           : undefined),
         prerequisites: nextLevel?.dependencies.map(dependencyLabel),
-        improvements: building.levels.filter(item => item.level > level).slice(0, 3).map(item => ({
-          id: `${building.id}:${item.level}`,
-          name: item.name || `${building.name} · уровень ${item.level}`,
-          description: item.description,
-          level: item.level,
-          goldCost: item.resourceCosts.find(cost => cost.resourceId === goldResourceId.value)?.amount,
-          timeCost: item.timeCostDays,
-          workforce: item.workerDemand,
-          completed: false,
-          busy: item.level === level + 1 && Boolean(busyLock),
-          locked: item.level > level + 1 || (item.level === level + 1 && Boolean(blockedReason)),
-          prerequisites: item.dependencies.map(dependencyLabel),
-          imageUrl: item.image ?? building.image,
-        })),
+        improvements: building.levels.filter(item => item.level > baseLevel).slice(0, 3).map((item) => {
+          const targetEffectiveLevel = editorOpen.value ? item.level : item.level + levelBonus
+          const projectedLevel = editorOpen.value
+            ? item
+            : engine.value?.projectedBuildingLevel(building.id, targetEffectiveLevel) ?? item
+          const improvementName = projectedLevel.name || `${building.name} · уровень ${targetEffectiveLevel}`
+          return {
+            id: `${building.id}:${item.level}`,
+            name: !editorOpen.value && levelBonus > 0
+              ? `${improvementName} · эфф. ур. ${targetEffectiveLevel}`
+              : improvementName,
+            description: projectedLevel.description,
+            level: targetEffectiveLevel,
+            goldCost: item.resourceCosts.find(cost => cost.resourceId === goldResourceId.value)?.amount,
+            timeCost: item.timeCostDays,
+            workforce: projectedLevel.workerDemand,
+            completed: false,
+            busy: item.level === baseLevel + 1 && Boolean(busyLock),
+            locked: interactionLocked
+              || item.level > baseLevel + 1
+              || (item.level === baseLevel + 1 && Boolean(blockedReason)),
+            prerequisites: item.dependencies.map(dependencyLabel),
+            imageUrl: projectedLevel.image ?? building.image,
+            deferredReason: building.deferredReason,
+          }
+        }),
       }
     }
 
@@ -926,7 +1129,7 @@ const cityViews = computed(() => {
       ).flatMap((building) => {
         const firstLevel = building.levels.find(level => level.level === 1)
         if (!firstLevel) return []
-        const disabledReason = constructionBlockedReason(city, firstLevel)
+        const disabledReason = constructionBlockedReason(city, building, firstLevel)
         return [{
           id: building.id,
           name: building.name,
@@ -936,12 +1139,29 @@ const cityViews = computed(() => {
           slotId: slot.kind === 'municipal' ? 'municipal' : slot.id,
           disabled: Boolean(disabledReason),
           disabledReason: disabledReason ?? undefined,
+          deferredReason: building.deferredReason,
         }]
       })
     })
 
     const recruitableUnits = (currentConfig.empire.units ?? []).map((unit) => {
       const disabledReason = recruitmentBlockedReason(city, unit)
+      const recruitablePopulation = currentConfig.empire.populationClasses
+        .filter(category => category.canRecruit)
+        .reduce((total, category) => total + (city.populationClasses[category.id] ?? 0), 0)
+      const quantityLimits = unit.resourceCosts
+        .filter(cost => cost.amount > 0)
+        .map(cost => Math.floor(combinedResourceAmount(city, cost.resourceId) / cost.amount))
+      const recruitmentRemaining = engine.value?.cityRecruitmentRemaining(city.id)
+      if (recruitmentRemaining !== null && recruitmentRemaining !== undefined) {
+        quantityLimits.push(recruitmentRemaining)
+      }
+      if (unit.populationCost > 0) {
+        quantityLimits.push(
+          Math.floor(city.population / unit.populationCost),
+          Math.floor(recruitablePopulation / unit.populationCost),
+        )
+      }
       return {
         id: unit.id,
         name: unit.name,
@@ -951,8 +1171,10 @@ const cityViews = computed(() => {
         foodUpkeep: unit.foodUpkeep,
         populationCost: unit.populationCost,
         timeCost: unit.timeCostDays,
+        maxQuantity: Math.max(0, Math.min(99, ...quantityLimits, 99)),
         disabled: Boolean(disabledReason),
         disabledReason: disabledReason ?? undefined,
+        deferredReason: unit.deferredReason,
       }
     })
 
@@ -961,6 +1183,16 @@ const cityViews = computed(() => {
       name: city.name,
       regionName: region?.name,
       epithet: definition ? `${definition.slots.length} городских участков` : undefined,
+      accessible: editorOpen.value || (engine.value?.isCityAccessible(city.id) ?? true),
+      disabledReason: editorOpen.value || (engine.value?.isCityAccessible(city.id) ?? true)
+        ? undefined
+        : 'Регион уничтожен: управление, строительство, производство и городской запас заблокированы.',
+      resourceStockpiles: currentConfig.empire.resources.map(resource => ({
+        id: resource.id,
+        name: resource.name,
+        value: city.resources[resource.id] ?? 0,
+        deferredReason: resource.deferredReason,
+      })),
       population: city.population,
       militaryPopulation: city.militaryPopulation,
       foodProduced: production[foodResourceId.value] ?? city.lastProduction[foodResourceId.value] ?? 0,
@@ -1001,6 +1233,13 @@ function toggleProductionBoost(cityId: string, buildingId: string, enabled: bool
     : engine.value.clearProductionBoost(cityId, buildingId))
 }
 
+function researchUsageKey(technology: EmpiresEndgameConfig['empire']['technologies'][number]) {
+  const family = technology.category === 'reform' || technology.category === 'doctrine'
+    ? 'reform'
+    : 'technology'
+  return `${family}:${technology.groupId?.trim() || technology.id}`
+}
+
 const technologyNodes = computed(() => {
   if (!state.value || !workingConfig.value) return []
   const technologies = workingConfig.value.empire.technologies
@@ -1018,17 +1257,21 @@ const technologyNodes = computed(() => {
     if (!technology.position) fallbackRowsByColumn.set(fallbackColumn, fallbackRow + 1)
     const requires = technology.prerequisites.flatMap(dependency => dependency.kind === 'technology' ? [dependency.technologyId] : [])
     const researched = state.value?.empire.researchedTechnologyIds.includes(technology.id) ?? false
+    const usedResearchId = state.value.empire.researchUsage[researchUsageKey(technology)]
     const missingDependency = firstMissingDependency(technology.prerequisites)
     const missingResource = technology.resourceCosts.find(cost =>
       (state.value?.empire.resources[cost.resourceId] ?? 0) < cost.amount,
     )
-    const blockedReason = missingDependency
+    const blockedReason = technology.deferredReason
+      ?? (usedResearchId
+      ? `В этой ветке уже изучено: ${workingConfig.value?.empire.technologies.find(item => item.id === usedResearchId)?.name ?? usedResearchId}`
+      : missingDependency
       ? `Нужно: ${missingDependency}`
       : state.value.empire.daysRemaining < technology.timeCostDays
       ? `Нужно ${technology.timeCostDays} дней`
       : missingResource
       ? `Не хватает: ${workingConfig.value?.empire.resources.find(resource => resource.id === missingResource.resourceId)?.name ?? missingResource.resourceId}`
-      : null
+      : null)
     const available = !researched && !blockedReason
     return {
       id: technology.id,
@@ -1046,6 +1289,7 @@ const technologyNodes = computed(() => {
       researched,
       available,
       blockedReason: blockedReason ?? undefined,
+      deferredReason: technology.deferredReason,
       darkSide: technology.tags?.includes('dark-side') ? 'Эта разработка открывает опасную ветвь.' : undefined,
       image: technology.image,
     }
@@ -1258,10 +1502,19 @@ onUnmounted(() => {
 
       <section v-else-if="state.phase === 'divineGift' && !editorOpen" class="phase-content gift-phase">
         <GiftDraft
+          v-if="!pendingResolution"
           :choices="giftDraftChoices"
           title="Бог предлагает три дара"
           :description="`Результат партии: ${state.performanceScore}. Чем лучше вы сыграли, тем сильнее выбор склоняется в вашу пользу — но любой дар остаётся частью сделки.`"
           @choose="chooseGift"
+        />
+        <TargetResolutionDialog
+          v-else
+          :title="`${pendingGift?.name || 'Божественный дар'}: выберите город`"
+          :description="pendingGift?.description || 'Дар требует выбрать город перед переходом к управлению империей.'"
+          :prompt="targetResolutionPrompt"
+          :options="targetResolutionOptions"
+          @choose="resolvePendingTarget"
         />
       </section>
 
@@ -1278,7 +1531,13 @@ onUnmounted(() => {
         </div>
 
         <div class="resource-ribbon">
-          <span v-for="resource in resourceRows" :key="resource.id"><Coins v-if="resource.id === goldResourceId" :size="14" /><Wheat v-else-if="resource.id === foodResourceId" :size="14" /><Landmark v-else :size="14" /><small>{{ resource.name }}</small><b>{{ formatNumber(resource.value) }}</b></span>
+          <span v-for="resource in resourceRows" :key="resource.id" :title="resource.deferredReason">
+            <Coins v-if="resource.id === goldResourceId" :size="14" />
+            <Wheat v-else-if="resource.id === foodResourceId" :size="14" />
+            <Landmark v-else :size="14" />
+            <small>{{ resource.name }}{{ resource.deferredReason ? ' · будущее' : '' }}</small>
+            <b>{{ formatNumber(resource.value) }}</b>
+          </span>
         </div>
 
         <EmpireMap

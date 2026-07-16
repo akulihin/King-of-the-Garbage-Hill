@@ -120,7 +120,7 @@ onUnmounted(() => {
               <strong>{{ halfLife.rawPoints }}</strong>
             </div>
             <div class="hl3-profit-cell">
-              <span>{{ t('Base multiplier', 'Множитель') }}</span>
+              <span>{{ t('Super multiplier', 'Супермножитель') }}</span>
               <strong>{{ halfLife.baseMultiplier }}</strong>
             </div>
             <div class="hl3-profit-cell">
@@ -132,6 +132,12 @@ onUnmounted(() => {
               <strong>{{ halfLife.finalPoints }}</strong>
             </div>
           </div>
+          <p v-if="halfLife.superMultiplierDisabled" class="hl3-tolya-disabled">
+            {{ t(
+              'Tolya disabled pre-orders: the ordinary score multiplier applies.',
+              'Подсчет Толи отключил предзаказы: действует обычный множитель очков.',
+            ) }}
+          </p>
 
           <div class="hl3-attempt">
             {{ t('Postponements', 'Переносов') }}: {{ halfLife.postponements }} / 3
@@ -318,6 +324,15 @@ onUnmounted(() => {
 .hl3-profit-cell strong { display: block; margin-top: 4px; color: #e9e6dc; font: 900 23px/1 var(--font-mono); }
 .hl3-profit-total { border-color: rgba(231, 129, 36, 0.35); background: rgba(231, 129, 36, 0.08); }
 .hl3-profit-total strong { color: #ffae53; text-shadow: 0 0 12px rgba(231, 129, 36, 0.35); }
+.hl3-tolya-disabled {
+  margin: 10px 0 0;
+  padding: 8px 10px;
+  color: #f1c477;
+  border: 1px solid rgba(241, 196, 119, 0.24);
+  border-radius: 3px;
+  background: rgba(241, 196, 119, 0.07);
+  font: 750 9px/1.45 var(--font-mono);
+}
 
 .hl3-attempt {
   margin-top: 10px;

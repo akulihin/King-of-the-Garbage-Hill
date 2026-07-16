@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import {
+  AlertTriangle,
   Castle,
   Landmark,
   MapPin,
@@ -26,6 +27,8 @@ interface EmpireMapObject {
   image?: string
   size?: EmpireMapPoint
   rotation?: number
+  accessible?: boolean
+  disabledReason?: string
 }
 
 interface EmpireMapPoint {
@@ -48,6 +51,8 @@ interface EmpireRegionView {
   biome: string
   accent?: string
   description?: string
+  accessible?: boolean
+  disabledReason?: string
   objects: EmpireMapObject[]
 }
 
@@ -158,6 +163,7 @@ function activateObject(object: EmpireMapObject) {
     emit('selectSubregion', activeRegion.value.id, null)
     return
   }
+  if (object.accessible === false) return
   if ((object.kind === 'city' || object.kind === 'capital') && object.cityId) {
     emit('openCity', object.cityId)
   }
@@ -311,10 +317,13 @@ function hideBrokenImage(event: Event) {
         v-for="object in activeRegion.objects"
         :key="object.id"
         class="map-object"
-        :class="[`kind-${object.kind}`, { actionable: Boolean(object.cityId), selected: object.id === resolvedSelectedObjectId, 'sized-river': object.kind === 'river' && object.size }]"
+        :class="[`kind-${object.kind}`, { actionable: Boolean(object.cityId) && object.accessible !== false, inaccessible: object.accessible === false, selected: object.id === resolvedSelectedObjectId, 'sized-river': object.kind === 'river' && object.size }]"
         :style="objectStyle(object)"
         :draggable="editable"
         type="button"
+        :disabled="!editable && object.accessible === false"
+        :data-testid="object.cityId ? `map-city-${object.cityId}` : undefined"
+        :title="object.disabledReason"
         :aria-pressed="editable ? object.id === resolvedSelectedObjectId : undefined"
         @dragstart="beginObjectDrag($event, object.id)"
         @click="activateObject(object)"
@@ -327,6 +336,7 @@ function hideBrokenImage(event: Event) {
           <component :is="iconFor(object.kind)" v-else :size="20" />
         </span>
         <span class="object-label">{{ object.label }}</span>
+        <span v-if="object.accessible === false" class="object-state"><AlertTriangle :size="11" /> Недоступен</span>
       </button>
 
       <aside v-if="editable && (selectedSubregion || selectedObject)" class="map-inspector" aria-label="Редактор выбранного элемента карты">
@@ -428,6 +438,17 @@ function hideBrokenImage(event: Event) {
         <strong>Этот край ещё не нанесён на карту</strong>
         <span v-if="editable">Перетащите сюда объекты из палитры.</span>
       </div>
+
+      <div
+        v-if="!editable && activeRegion.accessible === false"
+        class="region-lost"
+        role="status"
+        :data-testid="`region-lost-${activeRegion.id}`"
+      >
+        <AlertTriangle :size="31" />
+        <strong>Доступ к региону потерян</strong>
+        <span>{{ activeRegion.disabledReason || 'Эта земля больше не подчиняется империи.' }}</span>
+      </div>
     </div>
 
     <nav class="region-minimap" aria-label="Регионы империи">
@@ -435,13 +456,15 @@ function hideBrokenImage(event: Event) {
         v-for="region in regions"
         :key="region.id"
         type="button"
-        :class="[`region-${region.id}`, { active: region.id === activeRegion.id }]"
+        :class="[`region-${region.id}`, { active: region.id === activeRegion.id, inaccessible: region.accessible === false }]"
         :style="{ '--mini-accent': region.accent || '#c6a86b' }"
+        :data-testid="`map-region-${region.id}`"
+        :title="region.disabledReason"
         :aria-pressed="region.id === activeRegion.id"
         @click="emit('selectRegion', region.id)"
       >
         <span>{{ region.shortName || region.name }}</span>
-        <small>{{ region.biome }}</small>
+        <small>{{ region.accessible === false ? 'потерян' : region.biome }}</small>
       </button>
     </nav>
   </section>
@@ -603,6 +626,11 @@ function hideBrokenImage(event: Event) {
 }
 .map-object.actionable { cursor: pointer; }
 .map-object.actionable:hover { z-index: 4; filter: drop-shadow(0 5px 10px rgba(233, 202, 132, 0.45)); transform: translate(-50%, -50%) rotate(var(--object-rotation, 0deg)) scale(1.08); }
+.map-object.inaccessible {
+  filter: grayscale(0.9) brightness(0.58) drop-shadow(0 3px 5px rgba(0, 0, 0, 0.58));
+  cursor: not-allowed;
+}
+.map-object:disabled { opacity: 1; }
 .editable .map-object { cursor: grab; }
 .editable .map-object.selected { z-index: 4; filter: drop-shadow(0 0 8px #ffe9ad); }
 .object-icon {
@@ -651,9 +679,38 @@ function hideBrokenImage(event: Event) {
   text-shadow: 0 1px 2px #000;
   white-space: nowrap;
 }
+.object-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 5px;
+  border-radius: 4px;
+  color: #f0b5a9;
+  background: rgba(92, 30, 24, 0.88);
+  font: 800 0.49rem/1 var(--font-mono, monospace);
+  text-transform: uppercase;
+}
 
 .map-empty { position: absolute; inset: 0; display: grid; place-content: center; place-items: center; gap: 6px; color: rgba(248,239,217,0.68); text-align: center; }
 .map-empty span { font-size: 0.75rem; }
+.region-lost {
+  position: absolute;
+  z-index: 7;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  place-items: center;
+  gap: 7px;
+  padding: 30px;
+  color: #e5b1a5;
+  text-align: center;
+  background:
+    repeating-linear-gradient(135deg, rgba(118, 43, 32, 0.08) 0 12px, transparent 13px 25px),
+    rgba(21, 13, 11, 0.76);
+  backdrop-filter: grayscale(1) blur(2px);
+}
+.region-lost strong { color: #f1c0b5; font: 700 1.25rem/1.1 Georgia, serif; }
+.region-lost span { max-width: 430px; color: rgba(240, 193, 182, 0.72); font-size: 0.72rem; line-height: 1.45; }
 
 .map-inspector {
   position: absolute;
@@ -739,6 +796,13 @@ function hideBrokenImage(event: Event) {
 }
 .region-minimap button::after { content: ''; position: absolute; right: 0; bottom: 0; left: 0; height: 2px; background: var(--mini-accent); opacity: 0.45; }
 .region-minimap button.active { border-color: var(--mini-accent); color: #fff4d8; background: color-mix(in srgb, var(--mini-accent) 18%, #171912); box-shadow: inset 0 0 22px rgba(255,255,255,0.035); }
+.region-minimap button.inaccessible {
+  border-color: rgba(174, 82, 67, 0.32);
+  color: rgba(231, 175, 163, 0.56);
+  background: rgba(91, 34, 27, 0.13);
+  filter: grayscale(0.75);
+}
+.region-minimap button.inaccessible::after { background: #b35d4e; opacity: 0.7; }
 .region-minimap span { display: block; font: 800 0.72rem/1.1 Georgia, serif; }
 .region-minimap small { display: block; margin-top: 3px; color: currentColor; font: 600 0.55rem/1 var(--font-mono, monospace); opacity: 0.6; text-transform: uppercase; }
 .region-north { grid-area: north; }

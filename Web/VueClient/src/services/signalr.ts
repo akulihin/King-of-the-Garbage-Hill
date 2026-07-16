@@ -270,6 +270,7 @@ export type GordonHalfLifeState = {
   deadlineUtc?: string
   rawPoints: number
   baseMultiplier: number
+  superMultiplierDisabled: boolean
   exponent: number
   finalPoints: number
   freezeLabel: string
@@ -280,7 +281,6 @@ export type GordonHalfLifeState = {
 export type GordonState = {
   resolvedFights: number
   crowbarProgress: number
-  justiceBoost: number
   wakeUsed: boolean
   canWake: boolean
   wakeReservedForTsukuyomi: boolean

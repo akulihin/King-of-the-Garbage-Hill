@@ -443,7 +443,6 @@ public static class GameStateMapper
                             {
                                 ResolvedFights = gordon.ResolvedFights,
                                 CrowbarProgress = gordon.ResolvedFights % 3,
-                                JusticeBoost = player.GameCharacter.Justice.GetRealJusticeNow(),
                                 WakeUsed = gordon.WakeUsed,
                                 CanWake = GordonFreeman.CanWake(player, game),
                                 WakeReservedForTsukuyomi = gordon.WakeReservedForEternalTsukuyomi,
@@ -472,6 +471,7 @@ public static class GameStateMapper
                                     DeadlineUtc = halfLife.DeadlineUtc?.ToString("o"),
                                     RawPoints = halfLife.RawPoints,
                                     BaseMultiplier = halfLife.BaseMultiplier,
+                                    SuperMultiplierDisabled = halfLife.SuperMultiplierDisabled,
                                     Exponent = halfLife.Exponent,
                                     FinalPoints = halfLife.FinalPoints,
                                     FreezeLabel = GordonFreeman.GetFreezeLabel(gordon),

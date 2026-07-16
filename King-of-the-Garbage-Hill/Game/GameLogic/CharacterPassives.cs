@@ -477,6 +477,10 @@ public class CharacterPassives : IServiceSingleton
                     break;
             }
 
+        var initialGordon = playersList.Find(GordonFreeman.Is);
+        if (initialGordon != null)
+            GordonFreeman.HandleRoundPhrase(initialGordon, 1);
+
         return playersList;
     }
 
@@ -495,11 +499,6 @@ public class CharacterPassives : IServiceSingleton
         foreach (var passive in target.GameCharacter.Passive.ToList())
             switch (passive.PassiveName)
             {
-                case GordonFreeman.Crowbar:
-                    if (target.GameCharacter.Name == GordonFreeman.CharacterName)
-                        GordonFreeman.ApplyHevBattery(target);
-                    break;
-
                 case Madara.GodOfShinobi:
                     if (Madara.ShouldUseHundredSkill(target))
                         target.FightCharacter.SetSkillForOneFight(100, Madara.GodOfShinobi);
@@ -1127,11 +1126,6 @@ public class CharacterPassives : IServiceSingleton
         foreach (var passive in me.GameCharacter.Passive.ToList())
             switch (passive.PassiveName)
             {
-                case GordonFreeman.Crowbar:
-                    if (me.GameCharacter.Name == GordonFreeman.CharacterName)
-                        GordonFreeman.ApplyHevBattery(me);
-                    break;
-
                 case Naruto.Rasengan:
                     if (me.GameCharacter.Name == Naruto.CharacterName)
                         ApplyRasenganBoost(me, target, game);
@@ -4741,6 +4735,9 @@ public class CharacterPassives : IServiceSingleton
                                              + tsukuyomiVictim.Status.GetBonusPointsEarnedThisRound();
                             if (stolenPoints > 0)
                             {
+                                if (stolenRegularPoints > 0)
+                                    GordonFreeman.MarkCurrentAttemptStolenByItachi(
+                                        tsukuyomiVictim, player, game);
                                 player.Status.AddBonusPoints(stolenPoints, "Глаза Итачи");
                                 tsukuyomi.TotalStolenPoints += stolenPoints;
                                 if (!tsukuyomi.StolenFromPlayers.ContainsKey(tsukuyomi.TsukuyomiActiveTarget))
@@ -5320,7 +5317,7 @@ public class CharacterPassives : IServiceSingleton
 
         var gordon = GordonFreeman.Find(game);
         if (gordon != null)
-            GordonFreeman.HandleJusticePhrases(gordon, game);
+            GordonFreeman.HandleRoundPhrase(gordon, game.RoundNo);
 
         var madara = Madara.Find(game);
         if (madara != null && !madara.Passives.IsDead)

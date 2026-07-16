@@ -1,4 +1,4 @@
-import type { EmpiresEndgameConfig } from './types'
+import type { EmpiresBuildingSlotKind, EmpiresEndgameConfig } from './types'
 import { validateEmpiresEndgameConfig } from './engine'
 
 export const EMPIRES_CONFIG_URL = '/empires-endgame/game-config.json'
@@ -6,6 +6,235 @@ export const EMPIRES_CONFIG_STORAGE_KEY = 'empires-endgame:config:v1'
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+const EMPIRES_BUILDING_SLOT_KINDS = new Set<EmpiresBuildingSlotKind>([
+  'farm',
+  'lumber',
+  'mine',
+  'smithy',
+  'barracks',
+  'unique',
+  'municipal',
+])
+
+function validateGiftResolutions(config: EmpiresEndgameConfig): string[] {
+  const errors: string[] = []
+  const cityIds = new Set(config.empire.cities.map(city => city.id))
+  const regionIds = new Set(config.empire.map.regions.map(region => region.id))
+  const resourceIds = new Set(config.empire.resources.map(resource => resource.id))
+  const availableGiftCount = config.gifts.definitions.filter((gift) => {
+    const deferredReason = (gift as { deferredReason?: unknown }).deferredReason
+    return (typeof deferredReason !== 'string' || !deferredReason.trim())
+      && gift.kind !== 'relic'
+  }).length
+
+  if (
+    (config.empire.initialFlags?.relicsUnlocked ?? 0) <= 0
+    && availableGiftCount < config.gifts.choiceCount
+  ) {
+    errors.push('pre-unlock non-relic gift definitions without deferredReason must contain at least choiceCount entries')
+  }
+
+  for (const gift of config.gifts.definitions) {
+    const deferredReason = (gift as { deferredReason?: unknown }).deferredReason
+    if (deferredReason !== undefined && (
+      typeof deferredReason !== 'string'
+      || !deferredReason.trim()
+    )) {
+      errors.push(`gift ${gift.id} deferredReason must be a non-empty string`)
+    }
+
+    const resolution = (gift as { resolution?: unknown }).resolution
+    if (resolution === undefined) continue
+    if (!isRecord(resolution) || typeof resolution.kind !== 'string') {
+      errors.push(`gift ${gift.id} resolution must be an object with a known kind`)
+      continue
+    }
+
+    const targetedResources = gift.effects.filter(effect => effect.kind === 'resource')
+    for (const effect of targetedResources) {
+      if (!resourceIds.has(effect.resourceId)) {
+        errors.push(`gift ${gift.id} resolution references unknown resource ${effect.resourceId}`)
+      }
+    }
+
+    if (resolution.kind === 'cityResources') {
+      if (cityIds.size === 0) errors.push(`gift ${gift.id} requires at least one city target`)
+      if (targetedResources.length === 0) {
+        errors.push(`gift ${gift.id} cityResources resolution requires a resource effect`)
+      }
+      continue
+    }
+
+    if (resolution.kind === 'meteorCity') {
+      if (cityIds.size === 0) errors.push(`gift ${gift.id} requires at least one city target`)
+      if (
+        typeof resolution.damageLevels !== 'number'
+        || !Number.isInteger(resolution.damageLevels)
+        || resolution.damageLevels <= 0
+      ) {
+        errors.push(`gift ${gift.id} meteor damageLevels must be a positive integer`)
+      }
+      continue
+    }
+
+    if (resolution.kind === 'destroyRegion') {
+      if (typeof resolution.regionId !== 'string' || !regionIds.has(resolution.regionId)) {
+        errors.push(`gift ${gift.id} destroyRegion references unknown region ${String(resolution.regionId)}`)
+      }
+      continue
+    }
+
+    if (resolution.kind === 'buildingLevelBonus') {
+      if (!Array.isArray(resolution.slots) || resolution.slots.length === 0) {
+        errors.push(`gift ${gift.id} buildingLevelBonus requires at least one slot`)
+      } else {
+        const slots = resolution.slots as unknown[]
+        if (slots.some(slot => typeof slot !== 'string' || !EMPIRES_BUILDING_SLOT_KINDS.has(
+          slot as EmpiresBuildingSlotKind,
+        ))) {
+          errors.push(`gift ${gift.id} buildingLevelBonus references an unknown slot`)
+        }
+        if (new Set(slots).size !== slots.length) {
+          errors.push(`gift ${gift.id} buildingLevelBonus slots must be unique`)
+        }
+      }
+      if (
+        typeof resolution.amount !== 'number'
+        || !Number.isInteger(resolution.amount)
+        || resolution.amount <= 0
+      ) {
+        errors.push(`gift ${gift.id} buildingLevelBonus amount must be a positive integer`)
+      }
+      continue
+    }
+
+    errors.push(`gift ${gift.id} resolution has unknown kind ${resolution.kind}`)
+  }
+
+  return errors
+}
+
+function validateDeferredReasons(config: EmpiresEndgameConfig): string[] {
+  const errors: string[] = []
+  const check = (label: string, deferredReason: unknown) => {
+    if (deferredReason !== undefined && (
+      typeof deferredReason !== 'string'
+      || !deferredReason.trim()
+    )) {
+      errors.push(`${label} deferredReason must be a non-empty string`)
+    }
+  }
+
+  for (const card of config.cards) {
+    check(`card ${card.id} normal face`, card.normal.deferredReason)
+    check(`card ${card.id} inverted face`, card.inverted.deferredReason)
+  }
+  for (const gift of config.gifts.definitions) check(`gift ${gift.id}`, gift.deferredReason)
+  for (const resource of config.empire.resources) check(`resource ${resource.id}`, resource.deferredReason)
+  for (const building of config.empire.buildings) check(`building ${building.id}`, building.deferredReason)
+  for (const unit of config.empire.units ?? []) check(`unit ${unit.id}`, unit.deferredReason)
+  for (const technology of config.empire.technologies) {
+    check(`technology ${technology.id}`, technology.deferredReason)
+  }
+  for (const event of config.empire.events ?? []) {
+    check(`event ${event.id}`, event.deferredReason)
+    for (const choice of event.choices) {
+      check(`event ${event.id} choice ${choice.id}`, choice.deferredReason)
+    }
+  }
+  return errors
+}
+
+const EMPIRES_LIVE_FLAG_ALLOWLIST = new Set([
+  'famineProtectionTurns',
+  'famineYear',
+  'famineYearCounter',
+  'equippedRecruitCapacity',
+  'horseTheftDisabled',
+  'idleBuildingGoldBase',
+  'militaryArson',
+  'peasantProductivityPercent',
+  'productionBoostAssignmentLimit',
+  'productionBoostPercent',
+  'provisionEfficiencyPercent',
+  'recruitmentDisabled',
+  'relicsUnlocked',
+  'smithyWithoutIron',
+  'stableWithoutLivestock',
+  'starvationLossMultiplierPercent',
+  'surplusFoodPerGold',
+  'templarTransferLossPercent',
+  'treasuryGoldPerSavedMillion',
+  'unlimitedTavernRecruitment',
+])
+
+function validateLiveEffects(config: EmpiresEndgameConfig): string[] {
+  const errors: string[] = []
+  const dependencyFlagIds = new Set<string>()
+  const collectDependencies = (dependencies: readonly { kind: string, flagId?: string }[]) => {
+    for (const dependency of dependencies) {
+      if (dependency.kind === 'flag' && dependency.flagId) dependencyFlagIds.add(dependency.flagId)
+    }
+  }
+  for (const building of config.empire.buildings) {
+    if (building.deferredReason) continue
+    for (const level of building.levels) collectDependencies(level.dependencies)
+  }
+  for (const unit of config.empire.units ?? []) {
+    if (!unit.deferredReason) collectDependencies(unit.dependencies)
+  }
+  for (const technology of config.empire.technologies) {
+    if (!technology.deferredReason) collectDependencies(technology.prerequisites)
+  }
+  for (const event of config.empire.events) {
+    if (!event.deferredReason) collectDependencies(event.prerequisites ?? [])
+  }
+
+  const check = (
+    label: string,
+    effects: readonly { kind: string, flagId?: string }[],
+    deferredReason?: string,
+  ) => {
+    if (deferredReason) return
+    for (const effect of effects) {
+      if (effect.kind !== 'flag' || !effect.flagId) continue
+      if (
+        EMPIRES_LIVE_FLAG_ALLOWLIST.has(effect.flagId)
+        || dependencyFlagIds.has(effect.flagId)
+      ) continue
+      errors.push(
+        `${label} uses unsupported live flag ${effect.flagId}; add engine support or deferredReason`,
+      )
+    }
+  }
+
+  for (const card of config.cards) {
+    check(`card ${card.id} normal face`, card.normal.effects, card.normal.deferredReason)
+    check(`card ${card.id} inverted face`, card.inverted.effects, card.inverted.deferredReason)
+  }
+  for (const gift of config.gifts.definitions) {
+    check(`gift ${gift.id}`, gift.effects, gift.deferredReason)
+  }
+  for (const building of config.empire.buildings) {
+    for (const level of building.levels) {
+      check(`building ${building.id} level ${level.level}`, level.effects ?? [], building.deferredReason)
+    }
+  }
+  for (const technology of config.empire.technologies) {
+    check(`technology ${technology.id}`, technology.effects, technology.deferredReason)
+  }
+  for (const event of config.empire.events) {
+    for (const choice of event.choices) {
+      check(
+        `event ${event.id} choice ${choice.id}`,
+        choice.effects,
+        event.deferredReason || choice.deferredReason,
+      )
+    }
+  }
+  return errors
 }
 
 export function validateEmpiresConfig(value: unknown): asserts value is EmpiresEndgameConfig {
@@ -34,17 +263,34 @@ export function validateEmpiresConfig(value: unknown): asserts value is EmpiresE
     throw new Error('Отсутствует каталог божественных даров.')
   }
   if (!isRecord(value.empire)) throw new Error('Отсутствуют настройки имперской фазы.')
-  if (!Array.isArray(value.empire.cities) || value.empire.cities.length === 0) {
-    throw new Error('Нужен хотя бы один город.')
-  }
+  if (!Array.isArray(value.empire.cities)) throw new Error('Поле empire.cities должно быть массивом.')
   if (!isRecord(value.empire.map) || !Array.isArray(value.empire.map.regions) || value.empire.map.regions.length !== 5) {
     throw new Error('На карте должно быть ровно пять регионов.')
   }
-  if (!Array.isArray(value.empire.buildings) || !Array.isArray(value.empire.technologies)) {
-    throw new Error('Каталоги зданий и технологий должны быть массивами.')
+  if (
+    !Array.isArray(value.empire.buildings)
+    || !Array.isArray(value.empire.technologies)
+    || !Array.isArray(value.empire.events)
+  ) {
+    throw new Error('Каталоги зданий, технологий и событий должны быть массивами.')
+  }
+  if (value.empire.units !== undefined && !Array.isArray(value.empire.units)) {
+    throw new Error('Каталог войск empire.units должен быть массивом.')
+  }
+  if (!Array.isArray(value.empire.resources)) {
+    throw new Error('Каталог ресурсов empire.resources должен быть массивом.')
   }
 
-  const engineErrors = validateEmpiresEndgameConfig(value as unknown as EmpiresEndgameConfig)
+  const config = value as unknown as EmpiresEndgameConfig
+  const deferredErrors = validateDeferredReasons(config)
+  if (deferredErrors.length > 0) throw new Error(deferredErrors.join('\n'))
+  const liveEffectErrors = validateLiveEffects(config)
+  if (liveEffectErrors.length > 0) throw new Error(liveEffectErrors.join('\n'))
+  const resolutionErrors = validateGiftResolutions(config)
+  if (resolutionErrors.length > 0) throw new Error(resolutionErrors.join('\n'))
+  if (value.empire.cities.length === 0) throw new Error('Нужен хотя бы один город.')
+
+  const engineErrors = validateEmpiresEndgameConfig(config)
   if (engineErrors.length > 0) throw new Error(engineErrors.join('\n'))
 }
 

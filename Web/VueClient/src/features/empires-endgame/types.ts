@@ -32,6 +32,14 @@ export type EmpiresActor = typeof EMPIRES_ACTORS[number]
 export type EmpiresPhase = typeof EMPIRES_PHASES[number]
 export type EmpiresFacilityLock = typeof EMPIRES_FACILITY_LOCKS[number]
 export type EmpiresActionResult = { ok: true, message: string } | { ok: false, message: string }
+export type EmpiresBuildingSlotKind =
+  | 'farm'
+  | 'lumber'
+  | 'mine'
+  | 'smithy'
+  | 'barracks'
+  | 'unique'
+  | 'municipal'
 
 export interface EmpiresResourceAmount {
   resourceId: string
@@ -80,6 +88,7 @@ export interface EmpiresCardFace {
   description: string
   image?: string
   effects: EmpiresEffect[]
+  deferredReason?: string
 }
 
 export interface EmpiresCardDefinition {
@@ -154,7 +163,40 @@ export interface EmpiresGiftDefinition {
   minimumPerformance?: number
   maximumPerformance?: number
   effects: EmpiresEffect[]
+  resolution?: EmpiresGiftResolution
+  deferredReason?: string
 }
+
+export type EmpiresGiftResolution =
+  | {
+    kind: 'cityResources'
+  }
+  | {
+    kind: 'meteorCity'
+    damageLevels: number
+  }
+  | {
+    kind: 'destroyRegion'
+    regionId: string
+  }
+  | {
+    kind: 'buildingLevelBonus'
+    slots: EmpiresBuildingSlotKind[]
+    amount: number
+  }
+
+export type EmpiresPendingGiftResolution =
+  | {
+    kind: 'cityResources'
+    giftId: string
+    eligibleTargetIds: string[]
+  }
+  | {
+    kind: 'meteorCity'
+    giftId: string
+    damageLevels: number
+    eligibleTargetIds: string[]
+  }
 
 export interface EmpiresGiftConfig {
   choiceCount: number
@@ -197,8 +239,9 @@ export interface EmpiresBuildingDefinition {
   id: string
   name: string
   image?: string
-  slot: 'farm' | 'lumber' | 'mine' | 'smithy' | 'barracks' | 'unique' | 'municipal'
+  slot: EmpiresBuildingSlotKind
   levels: EmpiresBuildingLevelDefinition[]
+  deferredReason?: string
 }
 
 export interface EmpiresUnitDefinition {
@@ -211,6 +254,7 @@ export interface EmpiresUnitDefinition {
   timeCostDays: number
   resourceCosts: EmpiresResourceAmount[]
   dependencies: EmpiresDependency[]
+  deferredReason?: string
 }
 
 export interface EmpiresTechnologyDefinition {
@@ -227,6 +271,7 @@ export interface EmpiresTechnologyDefinition {
   resourceCosts: EmpiresResourceAmount[]
   prerequisites: EmpiresDependency[]
   effects: EmpiresEffect[]
+  deferredReason?: string
 }
 
 export interface EmpiresEventChoiceDefinition {
@@ -235,6 +280,7 @@ export interface EmpiresEventChoiceDefinition {
   description?: string
   resourceCosts?: EmpiresResourceAmount[]
   effects: EmpiresEffect[]
+  deferredReason?: string
 }
 
 export interface EmpiresEventDefinition {
@@ -246,6 +292,13 @@ export interface EmpiresEventDefinition {
   maximumCon?: number
   prerequisites?: EmpiresDependency[]
   choices: EmpiresEventChoiceDefinition[]
+  deferredReason?: string
+}
+
+export interface EmpiresResourceDefinition {
+  id: string
+  name: string
+  deferredReason?: string
 }
 
 export interface EmpiresInitialCity {
@@ -268,7 +321,7 @@ export interface EmpiresPoint {
 
 export interface EmpiresCitySlot {
   id: string
-  kind: 'farm' | 'lumber' | 'mine' | 'smithy' | 'barracks' | 'unique' | 'municipal'
+  kind: EmpiresBuildingSlotKind
   buildingId?: string
   position: EmpiresPoint
 }
@@ -331,7 +384,7 @@ export interface EmpiresEmpireConfig {
   eventChance: number
   defeatPopulationAtOrBelow: number
   lockProviderBuildingIds: Record<EmpiresFacilityLock, string>
-  resources: Array<{ id: string, name: string }>
+  resources: EmpiresResourceDefinition[]
   initialResources: Record<string, number>
   initialFlags?: Record<string, number>
   map: EmpiresMapConfig
@@ -416,6 +469,8 @@ export interface EmpiresCityState {
   operationalBuildingLevels: Record<string, number>
   buildingSlotAssignments: Record<string, string>
   recruitedUnits: Record<string, number>
+  resources: Record<string, number>
+  buildingInteractionLocks: Record<string, number>
   lockedFacilities: Partial<Record<EmpiresFacilityLock, string>>
   foodCommitted: number
   lastProduction: Record<string, number>
@@ -440,10 +495,19 @@ export interface EmpiresEmpireState {
   /** Temporary flag contribution from the cards held for the current empire phase. */
   cardFlagBonuses: Record<string, number>
   productionBoostAssignments: EmpiresProductionBoostAssignment[]
+  destroyedRegionIds: string[]
+  buildingLevelBonuses: Partial<Record<EmpiresBuildingSlotKind, number>>
+  researchUsage: Record<string, string>
+  giftResolutionTargets: Record<string, string>
 }
 
 export interface EmpiresEventState {
   eventId: string
+  /**
+   * A famine crisis selected before end-of-empire food settlement. Missing on
+   * legacy snapshots, which means the event was already reached post-settlement.
+   */
+  empireSettlementPending?: boolean
 }
 
 export interface EmpiresCampaignState {
@@ -459,6 +523,7 @@ export interface EmpiresCampaignState {
   upgradePoints: number
   performanceScore: number
   giftChoiceIds: string[]
+  pendingResolution: EmpiresPendingGiftResolution | null
   empire: EmpiresEmpireState
   event: EmpiresEventState | null
   outcomeReason: string | null

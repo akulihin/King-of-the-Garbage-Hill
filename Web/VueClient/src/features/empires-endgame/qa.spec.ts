@@ -34,11 +34,28 @@ describe('Empire\'s Endgame deterministic QA scenarios', () => {
     }
 
     expect(fixtures['divine-gift'].snapshot.phase).toBe('divineGift')
+    expect(fixtures['divine-gift'].snapshot.giftChoiceIds.every((giftId) =>
+      !config.gifts.definitions.find(gift => gift.id === giftId)?.deferredReason)).toBe(true)
+    expect(fixtures['target-city-resources'].snapshot).toMatchObject({
+      phase: 'divineGift',
+      pendingResolution: { kind: 'cityResources' },
+    })
+    expect(fixtures['target-meteor-city'].snapshot).toMatchObject({
+      phase: 'divineGift',
+      pendingResolution: { kind: 'meteorCity' },
+    })
     expect(fixtures['empire-council-with-points'].snapshot).toMatchObject({
       phase: 'empire',
       upgradePoints: 3,
     })
+    expect(fixtures['destroyed-west'].snapshot.empire.destroyedRegionIds).toContain('west')
+    expect(fixtures['relic-production-levels'].snapshot.empire.buildingLevelBonuses).toMatchObject({
+      farm: 1,
+      lumber: 1,
+    })
     expect(fixtures.event.snapshot).toMatchObject({ phase: 'event' })
+    expect(config.empire.events.find(event =>
+      event.id === fixtures.event.snapshot.event?.eventId)?.deferredReason).toBeUndefined()
     expect(fixtures.victory.snapshot).toMatchObject({ phase: 'victory' })
     expect(fixtures.defeat.snapshot).toMatchObject({ phase: 'defeat' })
   })
@@ -89,17 +106,83 @@ describe('Empire\'s Endgame deterministic QA scenarios', () => {
     const fixture = createEmpiresQaScenarios(config, { seed: 'qa-event-fixture' }).event
     const engine = new EmpiresEndgameEngine(config, fixture.snapshot)
     const event = config.empire.events.find(item => item.id === engine.state.event?.eventId)
+    const choice = event?.choices.find(item => !item.deferredReason)
 
-    expect(event?.choices.length).toBeGreaterThan(0)
-    expect(engine.chooseEvent(event?.choices[0].id ?? '')).toMatchObject({ ok: true })
+    expect(event?.deferredReason).toBeUndefined()
+    expect(choice).toBeDefined()
+    expect(engine.chooseEvent(choice?.id ?? '')).toMatchObject({ ok: true })
     expect(engine.state.phase).not.toBe('event')
+  })
+
+  it('keeps targeted city resources isolated to the selected city', () => {
+    const config = defaultConfig()
+    const fixture = createEmpiresQaScenarios(config, { seed: 'qa-city-resources' })['target-city-resources']
+    const engine = new EmpiresEndgameEngine(config, fixture.snapshot)
+    const pending = engine.state.pendingResolution
+    expect(pending?.kind).toBe('cityResources')
+    if (!pending || pending.kind !== 'cityResources') throw new Error('Missing city-resource resolution.')
+    const targetId = pending.eligibleTargetIds[0]
+    const otherId = pending.eligibleTargetIds.find(id => id !== targetId)
+    const targetBefore = structuredClone(engine.state.empire.cities.find(city => city.id === targetId)?.resources ?? {})
+    const otherBefore = structuredClone(engine.state.empire.cities.find(city => city.id === otherId)?.resources ?? {})
+
+    expect(engine.resolvePendingTarget(targetId)).toMatchObject({ ok: true })
+    expect(engine.state.phase).toBe('empire')
+    const targetAfter = engine.state.empire.cities.find(city => city.id === targetId)?.resources ?? {}
+    const otherAfter = engine.state.empire.cities.find(city => city.id === otherId)?.resources ?? {}
+    expect(targetAfter).not.toEqual(targetBefore)
+    expect(otherAfter).toEqual(otherBefore)
+  })
+
+  it('applies meteor damage only to the selected city', () => {
+    const config = defaultConfig()
+    const fixture = createEmpiresQaScenarios(config, { seed: 'qa-meteor' })['target-meteor-city']
+    const engine = new EmpiresEndgameEngine(config, fixture.snapshot)
+    const pending = engine.state.pendingResolution
+    expect(pending?.kind).toBe('meteorCity')
+    if (!pending || pending.kind !== 'meteorCity') throw new Error('Missing meteor resolution.')
+    const targetId = pending.eligibleTargetIds.find((id) => {
+      const city = engine.state.empire.cities.find(item => item.id === id)
+      return city && Object.entries(city.buildingLevels).some(([buildingId, level]) => (
+        level > 0
+        && !config.empire.buildings.find(building => building.id === buildingId)?.deferredReason
+      ))
+    }) as string
+    const otherId = pending.eligibleTargetIds.find(id => id !== targetId) as string
+    const targetBefore = structuredClone(engine.state.empire.cities.find(city => city.id === targetId)?.buildingLevels ?? {})
+    const otherBefore = structuredClone(engine.state.empire.cities.find(city => city.id === otherId)?.buildingLevels ?? {})
+
+    expect(engine.resolvePendingTarget(targetId)).toMatchObject({ ok: true })
+    const targetAfter = engine.state.empire.cities.find(city => city.id === targetId)?.buildingLevels ?? {}
+    const otherAfter = engine.state.empire.cities.find(city => city.id === otherId)?.buildingLevels ?? {}
+    expect(Object.keys(targetBefore).some(id => targetAfter[id] < targetBefore[id])).toBe(true)
+    expect(otherAfter).toEqual(otherBefore)
+  })
+
+  it('restores accessibility and effective building levels in named world fixtures', () => {
+    const config = defaultConfig()
+    const fixtures = createEmpiresQaScenarios(config)
+    const destroyed = new EmpiresEndgameEngine(config, fixtures['destroyed-west'].snapshot)
+    const relic = new EmpiresEndgameEngine(config, fixtures['relic-production-levels'].snapshot)
+    const city = relic.state.empire.cities.find(item => (item.buildingLevels['building-farm'] ?? 0) > 0)
+    expect(destroyed.isRegionAccessible('west')).toBe(false)
+    expect(destroyed.isCityAccessible('city-west-green-bastion')).toBe(false)
+    expect(city).toBeDefined()
+    expect(relic.effectiveBuildingLevel(city?.id ?? '', 'building-farm')).toBe(
+      (city?.buildingLevels['building-farm'] ?? 0) + 1,
+    )
+    expect(relic.effectiveBuildingMaxLevel('building-farm')).toBeGreaterThan(
+      Math.max(...config.empire.buildings
+        .find(building => building.id === 'building-farm')!
+        .levels.map(level => level.level)),
+    )
   })
 })
 
 describe('Empire\'s Endgame traced seeded autoplay', () => {
   const seeds = ['qa-seed-1', 'qa-seed-2', 1701]
 
-  it.each(seeds)('crosses cards, gifts, empire and events without a stalled player turn for seed %s', (seed) => {
+  it.each(seeds)('crosses the implemented campaign phases without a stalled player turn for seed %s', (seed) => {
     const config = defaultConfig()
     config.empire.eventChance = 1
     const result = runEmpiresQaAutoplay(config, { seed, maxSteps: 10_000 })
@@ -110,8 +193,7 @@ describe('Empire\'s Endgame traced seeded autoplay', () => {
     expect(result.phaseVisits.cards).toBeGreaterThan(0)
     expect(result.phaseVisits.divineGift).toBeGreaterThan(0)
     expect(result.phaseVisits.empire).toBeGreaterThan(0)
-    expect(result.phaseVisits.event).toBeGreaterThan(0)
-    expect(result.resolvedEventIds.length).toBeGreaterThan(0)
+    if (result.phaseVisits.event > 0) expect(result.resolvedEventIds.length).toBeGreaterThan(0)
     expect(result.trace.every(entry => entry.result.ok)).toBe(true)
     expect(['victory', 'defeat']).toContain(result.snapshot.phase)
   })

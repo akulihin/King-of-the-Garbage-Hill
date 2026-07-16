@@ -677,6 +677,12 @@ public class CheckIfReady : IServiceSingleton
                 }
         }
 
+        var winningGordon = game.PlayersList.FirstOrDefault(player =>
+            player.GameCharacter.Name == GordonFreeman.CharacterName
+            && game.WinnerPlayerIds.Contains(player.GetPlayerId()));
+        if (winningGordon != null && GordonFreeman.WonThanksToHalfLife(game, winningGordon))
+            game.AddGlobalLogs(GordonFreeman.BuildWinningReleaseLog(winningGordon));
+
         //todo: need to redo this system    
         //_finishedGameLog.CreateNewLog(game);
 

@@ -32,6 +32,7 @@ interface TechnologyNodeView {
   darkSide?: string
   blockedReason?: string
   image?: string
+  deferredReason?: string
 }
 
 const props = withDefaults(defineProps<{
@@ -336,6 +337,7 @@ function hideBrokenImage(event: Event) {
                 researched: node.researched,
                 available: node.available,
                 selected: node.id === selectedId,
+                deferred: Boolean(node.deferredReason),
                 'link-source': node.id === linkSourceId,
               }"
               :style="{
@@ -345,7 +347,7 @@ function hideBrokenImage(event: Event) {
               }"
               :draggable="editable"
               :aria-pressed="node.id === selectedId"
-              :aria-label="`${node.name}. ${node.researched ? 'Изучено' : node.available ? 'Доступно' : 'Заблокировано'}. Координаты ${node.x}, ${node.y}`"
+              :aria-label="`${node.name}. ${node.deferredReason ? 'Будущая механика' : node.researched ? 'Изучено' : node.available ? 'Доступно' : 'Заблокировано'}. Координаты ${node.x}, ${node.y}`"
               type="button"
               @dragstart="beginDrag($event, node.id)"
               @dragend="dragOffset = { x: 0, y: 0 }"
@@ -358,7 +360,7 @@ function hideBrokenImage(event: Event) {
                 <LockKeyhole v-else :size="15" />
               </span>
               <strong>{{ node.name }}</strong>
-              <small>{{ node.timeCost }}д · {{ node.costKnowledge }} зн.</small>
+              <small>{{ node.deferredReason ? 'будущая механика' : `${node.timeCost}д · ${node.costKnowledge} зн.` }}</small>
               <Move v-if="editable" class="move-mark" :size="12" />
             </button>
 
@@ -377,6 +379,10 @@ function hideBrokenImage(event: Event) {
           <span class="detail-branch" :style="{ color: colorFor(selected.branch) }">{{ selected.branch }}</span>
           <h3>{{ selected.name }}</h3>
           <p>{{ selected.description }}</p>
+          <div v-if="selected.deferredReason" class="deferred-reason" role="status">
+            <LockKeyhole :size="14" />
+            <span><strong>Будущая механика.</strong> {{ selected.deferredReason }}</span>
+          </div>
           <dl>
             <div><dt>Время</dt><dd>{{ selected.timeCost }} дней</dd></div>
             <div><dt>Знания</dt><dd>{{ selected.costKnowledge }}</dd></div>
@@ -394,7 +400,7 @@ function hideBrokenImage(event: Event) {
             <strong>Тёмная сторона</strong>
             <span>{{ selected.darkSide }}</span>
           </div>
-          <div v-if="!editable && !selected.researched && selected.blockedReason" class="blocked-reason" role="status">
+          <div v-if="!editable && !selected.researched && !selected.deferredReason && selected.blockedReason" class="blocked-reason" role="status">
             <LockKeyhole :size="14" />
             <span>{{ selected.blockedReason }}</span>
           </div>
@@ -405,7 +411,7 @@ function hideBrokenImage(event: Event) {
             :disabled="!selected.available || knowledge < selected.costKnowledge || gold < selected.costGold || days < selected.timeCost"
             @click="emit('research', selected.id)"
           >
-            <FlaskConical :size="16" /> Изучить
+            <FlaskConical :size="16" /> {{ selected.deferredReason ? 'Будущая механика' : 'Изучить' }}
           </button>
           <div v-else-if="selected.researched" class="researched-label"><Check :size="15" /> Изучено</div>
         </template>
@@ -452,6 +458,8 @@ function hideBrokenImage(event: Event) {
 .tech-node:hover,.tech-node.selected { z-index: 3; border-color: var(--node-accent); color: #f4ead5; transform: translate(-50%, -50%) scale(1.04); }
 .tech-node.available { color: #eee4cf; box-shadow: 0 0 0 1px color-mix(in srgb, var(--node-accent) 34%, transparent), 0 8px 22px rgba(0,0,0,.3); }
 .tech-node.researched { border-color: var(--node-accent); color: #fff1cf; background: linear-gradient(150deg, color-mix(in srgb, var(--node-accent) 20%, #24251d), #171a15); }
+.tech-node.deferred { border-style: dashed; color: rgba(229, 191, 139, .68); filter: saturate(.55); }
+.tech-node.deferred small { color: #d9aa73; opacity: 1; text-transform: uppercase; }
 .tech-node.link-source { outline: 2px solid #f1cd74; outline-offset: 3px; }
 .editable .tech-node { cursor: grab; }
 .editable .tech-node:active { cursor: grabbing; }
@@ -475,6 +483,9 @@ function hideBrokenImage(event: Event) {
 .configured-costs > span,.requires > span { width: 100%; color: rgba(238,228,207,.4); font: 700 .53rem/1 var(--font-mono, monospace); text-transform: uppercase; }
 .configured-costs b,.requires b { padding: 4px 6px; border-radius: 4px; color: #d8c79f; background: rgba(198,168,107,.08); font-size: .57rem; }
 .dark-side { display: grid; gap: 4px; padding: 10px; border: 1px solid rgba(171,93,104,.24); border-radius: 7px; color: #d69da5; background: rgba(116,49,59,.09); font-size: .65rem; line-height: 1.4; }
+.deferred-reason { display: flex; width: 100%; align-items: flex-start; gap: 7px; margin-bottom: 12px; padding: 9px; border: 1px solid rgba(190, 132, 78, .3); border-radius: 7px; color: #e0b984; background: rgba(126, 75, 34, .11); font-size: .64rem; line-height: 1.4; }
+.deferred-reason svg { flex: none; margin-top: 1px; }
+.deferred-reason strong { color: #f0cca0; }
 .blocked-reason { display: flex; width: 100%; align-items: flex-start; gap: 7px; margin-top: 10px; padding: 9px; border: 1px solid rgba(187, 102, 92, .26); border-radius: 7px; color: #d8a39c; background: rgba(117, 52, 45, .1); font-size: .64rem; line-height: 1.4; }
 .blocked-reason svg { flex: none; margin-top: 1px; }
 .research-button { display: inline-flex; width: 100%; min-height: 38px; align-items: center; justify-content: center; gap: 7px; margin-top: auto; border: 1px solid #c6a86b; border-radius: 7px; color: #241d11; background: #c6a86b; cursor: pointer; font-weight: 900; }

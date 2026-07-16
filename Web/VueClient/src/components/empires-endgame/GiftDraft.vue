@@ -4,6 +4,7 @@ import {
   Check,
   Crown,
   Gift,
+  LockKeyhole,
   Scale,
   Sparkles,
   Star,
@@ -19,6 +20,7 @@ interface GiftChoiceView {
   imageUrl?: string
   effects: string[]
   disabled?: boolean
+  disabledReason?: string
 }
 
 const props = withDefaults(defineProps<{
@@ -89,7 +91,7 @@ function hideBrokenImage(event: Event) {
         ]"
         :disabled="disabled || choice.disabled"
         :aria-pressed="choice.id === selectedId"
-        :aria-label="`Выбрать дар «${choice.name}». ${choice.description}`"
+        :aria-label="`${choice.disabled ? 'Недоступный дар' : 'Выбрать дар'} «${choice.name}». ${choice.description}${choice.disabledReason ? ` ${choice.disabledReason}` : ''}`"
         @click="choose(choice)"
       >
         <span class="card-number">0{{ index + 1 }}</span>
@@ -114,15 +116,19 @@ function hideBrokenImage(event: Event) {
         </span>
 
         <span class="effect-list">
+          <span v-if="choice.disabledReason" class="deferred-effect">
+            <LockKeyhole :size="12" aria-hidden="true" />
+            {{ choice.disabledReason }}
+          </span>
           <span v-for="effect in choice.effects" :key="effect">
             <Sparkles :size="12" aria-hidden="true" />
             {{ effect }}
           </span>
-          <span v-if="!choice.effects.length" class="empty-effect">Эффект скрыт волей Бога</span>
+          <span v-if="!choice.effects.length && !choice.disabledReason" class="empty-effect">Эффект скрыт волей Бога</span>
         </span>
 
         <span class="choose-label">
-          {{ choice.disabled ? 'Недоступно' : choice.id === selectedId ? 'Дар назначен' : 'Принять дар' }}
+          {{ choice.disabledReason ? 'Будущий режим' : choice.disabled ? 'Недоступно' : choice.id === selectedId ? 'Дар назначен' : 'Принять дар' }}
         </span>
       </button>
 
@@ -202,6 +208,7 @@ function hideBrokenImage(event: Event) {
 .effect-list > span { display: flex; align-items: flex-start; gap: 5px; padding: 7px 8px; border-left: 2px solid color-mix(in srgb, var(--rarity) 72%, #76766b); border-radius: 0 6px 6px 0; color: #d8ccb5; background: color-mix(in srgb, var(--rarity) 7%, transparent); font-size: 0.61rem; line-height: 1.35; }
 .effect-list svg { flex: 0 0 auto; margin-top: 1px; color: var(--rarity); }
 .effect-list .empty-effect { border-left-color: rgba(224, 201, 151, 0.16); color: rgba(240, 230, 210, 0.34); font-style: italic; }
+.effect-list .deferred-effect { border-left-color: #b88351; color: #e4bf8e; background: rgba(140, 82, 39, .12); }
 .choose-label { display: grid; min-height: 40px; place-items: center; border-top: 1px solid color-mix(in srgb, var(--rarity) 24%, transparent); color: color-mix(in srgb, var(--rarity) 62%, white); background: color-mix(in srgb, var(--rarity) 8%, #12140f); font: 800 0.62rem/1 var(--font-mono, monospace); letter-spacing: 0.08em; text-transform: uppercase; }
 .empty-card { min-height: 410px; place-content: center; justify-items: center; gap: 10px; border-style: dashed; color: rgba(240, 230, 210, 0.28); cursor: default; }
 .empty-card strong { font-size: 0.67rem; font-weight: 600; }

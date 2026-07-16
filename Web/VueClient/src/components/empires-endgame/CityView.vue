@@ -36,6 +36,7 @@ interface CityImprovementView {
   locked?: boolean
   prerequisites?: string[]
   imageUrl?: string
+  deferredReason?: string
 }
 
 interface CityBuildingView {
@@ -46,6 +47,8 @@ interface CityBuildingView {
   description?: string
   level: number
   maxLevel?: number
+  baseLevel?: number
+  baseMaxLevel?: number
   workforce?: number
   requiredWorkforce?: number
   output?: string
@@ -60,6 +63,7 @@ interface CityBuildingView {
   boostEligible?: boolean
   boosted?: boolean
   boostPercent?: number
+  deferredReason?: string
 }
 
 interface MunicipalityView {
@@ -79,6 +83,7 @@ interface MunicipalityView {
   prerequisites?: string[]
   improvements?: CityImprovementView[]
   imageUrl?: string
+  deferredReason?: string
 }
 
 interface CitySlotView {
@@ -108,8 +113,10 @@ interface RecruitableUnitView {
   foodUpkeep: number
   populationCost: number
   timeCost: number
+  maxQuantity?: number
   disabled?: boolean
   disabledReason?: string
+  deferredReason?: string
 }
 
 interface EmpireCityView {
@@ -123,6 +130,14 @@ interface EmpireCityView {
   foodConsumed: number
   armyFoodConsumed?: number
   loyalty?: number
+  accessible?: boolean
+  disabledReason?: string
+  resourceStockpiles?: Array<{
+    id: string
+    name: string
+    value: number
+    deferredReason?: string
+  }>
   imageUrl?: string
   municipality?: MunicipalityView
   slots?: CitySlotView[]
@@ -326,7 +341,9 @@ function placeBuilding(option: CityPlacementOption) {
 }
 
 function chooseCity(event: Event) {
-  emit('selectCity', (event.target as HTMLSelectElement).value)
+  const cityId = (event.target as HTMLSelectElement).value
+  if (props.cities.find(city => city.id === cityId)?.accessible === false && !props.editorMode) return
+  emit('selectCity', cityId)
 }
 
 function hideBrokenImage(event: Event) {
@@ -340,8 +357,10 @@ function requestUpgrade(improvementId: string | null = null) {
 
 function maxRecruitQuantity(unit: RecruitableUnitView) {
   if (!activeCity.value) return 1
-  if (unit.populationCost <= 0) return 99
-  return Math.min(99, Math.max(0, Math.floor(activeCity.value.militaryPopulation / unit.populationCost)))
+  const populationLimit = unit.populationCost <= 0
+    ? 99
+    : Math.floor(activeCity.value.militaryPopulation / unit.populationCost)
+  return Math.min(99, Math.max(0, populationLimit), unit.maxQuantity ?? 99)
 }
 
 function recruitQuantity(unit: RecruitableUnitView) {
@@ -362,7 +381,12 @@ function toggleBoost() {
 </script>
 
 <template>
-  <section v-if="activeCity" class="city-view" :class="{ 'editor-mode': editorMode }">
+  <section
+    v-if="activeCity"
+    class="city-view"
+    :class="{ 'editor-mode': editorMode, inaccessible: activeCity.accessible === false }"
+    :data-testid="`city-view-${activeCity.id}`"
+  >
     <header class="city-header">
       <div class="city-title-block">
         <span class="eyebrow">{{ editorMode ? 'Конструктор города' : activeCity.regionName || 'Имперский город' }}</span>
@@ -371,8 +395,13 @@ function toggleBoost() {
           <label>
             <span class="sr-only">Выберите город</span>
             <select :value="activeCity.id" @change="chooseCity">
-              <option v-for="city in cities" :key="city.id" :value="city.id">
-                {{ city.name }}{{ city.regionName ? ` · ${city.regionName}` : '' }}
+              <option
+                v-for="city in cities"
+                :key="city.id"
+                :value="city.id"
+                :disabled="!editorMode && city.accessible === false"
+              >
+                {{ city.name }}{{ city.regionName ? ` · ${city.regionName}` : '' }}{{ city.accessible === false ? ' — НЕДОСТУПЕН' : '' }}
               </option>
             </select>
           </label>
@@ -381,9 +410,11 @@ function toggleBoost() {
       </div>
 
       <div v-if="editorMode" class="editor-flag"><Settings2 :size="14" /> Режим редактора</div>
+      <div v-else-if="activeCity.accessible === false" class="lost-flag"><AlertTriangle :size="14" /> Город недоступен</div>
     </header>
 
-    <div class="economy-strip" aria-label="Экономика города">
+    <template v-if="activeCity.accessible !== false || editorMode">
+      <div class="economy-strip" aria-label="Экономика города">
       <div class="economy-stat gold-stat">
         <Coins :size="18" />
         <span>Золото империи</span>
@@ -411,9 +442,25 @@ function toggleBoost() {
           <template v-if="activeCity.armyFoodConsumed !== undefined"> · армия {{ formatNumber(activeCity.armyFoodConsumed) }}</template>
         </small>
       </div>
-    </div>
+      </div>
 
-    <div class="city-layout">
+      <div v-if="activeCity.resourceStockpiles?.length" class="city-resources" aria-label="Запасы выбранного города">
+        <strong>Запасы города</strong>
+        <span
+          v-for="resource in activeCity.resourceStockpiles"
+          :key="resource.id"
+          :data-testid="`city-resource-${resource.id}`"
+          :data-city-id="activeCity.id"
+        >
+          <small>
+            {{ resource.name }}
+            <em v-if="resource.deferredReason" :title="resource.deferredReason">будущее</em>
+          </small>
+          <b>{{ formatNumber(resource.value) }}</b>
+        </span>
+      </div>
+
+      <div class="city-layout">
       <aside class="improvement-drawer" aria-live="polite">
         <template v-if="activePlacementSlot">
           <div class="drawer-visual placement-visual">
@@ -473,10 +520,22 @@ function toggleBoost() {
               <span>Улучшения здания</span>
               <h3>{{ selectedFacility.name }}</h3>
             </div>
-            <b>{{ selectedFacility.level }}<small>/{{ selectedFacility.maxLevel ?? '∞' }}</small></b>
+            <b :data-testid="`building-level-${selectedFacility.id}`">{{ selectedFacility.level }}<small>/{{ selectedFacility.maxLevel ?? '∞' }}</small></b>
           </div>
 
           <p v-if="selectedFacility.description" class="drawer-description">{{ selectedFacility.description }}</p>
+          <p v-if="selectedFacility.deferredReason" class="deferred-note" role="status">
+            <LockKeyhole :size="13" />
+            <span><strong>Будущая механика.</strong> {{ selectedFacility.deferredReason }}</span>
+          </p>
+          <p
+            v-if="selectedFacility.baseLevel !== undefined && (selectedFacility.level !== selectedFacility.baseLevel || selectedFacility.maxLevel !== selectedFacility.baseMaxLevel)"
+            class="effective-level-note"
+          >
+            <Sparkles :size="13" />
+            Реликвия: базовый уровень {{ selectedFacility.baseLevel }}/{{ selectedFacility.baseMaxLevel ?? '∞' }},
+            эффективный {{ selectedFacility.level }}/{{ selectedFacility.maxLevel ?? '∞' }}.
+          </p>
 
           <div class="state-row">
             <span v-if="selectedFacility.locked" class="state locked"><LockKeyhole :size="13" /> Закрыто</span>
@@ -515,11 +574,11 @@ function toggleBoost() {
             v-else
             class="primary-action"
             type="button"
-            :disabled="selectedFacility.locked || selectedFacility.busy || (selectedFacility.maxLevel !== undefined && selectedFacility.level >= selectedFacility.maxLevel)"
+            :disabled="Boolean(selectedFacility.deferredReason) || selectedFacility.locked || selectedFacility.busy || (selectedFacility.maxLevel !== undefined && selectedFacility.level >= selectedFacility.maxLevel)"
             @click="requestUpgrade()"
           >
             <Hammer :size="15" />
-            {{ selectedFacility.maxLevel !== undefined && selectedFacility.level >= selectedFacility.maxLevel ? 'Максимальный уровень' : 'Улучшить уровень' }}
+            {{ selectedFacility.deferredReason ? 'Будущая механика' : selectedFacility.maxLevel !== undefined && selectedFacility.level >= selectedFacility.maxLevel ? 'Максимальный уровень' : 'Улучшить уровень' }}
           </button>
 
           <div
@@ -548,7 +607,7 @@ function toggleBoost() {
             <p v-if="activeCity.armyFoodConsumed !== undefined" class="army-upkeep">
               <Wheat :size="13" /> Армия потребляет {{ formatNumber(activeCity.armyFoodConsumed) }} еды за фазу
             </p>
-            <article v-for="unit in selectedRecruitableUnits" :key="unit.id" class="recruit-unit" :class="{ disabled: unit.disabled }">
+            <article v-for="unit in selectedRecruitableUnits" :key="unit.id" class="recruit-unit" :class="{ disabled: unit.disabled, deferred: Boolean(unit.deferredReason) }">
               <span class="unit-image">
                 <img v-if="unit.imageUrl" :src="unit.imageUrl" alt="" @error="hideBrokenImage" />
                 <Shield v-else :size="18" aria-hidden="true" />
@@ -556,6 +615,7 @@ function toggleBoost() {
               <span class="unit-copy">
                 <strong>{{ unit.name }} <em>× {{ formatNumber(unit.count) }}</em></strong>
                 <small v-if="unit.description">{{ unit.description }}</small>
+                <span v-if="unit.deferredReason" class="deferred-inline"><LockKeyhole :size="11" /> {{ unit.deferredReason }}</span>
                 <span class="unit-costs">
                   <i><Wheat :size="11" /> {{ formatNumber(unit.foodUpkeep) }}</i>
                   <i><Users :size="11" /> {{ formatNumber(unit.populationCost) }}</i>
@@ -594,7 +654,7 @@ function toggleBoost() {
               v-for="improvement in selectedFacility.improvements"
               :key="improvement.id"
               type="button"
-              :disabled="!editorMode && (improvement.locked || improvement.busy || improvement.completed)"
+              :disabled="!editorMode && (Boolean(improvement.deferredReason) || improvement.locked || improvement.busy || improvement.completed)"
               :class="{ completed: improvement.completed, locked: improvement.locked }"
               @click="editorMode ? emit('editBuilding', activeCity.id, selectedFacility.id) : requestUpgrade(improvement.id)"
             >
@@ -607,6 +667,7 @@ function toggleBoost() {
               <span class="improvement-copy">
                 <strong>{{ improvement.name }}</strong>
                 <small v-if="improvement.description">{{ improvement.description }}</small>
+                <em v-if="improvement.deferredReason" class="deferred-inline"><LockKeyhole :size="11" /> {{ improvement.deferredReason }}</em>
                 <em v-if="improvement.prerequisites?.length">{{ improvement.prerequisites.join(' · ') }}</em>
               </span>
               <span class="improvement-cost">
@@ -636,12 +697,14 @@ function toggleBoost() {
           :key="slot.id"
           type="button"
           class="building-slot"
+          :data-testid="slot.building ? `city-building-${slot.building.id}` : undefined"
           :class="[
             `slot-${slot.kind}`,
             {
               selected: slot.building?.id === selectedBuilding?.id,
               locked: slot.building?.locked,
               busy: slot.building?.busy,
+              deferred: Boolean(slot.building?.deferredReason),
               empty: !slot.building,
             },
           ]"
@@ -655,10 +718,11 @@ function toggleBoost() {
           <span class="slot-copy">
             <small>{{ slot.label }}</small>
             <strong>{{ slot.building?.name || (editorMode ? 'Добавить здание' : 'Пустой слот') }}</strong>
-            <em v-if="slot.building">Ур. {{ slot.building.level }} · {{ buildingOutput(slot.building) }}</em>
+            <em v-if="slot.building" :data-testid="`city-building-level-${slot.building.id}`">Ур. {{ slot.building.level }}/{{ slot.building.maxLevel ?? '∞' }} · {{ buildingOutput(slot.building) }}</em>
             <em v-else>{{ slot.hint }}</em>
           </span>
-          <span v-if="slot.building?.locked" class="slot-state"><LockKeyhole :size="12" /> Закрыто</span>
+          <span v-if="slot.building?.deferredReason" class="slot-state"><LockKeyhole :size="12" /> Будущее</span>
+          <span v-else-if="slot.building?.locked" class="slot-state"><LockKeyhole :size="12" /> Закрыто</span>
           <span v-else-if="slot.building?.busy" class="slot-state"><Clock3 :size="12" /> Занято</span>
           <span v-else-if="editorMode" class="slot-state"><Settings2 :size="12" /> Правка</span>
         </button>
@@ -670,6 +734,7 @@ function toggleBoost() {
             selected: Boolean(selectedMunicipality),
             locked: activeCity.municipality?.locked,
             busy: activeCity.municipality?.busy,
+            deferred: Boolean(activeCity.municipality?.deferredReason),
             empty: !activeCity.municipality,
           }"
           :aria-pressed="Boolean(selectedMunicipality)"
@@ -683,18 +748,27 @@ function toggleBoost() {
           <strong>{{ activeCity.municipality?.name || (editorMode ? 'Добавить управление' : 'Пустой муниципальный слот') }}</strong>
           <em v-if="activeCity.municipality">Ур. {{ activeCity.municipality.level ?? 0 }}</em>
           <em v-else>Выберите городской проект</em>
-          <span v-if="activeCity.municipality?.locked"><LockKeyhole :size="12" /> Закрыто</span>
+          <span v-if="activeCity.municipality?.deferredReason"><LockKeyhole :size="12" /> Будущая механика</span>
+          <span v-else-if="activeCity.municipality?.locked"><LockKeyhole :size="12" /> Закрыто</span>
           <span v-else-if="activeCity.municipality?.busy"><Clock3 :size="12" /> Проект в работе</span>
           <span v-else-if="activeCity.municipality"><Landmark :size="12" /> Открыть улучшения</span>
           <span v-else-if="editorMode"><Settings2 :size="12" /> Настроить слот</span>
           <span v-else><Hammer :size="12" /> Построить управление</span>
         </button>
       </div>
-    </div>
+      </div>
 
-    <div v-if="foodBalance < 0" class="food-warning" role="status">
-      <AlertTriangle :size="17" />
-      <span><strong>Городу не хватает еды.</strong> При сохранении дефицита население начнёт сокращаться.</span>
+      <div v-if="foodBalance < 0" class="food-warning" role="status">
+        <AlertTriangle :size="17" />
+        <span><strong>Городу не хватает еды.</strong> При сохранении дефицита население начнёт сокращаться.</span>
+      </div>
+    </template>
+
+    <div v-else class="city-inaccessible" role="status" data-testid="city-inaccessible">
+      <AlertTriangle :size="38" />
+      <h2>Город потерян</h2>
+      <p>{{ activeCity.disabledReason || 'Империя больше не может управлять этим городом и использовать его здания или ресурсы.' }}</p>
+      <span>Выберите доступный город в списке выше.</span>
     </div>
   </section>
 
@@ -752,6 +826,7 @@ function toggleBoost() {
 .city-selector-row option { color: #eee5d1; background: #171a14; font: 600 0.95rem/1.2 sans-serif; }
 .city-title-block p { margin: 5px 0 0 30px; color: rgba(238, 229, 209, 0.58); font-size: 0.76rem; }
 .editor-flag { display: inline-flex; align-items: center; gap: 6px; padding: 7px 10px; border: 1px solid rgba(109, 181, 179, 0.34); border-radius: 999px; color: #9dd8d5; background: rgba(57, 135, 135, 0.1); font: 800 0.62rem/1 var(--font-mono, monospace); text-transform: uppercase; }
+.lost-flag { display: inline-flex; align-items: center; gap: 6px; padding: 7px 10px; border: 1px solid rgba(192, 92, 76, 0.38); border-radius: 999px; color: #e2a195; background: rgba(133, 48, 38, 0.12); font: 800 0.62rem/1 var(--font-mono, monospace); text-transform: uppercase; }
 
 .economy-strip { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-bottom: 1px solid var(--city-line); background: #151812; }
 .economy-stat {
@@ -777,6 +852,12 @@ function toggleBoost() {
 .population-stat:hover { background: rgba(198, 168, 107, 0.08); }
 .population-stat:focus-visible { position: relative; z-index: 1; outline: 2px solid var(--city-gold); outline-offset: -3px; }
 .food-stat.negative strong, .food-stat.negative > svg { color: #df7867; }
+.city-resources { display: flex; min-height: 50px; align-items: stretch; gap: 1px; overflow-x: auto; border-bottom: 1px solid var(--city-line); background: #11140f; }
+.city-resources > strong { display: grid; min-width: 118px; place-items: center; padding: 9px 12px; color: #c6a869; font: 800 0.57rem/1 var(--font-mono, monospace); letter-spacing: 0.08em; text-transform: uppercase; }
+.city-resources > span { display: grid; min-width: 100px; align-content: center; gap: 4px; padding: 8px 12px; border-left: 1px solid var(--city-line); }
+.city-resources small { color: rgba(238, 229, 209, 0.5); font-size: 0.57rem; }
+.city-resources small em { margin-left: 4px; color: #d1a269; font-size: .48rem; font-style: normal; text-transform: uppercase; }
+.city-resources b { color: #eee1c6; font: 800 0.77rem/1 var(--font-mono, monospace); }
 
 .city-layout { display: grid; min-height: 640px; grid-template-columns: 310px minmax(0, 1fr); }
 .improvement-drawer { position: relative; z-index: 3; overflow: auto; max-height: 720px; padding: 17px; border-right: 1px solid var(--city-line); background: linear-gradient(180deg, #1b1d17, #131510); box-shadow: 12px 0 38px rgba(0, 0, 0, 0.22); }
@@ -789,6 +870,11 @@ function toggleBoost() {
 .drawer-heading > b { display: flex; align-items: baseline; color: var(--city-gold-bright); font: 800 1.7rem/1 var(--font-mono, monospace); }
 .drawer-heading > b small { color: rgba(238, 229, 209, 0.38); font-size: 0.65rem; }
 .drawer-description { margin: 10px 0; color: rgba(238, 229, 209, 0.62); font-size: 0.73rem; line-height: 1.45; }
+.deferred-note { display: flex; align-items: flex-start; gap: 6px; margin: 9px 0; padding: 8px 9px; border: 1px solid rgba(190, 132, 78, .3); border-radius: 7px; color: #e0b984; background: rgba(126, 75, 34, .11); font-size: .61rem; line-height: 1.4; }
+.deferred-note svg { flex: 0 0 auto; margin-top: 1px; }
+.deferred-note strong { color: #f0cca0; }
+.effective-level-note { display: flex; align-items: flex-start; gap: 6px; margin: 9px 0; padding: 8px 9px; border: 1px solid rgba(117, 170, 105, 0.25); border-radius: 7px; color: #b8d7a8; background: rgba(77, 126, 68, 0.08); font-size: 0.61rem; line-height: 1.4; }
+.effective-level-note svg { flex: 0 0 auto; margin-top: 1px; }
 .state-row { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; margin: 11px 0; }
 .state { display: inline-flex; align-items: center; gap: 4px; padding: 5px 7px; border-radius: 999px; font: 800 0.56rem/1 var(--font-mono, monospace); text-transform: uppercase; }
 .state.ready { color: #a6d5a3; background: rgba(89, 157, 94, 0.13); }
@@ -831,12 +917,15 @@ function toggleBoost() {
 .army-upkeep { display: flex; align-items: center; gap: 5px; margin: 0 0 8px; padding: 7px 8px; border-radius: 7px; color: #d8bf7e; background: rgba(201, 170, 103, 0.07); font-size: 0.59rem; }
 .recruit-unit { display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 8px; margin-top: 7px; padding: 8px; border: 1px solid rgba(226, 204, 158, 0.12); border-radius: 8px; background: rgba(255, 255, 255, 0.025); }
 .recruit-unit.disabled { opacity: 0.58; }
+.recruit-unit.deferred { border-style: dashed; }
 .unit-image { display: grid; width: 34px; height: 34px; place-items: center; overflow: hidden; border-radius: 7px; color: #d2b975; background: rgba(201, 170, 103, 0.1); }
 .unit-image img { width: 100%; height: 100%; object-fit: cover; }
 .unit-copy { display: grid; min-width: 0; gap: 3px; }
 .unit-copy > strong { color: #eee2c9; font-size: 0.67rem; }
 .unit-copy > strong em { color: #cdb87f; font: 700 0.54rem/1 var(--font-mono, monospace); font-style: normal; }
 .unit-copy > small { color: rgba(238, 229, 209, 0.5); font-size: 0.57rem; line-height: 1.35; }
+.deferred-inline { display: inline-flex; align-items: flex-start; gap: 4px; color: #d6a66f; font-size: .54rem; font-style: normal; line-height: 1.35; }
+.deferred-inline svg { flex: none; margin-top: 1px; }
 .unit-costs { display: flex; flex-wrap: wrap; gap: 5px 8px; }
 .unit-costs i { display: inline-flex; align-items: center; gap: 3px; color: #cfc09e; font: 700 0.52rem/1 var(--font-mono, monospace); font-style: normal; }
 .unit-copy .disabled-reason { color: #d58e81; font-size: 0.54rem; font-style: normal; }
@@ -890,6 +979,7 @@ function toggleBoost() {
 .building-slot:hover, .building-slot.selected, .municipality:hover, .municipality.selected { z-index: 2; border-color: var(--city-gold); transform: translateY(-3px); box-shadow: 0 18px 34px rgba(0, 0, 0, 0.36), 0 0 0 1px rgba(201, 170, 103, 0.18); }
 .building-slot:focus-visible, .municipality:focus-visible { outline: 2px solid var(--city-gold-bright); outline-offset: 3px; }
 .building-slot.locked { border-color: rgba(176, 92, 78, 0.34); filter: saturate(0.7); }
+.building-slot.deferred { border-style: dashed; border-color: rgba(190, 132, 78, .38); filter: saturate(.55); }
 .building-slot.busy { border-color: rgba(211, 169, 81, 0.42); }
 .building-slot.empty { border-style: dashed; color: rgba(238, 229, 209, 0.55); background: rgba(15, 18, 13, 0.66); }
 .slot-farm { grid-area: farm; }
@@ -915,10 +1005,15 @@ function toggleBoost() {
 .municipality > em { color: rgba(238, 229, 209, 0.52); font: 700 0.58rem/1 var(--font-mono, monospace); font-style: normal; }
 .municipality > span:last-child { display: inline-flex; align-items: center; gap: 4px; margin-top: 9px; color: #d9c388; font-size: 0.57rem; }
 .municipality.locked { border-color: rgba(176, 92, 78, 0.34); }
+.municipality.deferred { border-style: dashed; border-color: rgba(190, 132, 78, .38); filter: saturate(.55); }
 .municipality.empty { border-style: dashed; color: rgba(238, 229, 209, 0.62); background: rgba(21, 24, 18, 0.79); }
 
 .food-warning { display: flex; align-items: center; gap: 9px; padding: 10px 16px; border-top: 1px solid rgba(192, 100, 84, 0.25); color: #dfaa9f; background: rgba(151, 65, 52, 0.12); font-size: 0.71rem; }
 .food-warning strong { color: #f0c5bc; }
+.city-inaccessible { display: grid; min-height: 510px; place-content: center; justify-items: center; padding: 40px; color: #d89c90; text-align: center; background: repeating-linear-gradient(135deg, rgba(122, 47, 37, 0.055) 0 12px, transparent 13px 25px), #11130f; }
+.city-inaccessible h2 { margin: 13px 0 6px; color: #efb8ad; font: 700 1.55rem/1 Georgia, serif; }
+.city-inaccessible p { max-width: 520px; margin: 0; color: rgba(232, 183, 173, 0.72); font-size: 0.76rem; line-height: 1.5; }
+.city-inaccessible span { margin-top: 9px; color: rgba(232, 183, 173, 0.46); font-size: 0.64rem; }
 .city-empty-state { display: grid; min-height: 360px; place-content: center; justify-items: center; padding: 40px; color: rgba(238, 229, 209, 0.45); text-align: center; }
 .city-empty-state h2 { margin: 13px 0 5px; color: #eee3ce; font: 700 1.5rem/1 Georgia, serif; }
 .city-empty-state p { margin: 0; font-size: 0.75rem; }

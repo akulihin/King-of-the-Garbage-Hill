@@ -331,9 +331,6 @@ public class CharactersUniquePhrase
     public PhraseClass MonsterTwinSteal;
     public PhraseClass MonsterApocalypse;
 
-    // Гордон Фримен
-    public PhraseClass GordonCrowbarJustice;
-
     //end
     public PhraseClass AutoMove;
     public PhraseClass JusticePhrase;
@@ -343,11 +340,6 @@ public class CharactersUniquePhrase
         AutoMove = new PhraseClass("Авто Ход");
 
         JusticePhrase = new PhraseClass("Справедливость");
-
-        GordonCrowbarJustice = new PhraseClass("Монтировка");
-        GordonCrowbarJustice.PassiveLogRus.Add("Major fracture detected");
-        GordonCrowbarJustice.PassiveLogRus.Add("Morphine administered");
-        GordonCrowbarJustice.PassiveLogRus.Add("User death imminent");
 
         //add values
         FirstСommandment = new PhraseClass("Первая заповедь");

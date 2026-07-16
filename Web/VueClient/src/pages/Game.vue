@@ -925,10 +925,14 @@ function parsePrevLogs(raw: string): PrevLogEntry[] {
   return lines.map((line: string) => {
     const isPhrase = line.includes('|>Phrase<|') && !line.includes('|>Stat<|')
     const clean = cleanDiscord(line)
+    const isHalfLifeWin = clean.includes('Hilfelife 3')
+      && (clean.includes('Игра Тысячилетия') || clean.includes('Game of the Millennium'))
     let type: PrevLogColor = 'muted'
     let comboCount = 0
 
-    if (clean.includes('Я - Учиха. Мадара.')) {
+    if (isHalfLifeWin) {
+      type = 'gold'
+    } else if (clean.includes('Я - Учиха. Мадара.')) {
       type = 'red'
     } else if (isPhrase) {
       type = 'purple'
@@ -960,6 +964,10 @@ muted	(Grey)
       .replace(/\*(.*?)\*/g, '<em>$1</em>')
       .replace(/~~(.*?)~~/g, '<del>$1</del>')
       .replace('Я - Учиха. Мадара.', '<span class="madara-callout">Я - Учиха. Мадара.</span>')
+      .replace(
+        /<strong>(Hilfelife 3[^<]*(?:Игра Тысячилетия|Game of the Millennium)[^<]*)<\/strong>/g,
+        '<strong class="halflife-win-callout">$1</strong>',
+      )
 
     return { raw: clean, html, type, comboCount, isPhrase }
   })
@@ -3164,9 +3172,19 @@ const charTint = computed(() => {
   text-shadow: 0 0 5px #ff1f1f, 0 0 14px rgba(255, 31, 31, 0.95), 0 0 28px rgba(255, 31, 31, 0.7);
   animation: madara-callout-pulse 0.9s ease-in-out infinite alternate;
 }
+.prev-log-text :deep(.halflife-win-callout) {
+  color: #ffe56d;
+  font-weight: 950;
+  text-shadow: 0 0 5px #ffd84d, 0 0 15px rgba(255, 216, 77, 0.95), 0 0 30px rgba(255, 174, 45, 0.72);
+  animation: halflife-win-callout-pulse 1.1s ease-in-out infinite alternate;
+}
 @keyframes madara-callout-pulse {
   from { filter: brightness(1); }
   to { filter: brightness(1.7); }
+}
+@keyframes halflife-win-callout-pulse {
+  from { filter: brightness(1); }
+  to { filter: brightness(1.55); }
 }
 .prev-log-text :deep(.lb-emoji) {
   width: 20px;

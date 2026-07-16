@@ -184,7 +184,7 @@ const widgetHelpCopy = {
   giantBeans: ['Stacks empower the Beans. COOKING means ingredients are already assigned to the shown number of targets.', 'Заряды усиливают Бобы. ГОТОВЯТСЯ означает, что ингредиенты уже разложены на указанных целях.'],
   eren: ['Rumbling only checks losses in round 10. The left counter shows Attack Titan readiness; fire marks show accumulated hatred.', 'RUMBLING проверяет только поражения в 10-м раунде. Счётчик слева показывает готовность Атакующего Титана, а метки 🔥 — накопленную ненависть.'],
   naruto: ['A ready Harem replaces Block. After use it recharges for two turns; Block remains ordinary while cooling down.', 'Готовый Гарем заменяет Блок. После использования он перезаряжается два хода; во время отката Блок остаётся обычным.'],
-  gordon: ['Crowbar tracks every resolved fight; every third one is a win. HEV adds current Justice to Strength and Speed. Headcrabs show their remaining incubation time.', 'Монтировка считает состоявшиеся бои: каждый третий становится победой. HEV добавляет текущую Справедливость к Силе и Скорости. Для хэдкрабов показано время до превращения.'],
+  gordon: ['Crowbar tracks every resolved fight; every third one is a win. Headcrabs show their remaining incubation time, and zombies can never raise Intelligence above zero.', 'Монтировка считает состоявшиеся бои: каждый третий становится победой. Для хэдкрабов показано время до превращения, а зомби больше не могут поднять Интеллект выше нуля.'],
   bulk: ['The current chance for Boole to lose his turn. BUFFED means his zero-Psyche stat boost is active.', 'Текущий шанс Буля пропустить ход. BUFFED означает усиление характеристик при нулевой Психике.'],
   tea: ['When tea is ready, the next attack spends it for one point and makes the target skip their next turn.', 'Когда чай готов, следующая атака потратит его: даст очко и заставит цель пропустить следующий ход.'],
   jew: ['Tracks the Psyche accumulated by the PROFIT mechanic.', 'Счётчик показывает, сколько Психики уже накоплено механикой PROFIT.'],
@@ -1226,7 +1226,7 @@ function doomModuleStatus(module: string): { text: string; state: 'live' | 'done
     <!-- Гордон Фримен -->
     <div v-if="passiveStates?.gordon" class="pc-passive-widget gordon-widget" :data-widget-help="widgetHelp('gordon')" :aria-description="widgetHelp('gordon')" tabindex="0">
       <div class="pw-header gordon-header">
-        <span class="pw-title gordon-title">HEV // GORDON</span>
+        <span class="pw-title gordon-title">BLACK MESA // GORDON</span>
         <span class="pw-status gordon-fight-count">
           {{ t('FIGHTS', 'БОИ') }} {{ passiveStates.gordon.resolvedFights }}
         </span>
@@ -1243,11 +1243,6 @@ function doomModuleStatus(module: string): { text: string; state: 'live' | 'done
       </div>
 
       <div class="gordon-metrics">
-        <div class="gordon-metric gordon-battery">
-          <span>⚡ HEV</span>
-          <strong>+{{ passiveStates.gordon.justiceBoost }}</strong>
-          <small>{{ t('STR + SPD', 'СИЛА + СКОРОСТЬ') }}</small>
-        </div>
         <div class="gordon-metric">
           <span>🦀 {{ t('REMOVED', 'СНЯТО') }}</span>
           <strong>{{ passiveStates.gordon.headcrabsRemoved }}</strong>
@@ -4466,7 +4461,7 @@ function doomModuleStatus(module: string): { text: string; state: 'live' | 'done
 .naruto-ready { color: #ffc36b; text-shadow: 0 0 6px rgba(255, 155, 74, .45); }
 .naruto-cooldown { color: rgba(255, 195, 107, .58); }
 
-/* Gordon Freeman — HEV telemetry */
+/* Gordon Freeman — Black Mesa telemetry */
 .gordon-widget {
   overflow: hidden;
   border-color: rgba(231, 129, 36, 0.55) !important;
@@ -4495,13 +4490,11 @@ function doomModuleStatus(module: string): { text: string; state: 'live' | 'done
 .gordon-crowbar-track { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; }
 .gordon-crowbar-track i { height: 7px; border: 1px solid rgba(231, 129, 36, 0.18); border-radius: 2px; background: rgba(255, 255, 255, 0.04); transform: skewX(-14deg); transition: background 0.25s ease, box-shadow 0.25s ease; }
 .gordon-crowbar-track i.active { border-color: rgba(255, 173, 85, 0.55); background: linear-gradient(90deg, #d76c18, #ffad55); box-shadow: 0 0 7px rgba(231, 129, 36, 0.38); }
-.gordon-metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; margin-top: 8px; }
+.gordon-metrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px; margin-top: 8px; }
 .gordon-metric { min-width: 0; padding: 6px; border: 1px solid rgba(255, 255, 255, 0.065); border-radius: 5px; background: rgba(255, 255, 255, 0.025); }
 .gordon-metric > span,
 .gordon-metric > small { display: block; overflow: hidden; color: rgba(235, 232, 222, 0.48); font: 750 8px/1.25 var(--font-mono); text-overflow: ellipsis; white-space: nowrap; }
 .gordon-metric > strong { display: block; margin: 3px 0 1px; color: #e9e6dc; font: 900 17px/1 var(--font-mono); }
-.gordon-battery { border-color: rgba(231, 129, 36, 0.18); background: rgba(231, 129, 36, 0.055); }
-.gordon-battery > strong { color: #ffad55; text-shadow: 0 0 8px rgba(231, 129, 36, 0.28); }
 .gordon-zombies > strong { color: #a6c49f; }
 .gordon-headcrabs { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-top: 7px; }
 .gordon-row-label { width: 100%; color: rgba(235, 232, 222, 0.4); font: 800 8px/1.2 var(--font-mono); letter-spacing: 0.1em; }

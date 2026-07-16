@@ -11,6 +11,7 @@ import type {
   EmpiresActor,
   EmpiresBuildingDefinition,
   EmpiresBuildingLevelDefinition,
+  EmpiresBuildingSlotKind,
   EmpiresCampaignState,
   EmpiresCardDefinition,
   EmpiresCardInstance,
@@ -20,6 +21,7 @@ import type {
   EmpiresEndgameConfig,
   EmpiresEventDefinition,
   EmpiresGiftDefinition,
+  EmpiresPendingGiftResolution,
   EmpiresPerformanceState,
   EmpiresPhase,
   EmpiresResourceAmount,
@@ -41,6 +43,18 @@ const EFFECT_KINDS = [
 
 type EffectKind = typeof EFFECT_KINDS[number]
 
+const BUILDING_SLOT_KINDS: readonly EmpiresBuildingSlotKind[] = [
+  'farm',
+  'lumber',
+  'mine',
+  'smithy',
+  'barracks',
+  'unique',
+  'municipal',
+]
+
+const FAMINE_RATIONING_EVENT_ID = 'event-famine-rationing'
+
 function cloneSerializable<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T
 }
@@ -51,6 +65,13 @@ function success(message: string): EmpiresActionResult {
 
 function failure(message: string): EmpiresActionResult {
   return { ok: false, message }
+}
+
+interface EmpiresResourcePaymentPlan {
+  covered: number
+  targetSpend: number
+  empireSpend: number
+  donorSpends: Array<{ cityId: string, amount: number }>
 }
 
 function otherActor(actor: EmpiresActor): EmpiresActor {
@@ -113,9 +134,36 @@ export function validateEmpiresEndgameConfig(config: EmpiresEndgameConfig): stri
   if (config.gifts.definitions.length < config.gifts.choiceCount) {
     errors.push('gift definitions must contain at least choiceCount entries')
   }
+  if (
+    (config.empire.initialFlags?.relicsUnlocked ?? 0) <= 0
+    && config.gifts.definitions.filter(
+      gift => !gift.deferredReason && gift.kind !== 'relic',
+    ).length < config.gifts.choiceCount
+  ) {
+    errors.push('pre-unlock gift definitions must contain at least choiceCount non-relic entries')
+  }
   if (!uniqueIds(config.gifts.definitions)) errors.push('gift ids must be unique')
   if (config.gifts.definitions.some(gift => gift.application !== 'once' && gift.application !== 'eachEmpire')) {
     errors.push('every gift must define a valid application mode')
+  }
+  for (const gift of config.gifts.definitions) {
+    const resolution = gift.resolution
+    if (resolution?.kind === 'meteorCity'
+      && (!Number.isFinite(resolution.damageLevels) || resolution.damageLevels <= 0)) {
+      errors.push(`gift ${gift.id} meteor damageLevels must be finite and positive`)
+    }
+    if (resolution?.kind === 'destroyRegion'
+      && !config.empire.map.regions.some(region => region.id === resolution.regionId)) {
+      errors.push(`gift ${gift.id} references unknown region ${resolution.regionId}`)
+    }
+    if (resolution?.kind === 'buildingLevelBonus'
+      && (
+        !Number.isFinite(resolution.amount)
+        || resolution.slots.length === 0
+        || resolution.slots.some(slot => !BUILDING_SLOT_KINDS.includes(slot))
+      )) {
+      errors.push(`gift ${gift.id} buildingLevelBonus must define slots and a finite amount`)
+    }
   }
   if (config.empire.daysPerPhase < 0) errors.push('empire.daysPerPhase cannot be negative')
   if (config.empire.eventChance < 0 || config.empire.eventChance > 1) {
@@ -344,14 +392,60 @@ export class EmpiresEndgameEngine {
 
   chooseGift(giftId: string): EmpiresActionResult {
     if (this.state.phase !== 'divineGift') return failure('No divine gift is currently offered.')
+    if (this.state.pendingResolution) return failure('Resolve the current divine gift target first.')
     if (!this.state.giftChoiceIds.includes(giftId)) return failure('That gift is not one of the choices.')
     const gift = this.giftDefinitions.get(giftId)
     if (!gift) return failure('Unknown divine gift.')
-    this.state.empire.claimedGiftIds.push(giftId)
-    if (gift.application === 'eachEmpire') this.state.empire.activeGiftIds.push(giftId)
+    if (gift.deferredReason) return failure(`That divine gift is deferred: ${gift.deferredReason}`)
+    if (!this.giftIsUnlocked(gift)) {
+      return failure('Relics are locked until Divine Presence is researched.')
+    }
+
+    if (gift.resolution?.kind === 'cityResources' || gift.resolution?.kind === 'meteorCity') {
+      const eligibleTargetIds = this.accessibleCityIds()
+      if (eligibleTargetIds.length === 0) return failure('No accessible city can receive that divine gift.')
+      this.claimGift(gift)
+      this.state.pendingResolution = gift.resolution.kind === 'cityResources'
+        ? { kind: 'cityResources', giftId, eligibleTargetIds }
+        : {
+            kind: 'meteorCity',
+            giftId,
+            damageLevels: Math.max(0, Math.floor(gift.resolution.damageLevels)),
+            eligibleTargetIds,
+          }
+      return this.commit(`Gift ${giftId} requires a city target.`)
+    }
+
+    this.claimGift(gift)
+    if (gift.application === 'once') {
+      this.applyFixedGiftResolution(gift)
+      this.applyOneShotGiftEffects(gift)
+    }
     this.startEmpirePhase()
     if (this.state.empire.daysRemaining <= 0) this.finishEmpireInternal()
     return this.commit(`Gift ${giftId} accepted.`)
+  }
+
+  resolvePendingTarget(targetId: string): EmpiresActionResult {
+    const pending = this.state.pendingResolution
+    if (!pending) return failure('No gift target is pending.')
+    if (!pending.eligibleTargetIds.includes(targetId)) return failure('That target is not eligible.')
+    if (!this.isCityAccessible(targetId)) return failure('That city is not accessible.')
+    const gift = this.giftDefinitions.get(pending.giftId)
+    if (!gift) return failure('Unknown divine gift.')
+    if (gift.deferredReason) return failure(`That divine gift is deferred: ${gift.deferredReason}`)
+    if (!this.giftIsUnlocked(gift)) {
+      return failure('Relics are locked until Divine Presence is researched.')
+    }
+
+    this.state.empire.giftResolutionTargets[gift.id] = targetId
+    if (gift.application === 'once') {
+      this.applyTargetedGiftResolution(gift, targetId, pending)
+    }
+    this.state.pendingResolution = null
+    this.startEmpirePhase()
+    if (this.state.empire.daysRemaining <= 0) this.finishEmpireInternal()
+    return this.commit(`Gift ${gift.id} resolved on ${targetId}.`)
   }
 
   improveCard(cardId: string): EmpiresActionResult {
@@ -380,13 +474,18 @@ export class EmpiresEndgameEngine {
     const city = this.city(cityId)
     const building = this.buildingDefinitions.get(buildingId)
     if (!city || !building) return failure('Unknown city or building.')
+    if (building.deferredReason) return failure(`That building is deferred: ${building.deferredReason}`)
+    if (!this.isCityAccessible(cityId)) return failure('That city is not accessible.')
+    if (this.isBuildingInteractionLocked(city, buildingId)) {
+      return failure('That building is locked for the current con.')
+    }
     const currentLevel = city.buildingLevels[buildingId] ?? 0
     const nextLevel = building.levels.find(level => level.level === currentLevel + 1)
     if (!nextLevel) return failure('The building has no further upgrade.')
     const assignedSlotId = Object.entries(city.buildingSlotAssignments)
       .find(([, assignedBuildingId]) => assignedBuildingId === buildingId)?.[0]
     if (!assignedSlotId) return failure('The building is not assigned to a city slot.')
-    const check = this.checkEmpireAction(city, nextLevel)
+    const check = this.checkEmpireAction(city, building, nextLevel)
     if (!check.ok) return check
 
     this.completeBuildingLevel(city, building, nextLevel)
@@ -400,6 +499,11 @@ export class EmpiresEndgameEngine {
     const slot = cityDefinition?.slots.find(item => item.id === slotId)
     const building = this.buildingDefinitions.get(buildingId)
     if (!city || !slot || !building) return failure('Unknown city, slot, or building.')
+    if (building.deferredReason) return failure(`That building is deferred: ${building.deferredReason}`)
+    if (!this.isCityAccessible(cityId)) return failure('That city is not accessible.')
+    if (this.isBuildingInteractionLocked(city, buildingId)) {
+      return failure('That building is locked for the current con.')
+    }
     if (slot.kind !== building.slot) return failure('The building does not match that slot.')
     if ((city.buildingLevels[buildingId] ?? 0) > 0) return failure('That building is already placed.')
     const currentBuildingId = city.buildingSlotAssignments[slotId]
@@ -412,7 +516,7 @@ export class EmpiresEndgameEngine {
     if (assignedElsewhere) return failure('That building is assigned to another slot.')
     const firstLevel = building.levels.find(level => level.level === 1)
     if (!firstLevel) return failure('The building has no initial level.')
-    const check = this.checkEmpireAction(city, firstLevel)
+    const check = this.checkEmpireAction(city, building, firstLevel)
     if (!check.ok) return check
 
     this.completeBuildingLevel(city, building, firstLevel, slotId)
@@ -428,8 +532,18 @@ export class EmpiresEndgameEngine {
     const city = this.city(cityId)
     const unit = this.unitDefinitions.get(unitId)
     if (!city || !unit) return failure('Unknown city or unit.')
+    if (unit.deferredReason) return failure(`That unit is deferred: ${unit.deferredReason}`)
+    if (!this.isCityAccessible(cityId)) return failure('That city is not accessible.')
     const missingDependency = this.firstMissingDependency(unit.dependencies, city, true)
     if (missingDependency) return failure(`Missing prerequisite: ${missingDependency}.`)
+    const equippedRecruitCapacity = this.operationalBuildingFlagValue(city, 'equippedRecruitCapacity')
+    if (
+      equippedRecruitCapacity !== null
+      && (this.state.empire.flags.unlimitedTavernRecruitment ?? 0) <= 0
+      && this.recruitedUnitCount(city) + count > equippedRecruitCapacity
+    ) {
+      return failure('The city has reached its equipped recruitment capacity.')
+    }
     const populationCost = unit.populationCost * count
     if (city.militaryPopulation < populationCost) return failure('Not enough recruitable military population.')
     const timeCost = unit.timeCostDays
@@ -438,7 +552,7 @@ export class EmpiresEndgameEngine {
       totals.set(cost.resourceId, (totals.get(cost.resourceId) ?? 0) + cost.amount * count)
       return totals
     }, new Map<string, number>())].map(([resourceId, amount]) => ({ resourceId, amount }))
-    const missingResource = this.firstMissingResource(resourceCosts)
+    const missingResource = this.firstMissingResource(resourceCosts, city, true)
     if (missingResource) return failure(`Not enough ${missingResource}.`)
     if (city.population < populationCost || this.recruitablePopulation(city) < populationCost) {
       return failure('Not enough recruitable population.')
@@ -450,11 +564,21 @@ export class EmpiresEndgameEngine {
     this.updateOperationalBuildings(projectedCity)
     const projectedFoodProduction = this.productionForCity(projectedCity)[this.config.empire.foodResourceId] ?? 0
     const projectedFoodConsumption = this.foodConsumptionForCity(projectedCity)
-    if (projectedFoodProduction - city.foodCommitted < projectedFoodConsumption) {
+    const immediateFoodCost = resourceCosts
+      .filter(cost => cost.resourceId === this.config.empire.foodResourceId)
+      .reduce((total, cost) => total + cost.amount, 0)
+    if (!this.canFundFoodDemand(
+      projectedCity,
+      projectedFoodProduction,
+      projectedFoodConsumption,
+      0,
+      immediateFoodCost,
+      true,
+    )) {
       return failure('The city does not have enough food surplus.')
     }
 
-    this.payResources(resourceCosts)
+    this.payResources(resourceCosts, city, true)
     this.state.empire.daysRemaining -= timeCost
     this.consumeRecruitmentPopulation(city, populationCost)
     city.recruitedUnits[unitId] = (city.recruitedUnits[unitId] ?? 0) + count
@@ -468,6 +592,11 @@ export class EmpiresEndgameEngine {
     const city = this.city(cityId)
     const building = this.buildingDefinitions.get(buildingId)
     if (!city || !building) return failure('Unknown city or building.')
+    if (building.deferredReason) return failure(`That building is deferred: ${building.deferredReason}`)
+    if (!this.isCityAccessible(cityId)) return failure('That city is not accessible.')
+    if (this.isBuildingInteractionLocked(city, buildingId)) {
+      return failure('That building is locked for the current con.')
+    }
     if (building.slot !== 'farm' && building.slot !== 'lumber' && building.slot !== 'mine') {
       return failure('Only a farm, lumber operation, or mine can receive the production boost.')
     }
@@ -491,6 +620,7 @@ export class EmpiresEndgameEngine {
   clearProductionBoost(cityId: string, buildingId?: string): EmpiresActionResult {
     if (this.state.phase !== 'empire') return failure('Production boosts can only be cleared in the empire phase.')
     if (!this.city(cityId)) return failure('Unknown city.')
+    if (!this.isCityAccessible(cityId)) return failure('That city is not accessible.')
     const previousLength = this.state.empire.productionBoostAssignments.length
     this.state.empire.productionBoostAssignments = this.state.empire.productionBoostAssignments.filter(
       assignment => assignment.cityId !== cityId
@@ -507,8 +637,15 @@ export class EmpiresEndgameEngine {
     if (this.state.phase !== 'empire') return failure('Research is only available in the empire phase.')
     const technology = this.technologyDefinitions.get(technologyId)
     if (!technology) return failure('Unknown technology.')
+    if (technology.deferredReason) {
+      return failure(`That research is deferred: ${technology.deferredReason}`)
+    }
     if (this.state.empire.researchedTechnologyIds.includes(technologyId)) {
       return failure('That research is already complete.')
+    }
+    const usageKey = this.researchUsageKey(technology)
+    if (this.state.empire.researchUsage[usageKey]) {
+      return failure('That research group was already used this empire phase.')
     }
     const dependency = this.firstMissingDependency(technology.prerequisites)
     if (dependency) return failure(`Missing prerequisite: ${dependency}.`)
@@ -519,6 +656,7 @@ export class EmpiresEndgameEngine {
     this.payResources(technology.resourceCosts)
     this.state.empire.daysRemaining -= technology.timeCostDays
     this.state.empire.researchedTechnologyIds.push(technologyId)
+    this.state.empire.researchUsage[usageKey] = technologyId
     this.applyEffects(technology.effects, 0)
     this.refreshProductions()
     if (this.state.empire.daysRemaining <= 0) this.finishEmpireInternal()
@@ -528,13 +666,34 @@ export class EmpiresEndgameEngine {
   chooseEvent(choiceId: string): EmpiresActionResult {
     if (this.state.phase !== 'event' || !this.state.event) return failure('No event choice is pending.')
     const event = this.eventDefinitions.get(this.state.event.eventId)
+    if (!event || event.deferredReason) return failure('That event is deferred.')
     const choice = event?.choices.find(item => item.id === choiceId)
     if (!choice) return failure('Unknown event choice.')
+    if (choice.deferredReason) return failure(`That event choice is deferred: ${choice.deferredReason}`)
     const missingResource = this.firstMissingResource(choice.resourceCosts ?? [])
     if (missingResource) return failure(`Not enough ${missingResource}.`)
+    const pendingEmpireSettlement = this.state.event.empireSettlementPending === true
+    const hadStarvationMultiplier = Object.prototype.hasOwnProperty.call(
+      this.state.empire.flags,
+      'starvationLossMultiplierPercent',
+    )
+    const starvationMultiplierBefore = this.state.empire.flags.starvationLossMultiplierPercent
     this.payResources(choice.resourceCosts ?? [])
     this.applyEffects(choice.effects, 0)
     this.refreshProductions()
+    if (pendingEmpireSettlement) {
+      this.settleEmpireEconomy()
+      if (hadStarvationMultiplier) {
+        this.state.empire.flags.starvationLossMultiplierPercent = starvationMultiplierBefore
+      } else {
+        delete this.state.empire.flags.starvationLossMultiplierPercent
+      }
+      if (this.state.phase !== 'defeat') {
+        this.clearCardFlagBonuses()
+        this.startNextCon()
+      }
+      return this.commit(`Famine choice ${choiceId} resolved and the empire settled.`)
+    }
     this.clearCardFlagBonuses()
     if (this.totalPopulation() <= this.config.empire.defeatPopulationAtOrBelow) {
       this.setOutcome('defeat', 'The empire lost its population.')
@@ -552,20 +711,53 @@ export class EmpiresEndgameEngine {
 
   cityArmyFoodUpkeep(cityId: string): number {
     const city = this.city(cityId)
-    if (!city) return 0
+    if (!city || !this.isCityAccessible(cityId)) return 0
     return this.armyFoodUpkeepForCity(city)
   }
 
   cityFoodConsumption(cityId: string): number {
     const city = this.city(cityId)
-    if (!city) return 0
+    if (!city || !this.isCityAccessible(cityId)) return 0
     return this.foodConsumptionForCity(city)
   }
 
+  cityAvailableResource(
+    cityId: string,
+    resourceId: string,
+    allowTempleTransfers = true,
+  ): number {
+    const city = this.city(cityId)
+    if (!city || !this.isCityAccessible(cityId)) return 0
+    let available = Math.max(0, city.resources[resourceId] ?? 0)
+      + Math.max(0, this.state.empire.resources[resourceId] ?? 0)
+    if (!allowTempleTransfers) return available
+    const transferLossPercent = this.operationalBuildingFlagValue(city, 'templarTransferLossPercent')
+    if (transferLossPercent === null) return available
+    const deliveredFraction = Math.max(0, Math.min(1, (100 - transferLossPercent) / 100))
+    if (deliveredFraction <= 0) return available
+    const donorResources = this.state.empire.cities
+      .filter(candidate => candidate.id !== city.id && this.isCityAccessible(candidate.id))
+      .filter(candidate => (
+        this.operationalBuildingFlagValue(candidate, 'templarTransferLossPercent') !== null
+      ))
+      .reduce((total, donor) => total + Math.max(0, donor.resources[resourceId] ?? 0), 0)
+    return available + donorResources * deliveredFraction
+  }
+
+  cityRecruitmentRemaining(cityId: string): number | null {
+    const city = this.city(cityId)
+    if (!city || !this.isCityAccessible(cityId)) return 0
+    if ((this.state.empire.flags.unlimitedTavernRecruitment ?? 0) > 0) return null
+    const capacity = this.operationalBuildingFlagValue(city, 'equippedRecruitCapacity')
+    return capacity === null ? null : Math.max(0, capacity - this.recruitedUnitCount(city))
+  }
+
   private armyFoodUpkeepForCity(city: EmpiresCityState): number {
-    return Object.entries(city.recruitedUnits).reduce((total, [unitId, count]) => (
-      total + Math.max(0, count) * (this.unitDefinitions.get(unitId)?.foodUpkeep ?? 0)
-    ), 0)
+    return Object.entries(city.recruitedUnits).reduce((total, [unitId, count]) => {
+      const unit = this.unitDefinitions.get(unitId)
+      if (!unit || unit.deferredReason) return total
+      return total + Math.max(0, count) * unit.foodUpkeep
+    }, 0)
   }
 
   private foodConsumptionForCity(city: EmpiresCityState): number {
@@ -578,7 +770,60 @@ export class EmpiresEndgameEngine {
     }, 0)
     const hasDefinedClasses = Object.keys(city.populationClasses).some(classId => classDefinitions.has(classId))
     const civilianConsumption = hasDefinedClasses ? classConsumption : city.population
-    return civilianConsumption + this.armyFoodUpkeepForCity(city)
+    const grossConsumption = civilianConsumption + this.armyFoodUpkeepForCity(city)
+    const efficiencyPercent = this.operationalBuildingFlagValue(city, 'provisionEfficiencyPercent') ?? 0
+    return grossConsumption * Math.max(0, 100 - efficiencyPercent) / 100
+  }
+
+  private canFundFoodDemand(
+    projectedCity: EmpiresCityState,
+    projectedProduction: number,
+    projectedConsumption: number,
+    extraCommitted = 0,
+    immediateFoodCost = 0,
+    allowTempleTransfers = false,
+  ): boolean {
+    const foodId = this.config.empire.foodResourceId
+    const foodPayment = this.resourcePaymentPlan(
+      foodId,
+      Math.max(0, immediateFoodCost),
+      projectedCity,
+      allowTempleTransfers,
+    )
+    if (foodPayment.covered + Number.EPSILON < Math.max(0, immediateFoodCost)) return false
+    const remainingCityFood = new Map(this.state.empire.cities.map(city => [
+      city.id,
+      Math.max(0, city.resources[foodId] ?? 0),
+    ]))
+    remainingCityFood.set(
+      projectedCity.id,
+      Math.max(0, (projectedCity.resources[foodId] ?? 0) - foodPayment.targetSpend),
+    )
+    for (const donor of foodPayment.donorSpends) {
+      remainingCityFood.set(
+        donor.cityId,
+        Math.max(0, (remainingCityFood.get(donor.cityId) ?? 0) - donor.amount),
+      )
+    }
+    const availableEmpireFood = Math.max(
+      0,
+      (this.state.empire.resources[foodId] ?? 0) - foodPayment.empireSpend,
+    )
+
+    const requiredEmpireFood = this.state.empire.cities.reduce((total, city) => {
+      if (!this.isCityAccessible(city.id)) return total
+      const isProjected = city.id === projectedCity.id
+      const production = isProjected
+        ? projectedProduction
+        : this.productionForCity(city)[foodId] ?? 0
+      const consumption = isProjected
+        ? projectedConsumption
+        : this.foodConsumptionForCity(city)
+      const committed = city.foodCommitted + (isProjected ? Math.max(0, extraCommitted) : 0)
+      const localFood = remainingCityFood.get(city.id) ?? 0
+      return total + Math.max(0, consumption + committed - production - localFood)
+    }, 0)
+    return requiredEmpireFood <= availableEmpireFood
   }
 
   hasProductionBoost(cityId: string, buildingId: string): boolean {
@@ -589,8 +834,52 @@ export class EmpiresEndgameEngine {
 
   cityProduction(cityId: string): Record<string, number> {
     const city = this.city(cityId)
-    if (!city) return {}
+    if (!city || !this.isCityAccessible(cityId)) return {}
     return this.productionForCity(city)
+  }
+
+  isRegionAccessible(regionId: string): boolean {
+    return this.isRegionAccessibleInState(this.state, regionId)
+  }
+
+  isCityAccessible(cityId: string): boolean {
+    const city = this.city(cityId)
+    return Boolean(city && this.isRegionAccessible(city.regionId))
+  }
+
+  effectiveBuildingLevel(cityId: string, buildingId: string): number {
+    const city = this.city(cityId)
+    const building = this.buildingDefinitions.get(buildingId)
+    if (!city || !building) return 0
+    const rawLevel = city.buildingLevels[buildingId] ?? 0
+    return rawLevel > 0 ? rawLevel + this.buildingLevelBonus(building.slot) : 0
+  }
+
+  effectiveOperationalBuildingLevel(cityId: string, buildingId: string): number {
+    const city = this.city(cityId)
+    const building = this.buildingDefinitions.get(buildingId)
+    if (!city || !building || building.deferredReason) return 0
+    return this.effectiveLevelFromRaw(
+      building,
+      city.operationalBuildingLevels[buildingId] ?? 0,
+    )
+  }
+
+  effectiveBuildingMaxLevel(buildingId: string): number {
+    const building = this.buildingDefinitions.get(buildingId)
+    if (!building) return 0
+    const configuredMaximum = Math.max(0, ...building.levels.map(level => level.level))
+    return configuredMaximum + this.buildingLevelBonus(building.slot)
+  }
+
+  projectedBuildingLevel(
+    buildingId: string,
+    effectiveLevel: number,
+  ): EmpiresBuildingLevelDefinition | null {
+    const building = this.buildingDefinitions.get(buildingId)
+    if (!building || building.deferredReason) return null
+    const projection = this.buildingLevelDefinitionAt(building, effectiveLevel)
+    return projection ? cloneSerializable(projection) : null
   }
 
   private productionForCity(city: EmpiresCityState): Record<string, number> {
@@ -598,7 +887,10 @@ export class EmpiresEndgameEngine {
     for (const [buildingId, level] of Object.entries(city.operationalBuildingLevels)) {
       if (level <= 0) continue
       const definition = this.buildingDefinitions.get(buildingId)
-      const currentLevel = definition?.levels.find(item => item.level === level)
+      if (!definition || definition.deferredReason) continue
+      const currentLevel = definition
+        ? this.buildingLevelDefinitionAt(definition, this.effectiveLevelFromRaw(definition, level))
+        : null
       const targetedMultiplier = this.hasProductionBoost(city.id, buildingId)
         ? this.productionBoostPercent() / 100
         : 1
@@ -613,7 +905,10 @@ export class EmpiresEndgameEngine {
     const foodId = this.config.empire.foodResourceId
     production[foodId] = (production[foodId] ?? 0) + (this.state.empire.passiveFoodBonuses[city.id] ?? 0)
     for (const [resourceId, amount] of Object.entries(production)) {
-      production[resourceId] = amount * (this.state.empire.productionMultipliers[resourceId] ?? 1)
+      const famineMultiplier = resourceId === foodId ? this.famineFoodMultiplier(city) : 1
+      production[resourceId] = amount
+        * (this.state.empire.productionMultipliers[resourceId] ?? 1)
+        * famineMultiplier
     }
     return production
   }
@@ -671,6 +966,8 @@ export class EmpiresEndgameEngine {
             city.slots.flatMap(slot => slot.buildingId ? [[slot.id, slot.buildingId]] : []),
           ),
           recruitedUnits: {},
+          resources: {},
+          buildingInteractionLocks: {},
           lockedFacilities: {},
           foodCommitted: 0,
           lastProduction: {},
@@ -683,7 +980,12 @@ export class EmpiresEndgameEngine {
         passiveFoodBonuses: {},
         cardFlagBonuses: {},
         productionBoostAssignments: [],
+        destroyedRegionIds: [],
+        buildingLevelBonuses: {},
+        researchUsage: {},
+        giftResolutionTargets: {},
       },
+      pendingResolution: null,
       event: null,
       outcomeReason: null,
       revision: 0,
@@ -701,6 +1003,13 @@ export class EmpiresEndgameEngine {
     if (snapshot.schemaVersion !== 1) throw new Error('Unsupported Empire\'s Endgame snapshot schema')
     if (snapshot.configId !== this.config.id) throw new Error('Snapshot belongs to a different config')
     const state = cloneSerializable(snapshot)
+    const missingDestroyedRegionState = state.empire.destroyedRegionIds === undefined
+    const missingBuildingBonusState = state.empire.buildingLevelBonuses === undefined
+    const citiesMissingInteractionLocks = new Set(
+      state.empire.cities
+        .filter(city => city.buildingInteractionLocks === undefined)
+        .map(city => city.id),
+    )
     for (const city of state.empire.cities) {
       city.operationalBuildingLevels ??= { ...city.buildingLevels }
       city.buildingSlotAssignments ??= Object.fromEntries(
@@ -709,11 +1018,58 @@ export class EmpiresEndgameEngine {
         ),
       )
       city.recruitedUnits ??= {}
+      city.resources ??= {}
+      city.buildingInteractionLocks ??= {}
     }
     state.empire.cardFlagBonuses ??= state.phase === 'empire' || state.phase === 'event'
       ? this.heldCardFlagBonuses(state)
       : {}
     state.empire.productionBoostAssignments ??= []
+    state.empire.destroyedRegionIds = this.migrateDestroyedRegions(
+      state,
+      missingDestroyedRegionState,
+    )
+    state.empire.buildingLevelBonuses = this.migrateBuildingLevelBonuses(
+      state,
+      missingBuildingBonusState,
+    )
+    state.empire.researchUsage ??= {}
+    const knownCityIds = new Set(state.empire.cities.map(city => city.id))
+    state.empire.giftResolutionTargets = Object.fromEntries(
+      Object.entries(state.empire.giftResolutionTargets ?? {})
+        .filter(([, cityId]) => {
+          const city = state.empire.cities.find(item => item.id === cityId)
+          return knownCityIds.has(cityId)
+            && Boolean(city && this.isRegionAccessibleInState(state, city.regionId))
+        }),
+    )
+    state.pendingResolution = this.normalizePendingResolution(state)
+    this.normalizeDivineGiftChoices(state)
+    if (state.event) {
+      state.event.empireSettlementPending ??= false
+      if (
+        state.event.empireSettlementPending
+        && (state.phase !== 'event' || state.event.eventId !== FAMINE_RATIONING_EVENT_ID)
+      ) {
+        throw new Error('Only a pending famine event can precede empire settlement')
+      }
+    }
+    if (
+      state.phase === 'event'
+      && (
+        !state.event
+        || !this.eventCanResolve(this.eventDefinitions.get(state.event.eventId))
+      )
+    ) {
+      this.advanceSnapshotToNextCon(state)
+    }
+    if (
+      citiesMissingInteractionLocks.size > 0
+      && (state.phase === 'empire' || state.phase === 'event')
+      && (state.empire.flags.militaryArson ?? 0) > 0
+    ) {
+      this.applyMilitaryArsonToState(state, citiesMissingInteractionLocks)
+    }
     return state
   }
 
@@ -817,6 +1173,8 @@ export class EmpiresEndgameEngine {
     this.state.performanceScore = score
     this.state.upgradePoints += score
     const weighted = this.config.gifts.definitions
+      .filter(gift => !gift.deferredReason)
+      .filter(gift => this.giftIsUnlocked(gift))
       .filter(gift => (gift.minimumPerformance ?? Number.NEGATIVE_INFINITY) <= score)
       .filter(gift => (gift.maximumPerformance ?? Number.POSITIVE_INFINITY) >= score)
       .map(gift => ({
@@ -829,6 +1187,7 @@ export class EmpiresEndgameEngine {
       this.state.rng,
     ).map(gift => gift.id)
     this.state.phase = 'divineGift'
+    this.state.pendingResolution = null
   }
 
   private startEmpirePhase(): void {
@@ -842,7 +1201,11 @@ export class EmpiresEndgameEngine {
       )
     this.state.empire.productionMultipliers = {}
     this.state.empire.passiveFoodBonuses = {}
+    this.state.empire.researchUsage = {}
     for (const city of this.state.empire.cities) {
+      city.buildingInteractionLocks = Object.fromEntries(
+        Object.entries(city.buildingInteractionLocks).filter(([, con]) => con === this.state.con),
+      )
       city.lockedFacilities = {}
       city.foodCommitted = 0
       city.lastStarvationLoss = 0
@@ -850,24 +1213,39 @@ export class EmpiresEndgameEngine {
 
     const phaseEffectKinds = new Set<EffectKind>(['resource', 'time', 'population', 'flag'])
     const timeEffectKind = new Set<EffectKind>(['time'])
-    for (const giftId of this.currentEmpireGiftIds()) {
-      this.applyEffects(this.giftDefinitions.get(giftId)?.effects ?? [], 0, phaseEffectKinds)
+    for (const giftId of this.state.empire.activeGiftIds) {
+      const gift = this.giftDefinitions.get(giftId)
+      if (!gift || gift.deferredReason || !this.giftIsUnlocked(gift)) continue
+      const targetCityId = this.state.empire.giftResolutionTargets[giftId]
+      if (
+        (gift.resolution?.kind === 'cityResources' || gift.resolution?.kind === 'meteorCity')
+        && (!targetCityId || !this.isCityAccessible(targetCityId))
+      ) continue
+      this.applyRecurringGiftResolution(gift)
+      this.applyGiftEffects(gift, targetCityId, phaseEffectKinds)
     }
     for (const technologyId of this.state.empire.researchedTechnologyIds) {
-      this.applyEffects(this.technologyDefinitions.get(technologyId)?.effects ?? [], 0, timeEffectKind)
+      const technology = this.technologyDefinitions.get(technologyId)
+      if (!technology || technology.deferredReason) continue
+      this.applyEffects(technology.effects, 0, timeEffectKind)
     }
     for (const cardId of this.state.durak.playerHand) {
       const instance = this.state.cards[cardId]
       const definition = this.getDefinition(instance)
       const face = instance.inverted ? definition.inverted : definition.normal
+      if (face.deferredReason) continue
       this.applyEffects(face.effects, instance.level, phaseEffectKinds)
       this.recordCardFlagBonuses(face.effects, instance.level)
     }
+    if ((this.state.empire.flags.militaryArson ?? 0) > 0) this.applyMilitaryArson()
     for (const city of this.state.empire.cities) this.updateOperationalBuildings(city)
     for (const city of this.state.empire.cities) {
       for (const [buildingId, level] of Object.entries(city.operationalBuildingLevels)) {
-        const levelDefinition = this.buildingDefinitions.get(buildingId)?.levels
-          .find(item => item.level === level)
+        const building = this.buildingDefinitions.get(buildingId)
+        if (!building || building.deferredReason) continue
+        const levelDefinition = building
+          ? this.buildingLevelDefinitionAt(building, this.effectiveLevelFromRaw(building, level))
+          : null
         this.applyEffects(levelDefinition?.effects ?? [], 0, timeEffectKind)
       }
     }
@@ -878,35 +1256,116 @@ export class EmpiresEndgameEngine {
   private finishEmpireInternal(): void {
     if (this.state.phase !== 'empire') return
     this.refreshProductions()
+    let eventRollResolvedBeforeSettlement = false
+    let selectedEvent: EmpiresEventDefinition | null = null
+    const famineEvent = this.eventDefinitions.get(FAMINE_RATIONING_EVENT_ID)
+    if (
+      this.uncoveredFoodDeficit() > 0
+      && famineEvent
+      && this.eventIsEligible(famineEvent)
+    ) {
+      eventRollResolvedBeforeSettlement = true
+      selectedEvent = this.selectEligibleEvent(this.config.empire.events)
+      if (selectedEvent?.id === FAMINE_RATIONING_EVENT_ID) {
+        this.state.phase = 'event'
+        this.state.event = {
+          eventId: selectedEvent.id,
+          empireSettlementPending: true,
+        }
+        return
+      }
+    }
+
+    this.settleEmpireEconomy()
+    if (this.state.phase === 'defeat') return
+    if (!eventRollResolvedBeforeSettlement) {
+      selectedEvent = this.selectEligibleEvent(
+        this.config.empire.events.filter(event => event.id !== FAMINE_RATIONING_EVENT_ID),
+      )
+    }
+    if (selectedEvent) {
+      this.state.phase = 'event'
+      this.state.event = {
+        eventId: selectedEvent.id,
+        empireSettlementPending: false,
+      }
+      return
+    }
+    this.clearCardFlagBonuses()
+    this.startNextCon()
+  }
+
+  private settleEmpireEconomy(): void {
+    this.refreshProductions()
     const foodId = this.config.empire.foodResourceId
     for (const city of this.state.empire.cities) {
+      if (!this.isCityAccessible(city.id)) {
+        city.lastProduction = {}
+        city.lastStarvationLoss = 0
+        continue
+      }
       for (const [resourceId, amount] of Object.entries(city.lastProduction)) {
         if (resourceId === foodId) continue
         this.state.empire.resources[resourceId] = (this.state.empire.resources[resourceId] ?? 0) + amount
       }
-      const availableFood = Math.max(0, (city.lastProduction[foodId] ?? 0) - city.foodCommitted)
-      const deficit = Math.max(0, this.cityFoodConsumption(city.id) - availableFood)
-      const loss = deficit / 2 * this.empirePercentMultiplier('starvationLossMultiplierPercent')
+      const tradeLevyGold = this.tradeLevyGoldForCity(city)
+      if (tradeLevyGold > 0) {
+        this.state.empire.resources.gold = (this.state.empire.resources.gold ?? 0) + tradeLevyGold
+      }
+      let deficit = Math.max(
+        0,
+        this.cityFoodConsumption(city.id) + city.foodCommitted - (city.lastProduction[foodId] ?? 0),
+      )
+      const cityFood = Math.max(0, city.resources[foodId] ?? 0)
+      const cityFoodUsed = Math.min(cityFood, deficit)
+      city.resources[foodId] = cityFood - cityFoodUsed
+      deficit -= cityFoodUsed
+      const empireFood = Math.max(0, this.state.empire.resources[foodId] ?? 0)
+      const empireFoodUsed = Math.min(empireFood, deficit)
+      this.state.empire.resources[foodId] = empireFood - empireFoodUsed
+      deficit -= empireFoodUsed
+      const configuredLossPercent = this.state.empire.flags.starvationDeficitLossPercent
+      const baseLossMultiplier = Number.isFinite(configuredLossPercent)
+        ? Math.max(0, configuredLossPercent) / 100
+        : 0.5
+      const loss = deficit * baseLossMultiplier * this.empirePercentMultiplier('starvationLossMultiplierPercent')
       city.lastStarvationLoss = loss
       if (loss > 0) this.setCityPopulation(city, Math.max(0, city.population - loss))
     }
+    this.applyTreasuryIncome()
     this.refreshProductions()
     if (this.totalPopulation() <= this.config.empire.defeatPopulationAtOrBelow) {
       this.setOutcome('defeat', 'The empire starved.')
-      return
     }
+  }
 
-    const eligible = this.config.empire.events.filter(event => this.eventIsEligible(event))
-    if (eligible.length > 0 && nextEmpiresRandom(this.state.rng) < this.config.empire.eventChance) {
-      const picked = pickEmpiresWeighted(eligible, this.state.rng)
-      if (picked) {
-        this.state.phase = 'event'
-        this.state.event = { eventId: picked.id }
-        return
-      }
+  private uncoveredFoodDeficit(): number {
+    const foodId = this.config.empire.foodResourceId
+    let empireFood = Math.max(0, this.state.empire.resources[foodId] ?? 0)
+    let uncovered = 0
+    for (const city of this.state.empire.cities) {
+      if (!this.isCityAccessible(city.id)) continue
+      let deficit = Math.max(
+        0,
+        this.cityFoodConsumption(city.id) + city.foodCommitted - (city.lastProduction[foodId] ?? 0),
+      )
+      deficit -= Math.min(Math.max(0, city.resources[foodId] ?? 0), deficit)
+      const empireFoodUsed = Math.min(empireFood, deficit)
+      empireFood -= empireFoodUsed
+      deficit -= empireFoodUsed
+      uncovered += deficit
     }
-    this.clearCardFlagBonuses()
-    this.startNextCon()
+    return uncovered
+  }
+
+  private selectEligibleEvent(
+    candidates: readonly EmpiresEventDefinition[],
+  ): EmpiresEventDefinition | null {
+    const eligible = candidates.filter(event => this.eventIsEligible(event))
+    if (eligible.length === 0 || nextEmpiresRandom(this.state.rng) >= this.config.empire.eventChance) {
+      return null
+    }
+    return pickEmpiresWeighted(eligible, this.state.rng)
   }
 
   private startNextCon(): void {
@@ -933,16 +1392,30 @@ export class EmpiresEndgameEngine {
 
   private checkEmpireAction(
     city: EmpiresCityState,
+    building: EmpiresBuildingDefinition,
     level: EmpiresBuildingLevelDefinition,
   ): EmpiresActionResult {
-    const missingDependency = this.firstMissingDependency(level.dependencies, city)
+    const dependencies = this.buildingDependencies(building, level)
+    const missingDependency = this.firstMissingDependency(dependencies, city)
     if (missingDependency) return failure(`Missing prerequisite: ${missingDependency}.`)
     if (this.state.empire.daysRemaining < level.timeCostDays) return failure('Not enough days remain.')
-    const missingResource = this.firstMissingResource(level.resourceCosts)
+    const resourceCosts = this.buildingResourceCosts(building, level)
+    const missingResource = this.firstMissingResource(resourceCosts, city, true)
     if (missingResource) return failure(`Not enough ${missingResource}.`)
     const foodProduction = city.lastProduction[this.config.empire.foodResourceId] ?? 0
-    const foodSurplus = foodProduction - this.cityFoodConsumption(city.id) - city.foodCommitted
-    if (foodSurplus < level.foodCost) return failure('The city does not have enough food surplus.')
+    const immediateFoodCost = resourceCosts
+      .filter(cost => cost.resourceId === this.config.empire.foodResourceId)
+      .reduce((total, cost) => total + cost.amount, 0)
+    if (!this.canFundFoodDemand(
+      city,
+      foodProduction,
+      this.cityFoodConsumption(city.id),
+      level.foodCost,
+      immediateFoodCost,
+      true,
+    )) {
+      return failure('The city does not have enough food surplus.')
+    }
     for (const lock of level.facilityLocks) {
       if (city.lockedFacilities[lock]) return failure(`The city's ${lock} is already committed this phase.`)
       const providerId = this.config.empire.lockProviderBuildingIds[lock]
@@ -953,19 +1426,50 @@ export class EmpiresEndgameEngine {
     return success('Empire action is available.')
   }
 
+  private buildingDependencies(
+    building: EmpiresBuildingDefinition,
+    level: EmpiresBuildingLevelDefinition,
+  ): EmpiresDependency[] {
+    if (!this.isStableBuilding(building) || (this.state.empire.flags.stableWithoutLivestock ?? 0) <= 0) {
+      return level.dependencies
+    }
+    return level.dependencies.filter(
+      dependency => dependency.kind !== 'flag' || dependency.flagId !== 'livestockAvailable',
+    )
+  }
+
+  private buildingResourceCosts(
+    building: EmpiresBuildingDefinition,
+    level: EmpiresBuildingLevelDefinition,
+  ): EmpiresResourceAmount[] {
+    return level.resourceCosts.filter((cost) => {
+      if (building.slot === 'smithy'
+        && cost.resourceId === 'iron'
+        && (this.state.empire.flags.smithyWithoutIron ?? 0) > 0) return false
+      if (this.isStableBuilding(building)
+        && cost.resourceId === 'horses'
+        && (this.state.empire.flags.stableWithoutLivestock ?? 0) > 0) return false
+      return true
+    })
+  }
+
+  private isStableBuilding(building: EmpiresBuildingDefinition): boolean {
+    const identity = `${building.id} ${building.name}`.toLocaleLowerCase('ru-RU')
+    return identity.includes('stable') || identity.includes('конюш')
+  }
+
   private completeBuildingLevel(
     city: EmpiresCityState,
     building: EmpiresBuildingDefinition,
     level: EmpiresBuildingLevelDefinition,
     slotId?: string | null,
   ): void {
-    this.payResources(level.resourceCosts)
+    this.payResources(this.buildingResourceCosts(building, level), city, true)
     this.state.empire.daysRemaining -= level.timeCostDays
     city.foodCommitted += level.foodCost
     for (const lock of level.facilityLocks) city.lockedFacilities[lock] = `${building.id}:${level.level}`
     if (slotId) city.buildingSlotAssignments[slotId] = building.id
     city.buildingLevels[building.id] = level.level
-    this.applyEffects(level.effects ?? [], 0)
     this.refreshProductions()
     if (this.state.empire.daysRemaining <= 0) this.finishEmpireInternal()
   }
@@ -977,17 +1481,26 @@ export class EmpiresEndgameEngine {
   ): string | null {
     for (const dependency of dependencies) {
       if (dependency.kind === 'technology') {
-        if (!this.state.empire.researchedTechnologyIds.includes(dependency.technologyId)) {
+        const technology = this.technologyDefinitions.get(dependency.technologyId)
+        if (
+          !technology
+          || technology.deferredReason
+          || !this.state.empire.researchedTechnologyIds.includes(dependency.technologyId)
+        ) {
           return dependency.technologyId
         }
       } else if (dependency.kind === 'flag') {
         if ((this.state.empire.flags[dependency.flagId] ?? 0) < dependency.minimum) return dependency.flagId
       } else {
-        const cities = dependency.scope !== 'anyCity' && city ? [city] : this.state.empire.cities
+        const cities = (dependency.scope !== 'anyCity' && city ? [city] : this.state.empire.cities)
+          .filter(item => this.isCityAccessible(item.id))
         const useOperational = operationalSameCityBuildings && dependency.scope !== 'anyCity' && Boolean(city)
         if (!cities.some((item) => {
+          if (this.isBuildingInteractionLocked(item, dependency.buildingId)) return false
           const levels = useOperational ? item.operationalBuildingLevels : item.buildingLevels
-          return (levels[dependency.buildingId] ?? 0) >= dependency.level
+          const building = this.buildingDefinitions.get(dependency.buildingId)
+          if (!building || building.deferredReason) return false
+          return this.effectiveLevelFromRaw(building, levels[dependency.buildingId] ?? 0) >= dependency.level
         })) {
           return `${dependency.buildingId} ${dependency.level}`
         }
@@ -996,14 +1509,45 @@ export class EmpiresEndgameEngine {
     return null
   }
 
-  private firstMissingResource(costs: readonly EmpiresResourceAmount[]): string | null {
-    return costs.find(cost => (this.state.empire.resources[cost.resourceId] ?? 0) < cost.amount)?.resourceId ?? null
+  private firstMissingResource(
+    costs: readonly EmpiresResourceAmount[],
+    city?: EmpiresCityState,
+    allowTempleTransfers = false,
+  ): string | null {
+    return costs.find(cost => (
+      this.resourcePaymentPlan(cost.resourceId, cost.amount, city, allowTempleTransfers).covered
+      + Number.EPSILON
+      < cost.amount
+    ))?.resourceId ?? null
   }
 
-  private payResources(costs: readonly EmpiresResourceAmount[]): void {
+  private payResources(
+    costs: readonly EmpiresResourceAmount[],
+    city?: EmpiresCityState,
+    allowTempleTransfers = false,
+  ): void {
     for (const cost of costs) {
-      this.state.empire.resources[cost.resourceId] = (this.state.empire.resources[cost.resourceId] ?? 0)
-        - cost.amount
+      const plan = this.resourcePaymentPlan(cost.resourceId, cost.amount, city, allowTempleTransfers)
+      if (city && plan.targetSpend > 0) {
+        city.resources[cost.resourceId] = Math.max(
+          0,
+          (city.resources[cost.resourceId] ?? 0) - plan.targetSpend,
+        )
+      }
+      if (plan.empireSpend > 0) {
+        this.state.empire.resources[cost.resourceId] = Math.max(
+          0,
+          (this.state.empire.resources[cost.resourceId] ?? 0) - plan.empireSpend,
+        )
+      }
+      for (const donorSpend of plan.donorSpends) {
+        const donor = this.city(donorSpend.cityId)
+        if (!donor) continue
+        donor.resources[cost.resourceId] = Math.max(
+          0,
+          (donor.resources[cost.resourceId] ?? 0) - donorSpend.amount,
+        )
+      }
     }
   }
 
@@ -1036,8 +1580,10 @@ export class EmpiresEndgameEngine {
       } else if (effect.kind === 'population') {
         const amount = effect.amount + (effect.amountPerLevel ?? 0) * level
         const cities = effect.cityId
-          ? this.state.empire.cities.filter(city => city.id === effect.cityId)
-          : this.state.empire.cities
+          ? this.state.empire.cities.filter(
+              city => city.id === effect.cityId && this.isCityAccessible(city.id),
+            )
+          : this.state.empire.cities.filter(city => this.isCityAccessible(city.id))
         const perCity = cities.length > 0 ? amount / cities.length : 0
         for (const city of cities) this.setCityPopulation(city, Math.max(0, city.population + perCity))
       } else {
@@ -1064,6 +1610,7 @@ export class EmpiresEndgameEngine {
       const definition = instance ? this.definitions.get(instance.definitionId) : null
       if (!instance || !definition) throw new Error(`Unknown card ${cardId}`)
       const face = instance.inverted ? definition.inverted : definition.normal
+      if (face.deferredReason) continue
       for (const effect of face.effects) {
         if (effect.kind !== 'flag') continue
         const amount = effect.amount + (effect.amountPerLevel ?? 0) * instance.level
@@ -1074,12 +1621,16 @@ export class EmpiresEndgameEngine {
   }
 
   private clearCardFlagBonuses(): void {
-    for (const [flagId, amount] of Object.entries(this.state.empire.cardFlagBonuses ?? {})) {
-      const remaining = (this.state.empire.flags[flagId] ?? 0) - amount
-      if (Math.abs(remaining) < Number.EPSILON) delete this.state.empire.flags[flagId]
-      else this.state.empire.flags[flagId] = remaining
+    this.clearCardFlagBonusesFromState(this.state)
+  }
+
+  private clearCardFlagBonusesFromState(state: EmpiresCampaignState): void {
+    for (const [flagId, amount] of Object.entries(state.empire.cardFlagBonuses ?? {})) {
+      const remaining = (state.empire.flags[flagId] ?? 0) - amount
+      if (Math.abs(remaining) < Number.EPSILON) delete state.empire.flags[flagId]
+      else state.empire.flags[flagId] = remaining
     }
-    this.state.empire.cardFlagBonuses = {}
+    state.empire.cardFlagBonuses = {}
   }
 
   private setCityPopulation(city: EmpiresCityState, population: number): void {
@@ -1137,9 +1688,197 @@ export class EmpiresEndgameEngine {
     }
   }
 
+  private recruitedUnitCount(city: EmpiresCityState): number {
+    return Object.entries(city.recruitedUnits).reduce((total, [unitId, count]) => (
+      this.unitDefinitions.get(unitId)?.deferredReason
+        ? total
+        : total + Math.max(0, count)
+    ), 0)
+  }
+
+  private operationalBuildingFlagEntries(
+    city: EmpiresCityState,
+    flagId: string,
+  ): Array<{ buildingId: string, level: number, value: number }> {
+    return Object.entries(city.operationalBuildingLevels).flatMap(([buildingId, rawLevel]) => {
+      if (rawLevel <= 0 || this.isBuildingInteractionLocked(city, buildingId)) return []
+      const building = this.buildingDefinitions.get(buildingId)
+      if (!building || building.deferredReason) return []
+      const level = this.effectiveLevelFromRaw(building, rawLevel)
+      const levelDefinition = this.buildingLevelDefinitionAt(building, level)
+      const values = (levelDefinition?.effects ?? []).flatMap(effect => (
+        effect.kind === 'flag' && effect.flagId === flagId ? [effect.amount] : []
+      ))
+      if (values.length === 0) return []
+      return [{ buildingId, level, value: Math.max(...values) }]
+    })
+  }
+
+  private operationalBuildingFlagValue(city: EmpiresCityState, flagId: string): number | null {
+    const values = this.operationalBuildingFlagEntries(city, flagId).map(entry => entry.value)
+    return values.length > 0 ? Math.max(...values) : null
+  }
+
+  private inheritedOperationalBuildingFlagValue(city: EmpiresCityState, flagId: string): number | null {
+    const values = Object.entries(city.operationalBuildingLevels).flatMap(([buildingId, rawLevel]) => {
+      if (rawLevel <= 0 || this.isBuildingInteractionLocked(city, buildingId)) return []
+      const building = this.buildingDefinitions.get(buildingId)
+      if (!building || building.deferredReason) return []
+      const effectiveLevel = this.effectiveLevelFromRaw(building, rawLevel)
+      return building.levels
+        .filter(level => level.level <= effectiveLevel)
+        .flatMap(level => (level.effects ?? []).flatMap(effect => (
+          effect.kind === 'flag' && effect.flagId === flagId ? [effect.amount] : []
+        )))
+    })
+    return values.length > 0 ? Math.max(...values) : null
+  }
+
+  private resourcePaymentPlan(
+    resourceId: string,
+    amount: number,
+    city?: EmpiresCityState,
+    allowTempleTransfers = false,
+  ): EmpiresResourcePaymentPlan {
+    const requested = Math.max(0, amount)
+    let remaining = requested
+    const targetSpend = Math.min(Math.max(0, city?.resources[resourceId] ?? 0), remaining)
+    remaining -= targetSpend
+    const empireSpend = Math.min(
+      Math.max(0, this.state.empire.resources[resourceId] ?? 0),
+      remaining,
+    )
+    remaining -= empireSpend
+    const donorSpends: Array<{ cityId: string, amount: number }> = []
+
+    const transferLossPercent = city && allowTempleTransfers
+      ? this.operationalBuildingFlagValue(city, 'templarTransferLossPercent')
+      : null
+    const deliveredFraction = transferLossPercent === null
+      ? 0
+      : Math.max(0, Math.min(1, (100 - transferLossPercent) / 100))
+    if (city && deliveredFraction > 0 && remaining > Number.EPSILON) {
+      const donors = this.state.empire.cities
+        .filter(candidate => candidate.id !== city.id && this.isCityAccessible(candidate.id))
+        .filter(candidate => (
+          this.operationalBuildingFlagValue(candidate, 'templarTransferLossPercent') !== null
+        ))
+        .sort((left, right) => left.id.localeCompare(right.id))
+      for (const donor of donors) {
+        const donorAvailable = Math.max(0, donor.resources[resourceId] ?? 0)
+        const donorSpend = Math.min(donorAvailable, remaining / deliveredFraction)
+        if (donorSpend <= 0) continue
+        donorSpends.push({ cityId: donor.id, amount: donorSpend })
+        remaining = Math.max(0, remaining - donorSpend * deliveredFraction)
+        if (remaining <= Number.EPSILON) break
+      }
+    }
+
+    return {
+      covered: requested - remaining,
+      targetSpend,
+      empireSpend,
+      donorSpends,
+    }
+  }
+
+  private famineFoodMultiplier(city: EmpiresCityState): number {
+    let multiplier = 1
+    for (const cardId of this.state.durak.playerHand) {
+      const instance = this.state.cards[cardId]
+      const definition = instance ? this.definitions.get(instance.definitionId) : null
+      if (!instance || !definition) continue
+      const face = instance.inverted ? definition.inverted : definition.normal
+      if (face.deferredReason) continue
+      const isFamineYear = face.effects.some(effect => (
+        effect.kind === 'flag'
+        && effect.flagId === 'famineYear'
+        && effect.amount + (effect.amountPerLevel ?? 0) * instance.level > 0
+      ))
+      if (!isFamineYear) continue
+      for (const effect of face.effects) {
+        if (effect.kind !== 'resourceMultiplier'
+          || effect.resourceId !== this.config.empire.foodResourceId) continue
+        multiplier *= effect.multiplier + (effect.multiplierPerLevel ?? 0) * instance.level
+      }
+    }
+    if (multiplier >= 1) return multiplier
+    if ((this.state.empire.flags.famineYearCounter ?? 0) > 0) return 1
+    if ((this.inheritedOperationalBuildingFlagValue(city, 'famineProtectionTurns') ?? 0) > 0) return 1
+    return Math.max(0, multiplier)
+  }
+
+  private tradeLevyGoldForCity(city: EmpiresCityState): number {
+    const levyBuildings = Object.entries(city.operationalBuildingLevels).flatMap(([buildingId, rawLevel]) => {
+      if (rawLevel <= 0 || this.isBuildingInteractionLocked(city, buildingId)) return []
+      const building = this.buildingDefinitions.get(buildingId)
+      if (!building || building.deferredReason) return []
+      const level = this.effectiveLevelFromRaw(building, rawLevel)
+      const levelDefinition = this.buildingLevelDefinitionAt(building, level)
+      const flags = (levelDefinition?.effects ?? []).flatMap(effect => (
+        effect.kind === 'flag' ? [[effect.flagId, effect.amount] as const] : []
+      ))
+      const flagValues = Object.fromEntries(flags) as Record<string, number>
+      if (!Number.isFinite(flagValues.idleBuildingGoldBase)
+        || !Number.isFinite(flagValues.surplusFoodPerGold)) return []
+      return [{
+        buildingId,
+        idleBuildingGoldBase: Math.max(0, flagValues.idleBuildingGoldBase),
+        surplusFoodPerGold: Math.max(0, flagValues.surplusFoodPerGold),
+      }]
+    })
+    if (levyBuildings.length === 0) return 0
+
+    const levyBuildingIds = new Set(levyBuildings.map(entry => entry.buildingId))
+    const providers = this.config.empire.lockProviderBuildingIds as Record<string, string>
+    const busyProviderIds = new Set(
+      Object.keys(city.lockedFacilities).flatMap(lock => providers[lock] ? [providers[lock]] : []),
+    )
+    const idleBuildingGoldBase = Math.max(...levyBuildings.map(entry => entry.idleBuildingGoldBase))
+    const idleBuildingGold = Object.entries(city.operationalBuildingLevels).reduce(
+      (total, [buildingId, rawLevel]) => {
+        if (rawLevel <= 0
+          || levyBuildingIds.has(buildingId)
+          || busyProviderIds.has(buildingId)
+          || this.isBuildingInteractionLocked(city, buildingId)) return total
+        const building = this.buildingDefinitions.get(buildingId)
+        if (building?.deferredReason) return total
+        const effectiveLevel = building ? this.effectiveLevelFromRaw(building, rawLevel) : rawLevel
+        const levelDefinition = building
+          ? this.buildingLevelDefinitionAt(building, effectiveLevel)
+          : null
+        if ((levelDefinition?.production?.length ?? 0) > 0) return total
+        return total + idleBuildingGoldBase + Math.max(0, effectiveLevel - 1)
+      },
+      0,
+    )
+    const surplusFoodPerGold = Math.max(...levyBuildings.map(entry => entry.surplusFoodPerGold))
+    const foodId = this.config.empire.foodResourceId
+    const surplusFood = Math.max(
+      0,
+      (city.lastProduction[foodId] ?? 0) - this.cityFoodConsumption(city.id) - city.foodCommitted,
+    )
+    const surplusFoodGold = surplusFoodPerGold > 0
+      ? Math.floor(surplusFood / surplusFoodPerGold)
+      : 0
+    return idleBuildingGold + surplusFoodGold
+  }
+
+  private applyTreasuryIncome(): void {
+    const goldPerSavedMillion = this.state.empire.flags.treasuryGoldPerSavedMillion
+    if (!Number.isFinite(goldPerSavedMillion) || goldPerSavedMillion <= 0) return
+    const savedGold = Math.max(0, this.state.empire.resources.gold ?? 0)
+    const bonus = Math.floor(savedGold / 1_000_000) * goldPerSavedMillion
+    if (bonus > 0) this.state.empire.resources.gold = savedGold + bonus
+  }
+
   private eventIsEligible(event: EmpiresEventDefinition): boolean {
+    if (event.deferredReason || !event.choices.some(choice => !choice.deferredReason)) return false
     if ((event.minimumCon ?? Number.NEGATIVE_INFINITY) > this.state.con) return false
     if ((event.maximumCon ?? Number.POSITIVE_INFINITY) < this.state.con) return false
+    if (event.id === 'event-horse-theft' && (this.state.empire.flags.horseTheftDisabled ?? 0) > 0) {
+      return false
+    }
     return !this.firstMissingDependency(event.prerequisites ?? [])
   }
 
@@ -1155,7 +1894,11 @@ export class EmpiresEndgameEngine {
     this.state.empire.productionBoostAssignments = this.state.empire.productionBoostAssignments
       .filter((assignment) => {
         const key = `${assignment.cityId}\u0000${assignment.buildingId}`
-        if (seen.has(key) || !this.city(assignment.cityId) || !this.buildingDefinitions.has(assignment.buildingId)) {
+        const building = this.buildingDefinitions.get(assignment.buildingId)
+        if (seen.has(key)
+          || !this.isCityAccessible(assignment.cityId)
+          || !building
+          || building.deferredReason) {
           return false
         }
         seen.add(key)
@@ -1171,15 +1914,22 @@ export class EmpiresEndgameEngine {
 
     const productionKinds = new Set<EffectKind>(['resourceMultiplier', 'foodProduction'])
     for (const giftId of this.currentEmpireGiftIds()) {
-      this.applyEffects(this.giftDefinitions.get(giftId)?.effects ?? [], 0, productionKinds)
+      const gift = this.giftDefinitions.get(giftId)
+      if (!gift || gift.deferredReason || !this.giftIsUnlocked(gift)) continue
+      this.applyEffects(gift.effects, 0, productionKinds)
     }
     for (const technologyId of this.state.empire.researchedTechnologyIds) {
-      this.applyEffects(this.technologyDefinitions.get(technologyId)?.effects ?? [], 0, productionKinds)
+      const technology = this.technologyDefinitions.get(technologyId)
+      if (!technology || technology.deferredReason) continue
+      this.applyEffects(technology.effects, 0, productionKinds)
     }
     for (const city of this.state.empire.cities) {
       for (const [buildingId, level] of Object.entries(city.operationalBuildingLevels)) {
-        const levelDefinition = this.buildingDefinitions.get(buildingId)?.levels
-          .find(item => item.level === level)
+        const building = this.buildingDefinitions.get(buildingId)
+        if (!building || building.deferredReason) continue
+        const levelDefinition = building
+          ? this.buildingLevelDefinitionAt(building, this.effectiveLevelFromRaw(building, level))
+          : null
         this.applyEffects(levelDefinition?.effects ?? [], 0, productionKinds)
       }
     }
@@ -1187,7 +1937,315 @@ export class EmpiresEndgameEngine {
       const instance = this.state.cards[cardId]
       const definition = this.getDefinition(instance)
       const face = instance.inverted ? definition.inverted : definition.normal
-      this.applyEffects(face.effects, instance.level, productionKinds)
+      if (face.deferredReason) continue
+      const famineYear = face.effects.some(effect => (
+        effect.kind === 'flag'
+        && effect.flagId === 'famineYear'
+        && effect.amount + (effect.amountPerLevel ?? 0) * instance.level > 0
+      ))
+      const effects = famineYear
+        ? face.effects.filter(effect => (
+            effect.kind !== 'resourceMultiplier'
+            || effect.resourceId !== this.config.empire.foodResourceId
+          ))
+        : face.effects
+      this.applyEffects(effects, instance.level, productionKinds)
+    }
+  }
+
+  private claimGift(gift: EmpiresGiftDefinition): void {
+    this.state.empire.claimedGiftIds.push(gift.id)
+    if (gift.application === 'eachEmpire' && !this.state.empire.activeGiftIds.includes(gift.id)) {
+      this.state.empire.activeGiftIds.push(gift.id)
+    }
+  }
+
+  private giftIsUnlocked(
+    gift: EmpiresGiftDefinition,
+    state: EmpiresCampaignState = this.state,
+  ): boolean {
+    return gift.kind !== 'relic' || (state.empire.flags.relicsUnlocked ?? 0) > 0
+  }
+
+  private applyOneShotGiftEffects(gift: EmpiresGiftDefinition, targetCityId?: string): void {
+    const immediateKinds = new Set<EffectKind>(['resource', 'time', 'population', 'flag'])
+    this.applyGiftEffects(gift, targetCityId, immediateKinds)
+  }
+
+  private applyGiftEffects(
+    gift: EmpiresGiftDefinition,
+    targetCityId?: string,
+    allowedKinds?: ReadonlySet<EffectKind>,
+  ): void {
+    const targetCity = targetCityId ? this.city(targetCityId) : null
+    for (const effect of gift.effects) {
+      if (allowedKinds && !allowedKinds.has(effect.kind)) continue
+      if (targetCity && effect.kind === 'resource') {
+        targetCity.resources[effect.resourceId] = (targetCity.resources[effect.resourceId] ?? 0) + effect.amount
+        continue
+      }
+      this.applyEffects([effect], 0)
+    }
+  }
+
+  private applyFixedGiftResolution(gift: EmpiresGiftDefinition): void {
+    const resolution = gift.resolution
+    if (!resolution) return
+    if (resolution.kind === 'destroyRegion') {
+      if (!this.state.empire.destroyedRegionIds.includes(resolution.regionId)) {
+        this.state.empire.destroyedRegionIds.push(resolution.regionId)
+      }
+      this.state.empire.productionBoostAssignments = this.state.empire.productionBoostAssignments.filter(
+        assignment => this.isCityAccessible(assignment.cityId),
+      )
+      return
+    }
+    if (resolution.kind === 'buildingLevelBonus') {
+      const amount = Math.floor(resolution.amount)
+      for (const slot of resolution.slots) {
+        const current = this.state.empire.buildingLevelBonuses[slot] ?? 0
+        this.state.empire.buildingLevelBonuses[slot] = Math.max(0, current + amount)
+      }
+    }
+  }
+
+  private applyTargetedGiftResolution(
+    gift: EmpiresGiftDefinition,
+    targetCityId: string,
+    pending: EmpiresPendingGiftResolution,
+  ): void {
+    if (pending.kind === 'meteorCity') this.damageCityWithMeteor(targetCityId, pending.damageLevels)
+    this.applyOneShotGiftEffects(gift, targetCityId)
+  }
+
+  private applyRecurringGiftResolution(gift: EmpiresGiftDefinition): void {
+    const resolution = gift.resolution
+    if (!resolution) return
+    if (resolution.kind === 'cityResources') return
+    if (resolution.kind === 'meteorCity') {
+      const targetCityId = this.state.empire.giftResolutionTargets[gift.id]
+      if (targetCityId && this.isCityAccessible(targetCityId)) {
+        this.damageCityWithMeteor(targetCityId, Math.max(0, Math.floor(resolution.damageLevels)))
+      }
+      return
+    }
+    this.applyFixedGiftResolution(gift)
+  }
+
+  private migrateDestroyedRegions(
+    state: EmpiresCampaignState,
+    includeLegacySignals: boolean,
+  ): string[] {
+    const knownRegionIds = new Set(this.config.empire.map.regions.map(region => region.id))
+    const destroyed = new Set(
+      (state.empire.destroyedRegionIds ?? []).filter(regionId => knownRegionIds.has(regionId)),
+    )
+    if (includeLegacySignals) {
+      const legacyFlags: Record<string, string> = {
+        destroyWest: 'west',
+        destroyNorth: 'north',
+        destroySouth: 'south',
+        destroyEast: 'east',
+      }
+      for (const [flagId, regionId] of Object.entries(legacyFlags)) {
+        if ((state.empire.flags[flagId] ?? 0) > 0 && knownRegionIds.has(regionId)) destroyed.add(regionId)
+      }
+      for (const giftId of state.empire.claimedGiftIds) {
+        const resolution = this.giftDefinitions.get(giftId)?.resolution
+        if (resolution?.kind === 'destroyRegion' && knownRegionIds.has(resolution.regionId)) {
+          destroyed.add(resolution.regionId)
+        }
+      }
+    }
+    return [...destroyed]
+  }
+
+  private migrateBuildingLevelBonuses(
+    state: EmpiresCampaignState,
+    includeLegacySignals: boolean,
+  ): Partial<Record<EmpiresBuildingSlotKind, number>> {
+    const migrated: Partial<Record<EmpiresBuildingSlotKind, number>> = {}
+    for (const slot of BUILDING_SLOT_KINDS) {
+      const amount = state.empire.buildingLevelBonuses?.[slot]
+      if (Number.isFinite(amount) && amount > 0) migrated[slot] = Math.floor(amount)
+    }
+    if (!includeLegacySignals) return migrated
+
+    const claimedBonuses: Partial<Record<EmpiresBuildingSlotKind, number>> = {}
+    for (const giftId of state.empire.claimedGiftIds) {
+      const resolution = this.giftDefinitions.get(giftId)?.resolution
+      if (resolution?.kind !== 'buildingLevelBonus') continue
+      for (const slot of resolution.slots) {
+        claimedBonuses[slot] = (claimedBonuses[slot] ?? 0) + Math.max(0, Math.floor(resolution.amount))
+      }
+    }
+    const legacyFlags: Partial<Record<EmpiresBuildingSlotKind, number>> = {
+      farm: state.empire.flags.farmLevelBonus,
+      lumber: state.empire.flags.lumberLevelBonus,
+    }
+    for (const slot of BUILDING_SLOT_KINDS) {
+      const legacyAmount = Number.isFinite(legacyFlags[slot])
+        ? Math.max(0, Math.floor(legacyFlags[slot] ?? 0))
+        : 0
+      const claimedAmount = claimedBonuses[slot] ?? 0
+      const amount = Math.max(legacyAmount, claimedAmount)
+      if (amount > 0) migrated[slot] = amount
+    }
+    return migrated
+  }
+
+  private normalizePendingResolution(
+    state: EmpiresCampaignState,
+  ): EmpiresPendingGiftResolution | null {
+    const pending = state.pendingResolution
+    if (!pending) return null
+    if (state.phase !== 'divineGift') {
+      throw new Error('Pending divine-gift resolution is only valid in the divineGift phase')
+    }
+    const gift = this.giftDefinitions.get(pending.giftId)
+    if (!gift || gift.deferredReason || !this.giftIsUnlocked(gift, state)) {
+      const claimedIndex = state.empire.claimedGiftIds.lastIndexOf(pending.giftId)
+      if (claimedIndex >= 0) state.empire.claimedGiftIds.splice(claimedIndex, 1)
+      if (!state.empire.claimedGiftIds.includes(pending.giftId)) {
+        state.empire.activeGiftIds = state.empire.activeGiftIds.filter(id => id !== pending.giftId)
+      }
+      return null
+    }
+    if (!state.giftChoiceIds.includes(gift.id) || !state.empire.claimedGiftIds.includes(gift.id)) {
+      throw new Error('Pending resolution gift was not accepted from the current choices')
+    }
+    const eligibleTargetIds = this.accessibleCityIdsFromState(state)
+    if (eligibleTargetIds.length === 0) throw new Error('Pending resolution has no accessible city targets')
+    if (pending.kind === 'cityResources' && gift.resolution?.kind === 'cityResources') {
+      return { kind: 'cityResources', giftId: gift.id, eligibleTargetIds }
+    }
+    if (pending.kind === 'meteorCity' && gift.resolution?.kind === 'meteorCity') {
+      const damageLevels = Math.floor(gift.resolution.damageLevels)
+      if (damageLevels <= 0) throw new Error('Pending meteor resolution has invalid damage')
+      return { kind: 'meteorCity', giftId: gift.id, damageLevels, eligibleTargetIds }
+    }
+    throw new Error('Pending resolution does not match its gift definition')
+  }
+
+  private normalizeDivineGiftChoices(state: EmpiresCampaignState): void {
+    if (state.phase !== 'divineGift' || state.pendingResolution) return
+    const score = state.performanceScore
+    const seen = new Set<string>()
+    const existing = state.giftChoiceIds.filter((giftId) => {
+      if (seen.has(giftId)) return false
+      const gift = this.giftDefinitions.get(giftId)
+      if (
+        !gift
+        || gift.deferredReason
+        || !this.giftIsUnlocked(gift, state)
+        || (gift.minimumPerformance ?? Number.NEGATIVE_INFINITY) > score
+        || (gift.maximumPerformance ?? Number.POSITIVE_INFINITY) < score
+      ) return false
+      seen.add(giftId)
+      return true
+    }).slice(0, this.config.gifts.choiceCount)
+    const replacements = pickEmpiresWeightedWithoutReplacement(
+      this.config.gifts.definitions
+        .filter(gift => !seen.has(gift.id))
+        .filter(gift => !gift.deferredReason && this.giftIsUnlocked(gift, state))
+        .filter(gift => (gift.minimumPerformance ?? Number.NEGATIVE_INFINITY) <= score)
+        .filter(gift => (gift.maximumPerformance ?? Number.POSITIVE_INFINITY) >= score)
+        .map(gift => ({
+          ...gift,
+          weight: Math.max(Number.EPSILON, gift.baseWeight + gift.performanceWeight * score),
+        })),
+      Math.max(0, this.config.gifts.choiceCount - existing.length),
+      state.rng,
+    ).map(gift => gift.id)
+    state.giftChoiceIds = [...existing, ...replacements]
+  }
+
+  private eventCanResolve(event: EmpiresEventDefinition | undefined): boolean {
+    return Boolean(event && !event.deferredReason && event.choices.some(choice => !choice.deferredReason))
+  }
+
+  private advanceSnapshotToNextCon(state: EmpiresCampaignState): void {
+    this.clearCardFlagBonusesFromState(state)
+    state.phase = 'cards'
+    state.con += 1
+    state.boutsInCon = 0
+    state.performance = emptyPerformance()
+    state.performanceScore = 0
+    state.giftChoiceIds = []
+    state.pendingResolution = null
+    state.event = null
+    state.durak.stage = 'attack'
+    state.durak.defenderHandAtBoutStart = this.handFromState(state, state.durak.defender).length
+  }
+
+  private isRegionAccessibleInState(state: EmpiresCampaignState, regionId: string): boolean {
+    return this.config.empire.map.regions.some(region => region.id === regionId)
+      && !state.empire.destroyedRegionIds.includes(regionId)
+  }
+
+  private accessibleCityIdsFromState(state: EmpiresCampaignState): string[] {
+    return state.empire.cities
+      .filter(city => this.isRegionAccessibleInState(state, city.regionId))
+      .map(city => city.id)
+  }
+
+  private accessibleCityIds(): string[] {
+    return this.accessibleCityIdsFromState(this.state)
+  }
+
+  private damageCityWithMeteor(cityId: string, damageLevels: number): void {
+    const city = this.city(cityId)
+    if (!city || !this.isCityAccessible(cityId)) return
+    const target = Object.entries(city.buildingLevels)
+      .filter(([buildingId, level]) => {
+        const building = this.buildingDefinitions.get(buildingId)
+        return level > 0 && Boolean(building && !building.deferredReason)
+      })
+      .sort(([leftId, leftLevel], [rightId, rightLevel]) => (
+        rightLevel - leftLevel || leftId.localeCompare(rightId)
+      ))[0]
+    if (!target) return
+    const [buildingId, level] = target
+    city.buildingLevels[buildingId] = Math.max(0, level - damageLevels)
+    city.buildingInteractionLocks[buildingId] = this.state.con
+    this.refreshProductions()
+  }
+
+  private applyMilitaryArson(): void {
+    this.applyMilitaryArsonToState(this.state)
+  }
+
+  private applyMilitaryArsonToState(
+    state: EmpiresCampaignState,
+    onlyCityIds?: ReadonlySet<string>,
+  ): void {
+    for (const city of state.empire.cities) {
+      if (onlyCityIds && !onlyCityIds.has(city.id)) continue
+      if (!this.isRegionAccessibleInState(state, city.regionId)) continue
+      const unitIds = Object.entries(city.recruitedUnits)
+        .filter(([, count]) => count > 0)
+        .map(([id]) => id)
+        .sort((left, right) => left.localeCompare(right))
+      const unitId = unitIds.length > 0
+        ? unitIds[Math.floor(nextEmpiresRandom(state.rng) * unitIds.length)]
+        : undefined
+      if (unitId) {
+        const remaining = Math.max(0, (city.recruitedUnits[unitId] ?? 0) - 1)
+        if (remaining === 0) delete city.recruitedUnits[unitId]
+        else city.recruitedUnits[unitId] = remaining
+      }
+
+      const barracks = Object.entries(city.buildingLevels)
+        .filter(([buildingId, level]) => (
+          level > 0 && this.buildingDefinitions.get(buildingId)?.slot === 'barracks'
+        ))
+        .sort(([leftId, leftLevel], [rightId, rightLevel]) => (
+          rightLevel - leftLevel || leftId.localeCompare(rightId)
+        ))[0]
+      if (!barracks) continue
+      const [buildingId, level] = barracks
+      city.buildingLevels[buildingId] = Math.max(0, level - 1)
+      city.buildingInteractionLocks[buildingId] = state.con
     }
   }
 
@@ -1204,23 +2262,36 @@ export class EmpiresEndgameEngine {
 
   private workerDemand(city: EmpiresCityState): number {
     return Object.entries(city.operationalBuildingLevels).reduce((total, [buildingId, level]) => {
-      const current = this.buildingDefinitions.get(buildingId)?.levels.find(item => item.level === level)
+      const building = this.buildingDefinitions.get(buildingId)
+      if (!building || building.deferredReason) return total
+      const current = building
+        ? this.buildingLevelDefinitionAt(building, this.effectiveLevelFromRaw(building, level))
+        : null
       return total + (current?.workerDemand ?? 0)
     }, 0)
   }
 
   private updateOperationalBuildings(city: EmpiresCityState): void {
-    city.operationalBuildingLevels = { ...city.buildingLevels }
+    city.operationalBuildingLevels = Object.fromEntries(
+      Object.entries(city.buildingLevels).map(([buildingId, level]) => [
+        buildingId,
+        this.buildingDefinitions.get(buildingId)?.deferredReason ? 0 : level,
+      ]),
+    )
     const workforce = this.availableWorkforce(city)
     while (this.workerDemand(city) > workforce) {
       const candidates = Object.entries(city.operationalBuildingLevels)
         .filter(([buildingId, level]) => {
           if (level <= 0) return false
           const definition = this.buildingDefinitions.get(buildingId)
-          return (definition?.levels.find(item => item.level === level)?.workerDemand ?? 0) > 0
+          const effective = definition
+            ? this.buildingLevelDefinitionAt(definition, this.effectiveLevelFromRaw(definition, level))
+            : null
+          return (effective?.workerDemand ?? 0) > 0
         })
         .sort(([leftId, leftLevel], [rightId, rightLevel]) => (
-          rightLevel - leftLevel
+          this.effectiveLevelFromRaw(this.buildingDefinitions.get(rightId), rightLevel)
+          - this.effectiveLevelFromRaw(this.buildingDefinitions.get(leftId), leftLevel)
           || this.shutdownPriority(leftId) - this.shutdownPriority(rightId)
           || leftId.localeCompare(rightId)
         ))
@@ -1254,7 +2325,10 @@ export class EmpiresEndgameEngine {
   }
 
   private totalPopulation(): number {
-    return this.state.empire.cities.reduce((total, city) => total + city.population, 0)
+    return this.state.empire.cities.reduce(
+      (total, city) => total + (this.isCityAccessible(city.id) ? city.population : 0),
+      0,
+    )
   }
 
   private resolveTrumpSuit(deck: readonly string[]): EmpiresSuit {
@@ -1339,6 +2413,65 @@ export class EmpiresEndgameEngine {
 
   private cityDefinition(cityId: string) {
     return this.config.empire.cities.find(city => city.id === cityId) ?? null
+  }
+
+  private researchUsageKey(technology: EmpiresTechnologyDefinition): string {
+    const family = technology.category === 'reform' || technology.category === 'doctrine'
+      ? 'reform'
+      : 'technology'
+    const group = technology.groupId?.trim() || technology.id
+    return `${family}:${group}`
+  }
+
+  private isBuildingInteractionLocked(city: EmpiresCityState, buildingId: string): boolean {
+    return city.buildingInteractionLocks[buildingId] === this.state.con
+  }
+
+  private buildingLevelBonus(slot: EmpiresBuildingSlotKind): number {
+    const value = this.state.empire.buildingLevelBonuses[slot]
+    return Number.isFinite(value) ? Math.max(0, Math.floor(value ?? 0)) : 0
+  }
+
+  private effectiveLevelFromRaw(
+    building: EmpiresBuildingDefinition | undefined,
+    rawLevel: number,
+  ): number {
+    if (!building || building.deferredReason || rawLevel <= 0) return 0
+    return rawLevel + this.buildingLevelBonus(building.slot)
+  }
+
+  private buildingLevelDefinitionAt(
+    building: EmpiresBuildingDefinition,
+    level: number,
+  ): EmpiresBuildingLevelDefinition | null {
+    if (level <= 0) return null
+    const levels = [...building.levels].sort((left, right) => left.level - right.level)
+    const exact = levels.find(candidate => candidate.level === level)
+    if (exact) return exact
+    const last = levels.at(-1)
+    if (!last) return null
+    if (level < last.level) {
+      return [...levels].reverse().find(candidate => candidate.level < level) ?? levels[0]
+    }
+    const previous = levels.at(-2) ?? last
+    const steps = level - last.level
+    const productionIds = new Set([
+      ...(last.production ?? []).map(item => item.resourceId),
+      ...(previous.production ?? []).map(item => item.resourceId),
+    ])
+    const production = [...productionIds].map((resourceId) => {
+      const lastAmount = last.production?.find(item => item.resourceId === resourceId)?.amount ?? 0
+      const previousAmount = previous.production?.find(item => item.resourceId === resourceId)?.amount ?? lastAmount
+      return { resourceId, amount: Math.max(0, lastAmount + (lastAmount - previousAmount) * steps) }
+    })
+    const lastWorkers = last.workerDemand ?? 0
+    const previousWorkers = previous.workerDemand ?? lastWorkers
+    return {
+      ...last,
+      level,
+      workerDemand: Math.max(0, lastWorkers + (lastWorkers - previousWorkers) * steps),
+      production,
+    }
   }
 
   private productionBoostAssignmentLimit(flags = this.state.empire.flags): number {

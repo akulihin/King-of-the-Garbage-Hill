@@ -63,6 +63,7 @@ public class CharacterClass
     public string StoryAgent { get; set; }
     public bool TeamModeOnly { get; set; }
     public bool DoomRollMode { get; set; }
+    public bool IntelligenceCappedAtZero { get; set; }
 
 
     // PRIVATE
@@ -1287,6 +1288,8 @@ public class CharacterClass
     {
         if (howMuchToAdd < 0 && UnknownBug.Is(this)) return;
         if (howMuchToAdd < 0 && Madara.HasReanimatedBody(this) && skillName != GordonFreeman.SilentHero) return;
+        if (IntelligenceCappedAtZero && howMuchToAdd > 0)
+            howMuchToAdd = 0;
         if (skillName != "Прокачка" && skillName != "Читы")
         {
             skillName = $"|>Stat<|{skillName}";
@@ -1330,6 +1333,8 @@ public class CharacterClass
     {
         if (howMuchToSet < GetIntelligence() && UnknownBug.Is(this)) return;
         if (howMuchToSet < GetIntelligence() && Madara.HasReanimatedBody(this) && skillName != GordonFreeman.SilentHero) return;
+        if (IntelligenceCappedAtZero && howMuchToSet > 0)
+            howMuchToSet = 0;
         if (skillName != "Прокачка" && skillName != "Читы")
         {
             skillName = $"|>Stat<|{skillName}";
@@ -1360,6 +1365,8 @@ public class CharacterClass
     {
         if (howMuchToSet < GetIntelligence() && UnknownBug.Is(this)) return;
         if (howMuchToSet < GetIntelligence() && Madara.HasReanimatedBody(this)) return;
+        if (IntelligenceCappedAtZero && howMuchToSet > 0)
+            howMuchToSet = 0;
         //Set Stat only for one fight, not for the whole round!
         //Only used with "GameCharacter" because this overwrites "FightCharacter" mechanics
 

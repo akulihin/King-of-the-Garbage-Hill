@@ -13,7 +13,11 @@ export const EMPIRES_QA_SCENARIO_NAMES = [
   'pending-take',
   'empty-hand-pending-finish',
   'divine-gift',
+  'target-city-resources',
+  'target-meteor-city',
   'empire-council-with-points',
+  'destroyed-west',
+  'relic-production-levels',
   'event',
   'victory',
   'defeat',
@@ -63,6 +67,7 @@ export type EmpiresQaAction =
   | EmpiresQaPlayerCardAction
   | { kind: 'advance-god' }
   | { kind: 'choose-gift', giftId: string }
+  | { kind: 'resolve-target', targetId: string }
   | { kind: 'finish-empire' }
   | { kind: 'choose-event', eventId: string, choiceId: string }
 
@@ -79,6 +84,9 @@ export interface EmpiresQaStateDigest {
   tableAttackCount: number
   undefendedAttackCount: number
   giftChoiceCount: number
+  pendingResolutionKind: string | null
+  pendingTargetCount: number
+  destroyedRegionCount: number
   daysRemaining: number
   eventId: string | null
   rngDraws: number
@@ -96,6 +104,7 @@ export interface EmpiresQaTraceEntry {
 export type EmpiresQaStallCode =
   | 'no-player-action'
   | 'no-gift-choice'
+  | 'no-pending-target'
   | 'no-event-choice'
   | 'unsupported-phase'
   | 'action-failed'
@@ -150,9 +159,25 @@ const SCENARIO_COPY: Record<EmpiresQaScenarioName, { title: string, description:
     title: 'Divine gift',
     description: 'Three deterministic gifts are ready for selection.',
   },
+  'target-city-resources': {
+    title: 'Targeted city resources',
+    description: 'The resource grant has been accepted and is waiting for one city target.',
+  },
+  'target-meteor-city': {
+    title: 'Targeted meteor strike',
+    description: 'The meteor has been accepted and is waiting for one city target.',
+  },
   'empire-council-with-points': {
     title: 'Empire and card council',
     description: 'The empire phase is active and the card council has points to spend.',
+  },
+  'destroyed-west': {
+    title: 'Destroyed western region',
+    description: 'The west is permanently destroyed and its cities are inaccessible.',
+  },
+  'relic-production-levels': {
+    title: 'Farm and lumber relic',
+    description: 'Farm and lumber current and maximum levels receive the relic bonus.',
   },
   event: {
     title: 'Pending event',
@@ -193,8 +218,10 @@ function allLocatedCardIds(state: EmpiresCampaignState): string[] {
 
 function firstEligibleEvent(config: EmpiresEndgameConfig, con: number): EmpiresEventDefinition | null {
   return config.empire.events.find(event => (
-    (event.minimumCon ?? Number.NEGATIVE_INFINITY) <= con
+    !event.deferredReason
+    && (event.minimumCon ?? Number.NEGATIVE_INFINITY) <= con
     && (event.maximumCon ?? Number.POSITIVE_INFINITY) >= con
+    && event.choices.some(choice => !choice.deferredReason)
   )) ?? null
 }
 
@@ -242,6 +269,7 @@ function createPendingTakeSnapshot(
 function createGiftSnapshot(engine: EmpiresEndgameEngine): EmpiresCampaignState {
   const state = engine.snapshot()
   const giftChoiceIds = engine.config.gifts.definitions
+    .filter(gift => !gift.deferredReason)
     .slice(0, engine.config.gifts.choiceCount)
     .map(gift => gift.id)
   if (giftChoiceIds.length !== engine.config.gifts.choiceCount) {
@@ -257,16 +285,56 @@ function createGiftSnapshot(engine: EmpiresEndgameEngine): EmpiresCampaignState 
   return state
 }
 
+function createTargetedGiftSnapshot(
+  config: EmpiresEndgameConfig,
+  giftSnapshot: EmpiresCampaignState,
+  kind: 'cityResources' | 'meteorCity',
+): EmpiresCampaignState {
+  const gift = config.gifts.definitions.find(item => item.resolution?.kind === kind)
+  if (!gift) throw new Error(`QA ${kind} scenario requires a matching targeted gift.`)
+  const state = cloneJson(giftSnapshot)
+  state.giftChoiceIds = [
+    gift.id,
+    ...config.gifts.definitions
+      .filter(item => item.id !== gift.id && !item.deferredReason)
+      .slice(0, Math.max(0, config.gifts.choiceCount - 1))
+      .map(item => item.id),
+  ]
+  const engine = new EmpiresEndgameEngine(config, state)
+  const result = engine.chooseGift(gift.id)
+  if (!result.ok
+    || engine.state.phase !== 'divineGift'
+    || engine.state.pendingResolution?.kind !== kind) {
+    throw new Error(`QA ${kind} scenario could not start: ${result.message}`)
+  }
+  return engine.snapshot()
+}
+
 function createEmpireSnapshot(
   config: EmpiresEndgameConfig,
   giftSnapshot: EmpiresCampaignState,
 ): EmpiresCampaignState {
   const engine = new EmpiresEndgameEngine(config, giftSnapshot)
-  const giftId = engine.state.giftChoiceIds[0]
+  const giftId = engine.state.giftChoiceIds.find((id) => {
+    const gift = config.gifts.definitions.find(item => item.id === id)
+    return !gift?.deferredReason
+  })
   if (!giftId) throw new Error('QA empire scenario cannot start without a gift choice.')
   const result = engine.chooseGift(giftId)
-  if (!result.ok || engine.state.phase !== 'empire') {
+  if (!result.ok) {
     throw new Error(`QA empire scenario could not start: ${result.message}`)
+  }
+  if (engine.state.pendingResolution) {
+    const targetId = engine.state.pendingResolution.eligibleTargetIds
+      .find(id => engine.isCityAccessible(id))
+    if (!targetId) throw new Error('QA empire scenario cannot resolve its targeted gift.')
+    const targetResult = engine.resolvePendingTarget(targetId)
+    if (!targetResult.ok) {
+      throw new Error(`QA empire scenario could not resolve its gift: ${targetResult.message}`)
+    }
+  }
+  if (engine.state.phase !== 'empire') {
+    throw new Error('QA empire scenario did not enter the empire phase.')
   }
   const state = engine.snapshot()
   state.upgradePoints = Math.max(3, state.upgradePoints)
@@ -281,10 +349,41 @@ function createEventSnapshot(
   const event = firstEligibleEvent(config, state.con)
   if (!event) throw new Error('QA event scenario requires an event eligible for the current con.')
   state.phase = 'event'
-  state.event = { eventId: event.id }
+  state.event = { eventId: event.id, empireSettlementPending: false }
   state.empire.daysRemaining = 0
   state.outcomeReason = null
   return state
+}
+
+function createDestroyedRegionSnapshot(
+  config: EmpiresEndgameConfig,
+  empireSnapshot: EmpiresCampaignState,
+  regionId: string,
+): EmpiresCampaignState {
+  const state = cloneJson(empireSnapshot)
+  state.empire.destroyedRegionIds = Array.from(new Set([
+    ...state.empire.destroyedRegionIds,
+    regionId,
+  ]))
+  return new EmpiresEndgameEngine(config, state).snapshot()
+}
+
+function createRelicBuildingLevelSnapshot(
+  config: EmpiresEndgameConfig,
+  empireSnapshot: EmpiresCampaignState,
+): EmpiresCampaignState {
+  const state = cloneJson(empireSnapshot)
+  const relic = config.gifts.definitions.find(gift => gift.resolution?.kind === 'buildingLevelBonus')
+  if (!relic || relic.resolution?.kind !== 'buildingLevelBonus') {
+    throw new Error('QA relic scenario requires a building-level-bonus gift.')
+  }
+  for (const slot of relic.resolution.slots) {
+    state.empire.buildingLevelBonuses[slot] = (
+      state.empire.buildingLevelBonuses[slot] ?? 0
+    ) + relic.resolution.amount
+  }
+  if (!state.empire.claimedGiftIds.includes(relic.id)) state.empire.claimedGiftIds.push(relic.id)
+  return new EmpiresEndgameEngine(config, state).snapshot()
 }
 
 function createOutcomeSnapshot(
@@ -376,6 +475,9 @@ export function digestEmpiresQaState(engine: EmpiresEndgameEngine): EmpiresQaSta
     tableAttackCount: engine.state.durak.table.length,
     undefendedAttackCount: engine.state.durak.table.filter(pair => !pair.defenseCardId).length,
     giftChoiceCount: engine.state.giftChoiceIds.length,
+    pendingResolutionKind: engine.state.pendingResolution?.kind ?? null,
+    pendingTargetCount: engine.state.pendingResolution?.eligibleTargetIds.length ?? 0,
+    destroyedRegionCount: engine.state.empire.destroyedRegionIds.length,
     daysRemaining: engine.state.empire.daysRemaining,
     eventId: engine.state.event?.eventId ?? null,
     rngDraws: engine.state.rng.draws,
@@ -440,17 +542,28 @@ export function validateEmpiresQaSnapshot(
 
   if (snapshot.phase === 'divineGift') {
     const giftIds = new Set(config.gifts.definitions.map(gift => gift.id))
-    if (snapshot.giftChoiceIds.length !== config.gifts.choiceCount) {
+    if (!snapshot.pendingResolution && snapshot.giftChoiceIds.length !== config.gifts.choiceCount) {
       add('gift-count', 'Divine gift snapshot does not have the configured number of choices.')
     }
     if (snapshot.giftChoiceIds.some(giftId => !giftIds.has(giftId))) {
       add('gift-unknown', 'Divine gift snapshot contains an unknown gift.')
     }
+    if (snapshot.pendingResolution) {
+      if (!giftIds.has(snapshot.pendingResolution.giftId)) {
+        add('pending-gift-unknown', 'Pending target resolution references an unknown gift.')
+      }
+      if (snapshot.pendingResolution.eligibleTargetIds.length === 0) {
+        add('pending-target-empty', 'Pending target resolution has no eligible city.')
+      }
+    }
   }
   if (snapshot.phase === 'event') {
     const event = config.empire.events.find(item => item.id === snapshot.event?.eventId)
     if (!event) add('event-unknown', 'Event snapshot does not reference a configured event.')
-    else if (event.choices.length === 0) add('event-empty', 'Pending event has no choices.')
+    else if (event.deferredReason) add('event-deferred', 'Pending event is marked as future content.')
+    else if (!event.choices.some(choice => !choice.deferredReason)) {
+      add('event-empty', 'Pending event has no implemented choices.')
+    }
   }
   if ((snapshot.phase === 'victory' || snapshot.phase === 'defeat') && !snapshot.outcomeReason) {
     add('outcome-reason', 'Terminal snapshots must include an outcome reason.')
@@ -474,9 +587,27 @@ export function validateEmpiresQaSnapshot(
       }
     } else if (scenarioName === 'divine-gift' && snapshot.phase !== 'divineGift') {
       add('phase', 'Divine-gift scenario has the wrong phase.')
+    } else if (scenarioName === 'target-city-resources') {
+      if (snapshot.phase !== 'divineGift' || snapshot.pendingResolution?.kind !== 'cityResources') {
+        add('pending-resolution', 'City-resource scenario must wait for a city target.')
+      }
+    } else if (scenarioName === 'target-meteor-city') {
+      if (snapshot.phase !== 'divineGift' || snapshot.pendingResolution?.kind !== 'meteorCity') {
+        add('pending-resolution', 'Meteor scenario must wait for a city target.')
+      }
     } else if (scenarioName === 'empire-council-with-points') {
       if (snapshot.phase !== 'empire') add('phase', 'Empire council scenario has the wrong phase.')
       if (snapshot.upgradePoints <= 0) add('council-points', 'Empire council scenario needs upgrade points.')
+    } else if (scenarioName === 'destroyed-west') {
+      if (snapshot.phase !== 'empire' || !snapshot.empire.destroyedRegionIds.includes('west')) {
+        add('destroyed-region', 'Destroyed-west scenario must make the west inaccessible.')
+      }
+    } else if (scenarioName === 'relic-production-levels') {
+      if (snapshot.phase !== 'empire'
+        || (snapshot.empire.buildingLevelBonuses.farm ?? 0) < 1
+        || (snapshot.empire.buildingLevelBonuses.lumber ?? 0) < 1) {
+        add('building-level-bonus', 'Relic scenario must increase farm and lumber levels.')
+      }
     } else if (scenarioName === 'event' && snapshot.phase !== 'event') {
       add('phase', 'Event scenario has the wrong phase.')
     } else if ((scenarioName === 'victory' || scenarioName === 'defeat') && snapshot.phase !== scenarioName) {
@@ -499,13 +630,21 @@ export function createEmpiresQaScenarios(
   const pendingTake = createPendingTakeSnapshot(baseEngine, false)
   const emptyHandPendingFinish = createPendingTakeSnapshot(baseEngine, true)
   const divineGift = createGiftSnapshot(baseEngine)
+  const targetCityResources = createTargetedGiftSnapshot(seededConfig, divineGift, 'cityResources')
+  const targetMeteorCity = createTargetedGiftSnapshot(seededConfig, divineGift, 'meteorCity')
   const empireCouncil = createEmpireSnapshot(seededConfig, divineGift)
+  const destroyedWest = createDestroyedRegionSnapshot(seededConfig, empireCouncil, 'west')
+  const relicProductionLevels = createRelicBuildingLevelSnapshot(seededConfig, empireCouncil)
   const event = createEventSnapshot(seededConfig, empireCouncil)
   const snapshots: Record<EmpiresQaScenarioName, EmpiresCampaignState> = {
     'pending-take': pendingTake,
     'empty-hand-pending-finish': emptyHandPendingFinish,
     'divine-gift': divineGift,
+    'target-city-resources': targetCityResources,
+    'target-meteor-city': targetMeteorCity,
     'empire-council-with-points': empireCouncil,
+    'destroyed-west': destroyedWest,
+    'relic-production-levels': relicProductionLevels,
     event,
     victory: createOutcomeSnapshot(baseEngine, 'victory'),
     defeat: createOutcomeSnapshot(baseEngine, 'defeat'),
@@ -577,6 +716,21 @@ function chooseAutoplayAction(
     }
   }
   if (engine.state.phase === 'divineGift') {
+    const pending = engine.state.pendingResolution
+    if (pending) {
+      const targetId = pending.eligibleTargetIds.find(id => engine.isCityAccessible(id))
+      return targetId
+        ? { action: { kind: 'resolve-target', targetId }, stall: null, checkedPlayerTurn: false }
+        : {
+            action: null,
+            stall: {
+              code: 'no-pending-target',
+              message: `Pending ${pending.kind} resolution has no accessible city target.`,
+              availablePlayerActions: [],
+            },
+            checkedPlayerTurn: false,
+          }
+    }
     const giftId = engine.state.giftChoiceIds[0]
     return giftId
       ? { action: { kind: 'choose-gift', giftId }, stall: null, checkedPlayerTurn: false }
@@ -595,7 +749,8 @@ function chooseAutoplayAction(
   }
   if (engine.state.phase === 'event') {
     const event = engine.config.empire.events.find(item => item.id === engine.state.event?.eventId)
-    const choice = event?.choices.find(item => eventChoiceIsAffordable(engine, item.resourceCosts))
+    const choice = event?.choices.find(item =>
+      !item.deferredReason && eventChoiceIsAffordable(engine, item.resourceCosts))
     return event && choice
       ? {
           action: { kind: 'choose-event', eventId: event.id, choiceId: choice.id },
@@ -634,6 +789,7 @@ function executeAutoplayAction(
   }
   if (action.kind === 'advance-god') return engine.advanceGod()
   if (action.kind === 'choose-gift') return engine.chooseGift(action.giftId)
+  if (action.kind === 'resolve-target') return engine.resolvePendingTarget(action.targetId)
   if (action.kind === 'finish-empire') return engine.finishEmpire()
   return engine.chooseEvent(action.choiceId)
 }

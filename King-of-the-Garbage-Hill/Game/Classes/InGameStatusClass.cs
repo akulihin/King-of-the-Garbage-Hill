@@ -268,14 +268,8 @@ public class InGameStatus
             };
         }
 
-        foreach (var player in game.PlayersList)
-        foreach (var passive in player.GameCharacter.Passive)
-        {
-            if (passive.PassiveName == "Подсчет"
-                && player.Passives.TolyaCount.TargetList.Any(x =>
-                    x.RoundNumber == game.RoundNo - 1 && x.Target == PlayerId))
-                roundNumber = 1;
-        }
+        if (IsRoundScoreMultiplierDisabledByTolya(game))
+            roundNumber = 1;
 
         return roundNumber switch
         {
@@ -283,6 +277,15 @@ public class InGameStatus
             <= 9 => 2,
             _ => 4,
         };
+    }
+
+    public bool IsRoundScoreMultiplierDisabledByTolya(GameClass game)
+    {
+        if (game == null || UnknownBug.Is(GameCharacter)) return false;
+        return game.PlayersList.Any(player =>
+            player.GameCharacter.Passive.Any(passive => passive.PassiveName == "Подсчет")
+            && player.Passives.TolyaCount.TargetList.Any(entry =>
+                entry.RoundNumber == game.RoundNo - 1 && entry.Target == PlayerId));
     }
 
     public decimal DrainSettledScoreForTransfer(GameClass game, string reason)

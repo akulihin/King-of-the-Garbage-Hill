@@ -625,7 +625,6 @@ public class GordonStateDto
 {
     public int ResolvedFights { get; set; }
     public int CrowbarProgress { get; set; }
-    public int JusticeBoost { get; set; }
     public bool WakeUsed { get; set; }
     public bool CanWake { get; set; }
     public bool WakeReservedForTsukuyomi { get; set; }
@@ -653,7 +652,8 @@ public class GordonHalfLifeStateDto
     public int DecisionSerial { get; set; }
     public string DeadlineUtc { get; set; }
     public decimal RawPoints { get; set; }
-    public int BaseMultiplier { get; set; }
+    public decimal BaseMultiplier { get; set; }
+    public bool SuperMultiplierDisabled { get; set; }
     public decimal Exponent { get; set; }
     public decimal FinalPoints { get; set; }
     public string FreezeLabel { get; set; }
