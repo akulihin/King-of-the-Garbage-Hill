@@ -176,6 +176,7 @@ export type PassiveAbilityStates = {
   eren?: ErenState
   naruto?: NarutoState
   gordon?: GordonState
+  jonSnow?: JonSnowState
 }
 
 export type BulkState = { drownChance: number; isBuffed: boolean }
@@ -288,6 +289,24 @@ export type GordonState = {
   zombieCount: number
   activeHeadcrabs: GordonHeadcrabState[]
   halfLife: GordonHalfLifeState
+}
+
+export type JonSnowWeakestPlayer = {
+  playerId: string
+  playerName: string
+}
+
+export type JonSnowState = {
+  skill: number
+  skillTarget: number
+  isKing: boolean
+  kingBlockedByCastle: boolean
+  bastardIntelligenceBonus: number
+  blackCastleActive: boolean
+  blackCastleTurnsRemaining: number
+  watchEnded: boolean
+  loyaltyVictories: number
+  weakestPlayers: JonSnowWeakestPlayer[]
 }
 
 export type PickleRickState = {

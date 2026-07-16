@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "title": "99 Last Chances",
   "seed": "99LC-prototype",
   "chances": 99,
@@ -56,7 +56,7 @@
     "doubleTapMs": 260,
     "tapComboWindowMs": 900,
     "holdMs": 650,
-    "holdMaxMs": 1000,
+    "holdMaxMs": 2300,
     "holdThenDoubleTapWindowMs": 480,
     "aimDeadZone": 0.12,
     "gamepadDeadZone": 0.18,
@@ -236,10 +236,10 @@
         "body": "Все кухонные ножи исчезли, кроме одного слишком маленького, чтобы принадлежать этой квартире.",
         "choices": [
           {
-            "id": "take-apartment-dagger",
-            "label": "Взять маленький кинжал",
-            "description": "Быстрое оружие для любой руки. На металле уже есть засохшая кровь.",
-            "effect": { "primaryWeaponId": "either-dagger" }
+            "id": "take-apartment-claws",
+            "label": "Взять когти",
+            "description": "Парные лезвия подходят любой руке и награждают ровный ритм кровотечением.",
+            "effect": { "primaryWeaponId": "either-claws" }
           },
           {
             "id": "study-empty-slots",
@@ -319,27 +319,27 @@
         "body": "Он не спрашивает, откуда вы вернётесь после смерти. Его цена существует только внутри этой генерации.",
         "choices": [
           {
-            "id": "buy-shield",
-            "label": "Купить щит",
-            "description": "Широкие активные окна помогают сбивать подготовленные атаки.",
-            "effect": { "chanceCost": 2, "secondaryWeaponId": "secondary-shield" }
+            "id": "buy-chain",
+            "label": "Купить цепь",
+            "description": "Медленная вторая рука хранит чужой не-кровоточащий ДОТ и разносит его следующим взмахом.",
+            "effect": { "chanceCost": 2, "secondaryWeaponId": "secondary-chain" }
           },
           {
-            "id": "buy-dagger",
-            "label": "Купить кинжал",
-            "description": "Быстрое одноручное оружие, которое можно сочетать с дополнительным.",
-            "effect": { "chanceCost": 2, "primaryWeaponId": "either-dagger" }
+            "id": "buy-claws",
+            "label": "Купить когти",
+            "description": "Частые порезы можно вести одной или двумя руками; каждый второй успешный удар открывает кровь.",
+            "effect": { "chanceCost": 2, "primaryWeaponId": "either-claws" }
           },
           {
-            "id": "buy-bow",
-            "label": "Купить лук",
-            "description": "Дальнобойная сборка упрощает контроль толпы, но занимает обе руки.",
-            "effect": { "chanceCost": 3, "primaryWeaponId": "twohand-bow", "secondaryWeaponId": null }
+            "id": "buy-katana",
+            "label": "Купить катану",
+            "description": "Двуручный набор быстрых рассечений, парирований и молниеносных рывков.",
+            "effect": { "chanceCost": 3, "primaryWeaponId": "twohand-katana", "secondaryWeaponId": null }
           },
           {
             "id": "buy-sword",
             "label": "Купить меч",
-            "description": "Гибридное оружие: свободная вторая рука открывает стойку, а щит или сфера заменяют её.",
+            "description": "Гибридный меч держит ритм Zornhau двумя руками; цепь или когти могут занять вторую.",
             "effect": { "chanceCost": 2, "primaryWeaponId": "hybrid-sword" }
           },
           {
@@ -477,22 +477,22 @@
         "body": "Замок открывается только после боя. Внутри лежат предметы, которые требуют не золото, а будущие попытки.",
         "choices": [
           {
-            "id": "claim-corpse-sword",
-            "label": "Забрать меч покойника",
-            "description": "Очень сильный двуручный меч. После смерти его можно вернуть из памяти тела.",
-            "effect": { "chanceCost": 3, "primaryWeaponId": "corpse-sword", "secondaryWeaponId": null }
+            "id": "claim-axe",
+            "label": "Забрать секиру",
+            "description": "Короткая двуручная секира цепляет врагов, а особые удары переходят в усиленное продолжение.",
+            "effect": { "chanceCost": 3, "primaryWeaponId": "twohand-axe", "secondaryWeaponId": null }
           },
           {
-            "id": "claim-hammer",
-            "label": "Забрать молот",
-            "description": "Медленные широкие удары, длинные опасные следы и огромный отбрасывающий импульс.",
-            "effect": { "chanceCost": 2, "primaryWeaponId": "twohand-hammer", "secondaryWeaponId": null }
+            "id": "claim-katana",
+            "label": "Забрать катану",
+            "description": "Точный двуручный клинок возвращает откаты удачными навыками и управляет кровотечением.",
+            "effect": { "chanceCost": 2, "primaryWeaponId": "twohand-katana", "secondaryWeaponId": null }
           },
           {
-            "id": "claim-orb",
-            "label": "Забрать магическую сферу",
-            "description": "Вторая рука получает снаряды, круговые волны и короткие перемещения.",
-            "effect": { "chanceCost": 1, "secondaryWeaponId": "secondary-magic-orb" }
+            "id": "claim-chain",
+            "label": "Забрать цепь",
+            "description": "Цепь занимает вторую руку, парирует, крутится вокруг героя и стягивает цели.",
+            "effect": { "chanceCost": 1, "secondaryWeaponId": "secondary-chain" }
           },
           {
             "id": "leave-chest",
@@ -608,10 +608,10 @@
         "body": "Отражение повторяет движения с задержкой и держит в ладони предмет, которого у героя никогда не было.",
         "choices": [
           {
-            "id": "take-shadow-shield",
-            "label": "Вырвать щит из отражения",
-            "description": "Щит создаёт широкие активные окна для парирования и сильного отбрасывания.",
-            "effect": { "mentalHealth": -12, "secondaryWeaponId": "secondary-shield" }
+            "id": "take-shadow-chain",
+            "label": "Вырвать цепь из отражения",
+            "description": "Тень отдаёт цепь, способную удерживать чужой ДОТ и возвращать его целой толпе.",
+            "effect": { "mentalHealth": -12, "secondaryWeaponId": "secondary-chain" }
           },
           {
             "id": "accept-shadow-strength",
@@ -662,6 +662,8 @@
       "maxHp": 28,
       "radius": 20,
       "moveSpeed": 105,
+      "armor": 0,
+      "dodge": 0.05,
       "idleTurnRadiansPerSecond": 0.28,
       "visionRange": 300,
       "visionAngleDegrees": 90,
@@ -685,6 +687,8 @@
       "maxHp": 20,
       "radius": 16,
       "moveSpeed": 145,
+      "armor": 1,
+      "dodge": 0.12,
       "idleTurnRadiansPerSecond": 0.7,
       "visionRange": 420,
       "visionAngleDegrees": 135,
@@ -709,6 +713,8 @@
       "maxHp": 52,
       "radius": 23,
       "moveSpeed": 92,
+      "armor": 4,
+      "dodge": 0.16,
       "idleTurnRadiansPerSecond": 0.2,
       "visionRange": 350,
       "visionAngleDegrees": 105,
@@ -732,6 +738,8 @@
       "maxHp": 86,
       "radius": 30,
       "moveSpeed": 118,
+      "armor": 3,
+      "dodge": 0.2,
       "idleTurnRadiansPerSecond": 0.34,
       "visionRange": 390,
       "visionAngleDegrees": 125,
@@ -755,6 +763,8 @@
       "maxHp": 24,
       "radius": 16,
       "moveSpeed": 205,
+      "armor": 0,
+      "dodge": 0.38,
       "idleTurnRadiansPerSecond": 0.52,
       "visionRange": 330,
       "visionAngleDegrees": 150,
@@ -773,7 +783,14 @@
       "attackWindupMs": 680,
       "parryWindowMs": 125,
       "mentalPressurePerSecond": 1.35,
-      "color": "#c7a757"
+      "color": "#c7a757",
+      "tuning": {
+        "selfDamageRatio": 0.18,
+        "captureWindowMs": 1200,
+        "captureStunMs": 1200,
+        "captureDistance": 105,
+        "captureRearDotMaximum": -0.2
+      }
     },
     {
       "id": "invisible-wolf",
@@ -781,6 +798,8 @@
       "maxHp": 94,
       "radius": 28,
       "moveSpeed": 176,
+      "armor": 2,
+      "dodge": 0.32,
       "idleTurnRadiansPerSecond": 0.22,
       "visionRange": 510,
       "visionAngleDegrees": 165,
@@ -805,6 +824,8 @@
       "maxHp": 460,
       "radius": 44,
       "moveSpeed": 138,
+      "armor": 9,
+      "dodge": 0.24,
       "idleTurnRadiansPerSecond": 0.16,
       "visionRange": 620,
       "visionAngleDegrees": 220,
@@ -863,458 +884,2575 @@
     }
   ],
   "loadout": {
-    "primaryWeaponId": "primary-spear",
-    "secondaryWeaponId": "secondary-magic-knife"
+    "primaryWeaponId": "twohand-spear",
+    "secondaryWeaponId": null,
+    "primaryAugment": "none",
+    "secondaryAugment": "none"
   },
   "weapons": [
     {
-      "id": "primary-spear",
-      "name": "Копьё",
-      "equipMode": "hybrid",
+      "id": "twohand-spear",
+      "name": "Двуручное копьё",
+      "equipMode": "twoHanded",
+      "description": "Держит врага на кончике дистанции: древко не ранит вплотную, а край зоны наносит критический урон.",
+      "chanceCost": 3,
+      "trait": "spearDistance",
+      "defaultAugment": "none",
       "tapCombo": [
         {
           "name": "Обратный рассекатель",
+          "behavior": "standard",
           "kind": "melee",
           "damage": 18,
           "cooldownMs": 0,
-          "range": 122,
-          "radius": 20,
-          "arcDegrees": 105,
-          "durationMs": 180,
+          "range": 174,
+          "radius": 18,
+          "arcDegrees": 118,
+          "durationMs": 190,
           "projectileSpeed": 0,
-          "pierce": 0,
+          "pierce": 5,
           "knockback": 18,
-          "color": "#efd99c"
+          "color": "#f6c85f",
+          "collider": {
+            "shape": "sector",
+            "innerRange": 52,
+            "traceMs": 520
+          },
+          "sweetSpot": {
+            "minRange": 138,
+            "maxRange": 190,
+            "damageMultiplier": 1.45,
+            "knockbackMultiplier": 1.25,
+            "criticalMultiplier": 1.35
+          }
         },
         {
-          "name": "Шаг и выпад",
+          "name": "Шаг и косой выпад",
+          "behavior": "standard",
           "kind": "melee",
           "damage": 21,
           "cooldownMs": 0,
-          "range": 158,
+          "range": 202,
           "radius": 12,
-          "arcDegrees": 42,
-          "durationMs": 200,
+          "arcDegrees": 54,
+          "durationMs": 205,
           "projectileSpeed": 0,
-          "pierce": 1,
-          "knockback": 22,
-          "color": "#ffe4a1"
+          "pierce": 4,
+          "knockback": 24,
+          "color": "#f6c85f",
+          "collider": {
+            "shape": "capsule",
+            "innerRange": 56,
+            "width": 24,
+            "traceMs": 560
+          },
+          "sweetSpot": {
+            "minRange": 164,
+            "maxRange": 216,
+            "damageMultiplier": 1.5,
+            "knockbackMultiplier": 1.3,
+            "criticalMultiplier": 1.4
+          }
         }
       ],
       "attacks": {
         "tap": {
-          "name": "Рассекающий удар",
+          "name": "Быстрый рассекающий удар",
+          "behavior": "standard",
           "kind": "melee",
           "damage": 16,
           "cooldownMs": 0,
-          "range": 128,
-          "radius": 18,
-          "arcDegrees": 115,
-          "durationMs": 190,
+          "range": 176,
+          "radius": 19,
+          "arcDegrees": 126,
+          "durationMs": 185,
           "projectileSpeed": 0,
-          "pierce": 0,
-          "knockback": 16,
-          "color": "#e8d7a5"
+          "pierce": 5,
+          "knockback": 17,
+          "color": "#f6c85f",
+          "collider": {
+            "shape": "sector",
+            "innerRange": 52,
+            "traceMs": 520
+          },
+          "sweetSpot": {
+            "minRange": 140,
+            "maxRange": 192,
+            "damageMultiplier": 1.5,
+            "knockbackMultiplier": 1.25,
+            "criticalMultiplier": 1.4
+          }
         },
         "doubleTap": {
           "name": "Тычок на дистанции",
+          "behavior": "standard",
           "kind": "melee",
-          "damage": 24,
-          "cooldownMs": 850,
-          "range": 180,
-          "radius": 12,
-          "arcDegrees": 34,
-          "durationMs": 170,
+          "damage": 25,
+          "cooldownMs": 900,
+          "range": 238,
+          "radius": 11,
+          "arcDegrees": 24,
+          "durationMs": 165,
           "projectileSpeed": 0,
-          "pierce": 1,
-          "knockback": 24,
-          "color": "#f4df9f"
+          "pierce": 3,
+          "knockback": 30,
+          "color": "#55c7ff",
+          "collider": {
+            "shape": "capsule",
+            "innerRange": 62,
+            "width": 22,
+            "traceMs": 620
+          },
+          "sweetSpot": {
+            "minRange": 196,
+            "maxRange": 252,
+            "damageMultiplier": 1.55,
+            "knockbackMultiplier": 1.35,
+            "criticalMultiplier": 1.45
+          }
         },
         "doubleTapHold": {
-          "name": "Таран копьём",
+          "name": "Заряженный таран копьём",
+          "behavior": "spearRam",
           "kind": "dash",
-          "damage": 31,
-          "cooldownMs": 3600,
-          "range": 310,
-          "radius": 24,
-          "arcDegrees": 28,
-          "durationMs": 520,
-          "projectileSpeed": 0,
-          "pierce": 6,
-          "knockback": 42,
-          "color": "#ffcd72"
-        },
-        "hold": {
-          "name": "Бросок копья",
-          "kind": "projectile",
-          "damage": 38,
-          "cooldownMs": 2800,
-          "range": 690,
-          "radius": 12,
-          "arcDegrees": 16,
-          "durationMs": 1200,
-          "projectileSpeed": 620,
-          "pierce": 2,
-          "knockback": 34,
-          "color": "#ffe5a8"
-        },
-        "holdThenDoubleTap": {
-          "name": "Круг над головой",
-          "kind": "burst",
-          "damage": 29,
-          "cooldownMs": 4300,
-          "range": 175,
-          "radius": 30,
-          "arcDegrees": 360,
-          "durationMs": 520,
+          "damage": 27,
+          "cooldownMs": 3800,
+          "range": 250,
+          "radius": 22,
+          "arcDegrees": 24,
+          "durationMs": 480,
           "projectileSpeed": 0,
           "pierce": 8,
           "knockback": 38,
-          "color": "#ffd66b"
+          "color": "#b680ff",
+          "collider": {
+            "shape": "capsule",
+            "innerRange": 44,
+            "width": 42,
+            "traceMs": 780,
+            "followsPlayer": true,
+            "tickMs": 80
+          },
+          "charge": {
+            "maxMs": 1800,
+            "bands": [
+              {
+                "id": "ram-short",
+                "label": "Короткий разгон",
+                "minMs": 650,
+                "color": "#9b73e8",
+                "damageMultiplier": 0.78,
+                "rangeMultiplier": 0.72,
+                "knockbackMultiplier": 0.7,
+                "speedMultiplier": 0.9
+              },
+              {
+                "id": "ram-strong",
+                "label": "Сильный таран",
+                "minMs": 1050,
+                "color": "#c18cff",
+                "damageMultiplier": 1.08,
+                "rangeMultiplier": 1.12,
+                "knockbackMultiplier": 1.15
+              },
+              {
+                "id": "ram-max",
+                "label": "Максимальный импакт",
+                "minMs": 1500,
+                "color": "#f0a4ff",
+                "damageMultiplier": 1.42,
+                "rangeMultiplier": 1.48,
+                "knockbackMultiplier": 1.75,
+                "speedMultiplier": 1.15
+              }
+            ]
+          },
+          "recoveryMs": 420,
+          "tuning": {
+            "dashColliderOffset": 44,
+            "dashColliderLength": 118
+          },
+          "sweetSpot": {
+            "minRange": 188,
+            "damageMultiplier": 1.4,
+            "knockbackMultiplier": 1.45,
+            "criticalMultiplier": 1.35
+          }
+        },
+        "hold": {
+          "name": "Замах и три исхода",
+          "behavior": "spearRelease",
+          "kind": "projectile",
+          "damage": 34,
+          "cooldownMs": 3150,
+          "range": 760,
+          "radius": 14,
+          "arcDegrees": 128,
+          "durationMs": 1300,
+          "projectileSpeed": 680,
+          "pierce": 10,
+          "knockback": 42,
+          "color": "#ff9f43",
+          "collider": {
+            "shape": "capsule",
+            "width": 28,
+            "traceMs": 900
+          },
+          "charge": {
+            "maxMs": 2200,
+            "bands": [
+              {
+                "id": "early",
+                "label": "Ранний релиз · широкий рассекатель",
+                "minMs": 650,
+                "color": "#ffd166",
+                "damageMultiplier": 1.18,
+                "rangeMultiplier": 0.3,
+                "knockbackMultiplier": 1.35,
+                "overrides": {
+                  "radius": 29,
+                  "arcDegrees": 165,
+                  "pierce": 10,
+                  "durationMs": 260
+                }
+              },
+              {
+                "id": "middle",
+                "label": "Средний релиз · метание и стан",
+                "minMs": 1125,
+                "color": "#ff9f43",
+                "damageMultiplier": 1.08,
+                "rangeMultiplier": 0.62,
+                "knockbackMultiplier": 1.1,
+                "overrides": {
+                  "projectileSpeed": 600,
+                  "pierce": 0
+                }
+              },
+              {
+                "id": "late",
+                "label": "Поздний релиз · пробитие и стена",
+                "minMs": 1650,
+                "color": "#ff5d5d",
+                "damageMultiplier": 1.38,
+                "rangeMultiplier": 1.12,
+                "knockbackMultiplier": 1.7,
+                "speedMultiplier": 1.15,
+                "overrides": {
+                  "pierce": 12,
+                  "projectileSpeed": 760
+                }
+              }
+            ]
+          },
+          "recoveryMs": 520,
+          "tuning": {
+            "wallPinMs": 1800,
+            "projectileSpawnOffset": 52
+          }
+        },
+        "holdThenDoubleTap": {
+          "name": "Раскрутка копья над головой",
+          "behavior": "spearSpin",
+          "kind": "burst",
+          "damage": 22,
+          "cooldownMs": 4450,
+          "range": 178,
+          "radius": 25,
+          "arcDegrees": 360,
+          "durationMs": 720,
+          "projectileSpeed": 0,
+          "pierce": 20,
+          "knockback": 24,
+          "color": "#6ee7a8",
+          "collider": {
+            "shape": "sweep",
+            "innerRange": 24,
+            "width": 28,
+            "traceMs": 960,
+            "followsPlayer": true,
+            "tickMs": 120,
+            "rotationDegrees": 1080
+          },
+          "charge": {
+            "maxMs": 2200,
+            "bands": [
+              {
+                "id": "spin-middle",
+                "label": "Средняя раскрутка",
+                "minMs": 1125,
+                "color": "#54e6b0",
+                "damageMultiplier": 1.05,
+                "knockbackMultiplier": 1.1,
+                "overrides": {
+                  "repeatHits": 4,
+                  "repeatIntervalMs": 145
+                }
+              },
+              {
+                "id": "spin-late",
+                "label": "Поздняя раскрутка",
+                "minMs": 1650,
+                "color": "#98ffd0",
+                "damageMultiplier": 1.3,
+                "knockbackMultiplier": 1.45,
+                "overrides": {
+                  "repeatHits": 6,
+                  "repeatIntervalMs": 120
+                }
+              }
+            ]
+          },
+          "hitEffects": [
+            {
+              "status": "microstun",
+              "durationMs": 150,
+              "refresh": "refresh"
+            }
+          ],
+          "repeatHits": 4,
+          "repeatIntervalMs": 145,
+          "recoveryMs": 340,
+          "tuning": {
+            "fogSuppressionMs": 2500,
+            "headshotOffsetRatio": 0.55,
+            "headshotRadiusRatio": 0.32,
+            "headshotDamageMultiplier": 1.65,
+            "headshotCueMs": 650
+          }
         }
       },
       "secondaryTapCombo": [
         {
-          "name": "Отвод древком",
-          "kind": "burst",
+          "name": "Повторный перехват древком",
+          "behavior": "parry",
+          "kind": "melee",
           "damage": 5,
           "cooldownMs": 0,
-          "range": 102,
-          "radius": 26,
-          "arcDegrees": 360,
-          "durationMs": 190,
+          "range": 96,
+          "radius": 24,
+          "arcDegrees": 165,
+          "durationMs": 210,
           "projectileSpeed": 0,
           "pierce": 8,
-          "knockback": 42,
-          "color": "#f3dda0"
+          "knockback": 20,
+          "color": "#f6c85f",
+          "collider": {
+            "shape": "capsule",
+            "width": 48,
+            "traceMs": 420
+          }
         }
       ],
       "secondaryAttacks": {
         "tap": {
           "name": "Быстрое парирование",
-          "kind": "dash",
+          "behavior": "parry",
+          "kind": "melee",
           "damage": 4,
           "cooldownMs": 0,
-          "range": 1,
-          "radius": 80,
-          "arcDegrees": 360,
-          "durationMs": 180,
+          "range": 98,
+          "radius": 24,
+          "arcDegrees": 170,
+          "durationMs": 230,
           "projectileSpeed": 0,
           "pierce": 8,
-          "knockback": 12,
-          "color": "#fff1c2"
+          "knockback": 18,
+          "color": "#f6c85f",
+          "collider": {
+            "shape": "capsule",
+            "width": 50,
+            "traceMs": 440
+          }
         },
         "doubleTap": {
           "name": "Широкий толчок древком",
+          "behavior": "spearShove",
           "kind": "burst",
           "damage": 7,
-          "cooldownMs": 1150,
+          "cooldownMs": 1250,
           "range": 118,
-          "radius": 32,
-          "arcDegrees": 150,
+          "radius": 30,
+          "arcDegrees": 155,
           "durationMs": 260,
           "projectileSpeed": 0,
-          "pierce": 8,
-          "knockback": 58,
-          "color": "#edd18e"
+          "pierce": 12,
+          "knockback": 72,
+          "color": "#55c7ff",
+          "collider": {
+            "shape": "sector",
+            "width": 60,
+            "traceMs": 620
+          },
+          "recoveryMs": 180
         },
         "doubleTapHold": {
           "name": "Бронированный пинок",
-          "kind": "dash",
-          "damage": 15,
-          "cooldownMs": 3300,
-          "range": 92,
-          "radius": 22,
-          "arcDegrees": 38,
+          "behavior": "spearKick",
+          "kind": "melee",
+          "damage": 17,
+          "cooldownMs": 3400,
+          "range": 96,
+          "radius": 18,
+          "arcDegrees": 34,
           "durationMs": 380,
           "projectileSpeed": 0,
-          "pierce": 5,
-          "knockback": 82,
-          "color": "#ffc968"
+          "pierce": 6,
+          "knockback": 108,
+          "color": "#b680ff",
+          "collider": {
+            "shape": "capsule",
+            "width": 36,
+            "traceMs": 700
+          },
+          "charge": {
+            "maxMs": 1400,
+            "bands": [
+              {
+                "id": "brace",
+                "label": "Удвоенная броня",
+                "minMs": 650,
+                "color": "#9b73e8",
+                "damageMultiplier": 0.85,
+                "knockbackMultiplier": 0.8
+              },
+              {
+                "id": "kick",
+                "label": "Критовая дистанция",
+                "minMs": 1050,
+                "color": "#d1a1ff",
+                "damageMultiplier": 1.25,
+                "knockbackMultiplier": 1.55
+              }
+            ]
+          },
+          "recoveryMs": 360
         },
         "hold": {
           "name": "Режущая стойка",
+          "behavior": "spearStance",
           "kind": "melee",
-          "damage": 23,
-          "cooldownMs": 2450,
-          "range": 188,
-          "radius": 20,
-          "arcDegrees": 118,
-          "durationMs": 760,
+          "damage": 8,
+          "cooldownMs": 2600,
+          "range": 206,
+          "radius": 16,
+          "arcDegrees": 42,
+          "durationMs": 1500,
           "projectileSpeed": 0,
-          "pierce": 5,
-          "knockback": 24,
-          "color": "#ffe3a1"
+          "pierce": 30,
+          "knockback": 14,
+          "color": "#ff9f43",
+          "collider": {
+            "shape": "sweep",
+            "innerRange": 44,
+            "width": 32,
+            "traceMs": 980,
+            "followsPlayer": true,
+            "tickMs": 115,
+            "rotationDegrees": 78
+          },
+          "repeatHits": 11,
+          "repeatIntervalMs": 120,
+          "tuning": {
+            "turnDotThreshold": 0.995,
+            "turnDamageMultiplier": 2.2,
+            "contactDamageMultiplier": 0.38
+          },
+          "recoveryMs": 320
         },
         "holdThenDoubleTap": {
-          "name": "Прыжок с шестом",
+          "name": "Олимпийский прыжок с шестом",
+          "behavior": "poleVault",
           "kind": "dash",
-          "damage": 18,
-          "cooldownMs": 5100,
-          "range": 285,
-          "radius": 24,
-          "arcDegrees": 45,
-          "durationMs": 620,
+          "damage": 0,
+          "cooldownMs": 6200,
+          "range": 330,
+          "radius": 22,
+          "arcDegrees": 36,
+          "durationMs": 720,
           "projectileSpeed": 0,
-          "pierce": 8,
-          "knockback": 30,
-          "color": "#ffe9b0"
+          "pierce": 0,
+          "knockback": 0,
+          "color": "#6ee7a8",
+          "collider": {
+            "shape": "capsule",
+            "width": 44,
+            "traceMs": 980,
+            "followsPlayer": true
+          },
+          "invulnerabilityMs": 720,
+          "recoveryMs": 460
         }
       }
     },
     {
-      "id": "secondary-magic-knife",
-      "name": "Магия и нож",
+      "id": "secondary-chain",
+      "name": "Цепь",
       "equipMode": "secondaryOnly",
+      "description": "Слабый урон и длинные откаты, зато цепь крадёт любой ДОТ кроме кровотечения и разносит его следующим ударом.",
+      "chanceCost": 2,
+      "trait": "chainDotCarrier",
+      "tuning": {
+        "bossRecoveryDamageRatio": 0.18,
+        "bossRecoveryStunMs": 700
+      },
+      "resource": {
+        "kind": "chain",
+        "max": 1,
+        "initial": 1,
+        "label": "Цепь в руке",
+        "color": "#9cc8ff"
+      },
+      "defaultAugment": "none",
       "tapCombo": [
         {
-          "name": "Обратный порез",
+          "name": "Обратный удар охапкой цепи",
+          "behavior": "chainStrike",
           "kind": "melee",
-          "damage": 14,
+          "damage": 9,
           "cooldownMs": 0,
-          "range": 78,
-          "radius": 11,
-          "arcDegrees": 72,
-          "durationMs": 145,
+          "range": 102,
+          "radius": 28,
+          "arcDegrees": 115,
+          "durationMs": 330,
           "projectileSpeed": 0,
-          "pierce": 0,
-          "knockback": 7,
-          "color": "#9edfe7"
+          "pierce": 4,
+          "knockback": 14,
+          "color": "#f6c85f",
+          "collider": {
+            "shape": "sweep",
+            "width": 54,
+            "traceMs": 760,
+            "rotationDegrees": -105
+          },
+          "hitEffects": [
+            {
+              "status": "disarm",
+              "durationMs": 500,
+              "chance": 0.28,
+              "refresh": "refresh"
+            }
+          ]
+        },
+        {
+          "name": "Завершающий круг цепью",
+          "behavior": "chainStrike",
+          "kind": "burst",
+          "damage": 12,
+          "cooldownMs": 0,
+          "range": 142,
+          "radius": 28,
+          "arcDegrees": 360,
+          "durationMs": 420,
+          "projectileSpeed": 0,
+          "pierce": 12,
+          "knockback": 24,
+          "color": "#f6c85f",
+          "collider": {
+            "shape": "sweep",
+            "innerRange": 28,
+            "width": 56,
+            "traceMs": 880,
+            "rotationDegrees": 360
+          }
         }
       ],
       "attacks": {
         "tap": {
-          "name": "Укол ножом",
+          "name": "Медленный удар цепью",
+          "behavior": "chainStrike",
           "kind": "melee",
-          "damage": 12,
+          "damage": 8,
           "cooldownMs": 0,
-          "range": 72,
-          "radius": 10,
-          "arcDegrees": 55,
-          "durationMs": 130,
+          "range": 98,
+          "radius": 27,
+          "arcDegrees": 108,
+          "durationMs": 340,
           "projectileSpeed": 0,
-          "pierce": 0,
-          "knockback": 5,
-          "color": "#b9e8ee"
+          "pierce": 4,
+          "knockback": 12,
+          "color": "#f6c85f",
+          "collider": {
+            "shape": "sweep",
+            "width": 54,
+            "traceMs": 760,
+            "rotationDegrees": 96
+          },
+          "hitEffects": [
+            {
+              "status": "disarm",
+              "durationMs": 500,
+              "chance": 0.24,
+              "refresh": "refresh"
+            }
+          ],
+          "recoveryMs": 260
         },
         "doubleTap": {
-          "name": "Магическая игла",
-          "kind": "projectile",
-          "damage": 19,
-          "cooldownMs": 980,
-          "range": 520,
-          "radius": 9,
-          "arcDegrees": 20,
-          "durationMs": 1100,
-          "projectileSpeed": 560,
-          "pierce": 0,
-          "knockback": 10,
-          "color": "#76d7e6"
+          "name": "Двойной круг цепью",
+          "behavior": "chainSpin",
+          "kind": "burst",
+          "damage": 11,
+          "cooldownMs": 2600,
+          "range": 176,
+          "radius": 26,
+          "arcDegrees": 360,
+          "durationMs": 920,
+          "projectileSpeed": 0,
+          "pierce": 24,
+          "knockback": 20,
+          "color": "#55c7ff",
+          "collider": {
+            "shape": "sweep",
+            "innerRange": 24,
+            "width": 52,
+            "traceMs": 1100,
+            "followsPlayer": true,
+            "tickMs": 130,
+            "rotationDegrees": 360
+          },
+          "hitEffects": [
+            {
+              "status": "microstun",
+              "durationMs": 190,
+              "refresh": "refresh"
+            }
+          ],
+          "repeatHits": 2,
+          "repeatIntervalMs": 430,
+          "recoveryMs": 360
         },
         "doubleTapHold": {
-          "name": "Шаг за спину",
-          "kind": "dash",
-          "damage": 22,
-          "cooldownMs": 3200,
-          "range": 245,
-          "radius": 18,
-          "arcDegrees": 45,
-          "durationMs": 300,
+          "name": "Замотать и перекинуть",
+          "behavior": "chainThrow",
+          "kind": "burst",
+          "damage": 14,
+          "cooldownMs": 3900,
+          "range": 180,
+          "radius": 32,
+          "arcDegrees": 360,
+          "durationMs": 980,
           "projectileSpeed": 0,
-          "pierce": 3,
-          "knockback": 8,
-          "color": "#84e1de"
+          "pierce": 18,
+          "knockback": 116,
+          "color": "#b680ff",
+          "collider": {
+            "shape": "sweep",
+            "innerRange": 18,
+            "width": 64,
+            "traceMs": 1250,
+            "followsPlayer": true,
+            "tickMs": 145,
+            "rotationDegrees": 540
+          },
+          "charge": {
+            "maxMs": 1450,
+            "bands": [
+              {
+                "id": "wrap",
+                "label": "Замотать",
+                "minMs": 650,
+                "color": "#9b73e8",
+                "damageMultiplier": 0.8,
+                "knockbackMultiplier": 0.55
+              },
+              {
+                "id": "heave",
+                "label": "Перекинуть по движению",
+                "minMs": 1050,
+                "color": "#d0a0ff",
+                "damageMultiplier": 1.15,
+                "knockbackMultiplier": 1.25
+              }
+            ]
+          },
+          "hitEffects": [
+            {
+              "status": "stun",
+              "durationMs": 420,
+              "refresh": "refresh"
+            }
+          ],
+          "tuning": {
+            "minimumThrowDistance": 80,
+            "throwStunMs": 450
+          },
+          "recoveryMs": 520
         },
         "hold": {
-          "name": "Всплеск рассудка",
-          "kind": "burst",
-          "damage": 20,
-          "cooldownMs": 2500,
-          "range": 145,
-          "radius": 28,
-          "arcDegrees": 360,
-          "durationMs": 430,
-          "projectileSpeed": 0,
-          "pierce": 5,
-          "knockback": 48,
-          "color": "#68cbd4"
+          "name": "Заряженный крюк",
+          "behavior": "chainHook",
+          "kind": "projectile",
+          "damage": 10,
+          "cooldownMs": 3300,
+          "range": 180,
+          "radius": 13,
+          "arcDegrees": 18,
+          "durationMs": 1100,
+          "projectileSpeed": 520,
+          "pierce": 0,
+          "knockback": 92,
+          "color": "#ff9f43",
+          "collider": {
+            "shape": "capsule",
+            "width": 26,
+            "traceMs": 980
+          },
+          "charge": {
+            "maxMs": 1900,
+            "bands": [
+              {
+                "id": "hook-near",
+                "label": "Короткий бросок",
+                "minMs": 650,
+                "color": "#e58b37",
+                "rangeMultiplier": 0.42,
+                "speedMultiplier": 0.85
+              },
+              {
+                "id": "hook-mid",
+                "label": "Средний бросок",
+                "minMs": 1100,
+                "color": "#ffad55",
+                "rangeMultiplier": 0.76
+              },
+              {
+                "id": "hook-far",
+                "label": "Дальний бросок",
+                "minMs": 1550,
+                "color": "#ffc271",
+                "rangeMultiplier": 1.35,
+                "speedMultiplier": 1.15,
+                "knockbackMultiplier": 1.25
+              }
+            ]
+          },
+          "recoveryMs": 380,
+          "tuning": {
+            "minimumPullDistance": 40
+          }
         },
         "holdThenDoubleTap": {
-          "name": "Ложное тело",
+          "name": "Плен цепи",
+          "behavior": "chainBind",
           "kind": "projectile",
-          "damage": 46,
-          "cooldownMs": 4800,
-          "range": 760,
-          "radius": 22,
-          "arcDegrees": 30,
-          "durationMs": 1450,
-          "projectileSpeed": 510,
-          "pierce": 4,
-          "knockback": 54,
-          "color": "#d395da"
+          "damage": 6,
+          "cooldownMs": 7200,
+          "range": 520,
+          "radius": 15,
+          "arcDegrees": 20,
+          "durationMs": 1250,
+          "projectileSpeed": 560,
+          "pierce": 0,
+          "knockback": 0,
+          "color": "#6ee7a8",
+          "collider": {
+            "shape": "capsule",
+            "width": 30,
+            "traceMs": 1350
+          },
+          "hitEffects": [
+            {
+              "status": "bound",
+              "durationMs": 7000,
+              "refresh": "replace"
+            },
+            {
+              "status": "slow",
+              "durationMs": 7000,
+              "magnitude": 0.42,
+              "refresh": "replace"
+            },
+            {
+              "status": "attackSlow",
+              "durationMs": 7000,
+              "magnitude": 4,
+              "refresh": "replace"
+            }
+          ],
+          "recoveryMs": 480
         }
       }
     },
     {
-      "id": "twohand-bow",
-      "name": "Лук памяти",
-      "equipMode": "twoHanded",
-      "description": "Две руки разделяют точные выстрелы, контроль дистанции и круговой залп.",
-      "chanceCost": 3,
-      "tapCombo": [
-        { "name": "Вторая стрела", "kind": "projectile", "damage": 13, "cooldownMs": 0, "range": 620, "radius": 7, "arcDegrees": 10, "durationMs": 1200, "projectileSpeed": 660, "pierce": 0, "knockback": 6, "color": "#c8df9d" }
-      ],
-      "attacks": {
-        "tap": { "name": "Быстрая стрела", "kind": "projectile", "damage": 12, "cooldownMs": 0, "range": 600, "radius": 7, "arcDegrees": 10, "durationMs": 1150, "projectileSpeed": 650, "pierce": 0, "knockback": 5, "color": "#badb91" },
-        "doubleTap": { "name": "Сквозная стрела", "kind": "projectile", "damage": 25, "cooldownMs": 980, "range": 760, "radius": 9, "arcDegrees": 8, "durationMs": 1300, "projectileSpeed": 720, "pierce": 3, "knockback": 12, "color": "#def2aa" },
-        "doubleTapHold": { "name": "Прорыв сквозь строй", "kind": "dash", "damage": 15, "cooldownMs": 3100, "range": 260, "radius": 18, "arcDegrees": 35, "durationMs": 360, "projectileSpeed": 0, "pierce": 4, "knockback": 34, "color": "#a8c985" },
-        "hold": { "name": "Натянутая тетива", "kind": "projectile", "damage": 43, "cooldownMs": 2650, "range": 920, "radius": 12, "arcDegrees": 6, "durationMs": 1600, "projectileSpeed": 780, "pierce": 5, "knockback": 28, "color": "#f0efae" },
-        "holdThenDoubleTap": { "name": "Дождь по памяти", "kind": "burst", "damage": 24, "cooldownMs": 4700, "range": 230, "radius": 38, "arcDegrees": 360, "durationMs": 720, "projectileSpeed": 0, "pierce": 10, "knockback": 18, "color": "#9fbd7c" }
-      },
-      "secondaryTapCombo": [
-        { "name": "Удар плечом", "kind": "melee", "damage": 9, "cooldownMs": 0, "range": 72, "radius": 18, "arcDegrees": 95, "durationMs": 170, "projectileSpeed": 0, "pierce": 1, "knockback": 28, "color": "#9ebc83" }
-      ],
-      "secondaryAttacks": {
-        "tap": { "name": "Толчок луком", "kind": "melee", "damage": 7, "cooldownMs": 0, "range": 78, "radius": 17, "arcDegrees": 120, "durationMs": 160, "projectileSpeed": 0, "pierce": 1, "knockback": 32, "color": "#98b47e" },
-        "doubleTap": { "name": "Веер осколков", "kind": "burst", "damage": 16, "cooldownMs": 1250, "range": 145, "radius": 28, "arcDegrees": 160, "durationMs": 360, "projectileSpeed": 0, "pierce": 5, "knockback": 20, "color": "#bed59b" },
-        "doubleTapHold": { "name": "Охотничий рывок", "kind": "dash", "damage": 12, "cooldownMs": 2850, "range": 215, "radius": 20, "arcDegrees": 40, "durationMs": 300, "projectileSpeed": 0, "pierce": 3, "knockback": 24, "color": "#a5c58b" },
-        "hold": { "name": "Метка охотника", "kind": "projectile", "damage": 28, "cooldownMs": 2400, "range": 720, "radius": 18, "arcDegrees": 12, "durationMs": 1450, "projectileSpeed": 520, "pierce": 1, "knockback": 40, "color": "#d3dfa0" },
-        "holdThenDoubleTap": { "name": "Кольцо стрел", "kind": "burst", "damage": 20, "cooldownMs": 4200, "range": 190, "radius": 34, "arcDegrees": 360, "durationMs": 610, "projectileSpeed": 0, "pierce": 9, "knockback": 42, "color": "#d8e7a6" }
-      }
-    },
-    {
-      "id": "twohand-hammer",
-      "name": "Молот длинного следа",
-      "equipMode": "twoHanded",
-      "description": "Тяжёлые телеграфируемые удары оставляют опасный след и разбрасывают толпу.",
-      "chanceCost": 2,
-      "tapCombo": [
-        { "name": "Обратный взмах", "kind": "melee", "damage": 25, "cooldownMs": 0, "range": 118, "radius": 27, "arcDegrees": 135, "durationMs": 250, "lingerMs": 190, "projectileSpeed": 0, "pierce": 4, "knockback": 52, "color": "#d7a875" }
-      ],
-      "attacks": {
-        "tap": { "name": "Тяжёлый взмах", "kind": "melee", "damage": 23, "cooldownMs": 0, "range": 120, "radius": 28, "arcDegrees": 130, "durationMs": 260, "lingerMs": 180, "projectileSpeed": 0, "pierce": 4, "knockback": 48, "color": "#c89568" },
-        "doubleTap": { "name": "Двойной раскол", "kind": "melee", "damage": 36, "cooldownMs": 1350, "range": 150, "radius": 34, "arcDegrees": 105, "durationMs": 310, "lingerMs": 220, "projectileSpeed": 0, "pierce": 5, "knockback": 68, "color": "#e0b17a" },
-        "doubleTapHold": { "name": "Таран молотом", "kind": "dash", "damage": 42, "cooldownMs": 3900, "range": 270, "radius": 32, "arcDegrees": 55, "durationMs": 520, "projectileSpeed": 0, "pierce": 6, "knockback": 88, "color": "#edbb79" },
-        "hold": { "name": "Удар по полу", "kind": "burst", "damage": 39, "cooldownMs": 3100, "range": 210, "radius": 46, "arcDegrees": 360, "durationMs": 660, "lingerMs": 160, "projectileSpeed": 0, "pierce": 10, "knockback": 72, "color": "#bf8061" },
-        "holdThenDoubleTap": { "name": "Колокол комнаты", "kind": "burst", "damage": 55, "cooldownMs": 5600, "range": 280, "radius": 54, "arcDegrees": 360, "durationMs": 900, "lingerMs": 220, "projectileSpeed": 0, "pierce": 12, "knockback": 96, "color": "#f0c487" }
-      },
-      "secondaryTapCombo": [
-        { "name": "Короткий удар рукоятью", "kind": "melee", "damage": 12, "cooldownMs": 0, "range": 74, "radius": 20, "arcDegrees": 110, "durationMs": 170, "projectileSpeed": 0, "pierce": 2, "knockback": 36, "color": "#c59b74" }
-      ],
-      "secondaryAttacks": {
-        "tap": { "name": "Удар рукоятью", "kind": "melee", "damage": 10, "cooldownMs": 0, "range": 78, "radius": 18, "arcDegrees": 105, "durationMs": 160, "projectileSpeed": 0, "pierce": 1, "knockback": 34, "color": "#b8906e" },
-        "doubleTap": { "name": "Круговая защита", "kind": "burst", "damage": 14, "cooldownMs": 1100, "range": 125, "radius": 32, "arcDegrees": 360, "durationMs": 400, "projectileSpeed": 0, "pierce": 8, "knockback": 66, "color": "#d0aa82" },
-        "doubleTapHold": { "name": "Бронированный шаг", "kind": "dash", "damage": 18, "cooldownMs": 3200, "range": 160, "radius": 28, "arcDegrees": 60, "durationMs": 520, "projectileSpeed": 0, "pierce": 4, "knockback": 74, "color": "#d9ad78" },
-        "hold": { "name": "Медленный заслон", "kind": "melee", "damage": 21, "cooldownMs": 2600, "range": 135, "radius": 38, "arcDegrees": 180, "durationMs": 950, "lingerMs": 260, "projectileSpeed": 0, "pierce": 7, "knockback": 58, "color": "#d6aa7a" },
-        "holdThenDoubleTap": { "name": "Разворот палача", "kind": "burst", "damage": 32, "cooldownMs": 4700, "range": 190, "radius": 42, "arcDegrees": 360, "durationMs": 720, "projectileSpeed": 0, "pierce": 10, "knockback": 84, "color": "#e5b67b" }
-      }
-    },
-    {
-      "id": "either-dagger",
-      "name": "Кинжал из неверной квартиры",
+      "id": "either-claws",
+      "name": "Когти",
       "equipMode": "eitherHand",
-      "description": "Быстрый одноручный набор с короткими рывками и метанием.",
+      "description": "Одинаково работают в любой руке: быстрые порезы не образуют комбо, а каждый второй успешный хит вызывает кровотечение.",
       "chanceCost": 2,
+      "trait": "clawParity",
+      "tuning": {
+        "bleedEveryHits": 2,
+        "alternatingHitWindowMs": 360,
+        "alternatingMicrostunMs": 90
+      },
+      "resource": {
+        "kind": "rhythm",
+        "max": 1,
+        "initial": 0,
+        "label": "Следующий порез вызовет кровотечение",
+        "color": "#ff6b7d"
+      },
+      "defaultAugment": "none",
+      "augmentHooks": {
+        "fire": {
+          "behaviors": [
+            "clawRend"
+          ],
+          "hitEffects": [
+            {
+              "status": "burn",
+              "durationMs": 4200,
+              "tickDamage": 2.4,
+              "tickMs": 500,
+              "refresh": "refresh"
+            }
+          ]
+        },
+        "chemical": {
+          "behaviors": [
+            "clawDash"
+          ],
+          "hitEffects": [
+            {
+              "status": "chemical",
+              "durationMs": 5200,
+              "tickDamage": 2,
+              "tickMs": 500,
+              "refresh": "extend"
+            }
+          ]
+        },
+        "poison": {
+          "behaviors": [
+            "clawDeepStrike"
+          ],
+          "damageMultiplier": 1.12,
+          "hitEffects": [
+            {
+              "status": "poison",
+              "durationMs": 5600,
+              "tickDamage": 2.8,
+              "tickMs": 500,
+              "refresh": "stack"
+            }
+          ]
+        }
+      },
       "tapCombo": [
-        { "name": "Обратный порез кинжалом", "kind": "melee", "damage": 13, "cooldownMs": 0, "range": 76, "radius": 12, "arcDegrees": 80, "durationMs": 130, "projectileSpeed": 0, "pierce": 0, "knockback": 7, "color": "#e5d7c8" },
-        { "name": "Третий укол", "kind": "melee", "damage": 17, "cooldownMs": 0, "range": 88, "radius": 10, "arcDegrees": 45, "durationMs": 145, "projectileSpeed": 0, "pierce": 1, "knockback": 10, "color": "#f0ddd0" }
+        {
+          "name": "Парный быстрый порез",
+          "behavior": "clawSlash",
+          "kind": "melee",
+          "damage": 10,
+          "cooldownMs": 0,
+          "range": 82,
+          "radius": 12,
+          "arcDegrees": 78,
+          "durationMs": 110,
+          "projectileSpeed": 0,
+          "pierce": 1,
+          "knockback": 4,
+          "color": "#f6c85f",
+          "collider": {
+            "shape": "sweep",
+            "width": 24,
+            "traceMs": 360,
+            "rotationDegrees": -76
+          }
+        }
       ],
       "attacks": {
-        "tap": { "name": "Быстрый порез кинжалом", "kind": "melee", "damage": 11, "cooldownMs": 0, "range": 72, "radius": 11, "arcDegrees": 76, "durationMs": 125, "projectileSpeed": 0, "pierce": 0, "knockback": 6, "color": "#d9c8bb" },
-        "doubleTap": { "name": "Два шага внутрь", "kind": "dash", "damage": 19, "cooldownMs": 850, "range": 140, "radius": 14, "arcDegrees": 35, "durationMs": 220, "projectileSpeed": 0, "pierce": 2, "knockback": 12, "color": "#f1d1c0" },
-        "doubleTapHold": { "name": "Серия из тени", "kind": "melee", "damage": 25, "cooldownMs": 2700, "range": 105, "radius": 18, "arcDegrees": 155, "durationMs": 520, "lingerMs": 110, "projectileSpeed": 0, "pierce": 4, "knockback": 14, "color": "#cf9ca7" },
-        "hold": { "name": "Бросок кинжала", "kind": "projectile", "damage": 27, "cooldownMs": 2100, "range": 540, "radius": 8, "arcDegrees": 10, "durationMs": 1100, "projectileSpeed": 610, "pierce": 1, "knockback": 16, "color": "#e7dde0" },
-        "holdThenDoubleTap": { "name": "Вскрыть круг", "kind": "burst", "damage": 24, "cooldownMs": 3900, "range": 145, "radius": 24, "arcDegrees": 360, "durationMs": 460, "projectileSpeed": 0, "pierce": 7, "knockback": 32, "color": "#b97889" }
+        "tap": {
+          "name": "Частый порез",
+          "behavior": "clawSlash",
+          "kind": "melee",
+          "damage": 10,
+          "cooldownMs": 0,
+          "range": 82,
+          "radius": 12,
+          "arcDegrees": 78,
+          "durationMs": 105,
+          "projectileSpeed": 0,
+          "pierce": 1,
+          "knockback": 4,
+          "color": "#f6c85f",
+          "collider": {
+            "shape": "sweep",
+            "width": 24,
+            "traceMs": 360,
+            "rotationDegrees": 76
+          }
+        },
+        "doubleTap": {
+          "name": "Срывающий кожу порез",
+          "behavior": "clawRend",
+          "kind": "melee",
+          "damage": 21,
+          "cooldownMs": 1450,
+          "range": 104,
+          "radius": 15,
+          "arcDegrees": 52,
+          "durationMs": 210,
+          "projectileSpeed": 0,
+          "pierce": 2,
+          "knockback": 9,
+          "color": "#55c7ff",
+          "collider": {
+            "shape": "sweep",
+            "width": 30,
+            "traceMs": 620,
+            "rotationDegrees": 92
+          },
+          "hitEffects": [
+            {
+              "status": "healingBlocked",
+              "durationMs": 5200,
+              "refresh": "refresh"
+            }
+          ],
+          "recoveryMs": 170
+        },
+        "doubleTapHold": {
+          "name": "Выбить оружие когтями",
+          "behavior": "clawDisarm",
+          "kind": "melee",
+          "damage": 13,
+          "cooldownMs": 3600,
+          "range": 96,
+          "radius": 13,
+          "arcDegrees": 38,
+          "durationMs": 300,
+          "projectileSpeed": 0,
+          "pierce": 1,
+          "knockback": 24,
+          "color": "#b680ff",
+          "collider": {
+            "shape": "capsule",
+            "width": 26,
+            "traceMs": 700
+          },
+          "hitEffects": [
+            {
+              "status": "disarm",
+              "durationMs": 2600,
+              "refresh": "replace"
+            }
+          ],
+          "recoveryMs": 260
+        },
+        "hold": {
+          "name": "Заряженный дэш с царапиной",
+          "behavior": "clawDash",
+          "kind": "dash",
+          "damage": 19,
+          "cooldownMs": 2750,
+          "range": 150,
+          "radius": 16,
+          "arcDegrees": 32,
+          "durationMs": 260,
+          "projectileSpeed": 0,
+          "pierce": 4,
+          "knockback": 13,
+          "color": "#ff9f43",
+          "collider": {
+            "shape": "capsule",
+            "width": 32,
+            "traceMs": 900,
+            "followsPlayer": true
+          },
+          "charge": {
+            "maxMs": 1250,
+            "bands": [
+              {
+                "id": "claw-dash-short",
+                "label": "Короткий дэш",
+                "minMs": 650,
+                "color": "#e58b37",
+                "rangeMultiplier": 0.65,
+                "speedMultiplier": 1.15
+              },
+              {
+                "id": "claw-dash-long",
+                "label": "Дальний дэш",
+                "minMs": 950,
+                "color": "#ffb15c",
+                "damageMultiplier": 1.18,
+                "rangeMultiplier": 1.45,
+                "speedMultiplier": 1.25
+              }
+            ]
+          },
+          "recoveryMs": 240,
+          "tuning": {
+            "chemicalTrailIntervalMs": 90,
+            "chemicalTrailMinimumRadius": 28,
+            "chemicalTrailRadiusMultiplier": 1.8,
+            "chemicalTrailColliderRadius": 8,
+            "chemicalTrailDurationMs": 900,
+            "chemicalTrailLingerMs": 500
+          }
+        },
+        "holdThenDoubleTap": {
+          "name": "Отмена дэша: глубокий крит",
+          "behavior": "clawDeepStrike",
+          "kind": "melee",
+          "damage": 38,
+          "cooldownMs": 4300,
+          "range": 94,
+          "radius": 14,
+          "arcDegrees": 34,
+          "durationMs": 190,
+          "projectileSpeed": 0,
+          "pierce": 1,
+          "knockback": 16,
+          "color": "#6ee7a8",
+          "collider": {
+            "shape": "capsule",
+            "width": 28,
+            "traceMs": 820
+          },
+          "hitEffects": [
+            {
+              "status": "bleed",
+              "durationMs": 6200,
+              "stacks": 2,
+              "refresh": "extend"
+            }
+          ],
+          "tuning": {
+            "criticalMultiplier": 1.65,
+            "bleedingPoisonDamageMultiplier": 1.8,
+            "bleedingPoisonDurationMultiplier": 1.25
+          },
+          "recoveryMs": 320
+        }
       }
     },
     {
-      "id": "secondary-shield",
-      "name": "Щит отражения",
+      "id": "secondary-spider-knife",
+      "name": "Живой нож-паук",
       "equipMode": "secondaryOnly",
-      "description": "Широкие активные окна рассчитаны на столкновение с телеграфом атаки.",
-      "chanceCost": 2,
+      "description": "Эфемерное живое оружие: его можно схватить только со спины после промаха прыжком; каждый удар тратит здоровье ножа.",
+      "chanceCost": 0,
+      "trait": "spiderDurability",
+      "tuning": {
+        "durabilityPerUse": 2,
+        "durabilityPerHit": 1
+      },
+      "resource": {
+        "kind": "durability",
+        "max": 72,
+        "initial": 72,
+        "label": "Здоровье ножа-паука",
+        "color": "#d95c72"
+      },
+      "defaultAugment": "none",
       "tapCombo": [
-        { "name": "Кромка щита", "kind": "melee", "damage": 9, "cooldownMs": 0, "range": 74, "radius": 22, "arcDegrees": 115, "durationMs": 210, "lingerMs": 90, "projectileSpeed": 0, "pierce": 2, "knockback": 34, "color": "#a9c2ca" }
+        {
+          "name": "Боковой порез живым ножом",
+          "behavior": "spiderSlash",
+          "kind": "melee",
+          "damage": 15,
+          "cooldownMs": 0,
+          "range": 84,
+          "radius": 11,
+          "arcDegrees": 72,
+          "durationMs": 125,
+          "projectileSpeed": 0,
+          "pierce": 1,
+          "knockback": 6,
+          "color": "#f6c85f",
+          "collider": {
+            "shape": "sweep",
+            "width": 22,
+            "traceMs": 420,
+            "rotationDegrees": -72
+          }
+        },
+        {
+          "name": "Короткий тычок ножом-пауком",
+          "behavior": "spiderSlash",
+          "kind": "melee",
+          "damage": 17,
+          "cooldownMs": 0,
+          "range": 92,
+          "radius": 9,
+          "arcDegrees": 34,
+          "durationMs": 130,
+          "projectileSpeed": 0,
+          "pierce": 1,
+          "knockback": 7,
+          "color": "#f6c85f",
+          "collider": {
+            "shape": "capsule",
+            "width": 18,
+            "traceMs": 440
+          }
+        }
       ],
       "attacks": {
-        "tap": { "name": "Быстрый блок", "kind": "burst", "damage": 4, "cooldownMs": 0, "range": 82, "radius": 26, "arcDegrees": 160, "durationMs": 260, "lingerMs": 100, "projectileSpeed": 0, "pierce": 6, "knockback": 38, "color": "#b6cbd0" },
-        "doubleTap": { "name": "Удар щитом", "kind": "melee", "damage": 18, "cooldownMs": 1050, "range": 92, "radius": 24, "arcDegrees": 95, "durationMs": 220, "projectileSpeed": 0, "pierce": 2, "knockback": 72, "color": "#d0d9d4" },
-        "doubleTapHold": { "name": "Щитовой прорыв", "kind": "dash", "damage": 22, "cooldownMs": 3200, "range": 210, "radius": 30, "arcDegrees": 55, "durationMs": 520, "projectileSpeed": 0, "pierce": 6, "knockback": 82, "color": "#b9d2d5" },
-        "hold": { "name": "Неподвижная стена", "kind": "burst", "damage": 7, "cooldownMs": 2450, "range": 108, "radius": 38, "arcDegrees": 180, "durationMs": 880, "lingerMs": 220, "projectileSpeed": 0, "pierce": 9, "knockback": 54, "color": "#91afb8" },
-        "holdThenDoubleTap": { "name": "Отразить комнату", "kind": "burst", "damage": 21, "cooldownMs": 4800, "range": 185, "radius": 45, "arcDegrees": 360, "durationMs": 640, "projectileSpeed": 0, "pierce": 12, "knockback": 90, "color": "#c7e0df" }
+        "tap": {
+          "name": "Рассечение снизу вверх",
+          "behavior": "spiderSlash",
+          "kind": "melee",
+          "damage": 14,
+          "cooldownMs": 0,
+          "range": 86,
+          "radius": 11,
+          "arcDegrees": 76,
+          "durationMs": 125,
+          "projectileSpeed": 0,
+          "pierce": 1,
+          "knockback": 6,
+          "color": "#f6c85f",
+          "collider": {
+            "shape": "sweep",
+            "width": 22,
+            "traceMs": 430,
+            "rotationDegrees": 78
+          }
+        },
+        "doubleTap": {
+          "name": "Обратный хват и критический импейл",
+          "behavior": "spiderImpale",
+          "kind": "melee",
+          "damage": 34,
+          "cooldownMs": 1750,
+          "range": 96,
+          "radius": 10,
+          "arcDegrees": 28,
+          "durationMs": 240,
+          "projectileSpeed": 0,
+          "pierce": 0,
+          "knockback": 8,
+          "color": "#55c7ff",
+          "collider": {
+            "shape": "capsule",
+            "width": 20,
+            "traceMs": 680
+          },
+          "hitEffects": [
+            {
+              "status": "bleed",
+              "durationMs": 5600,
+              "stacks": 1,
+              "refresh": "extend"
+            }
+          ],
+          "recoveryMs": 210
+        },
+        "doubleTapHold": {
+          "name": "Смертельный бросок ножа-паука",
+          "behavior": "spiderThrow",
+          "kind": "projectile",
+          "damage": 48,
+          "cooldownMs": 5200,
+          "range": 360,
+          "radius": 10,
+          "arcDegrees": 10,
+          "durationMs": 1200,
+          "projectileSpeed": 560,
+          "pierce": 3,
+          "knockback": 20,
+          "color": "#b680ff",
+          "collider": {
+            "shape": "capsule",
+            "width": 20,
+            "traceMs": 1200
+          },
+          "charge": {
+            "maxMs": 1800,
+            "bands": [
+              {
+                "id": "spider-throw-ready",
+                "label": "Метательный хват",
+                "minMs": 650,
+                "color": "#9b73e8",
+                "damageMultiplier": 0.75,
+                "rangeMultiplier": 0.55
+              },
+              {
+                "id": "spider-throw-strain",
+                "label": "Дрожь от напряжения",
+                "minMs": 1250,
+                "color": "#d9a2ff",
+                "damageMultiplier": 1.5,
+                "rangeMultiplier": 1.65,
+                "speedMultiplier": 1.2,
+                "overrides": {
+                  "pierce": 5
+                }
+              }
+            ]
+          },
+          "recoveryMs": 420,
+          "consumeAllResource": true
+        },
+        "hold": {
+          "name": "Ускоряющаяся череда тычков",
+          "behavior": "spiderFlurry",
+          "kind": "melee",
+          "damage": 7,
+          "cooldownMs": 2800,
+          "range": 92,
+          "radius": 10,
+          "arcDegrees": 32,
+          "durationMs": 1450,
+          "projectileSpeed": 0,
+          "pierce": 12,
+          "knockback": 3,
+          "color": "#ff9f43",
+          "collider": {
+            "shape": "capsule",
+            "width": 20,
+            "traceMs": 760,
+            "followsPlayer": true,
+            "tickMs": 120
+          },
+          "hitEffects": [
+            {
+              "status": "bleed",
+              "durationMs": 5400,
+              "stacks": 1,
+              "chance": 0.7,
+              "refresh": "extend"
+            }
+          ],
+          "repeatHits": 9,
+          "repeatIntervalMs": 150,
+          "tuning": {
+            "minimumRepeatIntervalMs": 55,
+            "tempoGainPerMs": 0.06
+          },
+          "recoveryMs": 300
+        },
+        "holdThenDoubleTap": {
+          "name": "Глубоко засадить и провернуть",
+          "behavior": "spiderTwist",
+          "kind": "melee",
+          "damage": 31,
+          "cooldownMs": 4100,
+          "range": 88,
+          "radius": 12,
+          "arcDegrees": 30,
+          "durationMs": 340,
+          "projectileSpeed": 0,
+          "pierce": 0,
+          "knockback": 4,
+          "color": "#6ee7a8",
+          "collider": {
+            "shape": "capsule",
+            "width": 24,
+            "traceMs": 820
+          },
+          "hitEffects": [
+            {
+              "status": "bleed",
+              "durationMs": 7000,
+              "stacks": 3,
+              "refresh": "refresh"
+            }
+          ],
+          "tuning": {
+            "bleedRefreshMs": 6500,
+            "bleedStackMultiplier": 1.5
+          },
+          "recoveryMs": 380
+        }
       }
     },
     {
-      "id": "secondary-magic-orb",
-      "name": "Магическая сфера",
-      "equipMode": "secondaryOnly",
-      "description": "Дальние снаряды и импульсы контроля для свободной второй руки.",
-      "chanceCost": 1,
+      "id": "twohand-axe",
+      "name": "Двуручная секира",
+      "equipMode": "twoHanded",
+      "description": "Короткая хуковая секира стягивает врагов; обычный удар после навыка отменяет восстановление и усиливает продолжение.",
+      "chanceCost": 3,
+      "trait": "axeHookRecovery",
+      "tuning": {
+        "recoveryCancelDamageMultiplier": 1.35,
+        "hookPullDistance": 16
+      },
+      "defaultAugment": "none",
+      "augmentHooks": {
+        "poison": {
+          "behaviors": [
+            "axeGrapple"
+          ],
+          "hitEffects": [
+            {
+              "status": "poison",
+              "durationMs": 5200,
+              "tickDamage": 2.5,
+              "tickMs": 500,
+              "refresh": "stack"
+            }
+          ]
+        },
+        "fire": {
+          "behaviors": [
+            "axeThrow"
+          ],
+          "hitEffects": [
+            {
+              "status": "burn",
+              "durationMs": 4500,
+              "tickDamage": 2.8,
+              "tickMs": 500,
+              "refresh": "refresh"
+            }
+          ]
+        },
+        "bleed": {
+          "behaviors": [
+            "axeSpin"
+          ],
+          "hitEffects": [
+            {
+              "status": "bleed",
+              "durationMs": 5600,
+              "stacks": 1,
+              "refresh": "extend"
+            }
+          ]
+        },
+        "chemical": {
+          "behaviors": [
+            "axeLeap"
+          ],
+          "hitEffects": [
+            {
+              "status": "chemical",
+              "durationMs": 6000,
+              "tickDamage": 2.2,
+              "tickMs": 500,
+              "refresh": "extend"
+            }
+          ]
+        }
+      },
       "tapCombo": [
-        { "name": "Вторая искра", "kind": "projectile", "damage": 12, "cooldownMs": 0, "range": 490, "radius": 10, "arcDegrees": 14, "durationMs": 1100, "projectileSpeed": 530, "pierce": 0, "knockback": 10, "color": "#a992d1" }
+        {
+          "name": "Обратный полукруг секирой",
+          "behavior": "axeSwing",
+          "kind": "melee",
+          "damage": 22,
+          "cooldownMs": 0,
+          "range": 126,
+          "radius": 28,
+          "arcDegrees": 150,
+          "durationMs": 260,
+          "projectileSpeed": 0,
+          "pierce": 8,
+          "knockback": 12,
+          "color": "#f6c85f",
+          "collider": {
+            "shape": "sweep",
+            "innerRange": 12,
+            "width": 56,
+            "traceMs": 760,
+            "rotationDegrees": -150
+          }
+        },
+        {
+          "name": "Шаг и широкий хук",
+          "behavior": "axeSwing",
+          "kind": "melee",
+          "damage": 25,
+          "cooldownMs": 0,
+          "range": 132,
+          "radius": 30,
+          "arcDegrees": 165,
+          "durationMs": 280,
+          "projectileSpeed": 0,
+          "pierce": 9,
+          "knockback": 15,
+          "color": "#f6c85f",
+          "collider": {
+            "shape": "sweep",
+            "innerRange": 10,
+            "width": 60,
+            "traceMs": 800,
+            "rotationDegrees": 170
+          }
+        },
+        {
+          "name": "Четвёртый кровавый взмах",
+          "behavior": "axeSwing",
+          "kind": "melee",
+          "damage": 31,
+          "cooldownMs": 0,
+          "range": 138,
+          "radius": 32,
+          "arcDegrees": 175,
+          "durationMs": 310,
+          "projectileSpeed": 0,
+          "pierce": 10,
+          "knockback": 18,
+          "color": "#f6c85f",
+          "collider": {
+            "shape": "sweep",
+            "innerRange": 8,
+            "width": 64,
+            "traceMs": 880,
+            "rotationDegrees": -185
+          },
+          "hitEffects": [
+            {
+              "status": "bleed",
+              "durationMs": 6000,
+              "stacks": 1,
+              "refresh": "extend"
+            }
+          ]
+        }
       ],
       "attacks": {
-        "tap": { "name": "Искра сферы", "kind": "projectile", "damage": 11, "cooldownMs": 0, "range": 470, "radius": 9, "arcDegrees": 14, "durationMs": 1050, "projectileSpeed": 520, "pierce": 0, "knockback": 9, "color": "#9b84c7" },
-        "doubleTap": { "name": "Двойной импульс", "kind": "burst", "damage": 18, "cooldownMs": 950, "range": 132, "radius": 32, "arcDegrees": 360, "durationMs": 420, "projectileSpeed": 0, "pierce": 6, "knockback": 36, "color": "#b59cd4" },
-        "doubleTapHold": { "name": "Скольжение сферы", "kind": "dash", "damage": 16, "cooldownMs": 2800, "range": 225, "radius": 20, "arcDegrees": 45, "durationMs": 340, "projectileSpeed": 0, "pierce": 4, "knockback": 26, "color": "#b69bdd" },
-        "hold": { "name": "Сгусток неправильной тени", "kind": "projectile", "damage": 34, "cooldownMs": 2600, "range": 700, "radius": 20, "arcDegrees": 18, "durationMs": 1450, "projectileSpeed": 480, "pierce": 3, "knockback": 42, "color": "#765c9f" },
-        "holdThenDoubleTap": { "name": "Орбита памяти", "kind": "burst", "damage": 29, "cooldownMs": 4500, "range": 210, "radius": 40, "arcDegrees": 360, "durationMs": 780, "lingerMs": 140, "projectileSpeed": 0, "pierce": 10, "knockback": 58, "color": "#c39ce0" }
+        "tap": {
+          "name": "Вальяжный полукруг секирой",
+          "behavior": "axeSwing",
+          "kind": "melee",
+          "damage": 20,
+          "cooldownMs": 0,
+          "range": 124,
+          "radius": 28,
+          "arcDegrees": 145,
+          "durationMs": 260,
+          "projectileSpeed": 0,
+          "pierce": 8,
+          "knockback": 12,
+          "color": "#f6c85f",
+          "collider": {
+            "shape": "sweep",
+            "innerRange": 12,
+            "width": 56,
+            "traceMs": 760,
+            "rotationDegrees": 145
+          }
+        },
+        "doubleTap": {
+          "name": "Удушающий захват секирой",
+          "behavior": "axeGrapple",
+          "kind": "melee",
+          "damage": 24,
+          "cooldownMs": 3000,
+          "range": 112,
+          "radius": 22,
+          "arcDegrees": 42,
+          "durationMs": 1100,
+          "projectileSpeed": 0,
+          "pierce": 0,
+          "knockback": 34,
+          "color": "#55c7ff",
+          "collider": {
+            "shape": "capsule",
+            "width": 44,
+            "traceMs": 980,
+            "followsPlayer": true
+          },
+          "hitEffects": [
+            {
+              "status": "armorBreak",
+              "durationMs": 5000,
+              "magnitude": 18,
+              "refresh": "replace"
+            }
+          ],
+          "tuning": {
+            "grappleStunMs": 1100,
+            "holdDistanceMin": 42,
+            "holdDistanceMax": 82,
+            "holdDistanceRatio": 0.62
+          },
+          "recoveryMs": 620
+        },
+        "doubleTapHold": {
+          "name": "Раскрутить и метнуть захваченного",
+          "behavior": "axeThrow",
+          "kind": "burst",
+          "damage": 30,
+          "cooldownMs": 4400,
+          "range": 128,
+          "radius": 26,
+          "arcDegrees": 75,
+          "durationMs": 1250,
+          "projectileSpeed": 0,
+          "pierce": 1,
+          "knockback": 132,
+          "color": "#b680ff",
+          "collider": {
+            "shape": "sweep",
+            "width": 52,
+            "traceMs": 1250,
+            "followsPlayer": true,
+            "tickMs": 160,
+            "rotationDegrees": 720
+          },
+          "charge": {
+            "maxMs": 1700,
+            "bands": [
+              {
+                "id": "axe-aim",
+                "label": "Прицеливание броска",
+                "minMs": 650,
+                "color": "#9b73e8",
+                "knockbackMultiplier": 0.7
+              },
+              {
+                "id": "axe-heave",
+                "label": "Залповый бросок",
+                "minMs": 1150,
+                "color": "#d0a0ff",
+                "damageMultiplier": 1.25,
+                "knockbackMultiplier": 1.4,
+                "durationMultiplier": 1.15
+              }
+            ]
+          },
+          "tuning": {
+            "grappleStunMs": 1250,
+            "holdDistanceMin": 42,
+            "holdDistanceMax": 82,
+            "holdDistanceRatio": 0.62,
+            "minimumThrowDistance": 80,
+            "throwStunMs": 450
+          },
+          "recoveryMs": 760
+        },
+        "hold": {
+          "name": "Приём не задан",
+          "enabled": false,
+          "behavior": "disabled",
+          "kind": "melee",
+          "damage": 0,
+          "cooldownMs": 0,
+          "range": 0,
+          "radius": 0,
+          "arcDegrees": 0,
+          "durationMs": 0,
+          "projectileSpeed": 0,
+          "pierce": 0,
+          "knockback": 0,
+          "color": "#ff9f43"
+        },
+        "holdThenDoubleTap": {
+          "name": "Приём не задан",
+          "enabled": false,
+          "behavior": "disabled",
+          "kind": "melee",
+          "damage": 0,
+          "cooldownMs": 0,
+          "range": 0,
+          "radius": 0,
+          "arcDegrees": 0,
+          "durationMs": 0,
+          "projectileSpeed": 0,
+          "pierce": 0,
+          "knockback": 0,
+          "color": "#6ee7a8"
+        }
+      },
+      "secondaryTapCombo": [
+        {
+          "name": "Повторный заслон лезвием",
+          "behavior": "axeParry",
+          "kind": "melee",
+          "damage": 13,
+          "cooldownMs": 0,
+          "range": 116,
+          "radius": 32,
+          "arcDegrees": 185,
+          "durationMs": 620,
+          "projectileSpeed": 0,
+          "pierce": 10,
+          "knockback": 10,
+          "color": "#f6c85f",
+          "collider": {
+            "shape": "sector",
+            "width": 64,
+            "traceMs": 760
+          },
+          "hitEffects": [
+            {
+              "status": "bleed",
+              "durationMs": 5200,
+              "stacks": 1,
+              "refresh": "extend"
+            }
+          ]
+        }
+      ],
+      "secondaryAttacks": {
+        "tap": {
+          "name": "Длинное парирование секирой",
+          "behavior": "axeParry",
+          "kind": "melee",
+          "damage": 12,
+          "cooldownMs": 0,
+          "range": 116,
+          "radius": 32,
+          "arcDegrees": 185,
+          "durationMs": 650,
+          "projectileSpeed": 0,
+          "pierce": 10,
+          "knockback": 10,
+          "color": "#f6c85f",
+          "collider": {
+            "shape": "sector",
+            "width": 64,
+            "traceMs": 780
+          },
+          "hitEffects": [
+            {
+              "status": "bleed",
+              "durationMs": 5200,
+              "stacks": 1,
+              "refresh": "extend"
+            }
+          ],
+          "recoveryMs": 280
+        },
+        "doubleTap": {
+          "name": "Приём не задан",
+          "enabled": false,
+          "behavior": "disabled",
+          "kind": "melee",
+          "damage": 0,
+          "cooldownMs": 0,
+          "range": 0,
+          "radius": 0,
+          "arcDegrees": 0,
+          "durationMs": 0,
+          "projectileSpeed": 0,
+          "pierce": 0,
+          "knockback": 0,
+          "color": "#55c7ff"
+        },
+        "doubleTapHold": {
+          "name": "Приём не задан",
+          "enabled": false,
+          "behavior": "disabled",
+          "kind": "melee",
+          "damage": 0,
+          "cooldownMs": 0,
+          "range": 0,
+          "radius": 0,
+          "arcDegrees": 0,
+          "durationMs": 0,
+          "projectileSpeed": 0,
+          "pierce": 0,
+          "knockback": 0,
+          "color": "#b680ff"
+        },
+        "hold": {
+          "name": "Волчок секиры",
+          "behavior": "axeSpin",
+          "kind": "burst",
+          "damage": 10,
+          "cooldownMs": 4200,
+          "range": 174,
+          "radius": 34,
+          "arcDegrees": 360,
+          "durationMs": 1800,
+          "projectileSpeed": 0,
+          "pierce": 40,
+          "knockback": 12,
+          "color": "#ff9f43",
+          "collider": {
+            "shape": "sweep",
+            "innerRange": 26,
+            "width": 68,
+            "traceMs": 1200,
+            "followsPlayer": true,
+            "tickMs": 110,
+            "rotationDegrees": 360
+          },
+          "hitEffects": [
+            {
+              "status": "microstun",
+              "durationMs": 150,
+              "refresh": "refresh"
+            },
+            {
+              "status": "healingBlocked",
+              "durationMs": 3000,
+              "refresh": "refresh"
+            }
+          ],
+          "repeatHits": 8,
+          "repeatIntervalMs": 190,
+          "tuning": {
+            "channelDegreesPerMs": 0.42
+          },
+          "recoveryMs": 720
+        },
+        "holdThenDoubleTap": {
+          "name": "Инерционный полёт и удар в землю",
+          "behavior": "axeLeap",
+          "kind": "dash",
+          "damage": 52,
+          "cooldownMs": 7200,
+          "range": 270,
+          "radius": 38,
+          "arcDegrees": 42,
+          "durationMs": 820,
+          "projectileSpeed": 0,
+          "pierce": 16,
+          "knockback": 72,
+          "color": "#6ee7a8",
+          "collider": {
+            "shape": "capsule",
+            "width": 76,
+            "traceMs": 1450,
+            "followsPlayer": true
+          },
+          "charge": {
+            "maxMs": 1800,
+            "bands": [
+              {
+                "id": "axe-leap-near",
+                "label": "Ранний срыв",
+                "minMs": 650,
+                "color": "#56c990",
+                "rangeMultiplier": 0.62,
+                "damageMultiplier": 0.8
+              },
+              {
+                "id": "axe-leap-far",
+                "label": "Полная инерция",
+                "minMs": 1250,
+                "color": "#96ffd0",
+                "rangeMultiplier": 1.45,
+                "damageMultiplier": 1.3,
+                "knockbackMultiplier": 1.35,
+                "durationMultiplier": 1.2
+              }
+            ]
+          },
+          "hitEffects": [
+            {
+              "status": "stun",
+              "durationMs": 1100,
+              "refresh": "replace"
+            }
+          ],
+          "tuning": {
+            "landingDamage": 52,
+            "landingRange": 85,
+            "landingColliderRadius": 24,
+            "landingDurationMs": 220,
+            "landingKnockback": 72,
+            "landingTraceMs": 1100,
+            "chemicalTrailIntervalMs": 90,
+            "chemicalTrailMinimumRadius": 28,
+            "chemicalTrailRadiusMultiplier": 1.8,
+            "chemicalTrailColliderRadius": 8,
+            "chemicalTrailDurationMs": 900,
+            "chemicalTrailLingerMs": 500
+          },
+          "invulnerabilityMs": 900,
+          "recoveryMs": 900
+        }
+      }
+    },
+    {
+      "id": "twohand-katana",
+      "name": "Катана",
+      "equipMode": "twoHanded",
+      "description": "Две руки делят один поток: попадания навыками возвращают откаты, а клинок управляет кровотечением и окнами инвула.",
+      "chanceCost": 3,
+      "trait": "katanaFlow",
+      "defaultAugment": "none",
+      "augmentHooks": {
+        "bleed": {
+          "behaviors": [
+            "katanaFlurry"
+          ],
+          "hitEffects": [
+            {
+              "status": "bleed",
+              "durationMs": 6000,
+              "stacks": 1,
+              "refresh": "extend"
+            }
+          ]
+        }
+      },
+      "tapCombo": [
+        {
+          "name": "Обратный размашистый разрез",
+          "behavior": "katanaCombo",
+          "kind": "melee",
+          "damage": 20,
+          "cooldownMs": 0,
+          "range": 132,
+          "radius": 20,
+          "arcDegrees": 138,
+          "durationMs": 190,
+          "projectileSpeed": 0,
+          "pierce": 7,
+          "knockback": 15,
+          "color": "#f6c85f",
+          "collider": {
+            "shape": "sweep",
+            "width": 40,
+            "traceMs": 600,
+            "rotationDegrees": -138
+          }
+        },
+        {
+          "name": "Завершающий низкий разрез",
+          "behavior": "katanaCombo",
+          "kind": "melee",
+          "damage": 28,
+          "cooldownMs": 0,
+          "range": 142,
+          "radius": 22,
+          "arcDegrees": 150,
+          "durationMs": 230,
+          "projectileSpeed": 0,
+          "pierce": 8,
+          "knockback": 22,
+          "color": "#f6c85f",
+          "collider": {
+            "shape": "sweep",
+            "width": 44,
+            "traceMs": 720,
+            "rotationDegrees": 155
+          },
+          "tuning": {
+            "executeHealthRatio": 0.35,
+            "executeDamageMultiplier": 1.8
+          },
+          "rootMs": 520
+        }
+      ],
+      "attacks": {
+        "tap": {
+          "name": "Размашистый разрез катаной",
+          "behavior": "katanaCombo",
+          "kind": "melee",
+          "damage": 18,
+          "cooldownMs": 0,
+          "range": 130,
+          "radius": 20,
+          "arcDegrees": 132,
+          "durationMs": 185,
+          "projectileSpeed": 0,
+          "pierce": 7,
+          "knockback": 14,
+          "color": "#f6c85f",
+          "collider": {
+            "shape": "sweep",
+            "width": 40,
+            "traceMs": 590,
+            "rotationDegrees": 132
+          }
+        },
+        "doubleTap": {
+          "name": "Узкий рубящий удар сверху",
+          "behavior": "katanaOverhead",
+          "kind": "melee",
+          "damage": 35,
+          "cooldownMs": 2300,
+          "range": 146,
+          "radius": 13,
+          "arcDegrees": 28,
+          "durationMs": 210,
+          "projectileSpeed": 0,
+          "pierce": 2,
+          "knockback": 18,
+          "color": "#55c7ff",
+          "collider": {
+            "shape": "capsule",
+            "width": 26,
+            "traceMs": 700
+          },
+          "cooldownRefundMs": 220,
+          "recoveryMs": 260
+        },
+        "doubleTapHold": {
+          "name": "Агрессивная серия и прыжок с вращением",
+          "behavior": "katanaFlurry",
+          "kind": "dash",
+          "damage": 9,
+          "cooldownMs": 5200,
+          "range": 260,
+          "radius": 22,
+          "arcDegrees": 85,
+          "durationMs": 1150,
+          "projectileSpeed": 0,
+          "pierce": 20,
+          "knockback": 12,
+          "color": "#b680ff",
+          "collider": {
+            "shape": "capsule",
+            "width": 80,
+            "traceMs": 1050
+          },
+          "repeatHits": 7,
+          "repeatIntervalMs": 125,
+          "tuning": {
+            "dodgeThreshold": 0.25,
+            "dashStartDelayMs": 720,
+            "stationaryColliderLength": 110,
+            "dashColliderLength": 90,
+            "dashColliderBacktrack": 80
+          },
+          "cooldownRefundMs": 150,
+          "invulnerabilityMs": 1150,
+          "recoveryMs": 480
+        },
+        "hold": {
+          "name": "Диагональный заряд и завершение кровотечения",
+          "behavior": "katanaCharge",
+          "kind": "melee",
+          "damage": 39,
+          "cooldownMs": 3200,
+          "range": 168,
+          "radius": 18,
+          "arcDegrees": 62,
+          "durationMs": 270,
+          "projectileSpeed": 0,
+          "pierce": 5,
+          "knockback": 20,
+          "color": "#ff9f43",
+          "collider": {
+            "shape": "sweep",
+            "width": 36,
+            "traceMs": 820,
+            "rotationDegrees": 64
+          },
+          "charge": {
+            "maxMs": 1500,
+            "bands": [
+              {
+                "id": "katana-charge",
+                "label": "Замах",
+                "minMs": 650,
+                "color": "#e58b37",
+                "damageMultiplier": 0.82
+              },
+              {
+                "id": "katana-full",
+                "label": "Полный диагональный рубящий",
+                "minMs": 1100,
+                "color": "#ffb15c",
+                "damageMultiplier": 1.35,
+                "rangeMultiplier": 1.12
+              }
+            ]
+          },
+          "cooldownRefundMs": 240,
+          "rootMs": 340,
+          "recoveryMs": 360
+        },
+        "holdThenDoubleTap": {
+          "name": "Круговой танец клинка",
+          "behavior": "katanaDance",
+          "kind": "burst",
+          "damage": 28,
+          "cooldownMs": 5600,
+          "range": 184,
+          "radius": 26,
+          "arcDegrees": 360,
+          "durationMs": 760,
+          "projectileSpeed": 0,
+          "pierce": 20,
+          "knockback": 18,
+          "color": "#6ee7a8",
+          "collider": {
+            "shape": "sweep",
+            "innerRange": 18,
+            "width": 52,
+            "traceMs": 1050,
+            "followsPlayer": true,
+            "tickMs": 150,
+            "rotationDegrees": 720
+          },
+          "hitEffects": [
+            {
+              "status": "healingBlocked",
+              "durationMs": 5200,
+              "refresh": "replace"
+            }
+          ],
+          "repeatHits": 3,
+          "repeatIntervalMs": 220,
+          "tuning": {
+            "bleedRefreshMs": 6000
+          },
+          "cooldownRefundMs": 180,
+          "invulnerabilityMs": 720,
+          "recoveryMs": 440
+        }
+      },
+      "secondaryTapCombo": [
+        {
+          "name": "Повторный перехват тыльной стороной",
+          "behavior": "katanaParry",
+          "kind": "melee",
+          "damage": 7,
+          "cooldownMs": 0,
+          "range": 92,
+          "radius": 18,
+          "arcDegrees": 145,
+          "durationMs": 250,
+          "projectileSpeed": 0,
+          "pierce": 6,
+          "knockback": 24,
+          "color": "#f6c85f",
+          "collider": {
+            "shape": "sector",
+            "width": 36,
+            "traceMs": 520
+          },
+          "hitEffects": [
+            {
+              "status": "stun",
+              "durationMs": 480,
+              "refresh": "replace"
+            }
+          ]
+        }
+      ],
+      "secondaryAttacks": {
+        "tap": {
+          "name": "Парирование тыльной стороной катаны",
+          "behavior": "katanaParry",
+          "kind": "melee",
+          "damage": 6,
+          "cooldownMs": 0,
+          "range": 92,
+          "radius": 18,
+          "arcDegrees": 145,
+          "durationMs": 270,
+          "projectileSpeed": 0,
+          "pierce": 6,
+          "knockback": 22,
+          "color": "#f6c85f",
+          "collider": {
+            "shape": "sector",
+            "width": 36,
+            "traceMs": 540
+          },
+          "hitEffects": [
+            {
+              "status": "stun",
+              "durationMs": 520,
+              "refresh": "replace"
+            }
+          ]
+        },
+        "doubleTap": {
+          "name": "Боксерский прыжок",
+          "behavior": "katanaHop",
+          "kind": "dash",
+          "damage": 0,
+          "cooldownMs": 2500,
+          "range": 128,
+          "radius": 14,
+          "arcDegrees": 30,
+          "durationMs": 260,
+          "projectileSpeed": 0,
+          "pierce": 0,
+          "knockback": 0,
+          "color": "#55c7ff",
+          "collider": {
+            "shape": "capsule",
+            "width": 28,
+            "traceMs": 620,
+            "followsPlayer": true
+          },
+          "invulnerabilityMs": 300,
+          "recoveryMs": 120
+        },
+        "doubleTapHold": {
+          "name": "Прыжок с боковым рассечением",
+          "behavior": "katanaHopSlash",
+          "kind": "dash",
+          "damage": 27,
+          "cooldownMs": 4800,
+          "range": 180,
+          "radius": 18,
+          "arcDegrees": 85,
+          "durationMs": 380,
+          "projectileSpeed": 0,
+          "pierce": 7,
+          "knockback": 16,
+          "color": "#b680ff",
+          "collider": {
+            "shape": "sweep",
+            "width": 36,
+            "traceMs": 820,
+            "followsPlayer": true,
+            "rotationDegrees": 100
+          },
+          "hitEffects": [
+            {
+              "status": "bleed",
+              "durationMs": 6200,
+              "stacks": 2,
+              "refresh": "extend"
+            }
+          ],
+          "tuning": {
+            "bleedRefreshMs": 6200,
+            "bleedStackMultiplier": 2
+          },
+          "cooldownRefundMs": 180,
+          "invulnerabilityMs": 430,
+          "recoveryMs": 260
+        },
+        "hold": {
+          "name": "Иайдо из ножен",
+          "behavior": "katanaIaido",
+          "kind": "melee",
+          "damage": 33,
+          "cooldownMs": 3400,
+          "range": 174,
+          "radius": 16,
+          "arcDegrees": 116,
+          "durationMs": 180,
+          "projectileSpeed": 0,
+          "pierce": 5,
+          "knockback": 20,
+          "color": "#ff9f43",
+          "collider": {
+            "shape": "sweep",
+            "width": 32,
+            "traceMs": 780,
+            "rotationDegrees": -116
+          },
+          "charge": {
+            "maxMs": 1450,
+            "bands": [
+              {
+                "id": "iaido-ready",
+                "label": "Меч в ножнах",
+                "minMs": 650,
+                "color": "#e58b37",
+                "damageMultiplier": 0.8
+              },
+              {
+                "id": "iaido-full",
+                "label": "Молниеносный разрез",
+                "minMs": 1050,
+                "color": "#ffb15c",
+                "damageMultiplier": 1.3,
+                "speedMultiplier": 1.3
+              }
+            ]
+          },
+          "hitEffects": [
+            {
+              "status": "disarm",
+              "durationMs": 3000,
+              "refresh": "replace"
+            }
+          ],
+          "cooldownRefundMs": 220,
+          "recoveryMs": 300
+        },
+        "holdThenDoubleTap": {
+          "name": "Молниеносный пронзающий дэш",
+          "behavior": "katanaFlash",
+          "kind": "dash",
+          "damage": 38,
+          "damageType": "true",
+          "cooldownMs": 6200,
+          "range": 390,
+          "radius": 16,
+          "arcDegrees": 20,
+          "durationMs": 430,
+          "projectileSpeed": 0,
+          "pierce": 12,
+          "knockback": 10,
+          "color": "#6ee7a8",
+          "collider": {
+            "shape": "capsule",
+            "width": 32,
+            "traceMs": 1200,
+            "followsPlayer": true
+          },
+          "hitEffects": [
+            {
+              "status": "armorBreak",
+              "durationMs": 5000,
+              "magnitude": 24,
+              "refresh": "replace"
+            }
+          ],
+          "cooldownRefundMs": 260,
+          "resetCooldownOnKill": true,
+          "invulnerabilityMs": 500,
+          "recoveryMs": 360
+        }
       }
     },
     {
       "id": "hybrid-sword",
-      "name": "Меч странствующего торговца",
+      "name": "Меч",
       "equipMode": "hybrid",
-      "description": "Основная рука режет, свободная вторая рука парирует и меняет дистанцию.",
+      "description": "Обе кнопки держат ритм Zornhau: поздний удар отпускает врага, ранний утомляет героя, точный открывает Oberhau.",
       "chanceCost": 2,
+      "trait": "swordRhythm",
+      "tuning": {
+        "rhythmEarlyMs": 170,
+        "rhythmGoodMaxMs": 540,
+        "rhythmFatigueMs": 900,
+        "rhythmKnockbackBonus": 18,
+        "rhythmMicrostunMs": 180,
+        "rhythmStepDistance": 18,
+        "openingEveryHits": 3,
+        "openingDurationMs": 1600
+      },
+      "defaultAugment": "none",
       "tapCombo": [
-        { "name": "Обратный диагональный удар", "kind": "melee", "damage": 19, "cooldownMs": 0, "range": 108, "radius": 19, "arcDegrees": 108, "durationMs": 190, "lingerMs": 80, "projectileSpeed": 0, "pierce": 2, "knockback": 18, "color": "#e2ccb0" },
-        { "name": "Прямой выпад мечом", "kind": "melee", "damage": 23, "cooldownMs": 0, "range": 142, "radius": 13, "arcDegrees": 45, "durationMs": 210, "projectileSpeed": 0, "pierce": 2, "knockback": 24, "color": "#f0d8b6" }
+        {
+          "name": "Zornhau справа налево",
+          "behavior": "swordRhythm",
+          "kind": "melee",
+          "damage": 19,
+          "cooldownMs": 0,
+          "range": 126,
+          "radius": 19,
+          "arcDegrees": 122,
+          "durationMs": 205,
+          "projectileSpeed": 0,
+          "pierce": 6,
+          "knockback": 24,
+          "color": "#f6c85f",
+          "collider": {
+            "shape": "sweep",
+            "width": 38,
+            "traceMs": 620,
+            "rotationDegrees": -122
+          },
+          "hitEffects": [
+            {
+              "status": "opening",
+              "durationMs": 1500,
+              "chance": 0.24,
+              "refresh": "replace"
+            }
+          ]
+        },
+        {
+          "name": "Zornhau с наступлением",
+          "behavior": "swordRhythm",
+          "kind": "dash",
+          "damage": 22,
+          "cooldownMs": 0,
+          "range": 138,
+          "radius": 20,
+          "arcDegrees": 128,
+          "durationMs": 240,
+          "projectileSpeed": 0,
+          "pierce": 7,
+          "knockback": 30,
+          "color": "#f6c85f",
+          "collider": {
+            "shape": "sweep",
+            "width": 40,
+            "traceMs": 700,
+            "followsPlayer": true,
+            "rotationDegrees": 128
+          },
+          "hitEffects": [
+            {
+              "status": "opening",
+              "durationMs": 1600,
+              "chance": 0.28,
+              "refresh": "replace"
+            }
+          ]
+        }
       ],
       "attacks": {
-        "tap": { "name": "Диагональный удар мечом", "kind": "melee", "damage": 17, "cooldownMs": 0, "range": 110, "radius": 18, "arcDegrees": 110, "durationMs": 185, "lingerMs": 70, "projectileSpeed": 0, "pierce": 2, "knockback": 16, "color": "#d9c2a5" },
-        "doubleTap": { "name": "Крестовый разрез", "kind": "melee", "damage": 28, "cooldownMs": 980, "range": 138, "radius": 22, "arcDegrees": 135, "durationMs": 310, "lingerMs": 120, "projectileSpeed": 0, "pierce": 4, "knockback": 26, "color": "#ead0a9" },
-        "doubleTapHold": { "name": "Рывок фехтовальщика", "kind": "dash", "damage": 30, "cooldownMs": 3300, "range": 285, "radius": 20, "arcDegrees": 38, "durationMs": 390, "projectileSpeed": 0, "pierce": 5, "knockback": 38, "color": "#f2d196" },
-        "hold": { "name": "Длинная режущая стойка", "kind": "melee", "damage": 35, "cooldownMs": 2750, "range": 175, "radius": 24, "arcDegrees": 125, "durationMs": 720, "lingerMs": 230, "projectileSpeed": 0, "pierce": 6, "knockback": 34, "color": "#ebd4b1" },
-        "holdThenDoubleTap": { "name": "Круг клинка", "kind": "burst", "damage": 33, "cooldownMs": 4400, "range": 195, "radius": 36, "arcDegrees": 360, "durationMs": 620, "projectileSpeed": 0, "pierce": 10, "knockback": 48, "color": "#f0be7f" }
+        "tap": {
+          "name": "Zornhau в правильном ритме",
+          "behavior": "swordRhythm",
+          "kind": "dash",
+          "damage": 17,
+          "cooldownMs": 0,
+          "range": 124,
+          "radius": 18,
+          "arcDegrees": 118,
+          "durationMs": 210,
+          "projectileSpeed": 0,
+          "pierce": 6,
+          "knockback": 22,
+          "color": "#f6c85f",
+          "collider": {
+            "shape": "sweep",
+            "width": 36,
+            "traceMs": 620,
+            "followsPlayer": true,
+            "rotationDegrees": 118
+          },
+          "hitEffects": [
+            {
+              "status": "opening",
+              "durationMs": 1450,
+              "chance": 0.22,
+              "refresh": "replace"
+            }
+          ]
+        },
+        "doubleTap": {
+          "name": "Oberhau в открытую стойку",
+          "behavior": "swordOpening",
+          "kind": "melee",
+          "damage": 37,
+          "cooldownMs": 1900,
+          "range": 138,
+          "radius": 12,
+          "arcDegrees": 26,
+          "durationMs": 215,
+          "projectileSpeed": 0,
+          "pierce": 1,
+          "knockback": 26,
+          "color": "#55c7ff",
+          "collider": {
+            "shape": "capsule",
+            "width": 24,
+            "traceMs": 720
+          },
+          "recoveryMs": 240
+        },
+        "doubleTapHold": {
+          "name": "Oberhau → Unterhau",
+          "behavior": "swordFollowUp",
+          "kind": "melee",
+          "damage": 28,
+          "cooldownMs": 3400,
+          "range": 146,
+          "radius": 15,
+          "arcDegrees": 48,
+          "durationMs": 520,
+          "projectileSpeed": 0,
+          "pierce": 3,
+          "knockback": 22,
+          "color": "#b680ff",
+          "collider": {
+            "shape": "sweep",
+            "width": 30,
+            "traceMs": 920,
+            "rotationDegrees": -74
+          },
+          "repeatHits": 1,
+          "repeatIntervalMs": 250,
+          "tuning": {
+            "followUpDelayMs": 230
+          },
+          "recoveryMs": 360
+        },
+        "hold": {
+          "name": "Приём не задан",
+          "enabled": false,
+          "behavior": "disabled",
+          "kind": "melee",
+          "damage": 0,
+          "cooldownMs": 0,
+          "range": 0,
+          "radius": 0,
+          "arcDegrees": 0,
+          "durationMs": 0,
+          "projectileSpeed": 0,
+          "pierce": 0,
+          "knockback": 0,
+          "color": "#ff9f43"
+        },
+        "holdThenDoubleTap": {
+          "name": "Приём не задан",
+          "enabled": false,
+          "behavior": "disabled",
+          "kind": "melee",
+          "damage": 0,
+          "cooldownMs": 0,
+          "range": 0,
+          "radius": 0,
+          "arcDegrees": 0,
+          "durationMs": 0,
+          "projectileSpeed": 0,
+          "pierce": 0,
+          "knockback": 0,
+          "color": "#6ee7a8"
+        }
       },
       "secondaryTapCombo": [
-        { "name": "Контрудар свободной рукой", "kind": "melee", "damage": 11, "cooldownMs": 0, "range": 80, "radius": 18, "arcDegrees": 95, "durationMs": 180, "lingerMs": 90, "projectileSpeed": 0, "pierce": 2, "knockback": 30, "color": "#c4cdd0" }
+        {
+          "name": "Zornhau второй рукой",
+          "behavior": "swordRhythm",
+          "kind": "melee",
+          "damage": 18,
+          "cooldownMs": 0,
+          "range": 126,
+          "radius": 18,
+          "arcDegrees": 120,
+          "durationMs": 205,
+          "projectileSpeed": 0,
+          "pierce": 6,
+          "knockback": 23,
+          "color": "#f6c85f",
+          "collider": {
+            "shape": "sweep",
+            "width": 36,
+            "traceMs": 620,
+            "rotationDegrees": -120
+          },
+          "hitEffects": [
+            {
+              "status": "opening",
+              "durationMs": 1450,
+              "chance": 0.22,
+              "refresh": "replace"
+            }
+          ]
+        },
+        {
+          "name": "Zornhau с полуразворота",
+          "behavior": "swordRhythm",
+          "kind": "dash",
+          "damage": 21,
+          "cooldownMs": 0,
+          "range": 136,
+          "radius": 20,
+          "arcDegrees": 132,
+          "durationMs": 235,
+          "projectileSpeed": 0,
+          "pierce": 7,
+          "knockback": 28,
+          "color": "#f6c85f",
+          "collider": {
+            "shape": "sweep",
+            "width": 40,
+            "traceMs": 680,
+            "followsPlayer": true,
+            "rotationDegrees": 132
+          },
+          "hitEffects": [
+            {
+              "status": "opening",
+              "durationMs": 1550,
+              "chance": 0.26,
+              "refresh": "replace"
+            }
+          ]
+        }
       ],
       "secondaryAttacks": {
-        "tap": { "name": "Парирование ладонью", "kind": "burst", "damage": 5, "cooldownMs": 0, "range": 88, "radius": 24, "arcDegrees": 150, "durationMs": 260, "lingerMs": 100, "projectileSpeed": 0, "pierce": 6, "knockback": 36, "color": "#c9d0d0" },
-        "doubleTap": { "name": "Удар гардой", "kind": "melee", "damage": 16, "cooldownMs": 1050, "range": 82, "radius": 17, "arcDegrees": 85, "durationMs": 210, "projectileSpeed": 0, "pierce": 2, "knockback": 48, "color": "#d8d2c4" },
-        "doubleTapHold": { "name": "Смена стороны", "kind": "dash", "damage": 18, "cooldownMs": 2900, "range": 205, "radius": 20, "arcDegrees": 45, "durationMs": 330, "projectileSpeed": 0, "pierce": 4, "knockback": 28, "color": "#d9c29b" },
-        "hold": { "name": "Открытая стойка", "kind": "melee", "damage": 19, "cooldownMs": 2300, "range": 120, "radius": 26, "arcDegrees": 180, "durationMs": 820, "lingerMs": 210, "projectileSpeed": 0, "pierce": 6, "knockback": 44, "color": "#d5d9d0" },
-        "holdThenDoubleTap": { "name": "Ответ по кругу", "kind": "burst", "damage": 27, "cooldownMs": 4100, "range": 175, "radius": 34, "arcDegrees": 360, "durationMs": 570, "projectileSpeed": 0, "pierce": 9, "knockback": 56, "color": "#e3d4b7" }
-      }
-    },
-    {
-      "id": "corpse-sword",
-      "name": "Меч, остающийся у тела",
-      "equipMode": "twoHanded",
-      "description": "Оплаченный Шансами клинок остаётся доступным после смерти; его удары долго живут в пространстве.",
-      "chanceCost": 3,
-      "corpseBound": true,
-      "tapCombo": [
-        { "name": "Возврат мёртвого клинка", "kind": "melee", "damage": 31, "cooldownMs": 0, "range": 145, "radius": 28, "arcDegrees": 135, "durationMs": 260, "lingerMs": 260, "projectileSpeed": 0, "pierce": 5, "knockback": 44, "color": "#d7a0a1" }
-      ],
-      "attacks": {
-        "tap": { "name": "Разрез чужой попытки", "kind": "melee", "damage": 29, "cooldownMs": 0, "range": 148, "radius": 27, "arcDegrees": 130, "durationMs": 250, "lingerMs": 250, "projectileSpeed": 0, "pierce": 5, "knockback": 42, "color": "#cb8e92" },
-        "doubleTap": { "name": "Две запомненные смерти", "kind": "melee", "damage": 46, "cooldownMs": 1250, "range": 178, "radius": 31, "arcDegrees": 155, "durationMs": 390, "lingerMs": 300, "projectileSpeed": 0, "pierce": 7, "knockback": 58, "color": "#e0a0a1" },
-        "doubleTapHold": { "name": "Вернуться к телу", "kind": "dash", "damage": 52, "cooldownMs": 3650, "range": 330, "radius": 30, "arcDegrees": 50, "durationMs": 480, "projectileSpeed": 0, "pierce": 8, "knockback": 64, "color": "#edacad" },
-        "hold": { "name": "След прошлой попытки", "kind": "melee", "damage": 57, "cooldownMs": 3050, "range": 220, "radius": 38, "arcDegrees": 125, "durationMs": 880, "lingerMs": 420, "projectileSpeed": 0, "pierce": 9, "knockback": 62, "color": "#c4747d" },
-        "holdThenDoubleTap": { "name": "Девяносто девятый разрез", "kind": "burst", "damage": 68, "cooldownMs": 5900, "range": 310, "radius": 58, "arcDegrees": 360, "durationMs": 1050, "lingerMs": 330, "projectileSpeed": 0, "pierce": 14, "knockback": 92, "color": "#f0a0a5" }
-      },
-      "secondaryTapCombo": [
-        { "name": "Перехват второй рукой", "kind": "melee", "damage": 18, "cooldownMs": 0, "range": 95, "radius": 23, "arcDegrees": 115, "durationMs": 210, "lingerMs": 140, "projectileSpeed": 0, "pierce": 3, "knockback": 38, "color": "#b78e92" }
-      ],
-      "secondaryAttacks": {
-        "tap": { "name": "Удар навершием", "kind": "melee", "damage": 16, "cooldownMs": 0, "range": 90, "radius": 22, "arcDegrees": 110, "durationMs": 200, "lingerMs": 120, "projectileSpeed": 0, "pierce": 3, "knockback": 36, "color": "#aa8589" },
-        "doubleTap": { "name": "Отбить смерть", "kind": "burst", "damage": 20, "cooldownMs": 1100, "range": 125, "radius": 34, "arcDegrees": 180, "durationMs": 430, "lingerMs": 170, "projectileSpeed": 0, "pierce": 8, "knockback": 70, "color": "#c2a1a2" },
-        "doubleTapHold": { "name": "Шаг через труп", "kind": "dash", "damage": 31, "cooldownMs": 3150, "range": 240, "radius": 27, "arcDegrees": 48, "durationMs": 430, "projectileSpeed": 0, "pierce": 6, "knockback": 54, "color": "#d18e92" },
-        "hold": { "name": "Стойка у тела", "kind": "melee", "damage": 33, "cooldownMs": 2700, "range": 160, "radius": 35, "arcDegrees": 190, "durationMs": 980, "lingerMs": 360, "projectileSpeed": 0, "pierce": 9, "knockback": 56, "color": "#bb9295" },
-        "holdThenDoubleTap": { "name": "Круг возвращения", "kind": "burst", "damage": 44, "cooldownMs": 5000, "range": 235, "radius": 48, "arcDegrees": 360, "durationMs": 820, "lingerMs": 250, "projectileSpeed": 0, "pierce": 12, "knockback": 78, "color": "#dda1a3" }
+        "tap": {
+          "name": "Zornhau второй кнопкой",
+          "behavior": "swordRhythm",
+          "kind": "dash",
+          "damage": 17,
+          "cooldownMs": 0,
+          "range": 124,
+          "radius": 18,
+          "arcDegrees": 118,
+          "durationMs": 210,
+          "projectileSpeed": 0,
+          "pierce": 6,
+          "knockback": 22,
+          "color": "#f6c85f",
+          "collider": {
+            "shape": "sweep",
+            "width": 36,
+            "traceMs": 620,
+            "followsPlayer": true,
+            "rotationDegrees": -118
+          },
+          "hitEffects": [
+            {
+              "status": "opening",
+              "durationMs": 1450,
+              "chance": 0.22,
+              "refresh": "replace"
+            }
+          ]
+        },
+        "doubleTap": {
+          "name": "Oberhau второй кнопкой",
+          "behavior": "swordOpening",
+          "kind": "melee",
+          "damage": 37,
+          "cooldownMs": 1900,
+          "range": 138,
+          "radius": 12,
+          "arcDegrees": 26,
+          "durationMs": 215,
+          "projectileSpeed": 0,
+          "pierce": 1,
+          "knockback": 26,
+          "color": "#55c7ff",
+          "collider": {
+            "shape": "capsule",
+            "width": 24,
+            "traceMs": 720
+          },
+          "recoveryMs": 240
+        },
+        "doubleTapHold": {
+          "name": "Oberhau → Unterhau второй кнопкой",
+          "behavior": "swordFollowUp",
+          "kind": "melee",
+          "damage": 28,
+          "cooldownMs": 3400,
+          "range": 146,
+          "radius": 15,
+          "arcDegrees": 48,
+          "durationMs": 520,
+          "projectileSpeed": 0,
+          "pierce": 3,
+          "knockback": 22,
+          "color": "#b680ff",
+          "collider": {
+            "shape": "sweep",
+            "width": 30,
+            "traceMs": 920,
+            "rotationDegrees": 74
+          },
+          "repeatHits": 1,
+          "repeatIntervalMs": 250,
+          "tuning": {
+            "followUpDelayMs": 230
+          },
+          "recoveryMs": 360
+        },
+        "hold": {
+          "name": "Приём не задан",
+          "enabled": false,
+          "behavior": "disabled",
+          "kind": "melee",
+          "damage": 0,
+          "cooldownMs": 0,
+          "range": 0,
+          "radius": 0,
+          "arcDegrees": 0,
+          "durationMs": 0,
+          "projectileSpeed": 0,
+          "pierce": 0,
+          "knockback": 0,
+          "color": "#ff9f43"
+        },
+        "holdThenDoubleTap": {
+          "name": "Приём не задан",
+          "enabled": false,
+          "behavior": "disabled",
+          "kind": "melee",
+          "damage": 0,
+          "cooldownMs": 0,
+          "range": 0,
+          "radius": 0,
+          "arcDegrees": 0,
+          "durationMs": 0,
+          "projectileSpeed": 0,
+          "pierce": 0,
+          "knockback": 0,
+          "color": "#6ee7a8"
+        }
       }
     }
   ],

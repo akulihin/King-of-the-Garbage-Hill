@@ -37,7 +37,7 @@ public static class ErenYeager
 
     public static List<GamePlayerBridgeClass> ProjectRoundEndLeaderboard(GameClass game)
     {
-        return game.PlayersList
+        var projected = game.PlayersList
             .Select((player, index) => new
             {
                 Player = player,
@@ -49,6 +49,7 @@ public static class ErenYeager
             .ThenBy(x => x.OriginalIndex)
             .Select(x => x.Player)
             .ToList();
+        return JonSnow.ApplyLeaderboardRules(projected);
     }
 
     public static bool IsRumblingWarningActive(GameClass game)

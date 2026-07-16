@@ -433,6 +433,42 @@ public static class GameStateMapper
             {
                 switch (passive.PassiveName)
                 {
+                    case JonSnow.ServerKing:
+                        if (player.GameCharacter.Name == JonSnow.CharacterName
+                            && pas.JonSnow == null)
+                        {
+                            var jon = player.Passives.JonSnow;
+                            pas.JonSnow = new JonSnowStateDto
+                            {
+                                Skill = player.GameCharacter.GetSkill(),
+                                SkillTarget = JonSnow.KingSkillThreshold,
+                                IsKing = JonSnow.IsKing(player),
+                                KingBlockedByCastle = JonSnow.IsKing(player)
+                                                       && player.Status.GetPlaceAtLeaderBoard()
+                                                       == JonSnow.BlackCastlePlace,
+                                BastardIntelligenceBonus =
+                                    player.GameCharacter.JonSnowBastardIntelligenceBonus,
+                                BlackCastleActive = jon.BlackCastleActive,
+                                BlackCastleTurnsRemaining = jon.BlackCastleActive
+                                    ? Math.Max(0, jon.BlackCastleReleaseAfterRound - game.RoundNo + 1)
+                                    : 0,
+                                WatchEnded = jon.WatchEnded,
+                                LoyaltyVictories = jon.LoyaltyVictories,
+                                WeakestPlayers = game.PlayersList
+                                    .Where(candidate =>
+                                        jon.WeakestPlayerIds.Contains(candidate.GetPlayerId()))
+                                    .OrderByDescending(candidate =>
+                                        candidate.Status.GetPlaceAtLeaderBoard())
+                                    .Select(candidate => new JonSnowWeakestPlayerDto
+                                    {
+                                        PlayerId = candidate.GetPlayerId(),
+                                        PlayerName = candidate.DiscordUsername,
+                                    }).ToList(),
+                            };
+                            anySet = true;
+                        }
+                        break;
+
                     case GordonFreeman.Crowbar:
                         if (player.GameCharacter.Name == GordonFreeman.CharacterName
                             && pas.Gordon == null)

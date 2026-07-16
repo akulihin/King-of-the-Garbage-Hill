@@ -619,6 +619,27 @@ public class PassiveAbilityStatesDto
     public ErenStateDto Eren { get; set; }
     public NarutoStateDto Naruto { get; set; }
     public GordonStateDto Gordon { get; set; }
+    public JonSnowStateDto JonSnow { get; set; }
+}
+
+public class JonSnowStateDto
+{
+    public decimal Skill { get; set; }
+    public int SkillTarget { get; set; }
+    public bool IsKing { get; set; }
+    public bool KingBlockedByCastle { get; set; }
+    public int BastardIntelligenceBonus { get; set; }
+    public bool BlackCastleActive { get; set; }
+    public int BlackCastleTurnsRemaining { get; set; }
+    public bool WatchEnded { get; set; }
+    public int LoyaltyVictories { get; set; }
+    public List<JonSnowWeakestPlayerDto> WeakestPlayers { get; set; } = new();
+}
+
+public class JonSnowWeakestPlayerDto
+{
+    public Guid PlayerId { get; set; }
+    public string PlayerName { get; set; }
 }
 
 public class GordonStateDto

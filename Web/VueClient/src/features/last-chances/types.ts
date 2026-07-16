@@ -7,6 +7,81 @@ export const LAST_CHANCES_GESTURES = [
   'holdThenDoubleTap',
 ] as const
 export const LAST_CHANCES_ATTACK_KINDS = ['melee', 'projectile', 'dash', 'burst'] as const
+export const LAST_CHANCES_ATTACK_BEHAVIORS = [
+  'standard',
+  'parry',
+  'spearRam',
+  'spearRelease',
+  'spearSpin',
+  'spearShove',
+  'spearKick',
+  'spearStance',
+  'poleVault',
+  'chainStrike',
+  'chainSpin',
+  'chainThrow',
+  'chainHook',
+  'chainBind',
+  'clawSlash',
+  'clawRend',
+  'clawDisarm',
+  'clawDash',
+  'clawDeepStrike',
+  'spiderSlash',
+  'spiderImpale',
+  'spiderFlurry',
+  'spiderThrow',
+  'spiderTwist',
+  'axeSwing',
+  'axeGrapple',
+  'axeThrow',
+  'axeParry',
+  'axeSpin',
+  'axeLeap',
+  'katanaCombo',
+  'katanaOverhead',
+  'katanaFlurry',
+  'katanaCharge',
+  'katanaDance',
+  'katanaParry',
+  'katanaHop',
+  'katanaHopSlash',
+  'katanaIaido',
+  'katanaFlash',
+  'swordRhythm',
+  'swordOpening',
+  'swordFollowUp',
+  'disabled',
+] as const
+export const LAST_CHANCES_COLLIDER_SHAPES = ['sector', 'capsule', 'circle', 'sweep'] as const
+export const LAST_CHANCES_DAMAGE_TYPES = ['physical', 'true'] as const
+export const LAST_CHANCES_STATUS_KINDS = [
+  'bleed',
+  'poison',
+  'burn',
+  'chemical',
+  'stun',
+  'microstun',
+  'disarm',
+  'slow',
+  'attackSlow',
+  'healingBlocked',
+  'armorBreak',
+  'opening',
+  'bound',
+] as const
+export const LAST_CHANCES_STATUS_REFRESH_MODES = ['refresh', 'extend', 'stack', 'replace'] as const
+export const LAST_CHANCES_WEAPON_TRAITS = [
+  'spearDistance',
+  'chainDotCarrier',
+  'clawParity',
+  'spiderDurability',
+  'axeHookRecovery',
+  'katanaFlow',
+  'swordRhythm',
+] as const
+export const LAST_CHANCES_WEAPON_RESOURCE_KINDS = ['chain', 'durability', 'rhythm'] as const
+export const LAST_CHANCES_AUGMENTS = ['none', 'bleed', 'poison', 'fire', 'chemical'] as const
 export const LAST_CHANCES_ENEMY_ROLES = ['creep', 'standard', 'elite', 'boss'] as const
 export const LAST_CHANCES_ENEMY_ATTACK_KINDS = ['melee', 'leap', 'projectile', 'heavy'] as const
 export const LAST_CHANCES_HAZARD_KINDS = ['spikes', 'mentalFog'] as const
@@ -21,6 +96,14 @@ export const LAST_CHANCES_EQUIP_MODES = [
 export type LastChancesHand = typeof LAST_CHANCES_HANDS[number]
 export type LastChancesGesture = typeof LAST_CHANCES_GESTURES[number]
 export type LastChancesAttackKind = typeof LAST_CHANCES_ATTACK_KINDS[number]
+export type LastChancesAttackBehavior = typeof LAST_CHANCES_ATTACK_BEHAVIORS[number]
+export type LastChancesColliderShape = typeof LAST_CHANCES_COLLIDER_SHAPES[number]
+export type LastChancesDamageType = typeof LAST_CHANCES_DAMAGE_TYPES[number]
+export type LastChancesStatusKind = typeof LAST_CHANCES_STATUS_KINDS[number]
+export type LastChancesStatusRefreshMode = typeof LAST_CHANCES_STATUS_REFRESH_MODES[number]
+export type LastChancesWeaponTrait = typeof LAST_CHANCES_WEAPON_TRAITS[number]
+export type LastChancesWeaponResourceKind = typeof LAST_CHANCES_WEAPON_RESOURCE_KINDS[number]
+export type LastChancesAugment = typeof LAST_CHANCES_AUGMENTS[number]
 export type LastChancesEnemyRole = typeof LAST_CHANCES_ENEMY_ROLES[number]
 export type LastChancesEnemyAttackKind = typeof LAST_CHANCES_ENEMY_ATTACK_KINDS[number]
 export type LastChancesHazardKind = typeof LAST_CHANCES_HAZARD_KINDS[number]
@@ -42,6 +125,7 @@ export type LastChancesGestureInputPhase =
   | 'secondPress'
   | 'holdFollowUpWindow'
   | 'holdFollowUp'
+export type LastChancesGestureSequence = 'first' | 'secondTap' | 'afterHoldTap'
 export type LastChancesGamepadProfile = 'standard' | 'sony-raw' | 'generic'
 export type LastChancesGamepadStatus = 'unsupported' | 'disconnected' | 'idle' | 'active'
 
@@ -66,10 +150,95 @@ export interface LastChancesStatErosion {
   armor: number
 }
 
+export interface LastChancesColliderDefinition {
+  shape: LastChancesColliderShape
+  innerRange?: number
+  width?: number
+  traceMs: number
+  followsPlayer?: boolean
+  tickMs?: number
+  rotationDegrees?: number
+}
+
+export interface LastChancesAttackOverrides {
+  damage?: number
+  cooldownMs?: number
+  range?: number
+  radius?: number
+  arcDegrees?: number
+  durationMs?: number
+  lingerMs?: number
+  projectileSpeed?: number
+  pierce?: number
+  knockback?: number
+  recoveryMs?: number
+  rootMs?: number
+  invulnerabilityMs?: number
+  repeatHits?: number
+  repeatIntervalMs?: number
+}
+
+export interface LastChancesChargeBandDefinition {
+  id: string
+  label: string
+  minMs: number
+  color: string
+  damageMultiplier?: number
+  rangeMultiplier?: number
+  knockbackMultiplier?: number
+  durationMultiplier?: number
+  speedMultiplier?: number
+  overrides?: LastChancesAttackOverrides
+}
+
+export interface LastChancesChargeDefinition {
+  maxMs: number
+  bands: LastChancesChargeBandDefinition[]
+}
+
+export interface LastChancesHitEffectDefinition {
+  status: LastChancesStatusKind
+  durationMs: number
+  stacks?: number
+  chance?: number
+  magnitude?: number
+  tickDamage?: number
+  tickMs?: number
+  refresh?: LastChancesStatusRefreshMode
+}
+
+export interface LastChancesSweetSpotDefinition {
+  minRange: number
+  maxRange?: number
+  damageMultiplier: number
+  knockbackMultiplier?: number
+  criticalMultiplier?: number
+}
+
+export interface LastChancesWeaponResourceDefinition {
+  kind: LastChancesWeaponResourceKind
+  max: number
+  initial: number
+  label?: string
+  color?: string
+}
+
+export interface LastChancesAugmentHookDefinition {
+  /** Only these authored actions receive the symbol effect; omit for a weapon-wide hook. */
+  behaviors?: LastChancesAttackBehavior[]
+  damageMultiplier?: number
+  hitEffects?: LastChancesHitEffectDefinition[]
+}
+
 export interface LastChancesAttackDefinition {
   name: string
   kind: LastChancesAttackKind
+  /** Schema-v3 actions may explicitly disable an un-authored gesture slot. */
+  enabled?: boolean
+  /** Runtime behavior hook. Required for every schema-v3 action. */
+  behavior?: LastChancesAttackBehavior
   damage: number
+  damageType?: LastChancesDamageType
   cooldownMs: number
   range: number
   radius: number
@@ -81,6 +250,21 @@ export interface LastChancesAttackDefinition {
   pierce: number
   knockback: number
   color: string
+  collider?: LastChancesColliderDefinition
+  charge?: LastChancesChargeDefinition
+  hitEffects?: LastChancesHitEffectDefinition[]
+  recoveryMs?: number
+  rootMs?: number
+  invulnerabilityMs?: number
+  repeatHits?: number
+  repeatIntervalMs?: number
+  cooldownRefundMs?: number
+  resetCooldownOnKill?: boolean
+  sweetSpot?: LastChancesSweetSpotDefinition
+  /** Behavior-specific numeric knobs kept in JSON so prototype tuning does not require a rebuild. */
+  tuning?: Record<string, number>
+  resourceCost?: number
+  consumeAllResource?: boolean
 }
 
 export interface LastChancesWeaponDefinition {
@@ -94,6 +278,12 @@ export interface LastChancesWeaponDefinition {
   chanceCost?: number
   /** Marks the exported concept whose weapon remains associated with the place of death. */
   corpseBound?: boolean
+  trait?: LastChancesWeaponTrait
+  resource?: LastChancesWeaponResourceDefinition
+  defaultAugment?: LastChancesAugment
+  augmentHooks?: Partial<Record<LastChancesAugment, LastChancesAugmentHookDefinition>>
+  /** Trait-level numeric knobs shared by both resolved hands. */
+  tuning?: Record<string, number>
   attacks: Record<LastChancesGesture, LastChancesAttackDefinition>
   /** Follow-up basic strikes after attacks.tap, advanced cyclically inside the combo window. */
   tapCombo?: LastChancesAttackDefinition[]
@@ -107,6 +297,8 @@ export interface LastChancesLoadoutDefinition {
   primaryWeaponId: string
   /** Null leaves an ordinary off-hand empty; two-handed and unsupplemented hybrid weapons fill it themselves. */
   secondaryWeaponId: string | null
+  primaryAugment?: LastChancesAugment
+  secondaryAugment?: LastChancesAugment
 }
 
 export interface LastChancesResolvedWeapon {
@@ -115,6 +307,11 @@ export interface LastChancesResolvedWeapon {
   hand: LastChancesHand
   attacks: Record<LastChancesGesture, LastChancesAttackDefinition>
   tapCombo: LastChancesAttackDefinition[]
+  trait?: LastChancesWeaponTrait
+  resource?: LastChancesWeaponResourceDefinition
+  augment: LastChancesAugment
+  augmentHooks?: Partial<Record<LastChancesAugment, LastChancesAugmentHookDefinition>>
+  tuning?: Record<string, number>
 }
 
 export interface LastChancesEnemyBossPhaseDefinition {
@@ -139,6 +336,8 @@ export interface LastChancesEnemyDefinition {
   maxHp: number
   radius: number
   moveSpeed: number
+  armor?: number
+  dodge?: number
   /** Schema-v2 authored idle facing rotation; v1 falls back to the prototype default. */
   idleTurnRadiansPerSecond?: number
   visionRange: number
@@ -164,6 +363,8 @@ export interface LastChancesEnemyDefinition {
   attackWindupMs: number
   mentalPressurePerSecond: number
   color: string
+  /** Enemy-specific prototype knobs such as Knife-spider capture/self-damage values. */
+  tuning?: Record<string, number>
 }
 
 export interface LastChancesEnemyPoolEntry {
@@ -264,7 +465,7 @@ export interface LastChancesNarrativeDefinition {
 }
 
 export interface LastChancesConfig {
-  schemaVersion: 1 | 2
+  schemaVersion: 1 | 2 | 3
   title: string
   seed: string
   chances: number
@@ -366,6 +567,8 @@ export interface LastChancesPlayerSnapshot {
   mentalHealth: number
   stats: LastChancesStats
   invulnerableForMs: number
+  armorMultiplier?: number
+  armorMultiplierForMs?: number
 }
 
 export interface LastChancesEnemySnapshot {
@@ -385,6 +588,13 @@ export interface LastChancesEnemySnapshot {
   parryWindowOpen: boolean
   phaseName: string | null
   visible: boolean
+  captureAvailable: boolean
+  statuses: Array<{
+    status: LastChancesStatusKind
+    remainingMs: number
+    stacks: number
+    magnitude: number
+  }>
 }
 
 export interface LastChancesProjectileSnapshot {
@@ -415,6 +625,8 @@ export interface LastChancesCooldownSnapshot {
   gesture: LastChancesGesture
   remainingMs: number
   totalMs: number
+  /** Authoritative runtime availability after cooldown, recovery, resource and slot checks. */
+  ready: boolean
 }
 
 export interface LastChancesGestureSnapshot {
@@ -432,6 +644,54 @@ export interface LastChancesGestureInputSnapshot {
   pressed: boolean
   progress: number
   remainingMs: number
+  heldMs: number
+  sequence: LastChancesGestureSequence | null
+  candidateGesture: LastChancesGesture | null
+  pendingChargeMs: number
+}
+
+export interface LastChancesGestureResolution {
+  hand: LastChancesHand
+  gesture: LastChancesGesture
+  atMs: number
+  /** Duration of the press that completed the gesture. */
+  heldMs: number
+  /** Duration of the first press; differs from heldMs for multi-press gestures. */
+  firstHoldMs: number
+}
+
+export interface LastChancesChargeBandSnapshot {
+  id: string
+  label: string
+  minMs: number
+  color: string
+  active: boolean
+}
+
+export interface LastChancesHandActionCue {
+  hand: LastChancesHand
+  weaponId: string
+  phase: 'idle' | 'candidate' | 'charging' | 'armed' | 'recovery'
+  gesture: LastChancesGesture | null
+  color: string
+  heldMs: number
+  chargeProgress: number
+  chargeMaxMs: number
+  chargeBands: LastChancesChargeBandSnapshot[]
+  recoveryMs: number
+}
+
+export interface LastChancesWeaponStateSnapshot {
+  weaponId: string
+  hand: LastChancesHand
+  resourceKind: LastChancesWeaponResourceKind | null
+  resource: number
+  maxResource: number
+  resourceLabel: string | null
+  resourceColor: string | null
+  storedDot: Exclude<LastChancesStatusKind, 'bleed'> | null
+  rhythm: 'idle' | 'early' | 'good' | 'late'
+  recoveryMs: number
 }
 
 export interface LastChancesGamepadSnapshot {
@@ -466,6 +726,9 @@ export interface LastChancesSnapshot {
   cooldowns: LastChancesCooldownSnapshot[]
   lastGesture: LastChancesGestureSnapshot | null
   gestureInputs: LastChancesGestureInputSnapshot[]
+  actionCues: LastChancesHandActionCue[]
+  weaponStates: LastChancesWeaponStateSnapshot[]
+  interactionPrompt: string | null
   gamepad: LastChancesGamepadSnapshot
   selectedNodeId: string | null
 }

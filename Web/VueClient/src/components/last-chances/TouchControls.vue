@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref } from 'vue'
-import { Crosshair, Hand, Move } from 'lucide-vue-next'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { Crosshair, Hand, Move, Sparkles } from 'lucide-vue-next'
+import type { LastChancesHandActionCue } from '../../features/last-chances'
 import type { LastChancesLocale } from './RunMapOverlay.vue'
 
 export type AttackHand = 'primary' | 'secondary'
@@ -9,9 +10,16 @@ const props = withDefaults(defineProps<{
   locale: LastChancesLocale
   primaryName: string
   secondaryName: string
+  primaryCue?: LastChancesHandActionCue | null
+  secondaryCue?: LastChancesHandActionCue | null
+  primaryAvailable?: boolean
+  secondaryAvailable?: boolean
+  interactionPrompt?: string | null
   disabled?: boolean
 }>(), {
   disabled: false,
+  primaryAvailable: true,
+  secondaryAvailable: true,
 })
 
 const emit = defineEmits<{
@@ -19,6 +27,7 @@ const emit = defineEmits<{
   aim: [x: number, y: number]
   press: [hand: AttackHand]
   release: [hand: AttackHand]
+  interact: []
 }>()
 
 const copy = {
@@ -29,6 +38,7 @@ const copy = {
     aimHelp: 'Drag to aim',
     primary: 'Primary gesture',
     secondary: 'Secondary gesture',
+    interact: 'Interact',
   },
   ru: {
     move: 'Движение',
@@ -37,6 +47,7 @@ const copy = {
     aimHelp: 'Ведите пальцем для прицеливания',
     primary: 'Основной жест',
     secondary: 'Вторичный жест',
+    interact: 'Взаимодействовать',
   },
 } as const
 
@@ -105,7 +116,8 @@ function stopAim(event?: PointerEvent) {
 }
 
 function pressHand(event: PointerEvent, hand: AttackHand) {
-  if (props.disabled) return
+  const available = hand === 'primary' ? props.primaryAvailable : props.secondaryAvailable
+  if (props.disabled || !available) return
   event.preventDefault()
   const target = event.currentTarget as HTMLElement
   target.setPointerCapture(event.pointerId)
@@ -119,6 +131,35 @@ function releaseHand(hand: AttackHand) {
   emit('release', hand)
 }
 
+function cueStyle(cue: LastChancesHandActionCue | null | undefined, fallback: string) {
+  return {
+    '--cue-color': cue?.color || fallback,
+    '--cue-progress': `${Math.max(0, Math.min(1, cue?.chargeProgress ?? 0)) * 100}%`,
+  }
+}
+
+function cueLabel(cue: LastChancesHandActionCue | null | undefined): string {
+  if (!cue || cue.phase === 'idle') return ''
+  if (cue.phase === 'recovery') return `${Math.ceil(cue.recoveryMs)} ms`
+  const band = cue.chargeBands.find(candidate => candidate.active)
+  if (band) return band.label
+  if (cue.heldMs > 0) return `${Math.ceil(cue.heldMs)} ms`
+  return cue.phase
+}
+
+function interact() {
+  if (props.disabled || !props.interactionPrompt) return
+  emit('interact')
+}
+
+watch(() => props.primaryAvailable, (available) => {
+  if (!available) releaseHand('primary')
+})
+
+watch(() => props.secondaryAvailable, (available) => {
+  if (!available) releaseHand('secondary')
+})
+
 onBeforeUnmount(() => {
   stopMove()
   stopAim()
@@ -129,6 +170,19 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="lc-touch-controls" :class="{ 'is-disabled': disabled }" aria-label="Touch controls">
+    <button
+      v-if="interactionPrompt"
+      class="lc-interact-button"
+      type="button"
+      :disabled="disabled"
+      :aria-label="interactionPrompt"
+      @click="interact"
+    >
+      <Sparkles :size="17" aria-hidden="true" />
+      <span>{{ t.interact }}</span>
+      <small>{{ interactionPrompt }}</small>
+    </button>
+
     <div class="lc-touch-cluster lc-move-cluster">
       <span class="lc-touch-caption"><Move :size="13" aria-hidden="true" />{{ t.move }}</span>
       <div
@@ -183,7 +237,10 @@ onBeforeUnmount(() => {
       </div>
 
       <button
+        v-if="primaryAvailable"
         class="lc-gesture-button is-primary"
+        :class="`is-cue-${primaryCue?.phase ?? 'idle'}`"
+        :style="cueStyle(primaryCue, '#f6c85f')"
         type="button"
         :disabled="disabled"
         :aria-label="`${t.primary}: ${primaryName}`"
@@ -194,10 +251,14 @@ onBeforeUnmount(() => {
       >
         <Hand :size="20" aria-hidden="true" />
         <span><small>L</small>{{ primaryName }}</span>
+        <em v-if="cueLabel(primaryCue)">{{ cueLabel(primaryCue) }}</em>
       </button>
 
       <button
+        v-if="secondaryAvailable"
         class="lc-gesture-button is-secondary"
+        :class="`is-cue-${secondaryCue?.phase ?? 'idle'}`"
+        :style="cueStyle(secondaryCue, '#55c7ff')"
         type="button"
         :disabled="disabled"
         :aria-label="`${t.secondary}: ${secondaryName}`"
@@ -208,6 +269,7 @@ onBeforeUnmount(() => {
       >
         <Hand :size="20" aria-hidden="true" />
         <span><small>R</small>{{ secondaryName }}</span>
+        <em v-if="cueLabel(secondaryCue)">{{ cueLabel(secondaryCue) }}</em>
       </button>
     </div>
   </div>
@@ -233,6 +295,31 @@ onBeforeUnmount(() => {
   gap: 0.45rem;
   pointer-events: auto;
 }
+
+.lc-interact-button {
+  position: absolute;
+  z-index: 3;
+  left: 50%;
+  bottom: max(0.8rem, env(safe-area-inset-bottom));
+  max-width: min(14rem, 38vw);
+  min-height: 3rem;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.12rem 0.4rem;
+  padding: 0.42rem 0.65rem;
+  transform: translateX(-50%);
+  touch-action: manipulation;
+  border: 1px solid rgba(110, 231, 168, 0.55);
+  border-radius: 0.7rem;
+  color: #9ff4c2;
+  background: rgba(8, 22, 17, 0.88);
+  box-shadow: 0 0 1.2rem rgba(65, 216, 140, 0.2);
+  backdrop-filter: blur(8px);
+  pointer-events: auto;
+}
+.lc-interact-button span { overflow: hidden; font-size: 0.58rem; font-weight: 850; letter-spacing: 0.06em; text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; }
+.lc-interact-button small { grid-column: 1 / -1; overflow: hidden; color: #84a795; font-size: 0.42rem; text-overflow: ellipsis; white-space: nowrap; }
 
 .lc-move-cluster { display: grid; justify-items: center; }
 .lc-touch-caption { display: inline-flex; align-items: center; gap: 0.3rem; color: rgba(228, 227, 216, 0.6); font-size: 0.58rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; text-shadow: 0 1px 4px #000; }
@@ -281,6 +368,10 @@ onBeforeUnmount(() => {
 .lc-aim-pip { position: absolute; left: 50%; top: 50%; width: 0.42rem; height: 0.42rem; border: 1px solid #d4ad5e; border-radius: 50%; background: #7b5220; box-shadow: 0 0 0.6rem #d4ad5e; }
 
 .lc-gesture-button {
+  --cue-color: #d4ad5e;
+  --cue-progress: 0%;
+  position: relative;
+  isolation: isolate;
   width: 4.6rem;
   min-height: 5.2rem;
   display: grid;
@@ -296,12 +387,28 @@ onBeforeUnmount(() => {
   backdrop-filter: blur(8px);
 }
 
+.lc-gesture-button::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  inset: -4px;
+  border-radius: inherit;
+  background: conic-gradient(var(--cue-color) var(--cue-progress), rgba(255, 255, 255, 0.05) 0);
+  opacity: 0.34;
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 0);
+  mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 0);
+}
+.lc-gesture-button.is-cue-candidate::before,
+.lc-gesture-button.is-cue-charging::before { opacity: 0.78; }
+.lc-gesture-button.is-cue-armed::before { opacity: 1; filter: drop-shadow(0 0 0.35rem var(--cue-color)); }
+.lc-gesture-button.is-cue-recovery { opacity: 0.62; filter: saturate(0.45); }
 .lc-gesture-button.is-primary { border-color: rgba(203, 161, 73, 0.45); }
 .lc-gesture-button.is-secondary { border-color: rgba(151, 71, 78, 0.54); transform: translateY(-1.25rem); }
 .lc-gesture-button:active:not(:disabled) { transform: scale(0.91); filter: brightness(1.35); }
 .lc-gesture-button.is-secondary:active:not(:disabled) { transform: translateY(-1.25rem) scale(0.91); }
 .lc-gesture-button > span { max-width: 4rem; overflow: hidden; font-size: 0.53rem; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
 .lc-gesture-button small { display: block; color: #777b77; font: 800 0.46rem/1 var(--font-mono, monospace); }
+.lc-gesture-button em { max-width: 4rem; overflow: hidden; color: var(--cue-color); font: 750 0.41rem/1 var(--font-mono, monospace); text-overflow: ellipsis; white-space: nowrap; }
 .lc-touch-controls.is-disabled { opacity: 0.45; }
 
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
@@ -316,6 +423,8 @@ onBeforeUnmount(() => {
   .lc-aim-pad { width: 3.4rem; height: 3.4rem; }
   .lc-gesture-button { width: 3.9rem; min-height: 4.55rem; }
   .lc-action-cluster { gap: 0.3rem; }
+  .lc-interact-button { max-width: 9rem; padding-inline: 0.45rem; }
+  .lc-interact-button small { display: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {

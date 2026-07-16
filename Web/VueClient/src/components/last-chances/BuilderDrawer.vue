@@ -17,10 +17,16 @@ import {
 } from 'lucide-vue-next'
 import {
   cloneLastChancesConfig,
+  LAST_CHANCES_AUGMENTS,
+  LAST_CHANCES_COLLIDER_SHAPES,
   LAST_CHANCES_GESTURES,
   migrateLastChancesConfig,
+  type LastChancesAttackBehavior,
+  type LastChancesAttackDefinition,
+  type LastChancesAugment,
   type LastChancesConfig,
   type LastChancesGesture,
+  type LastChancesWeaponDefinition,
   validateLastChancesConfig,
 } from '../../features/last-chances'
 import type { LastChancesLocale } from './RunMapOverlay.vue'
@@ -73,9 +79,19 @@ const copy = {
     inputHelp: 'Windows used by both hands and every control method',
     attack: 'Selected attack',
     attackHelp: 'One weapon gesture at a time',
+    loadout: 'Starting loadout',
+    loadoutHelp: 'Select the two active slots and their augment symbols',
     enemy: 'Selected enemy',
     enemyHelp: 'Awareness, pursuit and attack tuning',
     weapon: 'Weapon',
+    primaryWeapon: 'Primary weapon',
+    secondaryWeapon: 'Secondary weapon',
+    noSecondary: 'Empty secondary slot',
+    primaryAugment: 'Primary augment',
+    secondaryAugment: 'Secondary augment',
+    attackSet: 'Input set',
+    primarySet: 'Primary input',
+    secondarySet: 'Secondary input',
     gesture: 'Gesture',
     enemySelect: 'Enemy',
     tier: 'Tier',
@@ -112,7 +128,35 @@ const copy = {
     projectileSpeed: 'Projectile speed',
     pierce: 'Pierce count',
     knockback: 'Knockback',
+    enabled: 'Gesture enabled',
+    attackColor: 'Gesture / trace color',
+    colliderShape: 'Collider shape',
+    noCollider: 'No collider',
+    innerRange: 'Inner dead zone',
+    colliderWidth: 'Collider width',
+    traceMs: 'Trace fade (ms)',
+    chargeEnabled: 'Charge bands enabled',
+    charge: 'Charge',
+    chargeMax: 'Full charge (ms)',
+    chargeBands: 'Charge bands',
+    bandLabel: 'Band label',
+    bandMin: 'Starts at (ms)',
+    bandColor: 'Band color',
+    bandDamage: 'Damage ×',
+    bandRange: 'Range ×',
+    bandKnockback: 'Knockback ×',
+    addBand: 'Add band',
+    removeBand: 'Remove band',
+    augmentNames: {
+      none: 'No augment',
+      bleed: 'Bleed symbol',
+      poison: 'Poison symbol',
+      fire: 'Fire symbol',
+      chemical: 'Chemical symbol',
+    },
     enemyHp: 'Health',
+    enemyArmor: 'Armor',
+    enemyDodge: 'Dodge chance',
     enemyRadius: 'Hit radius',
     enemySpeed: 'Move speed',
     enemyIdleTurn: 'Idle turn speed (rad/sec)',
@@ -166,9 +210,19 @@ const copy = {
     inputHelp: 'Окна для обеих рук и всех способов управления',
     attack: 'Выбранная атака',
     attackHelp: 'Один жест оружия за раз',
+    loadout: 'Стартовая экипировка',
+    loadoutHelp: 'Выберите два активных слота и символы-аугментации',
     enemy: 'Выбранный враг',
     enemyHelp: 'Обнаружение, преследование и настройка атак',
     weapon: 'Оружие',
+    primaryWeapon: 'Основное оружие',
+    secondaryWeapon: 'Вторичное оружие',
+    noSecondary: 'Пустой вторичный слот',
+    primaryAugment: 'Аугментация основного',
+    secondaryAugment: 'Аугментация вторичного',
+    attackSet: 'Набор ввода',
+    primarySet: 'Основная кнопка',
+    secondarySet: 'Вторая кнопка',
     gesture: 'Жест',
     enemySelect: 'Враг',
     tier: 'Уровень',
@@ -205,7 +259,35 @@ const copy = {
     projectileSpeed: 'Скорость снаряда',
     pierce: 'Пробиваемые цели',
     knockback: 'Отбрасывание',
+    enabled: 'Жест включён',
+    attackColor: 'Цвет жеста / трассировки',
+    colliderShape: 'Форма коллайдера',
+    noCollider: 'Без коллайдера',
+    innerRange: 'Внутренняя мёртвая зона',
+    colliderWidth: 'Ширина коллайдера',
+    traceMs: 'Затухание следа (мс)',
+    chargeEnabled: 'Сектора зарядки включены',
+    charge: 'Заряд',
+    chargeMax: 'Полный заряд (мс)',
+    chargeBands: 'Сектора зарядки',
+    bandLabel: 'Название сектора',
+    bandMin: 'Начало (мс)',
+    bandColor: 'Цвет сектора',
+    bandDamage: 'Урон ×',
+    bandRange: 'Дальность ×',
+    bandKnockback: 'Отбрасывание ×',
+    addBand: 'Добавить сектор',
+    removeBand: 'Удалить сектор',
+    augmentNames: {
+      none: 'Без аугментации',
+      bleed: 'Символ кровотечения',
+      poison: 'Символ яда',
+      fire: 'Символ огня',
+      chemical: 'Символ химикатов',
+    },
     enemyHp: 'Здоровье',
+    enemyArmor: 'Броня',
+    enemyDodge: 'Шанс уклонения',
     enemyRadius: 'Радиус попадания',
     enemySpeed: 'Скорость движения',
     enemyIdleTurn: 'Скорость поворота в покое (рад/с)',
@@ -236,19 +318,58 @@ const rawJson = ref('')
 const rawError = ref('')
 const notice = ref('')
 const selectedWeaponIndex = ref(0)
+const selectedAttackSet = ref<'primary' | 'secondary'>('primary')
 const selectedGesture = ref<LastChancesGesture>('tap')
 const selectedEnemyIndex = ref(0)
 const selectedTierIndex = ref(0)
 const fileInput = ref<HTMLInputElement | null>(null)
 let syncingRaw = false
+const attackBehaviorBeforeDisable = new WeakMap<LastChancesAttackDefinition, LastChancesAttackBehavior>()
 
 const validation = computed(() => draft.value
   ? validateLastChancesConfig(draft.value)
   : { valid: false, errors: [t.value.noConfig] })
 const selectedWeapon = computed(() => draft.value?.weapons[selectedWeaponIndex.value] ?? null)
-const selectedAttack = computed(() => selectedWeapon.value?.attacks[selectedGesture.value] ?? null)
+const selectedAttack = computed(() => {
+  const weapon = selectedWeapon.value
+  if (!weapon) return null
+  const attacks = selectedAttackSet.value === 'secondary'
+    ? weapon.secondaryAttacks
+    : weapon.attacks
+  return attacks?.[selectedGesture.value] ?? null
+})
 const selectedEnemy = computed(() => draft.value?.enemies[selectedEnemyIndex.value] ?? null)
 const selectedTier = computed(() => draft.value?.progression.tiers[selectedTierIndex.value] ?? null)
+const primaryLoadoutWeapons = computed(() => draft.value?.weapons.filter(weapon => (
+  (weapon.equipMode ?? (weapon.hand === 'right' ? 'secondaryOnly' : 'primaryOnly')) !== 'secondaryOnly'
+)) ?? [])
+const secondaryLoadoutWeapons = computed(() => draft.value?.weapons.filter((weapon) => {
+  const mode = weapon.equipMode ?? (weapon.hand === 'right' ? 'secondaryOnly' : 'primaryOnly')
+  return mode === 'secondaryOnly' || mode === 'eitherHand'
+}) ?? [])
+const selectedPrimaryLoadoutWeapon = computed(() => draft.value?.weapons.find(
+  weapon => weapon.id === draft.value?.loadout?.primaryWeaponId,
+) ?? null)
+const selectedSecondaryLoadoutWeapon = computed(() => draft.value?.weapons.find(
+  weapon => weapon.id === draft.value?.loadout?.secondaryWeaponId,
+) ?? null)
+function supportedAugments(weapon: LastChancesWeaponDefinition | null): LastChancesAugment[] {
+  return LAST_CHANCES_AUGMENTS.filter(augment => (
+    augment === 'none' || weapon?.augmentHooks?.[augment] !== undefined
+  ))
+}
+const primaryAugmentOptions = computed(() => supportedAugments(selectedPrimaryLoadoutWeapon.value))
+const secondaryAugmentOptions = computed(() => secondaryAugmentInherited.value
+  ? primaryAugmentOptions.value
+  : supportedAugments(selectedSecondaryLoadoutWeapon.value))
+const secondarySlotLocked = computed(() => (
+  selectedPrimaryLoadoutWeapon.value?.equipMode === 'twoHanded'
+))
+const secondaryAugmentInherited = computed(() => {
+  const mode = selectedPrimaryLoadoutWeapon.value?.equipMode
+  return mode === 'twoHanded'
+    || (mode === 'hybrid' && !draft.value?.loadout?.secondaryWeaponId)
+})
 
 function loadDraft(config: LastChancesConfig) {
   draft.value = cloneLastChancesConfig(config)
@@ -258,8 +379,127 @@ function loadDraft(config: LastChancesConfig) {
   notice.value = ''
   syncingRaw = false
   selectedWeaponIndex.value = Math.min(selectedWeaponIndex.value, Math.max(0, config.weapons.length - 1))
+  if (!config.weapons[selectedWeaponIndex.value]?.secondaryAttacks) selectedAttackSet.value = 'primary'
   selectedEnemyIndex.value = Math.min(selectedEnemyIndex.value, Math.max(0, config.enemies.length - 1))
   selectedTierIndex.value = Math.min(selectedTierIndex.value, Math.max(0, config.progression.tiers.length - 1))
+  normalizeLoadoutAugments()
+}
+
+watch(selectedWeapon, (weapon) => {
+  if (!weapon?.secondaryAttacks) selectedAttackSet.value = 'primary'
+})
+
+watch(() => [
+  draft.value?.loadout?.primaryAugment,
+  draft.value?.loadout?.secondaryWeaponId,
+  selectedPrimaryLoadoutWeapon.value?.id,
+], normalizeLoadoutAugments)
+
+function normalizeLoadoutForPrimary() {
+  if (!draft.value?.loadout) return
+  if (secondarySlotLocked.value) draft.value.loadout.secondaryWeaponId = null
+  normalizeLoadoutAugments()
+}
+
+function normalizeSecondaryAugment() {
+  if (!draft.value?.loadout || !secondaryAugmentInherited.value) return
+  draft.value.loadout.secondaryAugment = draft.value.loadout.primaryAugment
+}
+
+function normalizeLoadoutAugments() {
+  const loadout = draft.value?.loadout
+  if (!loadout) return
+  if (!primaryAugmentOptions.value.includes(loadout.primaryAugment ?? 'none')) {
+    loadout.primaryAugment = 'none'
+  }
+  if (secondaryAugmentInherited.value) {
+    loadout.secondaryAugment = loadout.primaryAugment
+    return
+  }
+  if (!secondaryAugmentOptions.value.includes(loadout.secondaryAugment ?? 'none')) {
+    loadout.secondaryAugment = 'none'
+  }
+}
+
+function setAttackEnabled(event: Event) {
+  const attack = selectedAttack.value
+  if (!attack) return
+  const enabled = (event.target as HTMLInputElement).checked
+  if (!enabled) {
+    if (attack.behavior && attack.behavior !== 'disabled') {
+      attackBehaviorBeforeDisable.set(attack, attack.behavior)
+    }
+    attack.enabled = false
+    attack.behavior = 'disabled'
+    return
+  }
+  attack.enabled = true
+  if (attack.behavior === 'disabled') {
+    attack.behavior = attackBehaviorBeforeDisable.get(attack) ?? 'standard'
+  }
+  attack.collider ??= {
+    shape: attack.kind === 'melee'
+      ? 'sector'
+      : attack.kind === 'burst' ? 'circle' : 'capsule',
+    traceMs: 600,
+  }
+}
+
+function setColliderShape(event: Event) {
+  const current = selectedAttack.value
+  if (!current) return
+  const shape = (event.target as HTMLSelectElement).value
+  if (!shape) {
+    delete current.collider
+    return
+  }
+  current.collider = {
+    ...(current.collider ?? { traceMs: 600 }),
+    shape: shape as typeof LAST_CHANCES_COLLIDER_SHAPES[number],
+  }
+}
+
+function toggleCharge(event: Event) {
+  const current = selectedAttack.value
+  if (!current) return
+  if (!(event.target as HTMLInputElement).checked) {
+    delete current.charge
+    return
+  }
+  current.charge ??= {
+    maxMs: Math.max(draft.value?.input.holdMaxMs ?? 1000, draft.value?.input.holdMs ?? 650),
+    bands: [{
+      id: 'charge-1',
+      label: t.value.charge,
+      minMs: draft.value?.input.holdMs ?? 650,
+      color: current.color,
+    }],
+  }
+}
+
+function addChargeBand() {
+  const current = selectedAttack.value
+  if (!current?.charge) return
+  const previous = current.charge.bands.at(-1)
+  const minMs = Math.max((previous?.minMs ?? 0) + 100, draft.value?.input.holdMs ?? 650)
+  if (minMs > current.charge.maxMs) current.charge.maxMs = minMs
+  const usedIds = new Set(current.charge.bands.map(band => band.id))
+  let suffix = 1
+  while (usedIds.has(`charge-${suffix}`)) suffix += 1
+  current.charge.bands.push({
+    id: `charge-${suffix}`,
+    label: `${t.value.charge} ${suffix}`,
+    minMs,
+    color: current.color,
+  })
+}
+
+function removeChargeBand(index: number) {
+  selectedAttack.value?.charge?.bands.splice(index, 1)
+}
+
+function augmentLabel(augment: LastChancesAugment): string {
+  return t.value.augmentNames[augment]
 }
 
 watch(() => props.config, (config) => {
@@ -468,12 +708,54 @@ function exportJson() {
                 </div>
               </fieldset>
 
+              <fieldset v-if="draft.loadout">
+                <legend><span><SlidersHorizontal :size="15" aria-hidden="true" />{{ t.loadout }}</span><small>{{ t.loadoutHelp }}</small></legend>
+                <div class="lc-fields-grid">
+                  <label>{{ t.primaryWeapon }}
+                    <select
+                      v-model="draft.loadout.primaryWeaponId"
+                      data-testid="builder-primary-loadout"
+                      @change="normalizeLoadoutForPrimary"
+                    >
+                      <option v-for="weapon in primaryLoadoutWeapons" :key="weapon.id" :value="weapon.id">{{ weapon.name }}</option>
+                    </select>
+                  </label>
+                  <label>{{ t.secondaryWeapon }}
+                    <select
+                      v-model="draft.loadout.secondaryWeaponId"
+                      data-testid="builder-secondary-loadout"
+                      :disabled="secondarySlotLocked"
+                      @change="normalizeLoadoutAugments"
+                    >
+                      <option :value="null">{{ t.noSecondary }}</option>
+                      <option v-for="weapon in secondaryLoadoutWeapons" :key="weapon.id" :value="weapon.id">{{ weapon.name }}</option>
+                    </select>
+                  </label>
+                  <label>{{ t.primaryAugment }}
+                    <select v-model="draft.loadout.primaryAugment" @change="normalizeLoadoutAugments">
+                      <option v-for="augment in primaryAugmentOptions" :key="augment" :value="augment">{{ augmentLabel(augment) }}</option>
+                    </select>
+                  </label>
+                  <label>{{ t.secondaryAugment }}
+                    <select v-model="draft.loadout.secondaryAugment" :disabled="secondaryAugmentInherited || !draft.loadout.secondaryWeaponId">
+                      <option v-for="augment in secondaryAugmentOptions" :key="augment" :value="augment">{{ augmentLabel(augment) }}</option>
+                    </select>
+                  </label>
+                </div>
+              </fieldset>
+
               <fieldset>
                 <legend><span><SlidersHorizontal :size="15" aria-hidden="true" />{{ t.attack }}</span><small>{{ t.attackHelp }}</small></legend>
                 <div class="lc-fields-grid lc-select-row">
                   <label>{{ t.weapon }}
                     <select v-model.number="selectedWeaponIndex">
                       <option v-for="(weapon, index) in draft.weapons" :key="weapon.id" :value="index">{{ weapon.name }}</option>
+                    </select>
+                  </label>
+                  <label v-if="selectedWeapon?.secondaryAttacks">{{ t.attackSet }}
+                    <select v-model="selectedAttackSet">
+                      <option value="primary">{{ t.primarySet }}</option>
+                      <option value="secondary">{{ t.secondarySet }}</option>
                     </select>
                   </label>
                   <label>{{ t.gesture }}
@@ -483,6 +765,15 @@ function exportJson() {
                   </label>
                 </div>
                 <div v-if="selectedAttack" class="lc-fields-grid">
+                  <label class="lc-check-field">
+                    <input
+                      type="checkbox"
+                      :checked="selectedAttack.enabled !== false && selectedAttack.behavior !== 'disabled'"
+                      @change="setAttackEnabled"
+                    />
+                    <span>{{ t.enabled }}</span>
+                  </label>
+                  <label>{{ t.attackColor }}<input v-model="selectedAttack.color" type="color" /></label>
                   <label>{{ t.damage }}<input v-model.number="selectedAttack.damage" type="number" min="0" step="1" /></label>
                   <label :title="selectedGesture === 'tap' ? t.tapNoCooldown : undefined">
                     {{ t.cooldown }}
@@ -496,6 +787,43 @@ function exportJson() {
                   <label>{{ t.projectileSpeed }}<input v-model.number="selectedAttack.projectileSpeed" type="number" min="0" step="1" /></label>
                   <label>{{ t.pierce }}<input v-model.number="selectedAttack.pierce" type="number" min="0" step="1" /></label>
                   <label>{{ t.knockback }}<input v-model.number="selectedAttack.knockback" type="number" min="0" step="1" /></label>
+                  <label>{{ t.colliderShape }}
+                    <select :value="selectedAttack.collider?.shape ?? ''" @change="setColliderShape">
+                      <option value="">{{ t.noCollider }}</option>
+                      <option v-for="shape in LAST_CHANCES_COLLIDER_SHAPES" :key="shape" :value="shape">{{ shape }}</option>
+                    </select>
+                  </label>
+                  <template v-if="selectedAttack.collider">
+                    <label>{{ t.innerRange }}<input v-model.number="selectedAttack.collider.innerRange" type="number" min="0" step="1" /></label>
+                    <label>{{ t.colliderWidth }}<input v-model.number="selectedAttack.collider.width" type="number" min="0" step="1" /></label>
+                    <label>{{ t.traceMs }}<input v-model.number="selectedAttack.collider.traceMs" type="number" min="0" step="25" /></label>
+                  </template>
+                  <label class="lc-check-field">
+                    <input type="checkbox" :checked="!!selectedAttack.charge" @change="toggleCharge" />
+                    <span>{{ t.chargeEnabled }}</span>
+                  </label>
+                </div>
+                <div v-if="selectedAttack?.charge" class="lc-charge-editor">
+                  <div class="lc-fields-grid">
+                    <label>{{ t.chargeMax }}<input v-model.number="selectedAttack.charge.maxMs" type="number" min="1" step="25" /></label>
+                  </div>
+                  <div class="lc-band-heading">
+                    <strong>{{ t.chargeBands }}</strong>
+                    <button type="button" @click="addChargeBand">{{ t.addBand }}</button>
+                  </div>
+                  <div
+                    v-for="(band, bandIndex) in selectedAttack.charge.bands"
+                    :key="band.id"
+                    class="lc-band-row"
+                  >
+                    <label>{{ t.bandLabel }}<input v-model="band.label" type="text" /></label>
+                    <label>{{ t.bandMin }}<input v-model.number="band.minMs" type="number" min="0" step="25" /></label>
+                    <label>{{ t.bandColor }}<input v-model="band.color" type="color" /></label>
+                    <label>{{ t.bandDamage }}<input v-model.number="band.damageMultiplier" type="number" min="0" step="0.05" /></label>
+                    <label>{{ t.bandRange }}<input v-model.number="band.rangeMultiplier" type="number" min="0" step="0.05" /></label>
+                    <label>{{ t.bandKnockback }}<input v-model.number="band.knockbackMultiplier" type="number" min="0" step="0.05" /></label>
+                    <button type="button" class="is-danger" :aria-label="t.removeBand" @click="removeChargeBand(bandIndex)">×</button>
+                  </div>
                 </div>
               </fieldset>
 
@@ -510,6 +838,8 @@ function exportJson() {
                 </div>
                 <div v-if="selectedEnemy" class="lc-fields-grid">
                   <label>{{ t.enemyHp }}<input v-model.number="selectedEnemy.maxHp" type="number" min="1" step="1" /></label>
+                  <label>{{ t.enemyArmor }}<input v-model.number="selectedEnemy.armor" type="number" min="0" step="1" /></label>
+                  <label>{{ t.enemyDodge }}<input v-model.number="selectedEnemy.dodge" type="number" min="0" max="1" step="0.01" /></label>
                   <label>{{ t.enemyRadius }}<input v-model.number="selectedEnemy.radius" type="number" min="1" step="1" /></label>
                   <label>{{ t.enemySpeed }}<input v-model.number="selectedEnemy.moveSpeed" type="number" min="1" step="1" /></label>
                   <label>{{ t.enemyIdleTurn }}<input v-model.number="selectedEnemy.idleTurnRadiansPerSecond" type="number" min="0" step="0.01" /></label>
@@ -621,10 +951,26 @@ legend small { color: #656a67; font-size: 0.55rem; text-align: right; }
 .lc-fields-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.55rem; }
 .lc-fields-grid label { min-width: 0; display: grid; align-content: end; gap: 0.25rem; color: #747a77; font-size: 0.54rem; font-weight: 700; line-height: 1.2; }
 .lc-fields-grid input,
-.lc-fields-grid select { width: 100%; min-height: 2rem; padding: 0.38rem 0.45rem; border: 1px solid rgba(255, 255, 255, 0.09); border-radius: 0.38rem; outline: none; color: #e1ded5; background: #0b0e0f; font: 600 0.66rem/1.2 var(--font-mono, monospace); color-scheme: dark; }
+.lc-fields-grid select,
+.lc-band-row input { width: 100%; min-height: 2rem; padding: 0.38rem 0.45rem; border: 1px solid rgba(255, 255, 255, 0.09); border-radius: 0.38rem; outline: none; color: #e1ded5; background: #0b0e0f; font: 600 0.66rem/1.2 var(--font-mono, monospace); color-scheme: dark; }
 .lc-fields-grid input:focus,
-.lc-fields-grid select:focus { border-color: rgba(208, 172, 92, 0.6); box-shadow: 0 0 0 2px rgba(208, 172, 92, 0.09); }
+.lc-fields-grid select:focus,
+.lc-band-row input:focus { border-color: rgba(208, 172, 92, 0.6); box-shadow: 0 0 0 2px rgba(208, 172, 92, 0.09); }
+.lc-fields-grid input[type="color"],
+.lc-band-row input[type="color"] { min-height: 2rem; padding: 0.18rem; cursor: pointer; }
+.lc-check-field { grid-template-columns: auto 1fr; align-items: center; align-content: center !important; gap: 0.45rem !important; min-height: 2rem; padding: 0.35rem 0.45rem; border: 1px solid rgba(255, 255, 255, 0.07); border-radius: 0.38rem; background: rgba(255, 255, 255, 0.018); }
+.lc-check-field input { width: 1rem; min-height: 1rem; margin: 0; padding: 0; accent-color: #c8a45e; }
+.lc-check-field span { color: #b8b7b1; font-size: 0.58rem; }
 .lc-select-row { grid-template-columns: repeat(2, minmax(0, 1fr)); margin-bottom: 0.55rem; }
+
+.lc-charge-editor { display: grid; gap: 0.5rem; margin-top: 0.65rem; padding-top: 0.65rem; border-top: 1px solid rgba(255, 255, 255, 0.055); }
+.lc-band-heading { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.lc-band-heading strong { color: #c9c3b7; font-size: 0.58rem; letter-spacing: 0.07em; text-transform: uppercase; }
+.lc-band-heading button,
+.lc-band-row > button { min-height: 1.8rem; padding: 0.3rem 0.48rem; border: 1px solid rgba(255, 255, 255, 0.09); border-radius: 0.35rem; color: #aaa; background: rgba(255, 255, 255, 0.025); font-size: 0.52rem; }
+.lc-band-row { position: relative; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.42rem; padding: 0.5rem 2.35rem 0.5rem 0.5rem; border: 1px solid rgba(255, 255, 255, 0.055); border-radius: 0.45rem; background: rgba(255, 255, 255, 0.012); }
+.lc-band-row label { min-width: 0; display: grid; gap: 0.22rem; color: #747a77; font-size: 0.5rem; font-weight: 700; }
+.lc-band-row > button { position: absolute; right: 0.45rem; top: 0.45rem; width: 1.45rem; padding: 0; color: #bd7075; }
 
 .lc-json-editor { min-height: 100%; display: grid; grid-template-rows: auto minmax(24rem, 1fr) auto; gap: 0.55rem; }
 .lc-json-editor p { margin: 0; color: #747a77; font-size: 0.62rem; }
@@ -664,6 +1010,7 @@ legend small { color: #656a67; font-size: 0.55rem; text-align: right; }
   .lc-builder-header { padding: 0.75rem; }
   .lc-builder-header span { display: none; }
   .lc-fields-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .lc-band-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   legend small { display: none; }
   .lc-builder-footer { padding-inline: 0.7rem; }
   .lc-builder-footer button { flex: 1; }

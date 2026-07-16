@@ -185,6 +185,7 @@ const widgetHelpCopy = {
   eren: ['Rumbling only checks losses in round 10. The left counter shows Attack Titan readiness; fire marks show accumulated hatred.', 'RUMBLING проверяет только поражения в 10-м раунде. Счётчик слева показывает готовность Атакующего Титана, а метки 🔥 — накопленную ненависть.'],
   naruto: ['A ready Harem replaces Block. After use it recharges for two turns; Block remains ordinary while cooling down.', 'Готовый Гарем заменяет Блок. После использования он перезаряжается два хода; во время отката Блок остаётся обычным.'],
   gordon: ['Crowbar tracks every resolved fight; every third one is a win. Headcrabs show their remaining incubation time, and zombies can never raise Intelligence above zero.', 'Монтировка считает состоявшиеся бои: каждый третий становится победой. Для хэдкрабов показано время до превращения, а зомби больше не могут поднять Интеллект выше нуля.'],
+  jonSnow: ['Skill unlocks Server King. Wolves mark the two weakest players; Castle Black shows the remaining position lock.', 'Скилл открывает Короля Сервера. Волки отмечают двух слабейших игроков, а Черный Замок показывает оставшееся удержание позиции.'],
   bulk: ['The current chance for Boole to lose his turn. BUFFED means his zero-Psyche stat boost is active.', 'Текущий шанс Буля пропустить ход. BUFFED означает усиление характеристик при нулевой Психике.'],
   tea: ['When tea is ready, the next attack spends it for one point and makes the target skip their next turn.', 'Когда чай готов, следующая атака потратит его: даст очко и заставит цель пропустить следующий ход.'],
   jew: ['Tracks the Psyche accumulated by the PROFIT mechanic.', 'Счётчик показывает, сколько Психики уже накоплено механикой PROFIT.'],
@@ -1266,6 +1267,46 @@ function doomModuleStatus(module: string): { text: string; state: 'live' | 'done
         </span>
         <span class="gordon-hl3-status" :class="{ pending: passiveStates.gordon.halfLife.pendingDecision, released: passiveStates.gordon.halfLife.released }">
           λ3 {{ gordonHalfLifeStatus(passiveStates.gordon) }}
+        </span>
+      </div>
+    </div>
+
+    <!-- Джон Сноу -->
+    <div v-if="passiveStates?.jonSnow" class="pc-passive-widget jon-widget" :data-widget-help="widgetHelp('jonSnow')" :aria-description="widgetHelp('jonSnow')" tabindex="0">
+      <div class="pw-header jon-header">
+        <span class="pw-title jon-title">THE WALL // JON</span>
+        <span class="pw-status" :class="{ 'jon-king': passiveStates.jonSnow.isKing, 'jon-castle': passiveStates.jonSnow.kingBlockedByCastle }">
+          {{ passiveStates.jonSnow.kingBlockedByCastle
+            ? t('KING LOCKED', 'КОРОЛЬ ПОД ЗАМКОМ')
+            : passiveStates.jonSnow.isKing
+              ? t('SERVER KING', 'КОРОЛЬ СЕРВЕРА')
+              : t('BASTARD', 'БАСТАРД') }}
+        </span>
+      </div>
+
+      <div class="jon-skill-row">
+        <div class="jon-skill-label">
+          <span>{{ t('SKILL', 'СКИЛЛ') }}</span>
+          <strong>{{ Math.round(passiveStates.jonSnow.skill) }}/{{ passiveStates.jonSnow.skillTarget }}</strong>
+        </div>
+        <div class="jon-skill-track" aria-hidden="true">
+          <i :style="{ width: `${Math.min(100, passiveStates.jonSnow.skill / passiveStates.jonSnow.skillTarget * 100)}%` }" />
+        </div>
+      </div>
+
+      <div class="jon-metrics">
+        <span>🧠 +{{ passiveStates.jonSnow.bastardIntelligenceBonus }} {{ t('earned INT', 'Интеллекта') }}</span>
+        <span>🏰 {{ passiveStates.jonSnow.blackCastleActive ? passiveStates.jonSnow.blackCastleTurnsRemaining : '—' }}</span>
+        <span>👑 {{ passiveStates.jonSnow.loyaltyVictories }} {{ t('loyal wins', 'побед стороны') }}</span>
+        <span v-if="passiveStates.jonSnow.watchEnded" class="jon-watch-ended">
+          I DUN WAN IT
+        </span>
+      </div>
+
+      <div v-if="passiveStates.jonSnow.weakestPlayers.length" class="jon-weakest">
+        <span class="jon-row-label">{{ t('THE WEAKEST', 'СЛАБЕЙШИЕ') }}</span>
+        <span v-for="weak in passiveStates.jonSnow.weakestPlayers" :key="weak.playerId" class="jon-weak-chip">
+          🐺 {{ weak.playerName }}
         </span>
       </div>
     </div>
@@ -4504,6 +4545,39 @@ function doomModuleStatus(module: string): { text: string; state: 'live' | 'done
 .gordon-status-row > span.ready { color: #c8e8bf; border-color: rgba(157, 201, 146, 0.25); background: rgba(125, 174, 113, 0.08); }
 .gordon-status-row > span.used { opacity: 0.55; }
 .gordon-hl3-status { color: #ffad55 !important; border-color: rgba(231, 129, 36, 0.23) !important; background: rgba(231, 129, 36, 0.07) !important; }
+
+/* Jon Snow — Castle Black watch */
+.jon-widget {
+  overflow: hidden;
+  border-color: rgba(144, 179, 211, .45) !important;
+  background:
+    linear-gradient(145deg, rgba(19, 34, 49, .88), rgba(7, 11, 16, .97) 68%),
+    #080c11 !important;
+  box-shadow: inset 0 0 24px rgba(92, 143, 188, .08) !important;
+}
+.jon-widget::before {
+  position: absolute;
+  inset: 0 0 auto;
+  height: 3px;
+  background: linear-gradient(90deg, #91b7d6, #d6b56f 50%, #91b7d6);
+  content: '';
+  opacity: .78;
+}
+.jon-header { padding-top: 2px; }
+.jon-title { color: #b9d5eb; letter-spacing: .1em; text-shadow: 0 0 8px rgba(117, 167, 207, .32); }
+.jon-king { color: #e6c879 !important; border-color: rgba(214, 181, 111, .32) !important; }
+.jon-castle { color: #9eb4c6 !important; opacity: .72; }
+.jon-skill-row { margin-top: 8px; }
+.jon-skill-label { display: flex; align-items: center; justify-content: space-between; color: rgba(220, 233, 243, .58); font: 800 8px/1 var(--font-mono); }
+.jon-skill-label strong { color: #d7e8f5; font-size: 11px; }
+.jon-skill-track { height: 7px; margin-top: 4px; overflow: hidden; border: 1px solid rgba(151, 190, 220, .18); border-radius: 3px; background: rgba(255, 255, 255, .035); }
+.jon-skill-track i { display: block; height: 100%; background: linear-gradient(90deg, #547fa5, #d0ad62); box-shadow: 0 0 7px rgba(111, 161, 201, .35); transition: width .3s ease; }
+.jon-metrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; margin-top: 7px; }
+.jon-metrics span { overflow: hidden; padding: 5px 6px; color: rgba(226, 235, 242, .62); border: 1px solid rgba(255, 255, 255, .06); border-radius: 4px; background: rgba(255, 255, 255, .025); font: 750 8px/1.25 var(--font-mono); text-overflow: ellipsis; white-space: nowrap; }
+.jon-metrics .jon-watch-ended { color: #a8bfca; border-color: rgba(142, 178, 194, .22); }
+.jon-weakest { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 7px; }
+.jon-row-label { width: 100%; color: rgba(218, 231, 240, .4); font: 800 8px/1.2 var(--font-mono); letter-spacing: .1em; }
+.jon-weak-chip { max-width: 100%; overflow: hidden; padding: 3px 6px; color: #c4d9e8; border: 1px solid rgba(131, 174, 205, .22); border-radius: 4px; background: rgba(100, 146, 179, .08); font-size: 9px; font-weight: 750; text-overflow: ellipsis; white-space: nowrap; }
 .gordon-hl3-status.pending { animation: gordon-signal 1s ease-in-out infinite alternate; }
 .gordon-hl3-status.released { color: #aee7a4 !important; border-color: rgba(134, 205, 120, 0.28) !important; }
 .gordon-widget:hover .gordon-crowbar-track i.active { box-shadow: 0 0 11px rgba(231, 129, 36, 0.6); }

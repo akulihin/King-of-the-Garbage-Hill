@@ -44,6 +44,22 @@ public class StartGameLogic : IServiceSingleton
         return Naruto.CanUseRoster(strictBotCount, assignee.PlayerType == 404);
     }
 
+    public static bool AreMutuallyExclusiveCharacters(string firstName, string secondName)
+    {
+        return firstName == "LeCrisp" && secondName == "Толя"
+               || firstName == "Толя" && secondName == "LeCrisp"
+               || firstName == "HardKitty" && secondName == ErenYeager.CharacterName
+               || firstName == ErenYeager.CharacterName && secondName == "HardKitty";
+    }
+
+    private static void RemoveMutuallyExclusiveCharacters(
+        List<CharacterClass> characters,
+        string assignedName)
+    {
+        characters.RemoveAll(character =>
+            AreMutuallyExclusiveCharacters(assignedName, character.Name));
+    }
+
     private static (string Name, bool IsLootBoxReward) PeekNextCharacterAssignment(
         DiscordAccountClass account)
     {
@@ -164,17 +180,17 @@ public class StartGameLogic : IServiceSingleton
                 continue;
 
             var character = unfilteredCharacters.Find(x => x.Name == assignment.Name);
-            if (character == null || reservedCharacters.Any(existing => existing.Name == character.Name))
+            if (character == null || reservedCharacters.Any(existing =>
+                    existing.Name == character.Name
+                    || AreMutuallyExclusiveCharacters(existing.Name, character.Name)))
                 continue;
             reservedCharacters.Add(character);
             reservedCharacterOwners.Add(account.DiscordId);
             reservedAssignments[account.DiscordId] = assignment;
             allCharacters.RemoveAll(x => x.Name == character.Name);
         }
-        if (reservedCharacters.Any(x => x.Name == ErenYeager.CharacterName))
-            allCharacters.RemoveAll(x => x.Name == "HardKitty");
-        if (reservedCharacters.Any(x => x.Name == "HardKitty"))
-            allCharacters.RemoveAll(x => x.Name == ErenYeager.CharacterName);
+        foreach (var reservedCharacter in reservedCharacters)
+            RemoveMutuallyExclusiveCharacters(allCharacters, reservedCharacter.Name);
         //end
 
 
@@ -232,10 +248,7 @@ public class StartGameLogic : IServiceSingleton
                     account.CharacterMastery.GetValueOrDefault(forcedName, 0);
                 DoomGuy.InitializeForGame(playersList.Last(), account);
                 account.CharacterPlayedLastTime = forcedName;
-                if (forcedName == ErenYeager.CharacterName)
-                    allCharacters.RemoveAll(x => x.Name == "HardKitty");
-                if (forcedName == "HardKitty")
-                    allCharacters.RemoveAll(x => x.Name == ErenYeager.CharacterName);
+                RemoveMutuallyExclusiveCharacters(allCharacters, forcedName);
                 continue;
             }
             //end forced line-up
@@ -330,27 +343,7 @@ public class StartGameLogic : IServiceSingleton
             }
 
 
-            switch (characterToAssign.Name)
-            {
-                case "LeCrisp":
-                {
-                    var characterToRemove = allCharacters.Find(x => x.Name == "Толя");
-                    allCharacters.Remove(characterToRemove);
-                    break;
-                }
-                case "Толя":
-                {
-                    var characterToRemove = allCharacters.Find(x => x.Name == "LeCrisp");
-                    allCharacters.Remove(characterToRemove);
-                    break;
-                }
-                case ErenYeager.CharacterName:
-                    allCharacters.RemoveAll(x => x.Name == "HardKitty");
-                    break;
-                case "HardKitty":
-                    allCharacters.RemoveAll(x => x.Name == ErenYeager.CharacterName);
-                    break;
-            }
+            RemoveMutuallyExclusiveCharacters(allCharacters, characterToAssign.Name);
 
             switch (characterToAssign.Tier)
             {
@@ -415,11 +408,10 @@ public class StartGameLogic : IServiceSingleton
 
         // Remove already-assigned characters
         foreach (var excluded in excludedCharacters)
+        {
             allCharacters.RemoveAll(x => x.Name == excluded.Name);
-        if (excludedCharacters.Any(x => x.Name == ErenYeager.CharacterName))
-            allCharacters.RemoveAll(x => x.Name == "HardKitty");
-        if (excludedCharacters.Any(x => x.Name == "HardKitty"))
-            allCharacters.RemoveAll(x => x.Name == ErenYeager.CharacterName);
+            RemoveMutuallyExclusiveCharacters(allCharacters, excluded.Name);
+        }
 
         // Remove character played last time
         allCharacters = allCharacters.Where(x => x.Name != account.CharacterPlayedLastTime).ToList();
@@ -478,16 +470,7 @@ public class StartGameLogic : IServiceSingleton
             if (characterToAdd.Tier == 4)
                 allCharacters = allCharacters.Where(x => x.Tier != 4).ToList();
 
-            // Respect LeCrisp/Толя exclusion
-            switch (characterToAdd.Name)
-            {
-                case "LeCrisp":
-                    allCharacters.RemoveAll(x => x.Name == "Толя");
-                    break;
-                case "Толя":
-                    allCharacters.RemoveAll(x => x.Name == "LeCrisp");
-                    break;
-            }
+            RemoveMutuallyExclusiveCharacters(allCharacters, characterToAdd.Name);
         }
 
         return result;

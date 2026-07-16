@@ -292,6 +292,9 @@ public class PassivesClass
     public GordonFreeman.State Gordon { get; set; } = new();
     public GordonFreeman.HeadcrabState GordonHeadcrab { get; set; } = new();
 
+    // Джон Сноу — owner-only skill, weakest-player, castle and resurrection state.
+    public JonSnow.State JonSnow { get; set; } = new();
+
     public bool IsExploitable { get; set; } = false;
     public bool IsExploitFixed { get; set; } = false;
 

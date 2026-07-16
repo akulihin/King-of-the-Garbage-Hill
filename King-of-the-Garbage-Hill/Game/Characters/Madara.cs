@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using King_of_the_Garbage_Hill.Game.Classes;
+using King_of_the_Garbage_Hill.Helpers;
 
 namespace King_of_the_Garbage_Hill.Game.Characters;
 
@@ -13,6 +14,7 @@ public static class Madara
     public const string SecondMeteorite = "Второй метеорит";
     public const string SusanooClones = "Клоны Сусано";
     public const string EternalTsukuyomi = "Вечное Цукуеми";
+    public const string EternalTsukuyomiPhrase = "Узрите идеальный мир без войн.";
     public const string ThemeFile = "DataBase/sound/character_passives/madara/madara_tsukuemi_theme.mp3";
     public const int RoundEightBotReactionDelaySeconds = 30;
 
@@ -67,6 +69,11 @@ public static class Madara
         if (!state.EternalTsukuyomiRoundPrepared)
         {
             state.EternalTsukuyomiRoundPrepared = true;
+            madara.Status.AddInGamePersonalLogs(PhrasePayload.Encode(
+                EternalTsukuyomi,
+                EternalTsukuyomiPhrase,
+                "Infinite Tsukuyomi",
+                "Behold the perfect world without wars.") + "\n");
             state.EternalTsukuyomiIllusoryTargets = game.PlayersList
                 .Where(player => player.GetPlayerId() != madara.GetPlayerId())
                 .ToDictionary(
@@ -342,9 +349,6 @@ public static class Madara
         if (IsMadara(viewer))
             return $"Все игроки пропустили ход...\n\n**{realWinner.DiscordUsername}** победил, играя за **{realWinner.GameCharacter.Name}**";
 
-        var bonus = GetIllusoryBonus(game, viewer);
-        return $"{EternalTsukuyomi}: {viewer.DiscordUsername} выиграл свой бой.\n"
-               + $"{EternalTsukuyomi}: +{bonus} бонусных очков\n\n"
-               + $"**{viewer.DiscordUsername}** победил, играя за **{viewer.GameCharacter.Name}**";
+        return $"**{viewer.DiscordUsername}** победил, играя за **{viewer.GameCharacter.Name}**";
     }
 }

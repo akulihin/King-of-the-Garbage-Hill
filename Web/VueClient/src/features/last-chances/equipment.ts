@@ -2,6 +2,7 @@ import type {
   LastChancesConfig,
   LastChancesEquipMode,
   LastChancesHand,
+  LastChancesAugment,
   LastChancesResolvedWeapon,
   LastChancesWeaponDefinition,
 } from './types'
@@ -20,6 +21,7 @@ function resolvedWeapon(
   weapon: LastChancesWeaponDefinition,
   hand: LastChancesHand,
   useSecondaryAttacks = false,
+  augment?: LastChancesAugment,
 ): LastChancesResolvedWeapon {
   const attacks = useSecondaryAttacks && weapon.secondaryAttacks
     ? weapon.secondaryAttacks
@@ -33,6 +35,13 @@ function resolvedWeapon(
     hand,
     attacks,
     tapCombo: [attacks.tap, ...(authoredTapCombo ?? [])],
+    ...(weapon.trait ? { trait: weapon.trait } : {}),
+    ...(weapon.resource ? { resource: { ...weapon.resource } } : {}),
+    augment: augment ?? weapon.defaultAugment ?? 'none',
+    ...(weapon.augmentHooks
+      ? { augmentHooks: JSON.parse(JSON.stringify(weapon.augmentHooks)) as typeof weapon.augmentHooks }
+      : {}),
+    ...(weapon.tuning ? { tuning: { ...weapon.tuning } } : {}),
   }
 }
 
@@ -57,16 +66,25 @@ export function resolveLastChancesLoadout(config: LastChancesConfig): LastChance
   if (!primary) return { left: null, right: null }
 
   const primaryMode = lastChancesEquipMode(primary)
-  const left = resolvedWeapon(primary, 'left')
+  const left = resolvedWeapon(primary, 'left', false, config.loadout.primaryAugment)
   if (primaryMode === 'twoHanded' || (primaryMode === 'hybrid' && !supplemental)) {
     return {
       left,
-      right: resolvedWeapon(primary, 'right', true),
+      right: resolvedWeapon(
+        primary,
+        'right',
+        true,
+        // Both inputs are still the same physical weapon. A stale secondary-slot
+        // augment must not silently alter its second input while that slot is empty.
+        config.loadout.primaryAugment,
+      ),
     }
   }
 
   return {
     left,
-    right: supplemental ? resolvedWeapon(supplemental, 'right') : null,
+    right: supplemental
+      ? resolvedWeapon(supplemental, 'right', false, config.loadout.secondaryAugment)
+      : null,
   }
 }

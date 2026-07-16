@@ -325,6 +325,13 @@ public class CharactersUniquePhrase
     public PhraseClass NarutoGamabuchiSuccess;
     public PhraseClass NarutoGamabuntaSuccess;
 
+    // Джон Сноу
+    public PhraseClass JonSnowDefeat;
+    public PhraseClass JonSnowServerKing;
+    public PhraseClass JonSnowCastleEnter;
+    public PhraseClass JonSnowFinalCastleLow;
+    public PhraseClass JonSnowFinalCastleHigh;
+
     // Монстр без имени
     public PhraseClass MonsterDeath;
     public PhraseClass MonsterDrop;
@@ -1662,6 +1669,22 @@ public class CharactersUniquePhrase
 
         NarutoGamabuntaSuccess = new PhraseClass(Naruto.Summon);
         NarutoGamabuntaSuccess.PassiveLogRus.Add("Гамабунта: Ладно. На этот раз я раздавлю его.");
+
+        // Джон Сноу
+        JonSnowDefeat = new PhraseClass(JonSnow.DumbBastard);
+        JonSnowDefeat.PassiveLogRus.Add("Ничего ты не знаешь, Джон Сноу!");
+
+        JonSnowServerKing = new PhraseClass(JonSnow.ServerKing);
+        JonSnowServerKing.PassiveLogRus.Add("Король Сервера!");
+
+        JonSnowCastleEnter = new PhraseClass(JonSnow.BlackCastle);
+        JonSnowCastleEnter.PassiveLogRus.Add("Помогите! Я застрял!");
+
+        JonSnowFinalCastleLow = new PhraseClass(JonSnow.BlackCastle);
+        JonSnowFinalCastleLow.PassiveLogRus.Add("Выпустите меня!!! Я хочу быть королем!");
+
+        JonSnowFinalCastleHigh = new PhraseClass(JonSnow.BlackCastle);
+        JonSnowFinalCastleHigh.PassiveLogRus.Add("Ну ладно, в замке хотя бы перезимовать можно.");
 
         //not in the game
 

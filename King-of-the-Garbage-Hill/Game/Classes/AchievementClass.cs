@@ -628,6 +628,17 @@ public static class AchievementService
             AchievementCategory.Character, "games", "epic",
             characterNames: new[] { "Гордон Фримен" }),
 
+        new("c_jon_king", "Bastard No More", "Больше не бастард",
+            "As Джон Сноу, reach 228 Skill and become Король Сервера.",
+            "Играя за Джон Сноу, наберите 228 Скилла и станьте Король Сервера.",
+            AchievementCategory.Character, "crown", "uncommon",
+            characterNames: new[] { JonSnow.CharacterName }),
+        new("c_jon_watch", "And Now My Watch Is Ended", "И теперь мой дозор окончен",
+            "As Джон Сноу, overcome a death and still finish alive in the top 3.",
+            "Играя за Джон Сноу, превозмогите смерть и всё равно завершите матч живым в топ-3.",
+            AchievementCategory.Character, "wolf", "epic",
+            characterNames: new[] { JonSnow.CharacterName }),
+
         // Secret interactions
         new("x_spartan_dragon", "Dragon Slayer", "Убийца драконов",
             "As Загадочный Спартанец в маске, trigger DragonSlayer against round-10 Sirinoks/Дракон and defeat her.",
@@ -1191,6 +1202,15 @@ public static class AchievementService
         {
             SetBestProgress(account, "c_gordon_rescue", tracker.GordonHeadcrabsRemoved);
             SetBestProgress(account, "c_gordon_halflife3", tracker.GordonHalfLifeReleased ? 1 : 0);
+        }
+
+        if (characterName == JonSnow.CharacterName)
+        {
+            SetBestProgress(account, "c_jon_king",
+                player.GameCharacter.JonSnowBecameKing ? 1 : 0);
+            SetBestProgress(account, "c_jon_watch",
+                player.Passives.JonSnow.WatchEnded ? 1 : 0,
+                player.Passives.JonSnow.WatchEnded && alive && actualPlace <= 3);
         }
 
         // Secret interactions

@@ -300,6 +300,8 @@ public class WebGameService
                 ? playersList.Find(player => player.DiscordId == creatorId) ?? playersList[0]
                 : playersList[0]
             : playersList.Find(player => player.GameCharacter.Name == queuedCharacter.Name)
+              ?? playersList.Find(player => StartGameLogic.AreMutuallyExclusiveCharacters(
+                  player.GameCharacter.Name, queuedCharacter.Name))
               ?? playersList[0];
         if (queuedCharacter != null && botToReplace.GameCharacter.Name != queuedCharacter.Name)
         {
@@ -485,7 +487,10 @@ public class WebGameService
                 return Task.FromResult((false, "Naruto requires at least two bot slots"));
 
             // Validate the shared game constraint before touching the account economy.
-            if (game.PlayersList.Any(p => p != player && p.GameCharacter.Name == characterName))
+            if (game.PlayersList.Any(p => p != player
+                                          && (p.GameCharacter.Name == characterName
+                                              || StartGameLogic.AreMutuallyExclusiveCharacters(
+                                                  p.GameCharacter.Name, characterName))))
                 return Task.FromResult((false, "Character already taken by another player"));
 
             var idx = game.PlayersList.IndexOf(player);
@@ -615,6 +620,9 @@ public class WebGameService
             return Task.FromResult(GordonFreeman.AnnounceHalfLife3(player, game)
                 ? (true, (string)null)
                 : (false, "Halflife 3 cannot be announced right now"));
+
+        if (!Naruto.CanChooseBlock(player))
+            return Task.FromResult((false, "Naruto clones cannot block"));
 
         // Check Sparta passive (cannot block)
         if (player.GameCharacter.Passive.Any(x => x.PassiveName == "Спарта"))
@@ -1186,8 +1194,12 @@ public class WebGameService
         if (player == null)
             return (0, "Player not found in game");
 
-        // If the selected character is already assigned to a bot, give the bot the creator's original character
-        var conflictingBot = game.PlayersList.Find(p => p != player && p.GameCharacter.Name == characterName);
+        // If the selected character or its mutually exclusive counterpart is assigned to a bot,
+        // give that bot the creator's original character.
+        var conflictingBot = game.PlayersList.Find(p => p != player
+                                                        && (p.GameCharacter.Name == characterName
+                                                            || StartGameLogic.AreMutuallyExclusiveCharacters(
+                                                                p.GameCharacter.Name, characterName)));
         if (conflictingBot != null)
         {
             var originalChar = player.GameCharacter;

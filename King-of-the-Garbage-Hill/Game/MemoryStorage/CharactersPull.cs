@@ -76,7 +76,8 @@ public class CharactersPull : IServiceSingleton
         var characters = JsonConvert.DeserializeObject<List<CharacterClass>>(json)
             .Where(x => x.Tier != -1
                         && x.Name != Naruto.CharacterName
-                        && x.Name != GordonFreeman.CharacterName);
+                        && x.Name != GordonFreeman.CharacterName
+                        && x.Name != JonSnow.CharacterName);
         var passives = new List<Passive>();
 
         foreach (var character in characters)

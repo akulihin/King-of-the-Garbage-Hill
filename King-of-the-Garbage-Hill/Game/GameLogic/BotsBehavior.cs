@@ -3336,6 +3336,11 @@ public class BotsBehavior : IServiceSingleton
                     isBlock = GordonFreeman.CanAnnounceHalfLife3(bot, game) ? yesBlock : noBlock;
                     break;
 
+                case JonSnow.CharacterName:
+                    // Еще один бастард needs Jon to submit an attack before it can redirect protection.
+                    isBlock = noBlock;
+                    break;
+
                 case "Sakura":
                     if (Smart(bot, game) && game.RoundNo >= 8)
                     {
@@ -3455,6 +3460,11 @@ public class BotsBehavior : IServiceSingleton
             {
                 minimumRandomNumberForBlock = 2;
             }
+
+            // Теневые clones always spend their action on an attack. The original Naruto keeps the
+            // ordinary bot Block/Harem policy at every AI level.
+            if (!Naruto.CanChooseBlock(bot))
+                isBlock = noBlock;
 
             //end custom behaviour After calculation Tens
 
@@ -3974,6 +3984,12 @@ public class BotsBehavior : IServiceSingleton
                     target.Score -= Math.Clamp(target.FightEdge, -10, 10);
                 break;
 
+            case JonSnow.CharacterName:
+                if (target.Place <= 4) target.Score += 3;
+                if (bot.Passives.JonSnow.WeakestPlayerIds.Contains(target.Id))
+                    target.Score -= 4;
+                break;
+
             case "Тигр":
                 if (target.Markers.Contains("2:0", StringComparison.Ordinal))
                     target.Score += target.Score >= 6 ? 12 : -5;
@@ -4375,6 +4391,9 @@ public class BotsBehavior : IServiceSingleton
     private static FairBlockPlan GetFairBlockPlan(GamePlayerBridgeClass bot, GameClass game,
         IReadOnlyList<FairTarget> targets)
     {
+        if (!Naruto.CanChooseBlock(bot))
+            return FairBlockPlan.ForceAttack;
+
         switch (bot.GameCharacter.Name)
         {
             case "AWDKA":
@@ -4388,6 +4407,7 @@ public class BotsBehavior : IServiceSingleton
             case "Кратос":
             case "Dopa":
             case "TheBoys":
+            case JonSnow.CharacterName:
                 return FairBlockPlan.ForceAttack;
             case "Сайтама":
                 if (game.RoundNo == 10) return FairBlockPlan.ForceAttack;
@@ -4474,6 +4494,7 @@ public class BotsBehavior : IServiceSingleton
     private bool ShouldFairBotBlock(GamePlayerBridgeClass bot, GameClass game,
         IReadOnlyList<FairTarget> targets, FairBlockPlan plan)
     {
+        if (!Naruto.CanChooseBlock(bot)) return false;
         if (bot.GameCharacter.Passive.Any(passive => passive.PassiveName is "Спарта" or "Aggress"))
             return false;
         if (plan == FairBlockPlan.ForceAttack) return false;
@@ -4514,22 +4535,24 @@ public class BotsBehavior : IServiceSingleton
     // Макро two-attack rule (so games never freeze).
     private async Task HandleBotAttackRandom(GamePlayerBridgeClass bot, GameClass game, List<Nanobot> allTargets)
     {
-        // No valid target (all dead / round-10 banned) → block (mirrors the M14 empty-target fallback).
+        // No valid target (all dead / round-10 banned) → ordinary bots Block; clone Block requests
+        // are authoritatively converted to Skip by GameReactions.
         if (allTargets.Count == 0)
         {
             await _gameReaction.HandleAttack(bot, null, -10);
             return;
         }
 
-        // "cannot block" = the two hard passives the block button itself rejects (GameReactions.cs:316-326).
+        // "cannot block" = the two hard passives rejected by the block button plus Теневые clones.
         // Монстр-marked players are force-attacked by the engine regardless (CheckIfReady.cs:1266-1289) —
         // legal either way — so no extra guard is needed for that case.
-        var canBlock = !bot.GameCharacter.Passive.Any(x =>
-            x.PassiveName == "Спарта" || x.PassiveName == "Aggress");
+        var canBlock = Naruto.CanChooseBlock(bot)
+                       && !bot.GameCharacter.Passive.Any(x =>
+                           x.PassiveName == "Спарта" || x.PassiveName == "Aggress");
 
         // Uniform over {N target slots, +1 block slot if allowed}: ~1/(N+1) block chance. Naruto's
-        // two living siblings remain illegal targets but count as virtual attack slots, so clones do not
-        // block more often merely because their team removes two choices from the menu.
+        // two living siblings remain illegal targets but count as virtual attack slots for the original.
+        // Clones have no block slot at all.
         var attackSlots = Naruto.GetBotActionTargetSlotCount(bot, game, allTargets.Count);
         var slots = attackSlots + (canBlock ? 1 : 0);
         if (canBlock && _rand.Random(1, slots) == slots)

@@ -1177,7 +1177,15 @@
     "Halflife 3": "Half-Life 3",
     "хэдкраб": "headcrab",
     "хэдкрабы": "headcrabs",
-    "зомби": "zombie"
+    "зомби": "zombie",
+    "Джон Сноу": "Jon Snow",
+    "Тупой бастард": "Dumb Bastard",
+    "Король Сервера": "Server King",
+    "Я Джон Сноу": "I Am Jon Snow",
+    "Еще один бастард": "Another Bastard",
+    "Черный Замок": "Castle Black",
+    "Мой дозор окончен": "My Watch Has Ended",
+    "королевских": "royal"
   },
   "phraseFallbacks": {
     "Авто Ход": "No hands on the keyboard? Fine. I'll do it myself.",
@@ -1348,7 +1356,8 @@
     "Эрен Йегер": "Eren Yeager",
     "Наруто": "Naruto",
     "Мадара": "",
-    "Гордон Фримен": ""
+    "Гордон Фримен": "",
+    "Джон Сноу": "Jon Snow"
   },
   "passives": {
     "Сомнительная тактика": "Loses the first fight against each new opponent (<:yo_filled:902361411840266310>), then gains +1 point for every later victory against that opponent.",
@@ -1540,6 +1549,12 @@
     "Монтировка": "The crowbar solves every problem and turns every **3**rd fight into a victory.",
     "Молчаливый Герой": "Every **3** turns, a headcrab latches onto two random enemies. Any resolved attack by Gordon knocks the headcrab off the enemy and saves them from becoming a zombie. The Hero gains **3** **bonus** points for it. If the crab is not removed within **3** turns, the enemy loses all their Intelligence. But is it worth it...",
     "Просыпайтесь, мистер Фримен": "Once per game, G-Man can free Gordon from a skipped turn.",
-    "Halflife 3": "Instead of Blocking, Freeman attempts to release Half-Life **3**. \nThe first press announces the release for the next turn, when pre-orders replace the score multiplier with an exponent equal to the points gained that turn.\nIf the exponent reaches **3**, Gabe considers the game a success and gives the green light. Otherwise, it can be delayed or frozen. A delay costs one point, and more each time."
+    "Halflife 3": "Instead of Blocking, Freeman attempts to release Half-Life **3**. \nThe first press announces the release for the next turn, when pre-orders replace the score multiplier with an exponent equal to the points gained that turn.\nIf the exponent reaches **3**, Gabe considers the game a success and gives the green light. Otherwise, it can be delayed or frozen. A delay costs one point, and more each time.",
+    "Тупой бастард": "Nobody respects him until he reaches 228 *Skill*.\nHe rushes forward and gains ×2 *Skill* from every source.\nVictories increase Intelligence according to the enemy's difficulty.",
+    "Я Джон Сноу": "Justice is added to every stat.\nIn battle, he uses more Justice against more difficult enemies.",
+    "Еще один бастард": "Senses the two weakest players, including himself. If Jon's chosen target attacks a marked weakest player, Jon takes that attack instead and gains +1 Justice in the second fight.",
+    "Черный Замок": "Castle Black stands at 4th place and divides the table into upper kings and lower wildlings.\nJon's loyalty depends on his own side: he gains one **bonus** point for every victory by a player on that side.\nCastle Black belongs to neither side. Upon entering it, Jon cannot leave for 3 more turns.",
+    "Король Сервера": "All **bonus** points become **royal** points! (×2).\nJon no longer descends to Castle Black voluntarily.",
+    "Мой дозор окончен": ""
   }
 }

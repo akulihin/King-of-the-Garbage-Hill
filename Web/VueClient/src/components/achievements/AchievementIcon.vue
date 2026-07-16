@@ -12,6 +12,7 @@ import {
   Compass,
   Crown,
   Dices,
+  Dog,
   Eye,
   Feather,
   Flame,
@@ -116,6 +117,7 @@ const icons: Record<string, Component> = {
   trophy: Trophy,
   'trophy-broken': Award,
   turtle: Turtle,
+  wolf: Dog,
 }
 
 const resolvedIcon = computed(() => icons[props.icon.trim().toLowerCase()] ?? Trophy)

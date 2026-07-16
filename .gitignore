@@ -395,6 +395,11 @@ wwwroot
 deploy_to_prod
 yt-dlp
 art
+!King-of-the-Garbage-Hill/DataBase/art/
+King-of-the-Garbage-Hill/DataBase/art/*
+!King-of-the-Garbage-Hill/DataBase/art/avatars/
+King-of-the-Garbage-Hill/DataBase/art/avatars/*
+!King-of-the-Garbage-Hill/DataBase/art/avatars/jon_snow.png
 sound
 delete_me_maybe
 commit-messages

@@ -158,6 +158,10 @@ public class CharacterPassives : IServiceSingleton
                     player.GameCharacter.SetClassSkillMultiplier(2);
                     break;
 
+                case JonSnow.DumbBastard:
+                    JonSnow.Initialize(player);
+                    break;
+
                 case "Искусство":
                     player.Status.AddInGamePersonalLogs(
                         "*Какая честь - умереть на поле боя... Начнем прямо сейчас!*\n");
@@ -480,6 +484,7 @@ public class CharacterPassives : IServiceSingleton
         var initialGordon = playersList.Find(GordonFreeman.Is);
         if (initialGordon != null)
             GordonFreeman.HandleRoundPhrase(initialGordon, 1);
+        JonSnow.FinalizeInitialPositions(playersList);
 
         return playersList;
     }
@@ -499,6 +504,10 @@ public class CharacterPassives : IServiceSingleton
         foreach (var passive in target.GameCharacter.Passive.ToList())
             switch (passive.PassiveName)
             {
+                case JonSnow.IAmJonSnow:
+                    JonSnow.ApplyBaseJustice(target);
+                    break;
+
                 case Madara.GodOfShinobi:
                     if (Madara.ShouldUseHundredSkill(target))
                         target.FightCharacter.SetSkillForOneFight(100, Madara.GodOfShinobi);
@@ -1126,6 +1135,10 @@ public class CharacterPassives : IServiceSingleton
         foreach (var passive in me.GameCharacter.Passive.ToList())
             switch (passive.PassiveName)
             {
+                case JonSnow.IAmJonSnow:
+                    JonSnow.ApplyBaseJustice(me);
+                    break;
+
                 case Naruto.Rasengan:
                     if (me.GameCharacter.Name == Naruto.CharacterName)
                         ApplyRasenganBoost(me, target, game);
@@ -1911,8 +1924,11 @@ public class CharacterPassives : IServiceSingleton
                             game.AddGlobalLogs($"{UnknownBug.PublicName(me)} **УБИЛ** {UnknownBug.PublicName(target)}!");
                             game.AddGlobalLogs($"Они скинули **{target.DiscordUsername}**! Сволочи!");
                             game.Phrases.KratosEventKill.SendLog(me, true, isRandomOrder:false);
-                            target.Passives.IsDead = true;
-                            target.Passives.DeathSource = "Kratos";
+                            if (!JonSnow.TryEndWatch(target, game, "Kratos"))
+                            {
+                                target.Passives.IsDead = true;
+                                target.Passives.DeathSource = "Kratos";
+                            }
                             // Achievement: Kratos kill
                             me.Passives.AchievementTracker.KratosEventVictimIds.Add(target.GetPlayerId());
                             me.Passives.AchievementTracker.EnemiesKilledAsKratos++;
@@ -2844,7 +2860,13 @@ public class CharacterPassives : IServiceSingleton
                                 .Where(x => x.PassiveName is not GordonFreeman.Crowbar
                                     and not GordonFreeman.SilentHero
                                     and not GordonFreeman.WakeUp
-                                    and not GordonFreeman.HalfLife3)
+                                    and not GordonFreeman.HalfLife3
+                                    and not JonSnow.DumbBastard
+                                    and not JonSnow.IAmJonSnow
+                                    and not JonSnow.AnotherBastard
+                                    and not JonSnow.BlackCastle
+                                    and not JonSnow.ServerKing
+                                    and not JonSnow.MyWatchHasEnded)
                                 .Take(4).Select(x => x.DeepCopy()).ToList();
                             var requestedChoices = DoomGuy.HasMeleeBonus(player)
                                                    && DoomGuy.IsNearestEnemy(game, player, defeated)
@@ -2878,12 +2900,7 @@ public class CharacterPassives : IServiceSingleton
                              && player.PlayerType != 404
                              && player.Status.IsLostThisCalculation != Guid.Empty)
                     {
-                        game.IsKratosEvent = true;
-                        game.AddGlobalLogs("Бегите! На Гору Мусорной Горы идёт Кратос и НИЧТО его не остановит!");
-                        foreach (var p in game.PlayersList.Where(x => !x.IsBot()))
-                            await game.Phrases.KratosEventYes.SendLogSeparateWithFile(p, false, "DataBase/sound/Kratos.mp3", false, 15000, roundsToPlay: 5);
-
-                        player.GameCharacter.SetClassSkillMultiplier(4);
+                        await StartKratosEvent(game, player);
                     }
 
                     break;
@@ -3801,8 +3818,11 @@ public class CharacterPassives : IServiceSingleton
 
         foreach (var victim in victims)
         {
-            victim.Passives.IsDead = true;
-            victim.Passives.DeathSource = "Rumbling";
+            if (!JonSnow.TryEndWatch(victim, game, "Rumbling"))
+            {
+                victim.Passives.IsDead = true;
+                victim.Passives.DeathSource = "Rumbling";
+            }
             eren.Passives.AchievementTracker.RumblingVictimIds.Add(victim.GetPlayerId());
         }
 
@@ -3826,13 +3846,36 @@ public class CharacterPassives : IServiceSingleton
     //end handle during fight
 
 
+    private static bool CanKratosReturnFromKira(GamePlayerBridgeClass kratos)
+    {
+        return kratos.Passives.IsDead
+               && kratos.Passives.DeathSource == "Kira"
+               && !kratos.Passives.KratosGodSlayerUsed
+               && kratos.GameCharacter.Passive.Any(passive => passive.PassiveName == "Боги мне не указ");
+    }
+
+    private static async Task StartKratosEvent(GameClass game, GamePlayerBridgeClass kratos)
+    {
+        if (game.IsKratosEvent) return;
+
+        game.IsKratosEvent = true;
+        game.AddGlobalLogs("Бегите! На Гору Мусорной Горы идёт Кратос и НИЧТО его не остановит!");
+        foreach (var player in game.PlayersList.Where(player => !player.IsBot()))
+            await game.Phrases.KratosEventYes.SendLogSeparateWithFile(player, false,
+                "DataBase/sound/Kratos.mp3", false, 15000, roundsToPlay: 5);
+
+        kratos.GameCharacter.SetClassSkillMultiplier(4);
+    }
+
+
     //after all fight
     public async Task HandleEndOfRound(GameClass game)
     {
         var eventKratos = game.PlayersList.Find(x =>
             x.GameCharacter.Name == "Кратос"
             && x.GameCharacter.Passive.Any(passive => passive.PassiveName == "Возвращение из мертвых"));
-        if (game.IsKratosEvent && eventKratos?.Passives.IsDead == true)
+        if (game.IsKratosEvent && eventKratos?.Passives.IsDead == true
+                               && !CanKratosReturnFromKira(eventKratos))
         {
             game.IsKratosEvent = false;
             game.AddGlobalLogs($"{UnknownBug.PublicName(eventKratos)} решил доверится богам зная последствия...");
@@ -4636,8 +4679,11 @@ public class CharacterPassives : IServiceSingleton
                                 // Goblins and Madara are immune to kill effects.
                                 if (dnTarget.GameCharacter.Name == "Стая Гоблинов" || Madara.IsMadara(dnTarget)) break;
                                 // Correct — target dies
-                                dnTarget.Passives.IsDead = true;
-                                dnTarget.Passives.DeathSource = "Kira";
+                                if (!JonSnow.TryEndWatch(dnTarget, game, "Kira"))
+                                {
+                                    dnTarget.Passives.IsDead = true;
+                                    dnTarget.Passives.DeathSource = "Kira";
+                                }
                                 dnTarget.Passives.AchievementTracker.WasKilledByKira = true;
                                 if (dnTarget.GameCharacter.Name == "Кира")
                                     player.Passives.AchievementTracker.SurvivedKiraAttempt = false; // killer gets "kill_a_god" tracked at game end
@@ -4939,8 +4985,11 @@ public class CharacterPassives : IServiceSingleton
                         {
                             // Pawns who blocked or skipped survive
                             if (pawn.Status.IsBlock || pawn.Status.IsSkip || Madara.IsMadara(pawn)) continue;
-                            pawn.Passives.IsDead = true;
-                            pawn.Passives.DeathSource = "Monster";
+                            if (!JonSnow.TryEndWatch(pawn, game, "Monster"))
+                            {
+                                pawn.Passives.IsDead = true;
+                                pawn.Passives.DeathSource = "Monster";
+                            }
                             player.Passives.AchievementTracker.MonsterPawnExecutions++;
                             deadNames.Add(UnknownBug.PublicName(pawn));
                             player.Status.AddRegularPoints(1, "Монстр");
@@ -5155,6 +5204,13 @@ public class CharacterPassives : IServiceSingleton
                 }
         }
 
+        // A fatal round-10 Death Note opens the same event as a round-10 fight loss.
+        // Боги мне не указ revives Kratos when round 11 opens, so the event then continues normally.
+        if (!game.IsKratosEvent && game.RoundNo == 10
+                                && eventKratos is { PlayerType: not 404 }
+                                && CanKratosReturnFromKira(eventKratos))
+            await StartKratosEvent(game, eventKratos);
+
         // High Elo repeated loss — any player losing to a high-elo character for 2nd+ consecutive time
         var highEloNames = new HashSet<string> { "DeepList", "mylorik", "Глеб", "Dopa", "Загадочный Спартанец в маске" };
         foreach (var player in game.PlayersList)
@@ -5249,6 +5305,9 @@ public class CharacterPassives : IServiceSingleton
         }
 
         GordonFreeman.MatureHeadcrabs(game);
+        var jon = JonSnow.Find(game.PlayersList);
+        if (jon != null)
+            JonSnow.ClearRoundState(jon);
     }
 
     public void RestoreOctopusInk(GameClass game)
@@ -6181,6 +6240,13 @@ public class CharacterPassives : IServiceSingleton
                             player.Passives.AchievementTracker.WasRevived = true;
                             player.Passives.AchievementTracker.SurvivedKiraAttempt = true;
                             player.GameCharacter.AddExtraSkill(228, "Боги мне не указ");
+                            if (game.IsKratosEvent)
+                            {
+                                // Dead players are carried into the next round as ready blockers.
+                                // Reopen Kratos's action so the resurrection does not consume an event turn.
+                                player.Status.IsReady = false;
+                                player.Status.IsBlock = false;
+                            }
                             game.AddGlobalLogs($"**{UnknownBug.PublicName(player)}:** Боги мне не указ!");
                         }
                         break;
@@ -6964,6 +7030,7 @@ public class CharacterPassives : IServiceSingleton
         foreach (var player in game.PlayersList.Where(candidate =>
                      candidate.GameCharacter.Name == "Salldorum" && !candidate.Passives.IsDead))
             Salldorum.TryDrinkAvailableTimeCapsule(player, game);
+        JonSnow.FinalizePositionEffects(game);
     }
     //end after all fight
 

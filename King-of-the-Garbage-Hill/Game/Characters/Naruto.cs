@@ -37,6 +37,9 @@ public static class Naruto
     public static bool IsClone(GamePlayerBridgeClass player) =>
         IsNaruto(player) && player.Passives.Naruto.IsClone;
 
+    public static bool CanChooseBlock(GamePlayerBridgeClass player) =>
+        player?.GameCharacter?.Name != CharacterName || !player.Passives.Naruto.IsClone;
+
     public static bool IsDispersedClone(GamePlayerBridgeClass player) =>
         IsClone(player) && player.Passives.Naruto.HasDispersed;
 
@@ -54,10 +57,11 @@ public static class Naruto
         GameClass game,
         int legalTargetCount)
     {
-        if (!IsNaruto(player) || game == null) return legalTargetCount;
+        if (!IsNaruto(player) || !CanChooseBlock(player) || game == null) return legalTargetCount;
 
-        // Naruto's two living siblings are deliberately illegal targets, but the count-based L0/L1
-        // action roll must retain the same attack-vs-Block balance as every other six-player bot.
+        // The original Naruto's two living siblings are deliberately illegal targets, but the
+        // count-based L0/L1 action roll must retain the same attack-vs-Block balance as every other
+        // six-player bot. Clones cannot choose Block at all.
         var livingSiblingCount = game.PlayersList.Count(target =>
             !target.Passives.IsDead && IsNarutoPair(player, target));
         return legalTargetCount + livingSiblingCount;
@@ -189,6 +193,7 @@ public static class Naruto
     {
         var harems = game.PlayersList.Where(player =>
             IsNaruto(player)
+            && CanChooseBlock(player)
             && !player.Passives.IsDead
             && player.Status.IsBlock
             && player.Passives.Naruto.HaremCooldown == 0
@@ -421,10 +426,11 @@ public static class Naruto
         foreach (var clone in playerList.Where(IsDispersedClone))
             clone.Status.DiscardScoreAfterDeath();
 
-        return playerList.OrderBy(player => player.Passives.IsDead)
+        var ordered = playerList.OrderBy(player => player.Passives.IsDead)
             .ThenBy(IsDispersedClone)
             .ThenByDescending(player => player.Status.GetScore())
             .ToList();
+        return JonSnow.ApplyLeaderboardRules(ordered);
     }
 
     public static void MoveDispersedClonesToBottom(List<GamePlayerBridgeClass> players)

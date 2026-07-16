@@ -104,12 +104,14 @@ const copy = {
     keyboard: 'Keyboard',
     keyboardMove: 'WASD / arrows move',
     keyboardAttack: 'attack with',
+    keyboardInteract: 'E interacts',
     mouse: 'Mouse',
     mouseAim: 'Move pointer to aim',
     mouseAttack: 'Left / right button gestures',
     gamepad: 'Gamepad',
     gamepadMove: 'Left stick moves · right stick aims',
     gamepadAttack: 'Buttons',
+    gamepadInteract: 'press both attack buttons together to interact',
     gamepadConnected: 'Connected',
     gamepadDisconnected: 'Press a controller button to connect',
     gamepadUnsupported: 'This browser does not expose the Gamepad API',
@@ -117,6 +119,7 @@ const copy = {
     touch: 'Touch',
     touchMove: 'Left stick moves · aim pad aims',
     touchAttack: 'Use either hand button for gestures',
+    interact: 'Interact',
     gestureGuide: 'Five gestures per hand',
     tap: 'Tap',
     doubleTap: 'Double tap',
@@ -202,12 +205,14 @@ const copy = {
     keyboard: 'Клавиатура',
     keyboardMove: 'WASD / стрелки — движение',
     keyboardAttack: 'атака клавишами',
+    keyboardInteract: 'E — взаимодействие',
     mouse: 'Мышь',
     mouseAim: 'Двигайте указатель для прицела',
     mouseAttack: 'Жесты левой / правой кнопкой',
     gamepad: 'Геймпад',
     gamepadMove: 'Левый стик — движение · правый — прицел',
     gamepadAttack: 'Кнопки',
+    gamepadInteract: 'обе кнопки атаки вместе — взаимодействие',
     gamepadConnected: 'Подключён',
     gamepadDisconnected: 'Нажмите кнопку геймпада для подключения',
     gamepadUnsupported: 'Браузер не предоставляет Gamepad API',
@@ -215,6 +220,7 @@ const copy = {
     touch: 'Сенсорный экран',
     touchMove: 'Левый стик — движение · площадка — прицел',
     touchAttack: 'Используйте кнопки обеих рук для жестов',
+    interact: 'Взаимодействовать',
     gestureGuide: 'Пять жестов для каждой руки',
     tap: 'Нажатие',
     doubleTap: 'Двойное нажатие',
@@ -296,6 +302,8 @@ const equippedLoadout = computed(() => {
 })
 const leftWeapon = computed(() => equippedLoadout.value.left)
 const rightWeapon = computed(() => equippedLoadout.value.right)
+const leftActionCue = computed(() => snapshot.value?.actionCues?.find(cue => cue.hand === 'left') ?? null)
+const rightActionCue = computed(() => snapshot.value?.actionCues?.find(cue => cue.hand === 'right') ?? null)
 const storyPage = computed(() => storyPages.value[storyIndex.value] ?? null)
 const storyOpen = computed(() => storyPages.value.length > 0 && !!storyPage.value)
 const storyFinalLabel = computed(() => snapshot.value?.phase === 'planning'
@@ -319,27 +327,54 @@ const weaponCooldowns = computed<WeaponCooldown[]>(() => {
   if (!config.value) return []
   const weapons = [equippedLoadout.value.left, equippedLoadout.value.right]
     .flatMap(weapon => weapon ? [weapon] : [])
-  return weapons.map((weapon) => ({
-    hand: weapon.hand === 'left' ? 'primary' : 'secondary',
-    name: weapon.name,
-    input: snapshot.value?.gestureInputs.find(input => input.hand === weapon.hand),
-    gestures: LAST_CHANCES_GESTURES.map((gesture) => {
-      const cooldown = snapshot.value?.cooldowns.find(item => item.hand === weapon.hand && item.gesture === gesture)
-      const lastGesture = snapshot.value?.lastGesture
-      return {
-        key: gesture,
-        name: gesture === 'tap'
-          ? weapon.tapCombo.map(attack => attack.name).join(' → ')
-          : weapon.attacks[gesture].name,
-        remainingMs: cooldown?.remainingMs ?? 0,
-        totalMs: cooldown?.totalMs ?? weapon.attacks[gesture].cooldownMs,
-        active: !!lastGesture
-          && lastGesture.hand === weapon.hand
-          && lastGesture.gesture === gesture
-          && (snapshot.value?.elapsedMs ?? 0) - lastGesture.atMs < 450,
-      }
-    }),
-  }))
+  return weapons.map((weapon) => {
+    const cue = snapshot.value?.actionCues?.find(candidate => candidate.hand === weapon.hand)
+    const state = snapshot.value?.weaponStates?.find(candidate => (
+      candidate.hand === weapon.hand && candidate.weaponId === weapon.id
+    ))
+    const chargeMaxMs = cue?.chargeMaxMs ?? 0
+    return {
+      hand: weapon.hand === 'left' ? 'primary' as const : 'secondary' as const,
+      name: weapon.name,
+      input: snapshot.value?.gestureInputs.find(input => input.hand === weapon.hand),
+      cue,
+      state,
+      chargeMaxMs,
+      gestures: LAST_CHANCES_GESTURES.map((gesture) => {
+        const attack = weapon.attacks[gesture]
+        const cooldown = snapshot.value?.cooldowns.find(item => (
+          item.hand === weapon.hand && item.gesture === gesture
+        ))
+        const lastGesture = snapshot.value?.lastGesture
+        const enabled = attack.enabled !== false && attack.behavior !== 'disabled'
+        const recoveryMs = Math.max(cue?.recoveryMs ?? 0, state?.recoveryMs ?? 0)
+        const ready = enabled && (cooldown?.ready ?? (
+          (cooldown?.remainingMs ?? 0) <= 0
+          && recoveryMs <= 0
+          && cue?.phase !== 'recovery'
+        ))
+        return {
+          key: gesture,
+          name: gesture === 'tap'
+            ? weapon.tapCombo.map(attack => attack.name).join(' → ')
+            : attack.name,
+          remainingMs: cooldown?.remainingMs ?? 0,
+          totalMs: cooldown?.totalMs ?? attack.cooldownMs,
+          enabled,
+          ready,
+          color: attack.color,
+          active: enabled && (
+            (cue?.gesture === gesture
+              && ['candidate', 'charging', 'armed'].includes(cue.phase))
+            || (!!lastGesture
+              && lastGesture.hand === weapon.hand
+              && lastGesture.gesture === gesture
+              && (snapshot.value?.elapsedMs ?? 0) - lastGesture.atMs < 450)
+          ),
+        }
+      }),
+    }
+  })
 })
 
 const gamepadStatusText = computed(() => {
@@ -601,6 +636,11 @@ function releaseTouch(hand: AttackHand) {
   engine.value?.release(touchHand(hand))
 }
 
+function interact() {
+  if (!snapshot.value?.interactionPrompt || !engine.value?.interact()) return
+  void nextTick(() => canvas.value?.focus())
+}
+
 function formatKey(code: string): string {
   if (code.startsWith('Key')) return code.slice(3)
   if (code.startsWith('Digit')) return code.slice(5)
@@ -721,6 +761,21 @@ onBeforeUnmount(() => {
             </div>
           </Transition>
 
+          <Transition name="lc-gesture-pop">
+            <button
+              v-if="snapshot?.interactionPrompt"
+              class="lc-arena-interaction"
+              type="button"
+              :disabled="snapshot.paused || snapshot.phase !== 'playing'"
+              data-testid="interaction-prompt"
+              @click="interact"
+            >
+              <Sparkles :size="15" aria-hidden="true" />
+              <span>{{ t.interact }}</span>
+              <strong>{{ snapshot.interactionPrompt }}</strong>
+            </button>
+          </Transition>
+
           <Transition name="lc-phase-fade">
             <div v-if="snapshot?.interaction" class="lc-interaction-overlay">
               <div class="lc-interaction-card">
@@ -810,17 +865,27 @@ onBeforeUnmount(() => {
             :locale="locale"
             :primary-name="leftWeapon?.name ?? '—'"
             :secondary-name="rightWeapon?.name ?? '—'"
+            :primary-cue="leftActionCue"
+            :secondary-cue="rightActionCue"
+            :primary-available="!!leftWeapon"
+            :secondary-available="!!rightWeapon"
+            :interaction-prompt="snapshot?.interactionPrompt ?? null"
             :disabled="snapshot?.phase !== 'playing' || snapshot.paused"
             @move="setTouchMove"
             @aim="setTouchAim"
             @press="pressTouch"
             @release="releaseTouch"
+            @interact="interact"
           />
         </div>
 
         <footer class="lc-stage-footer">
           <span><i :class="alertedEnemies ? 'is-alert' : ''" aria-hidden="true" />{{ t.currentThreat }} · {{ alertedEnemies ? t.noticed : t.calm }}</span>
           <span v-if="snapshot"><Activity :size="12" aria-hidden="true" />{{ t.speed }} {{ formatNumber(snapshot.player.stats.moveSpeed) }} · {{ t.armor }} {{ formatNumber(snapshot.player.stats.armor) }}</span>
+          <span v-if="(snapshot?.player.armorMultiplier ?? 1) > 1">
+            <Shield :size="12" aria-hidden="true" />{{ t.armor }} ×{{ snapshot?.player.armorMultiplier }}
+            · {{ Math.ceil(snapshot?.player.armorMultiplierForMs ?? 0) }} ms
+          </span>
         </footer>
       </section>
 
@@ -876,7 +941,7 @@ onBeforeUnmount(() => {
       <div class="lc-control-grid">
         <article>
           <Keyboard :size="18" aria-hidden="true" />
-          <div><strong>{{ t.keyboard }}</strong><span>{{ t.keyboardMove }}</span><small>{{ t.keyboardAttack }} {{ config?.input.leftKeys.map(formatKey).join('/') || 'Q' }} + {{ config?.input.rightKeys.map(formatKey).join('/') || 'E' }}</small></div>
+          <div><strong>{{ t.keyboard }}</strong><span>{{ t.keyboardMove }}</span><small>{{ t.keyboardAttack }} {{ config?.input.leftKeys.map(formatKey).join('/') || 'Q' }} + {{ config?.input.rightKeys.map(formatKey).join('/') || 'E' }} · {{ t.keyboardInteract }}</small></div>
         </article>
         <article>
           <MousePointer2 :size="18" aria-hidden="true" />
@@ -894,6 +959,7 @@ onBeforeUnmount(() => {
             <strong>{{ t.gamepad }}</strong>
             <span :title="gamepadStatusText">{{ gamepadStatusText }}</span>
             <small>{{ t.gamepadMove }} · {{ t.gamepadAttack }} {{ formatGamepadButton(config?.input.gamepadLeftButton, 2) }} / {{ formatGamepadButton(config?.input.gamepadRightButton, 0) }}</small>
+            <small>{{ t.gamepadInteract }}</small>
             <small>{{ t.gamepadMenu }}</small>
           </div>
         </article>
@@ -1028,6 +1094,30 @@ onBeforeUnmount(() => {
 .lc-gesture-toast { position: absolute; z-index: 15; left: 50%; top: 5.1rem; display: grid; grid-template-columns: auto auto; align-items: center; gap: 0.18rem 0.4rem; padding: 0.42rem 0.7rem; transform: translateX(-50%); border: 1px solid rgba(207, 171, 91, 0.28); border-radius: 0.45rem; color: #d6b96f; background: rgba(8, 10, 11, 0.83); box-shadow: 0 0.7rem 1.5rem rgba(0, 0, 0, 0.35); backdrop-filter: blur(6px); }
 .lc-gesture-toast span { font-size: 0.48rem; font-weight: 800; letter-spacing: 0.09em; text-transform: uppercase; }
 .lc-gesture-toast strong { grid-column: 1 / -1; color: #e3ded1; font-size: 0.62rem; font-weight: 700; text-align: center; }
+
+.lc-arena-interaction {
+  position: absolute;
+  z-index: 16;
+  left: 50%;
+  bottom: 1.15rem;
+  max-width: min(34rem, calc(100% - 2rem));
+  display: grid;
+  grid-template-columns: auto auto;
+  align-items: center;
+  justify-content: center;
+  gap: 0.12rem 0.42rem;
+  padding: 0.5rem 0.8rem;
+  transform: translateX(-50%);
+  border: 1px solid rgba(110, 231, 168, 0.48);
+  border-radius: 0.55rem;
+  color: #9ff4c2;
+  background: rgba(7, 18, 14, 0.9);
+  box-shadow: 0 0 1.4rem rgba(65, 216, 140, 0.18);
+  backdrop-filter: blur(7px);
+}
+.lc-arena-interaction span { font-size: 0.52rem; font-weight: 850; letter-spacing: 0.09em; text-transform: uppercase; }
+.lc-arena-interaction strong { grid-column: 1 / -1; overflow: hidden; color: #dcefe5; font-size: 0.58rem; text-overflow: ellipsis; white-space: nowrap; }
+.lc-arena-interaction:disabled { opacity: 0.45; }
 
 .lc-phase-overlay,
 .lc-interaction-overlay,
@@ -1190,6 +1280,7 @@ onBeforeUnmount(() => {
   .lc-vital-label span { font-size: 0.43rem; }
   .lc-vital-label strong { font-size: 0.48rem; }
   .lc-gesture-toast { top: 5.6rem; }
+  .lc-arena-interaction { bottom: 8rem; max-width: calc(100% - 8rem); }
   .lc-stage-footer { display: none; }
   .lc-telemetry { grid-template-columns: 1fr 1fr; gap: 0.4rem; }
   .lc-chance-card { grid-column: 1 / -1; grid-row: auto; }

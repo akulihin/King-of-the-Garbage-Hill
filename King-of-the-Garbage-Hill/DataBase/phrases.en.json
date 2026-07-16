@@ -4597,6 +4597,56 @@
       }
     ]
   },
+  "JonSnowDefeat": {
+    "passiveNameRussian": "Тупой бастард",
+    "passiveNameEnglish": "Dumb Bastard",
+    "phrases": [
+      {
+        "russian": "Ничего ты не знаешь, Джон Сноу!",
+        "english": "You know nothing, Jon Snow!"
+      }
+    ]
+  },
+  "JonSnowServerKing": {
+    "passiveNameRussian": "Король Сервера",
+    "passiveNameEnglish": "Server King",
+    "phrases": [
+      {
+        "russian": "Король Сервера!",
+        "english": "Server King!"
+      }
+    ]
+  },
+  "JonSnowCastleEnter": {
+    "passiveNameRussian": "Черный Замок",
+    "passiveNameEnglish": "Castle Black",
+    "phrases": [
+      {
+        "russian": "Помогите! Я застрял!",
+        "english": "Help! I'm stuck!"
+      }
+    ]
+  },
+  "JonSnowFinalCastleLow": {
+    "passiveNameRussian": "Черный Замок",
+    "passiveNameEnglish": "Castle Black",
+    "phrases": [
+      {
+        "russian": "Выпустите меня!!! Я хочу быть королем!",
+        "english": "Let me out!!! I want to be king!"
+      }
+    ]
+  },
+  "JonSnowFinalCastleHigh": {
+    "passiveNameRussian": "Черный Замок",
+    "passiveNameEnglish": "Castle Black",
+    "phrases": [
+      {
+        "russian": "Ну ладно, в замке хотя бы перезимовать можно.",
+        "english": "Fine. At least I can spend the winter in the castle."
+      }
+    ]
+  },
   "JusticePhrase": {
     "passiveNameRussian": "Справедливость",
     "passiveNameEnglish": "Justice",

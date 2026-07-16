@@ -8,6 +8,7 @@ using King_of_the_Garbage_Hill.DiscordFramework;
 using King_of_the_Garbage_Hill.Game.Characters;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.DiscordMessages;
+using King_of_the_Garbage_Hill.Game.GameLogic;
 using King_of_the_Garbage_Hill.Game.MemoryStorage;
 using King_of_the_Garbage_Hill.Helpers;
 using King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts;
@@ -383,6 +384,13 @@ public sealed class GameReaction : IServiceSingleton
                             break;
                         }
 
+                        if (!Naruto.CanChooseBlock(player))
+                        {
+                            await _help.SendMsgAndDeleteItAfterRound(
+                                player, "Клоны Наруто не могут блокировать.", 0);
+                            break;
+                        }
+
                         if (player.GameCharacter.Passive.Any(x => x.PassiveName == "Спарта"))
                         {
                             await _help.SendMsgAndDeleteItAfterRound(player, "Спартанцы не капитулируют!!", 0);
@@ -578,7 +586,10 @@ public sealed class GameReaction : IServiceSingleton
 
             var selected = options[optionIndex];
             if (UnknownBug.Is(selected)) return;
-            if (game.PlayersList.Any(p => p != player && p.GameCharacter.Name == selected.Name))
+            if (game.PlayersList.Any(p => p != player
+                                          && (p.GameCharacter.Name == selected.Name
+                                              || StartGameLogic.AreMutuallyExclusiveCharacters(
+                                                  p.GameCharacter.Name, selected.Name))))
                 return;
 
             var idx = game.PlayersList.IndexOf(player);
@@ -754,27 +765,13 @@ public sealed class GameReaction : IServiceSingleton
                 if (GordonFreeman.AnnounceHalfLife3(player, game))
                     return true;
 
-                // Block no longer exists after the one announcement. A bot fallback retries a
-                // legal attack instead; if no candidate is accepted, it safely skips the turn.
-                var fallbackTargets = game?.PlayersList.Where(target =>
-                        target.GetPlayerId() != player.GetPlayerId()
-                        && !target.Passives.IsDead
-                        && !Madara.IsSealed(target)
-                        && !Naruto.IsNarutoPair(player, target)
-                        && !player.IsTeamMember(game, target.GetPlayerId()))
-                    .OrderBy(target => target.Status.GetPlaceAtLeaderBoard())
-                    .ToList() ?? new List<GamePlayerBridgeClass>();
-                foreach (var fallbackTarget in fallbackTargets)
-                    if (await HandleAttack(player, null, fallbackTarget.Status.GetPlaceAtLeaderBoard()))
-                        return true;
-
-                status.WhoToAttackThisTurn.Clear();
-                status.IsBlock = false;
-                status.IsSkip = true;
-                status.ConfirmedSkip = true;
-                status.IsReady = true;
-                return true;
+                return await AttackOrSkipInsteadOfBlock(player, game);
             }
+
+            // Теневые clones have no Block action. This is the authoritative bot fallback in case
+            // any AI policy or empty-target path still asks for Block.
+            if (!Naruto.CanChooseBlock(player))
+                return await AttackOrSkipInsteadOfBlock(player, game);
 
             var blockText = "Вы поставили блок\n";
             status.AddInGamePersonalLogs(blockText);
@@ -910,6 +907,32 @@ public sealed class GameReaction : IServiceSingleton
             player.Status.AddInGamePersonalLogs(text);
             player.Status.ChangeMindWhat = text;
             return true;
+    }
+
+    private async Task<bool> AttackOrSkipInsteadOfBlock(
+        GamePlayerBridgeClass player,
+        GameClass game)
+    {
+        // Retry every legal-looking target through the authoritative attack handler. A candidate can
+        // still be rejected by character-specific rules, so only Skip after the whole pool is exhausted.
+        var fallbackTargets = game?.PlayersList.Where(target =>
+                target.GetPlayerId() != player.GetPlayerId()
+                && !target.Passives.IsDead
+                && !Madara.IsSealed(target)
+                && !Naruto.IsNarutoPair(player, target)
+                && !player.IsTeamMember(game, target.GetPlayerId()))
+            .OrderBy(target => target.Status.GetPlaceAtLeaderBoard())
+            .ToList() ?? new List<GamePlayerBridgeClass>();
+        foreach (var fallbackTarget in fallbackTargets)
+            if (await HandleAttack(player, null, fallbackTarget.Status.GetPlaceAtLeaderBoard()))
+                return true;
+
+        player.Status.WhoToAttackThisTurn.Clear();
+        player.Status.IsBlock = false;
+        player.Status.IsSkip = true;
+        player.Status.ConfirmedSkip = true;
+        player.Status.IsReady = true;
+        return true;
     }
 
     //for GetLvlUp ONLY!

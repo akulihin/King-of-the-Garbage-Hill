@@ -1,11 +1,19 @@
 import {
+  LAST_CHANCES_ATTACK_BEHAVIORS,
   LAST_CHANCES_ATTACK_KINDS,
+  LAST_CHANCES_AUGMENTS,
+  LAST_CHANCES_COLLIDER_SHAPES,
+  LAST_CHANCES_DAMAGE_TYPES,
   LAST_CHANCES_ENEMY_ATTACK_KINDS,
   LAST_CHANCES_ENEMY_ROLES,
   LAST_CHANCES_EQUIP_MODES,
   LAST_CHANCES_GESTURES,
   LAST_CHANCES_HAZARD_KINDS,
   LAST_CHANCES_HANDS,
+  LAST_CHANCES_STATUS_KINDS,
+  LAST_CHANCES_STATUS_REFRESH_MODES,
+  LAST_CHANCES_WEAPON_RESOURCE_KINDS,
+  LAST_CHANCES_WEAPON_TRAITS,
 } from './types'
 import type {
   LastChancesConfig,
@@ -183,14 +191,202 @@ function validateStats(value: unknown, path: string, errors: string[], allowZero
   }
 }
 
-function validateAttack(value: unknown, path: string, errors: string[]): void {
+function validateHitEffects(value: unknown, path: string, errors: string[]): void {
+  if (value === undefined) return
+  if (!Array.isArray(value)) {
+    errors.push(`${path} must be an array`)
+    return
+  }
+  value.forEach((effectValue, index) => {
+    const effectPath = `${path}[${index}]`
+    const effect = asRecord(effectValue, effectPath, errors)
+    if (!effect) return
+    if (!LAST_CHANCES_STATUS_KINDS.includes(
+      effect.status as typeof LAST_CHANCES_STATUS_KINDS[number],
+    )) {
+      errors.push(`${effectPath}.status must be one of ${LAST_CHANCES_STATUS_KINDS.join(', ')}`)
+    }
+    requirePositiveNumber(effect, 'durationMs', effectPath, errors)
+    if (effect.stacks !== undefined) requireInteger(effect, 'stacks', effectPath, errors, 1)
+    if (effect.chance !== undefined) {
+      requireNumber(effect, 'chance', effectPath, errors)
+      if (typeof effect.chance === 'number' && effect.chance > 1) {
+        errors.push(`${effectPath}.chance must be <= 1`)
+      }
+    }
+    for (const key of ['magnitude', 'tickDamage'] as const) {
+      if (effect[key] !== undefined) requireNumber(effect, key, effectPath, errors)
+    }
+    if (effect.tickMs !== undefined) requirePositiveNumber(effect, 'tickMs', effectPath, errors)
+    if (effect.refresh !== undefined && !LAST_CHANCES_STATUS_REFRESH_MODES.includes(
+      effect.refresh as typeof LAST_CHANCES_STATUS_REFRESH_MODES[number],
+    )) {
+      errors.push(`${effectPath}.refresh must be one of ${LAST_CHANCES_STATUS_REFRESH_MODES.join(', ')}`)
+    }
+  })
+}
+
+function validateAttackOverrides(value: unknown, path: string, errors: string[]): void {
+  if (value === undefined) return
+  const overrides = asRecord(value, path, errors)
+  if (!overrides) return
+  for (const key of [
+    'damage',
+    'cooldownMs',
+    'range',
+    'radius',
+    'arcDegrees',
+    'durationMs',
+    'lingerMs',
+    'projectileSpeed',
+    'knockback',
+    'recoveryMs',
+    'rootMs',
+    'invulnerabilityMs',
+    'repeatIntervalMs',
+  ] as const) {
+    if (overrides[key] !== undefined) requireNumber(overrides, key, path, errors)
+  }
+  if (overrides.pierce !== undefined) requireInteger(overrides, 'pierce', path, errors)
+  if (overrides.repeatHits !== undefined) requireInteger(overrides, 'repeatHits', path, errors, 1)
+}
+
+function validateCollider(value: unknown, path: string, errors: string[]): void {
+  if (value === undefined) return
+  const collider = asRecord(value, path, errors)
+  if (!collider) return
+  if (!LAST_CHANCES_COLLIDER_SHAPES.includes(
+    collider.shape as typeof LAST_CHANCES_COLLIDER_SHAPES[number],
+  )) {
+    errors.push(`${path}.shape must be one of ${LAST_CHANCES_COLLIDER_SHAPES.join(', ')}`)
+  }
+  requireNumber(collider, 'traceMs', path, errors)
+  if (collider.innerRange !== undefined) requireNumber(collider, 'innerRange', path, errors)
+  if (collider.width !== undefined) requirePositiveNumber(collider, 'width', path, errors)
+  if (collider.tickMs !== undefined) requirePositiveNumber(collider, 'tickMs', path, errors)
+  if (collider.followsPlayer !== undefined && typeof collider.followsPlayer !== 'boolean') {
+    errors.push(`${path}.followsPlayer must be a boolean`)
+  }
+  if (collider.rotationDegrees !== undefined
+    && (typeof collider.rotationDegrees !== 'number' || !Number.isFinite(collider.rotationDegrees))) {
+    errors.push(`${path}.rotationDegrees must be a finite number`)
+  }
+}
+
+function validateCharge(value: unknown, path: string, errors: string[]): void {
+  if (value === undefined) return
+  const charge = asRecord(value, path, errors)
+  if (!charge) return
+  requirePositiveNumber(charge, 'maxMs', path, errors)
+  if (!Array.isArray(charge.bands) || charge.bands.length === 0) {
+    errors.push(`${path}.bands must be a non-empty array`)
+    return
+  }
+  let previousMinimum = Number.NEGATIVE_INFINITY
+  const bandIds = new Set<string>()
+  charge.bands.forEach((bandValue, index) => {
+    const bandPath = `${path}.bands[${index}]`
+    const band = asRecord(bandValue, bandPath, errors)
+    if (!band) return
+    requireString(band, 'id', bandPath, errors)
+    requireString(band, 'label', bandPath, errors)
+    requireNumber(band, 'minMs', bandPath, errors)
+    requireString(band, 'color', bandPath, errors)
+    if (typeof band.id === 'string') {
+      if (bandIds.has(band.id)) errors.push(`${bandPath}.id duplicates ${band.id}`)
+      bandIds.add(band.id)
+    }
+    if (typeof band.minMs === 'number' && Number.isFinite(band.minMs)) {
+      if (band.minMs <= previousMinimum) {
+        errors.push(`${bandPath}.minMs must be strictly greater than the previous charge band`)
+      }
+      if (typeof charge.maxMs === 'number' && band.minMs > charge.maxMs) {
+        errors.push(`${bandPath}.minMs must be <= ${path}.maxMs`)
+      }
+      previousMinimum = band.minMs
+    }
+    for (const key of [
+      'damageMultiplier',
+      'rangeMultiplier',
+      'knockbackMultiplier',
+      'durationMultiplier',
+      'speedMultiplier',
+    ] as const) {
+      if (band[key] !== undefined) requireNumber(band, key, bandPath, errors)
+    }
+    validateAttackOverrides(band.overrides, `${bandPath}.overrides`, errors)
+  })
+}
+
+function validateSweetSpot(value: unknown, path: string, errors: string[]): void {
+  if (value === undefined) return
+  const sweetSpot = asRecord(value, path, errors)
+  if (!sweetSpot) return
+  requireNumber(sweetSpot, 'minRange', path, errors)
+  requirePositiveNumber(sweetSpot, 'damageMultiplier', path, errors)
+  if (sweetSpot.maxRange !== undefined) requirePositiveNumber(sweetSpot, 'maxRange', path, errors)
+  if (typeof sweetSpot.minRange === 'number' && typeof sweetSpot.maxRange === 'number'
+    && sweetSpot.maxRange <= sweetSpot.minRange) {
+    errors.push(`${path}.maxRange must be greater than minRange`)
+  }
+  if (sweetSpot.knockbackMultiplier !== undefined) {
+    requireNumber(sweetSpot, 'knockbackMultiplier', path, errors)
+  }
+  if (sweetSpot.criticalMultiplier !== undefined) {
+    requirePositiveNumber(sweetSpot, 'criticalMultiplier', path, errors)
+  }
+}
+
+function validateTuning(value: unknown, path: string, errors: string[]): void {
+  if (value === undefined) return
+  const tuning = asRecord(value, path, errors)
+  if (!tuning) return
+  for (const [key, amount] of Object.entries(tuning)) {
+    if (typeof amount !== 'number' || !Number.isFinite(amount)) {
+      errors.push(`${path}.${key} must be a finite number`)
+    }
+  }
+}
+
+function validateAttack(
+  value: unknown,
+  path: string,
+  errors: string[],
+  schemaVersion: number,
+): void {
   const record = asRecord(value, path, errors)
   if (!record) return
   requireString(record, 'name', path, errors)
   if (!LAST_CHANCES_ATTACK_KINDS.includes(record.kind as typeof LAST_CHANCES_ATTACK_KINDS[number])) {
     errors.push(`${path}.kind must be one of ${LAST_CHANCES_ATTACK_KINDS.join(', ')}`)
   }
+  if (record.enabled !== undefined && typeof record.enabled !== 'boolean') {
+    errors.push(`${path}.enabled must be a boolean`)
+  }
+  if (record.behavior !== undefined && !LAST_CHANCES_ATTACK_BEHAVIORS.includes(
+    record.behavior as typeof LAST_CHANCES_ATTACK_BEHAVIORS[number],
+  )) {
+    errors.push(`${path}.behavior must be one of ${LAST_CHANCES_ATTACK_BEHAVIORS.join(', ')}`)
+  }
+  if (schemaVersion === 3 && record.behavior === undefined) {
+    errors.push(`${path}.behavior is required by schemaVersion 3`)
+  }
+  if (schemaVersion === 3 && record.enabled === false && record.behavior !== 'disabled') {
+    errors.push(`${path}.behavior must be disabled when enabled is false`)
+  }
+  if (schemaVersion === 3 && record.behavior === 'disabled' && record.enabled !== false) {
+    errors.push(`${path}.enabled must be false when behavior is disabled`)
+  }
+  if (schemaVersion === 3 && record.enabled !== false
+    && record.behavior !== 'disabled' && record.collider === undefined) {
+    errors.push(`${path}.collider is required for enabled schemaVersion 3 attacks`)
+  }
   requireNumber(record, 'damage', path, errors)
+  if (record.damageType !== undefined && !LAST_CHANCES_DAMAGE_TYPES.includes(
+    record.damageType as typeof LAST_CHANCES_DAMAGE_TYPES[number],
+  )) {
+    errors.push(`${path}.damageType must be one of ${LAST_CHANCES_DAMAGE_TYPES.join(', ')}`)
+  }
   requireNumber(record, 'cooldownMs', path, errors)
   requireNumber(record, 'range', path, errors)
   requireNumber(record, 'radius', path, errors)
@@ -201,13 +397,44 @@ function validateAttack(value: unknown, path: string, errors: string[]): void {
   requireInteger(record, 'pierce', path, errors)
   requireNumber(record, 'knockback', path, errors)
   requireString(record, 'color', path, errors)
+  validateCollider(record.collider, `${path}.collider`, errors)
+  validateCharge(record.charge, `${path}.charge`, errors)
+  validateHitEffects(record.hitEffects, `${path}.hitEffects`, errors)
+  for (const key of [
+    'recoveryMs',
+    'rootMs',
+    'invulnerabilityMs',
+    'repeatIntervalMs',
+    'cooldownRefundMs',
+  ] as const) {
+    if (record[key] !== undefined) requireNumber(record, key, path, errors)
+  }
+  if (record.repeatHits !== undefined) requireInteger(record, 'repeatHits', path, errors, 1)
+  if (typeof record.repeatHits === 'number' && record.repeatHits > 1
+    && record.repeatIntervalMs === undefined) {
+    errors.push(`${path}.repeatIntervalMs is required when repeatHits is greater than 1`)
+  }
+  if (record.resetCooldownOnKill !== undefined && typeof record.resetCooldownOnKill !== 'boolean') {
+    errors.push(`${path}.resetCooldownOnKill must be a boolean`)
+  }
+  if (record.resourceCost !== undefined) requireNumber(record, 'resourceCost', path, errors)
+  if (record.consumeAllResource !== undefined && typeof record.consumeAllResource !== 'boolean') {
+    errors.push(`${path}.consumeAllResource must be a boolean`)
+  }
+  validateTuning(record.tuning, `${path}.tuning`, errors)
+  validateSweetSpot(record.sweetSpot, `${path}.sweetSpot`, errors)
 }
 
-function validateAttackSet(value: unknown, path: string, errors: string[]): void {
+function validateAttackSet(
+  value: unknown,
+  path: string,
+  errors: string[],
+  schemaVersion: number,
+): void {
   const attacks = asRecord(value, path, errors)
   if (!attacks) return
   for (const gesture of LAST_CHANCES_GESTURES) {
-    validateAttack(attacks[gesture], `${path}.${gesture}`, errors)
+    validateAttack(attacks[gesture], `${path}.${gesture}`, errors, schemaVersion)
   }
   const tap = attacks.tap
   if (typeof tap === 'object' && tap !== null && !Array.isArray(tap)
@@ -221,6 +448,7 @@ function validateTapCombo(
   path: string,
   errors: string[],
   required: boolean,
+  schemaVersion: number,
 ): void {
   if (value === undefined && !required) return
   if (!Array.isArray(value) || value.length < 1) {
@@ -229,7 +457,7 @@ function validateTapCombo(
   }
   value.forEach((attack, index) => {
     const attackPath = `${path}[${index}]`
-    validateAttack(attack, attackPath, errors)
+    validateAttack(attack, attackPath, errors, schemaVersion)
     if (typeof attack === 'object' && attack !== null && !Array.isArray(attack)
       && (attack as UnknownRecord).cooldownMs !== 0) {
       errors.push(`${attackPath}.cooldownMs must be 0 because basic taps have no cooldown`)
@@ -357,7 +585,7 @@ function validateRooms(value: unknown, errors: string[], requireSpawnLayouts: bo
       })
     }
     if (requireSpawnLayouts && room.spawnLayouts === undefined) {
-      errors.push(`${path}.spawnLayouts is required by schemaVersion 2`)
+      errors.push(`${path}.spawnLayouts is required by schemaVersion 2 or newer`)
     }
     if (room.spawnLayouts !== undefined && (!Array.isArray(room.spawnLayouts) || room.spawnLayouts.length < 2)) {
       errors.push(`${path}.spawnLayouts must contain at least two named layouts when provided`)
@@ -425,10 +653,17 @@ function validateEnemies(value: unknown, errors: string[], schemaVersion: number
       'attackCooldownMs', 'attackWindupMs'] as const) {
       requirePositiveNumber(enemy, key, path, errors)
     }
-    if (schemaVersion === 2 || enemy.idleTurnRadiansPerSecond !== undefined) {
+    if (enemy.armor !== undefined) requireNumber(enemy, 'armor', path, errors)
+    if (enemy.dodge !== undefined) {
+      requireNumber(enemy, 'dodge', path, errors)
+      if (typeof enemy.dodge === 'number' && enemy.dodge > 1) {
+        errors.push(`${path}.dodge must be <= 1`)
+      }
+    }
+    if (schemaVersion >= 2 || enemy.idleTurnRadiansPerSecond !== undefined) {
       requireNumber(enemy, 'idleTurnRadiansPerSecond', path, errors)
     }
-    if (schemaVersion === 2 || enemy.preferredAttackRangeRatio !== undefined) {
+    if (schemaVersion >= 2 || enemy.preferredAttackRangeRatio !== undefined) {
       requirePositiveNumber(enemy, 'preferredAttackRangeRatio', path, errors)
       if (typeof enemy.preferredAttackRangeRatio === 'number'
         && enemy.preferredAttackRangeRatio > 1) {
@@ -485,6 +720,7 @@ function validateEnemies(value: unknown, errors: string[], schemaVersion: number
     requireNumber(enemy, 'attackDamage', path, errors)
     requireNumber(enemy, 'mentalPressurePerSecond', path, errors)
     requireString(enemy, 'color', path, errors)
+    validateTuning(enemy.tuning, `${path}.tuning`, errors)
     if (typeof enemy.id === 'string') {
       if (ids.has(enemy.id)) errors.push(`${path}.id duplicates ${enemy.id}`)
       ids.add(enemy.id)
@@ -561,6 +797,57 @@ function inferredEquipMode(weapon: UnknownRecord): string {
   return weapon.hand === 'right' ? 'secondaryOnly' : 'primaryOnly'
 }
 
+function validateWeaponResource(value: unknown, path: string, errors: string[]): void {
+  if (value === undefined) return
+  const resource = asRecord(value, path, errors)
+  if (!resource) return
+  if (!LAST_CHANCES_WEAPON_RESOURCE_KINDS.includes(
+    resource.kind as typeof LAST_CHANCES_WEAPON_RESOURCE_KINDS[number],
+  )) {
+    errors.push(`${path}.kind must be one of ${LAST_CHANCES_WEAPON_RESOURCE_KINDS.join(', ')}`)
+  }
+  requirePositiveNumber(resource, 'max', path, errors)
+  requireNumber(resource, 'initial', path, errors)
+  if (typeof resource.max === 'number' && typeof resource.initial === 'number'
+    && resource.initial > resource.max) {
+    errors.push(`${path}.initial must be <= max`)
+  }
+  if (resource.label !== undefined) requireString(resource, 'label', path, errors)
+  if (resource.color !== undefined) requireString(resource, 'color', path, errors)
+}
+
+function validateAugmentHooks(value: unknown, path: string, errors: string[]): void {
+  if (value === undefined) return
+  const hooks = asRecord(value, path, errors)
+  if (!hooks) return
+  for (const [augment, hookValue] of Object.entries(hooks)) {
+    const hookPath = `${path}.${augment}`
+    if (!LAST_CHANCES_AUGMENTS.includes(augment as typeof LAST_CHANCES_AUGMENTS[number])) {
+      errors.push(`${hookPath} uses unknown augment ${augment}`)
+      continue
+    }
+    const hook = asRecord(hookValue, hookPath, errors)
+    if (!hook) continue
+    if (hook.behaviors !== undefined) {
+      if (!Array.isArray(hook.behaviors) || hook.behaviors.length === 0) {
+        errors.push(`${hookPath}.behaviors must be a non-empty array`)
+      } else {
+        for (const [behaviorIndex, behavior] of hook.behaviors.entries()) {
+          if (!LAST_CHANCES_ATTACK_BEHAVIORS.includes(
+            behavior as typeof LAST_CHANCES_ATTACK_BEHAVIORS[number],
+          )) {
+            errors.push(`${hookPath}.behaviors[${behaviorIndex}] uses unknown behavior ${String(behavior)}`)
+          }
+        }
+      }
+    }
+    if (hook.damageMultiplier !== undefined) {
+      requireNumber(hook, 'damageMultiplier', hookPath, errors)
+    }
+    validateHitEffects(hook.hitEffects, `${hookPath}.hitEffects`, errors)
+  }
+}
+
 function validateWeapons(
   value: unknown,
   loadoutValue: unknown,
@@ -586,24 +873,40 @@ function validateWeapons(
     if (weapon.corpseBound !== undefined && typeof weapon.corpseBound !== 'boolean') {
       errors.push(`${path}.corpseBound must be a boolean`)
     }
+    if (weapon.trait !== undefined && !LAST_CHANCES_WEAPON_TRAITS.includes(
+      weapon.trait as typeof LAST_CHANCES_WEAPON_TRAITS[number],
+    )) {
+      errors.push(`${path}.trait must be one of ${LAST_CHANCES_WEAPON_TRAITS.join(', ')}`)
+    }
+    if (schemaVersion === 3 && weapon.trait === undefined) {
+      errors.push(`${path}.trait is required by schemaVersion 3`)
+    }
+    validateTuning(weapon.tuning, `${path}.tuning`, errors)
+    validateWeaponResource(weapon.resource, `${path}.resource`, errors)
+    if (weapon.defaultAugment !== undefined && !LAST_CHANCES_AUGMENTS.includes(
+      weapon.defaultAugment as typeof LAST_CHANCES_AUGMENTS[number],
+    )) {
+      errors.push(`${path}.defaultAugment must be one of ${LAST_CHANCES_AUGMENTS.join(', ')}`)
+    }
+    validateAugmentHooks(weapon.augmentHooks, `${path}.augmentHooks`, errors)
     if (weapon.hand !== undefined
       && !LAST_CHANCES_HANDS.includes(weapon.hand as typeof LAST_CHANCES_HANDS[number])) {
       errors.push(`${path}.hand must be left or right`)
     }
-    if (schemaVersion === 2 && weapon.hand !== undefined) {
-      errors.push(`${path}.hand is legacy-only; schemaVersion 2 uses loadout and equipMode`)
+    if (schemaVersion >= 2 && weapon.hand !== undefined) {
+      errors.push(`${path}.hand is legacy-only; schemaVersion ${schemaVersion} uses loadout and equipMode`)
     }
     if (weapon.equipMode !== undefined
       && !LAST_CHANCES_EQUIP_MODES.includes(weapon.equipMode as typeof LAST_CHANCES_EQUIP_MODES[number])) {
       errors.push(`${path}.equipMode must be one of ${LAST_CHANCES_EQUIP_MODES.join(', ')}`)
     }
-    if (schemaVersion === 2 && weapon.equipMode === undefined) {
-      errors.push(`${path}.equipMode is required by schemaVersion 2`)
+    if (schemaVersion >= 2 && weapon.equipMode === undefined) {
+      errors.push(`${path}.equipMode is required by schemaVersion ${schemaVersion}`)
     }
-    validateAttackSet(weapon.attacks, `${path}.attacks`, errors)
-    validateTapCombo(weapon.tapCombo, `${path}.tapCombo`, errors, schemaVersion === 2)
+    validateAttackSet(weapon.attacks, `${path}.attacks`, errors, schemaVersion)
+    validateTapCombo(weapon.tapCombo, `${path}.tapCombo`, errors, schemaVersion >= 2, schemaVersion)
     if (weapon.secondaryAttacks !== undefined) {
-      validateAttackSet(weapon.secondaryAttacks, `${path}.secondaryAttacks`, errors)
+      validateAttackSet(weapon.secondaryAttacks, `${path}.secondaryAttacks`, errors, schemaVersion)
     }
     const equipMode = inferredEquipMode(weapon)
     if ((equipMode === 'twoHanded' || equipMode === 'hybrid') && weapon.secondaryAttacks === undefined) {
@@ -613,7 +916,8 @@ function validateWeapons(
       weapon.secondaryTapCombo,
       `${path}.secondaryTapCombo`,
       errors,
-      schemaVersion === 2 && (equipMode === 'twoHanded' || equipMode === 'hybrid'),
+      schemaVersion >= 2 && (equipMode === 'twoHanded' || equipMode === 'hybrid'),
+      schemaVersion,
     )
     if (typeof weapon.id === 'string') {
       if (ids.has(weapon.id)) errors.push(`${path}.id duplicates ${weapon.id}`)
@@ -627,8 +931,8 @@ function validateWeapons(
   })
 
   if (!hasLoadout) {
-    if (schemaVersion === 2) {
-      errors.push('loadout is required by schemaVersion 2')
+    if (schemaVersion >= 2) {
+      errors.push(`loadout is required by schemaVersion ${schemaVersion}`)
     } else {
       if (value.length !== 2) errors.push('legacy weapons without loadout must contain exactly two definitions')
       for (const hand of LAST_CHANCES_HANDS) {
@@ -645,6 +949,13 @@ function validateWeapons(
     && (typeof loadout.secondaryWeaponId !== 'string' || loadout.secondaryWeaponId.trim().length === 0)) {
     errors.push('loadout.secondaryWeaponId must be a non-empty string or null')
   }
+  for (const key of ['primaryAugment', 'secondaryAugment'] as const) {
+    if (loadout[key] !== undefined && !LAST_CHANCES_AUGMENTS.includes(
+      loadout[key] as typeof LAST_CHANCES_AUGMENTS[number],
+    )) {
+      errors.push(`loadout.${key} must be one of ${LAST_CHANCES_AUGMENTS.join(', ')}`)
+    }
+  }
   if (typeof loadout.primaryWeaponId !== 'string') return
   const primary = catalog.get(loadout.primaryWeaponId)
   if (!primary) {
@@ -655,6 +966,17 @@ function validateWeapons(
   if (primaryMode === 'secondaryOnly') {
     errors.push('loadout.primaryWeaponId cannot equip a secondaryOnly weapon')
   }
+  const primaryAugment = typeof loadout.primaryAugment === 'string'
+    ? loadout.primaryAugment
+    : 'none'
+  const primaryHooks = typeof primary.augmentHooks === 'object'
+    && primary.augmentHooks !== null
+    && !Array.isArray(primary.augmentHooks)
+    ? primary.augmentHooks as UnknownRecord
+    : null
+  if (primaryAugment !== 'none' && !primaryHooks?.[primaryAugment]) {
+    errors.push(`loadout.primaryAugment ${primaryAugment} is not supported by ${loadout.primaryWeaponId}`)
+  }
 
   const secondaryId = typeof loadout.secondaryWeaponId === 'string'
     ? loadout.secondaryWeaponId
@@ -662,7 +984,9 @@ function validateWeapons(
   if (primaryMode === 'twoHanded' && secondaryId) {
     errors.push('loadout.secondaryWeaponId must be null while a twoHanded weapon is equipped')
   }
-  if (!secondaryId) return
+  if (!secondaryId) {
+    return
+  }
 
   const secondary = catalog.get(secondaryId)
   if (!secondary) {
@@ -675,6 +999,17 @@ function validateWeapons(
   }
   if (secondaryId === loadout.primaryWeaponId && primaryMode !== 'eitherHand') {
     errors.push('only eitherHand weapons may be equipped in both hands')
+  }
+  const secondaryAugment = typeof loadout.secondaryAugment === 'string'
+    ? loadout.secondaryAugment
+    : 'none'
+  const secondaryHooks = typeof secondary.augmentHooks === 'object'
+    && secondary.augmentHooks !== null
+    && !Array.isArray(secondary.augmentHooks)
+    ? secondary.augmentHooks as UnknownRecord
+    : null
+  if (secondaryAugment !== 'none' && !secondaryHooks?.[secondaryAugment]) {
+    errors.push(`loadout.secondaryAugment ${secondaryAugment} is not supported by ${secondaryId}`)
   }
 }
 
@@ -1002,10 +1337,10 @@ export function validateLastChancesConfig(value: unknown): LastChancesConfigVali
   const root = asRecord(value, 'config', errors)
   if (!root) return { valid: false, errors }
 
-  if (root.schemaVersion !== 1 && root.schemaVersion !== 2) {
-    errors.push('schemaVersion must be 1 or 2')
+  if (root.schemaVersion !== 1 && root.schemaVersion !== 2 && root.schemaVersion !== 3) {
+    errors.push('schemaVersion must be 1, 2, or 3')
   }
-  const schemaVersion = root.schemaVersion === 2 ? 2 : 1
+  const schemaVersion = root.schemaVersion === 3 ? 3 : root.schemaVersion === 2 ? 2 : 1
   requireString(root, 'title', 'config', errors)
   requireString(root, 'seed', 'config', errors)
   requireInteger(root, 'chances', 'config', errors, 1)
@@ -1019,7 +1354,7 @@ export function validateLastChancesConfig(value: unknown): LastChancesConfigVali
   const input = asRecord(root.input, 'input', errors)
   if (input) {
     requirePositiveNumber(input, 'doubleTapMs', 'input', errors)
-    if (schemaVersion === 2 || input.tapComboWindowMs !== undefined) {
+    if (schemaVersion >= 2 || input.tapComboWindowMs !== undefined) {
       requirePositiveNumber(input, 'tapComboWindowMs', 'input', errors)
     }
     requirePositiveNumber(input, 'holdMs', 'input', errors)
@@ -1052,7 +1387,7 @@ export function validateLastChancesConfig(value: unknown): LastChancesConfigVali
   }
 
   const progression = asRecord(root.progression, 'progression', errors)
-  const roomIds = validateRooms(root.rooms, errors, schemaVersion === 2)
+  const roomIds = validateRooms(root.rooms, errors, schemaVersion >= 2)
   const enemyIds = validateEnemies(root.enemies, errors, schemaVersion)
   if (progression) {
     requireNumber(progression, 'roomHpRecovery', 'progression', errors)
@@ -1095,6 +1430,61 @@ function getBrowserStorage(): Storage | null {
   }
 }
 
+function configSchemaVersion(value: unknown): number {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return 0
+  const version = (value as UnknownRecord).schemaVersion
+  return typeof version === 'number' ? version : 0
+}
+
+function mergeLegacyOverrideWithCurrent(
+  legacyValue: unknown,
+  current: LastChancesConfig,
+): LastChancesConfig {
+  const migratedLegacy = migrateLastChancesConfig(legacyValue)
+  const legacyValidation = validateLastChancesConfig(migratedLegacy)
+  if (!legacyValidation.valid) {
+    throw new LastChancesConfigError(
+      'Invalid 99LC browser override',
+      legacyValidation.errors,
+    )
+  }
+  const legacy = migratedLegacy as LastChancesConfig
+  const merged = cloneLastChancesConfig(current)
+  merged.title = legacy.title
+  merged.seed = legacy.seed
+  merged.chances = legacy.chances
+  merged.graph = JSON.parse(JSON.stringify(legacy.graph)) as LastChancesConfig['graph']
+  merged.input = JSON.parse(JSON.stringify(legacy.input)) as LastChancesConfig['input']
+  merged.player = JSON.parse(JSON.stringify(legacy.player)) as LastChancesConfig['player']
+  merged.mentalHealth = JSON.parse(
+    JSON.stringify(legacy.mentalHealth),
+  ) as LastChancesConfig['mentalHealth']
+  merged.progression = JSON.parse(
+    JSON.stringify(legacy.progression),
+  ) as LastChancesConfig['progression']
+  merged.enemies = JSON.parse(JSON.stringify(legacy.enemies)) as LastChancesConfig['enemies']
+  merged.narrative = legacy.narrative
+    ? JSON.parse(JSON.stringify(legacy.narrative)) as LastChancesConfig['narrative']
+    : merged.narrative
+  merged.renderer = JSON.parse(JSON.stringify(legacy.renderer)) as LastChancesConfig['renderer']
+  const currentRooms = new Map(current.rooms.map(room => [room.id, room]))
+  merged.rooms = legacy.rooms.map((legacyRoom) => {
+    const currentRoom = currentRooms.get(legacyRoom.id)
+    return {
+      ...(JSON.parse(JSON.stringify(legacyRoom)) as typeof legacyRoom),
+      ...(currentRoom?.interaction
+        ? { interaction: JSON.parse(JSON.stringify(currentRoom.interaction)) }
+        : { interaction: undefined }),
+    }
+  })
+  merged.schemaVersion = 3
+  merged.weapons = cloneLastChancesConfig(current).weapons
+  merged.loadout = current.loadout
+    ? JSON.parse(JSON.stringify(current.loadout)) as LastChancesConfig['loadout']
+    : undefined
+  return assertValidConfig(merged, 'migrated browser override')
+}
+
 export function cloneLastChancesConfig(config: LastChancesConfig): LastChancesConfig {
   return JSON.parse(JSON.stringify(config)) as LastChancesConfig
 }
@@ -1123,7 +1513,19 @@ export async function loadLastChancesConfig(
     } catch {
       throw new LastChancesConfigError('Invalid 99LC browser override', ['stored value is not valid JSON'])
     }
-    return assertValidConfig(value, 'browser override')
+    const overrideVersion = configSchemaVersion(value)
+    if (overrideVersion >= 3 || overrideVersion <= 1) {
+      return assertValidConfig(value, 'browser override')
+    }
+
+    const url = options.url ?? LAST_CHANCES_CONFIG_URL
+    const response = await fetch(url, { cache: 'no-store', signal: options.signal })
+    if (!response.ok) throw new Error(`Unable to load 99LC config (${response.status} ${response.statusText})`)
+    const current = assertValidConfig(await response.json() as unknown, url)
+    if (current.schemaVersion < 3) return assertValidConfig(value, 'browser override')
+    const migrated = mergeLegacyOverrideWithCurrent(value, current)
+    storage?.setItem(LAST_CHANCES_CONFIG_STORAGE_KEY, JSON.stringify(migrated))
+    return migrated
   }
 
   const url = options.url ?? LAST_CHANCES_CONFIG_URL

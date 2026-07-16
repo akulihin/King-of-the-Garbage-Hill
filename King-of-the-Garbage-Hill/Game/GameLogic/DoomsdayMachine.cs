@@ -661,6 +661,9 @@ public class DoomsdayMachine : IServiceSingleton
                                                             || narutoSummonAutoWin
                                                             || isRailgunFight);
                 if (fightWillResolve)
+                    JonSnow.ApplyDifficultyJustice(
+                        player, playerIamAttacking, _calculateRounds);
+                if (fightWillResolve)
                     TheBoys.ApplyKillingCoupleJustice(
                         player, playerIamAttacking, _calculateRounds);
 
@@ -1558,6 +1561,13 @@ public class DoomsdayMachine : IServiceSingleton
                 //fight Reset
                 await _characterPassives.HandleCharacterAfterFight(player, game, true, false);
                 await _characterPassives.HandleCharacterAfterFight(playerIamAttacking, game, false, true);
+
+                JonSnow.HandleResolvedFight(
+                    game,
+                    player,
+                    playerIamAttacking,
+                    resolvedWinner,
+                    resolvedLoser);
                 
                 _characterPassives.HandleShark(game); //used only for shark...
 
@@ -1867,6 +1877,7 @@ public class DoomsdayMachine : IServiceSingleton
 
         game.SkipPlayersThisRound = 0;
         game.RoundNo++;
+        JonSnow.ExpireBlackCastleBeforeScoreSort(game);
 
         if (game.GameMode == "aram" && game.RoundNo == 2)
         {

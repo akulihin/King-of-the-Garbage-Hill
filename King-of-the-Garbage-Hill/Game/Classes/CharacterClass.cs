@@ -64,6 +64,8 @@ public class CharacterClass
     public bool TeamModeOnly { get; set; }
     public bool DoomRollMode { get; set; }
     public bool IntelligenceCappedAtZero { get; set; }
+    public int JonSnowBastardIntelligenceBonus { get; set; }
+    public bool JonSnowBecameKing { get; set; }
 
 
     // PRIVATE
@@ -1028,6 +1030,8 @@ public class CharacterClass
 
         SkillMain = 0;
         SkillExtra = howMuchToSet;
+        if (ReferenceEquals(Status?.GameCharacter, this))
+            JonSnow.TryBecomeKing(this);
     }
 
     public decimal AddMainSkill(string skillName, bool isLog = true)
@@ -1069,6 +1073,8 @@ public class CharacterClass
 
         if (isLog)
             Status.AddInGamePersonalLogs($"Мишень: +{total} *Cкилла* (за {skillName} врага)\n");
+        if (ReferenceEquals(Status?.GameCharacter, this))
+            JonSnow.TryBecomeKing(this);
         return total;
     }
 
@@ -1100,6 +1106,8 @@ public class CharacterClass
         if (SkillSiphonBox.HasValue && howMuchToAdd > 0)
             SkillSiphonBox += howMuchToAdd;
 
+        if (ReferenceEquals(Status?.GameCharacter, this))
+            JonSnow.TryBecomeKing(this);
         return howMuchToAdd;
     }
 

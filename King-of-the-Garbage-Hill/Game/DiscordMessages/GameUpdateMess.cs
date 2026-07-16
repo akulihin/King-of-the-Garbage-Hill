@@ -319,6 +319,14 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
             }
         }
 
+        // Джон Сноу's two weakest-player marks are intentionally public.
+        var jonSnow = JonSnow.Find(game.PlayersList);
+        if (jonSnow != null
+            && !jonSnow.Passives.IsDead
+            && JonSnow.HasPassive(jonSnow, JonSnow.AnotherBastard)
+            && jonSnow.Passives.JonSnow.WeakestPlayerIds.Contains(player2.GetPlayerId()))
+            customString += "🐺";
+
         // Геральт — monster type icon
         //if (player2.Passives.GeraltMonsterType != null)
         //    customString += Geralt.GetMonsterEmoji(player2.Passives.GeraltMonsterType.Value);
@@ -1971,7 +1979,8 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                 isDisabled: player.Status.IsReady
                             || !GordonFreeman.CanAnnounceHalfLife3(player, game));
 
-        var playerIsReady = player.Status.IsBlock || player.Status.IsSkip || player.Status.IsReady;
+        var playerIsReady = !Naruto.CanChooseBlock(player)
+                            || player.Status.IsBlock || player.Status.IsSkip || player.Status.IsReady;
         //Возвращение из мертвых
         if (game.RoundNo > 10 && game.IsKratosEvent &&
             (player.GameCharacter.Passive.Any(x => x.PassiveName == "Возвращение из мертвых")

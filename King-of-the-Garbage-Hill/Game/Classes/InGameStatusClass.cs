@@ -232,9 +232,14 @@ public class InGameStatus
     {
         if (bonusPoints < 0 && UnknownBug.Is(GameCharacter)) return;
 
+        var isRoyal = JonSnow.IsKingActive(GameCharacter, PlaceAtLeaderBoard);
+        if (isRoyal)
+            bonusPoints *= 2;
+        var pointType = isRoyal ? "королевских" : "бонусных";
+
         if (bonusPoints > 0)
-            AddInGamePersonalLogs($"{skillName}: +{bonusPoints} __**бонусных**__ очков\n");
-        else if (bonusPoints < 0) AddInGamePersonalLogs($"{skillName}: {bonusPoints} __**бонусных**__ очков\n");
+            AddInGamePersonalLogs($"{skillName}: +{bonusPoints} __**{pointType}**__ очков\n");
+        else if (bonusPoints < 0) AddInGamePersonalLogs($"{skillName}: {bonusPoints} __**{pointType}**__ очков\n");
 
         Score += bonusPoints;
         BonusPointsEarnedThisRound += bonusPoints;

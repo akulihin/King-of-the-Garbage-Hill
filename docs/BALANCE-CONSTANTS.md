@@ -1,6 +1,6 @@
 # Balance Constants — every tunable number with its code anchor
 
-> Hand-maintained. **Update the row when you change the number** (and re-run `tools/audit-passives.sh` for name changes). Verified against the working tree of 2026-07-14 (v4.5.6). `CP` = `Game/GameLogic/CharacterPassives.cs`, `CC` = `Game/Classes/CharacterClass.cs`, `DM` = `Game/GameLogic/DoomsdayMachine.cs`, `CIR` = `Game/GameLogic/CheckIfReady.cs`, `GR` = `Game/ReactionHandling/GameReactions.cs`.
+> Hand-maintained. **Update the row when you change the number** (and re-run `tools/audit-passives.sh` for name changes). Verified against the working tree of 2026-07-16 (v5.0.1). `CP` = `Game/GameLogic/CharacterPassives.cs`, `CC` = `Game/Classes/CharacterClass.cs`, `DM` = `Game/GameLogic/DoomsdayMachine.cs`, `CIR` = `Game/GameLogic/CheckIfReady.cs`, `GR` = `Game/ReactionHandling/GameReactions.cs`.
 >
 > RNG note: `Luck(x)` ≈ x%, `Luck(a,b)` ≈ a-in-b (rounded to whole %); see `Helpers/SecureRandom.cs:35-45`.
 
@@ -26,9 +26,10 @@
 
 | Constant | Value | Anchor |
 |---|---|---|
-| Rounds / game end | 10 normal fight rounds; human-Kratos event adds exactly six actions on r11-16 or ends early when Kratos/all enemies die; hard safety cap 20 | `CheckIfReady.TickAsync`; CP «Возвращение из мертвых» |
+| Rounds / game end | 10 normal fight rounds; a human-Kratos r10 fight loss or fatal Kira note with his revive available starts exactly six event actions on r11-16; ends early when Kratos/all enemies die; hard safety cap 20 | `CharacterPassives.StartKratosEvent`; `CheckIfReady.TickAsync`; CP «Возвращение из мертвых» |
 | Regular-point round multiplier | r1-4 ×1, r5-9 ×2, r10 ×4 | `InGameStatusClass.cs` `GetRoundScoreMultiplier` |
 | Score floor / exceptions | regular + bonus floor at 0; HardKitty may go negative; Kira arrest and Geralt pitchfork explicitly apply true −500 through the floor | `InGameStatusClass` `AddBonusPointsCore`/`AddScoreWithMultiplier`/`AddBonusPointsIgnoringFloor` |
+| Джон Сноу royal bonus multiplier / score floor | Король Сервера doubles every positive or negative bonus mutation ×2 before the ordinary floor; blocked at place 4 | `InGameStatusClass.AddBonusPointsCore`; `JonSnow.IsKingActive` |
 | Level-up rounds | 3, 5, 7, 9 (+1 point each) | DM:1375-1379 |
 | Turn length | 300 s default; ARAM round 2+ = 300 s | GameClass.cs:13, DM:1260-1263 |
 | Block: attacker cost / defender gain | −1 bonus point / +1 next-round justice | DM:489-491 |
@@ -66,15 +67,24 @@ The multiplier changes a character's relative roll weight, not a standalone fina
 
 ## 99 Last Chances standalone prototype
 
-The complete browser-prototype definition remains externally editable in `Web/VueClient/public/99lc/game-config.json`; these rows record the combat timing changed during the GDD compliance pass.
+The complete browser-prototype definition remains externally editable in `Web/VueClient/public/99lc/game-config.json`; schema v3 keeps the seven-weapon catalog, every collider/trace and every behavior-specific number in that no-rebuild definition. The Builder exposes common fields and preserves the remaining `tuning` keys through raw JSON import/export.
 
 | Constant | Value | Anchor |
 |---|---:|---|
 | Basic-tap cooldown | none; `tap` bypasses the special cooldown map and shipped tap fields are 0 ms | `features/last-chances/engine.ts` `performAttack`; `public/99lc/game-config.json` weapon `tap` entries |
 | Basic-combo continuation window | 900 ms default, externally editable | `public/99lc/game-config.json` `input.tapComboWindowMs`; `features/last-chances/engine.ts` `advanceTapCombo` |
+| Gesture timing | double tap 260 ms; hold arms at 650 ms; first-hold combo ceiling 2,300 ms; hold-follow-up window 480 ms; individual charged actions may extend to their own `charge.maxMs` | `public/99lc/game-config.json` `input`; `features/last-chances/gestures.ts` `LastChancesGestureRecognizer` |
+| Seven-weapon catalog / Chance prices | Spear 3; Chain 2; Claws 2; capture-only Knife-spider 0; Axe 3; Katana 3; Sword 2 | `public/99lc/game-config.json` `weapons[*].chanceCost`; `rooms[*].interaction` |
+| Spear charge sectors | ram 650/1,050/1,500 ms; release 650/1,125/1,650 ms; overhead spin 1,125/1,650 ms | `public/99lc/game-config.json` `twohand-spear` charge bands; `features/last-chances/weapon-runtime.ts` `resolveLastChancesChargedAttack` |
+| Chain loss/recovery | bind and slow last 7,000 ms; chain stays unavailable until the target dies or a boss actually loses at least 18% max HP from one hit, which also stuns it for 700 ms | `public/99lc/game-config.json` `secondary-chain` resource/`chainBind`/tuning; `features/last-chances/engine.ts` chain resource branches |
+| Claw parity/rhythm | bleed every 2 damaging claw hits; alternating-hand window 360 ms; resulting microstun 90 ms | `public/99lc/game-config.json` `either-claws.tuning`; `features/last-chances/engine.ts` `damageEnemy` |
+| Knife-spider durability | 72 HP; −2 per action and −1 per successful hit; charged throw consumes all remaining durability | `public/99lc/game-config.json` `secondary-spider-knife` resource/tuning/`consumeAllResource`; `features/last-chances/engine.ts` spider durability branches |
+| Axe transition values | recovery-cancel tap ×1.35 damage; every hit pulls 16 world units; leap damage/stun occurs only in its 85-unit landing circle | `public/99lc/game-config.json` `twohand-axe.tuning` and `axeLeap.tuning`; `features/last-chances/engine.ts` `performAttack`/landing branch |
+| Katana dodge/cooldown flow | flurry treats dodge ≥ 0.25 as high dodge and misses each second hit; each skill authors its own other-skill refund; Flash resets only its own cooldown on kill | `public/99lc/game-config.json` `twohand-katana`; `features/last-chances/engine.ts` dash/`damageEnemy` cooldown branches |
+| Sword rhythm/opening | too fast <170 ms; valid rhythm through 540 ms; early fatigue 900 ms; opening every 3 basic hits for 1,600 ms; held follow-up delay 230 ms | `public/99lc/game-config.json` `hybrid-sword.tuning`/`swordFollowUp.tuning`; `features/last-chances/engine.ts` `applySwordRhythm`/`updateDelayedAttacks` |
 | Enemy idle scan / preferred attack-range ratio | Слуга 0.28 / 0.72; Стражник 0.20 / 0.78; Химера 0.34 / 0.68; Нож-паук 0.52 / 0.62; Тень Куратора 0.16 / 0.80 | `public/99lc/game-config.json` enemy `idleTurnRadiansPerSecond` / `preferredAttackRangeRatio`; `features/last-chances/engine.ts` `updateEnemies` |
-| Attack target budget | every executor damages `pierce + 1` unique targets; `pierce: 0` means one target | `features/last-chances/engine.ts` `performProjectile`/`performDash`/`startActiveArea` |
-| Authored attack and spawn-layout tuning | every basic-combo step, special, secondary spear move and named formation carries its complete numeric definition in the no-rebuild runtime JSON | `public/99lc/game-config.json` `weapons[*]` / `rooms[*].spawnLayouts` |
+| Attack target budget | every executor damages `pierce + 1` unique targets; `pierce: 0` means one target; repeat actions still obey their authored repeat count/interval | `features/last-chances/engine.ts` `performProjectile`/`performDash`/`startActiveArea` |
+| Authored attack/collider/spawn tuning | every basic-combo step, special, charge band, status, collider width/dead-zone/rotation/trace and named formation carries its complete numeric definition in the no-rebuild runtime JSON | `public/99lc/game-config.json` `weapons[*]` / `rooms[*].spawnLayouts`; `features/last-chances/colliders.ts` |
 
 ## Daily Quest rewards
 
@@ -98,7 +108,7 @@ The full 12-contract catalog, selection, privacy and migration rules are in [DAI
 
 ## Achievement & loot-box rewards
 
-Achievement progress targets and the complete 106-entry rule catalog are in [ACHIEVEMENTS.md](ACHIEVEMENTS.md). Reward values are centralized by rarity; the live catalog contains 11 Common, 26 Uncommon, 20 Rare, 34 Epic and 15 Legendary cards, totalling **8,580 ZBS + 64 boxes** (`AchievementClass.cs` `AchievementDefinition`/`AllAchievements`).
+Achievement progress targets and the complete 108-entry rule catalog are in [ACHIEVEMENTS.md](ACHIEVEMENTS.md). Reward values are centralized by rarity; the live catalog contains 11 Common, 27 Uncommon, 20 Rare, 35 Epic and 15 Legendary cards, totalling **8,705 ZBS + 65 boxes** (`AchievementClass.cs` `AchievementDefinition`/`AllAchievements`).
 
 | Constant | Value | Anchor |
 |---|---|---|
@@ -136,7 +146,7 @@ Achievement progress targets and the complete 106-entry rule catalog are in [ACH
 | Tier pity | +3% per game without that tier; reset round 2 | StartGameLogic.cs:181-182, CIR:1317-1324 |
 | Bot rules | tier 4 ×3; no tier <4 except Кира at ½ tier-1 range | StartGameLogic.cs:177-179 |
 | Top Laner decay | ×1.0 → −0.2 per Top Laner rolled (floor 0) | StartGameLogic.cs:180, 172-177 |
-| Exclusivity | LeCrisp ⊕ Толя; single Tier-4 per game; no repeat of last character | StartGameLogic.cs:204-229 |
+| Exclusivity | LeCrisp ⊕ Толя and HardKitty ⊕ Эрен Йегер across natural, guaranteed, draft and admin-test roster assignments; single Tier-4 per game; no repeat of last character | StartGameLogic.cs:47-60; WebGameService.cs:298-316,490-494,1194-1213 |
 | Naruto roster eligibility | FFA only; human original requires ≥2 strict bots, bot original requires ≥3 strict bots total; exactly 2 become clones | `StartGameLogic.cs` `CanNaturallyRollNaruto`; `Naruto.cs` `CanUseRoster`, `InitializeTeam` |
 
 ## Per-character numbers
@@ -188,7 +198,7 @@ Achievement progress targets and the complete 106-entry rule catalog are in [ACH
 | Weedwick | Охотник | Speed ×2 vs 0-J/Rick | CP:1153-1159 |
 | Weedwick | Добыча | +winstreak points; Harm rolls 1/place, 1/5, +1/3 vs #1 | CP:1793-1887 |
 | Weedwick | Weed | −1 Psyche after 2 dry rounds | CP:5892-5898 |
-| Кратос | Класс-мульт / event | ×2 base, ×4 in event; human-only; exactly six Kratos actions r11-16. unknown_bug alone also retains its own action and defeats Kratos in any resolved mutual fight | CP `Возвращение из мертвых`; `DoomsdayMachine.EnforceKratosEventActions`; `UnknownBug.Is` |
+| Кратос | Класс-мульт / event | ×2 base, ×4 in event; human-only; starts from an r10 fight loss or fatal Kira note with unused revive; exactly six Kratos actions r11-16. unknown_bug alone also retains its own action and defeats Kratos in any resolved mutual fight | `CharacterPassives.StartKratosEvent`/`CanKratosReturnFromKira`; `DoomsdayMachine.EnforceKratosEventActions`; `UnknownBug.Is` |
 | Молодой Глеб | Спокойствие чай | cd 3; +1 regular, target skips | CP:1245-1257, 5992-6001 |
 | Молодой Глеб | Мета | up to 3 targets/round; +1 bonus per hit | CP:4740-4780 |
 | Сайтама | Лысина | +1000 Skill | CP:252-255 |
@@ -251,7 +261,7 @@ Achievement progress targets and the complete 106-entry rule catalog are in [ACH
 | DooM Guy | Mission | 1 new nest/setup, overflow >3 → −20 bonus + clear; only attack-win nest kill +1 regular; every resolved fight +1 regular; flawless no-block mission +20 bonus; Ближник neighbour melee bonus ×2 (Кулаки +4, Glory total Skill ×3/+2 stats, Бензопила 2 picks) | DoomGuy.cs `SpawnDemonNest`/`ApplyFightModules`; CP:2694-2759,3682-3695 |
 | DooM Guy | Gun | BFG 1 charge; primary + every wave Step-3 random auto-wins; Кулаки Str=0 and +2 regular/win; Бензопила 1 victim, up to 4 choices and 1 pick; Рельса 1 charge and whole selected side, Block/Skip bypass except Тигр ban; Приручить дракона = round-10 Дракон transform | DoomGuy.cs `ApplySelectedModule`/`CopyChainsawPassive`; DM:445-491,569-650,810-881; CP:2730-2759,5767-5797 |
 | DooM Guy | module reward | place 4/3/2/1 ceiling = Rune/Shield/Mission/Gun; fallback downward; standard chance = 0 complete, 5% last, otherwise `5 + 75×(remaining−1)/(total−1)`; Приручить дракона excluded and guaranteed only after round-10 win over Sirinoks/Дракон | DoomGuy.cs `TryAwardModule`/`TryAwardDragonTaming`; CP:2469-2479; CheckIfReady.cs:758-768 |
-| Эрен Йегер | base / rarity / exclusion | Злость(Int) 0, Str 4, Speed 4, Самоуверенность(Psyche) 10; Tier 6; cannot naturally coexist with HardKitty | characters.json:1416-1446, StartGameLogic.cs:273-278 |
+| Эрен Йегер | base / rarity / exclusion | Злость(Int) 0, Str 4, Speed 4, Самоуверенность(Psyche) 10; Tier 6; cannot coexist with HardKitty through a normal roster assignment | characters.json:1416-1446; StartGameLogic.cs:47-60 |
 | Эрен Йегер | Овца в загоне | forced place 6 through r8; scheduled +1 Int at starts r2-8 (**+7 max**), +1 after every loss; −2 after every win; opening r9 bonus = post-sort place | CP:248-255,2612-2618,5173-5187,6418-6422; `CheckIfReady.TickAsync`; `DoomsdayMachine.CalculateAllFights` |
 | Эрен Йегер | Дрочун marks / cash-in | loss mark 1; attacking-Eren mark 2; cap 2; victory cashes target mark as 1/2 bonus | PassivesClass.cs:270-274, CP:480-483,2465-2486 |
 | Эрен Йегер | Дрочун mutual attack | +2 regular once per mutual enemy per round | CP:2558-2569 |
@@ -259,8 +269,8 @@ Achievement progress targets and the complete 106-entry rule catalog are in [ACH
 | Эрен Йегер | Titan audio roll | `use_most` 50%; files 1–3 split the other 50% uniformly | sound.ts:1002-1006 |
 | Эрен Йегер | Rumbling gate / reach | round 10; acting bots at opening places strictly between Eren and 6 must attack Eren; fewer than 2 losses **during round 10 only**; kills projected places strictly between Eren and place 6 | `BotsBehavior.cs` `TryForceRumblingAttack`; CP:2662-2667,3672-3718; ErenYeager.cs:38-53 |
 | Наруто | base / rarity | Int 3, Str 3, Speed 4, Psyche 5; Tier 5 | characters.json:1449-1483 |
-| Наруто | Гарем но джутсу | Block replacement while ready; +1 regular per canceled valid fight in each reaching attacker's whole queue; cooldown 2 full following turns after every use | `Naruto.cs` `HaremCooldownTurns`, `ResolveHaremQueues`, `TryCancelHaremFights`; CP:3771-3784 |
-| Наруто | Теневые | 2 independent strict-bot clones; sibling attacks illegal but living siblings are virtual L0/L1 action slots; r10 settlement immediately after Rumbling; sibling prediction value 0; correct enemy predictions +1 projected once; clone score/death seats end at 0 / bottom two | `Naruto.cs` `InitializeTeam`, `GetBotActionTargetSlotCount`, `ProjectClonePredictionPoints`, `SettleShadowClones`, `OrderLeaderboard` |
+| Наруто | Гарем но джутсу | original-only Block replacement while ready; +1 regular per canceled valid fight in the reaching attacker's whole queue; cooldown 2 full following turns after every use | `Naruto.cs:40-41`, `Naruto.cs:192-200`, `Naruto.cs:242-267`; CP:3771-3784 |
+| Наруто | Теневые | 2 independent strict-bot clones; clones cannot Block and attack at every AI level (no legal target → Skip); sibling attacks illegal; living siblings are virtual L0/L1 action slots only for the original; r10 settlement immediately after Rumbling; sibling prediction value 0; correct enemy predictions +1 projected once; clone score/death seats end at 0 / bottom two | `Naruto.cs:40-67`; `BotsBehavior.cs:3464-3467`, `BotsBehavior.cs:4391-4395`, `BotsBehavior.cs:4548-4559`; `GameReactions.cs:912-935` |
 | Наруто | Расенган | 2 joint attackers: summed Justice, +2 Str each; 3: summed Justice, +3 Int/Str/Speed/Psyche each | CP:74-108; `Naruto.cs` `SnapshotJustice`, `GetJointAttackers` |
 | Наруто | Призыв | exactly 1 Naruto on target; prior-round loss to that target with target TooGOOD or TooSTONK → terminal auto-win, otherwise refusal only | `Naruto.cs` `IsSoloAttack`, `WonPoweredFightLastRound`; DM:880-899 |
 | Гордон Фримен | base / rarity / copy exclusions | Int 7, Str 2, Speed 3, Psyche 9; Tier 5; all 4 passives non-Standalone; complete kit excluded from ARAM and Бензопила | `characters.json` Гордон Фримен; `CharactersPull.GetAramPassives`; CP:2790-2793 |
@@ -269,6 +279,12 @@ Achievement progress targets and the complete 106-entry rule catalog are in [ACH
 | Гордон Фримен | zombie penalty | mature target loses all current persistent Int and persistent/one-fight Int stays capped at 0 for the game; only when all 5 other roster players are zombies, Gordon settled score = 0 and pending regular = 0; dead seats still count and any Краборак prevents the condition | `GordonFreeman.MatureHeadcrabs`/`ApplyAllZombiesPenalty`; `CharacterClass.IntelligenceCappedAtZero` |
 | Гордон Фримен | Просыпайтесь, мистер Фримен | 1 use/game; any living non-Kratos-event Skip; optional r9 reserve only while Вечное Цукуеми is already armed preserves Gordon's real r10 action | `GordonFreeman.CanWake`/`Wake`; `Madara.IsEternalTsukuyomiActive`/`PrepareEternalTsukuyomiRound` |
 | Гордон Фримен | Halflife 3 | 1 announcement r3–r7 inclusive; next-attempt super multiplier `P^P`, settlement `P × P^P` (3→81); Подсчет disables it to ordinary ×1; success at `P ≥ 3`; Itachi steals transformed value, Octopus/Saitama ledgers retain ordinary value; failed human timeout 20 s, bot auto-postpones; postpone costs 1×M / 2×M / 3×M using ordinary M, fourth failure cancels | `GordonFreeman.AnnounceHalfLife3`/`PrepareHalfLifeSettlement`/`ProjectRegularSettlement`/`ResolveHalfLifeDecision` |
+| Джон Сноу | base / rarity / copy exclusions | Int 1, Str 4, Speed 5, Psyche 8; Tier 5; all 6 passives non-Standalone; complete kit excluded from ARAM and Бензопила | `characters.json` Джон Сноу; `CharactersPull.GetAramPassives`; CP Бензопила choice filter |
+| Джон Сноу | Тупой бастард / Король Сервера | Skill gains ×2; transformation at 228 effective Skill; toogood/toostronk wins +1/+2 Int until transformation; King bonus mutations ×2; score-sort floor at place 3 | `JonSnow.Initialize`/`TryBecomeKing`/`HandleResolvedFight`/`ApplyLeaderboardRules`; `InGameStatus.AddBonusPointsCore` |
+| Джон Сноу | Я Джон Сноу | current Justice added to all 4 fight stats; toogood +1 Justice/stats, toostronk +2 Justice/stats | `JonSnow.ApplyBaseJustice`/`ApplyDifficultyJustice` |
+| Джон Сноу | Еще один бастард | 2 lowest living seats marked; first matching queued weak target redirects to Jon; redirected defence +1 Justice and +1 all stats | `JonSnow.RefreshWeakestPlayers`/`RedirectBastardAttacks`/`ApplyDifficultyJustice` |
+| Джон Сноу | Черный Замок | place 4; exact hold for 3 action rounds; +1 bonus per same-side resolved win; King turns that award into 2 royal points and logs 2 phrases | `JonSnow.BlackCastlePlace`/`BlackCastleTurns`; `AwardBlackCastleLoyalty`/`FinalizePositionEffects` |
+| Джон Сноу | Мой дозор окончен | 1 death overcome; current Int →0 and capped at 0 permanently; ordinary Gordon zombie flag applied | `JonSnow.TryEndWatch`; `CharacterClass.IntelligenceCappedAtZero` |
 
 ## Bot AI difficulty
 
@@ -305,6 +321,7 @@ Per-game `AiDifficulty` is 0/1/2/3 and defaults to **3** for Discord, web and si
 | `SmartMoralWaitPlace3` / `Place4` / `Leader` | 8 / 13 / 8 Moral | score-conversion patience for L2/L3 | `BotsBehavior.HandleBotMoral` |
 | `SmartPsycheFloor` | 4 | generic level-up raises Psyche once the best stat is at least 8; character plans override | `BotsBehavior.HandleLvlUpBot` |
 | `SmartSellerMarkFloor` | 20 | makes an unmarked Seller target dominant while the mark is ready | `BotsBehavior.ApplyFairCharacterPreference` |
+| Джон Сноу fair target weights | places 1–4 `+3`; current weakest mark `−4`; ForceAttack | keeps **Еще один бастард** armed while preferring non-weak upper/Castle targets | `BotsBehavior.ApplyFairCharacterPreference`/`GetFairBlockPlan` |
 | persistent plans | random once | Dopa 4; Darksci 2; Глеб 2; TheBoys 9 (4 focused + 5 combinations); Goblins 4; Rick/Itachi/Kratos/Cats/Tolya/Monster/Support 2 each; other characters use Adaptive | `BotsBehavior.EnsureBotPlaystyle` |
 | fair Kira confidence | L2 25%; L3 35-90%; reveal 100% | L2 uses public catalogue priors; L3 scores legal logs/class/place history; Shinigami Eyes reads an exact identity only after the target ID is in the owner's reveal list | `BotsBehavior.HandleFairBotKira`; `FairKiraGuessScore` |
 | L3 Rumbling inference | 82% | public round-10 warning plus a unique opponent observed at place 6 in at least 5 of rounds 1-8; the guess may be absent or wrong | `BotsBehavior.InferPublicRulePatterns` |

@@ -168,6 +168,13 @@ public static class GordonFreeman
         ApplyAllZombiesPenalty(game, gordon);
     }
 
+    public static void ReevaluateAllZombiesPenalty(GameClass game)
+    {
+        var gordon = Find(game);
+        if (gordon == null || gordon.Passives.IsDead) return;
+        ApplyAllZombiesPenalty(game, gordon);
+    }
+
     private static void ApplyAllZombiesPenalty(GameClass game, GamePlayerBridgeClass gordon)
     {
         var state = gordon.Passives.Gordon;

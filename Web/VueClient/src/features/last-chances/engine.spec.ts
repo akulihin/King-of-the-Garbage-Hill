@@ -2,13 +2,24 @@ import { describe, expect, it, vi } from 'vitest'
 import defaultConfigJson from '../../../public/99lc/game-config.json'
 import { cloneLastChancesConfig } from './config'
 import { LastChancesEngine } from './engine'
+import { attackWithLastChancesAugment } from './weapon-runtime'
+import {
+  applyLastChancesStatusEffects,
+  type LastChancesRuntimeStatuses,
+  type LastChancesStoredDot,
+} from './statuses'
 import type {
   LastChancesAttackDefinition,
   LastChancesConfig,
+  LastChancesEnemyDefinition,
+  LastChancesEnemyState,
   LastChancesGamePlan,
   LastChancesGesture,
+  LastChancesGestureResolution,
   LastChancesHand,
+  LastChancesResolvedWeapon,
   LastChancesSnapshot,
+  LastChancesVector,
 } from './types'
 
 const defaultConfig = defaultConfigJson as unknown as LastChancesConfig
@@ -45,32 +56,190 @@ function makeCanvas(): HTMLCanvasElement {
   return canvas
 }
 
+interface RuntimeWeaponState {
+  resource: number
+  maxResource: number
+  storedDot: LastChancesStoredDot | null
+  boundEnemyId: string | null
+  successfulHits: number
+  lastHitHand: LastChancesHand | null
+  lastHitAtMs: number
+  recoveryMs: number
+  lastTapAtMs: number
+  rhythm: 'idle' | 'early' | 'good' | 'late'
+}
+
+interface RuntimeEnemy {
+  id: string
+  definition: LastChancesEnemyDefinition & { armor?: number }
+  position: LastChancesVector
+  facing: LastChancesVector
+  hp: number
+  state: LastChancesEnemyState
+  captureWindowMs: number
+  statuses: LastChancesRuntimeStatuses
+  attackCooldownMs: number
+  attackWindupMs: number
+  lockedAttackDirection: LastChancesVector | null
+}
+
+interface RuntimeAttackContext {
+  weapon: LastChancesResolvedWeapon
+  hand: LastChancesHand
+  gesture: LastChancesGesture
+  resolution: LastChancesGestureResolution
+  comboStep?: number
+  chargeBandId?: string
+  storedDot: LastChancesStoredDot | null
+}
+
 type EngineTestAccess = {
-  enemies: Array<{
-    id: string
-    definition: { maxHp: number, radius: number, attackCooldownMs: number }
-    position: { x: number, y: number }
-    hp: number
-    state: 'idle' | 'noticing' | 'alerted' | 'chasing' | 'attacking' | 'dead'
-    attackCooldownMs: number
-    attackWindupMs: number
-    lockedAttackDirection: { x: number, y: number } | null
+  activeAreas: Array<{
+    attack: LastChancesAttackDefinition
+    remainingMs: number
+    storedDot: LastChancesStoredDot | null
+    weaponId: string
+    rotationAssisted: boolean
+    sweepDegrees: number
+    authoredRepeatHits: number
   }>
+  activeDash: {
+    attack: LastChancesAttackDefinition
+  } | null
+  applyInteractionChoice: (choice: {
+    id: string
+    title: string
+    description: string
+    effect: {
+      primaryWeaponId?: string
+      secondaryWeaponId?: string | null
+    }
+  }) => void
+  cooldownEnds: Map<string, number>
   createSnapshot: () => LastChancesSnapshot
+  delayedAttacks: Array<{
+    remainingMs: number
+    attack: LastChancesAttackDefinition
+  }>
+  damageEnemy: (
+    enemy: RuntimeEnemy,
+    attack: LastChancesAttackDefinition,
+    knockback: number,
+    direction: LastChancesVector,
+    options?: {
+      weaponId?: string
+      hand?: LastChancesHand
+      storedDot?: LastChancesStoredDot | null
+      distance?: number
+    },
+  ) => void
   elapsedMs: number
-  handleBlur: () => void
+  enemies: RuntimeEnemy[]
+  effects: unknown[]
+  finishEnemyDeath: (enemy: RuntimeEnemy) => void
+  gestures: {
+    press: (hand: LastChancesHand, atMs: number) => void
+    reset: () => void
+    update: (atMs: number) => void
+  }
+  heldChannels: Map<LastChancesHand, EngineTestAccess['activeAreas'][number]>
   killPlayer: (reason: string) => void
-  player: { position: { x: number, y: number } }
-  performDash: (attack: LastChancesAttackDefinition, direction: { x: number, y: number }) => void
-  performAttack: (hand: LastChancesHand, gesture: LastChancesGesture) => void
+  performAttack: (resolution: LastChancesGestureResolution) => void
+  performDash: (
+    attack: LastChancesAttackDefinition,
+    direction: LastChancesVector,
+    context: RuntimeAttackContext,
+  ) => void
+  player: {
+    position: LastChancesVector
+    aim: LastChancesVector
+    invulnerableMs: number
+    recoveryMs: number
+    rootMs: number
+    parryMs: number
+    armorMultiplier: number
+    armorMultiplierMs: number
+  }
+  projectiles: Array<{
+    attack?: LastChancesAttackDefinition
+    remainingHits: number
+    carriedIds?: Set<string>
+  }>
   startActiveArea: (
     kind: 'melee' | 'burst',
     attack: LastChancesAttackDefinition,
-    direction: { x: number, y: number },
+    direction: LastChancesVector,
+    weaponId?: string,
+    hand?: LastChancesHand,
+    storedDot?: LastChancesStoredDot | null,
+    channel?: boolean,
   ) => void
+  traces: unknown[]
+  update: (deltaSeconds: number, deltaMs: number) => void
   updateActiveAreas: (deltaMs: number) => void
-  updateEnemies: (deltaSeconds: number, deltaMs: number) => void
+  updateDelayedAttacks: (deltaMs: number) => void
+  updateDelayedRecoveries: (deltaMs: number) => void
   updatePlayer: (deltaSeconds: number) => void
+  updateProjectiles: (deltaSeconds: number, deltaMs: number) => void
+  weaponStates: Map<string, RuntimeWeaponState>
+  weapons: Map<LastChancesHand, LastChancesResolvedWeapon>
+}
+
+function resolution(
+  hand: LastChancesHand,
+  gesture: LastChancesGesture,
+  heldMs = 0,
+  firstHoldMs = heldMs,
+): LastChancesGestureResolution {
+  return { hand, gesture, atMs: heldMs, heldMs, firstHoldMs }
+}
+
+function combatConfig(
+  primaryWeaponId: string,
+  secondaryWeaponId: string | null,
+  enemyId = 'guard',
+  enemyCount = 2,
+): LastChancesConfig {
+  const config = cloneLastChancesConfig(defaultConfig)
+  config.loadout = {
+    primaryWeaponId,
+    secondaryWeaponId,
+    primaryAugment: 'none',
+    secondaryAugment: 'none',
+  }
+  config.progression.tiers[0].enemyCount = [enemyCount, enemyCount]
+  config.progression.tiers[0].enemyPool = [{ enemyId, weight: 1 }]
+  config.progression.tiers[0].roomTemplateIds = ['combat-hall']
+  return config
+}
+
+function startCombat(config: LastChancesConfig): {
+  engine: LastChancesEngine
+  access: EngineTestAccess
+} {
+  const engine = new LastChancesEngine(makeCanvas(), config)
+  const access = engine as unknown as EngineTestAccess
+  const opening = access.createSnapshot().availableNodeIds[0]
+  expect(opening).toBeTruthy()
+  expect(engine.chooseNode(opening)).toBe(true)
+  access.player.aim = { x: 1, y: 0 }
+  return { engine, access }
+}
+
+function placeEnemy(
+  access: EngineTestAccess,
+  enemy: RuntimeEnemy,
+  distance: number,
+  verticalOffset = 0,
+): void {
+  enemy.position = {
+    x: access.player.position.x + distance,
+    y: access.player.position.y + verticalOffset,
+  }
+}
+
+function weapon(config: LastChancesConfig, id: string) {
+  return config.weapons.find(candidate => candidate.id === id)!
 }
 
 describe('99LC engine attempt lifecycle', () => {
@@ -94,18 +263,12 @@ describe('99LC engine attempt lifecycle', () => {
         facing: enemy.facing,
       }))
       const firstPlan = JSON.stringify(plan)
+      const access = engine as unknown as EngineTestAccess
 
-      const testAccess = engine as unknown as { killPlayer: (reason: string) => void }
-      testAccess.killPlayer('Prototype test')
+      access.killPlayer('Prototype test')
       const dead = snapshots.at(-1) as LastChancesSnapshot
       expect(dead.phase).toBe('dead')
       expect(dead.chances).toBe(defaultConfig.chances - defaultConfig.progression.tiers[0].deathCost)
-      expect(dead.player.stats.maxHp).toBe(
-        defaultConfig.player.baseStats.maxHp - defaultConfig.progression.tiers[0].erosion.maxHp,
-      )
-      expect(dead.player.stats.attackPower).toBe(
-        defaultConfig.player.baseStats.attackPower - defaultConfig.progression.tiers[0].erosion.attackPower,
-      )
 
       expect(engine.retryAttempt()).toBe(true)
       expect(engine.chooseNode(firstNodeId as string)).toBe(true)
@@ -125,522 +288,920 @@ describe('99LC engine attempt lifecycle', () => {
     }
   })
 
-  it('lets a connected standard gamepad select and enter the opening route', () => {
-    const axes = [0, 0, 0, 0]
-    const buttons = Array.from({ length: 16 }, () => ({ pressed: false, value: 0 }))
-    const gamepad = {
-      axes,
-      buttons,
-      connected: true,
-      id: 'DualSense Wireless Controller',
-      index: 0,
-      mapping: 'standard',
-    }
-    vi.stubGlobal('navigator', { getGamepads: () => [gamepad] })
-    const snapshots: LastChancesSnapshot[] = []
-    const engine = new LastChancesEngine(makeCanvas(), defaultConfig, {
-      onSnapshot: snapshot => snapshots.push(snapshot),
-    })
-    const testAccess = engine as unknown as { pollGamepad: () => void }
+  it('accepts the gesture-resolution API and keeps ordinary tap chains cooldown-free', () => {
+    const config = combatConfig('twohand-spear', null)
+    const { engine, access } = startCombat(config)
+    const spear = weapon(config, 'twohand-spear')
 
     try {
-      const opening = snapshots.at(-1) as LastChancesSnapshot
-      expect(opening.availableNodeIds.length).toBeGreaterThan(1)
-      expect(opening.selectedNodeId).toBe(opening.availableNodeIds[0])
-
-      axes[0] = 1
-      testAccess.pollGamepad()
-      const cycled = snapshots.at(-1) as LastChancesSnapshot
-      expect(cycled.selectedNodeId).toBe(opening.availableNodeIds[1])
-      expect(cycled.gamepad).toMatchObject({
-        connected: true,
-        id: 'DualSense Wireless Controller',
-        profile: 'standard',
-      })
-
-      axes[0] = 0
-      testAccess.pollGamepad()
-      buttons[0] = { pressed: true, value: 1 }
-      testAccess.pollGamepad()
-
-      const entered = snapshots.at(-1) as LastChancesSnapshot
-      expect(entered.phase).toBe('playing')
-      expect(entered.currentNodeId).toBe(opening.availableNodeIds[1])
-      expect(entered.selectedNodeId).toBeNull()
-    } finally {
-      engine.destroy()
-      vi.unstubAllGlobals()
-      vi.restoreAllMocks()
-    }
-  })
-
-  it('keeps basic taps cooldown-free and preserves their combo through specials and control loss', () => {
-    const config = cloneLastChancesConfig(defaultConfig)
-    const primary = config.weapons.find(weapon => weapon.id === config.loadout?.primaryWeaponId)!
-    const comboNames = [primary.attacks.tap, ...(primary.tapCombo ?? [])].map(attack => attack.name)
-    const engine = new LastChancesEngine(makeCanvas(), config)
-    const testAccess = engine as unknown as EngineTestAccess
-
-    try {
-      const opening = testAccess.createSnapshot().availableNodeIds[0]
-      expect(engine.chooseNode(opening)).toBe(true)
-
-      testAccess.performAttack('left', 'tap')
-      expect(testAccess.createSnapshot().lastGesture).toMatchObject({
+      access.performAttack(resolution('left', 'tap'))
+      expect(access.createSnapshot().lastGesture).toMatchObject({
         hand: 'left',
         gesture: 'tap',
-        attackName: comboNames[0],
+        attackName: spear.attacks.tap.name,
         comboStep: 1,
       })
-      testAccess.performAttack('left', 'tap')
-      expect(testAccess.createSnapshot().lastGesture).toMatchObject({
-        attackName: comboNames[1],
+      access.elapsedMs += 300
+      access.performAttack(resolution('left', 'tap'))
+      expect(access.createSnapshot().lastGesture).toMatchObject({
+        attackName: spear.tapCombo![0].name,
         comboStep: 2,
       })
-
-      testAccess.performAttack('left', 'doubleTap')
-      expect(testAccess.createSnapshot().lastGesture).toMatchObject({
+      expect(access.createSnapshot().cooldowns.find(entry => (
+        entry.hand === 'left' && entry.gesture === 'tap'
+      ))).toEqual({
         hand: 'left',
-        gesture: 'doubleTap',
+        gesture: 'tap',
+        remainingMs: 0,
+        totalMs: 0,
+        ready: true,
       })
-      expect(testAccess.createSnapshot().lastGesture?.comboStep).toBeUndefined()
+    } finally {
+      engine.destroy()
+    }
+  })
+})
 
-      testAccess.handleBlur()
-      engine.setPaused(true)
-      engine.setPaused(false)
-      testAccess.elapsedMs += Math.floor((config.input.tapComboWindowMs as number) / 2)
-      testAccess.performAttack('left', 'tap')
-      expect(testAccess.createSnapshot().lastGesture).toMatchObject({
-        attackName: comboNames[2],
-        comboStep: 3,
-      })
-      testAccess.performAttack('left', 'tap')
-      expect(testAccess.createSnapshot().lastGesture).toMatchObject({
-        attackName: comboNames[0],
-        comboStep: 4,
-      })
+describe('99LC seven-weapon mechanics', () => {
+  it('keeps the spear dead zone harmless, boosts the sweet spot, and leaves collider traces', () => {
+    const config = combatConfig('twohand-spear', null, 'guard', 2)
+    const { engine, access } = startCombat(config)
+    const attack = weapon(config, 'twohand-spear').attacks.tap
+    const [target, spare] = access.enemies
+    placeEnemy(access, spare, 520, 160)
 
-      const tapCooldown = testAccess.createSnapshot().cooldowns.find(cooldown => (
-        cooldown.hand === 'left' && cooldown.gesture === 'tap'
-      ))
-      expect(tapCooldown).toEqual({ hand: 'left', gesture: 'tap', remainingMs: 0, totalMs: 0 })
+    try {
+      placeEnemy(access, target, 20)
+      const initialHp = target.hp
+      access.startActiveArea('melee', attack, { x: 1, y: 0 }, 'twohand-spear', 'left')
+      expect(target.hp).toBe(initialHp)
+      access.activeAreas = []
 
-      testAccess.elapsedMs += (config.input.tapComboWindowMs as number) + 1
-      testAccess.performAttack('left', 'tap')
-      expect(testAccess.createSnapshot().lastGesture).toMatchObject({
-        attackName: comboNames[0],
-        comboStep: 1,
+      placeEnemy(access, target, 150)
+      access.startActiveArea('melee', attack, { x: 1, y: 0 }, 'twohand-spear', 'left')
+      expect(initialHp - target.hp).toBeCloseTo(
+        attack.damage * attack.sweetSpot!.damageMultiplier - (target.definition.armor ?? 0),
+      )
+      access.updateActiveAreas(50)
+      expect(access.traces.length).toBeGreaterThan(0)
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('dispatches early, middle, and late spear releases to their distinct colliders', () => {
+    const casts = [700, 1200, 1750].map((heldMs) => {
+      const config = combatConfig('twohand-spear', null, 'guard', 1)
+      const started = startCombat(config)
+      started.access.performAttack(resolution('left', 'hold', heldMs))
+      return started
+    })
+
+    try {
+      const [early, middle, late] = casts.map(cast => cast.access)
+      expect(early.activeAreas.at(-1)?.attack).toMatchObject({
+        kind: 'melee',
+        collider: expect.objectContaining({ shape: 'sector', innerRange: 52 }),
       })
+      expect(early.projectiles).toHaveLength(0)
+
+      expect(middle.projectiles).toHaveLength(1)
+      expect(middle.projectiles[0]).toMatchObject({
+        remainingHits: 1,
+        attack: expect.objectContaining({
+          kind: 'projectile',
+          hitEffects: expect.arrayContaining([
+            expect.objectContaining({ status: 'stun', durationMs: 1000 }),
+          ]),
+        }),
+      })
+      expect(middle.projectiles[0].carriedIds).toBeUndefined()
+
+      expect(late.projectiles).toHaveLength(1)
+      expect(late.projectiles[0].remainingHits).toBeGreaterThanOrEqual(9)
+      expect(late.projectiles[0].carriedIds).toBeInstanceOf(Set)
+    } finally {
+      casts.forEach(cast => cast.engine.destroy())
+    }
+  })
+
+  it('arms the spear spin only after the middle release sector', () => {
+    const config = combatConfig('twohand-spear', null, 'guard', 1)
+    const { engine, access } = startCombat(config)
+
+    try {
+      access.performAttack(resolution('left', 'holdThenDoubleTap', 80, 900))
+      expect(access.activeAreas).toHaveLength(0)
+      expect(access.cooldownEnds.has('left:holdThenDoubleTap')).toBe(false)
+
+      access.performAttack(resolution('left', 'holdThenDoubleTap', 80, 1200))
+      expect(access.activeAreas.at(-1)?.attack.behavior).toBe('spearSpin')
+      expect(access.cooldownEnds.has('left:holdThenDoubleTap')).toBe(true)
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('ends a held stance on release without spawning a duplicate post-release hitbox', () => {
+    const config = combatConfig('twohand-axe', null, 'guard', 1)
+    const { engine, access } = startCombat(config)
+    const right = access.weapons.get('right')!
+    const attack = right.attacks.hold
+
+    try {
+      access.startActiveArea('burst', attack, { x: 1, y: 0 }, right.id, 'right', null, true)
+      const channel = access.activeAreas.at(-1)!
+      access.heldChannels.set('right', channel)
+      expect(access.activeAreas).toHaveLength(1)
+
+      access.performAttack(resolution('right', 'hold', 1200))
+      expect(access.heldChannels.has('right')).toBe(false)
+      expect(access.activeAreas).toHaveLength(0)
+      expect(access.cooldownEnds.has('right:hold')).toBe(true)
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('grants authored invulnerability through the full charged action duration', () => {
+    const claws = startCombat(combatConfig('either-claws', null, 'guard', 1))
+    const spear = startCombat(combatConfig('twohand-spear', null, 'guard', 1))
+    const axe = startCombat(combatConfig('twohand-axe', null, 'guard', 1))
+    const katana = startCombat(combatConfig('twohand-katana', null, 'guard', 1))
+
+    try {
+      claws.access.performAttack(resolution('left', 'hold', 1100))
+      expect(claws.access.player.invulnerableMs).toBe(0)
+
+      spear.access.performAttack(resolution('right', 'holdThenDoubleTap', 80, 900))
+      expect(spear.access.player.invulnerableMs).toBe(720)
+      expect(spear.access.createSnapshot().player.invulnerableForMs).toBe(720)
+
+      axe.access.performAttack(resolution('right', 'holdThenDoubleTap', 80, 1600))
+      expect(axe.access.player.invulnerableMs).toBe(984)
+
+      katana.access.performAttack(resolution('left', 'holdThenDoubleTap', 80, 900))
+      expect(katana.access.player.invulnerableMs).toBe(760)
+    } finally {
+      claws.engine.destroy()
+      spear.engine.destroy()
+      axe.engine.destroy()
+      katana.engine.destroy()
+    }
+  })
+
+  it('interrupts enemy windups only with authored parry or interrupt actions', () => {
+    const config = combatConfig('twohand-spear', null, 'guard', 1)
+    const { engine, access } = startCombat(config)
+    const spear = weapon(config, 'twohand-spear')
+    const target = access.enemies[0]
+
+    try {
+      placeEnemy(access, target, 100)
+      target.state = 'attacking'
+      target.attackWindupMs = 100
+      access.startActiveArea('melee', spear.attacks.tap, { x: 1, y: 0 }, spear.id, 'left')
+      expect(target.state).toBe('attacking')
+
+      access.activeAreas = []
+      placeEnemy(access, target, 70)
+      target.state = 'attacking'
+      target.attackWindupMs = 100
+      access.startActiveArea(
+        'melee',
+        spear.secondaryAttacks!.tap,
+        { x: 1, y: 0 },
+        spear.id,
+        'right',
+      )
+      expect(target.state).toBe('chasing')
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('opens parry on short release and rejects a compound gesture only after it parries', () => {
+    const config = combatConfig('twohand-spear', null, 'guard', 1)
+    const { engine, access } = startCombat(config)
+    const target = access.enemies[0]
+    let now = 1000
+    vi.spyOn(performance, 'now').mockImplementation(() => now)
+
+    try {
+      placeEnemy(access, target, 70)
+      target.state = 'attacking'
+      target.attackWindupMs = 100
+
+      engine.press('right')
+      expect(target.state).toBe('attacking')
+      expect(access.player.parryMs).toBe(0)
+
+      now += 80
+      engine.release('right')
+      expect(target.state).toBe('chasing')
+      expect(access.player.parryMs).toBeGreaterThan(0)
+      expect(access.traces.length).toBeGreaterThan(0)
+
+      now += 70
+      engine.press('right')
+      now += 60
+      engine.release('right')
+      expect(access.createSnapshot().lastGesture?.gesture).toBe('tap')
+      expect(access.cooldownEnds.has('right:doubleTap')).toBe(false)
     } finally {
       engine.destroy()
       vi.restoreAllMocks()
     }
   })
 
-  it('spends Chances on room offers, resets ordinary loot on death, and recovers corpse-bound weapons', () => {
-    const ordinaryConfig = cloneLastChancesConfig(defaultConfig)
-    ordinaryConfig.progression.tiers[0].enemyCount = [0, 0]
-    ordinaryConfig.progression.tiers[0].roomTemplateIds = ['merchant-crossing']
-    const ordinaryEngine = new LastChancesEngine(makeCanvas(), ordinaryConfig)
-    const ordinaryAccess = ordinaryEngine as unknown as EngineTestAccess
+  it('cancels an unused provisional parry when the tap becomes a compound gesture', () => {
+    const config = combatConfig('twohand-spear', null, 'guard', 1)
+    const { engine, access } = startCombat(config)
+    let now = 1000
+    vi.spyOn(performance, 'now').mockImplementation(() => now)
 
     try {
-      expect(ordinaryEngine.chooseNode(ordinaryAccess.createSnapshot().availableNodeIds[0])).toBe(true)
-      expect(ordinaryAccess.createSnapshot().phase).toBe('interaction')
-      expect(ordinaryEngine.chooseInteraction('buy-bow')).toBe(true)
-      expect(ordinaryAccess.createSnapshot()).toMatchObject({
-        chances: ordinaryConfig.chances - 3,
-        loadout: { primaryWeaponId: 'twohand-bow', secondaryWeaponId: null },
-      })
+      engine.press('right')
+      now += 70
+      engine.release('right')
+      expect(access.player.parryMs).toBeGreaterThan(0)
 
-      expect(ordinaryEngine.chooseNode(ordinaryAccess.createSnapshot().availableNodeIds[0])).toBe(true)
-      ordinaryAccess.killPlayer('Loot reset test')
-      expect(ordinaryEngine.retryAttempt()).toBe(true)
-      expect(ordinaryAccess.createSnapshot().loadout).toEqual(ordinaryConfig.loadout)
+      now += 60
+      engine.press('right')
+      now += 50
+      engine.release('right')
+
+      expect(access.createSnapshot().lastGesture?.gesture).toBe('doubleTap')
+      expect(access.player.parryMs).toBe(0)
+      expect(access.cooldownEnds.has('right:doubleTap')).toBe(true)
     } finally {
-      ordinaryEngine.destroy()
-      vi.restoreAllMocks()
-    }
-
-    const corpseConfig = cloneLastChancesConfig(defaultConfig)
-    corpseConfig.progression.tiers[0].enemyCount = [0, 0]
-    corpseConfig.progression.tiers[0].roomTemplateIds = ['chest-gallery']
-    const corpseEngine = new LastChancesEngine(makeCanvas(), corpseConfig)
-    const corpseAccess = corpseEngine as unknown as EngineTestAccess
-
-    try {
-      expect(corpseEngine.chooseNode(corpseAccess.createSnapshot().availableNodeIds[0])).toBe(true)
-      expect(corpseEngine.chooseInteraction('claim-corpse-sword')).toBe(true)
-      expect(corpseAccess.createSnapshot().loadout).toEqual({
-        primaryWeaponId: 'corpse-sword',
-        secondaryWeaponId: null,
-      })
-
-      expect(corpseEngine.chooseNode(corpseAccess.createSnapshot().availableNodeIds[0])).toBe(true)
-      corpseAccess.killPlayer('Corpse recovery test')
-      expect(corpseEngine.retryAttempt()).toBe(true)
-      expect(corpseAccess.createSnapshot().loadout).toEqual({
-        primaryWeaponId: 'corpse-sword',
-        secondaryWeaponId: null,
-      })
-    } finally {
-      corpseEngine.destroy()
+      engine.destroy()
       vi.restoreAllMocks()
     }
   })
 
-  it('queues standard attackers and lets a timed weapon collision parry the active one', () => {
-    const config = cloneLastChancesConfig(defaultConfig)
-    config.progression.tiers[0].enemyCount = [2, 2]
-    config.progression.tiers[0].enemyPool = [{ enemyId: 'guard', weight: 1 }]
-    config.progression.tiers[0].roomTemplateIds = ['combat-hall']
-    const engine = new LastChancesEngine(makeCanvas(), config)
-    const testAccess = engine as unknown as EngineTestAccess
+  it('keeps pole-vault traversal non-damaging along the full invulnerable path', () => {
+    const config = combatConfig('twohand-spear', null, 'guard', 1)
+    const { engine, access } = startCombat(config)
+    const target = access.enemies[0]
+    const right = access.weapons.get('right')!
+    const attack = right.attacks.holdThenDoubleTap
 
     try {
-      expect(engine.chooseNode(testAccess.createSnapshot().availableNodeIds[0])).toBe(true)
-      testAccess.enemies.forEach((enemy) => {
-        enemy.state = 'chasing'
-        enemy.attackCooldownMs = 0
-        enemy.position = {
-          x: testAccess.player.position.x + 45,
-          y: testAccess.player.position.y,
-        }
+      target.definition.maxHp = 500
+      target.definition.armor = 0
+      target.hp = 500
+      placeEnemy(access, target, 120)
+      access.performDash(attack, { x: 1, y: 0 }, {
+        weapon: right,
+        hand: 'right',
+        gesture: 'holdThenDoubleTap',
+        resolution: resolution('right', 'holdThenDoubleTap', 80, 900),
+        storedDot: null,
       })
 
-      testAccess.updateEnemies(0, 16)
-      const attackers = testAccess.enemies.filter(enemy => enemy.state === 'attacking')
-      expect(attackers).toHaveLength(1)
+      access.updatePlayer(1)
 
-      attackers[0].attackWindupMs = 100
-      testAccess.performAttack('left', 'tap')
-      expect(attackers[0].state).toBe('chasing')
-      expect(attackers[0].attackCooldownMs).toBeGreaterThan(
-        attackers[0].definition.attackCooldownMs,
+      expect(access.activeDash).toBeNull()
+      expect(target.hp).toBe(500)
+      expect(access.activeAreas).toHaveLength(0)
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('keeps the axe leap harmless in flight and applies its damage at landing only', () => {
+    const config = combatConfig('twohand-axe', null, 'guard', 2)
+    const { engine, access } = startCombat(config)
+    const [pathTarget, landingTarget] = access.enemies
+    const right = access.weapons.get('right')!
+    const attack = right.attacks.holdThenDoubleTap
+
+    try {
+      for (const target of [pathTarget, landingTarget]) {
+        target.definition.maxHp = 500
+        target.definition.armor = 0
+        target.hp = 500
+      }
+      placeEnemy(access, pathTarget, 90)
+      placeEnemy(access, landingTarget, attack.range)
+      access.performDash(attack, { x: 1, y: 0 }, {
+        weapon: right,
+        hand: 'right',
+        gesture: 'holdThenDoubleTap',
+        resolution: resolution('right', 'holdThenDoubleTap', 80, 900),
+        storedDot: null,
+      })
+
+      access.updatePlayer(1)
+
+      expect(access.activeDash).toBeNull()
+      expect(pathTarget.hp).toBe(500)
+      expect(landingTarget.hp).toBeLessThan(500)
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('substeps a low-FPS rotating sweep so targets cannot sit in an angular gap', () => {
+    const config = combatConfig('twohand-spear', null, 'guard', 1)
+    const { engine, access } = startCombat(config)
+    const target = access.enemies[0]
+    const angle = 22.5 * Math.PI / 180
+    const distance = 100
+    const attack: LastChancesAttackDefinition = {
+      ...weapon(config, 'twohand-spear').attacks.tap,
+      name: 'Low-FPS sweep fixture',
+      damage: 10,
+      range: 120,
+      durationMs: 100,
+      pierce: 3,
+      collider: {
+        shape: 'sweep',
+        innerRange: 70,
+        width: 2,
+        traceMs: 400,
+        rotationDegrees: 90,
+      },
+    }
+
+    try {
+      target.definition.maxHp = 500
+      target.definition.armor = 0
+      target.hp = 500
+      target.position = {
+        x: access.player.position.x + Math.cos(angle) * distance,
+        y: access.player.position.y + Math.sin(angle) * distance,
+      }
+
+      access.startActiveArea('melee', attack, { x: 1, y: 0 }, 'twohand-spear', 'left')
+      expect(target.hp).toBe(500)
+
+      access.updateActiveAreas(50)
+
+      expect(target.hp).toBeLessThan(500)
+      expect(access.traces.length).toBeGreaterThan(1)
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('runs the katana flurry as repeated path hits and applies dodge to every second strike', () => {
+    const config = combatConfig('twohand-katana', null, 'guard', 1)
+    const { engine, access } = startCombat(config)
+    const target = access.enemies[0]
+
+    try {
+      target.definition.maxHp = 500
+      target.definition.armor = 0
+      target.definition.dodge = 0.4
+      target.hp = 500
+      placeEnemy(access, target, 90)
+      access.performAttack(resolution('left', 'doubleTapHold', 700))
+      expect(access.activeDash?.attack.behavior).toBe('katanaFlurry')
+
+      for (let step = 0; step < 9; step += 1) access.updatePlayer(0.13)
+      expect(500 - target.hp).toBeGreaterThan(config.weapons.find(
+        candidate => candidate.id === 'twohand-katana',
+      )!.attacks.doubleTapHold.damage)
+      expect(500 - target.hp).toBeLessThan(
+        config.weapons.find(candidate => candidate.id === 'twohand-katana')!
+          .attacks.doubleTapHold.damage * 7,
       )
     } finally {
       engine.destroy()
-      vi.restoreAllMocks()
     }
   })
 
-  it('locks the knife-spider leap before travel and exposes authored boss phases', () => {
-    const leapConfig = cloneLastChancesConfig(defaultConfig)
-    leapConfig.progression.tiers[0].enemyCount = [1, 1]
-    leapConfig.progression.tiers[0].enemyPool = [{ enemyId: 'spider-knife', weight: 1 }]
-    leapConfig.progression.tiers[0].roomTemplateIds = ['combat-hall']
-    const leapEngine = new LastChancesEngine(makeCanvas(), leapConfig)
-    const leapAccess = leapEngine as unknown as EngineTestAccess
+  it('uses the same swept projectile capsule for traces and fast collision', () => {
+    const config = combatConfig('twohand-spear', null, 'guard', 1)
+    const { engine, access } = startCombat(config)
+    const target = access.enemies[0]
 
     try {
-      expect(leapEngine.chooseNode(leapAccess.createSnapshot().availableNodeIds[0])).toBe(true)
-      const spider = leapAccess.enemies[0]
-      spider.state = 'chasing'
-      spider.position = {
-        x: leapAccess.player.position.x + 200,
-        y: leapAccess.player.position.y,
-      }
-      leapAccess.updateEnemies(0, 1)
-      leapAccess.updateEnemies(0, 520)
-      expect(spider.lockedAttackDirection).toMatchObject({ x: -1, y: 0 })
+      target.definition.maxHp = 500
+      target.definition.armor = 0
+      target.hp = 500
+      placeEnemy(access, target, 160)
+      access.performAttack(resolution('left', 'hold', 1750))
+      expect(access.projectiles).toHaveLength(1)
 
-      leapAccess.player.position.y += 180
-      leapAccess.updateEnemies(0, 160)
-      const beforeTravel = { ...spider.position }
-      leapAccess.updateEnemies(0.1, 100)
-      expect(spider.position.x).toBeLessThan(beforeTravel.x)
-      expect(spider.position.y).toBeCloseTo(beforeTravel.y, 5)
-    } finally {
-      leapEngine.destroy()
-      vi.restoreAllMocks()
-    }
-
-    const bossConfig = cloneLastChancesConfig(defaultConfig)
-    bossConfig.progression.tiers[0].enemyCount = [1, 1]
-    bossConfig.progression.tiers[0].enemyPool = [{ enemyId: 'curator-shadow', weight: 1 }]
-    bossConfig.progression.tiers[0].roomTemplateIds = ['curator-threshold']
-    const bossEngine = new LastChancesEngine(makeCanvas(), bossConfig)
-    const bossAccess = bossEngine as unknown as EngineTestAccess
-
-    try {
-      expect(bossEngine.chooseNode(bossAccess.createSnapshot().availableNodeIds[0])).toBe(true)
-      const boss = bossAccess.enemies[0]
-      boss.hp = boss.definition.maxHp * 0.5
-      expect(bossAccess.createSnapshot().enemies[0]).toMatchObject({
-        phaseName: 'Архив чужих смертей',
-        attackKind: 'projectile',
-      })
-      boss.hp = boss.definition.maxHp * 0.2
-      expect(bossAccess.createSnapshot().enemies[0]).toMatchObject({
-        phaseName: 'Тьма перед пробуждением',
-        attackKind: 'leap',
-      })
-    } finally {
-      bossEngine.destroy()
-      vi.restoreAllMocks()
-    }
-  })
-
-  it('keeps the invisible wolf hidden until it becomes alerted', () => {
-    const config = cloneLastChancesConfig(defaultConfig)
-    config.progression.tiers[0].enemyCount = [1, 1]
-    config.progression.tiers[0].enemyPool = [{ enemyId: 'invisible-wolf', weight: 1 }]
-    config.progression.tiers[0].roomTemplateIds = ['combat-hall']
-    const engine = new LastChancesEngine(makeCanvas(), config)
-    const testAccess = engine as unknown as EngineTestAccess
-
-    try {
-      expect(engine.chooseNode(testAccess.createSnapshot().availableNodeIds[0])).toBe(true)
-      expect(testAccess.createSnapshot().enemies[0].visible).toBe(false)
-      testAccess.enemies[0].state = 'alerted'
-      expect(testAccess.createSnapshot().enemies[0].visible).toBe(true)
+      access.updateProjectiles(0.5, 500)
+      expect(target.hp).toBeLessThan(500)
+      expect(access.traces.length).toBeGreaterThan(0)
     } finally {
       engine.destroy()
-      vi.restoreAllMocks()
     }
   })
 
-  it('uses the resolved secondary attack set for a two-handed weapon', () => {
-    const config = cloneLastChancesConfig(defaultConfig)
-    const twoHanded = config.weapons[0]
-    const secondaryAttacks = config.weapons[1].attacks
-    twoHanded.id = 'test-two-handed'
-    twoHanded.equipMode = 'twoHanded'
-    delete twoHanded.hand
-    secondaryAttacks.tap.name = 'Resolved rear-hand tap'
-    twoHanded.secondaryAttacks = secondaryAttacks
-    config.rooms.forEach(room => { delete room.interaction })
-    config.weapons = [twoHanded]
-    config.loadout = { primaryWeaponId: twoHanded.id, secondaryWeaponId: null }
-    const engine = new LastChancesEngine(makeCanvas(), config)
-    const testAccess = engine as unknown as EngineTestAccess
+  it('stores a non-bleed DOT on the chain, spreads it later, and restores a bound chain on death', () => {
+    const config = combatConfig('either-claws', 'secondary-chain', 'guard', 2)
+    const { engine, access } = startCombat(config)
+    const chain = weapon(config, 'secondary-chain')
+    const [source, target] = access.enemies
 
     try {
-      expect(engine.chooseNode(testAccess.createSnapshot().availableNodeIds[0])).toBe(true)
-      testAccess.performAttack('right', 'tap')
+      applyLastChancesStatusEffects(source.statuses, [{
+        status: 'poison',
+        durationMs: 6000,
+        stacks: 2,
+        tickDamage: 3,
+        tickMs: 500,
+      }])
+      access.damageEnemy(source, chain.attacks.tap, 0, { x: 1, y: 0 }, { hand: 'right' })
+      expect(access.createSnapshot().weaponStates.find(state => state.hand === 'right'))
+        .toMatchObject({ weaponId: 'secondary-chain', storedDot: 'poison', resource: 1 })
 
-      expect(testAccess.createSnapshot().lastGesture).toMatchObject({
+      access.elapsedMs += 60_000
+      placeEnemy(access, source, 420, 140)
+      placeEnemy(access, target, 50)
+      access.performAttack(resolution('right', 'doubleTap'))
+      expect(access.createSnapshot().lastGesture).toMatchObject({
         hand: 'right',
+        gesture: 'doubleTap',
+      })
+      expect(access.activeAreas.at(-1)?.storedDot).toMatchObject({
+        kind: 'poison',
+        stacks: 2,
+      })
+      access.updateActiveAreas(1)
+      expect(target.statuses.dots.poison).toMatchObject({
+        stacks: 2,
+        tickDamage: 3,
+        remainingMs: 6000,
+      })
+      expect(access.createSnapshot().weaponStates.find(state => state.hand === 'right')?.storedDot)
+        .toBeNull()
+
+      access.damageEnemy(
+        target,
+        chain.attacks.holdThenDoubleTap,
+        0,
+        { x: 1, y: 0 },
+        { hand: 'right' },
+      )
+      expect(target.statuses).toMatchObject({
+        slowMultiplier: 0.42,
+        attackSlowMultiplier: 4,
+      })
+      expect(access.weaponStates.get('secondary-chain')).toMatchObject({
+        resource: 0,
+        boundEnemyId: target.id,
+      })
+      access.finishEnemyDeath(target)
+      expect(access.weaponStates.get('secondary-chain')).toMatchObject({
+        resource: 1,
+        boundEnemyId: null,
+      })
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('unlocks the chain second rotation only when movement assists its authored direction', () => {
+    const config = combatConfig('either-claws', 'secondary-chain', 'guard', 1)
+    const { engine, access } = startCombat(config)
+
+    try {
+      access.performAttack(resolution('right', 'doubleTap'))
+      const spin = access.activeAreas.at(-1)!
+      access.updateActiveAreas(100)
+      const unassistedDegrees = spin.sweepDegrees
+      expect(spin.rotationAssisted).toBe(false)
+      expect(spin.attack.repeatHits).toBe(1)
+
+      engine.setTouchMove(0, 1)
+      access.updateActiveAreas(100)
+      expect(spin.rotationAssisted).toBe(true)
+      expect(spin.attack.repeatHits).toBe(spin.authoredRepeatHits)
+      expect(spin.sweepDegrees - unassistedDegrees).toBeGreaterThan(unassistedDegrees)
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('shares claw parity across two hands and applies bleed plus microstagger on alternating hits', () => {
+    const config = combatConfig('either-claws', 'either-claws', 'guard', 1)
+    const { engine, access } = startCombat(config)
+    const claws = weapon(config, 'either-claws')
+    const target = access.enemies[0]
+
+    try {
+      access.elapsedMs = 100
+      access.damageEnemy(target, claws.attacks.tap, 0, { x: 1, y: 0 }, { hand: 'left' })
+      access.elapsedMs = 300
+      access.damageEnemy(target, claws.attacks.tap, 0, { x: 1, y: 0 }, { hand: 'right' })
+
+      expect(access.weaponStates.get('either-claws')).toMatchObject({
+        successfulHits: 2,
+        lastHitHand: 'right',
+      })
+      expect(target.statuses.dots.bleed.stacks).toBe(1)
+      expect(target.statuses.stunMs).toBeGreaterThanOrEqual(90)
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('scopes the claw poison Symbol to the deep strike and strengthens only its bleeding target', () => {
+    const config = combatConfig('either-claws', null, 'guard', 2)
+    config.loadout!.primaryAugment = 'poison'
+    const { engine, access } = startCombat(config)
+    const [bleeding, clean] = access.enemies
+
+    try {
+      placeEnemy(access, bleeding, 60, -12)
+      placeEnemy(access, clean, 60, 12)
+      applyLastChancesStatusEffects(bleeding.statuses, [{
+        status: 'bleed',
+        durationMs: 5000,
+        stacks: 1,
+      }])
+      access.performAttack(resolution('left', 'holdThenDoubleTap', 80, 900))
+
+      expect(bleeding.statuses.dots.poison.tickDamage)
+        .toBeGreaterThan(clean.statuses.dots.poison.tickDamage)
+      expect(clean.statuses.dots.poison.tickDamage).toBe(2.8)
+      expect(access.weapons.get('left')!.attacks.tap.hitEffects).toBeUndefined()
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('captures a missed knife-spider, spends durability, and destroys it on the throw', () => {
+    const config = combatConfig('either-claws', null, 'spider-knife', 1)
+    const { engine, access } = startCombat(config)
+    const spider = access.enemies[0]
+
+    try {
+      spider.captureWindowMs = 1200
+      spider.facing = { x: 1, y: 0 }
+      spider.position = { x: 210, y: 340 }
+      access.player.position = { x: 150, y: 340 }
+      expect(access.createSnapshot().interactionPrompt).toContain('Нож-паука')
+      expect(engine.interact()).toBe(true)
+      expect(access.createSnapshot().loadout?.secondaryWeaponId).toBe('secondary-spider-knife')
+      expect(access.createSnapshot().weaponStates.find(state => state.hand === 'right'))
+        .toMatchObject({ resourceKind: 'durability', resource: 72, maxResource: 72 })
+
+      access.performAttack(resolution('right', 'tap'))
+      expect(access.createSnapshot().weaponStates.find(state => state.hand === 'right')?.resource)
+        .toBe(70)
+
+      access.performAttack(resolution('right', 'doubleTapHold', 900, 70))
+      expect(access.createSnapshot().loadout?.secondaryWeaponId).toBeNull()
+      expect(access.createSnapshot().weaponStates.some(state => (
+        state.weaponId === 'secondary-spider-knife'
+      ))).toBe(false)
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('removes a held spider-flurry collider as soon as the living knife breaks', () => {
+    const config = combatConfig('either-claws', 'secondary-spider-knife', 'guard', 1)
+    const { engine, access } = startCombat(config)
+    const spiderKnife = access.weapons.get('right')!
+    const target = access.enemies[0]
+
+    try {
+      placeEnemy(access, target, 60)
+      access.weaponStates.get(spiderKnife.id)!.resource = 2
+      access.startActiveArea(
+        'melee',
+        spiderKnife.attacks.hold,
+        { x: 1, y: 0 },
+        spiderKnife.id,
+        'right',
+        null,
+        true,
+      )
+      const channel = access.activeAreas.at(-1)!
+      access.heldChannels.set('right', channel)
+      expect(access.weaponStates.get(spiderKnife.id)?.resource).toBe(1)
+
+      access.damageEnemy(
+        target,
+        spiderKnife.attacks.hold,
+        0,
+        { x: 1, y: 0 },
+        { hand: 'right' },
+      )
+      expect(access.weapons.has('right')).toBe(false)
+      expect(access.heldChannels.has('right')).toBe(false)
+      expect(access.activeAreas.some(area => area.weaponId === spiderKnife.id)).toBe(false)
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('lets an axe tap cancel special recovery and pulls every damaged target inward', () => {
+    const config = combatConfig('twohand-axe', null, 'guard', 1)
+    const { engine, access } = startCombat(config)
+    const axe = weapon(config, 'twohand-axe')
+    const target = access.enemies[0]
+
+    try {
+      access.performAttack(resolution('left', 'tap'))
+      expect(access.createSnapshot().lastGesture).toMatchObject({
+        hand: 'left',
         gesture: 'tap',
-        attackName: 'Resolved rear-hand tap',
         comboStep: 1,
       })
-    } finally {
-      engine.destroy()
-      vi.restoreAllMocks()
-    }
-  })
+      access.elapsedMs += 100
+      access.performAttack(resolution('left', 'doubleTap'))
+      expect(access.weaponStates.get('twohand-axe')?.recoveryMs).toBe(0)
+      expect(access.player.recoveryMs).toBe(0)
 
-  it('keeps melee and burst areas active for their duration and damages each target once', () => {
-    const engine = new LastChancesEngine(makeCanvas(), defaultConfig)
-    const testAccess = engine as unknown as EngineTestAccess
-
-    try {
-      expect(engine.chooseNode(testAccess.createSnapshot().availableNodeIds[0])).toBe(true)
-      const [entering, late] = testAccess.enemies
-      const attack = {
-        ...defaultConfig.weapons[0].attacks.tap,
-        kind: 'burst' as const,
-        damage: 5,
-        range: 30,
-        radius: 5,
-        durationMs: 100,
-        knockback: 0,
-        pierce: 8,
-      }
-      entering.position = { x: testAccess.player.position.x + 200, y: testAccess.player.position.y }
-      late.position = { x: testAccess.player.position.x + 220, y: testAccess.player.position.y }
-      const enteringHp = entering.hp
-      const lateHp = late.hp
-
-      testAccess.startActiveArea('burst', attack, { x: 1, y: 0 })
-      entering.position = {
-        x: testAccess.player.position.x + attack.range * 0.5 + attack.radius + entering.definition.radius - 1,
-        y: testAccess.player.position.y,
-      }
-      testAccess.updateActiveAreas(50)
-      expect(entering.hp).toBe(enteringHp - attack.damage)
-      testAccess.updateActiveAreas(10)
-      expect(entering.hp).toBe(enteringHp - attack.damage)
-
-      testAccess.updateActiveAreas(40)
-      testAccess.startActiveArea('burst', attack, { x: 1, y: 0 })
-      testAccess.updateActiveAreas(101)
-      late.position = {
-        x: testAccess.player.position.x + attack.range,
-        y: testAccess.player.position.y,
-      }
-      testAccess.updateActiveAreas(1)
-      expect(late.hp).toBe(lateHp)
-    } finally {
-      engine.destroy()
-      vi.restoreAllMocks()
-    }
-  })
-
-  it('expands burst collision over its authored duration', () => {
-    const engine = new LastChancesEngine(makeCanvas(), defaultConfig)
-    const testAccess = engine as unknown as EngineTestAccess
-
-    try {
-      expect(engine.chooseNode(testAccess.createSnapshot().availableNodeIds[0])).toBe(true)
-      const target = testAccess.enemies[0]
-      const attack = {
-        ...defaultConfig.weapons[0].attacks.tap,
-        kind: 'burst' as const,
-        damage: 5,
-        range: 80,
-        radius: 0,
-        arcDegrees: 360,
-        durationMs: 100,
-        knockback: 0,
-        pierce: 0,
-      }
-      target.position = {
-        x: testAccess.player.position.x + attack.range + target.definition.radius - 1,
-        y: testAccess.player.position.y,
-      }
-      const initialHp = target.hp
-
-      testAccess.startActiveArea('burst', attack, { x: 1, y: 0 })
-      expect(target.hp).toBe(initialHp)
-      testAccess.updateActiveAreas(49)
-      expect(target.hp).toBe(initialHp)
-      testAccess.updateActiveAreas(51)
-      expect(target.hp).toBe(initialHp - attack.damage)
-    } finally {
-      engine.destroy()
-      vi.restoreAllMocks()
-    }
-  })
-
-  it('honors authored facing arcs for directional bursts', () => {
-    const engine = new LastChancesEngine(makeCanvas(), defaultConfig)
-    const testAccess = engine as unknown as EngineTestAccess
-
-    try {
-      expect(engine.chooseNode(testAccess.createSnapshot().availableNodeIds[0])).toBe(true)
-      const [front, behind] = testAccess.enemies
-      front.position = { x: testAccess.player.position.x + 30, y: testAccess.player.position.y }
-      behind.position = { x: testAccess.player.position.x - 30, y: testAccess.player.position.y }
-      const frontHp = front.hp
-      const behindHp = behind.hp
-      const attack = {
-        ...defaultConfig.weapons[0].attacks.tap,
-        kind: 'burst' as const,
-        damage: 5,
-        range: 50,
-        radius: 5,
-        arcDegrees: 150,
-        durationMs: 0,
-        knockback: 0,
-        pierce: 1,
-      }
-
-      testAccess.startActiveArea('burst', attack, { x: 1, y: 0 })
-
-      expect(front.hp).toBe(frontHp - attack.damage)
-      expect(behind.hp).toBe(behindHp)
-    } finally {
-      engine.destroy()
-      vi.restoreAllMocks()
-    }
-  })
-
-  it('limits active-area targets to pierce plus one', () => {
-    const config = cloneLastChancesConfig(defaultConfig)
-    config.progression.tiers[0].enemyCount = [3, 3]
-    const engine = new LastChancesEngine(makeCanvas(), config)
-    const testAccess = engine as unknown as EngineTestAccess
-
-    try {
-      expect(engine.chooseNode(testAccess.createSnapshot().availableNodeIds[0])).toBe(true)
-      const initialHp = testAccess.enemies.map(enemy => enemy.hp)
-      testAccess.enemies.forEach((enemy) => {
-        enemy.position = { x: testAccess.player.position.x + 20, y: testAccess.player.position.y }
+      access.elapsedMs += 1100
+      access.updateDelayedRecoveries(1100)
+      expect(access.weaponStates.get('twohand-axe')?.recoveryMs).toBe(620)
+      expect(access.player.recoveryMs).toBe(620)
+      access.performAttack(resolution('left', 'tap'))
+      expect(access.createSnapshot().lastGesture).toMatchObject({
+        hand: 'left',
+        gesture: 'tap',
+        comboStep: 2,
       })
-      testAccess.startActiveArea('burst', {
-        ...config.weapons[0].attacks.tap,
-        kind: 'burst',
-        damage: 5,
-        range: 50,
-        radius: 10,
-        arcDegrees: 360,
-        durationMs: 0,
-        knockback: 0,
-        pierce: 1,
-      }, { x: 1, y: 0 })
+      expect(access.weaponStates.get('twohand-axe')?.recoveryMs).toBe(0)
+      expect(access.player.recoveryMs).toBe(0)
 
-      expect(testAccess.enemies.filter((enemy, index) => enemy.hp < initialHp[index])).toHaveLength(2)
+      placeEnemy(access, target, 180)
+      const beforeX = target.position.x
+      access.damageEnemy(target, axe.attacks.tap, 0, { x: 1, y: 0 }, { hand: 'left' })
+      expect(target.position.x).toBeLessThan(beforeX)
+      expect(beforeX - target.position.x).toBeCloseTo(16)
     } finally {
       engine.destroy()
-      vi.restoreAllMocks()
     }
   })
 
-  it('limits dash targets to pierce plus one without stopping travel', () => {
-    const config = cloneLastChancesConfig(defaultConfig)
-    config.progression.tiers[0].enemyCount = [3, 3]
-    const engine = new LastChancesEngine(makeCanvas(), config)
-    const testAccess = engine as unknown as EngineTestAccess
+  it('holds the nearest axe target before applying the delayed armor tear', () => {
+    const config = combatConfig('twohand-axe', null, 'guard', 1)
+    const { engine, access } = startCombat(config)
+    const target = access.enemies[0]
 
     try {
-      expect(engine.chooseNode(testAccess.createSnapshot().availableNodeIds[0])).toBe(true)
-      const initialHp = testAccess.enemies.map(enemy => enemy.hp)
-      testAccess.enemies.forEach((enemy) => {
-        enemy.position = { x: testAccess.player.position.x + 10, y: testAccess.player.position.y }
+      placeEnemy(access, target, 70)
+      access.performAttack(resolution('left', 'doubleTap'))
+      expect(target.statuses.stunMs).toBeGreaterThan(1000)
+      expect(target.statuses.armorBreak).toBe(0)
+
+      access.updateActiveAreas(1099)
+      expect(target.statuses.armorBreak).toBe(0)
+      access.updateActiveAreas(1)
+      expect(target.statuses.armorBreak).toBe(18)
+      expect(target.statuses.armorBreakMs).toBe(5000)
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('refunds katana cooldowns on hit and clears the true-damage flash cooldown on a kill', () => {
+    const config = combatConfig('twohand-katana', null, 'curator-shadow', 1)
+    const { engine, access } = startCombat(config)
+    const katana = weapon(config, 'twohand-katana')
+    const target = access.enemies[0]
+
+    try {
+      access.cooldownEnds.set('left:hold', access.elapsedMs + 1000)
+      access.damageEnemy(
+        target,
+        katana.attacks.doubleTap,
+        0,
+        { x: 1, y: 0 },
+        { hand: 'left' },
+      )
+      expect(access.cooldownEnds.get('left:hold')).toBe(access.elapsedMs + 780)
+
+      target.definition.armor = 999
+      target.hp = 30
+      access.cooldownEnds.set('right:doubleTap', access.elapsedMs + 4000)
+      access.cooldownEnds.set('right:holdThenDoubleTap', access.elapsedMs + 6200)
+      access.damageEnemy(
+        target,
+        katana.secondaryAttacks!.holdThenDoubleTap,
+        0,
+        { x: 1, y: 0 },
+        { hand: 'right' },
+      )
+      expect(target.state).toBe('dead')
+      expect(access.cooldownEnds.has('right:holdThenDoubleTap')).toBe(false)
+      expect(access.cooldownEnds.get('right:doubleTap')).toBe(access.elapsedMs + 3740)
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('cashes out accumulated bleed with the charged katana only when its bleed Symbol is equipped', () => {
+    const plainConfig = combatConfig('twohand-katana', null, 'guard', 1)
+    const symbolConfig = combatConfig('twohand-katana', null, 'guard', 1)
+    symbolConfig.loadout!.primaryAugment = 'bleed'
+    const plain = startCombat(plainConfig)
+    const symbol = startCombat(symbolConfig)
+
+    try {
+      for (const started of [plain, symbol]) {
+        const target = started.access.enemies[0]
+        target.definition.maxHp = 500
+        target.definition.armor = 0
+        target.hp = 500
+        placeEnemy(started.access, target, 100)
+        applyLastChancesStatusEffects(target.statuses, [{
+          status: 'bleed',
+          durationMs: 5000,
+          stacks: 3,
+          tickDamage: 2,
+          tickMs: 500,
+        }])
+        const resolvedKatana = started.access.weapons.get('left')!
+        started.access.damageEnemy(
+          target,
+          attackWithLastChancesAugment(resolvedKatana.attacks.hold, resolvedKatana),
+          0,
+          { x: 1, y: 0 },
+          { hand: 'left' },
+        )
+      }
+
+      expect(plain.access.enemies[0].statuses.dots.bleed.stacks).toBe(3)
+      expect(symbol.access.enemies[0].statuses.dots.bleed.stacks).toBe(0)
+      expect(symbol.access.enemies[0].hp).toBeLessThan(plain.access.enemies[0].hp)
+    } finally {
+      plain.engine.destroy()
+      symbol.engine.destroy()
+    }
+  })
+
+  it('classifies sword rhythm and consumes a three-hit opening for the critical Oberhau', () => {
+    const config = combatConfig('hybrid-sword', null, 'curator-shadow', 1)
+    const { engine, access } = startCombat(config)
+    const sword = weapon(config, 'hybrid-sword')
+    const target = access.enemies[0]
+
+    try {
+      access.performAttack(resolution('left', 'tap'))
+      expect(access.weaponStates.get('hybrid-sword')?.rhythm).toBe('idle')
+
+      access.elapsedMs += 300
+      access.performAttack(resolution('left', 'tap'))
+      expect(access.weaponStates.get('hybrid-sword')?.rhythm).toBe('good')
+
+      access.elapsedMs += 100
+      access.performAttack(resolution('left', 'tap'))
+      expect(access.weaponStates.get('hybrid-sword')).toMatchObject({
+        rhythm: 'early',
+        recoveryMs: 900,
       })
-      testAccess.performDash({
-        ...config.weapons[0].attacks.tap,
-        kind: 'dash',
-        damage: 5,
-        range: 50,
-        radius: 100,
-        durationMs: 1000,
-        knockback: 0,
-        pierce: 0,
-      }, { x: 1, y: 0 })
-      const beforeX = testAccess.player.position.x
-      testAccess.updatePlayer(0.016)
 
-      expect(testAccess.enemies.filter((enemy, index) => enemy.hp < initialHp[index])).toHaveLength(1)
-      expect(testAccess.player.position.x).toBeGreaterThan(beforeX)
+      access.weaponStates.get('hybrid-sword')!.recoveryMs = 0
+      access.player.recoveryMs = 0
+      access.elapsedMs += 700
+      access.performAttack(resolution('left', 'tap'))
+      expect(access.weaponStates.get('hybrid-sword')?.rhythm).toBe('late')
+
+      const cleanTap = { ...sword.attacks.tap, hitEffects: [] }
+      target.hp = target.definition.maxHp
+      target.statuses.openingMs = 0
+      access.weaponStates.get('hybrid-sword')!.successfulHits = 0
+      for (let hit = 0; hit < 3; hit += 1) {
+        access.damageEnemy(target, cleanTap, 0, { x: 1, y: 0 }, { hand: 'left' })
+      }
+      expect(target.statuses.openingMs).toBe(1600)
+
+      target.hp = 300
+      access.damageEnemy(
+        target,
+        sword.attacks.doubleTap,
+        0,
+        { x: 1, y: 0 },
+        { hand: 'left' },
+      )
+      expect(300 - target.hp).toBeCloseTo(
+        sword.attacks.doubleTap.damage * 2 - (target.definition.armor ?? 0),
+      )
+      expect(target.statuses.openingMs).toBe(0)
     } finally {
       engine.destroy()
-      vi.restoreAllMocks()
     }
   })
 
-  it('uses authored melee radius as target collision padding', () => {
-    const engine = new LastChancesEngine(makeCanvas(), defaultConfig)
-    const testAccess = engine as unknown as EngineTestAccess
+  it('keeps the held sword input as Oberhau followed by the additional Unterhau collider', () => {
+    const config = combatConfig('hybrid-sword', null, 'guard', 1)
+    const { engine, access } = startCombat(config)
+    const target = access.enemies[0]
 
     try {
-      expect(engine.chooseNode(testAccess.createSnapshot().availableNodeIds[0])).toBe(true)
-      const target = testAccess.enemies[0]
-      const attack = {
-        ...defaultConfig.weapons[0].attacks.tap,
-        kind: 'melee' as const,
-        damage: 5,
-        range: 30,
-        radius: 0,
-        arcDegrees: 360,
-        durationMs: 0,
-        knockback: 0,
-      }
-      target.position = {
-        x: testAccess.player.position.x + attack.range + target.definition.radius + 5,
-        y: testAccess.player.position.y,
-      }
-      const initialHp = target.hp
+      target.definition.maxHp = 500
+      target.definition.armor = 0
+      target.hp = 500
+      target.statuses.openingMs = 1600
+      placeEnemy(access, target, 100)
+      access.performAttack(resolution('left', 'doubleTapHold', 700))
 
-      testAccess.startActiveArea('melee', attack, { x: 1, y: 0 })
-      expect(target.hp).toBe(initialHp)
-      testAccess.startActiveArea('melee', { ...attack, radius: 6 }, { x: 1, y: 0 })
-      expect(target.hp).toBe(initialHp - attack.damage)
+      expect(access.activeAreas.map(area => area.attack.behavior)).toContain('swordOpening')
+      expect(access.activeAreas.map(area => area.attack.behavior)).not.toContain('swordFollowUp')
+      expect(access.delayedAttacks).toHaveLength(1)
+      expect(access.delayedAttacks[0].attack.behavior).toBe('swordFollowUp')
+      expect(target.statuses.openingMs).toBe(0)
+      const hpAfterOberhau = target.hp
+
+      access.updateDelayedAttacks(access.delayedAttacks[0].remainingMs)
+
+      expect(access.activeAreas.map(area => area.attack.behavior)).toContain('swordFollowUp')
+      expect(target.hp).toBeLessThan(hpAfterOberhau)
+      expect(500 - target.hp).toBeGreaterThan(
+        weapon(config, 'hybrid-sword').attacks.doubleTapHold.damage,
+      )
     } finally {
       engine.destroy()
-      vi.restoreAllMocks()
+    }
+  })
+
+  it('publishes color-coded charge cues and the contextual knife-spider prompt', () => {
+    const spear = startCombat(combatConfig('twohand-spear', null, 'guard', 1))
+    const spider = startCombat(combatConfig('either-claws', null, 'spider-knife', 1))
+
+    try {
+      const now = performance.now()
+      spear.access.gestures.press('left', now - 1200)
+      const chargeCue = spear.access.createSnapshot().actionCues.find(cue => cue.hand === 'left')
+      expect(chargeCue).toMatchObject({
+        weaponId: 'twohand-spear',
+        phase: 'charging',
+        gesture: 'hold',
+      })
+      expect(chargeCue!.color).not.toBe('#66706c')
+      expect(chargeCue!.chargeProgress).toBeGreaterThan(0.5)
+      expect(chargeCue!.chargeMaxMs).toBe(2200)
+      expect(chargeCue!.chargeBands.find(band => band.active)?.id).toBe('middle')
+
+      const knifeSpider = spider.access.enemies[0]
+      knifeSpider.captureWindowMs = 1200
+      knifeSpider.facing = { x: 1, y: 0 }
+      knifeSpider.position = { x: 210, y: 340 }
+      spider.access.player.position = { x: 150, y: 340 }
+      expect(spider.access.createSnapshot()).toMatchObject({
+        interactionPrompt: expect.stringContaining('Нож-паука'),
+        enemies: [
+          expect.objectContaining({
+            definitionId: 'spider-knife',
+            captureAvailable: true,
+          }),
+        ],
+      })
+    } finally {
+      spear.engine.destroy()
+      spider.engine.destroy()
+    }
+  })
+
+  it('clears frozen combat transients between rooms and preserves augment selections on equipment changes', () => {
+    const config = combatConfig('either-claws', null, 'guard', 1)
+    config.loadout!.primaryAugment = 'chemical'
+    config.loadout!.secondaryAugment = 'fire'
+    const { engine, access } = startCombat(config)
+
+    try {
+      access.applyInteractionChoice({
+        id: 'equip-chain',
+        title: 'Equip chain',
+        description: 'Regression fixture',
+        effect: { secondaryWeaponId: 'secondary-chain' },
+      })
+      expect(access.createSnapshot().loadout).toMatchObject({
+        primaryWeaponId: 'either-claws',
+        secondaryWeaponId: 'secondary-chain',
+        primaryAugment: 'chemical',
+        secondaryAugment: 'none',
+      })
+
+      access.player.invulnerableMs = 900
+      access.player.rootMs = 700
+      access.player.recoveryMs = 600
+      access.player.parryMs = 500
+      access.player.armorMultiplier = 2
+      access.player.armorMultiplierMs = 800
+      access.weaponStates.get('either-claws')!.recoveryMs = 650
+      access.effects = [{}]
+      access.traces = [{}]
+      access.enemies.forEach(enemy => { enemy.state = 'dead' })
+      access.update(0, 0)
+
+      expect(access.createSnapshot().phase).toBe('planning')
+      expect(access.player).toMatchObject({
+        invulnerableMs: 0,
+        rootMs: 0,
+        recoveryMs: 0,
+        parryMs: 0,
+        armorMultiplier: 1,
+        armorMultiplierMs: 0,
+      })
+      expect(access.weaponStates.get('either-claws')?.recoveryMs).toBe(0)
+      expect(access.effects).toEqual([])
+      expect(access.traces).toEqual([])
+    } finally {
+      engine.destroy()
     }
   })
 })

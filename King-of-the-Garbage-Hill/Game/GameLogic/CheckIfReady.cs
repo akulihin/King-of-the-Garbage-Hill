@@ -562,6 +562,8 @@ public class CheckIfReady : IServiceSingleton
             game.AddGlobalLogs($"Гоблины построили Зиккурат на вершине! {goblinZigWinner.DiscordUsername} побеждает!");
         }
 
+        JonSnow.HandleFinalPosition(game);
+
         // Одна из трех: solo-only and only across an uncontested top-three cutoff. If a fourth
         // living player has Sakura's score, she did not earn a complete top-three place.
         var top3Player = game.PlayersList.FirstOrDefault(x =>
@@ -1509,8 +1511,16 @@ public class CheckIfReady : IServiceSingleton
                              && !t.Passives.Gordon.HalfLife.ActionSubmittedThisRound
                              && !(Madara.IsMadara(t) && (game.RoundNo == 8 || t.Passives.Madara.Sealed))))
                 {
-                    t.Status.IsBlock = true;
                     t.Status.IsReady = true;
+                    if (Naruto.CanChooseBlock(t))
+                    {
+                        t.Status.IsBlock = true;
+                    }
+                    else
+                    {
+                        t.Status.IsSkip = true;
+                        t.Status.ConfirmedSkip = true;
+                    }
                     var text =
                         $"\nCRIT: round #{game.RoundNo} | {t.DiscordUsername} ({UnknownBug.PublicName(t)}) didn't do anything and auto move didn't as well.!\n";
                     // Route through the null-safe helper: a throw here used to abort round resolution
@@ -1598,6 +1608,13 @@ public class CheckIfReady : IServiceSingleton
 
                     // Shen redirects existing attacks, so apply the same sealed/mutual-target
                     // sanitation again to the queue it just changed.
+                    Madara.SanitizeSealedActions(game);
+                    Naruto.SanitizeMutualTargets(game);
+                }
+
+                JonSnow.RedirectBastardAttacks(game);
+                if (!game.IsKratosEvent)
+                {
                     Madara.SanitizeSealedActions(game);
                     Naruto.SanitizeMutualTargets(game);
                 }
