@@ -20,6 +20,19 @@ function mutateGamepad(update: (gamepad: MutableGamepad) => void) {
   })
 }
 
+function finishIntroStory() {
+  cy.get('.lc-story-card footer span').should('be.visible').invoke('text').then((counter) => {
+    const total = Number(counter.split('/').at(-1)?.trim() ?? 0)
+    expect(total).to.be.greaterThan(0)
+    for (let page = 0; page < total; page += 1) {
+      cy.get('.lc-story-card button').then(($button) => {
+        ($button[0] as HTMLButtonElement).click()
+      })
+      cy.wait(30)
+    }
+  })
+}
+
 describe('99 Last Chances controller flow', () => {
   it('enters the opening route and performs the hold follow-up with a standard DualSense', () => {
     const axes = [0, 0, 0, 0]
@@ -45,6 +58,7 @@ describe('99 Last Chances controller flow', () => {
       },
     })
 
+    finishIntroStory()
     cy.get('.lc-map-backdrop').should('be.visible')
     cy.get('.lc-control-grid article.is-connected')
       .should('have.attr', 'data-gamepad-id', 'DualSense Wireless Controller')
@@ -84,7 +98,7 @@ describe('99 Last Chances controller flow', () => {
       pad.buttons[2].pressed = true
       pad.buttons[2].value = 1
     })
-    cy.wait(700)
+    cy.wait(1200)
     mutateGamepad((pad) => {
       pad.buttons[2].pressed = false
       pad.buttons[2].value = 0
@@ -100,7 +114,7 @@ describe('99 Last Chances controller flow', () => {
       pad.buttons[2].value = 0
     })
 
-    cy.get('.lc-gesture-toast').should('contain.text', 'Круг над головой')
+    cy.get('.lc-gesture-toast').should('contain.text', 'Раскрутка копья над головой')
   })
 
   it('saves an override without disrupting the attempt and applies it only to a fresh generation', () => {
@@ -110,6 +124,7 @@ describe('99 Last Chances controller flow', () => {
       },
     })
 
+    finishIntroStory()
     cy.get('.lc-route-node.is-available').first().click()
     cy.get('.lc-map-backdrop').should('not.exist')
     cy.get('.lc-room-readout strong').invoke('text').then((roomName) => {
@@ -136,6 +151,7 @@ describe('99 Last Chances controller flow', () => {
 
       cy.get('.lc-header-actions .is-builder').click()
       cy.contains('.lc-builder-apply-actions button', 'Apply & start fresh generation').click()
+      finishIntroStory()
       cy.get('.lc-map-backdrop').should('be.visible')
       cy.get('.lc-chance-orb > span').should('have.text', '77')
       cy.contains('.lc-run-card dt', 'Generation').parent().find('dd').should('have.text', '#1')

@@ -262,6 +262,9 @@ function validateCollider(value: unknown, path: string, errors: string[]): void 
   }
   requireNumber(collider, 'traceMs', path, errors)
   if (collider.innerRange !== undefined) requireNumber(collider, 'innerRange', path, errors)
+  if (collider.strictInnerRange !== undefined && typeof collider.strictInnerRange !== 'boolean') {
+    errors.push(`${path}.strictInnerRange must be a boolean`)
+  }
   if (collider.width !== undefined) requirePositiveNumber(collider, 'width', path, errors)
   if (collider.tickMs !== undefined) requirePositiveNumber(collider, 'tickMs', path, errors)
   if (collider.followsPlayer !== undefined && typeof collider.followsPlayer !== 'boolean') {

@@ -48,17 +48,21 @@ describe('99LC collider geometry', () => {
     const collider = resolveAttackCollider(
       { x: 0, y: 0 },
       { x: 1, y: 0 },
-      attack({ shape: 'sector', innerRange: 48 }, { range: 150, arcDegrees: 70 }),
+      attack(
+        { shape: 'sector', innerRange: 52, strictInnerRange: true },
+        { range: 150, arcDegrees: 70 },
+      ),
       1,
     )
 
     expect(collider).toMatchObject({
       shape: 'sector',
-      innerRadius: 48,
+      innerRadius: 52,
       outerRadius: 150,
     })
-    expect(colliderHitsCircle(collider, { x: 24, y: 0 }, 8)).toBe(false)
-    expect(colliderHitsCircle(collider, { x: 56, y: 0 }, 8)).toBe(true)
+    // Player radius 22 + large enemy radius 44 is a genuine body-to-body contact.
+    expect(colliderHitsCircle(collider, { x: 66, y: 0 }, 44)).toBe(false)
+    expect(colliderHitsCircle(collider, { x: 100, y: 0 }, 44)).toBe(true)
   })
 
   it('keeps the spear tip boundary inclusive and rejects targets beyond its sweet edge', () => {

@@ -20,6 +20,7 @@ export type LastChancesColliderShape = typeof LAST_CHANCES_COLLIDER_SHAPES[numbe
 export interface LastChancesAttackColliderDefinition {
   shape: LastChancesColliderShape
   innerRange?: number
+  strictInnerRange?: boolean
   /** Full collider width for capsule and sweep shapes. */
   width?: number
   /** Static clockwise rotation from the supplied attack direction. */
@@ -37,6 +38,7 @@ export interface LastChancesRuntimeSectorCollider {
   innerRadius: number
   outerRadius: number
   halfArcRadians: number
+  innerExclusion?: LastChancesRuntimeCircleCollider
 }
 
 export interface LastChancesRuntimeCapsuleCollider {
@@ -44,6 +46,7 @@ export interface LastChancesRuntimeCapsuleCollider {
   start: LastChancesVector
   end: LastChancesVector
   radius: number
+  innerExclusion?: LastChancesRuntimeCircleCollider
 }
 
 export interface LastChancesRuntimeCircleCollider {
@@ -51,6 +54,7 @@ export interface LastChancesRuntimeCircleCollider {
   center: LastChancesVector
   innerRadius: number
   outerRadius: number
+  innerExclusion?: LastChancesRuntimeCircleCollider
 }
 
 export interface LastChancesRuntimeSweepCollider {
@@ -60,6 +64,7 @@ export interface LastChancesRuntimeSweepCollider {
   end: LastChancesVector
   radius: number
   angleRadians: number
+  innerExclusion?: LastChancesRuntimeCircleCollider
 }
 
 export type LastChancesRuntimeCollider =
@@ -277,6 +282,14 @@ export function resolveAttackCollider(
   const angleRadians = (authoredRotation + liveRotation) * Math.PI / 180
   const resolvedDirection = rotate(normalize(direction), angleRadians)
   const width = Math.max(0, finiteOr(collider?.width, Math.max(0, attack.radius) * 2))
+  const innerExclusion = collider?.strictInnerRange && innerRange > EPSILON
+    ? {
+        shape: 'circle' as const,
+        center: { ...origin },
+        innerRadius: 0,
+        outerRadius: innerRange,
+      }
+    : undefined
 
   if (shape === 'circle') {
     return {
@@ -284,6 +297,7 @@ export function resolveAttackCollider(
       center: { ...origin },
       innerRadius: innerRange,
       outerRadius: outerRange,
+      ...(innerExclusion ? { innerExclusion } : {}),
     }
   }
 
@@ -295,6 +309,7 @@ export function resolveAttackCollider(
       innerRadius: innerRange,
       outerRadius: outerRange,
       halfArcRadians: clamp(Math.max(0, attack.arcDegrees), 0, 360) * Math.PI / 360,
+      ...(innerExclusion ? { innerExclusion } : {}),
     }
   }
 
@@ -309,6 +324,7 @@ export function resolveAttackCollider(
       end,
       radius,
       angleRadians: Math.atan2(resolvedDirection.y, resolvedDirection.x),
+      ...(innerExclusion ? { innerExclusion } : {}),
     }
   }
 
@@ -317,6 +333,7 @@ export function resolveAttackCollider(
     start,
     end,
     radius,
+    ...(innerExclusion ? { innerExclusion } : {}),
   }
 }
 
@@ -397,6 +414,10 @@ export function colliderHitsCircle(
   radius: number,
 ): boolean {
   const targetRadius = Math.max(0, finiteOr(radius, 0))
+  if (collider.innerExclusion) {
+    const centerDistance = Math.sqrt(distanceSquared(collider.innerExclusion.center, target))
+    if (centerDistance - targetRadius < collider.innerExclusion.outerRadius - EPSILON) return false
+  }
   if (collider.shape === 'circle') {
     return annulusHitsCircle(
       collider.center,

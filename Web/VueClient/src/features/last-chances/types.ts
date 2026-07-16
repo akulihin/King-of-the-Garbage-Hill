@@ -153,6 +153,8 @@ export interface LastChancesStatErosion {
 export interface LastChancesColliderDefinition {
   shape: LastChancesColliderShape
   innerRange?: number
+  /** Reject targets whose body overlaps the protected inner radius, not only centers fully inside it. */
+  strictInnerRange?: boolean
   width?: number
   traceMs: number
   followsPlayer?: boolean

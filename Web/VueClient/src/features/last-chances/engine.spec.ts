@@ -81,6 +81,10 @@ interface RuntimeEnemy {
   attackCooldownMs: number
   attackWindupMs: number
   lockedAttackDirection: LastChancesVector | null
+  leapRemainingDistance: number
+  leapSpeed: number
+  leapHit: boolean
+  criticalHitMs: number
 }
 
 interface RuntimeAttackContext {
@@ -179,6 +183,7 @@ type EngineTestAccess = {
   updateActiveAreas: (deltaMs: number) => void
   updateDelayedAttacks: (deltaMs: number) => void
   updateDelayedRecoveries: (deltaMs: number) => void
+  updateEnemies: (deltaSeconds: number, deltaMs: number) => void
   updatePlayer: (deltaSeconds: number) => void
   updateProjectiles: (deltaSeconds: number, deltaMs: number) => void
   weaponStates: Map<string, RuntimeWeaponState>
@@ -331,7 +336,11 @@ describe('99LC seven-weapon mechanics', () => {
     placeEnemy(access, spare, 520, 160)
 
     try {
-      placeEnemy(access, target, 20)
+      placeEnemy(
+        access,
+        target,
+        config.player.radius + target.definition.radius,
+      )
       const initialHp = target.hp
       access.startActiveArea('melee', attack, { x: 1, y: 0 }, 'twohand-spear', 'left')
       expect(target.hp).toBe(initialHp)
@@ -344,6 +353,55 @@ describe('99LC seven-weapon mechanics', () => {
       )
       access.updateActiveAreas(50)
       expect(access.traces.length).toBeGreaterThan(0)
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('places a fully charged spear kick target into the primary critical band', () => {
+    const config = combatConfig('twohand-spear', null, 'guard', 1)
+    const { engine, access } = startCombat(config)
+    const target = access.enemies[0]
+
+    try {
+      placeEnemy(access, target, 70)
+      access.performAttack(resolution('right', 'doubleTapHold', 1100))
+      const distance = Math.sqrt(
+        (target.position.x - access.player.position.x) ** 2
+          + (target.position.y - access.player.position.y) ** 2,
+      )
+
+      expect(distance).toBeGreaterThanOrEqual(140)
+      expect(distance).toBeCloseTo(108 * 1.55)
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('pins a late-spear carried target safely against the room perimeter', () => {
+    const config = combatConfig('twohand-spear', null, 'guard', 1)
+    const room = config.rooms.find(candidate => candidate.id === 'combat-hall')!
+    room.obstacles = []
+    const { engine, access } = startCombat(config)
+    const target = access.enemies[0]
+
+    try {
+      target.definition.maxHp = 500
+      target.definition.armor = 0
+      target.hp = 500
+      placeEnemy(access, target, 150)
+      access.performAttack(resolution('left', 'hold', 1750))
+
+      for (let step = 0; step < 24 && access.projectiles.length > 0; step += 1) {
+        access.updateProjectiles(0.08, 80)
+      }
+
+      expect(access.projectiles).toHaveLength(0)
+      expect(target.position.x).toBeLessThanOrEqual(room.width - target.definition.radius)
+      expect(target.position.y).toBeGreaterThanOrEqual(target.definition.radius)
+      expect(target.position.y).toBeLessThanOrEqual(room.height - target.definition.radius)
+      expect(target.statuses.stunMs).toBeGreaterThanOrEqual(1800)
+      expect(target.statuses.disarmMs).toBeGreaterThanOrEqual(1800)
     } finally {
       engine.destroy()
     }
@@ -603,6 +661,60 @@ describe('99LC seven-weapon mechanics', () => {
     }
   })
 
+  it('keeps the charged claw dash traversal harmless and scratches only at its endpoint', () => {
+    const config = combatConfig('either-claws', null, 'guard', 2)
+    const { engine, access } = startCombat(config)
+    const [pathTarget, endpointTarget] = access.enemies
+    const attack = access.weapons.get('left')!.attacks.hold
+    const chargedRange = attack.range * 1.45
+
+    try {
+      for (const target of [pathTarget, endpointTarget]) {
+        target.definition.maxHp = 500
+        target.definition.armor = 0
+        target.hp = 500
+      }
+      placeEnemy(access, pathTarget, 80)
+      placeEnemy(access, endpointTarget, chargedRange)
+
+      access.performAttack(resolution('left', 'hold', 1100))
+      access.updatePlayer(1)
+
+      expect(access.activeDash).toBeNull()
+      expect(pathTarget.hp).toBe(500)
+      expect(endpointTarget.hp).toBeLessThan(500)
+      expect(access.activeAreas.at(-1)?.attack.name).toContain('финальная царапина')
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('preserves the Knife-spider locked leap facing so a miss exposes its rear', () => {
+    const config = combatConfig('either-claws', null, 'spider-knife', 1)
+    const { engine, access } = startCombat(config)
+    const spider = access.enemies[0]
+
+    try {
+      spider.position = { x: 250, y: 70 }
+      spider.facing = { x: 1, y: 0 }
+      spider.state = 'attacking'
+      spider.attackWindupMs = 0
+      spider.lockedAttackDirection = { x: 1, y: 0 }
+      spider.leapRemainingDistance = 100
+      spider.leapSpeed = 200
+      spider.leapHit = false
+      access.player.position = { x: 280, y: 70 }
+
+      access.updateEnemies(0.5, 500)
+
+      expect(spider.captureWindowMs).toBeGreaterThan(0)
+      expect(spider.facing).toEqual({ x: 1, y: 0 })
+      expect(access.createSnapshot().interactionPrompt).toContain('Нож-паука')
+    } finally {
+      engine.destroy()
+    }
+  })
+
   it('substeps a low-FPS rotating sweep so targets cannot sit in an angular gap', () => {
     const config = combatConfig('twohand-spear', null, 'guard', 1)
     const { engine, access } = startCombat(config)
@@ -689,6 +801,34 @@ describe('99LC seven-weapon mechanics', () => {
       access.updateProjectiles(0.5, 500)
       expect(target.hp).toBeLessThan(500)
       expect(access.traces.length).toBeGreaterThan(0)
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('publishes the shared CRIT cue for authored critical attacks', () => {
+    const config = combatConfig('twohand-spear', null, 'guard', 1)
+    const { engine, access } = startCombat(config)
+    const target = access.enemies[0]
+    const attacks = [
+      weapon(config, 'twohand-spear').attacks.tap,
+      weapon(config, 'either-claws').attacks.holdThenDoubleTap,
+      weapon(config, 'secondary-spider-knife').attacks.doubleTap,
+      weapon(config, 'twohand-katana').attacks.doubleTap,
+      weapon(config, 'hybrid-sword').attacks.doubleTap,
+    ]
+
+    try {
+      target.definition.maxHp = 500
+      target.definition.armor = 0
+      placeEnemy(access, target, 150)
+      for (const attack of attacks) {
+        target.hp = 500
+        target.criticalHitMs = 0
+        target.statuses.openingMs = attack.behavior === 'swordOpening' ? 1000 : 0
+        access.damageEnemy(target, attack, 0, { x: 1, y: 0 }, { distance: 150 })
+        expect(target.criticalHitMs, attack.name).toBeGreaterThan(0)
+      }
     } finally {
       engine.destroy()
     }

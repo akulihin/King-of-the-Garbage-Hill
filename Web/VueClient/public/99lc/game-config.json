@@ -916,6 +916,7 @@
           "collider": {
             "shape": "sector",
             "innerRange": 52,
+            "strictInnerRange": true,
             "traceMs": 520
           },
           "sweetSpot": {
@@ -943,6 +944,7 @@
           "collider": {
             "shape": "capsule",
             "innerRange": 56,
+            "strictInnerRange": true,
             "width": 24,
             "traceMs": 560
           },
@@ -973,6 +975,7 @@
           "collider": {
             "shape": "sector",
             "innerRange": 52,
+            "strictInnerRange": true,
             "traceMs": 520
           },
           "sweetSpot": {
@@ -1000,6 +1003,7 @@
           "collider": {
             "shape": "capsule",
             "innerRange": 62,
+            "strictInnerRange": true,
             "width": 22,
             "traceMs": 620
           },
@@ -1028,6 +1032,7 @@
           "collider": {
             "shape": "capsule",
             "innerRange": 44,
+            "strictInnerRange": true,
             "width": 42,
             "traceMs": 780,
             "followsPlayer": true,
@@ -1095,6 +1100,8 @@
           "color": "#ff9f43",
           "collider": {
             "shape": "capsule",
+            "innerRange": 52,
+            "strictInnerRange": true,
             "width": 28,
             "traceMs": 900
           },
@@ -1326,7 +1333,11 @@
               }
             ]
           },
-          "recoveryMs": 360
+          "recoveryMs": 360,
+          "tuning": {
+            "minimumTargetRange": 80,
+            "targetDistancePerKnockback": 1
+          }
         },
         "hold": {
           "name": "Режущая стойка",
@@ -1345,6 +1356,7 @@
           "collider": {
             "shape": "sweep",
             "innerRange": 44,
+            "strictInnerRange": true,
             "width": 32,
             "traceMs": 980,
             "followsPlayer": true,
@@ -1890,7 +1902,13 @@
             "chemicalTrailRadiusMultiplier": 1.8,
             "chemicalTrailColliderRadius": 8,
             "chemicalTrailDurationMs": 900,
-            "chemicalTrailLingerMs": 500
+            "chemicalTrailLingerMs": 500,
+            "landingRange": 82,
+            "landingColliderRadius": 12,
+            "landingArcDegrees": 110,
+            "landingDurationMs": 180,
+            "landingTraceMs": 850,
+            "landingKnockback": 13
           }
         },
         "holdThenDoubleTap": {

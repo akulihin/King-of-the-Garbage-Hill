@@ -913,18 +913,23 @@ export class LastChancesEngine {
         const finishedDash = this.activeDash
         this.activeDash = null
         if (finishedDash.landingBurst) {
+          const clawScratch = finishedDash.attack.behavior === 'clawDash'
           const landingAttack = {
             ...finishedDash.attack,
-            name: `${finishedDash.attack.name} · приземление`,
-            kind: 'burst' as const,
+            name: `${finishedDash.attack.name} · ${clawScratch ? 'финальная царапина' : 'приземление'}`,
+            kind: (clawScratch ? 'melee' : 'burst') as 'melee' | 'burst',
             damage: tuningValue(
               finishedDash.attack,
               'landingDamage',
               finishedDash.attack.damage,
             ),
-            range: tuningValue(finishedDash.attack, 'landingRange', 85),
+            range: tuningValue(finishedDash.attack, 'landingRange', clawScratch ? 82 : 85),
             radius: tuningValue(finishedDash.attack, 'landingColliderRadius', 24),
-            arcDegrees: 360,
+            arcDegrees: tuningValue(
+              finishedDash.attack,
+              'landingArcDegrees',
+              clawScratch ? 110 : 360,
+            ),
             durationMs: tuningValue(finishedDash.attack, 'landingDurationMs', 220),
             knockback: tuningValue(
               finishedDash.attack,
@@ -932,14 +937,14 @@ export class LastChancesEngine {
               finishedDash.attack.knockback,
             ),
             collider: {
-              shape: 'circle' as const,
+              shape: (clawScratch ? 'sector' : 'circle') as 'sector' | 'circle',
               traceMs: tuningValue(finishedDash.attack, 'landingTraceMs', 1100),
               followsPlayer: false,
             },
             behavior: 'standard' as const,
           }
           this.startActiveArea(
-            'burst',
+            clawScratch ? 'melee' : 'burst',
             landingAttack,
             finishedDash.direction,
             finishedDash.weaponId,
@@ -1046,6 +1051,16 @@ export class LastChancesEngine {
         y: currentPosition.y + direction.y * (offset + length),
       },
       radius,
+      ...(definition?.strictInnerRange && offset > 0
+        ? {
+            innerExclusion: {
+              shape: 'circle' as const,
+              center: { ...currentPosition },
+              innerRadius: 0,
+              outerRadius: offset,
+            },
+          }
+        : {}),
     }]
   }
 
@@ -1055,14 +1070,6 @@ export class LastChancesEngine {
       const travel = vectorLength(projectile.velocity) * deltaSeconds
       projectile.position.x += projectile.velocity.x * deltaSeconds
       projectile.position.y += projectile.velocity.y * deltaSeconds
-      if (projectile.carriedIds?.size) {
-        for (const enemyId of projectile.carriedIds) {
-          const carried = this.enemies.find(enemy => enemy.id === enemyId && enemy.state !== 'dead')
-          if (!carried) continue
-          carried.position = { ...projectile.position }
-          carried.statuses.stunMs = Math.max(carried.statuses.stunMs, 80)
-        }
-      }
       projectile.remainingDistance -= travel
       projectile.remainingMs -= deltaMs
       const sweptCollider: LastChancesRuntimeCollider = {
@@ -1074,12 +1081,34 @@ export class LastChancesEngine {
       if (projectile.source === 'player' && projectile.attack) {
         this.addColliderTrace(sweptCollider, projectile.attack)
       }
-      if (this.currentNode?.arena.obstacles.some(obstacle => (
+      const arena = this.currentNode?.arena
+      const hitObstacle = arena?.obstacles.some(obstacle => (
         segmentHitsObstacle(projectileStart, projectile.position, obstacle, projectile.radius)
-      ))) {
+      )) ?? false
+      const hitBoundary = !!arena && (
+        projectile.position.x - projectile.radius <= 0
+        || projectile.position.y - projectile.radius <= 0
+        || projectile.position.x + projectile.radius >= arena.width
+        || projectile.position.y + projectile.radius >= arena.height
+      )
+      if (hitObstacle || hitBoundary) {
+        projectile.position = hitBoundary && arena
+          ? {
+              x: clamp(projectile.position.x, projectile.radius, arena.width - projectile.radius),
+              y: clamp(projectile.position.y, projectile.radius, arena.height - projectile.radius),
+            }
+          : projectileStart
         if (projectile.carriedIds?.size) this.pinProjectileTargets(projectile)
         projectile.remainingHits = 0
         continue
+      }
+      if (projectile.carriedIds?.size) {
+        for (const enemyId of projectile.carriedIds) {
+          const carried = this.enemies.find(enemy => enemy.id === enemyId && enemy.state !== 'dead')
+          if (!carried) continue
+          carried.position = { ...projectile.position }
+          carried.statuses.stunMs = Math.max(carried.statuses.stunMs, 80)
+        }
       }
       if (projectile.source === 'enemy') {
         const reflectingSpin = this.activeAreas.find(area => (
@@ -1224,12 +1253,15 @@ export class LastChancesEngine {
         continue
       }
 
-      enemy.facing = normalize(toPlayer, enemy.facing)
       if (enemy.state === 'attacking') {
+        if (!(profile.attackKind === 'leap' && enemy.lockedAttackDirection)) {
+          enemy.facing = normalize(toPlayer, enemy.facing)
+        }
         this.updateEnemyAttack(enemy, profile, deltaSeconds, deltaMs, distance)
         continue
       }
 
+      enemy.facing = normalize(toPlayer, enemy.facing)
       const mayUseQueue = profile.role === 'creep' || !queuedAttackerActive
       if (distance <= profile.attackRange
         && enemy.attackCooldownMs <= 0
@@ -1887,7 +1919,9 @@ export class LastChancesEngine {
     const dashStartDelayMs = Math.max(0, tuningValue(attack, 'dashStartDelayMs', 0))
     const durationSeconds = Math.max(0.08, (attack.durationMs - dashStartDelayMs) / 1000)
     const dashRadius = Math.max(attack.radius, (attack.collider?.width ?? 0) / 2)
-    const traversalOnly = attack.behavior === 'poleVault' || attack.behavior === 'axeLeap'
+    const traversalOnly = attack.behavior === 'poleVault'
+      || attack.behavior === 'axeLeap'
+      || attack.behavior === 'clawDash'
     this.activeDash = {
       origin: { ...this.player.position },
       direction,
@@ -1908,7 +1942,7 @@ export class LastChancesEngine {
       weaponId: context.weapon.id,
       hand: context.hand,
       storedDot: context.storedDot,
-      landingBurst: attack.behavior === 'axeLeap',
+      landingBurst: attack.behavior === 'axeLeap' || attack.behavior === 'clawDash',
       trailAccumulatorMs: 0,
       elapsedMs: 0,
     }
@@ -2279,9 +2313,42 @@ export class LastChancesEngine {
   private pinProjectileTargets(projectile: RuntimeProjectile): void {
     if (!projectile.carriedIds) return
     const pinDurationMs = tuningValue(projectile.attack, 'wallPinMs', 1800)
+    const arena = this.currentNode?.arena
+    const direction = normalize(projectile.velocity)
     for (const enemyId of projectile.carriedIds) {
       const enemy = this.enemies.find(candidate => candidate.id === enemyId && candidate.state !== 'dead')
       if (!enemy) continue
+      if (arena) {
+        const previousPosition = { ...enemy.position }
+        const stepDistance = Math.max(3, enemy.definition.radius / 4)
+        let candidate = {
+          x: clamp(projectile.position.x, enemy.definition.radius, arena.width - enemy.definition.radius),
+          y: clamp(projectile.position.y, enemy.definition.radius, arena.height - enemy.definition.radius),
+        }
+        let foundSafePosition = false
+        for (let step = 0; step < 64; step += 1) {
+          const insideObstacle = arena.obstacles.some(obstacle => (
+            pointHitsObstacle(candidate, enemy.definition.radius, obstacle)
+          ))
+          if (!insideObstacle) {
+            foundSafePosition = true
+            break
+          }
+          candidate = {
+            x: clamp(
+              candidate.x - direction.x * stepDistance,
+              enemy.definition.radius,
+              arena.width - enemy.definition.radius,
+            ),
+            y: clamp(
+              candidate.y - direction.y * stepDistance,
+              enemy.definition.radius,
+              arena.height - enemy.definition.radius,
+            ),
+          }
+        }
+        enemy.position = foundSafePosition ? candidate : previousPosition
+      }
       enemy.statuses.stunMs = Math.max(enemy.statuses.stunMs, pinDurationMs)
       enemy.statuses.disarmMs = Math.max(enemy.statuses.disarmMs, pinDurationMs)
       enemy.revealedMs = Math.max(enemy.revealedMs, pinDurationMs)
@@ -2573,6 +2640,7 @@ export class LastChancesEngine {
       : null
     let hitEffects = attack.hitEffects?.map(effect => ({ ...effect }))
     let multiplier = 1
+    let criticalHit = false
     const distance = options.distance
       ?? Math.sqrt(distanceSquared(this.player.position, enemy.position))
     if (attack.sweetSpot
@@ -2580,17 +2648,20 @@ export class LastChancesEngine {
       && (attack.sweetSpot.maxRange === undefined || distance <= attack.sweetSpot.maxRange)) {
       multiplier *= attack.sweetSpot.damageMultiplier
       knockback *= attack.sweetSpot.knockbackMultiplier ?? 1
+      criticalHit = attack.sweetSpot.damageMultiplier > 1
     }
     if (attack.behavior === 'swordOpening') {
       if (enemy.statuses.openingMs > 0) {
         multiplier *= attack.sweetSpot?.criticalMultiplier ?? 2
         enemy.statuses.openingMs = 0
+        criticalHit = true
       } else {
         multiplier *= 0.55
       }
     }
     if (attack.behavior === 'clawDeepStrike') {
       multiplier *= tuningValue(attack, 'criticalMultiplier', 1.65)
+      criticalHit = true
       if (weapon?.augment === 'poison' && enemy.statuses.dots.bleed.stacks > 0) {
         hitEffects = hitEffects?.map(effect => effect.status === 'poison'
           ? {
@@ -2611,6 +2682,10 @@ export class LastChancesEngine {
       && enemy.hp / Math.max(1, enemy.definition.maxHp)
         <= tuningValue(attack, 'executeHealthRatio', 0.35)) {
       multiplier *= tuningValue(attack, 'executeDamageMultiplier', 1.8)
+      criticalHit = true
+    }
+    if (attack.behavior === 'spiderImpale' || attack.behavior === 'katanaOverhead') {
+      criticalHit = true
     }
     if (attack.behavior === 'katanaDance') {
       refreshLastChancesBleed(
@@ -2634,6 +2709,12 @@ export class LastChancesEngine {
     const hpBeforeHit = enemy.hp
     enemy.hp = Math.max(0, enemy.hp - Math.max(0, scaledDamage - Math.max(0, armor)))
     const damageDealt = hpBeforeHit - enemy.hp
+    if (criticalHit && damageDealt > 0) {
+      enemy.criticalHitMs = Math.max(
+        enemy.criticalHitMs,
+        tuningValue(attack, 'criticalCueMs', 650),
+      )
+    }
     const chainWeapon = [...this.weapons.values()].find(candidate => (
       candidate.trait === 'chainDotCarrier'
     ))
@@ -2767,11 +2848,17 @@ export class LastChancesEngine {
         y: pullDirection.y * Math.max(tuningValue(attack, 'minimumPullDistance', 40), knockback),
       }, enemy.definition.radius)
     } else if (attack.behavior === 'spearShove' || attack.behavior === 'spearKick') {
-      const targetDistance = Math.max(
+      const baseTargetDistance = Math.max(
         attack.sweetSpot?.minRange
           ?? attack.range * tuningValue(attack, 'targetRangeRatio', 0.72),
         tuningValue(attack, 'minimumTargetRange', 80),
       )
+      const targetDistance = attack.behavior === 'spearKick'
+        ? Math.max(
+            baseTargetDistance,
+            attack.knockback * tuningValue(attack, 'targetDistancePerKnockback', 1),
+          )
+        : baseTargetDistance
       const target = {
         x: clamp(
           this.player.position.x + direction.x * targetDistance,

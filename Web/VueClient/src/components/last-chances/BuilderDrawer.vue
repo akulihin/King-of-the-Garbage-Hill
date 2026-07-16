@@ -133,6 +133,7 @@ const copy = {
     colliderShape: 'Collider shape',
     noCollider: 'No collider',
     innerRange: 'Inner dead zone',
+    strictInnerRange: 'Exclude overlapping bodies',
     colliderWidth: 'Collider width',
     traceMs: 'Trace fade (ms)',
     chargeEnabled: 'Charge bands enabled',
@@ -264,6 +265,7 @@ const copy = {
     colliderShape: 'Форма коллайдера',
     noCollider: 'Без коллайдера',
     innerRange: 'Внутренняя мёртвая зона',
+    strictInnerRange: 'Не задевать тела в мёртвой зоне',
     colliderWidth: 'Ширина коллайдера',
     traceMs: 'Затухание следа (мс)',
     chargeEnabled: 'Сектора зарядки включены',
@@ -795,6 +797,10 @@ function exportJson() {
                   </label>
                   <template v-if="selectedAttack.collider">
                     <label>{{ t.innerRange }}<input v-model.number="selectedAttack.collider.innerRange" type="number" min="0" step="1" /></label>
+                    <label class="lc-check-field">
+                      <input v-model="selectedAttack.collider.strictInnerRange" type="checkbox" />
+                      <span>{{ t.strictInnerRange }}</span>
+                    </label>
                     <label>{{ t.colliderWidth }}<input v-model.number="selectedAttack.collider.width" type="number" min="0" step="1" /></label>
                     <label>{{ t.traceMs }}<input v-model.number="selectedAttack.collider.traceMs" type="number" min="0" step="25" /></label>
                   </template>
