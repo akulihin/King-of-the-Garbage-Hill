@@ -6,12 +6,21 @@ import type {
   EmpiresCombatConfig,
 } from './combat/types'
 import type { EmpiresTdConfig } from './td/types'
-import type { EmpiresBuildingSlotKind, EmpiresEndgameConfig } from './types'
+import type { EmpiresBuildingSlotKind, EmpiresCampaignState, EmpiresEndgameConfig } from './types'
 import { validateEmpiresEndgameConfig } from './engine'
 
 export const EMPIRES_CONFIG_URL = '/empires-endgame/game-config.json'
 export const EMPIRES_CONFIG_STORAGE_KEY = 'empires-endgame:config:v1'
-export const EMPIRES_CONFIG_SCHEMA_VERSION = 2
+export const EMPIRES_CONFIG_SCHEMA_VERSION = 3
+export const EMPIRES_ACTIVE_MINIGAME_CONFIG_ERROR = 'Нельзя менять правила во время боя. Сначала завершите бой или выйдите через действие отмены.'
+
+export function empiresConfigReplacementDisabledReason(
+  state: Pick<EmpiresCampaignState, 'phase' | 'minigame'> | null,
+): string | null {
+  return state?.minigame || state?.phase === 'minigame'
+    ? EMPIRES_ACTIVE_MINIGAME_CONFIG_ERROR
+    : null
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -25,7 +34,7 @@ const COMBAT_SCAFFOLD = {
   equipment: [],
 }
 
-const TD_SCAFFOLD = {
+const TD_V2_SCAFFOLD = {
   enabled: false,
   tickMs: 50,
   maxTicks: 4_000,
@@ -63,6 +72,28 @@ const TD_SCAFFOLD = {
   battlefields: [],
   towers: [],
   waves: [],
+}
+
+const TD_SCAFFOLD = {
+  enabled: false,
+  regionalCatalogEnabled: false,
+  tickMs: 50,
+  maxTicks: 4_000,
+  maxCommands: 128,
+  resultLogLimit: 32,
+  maxCatchUpTicksPerFrame: 8,
+  waveEveryCons: 2,
+  startingBuildResources: 120,
+  towerBases: [],
+  alliance: cloneJson(TD_V2_SCAFFOLD.alliance),
+  settlement: cloneJson(TD_V2_SCAFFOLD.settlement),
+  morale: cloneJson(TD_V2_SCAFFOLD.morale),
+  equipmentProduction: cloneJson(TD_V2_SCAFFOLD.equipmentProduction),
+  battlefields: [],
+  towers: [],
+  gradeChoices: [],
+  waves: [],
+  planVariants: [],
 }
 
 const GOD_SCAFFOLD = {
@@ -104,7 +135,7 @@ function withScaffoldDefaults(
 
 function migrateEmpiresConfigV1ToV2(config: Record<string, unknown>): Record<string, unknown> {
   config.combat = withScaffoldDefaults(config.combat, COMBAT_SCAFFOLD)
-  config.td = withScaffoldDefaults(config.td, TD_SCAFFOLD)
+  config.td = withScaffoldDefaults(config.td, TD_V2_SCAFFOLD)
   config.god = withScaffoldDefaults(config.god, GOD_SCAFFOLD)
   config.quests = withScaffoldDefaults(config.quests, QUESTS_SCAFFOLD)
   if (isRecord(config.empire)) {
@@ -117,6 +148,129 @@ function migrateEmpiresConfigV1ToV2(config: Record<string, unknown>): Record<str
 
 function normalizeEmpiresConfigV2(config: Record<string, unknown>): Record<string, unknown> {
   config.combat = withScaffoldDefaults(config.combat, COMBAT_SCAFFOLD)
+  config.td = withScaffoldDefaults(config.td, TD_V2_SCAFFOLD)
+  return config
+}
+
+function legacyTowerCategories(id: unknown): string[] {
+  if (id === 'tower-g2-archers') return ['archer']
+  if (id === 'tower-g2-crossbows') return ['crossbow']
+  if (id === 'tower-g2-ballista') return ['ballista', 'artillery']
+  if (id === 'tower-g2-trebuchet') return ['trebuchet', 'artillery']
+  return ['tower']
+}
+
+function migrateEmpiresConfigV2ToV3(config: Record<string, unknown>): Record<string, unknown> {
+  const rawTd = isRecord(config.td) ? config.td : cloneJson(TD_V2_SCAFFOLD)
+  const legacyBase = isRecord(rawTd.towerBase) ? cloneJson(rawTd.towerBase) : null
+  const towerBaseId = typeof legacyBase?.id === 'string' ? legacyBase.id : 'tower-generic'
+  const towerBases = legacyBase
+    ? [{ ...legacyBase, regionId: 'center', categoryIds: ['tower'], cost: 0 }]
+    : []
+  const legacyBattlefields = Array.isArray(rawTd.battlefields) ? rawTd.battlefields : []
+  const battlefields = legacyBattlefields.flatMap((value) => {
+    if (!isRecord(value)) return []
+    const castleNodeId = typeof value.castleNodeId === 'string' ? value.castleNodeId : 'castle'
+    const buildSpots = Array.isArray(value.buildSpots)
+      ? value.buildSpots.map(spot => isRecord(spot) ? { ...spot, terrainId: 'ground' } : spot)
+      : []
+    const migrated = {
+      ...value,
+      regionId: 'center',
+      buildSpots,
+      objectiveNodeId: castleNodeId,
+      towerBaseIds: [towerBaseId],
+      allowedTowerCategoryIds: [],
+      modifiers: [],
+    }
+    delete migrated.mode
+    delete migrated.castleNodeId
+    delete migrated.castleMaxHp
+    delete migrated.castleArmor
+    return [migrated]
+  })
+  const towers = Array.isArray(rawTd.towers)
+    ? rawTd.towers.map(value => isRecord(value)
+      ? { ...value, categoryIds: legacyTowerCategories(value.id) }
+      : value)
+    : []
+  const gradeChoices = towers.length === 0
+    ? []
+    : [1, 2, 3, 4].map((grade) => {
+        const choiceIds = towers.flatMap(value => isRecord(value)
+          && value.grade === grade
+          && typeof value.id === 'string'
+          ? [value.id]
+          : [])
+        return choiceIds.length === 4
+          ? {
+              id: `legacy-center-grade-${grade}`,
+              regionId: 'center',
+              grade,
+              choiceIds,
+            }
+          : {
+              id: `legacy-center-grade-${grade}`,
+              regionId: 'center',
+              grade,
+              choiceIds: [],
+              deferredReason: `Legacy custom TD did not define four grade-${grade} choices.`,
+            }
+      })
+  const waves = Array.isArray(rawTd.waves)
+    ? rawTd.waves.map(value => !isRecord(value) || !Array.isArray(value.groups)
+      ? value
+      : {
+          ...value,
+          groups: value.groups.map(group => isRecord(group)
+            ? { ...group, categoryIds: ['melee'] }
+            : group),
+        })
+    : []
+  const firstField = battlefields.find(isRecord)
+  const firstWave = waves.find(isRecord)
+  const objectiveNodeId = typeof firstField?.objectiveNodeId === 'string' ? firstField.objectiveNodeId : 'castle'
+  const legacyField = legacyBattlefields.find(isRecord)
+  const planVariants = firstField && firstWave && typeof firstField.id === 'string' && typeof firstWave.id === 'string'
+    ? [{
+        id: 'legacy-central-defense',
+        name: 'Оборона Тетракора',
+        mode: 'defense',
+        battlefieldId: firstField.id,
+        waveId: firstWave.id,
+        objective: {
+          id: 'legacy-central-castle',
+          name: 'Крепость',
+          kind: 'castle',
+          owner: 'player',
+          nodeId: objectiveNodeId,
+          maxHp: typeof legacyField?.castleMaxHp === 'number' ? legacyField.castleMaxHp : 100,
+          armor: legacyField?.castleArmor ?? null,
+        },
+        deploymentSpeedPerSecond: 0,
+      }]
+    : []
+  config.td = {
+    ...cloneJson(TD_SCAFFOLD),
+    ...rawTd,
+    regionalCatalogEnabled: false,
+    maxCommands: 128,
+    resultLogLimit: 32,
+    maxCatchUpTicksPerFrame: 8,
+    towerBases,
+    battlefields,
+    towers,
+    gradeChoices,
+    waves,
+    planVariants,
+  }
+  delete (config.td as Record<string, unknown>).towerBase
+  config.schemaVersion = 3
+  return config
+}
+
+function normalizeEmpiresConfigV3(config: Record<string, unknown>): Record<string, unknown> {
+  config.combat = withScaffoldDefaults(config.combat, COMBAT_SCAFFOLD)
   config.td = withScaffoldDefaults(config.td, TD_SCAFFOLD)
   return config
 }
@@ -126,6 +280,7 @@ const EMPIRES_CONFIG_MIGRATIONS: Record<
   (config: Record<string, unknown>) => Record<string, unknown>
 > = {
   1: migrateEmpiresConfigV1ToV2,
+  2: migrateEmpiresConfigV2ToV3,
 }
 
 /**
@@ -146,6 +301,7 @@ export function migrateEmpiresConfig(raw: unknown): unknown {
     version = migrated.schemaVersion
   }
   if (version === 2) migrated = normalizeEmpiresConfigV2(migrated)
+  if (version === 3) migrated = normalizeEmpiresConfigV3(migrated)
   return migrated
 }
 
@@ -645,9 +801,14 @@ function validateTdConfig(
   value: unknown,
   combat: unknown,
   units: readonly unknown[],
+  regionIds: readonly string[],
 ): void {
   if (!isRecord(value)) throw new Error('td must be an object.')
   const td = value as unknown as EmpiresTdConfig
+  if (typeof td.enabled !== 'boolean') throw new Error('td.enabled must be a boolean.')
+  if (typeof td.regionalCatalogEnabled !== 'boolean') {
+    throw new Error('td.regionalCatalogEnabled must be a boolean.')
+  }
   const requireFinite = (number: unknown, path: string, minimum = 0) => {
     if (typeof number !== 'number' || !Number.isFinite(number) || number < minimum) {
       throw new Error(`${path} must be finite and at least ${minimum}.`)
@@ -660,27 +821,23 @@ function validateTdConfig(
   }
   requirePositiveInteger(td.tickMs, 'td.tickMs')
   requirePositiveInteger(td.maxTicks, 'td.maxTicks')
+  requirePositiveInteger(td.maxCommands, 'td.maxCommands')
+  requirePositiveInteger(td.resultLogLimit, 'td.resultLogLimit')
+  requirePositiveInteger(td.maxCatchUpTicksPerFrame, 'td.maxCatchUpTicksPerFrame')
   requirePositiveInteger(td.waveEveryCons, 'td.waveEveryCons')
   requireFinite(td.startingBuildResources, 'td.startingBuildResources')
 
-  if (!td.towerBase || !isRecord(td.towerBase)) throw new Error('td.towerBase must be an object.')
   if (!td.alliance || !isRecord(td.alliance)) throw new Error('td.alliance must be an object.')
   if (!td.settlement || !isRecord(td.settlement)) throw new Error('td.settlement must be an object.')
   if (!td.morale || !isRecord(td.morale)) throw new Error('td.morale must be an object.')
   if (!Array.isArray(td.equipmentProduction)) throw new Error('td.equipmentProduction must be an array.')
-  if (!Array.isArray(td.battlefields) || !Array.isArray(td.towers) || !Array.isArray(td.waves)) {
-    throw new Error('td battlefields, towers, and waves must be arrays.')
-  }
-
-  requireFinite(td.towerBase.maxHp, 'td.towerBase.maxHp', Number.EPSILON)
-  requireFinite(td.towerBase.range, 'td.towerBase.range', Number.EPSILON)
-  requirePositiveInteger(td.towerBase.attackIntervalTicks, 'td.towerBase.attackIntervalTicks')
-  requirePositiveInteger(td.towerBase.projectiles, 'td.towerBase.projectiles')
-  if (!td.towerBase.id?.trim() || !td.towerBase.name?.trim()) {
-    throw new Error('td.towerBase needs an id and name.')
-  }
-  if (td.towerBase.targetPriority !== 'first' && td.towerBase.targetPriority !== 'strongest') {
-    throw new Error('td.towerBase.targetPriority is unknown.')
+  if (!Array.isArray(td.towerBases)
+    || !Array.isArray(td.battlefields)
+    || !Array.isArray(td.towers)
+    || !Array.isArray(td.gradeChoices)
+    || !Array.isArray(td.waves)
+    || !Array.isArray(td.planVariants)) {
+    throw new Error('td towerBases, battlefields, towers, gradeChoices, waves, and planVariants must be arrays.')
   }
 
   for (const path of [
@@ -742,15 +899,74 @@ function validateTdConfig(
     )
   }
 
+  const liveCombat = isRecord(combat) && combat.enabled === true
+    ? combat as unknown as EmpiresCombatConfig
+    : null
+  const damageTypeIds = new Set(liveCombat?.damageTypes.map(definition => definition.id) ?? [])
+  const armorClassIds = new Set(liveCombat?.armorClasses.map(definition => definition.id) ?? [])
+  const validateWeapon = (profile: CombatWeaponProfile, path: string) => {
+    if (!profile || !isRecord(profile.damageLevels) || !Array.isArray(profile.tags)) {
+      throw new Error(`${path} must be a combat weapon profile.`)
+    }
+    const levels = Object.entries(profile.damageLevels)
+    if (levels.length === 0) throw new Error(`${path} needs at least one damage level.`)
+    for (const [damageTypeId, level] of levels) {
+      if (liveCombat && !damageTypeIds.has(damageTypeId)) {
+        throw new Error(`${path} references unknown damage type ${damageTypeId}.`)
+      }
+      requireFinite(level, `${path} ${damageTypeId}`, 0)
+    }
+  }
+  const validateArmor = (profile: CombatArmorProfile | null, path: string) => {
+    if (profile === null) return
+    if (!profile || (liveCombat && !armorClassIds.has(profile.classId))) {
+      throw new Error(`${path} references an unknown armor class.`)
+    }
+    requireFinite(profile.level, `${path} level`)
+  }
+
+  const knownRegionIds = new Set(regionIds)
+  const towerBaseIds = new Set<string>()
+  const towerCategoryIds = new Set<string>()
+  for (const base of td.towerBases) {
+    if (!base.id?.trim() || !base.name?.trim()) throw new Error('td tower base needs an id and name.')
+    if (towerBaseIds.has(base.id)) throw new Error(`td repeats tower base ${base.id}.`)
+    towerBaseIds.add(base.id)
+    if (!knownRegionIds.has(base.regionId)) throw new Error(`td tower base ${base.id} references unknown region ${base.regionId}.`)
+    if (!Array.isArray(base.categoryIds) || base.categoryIds.length === 0) {
+      throw new Error(`td tower base ${base.id} needs categories.`)
+    }
+    if (new Set(base.categoryIds).size !== base.categoryIds.length) {
+      throw new Error(`td tower base ${base.id} categories must be unique.`)
+    }
+    for (const categoryId of base.categoryIds) {
+      if (!categoryId.trim()) throw new Error(`td tower base ${base.id} has an empty category.`)
+      towerCategoryIds.add(categoryId)
+    }
+    requireFinite(base.cost, `td tower base ${base.id} cost`)
+    requireFinite(base.maxHp, `td tower base ${base.id} maxHp`, Number.EPSILON)
+    requireFinite(base.range, `td tower base ${base.id} range`, Number.EPSILON)
+    requirePositiveInteger(base.attackIntervalTicks, `td tower base ${base.id} attackIntervalTicks`)
+    requirePositiveInteger(base.projectiles, `td tower base ${base.id} projectiles`)
+    if (base.targetPriority !== 'first' && base.targetPriority !== 'strongest') {
+      throw new Error(`td tower base ${base.id} targetPriority is unknown.`)
+    }
+    validateWeapon(base.weapon, `td tower base ${base.id} weapon`)
+  }
+
   const battlefieldIds = new Set<string>()
+  const battlefieldById = new Map<string, typeof td.battlefields[number]>()
+  const battlefieldAllowedCategories = new Map<string, readonly string[]>()
   for (const battlefield of td.battlefields) {
     if (!battlefield.id?.trim()) throw new Error('td battlefield needs an id.')
     if (battlefieldIds.has(battlefield.id)) throw new Error(`td repeats battlefield ${battlefield.id}.`)
     battlefieldIds.add(battlefield.id)
-    if (battlefield.mode !== 'defense') throw new Error(`td battlefield ${battlefield.id} has an unknown mode.`)
+    battlefieldById.set(battlefield.id, battlefield)
+    if (!knownRegionIds.has(battlefield.regionId)) {
+      throw new Error(`td battlefield ${battlefield.id} references unknown region ${battlefield.regionId}.`)
+    }
     requireFinite(battlefield.width, `td battlefield ${battlefield.id} width`, Number.EPSILON)
     requireFinite(battlefield.height, `td battlefield ${battlefield.id} height`, Number.EPSILON)
-    requireFinite(battlefield.castleMaxHp, `td battlefield ${battlefield.id} castleMaxHp`, Number.EPSILON)
     const nodeIds = new Set<string>()
     for (const node of battlefield.laneGraph.nodes) {
       if (!node.id?.trim()) throw new Error(`td battlefield ${battlefield.id} has a node without an id.`)
@@ -762,7 +978,7 @@ function validateTdConfig(
     if (nodeIds.size !== battlefield.laneGraph.nodes.length) {
       throw new Error(`td battlefield ${battlefield.id} repeats a lane node.`)
     }
-    for (const endpoint of [battlefield.spawnerNodeId, battlefield.castleNodeId, battlefield.deploymentNodeId]) {
+    for (const endpoint of [battlefield.spawnerNodeId, battlefield.objectiveNodeId, battlefield.deploymentNodeId]) {
       if (!nodeIds.has(endpoint)) throw new Error(`td battlefield ${battlefield.id} references unknown node ${endpoint}.`)
     }
     const edgeIds = new Set<string>()
@@ -775,12 +991,62 @@ function validateTdConfig(
       }
     }
     const spotIds = new Set<string>()
+    const terrainIds = new Set<string>()
     for (const spot of battlefield.buildSpots) {
       if (!spot.id?.trim()) throw new Error(`td battlefield ${battlefield.id} has a build spot without an id.`)
       if (spotIds.has(spot.id)) throw new Error(`td battlefield ${battlefield.id} repeats a build spot.`)
       spotIds.add(spot.id)
+      if (!spot.terrainId?.trim()) throw new Error(`td battlefield ${battlefield.id} spot ${spot.id} needs terrainId.`)
+      terrainIds.add(spot.terrainId)
       requireFinite(spot.x, `td battlefield ${battlefield.id} spot ${spot.id} x`, Number.NEGATIVE_INFINITY)
       requireFinite(spot.y, `td battlefield ${battlefield.id} spot ${spot.id} y`, Number.NEGATIVE_INFINITY)
+    }
+    if (!Array.isArray(battlefield.towerBaseIds)
+      || battlefield.towerBaseIds.length === 0
+      || new Set(battlefield.towerBaseIds).size !== battlefield.towerBaseIds.length
+      || battlefield.towerBaseIds.some(id => !towerBaseIds.has(id))) {
+      throw new Error(`td battlefield ${battlefield.id} references an unknown tower base.`)
+    }
+    if (battlefield.towerBaseIds.some(id => td.towerBases.find(base => base.id === id)?.regionId !== battlefield.regionId)) {
+      throw new Error(`td battlefield ${battlefield.id} must use tower bases from its own region.`)
+    }
+    if (!Array.isArray(battlefield.allowedTowerCategoryIds)) {
+      throw new Error(`td battlefield ${battlefield.id} allowedTowerCategoryIds must be an array.`)
+    }
+    if (new Set(battlefield.allowedTowerCategoryIds).size !== battlefield.allowedTowerCategoryIds.length
+      || battlefield.allowedTowerCategoryIds.some(id => !id.trim())) {
+      throw new Error(`td battlefield ${battlefield.id} allowedTowerCategoryIds must be unique and non-empty.`)
+    }
+    battlefieldAllowedCategories.set(battlefield.id, battlefield.allowedTowerCategoryIds)
+    const modifierIds = new Set<string>()
+    for (const modifier of battlefield.modifiers) {
+      if (!modifier.id?.trim() || modifierIds.has(modifier.id)) {
+        throw new Error(`td battlefield ${battlefield.id} repeats or omits a modifier id.`)
+      }
+      modifierIds.add(modifier.id)
+      if (modifier.kind === 'tower-targeting') {
+        if (modifier.terrainIds.some(id => !terrainIds.has(id))) {
+          throw new Error(`td modifier ${modifier.id} references unknown terrain.`)
+        }
+        if (new Set(modifier.targetableByEnemyCategoryIds).size !== modifier.targetableByEnemyCategoryIds.length
+          || modifier.targetableByEnemyCategoryIds.some(id => !id.trim())) {
+          throw new Error(`td modifier ${modifier.id} enemy categories must be unique and non-empty.`)
+        }
+      } else if (modifier.kind === 'tower-stat') {
+        if (modifier.terrainIds.some(id => !terrainIds.has(id))) {
+          throw new Error(`td modifier ${modifier.id} references unknown terrain.`)
+        }
+        requireFinite(modifier.rangeMultiplier, `td modifier ${modifier.id} rangeMultiplier`, Number.EPSILON)
+        requireFinite(modifier.maxHpMultiplier, `td modifier ${modifier.id} maxHpMultiplier`, Number.EPSILON)
+      } else if (modifier.kind === 'deployment-attrition') {
+        if (!modifier.modes.length || modifier.modes.some(mode => mode !== 'defense' && mode !== 'assault')) {
+          throw new Error(`td modifier ${modifier.id} has invalid modes.`)
+        }
+        requirePositiveInteger(modifier.intervalTicks, `td modifier ${modifier.id} intervalTicks`)
+        requireFinite(modifier.damagePerUnit, `td modifier ${modifier.id} damagePerUnit`, Number.EPSILON)
+      } else {
+        throw new Error(`td battlefield ${battlefield.id} has an unknown modifier.`)
+      }
     }
   }
 
@@ -790,6 +1056,16 @@ function validateTdConfig(
     if (towerIds.has(tower.id)) throw new Error(`td repeats tower choice ${tower.id}.`)
     towerIds.add(tower.id)
     if (![1, 2, 3, 4].includes(tower.grade)) throw new Error(`td tower ${tower.id} has an unknown grade.`)
+    if (!Array.isArray(tower.categoryIds) || tower.categoryIds.length === 0) {
+      throw new Error(`td tower ${tower.id} needs categories.`)
+    }
+    if (new Set(tower.categoryIds).size !== tower.categoryIds.length) {
+      throw new Error(`td tower ${tower.id} categories must be unique.`)
+    }
+    for (const categoryId of tower.categoryIds) {
+      if (!categoryId.trim()) throw new Error(`td tower ${tower.id} has an empty category.`)
+      towerCategoryIds.add(categoryId)
+    }
     requireFinite(tower.cost, `td tower ${tower.id} cost`)
     requireFinite(tower.maxHpBonus, `td tower ${tower.id} maxHpBonus`, Number.NEGATIVE_INFINITY)
     requireFinite(tower.rangeBonus, `td tower ${tower.id} rangeBonus`, Number.NEGATIVE_INFINITY)
@@ -805,96 +1081,159 @@ function validateTdConfig(
       throw new Error(`td tower ${tower.id} targetPriority is unknown.`)
     }
     for (const [damageTypeId, bonus] of Object.entries(tower.damageLevelBonuses)) {
+      if (liveCombat && !damageTypeIds.has(damageTypeId)) {
+        throw new Error(`td tower ${tower.id} references unknown damage type ${damageTypeId}.`)
+      }
       requireFinite(bonus, `td tower ${tower.id} ${damageTypeId} damage bonus`, Number.NEGATIVE_INFINITY)
     }
   }
+  for (const [battlefieldId, allowedCategories] of battlefieldAllowedCategories) {
+    for (const categoryId of allowedCategories) {
+      if (!towerCategoryIds.has(categoryId)) {
+        throw new Error(`td battlefield ${battlefieldId} references unknown tower category ${categoryId}.`)
+      }
+    }
+  }
 
-  const allEdgeIds = new Set(td.battlefields.flatMap(field => field.laneGraph.edges.map(edge => edge.id)))
+  const gradeKeys = new Set<string>()
+  for (const set of td.gradeChoices) {
+    if (!set.id?.trim()) throw new Error('td grade choice set needs an id.')
+    const key = `${set.regionId}:${set.grade}`
+    if (gradeKeys.has(key)) throw new Error(`td repeats grade choice set ${key}.`)
+    gradeKeys.add(key)
+    if (!knownRegionIds.has(set.regionId) || ![1, 2, 3, 4].includes(set.grade)) {
+      throw new Error(`td grade choice set ${set.id} has an unknown region or grade.`)
+    }
+    if (set.deferredReason !== undefined && !set.deferredReason.trim()) {
+      throw new Error(`td grade choice set ${set.id} deferredReason must be non-empty.`)
+    }
+    if (set.deferredReason) {
+      if (set.choiceIds.length > 0) throw new Error(`deferred td grade choice set ${set.id} must be unavailable.`)
+    } else if (set.choiceIds.length !== 4) {
+      throw new Error(`live td grade choice set ${set.id} must contain exactly four choices.`)
+    }
+    for (const choiceId of set.choiceIds) {
+      const choice = td.towers.find(candidate => candidate.id === choiceId)
+      if (!choice || choice.grade !== set.grade) {
+        throw new Error(`td grade choice set ${set.id} references invalid choice ${choiceId}.`)
+      }
+    }
+  }
+
   const waveIds = new Set<string>()
+  const waveById = new Map<string, typeof td.waves[number]>()
   for (const wave of td.waves) {
     if (!wave.id?.trim()) throw new Error('td wave needs an id.')
     if (waveIds.has(wave.id)) throw new Error(`td repeats wave ${wave.id}.`)
     waveIds.add(wave.id)
+    waveById.set(wave.id, wave)
     if (wave.groups.length === 0) throw new Error(`td wave ${wave.id} needs an enemy group.`)
     const groupIds = new Set<string>()
     for (const group of wave.groups) {
       if (!group.id?.trim()) throw new Error(`td wave ${wave.id} has a group without an id.`)
       if (groupIds.has(group.id)) throw new Error(`td wave ${wave.id} repeats group ${group.id}.`)
       groupIds.add(group.id)
+      if (!Array.isArray(group.categoryIds) || group.categoryIds.length === 0
+        || group.categoryIds.some(id => !id.trim())) {
+        throw new Error(`td wave ${wave.id} group ${group.id} needs categories.`)
+      }
+      if (new Set(group.categoryIds).size !== group.categoryIds.length) {
+        throw new Error(`td wave ${wave.id} group ${group.id} categories must be unique.`)
+      }
       requirePositiveInteger(group.count, `td wave ${wave.id} group ${group.id} count`)
       if (!Number.isInteger(group.startTick) || group.startTick < 0) {
         throw new Error(`td wave ${wave.id} group ${group.id} startTick must be a non-negative integer.`)
       }
       requirePositiveInteger(group.spawnIntervalTicks, `td wave ${wave.id} group ${group.id} spawnIntervalTicks`)
       requireFinite(group.maxHp, `td wave ${wave.id} group ${group.id} maxHp`, Number.EPSILON)
-      requireFinite(group.speedPerSecond, `td wave ${wave.id} group ${group.id} speedPerSecond`, Number.EPSILON)
+      requireFinite(group.speedPerSecond, `td wave ${wave.id} group ${group.id} speedPerSecond`)
       requireFinite(group.attackRange, `td wave ${wave.id} group ${group.id} attackRange`)
       requirePositiveInteger(group.attackIntervalTicks, `td wave ${wave.id} group ${group.id} attackIntervalTicks`)
-      if (!group.routeEdgeIds.length || group.routeEdgeIds.some(edgeId => !allEdgeIds.has(edgeId))) {
-        throw new Error(`td wave ${wave.id} group ${group.id} references an unknown route edge.`)
-      }
-    }
-  }
-
-  if (!td.enabled) return
-  if (!isRecord(combat) || combat.enabled !== true) throw new Error('td.enabled requires combat.enabled.')
-  if (td.battlefields.length !== 1) {
-    throw new Error('Phase-2 td.enabled requires exactly one central battlefield.')
-  }
-  const liveCombat = combat as unknown as EmpiresCombatConfig
-  const damageTypeIds = new Set(liveCombat.damageTypes.map(definition => definition.id))
-  const armorClassIds = new Set(liveCombat.armorClasses.map(definition => definition.id))
-  const validateWeapon = (profile: CombatWeaponProfile, path: string) => {
-    if (!profile || !isRecord(profile.damageLevels) || !Array.isArray(profile.tags)) {
-      throw new Error(`${path} must be a combat weapon profile.`)
-    }
-    const levels = Object.entries(profile.damageLevels)
-    if (levels.length === 0) throw new Error(`${path} needs at least one damage level.`)
-    for (const [damageTypeId, level] of levels) {
-      if (!damageTypeIds.has(damageTypeId)) {
-        throw new Error(`${path} references unknown damage type ${damageTypeId}.`)
-      }
-      requireFinite(level, `${path} ${damageTypeId}`, 0)
-    }
-  }
-  const validateArmor = (profile: CombatArmorProfile | null, path: string) => {
-    if (profile === null) return
-    if (!profile || !armorClassIds.has(profile.classId)) {
-      throw new Error(`${path} references an unknown armor class.`)
-    }
-    requireFinite(profile.level, `${path} level`)
-  }
-  validateWeapon(td.towerBase.weapon, 'td.towerBase.weapon')
-  for (const tower of td.towers) {
-    for (const damageTypeId of Object.keys(tower.damageLevelBonuses)) {
-      if (!damageTypeIds.has(damageTypeId)) {
-        throw new Error(`td tower ${tower.id} references unknown damage type ${damageTypeId}.`)
-      }
-    }
-  }
-  const battlefield = td.battlefields[0]
-  const battlefieldEdges = new Map(battlefield.laneGraph.edges.map(edge => [edge.id, edge]))
-  validateArmor(battlefield.castleArmor, `td battlefield ${battlefield.id} castleArmor`)
-  for (const wave of td.waves) {
-    for (const group of wave.groups) {
       validateWeapon(group.weapon, `td wave ${wave.id} group ${group.id} weapon`)
       validateArmor(group.armor, `td wave ${wave.id} group ${group.id} armor`)
+    }
+  }
+  const variantIds = new Set<string>()
+  const objectiveIds = new Set<string>()
+  const liveVariants = []
+  for (const variant of td.planVariants) {
+    if (!variant.id?.trim() || variantIds.has(variant.id)) throw new Error('td plan variant ids must be unique and non-empty.')
+    variantIds.add(variant.id)
+    if (variant.mode !== 'defense' && variant.mode !== 'assault') throw new Error(`td plan variant ${variant.id} has unknown mode.`)
+    if (variant.deferredReason !== undefined && !variant.deferredReason.trim()) {
+      throw new Error(`td plan variant ${variant.id} deferredReason must be non-empty.`)
+    }
+    const battlefield = battlefieldById.get(variant.battlefieldId)
+    const wave = waveById.get(variant.waveId)
+    if (!battlefield || !wave) throw new Error(`td plan variant ${variant.id} references an unknown field or wave.`)
+    if (variant.objective.nodeId !== battlefield.objectiveNodeId) {
+      throw new Error(`td plan variant ${variant.id} objective does not match its battlefield.`)
+    }
+    if (variant.objective.owner !== (variant.mode === 'defense' ? 'player' : 'enemy')) {
+      throw new Error(`td plan variant ${variant.id} objective owner does not match its mode.`)
+    }
+    if (!variant.objective.id?.trim() || !variant.objective.name?.trim()
+      || objectiveIds.has(variant.objective.id)
+      || (variant.objective.kind !== 'castle' && variant.objective.kind !== 'fort')) {
+      throw new Error(`td plan variant ${variant.id} objective is invalid or repeated.`)
+    }
+    objectiveIds.add(variant.objective.id)
+    requireFinite(variant.objective.maxHp, `td plan variant ${variant.id} objective maxHp`, Number.EPSILON)
+    validateArmor(variant.objective.armor, `td plan variant ${variant.id} objective armor`)
+    requireFinite(variant.deploymentSpeedPerSecond, `td plan variant ${variant.id} deploymentSpeedPerSecond`)
+    if (variant.mode === 'assault' && variant.deploymentSpeedPerSecond <= 0) {
+      throw new Error(`td assault variant ${variant.id} deploymentSpeedPerSecond must be positive.`)
+    }
+    if (variant.startingBuildResources !== undefined) {
+      requireFinite(variant.startingBuildResources, `td plan variant ${variant.id} startingBuildResources`)
+    }
+    const nodes = new Set(battlefield.laneGraph.nodes.map(node => node.id))
+    const edges = new Map(battlefield.laneGraph.edges.map(edge => [edge.id, edge]))
+    for (const group of wave.groups) {
       let nodeId = battlefield.spawnerNodeId
       for (const edgeId of group.routeEdgeIds) {
-        const edge = battlefieldEdges.get(edgeId)
+        const edge = edges.get(edgeId)
         if (!edge || edge.fromNodeId !== nodeId) {
-          throw new Error(`td wave ${wave.id} group ${group.id} route is not contiguous from the spawner.`)
+          throw new Error(`td variant ${variant.id} group ${group.id} route is not contiguous from the spawner.`)
         }
         nodeId = edge.toNodeId
       }
-      if (nodeId !== battlefield.castleNodeId) {
-        throw new Error(`td wave ${wave.id} group ${group.id} route does not reach the castle.`)
+      if (nodeId !== variant.objective.nodeId) {
+        throw new Error(`td variant ${variant.id} group ${group.id} route does not reach the objective.`)
+      }
+      if (variant.mode === 'defense' && group.speedPerSecond <= 0) {
+        throw new Error(`td defense variant ${variant.id} group ${group.id} must move.`)
+      }
+      if (variant.mode === 'assault' && (!group.stationNodeId || !nodes.has(group.stationNodeId))) {
+        throw new Error(`td assault variant ${variant.id} group ${group.id} needs a known stationNodeId.`)
       }
     }
+    if (!variant.deferredReason) liveVariants.push(variant)
   }
-  for (const grade of [1, 2, 3, 4]) {
-    if (td.towers.filter(tower => tower.grade === grade).length !== 4) {
-      throw new Error(`td.towers requires exactly four grade-${grade} choices when enabled.`)
+
+  if (!td.enabled) return
+  if (!liveCombat) throw new Error('td.enabled requires combat.enabled.')
+  if (liveVariants.length === 0) throw new Error('td.enabled requires a live plan variant.')
+  if (td.regionalCatalogEnabled) {
+    const fieldRegions = new Set(td.battlefields.map(field => field.regionId))
+    if (td.battlefields.length !== regionIds.length
+      || regionIds.some(regionId => !fieldRegions.has(regionId))
+      || fieldRegions.size !== regionIds.length) {
+      throw new Error('td regional catalog must contain exactly one authored battlefield region set.')
+    }
+    for (const regionId of regionIds) {
+      for (const grade of [1, 2, 3, 4]) {
+        if (!gradeKeys.has(`${regionId}:${grade}`)) {
+          throw new Error(`td regional catalog is missing ${regionId} grade ${grade}.`)
+        }
+      }
+      if (!liveVariants.some(variant => variant.mode === 'defense'
+        && battlefieldById.get(variant.battlefieldId)?.regionId === regionId)) {
+        throw new Error(`td regional catalog is missing a live ${regionId} defense variant.`)
+      }
+    }
+    if (!liveVariants.some(variant => variant.mode === 'assault')) {
+      throw new Error('td regional catalog requires a live assault variant.')
     }
   }
   if (td.equipmentProduction.length === 0) {
@@ -965,7 +1304,14 @@ export function validateEmpiresConfig(value: unknown): asserts value is EmpiresE
     'counterRules',
     'equipment',
   ])
-  validateScaffoldSection(value.td, 'td', ['battlefields', 'towers', 'waves'])
+  validateScaffoldSection(value.td, 'td', [
+    'towerBases',
+    'battlefields',
+    'towers',
+    'gradeChoices',
+    'waves',
+    'planVariants',
+  ])
   validateScaffoldSection(value.god, 'god', ['lines', 'deckMemoryRules', 'antiBitoRules'])
   validateScaffoldSection(value.quests, 'quests', ['definitions', 'dialogueGraphs'])
   validateScaffoldSection(value.empire.seasons, 'empire.seasons', ['definitions'])
@@ -989,7 +1335,12 @@ export function validateEmpiresConfig(value: unknown): asserts value is EmpiresE
   }
 
   validateCombatConfig(value.combat, value.empire.technologies)
-  validateTdConfig(value.td, value.combat, value.empire.units ?? [])
+  validateTdConfig(
+    value.td,
+    value.combat,
+    value.empire.units ?? [],
+    value.empire.map.regions.map(region => region.id),
+  )
 
   const config = value as unknown as EmpiresEndgameConfig
   const deferredErrors = validateDeferredReasons(config)

@@ -1,5 +1,6 @@
 import { EmpiresEndgameEngine } from './engine'
 import { resolveTdWithPolicy } from './td/qa'
+import { createTdRulesIdentity } from './td/engine'
 import type { TdQaPolicy } from './td/qa'
 import type { CombatArmorProfile, CombatWeaponProfile } from './combat/types'
 import type {
@@ -11,6 +12,7 @@ import type {
   EmpiresEventDefinition,
   EmpiresPhase,
   TdBattlePlan,
+  TdBattleMode,
 } from './types'
 
 export const EMPIRES_QA_SCENARIO_NAMES = [
@@ -23,6 +25,11 @@ export const EMPIRES_QA_SCENARIO_NAMES = [
   'destroyed-west',
   'relic-production-levels',
   'battle-defense',
+  'battle-assault',
+  'battle-swamp',
+  'battle-forest',
+  'battle-north',
+  'battle-desert',
   'event',
   'victory',
   'defeat',
@@ -97,7 +104,17 @@ export interface EmpiresQaStateDigest {
   eventId: string | null
   minigameId: string | null
   minigameAttempt: number | null
+  minigameMode: TdBattleMode | null
+  minigameRegionId: string | null
+  minigameRulesSchemaVersion: number | null
+  minigameRulesDigest: string | null
+  minigameCommandLimit: number | null
   minigameResultCount: number
+  minigameResultLimit: number | null
+  minigameResultEvictedCount: number
+  minigameResultHistoryDigest: string
+  minigameResultLastSessionId: string | null
+  minigameResultLastRulesDigest: string | null
   rngDraws: number
   outcomeReason: string | null
 }
@@ -142,6 +159,12 @@ export interface EmpiresQaAutoplayResult {
   checkedPlayerTurns: number
   phaseVisits: Record<EmpiresPhase, number>
   resolvedEventIds: string[]
+  resolvedMinigames: Array<{
+    sessionId: string
+    mode: TdBattleMode
+    regionId: string
+    rulesDigest: string
+  }>
   trace: EmpiresQaTraceEntry[]
   stall: EmpiresQaStallDiagnostic | null
   snapshot: EmpiresCampaignState
@@ -193,6 +216,26 @@ const SCENARIO_COPY: Record<EmpiresQaScenarioName, { title: string, description:
   'battle-defense': {
     title: 'Central Alliance defense',
     description: 'A deterministic central defense wave is ready for canvas play or QA fast resolve.',
+  },
+  'battle-assault': {
+    title: 'Central Alliance assault',
+    description: 'A deterministic player assault on the central Alliance fort is ready for QA.',
+  },
+  'battle-swamp': {
+    title: 'Eastern swamp defense',
+    description: 'The swamp battlefield and its inaccessible tower clearings are ready for QA.',
+  },
+  'battle-forest': {
+    title: 'Western forest defense',
+    description: 'The forest battlefield and its ranged tower rules are ready for QA.',
+  },
+  'battle-north': {
+    title: 'Northern shore defense',
+    description: 'The ship wave and artillery-only northern tower catalog are ready for QA.',
+  },
+  'battle-desert': {
+    title: 'Southern desert defense',
+    description: 'The desert battlefield and deployment attrition rule are ready for QA.',
   },
   event: {
     title: 'Pending event',
@@ -426,12 +469,53 @@ function createOutcomeSnapshot(
   return state
 }
 
-function createBattleDefenseSnapshot(
+const TD_QA_VARIANTS: Record<
+  Extract<EmpiresQaScenarioName, `battle-${string}`>,
+  { variantId: string, expectedMode: TdBattleMode, expectedRegionId: string }
+> = {
+  'battle-defense': {
+    variantId: 'central-castle-defense',
+    expectedMode: 'defense',
+    expectedRegionId: 'center',
+  },
+  'battle-assault': {
+    variantId: 'central-fort-assault',
+    expectedMode: 'assault',
+    expectedRegionId: 'center',
+  },
+  'battle-swamp': {
+    variantId: 'swamp-fort-defense',
+    expectedMode: 'defense',
+    expectedRegionId: 'east',
+  },
+  'battle-forest': {
+    variantId: 'forest-fort-defense',
+    expectedMode: 'defense',
+    expectedRegionId: 'west',
+  },
+  'battle-north': {
+    variantId: 'north-ship-defense',
+    expectedMode: 'defense',
+    expectedRegionId: 'north',
+  },
+  'battle-desert': {
+    variantId: 'desert-fort-defense',
+    expectedMode: 'defense',
+    expectedRegionId: 'south',
+  },
+}
+
+function createBattleSnapshot(
   config: EmpiresEndgameConfig,
   engine: EmpiresEndgameEngine,
+  scenarioName: keyof typeof TD_QA_VARIANTS,
 ): EmpiresCampaignState {
-  const battlefield = config.td.battlefields[0]
-  const wave = config.td.waves[0]
+  const scenario = TD_QA_VARIANTS[scenarioName]
+  const variant = (config.td.planVariants ?? []).find(candidate => (
+    candidate.id === scenario.variantId && !candidate.deferredReason
+  ))
+  const battlefield = config.td.battlefields.find(candidate => candidate.id === variant?.battlefieldId)
+  const wave = config.td.waves.find(candidate => candidate.id === variant?.waveId)
   const unit = (config.empire.units ?? []).find(definition => !definition.deferredReason && definition.td)
   const city = engine.state.empire.cities.find(candidate => engine.isCityAccessible(candidate.id))
   const weaponDefinition = unit?.td
@@ -449,26 +533,49 @@ function createBattleDefenseSnapshot(
       ))
     : null
   if (!config.td.enabled
+    || !variant
     || !battlefield
     || !wave
-    || !config.td.towerBase
+    || !config.td.maxCommands
+    || !config.td.maxCatchUpTicksPerFrame
+    || !(config.td.towerBases?.length)
+    || !(config.td.gradeChoices?.length)
     || !unit?.td
     || !city
     || !weaponDefinition
     || weaponDefinition.kind !== 'weapon') {
-    throw new Error('QA battle-defense scenario requires the complete live TD and army catalog.')
+    throw new Error(`QA ${scenarioName} scenario requires the complete live TD and army catalog.`)
   }
+  if (variant.mode !== scenario.expectedMode || battlefield.regionId !== scenario.expectedRegionId) {
+    throw new Error(`QA ${scenarioName} variant no longer matches its expected mode and region.`)
+  }
+  const rulesIdentity = createTdRulesIdentity(config.schemaVersion, config.combat, config.td)
+  const planId = `qa-${scenarioName}-${variant.id}`
+  const sessionId = `${planId}:qa-seed`
+  const deploymentNodeId = variant.mode === 'assault'
+    ? battlefield.spawnerNodeId
+    : battlefield.deploymentNodeId
   const plan: TdBattlePlan = {
-    id: 'qa-battle-defense',
-    mode: 'defense',
+    id: planId,
+    sessionId,
+    rulesIdentity: cloneJson(rulesIdentity),
+    mode: variant.mode,
     scheduledCon: 2,
     threat: config.td.alliance?.baseThreat ?? 0,
     tickMs: config.td.tickMs!,
     maxTicks: config.td.maxTicks!,
-    startingBuildResources: config.td.startingBuildResources!,
+    maxCommands: config.td.maxCommands,
+    maxCatchUpTicksPerFrame: config.td.maxCatchUpTicksPerFrame,
+    startingBuildResources: variant.startingBuildResources ?? config.td.startingBuildResources!,
     battlefield: cloneJson(battlefield),
-    towerBase: cloneJson(config.td.towerBase),
+    objective: cloneJson(variant.objective),
+    towerBases: cloneJson(config.td.towerBases.filter(base => (
+      battlefield.towerBaseIds.includes(base.id)
+    ))),
     towerChoices: cloneJson(config.td.towers),
+    gradeChoices: cloneJson(config.td.gradeChoices.filter(set => (
+      set.regionId === battlefield.regionId
+    ))),
     wave: cloneJson(wave),
     combat: cloneJson(config.combat),
     deployments: [{
@@ -476,7 +583,8 @@ function createBattleDefenseSnapshot(
       cityId: city.id,
       unitId: unit.id,
       count: 3,
-      nodeId: battlefield.deploymentNodeId,
+      nodeId: deploymentNodeId,
+      speedPerSecond: variant.deploymentSpeedPerSecond,
       maxHpPerUnit: unit.td.maxHp,
       attackRange: unit.td.attackRange,
       attackIntervalTicks: unit.td.attackIntervalTicks,
@@ -495,10 +603,11 @@ function createBattleDefenseSnapshot(
   )
   state.phase = 'minigame'
   state.minigame = {
-    id: `${plan.id}:qa-seed`,
+    id: sessionId,
     kind: 'td',
     plan,
-    seed: 'qa-battle-defense',
+    rulesIdentity: cloneJson(rulesIdentity),
+    seed: `qa-${scenarioName}`,
     attempt: 0,
     origin: {
       returnPhase: 'cards',
@@ -579,7 +688,17 @@ export function digestEmpiresQaState(engine: EmpiresEndgameEngine): EmpiresQaSta
     eventId: engine.state.event?.eventId ?? null,
     minigameId: engine.state.minigame?.id ?? null,
     minigameAttempt: engine.state.minigame?.attempt ?? null,
+    minigameMode: engine.state.minigame?.plan.mode ?? null,
+    minigameRegionId: engine.state.minigame?.plan.battlefield.regionId ?? null,
+    minigameRulesSchemaVersion: engine.state.minigame?.rulesIdentity.configSchemaVersion ?? null,
+    minigameRulesDigest: engine.state.minigame?.rulesIdentity.rulesDigest ?? null,
+    minigameCommandLimit: engine.state.minigame?.plan.maxCommands ?? null,
     minigameResultCount: engine.state.minigameResultLog.length,
+    minigameResultLimit: engine.config.td.resultLogLimit ?? null,
+    minigameResultEvictedCount: engine.state.minigameResultCompaction.evictedCount,
+    minigameResultHistoryDigest: engine.state.minigameResultCompaction.historyDigest,
+    minigameResultLastSessionId: engine.state.minigameResultCompaction.lastSessionId,
+    minigameResultLastRulesDigest: engine.state.minigameResultCompaction.lastRulesDigest,
     rngDraws: engine.state.rng.draws,
     outcomeReason: engine.state.outcomeReason,
   }
@@ -711,9 +830,25 @@ export function validateEmpiresQaSnapshot(
         || (snapshot.empire.buildingLevelBonuses.lumber ?? 0) < 1) {
         add('building-level-bonus', 'Relic scenario must increase farm and lumber levels.')
       }
-    } else if (scenarioName === 'battle-defense') {
+    } else if (scenarioName in TD_QA_VARIANTS) {
+      const expected = TD_QA_VARIANTS[scenarioName as keyof typeof TD_QA_VARIANTS]
+      const expectedRules = createTdRulesIdentity(config.schemaVersion, config.combat, config.td)
       if (snapshot.phase !== 'minigame' || snapshot.minigame?.kind !== 'td') {
-        add('minigame', 'Battle-defense scenario must contain an active TD session.')
+        add('minigame', `${scenarioName} scenario must contain an active TD session.`)
+      } else {
+        const session = snapshot.minigame
+        if (session.plan.mode !== expected.expectedMode
+          || session.plan.battlefield.regionId !== expected.expectedRegionId) {
+          add('battle-variant', `${scenarioName} scenario has the wrong TD mode or region.`)
+        }
+        if (session.rulesIdentity.rulesDigest !== expectedRules.rulesDigest
+          || session.rulesIdentity.configSchemaVersion !== expectedRules.configSchemaVersion
+          || session.plan.rulesIdentity.rulesDigest !== session.rulesIdentity.rulesDigest) {
+          add('battle-rules', `${scenarioName} scenario does not carry the current TD rules identity.`)
+        }
+        if (session.plan.maxCommands !== config.td.maxCommands) {
+          add('battle-command-cap', `${scenarioName} scenario does not carry the configured command cap.`)
+        }
       }
     } else if (scenarioName === 'event' && snapshot.phase !== 'event') {
       add('phase', 'Event scenario has the wrong phase.')
@@ -743,7 +878,12 @@ export function createEmpiresQaScenarios(
   const destroyedWest = createDestroyedRegionSnapshot(seededConfig, empireCouncil, 'west')
   const relicProductionLevels = createRelicBuildingLevelSnapshot(seededConfig, empireCouncil)
   const event = createEventSnapshot(seededConfig, empireCouncil)
-  const battleDefense = createBattleDefenseSnapshot(seededConfig, baseEngine)
+  const battleDefense = createBattleSnapshot(seededConfig, baseEngine, 'battle-defense')
+  const battleAssault = createBattleSnapshot(seededConfig, baseEngine, 'battle-assault')
+  const battleSwamp = createBattleSnapshot(seededConfig, baseEngine, 'battle-swamp')
+  const battleForest = createBattleSnapshot(seededConfig, baseEngine, 'battle-forest')
+  const battleNorth = createBattleSnapshot(seededConfig, baseEngine, 'battle-north')
+  const battleDesert = createBattleSnapshot(seededConfig, baseEngine, 'battle-desert')
   const snapshots: Record<EmpiresQaScenarioName, EmpiresCampaignState> = {
     'pending-take': pendingTake,
     'empty-hand-pending-finish': emptyHandPendingFinish,
@@ -754,6 +894,11 @@ export function createEmpiresQaScenarios(
     'destroyed-west': destroyedWest,
     'relic-production-levels': relicProductionLevels,
     'battle-defense': battleDefense,
+    'battle-assault': battleAssault,
+    'battle-swamp': battleSwamp,
+    'battle-forest': battleForest,
+    'battle-north': battleNorth,
+    'battle-desert': battleDesert,
     event,
     victory: createOutcomeSnapshot(baseEngine, 'victory'),
     defeat: createOutcomeSnapshot(baseEngine, 'defeat'),
@@ -937,18 +1082,36 @@ function makeStall(
   return { code, message, at: digestEmpiresQaState(engine), availablePlayerActions }
 }
 
+function createAutoplayStartSnapshot(config: EmpiresEndgameConfig): EmpiresCampaignState {
+  const bootstrap = new EmpiresEndgameEngine(config)
+  const snapshot = bootstrap.snapshot()
+  const unit = [...(config.empire.units ?? [])]
+    .reverse()
+    .find(definition => !definition.deferredReason && definition.td)
+  const city = snapshot.empire.cities.find(candidate => candidate.id === 'city-tetrakor-capital')
+    ?? snapshot.empire.cities[0]
+  if (unit && city) {
+    // A stable QA-only army guarantees the scheduled central assault remains
+    // reachable after settling the preceding central defense.
+    city.recruitedUnits[unit.id] = Math.max(city.recruitedUnits[unit.id] ?? 0, 24)
+  }
+  return snapshot
+}
+
 export function runEmpiresQaAutoplay(
   config: EmpiresEndgameConfig,
   options: EmpiresQaAutoplayOptions = {},
 ): EmpiresQaAutoplayResult {
   const seed = options.seed ?? config.seed
   const seededConfig = configWithSeed(config, seed)
-  const engine = new EmpiresEndgameEngine(seededConfig, options.startSnapshot)
+  const startSnapshot = options.startSnapshot ?? createAutoplayStartSnapshot(seededConfig)
+  const engine = new EmpiresEndgameEngine(seededConfig, startSnapshot)
   const maxSteps = options.maxSteps ?? 10_000
   const tdPolicy = options.tdPolicy ?? 'balanced'
   const trace: EmpiresQaTraceEntry[] = []
   const phaseVisits = emptyPhaseVisits()
   const resolvedEventIds: string[] = []
+  const resolvedMinigames: EmpiresQaAutoplayResult['resolvedMinigames'] = []
   let checkedPlayerTurns = 0
   let stall: EmpiresQaStallDiagnostic | null = null
 
@@ -963,6 +1126,14 @@ export function runEmpiresQaAutoplay(
         : makeStall(engine, 'unsupported-phase', 'QA autoplay could not select an action.')
       break
     }
+    const resolvingMinigame = selected.action.kind === 'resolve-minigame' && engine.state.minigame
+      ? {
+          sessionId: engine.state.minigame.id,
+          mode: engine.state.minigame.plan.mode,
+          regionId: engine.state.minigame.plan.battlefield.regionId,
+          rulesDigest: engine.state.minigame.rulesIdentity.rulesDigest,
+        }
+      : null
     const result = executeAutoplayAction(engine, selected.action)
     const after = digestEmpiresQaState(engine)
     trace.push({ step: trace.length + 1, action: selected.action, result, before, after })
@@ -971,6 +1142,7 @@ export function runEmpiresQaAutoplay(
       break
     }
     if (selected.action.kind === 'choose-event') resolvedEventIds.push(selected.action.eventId)
+    if (resolvingMinigame) resolvedMinigames.push(resolvingMinigame)
     if (after.revision === before.revision) {
       stall = makeStall(engine, 'state-not-advanced', `Successful ${selected.action.kind} did not advance revision.`)
       break
@@ -989,6 +1161,7 @@ export function runEmpiresQaAutoplay(
     checkedPlayerTurns,
     phaseVisits,
     resolvedEventIds,
+    resolvedMinigames,
     trace,
     stall,
     snapshot: engine.snapshot(),

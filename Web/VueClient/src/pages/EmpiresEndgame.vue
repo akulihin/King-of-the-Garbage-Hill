@@ -40,6 +40,7 @@ import {
   clearCustomEmpiresConfig,
   cloneEmpiresConfig,
   downloadEmpiresJson,
+  empiresConfigReplacementDisabledReason,
   loadBundledEmpiresConfig,
   loadEmpiresConfig,
   saveEmpiresConfig,
@@ -109,12 +110,16 @@ const workingConfig = computed(() => editorOpen.value && editorConfig.value
   ? editorConfig.value
   : config.value)
 
+const activeTdPlan = computed(() => state.value?.minigame?.plan ?? null)
+
 const phaseCopy = computed(() => ({
   cards: ['Карточная партия', 'Переиграйте Бога Азарта в подкидного дурака.'],
   divineGift: ['Божественный дар', 'Выберите одно из трёх последствий вашей игры.'],
   empire: ['Два месяца власти', 'Распорядитесь временем, людьми и наследием империи.'],
   event: ['Имперское событие', 'Ваше решение изменит следующий кон.'],
-  minigame: ['Оборона империи', 'Остановите волну Альянса у центральной крепости.'],
+  minigame: activeTdPlan.value?.mode === 'assault'
+    ? ['Наступление', `Прорвитесь к цели «${activeTdPlan.value.objective.name}».`]
+    : ['Оборона империи', `Защитите цель «${activeTdPlan.value?.objective.name ?? 'крепость'}».`],
   victory: ['Империя спасена', state.value?.outcomeReason || 'Эпоха выдержала последнюю ставку.'],
   defeat: ['Конец империи', state.value?.outcomeReason || 'Последняя ставка оказалась роковой.'],
 }[state.value?.phase ?? 'cards']))
@@ -124,7 +129,7 @@ const phaseSteps = [
   { id: 'divineGift', label: 'Дар', icon: Gift },
   { id: 'empire', label: 'Империя', icon: Crown },
   { id: 'event', label: 'Событие', icon: ScrollText },
-  { id: 'minigame', label: 'Оборона', icon: Shield },
+  { id: 'minigame', label: 'Бой', icon: Shield },
 ]
 
 const resourceRows = computed(() => {
@@ -567,8 +572,16 @@ function mutateEditor(mutator: (draft: EmpiresEndgameConfig) => void) {
   updateEditorConfig(next)
 }
 
+function rejectConfigReplacementDuringMinigame(): boolean {
+  const reason = empiresConfigReplacementDisabledReason(state.value)
+  if (!reason) return false
+  showMessage(reason)
+  return true
+}
+
 function saveEditor() {
   if (!editorConfig.value) return
+  if (rejectConfigReplacementDuringMinigame()) return
   try {
     validateEmpiresConfig(editorConfig.value)
     if (!qaMode.value) saveEmpiresConfig(editorConfig.value)
@@ -590,6 +603,7 @@ function saveEditor() {
 }
 
 async function resetEditor() {
+  if (rejectConfigReplacementDuringMinigame()) return
   const prompt = qaMode.value
     ? 'Вернуть встроенный сценарий во временном QA-стенде? Основные локальные данные останутся без изменений.'
     : 'Вернуть встроенный сценарий и удалить локальные правки?'

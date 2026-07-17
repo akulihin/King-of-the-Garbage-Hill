@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "id": "empires-endgame-default",
   "title": "Empire's Endgame",
   "seed": "empires-endgame-authoritative-default-v1",
@@ -68,367 +68,125 @@
   },
   "td": {
     "enabled": true,
+    "regionalCatalogEnabled": true,
     "tickMs": 50,
     "maxTicks": 4000,
+    "maxCommands": 128,
+    "resultLogLimit": 32,
+    "maxCatchUpTicksPerFrame": 8,
     "waveEveryCons": 2,
     "startingBuildResources": 120,
-    "towerBase": {
-      "id": "tower-generic",
-      "name": "Базовая башня",
-      "maxHp": 100,
-      "range": 240,
-      "attackIntervalTicks": 20,
-      "projectiles": 1,
-      "weapon": {
-        "damageLevels": {
-          "impact": 2
-        },
-        "tags": [
-          "tower"
-        ]
-      },
-      "targetPriority": "first"
-    },
-    "alliance": {
-      "baseThreat": 0,
-      "threatPerWave": 1,
-      "healthPerThreat": 0.15,
-      "countPerThreat": 0.1,
-      "speedPerThreat": 0.02
-    },
+    "alliance": { "baseThreat": 0, "threatPerWave": 1, "healthPerThreat": 0.15, "countPerThreat": 0.1, "speedPerThreat": 0.02 },
     "settlement": {
       "lossLoyaltyThreshold": 0.1,
       "loyaltyDelta": -1,
       "veteranHealthThreshold": 0.5,
       "recruitmentPenaltyPerLoss": 1,
       "growthPenaltyPerLoss": 1,
-      "victory": {
-        "moraleDelta": 1,
-        "allianceThreatDelta": 0,
-        "recruitmentPenaltyPerDeployedUnit": 0
-      },
-      "defeat": {
-        "moraleDelta": -1,
-        "allianceThreatDelta": 1,
-        "recruitmentPenaltyPerDeployedUnit": 0
-      },
-      "abort": {
-        "moraleDelta": -2,
-        "allianceThreatDelta": 2,
-        "recruitmentPenaltyPerDeployedUnit": 0.25
-      }
+      "victory": { "moraleDelta": 1, "allianceThreatDelta": 0, "recruitmentPenaltyPerDeployedUnit": 0 },
+      "defeat": { "moraleDelta": -1, "allianceThreatDelta": 1, "recruitmentPenaltyPerDeployedUnit": 0 },
+      "abort": { "moraleDelta": -2, "allianceThreatDelta": 2, "recruitmentPenaltyPerDeployedUnit": 0.25 }
     },
-    "morale": {
-      "initial": 0,
-      "minimum": 0,
-      "maximum": 2
-    },
-    "equipmentProduction": [
-      {
-        "equipmentId": "basic-kit",
-        "amountPerSmithCapacity": 1
-      }
+    "morale": { "initial": 0, "minimum": 0, "maximum": 2 },
+    "equipmentProduction": [{ "equipmentId": "basic-kit", "amountPerSmithCapacity": 1 }],
+    "towerBases": [
+      { "id": "tower-base-center", "name": "Базовая башня Тетракора", "regionId": "center", "categoryIds": ["tower"], "cost": 10, "maxHp": 100, "range": 240, "attackIntervalTicks": 20, "projectiles": 1, "weapon": { "damageLevels": { "impact": 2 }, "tags": ["tower"] }, "targetPriority": "first" },
+      { "id": "tower-base-swamp", "name": "Болотная башня", "regionId": "east", "categoryIds": ["tower"], "cost": 10, "maxHp": 100, "range": 240, "attackIntervalTicks": 20, "projectiles": 1, "weapon": { "damageLevels": { "impact": 2 }, "tags": ["tower"] }, "targetPriority": "first" },
+      { "id": "tower-base-forest", "name": "Лесная башня", "regionId": "west", "categoryIds": ["archer"], "cost": 10, "maxHp": 100, "range": 240, "attackIntervalTicks": 20, "projectiles": 1, "weapon": { "damageLevels": { "impact": 2 }, "tags": ["tower", "arrow"] }, "targetPriority": "first" },
+      { "id": "tower-base-desert", "name": "Пустынная башня", "regionId": "south", "categoryIds": ["tower"], "cost": 10, "maxHp": 100, "range": 240, "attackIntervalTicks": 20, "projectiles": 1, "weapon": { "damageLevels": { "impact": 2 }, "tags": ["tower"] }, "targetPriority": "first" },
+      { "id": "tower-base-north-catapult", "name": "Северная катапульта", "regionId": "north", "categoryIds": ["catapult", "artillery"], "cost": 20, "maxHp": 120, "range": 300, "attackIntervalTicks": 30, "projectiles": 1, "weapon": { "damageLevels": { "impact": 3 }, "tags": ["tower", "artillery"] }, "targetPriority": "strongest" },
+      { "id": "tower-base-north-trebuchet", "name": "Северный требушет", "regionId": "north", "categoryIds": ["trebuchet", "artillery"], "cost": 20, "maxHp": 90, "range": 360, "attackIntervalTicks": 35, "projectiles": 1, "weapon": { "damageLevels": { "impact": 3 }, "tags": ["tower", "artillery"] }, "targetPriority": "strongest" }
     ],
     "battlefields": [
       {
-        "id": "battlefield-central-defense",
-        "name": "Оборона Тетракора",
-        "mode": "defense",
-        "width": 1000,
-        "height": 600,
-        "laneGraph": {
-          "nodes": [
-            {
-              "id": "spawn",
-              "x": 60,
-              "y": 300
-            },
-            {
-              "id": "crossroads",
-              "x": 330,
-              "y": 200
-            },
-            {
-              "id": "defense",
-              "x": 650,
-              "y": 360
-            },
-            {
-              "id": "castle",
-              "x": 940,
-              "y": 300
-            }
-          ],
-          "edges": [
-            {
-              "id": "central-road-1",
-              "fromNodeId": "spawn",
-              "toNodeId": "crossroads"
-            },
-            {
-              "id": "central-road-2",
-              "fromNodeId": "crossroads",
-              "toNodeId": "defense"
-            },
-            {
-              "id": "central-road-3",
-              "fromNodeId": "defense",
-              "toNodeId": "castle"
-            }
-          ]
-        },
-        "buildSpots": [
-          {
-            "id": "central-spot-1",
-            "x": 260,
-            "y": 360
-          },
-          {
-            "id": "central-spot-2",
-            "x": 500,
-            "y": 110
-          },
-          {
-            "id": "central-spot-3",
-            "x": 770,
-            "y": 210
-          }
-        ],
-        "spawnerNodeId": "spawn",
-        "castleNodeId": "castle",
-        "deploymentNodeId": "defense",
-        "castleMaxHp": 100,
-        "castleArmor": null
+        "id": "battlefield-central", "name": "Тетракор", "regionId": "center", "width": 1000, "height": 600,
+        "laneGraph": { "nodes": [{ "id": "central-spawn", "x": 60, "y": 300 }, { "id": "central-crossroads", "x": 330, "y": 200 }, { "id": "central-defense", "x": 650, "y": 360 }, { "id": "central-objective", "x": 940, "y": 300 }], "edges": [{ "id": "central-road-1", "fromNodeId": "central-spawn", "toNodeId": "central-crossroads" }, { "id": "central-road-2", "fromNodeId": "central-crossroads", "toNodeId": "central-defense" }, { "id": "central-road-3", "fromNodeId": "central-defense", "toNodeId": "central-objective" }] },
+        "buildSpots": [{ "id": "central-spot-1", "x": 260, "y": 360, "terrainId": "ground" }, { "id": "central-spot-2", "x": 500, "y": 110, "terrainId": "ground" }, { "id": "central-spot-3", "x": 770, "y": 210, "terrainId": "ground" }],
+        "spawnerNodeId": "central-spawn", "deploymentNodeId": "central-defense", "objectiveNodeId": "central-objective", "towerBaseIds": ["tower-base-center"], "allowedTowerCategoryIds": [], "modifiers": []
+      },
+      {
+        "id": "battlefield-swamp", "name": "Болотная граница", "regionId": "east", "width": 1000, "height": 600,
+        "laneGraph": { "nodes": [{ "id": "swamp-spawn", "x": 50, "y": 320 }, { "id": "swamp-bend", "x": 360, "y": 390 }, { "id": "swamp-defense", "x": 690, "y": 250 }, { "id": "swamp-objective", "x": 950, "y": 300 }], "edges": [{ "id": "swamp-road-1", "fromNodeId": "swamp-spawn", "toNodeId": "swamp-bend" }, { "id": "swamp-road-2", "fromNodeId": "swamp-bend", "toNodeId": "swamp-defense" }, { "id": "swamp-road-3", "fromNodeId": "swamp-defense", "toNodeId": "swamp-objective" }] },
+        "buildSpots": [{ "id": "swamp-spot-1", "x": 260, "y": 190, "terrainId": "swamp-clearing" }, { "id": "swamp-spot-2", "x": 520, "y": 480, "terrainId": "swamp-clearing" }, { "id": "swamp-spot-3", "x": 790, "y": 120, "terrainId": "swamp-clearing" }],
+        "spawnerNodeId": "swamp-spawn", "deploymentNodeId": "swamp-defense", "objectiveNodeId": "swamp-objective", "towerBaseIds": ["tower-base-swamp"], "allowedTowerCategoryIds": [],
+        "modifiers": [{ "id": "swamp-unreachable-towers", "kind": "tower-targeting", "terrainIds": ["swamp-clearing"], "targetableByEnemyCategoryIds": [] }]
+      },
+      {
+        "id": "battlefield-forest", "name": "Западный лес", "regionId": "west", "width": 1000, "height": 600,
+        "laneGraph": { "nodes": [{ "id": "forest-spawn", "x": 55, "y": 330 }, { "id": "forest-bend", "x": 350, "y": 230 }, { "id": "forest-defense", "x": 690, "y": 360 }, { "id": "forest-objective", "x": 945, "y": 300 }], "edges": [{ "id": "forest-road-1", "fromNodeId": "forest-spawn", "toNodeId": "forest-bend" }, { "id": "forest-road-2", "fromNodeId": "forest-bend", "toNodeId": "forest-defense" }, { "id": "forest-road-3", "fromNodeId": "forest-defense", "toNodeId": "forest-objective" }] },
+        "buildSpots": [{ "id": "forest-spot-1", "x": 250, "y": 420, "terrainId": "tree" }, { "id": "forest-spot-2", "x": 510, "y": 110, "terrainId": "tree" }, { "id": "forest-spot-3", "x": 790, "y": 210, "terrainId": "tree" }],
+        "spawnerNodeId": "forest-spawn", "deploymentNodeId": "forest-defense", "objectiveNodeId": "forest-objective", "towerBaseIds": ["tower-base-forest"], "allowedTowerCategoryIds": ["archer", "crossbow", "ballista", "trebuchet", "artillery", "projectile", "tower", "regional"],
+        "modifiers": [{ "id": "forest-tree-targeting", "kind": "tower-targeting", "terrainIds": ["tree"], "targetableByEnemyCategoryIds": ["ranged", "artillery"] }, { "id": "forest-tree-bonus", "kind": "tower-stat", "terrainIds": ["tree"], "rangeMultiplier": 1.25, "maxHpMultiplier": 1.5 }]
+      },
+      {
+        "id": "battlefield-north-shore", "name": "Северный берег", "regionId": "north", "width": 1000, "height": 600,
+        "laneGraph": { "nodes": [{ "id": "north-spawn", "x": 50, "y": 300 }, { "id": "north-surf", "x": 350, "y": 300 }, { "id": "north-defense", "x": 690, "y": 300 }, { "id": "north-objective", "x": 950, "y": 300 }], "edges": [{ "id": "north-sea-1", "fromNodeId": "north-spawn", "toNodeId": "north-surf" }, { "id": "north-sea-2", "fromNodeId": "north-surf", "toNodeId": "north-defense" }, { "id": "north-sea-3", "fromNodeId": "north-defense", "toNodeId": "north-objective" }] },
+        "buildSpots": [{ "id": "north-spot-1", "x": 280, "y": 150, "terrainId": "shore" }, { "id": "north-spot-2", "x": 530, "y": 450, "terrainId": "shore" }, { "id": "north-spot-3", "x": 790, "y": 150, "terrainId": "shore" }],
+        "spawnerNodeId": "north-spawn", "deploymentNodeId": "north-defense", "objectiveNodeId": "north-objective", "towerBaseIds": ["tower-base-north-catapult", "tower-base-north-trebuchet"], "allowedTowerCategoryIds": ["catapult", "trebuchet", "artillery"], "modifiers": []
+      },
+      {
+        "id": "battlefield-desert", "name": "Южная пустыня", "regionId": "south", "width": 1000, "height": 600,
+        "laneGraph": { "nodes": [{ "id": "desert-spawn", "x": 50, "y": 310 }, { "id": "desert-dune", "x": 350, "y": 190 }, { "id": "desert-defense", "x": 680, "y": 390 }, { "id": "desert-objective", "x": 950, "y": 300 }], "edges": [{ "id": "desert-road-1", "fromNodeId": "desert-spawn", "toNodeId": "desert-dune" }, { "id": "desert-road-2", "fromNodeId": "desert-dune", "toNodeId": "desert-defense" }, { "id": "desert-road-3", "fromNodeId": "desert-defense", "toNodeId": "desert-objective" }] },
+        "buildSpots": [{ "id": "desert-spot-1", "x": 260, "y": 390, "terrainId": "dune" }, { "id": "desert-spot-2", "x": 510, "y": 100, "terrainId": "dune" }, { "id": "desert-spot-3", "x": 790, "y": 200, "terrainId": "dune" }],
+        "spawnerNodeId": "desert-spawn", "deploymentNodeId": "desert-defense", "objectiveNodeId": "desert-objective", "towerBaseIds": ["tower-base-desert"], "allowedTowerCategoryIds": [],
+        "modifiers": [{ "id": "desert-defender-attrition", "kind": "deployment-attrition", "modes": ["defense"], "intervalTicks": 100, "damagePerUnit": 0.25 }]
       }
     ],
     "towers": [
-      {
-        "id": "tower-g1-height",
-        "name": "Высокая башня",
-        "grade": 1,
-        "cost": 15,
-        "maxHpBonus": 0,
-        "rangeBonus": 120,
-        "attackIntervalTicksDelta": 0,
-        "projectileBonus": 0,
-        "damageLevelBonuses": {}
-      },
-      {
-        "id": "tower-g1-thick",
-        "name": "Толстая башня",
-        "grade": 1,
-        "cost": 15,
-        "maxHpBonus": 100,
-        "rangeBonus": 0,
-        "attackIntervalTicksDelta": 0,
-        "projectileBonus": 0,
-        "damageLevelBonuses": {}
-      },
-      {
-        "id": "tower-g1-rapid",
-        "name": "Скоростная башня",
-        "grade": 1,
-        "cost": 15,
-        "maxHpBonus": 0,
-        "rangeBonus": 0,
-        "attackIntervalTicksDelta": -5,
-        "projectileBonus": 0,
-        "damageLevelBonuses": {}
-      },
-      {
-        "id": "tower-g1-heavy",
-        "name": "Усиленная башня",
-        "grade": 1,
-        "cost": 15,
-        "maxHpBonus": 25,
-        "rangeBonus": 0,
-        "attackIntervalTicksDelta": 0,
-        "projectileBonus": 0,
-        "damageLevelBonuses": {
-          "impact": 1
-        }
-      },
-      {
-        "id": "tower-g2-archers",
-        "name": "Лучники",
-        "grade": 2,
-        "cost": 20,
-        "maxHpBonus": 0,
-        "rangeBonus": 0,
-        "attackIntervalTicksDelta": -2,
-        "projectileBonus": 0,
-        "damageLevelBonuses": {}
-      },
-      {
-        "id": "tower-g2-crossbows",
-        "name": "Арбалетчики",
-        "grade": 2,
-        "cost": 20,
-        "maxHpBonus": 0,
-        "rangeBonus": -30,
-        "attackIntervalTicksDelta": 5,
-        "projectileBonus": 1,
-        "damageLevelBonuses": {}
-      },
-      {
-        "id": "tower-g2-ballista",
-        "name": "Баллиста",
-        "grade": 2,
-        "cost": 20,
-        "maxHpBonus": 0,
-        "rangeBonus": 30,
-        "attackIntervalTicksDelta": 5,
-        "projectileBonus": 0,
-        "damageLevelBonuses": {
-          "impact": 2
-        },
-        "targetPriority": "strongest"
-      },
-      {
-        "id": "tower-g2-trebuchet",
-        "name": "Требушет",
-        "grade": 2,
-        "cost": 20,
-        "maxHpBonus": 0,
-        "rangeBonus": 60,
-        "attackIntervalTicksDelta": 10,
-        "projectileBonus": 0,
-        "damageLevelBonuses": {
-          "impact": 1
-        },
-        "targetPriority": "strongest"
-      },
-      {
-        "id": "tower-g3-fire",
-        "name": "Огненные снаряды",
-        "grade": 3,
-        "cost": 25,
-        "maxHpBonus": 0,
-        "rangeBonus": 0,
-        "attackIntervalTicksDelta": 0,
-        "projectileBonus": 0,
-        "damageLevelBonuses": {
-          "impact": 1
-        }
-      },
-      {
-        "id": "tower-g3-explosive",
-        "name": "Взрывные снаряды",
-        "grade": 3,
-        "cost": 25,
-        "maxHpBonus": 0,
-        "rangeBonus": 0,
-        "attackIntervalTicksDelta": 2,
-        "projectileBonus": 1,
-        "damageLevelBonuses": {
-          "crushing": 1
-        }
-      },
-      {
-        "id": "tower-g3-poison",
-        "name": "Ядовитые снаряды",
-        "grade": 3,
-        "cost": 25,
-        "maxHpBonus": 0,
-        "rangeBonus": 0,
-        "attackIntervalTicksDelta": -2,
-        "projectileBonus": 0,
-        "damageLevelBonuses": {
-          "cutting": 1
-        }
-      },
-      {
-        "id": "tower-g3-armor-piercing",
-        "name": "Бронебойные снаряды",
-        "grade": 3,
-        "cost": 25,
-        "maxHpBonus": 0,
-        "rangeBonus": 0,
-        "attackIntervalTicksDelta": 0,
-        "projectileBonus": 0,
-        "damageLevelBonuses": {
-          "piercing": 2
-        },
-        "targetPriority": "strongest"
-      },
-      {
-        "id": "tower-g4-tetrakor-power",
-        "name": "Тетракорский ультра-грейд: мощь",
-        "grade": 4,
-        "cost": 30,
-        "maxHpBonus": 0,
-        "rangeBonus": 0,
-        "attackIntervalTicksDelta": 0,
-        "projectileBonus": 0,
-        "damageLevelBonuses": {
-          "impact": 2
-        }
-      },
-      {
-        "id": "tower-g4-tetrakor-range",
-        "name": "Тетракорский ультра-грейд: дальность",
-        "grade": 4,
-        "cost": 30,
-        "maxHpBonus": 0,
-        "rangeBonus": 60,
-        "attackIntervalTicksDelta": 0,
-        "projectileBonus": 0,
-        "damageLevelBonuses": {}
-      },
-      {
-        "id": "tower-g4-tetrakor-speed",
-        "name": "Тетракорский ультра-грейд: скорость",
-        "grade": 4,
-        "cost": 30,
-        "maxHpBonus": 0,
-        "rangeBonus": 0,
-        "attackIntervalTicksDelta": -5,
-        "projectileBonus": 0,
-        "damageLevelBonuses": {}
-      },
-      {
-        "id": "tower-g4-tetrakor-fortress",
-        "name": "Тетракорский ультра-грейд: крепость",
-        "grade": 4,
-        "cost": 30,
-        "maxHpBonus": 150,
-        "rangeBonus": 0,
-        "attackIntervalTicksDelta": 0,
-        "projectileBonus": 0,
-        "damageLevelBonuses": {}
-      }
+      { "id": "tower-g1-height", "name": "Высокая башня", "grade": 1, "categoryIds": ["tower"], "cost": 15, "maxHpBonus": 0, "rangeBonus": 120, "attackIntervalTicksDelta": 0, "projectileBonus": 0, "damageLevelBonuses": {} },
+      { "id": "tower-g1-thick", "name": "Толстая башня", "grade": 1, "categoryIds": ["tower"], "cost": 15, "maxHpBonus": 100, "rangeBonus": 0, "attackIntervalTicksDelta": 0, "projectileBonus": 0, "damageLevelBonuses": {} },
+      { "id": "tower-g1-rapid", "name": "Скоростная башня", "grade": 1, "categoryIds": ["tower"], "cost": 15, "maxHpBonus": 0, "rangeBonus": 0, "attackIntervalTicksDelta": -5, "projectileBonus": 0, "damageLevelBonuses": {} },
+      { "id": "tower-g1-heavy", "name": "Усиленная башня", "grade": 1, "categoryIds": ["tower"], "cost": 15, "maxHpBonus": 25, "rangeBonus": 0, "attackIntervalTicksDelta": 0, "projectileBonus": 0, "damageLevelBonuses": { "impact": 1 } },
+      { "id": "tower-g2-archers", "name": "Лучники", "grade": 2, "categoryIds": ["archer"], "cost": 20, "maxHpBonus": 0, "rangeBonus": 0, "attackIntervalTicksDelta": -2, "projectileBonus": 0, "damageLevelBonuses": {} },
+      { "id": "tower-g2-crossbows", "name": "Арбалетчики", "grade": 2, "categoryIds": ["crossbow"], "cost": 20, "maxHpBonus": 0, "rangeBonus": -30, "attackIntervalTicksDelta": 5, "projectileBonus": 1, "damageLevelBonuses": {} },
+      { "id": "tower-g2-ballista", "name": "Баллиста", "grade": 2, "categoryIds": ["ballista", "artillery"], "cost": 20, "maxHpBonus": 0, "rangeBonus": 30, "attackIntervalTicksDelta": 5, "projectileBonus": 0, "damageLevelBonuses": { "impact": 2 }, "targetPriority": "strongest" },
+      { "id": "tower-g2-trebuchet", "name": "Требушет", "grade": 2, "categoryIds": ["trebuchet", "artillery"], "cost": 20, "maxHpBonus": 0, "rangeBonus": 60, "attackIntervalTicksDelta": 10, "projectileBonus": 0, "damageLevelBonuses": { "impact": 1 }, "targetPriority": "strongest" },
+      { "id": "tower-g3-fire", "name": "Огненные снаряды", "grade": 3, "categoryIds": ["projectile"], "cost": 25, "maxHpBonus": 0, "rangeBonus": 0, "attackIntervalTicksDelta": 0, "projectileBonus": 0, "damageLevelBonuses": { "impact": 1 } },
+      { "id": "tower-g3-explosive", "name": "Взрывные снаряды", "grade": 3, "categoryIds": ["projectile"], "cost": 25, "maxHpBonus": 0, "rangeBonus": 0, "attackIntervalTicksDelta": 2, "projectileBonus": 1, "damageLevelBonuses": { "crushing": 1 } },
+      { "id": "tower-g3-poison", "name": "Ядовитые снаряды", "grade": 3, "categoryIds": ["projectile"], "cost": 25, "maxHpBonus": 0, "rangeBonus": 0, "attackIntervalTicksDelta": -2, "projectileBonus": 0, "damageLevelBonuses": { "cutting": 1 } },
+      { "id": "tower-g3-armor-piercing", "name": "Бронебойные снаряды", "grade": 3, "categoryIds": ["projectile"], "cost": 25, "maxHpBonus": 0, "rangeBonus": 0, "attackIntervalTicksDelta": 0, "projectileBonus": 0, "damageLevelBonuses": { "piercing": 2 }, "targetPriority": "strongest" },
+      { "id": "tower-g4-tetrakor-power", "name": "Тетракорский ультра-грейд: мощь", "grade": 4, "categoryIds": ["regional"], "cost": 30, "maxHpBonus": 0, "rangeBonus": 0, "attackIntervalTicksDelta": 0, "projectileBonus": 0, "damageLevelBonuses": { "impact": 2 } },
+      { "id": "tower-g4-tetrakor-range", "name": "Тетракорский ультра-грейд: дальность", "grade": 4, "categoryIds": ["regional"], "cost": 30, "maxHpBonus": 0, "rangeBonus": 60, "attackIntervalTicksDelta": 0, "projectileBonus": 0, "damageLevelBonuses": {} },
+      { "id": "tower-g4-tetrakor-speed", "name": "Тетракорский ультра-грейд: скорость", "grade": 4, "categoryIds": ["regional"], "cost": 30, "maxHpBonus": 0, "rangeBonus": 0, "attackIntervalTicksDelta": -5, "projectileBonus": 0, "damageLevelBonuses": {} },
+      { "id": "tower-g4-tetrakor-fortress", "name": "Тетракорский ультра-грейд: крепость", "grade": 4, "categoryIds": ["regional"], "cost": 30, "maxHpBonus": 150, "rangeBonus": 0, "attackIntervalTicksDelta": 0, "projectileBonus": 0, "damageLevelBonuses": {} }
+    ],
+    "gradeChoices": [
+      { "id": "center-grade-1", "regionId": "center", "grade": 1, "choiceIds": ["tower-g1-height", "tower-g1-thick", "tower-g1-rapid", "tower-g1-heavy"] },
+      { "id": "center-grade-2", "regionId": "center", "grade": 2, "choiceIds": ["tower-g2-archers", "tower-g2-crossbows", "tower-g2-ballista", "tower-g2-trebuchet"] },
+      { "id": "center-grade-3", "regionId": "center", "grade": 3, "choiceIds": ["tower-g3-fire", "tower-g3-explosive", "tower-g3-poison", "tower-g3-armor-piercing"] },
+      { "id": "center-grade-4", "regionId": "center", "grade": 4, "choiceIds": ["tower-g4-tetrakor-power", "tower-g4-tetrakor-range", "tower-g4-tetrakor-speed", "tower-g4-tetrakor-fortress"] },
+      { "id": "east-grade-1", "regionId": "east", "grade": 1, "choiceIds": [], "deferredReason": "Экспорт не называет четыре болотных региональных улучшения первого грейда." },
+      { "id": "east-grade-2", "regionId": "east", "grade": 2, "choiceIds": ["tower-g2-archers", "tower-g2-crossbows", "tower-g2-ballista", "tower-g2-trebuchet"] },
+      { "id": "east-grade-3", "regionId": "east", "grade": 3, "choiceIds": ["tower-g3-fire", "tower-g3-explosive", "tower-g3-poison", "tower-g3-armor-piercing"] },
+      { "id": "east-grade-4", "regionId": "east", "grade": 4, "choiceIds": [], "deferredReason": "Экспорт не называет четыре болотных региональных ультра-грейда." },
+      { "id": "west-grade-1", "regionId": "west", "grade": 1, "choiceIds": [], "deferredReason": "Экспорт не называет четыре лесных региональных улучшения первого грейда." },
+      { "id": "west-grade-2", "regionId": "west", "grade": 2, "choiceIds": ["tower-g2-archers", "tower-g2-crossbows", "tower-g2-ballista", "tower-g2-trebuchet"] },
+      { "id": "west-grade-3", "regionId": "west", "grade": 3, "choiceIds": ["tower-g3-fire", "tower-g3-explosive", "tower-g3-poison", "tower-g3-armor-piercing"] },
+      { "id": "west-grade-4", "regionId": "west", "grade": 4, "choiceIds": [], "deferredReason": "Экспорт не называет четыре лесных региональных ультра-грейда." },
+      { "id": "south-grade-1", "regionId": "south", "grade": 1, "choiceIds": [], "deferredReason": "Экспорт не называет четыре пустынных региональных улучшения первого грейда." },
+      { "id": "south-grade-2", "regionId": "south", "grade": 2, "choiceIds": ["tower-g2-archers", "tower-g2-crossbows", "tower-g2-ballista", "tower-g2-trebuchet"] },
+      { "id": "south-grade-3", "regionId": "south", "grade": 3, "choiceIds": ["tower-g3-fire", "tower-g3-explosive", "tower-g3-poison", "tower-g3-armor-piercing"] },
+      { "id": "south-grade-4", "regionId": "south", "grade": 4, "choiceIds": [], "deferredReason": "Экспорт не называет четыре пустынных региональных ультра-грейда." },
+      { "id": "north-grade-1", "regionId": "north", "grade": 1, "choiceIds": [], "deferredReason": "Северный источник запрещает улучшения башен и оставляет только катапульты и требушеты." },
+      { "id": "north-grade-2", "regionId": "north", "grade": 2, "choiceIds": [], "deferredReason": "Северный источник запрещает улучшения башен." },
+      { "id": "north-grade-3", "regionId": "north", "grade": 3, "choiceIds": [], "deferredReason": "Северный источник запрещает улучшения башен." },
+      { "id": "north-grade-4", "regionId": "north", "grade": 4, "choiceIds": [], "deferredReason": "Фраза о северном четвёртом грейде неоднозначна; улучшение недоступно до решения дизайнера." }
     ],
     "waves": [
-      {
-        "id": "alliance-central-wave",
-        "name": "Волна Альянса",
-        "groups": [
-          {
-            "id": "alliance-infantry",
-            "count": 12,
-            "startTick": 0,
-            "spawnIntervalTicks": 20,
-            "routeEdgeIds": [
-              "central-road-1",
-              "central-road-2",
-              "central-road-3"
-            ],
-            "maxHp": 12,
-            "speedPerSecond": 50,
-            "attackRange": 40,
-            "attackIntervalTicks": 20,
-            "weapon": {
-              "damageLevels": {
-                "impact": 2
-              },
-              "tags": [
-                "alliance"
-              ]
-            },
-            "armor": null
-          }
-        ]
-      }
+      { "id": "alliance-central-wave", "name": "Волна Альянса у Тетракора", "groups": [{ "id": "central-infantry", "categoryIds": ["melee"], "count": 12, "startTick": 0, "spawnIntervalTicks": 20, "routeEdgeIds": ["central-road-1", "central-road-2", "central-road-3"], "maxHp": 12, "speedPerSecond": 50, "attackRange": 40, "attackIntervalTicks": 20, "weapon": { "damageLevels": { "impact": 2 }, "tags": ["alliance"] }, "armor": null }] },
+      { "id": "alliance-swamp-wave", "name": "Волна Альянса в болоте", "groups": [{ "id": "swamp-infantry", "categoryIds": ["melee"], "count": 12, "startTick": 0, "spawnIntervalTicks": 20, "routeEdgeIds": ["swamp-road-1", "swamp-road-2", "swamp-road-3"], "maxHp": 12, "speedPerSecond": 40, "attackRange": 40, "attackIntervalTicks": 20, "weapon": { "damageLevels": { "impact": 2 }, "tags": ["alliance"] }, "armor": null }] },
+      { "id": "alliance-forest-wave", "name": "Волна Альянса в лесу", "groups": [{ "id": "forest-infantry", "categoryIds": ["melee"], "count": 8, "startTick": 0, "spawnIntervalTicks": 22, "routeEdgeIds": ["forest-road-1", "forest-road-2", "forest-road-3"], "maxHp": 12, "speedPerSecond": 48, "attackRange": 40, "attackIntervalTicks": 20, "weapon": { "damageLevels": { "impact": 2 }, "tags": ["alliance"] }, "armor": null }, { "id": "forest-archers", "categoryIds": ["ranged"], "count": 4, "startTick": 30, "spawnIntervalTicks": 30, "routeEdgeIds": ["forest-road-1", "forest-road-2", "forest-road-3"], "maxHp": 9, "speedPerSecond": 42, "attackRange": 140, "attackIntervalTicks": 24, "weapon": { "damageLevels": { "piercing": 2 }, "tags": ["alliance", "arrow"] }, "armor": null }] },
+      { "id": "alliance-north-ships", "name": "Корабли Альянса", "groups": [{ "id": "north-ships", "categoryIds": ["naval", "ranged"], "count": 8, "startTick": 0, "spawnIntervalTicks": 30, "routeEdgeIds": ["north-sea-1", "north-sea-2", "north-sea-3"], "maxHp": 24, "speedPerSecond": 30, "attackRange": 100, "attackIntervalTicks": 28, "weapon": { "damageLevels": { "impact": 3 }, "tags": ["alliance", "naval"] }, "armor": null }] },
+      { "id": "alliance-desert-wave", "name": "Волна Альянса в пустыне", "groups": [{ "id": "desert-infantry", "categoryIds": ["melee"], "count": 12, "startTick": 0, "spawnIntervalTicks": 20, "routeEdgeIds": ["desert-road-1", "desert-road-2", "desert-road-3"], "maxHp": 12, "speedPerSecond": 52, "attackRange": 40, "attackIntervalTicks": 20, "weapon": { "damageLevels": { "impact": 2 }, "tags": ["alliance"] }, "armor": null }] },
+      { "id": "alliance-central-defenders", "name": "Оборона Альянса", "groups": [{ "id": "central-defenders", "categoryIds": ["ranged"], "count": 8, "startTick": 0, "spawnIntervalTicks": 18, "routeEdgeIds": ["central-road-1", "central-road-2", "central-road-3"], "stationNodeId": "central-defense", "maxHp": 10, "speedPerSecond": 0, "attackRange": 130, "attackIntervalTicks": 22, "weapon": { "damageLevels": { "piercing": 2 }, "tags": ["alliance", "defender"] }, "armor": null }] }
+    ],
+    "planVariants": [
+      { "id": "central-castle-defense", "name": "Оборона замка Тетракора", "mode": "defense", "battlefieldId": "battlefield-central", "waveId": "alliance-central-wave", "objective": { "id": "central-castle", "name": "Замок Тетракора", "kind": "castle", "owner": "player", "nodeId": "central-objective", "maxHp": 100, "armor": null }, "deploymentSpeedPerSecond": 0 },
+      { "id": "central-fort-assault", "name": "Наступление на форт Альянса", "mode": "assault", "battlefieldId": "battlefield-central", "waveId": "alliance-central-defenders", "objective": { "id": "central-alliance-fort", "name": "Форт Альянса", "kind": "fort", "owner": "enemy", "nodeId": "central-objective", "maxHp": 80, "armor": null }, "deploymentSpeedPerSecond": 70, "startingBuildResources": 0 },
+      { "id": "swamp-fort-defense", "name": "Оборона болотной границы", "mode": "defense", "battlefieldId": "battlefield-swamp", "waveId": "alliance-swamp-wave", "objective": { "id": "swamp-fort", "name": "Болотный форт", "kind": "fort", "owner": "player", "nodeId": "swamp-objective", "maxHp": 100, "armor": null }, "deploymentSpeedPerSecond": 0 },
+      { "id": "forest-fort-defense", "name": "Оборона западного леса", "mode": "defense", "battlefieldId": "battlefield-forest", "waveId": "alliance-forest-wave", "objective": { "id": "forest-fort", "name": "Лесной форт", "kind": "fort", "owner": "player", "nodeId": "forest-objective", "maxHp": 100, "armor": null }, "deploymentSpeedPerSecond": 0 },
+      { "id": "north-ship-defense", "name": "Оборона северного берега от кораблей", "mode": "defense", "battlefieldId": "battlefield-north-shore", "waveId": "alliance-north-ships", "objective": { "id": "north-shore-fort", "name": "Береговой форт", "kind": "fort", "owner": "player", "nodeId": "north-objective", "maxHp": 120, "armor": null }, "deploymentSpeedPerSecond": 0 },
+      { "id": "desert-fort-defense", "name": "Оборона южной границы", "mode": "defense", "battlefieldId": "battlefield-desert", "waveId": "alliance-desert-wave", "objective": { "id": "desert-fort", "name": "Пустынный форт", "kind": "fort", "owner": "player", "nodeId": "desert-objective", "maxHp": 100, "armor": null }, "deploymentSpeedPerSecond": 0 }
     ]
   },
   "god": {

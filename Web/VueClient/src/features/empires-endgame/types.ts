@@ -4,6 +4,7 @@ import type {
   TdBattlePlan,
   TdBattleResult,
   TdEquipmentCost,
+  TdRulesIdentity,
   TdUnitProfile,
 } from './td/types'
 
@@ -21,6 +22,8 @@ export type {
   EmpiresTdConfig,
   TdAllianceCurveDefinition,
   TdBattleConsequenceDefinition,
+  TdBattlefieldModifierDefinition,
+  TdBattleMode,
   TdBattleOutcome,
   TdBattlePlan,
   TdBattleResult,
@@ -32,11 +35,17 @@ export type {
   TdEnemyGroupDefinition,
   TdEquipmentCost,
   TdEquipmentProductionDefinition,
+  TdFrameClock,
+  TdGradeChoiceSetDefinition,
   TdLaneEdgeDefinition,
   TdLaneGraphDefinition,
   TdLaneNodeDefinition,
   TdMoraleDefinition,
+  TdObjectiveDefinition,
+  TdObjectiveKind,
+  TdPlanVariantDefinition,
   TdPoint,
+  TdRulesIdentity,
   TdSettlementDefinition,
   TdSimulationState,
   TdTargetPriority,
@@ -481,7 +490,7 @@ export interface EmpiresUpgradeConfig {
 }
 
 export interface EmpiresEndgameConfig {
-  schemaVersion: 2
+  schemaVersion: 3
   id: string
   title: string
   seed: string | number
@@ -608,6 +617,7 @@ export interface EmpiresMinigameSession {
   id: string
   kind: 'td'
   plan: TdBattlePlan
+  rulesIdentity: TdRulesIdentity
   seed: string | number
   attempt: number
   origin: EmpiresMinigameOrigin
@@ -620,6 +630,13 @@ export interface EmpiresMinigameResultRecord {
   attempt: number
   origin: EmpiresMinigameOrigin
   result: EmpiresMinigameResult
+}
+
+export interface EmpiresMinigameResultCompaction {
+  evictedCount: number
+  historyDigest: string
+  lastSessionId: string | null
+  lastRulesDigest: string | null
 }
 
 export interface EmpiresProductionBoostAssignment {
@@ -671,6 +688,7 @@ export interface EmpiresCampaignState {
   pendingResolution: EmpiresPendingGiftResolution | null
   minigame: EmpiresMinigameSession | null
   minigameResultLog: EmpiresMinigameResultRecord[]
+  minigameResultCompaction: EmpiresMinigameResultCompaction
   army: EmpiresArmyState
   external: EmpiresExternalState
   epidemics: never[]

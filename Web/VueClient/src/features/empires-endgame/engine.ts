@@ -7,6 +7,7 @@ import {
 } from './rng'
 import {
   abortTdBattle,
+  createTdRulesIdentity,
   digestTdValue,
   replayTdBattle,
   validateTdBattlePlan,
@@ -41,6 +42,8 @@ import type {
   TdBattleConsequenceDefinition,
   TdBattlePlan,
   TdDeploymentPlan,
+  TdPlanVariantDefinition,
+  TdRulesIdentity,
   TdWaveDefinition,
 } from './types'
 import type {
@@ -74,6 +77,111 @@ const FAMINE_RATIONING_EVENT_ID = 'event-famine-rationing'
 
 function cloneSerializable<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T
+}
+
+function stableStringCompare(left: string, right: string): number {
+  return left < right ? -1 : left > right ? 1 : 0
+}
+
+function legacyTdTowerCategories(id: unknown): string[] {
+  if (id === 'tower-g2-archers') return ['archer']
+  if (id === 'tower-g2-crossbows') return ['crossbow']
+  if (id === 'tower-g2-ballista') return ['ballista', 'artillery']
+  if (id === 'tower-g2-trebuchet') return ['trebuchet', 'artillery']
+  return ['tower']
+}
+
+function migrateLegacyActiveTdPlan(
+  value: unknown,
+  sessionId: string,
+  rulesIdentity: TdRulesIdentity,
+  maxCommands: number,
+  maxCatchUpTicksPerFrame: number,
+): TdBattlePlan {
+  const plan = cloneSerializable(value) as Record<string, unknown>
+  if (Array.isArray(plan.towerBases) && plan.objective && plan.gradeChoices) {
+    plan.sessionId = sessionId
+    plan.rulesIdentity = cloneSerializable(rulesIdentity)
+    plan.maxCommands = maxCommands
+    plan.maxCatchUpTicksPerFrame = maxCatchUpTicksPerFrame
+    if (Array.isArray(plan.deployments)) {
+      plan.deployments = plan.deployments.map(deployment => typeof deployment === 'object' && deployment
+        ? { speedPerSecond: 0, ...deployment }
+        : deployment)
+    }
+    return plan as unknown as TdBattlePlan
+  }
+  const battlefield = cloneSerializable(plan.battlefield) as Record<string, unknown>
+  const towerBase = cloneSerializable(plan.towerBase) as Record<string, unknown>
+  const towerBaseId = typeof towerBase.id === 'string' ? towerBase.id : 'tower-generic'
+  const oldCastleNodeId = typeof battlefield.castleNodeId === 'string'
+    ? battlefield.castleNodeId
+    : 'castle'
+  const castleMaxHp = typeof battlefield.castleMaxHp === 'number' ? battlefield.castleMaxHp : 100
+  const castleArmor = battlefield.castleArmor ?? null
+  battlefield.regionId = 'center'
+  battlefield.objectiveNodeId = oldCastleNodeId
+  battlefield.towerBaseIds = [towerBaseId]
+  battlefield.allowedTowerCategoryIds = []
+  battlefield.modifiers = []
+  if (Array.isArray(battlefield.buildSpots)) {
+    battlefield.buildSpots = battlefield.buildSpots.map(spot => typeof spot === 'object' && spot
+      ? { ...spot, terrainId: 'ground' }
+      : spot)
+  }
+  delete battlefield.mode
+  delete battlefield.castleNodeId
+  delete battlefield.castleMaxHp
+  delete battlefield.castleArmor
+  towerBase.regionId = 'center'
+  towerBase.categoryIds = ['tower']
+  towerBase.cost = 0
+  const choices = Array.isArray(plan.towerChoices)
+    ? plan.towerChoices.map(choice => typeof choice === 'object' && choice
+      ? { ...choice, categoryIds: legacyTdTowerCategories((choice as Record<string, unknown>).id) }
+      : choice)
+    : []
+  const wave = cloneSerializable(plan.wave) as Record<string, unknown>
+  if (Array.isArray(wave.groups)) {
+    wave.groups = wave.groups.map(group => typeof group === 'object' && group
+      ? { ...group, categoryIds: ['melee'] }
+      : group)
+  }
+  plan.sessionId = sessionId
+  plan.rulesIdentity = cloneSerializable(rulesIdentity)
+  plan.maxCommands = maxCommands
+  plan.maxCatchUpTicksPerFrame = maxCatchUpTicksPerFrame
+  plan.mode = 'defense'
+  plan.battlefield = battlefield
+  plan.objective = {
+    id: 'legacy-active-castle',
+    name: 'Крепость',
+    kind: 'castle',
+    owner: 'player',
+    nodeId: oldCastleNodeId,
+    maxHp: castleMaxHp,
+    armor: castleArmor,
+  }
+  plan.towerBases = [towerBase]
+  plan.towerChoices = choices
+  plan.gradeChoices = [1, 2, 3, 4].map(grade => ({
+    id: `legacy-active-center-grade-${grade}`,
+    regionId: 'center',
+    grade,
+    choiceIds: choices.flatMap(choice => typeof choice === 'object' && choice
+      && (choice as Record<string, unknown>).grade === grade
+      && typeof (choice as Record<string, unknown>).id === 'string'
+      ? [(choice as Record<string, unknown>).id as string]
+      : []),
+  }))
+  plan.wave = wave
+  if (Array.isArray(plan.deployments)) {
+    plan.deployments = plan.deployments.map(deployment => typeof deployment === 'object' && deployment
+      ? { speedPerSecond: 0, ...deployment }
+      : deployment)
+  }
+  delete plan.towerBase
+  return plan as unknown as TdBattlePlan
 }
 
 function success(message: string): EmpiresActionResult {
@@ -119,7 +227,7 @@ function uniqueIds<T extends { id: string }>(values: readonly T[]): boolean {
 
 export function validateEmpiresEndgameConfig(config: EmpiresEndgameConfig): string[] {
   const errors: string[] = []
-  if (config.schemaVersion !== 2) errors.push('schemaVersion must be 2')
+  if (config.schemaVersion !== 3) errors.push('schemaVersion must be 3')
   if (!config.id.trim()) errors.push('config id is required')
   if (config.cards.length !== 53) errors.push('cards must contain exactly 53 definitions')
   if (!uniqueIds(config.cards)) errors.push('card definition ids must be unique')
@@ -288,6 +396,13 @@ export class EmpiresEndgameEngine {
       return failure('A terminal campaign cannot start a minigame.')
     }
     if (session.kind !== 'td') return failure('Unsupported minigame kind.')
+    const expectedRules = this.currentTdRulesIdentity()
+    if (session.id !== session.plan.sessionId
+      || session.rulesIdentity.configSchemaVersion !== expectedRules.configSchemaVersion
+      || session.rulesIdentity.rulesDigest !== expectedRules.rulesDigest
+      || digestTdValue(session.rulesIdentity) !== digestTdValue(session.plan.rulesIdentity)) {
+      return failure('Minigame rules identity does not match the active configuration and plan.')
+    }
     const planErrors = validateTdBattlePlan(session.plan)
     if (planErrors.length > 0) return failure(`Invalid TD plan: ${planErrors.join('; ')}`)
     if (session.origin.returnPhase !== this.state.phase) {
@@ -305,7 +420,8 @@ export class EmpiresEndgameEngine {
     const session = this.state.minigame
     if (!session) {
       const existing = this.state.minigameResultLog.find(record => (
-        record.result.planId === result.planId
+        record.sessionId === result.sessionId
+        && record.result.planId === result.planId
         && record.result.planDigest === result.planDigest
         && record.result.commandDigest === result.commandDigest
       ))
@@ -314,9 +430,15 @@ export class EmpiresEndgameEngine {
         : failure('No minigame session is active.')
     }
     if (this.state.phase !== 'minigame') return failure('The campaign is not in its minigame phase.')
+    const expectedRules = this.currentTdRulesIdentity()
     if (result.kind !== session.kind
+      || result.sessionId !== session.id
       || result.planId !== session.plan.id
       || result.planDigest !== digestTdValue(session.plan)
+      || result.rulesIdentity.configSchemaVersion !== session.rulesIdentity.configSchemaVersion
+      || result.rulesIdentity.rulesDigest !== session.rulesIdentity.rulesDigest
+      || session.rulesIdentity.configSchemaVersion !== expectedRules.configSchemaVersion
+      || session.rulesIdentity.rulesDigest !== expectedRules.rulesDigest
       || result.seed !== session.seed) {
       return failure('The minigame result does not match the active session.')
     }
@@ -1100,6 +1222,12 @@ export class EmpiresEndgameEngine {
       pendingResolution: null,
       minigame: null,
       minigameResultLog: [],
+      minigameResultCompaction: {
+        evictedCount: 0,
+        historyDigest: '',
+        lastSessionId: null,
+        lastRulesDigest: null,
+      },
       army: {
         equipmentStock: {},
         pendingLoyaltyDeltas: [],
@@ -1140,6 +1268,12 @@ export class EmpiresEndgameEngine {
     state.schemaVersion = 2
     state.minigame ??= null
     state.minigameResultLog ??= []
+    state.minigameResultCompaction ??= {
+      evictedCount: 0,
+      historyDigest: '',
+      lastSessionId: null,
+      lastRulesDigest: null,
+    }
     state.army ??= {
       equipmentStock: {},
       pendingLoyaltyDeltas: [],
@@ -1247,23 +1381,50 @@ export class EmpiresEndgameEngine {
     return Math.max(cadence, Math.ceil(Math.max(1, con) / cadence) * cadence)
   }
 
+  private currentTdRulesIdentity(): TdRulesIdentity {
+    return createTdRulesIdentity(this.config.schemaVersion, this.config.combat, this.config.td)
+  }
+
   private normalizeMinigameState(state: EmpiresCampaignState): void {
+    const currentRules = this.currentTdRulesIdentity()
     const rawLog = Array.isArray(state.minigameResultLog) ? state.minigameResultLog : []
     state.minigameResultLog = rawLog.flatMap((rawRecord, index) => {
       if (!rawRecord || typeof rawRecord !== 'object') return []
       const record = rawRecord as Partial<(typeof state.minigameResultLog)[number]>
       const result = record.result
       if (!result || result.kind !== 'td') return []
+      const sessionId = record.sessionId ?? `legacy-result-${result.planId}-${index}`
+      const normalizedResult = cloneSerializable(result) as EmpiresMinigameResult & {
+        castleHp?: number
+        castleMaxHp?: number
+      }
+      normalizedResult.sessionId ??= sessionId
+      normalizedResult.rulesIdentity ??= {
+        configSchemaVersion: 2,
+        rulesDigest: result.planDigest,
+      }
+      normalizedResult.objectiveHp ??= normalizedResult.castleHp ?? 0
+      normalizedResult.objectiveMaxHp ??= normalizedResult.castleMaxHp ?? 0
+      if ((normalizedResult.terminalReason as string) === 'castle-destroyed') {
+        normalizedResult.terminalReason = 'objective-destroyed'
+      }
       return [{
-        sessionId: record.sessionId ?? `legacy-result-${result.planId}-${index}`,
+        sessionId,
         attempt: Math.max(0, Math.floor(record.attempt ?? 0)),
         origin: record.origin ?? {
           returnPhase: 'cards',
           context: { kind: 'manual', sourceId: 'legacy-result' },
         },
-        result: cloneSerializable(result),
+        result: normalizedResult,
       }]
     })
+    state.minigameResultCompaction ??= {
+      evictedCount: 0,
+      historyDigest: '',
+      lastSessionId: null,
+      lastRulesDigest: null,
+    }
+    this.compactMinigameResultLog(state)
 
     if (!state.minigame) {
       if (state.phase === 'minigame') throw new Error('Minigame phase requires an active session')
@@ -1273,13 +1434,31 @@ export class EmpiresEndgameEngine {
       id?: string
       attempt?: number
       origin?: EmpiresMinigameSession['origin']
+      rulesIdentity?: TdRulesIdentity
     }
     if (session.kind !== 'td' || !session.plan || session.seed === undefined) {
       throw new Error('Active minigame session is malformed')
     }
+    session.id ??= `${session.plan.id}:${String(session.seed)}`
+    if (!session.rulesIdentity) {
+      session.rulesIdentity = cloneSerializable(currentRules)
+      session.plan = migrateLegacyActiveTdPlan(
+        session.plan,
+        session.id,
+        currentRules,
+        this.config.td.maxCommands ?? 128,
+        this.config.td.maxCatchUpTicksPerFrame ?? 8,
+      )
+    } else if (session.rulesIdentity.configSchemaVersion !== currentRules.configSchemaVersion
+      || session.rulesIdentity.rulesDigest !== currentRules.rulesDigest) {
+      throw new Error('Active minigame rules identity does not match the loaded configuration')
+    }
+    if (session.plan.sessionId !== session.id
+      || digestTdValue(session.plan.rulesIdentity) !== digestTdValue(session.rulesIdentity)) {
+      throw new Error('Active minigame plan identity is stale or malformed')
+    }
     const planErrors = validateTdBattlePlan(session.plan)
     if (planErrors.length > 0) throw new Error(`Invalid restored TD plan: ${planErrors.join('; ')}`)
-    session.id ??= `${session.plan.id}:${String(session.seed)}`
     session.origin ??= {
       returnPhase: 'cards',
       context: { kind: 'manual', sourceId: 'legacy-minigame' },
@@ -1289,6 +1468,23 @@ export class EmpiresEndgameEngine {
     }
     session.attempt = Math.max(0, Math.floor(session.attempt ?? 0)) + 1
     state.phase = 'minigame'
+  }
+
+  private compactMinigameResultLog(state: EmpiresCampaignState = this.state): void {
+    const limit = Math.max(1, Math.floor(this.config.td.resultLogLimit ?? 32))
+    while (state.minigameResultLog.length > limit) {
+      const evicted = state.minigameResultLog.shift()!
+      state.minigameResultCompaction.evictedCount += 1
+      state.minigameResultCompaction.historyDigest = digestTdValue({
+        previous: state.minigameResultCompaction.historyDigest,
+        sessionId: evicted.sessionId,
+        attempt: evicted.attempt,
+        rulesDigest: evicted.result.rulesIdentity.rulesDigest,
+        resultDigest: digestTdValue(evicted.result),
+      })
+      state.minigameResultCompaction.lastSessionId = evicted.sessionId
+      state.minigameResultCompaction.lastRulesDigest = evicted.result.rulesIdentity.rulesDigest
+    }
   }
 
   private syncArmyMoraleCap(state: EmpiresCampaignState = this.state): void {
@@ -1317,13 +1513,17 @@ export class EmpiresEndgameEngine {
     return cloneSerializable(equipment.profile as CombatArmorProfile)
   }
 
-  private buildTdDeployments(state: EmpiresCampaignState, nodeId: string): TdDeploymentPlan[] {
+  private buildTdDeployments(
+    state: EmpiresCampaignState,
+    nodeId: string,
+    speedPerSecond: number,
+  ): TdDeploymentPlan[] {
     return state.empire.cities
       .filter(city => this.isRegionAccessibleInState(state, city.regionId))
-      .sort((left, right) => left.id.localeCompare(right.id))
+      .sort((left, right) => stableStringCompare(left.id, right.id))
       .flatMap(city => Object.entries(city.recruitedUnits)
         .filter(([, count]) => count > 0)
-        .sort(([leftId], [rightId]) => leftId.localeCompare(rightId))
+        .sort(([leftId], [rightId]) => stableStringCompare(leftId, rightId))
         .flatMap(([unitId, count]) => {
           const unit = this.unitDefinitions.get(unitId)
           if (!unit || unit.deferredReason || !unit.td) return []
@@ -1335,6 +1535,7 @@ export class EmpiresEndgameEngine {
             unitId,
             count: Math.max(0, Math.floor(count)),
             nodeId,
+            speedPerSecond,
             maxHpPerUnit: unit.td.maxHp,
             attackRange: unit.td.attackRange,
             attackIntervalTicks: unit.td.attackIntervalTicks,
@@ -1361,39 +1562,77 @@ export class EmpiresEndgameEngine {
   private scheduleDueWaveOnState(state: EmpiresCampaignState, completedCon: number): void {
     const td = this.config.td
     if (!td.enabled || state.minigame || completedCon < state.external.nextWaveCon) return
-    const battlefield = td.battlefields[0]
-    const waveIndex = Math.max(0, Math.floor(completedCon / td.waveEveryCons!) - 1) % td.waves.length
-    const wave = td.waves[waveIndex]
+    const liveVariants = (td.planVariants ?? []).filter(variant => !variant.deferredReason)
+    if (liveVariants.length === 0) throw new Error('TD has no live plan variant')
+    const preferredIndex = Math.max(0, Math.floor(completedCon / td.waveEveryCons!) - 1)
+      % liveVariants.length
+    let selected: {
+      variant: TdPlanVariantDefinition
+      deployments: TdDeploymentPlan[]
+    } | null = null
+    for (let offset = 0; offset < liveVariants.length; offset += 1) {
+      const variant = liveVariants[(preferredIndex + offset) % liveVariants.length]
+      const battlefield = td.battlefields.find(field => field.id === variant.battlefieldId)
+      if (!battlefield) continue
+      const nodeId = variant.mode === 'assault'
+        ? battlefield.spawnerNodeId
+        : battlefield.deploymentNodeId
+      const deployments = this.buildTdDeployments(
+        state,
+        nodeId,
+        variant.deploymentSpeedPerSecond,
+      )
+      if (variant.mode === 'assault' && deployments.length === 0) continue
+      selected = { variant, deployments }
+      break
+    }
+    if (!selected) throw new Error('TD has no plan variant compatible with the current deployment')
+    const { variant, deployments } = selected
+    const battlefield = td.battlefields.find(field => field.id === variant.battlefieldId)!
+    const wave = td.waves.find(candidate => candidate.id === variant.waveId)
+    if (!wave) throw new Error(`TD variant ${variant.id} references a missing wave`)
     const threat = Math.max(0, state.external.allianceThreat)
     const seed = Math.floor(nextEmpiresRandom(state.rng) * 0x1_0000_0000)
+    const planId = `td-${variant.mode}-${completedCon}-${variant.id}`
+    const sessionId = `${planId}:${seed}`
+    const rulesIdentity = this.currentTdRulesIdentity()
     const plan: TdBattlePlan = {
-      id: `td-wave-${completedCon}-${wave.id}`,
-      mode: 'defense',
+      id: planId,
+      sessionId,
+      rulesIdentity: cloneSerializable(rulesIdentity),
+      mode: variant.mode,
       scheduledCon: completedCon,
       threat,
       tickMs: td.tickMs!,
       maxTicks: td.maxTicks!,
-      startingBuildResources: td.startingBuildResources!,
+      maxCommands: td.maxCommands!,
+      maxCatchUpTicksPerFrame: td.maxCatchUpTicksPerFrame!,
+      startingBuildResources: variant.startingBuildResources ?? td.startingBuildResources!,
       battlefield: cloneSerializable(battlefield),
-      towerBase: cloneSerializable(td.towerBase!),
+      objective: cloneSerializable(variant.objective),
+      towerBases: cloneSerializable((td.towerBases ?? [])
+        .filter(base => battlefield.towerBaseIds.includes(base.id))),
       towerChoices: cloneSerializable(td.towers),
+      gradeChoices: cloneSerializable((td.gradeChoices ?? [])
+        .filter(set => set.regionId === battlefield.regionId)),
       wave: this.scaleAllianceWave(wave, threat),
       combat: cloneSerializable(this.config.combat),
-      deployments: this.buildTdDeployments(state, battlefield.deploymentNodeId),
+      deployments,
     }
     const planErrors = validateTdBattlePlan(plan)
     if (planErrors.length > 0) throw new Error(`Scheduled TD plan is invalid: ${planErrors.join('; ')}`)
     state.external.nextWaveCon += td.waveEveryCons!
     state.external.allianceThreat = Math.max(0, threat + td.alliance!.threatPerWave)
     state.minigame = {
-      id: `${plan.id}:${seed}`,
+      id: sessionId,
       kind: 'td',
       plan,
+      rulesIdentity,
       seed,
       attempt: 0,
       origin: {
         returnPhase: 'cards',
-        context: { kind: 'alliance-wave', scheduledCon: completedCon, waveId: wave.id },
+        context: { kind: 'alliance-wave', scheduledCon: completedCon, waveId: variant.waveId },
       },
     }
     state.phase = 'minigame'
@@ -1501,6 +1740,7 @@ export class EmpiresEndgameEngine {
       origin: cloneSerializable(session.origin),
       result: cloneSerializable(result),
     })
+    this.compactMinigameResultLog()
     this.state.minigame = null
     this.state.phase = session.origin.returnPhase
     this.refreshProductions()

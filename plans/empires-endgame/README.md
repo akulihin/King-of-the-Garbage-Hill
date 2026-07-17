@@ -29,8 +29,10 @@ Current execution status supplied by the designer on 2026-07-17:
 - **Phase 0 — complete.** Its prompt is historical; do not amend/re-run it.
 - **Phase 1 — complete.** Its prompt is historical; do not amend/re-run it.
 - **Phase 2 — complete.** Its prompt is historical; do not amend or re-run it. Phase 3A
-  regression-checks the landed baseline and owns the explicitly listed post-P2 hardening.
-- **Next prompt: Phase 3A** (`phase-03-td-regions-steel.md`).
+  regression-checked the landed baseline before applying its explicit post-P2 hardening.
+- **Phase 3A — complete.** Rules identity, bounded replay/history, accessible real-input TD,
+  five regional fields and reusable assault landed as one change-set.
+- **Next prompt: Phase 3B** (`phase-03b-steel-equipment.md`).
 
 Scope decisions confirmed by the designer (2026-07-16):
 
@@ -46,7 +48,7 @@ Scope decisions confirmed by the designer (2026-07-16):
 graph TD
   P0[0 complete] --> P1[1 complete]
   P1 --> P2[2 complete]
-  P2 --> P3A[3A TD hardening + regions + assault]
+  P2 --> P3A[3A complete]
   P3A --> P3B[3B steel + military production]
   P3A --> P4A[4A loyalty + reputation + rebellion]
   P3B --> P4B[4B seasons + tech sides + politics]
@@ -82,7 +84,7 @@ graph TD
 | `phase-00-scaffolding.md` | **Complete/historical.** Config/save migrations, ledger, test discovery. |
 | `phase-01-combat-core.md` | **Complete/historical.** Pure combat/damage/counter catalog. |
 | `phase-02-td-vertical-slice.md` | **Complete/historical.** Central TD, envelope, army. |
-| `phase-03-td-regions-steel.md` | **3A:** P2 baseline regression, replay/config identity, input/accessibility hardening, five regional TD fields, castle/naval enemy variants, assault. |
+| `phase-03-td-regions-steel.md` | **Complete/historical.** P2 baseline regression, replay/config identity, input/accessibility hardening, five regional TD fields, castle/naval enemy variants, assault. |
 | `phase-03b-steel-equipment.md` | **3B:** latest steel tree, equipment production, foundry/academy, missing military-building audit. |
 | `phase-04-loyalty-seasons.md` | **4A:** loyalty, reputation, rebellion, class gates, chronicle, northern raids. |
 | `phase-04b-seasons-tech-sides.md` | **4B:** seasons, technology sides, political reforms, crime substrate. |

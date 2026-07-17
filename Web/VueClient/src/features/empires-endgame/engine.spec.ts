@@ -41,7 +41,7 @@ function makeCards(): EmpiresCardDefinition[] {
 
 function makeConfig(): EmpiresEndgameConfig {
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     id: 'engine-test',
     title: "Empire's Endgame",
     seed: 'deterministic-test',

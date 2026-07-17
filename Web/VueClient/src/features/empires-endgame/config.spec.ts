@@ -1,7 +1,12 @@
 import { reactive } from 'vue'
 import { describe, expect, it } from 'vitest'
 import defaultConfigJson from '../../../public/empires-endgame/game-config.json'
-import { cloneEmpiresConfig, validateEmpiresConfig } from './config'
+import {
+  EMPIRES_ACTIVE_MINIGAME_CONFIG_ERROR,
+  cloneEmpiresConfig,
+  empiresConfigReplacementDisabledReason,
+  validateEmpiresConfig,
+} from './config'
 import type { CombatArmorProfile, CombatWeaponProfile, EmpiresEndgameConfig } from './types'
 
 function makeConfig(): EmpiresEndgameConfig {
@@ -39,6 +44,12 @@ function combatArmor(config: EmpiresEndgameConfig, equipmentId: string): CombatA
 }
 
 describe('Empire\'s Endgame configuration', () => {
+  it('rejects config replacement while a minigame session owns the active rules', () => {
+    expect(empiresConfigReplacementDisabledReason({ phase: 'minigame', minigame: null }))
+      .toBe(EMPIRES_ACTIVE_MINIGAME_CONFIG_ERROR)
+    expect(empiresConfigReplacementDisabledReason({ phase: 'cards', minigame: null })).toBeNull()
+  })
+
   it('clones a Vue-reactive constructor definition without DataCloneError', () => {
     const source = reactive(defaultConfigJson as unknown as EmpiresEndgameConfig)
 

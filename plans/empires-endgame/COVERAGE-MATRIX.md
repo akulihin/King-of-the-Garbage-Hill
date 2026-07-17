@@ -21,8 +21,8 @@ Status meanings:
 | Config migration chain, test discovery, review ledger | P0 | Complete | Historical prompt; regression only. |
 | Pure combat/damage/counter catalog | P1 | Complete | Historical prompt; P3B consumes it. |
 | Shared minigame envelope, central TD slice, army substrate | P2 | Complete | Historical baseline; P3A regression-checks it without reopening P2. |
-| Replay config identity, tick-index commands, bounded logs, input/accessibility hardening | P3A | Owned | Explicit post-P2 work applied before additional minigames depend on the envelope. |
-| Five TD regions, castle/naval enemy mode, grade matrix, reusable assault | P3A | Owned | No steel progression in this change-set. |
+| Replay config identity, tick-index commands, bounded logs, input/accessibility hardening | P3A | Complete | Landed with schema-v3 config identity, capped command/result histories and production pointer/keyboard replay coverage. |
+| Five TD regions, castle/naval enemy mode, grade matrix, reusable assault | P3A | Complete | Missing outer regional choices remain explicitly deferred; no steel progression was pulled forward. |
 | Full latest steel source, equipment production, military buildings | P3B | Owned | Existing 22 IDs are not assumed to be the whole authored tree. |
 | City/region loyalty, reputation, rebellion, class gates, chronicle | P4A | Owned | Includes TD-loss funnel and northern-raids event. |
 | Seasons, technology light/dark sides, political reforms, crime substrate | P4B | Owned/Conditional | Undefined political/crime semantics remain deferred. |

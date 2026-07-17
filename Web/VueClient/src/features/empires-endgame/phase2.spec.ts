@@ -73,6 +73,7 @@ function manualSession(value: EmpiresEndgameConfig): EmpiresMinigameSession {
   const session = clone(source)
   session.id = 'manual-td-session'
   session.plan.id = 'manual-td-plan'
+  session.plan.sessionId = session.id
   session.plan.deployments = []
   session.seed = 'manual-td-seed'
   session.attempt = 0
@@ -145,7 +146,7 @@ describe('Empire\'s Endgame Phase 2 campaign bridge', () => {
     const session = manualSession(value)
     expect(engine.beginMinigame(session)).toMatchObject({ ok: true })
     const result = resolveTdWithPolicy(session.plan, session.seed, 'balanced')
-    expect(engine.resolveMinigame({ ...result, castleHp: result.castleHp + 1 })).toEqual({
+    expect(engine.resolveMinigame({ ...result, objectiveHp: result.objectiveHp + 1 })).toEqual({
       ok: false,
       message: 'The minigame result failed deterministic replay validation.',
     })
@@ -154,7 +155,9 @@ describe('Empire\'s Endgame Phase 2 campaign bridge', () => {
     expect(engine.resolveMinigame(result)).toMatchObject({ ok: true })
     expect(engine.state.minigameResultLog).toHaveLength(1)
 
-    const abortSession = { ...manualSession(value), id: 'manual-abort-session' }
+    const abortSession = manualSession(value)
+    abortSession.id = 'manual-abort-session'
+    abortSession.plan.sessionId = abortSession.id
     expect(engine.beginMinigame(abortSession)).toMatchObject({ ok: true })
     expect(engine.abortMinigame()).toMatchObject({ ok: true })
     expect(engine.abortMinigame()).toMatchObject({ ok: true })
@@ -208,7 +211,7 @@ describe('Empire\'s Endgame Phase 2 campaign bridge', () => {
     const result = replayTdBattle(session.plan, session.seed, [])
     expect(result).toMatchObject({
       outcome: 'defeat',
-      terminalReason: 'castle-destroyed',
+      terminalReason: 'objective-destroyed',
       deployments: [{ deployed: 3, survived: 0 }],
     })
 
@@ -257,15 +260,19 @@ describe('Empire\'s Endgame Phase 2 army carriers', () => {
     expect(() => validateEmpiresConfig(enabled)).not.toThrow()
     const disabled = cloneEmpiresConfig(enabled)
     disabled.td.enabled = false
+    disabled.td.regionalCatalogEnabled = false
+    disabled.td.towerBases = []
     disabled.td.battlefields = []
     disabled.td.towers = []
+    disabled.td.gradeChoices = []
     disabled.td.waves = []
+    disabled.td.planVariants = []
     expect(() => validateEmpiresConfig(disabled)).not.toThrow()
   })
 
   it('rejects enabled TD combat references and routes that cannot execute on its battlefield', () => {
     const unknownDamage = config()
-    unknownDamage.td.towerBase!.weapon.damageLevels.missing = 1
+    unknownDamage.td.towerBases![0].weapon.damageLevels.missing = 1
     expect(() => validateEmpiresConfig(unknownDamage)).toThrow(/unknown damage type missing/)
 
     const disconnectedRoute = config()
@@ -274,8 +281,8 @@ describe('Empire\'s Endgame Phase 2 army carriers', () => {
 
     const extraBattlefield = config()
     extraBattlefield.td.battlefields.push(clone(extraBattlefield.td.battlefields[0]))
-    extraBattlefield.td.battlefields[1].id = 'unused-battlefield'
-    expect(() => validateEmpiresConfig(extraBattlefield)).toThrow(/exactly one central battlefield/)
+    extraBattlefield.td.battlefields.at(-1)!.id = 'unused-battlefield'
+    expect(() => validateEmpiresConfig(extraBattlefield)).toThrow(/regional catalog.*battlefield region set/)
 
     const missingAllianceField = config()
     delete (missingAllianceField.td.alliance as unknown as Record<string, unknown>).speedPerThreat

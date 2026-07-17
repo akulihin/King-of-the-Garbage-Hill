@@ -5,6 +5,7 @@ import {
   EMPIRES_QA_SCENARIO_NAMES,
   checkEmpiresQaPlayerTurnInvariant,
   createEmpiresQaScenarios,
+  digestEmpiresQaState,
   executeEmpiresQaPlayerCardAction,
   inspectEmpiresQaDeck,
   listEmpiresQaPlayerCardActions,
@@ -31,7 +32,7 @@ describe('Empire\'s Endgame deterministic QA scenarios', () => {
       expect(validateEmpiresQaSnapshot(config, fixture.snapshot, name)).toEqual({ ok: true, issues: [] })
       const serialized = JSON.parse(JSON.stringify(fixture.snapshot)) as EmpiresCampaignState
       const restored = new EmpiresEndgameEngine(config, serialized).snapshot()
-      if (name === 'battle-defense') {
+      if (name.startsWith('battle-')) {
         expect(restored).toEqual({
           ...serialized,
           minigame: { ...serialized.minigame!, attempt: serialized.minigame!.attempt + 1 },
@@ -63,8 +64,47 @@ describe('Empire\'s Endgame deterministic QA scenarios', () => {
     })
     expect(fixtures['battle-defense'].snapshot).toMatchObject({
       phase: 'minigame',
-      minigame: { kind: 'td', attempt: 0 },
+      minigame: {
+        kind: 'td',
+        attempt: 0,
+        plan: { mode: 'defense', battlefield: { regionId: 'center' } },
+      },
     })
+    expect(fixtures['battle-assault'].snapshot.minigame?.plan).toMatchObject({
+      mode: 'assault',
+      battlefield: { regionId: 'center' },
+      objective: { owner: 'enemy', kind: 'fort' },
+    })
+    expect(fixtures['battle-swamp'].snapshot.minigame?.plan.battlefield.regionId).toBe('east')
+    expect(fixtures['battle-forest'].snapshot.minigame?.plan.battlefield.regionId).toBe('west')
+    expect(fixtures['battle-north'].snapshot.minigame?.plan).toMatchObject({
+      battlefield: { regionId: 'north' },
+      gradeChoices: expect.arrayContaining([
+        expect.objectContaining({ grade: 1, choiceIds: [], deferredReason: expect.any(String) }),
+      ]),
+    })
+    expect(fixtures['battle-desert'].snapshot.minigame?.plan).toMatchObject({
+      battlefield: {
+        regionId: 'south',
+        modifiers: expect.arrayContaining([
+          expect.objectContaining({ kind: 'deployment-attrition' }),
+        ]),
+      },
+    })
+    for (const name of EMPIRES_QA_SCENARIO_NAMES.filter(name => name.startsWith('battle-'))) {
+      const battleEngine = new EmpiresEndgameEngine(config, fixtures[name].snapshot)
+      const digest = digestEmpiresQaState(battleEngine)
+      expect(digest.minigameRulesSchemaVersion).toBe(config.schemaVersion)
+      expect(digest.minigameRulesDigest).toBe(fixtures[name].snapshot.minigame?.rulesIdentity.rulesDigest)
+      expect(digest.minigameCommandLimit).toBe(config.td.maxCommands)
+      expect(digest.minigameResultLimit).toBe(config.td.resultLogLimit)
+      expect(digest).toMatchObject({
+        minigameResultEvictedCount: 0,
+        minigameResultHistoryDigest: '',
+        minigameResultLastSessionId: null,
+        minigameResultLastRulesDigest: null,
+      })
+    }
     expect(fixtures.event.snapshot).toMatchObject({ phase: 'event' })
     expect(config.empire.events.find(event =>
       event.id === fixtures.event.snapshot.event?.eventId)?.deferredReason).toBeUndefined()
@@ -205,6 +245,24 @@ describe('Empire\'s Endgame traced seeded autoplay', () => {
     expect(result.phaseVisits.cards).toBeGreaterThan(0)
     expect(result.phaseVisits.divineGift).toBeGreaterThan(0)
     expect(result.phaseVisits.empire).toBeGreaterThan(0)
+    expect(result.phaseVisits.minigame).toBeGreaterThan(1)
+    expect(result.resolvedMinigames.map(item => item.mode)).toEqual(
+      expect.arrayContaining(['defense', 'assault']),
+    )
+    expect(result.resolvedMinigames.every(item => item.rulesDigest.length > 0)).toBe(true)
+    expect(result.trace.some(entry => (
+      entry.action.kind === 'resolve-minigame'
+      && entry.before.minigameMode === 'defense'
+      && entry.before.minigameRegionId === 'center'
+      && entry.before.minigameRulesDigest
+    ))).toBe(true)
+    expect(result.trace.some(entry => (
+      entry.action.kind === 'resolve-minigame'
+      && entry.before.minigameMode === 'assault'
+      && entry.before.minigameRegionId === 'center'
+      && entry.before.minigameRulesDigest
+    ))).toBe(true)
+    expect(result.snapshot.minigameResultLog.length).toBeLessThanOrEqual(config.td.resultLogLimit!)
     if (result.phaseVisits.event > 0) expect(result.resolvedEventIds.length).toBeGreaterThan(0)
     expect(result.trace.every(entry => entry.result.ok)).toBe(true)
     expect(['victory', 'defeat']).toContain(result.snapshot.phase)
