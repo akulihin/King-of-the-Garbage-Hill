@@ -1,4 +1,11 @@
 import type { EmpiresCombatConfig } from './combat/types'
+import type {
+  EmpiresTdConfig,
+  TdBattlePlan,
+  TdBattleResult,
+  TdEquipmentCost,
+  TdUnitProfile,
+} from './td/types'
 
 export type {
   CombatArmorClassDefinition,
@@ -10,6 +17,35 @@ export type {
   CombatWeaponProfile,
   EmpiresCombatConfig,
 } from './combat/types'
+export type {
+  EmpiresTdConfig,
+  TdAllianceCurveDefinition,
+  TdBattleConsequenceDefinition,
+  TdBattleOutcome,
+  TdBattlePlan,
+  TdBattleResult,
+  TdBattlefieldDefinition,
+  TdBuildSpotDefinition,
+  TdCommand,
+  TdDeploymentPlan,
+  TdDeploymentResult,
+  TdEnemyGroupDefinition,
+  TdEquipmentCost,
+  TdEquipmentProductionDefinition,
+  TdLaneEdgeDefinition,
+  TdLaneGraphDefinition,
+  TdLaneNodeDefinition,
+  TdMoraleDefinition,
+  TdPoint,
+  TdSettlementDefinition,
+  TdSimulationState,
+  TdTargetPriority,
+  TdTerminalReason,
+  TdTowerBaseDefinition,
+  TdTowerChoiceDefinition,
+  TdUnitProfile,
+  TdWaveDefinition,
+} from './td/types'
 
 export const EMPIRES_SUITS = ['clubs', 'diamonds', 'hearts', 'spades'] as const
 export const EMPIRES_RANKS = [
@@ -33,6 +69,7 @@ export const EMPIRES_PHASES = [
   'divineGift',
   'empire',
   'event',
+  'minigame',
   'victory',
   'defeat',
 ] as const
@@ -267,6 +304,8 @@ export interface EmpiresUnitDefinition {
   timeCostDays: number
   resourceCosts: EmpiresResourceAmount[]
   dependencies: EmpiresDependency[]
+  equipmentCosts?: TdEquipmentCost[]
+  td?: TdUnitProfile
   deferredReason?: string
 }
 
@@ -391,13 +430,6 @@ export interface EmpiresMapConfig {
   objects: EmpiresMapObjectDefinition[]
 }
 
-export interface EmpiresTdScaffoldConfig {
-  enabled: boolean
-  battlefields: never[]
-  towers: never[]
-  waves: never[]
-}
-
 export interface EmpiresGodScaffoldConfig {
   enabled: boolean
   lines: never[]
@@ -459,7 +491,7 @@ export interface EmpiresEndgameConfig {
   gifts: EmpiresGiftConfig
   empire: EmpiresEmpireConfig
   combat: EmpiresCombatConfig
-  td: EmpiresTdScaffoldConfig
+  td: EmpiresTdConfig
   god: EmpiresGodScaffoldConfig
   quests: EmpiresQuestsScaffoldConfig
 }
@@ -545,12 +577,49 @@ export interface EmpiresArmyState {
   equipmentStock: Record<string, number>
   pendingLoyaltyDeltas: EmpiresPendingLoyaltyDelta[]
   morale: number
+  maxMorale: number
   veterans: Record<string, EmpiresVeteranState>
+  recruitmentPenalties: Record<string, number>
 }
 
 export interface EmpiresExternalState {
   allianceThreat: number
+  nextWaveCon: number
   pendingOffers: never[]
+}
+
+export type EmpiresMinigameOriginContext =
+  | {
+    kind: 'alliance-wave'
+    scheduledCon: number
+    waveId: string
+  }
+  | {
+    kind: 'manual'
+    sourceId: string
+  }
+
+export interface EmpiresMinigameOrigin {
+  returnPhase: Exclude<EmpiresPhase, 'minigame'>
+  context: EmpiresMinigameOriginContext
+}
+
+export interface EmpiresMinigameSession {
+  id: string
+  kind: 'td'
+  plan: TdBattlePlan
+  seed: string | number
+  attempt: number
+  origin: EmpiresMinigameOrigin
+}
+
+export type EmpiresMinigameResult = TdBattleResult
+
+export interface EmpiresMinigameResultRecord {
+  sessionId: string
+  attempt: number
+  origin: EmpiresMinigameOrigin
+  result: EmpiresMinigameResult
 }
 
 export interface EmpiresProductionBoostAssignment {
@@ -587,7 +656,7 @@ export interface EmpiresEventState {
 }
 
 export interface EmpiresCampaignState {
-  schemaVersion: 1
+  schemaVersion: 2
   configId: string
   phase: EmpiresPhase
   rng: EmpiresRngState
@@ -600,8 +669,8 @@ export interface EmpiresCampaignState {
   performanceScore: number
   giftChoiceIds: string[]
   pendingResolution: EmpiresPendingGiftResolution | null
-  minigame: null
-  minigameResultLog: never[]
+  minigame: EmpiresMinigameSession | null
+  minigameResultLog: EmpiresMinigameResultRecord[]
   army: EmpiresArmyState
   external: EmpiresExternalState
   epidemics: never[]
@@ -613,7 +682,7 @@ export interface EmpiresCampaignState {
 }
 
 export interface EmpiresSnapshotEnvelope {
-  schemaVersion: 1
+  schemaVersion: 2
   savedAt: string
   state: EmpiresCampaignState
 }

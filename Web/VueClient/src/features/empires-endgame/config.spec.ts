@@ -84,7 +84,6 @@ describe('Empire\'s Endgame configuration', () => {
     const deferredIds = [
       'gift-earthquake',
       'gift-tailwind',
-      'gift-combat-spirit',
       'gift-fish-currents',
       'gift-meteor-iron',
       'gift-desert-tsunami',
@@ -107,8 +106,6 @@ describe('Empire\'s Endgame configuration', () => {
       items.filter(item => item.deferredReason).map(item => item.id)
 
     expect(deferred(config.empire.buildings)).toEqual([
-      'building-smithy',
-      'building-barracks',
       'building-temple',
       'building-bank',
       'building-fair',
@@ -124,12 +121,7 @@ describe('Empire\'s Endgame configuration', () => {
       'building-jewish-bank',
       'municipal-capital-forum',
     ])
-    expect(deferred(config.empire.units ?? [])).toEqual([
-      'unit-light',
-      'unit-regular',
-      'unit-heavy',
-      'unit-knight',
-    ])
+    expect(deferred(config.empire.units ?? [])).toEqual([])
     expect(deferred(config.empire.events)).toEqual([
       'event-northern-raids',
       'event-lumber-concession',
@@ -143,9 +135,7 @@ describe('Empire\'s Endgame configuration', () => {
     ])
     expect(deferred(config.empire.resources)).toEqual(['carpentry', 'whiteStone'])
     expect(deferred(config.empire.technologies)).toEqual([
-      'doctrine-war',
       'tech-fair',
-      'tech-ironwork',
       'tech-compass',
       'tech-merchant-guilds',
       'tech-banking',
@@ -193,6 +183,8 @@ describe('Empire\'s Endgame configuration', () => {
       'card-clubs-8.inverted',
       'card-diamonds-6.inverted',
       'card-diamonds-ace.normal',
+      'card-hearts-7.normal',
+      'card-hearts-7.inverted',
       'card-spades-5.normal',
       'card-spades-5.inverted',
       'card-spades-8.normal',

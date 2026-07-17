@@ -1,4 +1,7 @@
 import { EmpiresEndgameEngine } from './engine'
+import { resolveTdWithPolicy } from './td/qa'
+import type { TdQaPolicy } from './td/qa'
+import type { CombatArmorProfile, CombatWeaponProfile } from './combat/types'
 import type {
   EmpiresActionResult,
   EmpiresActor,
@@ -7,6 +10,7 @@ import type {
   EmpiresEndgameConfig,
   EmpiresEventDefinition,
   EmpiresPhase,
+  TdBattlePlan,
 } from './types'
 
 export const EMPIRES_QA_SCENARIO_NAMES = [
@@ -18,6 +22,7 @@ export const EMPIRES_QA_SCENARIO_NAMES = [
   'empire-council-with-points',
   'destroyed-west',
   'relic-production-levels',
+  'battle-defense',
   'event',
   'victory',
   'defeat',
@@ -69,6 +74,7 @@ export type EmpiresQaAction =
   | { kind: 'choose-gift', giftId: string }
   | { kind: 'resolve-target', targetId: string }
   | { kind: 'finish-empire' }
+  | { kind: 'resolve-minigame', policy: TdQaPolicy }
   | { kind: 'choose-event', eventId: string, choiceId: string }
 
 export interface EmpiresQaStateDigest {
@@ -89,6 +95,9 @@ export interface EmpiresQaStateDigest {
   destroyedRegionCount: number
   daysRemaining: number
   eventId: string | null
+  minigameId: string | null
+  minigameAttempt: number | null
+  minigameResultCount: number
   rngDraws: number
   outcomeReason: string | null
 }
@@ -106,6 +115,7 @@ export type EmpiresQaStallCode =
   | 'no-gift-choice'
   | 'no-pending-target'
   | 'no-event-choice'
+  | 'no-minigame-session'
   | 'unsupported-phase'
   | 'action-failed'
   | 'state-not-advanced'
@@ -122,6 +132,7 @@ export interface EmpiresQaAutoplayOptions {
   seed?: string | number
   startSnapshot?: EmpiresCampaignState
   maxSteps?: number
+  tdPolicy?: TdQaPolicy
 }
 
 export interface EmpiresQaAutoplayResult {
@@ -178,6 +189,10 @@ const SCENARIO_COPY: Record<EmpiresQaScenarioName, { title: string, description:
   'relic-production-levels': {
     title: 'Farm and lumber relic',
     description: 'Farm and lumber current and maximum levels receive the relic bonus.',
+  },
+  'battle-defense': {
+    title: 'Central Alliance defense',
+    description: 'A deterministic central defense wave is ready for canvas play or QA fast resolve.',
   },
   event: {
     title: 'Pending event',
@@ -411,6 +426,88 @@ function createOutcomeSnapshot(
   return state
 }
 
+function createBattleDefenseSnapshot(
+  config: EmpiresEndgameConfig,
+  engine: EmpiresEndgameEngine,
+): EmpiresCampaignState {
+  const battlefield = config.td.battlefields[0]
+  const wave = config.td.waves[0]
+  const unit = (config.empire.units ?? []).find(definition => !definition.deferredReason && definition.td)
+  const city = engine.state.empire.cities.find(candidate => engine.isCityAccessible(candidate.id))
+  const weaponDefinition = unit?.td
+    ? config.combat.equipment.find(equipment => (
+        equipment.id === unit.td!.weaponEquipmentId
+        && equipment.kind === 'weapon'
+        && !equipment.deferredReason
+      ))
+    : null
+  const armorDefinition = unit?.td?.armorEquipmentId
+    ? config.combat.equipment.find(equipment => (
+        equipment.id === unit.td!.armorEquipmentId
+        && equipment.kind !== 'weapon'
+        && !equipment.deferredReason
+      ))
+    : null
+  if (!config.td.enabled
+    || !battlefield
+    || !wave
+    || !config.td.towerBase
+    || !unit?.td
+    || !city
+    || !weaponDefinition
+    || weaponDefinition.kind !== 'weapon') {
+    throw new Error('QA battle-defense scenario requires the complete live TD and army catalog.')
+  }
+  const plan: TdBattlePlan = {
+    id: 'qa-battle-defense',
+    mode: 'defense',
+    scheduledCon: 2,
+    threat: config.td.alliance?.baseThreat ?? 0,
+    tickMs: config.td.tickMs!,
+    maxTicks: config.td.maxTicks!,
+    startingBuildResources: config.td.startingBuildResources!,
+    battlefield: cloneJson(battlefield),
+    towerBase: cloneJson(config.td.towerBase),
+    towerChoices: cloneJson(config.td.towers),
+    wave: cloneJson(wave),
+    combat: cloneJson(config.combat),
+    deployments: [{
+      id: `${city.id}:${unit.id}`,
+      cityId: city.id,
+      unitId: unit.id,
+      count: 3,
+      nodeId: battlefield.deploymentNodeId,
+      maxHpPerUnit: unit.td.maxHp,
+      attackRange: unit.td.attackRange,
+      attackIntervalTicks: unit.td.attackIntervalTicks,
+      weapon: cloneJson(weaponDefinition.profile as CombatWeaponProfile),
+      armor: armorDefinition && armorDefinition.kind !== 'weapon'
+        ? cloneJson(armorDefinition.profile as CombatArmorProfile)
+        : null,
+    }],
+  }
+  const state = engine.snapshot()
+  const deployment = plan.deployments[0]
+  const campaignCity = state.empire.cities.find(candidate => candidate.id === deployment.cityId)!
+  campaignCity.recruitedUnits[deployment.unitId] = Math.max(
+    deployment.count,
+    campaignCity.recruitedUnits[deployment.unitId] ?? 0,
+  )
+  state.phase = 'minigame'
+  state.minigame = {
+    id: `${plan.id}:qa-seed`,
+    kind: 'td',
+    plan,
+    seed: 'qa-battle-defense',
+    attempt: 0,
+    origin: {
+      returnPhase: 'cards',
+      context: { kind: 'alliance-wave', scheduledCon: 2, waveId: wave.id },
+    },
+  }
+  return state
+}
+
 export function listEmpiresQaPlayerCardActions(
   engine: EmpiresEndgameEngine,
 ): EmpiresQaPlayerCardAction[] {
@@ -480,6 +577,9 @@ export function digestEmpiresQaState(engine: EmpiresEndgameEngine): EmpiresQaSta
     destroyedRegionCount: engine.state.empire.destroyedRegionIds.length,
     daysRemaining: engine.state.empire.daysRemaining,
     eventId: engine.state.event?.eventId ?? null,
+    minigameId: engine.state.minigame?.id ?? null,
+    minigameAttempt: engine.state.minigame?.attempt ?? null,
+    minigameResultCount: engine.state.minigameResultLog.length,
     rngDraws: engine.state.rng.draws,
     outcomeReason: engine.state.outcomeReason,
   }
@@ -487,7 +587,7 @@ export function digestEmpiresQaState(engine: EmpiresEndgameEngine): EmpiresQaSta
 
 export function inspectEmpiresQaDeck(engine: EmpiresEndgameEngine): EmpiresQaDeckInspection {
   const bottomCardId = engine.state.durak.deck[0] ?? null
-  const nextDrawCardId = engine.state.durak.deck.at(-1) ?? null
+  const nextDrawCardId = engine.state.durak.deck[engine.state.durak.deck.length - 1] ?? null
   const trumpSourceCardId = engine.config.durak.fixedTrumpSuit
     ? null
     : engine.state.durak.deck.find((cardId) => {
@@ -565,6 +665,9 @@ export function validateEmpiresQaSnapshot(
       add('event-empty', 'Pending event has no implemented choices.')
     }
   }
+  if (snapshot.phase === 'minigame' && !snapshot.minigame) {
+    add('minigame-missing', 'Minigame phase does not contain an active session.')
+  }
   if ((snapshot.phase === 'victory' || snapshot.phase === 'defeat') && !snapshot.outcomeReason) {
     add('outcome-reason', 'Terminal snapshots must include an outcome reason.')
   }
@@ -608,6 +711,10 @@ export function validateEmpiresQaSnapshot(
         || (snapshot.empire.buildingLevelBonuses.lumber ?? 0) < 1) {
         add('building-level-bonus', 'Relic scenario must increase farm and lumber levels.')
       }
+    } else if (scenarioName === 'battle-defense') {
+      if (snapshot.phase !== 'minigame' || snapshot.minigame?.kind !== 'td') {
+        add('minigame', 'Battle-defense scenario must contain an active TD session.')
+      }
     } else if (scenarioName === 'event' && snapshot.phase !== 'event') {
       add('phase', 'Event scenario has the wrong phase.')
     } else if ((scenarioName === 'victory' || scenarioName === 'defeat') && snapshot.phase !== scenarioName) {
@@ -636,6 +743,7 @@ export function createEmpiresQaScenarios(
   const destroyedWest = createDestroyedRegionSnapshot(seededConfig, empireCouncil, 'west')
   const relicProductionLevels = createRelicBuildingLevelSnapshot(seededConfig, empireCouncil)
   const event = createEventSnapshot(seededConfig, empireCouncil)
+  const battleDefense = createBattleDefenseSnapshot(seededConfig, baseEngine)
   const snapshots: Record<EmpiresQaScenarioName, EmpiresCampaignState> = {
     'pending-take': pendingTake,
     'empty-hand-pending-finish': emptyHandPendingFinish,
@@ -645,6 +753,7 @@ export function createEmpiresQaScenarios(
     'empire-council-with-points': empireCouncil,
     'destroyed-west': destroyedWest,
     'relic-production-levels': relicProductionLevels,
+    'battle-defense': battleDefense,
     event,
     victory: createOutcomeSnapshot(baseEngine, 'victory'),
     defeat: createOutcomeSnapshot(baseEngine, 'defeat'),
@@ -674,6 +783,7 @@ function emptyPhaseVisits(): Record<EmpiresPhase, number> {
     divineGift: 0,
     empire: 0,
     event: 0,
+    minigame: 0,
     victory: 0,
     defeat: 0,
   }
@@ -688,6 +798,7 @@ function eventChoiceIsAffordable(
 
 function chooseAutoplayAction(
   engine: EmpiresEndgameEngine,
+  tdPolicy: TdQaPolicy,
 ): { action: EmpiresQaAction | null, stall: Omit<EmpiresQaStallDiagnostic, 'at'> | null, checkedPlayerTurn: boolean } {
   if (engine.state.phase === 'cards') {
     if (engine.currentActor() === 'god') {
@@ -769,6 +880,23 @@ function chooseAutoplayAction(
           checkedPlayerTurn: false,
         }
   }
+  if (engine.state.phase === 'minigame') {
+    return engine.state.minigame
+      ? {
+          action: { kind: 'resolve-minigame', policy: tdPolicy },
+          stall: null,
+          checkedPlayerTurn: false,
+        }
+      : {
+          action: null,
+          stall: {
+            code: 'no-minigame-session',
+            message: 'Minigame phase has no active session.',
+            availablePlayerActions: [],
+          },
+          checkedPlayerTurn: false,
+        }
+  }
   return {
     action: null,
     stall: {
@@ -791,6 +919,12 @@ function executeAutoplayAction(
   if (action.kind === 'choose-gift') return engine.chooseGift(action.giftId)
   if (action.kind === 'resolve-target') return engine.resolvePendingTarget(action.targetId)
   if (action.kind === 'finish-empire') return engine.finishEmpire()
+  if (action.kind === 'resolve-minigame') {
+    const session = engine.state.minigame
+    return session
+      ? engine.resolveMinigame(resolveTdWithPolicy(session.plan, session.seed, action.policy))
+      : { ok: false, message: 'No minigame session is active.' }
+  }
   return engine.chooseEvent(action.choiceId)
 }
 
@@ -811,6 +945,7 @@ export function runEmpiresQaAutoplay(
   const seededConfig = configWithSeed(config, seed)
   const engine = new EmpiresEndgameEngine(seededConfig, options.startSnapshot)
   const maxSteps = options.maxSteps ?? 10_000
+  const tdPolicy = options.tdPolicy ?? 'balanced'
   const trace: EmpiresQaTraceEntry[] = []
   const phaseVisits = emptyPhaseVisits()
   const resolvedEventIds: string[] = []
@@ -820,7 +955,7 @@ export function runEmpiresQaAutoplay(
   while (trace.length < maxSteps && engine.state.phase !== 'victory' && engine.state.phase !== 'defeat') {
     phaseVisits[engine.state.phase] += 1
     const before = digestEmpiresQaState(engine)
-    const selected = chooseAutoplayAction(engine)
+    const selected = chooseAutoplayAction(engine, tdPolicy)
     if (selected.checkedPlayerTurn) checkedPlayerTurns += 1
     if (!selected.action) {
       stall = selected.stall

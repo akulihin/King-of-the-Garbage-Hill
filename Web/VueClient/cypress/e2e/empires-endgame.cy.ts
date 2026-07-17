@@ -134,7 +134,7 @@ describe('Empire\'s Endgame deterministic browser scenarios', () => {
     })
   })
 
-  it('labels and blocks deferred technologies and buildings in the live empire UI', () => {
+  it('labels deferred technology while exposing the newly live smithy carrier', () => {
     visitScenario('empire-council-with-points')
     cy.get('[data-testid="tab-technology"]').click()
     cy.get('[data-testid="technology-node-tech-fair"]')
@@ -150,14 +150,9 @@ describe('Empire\'s Endgame deterministic browser scenarios', () => {
 
     cy.get('[data-testid="tab-city"]').click()
     cy.get('[data-testid="city-building-building-smithy"]')
-      .should('have.class', 'deferred')
+      .should('not.have.class', 'deferred')
       .click()
-    cy.get('.improvement-drawer .deferred-note')
-      .should('be.visible')
-      .and('contain.text', 'Будущая механика')
-    cy.get('.improvement-drawer .primary-action:not(.editor-action)')
-      .should('be.disabled')
-      .and('contain.text', 'Будущая механика')
+    cy.get('.improvement-drawer .deferred-note').should('not.exist')
   })
 
   it('opens the constructor without structuredClone/DataCloneError failures', () => {

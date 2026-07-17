@@ -35,6 +35,7 @@ import TargetResolutionDialog, {
   type TargetResolutionOption,
 } from '../components/empires-endgame/TargetResolutionDialog.vue'
 import TechTree from '../components/empires-endgame/TechTree.vue'
+import TdBattle from '../components/empires-endgame/TdBattle.vue'
 import {
   clearCustomEmpiresConfig,
   cloneEmpiresConfig,
@@ -73,6 +74,7 @@ import type {
   EmpiresPendingGiftResolution,
   EmpiresPoint,
   EmpiresUnitDefinition,
+  TdBattleResult,
 } from '../features/empires-endgame/types'
 
 type EmpireTab = 'map' | 'city' | 'technology' | 'council'
@@ -112,6 +114,7 @@ const phaseCopy = computed(() => ({
   divineGift: ['Божественный дар', 'Выберите одно из трёх последствий вашей игры.'],
   empire: ['Два месяца власти', 'Распорядитесь временем, людьми и наследием империи.'],
   event: ['Имперское событие', 'Ваше решение изменит следующий кон.'],
+  minigame: ['Оборона империи', 'Остановите волну Альянса у центральной крепости.'],
   victory: ['Империя спасена', state.value?.outcomeReason || 'Эпоха выдержала последнюю ставку.'],
   defeat: ['Конец империи', state.value?.outcomeReason || 'Последняя ставка оказалась роковой.'],
 }[state.value?.phase ?? 'cards']))
@@ -121,6 +124,7 @@ const phaseSteps = [
   { id: 'divineGift', label: 'Дар', icon: Gift },
   { id: 'empire', label: 'Империя', icon: Crown },
   { id: 'event', label: 'Событие', icon: ScrollText },
+  { id: 'minigame', label: 'Оборона', icon: Shield },
 ]
 
 const resourceRows = computed(() => {
@@ -497,6 +501,14 @@ function chooseEvent(choiceId: string) {
 
 function finishEmpire() {
   if (engine.value) action(engine.value.finishEmpire())
+}
+
+function resolveTdBattle(result: TdBattleResult) {
+  if (engine.value) action(engine.value.resolveMinigame(result))
+}
+
+function abortTdBattle() {
+  if (engine.value) action(engine.value.abortMinigame())
 }
 
 function startNewCampaign(ask = true) {
@@ -981,7 +993,7 @@ function recruitmentBlockedReason(city: EmpiresCityState, unit: EmpiresUnitDefin
   if ((state.value.empire.flags.recruitmentDisabled ?? 0) > 0) {
     return 'Набор войск отключён эффектом карты на эту имперскую фазу'
   }
-  if (engine.value?.cityRecruitmentRemaining(city.id) === 0) {
+  if (engine.value?.cityRecruitmentRemaining(city.id, unit.id) === 0) {
     return 'Город исчерпал лимит снаряжённого набора'
   }
   const missingDependency = firstMissingDependency(unit.dependencies, city.id, true)
@@ -996,6 +1008,10 @@ function recruitmentBlockedReason(city: EmpiresCityState, unit: EmpiresUnitDefin
       ?? missingResource.resourceId
     return `Не хватает ресурса: ${name}`
   }
+  const missingEquipment = unit.equipmentCosts?.find(cost => (
+    (state.value?.army.equipmentStock[cost.equipmentId] ?? 0) < cost.amount
+  ))
+  if (missingEquipment) return `Не хватает снаряжения: ${missingEquipment.equipmentId}`
   return null
 }
 
@@ -1152,7 +1168,7 @@ const cityViews = computed(() => {
       const quantityLimits = unit.resourceCosts
         .filter(cost => cost.amount > 0)
         .map(cost => Math.floor(combinedResourceAmount(city, cost.resourceId) / cost.amount))
-      const recruitmentRemaining = engine.value?.cityRecruitmentRemaining(city.id)
+      const recruitmentRemaining = engine.value?.cityRecruitmentRemaining(city.id, unit.id)
       if (recruitmentRemaining !== null && recruitmentRemaining !== undefined) {
         quantityLimits.push(recruitmentRemaining)
       }
@@ -1161,6 +1177,13 @@ const cityViews = computed(() => {
           Math.floor(city.population / unit.populationCost),
           Math.floor(recruitablePopulation / unit.populationCost),
         )
+      }
+      for (const cost of unit.equipmentCosts ?? []) {
+        if (cost.amount > 0) {
+          quantityLimits.push(Math.floor(
+            (state.value?.army.equipmentStock[cost.equipmentId] ?? 0) / cost.amount,
+          ))
+        }
       }
       return {
         id: unit.id,
@@ -1609,6 +1632,16 @@ onUnmounted(() => {
           </div>
           <div v-else class="empty-council"><Shield :size="38" /><h3>Рука императора пуста</h3><p>Карты, оставшиеся после партии, станут пассивами вашего следующего периода правления.</p></div>
         </div>
+      </section>
+
+      <section v-else-if="state.phase === 'minigame' && state.minigame" class="phase-content minigame-phase">
+        <TdBattle
+          :key="`${state.minigame.id}:${state.minigame.attempt}`"
+          :session="state.minigame"
+          :qa-mode="qaMode"
+          @resolved="resolveTdBattle"
+          @abort="abortTdBattle"
+        />
       </section>
 
       <section v-else-if="state.phase === 'event' && currentEvent" class="phase-content event-phase">

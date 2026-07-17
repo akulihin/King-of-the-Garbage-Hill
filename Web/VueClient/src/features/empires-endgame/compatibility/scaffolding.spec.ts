@@ -165,6 +165,7 @@ describe('Empire\'s Endgame Phase 0 compatibility scaffolding', () => {
   it('backfills missing Phase-0 combat keys in v2 without copying the bundled catalog', () => {
     const missingSection = jsonClone(defaultConfigJson) as UnknownRecord
     delete missingSection.combat
+    ;(missingSection.td as UnknownRecord).enabled = false
 
     expect(migrateEmpiresConfig(missingSection)).toMatchObject({
       schemaVersion: 2,
@@ -180,6 +181,7 @@ describe('Empire\'s Endgame Phase 0 compatibility scaffolding', () => {
 
     const partialSection = jsonClone(defaultConfigJson) as UnknownRecord
     partialSection.combat = { enabled: false }
+    ;(partialSection.td as UnknownRecord).enabled = false
     const normalized = parseEmpiresConfig(JSON.stringify(partialSection))
 
     expect(normalized.combat).toEqual({
@@ -189,6 +191,33 @@ describe('Empire\'s Endgame Phase 0 compatibility scaffolding', () => {
       counterRules: [],
       equipment: [],
     })
+  })
+
+  it('backfills missing Phase-2 TD keys in v2 without copying the bundled battlefield catalog', () => {
+    const missingSection = jsonClone(defaultConfigJson) as UnknownRecord
+    delete missingSection.td
+    const normalized = parseEmpiresConfig(JSON.stringify(missingSection))
+
+    expect(normalized.td).toMatchObject({
+      enabled: false,
+      tickMs: 50,
+      maxTicks: 4000,
+      waveEveryCons: 2,
+      battlefields: [],
+      towers: [],
+      waves: [],
+    })
+    expect(normalized.td.towerBase?.id).toBe('tower-generic')
+    expect(() => validateEmpiresConfig(normalized)).not.toThrow()
+
+    const partialSection = jsonClone(defaultConfigJson) as UnknownRecord
+    partialSection.td = { enabled: false, battlefields: [], towers: [], waves: [] }
+    const partial = parseEmpiresConfig(JSON.stringify(partialSection))
+    expect(partial.td.battlefields).toEqual([])
+    expect(partial.td.equipmentProduction).toEqual([{
+      equipmentId: 'basic-kit',
+      amountPerSmithCapacity: 1,
+    }])
   })
 
   it('routes bundled, stored, JSON import, and clone boundaries through the migration chain', async () => {
@@ -219,7 +248,7 @@ describe('Empire\'s Endgame Phase 0 compatibility scaffolding', () => {
     const before = deferredReasonPaths(legacy)
     const after = deferredReasonPaths(migrateEmpiresConfig(legacy))
 
-    expect(before).toHaveLength(175)
+    expect(before).toHaveLength(164)
     expect(after).toEqual(before)
   })
 
@@ -254,9 +283,11 @@ describe('Empire\'s Endgame Phase 0 compatibility scaffolding', () => {
         equipmentStock: {},
         pendingLoyaltyDeltas: [],
         morale: 0,
+        maxMorale: 2,
         veterans: {},
+        recruitmentPenalties: {},
       },
-      external: { allianceThreat: 0, pendingOffers: [] },
+      external: { allianceThreat: 0, nextWaveCon: 2, pendingOffers: [] },
       epidemics: [],
       quests: {},
       cityLoyalty: config.empire.cities.map(() => 0),

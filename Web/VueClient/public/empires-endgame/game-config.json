@@ -67,10 +67,369 @@
     ]
   },
   "td": {
-    "enabled": false,
-    "battlefields": [],
-    "towers": [],
-    "waves": []
+    "enabled": true,
+    "tickMs": 50,
+    "maxTicks": 4000,
+    "waveEveryCons": 2,
+    "startingBuildResources": 120,
+    "towerBase": {
+      "id": "tower-generic",
+      "name": "Базовая башня",
+      "maxHp": 100,
+      "range": 240,
+      "attackIntervalTicks": 20,
+      "projectiles": 1,
+      "weapon": {
+        "damageLevels": {
+          "impact": 2
+        },
+        "tags": [
+          "tower"
+        ]
+      },
+      "targetPriority": "first"
+    },
+    "alliance": {
+      "baseThreat": 0,
+      "threatPerWave": 1,
+      "healthPerThreat": 0.15,
+      "countPerThreat": 0.1,
+      "speedPerThreat": 0.02
+    },
+    "settlement": {
+      "lossLoyaltyThreshold": 0.1,
+      "loyaltyDelta": -1,
+      "veteranHealthThreshold": 0.5,
+      "recruitmentPenaltyPerLoss": 1,
+      "growthPenaltyPerLoss": 1,
+      "victory": {
+        "moraleDelta": 1,
+        "allianceThreatDelta": 0,
+        "recruitmentPenaltyPerDeployedUnit": 0
+      },
+      "defeat": {
+        "moraleDelta": -1,
+        "allianceThreatDelta": 1,
+        "recruitmentPenaltyPerDeployedUnit": 0
+      },
+      "abort": {
+        "moraleDelta": -2,
+        "allianceThreatDelta": 2,
+        "recruitmentPenaltyPerDeployedUnit": 0.25
+      }
+    },
+    "morale": {
+      "initial": 0,
+      "minimum": 0,
+      "maximum": 2
+    },
+    "equipmentProduction": [
+      {
+        "equipmentId": "basic-kit",
+        "amountPerSmithCapacity": 1
+      }
+    ],
+    "battlefields": [
+      {
+        "id": "battlefield-central-defense",
+        "name": "Оборона Тетракора",
+        "mode": "defense",
+        "width": 1000,
+        "height": 600,
+        "laneGraph": {
+          "nodes": [
+            {
+              "id": "spawn",
+              "x": 60,
+              "y": 300
+            },
+            {
+              "id": "crossroads",
+              "x": 330,
+              "y": 200
+            },
+            {
+              "id": "defense",
+              "x": 650,
+              "y": 360
+            },
+            {
+              "id": "castle",
+              "x": 940,
+              "y": 300
+            }
+          ],
+          "edges": [
+            {
+              "id": "central-road-1",
+              "fromNodeId": "spawn",
+              "toNodeId": "crossroads"
+            },
+            {
+              "id": "central-road-2",
+              "fromNodeId": "crossroads",
+              "toNodeId": "defense"
+            },
+            {
+              "id": "central-road-3",
+              "fromNodeId": "defense",
+              "toNodeId": "castle"
+            }
+          ]
+        },
+        "buildSpots": [
+          {
+            "id": "central-spot-1",
+            "x": 260,
+            "y": 360
+          },
+          {
+            "id": "central-spot-2",
+            "x": 500,
+            "y": 110
+          },
+          {
+            "id": "central-spot-3",
+            "x": 770,
+            "y": 210
+          }
+        ],
+        "spawnerNodeId": "spawn",
+        "castleNodeId": "castle",
+        "deploymentNodeId": "defense",
+        "castleMaxHp": 100,
+        "castleArmor": null
+      }
+    ],
+    "towers": [
+      {
+        "id": "tower-g1-height",
+        "name": "Высокая башня",
+        "grade": 1,
+        "cost": 15,
+        "maxHpBonus": 0,
+        "rangeBonus": 120,
+        "attackIntervalTicksDelta": 0,
+        "projectileBonus": 0,
+        "damageLevelBonuses": {}
+      },
+      {
+        "id": "tower-g1-thick",
+        "name": "Толстая башня",
+        "grade": 1,
+        "cost": 15,
+        "maxHpBonus": 100,
+        "rangeBonus": 0,
+        "attackIntervalTicksDelta": 0,
+        "projectileBonus": 0,
+        "damageLevelBonuses": {}
+      },
+      {
+        "id": "tower-g1-rapid",
+        "name": "Скоростная башня",
+        "grade": 1,
+        "cost": 15,
+        "maxHpBonus": 0,
+        "rangeBonus": 0,
+        "attackIntervalTicksDelta": -5,
+        "projectileBonus": 0,
+        "damageLevelBonuses": {}
+      },
+      {
+        "id": "tower-g1-heavy",
+        "name": "Усиленная башня",
+        "grade": 1,
+        "cost": 15,
+        "maxHpBonus": 25,
+        "rangeBonus": 0,
+        "attackIntervalTicksDelta": 0,
+        "projectileBonus": 0,
+        "damageLevelBonuses": {
+          "impact": 1
+        }
+      },
+      {
+        "id": "tower-g2-archers",
+        "name": "Лучники",
+        "grade": 2,
+        "cost": 20,
+        "maxHpBonus": 0,
+        "rangeBonus": 0,
+        "attackIntervalTicksDelta": -2,
+        "projectileBonus": 0,
+        "damageLevelBonuses": {}
+      },
+      {
+        "id": "tower-g2-crossbows",
+        "name": "Арбалетчики",
+        "grade": 2,
+        "cost": 20,
+        "maxHpBonus": 0,
+        "rangeBonus": -30,
+        "attackIntervalTicksDelta": 5,
+        "projectileBonus": 1,
+        "damageLevelBonuses": {}
+      },
+      {
+        "id": "tower-g2-ballista",
+        "name": "Баллиста",
+        "grade": 2,
+        "cost": 20,
+        "maxHpBonus": 0,
+        "rangeBonus": 30,
+        "attackIntervalTicksDelta": 5,
+        "projectileBonus": 0,
+        "damageLevelBonuses": {
+          "impact": 2
+        },
+        "targetPriority": "strongest"
+      },
+      {
+        "id": "tower-g2-trebuchet",
+        "name": "Требушет",
+        "grade": 2,
+        "cost": 20,
+        "maxHpBonus": 0,
+        "rangeBonus": 60,
+        "attackIntervalTicksDelta": 10,
+        "projectileBonus": 0,
+        "damageLevelBonuses": {
+          "impact": 1
+        },
+        "targetPriority": "strongest"
+      },
+      {
+        "id": "tower-g3-fire",
+        "name": "Огненные снаряды",
+        "grade": 3,
+        "cost": 25,
+        "maxHpBonus": 0,
+        "rangeBonus": 0,
+        "attackIntervalTicksDelta": 0,
+        "projectileBonus": 0,
+        "damageLevelBonuses": {
+          "impact": 1
+        }
+      },
+      {
+        "id": "tower-g3-explosive",
+        "name": "Взрывные снаряды",
+        "grade": 3,
+        "cost": 25,
+        "maxHpBonus": 0,
+        "rangeBonus": 0,
+        "attackIntervalTicksDelta": 2,
+        "projectileBonus": 1,
+        "damageLevelBonuses": {
+          "crushing": 1
+        }
+      },
+      {
+        "id": "tower-g3-poison",
+        "name": "Ядовитые снаряды",
+        "grade": 3,
+        "cost": 25,
+        "maxHpBonus": 0,
+        "rangeBonus": 0,
+        "attackIntervalTicksDelta": -2,
+        "projectileBonus": 0,
+        "damageLevelBonuses": {
+          "cutting": 1
+        }
+      },
+      {
+        "id": "tower-g3-armor-piercing",
+        "name": "Бронебойные снаряды",
+        "grade": 3,
+        "cost": 25,
+        "maxHpBonus": 0,
+        "rangeBonus": 0,
+        "attackIntervalTicksDelta": 0,
+        "projectileBonus": 0,
+        "damageLevelBonuses": {
+          "piercing": 2
+        },
+        "targetPriority": "strongest"
+      },
+      {
+        "id": "tower-g4-tetrakor-power",
+        "name": "Тетракорский ультра-грейд: мощь",
+        "grade": 4,
+        "cost": 30,
+        "maxHpBonus": 0,
+        "rangeBonus": 0,
+        "attackIntervalTicksDelta": 0,
+        "projectileBonus": 0,
+        "damageLevelBonuses": {
+          "impact": 2
+        }
+      },
+      {
+        "id": "tower-g4-tetrakor-range",
+        "name": "Тетракорский ультра-грейд: дальность",
+        "grade": 4,
+        "cost": 30,
+        "maxHpBonus": 0,
+        "rangeBonus": 60,
+        "attackIntervalTicksDelta": 0,
+        "projectileBonus": 0,
+        "damageLevelBonuses": {}
+      },
+      {
+        "id": "tower-g4-tetrakor-speed",
+        "name": "Тетракорский ультра-грейд: скорость",
+        "grade": 4,
+        "cost": 30,
+        "maxHpBonus": 0,
+        "rangeBonus": 0,
+        "attackIntervalTicksDelta": -5,
+        "projectileBonus": 0,
+        "damageLevelBonuses": {}
+      },
+      {
+        "id": "tower-g4-tetrakor-fortress",
+        "name": "Тетракорский ультра-грейд: крепость",
+        "grade": 4,
+        "cost": 30,
+        "maxHpBonus": 150,
+        "rangeBonus": 0,
+        "attackIntervalTicksDelta": 0,
+        "projectileBonus": 0,
+        "damageLevelBonuses": {}
+      }
+    ],
+    "waves": [
+      {
+        "id": "alliance-central-wave",
+        "name": "Волна Альянса",
+        "groups": [
+          {
+            "id": "alliance-infantry",
+            "count": 12,
+            "startTick": 0,
+            "spawnIntervalTicks": 20,
+            "routeEdgeIds": [
+              "central-road-1",
+              "central-road-2",
+              "central-road-3"
+            ],
+            "maxHp": 12,
+            "speedPerSecond": 50,
+            "attackRange": 40,
+            "attackIntervalTicks": 20,
+            "weapon": {
+              "damageLevels": {
+                "impact": 2
+              },
+              "tags": [
+                "alliance"
+              ]
+            },
+            "armor": null
+          }
+        ]
+      }
+    ]
   },
   "god": {
     "enabled": false,
@@ -903,7 +1262,6 @@
       "title": "Зазывалы в войска",
       "description": "Вербовщики рассказывают о службе в каждой таверне и снимают обычное ограничение набора.",
       "image": "",
-      "deferredReason": "Военные отряды, таверны и их боевое применение ещё не входят в текущую кампанию.",
       "effects": [
           {
             "kind": "flag",
@@ -917,7 +1275,6 @@
       "title": "Агитаторы-саботажники",
       "description": "В каждом городе пропадает случайный отряд, а военное здание получает Поджог: минус один уровень и запрет взаимодействия и ремонта на ход.",
       "image": "",
-      "deferredReason": "Военные отряды, казармы и набор войск ещё не входят в текущую кампанию.",
       "effects": [
           {
             "kind": "flag",
@@ -1657,7 +2014,6 @@
         "image": "",
         "baseWeight": 7,
         "performanceWeight": 0.7,
-        "deferredReason": "Боевой дух армии ещё не используется в текущей кампании.",
         "effects": [
           {
             "kind": "flag",
@@ -4815,9 +5171,8 @@
                 "amount": 50
               }
             ]
-          }
-        ],
-        "deferredReason": "Снаряжение и военное производство ещё не входят в текущую кампанию."
+        }
+      ]
       },
       {
         "id": "building-barracks",
@@ -4986,9 +5341,8 @@
                 "amount": 15000
               }
             ]
-          }
-        ],
-        "deferredReason": "Штатные типы войск и их боевое применение ещё не определены."
+        }
+      ]
       },
       {
         "id": "building-temple",
@@ -5784,15 +6138,30 @@
         "populationCost": 1,
         "timeCostDays": 1,
         "resourceCosts": [],
-        "dependencies": [
-          {
-            "kind": "building",
-            "buildingId": "building-barracks",
-            "level": 1,
-            "scope": "sameCity"
-          }
-        ],
-        "deferredReason": "Боевые характеристики, снаряжение и применение отряда ещё не определены."
+      "dependencies": [
+        {
+          "kind": "building",
+          "buildingId": "building-barracks",
+          "level": 1,
+          "scope": "sameCity"
+        },
+        {
+          "kind": "technology",
+          "technologyId": "doctrine-war"
+        }
+      ],
+      "equipmentCosts": [
+        {
+          "equipmentId": "basic-kit",
+          "amount": 1
+        }
+      ],
+      "td": {
+        "maxHp": 10,
+        "attackRange": 60,
+        "attackIntervalTicks": 20,
+        "weaponEquipmentId": "weapon-mace"
+      }
       },
       {
         "id": "unit-regular",
@@ -5803,15 +6172,30 @@
         "populationCost": 1,
         "timeCostDays": 1,
         "resourceCosts": [],
-        "dependencies": [
-          {
-            "kind": "building",
-            "buildingId": "building-barracks",
-            "level": 1,
-            "scope": "sameCity"
-          }
-        ],
-        "deferredReason": "Боевые характеристики, снаряжение и применение отряда ещё не определены."
+      "dependencies": [
+        {
+          "kind": "building",
+          "buildingId": "building-barracks",
+          "level": 1,
+          "scope": "sameCity"
+        },
+        {
+          "kind": "technology",
+          "technologyId": "doctrine-war"
+        }
+      ],
+      "equipmentCosts": [
+        {
+          "equipmentId": "basic-kit",
+          "amount": 2
+        }
+      ],
+      "td": {
+        "maxHp": 16,
+        "attackRange": 70,
+        "attackIntervalTicks": 18,
+        "weaponEquipmentId": "weapon-laurel-spear"
+      }
       },
       {
         "id": "unit-heavy",
@@ -5822,15 +6206,30 @@
         "populationCost": 1,
         "timeCostDays": 1,
         "resourceCosts": [],
-        "dependencies": [
-          {
-            "kind": "building",
-            "buildingId": "building-barracks",
-            "level": 1,
-            "scope": "sameCity"
-          }
-        ],
-        "deferredReason": "Боевые характеристики, снаряжение и применение отряда ещё не определены."
+      "dependencies": [
+        {
+          "kind": "building",
+          "buildingId": "building-barracks",
+          "level": 1,
+          "scope": "sameCity"
+        },
+        {
+          "kind": "technology",
+          "technologyId": "doctrine-war"
+        }
+      ],
+      "equipmentCosts": [
+        {
+          "equipmentId": "basic-kit",
+          "amount": 3
+        }
+      ],
+      "td": {
+        "maxHp": 24,
+        "attackRange": 55,
+        "attackIntervalTicks": 22,
+        "weaponEquipmentId": "weapon-steel-axe"
+      }
       },
       {
         "id": "unit-knight",
@@ -5841,15 +6240,30 @@
         "populationCost": 1,
         "timeCostDays": 1,
         "resourceCosts": [],
-        "dependencies": [
-          {
-            "kind": "building",
-            "buildingId": "building-barracks",
-            "level": 1,
-            "scope": "sameCity"
-          }
-        ],
-        "deferredReason": "Боевые характеристики, снаряжение и применение отряда ещё не определены."
+      "dependencies": [
+        {
+          "kind": "building",
+          "buildingId": "building-barracks",
+          "level": 1,
+          "scope": "sameCity"
+        },
+        {
+          "kind": "technology",
+          "technologyId": "doctrine-war"
+        }
+      ],
+      "equipmentCosts": [
+        {
+          "equipmentId": "basic-kit",
+          "amount": 4
+        }
+      ],
+      "td": {
+        "maxHp": 36,
+        "attackRange": 65,
+        "attackIntervalTicks": 16,
+        "weaponEquipmentId": "weapon-horseman-pick"
+      }
       }
     ],
     "technologies": [
@@ -5923,14 +6337,7 @@
         "timeCostDays": 5,
         "resourceCosts": [],
         "prerequisites": [],
-        "effects": [
-          {
-            "kind": "flag",
-            "flagId": "doctrineWar",
-            "amount": 1
-          }
-        ],
-        "deferredReason": "Бой, экспедиции и военные последствия ещё не реализованы."
+        "effects": []
       },
       {
         "id": "tech-fair",
@@ -6025,14 +6432,7 @@
             "technologyId": "doctrine-general"
           }
         ],
-        "effects": [
-          {
-            "kind": "flag",
-            "flagId": "smithyUnlocked",
-            "amount": 1
-          }
-        ],
-        "deferredReason": "Связанная системная механика этой разработки ещё не входит в текущую кампанию."
+        "effects": []
       },
       {
         "id": "tech-compass",

@@ -1,7 +1,11 @@
 import type {
+  CombatArmorProfile,
   CombatCounterRule,
   CombatDamageAutoPriority,
+  CombatWeaponProfile,
+  EmpiresCombatConfig,
 } from './combat/types'
+import type { EmpiresTdConfig } from './td/types'
 import type { EmpiresBuildingSlotKind, EmpiresEndgameConfig } from './types'
 import { validateEmpiresEndgameConfig } from './engine'
 
@@ -23,6 +27,39 @@ const COMBAT_SCAFFOLD = {
 
 const TD_SCAFFOLD = {
   enabled: false,
+  tickMs: 50,
+  maxTicks: 4_000,
+  waveEveryCons: 2,
+  startingBuildResources: 120,
+  towerBase: {
+    id: 'tower-generic',
+    name: 'Базовая башня',
+    maxHp: 100,
+    range: 240,
+    attackIntervalTicks: 20,
+    projectiles: 1,
+    weapon: { damageLevels: { impact: 2 }, tags: ['tower'] },
+    targetPriority: 'first',
+  },
+  alliance: {
+    baseThreat: 0,
+    threatPerWave: 1,
+    healthPerThreat: 0.15,
+    countPerThreat: 0.1,
+    speedPerThreat: 0.02,
+  },
+  settlement: {
+    lossLoyaltyThreshold: 0.1,
+    loyaltyDelta: -1,
+    veteranHealthThreshold: 0.5,
+    recruitmentPenaltyPerLoss: 1,
+    growthPenaltyPerLoss: 1,
+    victory: { moraleDelta: 1, allianceThreatDelta: 0, recruitmentPenaltyPerDeployedUnit: 0 },
+    defeat: { moraleDelta: -1, allianceThreatDelta: 1, recruitmentPenaltyPerDeployedUnit: 0 },
+    abort: { moraleDelta: -2, allianceThreatDelta: 2, recruitmentPenaltyPerDeployedUnit: 0.25 },
+  },
+  morale: { initial: 0, minimum: 0, maximum: 2 },
+  equipmentProduction: [{ equipmentId: 'basic-kit', amountPerSmithCapacity: 1 }],
   battlefields: [],
   towers: [],
   waves: [],
@@ -80,6 +117,7 @@ function migrateEmpiresConfigV1ToV2(config: Record<string, unknown>): Record<str
 
 function normalizeEmpiresConfigV2(config: Record<string, unknown>): Record<string, unknown> {
   config.combat = withScaffoldDefaults(config.combat, COMBAT_SCAFFOLD)
+  config.td = withScaffoldDefaults(config.td, TD_SCAFFOLD)
   return config
 }
 
@@ -261,6 +299,7 @@ const EMPIRES_LIVE_FLAG_ALLOWLIST = new Set([
   'horseTheftDisabled',
   'idleBuildingGoldBase',
   'militaryArson',
+  'maxCombatSpirit',
   'peasantProductivityPercent',
   'productionBoostAssignmentLimit',
   'productionBoostPercent',
@@ -268,6 +307,7 @@ const EMPIRES_LIVE_FLAG_ALLOWLIST = new Set([
   'recruitmentDisabled',
   'relicsUnlocked',
   'smithyWithoutIron',
+  'smithCapacity',
   'stableWithoutLivestock',
   'starvationLossMultiplierPercent',
   'surplusFoodPerGold',
@@ -601,6 +641,296 @@ function validateCombatConfig(
   }
 }
 
+function validateTdConfig(
+  value: unknown,
+  combat: unknown,
+  units: readonly unknown[],
+): void {
+  if (!isRecord(value)) throw new Error('td must be an object.')
+  const td = value as unknown as EmpiresTdConfig
+  const requireFinite = (number: unknown, path: string, minimum = 0) => {
+    if (typeof number !== 'number' || !Number.isFinite(number) || number < minimum) {
+      throw new Error(`${path} must be finite and at least ${minimum}.`)
+    }
+  }
+  const requirePositiveInteger = (number: unknown, path: string) => {
+    if (typeof number !== 'number' || !Number.isInteger(number) || number <= 0) {
+      throw new Error(`${path} must be a positive integer.`)
+    }
+  }
+  requirePositiveInteger(td.tickMs, 'td.tickMs')
+  requirePositiveInteger(td.maxTicks, 'td.maxTicks')
+  requirePositiveInteger(td.waveEveryCons, 'td.waveEveryCons')
+  requireFinite(td.startingBuildResources, 'td.startingBuildResources')
+
+  if (!td.towerBase || !isRecord(td.towerBase)) throw new Error('td.towerBase must be an object.')
+  if (!td.alliance || !isRecord(td.alliance)) throw new Error('td.alliance must be an object.')
+  if (!td.settlement || !isRecord(td.settlement)) throw new Error('td.settlement must be an object.')
+  if (!td.morale || !isRecord(td.morale)) throw new Error('td.morale must be an object.')
+  if (!Array.isArray(td.equipmentProduction)) throw new Error('td.equipmentProduction must be an array.')
+  if (!Array.isArray(td.battlefields) || !Array.isArray(td.towers) || !Array.isArray(td.waves)) {
+    throw new Error('td battlefields, towers, and waves must be arrays.')
+  }
+
+  requireFinite(td.towerBase.maxHp, 'td.towerBase.maxHp', Number.EPSILON)
+  requireFinite(td.towerBase.range, 'td.towerBase.range', Number.EPSILON)
+  requirePositiveInteger(td.towerBase.attackIntervalTicks, 'td.towerBase.attackIntervalTicks')
+  requirePositiveInteger(td.towerBase.projectiles, 'td.towerBase.projectiles')
+  if (!td.towerBase.id?.trim() || !td.towerBase.name?.trim()) {
+    throw new Error('td.towerBase needs an id and name.')
+  }
+  if (td.towerBase.targetPriority !== 'first' && td.towerBase.targetPriority !== 'strongest') {
+    throw new Error('td.towerBase.targetPriority is unknown.')
+  }
+
+  for (const path of [
+    'baseThreat',
+    'threatPerWave',
+    'healthPerThreat',
+    'countPerThreat',
+    'speedPerThreat',
+  ] as const) {
+    requireFinite(td.alliance[path], `td.alliance.${path}`)
+  }
+  requireFinite(td.settlement.lossLoyaltyThreshold, 'td.settlement.lossLoyaltyThreshold')
+  if (td.settlement.lossLoyaltyThreshold > 1) {
+    throw new Error('td.settlement.lossLoyaltyThreshold must not exceed 1.')
+  }
+  requireFinite(td.settlement.veteranHealthThreshold, 'td.settlement.veteranHealthThreshold')
+  if (td.settlement.veteranHealthThreshold > 1) {
+    throw new Error('td.settlement.veteranHealthThreshold must not exceed 1.')
+  }
+  requireFinite(td.settlement.recruitmentPenaltyPerLoss, 'td.settlement.recruitmentPenaltyPerLoss')
+  requireFinite(td.settlement.growthPenaltyPerLoss, 'td.settlement.growthPenaltyPerLoss')
+  requireFinite(td.settlement.loyaltyDelta, 'td.settlement.loyaltyDelta', Number.NEGATIVE_INFINITY)
+  for (const [outcome, consequence] of Object.entries({
+    victory: td.settlement.victory,
+    defeat: td.settlement.defeat,
+    abort: td.settlement.abort,
+  })) {
+    if (!isRecord(consequence)) throw new Error(`td.settlement.${outcome} must be an object.`)
+    requireFinite(
+      consequence.recruitmentPenaltyPerDeployedUnit,
+      `td.settlement.${outcome}.recruitmentPenaltyPerDeployedUnit`,
+    )
+    requireFinite(consequence.moraleDelta, `td.settlement.${outcome}.moraleDelta`, Number.NEGATIVE_INFINITY)
+    requireFinite(
+      consequence.allianceThreatDelta,
+      `td.settlement.${outcome}.allianceThreatDelta`,
+      Number.NEGATIVE_INFINITY,
+    )
+  }
+  requireFinite(td.morale.minimum, 'td.morale.minimum', Number.NEGATIVE_INFINITY)
+  requireFinite(td.morale.maximum, 'td.morale.maximum', Number.NEGATIVE_INFINITY)
+  requireFinite(td.morale.initial, 'td.morale.initial', Number.NEGATIVE_INFINITY)
+  if (td.morale.minimum > td.morale.maximum
+    || td.morale.initial < td.morale.minimum
+    || td.morale.initial > td.morale.maximum) {
+    throw new Error('td.morale must satisfy minimum <= initial <= maximum.')
+  }
+
+  const equipmentStockIds = new Set<string>()
+  for (const definition of td.equipmentProduction) {
+    if (!definition.equipmentId?.trim()) throw new Error('td equipment production needs an equipmentId.')
+    if (equipmentStockIds.has(definition.equipmentId)) {
+      throw new Error(`td equipment production repeats ${definition.equipmentId}.`)
+    }
+    equipmentStockIds.add(definition.equipmentId)
+    requireFinite(
+      definition.amountPerSmithCapacity,
+      `td equipment ${definition.equipmentId} amountPerSmithCapacity`,
+    )
+  }
+
+  const battlefieldIds = new Set<string>()
+  for (const battlefield of td.battlefields) {
+    if (!battlefield.id?.trim()) throw new Error('td battlefield needs an id.')
+    if (battlefieldIds.has(battlefield.id)) throw new Error(`td repeats battlefield ${battlefield.id}.`)
+    battlefieldIds.add(battlefield.id)
+    if (battlefield.mode !== 'defense') throw new Error(`td battlefield ${battlefield.id} has an unknown mode.`)
+    requireFinite(battlefield.width, `td battlefield ${battlefield.id} width`, Number.EPSILON)
+    requireFinite(battlefield.height, `td battlefield ${battlefield.id} height`, Number.EPSILON)
+    requireFinite(battlefield.castleMaxHp, `td battlefield ${battlefield.id} castleMaxHp`, Number.EPSILON)
+    const nodeIds = new Set<string>()
+    for (const node of battlefield.laneGraph.nodes) {
+      if (!node.id?.trim()) throw new Error(`td battlefield ${battlefield.id} has a node without an id.`)
+      if (nodeIds.has(node.id)) throw new Error(`td battlefield ${battlefield.id} repeats a lane node.`)
+      nodeIds.add(node.id)
+      requireFinite(node.x, `td battlefield ${battlefield.id} node ${node.id} x`, Number.NEGATIVE_INFINITY)
+      requireFinite(node.y, `td battlefield ${battlefield.id} node ${node.id} y`, Number.NEGATIVE_INFINITY)
+    }
+    if (nodeIds.size !== battlefield.laneGraph.nodes.length) {
+      throw new Error(`td battlefield ${battlefield.id} repeats a lane node.`)
+    }
+    for (const endpoint of [battlefield.spawnerNodeId, battlefield.castleNodeId, battlefield.deploymentNodeId]) {
+      if (!nodeIds.has(endpoint)) throw new Error(`td battlefield ${battlefield.id} references unknown node ${endpoint}.`)
+    }
+    const edgeIds = new Set<string>()
+    for (const edge of battlefield.laneGraph.edges) {
+      if (!edge.id?.trim()) throw new Error(`td battlefield ${battlefield.id} has an edge without an id.`)
+      if (edgeIds.has(edge.id)) throw new Error(`td battlefield ${battlefield.id} repeats edge ${edge.id}.`)
+      edgeIds.add(edge.id)
+      if (!nodeIds.has(edge.fromNodeId) || !nodeIds.has(edge.toNodeId)) {
+        throw new Error(`td battlefield ${battlefield.id} edge ${edge.id} references an unknown node.`)
+      }
+    }
+    const spotIds = new Set<string>()
+    for (const spot of battlefield.buildSpots) {
+      if (!spot.id?.trim()) throw new Error(`td battlefield ${battlefield.id} has a build spot without an id.`)
+      if (spotIds.has(spot.id)) throw new Error(`td battlefield ${battlefield.id} repeats a build spot.`)
+      spotIds.add(spot.id)
+      requireFinite(spot.x, `td battlefield ${battlefield.id} spot ${spot.id} x`, Number.NEGATIVE_INFINITY)
+      requireFinite(spot.y, `td battlefield ${battlefield.id} spot ${spot.id} y`, Number.NEGATIVE_INFINITY)
+    }
+  }
+
+  const towerIds = new Set<string>()
+  for (const tower of td.towers) {
+    if (!tower.id?.trim()) throw new Error('td tower choice needs an id.')
+    if (towerIds.has(tower.id)) throw new Error(`td repeats tower choice ${tower.id}.`)
+    towerIds.add(tower.id)
+    if (![1, 2, 3, 4].includes(tower.grade)) throw new Error(`td tower ${tower.id} has an unknown grade.`)
+    requireFinite(tower.cost, `td tower ${tower.id} cost`)
+    requireFinite(tower.maxHpBonus, `td tower ${tower.id} maxHpBonus`, Number.NEGATIVE_INFINITY)
+    requireFinite(tower.rangeBonus, `td tower ${tower.id} rangeBonus`, Number.NEGATIVE_INFINITY)
+    requireFinite(
+      tower.attackIntervalTicksDelta,
+      `td tower ${tower.id} attackIntervalTicksDelta`,
+      Number.NEGATIVE_INFINITY,
+    )
+    requireFinite(tower.projectileBonus, `td tower ${tower.id} projectileBonus`, Number.NEGATIVE_INFINITY)
+    if (tower.targetPriority !== undefined
+      && tower.targetPriority !== 'first'
+      && tower.targetPriority !== 'strongest') {
+      throw new Error(`td tower ${tower.id} targetPriority is unknown.`)
+    }
+    for (const [damageTypeId, bonus] of Object.entries(tower.damageLevelBonuses)) {
+      requireFinite(bonus, `td tower ${tower.id} ${damageTypeId} damage bonus`, Number.NEGATIVE_INFINITY)
+    }
+  }
+
+  const allEdgeIds = new Set(td.battlefields.flatMap(field => field.laneGraph.edges.map(edge => edge.id)))
+  const waveIds = new Set<string>()
+  for (const wave of td.waves) {
+    if (!wave.id?.trim()) throw new Error('td wave needs an id.')
+    if (waveIds.has(wave.id)) throw new Error(`td repeats wave ${wave.id}.`)
+    waveIds.add(wave.id)
+    if (wave.groups.length === 0) throw new Error(`td wave ${wave.id} needs an enemy group.`)
+    const groupIds = new Set<string>()
+    for (const group of wave.groups) {
+      if (!group.id?.trim()) throw new Error(`td wave ${wave.id} has a group without an id.`)
+      if (groupIds.has(group.id)) throw new Error(`td wave ${wave.id} repeats group ${group.id}.`)
+      groupIds.add(group.id)
+      requirePositiveInteger(group.count, `td wave ${wave.id} group ${group.id} count`)
+      if (!Number.isInteger(group.startTick) || group.startTick < 0) {
+        throw new Error(`td wave ${wave.id} group ${group.id} startTick must be a non-negative integer.`)
+      }
+      requirePositiveInteger(group.spawnIntervalTicks, `td wave ${wave.id} group ${group.id} spawnIntervalTicks`)
+      requireFinite(group.maxHp, `td wave ${wave.id} group ${group.id} maxHp`, Number.EPSILON)
+      requireFinite(group.speedPerSecond, `td wave ${wave.id} group ${group.id} speedPerSecond`, Number.EPSILON)
+      requireFinite(group.attackRange, `td wave ${wave.id} group ${group.id} attackRange`)
+      requirePositiveInteger(group.attackIntervalTicks, `td wave ${wave.id} group ${group.id} attackIntervalTicks`)
+      if (!group.routeEdgeIds.length || group.routeEdgeIds.some(edgeId => !allEdgeIds.has(edgeId))) {
+        throw new Error(`td wave ${wave.id} group ${group.id} references an unknown route edge.`)
+      }
+    }
+  }
+
+  if (!td.enabled) return
+  if (!isRecord(combat) || combat.enabled !== true) throw new Error('td.enabled requires combat.enabled.')
+  if (td.battlefields.length !== 1) {
+    throw new Error('Phase-2 td.enabled requires exactly one central battlefield.')
+  }
+  const liveCombat = combat as unknown as EmpiresCombatConfig
+  const damageTypeIds = new Set(liveCombat.damageTypes.map(definition => definition.id))
+  const armorClassIds = new Set(liveCombat.armorClasses.map(definition => definition.id))
+  const validateWeapon = (profile: CombatWeaponProfile, path: string) => {
+    if (!profile || !isRecord(profile.damageLevels) || !Array.isArray(profile.tags)) {
+      throw new Error(`${path} must be a combat weapon profile.`)
+    }
+    const levels = Object.entries(profile.damageLevels)
+    if (levels.length === 0) throw new Error(`${path} needs at least one damage level.`)
+    for (const [damageTypeId, level] of levels) {
+      if (!damageTypeIds.has(damageTypeId)) {
+        throw new Error(`${path} references unknown damage type ${damageTypeId}.`)
+      }
+      requireFinite(level, `${path} ${damageTypeId}`, 0)
+    }
+  }
+  const validateArmor = (profile: CombatArmorProfile | null, path: string) => {
+    if (profile === null) return
+    if (!profile || !armorClassIds.has(profile.classId)) {
+      throw new Error(`${path} references an unknown armor class.`)
+    }
+    requireFinite(profile.level, `${path} level`)
+  }
+  validateWeapon(td.towerBase.weapon, 'td.towerBase.weapon')
+  for (const tower of td.towers) {
+    for (const damageTypeId of Object.keys(tower.damageLevelBonuses)) {
+      if (!damageTypeIds.has(damageTypeId)) {
+        throw new Error(`td tower ${tower.id} references unknown damage type ${damageTypeId}.`)
+      }
+    }
+  }
+  const battlefield = td.battlefields[0]
+  const battlefieldEdges = new Map(battlefield.laneGraph.edges.map(edge => [edge.id, edge]))
+  validateArmor(battlefield.castleArmor, `td battlefield ${battlefield.id} castleArmor`)
+  for (const wave of td.waves) {
+    for (const group of wave.groups) {
+      validateWeapon(group.weapon, `td wave ${wave.id} group ${group.id} weapon`)
+      validateArmor(group.armor, `td wave ${wave.id} group ${group.id} armor`)
+      let nodeId = battlefield.spawnerNodeId
+      for (const edgeId of group.routeEdgeIds) {
+        const edge = battlefieldEdges.get(edgeId)
+        if (!edge || edge.fromNodeId !== nodeId) {
+          throw new Error(`td wave ${wave.id} group ${group.id} route is not contiguous from the spawner.`)
+        }
+        nodeId = edge.toNodeId
+      }
+      if (nodeId !== battlefield.castleNodeId) {
+        throw new Error(`td wave ${wave.id} group ${group.id} route does not reach the castle.`)
+      }
+    }
+  }
+  for (const grade of [1, 2, 3, 4]) {
+    if (td.towers.filter(tower => tower.grade === grade).length !== 4) {
+      throw new Error(`td.towers requires exactly four grade-${grade} choices when enabled.`)
+    }
+  }
+  if (td.equipmentProduction.length === 0) {
+    throw new Error('td.equipmentProduction must not be empty when td.enabled is true.')
+  }
+  const combatEquipment = new Map((combat.equipment as Array<Record<string, unknown>>)
+    .flatMap(entry => typeof entry.id === 'string' ? [[entry.id, entry] as const] : []))
+  for (const rawUnit of units) {
+    if (!isRecord(rawUnit) || rawUnit.deferredReason) continue
+    if (!isRecord(rawUnit.td)) throw new Error(`live unit ${String(rawUnit.id)} needs a td profile.`)
+    const profile = rawUnit.td
+    requireFinite(profile.maxHp, `unit ${String(rawUnit.id)} td.maxHp`, Number.EPSILON)
+    requireFinite(profile.attackRange, `unit ${String(rawUnit.id)} td.attackRange`, Number.EPSILON)
+    requirePositiveInteger(profile.attackIntervalTicks, `unit ${String(rawUnit.id)} td.attackIntervalTicks`)
+    const weapon = combatEquipment.get(String(profile.weaponEquipmentId))
+    if (!weapon || weapon.kind !== 'weapon' || weapon.deferredReason) {
+      throw new Error(`unit ${String(rawUnit.id)} references an unavailable TD weapon.`)
+    }
+    if (profile.armorEquipmentId !== undefined) {
+      const armor = combatEquipment.get(String(profile.armorEquipmentId))
+      if (!armor || armor.kind === 'weapon' || armor.deferredReason) {
+        throw new Error(`unit ${String(rawUnit.id)} references unavailable TD armor.`)
+      }
+    }
+    if (!Array.isArray(rawUnit.equipmentCosts) || rawUnit.equipmentCosts.length === 0) {
+      throw new Error(`live unit ${String(rawUnit.id)} needs equipmentCosts when td.enabled is true.`)
+    }
+    for (const cost of rawUnit.equipmentCosts) {
+      if (!isRecord(cost) || typeof cost.equipmentId !== 'string' || !equipmentStockIds.has(cost.equipmentId)) {
+        throw new Error(`unit ${String(rawUnit.id)} references unknown equipment stock.`)
+      }
+      requireFinite(cost.amount, `unit ${String(rawUnit.id)} equipment cost`, Number.EPSILON)
+    }
+  }
+}
+
 export function validateEmpiresConfig(value: unknown): asserts value is EmpiresEndgameConfig {
   if (!isRecord(value)) throw new Error('Конфигурация должна быть JSON-объектом.')
   if (value.schemaVersion !== EMPIRES_CONFIG_SCHEMA_VERSION) {
@@ -659,6 +989,7 @@ export function validateEmpiresConfig(value: unknown): asserts value is EmpiresE
   }
 
   validateCombatConfig(value.combat, value.empire.technologies)
+  validateTdConfig(value.td, value.combat, value.empire.units ?? [])
 
   const config = value as unknown as EmpiresEndgameConfig
   const deferredErrors = validateDeferredReasons(config)

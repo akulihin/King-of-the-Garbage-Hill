@@ -1,191 +1,132 @@
-# Phase 3 — TD regional depth + steel tree
+# Phase 3A — TD hardening, regional battlefields, and assault
 
-Use this file as the opening instruction for a fresh Codex task running 5.6 Sol. Execute
-one complete change-set. Dependency: Phase 2 must provide the fixed-step TD, minigame
-envelope, live army, morale, and `tech-ironwork`; verify those contracts first.
+Use this file as the opening instruction for a fresh Codex 5.6 Sol task. Read
+`COMMON-EXECUTION-CONTRACT.md` and `COVERAGE-MATRIX.md`; both are binding. This is the
+first prompt after the completed P0/P1 work and the active/near-complete P2 change-set.
 
-## Executor rules (binding)
+Execute one change-set. Do not start until Phase 2 has a coherent handoff: its current
+implementation, tests, docs, version bump, and commit-message proposal are either complete
+or the exact unfinished items have been identified for the carryover gate below.
 
-1. **Design source discipline**: read the phase's named raw export channels in `DiscordExports/Empires_Endgame/` before implementing. On conflict: main export > `ZBS MAKING` (outdated background); `empire_prompt` defines the core loop. Export missing from the environment → stop and tell the user; do not guess.
-2. **Never fabricate silently**: a mechanic without export numbers → implement with a configurable default in `game-config.json` + append a ledger entry. A mechanic whose *semantics* are undefined → keep/add `deferredReason` and add a designer question to the ledger.
-3. **Un-deferral discipline**: substrate + un-deferral (delete `deferredReason`, add executable effects) + `EMPIRES_LIVE_FLAG_ALLOWLIST` additions or typed payloads + tests, all in ONE change-set. `validateLiveEffects` must keep rejecting flags nothing reads.
-4. **Determinism**: no `Date.now`/`Math.random` in any simulation — only the serialized RNG streams (`features/empires-endgame/rng.ts`). Minigames replay from `(plan, seed, commandLog)`; mid-minigame real-time state is never serialized.
-5. Player-facing card/passive *texts* stay deliberately vague (repo philosophy — never "fix" them; the designer writes new player wording). Exact mechanics are documented in `docs/WEB-CLIENT.md` §12B.
-6. Git: do NOT commit or push. Write the commit message to `docs/commit-messages/<date>.md` (one file per change-set; `-2`, `-3` suffixes for further change-sets the same day).
+## Guaranteed deliverable
 
-## Codex preflight
+1. Reconcile—not redo—P2 and close only its concrete unfinished obligations.
+2. Harden the shared minigame/TD contract with immutable rules identity, logical command
+   times, active-config safety, bounded histories, background-tab behavior, accessible
+   controls, and one real input-path test.
+3. Expand TD to the five authored regional battlefields, castle/naval-enemy variants, the
+   complete grade-choice data, and reusable assault mode.
 
-- Read root `AGENTS.md` and the prompt-pack README; run `git status --short` and preserve
-  unrelated work.
-- Verify P2's actual state: TD replay determinism, schema-v2 restore, central battlefield,
-  combat profiles, equipment stock, morale, `doctrine-war`, `tech-ironwork`, and all P2
-  un-deferrals. Stop with evidence if any prerequisite is absent or partial.
-- Inventory current steel IDs/effects/prerequisites from config before editing. The current
-  22 nodes cover only five config groups, not the full ten-branch export model; do not
-  confuse “all existing nodes” with “the full authored tree.”
+Steel research/equipment progression is **not** part of this change-set; P3B owns it.
 
-## Mission
+## Required raw sources
 
-Expand TD from the central vertical slice to five authored regional battlefields, castle
-and naval variants, the complete grade data, and reusable assault mode. Port the latest
-steel tree faithfully, make every executable steel payoff flow through combat/equipment
-and army production, and bring the military academy/foundry/morale relic live only with
-their full authored consumers.
+Read `DiscordExports/empire_prompt`; channels `тд`, `застройка`, and `общее`; the `EE_TD`
+sketch; and any linked battlefield images. Read the current P2 TD/combat implementation and
+tests before designing extensions.
 
-## Design source
+Raw leads to verify:
 
-Read `DiscordExports/Empires_Endgame/` channel `тд`, the `EE_TD` sketch, channel
-`застройка`, and `Steel-c748ae22139d6401.txt` (the latest steel version under the
-`Технологии_*` material). Older steel files and `ZBS MAKING` lose on conflict.
+- swamp: unreachable tower spots;
+- forest: archers/tree build spots;
+- north: catapult/trebuchet restriction plus defense against ships;
+- desert: defender desiccation/attrition;
+- center: the P2 Тетракор field;
+- four sequential grades, four choices per grade, regional/general/general/regional-ultra;
+- castle defense, deployed units, barricades, fort-post/camp/partisan concepts, assault,
+  and Эдемская катапульта only where the raw source defines executable rules.
 
-Verify and encode:
+Enemy ships in a TD plan do not create a player fleet or persistent siege system. P6B may
+not use this phase as proof that player-fleet semantics exist.
 
-- swamp: unreachable tower spots; forest: archers in trees; north: only
-  catapults/trebuchets plus a ships-defense variant; desert: defender desiccation; central:
-  the P2 generic battlefield;
-- four sequential grades—regional → common → common → regional ultra—with four choices
-  per grade, stacking, and the tower/shooter/projectile/regional tier scheme;
-- castle defense, units, barricades, fortress posts, partisan/mercenary camps, and
-  Эдемская катапульта only where the raw sources define their role;
-- steel branches, fork pricing, generation half-steps, delayed-free “+” generations,
-  |Элитное| gates, and production/equipment prerequisites.
+## Preflight and Phase-2 carryover gate
 
-If any named source is missing, stop and tell the user before editing. Numeric gaps may be
-configurable and ledgered; semantic gaps stay deferred.
+Audit actual P2 code/tests/docs against its frozen prompt. Produce a short checklist in the
+task plan for:
 
-## Repo anchors (read before editing)
+- minigame session/result/origin and phase return;
+- fixed-step replay and serialized seed/RNG;
+- wave scheduling without duplicate queues;
+- canonical settlement and exact-once resolution/abort;
+- old-save/config migration;
+- TD UI, QA fast resolve, Cypress settlement, and full autoplay;
+- the exact P2 carriers: four units, Barracks, Smithy, `tech-ironwork`, `doctrine-war`,
+  both ♥7 faces, and `gift-combat-spirit`.
 
-- `features/empires-endgame/td/`, `combat/`, and P2 army/minigame types.
-- `features/empires-endgame/engine.ts`: `research` near `:636`, `startNextCon` near
-  `:1371`, snapshot normalization near `:1002`, and battle settlement.
-- `features/empires-endgame/types.ts`: `EmpiresTechnologyDefinition`, map objects, army,
-  minigame session/result.
-- `features/empires-endgame/config.ts`: reference/live-effect validation and migration.
-- `src/components/empires-endgame/TechTree.vue`: authored node positions; TD UI from P2.
-- `game-config.json`: steel IDs `steel-laurel-spearhead` through `steel-arquebus`,
-  `building-foundry`, `building-military-academy`, `relic-spirit-floor`, plus prerequisite
-  `tech-generals`/`tech-foundry`.
-- `qa.ts` and the P2 `battle-defense` scenario/action.
+If an item is already complete, regression-test it and leave it alone. If it is concretely
+unfinished, complete it inside this P3A change-set before regional expansion. Do not reopen
+P0/P1 or broaden P2 beyond this list. Preserve the user's current P2 worktree exactly.
 
-## Work items (in order)
+## Work items
 
-1. Extend `td` config with typed battlefield modifiers rather than region-name branches.
-   Author five layouts, region rule parameters, castle/ship variants, lane/build-spot
-   references, and full grade choices. Keep migrated P2 custom configs valid when only the
-   central field exists; enabled definitions must validate every reference.
-2. Implement each region rule in the fixed-step sim and replay path. UI selects/displays
-   the planned field and rejects illegal builds before emitting commands. Add castle,
-   barricade, camp, post, naval, and Эдемская-катапульта mechanics only when verified; an
-   undefined sketch item remains config-disabled with a ledger question.
-3. Add `plan.mode: 'defense' | 'assault'`. Assault deploys player units against authored
-   defenses/fort HP and returns the same discriminated TD result/settlement contract. Do
-   not fork a second simulator; Phase 11 consumes this mode.
-4. Port the full latest steel source into config. Reconcile it explicitly:
-   - preserve and implement the 22 existing stable IDs listed below;
-   - add missing authored branches/nodes from the latest file with deterministic stable
-     IDs, exact Russian names, prerequisites, positions, and equipment payoffs;
-   - if a missing node lacks executable numbers, add it with `deferredReason` and a ledger
-     question rather than pretending the current five groups are the full tree.
-5. Add typed persisted steel progress, for example:
+1. **Rules identity and active-config safety.** Extend the shared session with either a
+   fully resolved simulation plan or `{configSchemaVersion, rulesDigest}` covering every
+   TD/combat definition used by replay. Canonicalize digest input. Resolve/reload rejects
+   stale or mismatched rules. Builder/import/config replacement while a session is active
+   must be rejected or explicitly restart through the authored abort path—never mutate the
+   battle silently.
 
-   ```ts
-   steelProgress: {
-     forkedFromGroupIds: string[]
-     priceMultipliers: Record<string, number>
-     pendingFreeResearch: Array<{ technologyId: string; dueCon: number }>
-   }
-   ```
+2. **Logical command log.** Store commands with simulation tick indices and deterministic
+   sequence numbers. Validate monotonic/bounded ticks, stable tie order, legal command kind,
+   and plan/session identity. Do not log wall-clock timestamps.
 
-   Implement fork/source ×2 pricing, half-step generations, delayed-free “+” research,
-   gear/method prerequisites, and |Элитное| gating in the existing research path. Normalize
-   P2/v2 saves with empty state and test restore; do not bump the envelope for an additive
-   field unless a real semantic migration requires it.
-6. Replace dead steel flags with actual typed consumers/equipment unlocks. The existing
-   payload set includes `polearmGeneration`, `voulgeProduction`, `halberdProduction`,
-   `lanceProduction`, `mailGeneration`, `plateGeneration`,
-   `cheapHelmetMassProduction`, `forgeMaxLevel`, `powderGeneration`,
-   `shipCannonProduction`, `handBombardProduction`, and `arquebusProduction`. Each must
-   alter equipment availability, production, forge capacity, or combat resolution and
-   have a focused test; allowlisting alone is forbidden.
-7. Implement the full authored military-building effects:
-   - academy: `freeUnitsPerWarTechnology` and `academyDeliveryTurns` via deterministic
-     typed pending deliveries; do not silently reinterpret it as the source of
-     `militaryElite` unless the export says so;
-   - foundry: `armyProductionDiscountPercent` and `instantUnitEveryTurns` in recruitment/
-     production, with save-safe cadence;
-   - relic: `minimumCombatSpirit` through P2's typed morale floor.
-8. Add prerequisite closure `tech-generals` and `tech-foundry` with real consumers; P2
-   already owns `tech-ironwork`. Preserve authored cross-phase gates: `steel-bucket-helm`
-   may remain unavailable until P4 un-defers `reform-theocracy`. For `steel-lance`, find
-   the authoritative `militaryElite` producer; if none exists, keep that node deferred and
-   record the exception instead of inventing a producer.
-9. Reconcile both faces of `card-hearts-ace` against the raw `карты`/`тд` sources. Its
-   current authored shells enable/disable unit morale and active abilities. Un-defer a face
-   only if this phase supplies the complete active-ability catalog, TD execution, morale
-   interaction, cleanup, UI, and tests; P2's minimal morale scalar alone is insufficient.
-10. Extend Builder/TechTree and TD surfaces only as needed to expose new data, requirements,
-   assault mode, and equipment payoff. Keep config as the source of truth.
+3. **Runtime/storage bounds.** Define caps or compaction for command logs and
+   `minigameResultLog`; retain enough identity/digest data for audit. Cap rAF catch-up work
+   per frame or pause on backgrounding, with a deterministic fake-clock test proving frame
+   cadence does not change the result.
 
-## Un-deferral list (exact current carriers)
+4. **Regional config.** Extend the current `td` section with typed battlefield definitions,
+   lane graphs, build spots, castle/fort objectives, allowed categories, environmental
+   modifiers, grade choices, and defense/assault plan variants. Validate unique IDs and all
+   tower/combat/region references. Old custom configs receive a safe fallback/disabled
+   regional catalog through the current migration chain.
 
-Target these 22 existing steel IDs, subject to the no-fabrication exception above:
+5. **One modifier engine.** Implement region behavior as typed data/rules, not branches on
+   Russian display names. At minimum cover sourced swamp reachability, forest tree bonuses,
+   north category restrictions/naval enemy path, and desert attrition. Stable-order all
+   simultaneous ticks/targets.
 
-`steel-laurel-spearhead`, `steel-lancet-spearhead`, `steel-diamond-spearhead`,
-`steel-cross-spearhead`, `steel-voulge`, `steel-halberd`, `steel-lance`,
-`steel-butted-mail`, `steel-riveted-mail`, `steel-full-mail`, `steel-double-mail`,
-`steel-steel-mail`, `steel-nasal-helm`, `steel-bucket-helm`, `steel-kettle-hat`,
-`steel-iron-breastplate`, `steel-steel-cuirass`, `steel-water-hammer`,
-`steel-heavy-water-hammer`, `steel-ship-cannon`, `steel-hand-bombard`, `steel-arquebus`.
+6. **Assault/castle/naval-enemy variants.** Add `plan.mode` and typed objectives. Assault
+   fields player units against authored defenses and returns through the same replay and
+   settlement funnel as defense. Castle and ship-defense variants reuse that engine; do not
+   create a second simulator or calculate campaign losses in the UI.
 
-Also un-defer only after full consumers/tests exist:
+7. **Grade matrix and UI.** Port only the raw-authored grade structure/stats; missing numbers
+   are config+ledger values. Update TD UI for battlefield rules, objectives, accessible
+   tower/deployment choices, and keyboard/pointer commands. Canvas is not the sole state
+   representation. Keep QA fast resolve, but add a deterministic component test that sends
+   a real input through the production command/replay path.
 
-- `tech-generals`, `tech-foundry` (prerequisite closure);
-- `building-foundry`, `building-military-academy`;
-- `relic-spirit-floor`.
-- `card-hearts-ace` normal and inverted are conditional whole-contract candidates for the
-  TD unit-morale/active substrate. Keep either face deferred if its active semantics remain
-  undefined or unimplemented.
+8. **QA/Builder.** Add scenarios for each regional modifier and `battle-assault`; extend
+   digest/trace with rules identity and bounded log metadata. Builder support is JSON-first
+   with the production validator. Full campaign autoplay must cross scheduled defense and
+   assault sessions without stalls.
 
-Do **not** un-defer `event-northern-raids` here. Its authored choices modify
-`loyaltyNorth`/`loyaltyWest`, not TD; Phase 4 owns the loyalty substrate and event. Do not
-replace that event with an invented battle.
+## Carrier and scope gate
 
-## Verification
+- No steel technology, Foundry, Military Academy, military-workshop addition, or steel card
+  is un-deferred here; P3B owns them.
+- Do not un-defer `event-northern-raids`: its authored choices are loyalty effects owned by
+  P4A, not an invented TD battle.
+- P2 carriers may change only under the carryover checklist above. Record each already-live,
+  completed-here, or still-blocked result explicitly.
 
-- TD specs: deterministic case for all five region rules; central regression; north legal
-  tower restrictions and ship variant; castle/barricade/camp mechanics that shipped;
-  assault win/loss/abort; same replay across render frame chunking.
-- Steel table tests: every live node has known prerequisites and an observable equipment/
-  production payoff; fork ×2 state; half-step/delayed-free timing; elite and theocracy
-  gates; config import/migration/backfill; P2 save normalization.
-- Building/relic tests: academy delayed delivery (including restore), foundry discount and
-  cadence, morale floor, plus all twelve current steel payload consumers.
-- QA: add `battle-assault`; expand full-campaign autoplay across defense/assault; Cypress
-  uses QA fast-resolve and asserts field/rule/research payoff rather than real-time play.
-- Full standing gate:
-  - `bash tools/test-empires-endgame.sh`
-  - `pnpm --dir Web/VueClient build`
-  - `bash tools/verify-docs.sh --changed`
-- Inspect final status/diff, forbidden RNG/time APIs, and the remaining deferred list.
+## Verification additions
 
-## Docs & ledger contract
+- Same plan/seed/log and rules identity produce the same full digest across frame cadences,
+  reload, and headless/UI replay; changed rules identity is rejected.
+- Table-driven regional modifier and allowed-category cases; defense/assault/castle/naval
+  terminal outcomes; no duplicate campaign settlement.
+- Background pause/catch-up cap, command-log validation/retention, active config-import
+  rejection, keyboard/pointer command smoke, and accessible state/disabled reasons.
+- Previous config/save fixture; P2 carryover regression manifest; five-field QA sweep under
+  tick/action caps; full standing gate from the common contract.
 
-- Update `docs/WEB-CLIENT.md` §12B for regional rules, naval/castle/assault behavior, the
-  real steel branch inventory, pricing/generation/elite rules, and exact un-deferrals.
-- Ledger every invented tower/equipment number, missing weapon level, steel price/timer,
-  military-elite source decision, and any latest-export node kept deferred, keyed by JSON
-  Pointer.
-- New bugs receive finding IDs; do not mix unrelated fixes.
-- Increment the patch component of `GameVersion` sequentially.
-- Write `docs/commit-messages/<date>.md`; do not commit or push.
+## Designer questions
 
-## Designer questions (pre-seeded)
-
-- What are the authoritative stats behind the 4×4 grades and “208 builds” count?
-- Which per-weapon damage levels remain unspecified in the steel source?
-- Are fork ×2 pricing, delayed-free timing, and |Элитное| costs fully numeric anywhere?
-- What creates `militaryElite`, and is it intentionally different from the academy's
-  delayed free-unit effect?
-- Does Эдемская катапульта ship as a normal regional tower, a quest reward, or stay deferred?
-- What are the exact unit active abilities enabled/disabled by `card-hearts-ace`, and does
-  its morale behavior belong to all TD modes or only particular troops/battles?
+- What are authoritative stats behind the 4×4 grades and “208 builds” count?
+- Exact swamp, forest, north, and desert modifier values/edge cases?
+- Which castle, barricade, camp, post, partisan, ship, and Эдемская-катапульта mechanics are
+  executable now, and which remain deferred?
+- What are the authored assault loss/abort/retry consequences?
+- What command-log/history retention is sufficient for replay evidence in localStorage?

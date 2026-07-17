@@ -1,10 +1,14 @@
-# Empire's Endgame — Completion Program (Prompt Pack)
+# Empire's Endgame — confirmed completion program (prompt pack)
 
-This directory is a 13-phase execution program that finishes Empire's Endgame
-(`/empires-endgame`, `Web/VueClient/src/features/empires-endgame/`) against the designer's
-full intent. Each `phase-NN-*.md` file is a **self-contained prompt**: open a fresh
-Codex task using **5.6 Sol** on the designer's machine and paste one phase file as the
-opening instruction. Phases are separate change-sets; run them in dependency order.
+This directory is an execution program for the designer-confirmed Empire's Endgame
+completion tranche (`/empires-endgame`, `Web/VueClient/src/features/empires-endgame/`). It
+does not silently equate every raw sketch with committed scope: every known system and
+catalog item has an owner, conditional gate, review status, or explicit exclusion in
+`COVERAGE-MATRIX.md`.
+
+Each remaining phase/subphase file is the opening prompt for a fresh Codex task using
+**5.6 Sol** on the designer's machine. Read it with `COMMON-EXECUTION-CONTRACT.md`.
+Subphases are separate change-sets and must run in dependency order.
 
 **Hard requirement**: the raw design export `DiscordExports/Empires_Endgame/`
 (+ `DiscordExports/empire_prompt`, the Palach HTML demos, the `EE_TD` sketch) exists only
@@ -13,12 +17,20 @@ files are missing from the session's environment, **stop and tell the user** —
 implement from the compressed model in this README alone. The compression (A below) is
 navigation and scope; the raw channels are the source of truth for numbers and semantics.
 
-Verified state as of 2026-07-16: the July audit wave (M54–M61, M83–M91, all fixed) made the
+Baseline verified 2026-07-16: the July audit wave (M54–M61, M83–M91, all fixed) made the
 implementation honest — 175 explicit `deferredReason` markers in
 `Web/VueClient/public/empires-endgame/game-config.json`; engine + UI refuse to spend on
 deferred content (`validateDeferredReasons` / `validateLiveEffects` in
-`features/empires-endgame/config.ts`). "Finishing" = building the absent substrate systems
-and un-deferring content onto them, phase by phase.
+`features/empires-endgame/config.ts`). Counts after completed phases come from the actual
+config/tests, not this historical baseline.
+
+Current execution status supplied by the designer on 2026-07-17:
+
+- **Phase 0 — complete.** Its prompt is historical; do not amend/re-run it.
+- **Phase 1 — complete.** Its prompt is historical; do not amend/re-run it.
+- **Phase 2 — implementation active and almost complete.** Do not expand its prompt.
+  Phase 3A audits the landed result and owns any still-missing P2 obligations.
+- **Next prompt: Phase 3A** (`phase-03-td-regions-steel.md`).
 
 Scope decisions confirmed by the designer (2026-07-16):
 
@@ -31,85 +43,78 @@ Scope decisions confirmed by the designer (2026-07-16):
 ## Phase order and dependencies
 
 ```mermaid
-graph LR
-  P0[0 scaffolding] --> P1[1 combat core]
-  P1 --> P2[2 TD slice + army live]
-  P2 --> P3[3 TD regions + steel]
-  P2 --> P4[4 loyalty/seasons]
-  P4 --> P5[5 epidemics]
-  P4 --> P6[6 economy/external]
-  P0 --> P7[7 quests/dialogue]
-  P0 --> P8[8 God presence]
-  P6 --> P9[9 tavern/mystic]
+graph TD
+  P0[0 complete] --> P1[1 complete]
+  P1 --> P2[2 active / near complete]
+  P2 --> P3A[3A TD hardening + regions + assault]
+  P3A --> P3B[3B steel + military production]
+  P3A --> P4A[4A loyalty + reputation + rebellion]
+  P3B --> P4B[4B seasons + tech sides + politics]
+  P4A --> P4B
+  P4B --> P4C[4C advisors + persts + capital governance]
+  P4B --> P5[5 epidemics]
+  P4C --> P6A[6A domestic economy]
+  P5 --> P6A
+  P3B --> P6B[6B diplomacy + external trade]
+  P6A --> P6B
+  P6B --> P6C[6C economy content closure]
+  P5 --> P7[7 quests + dialogue]
+  P4C --> P7
+  P3A --> P8[8 God presence]
+  P6A --> P9[9 Tavern + mystics]
   P7 --> P9
   P8 --> P9
-  P5 --> P10[10 tetris-alchemy]
-  P2 --> P10
-  P3 --> P11[11 expeditions/inventory]
-  P7 --> P11
-  P2 --> P12[12 chess]
+  P3A --> P10[10 Tetris-alchemy]
+  P5 --> P10
+  P3B --> P11A[11A expeditions]
+  P7 --> P11A
+  P11A --> P11B[11B Tetris-inventory]
+  P9 --> P12[12 Chess design gate]
+  P6C --> P12B[12B content closure]
+  P10 --> P12B
+  P11B --> P12B
+  P12 --> P12B
+  P12B --> P13[13 stabilization]
 ```
 
 | File | Ships |
 |---|---|
-| `phase-00-scaffolding.md` | Config/save migration chains, empty new sections, review ledger, test-glob fix. No behavior change. |
-| `phase-01-combat-core.md` | Pure damage-type/armor/counter module + `combat` config section. Not player-visible. |
-| `phase-02-td-vertical-slice.md` | Minigame envelope, fixed-timestep TD, wave scheduler, battle settlement; units/barracks/smithy/ironwork/war-doctrine/♥7 go live. |
-| `phase-03-td-regions-steel.md` | 5 regional battlefields + grade matrix + assault mode; reconciles the full latest steel source and the 22 existing nodes, foundry, academy, and morale relic. |
-| `phase-04-loyalty-seasons.md` | City/region loyalty, reputation, seasons, tech dark sides + chronicle; owns the loyalty-only northern-raids event. |
+| `phase-00-scaffolding.md` | **Complete/historical.** Config/save migrations, ledger, test discovery. |
+| `phase-01-combat-core.md` | **Complete/historical.** Pure combat/damage/counter catalog. |
+| `phase-02-td-vertical-slice.md` | **Active/near complete; prompt frozen.** Central TD, envelope, army. |
+| `phase-03-td-regions-steel.md` | **3A:** P2 reconciliation, replay/config identity, input/accessibility hardening, five regional TD fields, castle/naval enemy variants, assault. |
+| `phase-03b-steel-equipment.md` | **3B:** latest steel tree, equipment production, foundry/academy, missing military-building audit. |
+| `phase-04-loyalty-seasons.md` | **4A:** loyalty, reputation, rebellion, class gates, chronicle, northern raids. |
+| `phase-04b-seasons-tech-sides.md` | **4B:** seasons, technology sides, political reforms, crime substrate. |
+| `phase-04c-advisors-persts-capital.md` | **4C:** advisor flow, suit/Grand Advisor rules, governor персты, capital slot governance. |
 | `phase-05-epidemics.md` | Epidemic lifecycle + medical protection chain; exact medical candidates and vaccination faces, with ambiguous Дженна mapping kept honest. |
-| `phase-06-economy-external.md` | Bank/insurance/fair/tavern/stable/customs/sea-port/temple; Людовик trade offers; economy cards/resources and trade gifts/relics/events. |
+| `phase-06-economy-external.md` | **6A:** Bank/insurance/Fair/Temple and passive Tavern substrate. |
+| `phase-06b-diplomacy-external.md` | **6B:** real diplomacy/external trade, Людовик, Stable/Customs/Sea Port, missing trade buildings. |
+| `phase-06c-economy-content.md` | **6C:** economy gifts, relics, events, resources, technologies, and card faces. |
 | `phase-07-quests-dialogue.md` | Quest + dialogue-graph engine, journal/overlay UI, Палач quest port. |
 | `phase-08-god-presence.md` | Deck-memory, anti-bito, God lines, Милость confirmation. |
-| `phase-09-tavern-mystic.md` | Mystic suit cards, hand order, Пиковая Дама, tavern minigame. |
+| `phase-09-tavern-mystic.md` | Separate mystic-card catalog, hand order, Пиковая Дама, tavern minigame. |
 | `phase-10-tetris-alchemy.md` | Assembly/disassembly tetris, reagents, configured explosion → typed epidemic. |
-| `phase-11-expeditions-inventory.md` | Expeditions via TD assault, veterans/provisions, logistics tech/card closure, packing minigame. |
-| `phase-12-chess.md` | Cards-as-pieces chess sketch behind a config toggle. |
+| `phase-11-expeditions-inventory.md` | **11A:** expeditions, forts/zones, provisions, veterans, TD assault. |
+| `phase-11b-tetris-inventory.md` | **11B:** deterministic falling-cart packing minigame. |
+| `phase-12-chess.md` | Chess design gate; implementation stays disabled until the rules table is executable. |
+| `phase-12b-content-closure.md` | Raw-source/config carrier closure sweep; no new substrate. |
+| `phase-13-stabilization.md` | Earliest-to-latest compatibility, all-minigame integration, storage/performance stabilization. |
 
-## Executor rules (binding for every phase)
+## Binding execution and coverage contracts
 
-1. **Design source discipline**: read the phase's named raw export channels in `DiscordExports/Empires_Endgame/` before implementing. On conflict: main export > `ZBS MAKING` (outdated background); `empire_prompt` defines the core loop. Export missing from the environment → stop and tell the user; do not guess.
-2. **Never fabricate silently**: a mechanic without export numbers → implement with a configurable default in `game-config.json` + append a ledger entry. A mechanic whose *semantics* are undefined → keep/add `deferredReason` and add a designer question to the ledger.
-3. **Un-deferral discipline**: substrate + un-deferral (delete `deferredReason`, add executable effects) + `EMPIRES_LIVE_FLAG_ALLOWLIST` additions or typed payloads + tests, all in ONE change-set. `validateLiveEffects` must keep rejecting flags nothing reads.
-4. **Determinism**: no `Date.now`/`Math.random` in any simulation — only the serialized RNG streams (`features/empires-endgame/rng.ts`). Minigames replay from `(plan, seed, commandLog)`; mid-minigame real-time state is never serialized.
-5. Player-facing card/passive *texts* stay deliberately vague (repo philosophy — never "fix" them; the designer writes new player wording). Exact mechanics are documented in `docs/WEB-CLIENT.md` §12B.
-6. Git: do NOT commit or push. Write the commit message to `docs/commit-messages/<date>.md` (one file per change-set; `-2`, `-3` suffixes for further change-sets the same day).
-
-An item named by a phase is an ownership target, not permission to fake readiness. If the
-raw export still lacks semantics (as opposed to only a number), that phase must keep the
-carrier deferred, record the blocker in the ledger, and test that it remains unavailable.
-
-Card faces follow the same rule side-by-side. Baseline named carriers are routed to the
-phase that creates their substrate (military/TD in P2–P3, loyalty/influence in P4,
-epidemics in P5, economy/trade in P6, quests in P7, Tavern/mystics in P9, and world-map
-logistics in P11). Generic placeholder faces are never un-deferred by suit/rank alone:
-the raw `карты`/`персонажи` source must uniquely identify the current config ID and side.
-
-## Codex 5.6 Sol execution protocol
-
-- Start by reading the repository `AGENTS.md`, this README, the selected phase prompt, and
-  every phase-specific document/source named by that prompt. The phase prompt overrides
-  this overview if the two ever drift.
-- Run `git status --short` before editing. Preserve all pre-existing and unrelated worktree
-  changes; do not reset, discard, commit, or push them.
-- Maintain a live task plan. Verify the named prerequisite phase from actual files, types,
-  config, and tests instead of assuming it landed cleanly. If a prerequisite is absent or
-  only partly implemented, stop and report the concrete gap rather than silently merging
-  two phase change-sets.
-- Use Codex sub-agents for bounded, independent reading/audit/test tasks when that improves
-  speed. Keep a single owner for overlapping hotspots such as `engine.ts`, `types.ts`,
-  `config.ts`, `game-config.json`, and `EmpiresEndgame.vue`.
-- Use `apply_patch` for hand edits and keep changes scoped to the selected phase. Follow the
-  docs-first repository workflow; do not load the whole game codebase when symbol anchors
-  and targeted searches suffice.
-- Do not stop at scaffolding. Complete implementation, docs, migration coverage, QA, UI,
-  the sequential `GameVersion` patch bump, the commit-message file, and all feasible gates.
-  If raw design exports are missing, that is an intentional hard stop before code edits.
+- `COMMON-EXECUTION-CONTRACT.md` owns source hierarchy, preflight, honest un-deferral,
+  replay/config identity, migration, accessibility, QA, docs, version, and git rules for
+  every remaining phase. Phase prompts contain only phase-specific deltas.
+- `COVERAGE-MATRIX.md` owns program scope and routing, including design items absent from
+  current `game-config.json`. A phase may update the matrix but may not silently omit an item.
+- Phase prompts override this overview only for a narrower, explicitly named contract.
 
 ## Architecture cornerstones
 
-- **One minigame envelope for all five minigames**: `EmpiresMinigameSession {kind, plan, seed, attempt, origin}` / `EmpiresMinigameResult`; new campaign phase `'minigame'` appended to `EMPIRES_PHASES` (`types.ts`); engine methods `beginMinigame` / `resolveMinigame` / `abortMinigame` (abort = authored penalty, no save-scumming). A reload during a minigame restarts it from `plan + seed` with `attempt + 1`.
+- **One minigame envelope for all five minigames**: `EmpiresMinigameSession {kind, plan, seed, attempt, origin, rulesIdentity}` / `EmpiresMinigameResult`; campaign methods `beginMinigame` / `resolveMinigame` / `abortMinigame` (abort = authored penalty, no save-scumming). A reload restarts from immutable `plan + seed` with `attempt + 1`.
 - **Fixed-timestep sims** (deliberate divergence from last-chances' rAF-delta loop at `features/last-chances/engine.ts:724`): `step()` advances exactly `tickMs`; battle result = pure `f(plan, seed, commandLog)`; headless QA runs the *same* sim — a single resolution path. The rAF loop only accumulates time and interpolates rendering.
+- **Replay identity**: plans embed resolved simulation data or carry an immutable config/rules digest; commands use tick/turn indices. Config changes cannot mutate an active session.
 - **Shared combat module** `features/empires-endgame/combat/` (damage types, armor classes, counter matrix, equipment catalog) consumed by TD, expeditions, and events; steel techs pay off as `equipment` entries with tech prerequisites.
 - **State discipline**: keep flags for empire-wide scalars consumed by existing formulas (reputation, seasons via a pure `currentSeason()`); use first-class typed state for per-entity/lifecycle data (city loyalty, epidemics, army/morale/veterans, quests, the minigame session).
 - **Config migrations**: `migrateEmpiresConfig` chain applied before `validateEmpiresConfig` (replacing the hard `schemaVersion !== 1` throw), modeled on `migrateLastChancesConfig` (`features/last-chances/config.ts:55`). Save migrations continue the `validateAndCloneSnapshot` field-normalization style; bump the envelope version only for semantic moves.
@@ -123,24 +128,16 @@ the raw `карты`/`персонажи` source must uniquely identify the curr
 
 ## Standing per-phase gate
 
-Every phase ends with ALL of:
-
-- `bash tools/test-empires-endgame.sh` green (Vitest + Cypress). New spec files must be wired into `package.json` `test:empires` / `test:empires:e2e` — both currently enumerate explicit files (Phase 0 switches the Vitest side to a glob).
-- `pnpm --dir Web/VueClient build` (NOT `type-check` — broken env-wide).
-- `bash tools/verify-docs.sh --changed`.
-- `docs/WEB-CLIENT.md` §12B updated for changed behavior; new bugs get findings in `docs/AUDIT-FINDINGS.md` (next free ID).
-- Every invented number appended to `docs/EMPIRES-ENDGAME-DESIGN-REVIEW.md`, keyed by JSON pointer into `game-config.json`.
-- Save-compat: every envelope/schema bump ships a spec restoring a previous-version fixture.
-- Commit message written to `docs/commit-messages/<date>.md`; no git commit.
-- Sequential patch increment of `GameVersion` in
-  `King-of-the-Garbage-Hill/Game/Classes/GameClass.cs` after the
-  phase implementation is complete.
+Use `COMMON-EXECUTION-CONTRACT.md` §7. In particular: focused tests, the complete Empires
+gate, production build, changed-doc verification, exact remaining-deferred manifest,
+sequential version bump, and commit-message proposal are mandatory for each subphase.
 
 ## Verification contract (program-wide)
 
 - Focused unit tests per phase: `pnpm --dir Web/VueClient run test:empires`.
 - New QA scenarios as the program progresses: `battle-defense`, `battle-assault`, `epidemic-outbreak`, `quest-dialogue`, `mystic-tavern`, `anti-bito`; new QA actions `resolve-minigame` (with a scripted policy) and `advance-dialogue`. The QA harness lives in `features/empires-endgame/qa.ts` (`digestEmpiresQaState`, trace + stall diagnostics, autoplay loop).
-- Cypress specs drive each new surface via `?qa=1&scenario=…&seed=…` — never play real-time; assert HUD state and use the QA fast-resolve control.
+- Cypress specs drive settlement via `?qa=1&scenario=…&seed=…`; deterministic component
+  tests must also prove real keyboard/pointer input reaches the production simulator.
 - TD determinism gate: the same `(plan, seed, commandLog)` run twice yields an identical result digest (asserted in `td/engine.spec.ts`); headless autoplay terminates under a tick cap for 3 seeds × 3 policies.
 - Standing integration test: full-campaign autoplay across battles/quests without stalls (the digest/trace stall detector already exists in `qa.ts`).
 
@@ -231,7 +228,10 @@ Every phase ends with ALL of:
 
 ---
 
-## Appendix: deferred-content inventory (verified against `game-config.json` 2026-07-16)
+## Appendix: historical deferred-content baseline (verified 2026-07-16)
+
+This appendix records the pre-program baseline only. Use actual config/spec output plus
+`COVERAGE-MATRIX.md` for current closure; do not copy these counts into a later phase.
 
 **Live card faces** (everything else is deferred): `card-clubs-2` N (no effects), `card-clubs-8` both, `card-spades-5` both, `card-spades-8` both, `card-diamonds-6` inverted, `card-diamonds-ace` N, `card-joker-jester` N (no effects). Named/authored deferred faces already in config: `card-clubs-2` inv (`streetCleanliness`), `card-hearts-5` (Агитаторы), `card-hearts-7` (Зазывалы/Поджог — effects authored, executor live), `card-hearts-king` (Легитимность Томаса), `card-hearts-ace`, `card-spades-3` (карты мира), `card-spades-10` (Прививки), `card-diamonds-6` N. All other ranks are placeholder faces («Тройка треф»…) — авторские карты для них берутся из каналов `карты`/`персонажи`.
 

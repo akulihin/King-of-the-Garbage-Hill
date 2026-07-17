@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import defaultConfigJson from '../../../public/empires-endgame/game-config.json'
 import { EmpiresEndgameEngine, validateEmpiresEndgameConfig } from './engine'
+import { resolveTdWithPolicy } from './td/qa'
 import { EMPIRES_RANKS, EMPIRES_SUITS } from './types'
 import type {
   EmpiresActor,
@@ -487,7 +488,8 @@ describe('default game config integration', () => {
     expect(Object.keys(engine.state.cards)).toHaveLength(53)
     const borderCity = engine.state.empire.cities.find(city => city.id === 'city-north-iron-gate')
     expect(borderCity?.population).toBe(500_000)
-    expect(borderCity?.operationalBuildingLevels['building-mine']).toBe(1)
+    expect(borderCity?.operationalBuildingLevels['building-mine']).toBe(0)
+    expect(borderCity?.operationalBuildingLevels['building-barracks']).toBe(1)
     expect(engine.cityProduction('city-north-iron-gate').food).toBe(600_000)
     expect(JSON.parse(JSON.stringify(engine.snapshot()))).toEqual(engine.snapshot())
   })
@@ -589,6 +591,9 @@ describe('default game config integration', () => {
         } else if (engine.state.phase === 'empire') {
           empireFinishes += 1
           result = engine.finishEmpire()
+        } else if (engine.state.phase === 'minigame' && engine.state.minigame) {
+          const session = engine.state.minigame
+          result = engine.resolveMinigame(resolveTdWithPolicy(session.plan, session.seed, 'balanced'))
         } else {
           const event = engine.config.empire.events.find(item => item.id === engine.state.event?.eventId)
           const affordable = event?.choices.find(choice => (choice.resourceCosts ?? []).every(
@@ -618,7 +623,7 @@ describe('default game config integration', () => {
     expect(first.steps).toBeLessThan(first.safetyLimit)
     expect(first.firstGiftId).not.toBeNull()
     expect(first.empireFinishes).toBeGreaterThan(0)
-    expect(first.eventChoices).toBe(0)
+    expect(first.eventChoices).toBeGreaterThan(0)
     expect(first.pendingTakeThrowIns).toBeGreaterThan(0)
     expect(['victory', 'defeat']).toContain(first.engine.state.phase)
     expect(second.engine.snapshot()).toEqual(first.engine.snapshot())

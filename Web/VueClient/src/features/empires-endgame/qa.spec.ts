@@ -30,7 +30,15 @@ describe('Empire\'s Endgame deterministic QA scenarios', () => {
       expect(fixture.validation).toEqual({ ok: true, issues: [] })
       expect(validateEmpiresQaSnapshot(config, fixture.snapshot, name)).toEqual({ ok: true, issues: [] })
       const serialized = JSON.parse(JSON.stringify(fixture.snapshot)) as EmpiresCampaignState
-      expect(new EmpiresEndgameEngine(config, serialized).snapshot()).toEqual(serialized)
+      const restored = new EmpiresEndgameEngine(config, serialized).snapshot()
+      if (name === 'battle-defense') {
+        expect(restored).toEqual({
+          ...serialized,
+          minigame: { ...serialized.minigame!, attempt: serialized.minigame!.attempt + 1 },
+        })
+      } else {
+        expect(restored).toEqual(serialized)
+      }
     }
 
     expect(fixtures['divine-gift'].snapshot.phase).toBe('divineGift')
@@ -52,6 +60,10 @@ describe('Empire\'s Endgame deterministic QA scenarios', () => {
     expect(fixtures['relic-production-levels'].snapshot.empire.buildingLevelBonuses).toMatchObject({
       farm: 1,
       lumber: 1,
+    })
+    expect(fixtures['battle-defense'].snapshot).toMatchObject({
+      phase: 'minigame',
+      minigame: { kind: 'td', attempt: 0 },
     })
     expect(fixtures.event.snapshot).toMatchObject({ phase: 'event' })
     expect(config.empire.events.find(event =>
