@@ -13,9 +13,9 @@
 # KOTGH_SWEEP_COVERAGE, or set it to 0 for a natural-meta-only run.
 #
 # Why 5 000-game batches: every game in one simulator process is live concurrently.
-# The game loop advances them on one timer thread, so RAM is not the first limit: near
-# 10k games a tick can exceed the 30s stuck watchdog. Four 5k processes use the CPU and
-# available RAM without crossing that documented per-process boundary.
+# The game loop advances them on one timer thread, so larger batches increase the delay
+# between rounds even when RAM is plentiful. The watchdog counts actual per-game loop
+# visits, so unrelated CPU load can make a sweep slower but cannot create false STUCK rows.
 #
 # Output: King-of-the-Garbage-Hill/DataBase/Simulations/sweep-<timestamp>/
 #   ai-{0,1,2,3}/batch-*.json + merged.json + sweep.log

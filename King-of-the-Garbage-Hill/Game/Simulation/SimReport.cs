@@ -61,7 +61,9 @@ public class SimStuckDto
     public ulong GameId { get; set; }
     public int Round { get; set; }
     public List<string> Lineup { get; set; }
+    /// <summary>Diagnostic wall time only; stuck classification uses LoopVisitsWithoutProgress.</summary>
     public double SecondsStalled { get; set; }
+    public long LoopVisitsWithoutProgress { get; set; }
 }
 
 public class SimCharacterRowDto

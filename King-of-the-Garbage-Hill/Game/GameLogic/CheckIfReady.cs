@@ -1120,7 +1120,7 @@ public class CheckIfReady : IServiceSingleton
             try
             {
                 var game = games[i];
-
+                System.Threading.Interlocked.Increment(ref game.ReadinessLoopVisits);
                 if (_round.HasPendingRound(game))
                 {
                     if (!await _round.ResumePendingRound(game))

@@ -23,7 +23,7 @@ public class GameClass
         GlobalLogs = "";
         IsCheckIfReady = true;
         SkipPlayersThisRound = 0;
-        GameVersion = "Версия: 5.0.2";
+        GameVersion = "Версия: 5.0.3";
         GameMode = gameMode;
         CreatorId = creatorId;
         Teams = new List<TeamPlay>();
@@ -202,4 +202,8 @@ public class GameClass
         if (target != null)
             target.Passives.IsExploitFixed = true;
     }
+
+    /// <summary>Monotonic count of readiness-loop visits. The simulation watchdog uses this
+    /// instead of wall time so a slow pass over a large batch is not mistaken for a frozen game.</summary>
+    internal long ReadinessLoopVisits;
 }

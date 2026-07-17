@@ -25,7 +25,7 @@ namespace King_of_the_Garbage_Hill.Game.Simulation;
 public class SimulationRunner : IServiceSingleton
 {
     private const ulong BotAccountIdCeiling = 1_000_000; // matches UserAccounts.GetAccount bot check (<= 1000000)
-    private const int StuckGameSeconds = 30;             // one game without round progress
+    private const int StuckGameVisitsWithoutProgress = 5; // loop reached this bot game repeatedly, but its round stayed fixed
     private const int GlobalStallSeconds = 60;           // NO game progresses (hung round-calc pins the timer thread)
 
     private static readonly JsonSerializerOptions JsonOptions = new()
@@ -279,7 +279,7 @@ public class SimulationRunner : IServiceSingleton
 
         // ── Wait loop with watchdog (bulk concurrent mode; seeded already waited per-game) ──
         var handled = new HashSet<ulong>();
-        var lastProgress = new Dictionary<ulong, (int Round, DateTime At)>();
+        var lastProgress = new Dictionary<ulong, (int Round, DateTime At, long LoopVisits)>();
         var lastAnyProgressUtc = DateTime.UtcNow;
         var waitStartedUtc = DateTime.UtcNow;
         var recordedLastLoop = 0;
@@ -321,26 +321,30 @@ public class SimulationRunner : IServiceSingleton
                     continue;
                 }
 
+                var loopVisits = System.Threading.Interlocked.Read(ref game.ReadinessLoopVisits);
                 if (!lastProgress.TryGetValue(id, out var prev) || prev.Round != game.RoundNo)
                 {
-                    lastProgress[id] = (game.RoundNo, DateTime.UtcNow);
+                    lastProgress[id] = (game.RoundNo, DateTime.UtcNow, loopVisits);
                     lastAnyProgressUtc = DateTime.UtcNow;
                     continue;
                 }
 
-                var stalled = (DateTime.UtcNow - prev.At).TotalSeconds;
-                if (stalled > StuckGameSeconds)
+                var visitsWithoutProgress = loopVisits - prev.LoopVisits;
+                if (visitsWithoutProgress >= StuckGameVisitsWithoutProgress)
                 {
+                    var stalled = (DateTime.UtcNow - prev.At).TotalSeconds;
                     stuckGames.Add(new SimStuckDto
                     {
                         GameId = id,
                         Round = game.RoundNo,
                         Lineup = lineups.TryGetValue(id, out var lu2) ? lu2 : null,
                         SecondsStalled = Math.Round(stalled),
+                        LoopVisitsWithoutProgress = visitsWithoutProgress,
                     });
                     _global.GamesList.Remove(game);
                     handled.Add(id);
-                    Console.WriteLine($"[SIM] STUCK: game #{id} frozen at round {game.RoundNo} " +
+                    Console.WriteLine($"[SIM] STUCK: game #{id} stayed at round {game.RoundNo} for " +
+                                      $"{visitsWithoutProgress} readiness-loop visits " +
                                       $"({string.Join(", ", lineups.GetValueOrDefault(id) ?? new List<string>())})");
                 }
             }
