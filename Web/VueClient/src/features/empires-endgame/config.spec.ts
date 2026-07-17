@@ -2,7 +2,7 @@ import { reactive } from 'vue'
 import { describe, expect, it } from 'vitest'
 import defaultConfigJson from '../../../public/empires-endgame/game-config.json'
 import { cloneEmpiresConfig, validateEmpiresConfig } from './config'
-import type { EmpiresEndgameConfig } from './types'
+import type { CombatArmorProfile, CombatWeaponProfile, EmpiresEndgameConfig } from './types'
 
 function makeConfig(): EmpiresEndgameConfig {
   return JSON.parse(JSON.stringify(defaultConfigJson)) as EmpiresEndgameConfig
@@ -20,6 +20,22 @@ function levelOneDependencies(config: EmpiresEndgameConfig, buildingId: string) 
   const level = building.levels.find(item => item.level === 1)
   if (!level) throw new Error(`Missing level 1 for fixture building ${buildingId}`)
   return level.dependencies
+}
+
+function combatWeapon(config: EmpiresEndgameConfig, equipmentId: string): CombatWeaponProfile {
+  const equipment = config.combat.equipment.find(item => item.id === equipmentId)
+  if (!equipment || equipment.kind !== 'weapon' || !('damageLevels' in equipment.profile)) {
+    throw new Error(`Missing combat weapon fixture ${equipmentId}`)
+  }
+  return equipment.profile
+}
+
+function combatArmor(config: EmpiresEndgameConfig, equipmentId: string): CombatArmorProfile {
+  const equipment = config.combat.equipment.find(item => item.id === equipmentId)
+  if (!equipment || equipment.kind === 'weapon' || !('classId' in equipment.profile)) {
+    throw new Error(`Missing combat armor fixture ${equipmentId}`)
+  }
+  return equipment.profile
 }
 
 describe('Empire\'s Endgame configuration', () => {
@@ -273,5 +289,104 @@ describe('Empire\'s Endgame configuration', () => {
     expect(() => validateEmpiresConfig(relicOnlyDraft)).toThrow(
       /pre-unlock non-relic gift definitions/,
     )
+  })
+
+  it('ships the enabled authored combat catalog without un-deferring gameplay carriers', () => {
+    const config = makeConfig()
+
+    expect(config.combat.enabled).toBe(true)
+    expect(config.combat.damageTypes.map(type => type.name)).toEqual([
+      'Ударное',
+      'Дробящее',
+      'Рубящее',
+      'Режущее',
+      'Колющее',
+    ])
+    expect(config.combat.counterRules).toHaveLength(11)
+    expect(config.combat.equipment).toHaveLength(31)
+    expect(combatWeapon(config, 'weapon-horseman-pick').damageLevels).toEqual({
+      impact: 6,
+      piercing: 4,
+      crushing: 3,
+    })
+    expect(config.combat.equipment.filter(item => item.deferredReason).map(item => item.id)).toEqual([
+      'weapon-long-sword',
+      'weapon-ice-pick',
+      'weapon-lancet-arrow',
+      'armor-butted-mail',
+      'armor-brigandine',
+      'armor-padded-jack',
+      'armor-iron-breastplate',
+      'shield-generic',
+      'weapon-misericorde',
+      'weapon-desmond-fork',
+    ])
+    expect(() => validateEmpiresConfig(config)).not.toThrow()
+  })
+
+  it('rejects duplicate and malformed combat catalog values', () => {
+    const duplicateDamageType = makeConfig()
+    duplicateDamageType.combat.damageTypes[1].id = duplicateDamageType.combat.damageTypes[0].id
+    expect(() => validateEmpiresConfig(duplicateDamageType)).toThrow(/damageTypes repeats id/)
+
+    const negativeDamage = makeConfig()
+    combatWeapon(negativeDamage, 'weapon-mace').damageLevels.impact = -1
+    expect(() => validateEmpiresConfig(negativeDamage)).toThrow(/finite and non-negative/)
+
+    const infiniteDamage = makeConfig()
+    combatWeapon(infiniteDamage, 'weapon-mace').damageLevels.impact = Number.POSITIVE_INFINITY
+    expect(() => validateEmpiresConfig(infiniteDamage)).toThrow(/finite and non-negative/)
+
+    const negativeArmor = makeConfig()
+    combatArmor(negativeArmor, 'armor-butted-mail').level = -1
+    expect(() => validateEmpiresConfig(negativeArmor)).toThrow(/level must be finite and non-negative/)
+  })
+
+  it('rejects unknown combat references, including technology and tag endpoints', () => {
+    const unknownDamageType = makeConfig()
+    combatWeapon(unknownDamageType, 'weapon-mace').damageLevels.missing = 1
+    expect(() => validateEmpiresConfig(unknownDamageType)).toThrow(/unknown damage type missing/)
+
+    const unknownArmorClass = makeConfig()
+    combatArmor(unknownArmorClass, 'armor-butted-mail').classId = 'missing-armor'
+    expect(() => validateEmpiresConfig(unknownArmorClass)).toThrow(/unknown armor class missing-armor/)
+
+    const unknownRuleEndpoint = makeConfig()
+    const rule = unknownRuleEndpoint.combat.counterRules.find(item =>
+      item.kind === 'damageTypeCountersArmor')
+    if (!rule || rule.kind !== 'damageTypeCountersArmor') throw new Error('Missing counter fixture')
+    rule.damageTypeId = 'missing-damage'
+    expect(() => validateEmpiresConfig(unknownRuleEndpoint)).toThrow(/unknown damage type missing-damage/)
+
+    const unknownTechnology = makeConfig()
+    const equipment = unknownTechnology.combat.equipment.find(item => item.id === 'weapon-halberd')
+    if (!equipment) throw new Error('Missing technology equipment fixture')
+    equipment.technologyId = 'missing-technology'
+    expect(() => validateEmpiresConfig(unknownTechnology)).toThrow(/unknown technology missing-technology/)
+
+    const unknownTag = makeConfig()
+    const tagRule = unknownTag.combat.counterRules.find(item =>
+      item.kind === 'weaponTagCountersAllArmor')
+    if (!tagRule || tagRule.kind !== 'weaponTagCountersAllArmor') {
+      throw new Error('Missing tag counter fixture')
+    }
+    tagRule.weaponTag = 'missing-tag'
+    expect(() => validateEmpiresConfig(unknownTag)).toThrow(/unknown weapon tag missing-tag/)
+  })
+
+  it('rejects contradictory mixed and two-type profile shapes', () => {
+    const contradictory = makeConfig()
+    const contradictoryProfile = combatWeapon(contradictory, 'weapon-estoc')
+    contradictoryProfile.mixed = true
+    contradictoryProfile.twoTyped = true
+    expect(() => validateEmpiresConfig(contradictory)).toThrow(/cannot be both mixed and twoTyped/)
+
+    const wrongTwoTypeCount = makeConfig()
+    combatWeapon(wrongTwoTypeCount, 'weapon-horseman-pick').twoTyped = true
+    expect(() => validateEmpiresConfig(wrongTwoTypeCount)).toThrow(/exactly two damage types/)
+
+    const oneTypeMixed = makeConfig()
+    combatWeapon(oneTypeMixed, 'weapon-mace').mixed = true
+    expect(() => validateEmpiresConfig(oneTypeMixed)).toThrow(/at least two damage types/)
   })
 })

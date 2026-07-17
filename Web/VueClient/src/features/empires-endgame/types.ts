@@ -1,3 +1,16 @@
+import type { EmpiresCombatConfig } from './combat/types'
+
+export type {
+  CombatArmorClassDefinition,
+  CombatArmorProfile,
+  CombatCounterRule,
+  CombatDamageTypeDefinition,
+  CombatDamageTypeId,
+  CombatEquipmentDefinition,
+  CombatWeaponProfile,
+  EmpiresCombatConfig,
+} from './combat/types'
+
 export const EMPIRES_SUITS = ['clubs', 'diamonds', 'hearts', 'spades'] as const
 export const EMPIRES_RANKS = [
   '2',
@@ -378,19 +391,6 @@ export interface EmpiresMapConfig {
   objects: EmpiresMapObjectDefinition[]
 }
 
-/**
- * Disabled schema-v2 homes for systems implemented by later completion phases.
- * Their catalogs deliberately have no entry shape yet: the owning phase defines it
- * when the corresponding system becomes executable.
- */
-export interface EmpiresCombatScaffoldConfig {
-  enabled: boolean
-  damageTypes: never[]
-  armorClasses: never[]
-  counterRules: never[]
-  equipment: never[]
-}
-
 export interface EmpiresTdScaffoldConfig {
   enabled: boolean
   battlefields: never[]
@@ -458,7 +458,7 @@ export interface EmpiresEndgameConfig {
   upgrades: EmpiresUpgradeConfig
   gifts: EmpiresGiftConfig
   empire: EmpiresEmpireConfig
-  combat: EmpiresCombatScaffoldConfig
+  combat: EmpiresCombatConfig
   td: EmpiresTdScaffoldConfig
   god: EmpiresGodScaffoldConfig
   quests: EmpiresQuestsScaffoldConfig

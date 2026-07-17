@@ -1,3 +1,7 @@
+import type {
+  CombatCounterRule,
+  CombatDamageAutoPriority,
+} from './combat/types'
 import type { EmpiresBuildingSlotKind, EmpiresEndgameConfig } from './types'
 import { validateEmpiresEndgameConfig } from './engine'
 
@@ -74,6 +78,11 @@ function migrateEmpiresConfigV1ToV2(config: Record<string, unknown>): Record<str
   return config
 }
 
+function normalizeEmpiresConfigV2(config: Record<string, unknown>): Record<string, unknown> {
+  config.combat = withScaffoldDefaults(config.combat, COMBAT_SCAFFOLD)
+  return config
+}
+
 const EMPIRES_CONFIG_MIGRATIONS: Record<
   number,
   (config: Record<string, unknown>) => Record<string, unknown>
@@ -98,6 +107,7 @@ export function migrateEmpiresConfig(raw: unknown): unknown {
     migrated = migrate(migrated)
     version = migrated.schemaVersion
   }
+  if (version === 2) migrated = normalizeEmpiresConfigV2(migrated)
   return migrated
 }
 
@@ -237,6 +247,9 @@ function validateDeferredReasons(config: EmpiresEndgameConfig): string[] {
       check(`event ${event.id} choice ${choice.id}`, choice.deferredReason)
     }
   }
+  for (const equipment of config.combat.equipment) {
+    check(`combat equipment ${equipment.id}`, equipment.deferredReason)
+  }
   return errors
 }
 
@@ -345,6 +358,249 @@ function validateScaffoldSection(
   }
 }
 
+function validateUniqueStringList(value: unknown, path: string): string[] {
+  if (!Array.isArray(value)) throw new Error(`${path} must be an array.`)
+  const result: string[] = []
+  const seen = new Set<string>()
+  for (const entry of value) {
+    if (typeof entry !== 'string' || !entry.trim()) {
+      throw new Error(`${path} entries must be non-empty strings.`)
+    }
+    if (seen.has(entry)) throw new Error(`${path} entries must be unique.`)
+    seen.add(entry)
+    result.push(entry)
+  }
+  return result
+}
+
+function validateCombatConfig(
+  value: unknown,
+  technologies: readonly unknown[],
+): void {
+  if (!isRecord(value)) throw new Error('combat must be an object.')
+  const enabled = value.enabled === true
+  const damageTypes = value.damageTypes as unknown[]
+  const armorClasses = value.armorClasses as unknown[]
+  const counterRules = value.counterRules as unknown[]
+  const equipment = value.equipment as unknown[]
+  const technologyIds = new Set(technologies.flatMap(technology =>
+    isRecord(technology) && typeof technology.id === 'string' ? [technology.id] : []))
+
+  const damageTypeIds = new Set<string>()
+  const autoPriorities = new Map<CombatDamageAutoPriority, string>()
+  for (const rawDefinition of damageTypes) {
+    if (!isRecord(rawDefinition) || typeof rawDefinition.id !== 'string' || !rawDefinition.id.trim()) {
+      throw new Error('combat.damageTypes entries need a non-empty id.')
+    }
+    if (damageTypeIds.has(rawDefinition.id)) {
+      throw new Error(`combat.damageTypes repeats id ${rawDefinition.id}.`)
+    }
+    damageTypeIds.add(rawDefinition.id)
+    if (typeof rawDefinition.name !== 'string' || !rawDefinition.name.trim()) {
+      throw new Error(`combat damage type ${rawDefinition.id} needs a non-empty name.`)
+    }
+    if (rawDefinition.autoPriority !== undefined) {
+      if (rawDefinition.autoPriority !== 'unarmored' && rawDefinition.autoPriority !== 'armorOvermatch') {
+        throw new Error(`combat damage type ${rawDefinition.id} has an unknown autoPriority.`)
+      }
+      const priority = rawDefinition.autoPriority as CombatDamageAutoPriority
+      if (autoPriorities.has(priority)) {
+        throw new Error(`combat damageTypes may define autoPriority ${priority} only once.`)
+      }
+      autoPriorities.set(priority, rawDefinition.id)
+    }
+  }
+
+  const armorClassIds = new Set<string>()
+  for (const rawDefinition of armorClasses) {
+    if (!isRecord(rawDefinition) || typeof rawDefinition.id !== 'string' || !rawDefinition.id.trim()) {
+      throw new Error('combat.armorClasses entries need a non-empty id.')
+    }
+    if (armorClassIds.has(rawDefinition.id)) {
+      throw new Error(`combat.armorClasses repeats id ${rawDefinition.id}.`)
+    }
+    armorClassIds.add(rawDefinition.id)
+    if (typeof rawDefinition.name !== 'string' || !rawDefinition.name.trim()) {
+      throw new Error(`combat armor class ${rawDefinition.id} needs a non-empty name.`)
+    }
+    if (rawDefinition.tags !== undefined) {
+      validateUniqueStringList(rawDefinition.tags, `combat armor class ${rawDefinition.id} tags`)
+    }
+  }
+
+  const equipmentIds = new Set<string>()
+  const weaponTags = new Set<string>()
+  for (const rawEquipment of equipment) {
+    if (!isRecord(rawEquipment) || typeof rawEquipment.id !== 'string' || !rawEquipment.id.trim()) {
+      throw new Error('combat.equipment entries need a non-empty id.')
+    }
+    if (equipmentIds.has(rawEquipment.id)) {
+      throw new Error(`combat.equipment repeats id ${rawEquipment.id}.`)
+    }
+    equipmentIds.add(rawEquipment.id)
+    if (typeof rawEquipment.name !== 'string' || !rawEquipment.name.trim()) {
+      throw new Error(`combat equipment ${rawEquipment.id} needs a non-empty name.`)
+    }
+    if (!['weapon', 'armor', 'shield'].includes(String(rawEquipment.kind))) {
+      throw new Error(`combat equipment ${rawEquipment.id} has an unknown kind.`)
+    }
+    if (
+      rawEquipment.deferredReason !== undefined
+      && (typeof rawEquipment.deferredReason !== 'string' || !rawEquipment.deferredReason.trim())
+    ) {
+      throw new Error(`combat equipment ${rawEquipment.id} deferredReason must be a non-empty string.`)
+    }
+    if (rawEquipment.technologyId !== undefined) {
+      if (
+        typeof rawEquipment.technologyId !== 'string'
+        || !technologyIds.has(rawEquipment.technologyId)
+      ) {
+        throw new Error(
+          `combat equipment ${rawEquipment.id} references unknown technology ${String(rawEquipment.technologyId)}.`,
+        )
+      }
+    }
+    if (!isRecord(rawEquipment.profile)) {
+      throw new Error(`combat equipment ${rawEquipment.id} needs a profile object.`)
+    }
+    const profile = rawEquipment.profile
+    if (rawEquipment.kind === 'weapon') {
+      if (!isRecord(profile.damageLevels)) {
+        throw new Error(`combat weapon ${rawEquipment.id} needs damageLevels.`)
+      }
+      if ('classId' in profile) {
+        throw new Error(`combat weapon ${rawEquipment.id} cannot use an armor profile.`)
+      }
+      const tags = validateUniqueStringList(profile.tags, `combat weapon ${rawEquipment.id} tags`)
+      for (const tag of tags) weaponTags.add(tag)
+      if (profile.mixed !== undefined && typeof profile.mixed !== 'boolean') {
+        throw new Error(`combat weapon ${rawEquipment.id} mixed must be a boolean.`)
+      }
+      if (profile.twoTyped !== undefined && typeof profile.twoTyped !== 'boolean') {
+        throw new Error(`combat weapon ${rawEquipment.id} twoTyped must be a boolean.`)
+      }
+      if (profile.passiveIds !== undefined) {
+        validateUniqueStringList(profile.passiveIds, `combat weapon ${rawEquipment.id} passiveIds`)
+      }
+      const damageEntries = Object.entries(profile.damageLevels)
+      for (const [damageTypeId, level] of damageEntries) {
+        if (!damageTypeIds.has(damageTypeId)) {
+          throw new Error(`combat weapon ${rawEquipment.id} references unknown damage type ${damageTypeId}.`)
+        }
+        if (typeof level !== 'number' || !Number.isFinite(level) || level < 0) {
+          throw new Error(`combat weapon ${rawEquipment.id} damage level ${damageTypeId} must be finite and non-negative.`)
+        }
+      }
+      if (!rawEquipment.deferredReason && damageEntries.length === 0) {
+        throw new Error(`combat weapon ${rawEquipment.id} needs at least one damage level or deferredReason.`)
+      }
+      if (profile.mixed === true && profile.twoTyped === true) {
+        throw new Error(`combat weapon ${rawEquipment.id} cannot be both mixed and twoTyped.`)
+      }
+      if (profile.mixed === true && damageEntries.length < 2) {
+        throw new Error(`combat weapon ${rawEquipment.id} mixed profiles need at least two damage types.`)
+      }
+      if (profile.twoTyped === true && damageEntries.length !== 2) {
+        throw new Error(`combat weapon ${rawEquipment.id} twoTyped profiles need exactly two damage types.`)
+      }
+      continue
+    }
+
+    if ('damageLevels' in profile) {
+      throw new Error(`combat ${String(rawEquipment.kind)} ${rawEquipment.id} cannot use a weapon profile.`)
+    }
+    if (typeof profile.classId !== 'string' || !armorClassIds.has(profile.classId)) {
+      throw new Error(
+        `combat ${String(rawEquipment.kind)} ${rawEquipment.id} references unknown armor class ${String(profile.classId)}.`,
+      )
+    }
+    if (typeof profile.level !== 'number' || !Number.isFinite(profile.level) || profile.level < 0) {
+      throw new Error(`combat ${String(rawEquipment.kind)} ${rawEquipment.id} level must be finite and non-negative.`)
+    }
+    if (profile.tags !== undefined) {
+      validateUniqueStringList(profile.tags, `combat ${String(rawEquipment.kind)} ${rawEquipment.id} tags`)
+    }
+  }
+
+  const counterRuleIds = new Set<string>()
+  const counterKinds = new Set<CombatCounterRule['kind']>([
+    'damageTypeCountersArmor',
+    'armorCountersDamageType',
+    'damageTypeOvermatchesArmor',
+    'weaponTagCountersArmor',
+    'weaponTagCountersAllArmor',
+    'armorBlocksWeaponTag',
+    'weaponTagIgnoresArmorCounter',
+  ])
+  for (const rawRule of counterRules) {
+    if (!isRecord(rawRule) || typeof rawRule.id !== 'string' || !rawRule.id.trim()) {
+      throw new Error('combat.counterRules entries need a non-empty id.')
+    }
+    if (counterRuleIds.has(rawRule.id)) {
+      throw new Error(`combat.counterRules repeats id ${rawRule.id}.`)
+    }
+    counterRuleIds.add(rawRule.id)
+    if (typeof rawRule.kind !== 'string' || !counterKinds.has(rawRule.kind as CombatCounterRule['kind'])) {
+      throw new Error(`combat counter rule ${rawRule.id} has an unknown kind.`)
+    }
+    const requireDamageType = () => {
+      if (typeof rawRule.damageTypeId !== 'string' || !damageTypeIds.has(rawRule.damageTypeId)) {
+        throw new Error(
+          `combat counter rule ${rawRule.id} references unknown damage type ${String(rawRule.damageTypeId)}.`,
+        )
+      }
+    }
+    const requireArmorClass = () => {
+      if (typeof rawRule.armorClassId !== 'string' || !armorClassIds.has(rawRule.armorClassId)) {
+        throw new Error(
+          `combat counter rule ${rawRule.id} references unknown armor class ${String(rawRule.armorClassId)}.`,
+        )
+      }
+    }
+    const requireWeaponTag = () => {
+      if (typeof rawRule.weaponTag !== 'string' || !weaponTags.has(rawRule.weaponTag)) {
+        throw new Error(
+          `combat counter rule ${rawRule.id} references unknown weapon tag ${String(rawRule.weaponTag)}.`,
+        )
+      }
+    }
+    const kind = rawRule.kind as CombatCounterRule['kind']
+    if (kind === 'damageTypeCountersArmor' || kind === 'armorCountersDamageType') {
+      requireDamageType()
+      requireArmorClass()
+    }
+    else if (kind === 'damageTypeOvermatchesArmor') {
+      requireDamageType()
+    }
+    else if (
+      kind === 'weaponTagCountersArmor'
+      || kind === 'armorBlocksWeaponTag'
+      || kind === 'weaponTagIgnoresArmorCounter'
+    ) {
+      requireWeaponTag()
+      requireArmorClass()
+    }
+    else {
+      requireWeaponTag()
+    }
+  }
+
+  if (enabled) {
+    for (const priority of ['unarmored', 'armorOvermatch'] as const) {
+      if (!autoPriorities.has(priority)) {
+        throw new Error(`combat.damageTypes needs one ${priority} autoPriority when combat.enabled is true.`)
+      }
+    }
+    const overmatchTypeId = autoPriorities.get('armorOvermatch')
+    const hasOvermatchRule = counterRules.some(rule => isRecord(rule)
+      && rule.kind === 'damageTypeOvermatchesArmor'
+      && rule.damageTypeId === overmatchTypeId)
+    if (!hasOvermatchRule) {
+      throw new Error('combat.counterRules needs a damageTypeOvermatchesArmor rule for the armorOvermatch type.')
+    }
+  }
+}
+
 export function validateEmpiresConfig(value: unknown): asserts value is EmpiresEndgameConfig {
   if (!isRecord(value)) throw new Error('Конфигурация должна быть JSON-объектом.')
   if (value.schemaVersion !== EMPIRES_CONFIG_SCHEMA_VERSION) {
@@ -401,6 +657,8 @@ export function validateEmpiresConfig(value: unknown): asserts value is EmpiresE
   if (!Array.isArray(value.empire.resources)) {
     throw new Error('Каталог ресурсов empire.resources должен быть массивом.')
   }
+
+  validateCombatConfig(value.combat, value.empire.technologies)
 
   const config = value as unknown as EmpiresEndgameConfig
   const deferredErrors = validateDeferredReasons(config)

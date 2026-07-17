@@ -115,7 +115,7 @@ describe('Empire\'s Endgame Phase 0 compatibility scaffolding', () => {
   })
 
   it('accepts disabled empty sections and rejects every enabled incomplete section specifically', () => {
-    const config = currentConfig()
+    const config = cloneEmpiresConfig(makeV1Config())
     expect(() => validateEmpiresConfig(config)).not.toThrow()
 
     const cases: Array<{
@@ -160,6 +160,35 @@ describe('Empire\'s Endgame Phase 0 compatibility scaffolding', () => {
       fixture.mutate(candidate)
       expect(() => validateEmpiresConfig(candidate), fixture.path).toThrow(fixture.message)
     }
+  })
+
+  it('backfills missing Phase-0 combat keys in v2 without copying the bundled catalog', () => {
+    const missingSection = jsonClone(defaultConfigJson) as UnknownRecord
+    delete missingSection.combat
+
+    expect(migrateEmpiresConfig(missingSection)).toMatchObject({
+      schemaVersion: 2,
+      combat: {
+        enabled: false,
+        damageTypes: [],
+        armorClasses: [],
+        counterRules: [],
+        equipment: [],
+      },
+    })
+    expect(() => parseEmpiresConfig(JSON.stringify(missingSection))).not.toThrow()
+
+    const partialSection = jsonClone(defaultConfigJson) as UnknownRecord
+    partialSection.combat = { enabled: false }
+    const normalized = parseEmpiresConfig(JSON.stringify(partialSection))
+
+    expect(normalized.combat).toEqual({
+      enabled: false,
+      damageTypes: [],
+      armorClasses: [],
+      counterRules: [],
+      equipment: [],
+    })
   })
 
   it('routes bundled, stored, JSON import, and clone boundaries through the migration chain', async () => {
