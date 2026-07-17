@@ -27,6 +27,7 @@ export const EMPIRES_QA_SCENARIO_NAMES = [
   'loyalty-rebellion',
   'relic-production-levels',
   'season-disclosure',
+  'epidemic-outbreak',
   'battle-defense',
   'battle-assault',
   'battle-swamp',
@@ -128,6 +129,7 @@ export interface EmpiresQaStateDigest {
   technologyDisclosureCount: number
   activeAdvisorCount: number
   governorAssignmentCount: number
+  activeEpidemicCount: number
 }
 
 export interface EmpiresQaTraceEntry {
@@ -235,6 +237,10 @@ const SCENARIO_COPY: Record<EmpiresQaScenarioName, { title: string, description:
   'season-disclosure': {
     title: 'Season and technology disclosure',
     description: 'The campaign crossed from summer into winter and disclosed one deterministic dark technology side.',
+  },
+  'epidemic-outbreak': {
+    title: 'Epidemic outbreak and medical protection',
+    description: 'A live plague exposes its map badge, city projection, stacked protection, and serialized lifecycle.',
   },
   'battle-defense': {
     title: 'Central Alliance defense',
@@ -548,6 +554,49 @@ function createSeasonDisclosureSnapshot(
   return engine.snapshot()
 }
 
+function createEpidemicOutbreakSnapshot(
+  config: EmpiresEndgameConfig,
+  empireSnapshot: EmpiresCampaignState,
+): EmpiresCampaignState {
+  const state = cloneJson(empireSnapshot)
+  state.phase = 'empire'
+  state.event = null
+  state.minigame = null
+  state.outcomeReason = null
+  state.empire.daysRemaining = config.empire.daysPerPhase
+  const initiallyVisibleRegionId = config.empire.map.regions[0]?.id
+  const accessEngine = new EmpiresEndgameEngine(config, state)
+  const cities = state.empire.cities
+    .filter(city => accessEngine.isCityAccessible(city.id))
+    .sort((left, right) => (
+      Number(right.regionId === initiallyVisibleRegionId)
+      - Number(left.regionId === initiallyVisibleRegionId)
+      || left.id.localeCompare(right.id)
+    ))
+  const origin = cities[0]
+  const academyCity = cities[1] ?? origin
+  if (!origin || !academyCity) throw new Error('QA epidemic scenario requires an accessible city.')
+  for (const technologyId of ['tech-medicine', 'doctrine-science']) {
+    if (!state.empire.researchedTechnologyIds.includes(technologyId)) {
+      state.empire.researchedTechnologyIds.push(technologyId)
+    }
+  }
+  origin.buildingLevels[config.empire.medical.hospitalBuildingId] = 1
+  origin.operationalBuildingLevels[config.empire.medical.hospitalBuildingId] = 1
+  academyCity.buildingLevels[config.empire.medical.medicalAcademyBuildingId] = 1
+  academyCity.operationalBuildingLevels[config.empire.medical.medicalAcademyBuildingId] = 1
+  const engine = new EmpiresEndgameEngine(config, state)
+  const result = engine.startEpidemic({
+    definitionId: 'epidemic-plague',
+    originCityId: origin.id,
+    source: { kind: 'qa', id: 'qa:epidemic-outbreak' },
+  })
+  if (!result.ok || engine.cityEpidemicViews(origin.id).length !== 1) {
+    throw new Error(`QA epidemic scenario could not start its plague: ${result.message}`)
+  }
+  return new EmpiresEndgameEngine(config, engine.snapshot()).snapshot()
+}
+
 function createOutcomeSnapshot(
   engine: EmpiresEndgameEngine,
   phase: 'victory' | 'defeat',
@@ -828,6 +877,7 @@ export function digestEmpiresQaState(engine: EmpiresEndgameEngine): EmpiresQaSta
     activeAdvisorCount: Object.values(engine.state.governance.advisors)
       .filter(advisor => advisor.status === 'active').length,
     governorAssignmentCount: Object.keys(engine.state.governance.governorAssignments).length,
+    activeEpidemicCount: engine.state.epidemics.filter(epidemic => epidemic.endedAtCon === null).length,
   }
 }
 
@@ -996,6 +1046,13 @@ export function validateEmpiresQaSnapshot(
         || snapshot.empire.chronicle.filter(entry => entry.kind === 'technology-disclosure').length !== 1) {
         add('chronicle-exact-once', 'Season and disclosure chronicle entries must each occur exactly once.')
       }
+    } else if (scenarioName === 'epidemic-outbreak') {
+      const active = snapshot.epidemics.filter(epidemic => epidemic.endedAtCon === null)
+      if (snapshot.phase !== 'empire' || active.length !== 1) {
+        add('epidemic', 'Epidemic scenario must contain one live outbreak in the empire phase.')
+      } else if (restoredEngine.cityEpidemicViews(active[0].cityId).length !== 1) {
+        add('epidemic-view', 'Epidemic scenario must expose its restored city projection.')
+      }
     } else if (scenarioName in TD_QA_VARIANTS) {
       const expected = TD_QA_VARIANTS[scenarioName as keyof typeof TD_QA_VARIANTS]
       const expectedRules = qaRulesIdentity(config)
@@ -1045,6 +1102,7 @@ export function createEmpiresQaScenarios(
   const loyaltyRebellion = createLoyaltyRebellionSnapshot(seededConfig, empireCouncil)
   const relicProductionLevels = createRelicBuildingLevelSnapshot(seededConfig, empireCouncil)
   const seasonDisclosure = createSeasonDisclosureSnapshot(seededConfig, empireCouncil)
+  const epidemicOutbreak = createEpidemicOutbreakSnapshot(seededConfig, empireCouncil)
   const event = createEventSnapshot(seededConfig, empireCouncil)
   const battleDefense = createBattleSnapshot(seededConfig, baseEngine, 'battle-defense')
   const battleAssault = createBattleSnapshot(seededConfig, baseEngine, 'battle-assault')
@@ -1064,6 +1122,7 @@ export function createEmpiresQaScenarios(
     'loyalty-rebellion': loyaltyRebellion,
     'relic-production-levels': relicProductionLevels,
     'season-disclosure': seasonDisclosure,
+    'epidemic-outbreak': epidemicOutbreak,
     'battle-defense': battleDefense,
     'battle-assault': battleAssault,
     'battle-swamp': battleSwamp,

@@ -27,6 +27,7 @@ public static class FleetValidator
 
         var totalCost = 0;
         var regions = new HashSet<Region>();
+        var freeSelectionsPerDefinition = new Dictionary<string, int>();
 
         // Count purchased ships per deck-count
         var purchasedPerDeck = new Dictionary<int, int> { { 1, 0 }, { 2, 0 }, { 3, 0 }, { 4, 0 } };
@@ -37,17 +38,37 @@ public static class FleetValidator
             if (def == null)
                 return (false, $"Неизвестный корабль: {sel.DefinitionId}");
 
-            // Free ships are not purchases
-            if (def.IsFree) continue;
+            if (sel.Upgrades?.Count != sel.Upgrades?.Distinct().Count())
+                return (false, $"Апгрейд корабля {def.Name} выбран несколько раз.");
+
+            if (sel.Upgrades?.Contains("tetra_discus") == true)
+                return (false, "Дискобол пока не реализован и недоступен для покупки.");
+
+            if (sel.Upgrades?.Contains("tetra_boiler_fire") == true &&
+                sel.Upgrades.Contains("tetra_boiler_brander"))
+                return (false, "Греческий огонь и Брандер взаимоисключающие апгрейды.");
+
+            if (def.IsFree)
+            {
+                freeSelectionsPerDefinition[def.Id] = freeSelectionsPerDefinition.GetValueOrDefault(def.Id) + 1;
+                if (freeSelectionsPerDefinition[def.Id] > Template.GetValueOrDefault(def.DeckCount, 0))
+                    return (false, $"Слишком много экземпляров {def.Name} с индивидуальными апгрейдами.");
+
+                foreach (var uid in sel.Upgrades ?? new List<string>())
+                {
+                    var upgDef = def.AvailableUpgrades?.Find(u => u.Id == uid);
+                    if (upgDef == null)
+                        return (false, $"Неизвестный апгрейд {uid} для корабля {def.Name}");
+                    totalCost += upgDef.Cost;
+                }
+                continue;
+            }
 
             var shipCost = def.Cost;
 
             // Validate upgrades
             if (sel.Upgrades != null)
             {
-                if (sel.Upgrades.Contains("tetra_boiler_fire") && sel.Upgrades.Contains("tetra_boiler_brander"))
-                    return (false, "Греческий огонь и Брандер взаимоисключающие апгрейды.");
-
                 foreach (var uid in sel.Upgrades)
                 {
                     var upgDef = def.AvailableUpgrades?.Find(u => u.Id == uid);
@@ -70,26 +91,19 @@ public static class FleetValidator
                 return (false, $"Слишком много кораблей с {def.DeckCount} палубами.");
         }
 
-        // Also count upgrade costs on free ships (triple, tetranavis)
-        foreach (var sel in selections)
-        {
-            var def = ShipCatalog.GetById(sel.DefinitionId);
-            if (def == null || !def.IsFree) continue;
-            if (sel.Upgrades != null)
-            {
-                foreach (var uid in sel.Upgrades)
-                {
-                    var upgDef = def.AvailableUpgrades?.Find(u => u.Id == uid);
-                    if (upgDef != null) totalCost += upgDef.Cost;
-                }
-            }
-        }
-
         if (totalCost > MaxBudget)
             return (false, $"Превышен бюджет: {totalCost}/{MaxBudget} монет.");
 
         if (regions.Count > MaxRegions)
             return (false, $"Максимум {MaxRegions} региона. Выбрано: {regions.Count}.");
+
+        var defaultIds = new Dictionary<int, string> { { 1, "single" }, { 2, "double" }, { 3, "triple" }, { 4, "tetranavis" } };
+        foreach (var (deckCount, defaultId) in defaultIds)
+        {
+            var remainingDefaultSlots = Template[deckCount] - purchasedPerDeck[deckCount];
+            if (freeSelectionsPerDefinition.GetValueOrDefault(defaultId) > remainingDefaultSlots)
+                return (false, $"Для {defaultId} выбрано больше индивидуальных апгрейдов, чем осталось бесплатных слотов.");
+        }
 
         return (true, null);
     }
@@ -102,7 +116,7 @@ public static class FleetValidator
         var result = new List<FleetSelection>();
 
         // Separate free-ship upgrade entries from actual purchases
-        var freeShipUpgrades = new Dictionary<string, List<string>>();
+        var freeShipUpgrades = new Dictionary<string, Queue<List<string>>>();
         var purchasedPerDeck = new Dictionary<int, List<FleetSelection>> { { 1, new() }, { 2, new() }, { 3, new() }, { 4, new() } };
 
         foreach (var sel in purchases ?? new List<FleetSelection>())
@@ -111,9 +125,13 @@ public static class FleetValidator
             if (def == null) continue;
             if (def.IsFree)
             {
-                // Store upgrades for free ships
-                if (sel.Upgrades is { Count: > 0 })
-                    freeShipUpgrades[sel.DefinitionId] = sel.Upgrades;
+                // Each free Triple/Tetranavis slot keeps its own paid upgrades.
+                if (!freeShipUpgrades.TryGetValue(sel.DefinitionId, out var queue))
+                {
+                    queue = new Queue<List<string>>();
+                    freeShipUpgrades[sel.DefinitionId] = queue;
+                }
+                queue.Enqueue(sel.Upgrades is { Count: > 0 } ? new List<string>(sel.Upgrades) : new List<string>());
                 continue;
             }
             purchasedPerDeck[def.DeckCount].Add(sel);
@@ -134,7 +152,9 @@ public static class FleetValidator
             var defaultDef = ShipCatalog.GetById(defaultId);
             for (var i = 0; i < remaining; i++)
             {
-                var upgrades = i == 0 && freeShipUpgrades.TryGetValue(defaultId, out var u) ? u : new List<string>();
+                var upgrades = freeShipUpgrades.TryGetValue(defaultId, out var queue) && queue.Count > 0
+                    ? queue.Dequeue()
+                    : new List<string>();
                 result.Add(new FleetSelection
                 {
                     DefinitionId = defaultId,

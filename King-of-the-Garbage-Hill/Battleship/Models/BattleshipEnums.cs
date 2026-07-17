@@ -26,15 +26,12 @@ public enum ShotType
     WhiteStone,     // 4x damage (=8), destroys module, stuns
     Buckshot,       // 0.5x damage (=1), 4-cell AoE
     Incendiary,     // burns entire ship
-    Catapult,       // standard catapult
-    Tetracatapult,  // from Triple ships
     GreekFire       // Котельная upgrade: one-shot, kills summon without penalty, creates permanent burning cell
 }
 
 public enum WeaponType
 {
     Ballista,
-    Catapult,
     Tetracatapult,
     Mast,
     Boiler,
@@ -53,14 +50,10 @@ public enum SummonType
 
 public enum ShipStatusType
 {
-    None,
-    Stun,
-    Penalty,
     Freeze,
     Devastated,
     Burn,
     Capture,
-    Destroy,
     BurnResist
 }
 
@@ -82,17 +75,6 @@ public enum Orientation
 {
     Horizontal,
     Vertical
-}
-
-public enum CellState
-{
-    Unknown,
-    Empty,
-    Miss,
-    Hit,
-    Burning,
-    Ship,
-    Summon
 }
 
 public enum Direction

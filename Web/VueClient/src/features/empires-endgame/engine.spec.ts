@@ -42,7 +42,7 @@ function makeCards(): EmpiresCardDefinition[] {
 
 function makeConfig(): EmpiresEndgameConfig {
   return {
-    schemaVersion: 7,
+    schemaVersion: 8,
     id: 'engine-test',
     title: "Empire's Endgame",
     seed: 'deterministic-test',
@@ -275,6 +275,27 @@ function makeConfig(): EmpiresEndgameConfig {
         greenhouse: null,
       },
       hiddenCombinations: { enabled: false, definitions: [] },
+      epidemics: {
+        enabled: false,
+        rulesVersion: 1,
+        populationRounding: 'round',
+        productionRounding: 'none',
+        loyaltyRounding: 'round',
+        chronicleImpactEntriesPerEpidemic: 8,
+        maxSpreadTargetsPerSettlement: 1,
+        definitions: [],
+        protections: [],
+      },
+      medical: {
+        enabled: false,
+        hospitalBuildingId: '',
+        medicalAcademyBuildingId: '',
+        healerUnitId: '',
+        defaultBattleRecoveryCons: 2,
+        hospitalBattleRecoveryCons: 1,
+        academyFreeResearchCadenceCons: 3,
+        academyTreatmentDeathChance: 0.5,
+      },
       loyalty: {
         ...createDefaultEmpiresLoyaltyConfig(['central']),
         enabled: false,

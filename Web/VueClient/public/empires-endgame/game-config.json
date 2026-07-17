@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 7,
+  "schemaVersion": 8,
   "id": "empires-endgame-default",
   "title": "Empire's Endgame",
   "seed": "empires-endgame-authoritative-default-v1",
@@ -34,6 +34,7 @@
     ],
     "equipment": [
       { "id": "weapon-mace", "name": "Булава", "kind": "weapon", "profile": { "damageLevels": { "impact": 2 }, "tags": ["mace"] } },
+      { "id": "weapon-light-crossbow", "name": "Лёгкий арбалет лекаря", "kind": "weapon", "profile": { "damageLevels": { "piercing": 1 }, "tags": ["arrow", "crossbow"] } },
       { "id": "weapon-two-handed-flail", "name": "Двуручный цеп", "kind": "weapon", "profile": { "damageLevels": { "impact": 3, "crushing": 1 }, "tags": ["flail"] } },
       { "id": "weapon-sea-urchin", "name": "Ёж", "kind": "weapon", "profile": { "damageLevels": { "impact": 2, "piercing": 2, "crushing": 2 }, "tags": ["mace"] } },
       { "id": "weapon-horseman-pick", "name": "Клевец", "kind": "weapon", "profile": { "damageLevels": { "impact": 6, "piercing": 4, "crushing": 3 }, "tags": ["pick"] } },
@@ -526,18 +527,18 @@
       "drawUpgrade": 1,
       "maxLevel": 3,
       "normal": {
-        "title": "Туз треф",
-        "description": "Положительный эффект карты категории «Народ» пока не определён. Настройте его в редакторе.",
+        "title": "Дженна",
+        "description": "Дженна повышает рождаемость и удовлетворённость населения.",
         "image": "",
         "effects": [],
-        "deferredReason": "Авторитетный экспорт не определяет механику этой стороны карты."
+        "deferredReason": "Личность Дженны подтверждена сырьём, но численные правила рождаемости и удовлетворённости не определены."
       },
       "inverted": {
-        "title": "Перевёрнутая: Туз треф",
-        "description": "Отрицательный эффект карты категории «Народ» пока не определён. Настройте его в редакторе.",
+        "title": "Перевёрнутая Дженна",
+        "description": "Болезни сокращают население, специалистов становится меньше, а автономия растёт.",
         "image": "",
         "effects": [],
-        "deferredReason": "Авторитетный экспорт не определяет механику этой стороны карты."
+        "deferredReason": "Личность Дженны подтверждена сырьём, но численные правила болезней, специалистов и автономии не определены."
       }
     },
     {
@@ -1510,12 +1511,11 @@
         "effects": [
           {
             "kind": "flag",
-            "flagId": "vaccinationProtection",
-            "amount": 1,
-            "amountPerLevel": 1
+            "flagId": "vaccinationMortalityReductionPercent",
+            "amount": 10,
+            "amountPerLevel": 10
           }
-        ],
-        "deferredReason": "Эпидемии и пандемии ещё не входят в текущую кампанию."
+        ]
       },
       "inverted": {
         "title": "Прививки разнесли пандемию",
@@ -1523,13 +1523,11 @@
         "image": "",
         "effects": [
           {
-            "kind": "flag",
-            "flagId": "vaccinationPandemic",
-            "amount": 1,
-            "amountPerLevel": 1
+            "kind": "epidemicStart",
+            "definitionId": "epidemic-vaccination-pandemic",
+            "origin": { "kind": "lowest-accessible-city" }
           }
-        ],
-        "deferredReason": "Эпидемии и пандемии ещё не входят в текущую кампанию."
+        ]
       }
     },
     {
@@ -1984,7 +1982,6 @@
         "image": "",
         "baseWeight": 6,
         "performanceWeight": 0.8,
-        "deferredReason": "Эпидемии ещё не входят в текущую кампанию.",
         "effects": [
           {
             "kind": "flag",
@@ -2233,9 +2230,176 @@
           "tags": [
             "epidemic"
           ],
-          "deferredReason": "P5 определит событие, выбор и последствия чумы; P4B сохраняет только типизированную комбинацию."
+          "epidemicStart": {
+            "definitionId": "epidemic-plague",
+            "origin": {
+              "kind": "lowest-operational-building-city",
+              "buildingId": "building-alchemy"
+            }
+          }
         }
       ]
+    },
+    "epidemics": {
+      "enabled": true,
+      "rulesVersion": 1,
+      "populationRounding": "round",
+      "productionRounding": "none",
+      "loyaltyRounding": "round",
+      "chronicleImpactEntriesPerEpidemic": 8,
+      "maxSpreadTargetsPerSettlement": 1,
+      "definitions": [
+        {
+          "id": "epidemic-plague",
+          "name": "Чума",
+          "description": "Чума проходит через вспышку, кризис и спад, поражая явно заданные сословия.",
+          "duplicatePolicy": "ignore",
+          "affectedClasses": [
+            { "populationClassId": "peasants", "weight": 5 },
+            { "populationClassId": "burghers", "weight": 3 },
+            { "populationClassId": "nonworking", "weight": 2 },
+            { "populationClassId": "clergy", "weight": 1 },
+            { "populationClassId": "nobles", "weight": 1 }
+          ],
+          "stages": [
+            {
+              "id": "outbreak",
+              "name": "Вспышка",
+              "severity": 1,
+              "durationCons": 1,
+              "populationLossPercent": 0.5,
+              "productionLossPercent": 10,
+              "loyaltyDelta": 0,
+              "spreadChance": 0.2,
+              "recruitmentBlocked": false,
+              "facilityLocks": []
+            },
+            {
+              "id": "crisis",
+              "name": "Кризис",
+              "severity": 2,
+              "durationCons": 2,
+              "populationLossPercent": 1,
+              "productionLossPercent": 20,
+              "loyaltyDelta": -1,
+              "spreadChance": 0.35,
+              "recruitmentBlocked": false,
+              "facilityLocks": []
+            },
+            {
+              "id": "decline",
+              "name": "Спад",
+              "severity": 1,
+              "durationCons": 1,
+              "populationLossPercent": 0.25,
+              "productionLossPercent": 5,
+              "loyaltyDelta": 0,
+              "spreadChance": 0.1,
+              "recruitmentBlocked": false,
+              "facilityLocks": []
+            }
+          ]
+        },
+        {
+          "id": "epidemic-vaccination-pandemic",
+          "name": "Пандемия из-за прививок",
+          "description": "Неправильное применение прививок запускает отдельную пандемию.",
+          "duplicatePolicy": "refresh",
+          "affectedClasses": [
+            { "populationClassId": "peasants", "weight": 4 },
+            { "populationClassId": "burghers", "weight": 4 },
+            { "populationClassId": "nonworking", "weight": 3 },
+            { "populationClassId": "clergy", "weight": 1 },
+            { "populationClassId": "nobles", "weight": 1 }
+          ],
+          "stages": [
+            {
+              "id": "acceleration",
+              "name": "Ускорение",
+              "severity": 1,
+              "durationCons": 1,
+              "populationLossPercent": 0.4,
+              "productionLossPercent": 8,
+              "loyaltyDelta": 0,
+              "spreadChance": 0.4,
+              "recruitmentBlocked": false,
+              "facilityLocks": []
+            },
+            {
+              "id": "pandemic",
+              "name": "Пандемия",
+              "severity": 2,
+              "durationCons": 2,
+              "populationLossPercent": 0.8,
+              "productionLossPercent": 16,
+              "loyaltyDelta": -1,
+              "spreadChance": 0.5,
+              "recruitmentBlocked": false,
+              "facilityLocks": []
+            },
+            {
+              "id": "decline",
+              "name": "Спад",
+              "severity": 1,
+              "durationCons": 1,
+              "populationLossPercent": 0.2,
+              "productionLossPercent": 4,
+              "loyaltyDelta": 0,
+              "spreadChance": 0.15,
+              "recruitmentBlocked": false,
+              "facilityLocks": []
+            }
+          ]
+        }
+      ],
+      "protections": [
+        {
+          "id": "hospital-local-impact",
+          "name": "Больница",
+          "consequences": ["population", "production", "loyalty"],
+          "source": { "kind": "building", "buildingId": "building-hospital", "scope": "city", "multiplier": 0.9 }
+        },
+        {
+          "id": "medical-academy-impact",
+          "name": "Медицинская академия",
+          "consequences": ["population", "production", "loyalty"],
+          "source": { "kind": "building", "buildingId": "building-medical-academy", "scope": "empire", "multiplier": 0.5 }
+        },
+        {
+          "id": "vaccination-mortality",
+          "name": "Прививки",
+          "consequences": ["population"],
+          "source": { "kind": "flag", "flagId": "vaccinationMortalityReductionPercent", "reductionPercentPerPoint": 1, "maximumReductionPercent": 75 }
+        },
+        {
+          "id": "epidemic-ward-impact",
+          "name": "Реликвия защиты от эпидемий",
+          "consequences": ["population", "production", "loyalty"],
+          "source": { "kind": "flag", "flagId": "epidemicProtectionPercent", "reductionPercentPerPoint": 1, "maximumReductionPercent": 75 }
+        },
+        {
+          "id": "quarantine-hook",
+          "name": "Карантин",
+          "consequences": ["population", "production", "loyalty", "spread"],
+          "source": { "kind": "flag", "flagId": "quarantineEpidemicReductionPercent", "reductionPercentPerPoint": 1, "maximumReductionPercent": 100 }
+        },
+        {
+          "id": "pharmaceuticals-hook",
+          "name": "Фармацевтика",
+          "consequences": ["population", "production", "loyalty"],
+          "source": { "kind": "flag", "flagId": "pharmaceuticalEpidemicReductionPercent", "reductionPercentPerPoint": 1, "maximumReductionPercent": 50 }
+        }
+      ]
+    },
+    "medical": {
+      "enabled": true,
+      "hospitalBuildingId": "building-hospital",
+      "medicalAcademyBuildingId": "building-medical-academy",
+      "healerUnitId": "unit-medical-healer",
+      "defaultBattleRecoveryCons": 2,
+      "hospitalBattleRecoveryCons": 1,
+      "academyFreeResearchCadenceCons": 3,
+      "academyTreatmentDeathChance": 0.5
     },
     "loyalty": {
       "enabled": true,
@@ -5632,16 +5796,15 @@
               }
             ],
             "facilityLocks": [],
-            "effects": [
-              {
-                "kind": "flag",
-                "flagId": "alchemySupplies",
-                "amount": 1
-              }
-            ]
+            "effects": []
           }
         ],
-        "deferredReason": "Яды, зелья и военное снаряжение ещё не реализованы."
+        "deferredSubfeatures": [
+          {
+            "id": "alchemyMinigame",
+            "reason": "P10 реализует активную лабораторию, яды, зелья и военное снаряжение."
+          }
+        ]
       },
       {
         "id": "building-hospital",
@@ -5675,21 +5838,9 @@
               }
             ],
             "facilityLocks": [],
-            "effects": [
-              {
-                "kind": "flag",
-                "flagId": "epidemicProtectionPercent",
-                "amount": 10
-              },
-              {
-                "kind": "flag",
-                "flagId": "healingTurnsReduction",
-                "amount": 1
-              }
-            ]
+            "effects": []
           }
-        ],
-        "deferredReason": "Лечение после боя и эпидемии ещё не реализованы."
+        ]
       },
       {
         "id": "building-customs",
@@ -5768,21 +5919,9 @@
               }
             ],
             "facilityLocks": [],
-            "effects": [
-              {
-                "kind": "flag",
-                "flagId": "freeSecondaryTechEveryThreeTurns",
-                "amount": 1
-              },
-              {
-                "kind": "flag",
-                "flagId": "epidemicImpactDivisor",
-                "amount": 2
-              }
-            ]
+            "effects": []
           }
-        ],
-        "deferredReason": "Бесплатные технологии и эпидемические модификаторы ещё не реализованы."
+        ]
       },
       {
         "id": "building-military-academy",
@@ -6342,6 +6481,42 @@
         "attackIntervalTicks": 16,
         "weaponEquipmentId": "weapon-horseman-pick"
       }
+      },
+      {
+        "id": "unit-medical-healer",
+        "name": "Лекари",
+        "description": "Лекари с лёгкими арбалетами лечат раненые союзные отряды во время боя.",
+        "image": "",
+        "foodUpkeep": 500,
+        "populationCost": 1,
+        "timeCostDays": 1,
+        "resourceCosts": [],
+        "dependencies": [
+          {
+            "kind": "building",
+            "buildingId": "building-hospital",
+            "level": 1,
+            "scope": "sameCity"
+          }
+        ],
+        "equipmentCosts": [
+          {
+            "equipmentId": "basic-kit",
+            "amount": 1
+          }
+        ],
+        "td": {
+          "maxHp": 12,
+          "attackRange": 120,
+          "attackIntervalTicks": 24,
+          "weaponEquipmentId": "weapon-light-crossbow",
+          "healing": {
+            "range": 140,
+            "intervalTicks": 20,
+            "amountPerUnit": 10000,
+            "chargesPerUnit": 2
+          }
+        }
       }
     ],
     "technologies": [
@@ -7775,7 +7950,7 @@
             }
           ]
         },
-        "deferredReason": "Эпидемии, лечение и городские санитарные режимы ещё не реализованы."
+        "deferredReason": "Светлая сторона требует ещё не реализованной механики преступности; тёмная эпидемическая политика сохранена типизированно."
       },
       {
         "id": "steel-laurel-spearhead",
@@ -9097,38 +9272,34 @@
             "technologyId": "reform-city-gates"
           }
         ],
+        "epidemicTarget": {
+          "kind": "active-undecided"
+        },
         "choices": [
           {
             "id": "seal-gates",
             "label": "Запереть город",
             "description": "Болезнь не уйдёт дальше, но внутри станет вдвое опаснее.",
-            "effects": [
-              {
-                "kind": "flag",
-                "flagId": "epidemicContained",
-                "amount": 1
-              },
-              {
-                "kind": "flag",
-                "flagId": "localEpidemicMultiplier",
-                "amount": 2
-              }
-            ]
+            "effects": [],
+            "epidemicContainment": {
+              "mode": "sealed",
+              "preventsIntercitySpread": true,
+              "localImpactMultiplier": 2
+            }
           },
           {
             "id": "open-gates",
             "label": "Оставить врата открытыми",
             "description": "Внутренний ущерб обычный, но болезнь может распространиться.",
-            "effects": [
-              {
-                "kind": "flag",
-                "flagId": "epidemicSpreadRisk",
-                "amount": 1
-              }
-            ]
+            "effects": [],
+            "epidemicContainment": {
+              "mode": "open",
+              "preventsIntercitySpread": false,
+              "localImpactMultiplier": 1
+            }
           }
         ],
-        "deferredReason": "Эпидемии, распространение болезни и локальные санитарные режимы ещё не реализованы."
+        "deferredReason": "Реформа «Городские врата» остаётся отложенной из-за неподтверждённой механики преступности светлой стороны; обе эпидемические развилки типизированы и исполнимы."
       },
       {
         "id": "event-horse-theft",

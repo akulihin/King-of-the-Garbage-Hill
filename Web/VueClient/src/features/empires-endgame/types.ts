@@ -112,6 +112,30 @@ export interface EmpiresDeferredSubfeature {
   reason: string
 }
 
+export type EmpiresEpidemicConsequence = 'population' | 'production' | 'loyalty' | 'spread'
+export type EmpiresEpidemicDuplicatePolicy = 'ignore' | 'refresh'
+export type EmpiresEpidemicContainmentMode = 'undecided' | 'open' | 'sealed'
+export type EmpiresEpidemicSourceKind =
+  | 'event'
+  | 'gift'
+  | 'hidden-combination'
+  | 'card'
+  | 'alchemy'
+  | 'quest'
+  | 'spread'
+  | 'qa'
+
+export type EmpiresEpidemicOriginSelector =
+  | { kind: 'city', cityId: string }
+  | { kind: 'effect-target-city' }
+  | { kind: 'lowest-accessible-city' }
+  | { kind: 'lowest-operational-building-city', buildingId: string }
+
+export interface EmpiresEpidemicStartEffect {
+  definitionId: string
+  origin: EmpiresEpidemicOriginSelector
+}
+
 export type EmpiresEffect =
   | {
     kind: 'resource'
@@ -170,6 +194,7 @@ export type EmpiresEffect =
     amount: number
     amountPerLevel?: number
   }
+  | ({ kind: 'epidemicStart' } & EmpiresEpidemicStartEffect)
 
 export interface EmpiresCardFace {
   title: string
@@ -444,6 +469,11 @@ export interface EmpiresEventChoiceDefinition {
   description?: string
   resourceCosts?: EmpiresResourceAmount[]
   effects: EmpiresEffect[]
+  epidemicContainment?: {
+    mode: Exclude<EmpiresEpidemicContainmentMode, 'undecided'>
+    preventsIntercitySpread: boolean
+    localImpactMultiplier: number
+  }
   deferredReason?: string
 }
 
@@ -455,6 +485,10 @@ export interface EmpiresEventDefinition {
   minimumCon?: number
   maximumCon?: number
   prerequisites?: EmpiresDependency[]
+  epidemicTarget?: {
+    kind: 'active-undecided'
+    definitionIds?: string[]
+  }
   choices: EmpiresEventChoiceDefinition[]
   deferredReason?: string
 }
@@ -580,7 +614,79 @@ export interface EmpiresHiddenCombinationDefinition {
   name: string
   prerequisites: EmpiresDependency[]
   tags?: string[]
+  epidemicStart?: EmpiresEpidemicStartEffect
   deferredReason?: string
+}
+
+export interface EmpiresEpidemicClassImpactDefinition {
+  populationClassId: string
+  weight: number
+}
+
+export interface EmpiresEpidemicStageDefinition {
+  id: string
+  name: string
+  severity: number
+  durationCons: number
+  populationLossPercent: number
+  productionLossPercent: number
+  loyaltyDelta: number
+  spreadChance: number
+  recruitmentBlocked: boolean
+  facilityLocks: EmpiresBuildingSlotKind[]
+}
+
+export interface EmpiresEpidemicDefinition {
+  id: string
+  name: string
+  description?: string
+  duplicatePolicy: EmpiresEpidemicDuplicatePolicy
+  affectedClasses: EmpiresEpidemicClassImpactDefinition[]
+  stages: EmpiresEpidemicStageDefinition[]
+}
+
+export type EmpiresEpidemicProtectionSource =
+  | {
+    kind: 'building'
+    buildingId: string
+    scope: 'city' | 'empire'
+    multiplier: number
+  }
+  | {
+    kind: 'flag'
+    flagId: string
+    reductionPercentPerPoint: number
+    maximumReductionPercent: number
+  }
+
+export interface EmpiresEpidemicProtectionDefinition {
+  id: string
+  name: string
+  consequences: EmpiresEpidemicConsequence[]
+  source: EmpiresEpidemicProtectionSource
+}
+
+export interface EmpiresEpidemicConfig {
+  enabled: boolean
+  rulesVersion: number
+  populationRounding: 'floor' | 'round'
+  productionRounding: 'floor' | 'round' | 'none'
+  loyaltyRounding: 'round'
+  chronicleImpactEntriesPerEpidemic: number
+  maxSpreadTargetsPerSettlement: number
+  definitions: EmpiresEpidemicDefinition[]
+  protections: EmpiresEpidemicProtectionDefinition[]
+}
+
+export interface EmpiresMedicalConfig {
+  enabled: boolean
+  hospitalBuildingId: string
+  medicalAcademyBuildingId: string
+  healerUnitId: string
+  defaultBattleRecoveryCons: number
+  hospitalBattleRecoveryCons: number
+  academyFreeResearchCadenceCons: number
+  academyTreatmentDeathChance: number
 }
 
 export interface EmpiresHiddenCombinationsConfig {
@@ -722,6 +828,8 @@ export interface EmpiresEmpireConfig {
   events: EmpiresEventDefinition[]
   seasons: EmpiresSeasonsConfig
   hiddenCombinations: EmpiresHiddenCombinationsConfig
+  epidemics: EmpiresEpidemicConfig
+  medical: EmpiresMedicalConfig
   loyalty: EmpiresLoyaltyConfig
 }
 
@@ -732,7 +840,7 @@ export interface EmpiresUpgradeConfig {
 }
 
 export interface EmpiresEndgameConfig {
-  schemaVersion: 7
+  schemaVersion: 8
   id: string
   title: string
   seed: string | number
@@ -828,6 +936,16 @@ export interface EmpiresVeteranState {
   wounds: number
 }
 
+export interface EmpiresUnitRecoveryState {
+  id: string
+  cityId: string
+  cohortId: string
+  unitId: string
+  count: number
+  startedAtCon: number
+  readyAtCon: number
+}
+
 export interface EmpiresRecruitedUnitCohortState {
   id: string
   unitId: string
@@ -847,6 +965,7 @@ export interface EmpiresArmyState {
   veterans: Record<string, EmpiresVeteranState>
   recruitmentPenalties: Record<string, number>
   foundryInstantReadyConByCity: Record<string, number>
+  recoveries: EmpiresUnitRecoveryState[]
 }
 
 export interface EmpiresExternalState {
@@ -1015,6 +1134,11 @@ export type EmpiresChronicleEntryKind =
   | 'season'
   | 'technology-disclosure'
   | 'hidden-combination'
+  | 'epidemic-start'
+  | 'epidemic-impact'
+  | 'epidemic-spread'
+  | 'epidemic-containment'
+  | 'epidemic-end'
 
 export interface EmpiresChronicleEntry {
   id: string
@@ -1080,10 +1204,108 @@ export interface EmpiresEmpireState {
   hiddenCombinationTriggers: Record<string, EmpiresHiddenCombinationTriggerState>
   smithSpecializationRecipeId: string | null
   giftResolutionTargets: Record<string, string>
+  medical: {
+    nextFreeResearchCon: number | null
+    awardedTechnologyIds: string[]
+    academyTreatmentUsedCon: number | null
+  }
+}
+
+export interface EmpiresEpidemicSource {
+  kind: EmpiresEpidemicSourceKind
+  id: string
+  parentInstanceId?: string
+}
+
+export interface EmpiresEpidemicContainmentState {
+  mode: EmpiresEpidemicContainmentMode
+  decidedAtCon: number | null
+  sourceId: string | null
+  preventsIntercitySpread: boolean
+  localImpactMultiplier: number
+}
+
+export interface EmpiresEpidemicSpreadState {
+  attemptedTargetCityIds: string[]
+  spreadTargetCityIds: string[]
+  lastSpreadCon: number | null
+}
+
+export interface EmpiresEpidemicClassImpact {
+  populationClassId: string
+  weight: number
+  projectedLoss: number
+}
+
+export interface EmpiresEpidemicImpactState {
+  con: number
+  populationLoss: number
+  productionLossPercent: number
+  loyaltyDelta: number
+  classLosses: Record<string, number>
+}
+
+export interface EmpiresEpidemicState {
+  id: string
+  definitionId: string
+  rulesVersion: number
+  rulesDigest: string
+  source: EmpiresEpidemicSource
+  originCityId: string
+  cityId: string
+  stageId: string
+  stageIndex: number
+  severity: number
+  startedCon: number
+  remainingStageDuration: number
+  remainingDuration: number
+  affectedClasses: EmpiresEpidemicClassImpactDefinition[]
+  containment: EmpiresEpidemicContainmentState
+  spread: EmpiresEpidemicSpreadState
+  lastImpact: EmpiresEpidemicImpactState | null
+  endedAtCon: number | null
+  endReason: 'resolved' | 'origin-inaccessible' | null
+}
+
+export interface EmpiresEpidemicProtectionBreakdown {
+  id: string
+  name: string
+  consequence: EmpiresEpidemicConsequence
+  multiplier: number
+}
+
+export interface EmpiresEpidemicProjection {
+  populationLoss: number
+  productionLossPercent: number
+  loyaltyDelta: number
+  classLosses: EmpiresEpidemicClassImpact[]
+  spreadChance: number
+}
+
+export interface EmpiresCityEpidemicView {
+  instanceId: string
+  definitionId: string
+  name: string
+  stageId: string
+  stageName: string
+  severity: number
+  turnsRemaining: number
+  containment: EmpiresEpidemicContainmentState
+  affectedClasses: Array<{ id: string, name: string, weight: number }>
+  protection: EmpiresEpidemicProtectionBreakdown[]
+  projectedNextImpact: EmpiresEpidemicProjection
+  spreadWarning: string | null
+}
+
+export interface EmpiresStartEpidemicRequest {
+  definitionId: string
+  originCityId: string
+  source: EmpiresEpidemicSource
 }
 
 export interface EmpiresEventState {
   eventId: string
+  epidemicInstanceId?: string
   /**
    * A famine crisis selected before end-of-empire food settlement. Missing on
    * legacy snapshots, which means the event was already reached post-settlement.
@@ -1092,7 +1314,7 @@ export interface EmpiresEventState {
 }
 
 export interface EmpiresCampaignState {
-  schemaVersion: 5
+  schemaVersion: 6
   configId: string
   phase: EmpiresPhase
   rng: EmpiresRngState
@@ -1111,7 +1333,8 @@ export interface EmpiresCampaignState {
   minigameResultCompaction: EmpiresMinigameResultCompaction
   army: EmpiresArmyState
   external: EmpiresExternalState
-  epidemics: never[]
+  epidemics: EmpiresEpidemicState[]
+  nextEpidemicSequence: number
   quests: Record<string, never>
   empire: EmpiresEmpireState
   event: EmpiresEventState | null
@@ -1120,7 +1343,7 @@ export interface EmpiresCampaignState {
 }
 
 export interface EmpiresSnapshotEnvelope {
-  schemaVersion: 5
+  schemaVersion: 6
   savedAt: string
   state: EmpiresCampaignState
 }

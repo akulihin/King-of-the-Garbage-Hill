@@ -45,7 +45,11 @@ Current execution status supplied by the designer on 2026-07-17:
 - **Phase 4C — complete.** Schema-v7 advisor/perst/capital governance, save-envelope v5,
   canonical trump critical effects, exact advisor judgment, permanent named-перст region
   expansion and the capital/review manifest landed as one change-set.
-- **Next prompt: Phase 5** (`phase-05-epidemics.md`).
+- **Phase 5 — complete.** Schema-v8 typed epidemics/medical configuration, save-envelope
+  v6, deterministic settlement/spread/containment, medical buildings and healer/recovery,
+  vaccination faces, epidemic relic, hidden plague combination and epidemic UI/QA landed
+  as one change-set. City Gates remains honestly deferred on its undefined crime side.
+- **Next prompt: Phase 6A** (`phase-06-economy-external.md`).
 
 Scope decisions confirmed by the designer (2026-07-16):
 
@@ -67,7 +71,7 @@ graph TD
   P3B --> P4B[4B seasons + tech sides + politics]
   P4A --> P4B
   P4B --> P4C[4C advisors + persts + capital governance]
-  P4B --> P5[5 epidemics]
+  P4B --> P5[5 complete: epidemics]
   P4C --> P6A[6A domestic economy]
   P5 --> P6A
   P3B --> P6B[6B diplomacy + external trade]
@@ -102,7 +106,7 @@ graph TD
 | `phase-04-loyalty-seasons.md` | **Complete/historical. 4A:** loyalty, reputation, rebellion, class gates, chronicle, northern raids. |
 | `phase-04b-seasons-tech-sides.md` | **Complete/historical. 4B:** seasons, technology sides, political reforms, honest crime deferral. |
 | `phase-04c-advisors-persts-capital.md` | **Complete/historical. 4C:** advisor flow, suit/Grand Advisor rules, governor персты, capital slot governance. |
-| `phase-05-epidemics.md` | Epidemic lifecycle + medical protection chain; exact medical candidates and vaccination faces, with ambiguous Дженна mapping kept honest. |
+| `phase-05-epidemics.md` | **Complete/historical.** Typed epidemic lifecycle, medical chain, vaccination faces, relic/combo closure and honest City Gates/Pharmaceuticals/Quarantine deferrals. |
 | `phase-06-economy-external.md` | **6A:** Bank/insurance/Fair/Temple and passive Tavern substrate. |
 | `phase-06b-diplomacy-external.md` | **6B:** real diplomacy/external trade, Людовик, Stable/Customs/Sea Port, missing trade buildings. |
 | `phase-06c-economy-content.md` | **6C:** economy gifts, relics, events, resources, technologies, and card faces. |
@@ -189,6 +193,36 @@ graph TD
   slot behavior remains P6B. Great houses and unique races remain P7/P12B review rather
   than anonymous governance flags.
 
+## P5 handoff
+
+- The compatibility baseline is config schema 8 and campaign/save envelope 6. Epidemic
+  definitions, protection inputs and medical rules are config data; instances, source
+  provenance, containment, spread memory, exact impact con and army recovery are canonical
+  saved state. Schema-v7 custom configs migrate with epidemics and medicine disabled.
+- `finishEmpireInternal` settles epidemics before it refreshes population/production and
+  evaluates fresh famine eligibility. A single typed start funnel serves cards, gifts,
+  events, hidden combinations and later alchemy/quest results; epidemic rules identity
+  prevents an active instance from being reinterpreted under changed definitions.
+- Hospital's authored local 10% reduction and one-con post-battle recovery are live, along
+  with Hospital-gated healers. Medical Academy's half-consequence protection, three-con
+  free secondary technology cadence and once-per-con 50%-fatal treatment are live. Numeric
+  epidemic stages, class weights, healer combat stats and deterministic free-tech choice
+  are configurable defaults retained in the designer-review ledger.
+- Alchemy is live only for its plague-combination substrate; `alchemyMinigame` remains a
+  visible deferred capability owned by P10. The Granary+Alchemy plague trigger consumes
+  P4B's exact-once hidden-combination memory and selects the lowest stable operational
+  Alchemy city. Trainers/rats remain deferred without a stable carrier or consequences.
+- Both `card-spades-10` faces and the epidemic relic are live. Raw `персонажи` uniquely
+  identifies `card-clubs-ace` as Дженна, but both faces remain deferred because their
+  numerical disease/birth/autonomy effects are incomplete. Quarantine and Фармацевтика
+  are validated protection hooks only; no carrier ID was invented, and the farm-production
+  tradeoff remains deferred.
+- City Gates' seal/open epidemic choices are typed and executable, including exact-once
+  containment and already-spread behavior, but the bundled reform/event remain unavailable
+  because the light crime/public-order contract is still undefined. No generic epidemic
+  recruitment or facility lock was invented; stage fields exist and bundled values are
+  explicitly empty/false.
+
 ## How to execute the remaining prompts
 
 Run **one phase/subphase file per fresh Codex task and per change-set**. Do not combine
@@ -200,7 +234,7 @@ to paste into one large task.
 The graph permits some separate-worktree parallelism, but these phases commonly touch the
 same config, types, engine, docs, and version file. The safest single-worktree order is:
 
-`4A → 4B → 4C → 5 → 6A → 6B → 6C → 7 → 8 → 9 → 10 → 11A → 11B → 12 → 12B → 13`.
+`6A → 6B → 6C → 7 → 8 → 9 → 10 → 11A → 11B → 12 → 12B → 13`.
 
 Use this opening prompt, replacing `<phase-file>` with exactly one file:
 

@@ -1498,12 +1498,12 @@ public class GameHub : Hub
         await PushBattleshipStateToAll(gameId);
     }
 
-    public async Task BattleshipSelectWeapon(string gameId, string weaponType, string shotType)
+    public async Task BattleshipSelectWeapon(string gameId, string weaponType, string shotType, string weaponId = null)
     {
         var discordId = GetDiscordId();
         if (discordId == 0) { await SendNotAuthenticated(); return; }
 
-        var (success, error) = _battleshipService.SelectWeapon(gameId, discordId.ToString(), weaponType, shotType);
+        var (success, error) = _battleshipService.SelectWeapon(gameId, discordId.ToString(), weaponType, shotType, weaponId);
         if (!success)
         {
             await Clients.Caller.SendAsync("Error", error);
@@ -1511,6 +1511,20 @@ public class GameHub : Hub
             return;
         }
         await PushBattleshipStateToPlayer(gameId, discordId.ToString());
+    }
+
+    public async Task BattleshipPassBoardingTurn(string gameId)
+    {
+        var discordId = GetDiscordId();
+        if (discordId == 0) { await SendNotAuthenticated(); return; }
+
+        var (success, error) = _battleshipService.PassBoardingTurn(gameId, discordId.ToString());
+        if (!success)
+        {
+            await Clients.Caller.SendAsync("ActionResult", new { action = "battleshipPassBoardingTurn", success = false, error });
+            return;
+        }
+        await PushBattleshipStateToAll(gameId);
     }
 
     public async Task BattleshipDeploySummon(string gameId, string summonType, int col)

@@ -298,6 +298,21 @@ export const ICONS: Record<string, string> = {
   penalty,
 }
 
+// Exact bitmap assets embedded in the approved Battleship GDD. Keep the
+// remaining UI/state icons as inline SVGs so only designer-owned artwork is
+// replaced here.
+const GDD_ICON_PATHS: Record<string, string> = {
+  whiteStone: '/battleship/icons/white-stone.png',
+  buckshot: '/battleship/icons/buckshot.png',
+  incendiary: '/battleship/icons/incendiary.png',
+  pirateBoat: '/battleship/icons/pirate-boat.png',
+  ram: '/battleship/icons/ram.png',
+  scout: '/battleship/icons/scout.png',
+  brander: '/battleship/icons/brander.png',
+  cursedBoat: '/battleship/icons/cursed-boat.png',
+  greekFire: '/battleship/icons/greek-fire.png',
+}
+
 /**
  * Returns an inline SVG string for the given icon key.
  * If `size` is provided and differs from the default 24, the width/height
@@ -305,6 +320,12 @@ export const ICONS: Record<string, string> = {
  * Returns an empty string when the key is not found.
  */
 export function renderIcon(key: string, size?: number): string {
+  const bitmapPath = GDD_ICON_PATHS[key]
+  if (bitmapPath) {
+    const resolvedSize = size ?? 24
+    return `<img src="${bitmapPath}" alt="" width="${resolvedSize}" height="${resolvedSize}" class="bs-gdd-icon" draggable="false">`
+  }
+
   const raw = ICONS[key]
   if (!raw) return ''
   if (size != null && size !== 24) {

@@ -14,6 +14,13 @@ import {
 } from './td/engine'
 import { resolveEmpiresUnitLoadout } from './equipment'
 import {
+  allocateEpidemicClassLoss,
+  epidemicDuration,
+  epidemicRulesDigest,
+  roundEpidemicValue,
+  roundSignedEpidemicValue,
+} from './epidemics'
+import {
   applySeasonFoodProduction,
   currentSeason,
   currentSeasonFoodMultiplier,
@@ -34,7 +41,16 @@ import type {
   EmpiresCityLoyaltyView,
   EmpiresCityState,
   EmpiresDependency,
+  EmpiresCityEpidemicView,
   EmpiresEffect,
+  EmpiresEpidemicConsequence,
+  EmpiresEpidemicDefinition,
+  EmpiresEpidemicImpactState,
+  EmpiresEpidemicProjection,
+  EmpiresEpidemicProtectionBreakdown,
+  EmpiresEpidemicStartEffect,
+  EmpiresEpidemicState,
+  EmpiresEpidemicSourceKind,
   EmpiresEndgameConfig,
   EmpiresBattleLossLoyaltyInput,
   EmpiresEventDefinition,
@@ -51,6 +67,7 @@ import type {
   EmpiresRecruitmentQuote,
   EmpiresRecruitedUnitCohortState,
   EmpiresSnapshotEnvelope,
+  EmpiresStartEpidemicRequest,
   EmpiresStateListener,
   EmpiresSuit,
   EmpiresTechnologyDefinition,
@@ -83,6 +100,7 @@ const EFFECT_KINDS = [
   'classLoyalty',
   'reputation',
   'flag',
+  'epidemicStart',
 ] as const
 
 type EffectKind = typeof EFFECT_KINDS[number]
@@ -290,7 +308,7 @@ function uniqueIds<T extends { id: string }>(values: readonly T[]): boolean {
 
 export function validateEmpiresEndgameConfig(config: EmpiresEndgameConfig): string[] {
   const errors: string[] = []
-  if (config.schemaVersion !== 7) errors.push('schemaVersion must be 7')
+  if (config.schemaVersion !== 8) errors.push('schemaVersion must be 8')
   if (!config.id.trim()) errors.push('config id is required')
   if (config.cards.length !== 53) errors.push('cards must contain exactly 53 definitions')
   if (!uniqueIds(config.cards)) errors.push('card definition ids must be unique')
@@ -456,7 +474,7 @@ export class EmpiresEndgameEngine {
   }
 
   snapshotEnvelope(savedAt = new Date().toISOString()): EmpiresSnapshotEnvelope {
-    return { schemaVersion: 5, savedAt, state: this.snapshot() }
+    return { schemaVersion: 6, savedAt, state: this.snapshot() }
   }
 
   restore(snapshot: EmpiresCampaignState): void {
@@ -1193,6 +1211,84 @@ export class EmpiresEndgameEngine {
     }
   }
 
+  epidemicRulesIdentity(): { rulesVersion: number, rulesDigest: string } {
+    return {
+      rulesVersion: this.config.empire.epidemics.rulesVersion,
+      rulesDigest: epidemicRulesDigest(this.config.empire.epidemics),
+    }
+  }
+
+  startEpidemic(request: EmpiresStartEpidemicRequest): EmpiresActionResult {
+    const result = this.startEpidemicInternal(request)
+    if (!result.ok) return failure(result.message)
+    if (!result.changed) return success(result.message)
+    this.refreshProductions()
+    return this.commit(result.message)
+  }
+
+  cityEpidemicViews(cityId: string): EmpiresCityEpidemicView[] {
+    const city = this.city(cityId)
+    if (!city) return []
+    return this.state.epidemics
+      .filter(epidemic => epidemic.cityId === cityId && epidemic.endedAtCon === null)
+      .sort((left, right) => stableStringCompare(left.id, right.id))
+      .flatMap((epidemic) => {
+        const definition = this.epidemicDefinition(epidemic.definitionId)
+        const stage = definition?.stages[epidemic.stageIndex]
+        if (!definition || !stage) return []
+        const projection = this.projectEpidemicImpact(epidemic, city)
+        const protection = (['population', 'production', 'loyalty', 'spread'] as const)
+          .flatMap(consequence => this.epidemicProtectionBreakdown(city, consequence))
+        return [{
+          instanceId: epidemic.id,
+          definitionId: definition.id,
+          name: definition.name,
+          stageId: stage.id,
+          stageName: stage.name,
+          severity: stage.severity,
+          turnsRemaining: epidemic.remainingDuration,
+          containment: cloneSerializable(epidemic.containment),
+          affectedClasses: epidemic.affectedClasses.map(item => ({
+            id: item.populationClassId,
+            name: this.config.empire.populationClasses.find(
+              candidate => candidate.id === item.populationClassId,
+            )?.name ?? item.populationClassId,
+            weight: item.weight,
+          })),
+          protection,
+          projectedNextImpact: projection,
+          spreadWarning: projection.spreadChance > 0
+            ? `Риск распространения: ${Math.round(projection.spreadChance * 100)}%`
+            : null,
+        }]
+      })
+  }
+
+  treatVeteran(veteranId: string): EmpiresActionResult {
+    if (this.state.phase !== 'empire') return failure('Treatment is available only in the empire phase.')
+    if (!this.config.empire.medical.enabled) return failure('Medical treatment is disabled.')
+    if (this.state.empire.medical.academyTreatmentUsedCon === this.state.con) {
+      return failure('The Medical Academy has already treated one unit this con.')
+    }
+    const academyOperational = this.state.empire.cities.some(city => (
+      this.isCityAccessible(city.id)
+      && this.effectiveOperationalBuildingLevel(
+        city.id,
+        this.config.empire.medical.medicalAcademyBuildingId,
+      ) > 0
+    ))
+    if (!academyOperational) return failure('No operational Medical Academy is available.')
+    const veteran = this.state.army.veterans[veteranId]
+    if (!veteran || veteran.wounds <= 0) return failure('That veteran does not need treatment.')
+    this.state.empire.medical.academyTreatmentUsedCon = this.state.con
+    if (nextEmpiresRandom(this.state.rng) < this.config.empire.medical.academyTreatmentDeathChance) {
+      delete this.state.army.veterans[veteranId]
+      return this.commit(`Veteran ${veteranId} died during Medical Academy treatment.`)
+    }
+    veteran.wounds = 0
+    return this.commit(`Veteran ${veteranId} recovered at the Medical Academy.`)
+  }
+
   smithSpecializationOptions(): Array<{ recipeId: string, equipmentId: string }> {
     const researched = new Set(this.state.empire.researchedTechnologyIds)
     return (this.config.td.equipmentProduction ?? [])
@@ -1238,6 +1334,14 @@ export class EmpiresEndgameEngine {
       'starvationLossMultiplierPercent',
     )
     const starvationMultiplierBefore = this.state.empire.flags.starvationLossMultiplierPercent
+    if (choice.epidemicContainment && this.state.event.epidemicInstanceId) {
+      const containment = this.applyEpidemicContainment(
+        this.state.event.epidemicInstanceId,
+        choice.epidemicContainment,
+        `event:${event.id}:${choice.id}`,
+      )
+      if (!containment.ok) return containment
+    }
     this.payResources(choice.resourceCosts ?? [])
     this.applyEffects(choice.effects, 0, undefined, `event:${event.id}:${choice.id}`)
     this.refreshProductions()
@@ -1676,6 +1780,18 @@ export class EmpiresEndgameEngine {
     const choice = event.choices.find(item => item.id === choiceId)
     if (!choice) return 'Unknown event choice.'
     if (choice.deferredReason) return `That event choice is deferred: ${choice.deferredReason}`
+    if (choice.epidemicContainment) {
+      const epidemicId = this.state.event.epidemicInstanceId
+      const epidemic = epidemicId
+        ? this.state.epidemics.find(item => item.id === epidemicId && item.endedAtCon === null)
+        : null
+      if (!epidemic) return 'The targeted epidemic is no longer active.'
+      const access = this.cityAccessBlockedReason(epidemic.cityId)
+      if (access) return access
+      if (epidemic.containment.mode !== 'undecided') {
+        return 'Containment for that epidemic was already decided.'
+      }
+    }
     const missingResource = this.firstMissingResource(choice.resourceCosts ?? [])
     return missingResource ? `Not enough ${missingResource}.` : null
   }
@@ -1745,12 +1861,13 @@ export class EmpiresEndgameEngine {
     }
     const foodId = this.config.empire.foodResourceId
     production[foodId] = (production[foodId] ?? 0) + (this.state.empire.passiveFoodBonuses[city.id] ?? 0)
+    const epidemicMultiplier = this.epidemicProductionMultiplier(city.id)
     for (const [resourceId, amount] of Object.entries(production)) {
       const famineMultiplier = resourceId === foodId ? this.famineFoodMultiplier(city) : 1
       const produced = amount
         * (this.state.empire.productionMultipliers[resourceId] ?? 1)
         * famineMultiplier
-      production[resourceId] = resourceId === foodId
+      const seasonalProduction = resourceId === foodId
         ? applySeasonFoodProduction(
             produced,
             this.state.con,
@@ -1758,6 +1875,12 @@ export class EmpiresEndgameEngine {
             this.state.empire.researchedTechnologyIds,
           )
         : produced
+      production[resourceId] = epidemicMultiplier === 1
+        ? seasonalProduction
+        : roundEpidemicValue(
+            seasonalProduction * epidemicMultiplier,
+            this.config.empire.epidemics.productionRounding,
+          )
     }
     return production
   }
@@ -1887,7 +2010,7 @@ export class EmpiresEndgameEngine {
     const playerHand: string[] = []
     const godHand: string[] = []
     const state: EmpiresCampaignState = {
-      schemaVersion: 5,
+      schemaVersion: 6,
       configId: this.config.id,
       phase: 'cards',
       rng,
@@ -1941,6 +2064,11 @@ export class EmpiresEndgameEngine {
         hiddenCombinationTriggers: {},
         smithSpecializationRecipeId: null,
         giftResolutionTargets: {},
+        medical: {
+          nextFreeResearchCon: null,
+          awardedTechnologyIds: [],
+          academyTreatmentUsedCon: null,
+        },
       },
       pendingResolution: null,
       minigame: null,
@@ -1960,6 +2088,7 @@ export class EmpiresEndgameEngine {
         veterans: {},
         recruitmentPenalties: {},
         foundryInstantReadyConByCity: {},
+        recoveries: [],
       },
       external: {
         allianceThreat: this.config.td.alliance?.baseThreat ?? 0,
@@ -1967,6 +2096,7 @@ export class EmpiresEndgameEngine {
         pendingOffers: [],
       },
       epidemics: [],
+      nextEpidemicSequence: 1,
       quests: {},
       event: null,
       outcomeReason: null,
@@ -1984,12 +2114,12 @@ export class EmpiresEndgameEngine {
   private validateAndCloneSnapshot(snapshot: EmpiresCampaignState): EmpiresCampaignState {
     const snapshotVersion = (snapshot as { schemaVersion: number }).schemaVersion
     if (snapshotVersion !== 1 && snapshotVersion !== 2 && snapshotVersion !== 3
-      && snapshotVersion !== 4 && snapshotVersion !== 5) {
+      && snapshotVersion !== 4 && snapshotVersion !== 5 && snapshotVersion !== 6) {
       throw new Error('Unsupported Empire\'s Endgame snapshot schema')
     }
     if (snapshot.configId !== this.config.id) throw new Error('Snapshot belongs to a different config')
     const state = cloneSerializable(snapshot)
-    state.schemaVersion = 5
+    state.schemaVersion = 6
     this.normalizeGovernanceState(state, snapshotVersion)
     state.minigame ??= null
     state.minigameResultLog ??= []
@@ -2008,6 +2138,7 @@ export class EmpiresEndgameEngine {
       veterans: {},
       recruitmentPenalties: {},
       foundryInstantReadyConByCity: {},
+      recoveries: [],
     }
     state.army.equipmentStock ??= {}
     state.army.equipmentStock = Object.fromEntries(
@@ -2021,6 +2152,14 @@ export class EmpiresEndgameEngine {
     state.army.veterans ??= {}
     state.army.recruitmentPenalties ??= {}
     state.army.foundryInstantReadyConByCity ??= {}
+    state.army.recoveries ??= []
+    state.army.recoveries = state.army.recoveries.filter(recovery => (
+      recovery && typeof recovery.id === 'string' && recovery.id.length > 0
+      && typeof recovery.cityId === 'string' && typeof recovery.cohortId === 'string'
+      && typeof recovery.unitId === 'string' && Number.isFinite(recovery.count) && recovery.count > 0
+      && Number.isInteger(recovery.startedAtCon) && Number.isInteger(recovery.readyAtCon)
+      && recovery.readyAtCon >= recovery.startedAtCon
+    ))
     state.army.foundryInstantReadyConByCity = Object.fromEntries(
       Object.entries(state.army.foundryInstantReadyConByCity)
         .filter(([, con]) => Number.isFinite(con) && con >= 0)
@@ -2035,6 +2174,16 @@ export class EmpiresEndgameEngine {
     state.external.nextWaveCon ??= this.nextWaveConAtOrAfter(state.con)
     state.external.pendingOffers ??= []
     state.epidemics ??= []
+    state.nextEpidemicSequence ??= 1
+    state.empire.medical ??= {
+      nextFreeResearchCon: null,
+      awardedTechnologyIds: [],
+      academyTreatmentUsedCon: null,
+    }
+    state.empire.medical.nextFreeResearchCon ??= null
+    state.empire.medical.awardedTechnologyIds ??= []
+    state.empire.medical.academyTreatmentUsedCon ??= null
+    this.normalizeEpidemics(state, snapshotVersion)
     state.quests ??= {}
     state.durak.godInterventions ??= 0
     this.normalizeMinigameState(state)
@@ -2315,6 +2464,44 @@ export class EmpiresEndgameEngine {
     return null
   }
 
+  private awardDueMedicalAcademyResearch(): boolean {
+    const medical = this.config.empire.medical
+    if (!medical.enabled) return false
+    const academyOperational = this.state.empire.cities.some(city => (
+      this.isCityAccessible(city.id)
+      && this.effectiveOperationalBuildingLevel(city.id, medical.medicalAcademyBuildingId) > 0
+    ))
+    if (!academyOperational) return false
+    if (this.state.empire.medical.nextFreeResearchCon === null) {
+      this.state.empire.medical.nextFreeResearchCon = this.state.con
+        + medical.academyFreeResearchCadenceCons
+      return false
+    }
+    if (this.state.con < this.state.empire.medical.nextFreeResearchCon) return false
+    const technology = [...this.config.empire.technologies]
+      .filter(candidate => candidate.category === 'technology')
+      .filter(candidate => !candidate.steel && !candidate.deferredReason)
+      .filter(candidate => !this.state.empire.researchedTechnologyIds.includes(candidate.id))
+      .filter(candidate => !this.firstMissingDependency(candidate.prerequisites))
+      .sort((left, right) => stableStringCompare(left.id, right.id))[0]
+    this.state.empire.medical.nextFreeResearchCon = this.state.con
+      + medical.academyFreeResearchCadenceCons
+    if (!technology) return false
+    this.state.empire.researchedTechnologyIds.push(technology.id)
+    this.state.empire.medical.awardedTechnologyIds.push(technology.id)
+    this.applyEffects(technology.effects, 0)
+    this.selectTechnologySide(technology)
+    this.scheduleDelayedSteelResearch()
+    this.appendChronicle(this.state, {
+      kind: 'technology-disclosure',
+      sourceId: `medical-academy:${technology.id}:${this.state.con}`,
+      title: 'Медицинская академия завершила исследование',
+      description: `${technology.name} изучена бесплатно.`,
+      target: { kind: 'empire' },
+    })
+    return true
+  }
+
   private awardDueSteelResearch(): boolean {
     if (this.state.phase !== 'empire') return false
     let awardedAny = false
@@ -2503,12 +2690,17 @@ export class EmpiresEndgameEngine {
         .flatMap((cohort) => {
           const unit = this.unitDefinitions.get(cohort.unitId)
           if (!unit || unit.deferredReason || !unit.td || !cohort.weapon) return []
+          const recovering = state.army.recoveries
+            .filter(recovery => recovery.cohortId === cohort.id && recovery.readyAtCon > state.con)
+            .reduce((total, recovery) => total + recovery.count, 0)
+          const available = Math.max(0, Math.floor(cohort.count) - recovering)
+          if (available <= 0) return []
           return [{
             id: cohort.id,
             cohortId: cohort.id,
             cityId: city.id,
             unitId: cohort.unitId,
-            count: Math.max(0, Math.floor(cohort.count)),
+            count: available,
             nodeId,
             speedPerSecond,
             maxHpPerUnit: unit.td.maxHp,
@@ -2516,6 +2708,7 @@ export class EmpiresEndgameEngine {
             attackIntervalTicks: unit.td.attackIntervalTicks,
             weapon: cloneSerializable(cohort.weapon),
             armor: cloneSerializable(cohort.armor),
+            ...(unit.td.healing ? { healing: cloneSerializable(unit.td.healing) } : {}),
           }]
         }))
   }
@@ -2709,6 +2902,23 @@ export class EmpiresEndgameEngine {
             wounds: deploymentResult.healthRatio < 1 ? 1 : 0,
           }
         }
+      }
+      if (deploymentResult.survived > 0 && deploymentResult.healthRatio < 1) {
+        const medical = this.config.empire.medical
+        const hospitalOperational = medical.enabled
+          && this.effectiveOperationalBuildingLevel(city.id, medical.hospitalBuildingId) > 0
+        const recoveryCons = hospitalOperational
+          ? medical.hospitalBattleRecoveryCons
+          : medical.defaultBattleRecoveryCons
+        this.state.army.recoveries.push({
+          id: `recovery:${session.id}:${deployment.id}`,
+          cityId: city.id,
+          cohortId: deployment.cohortId,
+          unitId: deployment.unitId,
+          count: deploymentResult.survived,
+          startedAtCon: this.state.con,
+          readyAtCon: this.state.con + recoveryCons,
+        })
       }
     }
 
@@ -2910,7 +3120,7 @@ export class EmpiresEndgameEngine {
 
     const phaseEffectKinds = new Set<EffectKind>([
       'resource', 'time', 'population', 'loyalty', 'loyaltyAllCities',
-      'classLoyalty', 'reputation', 'flag',
+      'classLoyalty', 'reputation', 'flag', 'epidemicStart',
     ])
     const timeEffectKind = new Set<EffectKind>(['time'])
     for (const giftId of this.state.empire.activeGiftIds) {
@@ -2966,6 +3176,12 @@ export class EmpiresEndgameEngine {
   private finishEmpireInternal(): void {
     if (this.state.phase !== 'empire') return
     this.refreshProductions()
+    this.settleEpidemics()
+    this.refreshProductions()
+    if (this.totalPopulation() <= this.config.empire.defeatPopulationAtOrBelow) {
+      this.setOutcome('defeat', 'The empire lost its population during an epidemic.')
+      return
+    }
     let eventRollResolvedBeforeSettlement = false
     let selectedEvent: EmpiresEventDefinition | null = null
     const famineEvent = this.eventDefinitions.get(FAMINE_RATIONING_EVENT_ID)
@@ -2981,6 +3197,7 @@ export class EmpiresEndgameEngine {
         this.state.event = {
           eventId: selectedEvent.id,
           empireSettlementPending: true,
+          epidemicInstanceId: this.eventEpidemicTarget(selectedEvent)?.id,
         }
         return
       }
@@ -2998,6 +3215,7 @@ export class EmpiresEndgameEngine {
       this.state.event = {
         eventId: selectedEvent.id,
         empireSettlementPending: false,
+        epidemicInstanceId: this.eventEpidemicTarget(selectedEvent)?.id,
       }
       return
     }
@@ -3084,6 +3302,21 @@ export class EmpiresEndgameEngine {
     const previousSeason = currentSeason(completedCon, this.config.empire.seasons)
     this.state.phase = 'cards'
     this.state.con += 1
+    const completedRecoveries = this.state.army.recoveries
+      .filter(recovery => recovery.readyAtCon <= this.state.con)
+      .sort((left, right) => stableStringCompare(left.id, right.id))
+    this.state.army.recoveries = this.state.army.recoveries.filter(
+      recovery => recovery.readyAtCon > this.state.con,
+    )
+    for (const recovery of completedRecoveries) {
+      this.appendChronicle(this.state, {
+        kind: 'recovery',
+        sourceId: recovery.id,
+        title: 'Отряд вернулся после лечения',
+        description: `${recovery.count} ${recovery.unitId} снова готовы к бою.`,
+        target: { kind: 'city', cityId: recovery.cityId },
+      })
+    }
     this.state.boutsInCon = 0
     this.state.performance = emptyPerformance()
     this.state.performanceScore = 0
@@ -3111,6 +3344,7 @@ export class EmpiresEndgameEngine {
     }
     this.evaluateHiddenCombinations()
     this.processTechnologyDisclosures()
+    this.awardDueMedicalAcademyResearch()
     this.scheduleDueWaveOnState(this.state, completedCon)
     this.refreshProductions()
   }
@@ -3249,6 +3483,13 @@ export class EmpiresEndgameEngine {
     for (const lock of level.facilityLocks) city.lockedFacilities[lock] = `${building.id}:${level.level}`
     if (slotId) city.buildingSlotAssignments[slotId] = building.id
     city.buildingLevels[building.id] = level.level
+    const medical = this.config.empire.medical
+    if (medical.enabled
+      && building.id === medical.medicalAcademyBuildingId
+      && this.state.empire.medical.nextFreeResearchCon === null) {
+      this.state.empire.medical.nextFreeResearchCon = this.state.con
+        + medical.academyFreeResearchCadenceCons
+    }
     this.awardDueSteelResearch()
     this.evaluateHiddenCombinations()
     this.processTechnologyDisclosures()
@@ -3347,6 +3588,7 @@ export class EmpiresEndgameEngine {
     allowedKinds?: ReadonlySet<EffectKind>,
     sourceId = 'effect:unknown',
     magnitude = 1,
+    targetCityId?: string,
   ): void {
     let moraleCapChanged = false
     for (const effect of effects) {
@@ -3407,9 +3649,509 @@ export class EmpiresEndgameEngine {
           : (this.state.empire.flags[effect.flagId] ?? 0) + amount
         moraleCapChanged ||= effect.flagId === 'maxCombatSpirit'
           || effect.flagId === 'minimumCombatSpirit'
+      } else if (effect.kind === 'epidemicStart') {
+        const originCityId = this.resolveEpidemicOrigin(effect, targetCityId)
+        if (originCityId) {
+          this.startEpidemicInternal({
+            definitionId: effect.definitionId,
+            originCityId,
+            source: { kind: this.epidemicSourceKindFromId(sourceId), id: sourceId },
+          })
+        }
       }
     }
     if (moraleCapChanged) this.syncArmyMoraleCap()
+  }
+
+  private epidemicDefinition(definitionId: string): EmpiresEpidemicDefinition | null {
+    return this.config.empire.epidemics.definitions.find(item => item.id === definitionId) ?? null
+  }
+
+  private activeEpidemicStages(cityId: string): EmpiresEpidemicDefinition['stages'] {
+    return this.state.epidemics
+      .filter(epidemic => epidemic.cityId === cityId && epidemic.endedAtCon === null)
+      .sort((left, right) => stableStringCompare(left.id, right.id))
+      .flatMap((epidemic) => {
+        const stage = this.epidemicDefinition(epidemic.definitionId)?.stages[epidemic.stageIndex]
+        return stage ? [stage] : []
+      })
+  }
+
+  private epidemicSourceKindFromId(sourceId: string): EmpiresEpidemicSourceKind {
+    if (sourceId.startsWith('event:')) return 'event'
+    if (sourceId.startsWith('gift:')) return 'gift'
+    if (sourceId.startsWith('hidden-combination:')) return 'hidden-combination'
+    if (sourceId.startsWith('card:')) return 'card'
+    if (sourceId.startsWith('alchemy:')) return 'alchemy'
+    if (sourceId.startsWith('quest:')) return 'quest'
+    if (sourceId.startsWith('spread:')) return 'spread'
+    return 'qa'
+  }
+
+  private resolveEpidemicOrigin(
+    effect: EmpiresEpidemicStartEffect,
+    targetCityId?: string,
+  ): string | null {
+    if (effect.origin.kind === 'city') return effect.origin.cityId
+    if (effect.origin.kind === 'effect-target-city') return targetCityId ?? null
+    if (effect.origin.kind === 'lowest-operational-building-city') {
+      return this.state.empire.cities
+        .filter(city => this.isCityAccessible(city.id))
+        .filter(city => this.effectiveOperationalBuildingLevel(city.id, effect.origin.buildingId) > 0)
+        .sort((left, right) => stableStringCompare(left.id, right.id))[0]?.id ?? null
+    }
+    return this.accessibleCityIds().sort(stableStringCompare)[0] ?? null
+  }
+
+  private startEpidemicInternal(request: EmpiresStartEpidemicRequest): {
+    ok: boolean
+    changed: boolean
+    message: string
+    instanceId?: string
+  } {
+    if (!this.config.empire.epidemics.enabled) {
+      return { ok: false, changed: false, message: 'Epidemics are disabled.' }
+    }
+    const definition = this.epidemicDefinition(request.definitionId)
+    if (!definition) return { ok: false, changed: false, message: 'Unknown epidemic definition.' }
+    const city = this.city(request.originCityId)
+    if (!city) return { ok: false, changed: false, message: 'Unknown epidemic origin city.' }
+    const inaccessible = this.cityAccessBlockedReason(city.id)
+    if (inaccessible) return { ok: false, changed: false, message: inaccessible }
+    const sourceKinds: readonly EmpiresEpidemicSourceKind[] = [
+      'event', 'gift', 'hidden-combination', 'card', 'alchemy', 'quest', 'spread', 'qa',
+    ]
+    if (!request.source.id?.trim() || !sourceKinds.includes(request.source.kind)) {
+      return { ok: false, changed: false, message: 'Invalid epidemic source provenance.' }
+    }
+
+    const existing = this.state.epidemics.find(epidemic => (
+      epidemic.definitionId === definition.id
+      && epidemic.cityId === city.id
+      && epidemic.endedAtCon === null
+    ))
+    if (existing) {
+      if (definition.duplicatePolicy === 'ignore') {
+        return {
+          ok: true,
+          changed: false,
+          message: `${definition.name} is already active in ${city.name}.`,
+          instanceId: existing.id,
+        }
+      }
+      const firstStage = definition.stages[0]
+      existing.stageId = firstStage.id
+      existing.stageIndex = 0
+      existing.severity = firstStage.severity
+      existing.remainingStageDuration = firstStage.durationCons
+      existing.remainingDuration = epidemicDuration(definition)
+      existing.lastImpact = null
+      existing.endedAtCon = null
+      existing.endReason = null
+      return {
+        ok: true,
+        changed: true,
+        message: `${definition.name} was refreshed in ${city.name}.`,
+        instanceId: existing.id,
+      }
+    }
+
+    const firstStage = definition.stages[0]
+    const rules = this.epidemicRulesIdentity()
+    const sequence = Math.max(1, Math.floor(this.state.nextEpidemicSequence))
+    this.state.nextEpidemicSequence = sequence + 1
+    const instance: EmpiresEpidemicState = {
+      id: `epidemic:${definition.id}:${city.id}:${sequence}`,
+      definitionId: definition.id,
+      rulesVersion: rules.rulesVersion,
+      rulesDigest: rules.rulesDigest,
+      source: cloneSerializable(request.source),
+      originCityId: city.id,
+      cityId: city.id,
+      stageId: firstStage.id,
+      stageIndex: 0,
+      severity: firstStage.severity,
+      startedCon: this.state.con,
+      remainingStageDuration: firstStage.durationCons,
+      remainingDuration: epidemicDuration(definition),
+      affectedClasses: cloneSerializable(definition.affectedClasses),
+      containment: {
+        mode: 'undecided',
+        decidedAtCon: null,
+        sourceId: null,
+        preventsIntercitySpread: false,
+        localImpactMultiplier: 1,
+      },
+      spread: {
+        attemptedTargetCityIds: [],
+        spreadTargetCityIds: [],
+        lastSpreadCon: null,
+      },
+      lastImpact: null,
+      endedAtCon: null,
+      endReason: null,
+    }
+    this.state.epidemics.push(instance)
+    this.appendChronicle(this.state, {
+      kind: 'epidemic-start',
+      sourceId: `epidemic-start:${instance.id}`,
+      title: `Началась эпидемия: ${definition.name}`,
+      description: `${city.name}; источник: ${request.source.id}.`,
+      target: { kind: 'city', cityId: city.id },
+    })
+    return {
+      ok: true,
+      changed: true,
+      message: `${definition.name} started in ${city.name}.`,
+      instanceId: instance.id,
+    }
+  }
+
+  private epidemicProtectionBreakdown(
+    city: EmpiresCityState,
+    consequence: EmpiresEpidemicConsequence,
+  ): EmpiresEpidemicProtectionBreakdown[] {
+    return [...this.config.empire.epidemics.protections]
+      .sort((left, right) => stableStringCompare(left.id, right.id))
+      .flatMap((protection) => {
+        if (!protection.consequences.includes(consequence)) return []
+        let multiplier: number | null = null
+        if (protection.source.kind === 'flag') {
+          const points = Math.max(0, this.state.empire.flags[protection.source.flagId] ?? 0)
+          if (points <= 0) return []
+          const reduction = Math.min(
+            protection.source.maximumReductionPercent,
+            points * protection.source.reductionPercentPerPoint,
+          )
+          multiplier = Math.max(0, 1 - reduction / 100)
+        } else {
+          const candidates = protection.source.scope === 'city'
+            ? [city]
+            : this.state.empire.cities.filter(candidate => this.isCityAccessible(candidate.id))
+          const active = candidates.some(candidate => (
+            !this.isBuildingInteractionLocked(candidate, protection.source.buildingId)
+            && this.effectiveOperationalBuildingLevel(candidate.id, protection.source.buildingId) > 0
+          ))
+          if (!active) return []
+          multiplier = protection.source.multiplier
+        }
+        return [{
+          id: protection.id,
+          name: protection.name,
+          consequence,
+          multiplier,
+        }]
+      })
+  }
+
+  private epidemicProtectionMultiplier(
+    city: EmpiresCityState,
+    consequence: EmpiresEpidemicConsequence,
+  ): number {
+    return this.epidemicProtectionBreakdown(city, consequence)
+      .reduce((multiplier, item) => multiplier * item.multiplier, 1)
+  }
+
+  private projectEpidemicImpact(
+    epidemic: EmpiresEpidemicState,
+    city: EmpiresCityState,
+  ): EmpiresEpidemicProjection {
+    const definition = this.epidemicDefinition(epidemic.definitionId)
+    const stage = definition?.stages[epidemic.stageIndex]
+    if (!definition || !stage) {
+      return {
+        populationLoss: 0,
+        productionLossPercent: 0,
+        loyaltyDelta: 0,
+        classLosses: [],
+        spreadChance: 0,
+      }
+    }
+    const policy = epidemic.containment.mode === 'undecided' ? this.activeEpidemicPolicy() : null
+    const localImpactMultiplier = epidemic.containment.mode === 'undecided'
+      ? policy?.withinCitySpeedMultiplier ?? 1
+      : epidemic.containment.localImpactMultiplier
+    const preventsSpread = epidemic.containment.mode === 'undecided'
+      ? policy?.preventsIntercitySpread ?? false
+      : epidemic.containment.preventsIntercitySpread
+    const populationMultiplier = localImpactMultiplier
+      * this.epidemicProtectionMultiplier(city, 'population')
+    const rawPopulationLoss = Math.min(
+      Math.max(0, city.population),
+      Math.max(0, city.population) * stage.populationLossPercent / 100 * populationMultiplier,
+    )
+    const populationLoss = roundEpidemicValue(
+      rawPopulationLoss,
+      this.config.empire.epidemics.populationRounding,
+    )
+    const classLosses = allocateEpidemicClassLoss(
+      populationLoss,
+      epidemic.affectedClasses,
+      city.populationClasses,
+    )
+    const productionLossPercent = Math.min(
+      100,
+      stage.productionLossPercent * localImpactMultiplier
+        * this.epidemicProtectionMultiplier(city, 'production'),
+    )
+    const loyaltyDelta = roundSignedEpidemicValue(
+      stage.loyaltyDelta * localImpactMultiplier
+        * this.epidemicProtectionMultiplier(city, 'loyalty'),
+    )
+    const spreadChance = preventsSpread
+      ? 0
+      : Math.min(1, stage.spreadChance * this.epidemicProtectionMultiplier(city, 'spread'))
+    return {
+      populationLoss: Object.values(classLosses).reduce((total, value) => total + value, 0),
+      productionLossPercent,
+      loyaltyDelta,
+      classLosses: epidemic.affectedClasses.map(item => ({
+        populationClassId: item.populationClassId,
+        weight: item.weight,
+        projectedLoss: classLosses[item.populationClassId] ?? 0,
+      })),
+      spreadChance,
+    }
+  }
+
+  private applyEpidemicContainment(
+    epidemicId: string,
+    choice: {
+      mode: 'open' | 'sealed'
+      preventsIntercitySpread: boolean
+      localImpactMultiplier: number
+    },
+    sourceId: string,
+  ): EmpiresActionResult {
+    const epidemic = this.state.epidemics.find(item => item.id === epidemicId && item.endedAtCon === null)
+    if (!epidemic) return failure('The targeted epidemic is no longer active.')
+    const blocked = this.cityAccessBlockedReason(epidemic.cityId)
+    if (blocked) return failure(blocked)
+    if (epidemic.containment.mode !== 'undecided') {
+      return failure('Containment for that epidemic was already decided.')
+    }
+    epidemic.containment = {
+      mode: choice.mode,
+      decidedAtCon: this.state.con,
+      sourceId,
+      preventsIntercitySpread: choice.preventsIntercitySpread,
+      localImpactMultiplier: choice.localImpactMultiplier,
+    }
+    this.appendChronicle(this.state, {
+      kind: 'epidemic-containment',
+      sourceId: `epidemic-containment:${epidemic.id}`,
+      title: choice.mode === 'sealed' ? 'Городские врата заперты' : 'Городские врата открыты',
+      description: choice.preventsIntercitySpread
+        ? 'Междугороднее распространение остановлено; уже заражённые города не изменены.'
+        : 'Болезнь может распространиться в другой доступный город.',
+      target: { kind: 'city', cityId: epidemic.cityId },
+    })
+    return success('Epidemic containment was decided.')
+  }
+
+  private settleEpidemics(): void {
+    if (!this.config.empire.epidemics.enabled) return
+    const active = this.state.epidemics
+      .filter(epidemic => epidemic.endedAtCon === null && epidemic.lastImpact?.con !== this.state.con)
+      .sort((left, right) => stableStringCompare(left.id, right.id))
+    const transitions = active.map((epidemic) => {
+      const city = this.city(epidemic.cityId)
+      if (!city || !this.isCityAccessible(epidemic.cityId)) {
+        return { epidemic, city: null, projection: null, attempts: [] as Array<{ cityId: string, succeeds: boolean }> }
+      }
+      const projection = this.projectEpidemicImpact(epidemic, city)
+      const availableTargets = this.state.empire.cities
+        .filter(candidate => candidate.id !== city.id && this.isCityAccessible(candidate.id))
+        .filter(candidate => !epidemic.spread.attemptedTargetCityIds.includes(candidate.id))
+        .sort((left, right) => stableStringCompare(left.id, right.id))
+      const attempts: Array<{ cityId: string, succeeds: boolean }> = []
+      const limit = Math.min(
+        this.config.empire.epidemics.maxSpreadTargetsPerSettlement,
+        availableTargets.length,
+      )
+      for (let index = 0; index < limit; index += 1) {
+        const targetIndex = Math.floor(nextEmpiresRandom(this.state.rng) * availableTargets.length)
+        const [target] = availableTargets.splice(Math.min(targetIndex, availableTargets.length - 1), 1)
+        attempts.push({
+          cityId: target.id,
+          succeeds: projection.spreadChance > 0
+            && nextEmpiresRandom(this.state.rng) < projection.spreadChance,
+        })
+      }
+      return { epidemic, city, projection, attempts }
+    })
+
+    const spreadRequests: Array<{
+      parent: EmpiresEpidemicState
+      definitionId: string
+      cityId: string
+    }> = []
+    for (const transition of transitions) {
+      const { epidemic, city, projection } = transition
+      if (!city || !projection) {
+        epidemic.endedAtCon = this.state.con
+        epidemic.endReason = 'origin-inaccessible'
+        this.appendChronicle(this.state, {
+          kind: 'epidemic-end',
+          sourceId: `epidemic-end:${epidemic.id}`,
+          title: 'Эпидемия больше не отслеживается',
+          description: 'Город стал недоступен; воздействие и распространение прекращены.',
+          target: { kind: 'city', cityId: epidemic.cityId },
+        })
+        continue
+      }
+
+      const classLosses: Record<string, number> = {}
+      for (const classImpact of projection.classLosses) {
+        const available = Math.max(0, city.populationClasses[classImpact.populationClassId] ?? 0)
+        const applied = Math.min(available, classImpact.projectedLoss)
+        city.populationClasses[classImpact.populationClassId] = available - applied
+        classLosses[classImpact.populationClassId] = applied
+      }
+      const populationLoss = Object.values(classLosses).reduce((total, amount) => total + amount, 0)
+      city.population = Math.max(0, city.population - populationLoss)
+      city.militaryPopulation = Math.min(city.militaryPopulation, city.population)
+      if (projection.loyaltyDelta !== 0) {
+        this.applyLoyaltyDelta(
+          { kind: 'city', cityId: city.id },
+          projection.loyaltyDelta,
+          `epidemic-impact:${epidemic.id}:${this.state.con}`,
+        )
+      }
+      const impact: EmpiresEpidemicImpactState = {
+        con: this.state.con,
+        populationLoss,
+        productionLossPercent: projection.productionLossPercent,
+        loyaltyDelta: projection.loyaltyDelta,
+        classLosses,
+      }
+      epidemic.lastImpact = impact
+      const impactEntries = this.state.empire.chronicle.filter(entry => (
+        entry.kind === 'epidemic-impact'
+        && entry.sourceId.startsWith(`epidemic-impact:${epidemic.id}:`)
+      )).length
+      if (impactEntries < this.config.empire.epidemics.chronicleImpactEntriesPerEpidemic) {
+        this.appendChronicle(this.state, {
+          kind: 'epidemic-impact',
+          sourceId: `epidemic-impact:${epidemic.id}:${this.state.con}`,
+          title: `${this.epidemicDefinition(epidemic.definitionId)?.name ?? epidemic.definitionId}: последствия`,
+          description: `Потери населения: ${populationLoss}; производство: −${projection.productionLossPercent.toFixed(2)}%; лояльность: ${projection.loyaltyDelta}.`,
+          target: { kind: 'city', cityId: city.id },
+        })
+      }
+      for (const attempt of transition.attempts) {
+        if (!epidemic.spread.attemptedTargetCityIds.includes(attempt.cityId)) {
+          epidemic.spread.attemptedTargetCityIds.push(attempt.cityId)
+        }
+        if (attempt.succeeds) {
+          spreadRequests.push({ parent: epidemic, definitionId: epidemic.definitionId, cityId: attempt.cityId })
+        }
+      }
+      if (transition.attempts.length > 0) epidemic.spread.lastSpreadCon = this.state.con
+
+      epidemic.remainingDuration = Math.max(0, epidemic.remainingDuration - 1)
+      epidemic.remainingStageDuration = Math.max(0, epidemic.remainingStageDuration - 1)
+      const definition = this.epidemicDefinition(epidemic.definitionId)!
+      if (epidemic.remainingDuration === 0) {
+        epidemic.endedAtCon = this.state.con
+        epidemic.endReason = 'resolved'
+        this.appendChronicle(this.state, {
+          kind: 'epidemic-end',
+          sourceId: `epidemic-end:${epidemic.id}`,
+          title: `Эпидемия завершилась: ${definition.name}`,
+          description: `${city.name} пережил полный цикл болезни.`,
+          target: { kind: 'city', cityId: city.id },
+        })
+      } else if (epidemic.remainingStageDuration === 0) {
+        const nextStage = definition.stages[epidemic.stageIndex + 1]
+        if (!nextStage) throw new Error(`Epidemic ${epidemic.id} exhausted its stages early.`)
+        epidemic.stageIndex += 1
+        epidemic.stageId = nextStage.id
+        epidemic.severity = nextStage.severity
+        epidemic.remainingStageDuration = nextStage.durationCons
+      }
+    }
+
+    for (const request of spreadRequests.sort((left, right) => (
+      stableStringCompare(left.parent.id, right.parent.id)
+      || stableStringCompare(left.cityId, right.cityId)
+    ))) {
+      const result = this.startEpidemicInternal({
+        definitionId: request.definitionId,
+        originCityId: request.cityId,
+        source: {
+          kind: 'spread',
+          id: `spread:${request.parent.id}:${this.state.con}:${request.cityId}`,
+          parentInstanceId: request.parent.id,
+        },
+      })
+      if (!result.ok || !result.changed) continue
+      if (!request.parent.spread.spreadTargetCityIds.includes(request.cityId)) {
+        request.parent.spread.spreadTargetCityIds.push(request.cityId)
+      }
+      this.appendChronicle(this.state, {
+        kind: 'epidemic-spread',
+        sourceId: `epidemic-spread:${request.parent.id}:${request.cityId}`,
+        title: 'Эпидемия распространилась',
+        description: `${request.parent.cityId} → ${request.cityId}.`,
+        target: { kind: 'city', cityId: request.cityId },
+      })
+    }
+    this.refreshProductions()
+  }
+
+  private normalizeEpidemics(state: EmpiresCampaignState, snapshotVersion: number): void {
+    if (!Array.isArray(state.epidemics)) throw new Error('Invalid epidemic state.')
+    if (snapshotVersion < 6 && state.epidemics.length > 0) {
+      throw new Error('Legacy saves cannot contain epidemic state.')
+    }
+    const definitionIds = new Set(this.config.empire.epidemics.definitions.map(item => item.id))
+    const cityIds = new Set(this.config.empire.cities.map(item => item.id))
+    const rules = this.epidemicRulesIdentity()
+    const instanceIds = new Set<string>()
+    for (const epidemic of state.epidemics) {
+      if (!epidemic || typeof epidemic.id !== 'string' || !epidemic.id
+        || instanceIds.has(epidemic.id)
+        || !definitionIds.has(epidemic.definitionId)
+        || !cityIds.has(epidemic.originCityId) || !cityIds.has(epidemic.cityId)
+        || epidemic.rulesVersion !== rules.rulesVersion || epidemic.rulesDigest !== rules.rulesDigest
+        || !Number.isInteger(epidemic.stageIndex) || epidemic.stageIndex < 0
+        || !Number.isInteger(epidemic.startedCon) || epidemic.startedCon < 1
+        || !Number.isInteger(epidemic.remainingStageDuration) || epidemic.remainingStageDuration < 0
+        || !Number.isInteger(epidemic.remainingDuration) || epidemic.remainingDuration < 0
+        || !Array.isArray(epidemic.affectedClasses)
+        || !epidemic.containment || !['undecided', 'open', 'sealed'].includes(epidemic.containment.mode)
+        || !epidemic.spread || !Array.isArray(epidemic.spread.attemptedTargetCityIds)
+        || !Array.isArray(epidemic.spread.spreadTargetCityIds)) {
+        throw new Error(`Invalid or rules-mismatched epidemic ${epidemic?.id ?? 'unknown'}.`)
+      }
+      const definition = this.epidemicDefinition(epidemic.definitionId)!
+      const stage = definition.stages[epidemic.stageIndex]
+      if (!stage || stage.id !== epidemic.stageId || stage.severity !== epidemic.severity
+        || JSON.stringify(epidemic.affectedClasses) !== JSON.stringify(definition.affectedClasses)) {
+        throw new Error(`Epidemic ${epidemic.id} does not match its definition.`)
+      }
+      epidemic.spread.attemptedTargetCityIds = Array.from(new Set(
+        epidemic.spread.attemptedTargetCityIds.filter(cityId => cityIds.has(cityId)),
+      )).sort(stableStringCompare)
+      epidemic.spread.spreadTargetCityIds = Array.from(new Set(
+        epidemic.spread.spreadTargetCityIds.filter(cityId => cityIds.has(cityId)),
+      )).sort(stableStringCompare)
+      instanceIds.add(epidemic.id)
+    }
+    state.nextEpidemicSequence = Number.isInteger(state.nextEpidemicSequence)
+      && state.nextEpidemicSequence > 0
+      ? state.nextEpidemicSequence
+      : state.epidemics.length + 1
+  }
+
+  private epidemicProductionMultiplier(cityId: string): number {
+    return this.state.epidemics
+      .filter(epidemic => epidemic.cityId === cityId && epidemic.lastImpact?.con === this.state.con)
+      .sort((left, right) => stableStringCompare(left.id, right.id))
+      .reduce((multiplier, epidemic) => (
+        multiplier * Math.max(0, 1 - (epidemic.lastImpact?.productionLossPercent ?? 0) / 100)
+      ), 1)
   }
 
   private selectTechnologySide(
@@ -3450,6 +4192,16 @@ export class EmpiresEndgameEngine {
       if (combination.deferredReason
         || this.state.empire.hiddenCombinationTriggers[combination.id]
         || this.firstMissingDependency(combination.prerequisites)) continue
+      if (combination.epidemicStart) {
+        const originCityId = this.resolveEpidemicOrigin(combination.epidemicStart)
+        if (!originCityId) continue
+        const epidemic = this.startEpidemicInternal({
+          definitionId: combination.epidemicStart.definitionId,
+          originCityId,
+          source: { kind: 'hidden-combination', id: `hidden-combination:${combination.id}` },
+        })
+        if (!epidemic.ok) continue
+      }
       this.state.empire.hiddenCombinationTriggers[combination.id] = {
         triggeredAtCon: this.state.con,
       }
@@ -3845,7 +4597,21 @@ export class EmpiresEndgameEngine {
     if (event.id === 'event-horse-theft' && (this.state.empire.flags.horseTheftDisabled ?? 0) > 0) {
       return false
     }
+    if (event.epidemicTarget && !this.eventEpidemicTarget(event)) return false
     return !this.firstMissingDependency(event.prerequisites ?? [])
+  }
+
+  private eventEpidemicTarget(event: EmpiresEventDefinition): EmpiresEpidemicState | null {
+    if (!event.epidemicTarget) return null
+    const allowed = event.epidemicTarget.definitionIds
+      ? new Set(event.epidemicTarget.definitionIds)
+      : null
+    return this.state.epidemics
+      .filter(epidemic => epidemic.endedAtCon === null)
+      .filter(epidemic => epidemic.containment.mode === 'undecided')
+      .filter(epidemic => !allowed || allowed.has(epidemic.definitionId))
+      .filter(epidemic => this.isCityAccessible(epidemic.cityId))
+      .sort((left, right) => stableStringCompare(left.id, right.id))[0] ?? null
   }
 
   private refreshProductions(): void {
@@ -3941,7 +4707,7 @@ export class EmpiresEndgameEngine {
 
   private applyOneShotGiftEffects(gift: EmpiresGiftDefinition, targetCityId?: string): void {
     const immediateKinds = new Set<EffectKind>([
-      'resource', 'time', 'population', 'loyalty', 'reputation', 'flag',
+      'resource', 'time', 'population', 'loyalty', 'reputation', 'flag', 'epidemicStart',
     ])
     this.applyGiftEffects(gift, targetCityId, immediateKinds)
   }
@@ -3958,7 +4724,7 @@ export class EmpiresEndgameEngine {
         targetCity.resources[effect.resourceId] = (targetCity.resources[effect.resourceId] ?? 0) + effect.amount
         continue
       }
-      this.applyEffects([effect], 0)
+      this.applyEffects([effect], 0, undefined, `gift:${gift.id}`, 1, targetCityId)
     }
   }
 
@@ -4322,6 +5088,8 @@ export class EmpiresEndgameEngine {
     const validKinds = new Set<EmpiresChronicleEntryKind>([
       'loyalty', 'reputation', 'rebellion', 'recovery', 'battle-loss',
       'season', 'technology-disclosure', 'hidden-combination',
+      'epidemic-start', 'epidemic-impact', 'epidemic-spread',
+      'epidemic-containment', 'epidemic-end',
     ])
     const seenIds = new Set<string>()
     state.empire.chronicle = (state.empire.chronicle ?? [])
@@ -4551,6 +5319,9 @@ export class EmpiresEndgameEngine {
   private recruitmentLoyaltyBlockedReason(city: EmpiresCityState): string | null {
     const access = this.cityAccessBlockedReason(city.id)
     if (access) return access
+    if (this.activeEpidemicStages(city.id).some(stage => stage.recruitmentBlocked)) {
+      return 'Recruitment is blocked by the current epidemic stage.'
+    }
     if (!this.config.empire.loyalty.enabled) return null
     const effective = this.effectiveCityLoyalty(city.id)
     return effective < this.config.empire.loyalty.recruitmentMinimumLoyalty
@@ -4568,6 +5339,9 @@ export class EmpiresEndgameEngine {
     const access = this.cityAccessBlockedReason(city.id)
     if (access) return access
     if (building.deferredReason) return `That building is deferred: ${building.deferredReason}`
+    if (this.activeEpidemicStages(city.id).some(stage => stage.facilityLocks.includes(building.slot))) {
+      return `The ${building.slot} facility is locked by the current epidemic stage.`
+    }
     const classGate = this.classGateBlockedReason(city, building, true)
     if (classGate) return classGate
     if (operationalLevel >= purchasedLevel) return null
@@ -4592,7 +5366,10 @@ export class EmpiresEndgameEngine {
         const building = this.buildingDefinitions.get(buildingId)
         return [
           buildingId,
-          building && this.classGateBlockedReason(city, building, true)
+          building && (
+            this.classGateBlockedReason(city, building, true)
+            || this.activeEpidemicStages(city.id).some(stage => stage.facilityLocks.includes(building.slot))
+          )
             ? 0
             : this.dependencyPermittedBuildingLevel(city, buildingId, level),
         ]

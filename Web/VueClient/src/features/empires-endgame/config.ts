@@ -10,15 +10,17 @@ import type {
   EmpiresBuildingSlotKind,
   EmpiresCampaignState,
   EmpiresEffect,
+  EmpiresEpidemicConfig,
   EmpiresEndgameConfig,
   EmpiresLoyaltyConfig,
+  EmpiresMedicalConfig,
   EmpiresSeasonsConfig,
 } from './types'
 import { validateEmpiresEndgameConfig } from './engine'
 
 export const EMPIRES_CONFIG_URL = '/empires-endgame/game-config.json'
 export const EMPIRES_CONFIG_STORAGE_KEY = 'empires-endgame:config:v1'
-export const EMPIRES_CONFIG_SCHEMA_VERSION = 7
+export const EMPIRES_CONFIG_SCHEMA_VERSION = 8
 export const EMPIRES_ACTIVE_MINIGAME_CONFIG_ERROR = 'Нельзя менять правила во время боя. Сначала завершите бой или выйдите через действие отмены.'
 
 export function empiresConfigReplacementDisabledReason(
@@ -171,6 +173,29 @@ const HIDDEN_COMBINATIONS_SCAFFOLD = {
   enabled: false,
   definitions: [],
 }
+
+const EPIDEMICS_SCAFFOLD = {
+  enabled: false,
+  rulesVersion: 1,
+  populationRounding: 'round',
+  productionRounding: 'floor',
+  loyaltyRounding: 'round',
+  chronicleImpactEntriesPerEpidemic: 8,
+  maxSpreadTargetsPerSettlement: 1,
+  definitions: [],
+  protections: [],
+} satisfies EmpiresEpidemicConfig
+
+const MEDICAL_SCAFFOLD = {
+  enabled: false,
+  hospitalBuildingId: '',
+  medicalAcademyBuildingId: '',
+  healerUnitId: '',
+  defaultBattleRecoveryCons: 2,
+  hospitalBattleRecoveryCons: 1,
+  academyFreeResearchCadenceCons: 3,
+  academyTreatmentDeathChance: 0.5,
+} satisfies EmpiresMedicalConfig
 
 const LOYALTY_V4_SCAFFOLD = {
   enabled: false,
@@ -548,6 +573,24 @@ function normalizeEmpiresConfigV7(config: Record<string, unknown>): Record<strin
   return config
 }
 
+function migrateEmpiresConfigV7ToV8(config: Record<string, unknown>): Record<string, unknown> {
+  if (isRecord(config.empire)) {
+    config.empire.epidemics = withScaffoldDefaults(config.empire.epidemics, EPIDEMICS_SCAFFOLD)
+    config.empire.medical = withScaffoldDefaults(config.empire.medical, MEDICAL_SCAFFOLD)
+  }
+  config.schemaVersion = 8
+  return config
+}
+
+function normalizeEmpiresConfigV8(config: Record<string, unknown>): Record<string, unknown> {
+  normalizeEmpiresConfigV7(config)
+  if (isRecord(config.empire)) {
+    config.empire.epidemics = withScaffoldDefaults(config.empire.epidemics, EPIDEMICS_SCAFFOLD)
+    config.empire.medical = withScaffoldDefaults(config.empire.medical, MEDICAL_SCAFFOLD)
+  }
+  return config
+}
+
 const EMPIRES_CONFIG_MIGRATIONS: Record<
   number,
   (config: Record<string, unknown>) => Record<string, unknown>
@@ -558,6 +601,7 @@ const EMPIRES_CONFIG_MIGRATIONS: Record<
   4: migrateEmpiresConfigV4ToV5,
   5: migrateEmpiresConfigV5ToV6,
   6: migrateEmpiresConfigV6ToV7,
+  7: migrateEmpiresConfigV7ToV8,
 }
 
 /**
@@ -583,6 +627,7 @@ export function migrateEmpiresConfig(raw: unknown): unknown {
   if (version === 5) migrated = normalizeEmpiresConfigV5(migrated)
   if (version === 6) migrated = normalizeEmpiresConfigV6(migrated)
   if (version === 7) migrated = normalizeEmpiresConfigV7(migrated)
+  if (version === 8) migrated = normalizeEmpiresConfigV8(migrated)
   return migrated
 }
 
@@ -795,6 +840,9 @@ const EMPIRES_LIVE_FLAG_ALLOWLIST = new Set([
 function validateLiveEffects(config: EmpiresEndgameConfig): string[] {
   const errors: string[] = []
   const dependencyFlagIds = new Set<string>()
+  const epidemicProtectionFlagIds = new Set(config.empire.epidemics.protections.flatMap(protection => (
+    protection.source.kind === 'flag' ? [protection.source.flagId] : []
+  )))
   const collectDependencies = (dependencies: readonly { kind: string, flagId?: string }[]) => {
     for (const dependency of dependencies) {
       if (dependency.kind === 'flag' && dependency.flagId) dependencyFlagIds.add(dependency.flagId)
@@ -824,6 +872,7 @@ function validateLiveEffects(config: EmpiresEndgameConfig): string[] {
       if (effect.kind !== 'flag' || !effect.flagId) continue
       if (
         EMPIRES_LIVE_FLAG_ALLOWLIST.has(effect.flagId)
+        || epidemicProtectionFlagIds.has(effect.flagId)
         || dependencyFlagIds.has(effect.flagId)
       ) continue
       errors.push(
@@ -1024,6 +1073,177 @@ function validateTechnologySidesAndHiddenCombinations(config: EmpiresEndgameConf
     } else if (sides.disclosure.kind !== 'onResearch') {
       throw new Error(`technology ${technology.id} has an unknown side disclosure kind.`)
     }
+  }
+}
+
+function validateEpidemicAndMedicalConfig(config: EmpiresEndgameConfig): void {
+  const epidemics = config.empire.epidemics
+  if (!isRecord(epidemics) || typeof epidemics.enabled !== 'boolean') {
+    throw new Error('empire.epidemics must be an object with an enabled flag.')
+  }
+  if (!Number.isInteger(epidemics.rulesVersion) || epidemics.rulesVersion < 1) {
+    throw new Error('empire.epidemics.rulesVersion must be a positive integer.')
+  }
+  if (!['floor', 'round'].includes(epidemics.populationRounding)
+    || !['floor', 'round', 'none'].includes(epidemics.productionRounding)
+    || epidemics.loyaltyRounding !== 'round') {
+    throw new Error('empire.epidemics rounding modes are invalid.')
+  }
+  if (!Number.isInteger(epidemics.chronicleImpactEntriesPerEpidemic)
+    || epidemics.chronicleImpactEntriesPerEpidemic < 1
+    || !Number.isInteger(epidemics.maxSpreadTargetsPerSettlement)
+    || epidemics.maxSpreadTargetsPerSettlement < 0) {
+    throw new Error('empire.epidemics retention and spread limits are invalid.')
+  }
+  if (!Array.isArray(epidemics.definitions) || !Array.isArray(epidemics.protections)) {
+    throw new Error('empire.epidemics definitions and protections must be arrays.')
+  }
+  if (epidemics.enabled && epidemics.definitions.length === 0) {
+    throw new Error('empire.epidemics needs definitions when enabled.')
+  }
+  const classIds = new Set(config.empire.populationClasses.map(item => item.id))
+  const definitionIds = new Set<string>()
+  for (const definition of epidemics.definitions) {
+    if (!definition.id?.trim() || definitionIds.has(definition.id) || !definition.name?.trim()) {
+      throw new Error('epidemic definitions need unique ids and names.')
+    }
+    if (!['ignore', 'refresh'].includes(definition.duplicatePolicy)) {
+      throw new Error(`epidemic ${definition.id} has an invalid duplicatePolicy.`)
+    }
+    if (!Array.isArray(definition.affectedClasses) || definition.affectedClasses.length === 0
+      || new Set(definition.affectedClasses.map(item => item.populationClassId)).size
+        !== definition.affectedClasses.length) {
+      throw new Error(`epidemic ${definition.id} needs unique affected classes.`)
+    }
+    for (const item of definition.affectedClasses) {
+      if (!classIds.has(item.populationClassId) || !Number.isFinite(item.weight) || item.weight <= 0) {
+        throw new Error(`epidemic ${definition.id} has an invalid affected class ${item.populationClassId}.`)
+      }
+    }
+    if (!Array.isArray(definition.stages) || definition.stages.length === 0
+      || new Set(definition.stages.map(stage => stage.id)).size !== definition.stages.length) {
+      throw new Error(`epidemic ${definition.id} needs unique stages.`)
+    }
+    for (const stage of definition.stages) {
+      if (!stage.id?.trim() || !stage.name?.trim() || !Number.isFinite(stage.severity)
+        || stage.severity < 0 || !Number.isInteger(stage.durationCons) || stage.durationCons < 1
+        || !Number.isFinite(stage.populationLossPercent) || stage.populationLossPercent < 0
+        || stage.populationLossPercent > 100
+        || !Number.isFinite(stage.productionLossPercent) || stage.productionLossPercent < 0
+        || stage.productionLossPercent > 100
+        || !Number.isFinite(stage.loyaltyDelta)
+        || !Number.isFinite(stage.spreadChance) || stage.spreadChance < 0 || stage.spreadChance > 1
+        || typeof stage.recruitmentBlocked !== 'boolean'
+        || !Array.isArray(stage.facilityLocks)
+        || stage.facilityLocks.some(slot => !EMPIRES_BUILDING_SLOT_KINDS.has(slot))) {
+        throw new Error(`epidemic ${definition.id} stage ${stage.id} is invalid.`)
+      }
+    }
+    definitionIds.add(definition.id)
+  }
+
+  const buildingIds = new Set(config.empire.buildings.map(item => item.id))
+  const protectionIds = new Set<string>()
+  for (const protection of epidemics.protections) {
+    if (!protection.id?.trim() || protectionIds.has(protection.id) || !protection.name?.trim()
+      || !Array.isArray(protection.consequences) || protection.consequences.length === 0
+      || new Set(protection.consequences).size !== protection.consequences.length
+      || protection.consequences.some(item => !['population', 'production', 'loyalty', 'spread'].includes(item))) {
+      throw new Error('epidemic protections need unique ids, names, and consequences.')
+    }
+    if (protection.source.kind === 'building') {
+      if (!buildingIds.has(protection.source.buildingId)
+        || !['city', 'empire'].includes(protection.source.scope)
+        || !Number.isFinite(protection.source.multiplier)
+        || protection.source.multiplier < 0 || protection.source.multiplier > 1) {
+        throw new Error(`epidemic protection ${protection.id} has an invalid building source.`)
+      }
+    } else if (protection.source.kind === 'flag') {
+      if (!protection.source.flagId?.trim()
+        || !Number.isFinite(protection.source.reductionPercentPerPoint)
+        || protection.source.reductionPercentPerPoint < 0
+        || !Number.isFinite(protection.source.maximumReductionPercent)
+        || protection.source.maximumReductionPercent < 0
+        || protection.source.maximumReductionPercent > 100) {
+        throw new Error(`epidemic protection ${protection.id} has an invalid flag source.`)
+      }
+    } else {
+      throw new Error(`epidemic protection ${protection.id} has an unknown source.`)
+    }
+    protectionIds.add(protection.id)
+  }
+
+  const validateStart = (start: { definitionId?: string, origin?: unknown }, label: string) => {
+    if (typeof start.definitionId !== 'string' || !definitionIds.has(start.definitionId)
+      || !isRecord(start.origin) || typeof start.origin.kind !== 'string') {
+      throw new Error(`${label} has an invalid epidemic start.`)
+    }
+    if (start.origin.kind === 'city') {
+      if (typeof start.origin.cityId !== 'string'
+        || !config.empire.cities.some(city => city.id === start.origin!.cityId)) {
+        throw new Error(`${label} references an unknown epidemic origin city.`)
+      }
+    } else if (start.origin.kind === 'lowest-operational-building-city') {
+      if (typeof start.origin.buildingId !== 'string' || !buildingIds.has(start.origin.buildingId)) {
+        throw new Error(`${label} references an unknown epidemic origin building.`)
+      }
+    } else if (!['effect-target-city', 'lowest-accessible-city'].includes(start.origin.kind)) {
+      throw new Error(`${label} has an unknown epidemic origin selector.`)
+    }
+  }
+  const effectGroups: Array<[string, readonly EmpiresEffect[]]> = []
+  for (const card of config.cards) {
+    effectGroups.push([`card ${card.id} normal`, card.normal.effects])
+    effectGroups.push([`card ${card.id} inverted`, card.inverted.effects])
+  }
+  for (const gift of config.gifts.definitions) effectGroups.push([`gift ${gift.id}`, gift.effects])
+  for (const technology of config.empire.technologies) {
+    effectGroups.push([`technology ${technology.id}`, technology.effects])
+    for (const side of technology.sides?.definitions ?? []) {
+      effectGroups.push([`technology ${technology.id} side ${side.id}`, side.effects])
+    }
+  }
+  for (const event of config.empire.events) {
+    if (event.epidemicTarget?.definitionIds?.some(id => !definitionIds.has(id))) {
+      throw new Error(`event ${event.id} targets an unknown epidemic definition.`)
+    }
+    for (const choice of event.choices) {
+      effectGroups.push([`event ${event.id} choice ${choice.id}`, choice.effects])
+      if (choice.epidemicContainment && (
+        !['open', 'sealed'].includes(choice.epidemicContainment.mode)
+        || typeof choice.epidemicContainment.preventsIntercitySpread !== 'boolean'
+        || !Number.isFinite(choice.epidemicContainment.localImpactMultiplier)
+        || choice.epidemicContainment.localImpactMultiplier <= 0
+      )) throw new Error(`event ${event.id} choice ${choice.id} has invalid epidemic containment.`)
+    }
+  }
+  for (const [label, effects] of effectGroups) {
+    for (const effect of effects) if (effect.kind === 'epidemicStart') validateStart(effect, label)
+  }
+  for (const combination of config.empire.hiddenCombinations.definitions) {
+    if (combination.epidemicStart) validateStart(combination.epidemicStart, `hidden combination ${combination.id}`)
+  }
+
+  const medical = config.empire.medical
+  if (!isRecord(medical) || typeof medical.enabled !== 'boolean') {
+    throw new Error('empire.medical must be an object with an enabled flag.')
+  }
+  if (medical.enabled) {
+    const unitIds = new Set((config.empire.units ?? []).map(item => item.id))
+    if (!buildingIds.has(medical.hospitalBuildingId)
+      || !buildingIds.has(medical.medicalAcademyBuildingId)
+      || !unitIds.has(medical.healerUnitId)) {
+      throw new Error('empire.medical must reference known Hospital, Medical Academy, and healer carriers.')
+    }
+  }
+  if (!Number.isInteger(medical.defaultBattleRecoveryCons) || medical.defaultBattleRecoveryCons < 1
+    || !Number.isInteger(medical.hospitalBattleRecoveryCons) || medical.hospitalBattleRecoveryCons < 1
+    || medical.hospitalBattleRecoveryCons > medical.defaultBattleRecoveryCons
+    || !Number.isInteger(medical.academyFreeResearchCadenceCons)
+    || medical.academyFreeResearchCadenceCons < 1
+    || !Number.isFinite(medical.academyTreatmentDeathChance)
+    || medical.academyTreatmentDeathChance < 0 || medical.academyTreatmentDeathChance > 1) {
+    throw new Error('empire.medical cadence, recovery, and treatment values are invalid.')
   }
 }
 
@@ -2233,6 +2453,13 @@ function validateTdConfig(
       requireFinite(profile.maxHp, `unit ${String(rawUnit.id)} td.maxHp`, Number.EPSILON)
       requireFinite(profile.attackRange, `unit ${String(rawUnit.id)} td.attackRange`, Number.EPSILON)
       requirePositiveInteger(profile.attackIntervalTicks, `unit ${String(rawUnit.id)} td.attackIntervalTicks`)
+      if (profile.healing !== undefined) {
+        if (!isRecord(profile.healing)) throw new Error(`unit ${String(rawUnit.id)} td.healing must be an object.`)
+        requireFinite(profile.healing.range, `unit ${String(rawUnit.id)} td.healing.range`)
+        requirePositiveInteger(profile.healing.intervalTicks, `unit ${String(rawUnit.id)} td.healing.intervalTicks`)
+        requireFinite(profile.healing.amountPerUnit, `unit ${String(rawUnit.id)} td.healing.amountPerUnit`, Number.EPSILON)
+        requirePositiveInteger(profile.healing.chargesPerUnit, `unit ${String(rawUnit.id)} td.healing.chargesPerUnit`)
+      }
       const weapon = combatEquipment.get(String(profile.weaponEquipmentId))
       if (!weapon || weapon.kind !== 'weapon' || weapon.deferredReason) {
         throw new Error(`unit ${String(rawUnit.id)} references an unavailable TD weapon.`)
@@ -2376,6 +2603,7 @@ export function validateEmpiresConfig(value: unknown): asserts value is EmpiresE
 
   const config = value as unknown as EmpiresEndgameConfig
   validateTechnologySidesAndHiddenCombinations(config)
+  validateEpidemicAndMedicalConfig(config)
   validateLoyaltyConfig(config)
   validatePoliticalEffects(config)
   validateSteelResearchConfig(config)

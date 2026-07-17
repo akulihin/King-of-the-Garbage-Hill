@@ -59,12 +59,10 @@ function handleKeydown(e: KeyboardEvent) {
     return
   }
   if (phase.value !== 'Combat' && phase.value !== 'Boarding') return
-  if (e.key === '1') { void store.selectWeapon('Ballista', 'Ballista'); return }
-  const specials = store.availableWeapons.filter(w => w.type !== 'Ballista')
-  const idx = parseInt(e.key) - 2
-  if (idx >= 0 && idx < specials.length) {
-    const w = specials[idx]
-    if (w.hasAmmo && w.aimSpeed <= 0) void store.selectWeapon(w.type, w.shotType)
+  const idx = parseInt(e.key) - 1
+  if (idx >= 0 && idx < store.availableWeapons.length) {
+    const w = store.availableWeapons[idx]
+    if (w.hasAmmo && w.aimSpeed <= 0) void store.selectWeapon(w.type, w.shotType, w.id)
   }
 }
 

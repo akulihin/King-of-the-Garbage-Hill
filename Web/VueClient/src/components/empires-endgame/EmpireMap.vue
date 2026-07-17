@@ -29,6 +29,9 @@ interface EmpireMapObject {
   rotation?: number
   accessible?: boolean
   disabledReason?: string
+  epidemicCount?: number
+  epidemicStage?: string
+  epidemicTurns?: number
 }
 
 interface EmpireMapPoint {
@@ -336,6 +339,11 @@ function hideBrokenImage(event: Event) {
           <component :is="iconFor(object.kind)" v-else :size="20" />
         </span>
         <span class="object-label">{{ object.label }}</span>
+        <span
+          v-if="(object.epidemicCount ?? 0) > 0"
+          class="object-epidemic"
+          :data-testid="object.cityId ? `map-epidemic-${object.cityId}` : undefined"
+        >☣ {{ object.epidemicStage }} · {{ object.epidemicTurns }}</span>
         <span v-if="object.accessible === false" class="object-state"><AlertTriangle :size="11" /> Недоступен</span>
       </button>
 
@@ -689,6 +697,16 @@ function hideBrokenImage(event: Event) {
   background: rgba(92, 30, 24, 0.88);
   font: 800 0.49rem/1 var(--font-mono, monospace);
   text-transform: uppercase;
+}
+.object-epidemic {
+  display: inline-flex;
+  padding: 3px 5px;
+  border: 1px solid rgba(255, 196, 94, .38);
+  border-radius: 4px;
+  color: #ffe1a0;
+  background: rgba(91, 47, 12, .92);
+  font: 800 .48rem/1 var(--font-mono, monospace);
+  white-space: nowrap;
 }
 
 .map-empty { position: absolute; inset: 0; display: grid; place-content: center; place-items: center; gap: 6px; color: rgba(248,239,217,0.68); text-align: center; }

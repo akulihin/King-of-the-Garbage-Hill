@@ -19,7 +19,7 @@ public static class ShipCatalog
             DeckCount = 1, Range = RangeClass.Close, Cost = 0, IsFree = true,
             DefaultArmor = 2, Speed = 1, Space = 1, Regions = new() { },
             Description = "Basic 1-deck close-range ship",
-            DefaultWeapons = new() { new WeaponTemplate { Type = WeaponType.Ballista, Damage = 2 } }
+            DefaultWeapons = new() { new WeaponTemplate { Type = WeaponType.Ballista } }
         },
         new ShipDefinition
         {
@@ -27,7 +27,7 @@ public static class ShipCatalog
             DeckCount = 2, Range = RangeClass.Mid, Cost = 0, IsFree = true,
             DefaultArmor = 2, Speed = 1, Space = 1, Regions = new() { },
             Description = "Basic 2-deck mid-range ship",
-            DefaultWeapons = new() { new WeaponTemplate { Type = WeaponType.Ballista, Damage = 2 } }
+            DefaultWeapons = new() { new WeaponTemplate { Type = WeaponType.Ballista } }
         },
         new ShipDefinition
         {
@@ -37,7 +37,7 @@ public static class ShipCatalog
             Description = "Basic 3-deck ship with Tetracatapult",
             DefaultWeapons = new()
             {
-                new WeaponTemplate { Type = WeaponType.Tetracatapult, Damage = 2, Ammo = 1, DeckIndex = 1, AimSpeed = 20 }
+                new WeaponTemplate { Type = WeaponType.Tetracatapult, Ammo = 1, DeckIndex = 1, AimSpeed = 20 }
             },
             AvailableUpgrades = new()
             {
@@ -56,10 +56,10 @@ public static class ShipCatalog
             Description = "4-deck flagship with boiler, mast, tetracatapult, and ballista",
             DefaultWeapons = new()
             {
-                new WeaponTemplate { Type = WeaponType.Boiler, Damage = 0, DeckIndex = 0 },
-                new WeaponTemplate { Type = WeaponType.Mast, Damage = 0, DeckIndex = 1 },
-                new WeaponTemplate { Type = WeaponType.Tetracatapult, Damage = 2, Ammo = 1, DeckIndex = 2, AimSpeed = 20 },
-                new WeaponTemplate { Type = WeaponType.Ballista, Damage = 2, DeckIndex = 3 },
+                new WeaponTemplate { Type = WeaponType.Boiler, DeckIndex = 0 },
+                new WeaponTemplate { Type = WeaponType.Mast, DeckIndex = 1 },
+                new WeaponTemplate { Type = WeaponType.Tetracatapult, Ammo = 1, DeckIndex = 2, AimSpeed = 20 },
+                new WeaponTemplate { Type = WeaponType.Ballista, DeckIndex = 3 },
             },
             AvailableUpgrades = new()
             {
@@ -75,9 +75,9 @@ public static class ShipCatalog
             Id = "desiccator", Name = "Desiccator", NameRu = "Иссушитель",
             DeckCount = 1, Range = RangeClass.Close, Cost = 34,
             DefaultArmor = 1, Speed = 3, Space = 1, Regions = new() { Region.South, Region.West },
-            Abilities = new() { "nimble", "ballista_immune", "auto_win_boarding" },
+            Abilities = new() { "ballista_immune", "auto_win_boarding" },
             Description = "Nimble + auto-win on boarding",
-            DefaultWeapons = new() { new WeaponTemplate { Type = WeaponType.Ballista, Damage = 2 } }
+            DefaultWeapons = new() { new WeaponTemplate { Type = WeaponType.Ballista } }
         },
         new ShipDefinition
         {
@@ -95,16 +95,16 @@ public static class ShipCatalog
             DeckHpOverrides = new() { 6 }, Speed = 0, Space = 1, IsHome = true, Regions = new() { Region.North, Region.East },
             Abilities = new() { "burn_resist", "poison_cone" },
             Description = "Burn resist + poison cone attack",
-            DefaultWeapons = new() { new WeaponTemplate { Type = WeaponType.Ballista, Damage = 2 } }
+            DefaultWeapons = new() { new WeaponTemplate { Type = WeaponType.Ballista } }
         },
         new ShipDefinition
         {
             Id = "nimble_single", Name = "Nimble Single", NameRu = "Юркая единичка",
             DeckCount = 1, Range = RangeClass.Close, Cost = 16,
             DefaultArmor = 1, Speed = 3, Space = 1, Regions = new() { Region.West },
-            Abilities = new() { "nimble", "ballista_immune" },
+            Abilities = new() { "ballista_immune" },
             Description = "Immune to ballista shots",
-            DefaultWeapons = new() { new WeaponTemplate { Type = WeaponType.Ballista, Damage = 2 } }
+            DefaultWeapons = new() { new WeaponTemplate { Type = WeaponType.Ballista } }
         },
         new ShipDefinition
         {
@@ -113,7 +113,7 @@ public static class ShipCatalog
             DefaultArmor = 2, Speed = 1, Space = 1, Regions = new() { Region.East },
             Abilities = new() { "poison_cone" },
             Description = "Poison cone attack",
-            DefaultWeapons = new() { new WeaponTemplate { Type = WeaponType.Ballista, Damage = 2 } }
+            DefaultWeapons = new() { new WeaponTemplate { Type = WeaponType.Ballista } }
         },
         new ShipDefinition
         {
@@ -122,16 +122,16 @@ public static class ShipCatalog
             DeckHpOverrides = new() { 1, 1, 1 }, Speed = 2, Space = 1, Regions = new() { Region.West },
             Abilities = new() { "auto_dodge_bow_stern" },
             Description = "Auto-dodges bow/stern shots, speed 2",
-            DefaultWeapons = new() { new WeaponTemplate { Type = WeaponType.Ballista, Damage = 2 } }
+            DefaultWeapons = new() { new WeaponTemplate { Type = WeaponType.Ballista } }
         },
         new ShipDefinition
         {
             Id = "toros", Name = "Toros", NameRu = "Торос",
             DeckCount = 1, Range = RangeClass.Mid, Cost = 12,
             DeckHpOverrides = new() { 6 }, Speed = 0, Space = 1, IsHome = true, Regions = new() { Region.North },
-            Abilities = new() { "burn_resist", "stationary" },
+            Abilities = new() { "burn_resist" },
             Description = "Heavy armor, stationary, burn resist",
-            DefaultWeapons = new() { new WeaponTemplate { Type = WeaponType.Ballista, Damage = 2 } }
+            DefaultWeapons = new() { new WeaponTemplate { Type = WeaponType.Ballista } }
         },
         new ShipDefinition
         {
@@ -140,7 +140,7 @@ public static class ShipCatalog
             DefaultArmor = 2, Speed = 1, Space = 1, Regions = new() { Region.South },
             Abilities = new() { "spawn_cursed_boat" },
             Description = "Spawns cursed boat on death",
-            DefaultWeapons = new() { new WeaponTemplate { Type = WeaponType.Ballista, Damage = 2 } }
+            DefaultWeapons = new() { new WeaponTemplate { Type = WeaponType.Ballista } }
         },
         new ShipDefinition
         {
@@ -151,7 +151,7 @@ public static class ShipCatalog
             Description = "Explodes on ANY hit, burns area (radius=2). Горючка weapon.",
             DefaultWeapons = new()
             {
-                new WeaponTemplate { Type = WeaponType.Incendiary, Damage = 0, Ammo = 2, DeckIndex = 0, AimSpeed = 20 } // Горючка
+                new WeaponTemplate { Type = WeaponType.Incendiary, Ammo = 2, DeckIndex = 0, AimSpeed = 20 } // Горючка
             }
         },
         new ShipDefinition
@@ -161,7 +161,7 @@ public static class ShipCatalog
             DeckHpOverrides = new() { 1, 1 }, Speed = 2, Space = 1, Regions = new() { Region.West },
             Abilities = new() { "manual_move_after_hit" },
             Description = "Manual move after being hit, speed 2",
-            DefaultWeapons = new() { new WeaponTemplate { Type = WeaponType.Ballista, Damage = 2 } }
+            DefaultWeapons = new() { new WeaponTemplate { Type = WeaponType.Ballista } }
         },
         new ShipDefinition
         {
@@ -170,7 +170,7 @@ public static class ShipCatalog
             DeckHpOverrides = new() { 2, 2 }, Space = 1, Regions = new() { Region.South },
             Abilities = new() { "spawn_pirate_boat" },
             Description = "Spawns pirate boat on death",
-            DefaultWeapons = new() { new WeaponTemplate { Type = WeaponType.Ballista, Damage = 2 } }
+            DefaultWeapons = new() { new WeaponTemplate { Type = WeaponType.Ballista } }
         },
     };
 
@@ -215,10 +215,13 @@ public static class ShipCatalog
             {
                 Type = wt.Type,
                 Ammo = wt.Ammo,
-                Damage = wt.Damage,
                 AimSpeed = wt.AimSpeed,
-                ShipId = ship.Id
+                ShipId = ship.Id,
+                DeckIndex = wt.DeckIndex,
             });
+
+            if (wt.DeckIndex >= 0 && wt.DeckIndex < ship.Decks.Count && ship.Decks[wt.DeckIndex].Module == null)
+                ship.Decks[wt.DeckIndex].Module = WeaponModuleName(wt.Type);
         }
 
         // Assign modules to decks for Tetranavis
@@ -279,19 +282,15 @@ public static class ShipCatalog
                     ship.Abilities.Add("spawn_pirate_boat");
                 break;
 
-            case "discus":
-                ship.Abilities.Add("discus_thrower");
-                break;
-
             case "greek_fire":
-                ship.Abilities.Add("greek_fire_summon");
+                ship.Abilities.Add("greek_fire_weapon");
                 // Add one-shot GreekFire weapon so the player can select & fire it
                 ship.Weapons.Add(new Weapon
                 {
                     Type = WeaponType.GreekFire,
                     Ammo = 1,
-                    Damage = 0, // burn mechanic handles damage
                     ShipId = ship.Id,
+                    DeckIndex = 0,
                 });
                 break;
 
@@ -299,5 +298,19 @@ public static class ShipCatalog
                 ship.Abilities.Add("brander_summon");
                 break;
         }
+    }
+
+    private static string WeaponModuleName(WeaponType type)
+    {
+        return type switch
+        {
+            WeaponType.Ballista => "ballista",
+            WeaponType.Tetracatapult => "tetracatapult",
+            WeaponType.Mast => "mast",
+            WeaponType.Boiler => "boiler",
+            WeaponType.Incendiary => "incendiary",
+            WeaponType.GreekFire => "boiler",
+            _ => null,
+        };
     }
 }

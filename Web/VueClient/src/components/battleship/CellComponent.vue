@@ -38,13 +38,14 @@ const cellClass = computed(() => {
   else if (props.cell.isBurning) classes.push('cell-burning')
   else if (props.cell.isFrozen) classes.push('cell-frozen')
   else if (props.cell.isBurnResistMarked) classes.push('cell-burn-resist')
-  else if (props.cell.isCaptured) classes.push('cell-captured')
   else if (props.cell.isScratched) classes.push('cell-scratched')
   else if (props.cell.isHit && props.cell.hasShip) classes.push('cell-hit')
   else if (props.cell.isHit) classes.push('cell-hit-empty')
+  else if (props.cell.isCaptured) classes.push('cell-captured')
   else if (props.cell.isDodgeMarked) classes.push('cell-dodge-mark')
   else if (props.cell.isMiss) classes.push('cell-miss')
   else if (props.cell.hasShip && !props.isEnemy) classes.push('cell-ship')
+  else if (props.cell.hasShip && props.cell.isRevealed) classes.push('cell-revealed-ship')
   else if (!props.cell.isRevealed && props.isEnemy) classes.push('cell-fog')
   else classes.push('cell-empty')
 
@@ -113,9 +114,9 @@ const cellIconHtml = computed(() => {
   if (props.cell.isFirePermanent) return renderIcon('firePermanent', 14)
   if (props.cell.isBurning) return renderIcon('burning', 14)
   if (props.cell.isFrozen) return renderIcon('frozen', 14)
-  if (props.cell.isCaptured) return renderIcon('captured', 14)
   if (props.cell.isScratched) return renderIcon('scratched', 14)
   if (props.cell.isHit && props.cell.hasShip) return renderIcon('hit', 14)
+  if (props.cell.isCaptured) return renderIcon('captured', 14)
   if (props.cell.isMiss) return renderIcon('miss', 10)
   if (props.blocked) return ''
   return ''
@@ -125,7 +126,7 @@ const colLabels = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J']
 
 const summonNames: Record<string, string> = {
   Ram: 'Таран', Scout: 'Разведчик', Brander: 'Брандер',
-  CursedBoat: 'Проклятый', PirateBoat: 'Пират',
+  CursedBoat: 'Проклятый корабль', PirateBoat: 'Пиратская лодка',
 }
 
 defineEmits<{
@@ -158,9 +159,21 @@ const cellTooltip = computed(() => {
   else if (props.cell.isDodgeMarked) base = `Юркая единичка увернулась — баллиста бессильна`
   else if (props.cell.isMiss) base = `Промах`
   else if (props.cell.hasShip && !props.isEnemy) base = `Корабль${ship}`
+  else if (props.cell.hasShip && props.cell.isRevealed) base = `Обнаружен корабль`
   else if (props.isEnemy && !props.cell.isRevealed) base = `Неизведано`
 
   const extras: string[] = []
+  const addState = (active: boolean, label: string) => {
+    if (active && base !== label && !extras.includes(label)) extras.push(label)
+  }
+  addState(props.cell.isDestroyed, 'Уничтожено')
+  addState(props.cell.isDevastated, 'Опустошено')
+  addState(props.cell.isFirePermanent || props.cell.isBurning, 'Горит')
+  addState(props.cell.isFrozen, 'Заморожено')
+  addState(props.cell.isBurnResistMarked, 'Огнеупорность')
+  addState(props.cell.isScratched, 'Поцарапано')
+  addState(props.cell.isCaptured, 'Захвачено')
+  addState(props.cell.isDodgeMarked, 'Уклонение')
   if (props.summonTrail) {
     extras.push(typeof props.summonTrail === 'string'
       ? `След: ${summonNames[props.summonTrail] ?? props.summonTrail}`
@@ -227,6 +240,11 @@ const cellTooltip = computed(() => {
   opacity: 0.8;
   animation: ship-bob 3s ease-in-out infinite;
   animation-delay: calc(var(--cell-row, 0) * 0.15s + var(--cell-col, 0) * 0.1s);
+}
+
+.cell-revealed-ship {
+  background: color-mix(in srgb, var(--accent-purple, #8b5cf6) 22%, var(--bg-card));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent-purple, #8b5cf6) 55%, transparent);
 }
 
 .cell-hit {

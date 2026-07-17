@@ -833,6 +833,9 @@ const mapRegionViews = computed(() => {
         rotation: object.rotation,
         accessible: cityAccessible,
         disabledReason: cityAccessible ? undefined : regionBlockedReasonText(region.id),
+        epidemicCount: cityId ? engine.value?.cityEpidemicViews(cityId).length ?? 0 : 0,
+        epidemicStage: cityId ? engine.value?.cityEpidemicViews(cityId)[0]?.stageName : undefined,
+        epidemicTurns: cityId ? engine.value?.cityEpidemicViews(cityId)[0]?.turnsRemaining : undefined,
       }
     })
     current.empire.cities.filter(city => city.regionId === region.id && !cityObjectIds.has(city.id)).forEach(city => {
@@ -849,6 +852,9 @@ const mapRegionViews = computed(() => {
         rotation: undefined,
         accessible: cityAccessible,
         disabledReason: cityAccessible ? undefined : regionBlockedReasonText(region.id),
+        epidemicCount: engine.value?.cityEpidemicViews(city.id).length ?? 0,
+        epidemicStage: engine.value?.cityEpidemicViews(city.id)[0]?.stageName,
+        epidemicTurns: engine.value?.cityEpidemicViews(city.id)[0]?.turnsRemaining,
       })
     })
     return {
@@ -1388,7 +1394,11 @@ const cityViews = computed(() => {
       armyCohorts: city.recruitedUnitCohorts
         .filter(cohort => cohort.count > 0)
         .sort((left, right) => left.id.localeCompare(right.id))
-        .map(cohort => ({
+        .map(cohort => {
+          const recoveries = state.value!.army.recoveries.filter(recovery => (
+            recovery.cohortId === cohort.id && recovery.readyAtCon > state.value!.con
+          ))
+          return {
           id: cohort.id,
           unitName: currentConfig.empire.units?.find(unit => unit.id === cohort.unitId)?.name ?? cohort.unitId,
           count: cohort.count,
@@ -1399,7 +1409,26 @@ const cityViews = computed(() => {
             ? currentConfig.combat.equipment.find(item => item.id === cohort.defenseEquipmentId)?.name
               ?? cohort.defenseEquipmentId
             : undefined,
-        })),
+          recoveringCount: recoveries.reduce((total, recovery) => total + recovery.count, 0),
+          readyAtCon: recoveries.length
+            ? Math.max(...recoveries.map(recovery => recovery.readyAtCon))
+            : undefined,
+          }
+        }),
+      epidemics: engine.value?.cityEpidemicViews(city.id) ?? [],
+      medicalTreatments: (engine.value?.effectiveOperationalBuildingLevel(
+        city.id,
+        currentConfig.empire.medical.medicalAcademyBuildingId,
+      ) ?? 0) > 0
+        ? Object.entries(state.value.army.veterans)
+          .filter(([, veteran]) => veteran.wounds > 0)
+          .sort(([left], [right]) => left.localeCompare(right))
+          .map(([veteranId, veteran]) => ({
+            veteranId,
+            unitName: currentConfig.empire.units?.find(unit => unit.id === veteran.unitId)?.name ?? veteran.unitId,
+            wounds: veteran.wounds,
+          }))
+        : [],
       municipality,
       slots: visibleSlots.map(slot => ({ id: slot.id, kind: cityViewSlot(slot.kind) as Exclude<CityViewSlot, 'municipal'> })),
       placementOptions,
@@ -1425,6 +1454,10 @@ function placeBuilding(cityId: string, slotIdOrKind: string, buildingId: string)
 
 function recruitUnits(cityId: string, unitId: string, count: number) {
   if (engine.value) action(engine.value.recruitUnits(cityId, unitId, count))
+}
+
+function treatVeteran(veteranId: string) {
+  if (engine.value) action(engine.value.treatVeteran(veteranId))
 }
 
 function setRecruitQuantity(cityId: string, unitId: string, count: number) {
@@ -1810,6 +1843,7 @@ onUnmounted(() => {
           @place="placeBuilding"
           @recruit="recruitUnits"
           @recruit-quantity="setRecruitQuantity"
+          @treat-veteran="treatVeteran"
           @toggle-boost="toggleProductionBoost"
           @open-population="populationCityId = $event"
           @edit-building="showMessage('Откройте вкладку «Здания» конструктора для параметров и графа зависимостей.')"

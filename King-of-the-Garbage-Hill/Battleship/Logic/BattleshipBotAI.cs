@@ -273,21 +273,20 @@ public static class BattleshipBotAI
         if (hasCaptured)
             return ("Ballista", "Ballista");
 
-        var oppRevealed = opponent.RevealedCellCount;
+        var revealedByBot = bot.RevealedCellCount;
 
-        // Greek Fire: high priority if available — kills summon without penalty or burns ship
-        var greekFireWeapon = FindWeapon(bot, WeaponType.GreekFire, oppRevealed);
+        // Greek Fire is own-board-only, so only select it for a summon physically on that board.
+        var greekFireWeapon = FindWeapon(bot, WeaponType.GreekFire, revealedByBot);
         if (greekFireWeapon != null)
         {
-            // Use Greek Fire if opponent has summons in dangerous positions or high-value targets
-            var opponentSummons = bot.Summons.Count(s => s.IsAlive); // our summons on their board
-            var enemySummons = opponent.Summons.Count(s => s.IsAlive);
-            if (enemySummons > 0 || Rng.Next(4) == 0)
+            var hasEnemySummonOnOwnBoard = bot.Board.Grid.Cast<Cell>().Any(c =>
+                c.SummonRef is { IsAlive: true } summon && summon.OwnerId != bot.DiscordId);
+            if (hasEnemySummonOnOwnBoard)
                 return ("GreekFire", "GreekFire");
         }
 
         // Incendiary: burn a ship if we know where one is (have hit but not sunk)
-        var incendiaryWeapon = FindWeapon(bot, WeaponType.Incendiary, oppRevealed);
+        var incendiaryWeapon = FindWeapon(bot, WeaponType.Incendiary, revealedByBot);
         if (incendiaryWeapon != null && hasTarget)
         {
             // High value: can burn entire ship with one shot
@@ -296,15 +295,9 @@ public static class BattleshipBotAI
         }
 
         // Tetracatapult: White Stone or Buckshot
-        var tetraWeapon = FindWeapon(bot, WeaponType.Tetracatapult, oppRevealed);
+        var tetraWeapon = FindWeapon(bot, WeaponType.Tetracatapult, revealedByBot);
         if (tetraWeapon != null)
         {
-            if (phase == BsGamePhase.Boarding)
-            {
-                // Boarding: Buckshot unavailable, use White Stone
-                return ("Tetracatapult", "WhiteStone");
-            }
-
             // White Stone: great against known targets (8 dmg + stun + module destroy)
             if (hasTarget && Rng.Next(3) > 0)
                 return ("Tetracatapult", "WhiteStone");
@@ -323,7 +316,8 @@ public static class BattleshipBotAI
         foreach (var ship in player.Board.PlacedShips)
         {
             if (ship.IsDestroyed) continue;
-            var w = ship.Weapons.Find(w => w.Type == type && w.HasAmmo);
+            var w = ship.Weapons.Find(w =>
+                w.Type == type && w.HasAmmo && BattleshipGameEngine.IsWeaponOperational(ship, w));
             if (w != null)
             {
                 // AimSpeed: weapon locked until enough enemy cells revealed
@@ -544,15 +538,9 @@ public static class BattleshipBotAI
     {
         var density = new int[10, 10];
 
-        // Get alive ship sizes from placed ships
-        var aliveShipSizes = new List<int>();
-        foreach (var ship in board.PlacedShips)
-        {
-            if (!ship.IsDestroyed)
-                aliveShipSizes.Add(ship.Decks.Count(d => !d.IsDestroyed));
-        }
-        if (aliveShipSizes.Count == 0)
-            aliveShipSizes.Add(1); // fallback
+        // Fleet positions, live deck counts and armor are hidden. Use only the public
+        // baseline fleet silhouette for hunt density; shot/reveal marks below remain public.
+        var aliveShipSizes = new List<int> { 4, 3, 3, 2, 2, 2, 1, 1, 1, 1 };
 
         var minShipSize = aliveShipSizes.Min();
 
@@ -701,7 +689,7 @@ public static class BattleshipBotAI
 
         // Check reveal threshold
         var threshold = 5 * (bot.SummonSlotsUsed + 1);
-        if (opponent.RevealedCellCount < threshold && game.Phase != BsGamePhase.Boarding) return null;
+        if (bot.RevealedCellCount < threshold && game.Phase != BsGamePhase.Boarding) return null;
 
         // Check cooldown
         if (game.ShotCount - bot.LastSummonDeployShotCount < 2 && game.Phase != BsGamePhase.Boarding) return null;
@@ -713,7 +701,9 @@ public static class BattleshipBotAI
         // Determine available summon types based on fleet regions.
         // Regular summons share four per-match uses; Brander has its own 1-per-match cap (ТЗ #10)
         var slotsFull = bot.SummonSlotsUsed >= bot.MaxSummonSlots;
-        var regions = bot.Fleet.SelectMany(s => s.Regions).Distinct().ToHashSet();
+        var regions = bot.Fleet
+            .Where(s => !s.Statuses.Contains(ShipStatusType.Capture))
+            .SelectMany(s => s.Regions).Distinct().ToHashSet();
         var available = new List<SummonType>();
 
         if (!slotsFull)
@@ -734,7 +724,7 @@ public static class BattleshipBotAI
             // Ram is generally the best — direct damage
             chosen = SummonType.Ram;
         }
-        else if (available.Contains(SummonType.Scout) && opponent.RevealedCellCount < 30)
+        else if (available.Contains(SummonType.Scout) && bot.RevealedCellCount < 30)
         {
             // Scout useful early for information
             chosen = SummonType.Scout;
@@ -785,24 +775,40 @@ public static class BattleshipBotAI
         BattleshipPlayer bot, BattleshipPlayer opponent)
     {
         var deploys = new List<(string, int)>();
+        var reservedEntryColumns = Enumerable.Range(0, 10)
+            .Where(col => opponent.Board.GetCell(0, col)?.SummonRef is { IsAlive: true })
+            .ToHashSet();
 
         foreach (var pending in bot.PendingSummons.ToList())
         {
+            var allowedColumns = (pending.AllowedColumns.Count > 0
+                    ? pending.AllowedColumns
+                    : Enumerable.Range(0, 10))
+                .Where(col => !reservedEntryColumns.Contains(col))
+                .ToList();
+            if (allowedColumns.Count == 0) continue;
+
             // Boarding ships MUST be deployed immediately
             if (pending.IsBoarding)
             {
-                var col = ChooseSummonColumn(opponent);
+                var preferred = ChooseSummonColumn(opponent);
+                var col = allowedColumns.Contains(preferred)
+                    ? preferred
+                    : allowedColumns[Rng.Next(allowedColumns.Count)];
                 deploys.Add((pending.Id, col));
+                reservedEntryColumns.Add(col);
                 continue;
             }
 
             // Deploy free pending summons with some probability
             if (pending.IsFree || bot.SummonSlotsUsed < bot.MaxSummonSlots)
             {
-                var col = pending.AllowedColumns.Count > 0
-                    ? pending.AllowedColumns[Rng.Next(pending.AllowedColumns.Count)]
-                    : ChooseSummonColumn(opponent);
+                var preferred = ChooseSummonColumn(opponent);
+                var col = allowedColumns.Contains(preferred)
+                    ? preferred
+                    : allowedColumns[Rng.Next(allowedColumns.Count)];
                 deploys.Add((pending.Id, col));
+                reservedEntryColumns.Add(col);
             }
         }
 
@@ -841,7 +847,7 @@ public static class BattleshipBotAI
                 var cell = opponent.Board.GetCell(nr, nc);
                 if (cell == null) break;
 
-                if (cell.ShipRef != null && !cell.ShipRef.IsDestroyed)
+                if (cell.IsRevealed && cell.ShipRef != null && !cell.ShipRef.IsDestroyed)
                     score += 10;
                 if (cell.IsHit && cell.ShipRef != null && !cell.ShipRef.IsDestroyed)
                     score += 5; // known target

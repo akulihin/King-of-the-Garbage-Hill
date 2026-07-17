@@ -18,7 +18,10 @@ public class BattleshipGame
     public int ShotCount { get; set; } // Global shot counter (both players)
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime LastActivity { get; set; } = DateTime.UtcNow;
-    public HashSet<(int row, int col)> PoisonZones { get; set; } = new();
+    /// <summary>Final Boarding is one global transition; this guard prevents repeat bonuses/conversions.</summary>
+    public bool BoardingTriggered { get; set; }
+    /// <summary>Poison belongs to a physical board. Key = that board owner's DiscordId.</summary>
+    public Dictionary<string, HashSet<(int row, int col)>> PoisonZonesByBoardOwner { get; set; } = new();
 
     /// <summary>Set when the game reaches Combat — leaving from the lobby/setup phases is not counted as a loss.</summary>
     public bool CombatStarted { get; set; }
@@ -108,7 +111,6 @@ public class BattleshipPlayer
     public int LastSummonDeployShotCount { get; set; } = -10; // For 2-shot cooldown
     public bool HasShotThisTurn { get; set; } // For manual move before-shot restriction
     public List<PendingSummonDeploy> PendingSummons { get; set; } = new(); // Delayed summon abilities (pirate/cursed boat death, boarding)
-    public double DamageMultiplier { get; set; } = 1.0; // Modifiable damage multiplier (GDD: "множитель")
 }
 
 public class Board
@@ -192,17 +194,18 @@ public class Deck
     public int MaxHp { get; set; } = 2;
     public int CurrentHp { get; set; } = 2;
     public bool IsDestroyed => CurrentHp <= 0;
-    public string Module { get; set; } // e.g. "ballista", "catapult", "mast", "boiler"
+    public string Module { get; set; } // e.g. "ballista", "tetracatapult", "mast", "boiler"
     public bool ModuleDestroyed { get; set; }
 }
 
 public class Weapon
 {
+    public string Id { get; set; } = Guid.NewGuid().ToString("N")[..8];
     public WeaponType Type { get; set; }
     public int Ammo { get; set; } = -1; // -1 = unlimited
     public int AimSpeed { get; set; }
-    public int Damage { get; set; } = 2;
     public string ShipId { get; set; }
+    public int DeckIndex { get; set; }
 
     public bool HasAmmo => Ammo == -1 || Ammo > 0;
 
@@ -219,7 +222,7 @@ public class Summon
     public int Row { get; set; }
     public int Col { get; set; }
     public int Speed { get; set; }
-    public int Damage { get; set; }
+    public int CollisionDamage { get; set; }
     public string OwnerId { get; set; }
     public bool IsAlive { get; set; } = true;
     public int RevealRadius { get; set; } = 1;
@@ -230,6 +233,7 @@ public class Summon
     public bool WaitingForTurnBack { get; set; } // Summon at edge, waiting to be re-sent
     public bool WaitingForDirectionChoice { get; set; } // CursedBoat waiting for owner to choose direction after collision
     public bool IsBoardingShip { get; set; } // Close ship converted during Final Boarding
+    public bool HasDetonated { get; set; } // Brander chain-explosion idempotency guard
 }
 
 /// <summary>
@@ -243,7 +247,7 @@ public class PendingSummonDeploy
     public bool IsFree { get; set; } = true; // No slot cost / no cooldown
     public bool IsBoarding { get; set; } // Boarding ship — must deploy to first row of enemy field
     public int Speed { get; set; } = 1;
-    public int Damage { get; set; }
+    public int CollisionDamage { get; set; }
     public int RevealRadius { get; set; } = 1; // From original ship's Space
     public string SourceShipName { get; set; } // For log messages
 }
@@ -270,7 +274,6 @@ public class ShotResult
     public bool TurnContinues { get; set; }
     public string Message { get; set; }
     public string AffectedShipName { get; set; }
-    public List<(int row, int col)> AoECells { get; set; } = new();
 }
 
 public class ShipDefinition
@@ -300,7 +303,6 @@ public class WeaponTemplate
 {
     public WeaponType Type { get; set; }
     public int Ammo { get; set; } = -1;
-    public int Damage { get; set; } = 2;
     public int DeckIndex { get; set; } // which deck this weapon is on
     public int AimSpeed { get; set; } // 0 = no charge requirement; >0 = revealed cells needed
 }

@@ -98,7 +98,6 @@ describe('Empire\'s Endgame configuration', () => {
       'gift-fish-currents',
       'gift-meteor-iron',
       'gift-desert-tsunami',
-      'relic-epidemic-ward',
       'relic-tithe',
       'relic-resource-exemption',
     ]
@@ -121,10 +120,7 @@ describe('Empire\'s Endgame configuration', () => {
       'building-fair',
       'building-tavern',
       'building-stable',
-      'building-alchemy',
-      'building-hospital',
       'building-customs',
-      'building-medical-academy',
       'building-military-academy',
       'building-sea-port',
       'building-jewish-bank',
@@ -188,6 +184,8 @@ describe('Empire\'s Endgame configuration', () => {
       'card-spades-5.inverted',
       'card-spades-8.normal',
       'card-spades-8.inverted',
+      'card-spades-10.normal',
+      'card-spades-10.inverted',
       'card-joker-jester.normal',
     ])
   })
@@ -294,7 +292,7 @@ describe('Empire\'s Endgame configuration', () => {
       'Колющее',
     ])
     expect(config.combat.counterRules).toHaveLength(11)
-    expect(config.combat.equipment).toHaveLength(31)
+    expect(config.combat.equipment).toHaveLength(32)
     expect(combatWeapon(config, 'weapon-horseman-pick').damageLevels).toEqual({
       impact: 6,
       piercing: 4,

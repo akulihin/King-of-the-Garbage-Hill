@@ -82,7 +82,7 @@ const usedRegions = computed(() => {
   const regions = new Set<string>()
   for (const slot of slots.value) {
     const def = catalog.value.find(s => s.id === slot.definitionId)
-    if (def?.region) regions.add(def.region)
+    for (const region of def?.regions ?? (def?.region ? [def.region] : [])) regions.add(region)
   }
   return regions
 })
@@ -178,17 +178,15 @@ async function confirmFleet() {
 // Full descriptions (tooltips) — pre-existing strings, kept verbatim
 function abilityLabel(a: string): string {
   switch (a) {
-    case 'nimble': return 'Юркий — уклоняется от баллисты'
     case 'ballista_immune': return 'Иммунитет к баллисте'
     case 'burn_resist': return 'Огнеупорность — не горит'
     case 'auto_dodge_bow_stern': return 'Авто-уклонение при попадании в нос/корму'
     case 'manual_move_after_hit': return 'Маневр — двигается после потери палубы'
     case 'explode_on_hit': return 'Взрывается при любом попадании'
-    case 'spawn_pirate_boat': return 'Выпускает пиратский корабль при гибели'
+    case 'spawn_pirate_boat': return 'Пираты — выпускают Пиратскую лодку при гибели'
     case 'spawn_cursed_boat': return 'Выпускает проклятый корабль при гибели'
     case 'poison_cone': return 'Ядовитый конус — убивает в зоне'
     case 'auto_win_boarding': return 'Авто-победа при абордаже'
-    case 'stationary': return 'Неподвижный — не двигается'
     case 'freeze_nearby': return 'Аура заморозки — убивает в Space'
     default: return a
   }
@@ -197,17 +195,15 @@ function abilityLabel(a: string): string {
 // Short human-readable chip labels (instead of raw keys like explode_on_hit)
 function abilityShortLabel(a: string): string {
   switch (a) {
-    case 'nimble': return t('Nimble', 'Юркий')
     case 'ballista_immune': return t('Ballista immune', 'Иммунитет к баллисте')
     case 'burn_resist': return t('Fireproof', 'Огнеупорный')
     case 'auto_dodge_bow_stern': return t('Auto-dodge', 'Авто-уклонение')
     case 'manual_move_after_hit': return t('Maneuver', 'Маневр')
     case 'explode_on_hit': return t('Explosive', 'Взрывной')
-    case 'spawn_pirate_boat': return t('Pirate boat', 'Пиратский кораблик')
+    case 'spawn_pirate_boat': return t('Pirates', 'Пираты')
     case 'spawn_cursed_boat': return t('Cursed boat', 'Проклятый кораблик')
     case 'poison_cone': return t('Poison cone', 'Ядовитый конус')
     case 'auto_win_boarding': return t('Boarding master', 'Мастер абордажа')
-    case 'stationary': return t('Stationary', 'Неподвижный')
     case 'freeze_nearby': return t('Freeze aura', 'Аура заморозки')
     default: return a
   }
@@ -329,7 +325,12 @@ function catalogForDeck(dc: number) {
             <div class="catalog-header">
               <div class="catalog-name-row">
                 <span class="catalog-ship-name">{{ def.nameRu || def.name }}</span>
-                <span v-if="def.region" class="region-badge bs-mono" :style="{ color: getRegionColor(def.region) }">{{ def.region }}</span>
+                <span
+                  v-for="region in def.regions ?? (def.region ? [def.region] : [])"
+                  :key="region"
+                  class="region-badge bs-mono"
+                  :style="{ color: getRegionColor(region) }"
+                >{{ region }}</span>
               </div>
               <span class="ship-stats bs-mono">HP {{ def.deckHpOverrides ? def.deckHpOverrides.join('/') : def.defaultArmor }} | Скор. {{ def.speed }} | Зона {{ def.space }} | {{ def.range }} | {{ def.cost }}м</span>
             </div>

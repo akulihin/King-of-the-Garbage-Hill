@@ -1,6 +1,6 @@
 # Battleship — designer review and approval
 
-**Status:** proposed rulings and implementation corrections; no Battleship code changes have been made yet.  
+**Status:** approved 2026-07-17 and implemented in game version 5.0.12.
 **Prepared:** 2026-07-14  
 **Review owner:** Game Designer  
 **Sources reviewed:** [Google GDD `МорскойБой`](https://docs.google.com/document/d/1b0MbvMmCp78fUXWt9PX3BZcFRI_l6WdbTXtxQeZUuTw/edit?tab=t.ip6m4linjo3m) — all 30 tabs and all embedded images — plus [`BattleShip_update`](../BattleShip_update).
@@ -54,7 +54,7 @@ The source hierarchy below should be approved before implementation begins becau
 4. `Вкладка 28`, its old fleet rules and Neptune diagrams are excluded from implementation.
 5. An image is normative only when text relies on it for geometry or declares it a final UI asset.
 
-- [ ] Approve
+- [x] Approve
 - [ ] Reject
 - [ ] Approve with edits
 
@@ -72,7 +72,7 @@ The source hierarchy below should be approved before implementation begins becau
 
 **Recommendation:** only destruction of a previously live enemy deck grants another shot. A scratch, repeat shot into a dead deck, friendly hit, own-board shot, miss or summon hit ends the turn unless a named rule says otherwise.
 
-- [ ] Approve
+- [x] Approve
 - [ ] Reject
 - [ ] Approve with edits
 
@@ -88,9 +88,11 @@ The source hierarchy below should be approved before implementation begins becau
 
 - [ ] Approve
 - [ ] Reject
-- [ ] Approve with edits
+- [x] Approve with edits
 
 **Designer comment**
+
+Внести правки, но только для балисты. Дробь - это альтернативный снаряд для Тетракамнемета, а не обычный выстрел (иправить если не так). Дробь должна быть доступна только для оружия Тетракамнемет. Дробь является альтернативным снарядом, выбирающимся вместо Белого Камня.
 
 > 
 
@@ -100,7 +102,7 @@ The source hierarchy below should be approved before implementation begins becau
 
 **Recommendation:** Final Boarding is a single global, one-time transition triggered immediately after the first state change that leaves either player with no living Mid ships. Resolve both players in that transition. Remove every converted Close/Close melee source from its original board and create one pending boarding unit retaining only documented speed, Space/reveal and collision damage. Source armor, modules, statuses and passive effects do not remain active unless named explicitly.
 
-- [ ] Approve
+- [x] Approve
 - [ ] Reject
 - [ ] Approve with edits
 
@@ -116,9 +118,11 @@ The source hierarchy below should be approved before implementation begins becau
 
 - [ ] Approve
 - [ ] Reject
-- [ ] Approve with edits
+- [x] Approve with edits
 
 **Designer comment**
+
+Ты прав во всём, хочу лишь добавить, что такие суммоны, как пираты могут захватить у врага корабль типа Close и тогда этот игрок, захвативший корабль сможет стрелять, пока противник не убьёт этот корабль с баллистой.
 
 > 
 
@@ -128,7 +132,7 @@ The source hierarchy below should be approved before implementation begins becau
 
 **Recommendation:** do not predict mathematical sufficiency. A player loses when all non-summon ships are destroyed, or when the player has no living/usable weapon and no living/pending unit capable of damaging the opponent.
 
-- [ ] Approve
+- [x] Approve
 - [ ] Reject
 - [ ] Approve with edits
 
@@ -144,9 +148,12 @@ The source hierarchy below should be approved before implementation begins becau
 
 - [ ] Approve
 - [ ] Reject
-- [ ] Approve with edits
+- [x] Approve with edits
 
 **Designer comment**
+
+Когда у корабля появляется статус Capture - закрасить его нетронутые палубы фиолетовым цветом для обоих игроков. Если палубы повреждены, убиты и т.д. - закрась соответствующим цветом.
+Если пират захватывает корабль и он становится Capture, То игрок 2, чей корабль захватили не может стрелять никуда кроме этого корабля, даже в суммонов на своей карте он не может стрелять, пока не убьет корабль и не пропустит ход после убийства своего корабля.
 
 > 
 
@@ -158,9 +165,10 @@ The source hierarchy below should be approved before implementation begins becau
 
 - [ ] Approve
 - [ ] Reject
-- [ ] Approve with edits
+- [x] Approve with edits
 
 **Designer comment**
+Выстрел Горючки, Уничтожение Горючей баржи, Греческий огонь накладывают статус burn. Но только греческий огонь оставляет его на поле.
 
 > 
 
@@ -172,10 +180,10 @@ The source hierarchy below should be approved before implementation begins becau
 
 - [ ] Approve
 - [ ] Reject
-- [ ] Approve with edits
+- [x] Approve with edits
 
 **Designer comment**
-
+Любое получение урона или уничтожение любой палубы Горючей баржи ведет к твоей рекомендации.
 > 
 
 ### D09 — Brander removal and detonation
@@ -193,7 +201,7 @@ The source hierarchy below should be approved before implementation begins becau
 | Collision with a live deck | No | No |
 | Leaving the board/expiry | No | No |
 
-- [ ] Approve
+- [x] Approve
 - [ ] Reject
 - [ ] Approve with edits
 
@@ -209,10 +217,10 @@ The source hierarchy below should be approved before implementation begins becau
 
 - [ ] Approve
 - [ ] Reject
-- [ ] Approve with edits
+- [x] Approve with edits
 
 **Designer comment**
-
+Урон белого камня = базовый урон умножить на 4, сейчас это 8, палуба с 9 HP выживет. Однако оглушение вражеского игрока и уничтожение модуля пораженной палубы происходит всегда.
 > 
 
 ### D11 — Discus availability
@@ -221,7 +229,7 @@ The source hierarchy below should be approved before implementation begins becau
 
 **Recommendation:** hide and server-reject the upgrade until its complete mechanic is approved.
 
-- [ ] Approve
+- [x] Approve
 - [ ] Reject
 - [ ] Approve with edits
 
@@ -235,7 +243,7 @@ The source hierarchy below should be approved before implementation begins becau
 
 **Recommendation:** after coins, upgraded-unit count and Home-unit count, use a seeded random tiebreak. Count a unit as upgraded when it is a paid replacement or has any paid upgrade, including free Triple/Tetranavis units.
 
-- [ ] Approve
+- [x] Approve
 - [ ] Reject
 - [ ] Approve with edits
 
@@ -249,7 +257,7 @@ The source hierarchy below should be approved before implementation begins becau
 
 **Recommendation:** retain `Home` only as a first-turn tag for now. A unit consumes every non-Tetracor region listed on it; a dual-region unit therefore consumes two region slots. The UI shows all consumed regions.
 
-- [ ] Approve
+- [x] Approve
 - [ ] Reject
 - [ ] Approve with edits
 
@@ -264,7 +272,7 @@ The source hierarchy below should be approved before implementation begins becau
 **Recommendation:** four ordinary successful deployments per player; invalid attempts consume nothing. Free pending/ship-produced summons consume neither use nor cooldown. Brander has one separate successful use. Cooldown advances on completed global shots only. A summon first moves after the next completed shot, never after Penalty/Stun or another no-shot turn. Spawn grace prevents the row 1–3 death penalty until that next completed shot.
 
 - [ ] Approve
-- [ ] Reject
+- [x] Reject
 - [ ] Approve with edits
 
 **Designer comment**
@@ -286,7 +294,7 @@ The source hierarchy below should be approved before implementation begins becau
 
 Dead decks are passable and cannot be damaged, killed or counted again.
 
-- [ ] Approve
+- [x] Approve
 - [ ] Reject
 - [ ] Approve with edits
 
@@ -298,7 +306,7 @@ Dead decks are passable and cannot be damaged, killed or counted again.
 
 **Recommendation:** the image defines a two-row cone on one physical board: three cells in the first row and five in the second, clipped at board edges and rotated with travel direction. Iceberg and Alchemical Barge use the same geometry unless a unit entry explicitly differs. Poison never applies to mirrored coordinates on another board.
 
-- [ ] Approve
+- [x] Approve
 - [ ] Reject
 - [ ] Approve with edits
 
@@ -312,7 +320,7 @@ Dead decks are passable and cannot be damaged, killed or counted again.
 
 **Recommendation:** use `Пираты` only for the source ship, `Пиратская лодка` for the summon and `Пират` only as informal prose. Use `Маневрирующая двойка маневрирует!` as the exact owner-only movement message. Preserve `Даёт по вёслам!` as the shooter-facing Mast message.
 
-- [ ] Approve
+- [x] Approve
 - [ ] Reject
 - [ ] Approve with edits
 
@@ -326,7 +334,7 @@ Dead decks are passable and cannot be damaged, killed or counted again.
 
 **Recommendation:** owners see exact armor for their fleet. Opponents see only unknown/intact, scratched and destroyed states unless a reveal mechanic explicitly exposes armor.
 
-- [ ] Approve
+- [x] Approve
 - [ ] Reject
 - [ ] Approve with edits
 
@@ -365,29 +373,29 @@ Approving an `I` item means “make code and UI match the behavior stated here.�
 
 ### Approval checklist for Part C
 
-- [ ] I01
-- [ ] I02
-- [ ] I03
-- [ ] I04
-- [ ] I05
-- [ ] I06
-- [ ] I07
-- [ ] I08
-- [ ] I09
-- [ ] I10
-- [ ] I11
-- [ ] I12
-- [ ] I13
-- [ ] I14
-- [ ] I15
-- [ ] I16
-- [ ] I17
-- [ ] I18
-- [ ] I19
+- [x] I01
+- [Reject] I02
+- [x] I03
+- [x] I04
+- [x] I05
+- [x] I06
+- [x] I07
+- [x] I08
+- [x] I09
+- [x] I10
+- [x] I11
+- [x] I12
+- [x] I13
+- [x] I14
+- [x] I15
+- [Reject] I16
+- [x] I17
+- [x] I18
+- [x] I19
 
 **I20 — icon decision**
 
-- [ ] Replace current icons with the GDD images
+- [x] Replace current icons with the GDD images
 - [ ] Keep current icons; GDD images are references only
 - [ ] Request a separate art pass
 
@@ -403,29 +411,29 @@ Approving an `I` item means “make code and UI match the behavior stated here.�
 
 Current state: UI concept only; runtime supports Empire alone.
 
-- [ ] Retain as future-facing/disabled UI
+- [x] Retain as future-facing/disabled UI
 - [ ] Hide until Alliance exists
 - [ ] Other
 
-**Comment:**  
-> 
+**Comment:**
+>
 
 ### X02 — Discus
 
 Current state: costs one coin but adds only an unused ability flag.
 
-- [ ] Hide and reject until designed
+- [x] Hide and reject until designed
 - [ ] Remove completely
 - [ ] Design and implement now — attach exact rules
 
-**Comment:**  
-> 
+**Comment:**
+>
 
 ### X03 — Neptune and obsolete content
 
 Current state: Neptune is ranked/listed but unavailable; detailed mechanics and seven diagrams exist only in the explicitly obsolete tab.
 
-- [ ] Keep unavailable; old rules remain archival
+- [x] Keep unavailable; old rules remain archival
 - [ ] Remove Neptune references from current tabs
 - [ ] Restore Neptune — attach updated rules
 
@@ -436,7 +444,7 @@ Current state: Neptune is ranked/listed but unavailable; detailed mechanics and 
 
 Current state: only an exemption tag for default Triple/Tetranavis units; no playable Tetracor system exists.
 
-- [ ] Keep as an internal exemption tag
+- [X] Keep as an internal exemption tag
 - [ ] Remove and model defaults without a region
 - [ ] Expand later
 
@@ -447,7 +455,7 @@ Current state: only an exemption tag for default Triple/Tetranavis units; no pla
 
 Current state: armor-type multipliers and Freeze/Devastated resource rewards are future-only; Home affects only first-turn order.
 
-- [ ] Keep dormant hooks, clearly marked non-live
+- [x] Keep dormant hooks, clearly marked non-live
 - [ ] Remove unused hooks until designed
 - [ ] Other
 
@@ -458,7 +466,7 @@ Current state: armor-type multipliers and Freeze/Devastated resource rewards are
 
 Current state: one surviving Desiccator auto-wins at boarding, so its speed-three boarding behavior is normally unreachable. It matters only when both players have Desiccator and passives are disabled.
 
-- [ ] Intended niche behavior
+- [x] Intended niche behavior
 - [ ] Desiccator should board instead of auto-win
 - [ ] Other
 
@@ -471,12 +479,13 @@ Currently unused or redundant: `CellState`; `ShotType.Catapult/Tetracatapult`; s
 
 **Recommendation:** retain only fields with an approved near-term use. Remove or explicitly document the remainder during implementation cleanup so dormant fields do not appear to be working mechanics.
 
-- [ ] Approve cleanup
+- [x] Approve cleanup
 - [ ] Retain all as future hooks
 - [ ] Review individually
 
 **Comment:**  
 > 
+Дизайн документа был произведен людьми, работающими над проектом. Термины кода были сгенерированв через AI. Там где это возможно, измени и приблизь термины кода к терминам документа для большей разборчивости.
 
 ---
 
@@ -499,13 +508,17 @@ Currently unused or redundant: `CellState`; `ShotType.Catapult/Tetracatapult`; s
 
 - [ ] Approve all defaults
 - [ ] Approve except rows annotated above
-- [ ] Revision required
+- [x] Revision required
 
+**Comment:**
+>
+Одобрить все кроме пункта: | Greek Fire | May target either board; successful use ends the turn and resets selection to Ballista after resolution. Invalid attempts consume nothing. | |
+Греческий может быть нацелен только на свою доску и стрелять может только по своей доске. Успешное использование завершает ход и сбрасывает выбор на Баллисту после разрешения.
 ---
 
 ## Part F — final sign-off
 
-- [ ] Approve all recommendations and implementation corrections
+- [x] Approve all recommendations and implementation corrections
 - [ ] Approve all except the IDs listed below
 - [ ] Revision required before implementation
 
@@ -518,7 +531,18 @@ Currently unused or redundant: `CellState`; `ShotType.Catapult/Tetracatapult`; s
 > 
 
 **Approved by:**  
-**Date:**  
+**Date:** 17.07.2026
+
+## Implementation record
+
+Implemented 2026-07-17 as finding M112. The implementation follows the checked decision on each item, with the item-level choices taking precedence over the broad Part F checkbox:
+
+- I02 remains rejected: converted Close/Close melee source ships stay on their original board, retain active behavior and remain in victory accounting; the one-time conversion guard prevents duplicates.
+- I16 remains rejected: shot events still omit physical-board/AoE metadata; the client tracks its own-board action locally for presentation.
+- D14 remains rejected except for the independently approved I11–I13 corrections.
+- Part E uses the designer exception: Greek Fire targets only the shooter's own board.
+
+The live rule description is [BattleshipGDD.md](../BattleshipGDD.md); hub/DTO and client contracts are in [WEB-BACKEND.md](WEB-BACKEND.md) §4/§10 and [WEB-CLIENT.md](WEB-CLIENT.md) §12.
 
 ## Implementation order after approval
 

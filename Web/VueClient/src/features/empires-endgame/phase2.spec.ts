@@ -188,7 +188,7 @@ describe('Empire\'s Endgame Phase 2 campaign bridge', () => {
     }, value.id)
     const restored = new EmpiresEndgameEngine(value, migrated)
     expect(restored.state).toMatchObject({
-      schemaVersion: 5,
+      schemaVersion: 6,
       minigame: null,
       minigameResultLog: [],
       army: {
@@ -198,6 +198,7 @@ describe('Empire\'s Endgame Phase 2 campaign bridge', () => {
         veterans: {},
         recruitmentPenalties: {},
         foundryInstantReadyConByCity: {},
+        recoveries: [],
       },
       external: { allianceThreat: 0, nextWaveCon: 2, pendingOffers: [] },
       empire: {

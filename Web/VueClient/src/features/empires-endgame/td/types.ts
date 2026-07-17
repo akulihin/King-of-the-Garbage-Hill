@@ -263,6 +263,12 @@ export interface TdUnitProfile {
   attackIntervalTicks: number
   weaponEquipmentId: string
   armorEquipmentId?: string
+  healing?: {
+    range: number
+    intervalTicks: number
+    amountPerUnit: number
+    chargesPerUnit: number
+  }
 }
 
 export interface TdEquipmentCost {
@@ -283,6 +289,12 @@ export interface TdDeploymentPlan {
   attackIntervalTicks: number
   weapon: CombatWeaponProfile
   armor: CombatArmorProfile | null
+  healing?: {
+    range: number
+    intervalTicks: number
+    amountPerUnit: number
+    chargesPerUnit: number
+  }
 }
 
 export interface TdBattlePlan {
@@ -363,6 +375,8 @@ export interface TdSquadState extends TdPoint {
   hp: number
   maxHp: number
   nextAttackTick: number
+  nextHealTick: number
+  healingChargesRemaining: number
 }
 
 export interface TdCommandError {

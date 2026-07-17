@@ -313,9 +313,11 @@ they cannot disappear behind an equipment row.
   remain deferred unless the main source uniquely supplies title, current config ID, side,
   numeric effects, level scaling and lifecycle; placeholder ranks are not guessed.
 - P4B now implements the season cycle, typed technology-side/hidden-combination substrate
-  and the four whole-contract reforms listed below. Undefined Hearts faces, Technocracy,
-  City Gates crime/epidemic effects and printing-press effects remain deferred. Reputation
-  substrate does not un-defer P6 trade/unions.
+  and the four whole-contract reforms listed below. P5 consumed the City Gates epidemic
+  policy and hidden plague-combination boundary, while the whole City Gates carrier remains
+  deferred on its undefined crime side. Undefined Hearts faces, Technocracy and
+  printing-press effects remain deferred. Reputation substrate does not un-defer P6
+  trade/unions.
 - The lumber-concession follow-up to `event-northern-raids` remains a separate deferred
   event until its trigger/timing and complete outcomes are authored.
 
@@ -347,8 +349,8 @@ they cannot disappear behind an equipment row.
   sabotage and legitimacy names do not supply numeric, targeted or reversible mechanics.
 - `tech-printing` is config-present, not config-absent, but remains explicitly deferred.
   Its prerequisite edge is retained; no card-duration or propaganda executor is fabricated.
-- `hidden-granary-alchemy-plague` remains an inert deferred combination. P5 owns plague,
-  spread, city lock and the event bridge; the optional Trainers/rats extension still lacks
+- P5 made `hidden-granary-alchemy-plague` executable through the exact-once combination
+  memory and typed epidemic-start funnel. The optional Trainers/rats extension still lacks
   a stable carrier and consequences.
 - There is no crime/public-order scalar. No source defines both mutations and consumers,
   so removed `crimeMultiplierPercent`-style flags are rejected when made live.
@@ -403,3 +405,48 @@ linked map/city-layout images. Stable named Перст identities come from `т�
 - Great houses and unique regional races are broad narrative/event inventories in `дома`,
   not complete event or dialogue graphs. They remain P7/P12B review and are not represented
   as governance flags.
+
+## P5 epidemic/medical source-to-config table
+
+| Source identity | Config identity | Executable behavior | Deferred or unresolved remainder |
+|---|---|---|---|
+| Чума | `epidemic-plague` | Typed outbreak/crisis/decline stages, explicit class weights, exact-once city impact, seeded intercity spread and deterministic end | All numeric stages, weights and spread values are configurable defaults (`P5-01`/`P5-02`). |
+| Пандемия из-за прививок | `epidemic-vaccination-pandemic` | Separate refresh-on-duplicate epidemic started by inverted `card-spades-10` at the lowest accessible city | Numeric stages, weights and spread values are defaults. |
+| Больница | `building-hospital`; `unit-medical-healer`; `weapon-light-crossbow` | Operational city impact ×0.9, wounded TD survivors recover in one con instead of two, and Hospital-gated healers deterministically heal damaged allied squads | Healer TD stats, healing cadence/charges and the light-crossbow profile are defaults pending an authored combat table. |
+| Медицинская академия | `building-medical-academy`; `empire.medical` | Operational empire protection ×0.5, free eligible secondary technology every three cons, and one veteran treatment per con with 50% death chance | Stable-ID selection among eligible technology definitions is deterministic but not authored. |
+| Алхимическая лавка + Амбар | `building-alchemy`; `hidden-granary-alchemy-plague` | The live passive building triggers plague exactly once when the Granary reform and an operational Alchemy building coexist; origin is the lowest stable eligible city | `alchemyMinigame` and its poison/potion/lab mechanics remain P10. Trainers/infected rats have no stable carrier or consequences. |
+| Прививки | `card-spades-10` | Normal face adds configured virus-mortality reduction; inverted face starts the configured pandemic through the canonical effect/start funnel | Normal 10% +10%/level and the pandemic numeric table are defaults pending confirmation. |
+| Реликвия защиты от эпидемий | `relic-epidemic-ward` | Adds 25 protection points, consumed as multiplicative reduction of population, production and loyalty consequences | The raw “25” is interpreted as consequence reduction, not outbreak prevention (`P5-03`). |
+| Городские врата | `reform-city-gates`; `event-city-gates-epidemic` | Typed seal/open choices are executable once per active epidemic: seal prevents future intercity spread and doubles local impact; open retains normal local impact/spread. Already infected cities are untouched | The reform and bundled event remain deferred because the light side's crime/public-order contract is absent. The dark policy is retained as validated epidemic substrate. |
+| Карантин; Фармацевтика | `quarantineEpidemicReductionPercent`; `pharmaceuticalEpidemicReductionPercent` protection hooks | Validated flag-based protection consumers exist for future exact carriers | No stable current carrier was found. No live ID, mutation, price, duration or Pharmaceuticals farm-output penalty was invented. |
+| Дженна | `card-clubs-ace` | `персонажи` uniquely proves the identity and both face titles/descriptions now match it | Birth, satisfaction, disease, specialist and autonomy amounts/lifecycles remain incomplete; both faces stay deferred. |
+
+## P5 epidemic/medical defaults and unresolved-semantics ledger
+
+| ID | JSON Pointer | Phase | Raw source | Chosen default | Rationale | Status | Designer verdict |
+|---|---|---:|---|---|---|---|---|
+| `P5-01` | `/empire/epidemics/definitions` | P5 | `здания`, `события`, `карты` prove plague/pandemic sources and relative protection but do not supply complete stages, duration, severity, impact or spread tables | Plague: `1/2/1` cons with population `0.5/1/0.25%`, production `10/20/5%`, loyalty `0/−1/0`, spread `0.2/0.35/0.1`; vaccination pandemic: `1/2/1` cons with population `0.4/0.8/0.2%`, production `8/16/4%`, loyalty `0/−1/0`, spread `0.4/0.5/0.15` | A three-stage, four-con cycle is the smallest visible lifecycle that exercises onset, peak and decay. The vaccination disease has higher spread but slightly lower local impact to preserve its authored emphasis. All values are config, not claimed as balance. | Open | Pending: provide authoritative stages, durations, severity, each consequence and spread chance. |
+| `P5-02` | `/empire/epidemics/definitions/*/affectedClasses`; `/empire/epidemics/populationRounding`; `/empire/epidemics/maxSpreadTargetsPerSettlement` | P5 | Five population classes exist; no epidemic class distribution or rounding table is authored | Plague weights `5/3/2/1/1` and pandemic weights `4/4/3/1/1` in `peasants/burghers/nonworking/clergy/nobles` order; population uses integer `round` with largest-remainder stable-ID allocation; one previously unattempted accessible spread target per settlement | Explicit weights avoid a silent proportional default. Largest remainder preserves the rounded total and stable IDs resolve ties. One target bounds growth without inventing a geographic graph. | Open | Pending: class susceptibilities, rounding, whether class availability redistributes remainder, target topology and per-con target cap. |
+| `P5-03` | `/empire/epidemics/protections` | P5 | Hospital `−10%`; Medical Academy consequences at least halved; relic says protection `25`; vaccination lowers virus mortality | Applicable operational protections sort by stable protection ID, multiply, then the consequence receives one final configured rounding. Hospital ×0.9 city-local; Academy ×0.5 empire-wide; relic flag ×0.75 for population/production/loyalty; vaccination affects population only and caps at 75% reduction | Multiplication avoids order-sensitive additive caps. The relic wording belongs to the same consequence-protection family as Hospital/Academy and supplies no prevention roll, so `25` is resolved as consequence reduction. | Open | Pending: confirm relic semantics, source order, scopes, stacking/caps and rounding for every consequence. |
+| `P5-04` | `/empire/epidemics/definitions/*/duplicatePolicy`; `/empire/epidemics/chronicleImpactEntriesPerEpidemic` | P5 | No duplicate-disease or per-instance history-retention rule | Plague duplicates in the same city are ignored; vaccination pandemic refreshes its stage/duration. Retain at most eight impact entries per instance inside the already bounded political chronicle | Ignore prevents the hidden combination/spread from stacking copies; refresh gives the explicitly accelerating vaccination source distinct behavior. The cap prevents one long custom epidemic monopolizing the chronicle. | Open | Pending: duplicate behavior per disease, whether refresh resets containment/spread, and impact-entry retention. |
+| `P5-05` | `/empire/medical`; `/empire/units` (`unit-medical-healer`); `/combat/equipment` (`weapon-light-crossbow`) | P5 | Hospital authors healers with light crossbows and post-battle recovery `2 → 1` turn, but no TD stat/damage/healing table | Default recovery two cons, Hospital recovery one; healer HP `12`, range `120`, attack every `24` ticks; healing range `140`, every `20` ticks, two full-heal charges per unit; stable nearest-damaged ally and ID tie-break | The recovery cadence is authored. Combat values make the named unit executable without implying a final balance table; full-heal is bounded by charges. | Open | Pending: healer recruitment/upkeep/equipment, combat stats, heal amount/range/cadence/charges and target priority. |
+| `P5-06` | `/empire/medical/academyFreeResearchCadenceCons`; `/empire/medical/academyTreatmentDeathChance` | P5 | Medical Academy gives a free secondary technology every three turns and can treat once per turn with a 50% chance of death | Cadence `3`, death chance `0.5`; select the first stable-ID, non-steel, live, dependency-satisfied `technology` category entry; treatment clears all veteran wounds on success | Cadence and mortality are authored. Stable deterministic selection avoids adding an unauthored choice UI while keeping reload exact. | Open | Pending: define “secondary”, whether the player chooses, no-candidate handling, treatment target scope and successful healing amount. |
+| `P5-07` | `/empire/hiddenCombinations/definitions` (`hidden-granary-alchemy-plague`) | P5/P10 | `здания`: Granary+Alchemy can cause plague; Trainers may add infected rats. No chance, explicit button/event or Trainers carrier | Trigger exactly once when prerequisites become true during the existing combination boundary; start plague at the lowest stable operational Alchemy city | Reusing exact-once P4B memory makes construction/reload deterministic. A guaranteed trigger is reviewable and avoids inventing an unrecorded reroll. | Open | Pending: trigger timing/chance/player choice, required levels and Trainers/rats behavior. |
+| `P5-08` | `/empire/technologies` (`reform-city-gates`); `/empire/events` (`event-city-gates-epidemic`) | P5 | Dark City Gates seals an epidemic city, doubles internal speed and prevents spread; light side halves crime | Seal is `localImpactMultiplier=2` and `preventsIntercitySpread=true`; open is `1`/`false`. Decision is exact once, cannot target inaccessible/ended disease, and does not undo spread that already happened | These epidemic consequences are fully executable, but the whole reform/event remains blocked because no crime mutation/consumer exists. | Open | Pending: define crime state and light side; confirm whether “speed ×2” means per-con impact, stage duration, or both, plus event timing and open-choice consequences. |
+| `P5-09` | `/empire/epidemics/protections` (`quarantine-hook`, `pharmaceuticals-hook`) | P5/P6C | Technology notes name Quarantine and Pharmaceuticals; Pharmaceuticals halves epidemic consequences and farm production, but no stable config carrier/prerequisite/lifecycle is present | Validated future flags only: Quarantine may reduce all consequences and spread up to 100%; Pharmaceuticals may reduce local consequences up to 50%. Neither flag is written by bundled content | A consumer hook preserves later source identity without inventing live technology IDs. The farm penalty is not applied without a carrier/lifecycle. | Open | Pending: exact IDs, acquisition, scope, duration, stacking and Pharmaceuticals farm-production penalty. |
+| `P5-10` | `/empire/epidemics/definitions/*/stages/*/recruitmentBlocked`; `facilityLocks` | P5 | No required raw source states that generic epidemics independently block recruitment or facilities | Typed fields exist; every bundled stage uses `false` and `[]` | Population, production, loyalty and city accessibility already have canonical consequences. Additional locks would be fabricated. | Open | Pending: identify disease/stage-specific recruitment or facility locks, targets and cleanup. |
+
+## P5 remaining-deferred and review manifest
+
+- `building-alchemy` is live for prerequisite/combination behavior, with only the validated
+  `alchemyMinigame` capability deferred to P10. Poison, potion, active laboratory and
+  military-equipment behavior must not be inferred from the plague hook.
+- `reform-city-gates` and `event-city-gates-epidemic` remain bundled-deferred because the
+  light crime side is incomplete. Custom/live future carriers may use both validated
+  containment choices; no unread crime flag was restored.
+- Quarantine and Фармацевтика remain carrier-less protection hooks. No technology/building
+  ID was guessed, and the Pharmaceuticals farm-production penalty remains unapplied.
+- Дженна is now uniquely mapped to `card-clubs-ace`, superseding the P0 identity question,
+  but both faces remain deferred because identity proof does not supply their numbers.
+- Epidemics do not generically block recruitment or facilities. Bundled stage lock fields
+  are explicitly false/empty until an authored disease-specific rule exists.

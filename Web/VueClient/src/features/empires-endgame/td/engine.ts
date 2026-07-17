@@ -555,6 +555,32 @@ function squadActions(plan: TdBattlePlan, state: TdSimulationState): void {
     .sort((left, right) => stableCompare(left.deploymentId, right.deploymentId))) {
     const deployment = deployments.get(squad.deploymentId)
     if (!deployment) continue
+    if (deployment.healing
+      && squad.healingChargesRemaining > 0
+      && squad.nextHealTick <= state.tick) {
+      const patient = livingSquads(state)
+        .filter(candidate => candidate.hp < candidate.maxHp)
+        .filter(candidate => pointDistance(squad, candidate) <= deployment.healing!.range)
+        .sort((left, right) => (
+          pointDistance(squad, left) - pointDistance(squad, right)
+          || stableCompare(left.deploymentId, right.deploymentId)
+        ))[0]
+      if (patient) {
+        const healersAlive = Math.max(1, Math.ceil(squad.hp / deployment.maxHpPerUnit))
+        const availableCharges = Math.min(healersAlive, squad.healingChargesRemaining)
+        const missingHp = patient.maxHp - patient.hp
+        const chargesUsed = Math.min(
+          availableCharges,
+          Math.max(1, Math.ceil(missingHp / deployment.healing.amountPerUnit)),
+        )
+        patient.hp = Math.min(
+          patient.maxHp,
+          patient.hp + chargesUsed * deployment.healing.amountPerUnit,
+        )
+        squad.healingChargesRemaining -= chargesUsed
+        squad.nextHealTick = state.tick + Math.max(1, deployment.healing.intervalTicks)
+      }
+    }
     const targets = livingEnemies(state)
       .filter(enemy => pointDistance(squad, enemy) <= deployment.attackRange)
       .sort((left, right) => routeDistance(plan, right) - routeDistance(plan, left) || stableCompare(left.id, right.id))
@@ -711,6 +737,8 @@ function squadFromDeployment(plan: TdBattlePlan, deployment: TdDeploymentPlan): 
     hp: deployment.count * deployment.maxHpPerUnit,
     maxHp: deployment.count * deployment.maxHpPerUnit,
     nextAttackTick: 0,
+    nextHealTick: 0,
+    healingChargesRemaining: deployment.count * (deployment.healing?.chargesPerUnit ?? 0),
     x: node?.x ?? 0,
     y: node?.y ?? 0,
   }
@@ -949,6 +977,12 @@ export function validateTdBattlePlan(plan: TdBattlePlan): string[] {
     if (!finite(deployment.maxHpPerUnit) || deployment.maxHpPerUnit <= 0) errors.push(`deployment ${deployment.id} maxHpPerUnit is invalid`)
     if (!finite(deployment.attackRange) || deployment.attackRange < 0) errors.push(`deployment ${deployment.id} attackRange is invalid`)
     if (!Number.isInteger(deployment.attackIntervalTicks) || deployment.attackIntervalTicks <= 0) errors.push(`deployment ${deployment.id} attackIntervalTicks must be positive`)
+    if (deployment.healing) {
+      if (!finite(deployment.healing.range) || deployment.healing.range < 0) errors.push(`deployment ${deployment.id} healing range is invalid`)
+      if (!Number.isInteger(deployment.healing.intervalTicks) || deployment.healing.intervalTicks <= 0) errors.push(`deployment ${deployment.id} healing intervalTicks must be positive`)
+      if (!finite(deployment.healing.amountPerUnit) || deployment.healing.amountPerUnit <= 0) errors.push(`deployment ${deployment.id} healing amountPerUnit is invalid`)
+      if (!Number.isInteger(deployment.healing.chargesPerUnit) || deployment.healing.chargesPerUnit <= 0) errors.push(`deployment ${deployment.id} healing chargesPerUnit must be positive`)
+    }
     validateWeapon(deployment.weapon, `deployment ${deployment.id} weapon`)
     validateArmor(deployment.armor, `deployment ${deployment.id} armor`)
   }

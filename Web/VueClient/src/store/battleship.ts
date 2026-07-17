@@ -29,6 +29,8 @@ import {
 
 /** Weapon entry shown in the weapon bar / consumed by keyboard shortcuts. */
 export interface BattleshipWeaponOption {
+  id: string
+  shipId: string
   type: string
   shotType: string
   label: string
@@ -38,6 +40,7 @@ export interface BattleshipWeaponOption {
   shipRange: string
   shipRow: number
   aimSpeed: number
+  deckIndex: number
 }
 
 export interface BattleshipSummonDeployMode {
@@ -79,6 +82,7 @@ export const useBattleshipStore = defineStore('battleship', () => {
 
   // Last shot marker (which board + coordinates)
   const lastShotCell = ref<{ target: 'enemy' | 'my'; row: number; col: number } | null>(null)
+  let pendingShotTarget: 'enemy' | 'my' | null = null
 
   // Kill streak — consecutive deck-destroying hits
   const killStreak = ref(0)
@@ -167,26 +171,24 @@ export const useBattleshipStore = defineStore('battleship', () => {
 
   const myEndReward = computed(() => gameState.value?.myEndReward ?? null)
 
-  const shootableTypes = new Set(['Ballista', 'Catapult', 'Tetracatapult', 'Incendiary', 'GreekFire'])
-
   const availableWeapons = computed<BattleshipWeaponOption[]>(() => {
-    if (!myPlayer.value?.fleet) return []
+    if (!myPlayer.value) return []
     const weapons: BattleshipWeaponOption[] = []
-    for (const ship of myPlayer.value.fleet) {
-      if (ship.isDestroyed) continue
-      for (const w of ship.weapons) {
-        if (!shootableTypes.has(w.type)) continue
-        if (w.type === 'Tetracatapult') {
-          weapons.push({ type: w.type, shotType: 'WhiteStone', label: 'Белый камень', ammo: w.ammo, hasAmmo: w.hasAmmo, shipName: ship.name, shipRange: ship.range, shipRow: ship.row, aimSpeed: w.aimSpeed })
-          if (phase.value !== 'Boarding') {
-            weapons.push({ type: w.type, shotType: 'Buckshot', label: 'Дробь', ammo: w.ammo, hasAmmo: w.hasAmmo, shipName: ship.name, shipRange: ship.range, shipRow: ship.row, aimSpeed: w.aimSpeed })
-          }
-        } else {
-          const label = w.type === 'Incendiary' ? 'Горючка'
-            : w.type === 'GreekFire' ? 'Греческий огонь'
-            : w.type
-          weapons.push({ type: w.type, shotType: w.type, label, ammo: w.ammo, hasAmmo: w.hasAmmo, shipName: ship.name, shipRange: ship.range, shipRow: ship.row, aimSpeed: w.aimSpeed })
-        }
+    for (const w of myPlayer.value.availableWeapons ?? []) {
+      const ship = myFleet.value.find(s => s.id === w.shipId)
+      const base = {
+        id: w.id, shipId: w.shipId, type: w.type, ammo: w.ammo, hasAmmo: true,
+        shipName: w.shipName, shipRange: ship?.range ?? 'Close', shipRow: ship?.row ?? 0,
+        aimSpeed: w.aimRemaining, deckIndex: w.deckIndex,
+      }
+      if (w.type === 'Tetracatapult') {
+        weapons.push({ ...base, shotType: 'WhiteStone', label: 'Белый камень' })
+        weapons.push({ ...base, shotType: 'Buckshot', label: 'Дробь' })
+      } else {
+        const label = w.type === 'Incendiary' ? 'Горючка'
+          : w.type === 'GreekFire' ? 'Греческий огонь'
+          : w.type === 'Ballista' ? 'Баллиста' : w.type
+        weapons.push({ ...base, shotType: w.type, label })
       }
     }
     return weapons
@@ -207,9 +209,7 @@ export const useBattleshipStore = defineStore('battleship', () => {
     }, durationMs)
   }
 
-  function triggerShotAnim(result: BattleshipShotResult) {
-    // If it's my turn, I'm shooting the enemy board; otherwise enemy shoots mine
-    const target: 'enemy' | 'my' = isMyTurn.value ? 'enemy' : 'my'
+  function triggerShotAnim(result: BattleshipShotResult, target: 'enemy' | 'my') {
     const { row, col } = result
 
     if (result.shipSunk) triggerCellAnim(target, row, col, 'anim-sunk', 800)
@@ -380,7 +380,10 @@ export const useBattleshipStore = defineStore('battleship', () => {
         lastShotResult.value = result
 
         // Track last shot position
-        const shotTarget: 'enemy' | 'my' = isMyTurn.value ? 'enemy' : 'my'
+        const shotTarget: 'enemy' | 'my' = isMyTurn.value
+          ? (pendingShotTarget ?? 'enemy')
+          : 'my'
+        pendingShotTarget = null
         lastShotCell.value = { target: shotTarget, row: result.row, col: result.col }
 
         // Client-side match stats (my shots only)
@@ -402,7 +405,7 @@ export const useBattleshipStore = defineStore('battleship', () => {
 
         // Sound + animation helper
         const fireShotEffects = () => {
-          triggerShotAnim(result)
+          triggerShotAnim(result, shotTarget)
           if (result.shipSunk) playBattleshipShipSunk()
           else if (result.burned) playBattleshipBurn()
           else if (result.scratched && result.miss) playBattleshipDodge()
@@ -533,18 +536,19 @@ export const useBattleshipStore = defineStore('battleship', () => {
 
   async function shoot(row: number, col: number) {
     if (!gameId.value || shotDelayActive.value) return
+    pendingShotTarget = 'enemy'
     await signalrService.battleshipShoot(gameId.value, row, col)
   }
 
   async function shootOwnBoard(row: number, col: number) {
     if (!gameId.value || shotDelayActive.value) return
+    pendingShotTarget = 'my'
     await signalrService.battleshipShootOwnBoard(gameId.value, row, col)
   }
 
   // Map weapon types to their actual shot behavior (must match backend WeaponTypeToShotType)
   function weaponToShotType(weaponType: string): string {
     switch (weaponType) {
-      case 'Catapult': return 'Buckshot'
       case 'Tetracatapult': return 'WhiteStone'
       case 'Incendiary': return 'Incendiary'
       case 'GreekFire': return 'GreekFire'
@@ -552,14 +556,19 @@ export const useBattleshipStore = defineStore('battleship', () => {
     }
   }
 
-  async function selectWeapon(weaponType: string, shotType: string) {
+  async function selectWeapon(weaponType: string, shotType: string, weaponId: string) {
     if (!gameId.value) return
     selectedWeaponType.value = weaponType
     summonDeployMode.value = null
     playBattleshipWeaponSelect()
     // Tetracatapult can fire as WhiteStone or Buckshot — use client-sent shotType
     selectedShotType.value = weaponType === 'Tetracatapult' ? shotType : weaponToShotType(weaponType)
-    await signalrService.battleshipSelectWeapon(gameId.value, weaponType, shotType)
+    await signalrService.battleshipSelectWeapon(gameId.value, weaponType, shotType, weaponId)
+  }
+
+  async function passBoardingTurn() {
+    if (!gameId.value) return
+    await signalrService.battleshipPassBoardingTurn(gameId.value)
   }
 
   async function deploySummon(summonTypeName: string, col: number) {
@@ -705,6 +714,7 @@ export const useBattleshipStore = defineStore('battleship', () => {
     shootOwnBoard,
     forfeit,
     selectWeapon,
+    passBoardingTurn,
     deploySummon,
     deployPendingSummon,
     manualMove,

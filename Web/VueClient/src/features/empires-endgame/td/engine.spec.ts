@@ -435,6 +435,39 @@ describe('Empire\'s Endgame deterministic regional TD engine', () => {
     expect(state.enemies[0].hp).toBe(96)
   })
 
+  it('lets healer deployments spend deterministic charges on the nearest damaged allied squad', () => {
+    const battlePlan = plan()
+    battlePlan.wave.groups[0].speedPerSecond = 0.001
+    const patient = {
+      ...assaultDeployment(battlePlan),
+      id: 'a-patient',
+      cohortId: 'a-patient',
+      count: 1,
+      speedPerSecond: 0,
+      nodeId: battlePlan.battlefield.deploymentNodeId,
+      maxHpPerUnit: 10,
+    }
+    const healer = {
+      ...assaultDeployment(battlePlan),
+      id: 'z-healer',
+      cohortId: 'z-healer',
+      unitId: 'unit-medical-healer',
+      count: 1,
+      speedPerSecond: 0,
+      nodeId: battlePlan.battlefield.deploymentNodeId,
+      maxHpPerUnit: 12,
+      healing: { range: 140, intervalTicks: 20, amountPerUnit: 10_000, chargesPerUnit: 2 },
+    }
+    battlePlan.deployments = [patient, healer]
+    const state = createTdSimulation(battlePlan, 'medical-healing')
+    state.squads.find(squad => squad.deploymentId === patient.id)!.hp = 1
+
+    stepTdSimulation(battlePlan, state, [])
+
+    expect(state.squads.find(squad => squad.deploymentId === patient.id)!.hp).toBe(10)
+    expect(state.squads.find(squad => squad.deploymentId === healer.id)!.healingChargesRemaining).toBe(1)
+  })
+
   it('resolves tower loadouts by priority/id, consumes exact stock, and restores deterministically', () => {
     const battlePlan = plan()
     battlePlan.maxTicks = 3

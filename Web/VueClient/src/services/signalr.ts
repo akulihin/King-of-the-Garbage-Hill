@@ -966,6 +966,7 @@ export type BattleshipPlayerState = {
   maxSummonSlots: number
   branderUsed: boolean
   selectedShotType: string
+  selectedWeaponId: string | null
   revealedCellCount: number
   stunShotExpiry: number
   hasPenalty: boolean
@@ -976,6 +977,18 @@ export type BattleshipPlayerState = {
   summons: BattleshipSummon[]
   pendingSummons: BattleshipPendingSummon[]
   selectedShips: BattleshipFleetSelection[] | null
+  availableWeapons: BattleshipAvailableWeapon[]
+  canPassBoarding: boolean
+}
+
+export type BattleshipAvailableWeapon = {
+  id: string
+  shipId: string
+  shipName: string
+  type: string
+  ammo: number
+  deckIndex: number
+  aimRemaining: number
 }
 
 export type BattleshipPendingSummon = {
@@ -1046,9 +1059,11 @@ export type BattleshipDeck = {
 }
 
 export type BattleshipWeapon = {
+  id: string
+  shipId: string
   type: string
   ammo: number
-  damage: number
+  deckIndex: number
   hasAmmo: boolean
   aimSpeed: number
 }
@@ -1063,6 +1078,7 @@ export type BattleshipSummon = {
   moveDirection: string
   waitingForTurnBack: boolean
   waitingForDirectionChoice: boolean
+  isBoardingShip: boolean
 }
 
 export type BattleshipFleetSelection = {
@@ -1087,6 +1103,7 @@ export type BattleshipShipCatalogEntry = {
   abilities: string[]
   description: string
   region: string | null
+  regions: string[]
   availableUpgrades: BattleshipUpgrade[]
 }
 
@@ -1761,8 +1778,12 @@ class SignalRService {
     await this.connection?.invoke('BattleshipShootOwnBoard', gameId, row, col)
   }
 
-  async battleshipSelectWeapon(gameId: string, weaponType: string, shotType: string): Promise<void> {
-    await this.connection?.invoke('BattleshipSelectWeapon', gameId, weaponType, shotType)
+  async battleshipSelectWeapon(gameId: string, weaponType: string, shotType: string, weaponId: string): Promise<void> {
+    await this.connection?.invoke('BattleshipSelectWeapon', gameId, weaponType, shotType, weaponId)
+  }
+
+  async battleshipPassBoardingTurn(gameId: string): Promise<void> {
+    await this.connection?.invoke('BattleshipPassBoardingTurn', gameId)
   }
 
   async battleshipDeploySummon(gameId: string, summonType: string, col: number): Promise<void> {

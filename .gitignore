@@ -412,11 +412,4 @@ empire_prompt
 ZBS_MAKING
 DiscordExports
 plans
-!plans/
-plans/*
-!plans/empires-endgame/
-plans/empires-endgame/*
-!plans/empires-endgame/README.md
-!plans/empires-endgame/COMMON-EXECUTION-CONTRACT.md
-!plans/empires-endgame/COVERAGE-MATRIX.md
-!plans/empires-endgame/phase-*.md
+icons

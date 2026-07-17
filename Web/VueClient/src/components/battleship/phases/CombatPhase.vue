@@ -24,7 +24,9 @@ const gameLog = computed(() => store.gameLog)
 
 // ── Weapon selection (state lives in the store) ───────────────
 const selectedWeaponShip = computed(() => {
-  const w = store.availableWeapons.find(w => w.shotType === store.selectedShotType)
+  const selectedId = myPlayer.value?.selectedWeaponId
+  const w = store.availableWeapons.find(w => w.id === selectedId && w.shotType === store.selectedShotType)
+    ?? store.availableWeapons.find(w => w.shotType === store.selectedShotType)
     ?? store.availableWeapons.find(w => w.type === store.selectedWeaponType)
   return w ?? null
 })
@@ -40,14 +42,20 @@ const farBlockedRows = computed<Set<number>>(() => {
 const activeBlockedRows = computed(() => store.summonDeployMode ? new Set<number>() : farBlockedRows.value)
 
 // ── Summon deployment ─────────────────────────────────────────
+const capturedShipIds = computed(() => new Set(
+  (store.myBoard?.cells ?? []).flatMap(c => c.isCaptured && c.shipId ? [c.shipId] : []),
+))
+
 const hasBranderUpgrade = computed(() => {
-  return myPlayer.value?.fleet?.some(s => !s.isDestroyed && s.abilities?.includes('brander_summon')) ?? false
+  return myPlayer.value?.fleet?.some(s => !s.isDestroyed && !capturedShipIds.value.has(s.id) &&
+    s.abilities?.includes('brander_summon')) ?? false
 })
 
 // ТЗ #11/#12: summon availability is gated by fleet regions (Таран⇒Запад, Разведчик⇒Восток,
 // Пират⇒Юг); Brander needs the boiler upgrade and is once per match (ТЗ #10)
 const availableSummons = computed<string[]>(() => {
-  const regions = new Set(myPlayer.value?.fleet?.flatMap(s => s.regions ?? []) ?? [])
+  const regions = new Set(myPlayer.value?.fleet?.filter(s => !capturedShipIds.value.has(s.id))
+    .flatMap(s => s.regions ?? []) ?? [])
   const list: string[] = []
   if (regions.has('West')) list.push('Ram')
   if (regions.has('East')) list.push('Scout')
@@ -84,7 +92,7 @@ const canDeploySummon = computed(() => {
   // ТЗ #10: Brander is outside the four normal per-match uses
   if (!isReentry && store.summonType !== 'Brander' && p.summonSlotsUsed >= p.maxSummonSlots) return false
   const threshold = 5 * (p.summonSlotsUsed + 1)
-  if (!isReentry && phase.value !== 'Boarding' && enemyPlayer.value.revealedCellCount < threshold) return false
+  if (!isReentry && phase.value !== 'Boarding' && p.revealedCellCount < threshold) return false
   if (phase.value !== 'Boarding' && p.summonCooldownRemaining > 0) return false
   return true
 })
@@ -167,8 +175,9 @@ watch(() => store.shotDelayActive, (active) => {
 
 // ── AoE cursor previews ─────────────────────────────────────
 const isBuckshotMode = computed(() => store.selectedShotType === 'Buckshot')
-const isIncendiaryMode = computed(() => store.selectedShotType === 'Incendiary' || store.selectedShotType === 'GreekFire')
+const isIncendiaryMode = computed(() => store.selectedShotType === 'Incendiary')
 const isGreekFireMode = computed(() => store.selectedShotType === 'GreekFire')
+const hasCapturedShip = computed(() => store.myBoard?.cells.some(c => c.isCaptured && !c.isDestroyed) ?? false)
 const aoeHighlight = ref<{ row: number; col: number }[]>([])
 
 function updateAoeHighlight(row: number, col: number) {
@@ -213,6 +222,7 @@ async function handleEnemyCellClick(row: number, col: number) {
   if (!isMyTurn.value || (phase.value !== 'Combat' && phase.value !== 'Boarding')) return
   if (myPlayer.value?.pendingSummons?.some(p => p.isBoarding)) return
   if (store.shotDelayActive) return
+  if (isGreekFireMode.value || hasCapturedShip.value) return
   if (farBlockedRows.value.has(row)) return
   await store.shoot(row, col)
 }
@@ -220,13 +230,18 @@ async function handleEnemyCellClick(row: number, col: number) {
 async function handleMyBoardCellClick(row: number, col: number) {
   if (!isMyTurn.value || (phase.value !== 'Combat' && phase.value !== 'Boarding')) return
   if (store.shotDelayActive) return
-  // Greek Fire may target any own cell (ТЗ #23)
+  if (myPlayer.value?.pendingSummons?.some(p => p.isBoarding)) return
+  const cell = store.myBoard?.cells.find(c => c.row === row && c.col === col)
+  if (hasCapturedShip.value) {
+    if (cell?.isCaptured && !cell.isDestroyed) await store.shootOwnBoard(row, col)
+    return
+  }
+  // Greek Fire is an own-board-only Boiler shot.
   if (isGreekFireMode.value) {
     await store.shootOwnBoard(row, col)
     return
   }
   const myId = store.gameState?.myPlayerId
-  const cell = store.myBoard?.cells.find(c => c.row === row && c.col === col)
   if (!cell || !cell.hasSummon || !cell.summonOwnerId || cell.summonOwnerId === myId) return
   await store.shootOwnBoard(row, col)
 }
@@ -236,8 +251,8 @@ function handleEnemyHover(row: number, col: number) {
   else updateAoeHighlight(row, col)
 }
 
-async function handleWeaponSelect(weaponType: string, shotType: string) {
-  await store.selectWeapon(weaponType, shotType)
+async function handleWeaponSelect(weaponType: string, shotType: string, weaponId: string) {
+  await store.selectWeapon(weaponType, shotType, weaponId)
 }
 
 async function handleManualMove(shipId: string, direction: string, distance: number) {
@@ -325,12 +340,16 @@ const myBoardRangeOverlays = computed(() => {
     const abilities = ship.abilities ?? []
 
     if (abilities.includes('poison_cone')) {
-      const baseRow = ship.row
-      const baseCol = ship.col
-      for (let dc = -1; dc <= 1; dc++) addCell(map, baseRow - 1, baseCol + dc, 'poison')
-      for (let dc = -2; dc <= 2; dc++) addCell(map, baseRow - 2, baseCol + dc, 'poison')
-      if (ship.definitionId === 'alchi_iceberg') {
-        for (let dc = -3; dc <= 3; dc++) addCell(map, baseRow - 3, baseCol + dc, 'poison')
+      const [firstRow, firstCol] = getOccupiedCells(ship)[0] ?? [ship.row, ship.col]
+      const [forwardRow, forwardCol] = ship.orientation === 'Vertical' ? [-1, 0] : [0, -1]
+      const [sideRow, sideCol] = ship.orientation === 'Vertical' ? [0, 1] : [1, 0]
+      for (let depth = 1; depth <= 2; depth++) {
+        for (let side = -depth; side <= depth; side++) {
+          addCell(map,
+            firstRow + forwardRow * depth + sideRow * side,
+            firstCol + forwardCol * depth + sideCol * side,
+            'poison')
+        }
       }
     }
 
@@ -370,6 +389,11 @@ const myBoardRangeOverlays = computed(() => {
       if (c.hasSummon && c.summonOwnerId && c.summonOwnerId !== myId) {
         addCell(map, c.row, c.col, 'ownboard-target')
       }
+    }
+  }
+  if (hasCapturedShip.value) {
+    for (const c of store.myBoard?.cells ?? []) {
+      if (c.isCaptured && !c.isDestroyed) addCell(map, c.row, c.col, 'ownboard-target')
     }
   }
 
@@ -509,6 +533,7 @@ onUnmounted(() => {
     <!-- Weapon Bar -->
     <WeaponBar
       :selected-shot-type="store.selectedShotType"
+      :selected-weapon-id="myPlayer?.selectedWeaponId ?? null"
       :available-weapons="store.availableWeapons"
       :shot-delay-active="store.shotDelayActive"
       :shot-delay-remaining="shotDelayRemaining"
@@ -550,7 +575,7 @@ onUnmounted(() => {
             :is-enemy="true"
             :cell-size="42"
             :shot-type="store.selectedShotType"
-            :clickable="(isMyTurn && !store.shotDelayActive) || !!store.summonDeployMode"
+            :clickable="(isMyTurn && !store.shotDelayActive && !isGreekFireMode && !hasCapturedShip) || !!store.summonDeployMode"
             :highlight-cells="enemyHighlight"
             :blocked-rows="activeBlockedRows"
             :animated-cells="store.enemyAnimatedCells"
@@ -576,7 +601,7 @@ onUnmounted(() => {
           <span v-if="hasOverlayType(enemySummonTrails, 'Scout')" class="legend-item legend-trail-scout"><span v-html="renderIcon('scout', 12)"></span> Разведчик</span>
           <span v-if="hasOverlayType(enemySummonTrails, 'Brander')" class="legend-item legend-trail-brander"><span v-html="renderIcon('brander', 12)"></span> Брандер</span>
           <span v-if="hasOverlayType(enemySummonTrails, 'CursedBoat')" class="legend-item legend-trail-cursed"><span v-html="renderIcon('cursedBoat', 12)"></span> Проклятый</span>
-          <span v-if="hasOverlayType(enemySummonTrails, 'PirateBoat')" class="legend-item legend-trail-pirate"><span v-html="renderIcon('pirateBoat', 12)"></span> Пират</span>
+          <span v-if="hasOverlayType(enemySummonTrails, 'PirateBoat')" class="legend-item legend-trail-pirate"><span v-html="renderIcon('pirateBoat', 12)"></span> Пиратская лодка</span>
         </div>
       </div>
 
@@ -600,7 +625,7 @@ onUnmounted(() => {
             :summon-trail-cells="mySummonTrails"
             :ship-name-map="myShipNameMap"
             :range-overlay-cells="myBoardRangeOverlays"
-            :clickable="(hasEnemySummonOnMyBoard || isGreekFireMode) && isMyTurn && !store.shotDelayActive"
+            :clickable="(hasCapturedShip || hasEnemySummonOnMyBoard || isGreekFireMode) && isMyTurn && !store.shotDelayActive"
             @cell-click="handleMyBoardCellClick"
             @tip-show="showTip" @tip-move="moveTip" @tip-hide="hideTip"
           />
@@ -628,7 +653,7 @@ onUnmounted(() => {
           <span v-if="hasOverlayType(mySummonTrails, 'Scout')" class="legend-item legend-trail-scout"><span v-html="renderIcon('scout', 12)"></span> Разведчик</span>
           <span v-if="hasOverlayType(mySummonTrails, 'Brander')" class="legend-item legend-trail-brander"><span v-html="renderIcon('brander', 12)"></span> Брандер</span>
           <span v-if="hasOverlayType(mySummonTrails, 'CursedBoat')" class="legend-item legend-trail-cursed"><span v-html="renderIcon('cursedBoat', 12)"></span> Проклятый</span>
-          <span v-if="hasOverlayType(mySummonTrails, 'PirateBoat')" class="legend-item legend-trail-pirate"><span v-html="renderIcon('pirateBoat', 12)"></span> Пират</span>
+          <span v-if="hasOverlayType(mySummonTrails, 'PirateBoat')" class="legend-item legend-trail-pirate"><span v-html="renderIcon('pirateBoat', 12)"></span> Пиратская лодка</span>
         </div>
       </div>
     </div>
@@ -666,8 +691,10 @@ onUnmounted(() => {
       :shot-result="store.lastShotResult"
       :shot-result-class="shotResultClass"
       :is-my-turn="isMyTurn"
+      :can-pass-boarding="myPlayer?.canPassBoarding ?? false"
       @manual-move="handleManualMove"
       @set-cursed-direction="(id: string, dir: string) => store.setCursedBoatDirection(id, dir)"
+      @pass-boarding="store.passBoardingTurn()"
     />
 
     <!-- Tooltip -->

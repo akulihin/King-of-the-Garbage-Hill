@@ -21,11 +21,13 @@ defineProps<{
   shotResult: { message: string } | null
   shotResultClass: Record<string, boolean>
   isMyTurn: boolean
+  canPassBoarding: boolean
 }>()
 
 const emit = defineEmits<{
   (e: 'manualMove', shipId: string, direction: string, distance: number): void
   (e: 'setCursedDirection', summonId: string, direction: string): void
+  (e: 'passBoarding'): void
 }>()
 
 const manualMoveDistance = ref(1)
@@ -36,6 +38,13 @@ function emitManualMove(shipId: string, direction: string) {
 </script>
 
 <template>
+  <div v-if="isMyTurn && canPassBoarding" class="pass-bar bs-bar">
+    <span class="action-label">Нет доступного выстрела</span>
+    <button class="bs-btn bs-btn--primary" type="button" @click="emit('passBoarding')">
+      Двигать призывы и завершить ход
+    </button>
+  </div>
+
   <!-- Manual Move (Maneuvering Double) — per-ship activation (ТЗ #21) -->
   <template v-if="isMyTurn">
     <div
@@ -154,7 +163,8 @@ function emitManualMove(shipId: string, direction: string) {
 <style scoped>
 /* ── Action bars (maneuver, cursed) ──────────────────────── */
 .maneuver-bar,
-.cursed-bar {
+.cursed-bar,
+.pass-bar {
   margin-top: 0.5rem;
 }
 

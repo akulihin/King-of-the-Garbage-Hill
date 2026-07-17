@@ -16,13 +16,14 @@ type QaScenario =
   | 'loyalty-rebellion'
   | 'relic-production-levels'
   | 'season-disclosure'
+  | 'epidemic-outbreak'
   | 'event'
   | 'victory'
   | 'defeat'
 
 const QA_SEED = 'cypress-empires-endgame'
 const CONFIG_STORAGE_KEY = 'empires-endgame:config:v1'
-const SAVE_STORAGE_KEY = 'empires-endgame:campaign:v1'
+const SAVE_STORAGE_KEY = 'empires-endgame:campaign:v6'
 const bundledConfig = bundledConfigJson as unknown as EmpiresEndgameConfig
 const TECHNOLOGY_COUNT = bundledConfig.empire.technologies.length
 
@@ -527,6 +528,18 @@ describe('Empire\'s Endgame deterministic browser scenarios', () => {
     cy.get('.event-choice:not(:disabled)').first().should('be.visible').click()
     cy.get('[role="dialog"][aria-labelledby="event-dialog-title"]').should('not.exist')
     cy.get('[data-testid="qa-digest"]').should('not.contain.text', 'event')
+  })
+
+  it('shows an epidemic badge and the detailed city projection', () => {
+    visitScenario('epidemic-outbreak')
+    cy.get('[data-testid^="map-epidemic-"]').should('have.length', 1).first().as('badge')
+    cy.get('@badge').should('contain.text', 'Вспышка')
+    cy.get('@badge').closest('button').click()
+    cy.get('[data-testid^="city-epidemics-"]')
+      .should('be.visible')
+      .and('contain.text', 'Чума')
+      .and('contain.text', 'Следующий итог')
+      .and('contain.text', 'Защита')
   })
 
   it('runs the seeded campaign autoplay without a stalled player turn', () => {

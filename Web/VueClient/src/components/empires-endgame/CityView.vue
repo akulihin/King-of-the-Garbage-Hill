@@ -156,6 +156,30 @@ interface EmpireCityView {
     loadoutId: string
     weaponName: string
     defenseName?: string
+    recoveringCount?: number
+    readyAtCon?: number
+  }>
+  epidemics?: Array<{
+    instanceId: string
+    name: string
+    stageName: string
+    severity: number
+    turnsRemaining: number
+    containment: { mode: 'undecided' | 'open' | 'sealed' }
+    affectedClasses: Array<{ id: string, name: string, weight: number }>
+    protection: Array<{ id: string, name: string, consequence: string, multiplier: number }>
+    projectedNextImpact: {
+      populationLoss: number
+      productionLossPercent: number
+      loyaltyDelta: number
+      spreadChance: number
+    }
+    spreadWarning: string | null
+  }>
+  medicalTreatments?: Array<{
+    veteranId: string
+    unitName: string
+    wounds: number
   }>
   resourceStockpiles?: Array<{
     id: string
@@ -201,6 +225,7 @@ const emit = defineEmits<{
   openPopulation: [cityId: string]
   editBuilding: [cityId: string, buildingId: string]
   editSlot: [cityId: string, slot: PlacementSlotKind]
+  treatVeteran: [veteranId: string]
 }>()
 
 const slotDefinitions: SlotDefinition[] = [
@@ -490,6 +515,46 @@ function toggleBoost() {
         </span>
       </div>
 
+      <section
+        v-if="activeCity.epidemics?.length"
+        class="epidemic-ledger"
+        :data-testid="`city-epidemics-${activeCity.id}`"
+        aria-label="Эпидемии города"
+      >
+        <article v-for="epidemic in activeCity.epidemics" :key="epidemic.instanceId">
+          <header>
+            <strong>☣ {{ epidemic.name }} · {{ epidemic.stageName }}</strong>
+            <span>тяжесть {{ epidemic.severity }} · осталось {{ epidemic.turnsRemaining }}</span>
+          </header>
+          <p>
+            Сословия: {{ epidemic.affectedClasses.map(item => `${item.name} ×${item.weight}`).join(', ') }}.
+            Режим: {{ epidemic.containment.mode === 'sealed' ? 'врата заперты' : epidemic.containment.mode === 'open' ? 'врата открыты' : 'не выбран' }}.
+          </p>
+          <p>
+            Следующий итог: −{{ formatNumber(epidemic.projectedNextImpact.populationLoss) }} жителей,
+            −{{ formatNumber(epidemic.projectedNextImpact.productionLossPercent) }}% производства,
+            лояльность {{ signedNumber(epidemic.projectedNextImpact.loyaltyDelta) }}.
+            <b v-if="epidemic.spreadWarning">{{ epidemic.spreadWarning }}</b>
+          </p>
+          <small v-if="epidemic.protection.length">
+            Защита: {{ epidemic.protection.map(item => `${item.name}/${item.consequence} ×${formatNumber(item.multiplier)}`).join(' · ') }}
+          </small>
+          <small v-else>Активной медицинской защиты нет.</small>
+        </article>
+      </section>
+
+      <section v-if="activeCity.medicalTreatments?.length" class="medical-ledger" aria-label="Лечение ветеранов">
+        <strong>Медицинская академия · одно лечение за кон</strong>
+        <button
+          v-for="patient in activeCity.medicalTreatments"
+          :key="patient.veteranId"
+          type="button"
+          @click="emit('treatVeteran', patient.veteranId)"
+        >
+          Лечить {{ patient.unitName }} · ран {{ patient.wounds }} · риск смерти 50%
+        </button>
+      </section>
+
       <section class="army-ledger" aria-label="Армия и снаряжение">
         <header>
           <span><Shield :size="14" /> Армия города</span>
@@ -512,6 +577,7 @@ function toggleBoost() {
             <span v-for="cohort in activeCity.armyCohorts" :key="cohort.id">
               <b>{{ cohort.unitName }} × {{ formatNumber(cohort.count) }}</b>
               <small>{{ cohort.weaponName }}<template v-if="cohort.defenseName"> · {{ cohort.defenseName }}</template> · {{ cohort.loadoutId }}</small>
+              <em v-if="cohort.recoveringCount">На лечении {{ cohort.recoveringCount }} до кона {{ cohort.readyAtCon }}</em>
             </span>
             <em v-if="!activeCity.armyCohorts?.length">В городе нет когорт</em>
           </div>
@@ -929,6 +995,15 @@ function toggleBoost() {
 .city-resources small { color: rgba(238, 229, 209, 0.5); font-size: 0.57rem; }
 .city-resources small em { margin-left: 4px; color: #d1a269; font-size: .48rem; font-style: normal; text-transform: uppercase; }
 .city-resources b { color: #eee1c6; font: 800 0.77rem/1 var(--font-mono, monospace); }
+.epidemic-ledger { display: grid; gap: 1px; border-bottom: 1px solid var(--city-line); background: #24180f; }
+.epidemic-ledger article { display: grid; gap: 6px; padding: 11px 14px; background: rgba(82, 43, 15, .42); }
+.epidemic-ledger header { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; color: #ffdb91; }
+.epidemic-ledger p { margin: 0; color: rgba(246, 231, 201, .78); font-size: .68rem; line-height: 1.45; }
+.epidemic-ledger p b { margin-left: 6px; color: #f6ac85; }
+.epidemic-ledger small { color: rgba(255, 224, 164, .62); font: 600 .57rem/1.35 var(--font-mono, monospace); }
+.medical-ledger { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 9px 14px; border-bottom: 1px solid var(--city-line); background: #14201a; }
+.medical-ledger strong { margin-right: auto; color: #aad2b4; font: 800 .58rem/1 var(--font-mono, monospace); text-transform: uppercase; }
+.medical-ledger button { border: 1px solid rgba(170, 210, 180, .3); border-radius: 5px; padding: 6px 8px; color: #dceadf; background: #20372a; font-size: .6rem; cursor: pointer; }
 .army-ledger { border-bottom: 1px solid var(--city-line); background: #141710; }
 .army-ledger > header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 14px; border-bottom: 1px solid rgba(226, 204, 158, .1); }
 .army-ledger > header span,.equipment-ledger > strong,.cohort-ledger > strong { display: inline-flex; align-items: center; gap: 5px; color: #c9aa67; font: 800 .57rem/1 var(--font-mono, monospace); letter-spacing: .06em; text-transform: uppercase; }

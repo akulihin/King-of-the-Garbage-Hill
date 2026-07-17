@@ -6,9 +6,11 @@ const { tipText, tipVisible, tipPos, showTip, moveTip, hideTip } = useTip()
 
 defineProps<{
   selectedShotType: string
+  selectedWeaponId: string | null
   availableWeapons: Array<{
+    id: string; shipId: string
     type: string; shotType: string; label: string; ammo: number
-    hasAmmo: boolean; shipName: string; shipRange: string; shipRow: number; aimSpeed: number
+    hasAmmo: boolean; shipName: string; shipRange: string; shipRow: number; aimSpeed: number; deckIndex: number
   }>
   shotDelayActive: boolean
   shotDelayRemaining: number
@@ -16,7 +18,7 @@ defineProps<{
 }>()
 
 const emit = defineEmits<{
-  (e: 'selectWeapon', weaponType: string, shotType: string): void
+  (e: 'selectWeapon', weaponType: string, shotType: string, weaponId: string): void
 }>()
 
 const shotTypeToIconKey: Record<string, string> = {
@@ -33,13 +35,13 @@ function weaponTooltip(shotType: string): string {
     case 'WhiteStone': return 'Белый камень — урон 8, оглушает (2 выстрела), разрушает модуль палубы'
     case 'Buckshot': return 'Дробь — урон 1, область 2x2 клетки'
     case 'Incendiary': return 'Горючка — сжигает весь корабль, можно по подбитым клеткам'
-    case 'GreekFire': return 'Греческий огонь — перманентный огонь на клетке, сжигает корабли'
+    case 'GreekFire': return 'Греческий огонь — стреляет только по своей доске и оставляет перманентный огонь'
     default: return ''
   }
 }
 
-function handleSelect(weaponType: string, shotType: string) {
-  emit('selectWeapon', weaponType, shotType)
+function handleSelect(weaponType: string, shotType: string, weaponId: string) {
+  emit('selectWeapon', weaponType, shotType, weaponId)
 }
 </script>
 
@@ -48,37 +50,21 @@ function handleSelect(weaponType: string, shotType: string) {
     <span class="wb-label">Оружие:</span>
 
     <div class="bs-seg" role="group" aria-label="Оружие">
-      <!-- Ballista (always available) -->
       <button
-        class="bs-seg-btn wb-weapon"
-        type="button"
-        :aria-pressed="selectedShotType === 'Ballista'"
-        @mouseenter="showTip($event, weaponTooltip('Ballista') + ' [1]')"
-        @mousemove="moveTip"
-        @mouseleave="hideTip"
-        @click="handleSelect('Ballista', 'Ballista')"
-      >
-        <span class="wb-icon" v-html="renderIcon(shotTypeToIconKey['Ballista'], 18)"></span>
-        <span class="wb-weapon-text">Баллиста</span>
-        <span class="wb-hotkey bs-mono">1</span>
-      </button>
-
-      <!-- Special weapons -->
-      <button
-        v-for="(w, wi) in availableWeapons.filter(w => w.type !== 'Ballista')"
-        :key="w.shotType + w.shipName"
+        v-for="(w, wi) in availableWeapons"
+        :key="`${w.id}:${w.shotType}`"
         class="bs-seg-btn wb-weapon"
         type="button"
         :class="[
           !w.hasAmmo ? 'wb-weapon--used' : '',
           w.aimSpeed > 0 ? 'wb-weapon--charging' : ''
         ]"
-        :aria-pressed="selectedShotType === w.shotType"
+        :aria-pressed="selectedShotType === w.shotType && selectedWeaponId === w.id"
         :disabled="!w.hasAmmo || w.aimSpeed > 0"
-        @mouseenter="showTip($event, weaponTooltip(w.shotType) + (w.aimSpeed > 0 ? ` (заряжается: ${w.aimSpeed} выстр.)` : '') + ` [${wi + 2}]`)"
+        @mouseenter="showTip($event, weaponTooltip(w.shotType) + (w.aimSpeed > 0 ? ` (Прицел: ${w.aimSpeed} клет.)` : '') + ` [${wi + 1}]`)"
         @mousemove="moveTip"
         @mouseleave="hideTip"
-        @click="w.hasAmmo && w.aimSpeed <= 0 && handleSelect(w.type, w.shotType)"
+        @click="w.hasAmmo && w.aimSpeed <= 0 && handleSelect(w.type, w.shotType, w.id)"
       >
         <span class="wb-icon" v-html="renderIcon(shotTypeToIconKey[w.shotType] ?? '', 18)"></span>
         <span class="wb-weapon-text">{{ w.label }}</span>
@@ -88,7 +74,7 @@ function handleSelect(weaponType: string, shotType: string) {
           <span class="wb-aim-charge-text bs-mono">{{ w.aimSpeed }}</span>
         </span>
         <span class="wb-source">{{ w.shipName }}</span>
-        <span class="wb-hotkey bs-mono">{{ wi + 2 }}</span>
+        <span class="wb-hotkey bs-mono">{{ wi + 1 }}</span>
       </button>
     </div>
   </div>
