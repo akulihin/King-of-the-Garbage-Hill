@@ -117,7 +117,8 @@ more specific field.
 - Enemy ships are a typed north-wave category only. Player fleet, persistent naval/siege state and fleet progression remain deferred/review content.
 - The source's “208 builds” claim remains unresolved; P3A does not remove or equate combinations to manufacture that number.
 - Steel research, equipment progression, Foundry, Military Academy, military workshop content and steel cards remain owned by P3B and were not un-deferred.
-- `event-northern-raids` remains deferred for P4A loyalty consequences.
+- `event-northern-raids` was deferred here and is now live under P4A through typed regional
+  loyalty effects and the preserved wood outcome; its P4A ledger row owns the chosen values.
 
 ## P3B latest-steel source reconciliation
 
@@ -286,3 +287,31 @@ they cannot disappear behind an equipment row.
   Casualties remove cohort members, and TD results deduct tower equipment exactly once.
   Recovery, refitting, mixed formations, smith specialization controls, armor production
   and the source's full volume table remain deferred pending authored semantics.
+
+## P4A loyalty/reputation defaults and unresolved-semantics ledger
+
+| ID | JSON Pointer | Phase | Raw source | Chosen default | Rationale | Status | Designer verdict |
+|---|---|---:|---|---|---|---|---|
+| `P4A-01` | `/empire/loyalty/workforceDivisors` | P4A | `застройка` loyalty/workforce note; `общее` and `регионы` cross-check | Explicit ascending loyalty rows `−9…+9` with divisors `19,18,17,16,15,13,12,11,10,9,8,7,6,5,5,4,3,2,1` | The source fixes only `−9 → ÷19`, `0 → ÷9`, `+9 → ÷1`. Piecewise interpolation with integer rounding makes every consumed value inspectable and preserves all anchors; it is not claimed as authored balance. This operationalizes seeded question `P0-01` without erasing it. | Open | Pending: confirm every intermediate divisor and rounding rule. |
+| `P4A-02` | `/empire/loyalty/constructionMinimumLoyalty`; `/empire/loyalty/recruitmentMinimumLoyalty` | P4A | `застройка` says negative loyalty stops building operation and positive loyalty is needed for upgrades; no exact construction/recruitment threshold table | Both minima are `0` effective city loyalty | Zero is the narrow neutral boundary consistent with the negative/positive distinction. Construction and recruitment use the same effective city+region reader as production; no parallel UI rule exists. | Open | Pending: should placement, upgrades and recruitment have distinct thresholds, and does “positive” mean strictly `+1`? |
+| `P4A-03` | `/empire/loyalty/rebellion` | P4A | `регионы`/`дома`: sustained negative regional loyalty can cause rebellion; no threshold, duration or recovery action supplied | Rebellion at `≤−6` for `2` qualifying delta applications; recovery at `≥0` for `2` qualifying delta applications | The lifecycle must be reversible and persisted without a wall-clock invention. Counting typed applications makes save/reload deterministic and keeps rebellion separate from permanent region destruction. | Open | Pending: confirm threshold, duration/counting clock and the authored player recovery action. |
+| `P4A-04` | `/empire/loyalty/classGates/0` | P4A | `застройка`: Мещане loyalty gates the Smithy; four named population classes | `building-smithy` requires effective `burghers` loyalty `≥0` | The source uniquely maps this class/building pair but supplies no number. A non-negative threshold matches the common neutral action boundary and shuts every purchased Smithy level through the operational-level funnel. | Open | Pending: confirm Smithy threshold, whether the gate is city-local, and every other class/building mapping. |
+| `P4A-05` | `/empire/loyalty/chronicleRetention` | P4A | No source retention count; common execution contract requires bounded local history | Keep `64` complete chronicle entries, oldest evicted first | Stable sequence IDs and visible bounded retention preserve recent political provenance without unbounded localStorage growth. Unlike TD compaction, no raw source requires old political entries to remain replayable. | Open | Pending: confirm the retained entry count and whether older entries need a compacted digest. |
+| `P4A-06` | `/empire/buildings/12` (`municipal-capital-forum`) | P4A | `застройка`/building notes: Forum doubles positive and negative loyalty and “accelerates progress” | Bundled carrier remains deferred. A validated operational `loyaltyMultiplierPercent=100` reader doubles the current effective city value in both directions and disappears when the building is non-operational; `progressAcceleration` is not retained live. | Shipping only the loyalty half would violate the carrier gate because progress has no target, clock, amount or cleanup semantics. The reader is tested for custom definitions, but the bundled Forum remains unavailable as a whole. | Open | Pending: does Forum multiply deltas, stored values or effective values, and what exactly is progress acceleration? |
+| `P4A-07` | `/cards/0/inverted` (`card-clubs-2`) | P4A | Main `карты` export uniquely names «Чистые улицы / Грязные улицы» but supplies no numeric effect, target, duration or level scaling; older `ZBS MAKING` ideas conflict in authority | Inverted face remains deferred; no `streetCleanliness` or loyalty alias is made live | Unique title identity is insufficient for a consumed, scaling, reversible mechanic. Main export wins and does not justify importing the older broad effect. | Open | Pending: provide exact effect, target/scope, duration, level scaling and cleanup for «Грязные улицы». |
+| `P4A-08` | `/empire/events/2` (`event-northern-raids`) | P4A | `дома` message `1363952330256683028` plus its lumber-concession follow-up | `forbid-raids`: West `+2`, North `−1`; `permit-raids`: North `+1`, West `−2`, wood `+250000` | Direction and the strong West benefit are authored, but exact loyalty magnitudes are absent. `2/1` preserves “strongly” versus ordinary change, and the pre-existing authored wood outcome is retained rather than replaced by a TD battle. | Open | Pending: confirm all four loyalty deltas and whether the follow-up concession is immediate, conditional or a later event. |
+| `P4A-09` | `/td/settlement/lossLoyaltyThreshold`; `/td/settlement/loyaltyDelta` | P4A | `застройка` army note: at least 10% attributed losses lower loyalty by 1; P3A canonical result supplies deployment city/cohort provenance | Aggregate each result's lost/deployed counts per deployment city; at ratio `≥0.1`, apply city loyalty `−1` once under `td-loss:<sessionId>:<cityId>` | P3A deployments provide an authored denominator and city source; aggregating before comparison prevents per-cohort rounding differences. The consumed identity survives save/restore. | Open | Pending: should mixed-region armies penalize each city, one source region, or another attribution owner? |
+| `P4A-10` | `/empire/loyalty/initialCityLoyalty`; `/empire/loyalty/initialRegionLoyalty`; `/empire/loyalty/initialClassLoyalty`; `/empire/loyalty/initialReputation` | P4A | `общее`/`регионы` establish `−9…+9` loyalty and reputation bounds but no campaign-start distribution | All initial political values are `0` | Neutral start avoids inventing regional/class favorites. Schema-v4 custom configs migrate with the whole subsystem disabled, so they do not silently acquire even these bundled rules. | Open | Pending: supply starting city, region, class and reputation values. |
+
+## P4A remaining-deferred manifest
+
+- `municipal-capital-forum` remains wholly deferred because the progress-acceleration half
+  has no executable target, number, clock or cleanup. Its confirmed loyalty reader exists
+  only as a validated/tested substrate for a future complete definition.
+- Inverted `card-clubs-2` remains deferred as recorded in `P4A-07`. Additional Народ faces
+  remain deferred unless the main source uniquely supplies title, current config ID, side,
+  numeric effects, level scaling and lifecycle; placeholder ranks are not guessed.
+- Seasons, technology light/dark sides, Hearts/political faces, reforms and crime remain
+  owned by P4B. Reputation substrate does not un-defer P6 trade/unions.
+- The lumber-concession follow-up to `event-northern-raids` remains a separate deferred
+  event until its trigger/timing and complete outcomes are authored.

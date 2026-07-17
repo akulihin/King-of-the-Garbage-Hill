@@ -23,6 +23,7 @@ export const EMPIRES_QA_SCENARIO_NAMES = [
   'target-meteor-city',
   'empire-council-with-points',
   'destroyed-west',
+  'loyalty-rebellion',
   'relic-production-levels',
   'battle-defense',
   'battle-assault',
@@ -100,6 +101,10 @@ export interface EmpiresQaStateDigest {
   pendingResolutionKind: string | null
   pendingTargetCount: number
   destroyedRegionCount: number
+  rebelliousRegionCount: number
+  reputation: number
+  chronicleCount: number
+  chronicleLastId: string | null
   daysRemaining: number
   eventId: string | null
   minigameId: string | null
@@ -208,6 +213,10 @@ const SCENARIO_COPY: Record<EmpiresQaScenarioName, { title: string, description:
   'destroyed-west': {
     title: 'Destroyed western region',
     description: 'The west is permanently destroyed and its cities are inaccessible.',
+  },
+  'loyalty-rebellion': {
+    title: 'Loyalty rebellion and recovery',
+    description: 'Battle loss, rebellion, recovery, restore, and chronicle retention are all represented.',
   },
   'relic-production-levels': {
     title: 'Farm and lumber relic',
@@ -433,6 +442,34 @@ function createDestroyedRegionSnapshot(
     regionId,
   ]))
   return new EmpiresEndgameEngine(config, state).snapshot()
+}
+
+function createLoyaltyRebellionSnapshot(
+  config: EmpiresEndgameConfig,
+  empireSnapshot: EmpiresCampaignState,
+): EmpiresCampaignState {
+  const engine = new EmpiresEndgameEngine(config, empireSnapshot)
+  const retention = config.empire.loyalty.chronicleRetention
+  for (let index = 0; index < retention + 3; index += 1) {
+    engine.applyReputationDelta(index % 2 === 0 ? 1 : -1, `qa:reputation:${index}`)
+  }
+  const northernCity = engine.state.empire.cities.find(city => city.regionId === 'north')
+  if (!northernCity) throw new Error('QA loyalty scenario requires a northern city.')
+  engine.consumeBattleLoss({
+    id: 'qa:battle-loss:north',
+    target: { kind: 'city', cityId: northernCity.id },
+    deployed: 10,
+    lost: 1,
+  })
+  engine.applyLoyaltyDelta({ kind: 'region', regionId: 'north' }, -6, 'qa:north:unrest-1')
+  engine.applyLoyaltyDelta({ kind: 'region', regionId: 'north' }, -1, 'qa:north:unrest-2')
+
+  const restored = new EmpiresEndgameEngine(config, engine.snapshot())
+  restored.applyLoyaltyDelta({ kind: 'region', regionId: 'north' }, 7, 'qa:north:recovery-1')
+  restored.applyLoyaltyDelta({ kind: 'region', regionId: 'north' }, 1, 'qa:north:recovery-2')
+  restored.applyLoyaltyDelta({ kind: 'region', regionId: 'west' }, -6, 'qa:west:unrest-1')
+  restored.applyLoyaltyDelta({ kind: 'region', regionId: 'west' }, -1, 'qa:west:unrest-2')
+  return restored.snapshot()
 }
 
 function createRelicBuildingLevelSnapshot(
@@ -705,6 +742,11 @@ export function digestEmpiresQaState(engine: EmpiresEndgameEngine): EmpiresQaSta
     pendingResolutionKind: engine.state.pendingResolution?.kind ?? null,
     pendingTargetCount: engine.state.pendingResolution?.eligibleTargetIds.length ?? 0,
     destroyedRegionCount: engine.state.empire.destroyedRegionIds.length,
+    rebelliousRegionCount: Object.values(engine.state.empire.loyalty.regions)
+      .filter(region => region.status === 'rebellious').length,
+    reputation: engine.state.empire.reputation,
+    chronicleCount: engine.state.empire.chronicle.length,
+    chronicleLastId: engine.state.empire.chronicle.at(-1)?.id ?? null,
     daysRemaining: engine.state.empire.daysRemaining,
     eventId: engine.state.event?.eventId ?? null,
     minigameId: engine.state.minigame?.id ?? null,
@@ -845,6 +887,22 @@ export function validateEmpiresQaSnapshot(
       if (snapshot.phase !== 'empire' || !snapshot.empire.destroyedRegionIds.includes('west')) {
         add('destroyed-region', 'Destroyed-west scenario must make the west inaccessible.')
       }
+    } else if (scenarioName === 'loyalty-rebellion') {
+      const north = snapshot.empire.loyalty.regions.north
+      const west = snapshot.empire.loyalty.regions.west
+      if (snapshot.phase !== 'empire') add('phase', 'Loyalty scenario has the wrong phase.')
+      if (north?.status !== 'controlled' || !snapshot.empire.chronicle.some(entry => entry.kind === 'recovery')) {
+        add('loyalty-recovery', 'Loyalty scenario must restore northern control after reload.')
+      }
+      if (west?.status !== 'rebellious' || snapshot.empire.destroyedRegionIds.includes('west')) {
+        add('loyalty-rebellion', 'Loyalty scenario must show a non-destroyed western rebellion.')
+      }
+      if (!snapshot.empire.chronicle.some(entry => entry.kind === 'battle-loss')) {
+        add('battle-loss', 'Loyalty scenario must retain the consumed battle loss.')
+      }
+      if (snapshot.empire.chronicle.length > config.empire.loyalty.chronicleRetention) {
+        add('chronicle-retention', 'Loyalty scenario exceeds configured chronicle retention.')
+      }
     } else if (scenarioName === 'relic-production-levels') {
       if (snapshot.phase !== 'empire'
         || (snapshot.empire.buildingLevelBonuses.farm ?? 0) < 1
@@ -897,6 +955,7 @@ export function createEmpiresQaScenarios(
   const targetMeteorCity = createTargetedGiftSnapshot(seededConfig, divineGift, 'meteorCity')
   const empireCouncil = createEmpireSnapshot(seededConfig, divineGift)
   const destroyedWest = createDestroyedRegionSnapshot(seededConfig, empireCouncil, 'west')
+  const loyaltyRebellion = createLoyaltyRebellionSnapshot(seededConfig, empireCouncil)
   const relicProductionLevels = createRelicBuildingLevelSnapshot(seededConfig, empireCouncil)
   const event = createEventSnapshot(seededConfig, empireCouncil)
   const battleDefense = createBattleSnapshot(seededConfig, baseEngine, 'battle-defense')
@@ -913,6 +972,7 @@ export function createEmpiresQaScenarios(
     'target-meteor-city': targetMeteorCity,
     'empire-council-with-points': empireCouncil,
     'destroyed-west': destroyedWest,
+    'loyalty-rebellion': loyaltyRebellion,
     'relic-production-levels': relicProductionLevels,
     'battle-defense': battleDefense,
     'battle-assault': battleAssault,

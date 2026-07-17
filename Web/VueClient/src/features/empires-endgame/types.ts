@@ -143,6 +143,17 @@ export type EmpiresEffect =
     amountPerLevel?: number
   }
   | {
+    kind: 'loyalty'
+    target: EmpiresLoyaltyTarget
+    amount: number
+    amountPerLevel?: number
+  }
+  | {
+    kind: 'reputation'
+    amount: number
+    amountPerLevel?: number
+  }
+  | {
     kind: 'flag'
     flagId: string
     amount: number
@@ -283,6 +294,10 @@ export type EmpiresDependency =
   | {
     kind: 'flag'
     flagId: string
+    minimum: number
+  }
+  | {
+    kind: 'reputation'
     minimum: number
   }
 
@@ -496,10 +511,44 @@ export interface EmpiresSeasonsScaffoldConfig {
   definitions: never[]
 }
 
-export interface EmpiresLoyaltyScaffoldConfig {
+export type EmpiresLoyaltyTarget =
+  | { kind: 'city', cityId: string }
+  | { kind: 'region', regionId: string }
+  | { kind: 'class', cityId: string, populationClassId: string }
+
+export interface EmpiresLoyaltyWorkforceDivisor {
+  loyalty: number
+  divisor: number
+}
+
+export interface EmpiresLoyaltyClassGateDefinition {
+  id: string
+  buildingId: string
+  populationClassId: string
+  minimumLoyalty: number
+}
+
+export interface EmpiresLoyaltyRebellionConfig {
+  threshold: number
+  sustainedApplications: number
+  recoveryThreshold: number
+  sustainedRecoveryApplications: number
+}
+
+export interface EmpiresLoyaltyConfig {
   enabled: boolean
-  cityRules: never[]
-  regionRules: never[]
+  minimum: number
+  maximum: number
+  initialCityLoyalty: number
+  initialClassLoyalty: number
+  initialRegionLoyalty: Record<string, number>
+  initialReputation: number
+  workforceDivisors: EmpiresLoyaltyWorkforceDivisor[]
+  constructionMinimumLoyalty: number
+  recruitmentMinimumLoyalty: number
+  rebellion: EmpiresLoyaltyRebellionConfig
+  classGates: EmpiresLoyaltyClassGateDefinition[]
+  chronicleRetention: number
 }
 
 export interface EmpiresEmpireConfig {
@@ -520,7 +569,7 @@ export interface EmpiresEmpireConfig {
   steelResearch: EmpiresSteelResearchConfig
   events: EmpiresEventDefinition[]
   seasons: EmpiresSeasonsScaffoldConfig
-  loyalty: EmpiresLoyaltyScaffoldConfig
+  loyalty: EmpiresLoyaltyConfig
 }
 
 export interface EmpiresUpgradeConfig {
@@ -530,7 +579,7 @@ export interface EmpiresUpgradeConfig {
 }
 
 export interface EmpiresEndgameConfig {
-  schemaVersion: 4
+  schemaVersion: 5
   id: string
   title: string
   seed: string | number
@@ -612,6 +661,7 @@ export interface EmpiresCityState {
   loyalty: number
 }
 
+/** Migration-only Phase-2/3 queue; schema-v4 saves consume it into loyalty state. */
 export interface EmpiresPendingLoyaltyDelta {
   cityId?: string
   regionId?: string
@@ -637,7 +687,7 @@ export interface EmpiresRecruitedUnitCohortState {
 
 export interface EmpiresArmyState {
   equipmentStock: Record<string, number>
-  pendingLoyaltyDeltas: EmpiresPendingLoyaltyDelta[]
+  pendingLoyaltyDeltas?: EmpiresPendingLoyaltyDelta[]
   morale: number
   maxMorale: number
   veterans: Record<string, EmpiresVeteranState>
@@ -742,10 +792,77 @@ export interface EmpiresRecruitmentQuote {
   blockedReason: string | null
 }
 
+export type EmpiresRegionControlStatus = 'controlled' | 'rebellious'
+
+export interface EmpiresRegionLoyaltyState {
+  value: number
+  status: EmpiresRegionControlStatus
+  negativeStreak: number
+  recoveryStreak: number
+  rebelledAtCon: number | null
+  recoveredAtCon: number | null
+}
+
+export interface EmpiresLoyaltyState {
+  regions: Record<string, EmpiresRegionLoyaltyState>
+  classModifiers: Record<string, Record<string, number>>
+  consumedBattleLossIds: string[]
+}
+
+export type EmpiresChronicleEntryKind =
+  | 'loyalty'
+  | 'reputation'
+  | 'rebellion'
+  | 'recovery'
+  | 'battle-loss'
+
+export interface EmpiresChronicleEntry {
+  id: string
+  sequence: number
+  con: number
+  kind: EmpiresChronicleEntryKind
+  sourceId: string
+  title: string
+  description: string
+  target?: EmpiresLoyaltyTarget | { kind: 'empire' }
+  requestedAmount?: number
+  appliedAmount?: number
+}
+
+export interface EmpiresCityLoyaltyView {
+  cityId: string
+  cityLoyalty: number
+  regionLoyalty: number
+  effectiveLoyalty: number
+  baseWorkforce: number
+  effectiveWorkforce: number
+  workforceDivisor: number
+  classLoyalty: Record<string, number>
+}
+
+export interface EmpiresBuildingOperationView {
+  cityId: string
+  buildingId: string
+  purchasedLevel: number
+  operationalLevel: number
+  blockedReason: string | null
+}
+
+export interface EmpiresBattleLossLoyaltyInput {
+  id: string
+  target: Extract<EmpiresLoyaltyTarget, { kind: 'city' | 'region' }>
+  deployed: number
+  lost: number
+}
+
 export interface EmpiresEmpireState {
   daysRemaining: number
   resources: Record<string, number>
   flags: Record<string, number>
+  reputation: number
+  loyalty: EmpiresLoyaltyState
+  chronicle: EmpiresChronicleEntry[]
+  nextChronicleSequence: number
   cities: EmpiresCityState[]
   researchedTechnologyIds: string[]
   claimedGiftIds: string[]
@@ -772,7 +889,7 @@ export interface EmpiresEventState {
 }
 
 export interface EmpiresCampaignState {
-  schemaVersion: 3
+  schemaVersion: 4
   configId: string
   phase: EmpiresPhase
   rng: EmpiresRngState
@@ -799,7 +916,7 @@ export interface EmpiresCampaignState {
 }
 
 export interface EmpiresSnapshotEnvelope {
-  schemaVersion: 3
+  schemaVersion: 4
   savedAt: string
   state: EmpiresCampaignState
 }

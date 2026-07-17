@@ -24,7 +24,7 @@ Status meanings:
 | Replay config identity, tick-index commands, bounded logs, input/accessibility hardening | P3A | Complete | Landed with schema-v3 config identity, capped command/result histories and production pointer/keyboard replay coverage. |
 | Five TD regions, castle/naval enemy mode, grade matrix, reusable assault | P3A | Complete | Missing outer regional choices remain explicitly deferred; no steel progression was pulled forward. |
 | Latest steel source reconciliation, honest equipment production, military buildings | P3B | Complete/Conditional | All 71 named equipment nodes plus ten method/gear prerequisites are inventoried. Four exact spearhead nodes, equipped cohorts, shared-capacity Smithy production, Foundry and the morale-floor relic are live; every incomplete carrier remains explicitly deferred. New regular recruitment requires researched, produced spear stock; only schema-v2 aggregate regulars retain their frozen compatibility profile without a new charge. |
-| City/region loyalty, reputation, rebellion, class gates, chronicle | P4A | Owned | Includes TD-loss funnel and northern-raids event. |
+| City/region loyalty, reputation, rebellion, class gates, chronicle | P4A | Complete/Conditional | Typed political state, exact-once TD-loss funnel, northern-raids event, reversible rebellion and bounded chronicle are live. Capital Forum and inverted club 2 remain honestly deferred where their complete mechanics are undefined. |
 | Seasons, technology light/dark sides, political reforms, crime substrate | P4B | Owned/Conditional | Undefined political/crime semantics remain deferred. |
 | Advisors, advisor suit/Grand Advisor flow, governor персты, capital slot governance | P4C | Owned/Conditional | New definitions require exact raw identity and semantics. |
 | Epidemic lifecycle and medical chain | P5 | Owned | Depends on P4A/P4B; Alchemy may retain a minigame subfeature deferral until P10. |
@@ -50,7 +50,7 @@ Status meanings:
 | Foundry | P3B | Complete with ledger defaults in non-capital cities: three 15% reductions and a persisted two-con instant cadence are executable. The `capital-sixth-slot` subfeature stays deferred because the capital's unswappable Temple occupies that slot; exact values and capital placement remain open for designer review. |
 | Military Academy | P3B | Conditional/deferred after reconciliation: unit identities/choice, permanent-stat action, elite grant and central/capital placement remain undefined, so the carrier stays unavailable. |
 | Мастерская, Баллиста, Двор Гвардейской Дружины | P3B | Reviewed/deferred and config-absent: respectively blocked on artillery/siege ownership, persistent wall/tower-site placement, and crime/loyalty/city-type/rebellion substrate. |
-| Capital Forum | P4A | Loyalty in both directions plus every retained effect. |
+| Capital Forum | P4A | Conditional/deferred: the two-direction operational loyalty reader is implemented and tested, but the bundled carrier remains unavailable because “progress acceleration” has no executable target, amount, clock or cleanup. |
 | Книгопечатный пресс | P4B | Config-absent cultural/technology candidate; conditional. |
 | Hospital, Medical Academy | P5 | Whole-effect closure required. |
 | Alchemy | P5 + P10 | P5 owns epidemic/passive substrate; P10 owns active minigame and final marker closure. |
@@ -68,7 +68,7 @@ Status meanings:
 |---|---|---|
 | Military units, ♥7, combat-spirit gift | P2 | Complete; regression coverage only unless a later owned feature requires an explicit extension. |
 | Steel technologies, war buildings, morale relic, conditional ♥A | P3B | Complete/Conditional: four exact Древковые production nodes and the floor-2 relic are live. Eighteen old steel carriers, 51 additional named nodes, Academy, both ♥A faces and missing military buildings remain in the exact P3B manifest. |
-| Loyalty/political cards, northern raids, political reforms | P4A/P4B | Each face/reform is an independent closure contract. |
+| Loyalty/political cards, northern raids, political reforms | P4A/P4B | Northern raids is complete. Inverted club 2 remains deferred for missing numeric/lifecycle semantics; seasons, other political faces, reforms and crime remain owned by P4B. Each face/reform is an independent closure contract. |
 | Vaccination/disease faces, epidemic relic/event | P5 | Дженна mapping remains unproven until raw/config identity matches. |
 | Economy technologies, gifts, relics, events, resources, card faces | P6A–P6C | Exact inventories live in owning prompts; absent definitions are not ignored. |
 | Палач and event-shaped quests | P7 | Guaranteed. Other quest backlog enters P12B only with authored executable graphs. |

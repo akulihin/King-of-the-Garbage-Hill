@@ -6,12 +6,18 @@ import type {
   EmpiresCombatConfig,
 } from './combat/types'
 import type { EmpiresTdConfig } from './td/types'
-import type { EmpiresBuildingSlotKind, EmpiresCampaignState, EmpiresEndgameConfig } from './types'
+import type {
+  EmpiresBuildingSlotKind,
+  EmpiresCampaignState,
+  EmpiresEffect,
+  EmpiresEndgameConfig,
+  EmpiresLoyaltyConfig,
+} from './types'
 import { validateEmpiresEndgameConfig } from './engine'
 
 export const EMPIRES_CONFIG_URL = '/empires-endgame/game-config.json'
 export const EMPIRES_CONFIG_STORAGE_KEY = 'empires-endgame:config:v1'
-export const EMPIRES_CONFIG_SCHEMA_VERSION = 4
+export const EMPIRES_CONFIG_SCHEMA_VERSION = 5
 export const EMPIRES_ACTIVE_MINIGAME_CONFIG_ERROR = 'Нельзя менять правила во время боя. Сначала завершите бой или выйдите через действие отмены.'
 
 export function empiresConfigReplacementDisabledReason(
@@ -136,10 +142,48 @@ const SEASONS_SCAFFOLD = {
   definitions: [],
 }
 
-const LOYALTY_SCAFFOLD = {
+const LOYALTY_V4_SCAFFOLD = {
   enabled: false,
   cityRules: [],
   regionRules: [],
+}
+
+const DEFAULT_WORKFORCE_DIVISORS = [
+  19, 18, 17, 16, 15, 13, 12, 11, 10, 9,
+  8, 7, 6, 5, 5, 4, 3, 2, 1,
+] as const
+
+export function createDefaultEmpiresLoyaltyConfig(
+  regionIds: readonly string[],
+): EmpiresLoyaltyConfig {
+  return {
+    enabled: false,
+    minimum: -9,
+    maximum: 9,
+    initialCityLoyalty: 0,
+    initialClassLoyalty: 0,
+    initialRegionLoyalty: Object.fromEntries(regionIds.map(regionId => [regionId, 0])),
+    initialReputation: 0,
+    workforceDivisors: DEFAULT_WORKFORCE_DIVISORS.map((divisor, index) => ({
+      loyalty: index - 9,
+      divisor,
+    })),
+    constructionMinimumLoyalty: 0,
+    recruitmentMinimumLoyalty: 0,
+    rebellion: {
+      threshold: -6,
+      sustainedApplications: 2,
+      recoveryThreshold: 0,
+      sustainedRecoveryApplications: 2,
+    },
+    classGates: [{
+      id: 'smithy-burghers-loyalty',
+      buildingId: 'building-smithy',
+      populationClassId: 'burghers',
+      minimumLoyalty: 0,
+    }],
+    chronicleRetention: 64,
+  }
 }
 
 function cloneJson<T>(value: T): T {
@@ -162,7 +206,7 @@ function migrateEmpiresConfigV1ToV2(config: Record<string, unknown>): Record<str
   config.quests = withScaffoldDefaults(config.quests, QUESTS_SCAFFOLD)
   if (isRecord(config.empire)) {
     config.empire.seasons = withScaffoldDefaults(config.empire.seasons, SEASONS_SCAFFOLD)
-    config.empire.loyalty = withScaffoldDefaults(config.empire.loyalty, LOYALTY_SCAFFOLD)
+    config.empire.loyalty = withScaffoldDefaults(config.empire.loyalty, LOYALTY_V4_SCAFFOLD)
   }
   config.schemaVersion = 2
   return config
@@ -378,6 +422,62 @@ function normalizeEmpiresConfigV4(config: Record<string, unknown>): Record<strin
   return config
 }
 
+function configRegionIds(config: Record<string, unknown>): string[] {
+  if (!isRecord(config.empire) || !isRecord(config.empire.map) || !Array.isArray(config.empire.map.regions)) {
+    return []
+  }
+  return config.empire.map.regions.flatMap(region => (
+    isRecord(region) && typeof region.id === 'string' && region.id.trim() ? [region.id] : []
+  ))
+}
+
+function withLoyaltyDefaults(
+  value: unknown,
+  regionIds: readonly string[],
+): unknown {
+  if (!isRecord(value)) return value
+  const defaults = createDefaultEmpiresLoyaltyConfig(regionIds)
+  return {
+    ...defaults,
+    ...value,
+    initialRegionLoyalty: {
+      ...defaults.initialRegionLoyalty,
+      ...(isRecord(value.initialRegionLoyalty) ? value.initialRegionLoyalty : {}),
+    },
+    rebellion: {
+      ...defaults.rebellion,
+      ...(isRecord(value.rebellion) ? value.rebellion : {}),
+    },
+  }
+}
+
+function migrateEmpiresConfigV4ToV5(config: Record<string, unknown>): Record<string, unknown> {
+  const regionIds = configRegionIds(config)
+  if (isRecord(config.empire)) {
+    const legacy = isRecord(config.empire.loyalty) ? config.empire.loyalty : {}
+    const legacyCityRules = Array.isArray(legacy.cityRules) ? cloneJson(legacy.cityRules) : []
+    const legacyRegionRules = Array.isArray(legacy.regionRules) ? cloneJson(legacy.regionRules) : []
+    config.empire.loyalty = {
+      ...createDefaultEmpiresLoyaltyConfig(regionIds),
+      // Schema-v4 loyalty was an unread scaffold. Custom definitions stay disabled
+      // instead of silently acquiring bundled Phase-4 rules.
+      enabled: false,
+      ...(legacyCityRules.length > 0 ? { legacyCityRules } : {}),
+      ...(legacyRegionRules.length > 0 ? { legacyRegionRules } : {}),
+    }
+  }
+  config.schemaVersion = 5
+  return config
+}
+
+function normalizeEmpiresConfigV5(config: Record<string, unknown>): Record<string, unknown> {
+  normalizeEmpiresConfigV4(config)
+  if (isRecord(config.empire)) {
+    config.empire.loyalty = withLoyaltyDefaults(config.empire.loyalty, configRegionIds(config))
+  }
+  return config
+}
+
 const EMPIRES_CONFIG_MIGRATIONS: Record<
   number,
   (config: Record<string, unknown>) => Record<string, unknown>
@@ -385,6 +485,7 @@ const EMPIRES_CONFIG_MIGRATIONS: Record<
   1: migrateEmpiresConfigV1ToV2,
   2: migrateEmpiresConfigV2ToV3,
   3: migrateEmpiresConfigV3ToV4,
+  4: migrateEmpiresConfigV4ToV5,
 }
 
 /**
@@ -407,6 +508,7 @@ export function migrateEmpiresConfig(raw: unknown): unknown {
   if (version === 2) migrated = normalizeEmpiresConfigV2(migrated)
   if (version === 3) migrated = normalizeEmpiresConfigV3(migrated)
   if (version === 4) migrated = normalizeEmpiresConfigV4(migrated)
+  if (version === 5) migrated = normalizeEmpiresConfigV5(migrated)
   return migrated
 }
 
@@ -583,6 +685,7 @@ const EMPIRES_LIVE_FLAG_ALLOWLIST = new Set([
   'equippedRecruitCapacity',
   'horseTheftDisabled',
   'idleBuildingGoldBase',
+  'loyaltyMultiplierPercent',
   'militaryArson',
   'maxCombatSpirit',
   'minimumCombatSpirit',
@@ -685,6 +788,170 @@ function validateScaffoldSection(
     if (value.enabled && value[key].length === 0) {
       throw new Error(`${path}.${key} must not be empty when ${path}.enabled is true.`)
     }
+  }
+}
+
+function validateLoyaltyConfig(config: EmpiresEndgameConfig): void {
+  const loyalty = config.empire.loyalty
+  if (!isRecord(loyalty) || typeof loyalty.enabled !== 'boolean') {
+    throw new Error('empire.loyalty must be an object with an enabled flag.')
+  }
+  for (const [path, value] of [
+    ['minimum', loyalty.minimum],
+    ['maximum', loyalty.maximum],
+    ['initialCityLoyalty', loyalty.initialCityLoyalty],
+    ['initialClassLoyalty', loyalty.initialClassLoyalty],
+    ['initialReputation', loyalty.initialReputation],
+    ['constructionMinimumLoyalty', loyalty.constructionMinimumLoyalty],
+    ['recruitmentMinimumLoyalty', loyalty.recruitmentMinimumLoyalty],
+  ] as const) {
+    if (!Number.isFinite(value)) throw new Error(`empire.loyalty.${path} must be finite.`)
+  }
+  if (!Number.isInteger(loyalty.minimum)
+    || !Number.isInteger(loyalty.maximum)
+    || loyalty.minimum >= loyalty.maximum) {
+    throw new Error('empire.loyalty bounds must be increasing integers.')
+  }
+  const inBounds = (value: number) => value >= loyalty.minimum && value <= loyalty.maximum
+  for (const [path, value] of [
+    ['initialCityLoyalty', loyalty.initialCityLoyalty],
+    ['initialClassLoyalty', loyalty.initialClassLoyalty],
+    ['initialReputation', loyalty.initialReputation],
+    ['constructionMinimumLoyalty', loyalty.constructionMinimumLoyalty],
+    ['recruitmentMinimumLoyalty', loyalty.recruitmentMinimumLoyalty],
+  ] as const) {
+    if (!inBounds(value)) throw new Error(`empire.loyalty.${path} must be within its bounds.`)
+  }
+
+  if (!Array.isArray(loyalty.workforceDivisors)) {
+    throw new Error('empire.loyalty.workforceDivisors must be an array.')
+  }
+  const expectedLoyalties = Array.from(
+    { length: loyalty.maximum - loyalty.minimum + 1 },
+    (_, index) => loyalty.minimum + index,
+  )
+  const actualLoyalties = loyalty.workforceDivisors.map(entry => entry.loyalty)
+  if (JSON.stringify(actualLoyalties) !== JSON.stringify(expectedLoyalties)) {
+    throw new Error('empire.loyalty.workforceDivisors must contain every bound value in ascending order.')
+  }
+  for (const entry of loyalty.workforceDivisors) {
+    if (!Number.isFinite(entry.divisor) || entry.divisor <= 0) {
+      throw new Error(`empire.loyalty workforce divisor at ${entry.loyalty} must be positive.`)
+    }
+  }
+  for (let index = 1; index < loyalty.workforceDivisors.length; index += 1) {
+    if (loyalty.workforceDivisors[index].divisor > loyalty.workforceDivisors[index - 1].divisor) {
+      throw new Error('empire.loyalty workforce divisors must not increase with loyalty.')
+    }
+  }
+
+  const regionIds = new Set(config.empire.map.regions.map(region => region.id))
+  if (!isRecord(loyalty.initialRegionLoyalty)) {
+    throw new Error('empire.loyalty.initialRegionLoyalty must be an object.')
+  }
+  const initialRegionIds = Object.keys(loyalty.initialRegionLoyalty).sort()
+  if (initialRegionIds.length !== regionIds.size
+    || initialRegionIds.some(regionId => !regionIds.has(regionId))) {
+    throw new Error('empire.loyalty.initialRegionLoyalty must cover every configured region exactly once.')
+  }
+  for (const [regionId, value] of Object.entries(loyalty.initialRegionLoyalty)) {
+    if (!Number.isFinite(value) || !inBounds(value)) {
+      throw new Error(`empire.loyalty initial value for ${regionId} must be within bounds.`)
+    }
+  }
+
+  const rebellion = loyalty.rebellion
+  if (!isRecord(rebellion)
+    || !Number.isFinite(rebellion.threshold)
+    || !Number.isFinite(rebellion.recoveryThreshold)
+    || !inBounds(rebellion.threshold)
+    || !inBounds(rebellion.recoveryThreshold)
+    || rebellion.threshold >= rebellion.recoveryThreshold) {
+    throw new Error('empire.loyalty.rebellion thresholds must be ordered within loyalty bounds.')
+  }
+  if (!Number.isInteger(rebellion.sustainedApplications)
+    || rebellion.sustainedApplications < 1
+    || !Number.isInteger(rebellion.sustainedRecoveryApplications)
+    || rebellion.sustainedRecoveryApplications < 1) {
+    throw new Error('empire.loyalty.rebellion durations must be positive integers.')
+  }
+  if (!Number.isInteger(loyalty.chronicleRetention) || loyalty.chronicleRetention < 1) {
+    throw new Error('empire.loyalty.chronicleRetention must be a positive integer.')
+  }
+
+  if (!Array.isArray(loyalty.classGates)) throw new Error('empire.loyalty.classGates must be an array.')
+  const buildingIds = new Set(config.empire.buildings.map(building => building.id))
+  const classIds = new Set(config.empire.populationClasses.map(definition => definition.id))
+  const gateIds = new Set<string>()
+  const gateBuildings = new Set<string>()
+  for (const gate of loyalty.classGates) {
+    if (!gate.id?.trim() || gateIds.has(gate.id)) throw new Error('empire.loyalty class gates need unique ids.')
+    if (!buildingIds.has(gate.buildingId)) {
+      throw new Error(`empire.loyalty class gate ${gate.id} references unknown building ${gate.buildingId}.`)
+    }
+    if (!classIds.has(gate.populationClassId)) {
+      throw new Error(`empire.loyalty class gate ${gate.id} references unknown class ${gate.populationClassId}.`)
+    }
+    if (!Number.isFinite(gate.minimumLoyalty) || !inBounds(gate.minimumLoyalty)) {
+      throw new Error(`empire.loyalty class gate ${gate.id} has an out-of-bounds threshold.`)
+    }
+    if (gateBuildings.has(gate.buildingId)) {
+      throw new Error(`empire.loyalty repeats a class gate for building ${gate.buildingId}.`)
+    }
+    gateIds.add(gate.id)
+    gateBuildings.add(gate.buildingId)
+  }
+}
+
+function validatePoliticalEffects(config: EmpiresEndgameConfig): void {
+  const cityIds = new Set(config.empire.cities.map(city => city.id))
+  const regionIds = new Set(config.empire.map.regions.map(region => region.id))
+  const classIds = new Set(config.empire.populationClasses.map(definition => definition.id))
+  const validateEffects = (effects: readonly EmpiresEffect[], path: string) => {
+    effects.forEach((effect, index) => {
+      if (effect.kind === 'reputation') {
+        if (!Number.isFinite(effect.amount) || !Number.isFinite(effect.amountPerLevel ?? 0)) {
+          throw new Error(`${path}[${index}] reputation amounts must be finite.`)
+        }
+        return
+      }
+      if (effect.kind !== 'loyalty') return
+      if (!Number.isFinite(effect.amount) || !Number.isFinite(effect.amountPerLevel ?? 0)) {
+        throw new Error(`${path}[${index}] loyalty amounts must be finite.`)
+      }
+      const target = effect.target
+      if (!isRecord(target) || typeof target.kind !== 'string') {
+        throw new Error(`${path}[${index}] loyalty target must be typed.`)
+      }
+      if (target.kind === 'city' && (typeof target.cityId !== 'string' || !cityIds.has(target.cityId))) {
+        throw new Error(`${path}[${index}] references unknown loyalty city ${String(target.cityId)}.`)
+      } else if (target.kind === 'region' && (typeof target.regionId !== 'string' || !regionIds.has(target.regionId))) {
+        throw new Error(`${path}[${index}] references unknown loyalty region ${String(target.regionId)}.`)
+      } else if (target.kind === 'class' && (
+        typeof target.cityId !== 'string'
+        || !cityIds.has(target.cityId)
+        || typeof target.populationClassId !== 'string'
+        || !classIds.has(target.populationClassId)
+      )) {
+        throw new Error(`${path}[${index}] references an unknown city population class.`)
+      } else if (!['city', 'region', 'class'].includes(target.kind)) {
+        throw new Error(`${path}[${index}] has unknown loyalty target kind ${target.kind}.`)
+      }
+    })
+  }
+  for (const card of config.cards) {
+    validateEffects(card.normal.effects, `card ${card.id} normal effects`)
+    validateEffects(card.inverted.effects, `card ${card.id} inverted effects`)
+  }
+  for (const gift of config.gifts.definitions) validateEffects(gift.effects, `gift ${gift.id} effects`)
+  for (const building of config.empire.buildings) {
+    for (const level of building.levels) validateEffects(level.effects ?? [], `building ${building.id} level ${level.level} effects`)
+  }
+  for (const technology of config.empire.technologies) {
+    validateEffects(technology.effects, `technology ${technology.id} effects`)
+  }
+  for (const event of config.empire.events) {
+    for (const choice of event.choices) validateEffects(choice.effects, `event ${event.id} choice ${choice.id} effects`)
   }
 }
 
@@ -1673,7 +1940,6 @@ export function validateEmpiresConfig(value: unknown): asserts value is EmpiresE
   validateScaffoldSection(value.god, 'god', ['lines', 'deckMemoryRules', 'antiBitoRules'])
   validateScaffoldSection(value.quests, 'quests', ['definitions', 'dialogueGraphs'])
   validateScaffoldSection(value.empire.seasons, 'empire.seasons', ['definitions'])
-  validateScaffoldSection(value.empire.loyalty, 'empire.loyalty', ['cityRules', 'regionRules'])
   if (!Array.isArray(value.empire.cities)) throw new Error('Поле empire.cities должно быть массивом.')
   if (!isRecord(value.empire.map) || !Array.isArray(value.empire.map.regions) || value.empire.map.regions.length !== 5) {
     throw new Error('На карте должно быть ровно пять регионов.')
@@ -1702,6 +1968,8 @@ export function validateEmpiresConfig(value: unknown): asserts value is EmpiresE
   )
 
   const config = value as unknown as EmpiresEndgameConfig
+  validateLoyaltyConfig(config)
+  validatePoliticalEffects(config)
   validateSteelResearchConfig(config)
   const cityIds = new Set(config.empire.cities.map(city => city.id))
   for (const building of config.empire.buildings) {

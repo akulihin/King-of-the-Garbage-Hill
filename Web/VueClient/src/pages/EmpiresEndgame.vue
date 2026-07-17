@@ -15,6 +15,7 @@ import {
   Map as MapIcon,
   Play,
   RotateCcw,
+  Scale,
   ScrollText,
   Settings2,
   Shield,
@@ -30,6 +31,7 @@ import EmpireCard from '../components/empires-endgame/EmpireCard.vue'
 import EmpireMap from '../components/empires-endgame/EmpireMap.vue'
 import EventDialog from '../components/empires-endgame/EventDialog.vue'
 import GiftDraft from '../components/empires-endgame/GiftDraft.vue'
+import LoyaltyPanel from '../components/empires-endgame/LoyaltyPanel.vue'
 import PopulationDialog from '../components/empires-endgame/PopulationDialog.vue'
 import TargetResolutionDialog, {
   type TargetResolutionOption,
@@ -78,7 +80,7 @@ import type {
   TdCommand,
 } from '../features/empires-endgame/types'
 
-type EmpireTab = 'map' | 'city' | 'technology' | 'council'
+type EmpireTab = 'map' | 'city' | 'loyalty' | 'technology' | 'council'
 
 const config = ref<EmpiresEndgameConfig | null>(null)
 const editorConfig = ref<EmpiresEndgameConfig | null>(null)
@@ -140,6 +142,48 @@ const resourceRows = computed(() => {
     ...resource,
     value: state.value?.empire.resources[resource.id] ?? 0,
   }))
+})
+
+const loyaltyRegionViews = computed(() => {
+  if (!state.value || !workingConfig.value) return []
+  return workingConfig.value.empire.map.regions.map((region) => {
+    const political = state.value!.empire.loyalty.regions[region.id]
+    return {
+      id: region.id,
+      name: region.name,
+      value: political?.value ?? 0,
+      status: political?.status ?? 'controlled' as const,
+      destroyed: state.value!.empire.destroyedRegionIds.includes(region.id),
+      negativeStreak: political?.negativeStreak ?? 0,
+      recoveryStreak: political?.recoveryStreak ?? 0,
+    }
+  })
+})
+
+const loyaltyCityViews = computed(() => {
+  if (!state.value || !workingConfig.value || !engine.value) return []
+  return state.value.empire.cities.flatMap((city) => {
+    const view = engine.value!.cityLoyaltyView(city.id)
+    if (!view) return []
+    const region = workingConfig.value!.empire.map.regions.find(item => item.id === city.regionId)
+    return [{
+      id: city.id,
+      name: city.name,
+      regionName: region?.name ?? city.regionId,
+      ...view,
+      classes: workingConfig.value!.empire.populationClasses.map(populationClass => ({
+        id: populationClass.id,
+        name: populationClass.name,
+        value: view.classLoyalty[populationClass.id] ?? 0,
+        gates: workingConfig.value!.empire.loyalty.classGates
+          .filter(gate => gate.populationClassId === populationClass.id)
+          .map((gate) => {
+            const building = workingConfig.value!.empire.buildings.find(item => item.id === gate.buildingId)
+            return `${building?.name ?? gate.buildingId}: от ${gate.minimumLoyalty >= 0 ? '+' : ''}${gate.minimumLoyalty}`
+          }),
+      })),
+    }]
+  })
 })
 
 const goldResourceId = computed(() => workingConfig.value?.empire.resources.find(resource =>
@@ -230,7 +274,7 @@ const targetResolutionOptions = computed<TargetResolutionOption[]>(() => {
           : `Метеорит повредит одну самую развитую постройку на ${pending.damageLevels} ур.`,
         preview: targetPreview(pending, city),
         disabled: !accessible,
-        disabledReason: accessible ? undefined : 'Город находится в уничтоженном регионе.',
+        disabledReason: accessible ? undefined : regionBlockedReasonText(city.regionId),
       }
     })
 })
@@ -240,19 +284,15 @@ const targetResolutionPrompt = computed(() => pendingResolution.value?.kind === 
   : 'Выберите единственный город, который получит ресурсы.')
 
 const eventChoiceViews = computed(() => currentEvent.value?.choices.map(choice => {
-  const missing = choice.resourceCosts?.find(cost =>
-    (state.value?.empire.resources[cost.resourceId] ?? 0) < cost.amount,
-  )
+  const blockedReason = engine.value?.eventChoiceBlockedReason(choice.id)
   return {
     id: choice.id,
     name: choice.label,
     description: choice.description ?? '',
     costs: costsText(choice.resourceCosts),
     effects: choice.effects.map(effectText),
-    disabled: Boolean(currentEvent.value?.deferredReason || choice.deferredReason || missing),
-    disabledReason: currentEvent.value?.deferredReason
-      ?? choice.deferredReason
-      ?? (missing ? `Не хватает ресурса: ${missing.resourceId}` : undefined),
+    disabled: Boolean(blockedReason),
+    disabledReason: actionReasonText(blockedReason),
   }
 }) ?? [])
 
@@ -288,6 +328,17 @@ function effectText(effect: EmpiresEffect) {
   if (effect.kind === 'time') return `${effect.days >= 0 ? '+' : ''}${effect.days} дней`
   if (effect.kind === 'foodProduction') return `${effect.amount >= 0 ? '+' : ''}${formatNumber(effect.amount)} еды`
   if (effect.kind === 'population') return `${effect.amount >= 0 ? '+' : ''}${formatNumber(effect.amount)} населения`
+  if (effect.kind === 'loyalty') {
+    const target = effect.target.kind === 'region'
+      ? workingConfig.value?.empire.map.regions.find(item => item.id === effect.target.regionId)?.name
+      : effect.target.kind === 'city'
+        ? workingConfig.value?.empire.cities.find(item => item.id === effect.target.cityId)?.name
+        : workingConfig.value?.empire.populationClasses.find(
+            item => item.id === effect.target.populationClassId,
+          )?.name
+    return `Лояльность · ${target ?? effect.target.kind}: ${effect.amount >= 0 ? '+' : ''}${effect.amount}`
+  }
+  if (effect.kind === 'reputation') return `Репутация: ${effect.amount >= 0 ? '+' : ''}${effect.amount}`
   return `${effect.flagId}: ${effect.amount >= 0 ? '+' : ''}${effect.amount}`
 }
 
@@ -313,6 +364,8 @@ function actionReasonText(reason: string | null | undefined) {
     'Recruitment is disabled for this empire phase.': 'Набор войск отключён эффектом карты на эту имперскую фазу.',
     'Unknown city or unit.': 'Неизвестный город или вид войск.',
     'That city is not accessible.': 'Город находится в уничтоженном регионе.',
+    'The region is destroyed.': 'Регион уничтожен: обычное управление недоступно.',
+    'The region is in rebellion.': 'Регион восстал: обычное управление временно недоступно.',
     'The city has reached its equipped recruitment capacity.': 'Город исчерпал лимит снаряжённого набора.',
     'Not enough recruitable population.': 'Не хватает военного резерва.',
   }
@@ -332,6 +385,12 @@ function actionReasonText(reason: string | null | undefined) {
   if (deferredResearch) return deferredResearch[1]
   const deferredUnit = reason.match(/^That unit is deferred: (.+)$/)
   if (deferredUnit) return deferredUnit[1]
+  const cityLoyalty = reason.match(/^City loyalty is ([^;]+); ([^ ]+) is required for (construction|recruitment)\.$/)
+  if (cityLoyalty) {
+    return `Лояльность города ${cityLoyalty[1]}; для ${cityLoyalty[3] === 'construction' ? 'строительства' : 'найма'} нужно ${cityLoyalty[2]}.`
+  }
+  const classLoyalty = reason.match(/^Class loyalty (.+) is ([^;]+); ([^ ]+) is required\.$/)
+  if (classLoyalty) return `Лояльность сословия «${classLoyalty[1]}» ${classLoyalty[2]}; нужно ${classLoyalty[3]}.`
   return reason
 }
 
@@ -362,7 +421,8 @@ function isQaScenarioName(value: string | null): value is EmpiresQaScenarioName 
 }
 
 function isEmpireTab(value: string | null): value is EmpireTab {
-  return value === 'map' || value === 'city' || value === 'technology' || value === 'council'
+  return value === 'map' || value === 'city' || value === 'loyalty'
+    || value === 'technology' || value === 'council'
 }
 
 function loadQaScenario(name = qaScenarioName.value) {
@@ -721,6 +781,16 @@ function objectVisualKind(object: EmpiresMapObjectDefinition) {
   return object.kind === 'resource' ? 'landmark' : 'forest'
 }
 
+function regionBlockedReasonText(regionId: string) {
+  if (state.value?.empire.destroyedRegionIds.includes(regionId)) {
+    return 'Регион уничтожен: управление, строительство, производство и городской запас заблокированы.'
+  }
+  if (state.value?.empire.loyalty.regions[regionId]?.status === 'rebellious') {
+    return 'Регион восстал: обычное управление временно заблокировано до восстановления лояльности.'
+  }
+  return 'Регион недоступен.'
+}
+
 const mapRegionViews = computed(() => {
   const current = workingConfig.value
   if (!current) return []
@@ -747,7 +817,7 @@ const mapRegionViews = computed(() => {
         } : undefined,
         rotation: object.rotation,
         accessible: cityAccessible,
-        disabledReason: cityAccessible ? undefined : 'Город недоступен: регион уничтожен.',
+        disabledReason: cityAccessible ? undefined : regionBlockedReasonText(region.id),
       }
     })
     current.empire.cities.filter(city => city.regionId === region.id && !cityObjectIds.has(city.id)).forEach(city => {
@@ -763,7 +833,7 @@ const mapRegionViews = computed(() => {
         size: undefined,
         rotation: undefined,
         accessible: cityAccessible,
-        disabledReason: cityAccessible ? undefined : 'Город недоступен: регион уничтожен.',
+        disabledReason: cityAccessible ? undefined : regionBlockedReasonText(region.id),
       })
     })
     return {
@@ -774,11 +844,11 @@ const mapRegionViews = computed(() => {
       accent: ({ ice: '#b7d5df', forest: '#8ba36d', desert: '#d6a45d', swamp: '#739488', central: '#cfb46d' } as Record<string, string>)[region.biome] ?? '#cfb46d',
       description: regionAccessible
         ? `${region.subregionIds.length} земель · ${region.cityIds.length} городов`
-        : 'Регион уничтожен. Города, здания и ресурсы больше недоступны.',
+        : regionBlockedReasonText(region.id),
       accessible: regionAccessible,
       disabledReason: regionAccessible
         ? undefined
-        : 'Эта земля была принесена в жертву и навсегда потеряна для империи.',
+        : regionBlockedReasonText(region.id),
       objects,
     }
   })
@@ -928,6 +998,7 @@ function dependencyLabel(dependency: EmpiresDependency) {
       ?? dependency.technologyId
   }
   if (dependency.kind === 'flag') return `${dependency.flagId} ≥ ${dependency.minimum}`
+  if (dependency.kind === 'reputation') return `Репутация ≥ ${dependency.minimum}`
   const building = workingConfig.value?.empire.buildings.find(item => item.id === dependency.buildingId)
   return `${building?.name ?? dependency.buildingId} · ур. ${dependency.level}`
 }
@@ -953,6 +1024,10 @@ function firstMissingDependency(
     }
     if (dependency.kind === 'flag') {
       if ((state.value.empire.flags[dependency.flagId] ?? 0) < dependency.minimum) return dependencyLabel(dependency)
+      continue
+    }
+    if (dependency.kind === 'reputation') {
+      if (state.value.empire.reputation < dependency.minimum) return dependencyLabel(dependency)
       continue
     }
     const candidateCities = (dependency.scope !== 'anyCity' && city ? [city] : state.value.empire.cities)
@@ -1022,13 +1097,16 @@ function constructionBlockedReason(
 ) {
   if (!state.value || !workingConfig.value) return 'Состояние империи недоступно'
   if (building.deferredReason) return building.deferredReason
-  if (!(engine.value?.isCityAccessible(city.id) ?? true)) return 'Город находится в уничтоженном регионе'
   if (building.allowedCityIds && !building.allowedCityIds.includes(city.id)) {
     return 'Постройка недоступна в этом городе'
   }
   if (city.buildingInteractionLocks[building.id] === state.value.con) {
     return 'Постройка заблокирована до следующего кона'
   }
+  if (!editorOpen.value && engine.value) {
+    return actionReasonText(engine.value.constructionBlockedReason(city.id, building.id, level.level)) ?? null
+  }
+  if (!(engine.value?.isCityAccessible(city.id) ?? true)) return regionBlockedReasonText(city.regionId)
   const missingDependency = firstMissingDependency(constructionDependencies(building, level), city.id)
   if (missingDependency) return `Нужно: ${missingDependency}`
   if (state.value.empire.daysRemaining < level.timeCostDays) return `Нужно ${level.timeCostDays} дней`
@@ -1096,6 +1174,9 @@ const cityViews = computed(() => {
       const operationalLevel = editorOpen.value
         ? city.operationalBuildingLevels[building.id] ?? baseLevel
         : engine.value?.effectiveOperationalBuildingLevel(city.id, building.id) ?? 0
+      const operationBlockedReason = editorOpen.value
+        ? undefined
+        : actionReasonText(engine.value?.buildingOperationView(city.id, building.id).blockedReason)
       const productiveLevel = editorOpen.value
         ? building.levels.find(item => item.level === operationalLevel)
         : engine.value?.projectedBuildingLevel(building.id, operationalLevel)
@@ -1138,9 +1219,10 @@ const cityViews = computed(() => {
           ? 'Постройка повреждена и недоступна до следующего кона'
           : busyLock
           ? `Занято проектом ${busyLock}`
-          : operationalLevel < level
+          : operationBlockedReason
+          ?? (operationalLevel < level
           ? `Рабочих хватает только на ${operationalLevel} из ${level} эффективных уровней`
-          : blockedReason ?? (city.lastStarvationLoss > 0
+          : city.lastStarvationLoss > 0
           ? `После голода потеряно ${formatNumber(city.lastStarvationLoss)}`
           : undefined),
         prerequisites: nextLevel?.dependencies.map(dependencyLabel),
@@ -1251,7 +1333,7 @@ const cityViews = computed(() => {
       accessible: editorOpen.value || (engine.value?.isCityAccessible(city.id) ?? true),
       disabledReason: editorOpen.value || (engine.value?.isCityAccessible(city.id) ?? true)
         ? undefined
-        : 'Регион уничтожен: управление, строительство, производство и городской запас заблокированы.',
+        : regionBlockedReasonText(city.regionId),
       resourceStockpiles: currentConfig.empire.resources.map(resource => ({
         id: resource.id,
         name: resource.name,
@@ -1263,7 +1345,7 @@ const cityViews = computed(() => {
       foodProduced: production[foodResourceId.value] ?? city.lastProduction[foodResourceId.value] ?? 0,
       foodConsumed: engine.value?.cityFoodConsumption(city.id) ?? city.population,
       armyFoodConsumed: engine.value?.cityArmyFoodUpkeep(city.id) ?? 0,
-      loyalty: state.value?.empire.flags[`loyalty:${city.id}`] ?? 0,
+      loyalty: engine.value?.effectiveCityLoyalty(city.id) ?? city.loyalty,
       armyMorale: {
         value: state.value.army.morale,
         minimum: Math.max(
@@ -1624,6 +1706,7 @@ onUnmounted(() => {
           <nav aria-label="Разделы империи">
             <button data-testid="tab-map" :class="{ active: activeEmpireTab === 'map' }" type="button" @click="activeEmpireTab = 'map'"><MapIcon :size="15" /> Карта</button>
             <button data-testid="tab-city" :class="{ active: activeEmpireTab === 'city' }" type="button" @click="activeEmpireTab = 'city'"><Building2 :size="15" /> Города</button>
+            <button data-testid="tab-loyalty" :class="{ active: activeEmpireTab === 'loyalty' }" type="button" @click="activeEmpireTab = 'loyalty'"><Scale :size="15" /> Лояльность</button>
             <button data-testid="tab-technology" :class="{ active: activeEmpireTab === 'technology' }" type="button" @click="activeEmpireTab = 'technology'"><FlaskConical :size="15" /> Развитие</button>
             <button data-testid="tab-council" :class="{ active: activeEmpireTab === 'council' }" type="button" @click="activeEmpireTab = 'council'"><Braces :size="15" /> Совет карт</button>
           </nav>
@@ -1675,6 +1758,20 @@ onUnmounted(() => {
           @open-population="populationCityId = $event"
           @edit-building="showMessage('Откройте вкладку «Здания» конструктора для параметров и графа зависимостей.')"
           @edit-slot="showMessage('Состав городских слотов доступен в полном JSON конструктора.')"
+        />
+
+        <LoyaltyPanel
+          v-else-if="activeEmpireTab === 'loyalty'"
+          :minimum="workingConfig.empire.loyalty.minimum"
+          :maximum="workingConfig.empire.loyalty.maximum"
+          :reputation="state.empire.reputation"
+          :rebellion-threshold="workingConfig.empire.loyalty.rebellion.threshold"
+          :rebellion-applications="workingConfig.empire.loyalty.rebellion.sustainedApplications"
+          :recovery-threshold="workingConfig.empire.loyalty.rebellion.recoveryThreshold"
+          :recovery-applications="workingConfig.empire.loyalty.rebellion.sustainedRecoveryApplications"
+          :regions="loyaltyRegionViews"
+          :cities="loyaltyCityViews"
+          :chronicle="engine.chronicleNewestFirst()"
         />
 
         <TechTree
@@ -1745,7 +1842,7 @@ onUnmounted(() => {
         :city-name="populationCity.name"
         :total="populationCity.population"
         :non-working="nonWorkingPopulation"
-        :loyalty="state.empire.flags[`loyalty:${populationCity.id}`] ?? 0"
+        :loyalty="engine.effectiveCityLoyalty(populationCity.id)"
         :categories="populationCategories"
         :editor-mode="editorOpen"
         @save="savePopulation"

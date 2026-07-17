@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import defaultConfigJson from '../../../public/empires-endgame/game-config.json'
+import { createDefaultEmpiresLoyaltyConfig } from './config'
 import { EmpiresEndgameEngine, validateEmpiresEndgameConfig } from './engine'
 import { resolveTdWithPolicy } from './td/qa'
 import { EMPIRES_RANKS, EMPIRES_SUITS } from './types'
@@ -41,7 +42,7 @@ function makeCards(): EmpiresCardDefinition[] {
 
 function makeConfig(): EmpiresEndgameConfig {
   return {
-    schemaVersion: 4,
+    schemaVersion: 5,
     id: 'engine-test',
     title: "Empire's Endgame",
     seed: 'deterministic-test',
@@ -254,7 +255,11 @@ function makeConfig(): EmpiresEndgameConfig {
         },
       ],
       seasons: { enabled: false, definitions: [] },
-      loyalty: { enabled: false, cityRules: [], regionRules: [] },
+      loyalty: {
+        ...createDefaultEmpiresLoyaltyConfig(['central']),
+        enabled: false,
+        classGates: [],
+      },
     },
     combat: {
       enabled: false,
@@ -495,7 +500,11 @@ describe('default game config integration', () => {
     expect(borderCity?.population).toBe(500_000)
     expect(borderCity?.operationalBuildingLevels['building-mine']).toBe(0)
     expect(borderCity?.operationalBuildingLevels['building-barracks']).toBe(1)
-    expect(engine.cityProduction('city-north-iron-gate').food).toBe(600_000)
+    expect(engine.cityLoyaltyView('city-north-iron-gate')).toMatchObject({
+      effectiveLoyalty: 0,
+      workforceDivisor: 9,
+    })
+    expect(engine.cityProduction('city-north-iron-gate').food).toBe(0)
     expect(JSON.parse(JSON.stringify(engine.snapshot()))).toEqual(engine.snapshot())
   })
 
@@ -931,7 +940,7 @@ describe('Empire phase economy', () => {
     expect(engine.cityProduction('outpost')).toMatchObject({ food: 500, iron: 5, wood: 5 })
     expect(engine.upgradeBuilding('capital', 'smithy')).toEqual({
       ok: false,
-      message: 'That city is not accessible.',
+      message: 'The region is destroyed.',
     })
 
     expect(engine.finishEmpire()).toMatchObject({ ok: true })

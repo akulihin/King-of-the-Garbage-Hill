@@ -132,7 +132,6 @@ describe('Empire\'s Endgame configuration', () => {
     ])
     expect(deferred(config.empire.units ?? [])).toEqual([])
     expect(deferred(config.empire.events)).toEqual([
-      'event-northern-raids',
       'event-lumber-concession',
       'event-customs-smuggling',
       'event-golden-idol',

@@ -12,6 +12,7 @@ type QaScenario =
   | 'target-meteor-city'
   | 'empire-council-with-points'
   | 'destroyed-west'
+  | 'loyalty-rebellion'
   | 'relic-production-levels'
   | 'event'
   | 'victory'
@@ -331,6 +332,20 @@ describe('Empire\'s Endgame deterministic browser scenarios', () => {
 
     cy.get('[data-testid="tab-city"]').click()
     cy.get('.city-selector-row option[value="city-west-green-bastion"]').should('be.disabled')
+  })
+
+  it('shows rebellion, recovery history, class gates, and bounded political history', () => {
+    visitScenario('loyalty-rebellion')
+    cy.get('[data-testid="tab-loyalty"]').click()
+    cy.get('[data-testid="loyalty-panel"]').should('be.visible')
+    cy.get('[data-testid="reputation-value"]').should('be.visible')
+    cy.get('[data-testid="region-status-west"]')
+      .should('contain.text', 'Восстание')
+      .and('not.contain.text', 'Уничтожен')
+    cy.get('[data-testid="region-status-north"]').should('contain.text', 'Под контролем')
+    cy.get('[data-testid="chronicle-entry-battle-loss"]').should('exist')
+    cy.get('[data-testid="chronicle-entry-recovery"]').should('exist')
+    cy.get('[data-testid^="city-loyalty-"]').first().should('contain.text', 'рабочие')
   })
 
   it('shows relic-adjusted current and maximum farm and lumber levels', () => {

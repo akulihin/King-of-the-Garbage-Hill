@@ -18,19 +18,26 @@ import type {
   EmpiresActionResult,
   EmpiresActor,
   EmpiresBuildingDefinition,
+  EmpiresBuildingOperationView,
   EmpiresBuildingLevelDefinition,
   EmpiresBuildingSlotKind,
   EmpiresCampaignState,
   EmpiresCardDefinition,
   EmpiresCardInstance,
+  EmpiresChronicleEntry,
+  EmpiresChronicleEntryKind,
+  EmpiresCityLoyaltyView,
   EmpiresCityState,
   EmpiresDependency,
   EmpiresEffect,
   EmpiresEndgameConfig,
+  EmpiresBattleLossLoyaltyInput,
   EmpiresEventDefinition,
   EmpiresGiftDefinition,
   EmpiresMinigameResult,
   EmpiresMinigameSession,
+  EmpiresLoyaltyState,
+  EmpiresLoyaltyTarget,
   EmpiresPendingGiftResolution,
   EmpiresPerformanceState,
   EmpiresPhase,
@@ -63,6 +70,8 @@ const EFFECT_KINDS = [
   'time',
   'foodProduction',
   'population',
+  'loyalty',
+  'reputation',
   'flag',
 ] as const
 
@@ -271,7 +280,7 @@ function uniqueIds<T extends { id: string }>(values: readonly T[]): boolean {
 
 export function validateEmpiresEndgameConfig(config: EmpiresEndgameConfig): string[] {
   const errors: string[] = []
-  if (config.schemaVersion !== 4) errors.push('schemaVersion must be 4')
+  if (config.schemaVersion !== 5) errors.push('schemaVersion must be 5')
   if (!config.id.trim()) errors.push('config id is required')
   if (config.cards.length !== 53) errors.push('cards must contain exactly 53 definitions')
   if (!uniqueIds(config.cards)) errors.push('card definition ids must be unique')
@@ -426,7 +435,7 @@ export class EmpiresEndgameEngine {
   }
 
   snapshotEnvelope(savedAt = new Date().toISOString()): EmpiresSnapshotEnvelope {
-    return { schemaVersion: 3, savedAt, state: this.snapshot() }
+    return { schemaVersion: 4, savedAt, state: this.snapshot() }
   }
 
   restore(snapshot: EmpiresCampaignState): void {
@@ -691,7 +700,9 @@ export class EmpiresEndgameEngine {
     const pending = this.state.pendingResolution
     if (!pending) return failure('No gift target is pending.')
     if (!pending.eligibleTargetIds.includes(targetId)) return failure('That target is not eligible.')
-    if (!this.isCityAccessible(targetId)) return failure('That city is not accessible.')
+    const targetCity = this.city(targetId)
+    const regionBlocked = targetCity ? this.regionAccessBlockedReason(targetCity.regionId) : null
+    if (regionBlocked) return failure(regionBlocked)
     const gift = this.giftDefinitions.get(pending.giftId)
     if (!gift) return failure('Unknown divine gift.')
     if (gift.deferredReason) return failure(`That divine gift is deferred: ${gift.deferredReason}`)
@@ -736,7 +747,8 @@ export class EmpiresEndgameEngine {
     const building = this.buildingDefinitions.get(buildingId)
     if (!city || !building) return failure('Unknown city or building.')
     if (building.deferredReason) return failure(`That building is deferred: ${building.deferredReason}`)
-    if (!this.isCityAccessible(cityId)) return failure('That city is not accessible.')
+    const regionBlocked = this.regionAccessBlockedReason(city.regionId)
+    if (regionBlocked) return failure(regionBlocked)
     if (this.isBuildingInteractionLocked(city, buildingId)) {
       return failure('That building is locked for the current con.')
     }
@@ -761,7 +773,8 @@ export class EmpiresEndgameEngine {
     const building = this.buildingDefinitions.get(buildingId)
     if (!city || !slot || !building) return failure('Unknown city, slot, or building.')
     if (building.deferredReason) return failure(`That building is deferred: ${building.deferredReason}`)
-    if (!this.isCityAccessible(cityId)) return failure('That city is not accessible.')
+    const regionBlocked = this.regionAccessBlockedReason(city.regionId)
+    if (regionBlocked) return failure(regionBlocked)
     if (building.allowedCityIds && !building.allowedCityIds.includes(cityId)) {
       return failure('That building cannot be placed in this city.')
     }
@@ -842,7 +855,8 @@ export class EmpiresEndgameEngine {
     const unit = this.unitDefinitions.get(unitId)
     if (!city || !unit) return empty('Unknown city or unit.')
     if (unit.deferredReason) return empty(`That unit is deferred: ${unit.deferredReason}`)
-    if (!this.isCityAccessible(cityId)) return empty('That city is not accessible.')
+    const loyaltyBlocked = this.recruitmentLoyaltyBlockedReason(city)
+    if (loyaltyBlocked) return empty(loyaltyBlocked)
     const missingDependency = this.firstMissingDependency(unit.dependencies, city, true)
     if (missingDependency) return empty(`Missing prerequisite: ${missingDependency}.`)
     const equippedRecruitCapacity = this.operationalBuildingFlagValue(city, 'equippedRecruitCapacity')
@@ -1103,14 +1117,13 @@ export class EmpiresEndgameEngine {
   }
 
   chooseEvent(choiceId: string): EmpiresActionResult {
-    if (this.state.phase !== 'event' || !this.state.event) return failure('No event choice is pending.')
+    const blockedReason = this.eventChoiceBlockedReason(choiceId)
+    if (blockedReason) return failure(blockedReason)
+    if (!this.state.event) return failure('No event choice is pending.')
     const event = this.eventDefinitions.get(this.state.event.eventId)
-    if (!event || event.deferredReason) return failure('That event is deferred.')
+    if (!event) return failure('That event is deferred.')
     const choice = event?.choices.find(item => item.id === choiceId)
     if (!choice) return failure('Unknown event choice.')
-    if (choice.deferredReason) return failure(`That event choice is deferred: ${choice.deferredReason}`)
-    const missingResource = this.firstMissingResource(choice.resourceCosts ?? [])
-    if (missingResource) return failure(`Not enough ${missingResource}.`)
     const pendingEmpireSettlement = this.state.event.empireSettlementPending === true
     const hadStarvationMultiplier = Object.prototype.hasOwnProperty.call(
       this.state.empire.flags,
@@ -1118,7 +1131,7 @@ export class EmpiresEndgameEngine {
     )
     const starvationMultiplierBefore = this.state.empire.flags.starvationLossMultiplierPercent
     this.payResources(choice.resourceCosts ?? [])
-    this.applyEffects(choice.effects, 0)
+    this.applyEffects(choice.effects, 0, undefined, `event:${event.id}:${choice.id}`)
     this.refreshProductions()
     if (pendingEmpireSettlement) {
       this.settleEmpireEconomy()
@@ -1288,6 +1301,175 @@ export class EmpiresEndgameEngine {
     return this.productionForCity(city)
   }
 
+  workforceDivisorForLoyalty(value: number): number {
+    if (!this.config.empire.loyalty.enabled) return 1
+    const loyalty = Math.round(this.clampLoyalty(value))
+    return this.config.empire.loyalty.workforceDivisors
+      .find(entry => entry.loyalty === loyalty)?.divisor ?? 1
+  }
+
+  effectiveCityLoyalty(cityId: string): number {
+    const city = this.city(cityId)
+    if (!city) return 0
+    const region = this.state.empire.loyalty.regions[city.regionId]
+    const combined = this.clampLoyalty(city.loyalty + (region?.value ?? 0))
+    if (!this.config.empire.loyalty.enabled) return combined
+    const forumPercent = this.operationalBuildingFlagValue(city, 'loyaltyMultiplierPercent') ?? 0
+    return this.clampLoyalty(combined * Math.max(0, 1 + forumPercent / 100))
+  }
+
+  effectiveClassLoyalty(cityId: string, populationClassId: string): number {
+    const modifier = this.state.empire.loyalty.classModifiers[cityId]?.[populationClassId] ?? 0
+    return this.clampLoyalty(this.effectiveCityLoyalty(cityId) + modifier)
+  }
+
+  cityLoyaltyView(cityId: string): EmpiresCityLoyaltyView | null {
+    const city = this.city(cityId)
+    if (!city) return null
+    const regionLoyalty = this.state.empire.loyalty.regions[city.regionId]?.value ?? 0
+    const baseWorkforce = this.baseAvailableWorkforce(city)
+    const effectiveLoyalty = this.effectiveCityLoyalty(city.id)
+    const workforceDivisor = this.workforceDivisorForLoyalty(effectiveLoyalty)
+    return {
+      cityId,
+      cityLoyalty: city.loyalty,
+      regionLoyalty,
+      effectiveLoyalty,
+      baseWorkforce,
+      effectiveWorkforce: this.availableWorkforce(city),
+      workforceDivisor,
+      classLoyalty: Object.fromEntries(this.config.empire.populationClasses.map(definition => [
+        definition.id,
+        this.effectiveClassLoyalty(city.id, definition.id),
+      ])),
+    }
+  }
+
+  regionAccessBlockedReason(regionId: string): string | null {
+    if (!this.config.empire.map.regions.some(region => region.id === regionId)) {
+      return 'Unknown region.'
+    }
+    if (this.state.empire.destroyedRegionIds.includes(regionId)) {
+      return 'The region is destroyed.'
+    }
+    if (this.state.empire.loyalty.regions[regionId]?.status === 'rebellious') {
+      return 'The region is in rebellion.'
+    }
+    return null
+  }
+
+  applyLoyaltyDelta(target: EmpiresLoyaltyTarget, amount: number, sourceId: string): number {
+    if (!Number.isFinite(amount)) throw new Error('Loyalty delta must be finite.')
+    if (!sourceId.trim()) throw new Error('Loyalty delta source is required.')
+    if (!this.config.empire.loyalty.enabled) return 0
+    const before = this.loyaltyTargetValue(this.state, target)
+    const after = this.clampLoyalty(before + amount)
+    this.setLoyaltyTargetValue(this.state, target, after)
+    const appliedAmount = after - before
+    this.appendChronicle(this.state, {
+      kind: 'loyalty',
+      sourceId,
+      title: 'Изменение лояльности',
+      description: `${this.loyaltyTargetLabel(target)}: ${this.signedNumber(before)} → ${this.signedNumber(after)}.`,
+      target: cloneSerializable(target),
+      requestedAmount: amount,
+      appliedAmount,
+    })
+    if (target.kind === 'region') this.updateRegionControl(this.state, target.regionId, sourceId)
+    this.refreshLoyaltyDependents()
+    return appliedAmount
+  }
+
+  applyReputationDelta(amount: number, sourceId: string): number {
+    if (!Number.isFinite(amount)) throw new Error('Reputation delta must be finite.')
+    if (!sourceId.trim()) throw new Error('Reputation delta source is required.')
+    if (!this.config.empire.loyalty.enabled) return 0
+    const before = this.state.empire.reputation
+    const after = this.clampLoyalty(before + amount)
+    this.state.empire.reputation = after
+    const appliedAmount = after - before
+    this.appendChronicle(this.state, {
+      kind: 'reputation',
+      sourceId,
+      title: 'Изменение репутации',
+      description: `Репутация империи: ${this.signedNumber(before)} → ${this.signedNumber(after)}.`,
+      target: { kind: 'empire' },
+      requestedAmount: amount,
+      appliedAmount,
+    })
+    return appliedAmount
+  }
+
+  consumeBattleLoss(input: EmpiresBattleLossLoyaltyInput): boolean {
+    if (!input.id.trim()) throw new Error('Battle-loss identity is required.')
+    if (!Number.isFinite(input.deployed) || input.deployed <= 0
+      || !Number.isFinite(input.lost) || input.lost < 0 || input.lost > input.deployed) {
+      throw new Error('Battle-loss counts are invalid.')
+    }
+    if (this.state.empire.loyalty.consumedBattleLossIds.includes(input.id)) return false
+    this.state.empire.loyalty.consumedBattleLossIds.push(input.id)
+    const ratio = input.lost / input.deployed
+    this.appendChronicle(this.state, {
+      kind: 'battle-loss',
+      sourceId: input.id,
+      title: 'Военные потери учтены',
+      description: `${this.loyaltyTargetLabel(input.target)}: потеряно ${input.lost} из ${input.deployed} (${Math.round(ratio * 100)}%).`,
+      target: cloneSerializable(input.target),
+    })
+    if (ratio >= this.config.td.settlement!.lossLoyaltyThreshold) {
+      this.applyLoyaltyDelta(input.target, this.config.td.settlement!.loyaltyDelta, input.id)
+    }
+    return true
+  }
+
+  chronicleNewestFirst(): EmpiresChronicleEntry[] {
+    return [...this.state.empire.chronicle]
+      .sort((left, right) => right.sequence - left.sequence)
+      .map(entry => cloneSerializable(entry))
+  }
+
+  buildingOperationView(cityId: string, buildingId: string): EmpiresBuildingOperationView {
+    const city = this.city(cityId)
+    const building = this.buildingDefinitions.get(buildingId)
+    const purchasedLevel = city?.buildingLevels[buildingId] ?? 0
+    const operationalLevel = city?.operationalBuildingLevels[buildingId] ?? 0
+    return {
+      cityId,
+      buildingId,
+      purchasedLevel,
+      operationalLevel,
+      blockedReason: !city || !building
+        ? 'Unknown city or building.'
+        : this.buildingOperationBlockedReason(city, building, purchasedLevel, operationalLevel),
+    }
+  }
+
+  constructionBlockedReason(
+    cityId: string,
+    buildingId: string,
+    targetLevel: number,
+  ): string | null {
+    if (this.state.phase !== 'empire') return 'Buildings can only be changed in the empire phase.'
+    const city = this.city(cityId)
+    const building = this.buildingDefinitions.get(buildingId)
+    const level = building?.levels.find(candidate => candidate.level === targetLevel)
+    if (!city || !building || !level) return 'Unknown city, building, or level.'
+    if (building.deferredReason) return `That building is deferred: ${building.deferredReason}`
+    const result = this.checkEmpireAction(city, building, level)
+    return result.ok ? null : result.message
+  }
+
+  eventChoiceBlockedReason(choiceId: string): string | null {
+    if (this.state.phase !== 'event' || !this.state.event) return 'No event choice is pending.'
+    const event = this.eventDefinitions.get(this.state.event.eventId)
+    if (!event || event.deferredReason) return 'That event is deferred.'
+    const choice = event.choices.find(item => item.id === choiceId)
+    if (!choice) return 'Unknown event choice.'
+    if (choice.deferredReason) return `That event choice is deferred: ${choice.deferredReason}`
+    const missingResource = this.firstMissingResource(choice.resourceCosts ?? [])
+    return missingResource ? `Not enough ${missingResource}.` : null
+  }
+
   isRegionAccessible(regionId: string): boolean {
     return this.isRegionAccessibleInState(this.state, regionId)
   }
@@ -1374,7 +1556,7 @@ export class EmpiresEndgameEngine {
     const playerHand: string[] = []
     const godHand: string[] = []
     const state: EmpiresCampaignState = {
-      schemaVersion: 3,
+      schemaVersion: 4,
       configId: this.config.id,
       phase: 'cards',
       rng,
@@ -1403,6 +1585,10 @@ export class EmpiresEndgameEngine {
         daysRemaining: 0,
         resources: { ...this.config.empire.initialResources },
         flags: { ...(this.config.empire.initialFlags ?? {}) },
+        reputation: this.clampLoyalty(this.config.empire.loyalty.initialReputation),
+        loyalty: this.initialLoyaltyState(),
+        chronicle: [],
+        nextChronicleSequence: 1,
         cities: this.config.empire.cities.map(city => ({
           id: city.id,
           name: city.name,
@@ -1423,7 +1609,7 @@ export class EmpiresEndgameEngine {
           foodCommitted: 0,
           lastProduction: {},
           lastStarvationLoss: 0,
-          loyalty: 0,
+          loyalty: this.clampLoyalty(this.config.empire.loyalty.initialCityLoyalty),
         })),
         researchedTechnologyIds: [],
         claimedGiftIds: [],
@@ -1453,7 +1639,6 @@ export class EmpiresEndgameEngine {
       },
       army: {
         equipmentStock: {},
-        pendingLoyaltyDeltas: [],
         morale: this.config.td.morale?.initial ?? 0,
         maxMorale: this.config.empire.initialFlags?.maxCombatSpirit
           ?? this.config.td.morale?.maximum
@@ -1484,12 +1669,12 @@ export class EmpiresEndgameEngine {
 
   private validateAndCloneSnapshot(snapshot: EmpiresCampaignState): EmpiresCampaignState {
     const snapshotVersion = (snapshot as { schemaVersion: number }).schemaVersion
-    if (snapshotVersion !== 1 && snapshotVersion !== 2 && snapshotVersion !== 3) {
+    if (snapshotVersion !== 1 && snapshotVersion !== 2 && snapshotVersion !== 3 && snapshotVersion !== 4) {
       throw new Error('Unsupported Empire\'s Endgame snapshot schema')
     }
     if (snapshot.configId !== this.config.id) throw new Error('Snapshot belongs to a different config')
     const state = cloneSerializable(snapshot)
-    state.schemaVersion = 3
+    state.schemaVersion = 4
     state.minigame ??= null
     state.minigameResultLog ??= []
     state.minigameResultCompaction ??= {
@@ -1500,7 +1685,6 @@ export class EmpiresEndgameEngine {
     }
     state.army ??= {
       equipmentStock: {},
-      pendingLoyaltyDeltas: [],
       morale: 0,
       maxMorale: this.config.empire.initialFlags?.maxCombatSpirit
         ?? this.config.td.morale?.maximum
@@ -1514,7 +1698,6 @@ export class EmpiresEndgameEngine {
       Object.entries(state.army.equipmentStock)
         .filter(([, amount]) => Number.isFinite(amount) && amount >= 0),
     )
-    state.army.pendingLoyaltyDeltas ??= []
     state.army.morale ??= 0
     state.army.maxMorale ??= this.config.empire.initialFlags?.maxCombatSpirit
       ?? this.config.td.morale?.maximum
@@ -1547,7 +1730,10 @@ export class EmpiresEndgameEngine {
         .map(city => city.id),
     )
     for (const city of state.empire.cities) {
-      city.loyalty ??= 0
+      const legacyCityLoyalty = state.empire.flags[`loyalty:${city.id}`]
+      city.loyalty = this.clampLoyalty(Number.isFinite(legacyCityLoyalty)
+        ? legacyCityLoyalty
+        : city.loyalty ?? this.config.empire.loyalty.initialCityLoyalty)
       city.operationalBuildingLevels ??= { ...city.buildingLevels }
       city.buildingSlotAssignments ??= Object.fromEntries(
         (this.cityDefinition(city.id)?.slots ?? []).flatMap(
@@ -1624,6 +1810,8 @@ export class EmpiresEndgameEngine {
       city.resources ??= {}
       city.buildingInteractionLocks ??= {}
     }
+    this.normalizePoliticalState(state)
+    this.migratePendingLoyaltyDeltas(state)
     state.empire.cardFlagBonuses ??= state.phase === 'empire' || state.phase === 'event'
       ? this.heldCardFlagBonuses(state)
       : {}
@@ -2158,13 +2346,12 @@ export class EmpiresEndgameEngine {
     }
 
     for (const [cityId, loss] of cityLosses) {
-      if (loss.deployed > 0 && loss.lost / loss.deployed >= settlement.lossLoyaltyThreshold) {
-        this.state.army.pendingLoyaltyDeltas.push({
-          cityId,
-          amount: settlement.loyaltyDelta,
-          sourceId: `td:${session.plan.id}`,
-        })
-      }
+      this.consumeBattleLoss({
+        id: `td-loss:${session.id}:${cityId}`,
+        target: { kind: 'city', cityId },
+        deployed: loss.deployed,
+        lost: loss.lost,
+      })
     }
 
     const consequence: TdBattleConsequenceDefinition = result.outcome === 'victory'
@@ -2342,7 +2529,9 @@ export class EmpiresEndgameEngine {
       city.lastStarvationLoss = 0
     }
 
-    const phaseEffectKinds = new Set<EffectKind>(['resource', 'time', 'population', 'flag'])
+    const phaseEffectKinds = new Set<EffectKind>([
+      'resource', 'time', 'population', 'loyalty', 'reputation', 'flag',
+    ])
     const timeEffectKind = new Set<EffectKind>(['time'])
     for (const giftId of this.state.empire.activeGiftIds) {
       const gift = this.giftDefinitions.get(giftId)
@@ -2367,7 +2556,7 @@ export class EmpiresEndgameEngine {
       const definition = this.getDefinition(instance)
       const face = instance.inverted ? definition.inverted : definition.normal
       if (face.deferredReason) continue
-      this.applyEffects(face.effects, instance.level, phaseEffectKinds)
+      this.applyEffects(face.effects, instance.level, phaseEffectKinds, `card:${definition.id}:${instance.inverted ? 'inverted' : 'normal'}`)
       this.recordCardFlagBonuses(face.effects, instance.level)
     }
     if ((this.state.empire.flags.militaryArson ?? 0) > 0) this.applyMilitaryArson()
@@ -2558,6 +2747,8 @@ export class EmpiresEndgameEngine {
     building: EmpiresBuildingDefinition,
     level: EmpiresBuildingLevelDefinition,
   ): EmpiresActionResult {
+    const loyaltyBlocked = this.constructionLoyaltyBlockedReason(city, building)
+    if (loyaltyBlocked) return failure(loyaltyBlocked)
     const dependencies = this.buildingDependencies(building, level)
     const missingDependency = this.firstMissingDependency(dependencies, city)
     if (missingDependency) return failure(`Missing prerequisite: ${missingDependency}.`)
@@ -2655,6 +2846,10 @@ export class EmpiresEndgameEngine {
         }
       } else if (dependency.kind === 'flag') {
         if ((this.state.empire.flags[dependency.flagId] ?? 0) < dependency.minimum) return dependency.flagId
+      } else if (dependency.kind === 'reputation') {
+        if (this.state.empire.reputation < dependency.minimum) {
+          return `reputation ${this.signedNumber(dependency.minimum)}`
+        }
       } else {
         const cities = (dependency.scope !== 'anyCity' && city ? [city] : this.state.empire.cities)
           .filter(item => this.isCityAccessible(item.id))
@@ -2719,6 +2914,7 @@ export class EmpiresEndgameEngine {
     effects: readonly EmpiresEffect[],
     level: number,
     allowedKinds?: ReadonlySet<EffectKind>,
+    sourceId = 'effect:unknown',
   ): void {
     let moraleCapChanged = false
     for (const effect of effects) {
@@ -2751,7 +2947,13 @@ export class EmpiresEndgameEngine {
           : this.state.empire.cities.filter(city => this.isCityAccessible(city.id))
         const perCity = cities.length > 0 ? amount / cities.length : 0
         for (const city of cities) this.setCityPopulation(city, Math.max(0, city.population + perCity))
-      } else {
+      } else if (effect.kind === 'loyalty') {
+        const amount = effect.amount + (effect.amountPerLevel ?? 0) * level
+        this.applyLoyaltyDelta(effect.target, amount, sourceId)
+      } else if (effect.kind === 'reputation') {
+        const amount = effect.amount + (effect.amountPerLevel ?? 0) * level
+        this.applyReputationDelta(amount, sourceId)
+      } else if (effect.kind === 'flag') {
         const amount = effect.amount + (effect.amountPerLevel ?? 0) * level
         this.state.empire.flags[effect.flagId] = effect.flagId === 'minimumCombatSpirit'
           ? Math.max(this.state.empire.flags[effect.flagId] ?? 0, amount)
@@ -3179,7 +3381,9 @@ export class EmpiresEndgameEngine {
   }
 
   private applyOneShotGiftEffects(gift: EmpiresGiftDefinition, targetCityId?: string): void {
-    const immediateKinds = new Set<EffectKind>(['resource', 'time', 'population', 'flag'])
+    const immediateKinds = new Set<EffectKind>([
+      'resource', 'time', 'population', 'loyalty', 'reputation', 'flag',
+    ])
     this.applyGiftEffects(gift, targetCityId, immediateKinds)
   }
 
@@ -3394,6 +3598,7 @@ export class EmpiresEndgameEngine {
   private isRegionAccessibleInState(state: EmpiresCampaignState, regionId: string): boolean {
     return this.config.empire.map.regions.some(region => region.id === regionId)
       && !state.empire.destroyedRegionIds.includes(regionId)
+      && state.empire.loyalty.regions[regionId]?.status !== 'rebellious'
   }
 
   private accessibleCityIdsFromState(state: EmpiresCampaignState): string[] {
@@ -3476,6 +3681,338 @@ export class EmpiresEndgameEngine {
     return giftIds
   }
 
+  private clampLoyalty(value: number): number {
+    const { minimum, maximum } = this.config.empire.loyalty
+    return Math.max(minimum, Math.min(maximum, value))
+  }
+
+  private signedNumber(value: number): string {
+    return `${value > 0 ? '+' : ''}${Number.isInteger(value) ? value : value.toFixed(2)}`
+  }
+
+  private initialLoyaltyState(): EmpiresLoyaltyState {
+    const initialClass = this.clampLoyalty(this.config.empire.loyalty.initialClassLoyalty)
+    return {
+      regions: Object.fromEntries(this.config.empire.map.regions.map(region => [region.id, {
+        value: this.clampLoyalty(this.config.empire.loyalty.initialRegionLoyalty[region.id] ?? 0),
+        status: 'controlled' as const,
+        negativeStreak: 0,
+        recoveryStreak: 0,
+        rebelledAtCon: null,
+        recoveredAtCon: null,
+      }])),
+      classModifiers: Object.fromEntries(this.config.empire.cities.map(city => [
+        city.id,
+        Object.fromEntries(this.config.empire.populationClasses.map(definition => [
+          definition.id,
+          initialClass,
+        ])),
+      ])),
+      consumedBattleLossIds: [],
+    }
+  }
+
+  private normalizePoliticalState(state: EmpiresCampaignState): void {
+    const initial = this.initialLoyaltyState()
+    const legacyFlags = state.empire.flags
+    const rawReputation = Number.isFinite(state.empire.reputation)
+      ? state.empire.reputation
+      : legacyFlags.reputation ?? this.config.empire.loyalty.initialReputation
+    state.empire.reputation = this.clampLoyalty(rawReputation)
+    state.empire.loyalty ??= initial
+    state.empire.loyalty.regions ??= {}
+    state.empire.loyalty.classModifiers ??= {}
+    state.empire.loyalty.consumedBattleLossIds = [...new Set(
+      (state.empire.loyalty.consumedBattleLossIds ?? [])
+        .filter(id => typeof id === 'string' && id.length > 0),
+    )]
+
+    for (const definition of this.config.empire.map.regions) {
+      const flagId = `loyalty${definition.id.charAt(0).toUpperCase()}${definition.id.slice(1)}`
+      const previous = state.empire.loyalty.regions[definition.id]
+      const legacyValue = legacyFlags[flagId]
+      const fallback = this.config.empire.loyalty.initialRegionLoyalty[definition.id] ?? 0
+      const status = previous?.status === 'rebellious' ? 'rebellious' : 'controlled'
+      state.empire.loyalty.regions[definition.id] = {
+        value: this.clampLoyalty(Number.isFinite(legacyValue) ? legacyValue : previous?.value ?? fallback),
+        status,
+        negativeStreak: Math.max(0, Math.floor(previous?.negativeStreak ?? 0)),
+        recoveryStreak: Math.max(0, Math.floor(previous?.recoveryStreak ?? 0)),
+        rebelledAtCon: Number.isFinite(previous?.rebelledAtCon) ? previous!.rebelledAtCon : null,
+        recoveredAtCon: Number.isFinite(previous?.recoveredAtCon) ? previous!.recoveredAtCon : null,
+      }
+      delete legacyFlags[flagId]
+    }
+    state.empire.loyalty.regions = Object.fromEntries(
+      this.config.empire.map.regions.map(region => [region.id, state.empire.loyalty.regions[region.id]]),
+    )
+
+    const initialClass = this.clampLoyalty(this.config.empire.loyalty.initialClassLoyalty)
+    state.empire.loyalty.classModifiers = Object.fromEntries(state.empire.cities.map(city => {
+      const previous = state.empire.loyalty.classModifiers[city.id] ?? {}
+      return [city.id, Object.fromEntries(this.config.empire.populationClasses.map(definition => [
+        definition.id,
+        this.clampLoyalty(Number.isFinite(previous[definition.id]) ? previous[definition.id] : initialClass),
+      ]))]
+    }))
+
+    for (const city of state.empire.cities) delete legacyFlags[`loyalty:${city.id}`]
+    delete legacyFlags.loyalty
+    delete legacyFlags.reputation
+
+    const validKinds = new Set<EmpiresChronicleEntryKind>([
+      'loyalty', 'reputation', 'rebellion', 'recovery', 'battle-loss',
+    ])
+    const seenIds = new Set<string>()
+    state.empire.chronicle = (state.empire.chronicle ?? [])
+      .filter(entry => Boolean(entry
+        && typeof entry.id === 'string'
+        && entry.id.length > 0
+        && !seenIds.has(entry.id)
+        && Number.isInteger(entry.sequence)
+        && entry.sequence > 0
+        && Number.isFinite(entry.con)
+        && validKinds.has(entry.kind)
+        && typeof entry.sourceId === 'string'
+        && typeof entry.title === 'string'
+        && typeof entry.description === 'string'
+        && (seenIds.add(entry.id) || true)))
+      .sort((left, right) => left.sequence - right.sequence || stableStringCompare(left.id, right.id))
+    const retention = this.config.empire.loyalty.chronicleRetention
+    state.empire.chronicle = state.empire.chronicle.slice(-retention)
+    const nextSequence = state.empire.chronicle.reduce(
+      (maximum, entry) => Math.max(maximum, entry.sequence + 1),
+      1,
+    )
+    state.empire.nextChronicleSequence = Math.max(
+      nextSequence,
+      Number.isInteger(state.empire.nextChronicleSequence) ? state.empire.nextChronicleSequence : 1,
+    )
+  }
+
+  private migratePendingLoyaltyDeltas(state: EmpiresCampaignState): void {
+    const pending = state.army.pendingLoyaltyDeltas ?? []
+    for (const [index, delta] of pending.entries()) {
+      if (!delta || !Number.isFinite(delta.amount) || typeof delta.sourceId !== 'string') continue
+      const target: EmpiresLoyaltyTarget | null = delta.cityId
+        ? { kind: 'city', cityId: delta.cityId }
+        : delta.regionId
+          ? { kind: 'region', regionId: delta.regionId }
+          : null
+      if (!target) continue
+      const identity = `legacy-loss:${delta.sourceId}:${target.kind}:${
+        target.kind === 'city' ? target.cityId : target.regionId
+      }:${index}`
+      if (state.empire.loyalty.consumedBattleLossIds.includes(identity)) continue
+      state.empire.loyalty.consumedBattleLossIds.push(identity)
+      this.appendChronicle(state, {
+        kind: 'battle-loss',
+        sourceId: identity,
+        title: 'Военные потери перенесены',
+        description: `${this.loyaltyTargetLabel(target)}: учтён результат боя из старого сохранения.`,
+        target: cloneSerializable(target),
+      })
+      const before = this.loyaltyTargetValue(state, target)
+      const after = this.clampLoyalty(before + delta.amount)
+      this.setLoyaltyTargetValue(state, target, after)
+      this.appendChronicle(state, {
+        kind: 'loyalty',
+        sourceId: identity,
+        title: 'Изменение лояльности',
+        description: `${this.loyaltyTargetLabel(target)}: ${this.signedNumber(before)} → ${this.signedNumber(after)}.`,
+        target: cloneSerializable(target),
+        requestedAmount: delta.amount,
+        appliedAmount: after - before,
+      })
+      if (target.kind === 'region') this.updateRegionControl(state, target.regionId, identity)
+    }
+    delete state.army.pendingLoyaltyDeltas
+  }
+
+  private loyaltyTargetValue(state: EmpiresCampaignState, target: EmpiresLoyaltyTarget): number {
+    if (target.kind === 'city') {
+      const city = state.empire.cities.find(candidate => candidate.id === target.cityId)
+      if (!city) throw new Error(`Unknown loyalty city ${target.cityId}.`)
+      return city.loyalty
+    }
+    if (target.kind === 'region') {
+      const region = state.empire.loyalty.regions[target.regionId]
+      if (!region) throw new Error(`Unknown loyalty region ${target.regionId}.`)
+      return region.value
+    }
+    const cityClasses = state.empire.loyalty.classModifiers[target.cityId]
+    if (!cityClasses || !this.config.empire.populationClasses.some(
+      definition => definition.id === target.populationClassId,
+    )) {
+      throw new Error(`Unknown loyalty class ${target.cityId}:${target.populationClassId}.`)
+    }
+    return cityClasses[target.populationClassId] ?? 0
+  }
+
+  private setLoyaltyTargetValue(
+    state: EmpiresCampaignState,
+    target: EmpiresLoyaltyTarget,
+    value: number,
+  ): void {
+    if (target.kind === 'city') {
+      const city = state.empire.cities.find(candidate => candidate.id === target.cityId)
+      if (!city) throw new Error(`Unknown loyalty city ${target.cityId}.`)
+      city.loyalty = value
+      return
+    }
+    if (target.kind === 'region') {
+      const region = state.empire.loyalty.regions[target.regionId]
+      if (!region) throw new Error(`Unknown loyalty region ${target.regionId}.`)
+      region.value = value
+      return
+    }
+    if (!state.empire.loyalty.classModifiers[target.cityId]) {
+      throw new Error(`Unknown loyalty city ${target.cityId}.`)
+    }
+    state.empire.loyalty.classModifiers[target.cityId][target.populationClassId] = value
+  }
+
+  private loyaltyTargetLabel(target: EmpiresLoyaltyTarget): string {
+    if (target.kind === 'city') {
+      return this.config.empire.cities.find(city => city.id === target.cityId)?.name ?? target.cityId
+    }
+    if (target.kind === 'region') {
+      return this.config.empire.map.regions.find(region => region.id === target.regionId)?.name
+        ?? target.regionId
+    }
+    const city = this.config.empire.cities.find(item => item.id === target.cityId)?.name ?? target.cityId
+    const populationClass = this.config.empire.populationClasses.find(
+      definition => definition.id === target.populationClassId,
+    )?.name ?? target.populationClassId
+    return `${city} · ${populationClass}`
+  }
+
+  private appendChronicle(
+    state: EmpiresCampaignState,
+    entry: Omit<EmpiresChronicleEntry, 'id' | 'sequence' | 'con'> & { kind: EmpiresChronicleEntryKind },
+  ): void {
+    const sequence = state.empire.nextChronicleSequence
+    state.empire.nextChronicleSequence += 1
+    state.empire.chronicle.push({
+      id: `chronicle-${String(sequence).padStart(8, '0')}`,
+      sequence,
+      con: state.con,
+      ...cloneSerializable(entry),
+    })
+    const retention = this.config.empire.loyalty.chronicleRetention
+    if (state.empire.chronicle.length > retention) {
+      state.empire.chronicle.splice(0, state.empire.chronicle.length - retention)
+    }
+  }
+
+  private updateRegionControl(
+    state: EmpiresCampaignState,
+    regionId: string,
+    sourceId: string,
+  ): void {
+    const region = state.empire.loyalty.regions[regionId]
+    if (!region) throw new Error(`Unknown loyalty region ${regionId}.`)
+    const rule = this.config.empire.loyalty.rebellion
+    if (region.status === 'controlled') {
+      region.recoveryStreak = 0
+      region.negativeStreak = region.value <= rule.threshold ? region.negativeStreak + 1 : 0
+      if (region.negativeStreak < rule.sustainedApplications) return
+      region.status = 'rebellious'
+      region.rebelledAtCon = state.con
+      region.recoveredAtCon = null
+      region.recoveryStreak = 0
+      this.appendChronicle(state, {
+        kind: 'rebellion',
+        sourceId,
+        title: 'Регион восстал',
+        description: `${this.loyaltyTargetLabel({ kind: 'region', regionId })} вышел из обычного управления; история региона сохранена.`,
+        target: { kind: 'region', regionId },
+      })
+      return
+    }
+
+    region.negativeStreak = region.value <= rule.threshold ? region.negativeStreak + 1 : 0
+    region.recoveryStreak = region.value >= rule.recoveryThreshold ? region.recoveryStreak + 1 : 0
+    if (region.recoveryStreak < rule.sustainedRecoveryApplications) return
+    region.status = 'controlled'
+    region.recoveredAtCon = state.con
+    region.negativeStreak = 0
+    region.recoveryStreak = 0
+    this.appendChronicle(state, {
+      kind: 'recovery',
+      sourceId,
+      title: 'Регион вернулся',
+      description: `${this.loyaltyTargetLabel({ kind: 'region', regionId })} восстановил обычное управление.`,
+      target: { kind: 'region', regionId },
+    })
+  }
+
+  private refreshLoyaltyDependents(): void {
+    this.normalizeProductionBoostAssignments()
+    for (const city of this.state.empire.cities) this.updateOperationalBuildings(city)
+    for (const city of this.state.empire.cities) {
+      city.lastProduction = this.isCityAccessible(city.id) ? this.productionForCity(city) : {}
+    }
+  }
+
+  private classGateBlockedReason(
+    city: EmpiresCityState,
+    building: EmpiresBuildingDefinition,
+  ): string | null {
+    if (!this.config.empire.loyalty.enabled) return null
+    const gate = this.config.empire.loyalty.classGates.find(
+      definition => definition.buildingId === building.id,
+    )
+    if (!gate) return null
+    const actual = this.effectiveClassLoyalty(city.id, gate.populationClassId)
+    if (actual >= gate.minimumLoyalty) return null
+    const className = this.config.empire.populationClasses.find(
+      definition => definition.id === gate.populationClassId,
+    )?.name ?? gate.populationClassId
+    return `Class loyalty ${className} is ${this.signedNumber(actual)}; ${this.signedNumber(gate.minimumLoyalty)} is required.`
+  }
+
+  private constructionLoyaltyBlockedReason(
+    city: EmpiresCityState,
+    building: EmpiresBuildingDefinition,
+  ): string | null {
+    const access = this.regionAccessBlockedReason(city.regionId)
+    if (access) return access
+    if (!this.config.empire.loyalty.enabled) return null
+    const effective = this.effectiveCityLoyalty(city.id)
+    if (effective < this.config.empire.loyalty.constructionMinimumLoyalty) {
+      return `City loyalty is ${this.signedNumber(effective)}; ${this.signedNumber(this.config.empire.loyalty.constructionMinimumLoyalty)} is required for construction.`
+    }
+    return this.classGateBlockedReason(city, building)
+  }
+
+  private recruitmentLoyaltyBlockedReason(city: EmpiresCityState): string | null {
+    const access = this.regionAccessBlockedReason(city.regionId)
+    if (access) return access
+    if (!this.config.empire.loyalty.enabled) return null
+    const effective = this.effectiveCityLoyalty(city.id)
+    return effective < this.config.empire.loyalty.recruitmentMinimumLoyalty
+      ? `City loyalty is ${this.signedNumber(effective)}; ${this.signedNumber(this.config.empire.loyalty.recruitmentMinimumLoyalty)} is required for recruitment.`
+      : null
+  }
+
+  private buildingOperationBlockedReason(
+    city: EmpiresCityState,
+    building: EmpiresBuildingDefinition,
+    purchasedLevel: number,
+    operationalLevel: number,
+  ): string | null {
+    if (purchasedLevel <= 0) return null
+    const access = this.regionAccessBlockedReason(city.regionId)
+    if (access) return access
+    if (building.deferredReason) return `That building is deferred: ${building.deferredReason}`
+    const classGate = this.classGateBlockedReason(city, building)
+    if (classGate) return classGate
+    if (operationalLevel >= purchasedLevel) return null
+    const workforce = this.availableWorkforce(city)
+    return `Effective workforce ${Math.floor(workforce)} cannot operate all ${purchasedLevel} purchased levels.`
+  }
+
   private workerDemand(city: EmpiresCityState): number {
     return Object.entries(city.operationalBuildingLevels).reduce((total, [buildingId, level]) => {
       const building = this.buildingDefinitions.get(buildingId)
@@ -3489,10 +4026,15 @@ export class EmpiresEndgameEngine {
 
   private updateOperationalBuildings(city: EmpiresCityState): void {
     city.operationalBuildingLevels = Object.fromEntries(
-      Object.entries(city.buildingLevels).map(([buildingId, level]) => [
-        buildingId,
-        this.dependencyPermittedBuildingLevel(city, buildingId, level),
-      ]),
+      Object.entries(city.buildingLevels).map(([buildingId, level]) => {
+        const building = this.buildingDefinitions.get(buildingId)
+        return [
+          buildingId,
+          building && this.classGateBlockedReason(city, building)
+            ? 0
+            : this.dependencyPermittedBuildingLevel(city, buildingId, level),
+        ]
+      }),
     )
     const workforce = this.availableWorkforce(city)
     while (this.workerDemand(city) > workforce) {
@@ -3541,6 +4083,12 @@ export class EmpiresEndgameEngine {
   }
 
   private availableWorkforce(city: EmpiresCityState): number {
+    const base = this.baseAvailableWorkforce(city)
+    if (!this.config.empire.loyalty.enabled) return base
+    return Math.floor(base / this.workforceDivisorForLoyalty(this.effectiveCityLoyalty(city.id)))
+  }
+
+  private baseAvailableWorkforce(city: EmpiresCityState): number {
     const workingClasses = this.config.empire.populationClasses.filter(definition => definition.canWork)
     if (workingClasses.length === 0 || Object.keys(city.populationClasses).length === 0) {
       return Math.max(0, city.population - city.militaryPopulation)

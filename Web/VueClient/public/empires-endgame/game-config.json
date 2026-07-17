@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 4,
+  "schemaVersion": 5,
   "id": "empires-endgame-default",
   "title": "Empire's Endgame",
   "seed": "empires-endgame-authoritative-default-v1",
@@ -2083,9 +2083,57 @@
       "definitions": []
     },
     "loyalty": {
-      "enabled": false,
-      "cityRules": [],
-      "regionRules": []
+      "enabled": true,
+      "minimum": -9,
+      "maximum": 9,
+      "initialCityLoyalty": 0,
+      "initialClassLoyalty": 0,
+      "initialRegionLoyalty": {
+        "north": 0,
+        "west": 0,
+        "south": 0,
+        "east": 0,
+        "center": 0
+      },
+      "initialReputation": 0,
+      "workforceDivisors": [
+        { "loyalty": -9, "divisor": 19 },
+        { "loyalty": -8, "divisor": 18 },
+        { "loyalty": -7, "divisor": 17 },
+        { "loyalty": -6, "divisor": 16 },
+        { "loyalty": -5, "divisor": 15 },
+        { "loyalty": -4, "divisor": 13 },
+        { "loyalty": -3, "divisor": 12 },
+        { "loyalty": -2, "divisor": 11 },
+        { "loyalty": -1, "divisor": 10 },
+        { "loyalty": 0, "divisor": 9 },
+        { "loyalty": 1, "divisor": 8 },
+        { "loyalty": 2, "divisor": 7 },
+        { "loyalty": 3, "divisor": 6 },
+        { "loyalty": 4, "divisor": 5 },
+        { "loyalty": 5, "divisor": 5 },
+        { "loyalty": 6, "divisor": 4 },
+        { "loyalty": 7, "divisor": 3 },
+        { "loyalty": 8, "divisor": 2 },
+        { "loyalty": 9, "divisor": 1 }
+      ],
+      "constructionMinimumLoyalty": 0,
+      "recruitmentMinimumLoyalty": 0,
+      "rebellion": {
+        "threshold": -6,
+        "sustainedApplications": 2,
+        "recoveryThreshold": 0,
+        "sustainedRecoveryApplications": 2
+      },
+      "classGates": [
+        {
+          "id": "smithy-burghers-loyalty",
+          "buildingId": "building-smithy",
+          "populationClassId": "burghers",
+          "minimumLoyalty": 0
+        }
+      ],
+      "chronicleRetention": 64
     },
     "steelResearch": {
       "forkSourcePriceMultiplier": 2,
@@ -2152,8 +2200,6 @@
       "whiteStone": 0
     },
     "initialFlags": {
-      "loyalty": 0,
-      "reputation": 0,
       "divineFavor": 1,
       "maxCombatSpirit": 2,
       "livestockAvailable": 1,
@@ -8485,13 +8531,13 @@
             "description": "Лес благодарен; Север недоволен.",
             "effects": [
               {
-                "kind": "flag",
-                "flagId": "loyaltyWest",
+                "kind": "loyalty",
+                "target": { "kind": "region", "regionId": "west" },
                 "amount": 2
               },
               {
-                "kind": "flag",
-                "flagId": "loyaltyNorth",
+                "kind": "loyalty",
+                "target": { "kind": "region", "regionId": "north" },
                 "amount": -1
               }
             ]
@@ -8507,19 +8553,18 @@
                 "amount": 250000
               },
               {
-                "kind": "flag",
-                "flagId": "loyaltyNorth",
+                "kind": "loyalty",
+                "target": { "kind": "region", "regionId": "north" },
                 "amount": 1
               },
               {
-                "kind": "flag",
-                "flagId": "loyaltyWest",
+                "kind": "loyalty",
+                "target": { "kind": "region", "regionId": "west" },
                 "amount": -2
               }
             ]
           }
-        ],
-        "deferredReason": "Региональная лояльность и дипломатические отношения ещё не реализованы."
+        ]
       },
       {
         "id": "event-lumber-concession",
@@ -8534,13 +8579,13 @@
             "description": "Максимальная выгода Северу ценой лесного региона.",
             "effects": [
               {
-                "kind": "flag",
-                "flagId": "loyaltyNorth",
+                "kind": "loyalty",
+                "target": { "kind": "region", "regionId": "north" },
                 "amount": 3
               },
               {
-                "kind": "flag",
-                "flagId": "loyaltyWest",
+                "kind": "loyalty",
+                "target": { "kind": "region", "regionId": "west" },
                 "amount": -3
               },
               {
@@ -8556,8 +8601,8 @@
             "description": "Компромисс улучшает отношения с Севером, но раздражает владельца участка.",
             "effects": [
               {
-                "kind": "flag",
-                "flagId": "loyaltyNorth",
+                "kind": "loyalty",
+                "target": { "kind": "region", "regionId": "north" },
                 "amount": 1
               },
               {
@@ -8578,14 +8623,14 @@
             "description": "Ресурсы сохранены, отношения с Севером ухудшаются.",
             "effects": [
               {
-                "kind": "flag",
-                "flagId": "loyaltyNorth",
+                "kind": "loyalty",
+                "target": { "kind": "region", "regionId": "north" },
                 "amount": -2
               }
             ]
           }
         ],
-        "deferredReason": "Региональная лояльность и цепочка дипломатических решений ещё не реализованы."
+        "deferredReason": "Не определены связь с исходом северных набегов, срок follow-up и полный жизненный цикл концессии."
       },
       {
         "id": "event-customs-smuggling",

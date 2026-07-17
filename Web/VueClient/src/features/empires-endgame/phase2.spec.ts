@@ -188,12 +188,11 @@ describe('Empire\'s Endgame Phase 2 campaign bridge', () => {
     }, value.id)
     const restored = new EmpiresEndgameEngine(value, migrated)
     expect(restored.state).toMatchObject({
-      schemaVersion: 3,
+      schemaVersion: 4,
       minigame: null,
       minigameResultLog: [],
       army: {
         equipmentStock: {},
-        pendingLoyaltyDeltas: [],
         morale: 0,
         maxMorale: 2,
         veterans: {},
@@ -220,6 +219,7 @@ describe('Empire\'s Endgame Phase 2 campaign bridge', () => {
     const deployment = session.plan.deployments[0]
     const city = engine.state.empire.cities.find(item => item.id === deployment.cityId)!
     const militaryBefore = city.militaryPopulation
+    const loyaltyBefore = city.loyalty
     const result = replayTdBattle(session.plan, session.seed, [])
     expect(result).toMatchObject({
       outcome: 'defeat',
@@ -231,11 +231,11 @@ describe('Empire\'s Endgame Phase 2 campaign bridge', () => {
     expect(city.recruitedUnitCohorts.find(cohort => cohort.id === deployment.cohortId)).toBeUndefined()
     expect(city.militaryPopulation).toBe(militaryBefore - 3)
     expect(engine.state.army.recruitmentPenalties[`${city.id}:${deployment.unitId}`]).toBe(3)
-    expect(engine.state.army.pendingLoyaltyDeltas).toContainEqual({
-      cityId: city.id,
-      amount: -1,
-      sourceId: `td:${session.plan.id}`,
-    })
+    expect(city.loyalty).toBe(loyaltyBefore - 1)
+    expect(engine.state.empire.chronicle.map(entry => entry.kind).slice(-2))
+      .toEqual(['battle-loss', 'loyalty'])
+    expect(engine.state.empire.loyalty.consumedBattleLossIds)
+      .toContain(`td-loss:${session.id}:${city.id}`)
     expect(engine.state.external.allianceThreat).toBe(1)
   })
 
@@ -312,6 +312,7 @@ describe('Empire\'s Endgame Phase 2 army carriers', () => {
       const engine = new EmpiresEndgameEngine(value)
       const state = empireState(engine)
       const city = state.empire.cities[0]
+      city.loyalty = value.empire.loyalty.maximum
       city.buildingLevels['building-barracks'] = index + 1
       for (const classId of Object.keys(city.populationClasses)) city.populationClasses[classId] = 1_000_000
       engine.restore(state)

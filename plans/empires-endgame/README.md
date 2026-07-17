@@ -35,7 +35,11 @@ Current execution status supplied by the designer on 2026-07-17:
 - **Phase 3B — complete.** Schema-v4 steel research, four exact spearhead production
   payoffs, equipped cohorts, shared Smithy capacity, Foundry, the morale floor and the
   complete latest-source/deferral ledger landed as one change-set.
-- **Next prompt: Phase 4A** (`phase-04-loyalty-seasons.md`).
+- **Phase 4A — complete.** Schema-v5 typed loyalty/reputation, workforce and class gates,
+  reversible regional rebellion, bounded political chronicle, exact-once TD-loss pressure
+  and northern raids landed as one change-set. Capital Forum and inverted club 2 retain
+  explicit blockers for their undefined mechanics.
+- **Next prompt: Phase 4B** (`phase-04b-seasons-tech-sides.md`).
 
 Scope decisions confirmed by the designer (2026-07-16):
 
@@ -89,7 +93,7 @@ graph TD
 | `phase-02-td-vertical-slice.md` | **Complete/historical.** Central TD, envelope, army. |
 | `phase-03-td-regions-steel.md` | **Complete/historical.** P2 baseline regression, replay/config identity, input/accessibility hardening, five regional TD fields, castle/naval enemy variants, assault. |
 | `phase-03b-steel-equipment.md` | **Complete/historical.** Latest steel inventory, schema-v4 research state, exact spear equipment/cohorts, Smithy capacity, Foundry/relic closure and military-building deferral audit. |
-| `phase-04-loyalty-seasons.md` | **4A:** loyalty, reputation, rebellion, class gates, chronicle, northern raids. |
+| `phase-04-loyalty-seasons.md` | **Complete/historical. 4A:** loyalty, reputation, rebellion, class gates, chronicle, northern raids. |
 | `phase-04b-seasons-tech-sides.md` | **4B:** seasons, technology sides, political reforms, crime substrate. |
 | `phase-04c-advisors-persts-capital.md` | **4C:** advisor flow, suit/Grand Advisor rules, governor персты, capital slot governance. |
 | `phase-05-epidemics.md` | Epidemic lifecycle + medical protection chain; exact medical candidates and vaccination faces, with ambiguous Дженна mapping kept honest. |
@@ -129,6 +133,24 @@ graph TD
 - Compatible old saves migrate deterministically. If an active old-rule minigame cannot
   satisfy current rules identity, the UI rejects reinterpretation and offers an explicit
   discard-and-restart recovery.
+
+## P4A handoff
+
+- The compatibility baseline is config schema 5 and campaign/save envelope 4. Loyalty and
+  reputation are typed state; legacy political flags and the schema-v3 pending battle-loss
+  queue migrate once and are removed. Later phases must use the mutation/dependency helpers,
+  not recreate magic loyalty or reputation flags.
+- City loyalty plus the regional modifier feeds one effective-value reader used by the
+  configured workforce divisor, building operation, construction, recruitment, production
+  and settlement. Smithy also has the separate Мещане class gate. Rebellion is reversible
+  and blocks the shared region-access path without entering `destroyedRegionIds`.
+- Political history is sequence-numbered, bounded and newest-first in the UI. Canonical TD
+  loss identities and event provenance survive restore; later sources must enter through
+  `applyLoyaltyDelta`, `applyReputationDelta`, or `consumeBattleLoss`.
+- `event-northern-raids` is live. Capital Forum remains bundled-deferred until its progress
+  effect is executable, though its temporal positive/negative loyalty reader is tested.
+  Inverted club 2 remains deferred for missing numeric effect, scaling and cleanup. Seasons,
+  technology sides, reforms and crime remain P4B scope.
 
 ## How to execute the remaining prompts
 
@@ -178,15 +200,16 @@ gates. Do not commit or push.
 - **Fixed-timestep sims** (deliberate divergence from last-chances' rAF-delta loop at `features/last-chances/engine.ts:724`): `step()` advances exactly `tickMs`; battle result = pure `f(plan, seed, commandLog)`; headless QA runs the *same* sim — a single resolution path. The rAF loop only accumulates time and interpolates rendering.
 - **Replay identity**: plans embed resolved simulation data or carry an immutable config/rules digest; commands use tick/turn indices. Config changes cannot mutate an active session.
 - **Shared combat module** `features/empires-endgame/combat/` (damage types, armor classes, counter matrix, equipment catalog) consumed by TD, expeditions, and events; steel techs pay off as `equipment` entries with tech prerequisites.
-- **State discipline**: keep flags for empire-wide scalars consumed by existing formulas (reputation, seasons via a pure `currentSeason()`); use first-class typed state for per-entity/lifecycle data (city loyalty, epidemics, army/morale/veterans, quests, the minigame session).
+- **State discipline**: reputation and loyalty are first-class typed political state. Keep flags only for temporary/configured scalar modifiers; seasons use a pure `currentSeason()`. Other per-entity/lifecycle data (epidemics, army/morale/veterans, quests, the minigame session) also remains typed.
 - **Config migrations**: `migrateEmpiresConfig` chain applied before `validateEmpiresConfig` (replacing the hard `schemaVersion !== 1` throw), modeled on `migrateLastChancesConfig` (`features/last-chances/config.ts:55`). Save migrations continue the `validateAndCloneSnapshot` field-normalization style; bump the envelope version only for semantic moves.
 - **Compatibility sequence**: Phase 0 moves config v1→v2 and adds disabled future
   sections. Later phases backfill additive section fields before validation or advance to
   the next sequential config version when semantics demand it. Phase 2 moves campaign/
   envelope v1→v2 for the real minigame phase; P3A moves config v2→v3; P3B moves config
-  v3→v4 and campaign/envelope v2→v3 for equipped cohorts. Phase 4 must target the next
-  actual versions for loyalty. Never reuse a hard-coded version if the executed repository
-  is already farther ahead.
+  v3→v4 and campaign/envelope v2→v3 for equipped cohorts; P4A moves config v4→v5 and
+  campaign/envelope v3→v4 for typed political state, consuming legacy loyalty/reputation
+  flags and the pending TD-loss queue exactly once. Never reuse a hard-coded version if
+  the executed repository is already farther ahead.
 - **New component homes**: `src/components/empires-endgame/` (`TdBattle.vue`, `DialogueOverlay.vue`, `QuestJournal.vue`, `DeckMemoryPanel.vue`, …); new feature modules under `features/empires-endgame/` (`combat/`, `td/`, `quests.ts`, `alchemy/`, `tavern/`, `inventory/`, `chess/`).
 - `engine.ts` (~2.5k lines): extract internal modules (an `engine/` dir) only when a phase already touches that cluster; no big-bang refactor.
 
