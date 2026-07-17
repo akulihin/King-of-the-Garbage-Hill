@@ -5,11 +5,14 @@ import {
   lastChancesShuffle,
   pickLastChancesWeighted,
 } from './rng'
+import { LAST_CHANCES_ARENA_EDGES } from './types'
 import type {
+  LastChancesArenaEdge,
   LastChancesConfig,
   LastChancesGamePlan,
   LastChancesPlanEnemy,
   LastChancesPlanNode,
+  LastChancesPlanSwarm,
   LastChancesRoomTemplate,
   LastChancesSpawnLayoutDefinition,
   LastChancesTierDefinition,
@@ -20,23 +23,58 @@ function copyVector(value: LastChancesVector): LastChancesVector {
   return { x: value.x, y: value.y }
 }
 
+function distanceSquared(a: LastChancesVector, b: LastChancesVector): number {
+  return (a.x - b.x) ** 2 + (a.y - b.y) ** 2
+}
+
+interface EnemyPlanRoll {
+  enemies: LastChancesPlanEnemy[]
+  swarm: LastChancesPlanSwarm | null
+}
+
 function makeEnemyPlan(
+  config: LastChancesConfig,
   tier: LastChancesTierDefinition,
   enemySpawns: LastChancesVector[],
+  playerSpawn: LastChancesVector,
   nodeId: string,
   rng: () => number,
-): LastChancesPlanEnemy[] {
+): EnemyPlanRoll {
   const count = lastChancesRandomInt(rng, tier.enemyCount[0], tier.enemyCount[1])
-  const spawns = lastChancesShuffle(enemySpawns, rng)
-  return Array.from({ length: count }, (_, index) => {
-    const spawn = spawns[index]
-    const poolEntry = pickLastChancesWeighted(tier.enemyPool, rng)
-    return {
-      id: `${nodeId}-enemy-${index + 1}`,
-      definitionId: poolEntry.enemyId,
+  const available = lastChancesShuffle(enemySpawns, rng)
+  const enemies: LastChancesPlanEnemy[] = []
+  const nextEnemy = (definitionId: string, spawn: LastChancesVector): void => {
+    enemies.push({
+      id: `${nodeId}-enemy-${enemies.length + 1}`,
+      definitionId,
       position: copyVector(spawn),
+    })
+  }
+  for (const definitionId of tier.guaranteedEnemyIds ?? []) {
+    if (available.length === 0) break
+    let farthestIndex = 0
+    for (let index = 1; index < available.length; index += 1) {
+      if (distanceSquared(available[index], playerSpawn)
+        > distanceSquared(available[farthestIndex], playerSpawn)) farthestIndex = index
     }
-  })
+    nextEnemy(definitionId, available.splice(farthestIndex, 1)[0])
+  }
+  let swarmDefinitionId: string | null = null
+  for (let index = 0; index < count; index += 1) {
+    const poolEntry = pickLastChancesWeighted(tier.enemyPool, rng)
+    const definition = config.enemies.find(candidate => candidate.id === poolEntry.enemyId)
+    // A rolled swarm-type slot becomes the room's swarm event; extra rolls collapse into it.
+    if (definition?.swarm) {
+      swarmDefinitionId = poolEntry.enemyId
+      continue
+    }
+    if (available.length === 0) break
+    nextEnemy(poolEntry.enemyId, available.shift() as LastChancesVector)
+  }
+  if (!swarmDefinitionId) return { enemies, swarm: null }
+  const edges = lastChancesShuffle([...LAST_CHANCES_ARENA_EDGES], rng)
+    .slice(0, 2) as [LastChancesArenaEdge, LastChancesArenaEdge]
+  return { enemies, swarm: { definitionId: swarmDefinitionId, edges } }
 }
 
 function roomSpawnLayouts(room: LastChancesRoomTemplate): LastChancesSpawnLayoutDefinition[] {
@@ -58,6 +96,7 @@ function makeNode(
   const room = config.rooms.find(candidate => candidate.id === roomId) as LastChancesRoomTemplate
   const layouts = roomSpawnLayouts(room)
   const spawnLayout = layouts[Math.floor(rng() * layouts.length)]
+  const roll = makeEnemyPlan(config, tier, spawnLayout.enemySpawns, room.playerSpawn, id, rng)
   return {
     id,
     tierIndex,
@@ -80,7 +119,8 @@ function makeNode(
     interaction: room.interaction
       ? JSON.parse(JSON.stringify(room.interaction)) as LastChancesPlanNode['interaction']
       : null,
-    enemies: makeEnemyPlan(tier, spawnLayout.enemySpawns, id, rng),
+    enemies: roll.enemies,
+    swarm: roll.swarm,
     nextNodeIds: [],
   }
 }

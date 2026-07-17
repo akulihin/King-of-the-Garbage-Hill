@@ -100,6 +100,7 @@ export type EmpiresBuildingSlotKind =
   | 'smithy'
   | 'barracks'
   | 'unique'
+  | 'maritime'
   | 'municipal'
 
 export interface EmpiresResourceAmount {
@@ -887,6 +888,95 @@ export interface EmpiresGovernanceConfig {
   capital: EmpiresCapitalGovernanceConfig
 }
 
+export type EmpiresExternalRelationship = 'hostile' | 'neutral' | 'allied'
+export type EmpiresExternalTradeDirection = 'import' | 'export'
+
+export interface EmpiresExternalActorDefinition {
+  id: string
+  name: string
+  initialRelationship: EmpiresExternalRelationship
+  accessibleRegionIds: string[]
+}
+
+export interface EmpiresExternalUnionDefinition {
+  id: string
+  name: string
+  actorId: string
+  minimumRelationship: EmpiresExternalRelationship
+  minimumReputation: number
+  prerequisites: EmpiresDependency[]
+}
+
+export interface EmpiresExternalOfferDefinition {
+  id: string
+  name: string
+  description: string
+  actorId: string
+  direction: EmpiresExternalTradeDirection
+  resourceId: string
+  resourceAmount: number
+  goldAmount: number
+  weight: number
+  stock: number
+  relationships: EmpiresExternalRelationship[]
+  minimumReputation: number
+  minimumCon?: number
+  maximumCon?: number
+  prerequisites: EmpiresDependency[]
+  declineEffects: EmpiresEffect[]
+}
+
+export interface EmpiresExternalReviewedAbsentBuilding {
+  id: string
+  name: string
+  reason: string
+}
+
+export interface EmpiresExternalConfig {
+  enabled: boolean
+  historyRetention: number
+  offerCadenceCons: number
+  offerLifetimeCons: number
+  maxActiveOffers: number
+  goldResourceId: string
+  knowledgeResourceId: string
+  tradeRoutesTechnologyId: string
+  persecutionPricePenaltyPercent: number
+  actors: EmpiresExternalActorDefinition[]
+  unions: EmpiresExternalUnionDefinition[]
+  offers: EmpiresExternalOfferDefinition[]
+  transfer: {
+    baseTimeCostDays: number
+    compassTechnologyId: string
+    speedFlagId: string
+  }
+  customs: {
+    buildingId: string
+    tariffFlagId: string
+    tariffPercentPerLevel: number
+    merchantGuildsTechnologyId: string
+    merchantGuildsFlagId: string
+    merchantGuildTariffBonusPercent: number
+    smugglingEventId: string
+  }
+  stable: {
+    buildingId: string
+    farmBuildingId: string
+    livestockResourceId: string
+    livestockRegionIds: string[]
+    mountedFlagId: string
+    mountedUnitIds: string[]
+  }
+  seaPort: {
+    buildingId: string
+    capacityFlagId: string
+    maximumAcrossEmpire: number
+    tradeGoldBonusPercentPerLevel: number
+    knowledgePerTradePerLevel: number
+  }
+  reviewedAbsentBuildings: EmpiresExternalReviewedAbsentBuilding[]
+}
+
 export interface EmpiresEmpireConfig {
   daysPerPhase: number
   foodResourceId: string
@@ -909,6 +999,7 @@ export interface EmpiresEmpireConfig {
   epidemics: EmpiresEpidemicConfig
   medical: EmpiresMedicalConfig
   domesticEconomy: EmpiresDomesticEconomyConfig
+  externalEconomy: EmpiresExternalConfig
   loyalty: EmpiresLoyaltyConfig
 }
 
@@ -919,7 +1010,7 @@ export interface EmpiresUpgradeConfig {
 }
 
 export interface EmpiresEndgameConfig {
-  schemaVersion: 9
+  schemaVersion: 10
   id: string
   title: string
   seed: string | number
@@ -1047,10 +1138,108 @@ export interface EmpiresArmyState {
   recoveries: EmpiresUnitRecoveryState[]
 }
 
+export interface EmpiresExternalRelationshipState {
+  status: EmpiresExternalRelationship
+  changedAtCon: number
+  sourceId: string
+}
+
+export interface EmpiresExternalActiveOfferState {
+  id: string
+  definitionId: string
+  actorId: string
+  rulesIdentity: string
+  createdAtCon: number
+  expiresAfterCon: number
+  stockRemaining: number
+}
+
+export interface EmpiresExternalOfferHistoryState {
+  offerId: string
+  definitionId: string
+  actorId: string
+  rulesIdentity: string
+  resolution: 'accepted' | 'declined' | 'expired'
+  resolvedAtCon: number
+  cityId: string | null
+  resourceAmount: number
+  goldDelta: number
+  tariffGold: number
+}
+
+export interface EmpiresExternalTransferHistoryState {
+  id: string
+  fromCityId: string
+  toCityId: string
+  resourceId: string
+  amount: number
+  timeCostDays: number
+  completedAtCon: number
+}
+
 export interface EmpiresExternalState {
   allianceThreat: number
   nextWaveCon: number
-  pendingOffers: never[]
+  relationships: Record<string, EmpiresExternalRelationshipState>
+  activeOffers: EmpiresExternalActiveOfferState[]
+  offerHistory: EmpiresExternalOfferHistoryState[]
+  compactedOfferHistoryCount: number
+  nextOfferSequence: number
+  nextOfferRefreshCon: number
+  customs: {
+    completedTrades: number
+    totalTariffGold: number
+    smugglingEligible: boolean
+    lastTradeCon: number | null
+  }
+  transferHistory: EmpiresExternalTransferHistoryState[]
+  compactedTransferHistoryCount: number
+  nextTransferSequence: number
+}
+
+export interface EmpiresExternalTradeQuote {
+  offerId: string
+  cityId: string
+  direction: EmpiresExternalTradeDirection
+  resourceId: string
+  resourceAmount: number
+  baseGold: number
+  adjustedGold: number
+  tariffGold: number
+  knowledgeBonus: number
+  netGoldDelta: number
+  blockedReason: string | null
+}
+
+export interface EmpiresExternalOfferView {
+  id: string
+  definitionId: string
+  actorId: string
+  actorName: string
+  relationship: EmpiresExternalRelationship
+  name: string
+  description: string
+  expiresAfterCon: number
+  stockRemaining: number
+  quote: EmpiresExternalTradeQuote
+  declineEffects: EmpiresEffect[]
+}
+
+export interface EmpiresExternalDiplomacyView {
+  enabled: boolean
+  actors: Array<{
+    id: string
+    name: string
+    relationship: EmpiresExternalRelationship
+  }>
+  offers: EmpiresExternalOfferView[]
+  history: EmpiresExternalOfferHistoryState[]
+  reviewedAbsentBuildings: EmpiresExternalReviewedAbsentBuilding[]
+  transfer: {
+    baseTimeCostDays: number
+    effectiveTimeCostDays: number
+    compassActive: boolean
+  }
 }
 
 export type EmpiresMinigameOriginContext =
@@ -1540,7 +1729,7 @@ export interface EmpiresEventState {
 }
 
 export interface EmpiresCampaignState {
-  schemaVersion: 7
+  schemaVersion: 8
   configId: string
   phase: EmpiresPhase
   rng: EmpiresRngState
@@ -1569,7 +1758,7 @@ export interface EmpiresCampaignState {
 }
 
 export interface EmpiresSnapshotEnvelope {
-  schemaVersion: 7
+  schemaVersion: 8
   savedAt: string
   state: EmpiresCampaignState
 }

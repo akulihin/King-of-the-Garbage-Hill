@@ -24,6 +24,7 @@ export const EMPIRES_QA_SCENARIO_NAMES = [
   'empire-council-with-points',
   'governance',
   'domestic-economy',
+  'external-trade',
   'destroyed-west',
   'loyalty-rebellion',
   'relic-production-levels',
@@ -134,6 +135,8 @@ export interface EmpiresQaStateDigest {
   activeLoanCount: number
   insuranceContractCount: number
   activeFairActivityCount: number
+  activeExternalOfferCount: number
+  externalOfferHistoryCount: number
 }
 
 export interface EmpiresQaTraceEntry {
@@ -229,6 +232,10 @@ const SCENARIO_COPY: Record<EmpiresQaScenarioName, { title: string, description:
   'domestic-economy': {
     title: 'Domestic economy obligations and carriers',
     description: 'Bank, insurance, Fair, Temple, and Tavern carriers expose executable state and an active loan schedule.',
+  },
+  'external-trade': {
+    title: 'External actors and persisted offers',
+    description: 'Людовик and Alliance merchants expose deterministic accept, decline, trade, transfer, and denial paths.',
   },
   'destroyed-west': {
     title: 'Destroyed western region',
@@ -493,6 +500,52 @@ function createDomesticEconomySnapshot(
   const engine = new EmpiresEndgameEngine(config, state)
   const loan = engine.takeLoan(cities[0].id)
   if (!loan.ok) throw new Error(`QA domestic-economy loan could not start: ${loan.message}`)
+  return engine.snapshot()
+}
+
+function createExternalTradeSnapshot(
+  config: EmpiresEndgameConfig,
+  empireSnapshot: EmpiresCampaignState,
+): EmpiresCampaignState {
+  const external = config.empire.externalEconomy
+  if (!external.enabled || external.offers.length < 2) {
+    throw new Error('QA external-trade scenario requires enabled rules and at least two offers.')
+  }
+  const state = cloneJson(empireSnapshot)
+  const cityDefinition = config.empire.cities.find(city => (
+    city.slots.some(slot => slot.kind === 'maritime')
+  ))
+  const city = state.empire.cities.find(candidate => candidate.id === cityDefinition?.id)
+  if (!city || !cityDefinition) throw new Error('QA external-trade scenario requires a maritime city.')
+  const uniqueSlot = cityDefinition.slots.find(slot => slot.kind === 'unique')
+  const maritimeSlot = cityDefinition.slots.find(slot => slot.kind === 'maritime')
+  if (!uniqueSlot || !maritimeSlot) throw new Error('QA external-trade city lacks trade carrier slots.')
+  city.buildingLevels[external.customs.buildingId] = 1
+  city.operationalBuildingLevels[external.customs.buildingId] = 1
+  city.buildingSlotAssignments[uniqueSlot.id] = external.customs.buildingId
+  city.buildingLevels[external.seaPort.buildingId] = 1
+  city.operationalBuildingLevels[external.seaPort.buildingId] = 1
+  city.buildingSlotAssignments[maritimeSlot.id] = external.seaPort.buildingId
+  city.resources[external.goldResourceId] = 20_000
+  for (const offer of external.offers) city.resources[offer.resourceId] = Math.max(
+    city.resources[offer.resourceId] ?? 0,
+    offer.resourceAmount * 2,
+  )
+  state.empire.reputation = Math.max(3, ...external.offers.map(offer => offer.minimumReputation))
+  state.empire.researchedTechnologyIds = [...new Set([
+    ...state.empire.researchedTechnologyIds,
+    external.tradeRoutesTechnologyId,
+    external.transfer.compassTechnologyId,
+    external.customs.merchantGuildsTechnologyId,
+  ])]
+  state.empire.flags[external.transfer.speedFlagId] = 25
+  state.empire.flags[external.customs.merchantGuildsFlagId] = 1
+  state.external.nextOfferRefreshCon = state.con
+  const engine = new EmpiresEndgameEngine(config, state)
+  const refresh = engine.refreshExternalOffers()
+  if (!refresh.ok || engine.state.external.activeOffers.length < 2) {
+    throw new Error(`QA external-trade offers could not refresh: ${refresh.message}`)
+  }
   return engine.snapshot()
 }
 
@@ -891,6 +944,34 @@ export function executeEmpiresQaPlayerCardAction(
   return engine.endAttack('player')
 }
 
+export type EmpiresQaExternalOfferPolicy =
+  | 'accept-first'
+  | 'decline-first'
+  | { decision: 'accept' | 'decline', offerId: string, cityId?: string }
+
+export function executeEmpiresQaExternalOfferPolicy(
+  engine: EmpiresEndgameEngine,
+  policy: EmpiresQaExternalOfferPolicy,
+): EmpiresActionResult {
+  const offers = [...engine.state.external.activeOffers]
+    .sort((left, right) => left.id.localeCompare(right.id))
+  const requestedId = typeof policy === 'string' ? offers[0]?.id : policy.offerId
+  const offer = offers.find(candidate => candidate.id === requestedId)
+  if (!offer) return { ok: false, message: 'QA offer policy could not find its stable offer ID.' }
+  const decision = typeof policy === 'string'
+    ? (policy === 'accept-first' ? 'accept' : 'decline')
+    : policy.decision
+  if (decision === 'decline') return engine.declineExternalOffer(offer.id)
+  const configuredCityId = typeof policy === 'string' ? undefined : policy.cityId
+  const cityId = configuredCityId ?? engine.state.empire.cities
+    .map(city => city.id)
+    .find(cityId => !engine.externalDiplomacyView(cityId).offers
+      .find(candidate => candidate.id === offer.id)?.quote.blockedReason)
+  return cityId
+    ? engine.acceptExternalOffer(offer.id, cityId)
+    : { ok: false, message: 'QA offer policy found no eligible trade city.' }
+}
+
 export function digestEmpiresQaState(engine: EmpiresEndgameEngine): EmpiresQaStateDigest {
   return {
     phase: engine.state.phase,
@@ -942,6 +1023,8 @@ export function digestEmpiresQaState(engine: EmpiresEndgameEngine): EmpiresQaSta
     insuranceContractCount: engine.state.empire.domesticEconomy.insuranceContracts.length,
     activeFairActivityCount: engine.state.empire.domesticEconomy.fair.activeActivities
       .filter(activity => activity.expiresAfterCon >= engine.state.con).length,
+    activeExternalOfferCount: engine.state.external.activeOffers.length,
+    externalOfferHistoryCount: engine.state.external.offerHistory.length,
   }
 }
 
@@ -1090,6 +1173,14 @@ export function validateEmpiresQaSnapshot(
       if (!economy.loans.some(loan => loan.status === 'active')) {
         add('economy-loan', 'Domestic-economy scenario must contain an active scheduled loan.')
       }
+    } else if (scenarioName === 'external-trade') {
+      if (snapshot.phase !== 'empire') add('phase', 'External-trade scenario has the wrong phase.')
+      if (snapshot.external.activeOffers.length < 2) {
+        add('external-offers', 'External-trade scenario must contain at least two serialized offers.')
+      }
+      if (!config.empire.externalEconomy.actors.some(actor => actor.id === 'actor-louis')) {
+        add('external-louis', 'External-trade scenario requires the authored Людовик actor.')
+      }
     } else if (scenarioName === 'destroyed-west') {
       if (snapshot.phase !== 'empire' || !snapshot.empire.destroyedRegionIds.includes('west')) {
         add('destroyed-region', 'Destroyed-west scenario must make the west inaccessible.')
@@ -1186,6 +1277,7 @@ export function createEmpiresQaScenarios(
   const seasonDisclosure = createSeasonDisclosureSnapshot(seededConfig, empireCouncil)
   const epidemicOutbreak = createEpidemicOutbreakSnapshot(seededConfig, empireCouncil)
   const domesticEconomy = createDomesticEconomySnapshot(seededConfig, empireCouncil)
+  const externalTrade = createExternalTradeSnapshot(seededConfig, empireCouncil)
   const event = createEventSnapshot(seededConfig, empireCouncil)
   const battleDefense = createBattleSnapshot(seededConfig, baseEngine, 'battle-defense')
   const battleAssault = createBattleSnapshot(seededConfig, baseEngine, 'battle-assault')
@@ -1202,6 +1294,7 @@ export function createEmpiresQaScenarios(
     'empire-council-with-points': empireCouncil,
     governance: cloneJson(empireCouncil),
     'domestic-economy': domesticEconomy,
+    'external-trade': externalTrade,
     'destroyed-west': destroyedWest,
     'loyalty-rebellion': loyaltyRebellion,
     'relic-production-levels': relicProductionLevels,

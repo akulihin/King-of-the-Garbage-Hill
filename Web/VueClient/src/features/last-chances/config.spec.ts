@@ -451,6 +451,34 @@ describe('99LC config and deterministic plan', () => {
     ]))
   })
 
+  it('validates zone attacks, swarm blocks, and guaranteed tier enemies', () => {
+    const invalid = cloneLastChancesConfig(defaultConfig)
+    const colossus = invalid.enemies.find(enemy => enemy.id === 'colossus')!
+    const colossusIndex = invalid.enemies.indexOf(colossus)
+    delete colossus.zone
+    const creep = invalid.enemies.find(enemy => enemy.id === 'swarm-creep')!
+    const creepIndex = invalid.enemies.indexOf(creep)
+    creep.swarm = { total: 5, initialBurst: 9, spawnIntervalMs: 600 }
+    invalid.progression.tiers[2].guaranteedEnemyIds = ['no-such-enemy']
+
+    expect(validateLastChancesConfig(invalid).errors).toEqual(expect.arrayContaining([
+      `enemies[${colossusIndex}].zone is required when attackKind is zone`,
+      `enemies[${creepIndex}].swarm.initialBurst must be <= total`,
+      'progression.tiers[2].guaranteedEnemyIds references unknown enemy no-such-enemy',
+    ]))
+  })
+
+  it('rejects unknown zone shapes', () => {
+    const invalid = cloneLastChancesConfig(defaultConfig)
+    const colossus = invalid.enemies.find(enemy => enemy.id === 'colossus')!
+    const colossusIndex = invalid.enemies.indexOf(colossus)
+    colossus.zone!.shapes = ['circle', 'hexagon' as never]
+
+    expect(validateLastChancesConfig(invalid).errors).toEqual(expect.arrayContaining([
+      `enemies[${colossusIndex}].zone.shapes must be a non-empty array of circle, square, triangle`,
+    ]))
+  })
+
   describe('schema-v3 combat actions', () => {
     it('accepts typed colliders, charge bands, statuses, resources, and augments', () => {
       const config = schema3Config()

@@ -8,10 +8,11 @@ import type {
   LastChancesGamepadLike,
 } from './gamepad'
 
+// Shipping bindings: left hand on L1 (4), right hand on R1 (5).
 const config = {
   deadZone: 0.18,
-  leftButton: 2,
-  rightButton: 0,
+  leftButton: 4,
+  rightButton: 5,
 }
 
 function button(pressed = false, value = pressed ? 1 : 0): LastChancesGamepadButtonLike {
@@ -30,10 +31,10 @@ function gamepad(options: Partial<LastChancesGamepadLike> & { index: number }): 
 }
 
 describe('99LC gamepad adapter', () => {
-  it('normalizes standard axes and configured canonical buttons', () => {
+  it('normalizes standard axes and the configured L1/R1 shoulder buttons', () => {
     const buttons = Array.from({ length: 16 }, () => button())
-    buttons[0] = button(false, 0.7)
-    buttons[2] = button(true)
+    buttons[4] = button(true)
+    buttons[5] = button(false, 0.7)
     const reading = readLastChancesGamepads([
       gamepad({ index: 3, axes: [0.1, -0.5, 0.6, 0.2], buttons }),
     ], config)
@@ -47,14 +48,14 @@ describe('99LC gamepad adapter', () => {
       move: { x: 0, y: -0.5 },
       aim: { x: 0.6, y: 0.2 },
       buttons: { left: true, right: true },
-      sourceButtonIndexes: { left: 2, right: 0 },
+      sourceButtonIndexes: { left: 4, right: 5 },
     })
   })
 
-  it('maps a raw Bluetooth DualSense to canonical axes and face buttons', () => {
+  it('maps a raw Bluetooth DualSense to canonical axes with shoulders untouched', () => {
     const buttons = Array.from({ length: 18 }, () => button())
-    buttons[0] = button(true)
-    buttons[1] = button(false, 0.65)
+    buttons[4] = button(true)
+    buttons[5] = button(false, 0.65)
     const reading = readLastChancesGamepads([
       gamepad({
         index: 1,
@@ -70,6 +71,28 @@ describe('99LC gamepad adapter', () => {
       axes: [0.5, -0.4, -0.75, 0.6],
       move: { x: 0.5, y: -0.4 },
       aim: { x: -0.75, y: 0.6 },
+      buttons: { left: true, right: true },
+      sourceButtonIndexes: { left: 4, right: 5 },
+    })
+  })
+
+  it('still remaps configured face buttons through the raw Sony profile', () => {
+    const faceConfig = { deadZone: 0.18, leftButton: 2, rightButton: 0 }
+    const buttons = Array.from({ length: 18 }, () => button())
+    buttons[0] = button(true)
+    buttons[1] = button(false, 0.65)
+    const reading = readLastChancesGamepads([
+      gamepad({
+        index: 1,
+        id: '054c-0ce6-Sony Interactive Entertainment Wireless Controller',
+        mapping: '',
+        axes: [0.5, -0.4, -0.75, -1, -1, 0.6],
+        buttons,
+      }),
+    ], faceConfig)
+
+    expect(reading).toMatchObject({
+      profile: 'sony-raw',
       buttons: { left: true, right: true },
       sourceButtonIndexes: { left: 0, right: 1 },
     })

@@ -12,6 +12,7 @@ import {
   LockKeyhole,
   Pickaxe,
   Settings2,
+  ShipWheel,
   Shield,
   Sparkles,
   Trees,
@@ -20,7 +21,7 @@ import {
   Wrench,
 } from 'lucide-vue-next'
 
-type CitySlotKind = 'farm' | 'lumber' | 'mine' | 'forge' | 'barracks' | 'unique'
+type CitySlotKind = 'farm' | 'lumber' | 'mine' | 'forge' | 'barracks' | 'unique' | 'maritime'
 type PlacementSlotKind = CitySlotKind | 'municipal'
 
 interface CityImprovementView {
@@ -235,6 +236,7 @@ const slotDefinitions: SlotDefinition[] = [
   { kind: 'forge', label: 'Кузница', hint: 'Снаряжение и ремесло', icon: Hammer },
   { kind: 'barracks', label: 'Казарма', hint: 'Регулярная армия', icon: Shield },
   { kind: 'unique', label: 'Особое здание', hint: 'Храм, банк или региональный проект', icon: Sparkles },
+  { kind: 'maritime', label: 'Морской участок', hint: 'Только прибрежный Морской порт', icon: ShipWheel },
 ]
 
 const internalSelectedId = ref<string | null>(props.selectedBuildingId)

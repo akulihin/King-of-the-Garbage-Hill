@@ -34,7 +34,7 @@ function finishIntroStory() {
 }
 
 describe('99 Last Chances controller flow', () => {
-  it('enters the opening route and performs the hold follow-up with a standard DualSense', () => {
+  it('enters the opening route on L1/R1 and gates the quest-locked hold follow-up', () => {
     const axes = [0, 0, 0, 0]
     const buttons: MutableButton[] = Array.from({ length: 16 }, () => ({ pressed: false, value: 0 }))
     const gamepad: MutableGamepad = {
@@ -68,8 +68,8 @@ describe('99 Last Chances controller flow', () => {
       const firstNodeId = $openingSelection.attr('data-node-id')
 
       mutateGamepad((pad) => {
-        pad.buttons[2].pressed = true
-        pad.buttons[2].value = 1
+        pad.buttons[4].pressed = true
+        pad.buttons[4].value = 1
       })
       cy.get('.lc-control-grid article.is-connected')
         .should('have.attr', 'data-gamepad-status', 'active')
@@ -78,43 +78,62 @@ describe('99 Last Chances controller flow', () => {
           expect($cycledSelection.attr('data-node-id')).not.to.equal(firstNodeId)
         })
       mutateGamepad((pad) => {
-        pad.buttons[2].pressed = false
-        pad.buttons[2].value = 0
+        pad.buttons[4].pressed = false
+        pad.buttons[4].value = 0
       })
       cy.wait(80)
 
       mutateGamepad((pad) => {
-        pad.buttons[0].pressed = true
-        pad.buttons[0].value = 1
+        pad.buttons[5].pressed = true
+        pad.buttons[5].value = 1
       })
       cy.get('.lc-map-backdrop').should('not.exist')
       mutateGamepad((pad) => {
-        pad.buttons[0].pressed = false
-        pad.buttons[0].value = 0
+        pad.buttons[5].pressed = false
+        pad.buttons[5].value = 0
       })
     })
 
+    // The move-unlock quest chain starts every generation with only tap and hold.
+    cy.get('.lc-quest-card').should('be.visible')
+    cy.get('.lc-cooldowns').should('contain.text', 'Закрыто квестом')
+
     mutateGamepad((pad) => {
-      pad.buttons[2].pressed = true
-      pad.buttons[2].value = 1
+      pad.buttons[4].pressed = true
+      pad.buttons[4].value = 1
     })
     cy.wait(1200)
     mutateGamepad((pad) => {
-      pad.buttons[2].pressed = false
-      pad.buttons[2].value = 0
+      pad.buttons[4].pressed = false
+      pad.buttons[4].value = 0
     })
     cy.get('.lc-input-feedback').first().should('contain.text', 'Tap once now')
     mutateGamepad((pad) => {
-      pad.buttons[2].pressed = true
-      pad.buttons[2].value = 1
+      pad.buttons[4].pressed = true
+      pad.buttons[4].value = 1
     })
     cy.wait(60)
     mutateGamepad((pad) => {
-      pad.buttons[2].pressed = false
-      pad.buttons[2].value = 0
+      pad.buttons[4].pressed = false
+      pad.buttons[4].value = 0
     })
 
-    cy.get('.lc-gesture-toast').should('contain.text', 'Раскрутка копья над головой')
+    // The follow-up resolves to the locked holdThenDoubleTap, so no attack fires…
+    cy.wait(300)
+    cy.get('.lc-gesture-toast').should('not.exist')
+
+    // …while the always-unlocked tap still does.
+    mutateGamepad((pad) => {
+      pad.buttons[4].pressed = true
+      pad.buttons[4].value = 1
+    })
+    cy.wait(60)
+    mutateGamepad((pad) => {
+      pad.buttons[4].pressed = false
+      pad.buttons[4].value = 0
+    })
+    cy.wait(400)
+    cy.get('.lc-gesture-toast').should('be.visible')
   })
 
   it('saves an override without disrupting the attempt and applies it only to a fresh generation', () => {

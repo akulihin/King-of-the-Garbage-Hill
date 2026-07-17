@@ -57,6 +57,11 @@ import type {
   EmpiresEndgameConfig,
   EmpiresBattleLossLoyaltyInput,
   EmpiresEventDefinition,
+  EmpiresExternalActiveOfferState,
+  EmpiresExternalDiplomacyView,
+  EmpiresExternalOfferDefinition,
+  EmpiresExternalState,
+  EmpiresExternalTradeQuote,
   EmpiresGiftDefinition,
   EmpiresMinigameResult,
   EmpiresMinigameSession,
@@ -116,6 +121,7 @@ const BUILDING_SLOT_KINDS: readonly EmpiresBuildingSlotKind[] = [
   'smithy',
   'barracks',
   'unique',
+  'maritime',
   'municipal',
 ]
 
@@ -312,7 +318,7 @@ function uniqueIds<T extends { id: string }>(values: readonly T[]): boolean {
 
 export function validateEmpiresEndgameConfig(config: EmpiresEndgameConfig): string[] {
   const errors: string[] = []
-  if (config.schemaVersion !== 9) errors.push('schemaVersion must be 9')
+  if (config.schemaVersion !== 10) errors.push('schemaVersion must be 10')
   if (!config.id.trim()) errors.push('config id is required')
   if (config.cards.length !== 53) errors.push('cards must contain exactly 53 definitions')
   if (!uniqueIds(config.cards)) errors.push('card definition ids must be unique')
@@ -478,7 +484,7 @@ export class EmpiresEndgameEngine {
   }
 
   snapshotEnvelope(savedAt = new Date().toISOString()): EmpiresSnapshotEnvelope {
-    return { schemaVersion: 7, savedAt, state: this.snapshot() }
+    return { schemaVersion: 8, savedAt, state: this.snapshot() }
   }
 
   restore(snapshot: EmpiresCampaignState): void {
@@ -826,6 +832,8 @@ export class EmpiresEndgameEngine {
     if (this.isBuildingInteractionLocked(city, buildingId)) {
       return failure('That building is locked for the current con.')
     }
+    const externalBlocked = this.externalConstructionBlockedReason(city, building)
+    if (externalBlocked) return failure(externalBlocked)
     if (slot.kind !== building.slot) return failure('The building does not match that slot.')
     if ((city.buildingLevels[buildingId] ?? 0) > 0) return failure('That building is already placed.')
     const currentBuildingId = city.buildingSlotAssignments[slotId]
@@ -1573,6 +1581,157 @@ export class EmpiresEndgameEngine {
         deferredCapabilities: cloneSerializable(tavernBuilding?.deferredSubfeatures ?? []),
       },
     }
+  }
+
+  externalDiplomacyView(cityId: string): EmpiresExternalDiplomacyView {
+    const external = this.config.empire.externalEconomy
+    const actors = external.actors.map(actor => ({
+      id: actor.id,
+      name: actor.name,
+      relationship: this.state.external.relationships[actor.id]?.status ?? actor.initialRelationship,
+    }))
+    const offers = this.state.external.activeOffers
+      .slice()
+      .sort((left, right) => left.id.localeCompare(right.id))
+      .flatMap((offer) => {
+        const definition = this.externalOfferDefinition(offer)
+        const actor = definition
+          ? external.actors.find(candidate => candidate.id === definition.actorId)
+          : null
+        if (!definition || !actor) return []
+        return [{
+          id: offer.id,
+          definitionId: definition.id,
+          actorId: actor.id,
+          actorName: actor.name,
+          relationship: this.state.external.relationships[actor.id]?.status ?? actor.initialRelationship,
+          name: definition.name,
+          description: definition.description,
+          expiresAfterCon: offer.expiresAfterCon,
+          stockRemaining: offer.stockRemaining,
+          quote: this.externalTradeQuote(offer.id, cityId),
+          declineEffects: cloneSerializable(definition.declineEffects),
+        }]
+      })
+    const speedPercent = this.state.empire.researchedTechnologyIds.includes(
+      external.transfer.compassTechnologyId,
+    ) ? Math.max(0, this.effectiveEmpireFlagValue(external.transfer.speedFlagId)) : 0
+    return {
+      enabled: external.enabled,
+      actors,
+      offers,
+      history: cloneSerializable(this.state.external.offerHistory),
+      reviewedAbsentBuildings: cloneSerializable(external.reviewedAbsentBuildings),
+      transfer: {
+        baseTimeCostDays: external.transfer.baseTimeCostDays,
+        effectiveTimeCostDays: Math.max(
+          0,
+          Math.ceil(external.transfer.baseTimeCostDays * Math.max(0, 1 - speedPercent / 100)),
+        ),
+        compassActive: speedPercent > 0,
+      },
+    }
+  }
+
+  refreshExternalOffers(): EmpiresActionResult {
+    if (!this.config.empire.externalEconomy.enabled) return failure('External diplomacy is disabled.')
+    if (this.state.phase !== 'empire') return failure('Offers refresh only in the empire phase.')
+    const changed = this.refreshExternalOffersInternal()
+    return changed ? this.commit('External offers refreshed.') : success('External offers are already current.')
+  }
+
+  acceptExternalOffer(offerId: string, cityId: string): EmpiresActionResult {
+    const quote = this.externalTradeQuote(offerId, cityId)
+    if (quote.blockedReason) return failure(quote.blockedReason)
+    const offer = this.state.external.activeOffers.find(item => item.id === offerId)
+    const definition = offer ? this.externalOfferDefinition(offer) : null
+    const city = this.city(cityId)
+    if (!offer || !definition || !city) return failure('Unknown external offer or city.')
+    const goldId = this.config.empire.externalEconomy.goldResourceId
+    if (definition.direction === 'import') {
+      this.payResources([{ resourceId: goldId, amount: quote.adjustedGold }], city, true)
+      city.resources[definition.resourceId] = (city.resources[definition.resourceId] ?? 0)
+        + quote.resourceAmount
+    } else {
+      this.payResources([{ resourceId: definition.resourceId, amount: quote.resourceAmount }], city, true)
+      this.state.empire.resources[goldId] = (this.state.empire.resources[goldId] ?? 0)
+        + quote.adjustedGold
+    }
+    if (quote.tariffGold > 0) {
+      this.state.empire.resources[goldId] = (this.state.empire.resources[goldId] ?? 0)
+        + quote.tariffGold
+    }
+    if (quote.knowledgeBonus > 0) {
+      const knowledgeId = this.config.empire.externalEconomy.knowledgeResourceId
+      this.state.empire.resources[knowledgeId] = (this.state.empire.resources[knowledgeId] ?? 0)
+        + quote.knowledgeBonus
+    }
+    this.state.external.customs.completedTrades += 1
+    this.state.external.customs.totalTariffGold += quote.tariffGold
+    this.state.external.customs.lastTradeCon = this.state.con
+    if (this.externalBuildingLevel(city, this.config.empire.externalEconomy.customs.buildingId) > 0) {
+      this.state.external.customs.smugglingEligible = true
+    }
+    this.resolveExternalOffer(offer, 'accepted', cityId, quote)
+    this.refreshProductions()
+    return this.commit(`Offer ${definition.name} accepted in ${city.name}.`)
+  }
+
+  declineExternalOffer(offerId: string): EmpiresActionResult {
+    if (this.state.phase !== 'empire') return failure('Offers can only be declined in the empire phase.')
+    const offer = this.state.external.activeOffers.find(item => item.id === offerId)
+    const definition = offer ? this.externalOfferDefinition(offer) : null
+    if (!offer || !definition) return failure('Unknown or already resolved external offer.')
+    if (offer.expiresAfterCon < this.state.con) return failure('The offer has expired.')
+    if (definition.declineEffects.length > 0) {
+      this.applyEffects(definition.declineEffects, 0, undefined, `external-decline:${offer.id}`)
+    }
+    this.resolveExternalOffer(offer, 'declined', null, null)
+    return this.commit(`Offer ${definition.name} declined.`)
+  }
+
+  transferCityResource(
+    fromCityId: string,
+    toCityId: string,
+    resourceId: string,
+    amount: number,
+  ): EmpiresActionResult {
+    if (!this.config.empire.externalEconomy.enabled) return failure('External logistics are disabled.')
+    if (this.state.phase !== 'empire') return failure('Transfers are only available in the empire phase.')
+    const from = this.city(fromCityId)
+    const to = this.city(toCityId)
+    if (!from || !to || !this.config.empire.resources.some(resource => resource.id === resourceId)) {
+      return failure('Unknown transfer city or resource.')
+    }
+    if (from.id === to.id) return failure('Transfer cities must be different.')
+    const fromAccess = this.cityAccessBlockedReason(from.id)
+    const toAccess = this.cityAccessBlockedReason(to.id)
+    if (fromAccess || toAccess) return failure(fromAccess ?? toAccess!)
+    const quantity = Math.floor(amount)
+    if (quantity <= 0 || (from.resources[resourceId] ?? 0) + Number.EPSILON < quantity) {
+      return failure(`The source city needs ${quantity > 0 ? quantity : 'a positive amount'} ${resourceId}.`)
+    }
+    const rules = this.config.empire.externalEconomy.transfer
+    const speedPercent = this.state.empire.researchedTechnologyIds.includes(rules.compassTechnologyId)
+      ? Math.max(0, this.effectiveEmpireFlagValue(rules.speedFlagId))
+      : 0
+    const timeCostDays = Math.max(0, Math.ceil(rules.baseTimeCostDays * Math.max(0, 1 - speedPercent / 100)))
+    if (this.state.empire.daysRemaining < timeCostDays) return failure('Not enough days remain for the transfer.')
+    from.resources[resourceId] = Math.max(0, (from.resources[resourceId] ?? 0) - quantity)
+    to.resources[resourceId] = (to.resources[resourceId] ?? 0) + quantity
+    this.state.empire.daysRemaining -= timeCostDays
+    const id = `external-transfer-${this.state.external.nextTransferSequence++}`
+    this.state.external.transferHistory.push({
+      id,
+      fromCityId,
+      toCityId,
+      resourceId,
+      amount: quantity,
+      timeCostDays,
+      completedAtCon: this.state.con,
+    })
+    this.compactExternalHistory()
+    return this.commit(`${quantity} ${resourceId} transferred in ${timeCostDays} days.`)
   }
 
   technologySideView(technologyId: string): EmpiresTechnologySideView | null {
@@ -2325,6 +2484,30 @@ export class EmpiresEndgameEngine {
     }
   }
 
+  private initialExternalState(con = 1): Omit<EmpiresExternalState, 'allianceThreat' | 'nextWaveCon'> {
+    return {
+      relationships: Object.fromEntries(this.config.empire.externalEconomy.actors.map(actor => [actor.id, {
+        status: actor.initialRelationship,
+        changedAtCon: con,
+        sourceId: 'initial-config',
+      }])),
+      activeOffers: [],
+      offerHistory: [],
+      compactedOfferHistoryCount: 0,
+      nextOfferSequence: 1,
+      nextOfferRefreshCon: con,
+      customs: {
+        completedTrades: 0,
+        totalTariffGold: 0,
+        smugglingEligible: false,
+        lastTradeCon: null,
+      },
+      transferHistory: [],
+      compactedTransferHistoryCount: 0,
+      nextTransferSequence: 1,
+    }
+  }
+
   private initialCityState(
     city: EmpiresEndgameConfig['empire']['cities'][number],
   ): EmpiresCityState {
@@ -2437,7 +2620,7 @@ export class EmpiresEndgameEngine {
     const playerHand: string[] = []
     const godHand: string[] = []
     const state: EmpiresCampaignState = {
-      schemaVersion: 7,
+      schemaVersion: 8,
       configId: this.config.id,
       phase: 'cards',
       rng,
@@ -2521,7 +2704,7 @@ export class EmpiresEndgameEngine {
       external: {
         allianceThreat: this.config.td.alliance?.baseThreat ?? 0,
         nextWaveCon: this.config.td.waveEveryCons ?? Number.MAX_SAFE_INTEGER,
-        pendingOffers: [],
+        ...this.initialExternalState(),
       },
       epidemics: [],
       nextEpidemicSequence: 1,
@@ -2677,16 +2860,139 @@ export class EmpiresEndgameEngine {
     this.compactDomesticEconomyHistory(state)
   }
 
+  private normalizeExternalState(state: EmpiresCampaignState): void {
+    const external = state.external
+    const legacyPendingOffers = (external as unknown as { pendingOffers?: unknown }).pendingOffers
+    if (legacyPendingOffers !== undefined
+      && (!Array.isArray(legacyPendingOffers) || legacyPendingOffers.length > 0)) {
+      throw new Error('Legacy external pendingOffers must be empty before migration')
+    }
+    delete (external as unknown as { pendingOffers?: unknown }).pendingOffers
+    const initial = this.initialExternalState(state.con)
+    const actorById = new Map(this.config.empire.externalEconomy.actors.map(actor => [actor.id, actor]))
+    const offerById = new Map(this.config.empire.externalEconomy.offers.map(offer => [offer.id, offer]))
+    external.relationships = Object.fromEntries([...actorById].map(([actorId, actor]) => {
+      const candidate = external.relationships?.[actorId]
+      if (!candidate) return [actorId, initial.relationships[actorId]]
+      if (!['hostile', 'neutral', 'allied'].includes(candidate.status)
+        || !Number.isInteger(candidate.changedAtCon) || candidate.changedAtCon < 0
+        || candidate.changedAtCon > state.con
+        || typeof candidate.sourceId !== 'string' || !candidate.sourceId.trim()) {
+        throw new Error(`Invalid external relationship state ${actorId}`)
+      }
+      return [actorId, candidate]
+    }))
+    const activeIds = new Set<string>()
+    const activeDefinitionIds = new Set<string>()
+    external.activeOffers ??= []
+    if (external.activeOffers.length > this.config.empire.externalEconomy.maxActiveOffers) {
+      throw new Error('External active offers exceed the configured maximum')
+    }
+    for (const offer of external.activeOffers) {
+      const definition = offerById.get(offer.definitionId)
+      if (!offer?.id || activeIds.has(offer.id) || activeDefinitionIds.has(offer.definitionId) || !definition
+        || offer.actorId !== definition.actorId || !actorById.has(offer.actorId)
+        || offer.rulesIdentity !== this.externalOfferRulesIdentity(definition)
+        || !Number.isInteger(offer.createdAtCon) || offer.createdAtCon < 0
+        || offer.createdAtCon > state.con
+        || !Number.isInteger(offer.expiresAfterCon) || offer.expiresAfterCon < offer.createdAtCon
+        || !Number.isInteger(offer.stockRemaining) || offer.stockRemaining < 1
+        || offer.stockRemaining > definition.stock) {
+        throw new Error(`Invalid external active offer ${offer?.id ?? '<missing>'}`)
+      }
+      activeIds.add(offer.id)
+      activeDefinitionIds.add(offer.definitionId)
+    }
+    external.offerHistory ??= []
+    const resolvedIds = new Set<string>()
+    for (const record of external.offerHistory) {
+      const definition = offerById.get(record.definitionId)
+      if (!record?.offerId || resolvedIds.has(record.offerId) || !definition
+        || record.actorId !== definition.actorId
+        || record.rulesIdentity !== this.externalOfferRulesIdentity(definition)
+        || !['accepted', 'declined', 'expired'].includes(record.resolution)
+        || !Number.isInteger(record.resolvedAtCon) || record.resolvedAtCon < 0
+        || record.resolvedAtCon > state.con
+        || (record.cityId !== null && !state.empire.cities.some(city => city.id === record.cityId))
+        || (record.resolution === 'accepted') !== (record.cityId !== null)
+        || !Number.isFinite(record.resourceAmount) || record.resourceAmount < 0
+        || (record.resolution === 'accepted' && record.resourceAmount !== definition.resourceAmount)
+        || (record.resolution !== 'accepted' && record.resourceAmount !== 0)
+        || !Number.isFinite(record.goldDelta)
+        || !Number.isFinite(record.tariffGold) || record.tariffGold < 0) {
+        throw new Error(`Invalid external offer history ${record?.offerId ?? '<missing>'}`)
+      }
+      resolvedIds.add(record.offerId)
+    }
+    if (external.activeOffers.some(offer => resolvedIds.has(offer.id))) {
+      throw new Error('Resolved external offers cannot remain active')
+    }
+    external.transferHistory ??= []
+    const transferIds = new Set<string>()
+    for (const transfer of external.transferHistory) {
+      if (!transfer?.id || transferIds.has(transfer.id)
+        || !state.empire.cities.some(city => city.id === transfer.fromCityId)
+        || !state.empire.cities.some(city => city.id === transfer.toCityId)
+        || transfer.fromCityId === transfer.toCityId
+        || !this.config.empire.resources.some(resource => resource.id === transfer.resourceId)
+        || !Number.isInteger(transfer.amount) || transfer.amount <= 0
+        || !Number.isInteger(transfer.timeCostDays) || transfer.timeCostDays < 0
+        || !Number.isInteger(transfer.completedAtCon) || transfer.completedAtCon < 0
+        || transfer.completedAtCon > state.con) {
+        throw new Error(`Invalid external transfer history ${transfer?.id ?? '<missing>'}`)
+      }
+      transferIds.add(transfer.id)
+    }
+    const offerSequence = external.nextOfferSequence ?? 1
+    const offerRefreshCon = external.nextOfferRefreshCon ?? state.con
+    const compactedOffers = external.compactedOfferHistoryCount ?? 0
+    const transferSequence = external.nextTransferSequence ?? 1
+    const compactedTransfers = external.compactedTransferHistoryCount ?? 0
+    if (!Number.isInteger(offerSequence) || offerSequence < 1
+      || !Number.isInteger(offerRefreshCon) || offerRefreshCon < 1
+      || !Number.isInteger(compactedOffers) || compactedOffers < 0
+      || !Number.isInteger(transferSequence) || transferSequence < 1
+      || !Number.isInteger(compactedTransfers) || compactedTransfers < 0) {
+      throw new Error('Invalid external sequence, refresh, or compaction state')
+    }
+    const usedOfferSequence = [...activeIds, ...resolvedIds].reduce((maximum, id) => {
+      const match = /^external-offer-(\d+)-/.exec(id)
+      return Math.max(maximum, match ? Number(match[1]) : 0)
+    }, 0)
+    const usedTransferSequence = [...transferIds].reduce((maximum, id) => {
+      const match = /^external-transfer-(\d+)$/.exec(id)
+      return Math.max(maximum, match ? Number(match[1]) : 0)
+    }, 0)
+    external.nextOfferSequence = Math.max(offerSequence, usedOfferSequence + 1)
+    external.nextOfferRefreshCon = offerRefreshCon
+    external.compactedOfferHistoryCount = compactedOffers
+    external.nextTransferSequence = Math.max(transferSequence, usedTransferSequence + 1)
+    external.compactedTransferHistoryCount = compactedTransfers
+    external.customs ??= initial.customs
+    external.customs.completedTrades ??= 0
+    external.customs.totalTariffGold ??= 0
+    external.customs.smugglingEligible ??= false
+    external.customs.lastTradeCon ??= null
+    if (!Number.isInteger(external.customs.completedTrades) || external.customs.completedTrades < 0
+      || !Number.isFinite(external.customs.totalTariffGold) || external.customs.totalTariffGold < 0
+      || typeof external.customs.smugglingEligible !== 'boolean'
+      || (external.customs.lastTradeCon !== null && (
+        !Number.isInteger(external.customs.lastTradeCon)
+        || external.customs.lastTradeCon < 0 || external.customs.lastTradeCon > state.con
+      ))) throw new Error('Invalid external Customs state')
+    this.compactExternalHistory(state)
+  }
+
   private validateAndCloneSnapshot(snapshot: EmpiresCampaignState): EmpiresCampaignState {
     const snapshotVersion = (snapshot as { schemaVersion: number }).schemaVersion
     if (snapshotVersion !== 1 && snapshotVersion !== 2 && snapshotVersion !== 3
       && snapshotVersion !== 4 && snapshotVersion !== 5 && snapshotVersion !== 6
-      && snapshotVersion !== 7) {
+      && snapshotVersion !== 7 && snapshotVersion !== 8) {
       throw new Error('Unsupported Empire\'s Endgame snapshot schema')
     }
     if (snapshot.configId !== this.config.id) throw new Error('Snapshot belongs to a different config')
     const state = cloneSerializable(snapshot)
-    state.schemaVersion = 7
+    state.schemaVersion = 8
     this.normalizeGovernanceState(state, snapshotVersion)
     state.minigame ??= null
     state.minigameResultLog ??= []
@@ -2735,11 +3041,11 @@ export class EmpiresEndgameEngine {
     state.external ??= {
       allianceThreat: this.config.td.alliance?.baseThreat ?? 0,
       nextWaveCon: this.nextWaveConAtOrAfter(state.con),
-      pendingOffers: [],
+      ...this.initialExternalState(state.con),
     }
     state.external.allianceThreat ??= 0
     state.external.nextWaveCon ??= this.nextWaveConAtOrAfter(state.con)
-    state.external.pendingOffers ??= []
+    this.normalizeExternalState(state)
     state.epidemics ??= []
     state.nextEpidemicSequence ??= 1
     state.empire.medical ??= {
@@ -3739,6 +4045,7 @@ export class EmpiresEndgameEngine {
       }
     }
     this.awardDueSteelResearch()
+    this.refreshExternalOffersInternal()
     this.state.empire.daysRemaining = Math.max(0, this.state.empire.daysRemaining)
     this.refreshProductions()
   }
@@ -3977,6 +4284,8 @@ export class EmpiresEndgameEngine {
     building: EmpiresBuildingDefinition,
     level: EmpiresBuildingLevelDefinition,
   ): EmpiresActionResult {
+    const externalBlocked = this.externalConstructionBlockedReason(city, building)
+    if (externalBlocked) return failure(externalBlocked)
     const loyaltyBlocked = this.constructionLoyaltyBlockedReason(city, building)
     if (loyaltyBlocked) return failure(loyaltyBlocked)
     const dependencies = this.buildingDependencies(building, level)
@@ -4042,6 +4351,30 @@ export class EmpiresEndgameEngine {
     return identity.includes('stable') || identity.includes('конюш')
   }
 
+  private externalConstructionBlockedReason(
+    city: EmpiresCityState,
+    building: EmpiresBuildingDefinition,
+  ): string | null {
+    const external = this.config.empire.externalEconomy
+    if (!external.enabled) return null
+    if (building.id === external.stable.buildingId
+      && this.effectiveEmpireFlagValue('stableWithoutLivestock') <= 0
+      && !external.stable.livestockRegionIds.includes(city.regionId)) {
+      return 'Конюшня requires a city in an authored livestock region.'
+    }
+    if (building.id !== external.seaPort.buildingId) return null
+    const coastal = this.config.governance.governor.citySites
+      .some(site => site.cityId === city.id && site.coastal)
+    if (!coastal) return 'Морской порт can only be built in a coastal city.'
+    if ((city.buildingLevels[building.id] ?? 0) > 0) return null
+    const built = this.state.empire.cities.filter(candidate => (
+      (candidate.buildingLevels[building.id] ?? 0) > 0
+    )).length
+    return built >= external.seaPort.maximumAcrossEmpire
+      ? `The empire already has the maximum ${external.seaPort.maximumAcrossEmpire} Sea Ports.`
+      : null
+  }
+
   private completeBuildingLevel(
     city: EmpiresCityState,
     building: EmpiresBuildingDefinition,
@@ -4084,7 +4417,14 @@ export class EmpiresEndgameEngine {
           return dependency.technologyId
         }
       } else if (dependency.kind === 'flag') {
-        if (this.effectiveEmpireFlagValue(dependency.flagId) < dependency.minimum) return dependency.flagId
+        const operationalValue = city
+          ? this.operationalBuildingFlagValue(city, dependency.flagId) ?? 0
+          : this.state.empire.cities.reduce((maximum, candidate) => Math.max(
+              maximum,
+              this.operationalBuildingFlagValue(candidate, dependency.flagId) ?? 0,
+            ), 0)
+        if (Math.max(this.effectiveEmpireFlagValue(dependency.flagId), operationalValue)
+          < dependency.minimum) return dependency.flagId
       } else if (dependency.kind === 'reputation') {
         if (this.effectiveReputation() < dependency.minimum) {
           return `reputation ${this.signedNumber(dependency.minimum)}`
@@ -5282,6 +5622,208 @@ export class EmpiresEndgameEngine {
     economy.compactedInsuranceCount += Math.max(0, contracts.removed)
   }
 
+  private externalOfferDefinition(
+    offer: EmpiresExternalActiveOfferState,
+  ): EmpiresExternalOfferDefinition | null {
+    return this.config.empire.externalEconomy.offers.find(
+      definition => definition.id === offer.definitionId,
+    ) ?? null
+  }
+
+  private externalOfferRulesIdentity(definition: EmpiresExternalOfferDefinition): string {
+    const external = this.config.empire.externalEconomy
+    const buildingIds = new Set([external.customs.buildingId, external.seaPort.buildingId])
+    const technologyIds = new Set([
+      external.tradeRoutesTechnologyId,
+      external.customs.merchantGuildsTechnologyId,
+    ])
+    return digestTdValue({
+      configSchemaVersion: this.config.schemaVersion,
+      definition,
+      actor: external.actors.find(actor => actor.id === definition.actorId),
+      resources: {
+        gold: external.goldResourceId,
+        knowledge: external.knowledgeResourceId,
+      },
+      persecutionPricePenaltyPercent: external.persecutionPricePenaltyPercent,
+      customs: external.customs,
+      seaPort: external.seaPort,
+      buildings: this.config.empire.buildings.filter(building => buildingIds.has(building.id)),
+      technologies: this.config.empire.technologies.filter(technology => technologyIds.has(technology.id)),
+    })
+  }
+
+  private externalBuildingLevel(city: EmpiresCityState, buildingId: string): number {
+    if (!this.isCityAccessible(city.id) || this.isBuildingInteractionLocked(city, buildingId)) return 0
+    return Math.max(0, city.operationalBuildingLevels[buildingId] ?? 0)
+  }
+
+  private externalDefinitionBlockedReason(
+    definition: EmpiresExternalOfferDefinition,
+    city?: EmpiresCityState,
+  ): string | null {
+    const external = this.config.empire.externalEconomy
+    const actor = external.actors.find(candidate => candidate.id === definition.actorId)
+    if (!external.enabled || !actor) return 'External diplomacy is unavailable.'
+    if (!this.state.empire.researchedTechnologyIds.includes(external.tradeRoutesTechnologyId)) {
+      return `Missing prerequisite: ${external.tradeRoutesTechnologyId}.`
+    }
+    if ((definition.minimumCon ?? Number.NEGATIVE_INFINITY) > this.state.con
+      || (definition.maximumCon ?? Number.POSITIVE_INFINITY) < this.state.con) {
+      return 'The offer is outside its authored con window.'
+    }
+    const relationship = this.state.external.relationships[actor.id]?.status
+      ?? actor.initialRelationship
+    if (!definition.relationships.includes(relationship)) {
+      return `Relationship ${relationship} does not permit this offer.`
+    }
+    if (this.effectiveReputation() < definition.minimumReputation) {
+      return `Reputation ${definition.minimumReputation >= 0 ? '+' : ''}${definition.minimumReputation} is required.`
+    }
+    if (city) {
+      const access = this.cityAccessBlockedReason(city.id)
+      if (access) return access
+      if (!actor.accessibleRegionIds.includes(city.regionId)) {
+        return `${actor.name} has no access to ${city.regionId}.`
+      }
+    } else if (!this.state.empire.cities.some(candidate => (
+      this.isCityAccessible(candidate.id) && actor.accessibleRegionIds.includes(candidate.regionId)
+    ))) return `${actor.name} has no accessible trade city.`
+    const missing = this.firstMissingDependency(definition.prerequisites, city)
+    return missing ? `Missing prerequisite: ${missing}.` : null
+  }
+
+  private externalTradeQuote(offerId: string, cityId: string): EmpiresExternalTradeQuote {
+    const active = this.state.external.activeOffers.find(offer => offer.id === offerId)
+    const definition = active ? this.externalOfferDefinition(active) : null
+    const city = this.city(cityId)
+    const fallback: EmpiresExternalTradeQuote = {
+      offerId,
+      cityId,
+      direction: definition?.direction ?? 'import',
+      resourceId: definition?.resourceId ?? '',
+      resourceAmount: definition?.resourceAmount ?? 0,
+      baseGold: definition?.goldAmount ?? 0,
+      adjustedGold: definition?.goldAmount ?? 0,
+      tariffGold: 0,
+      knowledgeBonus: 0,
+      netGoldDelta: 0,
+      blockedReason: null,
+    }
+    if (this.state.phase !== 'empire') return { ...fallback, blockedReason: 'Offers resolve only in the empire phase.' }
+    if (!active || !definition || !city) return { ...fallback, blockedReason: 'Unknown or already resolved external offer.' }
+    if (active.expiresAfterCon < this.state.con) return { ...fallback, blockedReason: 'The offer has expired.' }
+    if (active.stockRemaining < 1) return { ...fallback, blockedReason: 'The offer has no stock remaining.' }
+    const gate = this.externalDefinitionBlockedReason(definition, city)
+    const external = this.config.empire.externalEconomy
+    const portLevel = this.operationalBuildingFlagValue(city, external.seaPort.capacityFlagId) !== null
+      ? this.externalBuildingLevel(city, external.seaPort.buildingId)
+      : 0
+    const portBonus = Math.floor(definition.goldAmount
+      * portLevel * external.seaPort.tradeGoldBonusPercentPerLevel / 100)
+    const persecutionPenalty = this.state.empire.domesticEconomy.persecution
+      ? Math.ceil(definition.goldAmount * external.persecutionPricePenaltyPercent / 100)
+      : 0
+    const adjustedGold = definition.direction === 'import'
+      ? Math.max(1, definition.goldAmount - portBonus + persecutionPenalty)
+      : Math.max(0, definition.goldAmount + portBonus - persecutionPenalty)
+    const customsLevel = this.operationalBuildingFlagValue(city, external.customs.tariffFlagId) !== null
+      ? this.externalBuildingLevel(city, external.customs.buildingId)
+      : 0
+    const guildBonus = this.state.empire.researchedTechnologyIds.includes(
+      external.customs.merchantGuildsTechnologyId,
+    ) && this.effectiveEmpireFlagValue(external.customs.merchantGuildsFlagId) > 0
+      ? external.customs.merchantGuildTariffBonusPercent
+      : 0
+    const tariffPercent = customsLevel * external.customs.tariffPercentPerLevel + guildBonus
+    const tariffGold = Math.floor(adjustedGold * Math.max(0, tariffPercent) / 100)
+    const knowledgeBonus = Math.floor(portLevel * external.seaPort.knowledgePerTradePerLevel)
+    const quote = {
+      ...fallback,
+      adjustedGold,
+      tariffGold,
+      knowledgeBonus,
+      netGoldDelta: (definition.direction === 'import' ? -adjustedGold : adjustedGold) + tariffGold,
+      blockedReason: gate,
+    }
+    if (quote.blockedReason) return quote
+    const costs = definition.direction === 'import'
+      ? [{ resourceId: external.goldResourceId, amount: adjustedGold }]
+      : [{ resourceId: definition.resourceId, amount: definition.resourceAmount }]
+    const missing = this.firstMissingResource(costs, city, true)
+    return missing ? { ...quote, blockedReason: `Not enough ${missing}.` } : quote
+  }
+
+  private expireExternalOffers(): boolean {
+    let changed = false
+    for (const offer of [...this.state.external.activeOffers]) {
+      if (offer.expiresAfterCon >= this.state.con) continue
+      this.resolveExternalOffer(offer, 'expired', null, null)
+      changed = true
+    }
+    return changed
+  }
+
+  private refreshExternalOffersInternal(): boolean {
+    let changed = this.expireExternalOffers()
+    const external = this.config.empire.externalEconomy
+    if (!external.enabled || this.state.con < this.state.external.nextOfferRefreshCon) return changed
+    const activeDefinitionIds = new Set(this.state.external.activeOffers.map(offer => offer.definitionId))
+    const count = Math.max(0, external.maxActiveOffers - this.state.external.activeOffers.length)
+    const eligible = external.offers
+      .filter(definition => !activeDefinitionIds.has(definition.id))
+      .filter(definition => !this.externalDefinitionBlockedReason(definition))
+    const selected = pickEmpiresWeightedWithoutReplacement(eligible, count, this.state.rng)
+    for (const definition of selected) {
+      const id = `external-offer-${this.state.external.nextOfferSequence++}-${definition.id}`
+      this.state.external.activeOffers.push({
+        id,
+        definitionId: definition.id,
+        actorId: definition.actorId,
+        rulesIdentity: this.externalOfferRulesIdentity(definition),
+        createdAtCon: this.state.con,
+        expiresAfterCon: this.state.con + external.offerLifetimeCons - 1,
+        stockRemaining: definition.stock,
+      })
+      changed = true
+    }
+    this.state.external.nextOfferRefreshCon = this.state.con + external.offerCadenceCons
+    return true
+  }
+
+  private resolveExternalOffer(
+    offer: EmpiresExternalActiveOfferState,
+    resolution: 'accepted' | 'declined' | 'expired',
+    cityId: string | null,
+    quote: EmpiresExternalTradeQuote | null,
+  ): void {
+    if (this.state.external.offerHistory.some(record => record.offerId === offer.id)) return
+    this.state.external.activeOffers = this.state.external.activeOffers.filter(item => item.id !== offer.id)
+    this.state.external.offerHistory.push({
+      offerId: offer.id,
+      definitionId: offer.definitionId,
+      actorId: offer.actorId,
+      rulesIdentity: offer.rulesIdentity,
+      resolution,
+      resolvedAtCon: this.state.con,
+      cityId,
+      resourceAmount: quote?.resourceAmount ?? 0,
+      goldDelta: quote?.netGoldDelta ?? 0,
+      tariffGold: quote?.tariffGold ?? 0,
+    })
+    this.compactExternalHistory()
+  }
+
+  private compactExternalHistory(state: EmpiresCampaignState = this.state): void {
+    const retention = this.config.empire.externalEconomy.historyRetention
+    const offerRemoved = Math.max(0, state.external.offerHistory.length - retention)
+    if (offerRemoved > 0) state.external.offerHistory.splice(0, offerRemoved)
+    state.external.compactedOfferHistoryCount += offerRemoved
+    const transferRemoved = Math.max(0, state.external.transferHistory.length - retention)
+    if (transferRemoved > 0) state.external.transferHistory.splice(0, transferRemoved)
+    state.external.compactedTransferHistoryCount += transferRemoved
+  }
+
   private settleDomesticEconomy(): void {
     if (!this.config.empire.domesticEconomy.enabled) return
     this.settleLoans()
@@ -5579,6 +6121,8 @@ export class EmpiresEndgameEngine {
     if (event.id === 'event-horse-theft' && (this.state.empire.flags.horseTheftDisabled ?? 0) > 0) {
       return false
     }
+    if (event.id === this.config.empire.externalEconomy.customs.smugglingEventId
+      && !this.state.external.customs.smugglingEligible) return false
     if (event.epidemicTarget && !this.eventEpidemicTarget(event)) return false
     return !this.firstMissingDependency(event.prerequisites ?? [])
   }

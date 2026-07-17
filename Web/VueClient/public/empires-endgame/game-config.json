@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 9,
+  "schemaVersion": 10,
   "id": "empires-endgame-default",
   "title": "Empire's Endgame",
   "seed": "empires-endgame-authoritative-default-v1",
@@ -2500,6 +2500,128 @@
         "moraleMaximumPerLevel": 1
       }
     },
+    "externalEconomy": {
+      "enabled": true,
+      "historyRetention": 24,
+      "offerCadenceCons": 2,
+      "offerLifetimeCons": 2,
+      "maxActiveOffers": 2,
+      "goldResourceId": "gold",
+      "knowledgeResourceId": "knowledge",
+      "tradeRoutesTechnologyId": "tech-trade-routes",
+      "persecutionPricePenaltyPercent": 25,
+      "actors": [
+        {
+          "id": "actor-louis",
+          "name": "Людовик",
+          "initialRelationship": "neutral",
+          "accessibleRegionIds": ["north", "west", "south", "east", "center"]
+        },
+        {
+          "id": "actor-alliance-merchants",
+          "name": "Купцы Альянса",
+          "initialRelationship": "hostile",
+          "accessibleRegionIds": ["north", "west", "south", "east", "center"]
+        }
+      ],
+      "unions": [],
+      "offers": [
+        {
+          "id": "offer-louis-provisions",
+          "name": "Провиант Людовика",
+          "description": "Людовик предлагает купить обоз провианта.",
+          "actorId": "actor-louis",
+          "direction": "import",
+          "resourceId": "food",
+          "resourceAmount": 250000,
+          "goldAmount": 1200,
+          "weight": 3,
+          "stock": 1,
+          "relationships": ["neutral", "allied"],
+          "minimumReputation": 3,
+          "prerequisites": [{ "kind": "technology", "technologyId": "tech-trade-routes" }],
+          "declineEffects": []
+        },
+        {
+          "id": "offer-alliance-produce",
+          "name": "Помидоры и огурцы Альянса",
+          "description": "Враждебные купцы предлагают продовольствие ради личной прибыли.",
+          "actorId": "actor-alliance-merchants",
+          "direction": "import",
+          "resourceId": "food",
+          "resourceAmount": 180000,
+          "goldAmount": 900,
+          "weight": 2,
+          "stock": 1,
+          "relationships": ["hostile", "neutral", "allied"],
+          "minimumReputation": 3,
+          "prerequisites": [{ "kind": "technology", "technologyId": "tech-trade-routes" }],
+          "declineEffects": []
+        },
+        {
+          "id": "offer-alliance-wood-export",
+          "name": "Приграничный вывоз древесины",
+          "description": "Купцы Альянса покупают древесину для своих мастерских.",
+          "actorId": "actor-alliance-merchants",
+          "direction": "export",
+          "resourceId": "wood",
+          "resourceAmount": 600,
+          "goldAmount": 1000,
+          "weight": 1,
+          "stock": 1,
+          "relationships": ["hostile", "neutral", "allied"],
+          "minimumReputation": 3,
+          "prerequisites": [{ "kind": "technology", "technologyId": "tech-trade-routes" }],
+          "declineEffects": []
+        }
+      ],
+      "transfer": {
+        "baseTimeCostDays": 4,
+        "compassTechnologyId": "tech-compass",
+        "speedFlagId": "transferSpeedPercent"
+      },
+      "customs": {
+        "buildingId": "building-customs",
+        "tariffFlagId": "customsPolicy",
+        "tariffPercentPerLevel": 10,
+        "merchantGuildsTechnologyId": "tech-merchant-guilds",
+        "merchantGuildsFlagId": "merchantGuilds",
+        "merchantGuildTariffBonusPercent": 5,
+        "smugglingEventId": "event-customs-smuggling"
+      },
+      "stable": {
+        "buildingId": "building-stable",
+        "farmBuildingId": "building-farm",
+        "livestockResourceId": "horses",
+        "livestockRegionIds": ["west"],
+        "mountedFlagId": "mountedRecruitment",
+        "mountedUnitIds": ["unit-knight"]
+      },
+      "seaPort": {
+        "buildingId": "building-sea-port",
+        "capacityFlagId": "maritimeTradeCapacity",
+        "maximumAcrossEmpire": 4,
+        "tradeGoldBonusPercentPerLevel": 10,
+        "knowledgePerTradePerLevel": 25
+      },
+      "reviewedAbsentBuildings": [
+        {
+          "id": "building-black-market",
+          "name": "Чёрный рынок",
+          "reason": "Нет авторских правил доступности, цены и интеграции покупки технологий у враждебных городов."
+        },
+        {
+          "id": "building-embassy",
+          "name": "Посольство",
+          "reason": "Шпионаж, подкуп, кража технологий и раскрытие маршрутов не имеют полного контракта."
+        },
+        {
+          "id": "building-external-market",
+          "name": "Внешний рынок",
+          "reason": "Обмен услугами с мятежными городами не определяет цели, цены и результаты контрактов."
+        }
+      ]
+    },
     "loyalty": {
       "enabled": true,
       "minimum": -9,
@@ -3831,6 +3953,11 @@
             }
           },
           {
+            "id": "slot-maritime",
+            "kind": "maritime",
+            "position": { "x": 84, "y": 50 }
+          },
+          {
             "id": "slot-municipal",
             "kind": "municipal",
             "position": {
@@ -4021,6 +4148,11 @@
               "x": 50,
               "y": 14
             }
+          },
+          {
+            "id": "slot-maritime",
+            "kind": "maritime",
+            "position": { "x": 84, "y": 50 }
           },
           {
             "id": "slot-municipal",
@@ -4407,6 +4539,11 @@
             }
           },
           {
+            "id": "slot-maritime",
+            "kind": "maritime",
+            "position": { "x": 84, "y": 50 }
+          },
+          {
             "id": "slot-municipal",
             "kind": "municipal",
             "position": {
@@ -4695,6 +4832,11 @@
             }
           },
           {
+            "id": "slot-maritime",
+            "kind": "maritime",
+            "position": { "x": 84, "y": 50 }
+          },
+          {
             "id": "slot-municipal",
             "kind": "municipal",
             "position": {
@@ -4900,16 +5042,16 @@
         ]
       },
       {"id":"city-north-governor-2-a","name":"Северный рубеж II-A","regionId":"north","position":{"x":2150,"y":700},"population":500000,"militaryPopulation":0,"populationClasses":{"peasants":200000,"burghers":30000,"nobles":10000,"clergy":10000,"nonworking":250000},"baseProduction":{"food":0,"wood":0,"iron":0,"stone":0,"gold":0,"knowledge":0},"buildingLevels":{"building-farm":0,"building-lumber":0,"building-mine":0,"building-smithy":0,"building-barracks":0},"slots":[{"id":"slot-farm","kind":"farm","position":{"x":72,"y":30}},{"id":"slot-lumber","kind":"lumber","position":{"x":72,"y":70}},{"id":"slot-mine","kind":"mine","position":{"x":28,"y":70}},{"id":"slot-smithy","kind":"smithy","position":{"x":38,"y":50}},{"id":"slot-barracks","kind":"barracks","position":{"x":28,"y":30}},{"id":"slot-unique","kind":"unique","position":{"x":50,"y":14}},{"id":"slot-municipal","kind":"municipal","position":{"x":50,"y":50}}]},
-      {"id":"city-north-governor-2-b","name":"Северный рубеж II-B","regionId":"north","position":{"x":2850,"y":700},"population":500000,"militaryPopulation":0,"populationClasses":{"peasants":200000,"burghers":30000,"nobles":10000,"clergy":10000,"nonworking":250000},"baseProduction":{"food":0,"wood":0,"iron":0,"stone":0,"gold":0,"knowledge":0},"buildingLevels":{"building-farm":0,"building-lumber":0,"building-mine":0,"building-smithy":0,"building-barracks":0},"slots":[{"id":"slot-farm","kind":"farm","position":{"x":72,"y":30}},{"id":"slot-lumber","kind":"lumber","position":{"x":72,"y":70}},{"id":"slot-mine","kind":"mine","position":{"x":28,"y":70}},{"id":"slot-smithy","kind":"smithy","position":{"x":38,"y":50}},{"id":"slot-barracks","kind":"barracks","position":{"x":28,"y":30}},{"id":"slot-unique","kind":"unique","position":{"x":50,"y":14}},{"id":"slot-municipal","kind":"municipal","position":{"x":50,"y":50}}]},
+      {"id":"city-north-governor-2-b","name":"Северный рубеж II-B","regionId":"north","position":{"x":2850,"y":700},"population":500000,"militaryPopulation":0,"populationClasses":{"peasants":200000,"burghers":30000,"nobles":10000,"clergy":10000,"nonworking":250000},"baseProduction":{"food":0,"wood":0,"iron":0,"stone":0,"gold":0,"knowledge":0},"buildingLevels":{"building-farm":0,"building-lumber":0,"building-mine":0,"building-smithy":0,"building-barracks":0},"slots":[{"id":"slot-farm","kind":"farm","position":{"x":72,"y":30}},{"id":"slot-lumber","kind":"lumber","position":{"x":72,"y":70}},{"id":"slot-mine","kind":"mine","position":{"x":28,"y":70}},{"id":"slot-smithy","kind":"smithy","position":{"x":38,"y":50}},{"id":"slot-barracks","kind":"barracks","position":{"x":28,"y":30}},{"id":"slot-unique","kind":"unique","position":{"x":50,"y":14}},{"id":"slot-maritime","kind":"maritime","position":{"x":84,"y":50}},{"id":"slot-municipal","kind":"municipal","position":{"x":50,"y":50}}]},
       {"id":"city-north-governor-3","name":"Северный рубеж III","regionId":"north","position":{"x":2500,"y":820},"population":500000,"militaryPopulation":0,"populationClasses":{"peasants":200000,"burghers":30000,"nobles":10000,"clergy":10000,"nonworking":250000},"baseProduction":{"food":0,"wood":0,"iron":0,"stone":0,"gold":0,"knowledge":0},"buildingLevels":{"building-farm":0,"building-lumber":0,"building-mine":0,"building-smithy":0,"building-barracks":0},"slots":[{"id":"slot-farm","kind":"farm","position":{"x":72,"y":30}},{"id":"slot-lumber","kind":"lumber","position":{"x":72,"y":70}},{"id":"slot-mine","kind":"mine","position":{"x":28,"y":70}},{"id":"slot-smithy","kind":"smithy","position":{"x":38,"y":50}},{"id":"slot-barracks","kind":"barracks","position":{"x":28,"y":30}},{"id":"slot-unique","kind":"unique","position":{"x":50,"y":14}},{"id":"slot-municipal","kind":"municipal","position":{"x":50,"y":50}}]},
       {"id":"city-west-governor-2-a","name":"Западный рубеж II-A","regionId":"west","position":{"x":1100,"y":1350},"population":500000,"militaryPopulation":0,"populationClasses":{"peasants":200000,"burghers":30000,"nobles":10000,"clergy":10000,"nonworking":250000},"baseProduction":{"food":0,"wood":0,"iron":0,"stone":0,"gold":0,"knowledge":0},"buildingLevels":{"building-farm":0,"building-lumber":0,"building-mine":0,"building-smithy":0,"building-barracks":0},"slots":[{"id":"slot-farm","kind":"farm","position":{"x":72,"y":30}},{"id":"slot-lumber","kind":"lumber","position":{"x":72,"y":70}},{"id":"slot-mine","kind":"mine","position":{"x":28,"y":70}},{"id":"slot-smithy","kind":"smithy","position":{"x":38,"y":50}},{"id":"slot-barracks","kind":"barracks","position":{"x":28,"y":30}},{"id":"slot-unique","kind":"unique","position":{"x":50,"y":14}},{"id":"slot-municipal","kind":"municipal","position":{"x":50,"y":50}}]},
-      {"id":"city-west-governor-2-b","name":"Западный рубеж II-B","regionId":"west","position":{"x":1100,"y":1850},"population":500000,"militaryPopulation":0,"populationClasses":{"peasants":200000,"burghers":30000,"nobles":10000,"clergy":10000,"nonworking":250000},"baseProduction":{"food":0,"wood":0,"iron":0,"stone":0,"gold":0,"knowledge":0},"buildingLevels":{"building-farm":0,"building-lumber":0,"building-mine":0,"building-smithy":0,"building-barracks":0},"slots":[{"id":"slot-farm","kind":"farm","position":{"x":72,"y":30}},{"id":"slot-lumber","kind":"lumber","position":{"x":72,"y":70}},{"id":"slot-mine","kind":"mine","position":{"x":28,"y":70}},{"id":"slot-smithy","kind":"smithy","position":{"x":38,"y":50}},{"id":"slot-barracks","kind":"barracks","position":{"x":28,"y":30}},{"id":"slot-unique","kind":"unique","position":{"x":50,"y":14}},{"id":"slot-municipal","kind":"municipal","position":{"x":50,"y":50}}]},
+      {"id":"city-west-governor-2-b","name":"Западный рубеж II-B","regionId":"west","position":{"x":1100,"y":1850},"population":500000,"militaryPopulation":0,"populationClasses":{"peasants":200000,"burghers":30000,"nobles":10000,"clergy":10000,"nonworking":250000},"baseProduction":{"food":0,"wood":0,"iron":0,"stone":0,"gold":0,"knowledge":0},"buildingLevels":{"building-farm":0,"building-lumber":0,"building-mine":0,"building-smithy":0,"building-barracks":0},"slots":[{"id":"slot-farm","kind":"farm","position":{"x":72,"y":30}},{"id":"slot-lumber","kind":"lumber","position":{"x":72,"y":70}},{"id":"slot-mine","kind":"mine","position":{"x":28,"y":70}},{"id":"slot-smithy","kind":"smithy","position":{"x":38,"y":50}},{"id":"slot-barracks","kind":"barracks","position":{"x":28,"y":30}},{"id":"slot-unique","kind":"unique","position":{"x":50,"y":14}},{"id":"slot-maritime","kind":"maritime","position":{"x":84,"y":50}},{"id":"slot-municipal","kind":"municipal","position":{"x":50,"y":50}}]},
       {"id":"city-west-governor-3","name":"Западный рубеж III","regionId":"west","position":{"x":1400,"y":1600},"population":500000,"militaryPopulation":0,"populationClasses":{"peasants":200000,"burghers":30000,"nobles":10000,"clergy":10000,"nonworking":250000},"baseProduction":{"food":0,"wood":0,"iron":0,"stone":0,"gold":0,"knowledge":0},"buildingLevels":{"building-farm":0,"building-lumber":0,"building-mine":0,"building-smithy":0,"building-barracks":0},"slots":[{"id":"slot-farm","kind":"farm","position":{"x":72,"y":30}},{"id":"slot-lumber","kind":"lumber","position":{"x":72,"y":70}},{"id":"slot-mine","kind":"mine","position":{"x":28,"y":70}},{"id":"slot-smithy","kind":"smithy","position":{"x":38,"y":50}},{"id":"slot-barracks","kind":"barracks","position":{"x":28,"y":30}},{"id":"slot-unique","kind":"unique","position":{"x":50,"y":14}},{"id":"slot-municipal","kind":"municipal","position":{"x":50,"y":50}}]},
       {"id":"city-south-governor-2-a","name":"Южный рубеж II-A","regionId":"south","position":{"x":2150,"y":2500},"population":500000,"militaryPopulation":0,"populationClasses":{"peasants":200000,"burghers":30000,"nobles":10000,"clergy":10000,"nonworking":250000},"baseProduction":{"food":0,"wood":0,"iron":0,"stone":0,"gold":0,"knowledge":0},"buildingLevels":{"building-farm":0,"building-lumber":0,"building-mine":0,"building-smithy":0,"building-barracks":0},"slots":[{"id":"slot-farm","kind":"farm","position":{"x":72,"y":30}},{"id":"slot-lumber","kind":"lumber","position":{"x":72,"y":70}},{"id":"slot-mine","kind":"mine","position":{"x":28,"y":70}},{"id":"slot-smithy","kind":"smithy","position":{"x":38,"y":50}},{"id":"slot-barracks","kind":"barracks","position":{"x":28,"y":30}},{"id":"slot-unique","kind":"unique","position":{"x":50,"y":14}},{"id":"slot-municipal","kind":"municipal","position":{"x":50,"y":50}}]},
       {"id":"city-south-governor-2-b","name":"Южный рубеж II-B","regionId":"south","position":{"x":2850,"y":2500},"population":500000,"militaryPopulation":0,"populationClasses":{"peasants":200000,"burghers":30000,"nobles":10000,"clergy":10000,"nonworking":250000},"baseProduction":{"food":0,"wood":0,"iron":0,"stone":0,"gold":0,"knowledge":0},"buildingLevels":{"building-farm":0,"building-lumber":0,"building-mine":0,"building-smithy":0,"building-barracks":0},"slots":[{"id":"slot-farm","kind":"farm","position":{"x":72,"y":30}},{"id":"slot-lumber","kind":"lumber","position":{"x":72,"y":70}},{"id":"slot-mine","kind":"mine","position":{"x":28,"y":70}},{"id":"slot-smithy","kind":"smithy","position":{"x":38,"y":50}},{"id":"slot-barracks","kind":"barracks","position":{"x":28,"y":30}},{"id":"slot-unique","kind":"unique","position":{"x":50,"y":14}},{"id":"slot-municipal","kind":"municipal","position":{"x":50,"y":50}}]},
       {"id":"city-south-governor-3","name":"Южный рубеж III","regionId":"south","position":{"x":2500,"y":2350},"population":500000,"militaryPopulation":0,"populationClasses":{"peasants":200000,"burghers":30000,"nobles":10000,"clergy":10000,"nonworking":250000},"baseProduction":{"food":0,"wood":0,"iron":0,"stone":0,"gold":0,"knowledge":0},"buildingLevels":{"building-farm":0,"building-lumber":0,"building-mine":0,"building-smithy":0,"building-barracks":0},"slots":[{"id":"slot-farm","kind":"farm","position":{"x":72,"y":30}},{"id":"slot-lumber","kind":"lumber","position":{"x":72,"y":70}},{"id":"slot-mine","kind":"mine","position":{"x":28,"y":70}},{"id":"slot-smithy","kind":"smithy","position":{"x":38,"y":50}},{"id":"slot-barracks","kind":"barracks","position":{"x":28,"y":30}},{"id":"slot-unique","kind":"unique","position":{"x":50,"y":14}},{"id":"slot-municipal","kind":"municipal","position":{"x":50,"y":50}}]},
       {"id":"city-east-governor-2-a","name":"Восточный рубеж II-A","regionId":"east","position":{"x":3900,"y":1350},"population":500000,"militaryPopulation":0,"populationClasses":{"peasants":200000,"burghers":30000,"nobles":10000,"clergy":10000,"nonworking":250000},"baseProduction":{"food":0,"wood":0,"iron":0,"stone":0,"gold":0,"knowledge":0},"buildingLevels":{"building-farm":0,"building-lumber":0,"building-mine":0,"building-smithy":0,"building-barracks":0},"slots":[{"id":"slot-farm","kind":"farm","position":{"x":72,"y":30}},{"id":"slot-lumber","kind":"lumber","position":{"x":72,"y":70}},{"id":"slot-mine","kind":"mine","position":{"x":28,"y":70}},{"id":"slot-smithy","kind":"smithy","position":{"x":38,"y":50}},{"id":"slot-barracks","kind":"barracks","position":{"x":28,"y":30}},{"id":"slot-unique","kind":"unique","position":{"x":50,"y":14}},{"id":"slot-municipal","kind":"municipal","position":{"x":50,"y":50}}]},
-      {"id":"city-east-governor-2-b","name":"Восточный рубеж II-B","regionId":"east","position":{"x":3900,"y":1850},"population":500000,"militaryPopulation":0,"populationClasses":{"peasants":200000,"burghers":30000,"nobles":10000,"clergy":10000,"nonworking":250000},"baseProduction":{"food":0,"wood":0,"iron":0,"stone":0,"gold":0,"knowledge":0},"buildingLevels":{"building-farm":0,"building-lumber":0,"building-mine":0,"building-smithy":0,"building-barracks":0},"slots":[{"id":"slot-farm","kind":"farm","position":{"x":72,"y":30}},{"id":"slot-lumber","kind":"lumber","position":{"x":72,"y":70}},{"id":"slot-mine","kind":"mine","position":{"x":28,"y":70}},{"id":"slot-smithy","kind":"smithy","position":{"x":38,"y":50}},{"id":"slot-barracks","kind":"barracks","position":{"x":28,"y":30}},{"id":"slot-unique","kind":"unique","position":{"x":50,"y":14}},{"id":"slot-municipal","kind":"municipal","position":{"x":50,"y":50}}]},
+      {"id":"city-east-governor-2-b","name":"Восточный рубеж II-B","regionId":"east","position":{"x":3900,"y":1850},"population":500000,"militaryPopulation":0,"populationClasses":{"peasants":200000,"burghers":30000,"nobles":10000,"clergy":10000,"nonworking":250000},"baseProduction":{"food":0,"wood":0,"iron":0,"stone":0,"gold":0,"knowledge":0},"buildingLevels":{"building-farm":0,"building-lumber":0,"building-mine":0,"building-smithy":0,"building-barracks":0},"slots":[{"id":"slot-farm","kind":"farm","position":{"x":72,"y":30}},{"id":"slot-lumber","kind":"lumber","position":{"x":72,"y":70}},{"id":"slot-mine","kind":"mine","position":{"x":28,"y":70}},{"id":"slot-smithy","kind":"smithy","position":{"x":38,"y":50}},{"id":"slot-barracks","kind":"barracks","position":{"x":28,"y":30}},{"id":"slot-unique","kind":"unique","position":{"x":50,"y":14}},{"id":"slot-maritime","kind":"maritime","position":{"x":84,"y":50}},{"id":"slot-municipal","kind":"municipal","position":{"x":50,"y":50}}]},
       {"id":"city-east-governor-3","name":"Восточный рубеж III","regionId":"east","position":{"x":3600,"y":1600},"population":500000,"militaryPopulation":0,"populationClasses":{"peasants":200000,"burghers":30000,"nobles":10000,"clergy":10000,"nonworking":250000},"baseProduction":{"food":0,"wood":0,"iron":0,"stone":0,"gold":0,"knowledge":0},"buildingLevels":{"building-farm":0,"building-lumber":0,"building-mine":0,"building-smithy":0,"building-barracks":0},"slots":[{"id":"slot-farm","kind":"farm","position":{"x":72,"y":30}},{"id":"slot-lumber","kind":"lumber","position":{"x":72,"y":70}},{"id":"slot-mine","kind":"mine","position":{"x":28,"y":70}},{"id":"slot-smithy","kind":"smithy","position":{"x":38,"y":50}},{"id":"slot-barracks","kind":"barracks","position":{"x":28,"y":30}},{"id":"slot-unique","kind":"unique","position":{"x":50,"y":14}},{"id":"slot-municipal","kind":"municipal","position":{"x":50,"y":50}}]}
     ],
     "buildings": [
@@ -5698,9 +5840,6 @@
             "facilityLocks": [],
             "effects": []
           }
-        ],
-        "deferredSubfeatures": [
-          { "id": "persecution-market-prices", "reason": "Рост обменных цен после гонений ждёт типизированного внутреннего/внешнего рынка P6B; наука, лояльность и репутация уже исполняются." }
         ]
       },
       {
@@ -5737,7 +5876,7 @@
         "deferredSubfeatures": [
           { "id": "fair-resource-exchange", "reason": "Обмен ресурсов и золота не имеет авторских курсов, округления и ограничений." },
           { "id": "fair-auction-branch", "reason": "Выбор праздников или аукционов и привлечение общин описаны как возможный вариант без полного контракта." },
-          { "id": "fair-external-market", "reason": "Внешний рынок и услуги взбунтовавшихся городов принадлежат P6B и требуют отношений/предложений." },
+          { "id": "fair-external-market", "reason": "P6B подтвердил отсутствие полного контракта Внешнего рынка: не заданы мятежные города-цели, цены, услуги и последствия сделки." },
           { "id": "fair-gypsy-baron", "reason": "Ветка циганского барона и единственный дворец не имеют действий, цен и точных региональных последствий." }
         ]
       },
@@ -5819,7 +5958,12 @@
             ]
           }
         ],
-        "deferredReason": "Конные войска, снаряжение и активные способности ещё не реализованы."
+        "deferredSubfeatures": [
+          {
+            "id": "stable-mounted-actives",
+            "reason": "Конюшня уже открывает и питает реального конного юнита; повторяемые конные атаки, спешивание и перезарядка ждут общего контракта активных способностей и боевого построения."
+          }
+        ]
       },
       {
         "id": "building-alchemy",
@@ -5938,7 +6082,9 @@
             ]
           }
         ],
-        "deferredReason": "Настройка пошлин и связанные таможенные события ещё не реализованы."
+        "deferredSubfeatures": [
+          { "id": "customs-smuggling-event", "reason": "P6C поставляет карточку контрабанды и её выборы; P6B уже записывает eligibility после реальной сделки." }
+        ]
       },
       {
         "id": "building-medical-academy",
@@ -6151,7 +6297,7 @@
       {
         "id": "building-sea-port",
         "name": "Морской порт",
-        "slot": "unique",
+        "slot": "maritime",
         "levels": [
           {
             "level": 1,
@@ -6181,13 +6327,16 @@
             "effects": [
               {
                 "kind": "flag",
-                "flagId": "shipbuilding",
+                "flagId": "maritimeTradeCapacity",
                 "amount": 1
               }
             ]
           }
         ],
-        "deferredReason": "Флот, кораблестроение и экспедиции ещё не реализованы."
+        "deferredSubfeatures": [
+          { "id": "sea-port-player-fleet", "reason": "В этой фазе нет состояния флота игрока; вражеские морские TD-волны не являются заменой." },
+          { "id": "sea-port-shipbuilding-expeditions", "reason": "Корабли и возврат экспедиций ждут реального флота, состава экспедиции и таблицы наград." }
+        ]
       },
       {
         "id": "building-jewish-bank",
@@ -6502,7 +6651,9 @@
         "foodUpkeep": 10000,
         "populationCost": 1,
         "timeCostDays": 1,
-        "resourceCosts": [],
+        "resourceCosts": [
+          { "resourceId": "horses", "amount": 5 }
+        ],
       "dependencies": [
         {
           "kind": "building",
@@ -6513,6 +6664,17 @@
         {
           "kind": "technology",
           "technologyId": "doctrine-war"
+        },
+        {
+          "kind": "building",
+          "buildingId": "building-stable",
+          "level": 1,
+          "scope": "sameCity"
+        },
+        {
+          "kind": "flag",
+          "flagId": "mountedRecruitment",
+          "minimum": 1
         }
       ],
       "equipmentCosts": [
@@ -6667,7 +6829,7 @@
         "effects": [],
         "deferredSubfeatures": [
           { "id": "fair-resource-exchange", "reason": "Курсы внутреннего обмена ресурсов и золота ещё не авторизованы." },
-          { "id": "fair-external-market", "reason": "Внешняя торговля остаётся P6B-owned." }
+          { "id": "fair-external-market", "reason": "P6B дал внешний offer-субстрат, но цели, цены, услуги и последствия Внешнего рынка всё ещё не авторизованы." }
         ]
       },
       {
@@ -6762,8 +6924,7 @@
             "flagId": "transferSpeedPercent",
             "amount": 25
           }
-        ],
-        "deferredReason": "Рынок, внешняя торговля и банковские услуги ещё не реализованы."
+        ]
       },
       {
         "id": "tech-divine-presence",
@@ -7228,8 +7389,7 @@
             "flagId": "merchantGuilds",
             "amount": 1
           }
-        ],
-        "deferredReason": "Рынок, внешняя торговля и банковские услуги ещё не реализованы."
+        ]
       },
       {
         "id": "tech-banking",
@@ -7261,10 +7421,7 @@
             "technologyId": "tech-merchant-guilds"
           }
         ],
-        "effects": [],
-        "deferredSubfeatures": [
-          { "id": "bank-market-prices", "reason": "Последствие гонений для рыночных курсов ждёт P6B trade calculator." }
-        ]
+        "effects": []
       },
       {
         "id": "reform-treasury",

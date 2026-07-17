@@ -14,6 +14,7 @@ import {
   LAST_CHANCES_STATUS_REFRESH_MODES,
   LAST_CHANCES_WEAPON_RESOURCE_KINDS,
   LAST_CHANCES_WEAPON_TRAITS,
+  LAST_CHANCES_ZONE_SHAPES,
 } from './types'
 import type {
   LastChancesConfig,
@@ -719,6 +720,40 @@ function validateEnemies(value: unknown, errors: string[], schemaVersion: number
         })
       }
     }
+    if (enemy.attackKind === 'zone' && enemy.zone === undefined) {
+      errors.push(`${path}.zone is required when attackKind is zone`)
+    }
+    if (enemy.zone !== undefined) {
+      const zonePath = `${path}.zone`
+      const zone = asRecord(enemy.zone, zonePath, errors)
+      if (zone) {
+        if (!Array.isArray(zone.shapes) || zone.shapes.length === 0
+          || !zone.shapes.every(shape => LAST_CHANCES_ZONE_SHAPES.includes(
+            shape as typeof LAST_CHANCES_ZONE_SHAPES[number],
+          ))) {
+          errors.push(`${zonePath}.shapes must be a non-empty array of ${LAST_CHANCES_ZONE_SHAPES.join(', ')}`)
+        }
+        requirePositiveNumber(zone, 'escapeMs', zonePath, errors)
+        requirePositiveNumber(zone, 'size', zonePath, errors)
+        requirePositiveNumber(zone, 'damageMaxHpRatio', zonePath, errors)
+        if (typeof zone.damageMaxHpRatio === 'number' && zone.damageMaxHpRatio > 1) {
+          errors.push(`${zonePath}.damageMaxHpRatio must be <= 1`)
+        }
+      }
+    }
+    if (enemy.swarm !== undefined) {
+      const swarmPath = `${path}.swarm`
+      const swarm = asRecord(enemy.swarm, swarmPath, errors)
+      if (swarm) {
+        requireInteger(swarm, 'total', swarmPath, errors, 1)
+        requireInteger(swarm, 'initialBurst', swarmPath, errors, 1)
+        requirePositiveNumber(swarm, 'spawnIntervalMs', swarmPath, errors)
+        if (typeof swarm.total === 'number' && typeof swarm.initialBurst === 'number'
+          && swarm.initialBurst > swarm.total) {
+          errors.push(`${swarmPath}.initialBurst must be <= total`)
+        }
+      }
+    }
     requireNumber(enemy, 'visionAngleDegrees', path, errors)
     requireNumber(enemy, 'attackDamage', path, errors)
     requireNumber(enemy, 'mentalPressurePerSecond', path, errors)
@@ -774,6 +809,16 @@ function validateTiers(
           errors.push(`${poolPath}.enemyId references unknown enemy ${pool.enemyId}`)
         }
       })
+    }
+    if (tier.guaranteedEnemyIds !== undefined) {
+      requireStringArray(tier, 'guaranteedEnemyIds', path, errors)
+      if (Array.isArray(tier.guaranteedEnemyIds)) {
+        tier.guaranteedEnemyIds.forEach((enemyId) => {
+          if (typeof enemyId === 'string' && !enemyIds.has(enemyId)) {
+            errors.push(`${path}.guaranteedEnemyIds references unknown enemy ${enemyId}`)
+          }
+        })
+      }
     }
     requireStringArray(tier, 'roomTemplateIds', path, errors)
     if (Array.isArray(tier.roomTemplateIds)) {

@@ -60,8 +60,8 @@
     "holdThenDoubleTapWindowMs": 480,
     "aimDeadZone": 0.12,
     "gamepadDeadZone": 0.18,
-    "gamepadLeftButton": 2,
-    "gamepadRightButton": 0,
+    "gamepadLeftButton": 4,
+    "gamepadRightButton": 5,
     "leftKeys": ["KeyJ", "Space"],
     "rightKeys": ["KeyK", "ShiftLeft", "ShiftRight"]
   },
@@ -113,7 +113,8 @@
           { "enemyId": "servant", "weight": 6 },
           { "enemyId": "running-stapler", "weight": 4 },
           { "enemyId": "guard", "weight": 3 },
-          { "enemyId": "spider-knife", "weight": 2 }
+          { "enemyId": "spider-knife", "weight": 2 },
+          { "enemyId": "swarm-creep", "weight": 2 }
         ],
         "roomTemplateIds": ["combat-hall", "office-memory", "merchant-crossing", "chest-gallery", "rest-conservatory"],
         "accent": "#9db5a3"
@@ -130,8 +131,10 @@
           { "enemyId": "servant", "weight": 4 },
           { "enemyId": "running-stapler", "weight": 3 },
           { "enemyId": "guard", "weight": 4 },
-          { "enemyId": "spider-knife", "weight": 3 }
+          { "enemyId": "spider-knife", "weight": 3 },
+          { "enemyId": "swarm-creep", "weight": 2 }
         ],
+        "guaranteedEnemyIds": ["colossus"],
         "roomTemplateIds": ["office-memory", "trap-passage", "rest-conservatory", "wrong-shadow-event"],
         "accent": "#a68eac"
       },
@@ -147,8 +150,10 @@
           { "enemyId": "guard", "weight": 4 },
           { "enemyId": "chimera", "weight": 2 },
           { "enemyId": "spider-knife", "weight": 4 },
-          { "enemyId": "invisible-wolf", "weight": 1 }
+          { "enemyId": "invisible-wolf", "weight": 1 },
+          { "enemyId": "swarm-creep", "weight": 2 }
         ],
+        "guaranteedEnemyIds": ["colossus"],
         "roomTemplateIds": ["trap-passage", "chest-gallery", "rest-conservatory", "wrong-shadow-event"],
         "accent": "#a67982"
       },
@@ -164,8 +169,10 @@
           { "enemyId": "guard", "weight": 3 },
           { "enemyId": "chimera", "weight": 4 },
           { "enemyId": "spider-knife", "weight": 4 },
-          { "enemyId": "invisible-wolf", "weight": 2 }
+          { "enemyId": "invisible-wolf", "weight": 2 },
+          { "enemyId": "swarm-creep", "weight": 2 }
         ],
+        "guaranteedEnemyIds": ["colossus"],
         "roomTemplateIds": ["combat-hall", "wrong-shadow-event"],
         "accent": "#a9606f"
       },
@@ -183,6 +190,7 @@
           { "enemyId": "spider-knife", "weight": 5 },
           { "enemyId": "invisible-wolf", "weight": 3 }
         ],
+        "guaranteedEnemyIds": ["colossus"],
         "roomTemplateIds": ["rest-conservatory", "wrong-shadow-event"],
         "accent": "#bb4c65"
       },
@@ -881,6 +889,61 @@
       ],
       "mentalPressurePerSecond": 5.5,
       "color": "#4e2947"
+    },
+    {
+      "id": "colossus",
+      "name": "Исполин",
+      "maxHp": 400,
+      "radius": 58,
+      "moveSpeed": 70,
+      "armor": 6,
+      "dodge": 0,
+      "idleTurnRadiansPerSecond": 0.22,
+      "visionRange": 520,
+      "visionAngleDegrees": 360,
+      "noticeMs": 250,
+      "alertPauseMs": 300,
+      "attackRange": 340,
+      "preferredAttackRangeRatio": 0.55,
+      "role": "elite",
+      "attackKind": "zone",
+      "zone": {
+        "shapes": ["circle", "square", "triangle"],
+        "escapeMs": 1000,
+        "damageMaxHpRatio": 0.5,
+        "size": 140
+      },
+      "attackDamage": 0,
+      "attackCooldownMs": 3200,
+      "attackWindupMs": 900,
+      "mentalPressurePerSecond": 3,
+      "color": "#8a4a3c"
+    },
+    {
+      "id": "swarm-creep",
+      "name": "Крип",
+      "maxHp": 1,
+      "radius": 6,
+      "moveSpeed": 160,
+      "idleTurnRadiansPerSecond": 0.5,
+      "visionRange": 4000,
+      "visionAngleDegrees": 360,
+      "noticeMs": 1,
+      "alertPauseMs": 1,
+      "attackRange": 14,
+      "preferredAttackRangeRatio": 0.9,
+      "role": "creep",
+      "attackKind": "melee",
+      "swarm": {
+        "total": 100,
+        "initialBurst": 10,
+        "spawnIntervalMs": 600
+      },
+      "attackDamage": 1,
+      "attackCooldownMs": 900,
+      "attackWindupMs": 200,
+      "mentalPressurePerSecond": 0.05,
+      "color": "#c9b458"
     }
   ],
   "loadout": {

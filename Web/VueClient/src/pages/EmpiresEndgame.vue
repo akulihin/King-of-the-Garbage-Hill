@@ -11,6 +11,7 @@ import {
   Download,
   FlaskConical,
   Gift,
+  Handshake,
   Landmark,
   Map as MapIcon,
   Play,
@@ -28,6 +29,7 @@ import BuilderDrawer from '../components/empires-endgame/BuilderDrawer.vue'
 import CityView from '../components/empires-endgame/CityView.vue'
 import DurakTable from '../components/empires-endgame/DurakTable.vue'
 import DomesticEconomyPanel from '../components/empires-endgame/DomesticEconomyPanel.vue'
+import ExternalDiplomacyPanel from '../components/empires-endgame/ExternalDiplomacyPanel.vue'
 import EmpireCard from '../components/empires-endgame/EmpireCard.vue'
 import EmpireMap from '../components/empires-endgame/EmpireMap.vue'
 import EventDialog from '../components/empires-endgame/EventDialog.vue'
@@ -82,7 +84,7 @@ import type {
   TdCommand,
 } from '../features/empires-endgame/types'
 
-type EmpireTab = 'map' | 'city' | 'economy' | 'loyalty' | 'technology' | 'governance' | 'council'
+type EmpireTab = 'map' | 'city' | 'economy' | 'diplomacy' | 'loyalty' | 'technology' | 'governance' | 'council'
 
 const config = ref<EmpiresEndgameConfig | null>(null)
 const editorConfig = ref<EmpiresEndgameConfig | null>(null)
@@ -426,7 +428,7 @@ function isQaScenarioName(value: string | null): value is EmpiresQaScenarioName 
 
 function isEmpireTab(value: string | null): value is EmpireTab {
   return value === 'map' || value === 'city' || value === 'economy' || value === 'loyalty'
-    || value === 'technology' || value === 'governance' || value === 'council'
+    || value === 'diplomacy' || value === 'technology' || value === 'governance' || value === 'council'
 }
 
 function loadQaScenario(name = qaScenarioName.value) {
@@ -436,6 +438,7 @@ function loadQaScenario(name = qaScenarioName.value) {
   if (name === 'empire-council-with-points') activeEmpireTab.value = 'council'
   if (name === 'governance') activeEmpireTab.value = 'governance'
   if (name === 'domestic-economy') activeEmpireTab.value = 'economy'
+  if (name === 'external-trade') activeEmpireTab.value = 'diplomacy'
   initializeEngine(config.value, qaScenarios.value[name].snapshot)
   const url = new URL(window.location.href)
   url.searchParams.set('qa', '1')
@@ -486,6 +489,9 @@ async function boot() {
       }
       if (!isEmpireTab(requestedTab) && qaScenarioName.value === 'domestic-economy') {
         activeEmpireTab.value = 'economy'
+      }
+      if (!isEmpireTab(requestedTab) && qaScenarioName.value === 'external-trade') {
+        activeEmpireTab.value = 'diplomacy'
       }
     }
     else {
@@ -1012,7 +1018,7 @@ function cityProduction(cityId: string) {
   }
 }
 
-type CityViewSlot = 'farm' | 'lumber' | 'mine' | 'forge' | 'barracks' | 'unique' | 'municipal'
+type CityViewSlot = 'farm' | 'lumber' | 'mine' | 'forge' | 'barracks' | 'unique' | 'maritime' | 'municipal'
 
 function cityViewSlot(slot: EmpiresBuildingDefinition['slot']): CityViewSlot {
   return slot === 'smithy' ? 'forge' : slot
@@ -1462,6 +1468,12 @@ const domesticEconomyCities = computed(() => {
   }))
 })
 
+const externalDiplomacyView = computed(() => (
+  activeCityId.value && engine.value
+    ? engine.value.externalDiplomacyView(activeCityId.value)
+    : null
+))
+
 function upgradeBuilding(cityId: string, buildingId: string) {
   selectedBuildingId.value = buildingId
   if (engine.value) action(engine.value.upgradeBuilding(cityId, buildingId))
@@ -1514,6 +1526,18 @@ function assignTempleRelic(cityId: string, slotIndex: number, giftId: string) {
 
 function clearTempleRelic(cityId: string, slotIndex: number) {
   if (engine.value) action(engine.value.clearTempleRelic(cityId, slotIndex))
+}
+
+function acceptExternalOffer(offerId: string, cityId: string) {
+  if (engine.value) action(engine.value.acceptExternalOffer(offerId, cityId))
+}
+
+function declineExternalOffer(offerId: string) {
+  if (engine.value) action(engine.value.declineExternalOffer(offerId))
+}
+
+function transferExternalResource(fromCityId: string, toCityId: string, resourceId: string, amount: number) {
+  if (engine.value) action(engine.value.transferCityResource(fromCityId, toCityId, resourceId, amount))
 }
 
 function setRecruitQuantity(cityId: string, unitId: string, count: number) {
@@ -1841,6 +1865,7 @@ onUnmounted(() => {
             <button data-testid="tab-map" :class="{ active: activeEmpireTab === 'map' }" type="button" @click="activeEmpireTab = 'map'"><MapIcon :size="15" /> Карта</button>
             <button data-testid="tab-city" :class="{ active: activeEmpireTab === 'city' }" type="button" @click="activeEmpireTab = 'city'"><Building2 :size="15" /> Города</button>
             <button data-testid="tab-economy" :class="{ active: activeEmpireTab === 'economy' }" type="button" @click="activeEmpireTab = 'economy'"><Coins :size="15" /> Экономика</button>
+            <button data-testid="tab-diplomacy" :class="{ active: activeEmpireTab === 'diplomacy' }" type="button" @click="activeEmpireTab = 'diplomacy'"><Handshake :size="15" /> Дипломатия</button>
             <button data-testid="tab-loyalty" :class="{ active: activeEmpireTab === 'loyalty' }" type="button" @click="activeEmpireTab = 'loyalty'"><Scale :size="15" /> Лояльность</button>
             <button data-testid="tab-technology" :class="{ active: activeEmpireTab === 'technology' }" type="button" @click="activeEmpireTab = 'technology'"><FlaskConical :size="15" /> Развитие</button>
             <button data-testid="tab-governance" :class="{ active: activeEmpireTab === 'governance' }" type="button" @click="activeEmpireTab = 'governance'"><Crown :size="15" /> Управление</button>
@@ -1922,6 +1947,19 @@ onUnmounted(() => {
           @preach="preachAtTemple"
           @assign-relic="assignTempleRelic"
           @clear-relic="clearTempleRelic"
+        />
+
+        <ExternalDiplomacyPanel
+          v-else-if="activeEmpireTab === 'diplomacy' && externalDiplomacyView"
+          :cities="domesticEconomyCities"
+          :resources="workingConfig.empire.resources"
+          :active-city-id="activeCityId"
+          :con="state.con"
+          :view="externalDiplomacyView"
+          @select-city="activeCityId = $event"
+          @accept="acceptExternalOffer"
+          @decline="declineExternalOffer"
+          @transfer="transferExternalResource"
         />
 
         <LoyaltyPanel

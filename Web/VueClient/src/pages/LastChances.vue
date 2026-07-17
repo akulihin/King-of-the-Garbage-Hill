@@ -23,6 +23,7 @@ import {
   Smartphone,
   Sparkles,
   Swords,
+  Target,
   TriangleAlert,
   Trophy,
 } from 'lucide-vue-next'
@@ -115,7 +116,7 @@ const copy = {
     gamepadConnected: 'Connected',
     gamepadDisconnected: 'Press a controller button to connect',
     gamepadUnsupported: 'This browser does not expose the Gamepad API',
-    gamepadMenu: 'Map: stick / Square cycles · Cross selects',
+    gamepadMenu: 'Map: stick / L1 cycles · R1 selects',
     touch: 'Touch',
     touchMove: 'Left stick moves · aim pad aims',
     touchAttack: 'Use either hand button for gestures',
@@ -153,6 +154,14 @@ const copy = {
     saved: 'Browser override saved; the current attempt is unchanged.',
     cleared: 'Browser override cleared; the current attempt is unchanged.',
     applied: 'Builder definition applied to a fresh generation.',
+    questsTitle: 'Move quests',
+    questHandLeft: 'Left hand',
+    questHandRight: 'Right hand',
+    questTapTask: 'Two tap kills in one room',
+    questHoldTask: 'Two hold kills in one room',
+    questComboTask: 'Hit an elite with every unlocked move',
+    questNextRoom: 'Next room:',
+    questSwarm: 'Creeps incoming',
   },
   ru: {
     eyebrow: 'Первый игровой прототип · детерминированная память',
@@ -216,7 +225,7 @@ const copy = {
     gamepadConnected: 'Подключён',
     gamepadDisconnected: 'Нажмите кнопку геймпада для подключения',
     gamepadUnsupported: 'Браузер не предоставляет Gamepad API',
-    gamepadMenu: 'Карта: стик / Square — выбор · Cross — вход',
+    gamepadMenu: 'Карта: стик / L1 — выбор · R1 — вход',
     touch: 'Сенсорный экран',
     touchMove: 'Левый стик — движение · площадка — прицел',
     touchAttack: 'Используйте кнопки обеих рук для жестов',
@@ -254,6 +263,14 @@ const copy = {
     saved: 'Замена сохранена в браузере; текущая попытка не изменена.',
     cleared: 'Замена в браузере очищена; текущая попытка не изменена.',
     applied: 'Конфигурация применена в новой генерации.',
+    questsTitle: 'Квесты мувов',
+    questHandLeft: 'Левая рука',
+    questHandRight: 'Правая рука',
+    questTapTask: 'Два убийства тапом в одной комнате',
+    questHoldTask: 'Два убийства холдом в одной комнате',
+    questComboTask: 'Попади по элиту всеми открытыми мувами',
+    questNextRoom: 'Со следующей комнаты:',
+    questSwarm: 'Крипы бегут',
   },
 } as const
 
@@ -332,6 +349,7 @@ const weaponCooldowns = computed<WeaponCooldown[]>(() => {
     const state = snapshot.value?.weaponStates?.find(candidate => (
       candidate.hand === weapon.hand && candidate.weaponId === weapon.id
     ))
+    const quest = snapshot.value?.moveQuests?.find(candidate => candidate.hand === weapon.hand)
     const chargeMaxMs = cue?.chargeMaxMs ?? 0
     return {
       hand: weapon.hand === 'left' ? 'primary' as const : 'secondary' as const,
@@ -346,7 +364,8 @@ const weaponCooldowns = computed<WeaponCooldown[]>(() => {
           item.hand === weapon.hand && item.gesture === gesture
         ))
         const lastGesture = snapshot.value?.lastGesture
-        const enabled = attack.enabled !== false && attack.behavior !== 'disabled'
+        const locked = quest ? quest.unlocked[gesture] === false : false
+        const enabled = attack.enabled !== false && attack.behavior !== 'disabled' && !locked
         const recoveryMs = Math.max(cue?.recoveryMs ?? 0, state?.recoveryMs ?? 0)
         const ready = enabled && (cooldown?.ready ?? (
           (cooldown?.remainingMs ?? 0) <= 0
@@ -362,6 +381,7 @@ const weaponCooldowns = computed<WeaponCooldown[]>(() => {
           totalMs: cooldown?.totalMs ?? attack.cooldownMs,
           enabled,
           ready,
+          locked,
           color: attack.color,
           active: enabled && (
             (cue?.gesture === gesture
@@ -376,6 +396,44 @@ const weaponCooldowns = computed<WeaponCooldown[]>(() => {
     }
   })
 })
+
+const moveQuestPanels = computed(() => {
+  const quests = snapshot.value?.moveQuests ?? []
+  return quests.map((quest) => {
+    const items = [
+      {
+        key: 'tap',
+        label: `${t.value.questTapTask} → ${t.value.doubleTap}`,
+        done: quest.tapQuestDone,
+        progress: `${Math.min(quest.roomKills.tap, quest.killsRequired)}/${quest.killsRequired}`,
+      },
+      {
+        key: 'hold',
+        label: `${t.value.questHoldTask} → ${t.value.holdThenDoubleTap}`,
+        done: quest.holdQuestDone,
+        progress: `${Math.min(quest.roomKills.hold, quest.killsRequired)}/${quest.killsRequired}`,
+      },
+      ...(quest.tapQuestDone && quest.holdQuestDone
+        ? [{
+            key: 'combo',
+            label: `${t.value.questComboTask} → ${t.value.doubleTapHold}`,
+            done: quest.comboQuestDone,
+            progress: `${quest.comboGesturesHit.length}/${quest.comboGesturesRequired.length}`,
+          }]
+        : []),
+    ]
+    return {
+      hand: quest.hand,
+      title: quest.hand === 'left' ? t.value.questHandLeft : t.value.questHandRight,
+      items,
+      pending: quest.pendingUnlocks.map(gesture => t.value[gesture]).join(', '),
+      allDone: quest.comboQuestDone,
+    }
+  })
+})
+const moveQuestsComplete = computed(() => (
+  moveQuestPanels.value.length > 0 && moveQuestPanels.value.every(panel => panel.allDone)
+))
 
 const gamepadStatusText = computed(() => {
   const gamepad = snapshot.value?.gamepad
@@ -907,7 +965,7 @@ onBeforeUnmount(() => {
           <dl>
             <div><dt>{{ t.tier }}</dt><dd>{{ (snapshot?.currentTierIndex ?? 0) + 1 }} / {{ config?.progression.tiers.length ?? 7 }}</dd></div>
             <div><dt>{{ t.room }}</dt><dd>{{ currentNode?.roomName ?? t.noRoom }}</dd></div>
-            <div><dt>{{ t.enemies }}</dt><dd>{{ livingEnemies.length }}</dd></div>
+            <div><dt>{{ t.enemies }}</dt><dd>{{ livingEnemies.length }}<template v-if="snapshot?.swarm?.remaining"> +{{ snapshot.swarm.remaining }}</template></dd></div>
             <div><dt>{{ t.deaths }}</dt><dd>{{ snapshot?.totalDeaths ?? 0 }}</dd></div>
             <div><dt>{{ t.generation }}</dt><dd>#{{ snapshot?.generation ?? 1 }}</dd></div>
             <div class="is-seed"><dt>{{ t.seed }}</dt><dd>{{ plan?.seed ?? config?.seed ?? '—' }}</dd></div>
@@ -927,6 +985,20 @@ onBeforeUnmount(() => {
             </div>
           </div>
           <p v-else>{{ t.noErosion }}</p>
+        </section>
+
+        <section v-if="moveQuestPanels.length && !moveQuestsComplete" class="lc-quest-card">
+          <header><Target :size="14" aria-hidden="true" /><span>{{ t.questsTitle }}</span></header>
+          <div v-for="panel in moveQuestPanels" :key="panel.hand" class="lc-quest-hand">
+            <strong>{{ panel.title }}</strong>
+            <ul>
+              <li v-for="item in panel.items" :key="item.key" :class="{ 'is-done': item.done }">
+                <span>{{ item.label }}</span>
+                <b>{{ item.done ? '✓' : item.progress }}</b>
+              </li>
+            </ul>
+            <small v-if="panel.pending">{{ t.questNextRoom }} {{ panel.pending }}</small>
+          </div>
         </section>
 
         <WeaponCooldowns :locale="locale" :weapons="weaponCooldowns" />
@@ -958,7 +1030,7 @@ onBeforeUnmount(() => {
           <div>
             <strong>{{ t.gamepad }}</strong>
             <span :title="gamepadStatusText">{{ gamepadStatusText }}</span>
-            <small>{{ t.gamepadMove }} · {{ t.gamepadAttack }} {{ formatGamepadButton(config?.input.gamepadLeftButton, 2) }} / {{ formatGamepadButton(config?.input.gamepadRightButton, 0) }}</small>
+            <small>{{ t.gamepadMove }} · {{ t.gamepadAttack }} {{ formatGamepadButton(config?.input.gamepadLeftButton, 4) }} / {{ formatGamepadButton(config?.input.gamepadRightButton, 5) }}</small>
             <small>{{ t.gamepadInteract }}</small>
             <small>{{ t.gamepadMenu }}</small>
           </div>
@@ -1173,7 +1245,8 @@ onBeforeUnmount(() => {
 .lc-telemetry { min-width: 0; align-self: start; display: grid; gap: 0.7rem; }
 .lc-chance-card,
 .lc-run-card,
-.lc-erosion-card { border: 1px solid var(--lc-line); border-radius: 0.7rem; background: linear-gradient(145deg, rgba(255, 255, 255, 0.02), rgba(8, 10, 11, 0.55)); box-shadow: 0 0.7rem 1.5rem rgba(0, 0, 0, 0.17); }
+.lc-erosion-card,
+.lc-quest-card { border: 1px solid var(--lc-line); border-radius: 0.7rem; background: linear-gradient(145deg, rgba(255, 255, 255, 0.02), rgba(8, 10, 11, 0.55)); box-shadow: 0 0.7rem 1.5rem rgba(0, 0, 0, 0.17); }
 .lc-chance-card { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 0.8rem; padding: 0.75rem; }
 .lc-chance-orb { --chance-progress: 360deg; position: relative; width: 5.1rem; height: 5.1rem; display: grid; place-items: center; align-content: center; border-radius: 50%; background: conic-gradient(#c29f50 var(--chance-progress), rgba(255, 255, 255, 0.055) 0); box-shadow: 0 0 1.8rem rgba(192, 146, 52, 0.08); }
 .lc-chance-orb::before { content: ''; position: absolute; inset: 3px; border-radius: inherit; background: radial-gradient(circle at 50% 35%, #1b1a17, #0a0c0d 70%); }
@@ -1196,6 +1269,17 @@ onBeforeUnmount(() => {
 .lc-run-card dt { color: #666b68; font-size: 0.5rem; font-weight: 800; text-transform: uppercase; }
 .lc-run-card dd { max-width: 11rem; margin: 0; overflow: hidden; color: #bfc0ba; font-size: 0.58rem; font-weight: 650; text-align: right; text-overflow: ellipsis; white-space: nowrap; }
 .lc-run-card .is-seed dd { color: #80765e; font: 600 0.5rem/1 var(--font-mono, monospace); }
+
+.lc-quest-card { display: grid; gap: 0.45rem; padding: 0.65rem; }
+.lc-quest-card > header { display: inline-flex; align-items: center; gap: 0.35rem; color: #8fb3c9; font-size: 0.61rem; font-weight: 800; letter-spacing: 0.07em; text-transform: uppercase; }
+.lc-quest-hand { display: grid; gap: 0.25rem; }
+.lc-quest-hand > strong { color: #a9aba4; font-size: 0.52rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; }
+.lc-quest-hand ul { display: grid; gap: 0.18rem; margin: 0; padding: 0; list-style: none; }
+.lc-quest-hand li { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: baseline; gap: 0.4rem; color: #828783; font-size: 0.55rem; }
+.lc-quest-hand li b { color: #c7a55d; font: 700 0.53rem/1 var(--font-mono, monospace); }
+.lc-quest-hand li.is-done { color: #5d675f; text-decoration: line-through; }
+.lc-quest-hand li.is-done b { color: #7fae86; text-decoration: none; }
+.lc-quest-hand > small { color: #7b9e6f; font-size: 0.5rem; }
 
 .lc-erosion-card { padding: 0.65rem; }
 .lc-erosion-card header { display: grid; gap: 0.08rem; }

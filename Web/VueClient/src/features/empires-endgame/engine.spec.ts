@@ -42,7 +42,7 @@ function makeCards(): EmpiresCardDefinition[] {
 
 function makeConfig(): EmpiresEndgameConfig {
   return {
-    schemaVersion: 9,
+    schemaVersion: 10,
     id: 'engine-test',
     title: "Empire's Endgame",
     seed: 'deterministic-test',
@@ -297,6 +297,10 @@ function makeConfig(): EmpiresEndgameConfig {
         academyTreatmentDeathChance: 0.5,
       },
       domesticEconomy: structuredClone(defaultConfigJson.empire.domesticEconomy) as EmpiresEndgameConfig['empire']['domesticEconomy'],
+      externalEconomy: {
+        ...structuredClone(defaultConfigJson.empire.externalEconomy),
+        enabled: false,
+      } as EmpiresEndgameConfig['empire']['externalEconomy'],
       loyalty: {
         ...createDefaultEmpiresLoyaltyConfig(['central']),
         enabled: false,

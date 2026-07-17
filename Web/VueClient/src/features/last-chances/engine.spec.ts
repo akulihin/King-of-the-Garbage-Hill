@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import defaultConfigJson from '../../../public/99lc/game-config.json'
 import { cloneLastChancesConfig } from './config'
 import { LastChancesEngine } from './engine'
+import { buildLastChancesPlan } from './plan'
 import { attackWithLastChancesAugment } from './weapon-runtime'
 import {
   applyLastChancesStatusEffects,
@@ -85,6 +86,9 @@ interface RuntimeEnemy {
   leapSpeed: number
   leapHit: boolean
   criticalHitMs: number
+  lastPlayerHit: { hand: LastChancesHand, gesture: LastChancesGesture } | null
+  gestureHits: Record<LastChancesHand, Set<LastChancesGesture>>
+  entering: boolean
 }
 
 interface RuntimeAttackContext {
@@ -133,6 +137,7 @@ type EngineTestAccess = {
     options?: {
       weaponId?: string
       hand?: LastChancesHand
+      gesture?: LastChancesGesture
       storedDot?: LastChancesStoredDot | null
       distance?: number
     },
@@ -148,6 +153,14 @@ type EngineTestAccess = {
   }
   heldChannels: Map<LastChancesHand, EngineTestAccess['activeAreas'][number]>
   killPlayer: (reason: string) => void
+  moveQuests: Record<LastChancesHand, {
+    unlocked: Record<LastChancesGesture, boolean>
+    pendingUnlocks: LastChancesGesture[]
+    roomKills: { tap: number, hold: number }
+    tapQuestDone: boolean
+    holdQuestDone: boolean
+    comboQuestDone: boolean
+  }>
   performAttack: (resolution: LastChancesGestureResolution) => void
   performDash: (
     attack: LastChancesAttackDefinition,
@@ -157,13 +170,32 @@ type EngineTestAccess = {
   player: {
     position: LastChancesVector
     aim: LastChancesVector
+    hp: number
     invulnerableMs: number
     recoveryMs: number
     rootMs: number
     parryMs: number
     armorMultiplier: number
     armorMultiplierMs: number
+    stats: { maxHp: number, armor: number }
   }
+  roomElapsedMs: number
+  spawnZoneAttack: (enemy: RuntimeEnemy) => void
+  swarmSpawner: {
+    remaining: number
+    total: number
+    spawnedCount: number
+    nextSpawnAtMs: number
+    edges: [string, string]
+  } | null
+  updateSwarmSpawner: () => void
+  updateZoneAttacks: () => void
+  zoneAttacks: Array<{
+    shape: string
+    center: LastChancesVector
+    size: number
+    detonateAtMs: number
+  }>
   projectiles: Array<{
     attack?: LastChancesAttackDefinition
     remainingHits: number
@@ -218,12 +250,22 @@ function combatConfig(
   return config
 }
 
-function startCombat(config: LastChancesConfig): {
+function unlockAllMoves(access: EngineTestAccess): void {
+  for (const hand of ['left', 'right'] as const) {
+    for (const gesture of Object.keys(access.moveQuests[hand].unlocked) as LastChancesGesture[]) {
+      access.moveQuests[hand].unlocked[gesture] = true
+    }
+  }
+}
+
+function startCombat(config: LastChancesConfig, options: { unlockMoves?: boolean } = {}): {
   engine: LastChancesEngine
   access: EngineTestAccess
 } {
   const engine = new LastChancesEngine(makeCanvas(), config)
   const access = engine as unknown as EngineTestAccess
+  // Weapon-mechanics tests opt out of the move-unlock quest chain by default.
+  if (options.unlockMoves !== false) unlockAllMoves(access)
   const opening = access.createSnapshot().availableNodeIds[0]
   expect(opening).toBeTruthy()
   expect(engine.chooseNode(opening)).toBe(true)
@@ -1342,6 +1384,223 @@ describe('99LC seven-weapon mechanics', () => {
       expect(access.traces).toEqual([])
     } finally {
       engine.destroy()
+    }
+  })
+})
+
+describe('99LC move-unlock quests and elite/swarm rooms', () => {
+  it('locks compound gestures until two tap kills in one room unlock the double tap', () => {
+    const config = combatConfig('twohand-spear', null, 'servant', 3)
+    const { engine, access } = startCombat(config, { unlockMoves: false })
+
+    try {
+      const before = access.createSnapshot()
+      const leftQuest = before.moveQuests.find(quest => quest.hand === 'left')
+      expect(leftQuest?.unlocked).toMatchObject({
+        tap: true,
+        hold: true,
+        doubleTap: false,
+        doubleTapHold: false,
+        holdThenDoubleTap: false,
+      })
+      expect(before.cooldowns.find(item => item.hand === 'left' && item.gesture === 'tap')?.ready).toBe(true)
+      expect(before.cooldowns.find(item => item.hand === 'left' && item.gesture === 'doubleTap')?.ready).toBe(false)
+
+      const weapon = access.weapons.get('left')!
+      const [first, second, third] = access.enemies
+      for (const enemy of [first, second]) {
+        enemy.hp = 1
+        access.damageEnemy(enemy, weapon.attacks.tap, 0, { x: 1, y: 0 }, {
+          weaponId: weapon.id,
+          hand: 'left',
+          gesture: 'tap',
+        })
+        expect(enemy.state).toBe('dead')
+      }
+      expect(access.moveQuests.left.tapQuestDone).toBe(true)
+      expect(access.moveQuests.left.pendingUnlocks).toContain('doubleTap')
+      expect(access.moveQuests.left.unlocked.doubleTap).toBe(false)
+      expect(access.moveQuests.right.tapQuestDone).toBe(false)
+
+      third.hp = 1
+      access.damageEnemy(third, weapon.attacks.tap, 0, { x: 1, y: 0 }, {
+        weaponId: weapon.id,
+        hand: 'left',
+        gesture: 'tap',
+      })
+      access.update(0.016, 16)
+      const planning = access.createSnapshot()
+      expect(planning.phase).toBe('planning')
+
+      expect(engine.chooseNode(planning.availableNodeIds[0])).toBe(true)
+      expect(access.moveQuests.left.unlocked.doubleTap).toBe(true)
+      expect(access.moveQuests.left.pendingUnlocks).toHaveLength(0)
+      expect(access.moveQuests.left.roomKills.tap).toBe(0)
+      const after = access.createSnapshot()
+      expect(after.cooldowns.find(item => item.hand === 'left' && item.gesture === 'doubleTap')?.ready).toBe(true)
+      expect(after.cooldowns.find(item => item.hand === 'left' && item.gesture === 'doubleTapHold')?.ready).toBe(false)
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('keeps earned unlocks across a death but resets them on a new generation', () => {
+    const config = combatConfig('twohand-spear', null, 'servant', 2)
+    const { engine, access } = startCombat(config, { unlockMoves: false })
+
+    try {
+      access.moveQuests.left.roomKills.tap = 1
+      access.moveQuests.left.tapQuestDone = true
+      access.moveQuests.left.unlocked.doubleTap = true
+      access.killPlayer('test death')
+      expect(access.createSnapshot().phase).toBe('dead')
+      expect(engine.retryAttempt()).toBe(true)
+      expect(access.moveQuests.left.tapQuestDone).toBe(true)
+      expect(access.moveQuests.left.unlocked.doubleTap).toBe(true)
+      expect(access.moveQuests.left.roomKills.tap).toBe(0)
+
+      engine.newGeneration()
+      expect(access.moveQuests.left.tapQuestDone).toBe(false)
+      expect(access.moveQuests.left.unlocked.doubleTap).toBe(false)
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('completes the elite combo quest for the hand that landed every unlocked move', () => {
+    const config = combatConfig('twohand-spear', null, 'chimera', 1)
+    const { engine, access } = startCombat(config, { unlockMoves: false })
+
+    try {
+      const quest = access.moveQuests.left
+      quest.tapQuestDone = true
+      quest.holdQuestDone = true
+      quest.unlocked.doubleTap = true
+      quest.unlocked.holdThenDoubleTap = true
+
+      const weapon = access.weapons.get('left')!
+      const elite = access.enemies[0]
+      elite.hp = 5000
+      elite.definition.maxHp = 5000
+      const required = access.createSnapshot().moveQuests
+        .find(candidate => candidate.hand === 'left')!.comboGesturesRequired
+      expect(required).toEqual(['tap', 'hold', 'doubleTap', 'holdThenDoubleTap'])
+
+      for (const gesture of required) {
+        access.damageEnemy(elite, weapon.attacks.tap, 0, { x: 1, y: 0 }, {
+          weaponId: weapon.id,
+          hand: 'left',
+          gesture,
+        })
+      }
+      expect(access.moveQuests.left.comboQuestDone).toBe(false)
+
+      // The killing blow may come from the other hand; the checklist decides.
+      elite.hp = 1
+      access.damageEnemy(elite, weapon.attacks.tap, 0, { x: 1, y: 0 }, {
+        weaponId: weapon.id,
+        hand: 'right',
+        gesture: 'tap',
+      })
+      expect(elite.state).toBe('dead')
+      expect(access.moveQuests.left.comboQuestDone).toBe(true)
+      expect(access.moveQuests.left.unlocked.doubleTapHold).toBe(true)
+      expect(access.moveQuests.right.comboQuestDone).toBe(false)
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('detonates the colossus zone as pure max-hp damage only inside the shape', () => {
+    const config = combatConfig('twohand-spear', null, 'colossus', 1)
+    // The colossus radius needs obstacle-free spawn clearance in this room.
+    config.rooms.find(candidate => candidate.id === 'combat-hall')!.obstacles = []
+    const { engine, access } = startCombat(config, { unlockMoves: false })
+
+    try {
+      const colossus = access.enemies[0]
+      expect(colossus.definition.zone).toBeTruthy()
+
+      colossus.state = 'attacking'
+      colossus.attackWindupMs = 10
+      const hpBefore = access.player.hp
+      access.updateEnemies(0.016, 16)
+      expect(access.zoneAttacks).toHaveLength(1)
+      expect(access.player.hp).toBe(hpBefore)
+      expect(colossus.state).toBe('chasing')
+
+      const escaped = access.zoneAttacks[0]
+      access.player.position = { x: escaped.center.x + escaped.size + 200, y: escaped.center.y }
+      access.elapsedMs = escaped.detonateAtMs + 1
+      access.updateZoneAttacks()
+      expect(access.zoneAttacks).toHaveLength(0)
+      expect(access.player.hp).toBe(hpBefore)
+
+      access.player.stats.armor = 999
+      access.player.invulnerableMs = 0
+      colossus.state = 'attacking'
+      colossus.attackWindupMs = 5
+      access.updateEnemies(0.016, 16)
+      const zone = access.zoneAttacks[0]
+      access.player.position = { ...zone.center }
+      access.elapsedMs = zone.detonateAtMs + 1
+      access.updateZoneAttacks()
+      expect(access.player.hp).toBe(hpBefore - access.player.stats.maxHp * 0.5)
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('feeds the creep swarm from two distinct edges and holds the room open until it drains', () => {
+    const config = combatConfig('twohand-spear', null, 'swarm-creep', 1)
+    const { engine, access } = startCombat(config, { unlockMoves: false })
+
+    try {
+      expect(access.swarmSpawner).toBeTruthy()
+      expect(access.swarmSpawner!.edges[0]).not.toBe(access.swarmSpawner!.edges[1])
+      expect(access.enemies).toHaveLength(0)
+      expect(access.createSnapshot().phase).toBe('playing')
+      expect(access.createSnapshot().swarm).toMatchObject({ definitionId: 'swarm-creep', total: 100 })
+
+      access.updateSwarmSpawner()
+      expect(access.enemies).toHaveLength(10)
+      expect(access.swarmSpawner!.remaining).toBe(90)
+      for (const creep of access.enemies) {
+        expect(creep.entering).toBe(true)
+        expect(creep.state).toBe('chasing')
+      }
+
+      access.roomElapsedMs = 600
+      access.updateSwarmSpawner()
+      expect(access.enemies).toHaveLength(11)
+
+      for (const creep of access.enemies) creep.state = 'dead'
+      access.update(0.001, 1)
+      expect(access.createSnapshot().phase).toBe('playing')
+
+      access.swarmSpawner!.remaining = 0
+      access.update(0.001, 1)
+      expect(access.createSnapshot().phase).toBe('planning')
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('plans one guaranteed colossus per tier 3-6 node and extracts swarm slots from rolls', () => {
+    const plan = buildLastChancesPlan(cloneLastChancesConfig(defaultConfig))
+    for (const node of plan.nodes) {
+      const colossusCount = node.enemies.filter(enemy => enemy.definitionId === 'colossus').length
+      if (node.tierKind === 'normal' && node.tierIndex >= 2 && node.tierIndex <= 5) {
+        expect(colossusCount).toBe(1)
+      } else {
+        expect(colossusCount).toBe(0)
+      }
+      // Swarm rolls never place a walking enemy; they become the node's swarm event.
+      expect(node.enemies.some(enemy => enemy.definitionId === 'swarm-creep')).toBe(false)
+      if (node.swarm) {
+        expect(node.swarm.definitionId).toBe('swarm-creep')
+        expect(node.swarm.edges[0]).not.toBe(node.swarm.edges[1])
+      }
     }
   })
 })

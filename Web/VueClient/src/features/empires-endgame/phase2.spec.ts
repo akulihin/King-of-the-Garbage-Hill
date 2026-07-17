@@ -188,7 +188,7 @@ describe('Empire\'s Endgame Phase 2 campaign bridge', () => {
     }, value.id)
     const restored = new EmpiresEndgameEngine(value, migrated)
     expect(restored.state).toMatchObject({
-      schemaVersion: 7,
+      schemaVersion: 8,
       minigame: null,
       minigameResultLog: [],
       army: {
@@ -200,7 +200,12 @@ describe('Empire\'s Endgame Phase 2 campaign bridge', () => {
         foundryInstantReadyConByCity: {},
         recoveries: [],
       },
-      external: { allianceThreat: 0, nextWaveCon: 2, pendingOffers: [] },
+      external: {
+        allianceThreat: 0,
+        nextWaveCon: 2,
+        activeOffers: [],
+        offerHistory: [],
+      },
       empire: {
         steelResearch: {
           branchCostMultipliers: {},
@@ -345,9 +350,13 @@ describe('Empire\'s Endgame Phase 2 army carriers', () => {
     const engine = new EmpiresEndgameEngine(value)
     const state = empireState(engine, 2)
     state.external.nextWaveCon = 2
-    const city = state.empire.cities[0]
+    const city = state.empire.cities.find(candidate => candidate.id === 'city-west-horse-march')!
     for (const candidate of state.empire.cities) candidate.buildingLevels['building-barracks'] = 0
     city.buildingLevels['building-barracks'] = 5
+    city.buildingLevels['building-farm'] = 2
+    city.buildingLevels['building-stable'] = 1
+    city.buildingSlotAssignments['slot-unique'] = 'building-stable'
+    city.baseProduction.food = 1_000_000_000
     for (const classId of Object.keys(city.populationClasses)) city.populationClasses[classId] = 1_000_000
     city.militaryPopulation = 100
     state.army.equipmentStock['basic-kit'] = 100
@@ -360,7 +369,8 @@ describe('Empire\'s Endgame Phase 2 army carriers', () => {
     })
     expect(engine.research('doctrine-war')).toMatchObject({ ok: true })
     for (const unitId of ['unit-light', 'unit-regular', 'unit-heavy', 'unit-knight']) {
-      expect(engine.recruitUnits(city.id, unitId)).toMatchObject({ ok: true })
+      const result = engine.recruitUnits(city.id, unitId)
+      if (!result.ok) throw new Error(`${unitId}: ${result.message}`)
     }
     expect(engine.state.army.equipmentStock['basic-kit']).toBe(90)
     expect(engine.state.army.equipmentStock['weapon-laurel-spear']).toBe(0)

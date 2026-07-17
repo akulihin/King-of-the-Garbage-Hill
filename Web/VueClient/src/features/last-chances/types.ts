@@ -83,7 +83,9 @@ export const LAST_CHANCES_WEAPON_TRAITS = [
 export const LAST_CHANCES_WEAPON_RESOURCE_KINDS = ['chain', 'durability', 'rhythm'] as const
 export const LAST_CHANCES_AUGMENTS = ['none', 'bleed', 'poison', 'fire', 'chemical'] as const
 export const LAST_CHANCES_ENEMY_ROLES = ['creep', 'standard', 'elite', 'boss'] as const
-export const LAST_CHANCES_ENEMY_ATTACK_KINDS = ['melee', 'leap', 'projectile', 'heavy'] as const
+export const LAST_CHANCES_ENEMY_ATTACK_KINDS = ['melee', 'leap', 'projectile', 'heavy', 'zone'] as const
+export const LAST_CHANCES_ZONE_SHAPES = ['circle', 'square', 'triangle'] as const
+export const LAST_CHANCES_ARENA_EDGES = ['top', 'bottom', 'left', 'right'] as const
 export const LAST_CHANCES_HAZARD_KINDS = ['spikes', 'mentalFog'] as const
 export const LAST_CHANCES_EQUIP_MODES = [
   'twoHanded',
@@ -106,6 +108,8 @@ export type LastChancesWeaponResourceKind = typeof LAST_CHANCES_WEAPON_RESOURCE_
 export type LastChancesAugment = typeof LAST_CHANCES_AUGMENTS[number]
 export type LastChancesEnemyRole = typeof LAST_CHANCES_ENEMY_ROLES[number]
 export type LastChancesEnemyAttackKind = typeof LAST_CHANCES_ENEMY_ATTACK_KINDS[number]
+export type LastChancesZoneShape = typeof LAST_CHANCES_ZONE_SHAPES[number]
+export type LastChancesArenaEdge = typeof LAST_CHANCES_ARENA_EDGES[number]
 export type LastChancesHazardKind = typeof LAST_CHANCES_HAZARD_KINDS[number]
 export type LastChancesEquipMode = typeof LAST_CHANCES_EQUIP_MODES[number]
 export type LastChancesPhase = 'planning' | 'playing' | 'interaction' | 'dead' | 'won' | 'outOfChances'
@@ -332,6 +336,25 @@ export interface LastChancesEnemyBossPhaseDefinition {
   parryWindowMs?: number
 }
 
+export interface LastChancesEnemyZoneDefinition {
+  /** Shape of the telegraphed ground zone is picked randomly per cast. */
+  shapes: LastChancesZoneShape[]
+  /** Time the player has to leave the zone before it detonates. */
+  escapeMs: number
+  /** Pure damage (ignores armor) as a fraction of the player's max HP. */
+  damageMaxHpRatio: number
+  /** Circle radius / half-extent of square and triangle. */
+  size: number
+}
+
+export interface LastChancesEnemySwarmDefinition {
+  /** Total creeps the room event feeds in; they accumulate if not killed. */
+  total: number
+  /** Creeps released immediately when the room starts. */
+  initialBurst: number
+  spawnIntervalMs: number
+}
+
 export interface LastChancesEnemyDefinition {
   id: string
   name: string
@@ -360,6 +383,10 @@ export interface LastChancesEnemyDefinition {
   parryWindowMs?: number
   invisibleUntilAlerted?: boolean
   bossPhases?: LastChancesEnemyBossPhaseDefinition[]
+  /** Required when attackKind is 'zone': the telegraphed ground zone is the enemy's only damage source. */
+  zone?: LastChancesEnemyZoneDefinition
+  /** Marks a swarm-event enemy: a rolled plan slot becomes a trickle of `total` creeps from two map edges. */
+  swarm?: LastChancesEnemySwarmDefinition
   attackDamage: number
   attackCooldownMs: number
   attackWindupMs: number
@@ -383,6 +410,8 @@ export interface LastChancesTierDefinition {
   deathCost: number
   erosion: LastChancesStatErosion
   enemyPool: LastChancesEnemyPoolEntry[]
+  /** Always spawned in every node of the tier, before the random enemyCount roll. */
+  guaranteedEnemyIds?: string[]
   roomTemplateIds: string[]
   accent: string
 }
@@ -552,7 +581,15 @@ export interface LastChancesPlanNode {
   }
   interaction: LastChancesRoomInteractionDefinition | null
   enemies: LastChancesPlanEnemy[]
+  /** Present when the enemy roll produced a swarm event; the swarm replaces its rolled slots. */
+  swarm: LastChancesPlanSwarm | null
   nextNodeIds: string[]
+}
+
+export interface LastChancesPlanSwarm {
+  definitionId: string
+  /** Two distinct arena edges the creeps run in from. */
+  edges: [LastChancesArenaEdge, LastChancesArenaEdge]
 }
 
 export interface LastChancesGamePlan {
@@ -696,6 +733,29 @@ export interface LastChancesWeaponStateSnapshot {
   recoveryMs: number
 }
 
+export interface LastChancesMoveQuestSnapshot {
+  hand: LastChancesHand
+  unlocked: Record<LastChancesGesture, boolean>
+  /** Unlocks earned this room; they activate on the next room entry. */
+  pendingUnlocks: LastChancesGesture[]
+  roomKills: { tap: number; hold: number }
+  killsRequired: number
+  tapQuestDone: boolean
+  holdQuestDone: boolean
+  comboQuestAvailable: boolean
+  comboQuestDone: boolean
+  /** Best progress among living elites: gestures this hand already landed on that elite. */
+  comboGesturesHit: LastChancesGesture[]
+  comboGesturesRequired: LastChancesGesture[]
+}
+
+export interface LastChancesSwarmSnapshot {
+  definitionId: string
+  /** Creeps still queued outside the map. */
+  remaining: number
+  total: number
+}
+
 export interface LastChancesGamepadSnapshot {
   supported: boolean
   connected: boolean
@@ -730,6 +790,8 @@ export interface LastChancesSnapshot {
   gestureInputs: LastChancesGestureInputSnapshot[]
   actionCues: LastChancesHandActionCue[]
   weaponStates: LastChancesWeaponStateSnapshot[]
+  moveQuests: LastChancesMoveQuestSnapshot[]
+  swarm: LastChancesSwarmSnapshot | null
   interactionPrompt: string | null
   gamepad: LastChancesGamepadSnapshot
   selectedNodeId: string | null

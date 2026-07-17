@@ -2,6 +2,7 @@
 
 import bundledConfigJson from '../../public/empires-endgame/game-config.json'
 import { createEmpiresQaScenarios } from '../../src/features/empires-endgame/qa'
+import { EmpiresEndgameEngine } from '../../src/features/empires-endgame/engine'
 import type { EmpiresEndgameConfig } from '../../src/features/empires-endgame/types'
 
 type QaScenario =
@@ -13,6 +14,7 @@ type QaScenario =
   | 'empire-council-with-points'
   | 'governance'
   | 'domestic-economy'
+  | 'external-trade'
   | 'destroyed-west'
   | 'loyalty-rebellion'
   | 'relic-production-levels'
@@ -24,7 +26,7 @@ type QaScenario =
 
 const QA_SEED = 'cypress-empires-endgame'
 const CONFIG_STORAGE_KEY = 'empires-endgame:config:v1'
-const SAVE_STORAGE_KEY = 'empires-endgame:campaign:v7'
+const SAVE_STORAGE_KEY = 'empires-endgame:campaign:v8'
 const bundledConfig = bundledConfigJson as unknown as EmpiresEndgameConfig
 const TECHNOLOGY_COUNT = bundledConfig.empire.technologies.length
 
@@ -89,6 +91,62 @@ describe('Empire\'s Endgame deterministic browser scenarios', () => {
     cy.get('[data-testid="economy-city"]').select('city-south-cactus-wall')
     cy.contains('Пассивный армейский hook').should('be.visible')
     cy.contains('tavernMinigame').should('be.visible')
+  })
+
+  it('accepts and declines serialized external offers with exact effects', () => {
+    visitScenario('external-trade')
+    cy.get('[data-testid="external-diplomacy-panel"]').should('be.visible')
+    cy.get('[data-testid="external-city"]').select('city-north-frost-harbor')
+    cy.get('[data-testid^="external-offer-"]').its('length').should('be.gte', 2)
+    cy.get('[data-testid^="external-accept-"]').first().should('be.enabled').click()
+    cy.contains('accepted').should('be.visible')
+    cy.get('[data-testid^="external-decline-"]').first().click()
+    cy.contains('declined').should('be.visible')
+  })
+
+  it('covers reputation denial and both Sea Port placement rejections', () => {
+    const fixtures = createEmpiresQaScenarios(bundledConfig, { seed: QA_SEED })
+    const deniedState = structuredClone(fixtures['external-trade'].snapshot)
+    deniedState.empire.reputation = -9
+    const denied = new EmpiresEndgameEngine(bundledConfig, deniedState)
+    const deniedView = denied.externalDiplomacyView('city-north-frost-harbor')
+    expect(deniedView.offers.every(offer => offer.quote.blockedReason?.includes('Reputation'))).to.equal(true)
+
+    const nonCoastalState = structuredClone(fixtures['external-trade'].snapshot)
+    const nonCoastal = new EmpiresEndgameEngine(bundledConfig, nonCoastalState)
+    const nonCoastalResult = nonCoastal.placeBuilding(
+      'city-north-iron-gate',
+      'slot-unique',
+      bundledConfig.empire.externalEconomy.seaPort.buildingId,
+    )
+    expect(nonCoastalResult.ok).to.equal(false)
+    expect(nonCoastalResult.message).to.include('coastal')
+
+    const capState = structuredClone(fixtures['external-trade'].snapshot)
+    const portId = bundledConfig.empire.externalEconomy.seaPort.buildingId
+    for (const cityId of [
+      'city-north-frost-harbor',
+      'city-west-horse-march',
+      'city-east-alchemy-gate',
+      'city-center-east',
+    ]) {
+      const city = capState.empire.cities.find(candidate => candidate.id === cityId)!
+      const slot = bundledConfig.empire.cities.find(candidate => candidate.id === cityId)!
+        .slots.find(candidate => candidate.kind === 'maritime')!
+      city.buildingLevels[portId] = 1
+      city.operationalBuildingLevels[portId] = 1
+      city.buildingSlotAssignments[slot.id] = portId
+    }
+    const perst = bundledConfig.governance.persts[0]
+    capState.governance.governorAssignments.north = {
+      regionId: 'north',
+      perstId: perst.id,
+      assignedAtCon: capState.con,
+    }
+    const capped = new EmpiresEndgameEngine(bundledConfig, capState)
+    const capResult = capped.placeBuilding('city-north-governor-2-b', 'slot-maritime', portId)
+    expect(capResult.ok).to.equal(false)
+    expect(capResult.message).to.include('maximum 4')
   })
 
   it('resolves one advisor judgment and permanently opens a Perst region', () => {
@@ -188,13 +246,13 @@ describe('Empire\'s Endgame deterministic browser scenarios', () => {
   it('labels remaining deferred technology while exposing live Fair and Smithy carriers', () => {
     visitScenario('empire-council-with-points')
     cy.get('[data-testid="tab-technology"]').click()
-    cy.get('[data-testid="technology-node-tech-compass"]')
+    cy.get('[data-testid="technology-node-tech-printing"]')
       .scrollIntoView()
       .should('have.class', 'deferred')
       .click({ force: true })
     cy.get('.tech-detail .deferred-reason')
       .should('be.visible')
-      .and('contain.text', 'Рынок')
+      .and('contain.text', 'сброшенных карт')
     cy.get('.tech-detail .research-button')
       .should('be.disabled')
       .and('contain.text', 'Будущая механика')

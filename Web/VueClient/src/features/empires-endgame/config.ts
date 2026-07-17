@@ -9,10 +9,12 @@ import type { EmpiresTdConfig } from './td/types'
 import type {
   EmpiresBuildingSlotKind,
   EmpiresCampaignState,
+  EmpiresDependency,
   EmpiresDomesticEconomyConfig,
   EmpiresEffect,
   EmpiresEpidemicConfig,
   EmpiresEndgameConfig,
+  EmpiresExternalConfig,
   EmpiresLoyaltyConfig,
   EmpiresMedicalConfig,
   EmpiresSeasonsConfig,
@@ -21,7 +23,7 @@ import { validateEmpiresEndgameConfig } from './engine'
 
 export const EMPIRES_CONFIG_URL = '/empires-endgame/game-config.json'
 export const EMPIRES_CONFIG_STORAGE_KEY = 'empires-endgame:config:v1'
-export const EMPIRES_CONFIG_SCHEMA_VERSION = 9
+export const EMPIRES_CONFIG_SCHEMA_VERSION = 10
 export const EMPIRES_ACTIVE_MINIGAME_CONFIG_ERROR = 'Нельзя менять правила во время боя. Сначала завершите бой или выйдите через действие отмены.'
 
 export function empiresConfigReplacementDisabledReason(
@@ -247,6 +249,47 @@ const DOMESTIC_ECONOMY_SCAFFOLD = {
     moraleMaximumPerLevel: 1,
   },
 } satisfies EmpiresDomesticEconomyConfig
+
+const EXTERNAL_ECONOMY_SCAFFOLD = {
+  enabled: false,
+  historyRetention: 24,
+  offerCadenceCons: 2,
+  offerLifetimeCons: 2,
+  maxActiveOffers: 2,
+  goldResourceId: '',
+  knowledgeResourceId: '',
+  tradeRoutesTechnologyId: '',
+  persecutionPricePenaltyPercent: 25,
+  actors: [],
+  unions: [],
+  offers: [],
+  transfer: { baseTimeCostDays: 4, compassTechnologyId: '', speedFlagId: 'transferSpeedPercent' },
+  customs: {
+    buildingId: '',
+    tariffFlagId: 'customsPolicy',
+    tariffPercentPerLevel: 10,
+    merchantGuildsTechnologyId: '',
+    merchantGuildsFlagId: 'merchantGuilds',
+    merchantGuildTariffBonusPercent: 5,
+    smugglingEventId: 'event-customs-smuggling',
+  },
+  stable: {
+    buildingId: '',
+    farmBuildingId: '',
+    livestockResourceId: '',
+    livestockRegionIds: [],
+    mountedFlagId: 'mountedRecruitment',
+    mountedUnitIds: [],
+  },
+  seaPort: {
+    buildingId: '',
+    capacityFlagId: 'maritimeTradeCapacity',
+    maximumAcrossEmpire: 4,
+    tradeGoldBonusPercentPerLevel: 10,
+    knowledgePerTradePerLevel: 25,
+  },
+  reviewedAbsentBuildings: [],
+} satisfies EmpiresExternalConfig
 
 const LOYALTY_V4_SCAFFOLD = {
   enabled: false,
@@ -664,6 +707,28 @@ function normalizeEmpiresConfigV9(config: Record<string, unknown>): Record<strin
   return config
 }
 
+function migrateEmpiresConfigV9ToV10(config: Record<string, unknown>): Record<string, unknown> {
+  if (isRecord(config.empire)) {
+    config.empire.externalEconomy = withScaffoldDefaults(
+      config.empire.externalEconomy,
+      EXTERNAL_ECONOMY_SCAFFOLD,
+    )
+  }
+  config.schemaVersion = 10
+  return config
+}
+
+function normalizeEmpiresConfigV10(config: Record<string, unknown>): Record<string, unknown> {
+  normalizeEmpiresConfigV9(config)
+  if (isRecord(config.empire)) {
+    config.empire.externalEconomy = withScaffoldDefaults(
+      config.empire.externalEconomy,
+      EXTERNAL_ECONOMY_SCAFFOLD,
+    )
+  }
+  return config
+}
+
 const EMPIRES_CONFIG_MIGRATIONS: Record<
   number,
   (config: Record<string, unknown>) => Record<string, unknown>
@@ -676,6 +741,7 @@ const EMPIRES_CONFIG_MIGRATIONS: Record<
   6: migrateEmpiresConfigV6ToV7,
   7: migrateEmpiresConfigV7ToV8,
   8: migrateEmpiresConfigV8ToV9,
+  9: migrateEmpiresConfigV9ToV10,
 }
 
 /**
@@ -703,6 +769,7 @@ export function migrateEmpiresConfig(raw: unknown): unknown {
   if (version === 7) migrated = normalizeEmpiresConfigV7(migrated)
   if (version === 8) migrated = normalizeEmpiresConfigV8(migrated)
   if (version === 9) migrated = normalizeEmpiresConfigV9(migrated)
+  if (version === 10) migrated = normalizeEmpiresConfigV10(migrated)
   return migrated
 }
 
@@ -713,6 +780,7 @@ const EMPIRES_BUILDING_SLOT_KINDS = new Set<EmpiresBuildingSlotKind>([
   'smithy',
   'barracks',
   'unique',
+  'maritime',
   'municipal',
 ])
 
@@ -903,6 +971,11 @@ const EMPIRES_LIVE_FLAG_ALLOWLIST = new Set([
   'smithyWithoutIron',
   'smithSpecializationLocked',
   'smithCapacity',
+  'customsPolicy',
+  'mountedRecruitment',
+  'maritimeTradeCapacity',
+  'merchantGuilds',
+  'transferSpeedPercent',
   'stableWithoutLivestock',
   'starvationLossMultiplierPercent',
   'surplusFoodPerGold',
@@ -935,6 +1008,12 @@ function validateLiveEffects(config: EmpiresEndgameConfig): string[] {
   }
   for (const event of config.empire.events) {
     if (!event.deferredReason) collectDependencies(event.prerequisites ?? [])
+  }
+  for (const offer of config.empire.externalEconomy.offers) {
+    collectDependencies(offer.prerequisites)
+  }
+  for (const union of config.empire.externalEconomy.unions) {
+    collectDependencies(union.prerequisites)
   }
 
   const check = (
@@ -986,6 +1065,9 @@ function validateLiveEffects(config: EmpiresEndgameConfig): string[] {
         event.deferredReason || choice.deferredReason,
       )
     }
+  }
+  for (const offer of config.empire.externalEconomy.offers) {
+    check(`external offer ${offer.id} decline effects`, offer.declineEffects)
   }
   return errors
 }
@@ -1292,6 +1374,9 @@ function validateEpidemicAndMedicalConfig(config: EmpiresEndgameConfig): void {
       )) throw new Error(`event ${event.id} choice ${choice.id} has invalid epidemic containment.`)
     }
   }
+  for (const offer of config.empire.externalEconomy.offers) {
+    effectGroups.push([`external offer ${offer.id} decline`, offer.declineEffects])
+  }
   for (const [label, effects] of effectGroups) {
     for (const effect of effects) if (effect.kind === 'epidemicStart') validateStart(effect, label)
   }
@@ -1451,6 +1536,215 @@ function validateDomesticEconomyConfig(config: EmpiresEndgameConfig): void {
     || !Number.isFinite(economy.tavern.moraleMaximumPerLevel)
     || economy.tavern.moraleMaximumPerLevel < 0) {
     throw new Error('empire.domesticEconomy.tavern passive values must be non-negative.')
+  }
+}
+
+function validateExternalEconomyConfig(config: EmpiresEndgameConfig): void {
+  const external = config.empire.externalEconomy
+  if (!isRecord(external) || typeof external.enabled !== 'boolean') {
+    throw new Error('empire.externalEconomy must be an object with an enabled flag.')
+  }
+  if (!Number.isInteger(external.historyRetention) || external.historyRetention < 1
+    || !Number.isInteger(external.offerCadenceCons) || external.offerCadenceCons < 1
+    || !Number.isInteger(external.offerLifetimeCons) || external.offerLifetimeCons < 1
+    || !Number.isInteger(external.maxActiveOffers) || external.maxActiveOffers < 1
+    || !Number.isFinite(external.persecutionPricePenaltyPercent)
+    || external.persecutionPricePenaltyPercent < 0) {
+    throw new Error('empire.externalEconomy cadence and retention values must be positive integers.')
+  }
+  if (!external.enabled) return
+
+  const resourceIds = new Set(config.empire.resources.map(resource => resource.id))
+  const regionIds = new Set(config.empire.map.regions.map(region => region.id))
+  const cityIds = new Set(config.empire.cities.map(city => city.id))
+  const buildingById = new Map(config.empire.buildings.map(building => [building.id, building]))
+  const technologyById = new Map(config.empire.technologies.map(technology => [technology.id, technology]))
+  const advisorIds = new Set(config.governance.advisors.map(advisor => advisor.id))
+  const eventIds = new Set(config.empire.events.map(event => event.id))
+  const unitIds = new Set((config.empire.units ?? []).map(unit => unit.id))
+  if (external.actors.length === 0 || external.offers.length === 0) {
+    throw new Error('enabled empire.externalEconomy requires actors and offers.')
+  }
+  const liveTechnology = (id: string, label: string) => {
+    const technology = technologyById.get(id)
+    if (!technology || technology.deferredReason) {
+      throw new Error(`empire.externalEconomy ${label} must reference a live technology.`)
+    }
+    return technology
+  }
+  if (!resourceIds.has(external.goldResourceId) || !resourceIds.has(external.knowledgeResourceId)) {
+    throw new Error('empire.externalEconomy must reference known gold, knowledge, and trade-route carriers.')
+  }
+  liveTechnology(external.tradeRoutesTechnologyId, 'tradeRoutesTechnologyId')
+  const compass = liveTechnology(external.transfer.compassTechnologyId, 'transfer.compassTechnologyId')
+  const merchantGuilds = liveTechnology(
+    external.customs.merchantGuildsTechnologyId,
+    'customs.merchantGuildsTechnologyId',
+  )
+  const validateDependencies = (dependencies: readonly EmpiresDependency[], label: string) => {
+    for (const dependency of dependencies) {
+      if (dependency.kind === 'technology' && !technologyById.has(dependency.technologyId)) {
+        throw new Error(`${label} references unknown technology ${dependency.technologyId}.`)
+      }
+      if (dependency.kind === 'building' && (
+        !buildingById.has(dependency.buildingId)
+        || !Number.isInteger(dependency.level) || dependency.level < 1
+        || (dependency.scope !== undefined && !['sameCity', 'anyCity'].includes(dependency.scope))
+      )) throw new Error(`${label} has an invalid building prerequisite.`)
+      if (dependency.kind === 'flag' && (
+        !dependency.flagId?.trim() || !EMPIRES_LIVE_FLAG_ALLOWLIST.has(dependency.flagId)
+        || !Number.isFinite(dependency.minimum)
+      )) throw new Error(`${label} has an invalid flag prerequisite.`)
+      if (dependency.kind === 'reputation' && !Number.isFinite(dependency.minimum)) {
+        throw new Error(`${label} has an invalid reputation prerequisite.`)
+      }
+      if (dependency.kind === 'advisor' && !advisorIds.has(dependency.advisorId)) {
+        throw new Error(`${label} references unknown advisor ${dependency.advisorId}.`)
+      }
+    }
+  }
+  const validateDeclineEffects = (effects: readonly EmpiresEffect[], label: string) => {
+    const knownKinds = new Set([
+      'resource', 'resourceMultiplier', 'time', 'foodProduction', 'population', 'loyalty',
+      'loyaltyAllCities', 'classLoyalty', 'reputation', 'flag', 'epidemicStart',
+    ])
+    for (const effect of effects) {
+      if (!knownKinds.has(effect.kind)) throw new Error(`${label} has an unknown effect kind.`)
+      if ((effect.kind === 'resource' || effect.kind === 'resourceMultiplier')
+        && !resourceIds.has(effect.resourceId)) {
+        throw new Error(`${label} references unknown resource ${effect.resourceId}.`)
+      }
+      if ((effect.kind === 'foodProduction' || effect.kind === 'population')
+        && effect.cityId !== undefined && !cityIds.has(effect.cityId)) {
+        throw new Error(`${label} references unknown city ${effect.cityId}.`)
+      }
+    }
+  }
+  const actorIds = new Set<string>()
+  for (const actor of external.actors) {
+    if (!actor.id?.trim() || actorIds.has(actor.id) || !actor.name?.trim()
+      || !['hostile', 'neutral', 'allied'].includes(actor.initialRelationship)
+      || actor.accessibleRegionIds.length === 0
+      || new Set(actor.accessibleRegionIds).size !== actor.accessibleRegionIds.length
+      || actor.accessibleRegionIds.some(regionId => !regionIds.has(regionId))) {
+      throw new Error(`empire.externalEconomy actor ${actor.id || '<missing>'} is invalid.`)
+    }
+    actorIds.add(actor.id)
+  }
+  const offerIds = new Set<string>()
+  for (const offer of external.offers) {
+    if (!offer.id?.trim() || offerIds.has(offer.id) || !offer.name?.trim()
+      || !actorIds.has(offer.actorId) || !resourceIds.has(offer.resourceId)
+      || !['import', 'export'].includes(offer.direction)
+      || !Number.isFinite(offer.resourceAmount) || offer.resourceAmount <= 0
+      || !Number.isFinite(offer.goldAmount) || offer.goldAmount <= 0
+      || !Number.isFinite(offer.weight) || offer.weight <= 0
+      || !Number.isInteger(offer.stock) || offer.stock < 1
+      || offer.relationships.length === 0
+      || new Set(offer.relationships).size !== offer.relationships.length
+      || offer.relationships.some(value => !['hostile', 'neutral', 'allied'].includes(value))
+      || !Number.isFinite(offer.minimumReputation)
+      || offer.minimumReputation < config.empire.loyalty.minimum
+      || offer.minimumReputation > config.empire.loyalty.maximum
+      || (offer.minimumCon !== undefined && (!Number.isInteger(offer.minimumCon) || offer.minimumCon < 1))
+      || (offer.maximumCon !== undefined && (!Number.isInteger(offer.maximumCon) || offer.maximumCon < 1))
+      || (offer.minimumCon ?? Number.NEGATIVE_INFINITY) > (offer.maximumCon ?? Number.POSITIVE_INFINITY)) {
+      throw new Error(`empire.externalEconomy offer ${offer.id || '<missing>'} is invalid.`)
+    }
+    validateDependencies(offer.prerequisites, `external offer ${offer.id}`)
+    validateDeclineEffects(offer.declineEffects, `external offer ${offer.id} decline effects`)
+    offerIds.add(offer.id)
+  }
+  const unionIds = new Set<string>()
+  for (const union of external.unions) {
+    if (!union.id?.trim() || unionIds.has(union.id) || !union.name?.trim()
+      || !actorIds.has(union.actorId) || !Number.isFinite(union.minimumReputation)
+      || union.minimumReputation < config.empire.loyalty.minimum
+      || union.minimumReputation > config.empire.loyalty.maximum
+      || !['hostile', 'neutral', 'allied'].includes(union.minimumRelationship)) {
+      throw new Error(`empire.externalEconomy union ${union.id || '<missing>'} is invalid.`)
+    }
+    validateDependencies(union.prerequisites, `external union ${union.id}`)
+    unionIds.add(union.id)
+  }
+
+  const liveCarrier = (id: string, label: string) => {
+    const building = buildingById.get(id)
+    if (!building || building.deferredReason) {
+      throw new Error(`empire.externalEconomy ${label} must reference a live building.`)
+    }
+    return building
+  }
+  const stable = liveCarrier(external.stable.buildingId, 'stable.buildingId')
+  const customs = liveCarrier(external.customs.buildingId, 'customs.buildingId')
+  const port = liveCarrier(external.seaPort.buildingId, 'seaPort.buildingId')
+  if (port.slot !== 'maritime') throw new Error('Sea Port must use the dedicated maritime slot.')
+  if (!buildingById.has(external.stable.farmBuildingId)
+    || !resourceIds.has(external.stable.livestockResourceId)
+    || external.stable.livestockRegionIds.length === 0
+    || new Set(external.stable.livestockRegionIds).size !== external.stable.livestockRegionIds.length
+    || external.stable.livestockRegionIds.some(regionId => !regionIds.has(regionId))
+    || external.stable.mountedUnitIds.length === 0
+    || new Set(external.stable.mountedUnitIds).size !== external.stable.mountedUnitIds.length
+    || external.stable.mountedUnitIds.some(unitId => !unitIds.has(unitId))
+    || stable.slot !== 'unique') {
+    throw new Error('empire.externalEconomy Stable carriers are incomplete.')
+  }
+  const hasFlagEffect = (
+    effects: readonly EmpiresEffect[],
+    flagId: string,
+  ) => effects.some(effect => effect.kind === 'flag' && effect.flagId === flagId && effect.amount > 0)
+  if (!external.transfer.speedFlagId?.trim() || !external.customs.tariffFlagId?.trim()
+    || !external.customs.merchantGuildsFlagId?.trim() || !external.stable.mountedFlagId?.trim()
+    || !external.seaPort.capacityFlagId?.trim()
+    || !Number.isFinite(external.transfer.baseTimeCostDays) || external.transfer.baseTimeCostDays <= 0
+    || !Number.isFinite(external.customs.tariffPercentPerLevel)
+    || !Number.isFinite(external.customs.merchantGuildTariffBonusPercent)
+    || !Number.isInteger(external.seaPort.maximumAcrossEmpire)
+    || external.seaPort.maximumAcrossEmpire < 1
+    || !Number.isFinite(external.seaPort.tradeGoldBonusPercentPerLevel)
+    || !Number.isFinite(external.seaPort.knowledgePerTradePerLevel)) {
+    throw new Error('empire.externalEconomy transfer, Customs, or Sea Port values are invalid.')
+  }
+  if (!hasFlagEffect(compass.effects, external.transfer.speedFlagId)
+    || !hasFlagEffect(merchantGuilds.effects, external.customs.merchantGuildsFlagId)
+    || !customs.levels.some(level => hasFlagEffect(level.effects ?? [], external.customs.tariffFlagId))
+    || !stable.levels.some(level => hasFlagEffect(level.effects ?? [], external.stable.mountedFlagId))
+    || !port.levels.some(level => hasFlagEffect(level.effects ?? [], external.seaPort.capacityFlagId))
+    || !stable.levels.some(level => level.dependencies.some(dependency => (
+      dependency.kind === 'building'
+      && dependency.buildingId === external.stable.farmBuildingId
+      && dependency.scope === 'sameCity'
+      && dependency.level >= 2
+    )))
+    || external.stable.mountedUnitIds.some((unitId) => {
+      const unit = config.empire.units?.find(candidate => candidate.id === unitId)
+      return !unit?.dependencies.some(dependency => (
+        dependency.kind === 'building'
+        && dependency.buildingId === external.stable.buildingId
+        && dependency.scope === 'sameCity'
+      )) || !unit.dependencies.some(dependency => (
+        dependency.kind === 'flag' && dependency.flagId === external.stable.mountedFlagId
+      ))
+    })
+    || !eventIds.has(external.customs.smugglingEventId)) {
+    throw new Error('empire.externalEconomy carrier effects and prerequisites are not wired.')
+  }
+  const coastalCityIds = new Set(config.governance.governor.citySites
+    .filter(site => site.coastal).map(site => site.cityId))
+  for (const city of config.empire.cities) {
+    const maritimeSlots = city.slots.filter(slot => slot.kind === 'maritime')
+    if ((coastalCityIds.has(city.id) ? 1 : 0) !== maritimeSlots.length) {
+      throw new Error(`city ${city.id} must expose exactly one maritime slot iff it is coastal.`)
+    }
+  }
+  const reviewedIds = new Set<string>()
+  for (const reviewed of external.reviewedAbsentBuildings) {
+    if (!reviewed.id?.trim() || reviewedIds.has(reviewed.id) || !reviewed.name?.trim()
+      || !reviewed.reason?.trim() || buildingById.has(reviewed.id)) {
+      throw new Error(`empire.externalEconomy reviewed absent building ${reviewed.id || '<missing>'} is invalid.`)
+    }
+    reviewedIds.add(reviewed.id)
   }
 }
 
@@ -1633,6 +1927,9 @@ function validatePoliticalEffects(config: EmpiresEndgameConfig): void {
   }
   for (const event of config.empire.events) {
     for (const choice of event.choices) validateEffects(choice.effects, `event ${event.id} choice ${choice.id} effects`)
+  }
+  for (const offer of config.empire.externalEconomy.offers) {
+    validateEffects(offer.declineEffects, `external offer ${offer.id} decline effects`)
   }
 }
 
@@ -2071,6 +2368,8 @@ function validateGovernanceConfig(config: EmpiresEndgameConfig): void {
     ...config.empire.hiddenCombinations.definitions.flatMap(combination => combination.prerequisites),
     ...(config.empire.units ?? []).flatMap(unit => unit.dependencies),
     ...config.empire.buildings.flatMap(building => building.levels.flatMap(level => level.dependencies)),
+    ...config.empire.externalEconomy.offers.flatMap(offer => offer.prerequisites),
+    ...config.empire.externalEconomy.unions.flatMap(union => union.prerequisites),
   ]
   for (const dependency of allDependencies) {
     if (dependency.kind === 'advisor' && !advisorIds.has(dependency.advisorId)) {
@@ -2812,6 +3111,7 @@ export function validateEmpiresConfig(value: unknown): asserts value is EmpiresE
   validateTechnologySidesAndHiddenCombinations(config)
   validateEpidemicAndMedicalConfig(config)
   validateDomesticEconomyConfig(config)
+  validateExternalEconomyConfig(config)
   validateLoyaltyConfig(config)
   validatePoliticalEffects(config)
   validateSteelResearchConfig(config)

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { CircleDot, Gauge, MousePointerClick, TimerReset, Zap } from 'lucide-vue-next'
+import { CircleDot, Gauge, Lock, MousePointerClick, TimerReset, Zap } from 'lucide-vue-next'
 import type {
   LastChancesGestureInputSnapshot,
   LastChancesHandActionCue,
@@ -20,6 +20,8 @@ export type GestureCooldown = {
   ready: boolean
   color: string
   active?: boolean
+  /** Still behind the move-unlock quest chain. */
+  locked?: boolean
 }
 
 export type WeaponCooldown = {
@@ -46,6 +48,7 @@ const copy = {
     ready: 'Ready',
     cooling: 'Cooldown',
     unavailable: 'Unavailable',
+    locked: 'Quest locked',
     empty: 'Waiting for the loadout',
     charge: 'Charge',
     recovery: 'Recovery',
@@ -81,6 +84,7 @@ const copy = {
     ready: 'Готово',
     cooling: 'Откат',
     unavailable: 'Недоступно',
+    locked: 'Закрыто квестом',
     empty: 'Ожидание экипировки',
     charge: 'Заряд',
     recovery: 'Восстановление',
@@ -118,6 +122,7 @@ function cooldownPercent(gesture: GestureCooldown): number {
 }
 
 function remainingLabel(weapon: WeaponCooldown, gesture: GestureCooldown): string {
+  if (gesture.locked) return t.value.locked
   if (!gesture.enabled) return t.value.unavailable
   if (gesture.ready) return t.value.ready
   if (gesture.remainingMs > 0) {
@@ -279,6 +284,7 @@ function activeChargeLabel(weapon: WeaponCooldown): string {
               'is-ready': gesture.enabled && gesture.ready,
               'is-active': gesture.enabled && gesture.active,
               'is-disabled': !gesture.enabled,
+              'is-locked': gesture.locked,
               'is-blocked': gesture.enabled && !gesture.ready && gesture.remainingMs <= 0,
             }"
             :style="{ '--gesture-color': gesture.color }"
@@ -290,7 +296,8 @@ function activeChargeLabel(weapon: WeaponCooldown): string {
                 <strong>{{ gesture.name }}</strong>
               </span>
               <span class="lc-gesture-time">
-                <TimerReset v-if="gesture.remainingMs > 0 || (!gesture.ready && recoveryMs(weapon) > 0)" :size="11" aria-hidden="true" />
+                <Lock v-if="gesture.locked" :size="11" aria-hidden="true" />
+                <TimerReset v-else-if="gesture.remainingMs > 0 || (!gesture.ready && recoveryMs(weapon) > 0)" :size="11" aria-hidden="true" />
                 {{ remainingLabel(weapon, gesture) }}
               </span>
             </div>
@@ -298,9 +305,11 @@ function activeChargeLabel(weapon: WeaponCooldown): string {
               <i :style="{ width: `${gesture.enabled ? cooldownPercent(gesture) : 0}%` }" />
             </span>
             <span class="sr-only">
-              {{ !gesture.enabled
-                ? t.unavailable
-                : gesture.ready ? t.ready : remainingLabel(weapon, gesture) }}
+              {{ gesture.locked
+                ? t.locked
+                : !gesture.enabled
+                  ? t.unavailable
+                  : gesture.ready ? t.ready : remainingLabel(weapon, gesture) }}
             </span>
           </li>
         </ol>
@@ -421,6 +430,8 @@ function activeChargeLabel(weapon: WeaponCooldown): string {
 .lc-gesture-list li.is-blocked { opacity: 0.52; }
 .lc-gesture-list li.is-active { background: color-mix(in srgb, var(--gesture-color) 11%, transparent); }
 .lc-gesture-list li.is-disabled { opacity: 0.32; filter: grayscale(0.85); }
+.lc-gesture-list li.is-locked { opacity: 0.38; filter: grayscale(0.9); }
+.lc-gesture-list li.is-locked .lc-gesture-time { color: #8a8478; }
 
 .lc-gesture-copy { min-width: 0; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 0.45rem; }
 .lc-gesture-index { width: 1.18rem; height: 1.18rem; display: grid; place-items: center; border: 1px solid rgba(255, 255, 255, 0.09); border-radius: 50%; color: #626764; font: 700 0.47rem/1 var(--font-mono, monospace); }

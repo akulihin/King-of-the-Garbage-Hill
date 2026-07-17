@@ -54,7 +54,12 @@ Current execution status supplied by the designer on 2026-07-17:
   Temple preaching/relic slots, passive Tavern army hooks and economy UI/QA landed as one
   change-set. Capability-level blockers retain every undefined market, siege, Temple-branch,
   baron and Tavern-minigame behavior.
-- **Next prompt: Phase 6B** (`phase-06b-diplomacy-external.md`).
+- **Phase 6B — complete.** Schema-v10 external-economy configuration, save-envelope v8,
+  deterministic weighted offers, explicit accept/decline history, trusted-resource trade
+  and transfers, Customs tariffs, western Stable consumers, coastal Sea Ports and
+  diplomacy UI/QA landed as one change-set. Unauthored unions, relationship actions,
+  player fleet/shipbuilding and the three reviewed absent buildings remain explicit.
+- **Next prompt: Phase 6C** (`phase-06c-economy-content.md`).
 
 Scope decisions confirmed by the designer (2026-07-16):
 
@@ -194,8 +199,9 @@ graph TD
   Every city action and preview uses `cityAccessBlockedReason`; later phases must not bypass
   it for economy, epidemic, quest or diplomacy targets.
 - Forum (P4A), Military Academy (P3B), white stone (P6C), Колизей and Тетракорархос
-  (P4C/P12B review) remain explicitly deferred in the capital manifest. Sea Port/coastal
-  slot behavior remains P6B. Great houses and unique races remain P7/P12B review rather
+  (P4C/P12B review) remain explicitly deferred in the capital manifest. P6B made the
+  raw coastal city markers authoritative for dedicated Sea Port slots. Great houses and
+  unique races remain P7/P12B review rather
   than anonymous governance flags.
 
 ## P5 handoff
@@ -241,7 +247,7 @@ graph TD
   consume the retained persecution market blocker, but must not recreate debt as a flag.
 - Insurance activates after three calm settlements and covers only typed epidemic and
   meteor incidents. Raid, nuclear and `окружение` remain explicit capability blockers;
-  neither a home TD loss nor enemy naval categories are a siege proxy. P6B/P11 must supply
+  neither a home TD loss nor enemy naval categories are a siege proxy. P11 must supply
   real incident state before adding those coverages.
 - Fair progression is `Карнавал → Подкуп бродячих артистов → Пустить в Империю циганский
   табор → барон` with persisted cooldown/activity identity. The baron is an integration
@@ -252,6 +258,31 @@ graph TD
   migrate without duplicate one-time resolution. P6C owns further economy relic content,
   not the slot lifecycle. Tavern levels feed the canonical army recruitment and maximum
   morale readers; `tavernMinigame` alone remains P9-owned.
+
+## P6B handoff
+
+- The compatibility baseline is config schema 10 and campaign/save envelope 8. External
+  actor relationships, offer lifecycle/history, Customs trade memory and city-transfer
+  history are canonical saved state. Schema-v9 custom configs migrate with external
+  economy disabled; schema-v7 saves receive the disabled/default external state without
+  changing prior campaign outcomes.
+- Offer refresh is serialized-RNG weighted selection without replacement. Stable instance
+  IDs, a canonical rules digest, expiry and bounded accepted/declined/expired history
+  prevent reload rerolls, reinterpretation or duplicate resolution. Every acceptance
+  rechecks phase, stock, expiry, relationship,
+  reputation, region access, technology/dependencies and the existing city/shared/Temple
+  resource payment plan.
+- Customs tariffs, Sea Port trade price/knowledge effects, Bank persecution pricing,
+  `tech-merchant-guilds` and Compass transfer timing are one config-driven quote path.
+  Stable is western-livestock-only with Farm II; the live knight requires a same-city
+  Stable and spends horses. The exact review defaults remain in the designer ledger.
+- Seven cities with authored coastal governance metadata receive a dedicated maritime slot;
+  placement and upgrade share the coastal rule and the empire-wide cap of four. No player
+  fleet was inferred from enemy naval TD, so fleet, shipbuilding and expedition-return
+  capabilities remain blocked.
+- Чёрный рынок, Посольство and Внешний рынок remain config-absent reviewed identities. No
+  unions, relationship-changing actions or refusal consequences were invented. P6C owns
+  the Customs smuggling event and remaining economy content, not the external offer core.
 
 ## How to execute the remaining prompts
 
@@ -311,7 +342,8 @@ gates. Do not commit or push.
   campaign/envelope v3→v4 for typed political state, consuming legacy loyalty/reputation
   flags and the pending TD-loss queue exactly once. P4B moves config to v6; P4C moves config
   to v7 and saves to v5; P5 moves config/save to v8/v6; P6A moves them to v9/v7 for typed
-  domestic economy and migrates old relic flags into Temple-owned activation. Never reuse a hard-coded version if
+  domestic economy and migrates old relic flags into Temple-owned activation; P6B moves
+  them to v10/v8 for typed external relationships, offers, trades and transfers. Never reuse a hard-coded version if
   the executed repository is already farther ahead.
 - **New component homes**: `src/components/empires-endgame/` (`TdBattle.vue`, `DialogueOverlay.vue`, `QuestJournal.vue`, `DeckMemoryPanel.vue`, …); new feature modules under `features/empires-endgame/` (`combat/`, `td/`, `quests.ts`, `alchemy/`, `tavern/`, `inventory/`, `chess/`).
 - `engine.ts` (~2.5k lines): extract internal modules (an `engine/` dir) only when a phase already touches that cluster; no big-bang refactor.

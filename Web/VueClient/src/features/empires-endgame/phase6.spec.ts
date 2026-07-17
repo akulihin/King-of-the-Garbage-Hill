@@ -306,13 +306,17 @@ describe('Empire\'s Endgame Phase 6A domestic economy', () => {
     const legacyConfig = structuredClone(defaultConfigJson) as unknown as Record<string, unknown>
     legacyConfig.schemaVersion = 8
     delete (legacyConfig.empire as Record<string, unknown>).domesticEconomy
+    delete (legacyConfig.empire as Record<string, unknown>).externalEconomy
     const original = structuredClone(legacyConfig)
     const migrated = migrateEmpiresConfig(legacyConfig)
     expect(legacyConfig).toEqual(original)
-    expect(migrated).toMatchObject({ schemaVersion: 9, empire: { domesticEconomy: { enabled: false } } })
+    expect(migrated).toMatchObject({
+      schemaVersion: 10,
+      empire: { domesticEconomy: { enabled: false }, externalEconomy: { enabled: false } },
+    })
     expect(() => validateEmpiresConfig(migrated)).not.toThrow()
     expect(migrateEmpiresConfig(migrated)).toEqual(migrated)
-    expect(() => migrateEmpiresConfig({ ...migrated, schemaVersion: 10 })).toThrow(/future.*10/i)
+    expect(() => migrateEmpiresConfig({ ...migrated, schemaVersion: 11 })).toThrow(/future.*11/i)
 
     const value = config()
     const legacyState = new EmpiresEndgameEngine(value).snapshot() as EmpiresCampaignState
@@ -326,7 +330,7 @@ describe('Empire\'s Endgame Phase 6A domestic economy', () => {
       state: legacyState,
     }, value.id)
     const restored = new EmpiresEndgameEngine(value, imported)
-    expect(restored.state.schemaVersion).toBe(7)
+    expect(restored.state.schemaVersion).toBe(8)
     expect(restored.state.empire.domesticEconomy).toMatchObject({
       loans: [],
       insuranceContracts: [],
