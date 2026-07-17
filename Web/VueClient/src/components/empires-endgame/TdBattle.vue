@@ -30,7 +30,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   resolved: [result: TdBattleResult]
-  abort: []
+  abort: [commandLog: TdCommand[], abortTick: number]
 }>()
 
 interface CommandOption<T extends TdTowerBaseDefinition | TdTowerChoiceDefinition> {
@@ -368,6 +368,11 @@ function queueCommand(command: TdCommand, reason: string | null) {
   commandStatus.value = `Команда ${command.sequence + 1} принята на тик ${command.tick}.`
 }
 
+function abortBattle() {
+  const appliedCommands = commandLog.value.filter(command => command.tick < simulation.value.tick)
+  emit('abort', appliedCommands, simulation.value.tick)
+}
+
 function togglePause() {
   if (backgrounded.value) {
     commandStatus.value = 'Вернитесь на вкладку, чтобы продолжить бой.'
@@ -450,7 +455,7 @@ onUnmounted(() => {
           :class="{ active: speed === multiplier }"
           @click="setSpeed(multiplier)"
         >×{{ multiplier }}</button>
-        <button type="button" class="danger" data-testid="td-abort" @click="emit('abort')">Отступить</button>
+        <button type="button" class="danger" data-testid="td-abort" @click="abortBattle">Отступить</button>
       </div>
     </header>
 

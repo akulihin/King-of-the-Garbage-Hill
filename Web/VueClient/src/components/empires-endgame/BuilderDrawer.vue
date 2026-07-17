@@ -190,6 +190,21 @@ function updateTechnology(mutator: (technology: EmpiresTechnologyDefinition) => 
   emit('update:config', next)
 }
 
+function updateTechnologyCategory(category: EmpiresTechnologyDefinition['category']) {
+  updateTechnology((technology) => {
+    technology.category = category
+    if (category === 'steel' && !technology.steel) {
+      technology.steel = {
+        branchId: technology.groupId?.trim() || 'steel-new-branch',
+        generation: Math.max(0, technology.tier ?? 0),
+        stage: 'whole',
+        payoff: 'unlock-only',
+      }
+    }
+    if (category !== 'steel') delete technology.steel
+  })
+}
+
 function updateGift(mutator: (gift: EmpiresGiftDefinition) => void) {
   if (!selectedGift.value) return
   const next = cloneConfig()
@@ -516,14 +531,21 @@ async function importJson(event: Event) {
           <div class="field-grid">
             <label><span>Название</span><input :value="selectedTechnology.name" @input="updateTechnology(technology => technology.name = ($event.target as HTMLInputElement).value)" /></label>
             <label><span>ID</span><input :value="selectedTechnology.id" disabled /></label>
-            <label><span>Категория</span><select :value="selectedTechnology.category" @change="updateTechnology(technology => technology.category = ($event.target as HTMLSelectElement).value as EmpiresTechnologyDefinition['category'])"><option v-for="category in ['technology', 'reform', 'doctrine', 'steel']" :key="category" :value="category">{{ category }}</option></select></label>
+            <label><span>Категория</span><select :value="selectedTechnology.category" @change="updateTechnologyCategory(($event.target as HTMLSelectElement).value as EmpiresTechnologyDefinition['category'])"><option v-for="category in ['technology', 'reform', 'doctrine', 'steel']" :key="category" :value="category">{{ category }}</option></select></label>
             <label><span>Ветка</span><input :value="selectedTechnology.groupId ?? ''" @input="updateTechnology(technology => technology.groupId = ($event.target as HTMLInputElement).value || undefined)" /></label>
             <label><span>Дней</span><input type="number" min="0" :value="selectedTechnology.timeCostDays" @input="updateTechnology(technology => technology.timeCostDays = Number(($event.target as HTMLInputElement).value))" /></label>
             <label><span>Уровень</span><input type="number" min="0" :value="selectedTechnology.tier ?? 0" @input="updateTechnology(technology => technology.tier = Number(($event.target as HTMLInputElement).value))" /></label>
             <label class="full-field"><span>URL изображения</span><input :value="selectedTechnology.image ?? ''" @input="updateTechnology(technology => technology.image = ($event.target as HTMLInputElement).value || undefined)" /></label>
           </div>
+          <div v-if="selectedTechnology.steel" class="field-grid steel-fields">
+            <label><span>Ветка стали</span><input :value="selectedTechnology.steel.branchId" @input="updateTechnology(technology => { if (technology.steel) technology.steel.branchId = ($event.target as HTMLInputElement).value })" /></label>
+            <label><span>Поколение</span><input type="number" min="0" :value="selectedTechnology.steel.generation" @input="updateTechnology(technology => { if (technology.steel) technology.steel.generation = Number(($event.target as HTMLInputElement).value) })" /></label>
+            <label><span>Стадия</span><select :value="selectedTechnology.steel.stage" @change="updateTechnology(technology => { if (technology.steel) technology.steel.stage = ($event.target as HTMLSelectElement).value as 'whole' | 'minus' | 'plus' })"><option value="whole">цельная</option><option value="minus">− сразу</option><option value="plus">+ бесплатно позже</option></select></label>
+            <label><span>Результат</span><select :value="selectedTechnology.steel.payoff" @change="updateTechnology(technology => { if (technology.steel) technology.steel.payoff = ($event.target as HTMLSelectElement).value as 'equipment' | 'unlock-only' | 'deferred' })"><option value="equipment">снаряжение</option><option value="unlock-only">открытие</option><option value="deferred">отложено</option></select></label>
+            <label class="checkbox-field"><input type="checkbox" :checked="selectedTechnology.steel.eliteRequired" @change="updateTechnology(technology => { if (technology.steel) technology.steel.eliteRequired = ($event.target as HTMLInputElement).checked || undefined })" /><span>Требуется военная элита</span></label>
+          </div>
           <label><span>Описание и характеристики</span><textarea rows="6" :value="selectedTechnology.description ?? ''" @input="updateTechnology(technology => technology.description = ($event.target as HTMLTextAreaElement).value || undefined)" /></label>
-          <p class="builder-note">Положение ноды меняется перетаскиванием на дереве, а связи — кнопкой «Связать ноды». Цены, эффекты и сложные условия доступны во вкладке «Весь JSON».</p>
+          <p class="builder-note">Положение ноды меняется перетаскиванием на дереве, а связи — кнопкой «Связать ноды». Привязки снаряжения, входы из соседних ветвей, стадии доступа и сложные условия доступны во вкладке «Весь JSON» и сохраняются без потерь.</p>
         </template>
       </section>
 
@@ -629,6 +651,10 @@ textarea { resize: vertical; padding: 9px 10px; }
 input:focus, select:focus, textarea:focus { border-color: #b99d5e; box-shadow: 0 0 0 2px rgba(185, 157, 94, .1); }
 input:disabled { opacity: .55; }
 .field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.steel-fields { padding: 12px; border: 1px solid rgba(145, 162, 170, .2); border-radius: 8px; background: rgba(103, 127, 136, .06); }
+.checkbox-field { display: flex; align-items: center; gap: 8px; min-height: 38px; }
+.checkbox-field input { width: 16px; height: 16px; padding: 0; }
+.checkbox-field span { color: #b9c7ca; }
 .subview-toggle { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; padding: 4px; border: 1px solid rgba(218, 194, 142, .13); border-radius: 8px; background: #0d100d; }
 .subview-toggle button { min-height: 34px; border: 1px solid transparent; border-radius: 6px; color: rgba(238, 228, 206, .5); background: transparent; cursor: pointer; }
 .subview-toggle button.active { border-color: rgba(205, 177, 112, .3); color: #ecd79f; background: rgba(205, 177, 112, .1); }

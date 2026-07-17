@@ -35,6 +35,7 @@ export type {
   TdEnemyGroupDefinition,
   TdEquipmentCost,
   TdEquipmentProductionDefinition,
+  TdEquipmentProductionLineDefinition,
   TdFrameClock,
   TdGradeChoiceSetDefinition,
   TdLaneEdgeDefinition,
@@ -52,6 +53,7 @@ export type {
   TdTerminalReason,
   TdTowerBaseDefinition,
   TdTowerChoiceDefinition,
+  TdTowerLoadoutDefinition,
   TdUnitProfile,
   TdWaveDefinition,
 } from './td/types'
@@ -103,6 +105,11 @@ export type EmpiresBuildingSlotKind =
 export interface EmpiresResourceAmount {
   resourceId: string
   amount: number
+}
+
+export interface EmpiresDeferredSubfeature {
+  id: string
+  reason: string
 }
 
 export type EmpiresEffect =
@@ -299,8 +306,18 @@ export interface EmpiresBuildingDefinition {
   name: string
   image?: string
   slot: EmpiresBuildingSlotKind
+  allowedCityIds?: string[]
   levels: EmpiresBuildingLevelDefinition[]
+  deferredSubfeatures?: EmpiresDeferredSubfeature[]
   deferredReason?: string
+}
+
+export interface EmpiresUnitLoadoutDefinition {
+  id: string
+  priority: number
+  weaponEquipmentId: string
+  defenseEquipmentId?: string
+  equipmentCosts: TdEquipmentCost[]
 }
 
 export interface EmpiresUnitDefinition {
@@ -314,8 +331,22 @@ export interface EmpiresUnitDefinition {
   resourceCosts: EmpiresResourceAmount[]
   dependencies: EmpiresDependency[]
   equipmentCosts?: TdEquipmentCost[]
+  loadouts?: EmpiresUnitLoadoutDefinition[]
   td?: TdUnitProfile
   deferredReason?: string
+}
+
+export type EmpiresSteelGenerationStage = 'whole' | 'minus' | 'plus'
+
+export interface EmpiresSteelTechnologyDefinition {
+  branchId: string
+  generation: number
+  stage: EmpiresSteelGenerationStage
+  payoff: 'equipment' | 'unlock-only' | 'deferred'
+  equipmentIds?: string[]
+  eliteRequired?: boolean
+  accessTechnologyId?: string
+  entryFromTechnologyIds?: string[]
 }
 
 export interface EmpiresTechnologyDefinition {
@@ -332,7 +363,15 @@ export interface EmpiresTechnologyDefinition {
   resourceCosts: EmpiresResourceAmount[]
   prerequisites: EmpiresDependency[]
   effects: EmpiresEffect[]
+  steel?: EmpiresSteelTechnologyDefinition
+  deferredSubfeatures?: EmpiresDeferredSubfeature[]
   deferredReason?: string
+}
+
+export interface EmpiresSteelResearchConfig {
+  forkSourcePriceMultiplier: number
+  delayedFreeEmpirePhases: number
+  militaryEliteFlagId: string
 }
 
 export interface EmpiresEventChoiceDefinition {
@@ -478,6 +517,7 @@ export interface EmpiresEmpireConfig {
   buildings: EmpiresBuildingDefinition[]
   units?: EmpiresUnitDefinition[]
   technologies: EmpiresTechnologyDefinition[]
+  steelResearch: EmpiresSteelResearchConfig
   events: EmpiresEventDefinition[]
   seasons: EmpiresSeasonsScaffoldConfig
   loyalty: EmpiresLoyaltyScaffoldConfig
@@ -490,7 +530,7 @@ export interface EmpiresUpgradeConfig {
 }
 
 export interface EmpiresEndgameConfig {
-  schemaVersion: 3
+  schemaVersion: 4
   id: string
   title: string
   seed: string | number
@@ -560,7 +600,9 @@ export interface EmpiresCityState {
   buildingLevels: Record<string, number>
   operationalBuildingLevels: Record<string, number>
   buildingSlotAssignments: Record<string, string>
-  recruitedUnits: Record<string, number>
+  /** Migration-only Phase-2 aggregate; current saves normalize it into cohorts. */
+  recruitedUnits?: Record<string, number>
+  recruitedUnitCohorts: EmpiresRecruitedUnitCohortState[]
   resources: Record<string, number>
   buildingInteractionLocks: Record<string, number>
   lockedFacilities: Partial<Record<EmpiresFacilityLock, string>>
@@ -582,6 +624,17 @@ export interface EmpiresVeteranState {
   wounds: number
 }
 
+export interface EmpiresRecruitedUnitCohortState {
+  id: string
+  unitId: string
+  loadoutId: string
+  count: number
+  weaponEquipmentId?: string
+  defenseEquipmentId?: string
+  weapon: import('./combat/types').CombatWeaponProfile | null
+  armor: import('./combat/types').CombatArmorProfile | null
+}
+
 export interface EmpiresArmyState {
   equipmentStock: Record<string, number>
   pendingLoyaltyDeltas: EmpiresPendingLoyaltyDelta[]
@@ -589,6 +642,7 @@ export interface EmpiresArmyState {
   maxMorale: number
   veterans: Record<string, EmpiresVeteranState>
   recruitmentPenalties: Record<string, number>
+  foundryInstantReadyConByCity: Record<string, number>
 }
 
 export interface EmpiresExternalState {
@@ -644,6 +698,50 @@ export interface EmpiresProductionBoostAssignment {
   buildingId: string
 }
 
+export interface EmpiresSteelBranchEntryState {
+  fromTechnologyId: string
+  toTechnologyId: string
+  fromBranchId: string
+  toBranchId: string
+  con: number
+}
+
+export interface EmpiresDelayedFreeResearchState {
+  scheduledAtCon: number
+  eligibleCon: number
+  awardedAtCon: number | null
+}
+
+export interface EmpiresSteelResearchState {
+  branchCostMultipliers: Record<string, number>
+  branchEntries: EmpiresSteelBranchEntryState[]
+  delayedFree: Record<string, EmpiresDelayedFreeResearchState>
+}
+
+export interface EmpiresResearchQuote {
+  technologyId: string
+  requiredTechnologyIds: string[]
+  resourceCosts: EmpiresResourceAmount[]
+  timeCostDays: number
+  costMultiplier: number
+  entryFromTechnologyId: string | null
+  freeEligibleCon: number | null
+  blockedReason: string | null
+  researched: boolean
+}
+
+export interface EmpiresRecruitmentQuote {
+  cityId: string
+  unitId: string
+  count: number
+  resourceCosts: EmpiresResourceAmount[]
+  equipmentCosts: TdEquipmentCost[]
+  timeCostDays: number
+  loadoutId: string
+  usedFoundryInstant: boolean
+  blockedReason: string | null
+}
+
 export interface EmpiresEmpireState {
   daysRemaining: number
   resources: Record<string, number>
@@ -660,6 +758,7 @@ export interface EmpiresEmpireState {
   destroyedRegionIds: string[]
   buildingLevelBonuses: Partial<Record<EmpiresBuildingSlotKind, number>>
   researchUsage: Record<string, string>
+  steelResearch: EmpiresSteelResearchState
   giftResolutionTargets: Record<string, string>
 }
 
@@ -673,7 +772,7 @@ export interface EmpiresEventState {
 }
 
 export interface EmpiresCampaignState {
-  schemaVersion: 2
+  schemaVersion: 3
   configId: string
   phase: EmpiresPhase
   rng: EmpiresRngState
@@ -700,7 +799,7 @@ export interface EmpiresCampaignState {
 }
 
 export interface EmpiresSnapshotEnvelope {
-  schemaVersion: 2
+  schemaVersion: 3
   savedAt: string
   state: EmpiresCampaignState
 }

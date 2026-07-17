@@ -21,6 +21,7 @@ const QA_SEED = 'cypress-empires-endgame'
 const CONFIG_STORAGE_KEY = 'empires-endgame:config:v1'
 const SAVE_STORAGE_KEY = 'empires-endgame:campaign:v1'
 const bundledConfig = bundledConfigJson as unknown as EmpiresEndgameConfig
+const TECHNOLOGY_COUNT = bundledConfig.empire.technologies.length
 
 function scenarioUrl(scenario: QaScenario) {
   const query = new URLSearchParams({ qa: '1', scenario, seed: QA_SEED })
@@ -147,6 +148,13 @@ describe('Empire\'s Endgame deterministic browser scenarios', () => {
     cy.get('.tech-detail .research-button')
       .should('be.disabled')
       .and('contain.text', 'Будущая механика')
+    cy.get('[data-testid="technology-node-steel-laurel-spearhead"]')
+      .scrollIntoView()
+      .click({ force: true })
+    cy.get('[data-testid="selected-steel-metadata"]')
+      .should('contain.text', 'steel-polearms')
+      .and('contain.text', 'поколение 0')
+      .and('contain.text', 'снаряжение')
 
     cy.get('[data-testid="tab-city"]').click()
     cy.get('[data-testid="city-building-building-smithy"]')
@@ -386,7 +394,7 @@ describe('Empire\'s Endgame deterministic browser scenarios', () => {
         expect($viewport[0].scrollHeight).to.be.greaterThan($viewport[0].clientHeight)
         expect($viewport[0].scrollWidth).to.be.greaterThan($viewport[0].clientWidth)
       })
-    cy.get('[data-testid^="technology-node-"]').should('have.length', 62)
+    cy.get('[data-testid^="technology-node-"]').should('have.length', TECHNOLOGY_COUNT)
     cy.get('[data-testid^="technology-node-"]')
       .last()
       .scrollIntoView()
@@ -441,7 +449,7 @@ describe('Empire\'s Endgame deterministic browser scenarios', () => {
     })
     cy.contains('.empire-toolbar nav button', 'Развитие').click()
 
-    cy.get('[data-testid^="technology-node-"]').should('have.length', 62).then(($nodes) => {
+    cy.get('[data-testid^="technology-node-"]').should('have.length', TECHNOLOGY_COUNT).then(($nodes) => {
       const positions = Array.from($nodes, node => ({
         x: Number.parseFloat((node as HTMLElement).style.left),
         y: Number.parseFloat((node as HTMLElement).style.top),

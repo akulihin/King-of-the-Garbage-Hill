@@ -27,8 +27,37 @@ function jsonClone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T
 }
 
+/** Remove fields that did not exist before the schema-v4 steel/equipment bridge. */
+function stripSchemaV4Fields(legacy: UnknownRecord): void {
+  const empire = legacy.empire as UnknownRecord
+  delete empire.steelResearch
+  for (const technology of empire.technologies as UnknownRecord[]) {
+    delete technology.steel
+    delete technology.deferredSubfeatures
+  }
+  for (const building of empire.buildings as UnknownRecord[]) {
+    delete building.allowedCityIds
+    delete building.deferredSubfeatures
+  }
+  for (const unit of (empire.units as UnknownRecord[] | undefined) ?? []) delete unit.loadouts
+  const combat = legacy.combat as UnknownRecord | undefined
+  for (const equipment of (combat?.equipment as UnknownRecord[] | undefined) ?? []) {
+    delete equipment.technologyId
+  }
+  const td = legacy.td as UnknownRecord | undefined
+  delete td?.equipmentProductionLines
+  for (const towerBase of (td?.towerBases as UnknownRecord[] | undefined) ?? []) delete towerBase.loadouts
+  if (Array.isArray(td?.equipmentProduction)) {
+    td.equipmentProduction = (td.equipmentProduction as UnknownRecord[]).map(recipe => ({
+      equipmentId: recipe.equipmentId,
+      amountPerSmithCapacity: recipe.amountPerSmithCapacity,
+    }))
+  }
+}
+
 function makeV1Config(): UnknownRecord {
   const legacy = jsonClone(defaultConfigJson) as UnknownRecord
+  stripSchemaV4Fields(legacy)
   legacy.schemaVersion = 1
   delete legacy.combat
   delete legacy.td
@@ -43,6 +72,7 @@ function makeV1Config(): UnknownRecord {
 /** A real pre-P3 custom config shape, before regional fields and rules caps existed. */
 function makeV2Config(): UnknownRecord {
   const legacy = jsonClone(defaultConfigJson) as UnknownRecord
+  stripSchemaV4Fields(legacy)
   legacy.schemaVersion = 2
   const currentTd = (legacy.td as UnknownRecord)
   const centralField = jsonClone(
@@ -96,6 +126,14 @@ function makeV2Config(): UnknownRecord {
   return legacy
 }
 
+/** Immediate P3A predecessor: regional TD is present, steel/equipment-v4 fields are not. */
+function makeV3Config(): UnknownRecord {
+  const legacy = jsonClone(defaultConfigJson) as UnknownRecord
+  stripSchemaV4Fields(legacy)
+  legacy.schemaVersion = 3
+  return legacy
+}
+
 function currentConfig(): EmpiresEndgameConfig {
   return cloneEmpiresConfig(defaultConfigJson)
 }
@@ -132,7 +170,7 @@ afterEach(() => {
 })
 
 describe('Empire\'s Endgame full-chain compatibility scaffolding', () => {
-  it('runs the explicit v1 to v2 to v3 chain without mutation and idempotently clones v3', () => {
+  it('runs the explicit v1 to v2 to v3 to v4 chain without mutation and idempotently clones v4', () => {
     const legacy = makeV1Config()
     const original = jsonClone(legacy)
 
@@ -140,7 +178,7 @@ describe('Empire\'s Endgame full-chain compatibility scaffolding', () => {
 
     expect(legacy).toEqual(original)
     expect(migrated).toMatchObject({
-      schemaVersion: 3,
+      schemaVersion: 4,
       combat: {
         enabled: false,
         damageTypes: [],
@@ -159,12 +197,22 @@ describe('Empire\'s Endgame full-chain compatibility scaffolding', () => {
         gradeChoices: [],
         waves: [],
         planVariants: [],
+        equipmentProductionLines: [{
+          id: 'legacy-smithy-1',
+          capacityFlagId: 'smithCapacity',
+          capacityShare: 1,
+        }],
       },
       god: { enabled: false, lines: [], deckMemoryRules: [], antiBitoRules: [] },
       quests: { enabled: false, definitions: [], dialogueGraphs: [] },
       empire: {
         seasons: { enabled: false, definitions: [] },
         loyalty: { enabled: false, cityRules: [], regionRules: [] },
+        steelResearch: {
+          forkSourcePriceMultiplier: 2,
+          delayedFreeEmpirePhases: 2,
+          militaryEliteFlagId: 'militaryElite',
+        },
       },
     })
     expect(() => validateEmpiresConfig(migrated)).not.toThrow()
@@ -172,14 +220,59 @@ describe('Empire\'s Endgame full-chain compatibility scaffolding', () => {
     expect(migrateEmpiresConfig(migrated)).not.toBe(migrated)
   })
 
-  it('rejects an unknown future v4 config before validation', () => {
+  it('rejects an unknown future v5 config before validation', () => {
     const future = jsonClone(defaultConfigJson) as UnknownRecord
-    future.schemaVersion = 4
+    future.schemaVersion = 5
 
     expect(() => migrateEmpiresConfig(future)).toThrow(
-      /Unsupported future Empire's Endgame config schemaVersion 4/,
+      /Unsupported future Empire's Endgame config schemaVersion 5/,
     )
-    expect(() => parseEmpiresConfig(JSON.stringify(future))).toThrow(/future.*schemaVersion 4/i)
+    expect(() => parseEmpiresConfig(JSON.stringify(future))).toThrow(/future.*schemaVersion 5/i)
+  })
+
+  it('migrates an immediate-previous regional v3 config without mutating stored custom JSON', async () => {
+    const previous = makeV3Config()
+    const original = jsonClone(previous)
+    const migrated = cloneEmpiresConfig(previous)
+
+    expect(previous).toEqual(original)
+    expect(migrated).toMatchObject({
+      schemaVersion: 4,
+      td: { regionalCatalogEnabled: true },
+      empire: { steelResearch: { forkSourcePriceMultiplier: 2 } },
+    })
+    expect(migrated.empire.buildings.find(building => building.id === 'building-foundry')?.allowedCityIds)
+      .toEqual(expect.not.arrayContaining(['city-tetrakor-capital']))
+    expect(migrated.empire.buildings.find(building => building.id === 'building-foundry')?.allowedCityIds)
+      .toHaveLength(12)
+    expect(() => validateEmpiresConfig(migrated)).not.toThrow()
+
+    window.localStorage.setItem(EMPIRES_CONFIG_STORAGE_KEY, JSON.stringify(previous))
+    expect((await loadEmpiresConfig()).schemaVersion).toBe(4)
+  })
+
+  it('preserves an explicit empty equipment catalog in a disabled immediate-v3 config', async () => {
+    const previous = makeV3Config()
+    const td = previous.td as UnknownRecord
+    td.enabled = false
+    td.regionalCatalogEnabled = false
+    td.towerBases = []
+    td.battlefields = []
+    td.towers = []
+    td.gradeChoices = []
+    td.waves = []
+    td.planVariants = []
+    td.equipmentProduction = []
+    const original = jsonClone(previous)
+
+    const migrated = cloneEmpiresConfig(previous)
+
+    expect(previous).toEqual(original)
+    expect(migrated.td.equipmentProduction).toEqual([])
+    expect(migrated.td.equipmentProductionLines).toEqual([])
+    expect(() => validateEmpiresConfig(migrated)).not.toThrow()
+    window.localStorage.setItem(EMPIRES_CONFIG_STORAGE_KEY, JSON.stringify(previous))
+    expect((await loadEmpiresConfig()).td.equipmentProduction).toEqual([])
   })
 
   it('migrates a previous-v2 custom TD catalog into one safe central plan', () => {
@@ -189,7 +282,7 @@ describe('Empire\'s Endgame full-chain compatibility scaffolding', () => {
     const migrated = cloneEmpiresConfig(legacy)
 
     expect(legacy).toEqual(before)
-    expect(migrated.schemaVersion).toBe(3)
+    expect(migrated.schemaVersion).toBe(4)
     expect(migrated.td.regionalCatalogEnabled).toBe(false)
     expect(migrated.td.towerBases).toEqual([
       expect.objectContaining({
@@ -251,9 +344,17 @@ describe('Empire\'s Endgame full-chain compatibility scaffolding', () => {
     const partial = parseEmpiresConfig(JSON.stringify(partialSection))
     expect(partial.td.regionalCatalogEnabled).toBe(false)
     expect(partial.td.battlefields).toEqual([])
+    expect(partial.td.equipmentProductionLines).toEqual([{
+      id: 'legacy-smithy-1',
+      capacityFlagId: 'smithCapacity',
+      capacityShare: 1,
+    }])
     expect(partial.td.equipmentProduction).toEqual([{
+      id: 'legacy-recipe-basic-kit',
       equipmentId: 'basic-kit',
+      lineId: 'legacy-smithy-1',
       amountPerSmithCapacity: 1,
+      priority: 0,
     }])
     expect(partial.td.planVariants).toEqual([])
   })
@@ -275,16 +376,16 @@ describe('Empire\'s Endgame full-chain compatibility scaffolding', () => {
   it('routes bundled, stored, JSON import, and clone boundaries through migration', async () => {
     const legacy = makeV2Config()
 
-    expect(cloneEmpiresConfig(legacy).schemaVersion).toBe(3)
-    expect(parseEmpiresConfig(JSON.stringify(legacy)).schemaVersion).toBe(3)
+    expect(cloneEmpiresConfig(legacy).schemaVersion).toBe(4)
+    expect(parseEmpiresConfig(JSON.stringify(legacy)).schemaVersion).toBe(4)
     expect((await readEmpiresJsonFile(new File(
       [JSON.stringify(legacy)],
       'legacy-empires-config.json',
       { type: 'application/json' },
-    ))).schemaVersion).toBe(3)
+    ))).schemaVersion).toBe(4)
 
     window.localStorage.setItem(EMPIRES_CONFIG_STORAGE_KEY, JSON.stringify(legacy))
-    expect((await loadEmpiresConfig()).schemaVersion).toBe(3)
+    expect((await loadEmpiresConfig()).schemaVersion).toBe(4)
     window.localStorage.removeItem(EMPIRES_CONFIG_STORAGE_KEY)
 
     vi.stubGlobal('fetch', vi.fn(async () => ({
@@ -292,7 +393,7 @@ describe('Empire\'s Endgame full-chain compatibility scaffolding', () => {
       status: 200,
       json: async () => jsonClone(legacy),
     })))
-    expect((await loadBundledEmpiresConfig()).schemaVersion).toBe(3)
+    expect((await loadBundledEmpiresConfig()).schemaVersion).toBe(4)
   })
 
   it('keeps all unrelated deferred carriers unchanged across the full chain', () => {
@@ -324,6 +425,140 @@ describe('Empire\'s Endgame full-chain compatibility scaffolding', () => {
       .toBeDefined()
     expect(bundled.gifts.definitions.find(gift => gift.id === 'gift-combat-spirit')?.deferredReason)
       .toBeUndefined()
+  })
+
+  it('migrates a genuine v2 aggregate army into frozen cohorts and rejects future save versions', () => {
+    const config = currentConfig()
+    const state = jsonClone(new EmpiresEndgameEngine(config).snapshot()) as unknown as UnknownRecord
+    state.schemaVersion = 2
+    const city = ((state.empire as UnknownRecord).cities as UnknownRecord[])[0]
+    city.recruitedUnits = { 'unit-regular': 2 }
+    delete city.recruitedUnitCohorts
+    const envelope: UnknownRecord = {
+      schemaVersion: 2,
+      savedAt: '2026-07-17T00:00:00.000Z',
+      state,
+    }
+    const original = jsonClone(envelope)
+
+    const imported = importEmpiresCampaign(envelope, config.id)
+    expect(envelope).toEqual(original)
+    const restored = new EmpiresEndgameEngine(config, imported)
+    const cohort = restored.state.empire.cities[0].recruitedUnitCohorts[0]
+    expect(cohort).toMatchObject({
+      id: `legacy:${restored.state.empire.cities[0].id}:unit-regular`,
+      unitId: 'unit-regular',
+      loadoutId: 'legacy-default',
+      count: 2,
+      weaponEquipmentId: 'weapon-laurel-spear',
+      weapon: { damageLevels: { piercing: 2, cutting: 2 } },
+    })
+    expect(new EmpiresEndgameEngine(config, restored.snapshot()).snapshot()).toEqual(restored.snapshot())
+
+    expect(() => importEmpiresCampaign({ ...envelope, schemaVersion: 4 }, config.id))
+      .toThrow(/version 1, 2 or 3|версии 1, 2 или 3/)
+    expect(() => importEmpiresCampaign({
+      ...envelope,
+      schemaVersion: 3,
+      state: { ...(envelope.state as UnknownRecord), schemaVersion: 4 },
+    }, config.id)).toThrow(/version 1, 2 or 3|версии 1, 2 или 3/)
+  })
+
+  it('migrates and settles a genuine v2 active TD save with canonical legacy cohort identity', () => {
+    const config = currentConfig()
+    config.empire.eventChance = 0
+    const source = new EmpiresEndgameEngine(config)
+    const ready = source.snapshot()
+    ready.phase = 'empire'
+    ready.con = 2
+    ready.empire.daysRemaining = 59
+    ready.external.nextWaveCon = 2
+    for (const resource of config.empire.resources) ready.empire.resources[resource.id] = 1_000_000
+    const city = ready.empire.cities.find(candidate => candidate.id === 'city-tetrakor-capital')!
+    city.population = 1_000_000
+    city.militaryPopulation = 100
+    for (const classId of Object.keys(city.populationClasses)) city.populationClasses[classId] = 1_000_000
+    city.resources[config.empire.foodResourceId] = 1_000_000
+    city.buildingLevels['building-barracks'] = 5
+    city.operationalBuildingLevels['building-barracks'] = 5
+    ready.empire.researchedTechnologyIds.push('doctrine-war')
+    ready.army.equipmentStock['basic-kit'] = 10
+    source.restore(ready)
+    expect(source.recruitUnits(city.id, 'unit-light')).toMatchObject({ ok: true })
+    expect(source.finishEmpire()).toMatchObject({ ok: true })
+    expect(source.state.phase).toBe('minigame')
+
+    const legacy = jsonClone(source.snapshot()) as unknown as UnknownRecord
+    legacy.schemaVersion = 2
+    const legacyEmpire = legacy.empire as UnknownRecord
+    for (const rawCity of legacyEmpire.cities as UnknownRecord[]) {
+      const cohorts = (rawCity.recruitedUnitCohorts as UnknownRecord[] | undefined) ?? []
+      rawCity.recruitedUnits = Object.fromEntries(cohorts.map(cohort => [cohort.unitId, cohort.count]))
+      delete rawCity.recruitedUnitCohorts
+    }
+    const session = legacy.minigame as UnknownRecord
+    const plan = session.plan as UnknownRecord
+    delete plan.equipmentStock
+    for (const deployment of plan.deployments as UnknownRecord[]) delete deployment.cohortId
+    delete session.rulesIdentity
+    delete plan.rulesIdentity
+    const envelope = { schemaVersion: 2, savedAt: '2026-07-17T00:00:00.000Z', state: legacy }
+
+    const restored = new EmpiresEndgameEngine(
+      config,
+      importEmpiresCampaign(envelope, config.id),
+    )
+    const deployment = restored.state.minigame!.plan.deployments[0]
+    expect(deployment.cohortId).toBe(`legacy:${deployment.cityId}:${deployment.unitId}`)
+    expect(restored.state.minigame!.plan.equipmentStock).toEqual({})
+    expect(restored.abortMinigame()).toMatchObject({ ok: true })
+  })
+
+  it('rejects an immediate P3A active save with an explicit stale rules identity', () => {
+    const config = currentConfig()
+    config.empire.eventChance = 0
+    const source = new EmpiresEndgameEngine(config)
+    const ready = source.snapshot()
+    ready.phase = 'empire'
+    ready.con = 2
+    ready.empire.daysRemaining = 59
+    ready.external.nextWaveCon = 2
+    for (const resource of config.empire.resources) ready.empire.resources[resource.id] = 1_000_000
+    for (const city of ready.empire.cities) city.resources[config.empire.foodResourceId] = 1_000_000
+    source.restore(ready)
+    expect(source.finishEmpire()).toMatchObject({ ok: true })
+    expect(source.state.phase).toBe('minigame')
+
+    const legacy = jsonClone(source.snapshot()) as unknown as UnknownRecord
+    legacy.schemaVersion = 3
+    const session = legacy.minigame as UnknownRecord
+    const plan = session.plan as UnknownRecord
+    session.rulesIdentity = { configSchemaVersion: 3, rulesDigest: 'legacy-p3a' }
+    plan.rulesIdentity = { configSchemaVersion: 3, rulesDigest: 'legacy-p3a' }
+    const envelope = { schemaVersion: 3, savedAt: '2026-07-17T00:00:00.000Z', state: legacy }
+    const imported = importEmpiresCampaign(envelope, config.id)
+
+    expect(() => new EmpiresEndgameEngine(config, imported))
+      .toThrow(/active minigame rules identity does not match the loaded configuration/i)
+  })
+
+  it('rejects malformed frozen cohort profiles while preserving valid old cohorts', () => {
+    const config = currentConfig()
+    const fresh = new EmpiresEndgameEngine(config)
+    const malformed = jsonClone(fresh.snapshot()) as unknown as UnknownRecord
+    const empire = malformed.empire as UnknownRecord
+    const city = (empire.cities as UnknownRecord[])[0]
+    city.recruitedUnitCohorts = [{
+      id: 'malformed-cohort',
+      unitId: 'unit-light',
+      loadoutId: 'legacy-default',
+      count: 1,
+      weapon: {},
+      armor: null,
+    }]
+
+    expect(() => new EmpiresEndgameEngine(config, malformed as unknown as EmpiresCampaignState))
+      .toThrow(/invalid frozen weapon profile/i)
   })
 
   it('normalizes a pre-P2 v1 save and round-trips it without gameplay drift', () => {
@@ -362,6 +597,7 @@ describe('Empire\'s Endgame full-chain compatibility scaffolding', () => {
       },
       army: {
         equipmentStock: {},
+        foundryInstantReadyConByCity: {},
         pendingLoyaltyDeltas: [],
         morale: 0,
         maxMorale: 2,

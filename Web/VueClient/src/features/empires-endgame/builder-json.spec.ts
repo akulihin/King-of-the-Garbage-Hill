@@ -5,8 +5,8 @@ import BuilderDrawer from '../../components/empires-endgame/BuilderDrawer.vue'
 import { cloneEmpiresConfig, parseEmpiresConfig } from './config'
 import type { EmpiresEndgameConfig } from './types'
 
-describe('Empire\'s Endgame Builder combat JSON boundary', () => {
-  it('round-trips the complete combat catalog through edit, import, and export controls', async () => {
+describe('Empire\'s Endgame Builder schema-v4 JSON boundary', () => {
+  it('round-trips steel research, loadouts, production lines, and combat through every JSON control', async () => {
     const config = cloneEmpiresConfig(defaultConfigJson)
     const updates: EmpiresEndgameConfig[] = []
     const onExport = vi.fn()
@@ -26,7 +26,16 @@ describe('Empire\'s Endgame Builder combat JSON boundary', () => {
 
     expect(exported.combat).toEqual(config.combat)
     expect(exported.combat.enabled).toBe(true)
-    expect(exported.combat.equipment).toHaveLength(31)
+    expect(exported.combat.equipment).toHaveLength(config.combat.equipment.length)
+    expect(exported.schemaVersion).toBe(4)
+    expect(exported.empire.steelResearch).toEqual(config.empire.steelResearch)
+    expect(exported.empire.technologies.map(technology => technology.steel))
+      .toEqual(config.empire.technologies.map(technology => technology.steel))
+    expect(exported.empire.units?.map(unit => unit.loadouts))
+      .toEqual(config.empire.units?.map(unit => unit.loadouts))
+    expect(exported.td.equipmentProductionLines).toEqual(config.td.equipmentProductionLines)
+    expect(exported.td.towerBases?.map(base => base.loadouts))
+      .toEqual(config.td.towerBases?.map(base => base.loadouts))
 
     await fireEvent.update(editor, exportedText)
     await fireEvent.click(getByRole('button', { name: /Проверить и применить/ }))

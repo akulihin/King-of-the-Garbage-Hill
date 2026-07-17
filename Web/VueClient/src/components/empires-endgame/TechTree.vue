@@ -27,12 +27,21 @@ interface TechnologyNodeView {
   costGold: number
   costs?: string[]
   timeCost: number
+  costMultiplier?: number
+  entryFromName?: string
+  freeEligibleCon?: number | null
   researched?: boolean
   available?: boolean
   darkSide?: string
   blockedReason?: string
   image?: string
   deferredReason?: string
+  steelBranch?: string
+  steelGeneration?: number
+  steelStage?: 'whole' | 'minus' | 'plus'
+  steelElite?: boolean
+  steelPayoff?: 'equipment' | 'unlock-only' | 'deferred'
+  deferredSubfeatures?: Array<{ id: string, reason: string }>
 }
 
 const props = withDefaults(defineProps<{
@@ -360,7 +369,13 @@ function hideBrokenImage(event: Event) {
                 <LockKeyhole v-else :size="15" />
               </span>
               <strong>{{ node.name }}</strong>
-              <small>{{ node.deferredReason ? 'будущая механика' : `${node.timeCost}д · ${node.costKnowledge} зн.` }}</small>
+              <small>
+                {{ node.deferredReason
+                  ? 'будущая механика'
+                  : node.steelGeneration !== undefined
+                  ? `пок. ${node.steelGeneration}${node.steelStage === 'minus' ? '−' : node.steelStage === 'plus' ? '+' : ''} · ${node.costKnowledge} зн.`
+                  : `${node.timeCost}д · ${node.costKnowledge} зн.` }}
+              </small>
               <Move v-if="editable" class="move-mark" :size="12" />
             </button>
 
@@ -379,9 +394,24 @@ function hideBrokenImage(event: Event) {
           <span class="detail-branch" :style="{ color: colorFor(selected.branch) }">{{ selected.branch }}</span>
           <h3>{{ selected.name }}</h3>
           <p>{{ selected.description }}</p>
+          <div v-if="selected.steelBranch" class="steel-metadata" data-testid="selected-steel-metadata">
+            <b>{{ selected.steelBranch }}</b>
+            <span>поколение {{ selected.steelGeneration }}{{ selected.steelStage === 'minus' ? '−' : selected.steelStage === 'plus' ? '+' : '' }}</span>
+            <span>{{ selected.steelPayoff === 'equipment' ? 'снаряжение' : selected.steelPayoff === 'unlock-only' ? 'открытие' : 'эффект отложен' }}</span>
+            <span v-if="selected.steelElite">требуется элита</span>
+          </div>
+          <p v-if="selected.entryFromName" class="steel-entry">Переход из соседней ветви: {{ selected.entryFromName }}</p>
+          <p v-if="selected.freeEligibleCon !== null && selected.freeEligibleCon !== undefined" class="steel-entry">Бесплатное открытие: кон {{ selected.freeEligibleCon }}</p>
+          <p v-if="(selected.costMultiplier ?? 1) > 1" class="steel-multiplier">Цена покинутой ветви: ×{{ selected.costMultiplier }}</p>
           <div v-if="selected.deferredReason" class="deferred-reason" role="status">
             <LockKeyhole :size="14" />
             <span><strong>Будущая механика.</strong> {{ selected.deferredReason }}</span>
+          </div>
+          <div v-if="selected.deferredSubfeatures?.length" class="deferred-subfeatures" role="status">
+            <strong>Отложенные части</strong>
+            <span v-for="subfeature in selected.deferredSubfeatures" :key="subfeature.id">
+              {{ subfeature.reason }}
+            </span>
           </div>
           <dl>
             <div><dt>Время</dt><dd>{{ selected.timeCost }} дней</dd></div>
@@ -408,7 +438,7 @@ function hideBrokenImage(event: Event) {
             v-if="!editable && !selected.researched"
             class="research-button"
             type="button"
-            :disabled="!selected.available || knowledge < selected.costKnowledge || gold < selected.costGold || days < selected.timeCost"
+            :disabled="!selected.available"
             @click="emit('research', selected.id)"
           >
             <FlaskConical :size="16" /> {{ selected.deferredReason ? 'Будущая механика' : 'Изучить' }}
@@ -475,6 +505,11 @@ function hideBrokenImage(event: Event) {
 .detail-branch { font: 900 .62rem/1 var(--font-mono, monospace); letter-spacing: .12em; text-transform: uppercase; }
 .tech-detail h3 { margin: 8px 0; font: 700 1.25rem/1.15 Georgia, serif; }
 .tech-detail p { margin: 0 0 16px; color: rgba(238,228,207,.62); font-size: .75rem; line-height: 1.55; }
+.steel-metadata { display: flex; flex-wrap: wrap; gap: 5px; margin: 0 0 12px; }
+.steel-metadata b,.steel-metadata span { padding: 5px 6px; border: 1px solid rgba(145,162,170,.22); border-radius: 5px; color: #b8c6ca; background: rgba(115,137,146,.08); font: 800 .52rem/1 var(--font-mono, monospace); text-transform: uppercase; }
+.steel-metadata b { border-color: rgba(198,168,107,.28); color: #ddc486; }
+.tech-detail .steel-entry,.tech-detail .steel-multiplier { width: 100%; margin: 0 0 8px; padding: 7px 8px; border-left: 2px solid #91a2aa; color: #b9c7ca; background: rgba(145,162,170,.07); font: 700 .6rem/1.35 var(--font-mono, monospace); }
+.tech-detail .steel-multiplier { border-color: #c38770; color: #e0aa95; background: rgba(165,91,72,.08); }
 .tech-detail dl { display: grid; width: 100%; grid-template-columns: repeat(3, 1fr); gap: 5px; margin: 0 0 14px; }
 .tech-detail dl div { padding: 8px 5px; border-radius: 6px; background: rgba(255,255,255,.035); text-align: center; }
 .tech-detail dt { color: rgba(238,228,207,.42); font: 700 .52rem/1 var(--font-mono, monospace); text-transform: uppercase; }
@@ -486,6 +521,8 @@ function hideBrokenImage(event: Event) {
 .deferred-reason { display: flex; width: 100%; align-items: flex-start; gap: 7px; margin-bottom: 12px; padding: 9px; border: 1px solid rgba(190, 132, 78, .3); border-radius: 7px; color: #e0b984; background: rgba(126, 75, 34, .11); font-size: .64rem; line-height: 1.4; }
 .deferred-reason svg { flex: none; margin-top: 1px; }
 .deferred-reason strong { color: #f0cca0; }
+.deferred-subfeatures { display: grid; gap: 5px; margin-bottom: 12px; padding: 9px; border: 1px solid rgba(190, 132, 78, .3); border-radius: 7px; color: #d6b488; background: rgba(126, 75, 34, .08); font-size: .64rem; line-height: 1.4; }
+.deferred-subfeatures strong { color: #f0cca0; text-transform: uppercase; letter-spacing: .07em; }
 .blocked-reason { display: flex; width: 100%; align-items: flex-start; gap: 7px; margin-top: 10px; padding: 9px; border: 1px solid rgba(187, 102, 92, .26); border-radius: 7px; color: #d8a39c; background: rgba(117, 52, 45, .1); font-size: .64rem; line-height: 1.4; }
 .blocked-reason svg { flex: none; margin-top: 1px; }
 .research-button { display: inline-flex; width: 100%; min-height: 38px; align-items: center; justify-content: center; gap: 7px; margin-top: auto; border: 1px solid #c6a86b; border-radius: 7px; color: #241d11; background: #c6a86b; cursor: pointer; font-weight: 900; }

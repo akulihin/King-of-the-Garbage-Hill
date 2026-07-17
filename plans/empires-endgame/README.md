@@ -32,7 +32,10 @@ Current execution status supplied by the designer on 2026-07-17:
   regression-checked the landed baseline before applying its explicit post-P2 hardening.
 - **Phase 3A — complete.** Rules identity, bounded replay/history, accessible real-input TD,
   five regional fields and reusable assault landed as one change-set.
-- **Next prompt: Phase 3B** (`phase-03b-steel-equipment.md`).
+- **Phase 3B — complete.** Schema-v4 steel research, four exact spearhead production
+  payoffs, equipped cohorts, shared Smithy capacity, Foundry, the morale floor and the
+  complete latest-source/deferral ledger landed as one change-set.
+- **Next prompt: Phase 4A** (`phase-04-loyalty-seasons.md`).
 
 Scope decisions confirmed by the designer (2026-07-16):
 
@@ -49,7 +52,7 @@ graph TD
   P0[0 complete] --> P1[1 complete]
   P1 --> P2[2 complete]
   P2 --> P3A[3A complete]
-  P3A --> P3B[3B steel + military production]
+  P3A --> P3B[3B complete: steel + military production]
   P3A --> P4A[4A loyalty + reputation + rebellion]
   P3B --> P4B[4B seasons + tech sides + politics]
   P4A --> P4B
@@ -85,7 +88,7 @@ graph TD
 | `phase-01-combat-core.md` | **Complete/historical.** Pure combat/damage/counter catalog. |
 | `phase-02-td-vertical-slice.md` | **Complete/historical.** Central TD, envelope, army. |
 | `phase-03-td-regions-steel.md` | **Complete/historical.** P2 baseline regression, replay/config identity, input/accessibility hardening, five regional TD fields, castle/naval enemy variants, assault. |
-| `phase-03b-steel-equipment.md` | **3B:** latest steel tree, equipment production, foundry/academy, missing military-building audit. |
+| `phase-03b-steel-equipment.md` | **Complete/historical.** Latest steel inventory, schema-v4 research state, exact spear equipment/cohorts, Smithy capacity, Foundry/relic closure and military-building deferral audit. |
 | `phase-04-loyalty-seasons.md` | **4A:** loyalty, reputation, rebellion, class gates, chronicle, northern raids. |
 | `phase-04b-seasons-tech-sides.md` | **4B:** seasons, technology sides, political reforms, crime substrate. |
 | `phase-04c-advisors-persts-capital.md` | **4C:** advisor flow, suit/Grand Advisor rules, governor персты, capital slot governance. |
@@ -103,6 +106,30 @@ graph TD
 | `phase-12b-content-closure.md` | Raw-source/config carrier closure sweep; no new substrate. |
 | `phase-13-stabilization.md` | Earliest-to-latest compatibility, all-minigame integration, storage/performance stabilization. |
 
+## P3B handoff
+
+- The compatibility baseline is config schema 4 and campaign/save envelope 3. Old aggregate
+  unit counts migrate once into equipped cohorts; schema-v2 regulars alone are grandfathered
+  to a frozen `legacy-default` laurel profile without consuming new stock. New regular
+  recruitment has no invented pre-steel weapon and remains blocked until a live steel spear
+  loadout is researched and produced. Later phases must preserve cohort identity and cannot
+  infer loadouts from the latest researched technology.
+- Four exact Древковые nodes are live through produced stock and TD. This is deliberately
+  not “the full steel tree”: 18 old carriers and 51 latest-source named items remain
+  deferred/absent with per-row blockers in `docs/EMPIRES-ENDGAME-DESIGN-REVIEW.md`.
+- Research and recruitment availability/cost are engine quotes, not UI rules. TD identity
+  covers combat, TD, technologies, units, buildings and steel settings; later changes to any
+  of those inputs must continue to invalidate mismatched active sessions.
+- Foundry defaults and Smithy capacity splits remain open ledger values. Foundry is live in
+  non-capital cities, while `capital-sixth-slot` is a visible deferred subfeature because the
+  capital's unswappable Temple occupies its unique slot. TechTree and building details expose
+  subfeature reasons. Military Academy, ♥A, Ударные, Мастерская, Баллиста and Двор
+  Гвардейской Дружины are not follow-up cleanup; their exact missing semantics/substrate must
+  arrive through the owning later phase or a designer verdict.
+- Compatible old saves migrate deterministically. If an active old-rule minigame cannot
+  satisfy current rules identity, the UI rejects reinterpretation and offers an explicit
+  discard-and-restart recovery.
+
 ## How to execute the remaining prompts
 
 Run **one phase/subphase file per fresh Codex task and per change-set**. Do not combine
@@ -114,7 +141,7 @@ to paste into one large task.
 The graph permits some separate-worktree parallelism, but these phases commonly touch the
 same config, types, engine, docs, and version file. The safest single-worktree order is:
 
-`3A → 3B → 4A → 4B → 4C → 5 → 6A → 6B → 6C → 7 → 8 → 9 → 10 → 11A → 11B → 12 → 12B → 13`.
+`4A → 4B → 4C → 5 → 6A → 6B → 6C → 7 → 8 → 9 → 10 → 11A → 11B → 12 → 12B → 13`.
 
 Use this opening prompt, replacing `<phase-file>` with exactly one file:
 
@@ -156,8 +183,10 @@ gates. Do not commit or push.
 - **Compatibility sequence**: Phase 0 moves config v1→v2 and adds disabled future
   sections. Later phases backfill additive section fields before validation or advance to
   the next sequential config version when semantics demand it. Phase 2 moves campaign/
-  envelope v1→v2 for the real minigame phase; Phase 4 targets the next version for loyalty.
-  Never reuse a hard-coded version if the executed repository is already farther ahead.
+  envelope v1→v2 for the real minigame phase; P3A moves config v2→v3; P3B moves config
+  v3→v4 and campaign/envelope v2→v3 for equipped cohorts. Phase 4 must target the next
+  actual versions for loyalty. Never reuse a hard-coded version if the executed repository
+  is already farther ahead.
 - **New component homes**: `src/components/empires-endgame/` (`TdBattle.vue`, `DialogueOverlay.vue`, `QuestJournal.vue`, `DeckMemoryPanel.vue`, …); new feature modules under `features/empires-endgame/` (`combat/`, `td/`, `quests.ts`, `alchemy/`, `tavern/`, `inventory/`, `chess/`).
 - `engine.ts` (~2.5k lines): extract internal modules (an `engine/` dir) only when a phase already touches that cluster; no big-bang refactor.
 

@@ -3,6 +3,7 @@ import defaultConfigJson from '../../../../public/empires-endgame/game-config.js
 import { cloneEmpiresConfig } from '../config'
 import { EmpiresEndgameEngine } from '../engine'
 import {
+  abortTdBattle,
   consumeTdFrameTime,
   createTdRulesIdentity,
   createTdSimulation,
@@ -30,6 +31,7 @@ function clone<T>(value: T): T {
 function assaultDeployment(battlePlan: Pick<TdBattlePlan, 'battlefield'>): TdDeploymentPlan {
   return {
     id: 'capital:unit-light',
+    cohortId: 'cohort-capital-light',
     cityId: 'capital',
     unitId: 'unit-light',
     count: 8,
@@ -53,7 +55,12 @@ function plan(variantId = 'central-castle-defense'): TdBattlePlan {
   const battlePlan: TdBattlePlan = {
     id,
     sessionId: `${id}:session`,
-    rulesIdentity: createTdRulesIdentity(config.schemaVersion, config.combat, config.td),
+    rulesIdentity: createTdRulesIdentity(config.schemaVersion, config.combat, config.td, {
+      technologies: config.empire.technologies,
+      units: config.empire.units ?? [],
+      buildings: config.empire.buildings,
+      steelResearch: config.empire.steelResearch,
+    }),
     mode: variant.mode,
     scheduledCon: 2,
     threat: 0,
@@ -69,6 +76,7 @@ function plan(variantId = 'central-castle-defense'): TdBattlePlan {
     gradeChoices: clone(config.td.gradeChoices!.filter(set => set.regionId === battlefield.regionId)),
     wave: clone(wave),
     combat: clone(config.combat),
+    equipmentStock: {},
     deployments: [],
   }
   if (variant.mode === 'assault') battlePlan.deployments = [assaultDeployment(battlePlan)]
@@ -297,6 +305,30 @@ describe('Empire\'s Endgame deterministic regional TD engine', () => {
     expect(validateTdBattlePlan(disconnected)).toContain(
       `group ${disconnected.wave.groups[0].id} route is not contiguous from the spawner`,
     )
+
+    const invalidEquipment = plan()
+    invalidEquipment.equipmentStock.bad = Number.POSITIVE_INFINITY
+    invalidEquipment.towerBases[0].loadouts = [{
+      id: 'invalid-loadout',
+      priority: 1,
+      weaponEquipmentId: 'missing-weapon',
+      equipmentCosts: [{ equipmentId: 'bad', amount: 1 }],
+    }]
+    expect(validateTdBattlePlan(invalidEquipment)).toEqual(expect.arrayContaining([
+      'equipmentStock bad must be finite and non-negative',
+      `tower base ${invalidEquipment.towerBases[0].id} loadout invalid-loadout weapon is unavailable`,
+    ]))
+
+    const fabricatedSteel = plan()
+    fabricatedSteel.towerBases[0].loadouts = [{
+      id: 'fabricated-steel',
+      priority: 1,
+      weaponEquipmentId: 'weapon-laurel-spear',
+      equipmentCosts: [{ equipmentId: 'basic-kit', amount: 1 }],
+    }]
+    expect(validateTdBattlePlan(fabricatedSteel)).toContain(
+      `tower base ${fabricatedSteel.towerBases[0].id} loadout fabricated-steel must consume its technology-linked equipment weapon-laurel-spear`,
+    )
   })
 
   it('advances one configured fixed tick and spawns once at the wave boundary', () => {
@@ -403,6 +435,107 @@ describe('Empire\'s Endgame deterministic regional TD engine', () => {
     expect(state.enemies[0].hp).toBe(96)
   })
 
+  it('resolves tower loadouts by priority/id, consumes exact stock, and restores deterministically', () => {
+    const battlePlan = plan()
+    battlePlan.maxTicks = 3
+    configureSingleDurableEnemy(battlePlan, ['melee'])
+    battlePlan.wave.groups[0].weapon = { damageLevels: { impact: 100 }, tags: ['arrow'] }
+    battlePlan.combat.equipment.push(
+      {
+        id: 'weapon-tower-priority',
+        name: 'Priority tower weapon',
+        kind: 'weapon',
+        profile: { damageLevels: { impact: 22 }, tags: ['tower'] },
+      },
+      {
+        id: 'weapon-tower-fallback',
+        name: 'Fallback tower weapon',
+        kind: 'weapon',
+        profile: { damageLevels: { impact: 11 }, tags: ['tower'] },
+      },
+      {
+        id: 'shield-tower',
+        name: 'Tower shield',
+        kind: 'shield',
+        profile: { classId: 'shield', level: 1, tags: ['tower'] },
+      },
+    )
+    battlePlan.towerBases[0].loadouts = [
+      {
+        id: 'z-priority',
+        priority: 10,
+        weaponEquipmentId: 'weapon-tower-priority',
+        defenseEquipmentId: 'shield-tower',
+        equipmentCosts: [
+          { equipmentId: 'steel-kit', amount: 2 },
+          { equipmentId: 'tower-shield', amount: 1 },
+        ],
+      },
+      {
+        id: 'a-priority',
+        priority: 10,
+        weaponEquipmentId: 'weapon-tower-priority',
+        defenseEquipmentId: 'shield-tower',
+        equipmentCosts: [
+          { equipmentId: 'tower-shield', amount: 1 },
+          { equipmentId: 'steel-kit', amount: 2 },
+        ],
+      },
+      {
+        id: 'lower-priority',
+        priority: 5,
+        weaponEquipmentId: 'weapon-tower-fallback',
+        equipmentCosts: [{ equipmentId: 'basic-kit', amount: 1 }],
+      },
+    ]
+    battlePlan.equipmentStock = { 'basic-kit': 1, 'steel-kit': 2, 'tower-shield': 1 }
+    expect(validateTdBattlePlan(battlePlan)).toEqual([])
+
+    const commands: TdCommand[] = battlePlan.battlefield.buildSpots.map((spot, index) => ({
+      ...commandIdentity(battlePlan, index, index),
+      kind: 'build-tower',
+      spotId: spot.id,
+      towerBaseId: battlePlan.towerBases[0].id,
+    }))
+    const state = createTdSimulation(battlePlan, 'tower-equipment')
+    stepTdSimulation(battlePlan, state, [commands[0]])
+    expect(state.towers[0]).toMatchObject({
+      loadoutId: 'a-priority',
+      weaponEquipmentId: 'weapon-tower-priority',
+      defenseEquipmentId: 'shield-tower',
+      weapon: { damageLevels: { impact: 22 } },
+      armor: { classId: 'shield', level: 1 },
+      hp: battlePlan.towerBases[0].maxHp,
+    })
+    expect(state.enemies[0].hp).toBe(978)
+    expect(state.equipmentStock).toEqual({ 'basic-kit': 1, 'steel-kit': 0, 'tower-shield': 0 })
+    expect(state.equipmentSpent).toEqual({ 'steel-kit': 2, 'tower-shield': 1 })
+
+    const restored = clone(state)
+    stepTdSimulation(battlePlan, state, [commands[1]])
+    stepTdSimulation(battlePlan, restored, [clone(commands[1])])
+    expect(restored).toEqual(state)
+    stepTdSimulation(battlePlan, state, [commands[2]])
+    expect(state.towers.map(tower => tower.loadoutId)).toEqual([
+      'a-priority',
+      'lower-priority',
+      null,
+    ])
+    expect(state.towers[2].weapon).toEqual(battlePlan.towerBases[0].weapon)
+    expect(state.equipmentStock).toEqual({ 'basic-kit': 0, 'steel-kit': 0, 'tower-shield': 0 })
+    expect(state.equipmentSpent).toEqual({ 'basic-kit': 1, 'steel-kit': 2, 'tower-shield': 1 })
+
+    const result = replayTdBattle(battlePlan, 'tower-equipment', commands)
+    expect(result.equipmentSpent).toEqual(state.equipmentSpent)
+    expect(replayTdBattle(clone(battlePlan), 'tower-equipment', clone(commands))).toEqual(result)
+    const aborted = abortTdBattle(battlePlan, 'tower-equipment', [commands[0]], 1)
+    expect(aborted).toMatchObject({
+      outcome: 'aborted',
+      ticks: 1,
+      equipmentSpent: { 'steel-kit': 2, 'tower-shield': 1 },
+    })
+  })
+
   it('terminates central castle defense with both victory and destruction outcomes', () => {
     const victoryPlan = plan()
     victoryPlan.wave.groups[0].count = 1
@@ -443,6 +576,7 @@ describe('Empire\'s Endgame deterministic regional TD engine', () => {
     victoryPlan.deployments[0].weapon = { damageLevels: { impact: 100 }, tags: ['unit'] }
     const victory = replayTdBattle(victoryPlan, 'assault-victory', [])
     expect(victory).toMatchObject({ outcome: 'victory', terminalReason: 'objective-destroyed' })
+    expect(victory.deployments[0].cohortId).toBe(victoryPlan.deployments[0].cohortId)
 
     const defeatPlan = plan('central-fort-assault')
     defeatPlan.wave.groups[0].count = 1

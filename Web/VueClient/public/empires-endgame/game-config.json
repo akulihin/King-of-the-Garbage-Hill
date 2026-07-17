@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 3,
+  "schemaVersion": 4,
   "id": "empires-endgame-default",
   "title": "Empire's Endgame",
   "seed": "empires-endgame-authoritative-default-v1",
@@ -38,10 +38,10 @@
       { "id": "weapon-sea-urchin", "name": "Ёж", "kind": "weapon", "profile": { "damageLevels": { "impact": 2, "piercing": 2, "crushing": 2 }, "tags": ["mace"] } },
       { "id": "weapon-horseman-pick", "name": "Клевец", "kind": "weapon", "profile": { "damageLevels": { "impact": 6, "piercing": 4, "crushing": 3 }, "tags": ["pick"] } },
       { "id": "weapon-two-handed-horseman-pick", "name": "Двуручный Клевец", "kind": "weapon", "profile": { "damageLevels": { "impact": 8, "piercing": 8, "crushing": 8 }, "tags": ["pick"] } },
-      { "id": "weapon-laurel-spear", "name": "Копье лавровое", "kind": "weapon", "profile": { "damageLevels": { "piercing": 2, "cutting": 2 }, "tags": ["polearm"] } },
-      { "id": "weapon-lancet-spear", "name": "Ланцетовидное", "kind": "weapon", "profile": { "damageLevels": { "piercing": 3, "cutting": 2 }, "tags": ["polearm"] } },
-      { "id": "weapon-diamond-spear", "name": "Ромбовидное", "kind": "weapon", "profile": { "damageLevels": { "piercing": 4, "cutting": 1, "crushing": 1 }, "tags": ["polearm"] } },
-      { "id": "weapon-cross-spear", "name": "Крестовидное", "kind": "weapon", "profile": { "damageLevels": { "piercing": 5, "crushing": 3 }, "tags": ["polearm"] } },
+      { "id": "weapon-laurel-spear", "name": "Копье лавровое", "kind": "weapon", "profile": { "damageLevels": { "piercing": 2, "cutting": 2 }, "tags": ["polearm"] }, "technologyId": "steel-laurel-spearhead" },
+      { "id": "weapon-lancet-spear", "name": "Ланцетовидное", "kind": "weapon", "profile": { "damageLevels": { "piercing": 3, "cutting": 2 }, "tags": ["polearm"] }, "technologyId": "steel-lancet-spearhead" },
+      { "id": "weapon-diamond-spear", "name": "Ромбовидное", "kind": "weapon", "profile": { "damageLevels": { "piercing": 4, "cutting": 1, "crushing": 1 }, "tags": ["polearm"] }, "technologyId": "steel-diamond-spearhead" },
+      { "id": "weapon-cross-spear", "name": "Крестовидное", "kind": "weapon", "profile": { "damageLevels": { "piercing": 5, "crushing": 3 }, "tags": ["polearm"] }, "technologyId": "steel-cross-spearhead" },
       { "id": "weapon-awl-spear", "name": "Шиловидное", "kind": "weapon", "profile": { "damageLevels": { "piercing": 6, "crushing": 1 }, "tags": ["polearm"] } },
       { "id": "weapon-steel-axe", "name": "Стальной топор", "kind": "weapon", "profile": { "damageLevels": { "chopping": 2, "crushing": 2, "cutting": 1 }, "tags": ["axe"], "passiveIds": ["lower-shields"] } },
       { "id": "weapon-bearded-axe", "name": "Бородатый топор", "kind": "weapon", "profile": { "damageLevels": { "chopping": 3, "crushing": 3, "cutting": 3 }, "tags": ["axe"], "passiveIds": ["lower-shields"] } },
@@ -88,7 +88,17 @@
       "abort": { "moraleDelta": -2, "allianceThreatDelta": 2, "recruitmentPenaltyPerDeployedUnit": 0.25 }
     },
     "morale": { "initial": 0, "minimum": 0, "maximum": 2 },
-    "equipmentProduction": [{ "equipmentId": "basic-kit", "amountPerSmithCapacity": 1 }],
+    "equipmentProductionLines": [
+      { "id": "smithy-basic-kits", "capacityFlagId": "smithCapacity", "capacityShare": 0.5 },
+      { "id": "smithy-polearms", "capacityFlagId": "smithCapacity", "capacityShare": 0.5 }
+    ],
+    "equipmentProduction": [
+      { "id": "basic-kit", "equipmentId": "basic-kit", "lineId": "smithy-basic-kits", "amountPerSmithCapacity": 1, "priority": 0 },
+      { "id": "laurel-spear", "equipmentId": "weapon-laurel-spear", "lineId": "smithy-polearms", "amountPerSmithCapacity": 1, "priority": 10, "technologyId": "steel-laurel-spearhead" },
+      { "id": "lancet-spear", "equipmentId": "weapon-lancet-spear", "lineId": "smithy-polearms", "amountPerSmithCapacity": 1, "priority": 20, "technologyId": "steel-lancet-spearhead" },
+      { "id": "diamond-spear", "equipmentId": "weapon-diamond-spear", "lineId": "smithy-polearms", "amountPerSmithCapacity": 1, "priority": 30, "technologyId": "steel-diamond-spearhead" },
+      { "id": "cross-spear", "equipmentId": "weapon-cross-spear", "lineId": "smithy-polearms", "amountPerSmithCapacity": 1, "priority": 40, "technologyId": "steel-cross-spearhead" }
+    ],
     "towerBases": [
       { "id": "tower-base-center", "name": "Базовая башня Тетракора", "regionId": "center", "categoryIds": ["tower"], "cost": 10, "maxHp": 100, "range": 240, "attackIntervalTicks": 20, "projectiles": 1, "weapon": { "damageLevels": { "impact": 2 }, "tags": ["tower"] }, "targetPriority": "first" },
       { "id": "tower-base-swamp", "name": "Болотная башня", "regionId": "east", "categoryIds": ["tower"], "cost": 10, "maxHp": 100, "range": 240, "attackIntervalTicks": 20, "projectiles": 1, "weapon": { "damageLevels": { "impact": 2 }, "tags": ["tower"] }, "targetPriority": "first" },
@@ -1994,7 +2004,6 @@
         "image": "",
         "baseWeight": 4,
         "performanceWeight": 1,
-        "deferredReason": "Боевой дух армии ещё не используется в текущей кампании.",
         "effects": [
           {
             "kind": "flag",
@@ -2077,6 +2086,11 @@
       "enabled": false,
       "cityRules": [],
       "regionRules": []
+    },
+    "steelResearch": {
+      "forkSourcePriceMultiplier": 2,
+      "delayedFreeEmpirePhases": 2,
+      "militaryEliteFlagId": "militaryElite"
     },
     "daysPerPhase": 59,
     "foodResourceId": "food",
@@ -5585,6 +5599,26 @@
         "id": "building-foundry",
         "name": "Литейная",
         "slot": "unique",
+        "allowedCityIds": [
+          "city-north-iron-gate",
+          "city-north-frost-harbor",
+          "city-west-green-bastion",
+          "city-west-horse-march",
+          "city-south-cactus-wall",
+          "city-south-dune-pass",
+          "city-east-mire-watch",
+          "city-east-alchemy-gate",
+          "city-center-north",
+          "city-center-west",
+          "city-center-east",
+          "city-center-south"
+        ],
+        "deferredSubfeatures": [
+          {
+            "id": "capital-sixth-slot",
+            "reason": "Столичный шестой участок занят несменяемым храмом; источник не задаёт замену или дополнительный участок для Литейной."
+          }
+        ],
         "levels": [
           {
             "level": 1,
@@ -5617,13 +5651,22 @@
               },
               {
                 "kind": "flag",
+                "flagId": "armyProductionTimeDiscountPercent",
+                "amount": 15
+              },
+              {
+                "kind": "flag",
+                "flagId": "armyUpkeepDiscountPercent",
+                "amount": 15
+              },
+              {
+                "kind": "flag",
                 "flagId": "instantUnitEveryTurns",
                 "amount": 2
               }
             ]
           }
-        ],
-        "deferredReason": "Скидки, сроки и содержание боевых отрядов ещё не реализованы."
+        ]
       },
       {
         "id": "building-small-temple",
@@ -5946,6 +5989,32 @@
         {
           "equipmentId": "basic-kit",
           "amount": 2
+        }
+      ],
+      "loadouts": [
+        {
+          "id": "laurel-spear",
+          "priority": 10,
+          "weaponEquipmentId": "weapon-laurel-spear",
+          "equipmentCosts": [{ "equipmentId": "weapon-laurel-spear", "amount": 1 }]
+        },
+        {
+          "id": "lancet-spear",
+          "priority": 20,
+          "weaponEquipmentId": "weapon-lancet-spear",
+          "equipmentCosts": [{ "equipmentId": "weapon-lancet-spear", "amount": 1 }]
+        },
+        {
+          "id": "diamond-spear",
+          "priority": 30,
+          "weaponEquipmentId": "weapon-diamond-spear",
+          "equipmentCosts": [{ "equipmentId": "weapon-diamond-spear", "amount": 1 }]
+        },
+        {
+          "id": "cross-spear",
+          "priority": 40,
+          "weaponEquipmentId": "weapon-cross-spear",
+          "equipmentCosts": [{ "equipmentId": "weapon-cross-spear", "amount": 1 }]
         }
       ],
       "td": {
@@ -6761,18 +6830,21 @@
             "technologyId": "doctrine-war"
           }
         ],
-        "effects": [
+        "effects": [],
+        "deferredSubfeatures": [
           {
-            "kind": "flag",
-            "flagId": "generalsUnlocked",
-            "amount": 1
+            "id": "general-bonuses",
+            "reason": "Источник не задаёт числовые постоянные бонусы назначенных генералов."
+          },
+          {
+            "id": "general-active-abilities",
+            "reason": "Источник не задаёт набор, масштабирование и жизненный цикл активных способностей генералов."
           }
-        ],
-        "deferredReason": "Бой, экспедиции и военные последствия ещё не реализованы."
+        ]
       },
       {
         "id": "tech-foundry",
-        "name": "Военная литейная",
+        "name": "Литье стали",
         "description": "",
         "category": "technology",
         "groupId": "war",
@@ -6804,14 +6876,21 @@
             "technologyId": "tech-ironwork"
           }
         ],
-        "effects": [
+        "effects": [],
+        "deferredSubfeatures": [
           {
-            "kind": "flag",
-            "flagId": "foundryUnlocked",
-            "amount": 1
+            "id": "ship-armor",
+            "reason": "Источник открывает корабельную броню, но флот и морские боевые профили ещё не реализованы."
+          },
+          {
+            "id": "academy-improvements",
+            "reason": "Источник упоминает улучшения Военной академии без точного списка и числовых эффектов."
+          },
+          {
+            "id": "steel-units",
+            "reason": "Источник открывает стальные отряды, но не задаёт их отдельные профили и состав снаряжения."
           }
-        ],
-        "deferredReason": "Бой, экспедиции и военные последствия ещё не реализованы."
+        ]
       },
       {
         "id": "tech-military-logistics",
@@ -7409,14 +7488,14 @@
             "technologyId": "tech-ironwork"
           }
         ],
-        "effects": [
-          {
-            "kind": "flag",
-            "flagId": "polearmGeneration",
-            "amount": 0
-          }
-        ],
-        "deferredReason": "Снаряжение, специализации кузниц и боевые характеристики ещё не реализованы."
+        "effects": [],
+        "steel": {
+          "branchId": "steel-polearms",
+          "generation": 0,
+          "stage": "whole",
+          "payoff": "equipment",
+          "equipmentIds": ["weapon-laurel-spear"]
+        }
       },
       {
         "id": "steel-lancet-spearhead",
@@ -7448,14 +7527,14 @@
             "technologyId": "steel-laurel-spearhead"
           }
         ],
-        "effects": [
-          {
-            "kind": "flag",
-            "flagId": "polearmGeneration",
-            "amount": 1
-          }
-        ],
-        "deferredReason": "Снаряжение, специализации кузниц и боевые характеристики ещё не реализованы."
+        "effects": [],
+        "steel": {
+          "branchId": "steel-polearms",
+          "generation": 1,
+          "stage": "whole",
+          "payoff": "equipment",
+          "equipmentIds": ["weapon-lancet-spear"]
+        }
       },
       {
         "id": "steel-diamond-spearhead",
@@ -7487,14 +7566,14 @@
             "technologyId": "steel-lancet-spearhead"
           }
         ],
-        "effects": [
-          {
-            "kind": "flag",
-            "flagId": "polearmGeneration",
-            "amount": 2
-          }
-        ],
-        "deferredReason": "Снаряжение, специализации кузниц и боевые характеристики ещё не реализованы."
+        "effects": [],
+        "steel": {
+          "branchId": "steel-polearms",
+          "generation": 2,
+          "stage": "whole",
+          "payoff": "equipment",
+          "equipmentIds": ["weapon-diamond-spear"]
+        }
       },
       {
         "id": "steel-cross-spearhead",
@@ -7526,14 +7605,14 @@
             "technologyId": "steel-diamond-spearhead"
           }
         ],
-        "effects": [
-          {
-            "kind": "flag",
-            "flagId": "polearmGeneration",
-            "amount": 3
-          }
-        ],
-        "deferredReason": "Снаряжение, специализации кузниц и боевые характеристики ещё не реализованы."
+        "effects": [],
+        "steel": {
+          "branchId": "steel-polearms",
+          "generation": 3,
+          "stage": "whole",
+          "payoff": "equipment",
+          "equipmentIds": ["weapon-cross-spear"]
+        }
       },
       {
         "id": "steel-voulge",
@@ -7572,6 +7651,12 @@
             "amount": 1
           }
         ],
+        "steel": {
+          "branchId": "steel-polearms",
+          "generation": 3,
+          "stage": "whole",
+          "payoff": "deferred"
+        },
         "deferredReason": "Снаряжение, специализации кузниц и боевые характеристики ещё не реализованы."
       },
       {
@@ -7615,6 +7700,13 @@
             "amount": 1
           }
         ],
+        "steel": {
+          "branchId": "steel-polearms",
+          "generation": 4,
+          "stage": "minus",
+          "payoff": "deferred",
+          "equipmentIds": ["weapon-halberd"]
+        },
         "deferredReason": "Снаряжение, специализации кузниц и боевые характеристики ещё не реализованы."
       },
       {
@@ -7659,6 +7751,14 @@
             "amount": 1
           }
         ],
+        "steel": {
+          "branchId": "steel-polearms",
+          "generation": 4,
+          "stage": "plus",
+          "payoff": "deferred",
+          "eliteRequired": true,
+          "accessTechnologyId": "steel-cross-spearhead"
+        },
         "deferredReason": "Снаряжение, специализации кузниц и боевые характеристики ещё не реализованы."
       },
       {
@@ -7698,6 +7798,13 @@
             "amount": 0
           }
         ],
+        "steel": {
+          "branchId": "steel-mail",
+          "generation": 0,
+          "stage": "whole",
+          "payoff": "deferred",
+          "equipmentIds": ["armor-butted-mail"]
+        },
         "deferredReason": "Снаряжение, специализации кузниц и боевые характеристики ещё не реализованы."
       },
       {
@@ -7737,6 +7844,12 @@
             "amount": 1
           }
         ],
+        "steel": {
+          "branchId": "steel-mail",
+          "generation": 1,
+          "stage": "whole",
+          "payoff": "deferred"
+        },
         "deferredReason": "Снаряжение, специализации кузниц и боевые характеристики ещё не реализованы."
       },
       {
@@ -7776,6 +7889,12 @@
             "amount": 2
           }
         ],
+        "steel": {
+          "branchId": "steel-mail",
+          "generation": 2,
+          "stage": "whole",
+          "payoff": "deferred"
+        },
         "deferredReason": "Снаряжение, специализации кузниц и боевые характеристики ещё не реализованы."
       },
       {
@@ -7815,6 +7934,12 @@
             "amount": 3
           }
         ],
+        "steel": {
+          "branchId": "steel-mail",
+          "generation": 3,
+          "stage": "whole",
+          "payoff": "deferred"
+        },
         "deferredReason": "Снаряжение, специализации кузниц и боевые характеристики ещё не реализованы."
       },
       {
@@ -7854,6 +7979,12 @@
             "amount": 4
           }
         ],
+        "steel": {
+          "branchId": "steel-mail",
+          "generation": 4,
+          "stage": "minus",
+          "payoff": "deferred"
+        },
         "deferredReason": "Снаряжение, специализации кузниц и боевые характеристики ещё не реализованы."
       },
       {
@@ -7893,6 +8024,12 @@
             "amount": 0
           }
         ],
+        "steel": {
+          "branchId": "steel-plate",
+          "generation": 0,
+          "stage": "whole",
+          "payoff": "deferred"
+        },
         "deferredReason": "Снаряжение, специализации кузниц и боевые характеристики ещё не реализованы."
       },
       {
@@ -7937,6 +8074,12 @@
             "amount": 1
           }
         ],
+        "steel": {
+          "branchId": "steel-plate",
+          "generation": 1,
+          "stage": "whole",
+          "payoff": "deferred"
+        },
         "deferredReason": "Снаряжение, специализации кузниц и боевые характеристики ещё не реализованы."
       },
       {
@@ -7981,6 +8124,12 @@
             "amount": 1
           }
         ],
+        "steel": {
+          "branchId": "steel-plate",
+          "generation": 2,
+          "stage": "whole",
+          "payoff": "deferred"
+        },
         "deferredReason": "Снаряжение, специализации кузниц и боевые характеристики ещё не реализованы."
       },
       {
@@ -8020,6 +8169,13 @@
             "amount": 3
           }
         ],
+        "steel": {
+          "branchId": "steel-plate",
+          "generation": 3,
+          "stage": "whole",
+          "payoff": "deferred",
+          "equipmentIds": ["armor-iron-breastplate"]
+        },
         "deferredReason": "Снаряжение, специализации кузниц и боевые характеристики ещё не реализованы."
       },
       {
@@ -8063,6 +8219,12 @@
             "amount": 4
           }
         ],
+        "steel": {
+          "branchId": "steel-plate",
+          "generation": 4,
+          "stage": "minus",
+          "payoff": "deferred"
+        },
         "deferredReason": "Снаряжение, специализации кузниц и боевые характеристики ещё не реализованы."
       },
       {
@@ -8110,6 +8272,12 @@
             "amount": 4
           }
         ],
+        "steel": {
+          "branchId": "steel-production",
+          "generation": 4,
+          "stage": "whole",
+          "payoff": "deferred"
+        },
         "deferredReason": "Снаряжение, специализации кузниц и боевые характеристики ещё не реализованы."
       },
       {
@@ -8153,6 +8321,12 @@
             "amount": 5
           }
         ],
+        "steel": {
+          "branchId": "steel-production",
+          "generation": 5,
+          "stage": "whole",
+          "payoff": "deferred"
+        },
         "deferredReason": "Снаряжение, специализации кузниц и боевые характеристики ещё не реализованы."
       },
       {
@@ -8197,6 +8371,12 @@
             "amount": 1
           }
         ],
+        "steel": {
+          "branchId": "steel-powder",
+          "generation": 4,
+          "stage": "minus",
+          "payoff": "deferred"
+        },
         "deferredReason": "Снаряжение, специализации кузниц и боевые характеристики ещё не реализованы."
       },
       {
@@ -8236,6 +8416,13 @@
             "amount": 1
           }
         ],
+        "steel": {
+          "branchId": "steel-powder",
+          "generation": 4,
+          "stage": "plus",
+          "payoff": "deferred",
+          "accessTechnologyId": "steel-ship-cannon"
+        },
         "deferredReason": "Снаряжение, специализации кузниц и боевые характеристики ещё не реализованы."
       },
       {
@@ -8275,6 +8462,12 @@
             "amount": 1
           }
         ],
+        "steel": {
+          "branchId": "steel-powder",
+          "generation": 5,
+          "stage": "minus",
+          "payoff": "deferred"
+        },
         "deferredReason": "Снаряжение, специализации кузниц и боевые характеристики ещё не реализованы."
       }
     ],

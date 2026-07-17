@@ -63,7 +63,9 @@ function battleSnapshot(
     group.speedPerSecond = 1
   }
   const city = snapshot.empire.cities.find(item => item.id === deployment.cityId)!
-  city.recruitedUnits[deployment.unitId] = deployment.count
+  const cohort = city.recruitedUnitCohorts.find(item => item.id === deployment.cohortId)
+  if (!cohort) throw new Error('The QA deployment must reference its persisted equipment cohort.')
+  cohort.count = deployment.count
   city.militaryPopulation = Math.max(100, city.militaryPopulation)
   return snapshot
 }
@@ -186,7 +188,7 @@ describe('Empire\'s Endgame Phase 2 campaign bridge', () => {
     }, value.id)
     const restored = new EmpiresEndgameEngine(value, migrated)
     expect(restored.state).toMatchObject({
-      schemaVersion: 2,
+      schemaVersion: 3,
       minigame: null,
       minigameResultLog: [],
       army: {
@@ -196,9 +198,19 @@ describe('Empire\'s Endgame Phase 2 campaign bridge', () => {
         maxMorale: 2,
         veterans: {},
         recruitmentPenalties: {},
+        foundryInstantReadyConByCity: {},
       },
       external: { allianceThreat: 0, nextWaveCon: 2, pendingOffers: [] },
+      empire: {
+        steelResearch: {
+          branchCostMultipliers: {},
+          branchEntries: [],
+          delayedFree: {},
+        },
+      },
     })
+    expect(restored.state.empire.cities.every(city => Array.isArray(city.recruitedUnitCohorts)))
+      .toBe(true)
   })
 
   it('settles losses into units, recruitment, growth, loyalty pressure, and defeat consequences', () => {
@@ -216,7 +228,7 @@ describe('Empire\'s Endgame Phase 2 campaign bridge', () => {
     })
 
     expect(engine.resolveMinigame(result)).toMatchObject({ ok: true })
-    expect(city.recruitedUnits[deployment.unitId]).toBeUndefined()
+    expect(city.recruitedUnitCohorts.find(cohort => cohort.id === deployment.cohortId)).toBeUndefined()
     expect(city.militaryPopulation).toBe(militaryBefore - 3)
     expect(engine.state.army.recruitmentPenalties[`${city.id}:${deployment.unitId}`]).toBe(3)
     expect(engine.state.army.pendingLoyaltyDeltas).toContainEqual({
@@ -322,7 +334,8 @@ describe('Empire\'s Endgame Phase 2 army carriers', () => {
     expect(engine.research('tech-ironwork')).toMatchObject({ ok: true })
     expect(engine.effectiveOperationalBuildingLevel(city.id, 'building-smithy')).toBe(1)
     expect(engine.finishEmpire()).toMatchObject({ ok: true })
-    expect(engine.state.army.equipmentStock['basic-kit']).toBe(10)
+    expect(engine.state.army.equipmentStock['basic-kit']).toBe(5)
+    expect(engine.state.army.equipmentStock['weapon-laurel-spear']).toBeUndefined()
   })
 
   it('researches the war doctrine, recruits all four equipped units, and deploys their TD profiles', () => {
@@ -336,6 +349,8 @@ describe('Empire\'s Endgame Phase 2 army carriers', () => {
     for (const classId of Object.keys(city.populationClasses)) city.populationClasses[classId] = 1_000_000
     city.militaryPopulation = 100
     state.army.equipmentStock['basic-kit'] = 100
+    state.army.equipmentStock['weapon-laurel-spear'] = 1
+    state.empire.researchedTechnologyIds.push('tech-ironwork', 'steel-laurel-spearhead')
     engine.restore(state)
     expect(engine.recruitUnits(city.id, 'unit-light')).toEqual({
       ok: false,
@@ -346,6 +361,7 @@ describe('Empire\'s Endgame Phase 2 army carriers', () => {
       expect(engine.recruitUnits(city.id, unitId)).toMatchObject({ ok: true })
     }
     expect(engine.state.army.equipmentStock['basic-kit']).toBe(90)
+    expect(engine.state.army.equipmentStock['weapon-laurel-spear']).toBe(0)
     expect(engine.finishEmpire()).toMatchObject({ ok: true })
     expect(engine.state.phase).toBe('minigame')
     expect(engine.state.minigame?.plan.deployments.map(item => item.unitId).sort()).toEqual([

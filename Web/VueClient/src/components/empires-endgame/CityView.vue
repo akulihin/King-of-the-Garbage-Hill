@@ -37,6 +37,7 @@ interface CityImprovementView {
   prerequisites?: string[]
   imageUrl?: string
   deferredReason?: string
+  deferredSubfeatures?: Array<{ id: string, reason: string }>
 }
 
 interface CityBuildingView {
@@ -64,6 +65,7 @@ interface CityBuildingView {
   boosted?: boolean
   boostPercent?: number
   deferredReason?: string
+  deferredSubfeatures?: Array<{ id: string, reason: string }>
 }
 
 interface MunicipalityView {
@@ -84,6 +86,7 @@ interface MunicipalityView {
   improvements?: CityImprovementView[]
   imageUrl?: string
   deferredReason?: string
+  deferredSubfeatures?: Array<{ id: string, reason: string }>
 }
 
 interface CitySlotView {
@@ -113,7 +116,11 @@ interface RecruitableUnitView {
   foodUpkeep: number
   populationCost: number
   timeCost: number
+  loadoutId?: string
+  resourceCosts?: string[]
+  equipmentCosts?: string[]
   maxQuantity?: number
+  quantity: number
   disabled?: boolean
   disabledReason?: string
   deferredReason?: string
@@ -132,6 +139,24 @@ interface EmpireCityView {
   loyalty?: number
   accessible?: boolean
   disabledReason?: string
+  armyMorale?: {
+    value: number
+    minimum: number
+    maximum: number
+  }
+  equipmentStock?: Array<{
+    id: string
+    name: string
+    value: number
+  }>
+  armyCohorts?: Array<{
+    id: string
+    unitName: string
+    count: number
+    loadoutId: string
+    weaponName: string
+    defenseName?: string
+  }>
   resourceStockpiles?: Array<{
     id: string
     name: string
@@ -171,6 +196,7 @@ const emit = defineEmits<{
   selectMunicipality: [cityId: string]
   place: [cityId: string, slotIdOrKind: string, buildingId: string]
   recruit: [cityId: string, unitId: string, count: number]
+  recruitQuantity: [cityId: string, unitId: string, count: number]
   toggleBoost: [cityId: string, buildingId: string, enabled: boolean]
   openPopulation: [cityId: string]
   editBuilding: [cityId: string, buildingId: string]
@@ -188,7 +214,6 @@ const slotDefinitions: SlotDefinition[] = [
 
 const internalSelectedId = ref<string | null>(props.selectedBuildingId)
 const placementSlotId = ref<string | null>(null)
-const recruitQuantities = ref<Record<string, number>>({})
 
 const activeCity = computed(() => props.cities.find(city => city.id === props.activeCityId)
   ?? props.cities[0]
@@ -278,7 +303,6 @@ watch(activeCity, city => {
     internalSelectedId.value = null
   }
   placementSlotId.value = null
-  recruitQuantities.value = {}
 }, { immediate: true })
 
 function formatNumber(value: number) {
@@ -364,13 +388,19 @@ function maxRecruitQuantity(unit: RecruitableUnitView) {
 }
 
 function recruitQuantity(unit: RecruitableUnitView) {
-  return Math.max(1, Math.min(maxRecruitQuantity(unit) || 1, Math.floor(recruitQuantities.value[unit.id] ?? 1)))
+  return Math.max(1, Math.min(maxRecruitQuantity(unit) || 1, Math.floor(unit.quantity)))
+}
+
+function changeRecruitQuantity(unit: RecruitableUnitView, event: Event) {
+  if (!activeCity.value) return
+  const raw = Number((event.target as HTMLInputElement).value)
+  const count = Math.max(1, Math.min(maxRecruitQuantity(unit) || 1, Math.floor(raw || 1)))
+  emit('recruitQuantity', activeCity.value.id, unit.id, count)
 }
 
 function recruitUnit(unit: RecruitableUnitView) {
   if (!activeCity.value || unit.disabled || maxRecruitQuantity(unit) < 1) return
   const count = recruitQuantity(unit)
-  recruitQuantities.value[unit.id] = count
   emit('recruit', activeCity.value.id, unit.id, count)
 }
 
@@ -460,6 +490,34 @@ function toggleBoost() {
         </span>
       </div>
 
+      <section class="army-ledger" aria-label="Армия и снаряжение">
+        <header>
+          <span><Shield :size="14" /> Армия города</span>
+          <b v-if="activeCity.armyMorale">
+            Боевой дух {{ formatNumber(activeCity.armyMorale.value) }}
+            <small>({{ formatNumber(activeCity.armyMorale.minimum) }}–{{ formatNumber(activeCity.armyMorale.maximum) }})</small>
+          </b>
+        </header>
+        <div class="army-ledger-grid">
+          <div class="equipment-ledger">
+            <strong><Hammer :size="13" /> Общий склад снаряжения</strong>
+            <span v-for="equipment in activeCity.equipmentStock" :key="equipment.id">
+              <small>{{ equipment.name }}</small>
+              <b>{{ formatNumber(equipment.value) }}</b>
+            </span>
+            <em v-if="!activeCity.equipmentStock?.length">Склад пуст</em>
+          </div>
+          <div class="cohort-ledger">
+            <strong><Users :size="13" /> Снаряжённые когорты</strong>
+            <span v-for="cohort in activeCity.armyCohorts" :key="cohort.id">
+              <b>{{ cohort.unitName }} × {{ formatNumber(cohort.count) }}</b>
+              <small>{{ cohort.weaponName }}<template v-if="cohort.defenseName"> · {{ cohort.defenseName }}</template> · {{ cohort.loadoutId }}</small>
+            </span>
+            <em v-if="!activeCity.armyCohorts?.length">В городе нет когорт</em>
+          </div>
+        </div>
+      </section>
+
       <div class="city-layout">
       <aside class="improvement-drawer" aria-live="polite">
         <template v-if="activePlacementSlot">
@@ -528,6 +586,15 @@ function toggleBoost() {
             <LockKeyhole :size="13" />
             <span><strong>Будущая механика.</strong> {{ selectedFacility.deferredReason }}</span>
           </p>
+          <div v-if="selectedFacility.deferredSubfeatures?.length" class="deferred-note deferred-parts" role="status">
+            <LockKeyhole :size="13" />
+            <span>
+              <strong>Отложенные части.</strong>
+              <em v-for="subfeature in selectedFacility.deferredSubfeatures" :key="subfeature.id">
+                {{ subfeature.reason }}
+              </em>
+            </span>
+          </div>
           <p
             v-if="selectedFacility.baseLevel !== undefined && (selectedFacility.level !== selectedFacility.baseLevel || selectedFacility.maxLevel !== selectedFacility.baseMaxLevel)"
             class="effective-level-note"
@@ -621,18 +688,22 @@ function toggleBoost() {
                   <i><Users :size="11" /> {{ formatNumber(unit.populationCost) }}</i>
                   <i><Clock3 :size="11" /> {{ unit.timeCost }} д</i>
                 </span>
+                <span v-if="unit.loadoutId" class="unit-loadout">Комплект: {{ unit.loadoutId }}</span>
+                <span v-if="unit.resourceCosts?.length" class="unit-price">Цена: {{ unit.resourceCosts.join(' · ') }}</span>
+                <span v-if="unit.equipmentCosts?.length" class="unit-price">Снаряжение: {{ unit.equipmentCosts.join(' · ') }}</span>
                 <em v-if="unit.disabledReason" class="disabled-reason">{{ unit.disabledReason }}</em>
               </span>
               <span class="recruit-controls">
                 <label>
                   <span class="sr-only">Количество {{ unit.name }}</span>
                   <input
-                    v-model.number="recruitQuantities[unit.id]"
+                    :value="recruitQuantity(unit)"
                     type="number"
                     inputmode="numeric"
                     min="1"
                     :max="Math.max(1, maxRecruitQuantity(unit))"
                     :disabled="unit.disabled || maxRecruitQuantity(unit) < 1"
+                    @input="changeRecruitQuantity(unit, $event)"
                   />
                 </label>
                 <button
@@ -858,6 +929,19 @@ function toggleBoost() {
 .city-resources small { color: rgba(238, 229, 209, 0.5); font-size: 0.57rem; }
 .city-resources small em { margin-left: 4px; color: #d1a269; font-size: .48rem; font-style: normal; text-transform: uppercase; }
 .city-resources b { color: #eee1c6; font: 800 0.77rem/1 var(--font-mono, monospace); }
+.army-ledger { border-bottom: 1px solid var(--city-line); background: #141710; }
+.army-ledger > header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 14px; border-bottom: 1px solid rgba(226, 204, 158, .1); }
+.army-ledger > header span,.equipment-ledger > strong,.cohort-ledger > strong { display: inline-flex; align-items: center; gap: 5px; color: #c9aa67; font: 800 .57rem/1 var(--font-mono, monospace); letter-spacing: .06em; text-transform: uppercase; }
+.army-ledger > header b { color: #d8e0bd; font: 800 .65rem/1 var(--font-mono, monospace); }
+.army-ledger > header small { color: rgba(216, 224, 189, .55); }
+.army-ledger-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.equipment-ledger,.cohort-ledger { display: flex; min-height: 55px; align-items: center; gap: 9px; overflow-x: auto; padding: 8px 12px; }
+.equipment-ledger { border-right: 1px solid var(--city-line); }
+.equipment-ledger > strong,.cohort-ledger > strong { flex: 0 0 auto; }
+.equipment-ledger > span,.cohort-ledger > span { display: grid; flex: 0 0 auto; gap: 3px; padding: 5px 8px; border: 1px solid rgba(226, 204, 158, .1); border-radius: 6px; background: rgba(255,255,255,.025); }
+.equipment-ledger small,.cohort-ledger small { color: rgba(238,229,209,.52); font-size: .55rem; }
+.equipment-ledger b,.cohort-ledger b { color: #eee1c6; font: 800 .65rem/1 var(--font-mono, monospace); }
+.equipment-ledger > em,.cohort-ledger > em { color: rgba(238,229,209,.35); font-size: .6rem; font-style: normal; }
 
 .city-layout { display: grid; min-height: 640px; grid-template-columns: 310px minmax(0, 1fr); }
 .improvement-drawer { position: relative; z-index: 3; overflow: auto; max-height: 720px; padding: 17px; border-right: 1px solid var(--city-line); background: linear-gradient(180deg, #1b1d17, #131510); box-shadow: 12px 0 38px rgba(0, 0, 0, 0.22); }
@@ -914,6 +998,8 @@ function toggleBoost() {
 .boost-action button:hover:not(:disabled) { border-color: var(--city-gold-bright); background: rgba(201, 170, 103, 0.21); }
 .boost-action button:disabled { opacity: 0.42; cursor: not-allowed; }
 .recruitment-panel { margin: 13px 0; padding-top: 1px; border-top: 1px solid rgba(226, 204, 158, 0.11); }
+.unit-loadout,.unit-price { display: block; margin-top: 4px; color: rgba(238, 229, 209, .48); font-size: .55rem; line-height: 1.3; }
+.unit-loadout { color: #b9c99a; font-family: var(--font-mono, monospace); }
 .army-upkeep { display: flex; align-items: center; gap: 5px; margin: 0 0 8px; padding: 7px 8px; border-radius: 7px; color: #d8bf7e; background: rgba(201, 170, 103, 0.07); font-size: 0.59rem; }
 .recruit-unit { display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 8px; margin-top: 7px; padding: 8px; border: 1px solid rgba(226, 204, 158, 0.12); border-radius: 8px; background: rgba(255, 255, 255, 0.025); }
 .recruit-unit.disabled { opacity: 0.58; }
@@ -926,6 +1012,8 @@ function toggleBoost() {
 .unit-copy > small { color: rgba(238, 229, 209, 0.5); font-size: 0.57rem; line-height: 1.35; }
 .deferred-inline { display: inline-flex; align-items: flex-start; gap: 4px; color: #d6a66f; font-size: .54rem; font-style: normal; line-height: 1.35; }
 .deferred-inline svg { flex: none; margin-top: 1px; }
+.deferred-parts span { display: grid; gap: 4px; }
+.deferred-parts em { font-style: normal; }
 .unit-costs { display: flex; flex-wrap: wrap; gap: 5px 8px; }
 .unit-costs i { display: inline-flex; align-items: center; gap: 3px; color: #cfc09e; font: 700 0.52rem/1 var(--font-mono, monospace); font-style: normal; }
 .unit-copy .disabled-reason { color: #d58e81; font-size: 0.54rem; font-style: normal; }
@@ -1028,6 +1116,8 @@ function toggleBoost() {
 }
 
 @media (max-width: 820px) {
+  .army-ledger-grid { grid-template-columns: 1fr; }
+  .equipment-ledger { border-right: 0; border-bottom: 1px solid var(--city-line); }
   .city-layout { grid-template-columns: 1fr; }
   .improvement-drawer { order: 2; max-height: none; border-top: 1px solid var(--city-line); border-right: 0; }
   .drawer-empty { min-height: 220px; }

@@ -255,6 +255,15 @@ function cloneJson<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T
 }
 
+function qaRulesIdentity(config: EmpiresEndgameConfig) {
+  return createTdRulesIdentity(config.schemaVersion, config.combat, config.td, {
+    technologies: config.empire.technologies,
+    units: config.empire.units ?? [],
+    buildings: config.empire.buildings,
+    steelResearch: config.empire.steelResearch,
+  })
+}
+
 function configWithSeed(config: EmpiresEndgameConfig, seed: string | number): EmpiresEndgameConfig {
   const seeded = cloneJson(config)
   seeded.seed = seed
@@ -549,12 +558,29 @@ function createBattleSnapshot(
   if (variant.mode !== scenario.expectedMode || battlefield.regionId !== scenario.expectedRegionId) {
     throw new Error(`QA ${scenarioName} variant no longer matches its expected mode and region.`)
   }
-  const rulesIdentity = createTdRulesIdentity(config.schemaVersion, config.combat, config.td)
+  const rulesIdentity = qaRulesIdentity(config)
   const planId = `qa-${scenarioName}-${variant.id}`
   const sessionId = `${planId}:qa-seed`
   const deploymentNodeId = variant.mode === 'assault'
     ? battlefield.spawnerNodeId
     : battlefield.deploymentNodeId
+  const state = engine.snapshot()
+  const campaignCity = state.empire.cities.find(candidate => candidate.id === city.id)!
+  const cohortId = `qa:${city.id}:${unit.id}:default`
+  campaignCity.recruitedUnitCohorts = campaignCity.recruitedUnitCohorts
+    .filter(cohort => cohort.id !== cohortId)
+  campaignCity.recruitedUnitCohorts.push({
+    id: cohortId,
+    unitId: unit.id,
+    loadoutId: 'qa-default',
+    count: 3,
+    weaponEquipmentId: weaponDefinition.id,
+    ...(armorDefinition ? { defenseEquipmentId: armorDefinition.id } : {}),
+    weapon: cloneJson(weaponDefinition.profile as CombatWeaponProfile),
+    armor: armorDefinition && armorDefinition.kind !== 'weapon'
+      ? cloneJson(armorDefinition.profile as CombatArmorProfile)
+      : null,
+  })
   const plan: TdBattlePlan = {
     id: planId,
     sessionId,
@@ -578,8 +604,10 @@ function createBattleSnapshot(
     ))),
     wave: cloneJson(wave),
     combat: cloneJson(config.combat),
+    equipmentStock: cloneJson(state.army.equipmentStock),
     deployments: [{
-      id: `${city.id}:${unit.id}`,
+      id: cohortId,
+      cohortId,
       cityId: city.id,
       unitId: unit.id,
       count: 3,
@@ -594,13 +622,6 @@ function createBattleSnapshot(
         : null,
     }],
   }
-  const state = engine.snapshot()
-  const deployment = plan.deployments[0]
-  const campaignCity = state.empire.cities.find(candidate => candidate.id === deployment.cityId)!
-  campaignCity.recruitedUnits[deployment.unitId] = Math.max(
-    deployment.count,
-    campaignCity.recruitedUnits[deployment.unitId] ?? 0,
-  )
   state.phase = 'minigame'
   state.minigame = {
     id: sessionId,
@@ -832,7 +853,7 @@ export function validateEmpiresQaSnapshot(
       }
     } else if (scenarioName in TD_QA_VARIANTS) {
       const expected = TD_QA_VARIANTS[scenarioName as keyof typeof TD_QA_VARIANTS]
-      const expectedRules = createTdRulesIdentity(config.schemaVersion, config.combat, config.td)
+      const expectedRules = qaRulesIdentity(config)
       if (snapshot.phase !== 'minigame' || snapshot.minigame?.kind !== 'td') {
         add('minigame', `${scenarioName} scenario must contain an active TD session.`)
       } else {
@@ -1093,7 +1114,34 @@ function createAutoplayStartSnapshot(config: EmpiresEndgameConfig): EmpiresCampa
   if (unit && city) {
     // A stable QA-only army guarantees the scheduled central assault remains
     // reachable after settling the preceding central defense.
-    city.recruitedUnits[unit.id] = Math.max(city.recruitedUnits[unit.id] ?? 0, 24)
+    const weapon = config.combat.equipment.find(candidate => (
+      candidate.id === unit.td?.weaponEquipmentId
+      && candidate.kind === 'weapon'
+      && !candidate.deferredReason
+    ))
+    const armor = unit.td?.armorEquipmentId
+      ? config.combat.equipment.find(candidate => (
+          candidate.id === unit.td?.armorEquipmentId
+          && candidate.kind !== 'weapon'
+          && !candidate.deferredReason
+        ))
+      : null
+    if (weapon?.kind === 'weapon') {
+      const cohortId = `qa-autoplay:${city.id}:${unit.id}:default`
+      city.recruitedUnitCohorts = city.recruitedUnitCohorts.filter(cohort => cohort.id !== cohortId)
+      city.recruitedUnitCohorts.push({
+        id: cohortId,
+        unitId: unit.id,
+        loadoutId: 'qa-default',
+        count: 24,
+        weaponEquipmentId: weapon.id,
+        ...(armor ? { defenseEquipmentId: armor.id } : {}),
+        weapon: cloneJson(weapon.profile as CombatWeaponProfile),
+        armor: armor && armor.kind !== 'weapon'
+          ? cloneJson(armor.profile as CombatArmorProfile)
+          : null,
+      })
+    }
   }
   return snapshot
 }

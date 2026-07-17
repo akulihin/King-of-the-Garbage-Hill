@@ -11,7 +11,7 @@ import { validateEmpiresEndgameConfig } from './engine'
 
 export const EMPIRES_CONFIG_URL = '/empires-endgame/game-config.json'
 export const EMPIRES_CONFIG_STORAGE_KEY = 'empires-endgame:config:v1'
-export const EMPIRES_CONFIG_SCHEMA_VERSION = 3
+export const EMPIRES_CONFIG_SCHEMA_VERSION = 4
 export const EMPIRES_ACTIVE_MINIGAME_CONFIG_ERROR = 'Нельзя менять правила во время боя. Сначала завершите бой или выйдите через действие отмены.'
 
 export function empiresConfigReplacementDisabledReason(
@@ -74,7 +74,7 @@ const TD_V2_SCAFFOLD = {
   waves: [],
 }
 
-const TD_SCAFFOLD = {
+const TD_V3_SCAFFOLD = {
   enabled: false,
   regionalCatalogEnabled: false,
   tickMs: 50,
@@ -94,6 +94,28 @@ const TD_SCAFFOLD = {
   gradeChoices: [],
   waves: [],
   planVariants: [],
+}
+
+const TD_SCAFFOLD = {
+  ...cloneJson(TD_V3_SCAFFOLD),
+  equipmentProductionLines: [{
+    id: 'smithy-general',
+    capacityFlagId: 'smithCapacity',
+    capacityShare: 1,
+  }],
+  equipmentProduction: [{
+    id: 'basic-kit',
+    equipmentId: 'basic-kit',
+    lineId: 'smithy-general',
+    amountPerSmithCapacity: 1,
+    priority: 0,
+  }],
+}
+
+const STEEL_RESEARCH_SCAFFOLD = {
+  forkSourcePriceMultiplier: 2,
+  delayedFreeEmpirePhases: 2,
+  militaryEliteFlagId: 'militaryElite',
 }
 
 const GOD_SCAFFOLD = {
@@ -251,7 +273,7 @@ function migrateEmpiresConfigV2ToV3(config: Record<string, unknown>): Record<str
       }]
     : []
   config.td = {
-    ...cloneJson(TD_SCAFFOLD),
+    ...cloneJson(TD_V3_SCAFFOLD),
     ...rawTd,
     regionalCatalogEnabled: false,
     maxCommands: 128,
@@ -271,7 +293,88 @@ function migrateEmpiresConfigV2ToV3(config: Record<string, unknown>): Record<str
 
 function normalizeEmpiresConfigV3(config: Record<string, unknown>): Record<string, unknown> {
   config.combat = withScaffoldDefaults(config.combat, COMBAT_SCAFFOLD)
+  config.td = withScaffoldDefaults(config.td, TD_V3_SCAFFOLD)
+  return config
+}
+
+function migrateEmpiresConfigV3ToV4(config: Record<string, unknown>): Record<string, unknown> {
+  const empire = isRecord(config.empire) ? config.empire : {}
+  empire.steelResearch = withScaffoldDefaults(empire.steelResearch, STEEL_RESEARCH_SCAFFOLD)
+  const nonCapitalCityIds = Array.isArray(empire.cities)
+    ? empire.cities.flatMap(city => isRecord(city)
+      && typeof city.id === 'string'
+      && city.id !== 'city-tetrakor-capital' ? [city.id] : [])
+    : []
+  if (Array.isArray(empire.buildings)) {
+    empire.buildings = empire.buildings.map((rawBuilding) => {
+      if (!isRecord(rawBuilding)
+        || rawBuilding.id !== 'building-foundry'
+        || rawBuilding.allowedCityIds !== undefined) return rawBuilding
+      return { ...rawBuilding, allowedCityIds: nonCapitalCityIds }
+    })
+  }
+  if (Array.isArray(empire.technologies)) {
+    empire.technologies = empire.technologies.map((rawTechnology) => {
+      if (!isRecord(rawTechnology) || rawTechnology.category !== 'steel' || isRecord(rawTechnology.steel)) {
+        return rawTechnology
+      }
+      return {
+        ...rawTechnology,
+        steel: {
+          branchId: typeof rawTechnology.groupId === 'string' && rawTechnology.groupId.trim()
+            ? rawTechnology.groupId
+            : rawTechnology.id,
+          generation: typeof rawTechnology.tier === 'number' ? rawTechnology.tier : 0,
+          stage: 'whole',
+          payoff: typeof rawTechnology.deferredReason === 'string' ? 'deferred' : 'unlock-only',
+        },
+      }
+    })
+  }
+  config.empire = empire
+
+  const rawTd = isRecord(config.td) ? config.td : cloneJson(TD_V3_SCAFFOLD)
+  const hadEquipmentProduction = Array.isArray(rawTd.equipmentProduction)
+  const oldRecipes = hadEquipmentProduction ? rawTd.equipmentProduction as unknown[] : []
+  const recipeCount = Math.max(1, oldRecipes.length)
+  const lines = oldRecipes.map((_, index) => ({
+    id: `legacy-smithy-${index + 1}`,
+    capacityFlagId: 'smithCapacity',
+    capacityShare: 1 / recipeCount,
+  }))
+  const recipes = oldRecipes.map((rawRecipe, index) => isRecord(rawRecipe)
+    ? {
+        ...rawRecipe,
+        id: typeof rawRecipe.id === 'string' && rawRecipe.id.trim()
+          ? rawRecipe.id
+          : `legacy-recipe-${String(rawRecipe.equipmentId ?? index + 1)}`,
+        lineId: lines[index]?.id ?? 'legacy-smithy-1',
+        priority: typeof rawRecipe.priority === 'number' ? rawRecipe.priority : 0,
+      }
+    : rawRecipe)
+  config.td = {
+    ...cloneJson(TD_SCAFFOLD),
+    ...rawTd,
+    equipmentProductionLines: lines.length > 0
+      ? lines
+      : hadEquipmentProduction ? [] : cloneJson(TD_SCAFFOLD.equipmentProductionLines),
+    equipmentProduction: hadEquipmentProduction
+      ? recipes
+      : cloneJson(TD_SCAFFOLD.equipmentProduction),
+  }
+  config.schemaVersion = 4
+  return config
+}
+
+function normalizeEmpiresConfigV4(config: Record<string, unknown>): Record<string, unknown> {
+  config.combat = withScaffoldDefaults(config.combat, COMBAT_SCAFFOLD)
   config.td = withScaffoldDefaults(config.td, TD_SCAFFOLD)
+  if (isRecord(config.empire)) {
+    config.empire.steelResearch = withScaffoldDefaults(
+      config.empire.steelResearch,
+      STEEL_RESEARCH_SCAFFOLD,
+    )
+  }
   return config
 }
 
@@ -281,6 +384,7 @@ const EMPIRES_CONFIG_MIGRATIONS: Record<
 > = {
   1: migrateEmpiresConfigV1ToV2,
   2: migrateEmpiresConfigV2ToV3,
+  3: migrateEmpiresConfigV3ToV4,
 }
 
 /**
@@ -302,6 +406,7 @@ export function migrateEmpiresConfig(raw: unknown): unknown {
   }
   if (version === 2) migrated = normalizeEmpiresConfigV2(migrated)
   if (version === 3) migrated = normalizeEmpiresConfigV3(migrated)
+  if (version === 4) migrated = normalizeEmpiresConfigV4(migrated)
   return migrated
 }
 
@@ -423,6 +528,26 @@ function validateDeferredReasons(config: EmpiresEndgameConfig): string[] {
       errors.push(`${label} deferredReason must be a non-empty string`)
     }
   }
+  const checkSubfeatures = (label: string, value: unknown) => {
+    if (value === undefined) return
+    if (!Array.isArray(value)) {
+      errors.push(`${label} deferredSubfeatures must be an array`)
+      return
+    }
+    const ids = new Set<string>()
+    for (const rawSubfeature of value) {
+      if (!isRecord(rawSubfeature)
+        || typeof rawSubfeature.id !== 'string'
+        || !rawSubfeature.id.trim()
+        || typeof rawSubfeature.reason !== 'string'
+        || !rawSubfeature.reason.trim()) {
+        errors.push(`${label} deferredSubfeatures need non-empty id and reason`)
+        continue
+      }
+      if (ids.has(rawSubfeature.id)) errors.push(`${label} repeats deferred subfeature ${rawSubfeature.id}`)
+      ids.add(rawSubfeature.id)
+    }
+  }
 
   for (const card of config.cards) {
     check(`card ${card.id} normal face`, card.normal.deferredReason)
@@ -430,10 +555,14 @@ function validateDeferredReasons(config: EmpiresEndgameConfig): string[] {
   }
   for (const gift of config.gifts.definitions) check(`gift ${gift.id}`, gift.deferredReason)
   for (const resource of config.empire.resources) check(`resource ${resource.id}`, resource.deferredReason)
-  for (const building of config.empire.buildings) check(`building ${building.id}`, building.deferredReason)
+  for (const building of config.empire.buildings) {
+    check(`building ${building.id}`, building.deferredReason)
+    checkSubfeatures(`building ${building.id}`, building.deferredSubfeatures)
+  }
   for (const unit of config.empire.units ?? []) check(`unit ${unit.id}`, unit.deferredReason)
   for (const technology of config.empire.technologies) {
     check(`technology ${technology.id}`, technology.deferredReason)
+    checkSubfeatures(`technology ${technology.id}`, technology.deferredSubfeatures)
   }
   for (const event of config.empire.events ?? []) {
     check(`event ${event.id}`, event.deferredReason)
@@ -456,6 +585,11 @@ const EMPIRES_LIVE_FLAG_ALLOWLIST = new Set([
   'idleBuildingGoldBase',
   'militaryArson',
   'maxCombatSpirit',
+  'minimumCombatSpirit',
+  'armyProductionDiscountPercent',
+  'armyProductionTimeDiscountPercent',
+  'armyUpkeepDiscountPercent',
+  'instantUnitEveryTurns',
   'peasantProductivityPercent',
   'productionBoostAssignmentLimit',
   'productionBoostPercent',
@@ -797,10 +931,116 @@ function validateCombatConfig(
   }
 }
 
+function validateSteelResearchConfig(config: EmpiresEndgameConfig): void {
+  const steel = config.empire.steelResearch
+  if (!steel || typeof steel !== 'object') throw new Error('empire.steelResearch must be an object.')
+  if (!Number.isFinite(steel.forkSourcePriceMultiplier) || steel.forkSourcePriceMultiplier < 1) {
+    throw new Error('empire.steelResearch.forkSourcePriceMultiplier must be finite and at least 1.')
+  }
+  if (!Number.isInteger(steel.delayedFreeEmpirePhases) || steel.delayedFreeEmpirePhases < 1) {
+    throw new Error('empire.steelResearch.delayedFreeEmpirePhases must be a positive integer.')
+  }
+  if (typeof steel.militaryEliteFlagId !== 'string' || !steel.militaryEliteFlagId.trim()) {
+    throw new Error('empire.steelResearch.militaryEliteFlagId must be a non-empty string.')
+  }
+
+  const technologies = new Map(config.empire.technologies.map(technology => [technology.id, technology]))
+  const equipment = new Map(config.combat.equipment.map(definition => [definition.id, definition]))
+  for (const technology of config.empire.technologies) {
+    if (technology.category !== 'steel') {
+      if (technology.steel !== undefined) throw new Error(`non-steel technology ${technology.id} cannot define steel metadata.`)
+      continue
+    }
+    const metadata = technology.steel
+    if (!metadata) throw new Error(`steel technology ${technology.id} needs steel metadata.`)
+    if (!metadata.branchId?.trim()) throw new Error(`steel technology ${technology.id} needs a branchId.`)
+    if (!Number.isInteger(metadata.generation) || metadata.generation < 0) {
+      throw new Error(`steel technology ${technology.id} generation must be a non-negative integer.`)
+    }
+    if (!['whole', 'minus', 'plus'].includes(metadata.stage)) {
+      throw new Error(`steel technology ${technology.id} has an unknown generation stage.`)
+    }
+    if (!['equipment', 'unlock-only', 'deferred'].includes(metadata.payoff)) {
+      throw new Error(`steel technology ${technology.id} has an unknown payoff.`)
+    }
+    if (metadata.stage === 'plus') {
+      const access = metadata.accessTechnologyId
+        ? technologies.get(metadata.accessTechnologyId)
+        : undefined
+      if (!access) {
+        throw new Error(`steel + technology ${technology.id} needs a known accessTechnologyId.`)
+      }
+      if (!access.steel
+        || access.steel.branchId !== metadata.branchId
+        || access.steel.stage === 'plus'
+        || access.steel.generation > metadata.generation) {
+        throw new Error(`steel + technology ${technology.id} needs an earlier access stage in the same branch.`)
+      }
+    } else if (metadata.accessTechnologyId !== undefined) {
+      throw new Error(`steel technology ${technology.id} may use accessTechnologyId only for a + generation.`)
+    }
+    if (metadata.entryFromTechnologyIds !== undefined) {
+      const entries = validateUniqueStringList(
+        metadata.entryFromTechnologyIds,
+        `steel technology ${technology.id} entryFromTechnologyIds`,
+      )
+      for (const entryId of entries) {
+        const entry = technologies.get(entryId)
+        if (!entry?.steel || entry.steel.branchId === metadata.branchId) {
+          throw new Error(`steel technology ${technology.id} entry ${entryId} must come from another steel branch.`)
+        }
+      }
+    }
+    const equipmentIds = metadata.equipmentIds ?? []
+    if (metadata.payoff === 'equipment' && equipmentIds.length === 0) {
+      throw new Error(`steel equipment technology ${technology.id} needs equipmentIds.`)
+    }
+    if (new Set(equipmentIds).size !== equipmentIds.length) {
+      throw new Error(`steel technology ${technology.id} equipmentIds must be unique.`)
+    }
+    for (const equipmentId of equipmentIds) {
+      const definition = equipment.get(equipmentId)
+      if (!definition || definition.technologyId !== technology.id) {
+        throw new Error(`steel technology ${technology.id} does not own equipment ${equipmentId}.`)
+      }
+      if (!technology.deferredReason && definition.deferredReason) {
+        throw new Error(`live steel technology ${technology.id} cannot use deferred equipment ${equipmentId}.`)
+      }
+      if (!technology.deferredReason) {
+        const produced = (config.td.equipmentProduction ?? []).some(recipe => (
+          recipe.equipmentId === equipmentId && recipe.technologyId === technology.id
+        ))
+        if (!produced) {
+          throw new Error(`live steel equipment ${equipmentId} needs a technology-gated production recipe.`)
+        }
+        const consumedByUnit = (config.empire.units ?? []).some(unit => (
+          !unit.deferredReason && (unit.loadouts ?? []).some(loadout => (
+            (loadout.weaponEquipmentId === equipmentId || loadout.defenseEquipmentId === equipmentId)
+            && loadout.equipmentCosts.some(cost => cost.equipmentId === equipmentId && cost.amount > 0)
+          ))
+        ))
+        const consumedByTower = (config.td.towerBases ?? []).some(base => (
+          (base.loadouts ?? []).some(loadout => (
+            (loadout.weaponEquipmentId === equipmentId || loadout.defenseEquipmentId === equipmentId)
+            && loadout.equipmentCosts.some(cost => cost.equipmentId === equipmentId && cost.amount > 0)
+          ))
+        ))
+        if (!consumedByUnit && !consumedByTower) {
+          throw new Error(`live steel equipment ${equipmentId} needs a canonical unit or tower loadout consumer.`)
+        }
+      }
+    }
+    if (!technology.deferredReason && metadata.payoff === 'deferred') {
+      throw new Error(`live steel technology ${technology.id} cannot have a deferred payoff.`)
+    }
+  }
+}
+
 function validateTdConfig(
   value: unknown,
   combat: unknown,
   units: readonly unknown[],
+  technologies: readonly unknown[],
   regionIds: readonly string[],
 ): void {
   if (!isRecord(value)) throw new Error('td must be an object.')
@@ -830,6 +1070,9 @@ function validateTdConfig(
   if (!td.alliance || !isRecord(td.alliance)) throw new Error('td.alliance must be an object.')
   if (!td.settlement || !isRecord(td.settlement)) throw new Error('td.settlement must be an object.')
   if (!td.morale || !isRecord(td.morale)) throw new Error('td.morale must be an object.')
+  if (!Array.isArray(td.equipmentProductionLines)) {
+    throw new Error('td.equipmentProductionLines must be an array.')
+  }
   if (!Array.isArray(td.equipmentProduction)) throw new Error('td.equipmentProduction must be an array.')
   if (!Array.isArray(td.towerBases)
     || !Array.isArray(td.battlefields)
@@ -886,22 +1129,72 @@ function validateTdConfig(
     throw new Error('td.morale must satisfy minimum <= initial <= maximum.')
   }
 
+  const technologyIds = new Set(technologies.flatMap(technology => isRecord(technology)
+    && typeof technology.id === 'string' ? [technology.id] : []))
+  const productionLineIds = new Set<string>()
+  const capacityShares = new Map<string, number>()
+  for (const line of td.equipmentProductionLines) {
+    if (!line.id?.trim()) throw new Error('td equipment production line needs an id.')
+    if (productionLineIds.has(line.id)) throw new Error(`td equipment production line repeats ${line.id}.`)
+    productionLineIds.add(line.id)
+    if (!line.capacityFlagId?.trim()) {
+      throw new Error(`td equipment production line ${line.id} needs a capacityFlagId.`)
+    }
+    requireFinite(line.capacityShare, `td equipment production line ${line.id} capacityShare`, Number.EPSILON)
+    if (line.capacityShare > 1) {
+      throw new Error(`td equipment production line ${line.id} capacityShare must not exceed 1.`)
+    }
+    capacityShares.set(
+      line.capacityFlagId,
+      (capacityShares.get(line.capacityFlagId) ?? 0) + line.capacityShare,
+    )
+  }
+  for (const [capacityFlagId, share] of capacityShares) {
+    if (share > 1 + Number.EPSILON) {
+      throw new Error(`td equipment production lines over-allocate ${capacityFlagId}.`)
+    }
+  }
+
   const equipmentStockIds = new Set<string>()
+  const productionRecipeIds = new Set<string>()
   for (const definition of td.equipmentProduction) {
+    if (!definition.id?.trim()) throw new Error('td equipment production recipe needs an id.')
+    if (productionRecipeIds.has(definition.id)) {
+      throw new Error(`td equipment production recipe repeats ${definition.id}.`)
+    }
+    productionRecipeIds.add(definition.id)
     if (!definition.equipmentId?.trim()) throw new Error('td equipment production needs an equipmentId.')
-    if (equipmentStockIds.has(definition.equipmentId)) {
-      throw new Error(`td equipment production repeats ${definition.equipmentId}.`)
+    if (!productionLineIds.has(definition.lineId)) {
+      throw new Error(`td equipment production ${definition.id} references unknown line ${definition.lineId}.`)
     }
     equipmentStockIds.add(definition.equipmentId)
     requireFinite(
       definition.amountPerSmithCapacity,
       `td equipment ${definition.equipmentId} amountPerSmithCapacity`,
+      Number.EPSILON,
     )
+    requireFinite(definition.priority, `td equipment ${definition.equipmentId} priority`, Number.NEGATIVE_INFINITY)
+    if (definition.technologyId !== undefined && !technologyIds.has(definition.technologyId)) {
+      throw new Error(`td equipment ${definition.equipmentId} references unknown technology ${definition.technologyId}.`)
+    }
   }
 
   const liveCombat = isRecord(combat) && combat.enabled === true
     ? combat as unknown as EmpiresCombatConfig
     : null
+  const combatEquipment = new Map((isRecord(combat) && Array.isArray(combat.equipment)
+    ? combat.equipment
+    : []).flatMap(entry => isRecord(entry) && typeof entry.id === 'string'
+    ? [[entry.id, entry] as const]
+    : []))
+  for (const recipe of td.equipmentProduction) {
+    const equipment = combatEquipment.get(recipe.equipmentId)
+    if (equipment?.technologyId !== undefined && recipe.technologyId !== equipment.technologyId) {
+      throw new Error(
+        `td equipment ${recipe.equipmentId} must use its equipment technology ${equipment.technologyId}.`,
+      )
+    }
+  }
   const damageTypeIds = new Set(liveCombat?.damageTypes.map(definition => definition.id) ?? [])
   const armorClassIds = new Set(liveCombat?.armorClasses.map(definition => definition.id) ?? [])
   const validateWeapon = (profile: CombatWeaponProfile, path: string) => {
@@ -923,6 +1216,53 @@ function validateTdConfig(
       throw new Error(`${path} references an unknown armor class.`)
     }
     requireFinite(profile.level, `${path} level`)
+  }
+  const validateLoadouts = (rawLoadouts: unknown, path: string) => {
+    if (rawLoadouts === undefined) return
+    if (!Array.isArray(rawLoadouts)) throw new Error(`${path} loadouts must be an array.`)
+    const ids = new Set<string>()
+    for (const rawLoadout of rawLoadouts) {
+      if (!isRecord(rawLoadout) || typeof rawLoadout.id !== 'string' || !rawLoadout.id.trim()) {
+        throw new Error(`${path} loadout needs an id.`)
+      }
+      if (ids.has(rawLoadout.id)) throw new Error(`${path} repeats loadout ${rawLoadout.id}.`)
+      ids.add(rawLoadout.id)
+      requireFinite(rawLoadout.priority as number, `${path} loadout ${rawLoadout.id} priority`, Number.NEGATIVE_INFINITY)
+      const weapon = combatEquipment.get(String(rawLoadout.weaponEquipmentId))
+      if (!weapon || weapon.kind !== 'weapon' || weapon.deferredReason) {
+        throw new Error(`${path} loadout ${rawLoadout.id} references unavailable weapon equipment.`)
+      }
+      if (rawLoadout.defenseEquipmentId !== undefined) {
+        const defense = combatEquipment.get(String(rawLoadout.defenseEquipmentId))
+        if (!defense || defense.kind === 'weapon' || defense.deferredReason) {
+          throw new Error(`${path} loadout ${rawLoadout.id} references unavailable defense equipment.`)
+        }
+      }
+      if (!Array.isArray(rawLoadout.equipmentCosts) || rawLoadout.equipmentCosts.length === 0) {
+        throw new Error(`${path} loadout ${rawLoadout.id} needs equipmentCosts.`)
+      }
+      const costIds = new Set<string>()
+      for (const cost of rawLoadout.equipmentCosts) {
+        if (!isRecord(cost) || typeof cost.equipmentId !== 'string' || !equipmentStockIds.has(cost.equipmentId)) {
+          throw new Error(`${path} loadout ${rawLoadout.id} references unknown equipment stock.`)
+        }
+        if (costIds.has(cost.equipmentId)) {
+          throw new Error(`${path} loadout ${rawLoadout.id} repeats equipment cost ${cost.equipmentId}.`)
+        }
+        requireFinite(cost.amount as number, `${path} loadout ${rawLoadout.id} equipment cost`, Number.EPSILON)
+        costIds.add(cost.equipmentId)
+      }
+      for (const [equipmentId, definition] of [
+        [String(rawLoadout.weaponEquipmentId), weapon],
+        ...(rawLoadout.defenseEquipmentId === undefined
+          ? []
+          : [[String(rawLoadout.defenseEquipmentId), combatEquipment.get(String(rawLoadout.defenseEquipmentId))]]),
+      ] as Array<[string, Record<string, unknown> | undefined]>) {
+        if (definition?.technologyId !== undefined && !costIds.has(equipmentId)) {
+          throw new Error(`${path} loadout ${rawLoadout.id} must consume its technology-linked equipment ${equipmentId}.`)
+        }
+      }
+    }
   }
 
   const knownRegionIds = new Set(regionIds)
@@ -952,6 +1292,7 @@ function validateTdConfig(
       throw new Error(`td tower base ${base.id} targetPriority is unknown.`)
     }
     validateWeapon(base.weapon, `td tower base ${base.id} weapon`)
+    validateLoadouts(base.loadouts, `td tower base ${base.id}`)
   }
 
   const battlefieldIds = new Set<string>()
@@ -1211,6 +1552,52 @@ function validateTdConfig(
     if (!variant.deferredReason) liveVariants.push(variant)
   }
 
+  for (const rawUnit of units) {
+    if (!isRecord(rawUnit) || rawUnit.deferredReason) continue
+    if (liveCombat && (td.enabled || rawUnit.loadouts !== undefined)) {
+      if (!isRecord(rawUnit.td)) throw new Error(`live unit ${String(rawUnit.id)} needs a td profile.`)
+      const profile = rawUnit.td
+      requireFinite(profile.maxHp, `unit ${String(rawUnit.id)} td.maxHp`, Number.EPSILON)
+      requireFinite(profile.attackRange, `unit ${String(rawUnit.id)} td.attackRange`, Number.EPSILON)
+      requirePositiveInteger(profile.attackIntervalTicks, `unit ${String(rawUnit.id)} td.attackIntervalTicks`)
+      const weapon = combatEquipment.get(String(profile.weaponEquipmentId))
+      if (!weapon || weapon.kind !== 'weapon' || weapon.deferredReason) {
+        throw new Error(`unit ${String(rawUnit.id)} references an unavailable TD weapon.`)
+      }
+      if (profile.armorEquipmentId !== undefined) {
+        const armor = combatEquipment.get(String(profile.armorEquipmentId))
+        if (!armor || armor.kind === 'weapon' || armor.deferredReason) {
+          throw new Error(`unit ${String(rawUnit.id)} references unavailable TD armor.`)
+        }
+      }
+      if (!Array.isArray(rawUnit.equipmentCosts) || rawUnit.equipmentCosts.length === 0) {
+        throw new Error(`live unit ${String(rawUnit.id)} needs equipmentCosts when combat is enabled.`)
+      }
+      for (const cost of rawUnit.equipmentCosts) {
+        if (!isRecord(cost) || typeof cost.equipmentId !== 'string' || !equipmentStockIds.has(cost.equipmentId)) {
+          throw new Error(`unit ${String(rawUnit.id)} references unknown equipment stock.`)
+        }
+        requireFinite(cost.amount, `unit ${String(rawUnit.id)} equipment cost`, Number.EPSILON)
+      }
+      if (!Array.isArray(rawUnit.loadouts) || rawUnit.loadouts.length === 0) {
+        const baseCostIds = new Set(rawUnit.equipmentCosts.flatMap(cost => (
+          isRecord(cost) && typeof cost.equipmentId === 'string' ? [cost.equipmentId] : []
+        )))
+        for (const [equipmentId, definition] of [
+          [String(profile.weaponEquipmentId), weapon],
+          ...(profile.armorEquipmentId === undefined
+            ? []
+            : [[String(profile.armorEquipmentId), combatEquipment.get(String(profile.armorEquipmentId))]]),
+        ] as Array<[string, Record<string, unknown> | undefined]>) {
+          if (definition?.technologyId !== undefined && !baseCostIds.has(equipmentId)) {
+            throw new Error(`unit ${String(rawUnit.id)} must consume its technology-linked equipment ${equipmentId}.`)
+          }
+        }
+      }
+    }
+    validateLoadouts(rawUnit.loadouts, `unit ${String(rawUnit.id)}`)
+  }
+
   if (!td.enabled) return
   if (!liveCombat) throw new Error('td.enabled requires combat.enabled.')
   if (liveVariants.length === 0) throw new Error('td.enabled requires a live plan variant.')
@@ -1238,35 +1625,6 @@ function validateTdConfig(
   }
   if (td.equipmentProduction.length === 0) {
     throw new Error('td.equipmentProduction must not be empty when td.enabled is true.')
-  }
-  const combatEquipment = new Map((combat.equipment as Array<Record<string, unknown>>)
-    .flatMap(entry => typeof entry.id === 'string' ? [[entry.id, entry] as const] : []))
-  for (const rawUnit of units) {
-    if (!isRecord(rawUnit) || rawUnit.deferredReason) continue
-    if (!isRecord(rawUnit.td)) throw new Error(`live unit ${String(rawUnit.id)} needs a td profile.`)
-    const profile = rawUnit.td
-    requireFinite(profile.maxHp, `unit ${String(rawUnit.id)} td.maxHp`, Number.EPSILON)
-    requireFinite(profile.attackRange, `unit ${String(rawUnit.id)} td.attackRange`, Number.EPSILON)
-    requirePositiveInteger(profile.attackIntervalTicks, `unit ${String(rawUnit.id)} td.attackIntervalTicks`)
-    const weapon = combatEquipment.get(String(profile.weaponEquipmentId))
-    if (!weapon || weapon.kind !== 'weapon' || weapon.deferredReason) {
-      throw new Error(`unit ${String(rawUnit.id)} references an unavailable TD weapon.`)
-    }
-    if (profile.armorEquipmentId !== undefined) {
-      const armor = combatEquipment.get(String(profile.armorEquipmentId))
-      if (!armor || armor.kind === 'weapon' || armor.deferredReason) {
-        throw new Error(`unit ${String(rawUnit.id)} references unavailable TD armor.`)
-      }
-    }
-    if (!Array.isArray(rawUnit.equipmentCosts) || rawUnit.equipmentCosts.length === 0) {
-      throw new Error(`live unit ${String(rawUnit.id)} needs equipmentCosts when td.enabled is true.`)
-    }
-    for (const cost of rawUnit.equipmentCosts) {
-      if (!isRecord(cost) || typeof cost.equipmentId !== 'string' || !equipmentStockIds.has(cost.equipmentId)) {
-        throw new Error(`unit ${String(rawUnit.id)} references unknown equipment stock.`)
-      }
-      requireFinite(cost.amount, `unit ${String(rawUnit.id)} equipment cost`, Number.EPSILON)
-    }
   }
 }
 
@@ -1339,10 +1697,26 @@ export function validateEmpiresConfig(value: unknown): asserts value is EmpiresE
     value.td,
     value.combat,
     value.empire.units ?? [],
+    value.empire.technologies,
     value.empire.map.regions.map(region => region.id),
   )
 
   const config = value as unknown as EmpiresEndgameConfig
+  validateSteelResearchConfig(config)
+  const cityIds = new Set(config.empire.cities.map(city => city.id))
+  for (const building of config.empire.buildings) {
+    if (building.allowedCityIds !== undefined) {
+      const allowed = validateUniqueStringList(
+        building.allowedCityIds,
+        `building ${building.id} allowedCityIds`,
+      )
+      for (const cityId of allowed) {
+        if (cityIds.size > 0 && !cityIds.has(cityId)) {
+          throw new Error(`building ${building.id} references unknown allowed city ${cityId}.`)
+        }
+      }
+    }
+  }
   const deferredErrors = validateDeferredReasons(config)
   if (deferredErrors.length > 0) throw new Error(deferredErrors.join('\n'))
   const liveEffectErrors = validateLiveEffects(config)

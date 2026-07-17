@@ -74,8 +74,8 @@ import type {
   EmpiresMapObjectDefinition,
   EmpiresPendingGiftResolution,
   EmpiresPoint,
-  EmpiresUnitDefinition,
   TdBattleResult,
+  TdCommand,
 } from '../features/empires-endgame/types'
 
 type EmpireTab = 'map' | 'city' | 'technology' | 'council'
@@ -86,6 +86,7 @@ const engine = shallowRef<EmpiresEndgameEngine | null>(null)
 const state = ref<EmpiresCampaignState | null>(null)
 const loading = ref(true)
 const fatalError = ref('')
+const fatalSaveRecoverable = ref(false)
 const lastMessage = ref('Добро пожаловать на последнюю игру империи.')
 const godBusy = ref(false)
 const editorOpen = ref(false)
@@ -97,6 +98,7 @@ const selectedBuildingId = ref<string | null>(null)
 const selectedTechnologyId = ref<string | null>(null)
 const selectedCouncilCardId = ref<string | null>(null)
 const populationCityId = ref<string | null>(null)
+const recruitQuantities = ref<Record<string, number>>({})
 const saveInput = ref<HTMLInputElement | null>(null)
 const qaMode = ref(false)
 const qaScenarioName = ref<EmpiresQaScenarioName>('pending-take')
@@ -297,6 +299,42 @@ function costsText(costs: Array<{ resourceId: string, amount: number }> | undefi
   })
 }
 
+function actionReasonText(reason: string | null | undefined) {
+  if (!reason) return undefined
+  const exact: Record<string, string> = {
+    'Research is only available in the empire phase.': 'Исследования доступны только во время управления империей.',
+    'That research is already complete.': 'Эта разработка уже изучена.',
+    'This + steel stage is not unlocked yet.': 'Эта стадия «+» ещё не открыта предыдущей стадией «−».',
+    'A military elite is required for this research.': 'Для этой разработки нужна военная элита.',
+    'That research group was already used this empire phase.': 'В этой исследовательской ветке уже сделан выбор в текущей фазе.',
+    'Not enough days remain.': 'Не хватает дней в текущей имперской фазе.',
+    'Units can only be recruited in the empire phase.': 'Найм доступен только во время управления империей.',
+    'Unit count must be a positive integer.': 'Количество должно быть целым положительным числом.',
+    'Recruitment is disabled for this empire phase.': 'Набор войск отключён эффектом карты на эту имперскую фазу.',
+    'Unknown city or unit.': 'Неизвестный город или вид войск.',
+    'That city is not accessible.': 'Город находится в уничтоженном регионе.',
+    'The city has reached its equipped recruitment capacity.': 'Город исчерпал лимит снаряжённого набора.',
+    'Not enough recruitable population.': 'Не хватает военного резерва.',
+  }
+  if (exact[reason]) return exact[reason]
+  const delayed = reason.match(/^This \+ steel stage unlocks automatically at con (\d+)\.$/)
+  if (delayed) return `Стадия «+» откроется бесплатно в коне ${delayed[1]}.`
+  const missingPrerequisite = reason.match(/^Missing prerequisite: (.+)\.$/)
+  if (missingPrerequisite) return `Нужно: ${missingPrerequisite[1]}`
+  const missingEquipment = reason.match(/^Not enough equipment: (.+)\.$/)
+  if (missingEquipment) {
+    const equipment = workingConfig.value?.combat.equipment.find(item => item.id === missingEquipment[1])
+    return `Не хватает снаряжения: ${equipment?.name ?? missingEquipment[1]}`
+  }
+  const missingResource = reason.match(/^Not enough (.+)\.$/)
+  if (missingResource) return `Не хватает ресурса: ${missingResource[1]}`
+  const deferredResearch = reason.match(/^That research is deferred: (.+)$/)
+  if (deferredResearch) return deferredResearch[1]
+  const deferredUnit = reason.match(/^That unit is deferred: (.+)$/)
+  if (deferredUnit) return deferredUnit[1]
+  return reason
+}
+
 function initializeEngine(nextConfig: EmpiresEndgameConfig, snapshot?: EmpiresCampaignState | null) {
   unsubscribe?.()
   const nextEngine = new EmpiresEndgameEngine(nextConfig, snapshot ?? undefined)
@@ -359,6 +397,7 @@ const qaDigest = computed(() => engine.value ? digestEmpiresQaState(engine.value
 async function boot() {
   loading.value = true
   fatalError.value = ''
+  fatalSaveRecoverable.value = false
   try {
     const loadedConfig = await loadEmpiresConfig()
     config.value = loadedConfig
@@ -378,7 +417,9 @@ async function boot() {
       }
     }
     else {
-      initializeEngine(loadedConfig, loadEmpiresCampaign(loadedConfig.id))
+      const savedCampaign = loadEmpiresCampaign(loadedConfig.id)
+      fatalSaveRecoverable.value = savedCampaign !== null
+      initializeEngine(loadedConfig, savedCampaign)
     }
   }
   catch (error) {
@@ -387,6 +428,12 @@ async function boot() {
   finally {
     loading.value = false
   }
+}
+
+async function discardIncompatibleSave() {
+  if (!window.confirm('Удалить несовместимое сохранение и начать новую кампанию?')) return
+  clearEmpiresCampaign()
+  await boot()
 }
 
 function action(result: EmpiresActionResult, continueGod = true) {
@@ -512,8 +559,8 @@ function resolveTdBattle(result: TdBattleResult) {
   if (engine.value) action(engine.value.resolveMinigame(result))
 }
 
-function abortTdBattle() {
-  if (engine.value) action(engine.value.abortMinigame())
+function abortTdBattle(commandLog: TdCommand[], abortTick: number) {
+  if (engine.value) action(engine.value.abortMinigame(commandLog, abortTick))
 }
 
 function startNewCampaign(ask = true) {
@@ -976,6 +1023,9 @@ function constructionBlockedReason(
   if (!state.value || !workingConfig.value) return 'Состояние империи недоступно'
   if (building.deferredReason) return building.deferredReason
   if (!(engine.value?.isCityAccessible(city.id) ?? true)) return 'Город находится в уничтоженном регионе'
+  if (building.allowedCityIds && !building.allowedCityIds.includes(city.id)) {
+    return 'Постройка недоступна в этом городе'
+  }
   if (city.buildingInteractionLocks[building.id] === state.value.con) {
     return 'Постройка заблокирована до следующего кона'
   }
@@ -1000,33 +1050,20 @@ function constructionBlockedReason(
   return null
 }
 
-function recruitmentBlockedReason(city: EmpiresCityState, unit: EmpiresUnitDefinition) {
-  if (!state.value || !workingConfig.value) return 'Состояние империи недоступно'
-  if (unit.deferredReason) return unit.deferredReason
-  if (!(engine.value?.isCityAccessible(city.id) ?? true)) return 'Город находится в уничтоженном регионе'
-  if ((state.value.empire.flags.recruitmentDisabled ?? 0) > 0) {
-    return 'Набор войск отключён эффектом карты на эту имперскую фазу'
+function recruitmentMaximum(cityId: string, unitId: string) {
+  const currentEngine = engine.value
+  if (!currentEngine) return 0
+  let available = 0
+  let blocked = 99
+  while (available < blocked) {
+    const candidate = Math.ceil((available + blocked) / 2)
+    if (currentEngine.recruitmentQuote(cityId, unitId, candidate).blockedReason) {
+      blocked = candidate - 1
+    } else {
+      available = candidate
+    }
   }
-  if (engine.value?.cityRecruitmentRemaining(city.id, unit.id) === 0) {
-    return 'Город исчерпал лимит снаряжённого набора'
-  }
-  const missingDependency = firstMissingDependency(unit.dependencies, city.id, true)
-  if (missingDependency) return `Нужно: ${missingDependency}`
-  if (city.militaryPopulation < unit.populationCost) return 'Не хватает военного резерва'
-  if (state.value.empire.daysRemaining < unit.timeCostDays) return `Нужно ${unit.timeCostDays} дней`
-  const missingResource = unit.resourceCosts.find(cost =>
-    combinedResourceAmount(city, cost.resourceId) < cost.amount,
-  )
-  if (missingResource) {
-    const name = workingConfig.value.empire.resources.find(item => item.id === missingResource.resourceId)?.name
-      ?? missingResource.resourceId
-    return `Не хватает ресурса: ${name}`
-  }
-  const missingEquipment = unit.equipmentCosts?.find(cost => (
-    (state.value?.army.equipmentStock[cost.equipmentId] ?? 0) < cost.amount
-  ))
-  if (missingEquipment) return `Не хватает снаряжения: ${missingEquipment.equipmentId}`
-  return null
+  return available
 }
 
 const cityViews = computed(() => {
@@ -1096,6 +1133,7 @@ const cityViews = computed(() => {
         boosted,
         boostPercent: state.value?.empire.flags.productionBoostPercent ?? 200,
         deferredReason: building.deferredReason,
+        deferredSubfeatures: building.deferredSubfeatures,
         stateMessage: interactionLocked
           ? 'Постройка повреждена и недоступна до следующего кона'
           : busyLock
@@ -1175,40 +1213,30 @@ const cityViews = computed(() => {
     })
 
     const recruitableUnits = (currentConfig.empire.units ?? []).map((unit) => {
-      const disabledReason = recruitmentBlockedReason(city, unit)
-      const recruitablePopulation = currentConfig.empire.populationClasses
-        .filter(category => category.canRecruit)
-        .reduce((total, category) => total + (city.populationClasses[category.id] ?? 0), 0)
-      const quantityLimits = unit.resourceCosts
-        .filter(cost => cost.amount > 0)
-        .map(cost => Math.floor(combinedResourceAmount(city, cost.resourceId) / cost.amount))
-      const recruitmentRemaining = engine.value?.cityRecruitmentRemaining(city.id, unit.id)
-      if (recruitmentRemaining !== null && recruitmentRemaining !== undefined) {
-        quantityLimits.push(recruitmentRemaining)
-      }
-      if (unit.populationCost > 0) {
-        quantityLimits.push(
-          Math.floor(city.population / unit.populationCost),
-          Math.floor(recruitablePopulation / unit.populationCost),
-        )
-      }
-      for (const cost of unit.equipmentCosts ?? []) {
-        if (cost.amount > 0) {
-          quantityLimits.push(Math.floor(
-            (state.value?.army.equipmentStock[cost.equipmentId] ?? 0) / cost.amount,
-          ))
-        }
-      }
+      const maxQuantity = recruitmentMaximum(city.id, unit.id)
+      const desiredQuantity = Math.max(1, Math.min(
+        maxQuantity || 1,
+        recruitQuantities.value[`${city.id}:${unit.id}`] ?? 1,
+      ))
+      const quote = engine.value?.recruitmentQuote(city.id, unit.id, desiredQuantity)
+      const disabledReason = actionReasonText(quote?.blockedReason)
       return {
         id: unit.id,
         name: unit.name,
         description: unit.description,
         imageUrl: unit.image,
-        count: city.recruitedUnits[unit.id] ?? 0,
+        count: engine.value?.cityRecruitedUnitCount(city.id, unit.id) ?? 0,
         foodUpkeep: unit.foodUpkeep,
         populationCost: unit.populationCost,
-        timeCost: unit.timeCostDays,
-        maxQuantity: Math.max(0, Math.min(99, ...quantityLimits, 99)),
+        timeCost: quote && !quote.blockedReason ? quote.timeCostDays : unit.timeCostDays,
+        loadoutId: quote?.loadoutId || undefined,
+        resourceCosts: quote?.blockedReason ? [] : costsText(quote?.resourceCosts ?? unit.resourceCosts),
+        equipmentCosts: (quote?.blockedReason ? [] : quote?.equipmentCosts ?? unit.equipmentCosts ?? []).map(cost => {
+          const equipment = currentConfig.combat.equipment.find(item => item.id === cost.equipmentId)
+          return `${formatNumber(cost.amount)} ${equipment?.name ?? cost.equipmentId}`
+        }),
+        maxQuantity,
+        quantity: desiredQuantity,
         disabled: Boolean(disabledReason),
         disabledReason: disabledReason ?? undefined,
         deferredReason: unit.deferredReason,
@@ -1236,6 +1264,37 @@ const cityViews = computed(() => {
       foodConsumed: engine.value?.cityFoodConsumption(city.id) ?? city.population,
       armyFoodConsumed: engine.value?.cityArmyFoodUpkeep(city.id) ?? 0,
       loyalty: state.value?.empire.flags[`loyalty:${city.id}`] ?? 0,
+      armyMorale: {
+        value: state.value.army.morale,
+        minimum: Math.max(
+          currentConfig.td.morale?.minimum ?? 0,
+          state.value.empire.flags.minimumCombatSpirit ?? 0,
+        ),
+        maximum: state.value.army.maxMorale,
+      },
+      equipmentStock: Object.entries(state.value.army.equipmentStock)
+        .filter(([, value]) => value > 0)
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([equipmentId, value]) => ({
+          id: equipmentId,
+          name: currentConfig.combat.equipment.find(item => item.id === equipmentId)?.name ?? equipmentId,
+          value,
+        })),
+      armyCohorts: city.recruitedUnitCohorts
+        .filter(cohort => cohort.count > 0)
+        .sort((left, right) => left.id.localeCompare(right.id))
+        .map(cohort => ({
+          id: cohort.id,
+          unitName: currentConfig.empire.units?.find(unit => unit.id === cohort.unitId)?.name ?? cohort.unitId,
+          count: cohort.count,
+          loadoutId: cohort.loadoutId,
+          weaponName: currentConfig.combat.equipment.find(item => item.id === cohort.weaponEquipmentId)?.name
+            ?? cohort.weaponEquipmentId,
+          defenseName: cohort.defenseEquipmentId
+            ? currentConfig.combat.equipment.find(item => item.id === cohort.defenseEquipmentId)?.name
+              ?? cohort.defenseEquipmentId
+            : undefined,
+        })),
       municipality,
       slots: visibleSlots.map(slot => ({ id: slot.id, kind: cityViewSlot(slot.kind) as Exclude<CityViewSlot, 'municipal'> })),
       placementOptions,
@@ -1263,18 +1322,18 @@ function recruitUnits(cityId: string, unitId: string, count: number) {
   if (engine.value) action(engine.value.recruitUnits(cityId, unitId, count))
 }
 
+function setRecruitQuantity(cityId: string, unitId: string, count: number) {
+  recruitQuantities.value = {
+    ...recruitQuantities.value,
+    [`${cityId}:${unitId}`]: Math.max(1, Math.floor(count)),
+  }
+}
+
 function toggleProductionBoost(cityId: string, buildingId: string, enabled: boolean) {
   if (!engine.value) return
   action(enabled
     ? engine.value.assignProductionBoost(cityId, buildingId)
     : engine.value.clearProductionBoost(cityId, buildingId))
-}
-
-function researchUsageKey(technology: EmpiresEndgameConfig['empire']['technologies'][number]) {
-  const family = technology.category === 'reform' || technology.category === 'doctrine'
-    ? 'reform'
-    : 'technology'
-  return `${family}:${technology.groupId?.trim() || technology.id}`
 }
 
 const technologyNodes = computed(() => {
@@ -1292,24 +1351,17 @@ const technologyNodes = computed(() => {
     const fallbackColumn = fallbackColumnByTier.get(fallbackTier) ?? 0
     const fallbackRow = fallbackRowsByColumn.get(fallbackColumn) ?? 0
     if (!technology.position) fallbackRowsByColumn.set(fallbackColumn, fallbackRow + 1)
-    const requires = technology.prerequisites.flatMap(dependency => dependency.kind === 'technology' ? [dependency.technologyId] : [])
-    const researched = state.value?.empire.researchedTechnologyIds.includes(technology.id) ?? false
-    const usedResearchId = state.value.empire.researchUsage[researchUsageKey(technology)]
-    const missingDependency = firstMissingDependency(technology.prerequisites)
-    const missingResource = technology.resourceCosts.find(cost =>
-      (state.value?.empire.resources[cost.resourceId] ?? 0) < cost.amount,
-    )
-    const blockedReason = technology.deferredReason
-      ?? (usedResearchId
-      ? `В этой ветке уже изучено: ${workingConfig.value?.empire.technologies.find(item => item.id === usedResearchId)?.name ?? usedResearchId}`
-      : missingDependency
-      ? `Нужно: ${missingDependency}`
-      : state.value.empire.daysRemaining < technology.timeCostDays
-      ? `Нужно ${technology.timeCostDays} дней`
-      : missingResource
-      ? `Не хватает: ${workingConfig.value?.empire.resources.find(resource => resource.id === missingResource.resourceId)?.name ?? missingResource.resourceId}`
-      : null)
+    const quote = editorOpen.value ? null : engine.value?.researchQuote(technology.id)
+    const requires = quote?.requiredTechnologyIds
+      ?? technology.prerequisites.flatMap(dependency => dependency.kind === 'technology' ? [dependency.technologyId] : [])
+    const exactCosts = quote?.resourceCosts ?? technology.resourceCosts
+    const researched = quote?.researched
+      ?? state.value.empire.researchedTechnologyIds.includes(technology.id)
+    const blockedReason = actionReasonText(quote?.blockedReason)
     const available = !researched && !blockedReason
+    const entryTechnology = quote?.entryFromTechnologyId
+      ? technologies.find(candidate => candidate.id === quote.entryFromTechnologyId)
+      : null
     return {
       id: technology.id,
       name: technology.name,
@@ -1319,14 +1371,23 @@ const technologyNodes = computed(() => {
       x: technology.position?.x ?? fallbackStartX + fallbackColumn * 210,
       y: technology.position?.y ?? 80 + fallbackRow * 88,
       requires,
-      costKnowledge: technology.resourceCosts.find(cost => cost.resourceId === knowledgeResourceId.value)?.amount ?? 0,
-      costGold: technology.resourceCosts.find(cost => cost.resourceId === goldResourceId.value)?.amount ?? 0,
-      costs: costsText(technology.resourceCosts),
-      timeCost: technology.timeCostDays,
+      costKnowledge: exactCosts.find(cost => cost.resourceId === knowledgeResourceId.value)?.amount ?? 0,
+      costGold: exactCosts.find(cost => cost.resourceId === goldResourceId.value)?.amount ?? 0,
+      costs: costsText(exactCosts),
+      timeCost: quote?.timeCostDays ?? technology.timeCostDays,
+      costMultiplier: quote?.costMultiplier ?? 1,
+      entryFromName: entryTechnology?.name,
+      freeEligibleCon: quote?.freeEligibleCon ?? null,
       researched,
       available,
       blockedReason: blockedReason ?? undefined,
       deferredReason: technology.deferredReason,
+      steelBranch: technology.steel?.branchId,
+      steelGeneration: technology.steel?.generation,
+      steelStage: technology.steel?.stage,
+      steelElite: technology.steel?.eliteRequired,
+      steelPayoff: technology.steel?.payoff,
+      deferredSubfeatures: technology.deferredSubfeatures,
       darkSide: technology.tags?.includes('dark-side') ? 'Эта разработка открывает опасную ветвь.' : undefined,
       image: technology.image,
     }
@@ -1455,6 +1516,9 @@ onUnmounted(() => {
       <h1>Игра не загрузилась</h1>
       <p>{{ fatalError }}</p>
       <button type="button" @click="boot"><RotateCcw :size="16" /> Попробовать снова</button>
+      <button v-if="fatalSaveRecoverable" type="button" class="danger" @click="discardIncompatibleSave">
+        Начать без старого сохранения
+      </button>
     </section>
 
     <template v-else-if="state && workingConfig && engine">
@@ -1606,6 +1670,7 @@ onUnmounted(() => {
           @upgrade="upgradeBuilding"
           @place="placeBuilding"
           @recruit="recruitUnits"
+          @recruit-quantity="setRecruitQuantity"
           @toggle-boost="toggleProductionBoost"
           @open-population="populationCityId = $event"
           @edit-building="showMessage('Откройте вкладку «Здания» конструктора для параметров и графа зависимостей.')"

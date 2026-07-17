@@ -116,7 +116,16 @@ export interface TdTowerBaseDefinition {
   attackIntervalTicks: number
   projectiles: number
   weapon: CombatWeaponProfile
+  loadouts?: TdTowerLoadoutDefinition[]
   targetPriority: TdTargetPriority
+}
+
+export interface TdTowerLoadoutDefinition {
+  id: string
+  priority: number
+  weaponEquipmentId: string
+  defenseEquipmentId?: string
+  equipmentCosts: TdEquipmentCost[]
 }
 
 export interface TdTowerChoiceDefinition {
@@ -207,8 +216,18 @@ export interface TdMoraleDefinition {
 }
 
 export interface TdEquipmentProductionDefinition {
+  id: string
   equipmentId: string
+  lineId: string
   amountPerSmithCapacity: number
+  priority: number
+  technologyId?: string
+}
+
+export interface TdEquipmentProductionLineDefinition {
+  id: string
+  capacityFlagId: string
+  capacityShare: number
 }
 
 /**
@@ -229,6 +248,7 @@ export interface EmpiresTdConfig {
   alliance?: TdAllianceCurveDefinition
   settlement?: TdSettlementDefinition
   morale?: TdMoraleDefinition
+  equipmentProductionLines?: TdEquipmentProductionLineDefinition[]
   equipmentProduction?: TdEquipmentProductionDefinition[]
   battlefields: TdBattlefieldDefinition[]
   towers: TdTowerChoiceDefinition[]
@@ -252,6 +272,7 @@ export interface TdEquipmentCost {
 
 export interface TdDeploymentPlan {
   id: string
+  cohortId: string
   cityId: string
   unitId: string
   count: number
@@ -283,6 +304,7 @@ export interface TdBattlePlan {
   gradeChoices: TdGradeChoiceSetDefinition[]
   wave: TdWaveDefinition
   combat: EmpiresCombatConfig
+  equipmentStock: Record<string, number>
   deployments: TdDeploymentPlan[]
 }
 
@@ -309,6 +331,11 @@ export interface TdTowerState {
   spotId: string
   towerBaseId: string
   choiceIds: string[]
+  loadoutId: string | null
+  weaponEquipmentId: string | null
+  defenseEquipmentId?: string
+  weapon: CombatWeaponProfile
+  armor: CombatArmorProfile | null
   hp: number
   nextAttackTick: number
 }
@@ -326,6 +353,7 @@ export interface TdEnemyState extends TdPoint {
 
 export interface TdSquadState extends TdPoint {
   deploymentId: string
+  cohortId: string
   cityId: string
   unitId: string
   count: number
@@ -348,6 +376,8 @@ export interface TdSimulationState {
   elapsedMs: number
   rng: { state: number, draws: number }
   buildResources: number
+  equipmentStock: Record<string, number>
+  equipmentSpent: Record<string, number>
   objectiveHp: number
   towers: TdTowerState[]
   enemies: TdEnemyState[]
@@ -362,6 +392,7 @@ export interface TdSimulationState {
 
 export interface TdDeploymentResult {
   deploymentId: string
+  cohortId: string
   cityId: string
   unitId: string
   deployed: number
@@ -385,6 +416,7 @@ export interface TdBattleResult {
   enemiesDefeated: number
   deployments: TdDeploymentResult[]
   buildResourcesRemaining: number
+  equipmentSpent: Record<string, number>
   damageByType: Record<string, number>
   hitCount: number
   commandLog: TdCommand[]

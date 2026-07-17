@@ -12,6 +12,7 @@ import {
   replayTdBattle,
   validateTdBattlePlan,
 } from './td/engine'
+import { resolveEmpiresUnitLoadout } from './equipment'
 import { EMPIRES_RANKS, EMPIRES_SUITS } from './types'
 import type {
   EmpiresActionResult,
@@ -34,6 +35,9 @@ import type {
   EmpiresPerformanceState,
   EmpiresPhase,
   EmpiresResourceAmount,
+  EmpiresResearchQuote,
+  EmpiresRecruitmentQuote,
+  EmpiresRecruitedUnitCohortState,
   EmpiresSnapshotEnvelope,
   EmpiresStateListener,
   EmpiresSuit,
@@ -41,6 +45,7 @@ import type {
   EmpiresUnitDefinition,
   TdBattleConsequenceDefinition,
   TdBattlePlan,
+  TdCommand,
   TdDeploymentPlan,
   TdPlanVariantDefinition,
   TdRulesIdentity,
@@ -83,6 +88,35 @@ function stableStringCompare(left: string, right: string): number {
   return left < right ? -1 : left > right ? 1 : 0
 }
 
+function isRecordValue(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every(entry => typeof entry === 'string' && entry.length > 0)
+}
+
+function isFrozenWeaponProfile(value: unknown): value is CombatWeaponProfile {
+  if (!isRecordValue(value) || !isRecordValue(value.damageLevels) || !isStringArray(value.tags)) return false
+  const levels = Object.entries(value.damageLevels)
+  if (levels.length === 0 || levels.some(([id, level]) => (
+    !id || typeof level !== 'number' || !Number.isFinite(level) || level < 0
+  ))) return false
+  if (value.mixed !== undefined && typeof value.mixed !== 'boolean') return false
+  if (value.twoTyped !== undefined && typeof value.twoTyped !== 'boolean') return false
+  return value.passiveIds === undefined || isStringArray(value.passiveIds)
+}
+
+function isFrozenArmorProfile(value: unknown): value is CombatArmorProfile {
+  return isRecordValue(value)
+    && typeof value.classId === 'string'
+    && value.classId.length > 0
+    && typeof value.level === 'number'
+    && Number.isFinite(value.level)
+    && value.level >= 0
+    && (value.tags === undefined || isStringArray(value.tags))
+}
+
 function legacyTdTowerCategories(id: unknown): string[] {
   if (id === 'tower-g2-archers') return ['archer']
   if (id === 'tower-g2-crossbows') return ['crossbow']
@@ -104,9 +138,14 @@ function migrateLegacyActiveTdPlan(
     plan.rulesIdentity = cloneSerializable(rulesIdentity)
     plan.maxCommands = maxCommands
     plan.maxCatchUpTicksPerFrame = maxCatchUpTicksPerFrame
+    plan.equipmentStock ??= {}
     if (Array.isArray(plan.deployments)) {
       plan.deployments = plan.deployments.map(deployment => typeof deployment === 'object' && deployment
-        ? { speedPerSecond: 0, ...deployment }
+        ? {
+            speedPerSecond: 0,
+            cohortId: `legacy:${String((deployment as Record<string, unknown>).cityId)}:${String((deployment as Record<string, unknown>).unitId)}`,
+            ...deployment,
+          }
         : deployment)
     }
     return plan as unknown as TdBattlePlan
@@ -175,9 +214,14 @@ function migrateLegacyActiveTdPlan(
       : []),
   }))
   plan.wave = wave
+  plan.equipmentStock ??= {}
   if (Array.isArray(plan.deployments)) {
     plan.deployments = plan.deployments.map(deployment => typeof deployment === 'object' && deployment
-      ? { speedPerSecond: 0, ...deployment }
+      ? {
+          speedPerSecond: 0,
+          cohortId: `legacy:${String((deployment as Record<string, unknown>).cityId)}:${String((deployment as Record<string, unknown>).unitId)}`,
+          ...deployment,
+        }
       : deployment)
   }
   delete plan.towerBase
@@ -227,7 +271,7 @@ function uniqueIds<T extends { id: string }>(values: readonly T[]): boolean {
 
 export function validateEmpiresEndgameConfig(config: EmpiresEndgameConfig): string[] {
   const errors: string[] = []
-  if (config.schemaVersion !== 3) errors.push('schemaVersion must be 3')
+  if (config.schemaVersion !== 4) errors.push('schemaVersion must be 4')
   if (!config.id.trim()) errors.push('config id is required')
   if (config.cards.length !== 53) errors.push('cards must contain exactly 53 definitions')
   if (!uniqueIds(config.cards)) errors.push('card definition ids must be unique')
@@ -365,6 +409,9 @@ export class EmpiresEndgameEngine {
     }
 
     this.state = snapshot ? this.validateAndCloneSnapshot(snapshot) : this.createInitialState()
+    this.syncArmyMoraleCap()
+    this.scheduleDelayedSteelResearch()
+    this.awardDueSteelResearch()
     this.refreshProductions()
   }
 
@@ -379,11 +426,13 @@ export class EmpiresEndgameEngine {
   }
 
   snapshotEnvelope(savedAt = new Date().toISOString()): EmpiresSnapshotEnvelope {
-    return { schemaVersion: 2, savedAt, state: this.snapshot() }
+    return { schemaVersion: 3, savedAt, state: this.snapshot() }
   }
 
   restore(snapshot: EmpiresCampaignState): void {
     this.state = this.validateAndCloneSnapshot(snapshot)
+    this.scheduleDelayedSteelResearch()
+    this.awardDueSteelResearch()
     this.refreshProductions()
     this.emit()
   }
@@ -450,7 +499,7 @@ export class EmpiresEndgameEngine {
     return this.commit(`Minigame ${session.id} resolved as ${result.outcome}.`)
   }
 
-  abortMinigame(): EmpiresActionResult {
+  abortMinigame(commandLog: readonly TdCommand[] = [], abortTick = 0): EmpiresActionResult {
     const session = this.state.minigame
     if (!session || this.state.phase !== 'minigame') {
       const lastResult = this.state.minigameResultLog[
@@ -460,7 +509,10 @@ export class EmpiresEndgameEngine {
         ? success('The last minigame was already aborted.')
         : failure('No minigame session is active.')
     }
-    const result = abortTdBattle(session.plan, session.seed)
+    const result = abortTdBattle(session.plan, session.seed, commandLog, abortTick)
+    if (result.outcome !== 'aborted') {
+      return failure(result.error ?? 'The minigame could not be aborted from that command log.')
+    }
     this.settleBattleOutcome(result, session)
     return this.commit(`Minigame ${session.id} aborted with its configured penalty.`)
   }
@@ -710,6 +762,9 @@ export class EmpiresEndgameEngine {
     if (!city || !slot || !building) return failure('Unknown city, slot, or building.')
     if (building.deferredReason) return failure(`That building is deferred: ${building.deferredReason}`)
     if (!this.isCityAccessible(cityId)) return failure('That city is not accessible.')
+    if (building.allowedCityIds && !building.allowedCityIds.includes(cityId)) {
+      return failure('That building cannot be placed in this city.')
+    }
     if (this.isBuildingInteractionLocked(city, buildingId)) {
       return failure('That building is locked for the current con.')
     }
@@ -733,54 +788,123 @@ export class EmpiresEndgameEngine {
   }
 
   recruitUnits(cityId: string, unitId: string, count = 1): EmpiresActionResult {
-    if (this.state.phase !== 'empire') return failure('Units can only be recruited in the empire phase.')
-    if (!Number.isInteger(count) || count <= 0) return failure('Unit count must be a positive integer.')
-    if ((this.state.empire.flags.recruitmentDisabled ?? 0) > 0) {
-      return failure('Recruitment is disabled for this empire phase.')
-    }
+    const quote = this.recruitmentQuote(cityId, unitId, count)
+    if (quote.blockedReason) return failure(quote.blockedReason)
     const city = this.city(cityId)
     const unit = this.unitDefinitions.get(unitId)
     if (!city || !unit) return failure('Unknown city or unit.')
-    if (unit.deferredReason) return failure(`That unit is deferred: ${unit.deferredReason}`)
-    if (!this.isCityAccessible(cityId)) return failure('That city is not accessible.')
+    const loadout = resolveEmpiresUnitLoadout(
+      unit,
+      this.config.combat.equipment,
+      this.state.empire.researchedTechnologyIds,
+      this.state.army.equipmentStock,
+      count,
+    )
+    const populationCost = unit.populationCost * count
+
+    this.payResources(quote.resourceCosts, city, true)
+    for (const cost of quote.equipmentCosts) {
+      this.state.army.equipmentStock[cost.equipmentId] = Math.max(
+        0,
+        (this.state.army.equipmentStock[cost.equipmentId] ?? 0) - cost.amount,
+      )
+    }
+    this.state.empire.daysRemaining -= quote.timeCostDays
+    this.consumeRecruitmentPopulation(city, populationCost)
+    this.addOrMergeCohort(city, unit, loadout, count)
+    const instantCadence = this.operationalBuildingFlagValue(city, 'instantUnitEveryTurns')
+    if (quote.usedFoundryInstant && instantCadence !== null && instantCadence > 0) {
+      this.state.army.foundryInstantReadyConByCity[city.id] = this.state.con + Math.ceil(instantCadence)
+    }
+    this.refreshProductions()
+    if (this.state.empire.daysRemaining <= 0) this.finishEmpireInternal()
+    return this.commit(`${count} ${unit.name} recruited.`)
+  }
+
+  recruitmentQuote(cityId: string, unitId: string, count = 1): EmpiresRecruitmentQuote {
+    const empty = (blockedReason: string): EmpiresRecruitmentQuote => ({
+      cityId,
+      unitId,
+      count,
+      resourceCosts: [],
+      equipmentCosts: [],
+      timeCostDays: 0,
+      loadoutId: '',
+      usedFoundryInstant: false,
+      blockedReason,
+    })
+    if (this.state.phase !== 'empire') return empty('Units can only be recruited in the empire phase.')
+    if (!Number.isInteger(count) || count <= 0) return empty('Unit count must be a positive integer.')
+    if ((this.state.empire.flags.recruitmentDisabled ?? 0) > 0) {
+      return empty('Recruitment is disabled for this empire phase.')
+    }
+    const city = this.city(cityId)
+    const unit = this.unitDefinitions.get(unitId)
+    if (!city || !unit) return empty('Unknown city or unit.')
+    if (unit.deferredReason) return empty(`That unit is deferred: ${unit.deferredReason}`)
+    if (!this.isCityAccessible(cityId)) return empty('That city is not accessible.')
     const missingDependency = this.firstMissingDependency(unit.dependencies, city, true)
-    if (missingDependency) return failure(`Missing prerequisite: ${missingDependency}.`)
+    if (missingDependency) return empty(`Missing prerequisite: ${missingDependency}.`)
     const equippedRecruitCapacity = this.operationalBuildingFlagValue(city, 'equippedRecruitCapacity')
     const recruitmentPenalty = this.state.army.recruitmentPenalties[
       this.recruitmentPenaltyKey(city.id, unit.id)
     ] ?? 0
-    if (
-      equippedRecruitCapacity !== null
+    if (equippedRecruitCapacity !== null
       && (this.state.empire.flags.unlimitedTavernRecruitment ?? 0) <= 0
-      && this.recruitedUnitCount(city) + count > Math.max(0, equippedRecruitCapacity - recruitmentPenalty)
-    ) {
-      return failure('The city has reached its equipped recruitment capacity.')
+      && this.recruitedUnitCount(city) + count > Math.max(0, equippedRecruitCapacity - recruitmentPenalty)) {
+      return empty('The city has reached its equipped recruitment capacity.')
     }
     const populationCost = unit.populationCost * count
-    if (city.militaryPopulation < populationCost) return failure('Not enough recruitable military population.')
-    const timeCost = unit.timeCostDays
-    if (this.state.empire.daysRemaining < timeCost) return failure('Not enough days remain.')
-    const resourceCosts = [...unit.resourceCosts.reduce((totals, cost) => {
-      totals.set(cost.resourceId, (totals.get(cost.resourceId) ?? 0) + cost.amount * count)
-      return totals
-    }, new Map<string, number>())].map(([resourceId, amount]) => ({ resourceId, amount }))
-    const missingResource = this.firstMissingResource(resourceCosts, city, true)
-    if (missingResource) return failure(`Not enough ${missingResource}.`)
-    const equipmentCosts = (unit.equipmentCosts ?? []).map(cost => ({
+    if (city.militaryPopulation < populationCost
+      || city.population < populationCost
+      || this.recruitablePopulation(city) < populationCost) {
+      return empty('Not enough recruitable population.')
+    }
+    let loadout: ReturnType<typeof resolveEmpiresUnitLoadout>
+    try {
+      loadout = resolveEmpiresUnitLoadout(
+        unit,
+        this.config.combat.equipment,
+        this.state.empire.researchedTechnologyIds,
+        this.state.army.equipmentStock,
+        count,
+      )
+    } catch (error) {
+      return empty(error instanceof Error ? error.message : 'No valid unit loadout is available.')
+    }
+    const equipmentCosts = loadout.equipmentCosts.map(cost => ({
       equipmentId: cost.equipmentId,
       amount: cost.amount * count,
     }))
     const missingEquipment = equipmentCosts.find(cost => (
       (this.state.army.equipmentStock[cost.equipmentId] ?? 0) + Number.EPSILON < cost.amount
     ))
-    if (missingEquipment) return failure(`Not enough equipment: ${missingEquipment.equipmentId}.`)
-    if (city.population < populationCost || this.recruitablePopulation(city) < populationCost) {
-      return failure('Not enough recruitable population.')
-    }
-
+    if (missingEquipment) return empty(`Not enough equipment: ${missingEquipment.equipmentId}.`)
+    const discount = Math.max(0, Math.min(
+      100,
+      this.operationalBuildingFlagValue(city, 'armyProductionDiscountPercent') ?? 0,
+    ))
+    const resourceCosts = [...unit.resourceCosts.reduce((totals, cost) => {
+      totals.set(cost.resourceId, (totals.get(cost.resourceId) ?? 0) + cost.amount * count)
+      return totals
+    }, new Map<string, number>())]
+      .map(([resourceId, amount]) => ({ resourceId, amount: amount * (100 - discount) / 100 }))
+    const missingResource = this.firstMissingResource(resourceCosts, city, true)
+    if (missingResource) return empty(`Not enough ${missingResource}.`)
+    const instantCadence = this.operationalBuildingFlagValue(city, 'instantUnitEveryTurns')
+    const instantReady = count === 1
+      && instantCadence !== null
+      && instantCadence > 0
+      && this.state.con >= (this.state.army.foundryInstantReadyConByCity[city.id] ?? this.state.con)
+    const timeDiscount = Math.max(0, Math.min(
+      100,
+      this.operationalBuildingFlagValue(city, 'armyProductionTimeDiscountPercent') ?? 0,
+    ))
+    const timeCostDays = instantReady ? 0 : unit.timeCostDays * (100 - timeDiscount) / 100
+    if (this.state.empire.daysRemaining < timeCostDays) return empty('Not enough days remain.')
     const projectedCity = cloneSerializable(city)
     this.consumeRecruitmentPopulation(projectedCity, populationCost)
-    projectedCity.recruitedUnits[unitId] = (projectedCity.recruitedUnits[unitId] ?? 0) + count
+    projectedCity.recruitedUnitCohorts.push(this.createCohort(projectedCity, unit, loadout, count))
     this.updateOperationalBuildings(projectedCity)
     const projectedFoodProduction = this.productionForCity(projectedCity)[this.config.empire.foodResourceId] ?? 0
     const projectedFoodConsumption = this.foodConsumptionForCity(projectedCity)
@@ -795,22 +919,19 @@ export class EmpiresEndgameEngine {
       immediateFoodCost,
       true,
     )) {
-      return failure('The city does not have enough food surplus.')
+      return empty('The city does not have enough food surplus.')
     }
-
-    this.payResources(resourceCosts, city, true)
-    for (const cost of equipmentCosts) {
-      this.state.army.equipmentStock[cost.equipmentId] = Math.max(
-        0,
-        (this.state.army.equipmentStock[cost.equipmentId] ?? 0) - cost.amount,
-      )
+    return {
+      cityId,
+      unitId,
+      count,
+      resourceCosts,
+      equipmentCosts,
+      timeCostDays,
+      loadoutId: loadout.id,
+      usedFoundryInstant: instantReady,
+      blockedReason: null,
     }
-    this.state.empire.daysRemaining -= timeCost
-    this.consumeRecruitmentPopulation(city, populationCost)
-    city.recruitedUnits[unitId] = (city.recruitedUnits[unitId] ?? 0) + count
-    this.refreshProductions()
-    if (this.state.empire.daysRemaining <= 0) this.finishEmpireInternal()
-    return this.commit(`${count} ${unit.name} recruited.`)
   }
 
   assignProductionBoost(cityId: string, buildingId: string): EmpiresActionResult {
@@ -860,33 +981,125 @@ export class EmpiresEndgameEngine {
   }
 
   research(technologyId: string): EmpiresActionResult {
-    if (this.state.phase !== 'empire') return failure('Research is only available in the empire phase.')
+    const quote = this.researchQuote(technologyId)
+    if (quote.blockedReason) return failure(quote.blockedReason)
     const technology = this.technologyDefinitions.get(technologyId)
     if (!technology) return failure('Unknown technology.')
-    if (technology.deferredReason) {
-      return failure(`That research is deferred: ${technology.deferredReason}`)
-    }
-    if (this.state.empire.researchedTechnologyIds.includes(technologyId)) {
-      return failure('That research is already complete.')
-    }
-    const usageKey = this.researchUsageKey(technology)
-    if (this.state.empire.researchUsage[usageKey]) {
-      return failure('That research group was already used this empire phase.')
-    }
-    const dependency = this.firstMissingDependency(technology.prerequisites)
-    if (dependency) return failure(`Missing prerequisite: ${dependency}.`)
-    if (this.state.empire.daysRemaining < technology.timeCostDays) return failure('Not enough days remain.')
-    const missingResource = this.firstMissingResource(technology.resourceCosts)
-    if (missingResource) return failure(`Not enough ${missingResource}.`)
 
-    this.payResources(technology.resourceCosts)
-    this.state.empire.daysRemaining -= technology.timeCostDays
+    this.payResources(quote.resourceCosts)
+    this.state.empire.daysRemaining -= quote.timeCostDays
     this.state.empire.researchedTechnologyIds.push(technologyId)
-    this.state.empire.researchUsage[usageKey] = technologyId
+    this.state.empire.researchUsage[this.researchUsageKey(technology)] = technologyId
+    if (quote.entryFromTechnologyId && technology.steel) {
+      const source = this.technologyDefinitions.get(quote.entryFromTechnologyId)?.steel
+      if (source && source.branchId !== technology.steel.branchId) {
+        this.state.empire.steelResearch.branchEntries.push({
+          fromTechnologyId: quote.entryFromTechnologyId,
+          toTechnologyId: technology.id,
+          fromBranchId: source.branchId,
+          toBranchId: technology.steel.branchId,
+          con: this.state.con,
+        })
+        this.state.empire.steelResearch.branchCostMultipliers[source.branchId] = Math.max(
+          this.state.empire.steelResearch.branchCostMultipliers[source.branchId] ?? 1,
+          this.config.empire.steelResearch.forkSourcePriceMultiplier,
+        )
+      }
+    }
     this.applyEffects(technology.effects, 0)
+    this.scheduleDelayedSteelResearch()
+    this.awardDueSteelResearch()
     this.refreshProductions()
     if (this.state.empire.daysRemaining <= 0) this.finishEmpireInternal()
     return this.commit(`${technology.name} researched.`)
+  }
+
+  researchQuote(technologyId: string): EmpiresResearchQuote {
+    const technology = this.technologyDefinitions.get(technologyId)
+    const researched = this.state.empire.researchedTechnologyIds.includes(technologyId)
+    const empty = (blockedReason: string): EmpiresResearchQuote => ({
+      technologyId,
+      requiredTechnologyIds: [],
+      resourceCosts: [],
+      timeCostDays: 0,
+      costMultiplier: 1,
+      entryFromTechnologyId: null,
+      freeEligibleCon: this.state.empire.steelResearch.delayedFree[technologyId]?.eligibleCon ?? null,
+      blockedReason,
+      researched,
+    })
+    if (!technology) return empty('Unknown technology.')
+    const multiplier = technology.steel
+      ? Math.max(1, this.state.empire.steelResearch.branchCostMultipliers[technology.steel.branchId] ?? 1)
+      : 1
+    const base: EmpiresResearchQuote = {
+      technologyId,
+      requiredTechnologyIds: technology.prerequisites.flatMap(dependency => (
+        dependency.kind === 'technology' ? [dependency.technologyId] : []
+      )),
+      resourceCosts: technology.resourceCosts.map(cost => ({
+        resourceId: cost.resourceId,
+        amount: cost.amount * multiplier,
+      })),
+      timeCostDays: technology.timeCostDays,
+      costMultiplier: multiplier,
+      entryFromTechnologyId: null,
+      freeEligibleCon: this.state.empire.steelResearch.delayedFree[technologyId]?.eligibleCon ?? null,
+      blockedReason: null,
+      researched,
+    }
+    if (this.state.phase !== 'empire') return { ...base, blockedReason: 'Research is only available in the empire phase.' }
+    if (technology.deferredReason) {
+      return { ...base, blockedReason: `That research is deferred: ${technology.deferredReason}` }
+    }
+    if (researched) return { ...base, blockedReason: 'That research is already complete.' }
+    if (technology.steel?.stage === 'plus') {
+      const eligible = base.freeEligibleCon
+      const gateReason = this.delayedSteelGateBlockedReason(technology)
+      return {
+        ...base,
+        blockedReason: eligible === null
+          ? 'This + steel stage is not unlocked yet.'
+          : gateReason ?? `This + steel stage unlocks automatically at con ${eligible}.`,
+      }
+    }
+    if (technology.steel?.eliteRequired
+      && (this.state.empire.flags[this.config.empire.steelResearch.militaryEliteFlagId] ?? 0) <= 0) {
+      return { ...base, blockedReason: 'A military elite is required for this research.' }
+    }
+    const usageKey = this.researchUsageKey(technology)
+    if (this.state.empire.researchUsage[usageKey]) {
+      return { ...base, blockedReason: 'That research group was already used this empire phase.' }
+    }
+    let missingDependency = this.firstMissingDependency(technology.prerequisites)
+    if (missingDependency && technology.steel?.entryFromTechnologyIds?.length) {
+      const targetBranchId = technology.steel.branchId
+      const entryFromTechnologyId = [...technology.steel.entryFromTechnologyIds]
+        .filter(id => this.state.empire.researchedTechnologyIds.includes(id))
+        .filter((id) => {
+          const source = this.technologyDefinitions.get(id)
+          return Boolean(source?.steel && source.steel.branchId !== targetBranchId)
+        })
+        .sort(stableStringCompare)[0]
+      if (entryFromTechnologyId) {
+        const remaining = technology.prerequisites.filter((dependency) => {
+          if (dependency.kind !== 'technology') return true
+          return this.technologyDefinitions.get(dependency.technologyId)?.steel?.branchId !== targetBranchId
+        })
+        base.requiredTechnologyIds = remaining.flatMap(dependency => (
+          dependency.kind === 'technology' ? [dependency.technologyId] : []
+        ))
+        missingDependency = this.firstMissingDependency(remaining)
+        if (!missingDependency) base.entryFromTechnologyId = entryFromTechnologyId
+      }
+    }
+    if (missingDependency) return { ...base, blockedReason: `Missing prerequisite: ${missingDependency}.` }
+    if (this.state.empire.daysRemaining < base.timeCostDays) {
+      return { ...base, blockedReason: 'Not enough days remain.' }
+    }
+    const missingResource = this.firstMissingResource(base.resourceCosts)
+    if (missingResource) return { ...base, blockedReason: `Not enough ${missingResource}.` }
+    return base
   }
 
   chooseEvent(choiceId: string): EmpiresActionResult {
@@ -985,11 +1198,16 @@ export class EmpiresEndgameEngine {
   }
 
   private armyFoodUpkeepForCity(city: EmpiresCityState): number {
-    return Object.entries(city.recruitedUnits).reduce((total, [unitId, count]) => {
-      const unit = this.unitDefinitions.get(unitId)
+    const gross = city.recruitedUnitCohorts.reduce((total, cohort) => {
+      const unit = this.unitDefinitions.get(cohort.unitId)
       if (!unit || unit.deferredReason) return total
-      return total + Math.max(0, count) * unit.foodUpkeep
+      return total + Math.max(0, cohort.count) * unit.foodUpkeep
     }, 0)
+    const discount = Math.max(0, Math.min(
+      100,
+      this.operationalBuildingFlagValue(city, 'armyUpkeepDiscountPercent') ?? 0,
+    ))
+    return gross * (100 - discount) / 100
   }
 
   private foodConsumptionForCity(city: EmpiresCityState): number {
@@ -1156,7 +1374,7 @@ export class EmpiresEndgameEngine {
     const playerHand: string[] = []
     const godHand: string[] = []
     const state: EmpiresCampaignState = {
-      schemaVersion: 2,
+      schemaVersion: 3,
       configId: this.config.id,
       phase: 'cards',
       rng,
@@ -1198,7 +1416,7 @@ export class EmpiresEndgameEngine {
           buildingSlotAssignments: Object.fromEntries(
             city.slots.flatMap(slot => slot.buildingId ? [[slot.id, slot.buildingId]] : []),
           ),
-          recruitedUnits: {},
+          recruitedUnitCohorts: [],
           resources: {},
           buildingInteractionLocks: {},
           lockedFacilities: {},
@@ -1217,6 +1435,11 @@ export class EmpiresEndgameEngine {
         destroyedRegionIds: [],
         buildingLevelBonuses: {},
         researchUsage: {},
+        steelResearch: {
+          branchCostMultipliers: {},
+          branchEntries: [],
+          delayedFree: {},
+        },
         giftResolutionTargets: {},
       },
       pendingResolution: null,
@@ -1237,6 +1460,7 @@ export class EmpiresEndgameEngine {
           ?? 0,
         veterans: {},
         recruitmentPenalties: {},
+        foundryInstantReadyConByCity: {},
       },
       external: {
         allianceThreat: this.config.td.alliance?.baseThreat ?? 0,
@@ -1260,12 +1484,12 @@ export class EmpiresEndgameEngine {
 
   private validateAndCloneSnapshot(snapshot: EmpiresCampaignState): EmpiresCampaignState {
     const snapshotVersion = (snapshot as { schemaVersion: number }).schemaVersion
-    if (snapshotVersion !== 1 && snapshotVersion !== 2) {
+    if (snapshotVersion !== 1 && snapshotVersion !== 2 && snapshotVersion !== 3) {
       throw new Error('Unsupported Empire\'s Endgame snapshot schema')
     }
     if (snapshot.configId !== this.config.id) throw new Error('Snapshot belongs to a different config')
     const state = cloneSerializable(snapshot)
-    state.schemaVersion = 2
+    state.schemaVersion = 3
     state.minigame ??= null
     state.minigameResultLog ??= []
     state.minigameResultCompaction ??= {
@@ -1283,8 +1507,13 @@ export class EmpiresEndgameEngine {
         ?? 0,
       veterans: {},
       recruitmentPenalties: {},
+      foundryInstantReadyConByCity: {},
     }
     state.army.equipmentStock ??= {}
+    state.army.equipmentStock = Object.fromEntries(
+      Object.entries(state.army.equipmentStock)
+        .filter(([, amount]) => Number.isFinite(amount) && amount >= 0),
+    )
     state.army.pendingLoyaltyDeltas ??= []
     state.army.morale ??= 0
     state.army.maxMorale ??= this.config.empire.initialFlags?.maxCombatSpirit
@@ -1292,6 +1521,12 @@ export class EmpiresEndgameEngine {
       ?? 0
     state.army.veterans ??= {}
     state.army.recruitmentPenalties ??= {}
+    state.army.foundryInstantReadyConByCity ??= {}
+    state.army.foundryInstantReadyConByCity = Object.fromEntries(
+      Object.entries(state.army.foundryInstantReadyConByCity)
+        .filter(([, con]) => Number.isFinite(con) && con >= 0)
+        .map(([cityId, con]) => [cityId, Math.floor(con)]),
+    )
     state.external ??= {
       allianceThreat: this.config.td.alliance?.baseThreat ?? 0,
       nextWaveCon: this.nextWaveConAtOrAfter(state.con),
@@ -1304,7 +1539,6 @@ export class EmpiresEndgameEngine {
     state.quests ??= {}
     state.durak.godInterventions ??= 0
     this.normalizeMinigameState(state)
-    this.syncArmyMoraleCap(state)
     const missingDestroyedRegionState = state.empire.destroyedRegionIds === undefined
     const missingBuildingBonusState = state.empire.buildingLevelBonuses === undefined
     const citiesMissingInteractionLocks = new Set(
@@ -1320,7 +1554,73 @@ export class EmpiresEndgameEngine {
           slot => slot.buildingId ? [[slot.id, slot.buildingId]] : [],
         ),
       )
-      city.recruitedUnits ??= {}
+      const legacyUnits = city.recruitedUnits ?? {}
+      city.recruitedUnitCohorts ??= []
+      if (city.recruitedUnitCohorts.length === 0) {
+        for (const [unitId, rawCount] of Object.entries(legacyUnits).sort(([left], [right]) => (
+          stableStringCompare(left, right)
+        ))) {
+          const unit = this.unitDefinitions.get(unitId)
+          const count = Math.max(0, Math.floor(rawCount))
+          if (count === 0) continue
+          const weapon = unit?.td
+            ? this.combatEquipmentDefinitions.get(unit.td.weaponEquipmentId)
+            : undefined
+          const armor = unit?.td?.armorEquipmentId
+            ? this.combatEquipmentDefinitions.get(unit.td.armorEquipmentId)
+            : undefined
+          const usableWeapon = weapon && weapon.kind === 'weapon' && !weapon.deferredReason
+            ? weapon
+            : undefined
+          city.recruitedUnitCohorts.push({
+            id: `legacy:${city.id}:${unitId}`,
+            unitId,
+            loadoutId: 'legacy-default',
+            count,
+            ...(usableWeapon ? { weaponEquipmentId: usableWeapon.id } : {}),
+            ...(armor && armor.kind !== 'weapon' && !armor.deferredReason
+              ? { defenseEquipmentId: armor.id }
+              : {}),
+            weapon: usableWeapon ? cloneSerializable(usableWeapon.profile as CombatWeaponProfile) : null,
+            armor: armor && armor.kind !== 'weapon' && !armor.deferredReason
+              ? cloneSerializable(armor.profile as CombatArmorProfile)
+              : null,
+          })
+        }
+      }
+      delete city.recruitedUnits
+      const cohortIds = new Set<string>()
+      city.recruitedUnitCohorts = city.recruitedUnitCohorts.filter((cohort) => {
+        if (!cohort || typeof cohort.id !== 'string' || !cohort.id
+          || typeof cohort.unitId !== 'string' || !cohort.unitId
+          || !Number.isFinite(cohort.count)) {
+          throw new Error(`Invalid recruited cohort in city ${city.id}`)
+        }
+        if (cohort.count <= 0) return false
+        if (this.unitDefinitions.size > 0 && !this.unitDefinitions.has(cohort.unitId)) {
+          throw new Error(`Recruited cohort ${cohort.id} references unknown unit ${cohort.unitId}`)
+        }
+        if (cohortIds.has(cohort.id)) throw new Error(`Duplicate recruited cohort ${cohort.id}`)
+        cohortIds.add(cohort.id)
+        cohort.count = Math.floor(cohort.count)
+        cohort.loadoutId ||= 'legacy-default'
+        cohort.weapon ??= null
+        cohort.armor ??= null
+        if (typeof cohort.loadoutId !== 'string' || !cohort.loadoutId
+          || (cohort.weaponEquipmentId !== undefined
+            && (typeof cohort.weaponEquipmentId !== 'string' || !cohort.weaponEquipmentId))
+          || (cohort.defenseEquipmentId !== undefined
+            && (typeof cohort.defenseEquipmentId !== 'string' || !cohort.defenseEquipmentId))) {
+          throw new Error(`Recruited cohort ${cohort.id} has invalid loadout identity`)
+        }
+        if (cohort.weapon !== null && !isFrozenWeaponProfile(cohort.weapon)) {
+          throw new Error(`Recruited cohort ${cohort.id} has an invalid frozen weapon profile`)
+        }
+        if (cohort.armor !== null && !isFrozenArmorProfile(cohort.armor)) {
+          throw new Error(`Recruited cohort ${cohort.id} has an invalid frozen armor profile`)
+        }
+        return cohort.count > 0
+      })
       city.resources ??= {}
       city.buildingInteractionLocks ??= {}
     }
@@ -1337,6 +1637,47 @@ export class EmpiresEndgameEngine {
       missingBuildingBonusState,
     )
     state.empire.researchUsage ??= {}
+    state.empire.steelResearch ??= {
+      branchCostMultipliers: {},
+      branchEntries: [],
+      delayedFree: {},
+    }
+    state.empire.steelResearch.branchCostMultipliers ??= {}
+    state.empire.steelResearch.branchEntries ??= []
+    state.empire.steelResearch.delayedFree ??= {}
+    const steelTechnologyById = new Map(this.config.empire.technologies
+      .filter(technology => technology.steel)
+      .map(technology => [technology.id, technology]))
+    const steelBranchIds = new Set([...steelTechnologyById.values()].map(technology => technology.steel!.branchId))
+    state.empire.steelResearch.branchCostMultipliers = Object.fromEntries(
+      Object.entries(state.empire.steelResearch.branchCostMultipliers)
+        .filter(([branchId, multiplier]) => (
+          steelBranchIds.has(branchId) && Number.isFinite(multiplier) && multiplier >= 1
+        )),
+    )
+    state.empire.steelResearch.branchEntries = state.empire.steelResearch.branchEntries.filter((entry) => {
+      const from = steelTechnologyById.get(entry.fromTechnologyId)?.steel
+      const to = steelTechnologyById.get(entry.toTechnologyId)?.steel
+      return Boolean(from && to
+        && from.branchId !== to.branchId
+        && from.branchId === entry.fromBranchId
+        && to.branchId === entry.toBranchId
+        && Number.isFinite(entry.con)
+        && entry.con >= 0)
+    })
+    state.empire.steelResearch.delayedFree = Object.fromEntries(
+      Object.entries(state.empire.steelResearch.delayedFree).filter(([technologyId, delayed]) => {
+        const technology = steelTechnologyById.get(technologyId)
+        return Boolean(technology?.steel?.stage === 'plus'
+          && delayed
+          && Number.isFinite(delayed.scheduledAtCon)
+          && Number.isFinite(delayed.eligibleCon)
+          && delayed.eligibleCon >= delayed.scheduledAtCon
+          && (delayed.awardedAtCon === null || Number.isFinite(delayed.awardedAtCon)))
+      }),
+    )
+    this.scheduleDelayedSteelResearch(state)
+    this.syncArmyMoraleCap(state)
     const knownCityIds = new Set(state.empire.cities.map(city => city.id))
     state.empire.giftResolutionTargets = Object.fromEntries(
       Object.entries(state.empire.giftResolutionTargets ?? {})
@@ -1381,8 +1722,70 @@ export class EmpiresEndgameEngine {
     return Math.max(cadence, Math.ceil(Math.max(1, con) / cadence) * cadence)
   }
 
+  private scheduleDelayedSteelResearch(state: EmpiresCampaignState = this.state): void {
+    const researched = new Set(state.empire.researchedTechnologyIds)
+    for (const technology of this.config.empire.technologies) {
+      const steel = technology.steel
+      if (!steel || steel.stage !== 'plus' || technology.deferredReason || researched.has(technology.id)) continue
+      if (!steel.accessTechnologyId || !researched.has(steel.accessTechnologyId)) continue
+      state.empire.steelResearch.delayedFree[technology.id] ??= {
+        scheduledAtCon: state.con,
+        eligibleCon: state.con + this.config.empire.steelResearch.delayedFreeEmpirePhases,
+        awardedAtCon: null,
+      }
+    }
+  }
+
+  private delayedSteelGateBlockedReason(technology: EmpiresTechnologyDefinition): string | null {
+    const steel = technology.steel
+    if (!steel || steel.stage !== 'plus') return null
+    if (steel.eliteRequired
+      && (this.state.empire.flags[this.config.empire.steelResearch.militaryEliteFlagId] ?? 0) <= 0) {
+      return 'A military elite is required for this research.'
+    }
+    for (const dependency of technology.prerequisites) {
+      const missing = this.firstMissingDependency([dependency])
+      if (missing) return `Missing prerequisite: ${missing}.`
+    }
+    return null
+  }
+
+  private awardDueSteelResearch(): boolean {
+    if (this.state.phase !== 'empire') return false
+    let awardedAny = false
+    let awarded = true
+    while (awarded) {
+      awarded = false
+      this.scheduleDelayedSteelResearch()
+      for (const technology of [...this.config.empire.technologies].sort((left, right) => (
+        stableStringCompare(left.id, right.id)
+      ))) {
+        const steel = technology.steel
+        const delayed = this.state.empire.steelResearch.delayedFree[technology.id]
+        if (!steel || steel.stage !== 'plus' || !delayed || delayed.awardedAtCon !== null) continue
+        if (delayed.eligibleCon > this.state.con || technology.deferredReason) continue
+        if (this.delayedSteelGateBlockedReason(technology)) continue
+        if (this.state.empire.researchedTechnologyIds.includes(technology.id)) {
+          delayed.awardedAtCon = this.state.con
+          continue
+        }
+        this.state.empire.researchedTechnologyIds.push(technology.id)
+        delayed.awardedAtCon = this.state.con
+        this.applyEffects(technology.effects, 0)
+        awardedAny = true
+        awarded = true
+      }
+    }
+    return awardedAny
+  }
+
   private currentTdRulesIdentity(): TdRulesIdentity {
-    return createTdRulesIdentity(this.config.schemaVersion, this.config.combat, this.config.td)
+    return createTdRulesIdentity(this.config.schemaVersion, this.config.combat, this.config.td, {
+      technologies: this.config.empire.technologies,
+      units: this.config.empire.units ?? [],
+      buildings: this.config.empire.buildings,
+      steelResearch: this.config.empire.steelResearch,
+    })
   }
 
   private normalizeMinigameState(state: EmpiresCampaignState): void {
@@ -1488,7 +1891,7 @@ export class EmpiresEndgameEngine {
   }
 
   private syncArmyMoraleCap(state: EmpiresCampaignState = this.state): void {
-    const minimum = this.config.td.morale?.minimum ?? 0
+    const minimum = this.armyMoraleMinimum(state)
     const configuredMaximum = this.config.td.morale?.maximum ?? 0
     const flagMaximum = state.empire.flags.maxCombatSpirit
     state.army.maxMorale = Math.max(
@@ -1498,6 +1901,14 @@ export class EmpiresEndgameEngine {
       Number.isFinite(flagMaximum) ? flagMaximum : 0,
     )
     state.army.morale = Math.max(minimum, Math.min(state.army.maxMorale, state.army.morale))
+  }
+
+  private armyMoraleMinimum(state: EmpiresCampaignState = this.state): number {
+    const relicMinimum = state.empire.flags.minimumCombatSpirit
+    return Math.max(
+      this.config.td.morale?.minimum ?? 0,
+      Number.isFinite(relicMinimum) ? Math.max(0, relicMinimum) : 0,
+    )
   }
 
   private combatWeaponProfile(equipmentId: string): CombatWeaponProfile | null {
@@ -1521,28 +1932,42 @@ export class EmpiresEndgameEngine {
     return state.empire.cities
       .filter(city => this.isRegionAccessibleInState(state, city.regionId))
       .sort((left, right) => stableStringCompare(left.id, right.id))
-      .flatMap(city => Object.entries(city.recruitedUnits)
-        .filter(([, count]) => count > 0)
-        .sort(([leftId], [rightId]) => stableStringCompare(leftId, rightId))
-        .flatMap(([unitId, count]) => {
-          const unit = this.unitDefinitions.get(unitId)
-          if (!unit || unit.deferredReason || !unit.td) return []
-          const weapon = this.combatWeaponProfile(unit.td.weaponEquipmentId)
-          if (!weapon) return []
+      .flatMap(city => city.recruitedUnitCohorts
+        .filter(cohort => cohort.count > 0)
+        .sort((left, right) => stableStringCompare(left.id, right.id))
+        .flatMap((cohort) => {
+          const unit = this.unitDefinitions.get(cohort.unitId)
+          if (!unit || unit.deferredReason || !unit.td || !cohort.weapon) return []
           return [{
-            id: `${city.id}:${unitId}`,
+            id: cohort.id,
+            cohortId: cohort.id,
             cityId: city.id,
-            unitId,
-            count: Math.max(0, Math.floor(count)),
+            unitId: cohort.unitId,
+            count: Math.max(0, Math.floor(cohort.count)),
             nodeId,
             speedPerSecond,
             maxHpPerUnit: unit.td.maxHp,
             attackRange: unit.td.attackRange,
             attackIntervalTicks: unit.td.attackIntervalTicks,
-            weapon,
-            armor: this.combatArmorProfile(unit.td.armorEquipmentId),
+            weapon: cloneSerializable(cohort.weapon),
+            armor: cloneSerializable(cohort.armor),
           }]
         }))
+  }
+
+  private towerLoadoutAvailableForResearch(
+    loadout: NonNullable<TdBattlePlan['towerBases'][number]['loadouts']>[number],
+    researchedTechnologyIds: ReadonlySet<string>,
+  ): boolean {
+    const equipmentIds = [
+      loadout.weaponEquipmentId,
+      ...(loadout.defenseEquipmentId ? [loadout.defenseEquipmentId] : []),
+      ...loadout.equipmentCosts.map(cost => cost.equipmentId),
+    ]
+    return equipmentIds.every((equipmentId) => {
+      const equipment = this.combatEquipmentDefinitions.get(equipmentId)
+      return !equipment?.technologyId || researchedTechnologyIds.has(equipment.technologyId)
+    })
   }
 
   private scaleAllianceWave(wave: TdWaveDefinition, threat: number): TdWaveDefinition {
@@ -1596,6 +2021,7 @@ export class EmpiresEndgameEngine {
     const planId = `td-${variant.mode}-${completedCon}-${variant.id}`
     const sessionId = `${planId}:${seed}`
     const rulesIdentity = this.currentTdRulesIdentity()
+    const researchedTechnologyIds = new Set(state.empire.researchedTechnologyIds)
     const plan: TdBattlePlan = {
       id: planId,
       sessionId,
@@ -1611,13 +2037,24 @@ export class EmpiresEndgameEngine {
       battlefield: cloneSerializable(battlefield),
       objective: cloneSerializable(variant.objective),
       towerBases: cloneSerializable((td.towerBases ?? [])
-        .filter(base => battlefield.towerBaseIds.includes(base.id))),
+        .filter(base => battlefield.towerBaseIds.includes(base.id))
+        .map(base => ({
+          ...base,
+          ...(base.loadouts
+            ? {
+                loadouts: base.loadouts.filter(loadout => (
+                  this.towerLoadoutAvailableForResearch(loadout, researchedTechnologyIds)
+                )),
+              }
+            : {}),
+        }))),
       towerChoices: cloneSerializable(td.towers),
       gradeChoices: cloneSerializable((td.gradeChoices ?? [])
         .filter(set => set.regionId === battlefield.regionId)),
       wave: this.scaleAllianceWave(wave, threat),
       combat: cloneSerializable(this.config.combat),
       deployments,
+      equipmentStock: cloneSerializable(state.army.equipmentStock),
     }
     const planErrors = validateTdBattlePlan(plan)
     if (planErrors.length > 0) throw new Error(`Scheduled TD plan is invalid: ${planErrors.join('; ')}`)
@@ -1660,6 +2097,7 @@ export class EmpiresEndgameEngine {
     for (const [deploymentId, deployment] of planDeployments) {
       const deploymentResult = resultDeployments.get(deploymentId)
       if (!deploymentResult
+        || deploymentResult.cohortId !== deployment.cohortId
         || deploymentResult.cityId !== deployment.cityId
         || deploymentResult.unitId !== deployment.unitId
         || deploymentResult.deployed !== deployment.count
@@ -1669,12 +2107,18 @@ export class EmpiresEndgameEngine {
       }
       const city = this.city(deployment.cityId)
       if (!city) throw new Error(`TD deployment references missing city ${deployment.cityId}`)
-      const current = Math.max(0, city.recruitedUnits[deployment.unitId] ?? 0)
-      if (current < deployment.count) throw new Error(`TD deployment ${deploymentId} exceeds the city army`)
+      const cohort = city.recruitedUnitCohorts.find(candidate => candidate.id === deployment.cohortId)
+      const current = Math.max(0, cohort?.count ?? 0)
+      if (!cohort || cohort.unitId !== deployment.unitId || current < deployment.count) {
+        throw new Error(`TD deployment ${deploymentId} exceeds the city cohort`)
+      }
       const lost = deployment.count - deploymentResult.survived
       const remaining = Math.max(0, current - lost)
-      if (remaining === 0) delete city.recruitedUnits[deployment.unitId]
-      else city.recruitedUnits[deployment.unitId] = remaining
+      if (remaining === 0) {
+        city.recruitedUnitCohorts = city.recruitedUnitCohorts.filter(candidate => candidate.id !== cohort.id)
+      } else {
+        cohort.count = remaining
+      }
 
       const penaltyKey = this.recruitmentPenaltyKey(deployment.cityId, deployment.unitId)
       const lossPenalty = lost * settlement.recruitmentPenaltyPerLoss
@@ -1701,6 +2145,18 @@ export class EmpiresEndgameEngine {
       }
     }
 
+    for (const [equipmentId, amount] of Object.entries(result.equipmentSpent ?? {})) {
+      if (!Number.isFinite(amount) || amount < 0
+        || amount > (session.plan.equipmentStock[equipmentId] ?? 0) + Number.EPSILON
+        || amount > (this.state.army.equipmentStock[equipmentId] ?? 0) + Number.EPSILON) {
+        throw new Error(`TD result has invalid equipment spend for ${equipmentId}`)
+      }
+      this.state.army.equipmentStock[equipmentId] = Math.max(
+        0,
+        (this.state.army.equipmentStock[equipmentId] ?? 0) - amount,
+      )
+    }
+
     for (const [cityId, loss] of cityLosses) {
       if (loss.deployed > 0 && loss.lost / loss.deployed >= settlement.lossLoyaltyThreshold) {
         this.state.army.pendingLoyaltyDeltas.push({
@@ -1725,7 +2181,7 @@ export class EmpiresEndgameEngine {
       }
     }
     this.syncArmyMoraleCap()
-    const moraleMinimum = this.config.td.morale?.minimum ?? 0
+    const moraleMinimum = this.armyMoraleMinimum()
     this.state.army.morale = Math.max(
       moraleMinimum,
       Math.min(this.state.army.maxMorale, this.state.army.morale + consequence.moraleDelta),
@@ -1875,6 +2331,8 @@ export class EmpiresEndgameEngine {
     this.state.empire.productionMultipliers = {}
     this.state.empire.passiveFoodBonuses = {}
     this.state.empire.researchUsage = {}
+    this.scheduleDelayedSteelResearch()
+    this.awardDueSteelResearch()
     for (const city of this.state.empire.cities) {
       city.buildingInteractionLocks = Object.fromEntries(
         Object.entries(city.buildingInteractionLocks).filter(([, con]) => con === this.state.con),
@@ -1900,6 +2358,8 @@ export class EmpiresEndgameEngine {
     for (const technologyId of this.state.empire.researchedTechnologyIds) {
       const technology = this.technologyDefinitions.get(technologyId)
       if (!technology || technology.deferredReason) continue
+      const delayedSteel = this.state.empire.steelResearch.delayedFree[technologyId]
+      if (delayedSteel?.awardedAtCon === this.state.con) continue
       this.applyEffects(technology.effects, 0, timeEffectKind)
     }
     for (const cardId of this.state.durak.playerHand) {
@@ -1922,6 +2382,7 @@ export class EmpiresEndgameEngine {
         this.applyEffects(levelDefinition?.effects ?? [], 0, timeEffectKind)
       }
     }
+    this.awardDueSteelResearch()
     this.state.empire.daysRemaining = Math.max(0, this.state.empire.daysRemaining)
     this.refreshProductions()
   }
@@ -2058,17 +2519,27 @@ export class EmpiresEndgameEngine {
   }
 
   private settleEquipmentProduction(): void {
-    if (!this.config.td.enabled) return
     const definitions = this.config.td.equipmentProduction ?? []
-    if (definitions.length === 0) return
+    const lines = this.config.td.equipmentProductionLines ?? []
+    if (definitions.length === 0 || lines.length === 0) return
+    const researched = new Set(this.state.empire.researchedTechnologyIds)
     for (const city of this.state.empire.cities) {
       if (!this.isCityAccessible(city.id)) continue
-      const smithCapacity = this.operationalBuildingFlagValue(city, 'smithCapacity') ?? 0
-      if (smithCapacity <= 0) continue
-      for (const definition of definitions) {
+      for (const line of [...lines].sort((left, right) => stableStringCompare(left.id, right.id))) {
+        const capacity = this.operationalBuildingFlagValue(city, line.capacityFlagId) ?? 0
+        if (capacity <= 0 || line.capacityShare <= 0) continue
+        const definition = definitions
+          .filter(recipe => recipe.lineId === line.id)
+          .filter(recipe => !recipe.technologyId || researched.has(recipe.technologyId))
+          .filter((recipe) => {
+            const equipment = this.combatEquipmentDefinitions.get(recipe.equipmentId)
+            return !equipment?.deferredReason
+          })
+          .sort((left, right) => right.priority - left.priority || stableStringCompare(left.id, right.id))[0]
+        if (!definition) continue
         this.state.army.equipmentStock[definition.equipmentId] = (
           this.state.army.equipmentStock[definition.equipmentId] ?? 0
-        ) + smithCapacity * definition.amountPerSmithCapacity
+        ) + capacity * line.capacityShare * definition.amountPerSmithCapacity
       }
     }
   }
@@ -2162,6 +2633,7 @@ export class EmpiresEndgameEngine {
     for (const lock of level.facilityLocks) city.lockedFacilities[lock] = `${building.id}:${level.level}`
     if (slotId) city.buildingSlotAssignments[slotId] = building.id
     city.buildingLevels[building.id] = level.level
+    this.awardDueSteelResearch()
     this.refreshProductions()
     if (this.state.empire.daysRemaining <= 0) this.finishEmpireInternal()
   }
@@ -2281,8 +2753,11 @@ export class EmpiresEndgameEngine {
         for (const city of cities) this.setCityPopulation(city, Math.max(0, city.population + perCity))
       } else {
         const amount = effect.amount + (effect.amountPerLevel ?? 0) * level
-        this.state.empire.flags[effect.flagId] = (this.state.empire.flags[effect.flagId] ?? 0) + amount
+        this.state.empire.flags[effect.flagId] = effect.flagId === 'minimumCombatSpirit'
+          ? Math.max(this.state.empire.flags[effect.flagId] ?? 0, amount)
+          : (this.state.empire.flags[effect.flagId] ?? 0) + amount
         moraleCapChanged ||= effect.flagId === 'maxCombatSpirit'
+          || effect.flagId === 'minimumCombatSpirit'
       }
     }
     if (moraleCapChanged) this.syncArmyMoraleCap()
@@ -2384,11 +2859,52 @@ export class EmpiresEndgameEngine {
   }
 
   private recruitedUnitCount(city: EmpiresCityState): number {
-    return Object.entries(city.recruitedUnits).reduce((total, [unitId, count]) => (
-      this.unitDefinitions.get(unitId)?.deferredReason
+    return city.recruitedUnitCohorts.reduce((total, cohort) => (
+      this.unitDefinitions.get(cohort.unitId)?.deferredReason
         ? total
-        : total + Math.max(0, count)
+        : total + Math.max(0, cohort.count)
     ), 0)
+  }
+
+  cityRecruitedUnitCount(cityId: string, unitId?: string): number {
+    const city = this.city(cityId)
+    if (!city) return 0
+    return city.recruitedUnitCohorts.reduce((total, cohort) => (
+      unitId && cohort.unitId !== unitId ? total : total + Math.max(0, cohort.count)
+    ), 0)
+  }
+
+  private createCohort(
+    city: EmpiresCityState,
+    unit: EmpiresUnitDefinition,
+    loadout: ReturnType<typeof resolveEmpiresUnitLoadout>,
+    count: number,
+  ): EmpiresRecruitedUnitCohortState {
+    const defenseKey = loadout.defenseEquipmentId ?? 'none'
+    const weaponKey = loadout.weaponEquipmentId ?? 'none'
+    const profileKey = digestTdValue({ weapon: loadout.weapon, armor: loadout.armor })
+    return {
+      id: `${city.id}:${unit.id}:${loadout.id}:${weaponKey}:${defenseKey}:${profileKey}`,
+      unitId: unit.id,
+      loadoutId: loadout.id,
+      count,
+      ...(loadout.weaponEquipmentId ? { weaponEquipmentId: loadout.weaponEquipmentId } : {}),
+      ...(loadout.defenseEquipmentId ? { defenseEquipmentId: loadout.defenseEquipmentId } : {}),
+      weapon: cloneSerializable(loadout.weapon),
+      armor: cloneSerializable(loadout.armor),
+    }
+  }
+
+  private addOrMergeCohort(
+    city: EmpiresCityState,
+    unit: EmpiresUnitDefinition,
+    loadout: ReturnType<typeof resolveEmpiresUnitLoadout>,
+    count: number,
+  ): void {
+    const cohort = this.createCohort(city, unit, loadout, count)
+    const existing = city.recruitedUnitCohorts.find(candidate => candidate.id === cohort.id)
+    if (existing) existing.count += count
+    else city.recruitedUnitCohorts.push(cohort)
   }
 
   private operationalBuildingFlagEntries(
@@ -2919,17 +3435,20 @@ export class EmpiresEndgameEngine {
     for (const city of state.empire.cities) {
       if (onlyCityIds && !onlyCityIds.has(city.id)) continue
       if (!this.isRegionAccessibleInState(state, city.regionId)) continue
-      const unitIds = Object.entries(city.recruitedUnits)
-        .filter(([, count]) => count > 0)
-        .map(([id]) => id)
+      const cohorts = city.recruitedUnitCohorts
+        .filter(cohort => cohort.count > 0)
+        .sort((left, right) => left.id.localeCompare(right.id))
+      const unitIds = [...new Set(cohorts.map(cohort => cohort.unitId))]
         .sort((left, right) => left.localeCompare(right))
       const unitId = unitIds.length > 0
         ? unitIds[Math.floor(nextEmpiresRandom(state.rng) * unitIds.length)]
         : undefined
-      if (unitId) {
-        const remaining = Math.max(0, (city.recruitedUnits[unitId] ?? 0) - 1)
-        if (remaining === 0) delete city.recruitedUnits[unitId]
-        else city.recruitedUnits[unitId] = remaining
+      const cohort = unitId ? cohorts.find(candidate => candidate.unitId === unitId) : undefined
+      if (cohort) {
+        cohort.count = Math.max(0, cohort.count - 1)
+        if (cohort.count === 0) {
+          city.recruitedUnitCohorts = city.recruitedUnitCohorts.filter(candidate => candidate.id !== cohort.id)
+        }
       }
 
       const barracks = Object.entries(city.buildingLevels)
@@ -3135,7 +3654,9 @@ export class EmpiresEndgameEngine {
     const family = technology.category === 'reform' || technology.category === 'doctrine'
       ? 'reform'
       : 'technology'
-    const group = technology.groupId?.trim() || technology.id
+    const group = technology.steel?.branchId
+      ?? technology.groupId?.trim()
+      ?? technology.id
     return `${family}:${group}`
   }
 
@@ -3212,6 +3733,7 @@ export class EmpiresEndgameEngine {
   }
 
   private commit(message: string): EmpiresActionResult {
+    if (this.awardDueSteelResearch()) this.refreshProductions()
     this.state.revision += 1
     this.emit()
     return success(message)

@@ -1,5 +1,10 @@
 import { resolveDamage } from '../combat/damage'
-import type { CombatArmorProfile, CombatWeaponProfile, EmpiresCombatConfig } from '../combat/types'
+import type {
+  CombatArmorProfile,
+  CombatEquipmentDefinition,
+  CombatWeaponProfile,
+  EmpiresCombatConfig,
+} from '../combat/types'
 import { createEmpiresRngState, nextEmpiresRandom } from '../rng'
 import type {
   EmpiresTdConfig,
@@ -7,6 +12,7 @@ import type {
   TdBattleResult,
   TdCommand,
   TdDeploymentPlan,
+  TdEquipmentCost,
   TdEnemyGroupDefinition,
   TdEnemyState,
   TdFrameClock,
@@ -17,6 +23,8 @@ import type {
   TdTowerBaseDefinition,
   TdTowerChoiceDefinition,
   TdTowerState,
+  TdTowerStatModifierDefinition,
+  TdTowerTargetingModifierDefinition,
 } from './types'
 
 function cloneJson<T>(value: T): T {
@@ -29,6 +37,10 @@ function finite(value: number): boolean {
 
 function stableCompare(left: string, right: string): number {
   return left < right ? -1 : left > right ? 1 : 0
+}
+
+function isRecordValue(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
 function canonicalJson(value: unknown): string {
@@ -69,10 +81,11 @@ export function createTdRulesIdentity(
   configSchemaVersion: number,
   combat: EmpiresCombatConfig,
   td: EmpiresTdConfig,
+  extraRules?: unknown,
 ): TdRulesIdentity {
   return {
     configSchemaVersion,
-    rulesDigest: digestTdValue({ combat, td }),
+    rulesDigest: digestTdValue({ combat, td, ...(extraRules === undefined ? {} : { extraRules }) }),
   }
 }
 
@@ -151,6 +164,67 @@ function towerBase(plan: TdBattlePlan, tower: TdTowerState): TdTowerBaseDefiniti
   return plan.towerBases.find(base => base.id === tower.towerBaseId) ?? plan.towerBases[0]
 }
 
+interface ResolvedTowerLoadout {
+  loadoutId: string | null
+  weaponEquipmentId: string | null
+  defenseEquipmentId?: string
+  weapon: CombatWeaponProfile
+  armor: CombatArmorProfile | null
+  equipmentCosts: TdEquipmentCost[]
+}
+
+function aggregateEquipmentCosts(costs: readonly TdEquipmentCost[]): TdEquipmentCost[] {
+  const totals = new Map<string, number>()
+  for (const cost of costs) {
+    totals.set(cost.equipmentId, (totals.get(cost.equipmentId) ?? 0) + cost.amount)
+  }
+  return [...totals]
+    .sort(([left], [right]) => stableCompare(left, right))
+    .map(([equipmentId, amount]) => ({ equipmentId, amount }))
+}
+
+function canAffordEquipment(
+  stock: Readonly<Record<string, number>>,
+  costs: readonly TdEquipmentCost[],
+): boolean {
+  return costs.every(cost => (stock[cost.equipmentId] ?? 0) >= cost.amount)
+}
+
+function resolveTowerLoadout(
+  plan: TdBattlePlan,
+  base: TdTowerBaseDefinition,
+  stock: Readonly<Record<string, number>>,
+): ResolvedTowerLoadout {
+  const equipment = new Map(plan.combat.equipment.map(definition => [definition.id, definition]))
+  for (const loadout of [...(base.loadouts ?? [])]
+    .sort((left, right) => right.priority - left.priority || stableCompare(left.id, right.id))) {
+    const costs = aggregateEquipmentCosts(loadout.equipmentCosts)
+    if (!canAffordEquipment(stock, costs)) continue
+    const weapon = equipment.get(loadout.weaponEquipmentId)
+    const defense = loadout.defenseEquipmentId
+      ? equipment.get(loadout.defenseEquipmentId)
+      : undefined
+    if (!weapon || weapon.kind !== 'weapon' || weapon.deferredReason
+      || (loadout.defenseEquipmentId
+        && (!defense || defense.kind === 'weapon' || defense.deferredReason))) continue
+    return {
+      loadoutId: loadout.id,
+      weaponEquipmentId: loadout.weaponEquipmentId,
+      ...(loadout.defenseEquipmentId ? { defenseEquipmentId: loadout.defenseEquipmentId } : {}),
+      weapon: cloneJson(weapon.profile as CombatWeaponProfile),
+      armor: defense ? cloneJson(defense.profile as CombatArmorProfile) : null,
+      equipmentCosts: costs,
+    }
+  }
+  return {
+    loadoutId: null,
+    weaponEquipmentId: null,
+    weapon: cloneJson(base.weapon),
+    armor: null,
+    equipmentCosts: [],
+  }
+}
+
 function towerChoices(plan: TdBattlePlan, tower: TdTowerState): TdTowerChoiceDefinition[] {
   const choices = new Map(plan.towerChoices.map(choice => [choice.id, choice]))
   return tower.choiceIds.flatMap(choiceId => choices.get(choiceId) ?? [])
@@ -163,7 +237,8 @@ function towerSpot(plan: TdBattlePlan, tower: TdTowerState) {
 function matchingTowerStatModifiers(plan: TdBattlePlan, tower: TdTowerState) {
   const terrainId = towerSpot(plan, tower)?.terrainId
   return plan.battlefield.modifiers
-    .filter(modifier => modifier.kind === 'tower-stat' && terrainId && modifier.terrainIds.includes(terrainId))
+    .filter((modifier): modifier is TdTowerStatModifierDefinition => modifier.kind === 'tower-stat'
+      && Boolean(terrainId && modifier.terrainIds.includes(terrainId)))
     .sort((left, right) => stableCompare(left.id, right.id))
 }
 
@@ -173,7 +248,7 @@ function towerMaxHpMultiplier(plan: TdBattlePlan, tower: TdTowerState): number {
 }
 
 function towerWeapon(plan: TdBattlePlan, tower: TdTowerState): CombatWeaponProfile {
-  const weapon = cloneJson(towerBase(plan, tower).weapon)
+  const weapon = cloneJson(tower.weapon)
   for (const choice of towerChoices(plan, tower)) {
     for (const [damageTypeId, amount] of Object.entries(choice.damageLevelBonuses)) {
       weapon.damageLevels[damageTypeId] = (weapon.damageLevels[damageTypeId] ?? 0) + amount
@@ -287,15 +362,30 @@ function applyCommand(plan: TdBattlePlan, state: TdSimulationState, command: TdC
   }
   if (command.kind === 'build-tower') {
     const base = plan.towerBases.find(item => item.id === command.towerBaseId)!
+    const loadout = resolveTowerLoadout(plan, base, state.equipmentStock)
     const tower: TdTowerState = {
       spotId: command.spotId,
       towerBaseId: base.id,
       choiceIds: [],
+      loadoutId: loadout.loadoutId,
+      weaponEquipmentId: loadout.weaponEquipmentId,
+      ...(loadout.defenseEquipmentId ? { defenseEquipmentId: loadout.defenseEquipmentId } : {}),
+      weapon: loadout.weapon,
+      armor: loadout.armor,
       hp: base.maxHp,
       nextAttackTick: state.tick,
     }
     tower.hp *= towerMaxHpMultiplier(plan, tower)
     state.buildResources -= base.cost
+    for (const cost of loadout.equipmentCosts) {
+      state.equipmentStock[cost.equipmentId] = Math.max(
+        0,
+        (state.equipmentStock[cost.equipmentId] ?? 0) - cost.amount,
+      )
+      state.equipmentSpent[cost.equipmentId] = (
+        state.equipmentSpent[cost.equipmentId] ?? 0
+      ) + cost.amount
+    }
     state.towers.push(tower)
     state.towers.sort((left, right) => stableCompare(left.spotId, right.spotId))
   } else {
@@ -385,7 +475,8 @@ function canEnemyTargetTower(plan: TdBattlePlan, enemy: TdEnemyState, tower: TdT
   if (!terrainId) return false
   const categories = groupForEnemy(plan, enemy)?.categoryIds ?? []
   return plan.battlefield.modifiers
-    .filter(modifier => modifier.kind === 'tower-targeting' && modifier.terrainIds.includes(terrainId))
+    .filter((modifier): modifier is TdTowerTargetingModifierDefinition => modifier.kind === 'tower-targeting'
+      && modifier.terrainIds.includes(terrainId))
     .sort((left, right) => stableCompare(left.id, right.id))
     .every(modifier => categories.some(categoryId => modifier.targetableByEnemyCategoryIds.includes(categoryId)))
 }
@@ -525,7 +616,10 @@ function defenseEnemyActions(plan: TdBattlePlan, state: TdSimulationState): void
         || stableCompare(left.tower.spotId, right.tower.spotId))[0]?.tower
     if (towerTarget) {
       if (enemy.nextAttackTick <= state.tick) {
-        towerTarget.hp = Math.max(0, towerTarget.hp - recordHit(state, group.weapon, null, plan))
+        towerTarget.hp = Math.max(
+          0,
+          towerTarget.hp - recordHit(state, group.weapon, towerTarget.armor, plan),
+        )
         if (towerTarget.hp <= 0) state.towers = state.towers.filter(tower => tower !== towerTarget)
         enemy.nextAttackTick = state.tick + Math.max(1, group.attackIntervalTicks)
       }
@@ -607,6 +701,7 @@ function squadFromDeployment(plan: TdBattlePlan, deployment: TdDeploymentPlan): 
   const node = nodesById(plan).get(deployment.nodeId)
   return {
     deploymentId: deployment.id,
+    cohortId: deployment.cohortId,
     cityId: deployment.cityId,
     unitId: deployment.unitId,
     count: deployment.count,
@@ -630,7 +725,15 @@ export function validateTdBattlePlan(plan: TdBattlePlan): string[] {
   const towerBaseIds = new Set(plan.towerBases.map(base => base.id))
   const damageTypeIds = new Set(plan.combat.damageTypes.map(definition => definition.id))
   const armorClassIds = new Set(plan.combat.armorClasses.map(definition => definition.id))
+  const equipmentById = new Map(plan.combat.equipment.map(definition => [definition.id, definition]))
   const validateWeapon = (weapon: CombatWeaponProfile, path: string) => {
+    if (!isRecordValue(weapon)
+      || !isRecordValue(weapon.damageLevels)
+      || !Array.isArray(weapon.tags)
+      || weapon.tags.some(tag => typeof tag !== 'string' || !tag)) {
+      errors.push(`${path} is not a valid weapon profile`)
+      return
+    }
     const levels = Object.entries(weapon.damageLevels)
     if (levels.length === 0) errors.push(`${path} has no configured damage type`)
     for (const [damageTypeId, level] of levels) {
@@ -642,6 +745,10 @@ export function validateTdBattlePlan(plan: TdBattlePlan): string[] {
   }
   const validateArmor = (armor: CombatArmorProfile | null, path: string) => {
     if (!armor) return
+    if (!isRecordValue(armor) || typeof armor.classId !== 'string' || typeof armor.level !== 'number') {
+      errors.push(`${path} is not a valid armor profile`)
+      return
+    }
     if (!armorClassIds.has(armor.classId)) errors.push(`${path} uses unknown armor class ${armor.classId}`)
     if (!finite(armor.level) || armor.level < 0) errors.push(`${path} level must be finite and non-negative`)
   }
@@ -665,6 +772,16 @@ export function validateTdBattlePlan(plan: TdBattlePlan): string[] {
   }
   if (!finite(plan.startingBuildResources) || plan.startingBuildResources < 0) {
     errors.push('startingBuildResources must be finite and non-negative')
+  }
+  if (!plan.equipmentStock || typeof plan.equipmentStock !== 'object' || Array.isArray(plan.equipmentStock)) {
+    errors.push('equipmentStock must be an object')
+  } else {
+    for (const [equipmentId, amount] of Object.entries(plan.equipmentStock)) {
+      if (!equipmentId.trim()) errors.push('equipmentStock ids must be non-empty')
+      if (!finite(amount) || amount < 0) {
+        errors.push(`equipmentStock ${equipmentId} must be finite and non-negative`)
+      }
+    }
   }
   for (const endpoint of [
     plan.battlefield.spawnerNodeId,
@@ -691,6 +808,61 @@ export function validateTdBattlePlan(plan: TdBattlePlan): string[] {
     if (!finite(base.range) || base.range <= 0) errors.push(`tower base ${base.id} range is invalid`)
     if (!Number.isInteger(base.attackIntervalTicks) || base.attackIntervalTicks <= 0) {
       errors.push(`tower base ${base.id} attackIntervalTicks must be positive`)
+    }
+    const loadoutIds = new Set<string>()
+    for (const loadout of base.loadouts ?? []) {
+      if (!loadout.id.trim()) errors.push(`tower base ${base.id} loadout id is required`)
+      if (loadoutIds.has(loadout.id)) errors.push(`tower base ${base.id} repeats loadout ${loadout.id}`)
+      loadoutIds.add(loadout.id)
+      if (!finite(loadout.priority)) errors.push(`tower base ${base.id} loadout ${loadout.id} priority is invalid`)
+      const weapon = equipmentById.get(loadout.weaponEquipmentId)
+      if (!weapon || weapon.kind !== 'weapon' || weapon.deferredReason) {
+        errors.push(`tower base ${base.id} loadout ${loadout.id} weapon is unavailable`)
+      } else {
+        validateWeapon(
+          weapon.profile as CombatWeaponProfile,
+          `tower base ${base.id} loadout ${loadout.id} weapon`,
+        )
+      }
+      if (loadout.defenseEquipmentId) {
+        const defense = equipmentById.get(loadout.defenseEquipmentId)
+        if (!defense || defense.kind === 'weapon' || defense.deferredReason) {
+          errors.push(`tower base ${base.id} loadout ${loadout.id} defense is unavailable`)
+        } else {
+          validateArmor(
+            defense.profile as CombatArmorProfile,
+            `tower base ${base.id} loadout ${loadout.id} defense`,
+          )
+        }
+      }
+      if (loadout.equipmentCosts.length === 0) {
+        errors.push(`tower base ${base.id} loadout ${loadout.id} needs equipment costs`)
+      }
+      const costIds = new Set<string>()
+      for (const cost of loadout.equipmentCosts) {
+        if (!cost.equipmentId.trim()) {
+          errors.push(`tower base ${base.id} loadout ${loadout.id} has an empty equipment cost id`)
+        }
+        if (costIds.has(cost.equipmentId)) {
+          errors.push(`tower base ${base.id} loadout ${loadout.id} repeats equipment cost ${cost.equipmentId}`)
+        }
+        costIds.add(cost.equipmentId)
+        if (!finite(cost.amount) || cost.amount <= 0) {
+          errors.push(`tower base ${base.id} loadout ${loadout.id} equipment cost is invalid`)
+        }
+      }
+      for (const [equipmentId, definition] of [
+        [loadout.weaponEquipmentId, weapon],
+        ...(loadout.defenseEquipmentId
+          ? [[loadout.defenseEquipmentId, equipmentById.get(loadout.defenseEquipmentId)]]
+          : []),
+      ] as Array<[string, CombatEquipmentDefinition | undefined]>) {
+        if (definition?.technologyId && !costIds.has(equipmentId)) {
+          errors.push(
+            `tower base ${base.id} loadout ${loadout.id} must consume its technology-linked equipment ${equipmentId}`,
+          )
+        }
+      }
     }
   }
   if (choiceIds.size !== plan.towerChoices.length) errors.push('tower choice ids must be unique')
@@ -759,7 +931,17 @@ export function validateTdBattlePlan(plan: TdBattlePlan): string[] {
     validateArmor(group.armor, `group ${group.id} armor`)
   }
   if (plan.mode === 'assault' && plan.deployments.length === 0) errors.push('assault mode requires a player deployment')
+  const deploymentIds = new Set<string>()
+  const cohortIds = new Set<string>()
   for (const deployment of plan.deployments) {
+    if (!deployment.id.trim()) errors.push('deployment id is required')
+    if (deploymentIds.has(deployment.id)) errors.push(`deployment id ${deployment.id} is repeated`)
+    deploymentIds.add(deployment.id)
+    if (!deployment.cohortId.trim()) errors.push(`deployment ${deployment.id} cohortId is required`)
+    if (cohortIds.has(deployment.cohortId)) {
+      errors.push(`deployment cohortId ${deployment.cohortId} is repeated`)
+    }
+    cohortIds.add(deployment.cohortId)
     if (!nodeIds.has(deployment.nodeId)) errors.push(`deployment ${deployment.id} references an unknown node`)
     if (!Number.isInteger(deployment.count) || deployment.count <= 0) errors.push(`deployment ${deployment.id} count must be positive`)
     if (!finite(deployment.speedPerSecond) || deployment.speedPerSecond < 0) errors.push(`deployment ${deployment.id} speed is invalid`)
@@ -781,6 +963,8 @@ export function createTdSimulation(plan: TdBattlePlan, seed: string | number): T
     elapsedMs: 0,
     rng: createEmpiresRngState(seed),
     buildResources: plan.startingBuildResources,
+    equipmentStock: cloneJson(plan.equipmentStock),
+    equipmentSpent: {},
     objectiveHp: plan.objective.maxHp,
     towers: [],
     enemies: [],
@@ -827,6 +1011,7 @@ function resultFromState(
     const hp = Math.max(0, squad?.hp ?? 0)
     return {
       deploymentId: deployment.id,
+      cohortId: deployment.cohortId,
       cityId: deployment.cityId,
       unitId: deployment.unitId,
       deployed: deployment.count,
@@ -863,6 +1048,7 @@ function resultFromState(
     enemiesDefeated: state.enemies.filter(enemy => enemy.hp <= 0).length,
     deployments,
     buildResourcesRemaining: state.buildResources,
+    equipmentSpent: cloneJson(state.equipmentSpent),
     damageByType: { ...state.damageByType },
     hitCount: state.hitCount,
     commandLog: cloneJson([...commandLog]),
@@ -910,9 +1096,32 @@ export function abortTdBattle(
   plan: TdBattlePlan,
   seed: string | number,
   commandLog: readonly TdCommand[] = [],
+  abortTick = 0,
 ): TdBattleResult {
-  const boundedCommands = cloneJson(commandLog.slice(0, plan.maxCommands))
+  const boundedCommands = cloneJson(commandLog.slice(0, plan.maxCommands + 1))
   const state = createTdSimulation(plan, seed)
+  const logErrors = validateTdCommandLog(plan, boundedCommands)
+  if (!Number.isInteger(abortTick) || abortTick < 0 || abortTick > plan.maxTicks) {
+    logErrors.push(`Abort tick must be an integer from 0 through ${plan.maxTicks}.`)
+  }
+  if (boundedCommands.some(command => command.tick >= abortTick)) {
+    logErrors.push('Abort command log contains a command that was not applied before the abort tick.')
+  }
+  if (logErrors.length > 0) {
+    state.commandErrors.push({ tick: 0, command: boundedCommands[0] ?? null, message: logErrors[0] })
+    state.terminalReason = 'invalid-command'
+    return resultFromState(plan, seed, boundedCommands.slice(0, plan.maxCommands), state)
+  }
+  let commandIndex = 0
+  while (!state.terminalReason && state.tick < abortTick) {
+    const commands: TdCommand[] = []
+    while (boundedCommands[commandIndex]?.tick === state.tick) {
+      commands.push(boundedCommands[commandIndex])
+      commandIndex += 1
+    }
+    stepTdSimulation(plan, state, commands)
+  }
+  if (state.terminalReason) return resultFromState(plan, seed, boundedCommands, state)
   state.terminalReason = 'aborted'
   return resultFromState(plan, seed, boundedCommands, state)
 }

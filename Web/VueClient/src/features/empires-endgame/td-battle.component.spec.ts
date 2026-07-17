@@ -22,7 +22,12 @@ function session(): EmpiresMinigameSession {
   const variant = config.td.planVariants!.find(item => item.id === 'central-castle-defense')!
   const battlefield = config.td.battlefields.find(item => item.id === variant.battlefieldId)!
   const wave = config.td.waves.find(item => item.id === variant.waveId)!
-  const rulesIdentity = createTdRulesIdentity(config.schemaVersion, config.combat, config.td)
+  const rulesIdentity = createTdRulesIdentity(config.schemaVersion, config.combat, config.td, {
+    technologies: config.empire.technologies,
+    units: config.empire.units ?? [],
+    buildings: config.empire.buildings,
+    steelResearch: config.empire.steelResearch,
+  })
   const sessionId = 'td-component-session'
   const plan: TdBattlePlan = {
     id: 'td-component-plan',
@@ -43,6 +48,7 @@ function session(): EmpiresMinigameSession {
     gradeChoices: clone(config.td.gradeChoices!.filter(set => set.regionId === battlefield.regionId)),
     wave: clone(wave),
     combat: clone(config.combat),
+    equipmentStock: {},
     deployments: [],
   }
   return {

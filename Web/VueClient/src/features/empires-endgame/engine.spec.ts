@@ -41,7 +41,7 @@ function makeCards(): EmpiresCardDefinition[] {
 
 function makeConfig(): EmpiresEndgameConfig {
   return {
-    schemaVersion: 3,
+    schemaVersion: 4,
     id: 'engine-test',
     title: "Empire's Endgame",
     seed: 'deterministic-test',
@@ -91,6 +91,11 @@ function makeConfig(): EmpiresEndgameConfig {
       ],
       initialResources: { wood: 20, iron: 20 },
       initialFlags: {},
+      steelResearch: {
+        forkSourcePriceMultiplier: 2,
+        delayedFreeEmpirePhases: 2,
+        militaryEliteFlagId: 'militaryElite',
+      },
       map: {
         width: 100,
         height: 100,
@@ -1044,14 +1049,63 @@ describe('Empire phase economy', () => {
     engine.restore(state)
 
     expect(engine.chooseGift('gift-a')).toMatchObject({ ok: true })
-    expect(Object.values(engine.state.empire.cities[0].recruitedUnits)
-      .reduce((total, count) => total + count, 0)).toBe(2)
+    expect(engine.cityRecruitedUnitCount('capital')).toBe(2)
     expect(engine.state.empire.cities[0].buildingLevels.barracks).toBe(1)
     expect(engine.state.empire.cities[0].buildingInteractionLocks.barracks).toBe(engine.state.con)
     expect(engine.upgradeBuilding('capital', 'barracks')).toEqual({
       ok: false,
       message: 'That building is locked for the current con.',
     })
+  })
+
+  it('keeps military arson weighted by unit kind when one kind has multiple loadout cohorts', () => {
+    const config = makeConfig()
+    config.empire.cities[0].baseProduction.food = 1500
+    config.empire.cities[0].buildingLevels.barracks = 2
+    const arson = config.cards.find(card => card.id === 'hearts-7') as EmpiresCardDefinition
+    arson.inverted.effects = [{ kind: 'flag', flagId: 'militaryArson', amount: 1 }]
+    const run = (splitArchers: boolean) => {
+      const engine = new EmpiresEndgameEngine(config)
+      const state = engine.snapshot()
+      state.phase = 'divineGift'
+      state.durak.playerHand = [arson.id]
+      state.cards[arson.id].inverted = true
+      state.empire.cities[0].recruitedUnitCohorts = [
+        {
+          id: 'archers:a',
+          unitId: 'archers',
+          loadoutId: 'a',
+          count: splitArchers ? 1 : 2,
+          weapon: null,
+          armor: null,
+        },
+        ...(splitArchers ? [{
+          id: 'archers:b',
+          unitId: 'archers',
+          loadoutId: 'b',
+          count: 1,
+          weapon: null,
+          armor: null,
+        }] : []),
+        {
+          id: 'levy:a',
+          unitId: 'levy',
+          loadoutId: 'a',
+          count: 2,
+          weapon: null,
+          armor: null,
+        },
+      ]
+      state.giftChoiceIds = ['gift-a', 'gift-b', 'gift-c']
+      engine.restore(state)
+      expect(engine.chooseGift('gift-a')).toMatchObject({ ok: true })
+      return {
+        archers: engine.cityRecruitedUnitCount('capital', 'archers'),
+        levy: engine.cityRecruitedUnitCount('capital', 'levy'),
+      }
+    }
+
+    expect(run(true)).toEqual(run(false))
   })
 
   it('honors smithy and stable material exemptions without consuming missing resources', () => {
@@ -1517,11 +1571,13 @@ describe('Empire phase economy', () => {
       population: 994,
       militaryPopulation: 4,
       populationClasses: { workers: 994 },
-      recruitedUnits: { levy: 3 },
     })
+    expect(engine.cityRecruitedUnitCount('capital', 'levy')).toBe(3)
     expect(engine.cityArmyFoodUpkeep('capital')).toBe(300)
     expect(engine.cityFoodConsumption('capital')).toBe(1294)
     const beforeUnsafeRecruitment = engine.snapshot()
+    expect(engine.recruitmentQuote('capital', 'levy').blockedReason)
+      .toBe('The city does not have enough food surplus.')
     expect(engine.recruitUnits('capital', 'levy')).toEqual({
       ok: false,
       message: 'The city does not have enough food surplus.',
@@ -1531,13 +1587,13 @@ describe('Empire phase economy', () => {
 
     const saved = JSON.parse(JSON.stringify(engine.snapshot())) as EmpiresCampaignState
     const restored = new EmpiresEndgameEngine(config, saved)
-    expect(restored.state.empire.cities[0].recruitedUnits).toEqual({ levy: 3 })
+    expect(restored.cityRecruitedUnitCount('capital', 'levy')).toBe(3)
     expect(restored.cityArmyFoodUpkeep('capital')).toBe(300)
 
     const shutState = restored.snapshot()
     shutState.empire.cities[0].populationClasses.workers = 0
     shutState.empire.cities[0].militaryPopulation = 10
-    shutState.empire.cities[0].recruitedUnits = {}
+    shutState.empire.cities[0].recruitedUnitCohorts = []
     restored.restore(shutState)
     expect(restored.state.empire.cities[0].operationalBuildingLevels.barracks).toBe(0)
     expect(restored.recruitUnits('capital', 'levy')).toMatchObject({ ok: false })
@@ -1588,8 +1644,8 @@ describe('Empire phase economy', () => {
       population: 920,
       militaryPopulation: 20,
       populationClasses: { workers: 540, nobles: 180, children: 200 },
-      recruitedUnits: { cohort: 1 },
     })
+    expect(engine.cityRecruitedUnitCount('capital', 'cohort')).toBe(1)
   })
 
   it('uses projected post-recruitment workforce and production for food safety', () => {
@@ -1677,7 +1733,7 @@ describe('Empire phase economy', () => {
       ok: false,
       message: 'Recruitment is disabled for this empire phase.',
     })
-    expect(engine.state.empire.cities[0].recruitedUnits).toEqual({})
+    expect(engine.state.empire.cities[0].recruitedUnitCohorts).toEqual([])
     expect(engine.state.empire.cities[0].militaryPopulation).toBe(10)
   })
 
@@ -2186,7 +2242,7 @@ describe('Empire phase economy', () => {
       'slot-mine': 'mine',
       'slot-lumber': 'lumber',
     })
-    expect(restored.state.empire.cities[0].recruitedUnits).toEqual({})
+    expect(restored.state.empire.cities[0].recruitedUnitCohorts).toEqual([])
     expect(restored.state.empire.cities[0].resources).toEqual({})
     expect(restored.state.empire.cities[0].buildingInteractionLocks).toEqual({})
     expect(restored.state.empire.cardFlagBonuses).toEqual({})
@@ -2343,8 +2399,7 @@ describe('Empire phase economy', () => {
     }).buildingInteractionLocks
 
     const restored = new EmpiresEndgameEngine(config, legacy)
-    const migratedUnitCount = Object.values(restored.state.empire.cities[0].recruitedUnits)
-      .reduce((total, count) => total + count, 0)
+    const migratedUnitCount = restored.cityRecruitedUnitCount('capital')
     expect(migratedUnitCount).toBe(2)
     expect(restored.state.empire.cities[0].buildingLevels.barracks).toBe(1)
     expect(restored.state.empire.cities[0].buildingInteractionLocks.barracks).toBe(restored.state.con)
@@ -2353,8 +2408,7 @@ describe('Empire phase economy', () => {
       config,
       JSON.parse(JSON.stringify(restored.snapshot())) as EmpiresCampaignState,
     )
-    expect(Object.values(roundTrip.state.empire.cities[0].recruitedUnits)
-      .reduce((total, count) => total + count, 0)).toBe(2)
+    expect(roundTrip.cityRecruitedUnitCount('capital')).toBe(2)
     expect(roundTrip.state.empire.cities[0].buildingLevels.barracks).toBe(1)
   })
 
@@ -2491,7 +2545,7 @@ describe('Empire phase economy', () => {
     engine.restore(bypass)
     expect(engine.cityRecruitmentRemaining('capital')).toBeNull()
     expect(engine.recruitUnits('capital', 'levy')).toMatchObject({ ok: true })
-    expect(engine.state.empire.cities[0].recruitedUnits.levy).toBe(3)
+    expect(engine.cityRecruitedUnitCount('capital', 'levy')).toBe(3)
   })
 
   it('lets researched Conservation counter the inverted famine-year production penalty', () => {

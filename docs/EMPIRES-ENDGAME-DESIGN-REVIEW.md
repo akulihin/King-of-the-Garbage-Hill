@@ -118,3 +118,171 @@ more specific field.
 - The source's “208 builds” claim remains unresolved; P3A does not remove or equate combinations to manufacture that number.
 - Steel research, equipment progression, Foundry, Military Academy, military workshop content and steel cards remain owned by P3B and were not un-deferred.
 - `event-northern-raids` remains deferred for P4A loyalty consequences.
+
+## P3B latest-steel source reconciliation
+
+This is the complete named-item inventory from the latest attachment
+`Steel-c748ae22139d6401.txt` (lines 15–41), not a claim that every row is live. A
+backticked ID is an existing config carrier; an italic ID is a proposed stable ID only and
+does not exist in the config. Blank generation positions in the source are preserved as
+gaps rather than invented technologies. `>` means the preceding position, `}` means the
+source requires neighboring-branch history, and `/` means a branch entry. The attachment
+does not give a price for any row. “Current default” records the already-configured
+`days; knowledge/iron` price for an existing carrier; those values remain reviewable, not
+authored. Message `1511683424971395103` establishes mass-production unlocks for regular
+army equipment rather than one-off prototypes, but it does not supply recipes, armor
+levels, users, or production rates.
+
+| Source item | Existing/proposed ID | Branch; generation/stage | Authored prerequisite/gate | Price | Payoff and production | P3B result / unresolved field |
+|---|---|---|---|---|---|---|
+| Крестовая булава | *steel-striking-cross-mace* | Ударные; 3 | Closed/observe-only branch; earlier positions are blank | Not authored | Regular-army mass production | Absent; no acquisition edge or exact combat profile. |
+| Ёж | *steel-urchin* | Ударные; 4−; elite | Крестовая булава | Not authored | Regular-army mass production | Absent; closed branch, profile and recipe unresolved. |
+| Клевец | *steel-klevets* | Ударные; 4+; elite | Generation-4 access; delayed-free | Not authored | Regular-army mass production | Absent; closed branch, exact delay and profile unresolved. |
+| Двуручный Ёж | *steel-two-handed-urchin* | Ударные; neighbor 4+; elite | `}` neighboring prior stages; exact neighbor unspecified | Not authored | Regular-army mass production | Absent; neighbor identity, acquisition and profile unresolved. |
+| Двуручный Клевец | *steel-two-handed-klevets* | Ударные; neighbor 5−; elite | `}` neighboring prior stages plus `/`; exact source unspecified | Not authored | Regular-army mass production | Absent; fork direction, acquisition and profile unresolved. |
+| Стальной лавровый наконечник | `steel-laurel-spearhead` | Древковые; 0 | `tech-ironwork` is the config access gate | Current default `5; 300/200` | Produces `weapon-laurel-spear`, one per selected polearm-line capacity; a regular cohort consumes one | **Live**; price/rate remain defaults. |
+| Ланцетовидный | `steel-lancet-spearhead` | Древковые; 1 | Стальной лавровый наконечник | Current default `5; 450/300` | Produces `weapon-lancet-spear`, one per selected polearm-line capacity | **Live**; config display adds «наконечник»; price/rate remain defaults. |
+| Ромбовидный | `steel-diamond-spearhead` | Древковые; 2 | Ланцетовидный | Current default `5; 650/450` | Produces `weapon-diamond-spear`, one per selected polearm-line capacity | **Live**; config display adds «наконечник»; price/rate remain defaults. |
+| Крестовидный (4 грани) | `steel-cross-spearhead` | Древковые; 3 | Ромбовидный | Current default `5; 900/650` | Produces `weapon-cross-spear`, one per selected polearm-line capacity | **Live**; config display adds «наконечник»; price/rate remain defaults. |
+| Шиловидный наконечник | *steel-awl-spearhead* | Древковые; 4− | Крестовидный наконечник | Not authored | Exact `weapon-awl-spear` numeric profile exists; production required | Absent; stable player-facing identity/recipe and the generation-4 access pairing need confirmation. |
+| Ланс | `steel-lance` | Древковые; 4+; elite | Generation-4 access after Крестовидный; delayed-free; military elite | Current default `5; 1500/1000` | Regular-army mass production | Deferred; no exact Ланс combat profile or elite source; no fabricated stock. |
+| Полэкс | *steel-poleaxe* | Древковые; 5−; elite | `/` branch entry plus `}` neighboring stages; Ударные required | Not authored | Exact `weapon-poleaxe` numeric profile exists; production required | Absent; closed-branch observation and exact neighbor-entry state are undefined. |
+| Протазан | *steel-protazan* | Древковые; 6; elite | Полэкс through unnamed 5+ position | Not authored | Regular-army mass production | Absent; missing intermediate identity, profile and recipe. |
+| Цельный Ланс | *steel-solid-lance* | Древковые; 8; elite | Протазан through unnamed 7 position | Not authored | Regular-army mass production | Absent; missing intermediate identity, profile and recipe. |
+| Вульж | `steel-voulge` | Древковые; neighbor 3 | `}` neighboring prior stages; exact neighbor unspecified | Current default `5; 950/700` | Regular-army mass production | Deferred; current prerequisite is only a placeholder; no exact profile/recipe. |
+| Алебарда | `steel-halberd` | Древковые; neighbor 4− | Вульж plus `}` neighboring prior stages | Current default `5; 1300/900` | Exact `weapon-halberd` profile exists; production required | Deferred; neighbor history and recipe are incomplete, so the profile alone is not an unlock. |
+| Стальное лезвие топора | *steel-axe-blade* | Рубящие; 0 | Branch access | Not authored | Regular-army mass production | Absent; no exact mapping to the existing generic steel-axe profile. |
+| Бородатый топор | *steel-bearded-axe* | Рубящие; 1 | Стальное лезвие топора | Not authored | Regular-army mass production | Absent; profile/recipe unresolved. |
+| Двуручный Бродекс | *steel-two-handed-brodex* | Рубящие; 2 | Бородатый топор | Not authored | Regular-army mass production | Absent; do not alias to the generic two-handed axe. |
+| Боевой топор | *steel-battle-axe* | Рубящие; 3 | Двуручный Бродекс | Not authored | Regular-army mass production | Absent; profile/recipe unresolved. |
+| Хёрбат | *steel-herbat* | Рубящие; 5− | Боевой топор through unnamed 4−/4+ positions | Not authored | Regular-army mass production | Absent; two intermediate identities, profile and recipe unresolved. |
+| Фальшион | *steel-falchion* | Рубящие; neighbor 3 | `}` neighboring prior stages; exact neighbor unspecified | Not authored | Regular-army mass production | Absent; entry direction, profile and recipe unresolved. |
+| Полу-стальной меч | *steel-semi-steel-sword* | Клинковое; 1 | Unnamed generation-0 position | Not authored | Regular-army mass production | Absent; missing access node and no safe alias to `weapon-steel-sword`. |
+| Крестовой меч | *steel-cross-sword* | Клинковое; 2; theocratic | Полу-стальной меч plus theocracy | Not authored | Regular-army mass production | Absent; profile/recipe unresolved. |
+| Длинный меч | *steel-long-sword* | Клинковое; 4−; elite | Крестовой меч through unnamed generation 3 | Not authored | A deferred P1 numeric profile exists | Absent; the Лонксворд parity/alias rule and intermediate identity remain unresolved. |
+| Эсток | *steel-estoc* | Клинковое; 4+; elite | Generation-4 access; delayed-free | Not authored | Numeric profile exists; regular-army production | Absent; exact access carrier and recipe unresolved. |
+| Бастард | *steel-bastard-sword* | Клинковое; 5−; elite | Эсток | Not authored | Numeric profile exists; regular-army production | Absent; profile-to-tree identity and recipe need confirmation. |
+| Великий меч | *steel-great-sword* | Клинковое; 5+; elite | Generation-5 access; delayed-free | Not authored | Numeric profile exists; regular-army production | Absent; exact access timing and recipe unresolved. |
+| Шпага | *steel-rapier* | Клинковое; 6 | Великий меч | Not authored | Regular-army mass production | Absent; profile/recipe unresolved. |
+| Фламберг | *steel-flamberge* | Клинковое; 7; theocratic | Шпага plus theocracy | Not authored | Numeric profile exists; regular-army production | Absent; profile-to-tree identity and recipe need confirmation. |
+| Стальной пилум «Гвоздь» | *steel-pilum-nail* | Стрелковые; 0 | Branch access | Not authored | Regular-army mass production | Absent; exact projectile profile/user/recipe unresolved. |
+| Ланцетовидная стрела | *steel-lancet-arrow* | Стрелковые; 1 | Стальной пилум «Гвоздь» | Not authored | Representative arrow carrier exists but has no levels | Absent; exact damage profile and recipe unresolved. |
+| Ромбовидная | *steel-diamond-arrow* | Стрелковые; 2 | Ланцетовидная стрела | Not authored | Regular-army mass production | Absent; the source leaves “стрела” implicit; profile/recipe unresolved. |
+| Стрела-шило | *steel-awl-arrow* | Стрелковые; 4− | Unnamed generation 3 plus `/` branch entry | Not authored | Regular-army mass production | Absent; entry source, intermediate identity, profile and recipe unresolved. |
+| Перезакаленная | *steel-rehardened-arrow* | Стрелковые; 4+ | Generation-4 access; delayed-free | Not authored | Regular-army mass production | Absent; the source leaves the item noun implicit; exact access/profile/recipe unresolved. |
+| Стальной Арбалет | *steel-crossbow* | Стрелковые; 5− | Перезакаленная стрела | Not authored | Regular-army mass production | Absent; unit/tower user, profile and recipe unresolved. |
+| Пушка карабль. | `steel-ship-cannon` (current display name «Корабельная пушка») | Пудра; 4− | Pirates first, then Alliance; not a normal research edge | Current default `5; 1500/1200` | Ship/artillery production | Deferred; source/config identity mismatch, current `tech-foundry` edge is not authoritative, and no player-fleet/producer/profile lifecycle exists. |
+| Ручная бомбарда | `steel-hand-bombard` | Пудра; 4+ | Generation-4 access; delayed-free | Current default `5; 1650/1000` | Regular-army mass production | Deferred behind unresolved cannon acquisition; profile/user/recipe absent. |
+| Аркебуза | `steel-arquebus` | Пудра; 5− | Ручная бомбарда | Current default `5; 2100/1300` | Regular-army mass production | Deferred; profile/user/recipe absent. |
+| Аркебуза фитильная | *steel-matchlock-arquebus* | Пудра; 5+ | Generation-5 access; delayed-free | Not authored | Regular-army mass production | Absent; profile/user/recipe unresolved. |
+| Мушкет опорный | *steel-support-musket* | Пудра; 6 | Аркебуза фитильная | Not authored | Regular-army mass production | Absent; profile/user/recipe unresolved. |
+| Мушкет фитильный | *steel-matchlock-musket* | Пудра; 7 | Мушкет опорный | Not authored | Regular-army mass production | Absent; profile/user/recipe unresolved. |
+| Стальные шомпола и Ударно-кремнёвый замок | *steel-ramrods-flintlock* | Пудра; 8 | Мушкет фитильный | Not authored | Enables mass musket flow together with cartridges and caliber unification | Absent; bundled-node identity, missing companion technologies, profile and recipe unresolved. |
+| Чешуйчатый ломинар | *steel-scale-lominar* | Особые изобретения; 4− | Unspecified late branch access | Not authored | Cheap Atlantis fish-scale armor; encourages earlier mail inserts | Absent; Atlantis source, “encourages” rule, armor class/level and recipe unresolved. |
+| Арбалет Самострел | *steel-self-loading-crossbow* | Особые изобретения; 4+ | Generation-4 access; delayed-free | Not authored | Regular-army mass production | Absent; profile/user/recipe unresolved. |
+| Пороховое копье | *steel-powder-spear* | Особые изобретения; 5− | Арбалет Самострел | Not authored | Regular-army mass production | Absent; profile/active/recipe unresolved. |
+| Пороховой Ланс | *steel-powder-lance* | Особые изобретения; 5+; elite | Generation-5 access; delayed-free; military elite | Not authored | Regular-army mass production | Absent; elite source, profile/active/recipe unresolved. |
+| Железная Бутсовая кольчуга | `steel-butted-mail` | Кольчуга; 0 | `tech-ironwork` is the config access gate | Current default `5; 300/250` | Armor production required | Deferred; overall armor level and recipe are unauthored. |
+| Клепаная кольчуга | `steel-riveted-mail` | Кольчуга; 1 | Железная Бутсовая кольчуга | Current default `5; 500/400` | Armor production required | Deferred; no exact combat profile/level/recipe. |
+| Полная кольчуга | `steel-full-mail` | Кольчуга; 2 | Клепаная кольчуга | Current default `5; 750/600` | Armor production required | Deferred; no exact combat profile/level/recipe. |
+| Двойная кольчуга | `steel-double-mail` | Кольчуга; 3 | Полная кольчуга | Current default `5; 1050/850` | Armor production required | Deferred; no exact combat profile/level/recipe. |
+| Кольчуга со сталью | `steel-steel-mail` | Кольчуга; 4− | Двойная кольчуга | Current default `5; 1450/1100` | Armor production required | Deferred; no exact combat profile/level/recipe. |
+| Закаленная кольчуга | *steel-hardened-mail* | Кольчуга; 4+ | Generation-4 access; delayed-free | Not authored | Armor production required | Absent; profile/level/recipe unresolved. |
+| Кольчужные межлатные вставки из чистой стали | *steel-mail-plate-inserts* | Кольчуга; 5−; elite | Закаленная кольчуга; Чешуйчатый ломинар may alter timing | Not authored | Armor production required | Absent; exact lominar interaction, profile/level/recipe unresolved. |
+| Легкие полные латы | *steel-light-full-plate* | Кольчуга; neighbor 5+; elite | `}` neighboring prior stages; exact neighbor unspecified | Not authored | Armor production required | Absent; entry identity, profile/level/recipe unresolved. |
+| Железный Носатый шлем | `steel-nasal-helm` | Доспехи; 0 | `tech-ironwork` is the config access gate | Current default `5; 300/250` | Armor production required | Deferred; no exact profile/overall level/recipe. |
+| Шлем-ведро | `steel-bucket-helm` | Доспехи; 1; theocratic | Железный Носатый шлем plus theocracy | Current default `5; 550/450` | Armor production required | Deferred; no exact profile/overall level/recipe. |
+| Железная шляпа | `steel-kettle-hat` | Доспехи; 2 | Шлем-ведро | Current default `5; 750/600` | Cheap-helmet mass production | Deferred; price advantage, profile/level and recipe are undefined. |
+| Железный нагрудник | `steel-iron-breastplate` | Доспехи; 3 | Железная шляпа | Current default `5; 1050/900` | `armor-iron-breastplate` carrier exists; production required | Deferred; overall armor level and recipe are unauthored. |
+| Стальная кираса и шлем | `steel-steel-cuirass` | Доспехи; 4− | Железный нагрудник plus water-hammer chain | Current default `5; 1500/1300` | Armor production required | Deferred; method/gear gate, profile/level and recipe incomplete. |
+| Закаленные латы | *steel-hardened-plate* | Доспехи; 4+ | Generation-4 access; delayed-free | Not authored | Armor production required | Absent; profile/level/recipe unresolved. |
+| Полные латы | *steel-full-plate* | Доспехи; 5−; elite | Закаленные латы | Not authored | Armor production required | Absent; elite source, profile/level/recipe unresolved. |
+| Кавалерийские латы | *steel-cavalry-plate* | Доспехи; 5+; elite | Generation-5 access; delayed-free | Not authored | Maximilian-style cavalry armor production | Absent; elite source, cavalry user, profile/level/recipe unresolved. |
+| Пухлый нагрудник | *steel-puffy-breastplate* | Доспехи; 6 | Кавалерийские латы | Not authored | Armor production required | Absent; profile/level/recipe unresolved. |
+| Пулестойкие полные латы «Хранитель» | *steel-guardian-bulletproof-plate* | Доспехи; 7; elite/theocratic marks ambiguous | Пухлый нагрудник | Not authored | Armor production required | Absent; malformed source brackets, gate, bullet rule, profile/level and recipe unresolved. |
+| Бригантина | *steel-brigandine* | Доспехи; neighbor 4− | `/` plus `}` neighboring prior stages; exact neighbor unspecified | Not authored | P1 armor-class carrier exists; production required | Absent; branch entry, overall level and recipe unresolved. |
+| Закаленная бригантина | *steel-hardened-brigandine* | Доспехи; neighbor 4+ | Generation-4 branch access; delayed-free | Not authored | Armor production required | Absent; access, profile/level and recipe unresolved. |
+| Стеганка | *steel-padded-jack* | Поддоспешник; 2 | Unnamed generation 0 and 1 positions | Not authored | High-volume women’s production; does not consume armorer time | Absent; textile-class mapping, overall level, rate and producer lifecycle unresolved. |
+| Плотная Стеганка | *steel-dense-padded-jack* | Поддоспешник; 3 | Стеганка | Not authored | High-volume women’s production; no armorer time | Absent; profile/level/rate unresolved. |
+| Дублет | *steel-doublet* | Поддоспешник; 4+ | Generation-4 access through unnamed 4−; delayed-free | Not authored | High-volume women’s production; no armorer time | Absent; access carrier, profile/level/rate unresolved. |
+| Толстяк | *steel-fatty-underarmor* | Поддоспешник; 6 | Дублет through unnamed 5−/5+ positions | Not authored | High-volume women’s production; no armorer time | Absent; two intermediate identities, profile/level/rate unresolved. |
+
+The attachment also names generation-wide methods and gear. They are prerequisites, not
+additional members of the 71-item equipment inventory; the table keeps all ten visible so
+they cannot disappear behind an equipment row.
+
+| Method/gear | Existing/proposed ID | Generation | Source constraint | P3B result / unresolved field |
+|---|---|---:|---|---|
+| Дамасская сталь | *steel-method-damascus* | 0 | Method | Absent; acquisition, affected recipes and numeric effect unresolved. |
+| Горная Мех.Фурма | *steel-gear-mountain-tuyere* | 1 | Gear | Absent; geography/building ownership and affected recipes unresolved. |
+| Водяная Мех.Фурма | *steel-gear-water-tuyere* | 2 | Gear | Absent; water-state gate, ownership and affected recipes unresolved. |
+| Выверенное смешевание металов | *steel-method-exact-mixing* | 3 | Method | Absent; acquisition and affected recipes unresolved. |
+| Водяной молот | `steel-water-hammer` | 4 | Gear, only for water states; paired with Выверенная закалка | Deferred; current watermill/ironwork edge and `12; knowledge 1400 + gold 1200 + iron 800` cost are defaults, not the complete geography/method contract. |
+| Выверенная закалка | *steel-method-measured-tempering* | 4 | Method paired with Водяной молот | Absent; whether both halves are mandatory and affected recipes unresolved. |
+| Огромный водяной молот | `steel-heavy-water-hammer` | 5 | Gear paired with Продвинутая закалка | Deferred; current predecessor edge and `16; knowledge 2000 + gold 1800 + iron 1300` cost omit the paired method and geography contract. |
+| Продвинутая закалка | *steel-method-advanced-tempering* | 5 | Method paired with Огромный водяной молот | Absent; acquisition and affected recipes unresolved. |
+| Идеальная заказла | *steel-method-ideal-tempering* | 6 | Method; source spelling preserved | Absent; intended name, acquisition and affected recipes unresolved. |
+| Многоуровневая закалка | *steel-method-multilevel-tempering* | 7 | Method | Absent; acquisition and affected recipes unresolved. |
+
+## P3B defaults and unresolved-semantics ledger
+
+| ID | JSON Pointer | Phase | Raw source | Chosen default | Rationale | Status | Designer verdict |
+|---|---|---:|---|---|---|---|---|
+| `P3B-01` | `/empire/steelResearch/forkSourcePriceMultiplier` | P3B | `Steel-c748ae22139d6401.txt` line 3 | `2` | The latest source explicitly says the departed/source branch becomes twice as expensive after a fork; the typed value keeps the authored multiplier inspectable. | Open | Pending: confirm that the ×2 applies permanently to every later purchase in the source branch and never to the entered branch. |
+| `P3B-02` | `/empire/steelResearch/delayedFreeEmpirePhases` | P3B | `Steel-c748ae22139d6401.txt` line 8 | `2` empire phases | “Через пару ходов” supplies no exact clock unit. Two empire phases is the literal configurable minimum and delayed-free awards are persisted/idempotent. | Open | Pending: confirm the delay and whether “ход” means empire phase, con, or another clock. |
+| `P3B-03` | `/empire/steelResearch/militaryEliteFlagId` | P3B | `Steel-c748ae22139d6401.txt` lines 5, 16–38; no elite-source rule supplied | `militaryElite`; no bundled producer | The gate is typed and validated, but no definition is allowed to manufacture elite status. Every elite node remains unavailable/deferred. | Open | Pending: what grants/removes military elite, and is the gate empire-wide, city-local, or cohort-local? |
+| `P3B-04` | `/empire/technologies/40` through `/empire/technologies/61` (`timeCostDays`, `resourceCosts`) | P3B | Latest steel attachment contains no prices | Preserve the 22 existing configurable defaults exactly; the reconciliation table records each value | Repricing old saves without an authored table would be a separate balance decision. Fork multiplication is applied to the quoted current resource costs only. | Open | Pending: supply authoritative day/resource prices for every steel position and say which price components the fork multiplies. |
+| `P3B-05` | `/td/equipmentProductionLines` | P3B | `застройка` messages `1515977742515044353`, `1515981540859842571`, `1515984306705666079`; no mapping from annual/four-month volumes to the current settlement clock | Two lines each consume `0.5` of operational `smithCapacity` | A shared-capacity split prevents every recipe from receiving full Smithy capacity while retaining one baseline-kit and one polearm line. | Open | Pending: define specialization/control, line shares and how sourced per-smith annual/four-month volumes map to empire settlement. |
+| `P3B-06` | `/td/equipmentProduction` | P3B | Same Smithy messages; exact per-current-tick recipes absent | Highest-priority eligible recipe per line; `1` item per allocated smith-capacity unit | Deterministic recipe selection prevents duplicate full-capacity output and lets researched spearheads replace lower polearm recipes without fabricating every unlocked item. | Open | Pending: confirm recipe rates, priority/manual selection, stock limits and whether independent smiths share the same choice. |
+| `P3B-07` | `/empire/units/1/loadouts` | P3B | `сталь` message `1511683424971395103`; exact cohort loadout quantities absent | New regular recruitment requires the highest-priority researched spear with available stock and consumes `1` produced spear in addition to its existing `2` basic kits; without one of the four loadouts it is blocked | Stock must be consumed for technology gear to affect TD; one spear per abstract cohort is a configurable substrate unit, not an authored headcount ratio. Schema-v2 aggregate regulars are compatibility-only: migration freezes their prior `weapon-laurel-spear` profile in a `legacy-default` cohort without charging current stock. | Open | Pending: define cohort size, items per cohort, mixed loadouts, recovery and manual selection. |
+| `P3B-08` | `/empire/buildings/15/levels/0/effects` (`armyProductionDiscountPercent`, `armyProductionTimeDiscountPercent`, `armyUpkeepDiscountPercent`) | P3B | `здания` message `1369411948847829023` names the three reductions but no percentages | `15%` each | Equal explicit defaults make every retained Foundry reduction executable without claiming a sourced percentage. | Open | Pending: confirm all three values, stacking across cities, rounding and scope. |
+| `P3B-09` | `/empire/buildings/15/levels/0/effects/3` (`instantUnitEveryTurns`) | P3B | `здания` message `1369411948847829023` gives “for example, once every two turns” | `2` empire phases per operational city Foundry; the first charge is ready immediately and unused cadence does not bank extra charges | The example supplies a cadence but not a committed clock; persisted per-city readiness prevents restore/retry duplication, and a single non-accumulating timer avoids inventing an unbounded charge inventory. | Open | Pending: confirm the cadence, clock, initial readiness, charge accumulation and whether each Foundry owns a separate charge. |
+| `P3B-10` | `features/empires-endgame/engine.ts` `armyMoraleMinimum` | P3B | `реликвии` message `1368930598118232236` | `max(td.morale.minimum, minimumCombatSpirit)`; the relic flag is exactly `2` | The source supplies an exact floor while P2 owns the provisional base morale scale. Applying the stronger active floor preserves both rules. | Open | Pending: should the authored unit-level spirit floor later replace or coexist with the campaign scalar? |
+| `P3B-11` | `features/empires-endgame/td/engine.ts` tower equipment selection | P3B | No source defines tower stock ownership or automatic loadout choice | Generic deterministic highest-priority affordable loadout support; no bundled tower receives invented steel gear | The rules path and exact-once stock accounting are ready without asserting that a spearhead equips a tower. | Open | Pending: which towers use which produced equipment, in what quantities, and is gear recovered? |
+| `P3B-12` | `features/empires-endgame/engine.ts` `applyMilitaryArsonToState` | P3B | `карты` source defines one casualty from a present unit kind but predates equipped cohorts | Select the unit kind uniformly as before P3B, then remove from its lexicographically first positive cohort without a second RNG draw | Preserving unit-kind odds avoids giving a kind extra lottery weight merely because it has mixed equipment, while the stable tie-break keeps restore/replay deterministic. | Open | Pending: when one unit kind has mixed equipment, which cohort should take an abstract arson casualty? |
+
+## P3B remaining-deferred manifest
+
+- Of the 22 pre-existing `steel-*` carriers, only
+  `steel-laurel-spearhead`, `steel-lancet-spearhead`,
+  `steel-diamond-spearhead`, and `steel-cross-spearhead` are live. The other 18 remain
+  deferred: `steel-voulge`, `steel-halberd`, `steel-lance`, all five current mail nodes,
+  all five current plate nodes, both water-hammer carriers, and all three powder carriers.
+  Their exact blockers are recorded per row above.
+- The remaining 51 named items in the latest 71-item tree and eight of the ten named
+  method/gear prerequisites have proposed ledger IDs only. They are absent from config;
+  unnamed source positions are also intentionally not turned into definitions.
+- Ударные remains closed/observe-only. There is no normal research edge, espionage copy
+  lifecycle, or exact neighbor-entry acquisition to make it live. Consequently Полэкс also
+  remains unavailable even though P1 has its numeric combat profile.
+- `tech-generals` is a live prerequisite identity only; `general-bonuses` and
+  `general-active-abilities` remain subfeature-deferred because the source supplies no
+  stat table, active catalog, scaling or lifecycle. `tech-foundry` is reconciled to the
+  authored «Литье стали» identity, while its `ship-armor`, `academy-improvements`, and
+  `steel-units` subfeatures remain deferred.
+- `building-foundry` is live and reachable in non-capital cities with the reviewable
+  defaults above. Its validated `capital-sixth-slot` subfeature remains deferred: the
+  capital's sixth/unique slot is occupied by an unswappable Temple, and the source supplies
+  neither replacement semantics nor an additional Foundry slot.
+  `building-military-academy` remains wholly deferred: the source leaves the 2–3 unit
+  identity/selection undefined, the permanent-stat button is an example rather than a
+  rule table, and no exact military-elite grant is authored. Its capital/central placement
+  also cannot be invented around the current slot model.
+- Мастерская remains absent because its trebuchet/cannon production needs persistent
+  artillery and siege ownership. Баллиста remains absent because the source makes it a
+  persistent wall/fortress tower placed on tower sites, not an ordinary city building;
+  no campaign placement/recovery lifecycle exists. Двор Гвардейской Дружины remains absent
+  because crime, loyalty-scaled city types, passive armed recruitment and rebellion power
+  belong to later substrate. Эдемская катапульта remains in the P3A TD manifest.
+- `relic-spirit-floor` is live at the exact authored floor of 2. Both
+  `card-hearts-ace` faces remain deferred: only the inverted face explicitly disables
+  spirit and actives, while normal-face behavior, level scaling, father/crown loss,
+  per-unit actives, cleanup and restoration remain undefined.
+- New regular recruitment is honestly unavailable until at least one of the four live steel
+  spear technologies is researched and its produced spear is in stock. It consumes that
+  stock and stores the result in an immutable equipped cohort; later research cannot
+  retrofit earlier cohorts. Schema-v2 aggregate regulars are grandfathered into a frozen
+  `legacy-default` cohort carrying their prior laurel profile without consuming new stock.
+  Casualties remove cohort members, and TD results deduct tower equipment exactly once.
+  Recovery, refitting, mixed formations, smith specialization controls, armor production
+  and the source's full volume table remain deferred pending authored semantics.
