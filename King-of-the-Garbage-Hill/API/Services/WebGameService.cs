@@ -345,7 +345,10 @@ public class WebGameService
         var game = new GameClass(playersList, gameId, creatorId) { IsCheckIfReady = false };
         game.NanobotsList.Add(new BotsBehavior.NanobotClass(playersList));
         game.TimePassed.Start();
-        _global.GamesList.Add(game);
+        lock (_global.GamesList)
+        {
+            _global.GamesList.Add(game);
+        }
 
         if (EnableDraftPick)
         {

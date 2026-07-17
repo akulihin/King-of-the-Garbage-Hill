@@ -108,7 +108,10 @@ public class BotGameFactory : IServiceSingleton
 
         //start the timer
         game.TimePassed.Start();
-        _global.GamesList.Add(game);
+        lock (_global.GamesList)
+        {
+            _global.GamesList.Add(game);
+        }
 
 
         // Preserve the historical all-knowing simulation setup only for the frozen L1

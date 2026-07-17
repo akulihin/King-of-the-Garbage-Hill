@@ -802,6 +802,11 @@ public static class AchievementService
     public static bool TryUnlock(DiscordAccountClass account, string achievementId, int progress = 1) =>
         SetBestProgress(account, achievementId, progress);
 
+    // Score-derived decimals can legitimately exceed int.MaxValue (Halflife 3's P^P settlement,
+    // and anything that inherits it, e.g. Итачи's stolen points) — clamp before the int cast (m49).
+    private static int ToProgress(decimal value) =>
+        (int)Math.Floor(Math.Clamp(value, 0, int.MaxValue));
+
     public static void TrackGameEnd(
         DiscordAccountClass account,
         GamePlayerBridgeClass player,
@@ -850,7 +855,7 @@ public static class AchievementService
         var undefeatedWins = tracker.TotalFightsLost == 0 ? tracker.TotalFightsWon : 0;
         SetBestProgress(account, "g_untouchable", undefeatedWins, solo && rewardWin);
         SetBestProgress(account, "g_quad_damage",
-            (int)Math.Floor(Math.Max(0, tracker.RoundTenRegularPoints)));
+            ToProgress(tracker.RoundTenRegularPoints));
         SetBestProgress(account, "g_auto_pilot", HasUsedAutoMoveAllGame(player, tracker) ? 1 : 0);
 
         // Character stories
@@ -916,7 +921,7 @@ public static class AchievementService
             SetBestProgress(account, "c_itachi_crows",
                 player.Passives.ItachiCrows.CrowCounts.Count(entry => entry.Value > 0));
             SetBestProgress(account, "c_itachi_tax",
-                (int)Math.Floor(player.Passives.ItachiTsukuyomi.TotalStolenPoints));
+                ToProgress(player.Passives.ItachiTsukuyomi.TotalStolenPoints));
         }
 
         if (characterName == "Кратос")
@@ -1194,7 +1199,7 @@ public static class AchievementService
         {
             SetBestProgress(account, "c_naruto_harem", player.Passives.Naruto.HaremSkippedFights);
             SetBestProgress(account, "c_naruto_rasengan",
-                (int)Math.Floor(Math.Max(0, player.Passives.Naruto.ShadowPointsTransferred)),
+                ToProgress(player.Passives.Naruto.ShadowPointsTransferred),
                 alive && actualPlace == 1);
         }
 

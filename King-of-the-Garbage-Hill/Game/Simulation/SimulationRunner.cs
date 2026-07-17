@@ -251,7 +251,11 @@ public class SimulationRunner : IServiceSingleton
                             Lineup = lineups.TryGetValue(game.GameId, out var lu) ? lu : null,
                             SecondsStalled = 0,
                         });
-                        if (g != null) _global.GamesList.Remove(g);
+                        if (g != null)
+                            lock (_global.GamesList)
+                            {
+                                _global.GamesList.Remove(g);
+                            }
                     }
                 }
             }
@@ -341,7 +345,10 @@ public class SimulationRunner : IServiceSingleton
                         SecondsStalled = Math.Round(stalled),
                         LoopVisitsWithoutProgress = visitsWithoutProgress,
                     });
-                    _global.GamesList.Remove(game);
+                    lock (_global.GamesList)
+                    {
+                        _global.GamesList.Remove(game);
+                    }
                     handled.Add(id);
                     Console.WriteLine($"[SIM] STUCK: game #{id} stayed at round {game.RoundNo} for " +
                                       $"{visitsWithoutProgress} readiness-loop visits " +
@@ -365,7 +372,11 @@ public class SimulationRunner : IServiceSingleton
                         Lineup = lineups.TryGetValue(id, out var lu3) ? lu3 : null,
                         SecondsStalled = Math.Round((DateTime.UtcNow - lastAnyProgressUtc).TotalSeconds),
                     });
-                    if (game != null) _global.GamesList.Remove(game);
+                    if (game != null)
+                        lock (_global.GamesList)
+                        {
+                            _global.GamesList.Remove(game);
+                        }
                     handled.Add(id);
                 }
 
@@ -460,7 +471,10 @@ public class SimulationRunner : IServiceSingleton
                            && guard++ < 5000)
                         await _checkIfReady.TickAsync();
 
-                    _global.GamesList.RemoveAll(x => x.GameId == game.GameId);
+                    lock (_global.GamesList)
+                    {
+                        _global.GamesList.RemoveAll(x => x.GameId == game.GameId);
+                    }
                 }
             }
             finally

@@ -3513,21 +3513,27 @@ public class BotsBehavior : IServiceSingleton
                     ResetTens(allTargets);
                     return;
                 }
-                whoToAttack = players[_rand.Random(0, players.Count - 1)].Player.Status.GetPlaceAtLeaderBoard();
 
-                if (maxRandomNumber > 0)
+                // Retry the whole remaining pool: the old single blind attempt ignored HandleAttack's
+                // rejection (sealed Мадара is still in the legacy pool, etc.) and left the bot with no
+                // action at all, tripping the CRIT "didn't do anything" guard (m50).
+                while (players.Count > 0 && !isAttacked)
                 {
-                    var randomTarget = allTargets.Find(x =>
-                        x.Player.Status.GetPlaceAtLeaderBoard() == whoToAttack)?.Player;
-                    await _global.TrySendServiceMessage(
-                        $"**{UnknownBug.PublicName(bot)}** Поставил блок, а ему нельзя. {randomNumber}/{maxRandomNumber} <= {totalPreference}\n" +
-                        $"Round: {game.RoundNo}\n" +
-                        $"Randomly Attacking {UnknownBug.PublicName(randomTarget)}");
-                }
+                    var pick = players[_rand.Random(0, players.Count - 1)];
+                    players.Remove(pick);
+                    whoToAttack = pick.Player.Status.GetPlaceAtLeaderBoard();
 
-                await AttackPlayer(bot, whoToAttack);
+                    if (maxRandomNumber > 0)
+                        await _global.TrySendServiceMessage(
+                            $"**{UnknownBug.PublicName(bot)}** Поставил блок, а ему нельзя. {randomNumber}/{maxRandomNumber} <= {totalPreference}\n" +
+                            $"Round: {game.RoundNo}\n" +
+                            $"Randomly Attacking {UnknownBug.PublicName(pick.Player)}");
+
+                    isAttacked = await AttackPlayer(bot, whoToAttack);
+                }
             }
-            else if (!isAttacked)
+
+            if (!isAttacked)
             {
                 var passives = "(private)";
                 if (!UnknownBug.Is(bot))

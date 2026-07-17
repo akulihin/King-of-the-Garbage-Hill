@@ -707,6 +707,7 @@ public sealed class GameReaction : IServiceSingleton
     {
         if (player.GameCharacter.DoomRollMode) return;
         var game = _global.GamesList.Find(x => x.GameId == player.GameId);
+        if (game == null) return;
 
         var embed  = _upd.FightPage(player);
         var builder = await _upd.GetGameButtons(player, game);

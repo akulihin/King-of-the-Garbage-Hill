@@ -894,7 +894,10 @@ public class CheckIfReady : IServiceSingleton
         }
 
         await NotifyOwner(game);
-        _global.GamesList.Remove(game);
+        lock (_global.GamesList)
+        {
+            _global.GamesList.Remove(game);
+        }
     }
 
     private async Task NotifyOwner(GameClass game)
@@ -1114,12 +1117,22 @@ public class CheckIfReady : IServiceSingleton
         try
         {
 
-        var games = _global.GamesList;
+        // Snapshot under the GamesList lock: the sim runner (bulk Add/watchdog Remove) and the
+        // web/Discord threads mutate the list while this timer thread iterates — indexing the
+        // live list here used to read a transient null slot and crash the process (M111/M51).
+        GameClass[] games;
+        lock (_global.GamesList)
+        {
+            games = _global.GamesList.ToArray();
+        }
 
-        for (var i = 0; i < games.Count; i++)
+        for (var i = 0; i < games.Length; i++)
+        {
+            GameClass game = null;
             try
             {
-                var game = games[i];
+                game = games[i];
+                if (game == null) continue;
                 System.Threading.Interlocked.Increment(ref game.ReadinessLoopVisits);
                 if (_round.HasPendingRound(game))
                 {
@@ -1145,7 +1158,7 @@ public class CheckIfReady : IServiceSingleton
                     continue;
                 }
 
-                var players = _global.GamesList[i].PlayersList;
+                var players = game.PlayersList;
                 var readyTargetCount = players.Count(x => !x.IsBot());
                 var readyCount = 0;
 
@@ -1664,13 +1677,15 @@ public class CheckIfReady : IServiceSingleton
             }
             catch (Exception exception)
             {
+                // Never re-index the list here: a raced-out slot was exactly what threw an NRE
+                // out of this catch and killed the process via the async void timer handler (M111).
                 _logs.Critical(exception.Message);
                 _logs.Critical(exception.StackTrace);
-                _global.SimErrorSink?.Invoke(games[i].GameId, games[i].RoundNo, exception);
+                _global.SimErrorSink?.Invoke(game?.GameId ?? 0, game?.RoundNo ?? -1, exception);
                 try
                 {
                     await _global.Client.GetGuild(561282595799826432).GetTextChannel(935324189437624340)
-                        .SendMessageAsync($"Game #{games[i].GameId}, Round #{games[i].RoundNo}\n{exception.Message}");
+                        .SendMessageAsync($"Game #{game?.GameId ?? 0}, Round #{game?.RoundNo ?? -1}\n{exception.Message}");
                     await _global.Client.GetGuild(561282595799826432).GetTextChannel(935324189437624340)
                         .SendMessageAsync(exception.StackTrace);
                 }
@@ -1679,6 +1694,7 @@ public class CheckIfReady : IServiceSingleton
                     // Discord unavailable (headless sim / bot offline) — already logged + sinked
                 }
             }
+        }
 
         }
         finally

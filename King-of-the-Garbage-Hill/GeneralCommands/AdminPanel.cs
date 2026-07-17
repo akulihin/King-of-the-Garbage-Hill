@@ -228,7 +228,10 @@ public class AdminPanel : ModuleBaseCustom
 
         //start the timer
         game.TimePassed.Start();
-        _global.GamesList.Add(game);
+        lock (_global.GamesList)
+        {
+            _global.GamesList.Add(game);
+        }
 
 
         //handle round #0
