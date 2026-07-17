@@ -34,8 +34,8 @@ flowchart TD
 ```
 
 - Turn timer: default 300 s (`GameClass.cs:13`); a 100 ms timer polls readiness (`CheckIfReady.cs:63-74`).
-- A human who does nothing gets an auto-move (bot picks for them, `CheckIfReady.cs:1120-1131`); a player who can't be auto-moved auto-blocks (`:1253`).
-- Round 10 is the last fighting round. `RoundNo >= 11` ⇒ `HandleLastRound` (`CheckIfReady.cs:967`), except during the Kratos resurrection event (hard cap `RoundNo >= 20`, `:937`).
+- A human who does nothing gets an auto-move (bot picks for them, `CheckIfReady.cs:1132-1144`); a player who can't be auto-moved auto-blocks (`:1253`).
+- Round 10 is the last fighting round. `RoundNo >= 11` ⇒ `HandleLastRound` (`CheckIfReady.cs:970`), except during the Kratos resurrection event (hard cap `RoundNo >= 20`, `:937`).
 
 ### Actions
 | Action | Effect |
@@ -130,7 +130,7 @@ A spendable currency, gained mostly by beating players placed above you (see §4
 | 13 | +50 | +5 |
 | 20 | +100 | +10 |
 
-One tier per press, largest affordable tier first. Score conversion stages into `BonusPointsFromMoral`, flushed into real score at the start of the next round's calculation (`DoomsdayMachine.cs:237-243`). On round 10 all moral ≥5 is force-converted to score before the final fights (`CheckIfReady.cs:1344-1348`). Psyche ≥ 10 inflates displayed moral by +20% per bonus tier (`SetMoralBonus`). Blockers: Булькает zeroes moral, Геральт gains none, cancer blocks gains, Привет со дна fixes any gain at +4 and ignores losses, Спокойствие ignores losses (`CharacterClass.cs:1118-1177`).
+One tier per press, largest affordable tier first. Score conversion stages into `BonusPointsFromMoral`, flushed into real score at the start of the next round's calculation (`DoomsdayMachine.cs:237-243`). On round 10 all moral ≥5 is force-converted to score before the final fights (`CheckIfReady.cs:1357-1361`). Psyche ≥ 10 inflates displayed moral by +20% per bonus tier (`SetMoralBonus`). Blockers: Булькает zeroes moral, Геральт gains none, cancer blocks gains, Привет со дна fixes any gain at +4 and ignores losses, Спокойствие ignores losses (`CharacterClass.cs:1118-1177`).
 
 ### Psyche as a resource
 No engine rule punishes 0 Psyche — all tilt/skip effects are per-character passives (Дизмораль, Буль, АФКА…). Psyche loss must run through `MinusPsycheLog` (logs "{user} психанул" globally; respects Спокойствие and M.M.'s Оковы immunity, `GamePlayerBridgeClass.cs:111-128`). Безумие (DeepList) bypasses the 0-floor so psyche can go negative (`CharacterClass.cs:1295`).

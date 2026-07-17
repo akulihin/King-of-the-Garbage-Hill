@@ -285,8 +285,9 @@ they cannot disappear behind an equipment row.
   retrofit earlier cohorts. Schema-v2 aggregate regulars are grandfathered into a frozen
   `legacy-default` cohort carrying their prior laurel profile without consuming new stock.
   Casualties remove cohort members, and TD results deduct tower equipment exactly once.
-  Recovery, refitting, mixed formations, smith specialization controls, armor production
-  and the source's full volume table remain deferred pending authored semantics.
+  Recovery, refitting, mixed formations, armor production and the source's full volume
+  table remain deferred pending authored semantics. P4B now owns the permanent whole-Smithy
+  recipe specialization selected by `reform-control-smiths`.
 
 ## P4A loyalty/reputation defaults and unresolved-semantics ledger
 
@@ -311,7 +312,43 @@ they cannot disappear behind an equipment row.
 - Inverted `card-clubs-2` remains deferred as recorded in `P4A-07`. Additional Народ faces
   remain deferred unless the main source uniquely supplies title, current config ID, side,
   numeric effects, level scaling and lifecycle; placeholder ranks are not guessed.
-- Seasons, technology light/dark sides, Hearts/political faces, reforms and crime remain
-  owned by P4B. Reputation substrate does not un-defer P6 trade/unions.
+- P4B now implements the season cycle, typed technology-side/hidden-combination substrate
+  and the four whole-contract reforms listed below. Undefined Hearts faces, Technocracy,
+  City Gates crime/epidemic effects and printing-press effects remain deferred. Reputation
+  substrate does not un-defer P6 trade/unions.
 - The lumber-concession follow-up to `event-northern-raids` remains a separate deferred
   event until its trigger/timing and complete outcomes are authored.
+
+## P4B seasons/technology/politics defaults and unresolved-semantics ledger
+
+| ID | JSON Pointer | Phase | Raw source | Chosen default | Rationale | Status | Designer verdict |
+|---|---|---:|---|---|---|---|---|
+| `P4B-01` | `/empire/seasons` | P4B | `общее`: Summer and Winter have food limits differing by ×2; no duration, exact target or rounding rule | Ordered one-con cycle: Summer food production `×2`, Winter `×1`, then `floor` | Production is the only existing food quantity shared by projection, settlement and famine. A one-con cycle is the smallest deterministic cadence and avoids a saved duplicate season truth. The source's word “limit” is not claimed to mean production; this is a reviewable operational default. | Open | Pending: confirm duration, start season, whether ×2 affects production/limit/consumption tolerance, and rounding. |
+| `P4B-02` | `/empire/seasons/greenhouse`; `/empire/technologies` (`tech-greenhouses`) | P4B | `общее`: greenhouses keep the farm food limit the same across seasons | Research sets both seasonal food-production multipliers to `2`; no consumption/non-food change | Equalizing to the stronger authored seasonal anchor preserves the upgrade's benefit. Scope stays solely on the seasonal food-production factor. | Open | Pending: confirm the equalized value and whether the effect is farm-only, city-local or empire-wide. |
+| `P4B-03` | `EmpiresTechnologySidesDefinition`; `/empire/technologies` (`reform-city-gates.sides`) | P4B | Technology export: every technology can have light/dark sides; dark discovery through events/enemy propaganda lowers king rating. No retrofit table or disclosure values | Typed fixed/weighted selection and research/delayed/combination disclosure. The deferred City Gates carrier uses equal `1:1` weights and a one-con delay solely as a QA/config substrate; no bundled live technology receives sides. Dark sides require an explicit negative reputation delta. | The generic executor and exact-once memory are complete without inventing side content for existing live technologies. Deferred carrier defaults cannot affect normal play. | Open | Pending: list technologies, both side effects, selection odds, disclosure trigger/delay and exact rating loss. |
+| `P4B-04` | `culturalSuppressible`; technology tag `cultural-suppression` | P4B | Technology export: a Culture passive disables a dark side; no named technology, duration or subset | Any researched technology explicitly tagged `cultural-suppression` suppresses a dark side explicitly marked `culturalSuppressible`; effects and reputation do not apply, disclosure still records suppression | Opt-in on both producer and consumer prevents an unrelated culture identity from becoming a global magic rule. No bundled producer is invented. | Open | Pending: identify the producer, scope, timing, retroactivity and whether disclosure remains visible. |
+| `P4B-05` | `/empire/technologies` (`reform-coercion`) | P4B | Technology export: disabled buildings work under coercion; research/button lowers loyalty | One-time `−1` city loyalty in every city; low-loyalty workforce and class shutdown are bypassed for building operation only | “Lowers loyalty” has no number/scope. `−1` is the smallest visible P4A unit and empire-wide matches a reform; keeping construction/recruitment gates prevents the operational override from broadening itself. | Open | Pending: confirm amount, scope, repeatable button semantics and which loyalty gates coercion bypasses. |
+| `P4B-06` | `/empire/technologies` (`reform-heroic-funerals`) | P4B | Technology export: costs money and prevents loyalty/recruit growth loss from unit deaths | Keep configured `1200` gold research cost; suppress death-caused loyalty and per-loss recruitment-growth/military-population penalties, while retaining canonical loss history and other battle consequences | Every named consequence has a real P3A/P4A reader. Exact-once loss consumption remains necessary even when its penalty is suppressed. | Open | Pending: confirm price, whether protection is permanent, and whether defeat-wide penalties are also suppressed. |
+| `P4B-07` | `/empire/technologies` (`reform-control-smiths`); `/empire/smithSpecializationRecipeId` | P4B | Technology export: focus all smiths on chosen weapon types, never respecialize; displeases burghers and strongly nobles | One permanent currently researched, non-deferred weapon recipe; every operational line share produces it. All cities receive Мещане `−1`, Дворяне `−2`. | A weapon recipe is the smallest existing production identity, and `1/2` preserves ordinary versus strong displeasure. Choice is serialized and cannot be replaced. | Open | Pending: confirm class deltas, city scope, eligible categories, whether idle/unresearched recipes can be selected and output rounding. |
+| `P4B-08` | `/empire/technologies` (`reform-theocracy`) | P4B | Technology export: Theocracy automatically disables dark experiments; P3B steel graph has an exact `theocracy` flag prerequisite | Research writes `theocracy=1` and `darkExperimentsDisabled=1`; only sides tagged `dark-experiment` are suppressed | This fulfills the exact existing steel prerequisite without bypassing any other prerequisite and keeps suppression opt-in. | Open | Pending: identify every dark experiment and whether Theocracy has additional political effects. |
+| `P4B-09` | `/empire/hiddenCombinations` | P4B | `здания`: Granary + Alchemy can produce plague, with Trainers adding trained infected rats; event correctness is required | Validated exact-once combination memory exists; the bundled Granary+Alchemy carrier remains deferred and inert | The combination identity/disclosure hook is required by P5, but disease creation, Trainers identity, event selection and consequences are not P4B semantics. | Open | Pending: exact building levels, Trainers carrier, trigger timing/odds, event identity and rat consequences. |
+| `P4B-10` | `/empire/technologies` (`reform-city-gates`) | P4B | Technology/event exports: light side halves crime; dark side locks an epidemic city, doubles speed inside and prevents spread | Whole reform remains deferred. Unread crime flags were removed. Dark side retains only a typed future epidemic policy (`preventsIntercitySpread=true`, `withinCitySpeedMultiplier=2`) behind the deferred carrier. | Crime has no authored sources/lifecycle/consumers, and P5 owns epidemics. A typed policy is safe future input but cannot make the carrier live. | Open | Pending: define crime/public-order state and light-side consumers; confirm selection/disclosure and epidemic lock lifecycle. |
+| `P4B-11` | `/empire/technologies` (`tech-printing`) | P4B | Technology export: extend discarded-card bonuses and apply propaganda to attacking neighboring cities; prerequisites and complete lifecycles absent | Existing stable carrier is explicitly deferred; no effects are retained live | The config was not actually absent, but both named effects need missing duration, target, diplomacy/attack and cleanup contracts. | Open | Pending: confirm tranche inclusion, prerequisites, extension duration/stacking and propaganda target/effect. |
+| `P4B-12` | `/cards` (`card-hearts-5`, `card-hearts-king`); `/empire/technologies` (`reform-technocracy`) | P4B | Cards export names agitation/sabotage and legitimacy identities without executable effects; Technocracy follows Theocracy and starts civil war without trigger/consequences | Both faces of both cards and Technocracy remain deferred | Identity alone cannot define numeric political mutation, target, duration, scaling, civil-war state or resolution. No generic flags are made live. | Open | Pending: provide full face effects and the complete Technocracy/civil-war lifecycle. |
+
+## P4B remaining-deferred manifest
+
+- No bundled live technology currently has a light/dark side. The generic side engine is
+  executable for validated custom JSON; the only bundled side carrier is the still-deferred
+  `reform-city-gates` definition used by deterministic QA.
+- `reform-technocracy` and `reform-city-gates` remain wholly deferred. The former lacks a
+  civil-war lifecycle; the latter lacks crime semantics and depends on P5 for epidemics.
+- Both faces of `card-hearts-5` and `card-hearts-king` remain deferred. Agitation,
+  sabotage and legitimacy names do not supply numeric, targeted or reversible mechanics.
+- `tech-printing` is config-present, not config-absent, but remains explicitly deferred.
+  Its prerequisite edge is retained; no card-duration or propaganda executor is fabricated.
+- `hidden-granary-alchemy-plague` remains an inert deferred combination. P5 owns plague,
+  spread, city lock and the event bridge; the optional Trainers/rats extension still lacks
+  a stable carrier and consequences.
+- There is no crime/public-order scalar. No source defines both mutations and consumers,
+  so removed `crimeMultiplierPercent`-style flags are rejected when made live.

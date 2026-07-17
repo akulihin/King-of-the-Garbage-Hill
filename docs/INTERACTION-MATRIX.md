@@ -29,7 +29,7 @@ Forced-fight sources: **Монстр** two-turn no-escape (`CP:1066-1073`; `CIR:
 
 Кратос's **Клинки хаоса** are another queue-expansion source outside the table: the selected target remains, but unknown_bug is filtered from both incidental neighbour additions (`GameReactions.HandleAttack`).
 
-The Гарем row applies only to the original Naruto, when its cooldown is 0 and the submitted Block is converted. For the next two turns after a use, the original's Block remains ordinary, so every forced-fight interaction follows the normal Block row instead. Теневые clones have no Block slot at any AI level and Skip only if no attack can be accepted (`Naruto.cs:40-41`, `Naruto.cs:192-200`; `BotsBehavior.cs:3464-3467`, `BotsBehavior.cs:4391-4395`, `BotsBehavior.cs:4548-4559`; `GameReactions.cs:912-935`; CP:3771-3784).
+The Гарем row applies only to the original Naruto, when its cooldown is 0 and the submitted Block is converted. For the next two turns after a use, the original's Block remains ordinary, so every forced-fight interaction follows the normal Block row instead. Теневые clones have no Block slot at any AI level and Skip only if no attack can be accepted (`Naruto.cs:40-41`, `Naruto.cs:192-200`; `BotsBehavior.cs:3464-3467`, `BotsBehavior.cs:4397-4401`, `BotsBehavior.cs:4554-4565`; `GameReactions.cs:913-936`; CP:3771-3784).
 
 Гордон can spend **Просыпайтесь, мистер Фримен** once while alive to clear a current Skip and reopen an ordinary action; it does not itself inject a fight. The same charge appears mysteriously on round 9 only when Мадара's Вечное Цукуеми is already armed—not merely because an unsealed Мадара exists. Spending it reserves Gordon's sole real-action exception on round 10. Death and the Кратос event cannot be woken (`GordonFreeman.CanWake`/`Wake`; `Madara.IsEternalTsukuyomiActive`/`PrepareEternalTsukuyomiRound`).
 
@@ -109,7 +109,7 @@ Score sorting restores an active **Черный Замок** to exact place 4 fo
 | BlockMoralGain (cancer, Оковы) | blocks positive moral | CC:1137-1141 |
 | Привет со дна | ignores losses; any gain becomes +4 (`isMoralPoints` exempt) | CC:1143-1153 |
 | Спокойствие | ignores moral losses; immune to MinusPsycheLog | CC:1156-1160, GamePlayerBridgeClass.cs:117-120 |
-| M.M. IsCalm (first M.M. upgrade) | immune to MinusPsycheLog; disabled by СуперМудень | GamePlayerBridgeClass.cs:121-125; `GameReactions.cs:1029-1037` |
+| M.M. IsCalm (first M.M. upgrade) | immune to MinusPsycheLog; disabled by СуперМудень | GamePlayerBridgeClass.cs:121-125; `GameReactions.cs:1030-1038` |
 | Безумие | psyche bypasses the 0-floor (can go negative) | CC:1295, 1344 |
 | Boole Family | immune to ordinary Harm; СуперМудень bypasses | CC:205-210 |
 | Kimiko Регенирация x1+ | TheBoys immune to ordinary Harm; base x0 is not immune; СуперМудень bypasses | `CharacterClass.LowerQualityResist` |
@@ -168,7 +168,7 @@ These hooks are **observational**: they record an already-resolved interaction a
 |---|---|---|---|
 | `x_spartan_dragon` Dragon Slayer | Загадочный Спартанец в маске × Sirinoks/Дракон | DragonSlayer is armed in the round-10 before-fight hook, then the Spartan actually wins that fight (`CP:1291-1308`; `DoomsdayMachine.cs:1497-1501`) | Spartan only (`AchievementClass.cs` `TrackGameEnd`) |
 | `x_kira_kratos` Gods Don’t Tell Me What to Do | Кира × Кратос | Kira's correct Тетрадь смерти kill reaches Kratos, then Боги мне не указ revives him (`CP:6043-6053`) | Kratos only (`AchievementClass.cs` `TrackGameEnd`) |
-| `x_itachi_madara` Eyes Meet Eyes | Итачи × Мадара | round-8 correct locked prediction grants the extra Клоны Сусано attack (`CheckIfReady.cs:1465-1471`) | Itachi only (`AchievementClass.cs` `TrackGameEnd`) |
+| `x_itachi_madara` Eyes Meet Eyes | Итачи × Мадара | round-8 correct locked prediction grants the extra Клоны Сусано attack (`CheckIfReady.cs:1478-1484`) | Itachi only (`AchievementClass.cs` `TrackGameEnd`) |
 | `x_deeplist_weedwick` Pet Project | DeepList × Weedwick | final authoritative board has both alive at places 1–3 | both accounts (`AchievementClass.cs` `TrackGameEnd`) |
 | `x_spartan_mylorik` Mutual Respect | Загадочный Спартанец в маске × mylorik | mutual-Psyche respect is recorded, then a later resolved fight is won by the Spartan (`CP:1318-1329`; `DoomsdayMachine.cs:1574-1580`) | Spartan only (`AchievementClass.cs` `TrackGameEnd`) |
 | `x_boys_madara` Nothing Is Immune | TheBoys/СуперМудень × Мадара/Воскрешенное тело | an actual Super Harm application passes the resurrected-body immunity (`DoomsdayMachine.cs:1175-1179`) | TheBoys only (`AchievementClass.cs` `TrackGameEnd`) |
