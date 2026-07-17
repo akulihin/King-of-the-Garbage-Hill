@@ -256,6 +256,9 @@ describe('Empire\'s Endgame Phase 4B seasons and political technology', () => {
       for (const level of building.levels) level.workerDemand = 0
     }
     const coercion = readyToResearch(coercionConfig, 'reform-coercion')
+    expect(coercion.transitionAdvisor('advisor-war', 'pardon')).toMatchObject({ ok: true })
+    expect(coercion.transitionAdvisor('advisor-science', 'execute')).toMatchObject({ ok: true })
+    expect(coercion.transitionAdvisor('advisor-trade', 'execute')).toMatchObject({ ok: true })
     coercion.state.empire.researchedTechnologyIds.push('tech-ironwork')
     expect(coercion.research('reform-coercion')).toMatchObject({ ok: true })
     expect(coercion.state.empire.cities.every(city => city.loyalty === -1)).toBe(true)
@@ -320,6 +323,9 @@ describe('Empire\'s Endgame Phase 4B seasons and political technology', () => {
       .toContainEqual({ kind: 'flag', flagId: 'theocracy', minimum: 1 })
     value.empire.technologies.push(simpleSteel())
     const engine = readyToResearch(value, 'reform-theocracy')
+    expect(engine.transitionAdvisor('advisor-science', 'pardon')).toMatchObject({ ok: true })
+    expect(engine.transitionAdvisor('advisor-trade', 'execute')).toMatchObject({ ok: true })
+    expect(engine.transitionAdvisor('advisor-war', 'execute')).toMatchObject({ ok: true })
     engine.state.empire.researchedTechnologyIds.push('tech-ironwork')
     expect(engine.researchQuote('steel-theocracy-proof').blockedReason).toContain('theocracy')
     expect(engine.research('reform-theocracy')).toMatchObject({ ok: true })
@@ -363,7 +369,7 @@ describe('Empire\'s Endgame Phase 4B seasons and political technology', () => {
       empire: EmpiresEndgameConfig['empire'] & { seasons: { legacyDefinitions?: unknown[] } }
     }
     expect(previous).toEqual(before)
-    expect(migrated.schemaVersion).toBe(6)
+    expect(migrated.schemaVersion).toBe(7)
     expect(migrated.empire.seasons).toMatchObject({
       enabled: false,
       definitions: [],

@@ -18,7 +18,7 @@ import { validateEmpiresEndgameConfig } from './engine'
 
 export const EMPIRES_CONFIG_URL = '/empires-endgame/game-config.json'
 export const EMPIRES_CONFIG_STORAGE_KEY = 'empires-endgame:config:v1'
-export const EMPIRES_CONFIG_SCHEMA_VERSION = 6
+export const EMPIRES_CONFIG_SCHEMA_VERSION = 7
 export const EMPIRES_ACTIVE_MINIGAME_CONFIG_ERROR = 'Нельзя менять правила во время боя. Сначала завершите бой или выйдите через действие отмены.'
 
 export function empiresConfigReplacementDisabledReason(
@@ -79,6 +79,28 @@ const TD_V2_SCAFFOLD = {
   battlefields: [],
   towers: [],
   waves: [],
+}
+
+const GOVERNANCE_SCAFFOLD = {
+  enabled: false,
+  advisors: [],
+  advisorDecisions: [],
+  trump: {
+    restrictedSuit: 'clubs',
+    grandAdvisorId: '',
+    lockedFallbackSuit: 'spades',
+    criticalEffectMultiplier: 1,
+  },
+  persts: [],
+  governor: {
+    assignmentMode: 'permanent',
+    regionIds: [],
+    citySites: [],
+  },
+  capital: {
+    cityId: '',
+    sites: [],
+  },
 }
 
 const TD_V3_SCAFFOLD = {
@@ -514,6 +536,18 @@ function normalizeEmpiresConfigV6(config: Record<string, unknown>): Record<strin
   return config
 }
 
+function migrateEmpiresConfigV6ToV7(config: Record<string, unknown>): Record<string, unknown> {
+  config.governance = withScaffoldDefaults(config.governance, GOVERNANCE_SCAFFOLD)
+  config.schemaVersion = 7
+  return config
+}
+
+function normalizeEmpiresConfigV7(config: Record<string, unknown>): Record<string, unknown> {
+  normalizeEmpiresConfigV6(config)
+  config.governance = withScaffoldDefaults(config.governance, GOVERNANCE_SCAFFOLD)
+  return config
+}
+
 const EMPIRES_CONFIG_MIGRATIONS: Record<
   number,
   (config: Record<string, unknown>) => Record<string, unknown>
@@ -523,6 +557,7 @@ const EMPIRES_CONFIG_MIGRATIONS: Record<
   3: migrateEmpiresConfigV3ToV4,
   4: migrateEmpiresConfigV4ToV5,
   5: migrateEmpiresConfigV5ToV6,
+  6: migrateEmpiresConfigV6ToV7,
 }
 
 /**
@@ -547,6 +582,7 @@ export function migrateEmpiresConfig(raw: unknown): unknown {
   if (version === 4) migrated = normalizeEmpiresConfigV4(migrated)
   if (version === 5) migrated = normalizeEmpiresConfigV5(migrated)
   if (version === 6) migrated = normalizeEmpiresConfigV6(migrated)
+  if (version === 7) migrated = normalizeEmpiresConfigV7(migrated)
   return migrated
 }
 
@@ -1521,6 +1557,158 @@ function validateSteelResearchConfig(config: EmpiresEndgameConfig): void {
   }
 }
 
+function validateGovernanceConfig(config: EmpiresEndgameConfig): void {
+  const governance = config.governance
+  if (!governance || typeof governance.enabled !== 'boolean') {
+    throw new Error('governance must define an enabled boolean.')
+  }
+  if (!Array.isArray(governance.advisors)
+    || !Array.isArray(governance.advisorDecisions)
+    || !Array.isArray(governance.persts)
+    || !isRecord(governance.trump)
+    || !isRecord(governance.governor)
+    || !Array.isArray(governance.governor.regionIds)
+    || !Array.isArray(governance.governor.citySites)
+    || !isRecord(governance.capital)
+    || !Array.isArray(governance.capital.sites)) {
+    throw new Error('governance catalogs are incomplete.')
+  }
+  if (!governance.enabled) return
+
+  const suits = new Set(['clubs', 'diamonds', 'hearts', 'spades'])
+  const advisorIds = new Set<string>()
+  const decisionIds = new Set(governance.advisorDecisions.map(decision => decision.id))
+  const technologyIds = new Set(config.empire.technologies.map(technology => technology.id))
+  for (const advisor of governance.advisors) {
+    if (!advisor.id?.trim() || advisorIds.has(advisor.id)) {
+      throw new Error(`governance repeats or omits advisor id ${advisor.id}.`)
+    }
+    advisorIds.add(advisor.id)
+    if (!advisor.name?.trim() || !suits.has(advisor.suit)) {
+      throw new Error(`advisor ${advisor.id} needs a name and standard suit.`)
+    }
+    if (!['locked', 'awaiting-judgment', 'active', 'executed'].includes(advisor.initialStatus)) {
+      throw new Error(`advisor ${advisor.id} has an invalid initialStatus.`)
+    }
+    if (advisor.decisionId && !decisionIds.has(advisor.decisionId)) {
+      throw new Error(`advisor ${advisor.id} references unknown decision ${advisor.decisionId}.`)
+    }
+    for (const technologyId of advisor.technologyIds) {
+      const technology = config.empire.technologies.find(item => item.id === technologyId)
+      if (!technologyIds.has(technologyId)
+        || !technology?.prerequisites.some(dependency => (
+          dependency.kind === 'advisor' && dependency.advisorId === advisor.id
+        ))) {
+        throw new Error(`advisor ${advisor.id} technology ${technologyId} must use its advisor prerequisite.`)
+      }
+    }
+    if (advisor.grandAdvisor && advisor.initialStatus === 'locked' && !advisor.accessDeferredReason?.trim()) {
+      throw new Error(`locked grand advisor ${advisor.id} needs an accessDeferredReason.`)
+    }
+  }
+  for (const decision of governance.advisorDecisions) {
+    const members = validateUniqueStringList(decision.advisorIds, `advisor decision ${decision.id}`)
+    if (!decision.id?.trim() || members.some(advisorId => !advisorIds.has(advisorId))) {
+      throw new Error(`advisor decision ${decision.id} references an unknown advisor.`)
+    }
+    if (!Number.isInteger(decision.pardonsRequired) || decision.pardonsRequired < 0
+      || !Number.isInteger(decision.executionsRequired) || decision.executionsRequired < 0
+      || decision.pardonsRequired + decision.executionsRequired !== members.length) {
+      throw new Error(`advisor decision ${decision.id} quotas must resolve every member exactly once.`)
+    }
+    for (const advisorId of members) {
+      if (governance.advisors.find(advisor => advisor.id === advisorId)?.decisionId !== decision.id) {
+        throw new Error(`advisor decision ${decision.id} membership must be reciprocal for ${advisorId}.`)
+      }
+    }
+  }
+  const grandAdvisors = governance.advisors.filter(advisor => advisor.grandAdvisor)
+  if (grandAdvisors.length !== 1 || grandAdvisors[0].id !== governance.trump.grandAdvisorId) {
+    throw new Error('governance must define exactly one trump grandAdvisorId.')
+  }
+  if (!suits.has(governance.trump.restrictedSuit)
+    || !suits.has(governance.trump.lockedFallbackSuit)
+    || governance.trump.restrictedSuit === governance.trump.lockedFallbackSuit
+    || !Number.isFinite(governance.trump.criticalEffectMultiplier)
+    || governance.trump.criticalEffectMultiplier <= 1) {
+    throw new Error('governance trump must define distinct standard suits and a criticalEffectMultiplier above 1.')
+  }
+  if (config.durak.fixedTrumpSuit === governance.trump.restrictedSuit
+    && grandAdvisors[0].initialStatus !== 'active') {
+    throw new Error('durak.fixedTrumpSuit cannot select the locked governance restricted suit.')
+  }
+
+  const allDependencies = [
+    ...config.empire.technologies.flatMap(technology => technology.prerequisites),
+    ...config.empire.events.flatMap(event => event.prerequisites ?? []),
+    ...config.empire.hiddenCombinations.definitions.flatMap(combination => combination.prerequisites),
+    ...(config.empire.units ?? []).flatMap(unit => unit.dependencies),
+    ...config.empire.buildings.flatMap(building => building.levels.flatMap(level => level.dependencies)),
+  ]
+  for (const dependency of allDependencies) {
+    if (dependency.kind === 'advisor' && !advisorIds.has(dependency.advisorId)) {
+      throw new Error(`dependency references unknown advisor ${dependency.advisorId}.`)
+    }
+  }
+
+  const regionIds = new Set(config.empire.map.regions.map(region => region.id))
+  const governorRegionIds = validateUniqueStringList(
+    governance.governor.regionIds,
+    'governance governor regionIds',
+  )
+  if (governance.governor.assignmentMode !== 'permanent' || governorRegionIds.length !== 4
+    || governorRegionIds.some(regionId => !regionIds.has(regionId))) {
+    throw new Error('governance governor must permanently manage exactly four known regions.')
+  }
+  const perstIds = validateUniqueStringList(
+    governance.persts.map(perst => perst.id),
+    'governance persts',
+  )
+  if (perstIds.length === 0 || governance.persts.some(perst => !perst.name?.trim() || !perst.title?.trim())) {
+    throw new Error('governance needs uniquely identified, named persts.')
+  }
+
+  const cityById = new Map(config.empire.cities.map(city => [city.id, city]))
+  const siteCityIds = new Set<string>()
+  for (const site of governance.governor.citySites) {
+    const city = cityById.get(site.cityId)
+    if (!city || city.regionId !== site.regionId || siteCityIds.has(site.cityId)) {
+      throw new Error(`governance city site ${site.cityId} must map once to its city region.`)
+    }
+    siteCityIds.add(site.cityId)
+    if (!Number.isInteger(site.order) || site.order < 1 || ![1, 2, 3].includes(site.defenseLayer)) {
+      throw new Error(`governance city site ${site.cityId} has an invalid layer or order.`)
+    }
+  }
+  if (siteCityIds.size !== cityById.size) {
+    throw new Error('governance citySites must cover every configured city exactly once.')
+  }
+  for (const regionId of governorRegionIds) {
+    const sites = governance.governor.citySites.filter(site => site.regionId === regionId)
+    const signature = sites
+      .map(site => `${site.access}:${site.defenseLayer}`)
+      .sort()
+    const expected = ['governor:2', 'governor:2', 'governor:3', 'initial:1', 'initial:1']
+    if (sites.length !== 5 || signature.join('|') !== expected.join('|')) {
+      throw new Error(`governance region ${regionId} must use the 2 initial + 2 layer-two + 1 layer-three city pattern.`)
+    }
+  }
+
+  if (!cityById.has(governance.capital.cityId)) {
+    throw new Error(`governance capital references unknown city ${governance.capital.cityId}.`)
+  }
+  validateUniqueStringList(governance.capital.sites.map(site => site.id), 'governance capital sites')
+  const buildingIds = new Set(config.empire.buildings.map(building => building.id))
+  const mapObjectIds = new Set(config.empire.map.objects.map(object => object.id))
+  for (const site of governance.capital.sites) {
+    if (!site.name?.trim() || !site.deferredReason?.trim()
+      || (site.buildingId !== undefined && !buildingIds.has(site.buildingId))
+      || (site.mapObjectId !== undefined && !mapObjectIds.has(site.mapObjectId))) {
+      throw new Error(`governance capital site ${site.id} has an invalid carrier or deferredReason.`)
+    }
+  }
+}
+
 function validateTdConfig(
   value: unknown,
   combat: unknown,
@@ -2141,6 +2329,7 @@ export function validateEmpiresConfig(value: unknown): asserts value is EmpiresE
     throw new Error('Отсутствует каталог божественных даров.')
   }
   if (!isRecord(value.empire)) throw new Error('Отсутствуют настройки имперской фазы.')
+  if (!isRecord(value.governance)) throw new Error('Отсутствуют настройки управления империей.')
   validateScaffoldSection(value.combat, 'combat', [
     'damageTypes',
     'armorClasses',
@@ -2210,6 +2399,7 @@ export function validateEmpiresConfig(value: unknown): asserts value is EmpiresE
   if (liveEffectErrors.length > 0) throw new Error(liveEffectErrors.join('\n'))
   const resolutionErrors = validateGiftResolutions(config)
   if (resolutionErrors.length > 0) throw new Error(resolutionErrors.join('\n'))
+  validateGovernanceConfig(config)
   if (value.empire.cities.length === 0) throw new Error('Нужен хотя бы один город.')
 
   const engineErrors = validateEmpiresEndgameConfig(config)

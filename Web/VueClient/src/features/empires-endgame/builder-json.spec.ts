@@ -27,7 +27,7 @@ describe('Empire\'s Endgame Builder schema-v6 JSON boundary', () => {
     expect(exported.combat).toEqual(config.combat)
     expect(exported.combat.enabled).toBe(true)
     expect(exported.combat.equipment).toHaveLength(config.combat.equipment.length)
-    expect(exported.schemaVersion).toBe(6)
+    expect(exported.schemaVersion).toBe(7)
     expect(exported.empire.seasons).toEqual(config.empire.seasons)
     expect(exported.empire.hiddenCombinations).toEqual(config.empire.hiddenCombinations)
     expect(exported.empire.technologies.map(technology => technology.sides))

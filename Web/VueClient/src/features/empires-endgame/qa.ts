@@ -22,6 +22,7 @@ export const EMPIRES_QA_SCENARIO_NAMES = [
   'target-city-resources',
   'target-meteor-city',
   'empire-council-with-points',
+  'governance',
   'destroyed-west',
   'loyalty-rebellion',
   'relic-production-levels',
@@ -125,6 +126,8 @@ export interface EmpiresQaStateDigest {
   outcomeReason: string | null
   seasonId: string | null
   technologyDisclosureCount: number
+  activeAdvisorCount: number
+  governorAssignmentCount: number
 }
 
 export interface EmpiresQaTraceEntry {
@@ -212,6 +215,10 @@ const SCENARIO_COPY: Record<EmpiresQaScenarioName, { title: string, description:
   'empire-council-with-points': {
     title: 'Empire and card council',
     description: 'The empire phase is active and the card council has points to spend.',
+  },
+  governance: {
+    title: 'Advisor judgment and Perst assignment',
+    description: 'The empire phase is ready for one advisor judgment and one permanent Perst governor flow.',
   },
   'destroyed-west': {
     title: 'Destroyed western region',
@@ -818,6 +825,9 @@ export function digestEmpiresQaState(engine: EmpiresEndgameEngine): EmpiresQaSta
     seasonId: engine.currentSeasonView()?.id ?? null,
     technologyDisclosureCount: engine.state.empire.chronicle
       .filter(entry => entry.kind === 'technology-disclosure').length,
+    activeAdvisorCount: Object.values(engine.state.governance.advisors)
+      .filter(advisor => advisor.status === 'active').length,
+    governorAssignmentCount: Object.keys(engine.state.governance.governorAssignments).length,
   }
 }
 
@@ -828,7 +838,10 @@ export function inspectEmpiresQaDeck(engine: EmpiresEndgameEngine): EmpiresQaDec
     ? null
     : engine.state.durak.deck.find((cardId) => {
       const definition = engine.getDefinition(cardId)
-      return definition.rank !== 'joker'
+      const restricted = engine.config.governance.enabled
+        && definition.suit === engine.config.governance.trump.restrictedSuit
+        && engine.state.governance.advisors[engine.config.governance.trump.grandAdvisorId]?.status !== 'active'
+      return definition.rank !== 'joker' && !restricted
     }) ?? null
   const expectedTrumpSuit = engine.config.durak.fixedTrumpSuit
     ?? (trumpSourceCardId
@@ -937,6 +950,14 @@ export function validateEmpiresQaSnapshot(
     } else if (scenarioName === 'empire-council-with-points') {
       if (snapshot.phase !== 'empire') add('phase', 'Empire council scenario has the wrong phase.')
       if (snapshot.upgradePoints <= 0) add('council-points', 'Empire council scenario needs upgrade points.')
+    } else if (scenarioName === 'governance') {
+      const unresolved = config.governance.advisors.filter(advisor => !advisor.grandAdvisor)
+        .filter(advisor => snapshot.governance.advisors[advisor.id]?.status === 'awaiting-judgment')
+      if (snapshot.phase !== 'empire') add('phase', 'Governance scenario has the wrong phase.')
+      if (unresolved.length !== 3) add('advisor-judgment', 'Governance scenario must begin before advisor judgment.')
+      if (Object.keys(snapshot.governance.governorAssignments).length !== 0) {
+        add('perst-assignment', 'Governance scenario must begin before Perst assignment.')
+      }
     } else if (scenarioName === 'destroyed-west') {
       if (snapshot.phase !== 'empire' || !snapshot.empire.destroyedRegionIds.includes('west')) {
         add('destroyed-region', 'Destroyed-west scenario must make the west inaccessible.')
@@ -1038,6 +1059,7 @@ export function createEmpiresQaScenarios(
     'target-city-resources': targetCityResources,
     'target-meteor-city': targetMeteorCity,
     'empire-council-with-points': empireCouncil,
+    governance: cloneJson(empireCouncil),
     'destroyed-west': destroyedWest,
     'loyalty-rebellion': loyaltyRebellion,
     'relic-production-levels': relicProductionLevels,

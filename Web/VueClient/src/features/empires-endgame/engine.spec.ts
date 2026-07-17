@@ -42,7 +42,7 @@ function makeCards(): EmpiresCardDefinition[] {
 
 function makeConfig(): EmpiresEndgameConfig {
   return {
-    schemaVersion: 6,
+    schemaVersion: 7,
     id: 'engine-test',
     title: "Empire's Endgame",
     seed: 'deterministic-test',
@@ -78,6 +78,20 @@ function makeConfig(): EmpiresEndgameConfig {
         { id: 'gift-c', name: 'C', description: 'C', kind: 'empire', application: 'once', baseWeight: 1, performanceWeight: 0, effects: [] },
         { id: 'gift-d', name: 'D', description: 'D', kind: 'catastrophe', application: 'once', baseWeight: 1, performanceWeight: -0.1, effects: [] },
       ],
+    },
+    governance: {
+      enabled: false,
+      advisors: [],
+      advisorDecisions: [],
+      trump: {
+        restrictedSuit: 'clubs',
+        grandAdvisorId: '',
+        lockedFallbackSuit: 'spades',
+        criticalEffectMultiplier: 1,
+      },
+      persts: [],
+      governor: { assignmentMode: 'permanent', regionIds: [], citySites: [] },
+      capital: { cityId: '', sites: [] },
     },
     empire: {
       daysPerPhase: 59,

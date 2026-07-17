@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 6,
+  "schemaVersion": 7,
   "id": "empires-endgame-default",
   "title": "Empire's Endgame",
   "seed": "empires-endgame-authoritative-default-v1",
@@ -1657,13 +1657,12 @@
     "maxAttackCards": 6,
     "boutsPerCon": 3,
     "initialAttacker": "lowest-trump",
-    "fixedTrumpSuit": "clubs",
     "joker": {
       "rule": "highest-unbeatable",
       "canAttack": true,
       "canThrowIn": true,
       "canDefend": true,
-      "trumpFallbackSuit": "clubs"
+      "trumpFallbackSuit": "spades"
     },
     "scoringRules": [
       {
@@ -2077,6 +2076,117 @@
       }
     ]
   },
+  "governance": {
+    "enabled": true,
+    "advisors": [
+      {
+        "id": "advisor-science",
+        "name": "Научный советник",
+        "suit": "spades",
+        "category": "science",
+        "initialStatus": "awaiting-judgment",
+        "decisionId": "starting-advisors",
+        "technologyIds": ["reform-theocracy"]
+      },
+      {
+        "id": "advisor-trade",
+        "name": "Торговый советник",
+        "suit": "diamonds",
+        "category": "trade",
+        "initialStatus": "awaiting-judgment",
+        "decisionId": "starting-advisors",
+        "technologyIds": ["reform-treasury"]
+      },
+      {
+        "id": "advisor-war",
+        "name": "Военный советник",
+        "suit": "hearts",
+        "category": "war",
+        "initialStatus": "awaiting-judgment",
+        "decisionId": "starting-advisors",
+        "technologyIds": ["reform-coercion"]
+      },
+      {
+        "id": "advisor-grand",
+        "name": "Гранд-советник",
+        "suit": "clubs",
+        "category": "people",
+        "initialStatus": "locked",
+        "technologyIds": [],
+        "grandAdvisor": true,
+        "accessDeferredReason": "Экспорт не задаёт квест, стоимость или момент открытия Гранд-советника; доступ выдаётся только будущим авторским источником."
+      }
+    ],
+    "advisorDecisions": [
+      {
+        "id": "starting-advisors",
+        "advisorIds": ["advisor-science", "advisor-trade", "advisor-war"],
+        "pardonsRequired": 1,
+        "executionsRequired": 2
+      }
+    ],
+    "trump": {
+      "restrictedSuit": "clubs",
+      "grandAdvisorId": "advisor-grand",
+      "lockedFallbackSuit": "spades",
+      "criticalEffectMultiplier": 2
+    },
+    "persts": [
+      {
+        "id": "perst-fourth-trevor",
+        "name": "Однорукий Трэвор",
+        "title": "Четвёртый Перст",
+        "description": "Имперский специалист по обороне."
+      },
+      {
+        "id": "perst-tenth",
+        "name": "Десятый",
+        "title": "Десятый Перст",
+        "description": "Немой имперский убийца."
+      }
+    ],
+    "governor": {
+      "assignmentMode": "permanent",
+      "regionIds": ["north", "west", "south", "east"],
+      "citySites": [
+        { "cityId": "city-north-iron-gate", "regionId": "north", "access": "initial", "defenseLayer": 1, "order": 1, "coastal": false },
+        { "cityId": "city-north-frost-harbor", "regionId": "north", "access": "initial", "defenseLayer": 1, "order": 2, "coastal": true },
+        { "cityId": "city-north-governor-2-a", "regionId": "north", "access": "governor", "defenseLayer": 2, "order": 3, "coastal": false },
+        { "cityId": "city-north-governor-2-b", "regionId": "north", "access": "governor", "defenseLayer": 2, "order": 4, "coastal": true },
+        { "cityId": "city-north-governor-3", "regionId": "north", "access": "governor", "defenseLayer": 3, "order": 5, "coastal": false },
+        { "cityId": "city-west-green-bastion", "regionId": "west", "access": "initial", "defenseLayer": 1, "order": 1, "coastal": false },
+        { "cityId": "city-west-horse-march", "regionId": "west", "access": "initial", "defenseLayer": 1, "order": 2, "coastal": true },
+        { "cityId": "city-west-governor-2-a", "regionId": "west", "access": "governor", "defenseLayer": 2, "order": 3, "coastal": false },
+        { "cityId": "city-west-governor-2-b", "regionId": "west", "access": "governor", "defenseLayer": 2, "order": 4, "coastal": true },
+        { "cityId": "city-west-governor-3", "regionId": "west", "access": "governor", "defenseLayer": 3, "order": 5, "coastal": false },
+        { "cityId": "city-south-cactus-wall", "regionId": "south", "access": "initial", "defenseLayer": 1, "order": 1, "coastal": false },
+        { "cityId": "city-south-dune-pass", "regionId": "south", "access": "initial", "defenseLayer": 1, "order": 2, "coastal": false },
+        { "cityId": "city-south-governor-2-a", "regionId": "south", "access": "governor", "defenseLayer": 2, "order": 3, "coastal": false },
+        { "cityId": "city-south-governor-2-b", "regionId": "south", "access": "governor", "defenseLayer": 2, "order": 4, "coastal": false },
+        { "cityId": "city-south-governor-3", "regionId": "south", "access": "governor", "defenseLayer": 3, "order": 5, "coastal": false },
+        { "cityId": "city-east-mire-watch", "regionId": "east", "access": "initial", "defenseLayer": 1, "order": 1, "coastal": false },
+        { "cityId": "city-east-alchemy-gate", "regionId": "east", "access": "initial", "defenseLayer": 1, "order": 2, "coastal": true },
+        { "cityId": "city-east-governor-2-a", "regionId": "east", "access": "governor", "defenseLayer": 2, "order": 3, "coastal": false },
+        { "cityId": "city-east-governor-2-b", "regionId": "east", "access": "governor", "defenseLayer": 2, "order": 4, "coastal": true },
+        { "cityId": "city-east-governor-3", "regionId": "east", "access": "governor", "defenseLayer": 3, "order": 5, "coastal": false },
+        { "cityId": "city-center-north", "regionId": "center", "access": "initial", "defenseLayer": 1, "order": 1, "coastal": false },
+        { "cityId": "city-center-west", "regionId": "center", "access": "initial", "defenseLayer": 1, "order": 2, "coastal": false },
+        { "cityId": "city-center-east", "regionId": "center", "access": "initial", "defenseLayer": 1, "order": 3, "coastal": true },
+        { "cityId": "city-center-south", "regionId": "center", "access": "initial", "defenseLayer": 1, "order": 4, "coastal": false },
+        { "cityId": "city-tetrakor-capital", "regionId": "center", "access": "initial", "defenseLayer": 1, "order": 5, "coastal": false }
+      ]
+    },
+    "capital": {
+      "cityId": "city-tetrakor-capital",
+      "sites": [
+        { "id": "capital-tetrakorarchos", "name": "Тетракорархос", "owner": "P4C/P12B", "deferredReason": "Экспорт называет столичное место, но не задаёт его механику." },
+        { "id": "capital-forum", "name": "Форум", "owner": "P4A", "buildingId": "municipal-capital-forum", "deferredReason": "Лояльность реализована, но экспорт не определяет показатель прогресса, который ускоряет Форум." },
+        { "id": "capital-coliseum", "name": "Колизей", "owner": "P4C/P12B", "mapObjectId": "map-center-coliseum", "deferredReason": "Экспорт называет Колизей, но не задаёт его игровую механику." },
+        { "id": "capital-military-academy", "name": "Военная академия", "owner": "P3B", "buildingId": "building-military-academy", "deferredReason": "Механика бесплатных отрядов за военные технологии остаётся в границах P3B." },
+        { "id": "capital-white-stone", "name": "Шахта белого камня", "owner": "P6C", "mapObjectId": "map-center-marble-mine", "deferredReason": "Ресурс и события белого камня принадлежат P6C." }
+      ]
+    }
+  },
   "empire": {
     "seasons": {
       "enabled": true,
@@ -2303,7 +2413,10 @@
           ],
           "cityIds": [
             "city-north-iron-gate",
-            "city-north-frost-harbor"
+            "city-north-frost-harbor",
+            "city-north-governor-2-a",
+            "city-north-governor-2-b",
+            "city-north-governor-3"
           ]
         },
         {
@@ -2338,7 +2451,10 @@
           ],
           "cityIds": [
             "city-west-green-bastion",
-            "city-west-horse-march"
+            "city-west-horse-march",
+            "city-west-governor-2-a",
+            "city-west-governor-2-b",
+            "city-west-governor-3"
           ]
         },
         {
@@ -2373,7 +2489,10 @@
           ],
           "cityIds": [
             "city-south-cactus-wall",
-            "city-south-dune-pass"
+            "city-south-dune-pass",
+            "city-south-governor-2-a",
+            "city-south-governor-2-b",
+            "city-south-governor-3"
           ]
         },
         {
@@ -2408,7 +2527,10 @@
           ],
           "cityIds": [
             "city-east-mire-watch",
-            "city-east-alchemy-gate"
+            "city-east-alchemy-gate",
+            "city-east-governor-2-a",
+            "city-east-governor-2-b",
+            "city-east-governor-3"
           ]
         },
         {
@@ -3200,7 +3322,19 @@
           "properties": {
             "waterInfrastructure": true
           }
-        }
+        },
+        { "id": "map-city-north-governor-2-a", "name": "Северный рубеж II-A", "kind": "city", "regionId": "north", "position": { "x": 2150, "y": 700 }, "draggable": true, "image": "", "properties": { "cityId": "city-north-governor-2-a", "governorRequired": true, "defenseLayer": 2 } },
+        { "id": "map-city-north-governor-2-b", "name": "Северный рубеж II-B", "kind": "city", "regionId": "north", "position": { "x": 2850, "y": 700 }, "draggable": true, "image": "", "properties": { "cityId": "city-north-governor-2-b", "governorRequired": true, "defenseLayer": 2 } },
+        { "id": "map-city-north-governor-3", "name": "Северный рубеж III", "kind": "city", "regionId": "north", "position": { "x": 2500, "y": 820 }, "draggable": true, "image": "", "properties": { "cityId": "city-north-governor-3", "governorRequired": true, "defenseLayer": 3 } },
+        { "id": "map-city-west-governor-2-a", "name": "Западный рубеж II-A", "kind": "city", "regionId": "west", "position": { "x": 1100, "y": 1350 }, "draggable": true, "image": "", "properties": { "cityId": "city-west-governor-2-a", "governorRequired": true, "defenseLayer": 2 } },
+        { "id": "map-city-west-governor-2-b", "name": "Западный рубеж II-B", "kind": "city", "regionId": "west", "position": { "x": 1100, "y": 1850 }, "draggable": true, "image": "", "properties": { "cityId": "city-west-governor-2-b", "governorRequired": true, "defenseLayer": 2 } },
+        { "id": "map-city-west-governor-3", "name": "Западный рубеж III", "kind": "city", "regionId": "west", "position": { "x": 1400, "y": 1600 }, "draggable": true, "image": "", "properties": { "cityId": "city-west-governor-3", "governorRequired": true, "defenseLayer": 3 } },
+        { "id": "map-city-south-governor-2-a", "name": "Южный рубеж II-A", "kind": "city", "regionId": "south", "position": { "x": 2150, "y": 2500 }, "draggable": true, "image": "", "properties": { "cityId": "city-south-governor-2-a", "governorRequired": true, "defenseLayer": 2 } },
+        { "id": "map-city-south-governor-2-b", "name": "Южный рубеж II-B", "kind": "city", "regionId": "south", "position": { "x": 2850, "y": 2500 }, "draggable": true, "image": "", "properties": { "cityId": "city-south-governor-2-b", "governorRequired": true, "defenseLayer": 2 } },
+        { "id": "map-city-south-governor-3", "name": "Южный рубеж III", "kind": "city", "regionId": "south", "position": { "x": 2500, "y": 2350 }, "draggable": true, "image": "", "properties": { "cityId": "city-south-governor-3", "governorRequired": true, "defenseLayer": 3 } },
+        { "id": "map-city-east-governor-2-a", "name": "Восточный рубеж II-A", "kind": "city", "regionId": "east", "position": { "x": 3900, "y": 1350 }, "draggable": true, "image": "", "properties": { "cityId": "city-east-governor-2-a", "governorRequired": true, "defenseLayer": 2 } },
+        { "id": "map-city-east-governor-2-b", "name": "Восточный рубеж II-B", "kind": "city", "regionId": "east", "position": { "x": 3900, "y": 1850 }, "draggable": true, "image": "", "properties": { "cityId": "city-east-governor-2-b", "governorRequired": true, "defenseLayer": 2 } },
+        { "id": "map-city-east-governor-3", "name": "Восточный рубеж III", "kind": "city", "regionId": "east", "position": { "x": 3600, "y": 1600 }, "draggable": true, "image": "", "properties": { "cityId": "city-east-governor-3", "governorRequired": true, "defenseLayer": 3 } }
       ]
     },
     "populationClasses": [
@@ -4501,7 +4635,19 @@
             }
           }
         ]
-      }
+      },
+      {"id":"city-north-governor-2-a","name":"Северный рубеж II-A","regionId":"north","position":{"x":2150,"y":700},"population":500000,"militaryPopulation":0,"populationClasses":{"peasants":200000,"burghers":30000,"nobles":10000,"clergy":10000,"nonworking":250000},"baseProduction":{"food":0,"wood":0,"iron":0,"stone":0,"gold":0,"knowledge":0},"buildingLevels":{"building-farm":0,"building-lumber":0,"building-mine":0,"building-smithy":0,"building-barracks":0},"slots":[{"id":"slot-farm","kind":"farm","position":{"x":72,"y":30}},{"id":"slot-lumber","kind":"lumber","position":{"x":72,"y":70}},{"id":"slot-mine","kind":"mine","position":{"x":28,"y":70}},{"id":"slot-smithy","kind":"smithy","position":{"x":38,"y":50}},{"id":"slot-barracks","kind":"barracks","position":{"x":28,"y":30}},{"id":"slot-unique","kind":"unique","position":{"x":50,"y":14}},{"id":"slot-municipal","kind":"municipal","position":{"x":50,"y":50}}]},
+      {"id":"city-north-governor-2-b","name":"Северный рубеж II-B","regionId":"north","position":{"x":2850,"y":700},"population":500000,"militaryPopulation":0,"populationClasses":{"peasants":200000,"burghers":30000,"nobles":10000,"clergy":10000,"nonworking":250000},"baseProduction":{"food":0,"wood":0,"iron":0,"stone":0,"gold":0,"knowledge":0},"buildingLevels":{"building-farm":0,"building-lumber":0,"building-mine":0,"building-smithy":0,"building-barracks":0},"slots":[{"id":"slot-farm","kind":"farm","position":{"x":72,"y":30}},{"id":"slot-lumber","kind":"lumber","position":{"x":72,"y":70}},{"id":"slot-mine","kind":"mine","position":{"x":28,"y":70}},{"id":"slot-smithy","kind":"smithy","position":{"x":38,"y":50}},{"id":"slot-barracks","kind":"barracks","position":{"x":28,"y":30}},{"id":"slot-unique","kind":"unique","position":{"x":50,"y":14}},{"id":"slot-municipal","kind":"municipal","position":{"x":50,"y":50}}]},
+      {"id":"city-north-governor-3","name":"Северный рубеж III","regionId":"north","position":{"x":2500,"y":820},"population":500000,"militaryPopulation":0,"populationClasses":{"peasants":200000,"burghers":30000,"nobles":10000,"clergy":10000,"nonworking":250000},"baseProduction":{"food":0,"wood":0,"iron":0,"stone":0,"gold":0,"knowledge":0},"buildingLevels":{"building-farm":0,"building-lumber":0,"building-mine":0,"building-smithy":0,"building-barracks":0},"slots":[{"id":"slot-farm","kind":"farm","position":{"x":72,"y":30}},{"id":"slot-lumber","kind":"lumber","position":{"x":72,"y":70}},{"id":"slot-mine","kind":"mine","position":{"x":28,"y":70}},{"id":"slot-smithy","kind":"smithy","position":{"x":38,"y":50}},{"id":"slot-barracks","kind":"barracks","position":{"x":28,"y":30}},{"id":"slot-unique","kind":"unique","position":{"x":50,"y":14}},{"id":"slot-municipal","kind":"municipal","position":{"x":50,"y":50}}]},
+      {"id":"city-west-governor-2-a","name":"Западный рубеж II-A","regionId":"west","position":{"x":1100,"y":1350},"population":500000,"militaryPopulation":0,"populationClasses":{"peasants":200000,"burghers":30000,"nobles":10000,"clergy":10000,"nonworking":250000},"baseProduction":{"food":0,"wood":0,"iron":0,"stone":0,"gold":0,"knowledge":0},"buildingLevels":{"building-farm":0,"building-lumber":0,"building-mine":0,"building-smithy":0,"building-barracks":0},"slots":[{"id":"slot-farm","kind":"farm","position":{"x":72,"y":30}},{"id":"slot-lumber","kind":"lumber","position":{"x":72,"y":70}},{"id":"slot-mine","kind":"mine","position":{"x":28,"y":70}},{"id":"slot-smithy","kind":"smithy","position":{"x":38,"y":50}},{"id":"slot-barracks","kind":"barracks","position":{"x":28,"y":30}},{"id":"slot-unique","kind":"unique","position":{"x":50,"y":14}},{"id":"slot-municipal","kind":"municipal","position":{"x":50,"y":50}}]},
+      {"id":"city-west-governor-2-b","name":"Западный рубеж II-B","regionId":"west","position":{"x":1100,"y":1850},"population":500000,"militaryPopulation":0,"populationClasses":{"peasants":200000,"burghers":30000,"nobles":10000,"clergy":10000,"nonworking":250000},"baseProduction":{"food":0,"wood":0,"iron":0,"stone":0,"gold":0,"knowledge":0},"buildingLevels":{"building-farm":0,"building-lumber":0,"building-mine":0,"building-smithy":0,"building-barracks":0},"slots":[{"id":"slot-farm","kind":"farm","position":{"x":72,"y":30}},{"id":"slot-lumber","kind":"lumber","position":{"x":72,"y":70}},{"id":"slot-mine","kind":"mine","position":{"x":28,"y":70}},{"id":"slot-smithy","kind":"smithy","position":{"x":38,"y":50}},{"id":"slot-barracks","kind":"barracks","position":{"x":28,"y":30}},{"id":"slot-unique","kind":"unique","position":{"x":50,"y":14}},{"id":"slot-municipal","kind":"municipal","position":{"x":50,"y":50}}]},
+      {"id":"city-west-governor-3","name":"Западный рубеж III","regionId":"west","position":{"x":1400,"y":1600},"population":500000,"militaryPopulation":0,"populationClasses":{"peasants":200000,"burghers":30000,"nobles":10000,"clergy":10000,"nonworking":250000},"baseProduction":{"food":0,"wood":0,"iron":0,"stone":0,"gold":0,"knowledge":0},"buildingLevels":{"building-farm":0,"building-lumber":0,"building-mine":0,"building-smithy":0,"building-barracks":0},"slots":[{"id":"slot-farm","kind":"farm","position":{"x":72,"y":30}},{"id":"slot-lumber","kind":"lumber","position":{"x":72,"y":70}},{"id":"slot-mine","kind":"mine","position":{"x":28,"y":70}},{"id":"slot-smithy","kind":"smithy","position":{"x":38,"y":50}},{"id":"slot-barracks","kind":"barracks","position":{"x":28,"y":30}},{"id":"slot-unique","kind":"unique","position":{"x":50,"y":14}},{"id":"slot-municipal","kind":"municipal","position":{"x":50,"y":50}}]},
+      {"id":"city-south-governor-2-a","name":"Южный рубеж II-A","regionId":"south","position":{"x":2150,"y":2500},"population":500000,"militaryPopulation":0,"populationClasses":{"peasants":200000,"burghers":30000,"nobles":10000,"clergy":10000,"nonworking":250000},"baseProduction":{"food":0,"wood":0,"iron":0,"stone":0,"gold":0,"knowledge":0},"buildingLevels":{"building-farm":0,"building-lumber":0,"building-mine":0,"building-smithy":0,"building-barracks":0},"slots":[{"id":"slot-farm","kind":"farm","position":{"x":72,"y":30}},{"id":"slot-lumber","kind":"lumber","position":{"x":72,"y":70}},{"id":"slot-mine","kind":"mine","position":{"x":28,"y":70}},{"id":"slot-smithy","kind":"smithy","position":{"x":38,"y":50}},{"id":"slot-barracks","kind":"barracks","position":{"x":28,"y":30}},{"id":"slot-unique","kind":"unique","position":{"x":50,"y":14}},{"id":"slot-municipal","kind":"municipal","position":{"x":50,"y":50}}]},
+      {"id":"city-south-governor-2-b","name":"Южный рубеж II-B","regionId":"south","position":{"x":2850,"y":2500},"population":500000,"militaryPopulation":0,"populationClasses":{"peasants":200000,"burghers":30000,"nobles":10000,"clergy":10000,"nonworking":250000},"baseProduction":{"food":0,"wood":0,"iron":0,"stone":0,"gold":0,"knowledge":0},"buildingLevels":{"building-farm":0,"building-lumber":0,"building-mine":0,"building-smithy":0,"building-barracks":0},"slots":[{"id":"slot-farm","kind":"farm","position":{"x":72,"y":30}},{"id":"slot-lumber","kind":"lumber","position":{"x":72,"y":70}},{"id":"slot-mine","kind":"mine","position":{"x":28,"y":70}},{"id":"slot-smithy","kind":"smithy","position":{"x":38,"y":50}},{"id":"slot-barracks","kind":"barracks","position":{"x":28,"y":30}},{"id":"slot-unique","kind":"unique","position":{"x":50,"y":14}},{"id":"slot-municipal","kind":"municipal","position":{"x":50,"y":50}}]},
+      {"id":"city-south-governor-3","name":"Южный рубеж III","regionId":"south","position":{"x":2500,"y":2350},"population":500000,"militaryPopulation":0,"populationClasses":{"peasants":200000,"burghers":30000,"nobles":10000,"clergy":10000,"nonworking":250000},"baseProduction":{"food":0,"wood":0,"iron":0,"stone":0,"gold":0,"knowledge":0},"buildingLevels":{"building-farm":0,"building-lumber":0,"building-mine":0,"building-smithy":0,"building-barracks":0},"slots":[{"id":"slot-farm","kind":"farm","position":{"x":72,"y":30}},{"id":"slot-lumber","kind":"lumber","position":{"x":72,"y":70}},{"id":"slot-mine","kind":"mine","position":{"x":28,"y":70}},{"id":"slot-smithy","kind":"smithy","position":{"x":38,"y":50}},{"id":"slot-barracks","kind":"barracks","position":{"x":28,"y":30}},{"id":"slot-unique","kind":"unique","position":{"x":50,"y":14}},{"id":"slot-municipal","kind":"municipal","position":{"x":50,"y":50}}]},
+      {"id":"city-east-governor-2-a","name":"Восточный рубеж II-A","regionId":"east","position":{"x":3900,"y":1350},"population":500000,"militaryPopulation":0,"populationClasses":{"peasants":200000,"burghers":30000,"nobles":10000,"clergy":10000,"nonworking":250000},"baseProduction":{"food":0,"wood":0,"iron":0,"stone":0,"gold":0,"knowledge":0},"buildingLevels":{"building-farm":0,"building-lumber":0,"building-mine":0,"building-smithy":0,"building-barracks":0},"slots":[{"id":"slot-farm","kind":"farm","position":{"x":72,"y":30}},{"id":"slot-lumber","kind":"lumber","position":{"x":72,"y":70}},{"id":"slot-mine","kind":"mine","position":{"x":28,"y":70}},{"id":"slot-smithy","kind":"smithy","position":{"x":38,"y":50}},{"id":"slot-barracks","kind":"barracks","position":{"x":28,"y":30}},{"id":"slot-unique","kind":"unique","position":{"x":50,"y":14}},{"id":"slot-municipal","kind":"municipal","position":{"x":50,"y":50}}]},
+      {"id":"city-east-governor-2-b","name":"Восточный рубеж II-B","regionId":"east","position":{"x":3900,"y":1850},"population":500000,"militaryPopulation":0,"populationClasses":{"peasants":200000,"burghers":30000,"nobles":10000,"clergy":10000,"nonworking":250000},"baseProduction":{"food":0,"wood":0,"iron":0,"stone":0,"gold":0,"knowledge":0},"buildingLevels":{"building-farm":0,"building-lumber":0,"building-mine":0,"building-smithy":0,"building-barracks":0},"slots":[{"id":"slot-farm","kind":"farm","position":{"x":72,"y":30}},{"id":"slot-lumber","kind":"lumber","position":{"x":72,"y":70}},{"id":"slot-mine","kind":"mine","position":{"x":28,"y":70}},{"id":"slot-smithy","kind":"smithy","position":{"x":38,"y":50}},{"id":"slot-barracks","kind":"barracks","position":{"x":28,"y":30}},{"id":"slot-unique","kind":"unique","position":{"x":50,"y":14}},{"id":"slot-municipal","kind":"municipal","position":{"x":50,"y":50}}]},
+      {"id":"city-east-governor-3","name":"Восточный рубеж III","regionId":"east","position":{"x":3600,"y":1600},"population":500000,"militaryPopulation":0,"populationClasses":{"peasants":200000,"burghers":30000,"nobles":10000,"clergy":10000,"nonworking":250000},"baseProduction":{"food":0,"wood":0,"iron":0,"stone":0,"gold":0,"knowledge":0},"buildingLevels":{"building-farm":0,"building-lumber":0,"building-mine":0,"building-smithy":0,"building-barracks":0},"slots":[{"id":"slot-farm","kind":"farm","position":{"x":72,"y":30}},{"id":"slot-lumber","kind":"lumber","position":{"x":72,"y":70}},{"id":"slot-mine","kind":"mine","position":{"x":28,"y":70}},{"id":"slot-smithy","kind":"smithy","position":{"x":38,"y":50}},{"id":"slot-barracks","kind":"barracks","position":{"x":28,"y":30}},{"id":"slot-unique","kind":"unique","position":{"x":50,"y":14}},{"id":"slot-municipal","kind":"municipal","position":{"x":50,"y":50}}]}
     ],
     "buildings": [
       {
@@ -5642,6 +5788,7 @@
         "id": "building-military-academy",
         "name": "Военная академия",
         "slot": "unique",
+        "allowedCityIds": ["city-tetrakor-capital"],
         "levels": [
           {
             "level": 1,
@@ -5699,6 +5846,18 @@
           "city-south-dune-pass",
           "city-east-mire-watch",
           "city-east-alchemy-gate",
+          "city-north-governor-2-a",
+          "city-north-governor-2-b",
+          "city-north-governor-3",
+          "city-west-governor-2-a",
+          "city-west-governor-2-b",
+          "city-west-governor-3",
+          "city-south-governor-2-a",
+          "city-south-governor-2-b",
+          "city-south-governor-3",
+          "city-east-governor-2-a",
+          "city-east-governor-2-b",
+          "city-east-governor-3",
           "city-center-north",
           "city-center-west",
           "city-center-east",
@@ -5984,6 +6143,7 @@
         "id": "municipal-capital-forum",
         "name": "Столичный форум",
         "slot": "municipal",
+        "allowedCityIds": ["city-tetrakor-capital"],
         "levels": [
           {
             "level": 1,
@@ -6017,7 +6177,7 @@
             ]
           }
         ],
-        "deferredReason": "Лояльность и ускорение прогресса ещё не входят в текущую кампанию."
+        "deferredReason": "Лояльность реализована, но экспорт не определяет показатель прогресса, который ускоряет Форум."
       }
     ],
     "units": [
@@ -6914,6 +7074,10 @@
         ],
         "prerequisites": [
           {
+            "kind": "advisor",
+            "advisorId": "advisor-trade"
+          },
+          {
             "kind": "technology",
             "technologyId": "tech-developed-export"
           }
@@ -7113,6 +7277,10 @@
           }
         ],
         "prerequisites": [
+          {
+            "kind": "advisor",
+            "advisorId": "advisor-war"
+          },
           {
             "kind": "technology",
             "technologyId": "doctrine-war"
@@ -7468,6 +7636,10 @@
           }
         ],
         "prerequisites": [
+          {
+            "kind": "advisor",
+            "advisorId": "advisor-science"
+          },
           {
             "kind": "technology",
             "technologyId": "doctrine-science"

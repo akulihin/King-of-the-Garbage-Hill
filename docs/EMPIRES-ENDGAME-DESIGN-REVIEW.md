@@ -352,3 +352,54 @@ they cannot disappear behind an equipment row.
   a stable carrier and consequences.
 - There is no crime/public-order scalar. No source defines both mutations and consumers,
   so removed `crimeMultiplierPercent`-style flags are rejected when made live.
+
+## P4C source-to-config governance table
+
+| Source identity | Config identity | Suit/category | Starting availability and transition | Executable effect / target / duration | Unresolved semantic |
+|---|---|---|---|---|---|
+| Научный советник | `advisor-science` | `spades` / science-progress | `awaiting-judgment`; may be the single pardon or one of two executions in `starting-advisors` | Active status is a real prerequisite of `reform-theocracy`; status is permanent for the campaign and matching the current trump reports specialization | Export supplies the role, not a personal name or any independent numeric modifier beyond the shared trump-critical rule. |
+| Торговый советник | `advisor-trade` | `diamonds` / trade-economy | Same exact-once judgment table | Active status gates `reform-treasury`; permanent; matching trump reports specialization | No personal identity or additional independent economy multiplier is authored. |
+| Военный советник | `advisor-war` | `hearts` / war-royal influence | Same exact-once judgment table | Active status gates `reform-coercion`; permanent; matching trump reports specialization | No personal identity or additional independent army multiplier is authored. |
+| Гранд-советник | `advisor-grand` | `clubs` / people | Starts `locked`; only `transitionAdvisor(..., 'grant-access', sourceId)` may activate it | Activation immediately makes ♣ the campaign trump; all trump faces use the canonical critical-effect multiplier. Existing schema-4 ♣ saves receive one migration transition | Quest/event, cost, timing and player action that grant access are absent. The UI intentionally offers no unlock button. |
+| Четвёртый Перст, Однорукий Трэвор | `perst-fourth-trevor` | Governor identity, not a card suit | Available for one permanent empire-phase assignment | Assignment to one outer region opens its two layer-2 and one layer-3 city sites for every construction, recruitment, production and target reader | Cost, arrival event, loss condition and any personal defense bonus are not authored as executable values. |
+| Десятый Перст, немой имперский убийца | `perst-tenth` | Governor identity, not a card suit | Same permanent assignment contract | Same region-wide three-site access | Remaining Перст roster and personal governor effects are not stable in the current export. |
+| Capital registry | `governance.capital` | N/A | Always inspectable; each action carrier retains its owner and blocker | Forum → P4A; Military Academy → P3B; white-stone mine → P6C; Колизей and Тетракорархос → P4C/P12B review | No incomplete carrier is made playable by the registry. |
+
+The advisor judgment source is `доктрины-и-реформы` message
+`1368638736111370411`. Suit/category and ♣ gating come from `карты` messages
+`1466123173203542178`, `1466126401072664677` and `1466128187842101279`, cross-checked
+against the older stable advisor/suit mapping in `1466126916800090226`. Hierarchy and
+governorship come from `общее` message `1516464149281112065`. The city count, permanent
+governor role, `2 > 2 > 1` defense diagram and capital inventory come from `застройка`
+messages `1508537056316362792`, `1511672701427777678` and `1511744676850303038` plus the
+linked map/city-layout images. Stable named Перст identities come from `тд` message
+`1452584600357306502` and `война` message `1421169045566263398`.
+
+## P4C advisors/persts/capital defaults and unresolved-semantics ledger
+
+| ID | JSON Pointer | Phase | Raw source | Chosen default | Rationale | Status | Designer verdict |
+|---|---|---:|---|---|---|---|---|
+| `P4C-01` | `/governance/trump/criticalEffectMultiplier` | P4C | `карты` says trump faces receive critical positive/negative effects but supplies no magnitude | `2` | Doubling is the smallest conventional critical scalar and is applied to additive values and multiplier distance from neutral (`1`) through the canonical effect executor. It is configuration, not claimed as authored balance. | Open | Pending: confirm magnitude, rounding and whether any effect kinds are exempt. |
+| `P4C-02` | `/governance/advisors`; advisor prerequisites on three reforms | P4C | Three starting roles, `2 казнить / 1 помиловать`, and stable suit-role mapping; no personal names or separate advisor stat table | Role titles are display identities; the pardoned advisor gates the corresponding existing whole reform. No extra matching-suit multiplier is added beyond trump critical effects. | Every advisor has a real consumer without inventing a second numeric system or string-name dispatch. | Open | Pending: personal identities, whether judgment must finish before other empire actions, and any advisor effects beyond reform access/trump alignment. |
+| `P4C-03` | `/governance/advisors/3`; `/governance/trump/restrictedSuit` | P4C | ♣ becomes and remains trump only after the Grand Advisor opens; no unlock lifecycle | Fresh campaigns exclude ♣ while locked. A source-ID grant activates it and changes current trump immediately; legacy ♣ saves are grandfathered once | Keeping the player-facing unlock absent prevents a fabricated quest while leaving a typed event/quest integration point. Immediate change follows “тогда он всё время козырь”. | Open | Pending: exact unlock source, timing, cost, whether it changes an in-progress con and whether loss/relock exists. |
+| `P4C-04` | `/governance/governor`; twelve added `/empire/cities` and map objects | P4C | Two initial perimeter cities per region; Перст creates three more with `2 > 2 > 1`; each boundary city has 500,000 population | Compact structural names (`<region> рубеж II-A/II-B/III`), reviewed map positions, zero starting military population, empty normal city slots and no free buildings; one coastal marker in non-desert regions is metadata only | The sites must exist for shared access/projection validation, but no raw city name, starting garrison/facility list or exact coordinate is supplied. Empty facilities avoid a free economy invention. | Open | Pending: authored city names/coordinates, initial buildings/garrison, exact coastal city, creation timing and whether all three appear simultaneously. |
+| `P4C-05` | `/governance/persts`; `/governance/governor/assignmentMode` | P4C | Stable identities exist only for Четвёртый Перст Однорукий Трэвор and Десятый; assignment is governor for the rest of the game | Both begin available; assignment is an empire-phase action with no cost/cooldown and is permanent. Only two regions can currently receive governors | No-cost is the non-invention baseline; limiting the roster to stable identities is safer than anonymous flags. | Open | Pending: complete roster/count, acquisition order, assignment cost/timing, reassignment, death/loss and personal bonuses. |
+| `P4C-06` | `/governance/capital/sites` | P4C/P12B | Capital inventory names Тетракорархос, Forum, Coliseum, Military Academy and white-stone mine but distributes complete behavior across other phases or not at all | Typed registry with exact owner and non-empty blocker; Forum and Academy are capital-only placement carriers | This prevents named capital content from disappearing without falsely un-deferring incomplete mechanics. | Open | Pending: Тетракорархос and Coliseum actions; confirm capital layout/slot interactions and each later-phase carrier contract. |
+
+## P4C remaining-deferred and review manifest
+
+- Grand Advisor access has no authored player control. Future P7/P12B quest or event content
+  must call the source-ID transition funnel; it must not write advisor state or trump
+  directly. No advisor finale, lore ladder or secret-ending field was added.
+- Only Четвёртый Перст Однорукий Трэвор and Десятый have stable current identities. No
+  anonymous Перст entries, invented personal modifiers, reassignment, cost or loss lifecycle
+  were created. The remaining two outer regions therefore stay at two accessible cities in
+  a campaign that has assigned both known Персты.
+- Coastal markers are inert metadata. Sea Port construction, its extra coastal slot and the
+  empire cap of four remain P6B; desert sites receive no fabricated water/port behavior.
+- Forum remains wholly P4A-deferred for undefined progress. Military Academy remains
+  P3B-deferred for its incomplete delayed-unit/stat/elite contract. White stone remains P6C.
+  Колизей and Тетракорархос remain P4C/P12B review entries with no executable action.
+- Great houses and unique regional races are broad narrative/event inventories in `дома`,
+  not complete event or dialogue graphs. They remain P7/P12B review and are not represented
+  as governance flags.

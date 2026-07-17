@@ -290,7 +290,7 @@ function uniqueIds<T extends { id: string }>(values: readonly T[]): boolean {
 
 export function validateEmpiresEndgameConfig(config: EmpiresEndgameConfig): string[] {
   const errors: string[] = []
-  if (config.schemaVersion !== 6) errors.push('schemaVersion must be 6')
+  if (config.schemaVersion !== 7) errors.push('schemaVersion must be 7')
   if (!config.id.trim()) errors.push('config id is required')
   if (config.cards.length !== 53) errors.push('cards must contain exactly 53 definitions')
   if (!uniqueIds(config.cards)) errors.push('card definition ids must be unique')
@@ -362,6 +362,15 @@ export function validateEmpiresEndgameConfig(config: EmpiresEndgameConfig): stri
   if (!uniqueIds(config.empire.units ?? [])) errors.push('unit ids must be unique')
   if (!uniqueIds(config.empire.technologies)) errors.push('technology ids must be unique')
   if (!uniqueIds(config.empire.events)) errors.push('event ids must be unique')
+  if (!config.governance || typeof config.governance.enabled !== 'boolean') {
+    errors.push('governance config is required')
+  } else if (config.governance.enabled) {
+    if (!uniqueIds(config.governance.advisors)) errors.push('advisor ids must be unique')
+    if (!uniqueIds(config.governance.persts)) errors.push('perst ids must be unique')
+    if (config.governance.advisors.filter(advisor => advisor.grandAdvisor).length !== 1) {
+      errors.push('governance must define exactly one grand advisor')
+    }
+  }
   if (config.empire.populationClasses.some(
     definition => !Number.isFinite(definition.foodPerPerson) || definition.foodPerPerson < 0,
   )) {
@@ -447,7 +456,7 @@ export class EmpiresEndgameEngine {
   }
 
   snapshotEnvelope(savedAt = new Date().toISOString()): EmpiresSnapshotEnvelope {
-    return { schemaVersion: 4, savedAt, state: this.snapshot() }
+    return { schemaVersion: 5, savedAt, state: this.snapshot() }
   }
 
   restore(snapshot: EmpiresCampaignState): void {
@@ -715,8 +724,8 @@ export class EmpiresEndgameEngine {
     if (!pending) return failure('No gift target is pending.')
     if (!pending.eligibleTargetIds.includes(targetId)) return failure('That target is not eligible.')
     const targetCity = this.city(targetId)
-    const regionBlocked = targetCity ? this.regionAccessBlockedReason(targetCity.regionId) : null
-    if (regionBlocked) return failure(regionBlocked)
+    const cityBlocked = targetCity ? this.cityAccessBlockedReason(targetCity.id) : null
+    if (cityBlocked) return failure(cityBlocked)
     const gift = this.giftDefinitions.get(pending.giftId)
     if (!gift) return failure('Unknown divine gift.')
     if (gift.deferredReason) return failure(`That divine gift is deferred: ${gift.deferredReason}`)
@@ -761,8 +770,8 @@ export class EmpiresEndgameEngine {
     const building = this.buildingDefinitions.get(buildingId)
     if (!city || !building) return failure('Unknown city or building.')
     if (building.deferredReason) return failure(`That building is deferred: ${building.deferredReason}`)
-    const regionBlocked = this.regionAccessBlockedReason(city.regionId)
-    if (regionBlocked) return failure(regionBlocked)
+    const cityBlocked = this.cityAccessBlockedReason(city.id)
+    if (cityBlocked) return failure(cityBlocked)
     if (this.isBuildingInteractionLocked(city, buildingId)) {
       return failure('That building is locked for the current con.')
     }
@@ -787,8 +796,8 @@ export class EmpiresEndgameEngine {
     const building = this.buildingDefinitions.get(buildingId)
     if (!city || !slot || !building) return failure('Unknown city, slot, or building.')
     if (building.deferredReason) return failure(`That building is deferred: ${building.deferredReason}`)
-    const regionBlocked = this.regionAccessBlockedReason(city.regionId)
-    if (regionBlocked) return failure(regionBlocked)
+    const cityBlocked = this.cityAccessBlockedReason(city.id)
+    if (cityBlocked) return failure(cityBlocked)
     if (building.allowedCityIds && !building.allowedCityIds.includes(cityId)) {
       return failure('That building cannot be placed in this city.')
     }
@@ -1457,6 +1466,107 @@ export class EmpiresEndgameEngine {
     return null
   }
 
+  cityAccessBlockedReason(cityId: string): string | null {
+    const city = this.city(cityId)
+    if (!city) return 'Unknown city.'
+    const regionBlocked = this.regionAccessBlockedReason(city.regionId)
+    if (regionBlocked) return regionBlocked
+    if (!this.config.governance.enabled) return null
+    const site = this.config.governance.governor.citySites.find(candidate => candidate.cityId === cityId)
+    if (!site) return 'The city has no governance site definition.'
+    if (site.access === 'governor' && !this.state.governance.governorAssignments[site.regionId]) {
+      return 'A Perst must be permanently assigned as governor before this city site is accessible.'
+    }
+    return null
+  }
+
+  advisorTransitionBlockedReason(
+    advisorId: string,
+    action: 'pardon' | 'execute' | 'grant-access',
+    sourceId?: string,
+  ): string | null {
+    if (!this.config.governance.enabled) return 'Governance is disabled.'
+    const advisor = this.config.governance.advisors.find(candidate => candidate.id === advisorId)
+    const advisorState = this.state.governance.advisors[advisorId]
+    if (!advisor || !advisorState) return 'Unknown advisor.'
+    if (action === 'grant-access') {
+      if (!advisor.grandAdvisor) return 'Only the Grand Advisor accepts an authored access grant.'
+      if (!sourceId?.trim()) return 'An authored source id is required to grant Grand Advisor access.'
+      return advisorState.status === 'locked' ? null : 'Grand Advisor access has already been resolved.'
+    }
+    if (this.state.phase !== 'empire') return 'Advisor judgment is only available in the empire phase.'
+    if (advisorState.status !== 'awaiting-judgment') return 'That advisor judgment is already resolved.'
+    const decision = advisor.decisionId
+      ? this.config.governance.advisorDecisions.find(candidate => candidate.id === advisor.decisionId)
+      : null
+    if (!decision) return 'That advisor has no authored judgment decision.'
+    const pardoned = decision.advisorIds.filter(id => this.state.governance.advisors[id]?.status === 'active').length
+    const executed = decision.advisorIds.filter(id => this.state.governance.advisors[id]?.status === 'executed').length
+    if (action === 'pardon' && pardoned >= decision.pardonsRequired) {
+      return 'The pardon quota for this advisor judgment is already filled.'
+    }
+    if (action === 'execute' && executed >= decision.executionsRequired) {
+      return 'The execution quota for this advisor judgment is already filled.'
+    }
+    return null
+  }
+
+  transitionAdvisor(
+    advisorId: string,
+    action: 'pardon' | 'execute' | 'grant-access',
+    sourceId?: string,
+  ): EmpiresActionResult {
+    const blocked = this.advisorTransitionBlockedReason(advisorId, action, sourceId)
+    if (blocked) return failure(blocked)
+    const advisor = this.config.governance.advisors.find(candidate => candidate.id === advisorId)!
+    const transitionSourceId = action === 'grant-access'
+      ? sourceId!.trim()
+      : `advisor-judgment:${action}`
+    this.state.governance.advisors[advisorId] = {
+      status: action === 'execute' ? 'executed' : 'active',
+      transitionSequence: this.state.governance.nextAdvisorTransitionSequence,
+      transitionedAtCon: this.state.con,
+      transitionSourceId,
+    }
+    this.state.governance.nextAdvisorTransitionSequence += 1
+    if (action === 'grant-access') {
+      this.state.durak.trumpSuit = this.config.governance.trump.restrictedSuit
+    }
+    this.refreshProductions()
+    return this.commit(`${advisor.name}: ${action}.`)
+  }
+
+  advisorAlignment(advisorId: string): 'locked' | 'balanced' | 'specialized' {
+    const advisor = this.config.governance.advisors.find(candidate => candidate.id === advisorId)
+    if (!advisor || this.state.governance.advisors[advisorId]?.status !== 'active') return 'locked'
+    return advisor.suit === this.state.durak.trumpSuit ? 'specialized' : 'balanced'
+  }
+
+  governorAssignmentBlockedReason(perstId: string, regionId: string): string | null {
+    if (!this.config.governance.enabled) return 'Governance is disabled.'
+    if (this.state.phase !== 'empire') return 'A Perst can only be assigned in the empire phase.'
+    if (!this.config.governance.persts.some(perst => perst.id === perstId)) return 'Unknown Perst.'
+    if (!this.config.governance.governor.regionIds.includes(regionId)) return 'That region cannot receive a Perst governor.'
+    if (this.state.governance.governorAssignments[regionId]) return 'That region already has a permanent governor.'
+    if (Object.values(this.state.governance.governorAssignments).some(assignment => assignment.perstId === perstId)) {
+      return 'That Perst is already a permanent governor.'
+    }
+    return null
+  }
+
+  assignGovernor(perstId: string, regionId: string): EmpiresActionResult {
+    const blocked = this.governorAssignmentBlockedReason(perstId, regionId)
+    if (blocked) return failure(blocked)
+    this.state.governance.governorAssignments[regionId] = {
+      perstId,
+      regionId,
+      assignedAtCon: this.state.con,
+    }
+    this.refreshProductions()
+    const perst = this.config.governance.persts.find(candidate => candidate.id === perstId)!
+    return this.commit(`${perst.title} ${perst.name} permanently assigned to ${regionId}.`)
+  }
+
   applyLoyaltyDelta(target: EmpiresLoyaltyTarget, amount: number, sourceId: string): number {
     if (!Number.isFinite(amount)) throw new Error('Loyalty delta must be finite.')
     if (!sourceId.trim()) throw new Error('Loyalty delta source is required.')
@@ -1575,8 +1685,7 @@ export class EmpiresEndgameEngine {
   }
 
   isCityAccessible(cityId: string): boolean {
-    const city = this.city(cityId)
-    return Boolean(city && this.isRegionAccessible(city.regionId))
+    return this.cityAccessBlockedReason(cityId) === null
   }
 
   effectiveBuildingLevel(cityId: string, buildingId: string): number {
@@ -1653,6 +1762,120 @@ export class EmpiresEndgameEngine {
     return production
   }
 
+  private initialGovernanceState(): EmpiresCampaignState['governance'] {
+    return {
+      advisors: Object.fromEntries(this.config.governance.advisors.map(advisor => [advisor.id, {
+        status: advisor.initialStatus,
+        transitionSequence: null,
+        transitionedAtCon: null,
+        transitionSourceId: null,
+      }])),
+      nextAdvisorTransitionSequence: 1,
+      governorAssignments: {},
+    }
+  }
+
+  private initialCityState(
+    city: EmpiresEndgameConfig['empire']['cities'][number],
+  ): EmpiresCityState {
+    return {
+      id: city.id,
+      name: city.name,
+      regionId: city.regionId,
+      population: city.population,
+      militaryPopulation: city.militaryPopulation,
+      populationClasses: { ...city.populationClasses },
+      baseProduction: { ...city.baseProduction },
+      buildingLevels: { ...city.buildingLevels },
+      operationalBuildingLevels: { ...city.buildingLevels },
+      buildingSlotAssignments: Object.fromEntries(
+        city.slots.flatMap(slot => slot.buildingId ? [[slot.id, slot.buildingId]] : []),
+      ),
+      recruitedUnitCohorts: [],
+      resources: {},
+      buildingInteractionLocks: {},
+      lockedFacilities: {},
+      foodCommitted: 0,
+      lastProduction: {},
+      lastStarvationLoss: 0,
+      loyalty: this.clampLoyalty(this.config.empire.loyalty.initialCityLoyalty),
+    }
+  }
+
+  private normalizeGovernanceState(state: EmpiresCampaignState, snapshotVersion: number): void {
+    if (!this.config.governance.enabled) {
+      state.governance = this.initialGovernanceState()
+      return
+    }
+    const raw = (state as EmpiresCampaignState & {
+      governance?: Partial<EmpiresCampaignState['governance']>
+    }).governance
+    const initial = this.initialGovernanceState()
+    const advisorStates: EmpiresCampaignState['governance']['advisors'] = {}
+    const statuses = new Set(['locked', 'awaiting-judgment', 'active', 'executed'])
+    let maximumSequence = 0
+    for (const advisor of this.config.governance.advisors) {
+      const candidate = raw?.advisors?.[advisor.id]
+      if (!candidate) {
+        advisorStates[advisor.id] = initial.advisors[advisor.id]
+        continue
+      }
+      if (!statuses.has(candidate.status)
+        || (candidate.transitionSequence !== null
+          && (!Number.isInteger(candidate.transitionSequence) || candidate.transitionSequence < 1))
+        || (candidate.transitionedAtCon !== null
+          && (!Number.isInteger(candidate.transitionedAtCon) || candidate.transitionedAtCon < 0))
+        || (candidate.transitionSourceId !== null
+          && (typeof candidate.transitionSourceId !== 'string' || !candidate.transitionSourceId.trim()))) {
+        throw new Error(`Invalid governance advisor state ${advisor.id}`)
+      }
+      if ((candidate.transitionSequence === null) !== (candidate.transitionedAtCon === null)
+        || (candidate.transitionSequence === null) !== (candidate.transitionSourceId === null)) {
+        throw new Error(`Incomplete governance advisor transition ${advisor.id}`)
+      }
+      if (candidate.transitionSequence !== null) maximumSequence = Math.max(maximumSequence, candidate.transitionSequence)
+      advisorStates[advisor.id] = cloneSerializable(candidate)
+    }
+
+    if (snapshotVersion < 5
+      && state.durak.trumpSuit === this.config.governance.trump.restrictedSuit) {
+      const grandAdvisorId = this.config.governance.trump.grandAdvisorId
+      const grand = advisorStates[grandAdvisorId]
+      if (grand && grand.status !== 'active') {
+        maximumSequence += 1
+        advisorStates[grandAdvisorId] = {
+          status: 'active',
+          transitionSequence: maximumSequence,
+          transitionedAtCon: state.con,
+          transitionSourceId: 'migration:legacy-restricted-trump',
+        }
+      }
+    }
+
+    const perstIds = new Set(this.config.governance.persts.map(perst => perst.id))
+    const regionIds = new Set(this.config.governance.governor.regionIds)
+    const assignedPersts = new Set<string>()
+    const governorAssignments: EmpiresCampaignState['governance']['governorAssignments'] = {}
+    for (const [regionId, assignment] of Object.entries(raw?.governorAssignments ?? {})) {
+      if (!assignment || assignment.regionId !== regionId || !regionIds.has(regionId)
+        || !perstIds.has(assignment.perstId) || assignedPersts.has(assignment.perstId)
+        || !Number.isInteger(assignment.assignedAtCon) || assignment.assignedAtCon < 0) {
+        throw new Error(`Invalid governance governor assignment ${regionId}`)
+      }
+      assignedPersts.add(assignment.perstId)
+      governorAssignments[regionId] = cloneSerializable(assignment)
+    }
+    const requestedNextSequence = raw?.nextAdvisorTransitionSequence
+    state.governance = {
+      advisors: advisorStates,
+      nextAdvisorTransitionSequence: Number.isInteger(requestedNextSequence)
+        && requestedNextSequence! > maximumSequence
+        ? requestedNextSequence!
+        : maximumSequence + 1,
+      governorAssignments,
+    }
+  }
+
   private createInitialState(): EmpiresCampaignState {
     const rng = createEmpiresRngState(this.config.seed)
     const cards: Record<string, EmpiresCardInstance> = Object.fromEntries(this.config.cards.map(definition => [
@@ -1664,7 +1887,7 @@ export class EmpiresEndgameEngine {
     const playerHand: string[] = []
     const godHand: string[] = []
     const state: EmpiresCampaignState = {
-      schemaVersion: 4,
+      schemaVersion: 5,
       configId: this.config.id,
       phase: 'cards',
       rng,
@@ -1689,6 +1912,7 @@ export class EmpiresEndgameEngine {
       upgradePoints: 0,
       performanceScore: 0,
       giftChoiceIds: [],
+      governance: this.initialGovernanceState(),
       empire: {
         daysRemaining: 0,
         resources: { ...this.config.empire.initialResources },
@@ -1697,28 +1921,7 @@ export class EmpiresEndgameEngine {
         loyalty: this.initialLoyaltyState(),
         chronicle: [],
         nextChronicleSequence: 1,
-        cities: this.config.empire.cities.map(city => ({
-          id: city.id,
-          name: city.name,
-          regionId: city.regionId,
-          population: city.population,
-          militaryPopulation: city.militaryPopulation,
-          populationClasses: { ...city.populationClasses },
-          baseProduction: { ...city.baseProduction },
-          buildingLevels: { ...city.buildingLevels },
-          operationalBuildingLevels: { ...city.buildingLevels },
-          buildingSlotAssignments: Object.fromEntries(
-            city.slots.flatMap(slot => slot.buildingId ? [[slot.id, slot.buildingId]] : []),
-          ),
-          recruitedUnitCohorts: [],
-          resources: {},
-          buildingInteractionLocks: {},
-          lockedFacilities: {},
-          foodCommitted: 0,
-          lastProduction: {},
-          lastStarvationLoss: 0,
-          loyalty: this.clampLoyalty(this.config.empire.loyalty.initialCityLoyalty),
-        })),
+        cities: this.config.empire.cities.map(city => this.initialCityState(city)),
         researchedTechnologyIds: [],
         claimedGiftIds: [],
         activeGiftIds: [],
@@ -1780,12 +1983,14 @@ export class EmpiresEndgameEngine {
 
   private validateAndCloneSnapshot(snapshot: EmpiresCampaignState): EmpiresCampaignState {
     const snapshotVersion = (snapshot as { schemaVersion: number }).schemaVersion
-    if (snapshotVersion !== 1 && snapshotVersion !== 2 && snapshotVersion !== 3 && snapshotVersion !== 4) {
+    if (snapshotVersion !== 1 && snapshotVersion !== 2 && snapshotVersion !== 3
+      && snapshotVersion !== 4 && snapshotVersion !== 5) {
       throw new Error('Unsupported Empire\'s Endgame snapshot schema')
     }
     if (snapshot.configId !== this.config.id) throw new Error('Snapshot belongs to a different config')
     const state = cloneSerializable(snapshot)
-    state.schemaVersion = 4
+    state.schemaVersion = 5
+    this.normalizeGovernanceState(state, snapshotVersion)
     state.minigame ??= null
     state.minigameResultLog ??= []
     state.minigameResultCompaction ??= {
@@ -1835,6 +2040,10 @@ export class EmpiresEndgameEngine {
     this.normalizeMinigameState(state)
     const missingDestroyedRegionState = state.empire.destroyedRegionIds === undefined
     const missingBuildingBonusState = state.empire.buildingLevelBonuses === undefined
+    const restoredCityIds = new Set(state.empire.cities.map(city => city.id))
+    for (const city of this.config.empire.cities) {
+      if (!restoredCityIds.has(city.id)) state.empire.cities.push(this.initialCityState(city))
+    }
     const citiesMissingInteractionLocks = new Set(
       state.empire.cities
         .filter(city => city.buildingInteractionLocks === undefined)
@@ -2727,8 +2936,15 @@ export class EmpiresEndgameEngine {
       const definition = this.getDefinition(instance)
       const face = instance.inverted ? definition.inverted : definition.normal
       if (face.deferredReason) continue
-      this.applyEffects(face.effects, instance.level, phaseEffectKinds, `card:${definition.id}:${instance.inverted ? 'inverted' : 'normal'}`)
-      this.recordCardFlagBonuses(face.effects, instance.level)
+      const magnitude = this.cardEffectMagnitude(definition)
+      this.applyEffects(
+        face.effects,
+        instance.level,
+        phaseEffectKinds,
+        `card:${definition.id}:${instance.inverted ? 'inverted' : 'normal'}`,
+        magnitude,
+      )
+      this.recordCardFlagBonuses(face.effects, instance.level, magnitude)
     }
     if ((this.state.empire.flags.militaryArson ?? 0) > 0) this.applyMilitaryArson()
     for (const city of this.state.empire.cities) this.updateOperationalBuildings(city)
@@ -3061,6 +3277,10 @@ export class EmpiresEndgameEngine {
         if (this.state.empire.reputation < dependency.minimum) {
           return `reputation ${this.signedNumber(dependency.minimum)}`
         }
+      } else if (dependency.kind === 'advisor') {
+        if (this.state.governance.advisors[dependency.advisorId]?.status !== 'active') {
+          return dependency.advisorId
+        }
       } else {
         const cities = (dependency.scope !== 'anyCity' && city ? [city] : this.state.empire.cities)
           .filter(item => this.isCityAccessible(item.id))
@@ -3126,23 +3346,25 @@ export class EmpiresEndgameEngine {
     level: number,
     allowedKinds?: ReadonlySet<EffectKind>,
     sourceId = 'effect:unknown',
+    magnitude = 1,
   ): void {
     let moraleCapChanged = false
     for (const effect of effects) {
       if (allowedKinds && !allowedKinds.has(effect.kind)) continue
       if (effect.kind === 'resource') {
-        const amount = effect.amount + (effect.amountPerLevel ?? 0) * level
+        const amount = (effect.amount + (effect.amountPerLevel ?? 0) * level) * magnitude
         this.state.empire.resources[effect.resourceId] = (this.state.empire.resources[effect.resourceId] ?? 0)
           + amount
       } else if (effect.kind === 'resourceMultiplier') {
-        const multiplier = effect.multiplier + (effect.multiplierPerLevel ?? 0) * level
+        const rawMultiplier = effect.multiplier + (effect.multiplierPerLevel ?? 0) * level
+        const multiplier = 1 + (rawMultiplier - 1) * magnitude
         this.state.empire.productionMultipliers[effect.resourceId] = (
           this.state.empire.productionMultipliers[effect.resourceId] ?? 1
         ) * multiplier
       } else if (effect.kind === 'time') {
-        this.state.empire.daysRemaining += effect.days + (effect.daysPerLevel ?? 0) * level
+        this.state.empire.daysRemaining += (effect.days + (effect.daysPerLevel ?? 0) * level) * magnitude
       } else if (effect.kind === 'foodProduction') {
-        const amount = effect.amount + (effect.amountPerLevel ?? 0) * level
+        const amount = (effect.amount + (effect.amountPerLevel ?? 0) * level) * magnitude
         const cityIds = effect.cityId ? [effect.cityId] : this.state.empire.cities.map(city => city.id)
         for (const cityId of cityIds) {
           this.state.empire.passiveFoodBonuses[cityId] = (
@@ -3150,7 +3372,7 @@ export class EmpiresEndgameEngine {
           ) + amount
         }
       } else if (effect.kind === 'population') {
-        const amount = effect.amount + (effect.amountPerLevel ?? 0) * level
+        const amount = (effect.amount + (effect.amountPerLevel ?? 0) * level) * magnitude
         const cities = effect.cityId
           ? this.state.empire.cities.filter(
               city => city.id === effect.cityId && this.isCityAccessible(city.id),
@@ -3159,15 +3381,15 @@ export class EmpiresEndgameEngine {
         const perCity = cities.length > 0 ? amount / cities.length : 0
         for (const city of cities) this.setCityPopulation(city, Math.max(0, city.population + perCity))
       } else if (effect.kind === 'loyalty') {
-        const amount = effect.amount + (effect.amountPerLevel ?? 0) * level
+        const amount = (effect.amount + (effect.amountPerLevel ?? 0) * level) * magnitude
         this.applyLoyaltyDelta(effect.target, amount, sourceId)
       } else if (effect.kind === 'loyaltyAllCities') {
-        const amount = effect.amount + (effect.amountPerLevel ?? 0) * level
+        const amount = (effect.amount + (effect.amountPerLevel ?? 0) * level) * magnitude
         for (const city of this.state.empire.cities) {
           this.applyLoyaltyDelta({ kind: 'city', cityId: city.id }, amount, sourceId)
         }
       } else if (effect.kind === 'classLoyalty') {
-        const amount = effect.amount + (effect.amountPerLevel ?? 0) * level
+        const amount = (effect.amount + (effect.amountPerLevel ?? 0) * level) * magnitude
         for (const city of this.state.empire.cities) {
           this.applyLoyaltyDelta({
             kind: 'class',
@@ -3176,10 +3398,10 @@ export class EmpiresEndgameEngine {
           }, amount, sourceId)
         }
       } else if (effect.kind === 'reputation') {
-        const amount = effect.amount + (effect.amountPerLevel ?? 0) * level
+        const amount = (effect.amount + (effect.amountPerLevel ?? 0) * level) * magnitude
         this.applyReputationDelta(amount, sourceId)
       } else if (effect.kind === 'flag') {
-        const amount = effect.amount + (effect.amountPerLevel ?? 0) * level
+        const amount = (effect.amount + (effect.amountPerLevel ?? 0) * level) * magnitude
         this.state.empire.flags[effect.flagId] = effect.flagId === 'minimumCombatSpirit'
           ? Math.max(this.state.empire.flags[effect.flagId] ?? 0, amount)
           : (this.state.empire.flags[effect.flagId] ?? 0) + amount
@@ -3291,10 +3513,14 @@ export class EmpiresEndgameEngine {
     }
   }
 
-  private recordCardFlagBonuses(effects: readonly EmpiresEffect[], level: number): void {
+  private recordCardFlagBonuses(
+    effects: readonly EmpiresEffect[],
+    level: number,
+    magnitude: number,
+  ): void {
     for (const effect of effects) {
       if (effect.kind !== 'flag') continue
-      const amount = effect.amount + (effect.amountPerLevel ?? 0) * level
+      const amount = (effect.amount + (effect.amountPerLevel ?? 0) * level) * magnitude
       this.state.empire.cardFlagBonuses[effect.flagId] = (
         this.state.empire.cardFlagBonuses[effect.flagId] ?? 0
       ) + amount
@@ -3309,9 +3535,10 @@ export class EmpiresEndgameEngine {
       if (!instance || !definition) throw new Error(`Unknown card ${cardId}`)
       const face = instance.inverted ? definition.inverted : definition.normal
       if (face.deferredReason) continue
+      const magnitude = this.cardEffectMagnitude(definition, state)
       for (const effect of face.effects) {
         if (effect.kind !== 'flag') continue
-        const amount = effect.amount + (effect.amountPerLevel ?? 0) * instance.level
+        const amount = (effect.amount + (effect.amountPerLevel ?? 0) * instance.level) * magnitude
         bonuses[effect.flagId] = (bonuses[effect.flagId] ?? 0) + amount
       }
     }
@@ -3688,7 +3915,13 @@ export class EmpiresEndgameEngine {
             || effect.resourceId !== this.config.empire.foodResourceId
           ))
         : face.effects
-      this.applyEffects(effects, instance.level, productionKinds)
+      this.applyEffects(
+        effects,
+        instance.level,
+        productionKinds,
+        `card:${definition.id}:${instance.inverted ? 'inverted' : 'normal'}`,
+        this.cardEffectMagnitude(definition),
+      )
     }
   }
 
@@ -4305,7 +4538,7 @@ export class EmpiresEndgameEngine {
     city: EmpiresCityState,
     building: EmpiresBuildingDefinition,
   ): string | null {
-    const access = this.regionAccessBlockedReason(city.regionId)
+    const access = this.cityAccessBlockedReason(city.id)
     if (access) return access
     if (!this.config.empire.loyalty.enabled) return null
     const effective = this.effectiveCityLoyalty(city.id)
@@ -4316,7 +4549,7 @@ export class EmpiresEndgameEngine {
   }
 
   private recruitmentLoyaltyBlockedReason(city: EmpiresCityState): string | null {
-    const access = this.regionAccessBlockedReason(city.regionId)
+    const access = this.cityAccessBlockedReason(city.id)
     if (access) return access
     if (!this.config.empire.loyalty.enabled) return null
     const effective = this.effectiveCityLoyalty(city.id)
@@ -4332,7 +4565,7 @@ export class EmpiresEndgameEngine {
     operationalLevel: number,
   ): string | null {
     if (purchasedLevel <= 0) return null
-    const access = this.regionAccessBlockedReason(city.regionId)
+    const access = this.cityAccessBlockedReason(city.id)
     if (access) return access
     if (building.deferredReason) return `That building is deferred: ${building.deferredReason}`
     const classGate = this.classGateBlockedReason(city, building, true)
@@ -4445,12 +4678,36 @@ export class EmpiresEndgameEngine {
   }
 
   private resolveTrumpSuit(deck: readonly string[]): EmpiresSuit {
-    if (this.config.durak.fixedTrumpSuit) return this.config.durak.fixedTrumpSuit
+    if (this.config.durak.fixedTrumpSuit
+      && this.trumpSuitIsAvailable(this.config.durak.fixedTrumpSuit)) {
+      return this.config.durak.fixedTrumpSuit
+    }
     for (const cardId of deck) {
       const definition = this.definitions.get(cardId)
-      if (definition && definition.suit !== 'joker') return definition.suit
+      if (definition && definition.suit !== 'joker' && this.trumpSuitIsAvailable(definition.suit)) {
+        return definition.suit
+      }
     }
-    return this.config.durak.joker.trumpFallbackSuit
+    return this.trumpSuitIsAvailable(this.config.durak.joker.trumpFallbackSuit)
+      ? this.config.durak.joker.trumpFallbackSuit
+      : this.config.governance.trump.lockedFallbackSuit
+  }
+
+  private trumpSuitIsAvailable(suit: EmpiresSuit, state?: EmpiresCampaignState): boolean {
+    if (!this.config.governance.enabled || suit !== this.config.governance.trump.restrictedSuit) return true
+    const grandAdvisorId = this.config.governance.trump.grandAdvisorId
+    return state
+      ? state.governance.advisors[grandAdvisorId]?.status === 'active'
+      : this.config.governance.advisors.find(advisor => advisor.id === grandAdvisorId)?.initialStatus === 'active'
+  }
+
+  private cardEffectMagnitude(
+    definition: EmpiresCardDefinition,
+    state: EmpiresCampaignState = this.state,
+  ): number {
+    if (!this.config.governance.enabled || definition.suit === 'joker'
+      || definition.suit !== state.durak.trumpSuit) return 1
+    return this.config.governance.trump.criticalEffectMultiplier
   }
 
   private initialAttacker(state: EmpiresCampaignState): EmpiresActor {

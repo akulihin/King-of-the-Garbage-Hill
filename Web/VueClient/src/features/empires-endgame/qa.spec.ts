@@ -305,6 +305,7 @@ describe('Empire\'s Endgame deck orientation', () => {
     const expectedTrumpCardId = shuffled.find((cardId) => {
       const definition = config.cards.find(card => card.id === cardId)
       return definition?.rank !== 'joker'
+        && definition?.suit !== config.governance.trump.restrictedSuit
     }) as string
     const expectedTrumpSuit = config.cards.find(card => card.id === expectedTrumpCardId)?.suit
 

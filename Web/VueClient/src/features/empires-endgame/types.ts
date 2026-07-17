@@ -311,6 +311,10 @@ export type EmpiresDependency =
     kind: 'reputation'
     minimum: number
   }
+  | {
+    kind: 'advisor'
+    advisorId: string
+  }
 
 export interface EmpiresBuildingLevelDefinition {
   level: number
@@ -624,6 +628,81 @@ export interface EmpiresLoyaltyConfig {
   chronicleRetention: number
 }
 
+export type EmpiresAdvisorStatus = 'locked' | 'awaiting-judgment' | 'active' | 'executed'
+export type EmpiresAdvisorTransitionAction = 'pardon' | 'execute' | 'grant-access'
+
+export interface EmpiresAdvisorDefinition {
+  id: string
+  name: string
+  suit: EmpiresSuit
+  category: 'science' | 'trade' | 'war' | 'people'
+  initialStatus: EmpiresAdvisorStatus
+  decisionId?: string
+  technologyIds: string[]
+  grandAdvisor?: boolean
+  accessDeferredReason?: string
+}
+
+export interface EmpiresAdvisorDecisionDefinition {
+  id: string
+  advisorIds: string[]
+  pardonsRequired: number
+  executionsRequired: number
+}
+
+export interface EmpiresGovernanceTrumpConfig {
+  restrictedSuit: EmpiresSuit
+  grandAdvisorId: string
+  lockedFallbackSuit: EmpiresSuit
+  criticalEffectMultiplier: number
+}
+
+export interface EmpiresPerstDefinition {
+  id: string
+  name: string
+  title: string
+  description?: string
+}
+
+export interface EmpiresGovernanceCitySiteDefinition {
+  cityId: string
+  regionId: string
+  access: 'initial' | 'governor'
+  defenseLayer: 1 | 2 | 3
+  order: number
+  coastal: boolean
+}
+
+export interface EmpiresGovernorConfig {
+  assignmentMode: 'permanent'
+  regionIds: string[]
+  citySites: EmpiresGovernanceCitySiteDefinition[]
+}
+
+export interface EmpiresCapitalSiteDefinition {
+  id: string
+  name: string
+  owner: 'P3B' | 'P4A' | 'P4C/P12B' | 'P6C'
+  buildingId?: string
+  mapObjectId?: string
+  deferredReason: string
+}
+
+export interface EmpiresCapitalGovernanceConfig {
+  cityId: string
+  sites: EmpiresCapitalSiteDefinition[]
+}
+
+export interface EmpiresGovernanceConfig {
+  enabled: boolean
+  advisors: EmpiresAdvisorDefinition[]
+  advisorDecisions: EmpiresAdvisorDecisionDefinition[]
+  trump: EmpiresGovernanceTrumpConfig
+  persts: EmpiresPerstDefinition[]
+  governor: EmpiresGovernorConfig
+  capital: EmpiresCapitalGovernanceConfig
+}
+
 export interface EmpiresEmpireConfig {
   daysPerPhase: number
   foodResourceId: string
@@ -653,7 +732,7 @@ export interface EmpiresUpgradeConfig {
 }
 
 export interface EmpiresEndgameConfig {
-  schemaVersion: 6
+  schemaVersion: 7
   id: string
   title: string
   seed: string | number
@@ -661,6 +740,7 @@ export interface EmpiresEndgameConfig {
   durak: EmpiresDurakConfig
   upgrades: EmpiresUpgradeConfig
   gifts: EmpiresGiftConfig
+  governance: EmpiresGovernanceConfig
   empire: EmpiresEmpireConfig
   combat: EmpiresCombatConfig
   td: EmpiresTdConfig
@@ -866,6 +946,25 @@ export interface EmpiresHiddenCombinationTriggerState {
   triggeredAtCon: number
 }
 
+export interface EmpiresAdvisorState {
+  status: EmpiresAdvisorStatus
+  transitionSequence: number | null
+  transitionedAtCon: number | null
+  transitionSourceId: string | null
+}
+
+export interface EmpiresGovernorAssignmentState {
+  perstId: string
+  regionId: string
+  assignedAtCon: number
+}
+
+export interface EmpiresGovernanceState {
+  advisors: Record<string, EmpiresAdvisorState>
+  nextAdvisorTransitionSequence: number
+  governorAssignments: Record<string, EmpiresGovernorAssignmentState>
+}
+
 export interface EmpiresResearchQuote {
   technologyId: string
   requiredTechnologyIds: string[]
@@ -993,7 +1092,7 @@ export interface EmpiresEventState {
 }
 
 export interface EmpiresCampaignState {
-  schemaVersion: 4
+  schemaVersion: 5
   configId: string
   phase: EmpiresPhase
   rng: EmpiresRngState
@@ -1005,6 +1104,7 @@ export interface EmpiresCampaignState {
   upgradePoints: number
   performanceScore: number
   giftChoiceIds: string[]
+  governance: EmpiresGovernanceState
   pendingResolution: EmpiresPendingGiftResolution | null
   minigame: EmpiresMinigameSession | null
   minigameResultLog: EmpiresMinigameResultRecord[]
@@ -1020,7 +1120,7 @@ export interface EmpiresCampaignState {
 }
 
 export interface EmpiresSnapshotEnvelope {
-  schemaVersion: 4
+  schemaVersion: 5
   savedAt: string
   state: EmpiresCampaignState
 }

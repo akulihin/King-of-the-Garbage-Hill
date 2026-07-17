@@ -39,7 +39,13 @@ Current execution status supplied by the designer on 2026-07-17:
   reversible regional rebellion, bounded political chronicle, exact-once TD-loss pressure
   and northern raids landed as one change-set. Capital Forum and inverted club 2 retain
   explicit blockers for their undefined mechanics.
-- **Next prompt: Phase 4B** (`phase-04b-seasons-tech-sides.md`).
+- **Phase 4B — complete.** Schema-v6 seasons, typed technology sides and hidden
+  combinations, complete political reforms, smith specialization and explicit crime/content
+  deferrals landed as one change-set.
+- **Phase 4C — complete.** Schema-v7 advisor/perst/capital governance, save-envelope v5,
+  canonical trump critical effects, exact advisor judgment, permanent named-перст region
+  expansion and the capital/review manifest landed as one change-set.
+- **Next prompt: Phase 5** (`phase-05-epidemics.md`).
 
 Scope decisions confirmed by the designer (2026-07-16):
 
@@ -94,8 +100,8 @@ graph TD
 | `phase-03-td-regions-steel.md` | **Complete/historical.** P2 baseline regression, replay/config identity, input/accessibility hardening, five regional TD fields, castle/naval enemy variants, assault. |
 | `phase-03b-steel-equipment.md` | **Complete/historical.** Latest steel inventory, schema-v4 research state, exact spear equipment/cohorts, Smithy capacity, Foundry/relic closure and military-building deferral audit. |
 | `phase-04-loyalty-seasons.md` | **Complete/historical. 4A:** loyalty, reputation, rebellion, class gates, chronicle, northern raids. |
-| `phase-04b-seasons-tech-sides.md` | **4B:** seasons, technology sides, political reforms, crime substrate. |
-| `phase-04c-advisors-persts-capital.md` | **4C:** advisor flow, suit/Grand Advisor rules, governor персты, capital slot governance. |
+| `phase-04b-seasons-tech-sides.md` | **Complete/historical. 4B:** seasons, technology sides, political reforms, honest crime deferral. |
+| `phase-04c-advisors-persts-capital.md` | **Complete/historical. 4C:** advisor flow, suit/Grand Advisor rules, governor персты, capital slot governance. |
 | `phase-05-epidemics.md` | Epidemic lifecycle + medical protection chain; exact medical candidates and vaccination faces, with ambiguous Дженна mapping kept honest. |
 | `phase-06-economy-external.md` | **6A:** Bank/insurance/Fair/Temple and passive Tavern substrate. |
 | `phase-06b-diplomacy-external.md` | **6B:** real diplomacy/external trade, Людовик, Stable/Customs/Sea Port, missing trade buildings. |
@@ -151,6 +157,37 @@ graph TD
   effect is executable, though its temporal positive/negative loyalty reader is tested.
   Inverted club 2 remains deferred for missing numeric effect, scaling and cleanup. Seasons,
   technology sides, reforms and crime remain P4B scope.
+
+## P4B handoff
+
+- The compatibility baseline is config schema 6 and campaign/save envelope 4. Seasons are
+  derived from con rather than saved twice. Technology-side selection, disclosure,
+  suppression and hidden-combination triggers are persisted exact-once state.
+- Принуждение, Геройские похороны, Контроль кузнецов and Теократия are live whole
+  contracts. Advisor prerequisites added by P4C must remain real engine dependencies on
+  those reforms, not UI badges or replacement flags.
+- Crime/public order, Technocracy civil war, City Gates effects, Hearts political faces and
+  printing remain explicitly deferred. P5 owns epidemic consequences and must consume the
+  existing typed epidemic-policy boundary without inventing crime.
+
+## P4C handoff
+
+- The compatibility baseline is config schema 7 and campaign/save envelope 5. Advisor
+  status, transition sequence/source/con and permanent governor assignments are canonical
+  state. Schema-4 saves already using ♣ trump are narrowly grandfathered to an active Grand
+  Advisor; other old saves retain unresolved starting advisors.
+- Научный, Торговый and Военный advisor roles enter one exact `1` pardon / `2` execution
+  funnel and gate `reform-theocracy`, `reform-treasury` and `reform-coercion`. Trump card
+  effects use the configured critical multiplier through the engine effect path. ♣ is never
+  a fresh trump until `advisor-grand` receives an authored, source-ID-bearing access grant.
+- A permanent assignment of Четвёртый Перст Однорукий Трэвор or Десятый opens all three
+  gated city sites in that region, producing the sourced five-city `2 > 2 > 1` topology.
+  Every city action and preview uses `cityAccessBlockedReason`; later phases must not bypass
+  it for economy, epidemic, quest or diplomacy targets.
+- Forum (P4A), Military Academy (P3B), white stone (P6C), Колизей and Тетракорархос
+  (P4C/P12B review) remain explicitly deferred in the capital manifest. Sea Port/coastal
+  slot behavior remains P6B. Great houses and unique races remain P7/P12B review rather
+  than anonymous governance flags.
 
 ## How to execute the remaining prompts
 

@@ -31,6 +31,7 @@ import EmpireCard from '../components/empires-endgame/EmpireCard.vue'
 import EmpireMap from '../components/empires-endgame/EmpireMap.vue'
 import EventDialog from '../components/empires-endgame/EventDialog.vue'
 import GiftDraft from '../components/empires-endgame/GiftDraft.vue'
+import GovernancePanel from '../components/empires-endgame/GovernancePanel.vue'
 import LoyaltyPanel from '../components/empires-endgame/LoyaltyPanel.vue'
 import PopulationDialog from '../components/empires-endgame/PopulationDialog.vue'
 import TargetResolutionDialog, {
@@ -80,7 +81,7 @@ import type {
   TdCommand,
 } from '../features/empires-endgame/types'
 
-type EmpireTab = 'map' | 'city' | 'loyalty' | 'technology' | 'council'
+type EmpireTab = 'map' | 'city' | 'loyalty' | 'technology' | 'governance' | 'council'
 
 const config = ref<EmpiresEndgameConfig | null>(null)
 const editorConfig = ref<EmpiresEndgameConfig | null>(null)
@@ -424,7 +425,7 @@ function isQaScenarioName(value: string | null): value is EmpiresQaScenarioName 
 
 function isEmpireTab(value: string | null): value is EmpireTab {
   return value === 'map' || value === 'city' || value === 'loyalty'
-    || value === 'technology' || value === 'council'
+    || value === 'technology' || value === 'governance' || value === 'council'
 }
 
 function loadQaScenario(name = qaScenarioName.value) {
@@ -432,6 +433,7 @@ function loadQaScenario(name = qaScenarioName.value) {
   qaScenarioName.value = name
   qaAutoplaySummary.value = ''
   if (name === 'empire-council-with-points') activeEmpireTab.value = 'council'
+  if (name === 'governance') activeEmpireTab.value = 'governance'
   initializeEngine(config.value, qaScenarios.value[name].snapshot)
   const url = new URL(window.location.href)
   url.searchParams.set('qa', '1')
@@ -476,6 +478,9 @@ async function boot() {
       initializeEngine(loadedConfig, qaScenarios.value[qaScenarioName.value].snapshot)
       if (!isEmpireTab(requestedTab) && qaScenarioName.value === 'empire-council-with-points') {
         activeEmpireTab.value = 'council'
+      }
+      if (!isEmpireTab(requestedTab) && qaScenarioName.value === 'governance') {
+        activeEmpireTab.value = 'governance'
       }
     }
     else {
@@ -611,6 +616,14 @@ function resolvePendingTarget(cityId: string) {
 function chooseEvent(choiceId: string) {
   if (!engine.value) return
   action(engine.value.chooseEvent(choiceId))
+}
+
+function transitionAdvisor(advisorId: string, transition: 'pardon' | 'execute' | 'grant-access') {
+  if (engine.value) action(engine.value.transitionAdvisor(advisorId, transition), false)
+}
+
+function assignGovernor(perstId: string, regionId: string) {
+  if (engine.value) action(engine.value.assignGovernor(perstId, regionId), false)
 }
 
 function finishEmpire() {
@@ -1001,6 +1014,10 @@ function dependencyLabel(dependency: EmpiresDependency) {
   }
   if (dependency.kind === 'flag') return `${dependency.flagId} ≥ ${dependency.minimum}`
   if (dependency.kind === 'reputation') return `Репутация ≥ ${dependency.minimum}`
+  if (dependency.kind === 'advisor') {
+    return workingConfig.value?.governance.advisors.find(item => item.id === dependency.advisorId)?.name
+      ?? dependency.advisorId
+  }
   const building = workingConfig.value?.empire.buildings.find(item => item.id === dependency.buildingId)
   return `${building?.name ?? dependency.buildingId} · ур. ${dependency.level}`
 }
@@ -1030,6 +1047,10 @@ function firstMissingDependency(
     }
     if (dependency.kind === 'reputation') {
       if (state.value.empire.reputation < dependency.minimum) return dependencyLabel(dependency)
+      continue
+    }
+    if (dependency.kind === 'advisor') {
+      if (state.value.governance.advisors[dependency.advisorId]?.status !== 'active') return dependencyLabel(dependency)
       continue
     }
     const candidateCities = (dependency.scope !== 'anyCity' && city ? [city] : state.value.empire.cities)
@@ -1335,7 +1356,7 @@ const cityViews = computed(() => {
       accessible: editorOpen.value || (engine.value?.isCityAccessible(city.id) ?? true),
       disabledReason: editorOpen.value || (engine.value?.isCityAccessible(city.id) ?? true)
         ? undefined
-        : regionBlockedReasonText(city.regionId),
+        : actionReasonText(engine.value?.cityAccessBlockedReason(city.id)) ?? regionBlockedReasonText(city.regionId),
       resourceStockpiles: currentConfig.empire.resources.map(resource => ({
         id: resource.id,
         name: resource.name,
@@ -1732,6 +1753,7 @@ onUnmounted(() => {
             <button data-testid="tab-city" :class="{ active: activeEmpireTab === 'city' }" type="button" @click="activeEmpireTab = 'city'"><Building2 :size="15" /> Города</button>
             <button data-testid="tab-loyalty" :class="{ active: activeEmpireTab === 'loyalty' }" type="button" @click="activeEmpireTab = 'loyalty'"><Scale :size="15" /> Лояльность</button>
             <button data-testid="tab-technology" :class="{ active: activeEmpireTab === 'technology' }" type="button" @click="activeEmpireTab = 'technology'"><FlaskConical :size="15" /> Развитие</button>
+            <button data-testid="tab-governance" :class="{ active: activeEmpireTab === 'governance' }" type="button" @click="activeEmpireTab = 'governance'"><Crown :size="15" /> Управление</button>
             <button data-testid="tab-council" :class="{ active: activeEmpireTab === 'council' }" type="button" @click="activeEmpireTab = 'council'"><Braces :size="15" /> Совет карт</button>
           </nav>
           <div class="days-left"><CalendarDays :size="17" /><span><b>{{ state.empire.daysRemaining }}</b> из {{ workingConfig.empire.daysPerPhase }} дней</span></div>
@@ -1821,6 +1843,15 @@ onUnmounted(() => {
           @specialize-smiths="specializeSmiths"
           @move-node="moveTechnology"
           @toggle-dependency="toggleTechnologyDependency"
+        />
+
+        <GovernancePanel
+          v-else-if="activeEmpireTab === 'governance'"
+          :config="workingConfig"
+          :state="state"
+          :engine="engine"
+          @advisor="transitionAdvisor"
+          @assign-governor="assignGovernor"
         />
 
         <div v-else class="council-view">

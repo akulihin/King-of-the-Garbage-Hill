@@ -11,6 +11,7 @@ type QaScenario =
   | 'target-city-resources'
   | 'target-meteor-city'
   | 'empire-council-with-points'
+  | 'governance'
   | 'destroyed-west'
   | 'loyalty-rebellion'
   | 'relic-production-levels'
@@ -60,6 +61,23 @@ function expectStoredValue(key: string, value: string) {
 }
 
 describe('Empire\'s Endgame deterministic browser scenarios', () => {
+  it('resolves one advisor judgment and permanently opens a Perst region', () => {
+    visitScenario('governance')
+    cy.get('[data-testid="governance-panel"]').should('be.visible')
+    cy.get('[data-testid="advisor-pardon-advisor-science"]').click()
+    cy.get('[data-testid="advisor-execute-advisor-trade"]').click()
+    cy.get('[data-testid="advisor-execute-advisor-war"]').click()
+    cy.get('[data-testid="advisor-advisor-science"]').should('contain.text', 'Помилован · активен')
+    cy.get('[data-testid="advisor-advisor-trade"]').should('contain.text', 'Казнён')
+    cy.get('[data-testid="advisor-grand-status"]').should('contain.text', 'Закрыт')
+
+    cy.get('[data-testid="governance-region-north"]').should('contain.text', 'Доступно 2 / 5 городов')
+    cy.get('[data-testid="perst-region-perst-fourth-trevor"]').select('north')
+    cy.get('[data-testid="perst-assign-perst-fourth-trevor"]').click()
+    cy.get('[data-testid="perst-perst-fourth-trevor"]').should('contain.text', 'Губернатор: Северный регион')
+    cy.get('[data-testid="governance-region-north"]').should('contain.text', 'Доступно 5 / 5 городов')
+  })
+
   it('shows and executes pending finish immediately, without a refresh', () => {
     let unloaded = false
     visitScenario('pending-take', (window) => {
@@ -228,7 +246,8 @@ describe('Empire\'s Endgame deterministic browser scenarios', () => {
 
     cy.get('[data-testid="open-constructor"]').click()
     cy.get('[data-testid="constructor-save"]').click()
-    cy.contains('.campaign-toast', 'Правила применены только к QA-стенду').should('be.visible')
+    cy.get('[data-testid="constructor-save"]').should('contain.text', 'Сохранено')
+    cy.get('[data-testid="qa-digest"]').should('be.visible')
     expectStoredValue(SAVE_STORAGE_KEY, productionCampaign)
     expectStoredValue(CONFIG_STORAGE_KEY, productionConfig)
 
