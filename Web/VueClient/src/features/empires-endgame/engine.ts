@@ -102,7 +102,7 @@ function uniqueIds<T extends { id: string }>(values: readonly T[]): boolean {
 
 export function validateEmpiresEndgameConfig(config: EmpiresEndgameConfig): string[] {
   const errors: string[] = []
-  if (config.schemaVersion !== 1) errors.push('schemaVersion must be 1')
+  if (config.schemaVersion !== 2) errors.push('schemaVersion must be 2')
   if (!config.id.trim()) errors.push('config id is required')
   if (config.cards.length !== 53) errors.push('cards must contain exactly 53 definitions')
   if (!uniqueIds(config.cards)) errors.push('card definition ids must be unique')
@@ -941,6 +941,7 @@ export class EmpiresEndgameEngine {
         stage: 'attack',
         defenderHandAtBoutStart: 0,
         bout: 1,
+        godInterventions: 0,
       },
       performance: emptyPerformance(),
       con: 1,
@@ -972,6 +973,7 @@ export class EmpiresEndgameEngine {
           foodCommitted: 0,
           lastProduction: {},
           lastStarvationLoss: 0,
+          loyalty: 0,
         })),
         researchedTechnologyIds: [],
         claimedGiftIds: [],
@@ -986,6 +988,20 @@ export class EmpiresEndgameEngine {
         giftResolutionTargets: {},
       },
       pendingResolution: null,
+      minigame: null,
+      minigameResultLog: [],
+      army: {
+        equipmentStock: {},
+        pendingLoyaltyDeltas: [],
+        morale: 0,
+        veterans: {},
+      },
+      external: {
+        allianceThreat: 0,
+        pendingOffers: [],
+      },
+      epidemics: [],
+      quests: {},
       event: null,
       outcomeReason: null,
       revision: 0,
@@ -1003,6 +1019,24 @@ export class EmpiresEndgameEngine {
     if (snapshot.schemaVersion !== 1) throw new Error('Unsupported Empire\'s Endgame snapshot schema')
     if (snapshot.configId !== this.config.id) throw new Error('Snapshot belongs to a different config')
     const state = cloneSerializable(snapshot)
+    state.minigame ??= null
+    state.minigameResultLog ??= []
+    state.army ??= {
+      equipmentStock: {},
+      pendingLoyaltyDeltas: [],
+      morale: 0,
+      veterans: {},
+    }
+    state.army.equipmentStock ??= {}
+    state.army.pendingLoyaltyDeltas ??= []
+    state.army.morale ??= 0
+    state.army.veterans ??= {}
+    state.external ??= { allianceThreat: 0, pendingOffers: [] }
+    state.external.allianceThreat ??= 0
+    state.external.pendingOffers ??= []
+    state.epidemics ??= []
+    state.quests ??= {}
+    state.durak.godInterventions ??= 0
     const missingDestroyedRegionState = state.empire.destroyedRegionIds === undefined
     const missingBuildingBonusState = state.empire.buildingLevelBonuses === undefined
     const citiesMissingInteractionLocks = new Set(
@@ -1011,6 +1045,7 @@ export class EmpiresEndgameEngine {
         .map(city => city.id),
     )
     for (const city of state.empire.cities) {
+      city.loyalty ??= 0
       city.operationalBuildingLevels ??= { ...city.buildingLevels }
       city.buildingSlotAssignments ??= Object.fromEntries(
         (this.cityDefinition(city.id)?.slots ?? []).flatMap(

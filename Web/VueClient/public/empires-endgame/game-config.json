@@ -1,8 +1,32 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "empires-endgame-default",
   "title": "Empire's Endgame",
   "seed": "empires-endgame-authoritative-default-v1",
+  "combat": {
+    "enabled": false,
+    "damageTypes": [],
+    "armorClasses": [],
+    "counterRules": [],
+    "equipment": []
+  },
+  "td": {
+    "enabled": false,
+    "battlefields": [],
+    "towers": [],
+    "waves": []
+  },
+  "god": {
+    "enabled": false,
+    "lines": [],
+    "deckMemoryRules": [],
+    "antiBitoRules": []
+  },
+  "quests": {
+    "enabled": false,
+    "definitions": [],
+    "dialogueGraphs": []
+  },
   "cards": [
     {
       "id": "card-clubs-2",
@@ -1875,6 +1899,15 @@
     ]
   },
   "empire": {
+    "seasons": {
+      "enabled": false,
+      "definitions": []
+    },
+    "loyalty": {
+      "enabled": false,
+      "cityRules": [],
+      "regionRules": []
+    },
     "daysPerPhase": 59,
     "foodResourceId": "food",
     "eventChance": 0.35,

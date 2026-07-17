@@ -40,7 +40,7 @@ function makeCards(): EmpiresCardDefinition[] {
 
 function makeConfig(): EmpiresEndgameConfig {
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     id: 'engine-test',
     title: "Empire's Endgame",
     seed: 'deterministic-test',
@@ -247,7 +247,19 @@ function makeConfig(): EmpiresEndgameConfig {
           choices: [{ id: 'event-b-choice', label: 'B', effects: [] }],
         },
       ],
+      seasons: { enabled: false, definitions: [] },
+      loyalty: { enabled: false, cityRules: [], regionRules: [] },
     },
+    combat: {
+      enabled: false,
+      damageTypes: [],
+      armorClasses: [],
+      counterRules: [],
+      equipment: [],
+    },
+    td: { enabled: false, battlefields: [], towers: [], waves: [] },
+    god: { enabled: false, lines: [], deckMemoryRules: [], antiBitoRules: [] },
+    quests: { enabled: false, definitions: [], dialogueGraphs: [] },
   }
 }
 

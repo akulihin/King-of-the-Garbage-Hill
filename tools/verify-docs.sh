@@ -74,7 +74,7 @@ resolve() {
     ArmySelectPhase.vue|CombatPhase.vue|FleetBuildPhase.vue|GameOverPhase.vue|LobbyPhase.vue|PlacementPhase.vue)
       echo "$V/components/battleship/phases/$1";;
     FortressOfDoom.vue) echo "$V/components/Home/$1";;
-    BOT-AI-DESIGNER-REVIEW.md|BATTLESHIP-DESIGNER-REVIEW.md) echo "docs/$1";;
+    BOT-AI-DESIGNER-REVIEW.md|BATTLESHIP-DESIGNER-REVIEW.md|EMPIRES-ENDGAME-DESIGN-REVIEW.md) echo "docs/$1";;
     *.cs) f=$(find $B/Game/Characters -name "$1" 2>/dev/null | head -1); echo "$f";;
     *) echo "";;
   esac
@@ -95,7 +95,7 @@ DRIFTS=$(mktemp)
 trap 'rm -f "$DRIFTS"' EXIT
 export LC_ALL=C
 declare -A LINECOUNT   # file → wc -l cache (biggest win: avoid re-stat'ing the same file per anchor)
-for doc in docs/GAME-DESIGN.md docs/ARCHITECTURE.md docs/CHARACTERS.md docs/AUDIT-FINDINGS.md docs/BALANCE-CONSTANTS.md docs/BOT-AI-DESIGNER-REVIEW.md docs/BATTLESHIP-DESIGNER-REVIEW.md docs/INTERACTION-MATRIX.md docs/WEB-BACKEND.md docs/WEB-CLIENT.md docs/DISCORD-INTERFACE.md docs/LOCALIZATION.md docs/ACHIEVEMENTS.md docs/DAILY-QUESTS.md; do
+for doc in docs/GAME-DESIGN.md docs/ARCHITECTURE.md docs/CHARACTERS.md docs/AUDIT-FINDINGS.md docs/BALANCE-CONSTANTS.md docs/BOT-AI-DESIGNER-REVIEW.md docs/BATTLESHIP-DESIGNER-REVIEW.md docs/EMPIRES-ENDGAME-DESIGN-REVIEW.md docs/INTERACTION-MATRIX.md docs/WEB-BACKEND.md docs/WEB-CLIENT.md docs/DISCORD-INTERFACE.md docs/LOCALIZATION.md docs/ACHIEVEMENTS.md docs/DAILY-QUESTS.md; do
   [ -f "$doc" ] || continue
   # Group all anchors per citing doc line so drift is judged against their COMBINED context
   while IFS='|' read -r docline anchors; do

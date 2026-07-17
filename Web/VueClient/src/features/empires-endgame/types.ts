@@ -378,6 +378,50 @@ export interface EmpiresMapConfig {
   objects: EmpiresMapObjectDefinition[]
 }
 
+/**
+ * Disabled schema-v2 homes for systems implemented by later completion phases.
+ * Their catalogs deliberately have no entry shape yet: the owning phase defines it
+ * when the corresponding system becomes executable.
+ */
+export interface EmpiresCombatScaffoldConfig {
+  enabled: boolean
+  damageTypes: never[]
+  armorClasses: never[]
+  counterRules: never[]
+  equipment: never[]
+}
+
+export interface EmpiresTdScaffoldConfig {
+  enabled: boolean
+  battlefields: never[]
+  towers: never[]
+  waves: never[]
+}
+
+export interface EmpiresGodScaffoldConfig {
+  enabled: boolean
+  lines: never[]
+  deckMemoryRules: never[]
+  antiBitoRules: never[]
+}
+
+export interface EmpiresQuestsScaffoldConfig {
+  enabled: boolean
+  definitions: never[]
+  dialogueGraphs: never[]
+}
+
+export interface EmpiresSeasonsScaffoldConfig {
+  enabled: boolean
+  definitions: never[]
+}
+
+export interface EmpiresLoyaltyScaffoldConfig {
+  enabled: boolean
+  cityRules: never[]
+  regionRules: never[]
+}
+
 export interface EmpiresEmpireConfig {
   daysPerPhase: number
   foodResourceId: string
@@ -394,6 +438,8 @@ export interface EmpiresEmpireConfig {
   units?: EmpiresUnitDefinition[]
   technologies: EmpiresTechnologyDefinition[]
   events: EmpiresEventDefinition[]
+  seasons: EmpiresSeasonsScaffoldConfig
+  loyalty: EmpiresLoyaltyScaffoldConfig
 }
 
 export interface EmpiresUpgradeConfig {
@@ -403,7 +449,7 @@ export interface EmpiresUpgradeConfig {
 }
 
 export interface EmpiresEndgameConfig {
-  schemaVersion: 1
+  schemaVersion: 2
   id: string
   title: string
   seed: string | number
@@ -412,6 +458,10 @@ export interface EmpiresEndgameConfig {
   upgrades: EmpiresUpgradeConfig
   gifts: EmpiresGiftConfig
   empire: EmpiresEmpireConfig
+  combat: EmpiresCombatScaffoldConfig
+  td: EmpiresTdScaffoldConfig
+  god: EmpiresGodScaffoldConfig
+  quests: EmpiresQuestsScaffoldConfig
 }
 
 export interface EmpiresRngState {
@@ -445,6 +495,7 @@ export interface EmpiresDurakState {
   stage: EmpiresBoutStage
   defenderHandAtBoutStart: number
   bout: number
+  godInterventions: number
 }
 
 export interface EmpiresPerformanceState {
@@ -475,6 +526,31 @@ export interface EmpiresCityState {
   foodCommitted: number
   lastProduction: Record<string, number>
   lastStarvationLoss: number
+  loyalty: number
+}
+
+export interface EmpiresPendingLoyaltyDelta {
+  cityId?: string
+  regionId?: string
+  amount: number
+  sourceId: string
+}
+
+export interface EmpiresVeteranState {
+  unitId: string
+  wounds: number
+}
+
+export interface EmpiresArmyState {
+  equipmentStock: Record<string, number>
+  pendingLoyaltyDeltas: EmpiresPendingLoyaltyDelta[]
+  morale: number
+  veterans: Record<string, EmpiresVeteranState>
+}
+
+export interface EmpiresExternalState {
+  allianceThreat: number
+  pendingOffers: never[]
 }
 
 export interface EmpiresProductionBoostAssignment {
@@ -524,6 +600,12 @@ export interface EmpiresCampaignState {
   performanceScore: number
   giftChoiceIds: string[]
   pendingResolution: EmpiresPendingGiftResolution | null
+  minigame: null
+  minigameResultLog: never[]
+  army: EmpiresArmyState
+  external: EmpiresExternalState
+  epidemics: never[]
+  quests: Record<string, never>
   empire: EmpiresEmpireState
   event: EmpiresEventState | null
   outcomeReason: string | null

@@ -3,9 +3,102 @@ import { validateEmpiresEndgameConfig } from './engine'
 
 export const EMPIRES_CONFIG_URL = '/empires-endgame/game-config.json'
 export const EMPIRES_CONFIG_STORAGE_KEY = 'empires-endgame:config:v1'
+export const EMPIRES_CONFIG_SCHEMA_VERSION = 2
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+const COMBAT_SCAFFOLD = {
+  enabled: false,
+  damageTypes: [],
+  armorClasses: [],
+  counterRules: [],
+  equipment: [],
+}
+
+const TD_SCAFFOLD = {
+  enabled: false,
+  battlefields: [],
+  towers: [],
+  waves: [],
+}
+
+const GOD_SCAFFOLD = {
+  enabled: false,
+  lines: [],
+  deckMemoryRules: [],
+  antiBitoRules: [],
+}
+
+const QUESTS_SCAFFOLD = {
+  enabled: false,
+  definitions: [],
+  dialogueGraphs: [],
+}
+
+const SEASONS_SCAFFOLD = {
+  enabled: false,
+  definitions: [],
+}
+
+const LOYALTY_SCAFFOLD = {
+  enabled: false,
+  cityRules: [],
+  regionRules: [],
+}
+
+function cloneJson<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value)) as T
+}
+
+function withScaffoldDefaults(
+  value: unknown,
+  defaults: Record<string, unknown>,
+): unknown {
+  if (value === undefined) return cloneJson(defaults)
+  if (!isRecord(value)) return value
+  return { ...cloneJson(defaults), ...value }
+}
+
+function migrateEmpiresConfigV1ToV2(config: Record<string, unknown>): Record<string, unknown> {
+  config.combat = withScaffoldDefaults(config.combat, COMBAT_SCAFFOLD)
+  config.td = withScaffoldDefaults(config.td, TD_SCAFFOLD)
+  config.god = withScaffoldDefaults(config.god, GOD_SCAFFOLD)
+  config.quests = withScaffoldDefaults(config.quests, QUESTS_SCAFFOLD)
+  if (isRecord(config.empire)) {
+    config.empire.seasons = withScaffoldDefaults(config.empire.seasons, SEASONS_SCAFFOLD)
+    config.empire.loyalty = withScaffoldDefaults(config.empire.loyalty, LOYALTY_SCAFFOLD)
+  }
+  config.schemaVersion = 2
+  return config
+}
+
+const EMPIRES_CONFIG_MIGRATIONS: Record<
+  number,
+  (config: Record<string, unknown>) => Record<string, unknown>
+> = {
+  1: migrateEmpiresConfigV1ToV2,
+}
+
+/**
+ * Clones JSON config input and applies every sequential migration before validation.
+ * Current-version inputs are cloned but otherwise unchanged.
+ */
+export function migrateEmpiresConfig(raw: unknown): unknown {
+  if (!isRecord(raw)) return raw
+  let migrated = cloneJson(raw)
+  let version = migrated.schemaVersion
+  if (typeof version === 'number' && version > EMPIRES_CONFIG_SCHEMA_VERSION) {
+    throw new Error(`Unsupported future Empire's Endgame config schemaVersion ${version}.`)
+  }
+  while (typeof version === 'number' && version < EMPIRES_CONFIG_SCHEMA_VERSION) {
+    const migrate = EMPIRES_CONFIG_MIGRATIONS[version]
+    if (!migrate) break
+    migrated = migrate(migrated)
+    version = migrated.schemaVersion
+  }
+  return migrated
 }
 
 const EMPIRES_BUILDING_SLOT_KINDS = new Set<EmpiresBuildingSlotKind>([
@@ -237,9 +330,26 @@ function validateLiveEffects(config: EmpiresEndgameConfig): string[] {
   return errors
 }
 
+function validateScaffoldSection(
+  value: unknown,
+  path: string,
+  catalogKeys: readonly string[],
+): void {
+  if (!isRecord(value)) throw new Error(`${path} must be an object.`)
+  if (typeof value.enabled !== 'boolean') throw new Error(`${path}.enabled must be a boolean.`)
+  for (const key of catalogKeys) {
+    if (!Array.isArray(value[key])) throw new Error(`${path}.${key} must be an array.`)
+    if (value.enabled && value[key].length === 0) {
+      throw new Error(`${path}.${key} must not be empty when ${path}.enabled is true.`)
+    }
+  }
+}
+
 export function validateEmpiresConfig(value: unknown): asserts value is EmpiresEndgameConfig {
   if (!isRecord(value)) throw new Error('Конфигурация должна быть JSON-объектом.')
-  if (value.schemaVersion !== 1) throw new Error('Поддерживается только schemaVersion 1.')
+  if (value.schemaVersion !== EMPIRES_CONFIG_SCHEMA_VERSION) {
+    throw new Error(`Поддерживается только schemaVersion ${EMPIRES_CONFIG_SCHEMA_VERSION}.`)
+  }
   if (typeof value.id !== 'string' || !value.id.trim()) throw new Error('У конфигурации отсутствует id.')
   if (typeof value.title !== 'string' || !value.title.trim()) throw new Error('У конфигурации отсутствует title.')
   if (!Array.isArray(value.cards)) throw new Error('Поле cards должно быть массивом.')
@@ -263,6 +373,17 @@ export function validateEmpiresConfig(value: unknown): asserts value is EmpiresE
     throw new Error('Отсутствует каталог божественных даров.')
   }
   if (!isRecord(value.empire)) throw new Error('Отсутствуют настройки имперской фазы.')
+  validateScaffoldSection(value.combat, 'combat', [
+    'damageTypes',
+    'armorClasses',
+    'counterRules',
+    'equipment',
+  ])
+  validateScaffoldSection(value.td, 'td', ['battlefields', 'towers', 'waves'])
+  validateScaffoldSection(value.god, 'god', ['lines', 'deckMemoryRules', 'antiBitoRules'])
+  validateScaffoldSection(value.quests, 'quests', ['definitions', 'dialogueGraphs'])
+  validateScaffoldSection(value.empire.seasons, 'empire.seasons', ['definitions'])
+  validateScaffoldSection(value.empire.loyalty, 'empire.loyalty', ['cityRules', 'regionRules'])
   if (!Array.isArray(value.empire.cities)) throw new Error('Поле empire.cities должно быть массивом.')
   if (!isRecord(value.empire.map) || !Array.isArray(value.empire.map.regions) || value.empire.map.regions.length !== 5) {
     throw new Error('На карте должно быть ровно пять регионов.')
@@ -294,24 +415,28 @@ export function validateEmpiresConfig(value: unknown): asserts value is EmpiresE
   if (engineErrors.length > 0) throw new Error(engineErrors.join('\n'))
 }
 
-export function cloneEmpiresConfig(config: EmpiresEndgameConfig): EmpiresEndgameConfig {
+function migrateAndValidateEmpiresConfig(value: unknown): EmpiresEndgameConfig {
+  const migrated = migrateEmpiresConfig(value)
+  validateEmpiresConfig(migrated)
+  return migrated
+}
+
+export function cloneEmpiresConfig(config: unknown): EmpiresEndgameConfig {
   // Configs are JSON data, but Vue passes this helper reactive Proxies from the
   // page and Builder props. Browsers reject Proxy objects in structuredClone.
-  return JSON.parse(JSON.stringify(config)) as EmpiresEndgameConfig
+  return migrateAndValidateEmpiresConfig(config)
 }
 
 export function parseEmpiresConfig(text: string): EmpiresEndgameConfig {
   const value: unknown = JSON.parse(text)
-  validateEmpiresConfig(value)
-  return value
+  return migrateAndValidateEmpiresConfig(value)
 }
 
 export async function loadBundledEmpiresConfig(): Promise<EmpiresEndgameConfig> {
   const response = await fetch(EMPIRES_CONFIG_URL, { cache: 'no-cache' })
   if (!response.ok) throw new Error(`Не удалось загрузить игру: HTTP ${response.status}.`)
   const value: unknown = await response.json()
-  validateEmpiresConfig(value)
-  return value
+  return migrateAndValidateEmpiresConfig(value)
 }
 
 export async function loadEmpiresConfig(): Promise<EmpiresEndgameConfig> {
@@ -329,8 +454,8 @@ export async function loadEmpiresConfig(): Promise<EmpiresEndgameConfig> {
 }
 
 export function saveEmpiresConfig(config: EmpiresEndgameConfig) {
-  validateEmpiresConfig(config)
-  window.localStorage.setItem(EMPIRES_CONFIG_STORAGE_KEY, JSON.stringify(config))
+  const migrated = migrateAndValidateEmpiresConfig(config)
+  window.localStorage.setItem(EMPIRES_CONFIG_STORAGE_KEY, JSON.stringify(migrated))
 }
 
 export function clearCustomEmpiresConfig() {
