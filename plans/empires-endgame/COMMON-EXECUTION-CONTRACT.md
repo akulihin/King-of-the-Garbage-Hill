@@ -5,9 +5,9 @@ This contract is binding for every remaining phase prompt. Read it together with
 the selected phase, and the phase's named raw design sources. A phase may add stricter
 requirements but may not weaken this contract.
 
-Phases 0 and 1 are complete. Phase 2 is an active implementation change-set and its prompt
-is now historical; do not reopen completed work merely because a later prompt describes a
-better contract. Phase 3A owns a targeted reconciliation of any unfinished Phase-2 work.
+Phases 0, 1, and 2 are complete and their prompts are historical. Do not reopen completed
+work merely because a later prompt describes a better contract. Phase 3A begins the
+remaining program with regression evidence plus its explicitly listed post-P2 hardening.
 
 ## 1. Source and scope discipline
 

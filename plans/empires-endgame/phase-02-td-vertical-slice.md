@@ -1,8 +1,10 @@
 # Phase 2 — TD vertical slice → army goes live
 
-Use this file as the opening instruction for a fresh Codex task running 5.6 Sol. Execute
-one complete change-set. Dependencies: Phase 0's migrations/state homes and Phase 1's
-`combat/` module. Verify both in code and tests; do not assume they landed cleanly.
+> **Status: complete (2026-07-17).** This file is retained as the historical execution
+> prompt. Do not re-run or expand it; Phase 3A owns subsequent TD hardening and regional work.
+
+This phase was executed as one change-set after Phase 0's migrations/state homes and Phase
+1's `combat/` module. Its detailed instructions below are retained as implementation history.
 
 ## Executor rules (binding)
 

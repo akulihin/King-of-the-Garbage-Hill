@@ -20,8 +20,8 @@ Status meanings:
 |---|---|---|---|
 | Config migration chain, test discovery, review ledger | P0 | Complete | Historical prompt; regression only. |
 | Pure combat/damage/counter catalog | P1 | Complete | Historical prompt; P3B consumes it. |
-| Shared minigame envelope, central TD slice, army substrate | P2 | Active/near complete | P3A reconciles only unfinished obligations. |
-| Replay config identity, tick-index commands, bounded logs, input/accessibility carryover | P3A | Owned | Applies to the P2 envelope/TD before additional minigames depend on it. |
+| Shared minigame envelope, central TD slice, army substrate | P2 | Complete | Historical baseline; P3A regression-checks it without reopening P2. |
+| Replay config identity, tick-index commands, bounded logs, input/accessibility hardening | P3A | Owned | Explicit post-P2 work applied before additional minigames depend on the envelope. |
 | Five TD regions, castle/naval enemy mode, grade matrix, reusable assault | P3A | Owned | No steel progression in this change-set. |
 | Full latest steel source, equipment production, military buildings | P3B | Owned | Existing 22 IDs are not assumed to be the whole authored tree. |
 | City/region loyalty, reputation, rebellion, class gates, chronicle | P4A | Owned | Includes TD-loss funnel and northern-raids event. |
@@ -46,7 +46,7 @@ Status meanings:
 | Design item | Owner | Status / note |
 |---|---|---|
 | Farm, Lumber, Mine, Small Temple, Granary, Trade Levy | Historical | Complete; regression coverage only. |
-| Barracks, Smithy | P2/P3A carryover | Finish only if P2 leaves a concrete incomplete contract. |
+| Barracks, Smithy | P2 | Complete | P3A/P3B consume them; later changes require a verified new requirement or regression. |
 | Foundry, Military Academy | P3B | Existing conditional carriers. |
 | Мастерская, Баллиста, Двор Гвардейской Дружины | P3B | Config-absent candidates; add only with complete authored military consumers. |
 | Capital Forum | P4A | Loyalty in both directions plus every retained effect. |
@@ -65,7 +65,7 @@ Status meanings:
 
 | Family | Owner | Status / rule |
 |---|---|---|
-| Military units, ♥7, combat-spirit gift | P2/P3A carryover | Reconcile only unfinished P2 work. |
+| Military units, ♥7, combat-spirit gift | P2 | Complete | Regression coverage only unless a later owned feature requires an explicit extension. |
 | Steel technologies, war buildings, morale relic, conditional ♥A | P3B | Exact current IDs plus raw-tree additions with stable IDs. |
 | Loyalty/political cards, northern raids, political reforms | P4A/P4B | Each face/reform is an independent closure contract. |
 | Vaccination/disease faces, epidemic relic/event | P5 | Дженна mapping remains unproven until raw/config identity matches. |

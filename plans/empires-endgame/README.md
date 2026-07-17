@@ -28,8 +28,8 @@ Current execution status supplied by the designer on 2026-07-17:
 
 - **Phase 0 — complete.** Its prompt is historical; do not amend/re-run it.
 - **Phase 1 — complete.** Its prompt is historical; do not amend/re-run it.
-- **Phase 2 — implementation active and almost complete.** Do not expand its prompt.
-  Phase 3A audits the landed result and owns any still-missing P2 obligations.
+- **Phase 2 — complete.** Its prompt is historical; do not amend or re-run it. Phase 3A
+  regression-checks the landed baseline and owns the explicitly listed post-P2 hardening.
 - **Next prompt: Phase 3A** (`phase-03-td-regions-steel.md`).
 
 Scope decisions confirmed by the designer (2026-07-16):
@@ -45,7 +45,7 @@ Scope decisions confirmed by the designer (2026-07-16):
 ```mermaid
 graph TD
   P0[0 complete] --> P1[1 complete]
-  P1 --> P2[2 active / near complete]
+  P1 --> P2[2 complete]
   P2 --> P3A[3A TD hardening + regions + assault]
   P3A --> P3B[3B steel + military production]
   P3A --> P4A[4A loyalty + reputation + rebellion]
@@ -81,8 +81,8 @@ graph TD
 |---|---|
 | `phase-00-scaffolding.md` | **Complete/historical.** Config/save migrations, ledger, test discovery. |
 | `phase-01-combat-core.md` | **Complete/historical.** Pure combat/damage/counter catalog. |
-| `phase-02-td-vertical-slice.md` | **Active/near complete; prompt frozen.** Central TD, envelope, army. |
-| `phase-03-td-regions-steel.md` | **3A:** P2 reconciliation, replay/config identity, input/accessibility hardening, five regional TD fields, castle/naval enemy variants, assault. |
+| `phase-02-td-vertical-slice.md` | **Complete/historical.** Central TD, envelope, army. |
+| `phase-03-td-regions-steel.md` | **3A:** P2 baseline regression, replay/config identity, input/accessibility hardening, five regional TD fields, castle/naval enemy variants, assault. |
 | `phase-03b-steel-equipment.md` | **3B:** latest steel tree, equipment production, foundry/academy, missing military-building audit. |
 | `phase-04-loyalty-seasons.md` | **4A:** loyalty, reputation, rebellion, class gates, chronicle, northern raids. |
 | `phase-04b-seasons-tech-sides.md` | **4B:** seasons, technology sides, political reforms, crime substrate. |
@@ -100,6 +100,39 @@ graph TD
 | `phase-12-chess.md` | Chess design gate; implementation stays disabled until the rules table is executable. |
 | `phase-12b-content-closure.md` | Raw-source/config carrier closure sweep; no new substrate. |
 | `phase-13-stabilization.md` | Earliest-to-latest compatibility, all-minigame integration, storage/performance stabilization. |
+
+## How to execute the remaining prompts
+
+Run **one phase/subphase file per fresh Codex task and per change-set**. Do not combine
+`3A`+`3B`, `4A`+`4B`+`4C`, `6A`+`6B`+`6C`, `11A`+`11B`, or `12`+`12B` in one prompt.
+Finish, review, and let the user commit (or otherwise cleanly isolate) one change-set before
+starting its dependent prompt. The lettered files are dependency boundaries, not chapters
+to paste into one large task.
+
+The graph permits some separate-worktree parallelism, but these phases commonly touch the
+same config, types, engine, docs, and version file. The safest single-worktree order is:
+
+`3A → 3B → 4A → 4B → 4C → 5 → 6A → 6B → 6C → 7 → 8 → 9 → 10 → 11A → 11B → 12 → 12B → 13`.
+
+Use this opening prompt, replacing `<phase-file>` with exactly one file:
+
+```text
+Execute plans/empires-endgame/<phase-file>.md completely as one change-set.
+Read AGENTS.md, plans/empires-endgame/README.md,
+plans/empires-endgame/COMMON-EXECUTION-CONTRACT.md, and
+plans/empires-endgame/COVERAGE-MATRIX.md first. Treat the selected phase file as
+authoritative for phase scope and ownership, its named raw design sources as authoritative
+for mechanics and numbers, and the common execution contract as binding.
+
+Verify prerequisites and prior-phase handoffs from the current code, tests, documentation,
+migrations, and git status. Preserve unrelated work. Do not reopen completed phases or begin
+later subphases. In Ultra, use subagents only for bounded audits/tests and retain one writer
+for shared implementation files.
+
+Complete the implementation, affected documentation, sequential GameVersion patch bump,
+commit-message preparation, coverage/deferred-ledger updates, and all feasible verification
+gates. Do not commit or push.
+```
 
 ## Binding execution and coverage contracts
 

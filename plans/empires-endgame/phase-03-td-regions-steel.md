@@ -2,15 +2,15 @@
 
 Use this file as the opening instruction for a fresh Codex 5.6 Sol task. Read
 `COMMON-EXECUTION-CONTRACT.md` and `COVERAGE-MATRIX.md`; both are binding. This is the
-first prompt after the completed P0/P1 work and the active/near-complete P2 change-set.
+first prompt after the completed P0/P1/P2 change-sets.
 
-Execute one change-set. Do not start until Phase 2 has a coherent handoff: its current
-implementation, tests, docs, version bump, and commit-message proposal are either complete
-or the exact unfinished items have been identified for the carryover gate below.
+Execute one change-set from the completed Phase-2 baseline. Verify that handoff from current
+code/tests/docs rather than re-running or editing the historical P2 prompt.
 
 ## Guaranteed deliverable
 
-1. Reconcile—not redo—P2 and close only its concrete unfinished obligations.
+1. Regression-audit—not redo—the completed P2 baseline while applying only the explicit
+   post-P2 hardening below.
 2. Harden the shared minigame/TD contract with immutable rules identity, logical command
    times, active-config safety, bounded histories, background-tab behavior, accessible
    controls, and one real input-path test.
@@ -39,9 +39,9 @@ Raw leads to verify:
 Enemy ships in a TD plan do not create a player fleet or persistent siege system. P6B may
 not use this phase as proof that player-fleet semantics exist.
 
-## Preflight and Phase-2 carryover gate
+## Preflight and Phase-2 baseline gate
 
-Audit actual P2 code/tests/docs against its frozen prompt. Produce a short checklist in the
+Audit actual P2 code/tests/docs against its historical prompt. Produce a short checklist in the
 task plan for:
 
 - minigame session/result/origin and phase return;
@@ -53,9 +53,10 @@ task plan for:
 - the exact P2 carriers: four units, Barracks, Smithy, `tech-ironwork`, `doctrine-war`,
   both ♥7 faces, and `gift-combat-spirit`.
 
-If an item is already complete, regression-test it and leave it alone. If it is concretely
-unfinished, complete it inside this P3A change-set before regional expansion. Do not reopen
-P0/P1 or broaden P2 beyond this list. Preserve the user's current P2 worktree exactly.
+Treat these items as the completed baseline. Regression-test them and leave them alone when
+healthy. If the audit exposes a real prerequisite regression, repair and record it as P3A
+prerequisite work before regional expansion; do not edit/re-run P0/P1/P2 or broaden the
+historical P2 scope. Preserve unrelated work.
 
 ## Work items
 
@@ -108,8 +109,8 @@ P0/P1 or broaden P2 beyond this list. Preserve the user's current P2 worktree ex
   is un-deferred here; P3B owns them.
 - Do not un-defer `event-northern-raids`: its authored choices are loyalty effects owned by
   P4A, not an invented TD battle.
-- P2 carriers may change only under the carryover checklist above. Record each already-live,
-  completed-here, or still-blocked result explicitly.
+- P2 carriers may change only for a verified prerequisite regression or an explicitly owned
+  P3A extension. Record baseline evidence and every such change explicitly.
 
 ## Verification additions
 
@@ -119,7 +120,7 @@ P0/P1 or broaden P2 beyond this list. Preserve the user's current P2 worktree ex
   terminal outcomes; no duplicate campaign settlement.
 - Background pause/catch-up cap, command-log validation/retention, active config-import
   rejection, keyboard/pointer command smoke, and accessible state/disabled reasons.
-- Previous config/save fixture; P2 carryover regression manifest; five-field QA sweep under
+- Previous config/save fixture; P2 baseline regression manifest; five-field QA sweep under
   tick/action caps; full standing gate from the common contract.
 
 ## Designer questions
