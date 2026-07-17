@@ -66,6 +66,7 @@ function makeV1Config(): UnknownRecord {
   delete legacy.quests
   const empire = legacy.empire as UnknownRecord
   delete empire.seasons
+  delete empire.hiddenCombinations
   delete empire.loyalty
   return legacy
 }
@@ -175,7 +176,7 @@ afterEach(() => {
 })
 
 describe('Empire\'s Endgame full-chain compatibility scaffolding', () => {
-  it('runs the explicit v1 to v2 to v3 to v4 to v5 chain without mutation and idempotently clones v5', () => {
+  it('runs the explicit v1 to v2 to v3 to v4 to v5 to v6 chain without mutation and idempotently clones v6', () => {
     const legacy = makeV1Config()
     const original = jsonClone(legacy)
 
@@ -183,7 +184,7 @@ describe('Empire\'s Endgame full-chain compatibility scaffolding', () => {
 
     expect(legacy).toEqual(original)
     expect(migrated).toMatchObject({
-      schemaVersion: 5,
+      schemaVersion: 6,
       combat: {
         enabled: false,
         damageTypes: [],
@@ -211,7 +212,13 @@ describe('Empire\'s Endgame full-chain compatibility scaffolding', () => {
       god: { enabled: false, lines: [], deckMemoryRules: [], antiBitoRules: [] },
       quests: { enabled: false, definitions: [], dialogueGraphs: [] },
       empire: {
-        seasons: { enabled: false, definitions: [] },
+        seasons: {
+          enabled: false,
+          definitions: [],
+          foodRounding: 'none',
+          greenhouse: null,
+        },
+        hiddenCombinations: { enabled: false, definitions: [] },
         loyalty: {
           enabled: false,
           minimum: -9,
@@ -231,14 +238,14 @@ describe('Empire\'s Endgame full-chain compatibility scaffolding', () => {
     expect(migrateEmpiresConfig(migrated)).not.toBe(migrated)
   })
 
-  it('rejects an unknown future v6 config before validation', () => {
+  it('rejects an unknown future v7 config before validation', () => {
     const future = jsonClone(defaultConfigJson) as UnknownRecord
-    future.schemaVersion = 6
+    future.schemaVersion = 7
 
     expect(() => migrateEmpiresConfig(future)).toThrow(
-      /Unsupported future Empire's Endgame config schemaVersion 6/,
+      /Unsupported future Empire's Endgame config schemaVersion 7/,
     )
-    expect(() => parseEmpiresConfig(JSON.stringify(future))).toThrow(/future.*schemaVersion 6/i)
+    expect(() => parseEmpiresConfig(JSON.stringify(future))).toThrow(/future.*schemaVersion 7/i)
   })
 
   it('migrates an immediate-previous regional v3 config without mutating stored custom JSON', async () => {
@@ -248,7 +255,7 @@ describe('Empire\'s Endgame full-chain compatibility scaffolding', () => {
 
     expect(previous).toEqual(original)
     expect(migrated).toMatchObject({
-      schemaVersion: 5,
+      schemaVersion: 6,
       td: { regionalCatalogEnabled: true },
       empire: { steelResearch: { forkSourcePriceMultiplier: 2 } },
     })
@@ -259,7 +266,7 @@ describe('Empire\'s Endgame full-chain compatibility scaffolding', () => {
     expect(() => validateEmpiresConfig(migrated)).not.toThrow()
 
     window.localStorage.setItem(EMPIRES_CONFIG_STORAGE_KEY, JSON.stringify(previous))
-    expect((await loadEmpiresConfig()).schemaVersion).toBe(5)
+    expect((await loadEmpiresConfig()).schemaVersion).toBe(6)
   })
 
   it('preserves an explicit empty equipment catalog in a disabled immediate-v3 config', async () => {
@@ -293,7 +300,7 @@ describe('Empire\'s Endgame full-chain compatibility scaffolding', () => {
     const migrated = cloneEmpiresConfig(legacy)
 
     expect(legacy).toEqual(before)
-    expect(migrated.schemaVersion).toBe(5)
+    expect(migrated.schemaVersion).toBe(6)
     expect(migrated.td.regionalCatalogEnabled).toBe(false)
     expect(migrated.td.towerBases).toEqual([
       expect.objectContaining({
@@ -387,16 +394,16 @@ describe('Empire\'s Endgame full-chain compatibility scaffolding', () => {
   it('routes bundled, stored, JSON import, and clone boundaries through migration', async () => {
     const legacy = makeV2Config()
 
-    expect(cloneEmpiresConfig(legacy).schemaVersion).toBe(5)
-    expect(parseEmpiresConfig(JSON.stringify(legacy)).schemaVersion).toBe(5)
+    expect(cloneEmpiresConfig(legacy).schemaVersion).toBe(6)
+    expect(parseEmpiresConfig(JSON.stringify(legacy)).schemaVersion).toBe(6)
     expect((await readEmpiresJsonFile(new File(
       [JSON.stringify(legacy)],
       'legacy-empires-config.json',
       { type: 'application/json' },
-    ))).schemaVersion).toBe(5)
+    ))).schemaVersion).toBe(6)
 
     window.localStorage.setItem(EMPIRES_CONFIG_STORAGE_KEY, JSON.stringify(legacy))
-    expect((await loadEmpiresConfig()).schemaVersion).toBe(5)
+    expect((await loadEmpiresConfig()).schemaVersion).toBe(6)
     window.localStorage.removeItem(EMPIRES_CONFIG_STORAGE_KEY)
 
     vi.stubGlobal('fetch', vi.fn(async () => ({
@@ -404,7 +411,7 @@ describe('Empire\'s Endgame full-chain compatibility scaffolding', () => {
       status: 200,
       json: async () => jsonClone(legacy),
     })))
-    expect((await loadBundledEmpiresConfig()).schemaVersion).toBe(5)
+    expect((await loadBundledEmpiresConfig()).schemaVersion).toBe(6)
   })
 
   it('keeps all unrelated deferred carriers unchanged across the full chain', () => {

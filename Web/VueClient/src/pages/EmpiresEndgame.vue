@@ -144,6 +144,8 @@ const resourceRows = computed(() => {
   }))
 })
 
+const seasonView = computed(() => engine.value?.currentSeasonView() ?? null)
+
 const loyaltyRegionViews = computed(() => {
   if (!state.value || !workingConfig.value) return []
   return workingConfig.value.empire.map.regions.map((region) => {
@@ -1428,6 +1430,11 @@ const technologyNodes = computed(() => {
   )))).sort((left, right) => left - right)
   const fallbackColumnByTier = new globalThis.Map(missingTiers.map((tier, index) => [tier, index]))
   const fallbackRowsByColumn = new Map<number, number>()
+  const specializationOptions = (engine.value?.smithSpecializationOptions() ?? []).map(option => ({
+    id: option.recipeId,
+    name: workingConfig.value!.combat.equipment.find(item => item.id === option.equipmentId)?.name
+      ?? option.equipmentId,
+  }))
   return technologies.map((technology, index) => {
     const fallbackTier = Math.max(1, technology.tier ?? Math.floor(index / 8) + 1)
     const fallbackColumn = fallbackColumnByTier.get(fallbackTier) ?? 0
@@ -1444,6 +1451,7 @@ const technologyNodes = computed(() => {
     const entryTechnology = quote?.entryFromTechnologyId
       ? technologies.find(candidate => candidate.id === quote.entryFromTechnologyId)
       : null
+    const side = engine.value?.technologySideView(technology.id) ?? null
     return {
       id: technology.id,
       name: technology.name,
@@ -1470,7 +1478,19 @@ const technologyNodes = computed(() => {
       steelElite: technology.steel?.eliteRequired,
       steelPayoff: technology.steel?.payoff,
       deferredSubfeatures: technology.deferredSubfeatures,
-      darkSide: technology.tags?.includes('dark-side') ? 'Эта разработка открывает опасную ветвь.' : undefined,
+      technologySide: side ? {
+        name: side.sideName,
+        alignment: side.alignment,
+        revealed: side.revealedAtCon !== null,
+        suppressed: side.suppressedAtCon !== null,
+        disclosureKind: side.disclosureKind,
+      } : undefined,
+      smithSpecializationOptions: technology.id === 'reform-control-smiths' && researched
+        ? specializationOptions
+        : undefined,
+      smithSpecializationRecipeId: technology.id === 'reform-control-smiths'
+        ? state.value!.empire.smithSpecializationRecipeId
+        : undefined,
       image: technology.image,
     }
   })
@@ -1479,6 +1499,10 @@ const technologyNodes = computed(() => {
 function research(technologyId: string) {
   selectedTechnologyId.value = technologyId
   if (engine.value) action(engine.value.research(technologyId))
+}
+
+function specializeSmiths(recipeId: string) {
+  if (engine.value) action(engine.value.chooseSmithSpecialization(recipeId))
 }
 
 function moveTechnology(technologyId: string, x: number, y: number) {
@@ -1715,6 +1739,16 @@ onUnmounted(() => {
         </div>
 
         <div class="resource-ribbon">
+          <span
+            v-if="seasonView"
+            class="season-chip"
+            data-testid="current-season"
+            :title="seasonView.description"
+          >
+            <CalendarDays :size="14" />
+            <small>{{ seasonView.name }}{{ seasonView.greenhouseEqualized ? ' · парники' : '' }}</small>
+            <b>еда ×{{ seasonView.foodProductionMultiplierApplied }}</b>
+          </span>
           <span v-for="resource in resourceRows" :key="resource.id" :title="resource.deferredReason">
             <Coins v-if="resource.id === goldResourceId" :size="14" />
             <Wheat v-else-if="resource.id === foodResourceId" :size="14" />
@@ -1784,6 +1818,7 @@ onUnmounted(() => {
           :days="state.empire.daysRemaining"
           @select="selectedTechnologyId = $event"
           @research="research"
+          @specialize-smiths="specializeSmiths"
           @move-node="moveTechnology"
           @toggle-dependency="toggleTechnologyDependency"
         />
@@ -1881,6 +1916,7 @@ onUnmounted(() => {
 .phase-content { position:relative; z-index:2; max-width:1500px; margin:0 auto; }.cards-phase { display:grid; gap:10px; }.rules-note { display:flex; align-items:flex-start; gap:8px; padding:11px 14px; border:1px solid rgba(216,190,133,.12); border-radius:8px; color:rgba(237,227,205,.52); background:rgba(20,24,20,.82); font-size:.68rem; line-height:1.5; }.rules-note svg { flex:none; color:#b99e5d; }
 .gift-phase { min-height:580px; padding:36px 0; }.gift-intro { max-width:640px; margin:0 auto 28px; text-align:center; }.gift-intro > svg { color:var(--gold); }.gift-intro > span { display:block; margin:9px 0 5px; color:#a9925f; font:800 .6rem/1 monospace; letter-spacing:.12em; text-transform:uppercase; }.gift-intro h2 { margin:0; font:700 2.2rem/1 Georgia,serif; }.gift-intro p { color:rgba(237,227,205,.5); }.gift-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; max-width:1100px; margin:auto; }.gift-grid > button { position:relative; display:grid; min-height:360px; grid-template-rows:auto auto auto 1fr auto auto; place-items:center; padding:21px; overflow:hidden; border:1px solid rgba(211,182,112,.25); border-radius:14px; color:#eee3cc; background:radial-gradient(circle at 50% 20%,rgba(200,169,94,.11),transparent 34%),#171a15; text-align:center; cursor:pointer; transition:transform .15s,border-color .15s; }.gift-grid > button:hover { border-color:#c5a760; transform:translateY(-5px); }.gift-rarity { justify-self:end; color:#b29a64; font:800 .52rem/1 monospace; text-transform:uppercase; }.gift-sigil { display:grid; width:76px; height:76px; place-items:center; margin:11px; border:1px solid rgba(218,187,112,.28); border-radius:50%; color:#d4b564; background:rgba(210,177,95,.06); }.gift-grid h3 { margin:3px; font:700 1.35rem/1.1 Georgia,serif; }.gift-grid p { color:rgba(238,227,204,.54); font-size:.73rem; line-height:1.45; }.gift-grid ul { margin:0; padding:0; color:#c8b786; font-size:.67rem; list-style:none; }.gift-grid strong { align-self:end; margin-top:14px; padding:8px 13px; border-radius:6px; color:#261e12; background:#d6b866; font-size:.72rem; }
 .empire-toolbar { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:9px; padding:8px; border:1px solid rgba(216,190,133,.14); border-radius:10px; background:#141814; }.empire-toolbar nav { display:flex; flex-wrap:wrap; gap:4px; }.empire-toolbar nav button,.end-empire-button { display:inline-flex; min-height:36px; align-items:center; gap:5px; padding:0 11px; border:1px solid transparent; border-radius:6px; color:rgba(237,227,205,.5); background:transparent; cursor:pointer; }.empire-toolbar nav button.active { border-color:rgba(209,177,98,.25); color:#e1c779; background:rgba(209,177,98,.08); }.days-left { display:flex; align-items:center; gap:6px; color:#b8a77f; font-size:.68rem; }.days-left b { color:#e1c779; }.end-empire-button { border-color:#8f7845; color:#261f14; background:#c9aa5e; font-weight:800; }.resource-ribbon { display:flex; gap:6px; margin-bottom:9px; overflow-x:auto; }.resource-ribbon > span { display:grid; min-width:105px; grid-template-columns:auto 1fr; align-items:center; gap:2px 6px; padding:7px 10px; border:1px solid rgba(217,191,133,.12); border-radius:7px; background:rgba(18,22,18,.9); }.resource-ribbon svg { grid-row:1/3; color:#ac945a; }.resource-ribbon small { color:rgba(237,227,205,.42); font-size:.52rem; }.resource-ribbon b { font:800 .76rem/1 Georgia,serif; }
+.resource-ribbon > .season-chip { border-color:rgba(112,161,176,.25); background:rgba(34,64,72,.18); }.resource-ribbon > .season-chip svg { color:#83b2c0; }.resource-ribbon > .season-chip b { color:#b9dce5; }
 .council-view { min-height:550px; padding:20px; border:1px solid rgba(216,190,133,.15); border-radius:16px; background:rgba(18,22,18,.93); }.council-view > header { display:flex; align-items:end; justify-content:space-between; margin-bottom:18px; }.council-view header span { color:#a9935f; font:800 .56rem/1 monospace; text-transform:uppercase; }.council-view h2 { margin:4px 0 0; font:700 1.8rem/1 Georgia,serif; }.council-view header > b { color:#ddc37b; }.council-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:18px; }.council-grid article { display:grid; justify-items:center; align-content:start; gap:9px; }.council-actions { display:grid; width:184px; gap:5px; }.council-actions > button { display:flex; align-items:center; justify-content:center; gap:5px; min-height:34px; border:1px solid rgba(212,180,100,.28); border-radius:6px; color:#deca94; background:rgba(210,176,95,.08); font-size:.65rem; cursor:pointer; }.council-actions > button:disabled { opacity:.42; cursor:not-allowed; }.council-actions > small { color:rgba(237,227,205,.5); font-size:.58rem; text-align:center; }.empty-council { display:grid; min-height:390px; place-content:center; place-items:center; color:rgba(237,227,205,.4); text-align:center; }.empty-council h3 { margin:12px 0 4px; color:#e5d9c2; }
 .event-phase { display:grid; min-height:600px; place-items:center; }.event-card { max-width:760px; padding:34px; border:1px solid rgba(215,184,108,.24); border-radius:16px; background:radial-gradient(circle at 50% 10%,rgba(189,158,90,.1),transparent 28%),#171a15; text-align:center; box-shadow:0 28px 90px rgba(0,0,0,.4); }.event-card > span { color:#ae955c; font:800 .58rem/1 monospace; letter-spacing:.12em; text-transform:uppercase; }.event-icon { display:grid; width:85px; height:85px; place-items:center; margin:18px auto; border:1px solid rgba(217,184,105,.27); border-radius:50%; color:#d2b464; }.event-card h2 { margin:0; font:700 2rem/1 Georgia,serif; }.event-card > p { color:rgba(237,227,205,.55); line-height:1.55; }.event-choices { display:grid; gap:8px; margin-top:24px; text-align:left; }.event-choices button { display:grid; gap:4px; padding:13px 15px; border:1px solid rgba(215,184,108,.16); border-radius:8px; color:#eadfc8; background:rgba(255,255,255,.025); cursor:pointer; }.event-choices button:hover { border-color:#b59856; background:rgba(181,152,86,.07); }.event-choices span { color:rgba(237,227,205,.52); font-size:.7rem; }.event-choices small { color:#bca873; }.event-choices em { color:#83a883; font-size:.65rem; font-style:normal; }
 .outcome-phase { display:grid; min-height:620px; place-content:center; place-items:center; text-align:center; }.outcome-sigil { display:grid; width:120px; height:120px; place-items:center; border:1px solid rgba(212,179,99,.34); border-radius:50%; color:#d7b763; background:rgba(208,175,94,.07); }.outcome-phase.defeat .outcome-sigil { border-color:rgba(169,74,76,.35); color:#bd6e70; background:rgba(130,42,46,.1); }.outcome-phase > span { margin-top:18px; color:#aa935d; font:800 .58rem/1 monospace; letter-spacing:.14em; text-transform:uppercase; }.outcome-phase h2 { margin:7px 0; font:700 2.8rem/1 Georgia,serif; }.outcome-phase > p { max-width:580px; color:rgba(237,227,205,.53); }.outcome-phase dl { display:flex; gap:8px; }.outcome-phase dl div { min-width:105px; padding:11px; border:1px solid rgba(216,190,133,.12); border-radius:8px; }.outcome-phase dt { color:rgba(237,227,205,.42); font-size:.57rem; }.outcome-phase dd { margin:5px 0 0; color:#dec47c; font:800 1.1rem/1 Georgia,serif; }.outcome-phase > button { display:flex; align-items:center; gap:6px; margin-top:20px; padding:11px 15px; border:1px solid #927746; border-radius:7px; color:#271f12; background:#d0af5d; font-weight:800; cursor:pointer; }

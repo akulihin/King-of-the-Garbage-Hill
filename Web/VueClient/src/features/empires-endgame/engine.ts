@@ -13,6 +13,11 @@ import {
   validateTdBattlePlan,
 } from './td/engine'
 import { resolveEmpiresUnitLoadout } from './equipment'
+import {
+  applySeasonFoodProduction,
+  currentSeason,
+  currentSeasonFoodMultiplier,
+} from './seasons'
 import { EMPIRES_RANKS, EMPIRES_SUITS } from './types'
 import type {
   EmpiresActionResult,
@@ -49,6 +54,9 @@ import type {
   EmpiresStateListener,
   EmpiresSuit,
   EmpiresTechnologyDefinition,
+  EmpiresTechnologySideDefinition,
+  EmpiresTechnologySideView,
+  EmpiresSeasonView,
   EmpiresUnitDefinition,
   TdBattleConsequenceDefinition,
   TdBattlePlan,
@@ -71,6 +79,8 @@ const EFFECT_KINDS = [
   'foodProduction',
   'population',
   'loyalty',
+  'loyaltyAllCities',
+  'classLoyalty',
   'reputation',
   'flag',
 ] as const
@@ -280,7 +290,7 @@ function uniqueIds<T extends { id: string }>(values: readonly T[]): boolean {
 
 export function validateEmpiresEndgameConfig(config: EmpiresEndgameConfig): string[] {
   const errors: string[] = []
-  if (config.schemaVersion !== 5) errors.push('schemaVersion must be 5')
+  if (config.schemaVersion !== 6) errors.push('schemaVersion must be 6')
   if (!config.id.trim()) errors.push('config id is required')
   if (config.cards.length !== 53) errors.push('cards must contain exactly 53 definitions')
   if (!uniqueIds(config.cards)) errors.push('card definition ids must be unique')
@@ -421,6 +431,8 @@ export class EmpiresEndgameEngine {
     this.syncArmyMoraleCap()
     this.scheduleDelayedSteelResearch()
     this.awardDueSteelResearch()
+    this.evaluateHiddenCombinations()
+    this.processTechnologyDisclosures()
     this.refreshProductions()
   }
 
@@ -442,6 +454,8 @@ export class EmpiresEndgameEngine {
     this.state = this.validateAndCloneSnapshot(snapshot)
     this.scheduleDelayedSteelResearch()
     this.awardDueSteelResearch()
+    this.evaluateHiddenCombinations()
+    this.processTechnologyDisclosures()
     this.refreshProductions()
     this.emit()
   }
@@ -1021,8 +1035,11 @@ export class EmpiresEndgameEngine {
       }
     }
     this.applyEffects(technology.effects, 0)
+    this.selectTechnologySide(technology)
     this.scheduleDelayedSteelResearch()
     this.awardDueSteelResearch()
+    this.evaluateHiddenCombinations()
+    this.processTechnologyDisclosures()
     this.refreshProductions()
     if (this.state.empire.daysRemaining <= 0) this.finishEmpireInternal()
     return this.commit(`${technology.name} researched.`)
@@ -1114,6 +1131,88 @@ export class EmpiresEndgameEngine {
     const missingResource = this.firstMissingResource(base.resourceCosts)
     if (missingResource) return { ...base, blockedReason: `Not enough ${missingResource}.` }
     return base
+  }
+
+  currentSeasonView(): EmpiresSeasonView | null {
+    const season = currentSeason(this.state.con, this.config.empire.seasons)
+    if (!season) return null
+    const applied = currentSeasonFoodMultiplier(
+      this.state.con,
+      this.config.empire.seasons,
+      this.state.empire.researchedTechnologyIds,
+    )
+    return {
+      ...cloneSerializable(season),
+      foodProductionMultiplierApplied: applied,
+      greenhouseEqualized: applied !== season.foodProductionMultiplier,
+    }
+  }
+
+  technologySideView(technologyId: string): EmpiresTechnologySideView | null {
+    const technology = this.technologyDefinitions.get(technologyId)
+    const state = this.state.empire.technologySides[technologyId]
+    if (!technology?.sides || !state) return null
+    const side = technology.sides.definitions.find(definition => definition.id === state.sideId)
+    if (!side) return null
+    const revealed = state.revealedAtCon !== null
+    return {
+      ...cloneSerializable(state),
+      technologyId,
+      sideName: revealed ? side.name : 'Сторона пока скрыта',
+      alignment: revealed ? side.alignment : null,
+      disclosureKind: technology.sides.disclosure.kind,
+    }
+  }
+
+  activeEpidemicPolicy(): EmpiresTechnologySideDefinition['epidemicPolicy'] | null {
+    const policies = Object.entries(this.state.empire.technologySides)
+      .flatMap(([technologyId, state]) => {
+        if (state.revealedAtCon === null || state.suppressedAtCon !== null) return []
+        const technology = this.technologyDefinitions.get(technologyId)
+        if (technology?.deferredReason) return []
+        const side = technology?.sides?.definitions
+          .find(definition => definition.id === state.sideId)
+        return side?.epidemicPolicy ? [side.epidemicPolicy] : []
+      })
+    if (policies.length === 0) return null
+    return {
+      preventsIntercitySpread: policies.some(policy => policy.preventsIntercitySpread),
+      withinCitySpeedMultiplier: policies.reduce(
+        (multiplier, policy) => multiplier * policy.withinCitySpeedMultiplier,
+        1,
+      ),
+    }
+  }
+
+  smithSpecializationOptions(): Array<{ recipeId: string, equipmentId: string }> {
+    const researched = new Set(this.state.empire.researchedTechnologyIds)
+    return (this.config.td.equipmentProduction ?? [])
+      .filter(recipe => !recipe.technologyId || researched.has(recipe.technologyId))
+      .filter((recipe) => {
+        const equipment = this.combatEquipmentDefinitions.get(recipe.equipmentId)
+        return equipment?.kind === 'weapon' && !equipment.deferredReason
+      })
+      .sort((left, right) => stableStringCompare(left.id, right.id))
+      .map(recipe => ({ recipeId: recipe.id, equipmentId: recipe.equipmentId }))
+  }
+
+  chooseSmithSpecialization(recipeId: string): EmpiresActionResult {
+    if (this.state.phase !== 'empire') return failure('Smith specialization is only available in the empire phase.')
+    if ((this.state.empire.flags.smithSpecializationLocked ?? 0) <= 0
+      || !this.state.empire.researchedTechnologyIds.includes('reform-control-smiths')) {
+      return failure('Контроль кузнецов must be researched first.')
+    }
+    const existing = this.state.empire.smithSpecializationRecipeId
+    if (existing) {
+      return existing === recipeId
+        ? success('That smith specialization is already locked.')
+        : failure('Smith specialization is permanent and cannot be changed.')
+    }
+    if (!this.smithSpecializationOptions().some(option => option.recipeId === recipeId)) {
+      return failure('That smith specialization is not currently available.')
+    }
+    this.state.empire.smithSpecializationRecipeId = recipeId
+    return this.commit(`Smith specialization locked to ${recipeId}.`)
   }
 
   chooseEvent(choiceId: string): EmpiresActionResult {
@@ -1416,7 +1515,8 @@ export class EmpiresEndgameEngine {
       description: `${this.loyaltyTargetLabel(input.target)}: потеряно ${input.lost} из ${input.deployed} (${Math.round(ratio * 100)}%).`,
       target: cloneSerializable(input.target),
     })
-    if (ratio >= this.config.td.settlement!.lossLoyaltyThreshold) {
+    if (ratio >= this.config.td.settlement!.lossLoyaltyThreshold
+      && (this.state.empire.flags.casualtyLoyaltyPenaltyDisabled ?? 0) <= 0) {
       this.applyLoyaltyDelta(input.target, this.config.td.settlement!.loyaltyDelta, input.id)
     }
     return true
@@ -1538,9 +1638,17 @@ export class EmpiresEndgameEngine {
     production[foodId] = (production[foodId] ?? 0) + (this.state.empire.passiveFoodBonuses[city.id] ?? 0)
     for (const [resourceId, amount] of Object.entries(production)) {
       const famineMultiplier = resourceId === foodId ? this.famineFoodMultiplier(city) : 1
-      production[resourceId] = amount
+      const produced = amount
         * (this.state.empire.productionMultipliers[resourceId] ?? 1)
         * famineMultiplier
+      production[resourceId] = resourceId === foodId
+        ? applySeasonFoodProduction(
+            produced,
+            this.state.con,
+            this.config.empire.seasons,
+            this.state.empire.researchedTechnologyIds,
+          )
+        : produced
     }
     return production
   }
@@ -1626,6 +1734,9 @@ export class EmpiresEndgameEngine {
           branchEntries: [],
           delayedFree: {},
         },
+        technologySides: {},
+        hiddenCombinationTriggers: {},
+        smithSpecializationRecipeId: null,
         giftResolutionTargets: {},
       },
       pendingResolution: null,
@@ -1864,6 +1975,63 @@ export class EmpiresEndgameEngine {
           && (delayed.awardedAtCon === null || Number.isFinite(delayed.awardedAtCon)))
       }),
     )
+    state.empire.technologySides ??= {}
+    const researchedTechnologyIds = new Set(state.empire.researchedTechnologyIds)
+    state.empire.technologySides = Object.fromEntries(
+      Object.entries(state.empire.technologySides).filter(([technologyId, sideState]) => {
+        if (!sideState) return false
+        const sides = this.technologyDefinitions.get(technologyId)?.sides
+        const selectedSideExists = sides?.definitions.some(side => side.id === sideState.sideId)
+        const selectedAtCon = sideState.selectedAtCon
+        const revealedAtCon = sideState.revealedAtCon
+        const effectsAppliedAtCon = sideState.effectsAppliedAtCon
+        const suppressedAtCon = sideState.suppressedAtCon
+        return Boolean(researchedTechnologyIds.has(technologyId)
+          && selectedSideExists
+          && Number.isInteger(selectedAtCon)
+          && selectedAtCon >= 0
+          && (revealedAtCon === null
+            || (Number.isInteger(revealedAtCon) && revealedAtCon >= selectedAtCon))
+          && (effectsAppliedAtCon === null
+            || (Number.isInteger(effectsAppliedAtCon) && effectsAppliedAtCon >= selectedAtCon))
+          && (suppressedAtCon === null
+            || (Number.isInteger(suppressedAtCon) && suppressedAtCon >= selectedAtCon))
+          && (suppressedAtCon === null || revealedAtCon !== null)
+          && (suppressedAtCon === null || effectsAppliedAtCon === null))
+      }),
+    )
+    for (const technologyId of [...state.empire.researchedTechnologyIds].sort(stableStringCompare)) {
+      const technology = this.technologyDefinitions.get(technologyId)
+      if (technology?.sides && !technology.deferredReason) this.selectTechnologySide(technology, state)
+    }
+    const hiddenCombinationIds = new Set(
+      this.config.empire.hiddenCombinations.definitions.map(combination => combination.id),
+    )
+    state.empire.hiddenCombinationTriggers ??= {}
+    state.empire.hiddenCombinationTriggers = Object.fromEntries(
+      Object.entries(state.empire.hiddenCombinationTriggers).filter(([combinationId, trigger]) => (
+        hiddenCombinationIds.has(combinationId)
+        && Number.isFinite(trigger?.triggeredAtCon)
+        && trigger.triggeredAtCon >= 0
+      )),
+    )
+    state.empire.smithSpecializationRecipeId ??= null
+    if (state.empire.smithSpecializationRecipeId !== null) {
+      const recipe = this.config.td.equipmentProduction?.find(
+        definition => definition.id === state.empire.smithSpecializationRecipeId,
+      )
+      const equipment = recipe
+        ? this.combatEquipmentDefinitions.get(recipe.equipmentId)
+        : null
+      if (!recipe
+        || equipment?.kind !== 'weapon'
+        || equipment.deferredReason
+        || (recipe.technologyId
+          && !state.empire.researchedTechnologyIds.includes(recipe.technologyId))
+        || !state.empire.researchedTechnologyIds.includes('reform-control-smiths')) {
+        state.empire.smithSpecializationRecipeId = null
+      }
+    }
     this.scheduleDelayedSteelResearch(state)
     this.syncArmyMoraleCap(state)
     const knownCityIds = new Set(state.empire.cities.map(city => city.id))
@@ -2308,15 +2476,17 @@ export class EmpiresEndgameEngine {
         cohort.count = remaining
       }
 
-      const penaltyKey = this.recruitmentPenaltyKey(deployment.cityId, deployment.unitId)
-      const lossPenalty = lost * settlement.recruitmentPenaltyPerLoss
-      this.state.army.recruitmentPenalties[penaltyKey] = (
-        this.state.army.recruitmentPenalties[penaltyKey] ?? 0
-      ) + lossPenalty
-      city.militaryPopulation = Math.max(
-        0,
-        city.militaryPopulation - lost * settlement.growthPenaltyPerLoss,
-      )
+      if ((this.state.empire.flags.casualtyRecruitGrowthPenaltyDisabled ?? 0) <= 0) {
+        const penaltyKey = this.recruitmentPenaltyKey(deployment.cityId, deployment.unitId)
+        const lossPenalty = lost * settlement.recruitmentPenaltyPerLoss
+        this.state.army.recruitmentPenalties[penaltyKey] = (
+          this.state.army.recruitmentPenalties[penaltyKey] ?? 0
+        ) + lossPenalty
+        city.militaryPopulation = Math.max(
+          0,
+          city.militaryPopulation - lost * settlement.growthPenaltyPerLoss,
+        )
+      }
       const aggregate = cityLosses.get(city.id) ?? { deployed: 0, lost: 0 }
       aggregate.deployed += deployment.count
       aggregate.lost += lost
@@ -2530,7 +2700,8 @@ export class EmpiresEndgameEngine {
     }
 
     const phaseEffectKinds = new Set<EffectKind>([
-      'resource', 'time', 'population', 'loyalty', 'reputation', 'flag',
+      'resource', 'time', 'population', 'loyalty', 'loyaltyAllCities',
+      'classLoyalty', 'reputation', 'flag',
     ])
     const timeEffectKind = new Set<EffectKind>(['time'])
     for (const giftId of this.state.empire.activeGiftIds) {
@@ -2694,6 +2865,7 @@ export class EmpiresEndgameEngine {
 
   private startNextCon(): void {
     const completedCon = this.state.con
+    const previousSeason = currentSeason(completedCon, this.config.empire.seasons)
     this.state.phase = 'cards'
     this.state.con += 1
     this.state.boutsInCon = 0
@@ -2703,6 +2875,26 @@ export class EmpiresEndgameEngine {
     this.state.event = null
     this.state.durak.stage = 'attack'
     this.state.durak.defenderHandAtBoutStart = this.hand(this.state.durak.defender).length
+    const nextSeason = currentSeason(this.state.con, this.config.empire.seasons)
+    if (nextSeason && nextSeason.id !== previousSeason?.id) {
+      const sourceId = `season:${nextSeason.id}:${this.state.con}`
+      if (!this.state.empire.chronicle.some(entry => entry.sourceId === sourceId)) {
+        const foodMultiplier = currentSeasonFoodMultiplier(
+          this.state.con,
+          this.config.empire.seasons,
+          this.state.empire.researchedTechnologyIds,
+        )
+        this.appendChronicle(this.state, {
+          kind: 'season',
+          sourceId,
+          title: `Наступает ${nextSeason.name.toLocaleLowerCase('ru-RU')}`,
+          description: `Производство еды: ×${foodMultiplier}.`,
+          target: { kind: 'empire' },
+        })
+      }
+    }
+    this.evaluateHiddenCombinations()
+    this.processTechnologyDisclosures()
     this.scheduleDueWaveOnState(this.state, completedCon)
     this.refreshProductions()
   }
@@ -2714,6 +2906,23 @@ export class EmpiresEndgameEngine {
     const researched = new Set(this.state.empire.researchedTechnologyIds)
     for (const city of this.state.empire.cities) {
       if (!this.isCityAccessible(city.id)) continue
+      const specialization = definitions.find(definition => (
+        definition.id === this.state.empire.smithSpecializationRecipeId
+        && (!definition.technologyId || researched.has(definition.technologyId))
+        && !this.combatEquipmentDefinitions.get(definition.equipmentId)?.deferredReason
+      ))
+      if (specialization) {
+        const focusedCapacity = lines.reduce((total, line) => {
+          const capacity = this.operationalBuildingFlagValue(city, line.capacityFlagId) ?? 0
+          return total + Math.max(0, capacity) * Math.max(0, line.capacityShare)
+        }, 0)
+        if (focusedCapacity > 0) {
+          this.state.army.equipmentStock[specialization.equipmentId] = (
+            this.state.army.equipmentStock[specialization.equipmentId] ?? 0
+          ) + focusedCapacity * specialization.amountPerSmithCapacity
+        }
+        continue
+      }
       for (const line of [...lines].sort((left, right) => stableStringCompare(left.id, right.id))) {
         const capacity = this.operationalBuildingFlagValue(city, line.capacityFlagId) ?? 0
         if (capacity <= 0 || line.capacityShare <= 0) continue
@@ -2825,6 +3034,8 @@ export class EmpiresEndgameEngine {
     if (slotId) city.buildingSlotAssignments[slotId] = building.id
     city.buildingLevels[building.id] = level.level
     this.awardDueSteelResearch()
+    this.evaluateHiddenCombinations()
+    this.processTechnologyDisclosures()
     this.refreshProductions()
     if (this.state.empire.daysRemaining <= 0) this.finishEmpireInternal()
   }
@@ -2950,6 +3161,20 @@ export class EmpiresEndgameEngine {
       } else if (effect.kind === 'loyalty') {
         const amount = effect.amount + (effect.amountPerLevel ?? 0) * level
         this.applyLoyaltyDelta(effect.target, amount, sourceId)
+      } else if (effect.kind === 'loyaltyAllCities') {
+        const amount = effect.amount + (effect.amountPerLevel ?? 0) * level
+        for (const city of this.state.empire.cities) {
+          this.applyLoyaltyDelta({ kind: 'city', cityId: city.id }, amount, sourceId)
+        }
+      } else if (effect.kind === 'classLoyalty') {
+        const amount = effect.amount + (effect.amountPerLevel ?? 0) * level
+        for (const city of this.state.empire.cities) {
+          this.applyLoyaltyDelta({
+            kind: 'class',
+            cityId: city.id,
+            populationClassId: effect.populationClassId,
+          }, amount, sourceId)
+        }
       } else if (effect.kind === 'reputation') {
         const amount = effect.amount + (effect.amountPerLevel ?? 0) * level
         this.applyReputationDelta(amount, sourceId)
@@ -2963,6 +3188,107 @@ export class EmpiresEndgameEngine {
       }
     }
     if (moraleCapChanged) this.syncArmyMoraleCap()
+  }
+
+  private selectTechnologySide(
+    technology: EmpiresTechnologyDefinition,
+    state: EmpiresCampaignState = this.state,
+  ): void {
+    const sides = technology.sides
+    if (!sides || technology.deferredReason || state.empire.technologySides[technology.id]) return
+    let sideId: string
+    if (sides.selection.kind === 'fixed') {
+      sideId = sides.selection.sideId
+    } else {
+      const totalWeight = sides.selection.weights.reduce((total, item) => total + item.weight, 0)
+      let roll = nextEmpiresRandom(state.rng) * totalWeight
+      sideId = sides.selection.weights.at(-1)!.sideId
+      for (const item of sides.selection.weights) {
+        roll -= item.weight
+        if (roll < 0) {
+          sideId = item.sideId
+          break
+        }
+      }
+    }
+    state.empire.technologySides[technology.id] = {
+      sideId,
+      selectedAtCon: state.con,
+      revealedAtCon: null,
+      effectsAppliedAtCon: null,
+      suppressedAtCon: null,
+    }
+  }
+
+  private evaluateHiddenCombinations(): void {
+    const combinations = this.config.empire.hiddenCombinations
+    if (!combinations.enabled) return
+    for (const combination of [...combinations.definitions]
+      .sort((left, right) => stableStringCompare(left.id, right.id))) {
+      if (combination.deferredReason
+        || this.state.empire.hiddenCombinationTriggers[combination.id]
+        || this.firstMissingDependency(combination.prerequisites)) continue
+      this.state.empire.hiddenCombinationTriggers[combination.id] = {
+        triggeredAtCon: this.state.con,
+      }
+      const sourceId = `hidden-combination:${combination.id}`
+      if (!this.state.empire.chronicle.some(entry => entry.sourceId === sourceId)) {
+        this.appendChronicle(this.state, {
+          kind: 'hidden-combination',
+          sourceId,
+          title: 'Обнаружено скрытое сочетание',
+          description: combination.name,
+          target: { kind: 'empire' },
+        })
+      }
+    }
+  }
+
+  private processTechnologyDisclosures(): void {
+    for (const technology of [...this.config.empire.technologies]
+      .sort((left, right) => stableStringCompare(left.id, right.id))) {
+      const sides = technology.sides
+      const state = this.state.empire.technologySides[technology.id]
+      if (!sides || technology.deferredReason || !state || state.revealedAtCon !== null) continue
+      const disclosure = sides.disclosure
+      const eligible = disclosure.kind === 'onResearch'
+        || (disclosure.kind === 'afterCons'
+          && this.state.con >= state.selectedAtCon + disclosure.delayCons)
+        || (disclosure.kind === 'hiddenCombination'
+          && Boolean(this.state.empire.hiddenCombinationTriggers[disclosure.combinationId]))
+      if (!eligible) continue
+      const side = sides.definitions.find(definition => definition.id === state.sideId)
+      if (!side) throw new Error(`Unknown selected technology side ${technology.id}:${state.sideId}`)
+      state.revealedAtCon = this.state.con
+      const culturallySuppressed = side.alignment === 'dark'
+        && side.culturalSuppressible === true
+        && this.state.empire.researchedTechnologyIds.some((technologyId) => (
+          this.technologyDefinitions.get(technologyId)?.tags?.includes('cultural-suppression')
+        ))
+      const theocracySuppressed = side.alignment === 'dark'
+        && side.tags?.includes('dark-experiment')
+        && (this.state.empire.flags.darkExperimentsDisabled ?? 0) > 0
+      const suppressed = culturallySuppressed || theocracySuppressed
+      state.suppressedAtCon = suppressed ? this.state.con : null
+      state.effectsAppliedAtCon = suppressed ? null : this.state.con
+      const sourceId = `technology-side:${technology.id}:${side.id}`
+      this.appendChronicle(this.state, {
+        kind: 'technology-disclosure',
+        sourceId,
+        title: `${technology.name}: ${side.name}`,
+        description: suppressed
+          ? 'Тёмная сторона раскрыта, но её последствия подавлены.'
+          : side.alignment === 'dark'
+            ? 'Тёмная сторона раскрыта; последствия применены.'
+            : 'Светлая сторона раскрыта; последствия применены.',
+        target: { kind: 'empire' },
+      })
+      if (suppressed) continue
+      if (side.alignment === 'dark') {
+        this.applyReputationDelta(side.reputationDelta!, sourceId)
+      }
+      this.applyEffects(side.effects, 0, undefined, sourceId)
+    }
   }
 
   private recordCardFlagBonuses(effects: readonly EmpiresEffect[], level: number): void {
@@ -3762,6 +4088,7 @@ export class EmpiresEndgameEngine {
 
     const validKinds = new Set<EmpiresChronicleEntryKind>([
       'loyalty', 'reputation', 'rebellion', 'recovery', 'battle-loss',
+      'season', 'technology-disclosure', 'hidden-combination',
     ])
     const seenIds = new Set<string>()
     state.empire.chronicle = (state.empire.chronicle ?? [])
@@ -3958,8 +4285,10 @@ export class EmpiresEndgameEngine {
   private classGateBlockedReason(
     city: EmpiresCityState,
     building: EmpiresBuildingDefinition,
+    allowCoercion = false,
   ): string | null {
     if (!this.config.empire.loyalty.enabled) return null
+    if (allowCoercion && (this.state.empire.flags.coercionBuildingOverride ?? 0) > 0) return null
     const gate = this.config.empire.loyalty.classGates.find(
       definition => definition.buildingId === building.id,
     )
@@ -4006,7 +4335,7 @@ export class EmpiresEndgameEngine {
     const access = this.regionAccessBlockedReason(city.regionId)
     if (access) return access
     if (building.deferredReason) return `That building is deferred: ${building.deferredReason}`
-    const classGate = this.classGateBlockedReason(city, building)
+    const classGate = this.classGateBlockedReason(city, building, true)
     if (classGate) return classGate
     if (operationalLevel >= purchasedLevel) return null
     const workforce = this.availableWorkforce(city)
@@ -4030,7 +4359,7 @@ export class EmpiresEndgameEngine {
         const building = this.buildingDefinitions.get(buildingId)
         return [
           buildingId,
-          building && this.classGateBlockedReason(city, building)
+          building && this.classGateBlockedReason(city, building, true)
             ? 0
             : this.dependencyPermittedBuildingLevel(city, buildingId, level),
         ]
@@ -4085,6 +4414,7 @@ export class EmpiresEndgameEngine {
   private availableWorkforce(city: EmpiresCityState): number {
     const base = this.baseAvailableWorkforce(city)
     if (!this.config.empire.loyalty.enabled) return base
+    if ((this.state.empire.flags.coercionBuildingOverride ?? 0) > 0) return base
     return Math.floor(base / this.workforceDivisorForLoyalty(this.effectiveCityLoyalty(city.id)))
   }
 

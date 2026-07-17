@@ -14,6 +14,7 @@ type QaScenario =
   | 'destroyed-west'
   | 'loyalty-rebellion'
   | 'relic-production-levels'
+  | 'season-disclosure'
   | 'event'
   | 'victory'
   | 'defeat'
@@ -162,6 +163,27 @@ describe('Empire\'s Endgame deterministic browser scenarios', () => {
       .should('not.have.class', 'deferred')
       .click()
     cy.get('.improvement-drawer .deferred-note').should('not.exist')
+  })
+
+  it('shows the derived season and one persisted technology disclosure', () => {
+    visitScenario('season-disclosure')
+    cy.get('[data-testid="current-season"]')
+      .should('contain.text', 'Зима')
+      .and('contain.text', 'еда ×1')
+
+    cy.get('[data-testid="tab-loyalty"]').click()
+    cy.get('[data-testid="chronicle-entry-season"]').should('have.length', 1)
+    cy.get('[data-testid="chronicle-entry-technology-disclosure"]')
+      .should('have.length', 1)
+      .and('contain.text', 'Закрытый город')
+
+    cy.get('[data-testid="tab-technology"]').click()
+    cy.get('[data-testid="technology-node-reform-city-gates"]')
+      .scrollIntoView()
+      .click({ force: true })
+    cy.get('[data-testid="selected-technology-side"]')
+      .should('contain.text', 'Тёмная сторона')
+      .and('contain.text', 'Закрытый город')
   })
 
   it('opens the constructor without structuredClone/DataCloneError failures', () => {

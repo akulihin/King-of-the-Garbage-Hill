@@ -181,6 +181,7 @@ describe('Empire\'s Endgame Phase 4A politics', () => {
     expect(forbid.state.empire.chronicle.map(entry => entry.sourceId)).toEqual([
       'event:event-northern-raids:forbid-raids',
       'event:event-northern-raids:forbid-raids',
+      'season:winter:2',
     ])
     expect(new EmpiresEndgameEngine(forbid.config, forbid.snapshot()).state.empire.loyalty)
       .toEqual(forbid.state.empire.loyalty)

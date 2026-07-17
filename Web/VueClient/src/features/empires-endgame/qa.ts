@@ -25,6 +25,7 @@ export const EMPIRES_QA_SCENARIO_NAMES = [
   'destroyed-west',
   'loyalty-rebellion',
   'relic-production-levels',
+  'season-disclosure',
   'battle-defense',
   'battle-assault',
   'battle-swamp',
@@ -122,6 +123,8 @@ export interface EmpiresQaStateDigest {
   minigameResultLastRulesDigest: string | null
   rngDraws: number
   outcomeReason: string | null
+  seasonId: string | null
+  technologyDisclosureCount: number
 }
 
 export interface EmpiresQaTraceEntry {
@@ -221,6 +224,10 @@ const SCENARIO_COPY: Record<EmpiresQaScenarioName, { title: string, description:
   'relic-production-levels': {
     title: 'Farm and lumber relic',
     description: 'Farm and lumber current and maximum levels receive the relic bonus.',
+  },
+  'season-disclosure': {
+    title: 'Season and technology disclosure',
+    description: 'The campaign crossed from summer into winter and disclosed one deterministic dark technology side.',
   },
   'battle-defense': {
     title: 'Central Alliance defense',
@@ -488,6 +495,50 @@ function createRelicBuildingLevelSnapshot(
   }
   if (!state.empire.claimedGiftIds.includes(relic.id)) state.empire.claimedGiftIds.push(relic.id)
   return new EmpiresEndgameEngine(config, state).snapshot()
+}
+
+function createSeasonDisclosureSnapshot(
+  config: EmpiresEndgameConfig,
+  empireSnapshot: EmpiresCampaignState,
+): EmpiresCampaignState {
+  const scenarioConfig = cloneJson(config)
+  scenarioConfig.empire.eventChance = 0
+  const state = cloneJson(empireSnapshot)
+  const carrier = scenarioConfig.empire.technologies.find(technology => technology.id === 'reform-city-gates')
+  const darkSide = carrier?.sides?.definitions.find(side => side.alignment === 'dark')
+  if (!carrier?.sides || !darkSide) {
+    throw new Error('QA season-disclosure scenario requires the typed city-gates side carrier.')
+  }
+  delete carrier.deferredReason
+  state.phase = 'empire'
+  state.con = 1
+  state.event = null
+  state.minigame = null
+  state.outcomeReason = null
+  state.empire.daysRemaining = scenarioConfig.empire.daysPerPhase
+  state.external.nextWaveCon = Number.MAX_SAFE_INTEGER
+  state.empire.resources[scenarioConfig.empire.foodResourceId] = 1_000_000
+  for (const city of state.empire.cities) {
+    city.resources[scenarioConfig.empire.foodResourceId] = 1_000_000
+  }
+  if (!state.empire.researchedTechnologyIds.includes(carrier.id)) {
+    state.empire.researchedTechnologyIds.push(carrier.id)
+  }
+  state.empire.technologySides[carrier.id] = {
+    sideId: darkSide.id,
+    selectedAtCon: 1,
+    revealedAtCon: null,
+    effectsAppliedAtCon: null,
+    suppressedAtCon: null,
+  }
+  const engine = new EmpiresEndgameEngine(scenarioConfig, state)
+  const result = engine.finishEmpire()
+  if (!result.ok || engine.state.con !== 2) {
+    throw new Error(`QA season-disclosure scenario could not cross its con: ${result.message}`)
+  }
+  engine.state.phase = 'empire'
+  engine.state.empire.daysRemaining = scenarioConfig.empire.daysPerPhase
+  return engine.snapshot()
 }
 
 function createOutcomeSnapshot(
@@ -764,6 +815,9 @@ export function digestEmpiresQaState(engine: EmpiresEndgameEngine): EmpiresQaSta
     minigameResultLastRulesDigest: engine.state.minigameResultCompaction.lastRulesDigest,
     rngDraws: engine.state.rng.draws,
     outcomeReason: engine.state.outcomeReason,
+    seasonId: engine.currentSeasonView()?.id ?? null,
+    technologyDisclosureCount: engine.state.empire.chronicle
+      .filter(entry => entry.kind === 'technology-disclosure').length,
   }
 }
 
@@ -909,6 +963,18 @@ export function validateEmpiresQaSnapshot(
         || (snapshot.empire.buildingLevelBonuses.lumber ?? 0) < 1) {
         add('building-level-bonus', 'Relic scenario must increase farm and lumber levels.')
       }
+    } else if (scenarioName === 'season-disclosure') {
+      const side = snapshot.empire.technologySides['reform-city-gates']
+      if (snapshot.con !== 2 || engine.currentSeasonView()?.id !== 'winter') {
+        add('season-boundary', 'Season-disclosure scenario must cross from summer into winter.')
+      }
+      if (side?.revealedAtCon !== 2 || side.effectsAppliedAtCon !== 2) {
+        add('technology-disclosure', 'Season-disclosure scenario must reveal and apply its side in con 2.')
+      }
+      if (snapshot.empire.chronicle.filter(entry => entry.kind === 'season').length !== 1
+        || snapshot.empire.chronicle.filter(entry => entry.kind === 'technology-disclosure').length !== 1) {
+        add('chronicle-exact-once', 'Season and disclosure chronicle entries must each occur exactly once.')
+      }
     } else if (scenarioName in TD_QA_VARIANTS) {
       const expected = TD_QA_VARIANTS[scenarioName as keyof typeof TD_QA_VARIANTS]
       const expectedRules = qaRulesIdentity(config)
@@ -957,6 +1023,7 @@ export function createEmpiresQaScenarios(
   const destroyedWest = createDestroyedRegionSnapshot(seededConfig, empireCouncil, 'west')
   const loyaltyRebellion = createLoyaltyRebellionSnapshot(seededConfig, empireCouncil)
   const relicProductionLevels = createRelicBuildingLevelSnapshot(seededConfig, empireCouncil)
+  const seasonDisclosure = createSeasonDisclosureSnapshot(seededConfig, empireCouncil)
   const event = createEventSnapshot(seededConfig, empireCouncil)
   const battleDefense = createBattleSnapshot(seededConfig, baseEngine, 'battle-defense')
   const battleAssault = createBattleSnapshot(seededConfig, baseEngine, 'battle-assault')
@@ -974,6 +1041,7 @@ export function createEmpiresQaScenarios(
     'destroyed-west': destroyedWest,
     'loyalty-rebellion': loyaltyRebellion,
     'relic-production-levels': relicProductionLevels,
+    'season-disclosure': seasonDisclosure,
     'battle-defense': battleDefense,
     'battle-assault': battleAssault,
     'battle-swamp': battleSwamp,

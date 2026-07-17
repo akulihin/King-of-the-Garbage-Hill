@@ -12,12 +12,13 @@ import type {
   EmpiresEffect,
   EmpiresEndgameConfig,
   EmpiresLoyaltyConfig,
+  EmpiresSeasonsConfig,
 } from './types'
 import { validateEmpiresEndgameConfig } from './engine'
 
 export const EMPIRES_CONFIG_URL = '/empires-endgame/game-config.json'
 export const EMPIRES_CONFIG_STORAGE_KEY = 'empires-endgame:config:v1'
-export const EMPIRES_CONFIG_SCHEMA_VERSION = 5
+export const EMPIRES_CONFIG_SCHEMA_VERSION = 6
 export const EMPIRES_ACTIVE_MINIGAME_CONFIG_ERROR = 'Нельзя менять правила во время боя. Сначала завершите бой или выйдите через действие отмены.'
 
 export function empiresConfigReplacementDisabledReason(
@@ -138,6 +139,13 @@ const QUESTS_SCAFFOLD = {
 }
 
 const SEASONS_SCAFFOLD = {
+  enabled: false,
+  definitions: [],
+  foodRounding: 'none',
+  greenhouse: null,
+} satisfies EmpiresSeasonsConfig
+
+const HIDDEN_COMBINATIONS_SCAFFOLD = {
   enabled: false,
   definitions: [],
 }
@@ -478,6 +486,34 @@ function normalizeEmpiresConfigV5(config: Record<string, unknown>): Record<strin
   return config
 }
 
+function migrateEmpiresConfigV5ToV6(config: Record<string, unknown>): Record<string, unknown> {
+  if (isRecord(config.empire)) {
+    const legacySeasons = isRecord(config.empire.seasons) ? config.empire.seasons : {}
+    const legacyDefinitions = Array.isArray(legacySeasons.definitions)
+      ? cloneJson(legacySeasons.definitions)
+      : []
+    config.empire.seasons = {
+      ...cloneJson(SEASONS_SCAFFOLD),
+      ...(legacyDefinitions.length > 0 ? { legacyDefinitions } : {}),
+    }
+    config.empire.hiddenCombinations = cloneJson(HIDDEN_COMBINATIONS_SCAFFOLD)
+  }
+  config.schemaVersion = 6
+  return config
+}
+
+function normalizeEmpiresConfigV6(config: Record<string, unknown>): Record<string, unknown> {
+  normalizeEmpiresConfigV5(config)
+  if (isRecord(config.empire)) {
+    config.empire.seasons = withScaffoldDefaults(config.empire.seasons, SEASONS_SCAFFOLD)
+    config.empire.hiddenCombinations = withScaffoldDefaults(
+      config.empire.hiddenCombinations,
+      HIDDEN_COMBINATIONS_SCAFFOLD,
+    )
+  }
+  return config
+}
+
 const EMPIRES_CONFIG_MIGRATIONS: Record<
   number,
   (config: Record<string, unknown>) => Record<string, unknown>
@@ -486,6 +522,7 @@ const EMPIRES_CONFIG_MIGRATIONS: Record<
   2: migrateEmpiresConfigV2ToV3,
   3: migrateEmpiresConfigV3ToV4,
   4: migrateEmpiresConfigV4ToV5,
+  5: migrateEmpiresConfigV5ToV6,
 }
 
 /**
@@ -509,6 +546,7 @@ export function migrateEmpiresConfig(raw: unknown): unknown {
   if (version === 3) migrated = normalizeEmpiresConfigV3(migrated)
   if (version === 4) migrated = normalizeEmpiresConfigV4(migrated)
   if (version === 5) migrated = normalizeEmpiresConfigV5(migrated)
+  if (version === 6) migrated = normalizeEmpiresConfigV6(migrated)
   return migrated
 }
 
@@ -666,6 +704,9 @@ function validateDeferredReasons(config: EmpiresEndgameConfig): string[] {
     check(`technology ${technology.id}`, technology.deferredReason)
     checkSubfeatures(`technology ${technology.id}`, technology.deferredSubfeatures)
   }
+  for (const combination of config.empire.hiddenCombinations.definitions) {
+    check(`hidden combination ${combination.id}`, combination.deferredReason)
+  }
   for (const event of config.empire.events ?? []) {
     check(`event ${event.id}`, event.deferredReason)
     for (const choice of event.choices) {
@@ -692,6 +733,10 @@ const EMPIRES_LIVE_FLAG_ALLOWLIST = new Set([
   'armyProductionDiscountPercent',
   'armyProductionTimeDiscountPercent',
   'armyUpkeepDiscountPercent',
+  'casualtyLoyaltyPenaltyDisabled',
+  'casualtyRecruitGrowthPenaltyDisabled',
+  'coercionBuildingOverride',
+  'darkExperimentsDisabled',
   'instantUnitEveryTurns',
   'peasantProductivityPercent',
   'productionBoostAssignmentLimit',
@@ -700,12 +745,14 @@ const EMPIRES_LIVE_FLAG_ALLOWLIST = new Set([
   'recruitmentDisabled',
   'relicsUnlocked',
   'smithyWithoutIron',
+  'smithSpecializationLocked',
   'smithCapacity',
   'stableWithoutLivestock',
   'starvationLossMultiplierPercent',
   'surplusFoodPerGold',
   'templarTransferLossPercent',
   'treasuryGoldPerSavedMillion',
+  'theocracy',
   'unlimitedTavernRecruitment',
 ])
 
@@ -763,6 +810,13 @@ function validateLiveEffects(config: EmpiresEndgameConfig): string[] {
   }
   for (const technology of config.empire.technologies) {
     check(`technology ${technology.id}`, technology.effects, technology.deferredReason)
+    for (const side of technology.sides?.definitions ?? []) {
+      check(
+        `technology ${technology.id} side ${side.id}`,
+        side.effects,
+        technology.deferredReason,
+      )
+    }
   }
   for (const event of config.empire.events) {
     for (const choice of event.choices) {
@@ -787,6 +841,152 @@ function validateScaffoldSection(
     if (!Array.isArray(value[key])) throw new Error(`${path}.${key} must be an array.`)
     if (value.enabled && value[key].length === 0) {
       throw new Error(`${path}.${key} must not be empty when ${path}.enabled is true.`)
+    }
+  }
+}
+
+function validateSeasonsConfig(config: EmpiresEndgameConfig): void {
+  const seasons = config.empire.seasons
+  if (!isRecord(seasons) || typeof seasons.enabled !== 'boolean') {
+    throw new Error('empire.seasons must be an object with an enabled flag.')
+  }
+  if (!Array.isArray(seasons.definitions)) {
+    throw new Error('empire.seasons.definitions must be an array.')
+  }
+  if (!['floor', 'round', 'none'].includes(seasons.foodRounding)) {
+    throw new Error('empire.seasons.foodRounding must be floor, round, or none.')
+  }
+  if (seasons.enabled && seasons.definitions.length === 0) {
+    throw new Error('empire.seasons.definitions must not be empty when seasons are enabled.')
+  }
+  const seasonIds = new Set<string>()
+  for (const definition of seasons.definitions) {
+    if (!definition.id?.trim() || seasonIds.has(definition.id)) {
+      throw new Error('empire.seasons definitions need unique non-empty ids.')
+    }
+    if (!definition.name?.trim()) throw new Error(`season ${definition.id} needs a name.`)
+    if (!Number.isInteger(definition.durationCons) || definition.durationCons < 1) {
+      throw new Error(`season ${definition.id} durationCons must be a positive integer.`)
+    }
+    if (!Number.isFinite(definition.foodProductionMultiplier)
+      || definition.foodProductionMultiplier < 0) {
+      throw new Error(`season ${definition.id} foodProductionMultiplier must be non-negative.`)
+    }
+    seasonIds.add(definition.id)
+  }
+  if (seasons.greenhouse !== null) {
+    if (!isRecord(seasons.greenhouse)
+      || typeof seasons.greenhouse.technologyId !== 'string'
+      || !config.empire.technologies.some(
+        technology => technology.id === seasons.greenhouse!.technologyId,
+      )) {
+      throw new Error('empire.seasons.greenhouse must reference a known technology.')
+    }
+    if (!Number.isFinite(seasons.greenhouse.equalizedFoodProductionMultiplier)
+      || seasons.greenhouse.equalizedFoodProductionMultiplier < 0) {
+      throw new Error('empire.seasons greenhouse multiplier must be non-negative.')
+    }
+  }
+}
+
+function validateTechnologySidesAndHiddenCombinations(config: EmpiresEndgameConfig): void {
+  const combinations = config.empire.hiddenCombinations
+  if (!isRecord(combinations) || typeof combinations.enabled !== 'boolean'
+    || !Array.isArray(combinations.definitions)) {
+    throw new Error('empire.hiddenCombinations must contain enabled and definitions.')
+  }
+  if (combinations.enabled && combinations.definitions.length === 0) {
+    throw new Error('empire.hiddenCombinations needs definitions when enabled.')
+  }
+  const technologyIds = new Set(config.empire.technologies.map(technology => technology.id))
+  const buildingIds = new Set(config.empire.buildings.map(building => building.id))
+  const combinationIds = new Set<string>()
+  for (const combination of combinations.definitions) {
+    if (!combination.id?.trim() || combinationIds.has(combination.id)) {
+      throw new Error('hidden combinations need unique non-empty ids.')
+    }
+    if (!combination.name?.trim() || !Array.isArray(combination.prerequisites)
+      || combination.prerequisites.length === 0) {
+      throw new Error(`hidden combination ${combination.id} needs a name and prerequisites.`)
+    }
+    for (const dependency of combination.prerequisites) {
+      if (dependency.kind === 'technology' && !technologyIds.has(dependency.technologyId)) {
+        throw new Error(`hidden combination ${combination.id} references unknown technology ${dependency.technologyId}.`)
+      }
+      if (dependency.kind === 'building' && !buildingIds.has(dependency.buildingId)) {
+        throw new Error(`hidden combination ${combination.id} references unknown building ${dependency.buildingId}.`)
+      }
+      if (dependency.kind === 'flag' && !EMPIRES_LIVE_FLAG_ALLOWLIST.has(dependency.flagId)) {
+        throw new Error(`hidden combination ${combination.id} uses unread flag ${dependency.flagId}.`)
+      }
+      if (dependency.kind === 'reputation' && !Number.isFinite(dependency.minimum)) {
+        throw new Error(`hidden combination ${combination.id} has invalid reputation prerequisite.`)
+      }
+    }
+    combinationIds.add(combination.id)
+  }
+
+  for (const technology of config.empire.technologies) {
+    const sides = technology.sides
+    if (sides === undefined) continue
+    if (!isRecord(sides) || !isRecord(sides.selection) || !isRecord(sides.disclosure)
+      || !Array.isArray(sides.definitions)) {
+      throw new Error(`technology ${technology.id} sides must define selection, disclosure, and definitions.`)
+    }
+    if (sides.definitions.length !== 2
+      || sides.definitions.filter(side => side.alignment === 'light').length !== 1
+      || sides.definitions.filter(side => side.alignment === 'dark').length !== 1) {
+      throw new Error(`technology ${technology.id} sides must contain exactly one light and one dark definition.`)
+    }
+    const sideIds = new Set<string>()
+    for (const side of sides.definitions) {
+      if (!side.id?.trim() || sideIds.has(side.id) || !side.name?.trim()) {
+        throw new Error(`technology ${technology.id} sides need unique ids and names.`)
+      }
+      if (!Array.isArray(side.effects)) throw new Error(`technology ${technology.id} side ${side.id} needs effects.`)
+      if (side.alignment === 'dark') {
+        if (!Number.isFinite(side.reputationDelta) || (side.reputationDelta ?? 0) >= 0) {
+          throw new Error(`technology ${technology.id} dark side ${side.id} needs a negative reputationDelta.`)
+        }
+      } else if (side.reputationDelta !== undefined && side.reputationDelta !== 0) {
+        throw new Error(`technology ${technology.id} light side ${side.id} cannot change disclosure reputation.`)
+      }
+      if (side.tags !== undefined) validateUniqueStringList(side.tags, `technology ${technology.id} side ${side.id} tags`)
+      if (side.epidemicPolicy !== undefined) {
+        if (!isRecord(side.epidemicPolicy)
+          || typeof side.epidemicPolicy.preventsIntercitySpread !== 'boolean'
+          || !Number.isFinite(side.epidemicPolicy.withinCitySpeedMultiplier)
+          || side.epidemicPolicy.withinCitySpeedMultiplier <= 0) {
+          throw new Error(`technology ${technology.id} side ${side.id} has an invalid epidemicPolicy.`)
+        }
+      }
+      sideIds.add(side.id)
+    }
+    if (sides.selection.kind === 'fixed') {
+      if (typeof sides.selection.sideId !== 'string' || !sideIds.has(sides.selection.sideId)) {
+        throw new Error(`technology ${technology.id} fixed side selection references an unknown side.`)
+      }
+    } else if (sides.selection.kind === 'weighted') {
+      if (!Array.isArray(sides.selection.weights)
+        || sides.selection.weights.length !== sideIds.size
+        || new Set(sides.selection.weights.map(weight => weight.sideId)).size !== sideIds.size
+        || sides.selection.weights.some(weight => !sideIds.has(weight.sideId)
+          || !Number.isFinite(weight.weight) || weight.weight <= 0)) {
+        throw new Error(`technology ${technology.id} weighted side selection must cover every side with positive weights.`)
+      }
+    } else {
+      throw new Error(`technology ${technology.id} has an unknown side selection kind.`)
+    }
+    if (sides.disclosure.kind === 'afterCons') {
+      if (!Number.isInteger(sides.disclosure.delayCons) || sides.disclosure.delayCons < 0) {
+        throw new Error(`technology ${technology.id} side disclosure delayCons must be a non-negative integer.`)
+      }
+    } else if (sides.disclosure.kind === 'hiddenCombination') {
+      if (!combinationIds.has(sides.disclosure.combinationId)) {
+        throw new Error(`technology ${technology.id} side disclosure references unknown hidden combination ${sides.disclosure.combinationId}.`)
+      }
+    } else if (sides.disclosure.kind !== 'onResearch') {
+      throw new Error(`technology ${technology.id} has an unknown side disclosure kind.`)
     }
   }
 }
@@ -915,6 +1115,21 @@ function validatePoliticalEffects(config: EmpiresEndgameConfig): void {
         }
         return
       }
+      if (effect.kind === 'loyaltyAllCities') {
+        if (!Number.isFinite(effect.amount) || !Number.isFinite(effect.amountPerLevel ?? 0)) {
+          throw new Error(`${path}[${index}] all-city loyalty amounts must be finite.`)
+        }
+        return
+      }
+      if (effect.kind === 'classLoyalty') {
+        if (!classIds.has(effect.populationClassId)) {
+          throw new Error(`${path}[${index}] references unknown population class ${effect.populationClassId}.`)
+        }
+        if (!Number.isFinite(effect.amount) || !Number.isFinite(effect.amountPerLevel ?? 0)) {
+          throw new Error(`${path}[${index}] class loyalty amounts must be finite.`)
+        }
+        return
+      }
       if (effect.kind !== 'loyalty') return
       if (!Number.isFinite(effect.amount) || !Number.isFinite(effect.amountPerLevel ?? 0)) {
         throw new Error(`${path}[${index}] loyalty amounts must be finite.`)
@@ -949,6 +1164,9 @@ function validatePoliticalEffects(config: EmpiresEndgameConfig): void {
   }
   for (const technology of config.empire.technologies) {
     validateEffects(technology.effects, `technology ${technology.id} effects`)
+    for (const side of technology.sides?.definitions ?? []) {
+      validateEffects(side.effects, `technology ${technology.id} side ${side.id} effects`)
+    }
   }
   for (const event of config.empire.events) {
     for (const choice of event.choices) validateEffects(choice.effects, `event ${event.id} choice ${choice.id} effects`)
@@ -1939,7 +2157,7 @@ export function validateEmpiresConfig(value: unknown): asserts value is EmpiresE
   ])
   validateScaffoldSection(value.god, 'god', ['lines', 'deckMemoryRules', 'antiBitoRules'])
   validateScaffoldSection(value.quests, 'quests', ['definitions', 'dialogueGraphs'])
-  validateScaffoldSection(value.empire.seasons, 'empire.seasons', ['definitions'])
+  validateSeasonsConfig(value as unknown as EmpiresEndgameConfig)
   if (!Array.isArray(value.empire.cities)) throw new Error('Поле empire.cities должно быть массивом.')
   if (!isRecord(value.empire.map) || !Array.isArray(value.empire.map.regions) || value.empire.map.regions.length !== 5) {
     throw new Error('На карте должно быть ровно пять регионов.')
@@ -1968,6 +2186,7 @@ export function validateEmpiresConfig(value: unknown): asserts value is EmpiresE
   )
 
   const config = value as unknown as EmpiresEndgameConfig
+  validateTechnologySidesAndHiddenCombinations(config)
   validateLoyaltyConfig(config)
   validatePoliticalEffects(config)
   validateSteelResearchConfig(config)

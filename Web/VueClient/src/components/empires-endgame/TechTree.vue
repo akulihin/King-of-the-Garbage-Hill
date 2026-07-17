@@ -32,7 +32,15 @@ interface TechnologyNodeView {
   freeEligibleCon?: number | null
   researched?: boolean
   available?: boolean
-  darkSide?: string
+  technologySide?: {
+    name: string
+    alignment: 'light' | 'dark' | null
+    revealed: boolean
+    suppressed: boolean
+    disclosureKind: string
+  }
+  smithSpecializationOptions?: Array<{ id: string, name: string }>
+  smithSpecializationRecipeId?: string | null
   blockedReason?: string
   image?: string
   deferredReason?: string
@@ -62,6 +70,7 @@ const props = withDefaults(defineProps<{
 const emit = defineEmits<{
   select: [nodeId: string]
   research: [nodeId: string]
+  specializeSmiths: [recipeId: string]
   moveNode: [nodeId: string, x: number, y: number]
   toggleDependency: [fromId: string, toId: string]
 }>()
@@ -426,9 +435,29 @@ function hideBrokenImage(event: Event) {
             <span>Требует</span>
             <b v-for="id in selected.requires" :key="id">{{ nodeById.get(id)?.name || id }}</b>
           </div>
-          <div v-if="selected.darkSide" class="dark-side">
-            <strong>Тёмная сторона</strong>
-            <span>{{ selected.darkSide }}</span>
+          <div
+            v-if="selected.technologySide"
+            class="technology-side"
+            :class="selected.technologySide.alignment ?? 'hidden'"
+            data-testid="selected-technology-side"
+          >
+            <strong>{{ selected.technologySide.alignment === 'dark' ? 'Тёмная сторона' : selected.technologySide.alignment === 'light' ? 'Светлая сторона' : 'Сторона технологии' }}</strong>
+            <span>{{ selected.technologySide.name }}</span>
+            <small v-if="!selected.technologySide.revealed">Раскрытие: {{ selected.technologySide.disclosureKind }}</small>
+            <small v-else-if="selected.technologySide.suppressed">Последствия подавлены культурой или политикой.</small>
+          </div>
+          <div v-if="selected.researched && selected.smithSpecializationOptions?.length" class="smith-specialization">
+            <strong>Единая специализация кузнецов</strong>
+            <span v-if="selected.smithSpecializationRecipeId">Выбор сделан навсегда.</span>
+            <span v-else>После выбора перенастроить кузницы нельзя.</span>
+            <button
+              v-for="option in selected.smithSpecializationOptions"
+              :key="option.id"
+              type="button"
+              :disabled="Boolean(selected.smithSpecializationRecipeId)"
+              :class="{ selected: selected.smithSpecializationRecipeId === option.id }"
+              @click="emit('specializeSmiths', option.id)"
+            >{{ option.name }}</button>
           </div>
           <div v-if="!editable && !selected.researched && !selected.deferredReason && selected.blockedReason" class="blocked-reason" role="status">
             <LockKeyhole :size="14" />
@@ -517,7 +546,14 @@ function hideBrokenImage(event: Event) {
 .configured-costs,.requires { display: flex; width: 100%; flex-wrap: wrap; gap: 4px; margin-bottom: 12px; }
 .configured-costs > span,.requires > span { width: 100%; color: rgba(238,228,207,.4); font: 700 .53rem/1 var(--font-mono, monospace); text-transform: uppercase; }
 .configured-costs b,.requires b { padding: 4px 6px; border-radius: 4px; color: #d8c79f; background: rgba(198,168,107,.08); font-size: .57rem; }
-.dark-side { display: grid; gap: 4px; padding: 10px; border: 1px solid rgba(171,93,104,.24); border-radius: 7px; color: #d69da5; background: rgba(116,49,59,.09); font-size: .65rem; line-height: 1.4; }
+.technology-side { display: grid; width: 100%; gap: 4px; margin-bottom: 12px; padding: 10px; border: 1px solid rgba(114,157,176,.24); border-radius: 7px; color: #a8c9d8; background: rgba(44,83,100,.09); font-size: .65rem; line-height: 1.4; }
+.technology-side.dark { border-color: rgba(171,93,104,.28); color: #d69da5; background: rgba(116,49,59,.09); }
+.technology-side.light { border-color: rgba(205,178,105,.3); color: #e2ce94; background: rgba(128,104,42,.09); }
+.technology-side small { opacity: .72; }
+.smith-specialization { display: grid; width: 100%; gap: 6px; margin-bottom: 12px; padding: 10px; border: 1px solid rgba(145,162,170,.25); border-radius: 7px; color: #b8c6ca; background: rgba(115,137,146,.08); font-size: .63rem; }
+.smith-specialization button { padding: 7px; border: 1px solid rgba(145,162,170,.28); border-radius: 5px; color: #d9e2e4; background: rgba(255,255,255,.04); cursor: pointer; }
+.smith-specialization button.selected { border-color: #c6a86b; color: #f0d995; }
+.smith-specialization button:disabled { cursor: not-allowed; opacity: .65; }
 .deferred-reason { display: flex; width: 100%; align-items: flex-start; gap: 7px; margin-bottom: 12px; padding: 9px; border: 1px solid rgba(190, 132, 78, .3); border-radius: 7px; color: #e0b984; background: rgba(126, 75, 34, .11); font-size: .64rem; line-height: 1.4; }
 .deferred-reason svg { flex: none; margin-top: 1px; }
 .deferred-reason strong { color: #f0cca0; }

@@ -149,6 +149,17 @@ export type EmpiresEffect =
     amountPerLevel?: number
   }
   | {
+    kind: 'loyaltyAllCities'
+    amount: number
+    amountPerLevel?: number
+  }
+  | {
+    kind: 'classLoyalty'
+    populationClassId: string
+    amount: number
+    amountPerLevel?: number
+  }
+  | {
     kind: 'reputation'
     amount: number
     amountPerLevel?: number
@@ -364,6 +375,39 @@ export interface EmpiresSteelTechnologyDefinition {
   entryFromTechnologyIds?: string[]
 }
 
+export type EmpiresTechnologySideAlignment = 'light' | 'dark'
+
+export interface EmpiresTechnologySideEpidemicPolicy {
+  preventsIntercitySpread: boolean
+  withinCitySpeedMultiplier: number
+}
+
+export interface EmpiresTechnologySideDefinition {
+  id: string
+  name: string
+  alignment: EmpiresTechnologySideAlignment
+  effects: EmpiresEffect[]
+  tags?: string[]
+  culturalSuppressible?: boolean
+  reputationDelta?: number
+  epidemicPolicy?: EmpiresTechnologySideEpidemicPolicy
+}
+
+export type EmpiresTechnologySideSelection =
+  | { kind: 'fixed', sideId: string }
+  | { kind: 'weighted', weights: Array<{ sideId: string, weight: number }> }
+
+export type EmpiresTechnologySideDisclosure =
+  | { kind: 'onResearch' }
+  | { kind: 'afterCons', delayCons: number }
+  | { kind: 'hiddenCombination', combinationId: string }
+
+export interface EmpiresTechnologySidesDefinition {
+  selection: EmpiresTechnologySideSelection
+  disclosure: EmpiresTechnologySideDisclosure
+  definitions: EmpiresTechnologySideDefinition[]
+}
+
 export interface EmpiresTechnologyDefinition {
   id: string
   name: string
@@ -379,6 +423,7 @@ export interface EmpiresTechnologyDefinition {
   prerequisites: EmpiresDependency[]
   effects: EmpiresEffect[]
   steel?: EmpiresSteelTechnologyDefinition
+  sides?: EmpiresTechnologySidesDefinition
   deferredSubfeatures?: EmpiresDeferredSubfeature[]
   deferredReason?: string
 }
@@ -506,9 +551,37 @@ export interface EmpiresQuestsScaffoldConfig {
   dialogueGraphs: never[]
 }
 
-export interface EmpiresSeasonsScaffoldConfig {
+export interface EmpiresSeasonDefinition {
+  id: string
+  name: string
+  description?: string
+  durationCons: number
+  foodProductionMultiplier: number
+}
+
+export interface EmpiresGreenhouseSeasonConfig {
+  technologyId: string
+  equalizedFoodProductionMultiplier: number
+}
+
+export interface EmpiresSeasonsConfig {
   enabled: boolean
-  definitions: never[]
+  definitions: EmpiresSeasonDefinition[]
+  foodRounding: 'floor' | 'round' | 'none'
+  greenhouse: EmpiresGreenhouseSeasonConfig | null
+}
+
+export interface EmpiresHiddenCombinationDefinition {
+  id: string
+  name: string
+  prerequisites: EmpiresDependency[]
+  tags?: string[]
+  deferredReason?: string
+}
+
+export interface EmpiresHiddenCombinationsConfig {
+  enabled: boolean
+  definitions: EmpiresHiddenCombinationDefinition[]
 }
 
 export type EmpiresLoyaltyTarget =
@@ -568,7 +641,8 @@ export interface EmpiresEmpireConfig {
   technologies: EmpiresTechnologyDefinition[]
   steelResearch: EmpiresSteelResearchConfig
   events: EmpiresEventDefinition[]
-  seasons: EmpiresSeasonsScaffoldConfig
+  seasons: EmpiresSeasonsConfig
+  hiddenCombinations: EmpiresHiddenCombinationsConfig
   loyalty: EmpiresLoyaltyConfig
 }
 
@@ -579,7 +653,7 @@ export interface EmpiresUpgradeConfig {
 }
 
 export interface EmpiresEndgameConfig {
-  schemaVersion: 5
+  schemaVersion: 6
   id: string
   title: string
   seed: string | number
@@ -768,6 +842,30 @@ export interface EmpiresSteelResearchState {
   delayedFree: Record<string, EmpiresDelayedFreeResearchState>
 }
 
+export interface EmpiresTechnologySideState {
+  sideId: string
+  selectedAtCon: number
+  revealedAtCon: number | null
+  effectsAppliedAtCon: number | null
+  suppressedAtCon: number | null
+}
+
+export interface EmpiresTechnologySideView extends EmpiresTechnologySideState {
+  technologyId: string
+  sideName: string
+  alignment: EmpiresTechnologySideAlignment | null
+  disclosureKind: EmpiresTechnologySideDisclosure['kind']
+}
+
+export interface EmpiresSeasonView extends EmpiresSeasonDefinition {
+  foodProductionMultiplierApplied: number
+  greenhouseEqualized: boolean
+}
+
+export interface EmpiresHiddenCombinationTriggerState {
+  triggeredAtCon: number
+}
+
 export interface EmpiresResearchQuote {
   technologyId: string
   requiredTechnologyIds: string[]
@@ -815,6 +913,9 @@ export type EmpiresChronicleEntryKind =
   | 'rebellion'
   | 'recovery'
   | 'battle-loss'
+  | 'season'
+  | 'technology-disclosure'
+  | 'hidden-combination'
 
 export interface EmpiresChronicleEntry {
   id: string
@@ -876,6 +977,9 @@ export interface EmpiresEmpireState {
   buildingLevelBonuses: Partial<Record<EmpiresBuildingSlotKind, number>>
   researchUsage: Record<string, string>
   steelResearch: EmpiresSteelResearchState
+  technologySides: Record<string, EmpiresTechnologySideState>
+  hiddenCombinationTriggers: Record<string, EmpiresHiddenCombinationTriggerState>
+  smithSpecializationRecipeId: string | null
   giftResolutionTargets: Record<string, string>
 }
 

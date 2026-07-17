@@ -5,7 +5,7 @@ import BuilderDrawer from '../../components/empires-endgame/BuilderDrawer.vue'
 import { cloneEmpiresConfig, parseEmpiresConfig } from './config'
 import type { EmpiresEndgameConfig } from './types'
 
-describe('Empire\'s Endgame Builder schema-v5 JSON boundary', () => {
+describe('Empire\'s Endgame Builder schema-v6 JSON boundary', () => {
   it('round-trips steel research, loadouts, production lines, and combat through every JSON control', async () => {
     const config = cloneEmpiresConfig(defaultConfigJson)
     const updates: EmpiresEndgameConfig[] = []
@@ -27,7 +27,11 @@ describe('Empire\'s Endgame Builder schema-v5 JSON boundary', () => {
     expect(exported.combat).toEqual(config.combat)
     expect(exported.combat.enabled).toBe(true)
     expect(exported.combat.equipment).toHaveLength(config.combat.equipment.length)
-    expect(exported.schemaVersion).toBe(5)
+    expect(exported.schemaVersion).toBe(6)
+    expect(exported.empire.seasons).toEqual(config.empire.seasons)
+    expect(exported.empire.hiddenCombinations).toEqual(config.empire.hiddenCombinations)
+    expect(exported.empire.technologies.map(technology => technology.sides))
+      .toEqual(config.empire.technologies.map(technology => technology.sides))
     expect(exported.empire.steelResearch).toEqual(config.empire.steelResearch)
     expect(exported.empire.technologies.map(technology => technology.steel))
       .toEqual(config.empire.technologies.map(technology => technology.steel))

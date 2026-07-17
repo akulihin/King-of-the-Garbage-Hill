@@ -42,7 +42,7 @@ function makeCards(): EmpiresCardDefinition[] {
 
 function makeConfig(): EmpiresEndgameConfig {
   return {
-    schemaVersion: 5,
+    schemaVersion: 6,
     id: 'engine-test',
     title: "Empire's Endgame",
     seed: 'deterministic-test',
@@ -254,7 +254,13 @@ function makeConfig(): EmpiresEndgameConfig {
           choices: [{ id: 'event-b-choice', label: 'B', effects: [] }],
         },
       ],
-      seasons: { enabled: false, definitions: [] },
+      seasons: {
+        enabled: false,
+        definitions: [],
+        foodRounding: 'none',
+        greenhouse: null,
+      },
+      hiddenCombinations: { enabled: false, definitions: [] },
       loyalty: {
         ...createDefaultEmpiresLoyaltyConfig(['central']),
         enabled: false,

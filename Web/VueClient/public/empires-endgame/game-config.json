@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 5,
+  "schemaVersion": 6,
   "id": "empires-endgame-default",
   "title": "Empire's Endgame",
   "seed": "empires-endgame-authoritative-default-v1",
@@ -2079,8 +2079,53 @@
   },
   "empire": {
     "seasons": {
-      "enabled": false,
-      "definitions": []
+      "enabled": true,
+      "definitions": [
+        {
+          "id": "summer",
+          "name": "Лето",
+          "description": "Фермы используют длинный тёплый сезон.",
+          "durationCons": 1,
+          "foodProductionMultiplier": 2
+        },
+        {
+          "id": "winter",
+          "name": "Зима",
+          "description": "Зимний предел продовольствия возвращается к базовому.",
+          "durationCons": 1,
+          "foodProductionMultiplier": 1
+        }
+      ],
+      "foodRounding": "floor",
+      "greenhouse": {
+        "technologyId": "tech-greenhouses",
+        "equalizedFoodProductionMultiplier": 2
+      }
+    },
+    "hiddenCombinations": {
+      "enabled": true,
+      "definitions": [
+        {
+          "id": "hidden-granary-alchemy-plague",
+          "name": "Амбар + Алхимическая лавка: чума",
+          "prerequisites": [
+            {
+              "kind": "technology",
+              "technologyId": "reform-granary"
+            },
+            {
+              "kind": "building",
+              "buildingId": "building-alchemy",
+              "level": 1,
+              "scope": "anyCity"
+            }
+          ],
+          "tags": [
+            "epidemic"
+          ],
+          "deferredReason": "P5 определит событие, выбор и последствия чумы; P4B сохраняет только типизированную комбинацию."
+        }
+      ]
     },
     "loyalty": {
       "enabled": true,
@@ -6495,6 +6540,40 @@
         "effects": []
       },
       {
+        "id": "tech-greenhouses",
+        "name": "Парники",
+        "description": "",
+        "category": "technology",
+        "groupId": "science",
+        "tier": 2,
+        "position": {
+          "x": 360,
+          "y": 460
+        },
+        "image": "",
+        "tags": [
+          "seasonal-food-equalization"
+        ],
+        "timeCostDays": 5,
+        "resourceCosts": [
+          {
+            "resourceId": "knowledge",
+            "amount": 800
+          },
+          {
+            "resourceId": "gold",
+            "amount": 400
+          }
+        ],
+        "prerequisites": [
+          {
+            "kind": "technology",
+            "technologyId": "tech-three-field"
+          }
+        ],
+        "effects": []
+      },
+      {
         "id": "reform-granary-2",
         "name": "Амбар: экономия провизии",
         "description": "",
@@ -6552,7 +6631,8 @@
             "technologyId": "tech-medicine"
           }
         ],
-        "effects": []
+        "effects": [],
+        "deferredReason": "Продление эффектов сброшенных карт и соседская пропаганда не имеют полного авторского контракта."
       },
       {
         "id": "tech-conservation",
@@ -7045,12 +7125,10 @@
             "amount": 1
           },
           {
-            "kind": "flag",
-            "flagId": "loyalty",
+            "kind": "loyaltyAllCities",
             "amount": -1
           }
-        ],
-        "deferredReason": "Бой, экспедиции и военные последствия ещё не реализованы."
+        ]
       },
       {
         "id": "reform-heroic-funerals",
@@ -7089,8 +7167,7 @@
             "flagId": "casualtyRecruitGrowthPenaltyDisabled",
             "amount": 1
           }
-        ],
-        "deferredReason": "Бой, экспедиции и военные последствия ещё не реализованы."
+        ]
       },
       {
         "id": "reform-control-smiths",
@@ -7125,17 +7202,16 @@
             "amount": 1
           },
           {
-            "kind": "flag",
-            "flagId": "burgherLoyalty",
+            "kind": "classLoyalty",
+            "populationClassId": "burghers",
             "amount": -1
           },
           {
-            "kind": "flag",
-            "flagId": "nobleLoyalty",
+            "kind": "classLoyalty",
+            "populationClassId": "nobles",
             "amount": -2
           }
-        ],
-        "deferredReason": "Бой, экспедиции и военные последствия ещё не реализованы."
+        ]
       },
       {
         "id": "reform-logistics-order",
@@ -7408,8 +7484,7 @@
             "flagId": "darkExperimentsDisabled",
             "amount": 1
           }
-        ],
-        "deferredReason": "Лояльность, общественные сословия и политические кризисы ещё не реализованы."
+        ]
       },
       {
         "id": "reform-technocracy",
@@ -7485,23 +7560,49 @@
             "technologyId": "doctrine-general"
           }
         ],
-        "effects": [
-          {
-            "kind": "flag",
-            "flagId": "crimeMultiplierPercent",
-            "amount": -50
+        "effects": [],
+        "sides": {
+          "selection": {
+            "kind": "weighted",
+            "weights": [
+              {
+                "sideId": "city-gates-light",
+                "weight": 1
+              },
+              {
+                "sideId": "city-gates-dark",
+                "weight": 1
+              }
+            ]
           },
-          {
-            "kind": "flag",
-            "flagId": "epidemicContainment",
-            "amount": 1
+          "disclosure": {
+            "kind": "afterCons",
+            "delayCons": 1
           },
-          {
-            "kind": "flag",
-            "flagId": "lockedCityEpidemicMultiplier",
-            "amount": 2
-          }
-        ],
+          "definitions": [
+            {
+              "id": "city-gates-light",
+              "name": "Охраняемые врата",
+              "alignment": "light",
+              "effects": []
+            },
+            {
+              "id": "city-gates-dark",
+              "name": "Закрытый город",
+              "alignment": "dark",
+              "effects": [],
+              "culturalSuppressible": true,
+              "reputationDelta": -1,
+              "tags": [
+                "dark-experiment"
+              ],
+              "epidemicPolicy": {
+                "preventsIntercitySpread": true,
+                "withinCitySpeedMultiplier": 2
+              }
+            }
+          ]
+        },
         "deferredReason": "Эпидемии, лечение и городские санитарные режимы ещё не реализованы."
       },
       {

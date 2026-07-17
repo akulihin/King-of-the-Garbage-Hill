@@ -62,6 +62,15 @@ describe('Empire\'s Endgame deterministic QA scenarios', () => {
       farm: 1,
       lumber: 1,
     })
+    expect(digestEmpiresQaState(new EmpiresEndgameEngine(
+      config,
+      fixtures['season-disclosure'].snapshot,
+    ))).toMatchObject({
+      con: 2,
+      seasonId: 'winter',
+      reputation: -1,
+      technologyDisclosureCount: 1,
+    })
     expect(fixtures['battle-defense'].snapshot).toMatchObject({
       phase: 'minigame',
       minigame: {
