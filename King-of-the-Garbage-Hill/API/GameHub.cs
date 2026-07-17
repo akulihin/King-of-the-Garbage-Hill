@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Security.Cryptography;
@@ -23,6 +24,7 @@ namespace King_of_the_Garbage_Hill.API;
 /// </summary>
 public class GameHub : Hub
 {
+    private static readonly ConcurrentDictionary<string, byte> BattleshipBotPumps = new();
     private readonly WebGameService _gameService;
     private readonly GameNotificationService _notificationService;
     private readonly Global _global;
@@ -1421,6 +1423,7 @@ public class GameHub : Hub
         }
 
         await PushBattleshipStateToAll(gameId);
+        await RunBattleshipBotPump(gameId);
     }
 
     public async Task BattleshipShoot(string gameId, int row, int col)
@@ -1437,28 +1440,10 @@ public class GameHub : Hub
             return;
         }
 
-        // Send shot result event
-        await Clients.Group($"bs-{gameId}").SendAsync("BattleshipEvent", new
-        {
-            eventType = "ShotResult",
-            data = new
-            {
-                result.WasSkipped,
-                result.Hit,
-                result.Miss,
-                result.Scratched,
-                result.Destroyed,
-                result.ShipSunk,
-                result.Burned,
-                result.Row,
-                result.Col,
-                result.TurnContinues,
-                result.Message,
-                result.AffectedShipName,
-            }
-        });
+        await SendBattleshipShotEvent(gameId, result);
 
         await PushBattleshipStateToAll(gameId);
+        await RunBattleshipBotPump(gameId);
     }
 
     public async Task BattleshipShootOwnBoard(string gameId, int row, int col)
@@ -1475,27 +1460,10 @@ public class GameHub : Hub
             return;
         }
 
-        await Clients.Group($"bs-{gameId}").SendAsync("BattleshipEvent", new
-        {
-            eventType = "ShotResult",
-            data = new
-            {
-                result.WasSkipped,
-                result.Hit,
-                result.Miss,
-                result.Scratched,
-                result.Destroyed,
-                result.ShipSunk,
-                result.Burned,
-                result.Row,
-                result.Col,
-                result.TurnContinues,
-                result.Message,
-                result.AffectedShipName,
-            }
-        });
+        await SendBattleshipShotEvent(gameId, result);
 
         await PushBattleshipStateToAll(gameId);
+        await RunBattleshipBotPump(gameId);
     }
 
     public async Task BattleshipSelectWeapon(string gameId, string weaponType, string shotType, string weaponId = null)
@@ -1525,6 +1493,7 @@ public class GameHub : Hub
             return;
         }
         await PushBattleshipStateToAll(gameId);
+        await RunBattleshipBotPump(gameId);
     }
 
     public async Task BattleshipDeploySummon(string gameId, string summonType, int col)
@@ -1660,6 +1629,57 @@ public class GameHub : Hub
         var connections = _notificationService.GetConnections(did);
         if (connections.Count > 0)
             await Clients.Clients(connections.ToList()).SendAsync("BattleshipState", state);
+    }
+
+    private async Task SendBattleshipShotEvent(string gameId, Battleship.Models.ShotResult result)
+    {
+        if (result == null) return;
+        await Clients.Group($"bs-{gameId}").SendAsync("BattleshipEvent", new
+        {
+            eventType = "ShotResult",
+            data = new
+            {
+                result.WasSkipped,
+                result.Hit,
+                result.Miss,
+                result.Scratched,
+                result.Destroyed,
+                result.ShipSunk,
+                result.Burned,
+                result.Row,
+                result.Col,
+                result.TurnContinues,
+                result.Message,
+                result.AffectedShipName,
+                result.SourceShipId,
+                result.SourceDeckIndex,
+                result.ProjectileType,
+                result.TargetPlayerId,
+            }
+        });
+    }
+
+    private async Task RunBattleshipBotPump(string gameId)
+    {
+        if (!BattleshipBotPumps.TryAdd(gameId, 0)) return;
+        try
+        {
+            while (_battleshipService.IsBotTurn(gameId))
+            {
+                // Same reset window as the client-enforced human delay. The lock is free,
+                // so a human may deploy a summon against the bot during these two seconds.
+                await Task.Delay(2000);
+                var step = _battleshipService.ProcessBotStep(gameId);
+                if (!step.Acted) break;
+                if (step.Shot != null)
+                    await SendBattleshipShotEvent(gameId, step.Shot);
+                await PushBattleshipStateToAll(gameId);
+            }
+        }
+        finally
+        {
+            BattleshipBotPumps.TryRemove(gameId, out _);
+        }
     }
 
     // ── Private helpers ───────────────────────────────────────────────

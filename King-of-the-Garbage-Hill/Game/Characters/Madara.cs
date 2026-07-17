@@ -28,6 +28,7 @@ public static class Madara
         public int RoundEightLosses { get; set; }
         public bool RoundEightJusticeGranted { get; set; }
         public bool RoundNineResolved { get; set; }
+        public Guid RedTigerPlayerId { get; set; }
         public bool TopOnePhraseSent { get; set; }
         public bool ThemeStarted { get; set; }
         public bool Sealed { get; set; }
@@ -48,6 +49,11 @@ public static class Madara
 
     public static bool IsSealed(GamePlayerBridgeClass player) =>
         IsMadara(player) && player.Passives.Madara.Sealed;
+
+    public static bool IsRedTiger(GameClass game, GamePlayerBridgeClass player) =>
+        game != null
+        && player != null
+        && Find(game)?.Passives.Madara.RedTigerPlayerId == player.GetPlayerId();
 
     public static bool IsEternalTsukuyomiActive(GameClass game)
     {
@@ -241,6 +247,8 @@ public static class Madara
 
         if (attackers == 1)
         {
+            if (losses > 0)
+                state.RedTigerPlayerId = state.RoundEightAttackers.Single();
             game.AddGlobalLogs(losses > 0
                 ? "Мадара: Красный Тигр! Ты дрался достойно! Нарекаю тебя сильнейшим человеком на земле!"
                 : "Мадара: Твои товарищи тебя бросили... Ведь в этом мире нет надежды, нет света. Только отчаяние.");

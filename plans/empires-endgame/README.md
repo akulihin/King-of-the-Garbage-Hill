@@ -49,7 +49,12 @@ Current execution status supplied by the designer on 2026-07-17:
   v6, deterministic settlement/spread/containment, medical buildings and healer/recovery,
   vaccination faces, epidemic relic, hidden plague combination and epidemic UI/QA landed
   as one change-set. City Gates remains honestly deferred on its undefined crime side.
-- **Next prompt: Phase 6A** (`phase-06-economy-external.md`).
+- **Phase 6A — complete.** Schema-v9 domestic-economy configuration, save-envelope v7,
+  scheduled Bank debt/default/гонения, calm-turn insurance, ordered Fair activities,
+  Temple preaching/relic slots, passive Tavern army hooks and economy UI/QA landed as one
+  change-set. Capability-level blockers retain every undefined market, siege, Temple-branch,
+  baron and Tavern-minigame behavior.
+- **Next prompt: Phase 6B** (`phase-06b-diplomacy-external.md`).
 
 Scope decisions confirmed by the designer (2026-07-16):
 
@@ -72,7 +77,7 @@ graph TD
   P4A --> P4B
   P4B --> P4C[4C advisors + persts + capital governance]
   P4B --> P5[5 complete: epidemics]
-  P4C --> P6A[6A domestic economy]
+  P4C --> P6A[6A complete: domestic economy]
   P5 --> P6A
   P3B --> P6B[6B diplomacy + external trade]
   P6A --> P6B
@@ -107,7 +112,7 @@ graph TD
 | `phase-04b-seasons-tech-sides.md` | **Complete/historical. 4B:** seasons, technology sides, political reforms, honest crime deferral. |
 | `phase-04c-advisors-persts-capital.md` | **Complete/historical. 4C:** advisor flow, suit/Grand Advisor rules, governor персты, capital slot governance. |
 | `phase-05-epidemics.md` | **Complete/historical.** Typed epidemic lifecycle, medical chain, vaccination faces, relic/combo closure and honest City Gates/Pharmaceuticals/Quarantine deferrals. |
-| `phase-06-economy-external.md` | **6A:** Bank/insurance/Fair/Temple and passive Tavern substrate. |
+| `phase-06-economy-external.md` | **Complete/historical. 6A:** Bank/insurance/Fair/Temple and passive Tavern substrate. |
 | `phase-06b-diplomacy-external.md` | **6B:** real diplomacy/external trade, Людовик, Stable/Customs/Sea Port, missing trade buildings. |
 | `phase-06c-economy-content.md` | **6C:** economy gifts, relics, events, resources, technologies, and card faces. |
 | `phase-07-quests-dialogue.md` | Quest + dialogue-graph engine, journal/overlay UI, Палач quest port. |
@@ -223,6 +228,31 @@ graph TD
   recruitment or facility lock was invented; stage fields exist and bundled values are
   explicitly empty/false.
 
+## P6A handoff
+
+- The compatibility baseline is config schema 9 and campaign/save envelope 7. Domestic
+  economy definitions are config data; loan/installment identity, insurance provenance,
+  Fair activity/cooldown memory, persecution, Temple assignments and bounded obligation
+  histories are canonical saved state. Schema-v8 custom configs migrate with the section
+  disabled, and legacy saves migrate claimed relics without leaving old always-on flags.
+- Bank principal and every installment freeze the current trusted gold income at
+  origination. Scheduled settlement, manual repayment, default and гонения share one typed
+  obligation model and P4A's loyalty/reputation/chronicle funnels. Later price systems may
+  consume the retained persecution market blocker, but must not recreate debt as a flag.
+- Insurance activates after three calm settlements and covers only typed epidemic and
+  meteor incidents. Raid, nuclear and `окружение` remain explicit capability blockers;
+  neither a home TD loss nor enemy naval categories are a siege proxy. P6B/P11 must supply
+  real incident state before adding those coverages.
+- Fair progression is `Карнавал → Подкуп бродячих артистов → Пустить в Империю циганский
+  табор → барон` with persisted cooldown/activity identity. The baron is an integration
+  point only; exchange, auctions, external market and baron trade remain deferred to their
+  named owners.
+- Temple preaching/tithe and operational relic slots are live. Relic flags are effective
+  only while assigned to an accessible operational Temple; already-claimed legacy relics
+  migrate without duplicate one-time resolution. P6C owns further economy relic content,
+  not the slot lifecycle. Tavern levels feed the canonical army recruitment and maximum
+  morale readers; `tavernMinigame` alone remains P9-owned.
+
 ## How to execute the remaining prompts
 
 Run **one phase/subphase file per fresh Codex task and per change-set**. Do not combine
@@ -234,7 +264,7 @@ to paste into one large task.
 The graph permits some separate-worktree parallelism, but these phases commonly touch the
 same config, types, engine, docs, and version file. The safest single-worktree order is:
 
-`6A → 6B → 6C → 7 → 8 → 9 → 10 → 11A → 11B → 12 → 12B → 13`.
+`6B → 6C → 7 → 8 → 9 → 10 → 11A → 11B → 12 → 12B → 13`.
 
 Use this opening prompt, replacing `<phase-file>` with exactly one file:
 
@@ -279,7 +309,9 @@ gates. Do not commit or push.
   envelope v1→v2 for the real minigame phase; P3A moves config v2→v3; P3B moves config
   v3→v4 and campaign/envelope v2→v3 for equipped cohorts; P4A moves config v4→v5 and
   campaign/envelope v3→v4 for typed political state, consuming legacy loyalty/reputation
-  flags and the pending TD-loss queue exactly once. Never reuse a hard-coded version if
+  flags and the pending TD-loss queue exactly once. P4B moves config to v6; P4C moves config
+  to v7 and saves to v5; P5 moves config/save to v8/v6; P6A moves them to v9/v7 for typed
+  domestic economy and migrates old relic flags into Temple-owned activation. Never reuse a hard-coded version if
   the executed repository is already farther ahead.
 - **New component homes**: `src/components/empires-endgame/` (`TdBattle.vue`, `DialogueOverlay.vue`, `QuestJournal.vue`, `DeckMemoryPanel.vue`, …); new feature modules under `features/empires-endgame/` (`combat/`, `td/`, `quests.ts`, `alchemy/`, `tavern/`, `inventory/`, `chess/`).
 - `engine.ts` (~2.5k lines): extract internal modules (an `engine/` dir) only when a phase already touches that cluster; no big-bang refactor.

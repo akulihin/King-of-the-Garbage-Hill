@@ -383,6 +383,11 @@ const { tipText, tipVisible, tipPos, showTip, moveTip, hideTip } = useTip()
         <div class="lb-info">
           <div class="lb-name">
             <span class="player-name">{{ player.discordUsername }}</span>
+            <span
+              v-if="player.isMadaraRedTiger"
+              class="madara-red-tiger"
+              title="Красный Тигр — признан Мадарой сильнейшим человеком на земле"
+            >🔴🐯</span>
             <span v-if="player.isBot" class="badge bot-badge">BOT</span>
             <span v-if="isKira && deathNote && player.playerId === deathNote.lPlayerId" class="badge l-badge">L</span>
             <!-- Custom leaderboard annotations from passives -->
@@ -989,6 +994,20 @@ const { tipText, tipVisible, tipPos, showTip, moveTip, hideTip } = useTip()
   text-shadow: 0 0 5px rgba(0, 255, 65, 0.85);
   font-family: var(--font-mono);
   animation: terminal-node-glitch 1.8s steps(1, end) infinite;
+}
+
+.madara-red-tiger {
+  display: inline-flex;
+  align-items: center;
+  letter-spacing: -0.2em;
+  padding-right: 0.2em;
+  filter: drop-shadow(0 0 4px rgba(255, 48, 40, 0.85));
+  animation: red-tiger-glow 2.4s ease-in-out infinite;
+}
+
+@keyframes red-tiger-glow {
+  0%, 100% { transform: scale(1); filter: drop-shadow(0 0 3px rgba(255, 48, 40, 0.65)); }
+  50% { transform: scale(1.08); filter: drop-shadow(0 0 7px rgba(255, 72, 32, 1)); }
 }
 @keyframes terminal-node-glitch {
   0%, 84%, 100% { transform: translate(0); filter: none; }

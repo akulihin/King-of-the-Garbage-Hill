@@ -92,9 +92,6 @@ export const useBattleshipStore = defineStore('battleship', () => {
   // Player-marked cells (right-click to mark/unmark)
   const markedCells = ref(new Set<string>()) // "row,col" on enemy board
 
-  // Summon trails — cells summons have passed through
-  const summonTrails = ref(new Map<string, Set<string>>()) // summonId -> set of "row,col"
-
   // Phase transition
   const previousPhase = ref<string | null>(null)
   const phaseTransitionActive = ref(false)
@@ -238,8 +235,10 @@ export const useBattleshipStore = defineStore('battleship', () => {
       if (!old) continue
 
       // Detect newly changed states
-      if (cell.isDestroyed && !old.isDestroyed) {
+      if (cell.isShipSunk && !old.isShipSunk) {
         triggerCellAnim(target, cell.row, cell.col, 'anim-sunk', 800)
+      } else if (cell.isDestroyed && !old.isDestroyed) {
+        triggerCellAnim(target, cell.row, cell.col, 'anim-destroy', 500)
       } else if ((cell.isBurning || cell.isFirePermanent) && !old.isBurning && !old.isFirePermanent) {
         triggerCellAnim(target, cell.row, cell.col, 'anim-burn-ignite', 600)
       } else if (cell.isFrozen && !old.isFrozen) {
@@ -309,20 +308,7 @@ export const useBattleshipStore = defineStore('battleship', () => {
         killStreakDisplay.value = 0
         lastShotResult.value = null
         lastShotCell.value = null
-        summonTrails.value = new Map()
         markedCells.value = new Set()
-      }
-
-      // Track summon positions for trail visualization
-      const allSummons = [
-        ...(state.player1?.summons ?? []),
-        ...(state.player2?.summons ?? []),
-      ]
-      for (const s of allSummons) {
-        if (!s.isAlive) continue
-        const key = s.id
-        if (!summonTrails.value.has(key)) summonTrails.value.set(key, new Set())
-        summonTrails.value.get(key)!.add(`${s.row},${s.col}`)
       }
 
       detectBranderDetonation(oldState, state)
@@ -380,9 +366,9 @@ export const useBattleshipStore = defineStore('battleship', () => {
         lastShotResult.value = result
 
         // Track last shot position
-        const shotTarget: 'enemy' | 'my' = isMyTurn.value
-          ? (pendingShotTarget ?? 'enemy')
-          : 'my'
+        const shotTarget: 'enemy' | 'my' = result.targetPlayerId
+          ? (result.targetPlayerId === gameState.value?.myPlayerId ? 'my' : 'enemy')
+          : (isMyTurn.value ? (pendingShotTarget ?? 'enemy') : 'my')
         pendingShotTarget = null
         lastShotCell.value = { target: shotTarget, row: result.row, col: result.col }
 
@@ -419,9 +405,9 @@ export const useBattleshipStore = defineStore('battleship', () => {
           }
         }
 
-        // My shot with a mounted VFX canvas → real projectile, effects on impact.
-        // Anything else (opponent's shot, no canvas, reduced motion) → immediate.
-        const handled = isMyTurn.value && vfxEnabled.value
+        // A mounted combat view animates both sides. Hidden enemy source coordinates stay
+        // private; the handler launches those projectiles from outside the visible board.
+        const handled = vfxEnabled.value
           && (shotVfxHandler?.(result.row, result.col, shotTarget, fireShotEffects) ?? false)
         if (!handled) fireShotEffects()
 
@@ -627,21 +613,6 @@ export const useBattleshipStore = defineStore('battleship', () => {
     markedCells.value = new Set()
   }
 
-  // Compute summon trail cells for a given board target
-  function getSummonTrailCells(target: 'enemy' | 'my'): Map<string, string> {
-    const result = new Map<string, string>()
-    const summons = target === 'enemy'
-      ? (enemyPlayer.value?.summons ?? [])
-      : (myPlayer.value?.summons ?? [])
-    for (const s of summons) {
-      const trail = summonTrails.value.get(s.id)
-      if (trail) {
-        for (const pos of trail) result.set(pos, s.type ?? 'PirateBoat')
-      }
-    }
-    return result
-  }
-
   return {
     // State
     gameState,
@@ -663,7 +634,6 @@ export const useBattleshipStore = defineStore('battleship', () => {
     killStreak,
     killStreakDisplay,
     markedCells,
-    summonTrails,
     previousPhase,
     phaseTransitionActive,
     screenShake,
@@ -725,6 +695,5 @@ export const useBattleshipStore = defineStore('battleship', () => {
     cancelSummonDeploy,
     toggleMarkedCell,
     clearMarkedCells,
-    getSummonTrailCells,
   }
 })

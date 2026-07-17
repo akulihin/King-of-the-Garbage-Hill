@@ -25,6 +25,7 @@ public static class ErenYeager
         public bool RumblingWarningPlayed { get; set; }
         public bool RumblingTriggered { get; set; }
         public int RumblingPlace { get; set; }
+        public int RumblingKillCount { get; set; }
     }
 
     public static void MoveToLast(List<GamePlayerBridgeClass> players, GamePlayerBridgeClass eren)
@@ -60,5 +61,13 @@ public static class ErenYeager
             player.GameCharacter.Name == CharacterName
             && player.GameCharacter.Passive.Any(passive => passive.PassiveName == Rumbling)
             && player.Passives.Eren.RumblingWarningPlayed);
+    }
+
+    public static int GetRumblingKillCount(GameClass game)
+    {
+        var eren = game?.PlayersList.Find(player =>
+            player.GameCharacter.Name == CharacterName
+            && player.GameCharacter.Passive.Any(passive => passive.PassiveName == Rumbling));
+        return Math.Clamp(eren?.Passives.Eren.RumblingKillCount ?? 0, 0, 4);
     }
 }

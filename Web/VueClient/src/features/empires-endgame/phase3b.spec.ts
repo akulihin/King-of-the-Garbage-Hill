@@ -580,21 +580,25 @@ describe('Empire\'s Endgame Phase 3B steel and equipment bridge', () => {
     relic.giftChoiceIds = ['relic-spirit-floor']
     relic.empire.flags.relicsUnlocked = 1
     relic.army.morale = 0
+    relic.empire.researchedTechnologyIds.push('tech-temple')
+    const templeCity = relic.empire.cities.find(candidate => candidate.id === 'city-north-frost-harbor')!
+    templeCity.buildingLevels['building-temple'] = 1
+    templeCity.operationalBuildingLevels['building-temple'] = 1
+    const templeSlot = value.empire.cities.find(candidate => candidate.id === templeCity.id)!
+      .slots.find(slot => slot.kind === 'unique')!
+    templeCity.buildingSlotAssignments[templeSlot.id] = 'building-temple'
     engine.restore(relic)
     expect(engine.chooseGift('relic-spirit-floor')).toMatchObject({ ok: true })
+    expect(engine.state.army.morale).toBe(0)
+    expect(engine.assignTempleRelic(templeCity.id, 0, 'relic-spirit-floor')).toMatchObject({ ok: true })
     expect(engine.state.army.morale).toBe(2)
     const damaged = engine.snapshot()
     damaged.army.morale = -100
     const restored = new EmpiresEndgameEngine(value, damaged)
     expect(restored.state.army.morale).toBe(2)
 
-    const repeated = restored.snapshot()
-    repeated.phase = 'divineGift'
-    repeated.giftChoiceIds = ['relic-spirit-floor']
-    repeated.empire.flags.relicsUnlocked = 1
-    restored.restore(repeated)
-    expect(restored.chooseGift('relic-spirit-floor')).toMatchObject({ ok: true })
-    expect(restored.state.empire.flags.minimumCombatSpirit).toBe(2)
+    expect(restored.state.empire.flags.minimumCombatSpirit ?? 0).toBe(0)
+    expect(restored.effectiveEmpireFlagValue('minimumCombatSpirit')).toBe(2)
     expect(restored.state.army.morale).toBe(2)
   })
 })

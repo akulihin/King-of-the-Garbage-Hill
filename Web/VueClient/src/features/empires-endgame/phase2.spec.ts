@@ -188,7 +188,7 @@ describe('Empire\'s Endgame Phase 2 campaign bridge', () => {
     }, value.id)
     const restored = new EmpiresEndgameEngine(value, migrated)
     expect(restored.state).toMatchObject({
-      schemaVersion: 6,
+      schemaVersion: 7,
       minigame: null,
       minigameResultLog: [],
       army: {

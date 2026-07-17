@@ -5,8 +5,8 @@ import BuilderDrawer from '../../components/empires-endgame/BuilderDrawer.vue'
 import { cloneEmpiresConfig, parseEmpiresConfig } from './config'
 import type { EmpiresEndgameConfig } from './types'
 
-describe('Empire\'s Endgame Builder schema-v8 JSON boundary', () => {
-  it('round-trips epidemics, medical rules, steel, loadouts, production lines, and combat through every JSON control', async () => {
+describe('Empire\'s Endgame Builder schema-v9 JSON boundary', () => {
+  it('round-trips domestic economy, epidemics, medical rules, steel, loadouts, production lines, and combat through every JSON control', async () => {
     const config = cloneEmpiresConfig(defaultConfigJson)
     const updates: EmpiresEndgameConfig[] = []
     const onExport = vi.fn()
@@ -27,7 +27,8 @@ describe('Empire\'s Endgame Builder schema-v8 JSON boundary', () => {
     expect(exported.combat).toEqual(config.combat)
     expect(exported.combat.enabled).toBe(true)
     expect(exported.combat.equipment).toHaveLength(config.combat.equipment.length)
-    expect(exported.schemaVersion).toBe(8)
+    expect(exported.schemaVersion).toBe(9)
+    expect(exported.empire.domesticEconomy).toEqual(config.empire.domesticEconomy)
     expect(exported.empire.seasons).toEqual(config.empire.seasons)
     expect(exported.empire.hiddenCombinations).toEqual(config.empire.hiddenCombinations)
     expect(exported.empire.epidemics).toEqual(config.empire.epidemics)
@@ -65,6 +66,13 @@ describe('Empire\'s Endgame Builder schema-v8 JSON boundary', () => {
     await fireEvent.update(editor, JSON.stringify(malformed))
     await fireEvent.click(getByRole('button', { name: /Проверить и применить/ }))
     expect(container.querySelector('.json-error')?.textContent).toMatch(/epidemic.*stage.*invalid/i)
+    expect(updates).toHaveLength(2)
+
+    const malformedEconomy = structuredClone(config)
+    malformedEconomy.empire.domesticEconomy.loan.termCons = 0
+    await fireEvent.update(editor, JSON.stringify(malformedEconomy))
+    await fireEvent.click(getByRole('button', { name: /Проверить и применить/ }))
+    expect(container.querySelector('.json-error')?.textContent).toMatch(/loan.*schedule/i)
     expect(updates).toHaveLength(2)
   })
 })

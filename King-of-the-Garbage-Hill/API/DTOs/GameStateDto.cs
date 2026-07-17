@@ -20,6 +20,7 @@ public class GameStateDto
     public List<DraftOptionDto> DraftOptions { get; set; }
     public bool IsKratosEvent { get; set; }
     public bool IsRumblingWarningActive { get; set; }
+    public int RumblingKillCount { get; set; }
     public bool IsRoundTransitionPaused { get; set; }
     public string TransitionDeadlineUtc { get; set; }
     public string GlobalLogs { get; set; }
@@ -73,6 +74,9 @@ public class PlayerDto
 
     /// <summary>Whether this player is another member of the viewing Naruto's initialized trio.</summary>
     public bool IsNarutoAlly { get; set; }
+
+    /// <summary>Whether Madara publicly acknowledged this player as the Red Tiger.</summary>
+    public bool IsMadaraRedTiger { get; set; }
 
     // Character info
     public CharacterDto Character { get; set; }

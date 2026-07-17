@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 8,
+  "schemaVersion": 9,
   "id": "empires-endgame-default",
   "title": "Empire's Endgame",
   "seed": "empires-endgame-authoritative-default-v1",
@@ -2400,6 +2400,105 @@
       "hospitalBattleRecoveryCons": 1,
       "academyFreeResearchCadenceCons": 3,
       "academyTreatmentDeathChance": 0.5
+    },
+    "domesticEconomy": {
+      "enabled": true,
+      "goldResourceId": "gold",
+      "knowledgeResourceId": "knowledge",
+      "historyRetention": 16,
+      "loan": {
+        "bankBuildingId": "building-bank",
+        "bankingTechnologyId": "tech-banking",
+        "principalIncomeTurns": 3,
+        "termCons": 7,
+        "paymentIncomeFraction": 0.5,
+        "maxActiveLoans": 1,
+        "defaultReputationDelta": -1,
+        "defaultLoyaltyDelta": -1,
+        "persecutionKnowledgeLossPercent": 50,
+        "persecutionReputationDelta": -3,
+        "persecutionLoyaltyDelta": -2
+      },
+      "insurance": {
+        "buildingId": "building-jewish-bank",
+        "calmTurnsRequired": 3,
+        "activeDurationCons": 8,
+        "basePayoutGold": 3000,
+        "payoutPerCalmTurnGold": 500,
+        "maximumPayoutGold": 10000,
+        "coveredIncidentKinds": ["epidemic", "meteor"],
+        "unsupportedIncidentReasons": {
+          "raid": "Военный набег не имеет отдельного типизированного состояния города; потеря домашней TD-битвы не подменяет набег.",
+          "nuclear": "В текущем каталоге нет ядерного события с городским источником и идентичностью расчёта.",
+          "siege": "«Окружение» не представлено отдельным осадным состоянием; проигранная домашняя битва им не считается."
+        }
+      },
+      "fair": {
+        "buildingId": "building-fair",
+        "technologyId": "tech-fair",
+        "baronUnlockActionId": "gypsy-camp",
+        "actions": [
+          {
+            "id": "carnival",
+            "name": "Карнавал",
+            "goldCost": 500,
+            "cooldownCons": 4,
+            "durationCons": 4,
+            "temporaryLoyaltyModifier": 1,
+            "temporaryReputationModifier": 0,
+            "perConLoyaltyDelta": 0,
+            "perConReputationDelta": 0,
+            "perConPopulationLoss": 0,
+            "perConResourceLosses": []
+          },
+          {
+            "id": "traveling-artists",
+            "name": "Подкуп бродячих артистов",
+            "goldCost": 750,
+            "cooldownCons": 4,
+            "durationCons": 4,
+            "unlockAfterActionId": "carnival",
+            "temporaryLoyaltyModifier": 1,
+            "temporaryReputationModifier": 1,
+            "perConLoyaltyDelta": 0,
+            "perConReputationDelta": 0,
+            "perConPopulationLoss": 0,
+            "perConResourceLosses": []
+          },
+          {
+            "id": "gypsy-camp",
+            "name": "Пустить в Империю циганский табор",
+            "goldCost": 1000,
+            "cooldownCons": 4,
+            "durationCons": 4,
+            "unlockAfterActionId": "traveling-artists",
+            "temporaryLoyaltyModifier": 0,
+            "temporaryReputationModifier": 1,
+            "perConLoyaltyDelta": -1,
+            "perConReputationDelta": 0,
+            "perConPopulationLoss": 100,
+            "perConResourceLosses": [
+              { "resourceId": "gold", "amount": 250 },
+              { "resourceId": "horses", "amount": 25 }
+            ],
+            "lockBuildingId": "building-stable"
+          }
+        ]
+      },
+      "temple": {
+        "buildingId": "building-temple",
+        "preachingCooldownCons": 1,
+        "relicSlotsPerLevel": 2,
+        "minimumTitheGold": 250,
+        "titheGoldPerPopulation": 0.001,
+        "preachingLoyaltyDelta": 1,
+        "preachingReputationDelta": 1
+      },
+      "tavern": {
+        "buildingId": "building-tavern",
+        "recruitmentCapacityPerLevel": 1,
+        "moraleMaximumPerLevel": 1
+      }
     },
     "loyalty": {
       "enabled": true,
@@ -5559,16 +5658,15 @@
                 "amount": 250
               }
             ],
-            "effects": [
-              {
-                "kind": "flag",
-                "flagId": "templeAvailable",
-                "amount": 1
-              }
-            ]
+            "effects": []
           }
         ],
-        "deferredReason": "Проповеди, десятина и храмовое хранение реликвий ещё не реализованы."
+        "deferredSubfeatures": [
+          { "id": "temple-five-branches", "reason": "Пять храмовых веток не имеют полного набора стоимости, цели, темпа и числового эффекта." },
+          { "id": "temple-priests-knights", "reason": "Жрецы, рыцари и их боевые функции требуют отдельных типизированных юнитов и боевого контракта." },
+          { "id": "temple-indulgences", "reason": "Продажа индульгенций не имеет авторской стоимости, темпа и последствия." },
+          { "id": "temple-destruction-technology", "reason": "Научная технология уничтожения Храма и переустройство рыцарей не идентифицированы." }
+        ]
       },
       {
         "id": "building-bank",
@@ -5598,16 +5696,12 @@
               }
             ],
             "facilityLocks": [],
-            "effects": [
-              {
-                "kind": "flag",
-                "flagId": "creditAvailable",
-                "amount": 1
-              }
-            ]
+            "effects": []
           }
         ],
-        "deferredReason": "Кредиты и график банковских выплат ещё не реализованы."
+        "deferredSubfeatures": [
+          { "id": "persecution-market-prices", "reason": "Рост обменных цен после гонений ждёт типизированного внутреннего/внешнего рынка P6B; наука, лояльность и репутация уже исполняются." }
+        ]
       },
       {
         "id": "building-fair",
@@ -5617,7 +5711,7 @@
           {
             "level": 1,
             "name": "Ярмарка",
-            "description": "Обмен ресурсов и золота, праздник раз в три хода.",
+            "description": "Открывает цепочку Ярмарки: Карнавал, Артисты и Табор с четырёхконовым ритмом.",
             "timeCostDays": 6,
             "foodCost": 0,
             "resourceCosts": [
@@ -5637,47 +5731,15 @@
               }
             ],
             "facilityLocks": [],
-            "effects": [
-              {
-                "kind": "flag",
-                "flagId": "internalMarket",
-                "amount": 1
-              }
-            ]
-          },
-          {
-            "level": 2,
-            "name": "Внешний рынок",
-            "description": "Открывает торговлю услугами с внешними и взбунтовавшимися городами.",
-            "timeCostDays": 10,
-            "foodCost": 0,
-            "resourceCosts": [
-              {
-                "resourceId": "gold",
-                "amount": 1600
-              },
-              {
-                "resourceId": "wood",
-                "amount": 600
-              }
-            ],
-            "dependencies": [
-              {
-                "kind": "technology",
-                "technologyId": "tech-trade-routes"
-              }
-            ],
-            "facilityLocks": [],
-            "effects": [
-              {
-                "kind": "flag",
-                "flagId": "externalMarket",
-                "amount": 1
-              }
-            ]
+            "effects": []
           }
         ],
-        "deferredReason": "Обменный рынок, внешние услуги и праздничная мини-игра ещё не реализованы."
+        "deferredSubfeatures": [
+          { "id": "fair-resource-exchange", "reason": "Обмен ресурсов и золота не имеет авторских курсов, округления и ограничений." },
+          { "id": "fair-auction-branch", "reason": "Выбор праздников или аукционов и привлечение общин описаны как возможный вариант без полного контракта." },
+          { "id": "fair-external-market", "reason": "Внешний рынок и услуги взбунтовавшихся городов принадлежат P6B и требуют отношений/предложений." },
+          { "id": "fair-gypsy-baron", "reason": "Ветка циганского барона и единственный дворец не имеют действий, цен и точных региональных последствий." }
+        ]
       },
       {
         "id": "building-tavern",
@@ -5702,21 +5764,12 @@
             ],
             "dependencies": [],
             "facilityLocks": [],
-            "effects": [
-              {
-                "kind": "flag",
-                "flagId": "tavernRecruitment",
-                "amount": 1
-              },
-              {
-                "kind": "flag",
-                "flagId": "combatSpiritActions",
-                "amount": 1
-              }
-            ]
+            "effects": []
           }
         ],
-        "deferredReason": "Таверненная мини-игра, наёмники и Боевой дух ещё не реализованы."
+        "deferredSubfeatures": [
+          { "id": "tavernMinigame", "reason": "P9 владеет появлением Таверны между прохождениями, секциями найма/спиртного/слухов, Марией и мистическими картами; пассивный армейский hook уже активен." }
+        ]
       },
       {
         "id": "building-stable",
@@ -6150,21 +6203,14 @@
             "resourceCosts": [],
             "dependencies": [],
             "facilityLocks": [],
-            "effects": [
-              {
-                "kind": "flag",
-                "flagId": "insuranceCalmTurnsRequired",
-                "amount": 3
-              },
-              {
-                "kind": "flag",
-                "flagId": "cityInsurance",
-                "amount": 1
-              }
-            ]
+            "effects": []
           }
         ],
-        "deferredReason": "Страховые контракты и уничтожение города ещё не реализованы."
+        "deferredSubfeatures": [
+          { "id": "insurance-raid", "reason": "Военный набег не имеет отдельной городской идентичности; домашняя TD-потеря не подменяет его." },
+          { "id": "insurance-nuclear", "reason": "Ядерный взрыв отсутствует как типизированное городское событие." },
+          { "id": "insurance-siege-self-liquidation", "reason": "«Окружение» и самоликвидация требуют настоящего осадного состояния; проигранная домашняя битва окружением не считается." }
+        ]
       },
       {
         "id": "municipal-granary",
@@ -6618,14 +6664,11 @@
             "technologyId": "doctrine-general"
           }
         ],
-        "effects": [
-          {
-            "kind": "flag",
-            "flagId": "fairUnlocked",
-            "amount": 1
-          }
-        ],
-        "deferredReason": "Рынок, внешняя торговля и банковские услуги ещё не реализованы."
+        "effects": [],
+        "deferredSubfeatures": [
+          { "id": "fair-resource-exchange", "reason": "Курсы внутреннего обмена ресурсов и золота ещё не авторизованы." },
+          { "id": "fair-external-market", "reason": "Внешняя торговля остаётся P6B-owned." }
+        ]
       },
       {
         "id": "tech-temple",
@@ -7218,14 +7261,10 @@
             "technologyId": "tech-merchant-guilds"
           }
         ],
-        "effects": [
-          {
-            "kind": "flag",
-            "flagId": "bankUnlocked",
-            "amount": 1
-          }
-        ],
-        "deferredReason": "Рынок, внешняя торговля и банковские услуги ещё не реализованы."
+        "effects": [],
+        "deferredSubfeatures": [
+          { "id": "bank-market-prices", "reason": "Последствие гонений для рыночных курсов ждёт P6B trade calculator." }
+        ]
       },
       {
         "id": "reform-treasury",

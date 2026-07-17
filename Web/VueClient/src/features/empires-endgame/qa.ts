@@ -23,6 +23,7 @@ export const EMPIRES_QA_SCENARIO_NAMES = [
   'target-meteor-city',
   'empire-council-with-points',
   'governance',
+  'domestic-economy',
   'destroyed-west',
   'loyalty-rebellion',
   'relic-production-levels',
@@ -130,6 +131,9 @@ export interface EmpiresQaStateDigest {
   activeAdvisorCount: number
   governorAssignmentCount: number
   activeEpidemicCount: number
+  activeLoanCount: number
+  insuranceContractCount: number
+  activeFairActivityCount: number
 }
 
 export interface EmpiresQaTraceEntry {
@@ -221,6 +225,10 @@ const SCENARIO_COPY: Record<EmpiresQaScenarioName, { title: string, description:
   governance: {
     title: 'Advisor judgment and Perst assignment',
     description: 'The empire phase is ready for one advisor judgment and one permanent Perst governor flow.',
+  },
+  'domestic-economy': {
+    title: 'Domestic economy obligations and carriers',
+    description: 'Bank, insurance, Fair, Temple, and Tavern carriers expose executable state and an active loan schedule.',
   },
   'destroyed-west': {
     title: 'Destroyed western region',
@@ -435,6 +443,57 @@ function createEmpireSnapshot(
   const state = engine.snapshot()
   state.upgradePoints = Math.max(3, state.upgradePoints)
   return state
+}
+
+function createDomesticEconomySnapshot(
+  config: EmpiresEndgameConfig,
+  empireSnapshot: EmpiresCampaignState,
+): EmpiresCampaignState {
+  const state = cloneJson(empireSnapshot)
+  const rules = config.empire.domesticEconomy
+  const carrierIds = [
+    rules.loan.bankBuildingId,
+    rules.insurance.buildingId,
+    rules.fair.buildingId,
+    rules.temple.buildingId,
+    rules.tavern.buildingId,
+  ]
+  const accessEngine = new EmpiresEndgameEngine(config, state)
+  const cities = accessEngine.state.empire.cities
+    .filter(city => accessEngine.isCityAccessible(city.id))
+    .slice(0, carrierIds.length)
+  if (!rules.enabled || cities.length !== carrierIds.length) {
+    throw new Error('QA domestic-economy scenario requires enabled rules and five accessible cities.')
+  }
+  for (const [index, buildingId] of carrierIds.entries()) {
+    const city = state.empire.cities.find(item => item.id === cities[index].id)!
+    const slot = config.empire.cities.find(item => item.id === city.id)?.slots.find(item => item.kind === 'unique')
+    if (!slot) throw new Error(`QA domestic-economy carrier ${buildingId} has no unique slot.`)
+    city.buildingLevels[buildingId] = 1
+    city.operationalBuildingLevels[buildingId] = 1
+    city.buildingSlotAssignments[slot.id] = buildingId
+    city.baseProduction[rules.goldResourceId] = 200
+    city.lastProduction[rules.goldResourceId] = 200
+  }
+  state.empire.resources[rules.goldResourceId] = Math.max(
+    state.empire.resources[rules.goldResourceId] ?? 0,
+    20_000,
+  )
+  state.empire.researchedTechnologyIds = [...new Set([
+    ...state.empire.researchedTechnologyIds,
+    rules.loan.bankingTechnologyId,
+    rules.fair.technologyId,
+    ...carrierIds.flatMap(buildingId => config.empire.buildings
+      .find(building => building.id === buildingId)?.levels
+      .flatMap(level => level.dependencies ?? [])
+      .flatMap(dependency => dependency.kind === 'technology' ? [dependency.technologyId] : []) ?? []),
+  ])]
+  const relicId = config.gifts.definitions.find(gift => gift.kind === 'relic' && !gift.deferredReason)?.id
+  if (relicId && !state.empire.claimedGiftIds.includes(relicId)) state.empire.claimedGiftIds.push(relicId)
+  const engine = new EmpiresEndgameEngine(config, state)
+  const loan = engine.takeLoan(cities[0].id)
+  if (!loan.ok) throw new Error(`QA domestic-economy loan could not start: ${loan.message}`)
+  return engine.snapshot()
 }
 
 function createEventSnapshot(
@@ -878,6 +937,11 @@ export function digestEmpiresQaState(engine: EmpiresEndgameEngine): EmpiresQaSta
       .filter(advisor => advisor.status === 'active').length,
     governorAssignmentCount: Object.keys(engine.state.governance.governorAssignments).length,
     activeEpidemicCount: engine.state.epidemics.filter(epidemic => epidemic.endedAtCon === null).length,
+    activeLoanCount: engine.state.empire.domesticEconomy.loans
+      .filter(loan => loan.status === 'active' || loan.status === 'defaulted').length,
+    insuranceContractCount: engine.state.empire.domesticEconomy.insuranceContracts.length,
+    activeFairActivityCount: engine.state.empire.domesticEconomy.fair.activeActivities
+      .filter(activity => activity.expiresAfterCon >= engine.state.con).length,
   }
 }
 
@@ -1008,6 +1072,24 @@ export function validateEmpiresQaSnapshot(
       if (Object.keys(snapshot.governance.governorAssignments).length !== 0) {
         add('perst-assignment', 'Governance scenario must begin before Perst assignment.')
       }
+    } else if (scenarioName === 'domestic-economy') {
+      const economy = snapshot.empire.domesticEconomy
+      const operationalCarriers = [
+        config.empire.domesticEconomy.loan.bankBuildingId,
+        config.empire.domesticEconomy.insurance.buildingId,
+        config.empire.domesticEconomy.fair.buildingId,
+        config.empire.domesticEconomy.temple.buildingId,
+        config.empire.domesticEconomy.tavern.buildingId,
+      ].filter(buildingId => snapshot.empire.cities.some(city => (
+        (city.operationalBuildingLevels[buildingId] ?? 0) > 0
+      )))
+      if (snapshot.phase !== 'empire') add('phase', 'Domestic-economy scenario has the wrong phase.')
+      if (operationalCarriers.length !== 5) {
+        add('economy-carriers', `Domestic-economy carriers are incomplete: ${operationalCarriers.join(', ') || 'none'}.`)
+      }
+      if (!economy.loans.some(loan => loan.status === 'active')) {
+        add('economy-loan', 'Domestic-economy scenario must contain an active scheduled loan.')
+      }
     } else if (scenarioName === 'destroyed-west') {
       if (snapshot.phase !== 'empire' || !snapshot.empire.destroyedRegionIds.includes('west')) {
         add('destroyed-region', 'Destroyed-west scenario must make the west inaccessible.')
@@ -1103,6 +1185,7 @@ export function createEmpiresQaScenarios(
   const relicProductionLevels = createRelicBuildingLevelSnapshot(seededConfig, empireCouncil)
   const seasonDisclosure = createSeasonDisclosureSnapshot(seededConfig, empireCouncil)
   const epidemicOutbreak = createEpidemicOutbreakSnapshot(seededConfig, empireCouncil)
+  const domesticEconomy = createDomesticEconomySnapshot(seededConfig, empireCouncil)
   const event = createEventSnapshot(seededConfig, empireCouncil)
   const battleDefense = createBattleSnapshot(seededConfig, baseEngine, 'battle-defense')
   const battleAssault = createBattleSnapshot(seededConfig, baseEngine, 'battle-assault')
@@ -1118,6 +1201,7 @@ export function createEmpiresQaScenarios(
     'target-meteor-city': targetMeteorCity,
     'empire-council-with-points': empireCouncil,
     governance: cloneJson(empireCouncil),
+    'domestic-economy': domesticEconomy,
     'destroyed-west': destroyedWest,
     'loyalty-rebellion': loyaltyRebellion,
     'relic-production-levels': relicProductionLevels,

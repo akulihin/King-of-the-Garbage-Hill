@@ -20,7 +20,7 @@ const props = withDefaults(
     animatedCells?: Map<string, string>
     lastShotCell?: { row: number; col: number } | null
     markedCells?: Set<string>
-    summonTrailCells?: Map<string, string>
+    summonTrailCells?: Map<string, string[]>
     shipNameMap?: Map<string, string>
     rangeOverlayCells?: Map<string, string>
     cellSize?: number
@@ -102,8 +102,8 @@ function isMarked(row: number, col: number): boolean {
   return props.markedCells?.has(`${row},${col}`) ?? false
 }
 
-function getSummonTrailType(row: number, col: number): string | false {
-  return props.summonTrailCells?.get(`${row},${col}`) ?? false
+function getSummonTrailTypes(row: number, col: number): string[] {
+  return props.summonTrailCells?.get(`${row},${col}`) ?? []
 }
 
 function getShipEdges(row: number, col: number) {
@@ -163,7 +163,7 @@ function handleHover(row: number, col: number) {
           :anim="getCellAnim(r - 1, c - 1)"
           :last-shot="isLastShot(r - 1, c - 1)"
           :marked="isMarked(r - 1, c - 1)"
-          :summon-trail="getSummonTrailType(r - 1, c - 1)"
+          :summon-trails="getSummonTrailTypes(r - 1, c - 1)"
           :ship-edges="getShipEdges(r - 1, c - 1)"
           :ship-name="getShipName(r - 1, c - 1)"
           :range-overlay="getRangeOverlay(r - 1, c - 1)"

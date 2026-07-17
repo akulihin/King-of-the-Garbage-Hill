@@ -57,6 +57,14 @@ describe('Empire\'s Endgame deterministic QA scenarios', () => {
       phase: 'empire',
       upgradePoints: 3,
     })
+    expect(digestEmpiresQaState(new EmpiresEndgameEngine(
+      config,
+      fixtures['domestic-economy'].snapshot,
+    ))).toMatchObject({
+      activeLoanCount: 1,
+      insuranceContractCount: 0,
+      activeFairActivityCount: 0,
+    })
     expect(fixtures['destroyed-west'].snapshot.empire.destroyedRegionIds).toContain('west')
     expect(fixtures['relic-production-levels'].snapshot.empire.buildingLevelBonuses).toMatchObject({
       farm: 1,

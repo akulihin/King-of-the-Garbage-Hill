@@ -10,6 +10,7 @@ import BattleLogPanel from '../BattleLogPanel.vue'
 import SummonBar from '../SummonBar.vue'
 import ActionBar from '../ActionBar.vue'
 import VfxCanvas from '../VfxCanvas.vue'
+import ProjectileLayer, { type BattleshipProjectileKind } from '../ProjectileLayer.vue'
 import { renderIcon } from '../battleship-icons'
 
 const store = useBattleshipStore()
@@ -310,22 +311,18 @@ const myLastShot = computed(() => {
 // ТЗ #2: trails are viewer-relative. MY summons sail on the ENEMY board — their trail renders
 // there; ENEMY summons sail on MY board — their trail (incl. spawn cell) renders there.
 const enemySummonTrails = computed(() => {
-  const trails = store.getSummonTrailCells('my')
+  const trails = new Map<string, string[]>()
   for (const cell of store.enemyBoard?.cells ?? []) {
-    if (cell.summonTrail) {
-      const key = `${cell.row},${cell.col}`
-      if (!trails.has(key)) trails.set(key, 'Ram') // generic trail marker
-    }
+    if (cell.summonTrails?.length)
+      trails.set(`${cell.row},${cell.col}`, [...new Set(cell.summonTrails)])
   }
   return trails
 })
 const mySummonTrails = computed(() => {
-  const trails = store.getSummonTrailCells('enemy')
+  const trails = new Map<string, string[]>()
   for (const cell of store.myBoard?.cells ?? []) {
-    if (cell.summonTrail) {
-      const key = `${cell.row},${cell.col}`
-      if (!trails.has(key)) trails.set(key, 'Ram') // generic trail marker
-    }
+    if (cell.summonTrails?.length)
+      trails.set(`${cell.row},${cell.col}`, [...new Set(cell.summonTrails)])
   }
   return trails
 })
@@ -438,6 +435,11 @@ function hasOverlayType(map: Map<string, string>, type: string): boolean {
   return false
 }
 
+function hasTrailType(map: Map<string, string[]>, type: string): boolean {
+  for (const values of map.values()) { if (values.includes(type)) return true }
+  return false
+}
+
 function getOccupiedCells(ship: { row: number; col: number; deckCount: number; orientation: string }): [number, number][] {
   const cells: [number, number][] = []
   for (let i = 0; i < ship.deckCount; i++) {
@@ -487,6 +489,18 @@ watch(phase, (val) => {
 // ── VFX: real projectile handshake ───────────────────────────
 const enemyVfxRef = ref<InstanceType<typeof VfxCanvas> | null>(null)
 const myVfxRef = ref<InstanceType<typeof VfxCanvas> | null>(null)
+const projectileLayerRef = ref<InstanceType<typeof ProjectileLayer> | null>(null)
+const enemyStageRef = ref<HTMLElement | null>(null)
+const myStageRef = ref<HTMLElement | null>(null)
+
+function projectileKindFor(result: BattleshipShotResult | null): BattleshipProjectileKind {
+  switch (result?.projectileType) {
+    case 'Stone': return 'stone'
+    case 'Buckshot': return 'buckshot'
+    case 'Fire': return 'fire'
+    default: return 'arrow'
+  }
+}
 
 function impactTypeFor(result: BattleshipShotResult | null): BattleshipImpactType {
   if (!result) return 'miss'
@@ -501,14 +515,30 @@ function impactTypeFor(result: BattleshipShotResult | null): BattleshipImpactTyp
 onMounted(() => {
   store.setShotVfxHandler((row, col, target, fire) => {
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return false
-    const canvas = target === 'enemy' ? enemyVfxRef.value : myVfxRef.value
-    if (!canvas) return false
     const result = store.lastShotResult
-    canvas.fireCannonball(row, col, () => {
+    const canvas = target === 'enemy' ? enemyVfxRef.value : myVfxRef.value
+    const targetStage = target === 'enemy' ? enemyStageRef.value : myStageRef.value
+    if (!canvas || !targetStage || !projectileLayerRef.value) return false
+
+    const sourceShip = myFleet.value.find(ship => ship.id === result?.sourceShipId)
+    const sourceCells = sourceShip ? getOccupiedCells(sourceShip) : []
+    const sourceIndex = Math.max(0, Math.min(result?.sourceDeckIndex ?? 0, sourceCells.length - 1))
+    const [sourceRow, sourceCol] = sourceCells[sourceIndex] ?? [0, 0]
+    const sourceStage = sourceShip ? myStageRef.value : null
+
+    return projectileLayerRef.value.fire(
+      sourceStage,
+      targetStage,
+      sourceRow,
+      sourceCol,
+      row,
+      col,
+      projectileKindFor(result),
+      () => {
       fire()
       canvas.spawnImpact(row, col, impactTypeFor(result))
-    })
-    return true
+      },
+    )
   })
 
   store.setCellVfxHandler((target, row, col, type) => {
@@ -569,7 +599,7 @@ onUnmounted(() => {
           </span>
           <span v-if="enemyPlayer" class="revealed-count bs-mono">Разведано: {{ enemyPlayer.revealedCellCount }}/100</span>
         </div>
-        <div class="board-stage">
+        <div ref="enemyStageRef" class="board-stage">
           <BoardGrid
             :board="store.enemyBoard"
             :is-enemy="true"
@@ -597,11 +627,11 @@ onUnmounted(() => {
           </span>
         </div>
         <div v-if="enemySummonTrails.size > 0" class="range-legend">
-          <span v-if="hasOverlayType(enemySummonTrails, 'Ram')" class="legend-item legend-trail-ram"><span v-html="renderIcon('ram', 12)"></span> Таран</span>
-          <span v-if="hasOverlayType(enemySummonTrails, 'Scout')" class="legend-item legend-trail-scout"><span v-html="renderIcon('scout', 12)"></span> Разведчик</span>
-          <span v-if="hasOverlayType(enemySummonTrails, 'Brander')" class="legend-item legend-trail-brander"><span v-html="renderIcon('brander', 12)"></span> Брандер</span>
-          <span v-if="hasOverlayType(enemySummonTrails, 'CursedBoat')" class="legend-item legend-trail-cursed"><span v-html="renderIcon('cursedBoat', 12)"></span> Проклятый</span>
-          <span v-if="hasOverlayType(enemySummonTrails, 'PirateBoat')" class="legend-item legend-trail-pirate"><span v-html="renderIcon('pirateBoat', 12)"></span> Пиратская лодка</span>
+          <span v-if="hasTrailType(enemySummonTrails, 'Ram')" class="legend-item legend-trail-ram"><span v-html="renderIcon('ram', 12)"></span> След: Таран</span>
+          <span v-if="hasTrailType(enemySummonTrails, 'Scout')" class="legend-item legend-trail-scout"><span v-html="renderIcon('scout', 12)"></span> След: Разведчик</span>
+          <span v-if="hasTrailType(enemySummonTrails, 'Brander')" class="legend-item legend-trail-brander"><span v-html="renderIcon('brander', 12)"></span> След: Брандер</span>
+          <span v-if="hasTrailType(enemySummonTrails, 'CursedBoat')" class="legend-item legend-trail-cursed"><span v-html="renderIcon('cursedBoat', 12)"></span> След: Проклятая лодка</span>
+          <span v-if="hasTrailType(enemySummonTrails, 'PirateBoat')" class="legend-item legend-trail-pirate"><span v-html="renderIcon('pirateBoat', 12)"></span> След: Пиратская лодка</span>
         </div>
       </div>
 
@@ -615,7 +645,7 @@ onUnmounted(() => {
           </span>
           <span v-if="myPlayer" class="revealed-count bs-mono">Разведано: {{ myPlayer.revealedCellCount }}/100</span>
         </div>
-        <div class="board-stage">
+        <div ref="myStageRef" class="board-stage">
           <BoardGrid
             :board="store.myBoard"
             :ships="myFleet"
@@ -649,14 +679,15 @@ onUnmounted(() => {
           </span>
         </div>
         <div v-if="mySummonTrails.size > 0" class="range-legend">
-          <span v-if="hasOverlayType(mySummonTrails, 'Ram')" class="legend-item legend-trail-ram"><span v-html="renderIcon('ram', 12)"></span> Таран</span>
-          <span v-if="hasOverlayType(mySummonTrails, 'Scout')" class="legend-item legend-trail-scout"><span v-html="renderIcon('scout', 12)"></span> Разведчик</span>
-          <span v-if="hasOverlayType(mySummonTrails, 'Brander')" class="legend-item legend-trail-brander"><span v-html="renderIcon('brander', 12)"></span> Брандер</span>
-          <span v-if="hasOverlayType(mySummonTrails, 'CursedBoat')" class="legend-item legend-trail-cursed"><span v-html="renderIcon('cursedBoat', 12)"></span> Проклятый</span>
-          <span v-if="hasOverlayType(mySummonTrails, 'PirateBoat')" class="legend-item legend-trail-pirate"><span v-html="renderIcon('pirateBoat', 12)"></span> Пиратская лодка</span>
+          <span v-if="hasTrailType(mySummonTrails, 'Ram')" class="legend-item legend-trail-ram"><span v-html="renderIcon('ram', 12)"></span> След: Таран</span>
+          <span v-if="hasTrailType(mySummonTrails, 'Scout')" class="legend-item legend-trail-scout"><span v-html="renderIcon('scout', 12)"></span> След: Разведчик</span>
+          <span v-if="hasTrailType(mySummonTrails, 'Brander')" class="legend-item legend-trail-brander"><span v-html="renderIcon('brander', 12)"></span> След: Брандер</span>
+          <span v-if="hasTrailType(mySummonTrails, 'CursedBoat')" class="legend-item legend-trail-cursed"><span v-html="renderIcon('cursedBoat', 12)"></span> След: Проклятая лодка</span>
+          <span v-if="hasTrailType(mySummonTrails, 'PirateBoat')" class="legend-item legend-trail-pirate"><span v-html="renderIcon('pirateBoat', 12)"></span> След: Пиратская лодка</span>
         </div>
       </div>
     </div>
+    <ProjectileLayer v-if="store.vfxEnabled" ref="projectileLayerRef" />
 
     <!-- Mobile Minimap -->
     <div class="minimap-wrapper">

@@ -41,6 +41,9 @@ import type {
   EmpiresCityLoyaltyView,
   EmpiresCityState,
   EmpiresDependency,
+  EmpiresDomesticEconomyState,
+  EmpiresDomesticEconomyView,
+  EmpiresDomesticIncidentKind,
   EmpiresCityEpidemicView,
   EmpiresEffect,
   EmpiresEpidemicConsequence,
@@ -59,6 +62,7 @@ import type {
   EmpiresMinigameSession,
   EmpiresLoyaltyState,
   EmpiresLoyaltyTarget,
+  EmpiresLoanQuote,
   EmpiresPendingGiftResolution,
   EmpiresPerformanceState,
   EmpiresPhase,
@@ -308,7 +312,7 @@ function uniqueIds<T extends { id: string }>(values: readonly T[]): boolean {
 
 export function validateEmpiresEndgameConfig(config: EmpiresEndgameConfig): string[] {
   const errors: string[] = []
-  if (config.schemaVersion !== 8) errors.push('schemaVersion must be 8')
+  if (config.schemaVersion !== 9) errors.push('schemaVersion must be 9')
   if (!config.id.trim()) errors.push('config id is required')
   if (config.cards.length !== 53) errors.push('cards must contain exactly 53 definitions')
   if (!uniqueIds(config.cards)) errors.push('card definition ids must be unique')
@@ -474,7 +478,7 @@ export class EmpiresEndgameEngine {
   }
 
   snapshotEnvelope(savedAt = new Date().toISOString()): EmpiresSnapshotEnvelope {
-    return { schemaVersion: 6, savedAt, state: this.snapshot() }
+    return { schemaVersion: 7, savedAt, state: this.snapshot() }
   }
 
   restore(snapshot: EmpiresCampaignState): void {
@@ -728,7 +732,7 @@ export class EmpiresEndgameEngine {
     }
 
     this.claimGift(gift)
-    if (gift.application === 'once') {
+    if (gift.application === 'once' && gift.kind !== 'relic') {
       this.applyFixedGiftResolution(gift)
       this.applyOneShotGiftEffects(gift)
     }
@@ -752,7 +756,7 @@ export class EmpiresEndgameEngine {
     }
 
     this.state.empire.giftResolutionTargets[gift.id] = targetId
-    if (gift.application === 'once') {
+    if (gift.application === 'once' && gift.kind !== 'relic') {
       this.applyTargetedGiftResolution(gift, targetId, pending)
     }
     this.state.pendingResolution = null
@@ -901,12 +905,15 @@ export class EmpiresEndgameEngine {
     const missingDependency = this.firstMissingDependency(unit.dependencies, city, true)
     if (missingDependency) return empty(`Missing prerequisite: ${missingDependency}.`)
     const equippedRecruitCapacity = this.operationalBuildingFlagValue(city, 'equippedRecruitCapacity')
+    const recruitmentCapacity = equippedRecruitCapacity === null
+      ? null
+      : equippedRecruitCapacity + this.tavernRecruitmentCapacityBonus(city)
     const recruitmentPenalty = this.state.army.recruitmentPenalties[
       this.recruitmentPenaltyKey(city.id, unit.id)
     ] ?? 0
-    if (equippedRecruitCapacity !== null
+    if (recruitmentCapacity !== null
       && (this.state.empire.flags.unlimitedTavernRecruitment ?? 0) <= 0
-      && this.recruitedUnitCount(city) + count > Math.max(0, equippedRecruitCapacity - recruitmentPenalty)) {
+      && this.recruitedUnitCount(city) + count > Math.max(0, recruitmentCapacity - recruitmentPenalty)) {
       return empty('The city has reached its equipped recruitment capacity.')
     }
     const populationCost = unit.populationCost * count
@@ -1175,6 +1182,399 @@ export class EmpiresEndgameEngine {
     }
   }
 
+  effectiveEmpireFlagValue(flagId: string): number {
+    return this.empireFlagValueInState(this.state, flagId)
+  }
+
+  effectiveReputation(): number {
+    return this.clampLoyalty(this.state.empire.reputation + this.activeFairModifier('reputation'))
+  }
+
+  loanQuote(cityId: string): EmpiresLoanQuote {
+    const economy = this.config.empire.domesticEconomy
+    const empty = (blockedReason: string): EmpiresLoanQuote => ({
+      cityId,
+      incomeAtOrigination: 0,
+      principal: 0,
+      termCons: economy.loan.termCons,
+      installmentAmount: 0,
+      totalRepayment: 0,
+      interest: 0,
+      blockedReason,
+    })
+    if (!economy.enabled) return empty('Domestic economy rules are disabled.')
+    if (this.state.phase !== 'empire') return empty('Bank actions are only available in the empire phase.')
+    const buildingReason = this.economyBuildingBlockedReason(cityId, economy.loan.bankBuildingId)
+    if (buildingReason) return empty(buildingReason)
+    if (!this.state.empire.researchedTechnologyIds.includes(economy.loan.bankingTechnologyId)) {
+      return empty(`Missing prerequisite: ${economy.loan.bankingTechnologyId}.`)
+    }
+    if (this.state.empire.domesticEconomy.persecution) {
+      return empty('New credit is permanently unavailable after гонения.')
+    }
+    const activeCount = this.state.empire.domesticEconomy.loans.filter(
+      loan => loan.status === 'active' || loan.status === 'defaulted',
+    ).length
+    if (activeCount >= economy.loan.maxActiveLoans) {
+      return empty(`The active-loan limit is ${economy.loan.maxActiveLoans}.`)
+    }
+    const income = this.currentDomesticGoldIncome()
+    if (income <= 0) return empty('Current trusted gold income is zero.')
+    const principal = income * economy.loan.principalIncomeTurns
+    const installmentAmount = income * economy.loan.paymentIncomeFraction
+    const totalRepayment = installmentAmount * economy.loan.termCons
+    return {
+      cityId,
+      incomeAtOrigination: income,
+      principal,
+      termCons: economy.loan.termCons,
+      installmentAmount,
+      totalRepayment,
+      interest: totalRepayment - principal,
+      blockedReason: null,
+    }
+  }
+
+  takeLoan(cityId: string): EmpiresActionResult {
+    const quote = this.loanQuote(cityId)
+    if (quote.blockedReason) return failure(quote.blockedReason)
+    const rules = this.config.empire.domesticEconomy.loan
+    const economy = this.state.empire.domesticEconomy
+    const id = `loan-${String(economy.nextLoanSequence).padStart(6, '0')}`
+    economy.nextLoanSequence += 1
+    economy.loans.push({
+      id,
+      cityId,
+      buildingId: rules.bankBuildingId,
+      technologyId: rules.bankingTechnologyId,
+      takenAtCon: this.state.con,
+      incomeAtOrigination: quote.incomeAtOrigination,
+      principal: quote.principal,
+      interest: quote.interest,
+      status: 'active',
+      defaultedAtCon: null,
+      closedAtCon: null,
+      installments: Array.from({ length: rules.termCons }, (_, index) => ({
+        index: index + 1,
+        dueCon: this.state.con + index + 1,
+        amount: quote.installmentAmount,
+        status: 'pending' as const,
+        settledAtCon: null,
+        settlementId: null,
+      })),
+    })
+    this.state.empire.resources[this.config.empire.domesticEconomy.goldResourceId] = (
+      this.state.empire.resources[this.config.empire.domesticEconomy.goldResourceId] ?? 0
+    ) + quote.principal
+    this.appendChronicle(this.state, {
+      kind: 'loan',
+      sourceId: id,
+      title: 'Банк выдал кредит',
+      description: `${quote.principal} золота; ${rules.termCons} платежей по ${quote.installmentAmount}.`,
+      target: { kind: 'empire' },
+    })
+    this.compactDomesticEconomyHistory()
+    return this.commit(`Loan ${id} issued for ${quote.principal}.`)
+  }
+
+  repayLoan(loanId: string): EmpiresActionResult {
+    if (this.state.phase !== 'empire') return failure('Loans can only be repaid in the empire phase.')
+    const loan = this.state.empire.domesticEconomy.loans.find(item => item.id === loanId)
+    if (!loan) return failure('Unknown loan.')
+    if (loan.status !== 'active' && loan.status !== 'defaulted') return failure('That loan is already closed.')
+    const pending = loan.installments.filter(installment => installment.status === 'pending')
+    const total = pending.reduce((sum, installment) => sum + installment.amount, 0)
+    const goldId = this.config.empire.domesticEconomy.goldResourceId
+    if ((this.state.empire.resources[goldId] ?? 0) + Number.EPSILON < total) {
+      return failure(`Not enough ${goldId}; ${total} is required.`)
+    }
+    this.state.empire.resources[goldId] -= total
+    for (const installment of pending) {
+      installment.status = 'paid'
+      installment.settledAtCon = this.state.con
+      installment.settlementId = `manual:${loan.id}:${installment.index}:${this.state.con}`
+    }
+    loan.status = 'repaid'
+    loan.closedAtCon = this.state.con
+    this.appendChronicle(this.state, {
+      kind: 'loan',
+      sourceId: `manual:${loan.id}:${this.state.con}`,
+      title: 'Кредит погашен досрочно',
+      description: `${total} золота перечислено по всем оставшимся обязательствам.`,
+      target: { kind: 'empire' },
+    })
+    this.compactDomesticEconomyHistory()
+    return this.commit(`Loan ${loan.id} repaid in full.`)
+  }
+
+  beginPersecution(cityId: string): EmpiresActionResult {
+    if (this.state.phase !== 'empire') return failure('Гонения can only begin in the empire phase.')
+    const rules = this.config.empire.domesticEconomy.loan
+    const buildingReason = this.economyBuildingBlockedReason(cityId, rules.bankBuildingId)
+    if (buildingReason) return failure(buildingReason)
+    const economy = this.state.empire.domesticEconomy
+    if (economy.persecution) return failure('Гонения have already permanently closed Bank credit.')
+    const openLoans = economy.loans.filter(loan => loan.status === 'active' || loan.status === 'defaulted')
+    if (openLoans.length === 0) return failure('There is no outstanding debt to repudiate.')
+    economy.persecution = { startedAtCon: this.state.con, cityId }
+    for (const loan of openLoans) {
+      for (const installment of loan.installments.filter(item => item.status === 'pending')) {
+        installment.status = 'waived'
+        installment.settledAtCon = this.state.con
+        installment.settlementId = `persecution:${loan.id}:${installment.index}:${this.state.con}`
+      }
+      loan.status = 'persecuted'
+      loan.closedAtCon = this.state.con
+    }
+    const knowledgeId = this.config.empire.domesticEconomy.knowledgeResourceId
+    const knowledge = Math.max(0, this.state.empire.resources[knowledgeId] ?? 0)
+    this.state.empire.resources[knowledgeId] = knowledge
+      * Math.max(0, 1 - rules.persecutionKnowledgeLossPercent / 100)
+    this.applyReputationDelta(rules.persecutionReputationDelta, `persecution:${this.state.con}`)
+    for (const city of this.state.empire.cities) {
+      this.applyLoyaltyDelta(
+        { kind: 'city', cityId: city.id },
+        rules.persecutionLoyaltyDelta,
+        `persecution:${this.state.con}`,
+      )
+    }
+    this.appendChronicle(this.state, {
+      kind: 'loan',
+      sourceId: `persecution:${this.state.con}`,
+      title: 'Начаты гонения',
+      description: `Долги списаны; знания −${rules.persecutionKnowledgeLossPercent}%, новые кредиты закрыты навсегда.`,
+      target: { kind: 'empire' },
+    })
+    this.compactDomesticEconomyHistory()
+    return this.commit('Outstanding Bank debt repudiated through гонения.')
+  }
+
+  startInsurance(cityId: string): EmpiresActionResult {
+    if (this.state.phase !== 'empire') return failure('Insurance can only be selected in the empire phase.')
+    const rules = this.config.empire.domesticEconomy.insurance
+    const buildingReason = this.economyBuildingBlockedReason(cityId, rules.buildingId)
+    if (buildingReason) return failure(buildingReason)
+    const economy = this.state.empire.domesticEconomy
+    const existing = economy.insuranceContracts.find(contract => (
+      contract.cityId === cityId && (contract.status === 'waiting' || contract.status === 'active')
+    ))
+    if (existing) return failure(`City already has a ${existing.status} insurance contract.`)
+    const id = `insurance-${String(economy.nextInsuranceSequence).padStart(6, '0')}`
+    economy.nextInsuranceSequence += 1
+    economy.insuranceContracts.push({
+      id,
+      cityId,
+      buildingId: rules.buildingId,
+      signedAtCon: this.state.con,
+      calmTurns: 0,
+      status: 'waiting',
+      activatedAtCon: null,
+      expiresAfterCon: null,
+      lastSettledCon: null,
+      lastIncidentCon: null,
+      lastIncidentId: null,
+      consumedAtCon: null,
+      payoutGold: 0,
+      payoutIncidentId: null,
+    })
+    this.appendChronicle(this.state, {
+      kind: 'insurance',
+      sourceId: id,
+      title: 'Выбран страховой контракт',
+      description: `${rules.calmTurnsRequired} спокойных кона до активации.`,
+      target: { kind: 'city', cityId },
+    })
+    this.compactDomesticEconomyHistory()
+    return this.commit(`Insurance ${id} selected for ${cityId}.`)
+  }
+
+  consumeDomesticIncident(
+    cityId: string,
+    kind: EmpiresDomesticIncidentKind,
+    incidentId: string,
+  ): EmpiresActionResult {
+    if (!incidentId.trim()) return failure('Domestic incident requires stable provenance.')
+    const rules = this.config.empire.domesticEconomy.insurance
+    if (!rules.coveredIncidentKinds.includes(kind)) {
+      return failure(rules.unsupportedIncidentReasons[kind]
+        ?? `Insurance does not cover incident kind ${kind}.`)
+    }
+    if (!this.city(cityId)) return failure('Unknown insured city.')
+    this.settleInsuranceIncident(cityId, kind, incidentId)
+    return this.commit(`Insurance incident ${incidentId} recorded exactly once.`)
+  }
+
+  performFairAction(cityId: string, actionId: string): EmpiresActionResult {
+    const reason = this.fairActionBlockedReason(cityId, actionId)
+    if (reason) return failure(reason)
+    const action = this.config.empire.domesticEconomy.fair.actions.find(item => item.id === actionId)!
+    const goldId = this.config.empire.domesticEconomy.goldResourceId
+    this.state.empire.resources[goldId] -= action.goldCost
+    const activity = {
+      id: `fair:${action.id}:${this.state.con}`,
+      actionId: action.id,
+      cityId,
+      startedAtCon: this.state.con,
+      expiresAfterCon: this.state.con + action.durationCons - 1,
+      lastSettledCon: null,
+    }
+    this.state.empire.domesticEconomy.fair.lastUsedConByAction[action.id] = this.state.con
+    this.state.empire.domesticEconomy.fair.activeActivities.push(activity)
+    this.settleFairActivity(activity)
+    this.refreshLoyaltyDependents()
+    this.appendChronicle(this.state, {
+      kind: 'fair',
+      sourceId: activity.id,
+      title: action.name,
+      description: `Действует до конца кона ${activity.expiresAfterCon}; повтор с кона ${this.state.con + action.cooldownCons}.`,
+      target: { kind: 'city', cityId },
+    })
+    return this.commit(`${action.name} started in ${cityId}.`)
+  }
+
+  preachAtTemple(cityId: string): EmpiresActionResult {
+    const reason = this.templePreachingBlockedReason(cityId)
+    if (reason) return failure(reason)
+    const rules = this.config.empire.domesticEconomy.temple
+    const gold = this.projectedTempleTithe(cityId)
+    const goldId = this.config.empire.domesticEconomy.goldResourceId
+    this.state.empire.resources[goldId] = (this.state.empire.resources[goldId] ?? 0) + gold
+    this.state.empire.domesticEconomy.temple.lastPreachedConByCity[cityId] = this.state.con
+    this.applyLoyaltyDelta(
+      { kind: 'city', cityId },
+      rules.preachingLoyaltyDelta,
+      `temple-preaching:${cityId}:${this.state.con}`,
+    )
+    this.applyReputationDelta(
+      rules.preachingReputationDelta,
+      `temple-preaching:${cityId}:${this.state.con}`,
+    )
+    this.appendChronicle(this.state, {
+      kind: 'temple',
+      sourceId: `temple-preaching:${cityId}:${this.state.con}`,
+      title: 'Проведена проповедь',
+      description: `Церковная десятина принесла ${gold} золота.`,
+      target: { kind: 'city', cityId },
+    })
+    return this.commit(`Temple preaching collected ${gold} gold.`)
+  }
+
+  assignTempleRelic(cityId: string, slotIndex: number, giftId: string): EmpiresActionResult {
+    if (this.state.phase !== 'empire') return failure('Relics can only be assigned in the empire phase.')
+    const slots = this.templeRelicSlots(cityId)
+    const slot = slots.find(item => item.index === slotIndex)
+    if (!slot) return failure('Unknown Temple relic slot.')
+    if (!slot.active) return failure('The Temple is not operational.')
+    const gift = this.giftDefinitions.get(giftId)
+    if (!gift || gift.kind !== 'relic' || gift.deferredReason) return failure('That relic is unavailable.')
+    if (!this.state.empire.claimedGiftIds.includes(giftId)) return failure('That relic has not been claimed.')
+    const alreadyAssigned = Object.values(
+      this.state.empire.domesticEconomy.temple.relicAssignments,
+    ).find(assignment => assignment.giftId === giftId)
+    if (alreadyAssigned && alreadyAssigned.slotId !== slot.id) return failure('That relic is already stored in another slot.')
+    this.state.empire.domesticEconomy.temple.relicAssignments[slot.id] = {
+      slotId: slot.id,
+      cityId,
+      slotIndex,
+      giftId,
+      assignedAtCon: this.state.con,
+    }
+    const activated = this.state.empire.domesticEconomy.temple.activatedRelicIds
+    if (!activated.includes(giftId)) {
+      activated.push(giftId)
+      this.applyFixedGiftResolution(gift)
+      this.applyGiftEffects(gift, undefined, new Set<EffectKind>([
+        'resource', 'time', 'population', 'loyalty', 'reputation', 'epidemicStart',
+      ]))
+    }
+    this.syncArmyMoraleCap()
+    this.refreshProductions()
+    return this.commit(`${gift.name} stored in ${slot.id}.`)
+  }
+
+  clearTempleRelic(cityId: string, slotIndex: number): EmpiresActionResult {
+    if (this.state.phase !== 'empire') return failure('Relics can only be moved in the empire phase.')
+    const slotId = this.templeRelicSlotId(cityId, slotIndex)
+    if (!this.state.empire.domesticEconomy.temple.relicAssignments[slotId]) {
+      return failure('That Temple slot is already empty.')
+    }
+    delete this.state.empire.domesticEconomy.temple.relicAssignments[slotId]
+    this.syncArmyMoraleCap()
+    this.refreshProductions()
+    return this.commit(`Temple relic slot ${slotId} cleared.`)
+  }
+
+  domesticEconomyView(cityId: string): EmpiresDomesticEconomyView {
+    const city = this.city(cityId)
+    const selectedCityName = city?.name ?? cityId
+    const loanQuote = this.loanQuote(cityId)
+    const loans = this.state.empire.domesticEconomy.loans
+      .filter(loan => loan.cityId === cityId || loan.status === 'active' || loan.status === 'defaulted')
+      .map(cloneSerializable)
+    const insuranceContract = [...this.state.empire.domesticEconomy.insuranceContracts]
+      .reverse()
+      .find(contract => contract.cityId === cityId) ?? null
+    const insuranceBlocked = this.insuranceStartBlockedReason(cityId)
+    const tavernLevel = this.effectiveOperationalBuildingLevel(
+      cityId,
+      this.config.empire.domesticEconomy.tavern.buildingId,
+    )
+    const tavernBuilding = this.buildingDefinitions.get(this.config.empire.domesticEconomy.tavern.buildingId)
+    return {
+      cityId,
+      selectedCityName,
+      bank: {
+        quote: loanQuote,
+        loans,
+        persecutionActive: this.state.empire.domesticEconomy.persecution !== null,
+        persecutionBlockedReason: this.persecutionBlockedReason(cityId),
+      },
+      insurance: {
+        contract: insuranceContract ? cloneSerializable(insuranceContract) : null,
+        startBlockedReason: insuranceBlocked,
+        projectedPayoutGold: insuranceContract
+          ? this.insurancePayoutGold(insuranceContract.calmTurns)
+          : this.insurancePayoutGold(0),
+      },
+      fair: {
+        actions: this.config.empire.domesticEconomy.fair.actions.map(action => ({
+          ...cloneSerializable(action),
+          availableAtCon: (this.state.empire.domesticEconomy.fair.lastUsedConByAction[action.id]
+            ?? (this.state.con - action.cooldownCons)) + action.cooldownCons,
+          activeUntilCon: this.state.empire.domesticEconomy.fair.activeActivities.find(
+            activity => activity.actionId === action.id,
+          )?.expiresAfterCon ?? null,
+          blockedReason: this.fairActionBlockedReason(cityId, action.id),
+        })),
+        baronUnlockedAtCon: this.state.empire.domesticEconomy.fair.baronUnlockedAtCon,
+      },
+      temple: {
+        preachBlockedReason: this.templePreachingBlockedReason(cityId),
+        projectedTitheGold: this.projectedTempleTithe(cityId),
+        slots: this.templeRelicSlots(cityId),
+        unassignedRelics: this.state.empire.claimedGiftIds.flatMap((giftId) => {
+          const gift = this.giftDefinitions.get(giftId)
+          if (!gift || gift.kind !== 'relic' || gift.deferredReason) return []
+          const assigned = Object.values(
+            this.state.empire.domesticEconomy.temple.relicAssignments,
+          ).some(item => item.giftId === giftId)
+          return assigned ? [] : [{ id: gift.id, name: gift.name }]
+        }),
+      },
+      tavern: {
+        available: tavernLevel > 0,
+        blockedReason: tavernLevel > 0
+          ? null
+          : this.economyBuildingBlockedReason(cityId, this.config.empire.domesticEconomy.tavern.buildingId),
+        recruitmentCapacityBonus: tavernLevel
+          * this.config.empire.domesticEconomy.tavern.recruitmentCapacityPerLevel,
+        moraleMaximumBonus: tavernLevel
+          * this.config.empire.domesticEconomy.tavern.moraleMaximumPerLevel,
+        deferredCapabilities: cloneSerializable(tavernBuilding?.deferredSubfeatures ?? []),
+      },
+    }
+  }
+
   technologySideView(technologyId: string): EmpiresTechnologySideView | null {
     const technology = this.technologyDefinitions.get(technologyId)
     const state = this.state.empire.technologySides[technologyId]
@@ -1419,7 +1819,10 @@ export class EmpiresEndgameEngine {
       : Object.entries(this.state.army.recruitmentPenalties).reduce((total, [key, amount]) => (
           key.startsWith(`${cityId}:`) ? total + Math.max(0, amount) : total
         ), 0)
-    return Math.max(0, capacity - penalty - this.recruitedUnitCount(city))
+    return Math.max(
+      0,
+      capacity + this.tavernRecruitmentCapacityBonus(city) - penalty - this.recruitedUnitCount(city),
+    )
   }
 
   private armyFoodUpkeepForCity(city: EmpiresCityState): number {
@@ -1524,7 +1927,9 @@ export class EmpiresEndgameEngine {
     const city = this.city(cityId)
     if (!city) return 0
     const region = this.state.empire.loyalty.regions[city.regionId]
-    const combined = this.clampLoyalty(city.loyalty + (region?.value ?? 0))
+    const combined = this.clampLoyalty(
+      city.loyalty + (region?.value ?? 0) + this.activeFairModifier('loyalty'),
+    )
     if (!this.config.empire.loyalty.enabled) return combined
     const forumPercent = this.operationalBuildingFlagValue(city, 'loyaltyMultiplierPercent') ?? 0
     return this.clampLoyalty(combined * Math.max(0, 1 + forumPercent / 100))
@@ -1898,6 +2303,28 @@ export class EmpiresEndgameEngine {
     }
   }
 
+  private initialDomesticEconomyState(): EmpiresDomesticEconomyState {
+    return {
+      nextLoanSequence: 1,
+      loans: [],
+      nextInsuranceSequence: 1,
+      insuranceContracts: [],
+      persecution: null,
+      fair: {
+        lastUsedConByAction: {},
+        activeActivities: [],
+        baronUnlockedAtCon: null,
+      },
+      temple: {
+        lastPreachedConByCity: {},
+        relicAssignments: {},
+        activatedRelicIds: [],
+      },
+      compactedLoanCount: 0,
+      compactedInsuranceCount: 0,
+    }
+  }
+
   private initialCityState(
     city: EmpiresEndgameConfig['empire']['cities'][number],
   ): EmpiresCityState {
@@ -2010,7 +2437,7 @@ export class EmpiresEndgameEngine {
     const playerHand: string[] = []
     const godHand: string[] = []
     const state: EmpiresCampaignState = {
-      schemaVersion: 6,
+      schemaVersion: 7,
       configId: this.config.id,
       phase: 'cards',
       rng,
@@ -2069,6 +2496,7 @@ export class EmpiresEndgameEngine {
           awardedTechnologyIds: [],
           academyTreatmentUsedCon: null,
         },
+        domesticEconomy: this.initialDomesticEconomyState(),
       },
       pendingResolution: null,
       minigame: null,
@@ -2111,15 +2539,154 @@ export class EmpiresEndgameEngine {
     return state
   }
 
+  private normalizeDomesticEconomyState(
+    state: EmpiresCampaignState,
+    snapshotVersion: number,
+  ): void {
+    const raw = (state.empire as EmpiresCampaignState['empire'] & {
+      domesticEconomy?: EmpiresDomesticEconomyState
+    }).domesticEconomy
+    const economy = raw ?? this.initialDomesticEconomyState()
+    const cityIds = new Set(state.empire.cities.map(city => city.id))
+    const fairActionIds = new Set(this.config.empire.domesticEconomy.fair.actions.map(action => action.id))
+    const relicIds = new Set(this.config.gifts.definitions
+      .filter(gift => gift.kind === 'relic')
+      .map(gift => gift.id))
+
+    economy.loans ??= []
+    economy.loans = economy.loans.filter((loan) => {
+      if (!loan || typeof loan.id !== 'string' || !loan.id || !cityIds.has(loan.cityId)
+        || loan.buildingId !== this.config.empire.domesticEconomy.loan.bankBuildingId
+        || loan.technologyId !== this.config.empire.domesticEconomy.loan.bankingTechnologyId
+        || !Number.isInteger(loan.takenAtCon) || loan.takenAtCon < 0
+        || !Number.isFinite(loan.incomeAtOrigination) || loan.incomeAtOrigination < 0
+        || !Number.isFinite(loan.principal) || loan.principal < 0
+        || !Number.isFinite(loan.interest) || loan.interest < 0
+        || !['active', 'defaulted', 'repaid', 'persecuted'].includes(loan.status)
+        || !Array.isArray(loan.installments)) throw new Error('Invalid domestic-economy loan state')
+      const indexes = new Set<number>()
+      for (const installment of loan.installments) {
+        if (!Number.isInteger(installment.index) || installment.index < 1
+          || indexes.has(installment.index)
+          || !Number.isInteger(installment.dueCon) || installment.dueCon <= loan.takenAtCon
+          || !Number.isFinite(installment.amount) || installment.amount < 0
+          || !['pending', 'paid', 'waived'].includes(installment.status)
+          || (installment.settledAtCon === null) !== (installment.settlementId === null)) {
+          throw new Error(`Invalid installment in loan ${loan.id}`)
+        }
+        indexes.add(installment.index)
+      }
+      return true
+    })
+    economy.nextLoanSequence = Math.max(
+      1,
+      Number.isInteger(economy.nextLoanSequence) ? economy.nextLoanSequence : 1,
+      ...economy.loans.map(loan => Number.parseInt(loan.id.split('-').at(-1) ?? '0', 10) + 1),
+    )
+
+    economy.insuranceContracts ??= []
+    economy.insuranceContracts = economy.insuranceContracts.filter((contract) => {
+      if (!contract || typeof contract.id !== 'string' || !contract.id
+        || !cityIds.has(contract.cityId)
+        || contract.buildingId !== this.config.empire.domesticEconomy.insurance.buildingId
+        || !Number.isInteger(contract.signedAtCon) || contract.signedAtCon < 0
+        || !Number.isInteger(contract.calmTurns) || contract.calmTurns < 0
+        || !['waiting', 'active', 'consumed', 'expired'].includes(contract.status)
+        || (contract.activatedAtCon !== null && !Number.isInteger(contract.activatedAtCon))
+        || (contract.expiresAfterCon !== null && !Number.isInteger(contract.expiresAfterCon))
+        || (contract.lastSettledCon !== null && !Number.isInteger(contract.lastSettledCon))
+        || (contract.lastIncidentCon !== null && !Number.isInteger(contract.lastIncidentCon))
+        || !Number.isFinite(contract.payoutGold) || contract.payoutGold < 0) {
+        throw new Error('Invalid domestic-economy insurance state')
+      }
+      return true
+    })
+    economy.nextInsuranceSequence = Math.max(
+      1,
+      Number.isInteger(economy.nextInsuranceSequence) ? economy.nextInsuranceSequence : 1,
+      ...economy.insuranceContracts.map(contract => (
+        Number.parseInt(contract.id.split('-').at(-1) ?? '0', 10) + 1
+      )),
+    )
+    economy.persecution ??= null
+    if (economy.persecution && (!cityIds.has(economy.persecution.cityId)
+      || !Number.isInteger(economy.persecution.startedAtCon))) {
+      throw new Error('Invalid domestic-economy persecution state')
+    }
+
+    economy.fair ??= this.initialDomesticEconomyState().fair
+    economy.fair.lastUsedConByAction = Object.fromEntries(
+      Object.entries(economy.fair.lastUsedConByAction ?? {}).filter(([actionId, con]) => (
+        fairActionIds.has(actionId) && Number.isInteger(con) && con >= 0
+      )),
+    )
+    economy.fair.activeActivities = (economy.fair.activeActivities ?? []).filter(activity => (
+      activity && typeof activity.id === 'string' && activity.id.length > 0
+      && fairActionIds.has(activity.actionId) && cityIds.has(activity.cityId)
+      && Number.isInteger(activity.startedAtCon)
+      && Number.isInteger(activity.expiresAfterCon)
+      && activity.expiresAfterCon >= activity.startedAtCon
+      && (activity.lastSettledCon === null || Number.isInteger(activity.lastSettledCon))
+    ))
+    economy.fair.baronUnlockedAtCon ??= null
+
+    economy.temple ??= this.initialDomesticEconomyState().temple
+    economy.temple.lastPreachedConByCity = Object.fromEntries(
+      Object.entries(economy.temple.lastPreachedConByCity ?? {}).filter(([cityId, con]) => (
+        cityIds.has(cityId) && Number.isInteger(con) && con >= 0
+      )),
+    )
+    economy.temple.relicAssignments = Object.fromEntries(
+      Object.entries(economy.temple.relicAssignments ?? {}).filter(([slotId, assignment]) => {
+        if (!assignment || assignment.slotId !== slotId || !cityIds.has(assignment.cityId)
+          || !Number.isInteger(assignment.slotIndex) || assignment.slotIndex < 0
+          || !relicIds.has(assignment.giftId)
+          || !state.empire.claimedGiftIds.includes(assignment.giftId)
+          || !Number.isInteger(assignment.assignedAtCon)) return false
+        const city = state.empire.cities.find(item => item.id === assignment.cityId)
+        const levels = city?.buildingLevels[this.config.empire.domesticEconomy.temple.buildingId] ?? 0
+        return assignment.slotIndex < levels * this.config.empire.domesticEconomy.temple.relicSlotsPerLevel
+      }),
+    )
+    economy.temple.activatedRelicIds = [...new Set(
+      (economy.temple.activatedRelicIds ?? []).filter(id => relicIds.has(id)),
+    )]
+
+    if (snapshotVersion < 7 || !raw) {
+      const claimedRelics = state.empire.claimedGiftIds.filter(id => relicIds.has(id))
+      economy.temple.activatedRelicIds = [...new Set([
+        ...economy.temple.activatedRelicIds,
+        ...claimedRelics,
+      ])]
+      for (const giftId of claimedRelics) {
+        const gift = this.giftDefinitions.get(giftId)
+        for (const effect of gift?.effects ?? []) {
+          if (effect.kind !== 'flag') continue
+          const existing = state.empire.flags[effect.flagId]
+          if (!Number.isFinite(existing)) continue
+          const remaining = existing - effect.amount
+          if (remaining > Number.EPSILON) state.empire.flags[effect.flagId] = remaining
+          else delete state.empire.flags[effect.flagId]
+        }
+      }
+    }
+
+    economy.compactedLoanCount = Math.max(0, Math.floor(economy.compactedLoanCount ?? 0))
+    economy.compactedInsuranceCount = Math.max(0, Math.floor(economy.compactedInsuranceCount ?? 0))
+    state.empire.domesticEconomy = economy
+    this.compactDomesticEconomyHistory(state)
+  }
+
   private validateAndCloneSnapshot(snapshot: EmpiresCampaignState): EmpiresCampaignState {
     const snapshotVersion = (snapshot as { schemaVersion: number }).schemaVersion
     if (snapshotVersion !== 1 && snapshotVersion !== 2 && snapshotVersion !== 3
-      && snapshotVersion !== 4 && snapshotVersion !== 5 && snapshotVersion !== 6) {
+      && snapshotVersion !== 4 && snapshotVersion !== 5 && snapshotVersion !== 6
+      && snapshotVersion !== 7) {
       throw new Error('Unsupported Empire\'s Endgame snapshot schema')
     }
     if (snapshot.configId !== this.config.id) throw new Error('Snapshot belongs to a different config')
     const state = cloneSerializable(snapshot)
-    state.schemaVersion = 6
+    state.schemaVersion = 7
     this.normalizeGovernanceState(state, snapshotVersion)
     state.minigame ??= null
     state.minigameResultLog ??= []
@@ -2279,6 +2846,7 @@ export class EmpiresEndgameEngine {
       city.resources ??= {}
       city.buildingInteractionLocks ??= {}
     }
+    this.normalizeDomesticEconomyState(state, snapshotVersion)
     this.normalizePoliticalState(state)
     this.migratePendingLoyaltyDeltas(state)
     state.empire.cardFlagBonuses ??= state.phase === 'empire' || state.phase === 'event'
@@ -2645,18 +3213,20 @@ export class EmpiresEndgameEngine {
   private syncArmyMoraleCap(state: EmpiresCampaignState = this.state): void {
     const minimum = this.armyMoraleMinimum(state)
     const configuredMaximum = this.config.td.morale?.maximum ?? 0
-    const flagMaximum = state.empire.flags.maxCombatSpirit
+    const flagMaximum = this.empireFlagValueInState(state, 'maxCombatSpirit')
+    const baseMaximum = Math.max(
+      configuredMaximum,
+      Number.isFinite(flagMaximum) ? flagMaximum : 0,
+    )
     state.army.maxMorale = Math.max(
       minimum,
-      configuredMaximum,
-      state.army.maxMorale ?? 0,
-      Number.isFinite(flagMaximum) ? flagMaximum : 0,
+      baseMaximum + this.tavernMoraleMaximumBonus(state),
     )
     state.army.morale = Math.max(minimum, Math.min(state.army.maxMorale, state.army.morale))
   }
 
   private armyMoraleMinimum(state: EmpiresCampaignState = this.state): number {
-    const relicMinimum = state.empire.flags.minimumCombatSpirit
+    const relicMinimum = this.empireFlagValueInState(state, 'minimumCombatSpirit')
     return Math.max(
       this.config.td.morale?.minimum ?? 0,
       Number.isFinite(relicMinimum) ? Math.max(0, relicMinimum) : 0,
@@ -3262,6 +3832,7 @@ export class EmpiresEndgameEngine {
     }
     this.settleEquipmentProduction()
     this.applyTreasuryIncome()
+    this.settleDomesticEconomy()
     this.refreshProductions()
     if (this.totalPopulation() <= this.config.empire.defeatPopulationAtOrBelow) {
       this.setOutcome('defeat', 'The empire starved.')
@@ -3443,7 +4014,7 @@ export class EmpiresEndgameEngine {
     building: EmpiresBuildingDefinition,
     level: EmpiresBuildingLevelDefinition,
   ): EmpiresDependency[] {
-    if (!this.isStableBuilding(building) || (this.state.empire.flags.stableWithoutLivestock ?? 0) <= 0) {
+    if (!this.isStableBuilding(building) || this.effectiveEmpireFlagValue('stableWithoutLivestock') <= 0) {
       return level.dependencies
     }
     return level.dependencies.filter(
@@ -3458,10 +4029,10 @@ export class EmpiresEndgameEngine {
     return level.resourceCosts.filter((cost) => {
       if (building.slot === 'smithy'
         && cost.resourceId === 'iron'
-        && (this.state.empire.flags.smithyWithoutIron ?? 0) > 0) return false
+        && this.effectiveEmpireFlagValue('smithyWithoutIron') > 0) return false
       if (this.isStableBuilding(building)
         && cost.resourceId === 'horses'
-        && (this.state.empire.flags.stableWithoutLivestock ?? 0) > 0) return false
+        && this.effectiveEmpireFlagValue('stableWithoutLivestock') > 0) return false
       return true
     })
   }
@@ -3513,9 +4084,9 @@ export class EmpiresEndgameEngine {
           return dependency.technologyId
         }
       } else if (dependency.kind === 'flag') {
-        if ((this.state.empire.flags[dependency.flagId] ?? 0) < dependency.minimum) return dependency.flagId
+        if (this.effectiveEmpireFlagValue(dependency.flagId) < dependency.minimum) return dependency.flagId
       } else if (dependency.kind === 'reputation') {
-        if (this.state.empire.reputation < dependency.minimum) {
+        if (this.effectiveReputation() < dependency.minimum) {
           return `reputation ${this.signedNumber(dependency.minimum)}`
         }
       } else if (dependency.kind === 'advisor') {
@@ -3792,6 +4363,7 @@ export class EmpiresEndgameEngine {
       endReason: null,
     }
     this.state.epidemics.push(instance)
+    this.settleInsuranceIncident(city.id, 'epidemic', `insurance:${instance.id}`)
     this.appendChronicle(this.state, {
       kind: 'epidemic-start',
       sourceId: `epidemic-start:${instance.id}`,
@@ -3817,7 +4389,7 @@ export class EmpiresEndgameEngine {
         if (!protection.consequences.includes(consequence)) return []
         let multiplier: number | null = null
         if (protection.source.kind === 'flag') {
-          const points = Math.max(0, this.state.empire.flags[protection.source.flagId] ?? 0)
+          const points = Math.max(0, this.effectiveEmpireFlagValue(protection.source.flagId))
           if (points <= 0) return []
           const reduction = Math.min(
             protection.source.maximumReductionPercent,
@@ -4414,6 +4986,416 @@ export class EmpiresEndgameEngine {
     else city.recruitedUnitCohorts.push(cohort)
   }
 
+  private empireFlagValueInState(state: EmpiresCampaignState, flagId: string): number {
+    let value = state.empire.flags[flagId] ?? 0
+    if (!this.config.empire.domesticEconomy.enabled) return value
+    const templeId = this.config.empire.domesticEconomy.temple.buildingId
+    for (const assignment of Object.values(
+      state.empire.domesticEconomy?.temple.relicAssignments ?? {},
+    )) {
+      const city = state.empire.cities.find(item => item.id === assignment.cityId)
+      if (!city || !this.isRegionAccessibleInState(state, city.regionId)
+        || (city.operationalBuildingLevels[templeId] ?? 0) <= 0
+        || (city.buildingInteractionLocks[templeId] ?? -1) === state.con) continue
+      const gift = this.giftDefinitions.get(assignment.giftId)
+      if (!gift || gift.deferredReason) continue
+      for (const effect of gift.effects) {
+        if (effect.kind === 'flag' && effect.flagId === flagId) value += effect.amount
+      }
+    }
+    return value
+  }
+
+  private activeFairModifier(kind: 'loyalty' | 'reputation'): number {
+    if (!this.config.empire.domesticEconomy.enabled) return 0
+    return this.state.empire.domesticEconomy.fair.activeActivities.reduce((total, activity) => {
+      if (activity.expiresAfterCon < this.state.con) return total
+      const definition = this.config.empire.domesticEconomy.fair.actions.find(
+        action => action.id === activity.actionId,
+      )
+      if (!definition) return total
+      return total + (kind === 'loyalty'
+        ? definition.temporaryLoyaltyModifier
+        : definition.temporaryReputationModifier)
+    }, 0)
+  }
+
+  private economyBuildingBlockedReason(cityId: string, buildingId: string): string | null {
+    const city = this.city(cityId)
+    if (!city) return 'Unknown city.'
+    const access = this.cityAccessBlockedReason(cityId)
+    if (access) return access
+    const building = this.buildingDefinitions.get(buildingId)
+    if (!building || building.deferredReason) return `Building ${buildingId} is unavailable.`
+    const view = this.buildingOperationView(cityId, buildingId)
+    if (view.purchasedLevel < 1) return `${building.name} is not built in the selected city.`
+    if (view.operationalLevel < 1) return view.blockedReason ?? `${building.name} is not operational.`
+    if (this.isBuildingInteractionLocked(city, buildingId)) return `${building.name} is locked for this con.`
+    return null
+  }
+
+  private currentDomesticGoldIncome(): number {
+    const goldId = this.config.empire.domesticEconomy.goldResourceId
+    return this.state.empire.cities.reduce((total, city) => {
+      if (!this.isCityAccessible(city.id)) return total
+      return total + Math.max(0, city.lastProduction[goldId] ?? 0) + this.tradeLevyGoldForCity(city)
+    }, 0)
+  }
+
+  private persecutionBlockedReason(cityId: string): string | null {
+    if (this.state.phase !== 'empire') return 'Гонения are only available in the empire phase.'
+    const building = this.economyBuildingBlockedReason(
+      cityId,
+      this.config.empire.domesticEconomy.loan.bankBuildingId,
+    )
+    if (building) return building
+    if (this.state.empire.domesticEconomy.persecution) return 'Гонения have already begun.'
+    return this.state.empire.domesticEconomy.loans.some(
+      loan => loan.status === 'active' || loan.status === 'defaulted',
+    ) ? null : 'There is no outstanding debt.'
+  }
+
+  private insuranceStartBlockedReason(cityId: string): string | null {
+    if (this.state.phase !== 'empire') return 'Insurance is only available in the empire phase.'
+    const building = this.economyBuildingBlockedReason(
+      cityId,
+      this.config.empire.domesticEconomy.insurance.buildingId,
+    )
+    if (building) return building
+    const existing = this.state.empire.domesticEconomy.insuranceContracts.find(contract => (
+      contract.cityId === cityId && (contract.status === 'waiting' || contract.status === 'active')
+    ))
+    return existing ? `The selected city already has a ${existing.status} contract.` : null
+  }
+
+  private insurancePayoutGold(calmTurns: number): number {
+    const rules = this.config.empire.domesticEconomy.insurance
+    return Math.min(
+      rules.maximumPayoutGold,
+      rules.basePayoutGold + Math.max(0, calmTurns) * rules.payoutPerCalmTurnGold,
+    )
+  }
+
+  private settleInsuranceIncident(
+    cityId: string,
+    kind: EmpiresDomesticIncidentKind,
+    incidentId: string,
+  ): void {
+    const contracts = this.state.empire.domesticEconomy.insuranceContracts
+      .filter(contract => contract.cityId === cityId
+        && (contract.status === 'waiting' || contract.status === 'active'))
+      .sort((left, right) => left.signedAtCon - right.signedAtCon || left.id.localeCompare(right.id))
+    for (const contract of contracts) {
+      if (contract.lastIncidentId === incidentId || contract.payoutIncidentId === incidentId) continue
+      contract.lastIncidentCon = this.state.con
+      contract.lastIncidentId = incidentId
+      if (contract.status === 'waiting') {
+        contract.calmTurns = 0
+        this.appendChronicle(this.state, {
+          kind: 'insurance',
+          sourceId: incidentId,
+          title: 'Спокойный срок страховки сброшен',
+          description: `${kind} затронул город до активации контракта ${contract.id}.`,
+          target: { kind: 'city', cityId },
+        })
+        continue
+      }
+      const payout = this.insurancePayoutGold(contract.calmTurns)
+      const goldId = this.config.empire.domesticEconomy.goldResourceId
+      this.state.empire.resources[goldId] = (this.state.empire.resources[goldId] ?? 0) + payout
+      contract.status = 'consumed'
+      contract.consumedAtCon = this.state.con
+      contract.payoutGold = payout
+      contract.payoutIncidentId = incidentId
+      this.appendChronicle(this.state, {
+        kind: 'insurance',
+        sourceId: incidentId,
+        title: 'Страховка выплачена',
+        description: `${payout} золота за ${kind}; контракт ${contract.id} погашен один раз.`,
+        target: { kind: 'city', cityId },
+      })
+    }
+    this.compactDomesticEconomyHistory()
+  }
+
+  private fairActionBlockedReason(cityId: string, actionId: string): string | null {
+    if (this.state.phase !== 'empire') return 'Fair actions are only available in the empire phase.'
+    const fair = this.config.empire.domesticEconomy.fair
+    const action = fair.actions.find(item => item.id === actionId)
+    if (!action) return 'Unknown Fair action.'
+    const building = this.economyBuildingBlockedReason(cityId, fair.buildingId)
+    if (building) return building
+    if (!this.state.empire.researchedTechnologyIds.includes(fair.technologyId)) {
+      return `Missing prerequisite: ${fair.technologyId}.`
+    }
+    if (action.unlockAfterActionId
+      && this.state.empire.domesticEconomy.fair.lastUsedConByAction[action.unlockAfterActionId] === undefined) {
+      const predecessor = fair.actions.find(item => item.id === action.unlockAfterActionId)
+      return `Complete ${predecessor?.name ?? action.unlockAfterActionId} first.`
+    }
+    const lastUsed = this.state.empire.domesticEconomy.fair.lastUsedConByAction[action.id]
+    if (lastUsed !== undefined && this.state.con < lastUsed + action.cooldownCons) {
+      return `Cooldown lasts until con ${lastUsed + action.cooldownCons}.`
+    }
+    if (this.state.empire.domesticEconomy.fair.activeActivities.some(
+      activity => activity.actionId === action.id && activity.expiresAfterCon >= this.state.con,
+    )) return `The ${action.name} effect is already active.`
+    const goldId = this.config.empire.domesticEconomy.goldResourceId
+    if ((this.state.empire.resources[goldId] ?? 0) + Number.EPSILON < action.goldCost) {
+      return `Not enough ${goldId}; ${action.goldCost} is required.`
+    }
+    return null
+  }
+
+  private settleFairActivity(
+    activity: EmpiresDomesticEconomyState['fair']['activeActivities'][number],
+  ): void {
+    if (activity.lastSettledCon === this.state.con || activity.expiresAfterCon < this.state.con) return
+    const action = this.config.empire.domesticEconomy.fair.actions.find(
+      item => item.id === activity.actionId,
+    )
+    if (!action) return
+    activity.lastSettledCon = this.state.con
+    if (action.perConLoyaltyDelta !== 0) {
+      for (const city of this.state.empire.cities) {
+        this.applyLoyaltyDelta(
+          { kind: 'city', cityId: city.id },
+          action.perConLoyaltyDelta,
+          `${activity.id}:tick:${this.state.con}`,
+        )
+      }
+    }
+    if (action.perConReputationDelta !== 0) {
+      this.applyReputationDelta(action.perConReputationDelta, `${activity.id}:tick:${this.state.con}`)
+    }
+    if (action.perConPopulationLoss > 0) {
+      const cities = this.state.empire.cities.filter(city => this.isCityAccessible(city.id))
+      const perCity = cities.length > 0 ? action.perConPopulationLoss / cities.length : 0
+      for (const city of cities) this.setCityPopulation(city, Math.max(0, city.population - perCity))
+    }
+    for (const loss of action.perConResourceLosses) {
+      this.state.empire.resources[loss.resourceId] = Math.max(
+        0,
+        (this.state.empire.resources[loss.resourceId] ?? 0) - loss.amount,
+      )
+    }
+    if (action.lockBuildingId) {
+      const candidates = this.state.empire.cities
+        .filter(city => this.isCityAccessible(city.id))
+        .filter(city => (city.operationalBuildingLevels[action.lockBuildingId!] ?? 0) > 0)
+        .sort((left, right) => left.id.localeCompare(right.id))
+      if (candidates.length > 0) {
+        const selected = candidates[Math.floor(nextEmpiresRandom(this.state.rng) * candidates.length)]
+        selected.buildingInteractionLocks[action.lockBuildingId] = this.state.con
+      }
+    }
+  }
+
+  private templePreachingBlockedReason(cityId: string): string | null {
+    if (this.state.phase !== 'empire') return 'Temple preaching is only available in the empire phase.'
+    const rules = this.config.empire.domesticEconomy.temple
+    const building = this.economyBuildingBlockedReason(cityId, rules.buildingId)
+    if (building) return building
+    const last = this.state.empire.domesticEconomy.temple.lastPreachedConByCity[cityId]
+    if (last !== undefined && this.state.con < last + rules.preachingCooldownCons) {
+      return `Preaching is available again at con ${last + rules.preachingCooldownCons}.`
+    }
+    return null
+  }
+
+  private projectedTempleTithe(cityId: string): number {
+    const city = this.city(cityId)
+    if (!city) return 0
+    const rules = this.config.empire.domesticEconomy.temple
+    const base = Math.max(rules.minimumTitheGold, city.population * rules.titheGoldPerPopulation)
+    const bonusPercent = Math.max(0, this.effectiveEmpireFlagValue('titheIncomePercent'))
+    return Math.floor(base * (1 + bonusPercent / 100))
+  }
+
+  private templeRelicSlotId(cityId: string, slotIndex: number): string {
+    return `temple:${cityId}:relic:${slotIndex + 1}`
+  }
+
+  private templeRelicSlots(cityId: string): EmpiresDomesticEconomyView['temple']['slots'] {
+    const city = this.city(cityId)
+    if (!city) return []
+    const templeId = this.config.empire.domesticEconomy.temple.buildingId
+    const purchased = Math.max(0, city.buildingLevels[templeId] ?? 0)
+    const operational = this.effectiveOperationalBuildingLevel(cityId, templeId) > 0
+    const count = purchased * this.config.empire.domesticEconomy.temple.relicSlotsPerLevel
+    return Array.from({ length: count }, (_, slotIndex) => {
+      const id = this.templeRelicSlotId(cityId, slotIndex)
+      const assignment = this.state.empire.domesticEconomy.temple.relicAssignments[id]
+      const gift = assignment ? this.giftDefinitions.get(assignment.giftId) : null
+      return {
+        id,
+        cityId,
+        index: slotIndex,
+        giftId: assignment?.giftId ?? null,
+        giftName: gift?.name ?? null,
+        active: operational,
+      }
+    })
+  }
+
+  private tavernOperationalLevel(city: EmpiresCityState): number {
+    if (!this.config.empire.domesticEconomy.enabled) return 0
+    return Math.max(
+      0,
+      city.operationalBuildingLevels[this.config.empire.domesticEconomy.tavern.buildingId] ?? 0,
+    )
+  }
+
+  private tavernRecruitmentCapacityBonus(city: EmpiresCityState): number {
+    return this.tavernOperationalLevel(city)
+      * this.config.empire.domesticEconomy.tavern.recruitmentCapacityPerLevel
+  }
+
+  private tavernMoraleMaximumBonus(state: EmpiresCampaignState = this.state): number {
+    if (!this.config.empire.domesticEconomy.enabled) return 0
+    const buildingId = this.config.empire.domesticEconomy.tavern.buildingId
+    const level = state.empire.cities.reduce((maximum, city) => (
+      this.isRegionAccessibleInState(state, city.regionId)
+        ? Math.max(maximum, city.operationalBuildingLevels[buildingId] ?? 0)
+        : maximum
+    ), 0)
+    return level * this.config.empire.domesticEconomy.tavern.moraleMaximumPerLevel
+  }
+
+  private compactDomesticEconomyHistory(state: EmpiresCampaignState = this.state): void {
+    const economy = state.empire.domesticEconomy
+    const retention = this.config.empire.domesticEconomy.historyRetention
+    const compact = <T extends { status: string }>(
+      values: T[],
+      activeStatuses: readonly string[],
+    ): { values: T[], removed: number } => {
+      const active = values.filter(value => activeStatuses.includes(value.status))
+      const closed = values.filter(value => !activeStatuses.includes(value.status))
+      const retainedClosed = closed.slice(-retention)
+      return { values: [...active, ...retainedClosed], removed: closed.length - retainedClosed.length }
+    }
+    const loans = compact(economy.loans, ['active', 'defaulted'])
+    economy.loans = loans.values
+    economy.compactedLoanCount += Math.max(0, loans.removed)
+    const contracts = compact(economy.insuranceContracts, ['waiting', 'active'])
+    economy.insuranceContracts = contracts.values
+    economy.compactedInsuranceCount += Math.max(0, contracts.removed)
+  }
+
+  private settleDomesticEconomy(): void {
+    if (!this.config.empire.domesticEconomy.enabled) return
+    this.settleLoans()
+    this.settleInsuranceContracts()
+    for (const activity of this.state.empire.domesticEconomy.fair.activeActivities) {
+      this.settleFairActivity(activity)
+    }
+    const completedBaronAction = this.config.empire.domesticEconomy.fair.baronUnlockActionId
+    const completed = this.state.empire.domesticEconomy.fair.activeActivities.find(
+      activity => activity.actionId === completedBaronAction
+        && activity.expiresAfterCon <= this.state.con,
+    )
+    if (completed && this.state.empire.domesticEconomy.fair.baronUnlockedAtCon === null) {
+      this.state.empire.domesticEconomy.fair.baronUnlockedAtCon = this.state.con
+      this.appendChronicle(this.state, {
+        kind: 'fair',
+        sourceId: `${completed.id}:baron`,
+        title: 'Появился циганский барон',
+        description: 'Точка интеграции открыта; его торговая ветка и дворец остаются явно отложены.',
+        target: { kind: 'empire' },
+      })
+    }
+    this.state.empire.domesticEconomy.fair.activeActivities = (
+      this.state.empire.domesticEconomy.fair.activeActivities.filter(
+        activity => activity.expiresAfterCon > this.state.con,
+      )
+    )
+    this.compactDomesticEconomyHistory()
+    this.refreshLoyaltyDependents()
+  }
+
+  private settleLoans(): void {
+    const rules = this.config.empire.domesticEconomy.loan
+    const goldId = this.config.empire.domesticEconomy.goldResourceId
+    for (const loan of this.state.empire.domesticEconomy.loans
+      .filter(item => item.status === 'active' || item.status === 'defaulted')
+      .sort((left, right) => left.takenAtCon - right.takenAtCon || left.id.localeCompare(right.id))) {
+      for (const installment of loan.installments.filter(
+        item => item.status === 'pending' && item.dueCon <= this.state.con,
+      )) {
+        const settlementId = `scheduled:${loan.id}:${installment.index}:${installment.dueCon}`
+        const gold = Math.max(0, this.state.empire.resources[goldId] ?? 0)
+        if (gold + Number.EPSILON < installment.amount) {
+          if (loan.defaultedAtCon === null) {
+            loan.status = 'defaulted'
+            loan.defaultedAtCon = this.state.con
+            this.applyReputationDelta(rules.defaultReputationDelta, `default:${loan.id}`)
+            this.applyLoyaltyDelta(
+              { kind: 'city', cityId: loan.cityId },
+              rules.defaultLoyaltyDelta,
+              `default:${loan.id}`,
+            )
+            this.appendChronicle(this.state, {
+              kind: 'loan',
+              sourceId: `default:${loan.id}`,
+              title: 'Банк зафиксировал дефолт',
+              description: `Платёж ${installment.index} остаётся должен; последствия применены один раз.`,
+              target: { kind: 'city', cityId: loan.cityId },
+            })
+          }
+          break
+        }
+        this.state.empire.resources[goldId] = gold - installment.amount
+        installment.status = 'paid'
+        installment.settledAtCon = this.state.con
+        installment.settlementId = settlementId
+        this.appendChronicle(this.state, {
+          kind: 'loan',
+          sourceId: settlementId,
+          title: 'Платёж по кредиту',
+          description: `${installment.amount} золота; платёж ${installment.index}/${loan.installments.length}.`,
+          target: { kind: 'empire' },
+        })
+      }
+      if (loan.installments.every(installment => installment.status !== 'pending')) {
+        loan.status = 'repaid'
+        loan.closedAtCon = this.state.con
+      }
+    }
+  }
+
+  private settleInsuranceContracts(): void {
+    const rules = this.config.empire.domesticEconomy.insurance
+    for (const contract of this.state.empire.domesticEconomy.insuranceContracts) {
+      if (contract.status !== 'waiting' && contract.status !== 'active') continue
+      if (contract.lastSettledCon === this.state.con) continue
+      contract.lastSettledCon = this.state.con
+      if (contract.lastIncidentCon !== this.state.con) contract.calmTurns += 1
+      if (contract.status === 'waiting' && contract.calmTurns >= rules.calmTurnsRequired) {
+        contract.status = 'active'
+        contract.activatedAtCon = this.state.con
+        contract.expiresAfterCon = this.state.con + rules.activeDurationCons - 1
+        this.appendChronicle(this.state, {
+          kind: 'insurance',
+          sourceId: `${contract.id}:activation`,
+          title: 'Страховка активирована',
+          description: `Контракт действует до конца кона ${contract.expiresAfterCon}.`,
+          target: { kind: 'city', cityId: contract.cityId },
+        })
+      } else if (contract.status === 'active'
+        && contract.expiresAfterCon !== null
+        && this.state.con >= contract.expiresAfterCon) {
+        contract.status = 'expired'
+        this.appendChronicle(this.state, {
+          kind: 'insurance',
+          sourceId: `${contract.id}:expiry`,
+          title: 'Страховка истекла',
+          description: 'Покрываемого события не произошло; выплата не начислена.',
+          target: { kind: 'city', cityId: contract.cityId },
+        })
+      }
+    }
+  }
+
   private operationalBuildingFlagEntries(
     city: EmpiresCityState,
     flagId: string,
@@ -4617,6 +5599,7 @@ export class EmpiresEndgameEngine {
   private refreshProductions(): void {
     this.normalizeProductionBoostAssignments()
     for (const city of this.state.empire.cities) this.updateOperationalBuildings(city)
+    this.syncArmyMoraleCap()
     this.rebuildProductionEffects()
     for (const city of this.state.empire.cities) city.lastProduction = this.cityProduction(city.id)
   }
@@ -4754,7 +5737,9 @@ export class EmpiresEndgameEngine {
     targetCityId: string,
     pending: EmpiresPendingGiftResolution,
   ): void {
-    if (pending.kind === 'meteorCity') this.damageCityWithMeteor(targetCityId, pending.damageLevels)
+    if (pending.kind === 'meteorCity') {
+      this.damageCityWithMeteor(targetCityId, pending.damageLevels, `gift:${gift.id}:${this.state.con}`)
+    }
     this.applyOneShotGiftEffects(gift, targetCityId)
   }
 
@@ -4765,7 +5750,11 @@ export class EmpiresEndgameEngine {
     if (resolution.kind === 'meteorCity') {
       const targetCityId = this.state.empire.giftResolutionTargets[gift.id]
       if (targetCityId && this.isCityAccessible(targetCityId)) {
-        this.damageCityWithMeteor(targetCityId, Math.max(0, Math.floor(resolution.damageLevels)))
+        this.damageCityWithMeteor(
+          targetCityId,
+          Math.max(0, Math.floor(resolution.damageLevels)),
+          `gift:${gift.id}:${this.state.con}`,
+        )
       }
       return
     }
@@ -4936,9 +5925,10 @@ export class EmpiresEndgameEngine {
     return this.accessibleCityIdsFromState(this.state)
   }
 
-  private damageCityWithMeteor(cityId: string, damageLevels: number): void {
+  private damageCityWithMeteor(cityId: string, damageLevels: number, sourceId: string): void {
     const city = this.city(cityId)
     if (!city || !this.isCityAccessible(cityId)) return
+    this.settleInsuranceIncident(cityId, 'meteor', `insurance:${sourceId}`)
     const target = Object.entries(city.buildingLevels)
       .filter(([buildingId, level]) => {
         const building = this.buildingDefinitions.get(buildingId)
@@ -5090,6 +6080,7 @@ export class EmpiresEndgameEngine {
       'season', 'technology-disclosure', 'hidden-combination',
       'epidemic-start', 'epidemic-impact', 'epidemic-spread',
       'epidemic-containment', 'epidemic-end',
+      'loan', 'insurance', 'fair', 'temple',
     ])
     const seenIds = new Set<string>()
     state.empire.chronicle = (state.empire.chronicle ?? [])

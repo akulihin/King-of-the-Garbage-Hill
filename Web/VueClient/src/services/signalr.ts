@@ -19,6 +19,8 @@ export type GameState = {
   /** Server-authoritative deadline for the current transition decision. */
   transitionDeadlineUtc?: string
   isRumblingWarningActive: boolean
+  /** Persistent public Rumbling aftermath intensity, clamped to 0..4 victims. */
+  rumblingKillCount: number
   globalLogs: string
   /** Full history of global logs across all rounds */
   allGlobalLogs: string
@@ -52,6 +54,8 @@ export type Player = {
   teamId: number
   /** Whether this player is another member of the viewing Naruto's initialized trio. */
   isNarutoAlly: boolean
+  /** Public recognition awarded by Madara after the Red Tiger phrase. */
+  isMadaraRedTiger: boolean
   /** Whether this player is dead (killed by any mechanic). */
   isDead: boolean
   /** Who/what killed this player ("Kratos", "Kira", "Monster", etc.). Empty if alive. */
@@ -1016,10 +1020,11 @@ export type BattleshipCell = {
   summonOwnerId: string | null
   summonType: string | null
   isScratched: boolean
-  summonTrail?: boolean
+  summonTrails?: string[]
   isBurnResistMarked?: boolean
   isDodgeMarked?: boolean
   isDestroyed?: boolean
+  isShipSunk?: boolean
   isFrozen?: boolean
   isDevastated?: boolean
   isCaptured?: boolean
@@ -1128,6 +1133,10 @@ export type BattleshipShotResult = {
   turnContinues: boolean
   message: string
   affectedShipName: string | null
+  sourceShipId: string | null
+  sourceDeckIndex: number
+  projectileType: 'Arrow' | 'Stone' | 'Buckshot' | 'Fire' | null
+  targetPlayerId: string | null
 }
 
 export type BattleshipEvent = {

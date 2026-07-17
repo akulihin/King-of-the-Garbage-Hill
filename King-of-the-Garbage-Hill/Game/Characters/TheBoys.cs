@@ -32,6 +32,8 @@ public class TheBoys
     public const string UnstoppableCombination = "Неудержимые";
     public const string SausagePartyCombination = "Sausage Party";
     public const string TheBoysCombination = "TheBoys";
+    public const int GovernmentSalaryZbs = 69;
+    public const string GovernmentSalarySource = "От самого призедента";
 
     private static readonly HashSet<string> NonButcherPassiveNames = new(StringComparer.Ordinal)
     {
@@ -62,6 +64,14 @@ public class TheBoys
                && (enemy.Passives.GlebChallengerList.RoundItTriggered == roundNo
                    || enemy.Passives.GlebChallengerTriggeredWhen.WhenToTrigger.Contains(roundNo));
     }
+
+    public static bool ShouldAwardGovernmentSalary(GamePlayerBridgeClass player, bool wonMatch) =>
+        player != null
+        && wonMatch
+        && !player.Passives.IsDead
+        && player.GameCharacter.Name == "TheBoys"
+        && player.Status.GetPlaceAtLeaderBoard() == 1
+        && player.Passives.TheBoysButcher.ActiveCombination == TheBoysCombination;
 
     public static void LockNonButcherPassives(GamePlayerBridgeClass player)
     {

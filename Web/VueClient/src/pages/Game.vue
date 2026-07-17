@@ -1160,10 +1160,48 @@ const charTint = computed(() => {
   }
   return tints[name] || ''
 })
+
+const rumblingKillCount = computed(() =>
+  Math.min(4, Math.max(0, store.gameState?.rumblingKillCount ?? 0)),
+)
+const rumblingEmbers = Array.from({ length: 36 }, (_, index) => ({
+  id: index,
+  style: {
+    left: `${(index * 37 + 11) % 100}%`,
+    width: `${2 + (index % 4)}px`,
+    height: `${5 + (index % 5) * 2}px`,
+    animationDelay: `${-((index * 0.37) % 5).toFixed(2)}s`,
+    animationDuration: `${(2.8 + (index % 7) * 0.31).toFixed(2)}s`,
+  },
+}))
 </script>
 
 <template>
-  <div class="game-page" :class="{ 'is-terminal-game': store.isTerminalMode }" :style="charTint ? { background: charTint } : {}">
+  <div
+    class="game-page"
+    :class="{
+      'is-terminal-game': store.isTerminalMode,
+      [`rumbling-shake-${rumblingKillCount}`]: rumblingKillCount > 0,
+    }"
+    :style="charTint ? { background: charTint } : {}"
+  >
+    <Teleport to="body">
+      <div
+        v-if="rumblingKillCount > 0"
+        class="rumbling-apocalypse"
+        :class="`rumbling-fire-${rumblingKillCount}`"
+        aria-hidden="true"
+      >
+        <div class="rumbling-smoke" />
+        <div class="rumbling-fireline" />
+        <i
+          v-for="ember in rumblingEmbers"
+          :key="ember.id"
+          class="rumbling-ember"
+          :style="ember.style"
+        />
+      </div>
+    </Teleport>
     <TerminalCommitOverlay v-if="terminalCommitVisible" :points="terminalCommitPoints" />
     <HalfLife3Transition
       v-if="transitionPaused"
@@ -1741,6 +1779,110 @@ const charTint = computed(() => {
   gap: 5px;
   height: calc(100vh - 44px - 2rem); /* viewport minus top-bar (44px) minus main-content padding (1rem * 2) */
   min-height: 0;
+}
+
+.rumbling-apocalypse {
+  --rumbling-height: 20vh;
+  --rumbling-opacity: 0.16;
+  position: fixed;
+  z-index: 250;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  opacity: var(--rumbling-opacity);
+  mix-blend-mode: screen;
+  animation: rumbling-heat-haze 2.8s ease-in-out infinite;
+}
+
+.rumbling-fire-2 { --rumbling-height: 40vh; --rumbling-opacity: 0.38; }
+.rumbling-fire-3 { --rumbling-height: 72vh; --rumbling-opacity: 0.68; }
+.rumbling-fire-4 { --rumbling-height: 118vh; --rumbling-opacity: 0.96; }
+
+.rumbling-smoke {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at 12% 105%, rgba(255, 55, 0, 0.55), transparent 42%),
+    radial-gradient(ellipse at 55% 115%, rgba(255, 125, 0, 0.48), transparent 50%),
+    radial-gradient(ellipse at 92% 105%, rgba(185, 25, 0, 0.58), transparent 44%),
+    linear-gradient(to top, rgba(38, 0, 0, 0.78), transparent 70%);
+  animation: rumbling-smoke-breathe 4.8s ease-in-out infinite alternate;
+}
+
+.rumbling-fireline {
+  position: absolute;
+  left: -8vw;
+  right: -8vw;
+  bottom: -12vh;
+  height: var(--rumbling-height);
+  background:
+    radial-gradient(ellipse at 7% 100%, #fff4a0 0 3%, #ff8a00 4% 12%, #ef2100 22%, transparent 40%),
+    radial-gradient(ellipse at 23% 106%, #fff7b0 0 4%, #ff9d00 5% 14%, #d91a00 25%, transparent 43%),
+    radial-gradient(ellipse at 42% 102%, #fff2a3 0 3%, #ff7400 4% 13%, #f02b00 23%, transparent 42%),
+    radial-gradient(ellipse at 61% 108%, #fff7bb 0 4%, #ff9d00 5% 15%, #d81b00 26%, transparent 45%),
+    radial-gradient(ellipse at 79% 101%, #fff1a0 0 3%, #ff7200 4% 12%, #ed2500 24%, transparent 42%),
+    radial-gradient(ellipse at 96% 106%, #fff8bd 0 4%, #ff9700 5% 14%, #ce1700 26%, transparent 44%);
+  background-size: 34% 100%, 31% 88%, 35% 96%, 31% 91%, 36% 100%, 32% 90%;
+  background-repeat: repeat-x;
+  filter: saturate(1.45) contrast(1.16) blur(0.4px);
+  transform-origin: 50% 100%;
+  animation: rumbling-flames 1.15s ease-in-out infinite alternate;
+}
+
+.rumbling-ember {
+  position: absolute;
+  bottom: -12px;
+  display: block;
+  border-radius: 50% 50% 35% 35%;
+  background: #ffd36a;
+  box-shadow: 0 0 7px 2px #ff5a00;
+  animation: rumbling-ember-rise linear infinite;
+}
+
+.rumbling-shake-1 { animation: rumbling-shake-soft 2.2s steps(2, end) infinite; }
+.rumbling-shake-2 { animation: rumbling-shake-medium 1.45s steps(2, end) infinite; }
+.rumbling-shake-3 { animation: rumbling-shake-heavy 0.85s steps(2, end) infinite; }
+.rumbling-shake-4 { animation: rumbling-shake-apocalypse 0.52s steps(2, end) infinite; }
+
+@keyframes rumbling-heat-haze {
+  0%, 100% { filter: brightness(0.92) blur(0); }
+  50% { filter: brightness(1.12) blur(0.7px); }
+}
+@keyframes rumbling-smoke-breathe {
+  from { transform: scale(1.02) translateY(2%); opacity: 0.72; }
+  to { transform: scale(1.1) translateY(-3%); opacity: 1; }
+}
+@keyframes rumbling-flames {
+  from { transform: scaleX(1.02) scaleY(0.92) skewX(-1deg); background-position: 0 0, 5% 3%, 11% 0, 17% 4%, 23% 1%, 29% 5%; }
+  to { transform: scaleX(0.98) scaleY(1.08) skewX(1deg); background-position: 7% 4%, 12% 0, 18% 5%, 24% 0, 30% 4%, 36% 1%; }
+}
+@keyframes rumbling-ember-rise {
+  0% { transform: translate3d(0, 0, 0) scale(0.5); opacity: 0; }
+  12% { opacity: 1; }
+  70% { opacity: 0.75; }
+  100% { transform: translate3d(4vw, -105vh, 0) rotate(280deg) scale(0.05); opacity: 0; }
+}
+@keyframes rumbling-shake-soft {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(0.3px, -0.4px); }
+}
+@keyframes rumbling-shake-medium {
+  0%, 100% { transform: translate(0, 0); }
+  25% { transform: translate(-0.8px, 0.5px); }
+  75% { transform: translate(0.9px, -0.6px); }
+}
+@keyframes rumbling-shake-heavy {
+  0%, 100% { transform: translate(0, 0) rotate(0); }
+  25% { transform: translate(-1.8px, 1px) rotate(-0.025deg); }
+  50% { transform: translate(1.3px, -1.5px) rotate(0.02deg); }
+  75% { transform: translate(1.8px, 1.2px) rotate(-0.015deg); }
+}
+@keyframes rumbling-shake-apocalypse {
+  0%, 100% { transform: translate(0, 0) rotate(0); }
+  20% { transform: translate(-3px, 2px) rotate(-0.05deg); }
+  40% { transform: translate(2.5px, -3px) rotate(0.045deg); }
+  60% { transform: translate(3px, 2px) rotate(-0.035deg); }
+  80% { transform: translate(-2px, -2.5px) rotate(0.04deg); }
 }
 
 .game-page.is-terminal-game {
@@ -3399,6 +3541,17 @@ const charTint = computed(() => {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .rumbling-apocalypse,
+  .rumbling-smoke,
+  .rumbling-fireline,
+  .rumbling-ember,
+  .rumbling-shake-1,
+  .rumbling-shake-2,
+  .rumbling-shake-3,
+  .rumbling-shake-4 {
+    animation: none !important;
+  }
+  .rumbling-ember { display: none; }
   .game-page.is-terminal-game .gr-avatar-wrap,
   .game-page.is-terminal-game .gr-avatar-img {
     animation: none !important;

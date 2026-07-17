@@ -136,6 +136,7 @@ public static class GameStateMapper
             DraftOptions = scopedDraftOptions,
             IsKratosEvent = game.IsKratosEvent,
             IsRumblingWarningActive = ErenYeager.IsRumblingWarningActive(game),
+            RumblingKillCount = ErenYeager.GetRumblingKillCount(game),
             IsRoundTransitionPaused = game.IsRoundTransitionPaused,
             TransitionDeadlineUtc = game.TransitionDeadlineUtc?.ToString("o"),
             GlobalLogs = requestingPlayer == null
@@ -265,6 +266,7 @@ public static class GameStateMapper
             IsWebPlayer = player.IsWebPlayer,
             TeamId = player.TeamId,
             IsNarutoAlly = requestingPlayer != null && !isMe && Naruto.IsNarutoPair(requestingPlayer, player),
+            IsMadaraRedTiger = Madara.IsRedTiger(game, player),
             IsDead = player.Passives.IsDead,
             DeathSource = player.Passives.DeathSource,
             IsKira = isMe && hasDeathNote,

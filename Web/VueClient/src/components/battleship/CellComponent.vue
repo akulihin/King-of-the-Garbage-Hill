@@ -18,7 +18,7 @@ const props = defineProps<{
   lastShot?: boolean
   marked?: boolean
   shipEdges?: { top: boolean; right: boolean; bottom: boolean; left: boolean }
-  summonTrail?: string | boolean
+  summonTrails?: string[]
   rangeOverlay?: string
 }>()
 
@@ -32,8 +32,8 @@ const cellClass = computed(() => {
   const classes = ['cell']
 
   // Priority order per spec section 11
-  if (props.cell.isDestroyed) classes.push('cell-destroyed')
-  else if (props.cell.isDevastated) classes.push('cell-devastated')
+  if (props.cell.isDevastated) classes.push('cell-devastated')
+  else if (props.cell.isDestroyed) classes.push('cell-destroyed')
   else if (props.cell.isFirePermanent) classes.push('cell-fire-permanent')
   else if (props.cell.isBurning) classes.push('cell-burning')
   else if (props.cell.isFrozen) classes.push('cell-frozen')
@@ -81,11 +81,10 @@ const cellClass = computed(() => {
   }
 
   // Summon trail (type-specific)
-  if (props.summonTrail) {
+  if (props.summonTrails?.length) {
     classes.push('cell-summon-trail')
-    if (typeof props.summonTrail === 'string') {
-      classes.push('trail-' + props.summonTrail.toLowerCase())
-    }
+    for (const type of props.summonTrails) classes.push('trail-' + type.toLowerCase())
+    if (props.summonTrails.length > 1) classes.push('trail-multiple')
   }
 
   // Range overlay (poison, explosion, freeze, brander)
@@ -109,8 +108,8 @@ const cellIconHtml = computed(() => {
       default: return renderIcon('anchor', 14)
     }
   }
-  if (props.cell.isDestroyed) return renderIcon('destroyed', 16)
   if (props.cell.isDevastated) return renderIcon('devastated', 16)
+  if (props.cell.isDestroyed) return renderIcon('destroyed', 16)
   if (props.cell.isFirePermanent) return renderIcon('firePermanent', 14)
   if (props.cell.isBurning) return renderIcon('burning', 14)
   if (props.cell.isFrozen) return renderIcon('frozen', 14)
@@ -118,6 +117,7 @@ const cellIconHtml = computed(() => {
   if (props.cell.isHit && props.cell.hasShip) return renderIcon('hit', 14)
   if (props.cell.isCaptured) return renderIcon('captured', 14)
   if (props.cell.isMiss) return renderIcon('miss', 10)
+  if (props.cell.hasShip && props.cell.isRevealed && props.isEnemy) return renderIcon('ship1', 13)
   if (props.blocked) return ''
   return ''
 })
@@ -174,11 +174,8 @@ const cellTooltip = computed(() => {
   addState(props.cell.isScratched, 'Поцарапано')
   addState(props.cell.isCaptured, 'Захвачено')
   addState(props.cell.isDodgeMarked, 'Уклонение')
-  if (props.summonTrail) {
-    extras.push(typeof props.summonTrail === 'string'
-      ? `След: ${summonNames[props.summonTrail] ?? props.summonTrail}`
-      : 'След призыва')
-  }
+  for (const type of props.summonTrails ?? [])
+    extras.push(`След: ${summonNames[type] ?? type}`)
   if (props.lastShot) extras.push('Последний выстрел')
   if (props.marked) extras.push('Метка')
 
@@ -189,7 +186,7 @@ const cellTooltip = computed(() => {
 </script>
 
 <template>
-  <div :class="cellClass" :style="cellStyle"
+  <div :class="cellClass" :style="cellStyle" :data-row="cell?.row" :data-col="cell?.col"
     @mouseenter="$emit('tipShow', $event, cellTooltip)"
     @mousemove="$emit('tipMove', $event)"
     @mouseleave="$emit('tipHide')"
@@ -243,8 +240,9 @@ const cellTooltip = computed(() => {
 }
 
 .cell-revealed-ship {
-  background: color-mix(in srgb, var(--accent-purple, #8b5cf6) 22%, var(--bg-card));
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent-purple, #8b5cf6) 55%, transparent);
+  background: color-mix(in srgb, white 88%, var(--bg-card));
+  color: color-mix(in srgb, var(--accent-blue) 60%, #111827);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, white 75%, var(--accent-blue));
 }
 
 .cell-hit {
@@ -313,8 +311,9 @@ const cellTooltip = computed(() => {
   box-shadow: inset 0 0 6px color-mix(in srgb, var(--bs-poison, var(--accent-green)) 35%, transparent);
 }
 .cell-devastated {
-  background: color-mix(in srgb, var(--bs-cursed, var(--accent-purple)) 20%, var(--bg-inset));
-  color: var(--bs-cursed, var(--accent-purple));
+  background: color-mix(in srgb, #02040a 92%, var(--accent-blue));
+  color: #d6d8df;
+  box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.95);
 }
 .cell-captured {
   background: color-mix(in srgb, var(--bs-cursed, var(--accent-purple)) 45%, var(--bg-primary));
@@ -463,11 +462,10 @@ const cellTooltip = computed(() => {
 }
 
 @keyframes cell-sunk-collapse {
-  0% { transform: scale(1.15); background: var(--text-primary); }
-  20% { background: var(--accent-red); }
-  50% { transform: scale(0.9); opacity: 0.6; background: color-mix(in srgb, var(--accent-red) 35%, var(--bg-inset)); }
-  70% { transform: scale(1.02); opacity: 0.8; }
-  100% { transform: scale(1); opacity: 1; }
+  0% { transform: translateY(0) scale(1.15); background: var(--text-primary); filter: brightness(1.25); }
+  22% { background: var(--accent-red); }
+  55% { transform: translateY(4px) scale(0.88); opacity: 0.7; background: #101a28; filter: brightness(.7); }
+  100% { transform: translateY(13px) scale(0.62); opacity: 0.12; background: #01030a; filter: blur(1px) brightness(.35); box-shadow: inset 0 0 14px #000; }
 }
 
 @keyframes cell-burn-ignite {
@@ -588,6 +586,20 @@ const cellTooltip = computed(() => {
 .trail-pirateboat::before {
   background: var(--accent-gold);
   opacity: 0.2;
+}
+.trail-multiple::before {
+  width: 9px;
+  height: 9px;
+  opacity: 0.5;
+  background: conic-gradient(
+    var(--accent-red),
+    var(--accent-blue),
+    var(--accent-orange),
+    var(--accent-purple),
+    var(--accent-gold),
+    var(--accent-red)
+  );
+  box-shadow: 0 0 5px color-mix(in srgb, var(--accent-blue) 35%, transparent);
 }
 
 /* -- Range overlays ----------------------------------------------- */

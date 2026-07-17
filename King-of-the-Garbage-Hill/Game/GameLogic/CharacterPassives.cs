@@ -3816,6 +3816,10 @@ public class CharacterPassives : IServiceSingleton
                              && !UnknownBug.Is(player))
             .ToList();
 
+        // Public aftermath intensity is server-authoritative and persists with the finished game state.
+        // End-of-Watch interceptions still count as Rumbling kills, matching source rewards/counters.
+        eren.Passives.Eren.RumblingKillCount = Math.Min(4, victims.Count);
+
         foreach (var victim in victims)
         {
             if (!JonSnow.TryEndWatch(victim, game, "Rumbling"))
@@ -3846,10 +3850,10 @@ public class CharacterPassives : IServiceSingleton
     //end handle during fight
 
 
-    private static bool CanKratosReturnFromKira(GamePlayerBridgeClass kratos)
+    private static bool CanKratosReturnFromGod(GamePlayerBridgeClass kratos)
     {
         return kratos.Passives.IsDead
-               && kratos.Passives.DeathSource == "Kira"
+               && GodClass.IsGodDeathSource(kratos.Passives.DeathSource)
                && !kratos.Passives.KratosGodSlayerUsed
                && kratos.GameCharacter.Passive.Any(passive => passive.PassiveName == "Боги мне не указ");
     }
@@ -3875,7 +3879,7 @@ public class CharacterPassives : IServiceSingleton
             x.GameCharacter.Name == "Кратос"
             && x.GameCharacter.Passive.Any(passive => passive.PassiveName == "Возвращение из мертвых"));
         if (game.IsKratosEvent && eventKratos?.Passives.IsDead == true
-                               && !CanKratosReturnFromKira(eventKratos))
+                               && !CanKratosReturnFromGod(eventKratos))
         {
             game.IsKratosEvent = false;
             game.AddGlobalLogs($"{UnknownBug.PublicName(eventKratos)} решил доверится богам зная последствия...");
@@ -5208,7 +5212,7 @@ public class CharacterPassives : IServiceSingleton
         // Боги мне не указ revives Kratos when round 11 opens, so the event then continues normally.
         if (!game.IsKratosEvent && game.RoundNo == 10
                                 && eventKratos is { PlayerType: not 404 }
-                                && CanKratosReturnFromKira(eventKratos))
+                                && CanKratosReturnFromGod(eventKratos))
             await StartKratosEvent(game, eventKratos);
 
         // High Elo repeated loss — any player losing to a high-elo character for 2nd+ consecutive time
@@ -6228,17 +6232,20 @@ public class CharacterPassives : IServiceSingleton
                         }
                         break;
 
-                    // Боги мне не указ: resurrect once if killed by a God (Kira)
+                    // Боги мне не указ: resurrect once if killed by a member of the Бог lore class.
                     case "Боги мне не указ":
-                        if (!player.Passives.KratosGodSlayerUsed && player.Passives.IsDead && player.Passives.DeathSource == "Kira")
+                        if (!player.Passives.KratosGodSlayerUsed && player.Passives.IsDead
+                                                                     && GodClass.IsGodDeathSource(player.Passives.DeathSource))
                         {
+                            var survivedKiraAttempt = player.Passives.DeathSource == "Kira";
                             player.Passives.IsDead = false;
                             player.Passives.DeathSource = "";
                             player.Passives.KratosGodSlayerUsed = true;
                             var godsCannotCommandMe = player.GameCharacter.Passive.Find(x => x.PassiveName == "Боги мне не указ");
                             if (godsCannotCommandMe != null) godsCannotCommandMe.Visible = true;
                             player.Passives.AchievementTracker.WasRevived = true;
-                            player.Passives.AchievementTracker.SurvivedKiraAttempt = true;
+                            if (survivedKiraAttempt)
+                                player.Passives.AchievementTracker.SurvivedKiraAttempt = true;
                             player.GameCharacter.AddExtraSkill(228, "Боги мне не указ");
                             if (game.IsKratosEvent)
                             {

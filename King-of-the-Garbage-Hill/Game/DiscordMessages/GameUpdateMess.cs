@@ -206,7 +206,8 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                 var username = shown.DiscordUsername.Replace("_", "\\_")
                     .Replace("*", "\\*").Replace("~", "\\~").Replace("`", "\\`");
                 var shownCharacter = VisibleCharacterName(player, shown);
-                projectedBoard += $"{i + 1}. {username} (as **{shownCharacter}**) = {shownScore} Score\n\n";
+                var redTiger = Madara.IsRedTiger(game, shown) ? "🔴🐯 " : "";
+                projectedBoard += $"{redTiger}{i + 1}. {username} (as **{shownCharacter}**) = {shownScore} Score\n\n";
             }
             return projectedBoard;
         }
@@ -216,6 +217,8 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
         for (var i = 0; i < playersList.Count; i++)
         {
+            if (Madara.IsRedTiger(game, playersList[i]))
+                players += "🔴🐯 ";
             players += CustomLeaderBoardBeforeNumber(player, playersList[i], game, i + 1);
             var sanitizedDiscordUsername = playersList[i].DiscordUsername.Replace("_", "\\_")
                 .Replace("*", "\\*")
@@ -319,8 +322,13 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
             }
         }
 
-        // Джон Сноу's two weakest-player marks are intentionally public.
+        // Джон Сноу's Castle cell and two weakest-player marks are intentionally public.
         var jonSnow = JonSnow.Find(game.PlayersList);
+        if (jonSnow != null
+            && jonSnow.GameCharacter.Passive.Any(passive =>
+                passive.PassiveName == JonSnow.BlackCastle)
+            && number == JonSnow.BlackCastlePlace)
+            customString += "🏰";
         if (jonSnow != null
             && !jonSnow.Passives.IsDead
             && JonSnow.HasPassive(jonSnow, JonSnow.AnotherBastard)

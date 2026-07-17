@@ -399,21 +399,23 @@ export function useVfx() {
   // ── Impact type spawners ────────────────────────────────
 
   function spawnHit(cx: number, cy: number): void {
-    const count = 8 + Math.floor(Math.random() * 5) // 8-12
+    // Wood splinters: a successful hit is visually distinct from fire/burn.
+    const count = 12 + Math.floor(Math.random() * 7)
     for (let i = 0; i < count; i++) {
       const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.6
-      const speed = 60 + Math.random() * 80
+      const speed = 65 + Math.random() * 105
+      const brightSplinter = Math.random() > 0.55
       particles.push({
         x: cx + (Math.random() - 0.5) * 4,
         y: cy + (Math.random() - 0.5) * 4,
         dx: Math.cos(angle) * speed,
         dy: Math.sin(angle) * speed,
-        life: 0.5 + Math.random() * 0.3,
-        maxLife: 0.8,
-        color: pick(colors().fire),
-        size: 2 + Math.random() * 2,
-        gravity: 200,
-        drag: 0.97,
+        life: 0.45 + Math.random() * 0.45,
+        maxLife: 0.9,
+        color: brightSplinter ? '#d6a36b' : colors().debris,
+        size: brightSplinter ? 1.2 + Math.random() * 1.4 : 2.4 + Math.random() * 2.2,
+        gravity: 260,
+        drag: 0.965,
       })
     }
   }
@@ -459,8 +461,9 @@ export function useVfx() {
   }
 
   function spawnSunk(cx: number, cy: number): void {
-    // Gray smoke particles (15-20)
-    const smokeCount = 15 + Math.floor(Math.random() * 6)
+    // Dark downward plume: the deck visually drops into the abyss before the
+    // persistent destroyed state takes over.
+    const smokeCount = 18 + Math.floor(Math.random() * 8)
     for (let i = 0; i < smokeCount; i++) {
       const angle = (Math.PI * 2 * i) / smokeCount + (Math.random() - 0.5) * 0.5
       const speed = 20 + Math.random() * 50
@@ -468,12 +471,12 @@ export function useVfx() {
         x: cx + (Math.random() - 0.5) * 8,
         y: cy + (Math.random() - 0.5) * 8,
         dx: Math.cos(angle) * speed,
-        dy: Math.sin(angle) * speed - 20,
+        dy: Math.abs(Math.sin(angle) * speed) + 18,
         life: 1.0 + Math.random() * 0.5,
         maxLife: 1.5,
-        color: pick(colors().smoke),
+        color: Math.random() > 0.45 ? '#07111f' : '#16283b',
         size: 3 + Math.random() * 3,
-        gravity: -15,
+        gravity: 35,
         drag: 0.96,
       })
     }

@@ -12,6 +12,7 @@ type QaScenario =
   | 'target-meteor-city'
   | 'empire-council-with-points'
   | 'governance'
+  | 'domestic-economy'
   | 'destroyed-west'
   | 'loyalty-rebellion'
   | 'relic-production-levels'
@@ -23,7 +24,7 @@ type QaScenario =
 
 const QA_SEED = 'cypress-empires-endgame'
 const CONFIG_STORAGE_KEY = 'empires-endgame:config:v1'
-const SAVE_STORAGE_KEY = 'empires-endgame:campaign:v6'
+const SAVE_STORAGE_KEY = 'empires-endgame:campaign:v7'
 const bundledConfig = bundledConfigJson as unknown as EmpiresEndgameConfig
 const TECHNOLOGY_COUNT = bundledConfig.empire.technologies.length
 
@@ -62,6 +63,34 @@ function expectStoredValue(key: string, value: string) {
 }
 
 describe('Empire\'s Endgame deterministic browser scenarios', () => {
+  it('shows domestic obligations and executes each live economy carrier', () => {
+    visitScenario('domestic-economy')
+    cy.get('[data-testid="domestic-economy-panel"]').should('be.visible')
+    cy.contains('Обязательства').should('be.visible')
+    cy.get('[data-testid^="loan-"]').should('contain.text', 'active').and('contain.text', 'Следующий платёж')
+
+    cy.get('[data-testid="economy-city"]').select('city-north-frost-harbor')
+    cy.get('[data-testid="economy-start-insurance"]').should('be.enabled').click()
+    cy.get('[data-testid="insurance-contract"]').should('contain.text', 'waiting')
+
+    cy.get('[data-testid="economy-city"]').select('city-west-green-bastion')
+    cy.get('[data-testid="fair-carnival"]').should('be.enabled').click()
+    cy.get('[data-testid="fair-carnival"]').should('contain.text', 'эффект до')
+    cy.get('[data-testid="fair-traveling-artists"]').should('be.enabled')
+
+    cy.get('[data-testid="economy-city"]').select('city-west-horse-march')
+    cy.get('[data-testid="temple-preach"]').should('be.enabled').click()
+    cy.get('[data-testid^="temple:city-west-horse-march:relic:"]').should('have.length', 2)
+    cy.get('[data-testid="temple:city-west-horse-march:relic:1"] select')
+      .select('relic-epidemic-ward')
+    cy.get('[data-testid="temple:city-west-horse-march:relic:1"]')
+      .should('contain.text', 'Реликвия защиты от эпидемий')
+
+    cy.get('[data-testid="economy-city"]').select('city-south-cactus-wall')
+    cy.contains('Пассивный армейский hook').should('be.visible')
+    cy.contains('tavernMinigame').should('be.visible')
+  })
+
   it('resolves one advisor judgment and permanently opens a Perst region', () => {
     visitScenario('governance')
     cy.get('[data-testid="governance-panel"]').should('be.visible')
@@ -156,19 +185,22 @@ describe('Empire\'s Endgame deterministic browser scenarios', () => {
     })
   })
 
-  it('labels deferred technology while exposing the newly live smithy carrier', () => {
+  it('labels remaining deferred technology while exposing live Fair and Smithy carriers', () => {
     visitScenario('empire-council-with-points')
     cy.get('[data-testid="tab-technology"]').click()
-    cy.get('[data-testid="technology-node-tech-fair"]')
+    cy.get('[data-testid="technology-node-tech-compass"]')
       .scrollIntoView()
       .should('have.class', 'deferred')
       .click({ force: true })
     cy.get('.tech-detail .deferred-reason')
       .should('be.visible')
-      .and('contain.text', 'Будущая механика')
+      .and('contain.text', 'Рынок')
     cy.get('.tech-detail .research-button')
       .should('be.disabled')
       .and('contain.text', 'Будущая механика')
+    cy.get('[data-testid="technology-node-tech-fair"]')
+      .scrollIntoView()
+      .should('not.have.class', 'deferred')
     cy.get('[data-testid="technology-node-steel-laurel-spearhead"]')
       .scrollIntoView()
       .click({ force: true })

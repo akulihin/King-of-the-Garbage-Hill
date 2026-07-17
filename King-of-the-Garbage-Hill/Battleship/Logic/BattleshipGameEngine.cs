@@ -209,12 +209,8 @@ public static class BattleshipGameEngine
             return new ShotResult { Miss = true, Row = row, Col = col, TurnContinues = false, Message = "Мимо!" };
         }
 
-        // Reveal cell and track revealed count
-        if (!cell.IsRevealed)
-        {
-            cell.IsRevealed = true;
-            IncrementRevealedCount(shooter);
-        }
+        // Reveal the physical result once; intact occupancy and empty water are distinct states.
+        RevealCell(opponent.Board, cell, shooter);
 
         // Miss — empty cell
         if (cell.ShipRef == null && cell.SummonRef == null)
@@ -231,7 +227,9 @@ public static class BattleshipGameEngine
             if (cell.SummonRef.OwnerId == shooter.DiscordId)
             {
                 cell.IsHit = true;
-                cell.SummonRef.IsAlive = false;
+                var alliedSummon = cell.SummonRef;
+                TransmitScoutReveal(game, alliedSummon);
+                alliedSummon.IsAlive = false;
                 cell.SummonRef = null;
                 game.AddLog($"{shooter.Username} попал в своё призванное существо ({(char)('A' + col)}{row + 1})");
                 return new ShotResult
@@ -266,6 +264,7 @@ public static class BattleshipGameEngine
         if (cell.SummonRef != null && cell.SummonRef.IsAlive && cell.SummonRef.OwnerId != shooter.DiscordId)
         {
             var deadSummon = cell.SummonRef;
+            TransmitScoutReveal(game, deadSummon);
             deadSummon.IsAlive = false;
             cell.SummonRef = null;
             // The four normal summons are a per-match use limit, not reusable active slots.
@@ -325,6 +324,7 @@ public static class BattleshipGameEngine
         var damage = GetDamage(shooter);
         if (deck.IsDestroyed)
         {
+            cell.IsMiss = true;
             return new ShotResult { Miss = true, Row = row, Col = col, TurnContinues = false,
                 Message = "Эта палуба уже уничтожена." };
         }
@@ -371,6 +371,7 @@ public static class BattleshipGameEngine
         game.ShotCount++;
 
         var summon = cell.SummonRef;
+        TransmitScoutReveal(game, summon);
         summon.IsAlive = false;
         cell.SummonRef = null;
 
@@ -443,11 +444,7 @@ public static class BattleshipGameEngine
             }
             else if (cell.IsHit || cell.IsMiss) continue;
 
-            if (!cell.IsRevealed)
-            {
-                cell.IsRevealed = true;
-                IncrementRevealedCount(shooter);
-            }
+            RevealCell(opponent.Board, cell, shooter);
 
             if (cell.ShipRef == null && cell.SummonRef == null)
             {
@@ -459,6 +456,7 @@ public static class BattleshipGameEngine
             {
                 cell.IsHit = true;
                 var summon = cell.SummonRef;
+                TransmitScoutReveal(game, summon);
                 summon.IsAlive = false;
                 cell.SummonRef = null;
                 anyHit = true;
@@ -479,8 +477,6 @@ public static class BattleshipGameEngine
 
             // Ship hit with buckshot damage (1)
             var ship = cell.ShipRef;
-            cell.IsHit = true;
-            cell.WasShipHit = true;
 
             var deckIndex = GetDeckIndexAtCell(ship, r, c);
             if (deckIndex >= 0 && deckIndex < ship.Decks.Count)
@@ -500,9 +496,14 @@ public static class BattleshipGameEngine
                 var deck = ship.Decks[deckIndex];
                 if (deck.IsDestroyed)
                 {
+                    cell.IsMiss = true;
                     cell.WasScratched = false;
                     continue;
                 }
+                cell.IsHit = true;
+                cell.IsMiss = false;
+                cell.WasShipHit = true;
+                cell.WasDodge = false;
                 var wasAlive = !deck.IsDestroyed;
                 deck.CurrentHp -= 1; // buckshot damage
                 if (deck.CurrentHp <= 0) deck.CurrentHp = 0;
@@ -556,24 +557,7 @@ public static class BattleshipGameEngine
         summon.IsAlive = false;
         cell.SummonRef = null;
 
-        // Deferred scout reveal on death
-        if (summon.Type == SummonType.Scout && summon.ScoutRevealData.Count > 0)
-        {
-            var summonOwner = game.GetPlayer(summon.OwnerId);
-            var opponent = game.GetOpponent(summon.OwnerId);
-            if (opponent != null)
-            {
-                foreach (var (sr, sc) in summon.ScoutRevealData)
-                {
-                    var revealCell = opponent.Board.GetCell(sr, sc);
-                    if (revealCell != null && !revealCell.IsRevealed)
-                    {
-                        revealCell.IsRevealed = true;
-                        if (summonOwner != null) IncrementRevealedCount(summonOwner);
-                    }
-                }
-            }
-        }
+        TransmitScoutReveal(game, summon);
 
         game.AddLog($"{shooter.Username} уничтожил призванное существо ({(char)('A' + col)}{row + 1})");
         if (summon.Type == SummonType.Brander)
@@ -606,8 +590,6 @@ public static class BattleshipGameEngine
     private static ShotResult ProcessShipHit(BattleshipGame game, BattleshipPlayer shooter, BattleshipPlayer opponent, Cell cell, int row, int col)
     {
         var ship = cell.ShipRef;
-        cell.IsHit = true;
-        cell.WasShipHit = true;
 
         // Find which deck was hit
         var deckIndex = GetDeckIndexAtCell(ship, row, col);
@@ -617,10 +599,18 @@ public static class BattleshipGameEngine
         var deck = ship.Decks[deckIndex];
         if (deck.IsDestroyed)
         {
+            // A dead deck is water for turn resolution. Preserve the deck's existing red
+            // projection, but do not manufacture a fresh hit, reset or Mast warning.
+            cell.IsMiss = true;
             cell.WasScratched = false;
             return new ShotResult { Miss = true, Row = row, Col = col, TurnContinues = false,
                 Message = "Эта палуба уже уничтожена.", AffectedShipName = ship.Name };
         }
+
+        cell.IsHit = true;
+        cell.IsMiss = false;
+        cell.WasShipHit = true;
+        cell.WasDodge = false;
 
         // Check auto_dodge_bow_stern (Light Wood Triple)
         if (ship.Abilities.Contains("auto_dodge_bow_stern"))
@@ -794,6 +784,8 @@ public static class BattleshipGameEngine
         var radius = ship.Space;
         var occupied = ship.GetOccupiedCells();
 
+        ReconcileManeuverHistory(board, ship, shooter);
+
         // First: reveal all cells of the destroyed ship itself (even if not directly hit)
         foreach (var (r, c) in occupied)
         {
@@ -804,10 +796,15 @@ public static class BattleshipGameEngine
                     IncrementRevealedCount(shooter);
                 shipCell.IsRevealed = true;
                 shipCell.IsHit = true; // mark all ship cells as hit for visual display
+                shipCell.IsMiss = false;
+                shipCell.WasShipHit = true;
+                shipCell.WasScratched = false;
+                shipCell.WasDodge = false;
             }
         }
 
-        // Then: reveal surrounding empty water cells
+        // Then reveal the whole Space area. Empty water receives a permanent miss mark;
+        // intact neighbouring ships remain anonymous but are projected as revealed occupancy.
         foreach (var (r, c) in occupied)
         {
             for (var dr = -radius; dr <= radius; dr++)
@@ -816,13 +813,7 @@ public static class BattleshipGameEngine
                 var nr = r + dr;
                 var nc = c + dc;
                 var cell = board.GetCell(nr, nc);
-                if (cell != null && !cell.IsHit && cell.ShipRef == null)
-                {
-                    if (!cell.IsRevealed && shooter != null)
-                        IncrementRevealedCount(shooter);
-                    cell.IsRevealed = true;
-                    cell.IsMiss = true;
-                }
+                if (cell != null) RevealCell(board, cell, shooter);
             }
         }
     }
@@ -834,10 +825,38 @@ public static class BattleshipGameEngine
         {
             var cell = board.GetCell(centerRow + dr, centerCol + dc);
             if (cell == null) continue;
-            if (!cell.IsRevealed && shooter != null)
-                IncrementRevealedCount(shooter);
-            cell.IsRevealed = true;
+            RevealCell(board, cell, shooter);
         }
+    }
+
+    private static void RevealCell(Board board, Cell cell, BattleshipPlayer beneficiary = null)
+    {
+        if (cell == null) return;
+        if (!cell.IsRevealed && beneficiary != null)
+            IncrementRevealedCount(beneficiary);
+        cell.IsRevealed = true;
+        if (cell.ShipRef == null && !cell.IsBurning)
+            cell.IsMiss = true;
+    }
+
+    private static void ReconcileManeuverHistory(Board board, Ship ship, BattleshipPlayer beneficiary)
+    {
+        if (!ship.IsDestroyed || ship.ManeuverStaleHitCells.Count == 0) return;
+        var currentCells = ship.GetOccupiedCells().ToHashSet();
+        foreach (var (row, col) in ship.ManeuverStaleHitCells.Distinct())
+        {
+            if (currentCells.Contains((row, col))) continue;
+            var cell = board.GetCell(row, col);
+            if (cell == null) continue;
+            if (!cell.IsRevealed && beneficiary != null) IncrementRevealedCount(beneficiary);
+            cell.IsRevealed = true;
+            cell.IsHit = false;
+            cell.IsMiss = true;
+            cell.WasShipHit = false;
+            cell.WasScratched = false;
+            cell.WasDodge = false;
+        }
+        ship.ManeuverStaleHitCells.Clear();
     }
 
     private static void IncrementRevealedCount(BattleshipPlayer player)
@@ -936,11 +955,7 @@ public static class BattleshipGameEngine
                 var cell = boardOwner.Board.GetCell(r, c);
                 if (cell == null) continue;
 
-                if (!cell.IsRevealed)
-                {
-                    cell.IsRevealed = true;
-                    if (attacker != null) IncrementRevealedCount(attacker);
-                }
+                RevealCell(boardOwner.Board, cell, attacker);
 
                 if (cell.SummonRef != null && cell.SummonRef.IsAlive)
                     KillSummonByExplosion(game, boardOwner, cell, sourceName, attacker);
@@ -962,7 +977,7 @@ public static class BattleshipGameEngine
                             game.AddLog($"{target.Name} устоял против взрыва (огнеупорность)!");
                     }
                 }
-                else if (cell.ShipRef == null && !cell.IsHit && !cell.IsBurning)
+                else if (cell.ShipRef == null && !cell.IsBurning)
                 {
                     cell.IsMiss = true; // ТЗ #4: пустая клетка в радиусе — «Промах»
                 }
@@ -1005,25 +1020,7 @@ public static class BattleshipGameEngine
     {
         var explodedSummon = cell.SummonRef;
 
-        // Scout: trigger deferred reveal on death by explosion
-        if (explodedSummon.Type == SummonType.Scout && explodedSummon.ScoutRevealData.Count > 0)
-        {
-            var scoutOwner = game.GetPlayer(explodedSummon.OwnerId);
-            var scoutTarget = game.GetOpponent(explodedSummon.OwnerId);
-            if (scoutTarget != null)
-            {
-                foreach (var (sr, sc) in explodedSummon.ScoutRevealData)
-                {
-                    var revealCell = scoutTarget.Board.GetCell(sr, sc);
-                    if (revealCell != null && !revealCell.IsRevealed)
-                    {
-                        revealCell.IsRevealed = true;
-                        if (scoutOwner != null) IncrementRevealedCount(scoutOwner);
-                    }
-                }
-                explodedSummon.ScoutRevealData.Clear();
-            }
-        }
+        TransmitScoutReveal(game, explodedSummon);
 
         explodedSummon.IsAlive = false;
         cell.SummonRef = null;
@@ -1300,30 +1297,23 @@ public static class BattleshipGameEngine
                     // Out of bounds — mark for turn-back
                     if (newRow < 0 || newRow >= 10 || newCol < 0 || newCol >= 10)
                     {
-                        // Scout: reveal accumulated data on out-of-bounds
-                        if (summon.Type == SummonType.Scout && summon.ScoutRevealData.Count > 0)
-                        {
-                            foreach (var (sr, sc) in summon.ScoutRevealData)
-                            {
-                                var revealCell = opponent.Board.GetCell(sr, sc);
-                                if (revealCell != null && !revealCell.IsRevealed)
-                                {
-                                    revealCell.IsRevealed = true;
-                                    IncrementRevealedCount(player);
-                                }
-                            }
-                            summon.ScoutRevealData.Clear();
-                        }
-
-                        summon.WaitingForTurnBack = true;
+                        TransmitScoutReveal(game, summon);
+                        // Only the ordinary Ram can reverse from row 10. Boarding ships and
+                        // every other summon leave the board permanently.
+                        if (summon.Type == SummonType.Ram && !summon.IsBoardingShip)
+                            summon.WaitingForTurnBack = true;
+                        else
+                            summon.IsAlive = false;
                         break;
                     }
 
                     var targetCell = opponent.Board.GetCell(newRow, newCol);
+                    MarkSummonTrail(opponent.Board, newRow, newCol, summon.Type);
 
                     // Entry precedence: permanent fire, Freeze, live-deck collision, poison, reveal.
                     if (targetCell is { IsBurning: true })
                     {
+                        TransmitScoutReveal(game, summon);
                         summon.IsAlive = false;
                         game.AddLog($"Призванное существо сгорело в огне! ({(char)('A' + newCol)}{newRow + 1})");
                         if (summon.Type == SummonType.Brander)
@@ -1378,11 +1368,7 @@ public static class BattleshipGameEngine
                     if (summon.Type is SummonType.Ram or SummonType.PirateBoat)
                     {
                         var passCell = opponent.Board.GetCell(newRow, newCol);
-                        if (passCell != null && !passCell.IsRevealed)
-                        {
-                            passCell.IsRevealed = true;
-                            IncrementRevealedCount(player);
-                        }
+                        if (passCell != null) RevealCell(opponent.Board, passCell, player);
                     }
 
                     // Boarding ships: reveal surrounding cells (radius = RevealRadius from ship's Space)
@@ -1413,10 +1399,6 @@ public static class BattleshipGameEngine
                     summon.Row = newRow;
                     summon.Col = newCol;
 
-                    // Mark summon trail on opponent's board (#5)
-                    var trailCell = opponent.Board.GetCell(newRow, newCol);
-                    if (trailCell != null) trailCell.SummonTrail = true;
-
                     // Set SummonRef on opponent's board at new position
                     var newCell = opponent.Board.GetCell(newRow, newCol);
                     if (newCell != null) newCell.SummonRef = summon;
@@ -1430,7 +1412,7 @@ public static class BattleshipGameEngine
                 var deadCell = opponent.Board.GetCell(deadSummon.Row, deadSummon.Col);
                 if (deadCell?.SummonRef == deadSummon) deadCell.SummonRef = null;
             }
-            player.Summons.RemoveAll(s => !s.IsAlive && !s.WaitingForTurnBack);
+            player.Summons.RemoveAll(s => !s.IsAlive);
         }
 
         // Rebuild zones and resolve ships after all stable-order summon movement.
@@ -1444,6 +1426,8 @@ public static class BattleshipGameEngine
         Summon summon)
     {
         summon.ScoutRevealData.Clear();
+        summon.WaitingForTurnBack = false;
+        summon.WaitingForDirectionChoice = false;
         summon.IsAlive = false;
         game.AddLogFor(boardOwner.DiscordId, "[Драккар] Призванное существо заморожено аурой Драккара");
         if (summonOwner.Board.PlacedShips.Any(s =>
@@ -1458,9 +1442,11 @@ public static class BattleshipGameEngine
         var cell = boardOwner?.Board.GetCell(summon.Row, summon.Col);
         if (boardOwner == null || cell == null || cell.SummonRef is { IsAlive: true }) return false;
 
+        MarkSummonTrail(boardOwner.Board, summon.Row, summon.Col, summon.Type);
         RefreshPoisonZones(game);
         if (cell.IsBurning)
         {
+            TransmitScoutReveal(game, summon);
             summon.IsAlive = false;
             if (summon.Type == SummonType.Brander)
                 DetonateBrander(game, boardOwner, summon, summon.Row, summon.Col, owner);
@@ -1495,9 +1481,18 @@ public static class BattleshipGameEngine
             return true;
         }
 
+        if (summon.Type is SummonType.Ram or SummonType.PirateBoat)
+            RevealCell(boardOwner.Board, cell, owner);
+        if (summon.IsBoardingShip)
+            RevealArea(boardOwner.Board, summon.Row, summon.Col, summon.RevealRadius, owner);
         cell.SummonRef = summon;
-        cell.SummonTrail = true;
         return true;
+    }
+
+    private static void MarkSummonTrail(Board board, int row, int col, SummonType type)
+    {
+        var cell = board.GetCell(row, col);
+        cell?.SummonTrails.Add(type);
     }
 
     private static (int row, int col) GetNextPosition(int row, int col, Direction dir)
@@ -1541,7 +1536,7 @@ public static class BattleshipGameEngine
                             if (collisionDeck.CurrentHp < 0) collisionDeck.CurrentHp = 0;
                             game.AddLog($"Абордажный корабль протаранил {targetShip.Name}! (-{summon.CollisionDamage} HP) {coord}");
                             // Mark cell on target owner's board (#8)
-                            MarkRamDamageOnBoard(targetOwner, collisionRow, collisionCol, collisionDeck);
+                            MarkRamDamageOnBoard(targetOwner, attacker, collisionRow, collisionCol, collisionDeck);
                             if (targetShip.IsDestroyed)
                             {
                                 RevealShip(targetOwner.Board, targetShip, attacker);
@@ -1562,7 +1557,7 @@ public static class BattleshipGameEngine
                     if (ramDeck.CurrentHp < 0) ramDeck.CurrentHp = 0;
                     game.AddLog($"Таран врезался в {targetShip.Name}! (-{summon.CollisionDamage} HP) {coord}");
                     // Mark cell on target owner's board (#8)
-                    MarkRamDamageOnBoard(targetOwner, collisionRow, collisionCol, ramDeck);
+                    MarkRamDamageOnBoard(targetOwner, attacker, collisionRow, collisionCol, ramDeck);
                     // Ram triggers barge explosion (#9); both players see decks + zone statuses (ТЗ #5)
                     if (targetShip.Abilities.Contains("explode_on_hit") && !targetShip.IsDestroyed)
                     {
@@ -1590,8 +1585,7 @@ public static class BattleshipGameEngine
                         {
                             var capturedCell = targetOwner.Board.GetCell(r, c);
                             if (capturedCell == null) continue;
-                            if (!capturedCell.IsRevealed && attacker != null) IncrementRevealedCount(attacker);
-                            capturedCell.IsRevealed = true;
+                            RevealCell(targetOwner.Board, capturedCell, attacker);
                         }
                         game.AddLog($"Пиратская лодка захватила {targetShip.Name}! {coord}");
                     }
@@ -1604,7 +1598,8 @@ public static class BattleshipGameEngine
                 break;
 
             case SummonType.CursedBoat:
-                targetShip.Statuses.Add(ShipStatusType.Devastated);
+                if (!targetShip.Statuses.Contains(ShipStatusType.Devastated))
+                    targetShip.Statuses.Add(ShipStatusType.Devastated);
                 foreach (var d in targetShip.Decks) d.CurrentHp = 0;
                 RevealShip(targetOwner.Board, targetShip, attacker);
                 HandleShipDeath(game, targetOwner, targetShip, ShipDestructionCause.Devastated);
@@ -1614,18 +1609,7 @@ public static class BattleshipGameEngine
             case SummonType.Scout:
                 // Reveal accumulated data on collision/death
                 var summonOwner = game.GetPlayer(summon.OwnerId);
-                if (summon.ScoutRevealData.Count > 0)
-                {
-                    foreach (var (sr, sc) in summon.ScoutRevealData)
-                    {
-                        var cell = targetOwner.Board.GetCell(sr, sc);
-                        if (cell != null && !cell.IsRevealed)
-                        {
-                            cell.IsRevealed = true;
-                            if (summonOwner != null) IncrementRevealedCount(summonOwner);
-                        }
-                    }
-                }
+                TransmitScoutReveal(game, summon);
                 RevealArea(targetOwner.Board, collisionRow, collisionCol, summon.RevealRadius, summonOwner);
                 game.AddLog($"Разведчик обнаружил корабли противника!");
                 break;
@@ -1640,14 +1624,23 @@ public static class BattleshipGameEngine
     /// <summary>
     /// Mark ram damage on the target owner's board cells (#8).
     /// </summary>
-    private static void MarkRamDamageOnBoard(BattleshipPlayer targetOwner, int row, int col, Deck hitDeck)
+    private static void MarkRamDamageOnBoard(
+        BattleshipPlayer targetOwner,
+        BattleshipPlayer attacker,
+        int row,
+        int col,
+        Deck hitDeck)
     {
         var cell = targetOwner.Board.GetCell(row, col);
         if (cell == null) return;
+        RevealCell(targetOwner.Board, cell, attacker);
+        cell.IsHit = true;
+        cell.IsMiss = false;
+        cell.WasShipHit = true;
+        cell.WasDodge = false;
         if (hitDeck.IsDestroyed)
         {
-            cell.IsHit = true;
-            cell.WasShipHit = true;
+            cell.WasScratched = false;
         }
         else
         {
@@ -1788,7 +1781,8 @@ public static class BattleshipGameEngine
     }
 
     /// <summary>
-    /// Transmit deferred scout reveal data when a scout dies (poison, freeze, etc.).
+    /// Transmit deferred scout reveal data when a scout dies or leaves the map.
+    /// Freeze explicitly clears the payload before this helper can run.
     /// </summary>
     private static void TransmitScoutReveal(BattleshipGame game, Summon summon)
     {
@@ -1799,12 +1793,9 @@ public static class BattleshipGameEngine
         foreach (var (sr, sc) in summon.ScoutRevealData)
         {
             var revealCell = opponent.Board.GetCell(sr, sc);
-            if (revealCell != null && !revealCell.IsRevealed)
-            {
-                revealCell.IsRevealed = true;
-                if (summonOwner != null) IncrementRevealedCount(summonOwner);
-            }
+            if (revealCell != null) RevealCell(opponent.Board, revealCell, summonOwner);
         }
+        summon.ScoutRevealData.Clear();
     }
 
     /// <summary>
@@ -1990,6 +1981,12 @@ public static class BattleshipGameEngine
                     player.Board.Grid[or, oc].ShipRef = ship;
                 return false;
             }
+        }
+
+        for (var i = 0; i < oldCells.Count && i < ship.Decks.Count; i++)
+        {
+            if (ship.Decks[i].IsDestroyed && !ship.ManeuverStaleHitCells.Contains(oldCells[i]))
+                ship.ManeuverStaleHitCells.Add(oldCells[i]);
         }
 
         // Clear the own-view hit flag from vacated cells — deck damage lives on the Ship

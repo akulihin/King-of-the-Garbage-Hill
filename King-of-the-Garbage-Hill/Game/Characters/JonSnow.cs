@@ -81,10 +81,18 @@ public static class JonSnow
             || character.GetSkill() < KingSkillThreshold)
             return;
 
-        character.Passive.RemoveAll(passive => passive.PassiveName == DumbBastard);
-        var king = character.Passive.Find(passive => passive.PassiveName == ServerKing);
-        if (king != null)
-            king.Visible = true;
+        var bastardIndex = character.Passive.FindIndex(passive =>
+            passive.PassiveName == DumbBastard);
+        var kingIndex = character.Passive.FindIndex(passive =>
+            passive.PassiveName == ServerKing);
+        if (bastardIndex < 0 || kingIndex < 0) return;
+
+        var king = character.Passive[kingIndex];
+        king.Visible = true;
+        character.Passive.RemoveAt(kingIndex);
+        if (kingIndex < bastardIndex)
+            bastardIndex--;
+        character.Passive[bastardIndex] = king;
         character.JonSnowBecameKing = true;
 
         character.SetAnySkillMultiplier();
@@ -276,8 +284,8 @@ public static class JonSnow
         if (jon.Passives.IsDead || !HasPassive(jon, AnotherBastard)) return;
 
         foreach (var player in playerList
-                     .Where(player => !player.Passives.IsDead)
-                     .OrderByDescending(player => player.Status.GetPlaceAtLeaderBoard())
+                     .Where(player => player.GetPlayerId() != jon.GetPlayerId())
+                     .OrderBy(player => player.GameCharacter.GetSkill())
                      .Take(2))
             state.WeakestPlayerIds.Add(player.GetPlayerId());
     }
@@ -424,15 +432,15 @@ public static class JonSnow
     }
 
     public static void FinalizeInitialPositions(
-        IReadOnlyCollection<GamePlayerBridgeClass> players)
+        List<GamePlayerBridgeClass> players)
     {
         var jon = Find(players);
         if (jon == null) return;
 
         if (!jon.Passives.IsDead
-            && HasPassive(jon, BlackCastle)
-            && jon.Status.GetPlaceAtLeaderBoard() == BlackCastlePlace)
+            && HasPassive(jon, BlackCastle))
         {
+            MoveExactlyToIndex(players, jon, BlackCastlePlace - 1);
             var state = jon.Passives.JonSnow;
             state.BlackCastleActive = true;
             state.BlackCastleReleaseAfterRound = BlackCastleTurns;
@@ -506,11 +514,18 @@ public static class JonSnow
             isLog: false);
         player.Passives.AchievementTracker.WasRevived = true;
 
+        var resurrectionLine = SecureRandom.Next(0, 1) == 0
+            ? (
+                Russian: $"**Мой дозор окончен...** Но вот я здесь. - {lostIntelligence} Интеллекта",
+                English: $"**My watch has ended...** Yet here I stand. -{lostIntelligence} Intelligence")
+            : (
+                Russian: "Мой дозор окончен: Ну нет, не надо! Не хочу больше играть Джона Сноу...",
+                English: "My watch has ended: No, please, don't! I don't want to play Jon Snow anymore...");
         game.AddGlobalLogs(PhrasePayload.Encode(
             MyWatchHasEnded,
-            $"**Мой дозор окончен...** Но вот я здесь. - {lostIntelligence} Интеллекта",
+            resurrectionLine.Russian,
             "My Watch Has Ended",
-            $"**My watch has ended...** Yet here I stand. -{lostIntelligence} Intelligence"));
+            resurrectionLine.English));
         GordonFreeman.ReevaluateAllZombiesPenalty(game);
         return true;
     }

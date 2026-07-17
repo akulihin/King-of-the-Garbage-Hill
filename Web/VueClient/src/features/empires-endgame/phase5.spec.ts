@@ -40,12 +40,13 @@ function startPlague(engine: EmpiresEndgameEngine, cityId = origin(engine).id) {
 }
 
 describe('Empire\'s Endgame Phase 5 epidemics', () => {
-  it('migrates v7 into disabled epidemic/medical scaffolds without mutation and rejects v9', () => {
+  it('migrates v7 into disabled epidemic/medical and domestic-economy scaffolds without mutation and rejects v10', () => {
     const previous = structuredClone(defaultConfigJson) as unknown as Record<string, unknown>
     previous.schemaVersion = 7
     const empire = previous.empire as Record<string, unknown>
     delete empire.epidemics
     delete empire.medical
+    delete empire.domesticEconomy
     const cards = previous.cards as Array<Record<string, unknown>>
     const vaccination = cards.find(card => card.id === 'card-spades-10')!
     for (const sideName of ['normal', 'inverted']) {
@@ -63,15 +64,16 @@ describe('Empire\'s Endgame Phase 5 epidemics', () => {
     const migrated = migrateEmpiresConfig(previous) as EmpiresEndgameConfig
     expect(previous).toEqual(original)
     expect(migrated).toMatchObject({
-      schemaVersion: 8,
+      schemaVersion: 9,
       empire: {
         epidemics: { enabled: false, definitions: [], protections: [] },
         medical: { enabled: false, defaultBattleRecoveryCons: 2 },
+        domesticEconomy: { enabled: false },
       },
     })
     expect(() => validateEmpiresConfig(migrated)).not.toThrow()
     expect(migrateEmpiresConfig(migrated)).toEqual(migrated)
-    expect(() => migrateEmpiresConfig({ ...migrated, schemaVersion: 9 })).toThrow(/future.*9/i)
+    expect(() => migrateEmpiresConfig({ ...migrated, schemaVersion: 10 })).toThrow(/future.*10/i)
   })
 
   it('allocates class loss by authored weights with stable remainder and capacity handling', () => {
@@ -406,7 +408,7 @@ describe('Empire\'s Endgame Phase 5 epidemics', () => {
     })
   })
 
-  it('normalizes legacy v5 saves into schema v6 epidemic homes', () => {
+  it('normalizes legacy v5 saves into schema v7 epidemic and domestic-economy homes', () => {
     const value = config()
     const legacy = empireEngine(value).snapshot() as EmpiresCampaignState
     legacy.schemaVersion = 5 as never
@@ -416,11 +418,14 @@ describe('Empire\'s Endgame Phase 5 epidemics', () => {
     delete (legacy.army as Partial<EmpiresCampaignState['army']>).recoveries
     const restored = new EmpiresEndgameEngine(value, legacy)
     expect(restored.state).toMatchObject({
-      schemaVersion: 6,
+      schemaVersion: 7,
       epidemics: [],
       nextEpidemicSequence: 1,
       army: { recoveries: [] },
-      empire: { medical: { nextFreeResearchCon: null, awardedTechnologyIds: [] } },
+      empire: {
+        medical: { nextFreeResearchCon: null, awardedTechnologyIds: [] },
+        domesticEconomy: { loans: [], insuranceContracts: [], persecution: null },
+      },
     })
   })
 })

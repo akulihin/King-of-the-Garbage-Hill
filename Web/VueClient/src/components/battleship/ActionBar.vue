@@ -235,9 +235,9 @@ function emitManualMove(shipId: string, direction: string) {
 }
 
 .shot-dodge {
-  background: color-mix(in srgb, var(--accent-green) 10%, transparent);
-  border-color: color-mix(in srgb, var(--accent-green) 30%, transparent);
-  color: var(--accent-green);
+  background: rgba(255, 255, 255, 0.03);
+  border-color: var(--glass-border);
+  color: var(--text-muted);
 }
 
 .shot-sunk {

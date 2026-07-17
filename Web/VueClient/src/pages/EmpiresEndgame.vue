@@ -27,6 +27,7 @@ import {
 import BuilderDrawer from '../components/empires-endgame/BuilderDrawer.vue'
 import CityView from '../components/empires-endgame/CityView.vue'
 import DurakTable from '../components/empires-endgame/DurakTable.vue'
+import DomesticEconomyPanel from '../components/empires-endgame/DomesticEconomyPanel.vue'
 import EmpireCard from '../components/empires-endgame/EmpireCard.vue'
 import EmpireMap from '../components/empires-endgame/EmpireMap.vue'
 import EventDialog from '../components/empires-endgame/EventDialog.vue'
@@ -81,7 +82,7 @@ import type {
   TdCommand,
 } from '../features/empires-endgame/types'
 
-type EmpireTab = 'map' | 'city' | 'loyalty' | 'technology' | 'governance' | 'council'
+type EmpireTab = 'map' | 'city' | 'economy' | 'loyalty' | 'technology' | 'governance' | 'council'
 
 const config = ref<EmpiresEndgameConfig | null>(null)
 const editorConfig = ref<EmpiresEndgameConfig | null>(null)
@@ -424,7 +425,7 @@ function isQaScenarioName(value: string | null): value is EmpiresQaScenarioName 
 }
 
 function isEmpireTab(value: string | null): value is EmpireTab {
-  return value === 'map' || value === 'city' || value === 'loyalty'
+  return value === 'map' || value === 'city' || value === 'economy' || value === 'loyalty'
     || value === 'technology' || value === 'governance' || value === 'council'
 }
 
@@ -434,6 +435,7 @@ function loadQaScenario(name = qaScenarioName.value) {
   qaAutoplaySummary.value = ''
   if (name === 'empire-council-with-points') activeEmpireTab.value = 'council'
   if (name === 'governance') activeEmpireTab.value = 'governance'
+  if (name === 'domestic-economy') activeEmpireTab.value = 'economy'
   initializeEngine(config.value, qaScenarios.value[name].snapshot)
   const url = new URL(window.location.href)
   url.searchParams.set('qa', '1')
@@ -481,6 +483,9 @@ async function boot() {
       }
       if (!isEmpireTab(requestedTab) && qaScenarioName.value === 'governance') {
         activeEmpireTab.value = 'governance'
+      }
+      if (!isEmpireTab(requestedTab) && qaScenarioName.value === 'domestic-economy') {
+        activeEmpireTab.value = 'economy'
       }
     }
     else {
@@ -1048,11 +1053,15 @@ function firstMissingDependency(
       continue
     }
     if (dependency.kind === 'flag') {
-      if ((state.value.empire.flags[dependency.flagId] ?? 0) < dependency.minimum) return dependencyLabel(dependency)
+      if ((engine.value?.effectiveEmpireFlagValue(dependency.flagId) ?? 0) < dependency.minimum) {
+        return dependencyLabel(dependency)
+      }
       continue
     }
     if (dependency.kind === 'reputation') {
-      if (state.value.empire.reputation < dependency.minimum) return dependencyLabel(dependency)
+      if ((engine.value?.effectiveReputation() ?? state.value.empire.reputation) < dependency.minimum) {
+        return dependencyLabel(dependency)
+      }
       continue
     }
     if (dependency.kind === 'advisor') {
@@ -1379,7 +1388,7 @@ const cityViews = computed(() => {
         value: state.value.army.morale,
         minimum: Math.max(
           currentConfig.td.morale?.minimum ?? 0,
-          state.value.empire.flags.minimumCombatSpirit ?? 0,
+          engine.value?.effectiveEmpireFlagValue('minimumCombatSpirit') ?? 0,
         ),
         maximum: state.value.army.maxMorale,
       },
@@ -1438,6 +1447,21 @@ const cityViews = computed(() => {
   })
 })
 
+const domesticEconomyView = computed(() => (
+  activeCityId.value && engine.value
+    ? engine.value.domesticEconomyView(activeCityId.value)
+    : null
+))
+
+const domesticEconomyCities = computed(() => {
+  if (!state.value || !engine.value) return []
+  return state.value.empire.cities.map(city => ({
+    id: city.id,
+    name: city.name,
+    disabledReason: actionReasonText(engine.value?.cityAccessBlockedReason(city.id)),
+  }))
+})
+
 function upgradeBuilding(cityId: string, buildingId: string) {
   selectedBuildingId.value = buildingId
   if (engine.value) action(engine.value.upgradeBuilding(cityId, buildingId))
@@ -1458,6 +1482,38 @@ function recruitUnits(cityId: string, unitId: string, count: number) {
 
 function treatVeteran(veteranId: string) {
   if (engine.value) action(engine.value.treatVeteran(veteranId))
+}
+
+function takeLoan(cityId: string) {
+  if (engine.value) action(engine.value.takeLoan(cityId))
+}
+
+function repayLoan(loanId: string) {
+  if (engine.value) action(engine.value.repayLoan(loanId))
+}
+
+function beginPersecution(cityId: string) {
+  if (engine.value) action(engine.value.beginPersecution(cityId))
+}
+
+function startInsurance(cityId: string) {
+  if (engine.value) action(engine.value.startInsurance(cityId))
+}
+
+function performFairAction(cityId: string, actionId: string) {
+  if (engine.value) action(engine.value.performFairAction(cityId, actionId))
+}
+
+function preachAtTemple(cityId: string) {
+  if (engine.value) action(engine.value.preachAtTemple(cityId))
+}
+
+function assignTempleRelic(cityId: string, slotIndex: number, giftId: string) {
+  if (engine.value) action(engine.value.assignTempleRelic(cityId, slotIndex, giftId))
+}
+
+function clearTempleRelic(cityId: string, slotIndex: number) {
+  if (engine.value) action(engine.value.clearTempleRelic(cityId, slotIndex))
 }
 
 function setRecruitQuantity(cityId: string, unitId: string, count: number) {
@@ -1784,6 +1840,7 @@ onUnmounted(() => {
           <nav aria-label="Разделы империи">
             <button data-testid="tab-map" :class="{ active: activeEmpireTab === 'map' }" type="button" @click="activeEmpireTab = 'map'"><MapIcon :size="15" /> Карта</button>
             <button data-testid="tab-city" :class="{ active: activeEmpireTab === 'city' }" type="button" @click="activeEmpireTab = 'city'"><Building2 :size="15" /> Города</button>
+            <button data-testid="tab-economy" :class="{ active: activeEmpireTab === 'economy' }" type="button" @click="activeEmpireTab = 'economy'"><Coins :size="15" /> Экономика</button>
             <button data-testid="tab-loyalty" :class="{ active: activeEmpireTab === 'loyalty' }" type="button" @click="activeEmpireTab = 'loyalty'"><Scale :size="15" /> Лояльность</button>
             <button data-testid="tab-technology" :class="{ active: activeEmpireTab === 'technology' }" type="button" @click="activeEmpireTab = 'technology'"><FlaskConical :size="15" /> Развитие</button>
             <button data-testid="tab-governance" :class="{ active: activeEmpireTab === 'governance' }" type="button" @click="activeEmpireTab = 'governance'"><Crown :size="15" /> Управление</button>
@@ -1850,11 +1907,28 @@ onUnmounted(() => {
           @edit-slot="showMessage('Состав городских слотов доступен в полном JSON конструктора.')"
         />
 
+        <DomesticEconomyPanel
+          v-else-if="activeEmpireTab === 'economy' && domesticEconomyView"
+          :cities="domesticEconomyCities"
+          :active-city-id="activeCityId"
+          :con="state.con"
+          :view="domesticEconomyView"
+          @select-city="activeCityId = $event"
+          @take-loan="takeLoan"
+          @repay-loan="repayLoan"
+          @persecution="beginPersecution"
+          @start-insurance="startInsurance"
+          @fair-action="performFairAction"
+          @preach="preachAtTemple"
+          @assign-relic="assignTempleRelic"
+          @clear-relic="clearTempleRelic"
+        />
+
         <LoyaltyPanel
           v-else-if="activeEmpireTab === 'loyalty'"
           :minimum="workingConfig.empire.loyalty.minimum"
           :maximum="workingConfig.empire.loyalty.maximum"
-          :reputation="state.empire.reputation"
+          :reputation="engine.effectiveReputation()"
           :rebellion-threshold="workingConfig.empire.loyalty.rebellion.threshold"
           :rebellion-applications="workingConfig.empire.loyalty.rebellion.sustainedApplications"
           :recovery-threshold="workingConfig.empire.loyalty.rebellion.recoveryThreshold"

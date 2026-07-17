@@ -9,6 +9,7 @@ import type { EmpiresTdConfig } from './td/types'
 import type {
   EmpiresBuildingSlotKind,
   EmpiresCampaignState,
+  EmpiresDomesticEconomyConfig,
   EmpiresEffect,
   EmpiresEpidemicConfig,
   EmpiresEndgameConfig,
@@ -20,7 +21,7 @@ import { validateEmpiresEndgameConfig } from './engine'
 
 export const EMPIRES_CONFIG_URL = '/empires-endgame/game-config.json'
 export const EMPIRES_CONFIG_STORAGE_KEY = 'empires-endgame:config:v1'
-export const EMPIRES_CONFIG_SCHEMA_VERSION = 8
+export const EMPIRES_CONFIG_SCHEMA_VERSION = 9
 export const EMPIRES_ACTIVE_MINIGAME_CONFIG_ERROR = 'Нельзя менять правила во время боя. Сначала завершите бой или выйдите через действие отмены.'
 
 export function empiresConfigReplacementDisabledReason(
@@ -196,6 +197,56 @@ const MEDICAL_SCAFFOLD = {
   academyFreeResearchCadenceCons: 3,
   academyTreatmentDeathChance: 0.5,
 } satisfies EmpiresMedicalConfig
+
+const DOMESTIC_ECONOMY_SCAFFOLD = {
+  enabled: false,
+  goldResourceId: '',
+  knowledgeResourceId: '',
+  historyRetention: 16,
+  loan: {
+    bankBuildingId: '',
+    bankingTechnologyId: '',
+    principalIncomeTurns: 3,
+    termCons: 7,
+    paymentIncomeFraction: 0.5,
+    maxActiveLoans: 1,
+    defaultReputationDelta: -1,
+    defaultLoyaltyDelta: -1,
+    persecutionKnowledgeLossPercent: 50,
+    persecutionReputationDelta: -3,
+    persecutionLoyaltyDelta: -2,
+  },
+  insurance: {
+    buildingId: '',
+    calmTurnsRequired: 3,
+    activeDurationCons: 8,
+    basePayoutGold: 3_000,
+    payoutPerCalmTurnGold: 500,
+    maximumPayoutGold: 10_000,
+    coveredIncidentKinds: [],
+    unsupportedIncidentReasons: {},
+  },
+  fair: {
+    buildingId: '',
+    technologyId: '',
+    actions: [],
+    baronUnlockActionId: '',
+  },
+  temple: {
+    buildingId: '',
+    preachingCooldownCons: 1,
+    relicSlotsPerLevel: 2,
+    minimumTitheGold: 250,
+    titheGoldPerPopulation: 0.001,
+    preachingLoyaltyDelta: 1,
+    preachingReputationDelta: 1,
+  },
+  tavern: {
+    buildingId: '',
+    recruitmentCapacityPerLevel: 1,
+    moraleMaximumPerLevel: 1,
+  },
+} satisfies EmpiresDomesticEconomyConfig
 
 const LOYALTY_V4_SCAFFOLD = {
   enabled: false,
@@ -591,6 +642,28 @@ function normalizeEmpiresConfigV8(config: Record<string, unknown>): Record<strin
   return config
 }
 
+function migrateEmpiresConfigV8ToV9(config: Record<string, unknown>): Record<string, unknown> {
+  if (isRecord(config.empire)) {
+    config.empire.domesticEconomy = withScaffoldDefaults(
+      config.empire.domesticEconomy,
+      DOMESTIC_ECONOMY_SCAFFOLD,
+    )
+  }
+  config.schemaVersion = 9
+  return config
+}
+
+function normalizeEmpiresConfigV9(config: Record<string, unknown>): Record<string, unknown> {
+  normalizeEmpiresConfigV8(config)
+  if (isRecord(config.empire)) {
+    config.empire.domesticEconomy = withScaffoldDefaults(
+      config.empire.domesticEconomy,
+      DOMESTIC_ECONOMY_SCAFFOLD,
+    )
+  }
+  return config
+}
+
 const EMPIRES_CONFIG_MIGRATIONS: Record<
   number,
   (config: Record<string, unknown>) => Record<string, unknown>
@@ -602,6 +675,7 @@ const EMPIRES_CONFIG_MIGRATIONS: Record<
   5: migrateEmpiresConfigV5ToV6,
   6: migrateEmpiresConfigV6ToV7,
   7: migrateEmpiresConfigV7ToV8,
+  8: migrateEmpiresConfigV8ToV9,
 }
 
 /**
@@ -628,6 +702,7 @@ export function migrateEmpiresConfig(raw: unknown): unknown {
   if (version === 6) migrated = normalizeEmpiresConfigV6(migrated)
   if (version === 7) migrated = normalizeEmpiresConfigV7(migrated)
   if (version === 8) migrated = normalizeEmpiresConfigV8(migrated)
+  if (version === 9) migrated = normalizeEmpiresConfigV9(migrated)
   return migrated
 }
 
@@ -1244,6 +1319,138 @@ function validateEpidemicAndMedicalConfig(config: EmpiresEndgameConfig): void {
     || !Number.isFinite(medical.academyTreatmentDeathChance)
     || medical.academyTreatmentDeathChance < 0 || medical.academyTreatmentDeathChance > 1) {
     throw new Error('empire.medical cadence, recovery, and treatment values are invalid.')
+  }
+}
+
+function validateDomesticEconomyConfig(config: EmpiresEndgameConfig): void {
+  const economy = config.empire.domesticEconomy
+  if (!isRecord(economy) || typeof economy.enabled !== 'boolean') {
+    throw new Error('empire.domesticEconomy must be an object with an enabled flag.')
+  }
+  if (!Number.isInteger(economy.historyRetention) || economy.historyRetention < 1) {
+    throw new Error('empire.domesticEconomy.historyRetention must be a positive integer.')
+  }
+  if (!economy.enabled) return
+
+  const resourceIds = new Set(config.empire.resources.map(resource => resource.id))
+  const buildingById = new Map(config.empire.buildings.map(building => [building.id, building]))
+  const technologyById = new Map(config.empire.technologies.map(technology => [technology.id, technology]))
+  if (!resourceIds.has(economy.goldResourceId) || !resourceIds.has(economy.knowledgeResourceId)) {
+    throw new Error('empire.domesticEconomy must reference known gold and knowledge resources.')
+  }
+
+  const liveBuilding = (buildingId: string, label: string) => {
+    const building = buildingById.get(buildingId)
+    if (!building || building.deferredReason) {
+      throw new Error(`empire.domesticEconomy ${label} must reference a live building.`)
+    }
+  }
+  liveBuilding(economy.loan.bankBuildingId, 'loan.bankBuildingId')
+  liveBuilding(economy.insurance.buildingId, 'insurance.buildingId')
+  liveBuilding(economy.fair.buildingId, 'fair.buildingId')
+  liveBuilding(economy.temple.buildingId, 'temple.buildingId')
+  liveBuilding(economy.tavern.buildingId, 'tavern.buildingId')
+  if (technologyById.get(economy.loan.bankingTechnologyId)?.deferredReason
+    || !technologyById.has(economy.loan.bankingTechnologyId)
+    || technologyById.get(economy.fair.technologyId)?.deferredReason
+    || !technologyById.has(economy.fair.technologyId)) {
+    throw new Error('empire.domesticEconomy Bank and Fair technologies must be live.')
+  }
+
+  const loanNumbers = [
+    economy.loan.principalIncomeTurns,
+    economy.loan.termCons,
+    economy.loan.paymentIncomeFraction,
+    economy.loan.maxActiveLoans,
+    economy.loan.persecutionKnowledgeLossPercent,
+  ]
+  if (loanNumbers.some(value => !Number.isFinite(value) || value <= 0)
+    || !Number.isInteger(economy.loan.termCons)
+    || !Number.isInteger(economy.loan.maxActiveLoans)
+    || economy.loan.paymentIncomeFraction * economy.loan.termCons
+      < economy.loan.principalIncomeTurns
+    || economy.loan.persecutionKnowledgeLossPercent > 100
+    || !Number.isFinite(economy.loan.defaultReputationDelta)
+    || !Number.isFinite(economy.loan.defaultLoyaltyDelta)
+    || !Number.isFinite(economy.loan.persecutionReputationDelta)
+    || !Number.isFinite(economy.loan.persecutionLoyaltyDelta)) {
+    throw new Error('empire.domesticEconomy.loan has invalid schedule or consequence values.')
+  }
+
+  const incidentKinds = new Set(['epidemic', 'meteor', 'raid', 'nuclear', 'siege'])
+  if (!Number.isInteger(economy.insurance.calmTurnsRequired)
+    || economy.insurance.calmTurnsRequired < 1
+    || !Number.isInteger(economy.insurance.activeDurationCons)
+    || economy.insurance.activeDurationCons < 1
+    || [
+      economy.insurance.basePayoutGold,
+      economy.insurance.payoutPerCalmTurnGold,
+      economy.insurance.maximumPayoutGold,
+    ].some(value => !Number.isFinite(value) || value < 0)
+    || economy.insurance.maximumPayoutGold < economy.insurance.basePayoutGold
+    || !Array.isArray(economy.insurance.coveredIncidentKinds)
+    || economy.insurance.coveredIncidentKinds.length === 0
+    || new Set(economy.insurance.coveredIncidentKinds).size
+      !== economy.insurance.coveredIncidentKinds.length
+    || economy.insurance.coveredIncidentKinds.some(kind => !incidentKinds.has(kind))) {
+    throw new Error('empire.domesticEconomy.insurance has invalid cadence, payout, or incident kinds.')
+  }
+  if (!isRecord(economy.insurance.unsupportedIncidentReasons)) {
+    throw new Error('empire.domesticEconomy.insurance.unsupportedIncidentReasons must be an object.')
+  }
+  for (const [kind, reason] of Object.entries(economy.insurance.unsupportedIncidentReasons)) {
+    if (!incidentKinds.has(kind) || typeof reason !== 'string' || !reason.trim()
+      || economy.insurance.coveredIncidentKinds.includes(kind as never)) {
+      throw new Error(`empire.domesticEconomy insurance blocker ${kind} is invalid.`)
+    }
+  }
+
+  if (!Array.isArray(economy.fair.actions) || economy.fair.actions.length === 0) {
+    throw new Error('empire.domesticEconomy.fair.actions must not be empty.')
+  }
+  const fairActionIds = new Set<string>()
+  for (const action of economy.fair.actions) {
+    if (!action.id?.trim() || fairActionIds.has(action.id) || !action.name?.trim()
+      || !Number.isFinite(action.goldCost) || action.goldCost < 0
+      || !Number.isInteger(action.cooldownCons) || action.cooldownCons < 1
+      || !Number.isInteger(action.durationCons) || action.durationCons < 1
+      || !Number.isFinite(action.temporaryLoyaltyModifier)
+      || !Number.isFinite(action.temporaryReputationModifier)
+      || !Number.isFinite(action.perConLoyaltyDelta)
+      || !Number.isFinite(action.perConReputationDelta)
+      || !Number.isFinite(action.perConPopulationLoss) || action.perConPopulationLoss < 0
+      || !Array.isArray(action.perConResourceLosses)
+      || action.perConResourceLosses.some(cost => !resourceIds.has(cost.resourceId)
+        || !Number.isFinite(cost.amount) || cost.amount < 0)
+      || (action.lockBuildingId !== undefined && !buildingById.has(action.lockBuildingId))) {
+      throw new Error(`empire.domesticEconomy Fair action ${action.id || '<missing>'} is invalid.`)
+    }
+    if (action.unlockAfterActionId && !fairActionIds.has(action.unlockAfterActionId)) {
+      throw new Error(`empire.domesticEconomy Fair action ${action.id} must follow an earlier action.`)
+    }
+    fairActionIds.add(action.id)
+  }
+  if (!fairActionIds.has(economy.fair.baronUnlockActionId)) {
+    throw new Error('empire.domesticEconomy.fair.baronUnlockActionId must reference an action.')
+  }
+
+  if (!Number.isInteger(economy.temple.preachingCooldownCons)
+    || economy.temple.preachingCooldownCons < 1
+    || !Number.isInteger(economy.temple.relicSlotsPerLevel)
+    || economy.temple.relicSlotsPerLevel < 1
+    || !Number.isFinite(economy.temple.minimumTitheGold)
+    || economy.temple.minimumTitheGold < 0
+    || !Number.isFinite(economy.temple.titheGoldPerPopulation)
+    || economy.temple.titheGoldPerPopulation < 0
+    || !Number.isFinite(economy.temple.preachingLoyaltyDelta)
+    || !Number.isFinite(economy.temple.preachingReputationDelta)) {
+    throw new Error('empire.domesticEconomy.temple has invalid slot, tithe, or preaching values.')
+  }
+  if (!Number.isFinite(economy.tavern.recruitmentCapacityPerLevel)
+    || economy.tavern.recruitmentCapacityPerLevel < 0
+    || !Number.isFinite(economy.tavern.moraleMaximumPerLevel)
+    || economy.tavern.moraleMaximumPerLevel < 0) {
+    throw new Error('empire.domesticEconomy.tavern passive values must be non-negative.')
   }
 }
 
@@ -2604,6 +2811,7 @@ export function validateEmpiresConfig(value: unknown): asserts value is EmpiresE
   const config = value as unknown as EmpiresEndgameConfig
   validateTechnologySidesAndHiddenCombinations(config)
   validateEpidemicAndMedicalConfig(config)
+  validateDomesticEconomyConfig(config)
   validateLoyaltyConfig(config)
   validatePoliticalEffects(config)
   validateSteelResearchConfig(config)

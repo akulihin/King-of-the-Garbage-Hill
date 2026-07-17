@@ -115,15 +115,10 @@ describe('Empire\'s Endgame configuration', () => {
       items.filter(item => item.deferredReason).map(item => item.id)
 
     expect(deferred(config.empire.buildings)).toEqual([
-      'building-temple',
-      'building-bank',
-      'building-fair',
-      'building-tavern',
       'building-stable',
       'building-customs',
       'building-military-academy',
       'building-sea-port',
-      'building-jewish-bank',
       'municipal-capital-forum',
     ])
     expect(deferred(config.empire.units ?? [])).toEqual([])
@@ -139,11 +134,9 @@ describe('Empire\'s Endgame configuration', () => {
     ])
     expect(deferred(config.empire.resources)).toEqual(['carpentry', 'whiteStone'])
     expect(deferred(config.empire.technologies)).toEqual([
-      'tech-fair',
       'tech-compass',
       'tech-printing',
       'tech-merchant-guilds',
-      'tech-banking',
       'tech-military-logistics',
       'tech-supply-corps',
       'reform-technocracy',

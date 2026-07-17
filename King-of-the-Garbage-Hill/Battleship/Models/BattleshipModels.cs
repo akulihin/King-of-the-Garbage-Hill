@@ -16,6 +16,8 @@ public class BattleshipGame
     public string WinnerId { get; set; }
     public List<LogEntry> GameLog { get; set; } = new();
     public int ShotCount { get; set; } // Global shot counter (both players)
+    /// <summary>The turn whose one-time bot setup (status gate, maneuver and deploys) has run.</summary>
+    public int BotPreparedTurnNumber { get; set; } = -1;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime LastActivity { get; set; } = DateTime.UtcNow;
     /// <summary>Final Boarding is one global transition; this guard prevents repeat bonuses/conversions.</summary>
@@ -144,7 +146,8 @@ public class Cell
     public Summon SummonRef { get; set; }
     public bool WasShipHit { get; set; } // Snapshot: a ship was present when this cell was hit (persists after ship moves)
     public bool WasScratched { get; set; } // Snapshot: hit damaged but didn't destroy a deck (persists after ship moves)
-    public bool SummonTrail { get; set; } // Enemy summon passed through this cell (incl. its spawn cell, ТЗ #2)
+    /// <summary>Every summon type that has visited this physical cell, including the spawn cell.</summary>
+    public HashSet<SummonType> SummonTrails { get; set; } = new();
     public bool BurnResistMarked { get; set; } // BurnResist ship survived fire/explosion here — shown dark-green to both players (ТЗ #4)
     public bool WasDodge { get; set; } // Юркая единичка dodged a ballista shot here — static салатовый mark for both players (ТЗ #6)
 }
@@ -174,6 +177,8 @@ public class Ship
     public bool IsHome { get; set; } // "Домашний" unit — used for first-turn tiebreaker
     public bool HasExploded { get; set; } // Idempotency guard: explode_on_hit fires once (death paths re-enter via HandleShipDeath)
     public bool HasManeuvered { get; set; } // ТЗ #21: manual_move_after_hit is once PER SHIP, not per player
+    /// <summary>Destroyed-deck coordinates vacated by Maneuvering Double; reconciled only on final death.</summary>
+    public List<(int row, int col)> ManeuverStaleHitCells { get; set; } = new();
 
     public List<(int row, int col)> GetOccupiedCells()
     {
@@ -274,6 +279,12 @@ public class ShotResult
     public bool TurnContinues { get; set; }
     public string Message { get; set; }
     public string AffectedShipName { get; set; }
+    /// <summary>Opaque source identity; only its owner can resolve it to a visible ship coordinate.</summary>
+    public string SourceShipId { get; set; }
+    public int SourceDeckIndex { get; set; } = -1;
+    public string ProjectileType { get; set; }
+    /// <summary>Physical board owner targeted by this action; fixes own-board VFX routing.</summary>
+    public string TargetPlayerId { get; set; }
 }
 
 public class ShipDefinition

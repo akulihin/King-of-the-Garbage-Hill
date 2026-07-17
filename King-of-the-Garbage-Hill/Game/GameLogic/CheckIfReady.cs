@@ -752,6 +752,11 @@ public class CheckIfReady : IServiceSingleton
                     team.TeamId == wonTeam && team.TeamPlayers.Contains(player.Status.PlayerId))
                 : !player.Passives.IsDead
                   && (rewardPlace == 1 || player.Status.GetScore() == playerWhoWon.Status.GetScore());
+            var governmentSalaryZbs = TheBoys.ShouldAwardGovernmentSalary(
+                player, game.WinnerPlayerIds.Contains(player.GetPlayerId()))
+                ? TheBoys.GovernmentSalaryZbs
+                : 0;
+            zbsPointsToGive += governmentSalaryZbs;
 
             var tracker = player.Passives.AchievementTracker;
             tracker.FinishedWithZeroPsyche = player.GameCharacter.GetPsyche() <= 0;
@@ -847,6 +852,16 @@ public class CheckIfReady : IServiceSingleton
                 if (!player.IsBot() && !player.IsWebPlayer && !player.PreferWeb
                                     && player.DiscordStatus.SocketGameMessage?.Channel != null)
                     await player.DiscordStatus.SocketGameMessage.Channel.SendMessageAsync(rewardText);
+            }
+
+            if (governmentSalaryZbs > 0)
+            {
+                var salaryText = $"{TheBoys.GovernmentSalarySource}: +{governmentSalaryZbs} ZBS points";
+                player.WebMessages.Add(salaryText);
+                player.Status.AddInGamePersonalLogs(salaryText + "\n");
+                if (!player.IsBot() && !player.IsWebPlayer && !player.PreferWeb
+                                    && player.DiscordStatus.SocketGameMessage?.Channel != null)
+                    await player.DiscordStatus.SocketGameMessage.Channel.SendMessageAsync(salaryText);
             }
 
             // Fire-and-forget: update Discord widget for authorized users.

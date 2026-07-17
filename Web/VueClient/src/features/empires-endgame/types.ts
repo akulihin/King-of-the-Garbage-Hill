@@ -689,6 +689,84 @@ export interface EmpiresMedicalConfig {
   academyTreatmentDeathChance: number
 }
 
+export type EmpiresDomesticIncidentKind = 'epidemic' | 'meteor' | 'raid' | 'nuclear' | 'siege'
+
+export interface EmpiresLoanConfig {
+  bankBuildingId: string
+  bankingTechnologyId: string
+  principalIncomeTurns: number
+  termCons: number
+  paymentIncomeFraction: number
+  maxActiveLoans: number
+  defaultReputationDelta: number
+  defaultLoyaltyDelta: number
+  persecutionKnowledgeLossPercent: number
+  persecutionReputationDelta: number
+  persecutionLoyaltyDelta: number
+}
+
+export interface EmpiresInsuranceConfig {
+  buildingId: string
+  calmTurnsRequired: number
+  activeDurationCons: number
+  basePayoutGold: number
+  payoutPerCalmTurnGold: number
+  maximumPayoutGold: number
+  coveredIncidentKinds: EmpiresDomesticIncidentKind[]
+  unsupportedIncidentReasons: Partial<Record<EmpiresDomesticIncidentKind, string>>
+}
+
+export interface EmpiresFairActionDefinition {
+  id: string
+  name: string
+  goldCost: number
+  cooldownCons: number
+  durationCons: number
+  unlockAfterActionId?: string
+  temporaryLoyaltyModifier: number
+  temporaryReputationModifier: number
+  perConLoyaltyDelta: number
+  perConReputationDelta: number
+  perConPopulationLoss: number
+  perConResourceLosses: EmpiresResourceAmount[]
+  lockBuildingId?: string
+}
+
+export interface EmpiresFairConfig {
+  buildingId: string
+  technologyId: string
+  actions: EmpiresFairActionDefinition[]
+  baronUnlockActionId: string
+}
+
+export interface EmpiresTempleConfig {
+  buildingId: string
+  preachingCooldownCons: number
+  relicSlotsPerLevel: number
+  minimumTitheGold: number
+  titheGoldPerPopulation: number
+  preachingLoyaltyDelta: number
+  preachingReputationDelta: number
+}
+
+export interface EmpiresTavernPassiveConfig {
+  buildingId: string
+  recruitmentCapacityPerLevel: number
+  moraleMaximumPerLevel: number
+}
+
+export interface EmpiresDomesticEconomyConfig {
+  enabled: boolean
+  goldResourceId: string
+  knowledgeResourceId: string
+  historyRetention: number
+  loan: EmpiresLoanConfig
+  insurance: EmpiresInsuranceConfig
+  fair: EmpiresFairConfig
+  temple: EmpiresTempleConfig
+  tavern: EmpiresTavernPassiveConfig
+}
+
 export interface EmpiresHiddenCombinationsConfig {
   enabled: boolean
   definitions: EmpiresHiddenCombinationDefinition[]
@@ -830,6 +908,7 @@ export interface EmpiresEmpireConfig {
   hiddenCombinations: EmpiresHiddenCombinationsConfig
   epidemics: EmpiresEpidemicConfig
   medical: EmpiresMedicalConfig
+  domesticEconomy: EmpiresDomesticEconomyConfig
   loyalty: EmpiresLoyaltyConfig
 }
 
@@ -840,7 +919,7 @@ export interface EmpiresUpgradeConfig {
 }
 
 export interface EmpiresEndgameConfig {
-  schemaVersion: 8
+  schemaVersion: 9
   id: string
   title: string
   seed: string | number
@@ -1139,6 +1218,10 @@ export type EmpiresChronicleEntryKind =
   | 'epidemic-spread'
   | 'epidemic-containment'
   | 'epidemic-end'
+  | 'loan'
+  | 'insurance'
+  | 'fair'
+  | 'temple'
 
 export interface EmpiresChronicleEntry {
   id: string
@@ -1179,6 +1262,148 @@ export interface EmpiresBattleLossLoyaltyInput {
   lost: number
 }
 
+export type EmpiresLoanInstallmentStatus = 'pending' | 'paid' | 'waived'
+export type EmpiresLoanStatus = 'active' | 'defaulted' | 'repaid' | 'persecuted'
+
+export interface EmpiresLoanInstallmentState {
+  index: number
+  dueCon: number
+  amount: number
+  status: EmpiresLoanInstallmentStatus
+  settledAtCon: number | null
+  settlementId: string | null
+}
+
+export interface EmpiresLoanState {
+  id: string
+  cityId: string
+  buildingId: string
+  technologyId: string
+  takenAtCon: number
+  incomeAtOrigination: number
+  principal: number
+  interest: number
+  status: EmpiresLoanStatus
+  defaultedAtCon: number | null
+  closedAtCon: number | null
+  installments: EmpiresLoanInstallmentState[]
+}
+
+export type EmpiresInsuranceStatus = 'waiting' | 'active' | 'consumed' | 'expired'
+
+export interface EmpiresInsuranceContractState {
+  id: string
+  cityId: string
+  buildingId: string
+  signedAtCon: number
+  calmTurns: number
+  status: EmpiresInsuranceStatus
+  activatedAtCon: number | null
+  expiresAfterCon: number | null
+  lastSettledCon: number | null
+  lastIncidentCon: number | null
+  lastIncidentId: string | null
+  consumedAtCon: number | null
+  payoutGold: number
+  payoutIncidentId: string | null
+}
+
+export interface EmpiresFairActivityState {
+  id: string
+  actionId: string
+  cityId: string
+  startedAtCon: number
+  expiresAfterCon: number
+  lastSettledCon: number | null
+}
+
+export interface EmpiresTempleRelicAssignmentState {
+  slotId: string
+  cityId: string
+  slotIndex: number
+  giftId: string
+  assignedAtCon: number
+}
+
+export interface EmpiresDomesticEconomyState {
+  nextLoanSequence: number
+  loans: EmpiresLoanState[]
+  nextInsuranceSequence: number
+  insuranceContracts: EmpiresInsuranceContractState[]
+  persecution: { startedAtCon: number, cityId: string } | null
+  fair: {
+    lastUsedConByAction: Record<string, number>
+    activeActivities: EmpiresFairActivityState[]
+    baronUnlockedAtCon: number | null
+  }
+  temple: {
+    lastPreachedConByCity: Record<string, number>
+    relicAssignments: Record<string, EmpiresTempleRelicAssignmentState>
+    activatedRelicIds: string[]
+  }
+  compactedLoanCount: number
+  compactedInsuranceCount: number
+}
+
+export interface EmpiresLoanQuote {
+  cityId: string
+  incomeAtOrigination: number
+  principal: number
+  termCons: number
+  installmentAmount: number
+  totalRepayment: number
+  interest: number
+  blockedReason: string | null
+}
+
+export interface EmpiresFairActionView extends EmpiresFairActionDefinition {
+  availableAtCon: number
+  activeUntilCon: number | null
+  blockedReason: string | null
+}
+
+export interface EmpiresTempleRelicSlotView {
+  id: string
+  cityId: string
+  index: number
+  giftId: string | null
+  giftName: string | null
+  active: boolean
+}
+
+export interface EmpiresDomesticEconomyView {
+  cityId: string
+  selectedCityName: string
+  bank: {
+    quote: EmpiresLoanQuote
+    loans: EmpiresLoanState[]
+    persecutionActive: boolean
+    persecutionBlockedReason: string | null
+  }
+  insurance: {
+    contract: EmpiresInsuranceContractState | null
+    startBlockedReason: string | null
+    projectedPayoutGold: number
+  }
+  fair: {
+    actions: EmpiresFairActionView[]
+    baronUnlockedAtCon: number | null
+  }
+  temple: {
+    preachBlockedReason: string | null
+    projectedTitheGold: number
+    slots: EmpiresTempleRelicSlotView[]
+    unassignedRelics: Array<{ id: string, name: string }>
+  }
+  tavern: {
+    available: boolean
+    blockedReason: string | null
+    recruitmentCapacityBonus: number
+    moraleMaximumBonus: number
+    deferredCapabilities: EmpiresDeferredSubfeature[]
+  }
+}
+
 export interface EmpiresEmpireState {
   daysRemaining: number
   resources: Record<string, number>
@@ -1209,6 +1434,7 @@ export interface EmpiresEmpireState {
     awardedTechnologyIds: string[]
     academyTreatmentUsedCon: number | null
   }
+  domesticEconomy: EmpiresDomesticEconomyState
 }
 
 export interface EmpiresEpidemicSource {
@@ -1314,7 +1540,7 @@ export interface EmpiresEventState {
 }
 
 export interface EmpiresCampaignState {
-  schemaVersion: 6
+  schemaVersion: 7
   configId: string
   phase: EmpiresPhase
   rng: EmpiresRngState
@@ -1343,7 +1569,7 @@ export interface EmpiresCampaignState {
 }
 
 export interface EmpiresSnapshotEnvelope {
-  schemaVersion: 6
+  schemaVersion: 7
   savedAt: string
   state: EmpiresCampaignState
 }
