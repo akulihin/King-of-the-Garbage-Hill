@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 15,
+  "schemaVersion": 16,
   "id": "empires-endgame-default",
   "title": "Empire's Endgame",
   "seed": "empires-endgame-authoritative-default-v1",
@@ -16,6 +16,10 @@
       { "id": "mail", "name": "Кольчуга" },
       { "id": "brigandine", "name": "Бригантина" },
       { "id": "textile", "name": "Тканевые" },
+      { "id": "leather", "name": "Кожаные" },
+      { "id": "bone", "name": "Костяные" },
+      { "id": "creature-hide", "name": "Шкура твари" },
+      { "id": "plant", "name": "Растительная ткань" },
       { "id": "plate", "name": "Латный доспех" },
       { "id": "shield", "name": "Щит" }
     ],
@@ -26,6 +30,12 @@
       { "id": "brigandine-counters-impact", "kind": "armorCountersDamageType", "armorClassId": "brigandine", "damageTypeId": "impact" },
       { "id": "textile-counters-impact", "kind": "armorCountersDamageType", "armorClassId": "textile", "damageTypeId": "impact" },
       { "id": "textile-counters-cutting", "kind": "armorCountersDamageType", "armorClassId": "textile", "damageTypeId": "cutting" },
+      { "id": "cutting-counters-leather", "kind": "damageTypeCountersArmor", "damageTypeId": "cutting", "armorClassId": "leather" },
+      { "id": "crushing-counters-bone", "kind": "damageTypeCountersArmor", "damageTypeId": "crushing", "armorClassId": "bone" },
+      { "id": "cutting-counters-creature-hide", "kind": "damageTypeCountersArmor", "damageTypeId": "cutting", "armorClassId": "creature-hide" },
+      { "id": "crushing-counters-creature-hide", "kind": "damageTypeCountersArmor", "damageTypeId": "crushing", "armorClassId": "creature-hide" },
+      { "id": "chopping-counters-plant", "kind": "damageTypeCountersArmor", "damageTypeId": "chopping", "armorClassId": "plant" },
+      { "id": "plant-counters-piercing", "kind": "armorCountersDamageType", "armorClassId": "plant", "damageTypeId": "piercing" },
       { "id": "piercing-overmatches-armor", "kind": "damageTypeOvermatchesArmor", "damageTypeId": "piercing" },
       { "id": "armor-breaker-counters-all-armor", "kind": "weaponTagCountersAllArmor", "weaponTag": "armor-breaker" },
       { "id": "axe-counters-shield", "kind": "weaponTagCountersArmor", "weaponTag": "axe", "armorClassId": "shield" },
@@ -189,7 +199,10 @@
       { "id": "alliance-forest-wave", "name": "Волна Альянса в лесу", "groups": [{ "id": "forest-infantry", "categoryIds": ["melee"], "count": 8, "startTick": 0, "spawnIntervalTicks": 22, "routeEdgeIds": ["forest-road-1", "forest-road-2", "forest-road-3"], "maxHp": 12, "speedPerSecond": 48, "attackRange": 40, "attackIntervalTicks": 20, "weapon": { "damageLevels": { "impact": 2 }, "tags": ["alliance"] }, "armor": null }, { "id": "forest-archers", "categoryIds": ["ranged"], "count": 4, "startTick": 30, "spawnIntervalTicks": 30, "routeEdgeIds": ["forest-road-1", "forest-road-2", "forest-road-3"], "maxHp": 9, "speedPerSecond": 42, "attackRange": 140, "attackIntervalTicks": 24, "weapon": { "damageLevels": { "piercing": 2 }, "tags": ["alliance", "arrow"] }, "armor": null }] },
       { "id": "alliance-north-ships", "name": "Корабли Альянса", "groups": [{ "id": "north-ships", "categoryIds": ["naval", "ranged"], "count": 8, "startTick": 0, "spawnIntervalTicks": 30, "routeEdgeIds": ["north-sea-1", "north-sea-2", "north-sea-3"], "maxHp": 24, "speedPerSecond": 30, "attackRange": 100, "attackIntervalTicks": 28, "weapon": { "damageLevels": { "impact": 3 }, "tags": ["alliance", "naval"] }, "armor": null }] },
       { "id": "alliance-desert-wave", "name": "Волна Альянса в пустыне", "groups": [{ "id": "desert-infantry", "categoryIds": ["melee"], "count": 12, "startTick": 0, "spawnIntervalTicks": 20, "routeEdgeIds": ["desert-road-1", "desert-road-2", "desert-road-3"], "maxHp": 12, "speedPerSecond": 52, "attackRange": 40, "attackIntervalTicks": 20, "weapon": { "damageLevels": { "impact": 2 }, "tags": ["alliance"] }, "armor": null }] },
-      { "id": "alliance-central-defenders", "name": "Оборона Альянса", "groups": [{ "id": "central-defenders", "categoryIds": ["ranged"], "count": 8, "startTick": 0, "spawnIntervalTicks": 18, "routeEdgeIds": ["central-road-1", "central-road-2", "central-road-3"], "stationNodeId": "central-defense", "maxHp": 10, "speedPerSecond": 0, "attackRange": 130, "attackIntervalTicks": 22, "weapon": { "damageLevels": { "piercing": 2 }, "tags": ["alliance", "defender"] }, "armor": null }] }
+      { "id": "alliance-central-defenders", "name": "Оборона Альянса", "groups": [{ "id": "central-defenders", "categoryIds": ["ranged"], "count": 8, "startTick": 0, "spawnIntervalTicks": 18, "routeEdgeIds": ["central-road-1", "central-road-2", "central-road-3"], "stationNodeId": "central-defense", "maxHp": 10, "speedPerSecond": 0, "attackRange": 130, "attackIntervalTicks": 22, "weapon": { "damageLevels": { "piercing": 2 }, "tags": ["alliance", "defender"] }, "armor": null }] },
+      { "id": "expedition-south-profile-wave", "name": "Защитники пустынной крепости", "groups": [{ "id": "south-unarmored-raiders", "categoryIds": ["melee", "expedition"], "count": 8, "startTick": 0, "spawnIntervalTicks": 20, "routeEdgeIds": ["desert-road-1", "desert-road-2", "desert-road-3"], "stationNodeId": "desert-defense", "maxHp": 10, "speedPerSecond": 0, "attackRange": 45, "attackIntervalTicks": 20, "weapon": { "damageLevels": { "cutting": 2 }, "tags": ["desert", "defender"] }, "armor": null }, { "id": "south-crocodile-hide", "categoryIds": ["melee", "expedition"], "count": 3, "startTick": 20, "spawnIntervalTicks": 28, "routeEdgeIds": ["desert-road-1", "desert-road-2", "desert-road-3"], "stationNodeId": "desert-defense", "maxHp": 16, "speedPerSecond": 0, "attackRange": 45, "attackIntervalTicks": 24, "weapon": { "damageLevels": { "crushing": 2 }, "tags": ["desert", "defender"] }, "armor": { "classId": "leather", "level": 1, "tags": ["crocodile"] } }] },
+      { "id": "expedition-west-profile-wave", "name": "Западные костяные и кожаные отряды", "groups": [{ "id": "west-leather-warriors", "categoryIds": ["melee", "expedition"], "count": 6, "startTick": 0, "spawnIntervalTicks": 22, "routeEdgeIds": ["forest-road-1", "forest-road-2", "forest-road-3"], "stationNodeId": "forest-defense", "maxHp": 12, "speedPerSecond": 0, "attackRange": 45, "attackIntervalTicks": 20, "weapon": { "damageLevels": { "cutting": 2 }, "tags": ["forest", "defender"] }, "armor": { "classId": "leather", "level": 1 } }, { "id": "west-bone-guards", "categoryIds": ["melee", "expedition"], "count": 4, "startTick": 20, "spawnIntervalTicks": 26, "routeEdgeIds": ["forest-road-1", "forest-road-2", "forest-road-3"], "stationNodeId": "forest-defense", "maxHp": 16, "speedPerSecond": 0, "attackRange": 45, "attackIntervalTicks": 24, "weapon": { "damageLevels": { "impact": 2 }, "tags": ["forest", "defender"] }, "armor": { "classId": "bone", "level": 1 } }] },
+      { "id": "expedition-swamp-profile-wave", "name": "Болотные твари и растения", "groups": [{ "id": "swamp-creatures", "categoryIds": ["creature", "expedition"], "count": 7, "startTick": 0, "spawnIntervalTicks": 22, "routeEdgeIds": ["swamp-road-1", "swamp-road-2", "swamp-road-3"], "stationNodeId": "swamp-defense", "maxHp": 14, "speedPerSecond": 0, "attackRange": 40, "attackIntervalTicks": 18, "weapon": { "damageLevels": { "cutting": 2 }, "tags": ["swamp", "creature"] }, "armor": { "classId": "creature-hide", "level": 1 } }, { "id": "swamp-plants", "categoryIds": ["plant", "expedition"], "count": 4, "startTick": 18, "spawnIntervalTicks": 30, "routeEdgeIds": ["swamp-road-1", "swamp-road-2", "swamp-road-3"], "stationNodeId": "swamp-defense", "maxHp": 18, "speedPerSecond": 0, "attackRange": 90, "attackIntervalTicks": 28, "weapon": { "damageLevels": { "impact": 2 }, "tags": ["swamp", "plant"] }, "armor": { "classId": "plant", "level": 2 } }] }
     ],
     "planVariants": [
       { "id": "central-castle-defense", "name": "Оборона замка Тетракора", "mode": "defense", "battlefieldId": "battlefield-central", "waveId": "alliance-central-wave", "objective": { "id": "central-castle", "name": "Замок Тетракора", "kind": "castle", "owner": "player", "nodeId": "central-objective", "maxHp": 100, "armor": null }, "deploymentSpeedPerSecond": 0 },
@@ -197,7 +210,8 @@
       { "id": "swamp-fort-defense", "name": "Оборона болотной границы", "mode": "defense", "battlefieldId": "battlefield-swamp", "waveId": "alliance-swamp-wave", "objective": { "id": "swamp-fort", "name": "Болотный форт", "kind": "fort", "owner": "player", "nodeId": "swamp-objective", "maxHp": 100, "armor": null }, "deploymentSpeedPerSecond": 0 },
       { "id": "forest-fort-defense", "name": "Оборона западного леса", "mode": "defense", "battlefieldId": "battlefield-forest", "waveId": "alliance-forest-wave", "objective": { "id": "forest-fort", "name": "Лесной форт", "kind": "fort", "owner": "player", "nodeId": "forest-objective", "maxHp": 100, "armor": null }, "deploymentSpeedPerSecond": 0 },
       { "id": "north-ship-defense", "name": "Оборона северного берега от кораблей", "mode": "defense", "battlefieldId": "battlefield-north-shore", "waveId": "alliance-north-ships", "objective": { "id": "north-shore-fort", "name": "Береговой форт", "kind": "fort", "owner": "player", "nodeId": "north-objective", "maxHp": 120, "armor": null }, "deploymentSpeedPerSecond": 0 },
-      { "id": "desert-fort-defense", "name": "Оборона южной границы", "mode": "defense", "battlefieldId": "battlefield-desert", "waveId": "alliance-desert-wave", "objective": { "id": "desert-fort", "name": "Пустынный форт", "kind": "fort", "owner": "player", "nodeId": "desert-objective", "maxHp": 100, "armor": null }, "deploymentSpeedPerSecond": 0 }
+      { "id": "desert-fort-defense", "name": "Оборона южной границы", "mode": "defense", "battlefieldId": "battlefield-desert", "waveId": "alliance-desert-wave", "objective": { "id": "desert-fort", "name": "Пустынный форт", "kind": "fort", "owner": "player", "nodeId": "desert-objective", "maxHp": 100, "armor": null }, "deploymentSpeedPerSecond": 0 },
+      { "id": "desert-fort-expedition-assault", "name": "Штурм Пустынной крепости", "mode": "assault", "purpose": "expedition", "battlefieldId": "battlefield-desert", "waveId": "expedition-south-profile-wave", "objective": { "id": "south-desert-border-fort", "name": "Пустынная крепость", "kind": "fort", "owner": "enemy", "nodeId": "desert-objective", "maxHp": 80, "armor": null }, "deploymentSpeedPerSecond": 64, "startingBuildResources": 0 }
     ]
   },
   "alchemy": {
@@ -291,6 +305,91 @@
       }
     ]
   },
+  "expeditions": {
+    "enabled": true,
+    "resultHistoryRetention": 16,
+    "timeModel": "preparation-days-and-abstract-travel-cons",
+    "veteran": {
+      "qualifyingMaximumHealthRatio": 0.5,
+      "removalWounds": 2,
+      "laterBattleBonus": null,
+      "laterBattleBonusDeferredReason": "Источник обещает бонус ветеранов в следующих боях, но не задаёт его тип или величину."
+    },
+    "zones": [
+      {
+        "id": "zone-south-beyond-dunes",
+        "name": "Земли за южными дюнами",
+        "regionId": "south",
+        "subregionIds": [],
+        "rewards": [],
+        "deferredSubfeatures": [
+          {
+            "id": "opened-zone-content",
+            "reason": "Источник подтверждает открытие земли после падения крепости, но не задаёт новые слоты, ресурсы, квесты или добычу."
+          }
+        ]
+      }
+    ],
+    "enemyProfiles": [
+      {
+        "id": "enemy-profile-south-unarmored",
+        "name": "Юг: голые враги и крокодилья кожа",
+        "regionId": "south",
+        "waveId": "expedition-south-profile-wave",
+        "description": "Большинство защитников без брони; отдельные бойцы носят крокодилью кожу. Режущее оружие получает преимущество по общим правилам боя."
+      },
+      {
+        "id": "enemy-profile-west-bone-leather",
+        "name": "Запад: костяные и кожаные доспехи",
+        "regionId": "west",
+        "waveId": "expedition-west-profile-wave",
+        "description": "Западные отряды используют костяные и кожаные доспехи; дробящие и режущие профили входят через общий каталог контр."
+      },
+      {
+        "id": "enemy-profile-swamp-creatures",
+        "name": "Болото: твари и растения",
+        "regionId": "east",
+        "waveId": "expedition-swamp-profile-wave",
+        "description": "Болотных тварей можно резать и крошить, а рубящие удары особенно эффективны против растений и предпочтительнее уколов."
+      }
+    ],
+    "definitions": [
+      {
+        "id": "expedition-south-fortress",
+        "name": "Экспедиция к Пустынной крепости",
+        "fortObjectId": "map-south-fortress",
+        "originRegionId": "south",
+        "targetRegionId": "south",
+        "zoneId": "zone-south-beyond-dunes",
+        "tdVariantId": "desert-fort-expedition-assault",
+        "enemyProfileId": "enemy-profile-south-unarmored",
+        "stages": ["planning", "provisioning", "assault", "settlement"],
+        "eligibleUnitIds": ["unit-light", "unit-regular", "unit-heavy", "unit-knight", "unit-medical-healer"],
+        "excludedArmorClassIds": ["plate"],
+        "armorExceptionUnitIds": [],
+        "baseDurationCons": 2,
+        "preparationDays": 3,
+        "provisionResourceId": "food",
+        "minimumProvisionFraction": 0,
+        "fullProvisionDeathChance": 0.05,
+        "emptyProvisionDeathChance": 0.5,
+        "complaint": {
+          "questId": "quest-expedition-south-complaint",
+          "launches": 2,
+          "windowCons": 4,
+          "loyaltyDelta": -1,
+          "minimumProvisionFraction": null,
+          "minimumDurationCons": null,
+          "minimumLossRatio": null
+        },
+        "rewards": [],
+        "retryAfterLoss": true,
+        "retryAfterAbort": true,
+        "returnProvisionPolicy": "none",
+        "repeatable": false
+      }
+    ]
+  },
   "god": {
     "enabled": true,
     "deckMemory": {
@@ -338,6 +437,41 @@
     "historyRetention": 64,
     "triggerHistoryRetention": 64,
     "definitions": [
+      {
+        "id": "quest-expedition-south-complaint",
+        "name": "Жалоба южного региона",
+        "journalDescription": "Южные города недовольны частыми экспедициями и разовым изъятием провизии.",
+        "trigger": {
+          "kind": "manual",
+          "repeatable": true
+        },
+        "entryStageId": "south-expedition-complaint",
+        "mandatory": false,
+        "restartPolicy": "afterTerminal",
+        "stages": [
+          {
+            "id": "south-expedition-complaint",
+            "name": "Требование региона",
+            "entryNodeId": "south-expedition-complaint-notice",
+            "nodes": [
+              {
+                "id": "south-expedition-complaint-notice",
+                "speaker": "Представители южного региона",
+                "text": "Частые экспедиции снова забрали провизию южных городов. Регион требует, чтобы император услышал жалобу.",
+                "choices": [
+                  {
+                    "id": "acknowledge-south-expedition-complaint",
+                    "label": "Выслушать жалобу",
+                    "goto": {
+                      "kind": "complete"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
       {
         "id": "quest-palach",
         "name": "Палач",
@@ -2866,8 +3000,7 @@
             "amount": 0,
             "amountPerLevel": 100
           }
-        ],
-        "deferredReason": "Логистика карты мира, дипломатия и личные квесты ещё не входят в текущую кампанию."
+        ]
       },
       "inverted": {
         "title": "Противоречивые карты",
@@ -2881,7 +3014,7 @@
             "amountPerLevel": 1
           }
         ],
-        "deferredReason": "Логистика карты мира, дипломатия и личные квесты ещё не входят в текущую кампанию."
+        "deferredReason": "Источник не задаёт, как дипломатия или личные квесты выбираются для устранения путаницы, как долго она действует и что именно блокирует до очистки."
       }
     },
     {
@@ -5193,8 +5326,10 @@
           "rotation": 0,
           "draggable": true,
           "image": "",
-          "properties": {
-            "defenseLayer": 1
+          "payload": {
+            "kind": "fortress",
+            "expeditionId": "expedition-south-fortress",
+            "zoneId": "zone-south-beyond-dunes"
           }
         },
         {
@@ -9170,8 +9305,7 @@
             "flagId": "expeditionSpeedPercent",
             "amount": 25
           }
-        ],
-        "deferredReason": "Бой, экспедиции и военные последствия ещё не реализованы."
+        ]
       },
       {
         "id": "tech-supply-corps",
@@ -9209,8 +9343,7 @@
             "flagId": "expeditionProvisionInstallmentTurns",
             "amount": 4
           }
-        ],
-        "deferredReason": "Бой, экспедиции и военные последствия ещё не реализованы."
+        ]
       },
       {
         "id": "reform-coercion",

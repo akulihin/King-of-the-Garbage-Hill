@@ -664,11 +664,18 @@ const weaponCooldowns = computed<WeaponCooldown[]>(() => {
           name: gesture === 'tap'
             ? weapon.tapCombo.map(attack => attack.name).join(' → ')
             : attack.name,
+          description: attack.description,
           remainingMs: cooldown?.remainingMs ?? 0,
           totalMs: cooldown?.totalMs ?? attack.cooldownMs,
           enabled,
           ready,
           locked,
+          contextDimmed: weapon.trait === 'swordRhythm'
+            && gesture === 'doubleTapHold'
+            && !state?.unterhauPrimed,
+          primed: weapon.trait === 'swordRhythm'
+            && gesture === 'doubleTapHold'
+            && state?.unterhauPrimed === true,
           color: attack.color,
           active: enabled && (
             (cue?.gesture === gesture

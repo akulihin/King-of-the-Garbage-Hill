@@ -534,14 +534,17 @@ function loadDraft(config: LastChancesConfig) {
   notice.value = ''
   syncingRaw = false
   selectedWeaponIndex.value = Math.min(selectedWeaponIndex.value, Math.max(0, config.weapons.length - 1))
-  if (!config.weapons[selectedWeaponIndex.value]?.secondaryAttacks) selectedAttackSet.value = 'primary'
+  if (!config.weapons[selectedWeaponIndex.value]?.secondaryAttacks
+    || config.weapons[selectedWeaponIndex.value]?.primaryHandOnly === true) {
+    selectedAttackSet.value = 'primary'
+  }
   selectedEnemyIndex.value = Math.min(selectedEnemyIndex.value, Math.max(0, config.enemies.length - 1))
   selectedTierIndex.value = Math.min(selectedTierIndex.value, Math.max(0, config.progression.tiers.length - 1))
   normalizeLoadoutAugments()
 }
 
 watch(selectedWeapon, (weapon) => {
-  if (!weapon?.secondaryAttacks) selectedAttackSet.value = 'primary'
+  if (!weapon?.secondaryAttacks || weapon.primaryHandOnly === true) selectedAttackSet.value = 'primary'
 })
 
 watch(() => [
@@ -1186,7 +1189,7 @@ function exportJson() {
                       <option v-for="(weapon, index) in draft.weapons" :key="weapon.id" :value="index">{{ weapon.name }}</option>
                     </select>
                   </label>
-                  <label v-if="selectedWeapon?.secondaryAttacks">{{ t.attackSet }}
+                  <label v-if="selectedWeapon?.secondaryAttacks && selectedWeapon.primaryHandOnly !== true">{{ t.attackSet }}
                     <select v-model="selectedAttackSet">
                       <option value="primary">{{ t.primarySet }}</option>
                       <option value="secondary">{{ t.secondarySet }}</option>

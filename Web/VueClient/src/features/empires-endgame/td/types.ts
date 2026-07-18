@@ -176,6 +176,7 @@ export interface TdPlanVariantDefinition {
   id: string
   name: string
   mode: TdBattleMode
+  purpose?: 'campaign' | 'expedition'
   battlefieldId: string
   waveId: string
   objective: TdObjectiveDefinition
@@ -281,6 +282,7 @@ export interface TdDeploymentPlan {
   cohortId: string
   cityId: string
   unitId: string
+  unitInstanceIds: string[]
   count: number
   nodeId: string
   speedPerSecond: number

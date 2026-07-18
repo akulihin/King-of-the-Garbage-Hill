@@ -1,6 +1,7 @@
 import type { EmpiresCampaignState, EmpiresSnapshotEnvelope } from './types'
 
-export const EMPIRES_SAVE_STORAGE_KEY = 'empires-endgame:campaign:v13'
+export const EMPIRES_SAVE_STORAGE_KEY = 'empires-endgame:campaign:v14'
+export const EMPIRES_LEGACY_V13_SAVE_STORAGE_KEY = 'empires-endgame:campaign:v13'
 export const EMPIRES_LEGACY_V12_SAVE_STORAGE_KEY = 'empires-endgame:campaign:v12'
 export const EMPIRES_LEGACY_V11_SAVE_STORAGE_KEY = 'empires-endgame:campaign:v11'
 export const EMPIRES_LEGACY_V10_SAVE_STORAGE_KEY = 'empires-endgame:campaign:v10'
@@ -26,15 +27,15 @@ function cloneJson<T>(value: T): T {
 
 function migrateEmpiresSnapshotEnvelope(value: unknown): EmpiresSnapshotEnvelope | null {
   if (!isRecord(value) || typeof value.savedAt !== 'string' || !isRecord(value.state)) return null
-  if (![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13].includes(value.schemaVersion as number)) return null
+  if (![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14].includes(value.schemaVersion as number)) return null
   const state = cloneJson(value.state)
-  if (![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13].includes(state.schemaVersion as number)) return null
+  if (![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14].includes(state.schemaVersion as number)) return null
   if (typeof state.configId !== 'string') return null
 
   // The engine performs the config-aware cohort and political-state fills.
-  state.schemaVersion = 13
+  state.schemaVersion = 14
   return {
-    schemaVersion: 13,
+    schemaVersion: 14,
     savedAt: value.savedAt,
     state: state as unknown as EmpiresCampaignState,
   }
@@ -42,7 +43,7 @@ function migrateEmpiresSnapshotEnvelope(value: unknown): EmpiresSnapshotEnvelope
 
 export function saveEmpiresCampaign(state: EmpiresCampaignState) {
   const envelope: EmpiresSnapshotEnvelope = {
-    schemaVersion: 13,
+    schemaVersion: 14,
     savedAt: new Date().toISOString(),
     state: structuredClone(state),
   }
@@ -51,6 +52,7 @@ export function saveEmpiresCampaign(state: EmpiresCampaignState) {
 
 export function loadEmpiresCampaign(configId: string): EmpiresCampaignState | null {
   const raw = window.localStorage.getItem(EMPIRES_SAVE_STORAGE_KEY)
+    ?? window.localStorage.getItem(EMPIRES_LEGACY_V13_SAVE_STORAGE_KEY)
     ?? window.localStorage.getItem(EMPIRES_LEGACY_V12_SAVE_STORAGE_KEY)
     ?? window.localStorage.getItem(EMPIRES_LEGACY_V11_SAVE_STORAGE_KEY)
     ?? window.localStorage.getItem(EMPIRES_LEGACY_V10_SAVE_STORAGE_KEY)
@@ -77,6 +79,7 @@ export function loadEmpiresCampaign(configId: string): EmpiresCampaignState | nu
 
 export function clearEmpiresCampaign() {
   window.localStorage.removeItem(EMPIRES_SAVE_STORAGE_KEY)
+  window.localStorage.removeItem(EMPIRES_LEGACY_V13_SAVE_STORAGE_KEY)
   window.localStorage.removeItem(EMPIRES_LEGACY_V12_SAVE_STORAGE_KEY)
   window.localStorage.removeItem(EMPIRES_LEGACY_V11_SAVE_STORAGE_KEY)
   window.localStorage.removeItem(EMPIRES_LEGACY_V10_SAVE_STORAGE_KEY)
@@ -93,7 +96,7 @@ export function clearEmpiresCampaign() {
 
 export function exportEmpiresCampaign(state: EmpiresCampaignState): EmpiresSnapshotEnvelope {
   return {
-    schemaVersion: 13,
+    schemaVersion: 14,
     savedAt: new Date().toISOString(),
     state: structuredClone(state),
   }
@@ -101,7 +104,7 @@ export function exportEmpiresCampaign(state: EmpiresCampaignState): EmpiresSnaps
 
 export function importEmpiresCampaign(value: unknown, configId: string): EmpiresCampaignState {
   const envelope = migrateEmpiresSnapshotEnvelope(value)
-  if (!envelope) throw new Error('Это не поддерживаемое сохранение Empire\'s Endgame версии 1–13.')
+  if (!envelope) throw new Error('Это не поддерживаемое сохранение Empire\'s Endgame версии 1–14.')
   if (envelope.state.configId !== configId) {
     throw new Error('Сохранение создано для другой конфигурации игры.')
   }

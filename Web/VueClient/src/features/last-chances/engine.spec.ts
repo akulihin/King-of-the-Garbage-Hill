@@ -75,6 +75,13 @@ interface RuntimeWeaponState {
   recoveryMs: number
   lastTapAtMs: number
   rhythm: 'idle' | 'early' | 'good' | 'late'
+  perfectTimingMs: number
+  fatigueMs: number
+  unterhauDueAtMs: number
+  unterhauTargetId: string | null
+  unterhauTargetPosition: LastChancesVector | null
+  unterhauPrimed: boolean
+  lastMotionDamageBonus: number
 }
 
 interface RuntimeEnemy {
@@ -96,6 +103,7 @@ interface RuntimeEnemy {
   lastPlayerHit: { hand: LastChancesHand, gesture: LastChancesGesture } | null
   gestureHits: Record<LastChancesHand, Set<LastChancesGesture>>
   entering: boolean
+  swordExecutionMarked: boolean
 }
 
 interface RuntimeAttackContext {
@@ -117,6 +125,8 @@ type EngineTestAccess = {
     rotationAssisted: boolean
     sweepDegrees: number
     authoredRepeatHits: number
+    swordMotionDamageBonus: number
+    swordMatchingMousePx: number
   }>
   activeDash: {
     attack: LastChancesAttackDefinition
@@ -157,6 +167,8 @@ type EngineTestAccess = {
       gesture?: LastChancesGesture
       storedDot?: LastChancesStoredDot | null
       distance?: number
+      damageMultiplier?: number
+      impactIntensity?: number
     },
   ) => void
   elapsedMs: number
@@ -234,6 +246,7 @@ type EngineTestAccess = {
     stats: { maxHp: number, maxMentalHealth: number, moveSpeed: number, armor: number }
   }
   pointerAim: LastChancesVector
+  pointerDeltaX: number
   roomElapsedMs: number
   selectMobilityPhysicalHand: (atMs: number) => LastChancesHand | null
   tapCombos: Record<LastChancesHand, { step: number, expiresAtMs: number }>
@@ -1491,7 +1504,7 @@ describe('99LC seven-weapon mechanics', () => {
     }
   })
 
-  it('classifies sword rhythm and consumes a three-hit opening for the critical Oberhau', () => {
+  it('classifies the 500–600 ms sword rhythm and executes an opened target with Oberhaw', () => {
     const config = combatConfig('hybrid-sword', null, 'curator-shadow', 1)
     const { engine, access } = startCombat(config)
     const sword = weapon(config, 'hybrid-sword')
@@ -1501,25 +1514,32 @@ describe('99LC seven-weapon mechanics', () => {
       access.performAttack(resolution('left', 'tap'))
       expect(access.weaponStates.get('hybrid-sword')?.rhythm).toBe('idle')
 
-      access.elapsedMs += 300
-      access.performAttack(resolution('left', 'tap'))
-      expect(access.weaponStates.get('hybrid-sword')?.rhythm).toBe('good')
-
-      access.elapsedMs += 100
+      access.elapsedMs += 499
       access.performAttack(resolution('left', 'tap'))
       expect(access.weaponStates.get('hybrid-sword')).toMatchObject({
         rhythm: 'early',
-        recoveryMs: 900,
+        recoveryMs: 2000,
+        fatigueMs: 2000,
       })
 
       access.weaponStates.get('hybrid-sword')!.recoveryMs = 0
+      access.weaponStates.get('hybrid-sword')!.fatigueMs = 0
       access.player.recoveryMs = 0
+      access.elapsedMs += 500
+      access.performAttack(resolution('left', 'tap'))
+      expect(access.weaponStates.get('hybrid-sword')).toMatchObject({
+        rhythm: 'good',
+        perfectTimingMs: 480,
+      })
+
       access.elapsedMs += 700
       access.performAttack(resolution('left', 'tap'))
       expect(access.weaponStates.get('hybrid-sword')?.rhythm).toBe('late')
 
       const cleanTap = { ...sword.attacks.tap, hitEffects: [] }
-      target.hp = target.definition.maxHp
+      target.definition.maxHp = 500
+      target.definition.armor = 0
+      target.hp = 500
       target.statuses.openingMs = 0
       access.weaponStates.get('hybrid-sword')!.successfulHits = 0
       for (let hit = 0; hit < 3; hit += 1) {
@@ -1536,9 +1556,15 @@ describe('99LC seven-weapon mechanics', () => {
         { hand: 'left' },
       )
       expect(300 - target.hp).toBeCloseTo(
-        sword.attacks.doubleTap.damage * 2 - (target.definition.armor ?? 0),
+        sword.attacks.doubleTap.damage * 3.25 * 1.5,
       )
       expect(target.statuses.openingMs).toBe(0)
+      expect(target.swordExecutionMarked).toBe(true)
+      access.cooldownEnds.set('left:doubleTap', access.elapsedMs + 2800)
+      access.cooldownEnds.set('left:doubleTapHold', access.elapsedMs + 2800)
+      access.finishEnemyDeath(target)
+      expect(access.cooldownEnds.has('left:doubleTap')).toBe(false)
+      expect(access.cooldownEnds.has('left:doubleTapHold')).toBe(false)
     } finally {
       engine.destroy()
     }
@@ -1555,7 +1581,7 @@ describe('99LC seven-weapon mechanics', () => {
       target.hp = 500
       target.statuses.openingMs = 1600
       placeEnemy(access, target, 100)
-      access.performAttack(resolution('left', 'doubleTapHold', 700))
+      access.performAttack(resolution('left', 'doubleTapHold', 1000))
 
       expect(access.activeAreas.map(area => area.attack.behavior)).toContain('swordOpening')
       expect(access.activeAreas.map(area => area.attack.behavior)).not.toContain('swordFollowUp')
@@ -1573,6 +1599,80 @@ describe('99LC seven-weapon mechanics', () => {
       )
     } finally {
       engine.destroy()
+    }
+  })
+
+  it('alternates Zornhaw sweep directions, applies matching mouse motion and morphs into Oberhaw', () => {
+    const config = combatConfig('hybrid-sword', null, 'guard', 1)
+    const { engine, access } = startCombat(config)
+
+    try {
+      placeEnemy(access, access.enemies[0], 500)
+      access.performAttack(resolution('left', 'tap'))
+      expect(access.activeAreas.at(-1)?.attack.collider?.rotationDegrees).toBe(118)
+
+      access.pointerDeltaX = 160
+      access.updateActiveAreas(10)
+      expect(access.activeAreas.at(-1)?.swordMotionDamageBonus).toBeCloseTo(0.25)
+      expect(access.weaponStates.get('hybrid-sword')?.lastMotionDamageBonus).toBeCloseTo(0.25)
+
+      access.elapsedMs += 500
+      access.performAttack(resolution('left', 'tap'))
+      expect(access.activeAreas.at(-1)?.attack.collider?.rotationDegrees).toBe(-118)
+
+      access.performAttack(resolution('left', 'doubleTap'))
+      expect(access.activeAreas.some(area => area.attack.behavior === 'swordRhythm')).toBe(false)
+      expect(access.activeAreas.some(area => area.attack.behavior === 'swordOpening')).toBe(true)
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('grants elites Unstoppable after six configured staggers and honors the stagger toggle', () => {
+    const config = combatConfig('hybrid-sword', null, 'guard', 1)
+    const enabled = startCombat(config)
+    const disabledConfig = cloneLastChancesConfig(config)
+    weapon(disabledConfig, 'hybrid-sword').staggerEnabled = false
+    const disabled = startCombat(disabledConfig)
+
+    try {
+      const sword = weapon(config, 'hybrid-sword')
+      const cleanTap = { ...sword.attacks.tap, hitEffects: [] }
+      const elite = enabled.access.enemies[0]
+      elite.definition.role = 'elite'
+      elite.definition.maxHp = 1000
+      elite.definition.armor = 0
+      elite.hp = 1000
+      for (let hit = 0; hit < 6; hit += 1) {
+        enabled.access.damageEnemy(
+          elite,
+          cleanTap,
+          0,
+          { x: 1, y: 0 },
+          { hand: 'left', gesture: 'tap' },
+        )
+      }
+      expect(elite.statuses).toMatchObject({
+        stunMs: 0,
+        staggerAccumulatedMs: 0,
+        unstoppableMs: 5000,
+      })
+      applyLastChancesStatusEffects(elite.statuses, [{ status: 'stun', durationMs: 1000 }])
+      expect(elite.statuses.stunMs).toBe(0)
+
+      const ordinary = disabled.access.enemies[0]
+      ordinary.definition.armor = 0
+      disabled.access.damageEnemy(
+        ordinary,
+        cleanTap,
+        0,
+        { x: 1, y: 0 },
+        { hand: 'left', gesture: 'tap' },
+      )
+      expect(ordinary.statuses.stunMs).toBe(0)
+    } finally {
+      enabled.engine.destroy()
+      disabled.engine.destroy()
     }
   })
 
@@ -2486,7 +2586,7 @@ describe('99LC control-scheme engine boundary', () => {
     }
   })
 
-  it('emits one immediate blocked cue for a Sword pull without an opening', () => {
+  it('executes Oberhaw without requiring an opening status', () => {
     const snapshots: LastChancesSnapshot[] = []
     const config = combatConfig('hybrid-sword', null, 'guard', 1)
     const engine = new LastChancesEngine(makeCanvas(), config, {
@@ -2499,18 +2599,21 @@ describe('99LC control-scheme engine boundary', () => {
 
     try {
       driveDualSenseTrigger(access, 'right', 0.22, 0)
-      driveDualSenseTrigger(access, 'right', 0.72, 100)
+      driveDualSenseTrigger(access, 'right', 0, 100)
 
-      expect(snapshots.filter(snapshot => snapshot.controlCue?.state === 'blocked')).toHaveLength(1)
+      expect(snapshots.filter(snapshot => snapshot.controlCue?.state === 'blocked')).toHaveLength(0)
       expect(access.createSnapshot()).toMatchObject({
-        lastGesture: null,
-        controlCue: { state: 'blocked', hand: 'left', gesture: 'doubleTap', atMs: 0 },
+        lastGesture: {
+          hand: 'left',
+          gesture: 'doubleTap',
+          attackName: weapon(defaultConfig, 'hybrid-sword').attacks.doubleTap.name,
+        },
       })
       expect(access.dualSenseControls.snapshot('right', 100)).toMatchObject({
         active: false,
         nodeId: null,
       })
-      expect(access.activeAreas).toHaveLength(0)
+      expect(access.activeAreas.map(area => area.attack.behavior)).toContain('swordOpening')
     } finally {
       engine.destroy()
     }
@@ -2560,7 +2663,7 @@ describe('99LC control-scheme engine boundary', () => {
       target.lastPlayerHit = { hand: 'left', gesture: 'tap' }
       placeEnemy(access, target, 500)
 
-      expect(access.controlContextActive('left', 'opening')).toBe(true)
+      expect(access.controlContextActive('left', 'opening')).toBe(false)
       expect(access.controlContextActive('right', 'opening')).toBe(false)
       expect(access.controlContextActive('right', 'neutral')).toBe(true)
       expect(access.controlContextActive('right', 'continuation')).toBe(false)
@@ -3004,25 +3107,22 @@ describe('99LC control-scheme engine boundary', () => {
     }
   })
 
-  it('keeps both Sword clusters on the opening-gated Oberhau to Unterhau executor', () => {
-    for (const physicalHand of ['left', 'right'] as const) {
-      const { engine, access } = startCombat(combatConfig('hybrid-sword', null))
-      engine.setControlScheme('dualsense')
-      try {
-        access.enemies[0].statuses.openingMs = 2_000
-        driveDualSenseTrigger(access, physicalHand, 0.72, 0)
-        driveDualSenseTrigger(access, physicalHand, 0, 700)
-        const runtimeHand = physicalHand === 'left' ? 'right' : 'left'
-        const equipped = access.weapons.get(runtimeHand)!
-        expect(access.createSnapshot().lastGesture).toMatchObject({
-          hand: runtimeHand,
-          gesture: 'doubleTapHold',
-          attackName: equipped.attacks.doubleTapHold.name,
-        })
-        expect(access.delayedAttacks).toHaveLength(1)
-      } finally {
-        engine.destroy()
-      }
+  it('keeps every Sword move on the left runtime hand and arms Unterhaw after 1 second', () => {
+    const { engine, access } = startCombat(combatConfig('hybrid-sword', null))
+    engine.setControlScheme('dualsense')
+    try {
+      expect(access.weapons.has('right')).toBe(false)
+      driveDualSenseTrigger(access, 'right', 0.72, 0)
+      driveDualSenseTrigger(access, 'right', 0, 1000)
+      const equipped = access.weapons.get('left')!
+      expect(access.createSnapshot().lastGesture).toMatchObject({
+        hand: 'left',
+        gesture: 'doubleTapHold',
+        attackName: equipped.attacks.doubleTapHold.name,
+      })
+      expect(access.delayedAttacks).toHaveLength(1)
+    } finally {
+      engine.destroy()
     }
   })
 

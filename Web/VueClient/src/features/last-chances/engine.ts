@@ -938,6 +938,7 @@ export class LastChancesEngine {
     this.provisionalParry = null
     this.heldChannels.clear()
     this.activeDash = null
+    this.activeSwordAdvance = null
     this.roomElapsedMs = 0
     this.hazardHitCycles.clear()
     this.hazardSuppressedUntil.clear()
@@ -945,6 +946,7 @@ export class LastChancesEngine {
     this.cooldownEnds.clear()
     this.resetTapCombos()
     this.gestures.reset()
+    for (const hand of LAST_CHANCES_HANDS) this.resetImmediateSwordInput(hand)
     this.mylorikControls.reset()
     this.dualSenseControls.reset()
     for (const hand of LAST_CHANCES_HANDS) {
@@ -1236,6 +1238,14 @@ export class LastChancesEngine {
       state.recoveryMs = Math.max(0, state.recoveryMs - deltaMs)
       state.perfectTimingMs = Math.max(0, state.perfectTimingMs - deltaMs)
       state.fatigueMs = Math.max(0, state.fatigueMs - deltaMs)
+      if (state.unterhauDueAtMs > 0
+        && this.elapsedMs >= state.unterhauDueAtMs
+        && !this.delayedAttacks.some(delayed => delayed.attack.behavior === 'swordFollowUp')) {
+        state.unterhauDueAtMs = 0
+        state.unterhauTargetId = null
+        state.unterhauTargetPosition = null
+        state.unterhauPrimed = false
+      }
     }
     this.updateHeldWeaponMechanics(deltaMs)
     this.updateDelayedAttacks(deltaMs)
@@ -1857,6 +1867,7 @@ export class LastChancesEngine {
         this.restoreFromLifesteal(hpBeforeTick - enemy.hp)
         if (enemy.hp <= 0) this.finishEnemyDeath(enemy)
       })
+      if (enemy.statuses.unstoppableMs > 0) this.clearEnemyControlStatuses(enemy)
       if (enemy.state === 'dead') continue
       enemy.revealedMs = Math.max(0, enemy.revealedMs - deltaMs)
       enemy.captureWindowMs = Math.max(0, enemy.captureWindowMs - deltaMs)
@@ -2402,6 +2413,7 @@ export class LastChancesEngine {
     if (context === 'flurry') return activeBehavior === 'spiderFlurry'
     if (context === 'continuation') {
       return state.boundEnemyId !== null
+        || (weapon.trait === 'swordRhythm' && state.unterhauDueAtMs > this.elapsedMs)
         || (this.activeDash?.hand === hand && this.activeDash.weaponId === weapon.id)
         || handChannel !== undefined
     }
@@ -2447,6 +2459,11 @@ export class LastChancesEngine {
     }
 
     const state = this.weaponState(weapon)
+    if (context === 'continuation'
+      && weapon.trait === 'swordRhythm'
+      && state.unterhauDueAtMs > this.elapsedMs) {
+      keys.add(`${hand}:unterhau`)
+    }
     if ((accepts('grapple') || accepts('tether')) && state.boundEnemyId !== null) {
       keys.add(`${hand}:bound`)
     }
@@ -2548,6 +2565,11 @@ export class LastChancesEngine {
       && this.provisionalParry.weaponId === weapon.id
       && this.provisionalParry.hand !== hand) return false
     const behavior = attack.behavior
+    const swordMorph = weapon.trait === 'swordRhythm'
+      && (behavior === 'swordOpening' || behavior === 'swordFollowUp')
+      && this.activeAreas.some(area => (
+        area.weaponId === weapon.id && area.attack.behavior === 'swordRhythm'
+      ))
     const contextualContinuation = (behavior === 'clawDeepStrike'
       && this.activeDash?.hand === hand && this.activeDash.weaponId === weapon.id)
       || (behavior === 'axeThrow' && state.boundEnemyId !== null)
@@ -2559,6 +2581,7 @@ export class LastChancesEngine {
       || (behavior === 'spiderThrow' && this.heldChannels.get(hand)?.attack.behavior === 'spiderFlurry')
       || (behavior === 'poleVault' && this.heldChannels.get(hand)?.attack.behavior === 'spearStance')
       || (behavior === 'axeLeap' && this.heldChannels.get(hand)?.attack.behavior === 'axeSpin')
+      || swordMorph
     if ((this.weaponActionEnds.get(weapon.id) ?? 0) > this.elapsedMs
       && !contextualContinuation) return false
     const otherHandUsesWeapon = [...this.heldChannels.entries()].some(([channelHand, area]) => (
@@ -2571,6 +2594,14 @@ export class LastChancesEngine {
     if ((this.player.recoveryMs > 0 || state.recoveryMs > 0)
       && !axeRecoveryCancel && !contextualContinuation) {
       return false
+    }
+    if (weapon.trait === 'swordRhythm' && state.fatigueMs > 0) return false
+    if (weapon.trait === 'swordRhythm'
+      && (gesture === 'doubleTap' || gesture === 'doubleTapHold')) {
+      return Math.max(
+        this.cooldownEnds.get(cooldownKey(hand, 'doubleTap')) ?? 0,
+        this.cooldownEnds.get(cooldownKey(hand, 'doubleTapHold')) ?? 0,
+      ) <= this.elapsedMs
     }
     return gesture === 'tap'
       || (this.cooldownEnds.get(cooldownKey(hand, gesture)) ?? 0) <= this.elapsedMs
@@ -2847,21 +2878,22 @@ export class LastChancesEngine {
     }
     if (attack.behavior === 'swordFollowUp') {
       const openingAttack = attackWithLastChancesAugment(weapon.attacks.doubleTap, weapon)
-      this.prepareSwordOberhau(state, openingAttack, direction)
+      this.prepareSwordOberhau(weapon, state, openingAttack, direction)
       this.executeAttack(openingAttack, direction, {
         ...context,
         gesture: 'doubleTap',
       })
       if (resolution.heldMs >= tuningValue(weapon, 'unterhauHoldMs', 1000)) {
-        this.queueSwordUnterhau(context, attack, direction, 0)
+        this.queueSwordUnterhau(context, attack, direction, openingAttack.durationMs)
       } else {
         this.cancelPendingUnterhau(weapon)
+        this.scheduleRecovery(weapon.id, openingAttack.recoveryMs, openingAttack.durationMs)
       }
       return
     }
 
     if (attack.behavior === 'swordOpening') {
-      this.prepareSwordOberhau(state, attack, direction)
+      this.prepareSwordOberhau(weapon, state, attack, direction)
     }
 
     const actionDurationMs = attack.durationMs + (attack.lingerMs ?? 0)
@@ -3069,7 +3101,7 @@ export class LastChancesEngine {
     if (attack.behavior === 'axeGrapple' || attack.behavior === 'axeThrow') {
       this.latchAxeTarget(area)
     }
-    else this.applyActiveAreaHits(area)
+    else if (attack.behavior !== 'swordRhythm') this.applyActiveAreaHits(area)
     if (area.remainingMs > 0 && area.remainingHits > 0) this.activeAreas.push(area)
     this.syncContinuationFeedback()
   }
@@ -3150,6 +3182,22 @@ export class LastChancesEngine {
         const movement = this.resolveMovement()
         const authoredRotation = area.attack.collider.rotationDegrees ?? 360
         const rotationSign = Math.sign(authoredRotation) || 1
+        if (area.attack.behavior === 'swordRhythm'
+          && Math.abs(this.pointerDeltaX) > 0
+          && Math.sign(this.pointerDeltaX) === rotationSign) {
+          area.swordMatchingMousePx += Math.abs(this.pointerDeltaX)
+          const weapon = this.weapons.get(area.hand)
+          const progress = clamp(
+            area.swordMatchingMousePx
+              / Math.max(1, tuningValue(weapon, 'mouseMotionForMaxBonusPx', 160)),
+            0,
+            1,
+          )
+          area.swordMotionDamageBonus = progress
+            * tuningValue(weapon, 'mouseDamageBonusMax', 0.25)
+          const state = weapon ? this.weaponState(weapon) : null
+          if (state) state.lastMotionDamageBonus = area.swordMotionDamageBonus
+        }
         const movementTurn = area.direction.x * movement.y - area.direction.y * movement.x
         const rotationCanBeAssisted = ['chainSpin', 'axeSpin'].includes(area.attack.behavior ?? '')
         const matchingMovement = Math.abs(movementTurn) > 0.2
@@ -3277,6 +3325,17 @@ export class LastChancesEngine {
         gesture: area.gesture,
         storedDot: area.storedDot,
         distance: vectorLength(toEnemy),
+        damageMultiplier: 1 + area.swordMotionDamageBonus,
+        impactIntensity: area.attack.behavior === 'swordRhythm'
+          ? Math.pow(clamp(
+              area.swordMotionDamageBonus / Math.max(
+                0.001,
+                tuningValue(this.weapons.get(area.hand), 'mouseDamageBonusMax', 0.25),
+              ),
+              0,
+              1,
+            ), 2)
+          : undefined,
       })
     }
   }
@@ -3693,41 +3752,193 @@ export class LastChancesEngine {
 
   private applySwordRhythm(
     state: RuntimeWeaponState,
-    attack: LastChancesAttackDefinition,
+    _attack: LastChancesAttackDefinition,
     hand: LastChancesHand,
-  ): void {
+  ): boolean {
     const weapon = this.weapons.get(hand)
     const interval = this.elapsedMs - state.lastTapAtMs
     state.lastTapAtMs = this.elapsedMs
-    if (interval < tuningValue(weapon, 'rhythmEarlyMs', 170)) {
+    const perfectStartMs = tuningValue(weapon, 'rhythmPerfectStartMs', 500)
+    const perfectEndMs = Math.max(
+      perfectStartMs,
+      tuningValue(weapon, 'rhythmPerfectEndMs', 600),
+    )
+    if (interval < perfectStartMs) {
       state.rhythm = 'early'
-      const fatigueMs = tuningValue(weapon, 'rhythmFatigueMs', 900)
+      const fatigueMs = tuningValue(weapon, 'rhythmFatigueMs', 2000)
       state.recoveryMs = Math.max(state.recoveryMs, fatigueMs)
-      this.player.recoveryMs = Math.max(this.player.recoveryMs, fatigueMs)
+      state.fatigueMs = Math.max(state.fatigueMs, fatigueMs)
       this.tapCombos[hand].step = 0
-      return
+      this.activeSwordAdvance = null
+      return false
     }
-    if (interval <= tuningValue(weapon, 'rhythmGoodMaxMs', 540)) {
+    if (interval <= perfectEndMs) {
       state.rhythm = 'good'
-      attack.knockback += tuningValue(weapon, 'rhythmKnockbackBonus', 18)
-      attack.hitEffects = [
-        ...(attack.hitEffects ?? []),
-        {
-          status: 'microstun',
-          durationMs: tuningValue(weapon, 'rhythmMicrostunMs', 180),
-        },
-      ]
-      this.moveCircle(
-        this.player.position,
-        {
-          x: this.player.aim.x * tuningValue(weapon, 'rhythmStepDistance', 18),
-          y: this.player.aim.y * tuningValue(weapon, 'rhythmStepDistance', 18),
-        },
-        this.config.player.radius,
-      )
+      state.perfectTimingMs = tuningValue(weapon, 'rhythmPerfectFeedbackMs', 480)
+    } else {
+      state.rhythm = interval === Number.POSITIVE_INFINITY ? 'idle' : 'late'
+    }
+    this.activeSwordAdvance = {
+      weaponId: weapon?.id ?? 'hybrid-sword',
+      direction: normalize(this.player.aim),
+      remainingDistance: tuningValue(weapon, 'advanceDistance', 14.4),
+      speed: Math.max(1, tuningValue(weapon, 'advanceSpeed', 144)),
+    }
+    return true
+  }
+
+  private morphSwordAttack(weaponId: string): void {
+    const morphing = this.activeAreas.filter(area => (
+      area.weaponId === weaponId && area.attack.behavior === 'swordRhythm'
+    ))
+    for (const area of morphing) {
+      this.addColliderTrace(this.activeAreaCollider(area), {
+        ...area.attack,
+        color: '#d9f1ff',
+      })
+    }
+    if (morphing.length > 0) {
+      this.activeAreas = this.activeAreas.filter(area => !morphing.includes(area))
+    }
+    if (this.activeSwordAdvance?.weaponId === weaponId) this.activeSwordAdvance = null
+    this.weaponActionEnds.delete(weaponId)
+  }
+
+  private prepareSwordOberhau(
+    weapon: LastChancesResolvedWeapon,
+    state: RuntimeWeaponState,
+    attack: LastChancesAttackDefinition,
+    direction: LastChancesVector,
+  ): void {
+    state.unterhauDueAtMs = this.elapsedMs + tuningValue(
+      weapon,
+      'unterhauHoldMs',
+      1000,
+    )
+    state.unterhauTargetId = null
+    state.unterhauTargetPosition = {
+      x: this.player.position.x + direction.x * attack.range,
+      y: this.player.position.y + direction.y * attack.range,
+    }
+    state.unterhauPrimed = false
+  }
+
+  private cancelPendingUnterhau(weapon: LastChancesResolvedWeapon): void {
+    const state = this.weaponState(weapon)
+    state.unterhauDueAtMs = 0
+    state.unterhauTargetId = null
+    state.unterhauTargetPosition = null
+    state.unterhauPrimed = false
+  }
+
+  private queueSwordUnterhau(
+    context: AttackExecutionContext,
+    attack: LastChancesAttackDefinition,
+    direction: LastChancesVector,
+    delayMs: number,
+  ): void {
+    const state = this.weaponState(context.weapon)
+    const delayed: RuntimeDelayedAttack = {
+      remainingMs: Math.max(0, delayMs),
+      attack,
+      direction: { ...direction },
+      context: { ...context, gesture: 'doubleTapHold' },
+      targetPosition: state.unterhauTargetPosition ? { ...state.unterhauTargetPosition } : undefined,
+      targetEnemyId: state.unterhauTargetId,
+    }
+    const actionDurationMs = Math.max(0, delayMs) + attack.durationMs + (attack.lingerMs ?? 0)
+    this.weaponActionEnds.set(context.weapon.id, this.elapsedMs + actionDurationMs)
+    this.scheduleRecovery(context.weapon.id, attack.recoveryMs, actionDurationMs)
+    if (delayed.remainingMs <= 0) {
+      this.executeAttack(attack, this.resolveDelayedAttackDirection(delayed), delayed.context)
+      state.unterhauDueAtMs = 0
+      state.unterhauTargetId = null
+      state.unterhauTargetPosition = null
+      state.unterhauPrimed = false
       return
     }
-    state.rhythm = interval === Number.POSITIVE_INFINITY ? 'idle' : 'late'
+    this.delayedAttacks.push(delayed)
+  }
+
+  private executePendingUnterhau(hand: LastChancesHand): boolean {
+    const weapon = this.weapons.get(hand)
+    if (weapon?.trait !== 'swordRhythm') return false
+    const state = this.weaponState(weapon)
+    if (state.unterhauDueAtMs <= 0) return false
+    const attack = attackWithLastChancesAugment(weapon.attacks.doubleTapHold, weapon)
+    const direction = normalize(this.player.aim)
+    const resolution: LastChancesGestureResolution = {
+      hand,
+      gesture: 'doubleTapHold',
+      atMs: this.elapsedMs,
+      heldMs: tuningValue(weapon, 'unterhauHoldMs', 1000),
+      firstHoldMs: 0,
+    }
+    this.lastGesture = {
+      hand,
+      gesture: 'doubleTapHold',
+      attackName: attack.name,
+      atMs: this.elapsedMs,
+    }
+    this.queueSwordUnterhau({
+      weapon,
+      hand,
+      gesture: 'doubleTapHold',
+      resolution,
+      storedDot: null,
+    }, attack, direction, 0)
+    return true
+  }
+
+  private applySwordStagger(
+    enemy: RuntimeEnemy,
+    weapon: LastChancesResolvedWeapon,
+  ): void {
+    if (weapon.staggerEnabled === false || enemy.statuses.unstoppableMs > 0) return
+    const staggerMs = Math.max(0, tuningValue(weapon, 'staggerDurationMs', 500))
+    if (staggerMs <= 0) return
+    const role = this.enemyCombatProfile(enemy).role
+    enemy.statuses.stunMs = Math.max(enemy.statuses.stunMs, staggerMs)
+    if (role !== 'elite' && role !== 'boss') return
+    enemy.statuses.staggerAccumulatedMs += staggerMs
+    if (enemy.statuses.staggerAccumulatedMs
+      < tuningValue(weapon, 'unstoppableThresholdMs', 3000)) return
+    enemy.statuses.staggerAccumulatedMs = 0
+    enemy.statuses.unstoppableMs = Math.max(
+      enemy.statuses.unstoppableMs,
+      tuningValue(weapon, 'unstoppableDurationMs', 5000),
+    )
+    this.clearEnemyControlStatuses(enemy)
+  }
+
+  private clearEnemyControlStatuses(enemy: RuntimeEnemy): void {
+    enemy.statuses.stunMs = 0
+    enemy.statuses.disarmMs = 0
+    enemy.statuses.slowMs = 0
+    enemy.statuses.slowMultiplier = 1
+    enemy.statuses.attackSlowMs = 0
+    enemy.statuses.attackSlowMultiplier = 1
+    enemy.statuses.boundMs = 0
+  }
+
+  private addSwordImpact(
+    enemy: RuntimeEnemy,
+    direction: LastChancesVector,
+    attack: LastChancesAttackDefinition,
+    intensity: number,
+  ): void {
+    this.effects.push({
+      kind: 'hit',
+      position: { ...enemy.position },
+      direction: normalize(direction),
+      range: 24 + 52 * clamp(intensity, 0, 1),
+      radius: attack.radius,
+      arcDegrees: attack.arcDegrees,
+      color: intensity >= 0.85 ? '#fff0a8' : attack.color,
+      remainingMs: 150 + 230 * clamp(intensity, 0, 1),
+      totalMs: 150 + 230 * clamp(intensity, 0, 1),
+      intensity: clamp(intensity, 0, 1),
+    })
   }
 
   private createActiveArea(
@@ -3754,7 +3965,9 @@ export class LastChancesEngine {
       hitIds: new Map(),
       remainingHits: (attack.pierce + 1) * Math.max(1, attack.repeatHits ?? 1),
       storedDot,
-      sweepDegrees: 0,
+      sweepDegrees: attack.behavior === 'swordRhythm'
+        ? -(attack.collider?.rotationDegrees ?? 0) / 2
+        : 0,
       traceAccumulatorMs: Number.POSITIVE_INFINITY,
       channel,
       authoredRepeatHits: Math.max(1, attack.repeatHits ?? 1),
@@ -3851,8 +4064,9 @@ export class LastChancesEngine {
     }
     if (attack.behavior === 'swordOpening') {
       if (enemy.statuses.openingMs > 0) {
-        multiplier *= attack.sweetSpot?.criticalMultiplier ?? 2
+        multiplier *= tuningValue(attack, 'executionDamageMultiplier', 3.25)
         enemy.statuses.openingMs = 0
+        enemy.swordExecutionMarked = true
         criticalHit = true
       } else {
         multiplier *= 0.55
@@ -3900,6 +4114,10 @@ export class LastChancesEngine {
       )
     }
 
+    if (weapon?.trait === 'swordRhythm' && !this.weapons.has('right')) {
+      multiplier *= tuningValue(weapon, 'emptyOffhandDamageMultiplier', 1.5)
+    }
+    multiplier *= options.damageMultiplier ?? 1
     const scaledDamage = attack.damage * multiplier * this.player.stats.attackPower / 100
     const armor = attack.damageType === 'true'
       ? 0
@@ -3909,6 +4127,15 @@ export class LastChancesEngine {
     enemy.hp = Math.max(0, enemy.hp - Math.max(0, scaledDamage - Math.max(0, armor)))
     const damageDealt = hpBeforeHit - enemy.hp
     this.restoreFromLifesteal(damageDealt)
+    if (damageDealt > 0 && attack.behavior === 'swordOpening' && state
+      && state.unterhauTargetId === null) {
+      state.unterhauTargetId = enemy.id
+      state.unterhauTargetPosition = { ...enemy.position }
+      state.unterhauPrimed = true
+    }
+    if (damageDealt > 0 && attack.behavior === 'swordRhythm') {
+      this.addSwordImpact(enemy, direction, attack, options.impactIntensity ?? 0)
+    }
     if (damageDealt > 0 && options.hand) {
       this.markSuccessfulHitFeedbackWindow(options.hand)
       if (this.controlSchemeValue === 'dualsense') {
@@ -3950,6 +4177,9 @@ export class LastChancesEngine {
       `${this.currentNode?.seed ?? 0}:${Math.floor(this.elapsedMs)}:${enemy.id}:${attack.name}:${state?.successfulHits ?? 0}`,
     )
     applyLastChancesStatusEffects(enemy.statuses, hitEffects, hitRng)
+    if (weapon?.trait === 'swordRhythm' && attack.behavior === 'swordRhythm') {
+      this.applySwordStagger(enemy, weapon)
+    }
     if (attack.behavior === 'katanaHopSlash' && weapon?.augment === 'bleed') {
       refreshLastChancesBleed(
         enemy.statuses,
@@ -4124,6 +4354,13 @@ export class LastChancesEngine {
       if (state.boundEnemyId !== enemy.id) continue
       state.boundEnemyId = null
       state.resource = state.maxResource
+    }
+    if (enemy.swordExecutionMarked) {
+      for (const hand of LAST_CHANCES_HANDS) {
+        if (this.weapons.get(hand)?.trait !== 'swordRhythm') continue
+        this.cooldownEnds.delete(cooldownKey(hand, 'doubleTap'))
+        this.cooldownEnds.delete(cooldownKey(hand, 'doubleTapHold'))
+      }
     }
   }
 
@@ -4321,6 +4558,7 @@ export class LastChancesEngine {
   private clearCombatTransients(): void {
     this.projectiles = []
     this.activeDash = null
+    this.activeSwordAdvance = null
     this.activeAreas = []
     this.heldChannels.clear()
     this.effects = []
@@ -4330,6 +4568,7 @@ export class LastChancesEngine {
     this.weaponActionEnds.clear()
     this.activeParryCollider = null
     this.provisionalParry = null
+    for (const hand of LAST_CHANCES_HANDS) this.resetImmediateSwordInput(hand)
     this.cleanupControlInputs(false)
     this.resetTapCombos()
     this.player.invulnerableMs = 0
@@ -4530,6 +4769,7 @@ export class LastChancesEngine {
     this.provisionalParry = null
     this.heldChannels.clear()
     this.activeDash = null
+    this.activeSwordAdvance = null
     this.roomElapsedMs = 0
     this.hazardHitCycles.clear()
     this.hazardSuppressedUntil.clear()
@@ -4537,12 +4777,15 @@ export class LastChancesEngine {
     this.cooldownEnds.clear()
     this.resetTapCombos()
     this.gestures.reset()
+    for (const hand of LAST_CHANCES_HANDS) this.resetImmediateSwordInput(hand)
     this.pressedKeys.clear()
     this.touchMove = { x: 0, y: 0 }
     this.touchAim = { x: 0, y: 0 }
     this.gamepadMove = { x: 0, y: 0 }
     this.gamepadAim = { x: 0, y: 0 }
     this.retainedGamepadAim = null
+    this.pointerClientX = null
+    this.pointerDeltaX = 0
     this.player.position = { x: 0, y: 0 }
     this.player.aim = { x: 1, y: 0 }
     this.player.stats = copyStats(this.generationBaseStats)
@@ -5529,6 +5772,7 @@ export class LastChancesEngine {
       },
       { status: 'opening', remainingMs: enemy.statuses.openingMs, magnitude: 1 },
       { status: 'bound', remainingMs: enemy.statuses.boundMs, magnitude: 1 },
+      { status: 'unstoppable', remainingMs: enemy.statuses.unstoppableMs, magnitude: 1 },
     ]
     timed.forEach((entry) => {
       if (entry.remainingMs <= 0) return
@@ -5662,6 +5906,11 @@ export class LastChancesEngine {
         storedDot: state.storedDot?.kind ?? null,
         rhythm: state.rhythm,
         recoveryMs: state.recoveryMs,
+        perfectTimingMs: state.perfectTimingMs,
+        fatigueMs: state.fatigueMs,
+        unterhauWindowMs: Math.max(0, state.unterhauDueAtMs - this.elapsedMs),
+        unterhauPrimed: state.unterhauPrimed,
+        motionDamageBonus: state.lastMotionDamageBonus,
       }]
     })
     const moveQuests: LastChancesMoveQuestSnapshot[] = this.config.progression.moveQuestsEnabled === false
@@ -5780,6 +6029,7 @@ export class LastChancesEngine {
     this.renderAtmosphere()
     if (this.currentNode) this.renderArena(this.currentNode)
     else this.renderEmptyPlan()
+    this.renderSwordRhythmOverlay()
     this.renderHud()
     this.renderOverlay()
   }
@@ -5798,6 +6048,106 @@ export class LastChancesEngine {
     gradient.addColorStop(1, 'rgba(0, 0, 0, 0.52)')
     this.context.fillStyle = gradient
     this.context.fillRect(0, 0, this.cssWidth, this.cssHeight)
+  }
+
+  private renderSwordRhythmOverlay(): void {
+    if (this.phase !== 'playing' || this.paused) return
+    const weapon = [...this.weapons.values()].find(candidate => candidate.trait === 'swordRhythm')
+    if (!weapon) return
+    const state = this.weaponState(weapon)
+    if (!Number.isFinite(state.lastTapAtMs)) return
+    const interval = Math.max(0, this.elapsedMs - state.lastTapAtMs)
+    const perfectStartMs = Math.max(1, tuningValue(weapon, 'rhythmPerfectStartMs', 500))
+    const perfectEndMs = Math.max(
+      perfectStartMs,
+      tuningValue(weapon, 'rhythmPerfectEndMs', 600),
+    )
+    const visibleMs = Math.max(
+      perfectEndMs,
+      tuningValue(weapon, 'rhythmOverlayVisibleMs', 1050),
+    )
+    const activeSwordArea = this.activeAreas.find(area => (
+      area.weaponId === weapon.id && area.attack.behavior === 'swordRhythm'
+    ))
+    if (interval > visibleMs && !activeSwordArea && state.perfectTimingMs <= 0) return
+
+    const context = this.context
+    const centerX = this.cssWidth / 2
+    const centerY = this.cssHeight * 0.5
+    const circleRadius = clamp(this.cssWidth * 0.022, 18, 28)
+    const halfSpan = clamp(this.cssWidth * 0.23, 110, 240)
+    const progress = clamp(interval / perfectStartMs, 0, 1)
+    const inPerfectZone = interval >= perfectStartMs && interval <= perfectEndMs
+    const feedbackTotal = Math.max(1, tuningValue(weapon, 'rhythmPerfectFeedbackMs', 480))
+    const feedbackProgress = clamp(state.perfectTimingMs / feedbackTotal, 0, 1)
+    const bounce = feedbackProgress > 0
+      ? 1 + Math.sin((1 - feedbackProgress) * Math.PI) * 0.24
+      : 1
+    const opacity = interval <= visibleMs
+      ? clamp(1 - Math.max(0, interval - perfectEndMs) / Math.max(1, visibleMs - perfectEndMs), 0.18, 1)
+      : feedbackProgress
+    const movingLeft = centerX - halfSpan + (halfSpan - circleRadius) * progress
+    const movingRight = centerX + halfSpan - (halfSpan - circleRadius) * progress
+
+    context.save()
+    context.globalAlpha = opacity * 0.78
+    context.lineCap = 'round'
+    context.strokeStyle = 'rgba(228, 235, 239, .24)'
+    context.lineWidth = 4
+    context.beginPath()
+    context.moveTo(centerX - halfSpan, centerY)
+    context.lineTo(centerX - circleRadius, centerY)
+    context.moveTo(centerX + circleRadius, centerY)
+    context.lineTo(centerX + halfSpan, centerY)
+    context.stroke()
+
+    const lineColor = inPerfectZone || feedbackProgress > 0 ? '#f6cf68' : '#b9d8df'
+    context.strokeStyle = lineColor
+    context.shadowColor = lineColor
+    context.shadowBlur = 10 + feedbackProgress * 16
+    context.lineWidth = 5
+    const streakLength = 34
+    context.beginPath()
+    context.moveTo(Math.max(centerX - halfSpan, movingLeft - streakLength), centerY)
+    context.lineTo(movingLeft, centerY)
+    context.moveTo(Math.min(centerX + halfSpan, movingRight + streakLength), centerY)
+    context.lineTo(movingRight, centerY)
+    context.stroke()
+
+    context.translate(centerX, centerY)
+    context.scale(bounce, bounce)
+    context.beginPath()
+    context.arc(0, 0, circleRadius, 0, Math.PI * 2)
+    context.fillStyle = 'rgba(10, 12, 14, .58)'
+    context.fill()
+    context.strokeStyle = lineColor
+    context.lineWidth = feedbackProgress > 0 ? 5 : 3
+    context.stroke()
+    if (feedbackProgress > 0) {
+      context.beginPath()
+      context.arc(0, 0, circleRadius * (1.25 + (1 - feedbackProgress) * 0.45), 0, Math.PI * 2)
+      context.globalAlpha = opacity * feedbackProgress * 0.6
+      context.strokeStyle = '#ffe8a3'
+      context.lineWidth = 3
+      context.stroke()
+    }
+    context.restore()
+
+    if (activeSwordArea) {
+      const sign = Math.sign(activeSwordArea.attack.collider?.rotationDegrees ?? 1) || 1
+      const bonus = Math.round(activeSwordArea.swordMotionDamageBonus * 100)
+      context.save()
+      context.globalAlpha = 0.88
+      context.textAlign = 'center'
+      context.font = '800 12px system-ui'
+      context.fillStyle = '#e7d9ad'
+      context.fillText(
+        `${sign > 0 ? 'ДВИГАЙ МЫШЬ →' : '← ДВИГАЙ МЫШЬ'}${bonus > 0 ? `  +${bonus}%` : ''}`,
+        centerX,
+        centerY + circleRadius + 25,
+      )
+      context.restore()
+    }
   }
 
   private renderArena(node: LastChancesPlanNode): void {
@@ -6063,6 +6413,31 @@ export class LastChancesEngine {
       context.fillRect(-4, -4, 8, 8)
       context.restore()
     }
+    if (enemy.statuses.unstoppableMs > 0) {
+      const pulse = 0.5 + Math.sin(this.elapsedMs / 110 + enemy.position.x) * 0.5
+      context.beginPath()
+      context.ellipse(
+        point.x,
+        point.y - radius * 0.8,
+        radius * (1.45 + pulse * 0.08),
+        radius * (1.75 + pulse * 0.1),
+        0,
+        0,
+        Math.PI * 2,
+      )
+      context.fillStyle = 'rgba(104, 196, 255, .11)'
+      context.fill()
+      context.strokeStyle = `rgba(151, 220, 255, ${0.58 + pulse * 0.32})`
+      context.lineWidth = 2.5 + pulse * 1.5
+      context.shadowColor = '#78cfff'
+      context.shadowBlur = 12 + pulse * 10
+      context.stroke()
+      context.shadowBlur = 0
+      context.font = `900 ${Math.max(8, radius * 0.58)}px system-ui`
+      context.textAlign = 'center'
+      context.fillStyle = '#bceaff'
+      context.fillText('НЕУДЕРЖИМОСТЬ', point.x, point.y - radius * 3.55)
+    }
     if (this.activeAreas.some(area => area.attack.behavior === 'spearSpin')) {
       const headWorld = {
         x: enemy.position.x + enemy.facing.x * enemy.definition.radius * 0.55,
@@ -6099,6 +6474,7 @@ export class LastChancesEngine {
       [enemy.statuses.slowMs > 0, '#75aef2', 'M'],
       [enemy.statuses.attackSlowMs > 0, '#ad8df2', 'R'],
       [enemy.statuses.boundMs > 0, '#9cc8ff', '⛓'],
+      [enemy.statuses.unstoppableMs > 0, '#9edfff', 'U'],
     ]
     let statusX = point.x - (statusMarkers.filter(([active]) => active).length - 1) * 5
     for (const [active, color, label] of statusMarkers) {
@@ -6211,6 +6587,33 @@ export class LastChancesEngine {
         point.x,
         point.y - radius * 2.65,
       )
+    }
+    const fatigueMs = Math.max(
+      0,
+      ...[...this.weapons.values()]
+        .filter(weapon => weapon.trait === 'swordRhythm')
+        .map(weapon => this.weaponState(weapon).fatigueMs),
+    )
+    if (fatigueMs > 0) {
+      const pulse = 0.5 + Math.sin(this.elapsedMs / 85) * 0.5
+      context.globalAlpha = 0.72 + pulse * 0.2
+      context.strokeStyle = '#d77b75'
+      context.lineWidth = 2
+      for (const side of [-1, 1]) {
+        context.beginPath()
+        context.arc(
+          point.x + side * radius * (1.25 + pulse * 0.2),
+          point.y - radius * (1.4 + pulse * 0.15),
+          radius * (0.35 + pulse * 0.15),
+          Math.PI * 0.1,
+          Math.PI * 0.9,
+        )
+        context.stroke()
+      }
+      context.font = `900 ${Math.max(9, radius * 0.62)}px system-ui`
+      context.textAlign = 'center'
+      context.fillStyle = '#efaaa2'
+      context.fillText('УСТАЛОСТЬ', point.x, point.y - radius * 3)
     }
     context.restore()
   }
@@ -6374,7 +6777,37 @@ export class LastChancesEngine {
     context.strokeStyle = effect.color
     context.fillStyle = effect.color
     context.lineWidth = 2 + (1 - progress) * 5
-    if (effect.kind === 'burst') {
+    if (effect.kind === 'hit' && effect.intensity !== undefined) {
+      const impact = Math.pow(clamp(effect.intensity, 0, 1), 0.7)
+      context.shadowColor = effect.color
+      context.shadowBlur = 8 + impact * 28
+      context.beginPath()
+      context.arc(origin.x, origin.y, 3 + impact * 13 * (1 - progress * 0.5), 0, Math.PI * 2)
+      context.strokeStyle = impact > 0.78 ? '#fff3b0' : effect.color
+      context.lineWidth = 1.5 + impact * 5
+      context.stroke()
+      const streaks = 2 + Math.round(impact * 7)
+      const normal = { x: -effect.direction.y, y: effect.direction.x }
+      for (let index = 0; index < streaks; index += 1) {
+        const lane = index - (streaks - 1) / 2
+        const spread = lane * (2.5 + impact * 2)
+        const length = effect.range * (0.45 + impact * (0.45 + (index % 3) * 0.08))
+        const start = this.worldToScreen({
+          x: effect.position.x - effect.direction.x * length * 0.65 + normal.x * spread,
+          y: effect.position.y - effect.direction.y * length * 0.65 + normal.y * spread,
+        }, node)
+        const finish = this.worldToScreen({
+          x: effect.position.x + effect.direction.x * length * 0.35 + normal.x * spread,
+          y: effect.position.y + effect.direction.y * length * 0.35 + normal.y * spread,
+        }, node)
+        context.beginPath()
+        context.moveTo(start.x, start.y)
+        context.lineTo(finish.x, finish.y)
+        context.globalAlpha = alpha * (0.2 + impact * 0.8)
+        context.lineWidth = 0.7 + impact * 2.2
+        context.stroke()
+      }
+    } else if (effect.kind === 'burst') {
       const worldRadius = effect.range * progress
       if (effect.arcDegrees >= 360) {
         const screenRadius = Math.max(2, worldRadius * this.entityScale(node))

@@ -378,6 +378,8 @@ export interface LastChancesWeaponDefinition {
   /** Marks the exported concept whose weapon remains associated with the place of death. */
   corpseBound?: boolean
   trait?: LastChancesWeaponTrait
+  /** A hybrid may accept an off-hand item without mirroring its own moves into an empty off-hand. */
+  primaryHandOnly?: boolean
   /** Designer switch for the Sword's stagger/Unstoppable subsystem. */
   staggerEnabled?: boolean
   resource?: LastChancesWeaponResourceDefinition

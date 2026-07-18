@@ -488,8 +488,8 @@ const ATTACK_SET_CONTROL_SEEDS: Record<string, AttackSetControlSeed> = {
     triggerRole: 'Trigger Oberhaw immediately; hold through the Unterhaw gate',
     mylorik: {
       tap: mylorikActivation('strike', 'press'),
-      doubleTap: mylorikActivation('technique', 'tap'),
-      doubleTapHold: mylorikActivation('technique', 'hold'),
+      doubleTap: mylorikActivation('technique', 'tap', undefined, 80),
+      doubleTapHold: mylorikActivation('technique', 'hold', undefined, 80),
     },
     dualsense: [
       dualSenseNode('doubleTap', 'neutral', 0.22, {
@@ -497,7 +497,7 @@ const ATTACK_SET_CONTROL_SEEDS: Record<string, AttackSetControlSeed> = {
         expiryMs: 1000,
         tactileProfile: 'followUp',
       }),
-      dualSenseNode('doubleTapHold', 'continuation', 0.72, {
+      dualSenseNode('doubleTapHold', 'neutral', 0.72, {
         holdBehavior: 'charge',
         expiryMs: 1000,
         tactileProfile: 'gate',
@@ -509,8 +509,8 @@ const ATTACK_SET_CONTROL_SEEDS: Record<string, AttackSetControlSeed> = {
     triggerRole: 'Legacy Sword secondary trigger route',
     mylorik: {
       tap: mylorikActivation('strike', 'press'),
-      doubleTap: mylorikActivation('technique', 'tap'),
-      doubleTapHold: mylorikActivation('technique', 'hold'),
+      doubleTap: mylorikActivation('technique', 'tap', undefined, 80),
+      doubleTapHold: mylorikActivation('technique', 'hold', undefined, 80),
     },
     dualsense: [
       dualSenseNode('doubleTap', 'neutral', 0.22, {
@@ -518,7 +518,7 @@ const ATTACK_SET_CONTROL_SEEDS: Record<string, AttackSetControlSeed> = {
         expiryMs: 1000,
         tactileProfile: 'followUp',
       }),
-      dualSenseNode('doubleTapHold', 'continuation', 0.72, {
+      dualSenseNode('doubleTapHold', 'neutral', 0.72, {
         holdBehavior: 'charge',
         expiryMs: 1000,
         tactileProfile: 'gate',
@@ -2253,6 +2253,9 @@ function validateWeapons(
     if (weapon.staggerEnabled !== undefined && typeof weapon.staggerEnabled !== 'boolean') {
       errors.push(`${path}.staggerEnabled must be a boolean`)
     }
+    if (weapon.primaryHandOnly !== undefined && typeof weapon.primaryHandOnly !== 'boolean') {
+      errors.push(`${path}.primaryHandOnly must be a boolean`)
+    }
     if (weapon.trait !== undefined && !LAST_CHANCES_WEAPON_TRAITS.includes(
       weapon.trait as typeof LAST_CHANCES_WEAPON_TRAITS[number],
     )) {
@@ -2312,14 +2315,17 @@ function validateWeapons(
       validateAttackSet(weapon.secondaryAttacks, `${path}.secondaryAttacks`, errors, schemaVersion)
     }
     const equipMode = inferredEquipMode(weapon)
-    if (equipMode === 'twoHanded' && weapon.secondaryAttacks === undefined) {
+    if ((equipMode === 'twoHanded'
+      || (equipMode === 'hybrid' && weapon.primaryHandOnly !== true))
+      && weapon.secondaryAttacks === undefined) {
       errors.push(`${path}.secondaryAttacks is required for ${equipMode} equipment`)
     }
     validateTapCombo(
       weapon.secondaryTapCombo,
       `${path}.secondaryTapCombo`,
       errors,
-      schemaVersion >= 2 && equipMode === 'twoHanded',
+      schemaVersion >= 2 && (equipMode === 'twoHanded'
+        || (equipMode === 'hybrid' && weapon.primaryHandOnly !== true)),
       schemaVersion,
     )
     if (typeof weapon.id === 'string') {

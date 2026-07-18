@@ -3507,6 +3507,7 @@
       "description": "Полуторный меч: все мувы находятся в левой руке, а пустая вторая рука повышает урон на 50%.",
       "chanceCost": 2,
       "trait": "swordRhythm",
+      "primaryHandOnly": true,
       "staggerEnabled": true,
       "tuning": {
         "rhythmPerfectStartMs": 500,
@@ -3547,7 +3548,7 @@
             "width": 38,
             "traceMs": 620,
             "followsPlayer": true,
-            "rotationDegrees": 118
+            "rotationDegrees": -118
           },
           "hitEffects": [
             {
@@ -3580,7 +3581,7 @@
             "width": 36,
             "traceMs": 620,
             "followsPlayer": true,
-            "rotationDegrees": -118
+            "rotationDegrees": 118
           },
           "hitEffects": [
             {
@@ -3861,7 +3862,7 @@
             "startNodeId": "doubleTap",
             "nodes": [
               { "id": "doubleTap", "gesture": "doubleTap", "entryContext": "neutral", "activationThreshold": 0.22, "dispatch": "release", "holdBehavior": "none", "releaseBehavior": "dispatch", "next": ["doubleTapHold"], "cancel": "release", "expiryMs": 1000, "tactileProfile": "followUp" },
-              { "id": "doubleTapHold", "gesture": "doubleTapHold", "entryContext": "continuation", "activationThreshold": 0.72, "dispatch": "release", "holdBehavior": "charge", "releaseBehavior": "dispatch", "next": [], "cancel": "release", "expiryMs": 1000, "tactileProfile": "gate" }
+              { "id": "doubleTapHold", "gesture": "doubleTapHold", "entryContext": "neutral", "activationThreshold": 0.72, "dispatch": "release", "holdBehavior": "charge", "releaseBehavior": "dispatch", "next": [], "cancel": "release", "expiryMs": 1000, "tactileProfile": "gate" }
             ]
           }
         },
@@ -3878,7 +3879,7 @@
             "startNodeId": "doubleTap",
             "nodes": [
               { "id": "doubleTap", "gesture": "doubleTap", "entryContext": "neutral", "activationThreshold": 0.22, "dispatch": "release", "holdBehavior": "none", "releaseBehavior": "dispatch", "next": ["doubleTapHold"], "cancel": "release", "expiryMs": 1000, "tactileProfile": "followUp" },
-              { "id": "doubleTapHold", "gesture": "doubleTapHold", "entryContext": "continuation", "activationThreshold": 0.72, "dispatch": "release", "holdBehavior": "charge", "releaseBehavior": "dispatch", "next": [], "cancel": "release", "expiryMs": 1000, "tactileProfile": "gate" }
+              { "id": "doubleTapHold", "gesture": "doubleTapHold", "entryContext": "neutral", "activationThreshold": 0.72, "dispatch": "release", "holdBehavior": "charge", "releaseBehavior": "dispatch", "next": [], "cancel": "release", "expiryMs": 1000, "tactileProfile": "gate" }
             ]
           }
         }

@@ -82,7 +82,8 @@ export function resolveLastChancesLoadout(config: LastChancesConfig): LastChance
 
   const primaryMode = lastChancesEquipMode(primary)
   const left = resolvedWeapon(primary, 'left', false, config.loadout.primaryAugment)
-  if (primaryMode === 'twoHanded') {
+  if (primaryMode === 'twoHanded'
+    || (primaryMode === 'hybrid' && !supplemental && primary.primaryHandOnly !== true)) {
     return {
       left,
       right: resolvedWeapon(

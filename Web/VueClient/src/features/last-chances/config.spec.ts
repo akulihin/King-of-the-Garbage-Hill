@@ -195,30 +195,30 @@ const EXPECTED_SHIPPED_CONTROL_ROUTES: Record<string, ExpectedShippedControlRout
   'hybrid-sword:primary': {
     mylorik: [
       'tap|strike|press|*|100',
-      'doubleTap|technique|tap|opening|80',
-      'doubleTapHold|technique|hold|opening|80',
+      'doubleTap|technique|tap|*|80',
+      'doubleTapHold|technique|hold|*|80',
     ],
     dualsense: {
       instant: 'tap',
       start: 'doubleTap',
       nodes: [
-        'doubleTap|doubleTap|opening|0.22|release|none|dispatch|doubleTapHold|release|480|followUp|*',
-        'doubleTapHold|doubleTapHold|opening|0.72|release|charge|dispatch||release|480|gate|*',
+        'doubleTap|doubleTap|neutral|0.22|release|none|dispatch|doubleTapHold|release|1000|followUp|*',
+        'doubleTapHold|doubleTapHold|neutral|0.72|release|charge|dispatch||release|1000|gate|*',
       ],
     },
   },
   'hybrid-sword:secondary': {
     mylorik: [
       'tap|strike|press|*|100',
-      'doubleTap|technique|tap|opening|80',
-      'doubleTapHold|technique|hold|opening|80',
+      'doubleTap|technique|tap|*|80',
+      'doubleTapHold|technique|hold|*|80',
     ],
     dualsense: {
       instant: 'tap',
       start: 'doubleTap',
       nodes: [
-        'doubleTap|doubleTap|opening|0.22|release|none|dispatch|doubleTapHold|release|480|followUp|*',
-        'doubleTapHold|doubleTapHold|opening|0.72|release|charge|dispatch||release|480|gate|*',
+        'doubleTap|doubleTap|neutral|0.22|release|none|dispatch|doubleTapHold|release|1000|followUp|*',
+        'doubleTapHold|doubleTapHold|neutral|0.72|release|charge|dispatch||release|1000|gate|*',
       ],
     },
   },
@@ -357,18 +357,21 @@ describe('99LC config and deterministic plan', () => {
     expect(shippedSpear?.trait).toBe('spearDistance')
     expect(shippedSpear?.secondaryAttacks).toBeDefined()
     expect(shippedSpear?.secondaryTapCombo?.length).toBeGreaterThanOrEqual(1)
-    expect(loadout.left?.tapCombo.length).toBeGreaterThanOrEqual(2)
-    expect(loadout.right?.tapCombo.length).toBeGreaterThanOrEqual(2)
+    expect(loadout.left?.tapCombo).toHaveLength(2)
+    expect(loadout.right).toBeNull()
     expect(new Set(loadout.left?.tapCombo.map(attack => attack.name)).size).toBe(loadout.left?.tapCombo.length)
-    expect(new Set(loadout.right?.tapCombo.map(attack => attack.name)).size).toBe(loadout.right?.tapCombo.length)
     const unsupplemented = cloneLastChancesConfig(defaultConfig)
     unsupplemented.loadout!.secondaryWeaponId = null
     expect(resolveLastChancesLoadout(unsupplemented)).toMatchObject({
       left: { id: 'hybrid-sword', hand: 'left', augment: 'none' },
-      right: { id: 'hybrid-sword', hand: 'right', augment: 'none' },
+      right: null,
     })
-    expect(defaultConfig.weapons.find(weapon => weapon.id === 'hybrid-sword')?.name)
-      .toBe('Меч наемника')
+    const sword = defaultConfig.weapons.find(weapon => weapon.id === 'hybrid-sword')
+    expect(sword?.name).toBe('Меч наемника')
+    expect(sword?.primaryHandOnly).toBe(true)
+    expect(sword?.staggerEnabled).toBe(true)
+    expect(sword?.attacks.tap.description).toContain('Движения прицелом повышают урон')
+    expect(sword?.attacks.doubleTap.collider?.width).toBe(48)
     expect(defaultConfig.progression.moveQuestsEnabled).toBe(true)
     expect(defaultConfig.artifacts).toHaveLength(3)
     expect(defaultConfig.outfits).toHaveLength(2)

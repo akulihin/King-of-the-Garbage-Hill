@@ -24,6 +24,8 @@ interface EmpireMapObject {
   x: number
   y: number
   cityId?: string
+  expeditionId?: string
+  zoneOpened?: boolean
   image?: string
   size?: EmpireMapPoint
   rotation?: number
@@ -76,6 +78,7 @@ const props = withDefaults(defineProps<{
 const emit = defineEmits<{
   selectRegion: [regionId: string]
   openCity: [cityId: string]
+  openFortress: [expeditionId: string]
   moveObject: [regionId: string, objectId: string, x: number, y: number]
   addObject: [regionId: string, kind: MapObjectKind, x: number, y: number]
   selectObject: [regionId: string, objectId: string | null]
@@ -169,6 +172,8 @@ function activateObject(object: EmpireMapObject) {
   if (object.accessible === false) return
   if ((object.kind === 'city' || object.kind === 'capital') && object.cityId) {
     emit('openCity', object.cityId)
+  } else if (object.kind === 'fortress' && object.expeditionId) {
+    emit('openFortress', object.expeditionId)
   }
 }
 
@@ -320,12 +325,12 @@ function hideBrokenImage(event: Event) {
         v-for="object in activeRegion.objects"
         :key="object.id"
         class="map-object"
-        :class="[`kind-${object.kind}`, { actionable: Boolean(object.cityId) && object.accessible !== false, inaccessible: object.accessible === false, selected: object.id === resolvedSelectedObjectId, 'sized-river': object.kind === 'river' && object.size }]"
+        :class="[`kind-${object.kind}`, { actionable: Boolean(object.cityId || object.expeditionId) && object.accessible !== false, opened: object.zoneOpened, inaccessible: object.accessible === false, selected: object.id === resolvedSelectedObjectId, 'sized-river': object.kind === 'river' && object.size }]"
         :style="objectStyle(object)"
         :draggable="editable"
         type="button"
         :disabled="!editable && object.accessible === false"
-        :data-testid="object.cityId ? `map-city-${object.cityId}` : undefined"
+        :data-testid="object.cityId ? `map-city-${object.cityId}` : object.expeditionId ? `map-fortress-${object.expeditionId}` : undefined"
         :title="object.disabledReason"
         :aria-pressed="editable ? object.id === resolvedSelectedObjectId : undefined"
         @dragstart="beginObjectDrag($event, object.id)"
@@ -634,6 +639,8 @@ function hideBrokenImage(event: Event) {
 }
 .map-object.actionable { cursor: pointer; }
 .map-object.actionable:hover { z-index: 4; filter: drop-shadow(0 5px 10px rgba(233, 202, 132, 0.45)); transform: translate(-50%, -50%) rotate(var(--object-rotation, 0deg)) scale(1.08); }
+.map-object.kind-fortress.opened { filter: drop-shadow(0 0 9px rgba(112, 188, 129, .72)); }
+.map-object.kind-fortress.opened .object-icon { border-color: #78ad7d; background: #526f55; }
 .map-object.inaccessible {
   filter: grayscale(0.9) brightness(0.58) drop-shadow(0 3px 5px rgba(0, 0, 0, 0.58));
   cursor: not-allowed;

@@ -18,6 +18,7 @@ export type GestureCooldown = {
   key: GestureKey
   physicalLabel?: string
   name: string
+  description?: string
   remainingMs: number
   totalMs: number
   enabled: boolean
@@ -26,6 +27,8 @@ export type GestureCooldown = {
   active?: boolean
   /** Still behind the move-unlock quest chain. */
   locked?: boolean
+  contextDimmed?: boolean
+  primed?: boolean
 }
 
 export type WeaponCooldown = {
@@ -78,6 +81,8 @@ const copy = {
       good: 'On rhythm',
       late: 'Too late',
     },
+    motionBonus: 'Aim-motion damage',
+    unterhauReady: 'Unterhaw primed',
     input: {
       idle: 'Ready for input',
       pressing: 'Holding · release or keep charging',
@@ -125,6 +130,8 @@ const copy = {
       good: 'В ритме',
       late: 'Слишком поздно',
     },
+    motionBonus: 'Урон за движение прицелом',
+    unterhauReady: 'Unterhaw заряжен',
     input: {
       idle: 'Ожидание нажатия',
       pressing: 'Удержание · отпустите или продолжайте заряд',
@@ -276,6 +283,12 @@ function gesturePrompt(gesture: GestureCooldown): string {
             <TimerReset :size="10" aria-hidden="true" />
             {{ t.recovery }} · {{ Math.ceil(recoveryMs(weapon)) }} ms
           </div>
+          <div v-if="weapon.state?.motionDamageBonus" class="lc-state-chip is-motion">
+            {{ t.motionBonus }} · +{{ Math.round(weapon.state.motionDamageBonus * 100) }}%
+          </div>
+          <div v-if="weapon.state?.unterhauPrimed" class="lc-state-chip is-unterhau">
+            <Zap :size="10" aria-hidden="true" />{{ t.unterhauReady }}
+          </div>
         </div>
 
         <div
@@ -341,6 +354,8 @@ function gesturePrompt(gesture: GestureCooldown): string {
               'is-active': gesture.enabled && gesture.active,
               'is-disabled': !gesture.enabled,
               'is-locked': gesture.locked,
+              'is-context-dimmed': gesture.contextDimmed,
+              'is-primed': gesture.primed,
               'is-blocked': gesture.enabled && !gesture.ready && gesture.remainingMs <= 0,
             }"
             :style="{ '--gesture-color': gesture.color }"
@@ -350,6 +365,7 @@ function gesturePrompt(gesture: GestureCooldown): string {
               <span class="lc-gesture-name">
                 <small>{{ gesturePrompt(gesture) }}</small>
                 <strong>{{ gesture.name }}</strong>
+                <em v-if="gesture.description">{{ gesture.description }}</em>
               </span>
               <span class="lc-gesture-time">
                 <Lock v-if="gesture.locked" :size="11" aria-hidden="true" />
@@ -455,6 +471,8 @@ function gesturePrompt(gesture: GestureCooldown): string {
 .lc-state-chip.is-rhythm-early,
 .lc-state-chip.is-rhythm-late { color: #cf8585; border-color: rgba(193, 87, 94, 0.2); }
 .lc-state-chip.is-rhythm-good { color: #9fd7b1; border-color: rgba(98, 190, 127, 0.25); }
+.lc-state-chip.is-motion { color: #edcc7d; border-color: rgba(237, 204, 125, 0.24); }
+.lc-state-chip.is-unterhau { color: #fff0a8; border-color: rgba(255, 224, 126, 0.4); box-shadow: 0 0 0.55rem rgba(255, 213, 96, 0.18); }
 
 .lc-input-feedback { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0.35rem; padding: 0.35rem 0.6rem 0.42rem; overflow: hidden; border-bottom: 1px solid rgba(255, 255, 255, 0.04); color: #666b69; background: rgba(255, 255, 255, 0.015); font-size: 0.5rem; }
 .lc-input-feedback span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -488,6 +506,8 @@ function gesturePrompt(gesture: GestureCooldown): string {
 .lc-gesture-list li.is-active { background: color-mix(in srgb, var(--gesture-color) 11%, transparent); }
 .lc-gesture-list li.is-disabled { opacity: 0.32; filter: grayscale(0.85); }
 .lc-gesture-list li.is-locked { opacity: 0.38; filter: grayscale(0.9); }
+.lc-gesture-list li.is-context-dimmed { opacity: 0.24; filter: grayscale(1) brightness(0.62); }
+.lc-gesture-list li.is-primed { opacity: 1; filter: none; background: rgba(255, 220, 112, 0.11); box-shadow: inset 0 0 1rem rgba(255, 212, 85, 0.14); }
 .lc-gesture-list li.is-locked .lc-gesture-time { color: #8a8478; }
 
 .lc-gesture-copy { min-width: 0; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 0.45rem; }
@@ -496,6 +516,7 @@ function gesturePrompt(gesture: GestureCooldown): string {
 .lc-gesture-name { min-width: 0; display: grid; }
 .lc-gesture-name small { color: #5f6462; font-size: 0.46rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
 .lc-gesture-name strong { overflow: hidden; color: #b6b7b1; font-size: 0.58rem; font-weight: 650; line-height: 1.2; text-overflow: ellipsis; white-space: nowrap; }
+.lc-gesture-name em { margin-top: 0.12rem; overflow: hidden; color: #777d79; font-size: 0.45rem; font-style: normal; line-height: 1.25; text-overflow: ellipsis; white-space: nowrap; }
 .is-ready .lc-gesture-name strong { color: #dfdcd3; }
 .lc-gesture-time { display: inline-flex; align-items: center; gap: 0.2rem; color: #9b7778; font: 700 0.5rem/1 var(--font-mono, monospace); }
 .is-ready .lc-gesture-time { color: var(--gesture-color); }

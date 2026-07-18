@@ -682,10 +682,18 @@ export interface EmpiresRegionDefinition {
   cityIds: string[]
 }
 
-export interface EmpiresMapObjectDefinition {
+export type EmpiresMapObjectKind =
+  | 'river'
+  | 'mountain'
+  | 'fortress'
+  | 'city'
+  | 'landmark'
+  | 'resource'
+  | 'custom'
+
+interface EmpiresMapObjectBase {
   id: string
   name: string
-  kind: 'river' | 'mountain' | 'fortress' | 'city' | 'landmark' | 'resource' | 'custom'
   regionId: string
   subregionId?: string
   position: EmpiresPoint
@@ -693,8 +701,27 @@ export interface EmpiresMapObjectDefinition {
   rotation?: number
   draggable: boolean
   image?: string
+}
+
+export interface EmpiresGenericMapObjectDefinition extends EmpiresMapObjectBase {
+  kind: Exclude<EmpiresMapObjectKind, 'fortress'>
   properties?: Record<string, string | number | boolean>
 }
+
+export interface EmpiresFortressMapObjectDefinition extends EmpiresMapObjectBase {
+  kind: 'fortress'
+  properties?: undefined
+  payload: {
+    kind: 'fortress'
+    expeditionId: string | null
+    zoneId: string | null
+    deferredReason?: string
+  }
+}
+
+export type EmpiresMapObjectDefinition =
+  | EmpiresGenericMapObjectDefinition
+  | EmpiresFortressMapObjectDefinition
 
 export interface EmpiresMapConfig {
   width: number
@@ -704,6 +731,77 @@ export interface EmpiresMapConfig {
   regions: EmpiresRegionDefinition[]
   subregions: EmpiresSubregionDefinition[]
   objects: EmpiresMapObjectDefinition[]
+}
+
+export interface EmpiresExpeditionZoneDefinition {
+  id: string
+  name: string
+  regionId: string
+  subregionIds: string[]
+  rewards: EmpiresEffect[]
+  deferredSubfeatures?: EmpiresDeferredSubfeature[]
+}
+
+export interface EmpiresExpeditionEnemyProfileDefinition {
+  id: string
+  name: string
+  regionId: string
+  waveId: string
+  description: string
+}
+
+export interface EmpiresExpeditionComplaintDefinition {
+  questId: string
+  launches: number
+  windowCons: number
+  loyaltyDelta: number
+  minimumProvisionFraction: number | null
+  minimumDurationCons: number | null
+  minimumLossRatio: number | null
+}
+
+export interface EmpiresExpeditionDefinition {
+  id: string
+  name: string
+  fortObjectId: string
+  originRegionId: string
+  targetRegionId: string
+  zoneId: string
+  triggerQuestId?: string
+  tdVariantId: string
+  enemyProfileId: string
+  stages: Array<'planning' | 'provisioning' | 'assault' | 'settlement'>
+  eligibleUnitIds: string[]
+  excludedArmorClassIds: string[]
+  armorExceptionUnitIds: string[]
+  baseDurationCons: number
+  preparationDays: number
+  provisionResourceId: string
+  minimumProvisionFraction: number
+  fullProvisionDeathChance: number
+  emptyProvisionDeathChance: number
+  complaint: EmpiresExpeditionComplaintDefinition
+  rewards: EmpiresEffect[]
+  retryAfterLoss: boolean
+  retryAfterAbort: boolean
+  returnProvisionPolicy: 'none'
+  repeatable: boolean
+  deferredReason?: string
+}
+
+export interface EmpiresExpeditionsConfig {
+  enabled: boolean
+  resultHistoryRetention: number
+  timeModel: 'preparation-days-and-abstract-travel-cons'
+  veteran: {
+    qualifyingMaximumHealthRatio: number
+    removalWounds: number
+    laterBattleBonus: null
+    laterBattleBonusDeferredReason: string
+  }
+  zones: EmpiresExpeditionZoneDefinition[]
+  enemyProfiles: EmpiresExpeditionEnemyProfileDefinition[]
+  definitions: EmpiresExpeditionDefinition[]
 }
 
 export interface EmpiresGodDeckMemoryConfig {
@@ -1313,7 +1411,7 @@ export interface EmpiresUpgradeConfig {
 }
 
 export interface EmpiresEndgameConfig {
-  schemaVersion: 15
+  schemaVersion: 16
   id: string
   title: string
   seed: string | number
@@ -1321,6 +1419,7 @@ export interface EmpiresEndgameConfig {
   mysticCards: EmpiresMysticCardDefinition[]
   tavern: EmpiresTavernConfig
   alchemy: EmpiresAlchemyConfig
+  expeditions: EmpiresExpeditionsConfig
   durak: EmpiresDurakConfig
   upgrades: EmpiresUpgradeConfig
   gifts: EmpiresGiftConfig
@@ -1530,10 +1629,23 @@ export interface EmpiresRecruitedUnitCohortState {
   unitId: string
   loadoutId: string
   count: number
+  unitInstanceIds: string[]
   weaponEquipmentId?: string
   defenseEquipmentId?: string
   weapon: import('./combat/types').CombatWeaponProfile | null
   armor: import('./combat/types').CombatArmorProfile | null
+}
+
+export interface EmpiresArmyUnitState {
+  id: string
+  cityId: string
+  cohortId: string
+  unitId: string
+  healthRatio: number
+  veteran: boolean
+  wounds: number
+  recoveryStartedAtCon: number | null
+  readyAtCon: number
 }
 
 export interface EmpiresArmyState {
@@ -1541,10 +1653,146 @@ export interface EmpiresArmyState {
   pendingLoyaltyDeltas?: EmpiresPendingLoyaltyDelta[]
   morale: number
   maxMorale: number
-  veterans: Record<string, EmpiresVeteranState>
+  unitInstances: Record<string, EmpiresArmyUnitState>
+  nextUnitSequence: number
+  /** Migration-only schema <=13 representation. */
+  veterans?: Record<string, EmpiresVeteranState>
   recruitmentPenalties: Record<string, number>
   foundryInstantReadyConByCity: Record<string, number>
-  recoveries: EmpiresUnitRecoveryState[]
+  /** Migration-only schema <=13 representation. */
+  recoveries?: EmpiresUnitRecoveryState[]
+}
+
+export type EmpiresExpeditionStatus =
+  | 'available'
+  | 'planning'
+  | 'provisioning'
+  | 'ready'
+  | 'fighting'
+  | 'won'
+  | 'lost'
+  | 'aborted'
+
+export interface EmpiresExpeditionRosterSnapshot {
+  unitInstanceId: string
+  cityId: string
+  cohortId: string
+  unitId: string
+  veteranAtLaunch: boolean
+  woundsAtLaunch: number
+  weapon: import('./combat/types').CombatWeaponProfile | null
+  armor: import('./combat/types').CombatArmorProfile | null
+}
+
+export interface EmpiresExpeditionProvisionWithdrawal {
+  installment: number
+  con: number
+  amount: number
+  cityAmounts: Record<string, number>
+}
+
+export interface EmpiresExpeditionProvisionPlan {
+  source: 'direct'
+  resourceId: string
+  requestedAmount: number
+  requiredAmount: number
+  plannedDurationCons: number
+  effectiveDurationCons: number
+  speedPercent: number
+  mapBonusPercent: number
+  installmentCount: number
+  paidInstallments: number
+  withdrawnAmount: number
+  packingEfficiencyPercent: number
+  withdrawals: EmpiresExpeditionProvisionWithdrawal[]
+}
+
+export interface EmpiresExpeditionResultHistoryEntry {
+  attempt: number
+  sessionId: string | null
+  con: number
+  outcome: 'victory' | 'defeat' | 'aborted'
+  combatLostUnitInstanceIds: string[]
+  attritionLostUnitInstanceIds: string[]
+  removedVeteranUnitInstanceIds: string[]
+  newlyVeteranUnitInstanceIds: string[]
+  provisionWithdrawn: number
+  rewardApplied: boolean
+  zoneApplied: boolean
+  complaintApplied: boolean
+}
+
+export interface EmpiresExpeditionState {
+  definitionId: string
+  status: EmpiresExpeditionStatus
+  originRegionId: string
+  fortObjectId: string
+  zoneId: string
+  rosterUnitInstanceIds: string[]
+  rosterSnapshot: EmpiresExpeditionRosterSnapshot[]
+  provisionPlan: EmpiresExpeditionProvisionPlan | null
+  launchedAtCon: number | null
+  readyAtCon: number | null
+  assaultAttempts: number
+  activeSessionId: string | null
+  outcome: 'victory' | 'defeat' | 'aborted' | null
+  rewardApplied: boolean
+  zoneApplied: boolean
+  complaintTriggerIds: string[]
+  installmentBlockedReason: string | null
+  resultHistory: EmpiresExpeditionResultHistoryEntry[]
+  resultCompaction: {
+    evictedCount: number
+    historyDigest: string
+  }
+}
+
+export interface EmpiresExpeditionsState {
+  openedZoneIds: string[]
+  byDefinitionId: Record<string, EmpiresExpeditionState>
+}
+
+export interface EmpiresExpeditionPlanningUnitView {
+  unitInstanceId: string
+  cityId: string
+  cityName: string
+  cohortId: string
+  unitId: string
+  unitName: string
+  foodPerCon: number
+  veteran: boolean
+  wounds: number
+  healthRatio: number
+  eligible: boolean
+  disabledReason: string | null
+}
+
+export interface EmpiresExpeditionPlanningView {
+  definitionId: string
+  name: string
+  fortObjectId: string
+  zoneId: string
+  zoneName: string
+  status: EmpiresExpeditionStatus
+  blockedReason: string | null
+  roster: EmpiresExpeditionPlanningUnitView[]
+  selectedUnitInstanceIds: string[]
+  plannedDurationCons: number
+  effectiveDurationCons: number
+  preparationDays: number
+  speedPercent: number
+  mapBonusPercent: number
+  maxInstallments: number
+  provisionAvailable: number
+  provisionRequired: number
+  provisionRequested: number
+  provisionWithdrawn: number
+  enemyIntel: 'exact' | 'profile'
+  enemyProfileName: string
+  enemyDescription: string
+  enemyGroups: Array<{ id: string, count: number, armorClassId: string | null }>
+  installmentBlockedReason: string | null
+  opened: boolean
 }
 
 export interface EmpiresExternalRelationshipState {
@@ -1710,6 +1958,11 @@ export type EmpiresMinigameOriginContext =
     cityId: string
     recipeId: string
     con: number
+  }
+  | {
+    kind: 'expedition-assault'
+    expeditionId: string
+    attempt: number
   }
 
 export interface EmpiresMinigameOrigin {
@@ -1899,6 +2152,8 @@ export type EmpiresChronicleEntryKind =
   | 'temple'
   | 'tavern'
   | 'alchemy'
+  | 'expedition'
+  | 'veteran'
 
 export interface EmpiresChronicleEntry {
   id: string
@@ -2295,7 +2550,7 @@ export interface EmpiresQuestRuntimeState {
 }
 
 export interface EmpiresCampaignState {
-  schemaVersion: 13
+  schemaVersion: 14
   configId: string
   phase: EmpiresPhase
   rng: EmpiresRngState
@@ -2317,6 +2572,7 @@ export interface EmpiresCampaignState {
   minigameResultLog: EmpiresMinigameResultRecord[]
   minigameResultCompaction: EmpiresMinigameResultCompaction
   army: EmpiresArmyState
+  expeditions: EmpiresExpeditionsState
   external: EmpiresExternalState
   epidemics: EmpiresEpidemicState[]
   nextEpidemicSequence: number
@@ -2329,7 +2585,7 @@ export interface EmpiresCampaignState {
 }
 
 export interface EmpiresSnapshotEnvelope {
-  schemaVersion: 13
+  schemaVersion: 14
   savedAt: string
   state: EmpiresCampaignState
 }

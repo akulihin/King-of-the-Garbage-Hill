@@ -36,6 +36,7 @@ import DomesticEconomyPanel from '../components/empires-endgame/DomesticEconomyP
 import ExternalDiplomacyPanel from '../components/empires-endgame/ExternalDiplomacyPanel.vue'
 import EmpireCard from '../components/empires-endgame/EmpireCard.vue'
 import EmpireMap from '../components/empires-endgame/EmpireMap.vue'
+import ExpeditionPlanning from '../components/empires-endgame/ExpeditionPlanning.vue'
 import EventDialog from '../components/empires-endgame/EventDialog.vue'
 import GiftDraft from '../components/empires-endgame/GiftDraft.vue'
 import GovernancePanel from '../components/empires-endgame/GovernancePanel.vue'
@@ -93,6 +94,7 @@ import type {
   EmpiresDeckMemoryCard,
   EmpiresEffect,
   EmpiresEndgameConfig,
+  EmpiresExpeditionPlanningView,
   EmpiresMapObjectDefinition,
   EmpiresPendingGiftResolution,
   EmpiresPoint,
@@ -128,6 +130,7 @@ const selectedBuildingId = ref<string | null>(null)
 const selectedTechnologyId = ref<string | null>(null)
 const selectedCouncilCardId = ref<string | null>(null)
 const populationCityId = ref<string | null>(null)
+const activeExpeditionId = ref<string | null>(null)
 const recruitQuantities = ref<Record<string, number>>({})
 const saveInput = ref<HTMLInputElement | null>(null)
 const qaMode = ref(false)
@@ -145,6 +148,12 @@ const workingConfig = computed(() => editorOpen.value && editorConfig.value
 const activeTdPlan = computed(() => state.value?.minigame?.kind === 'td'
   ? state.value.minigame.plan
   : null)
+
+const activeExpeditionView = computed<EmpiresExpeditionPlanningView | null>(() => (
+  activeExpeditionId.value && engine.value
+    ? engine.value.expeditionPlanningView(activeExpeditionId.value)
+    : null
+))
 
 const deckMemoryAvailability = computed(() => engine.value?.canInspectDeck() ?? {
   allowed: false,
@@ -1154,7 +1163,18 @@ const mapRegionViews = computed(() => {
     const regionAccessible = editorOpen.value || (engine.value?.isRegionAccessible(region.id) ?? true)
     const objects = current.empire.map.objects.filter(object => object.regionId === region.id).map((object) => {
       const cityId = typeof object.properties?.cityId === 'string' ? object.properties.cityId : undefined
-      const cityAccessible = !cityId || editorOpen.value || (engine.value?.isCityAccessible(cityId) ?? true)
+      const expeditionId = object.kind === 'fortress'
+        ? object.payload.expeditionId ?? undefined
+        : undefined
+      const fortressDeferredReason = object.kind === 'fortress'
+        ? object.payload.deferredReason
+        : undefined
+      const expeditionView = expeditionId ? engine.value?.expeditionPlanningView(expeditionId) : null
+      const objectAccessible = cityId
+        ? editorOpen.value || (engine.value?.isCityAccessible(cityId) ?? true)
+        : expeditionId
+          ? editorOpen.value || (regionAccessible && !fortressDeferredReason)
+          : regionAccessible
       return {
         id: object.id,
         kind: objectVisualKind(object),
@@ -1162,14 +1182,20 @@ const mapRegionViews = computed(() => {
         x: mapPointToPercent(object.position, 'x', region.id),
         y: mapPointToPercent(object.position, 'y', region.id),
         cityId,
+        expeditionId,
+        zoneOpened: expeditionView?.opened ?? false,
         image: object.image,
         size: object.size ? {
           x: object.size.x / regionBounds(region.id).width * 100,
           y: object.size.y / regionBounds(region.id).height * 100,
         } : undefined,
         rotation: object.rotation,
-        accessible: cityAccessible,
-        disabledReason: cityAccessible ? undefined : regionBlockedReasonText(region.id),
+        accessible: objectAccessible,
+        disabledReason: objectAccessible
+          ? undefined
+          : fortressDeferredReason
+            ? fortressDeferredReason
+            : regionBlockedReasonText(region.id),
         epidemicCount: cityId ? engine.value?.cityEpidemicViews(cityId).length ?? 0 : 0,
         epidemicStage: cityId ? engine.value?.cityEpidemicViews(cityId)[0]?.stageName : undefined,
         epidemicTurns: cityId ? engine.value?.cityEpidemicViews(cityId)[0]?.turnsRemaining : undefined,
@@ -1246,17 +1272,33 @@ function addMapObject(regionId: string, kind: string, x: number, y: number) {
       ? kind as EmpiresMapObjectDefinition['kind']
       : 'custom'
     const id = `custom-${kind}-${Date.now().toString(36)}`
-    draft.empire.map.objects.push({
+    const base = {
       id,
       name: `Новый объект: ${kind}`,
-      kind: normalizedKind,
       regionId,
       position: percentToMapPoint(x, y, regionId),
       size: normalizedKind === 'river' ? { x: regionBounds(regionId, true).width * 0.28, y: 30 } : undefined,
       rotation: normalizedKind === 'river' ? -8 : 0,
       draggable: true,
-      properties: { visualKind: kind },
-    })
+    }
+    if (normalizedKind === 'fortress') {
+      draft.empire.map.objects.push({
+        ...base,
+        kind: 'fortress',
+        payload: {
+          kind: 'fortress',
+          expeditionId: null,
+          zoneId: null,
+          deferredReason: 'Новая крепость требует авторских ссылок на экспедицию и зону.',
+        },
+      })
+    } else {
+      draft.empire.map.objects.push({
+        ...base,
+        kind: normalizedKind,
+        properties: { visualKind: kind },
+      })
+    }
   })
 }
 
@@ -1333,6 +1375,56 @@ function openCity(cityId: string) {
   if (city) activeRegionId.value = city.regionId
   activeEmpireTab.value = 'city'
   void nextTick()
+}
+
+function openFortress(expeditionId: string) {
+  if (!engine.value) return
+  const view = engine.value.expeditionPlanningView(expeditionId)
+  if (!view) {
+    showMessage('Крепость не связана с известной экспедицией.')
+    return
+  }
+  if (view.status === 'available' || view.status === 'lost' || view.status === 'aborted') {
+    const result = engine.value.beginExpeditionPlanning(expeditionId)
+    showMessage(result.message)
+    if (!result.ok) return
+  }
+  activeExpeditionId.value = expeditionId
+}
+
+function launchExpedition(
+  unitInstanceIds: string[],
+  provisionAmount: number,
+  installmentCount: number,
+) {
+  if (!engine.value || !activeExpeditionId.value) return
+  action(engine.value.launchExpedition(
+    activeExpeditionId.value,
+    unitInstanceIds,
+    provisionAmount,
+    installmentCount,
+  ), false)
+}
+
+function payExpeditionInstallment() {
+  if (engine.value && activeExpeditionId.value) {
+    action(engine.value.payExpeditionInstallment(activeExpeditionId.value), false)
+  }
+}
+
+function abortExpedition() {
+  if (!engine.value || !activeExpeditionId.value) return
+  const result = engine.value.abortExpedition(activeExpeditionId.value)
+  action(result, false)
+  if (result.ok && engine.value.state.expeditions.byDefinitionId[activeExpeditionId.value]?.status === 'available') {
+    activeExpeditionId.value = null
+  }
+}
+
+function startExpeditionAssault() {
+  if (engine.value && activeExpeditionId.value) {
+    action(engine.value.startExpeditionAssault(activeExpeditionId.value), false)
+  }
 }
 
 function cityProduction(cityId: string) {
@@ -2238,6 +2330,7 @@ onUnmounted(() => {
           :editable="editorOpen"
           @select-region="activeRegionId = $event"
           @open-city="openCity"
+          @open-fortress="openFortress"
           @move-object="moveMapObject"
           @add-object="addMapObject"
           @update-object="updateMapObject"
@@ -2419,6 +2512,16 @@ onUnmounted(() => {
         :open="questJournalOpen"
         :entries="questJournalEntries"
         @close="questJournalOpen = false"
+      />
+
+      <ExpeditionPlanning
+        v-if="activeExpeditionView && state.phase === 'empire'"
+        :view="activeExpeditionView"
+        @close="activeExpeditionId = null"
+        @launch="launchExpedition"
+        @pay-installment="payExpeditionInstallment"
+        @assault="startExpeditionAssault"
+        @abort="abortExpedition"
       />
 
       <DeckMemoryPanel

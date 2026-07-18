@@ -16,6 +16,7 @@ import type {
   EmpiresEffect,
   EmpiresEpidemicConfig,
   EmpiresEndgameConfig,
+  EmpiresExpeditionsConfig,
   EmpiresExternalConfig,
   EmpiresGodConfig,
   EmpiresLoyaltyConfig,
@@ -29,7 +30,7 @@ import { validateEmpiresQuestsConfig } from './quests'
 
 export const EMPIRES_CONFIG_URL = '/empires-endgame/game-config.json'
 export const EMPIRES_CONFIG_STORAGE_KEY = 'empires-endgame:config:v1'
-export const EMPIRES_CONFIG_SCHEMA_VERSION = 15
+export const EMPIRES_CONFIG_SCHEMA_VERSION = 16
 export const EMPIRES_ACTIVE_MINIGAME_CONFIG_ERROR = 'Нельзя менять правила во время боя. Сначала завершите бой или выйдите через действие отмены.'
 
 export function empiresConfigReplacementDisabledReason(
@@ -269,6 +270,21 @@ const ALCHEMY_SCAFFOLD = {
   recipes: [],
   deferredSubfeatures: [],
 } satisfies EmpiresAlchemyConfig
+
+const EXPEDITIONS_SCAFFOLD = {
+  enabled: false,
+  resultHistoryRetention: 16,
+  timeModel: 'preparation-days-and-abstract-travel-cons',
+  veteran: {
+    qualifyingMaximumHealthRatio: 0.5,
+    removalWounds: 2,
+    laterBattleBonus: null,
+    laterBattleBonusDeferredReason: 'The raw expedition source names a later-battle veteran payoff but does not define it.',
+  },
+  zones: [],
+  enemyProfiles: [],
+  definitions: [],
+} satisfies EmpiresExpeditionsConfig
 
 const QUESTS_SCAFFOLD = {
   enabled: false,
@@ -1016,6 +1032,41 @@ function normalizeEmpiresConfigV15(config: Record<string, unknown>): Record<stri
   return config
 }
 
+function migrateEmpiresConfigV15ToV16(config: Record<string, unknown>): Record<string, unknown> {
+  // Schema v15 had only a generic fortress marker and no expedition lifecycle.
+  // Custom configs migrate fail-closed: fortress identity/position survives, but
+  // no target becomes launchable without an explicit schema-v16 definition.
+  config.expeditions = cloneJson(EXPEDITIONS_SCAFFOLD)
+  if (isRecord(config.empire) && isRecord(config.empire.map) && Array.isArray(config.empire.map.objects)) {
+    config.empire.map.objects = config.empire.map.objects.map((rawObject) => {
+      if (!isRecord(rawObject) || rawObject.kind !== 'fortress') return rawObject
+      const migrated = { ...rawObject }
+      delete migrated.properties
+      migrated.payload = {
+        kind: 'fortress',
+        expeditionId: null,
+        zoneId: null,
+        deferredReason: 'Legacy fortress preserved without an authored expedition or zone reference.',
+      }
+      return migrated
+    })
+  }
+  config.schemaVersion = 16
+  return config
+}
+
+function normalizeEmpiresConfigV16(config: Record<string, unknown>): Record<string, unknown> {
+  normalizeEmpiresConfigV15(config)
+  config.expeditions = withScaffoldDefaults(config.expeditions, EXPEDITIONS_SCAFFOLD)
+  if (isRecord(config.expeditions)) {
+    config.expeditions.veteran = withScaffoldDefaults(
+      config.expeditions.veteran,
+      EXPEDITIONS_SCAFFOLD.veteran,
+    )
+  }
+  return config
+}
+
 const EMPIRES_CONFIG_MIGRATIONS: Record<
   number,
   (config: Record<string, unknown>) => Record<string, unknown>
@@ -1034,6 +1085,7 @@ const EMPIRES_CONFIG_MIGRATIONS: Record<
   12: migrateEmpiresConfigV12ToV13,
   13: migrateEmpiresConfigV13ToV14,
   14: migrateEmpiresConfigV14ToV15,
+  15: migrateEmpiresConfigV15ToV16,
 }
 
 /**
@@ -1067,6 +1119,7 @@ export function migrateEmpiresConfig(raw: unknown): unknown {
   if (version === 13) migrated = normalizeEmpiresConfigV13(migrated)
   if (version === 14) migrated = normalizeEmpiresConfigV14(migrated)
   if (version === 15) migrated = normalizeEmpiresConfigV15(migrated)
+  if (version === 16) migrated = normalizeEmpiresConfigV16(migrated)
   return migrated
 }
 
@@ -1224,6 +1277,15 @@ function validateDeferredReasons(config: EmpiresEndgameConfig): string[] {
   for (const recipe of config.alchemy.recipes) {
     check(`alchemy recipe ${recipe.id}`, recipe.deferredReason)
   }
+  for (const zone of config.expeditions.zones) {
+    checkSubfeatures(`expedition zone ${zone.id}`, zone.deferredSubfeatures)
+  }
+  for (const expedition of config.expeditions.definitions) {
+    check(`expedition ${expedition.id}`, expedition.deferredReason)
+  }
+  for (const object of config.empire.map.objects) {
+    if (object.kind === 'fortress') check(`fortress ${object.id}`, object.payload.deferredReason)
+  }
   for (const gift of config.gifts.definitions) check(`gift ${gift.id}`, gift.deferredReason)
   for (const resource of config.empire.resources) check(`resource ${resource.id}`, resource.deferredReason)
   for (const building of config.empire.buildings) {
@@ -1265,6 +1327,8 @@ const EMPIRES_LIVE_FLAG_ALLOWLIST = new Set([
   'famineYear',
   'famineYearCounter',
   'equippedRecruitCapacity',
+  'expeditionProvisionInstallmentTurns',
+  'expeditionSpeedPercent',
   'externalTradeDisabled',
   'horseTheftDisabled',
   'idleBuildingGoldBase',
@@ -1281,6 +1345,7 @@ const EMPIRES_LIVE_FLAG_ALLOWLIST = new Set([
   'darkExperimentsDisabled',
   'instantUnitEveryTurns',
   'internalTradeOnly',
+  'logisticsMapBonusPercent',
   'peasantProductivityPercent',
   'productionBoostAssignmentLimit',
   'productionBoostPercent',
@@ -1303,6 +1368,7 @@ const EMPIRES_LIVE_FLAG_ALLOWLIST = new Set([
   'treasuryGoldPerSavedMillion',
   'theocracy',
   'unlimitedTavernRecruitment',
+  'worldMaps',
 ])
 
 function validateLiveEffects(config: EmpiresEndgameConfig): string[] {
@@ -2091,6 +2157,161 @@ function validateAlchemyConfig(config: EmpiresEndgameConfig): void {
   }
   if (alchemy.recipes.every(recipe => Boolean(recipe.deferredReason))) {
     throw new Error('enabled alchemy requires at least one live recipe or experiment.')
+  }
+}
+
+function validateExpeditionsConfig(config: EmpiresEndgameConfig): void {
+  const rules = config.expeditions
+  if (!rules || typeof rules.enabled !== 'boolean'
+    || !Array.isArray(rules.zones)
+    || !Array.isArray(rules.enemyProfiles)
+    || !Array.isArray(rules.definitions)) {
+    throw new Error('expeditions must contain enabled, zones, enemyProfiles, and definitions.')
+  }
+  if (!Number.isInteger(rules.resultHistoryRetention) || rules.resultHistoryRetention < 1) {
+    throw new Error('expeditions.resultHistoryRetention must be a positive integer.')
+  }
+  if (rules.timeModel !== 'preparation-days-and-abstract-travel-cons') {
+    throw new Error('expeditions.timeModel is unknown.')
+  }
+  if (!Number.isFinite(rules.veteran.qualifyingMaximumHealthRatio)
+    || rules.veteran.qualifyingMaximumHealthRatio <= 0
+    || rules.veteran.qualifyingMaximumHealthRatio > 1
+    || !Number.isInteger(rules.veteran.removalWounds)
+    || rules.veteran.removalWounds < 2
+    || rules.veteran.laterBattleBonus !== null
+    || !rules.veteran.laterBattleBonusDeferredReason?.trim()) {
+    throw new Error('expeditions.veteran must define the sourced threshold/removal rule and an explicit missing bonus.')
+  }
+
+  const regionIds = new Set(config.empire.map.regions.map(region => region.id))
+  const subregions = new Map(config.empire.map.subregions.map(subregion => [subregion.id, subregion]))
+  const resourceIds = new Set(config.empire.resources.map(resource => resource.id))
+  const unitIds = new Set((config.empire.units ?? []).map(unit => unit.id))
+  const armorClassIds = new Set(config.combat.armorClasses.map(armor => armor.id))
+  const waveIds = new Set(config.td.waves.map(wave => wave.id))
+  const variants = new Map(config.td.planVariants.map(variant => [variant.id, variant]))
+  const questIds = new Set(config.quests.definitions.map(quest => quest.id))
+  const mapObjects = new Map(config.empire.map.objects.map(object => [object.id, object]))
+  if (mapObjects.size !== config.empire.map.objects.length) throw new Error('map object ids must be unique.')
+
+  const zoneIds = new Set<string>()
+  for (const zone of rules.zones) {
+    if (!zone.id?.trim() || zoneIds.has(zone.id) || !zone.name?.trim() || !regionIds.has(zone.regionId)) {
+      throw new Error(`expedition zone ${zone.id || '<missing>'} is invalid or repeated.`)
+    }
+    zoneIds.add(zone.id)
+    if (new Set(zone.subregionIds).size !== zone.subregionIds.length
+      || zone.subregionIds.some(id => subregions.get(id)?.regionId !== zone.regionId)) {
+      throw new Error(`expedition zone ${zone.id} references an unknown or wrong-region subregion.`)
+    }
+    for (const effect of zone.rewards) {
+      if (effect.kind === 'resource' && !resourceIds.has(effect.resourceId)) {
+        throw new Error(`expedition zone ${zone.id} reward references unknown resource ${effect.resourceId}.`)
+      }
+    }
+  }
+
+  const profileIds = new Set<string>()
+  for (const profile of rules.enemyProfiles) {
+    if (!profile.id?.trim() || profileIds.has(profile.id) || !profile.name?.trim()
+      || !profile.description?.trim() || !regionIds.has(profile.regionId)
+      || !waveIds.has(profile.waveId)) {
+      throw new Error(`expedition enemy profile ${profile.id || '<missing>'} is invalid or dangling.`)
+    }
+    profileIds.add(profile.id)
+  }
+
+  const expeditionIds = new Set<string>()
+  for (const expedition of rules.definitions) {
+    if (!expedition.id?.trim() || expeditionIds.has(expedition.id) || !expedition.name?.trim()) {
+      throw new Error(`expedition ${expedition.id || '<missing>'} is invalid or repeated.`)
+    }
+    expeditionIds.add(expedition.id)
+    const fort = mapObjects.get(expedition.fortObjectId)
+    const variant = variants.get(expedition.tdVariantId)
+    const profile = rules.enemyProfiles.find(candidate => candidate.id === expedition.enemyProfileId)
+    if (!fort || fort.kind !== 'fortress'
+      || fort.payload.expeditionId !== expedition.id
+      || fort.payload.zoneId !== expedition.zoneId
+      || fort.payload.deferredReason) {
+      throw new Error(`expedition ${expedition.id} must own one live typed fortress payload.`)
+    }
+    if (!zoneIds.has(expedition.zoneId)
+      || !regionIds.has(expedition.originRegionId)
+      || !regionIds.has(expedition.targetRegionId)
+      || !variant
+      || variant.mode !== 'assault'
+      || variant.purpose !== 'expedition'
+      || !profile
+      || profile.waveId !== variant.waveId
+      || profile.regionId !== expedition.targetRegionId) {
+      throw new Error(`expedition ${expedition.id} has a dangling zone, region, profile, or TD assault reference.`)
+    }
+    if (expedition.triggerQuestId && !questIds.has(expedition.triggerQuestId)) {
+      throw new Error(`expedition ${expedition.id} references unknown trigger quest ${expedition.triggerQuestId}.`)
+    }
+    const complaintQuest = config.quests.definitions.find(quest => quest.id === expedition.complaint.questId)
+    if (!complaintQuest || complaintQuest.trigger.kind !== 'manual') {
+      throw new Error(`expedition ${expedition.id} complaint must reference a manual quest.`)
+    }
+    const expectedStages = ['planning', 'provisioning', 'assault', 'settlement']
+    if (expedition.stages.join('|') !== expectedStages.join('|')) {
+      throw new Error(`expedition ${expedition.id} must use the canonical four-stage funnel.`)
+    }
+    if (new Set(expedition.eligibleUnitIds).size !== expedition.eligibleUnitIds.length
+      || expedition.eligibleUnitIds.some(id => !unitIds.has(id))
+      || new Set(expedition.excludedArmorClassIds).size !== expedition.excludedArmorClassIds.length
+      || expedition.excludedArmorClassIds.some(id => !armorClassIds.has(id))
+      || new Set(expedition.armorExceptionUnitIds).size !== expedition.armorExceptionUnitIds.length
+      || expedition.armorExceptionUnitIds.some(id => !unitIds.has(id))) {
+      throw new Error(`expedition ${expedition.id} has invalid roster rules.`)
+    }
+    if (!Number.isInteger(expedition.baseDurationCons) || expedition.baseDurationCons < 1
+      || !Number.isInteger(expedition.preparationDays) || expedition.preparationDays < 0
+      || !resourceIds.has(expedition.provisionResourceId)
+      || !Number.isFinite(expedition.minimumProvisionFraction)
+      || expedition.minimumProvisionFraction < 0 || expedition.minimumProvisionFraction > 1
+      || !Number.isFinite(expedition.fullProvisionDeathChance)
+      || !Number.isFinite(expedition.emptyProvisionDeathChance)
+      || expedition.fullProvisionDeathChance < 0
+      || expedition.emptyProvisionDeathChance > 1
+      || expedition.fullProvisionDeathChance > expedition.emptyProvisionDeathChance) {
+      throw new Error(`expedition ${expedition.id} has invalid duration or provision rules.`)
+    }
+    if (!Number.isInteger(expedition.complaint.launches) || expedition.complaint.launches < 1
+      || !Number.isInteger(expedition.complaint.windowCons) || expedition.complaint.windowCons < 1
+      || !Number.isFinite(expedition.complaint.loyaltyDelta)
+      || [
+        expedition.complaint.minimumProvisionFraction,
+        expedition.complaint.minimumLossRatio,
+      ].some(value => value !== null && (!Number.isFinite(value) || value < 0 || value > 1))
+      || (expedition.complaint.minimumDurationCons !== null
+        && (!Number.isInteger(expedition.complaint.minimumDurationCons)
+          || expedition.complaint.minimumDurationCons < 1))) {
+      throw new Error(`expedition ${expedition.id} has invalid complaint criteria.`)
+    }
+    if (expedition.returnProvisionPolicy !== 'none' || expedition.repeatable) {
+      throw new Error(`expedition ${expedition.id} has unsupported return or repeat semantics.`)
+    }
+  }
+
+  for (const object of config.empire.map.objects) {
+    if (object.kind !== 'fortress') continue
+    if (object.payload.kind !== 'fortress') throw new Error(`fortress ${object.id} needs a typed payload.`)
+    if (object.payload.deferredReason) {
+      if (object.payload.expeditionId !== null || object.payload.zoneId !== null) {
+        throw new Error(`deferred fortress ${object.id} must not carry live references.`)
+      }
+      continue
+    }
+    if (!object.payload.expeditionId || !expeditionIds.has(object.payload.expeditionId)
+      || !object.payload.zoneId || !zoneIds.has(object.payload.zoneId)) {
+      throw new Error(`fortress ${object.id} has dangling expedition or zone references.`)
+    }
+  }
+  if (rules.enabled && rules.definitions.filter(definition => !definition.deferredReason).length === 0) {
+    throw new Error('enabled expeditions require a live definition.')
   }
 }
 
@@ -3626,6 +3847,12 @@ function validateTdConfig(
     if (!variant.id?.trim() || variantIds.has(variant.id)) throw new Error('td plan variant ids must be unique and non-empty.')
     variantIds.add(variant.id)
     if (variant.mode !== 'defense' && variant.mode !== 'assault') throw new Error(`td plan variant ${variant.id} has unknown mode.`)
+    if (variant.purpose !== undefined && variant.purpose !== 'campaign' && variant.purpose !== 'expedition') {
+      throw new Error(`td plan variant ${variant.id} has unknown purpose.`)
+    }
+    if (variant.purpose === 'expedition' && variant.mode !== 'assault') {
+      throw new Error(`td expedition variant ${variant.id} must be an assault.`)
+    }
     if (variant.deferredReason !== undefined && !variant.deferredReason.trim()) {
       throw new Error(`td plan variant ${variant.id} deferredReason must be non-empty.`)
     }
@@ -3784,6 +4011,7 @@ export function validateEmpiresConfig(value: unknown): asserts value is EmpiresE
   if (!Array.isArray(value.mysticCards)) throw new Error('Поле mysticCards должно быть массивом.')
   if (!isRecord(value.tavern)) throw new Error('Отсутствуют настройки Таверны.')
   if (!isRecord(value.alchemy)) throw new Error('Отсутствуют настройки Алхимии.')
+  if (!isRecord(value.expeditions)) throw new Error('Отсутствуют настройки экспедиций.')
 
   if (!isRecord(value.durak)) throw new Error('Отсутствуют настройки карточной партии.')
   if (!isRecord(value.upgrades)) throw new Error('Отсутствуют настройки улучшений.')
@@ -3844,6 +4072,7 @@ export function validateEmpiresConfig(value: unknown): asserts value is EmpiresE
   validateDomesticEconomyConfig(config)
   validateTavernConfig(config)
   validateAlchemyConfig(config)
+  validateExpeditionsConfig(config)
   validateExternalEconomyConfig(config)
   validateEconomyContentConfig(config)
   validateLoyaltyConfig(config)

@@ -56,6 +56,7 @@ import type {
   AlchemyRulesIdentity,
   EmpiresActionResult,
   EmpiresActor,
+  EmpiresArmyUnitState,
   EmpiresBuildingDefinition,
   EmpiresBuildingOperationView,
   EmpiresBuildingLevelDefinition,
@@ -86,6 +87,10 @@ import type {
   EmpiresEpidemicState,
   EmpiresEpidemicSourceKind,
   EmpiresEndgameConfig,
+  EmpiresExpeditionDefinition,
+  EmpiresExpeditionPlanningView,
+  EmpiresExpeditionResultHistoryEntry,
+  EmpiresExpeditionState,
   EmpiresBattleLossLoyaltyInput,
   EmpiresEventDefinition,
   EmpiresExternalActiveOfferState,
@@ -308,6 +313,10 @@ function migrateLegacyActiveTdPlan(
       ? {
           speedPerSecond: 0,
           cohortId: `legacy:${String((deployment as Record<string, unknown>).cityId)}:${String((deployment as Record<string, unknown>).unitId)}`,
+          unitInstanceIds: Array.from(
+            { length: Math.max(0, Math.floor(Number((deployment as Record<string, unknown>).count) || 0)) },
+            (_, index) => `legacy-active:${String((deployment as Record<string, unknown>).id)}:${index + 1}`,
+          ),
           ...deployment,
         }
       : deployment)
@@ -359,7 +368,7 @@ function uniqueIds<T extends { id: string }>(values: readonly T[]): boolean {
 
 export function validateEmpiresEndgameConfig(config: EmpiresEndgameConfig): string[] {
   const errors: string[] = []
-  if (config.schemaVersion !== 15) errors.push('schemaVersion must be 15')
+  if (config.schemaVersion !== 16) errors.push('schemaVersion must be 16')
   if (!config.id.trim()) errors.push('config id is required')
   if (config.cards.length !== 53) errors.push('cards must contain exactly 53 definitions')
   if (!uniqueIds(config.cards)) errors.push('card definition ids must be unique')
@@ -519,6 +528,7 @@ export class EmpiresEndgameEngine {
   private readonly giftDefinitions = new Map<string, EmpiresGiftDefinition>()
   private readonly eventDefinitions = new Map<string, EmpiresEventDefinition>()
   private readonly questDefinitions = new Map<string, EmpiresQuestDefinition>()
+  private readonly expeditionDefinitions = new Map<string, EmpiresExpeditionDefinition>()
   private readonly combatEquipmentDefinitions = new Map<string, CombatEquipmentDefinition>()
   private readonly listeners = new Set<EmpiresStateListener>()
 
@@ -542,6 +552,9 @@ export class EmpiresEndgameEngine {
     for (const definition of this.config.gifts.definitions) this.giftDefinitions.set(definition.id, definition)
     for (const definition of this.config.empire.events) this.eventDefinitions.set(definition.id, definition)
     for (const definition of this.config.quests.definitions) this.questDefinitions.set(definition.id, definition)
+    for (const definition of this.config.expeditions.definitions) {
+      this.expeditionDefinitions.set(definition.id, definition)
+    }
     for (const definition of this.config.combat.equipment) {
       this.combatEquipmentDefinitions.set(definition.id, definition)
     }
@@ -569,7 +582,7 @@ export class EmpiresEndgameEngine {
   }
 
   snapshotEnvelope(savedAt = new Date().toISOString()): EmpiresSnapshotEnvelope {
-    return { schemaVersion: 13, savedAt, state: this.snapshot() }
+    return { schemaVersion: 14, savedAt, state: this.snapshot() }
   }
 
   restore(snapshot: EmpiresCampaignState): void {
@@ -1414,6 +1427,365 @@ export class EmpiresEndgameEngine {
 
   effectiveEmpireFlagValue(flagId: string): number {
     return this.empireFlagValueInState(this.state, flagId)
+  }
+
+  expeditionPlanningView(expeditionId: string): EmpiresExpeditionPlanningView | null {
+    const definition = this.expeditionDefinitions.get(expeditionId)
+    const expedition = this.state.expeditions.byDefinitionId[expeditionId]
+    if (!definition || !expedition) return null
+    const zone = this.config.expeditions.zones.find(candidate => candidate.id === definition.zoneId)!
+    const profile = this.config.expeditions.enemyProfiles.find(
+      candidate => candidate.id === definition.enemyProfileId,
+    )!
+    const wave = this.config.td.waves.find(candidate => candidate.id === profile.waveId)!
+    const speedPercent = Math.max(0, this.effectiveEmpireFlagValue('expeditionSpeedPercent'))
+    const mapBonusPercent = Math.max(0, this.effectiveEmpireFlagValue('logisticsMapBonusPercent'))
+    const effectiveDurationCons = this.expeditionEffectiveDuration(
+      definition,
+      speedPercent,
+      mapBonusPercent,
+    )
+    const activeRosterIds = new Set(Object.values(this.state.expeditions.byDefinitionId)
+      .filter(candidate => candidate.definitionId !== definition.id
+        && ['provisioning', 'ready', 'fighting'].includes(candidate.status))
+      .flatMap(candidate => candidate.rosterUnitInstanceIds))
+    const roster = Object.values(this.state.army.unitInstances)
+      .sort((left, right) => stableStringCompare(left.id, right.id))
+      .map((instance) => {
+        const city = this.city(instance.cityId)
+        const cohort = city?.recruitedUnitCohorts.find(candidate => candidate.id === instance.cohortId)
+        const unit = this.unitDefinitions.get(instance.unitId)
+        let disabledReason: string | null = null
+        if (!city || !cohort || !unit || unit.deferredReason) disabledReason = 'Отряд больше не существует.'
+        else if (city.regionId !== definition.originRegionId) {
+          disabledReason = 'Экспедиция комплектуется в исходном регионе.'
+        } else if (!definition.eligibleUnitIds.includes(instance.unitId)) {
+          disabledReason = 'Этот тип отряда не допущен к экспедиции.'
+        } else if (cohort.armor
+          && definition.excludedArmorClassIds.includes(cohort.armor.classId)
+          && !definition.armorExceptionUnitIds.includes(instance.unitId)) {
+          disabledReason = 'Эта броня не подходит для маршрута.'
+        } else if (instance.readyAtCon > this.state.con || instance.recoveryStartedAtCon !== null) {
+          disabledReason = `Отряд лечится до кона ${instance.readyAtCon}.`
+        } else if (activeRosterIds.has(instance.id)) {
+          disabledReason = 'Отряд уже находится в другой экспедиции.'
+        }
+        return {
+          unitInstanceId: instance.id,
+          cityId: instance.cityId,
+          cityName: city?.name ?? instance.cityId,
+          cohortId: instance.cohortId,
+          unitId: instance.unitId,
+          unitName: unit?.name ?? instance.unitId,
+          foodPerCon: Math.max(0, unit?.foodUpkeep ?? 0),
+          veteran: instance.veteran,
+          wounds: instance.wounds,
+          healthRatio: instance.healthRatio,
+          eligible: disabledReason === null,
+          disabledReason,
+        }
+      })
+    const selectedIds = expedition.rosterUnitInstanceIds.length > 0
+      ? expedition.rosterUnitInstanceIds
+      : roster.filter(item => item.eligible).map(item => item.unitInstanceId)
+    const provisionRequired = selectedIds.reduce((total, id) => {
+      const instance = this.state.army.unitInstances[id]
+      return total + Math.max(0, this.unitDefinitions.get(instance?.unitId ?? '')?.foodUpkeep ?? 0)
+        * effectiveDurationCons
+    }, 0)
+    return {
+      definitionId: definition.id,
+      name: definition.name,
+      fortObjectId: definition.fortObjectId,
+      zoneId: definition.zoneId,
+      zoneName: zone.name,
+      status: expedition.status,
+      blockedReason: this.expeditionAvailabilityBlockedReason(definition),
+      roster,
+      selectedUnitInstanceIds: [...selectedIds],
+      plannedDurationCons: definition.baseDurationCons,
+      effectiveDurationCons: expedition.provisionPlan?.effectiveDurationCons ?? effectiveDurationCons,
+      preparationDays: definition.preparationDays,
+      speedPercent: expedition.provisionPlan?.speedPercent ?? speedPercent,
+      mapBonusPercent: expedition.provisionPlan?.mapBonusPercent ?? mapBonusPercent,
+      maxInstallments: this.expeditionMaximumInstallments(),
+      provisionAvailable: this.expeditionOriginProvisionAvailable(definition),
+      provisionRequired: expedition.provisionPlan?.requiredAmount ?? provisionRequired,
+      provisionRequested: expedition.provisionPlan?.requestedAmount ?? provisionRequired,
+      provisionWithdrawn: expedition.provisionPlan?.withdrawnAmount ?? 0,
+      enemyIntel: this.effectiveEmpireFlagValue('worldMaps') > 0 ? 'exact' : 'profile',
+      enemyProfileName: profile.name,
+      enemyDescription: profile.description,
+      enemyGroups: wave.groups.map(group => ({
+        id: group.id,
+        count: group.count,
+        armorClassId: group.armor?.classId ?? null,
+      })),
+      installmentBlockedReason: expedition.installmentBlockedReason,
+      opened: this.state.expeditions.openedZoneIds.includes(definition.zoneId),
+    }
+  }
+
+  beginExpeditionPlanning(expeditionId: string): EmpiresActionResult {
+    const definition = this.expeditionDefinitions.get(expeditionId)
+    const expedition = this.state.expeditions.byDefinitionId[expeditionId]
+    if (!definition || !expedition) return failure('Неизвестная экспедиция.')
+    const blocked = this.expeditionAvailabilityBlockedReason(definition)
+    if (blocked) return failure(blocked)
+    expedition.status = 'planning'
+    expedition.rosterUnitInstanceIds = []
+    expedition.rosterSnapshot = []
+    expedition.provisionPlan = null
+    expedition.launchedAtCon = null
+    expedition.readyAtCon = null
+    expedition.activeSessionId = null
+    expedition.installmentBlockedReason = null
+    expedition.outcome = null
+    return this.commit(`Начато планирование: ${definition.name}.`)
+  }
+
+  cancelExpeditionPlanning(expeditionId: string): EmpiresActionResult {
+    const definition = this.expeditionDefinitions.get(expeditionId)
+    const expedition = this.state.expeditions.byDefinitionId[expeditionId]
+    if (!definition || !expedition) return failure('Неизвестная экспедиция.')
+    if (expedition.status !== 'planning') {
+      return failure('Без потерь отменить можно только этап планирования.')
+    }
+    expedition.status = expedition.resultHistory.length === 0
+      ? 'available'
+      : expedition.resultHistory[expedition.resultHistory.length - 1].outcome === 'defeat'
+        ? 'lost'
+        : 'aborted'
+    expedition.rosterUnitInstanceIds = []
+    expedition.rosterSnapshot = []
+    expedition.provisionPlan = null
+    return this.commit(`Планирование экспедиции «${definition.name}» отменено без расходов.`)
+  }
+
+  launchExpedition(
+    expeditionId: string,
+    rosterUnitInstanceIds: readonly string[],
+    provisionAmount: number,
+    installmentCount = 1,
+  ): EmpiresActionResult {
+    const definition = this.expeditionDefinitions.get(expeditionId)
+    const expedition = this.state.expeditions.byDefinitionId[expeditionId]
+    if (!definition || !expedition) return failure('Неизвестная экспедиция.')
+    if (this.state.phase !== 'empire' || expedition.status !== 'planning') {
+      return failure('Сначала откройте планирование экспедиции во время управления империей.')
+    }
+    const ids = [...new Set(rosterUnitInstanceIds)]
+    if (ids.length === 0 || ids.length !== rosterUnitInstanceIds.length) {
+      return failure('Выберите непустой список уникальных отрядов.')
+    }
+    const planning = this.expeditionPlanningView(expeditionId)!
+    const eligibleIds = new Set(planning.roster.filter(item => item.eligible).map(item => item.unitInstanceId))
+    if (ids.some(id => !eligibleIds.has(id))) return failure('В составе есть недоступный отряд.')
+    if (this.state.empire.daysRemaining < definition.preparationDays) {
+      return failure(`Для подготовки нужно ${definition.preparationDays} дней.`)
+    }
+    const maxInstallments = this.expeditionMaximumInstallments()
+    if (!Number.isInteger(installmentCount) || installmentCount < 1 || installmentCount > maxInstallments) {
+      return failure(`Провизию можно разделить максимум на ${maxInstallments} платежа.`)
+    }
+    const speedPercent = Math.max(0, this.effectiveEmpireFlagValue('expeditionSpeedPercent'))
+    const mapBonusPercent = Math.max(0, this.effectiveEmpireFlagValue('logisticsMapBonusPercent'))
+    const effectiveDurationCons = this.expeditionEffectiveDuration(
+      definition,
+      speedPercent,
+      mapBonusPercent,
+    )
+    const requiredAmount = ids.reduce((total, id) => (
+      total + this.unitDefinitions.get(this.state.army.unitInstances[id].unitId)!.foodUpkeep
+        * effectiveDurationCons
+    ), 0)
+    const minimumAmount = requiredAmount * definition.minimumProvisionFraction
+    if (!Number.isFinite(provisionAmount) || provisionAmount < minimumAmount) {
+      return failure(`Нужно назначить не менее ${minimumAmount} провизии.`)
+    }
+    const firstInstallment = provisionAmount / installmentCount
+    if (this.expeditionOriginProvisionAvailable(definition) + Number.EPSILON < firstInstallment) {
+      return failure('В исходном регионе недостаточно провизии для первого платежа.')
+    }
+    const snapshot = ids.map((id) => {
+      const instance = this.state.army.unitInstances[id]
+      const city = this.city(instance.cityId)!
+      const cohort = city.recruitedUnitCohorts.find(candidate => candidate.id === instance.cohortId)!
+      return {
+        unitInstanceId: id,
+        cityId: instance.cityId,
+        cohortId: instance.cohortId,
+        unitId: instance.unitId,
+        veteranAtLaunch: instance.veteran,
+        woundsAtLaunch: instance.wounds,
+        weapon: cloneSerializable(cohort.weapon),
+        armor: cloneSerializable(cohort.armor),
+      }
+    })
+    expedition.assaultAttempts += 1
+    expedition.status = 'provisioning'
+    expedition.rosterUnitInstanceIds = [...ids].sort(stableStringCompare)
+    expedition.rosterSnapshot = snapshot.sort((left, right) => (
+      stableStringCompare(left.unitInstanceId, right.unitInstanceId)
+    ))
+    expedition.launchedAtCon = this.state.con
+    expedition.readyAtCon = null
+    expedition.activeSessionId = null
+    expedition.outcome = null
+    expedition.installmentBlockedReason = null
+    expedition.provisionPlan = {
+      source: 'direct',
+      resourceId: definition.provisionResourceId,
+      requestedAmount: provisionAmount,
+      requiredAmount,
+      plannedDurationCons: definition.baseDurationCons,
+      effectiveDurationCons,
+      speedPercent,
+      mapBonusPercent,
+      installmentCount,
+      paidInstallments: 0,
+      withdrawnAmount: 0,
+      packingEfficiencyPercent: 100,
+      withdrawals: [],
+    }
+    this.state.empire.daysRemaining -= definition.preparationDays
+    if (!this.withdrawNextExpeditionInstallment(definition, expedition)) {
+      throw new Error('Trusted expedition withdrawal failed after availability validation')
+    }
+    return this.commit(`Экспедиция «${definition.name}» снаряжена; провизия списана в исходном регионе.`)
+  }
+
+  payExpeditionInstallment(expeditionId: string): EmpiresActionResult {
+    const definition = this.expeditionDefinitions.get(expeditionId)
+    const expedition = this.state.expeditions.byDefinitionId[expeditionId]
+    if (!definition || !expedition) return failure('Неизвестная экспедиция.')
+    if (this.state.phase !== 'empire' || expedition.status !== 'provisioning') {
+      return failure('Эта экспедиция сейчас не принимает платёж провизии.')
+    }
+    const last = expedition.provisionPlan?.withdrawals.at(-1)
+    if (last?.con === this.state.con) return failure('Очередной платёж возможен только в следующем коне.')
+    if (!this.withdrawNextExpeditionInstallment(definition, expedition)) {
+      return failure(expedition.installmentBlockedReason ?? 'Не удалось списать платёж провизии.')
+    }
+    return this.commit(`Платёж провизии для «${definition.name}» списан.`)
+  }
+
+  abortExpedition(expeditionId: string): EmpiresActionResult {
+    const definition = this.expeditionDefinitions.get(expeditionId)
+    const expedition = this.state.expeditions.byDefinitionId[expeditionId]
+    if (!definition || !expedition) return failure('Неизвестная экспедиция.')
+    if (expedition.status === 'planning') return this.cancelExpeditionPlanning(expeditionId)
+    if (expedition.status === 'fighting') {
+      if (this.state.minigame?.kind !== 'td'
+        || this.state.minigame.origin.context.kind !== 'expedition-assault'
+        || this.state.minigame.origin.context.expeditionId !== expeditionId) {
+        return failure('Активный бой экспедиции не совпадает с её состоянием.')
+      }
+      return this.abortMinigame()
+    }
+    if (expedition.status !== 'provisioning' && expedition.status !== 'ready') {
+      return failure('Эту экспедицию сейчас нельзя прервать.')
+    }
+    this.settleExpeditionWithoutBattle(definition, expedition)
+    return this.commit(`Экспедиция «${definition.name}» прервана; списанная провизия не возвращается.`)
+  }
+
+  startExpeditionAssault(expeditionId: string): EmpiresActionResult {
+    const definition = this.expeditionDefinitions.get(expeditionId)
+    const expedition = this.state.expeditions.byDefinitionId[expeditionId]
+    if (!definition || !expedition) return failure('Неизвестная экспедиция.')
+    if (this.state.phase !== 'empire' || expedition.status !== 'ready' || !expedition.provisionPlan) {
+      return failure('Экспедиция ещё не готова к штурму.')
+    }
+    const rosterIds = new Set(expedition.rosterUnitInstanceIds)
+    if (rosterIds.size === 0 || [...rosterIds].some((id) => {
+      const instance = this.state.army.unitInstances[id]
+      return !instance || instance.readyAtCon > this.state.con || instance.recoveryStartedAtCon !== null
+    })) return failure('Состав экспедиции изменился или ещё не готов.')
+    const variant = this.config.td.planVariants?.find(candidate => candidate.id === definition.tdVariantId)
+    const profile = this.config.expeditions.enemyProfiles.find(
+      candidate => candidate.id === definition.enemyProfileId,
+    )
+    const battlefield = this.config.td.battlefields.find(
+      candidate => candidate.id === variant?.battlefieldId,
+    )
+    const wave = this.config.td.waves.find(candidate => candidate.id === profile?.waveId)
+    if (!variant || variant.deferredReason || variant.mode !== 'assault'
+      || variant.purpose !== 'expedition' || !battlefield || !wave) {
+      return failure('Штурм экспедиции не связан с действующим полем боя.')
+    }
+    const deployments = this.buildTdDeployments(
+      this.state,
+      battlefield.spawnerNodeId,
+      variant.deploymentSpeedPerSecond,
+      rosterIds,
+    )
+    const deployedIds = new Set(deployments.flatMap(deployment => deployment.unitInstanceIds))
+    if (deployedIds.size !== rosterIds.size || [...rosterIds].some(id => !deployedIds.has(id))) {
+      return failure('Не все выбранные отряды можно развернуть на этом штурме.')
+    }
+    const seed = Math.floor(nextEmpiresRandom(this.state.rng) * 0x1_0000_0000)
+    const planId = `expedition-${definition.id}-attempt-${expedition.assaultAttempts}`
+    const sessionId = `${planId}:${seed}`
+    const rulesIdentity = this.currentTdRulesIdentity()
+    const researchedTechnologyIds = new Set(this.state.empire.researchedTechnologyIds)
+    const plan: TdBattlePlan = {
+      id: planId,
+      sessionId,
+      rulesIdentity: cloneSerializable(rulesIdentity),
+      mode: 'assault',
+      scheduledCon: this.state.con,
+      threat: 0,
+      tickMs: this.config.td.tickMs!,
+      maxTicks: this.config.td.maxTicks!,
+      maxCommands: this.config.td.maxCommands!,
+      maxCatchUpTicksPerFrame: this.config.td.maxCatchUpTicksPerFrame!,
+      startingBuildResources: variant.startingBuildResources ?? this.config.td.startingBuildResources!,
+      battlefield: cloneSerializable(battlefield),
+      objective: cloneSerializable(variant.objective),
+      towerBases: cloneSerializable((this.config.td.towerBases ?? [])
+        .filter(base => battlefield.towerBaseIds.includes(base.id))
+        .map(base => ({
+          ...base,
+          ...(base.loadouts ? {
+            loadouts: base.loadouts.filter(loadout => (
+              this.towerLoadoutAvailableForResearch(loadout, researchedTechnologyIds)
+            )),
+          } : {}),
+        }))),
+      towerChoices: cloneSerializable(this.config.td.towers),
+      gradeChoices: cloneSerializable((this.config.td.gradeChoices ?? [])
+        .filter(set => set.regionId === battlefield.regionId)),
+      wave: cloneSerializable(wave),
+      combat: cloneSerializable(this.config.combat),
+      deployments,
+      equipmentStock: cloneSerializable(this.state.army.equipmentStock),
+    }
+    const planErrors = validateTdBattlePlan(plan)
+    if (planErrors.length > 0) return failure(`Invalid expedition TD plan: ${planErrors.join('; ')}`)
+    expedition.status = 'fighting'
+    expedition.activeSessionId = sessionId
+    const started = this.beginMinigame({
+      id: sessionId,
+      kind: 'td',
+      plan,
+      rulesIdentity,
+      seed,
+      attempt: expedition.assaultAttempts,
+      origin: {
+        returnPhase: 'empire',
+        context: {
+          kind: 'expedition-assault',
+          expeditionId: definition.id,
+          attempt: expedition.assaultAttempts,
+        },
+      },
+    })
+    if (!started.ok) {
+      expedition.status = 'ready'
+      expedition.activeSessionId = null
+    }
+    return started
   }
 
   effectiveReputation(): number {
@@ -2292,14 +2664,17 @@ export class EmpiresEndgameEngine {
       ) > 0
     ))
     if (!academyOperational) return failure('No operational Medical Academy is available.')
-    const veteran = this.state.army.veterans[veteranId]
-    if (!veteran || veteran.wounds <= 0) return failure('That veteran does not need treatment.')
+    const veteran = this.state.army.unitInstances[veteranId]
+    if (!veteran?.veteran || veteran.wounds <= 0) return failure('That veteran does not need treatment.')
     this.state.empire.medical.academyTreatmentUsedCon = this.state.con
     if (nextEmpiresRandom(this.state.rng) < this.config.empire.medical.academyTreatmentDeathChance) {
-      delete this.state.army.veterans[veteranId]
+      this.removeArmyUnitInstance(veteranId)
       return this.commit(`Veteran ${veteranId} died during Medical Academy treatment.`)
     }
     veteran.wounds = 0
+    veteran.healthRatio = 1
+    veteran.recoveryStartedAtCon = null
+    veteran.readyAtCon = this.state.con
     return this.commit(`Veteran ${veteranId} recovered at the Medical Academy.`)
   }
 
@@ -2621,10 +2996,16 @@ export class EmpiresEndgameEngine {
   }
 
   private armyFoodUpkeepForCity(city: EmpiresCityState): number {
+    const awayUnitIds = new Set(Object.values(this.state.expeditions.byDefinitionId)
+      .filter(expedition => ['provisioning', 'ready', 'fighting'].includes(expedition.status))
+      .flatMap(expedition => expedition.rosterUnitInstanceIds))
     const gross = city.recruitedUnitCohorts.reduce((total, cohort) => {
       const unit = this.unitDefinitions.get(cohort.unitId)
       if (!unit || unit.deferredReason) return total
-      return total + Math.max(0, cohort.count) * unit.foodUpkeep
+      const present = cohort.unitInstanceIds.length > 0
+        ? cohort.unitInstanceIds.filter(id => !awayUnitIds.has(id)).length
+        : Math.max(0, cohort.count)
+      return total + Math.max(0, present) * unit.foodUpkeep
     }, 0)
     const discount = Math.max(0, Math.min(
       100,
@@ -3593,6 +3974,36 @@ export class EmpiresEndgameEngine {
     return questId ? `Resolve the mandatory dialogue ${questId} first.` : null
   }
 
+  private initialExpeditionsState(): EmpiresCampaignState['expeditions'] {
+    return {
+      openedZoneIds: [],
+      byDefinitionId: Object.fromEntries(this.config.expeditions.definitions.map(definition => [
+        definition.id,
+        {
+          definitionId: definition.id,
+          status: 'available',
+          originRegionId: definition.originRegionId,
+          fortObjectId: definition.fortObjectId,
+          zoneId: definition.zoneId,
+          rosterUnitInstanceIds: [],
+          rosterSnapshot: [],
+          provisionPlan: null,
+          launchedAtCon: null,
+          readyAtCon: null,
+          assaultAttempts: 0,
+          activeSessionId: null,
+          outcome: null,
+          rewardApplied: false,
+          zoneApplied: false,
+          complaintTriggerIds: [],
+          installmentBlockedReason: null,
+          resultHistory: [],
+          resultCompaction: { evictedCount: 0, historyDigest: '' },
+        } satisfies EmpiresExpeditionState,
+      ])),
+    }
+  }
+
   private createInitialState(tavernRunOrdinal: number): EmpiresCampaignState {
     const rng = createEmpiresRngState(this.config.seed)
     const cosmeticRng = createEmpiresRngState(`${this.config.seed}:god-dialogue`)
@@ -3605,7 +4016,7 @@ export class EmpiresEndgameEngine {
     const playerHand: string[] = []
     const godHand: string[] = []
     const state: EmpiresCampaignState = {
-      schemaVersion: 13,
+      schemaVersion: 14,
       configId: this.config.id,
       phase: 'cards',
       rng,
@@ -3721,11 +4132,12 @@ export class EmpiresEndgameEngine {
         maxMorale: this.config.empire.initialFlags?.maxCombatSpirit
           ?? this.config.td.morale?.maximum
           ?? 0,
-        veterans: {},
+        unitInstances: {},
+        nextUnitSequence: 1,
         recruitmentPenalties: {},
         foundryInstantReadyConByCity: {},
-        recoveries: [],
       },
+      expeditions: this.initialExpeditionsState(),
       external: {
         allianceThreat: this.config.td.alliance?.baseThreat ?? 0,
         nextWaveCon: this.config.td.waveEveryCons ?? Number.MAX_SAFE_INTEGER,
@@ -4203,6 +4615,167 @@ export class EmpiresEndgameEngine {
     this.compactMysticHistory(state)
   }
 
+  private normalizeArmyUnitInstances(state: EmpiresCampaignState, snapshotVersion: number): void {
+    const legacyVeterans = state.army.veterans ?? {}
+    const legacyRecoveries = state.army.recoveries ?? []
+    const instances = state.army.unitInstances ?? {}
+    const claimedIds = new Set<string>()
+    const newId = () => {
+      let id = `army-unit:${state.army.nextUnitSequence}`
+      while (instances[id] || claimedIds.has(id)) {
+        state.army.nextUnitSequence += 1
+        id = `army-unit:${state.army.nextUnitSequence}`
+      }
+      state.army.nextUnitSequence += 1
+      return id
+    }
+
+    for (const city of state.empire.cities.slice().sort((left, right) => stableStringCompare(left.id, right.id))) {
+      for (const cohort of city.recruitedUnitCohorts.slice().sort((left, right) => stableStringCompare(left.id, right.id))) {
+        const normalizedIds: string[] = []
+        for (const id of cohort.unitInstanceIds ?? []) {
+          if (claimedIds.has(id)) throw new Error(`Army unit instance ${id} occupies more than one cohort`)
+          const instance = instances[id]
+          if (!instance) {
+            if (snapshotVersion >= 14) throw new Error(`Cohort ${cohort.id} references missing army unit ${id}`)
+            continue
+          }
+          if (instance.id !== id || instance.cityId !== city.id
+            || instance.cohortId !== cohort.id || instance.unitId !== cohort.unitId) {
+            throw new Error(`Army unit instance ${id} does not match its canonical cohort`)
+          }
+          normalizedIds.push(id)
+          claimedIds.add(id)
+        }
+        while (normalizedIds.length < Math.max(0, Math.floor(cohort.count))) {
+          const id = newId()
+          instances[id] = {
+            id,
+            cityId: city.id,
+            cohortId: cohort.id,
+            unitId: cohort.unitId,
+            healthRatio: 1,
+            veteran: false,
+            wounds: 0,
+            recoveryStartedAtCon: null,
+            readyAtCon: state.con,
+          }
+          normalizedIds.push(id)
+          claimedIds.add(id)
+        }
+        if (normalizedIds.length > cohort.count) cohort.count = normalizedIds.length
+        cohort.unitInstanceIds = normalizedIds
+        cohort.count = normalizedIds.length
+      }
+    }
+
+    state.army.unitInstances = Object.fromEntries([...claimedIds]
+      .sort(stableStringCompare)
+      .map((id) => {
+        const instance = instances[id]
+        if (!instance || !Number.isFinite(instance.healthRatio)
+          || instance.healthRatio < 0 || instance.healthRatio > 1
+          || typeof instance.veteran !== 'boolean'
+          || !Number.isInteger(instance.wounds) || instance.wounds < 0
+          || !Number.isInteger(instance.readyAtCon) || instance.readyAtCon < 0
+          || (instance.recoveryStartedAtCon !== null
+            && (!Number.isInteger(instance.recoveryStartedAtCon)
+              || instance.recoveryStartedAtCon < 0
+              || instance.recoveryStartedAtCon > instance.readyAtCon))) {
+          throw new Error(`Army unit instance ${id} has invalid health, veteran, wound, or recovery state`)
+        }
+        return [id, instance]
+      }))
+
+    const availableForLegacyVeteran = Object.values(state.army.unitInstances)
+      .sort((left, right) => stableStringCompare(left.id, right.id))
+    for (const [legacyId, veteran] of Object.entries(legacyVeterans).sort(([left], [right]) => (
+      stableStringCompare(left, right)
+    ))) {
+      const instance = state.army.unitInstances[legacyId]
+        ?? availableForLegacyVeteran.find(candidate => candidate.unitId === veteran.unitId && !candidate.veteran)
+      if (!instance) continue
+      instance.veteran = true
+      instance.wounds = Math.max(instance.wounds, Math.max(0, Math.floor(veteran.wounds)))
+    }
+    for (const recovery of legacyRecoveries.slice().sort((left, right) => stableStringCompare(left.id, right.id))) {
+      const candidates = Object.values(state.army.unitInstances)
+        .filter(instance => instance.cityId === recovery.cityId
+          && instance.cohortId === recovery.cohortId
+          && instance.unitId === recovery.unitId)
+        .sort((left, right) => stableStringCompare(left.id, right.id))
+        .slice(0, Math.max(0, Math.floor(recovery.count)))
+      for (const instance of candidates) {
+        instance.healthRatio = Math.min(instance.healthRatio, 0.999999)
+        instance.recoveryStartedAtCon = recovery.startedAtCon
+        instance.readyAtCon = recovery.readyAtCon
+      }
+    }
+    delete state.army.veterans
+    delete state.army.recoveries
+  }
+
+  private normalizeExpeditionsState(state: EmpiresCampaignState): void {
+    state.expeditions ??= this.initialExpeditionsState()
+    const zoneIds = new Set(this.config.expeditions.zones.map(zone => zone.id))
+    state.expeditions.openedZoneIds = [...new Set(state.expeditions.openedZoneIds ?? [])]
+      .filter(id => zoneIds.has(id))
+      .sort(stableStringCompare)
+    const initial = this.initialExpeditionsState()
+    state.expeditions.byDefinitionId ??= {}
+    for (const definition of this.config.expeditions.definitions) {
+      const expedition = state.expeditions.byDefinitionId[definition.id]
+        ?? initial.byDefinitionId[definition.id]
+      if (expedition.definitionId !== definition.id
+        || expedition.originRegionId !== definition.originRegionId
+        || expedition.fortObjectId !== definition.fortObjectId
+        || expedition.zoneId !== definition.zoneId) {
+        throw new Error(`Expedition state ${definition.id} does not match its configured identity`)
+      }
+      if (!['available', 'planning', 'provisioning', 'ready', 'fighting', 'won', 'lost', 'aborted']
+        .includes(expedition.status)) throw new Error(`Expedition ${definition.id} has invalid status`)
+      expedition.rosterUnitInstanceIds ??= []
+      expedition.rosterSnapshot ??= []
+      expedition.provisionPlan ??= null
+      expedition.launchedAtCon ??= null
+      expedition.readyAtCon ??= null
+      expedition.assaultAttempts = Math.max(0, Math.floor(expedition.assaultAttempts ?? 0))
+      expedition.activeSessionId ??= null
+      expedition.outcome ??= null
+      expedition.rewardApplied ??= false
+      expedition.zoneApplied ??= false
+      expedition.complaintTriggerIds = [...new Set(expedition.complaintTriggerIds ?? [])]
+      expedition.installmentBlockedReason ??= null
+      expedition.resultHistory ??= []
+      expedition.resultCompaction ??= { evictedCount: 0, historyDigest: '' }
+      if (new Set(expedition.rosterUnitInstanceIds).size !== expedition.rosterUnitInstanceIds.length
+        || expedition.rosterUnitInstanceIds.some(id => !state.army.unitInstances[id])) {
+        if (expedition.status === 'planning' || expedition.status === 'available') {
+          expedition.rosterUnitInstanceIds = []
+          expedition.rosterSnapshot = []
+        } else {
+          throw new Error(`Expedition ${definition.id} has a dangling canonical roster`)
+        }
+      }
+      this.compactExpeditionHistory(expedition)
+      state.expeditions.byDefinitionId[definition.id] = expedition
+    }
+    state.expeditions.byDefinitionId = Object.fromEntries(Object.entries(state.expeditions.byDefinitionId)
+      .filter(([id]) => this.expeditionDefinitions.has(id)))
+  }
+
+  private compactExpeditionHistory(expedition: EmpiresExpeditionState): void {
+    const limit = Math.max(1, this.config.expeditions.resultHistoryRetention)
+    while (expedition.resultHistory.length > limit) {
+      const evicted = expedition.resultHistory.shift()!
+      expedition.resultCompaction.evictedCount += 1
+      expedition.resultCompaction.historyDigest = digestTdValue({
+        previous: expedition.resultCompaction.historyDigest,
+        evicted,
+      })
+    }
+  }
+
   private validateStandardCardZones(state: EmpiresCampaignState): void {
     const configuredIds = new Set(this.config.cards.map(card => card.id))
     const instanceIds = Object.keys(state.cards)
@@ -4237,12 +4810,12 @@ export class EmpiresEndgameEngine {
       && snapshotVersion !== 4 && snapshotVersion !== 5 && snapshotVersion !== 6
       && snapshotVersion !== 7 && snapshotVersion !== 8 && snapshotVersion !== 9
       && snapshotVersion !== 10 && snapshotVersion !== 11 && snapshotVersion !== 12
-      && snapshotVersion !== 13) {
+      && snapshotVersion !== 13 && snapshotVersion !== 14) {
       throw new Error('Unsupported Empire\'s Endgame snapshot schema')
     }
     if (snapshot.configId !== this.config.id) throw new Error('Snapshot belongs to a different config')
     const state = cloneSerializable(snapshot)
-    state.schemaVersion = 13
+    state.schemaVersion = 14
     this.normalizeTavernAndMysticState(state)
     state.alchemy ??= { explosionCount: 0, lastExplosion: null }
     state.alchemy.explosionCount = Math.max(0, Math.floor(state.alchemy.explosionCount ?? 0))
@@ -4353,10 +4926,10 @@ export class EmpiresEndgameEngine {
       maxMorale: this.config.empire.initialFlags?.maxCombatSpirit
         ?? this.config.td.morale?.maximum
         ?? 0,
-      veterans: {},
+      unitInstances: {},
+      nextUnitSequence: 1,
       recruitmentPenalties: {},
       foundryInstantReadyConByCity: {},
-      recoveries: [],
     }
     state.army.equipmentStock ??= {}
     state.army.equipmentStock = Object.fromEntries(
@@ -4367,17 +4940,10 @@ export class EmpiresEndgameEngine {
     state.army.maxMorale ??= this.config.empire.initialFlags?.maxCombatSpirit
       ?? this.config.td.morale?.maximum
       ?? 0
-    state.army.veterans ??= {}
+    state.army.unitInstances ??= {}
+    state.army.nextUnitSequence = Math.max(1, Math.floor(state.army.nextUnitSequence ?? 1))
     state.army.recruitmentPenalties ??= {}
     state.army.foundryInstantReadyConByCity ??= {}
-    state.army.recoveries ??= []
-    state.army.recoveries = state.army.recoveries.filter(recovery => (
-      recovery && typeof recovery.id === 'string' && recovery.id.length > 0
-      && typeof recovery.cityId === 'string' && typeof recovery.cohortId === 'string'
-      && typeof recovery.unitId === 'string' && Number.isFinite(recovery.count) && recovery.count > 0
-      && Number.isInteger(recovery.startedAtCon) && Number.isInteger(recovery.readyAtCon)
-      && recovery.readyAtCon >= recovery.startedAtCon
-    ))
     state.army.foundryInstantReadyConByCity = Object.fromEntries(
       Object.entries(state.army.foundryInstantReadyConByCity)
         .filter(([, con]) => Number.isFinite(con) && con >= 0)
@@ -4421,7 +4987,6 @@ export class EmpiresEndgameEngine {
       0,
       Number.isFinite(rawConsecutiveBito) ? Math.floor(rawConsecutiveBito) : 0,
     )
-    this.normalizeMinigameState(state)
     const missingDestroyedRegionState = state.empire.destroyedRegionIds === undefined
     const missingBuildingBonusState = state.empire.buildingLevelBonuses === undefined
     const restoredCityIds = new Set(state.empire.cities.map(city => city.id))
@@ -4467,6 +5032,7 @@ export class EmpiresEndgameEngine {
             unitId,
             loadoutId: 'legacy-default',
             count,
+            unitInstanceIds: [],
             ...(usableWeapon ? { weaponEquipmentId: usableWeapon.id } : {}),
             ...(armor && armor.kind !== 'weapon' && !armor.deferredReason
               ? { defenseEquipmentId: armor.id }
@@ -4493,6 +5059,11 @@ export class EmpiresEndgameEngine {
         if (cohortIds.has(cohort.id)) throw new Error(`Duplicate recruited cohort ${cohort.id}`)
         cohortIds.add(cohort.id)
         cohort.count = Math.floor(cohort.count)
+        cohort.unitInstanceIds ??= []
+        if (!Array.isArray(cohort.unitInstanceIds)
+          || cohort.unitInstanceIds.some(id => typeof id !== 'string' || !id)) {
+          throw new Error(`Recruited cohort ${cohort.id} has invalid unit instance IDs`)
+        }
         cohort.loadoutId ||= 'legacy-default'
         cohort.weapon ??= null
         cohort.armor ??= null
@@ -4514,6 +5085,9 @@ export class EmpiresEndgameEngine {
       city.resources ??= {}
       city.buildingInteractionLocks ??= {}
     }
+    this.normalizeArmyUnitInstances(state, snapshotVersion)
+    this.normalizeExpeditionsState(state)
+    this.normalizeMinigameState(state)
     this.normalizeDomesticEconomyState(state, snapshotVersion)
     this.normalizePoliticalState(state)
     this.migratePendingLoyaltyDeltas(state)
@@ -5044,6 +5618,22 @@ export class EmpiresEndgameEngine {
         this.config.td.maxCatchUpTicksPerFrame ?? 8,
       )
     }
+    if (session.kind === 'td') {
+      for (const deployment of session.plan.deployments) {
+        const ids = deployment.unitInstanceIds ?? []
+        if (ids.length === deployment.count && ids.every(id => state.army.unitInstances[id])) continue
+        const city = state.empire.cities.find(candidate => candidate.id === deployment.cityId)
+        const cohort = city?.recruitedUnitCohorts.find(candidate => candidate.id === deployment.cohortId)
+        const compatible = (cohort?.unitInstanceIds ?? [])
+          .filter(id => state.army.unitInstances[id]?.unitId === deployment.unitId)
+          .sort(stableStringCompare)
+          .slice(0, deployment.count)
+        if (compatible.length !== deployment.count) {
+          throw new Error(`Active TD deployment ${deployment.id} cannot restore its canonical army roster`)
+        }
+        deployment.unitInstanceIds = compatible
+      }
+    }
     const expectedRules = session.kind === 'td'
       ? currentTdRules
       : session.kind === 'tavern'
@@ -5072,6 +5662,14 @@ export class EmpiresEndgameEngine {
       session.origin.returnPhase = 'cards'
     }
     session.attempt = Math.max(0, Math.floor(session.attempt ?? 0)) + 1
+    if (session.origin.context.kind === 'expedition-assault') {
+      const expedition = state.expeditions.byDefinitionId[session.origin.context.expeditionId]
+      if (!expedition || expedition.status !== 'fighting'
+        || expedition.activeSessionId !== session.id
+        || expedition.assaultAttempts !== session.origin.context.attempt) {
+        throw new Error('Active expedition assault does not match its persisted lifecycle')
+      }
+    }
     state.phase = 'minigame'
   }
 
@@ -5135,6 +5733,7 @@ export class EmpiresEndgameEngine {
     state: EmpiresCampaignState,
     nodeId: string,
     speedPerSecond: number,
+    rosterUnitInstanceIds?: ReadonlySet<string>,
   ): TdDeploymentPlan[] {
     return state.empire.cities
       .filter(city => this.isRegionAccessibleInState(state, city.regionId))
@@ -5145,17 +5744,25 @@ export class EmpiresEndgameEngine {
         .flatMap((cohort) => {
           const unit = this.unitDefinitions.get(cohort.unitId)
           if (!unit || unit.deferredReason || !unit.td || !cohort.weapon) return []
-          const recovering = state.army.recoveries
-            .filter(recovery => recovery.cohortId === cohort.id && recovery.readyAtCon > state.con)
-            .reduce((total, recovery) => total + recovery.count, 0)
-          const available = Math.max(0, Math.floor(cohort.count) - recovering)
-          if (available <= 0) return []
+          const availableUnitInstanceIds = cohort.unitInstanceIds
+            .filter(id => !rosterUnitInstanceIds || rosterUnitInstanceIds.has(id))
+            .filter((id) => {
+              const instance = state.army.unitInstances[id]
+              return Boolean(instance
+                && instance.cityId === city.id
+                && instance.cohortId === cohort.id
+                && instance.unitId === cohort.unitId
+                && instance.readyAtCon <= state.con)
+            })
+            .sort(stableStringCompare)
+          if (availableUnitInstanceIds.length <= 0) return []
           return [{
             id: cohort.id,
             cohortId: cohort.id,
             cityId: city.id,
             unitId: cohort.unitId,
-            count: available,
+            unitInstanceIds: availableUnitInstanceIds,
+            count: availableUnitInstanceIds.length,
             nodeId,
             speedPerSecond,
             maxHpPerUnit: unit.td.maxHp,
@@ -5200,7 +5807,9 @@ export class EmpiresEndgameEngine {
   private scheduleDueWaveOnState(state: EmpiresCampaignState, completedCon: number): void {
     const td = this.config.td
     if (!td.enabled || state.minigame || completedCon < state.external.nextWaveCon) return
-    const liveVariants = (td.planVariants ?? []).filter(variant => !variant.deferredReason)
+    const liveVariants = (td.planVariants ?? []).filter(variant => (
+      !variant.deferredReason && variant.purpose !== 'expedition'
+    ))
     if (liveVariants.length === 0) throw new Error('TD has no live plan variant')
     const preferredIndex = Math.max(0, Math.floor(completedCon / td.waveEveryCons!) - 1)
       % liveVariants.length
@@ -5292,6 +5901,316 @@ export class EmpiresEndgameEngine {
     return `${cityId}:${unitId}`
   }
 
+  private expeditionAvailabilityBlockedReason(definition: EmpiresExpeditionDefinition): string | null {
+    const dialogueBlock = this.mandatoryDialogueBlockedReason()
+    if (dialogueBlock) return dialogueBlock
+    if (!this.config.expeditions.enabled) return 'Экспедиции отключены в этой конфигурации.'
+    if (definition.deferredReason) return definition.deferredReason
+    if (this.state.phase !== 'empire') return 'Экспедиции планируются во время управления империей.'
+    if (!this.isRegionAccessible(definition.originRegionId)) return 'Исходный регион недоступен.'
+    const expedition = this.state.expeditions.byDefinitionId[definition.id]
+    if (!expedition) return 'Состояние экспедиции отсутствует.'
+    if (expedition.status === 'won' || this.state.expeditions.openedZoneIds.includes(definition.zoneId)) {
+      return 'Эта крепость уже взята, а зона открыта.'
+    }
+    if (expedition.status === 'lost' && !definition.retryAfterLoss) {
+      return 'После поражения повторная попытка не предусмотрена.'
+    }
+    if (expedition.status === 'aborted' && !definition.retryAfterAbort) {
+      return 'После отступления повторная попытка не предусмотрена.'
+    }
+    if (!['available', 'lost', 'aborted'].includes(expedition.status)) {
+      return 'Эта экспедиция уже находится в работе.'
+    }
+    if (Object.values(this.state.expeditions.byDefinitionId).some(candidate => (
+      candidate.definitionId !== definition.id
+      && ['planning', 'provisioning', 'ready', 'fighting'].includes(candidate.status)
+    ))) return 'Сначала завершите другую экспедицию.'
+    return null
+  }
+
+  private expeditionEffectiveDuration(
+    definition: EmpiresExpeditionDefinition,
+    speedPercent: number,
+    mapBonusPercent: number,
+  ): number {
+    const speedMultiplier = (1 + Math.max(0, speedPercent) / 100)
+      * (1 + Math.max(0, mapBonusPercent) / 100)
+    return Math.max(1, Math.ceil(definition.baseDurationCons / speedMultiplier))
+  }
+
+  private expeditionMaximumInstallments(): number {
+    const configured = Math.floor(Math.max(
+      0,
+      this.effectiveEmpireFlagValue('expeditionProvisionInstallmentTurns'),
+    ))
+    return configured > 0 ? Math.min(4, configured) : 1
+  }
+
+  private expeditionOriginCities(definition: EmpiresExpeditionDefinition): EmpiresCityState[] {
+    return this.state.empire.cities
+      .filter(city => city.regionId === definition.originRegionId && this.isCityAccessible(city.id))
+      .sort((left, right) => stableStringCompare(left.id, right.id))
+  }
+
+  private expeditionOriginProvisionAvailable(definition: EmpiresExpeditionDefinition): number {
+    return this.expeditionOriginCities(definition).reduce((total, city) => (
+      total + Math.max(0, city.resources[definition.provisionResourceId] ?? 0)
+    ), 0)
+  }
+
+  private withdrawNextExpeditionInstallment(
+    definition: EmpiresExpeditionDefinition,
+    expedition: EmpiresExpeditionState,
+  ): boolean {
+    const plan = expedition.provisionPlan
+    if (!plan || plan.paidInstallments >= plan.installmentCount) return false
+    const installment = plan.paidInstallments + 1
+    const targetPaid = plan.requestedAmount * installment / plan.installmentCount
+    const amount = Math.max(0, targetPaid - plan.withdrawnAmount)
+    if (this.expeditionOriginProvisionAvailable(definition) + Number.EPSILON < amount) {
+      expedition.installmentBlockedReason = `В регионе ${definition.originRegionId} не хватает ${amount} ${plan.resourceId}.`
+      return false
+    }
+    const cityAmounts: Record<string, number> = {}
+    let remaining = amount
+    for (const city of this.expeditionOriginCities(definition)) {
+      if (remaining <= Number.EPSILON) break
+      const available = Math.max(0, city.resources[plan.resourceId] ?? 0)
+      const spent = Math.min(available, remaining)
+      if (spent <= 0) continue
+      city.resources[plan.resourceId] = available - spent
+      cityAmounts[city.id] = spent
+      remaining -= spent
+    }
+    if (remaining > Number.EPSILON) {
+      throw new Error('Expedition provision availability changed during a trusted withdrawal')
+    }
+    plan.paidInstallments = installment
+    plan.withdrawnAmount = targetPaid
+    plan.withdrawals.push({ installment, con: this.state.con, amount, cityAmounts })
+    expedition.installmentBlockedReason = null
+    if (plan.paidInstallments === plan.installmentCount) {
+      expedition.status = 'ready'
+      expedition.readyAtCon = this.state.con
+    }
+    return true
+  }
+
+  private processExpeditionInstallments(): void {
+    for (const definition of [...this.expeditionDefinitions.values()]
+      .sort((left, right) => stableStringCompare(left.id, right.id))) {
+      const expedition = this.state.expeditions.byDefinitionId[definition.id]
+      if (!expedition || expedition.status !== 'provisioning' || !expedition.provisionPlan) continue
+      const lastWithdrawal = expedition.provisionPlan.withdrawals.at(-1)
+      if (lastWithdrawal?.con === this.state.con) continue
+      this.withdrawNextExpeditionInstallment(definition, expedition)
+    }
+  }
+
+  private applyExpeditionComplaint(
+    definition: EmpiresExpeditionDefinition,
+    expedition: EmpiresExpeditionState,
+    lossRatio: number,
+  ): boolean {
+    const plan = expedition.provisionPlan
+    if (!plan) return false
+    const provisionFraction = plan.requiredAmount > 0
+      ? plan.withdrawnAmount / plan.requiredAmount
+      : 1
+    const recentLaunches = Object.values(this.state.expeditions.byDefinitionId)
+      .filter(candidate => candidate.originRegionId === definition.originRegionId)
+      .flatMap(candidate => candidate.resultHistory)
+      .filter(entry => entry.con >= this.state.con - definition.complaint.windowCons + 1)
+      .length + 1
+    const matches = recentLaunches >= definition.complaint.launches
+      && (definition.complaint.minimumProvisionFraction === null
+        || provisionFraction >= definition.complaint.minimumProvisionFraction)
+      && (definition.complaint.minimumDurationCons === null
+        || plan.effectiveDurationCons >= definition.complaint.minimumDurationCons)
+      && (definition.complaint.minimumLossRatio === null
+        || lossRatio >= definition.complaint.minimumLossRatio)
+    const complaintId = `expedition-complaint:${definition.id}:${expedition.assaultAttempts}`
+    if (!matches || expedition.complaintTriggerIds.includes(complaintId)) return false
+    expedition.complaintTriggerIds.push(complaintId)
+    this.applyLoyaltyDelta(
+      { kind: 'region', regionId: definition.originRegionId },
+      definition.complaint.loyaltyDelta,
+      complaintId,
+    )
+    this.evaluateQuestTriggers({
+      kind: 'manual',
+      questId: definition.complaint.questId,
+      sourceId: complaintId,
+      con: this.state.con,
+    })
+    return true
+  }
+
+  private settleExpeditionWithoutBattle(
+    definition: EmpiresExpeditionDefinition,
+    expedition: EmpiresExpeditionState,
+  ): void {
+    if (!expedition.provisionPlan
+      || expedition.resultHistory.some(entry => entry.attempt === expedition.assaultAttempts)) {
+      throw new Error('Expedition abort settlement is missing or duplicated')
+    }
+    const complaintApplied = this.applyExpeditionComplaint(definition, expedition, 0)
+    expedition.resultHistory.push({
+      attempt: expedition.assaultAttempts,
+      sessionId: null,
+      con: this.state.con,
+      outcome: 'aborted',
+      combatLostUnitInstanceIds: [],
+      attritionLostUnitInstanceIds: [],
+      removedVeteranUnitInstanceIds: [],
+      newlyVeteranUnitInstanceIds: [],
+      provisionWithdrawn: expedition.provisionPlan.withdrawnAmount,
+      rewardApplied: false,
+      zoneApplied: false,
+      complaintApplied,
+    })
+    this.compactExpeditionHistory(expedition)
+    expedition.status = 'aborted'
+    expedition.outcome = 'aborted'
+    expedition.activeSessionId = null
+    expedition.rosterUnitInstanceIds = []
+    this.appendChronicle(this.state, {
+      kind: 'expedition',
+      sourceId: `expedition-result:${definition.id}:${expedition.assaultAttempts}`,
+      title: 'Экспедиция прервана',
+      description: 'Списанная провизия остаётся потраченной; зона не открыта.',
+      target: { kind: 'region', regionId: definition.originRegionId },
+    })
+  }
+
+  private removeArmyUnitInstance(unitInstanceId: string): EmpiresArmyUnitState | null {
+    const instance = this.state.army.unitInstances[unitInstanceId]
+    if (!instance) return null
+    const city = this.city(instance.cityId)
+    const cohort = city?.recruitedUnitCohorts.find(candidate => candidate.id === instance.cohortId)
+    if (cohort) {
+      cohort.unitInstanceIds = cohort.unitInstanceIds.filter(id => id !== unitInstanceId)
+      cohort.count = cohort.unitInstanceIds.length
+      if (cohort.count === 0 && city) {
+        city.recruitedUnitCohorts = city.recruitedUnitCohorts.filter(candidate => candidate.id !== cohort.id)
+      }
+    }
+    delete this.state.army.unitInstances[unitInstanceId]
+    return instance
+  }
+
+  private applyExpeditionAttrition(
+    expeditionId: string,
+    candidateUnitInstanceIds: readonly string[],
+  ): string[] {
+    const definition = this.expeditionDefinitions.get(expeditionId)
+    const expedition = this.state.expeditions.byDefinitionId[expeditionId]
+    const provision = expedition?.provisionPlan
+    if (!definition || !expedition || !provision) {
+      throw new Error(`Expedition ${expeditionId} cannot settle attrition without its immutable provision plan`)
+    }
+    const fraction = provision.requiredAmount > 0
+      ? Math.max(0, Math.min(1, provision.withdrawnAmount / provision.requiredAmount))
+      : 1
+    const deathChance = definition.emptyProvisionDeathChance
+      + (definition.fullProvisionDeathChance - definition.emptyProvisionDeathChance) * fraction
+    const removed: string[] = []
+    for (const id of [...candidateUnitInstanceIds].sort(stableStringCompare)) {
+      if (!this.state.army.unitInstances[id]) continue
+      if (nextEmpiresRandom(this.state.rng) >= deathChance) continue
+      const instance = this.removeArmyUnitInstance(id)
+      if (!instance) continue
+      removed.push(id)
+      this.appendChronicle(this.state, {
+        kind: 'expedition',
+        sourceId: `expedition-attrition:${expeditionId}:${expedition.assaultAttempts}:${id}`,
+        title: 'Потеря в экспедиции',
+        description: `${id} не пережил путь при обеспечении ${Math.round(fraction * 100)}%.`,
+        target: { kind: 'city', cityId: instance.cityId },
+      })
+    }
+    return removed
+  }
+
+  private settleExpeditionResult(
+    result: Extract<EmpiresMinigameResult, { kind: 'td' }>,
+    session: Extract<EmpiresMinigameSession, { kind: 'td' }>,
+    summary: {
+      combatLostUnitInstanceIds: string[]
+      attritionLostUnitInstanceIds: string[]
+      removedVeteranUnitInstanceIds: string[]
+      newlyVeteranUnitInstanceIds: string[]
+    },
+  ): void {
+    const context = session.origin.context
+    if (context.kind !== 'expedition-assault') return
+    const definition = this.expeditionDefinitions.get(context.expeditionId)
+    const expedition = this.state.expeditions.byDefinitionId[context.expeditionId]
+    if (!definition || !expedition || expedition.status !== 'fighting'
+      || expedition.activeSessionId !== session.id
+      || expedition.assaultAttempts !== context.attempt
+      || !expedition.provisionPlan) {
+      throw new Error('Expedition settlement does not match its active assault lifecycle')
+    }
+    const historyIdentity = `expedition-result:${definition.id}:${context.attempt}`
+    if (expedition.resultHistory.some(entry => entry.attempt === context.attempt)) {
+      throw new Error(`Expedition attempt ${context.attempt} was already settled`)
+    }
+    const won = result.outcome === 'victory'
+    if (won && !expedition.zoneApplied) {
+      if (!this.state.expeditions.openedZoneIds.includes(definition.zoneId)) {
+        this.state.expeditions.openedZoneIds.push(definition.zoneId)
+        this.state.expeditions.openedZoneIds.sort(stableStringCompare)
+      }
+      expedition.zoneApplied = true
+    }
+    if (won && !expedition.rewardApplied) {
+      const zone = this.config.expeditions.zones.find(candidate => candidate.id === definition.zoneId)!
+      this.applyEffects([...zone.rewards, ...definition.rewards], 0, undefined, historyIdentity)
+      expedition.rewardApplied = true
+    }
+
+    const lossCount = summary.combatLostUnitInstanceIds.length
+      + summary.attritionLostUnitInstanceIds.length
+    const lossRatio = expedition.rosterSnapshot.length > 0
+      ? lossCount / expedition.rosterSnapshot.length
+      : 0
+    const complaintApplied = this.applyExpeditionComplaint(definition, expedition, lossRatio)
+
+    const history: EmpiresExpeditionResultHistoryEntry = {
+      attempt: context.attempt,
+      sessionId: session.id,
+      con: this.state.con,
+      outcome: result.outcome,
+      combatLostUnitInstanceIds: [...summary.combatLostUnitInstanceIds],
+      attritionLostUnitInstanceIds: [...summary.attritionLostUnitInstanceIds],
+      removedVeteranUnitInstanceIds: [...summary.removedVeteranUnitInstanceIds],
+      newlyVeteranUnitInstanceIds: [...summary.newlyVeteranUnitInstanceIds],
+      provisionWithdrawn: expedition.provisionPlan.withdrawnAmount,
+      rewardApplied: won,
+      zoneApplied: won,
+      complaintApplied,
+    }
+    expedition.resultHistory.push(history)
+    this.compactExpeditionHistory(expedition)
+    expedition.status = won ? 'won' : result.outcome === 'aborted' ? 'aborted' : 'lost'
+    expedition.outcome = result.outcome
+    expedition.activeSessionId = null
+    expedition.rosterUnitInstanceIds = []
+    this.appendChronicle(this.state, {
+      kind: 'expedition',
+      sourceId: historyIdentity,
+      title: won ? 'Крепость экспедиции пала' : result.outcome === 'aborted'
+        ? 'Экспедиция прервана'
+        : 'Экспедиция проиграна',
+      description: won
+        ? `Открыта зона «${definition.zoneId}».`
+        : `Попытка ${context.attempt} завершилась без открытия зоны.`,
+      target: { kind: 'region', regionId: definition.originRegionId },
+    })
+  }
+
   private settleBattleOutcome(
     result: Extract<EmpiresMinigameResult, { kind: 'td' }>,
     session: Extract<EmpiresMinigameSession, { kind: 'td' }>,
@@ -5307,6 +6226,10 @@ export class EmpiresEndgameEngine {
     }
 
     const cityLosses = new Map<string, { deployed: number, lost: number }>()
+    const combatLostUnitInstanceIds: string[] = []
+    const removedVeteranUnitInstanceIds: string[] = []
+    const newlyVeteranUnitInstanceIds: string[] = []
+    const survivingUnitInstanceIds: string[] = []
     for (const [deploymentId, deployment] of planDeployments) {
       const deploymentResult = resultDeployments.get(deploymentId)
       if (!deploymentResult
@@ -5321,16 +6244,20 @@ export class EmpiresEndgameEngine {
       const city = this.city(deployment.cityId)
       if (!city) throw new Error(`TD deployment references missing city ${deployment.cityId}`)
       const cohort = city.recruitedUnitCohorts.find(candidate => candidate.id === deployment.cohortId)
-      const current = Math.max(0, cohort?.count ?? 0)
-      if (!cohort || cohort.unitId !== deployment.unitId || current < deployment.count) {
+      const plannedUnitIds = deployment.unitInstanceIds ?? []
+      if (!cohort || cohort.unitId !== deployment.unitId
+        || plannedUnitIds.length !== deployment.count
+        || plannedUnitIds.some(id => !cohort.unitInstanceIds.includes(id)
+          || this.state.army.unitInstances[id]?.readyAtCon > this.state.con)) {
         throw new Error(`TD deployment ${deploymentId} exceeds the city cohort`)
       }
       const lost = deployment.count - deploymentResult.survived
-      const remaining = Math.max(0, current - lost)
-      if (remaining === 0) {
-        city.recruitedUnitCohorts = city.recruitedUnitCohorts.filter(candidate => candidate.id !== cohort.id)
-      } else {
-        cohort.count = remaining
+      const sortedUnitIds = [...plannedUnitIds].sort(stableStringCompare)
+      const survivorIds = sortedUnitIds.slice(0, deploymentResult.survived)
+      const combatLostIds = sortedUnitIds.slice(deploymentResult.survived)
+      for (const id of combatLostIds) {
+        if (!this.removeArmyUnitInstance(id)) throw new Error(`TD deployment lost unknown army unit ${id}`)
+        combatLostUnitInstanceIds.push(id)
       }
 
       if ((this.state.empire.flags.casualtyRecruitGrowthPenaltyDisabled ?? 0) <= 0) {
@@ -5349,32 +6276,68 @@ export class EmpiresEndgameEngine {
       aggregate.lost += lost
       cityLosses.set(city.id, aggregate)
 
-      if (deploymentResult.healthRatio > settlement.veteranHealthThreshold) {
-        for (let index = 0; index < deploymentResult.survived; index += 1) {
-          const veteranId = `${session.plan.id}:${deploymentId}:${index + 1}`
-          this.state.army.veterans[veteranId] = {
-            unitId: deployment.unitId,
-            wounds: deploymentResult.healthRatio < 1 ? 1 : 0,
-          }
-        }
-      }
-      if (deploymentResult.survived > 0 && deploymentResult.healthRatio < 1) {
+      const survivorHealthRatio = deploymentResult.survived > 0
+        ? Math.max(0, Math.min(
+            1,
+            deploymentResult.healthRatio * deploymentResult.deployed / deploymentResult.survived,
+          ))
+        : 0
+      if (survivorIds.length > 0 && survivorHealthRatio < 1) {
         const medical = this.config.empire.medical
         const hospitalOperational = medical.enabled
           && this.effectiveOperationalBuildingLevel(city.id, medical.hospitalBuildingId) > 0
         const recoveryCons = hospitalOperational
           ? medical.hospitalBattleRecoveryCons
           : medical.defaultBattleRecoveryCons
-        this.state.army.recoveries.push({
-          id: `recovery:${session.id}:${deployment.id}`,
-          cityId: city.id,
-          cohortId: deployment.cohortId,
-          unitId: deployment.unitId,
-          count: deploymentResult.survived,
-          startedAtCon: this.state.con,
-          readyAtCon: this.state.con + recoveryCons,
-        })
+        for (const id of survivorIds) {
+          const instance = this.state.army.unitInstances[id]
+          if (!instance) throw new Error(`TD survivor ${id} is missing from the canonical army`)
+          const wasVeteran = instance.veteran
+          const nextWounds = instance.wounds + 1
+          if (wasVeteran && nextWounds >= this.config.expeditions.veteran.removalWounds) {
+            this.removeArmyUnitInstance(id)
+            removedVeteranUnitInstanceIds.push(id)
+            this.appendChronicle(this.state, {
+              kind: 'veteran',
+              sourceId: `veteran-removal:${session.id}:${id}`,
+              title: 'Ветеран выбыл из армии',
+              description: `${id} получил ещё одно ранение и не вернулся в строй.`,
+              target: { kind: 'city', cityId: city.id },
+            })
+            continue
+          }
+          instance.healthRatio = survivorHealthRatio
+          instance.recoveryStartedAtCon = this.state.con
+          instance.readyAtCon = this.state.con + recoveryCons
+          if (wasVeteran) instance.wounds = nextWounds
+          else if (survivorHealthRatio <= this.config.expeditions.veteran.qualifyingMaximumHealthRatio) {
+            instance.veteran = true
+            instance.wounds = 1
+            newlyVeteranUnitInstanceIds.push(id)
+          }
+          survivingUnitInstanceIds.push(id)
+        }
+      } else {
+        survivingUnitInstanceIds.push(...survivorIds)
       }
+    }
+
+    const attritionLostUnitInstanceIds = session.origin.context.kind === 'expedition-assault'
+      ? this.applyExpeditionAttrition(
+          session.origin.context.expeditionId,
+          survivingUnitInstanceIds,
+        )
+      : []
+    for (const id of attritionLostUnitInstanceIds) {
+      const snapshot = this.state.expeditions.byDefinitionId[
+        session.origin.context.kind === 'expedition-assault'
+          ? session.origin.context.expeditionId
+          : ''
+      ]?.rosterSnapshot.find(item => item.unitInstanceId === id)
+      if (!snapshot) continue
+      const aggregate = cityLosses.get(snapshot.cityId) ?? { deployed: 0, lost: 0 }
+      aggregate.lost += 1
+      cityLosses.set(snapshot.cityId, aggregate)
     }
 
     for (const [equipmentId, amount] of Object.entries(result.equipmentSpent ?? {})) {
@@ -5421,6 +6384,12 @@ export class EmpiresEndgameEngine {
       0,
       this.state.external.allianceThreat + consequence.allianceThreatDelta,
     )
+    this.settleExpeditionResult(result, session, {
+      combatLostUnitInstanceIds,
+      attritionLostUnitInstanceIds,
+      removedVeteranUnitInstanceIds,
+      newlyVeteranUnitInstanceIds,
+    })
     this.state.minigameResultLog.push({
       sessionId: session.id,
       attempt: session.attempt,
@@ -6057,21 +7026,21 @@ export class EmpiresEndgameEngine {
     this.state.phase = 'cards'
     this.state.con += 1
     this.tickMysticCards()
-    const completedRecoveries = this.state.army.recoveries
-      .filter(recovery => recovery.readyAtCon <= this.state.con)
+    const completedRecoveries = Object.values(this.state.army.unitInstances)
+      .filter(instance => instance.recoveryStartedAtCon !== null && instance.readyAtCon <= this.state.con)
       .sort((left, right) => stableStringCompare(left.id, right.id))
-    this.state.army.recoveries = this.state.army.recoveries.filter(
-      recovery => recovery.readyAtCon > this.state.con,
-    )
     for (const recovery of completedRecoveries) {
+      recovery.healthRatio = 1
+      recovery.recoveryStartedAtCon = null
       this.appendChronicle(this.state, {
         kind: 'recovery',
-        sourceId: recovery.id,
-        title: 'Отряд вернулся после лечения',
-        description: `${recovery.count} ${recovery.unitId} снова готовы к бою.`,
+        sourceId: `recovery:${recovery.id}:${this.state.con}`,
+        title: 'Воин вернулся после лечения',
+        description: `${recovery.id} (${recovery.unitId}) снова готов к бою.`,
         target: { kind: 'city', cityId: recovery.cityId },
       })
     }
+    this.processExpeditionInstallments()
     this.state.boutsInCon = 0
     this.state.durak.deckMemoryInspectionsUsed = 0
     this.state.durak.consecutiveBito = 0
@@ -7206,6 +8175,7 @@ export class EmpiresEndgameEngine {
       unitId: unit.id,
       loadoutId: loadout.id,
       count,
+      unitInstanceIds: [],
       ...(loadout.weaponEquipmentId ? { weaponEquipmentId: loadout.weaponEquipmentId } : {}),
       ...(loadout.defenseEquipmentId ? { defenseEquipmentId: loadout.defenseEquipmentId } : {}),
       weapon: cloneSerializable(loadout.weapon),
@@ -7221,8 +8191,25 @@ export class EmpiresEndgameEngine {
   ): void {
     const cohort = this.createCohort(city, unit, loadout, count)
     const existing = city.recruitedUnitCohorts.find(candidate => candidate.id === cohort.id)
-    if (existing) existing.count += count
-    else city.recruitedUnitCohorts.push(cohort)
+    const target = existing ?? cohort
+    if (!existing) city.recruitedUnitCohorts.push(target)
+    for (let index = 0; index < count; index += 1) {
+      const id = `army-unit:${this.state.army.nextUnitSequence}`
+      this.state.army.nextUnitSequence += 1
+      this.state.army.unitInstances[id] = {
+        id,
+        cityId: city.id,
+        cohortId: target.id,
+        unitId: unit.id,
+        healthRatio: 1,
+        veteran: false,
+        wounds: 0,
+        recoveryStartedAtCon: null,
+        readyAtCon: this.state.con,
+      }
+      target.unitInstanceIds.push(id)
+    }
+    target.count = target.unitInstanceIds.length
   }
 
   private empireFlagValueInState(state: EmpiresCampaignState, flagId: string): number {

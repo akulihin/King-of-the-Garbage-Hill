@@ -961,6 +961,7 @@ export function validateTdBattlePlan(plan: TdBattlePlan): string[] {
   if (plan.mode === 'assault' && plan.deployments.length === 0) errors.push('assault mode requires a player deployment')
   const deploymentIds = new Set<string>()
   const cohortIds = new Set<string>()
+  const unitInstanceIds = new Set<string>()
   for (const deployment of plan.deployments) {
     if (!deployment.id.trim()) errors.push('deployment id is required')
     if (deploymentIds.has(deployment.id)) errors.push(`deployment id ${deployment.id} is repeated`)
@@ -972,6 +973,13 @@ export function validateTdBattlePlan(plan: TdBattlePlan): string[] {
     cohortIds.add(deployment.cohortId)
     if (!nodeIds.has(deployment.nodeId)) errors.push(`deployment ${deployment.id} references an unknown node`)
     if (!Number.isInteger(deployment.count) || deployment.count <= 0) errors.push(`deployment ${deployment.id} count must be positive`)
+    if (!Array.isArray(deployment.unitInstanceIds)
+      || deployment.unitInstanceIds.length !== deployment.count
+      || new Set(deployment.unitInstanceIds).size !== deployment.unitInstanceIds.length
+      || deployment.unitInstanceIds.some(id => !id?.trim() || unitInstanceIds.has(id))) {
+      errors.push(`deployment ${deployment.id} unitInstanceIds must uniquely match count`)
+    }
+    for (const id of deployment.unitInstanceIds ?? []) unitInstanceIds.add(id)
     if (!finite(deployment.speedPerSecond) || deployment.speedPerSecond < 0) errors.push(`deployment ${deployment.id} speed is invalid`)
     if (plan.mode === 'assault' && deployment.speedPerSecond <= 0) errors.push(`assault deployment ${deployment.id} must move`)
     if (!finite(deployment.maxHpPerUnit) || deployment.maxHpPerUnit <= 0) errors.push(`deployment ${deployment.id} maxHpPerUnit is invalid`)
