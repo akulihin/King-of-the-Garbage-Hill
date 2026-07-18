@@ -80,6 +80,16 @@ describe('Empire\'s Endgame deterministic QA scenarios', () => {
       smugglingPolicyActive: false,
       horsePactActive: false,
     })
+    expect(digestEmpiresQaState(new EmpiresEndgameEngine(
+      config,
+      fixtures['quest-dialogue'].snapshot,
+    ))).toMatchObject({
+      activeMandatoryQuestId: 'quest-palach',
+      activeQuestStatus: 'active',
+      activeQuestNodeId: 'palach-p28',
+      questHistoryCount: 0,
+      questStateDigest: expect.stringContaining('"id":"quest-palach"'),
+    })
     expect(fixtures['destroyed-west'].snapshot.empire.destroyedRegionIds).toContain('west')
     expect(fixtures['relic-production-levels'].snapshot.empire.buildingLevelBonuses).toMatchObject({
       farm: 1,

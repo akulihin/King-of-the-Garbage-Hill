@@ -21,10 +21,11 @@ import type {
   EmpiresSeasonsConfig,
 } from './types'
 import { validateEmpiresEndgameConfig } from './engine'
+import { validateEmpiresQuestsConfig } from './quests'
 
 export const EMPIRES_CONFIG_URL = '/empires-endgame/game-config.json'
 export const EMPIRES_CONFIG_STORAGE_KEY = 'empires-endgame:config:v1'
-export const EMPIRES_CONFIG_SCHEMA_VERSION = 11
+export const EMPIRES_CONFIG_SCHEMA_VERSION = 12
 export const EMPIRES_ACTIVE_MINIGAME_CONFIG_ERROR = 'Нельзя менять правила во время боя. Сначала завершите бой или выйдите через действие отмены.'
 
 export function empiresConfigReplacementDisabledReason(
@@ -162,8 +163,9 @@ const GOD_SCAFFOLD = {
 
 const QUESTS_SCAFFOLD = {
   enabled: false,
+  historyRetention: 64,
+  triggerHistoryRetention: 64,
   definitions: [],
-  dialogueGraphs: [],
 }
 
 const SEASONS_SCAFFOLD = {
@@ -787,6 +789,38 @@ function normalizeEmpiresConfigV11(config: Record<string, unknown>): Record<stri
   return config
 }
 
+function migrateEmpiresConfigV11ToV12(config: Record<string, unknown>): Record<string, unknown> {
+  config.quests = withScaffoldDefaults(config.quests, QUESTS_SCAFFOLD)
+  if (isRecord(config.quests)) delete config.quests.dialogueGraphs
+  if (isRecord(config.empire) && Array.isArray(config.empire.events) && isRecord(config.quests)) {
+    const knownQuestIds = new Set(
+      (Array.isArray(config.quests.definitions) ? config.quests.definitions : [])
+        .filter(isRecord)
+        .map(definition => definition.id)
+        .filter((id): id is string => typeof id === 'string'),
+    )
+    // Schema v11 could not own an event-to-quest bridge. Fail closed when a
+    // forward-shaped legacy fixture contains a bridge without its P7 quest:
+    // the whole future event is omitted instead of becoming a live no-op.
+    config.empire.events = config.empire.events.filter(event => {
+      if (!isRecord(event) || !Array.isArray(event.choices)) return true
+      return !event.choices.some(choice => isRecord(choice)
+        && isRecord(choice.questResolution)
+        && (typeof choice.questResolution.questId !== 'string'
+          || !knownQuestIds.has(choice.questResolution.questId)))
+    })
+  }
+  config.schemaVersion = 12
+  return config
+}
+
+function normalizeEmpiresConfigV12(config: Record<string, unknown>): Record<string, unknown> {
+  normalizeEmpiresConfigV11(config)
+  config.quests = withScaffoldDefaults(config.quests, QUESTS_SCAFFOLD)
+  if (isRecord(config.quests)) delete config.quests.dialogueGraphs
+  return config
+}
+
 const EMPIRES_CONFIG_MIGRATIONS: Record<
   number,
   (config: Record<string, unknown>) => Record<string, unknown>
@@ -801,6 +835,7 @@ const EMPIRES_CONFIG_MIGRATIONS: Record<
   8: migrateEmpiresConfigV8ToV9,
   9: migrateEmpiresConfigV9ToV10,
   10: migrateEmpiresConfigV10ToV11,
+  11: migrateEmpiresConfigV11ToV12,
 }
 
 /**
@@ -830,6 +865,7 @@ export function migrateEmpiresConfig(raw: unknown): unknown {
   if (version === 9) migrated = normalizeEmpiresConfigV9(migrated)
   if (version === 10) migrated = normalizeEmpiresConfigV10(migrated)
   if (version === 11) migrated = normalizeEmpiresConfigV11(migrated)
+  if (version === 12) migrated = normalizeEmpiresConfigV12(migrated)
   return migrated
 }
 
@@ -997,6 +1033,16 @@ function validateDeferredReasons(config: EmpiresEndgameConfig): string[] {
       check(`event ${event.id} choice ${choice.id}`, choice.deferredReason)
     }
   }
+  for (const quest of config.quests.definitions ?? []) {
+    check(`quest ${quest.id}`, quest.deferredReason)
+    for (const stage of quest.stages ?? []) {
+      for (const node of stage.nodes ?? []) {
+        for (const choice of node.choices ?? []) {
+          check(`quest ${quest.id} choice ${choice.id}`, choice.deferredReason)
+        }
+      }
+    }
+  }
   for (const equipment of config.combat.equipment) {
     check(`combat equipment ${equipment.id}`, equipment.deferredReason)
   }
@@ -1078,6 +1124,17 @@ function validateLiveEffects(config: EmpiresEndgameConfig): string[] {
   for (const union of config.empire.externalEconomy.unions) {
     collectDependencies(union.prerequisites)
   }
+  for (const quest of config.quests.definitions) {
+    if (quest.deferredReason) continue
+    if (quest.trigger.kind === 'flag') dependencyFlagIds.add(quest.trigger.flagId)
+    for (const stage of quest.stages) {
+      for (const node of stage.nodes) {
+        for (const choice of node.choices) {
+          if (!choice.deferredReason) collectDependencies(choice.requirements ?? [])
+        }
+      }
+    }
+  }
 
   const check = (
     label: string,
@@ -1127,6 +1184,19 @@ function validateLiveEffects(config: EmpiresEndgameConfig): string[] {
         choice.effects,
         event.deferredReason || choice.deferredReason,
       )
+    }
+  }
+  for (const quest of config.quests.definitions) {
+    for (const stage of quest.stages) {
+      for (const node of stage.nodes) {
+        for (const choice of node.choices) {
+          check(
+            `quest ${quest.id} choice ${choice.id}`,
+            choice.effects ?? [],
+            quest.deferredReason || choice.deferredReason,
+          )
+        }
+      }
     }
   }
   for (const offer of config.empire.externalEconomy.offers) {
@@ -3218,7 +3288,7 @@ export function validateEmpiresConfig(value: unknown): asserts value is EmpiresE
     'planVariants',
   ])
   validateScaffoldSection(value.god, 'god', ['lines', 'deckMemoryRules', 'antiBitoRules'])
-  validateScaffoldSection(value.quests, 'quests', ['definitions', 'dialogueGraphs'])
+  validateScaffoldSection(value.quests, 'quests', ['definitions'])
   validateSeasonsConfig(value as unknown as EmpiresEndgameConfig)
   if (!Array.isArray(value.empire.cities)) throw new Error('Поле empire.cities должно быть массивом.')
   if (!isRecord(value.empire.map) || !Array.isArray(value.empire.map.regions) || value.empire.map.regions.length !== 5) {
@@ -3248,6 +3318,8 @@ export function validateEmpiresConfig(value: unknown): asserts value is EmpiresE
   )
 
   const config = value as unknown as EmpiresEndgameConfig
+  const questErrors = validateEmpiresQuestsConfig(config)
+  if (questErrors.length > 0) throw new Error(questErrors.join('\n'))
   validateTechnologySidesAndHiddenCombinations(config)
   validateEpidemicAndMedicalConfig(config)
   validateDomesticEconomyConfig(config)

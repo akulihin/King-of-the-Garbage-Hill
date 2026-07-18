@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 11,
+  "schemaVersion": 12,
   "id": "empires-endgame-default",
   "title": "Empire's Endgame",
   "seed": "empires-endgame-authoritative-default-v1",
@@ -207,9 +207,1322 @@
     "antiBitoRules": []
   },
   "quests": {
-    "enabled": false,
-    "definitions": [],
-    "dialogueGraphs": []
+    "enabled": true,
+    "historyRetention": 64,
+    "triggerHistoryRetention": 64,
+    "definitions": [
+      {
+        "id": "quest-palach",
+        "name": "Палач",
+        "journalDescription": "Гранд-Советник предлагает освободить приговорённого палача и завербовать его в экспедицию.",
+        "trigger": {
+          "kind": "conReached",
+          "con": 2
+        },
+        "entryStageId": "palach-main",
+        "mandatory": true,
+        "restartPolicy": "never",
+        "memory": [
+          {
+            "key": "heardRumors",
+            "type": "boolean",
+            "initial": false,
+            "label": "Свежие слухи выслушаны",
+            "journalVisible": true
+          },
+          {
+            "key": "cardsKnown",
+            "type": "boolean",
+            "initial": false,
+            "label": "Палач играет в картишки",
+            "journalVisible": true
+          },
+          {
+            "key": "brotherKnown",
+            "type": "boolean",
+            "initial": false,
+            "label": "Причина поступка Палача известна",
+            "journalVisible": true
+          },
+          {
+            "key": "escapeKnown",
+            "type": "boolean",
+            "initial": false,
+            "label": "Путь брата известен",
+            "journalVisible": true
+          },
+          {
+            "key": "innocenceKnown",
+            "type": "boolean",
+            "initial": false,
+            "label": "Свидетель невиновности найден",
+            "journalVisible": true
+          }
+        ],
+        "stages": [
+          {
+            "id": "palach-main",
+            "name": "Вербовка Палача",
+            "entryNodeId": "palach-p28",
+            "nodes": [
+              {
+                "id": "palach-p01",
+                "speaker": "Гранд-Советник",
+                "text": "Мой господин, вы слышали весть, что ветром пришли из краёв моих дальних? Воин, свирепый настолько - любой северянин бы в ступоре встал - а нынешний пленный он узник...",
+                "choices": [
+                  {
+                    "id": "palach-p01-prisoner",
+                    "label": "Вариант:  (Тратит время) Какой еще узник?",
+                    "effects": [
+                      {
+                        "kind": "time",
+                        "days": -1
+                      }
+                    ],
+                    "goto": {
+                      "kind": "node",
+                      "nodeId": "palach-p02"
+                    }
+                  },
+                  {
+                    "id": "palach-p01-point",
+                    "label": "Вариант: И что с ним?",
+                    "goto": {
+                      "kind": "node",
+                      "nodeId": "palach-p03"
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "palach-p02",
+                "speaker": "Гранд-Советник",
+                "text": "По вашим законам недавним, пленили, казнили разбойников...",
+                "choices": [
+                  {
+                    "id": "palach-p02-point",
+                    "label": "Вариант: И что с ним?",
+                    "goto": {
+                      "kind": "node",
+                      "nodeId": "palach-p03"
+                    }
+                  },
+                  {
+                    "id": "palach-p02-bandits",
+                    "label": "Вариант (Тратит время): Так, погоди, сперва расскажи мне подробнее о этих разбойниках - мне надо знать вообще всё",
+                    "effects": [
+                      {
+                        "kind": "time",
+                        "days": -1
+                      }
+                    ],
+                    "goto": {
+                      "kind": "node",
+                      "nodeId": "palach-p24"
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "palach-p03",
+                "speaker": "Гранд-Советник",
+                "text": "Его бы на поле, чтоб сталь зазвенела! Чего ему тухнуть и ждать приговора, казною кормиться в какой-то тюрьме?",
+                "choices": [
+                  {
+                    "id": "palach-p03-messenger",
+                    "label": "Вариант: Гонцу прикажи снаряжаться и в путь. Я время не трачу, его не вернуть.",
+                    "goto": {
+                      "kind": "node",
+                      "nodeId": "palach-p27"
+                    }
+                  },
+                  {
+                    "id": "palach-p03-personal",
+                    "label": "Вариант (Тратит время): Наведуюсь лично, так уж и быть. Куда без меня!",
+                    "effects": [
+                      {
+                        "kind": "time",
+                        "days": -1
+                      }
+                    ],
+                    "goto": {
+                      "kind": "node",
+                      "nodeId": "palach-p25"
+                    }
+                  },
+                  {
+                    "id": "palach-p03-refuse",
+                    "label": "Вариант: А шел бы он к черту! Что шваль без закона - то мусор на поле, тот в латах как в урне, на славящем флаге - пятно.",
+                    "goto": {
+                      "kind": "node",
+                      "nodeId": "palach-p04"
+                    }
+                  },
+                  {
+                    "id": "palach-p03-army",
+                    "label": "Вариант (Тратит время): Расскажи что думаешь о моей армии",
+                    "effects": [
+                      {
+                        "kind": "time",
+                        "days": -1
+                      }
+                    ],
+                    "goto": {
+                      "kind": "node",
+                      "nodeId": "palach-p26"
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "palach-p04",
+                "speaker": "Гранд-Советник",
+                "text": "И лучше не скажешь... Про флаг в тронном зале - заметили значит? Сейчас же скомандую флаг заменить. И починить канделябры.",
+                "choices": [],
+                "terminal": "fail"
+              },
+              {
+                "id": "palach-p05",
+                "speaker": "Гранд-Советник",
+                "text": "У западной чаще, союзников ваших, порядочный, мирный мой край.",
+                "choices": [
+                  {
+                    "id": "palach-p05-west",
+                    "label": "Отправиться на запад",
+                    "goto": {
+                      "kind": "node",
+                      "nodeId": "palach-p06"
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "palach-p06",
+                "speaker": "Повествование",
+                "text": "Вы прибыли на место - лесная чаща на западе. А тут...\nВас стражники с почетом приветствуют, да интересуются, чего вы заглянуть к ним решили.",
+                "choices": [
+                  {
+                    "id": "palach-p06-north-warrior",
+                    "label": "Вариант: Я приехал посетить пленного Воина Севера",
+                    "goto": {
+                      "kind": "node",
+                      "nodeId": "palach-p32"
+                    }
+                  },
+                  {
+                    "id": "palach-p06-executioner",
+                    "label": "Вариант: Я приехал посетить пленного палача",
+                    "goto": {
+                      "kind": "node",
+                      "nodeId": "palach-p33"
+                    }
+                  },
+                  {
+                    "id": "palach-p06-heretic",
+                    "label": "Вариант: Я приехал посетить еретика, ожидающего казнь",
+                    "goto": {
+                      "kind": "node",
+                      "nodeId": "palach-p34"
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "palach-p07",
+                "speaker": "Палач",
+                "text": "Я лучше тут посижу, чем еще на одно ваше дело отправлюсь...",
+                "choices": [
+                  {
+                    "id": "palach-p07-seriously",
+                    "label": "Вариант: Не, серьзно, есть шанс выйти.",
+                    "goto": {
+                      "kind": "node",
+                      "nodeId": "palach-p09"
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "palach-p08",
+                "speaker": "Палач",
+                "text": "Я пять не даю, я только беру - в черном мешке вместе с рукой.",
+                "choices": [
+                  {
+                    "id": "palach-p08-seriously",
+                    "label": "Вариант: Не, серьзно, есть шанс выйти.",
+                    "goto": {
+                      "kind": "node",
+                      "nodeId": "palach-p09"
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "palach-p09",
+                "speaker": "Повествование",
+                "text": "Палач: Небось в вашу армию хваленую, сторожить остатки загнивающего Тетракора? Подохнуть под копытами и позор на внуков навести?\n\nВы: Такие щедрые подарки короли не делают! И второго шанса не будет уже, ты и так приговорен, не долго осталось - позор за тобой твои приступления оставляют.\n\nПалач: Ничего ты не скажешь, что меня убедит. Куда там такому как ты понять - обо мне ничто ты не знаешь.\nТебя даже слушать не стану.\n\nВы: Очнись же плибе...\n\nПалач: Не стану.\n\n...",
+                "choices": [
+                  {
+                    "id": "palach-p09-money",
+                    "label": "Вариант: Деньги всем нужны",
+                    "goto": {
+                      "kind": "node",
+                      "nodeId": "palach-p21"
+                    }
+                  },
+                  {
+                    "id": "palach-p09-family",
+                    "label": "Вариант: Семья - это святое",
+                    "goto": {
+                      "kind": "node",
+                      "nodeId": "palach-p20"
+                    }
+                  },
+                  {
+                    "id": "palach-p09-ghosts",
+                    "label": "Вариант: Призраки прошлого никого не отпускают",
+                    "goto": {
+                      "kind": "node",
+                      "nodeId": "palach-p21"
+                    }
+                  },
+                  {
+                    "id": "palach-p09-bad-people",
+                    "label": "Вариант: Они были плохими людьми",
+                    "goto": {
+                      "kind": "node",
+                      "nodeId": "palach-p21"
+                    }
+                  },
+                  {
+                    "id": "palach-p09-curse",
+                    "label": "Вариант: Палач - это не кличка, а проклятье",
+                    "goto": {
+                      "kind": "node",
+                      "nodeId": "palach-p21"
+                    }
+                  },
+                  {
+                    "id": "palach-p09-milk",
+                    "label": "Вариант: Я знаю, что было в \"12 бутылок молока\"",
+                    "goto": {
+                      "kind": "node",
+                      "nodeId": "palach-p21"
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "palach-p10",
+                "speaker": "Палач",
+                "text": "К чему это ты ведешь...",
+                "choices": [
+                  {
+                    "id": "palach-p10-innocent",
+                    "label": "Вариант: Он был невиновен, ты не казнил его - ты его спас",
+                    "goto": {
+                      "kind": "node",
+                      "nodeId": "palach-p11"
+                    }
+                  },
+                  {
+                    "id": "palach-p10-criminal",
+                    "label": "Вариант: Приступника, что угражал твоему брату, ты казнил раньше времени",
+                    "goto": {
+                      "kind": "node",
+                      "nodeId": "palach-p21"
+                    }
+                  },
+                  {
+                    "id": "palach-p10-guards",
+                    "label": "Вариант: Те охраники были приступниками, что угражали ему",
+                    "goto": {
+                      "kind": "node",
+                      "nodeId": "palach-p21"
+                    }
+                  },
+                  {
+                    "id": "palach-p10-hostage",
+                    "label": "Вариант: Ты был вынужден отпустить того приступника, чтобы спасти брата из плена",
+                    "goto": {
+                      "kind": "node",
+                      "nodeId": "palach-p21"
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "palach-p11",
+                "speaker": "Палач",
+                "text": "Так значит ты знаешь... Один черт, что с того? В твоей империи смерти так заведено - живым не уйдешь ниоткуда.\nКакое мне дело где смероть свою скорую встерить?",
+                "choices": [
+                  {
+                    "id": "palach-p11-expedition",
+                    "label": "Вариант: Он сбежал далеко, но ты найдешь его, вступив в вонную экспедицию по окраинам.",
+                    "goto": {
+                      "kind": "node",
+                      "nodeId": "palach-p12"
+                    }
+                  },
+                  {
+                    "id": "palach-p11-cards",
+                    "label": "Вариант (Тратит время): Я тоже картишки люблю, зарубимся!?",
+                    "effects": [
+                      {
+                        "kind": "time",
+                        "days": -1
+                      }
+                    ],
+                    "visibilityRequirements": [
+                      {
+                        "key": "cardsKnown",
+                        "comparison": "eq",
+                        "value": true
+                      }
+                    ],
+                    "goto": {
+                      "kind": "node",
+                      "nodeId": "palach-p19"
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "palach-p12",
+                "speaker": "Палач",
+                "text": "Ты меня убедил... Причем так быстро, как-будто это дэмо-версия! Я беру свой большой топор и отправляюсь искать брата!",
+                "choices": [
+                  {
+                    "id": "palach-p12-complete",
+                    "label": "ЗАДАНИЕ ВЫПОЛНЕНО",
+                    "goto": {
+                      "kind": "node",
+                      "nodeId": "palach-p13"
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "palach-p13",
+                "speaker": "Повествование",
+                "text": "Ураааа... бухаем!",
+                "choices": [],
+                "terminal": "complete"
+              },
+              {
+                "id": "palach-p14",
+                "speaker": "Повествование",
+                "text": "Куда отправляемся?",
+                "choices": [
+                  {
+                    "id": "palach-p14-capital",
+                    "label": "Тетракор - столица",
+                    "goto": {
+                      "kind": "node",
+                      "nodeId": "palach-p18"
+                    }
+                  },
+                  {
+                    "id": "palach-p14-north",
+                    "label": "Север - Подсолнечный Край",
+                    "goto": {
+                      "kind": "node",
+                      "nodeId": "palach-p15"
+                    }
+                  },
+                  {
+                    "id": "palach-p14-west",
+                    "label": "Запад - Лесная чаща",
+                    "goto": {
+                      "kind": "node",
+                      "nodeId": "palach-p06"
+                    }
+                  },
+                  {
+                    "id": "palach-p14-south",
+                    "label": "Юг - Дюна",
+                    "goto": {
+                      "kind": "node",
+                      "nodeId": "palach-p16"
+                    }
+                  },
+                  {
+                    "id": "palach-p14-east",
+                    "label": "Восток - Поселение в болоте",
+                    "goto": {
+                      "kind": "node",
+                      "nodeId": "palach-p17"
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "palach-p15",
+                "speaker": "Повествование",
+                "text": "Ты чуть не умер от холода нахуй - причем зря, тебе сказали что нет никаких тюрем на севере",
+                "choices": [],
+                "terminal": "fail"
+              },
+              {
+                "id": "palach-p16",
+                "speaker": "Повествование",
+                "text": "Вы забурились в песок и вас укусил скорпион. Вам снилось, что вы отдыхаете на пляже. Очнувшись вы поняли - лето проёбано.",
+                "choices": [],
+                "terminal": "fail"
+              },
+              {
+                "id": "palach-p17",
+                "speaker": "Повествование",
+                "text": "Приехов в болото вы тут же приказали забрасать всё камнями и построить там нормальный город из камня. Но вам не понравилось и вы уехали обратно. Логично, кто будет жить в ебаном болоте.",
+                "choices": [],
+                "terminal": "fail"
+              },
+              {
+                "id": "palach-p18",
+                "speaker": "Повествование",
+                "text": "Ты проехался на коне по сталице как охуенный, любовался Тетракорархосом и нахуй забыл что ты вообще здесь забыл",
+                "choices": [],
+                "terminal": "fail"
+              },
+              {
+                "id": "palach-p19",
+                "speaker": "Повествование",
+                "text": "Вы играли в карты весь вечер, забыв зачем пришли.",
+                "choices": [],
+                "terminal": "fail"
+              },
+              {
+                "id": "palach-p20",
+                "speaker": "Палач",
+                "text": "Не говори так, будто ты знаешь...",
+                "choices": [
+                  {
+                    "id": "palach-p20-atone",
+                    "label": "Вариант: Твои грехи не простить, но можно искупить",
+                    "goto": {
+                      "kind": "node",
+                      "nodeId": "palach-p21"
+                    }
+                  },
+                  {
+                    "id": "palach-p20-innocent",
+                    "label": "Вариант: Ты не виновен",
+                    "goto": {
+                      "kind": "node",
+                      "nodeId": "palach-p21"
+                    }
+                  },
+                  {
+                    "id": "palach-p20-good",
+                    "label": "Вариант: Ты согрешил, но во благо",
+                    "goto": {
+                      "kind": "node",
+                      "nodeId": "palach-p21"
+                    }
+                  },
+                  {
+                    "id": "palach-p20-injustice",
+                    "label": "Вариант: Ты согрешил из-за несправедливости",
+                    "goto": {
+                      "kind": "node",
+                      "nodeId": "palach-p22"
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "palach-p21",
+                "speaker": "Палач",
+                "text": "Чего ты несешь?\nИди нахуй.",
+                "choices": [],
+                "terminal": "fail"
+              },
+              {
+                "id": "palach-p22",
+                "speaker": "Палач",
+                "text": "...",
+                "choices": [
+                  {
+                    "id": "palach-p22-children",
+                    "label": "Вариант: Ты грабил много, но ради детей",
+                    "goto": {
+                      "kind": "node",
+                      "nodeId": "palach-p21"
+                    }
+                  },
+                  {
+                    "id": "palach-p22-guilty",
+                    "label": "Вариант: Ты убивал, но виновных",
+                    "goto": {
+                      "kind": "node",
+                      "nodeId": "palach-p21"
+                    }
+                  },
+                  {
+                    "id": "palach-p22-father",
+                    "label": "Вариант: Твоему отцу гразила опасность",
+                    "goto": {
+                      "kind": "node",
+                      "nodeId": "palach-p21"
+                    }
+                  },
+                  {
+                    "id": "palach-p22-brother",
+                    "label": "Вариант: Ты защищал своего брата",
+                    "goto": {
+                      "kind": "node",
+                      "nodeId": "palach-p10"
+                    }
+                  },
+                  {
+                    "id": "palach-p22-wife",
+                    "label": "Вариант: Ты мстил за жену",
+                    "goto": {
+                      "kind": "node",
+                      "nodeId": "palach-p21"
+                    }
+                  },
+                  {
+                    "id": "palach-p22-order",
+                    "label": "Вариант: Ты устал был палачом и ослушался приказа",
+                    "goto": {
+                      "kind": "node",
+                      "nodeId": "palach-p21"
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "palach-p23",
+                "speaker": "Повествование",
+                "text": "Вы: Вот скажи мне, советник. Ты чего так загадочно разговариваешь? Ты чего-то от меня добиваешься?\nГранд-Советник: Ну нет, что вы...\n\nВы заболтались и никуда не поехали.",
+                "choices": [],
+                "terminal": "fail"
+              },
+              {
+                "id": "palach-p24",
+                "speaker": "Повествование",
+                "text": "Вы заговорили о разбойниках и передумали иметь с ними какое-либо дело",
+                "choices": [],
+                "terminal": "fail"
+              },
+              {
+                "id": "palach-p25",
+                "speaker": "Гранд-Советник",
+                "text": "Куда же без вас...",
+                "choices": [
+                  {
+                    "id": "palach-p25-dinner",
+                    "label": "Вариант (Тратит время): Сперва за обедом обсужим деда!",
+                    "effects": [
+                      {
+                        "kind": "time",
+                        "days": -1
+                      }
+                    ],
+                    "goto": {
+                      "kind": "node",
+                      "nodeId": "palach-p23"
+                    }
+                  },
+                  {
+                    "id": "palach-p25-homeland",
+                    "label": "Вариант: (Тратит время) И к слову, а где твоя родина, ты не напомнишь? Куда моей лошади курс свой держать?",
+                    "effects": [
+                      {
+                        "kind": "time",
+                        "days": -1
+                      }
+                    ],
+                    "goto": {
+                      "kind": "node",
+                      "nodeId": "palach-p05"
+                    }
+                  },
+                  {
+                    "id": "palach-p25-go",
+                    "label": "Вариант: Тогда отправляюсь!",
+                    "goto": {
+                      "kind": "node",
+                      "nodeId": "palach-p14"
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "palach-p26",
+                "speaker": "Повествование",
+                "text": "Вы заговорились о армии, впечатлились и напрочь забыли думать о каких-то там мелочках",
+                "choices": [],
+                "terminal": "fail"
+              },
+              {
+                "id": "palach-p27",
+                "speaker": "Гранд-Советник",
+                "text": "Могу ли отказать, когда так сильно, еще и в рифму!",
+                "choices": [],
+                "terminal": "complete"
+              },
+              {
+                "id": "palach-p28",
+                "speaker": "Повествование",
+                "text": "Сегодня утром вы проснулись необычайно бодрым - всё то режим сна и ароматические масла. От чего бы не заняться чем-то полезным с утра?",
+                "choices": [
+                  {
+                    "id": "palach-p28-rumors",
+                    "label": "Вариант (Тратит время): Разузнать о свежих слухах",
+                    "effects": [
+                      {
+                        "kind": "time",
+                        "days": -1
+                      }
+                    ],
+                    "memoryWrites": [
+                      {
+                        "key": "heardRumors",
+                        "operation": "set",
+                        "value": true
+                      }
+                    ],
+                    "goto": {
+                      "kind": "node",
+                      "nodeId": "palach-p29"
+                    }
+                  },
+                  {
+                    "id": "palach-p28-bed",
+                    "label": "Вариант: Валяться в кровати",
+                    "goto": {
+                      "kind": "node",
+                      "nodeId": "palach-p30"
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "palach-p29",
+                "speaker": "Доносчик",
+                "text": "В пустыне завелся один шпион - его замечали на рынке, но всякий кто знаки о нем подавал - пропадал. На севере ныне проблемы с ресурсами, набежчики северных грабят поля - на западе всех на уши подняли! И кстати, на западе одному палачу поручено было разбойника казнить, вместо этого палач казнил всех охранников и дал наглецу убежать. В болотах тем временем один из экологов был арестован за разработку лекарства от рака - его заподозрили в генных экспериментах.\n\nСобравшись с делами, вас голос окликнул:",
+                "choices": [
+                  {
+                    "id": "palach-p29-start",
+                    "label": "Начало",
+                    "goto": {
+                      "kind": "node",
+                      "nodeId": "palach-p01"
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "palach-p30",
+                "speaker": "Повествование",
+                "text": "Немного повалявшись в постели, заходите в обеденный зал. Едва ваша мантия касается мраморного пола, вы слышите голос...",
+                "choices": [
+                  {
+                    "id": "palach-p30-start",
+                    "label": "Начало",
+                    "goto": {
+                      "kind": "node",
+                      "nodeId": "palach-p01"
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "palach-p31",
+                "speaker": "Палач",
+                "text": "Вообще-то норм вполне. Четыре каменные стены, решетка, бесплатная еда и в картишки катаем - кайфуем, живем так, как будут жить спустя тысячу лет.",
+                "choices": [
+                  {
+                    "id": "palach-p31-seriously",
+                    "label": "Вариант: Не, серьзно, есть шанс выйти.",
+                    "memoryWrites": [
+                      {
+                        "key": "cardsKnown",
+                        "operation": "set",
+                        "value": true
+                      }
+                    ],
+                    "goto": {
+                      "kind": "node",
+                      "nodeId": "palach-p09"
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "palach-p32",
+                "speaker": "Стражники",
+                "text": "Хм... Был ли такой... Поищем...",
+                "choices": [],
+                "terminal": "fail"
+              },
+              {
+                "id": "palach-p33",
+                "speaker": "Стражники",
+                "text": "Да, есть такой... Но говорить с таким трудно... он только о приговоренном теперь говорит...",
+                "choices": [
+                  {
+                    "id": "palach-p33-innocent",
+                    "label": "Вариант: Ну так пустите меня к этому убийце невинных!",
+                    "goto": {
+                      "kind": "node",
+                      "nodeId": "palach-p36"
+                    }
+                  },
+                  {
+                    "id": "palach-p33-own",
+                    "label": "Вариант: Ну так пустите меня к этому убийце своих!",
+                    "goto": {
+                      "kind": "node",
+                      "nodeId": "palach-p35"
+                    }
+                  },
+                  {
+                    "id": "palach-p33-deserter",
+                    "label": "Вариант: Ну так пустите меня к этому дизертиру!",
+                    "goto": {
+                      "kind": "node",
+                      "nodeId": "palach-p36"
+                    }
+                  },
+                  {
+                    "id": "palach-p33-traitor",
+                    "label": "Вариант: Ну так пустите меня к этому придателю!",
+                    "goto": {
+                      "kind": "node",
+                      "nodeId": "palach-p35"
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "palach-p34",
+                "speaker": "Стражники",
+                "text": "Хм... Был ли такой... Поищем...",
+                "choices": [],
+                "terminal": "fail"
+              },
+              {
+                "id": "palach-p35",
+                "speaker": "Стражники",
+                "text": "Вострограюсь, не уж-то и вы уже проинформированы о зверствах таких?!",
+                "choices": [
+                  {
+                    "id": "palach-p35-yes",
+                    "label": "Вариант: Да. А теперь отведи меня к нему",
+                    "goto": {
+                      "kind": "node",
+                      "nodeId": "palach-p36"
+                    }
+                  },
+                  {
+                    "id": "palach-p35-why",
+                    "label": "Вариант (Тратит время): А почему он так поступил?",
+                    "effects": [
+                      {
+                        "kind": "time",
+                        "days": -1
+                      }
+                    ],
+                    "goto": {
+                      "kind": "node",
+                      "nodeId": "palach-p37"
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "palach-p36",
+                "speaker": "Повествование",
+                "text": "Разговор в темнице с заключенным по кличке Палач:\n\nПалач: Чего это царксой особе понад... блять... короче, чего приперся?",
+                "choices": [
+                  {
+                    "id": "palach-p36-recruit",
+                    "label": "Вариант: А вот, вербовать тебя буду",
+                    "goto": {
+                      "kind": "node",
+                      "nodeId": "palach-p07"
+                    }
+                  },
+                  {
+                    "id": "palach-p36-bored",
+                    "label": "Вариант: Ведь скучно сидеть тут в темнице сырой, всормленный в неволе еблан ты тупой?",
+                    "goto": {
+                      "kind": "node",
+                      "nodeId": "palach-p31"
+                    }
+                  },
+                  {
+                    "id": "palach-p36-five",
+                    "label": "ДАЙ ПЯТЬ БРАТУХА! ЩА НА ВОЛЮ ТЕБЯ ВЫТАЩУ!!!11",
+                    "goto": {
+                      "kind": "node",
+                      "nodeId": "palach-p08"
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "palach-p37",
+                "speaker": "Стражник",
+                "text": "Так этож понятно - он голову брата спасал. Нельзя было дело ему доверять.",
+                "choices": [
+                  {
+                    "id": "palach-p37-understood",
+                    "label": "Вариант: Теперь всё понятно, веди же меня!",
+                    "memoryWrites": [
+                      {
+                        "key": "brotherKnown",
+                        "operation": "set",
+                        "value": true
+                      }
+                    ],
+                    "goto": {
+                      "kind": "node",
+                      "nodeId": "palach-p36"
+                    }
+                  },
+                  {
+                    "id": "palach-p37-who",
+                    "label": "Вариант (Тратит время): Так, а кто доверял?",
+                    "effects": [
+                      {
+                        "kind": "time",
+                        "days": -1
+                      }
+                    ],
+                    "goto": {
+                      "kind": "node",
+                      "nodeId": "palach-p38"
+                    }
+                  },
+                  {
+                    "id": "palach-p37-where",
+                    "label": "Вариант (Тратит время): А что теперь с братом?",
+                    "effects": [
+                      {
+                        "kind": "time",
+                        "days": -1
+                      }
+                    ],
+                    "goto": {
+                      "kind": "node",
+                      "nodeId": "palach-p39"
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "palach-p38",
+                "speaker": "Стражник",
+                "text": "Система такая. Маленький человек в ней затеряется...",
+                "choices": [
+                  {
+                    "id": "palach-p38-enough",
+                    "label": "Вариант: Ладно, хватит время мое тратить, веди меня!",
+                    "goto": {
+                      "kind": "node",
+                      "nodeId": "palach-p36"
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "palach-p39",
+                "speaker": "Страж",
+                "text": "Дак что же... Сбежал! Пади по окраинам нашей великой скрывается, иль же к врагам как предатель метнулся...",
+                "choices": [
+                  {
+                    "id": "palach-p39-why",
+                    "label": "Вариант: За что его взяли?",
+                    "memoryWrites": [
+                      {
+                        "key": "escapeKnown",
+                        "operation": "set",
+                        "value": true
+                      }
+                    ],
+                    "goto": {
+                      "kind": "node",
+                      "nodeId": "palach-p41"
+                    }
+                  },
+                  {
+                    "id": "palach-p39-map",
+                    "label": "Вариант (Тратит время): Покажи-ка мне на карте кротчайший путь отступления...",
+                    "effects": [
+                      {
+                        "kind": "time",
+                        "days": -1
+                      }
+                    ],
+                    "goto": {
+                      "kind": "node",
+                      "nodeId": "palach-p40"
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "palach-p40",
+                "speaker": "Стражник",
+                "text": "Стражник показал, как можно из здешних лесов легко перебежать на сторну врага... Познавательно, наверное...",
+                "choices": [
+                  {
+                    "id": "palach-p40-enough",
+                    "label": "Вариант: Теперь всё понятно, веди же меня!",
+                    "goto": {
+                      "kind": "node",
+                      "nodeId": "palach-p36"
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "palach-p41",
+                "speaker": "Стражник",
+                "text": "Грабеж... Есть правда сведетель,..",
+                "choices": [
+                  {
+                    "id": "palach-p41-who",
+                    "label": "Вариант (Тратит время): Какой сведетель, кем он приходится?",
+                    "effects": [
+                      {
+                        "kind": "time",
+                        "days": -1
+                      }
+                    ],
+                    "goto": {
+                      "kind": "node",
+                      "nodeId": "palach-p43"
+                    }
+                  },
+                  {
+                    "id": "palach-p41-says",
+                    "label": "Вариант (Тратит время): Что говорит?",
+                    "effects": [
+                      {
+                        "kind": "time",
+                        "days": -1
+                      }
+                    ],
+                    "goto": {
+                      "kind": "node",
+                      "nodeId": "palach-p42"
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "palach-p42",
+                "speaker": "Стражник",
+                "text": "Есть правда сведетель, что утверждал, будто тот не виновен... Но суд наш гуманный решил вопреки.",
+                "choices": [
+                  {
+                    "id": "palach-p42-understood",
+                    "label": "Вариант: Теперь всё понятно, веди же меня!",
+                    "memoryWrites": [
+                      {
+                        "key": "innocenceKnown",
+                        "operation": "set",
+                        "value": true
+                      }
+                    ],
+                    "goto": {
+                      "kind": "node",
+                      "nodeId": "palach-p36"
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "palach-p43",
+                "speaker": "Стражник",
+                "text": "Да так, пьяница местный.",
+                "choices": [
+                  {
+                    "id": "palach-p43-dismiss",
+                    "label": "Вариант: Ой, нечего взять! А стаду и пьяне мы слов не давали! Веди же меня к палачу!",
+                    "goto": {
+                      "kind": "node",
+                      "nodeId": "palach-p36"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "quest-golden-idol",
+        "name": "Золотой идол",
+        "journalDescription": "Решить судьбу магического идола, отнятого у независимого народа.",
+        "trigger": {
+          "kind": "event",
+          "eventId": "event-golden-idol"
+        },
+        "entryStageId": "golden-idol-decision",
+        "mandatory": false,
+        "restartPolicy": "never",
+        "memory": [
+          {
+            "key": "monumentRaised",
+            "type": "boolean",
+            "initial": false,
+            "label": "Монумент возведён",
+            "journalVisible": true
+          },
+          {
+            "key": "fallenWarriorRestored",
+            "type": "boolean",
+            "initial": false,
+            "label": "Падший воин возвращён",
+            "journalVisible": true
+          },
+          {
+            "key": "bloodyDiseaseAccepted",
+            "type": "boolean",
+            "initial": false,
+            "label": "Кровавая болезнь принята",
+            "journalVisible": true
+          },
+          {
+            "key": "enemyIdolRisk",
+            "type": "boolean",
+            "initial": false,
+            "label": "Идол может попасть к врагу",
+            "journalVisible": true
+          },
+          {
+            "key": "idolDestroyed",
+            "type": "boolean",
+            "initial": false,
+            "label": "Идол разрушен",
+            "journalVisible": true
+          },
+          {
+            "key": "nationalUnityStrengthened",
+            "type": "boolean",
+            "initial": false,
+            "label": "Национальное единство укреплено",
+            "journalVisible": true
+          },
+          {
+            "key": "churchUnityStrengthened",
+            "type": "boolean",
+            "initial": false,
+            "label": "Единство церкви укреплено",
+            "journalVisible": true
+          }
+        ],
+        "stages": [
+          {
+            "id": "golden-idol-decision",
+            "name": "Судьба идола",
+            "entryNodeId": "golden-idol-choice",
+            "nodes": [
+              {
+                "id": "golden-idol-choice",
+                "speaker": "Гранд-Совет",
+                "text": "Магия независимых дикарей оказалась настоящей. Судьба изъятого идола зависит от императора.",
+                "choices": [
+                  {
+                    "id": "idol-monument",
+                    "label": "Возвести монумент",
+                    "deferredReason": "Нужны типизированные цели павшего и живого персонажей, восстановление бойца и кровавая болезнь.",
+                    "deferredVisibility": "visible",
+                    "memoryWrites": [
+                      {
+                        "key": "monumentRaised",
+                        "operation": "set",
+                        "value": true
+                      },
+                      {
+                        "key": "fallenWarriorRestored",
+                        "operation": "set",
+                        "value": true
+                      },
+                      {
+                        "key": "bloodyDiseaseAccepted",
+                        "operation": "set",
+                        "value": true
+                      }
+                    ],
+                    "goto": {
+                      "kind": "complete"
+                    }
+                  },
+                  {
+                    "id": "idol-sell",
+                    "label": "Продать",
+                    "effects": [
+                      {
+                        "kind": "resource",
+                        "resourceId": "gold",
+                        "amount": 6000
+                      },
+                      {
+                        "kind": "resource",
+                        "resourceId": "wood",
+                        "amount": 300000
+                      },
+                      {
+                        "kind": "resource",
+                        "resourceId": "iron",
+                        "amount": 200000
+                      }
+                    ],
+                    "memoryWrites": [
+                      {
+                        "key": "enemyIdolRisk",
+                        "operation": "set",
+                        "value": true
+                      }
+                    ],
+                    "goto": {
+                      "kind": "complete"
+                    }
+                  },
+                  {
+                    "id": "idol-destroy",
+                    "label": "Разрушить",
+                    "memoryWrites": [
+                      {
+                        "key": "idolDestroyed",
+                        "operation": "set",
+                        "value": true
+                      },
+                      {
+                        "key": "nationalUnityStrengthened",
+                        "operation": "set",
+                        "value": true
+                      },
+                      {
+                        "key": "churchUnityStrengthened",
+                        "operation": "set",
+                        "value": true
+                      }
+                    ],
+                    "goto": {
+                      "kind": "complete"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "quest-witch-apprenticeship",
+        "name": "Ученики болотных ведьм",
+        "journalDescription": "Решить, отправлять ли одарённых жителей учиться алхимии у болотных ведьм.",
+        "trigger": {
+          "kind": "event",
+          "eventId": "event-witch-apprenticeship"
+        },
+        "entryStageId": "witch-apprenticeship-decision",
+        "mandatory": false,
+        "restartPolicy": "never",
+        "memory": [
+          {
+            "key": "swampAlchemy",
+            "type": "boolean",
+            "initial": false,
+            "label": "Болотная алхимия изучена",
+            "journalVisible": true
+          },
+          {
+            "key": "apprenticeCityId",
+            "type": "string",
+            "initial": "",
+            "label": "Город учеников",
+            "journalVisible": true
+          },
+          {
+            "key": "witchesRefused",
+            "type": "boolean",
+            "initial": false,
+            "label": "Ведьмам отказано",
+            "journalVisible": true
+          }
+        ],
+        "stages": [
+          {
+            "id": "witch-apprenticeship-decision",
+            "name": "Решение об учениках",
+            "entryNodeId": "witch-apprenticeship-choice",
+            "nodes": [
+              {
+                "id": "witch-apprenticeship-choice",
+                "speaker": "Повествование",
+                "text": "Ведьмы принимают только одарённых. Непринятые ученики не возвращаются.",
+                "choices": [
+                  {
+                    "id": "send-apprentices",
+                    "label": "Послать учеников",
+                    "target": {
+                      "kind": "city",
+                      "selector": "lowestAccessibleInRegion",
+                      "regionId": "east",
+                      "memoryKey": "apprenticeCityId"
+                    },
+                    "effects": [
+                      {
+                        "kind": "resource",
+                        "resourceId": "knowledge",
+                        "amount": 1200
+                      },
+                      {
+                        "kind": "population",
+                        "amount": -1000
+                      }
+                    ],
+                    "memoryWrites": [
+                      {
+                        "key": "swampAlchemy",
+                        "operation": "set",
+                        "value": true
+                      }
+                    ],
+                    "goto": {
+                      "kind": "complete"
+                    }
+                  },
+                  {
+                    "id": "refuse-witches",
+                    "label": "Отказаться",
+                    "effects": [
+                      {
+                        "kind": "loyalty",
+                        "target": {
+                          "kind": "region",
+                          "regionId": "east"
+                        },
+                        "amount": -1
+                      }
+                    ],
+                    "memoryWrites": [
+                      {
+                        "key": "witchesRefused",
+                        "operation": "set",
+                        "value": true
+                      }
+                    ],
+                    "goto": {
+                      "kind": "complete"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
   },
   "cards": [
     {
@@ -9362,75 +10675,30 @@
             "id": "idol-monument",
             "label": "Возвести монумент",
             "description": "Падший воин выживает, а выбранного живого поражает кровавая болезнь.",
-            "effects": [
-              {
-                "kind": "flag",
-                "flagId": "goldenIdolMonument",
-                "amount": 1
-              },
-              {
-                "kind": "flag",
-                "flagId": "fallenWarriorRestored",
-                "amount": 1
-              },
-              {
-                "kind": "flag",
-                "flagId": "bloodyDisease",
-                "amount": 1
-              }
-            ]
+            "effects": [],
+            "deferredReason": "Нужны типизированные цели павшего и живого персонажей, восстановление бойца и кровавая болезнь."
           },
           {
             "id": "idol-sell",
             "label": "Продать",
             "description": "Огромная прибыль; позднее идол может усилить врага.",
-            "effects": [
-              {
-                "kind": "resource",
-                "resourceId": "gold",
-                "amount": 6000
-              },
-              {
-                "kind": "resource",
-                "resourceId": "wood",
-                "amount": 300000
-              },
-              {
-                "kind": "resource",
-                "resourceId": "iron",
-                "amount": 200000
-              },
-              {
-                "kind": "flag",
-                "flagId": "enemyIdolRisk",
-                "amount": 1
-              }
-            ]
+            "effects": [],
+            "questResolution": {
+              "questId": "quest-golden-idol",
+              "choiceId": "idol-sell"
+            }
           },
           {
             "id": "idol-destroy",
             "label": "Разрушить",
             "description": "Укрепляет единство, церковь, чистоту и порядок.",
-            "effects": [
-              {
-                "kind": "flag",
-                "flagId": "nationalUnity",
-                "amount": 2
-              },
-              {
-                "kind": "flag",
-                "flagId": "churchUnity",
-                "amount": 2
-              },
-              {
-                "kind": "flag",
-                "flagId": "goldenIdolDestroyed",
-                "amount": 1
-              }
-            ]
+            "effects": [],
+            "questResolution": {
+              "questId": "quest-golden-idol",
+              "choiceId": "idol-destroy"
+            }
           }
-        ],
-        "deferredReason": "Боевые цели, болезни выбранного персонажа и будущая передача идола врагу ещё не реализованы."
+        ]
       },
       {
         "id": "event-famine-rationing",
@@ -9637,37 +10905,23 @@
             "id": "send-apprentices",
             "label": "Послать учеников",
             "description": "Алхимические знания растут, но часть населения рискует исчезнуть.",
-            "effects": [
-              {
-                "kind": "resource",
-                "resourceId": "knowledge",
-                "amount": 1200
-              },
-              {
-                "kind": "flag",
-                "flagId": "swampAlchemy",
-                "amount": 1
-              },
-              {
-                "kind": "population",
-                "amount": -1000
-              }
-            ]
+            "effects": [],
+            "questResolution": {
+              "questId": "quest-witch-apprenticeship",
+              "choiceId": "send-apprentices"
+            }
           },
           {
             "id": "refuse-witches",
             "label": "Отказаться",
             "description": "Люди остаются дома, но отношения с болотом ухудшаются.",
-            "effects": [
-              {
-                "kind": "flag",
-                "flagId": "loyaltyEast",
-                "amount": -1
-              }
-            ]
+            "effects": [],
+            "questResolution": {
+              "questId": "quest-witch-apprenticeship",
+              "choiceId": "refuse-witches"
+            }
           }
-        ],
-        "deferredReason": "Выбор городского населения, исчезновение учеников и региональная лояльность ещё не реализованы."
+        ]
       }
     ]
   }

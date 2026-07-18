@@ -470,6 +470,10 @@ export interface EmpiresEventChoiceDefinition {
   description?: string
   resourceCosts?: EmpiresResourceAmount[]
   effects: EmpiresEffect[]
+  questResolution?: {
+    questId: string
+    choiceId: string
+  }
   epidemicContainment?: {
     mode: Exclude<EmpiresEpidemicContainmentMode, 'undecided'>
     preventsIntercitySpread: boolean
@@ -584,10 +588,110 @@ export interface EmpiresGodScaffoldConfig {
   antiBitoRules: never[]
 }
 
-export interface EmpiresQuestsScaffoldConfig {
+export type EmpiresQuestTrigger = (
+  | { kind: 'conReached', con: number }
+  | { kind: 'flag', flagId: string, minimum: number }
+  | { kind: 'event', eventId: string }
+  | { kind: 'building', buildingId: string, level: number, cityId?: string }
+  | {
+    kind: 'minigameResult'
+    minigameKind: EmpiresMinigameSession['kind']
+    outcome?: TdBattleResult['outcome']
+  }
+  | { kind: 'manual' }
+) & { repeatable?: boolean }
+
+export type EmpiresQuestMemoryValue = string | number | boolean
+
+export interface EmpiresQuestMemoryDefinition {
+  key: string
+  type: 'string' | 'number' | 'boolean'
+  initial: EmpiresQuestMemoryValue
+  label?: string
+  journalVisible?: boolean
+}
+
+export interface EmpiresQuestMemoryRequirement {
+  key: string
+  comparison: 'eq' | 'gte' | 'lte'
+  value: EmpiresQuestMemoryValue
+}
+
+export interface EmpiresQuestMemoryWrite {
+  key: string
+  operation: 'set' | 'add'
+  value: EmpiresQuestMemoryValue
+}
+
+export type EmpiresQuestChoiceTarget =
+  | {
+    kind: 'city'
+    selector: 'eventTarget' | 'lowestAccessible' | 'lowestAccessibleInRegion'
+    regionId?: string
+    memoryKey?: string
+  }
+
+export type EmpiresQuestTransition =
+  | { kind: 'node', nodeId: string }
+  | { kind: 'stage', stageId: string }
+  | { kind: 'complete' }
+  | { kind: 'fail' }
+
+export interface EmpiresQuestChoiceDefinition {
+  id: string
+  label: string
+  description?: string
+  requirements?: EmpiresDependency[]
+  visibilityRequirements?: EmpiresQuestMemoryRequirement[]
+  costs?: EmpiresResourceAmount[]
+  effects?: EmpiresEffect[]
+  memoryWrites?: EmpiresQuestMemoryWrite[]
+  target?: EmpiresQuestChoiceTarget
+  goto: EmpiresQuestTransition
+  deferredVisibility?: 'visible' | 'hidden'
+  deferredReason?: string
+}
+
+export interface EmpiresQuestNodeDefinition {
+  id: string
+  speaker: string
+  text: string
+  image?: string
+  choices: EmpiresQuestChoiceDefinition[]
+  terminal?: 'complete' | 'fail'
+}
+
+export interface EmpiresQuestStageDefinition {
+  id: string
+  name: string
+  entryNodeId: string
+  nodes: EmpiresQuestNodeDefinition[]
+}
+
+export interface EmpiresQuestAllowedCycle {
+  id: string
+  nodeIds: string[]
+}
+
+export interface EmpiresQuestDefinition {
+  id: string
+  name: string
+  journalDescription: string
+  trigger: EmpiresQuestTrigger
+  entryStageId: string
+  stages: EmpiresQuestStageDefinition[]
+  memory?: EmpiresQuestMemoryDefinition[]
+  mandatory?: boolean
+  restartPolicy?: 'never' | 'afterTerminal'
+  allowedCycles?: EmpiresQuestAllowedCycle[]
+  deferredReason?: string
+}
+
+export interface EmpiresQuestsConfig {
   enabled: boolean
-  definitions: never[]
-  dialogueGraphs: never[]
+  historyRetention: number
+  triggerHistoryRetention: number
+  definitions: EmpiresQuestDefinition[]
 }
 
 export interface EmpiresSeasonDefinition {
@@ -1047,7 +1151,7 @@ export interface EmpiresUpgradeConfig {
 }
 
 export interface EmpiresEndgameConfig {
-  schemaVersion: 11
+  schemaVersion: 12
   id: string
   title: string
   seed: string | number
@@ -1060,7 +1164,7 @@ export interface EmpiresEndgameConfig {
   combat: EmpiresCombatConfig
   td: EmpiresTdConfig
   god: EmpiresGodScaffoldConfig
-  quests: EmpiresQuestsScaffoldConfig
+  quests: EmpiresQuestsConfig
 }
 
 export interface EmpiresRngState {
@@ -1808,8 +1912,49 @@ export interface EmpiresEventState {
   empireSettlementPending?: boolean
 }
 
+export type EmpiresQuestStatus = 'active' | 'completed' | 'failed' | 'suspended'
+
+export interface EmpiresQuestState {
+  questId: string
+  status: EmpiresQuestStatus
+  suspendedStatus?: Exclude<EmpiresQuestStatus, 'suspended'>
+  compatibilityReason?: string
+  stageId: string
+  nodeId: string
+  memory: Record<string, EmpiresQuestMemoryValue>
+  run: number
+  nodeVisit: number
+  lastAppliedChoiceIdentity: string | null
+  consumedTriggerIds: string[]
+  compactedTriggerCount: number
+  compactedTriggerDigest: string
+  startedAtCon: number
+  finishedAtCon: number | null
+}
+
+export interface EmpiresQuestHistoryEntry {
+  sequence: number
+  questId: string
+  run: number
+  choiceId: string
+  fromStageId: string
+  fromNodeId: string
+  toStageId: string | null
+  toNodeId: string | null
+  status: EmpiresQuestStatus
+  con: number
+}
+
+export interface EmpiresQuestRuntimeState {
+  activeMandatoryQuestId: string | null
+  mandatoryQueue: string[]
+  history: EmpiresQuestHistoryEntry[]
+  nextHistorySequence: number
+  compactedHistoryCount: number
+}
+
 export interface EmpiresCampaignState {
-  schemaVersion: 9
+  schemaVersion: 10
   configId: string
   phase: EmpiresPhase
   rng: EmpiresRngState
@@ -1830,7 +1975,8 @@ export interface EmpiresCampaignState {
   external: EmpiresExternalState
   epidemics: EmpiresEpidemicState[]
   nextEpidemicSequence: number
-  quests: Record<string, never>
+  quests: Record<string, EmpiresQuestState>
+  questRuntime: EmpiresQuestRuntimeState
   empire: EmpiresEmpireState
   event: EmpiresEventState | null
   outcomeReason: string | null
@@ -1838,7 +1984,7 @@ export interface EmpiresCampaignState {
 }
 
 export interface EmpiresSnapshotEnvelope {
-  schemaVersion: 9
+  schemaVersion: 10
   savedAt: string
   state: EmpiresCampaignState
 }

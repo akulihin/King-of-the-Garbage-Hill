@@ -121,10 +121,8 @@ describe('Empire\'s Endgame configuration', () => {
     expect(deferred(config.empire.units ?? [])).toEqual([])
     expect(deferred(config.empire.events)).toEqual([
       'event-lumber-concession',
-      'event-golden-idol',
       'event-city-gates-epidemic',
       'event-white-stone',
-      'event-witch-apprenticeship',
     ])
     expect(deferred(config.empire.resources)).toEqual(['carpentry', 'whiteStone'])
     expect(deferred(config.empire.technologies)).toEqual([

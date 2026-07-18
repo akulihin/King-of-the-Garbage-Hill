@@ -1,6 +1,7 @@
 import { EmpiresEndgameEngine } from './engine'
 import { resolveTdWithPolicy } from './td/qa'
 import { createTdRulesIdentity } from './td/engine'
+import { initialQuestMemory, questCurrentNode } from './quests'
 import type { TdQaPolicy } from './td/qa'
 import type { CombatArmorProfile, CombatWeaponProfile } from './combat/types'
 import type {
@@ -26,6 +27,7 @@ export const EMPIRES_QA_SCENARIO_NAMES = [
   'domestic-economy',
   'external-trade',
   'economy-content-event',
+  'quest-dialogue',
   'destroyed-west',
   'loyalty-rebellion',
   'relic-production-levels',
@@ -90,6 +92,8 @@ export type EmpiresQaAction =
   | { kind: 'finish-empire' }
   | { kind: 'resolve-minigame', policy: TdQaPolicy }
   | { kind: 'choose-event', eventId: string, choiceId: string }
+  | { kind: 'advance-dialogue', questId: string, choiceId: string }
+  | { kind: 'dismiss-dialogue', questId: string }
 
 export interface EmpiresQaStateDigest {
   phase: EmpiresPhase
@@ -141,6 +145,11 @@ export interface EmpiresQaStateDigest {
   economyEventHistoryCount: number
   smugglingPolicyActive: boolean
   horsePactActive: boolean
+  activeMandatoryQuestId: string | null
+  activeQuestStatus: string | null
+  activeQuestNodeId: string | null
+  questHistoryCount: number
+  questStateDigest: string
 }
 
 export interface EmpiresQaTraceEntry {
@@ -156,6 +165,7 @@ export type EmpiresQaStallCode =
   | 'no-gift-choice'
   | 'no-pending-target'
   | 'no-event-choice'
+  | 'no-dialogue-choice'
   | 'no-minigame-session'
   | 'unsupported-phase'
   | 'action-failed'
@@ -244,6 +254,10 @@ const SCENARIO_COPY: Record<EmpiresQaScenarioName, { title: string, description:
   'economy-content-event': {
     title: 'Customs smuggling decision',
     description: 'A completed Customs trade exposes its typed target, next-con policy, and bounded decision history.',
+  },
+  'quest-dialogue': {
+    title: 'Quest dialogue',
+    description: 'Палач is active at its authored opening node with deterministic dialogue actions.',
   },
   'destroyed-west': {
     title: 'Destroyed western region',
@@ -573,6 +587,38 @@ function createEventSnapshot(
   state.empire.daysRemaining = 0
   state.outcomeReason = null
   return state
+}
+
+function createQuestDialogueSnapshot(
+  config: EmpiresEndgameConfig,
+  empireSnapshot: EmpiresCampaignState,
+): EmpiresCampaignState {
+  const definition = config.quests.definitions.find(quest => quest.id === 'quest-palach')
+  const stage = definition?.stages.find(candidate => candidate.id === definition.entryStageId)
+  const node = stage?.nodes.find(candidate => candidate.id === stage.entryNodeId)
+  if (!config.quests.enabled || !definition || !stage || !node || definition.deferredReason) {
+    throw new Error('QA quest-dialogue scenario requires the live Палач graph.')
+  }
+  const state = cloneJson(empireSnapshot)
+  state.con = Math.max(2, state.con)
+  state.quests[definition.id] = {
+    questId: definition.id,
+    status: 'active',
+    stageId: stage.id,
+    nodeId: node.id,
+    memory: initialQuestMemory(definition),
+    run: 1,
+    nodeVisit: 1,
+    lastAppliedChoiceIdentity: null,
+    consumedTriggerIds: [`quest:${definition.id}:trigger:conReached:con:2`],
+    compactedTriggerCount: 0,
+    compactedTriggerDigest: '',
+    startedAtCon: state.con,
+    finishedAtCon: null,
+  }
+  state.questRuntime.activeMandatoryQuestId = definition.id
+  state.questRuntime.mandatoryQueue = []
+  return new EmpiresEndgameEngine(config, state).snapshot()
 }
 
 function createEconomyContentEventSnapshot(
@@ -1015,7 +1061,35 @@ export function executeEmpiresQaExternalOfferPolicy(
     : { ok: false, message: 'QA offer policy found no eligible trade city.' }
 }
 
+export type EmpiresQaDialoguePolicy =
+  | 'first-legal'
+  | { questId: string, choiceId: string }
+
+export function executeEmpiresQaDialoguePolicy(
+  engine: EmpiresEndgameEngine,
+  policy: EmpiresQaDialoguePolicy,
+): EmpiresActionResult {
+  const questId = typeof policy === 'string'
+    ? engine.state.questRuntime.activeMandatoryQuestId
+    : policy.questId
+  if (!questId) return { ok: false, message: 'QA dialogue policy found no active mandatory quest.' }
+  const quest = engine.state.quests[questId]
+  if (quest?.status === 'completed' || quest?.status === 'failed') {
+    return engine.dismissDialogue(questId)
+  }
+  const definition = engine.config.quests.definitions.find(item => item.id === questId)
+  const node = definition && quest ? questCurrentNode(definition, quest) : null
+  const choiceId = typeof policy === 'string'
+    ? node?.choices.find(choice => !engine.questChoiceBlockedReason(questId, choice.id))?.id
+    : policy.choiceId
+  return choiceId
+    ? engine.advanceDialogue(questId, choiceId)
+    : { ok: false, message: `QA dialogue policy found no legal choice for ${questId}.` }
+}
+
 export function digestEmpiresQaState(engine: EmpiresEndgameEngine): EmpiresQaStateDigest {
+  const activeMandatoryQuestId = engine.state.questRuntime.activeMandatoryQuestId
+  const activeQuest = activeMandatoryQuestId ? engine.state.quests[activeMandatoryQuestId] : null
   return {
     phase: engine.state.phase,
     revision: engine.state.revision,
@@ -1071,6 +1145,21 @@ export function digestEmpiresQaState(engine: EmpiresEndgameEngine): EmpiresQaSta
     economyEventHistoryCount: engine.state.empire.economyContent.eventHistory.length,
     smugglingPolicyActive: engine.state.empire.economyContent.smugglingPolicy !== null,
     horsePactActive: engine.state.empire.economyContent.horseTheft.pact !== null,
+    activeMandatoryQuestId,
+    activeQuestStatus: activeQuest?.status ?? null,
+    activeQuestNodeId: activeQuest?.nodeId ?? null,
+    questHistoryCount: engine.state.questRuntime.history.length,
+    questStateDigest: JSON.stringify(Object.values(engine.state.quests)
+      .sort((left, right) => left.questId.localeCompare(right.questId))
+      .map(quest => ({
+        id: quest.questId,
+        status: quest.status,
+        stage: quest.stageId,
+        node: quest.nodeId,
+        run: quest.run,
+        memory: Object.fromEntries(Object.entries(quest.memory)
+          .sort(([left], [right]) => left.localeCompare(right))),
+      }))),
   }
 }
 
@@ -1236,6 +1325,15 @@ export function validateEmpiresQaSnapshot(
         || snapshot.external.customs.lastTradeCityId !== snapshot.event.targetCityId) {
         add('economy-event-target', 'Economy-content scenario must retain the traded Customs city.')
       }
+    } else if (scenarioName === 'quest-dialogue') {
+      const questId = snapshot.questRuntime.activeMandatoryQuestId
+      const quest = questId ? snapshot.quests[questId] : null
+      if (questId !== 'quest-palach' || quest?.status !== 'active') {
+        add('quest-dialogue', 'Quest-dialogue scenario must expose the active mandatory Палач quest.')
+      }
+      if (!quest || engine.questChoiceBlockedReason(questId, 'palach-p28-bed') !== null) {
+        add('quest-choice', 'Quest-dialogue scenario must expose a legal stable-ID opening choice.')
+      }
     } else if (scenarioName === 'destroyed-west') {
       if (snapshot.phase !== 'empire' || !snapshot.empire.destroyedRegionIds.includes('west')) {
         add('destroyed-region', 'Destroyed-west scenario must make the west inaccessible.')
@@ -1334,6 +1432,7 @@ export function createEmpiresQaScenarios(
   const domesticEconomy = createDomesticEconomySnapshot(seededConfig, empireCouncil)
   const externalTrade = createExternalTradeSnapshot(seededConfig, empireCouncil)
   const economyContentEvent = createEconomyContentEventSnapshot(seededConfig, externalTrade)
+  const questDialogue = createQuestDialogueSnapshot(seededConfig, empireCouncil)
   const event = createEventSnapshot(seededConfig, empireCouncil)
   const battleDefense = createBattleSnapshot(seededConfig, baseEngine, 'battle-defense')
   const battleAssault = createBattleSnapshot(seededConfig, baseEngine, 'battle-assault')
@@ -1352,6 +1451,7 @@ export function createEmpiresQaScenarios(
     'domestic-economy': domesticEconomy,
     'external-trade': externalTrade,
     'economy-content-event': economyContentEvent,
+    'quest-dialogue': questDialogue,
     'destroyed-west': destroyedWest,
     'loyalty-rebellion': loyaltyRebellion,
     'relic-production-levels': relicProductionLevels,
@@ -1398,17 +1498,39 @@ function emptyPhaseVisits(): Record<EmpiresPhase, number> {
   }
 }
 
-function eventChoiceIsAffordable(
-  engine: EmpiresEndgameEngine,
-  costs: Array<{ resourceId: string, amount: number }> = [],
-): boolean {
-  return costs.every(cost => (engine.state.empire.resources[cost.resourceId] ?? 0) >= cost.amount)
-}
-
 function chooseAutoplayAction(
   engine: EmpiresEndgameEngine,
   tdPolicy: TdQaPolicy,
 ): { action: EmpiresQaAction | null, stall: Omit<EmpiresQaStallDiagnostic, 'at'> | null, checkedPlayerTurn: boolean } {
+  const mandatoryQuestId = engine.state.questRuntime.activeMandatoryQuestId
+  if (mandatoryQuestId) {
+    const quest = engine.state.quests[mandatoryQuestId]
+    if (quest?.status === 'completed' || quest?.status === 'failed') {
+      return {
+        action: { kind: 'dismiss-dialogue', questId: mandatoryQuestId },
+        stall: null,
+        checkedPlayerTurn: false,
+      }
+    }
+    const definition = engine.config.quests.definitions.find(item => item.id === mandatoryQuestId)
+    const node = definition && quest ? questCurrentNode(definition, quest) : null
+    const choice = node?.choices.find(item => !engine.questChoiceBlockedReason(mandatoryQuestId, item.id))
+    return choice
+      ? {
+          action: { kind: 'advance-dialogue', questId: mandatoryQuestId, choiceId: choice.id },
+          stall: null,
+          checkedPlayerTurn: false,
+        }
+      : {
+          action: null,
+          stall: {
+            code: 'no-dialogue-choice',
+            message: `Mandatory quest ${mandatoryQuestId} has no legal dialogue choice.`,
+            availablePlayerActions: [],
+          },
+          checkedPlayerTurn: false,
+        }
+  }
   if (engine.state.phase === 'cards') {
     if (engine.currentActor() === 'god') {
       return { action: { kind: 'advance-god' }, stall: null, checkedPlayerTurn: false }
@@ -1469,8 +1591,7 @@ function chooseAutoplayAction(
   }
   if (engine.state.phase === 'event') {
     const event = engine.config.empire.events.find(item => item.id === engine.state.event?.eventId)
-    const choice = event?.choices.find(item =>
-      !item.deferredReason && eventChoiceIsAffordable(engine, item.resourceCosts))
+    const choice = event?.choices.find(item => !engine.eventChoiceBlockedReason(item.id))
     return event && choice
       ? {
           action: { kind: 'choose-event', eventId: event.id, choiceId: choice.id },
@@ -1534,6 +1655,10 @@ function executeAutoplayAction(
       ? engine.resolveMinigame(resolveTdWithPolicy(session.plan, session.seed, action.policy))
       : { ok: false, message: 'No minigame session is active.' }
   }
+  if (action.kind === 'advance-dialogue') {
+    return engine.advanceDialogue(action.questId, action.choiceId)
+  }
+  if (action.kind === 'dismiss-dialogue') return engine.dismissDialogue(action.questId)
   return engine.chooseEvent(action.choiceId)
 }
 

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import defaultConfigJson from '../../../public/empires-endgame/game-config.json'
 import { createDefaultEmpiresLoyaltyConfig } from './config'
 import { EmpiresEndgameEngine, validateEmpiresEndgameConfig } from './engine'
+import { questCurrentNode } from './quests'
 import { resolveTdWithPolicy } from './td/qa'
 import { EMPIRES_RANKS, EMPIRES_SUITS } from './types'
 import type {
@@ -42,7 +43,7 @@ function makeCards(): EmpiresCardDefinition[] {
 
 function makeConfig(): EmpiresEndgameConfig {
   return {
-    schemaVersion: 11,
+    schemaVersion: 12,
     id: 'engine-test',
     title: "Empire's Endgame",
     seed: 'deterministic-test',
@@ -601,7 +602,23 @@ describe('default game config integration', () => {
       while (engine.state.phase !== 'victory' && engine.state.phase !== 'defeat' && steps < safetyLimit) {
         steps += 1
         let result
-        if (engine.state.phase === 'cards') {
+        const mandatoryQuestId = engine.state.questRuntime.activeMandatoryQuestId
+        if (mandatoryQuestId) {
+          const definition = engine.config.quests.definitions.find(quest => quest.id === mandatoryQuestId)
+          const state = engine.state.quests[mandatoryQuestId]
+          if (!definition || !state) {
+            result = { ok: false, message: 'Autoplayer could not resolve the mandatory quest.' }
+          } else if (state.status !== 'active') {
+            result = engine.dismissDialogue(mandatoryQuestId)
+          } else {
+            const choice = questCurrentNode(definition, state)?.choices.find(candidate => (
+              engine.questChoiceBlockedReason(mandatoryQuestId, candidate.id) === null
+            ))
+            result = choice
+              ? engine.advanceDialogue(mandatoryQuestId, choice.id)
+              : { ok: false, message: 'Autoplayer found no legal mandatory dialogue choice.' }
+          }
+        } else if (engine.state.phase === 'cards') {
           const actor = engine.currentActor()
           if (actor === 'god') {
             result = engine.advanceGod()

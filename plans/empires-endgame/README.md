@@ -63,7 +63,12 @@ Current execution status supplied by the designer on 2026-07-17:
   live tithe/material relics, targeted Customs smuggling, horse theft, insurance offers,
   inverted ♦A trade isolation and exact deferred/raw-absent manifests landed as one
   change-set.
-- **Next prompt: Phase 7** (`phase-07-quests-dialogue.md`).
+- **Phase 7 — complete.** Schema-v12 quest configuration, save-envelope v10, deterministic
+  triggers/graphs, persistent memory, atomic choices, mandatory dialogue, journal/overlay,
+  all 43 later-demo Палач passages, Golden Idol/Witch typed event bridges and quest QA landed
+  as one change-set. The Idol monument branch and the inventoried regional backlog remain
+  explicit P12B review items.
+- **Next prompt: Phase 8** (`phase-08-god-presence.md`).
 
 Scope decisions confirmed by the designer (2026-07-16):
 
@@ -91,7 +96,7 @@ graph TD
   P3B --> P6B[6B diplomacy + external trade]
   P6A --> P6B
   P6B --> P6C[6C complete: economy content closure]
-  P5 --> P7[7 quests + dialogue]
+  P5 --> P7[7 complete: quests + dialogue]
   P4C --> P7
   P3A --> P8[8 God presence]
   P6A --> P9[9 Tavern + mystics]
@@ -124,7 +129,7 @@ graph TD
 | `phase-06-economy-external.md` | **Complete/historical. 6A:** Bank/insurance/Fair/Temple and passive Tavern substrate. |
 | `phase-06b-diplomacy-external.md` | **Complete/historical. 6B:** real diplomacy/external trade, Людовик, Stable/Customs/Sea Port, missing trade buildings. |
 | `phase-06c-economy-content.md` | **Complete/historical. 6C:** reconciled economy gifts, relics, events, resources, technologies, and card faces; implemented every candidate with complete typed consumers. |
-| `phase-07-quests-dialogue.md` | Quest + dialogue-graph engine, journal/overlay UI, Палач quest port. |
+| `phase-07-quests-dialogue.md` | **Complete/historical.** Quest/dialogue graph engine, journal/overlay UI, 43-passage Палач port and Golden Idol/Witch event bridges. |
 | `phase-08-god-presence.md` | Deck-memory, anti-bito, God lines, Милость confirmation. |
 | `phase-09-tavern-mystic.md` | Separate mystic-card catalog, hand order, Пиковая Дама, tavern minigame. |
 | `phase-10-tetris-alchemy.md` | Assembly/disassembly tetris, reagents, configured explosion → typed epidemic. |

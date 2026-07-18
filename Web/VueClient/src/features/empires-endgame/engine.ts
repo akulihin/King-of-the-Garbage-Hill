@@ -26,6 +26,17 @@ import {
   currentSeasonFoodMultiplier,
 } from './seasons'
 import { EMPIRES_RANKS, EMPIRES_SUITS } from './types'
+import {
+  compactQuestTriggerIdentity,
+  evaluateQuestTriggerStarts,
+  initialQuestMemory,
+  questChoiceIsVisible,
+  questCurrentNode,
+  questMemoryRequirementsMet,
+  questStateIsTerminal,
+  questTriggerIdentity,
+} from './quests'
+import type { EmpiresQuestTriggerContext } from './quests'
 import type {
   EmpiresActionResult,
   EmpiresActor,
@@ -74,6 +85,9 @@ import type {
   EmpiresPhase,
   EmpiresResourceAmount,
   EmpiresResearchQuote,
+  EmpiresQuestChoiceDefinition,
+  EmpiresQuestDefinition,
+  EmpiresQuestState,
   EmpiresRecruitmentQuote,
   EmpiresRecruitedUnitCohortState,
   EmpiresSnapshotEnvelope,
@@ -319,7 +333,7 @@ function uniqueIds<T extends { id: string }>(values: readonly T[]): boolean {
 
 export function validateEmpiresEndgameConfig(config: EmpiresEndgameConfig): string[] {
   const errors: string[] = []
-  if (config.schemaVersion !== 11) errors.push('schemaVersion must be 11')
+  if (config.schemaVersion !== 12) errors.push('schemaVersion must be 12')
   if (!config.id.trim()) errors.push('config id is required')
   if (config.cards.length !== 53) errors.push('cards must contain exactly 53 definitions')
   if (!uniqueIds(config.cards)) errors.push('card definition ids must be unique')
@@ -444,6 +458,7 @@ export class EmpiresEndgameEngine {
   private readonly unitDefinitions = new Map<string, EmpiresUnitDefinition>()
   private readonly giftDefinitions = new Map<string, EmpiresGiftDefinition>()
   private readonly eventDefinitions = new Map<string, EmpiresEventDefinition>()
+  private readonly questDefinitions = new Map<string, EmpiresQuestDefinition>()
   private readonly combatEquipmentDefinitions = new Map<string, CombatEquipmentDefinition>()
   private readonly listeners = new Set<EmpiresStateListener>()
 
@@ -461,6 +476,7 @@ export class EmpiresEndgameEngine {
     for (const definition of this.config.empire.units ?? []) this.unitDefinitions.set(definition.id, definition)
     for (const definition of this.config.gifts.definitions) this.giftDefinitions.set(definition.id, definition)
     for (const definition of this.config.empire.events) this.eventDefinitions.set(definition.id, definition)
+    for (const definition of this.config.quests.definitions) this.questDefinitions.set(definition.id, definition)
     for (const definition of this.config.combat.equipment) {
       this.combatEquipmentDefinitions.set(definition.id, definition)
     }
@@ -472,6 +488,7 @@ export class EmpiresEndgameEngine {
     this.evaluateHiddenCombinations()
     this.processTechnologyDisclosures()
     this.refreshProductions()
+    this.restorePendingEventQuest()
   }
 
   subscribe(listener: EmpiresStateListener): () => void {
@@ -485,7 +502,7 @@ export class EmpiresEndgameEngine {
   }
 
   snapshotEnvelope(savedAt = new Date().toISOString()): EmpiresSnapshotEnvelope {
-    return { schemaVersion: 9, savedAt, state: this.snapshot() }
+    return { schemaVersion: 10, savedAt, state: this.snapshot() }
   }
 
   restore(snapshot: EmpiresCampaignState): void {
@@ -495,10 +512,13 @@ export class EmpiresEndgameEngine {
     this.evaluateHiddenCombinations()
     this.processTechnologyDisclosures()
     this.refreshProductions()
+    this.restorePendingEventQuest()
     this.emit()
   }
 
   beginMinigame(session: EmpiresMinigameSession): EmpiresActionResult {
+    const dialogueBlock = this.mandatoryDialogueBlockedReason()
+    if (dialogueBlock) return failure(dialogueBlock)
     if (this.state.minigame || this.state.phase === 'minigame') {
       return failure('A minigame session is already active.')
     }
@@ -669,6 +689,8 @@ export class EmpiresEndgameEngine {
   }
 
   playCardFor(actor: EmpiresActor, cardId: string, attackIndex?: number): EmpiresActionResult {
+    const dialogueBlock = this.mandatoryDialogueBlockedReason()
+    if (dialogueBlock) return failure(dialogueBlock)
     if (this.state.phase !== 'cards') return failure('Cards can only be played during the card phase.')
     if (this.currentActor() !== actor) return failure(`It is not ${actor}'s turn.`)
     return this.state.durak.stage === 'defense'
@@ -677,12 +699,16 @@ export class EmpiresEndgameEngine {
   }
 
   takeCards(actor: EmpiresActor = 'player'): EmpiresActionResult {
+    const dialogueBlock = this.mandatoryDialogueBlockedReason()
+    if (dialogueBlock) return failure(dialogueBlock)
     if (!this.canTake(actor)) return failure('Only the current defender can take an active attack.')
     this.state.durak.stage = 'taking'
     return this.commit(`${actor} will take the attack after final throw-ins.`)
   }
 
   endAttack(actor: EmpiresActor = 'player'): EmpiresActionResult {
+    const dialogueBlock = this.mandatoryDialogueBlockedReason()
+    if (dialogueBlock) return failure(dialogueBlock)
     const durak = this.state.durak
     if (!this.canEndAttack(actor)) return failure('Only the attacker can end a resolved attack.')
     if (durak.stage === 'taking') return this.finalizeTake()
@@ -697,6 +723,8 @@ export class EmpiresEndgameEngine {
   }
 
   advanceGod(): EmpiresActionResult {
+    const dialogueBlock = this.mandatoryDialogueBlockedReason()
+    if (dialogueBlock) return failure(dialogueBlock)
     if (this.state.phase !== 'cards') return failure('God only acts during the card phase.')
     if (this.currentActor() !== 'god') return failure('It is not God\'s turn.')
     const stage = this.state.durak.stage
@@ -713,6 +741,8 @@ export class EmpiresEndgameEngine {
   }
 
   chooseGift(giftId: string): EmpiresActionResult {
+    const dialogueBlock = this.mandatoryDialogueBlockedReason()
+    if (dialogueBlock) return failure(dialogueBlock)
     if (this.state.phase !== 'divineGift') return failure('No divine gift is currently offered.')
     if (this.state.pendingResolution) return failure('Resolve the current divine gift target first.')
     if (!this.state.giftChoiceIds.includes(giftId)) return failure('That gift is not one of the choices.')
@@ -749,6 +779,8 @@ export class EmpiresEndgameEngine {
   }
 
   resolvePendingTarget(targetId: string): EmpiresActionResult {
+    const dialogueBlock = this.mandatoryDialogueBlockedReason()
+    if (dialogueBlock) return failure(dialogueBlock)
     const pending = this.state.pendingResolution
     if (!pending) return failure('No gift target is pending.')
     if (!pending.eligibleTargetIds.includes(targetId)) return failure('That target is not eligible.')
@@ -773,6 +805,8 @@ export class EmpiresEndgameEngine {
   }
 
   improveCard(cardId: string): EmpiresActionResult {
+    const dialogueBlock = this.mandatoryDialogueBlockedReason()
+    if (dialogueBlock) return failure(dialogueBlock)
     const availability = this.checkCardUpgradeAvailability(cardId, this.config.upgrades.improveCost)
     if (!availability.ok) return availability
     const instance = this.state.cards[cardId]
@@ -784,6 +818,8 @@ export class EmpiresEndgameEngine {
   }
 
   restoreCard(cardId: string): EmpiresActionResult {
+    const dialogueBlock = this.mandatoryDialogueBlockedReason()
+    if (dialogueBlock) return failure(dialogueBlock)
     const availability = this.checkCardUpgradeAvailability(cardId, this.config.upgrades.restoreCost)
     if (!availability.ok) return availability
     const instance = this.state.cards[cardId]
@@ -794,6 +830,8 @@ export class EmpiresEndgameEngine {
   }
 
   upgradeBuilding(cityId: string, buildingId: string): EmpiresActionResult {
+    const dialogueBlock = this.mandatoryDialogueBlockedReason()
+    if (dialogueBlock) return failure(dialogueBlock)
     if (this.state.phase !== 'empire') return failure('Buildings can only be upgraded in the empire phase.')
     const city = this.city(cityId)
     const building = this.buildingDefinitions.get(buildingId)
@@ -818,6 +856,8 @@ export class EmpiresEndgameEngine {
   }
 
   placeBuilding(cityId: string, slotId: string, buildingId: string): EmpiresActionResult {
+    const dialogueBlock = this.mandatoryDialogueBlockedReason()
+    if (dialogueBlock) return failure(dialogueBlock)
     if (this.state.phase !== 'empire') return failure('Buildings can only be placed in the empire phase.')
     const city = this.city(cityId)
     const cityDefinition = this.cityDefinition(cityId)
@@ -855,6 +895,8 @@ export class EmpiresEndgameEngine {
   }
 
   recruitUnits(cityId: string, unitId: string, count = 1): EmpiresActionResult {
+    const dialogueBlock = this.mandatoryDialogueBlockedReason()
+    if (dialogueBlock) return failure(dialogueBlock)
     const quote = this.recruitmentQuote(cityId, unitId, count)
     if (quote.blockedReason) return failure(quote.blockedReason)
     const city = this.city(cityId)
@@ -1006,6 +1048,8 @@ export class EmpiresEndgameEngine {
   }
 
   assignProductionBoost(cityId: string, buildingId: string): EmpiresActionResult {
+    const dialogueBlock = this.mandatoryDialogueBlockedReason()
+    if (dialogueBlock) return failure(dialogueBlock)
     if (this.state.phase !== 'empire') return failure('Production can only be boosted in the empire phase.')
     const city = this.city(cityId)
     const building = this.buildingDefinitions.get(buildingId)
@@ -1036,6 +1080,8 @@ export class EmpiresEndgameEngine {
   }
 
   clearProductionBoost(cityId: string, buildingId?: string): EmpiresActionResult {
+    const dialogueBlock = this.mandatoryDialogueBlockedReason()
+    if (dialogueBlock) return failure(dialogueBlock)
     if (this.state.phase !== 'empire') return failure('Production boosts can only be cleared in the empire phase.')
     if (!this.city(cityId)) return failure('Unknown city.')
     if (!this.isCityAccessible(cityId)) return failure('That city is not accessible.')
@@ -1052,6 +1098,8 @@ export class EmpiresEndgameEngine {
   }
 
   research(technologyId: string): EmpiresActionResult {
+    const dialogueBlock = this.mandatoryDialogueBlockedReason()
+    if (dialogueBlock) return failure(dialogueBlock)
     const quote = this.researchQuote(technologyId)
     if (quote.blockedReason) return failure(quote.blockedReason)
     const technology = this.technologyDefinitions.get(technologyId)
@@ -1245,6 +1293,8 @@ export class EmpiresEndgameEngine {
   }
 
   takeLoan(cityId: string): EmpiresActionResult {
+    const dialogueBlock = this.mandatoryDialogueBlockedReason()
+    if (dialogueBlock) return failure(dialogueBlock)
     const quote = this.loanQuote(cityId)
     if (quote.blockedReason) return failure(quote.blockedReason)
     const rules = this.config.empire.domesticEconomy.loan
@@ -1287,6 +1337,8 @@ export class EmpiresEndgameEngine {
   }
 
   repayLoan(loanId: string): EmpiresActionResult {
+    const dialogueBlock = this.mandatoryDialogueBlockedReason()
+    if (dialogueBlock) return failure(dialogueBlock)
     if (this.state.phase !== 'empire') return failure('Loans can only be repaid in the empire phase.')
     const loan = this.state.empire.domesticEconomy.loans.find(item => item.id === loanId)
     if (!loan) return failure('Unknown loan.')
@@ -1317,6 +1369,8 @@ export class EmpiresEndgameEngine {
   }
 
   beginPersecution(cityId: string): EmpiresActionResult {
+    const dialogueBlock = this.mandatoryDialogueBlockedReason()
+    if (dialogueBlock) return failure(dialogueBlock)
     if (this.state.phase !== 'empire') return failure('Гонения can only begin in the empire phase.')
     const rules = this.config.empire.domesticEconomy.loan
     const buildingReason = this.economyBuildingBlockedReason(cityId, rules.bankBuildingId)
@@ -1359,6 +1413,8 @@ export class EmpiresEndgameEngine {
   }
 
   startInsurance(cityId: string): EmpiresActionResult {
+    const dialogueBlock = this.mandatoryDialogueBlockedReason()
+    if (dialogueBlock) return failure(dialogueBlock)
     if (this.state.phase !== 'empire') return failure('Insurance can only be selected in the empire phase.')
     const started = this.startInsuranceContract(cityId)
     return started.ok ? this.commit(started.message) : started
@@ -1419,6 +1475,8 @@ export class EmpiresEndgameEngine {
   }
 
   performFairAction(cityId: string, actionId: string): EmpiresActionResult {
+    const dialogueBlock = this.mandatoryDialogueBlockedReason()
+    if (dialogueBlock) return failure(dialogueBlock)
     const reason = this.fairActionBlockedReason(cityId, actionId)
     if (reason) return failure(reason)
     const action = this.config.empire.domesticEconomy.fair.actions.find(item => item.id === actionId)!
@@ -1447,6 +1505,8 @@ export class EmpiresEndgameEngine {
   }
 
   preachAtTemple(cityId: string): EmpiresActionResult {
+    const dialogueBlock = this.mandatoryDialogueBlockedReason()
+    if (dialogueBlock) return failure(dialogueBlock)
     const reason = this.templePreachingBlockedReason(cityId)
     if (reason) return failure(reason)
     const rules = this.config.empire.domesticEconomy.temple
@@ -1474,6 +1534,8 @@ export class EmpiresEndgameEngine {
   }
 
   assignTempleRelic(cityId: string, slotIndex: number, giftId: string): EmpiresActionResult {
+    const dialogueBlock = this.mandatoryDialogueBlockedReason()
+    if (dialogueBlock) return failure(dialogueBlock)
     if (this.state.phase !== 'empire') return failure('Relics can only be assigned in the empire phase.')
     const slots = this.templeRelicSlots(cityId)
     const slot = slots.find(item => item.index === slotIndex)
@@ -1507,6 +1569,8 @@ export class EmpiresEndgameEngine {
   }
 
   clearTempleRelic(cityId: string, slotIndex: number): EmpiresActionResult {
+    const dialogueBlock = this.mandatoryDialogueBlockedReason()
+    if (dialogueBlock) return failure(dialogueBlock)
     if (this.state.phase !== 'empire') return failure('Relics can only be moved in the empire phase.')
     const slotId = this.templeRelicSlotId(cityId, slotIndex)
     if (!this.state.empire.domesticEconomy.temple.relicAssignments[slotId]) {
@@ -1640,6 +1704,8 @@ export class EmpiresEndgameEngine {
   }
 
   refreshExternalOffers(): EmpiresActionResult {
+    const dialogueBlock = this.mandatoryDialogueBlockedReason()
+    if (dialogueBlock) return failure(dialogueBlock)
     if (!this.config.empire.externalEconomy.enabled) return failure('External diplomacy is disabled.')
     if (this.state.phase !== 'empire') return failure('Offers refresh only in the empire phase.')
     const changed = this.refreshExternalOffersInternal()
@@ -1647,6 +1713,8 @@ export class EmpiresEndgameEngine {
   }
 
   acceptExternalOffer(offerId: string, cityId: string): EmpiresActionResult {
+    const dialogueBlock = this.mandatoryDialogueBlockedReason()
+    if (dialogueBlock) return failure(dialogueBlock)
     const quote = this.externalTradeQuote(offerId, cityId)
     if (quote.blockedReason) return failure(quote.blockedReason)
     const offer = this.state.external.activeOffers.find(item => item.id === offerId)
@@ -1685,6 +1753,8 @@ export class EmpiresEndgameEngine {
   }
 
   declineExternalOffer(offerId: string): EmpiresActionResult {
+    const dialogueBlock = this.mandatoryDialogueBlockedReason()
+    if (dialogueBlock) return failure(dialogueBlock)
     if (this.state.phase !== 'empire') return failure('Offers can only be declined in the empire phase.')
     const offer = this.state.external.activeOffers.find(item => item.id === offerId)
     const definition = offer ? this.externalOfferDefinition(offer) : null
@@ -1703,6 +1773,8 @@ export class EmpiresEndgameEngine {
     resourceId: string,
     amount: number,
   ): EmpiresActionResult {
+    const dialogueBlock = this.mandatoryDialogueBlockedReason()
+    if (dialogueBlock) return failure(dialogueBlock)
     if (!this.config.empire.externalEconomy.enabled) return failure('External logistics are disabled.')
     if (this.state.phase !== 'empire') return failure('Transfers are only available in the empire phase.')
     const from = this.city(fromCityId)
@@ -1788,6 +1860,8 @@ export class EmpiresEndgameEngine {
   }
 
   startEpidemic(request: EmpiresStartEpidemicRequest): EmpiresActionResult {
+    const dialogueBlock = this.mandatoryDialogueBlockedReason()
+    if (dialogueBlock) return failure(dialogueBlock)
     const result = this.startEpidemicInternal(request)
     if (!result.ok) return failure(result.message)
     if (!result.changed) return success(result.message)
@@ -1834,6 +1908,8 @@ export class EmpiresEndgameEngine {
   }
 
   treatVeteran(veteranId: string): EmpiresActionResult {
+    const dialogueBlock = this.mandatoryDialogueBlockedReason()
+    if (dialogueBlock) return failure(dialogueBlock)
     if (this.state.phase !== 'empire') return failure('Treatment is available only in the empire phase.')
     if (!this.config.empire.medical.enabled) return failure('Medical treatment is disabled.')
     if (this.state.empire.medical.academyTreatmentUsedCon === this.state.con) {
@@ -1871,6 +1947,8 @@ export class EmpiresEndgameEngine {
   }
 
   chooseSmithSpecialization(recipeId: string): EmpiresActionResult {
+    const dialogueBlock = this.mandatoryDialogueBlockedReason()
+    if (dialogueBlock) return failure(dialogueBlock)
     if (this.state.phase !== 'empire') return failure('Smith specialization is only available in the empire phase.')
     if ((this.state.empire.flags.smithSpecializationLocked ?? 0) <= 0
       || !this.state.empire.researchedTechnologyIds.includes('reform-control-smiths')) {
@@ -1889,6 +1967,72 @@ export class EmpiresEndgameEngine {
     return this.commit(`Smith specialization locked to ${recipeId}.`)
   }
 
+  startManualQuest(questId: string, sourceId: string): EmpiresActionResult {
+    if (!sourceId.trim()) return failure('A manual quest source id is required.')
+    const definition = this.questDefinitions.get(questId)
+    if (!definition || definition.trigger.kind !== 'manual') return failure('Unknown manual quest.')
+    const context: EmpiresQuestTriggerContext = {
+      kind: 'manual',
+      questId,
+      sourceId,
+      con: this.state.con,
+    }
+    const identity = questTriggerIdentity(definition, context)
+    const before = this.state.quests[questId]
+    this.evaluateQuestTriggers(context)
+    return identity && this.state.quests[questId] !== before
+      ? this.commit(`Quest ${questId} started.`)
+      : failure('That quest cannot start from this manual trigger.')
+  }
+
+  questChoiceBlockedReason(questId: string, choiceId: string): string | null {
+    const definition = this.questDefinitions.get(questId)
+    const quest = this.state.quests[questId]
+    if (!this.config.quests.enabled || !definition || definition.deferredReason) {
+      return 'That quest is unavailable.'
+    }
+    if (!quest || quest.status !== 'active') return 'That quest is not active.'
+    if (definition.mandatory !== false
+      && this.state.questRuntime.activeMandatoryQuestId !== questId) {
+      return 'That mandatory quest is waiting in the dialogue queue.'
+    }
+    const node = questCurrentNode(definition, quest)
+    if (!node) return quest.compatibilityReason ?? 'That quest node is unavailable.'
+    const choice = node.choices.find(item => item.id === choiceId)
+    if (!choice || !questChoiceIsVisible(choice, quest.memory)) return 'That dialogue choice is unavailable.'
+    if (choice.deferredReason) return `That dialogue choice is deferred: ${choice.deferredReason}`
+    if (!questMemoryRequirementsMet(quest.memory, choice.visibilityRequirements)) {
+      return 'That dialogue choice is unavailable.'
+    }
+    const targetCityId = this.resolveQuestChoiceTarget(choice)
+    if (choice.target && !targetCityId) return 'No eligible quest target is available.'
+    const targetCity = targetCityId ? this.city(targetCityId) : undefined
+    const missingDependency = this.firstMissingDependency(choice.requirements ?? [], targetCity)
+    if (missingDependency) return `Missing prerequisite: ${missingDependency}.`
+    const missingResource = this.firstMissingResource(choice.costs ?? [])
+    return missingResource ? `Not enough ${missingResource}.` : null
+  }
+
+  advanceDialogue(questId: string, choiceId: string): EmpiresActionResult {
+    return this.applyQuestChoice(questId, choiceId, true)
+  }
+
+  dismissDialogue(questId: string): EmpiresActionResult {
+    const quest = this.state.quests[questId]
+    if (!quest || !questStateIsTerminal(quest)) return failure('Only a resolved dialogue can be dismissed.')
+    if (this.state.questRuntime.activeMandatoryQuestId !== questId) {
+      return success(`Quest ${questId} is already outside the mandatory dialogue slot.`)
+    }
+    this.state.questRuntime.activeMandatoryQuestId = null
+    this.activateNextMandatoryQuest()
+    if (!this.state.questRuntime.activeMandatoryQuestId
+      && this.state.phase === 'empire'
+      && this.state.empire.daysRemaining <= 0) {
+      this.finishEmpireInternal()
+    }
+    return this.commit(`Quest ${questId} dialogue dismissed.`)
+  }
+
   chooseEvent(choiceId: string): EmpiresActionResult {
     const blockedReason = this.eventChoiceBlockedReason(choiceId)
     if (blockedReason) return failure(blockedReason)
@@ -1897,6 +2041,7 @@ export class EmpiresEndgameEngine {
     if (!event) return failure('That event is deferred.')
     const choice = event?.choices.find(item => item.id === choiceId)
     if (!choice) return failure('Unknown event choice.')
+    const stateBefore = cloneSerializable(this.state)
     const eventState = this.state.event
     const pendingEmpireSettlement = eventState.empireSettlementPending === true
     const hadStarvationMultiplier = Object.prototype.hasOwnProperty.call(
@@ -1910,7 +2055,10 @@ export class EmpiresEndgameEngine {
         choice.epidemicContainment,
         `event:${event.id}:${choice.id}`,
       )
-      if (!containment.ok) return containment
+      if (!containment.ok) {
+        this.state = stateBefore
+        return containment
+      }
     }
     const economyResolution = this.resolveEconomyContentEvent(
       event,
@@ -1918,7 +2066,21 @@ export class EmpiresEndgameEngine {
       eventState.targetCityId ?? null,
       eventState.targetActorId ?? null,
     )
-    if (!economyResolution.ok) return economyResolution
+    if (!economyResolution.ok) {
+      this.state = stateBefore
+      return economyResolution
+    }
+    if (choice.questResolution) {
+      const questResolution = this.applyQuestChoice(
+        choice.questResolution.questId,
+        choice.questResolution.choiceId,
+        false,
+      )
+      if (!questResolution.ok) {
+        this.state = stateBefore
+        return questResolution
+      }
+    }
     this.payResources(choice.resourceCosts ?? [])
     this.applyEffects(
       choice.effects,
@@ -2030,6 +2192,8 @@ export class EmpiresEndgameEngine {
   }
 
   finishEmpire(): EmpiresActionResult {
+    const dialogueBlock = this.mandatoryDialogueBlockedReason()
+    if (dialogueBlock) return failure(dialogueBlock)
     if (this.state.phase !== 'empire') return failure('There is no empire phase to finish.')
     this.finishEmpireInternal()
     return this.commit('The empire phase ended.')
@@ -2256,6 +2420,8 @@ export class EmpiresEndgameEngine {
     action: 'pardon' | 'execute' | 'grant-access',
     sourceId?: string,
   ): string | null {
+    const dialogueBlock = this.mandatoryDialogueBlockedReason()
+    if (dialogueBlock) return dialogueBlock
     if (!this.config.governance.enabled) return 'Governance is disabled.'
     const advisor = this.config.governance.advisors.find(candidate => candidate.id === advisorId)
     const advisorState = this.state.governance.advisors[advisorId]
@@ -2314,6 +2480,8 @@ export class EmpiresEndgameEngine {
   }
 
   governorAssignmentBlockedReason(perstId: string, regionId: string): string | null {
+    const dialogueBlock = this.mandatoryDialogueBlockedReason()
+    if (dialogueBlock) return dialogueBlock
     if (!this.config.governance.enabled) return 'Governance is disabled.'
     if (this.state.phase !== 'empire') return 'A Perst can only be assigned in the empire phase.'
     if (!this.config.governance.persts.some(perst => perst.id === perstId)) return 'Unknown Perst.'
@@ -2430,6 +2598,8 @@ export class EmpiresEndgameEngine {
     buildingId: string,
     targetLevel: number,
   ): string | null {
+    const dialogueBlock = this.mandatoryDialogueBlockedReason()
+    if (dialogueBlock) return dialogueBlock
     if (this.state.phase !== 'empire') return 'Buildings can only be changed in the empire phase.'
     const city = this.city(cityId)
     const building = this.buildingDefinitions.get(buildingId)
@@ -2441,12 +2611,21 @@ export class EmpiresEndgameEngine {
   }
 
   eventChoiceBlockedReason(choiceId: string): string | null {
+    const dialogueBlock = this.mandatoryDialogueBlockedReason()
+    if (dialogueBlock) return dialogueBlock
     if (this.state.phase !== 'event' || !this.state.event) return 'No event choice is pending.'
     const event = this.eventDefinitions.get(this.state.event.eventId)
     if (!event || event.deferredReason) return 'That event is deferred.'
     const choice = event.choices.find(item => item.id === choiceId)
     if (!choice) return 'Unknown event choice.'
     if (choice.deferredReason) return `That event choice is deferred: ${choice.deferredReason}`
+    if (choice.questResolution) {
+      const questReason = this.questChoiceBlockedReason(
+        choice.questResolution.questId,
+        choice.questResolution.choiceId,
+      )
+      if (questReason) return questReason
+    }
     const content = this.config.empire.economyContent
     if (event.id === content.smuggling.eventId || event.id === content.horseTheft.eventId
       || event.id === content.insurance.eventId) {
@@ -2752,6 +2931,299 @@ export class EmpiresEndgameEngine {
     }
   }
 
+  private normalizeQuestState(state: EmpiresCampaignState): void {
+    state.quests ??= {}
+    state.questRuntime ??= {
+      activeMandatoryQuestId: null,
+      mandatoryQueue: [],
+      history: [],
+      nextHistorySequence: 1,
+      compactedHistoryCount: 0,
+    }
+    const runtime = state.questRuntime
+    runtime.history ??= []
+    runtime.compactedHistoryCount = Math.max(0, Math.floor(runtime.compactedHistoryCount ?? 0))
+    runtime.history = runtime.history.filter(entry => (
+      entry && typeof entry.questId === 'string' && typeof entry.choiceId === 'string'
+      && Number.isInteger(entry.sequence) && entry.sequence > 0
+      && Number.isInteger(entry.run) && entry.run > 0
+      && Number.isInteger(entry.con) && entry.con >= 0
+    )).sort((left, right) => left.sequence - right.sequence)
+    runtime.nextHistorySequence = Math.max(
+      1,
+      Math.floor(runtime.nextHistorySequence ?? 1),
+      ...runtime.history.map(entry => entry.sequence + 1),
+    )
+    while (runtime.history.length > this.config.quests.historyRetention) {
+      runtime.history.shift()
+      runtime.compactedHistoryCount += 1
+    }
+
+    for (const [questId, quest] of Object.entries(state.quests)) {
+      const definition = this.questDefinitions.get(questId)
+      quest.questId = questId
+      quest.memory ??= {}
+      quest.run = Math.max(1, Math.floor(quest.run ?? 1))
+      quest.nodeVisit = Math.max(1, Math.floor(quest.nodeVisit ?? 1))
+      quest.lastAppliedChoiceIdentity ??= null
+      quest.consumedTriggerIds = [...new Set(quest.consumedTriggerIds ?? [])]
+        .filter(identity => typeof identity === 'string' && identity.length > 0)
+      quest.compactedTriggerCount = Math.max(0, Math.floor(quest.compactedTriggerCount ?? 0))
+      quest.compactedTriggerDigest ??= ''
+      quest.startedAtCon = Math.max(0, Math.floor(quest.startedAtCon ?? state.con))
+      quest.finishedAtCon ??= null
+      if (!this.config.quests.enabled) {
+        this.suspendQuest(quest, 'Quests are disabled in the active configuration.')
+        continue
+      }
+      if (!definition) {
+        this.suspendQuest(quest, 'Quest definition is missing from the active configuration.')
+        continue
+      }
+      for (const memory of definition.memory ?? []) {
+        if (quest.memory[memory.key] === undefined) quest.memory[memory.key] = memory.initial
+      }
+      if (definition.deferredReason) {
+        this.suspendQuest(quest, `Quest is deferred: ${definition.deferredReason}`)
+        continue
+      }
+      const stage = definition.stages.find(item => item.id === quest.stageId)
+      const node = stage?.nodes.find(item => item.id === quest.nodeId)
+      if (!stage || !node) {
+        this.suspendQuest(quest, 'Saved quest stage or node is missing from the active configuration.')
+        continue
+      }
+      if (quest.status === 'suspended') {
+        quest.status = quest.suspendedStatus ?? 'active'
+        delete quest.suspendedStatus
+        delete quest.compatibilityReason
+      }
+      if (node.terminal && quest.status === 'active') {
+        quest.status = node.terminal === 'complete' ? 'completed' : 'failed'
+        quest.finishedAtCon = state.con
+      }
+      this.compactQuestTriggers(quest)
+    }
+
+    const mandatoryActiveIds = (this.config.quests.enabled ? this.config.quests.definitions : [])
+      .filter(definition => definition.mandatory !== false)
+      .map(definition => definition.id)
+      .filter(questId => state.quests[questId]?.status === 'active')
+    runtime.activeMandatoryQuestId = mandatoryActiveIds.includes(runtime.activeMandatoryQuestId ?? '')
+      ? runtime.activeMandatoryQuestId
+      : mandatoryActiveIds[0] ?? null
+    runtime.mandatoryQueue = mandatoryActiveIds.filter(questId => (
+      questId !== runtime.activeMandatoryQuestId
+    ))
+  }
+
+  private suspendQuest(quest: EmpiresQuestState, reason: string): void {
+    if (quest.status !== 'suspended') quest.suspendedStatus = quest.status
+    quest.status = 'suspended'
+    quest.compatibilityReason = reason
+  }
+
+  private compactQuestTriggers(quest: EmpiresQuestState): void {
+    while (quest.consumedTriggerIds.length > this.config.quests.triggerHistoryRetention) {
+      const evicted = quest.consumedTriggerIds.shift()!
+      quest.compactedTriggerDigest = compactQuestTriggerIdentity(
+        quest.compactedTriggerDigest,
+        evicted,
+      )
+      quest.compactedTriggerCount += 1
+    }
+  }
+
+  private evaluateQuestTriggers(context: EmpiresQuestTriggerContext): void {
+    if (!this.config.quests.enabled) return
+    const starts = evaluateQuestTriggerStarts(
+      this.config.quests.definitions,
+      this.state.quests,
+      context,
+      {
+        flagValue: flagId => this.effectiveEmpireFlagValue(flagId),
+        buildingLevel: (buildingId, cityId) => cityId
+          ? this.effectiveBuildingLevel(cityId, buildingId)
+          : this.state.empire.cities.reduce((maximum, city) => Math.max(
+              maximum,
+              this.effectiveBuildingLevel(city.id, buildingId),
+            ), 0),
+      },
+    )
+    for (const request of starts) this.startQuest(request.definition, request.triggerIdentity)
+  }
+
+  private startQuest(definition: EmpiresQuestDefinition, triggerIdentity: string): void {
+    const entryStage = definition.stages.find(stage => stage.id === definition.entryStageId)!
+    const previous = this.state.quests[definition.id]
+    const consumedTriggerIds = [...(previous?.consumedTriggerIds ?? []), triggerIdentity]
+    const node = entryStage.nodes.find(item => item.id === entryStage.entryNodeId)!
+    const quest: EmpiresQuestState = {
+      questId: definition.id,
+      status: node.terminal ? (node.terminal === 'complete' ? 'completed' : 'failed') : 'active',
+      stageId: entryStage.id,
+      nodeId: node.id,
+      memory: initialQuestMemory(definition),
+      run: (previous?.run ?? 0) + 1,
+      nodeVisit: 1,
+      lastAppliedChoiceIdentity: null,
+      consumedTriggerIds,
+      compactedTriggerCount: previous?.compactedTriggerCount ?? 0,
+      compactedTriggerDigest: previous?.compactedTriggerDigest ?? '',
+      startedAtCon: this.state.con,
+      finishedAtCon: node.terminal ? this.state.con : null,
+    }
+    this.compactQuestTriggers(quest)
+    this.state.quests[definition.id] = quest
+    if (definition.mandatory !== false && quest.status === 'active') {
+      if (!this.state.questRuntime.activeMandatoryQuestId) {
+        this.state.questRuntime.activeMandatoryQuestId = definition.id
+      } else if (!this.state.questRuntime.mandatoryQueue.includes(definition.id)) {
+        this.state.questRuntime.mandatoryQueue.push(definition.id)
+      }
+    }
+  }
+
+  private restorePendingEventQuest(): void {
+    const event = this.state.phase === 'event' ? this.state.event : null
+    if (!event) return
+    this.evaluateQuestTriggers({
+      kind: 'event',
+      eventId: event.eventId,
+      eventInstanceId: event.instanceId ?? `legacy-event:${event.eventId}:con:${this.state.con}`,
+    })
+  }
+
+  private resolveQuestChoiceTarget(choice: EmpiresQuestChoiceDefinition): string | null {
+    if (!choice.target) return null
+    if (choice.target.selector === 'eventTarget') {
+      const cityId = this.state.event?.targetCityId
+      return cityId && this.isCityAccessible(cityId) ? cityId : null
+    }
+    return this.state.empire.cities
+      .filter(city => this.isCityAccessible(city.id))
+      .filter(city => choice.target?.selector !== 'lowestAccessibleInRegion'
+        || city.regionId === choice.target.regionId)
+      .sort((left, right) => left.population - right.population || stableStringCompare(left.id, right.id))[0]?.id
+      ?? null
+  }
+
+  private applyQuestChoice(
+    questId: string,
+    choiceId: string,
+    shouldCommit: boolean,
+  ): EmpiresActionResult {
+    const quest = this.state.quests[questId]
+    if (quest && questStateIsTerminal(quest)
+      && quest.lastAppliedChoiceIdentity?.endsWith(`:${choiceId}`)) {
+      return success(`Quest choice ${choiceId} was already applied.`)
+    }
+    const blockedReason = this.questChoiceBlockedReason(questId, choiceId)
+    if (blockedReason) return failure(blockedReason)
+    const definition = this.questDefinitions.get(questId)!
+    const state = this.state.quests[questId]!
+    const node = questCurrentNode(definition, state)!
+    const choice = node.choices.find(item => item.id === choiceId)!
+    const choiceIdentity = `${questId}:${state.run}:${state.stageId}:${state.nodeId}:${state.nodeVisit}:${choiceId}`
+    if (state.lastAppliedChoiceIdentity === choiceIdentity) {
+      return success(`Quest choice ${choiceId} was already applied.`)
+    }
+    const snapshot = cloneSerializable(this.state)
+    try {
+      const targetCityId = this.resolveQuestChoiceTarget(choice)
+      this.payResources(choice.costs ?? [])
+      this.applyEffects(
+        choice.effects ?? [],
+        0,
+        undefined,
+        `quest:${questId}:${choiceId}`,
+        1,
+        targetCityId ?? undefined,
+      )
+      for (const write of choice.memoryWrites ?? []) {
+        if (write.operation === 'add') {
+          state.memory[write.key] = Number(state.memory[write.key]) + Number(write.value)
+        } else {
+          state.memory[write.key] = write.value
+        }
+      }
+      if (choice.target?.memoryKey && targetCityId) state.memory[choice.target.memoryKey] = targetCityId
+      const fromStageId = state.stageId
+      const fromNodeId = state.nodeId
+      let toStageId: string | null = null
+      let toNodeId: string | null = null
+      if (choice.goto.kind === 'node') {
+        const destinationStage = definition.stages.find(stage => (
+          stage.nodes.some(candidate => candidate.id === choice.goto.nodeId)
+        ))!
+        state.stageId = destinationStage.id
+        state.nodeId = choice.goto.nodeId
+        state.nodeVisit += 1
+        toStageId = state.stageId
+        toNodeId = state.nodeId
+        const destinationNode = questCurrentNode(definition, state)!
+        if (destinationNode.terminal) {
+          state.status = destinationNode.terminal === 'complete' ? 'completed' : 'failed'
+          state.finishedAtCon = this.state.con
+        }
+      } else if (choice.goto.kind === 'stage') {
+        const destinationStage = definition.stages.find(stage => stage.id === choice.goto.stageId)!
+        state.stageId = destinationStage.id
+        state.nodeId = destinationStage.entryNodeId
+        state.nodeVisit += 1
+        toStageId = state.stageId
+        toNodeId = state.nodeId
+        const destinationNode = questCurrentNode(definition, state)!
+        if (destinationNode.terminal) {
+          state.status = destinationNode.terminal === 'complete' ? 'completed' : 'failed'
+          state.finishedAtCon = this.state.con
+        }
+      } else {
+        state.status = choice.goto.kind === 'complete' ? 'completed' : 'failed'
+        state.finishedAtCon = this.state.con
+      }
+      state.lastAppliedChoiceIdentity = choiceIdentity
+      this.state.questRuntime.history.push({
+        sequence: this.state.questRuntime.nextHistorySequence++,
+        questId,
+        run: state.run,
+        choiceId,
+        fromStageId,
+        fromNodeId,
+        toStageId,
+        toNodeId,
+        status: state.status,
+        con: this.state.con,
+      })
+      while (this.state.questRuntime.history.length > this.config.quests.historyRetention) {
+        this.state.questRuntime.history.shift()
+        this.state.questRuntime.compactedHistoryCount += 1
+      }
+      this.refreshProductions()
+    } catch (error) {
+      this.state = snapshot
+      return failure(error instanceof Error ? error.message : 'The quest choice could not be applied.')
+    }
+    return shouldCommit
+      ? this.commit(`Quest ${questId} advanced through ${choiceId}.`)
+      : success(`Quest ${questId} advanced through ${choiceId}.`)
+  }
+
+  private activateNextMandatoryQuest(): void {
+    while (this.state.questRuntime.mandatoryQueue.length > 0) {
+      const next = this.state.questRuntime.mandatoryQueue.shift()!
+      if (this.state.quests[next]?.status === 'active') {
+        this.state.questRuntime.activeMandatoryQuestId = next
+        return
+      }
+    }
+  }
+
+  private mandatoryDialogueBlockedReason(): string | null {
+    const questId = this.state.questRuntime.activeMandatoryQuestId
+    return questId ? `Resolve the mandatory dialogue ${questId} first.` : null
+  }
+
   private createInitialState(): EmpiresCampaignState {
     const rng = createEmpiresRngState(this.config.seed)
     const cards: Record<string, EmpiresCardInstance> = Object.fromEntries(this.config.cards.map(definition => [
@@ -2763,7 +3235,7 @@ export class EmpiresEndgameEngine {
     const playerHand: string[] = []
     const godHand: string[] = []
     const state: EmpiresCampaignState = {
-      schemaVersion: 9,
+      schemaVersion: 10,
       configId: this.config.id,
       phase: 'cards',
       rng,
@@ -2853,6 +3325,13 @@ export class EmpiresEndgameEngine {
       epidemics: [],
       nextEpidemicSequence: 1,
       quests: {},
+      questRuntime: {
+        activeMandatoryQuestId: null,
+        mandatoryQueue: [],
+        history: [],
+        nextHistorySequence: 1,
+        compactedHistoryCount: 0,
+      },
       event: null,
       outcomeReason: null,
       revision: 0,
@@ -3224,12 +3703,13 @@ export class EmpiresEndgameEngine {
     const snapshotVersion = (snapshot as { schemaVersion: number }).schemaVersion
     if (snapshotVersion !== 1 && snapshotVersion !== 2 && snapshotVersion !== 3
       && snapshotVersion !== 4 && snapshotVersion !== 5 && snapshotVersion !== 6
-      && snapshotVersion !== 7 && snapshotVersion !== 8 && snapshotVersion !== 9) {
+      && snapshotVersion !== 7 && snapshotVersion !== 8 && snapshotVersion !== 9
+      && snapshotVersion !== 10) {
       throw new Error('Unsupported Empire\'s Endgame snapshot schema')
     }
     if (snapshot.configId !== this.config.id) throw new Error('Snapshot belongs to a different config')
     const state = cloneSerializable(snapshot)
-    state.schemaVersion = 9
+    state.schemaVersion = 10
     this.normalizeGovernanceState(state, snapshotVersion)
     state.minigame ??= null
     state.minigameResultLog ??= []
@@ -3295,7 +3775,7 @@ export class EmpiresEndgameEngine {
     state.empire.medical.awardedTechnologyIds ??= []
     state.empire.medical.academyTreatmentUsedCon ??= null
     this.normalizeEpidemics(state, snapshotVersion)
-    state.quests ??= {}
+    this.normalizeQuestState(state)
     state.durak.godInterventions ??= 0
     this.normalizeMinigameState(state)
     const missingDestroyedRegionState = state.empire.destroyedRegionIds === undefined
@@ -4091,6 +4571,13 @@ export class EmpiresEndgameEngine {
     this.state.minigame = null
     this.state.phase = session.origin.returnPhase
     this.refreshProductions()
+    this.evaluateQuestTriggers({
+      kind: 'minigameResult',
+      sessionId: session.id,
+      minigameKind: session.kind,
+      outcome: result.outcome,
+      con: this.state.con,
+    })
   }
 
   private playAttack(actor: EmpiresActor, cardId: string): EmpiresActionResult {
@@ -4287,6 +4774,7 @@ export class EmpiresEndgameEngine {
     this.refreshExternalOffersInternal()
     this.state.empire.daysRemaining = Math.max(0, this.state.empire.daysRemaining)
     this.refreshProductions()
+    this.evaluateQuestTriggers({ kind: 'empireStart', con: this.state.con })
   }
 
   private finishEmpireInternal(): void {
@@ -4311,6 +4799,7 @@ export class EmpiresEndgameEngine {
       if (selectedEvent?.id === FAMINE_RATIONING_EVENT_ID) {
         this.state.phase = 'event'
         this.state.event = this.createEventState(selectedEvent, true)
+        this.restorePendingEventQuest()
         return
       }
     }
@@ -4325,6 +4814,7 @@ export class EmpiresEndgameEngine {
     if (selectedEvent) {
       this.state.phase = 'event'
       this.state.event = this.createEventState(selectedEvent, false)
+      this.restorePendingEventQuest()
       return
     }
     this.clearCardFlagBonuses()
@@ -4630,7 +5120,16 @@ export class EmpiresEndgameEngine {
     this.evaluateHiddenCombinations()
     this.processTechnologyDisclosures()
     this.refreshProductions()
-    if (this.state.empire.daysRemaining <= 0) this.finishEmpireInternal()
+    this.evaluateQuestTriggers({
+      kind: 'building',
+      buildingId: building.id,
+      cityId: city.id,
+      level: level.level,
+      con: this.state.con,
+    })
+    if (this.state.empire.daysRemaining <= 0 && !this.mandatoryDialogueBlockedReason()) {
+      this.finishEmpireInternal()
+    }
   }
 
   private firstMissingDependency(
@@ -6484,7 +6983,7 @@ export class EmpiresEndgameEngine {
   }
 
   private eventIsEligible(event: EmpiresEventDefinition): boolean {
-    if (event.deferredReason || !event.choices.some(choice => !choice.deferredReason)) return false
+    if (event.deferredReason || !this.eventHasResolvableChoice(event, this.state)) return false
     if ((event.minimumCon ?? Number.NEGATIVE_INFINITY) > this.state.con) return false
     if ((event.maximumCon ?? Number.POSITIVE_INFINITY) < this.state.con) return false
     const content = this.config.empire.economyContent
@@ -6836,7 +7335,7 @@ export class EmpiresEndgameEngine {
     event: EmpiresEventDefinition | undefined,
     state: EmpiresCampaignState = this.state,
   ): boolean {
-    if (!event || event.deferredReason || !event.choices.some(choice => !choice.deferredReason)) return false
+    if (!event || event.deferredReason || !this.eventHasResolvableChoice(event, state)) return false
     const content = this.config.empire.economyContent
     if (event.id === content.smuggling.eventId) {
       return Boolean(content.enabled && state.event?.targetCityId
@@ -6854,6 +7353,23 @@ export class EmpiresEndgameEngine {
       return Boolean(content.enabled && state.event?.targetCityId)
     }
     return true
+  }
+
+  private eventHasResolvableChoice(
+    event: EmpiresEventDefinition,
+    state: EmpiresCampaignState,
+  ): boolean {
+    return event.choices.some((choice) => {
+      if (choice.deferredReason) return false
+      if (!choice.questResolution) return true
+      const definition = this.questDefinitions.get(choice.questResolution.questId)
+      const quest = state.quests[choice.questResolution.questId]
+      if (!definition || definition.deferredReason) return false
+      if (!quest || quest.status === 'active') return true
+      return definition.trigger.repeatable === true
+        && (definition.restartPolicy ?? 'never') === 'afterTerminal'
+        && quest.status !== 'suspended'
+    })
   }
 
   private advanceSnapshotToNextCon(state: EmpiresCampaignState): void {

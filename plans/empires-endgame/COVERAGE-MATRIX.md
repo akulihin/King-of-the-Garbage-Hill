@@ -31,7 +31,7 @@ Status meanings:
 | Domestic economy: Bank, insurance contract, Fair, Temple, passive Tavern | P6A | Complete/Conditional | Schema-v9/save-v7 typed lifecycles, exact-once settlement, UI/QA and Builder validation are live. Undefined exchange/market/baron/Temple-branch capabilities and the P9 Tavern minigame remain explicit subfeature blockers. |
 | Diplomacy/external trade, Людовик, Customs, Sea Port, Stable, missing trade buildings | P6B | Complete/Conditional | Schema-v10/save-v8 actors, relationships, rules-identified weighted expiring offers, accept/decline history, trusted-resource trade/transfers, Customs tariffs, western Stable consumption and coastal Sea Ports are live with UI/QA/Builder validation. No union or relationship-changing action was authored; player fleet/shipbuilding remains explicitly deferred, and the three absent trade buildings retain review rows. |
 | Economy gifts/relics/events/resources/card-face closure | P6C | Complete/Conditional | Tithe and material-exemption relics, Customs smuggling, horse theft, insurance offers and inverted ♦A are live through existing P4–P6 consumers with schema-v11/save-v9 lifecycle state, target restore, UI/QA/Builder coverage and bounded history. Five gifts, concession, white stone, carpentry and normal ♦6 retain exact source-backed blockers. |
-| Quest/dialogue engine, Палач, golden-idol/witch event bridges | P7 | Owned | JSON Builder support first; graph editor optional. |
+| Quest/dialogue engine, Палач, golden-idol/witch event bridges | P7 | Complete/Conditional | Schema-v12/save-v10 graph definitions, exact-once triggers, persistent typed memory, bounded histories, atomic choices, mandatory queueing, overlay/journal, JSON Builder, QA/Cypress and all 43 passages of the later `Palach2.html` export are live. Golden Idol sell/destroy and Witch send/refuse are consumed typed quest resolutions; the Idol monument choice stays visibly deferred until warrior targets, restoration and blood-disease ownership exist. |
 | God presence | P8 | Owned | Deck memory, anti-bito, authored lines, Милость confirmation. |
 | Tavern minigame, mystics, Мария/Пиковая Дама | P9 | Owned | Owns final Tavern minigame subfeature and whole-building closure. |
 | Tetris-alchemy | P10 | Owned | Owns final Alchemy active/minigame subfeature and whole-building closure. |
@@ -73,7 +73,7 @@ Status meanings:
 | Vaccination/disease faces, epidemic relic/event | P5 | Complete/Conditional: both `card-spades-10` faces and `relic-epidemic-ward` are live. Raw `персонажи` uniquely maps Дженна to `card-clubs-ace`, but both faces remain deferred for incomplete numeric contracts. City Gates' two epidemic choices are executable typed payloads while the event/reform remain deferred on the missing crime side. |
 | Economy technologies, gifts, relics, events, resources, card faces | P6A–P6C | Complete/Conditional: `tech-fair` and `tech-banking` remain live. P6C made `relic-tithe`, `relic-resource-exemption`, Customs smuggling, horse theft, insurance offers and inverted ♦A executable. The exact deferred candidate set is five incomplete gifts, lumber concession, white-stone event/resource, carpentry and normal ♦6. |
 | Fish-current armor/guild branches; meteor-radiation follow-up; South resort/watermills; white-stone hammer/mace/cultural ending/marine artillery; monopoly/cartel/Дон lifecycle | P12B | Review | Present in raw P6C source cross-references but absent from config. Each lacks at least one stable identity, target, lifecycle or typed consumer; P6C added no anonymous carrier. |
-| Палач and event-shaped quests | P7 | Guaranteed. Other quest backlog enters P12B only with authored executable graphs. |
+| Палач and event-shaped quests | P7 | Complete/Conditional: the 43-passage Палач graph and the Golden Idol/Witch event resolutions are live. `Palach.html` remains an explicitly ledgered conflicting older demo; the Idol monument branch and every backlog item below remain deferred/review-only. |
 | Mystic definitions and Мария candidate | P9 | Separate from the standard 53-card catalog. |
 | Logistics techs and ♠3 | P11A | Conditional whole-contract closure. |
 | Remaining placeholder/authored card faces | P12B | Unique raw title + config ID + side required; no rank/suit guessing. |
@@ -82,7 +82,15 @@ Status meanings:
 
 | Item | Status | Reason |
 |---|---|---|
-| Remaining regional quest backlog (крестоносцы-вёдра, север↔лес, упыри Аматы, титановая рыба, руда в лесу, etc.) | Review/P12B | Engine is P7; individual graphs need priority and complete authored branches. |
+| Hidden fear/desire dialogue (`квесты` message `1449686051202531369`) | Review/P12B | Only the deduction premise is authored; speaker identity, clues, answer set, consequence and trigger are absent. |
+| Scroll/ship-in-a-bottle (`1509982169404014856`) | Review/P11/P12B | Requires Aldred provenance, scroll acquisition, player fleet and the exact “sea battles auto-win” scope/lifecycle. |
+| Amata ghoul aftermath (`1510007683397324941`) | Review/P12B | Help/refuse and bury/ask-Aldred directions exist, but trigger, encounter, reputation axes/amounts and cleanup are incomplete. |
+| Middle-guild titanium fish/plates and cosmetic goods (`1510013191818706955`, `1510013622884237393`, `1510711236831088871`) | Review/P12B | Supply timing, guild progression, armor replacement/loadouts, price and exact unit consumers are unresolved. |
+| Forest ore search and regional level-ups (`1513981539589816520`, `1513981663435161650`) | Review/P12B | No ore identity, search graph, strengthening payoff, level curve or unlock catalog is authored. |
+| Sparrow extermination → locusts → Людовик (`1515711359231201330`) | Review/P12B | The direction and temporary `×2` farms exist, but trigger, durations, locust loss, repurchase price/quantity and recovery are missing. |
+| Six-phase bucket-crusader escalation (`1515780591558066306`) | Review/P12B | Narrative phases and the 95-theses resolution exist; thresholds, timing, bucket economy, crime/injury effects and alternate resolution consequences do not. |
+| North↔forest follow-ups, Great houses/races and other regional sketches | Review/P12B | Cross-channel mentions are not complete quest graphs; each still needs a stable trigger, choices, targets, numeric consequences and terminal/repeat policy. |
+| Golden Idol monument/warrior disease and later Маг reveal | Review/P12B | P7 preserves the visible monument branch behind its blocker. Typed living/fallen warrior selection, restoration, blood disease and the later diplomatic Маг lifecycle remain absent. |
 | Full player fleet/siege campaign | Review | TD may contain enemy/naval battlefields, but that is not automatically a player fleet or persistent siege system. |
 | Full great-house/race content | Review | Present in raw model but not confirmed as a complete implementation tranche. |
 | Sound | Out | Designer-confirmed out of scope. |

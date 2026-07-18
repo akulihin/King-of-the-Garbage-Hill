@@ -16,6 +16,7 @@ type QaScenario =
   | 'domestic-economy'
   | 'external-trade'
   | 'economy-content-event'
+  | 'quest-dialogue'
   | 'destroyed-west'
   | 'loyalty-rebellion'
   | 'relic-production-levels'
@@ -27,7 +28,7 @@ type QaScenario =
 
 const QA_SEED = 'cypress-empires-endgame'
 const CONFIG_STORAGE_KEY = 'empires-endgame:config:v1'
-const SAVE_STORAGE_KEY = 'empires-endgame:campaign:v9'
+const SAVE_STORAGE_KEY = 'empires-endgame:campaign:v10'
 const bundledConfig = bundledConfigJson as unknown as EmpiresEndgameConfig
 const TECHNOLOGY_COUNT = bundledConfig.empire.technologies.length
 
@@ -66,6 +67,22 @@ function expectStoredValue(key: string, value: string) {
 }
 
 describe('Empire\'s Endgame deterministic browser scenarios', () => {
+  it('advances the mandatory Палач dialogue and records it in the quest journal', () => {
+    visitScenario('quest-dialogue')
+    cy.get('[data-quest-id="quest-palach"]').should('be.visible').and('contain.text', 'Палач')
+    cy.get('[data-testid="dialogue-choice-palach-p28-bed"]').click()
+    cy.get('[data-testid="dialogue-choice-palach-p30-start"]').click()
+    cy.get('[data-testid="dialogue-choice-palach-p01-point"]').click()
+    cy.get('[data-testid="dialogue-choice-palach-p03-messenger"]').click()
+    cy.contains('Задание выполнено.').should('be.visible')
+    cy.get('[data-testid="dialogue-dismiss"]').click()
+    cy.get('[data-quest-id="quest-palach"]').should('not.exist')
+    cy.get('[data-testid="open-quest-journal"]').click()
+    cy.get('[role="dialog"]').should('contain.text', 'Журнал заданий')
+      .and('contain.text', 'Выполнено')
+      .and('contain.text', 'Палач')
+  })
+
   it('shows domestic obligations and executes each live economy carrier', () => {
     visitScenario('domestic-economy')
     cy.get('[data-testid="domestic-economy-panel"]').should('be.visible')

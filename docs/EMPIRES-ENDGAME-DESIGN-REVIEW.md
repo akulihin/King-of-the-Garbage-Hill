@@ -596,3 +596,61 @@ lifecycle.
 - The five incomplete gifts retain their negative-consequence blockers. `whiteStone` and
   `carpentry` remain visible resources but cannot be produced/spent through a fabricated
   economy. The lumber and white-stone event choices remain unavailable as a whole.
+
+## P7 quest/dialogue source reconciliation and Палач traceability
+
+Phase 7 reconciled channel `квесты` in full, both attached Twine exports, `события`,
+`карты`, `персонажи`, `общее`, the regional channels and direct cross-references in
+`дома`/`реликвии`. Twine HTML was read as an inert authored passage container; no script,
+stylesheet or Harlowe implementation was imported or executed.
+
+| Source | Stable source identity | P7 use / conflict policy |
+|---|---|---|
+| Палач adjacent prose | `квесты` message `1381929101690142811` | Establishes the forest-bandit prerequisite, opening exchange and explicit “Тратит время” labels. |
+| Older demo | message `1382248383539843145`, attachment `Palach.html`; story IFID `9ED1CCEB-DA6F-499B-8B06-0B55467651DE`, start PID `1`, 28 passages | Preserved as a conflicting earlier demo. It starts directly at the council exchange and lacks the later guard/dinner expansion. It is not silently merged. |
+| Later expanded demo | message `1382248404352241714`, attachment `Palach2.html`; same IFID, start PID `28`, 43 passages | Chosen as the bundled P7 graph because it is the later adjacent attachment and a strict expansion. This is an implementation default, not a designer verdict. |
+| Golden Idol | `квесты` message `1423403519733665953`; `реликвии` messages `1439942644418609222` and `1439942653700735048` | Supplies the expedition, real magic, sell/monument/destroy directions, warrior restoration/disease and unity language. Only consequences with typed ownership are live. |
+| Witch Apprenticeship | `дома` message `1349423801947001032` | Supplies gifted students, disappearances and successful alchemy, but no quantities, city selector or refusal consequence. |
+
+Every later-demo passage has a stable one-to-one trace: Twine PID `N` maps to config node
+`palach-pNN` for every integer `N` from `1` through `43`, with no omitted or synthesized
+passage. Story start PID `28` maps to stage `palach-main` entry node `palach-p28`. Authored
+passage text and choice labels were entity-decoded and stored verbatim after removing only
+Twine link/conditional markup. PIDs `4`, `15`–`19`, `21`, `23`, `24`, `26`, `32` and `34`
+are failure terminals; PIDs `13` and `27` are completion terminals. PID `27` is treated as
+completion because the emperor explicitly sends Ганц to recruit the prisoner; whether it
+should instead feed a later off-screen hook remains open.
+
+## P7 defaults and unresolved-semantics ledger
+
+| ID | JSON Pointer | Phase | Raw source | Chosen default | Rationale | Status | Designer verdict |
+|---|---|---:|---|---|---|---|---|
+| `P7-01` | `/quests/historyRetention`; `/quests/triggerHistoryRetention` | P7 | No retention rule exists in the quest exports | Keep the latest `64` applied choices and `64` trigger identities per quest; compact older entries into a count/digest | Bounds localStorage while retaining a useful deterministic audit window | Open | Pending exact retention and whether a longer player-visible quest history is required. |
+| `P7-02` | `/quests/definitions/0`; `quest-palach` | P7 | `квесты` attachments in messages `1382248383539843145` and `1382248404352241714` share one IFID but differ in start and passage count | Use the later 43-passage `Palach2.html` graph intact; do not merge the older 28-passage demo | Attachment order and strict expansion provide a deterministic default without pretending the conflict is resolved | Open | Pending canonical demo/version and whether any older route must replace a later route. |
+| `P7-03` | `/quests/definitions/0/trigger/con` | P7 | Палач is “after capture of forest criminals”; the export supplies no con | Start at con `2` | Makes the mandatory authored demo reachable early without inventing the still-absent bandit lifecycle | Open | Pending real forest-criminal trigger and campaign timing. |
+| `P7-04` | `/quests/definitions/0/stages/0/nodes/*/choices/*/effects` (`time`) | P7 | `квесты` prose and Twine choices label some branches “Тратит время” but supply no amount | Every explicitly labelled time-spending choice applies `time days: -1`; viewing and all unlabelled choices cost zero days | One day is the smallest visible configured cost and the common contract forbids implicit dialogue time | Open | Pending exact cost per labelled branch and whether any dialogue view itself spends time. |
+| `P7-05` | `/quests/definitions/*/mandatory`; `/quests/definitions/*/restartPolicy` | P7 | No queue priority, postponement or repeat policy is authored | Mandatory starts queue in stable config order with no postponement; Палач and both event resolutions use `restartPolicy: never` | Determinism and exact-once resolution are required; no UI postponement is invented | Open | Pending priority/postponement rules and which quests repeat. |
+| `P7-06` | `/quests/definitions/0/memory` | P7 | Twine conditions require remembered facts; no journal privacy list exists | All five Палач clue booleans are journal-visible; internal consumed identities and choice history are not | The clues explain branch availability without exposing engine bookkeeping | Open | Pending which quest memories should be hidden from the journal. |
+| `P7-07` | `/quests/definitions/1`; `event-golden-idol` | P7 | Golden Idol sources say “mountains of gold and resources”, possible future enemy ownership, and strengthened nation/church unity; old deferred config carried numeric placeholders | Retain sell rewards `+6000` gold, `+300000` wood, `+200000` iron; record enemy risk and destroy/unity outcomes as typed visible quest memory. Keep monument/warrior/disease choice deferred | Resources have a trusted consumer, while unity has no numeric political contract and future enemy transfer has no actor lifecycle. Memory preserves the retained resolution without a magic inert flag | Open | Pending sell quantities, a real enemy-transfer trigger, numeric unity/church effects, and monument living/fallen warrior selection, restoration and blood-disease rules. |
+| `P7-08` | `/quests/definitions/2`; `event-witch-apprenticeship` | P7 | `дома` message `1349423801947001032` authors disappearances and successful alchemy but no numbers; it calls the swamp “Запад”, while the established bundled map/config places Болотный Дозор and Алхимические Врата in `east` | Send targets the lowest-population accessible `east` city (ID tie-break), applies `−1000` population and `+1200` knowledge, and records alchemy/city memory; refuse applies `−1` real east-region loyalty | Preserves the pre-P7 deferred carrier values and established swamp city identities while replacing inert flags with typed population/loyalty consumers | Open | Pending west/east canonical region, target selection, student loss, knowledge reward, alchemy payoff, refusal scope/amount and whether survivors return later. |
+
+## P7 exact live/deferred and remaining-backlog manifest
+
+- `quest-palach` is live and non-repeatable with all 43 `Palach2.html` passages. The older
+  `Palach.html` variant remains source evidence only until `P7-02` receives a verdict.
+- `event-golden-idol` has two live, typed consumed resolutions: `idol-sell` and
+  `idol-destroy`. `idol-monument` remains visibly choice-deferred; none of its warrior or
+  disease memory writes can execute while deferred. The later Маг reveal remains P12B
+  review because no diplomatic archetype lifecycle is present.
+- `event-witch-apprenticeship` has two live, typed consumed resolutions:
+  `send-apprentices` and `refuse-witches`. Their values and east/west conflict remain open in
+  `P7-08` rather than hidden in inert flags.
+- Remaining `квесты` inventory is explicitly P12B/relevant-owner review: hidden
+  fear/desire dialogue (`1449686051202531369`); scroll/ship-in-a-bottle
+  (`1509982169404014856`); Amata ghouls (`1510007683397324941`); middle-guild titanium
+  fish/plates and cosmetic trade (`1510013191818706955`, `1510013622884237393`,
+  `1510711236831088871`); forest ore and regional level-ups (`1513981539589816520`,
+  `1513981663435161650`); sparrow extermination/locusts/Людовик
+  (`1515711359231201330`); and the six-phase bucket-crusader escalation
+  (`1515780591558066306`). North↔forest follow-ups and Great-house/race sketches from
+  adjacent channels also remain review-only. None receives a fabricated live quest graph.

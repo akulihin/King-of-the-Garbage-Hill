@@ -27,6 +27,7 @@ import {
 } from 'lucide-vue-next'
 import BuilderDrawer from '../components/empires-endgame/BuilderDrawer.vue'
 import CityView from '../components/empires-endgame/CityView.vue'
+import DialogueOverlay from '../components/empires-endgame/DialogueOverlay.vue'
 import DurakTable from '../components/empires-endgame/DurakTable.vue'
 import DomesticEconomyPanel from '../components/empires-endgame/DomesticEconomyPanel.vue'
 import ExternalDiplomacyPanel from '../components/empires-endgame/ExternalDiplomacyPanel.vue'
@@ -37,6 +38,7 @@ import GiftDraft from '../components/empires-endgame/GiftDraft.vue'
 import GovernancePanel from '../components/empires-endgame/GovernancePanel.vue'
 import LoyaltyPanel from '../components/empires-endgame/LoyaltyPanel.vue'
 import PopulationDialog from '../components/empires-endgame/PopulationDialog.vue'
+import QuestJournal from '../components/empires-endgame/QuestJournal.vue'
 import TargetResolutionDialog, {
   type TargetResolutionOption,
 } from '../components/empires-endgame/TargetResolutionDialog.vue'
@@ -53,6 +55,7 @@ import {
   validateEmpiresConfig,
 } from '../features/empires-endgame/config'
 import { EmpiresEndgameEngine } from '../features/empires-endgame/engine'
+import { questChoiceIsVisible, questCurrentNode } from '../features/empires-endgame/quests'
 import {
   createEmpiresQaScenarios,
   digestEmpiresQaState,
@@ -80,6 +83,7 @@ import type {
   EmpiresMapObjectDefinition,
   EmpiresPendingGiftResolution,
   EmpiresPoint,
+  EmpiresQuestChoiceTarget,
   TdBattleResult,
   TdCommand,
 } from '../features/empires-endgame/types'
@@ -97,6 +101,7 @@ const lastMessage = ref('Добро пожаловать на последнюю
 const godBusy = ref(false)
 const editorOpen = ref(false)
 const editorDirty = ref(false)
+const questJournalOpen = ref(false)
 const activeEmpireTab = ref<EmpireTab>('map')
 const activeRegionId = ref('')
 const activeCityId = ref('')
@@ -223,6 +228,19 @@ const currentEventDescription = computed(() => {
   }
   return [event.description, ...context].filter(Boolean).join(' ')
 })
+
+function questTargetText(target: EmpiresQuestChoiceTarget): string {
+  if (target.selector === 'eventTarget') {
+    const cityId = state.value?.event?.targetCityId
+    const city = workingConfig.value?.empire.cities.find(item => item.id === cityId)
+    return `Цель: ${city?.name ?? cityId ?? 'город события'}`
+  }
+  if (target.selector === 'lowestAccessibleInRegion') {
+    const region = workingConfig.value?.empire.map.regions.find(item => item.id === target.regionId)
+    return `Цель: наименьший доступный город региона «${region?.name ?? target.regionId}»`
+  }
+  return 'Цель: наименьший доступный город'
+}
 
 const giftChoices = computed(() => {
   if (!state.value || !workingConfig.value) return []
@@ -359,16 +377,100 @@ function economyEventChoiceEffects(eventId: string, choiceId: string): string[] 
 
 const eventChoiceViews = computed(() => currentEvent.value?.choices.map(choice => {
   const blockedReason = engine.value?.eventChoiceBlockedReason(choice.id)
+  const questDefinition = choice.questResolution
+    ? workingConfig.value?.quests.definitions.find(item => item.id === choice.questResolution?.questId)
+    : null
+  const questStage = questDefinition?.stages.find(stage => stage.id === questDefinition.entryStageId)
+  const questChoice = questStage?.nodes.find(node => node.id === questStage.entryNodeId)
+    ?.choices.find(item => item.id === choice.questResolution?.choiceId)
+  const questPreviews = questChoice
+    ? [
+        ...(questChoice.requirements ?? []).map(requirement => `Нужно: ${dependencyLabel(requirement)}`),
+        ...(questChoice.target ? [questTargetText(questChoice.target)] : []),
+        ...(questChoice.memoryWrites ?? []).flatMap((write) => {
+          const memory = questDefinition?.memory?.find(item => item.key === write.key)
+          return memory?.journalVisible ? [`${memory.label ?? memory.key}: ${String(write.value)}`] : []
+        }),
+      ]
+    : []
   return {
     id: choice.id,
     name: choice.label,
     description: choice.description ?? '',
-    costs: costsText(choice.resourceCosts),
-    effects: [...choice.effects.map(effectText), ...economyEventChoiceEffects(currentEvent.value!.id, choice.id)],
+    costs: costsText(questChoice?.costs ?? choice.resourceCosts),
+    effects: [
+      ...(questChoice?.effects ?? choice.effects).map(effectText),
+      ...questPreviews,
+      ...economyEventChoiceEffects(currentEvent.value!.id, choice.id),
+    ],
     disabled: Boolean(blockedReason),
     disabledReason: actionReasonText(blockedReason),
   }
 }) ?? [])
+
+const activeDialogue = computed(() => {
+  const questId = state.value?.questRuntime.activeMandatoryQuestId
+  if (!questId || !state.value || !workingConfig.value) return null
+  const definition = workingConfig.value.quests.definitions.find(item => item.id === questId)
+  const quest = state.value.quests[questId]
+  if (!definition || !quest) return null
+  const stage = definition.stages.find(item => item.id === quest.stageId)
+  const node = questCurrentNode(definition, quest)
+  if (!stage || !node) return null
+  return { definition, quest, stage, node }
+})
+
+const dialogueChoiceViews = computed(() => {
+  const dialogue = activeDialogue.value
+  if (!dialogue || !engine.value) return []
+  return dialogue.node.choices
+    .filter(choice => questChoiceIsVisible(choice, dialogue.quest.memory))
+    .map((choice) => {
+      const blockedReason = engine.value?.questChoiceBlockedReason(dialogue.definition.id, choice.id)
+      const memoryEffects = (choice.memoryWrites ?? []).flatMap((write) => {
+        const memory = dialogue.definition.memory?.find(item => item.key === write.key)
+        return memory?.journalVisible ? [`${memory.label ?? memory.key}: ${String(write.value)}`] : []
+      })
+      return {
+        id: choice.id,
+        label: choice.label,
+        description: choice.description,
+        costs: costsText(choice.costs),
+        effects: [...(choice.effects ?? []).map(effectText), ...memoryEffects],
+        requirements: (choice.requirements ?? []).map(requirement => `Нужно: ${dependencyLabel(requirement)}`),
+        target: choice.target ? questTargetText(choice.target) : undefined,
+        disabled: Boolean(blockedReason),
+        disabledReason: actionReasonText(blockedReason),
+      }
+    })
+})
+
+const questJournalEntries = computed(() => {
+  if (!state.value || !workingConfig.value) return []
+  const statusOrder = { active: 0, suspended: 1, completed: 2, failed: 3 }
+  return Object.values(state.value.quests).map((quest) => {
+    const definition = workingConfig.value!.quests.definitions.find(item => item.id === quest.questId)
+    const stage = definition?.stages.find(item => item.id === quest.stageId)
+    const memory = (definition?.memory ?? []).flatMap((item) => {
+      if (!item.journalVisible) return []
+      const raw = quest.memory[item.key]
+      const value = typeof raw === 'boolean' ? (raw ? 'Да' : 'Нет') : String(raw || '—')
+      return [{ label: item.label ?? item.key, value }]
+    })
+    return {
+      id: quest.questId,
+      name: definition?.name ?? quest.questId,
+      description: definition?.journalDescription ?? 'Определение задания отсутствует в активной конфигурации.',
+      stageName: stage?.name ?? quest.stageId,
+      status: quest.status,
+      startedAtCon: quest.startedAtCon,
+      finishedAtCon: quest.finishedAtCon,
+      memory,
+      compatibilityReason: quest.compatibilityReason,
+    }
+  }).sort((left, right) => statusOrder[left.status] - statusOrder[right.status]
+    || right.startedAtCon - left.startedAtCon || left.id.localeCompare(right.id))
+})
 
 function showMessage(message: string) {
   lastMessage.value = message
@@ -701,6 +803,18 @@ function resolvePendingTarget(cityId: string) {
 function chooseEvent(choiceId: string) {
   if (!engine.value) return
   action(engine.value.chooseEvent(choiceId))
+}
+
+function advanceDialogue(choiceId: string) {
+  const questId = activeDialogue.value?.definition.id
+  if (!engine.value || !questId) return
+  action(engine.value.advanceDialogue(questId, choiceId), false)
+}
+
+function dismissDialogue() {
+  const questId = activeDialogue.value?.definition.id
+  if (!engine.value || !questId) return
+  action(engine.value.dismissDialogue(questId))
 }
 
 function transitionAdvisor(advisorId: string, transition: 'pardon' | 'execute' | 'grant-access') {
@@ -1850,6 +1964,7 @@ onUnmounted(() => {
         </div>
 
         <div class="header-actions">
+          <button data-testid="open-quest-journal" type="button" title="Журнал заданий" @click="questJournalOpen = true"><ScrollText :size="16" /></button>
           <button type="button" title="Экспортировать сохранение" @click="exportSave"><Download :size="16" /></button>
           <button type="button" title="Импортировать сохранение" @click="saveInput?.click()"><Upload :size="16" /></button>
           <input ref="saveInput" data-testid="import-campaign" type="file" accept="application/json,.json" hidden @change="importSave" />
@@ -2134,6 +2249,28 @@ onUnmounted(() => {
         :editor-mode="editorOpen"
         @save="savePopulation"
         @close="populationCityId = null"
+      />
+
+      <QuestJournal
+        :open="questJournalOpen"
+        :entries="questJournalEntries"
+        @close="questJournalOpen = false"
+      />
+
+      <DialogueOverlay
+        v-if="activeDialogue"
+        :open="true"
+        :quest-id="activeDialogue.definition.id"
+        :title="activeDialogue.definition.name"
+        :stage-name="activeDialogue.stage.name"
+        :speaker="activeDialogue.node.speaker"
+        :text="activeDialogue.node.text"
+        :image-url="activeDialogue.node.image"
+        :status="activeDialogue.quest.status"
+        :mandatory="activeDialogue.definition.mandatory !== false"
+        :choices="dialogueChoiceViews"
+        @choose="advanceDialogue"
+        @close="dismissDialogue"
       />
 
       <BuilderDrawer
