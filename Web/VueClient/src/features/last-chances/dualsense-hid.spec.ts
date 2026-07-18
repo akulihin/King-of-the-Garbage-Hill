@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
+import { BLUETOOTH_INPUT_REPORT_ID, type LastChancesHidInputReportEventLike } from './dualsense-input'
 import type { LastChancesFeedbackEffect } from './feedback'
 import {
+  BLUETOOTH_INPUT_RETAINED_MESSAGE,
   DualSenseWebHidDriver,
   type DualSenseHidPacket,
   type DualSenseHidTransport,
@@ -12,6 +14,7 @@ import {
 class FakeHidDevice implements LastChancesHidDeviceLike {
   opened = false
   readonly log: string[] = []
+  readonly inputListeners = new Set<(event: LastChancesHidInputReportEventLike) => void>()
   failReportId: number | null = null
   private hasFailed = false
 
@@ -37,6 +40,31 @@ class FakeHidDevice implements LastChancesHidDeviceLike {
       throw new Error(`write ${reportId} failed`)
     }
     await Promise.resolve()
+  }
+
+  addEventListener(
+    _type: 'inputreport',
+    listener: (event: LastChancesHidInputReportEventLike) => void,
+  ): void {
+    this.inputListeners.add(listener)
+  }
+
+  removeEventListener(
+    _type: 'inputreport',
+    listener: (event: LastChancesHidInputReportEventLike) => void,
+  ): void {
+    this.inputListeners.delete(listener)
+  }
+
+  emitInput(reportId: number, faceBits = 0): void {
+    const payload = new Uint8Array(11)
+    payload[1] = 128
+    payload[2] = 128
+    payload[3] = 128
+    payload[4] = 128
+    payload[8] = faceBits | 0x08
+    const event = { reportId, data: new DataView(payload.buffer) }
+    for (const listener of this.inputListeners) listener(event)
   }
 }
 
@@ -222,5 +250,83 @@ describe('isolated DualSense WebHID driver', () => {
       'send:2:2,70',
       'send:3:100',
     ])
+  })
+})
+
+describe('Bluetooth extended-mode input retention (M118)', () => {
+  it('recovers controller input from 0x31 input reports over Bluetooth only', async () => {
+    const bluetooth = new FakeHidDevice('bluetooth')
+    const bluetoothOutput = driver(new FakeChooser([bluetooth]))
+    await bluetoothOutput.enableEnhancedFeatures()
+    expect(bluetoothOutput.hidInputSnapshot()).toBeNull()
+    bluetooth.emitInput(BLUETOOTH_INPUT_REPORT_ID, 0x20)
+    const snapshot = bluetoothOutput.hidInputSnapshot()
+    expect(snapshot?.mapping).toBe('standard')
+    expect(snapshot?.buttons[0].pressed).toBe(true)
+
+    const usb = new FakeHidDevice('usb')
+    const usbOutput = driver(new FakeChooser([usb]))
+    await usbOutput.enableEnhancedFeatures()
+    usb.emitInput(BLUETOOTH_INPUT_REPORT_ID, 0x20)
+    expect(usbOutput.hidInputSnapshot()).toBeNull()
+  })
+
+  it('keeps the Bluetooth device open input-only when enhanced output is disabled', async () => {
+    const device = new FakeHidDevice('bluetooth')
+    const output = driver(new FakeChooser([device]))
+    await output.enableEnhancedFeatures()
+    await output.disableEnhancedFeatures()
+
+    expect(device.log).toEqual(['open', 'send:49:0,0,0', 'send:49:0,0,0'])
+    expect(device.opened).toBe(true)
+    expect(output.capability()).toMatchObject({
+      tier: 0,
+      status: 'controls-only',
+      permission: 'granted',
+    })
+    expect(output.capability().message).toBe(BLUETOOTH_INPUT_RETAINED_MESSAGE)
+    expect(await output.play(effect())).toBe(false)
+    device.emitInput(BLUETOOTH_INPUT_REPORT_ID, 0x20)
+    expect(output.hidInputSnapshot()?.buttons[0].pressed).toBe(true)
+  })
+
+  it('re-activates enhanced output on a retained device without a second chooser prompt', async () => {
+    const device = new FakeHidDevice('bluetooth')
+    const chooser = new FakeChooser([device])
+    const output = driver(chooser)
+    await output.enableEnhancedFeatures()
+    await output.disableEnhancedFeatures()
+
+    expect(await output.enableEnhancedFeatures()).toBe(true)
+    expect(chooser.requests).toBe(1)
+    expect(output.capability()).toMatchObject({ tier: 2, status: 'enhanced' })
+    expect(await output.play(effect(0.4))).toBe(true)
+  })
+
+  it('keeps Bluetooth input alive after a failed output write', async () => {
+    const device = new FakeHidDevice('bluetooth')
+    device.failReportId = 0x32
+    const output = driver(new FakeChooser([device]))
+    await output.enableEnhancedFeatures()
+
+    expect(await output.play(effect())).toBe(false)
+    expect(device.opened).toBe(true)
+    expect(output.capability()).toMatchObject({ tier: 0, status: 'error' })
+    device.emitInput(BLUETOOTH_INPUT_REPORT_ID, 0x20)
+    expect(output.hidInputSnapshot()?.buttons[0].pressed).toBe(true)
+  })
+
+  it('closes the retained Bluetooth device on dispose', async () => {
+    const device = new FakeHidDevice('bluetooth')
+    const output = driver(new FakeChooser([device]))
+    await output.enableEnhancedFeatures()
+    await output.disableEnhancedFeatures()
+    await output.dispose()
+
+    expect(device.opened).toBe(false)
+    expect(device.log[device.log.length - 1]).toBe('close')
+    expect(device.inputListeners.size).toBe(0)
+    device.emitInput(BLUETOOTH_INPUT_REPORT_ID, 0x20)
+    expect(output.hidInputSnapshot()).toBeNull()
   })
 })

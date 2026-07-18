@@ -152,18 +152,17 @@ function crc32(bytes: Iterable<number>): number {
 }
 
 /**
- * Deliberately never touches the pad's report mode (e.g. reading calibration
- * feature report 0x05): a Bluetooth DualSense accepts CRC-framed 0x31 output
- * while in simple HID mode, but flipping it to extended mode makes its input
- * reports vendor-typed — Chromium's Gamepad API can no longer map them and
- * controller input freezes until the pad power-cycles (finding M116).
- * Caution for future firmware: SDL's PS5 driver claims some pads switch to
- * extended mode on receiving ANY effects output packet. The designer's pad
- * (re-verified 2026-07-18 via the root trigger-lab page: input readout stays
- * live after Bluetooth output) does not — but if the M116 freeze symptom ever
- * reappears on a build without the 0x05 read, suspect that firmware behavior;
- * the fallbacks are USB-only Tier 2 or a WebHID input driver parsing 0x31
- * input reports directly.
+ * Sending ANY effects output over Bluetooth flips the pad from simple HID mode
+ * into extended mode, exactly as SDL's PS5 driver warns — confirmed on the
+ * designer's pad 2026-07-18 (findings M116/M118): after the first 0x31 output
+ * packet its input reports become vendor-typed 0x31, Chromium's Gamepad API
+ * freezes, and the flip persists until the pad power-cycles. The byte recipe
+ * cannot avoid this (the root trigger-lab page flips the pad too), so the
+ * driver compensates on the input side: `DualSenseHidInputReader`
+ * (`dualsense-input.ts`) parses the extended 0x31 input reports through the
+ * same open WebHID device and feeds the engine a synthetic standard-mapping
+ * gamepad. Never read calibration feature report 0x05 either — it causes the
+ * same flip without even enabling output (M116).
  */
 export class BluetoothDualSenseSerializer implements DualSenseHidTransportSerializer {
   readonly transport = 'bluetooth' as const

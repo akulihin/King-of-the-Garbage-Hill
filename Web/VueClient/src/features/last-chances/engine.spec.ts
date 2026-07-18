@@ -7,7 +7,7 @@ import {
   type LastChancesEnhancedFeedbackOutput,
   type LastChancesFeedbackEffect,
 } from './feedback'
-import type { LastChancesGamepadReading } from './gamepad'
+import type { LastChancesGamepadLike, LastChancesGamepadReading } from './gamepad'
 import { buildLastChancesPlan } from './plan'
 import { attackWithLastChancesAugment } from './weapon-runtime'
 import {
@@ -151,6 +151,8 @@ type EngineTestAccess = {
   canExploreRoom: () => boolean
   controlContextActive: (hand: LastChancesHand, context: LastChancesControlContext) => boolean
   applyGamepadReading: (reading: LastChancesGamepadReading | null) => void
+  pollGamepad: () => void
+  gamepadState: { id: string | null, connected: boolean }
   createSnapshot: () => LastChancesSnapshot
   delayedAttacks: Array<{
     remainingMs: number
@@ -2583,6 +2585,59 @@ describe('99LC control-scheme engine boundary', () => {
       })
     } finally {
       engine.destroy()
+    }
+  })
+
+  it('prefers a fresh WebHID input snapshot over the frozen Gamepad-API list (M118)', () => {
+    const engine = new LastChancesEngine(makeCanvas(), defaultConfig, {}, { controlScheme: 'dualsense' })
+    const access = engine as unknown as EngineTestAccess
+    const releasedButtons = Array.from({ length: 18 }, () => ({ pressed: false, value: 0 }))
+    let hidPad: LastChancesGamepadLike | null = {
+      axes: [0, 0, 0, 0],
+      buttons: releasedButtons,
+      connected: true,
+      id: 'DualSense (WebHID 0x31 input)',
+      index: 99,
+      mapping: 'standard',
+    }
+    access.feedbackController = new DualSenseFeedbackController(
+      defaultConfig.input.dualsense!.feedback,
+      { mode: 'full', intensity: 1 },
+      {
+        enhanced: {
+          capability: () => ({ tier: 2, status: 'enhanced', message: null }),
+          play: async () => true,
+          neutralize: async () => undefined,
+          enableEnhancedFeatures: async () => true,
+          disableEnhancedFeatures: async () => undefined,
+          hidInputSnapshot: () => hidPad,
+        } satisfies LastChancesEnhancedFeedbackOutput,
+      },
+    )
+    const frozenPad: LastChancesGamepadLike = {
+      axes: [0, 0, 0, 0],
+      buttons: releasedButtons,
+      connected: true,
+      id: 'Frozen DualSense (STANDARD GAMEPAD)',
+      index: 0,
+      mapping: 'standard',
+    }
+    Object.defineProperty(navigator, 'getGamepads', {
+      configurable: true,
+      value: () => [frozenPad],
+    })
+
+    try {
+      access.pollGamepad()
+      expect(access.gamepadState.connected).toBe(true)
+      expect(access.gamepadState.id).toBe('DualSense (WebHID 0x31 input)')
+
+      hidPad = null
+      access.pollGamepad()
+      expect(access.gamepadState.id).toBe('Frozen DualSense (STANDARD GAMEPAD)')
+    } finally {
+      engine.destroy()
+      Reflect.deleteProperty(navigator, 'getGamepads')
     }
   })
 

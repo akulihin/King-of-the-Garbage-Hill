@@ -1,3 +1,4 @@
+import type { LastChancesGamepadLike } from './gamepad'
 import type { LastChancesFeedbackPreferences } from './preferences'
 import type {
   LastChancesAdaptiveTriggerProfileDefinition,
@@ -52,6 +53,11 @@ export interface LastChancesFeedbackOutput {
 export interface LastChancesEnhancedFeedbackOutput extends LastChancesFeedbackOutput {
   enableEnhancedFeatures(): Promise<boolean>
   disableEnhancedFeatures(): Promise<void>
+  /**
+   * Synthetic standard-mapping controller reading recovered from WebHID input
+   * reports while a Bluetooth pad is stuck in extended report mode (M118).
+   */
+  hidInputSnapshot?(): LastChancesGamepadLike | null
 }
 
 export interface LastChancesGamepadHapticEffectParameters {
@@ -363,6 +369,11 @@ export class DualSenseFeedbackController {
     if (isBlocked) this.lastBlockedAt = atMs
     this.scheduleDrain()
     return true
+  }
+
+  hidGamepadSnapshot(): LastChancesGamepadLike | null {
+    if (this.disposed) return null
+    return this.enhancedOutput?.hidInputSnapshot?.() ?? null
   }
 
   async enableEnhancedFeatures(): Promise<boolean> {

@@ -259,6 +259,22 @@ let device = null;
 let isBluetooth = false;
 let btSeq = 0;
 
+/* ---------- live input via WebHID (Bluetooth extended mode) ----------
+   Any BT effects output flips the pad from simple mode into extended mode:
+   input arrives as vendor-typed 0x31 reports the Gamepad API cannot map, and
+   the flip persists until the pad power-cycles (finding M118). So after the
+   first output packet, live input must be read from the same open HID device:
+   0x31 payload = 1 header byte, then LX LY RX RY L2 R2 … */
+let hidL2 = 0, hidR2 = 0, hidInputAt = -Infinity;
+const HID_INPUT_STALE_MS = 500;
+
+function onInputReport(ev){
+  if (ev.reportId !== 0x31 || ev.data.byteLength < 7) return;
+  hidL2 = ev.data.getUint8(5) / 255;
+  hidR2 = ev.data.getUint8(6) / 255;
+  hidInputAt = performance.now();
+}
+
 /* trigger effect state: mode + up to 3 params each */
 const state = {
   L: { mode: 0x00, p: [0,0,0] },
@@ -343,9 +359,13 @@ async function connect(){
     $("resetBtn").disabled = false;
 
     log(`Connected: ${device.productName} over ${isBluetooth ? "Bluetooth (CRC32 framing)" : "USB"}`, "ok");
-    if (isBluetooth) log("Tip: USB is more reliable for trigger effects.", "warn");
+    if (isBluetooth) device.addEventListener("inputreport", onInputReport);
     await sendState();
-    log("Press any button on the pad so the Gamepad API picks it up for live input.", "");
+    if (isBluetooth){
+      log("BT pad switched to extended reports on first output (M118) — live input now reads via WebHID.", "");
+    } else {
+      log("Press any button on the pad so the Gamepad API picks it up for live input.", "");
+    }
   } catch (e){
     log("Connect failed: " + e.message, "err");
   }
@@ -353,7 +373,9 @@ async function connect(){
 
 navigator.hid?.addEventListener("disconnect", ev => {
   if (device && ev.device === device){
+    device.removeEventListener("inputreport", onInputReport);
     device = null;
+    hidL2 = 0; hidR2 = 0; hidInputAt = -Infinity;
     $("status").dataset.state = "off";
     $("statusText").textContent = "No controller";
     $("rumbleBtn").disabled = true;
@@ -460,19 +482,28 @@ function updateZones(){
   }
 }
 
-/* ---------- live trigger input via Gamepad API ---------- */
+/* ---------- live trigger input: WebHID first, Gamepad API fallback ---------- */
+function renderPulls(l2, r2){
+  $("fillL").style.height = (l2*100) + "%";
+  $("fillR").style.height = (r2*100) + "%";
+  $("valL").textContent = l2.toFixed(2);
+  $("valR").textContent = r2.toFixed(2);
+}
+
 function pollPads(){
+  // A fresh 0x31 reading means the pad is in extended mode and the Gamepad
+  // API entry is frozen (M118) — the WebHID stream is the live source then.
+  if (performance.now() - hidInputAt < HID_INPUT_STALE_MS){
+    renderPulls(hidL2, hidR2);
+    requestAnimationFrame(pollPads);
+    return;
+  }
   const pads = navigator.getGamepads ? navigator.getGamepads() : [];
   for (const p of pads){
     if (!p) continue;
     const id = p.id.toLowerCase();
     if (!(id.includes("dualsense") || id.includes("054c") || id.includes("0ce6") || id.includes("0df2"))) continue;
-    const l2 = p.buttons[6]?.value ?? 0;
-    const r2 = p.buttons[7]?.value ?? 0;
-    $("fillL").style.height = (l2*100) + "%";
-    $("fillR").style.height = (r2*100) + "%";
-    $("valL").textContent = l2.toFixed(2);
-    $("valR").textContent = r2.toFixed(2);
+    renderPulls(p.buttons[6]?.value ?? 0, p.buttons[7]?.value ?? 0);
     break;
   }
   requestAnimationFrame(pollPads);
@@ -505,7 +536,7 @@ $("connectBtn").addEventListener("click", connect);
     banner.classList.add("show");
     $("connectBtn").disabled = true;
   } else {
-    log("Ready. Plug the DualSense in over USB and hit Connect.", "");
+    log("Ready. Connect the DualSense (USB or Bluetooth) and hit Connect.", "");
   }
   buildControls("L"); buildControls("R");
   updateZones();

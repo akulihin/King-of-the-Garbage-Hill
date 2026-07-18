@@ -5011,6 +5011,16 @@ export class LastChancesEngine {
   }
 
   private pollGamepad(): void {
+    const hidGamepad = this.feedbackController.hidGamepadSnapshot()
+    if (hidGamepad) {
+      // A Bluetooth pad in extended report mode (M118) freezes its Gamepad-API
+      // entry, so the WebHID reading replaces the list entirely — the frozen
+      // pad must not win arbitration, and Tier-1 rumble stays parked while the
+      // enhanced output owns feedback.
+      void this.feedbackController.setGamepad(null)
+      this.applyGamepadReading(this.gamepadAdapter.poll([hidGamepad]))
+      return
+    }
     if (typeof navigator === 'undefined' || typeof navigator.getGamepads !== 'function') {
       void this.feedbackController.setGamepad(null)
       this.applyGamepadReading(null)

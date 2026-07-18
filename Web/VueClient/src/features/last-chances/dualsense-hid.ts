@@ -1,8 +1,13 @@
+import {
+  DualSenseHidInputReader,
+  type LastChancesHidInputReportEventLike,
+} from './dualsense-input'
 import type {
   LastChancesEnhancedFeedbackOutput,
   LastChancesFeedbackEffect,
   LastChancesFeedbackOutputCapability,
 } from './feedback'
+import type { LastChancesGamepadLike } from './gamepad'
 
 export type DualSenseHidTransport = 'usb' | 'bluetooth'
 
@@ -30,6 +35,14 @@ export interface LastChancesHidDeviceLike {
   open(): Promise<void>
   close(): Promise<void>
   sendReport(reportId: number, data: Uint8Array): Promise<void>
+  addEventListener?(
+    type: 'inputreport',
+    listener: (event: LastChancesHidInputReportEventLike) => void,
+  ): void
+  removeEventListener?(
+    type: 'inputreport',
+    listener: (event: LastChancesHidInputReportEventLike) => void,
+  ): void
 }
 
 export interface LastChancesHidChooserLike {
@@ -74,9 +87,19 @@ function isPermissionDenial(error: unknown): boolean {
     || error.name === 'SecurityError'
 }
 
+/**
+ * Shown after enhanced output is turned off over Bluetooth: the pad is stuck in
+ * extended report mode until it power-cycles (M118), so the device stays open
+ * and keeps feeding controller input through the WebHID input reader.
+ */
+export const BLUETOOTH_INPUT_RETAINED_MESSAGE =
+  'Enhanced DualSense output is off; controller input continues over WebHID until the pad is restarted.'
+
 export class DualSenseWebHidDriver implements LastChancesEnhancedFeedbackOutput {
   private device: LastChancesHidDeviceLike | null = null
   private serializer: DualSenseHidTransportSerializer | null = null
+  private inputReader: DualSenseHidInputReader | null = null
+  private outputActive = false
   private permission: PermissionState = 'not-requested'
   private status: LastChancesFeedbackOutputCapability['status'] = 'controls-only'
   private message: string | null = null
@@ -92,12 +115,22 @@ export class DualSenseWebHidDriver implements LastChancesEnhancedFeedbackOutput 
   }
 
   capability(): LastChancesFeedbackOutputCapability {
+    const enhanced = this.outputActive && Boolean(this.device?.opened) && Boolean(this.serializer)
     return {
-      tier: this.device?.opened && this.serializer ? 2 : 0,
-      status: this.device?.opened && this.serializer ? 'enhanced' : this.status,
+      tier: enhanced ? 2 : 0,
+      status: enhanced ? 'enhanced' : this.status,
       permission: this.permission,
       message: this.message,
     }
+  }
+
+  /**
+   * Latest controller reading parsed from the pad's Bluetooth 0x31 input
+   * reports, as a synthetic standard-mapping gamepad (finding M118). Null on
+   * USB, before enable, and whenever the report stream goes stale.
+   */
+  hidInputSnapshot(): LastChancesGamepadLike | null {
+    return this.inputReader?.snapshot() ?? null
   }
 
   get activeTransport(): DualSenseHidTransport | null {
@@ -106,7 +139,23 @@ export class DualSenseWebHidDriver implements LastChancesEnhancedFeedbackOutput 
 
   /** The only method that may invoke the browser chooser. Call it from an explicit UI action. */
   async enableEnhancedFeatures(): Promise<boolean> {
-    if (this.disposed || this.device?.opened) return Boolean(this.device?.opened)
+    if (this.disposed) return false
+    if (this.device?.opened && this.serializer) {
+      // A Bluetooth device retained for input after disable (M118) re-activates
+      // output without a second chooser prompt.
+      if (!this.outputActive) {
+        try {
+          await this.writePackets(this.serializer.neutral())
+          this.outputActive = true
+          this.status = 'enhanced'
+          this.message = null
+        } catch (error) {
+          await this.failAndClose(`DualSense open failed: ${errorMessage(error)}`)
+          return false
+        }
+      }
+      return true
+    }
     if (!this.options.hid || this.options.filters.length === 0 || this.options.serializers.length === 0) {
       return false
     }
@@ -149,7 +198,13 @@ export class DualSenseWebHidDriver implements LastChancesEnhancedFeedbackOutput 
     this.permission = 'granted'
     try {
       if (!this.device.opened) await this.device.open()
+      if (this.serializer.transport === 'bluetooth') {
+        // Output over BT flips the pad into extended report mode (M118); the
+        // reader recovers controller input from the resulting 0x31 reports.
+        this.inputReader = new DualSenseHidInputReader(this.device)
+      }
       await this.writePackets(this.serializer.neutral())
+      this.outputActive = true
       this.status = 'enhanced'
       this.message = null
       return true
@@ -162,7 +217,7 @@ export class DualSenseWebHidDriver implements LastChancesEnhancedFeedbackOutput 
   async play(effect: LastChancesFeedbackEffect): Promise<boolean> {
     const device = this.device
     const serializer = this.serializer
-    if (this.disposed || !device?.opened || !serializer) return false
+    if (this.disposed || !device?.opened || !serializer || !this.outputActive) return false
 
     let packets: readonly DualSenseHidPacket[]
     try {
@@ -186,7 +241,7 @@ export class DualSenseWebHidDriver implements LastChancesEnhancedFeedbackOutput 
   async neutralize(): Promise<void> {
     const device = this.device
     const serializer = this.serializer
-    if (!device?.opened || !serializer) return
+    if (!device?.opened || !serializer || !this.outputActive) return
     await this.writer
     try {
       await this.writePackets(serializer.neutral())
@@ -196,16 +251,38 @@ export class DualSenseWebHidDriver implements LastChancesEnhancedFeedbackOutput 
   }
 
   async disableEnhancedFeatures(): Promise<void> {
+    await this.releaseDevice({ keepBluetoothInput: true })
+  }
+
+  async dispose(): Promise<void> {
+    if (this.disposed) return
+    await this.releaseDevice({ keepBluetoothInput: false })
+    this.disposed = true
+  }
+
+  private async releaseDevice(options: { keepBluetoothInput: boolean }): Promise<void> {
     await this.writer
     const device = this.device
     const serializer = this.serializer
-    if (device?.opened && serializer) {
+    if (device?.opened && serializer && this.outputActive) {
       try {
         await this.writePackets(serializer.neutral())
       } catch {
-        // Closing is still mandatory after a failed stop packet.
+        // Demoting/closing is still mandatory after a failed stop packet.
       }
     }
+    this.outputActive = false
+    if (options.keepBluetoothInput && device?.opened && this.inputReader) {
+      // The BT pad is stuck in extended report mode until it power-cycles
+      // (M118): closing the device would kill all controller input, so it
+      // stays open input-only with the output capability demoted.
+      this.permission = 'granted'
+      this.status = 'controls-only'
+      this.message = BLUETOOTH_INPUT_RETAINED_MESSAGE
+      return
+    }
+    this.inputReader?.detach()
+    this.inputReader = null
     if (device?.opened) {
       try {
         await device.close()
@@ -218,12 +295,6 @@ export class DualSenseWebHidDriver implements LastChancesEnhancedFeedbackOutput 
     this.permission = this.options.hid ? 'not-requested' : 'unavailable'
     this.status = this.options.hid ? 'controls-only' : 'unavailable'
     this.message = null
-  }
-
-  async dispose(): Promise<void> {
-    if (this.disposed) return
-    await this.disableEnhancedFeatures()
-    this.disposed = true
   }
 
   private async writePackets(packets: readonly DualSenseHidPacket[]): Promise<void> {
@@ -244,6 +315,17 @@ export class DualSenseWebHidDriver implements LastChancesEnhancedFeedbackOutput 
         // A failed transport may reject the stop packet; close remains the final safety step.
       }
     }
+    this.outputActive = false
+    if (device?.opened && this.inputReader) {
+      // Keep the retained BT input path alive (M118): only output is demoted.
+      // If the failure was a real disconnect, the report stream goes stale and
+      // the snapshot turns null on its own.
+      this.status = 'error'
+      this.message = message
+      return
+    }
+    this.inputReader?.detach()
+    this.inputReader = null
     if (device?.opened) {
       try {
         await device.close()
