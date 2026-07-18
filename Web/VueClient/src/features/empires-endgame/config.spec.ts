@@ -98,13 +98,13 @@ describe('Empire\'s Endgame configuration', () => {
       'gift-fish-currents',
       'gift-meteor-iron',
       'gift-desert-tsunami',
-      'relic-tithe',
-      'relic-resource-exemption',
     ]
 
     for (const giftId of deferredIds) {
       expect(gift(config, giftId).deferredReason?.trim()).toBeTruthy()
     }
+    expect(gift(config, 'relic-tithe').deferredReason).toBeUndefined()
+    expect(gift(config, 'relic-resource-exemption').deferredReason).toBeUndefined()
     expect(config.gifts.definitions.filter(definition => !definition.deferredReason).length)
       .toBeGreaterThanOrEqual(config.gifts.choiceCount)
   })
@@ -121,11 +121,8 @@ describe('Empire\'s Endgame configuration', () => {
     expect(deferred(config.empire.units ?? [])).toEqual([])
     expect(deferred(config.empire.events)).toEqual([
       'event-lumber-concession',
-      'event-customs-smuggling',
       'event-golden-idol',
       'event-city-gates-epidemic',
-      'event-horse-theft',
-      'event-bank-insurance',
       'event-white-stone',
       'event-witch-apprenticeship',
     ])
@@ -166,6 +163,7 @@ describe('Empire\'s Endgame configuration', () => {
       'card-clubs-8.inverted',
       'card-diamonds-6.inverted',
       'card-diamonds-ace.normal',
+      'card-diamonds-ace.inverted',
       'card-hearts-7.normal',
       'card-hearts-7.inverted',
       'card-spades-5.normal',

@@ -25,7 +25,10 @@
       "Bash(NODE_OPTIONS=\"--max-old-space-size=8192\" *)",
       "Bash(cat:*)",
       "Bash(cd King-of-the-Garbage-Hill *)",
-      "Bash(cd *)"
+      "Bash(cd *)",
+      "Bash(curl -sL \"https://docs.google.com/document/d/1j9mTfhZJM2pxANJa9GQllPkxfgOywadYfYHykz8U8Mg/export?format=txt\" -o gdd1.txt)",
+      "Bash(curl -sL \"https://docs.google.com/document/d/1E2fiLlO1GRSoKMKySWElbgD1m9UuyqgUIp3Un0QCjVc/export?format=txt\" -o gdd2.txt)",
+      "Bash(curl -sL \"https://docs.google.com/document/d/1mpT03MyXtV1tW-j2uFbG7KvdnYqJKnBOc2GyTBw5hcE/export?format=txt\" -o gdd3.txt)"
     ],
     "defaultMode": "plan"
   }

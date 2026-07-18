@@ -94,6 +94,41 @@ export const LAST_CHANCES_EQUIP_MODES = [
   'secondaryOnly',
   'hybrid',
 ] as const
+export const LAST_CHANCES_CONTROL_SCHEMES = ['legacy', 'mylorik', 'dualsense'] as const
+export const LAST_CHANCES_CONTROL_INTENTS = ['strike', 'technique', 'mobility'] as const
+export const LAST_CHANCES_CONTROL_PHASES = ['press', 'tap', 'hold', 'release'] as const
+export const LAST_CHANCES_CONTROL_CONTEXTS = [
+  'neutral',
+  'continuation',
+  'opening',
+  'grapple',
+  'tether',
+  'spin',
+  'dash',
+  'stance',
+  'flurry',
+] as const
+export const LAST_CHANCES_TACTILE_PROFILES = [
+  'click',
+  'ramp',
+  'bandLight',
+  'bandMedium',
+  'bandStrong',
+  'gate',
+  'followUp',
+  'blocked',
+  'impact',
+  'tension',
+] as const
+export const LAST_CHANCES_FEEDBACK_MODES = ['off', 'reduced', 'full'] as const
+export const LAST_CHANCES_FEEDBACK_STATES = [
+  'ready',
+  'charge',
+  'continuation',
+  'tension',
+  'blocked',
+  'impact',
+] as const
 
 export type LastChancesHand = typeof LAST_CHANCES_HANDS[number]
 export type LastChancesGesture = typeof LAST_CHANCES_GESTURES[number]
@@ -112,6 +147,14 @@ export type LastChancesZoneShape = typeof LAST_CHANCES_ZONE_SHAPES[number]
 export type LastChancesArenaEdge = typeof LAST_CHANCES_ARENA_EDGES[number]
 export type LastChancesHazardKind = typeof LAST_CHANCES_HAZARD_KINDS[number]
 export type LastChancesEquipMode = typeof LAST_CHANCES_EQUIP_MODES[number]
+export type LastChancesControlScheme = typeof LAST_CHANCES_CONTROL_SCHEMES[number]
+export type LastChancesControlIntent = typeof LAST_CHANCES_CONTROL_INTENTS[number]
+export type LastChancesControlPhase = typeof LAST_CHANCES_CONTROL_PHASES[number]
+export type LastChancesControlContext = typeof LAST_CHANCES_CONTROL_CONTEXTS[number]
+export type LastChancesTactileProfile = typeof LAST_CHANCES_TACTILE_PROFILES[number]
+export type LastChancesFeedbackMode = typeof LAST_CHANCES_FEEDBACK_MODES[number]
+export type LastChancesFeedbackState = typeof LAST_CHANCES_FEEDBACK_STATES[number]
+export type LastChancesFeedbackTier = 0 | 1 | 2
 export type LastChancesPhase = 'planning' | 'playing' | 'interaction' | 'dead' | 'won' | 'outOfChances'
 export type LastChancesEnemyState = 'idle' | 'noticing' | 'alerted' | 'chasing' | 'attacking' | 'dead'
 export type LastChancesRoomArchetype =
@@ -273,6 +316,53 @@ export interface LastChancesAttackDefinition {
   consumeAllResource?: boolean
 }
 
+export interface LastChancesMylorikActivationDefinition {
+  gesture: LastChancesGesture
+  intent: LastChancesControlIntent
+  phase: LastChancesControlPhase
+  /** Omitted means the activation is unconditional for its intent and phase. */
+  context?: LastChancesControlContext
+  priority: number
+  /** Enabled legacy slots may opt out only with an explicit designer-facing reason. */
+  legacyOnlyReason?: string
+}
+
+export interface LastChancesDualSenseComboNodeDefinition {
+  id: string
+  gesture: LastChancesGesture
+  entryContext: LastChancesControlContext
+  activationThreshold: number
+  dispatch: 'press' | 'release'
+  holdBehavior: 'none' | 'charge' | 'channel'
+  releaseBehavior: 'dispatch' | 'cancel'
+  next: string[]
+  cancel: 'release' | 'expiry'
+  expiryMs: number
+  tactileProfile: LastChancesTactileProfile
+  /** Existing hold-charge band that must be armed before this branch becomes legal. */
+  requiredChargeBandId?: string
+  adaptiveOverride?: Partial<LastChancesAdaptiveTriggerProfileDefinition>
+}
+
+export interface LastChancesAttackSetControlDefinition {
+  /** Short player-facing description of the physical trigger/bumper role. */
+  role: string
+  mylorik: {
+    activations: LastChancesMylorikActivationDefinition[]
+  }
+  dualsense: {
+    instantGesture: LastChancesGesture
+    triggerRole: string
+    startNodeId: string | null
+    nodes: LastChancesDualSenseComboNodeDefinition[]
+  }
+}
+
+export interface LastChancesWeaponControlDefinition {
+  primary: LastChancesAttackSetControlDefinition
+  secondary?: LastChancesAttackSetControlDefinition
+}
+
 export interface LastChancesWeaponDefinition {
   id: string
   name: string
@@ -297,6 +387,8 @@ export interface LastChancesWeaponDefinition {
   secondaryAttacks?: Record<LastChancesGesture, LastChancesAttackDefinition>
   /** Follow-ups after secondaryAttacks.tap. */
   secondaryTapCombo?: LastChancesAttackDefinition[]
+  /** Schema-v4 semantic bindings; gameplay attacks remain the stable gesture slots above. */
+  controls?: LastChancesWeaponControlDefinition
 }
 
 export interface LastChancesLoadoutDefinition {
@@ -318,6 +410,7 @@ export interface LastChancesResolvedWeapon {
   augment: LastChancesAugment
   augmentHooks?: Partial<Record<LastChancesAugment, LastChancesAugmentHookDefinition>>
   tuning?: Record<string, number>
+  controls?: LastChancesAttackSetControlDefinition
 }
 
 export interface LastChancesEnemyBossPhaseDefinition {
@@ -495,8 +588,87 @@ export interface LastChancesNarrativeDefinition {
   exhaustedDeathThreshold: number
 }
 
+export interface LastChancesMylorikInputDefinition {
+  techniqueHoldMs: number
+  bufferMs: number
+  continuationWindowMs: number
+  gamepad: {
+    leftBumper: number
+    rightBumper: number
+    leftTrigger: number
+    rightTrigger: number
+    mobilityButton: number
+    interactButton: number
+  }
+  keyboard: {
+    leftTechniqueKeys: string[]
+    rightTechniqueKeys: string[]
+    mobilityKeys: string[]
+    interactKeys: string[]
+    leftStrikeMouseButton: number
+    rightStrikeMouseButton: number
+  }
+}
+
+export interface LastChancesAdaptiveTriggerProfileDefinition {
+  startPosition: number
+  endPosition: number
+  resistance: number
+  force: number
+  transitionMs: number
+  effectMs: number
+  magnitude: number
+}
+
+export interface LastChancesDualSenseInputDefinition {
+  activationThreshold: number
+  releaseThreshold: number
+  hysteresis: number
+  gamepad: {
+    leftBumper: number
+    rightBumper: number
+    leftTrigger: number
+    rightTrigger: number
+    circle: number
+    cross: number
+    options: number
+  }
+  keyboard: LastChancesMylorikInputDefinition['keyboard']
+  gatePositions: {
+    shallow: number
+    medium: number
+    deep: number
+    final: number
+  }
+  feedback: {
+    maxMagnitude: number
+    maxDurationMs: number
+    blockedRepeatMs: number
+    profiles: Record<LastChancesTactileProfile, LastChancesAdaptiveTriggerProfileDefinition>
+  }
+}
+
+export interface LastChancesInputDefinition {
+  /** DeepList gesture recognizer and its complete legacy bindings. */
+  doubleTapMs: number
+  /** Basic-tap combo progress resets after this much game time without another tap. */
+  tapComboWindowMs?: number
+  holdMs: number
+  holdMaxMs: number
+  holdThenDoubleTapWindowMs: number
+  aimDeadZone: number
+  gamepadDeadZone: number
+  gamepadLeftButton: number
+  gamepadRightButton: number
+  leftKeys: string[]
+  rightKeys: string[]
+  /** Schema-v4 semantic control recognizers. */
+  mylorik?: LastChancesMylorikInputDefinition
+  dualsense?: LastChancesDualSenseInputDefinition
+}
+
 export interface LastChancesConfig {
-  schemaVersion: 1 | 2 | 3
+  schemaVersion: 1 | 2 | 3 | 4
   title: string
   seed: string
   chances: number
@@ -504,20 +676,7 @@ export interface LastChancesConfig {
     choicesPerNode: number
     generationSeedStep: number
   }
-  input: {
-    doubleTapMs: number
-    /** Basic-tap combo progress resets after this much game time without another tap. */
-    tapComboWindowMs?: number
-    holdMs: number
-    holdMaxMs: number
-    holdThenDoubleTapWindowMs: number
-    aimDeadZone: number
-    gamepadDeadZone: number
-    gamepadLeftButton: number
-    gamepadRightButton: number
-    leftKeys: string[]
-    rightKeys: string[]
-  }
+  input: LastChancesInputDefinition
   player: {
     radius: number
     invulnerabilityMs: number
@@ -767,6 +926,33 @@ export interface LastChancesGamepadSnapshot {
   profile: LastChancesGamepadProfile | null
 }
 
+export interface LastChancesSemanticControlCue {
+  hand: LastChancesHand | null
+  intent: LastChancesControlIntent | null
+  state: LastChancesFeedbackState
+  gesture: LastChancesGesture | null
+  label: string
+  tactileProfile: LastChancesTactileProfile | null
+  atMs: number
+}
+
+export interface LastChancesControlRoleSnapshot {
+  hand: LastChancesHand
+  instantMove: string
+  techniqueOrTrigger: string
+  nextGate: string | null
+}
+
+export interface LastChancesFeedbackSnapshot {
+  tier: LastChancesFeedbackTier
+  status: 'controls-only' | 'vibration' | 'enhanced' | 'unavailable' | 'error'
+  mode: LastChancesFeedbackMode
+  intensity: number
+  reducedHaptics: boolean
+  permission: 'not-requested' | 'granted' | 'denied' | 'unavailable'
+  message: string | null
+}
+
 export interface LastChancesSnapshot {
   phase: LastChancesPhase
   paused: boolean
@@ -793,13 +979,20 @@ export interface LastChancesSnapshot {
   moveQuests: LastChancesMoveQuestSnapshot[]
   swarm: LastChancesSwarmSnapshot | null
   interactionPrompt: string | null
+  controlScheme: LastChancesControlScheme
+  controlCue: LastChancesSemanticControlCue | null
+  controlRoles: LastChancesControlRoleSnapshot[]
+  feedback: LastChancesFeedbackSnapshot
   gamepad: LastChancesGamepadSnapshot
   selectedNodeId: string | null
+  selectedInteractionChoiceId: string | null
 }
 
 export interface LastChancesEngineCallbacks {
   onSnapshot?: (snapshot: LastChancesSnapshot) => void
   onPlan?: (plan: LastChancesGamePlan) => void
+  /** Page-owned story/overlay bridge for controller-only confirmation and back. */
+  onUiCommand?: (command: 'confirm' | 'back' | 'pause') => boolean
 }
 
 export interface LastChancesConfigValidation {

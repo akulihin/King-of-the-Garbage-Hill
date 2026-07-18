@@ -3,6 +3,9 @@ import {
   LAST_CHANCES_ATTACK_KINDS,
   LAST_CHANCES_AUGMENTS,
   LAST_CHANCES_COLLIDER_SHAPES,
+  LAST_CHANCES_CONTROL_CONTEXTS,
+  LAST_CHANCES_CONTROL_INTENTS,
+  LAST_CHANCES_CONTROL_PHASES,
   LAST_CHANCES_DAMAGE_TYPES,
   LAST_CHANCES_ENEMY_ATTACK_KINDS,
   LAST_CHANCES_ENEMY_ROLES,
@@ -12,6 +15,7 @@ import {
   LAST_CHANCES_HANDS,
   LAST_CHANCES_STATUS_KINDS,
   LAST_CHANCES_STATUS_REFRESH_MODES,
+  LAST_CHANCES_TACTILE_PROFILES,
   LAST_CHANCES_WEAPON_RESOURCE_KINDS,
   LAST_CHANCES_WEAPON_TRAITS,
   LAST_CHANCES_ZONE_SHAPES,
@@ -19,6 +23,14 @@ import {
 import type {
   LastChancesConfig,
   LastChancesConfigValidation,
+  LastChancesAttackDefinition,
+  LastChancesAttackSetControlDefinition,
+  LastChancesDualSenseInputDefinition,
+  LastChancesMylorikActivationDefinition,
+  LastChancesMylorikInputDefinition,
+  LastChancesGesture,
+  LastChancesTactileProfile,
+  LastChancesWeaponDefinition,
   LoadLastChancesConfigOptions,
 } from './types'
 
@@ -26,6 +38,573 @@ export const LAST_CHANCES_CONFIG_URL = '/99lc/game-config.json'
 export const LAST_CHANCES_CONFIG_STORAGE_KEY = '99lc:game-config'
 
 type UnknownRecord = Record<string, unknown>
+
+const CURRENT_LAST_CHANCES_SCHEMA_VERSION = 4
+const MAX_GAMEPAD_BUTTON_INDEX = 31
+const MAX_FEEDBACK_DURATION_MS = 2_000
+const MAX_CONTROL_EXPIRY_MS = 10_000
+
+const LEGACY_SHIPPED_WEAPON_TRAITS: Record<
+  string,
+  typeof LAST_CHANCES_WEAPON_TRAITS[number]
+> = {
+  'twohand-spear': 'spearDistance',
+  'secondary-chain': 'chainDotCarrier',
+  'either-claws': 'clawParity',
+  'secondary-spider-knife': 'spiderDurability',
+  'twohand-axe': 'axeHookRecovery',
+  'twohand-katana': 'katanaFlow',
+  'hybrid-sword': 'swordRhythm',
+}
+
+const DEFAULT_MYLORIK_INPUT: LastChancesMylorikInputDefinition = {
+  techniqueHoldMs: 650,
+  bufferMs: 150,
+  continuationWindowMs: 480,
+  gamepad: {
+    leftBumper: 4,
+    rightBumper: 5,
+    leftTrigger: 6,
+    rightTrigger: 7,
+    mobilityButton: 1,
+    interactButton: 0,
+  },
+  keyboard: {
+    leftTechniqueKeys: ['KeyQ'],
+    rightTechniqueKeys: ['KeyE'],
+    mobilityKeys: ['Space'],
+    interactKeys: ['KeyF'],
+    leftStrikeMouseButton: 0,
+    rightStrikeMouseButton: 2,
+  },
+}
+
+const DEFAULT_ADAPTIVE_PROFILES: LastChancesDualSenseInputDefinition['feedback']['profiles'] = {
+  click: {
+    startPosition: 0.18,
+    endPosition: 0.3,
+    resistance: 0.24,
+    force: 0.28,
+    transitionMs: 35,
+    effectMs: 90,
+    magnitude: 0.22,
+  },
+  ramp: {
+    startPosition: 0.22,
+    endPosition: 0.86,
+    resistance: 0.3,
+    force: 0.55,
+    transitionMs: 140,
+    effectMs: 600,
+    magnitude: 0.38,
+  },
+  bandLight: {
+    startPosition: 0.2,
+    endPosition: 0.38,
+    resistance: 0.22,
+    force: 0.25,
+    transitionMs: 30,
+    effectMs: 80,
+    magnitude: 0.2,
+  },
+  bandMedium: {
+    startPosition: 0.4,
+    endPosition: 0.62,
+    resistance: 0.34,
+    force: 0.42,
+    transitionMs: 35,
+    effectMs: 95,
+    magnitude: 0.34,
+  },
+  bandStrong: {
+    startPosition: 0.64,
+    endPosition: 0.84,
+    resistance: 0.48,
+    force: 0.58,
+    transitionMs: 40,
+    effectMs: 110,
+    magnitude: 0.48,
+  },
+  gate: {
+    startPosition: 0.48,
+    endPosition: 0.78,
+    resistance: 0.52,
+    force: 0.62,
+    transitionMs: 70,
+    effectMs: 320,
+    magnitude: 0.46,
+  },
+  followUp: {
+    startPosition: 0.3,
+    endPosition: 0.56,
+    resistance: 0.3,
+    force: 0.36,
+    transitionMs: 45,
+    effectMs: 140,
+    magnitude: 0.3,
+  },
+  blocked: {
+    startPosition: 0.12,
+    endPosition: 0.34,
+    resistance: 0.46,
+    force: 0.42,
+    transitionMs: 45,
+    effectMs: 160,
+    magnitude: 0.32,
+  },
+  impact: {
+    startPosition: 0.16,
+    endPosition: 0.44,
+    resistance: 0.38,
+    force: 0.5,
+    transitionMs: 25,
+    effectMs: 120,
+    magnitude: 0.55,
+  },
+  tension: {
+    startPosition: 0.26,
+    endPosition: 0.82,
+    resistance: 0.44,
+    force: 0.58,
+    transitionMs: 100,
+    effectMs: 520,
+    magnitude: 0.4,
+  },
+}
+
+const DEFAULT_DUALSENSE_INPUT: LastChancesDualSenseInputDefinition = {
+  activationThreshold: 0.22,
+  releaseThreshold: 0.14,
+  hysteresis: 0.08,
+  gamepad: {
+    leftBumper: 4,
+    rightBumper: 5,
+    leftTrigger: 6,
+    rightTrigger: 7,
+    circle: 1,
+    cross: 0,
+    options: 9,
+  },
+  keyboard: JSON.parse(JSON.stringify(DEFAULT_MYLORIK_INPUT.keyboard)) as LastChancesMylorikInputDefinition['keyboard'],
+  gatePositions: {
+    shallow: 0.22,
+    medium: 0.48,
+    deep: 0.72,
+    final: 0.9,
+  },
+  feedback: {
+    maxMagnitude: 0.7,
+    maxDurationMs: 900,
+    blockedRepeatMs: 240,
+    profiles: DEFAULT_ADAPTIVE_PROFILES,
+  },
+}
+
+type MylorikActivationWithoutGesture = Omit<LastChancesMylorikActivationDefinition, 'gesture'>
+type DualSenseNodeSeed = Omit<
+  LastChancesAttackSetControlDefinition['dualsense']['nodes'][number],
+  'id'
+>
+
+interface AttackSetControlSeed {
+  role: string
+  triggerRole: string
+  mylorik: Partial<Record<LastChancesGesture, MylorikActivationWithoutGesture>>
+  dualsense: DualSenseNodeSeed[]
+}
+
+function mylorikActivation(
+  intent: MylorikActivationWithoutGesture['intent'],
+  phase: MylorikActivationWithoutGesture['phase'],
+  context?: MylorikActivationWithoutGesture['context'],
+  priority = context ? 80 : 100,
+): MylorikActivationWithoutGesture {
+  return { intent, phase, ...(context ? { context } : {}), priority }
+}
+
+function dualSenseNode(
+  gesture: LastChancesGesture,
+  entryContext: DualSenseNodeSeed['entryContext'],
+  activationThreshold: number,
+  options: Partial<Omit<DualSenseNodeSeed, 'gesture' | 'entryContext' | 'activationThreshold'>> = {},
+): DualSenseNodeSeed {
+  return {
+    gesture,
+    entryContext,
+    activationThreshold,
+    dispatch: options.dispatch ?? 'release',
+    holdBehavior: options.holdBehavior ?? 'none',
+    releaseBehavior: options.releaseBehavior ?? (options.dispatch === 'press' ? 'cancel' : 'dispatch'),
+    next: options.next ?? [],
+    cancel: options.cancel ?? 'release',
+    expiryMs: options.expiryMs ?? 480,
+    tactileProfile: options.tactileProfile ?? 'click',
+    ...(options.requiredChargeBandId ? { requiredChargeBandId: options.requiredChargeBandId } : {}),
+    ...(options.adaptiveOverride ? { adaptiveOverride: options.adaptiveOverride } : {}),
+  }
+}
+
+const ATTACK_SET_CONTROL_SEEDS: Record<string, AttackSetControlSeed> = {
+  'twohand-spear:primary': {
+    role: 'Right cluster — lance gearbox',
+    triggerRole: 'R2 thrust, overhead release, ram and spin',
+    mylorik: {
+      tap: mylorikActivation('strike', 'press'),
+      doubleTap: mylorikActivation('technique', 'tap'),
+      doubleTapHold: mylorikActivation('strike', 'press', 'continuation'),
+      hold: mylorikActivation('technique', 'hold'),
+      holdThenDoubleTap: mylorikActivation('mobility', 'press', 'continuation'),
+    },
+    dualsense: [
+      dualSenseNode('doubleTap', 'neutral', 0.22, { next: ['hold', 'doubleTapHold'] }),
+      dualSenseNode('hold', 'neutral', 0.48, {
+        holdBehavior: 'charge',
+        next: ['holdThenDoubleTap'],
+        tactileProfile: 'ramp',
+      }),
+      dualSenseNode('doubleTapHold', 'continuation', 0.72, {
+        holdBehavior: 'charge',
+        tactileProfile: 'gate',
+      }),
+      dualSenseNode('holdThenDoubleTap', 'continuation', 0.9, {
+        dispatch: 'press',
+        requiredChargeBandId: 'middle',
+        tactileProfile: 'followUp',
+      }),
+    ],
+  },
+  'twohand-spear:secondary': {
+    role: 'Left cluster — parry, brace, stance and vault',
+    triggerRole: 'L2 shove, brace, cutting stance and pole vault',
+    mylorik: {
+      tap: mylorikActivation('strike', 'press'),
+      doubleTap: mylorikActivation('technique', 'tap'),
+      doubleTapHold: mylorikActivation('strike', 'press', 'continuation'),
+      hold: mylorikActivation('technique', 'hold'),
+      holdThenDoubleTap: mylorikActivation('mobility', 'press', 'stance'),
+    },
+    dualsense: [
+      dualSenseNode('doubleTap', 'neutral', 0.22, { next: ['hold', 'doubleTapHold'] }),
+      dualSenseNode('hold', 'neutral', 0.48, {
+        dispatch: 'press',
+        holdBehavior: 'channel',
+        releaseBehavior: 'dispatch',
+        next: ['holdThenDoubleTap'],
+        tactileProfile: 'tension',
+      }),
+      dualSenseNode('doubleTapHold', 'continuation', 0.72, {
+        holdBehavior: 'charge',
+        tactileProfile: 'gate',
+      }),
+      dualSenseNode('holdThenDoubleTap', 'stance', 0.9, {
+        dispatch: 'release',
+        tactileProfile: 'followUp',
+      }),
+    ],
+  },
+  'secondary-chain:primary': {
+    role: 'Matching hand — lash and tension spool',
+    triggerRole: 'Trigger cast, spin, drag, throw and bind',
+    mylorik: {
+      tap: mylorikActivation('strike', 'press'),
+      doubleTap: mylorikActivation('technique', 'tap'),
+      doubleTapHold: mylorikActivation('mobility', 'press', 'spin'),
+      hold: mylorikActivation('technique', 'hold'),
+      holdThenDoubleTap: mylorikActivation('strike', 'press', 'tether'),
+    },
+    dualsense: [
+      dualSenseNode('hold', 'neutral', 0.22, {
+        holdBehavior: 'charge',
+        next: ['doubleTap', 'holdThenDoubleTap'],
+        tactileProfile: 'tension',
+      }),
+      dualSenseNode('doubleTap', 'neutral', 0.48, {
+        dispatch: 'press',
+        next: ['doubleTapHold'],
+        tactileProfile: 'gate',
+      }),
+      dualSenseNode('doubleTapHold', 'spin', 0.72, {
+        holdBehavior: 'charge',
+        tactileProfile: 'gate',
+      }),
+      dualSenseNode('holdThenDoubleTap', 'tether', 0.9, {
+        dispatch: 'press',
+        tactileProfile: 'gate',
+      }),
+    ],
+  },
+  'either-claws:primary': {
+    role: 'Matching hand — slash and predator spring',
+    triggerRole: 'Trigger rend, traversal, disarm and deep critical',
+    mylorik: {
+      tap: mylorikActivation('strike', 'press'),
+      doubleTap: mylorikActivation('technique', 'tap'),
+      doubleTapHold: mylorikActivation('strike', 'press', 'continuation'),
+      hold: mylorikActivation('mobility', 'hold'),
+      holdThenDoubleTap: mylorikActivation('strike', 'press', 'dash', 90),
+    },
+    dualsense: [
+      dualSenseNode('doubleTap', 'neutral', 0.22, { next: ['hold'] }),
+      dualSenseNode('hold', 'neutral', 0.48, {
+        holdBehavior: 'charge',
+        next: ['doubleTapHold', 'holdThenDoubleTap'],
+        tactileProfile: 'ramp',
+      }),
+      dualSenseNode('doubleTapHold', 'neutral', 0.72, {
+        tactileProfile: 'gate',
+      }),
+      dualSenseNode('holdThenDoubleTap', 'dash', 0.9, {
+        dispatch: 'press',
+        tactileProfile: 'followUp',
+      }),
+    ],
+  },
+  'secondary-spider-knife:primary': {
+    role: 'Matching hand — slash and ratcheting impale',
+    triggerRole: 'Trigger impale, flurry, twist and committed throw',
+    mylorik: {
+      tap: mylorikActivation('strike', 'press'),
+      doubleTap: mylorikActivation('technique', 'tap'),
+      doubleTapHold: mylorikActivation('mobility', 'release', 'continuation'),
+      hold: mylorikActivation('technique', 'hold'),
+      holdThenDoubleTap: mylorikActivation('strike', 'press', 'flurry'),
+    },
+    dualsense: [
+      dualSenseNode('doubleTap', 'neutral', 0.22, { next: ['hold', 'doubleTapHold'] }),
+      dualSenseNode('hold', 'neutral', 0.48, {
+        dispatch: 'press',
+        holdBehavior: 'channel',
+        releaseBehavior: 'dispatch',
+        next: ['holdThenDoubleTap'],
+        tactileProfile: 'tension',
+      }),
+      dualSenseNode('holdThenDoubleTap', 'flurry', 0.72, {
+        tactileProfile: 'gate',
+      }),
+      dualSenseNode('doubleTapHold', 'neutral', 0.9, {
+        holdBehavior: 'charge',
+        tactileProfile: 'gate',
+      }),
+    ],
+  },
+  'twohand-axe:primary': {
+    role: 'Right cluster — chop and grapple lever',
+    triggerRole: 'R2 grapple, maintain, aim and throw',
+    mylorik: {
+      tap: mylorikActivation('strike', 'press'),
+      doubleTap: mylorikActivation('technique', 'tap'),
+      doubleTapHold: mylorikActivation('technique', 'hold', 'grapple'),
+    },
+    dualsense: [
+      dualSenseNode('doubleTap', 'neutral', 0.22, {
+        dispatch: 'press',
+        next: ['doubleTapHold'],
+        tactileProfile: 'gate',
+      }),
+      dualSenseNode('doubleTapHold', 'grapple', 0.72, {
+        holdBehavior: 'charge',
+        tactileProfile: 'tension',
+      }),
+    ],
+  },
+  'twohand-axe:secondary': {
+    role: 'Left cluster — long parry and flywheel',
+    triggerRole: 'L2 reflecting spin and momentum leap',
+    mylorik: {
+      tap: mylorikActivation('strike', 'press'),
+      hold: mylorikActivation('technique', 'hold'),
+      holdThenDoubleTap: mylorikActivation('mobility', 'press', 'spin'),
+    },
+    dualsense: [
+      dualSenseNode('hold', 'neutral', 0.22, {
+        dispatch: 'press',
+        holdBehavior: 'channel',
+        releaseBehavior: 'dispatch',
+        next: ['holdThenDoubleTap'],
+        tactileProfile: 'ramp',
+      }),
+      dualSenseNode('holdThenDoubleTap', 'spin', 0.72, {
+        dispatch: 'release',
+        tactileProfile: 'followUp',
+      }),
+    ],
+  },
+  'twohand-katana:primary': {
+    role: 'Right cluster — cut and draw-and-flow rail',
+    triggerRole: 'R2 overhead, charge, flurry and dance',
+    mylorik: {
+      tap: mylorikActivation('strike', 'press'),
+      doubleTap: mylorikActivation('technique', 'tap'),
+      doubleTapHold: mylorikActivation('strike', 'press', 'continuation'),
+      hold: mylorikActivation('technique', 'hold'),
+      holdThenDoubleTap: mylorikActivation('mobility', 'press', 'continuation'),
+    },
+    dualsense: [
+      dualSenseNode('doubleTap', 'neutral', 0.22, { next: ['hold', 'doubleTapHold'] }),
+      dualSenseNode('hold', 'neutral', 0.48, {
+        holdBehavior: 'charge',
+        next: ['holdThenDoubleTap'],
+        tactileProfile: 'ramp',
+      }),
+      dualSenseNode('doubleTapHold', 'continuation', 0.72, {
+        tactileProfile: 'gate',
+      }),
+      dualSenseNode('holdThenDoubleTap', 'continuation', 0.9, {
+        dispatch: 'press',
+        requiredChargeBandId: 'katana-charge',
+        tactileProfile: 'followUp',
+      }),
+    ],
+  },
+  'twohand-katana:secondary': {
+    role: 'Left cluster — parry and movement/sheath rail',
+    triggerRole: 'L2 hop, hop-slash, Iaido and Flash',
+    mylorik: {
+      tap: mylorikActivation('strike', 'press'),
+      doubleTap: mylorikActivation('technique', 'tap'),
+      doubleTapHold: mylorikActivation('strike', 'press', 'continuation'),
+      hold: mylorikActivation('technique', 'hold'),
+      holdThenDoubleTap: mylorikActivation('mobility', 'press', 'continuation'),
+    },
+    dualsense: [
+      dualSenseNode('doubleTap', 'neutral', 0.22, { next: ['hold', 'doubleTapHold'] }),
+      dualSenseNode('hold', 'neutral', 0.48, {
+        holdBehavior: 'charge',
+        next: ['holdThenDoubleTap'],
+        tactileProfile: 'ramp',
+      }),
+      dualSenseNode('doubleTapHold', 'continuation', 0.72, {
+        tactileProfile: 'gate',
+      }),
+      dualSenseNode('holdThenDoubleTap', 'continuation', 0.9, {
+        dispatch: 'press',
+        requiredChargeBandId: 'iaido-ready',
+        tactileProfile: 'followUp',
+      }),
+    ],
+  },
+  'hybrid-sword:primary': {
+    role: 'Matching hand — Zornhau and opening breaker',
+    triggerRole: 'Trigger opening, Oberhau and delayed Unterhau',
+    mylorik: {
+      tap: mylorikActivation('strike', 'press'),
+      doubleTap: mylorikActivation('technique', 'tap', 'opening'),
+      doubleTapHold: mylorikActivation('technique', 'hold', 'opening'),
+    },
+    dualsense: [
+      dualSenseNode('doubleTap', 'opening', 0.22, { next: ['doubleTapHold'], tactileProfile: 'followUp' }),
+      dualSenseNode('doubleTapHold', 'opening', 0.72, {
+        holdBehavior: 'charge',
+        tactileProfile: 'gate',
+      }),
+    ],
+  },
+  'hybrid-sword:secondary': {
+    role: 'Matching hand — Zornhau and opening breaker',
+    triggerRole: 'Trigger opening, Oberhau and delayed Unterhau',
+    mylorik: {
+      tap: mylorikActivation('strike', 'press'),
+      doubleTap: mylorikActivation('technique', 'tap', 'opening'),
+      doubleTapHold: mylorikActivation('technique', 'hold', 'opening'),
+    },
+    dualsense: [
+      dualSenseNode('doubleTap', 'opening', 0.22, { next: ['doubleTapHold'], tactileProfile: 'followUp' }),
+      dualSenseNode('doubleTapHold', 'opening', 0.72, {
+        holdBehavior: 'charge',
+        tactileProfile: 'gate',
+      }),
+    ],
+  },
+}
+
+function buildAttackSetControls(
+  seed: AttackSetControlSeed,
+  attacks: Record<LastChancesGesture, LastChancesAttackDefinition>,
+): LastChancesAttackSetControlDefinition {
+  const enabledGestures = new Set(LAST_CHANCES_GESTURES.filter((gesture) => {
+    const attack = attacks[gesture]
+    return attack.enabled !== false && attack.behavior !== 'disabled'
+  }))
+  const activations = LAST_CHANCES_GESTURES.flatMap((gesture) => {
+    const activation = seed.mylorik[gesture]
+    return enabledGestures.has(gesture) && activation ? [{ gesture, ...activation }] : []
+  })
+  const nodes = seed.dualsense
+    .filter(node => enabledGestures.has(node.gesture))
+    .map(node => ({
+      ...node,
+      id: node.gesture,
+      next: node.next.filter(nextId => enabledGestures.has(nextId as LastChancesGesture)),
+    }))
+  return {
+    role: seed.role,
+    mylorik: { activations },
+    dualsense: {
+      instantGesture: 'tap',
+      triggerRole: seed.triggerRole,
+      startNodeId: nodes[0]?.id ?? null,
+      nodes,
+    },
+  }
+}
+
+function migratedWeaponControls(weapon: LastChancesWeaponDefinition): LastChancesWeaponDefinition['controls'] {
+  const primarySeed = ATTACK_SET_CONTROL_SEEDS[`${weapon.id}:primary`]
+  const primary = primarySeed
+    ? buildAttackSetControls(primarySeed, weapon.attacks)
+    : buildLegacyAttackSetControls(weapon.attacks, `${weapon.name} legacy controls`)
+  if (!weapon.secondaryAttacks) return { primary }
+  const secondarySeed = ATTACK_SET_CONTROL_SEEDS[`${weapon.id}:secondary`]
+  return {
+    primary,
+    secondary: secondarySeed
+      ? buildAttackSetControls(secondarySeed, weapon.secondaryAttacks)
+      : buildLegacyAttackSetControls(weapon.secondaryAttacks, `${weapon.name} legacy support controls`),
+  }
+}
+
+function buildLegacyAttackSetControls(
+  attacks: Record<LastChancesGesture, LastChancesAttackDefinition>,
+  role: string,
+): LastChancesAttackSetControlDefinition {
+  const enabled = LAST_CHANCES_GESTURES.filter((gesture) => {
+    const attack = attacks[gesture]
+    return attack.enabled !== false && attack.behavior !== 'disabled'
+  })
+  const activationByGesture: Record<LastChancesGesture, MylorikActivationWithoutGesture> = {
+    tap: mylorikActivation('strike', 'press'),
+    doubleTap: mylorikActivation('technique', 'tap'),
+    doubleTapHold: mylorikActivation('strike', 'press', 'continuation'),
+    hold: mylorikActivation('technique', 'hold'),
+    holdThenDoubleTap: mylorikActivation('mobility', 'press', 'continuation'),
+  }
+  const routeGestures = (['doubleTap', 'hold', 'doubleTapHold', 'holdThenDoubleTap'] as const)
+    .filter(gesture => enabled.includes(gesture))
+  const gatePositions = [
+    DEFAULT_DUALSENSE_INPUT.gatePositions.shallow,
+    DEFAULT_DUALSENSE_INPUT.gatePositions.medium,
+    DEFAULT_DUALSENSE_INPUT.gatePositions.deep,
+    DEFAULT_DUALSENSE_INPUT.gatePositions.final,
+  ]
+  const nodes = routeGestures.map((gesture, index) => dualSenseNode(
+    gesture,
+    index === 0 ? 'neutral' : 'continuation',
+    gatePositions[index],
+    { next: routeGestures[index + 1] ? [routeGestures[index + 1]] : [] },
+  )).map((node, index) => ({ ...node, id: routeGestures[index] }))
+  return {
+    role,
+    mylorik: {
+      activations: enabled.map(gesture => ({ gesture, ...activationByGesture[gesture] })),
+    },
+    dualsense: {
+      instantGesture: 'tap',
+      triggerRole: `${role} trigger route`,
+      startNodeId: nodes[0]?.id ?? null,
+      nodes,
+    },
+  }
+}
 
 const LEGACY_SPAWN_RELOCATIONS: Record<string, Record<string, { x: number, y: number }>> = {
   'chest-gallery': {
@@ -49,15 +628,12 @@ export class LastChancesConfigError extends Error {
   }
 }
 
-/**
- * Repairs the concrete schema-v1 definition that shipped before geometry and
- * cooldown invariants were enforced. Schema v2 is never rewritten here.
- */
-export function migrateLastChancesConfig(value: unknown): unknown {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)
-    || (value as UnknownRecord).schemaVersion !== 1) return value
-  const migrated = JSON.parse(JSON.stringify(value)) as UnknownRecord
+function cloneUnknown<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value)) as T
+}
 
+/** Repairs the concrete schema-v1 definition that shipped before strict validation. */
+function repairSchemaV1(migrated: UnknownRecord): void {
   if (Array.isArray(migrated.weapons)) {
     migrated.weapons.forEach((weaponValue) => {
       if (typeof weaponValue !== 'object' || weaponValue === null || Array.isArray(weaponValue)) return
@@ -107,6 +683,258 @@ export function migrateLastChancesConfig(value: unknown): unknown {
     })
   }
 
+}
+
+function migrateSchemaV1ToV2(migrated: UnknownRecord): void {
+  const input = typeof migrated.input === 'object' && migrated.input !== null
+    && !Array.isArray(migrated.input) ? migrated.input as UnknownRecord : null
+  if (input && input.tapComboWindowMs === undefined) input.tapComboWindowMs = 900
+
+  if (Array.isArray(migrated.rooms)) {
+    migrated.rooms.forEach((roomValue, index) => {
+      if (typeof roomValue !== 'object' || roomValue === null || Array.isArray(roomValue)) return
+      const room = roomValue as UnknownRecord
+      if (room.spawnLayouts !== undefined || !Array.isArray(room.enemySpawns)) return
+      const id = typeof room.id === 'string' ? room.id : `room-${index + 1}`
+      const name = typeof room.name === 'string' ? room.name : id
+      room.spawnLayouts = [
+        { id: `${id}-legacy-a`, name: `${name} A`, enemySpawns: cloneUnknown(room.enemySpawns) },
+        { id: `${id}-legacy-b`, name: `${name} B`, enemySpawns: cloneUnknown(room.enemySpawns) },
+      ]
+      delete room.enemySpawns
+    })
+  }
+
+  if (Array.isArray(migrated.enemies)) {
+    migrated.enemies.forEach((enemyValue) => {
+      if (typeof enemyValue !== 'object' || enemyValue === null || Array.isArray(enemyValue)) return
+      const enemy = enemyValue as UnknownRecord
+      if (enemy.idleTurnRadiansPerSecond === undefined) enemy.idleTurnRadiansPerSecond = 0
+      if (enemy.preferredAttackRangeRatio === undefined) enemy.preferredAttackRangeRatio = 0.75
+    })
+  }
+
+  let primaryWeaponId: string | null = null
+  let secondaryWeaponId: string | null = null
+  if (Array.isArray(migrated.weapons)) {
+    migrated.weapons.forEach((weaponValue) => {
+      if (typeof weaponValue !== 'object' || weaponValue === null || Array.isArray(weaponValue)) return
+      const weapon = weaponValue as UnknownRecord
+      const hand = weapon.hand
+      if (hand === 'left' && typeof weapon.id === 'string') primaryWeaponId ??= weapon.id
+      if (hand === 'right' && typeof weapon.id === 'string') secondaryWeaponId ??= weapon.id
+      if (weapon.equipMode === undefined) {
+        weapon.equipMode = hand === 'right' ? 'secondaryOnly' : 'primaryOnly'
+      }
+      delete weapon.hand
+      if (weapon.tapCombo === undefined && typeof weapon.attacks === 'object'
+        && weapon.attacks !== null && !Array.isArray(weapon.attacks)) {
+        const tap = (weapon.attacks as UnknownRecord).tap
+        if (typeof tap === 'object' && tap !== null && !Array.isArray(tap)) {
+          const comboTap = cloneUnknown(tap) as UnknownRecord
+          comboTap.cooldownMs = 0
+          comboTap.name = `${String(comboTap.name)} · combo`
+          weapon.tapCombo = [comboTap]
+        }
+      }
+    })
+  }
+  if (migrated.loadout === undefined && primaryWeaponId) {
+    migrated.loadout = { primaryWeaponId, secondaryWeaponId }
+  }
+  migrated.schemaVersion = 2
+}
+
+function migrateSchemaV2ToV3(migrated: UnknownRecord): void {
+  const visitAttack = (attackValue: unknown): void => {
+    if (typeof attackValue !== 'object' || attackValue === null || Array.isArray(attackValue)) return
+    const attack = attackValue as UnknownRecord
+    if (attack.behavior === undefined) attack.behavior = attack.enabled === false ? 'disabled' : 'standard'
+    if (attack.enabled !== false && attack.collider === undefined) {
+      const shape = attack.kind === 'burst'
+        ? 'circle'
+        : attack.kind === 'projectile' || attack.kind === 'dash' ? 'capsule' : 'sector'
+      attack.collider = { shape, traceMs: 180 }
+    }
+  }
+  const visitAttackSet = (attackSetValue: unknown): void => {
+    if (typeof attackSetValue !== 'object' || attackSetValue === null || Array.isArray(attackSetValue)) return
+    Object.values(attackSetValue as UnknownRecord).forEach(visitAttack)
+  }
+
+  if (Array.isArray(migrated.weapons)) {
+    migrated.weapons.forEach((weaponValue) => {
+      if (typeof weaponValue !== 'object' || weaponValue === null || Array.isArray(weaponValue)) return
+      const weapon = weaponValue as UnknownRecord
+      if (weapon.trait === undefined) {
+        weapon.trait = typeof weapon.id === 'string'
+          ? LEGACY_SHIPPED_WEAPON_TRAITS[weapon.id] ?? 'spearDistance'
+          : 'spearDistance'
+      }
+      visitAttackSet(weapon.attacks)
+      visitAttackSet(weapon.secondaryAttacks)
+      if (Array.isArray(weapon.tapCombo)) weapon.tapCombo.forEach(visitAttack)
+      if (Array.isArray(weapon.secondaryTapCombo)) weapon.secondaryTapCombo.forEach(visitAttack)
+    })
+  }
+  migrated.schemaVersion = 3
+}
+
+function attachCurrentControlCatalog(
+  weaponsValue: unknown,
+  currentWeapons?: LastChancesWeaponDefinition[],
+): void {
+  if (!Array.isArray(weaponsValue)) return
+  const currentById = new Map((currentWeapons ?? []).map(weapon => [weapon.id, weapon]))
+  weaponsValue.forEach((weaponValue) => {
+    if (typeof weaponValue !== 'object' || weaponValue === null || Array.isArray(weaponValue)) return
+    const weapon = weaponValue as UnknownRecord
+    const currentWeapon = typeof weapon.id === 'string' ? currentById.get(weapon.id) : undefined
+    const controls = currentWeapon?.controls
+      ?? migratedWeaponControls(weapon as unknown as LastChancesWeaponDefinition)
+    if (controls) weapon.controls = cloneUnknown(controls)
+  })
+}
+
+function legacyCatalogMatchesCurrent(
+  legacyWeapons: unknown,
+  currentWeapons: LastChancesWeaponDefinition[],
+): legacyWeapons is LastChancesWeaponDefinition[] {
+  if (!Array.isArray(legacyWeapons) || legacyWeapons.length !== currentWeapons.length) return false
+  const currentIds = new Set(currentWeapons.map(weapon => weapon.id))
+  return legacyWeapons.every((weapon) => (
+    typeof weapon === 'object' && weapon !== null && !Array.isArray(weapon)
+    && typeof (weapon as UnknownRecord).id === 'string'
+    && currentIds.has((weapon as UnknownRecord).id as string)
+  ))
+}
+
+function mergeCurrentShape(currentValue: unknown, legacyValue: unknown): unknown {
+  if (legacyValue === undefined) return cloneUnknown(currentValue)
+  if (Array.isArray(currentValue) || Array.isArray(legacyValue)) return cloneUnknown(legacyValue)
+  if (typeof currentValue !== 'object' || currentValue === null
+    || typeof legacyValue !== 'object' || legacyValue === null) {
+    return cloneUnknown(legacyValue)
+  }
+  const merged = cloneUnknown(currentValue) as UnknownRecord
+  Object.entries(legacyValue as UnknownRecord).forEach(([key, value]) => {
+    merged[key] = mergeCurrentShape(merged[key], value)
+  })
+  return merged
+}
+
+function mergeLegacyDefinitionWithCurrent(
+  legacyValue: UnknownRecord,
+  current: LastChancesConfig,
+): UnknownRecord {
+  const legacyValidation = validateLastChancesConfig(legacyValue)
+  if (!legacyValidation.valid) {
+    throw new LastChancesConfigError('Invalid 99LC browser override', legacyValidation.errors)
+  }
+
+  const legacy = legacyValue as unknown as LastChancesConfig
+  const merged = cloneLastChancesConfig(current)
+  const copiedKeys = [
+    'title',
+    'seed',
+    'chances',
+    'graph',
+    'player',
+    'mentalHealth',
+    'progression',
+    'narrative',
+    'renderer',
+  ] as const
+  copiedKeys.forEach((key) => {
+    const legacyField = legacy[key]
+    if (legacyField !== undefined) {
+      ;(merged as unknown as UnknownRecord)[key] = cloneUnknown(legacyField)
+    }
+  })
+
+  merged.input = {
+    ...cloneUnknown(current.input),
+    ...cloneUnknown(legacy.input),
+    mylorik: cloneUnknown(current.input.mylorik ?? DEFAULT_MYLORIK_INPUT),
+    dualsense: cloneUnknown(current.input.dualsense ?? DEFAULT_DUALSENSE_INPUT),
+  }
+
+  const legacyEnemies = new Map(legacy.enemies.map(enemy => [enemy.id, enemy]))
+  merged.enemies = current.enemies.map((currentEnemy) => (
+    mergeCurrentShape(currentEnemy, legacyEnemies.get(currentEnemy.id))
+  )) as LastChancesConfig['enemies']
+
+  const legacyRooms = new Map(legacy.rooms.map(room => [room.id, room]))
+  merged.rooms = current.rooms.map((currentRoom) => {
+    const legacyRoom = legacyRooms.get(currentRoom.id)
+    const mergedRoom = mergeCurrentShape(
+      currentRoom,
+      legacyRoom,
+    ) as LastChancesConfig['rooms'][number]
+    if (legacyRoom?.enemySpawns && !legacyRoom.spawnLayouts && currentRoom.spawnLayouts) {
+      mergedRoom.spawnLayouts = currentRoom.spawnLayouts.map(layout => ({
+        ...cloneUnknown(layout),
+        enemySpawns: cloneUnknown(legacyRoom.enemySpawns!),
+      }))
+    }
+    if (currentRoom.interaction) mergedRoom.interaction = cloneUnknown(currentRoom.interaction)
+    else delete mergedRoom.interaction
+    return mergedRoom
+  })
+
+  if (legacyCatalogMatchesCurrent(legacy.weapons, current.weapons)) {
+    const legacyWeapons = new Map(legacy.weapons.map(weapon => [weapon.id, weapon]))
+    merged.weapons = current.weapons.map((currentWeapon) => (
+      mergeCurrentShape(currentWeapon, legacyWeapons.get(currentWeapon.id))
+    )) as LastChancesConfig['weapons']
+    attachCurrentControlCatalog(merged.weapons, current.weapons)
+    merged.loadout = legacy.loadout ? cloneUnknown(legacy.loadout) : cloneUnknown(current.loadout)
+  } else {
+    merged.weapons = cloneUnknown(current.weapons)
+    merged.loadout = cloneUnknown(current.loadout)
+  }
+  merged.schemaVersion = CURRENT_LAST_CHANCES_SCHEMA_VERSION
+  return merged as unknown as UnknownRecord
+}
+
+/**
+ * Clone-first sequential migration for the real schema-v1/v2/v3 definitions.
+ * A current definition lets old browser overrides retain run tuning while taking
+ * the shipped v4 catalog records that did not exist when the override was saved.
+ */
+export function migrateLastChancesConfig(
+  value: unknown,
+  currentDefinition?: LastChancesConfig,
+): unknown {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return value
+  const migrated = cloneUnknown(value) as UnknownRecord
+  const version = migrated.schemaVersion
+  if (!Number.isInteger(version)) return migrated
+  if ((version as number) > CURRENT_LAST_CHANCES_SCHEMA_VERSION) {
+    throw new LastChancesConfigError('Unsupported 99LC schemaVersion', [
+      `schemaVersion ${String(version)} is newer than supported ${CURRENT_LAST_CHANCES_SCHEMA_VERSION}`,
+    ])
+  }
+  if ((version as number) < 1) return migrated
+  if (version === CURRENT_LAST_CHANCES_SCHEMA_VERSION) return migrated
+
+  if (version === 1) repairSchemaV1(migrated)
+  if (currentDefinition) return mergeLegacyDefinitionWithCurrent(migrated, currentDefinition)
+
+  if (migrated.schemaVersion === 1) migrateSchemaV1ToV2(migrated)
+  if (migrated.schemaVersion === 2) migrateSchemaV2ToV3(migrated)
+
+  // Standalone legacy Builder imports retain their own catalog. Inject only the
+  // mechanically derived prior-schema fields and the new v4 control records;
+  // browser migrations use the current shipped baseline above.
+  const input = typeof migrated.input === 'object' && migrated.input !== null
+    && !Array.isArray(migrated.input) ? migrated.input as UnknownRecord : null
+  if (input) {
+    input.mylorik = cloneUnknown(DEFAULT_MYLORIK_INPUT)
+    input.dualsense = cloneUnknown(DEFAULT_DUALSENSE_INPUT)
+  }
+  attachCurrentControlCatalog(migrated.weapons)
+  migrated.schemaVersion = CURRENT_LAST_CHANCES_SCHEMA_VERSION
   return migrated
 }
 
@@ -168,6 +996,225 @@ function requireStringArray(record: UnknownRecord, key: string, path: string, er
     || value.some(item => typeof item !== 'string' || item.trim().length === 0)) {
     errors.push(`${path}.${key} must be a non-empty string array`)
   }
+}
+
+function validateIntegerRange(
+  record: UnknownRecord,
+  key: string,
+  path: string,
+  errors: string[],
+  maximum: number,
+): void {
+  requireInteger(record, key, path, errors)
+  const value = record[key]
+  if (Number.isInteger(value) && (value as number) > maximum) {
+    errors.push(`${path}.${key} must be <= ${maximum}`)
+  }
+}
+
+function validateUnitNumber(
+  record: UnknownRecord,
+  key: string,
+  path: string,
+  errors: string[],
+): void {
+  requireNumber(record, key, path, errors)
+  const value = record[key]
+  if (typeof value === 'number' && Number.isFinite(value) && value > 1) {
+    errors.push(`${path}.${key} must be <= 1`)
+  }
+}
+
+function validateUniqueBindings(
+  record: UnknownRecord,
+  keys: readonly string[],
+  path: string,
+  errors: string[],
+): void {
+  const used = new Map<number, string>()
+  keys.forEach((key) => {
+    validateIntegerRange(record, key, path, errors, MAX_GAMEPAD_BUTTON_INDEX)
+    const value = record[key]
+    if (!Number.isInteger(value)) return
+    const previous = used.get(value as number)
+    if (previous) errors.push(`${path}.${key} duplicates ${path}.${previous}`)
+    else used.set(value as number, key)
+  })
+}
+
+function validateSchemeKeyboard(value: unknown, path: string, errors: string[]): void {
+  const keyboard = asRecord(value, path, errors)
+  if (!keyboard) return
+  const keyGroups = [
+    'leftTechniqueKeys',
+    'rightTechniqueKeys',
+    'mobilityKeys',
+    'interactKeys',
+  ] as const
+  const usedKeys = new Map<string, string>()
+  keyGroups.forEach((key) => {
+    requireStringArray(keyboard, key, path, errors)
+    const bindings = keyboard[key]
+    if (!Array.isArray(bindings)) return
+    bindings.forEach((binding) => {
+      if (typeof binding !== 'string' || binding.trim().length === 0) return
+      const previous = usedKeys.get(binding)
+      if (previous) errors.push(`${path}.${key} duplicates key ${binding} from ${path}.${previous}`)
+      else usedKeys.set(binding, key)
+    })
+  })
+  validateIntegerRange(keyboard, 'leftStrikeMouseButton', path, errors, MAX_GAMEPAD_BUTTON_INDEX)
+  validateIntegerRange(keyboard, 'rightStrikeMouseButton', path, errors, MAX_GAMEPAD_BUTTON_INDEX)
+  if (keyboard.leftStrikeMouseButton === keyboard.rightStrikeMouseButton
+    && Number.isInteger(keyboard.leftStrikeMouseButton)) {
+    errors.push(`${path}.rightStrikeMouseButton duplicates ${path}.leftStrikeMouseButton`)
+  }
+}
+
+function validateMylorikInput(value: unknown, path: string, errors: string[]): void {
+  const input = asRecord(value, path, errors)
+  if (!input) return
+  requirePositiveNumber(input, 'techniqueHoldMs', path, errors)
+  requirePositiveNumber(input, 'bufferMs', path, errors)
+  requirePositiveNumber(input, 'continuationWindowMs', path, errors)
+  const gamepad = asRecord(input.gamepad, `${path}.gamepad`, errors)
+  if (gamepad) {
+    validateUniqueBindings(gamepad, [
+      'leftBumper',
+      'rightBumper',
+      'leftTrigger',
+      'rightTrigger',
+      'mobilityButton',
+      'interactButton',
+    ], `${path}.gamepad`, errors)
+  }
+  validateSchemeKeyboard(input.keyboard, `${path}.keyboard`, errors)
+}
+
+function validateAdaptiveProfile(
+  value: unknown,
+  path: string,
+  maxDurationMs: number | null,
+  errors: string[],
+  partial = false,
+): void {
+  const profile = asRecord(value, path, errors)
+  if (!profile) return
+  const unitFields = [
+    'startPosition',
+    'endPosition',
+    'resistance',
+    'force',
+    'magnitude',
+  ] as const
+  unitFields.forEach((key) => {
+    if (!partial || profile[key] !== undefined) validateUnitNumber(profile, key, path, errors)
+  })
+  for (const key of ['transitionMs', 'effectMs'] as const) {
+    if (!partial || profile[key] !== undefined) {
+      requireNumber(profile, key, path, errors)
+      if (typeof profile[key] === 'number' && maxDurationMs !== null
+        && profile[key] > maxDurationMs) {
+        errors.push(`${path}.${key} must be <= feedback.maxDurationMs (${maxDurationMs})`)
+      }
+    }
+  }
+  if (typeof profile.startPosition === 'number' && typeof profile.endPosition === 'number'
+    && profile.startPosition > profile.endPosition) {
+    errors.push(`${path}.startPosition must be <= endPosition`)
+  }
+}
+
+function validateDualSenseInput(value: unknown, path: string, errors: string[]): number[] {
+  const input = asRecord(value, path, errors)
+  if (!input) return []
+  for (const key of ['activationThreshold', 'releaseThreshold', 'hysteresis'] as const) {
+    validateUnitNumber(input, key, path, errors)
+  }
+  if (typeof input.releaseThreshold === 'number' && typeof input.activationThreshold === 'number'
+    && input.releaseThreshold >= input.activationThreshold) {
+    errors.push(`${path}.releaseThreshold must be less than activationThreshold`)
+  }
+  if (typeof input.hysteresis === 'number' && input.hysteresis <= 0) {
+    errors.push(`${path}.hysteresis must be > 0`)
+  }
+  if (typeof input.releaseThreshold === 'number' && typeof input.activationThreshold === 'number'
+    && typeof input.hysteresis === 'number'
+    && input.activationThreshold - input.releaseThreshold + Number.EPSILON < input.hysteresis) {
+    errors.push(`${path}.activationThreshold - releaseThreshold must be >= hysteresis`)
+  }
+  if (typeof input.releaseThreshold === 'number' && typeof input.hysteresis === 'number'
+    && input.releaseThreshold + Number.EPSILON < input.hysteresis) {
+    errors.push(`${path}.releaseThreshold must be >= hysteresis so the neutral re-arm gate is reachable`)
+  }
+
+  const gamepad = asRecord(input.gamepad, `${path}.gamepad`, errors)
+  if (gamepad) {
+    validateUniqueBindings(gamepad, [
+      'leftBumper',
+      'rightBumper',
+      'leftTrigger',
+      'rightTrigger',
+      'circle',
+      'cross',
+      'options',
+    ], `${path}.gamepad`, errors)
+  }
+  validateSchemeKeyboard(input.keyboard, `${path}.keyboard`, errors)
+
+  const gatePositions = asRecord(input.gatePositions, `${path}.gatePositions`, errors)
+  const gates: number[] = []
+  if (gatePositions) {
+    for (const key of ['shallow', 'medium', 'deep', 'final'] as const) {
+      validateUnitNumber(gatePositions, key, `${path}.gatePositions`, errors)
+      if (typeof gatePositions[key] === 'number' && Number.isFinite(gatePositions[key])) {
+        gates.push(gatePositions[key] as number)
+      }
+    }
+    if (gates.length === 4 && !gates.every((gate, index) => index === 0 || gate > gates[index - 1])) {
+      errors.push(`${path}.gatePositions must be strictly increasing`)
+    }
+    if (typeof gatePositions.shallow === 'number' && typeof input.activationThreshold === 'number'
+      && gatePositions.shallow < input.activationThreshold) {
+      errors.push(`${path}.gatePositions.shallow must be >= activationThreshold`)
+    }
+  }
+
+  const feedback = asRecord(input.feedback, `${path}.feedback`, errors)
+  if (feedback) {
+    validateUnitNumber(feedback, 'maxMagnitude', `${path}.feedback`, errors)
+    requirePositiveNumber(feedback, 'maxDurationMs', `${path}.feedback`, errors)
+    requirePositiveNumber(feedback, 'blockedRepeatMs', `${path}.feedback`, errors)
+    if (typeof feedback.maxDurationMs === 'number'
+      && feedback.maxDurationMs > MAX_FEEDBACK_DURATION_MS) {
+      errors.push(`${path}.feedback.maxDurationMs must be <= ${MAX_FEEDBACK_DURATION_MS}`)
+    }
+    if (typeof feedback.blockedRepeatMs === 'number'
+      && feedback.blockedRepeatMs > MAX_CONTROL_EXPIRY_MS) {
+      errors.push(`${path}.feedback.blockedRepeatMs must be <= ${MAX_CONTROL_EXPIRY_MS}`)
+    }
+    const profiles = asRecord(feedback.profiles, `${path}.feedback.profiles`, errors)
+    if (profiles) {
+      LAST_CHANCES_TACTILE_PROFILES.forEach((profile) => {
+        if (profiles[profile] === undefined) {
+          errors.push(`${path}.feedback.profiles.${profile} is required`)
+          return
+        }
+        validateAdaptiveProfile(
+          profiles[profile],
+          `${path}.feedback.profiles.${profile}`,
+          typeof feedback.maxDurationMs === 'number' ? feedback.maxDurationMs : null,
+          errors,
+        )
+        if (typeof feedback.maxMagnitude === 'number'
+          && typeof (profiles[profile] as UnknownRecord)?.magnitude === 'number'
+          && ((profiles[profile] as UnknownRecord).magnitude as number) > feedback.maxMagnitude) {
+          errors.push(`${path}.feedback.profiles.${profile}.magnitude must be <= feedback.maxMagnitude (${feedback.maxMagnitude})`)
+        }
+      })
+    }
+  }
+  return gates
 }
 
 function validateVector(value: unknown, path: string, errors: string[]): void {
@@ -372,18 +1419,18 @@ function validateAttack(
   )) {
     errors.push(`${path}.behavior must be one of ${LAST_CHANCES_ATTACK_BEHAVIORS.join(', ')}`)
   }
-  if (schemaVersion === 3 && record.behavior === undefined) {
-    errors.push(`${path}.behavior is required by schemaVersion 3`)
+  if (schemaVersion >= 3 && record.behavior === undefined) {
+    errors.push(`${path}.behavior is required by schemaVersion ${schemaVersion}`)
   }
-  if (schemaVersion === 3 && record.enabled === false && record.behavior !== 'disabled') {
+  if (schemaVersion >= 3 && record.enabled === false && record.behavior !== 'disabled') {
     errors.push(`${path}.behavior must be disabled when enabled is false`)
   }
-  if (schemaVersion === 3 && record.behavior === 'disabled' && record.enabled !== false) {
+  if (schemaVersion >= 3 && record.behavior === 'disabled' && record.enabled !== false) {
     errors.push(`${path}.enabled must be false when behavior is disabled`)
   }
-  if (schemaVersion === 3 && record.enabled !== false
+  if (schemaVersion >= 3 && record.enabled !== false
     && record.behavior !== 'disabled' && record.collider === undefined) {
-    errors.push(`${path}.collider is required for enabled schemaVersion 3 attacks`)
+    errors.push(`${path}.collider is required for enabled schemaVersion ${schemaVersion} attacks`)
   }
   requireNumber(record, 'damage', path, errors)
   if (record.damageType !== undefined && !LAST_CHANCES_DAMAGE_TYPES.includes(
@@ -896,11 +1943,276 @@ function validateAugmentHooks(value: unknown, path: string, errors: string[]): v
   }
 }
 
+function enabledAttackGestures(value: unknown): Set<LastChancesGesture> {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return new Set()
+  const attacks = value as UnknownRecord
+  return new Set(LAST_CHANCES_GESTURES.filter((gesture) => {
+    const attackValue = attacks[gesture]
+    if (typeof attackValue !== 'object' || attackValue === null || Array.isArray(attackValue)) return false
+    const attack = attackValue as UnknownRecord
+    return attack.enabled !== false && attack.behavior !== 'disabled'
+  }))
+}
+
+function validateAttackSetControls(
+  value: unknown,
+  attacksValue: unknown,
+  path: string,
+  gatePositions: number[],
+  errors: string[],
+): void {
+  const controls = asRecord(value, path, errors)
+  if (!controls) return
+  requireString(controls, 'role', path, errors)
+  const enabledGestures = enabledAttackGestures(attacksValue)
+  const attacks = typeof attacksValue === 'object' && attacksValue !== null && !Array.isArray(attacksValue)
+    ? attacksValue as UnknownRecord
+    : null
+  const holdAttack = attacks && typeof attacks.hold === 'object'
+    && attacks.hold !== null && !Array.isArray(attacks.hold)
+    ? attacks.hold as UnknownRecord
+    : null
+  const holdCharge = holdAttack && typeof holdAttack.charge === 'object'
+    && holdAttack.charge !== null && !Array.isArray(holdAttack.charge)
+    ? holdAttack.charge as UnknownRecord
+    : null
+  const holdChargeBandIds = new Set(
+    Array.isArray(holdCharge?.bands)
+      ? holdCharge.bands.flatMap((band) => (
+          typeof band === 'object' && band !== null && !Array.isArray(band)
+            && typeof (band as UnknownRecord).id === 'string'
+            ? [(band as UnknownRecord).id as string]
+            : []
+        ))
+      : [],
+  )
+
+  const mylorik = asRecord(controls.mylorik, `${path}.mylorik`, errors)
+  if (mylorik) {
+    if (!Array.isArray(mylorik.activations)) {
+      errors.push(`${path}.mylorik.activations must be an array`)
+    } else {
+      const slotCounts = new Map<LastChancesGesture, number>()
+      const activationKeys = new Set<string>()
+      let unconditionalStrikeCount = 0
+      mylorik.activations.forEach((activationValue, index) => {
+        const activationPath = `${path}.mylorik.activations[${index}]`
+        const activation = asRecord(activationValue, activationPath, errors)
+        if (!activation) return
+        const gesture = activation.gesture as LastChancesGesture
+        if (!LAST_CHANCES_GESTURES.includes(gesture)) {
+          errors.push(`${activationPath}.gesture must be one of ${LAST_CHANCES_GESTURES.join(', ')}`)
+        } else {
+          slotCounts.set(gesture, (slotCounts.get(gesture) ?? 0) + 1)
+          if (!enabledGestures.has(gesture)) {
+            errors.push(`${activationPath}.gesture routes disabled slot ${gesture}`)
+          }
+        }
+        if (!LAST_CHANCES_CONTROL_INTENTS.includes(
+          activation.intent as typeof LAST_CHANCES_CONTROL_INTENTS[number],
+        )) {
+          errors.push(`${activationPath}.intent must be one of ${LAST_CHANCES_CONTROL_INTENTS.join(', ')}`)
+        }
+        if (!LAST_CHANCES_CONTROL_PHASES.includes(
+          activation.phase as typeof LAST_CHANCES_CONTROL_PHASES[number],
+        )) {
+          errors.push(`${activationPath}.phase must be one of ${LAST_CHANCES_CONTROL_PHASES.join(', ')}`)
+        }
+        if (activation.context !== undefined && !LAST_CHANCES_CONTROL_CONTEXTS.includes(
+          activation.context as typeof LAST_CHANCES_CONTROL_CONTEXTS[number],
+        )) {
+          errors.push(`${activationPath}.context must be one of ${LAST_CHANCES_CONTROL_CONTEXTS.join(', ')}`)
+        }
+        requireInteger(activation, 'priority', activationPath, errors)
+        if (typeof activation.priority === 'number' && activation.priority > MAX_CONTROL_EXPIRY_MS) {
+          errors.push(`${activationPath}.priority must be <= ${MAX_CONTROL_EXPIRY_MS}`)
+        }
+        if (activation.legacyOnlyReason !== undefined) {
+          requireString(activation, 'legacyOnlyReason', activationPath, errors)
+        }
+        const activationKey = [
+          String(activation.intent),
+          String(activation.phase),
+          activation.context === undefined ? '*' : String(activation.context),
+          String(activation.priority),
+        ].join('|')
+        if (activationKeys.has(activationKey)) {
+          errors.push(`${activationPath} duplicates activation ${activationKey}`)
+        }
+        activationKeys.add(activationKey)
+        if (gesture === 'tap' && activation.intent === 'strike' && activation.phase === 'press'
+          && activation.context === undefined) {
+          unconditionalStrikeCount += 1
+        }
+      })
+      LAST_CHANCES_GESTURES.forEach((gesture) => {
+        const expected = enabledGestures.has(gesture) ? 1 : 0
+        const actual = slotCounts.get(gesture) ?? 0
+        if (actual !== expected) {
+          errors.push(`${path}.mylorik must route ${gesture} exactly ${expected} time(s); found ${actual}`)
+        }
+      })
+      if (unconditionalStrikeCount !== 1) {
+        errors.push(`${path}.mylorik must define exactly one unconditional instant tap strike`)
+      }
+    }
+  }
+
+  const dualsense = asRecord(controls.dualsense, `${path}.dualsense`, errors)
+  if (!dualsense) return
+  requireString(dualsense, 'triggerRole', `${path}.dualsense`, errors)
+  if (dualsense.instantGesture !== 'tap') {
+    errors.push(`${path}.dualsense.instantGesture must be tap`)
+  }
+  if (!enabledGestures.has(dualsense.instantGesture as LastChancesGesture)) {
+    errors.push(`${path}.dualsense.instantGesture must reference an enabled action`)
+  }
+  if (!Array.isArray(dualsense.nodes)) {
+    errors.push(`${path}.dualsense.nodes must be an array`)
+    return
+  }
+
+  const nodes = new Map<string, UnknownRecord>()
+  const dualSenseSlotCounts = new Map<LastChancesGesture, number>()
+  if (dualsense.instantGesture === 'tap') dualSenseSlotCounts.set('tap', 1)
+  dualsense.nodes.forEach((nodeValue, index) => {
+    const nodePath = `${path}.dualsense.nodes[${index}]`
+    const node = asRecord(nodeValue, nodePath, errors)
+    if (!node) return
+    requireString(node, 'id', nodePath, errors)
+    if (typeof node.id === 'string') {
+      if (nodes.has(node.id)) errors.push(`${nodePath}.id duplicates ${node.id}`)
+      else nodes.set(node.id, node)
+    }
+    const gesture = node.gesture as LastChancesGesture
+    if (!LAST_CHANCES_GESTURES.includes(gesture)) {
+      errors.push(`${nodePath}.gesture must be one of ${LAST_CHANCES_GESTURES.join(', ')}`)
+    } else {
+      dualSenseSlotCounts.set(gesture, (dualSenseSlotCounts.get(gesture) ?? 0) + 1)
+      if (!enabledGestures.has(gesture)) errors.push(`${nodePath}.gesture routes disabled slot ${gesture}`)
+    }
+    if (!LAST_CHANCES_CONTROL_CONTEXTS.includes(
+      node.entryContext as typeof LAST_CHANCES_CONTROL_CONTEXTS[number],
+    )) {
+      errors.push(`${nodePath}.entryContext must be one of ${LAST_CHANCES_CONTROL_CONTEXTS.join(', ')}`)
+    }
+    validateUnitNumber(node, 'activationThreshold', nodePath, errors)
+    if (typeof node.activationThreshold === 'number'
+      && !gatePositions.some(gate => Math.abs(gate - (node.activationThreshold as number)) < 1e-9)) {
+      errors.push(`${nodePath}.activationThreshold must match an input.dualsense gate position`)
+    }
+    if (node.dispatch !== 'press' && node.dispatch !== 'release') {
+      errors.push(`${nodePath}.dispatch must be press or release`)
+    }
+    if (node.holdBehavior !== 'none' && node.holdBehavior !== 'charge'
+      && node.holdBehavior !== 'channel') {
+      errors.push(`${nodePath}.holdBehavior must be none, charge, or channel`)
+    }
+    if (node.releaseBehavior !== 'dispatch' && node.releaseBehavior !== 'cancel') {
+      errors.push(`${nodePath}.releaseBehavior must be dispatch or cancel`)
+    }
+    if (node.cancel !== 'release' && node.cancel !== 'expiry') {
+      errors.push(`${nodePath}.cancel must be release or expiry`)
+    }
+    requirePositiveNumber(node, 'expiryMs', nodePath, errors)
+    if (typeof node.expiryMs === 'number' && node.expiryMs > MAX_CONTROL_EXPIRY_MS) {
+      errors.push(`${nodePath}.expiryMs must be <= ${MAX_CONTROL_EXPIRY_MS}`)
+    }
+    if (!LAST_CHANCES_TACTILE_PROFILES.includes(
+      node.tactileProfile as LastChancesTactileProfile,
+    )) {
+      errors.push(`${nodePath}.tactileProfile must be one of ${LAST_CHANCES_TACTILE_PROFILES.join(', ')}`)
+    }
+    if (node.requiredChargeBandId !== undefined
+      && (typeof node.requiredChargeBandId !== 'string'
+        || !holdChargeBandIds.has(node.requiredChargeBandId))) {
+      errors.push(`${nodePath}.requiredChargeBandId must reference an existing hold charge band`)
+    }
+    if (!Array.isArray(node.next) || node.next.some(next => typeof next !== 'string')) {
+      errors.push(`${nodePath}.next must be a string array`)
+    } else if (new Set(node.next).size !== node.next.length) {
+      errors.push(`${nodePath}.next must not contain duplicates`)
+    }
+    if (node.adaptiveOverride !== undefined) {
+      validateAdaptiveProfile(
+        node.adaptiveOverride,
+        `${nodePath}.adaptiveOverride`,
+        MAX_FEEDBACK_DURATION_MS,
+        errors,
+        true,
+      )
+    }
+  })
+
+  LAST_CHANCES_GESTURES.forEach((gesture) => {
+    const expected = enabledGestures.has(gesture) ? 1 : 0
+    const actual = dualSenseSlotCounts.get(gesture) ?? 0
+    if (actual !== expected) {
+      errors.push(`${path}.dualsense must route ${gesture} exactly ${expected} time(s); found ${actual}`)
+    }
+  })
+
+  const startNodeId = dualsense.startNodeId
+  if (nodes.size === 0) {
+    if (startNodeId !== null) errors.push(`${path}.dualsense.startNodeId must be null when nodes is empty`)
+    return
+  }
+  if (typeof startNodeId !== 'string' || !nodes.has(startNodeId)) {
+    errors.push(`${path}.dualsense.startNodeId must reference a combo node`)
+    return
+  }
+  nodes.forEach((node, id) => {
+    if (!Array.isArray(node.next)) return
+    const branchKeys = new Set<string>()
+    node.next.forEach((nextId) => {
+      if (typeof nextId === 'string' && !nodes.has(nextId)) {
+        errors.push(`${path}.dualsense node ${id} references unknown next node ${nextId}`)
+        return
+      }
+      if (typeof nextId === 'string') {
+        const nextNode = nodes.get(nextId)
+        if (!nextNode) return
+        const branchKey = `${String(nextNode.entryContext)}|${String(nextNode.activationThreshold)}`
+        if (branchKeys.has(branchKey)) {
+          errors.push(`${path}.dualsense node ${id} has ambiguous branch ${branchKey}`)
+        }
+        branchKeys.add(branchKey)
+      }
+    })
+  })
+
+  const reachable = new Set<string>()
+  const states = new Map<string, 0 | 1 | 2>()
+  let foundCycle = false
+  const visit = (nodeId: string): void => {
+    if (states.get(nodeId) === 1) {
+      foundCycle = true
+      return
+    }
+    if (states.get(nodeId) === 2) return
+    states.set(nodeId, 1)
+    reachable.add(nodeId)
+    const node = nodes.get(nodeId)
+    if (node && Array.isArray(node.next)) {
+      node.next.forEach((nextId) => {
+        if (typeof nextId === 'string' && nodes.has(nextId)) visit(nextId)
+      })
+    }
+    states.set(nodeId, 2)
+  }
+  visit(startNodeId)
+  if (foundCycle) errors.push(`${path}.dualsense combo graph must be acyclic`)
+  nodes.forEach((_node, nodeId) => {
+    if (!reachable.has(nodeId)) errors.push(`${path}.dualsense combo node ${nodeId} is unreachable`)
+  })
+}
+
 function validateWeapons(
   value: unknown,
   loadoutValue: unknown,
   errors: string[],
   schemaVersion: number,
+  dualSenseGatePositions: number[] = [],
 ): void {
   if (!Array.isArray(value) || value.length === 0) {
     errors.push('weapons must be a non-empty array')
@@ -926,8 +2238,8 @@ function validateWeapons(
     )) {
       errors.push(`${path}.trait must be one of ${LAST_CHANCES_WEAPON_TRAITS.join(', ')}`)
     }
-    if (schemaVersion === 3 && weapon.trait === undefined) {
-      errors.push(`${path}.trait is required by schemaVersion 3`)
+    if (schemaVersion >= 3 && weapon.trait === undefined) {
+      errors.push(`${path}.trait is required by schemaVersion ${schemaVersion}`)
     }
     validateTuning(weapon.tuning, `${path}.tuning`, errors)
     validateWeaponResource(weapon.resource, `${path}.resource`, errors)
@@ -952,6 +2264,29 @@ function validateWeapons(
       errors.push(`${path}.equipMode is required by schemaVersion ${schemaVersion}`)
     }
     validateAttackSet(weapon.attacks, `${path}.attacks`, errors, schemaVersion)
+    if (schemaVersion >= 4) {
+      const controls = asRecord(weapon.controls, `${path}.controls`, errors)
+      if (controls) {
+        validateAttackSetControls(
+          controls.primary,
+          weapon.attacks,
+          `${path}.controls.primary`,
+          dualSenseGatePositions,
+          errors,
+        )
+        if (weapon.secondaryAttacks !== undefined) {
+          validateAttackSetControls(
+            controls.secondary,
+            weapon.secondaryAttacks,
+            `${path}.controls.secondary`,
+            dualSenseGatePositions,
+            errors,
+          )
+        } else if (controls.secondary !== undefined) {
+          errors.push(`${path}.controls.secondary requires secondaryAttacks`)
+        }
+      }
+    }
     validateTapCombo(weapon.tapCombo, `${path}.tapCombo`, errors, schemaVersion >= 2, schemaVersion)
     if (weapon.secondaryAttacks !== undefined) {
       validateAttackSet(weapon.secondaryAttacks, `${path}.secondaryAttacks`, errors, schemaVersion)
@@ -1385,10 +2720,17 @@ export function validateLastChancesConfig(value: unknown): LastChancesConfigVali
   const root = asRecord(value, 'config', errors)
   if (!root) return { valid: false, errors }
 
-  if (root.schemaVersion !== 1 && root.schemaVersion !== 2 && root.schemaVersion !== 3) {
-    errors.push('schemaVersion must be 1, 2, or 3')
+  if (root.schemaVersion !== 1 && root.schemaVersion !== 2
+    && root.schemaVersion !== 3 && root.schemaVersion !== 4) {
+    errors.push('schemaVersion must be 1, 2, 3, or 4')
   }
-  const schemaVersion = root.schemaVersion === 3 ? 3 : root.schemaVersion === 2 ? 2 : 1
+  const schemaVersion = root.schemaVersion === 4
+    ? 4
+    : root.schemaVersion === 3
+      ? 3
+      : root.schemaVersion === 2
+        ? 2
+        : 1
   requireString(root, 'title', 'config', errors)
   requireString(root, 'seed', 'config', errors)
   requireInteger(root, 'chances', 'config', errors, 1)
@@ -1399,6 +2741,7 @@ export function validateLastChancesConfig(value: unknown): LastChancesConfigVali
     requireInteger(graph, 'generationSeedStep', 'graph', errors, 1)
   }
 
+  let dualSenseGatePositions: number[] = []
   const input = asRecord(root.input, 'input', errors)
   if (input) {
     requirePositiveNumber(input, 'doubleTapMs', 'input', errors)
@@ -1408,15 +2751,31 @@ export function validateLastChancesConfig(value: unknown): LastChancesConfigVali
     requirePositiveNumber(input, 'holdMs', 'input', errors)
     requirePositiveNumber(input, 'holdMaxMs', 'input', errors)
     requirePositiveNumber(input, 'holdThenDoubleTapWindowMs', 'input', errors)
-    requireNumber(input, 'aimDeadZone', 'input', errors)
-    requireNumber(input, 'gamepadDeadZone', 'input', errors)
-    requireInteger(input, 'gamepadLeftButton', 'input', errors)
-    requireInteger(input, 'gamepadRightButton', 'input', errors)
+    validateUnitNumber(input, 'aimDeadZone', 'input', errors)
+    validateUnitNumber(input, 'gamepadDeadZone', 'input', errors)
+    validateIntegerRange(input, 'gamepadLeftButton', 'input', errors, MAX_GAMEPAD_BUTTON_INDEX)
+    validateIntegerRange(input, 'gamepadRightButton', 'input', errors, MAX_GAMEPAD_BUTTON_INDEX)
+    if (input.gamepadLeftButton === input.gamepadRightButton
+      && Number.isInteger(input.gamepadLeftButton)) {
+      errors.push('input.gamepadRightButton duplicates input.gamepadLeftButton')
+    }
     requireStringArray(input, 'leftKeys', 'input', errors)
     requireStringArray(input, 'rightKeys', 'input', errors)
+    if (Array.isArray(input.leftKeys) && Array.isArray(input.rightKeys)) {
+      const leftKeys = new Set(input.leftKeys.filter(key => typeof key === 'string'))
+      input.rightKeys.forEach((key) => {
+        if (typeof key === 'string' && leftKeys.has(key)) {
+          errors.push(`input.rightKeys duplicates key ${key} from input.leftKeys`)
+        }
+      })
+    }
     if (typeof input.holdMs === 'number' && typeof input.holdMaxMs === 'number'
       && input.holdMaxMs < input.holdMs) {
       errors.push('input.holdMaxMs must be >= input.holdMs')
+    }
+    if (schemaVersion >= 4) {
+      validateMylorikInput(input.mylorik, 'input.mylorik', errors)
+      dualSenseGatePositions = validateDualSenseInput(input.dualsense, 'input.dualsense', errors)
     }
   }
 
@@ -1444,7 +2803,7 @@ export function validateLastChancesConfig(value: unknown): LastChancesConfigVali
   }
   validateGraphCapacity(root, errors)
   validateSpawnGeometry(root, errors)
-  validateWeapons(root.weapons, root.loadout, errors, schemaVersion)
+  validateWeapons(root.weapons, root.loadout, errors, schemaVersion, dualSenseGatePositions)
   validateContentReferences(root, errors)
   validateNarrative(root.narrative, errors)
 
@@ -1484,55 +2843,6 @@ function configSchemaVersion(value: unknown): number {
   return typeof version === 'number' ? version : 0
 }
 
-function mergeLegacyOverrideWithCurrent(
-  legacyValue: unknown,
-  current: LastChancesConfig,
-): LastChancesConfig {
-  const migratedLegacy = migrateLastChancesConfig(legacyValue)
-  const legacyValidation = validateLastChancesConfig(migratedLegacy)
-  if (!legacyValidation.valid) {
-    throw new LastChancesConfigError(
-      'Invalid 99LC browser override',
-      legacyValidation.errors,
-    )
-  }
-  const legacy = migratedLegacy as LastChancesConfig
-  const merged = cloneLastChancesConfig(current)
-  merged.title = legacy.title
-  merged.seed = legacy.seed
-  merged.chances = legacy.chances
-  merged.graph = JSON.parse(JSON.stringify(legacy.graph)) as LastChancesConfig['graph']
-  merged.input = JSON.parse(JSON.stringify(legacy.input)) as LastChancesConfig['input']
-  merged.player = JSON.parse(JSON.stringify(legacy.player)) as LastChancesConfig['player']
-  merged.mentalHealth = JSON.parse(
-    JSON.stringify(legacy.mentalHealth),
-  ) as LastChancesConfig['mentalHealth']
-  merged.progression = JSON.parse(
-    JSON.stringify(legacy.progression),
-  ) as LastChancesConfig['progression']
-  merged.enemies = JSON.parse(JSON.stringify(legacy.enemies)) as LastChancesConfig['enemies']
-  merged.narrative = legacy.narrative
-    ? JSON.parse(JSON.stringify(legacy.narrative)) as LastChancesConfig['narrative']
-    : merged.narrative
-  merged.renderer = JSON.parse(JSON.stringify(legacy.renderer)) as LastChancesConfig['renderer']
-  const currentRooms = new Map(current.rooms.map(room => [room.id, room]))
-  merged.rooms = legacy.rooms.map((legacyRoom) => {
-    const currentRoom = currentRooms.get(legacyRoom.id)
-    return {
-      ...(JSON.parse(JSON.stringify(legacyRoom)) as typeof legacyRoom),
-      ...(currentRoom?.interaction
-        ? { interaction: JSON.parse(JSON.stringify(currentRoom.interaction)) }
-        : { interaction: undefined }),
-    }
-  })
-  merged.schemaVersion = 3
-  merged.weapons = cloneLastChancesConfig(current).weapons
-  merged.loadout = current.loadout
-    ? JSON.parse(JSON.stringify(current.loadout)) as LastChancesConfig['loadout']
-    : undefined
-  return assertValidConfig(merged, 'migrated browser override')
-}
-
 export function cloneLastChancesConfig(config: LastChancesConfig): LastChancesConfig {
   return JSON.parse(JSON.stringify(config)) as LastChancesConfig
 }
@@ -1562,7 +2872,10 @@ export async function loadLastChancesConfig(
       throw new LastChancesConfigError('Invalid 99LC browser override', ['stored value is not valid JSON'])
     }
     const overrideVersion = configSchemaVersion(value)
-    if (overrideVersion >= 3 || overrideVersion <= 1) {
+    if (overrideVersion === CURRENT_LAST_CHANCES_SCHEMA_VERSION) {
+      return assertValidConfig(value, 'browser override')
+    }
+    if (overrideVersion > CURRENT_LAST_CHANCES_SCHEMA_VERSION || overrideVersion < 1) {
       return assertValidConfig(value, 'browser override')
     }
 
@@ -1570,8 +2883,15 @@ export async function loadLastChancesConfig(
     const response = await fetch(url, { cache: 'no-store', signal: options.signal })
     if (!response.ok) throw new Error(`Unable to load 99LC config (${response.status} ${response.statusText})`)
     const current = assertValidConfig(await response.json() as unknown, url)
-    if (current.schemaVersion < 3) return assertValidConfig(value, 'browser override')
-    const migrated = mergeLegacyOverrideWithCurrent(value, current)
+    if (current.schemaVersion !== CURRENT_LAST_CHANCES_SCHEMA_VERSION) {
+      throw new LastChancesConfigError(`Invalid 99LC config from ${url}`, [
+        `current definition must use schemaVersion ${CURRENT_LAST_CHANCES_SCHEMA_VERSION}`,
+      ])
+    }
+    const migrated = assertValidConfig(
+      migrateLastChancesConfig(value, current),
+      'migrated browser override',
+    )
     storage?.setItem(LAST_CHANCES_CONFIG_STORAGE_KEY, JSON.stringify(migrated))
     return migrated
   }

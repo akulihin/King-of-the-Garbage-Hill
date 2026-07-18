@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 10,
+  "schemaVersion": 11,
   "id": "empires-endgame-default",
   "title": "Empire's Endgame",
   "seed": "empires-endgame-authoritative-default-v1",
@@ -880,8 +880,7 @@
             "amount": 1,
             "amountPerLevel": 1
           }
-        ],
-        "deferredReason": "Внешняя и межрегиональная торговля ещё не входит в текущую кампанию."
+        ]
       }
     },
     {
@@ -2018,7 +2017,6 @@
         "image": "",
         "baseWeight": 6,
         "performanceWeight": 0.8,
-        "deferredReason": "Активный доход церковной десятины ещё не реализован.",
         "effects": [
           {
             "kind": "flag",
@@ -2037,7 +2035,6 @@
         "image": "",
         "baseWeight": 4,
         "performanceWeight": 1.1,
-        "deferredReason": "Кузница и конюшня, для которых действует освобождение от материалов, ещё не входят в текущую кампанию.",
         "effects": [
           {
             "kind": "flag",
@@ -2621,6 +2618,41 @@
           "reason": "Обмен услугами с мятежными городами не определяет цели, цены и результаты контрактов."
         }
       ]
+    },
+    "economyContent": {
+      "enabled": true,
+      "eventHistoryRetention": 24,
+      "smuggling": {
+        "eventId": "event-customs-smuggling",
+        "stopChoiceId": "stop-smuggling",
+        "taxChoiceId": "tax-smuggling",
+        "durationCons": 1,
+        "stopCustomsIncomeMultiplier": 0,
+        "taxCustomsIncomeMultiplier": 2,
+        "stopPopulationGrowth": 100,
+        "taxPopulationGrowth": -100
+      },
+      "horseTheft": {
+        "eventId": "event-horse-theft",
+        "huntChoiceId": "hunt-thieves",
+        "dealChoiceId": "make-deal",
+        "ignoreChoiceId": "ignore-theft",
+        "stableBuildingId": "building-stable",
+        "livestockResourceId": "horses",
+        "noblePopulationClassId": "nobles",
+        "recurrenceCooldownCons": 2,
+        "enemyYieldPerCon": 100
+      },
+      "insurance": {
+        "eventId": "event-bank-insurance",
+        "acceptChoiceId": "accept-insurance",
+        "declineChoiceId": "decline-insurance",
+        "buildingId": "building-jewish-bank"
+      },
+      "tradeCard": {
+        "externalTradeDisabledFlagId": "externalTradeDisabled",
+        "internalTradeOnlyFlagId": "internalTradeOnly"
+      }
     },
     "loyalty": {
       "enabled": true,
@@ -6081,9 +6113,6 @@
               }
             ]
           }
-        ],
-        "deferredSubfeatures": [
-          { "id": "customs-smuggling-event", "reason": "P6C поставляет карточку контрабанды и её выборы; P6B уже записывает eligibility после реальной сделки." }
         ]
       },
       {
@@ -9299,16 +9328,6 @@
                 "kind": "resource",
                 "resourceId": "gold",
                 "amount": -500
-              },
-              {
-                "kind": "flag",
-                "flagId": "populationGrowthPercent",
-                "amount": 10
-              },
-              {
-                "kind": "flag",
-                "flagId": "tradeMood",
-                "amount": -1
               }
             ]
           },
@@ -9321,16 +9340,10 @@
                 "kind": "resource",
                 "resourceId": "gold",
                 "amount": 2000
-              },
-              {
-                "kind": "flag",
-                "flagId": "populationGrowthPercent",
-                "amount": -10
               }
             ]
           }
-        ],
-        "deferredReason": "Таможенная политика, настроение торговли и прирост населения ещё не реализованы."
+        ]
       },
       {
         "id": "event-golden-idol",
@@ -9512,11 +9525,6 @@
                 "kind": "resource",
                 "resourceId": "horses",
                 "amount": -50
-              },
-              {
-                "kind": "flag",
-                "flagId": "horseTheftDisabled",
-                "amount": 1
               }
             ]
           },
@@ -9531,13 +9539,8 @@
                 "amount": 100
               },
               {
-                "kind": "flag",
-                "flagId": "enemyHorseTheft",
-                "amount": 1
-              },
-              {
-                "kind": "flag",
-                "flagId": "nobleLoyalty",
+                "kind": "classLoyalty",
+                "populationClassId": "nobles",
                 "amount": -1
               }
             ]
@@ -9554,13 +9557,12 @@
               }
             ]
           }
-        ],
-        "deferredReason": "Повторяемая цепочка краж, вражеские цели и дворянская лояльность ещё не реализованы."
+        ]
       },
       {
         "id": "event-bank-insurance",
         "name": "Три спокойных хода",
-        "description": "Страховой банк готов активировать контракт после трёх спокойных ходов.",
+        "description": "Страховой банк предлагает договор, который активируется после трёх спокойных ходов.",
         "weight": 3,
         "prerequisites": [
           {
@@ -9575,28 +9577,15 @@
             "id": "accept-insurance",
             "label": "Подписать контракт",
             "description": "Город получает страховку от катастроф, если условия соблюдены.",
-            "effects": [
-              {
-                "kind": "flag",
-                "flagId": "cityInsuranceActive",
-                "amount": 1
-              }
-            ]
+            "effects": []
           },
           {
             "id": "decline-insurance",
             "label": "Отказаться",
             "description": "Сохранить полную свободу действий.",
-            "effects": [
-              {
-                "kind": "flag",
-                "flagId": "cityInsuranceDeclined",
-                "amount": 1
-              }
-            ]
+            "effects": []
           }
-        ],
-        "deferredReason": "Страховые контракты и отсчёт спокойных ходов ещё не реализованы."
+        ]
       },
       {
         "id": "event-white-stone",

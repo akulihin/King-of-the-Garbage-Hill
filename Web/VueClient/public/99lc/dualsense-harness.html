@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>99LC DualSense real-device QA harness</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+      background: #07090b;
+      color: #e7e2d8;
+    }
+
+    * { box-sizing: border-box; }
+    body { margin: 0; background: radial-gradient(circle at 50% 0, #17121d, transparent 42rem), #07090b; }
+    button, input, select { font: inherit; }
+    button { cursor: pointer; }
+    button:disabled { cursor: not-allowed; opacity: 0.38; }
+    code, pre, output { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
+
+    .shell { width: min(1180px, calc(100% - 2rem)); margin: 0 auto; padding: 2rem 0 4rem; }
+    .hero { display: grid; gap: 0.5rem; margin-bottom: 1rem; }
+    .hero p { margin: 0; color: #9b83b2; font-size: 0.72rem; font-weight: 800; letter-spacing: 0.13em; text-transform: uppercase; }
+    .hero h1 { margin: 0; font: 600 clamp(1.7rem, 4vw, 3rem)/1.05 Georgia, serif; }
+    .hero > span { max-width: 70rem; color: #929691; line-height: 1.55; }
+
+    .warning { margin: 1rem 0; padding: 0.85rem 1rem; border: 1px solid #704d31; border-radius: 0.65rem; color: #dfbd82; background: #1b130d; line-height: 1.45; }
+    .warning strong { color: #ffdfa0; }
+
+    .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.8rem; }
+    .panel { min-width: 0; padding: 1rem; border: 1px solid #26292b; border-radius: 0.75rem; background: rgba(13, 16, 18, 0.88); box-shadow: 0 1rem 2.5rem rgba(0, 0, 0, 0.18); }
+    .panel.is-wide { grid-column: 1 / -1; }
+    .panel h2 { margin: 0 0 0.35rem; font-size: 0.9rem; letter-spacing: 0.05em; text-transform: uppercase; }
+    .panel > p { margin: 0 0 0.8rem; color: #777d79; font-size: 0.82rem; line-height: 1.5; }
+    .panel h3 { margin: 1rem 0 0.45rem; color: #a9a39a; font-size: 0.72rem; text-transform: uppercase; }
+
+    .status-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.45rem; margin-bottom: 0.8rem; }
+    .status { display: grid; gap: 0.15rem; padding: 0.55rem; border: 1px solid #24282a; border-radius: 0.45rem; background: #0a0c0e; }
+    .status span { color: #6f7471; font-size: 0.65rem; font-weight: 750; text-transform: uppercase; }
+    .status output { overflow: hidden; color: #c7c1b7; font-size: 0.72rem; text-overflow: ellipsis; white-space: nowrap; }
+    .status output.is-good { color: #87c99e; }
+    .status output.is-warn { color: #d2a365; }
+
+    .actions { display: flex; flex-wrap: wrap; gap: 0.45rem; }
+    button { min-height: 2.3rem; padding: 0.45rem 0.7rem; border: 1px solid #383d3f; border-radius: 0.45rem; color: #d7d2c9; background: #15191b; }
+    button:hover:not(:disabled) { border-color: #737b7d; background: #1b2022; }
+    button.is-primary { border-color: #8169a0; color: #e3d7ed; background: #2a2035; }
+    button.is-danger { border-color: #7e4b4f; color: #e0a0a5; background: #271416; }
+    button.is-success { border-color: #4f7f60; color: #a8dfb9; background: #132219; }
+
+    .fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.5rem; }
+    label.field { display: grid; gap: 0.25rem; color: #838985; font-size: 0.69rem; font-weight: 700; }
+    label.field input, label.field select { width: 100%; min-height: 2.25rem; padding: 0.35rem 0.45rem; border: 1px solid #303537; border-radius: 0.4rem; outline: none; color: #e1ddd4; background: #090b0c; }
+    label.field input:focus, label.field select:focus { border-color: #87709f; box-shadow: 0 0 0 2px rgba(135, 112, 159, 0.15); }
+
+    .event-buttons { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.45rem; }
+    .event-buttons button { display: grid; gap: 0.1rem; text-align: left; }
+    .event-buttons strong { font-size: 0.75rem; }
+    .event-buttons span { color: #797e7b; font-size: 0.64rem; }
+
+    .neutral-check { display: grid; gap: 0.55rem; margin-top: 0.8rem; padding: 0.75rem; border: 1px solid #4d424f; border-radius: 0.55rem; background: #151018; }
+    .neutral-check label { display: flex; align-items: flex-start; gap: 0.45rem; color: #c8bdcc; font-size: 0.78rem; line-height: 1.4; }
+    .neutral-check input { width: 1rem; height: 1rem; margin-top: 0.12rem; accent-color: #8b6ca5; }
+    .neutral-check small { color: #857c89; line-height: 1.4; }
+
+    .readme { display: grid; gap: 0.7rem; }
+    .readme ol { margin: 0; padding-left: 1.25rem; color: #9a9e9a; line-height: 1.55; }
+    .readme pre { max-height: 18rem; margin: 0; padding: 0.75rem; overflow: auto; border: 1px solid #272c2e; border-radius: 0.5rem; color: #b8a7c7; background: #080a0b; font-size: 0.68rem; line-height: 1.5; white-space: pre-wrap; }
+
+    .log-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; margin-bottom: 0.55rem; }
+    .log-toolbar h2 { margin: 0; }
+    #event-log { min-height: 18rem; max-height: 32rem; margin: 0; padding: 0.75rem; overflow: auto; border: 1px solid #252a2c; border-radius: 0.5rem; color: #a9b0ac; background: #060809; font-size: 0.69rem; line-height: 1.5; white-space: pre-wrap; }
+    .privacy { margin-top: 0.65rem; color: #727874; font-size: 0.7rem; line-height: 1.45; }
+    .privacy strong { color: #9ba19d; }
+
+    @media (max-width: 800px) {
+      .grid { grid-template-columns: 1fr; }
+      .panel.is-wide { grid-column: auto; }
+      .status-grid, .fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .event-buttons { grid-template-columns: 1fr 1fr; }
+    }
+
+    @media (max-width: 500px) {
+      .shell { width: min(100% - 1rem, 1180px); padding-top: 1rem; }
+      .status-grid, .fields, .event-buttons { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header class="hero">
+      <p>99 Last Chances · opt-in laboratory tool</p>
+      <h1>DualSense real-device QA harness</h1>
+      <span>
+        Capture analog trigger gates and test semantic feedback on a physically verified
+        transport. This page is isolated from the game, stores nothing, and never marks a
+        transport supported without a human neutral-trigger check.
+      </span>
+    </header>
+
+    <div class="warning">
+      <strong>No product IDs, device allowlist, report bytes, or serializer ship with this page.</strong>
+      WebHID remains disabled until a tester manually injects a verified transport. Never use
+      an unreviewed serializer, and keep a hardware disconnect path within reach.
+    </div>
+
+    <section class="grid">
+      <article class="panel is-wide">
+        <h2>Session status</h2>
+        <p>All labels are session-only and deliberately omit HID/Gamepad names and identifiers.</p>
+        <div class="status-grid">
+          <div class="status"><span>Gamepad capture</span><output id="gamepad-status">Stopped</output></div>
+          <div class="status"><span>Injected transport</span><output id="transport-status">None</output></div>
+          <div class="status"><span>HID</span><output id="hid-status">Not requested</output></div>
+          <div class="status"><span>Neutral proof</span><output id="neutral-status">Required after testing</output></div>
+        </div>
+        <div class="actions">
+          <button id="start-capture" class="is-primary" type="button">Start Gamepad capture</button>
+          <button id="stop-capture" type="button" disabled>Stop capture</button>
+          <button id="request-hid" class="is-primary" type="button" disabled>Request &amp; open verified HID</button>
+          <button id="neutralize" type="button" disabled>Send neutral output</button>
+          <button id="cleanup" class="is-danger" type="button" disabled>Neutralize &amp; close</button>
+        </div>
+      </article>
+
+      <article class="panel">
+        <h2>Analog input capture</h2>
+        <p>
+          Uses the standard Gamepad button array and logs only threshold transitions with
+          monotonic and wall-clock timestamps. It never records the controller name.
+        </p>
+        <div class="fields">
+          <label class="field">L2 button index<input id="left-trigger-index" type="number" min="0" max="63" step="1" value="6" /></label>
+          <label class="field">R2 button index<input id="right-trigger-index" type="number" min="0" max="63" step="1" value="7" /></label>
+          <label class="field">Activation<input id="activation-threshold" type="number" min="0" max="1" step="0.01" value="0.22" /></label>
+          <label class="field">Release<input id="release-threshold" type="number" min="0" max="1" step="0.01" value="0.12" /></label>
+          <label class="field">Medium gate<input id="medium-gate" type="number" min="0" max="1" step="0.01" value="0.48" /></label>
+          <label class="field">Deep gate<input id="deep-gate" type="number" min="0" max="1" step="0.01" value="0.72" /></label>
+          <label class="field">Final gate<input id="final-gate" type="number" min="0" max="1" step="0.01" value="0.90" /></label>
+        </div>
+        <h3>Live values</h3>
+        <div class="status-grid">
+          <div class="status"><span>L2</span><output id="left-trigger-value">0.000</output></div>
+          <div class="status"><span>R2</span><output id="right-trigger-value">0.000</output></div>
+        </div>
+      </article>
+
+      <article class="panel">
+        <h2>Semantic feedback tests</h2>
+        <p>
+          Buttons log semantic intent first. Output is attempted only when a verified injected
+          serializer and an explicitly opened HID device are both present.
+        </p>
+        <div class="fields">
+          <label class="field">Hand
+            <select id="feedback-hand"><option value="left">Left</option><option value="right" selected>Right</option><option value="both">Both</option></select>
+          </label>
+          <label class="field">Strength<input id="feedback-strength" type="number" min="0" max="1" step="0.05" value="0.65" /></label>
+        </div>
+        <h3>One consistent tactile grammar</h3>
+        <div class="event-buttons">
+          <button type="button" data-state="ready" data-profile="click"><strong>Light click</strong><span>Step accepted</span></button>
+          <button type="button" data-state="charge" data-profile="ramp"><strong>Rising ramp</strong><span>Charge / commitment</span></button>
+          <button type="button" data-state="charge" data-profile="bandStrong"><strong>Band tick</strong><span>Release result armed</span></button>
+          <button type="button" data-state="continuation" data-profile="gate"><strong>Firm gate</strong><span>Continuation ready</span></button>
+          <button type="button" data-state="continuation" data-profile="followUp"><strong>Double pulse</strong><span>Follow-up window</span></button>
+          <button type="button" data-state="blocked" data-profile="blocked"><strong>Dull pulse</strong><span>Action unavailable</span></button>
+          <button type="button" data-state="impact" data-profile="impact"><strong>Sharp impact</strong><span>Contact confirmed</span></button>
+          <button type="button" data-state="tension" data-profile="tension"><strong>Tension</strong><span>Grip / tether load</span></button>
+        </div>
+
+        <div class="neutral-check">
+          <label>
+            <input id="neutral-confirmation" type="checkbox" disabled />
+            <span>I physically checked both L2 and R2 and confirm that they returned to neutral after the latest test batch.</span>
+          </label>
+          <small>
+            Send neutral output or run cleanup first. A new capture/test event automatically
+            revokes this confirmation and any in-session support mark.
+          </small>
+          <div class="actions">
+            <button id="confirm-neutral" type="button" disabled>Record human neutral confirmation</button>
+            <button id="mark-supported" class="is-success" type="button" disabled>Mark transport supported in this export</button>
+            <button id="export-log" type="button" disabled>Export sanitized JSON log</button>
+          </div>
+        </div>
+      </article>
+
+      <article class="panel is-wide readme">
+        <h2>How to use this harness</h2>
+        <ol>
+          <li>Serve the Vue public folder through HTTPS or localhost, connect the controller, and start Gamepad capture.</li>
+          <li>Review a transport serializer captured from a physically verified device/transport outside this repository.</li>
+          <li>Inject that serializer from DevTools with the hook below. Its filters and packet bytes remain only in this page's memory.</li>
+          <li>Click <b>Request &amp; open verified HID</b>. Merely opening this page or choosing a control scheme elsewhere never requests permission.</li>
+          <li>Exercise each semantic event and analog gate. Inspect acknowledgement/error and timing entries.</li>
+          <li>Neutralize or close, physically inspect both triggers, record the human confirmation, then export. Support marking additionally requires an acknowledged semantic output report.</li>
+        </ol>
+        <pre>window.install99LcVerifiedDualSenseHarnessTransport({
+  transport: 'usb', // or 'bluetooth'
+  filters: [{ vendorId: VERIFIED_VENDOR, productId: VERIFIED_PRODUCT }],
+  supports: device =&gt; YOUR_VERIFIED_CHECK(device),
+  serialize: semanticEvent =&gt; YOUR_VERIFIED_SERIALIZER(semanticEvent),
+  neutral: () =&gt; YOUR_VERIFIED_NEUTRAL_SERIALIZER()
+})
+
+// serialize()/neutral() return:
+// [{ reportId: NUMBER_FROM_VERIFIED_FIXTURE, data: Uint8Array }]
+// This harness never prints or exports reportId values or packet bytes.</pre>
+        <p class="privacy">
+          <strong>Privacy boundary:</strong> no localStorage, sessionStorage, IndexedDB,
+          cookies, account APIs, or network uploads are used. Export is an explicit local
+          download. The sanitized log excludes Gamepad/HID names, serial numbers,
+          vendor/product IDs, report IDs, and report bytes.
+        </p>
+      </article>
+
+      <article class="panel is-wide">
+        <div class="log-toolbar">
+          <h2>Sanitized in-memory event log</h2>
+          <button id="clear-log" type="button">Clear visible log</button>
+        </div>
+        <pre id="event-log" aria-live="polite"></pre>
+      </article>
+    </section>
+  </main>
+
+  <script type="module" src="./dualsense-harness.js"></script>
+</body>
+</html>

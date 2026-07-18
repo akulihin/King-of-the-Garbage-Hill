@@ -44,6 +44,7 @@ import type {
   EmpiresDomesticEconomyState,
   EmpiresDomesticEconomyView,
   EmpiresDomesticIncidentKind,
+  EmpiresEconomyContentState,
   EmpiresCityEpidemicView,
   EmpiresEffect,
   EmpiresEpidemicConsequence,
@@ -318,7 +319,7 @@ function uniqueIds<T extends { id: string }>(values: readonly T[]): boolean {
 
 export function validateEmpiresEndgameConfig(config: EmpiresEndgameConfig): string[] {
   const errors: string[] = []
-  if (config.schemaVersion !== 10) errors.push('schemaVersion must be 10')
+  if (config.schemaVersion !== 11) errors.push('schemaVersion must be 11')
   if (!config.id.trim()) errors.push('config id is required')
   if (config.cards.length !== 53) errors.push('cards must contain exactly 53 definitions')
   if (!uniqueIds(config.cards)) errors.push('card definition ids must be unique')
@@ -484,7 +485,7 @@ export class EmpiresEndgameEngine {
   }
 
   snapshotEnvelope(savedAt = new Date().toISOString()): EmpiresSnapshotEnvelope {
-    return { schemaVersion: 8, savedAt, state: this.snapshot() }
+    return { schemaVersion: 9, savedAt, state: this.snapshot() }
   }
 
   restore(snapshot: EmpiresCampaignState): void {
@@ -1359,6 +1360,11 @@ export class EmpiresEndgameEngine {
 
   startInsurance(cityId: string): EmpiresActionResult {
     if (this.state.phase !== 'empire') return failure('Insurance can only be selected in the empire phase.')
+    const started = this.startInsuranceContract(cityId)
+    return started.ok ? this.commit(started.message) : started
+  }
+
+  private startInsuranceContract(cityId: string): EmpiresActionResult {
     const rules = this.config.empire.domesticEconomy.insurance
     const buildingReason = this.economyBuildingBlockedReason(cityId, rules.buildingId)
     if (buildingReason) return failure(buildingReason)
@@ -1393,7 +1399,7 @@ export class EmpiresEndgameEngine {
       target: { kind: 'city', cityId },
     })
     this.compactDomesticEconomyHistory()
-    return this.commit(`Insurance ${id} selected for ${cityId}.`)
+    return success(`Insurance ${id} selected for ${cityId}.`)
   }
 
   consumeDomesticIncident(
@@ -1669,6 +1675,7 @@ export class EmpiresEndgameEngine {
     this.state.external.customs.completedTrades += 1
     this.state.external.customs.totalTariffGold += quote.tariffGold
     this.state.external.customs.lastTradeCon = this.state.con
+    this.state.external.customs.lastTradeCityId = city.id
     if (this.externalBuildingLevel(city, this.config.empire.externalEconomy.customs.buildingId) > 0) {
       this.state.external.customs.smugglingEligible = true
     }
@@ -1707,6 +1714,9 @@ export class EmpiresEndgameEngine {
     const fromAccess = this.cityAccessBlockedReason(from.id)
     const toAccess = this.cityAccessBlockedReason(to.id)
     if (fromAccess || toAccess) return failure(fromAccess ?? toAccess!)
+    if (from.regionId !== to.regionId && this.internalTradeOnlyActive()) {
+      return failure('Изоляция валюты permits transfers only inside one region.')
+    }
     const quantity = Math.floor(amount)
     if (quantity <= 0 || (from.resources[resourceId] ?? 0) + Number.EPSILON < quantity) {
       return failure(`The source city needs ${quantity > 0 ? quantity : 'a positive amount'} ${resourceId}.`)
@@ -1887,7 +1897,8 @@ export class EmpiresEndgameEngine {
     if (!event) return failure('That event is deferred.')
     const choice = event?.choices.find(item => item.id === choiceId)
     if (!choice) return failure('Unknown event choice.')
-    const pendingEmpireSettlement = this.state.event.empireSettlementPending === true
+    const eventState = this.state.event
+    const pendingEmpireSettlement = eventState.empireSettlementPending === true
     const hadStarvationMultiplier = Object.prototype.hasOwnProperty.call(
       this.state.empire.flags,
       'starvationLossMultiplierPercent',
@@ -1901,8 +1912,23 @@ export class EmpiresEndgameEngine {
       )
       if (!containment.ok) return containment
     }
+    const economyResolution = this.resolveEconomyContentEvent(
+      event,
+      choice.id,
+      eventState.targetCityId ?? null,
+      eventState.targetActorId ?? null,
+    )
+    if (!economyResolution.ok) return economyResolution
     this.payResources(choice.resourceCosts ?? [])
-    this.applyEffects(choice.effects, 0, undefined, `event:${event.id}:${choice.id}`)
+    this.applyEffects(
+      choice.effects,
+      0,
+      undefined,
+      `event:${event.id}:${choice.id}`,
+      1,
+      eventState.targetCityId,
+    )
+    this.recordEconomyEventResolution(event.id, choice.id, eventState)
     this.refreshProductions()
     if (pendingEmpireSettlement) {
       this.settleEmpireEconomy()
@@ -1924,6 +1950,83 @@ export class EmpiresEndgameEngine {
       this.startNextCon()
     }
     return this.commit(`Event choice ${choiceId} resolved.`)
+  }
+
+  private resolveEconomyContentEvent(
+    event: EmpiresEventDefinition,
+    choiceId: string,
+    targetCityId: string | null,
+    targetActorId: string | null,
+  ): EmpiresActionResult {
+    const config = this.config.empire.economyContent
+    if (!config.enabled) return success('No economy-content resolution required.')
+    const state = this.state.empire.economyContent
+    if (event.id === config.smuggling.eventId) {
+      if (!targetCityId) return failure('The Customs smuggling target is unavailable.')
+      const startedAtCon = this.state.con + 1
+      state.smugglingPolicy = {
+        choiceId,
+        cityId: targetCityId,
+        startedAtCon,
+        expiresAfterCon: startedAtCon + config.smuggling.durationCons - 1,
+        lastSettledCon: null,
+      }
+      if (!state.resolvedOnceEventIds.includes(event.id)) state.resolvedOnceEventIds.push(event.id)
+      this.state.external.customs.smugglingEligible = false
+      return success(`Customs smuggling policy selected for ${targetCityId}.`)
+    }
+    if (event.id === config.horseTheft.eventId) {
+      if (!targetCityId) return failure('The horse-theft target city is unavailable.')
+      if (choiceId === config.horseTheft.huntChoiceId) {
+        state.horseTheft.disabledAtCon = this.state.con
+        state.horseTheft.pact = null
+      } else if (choiceId === config.horseTheft.dealChoiceId) {
+        if (!targetActorId) return failure('The horse-theft pact needs a hostile external target.')
+        state.horseTheft.disabledAtCon = this.state.con
+        state.horseTheft.pact = {
+          actorId: targetActorId,
+          cityId: targetCityId,
+          startedAtCon: this.state.con + 1,
+          lastSettledCon: null,
+        }
+      } else if (choiceId === config.horseTheft.ignoreChoiceId) {
+        state.horseTheft.nextEligibleCon = this.state.con + config.horseTheft.recurrenceCooldownCons
+      }
+      return success(`Horse-theft choice selected for ${targetCityId}.`)
+    }
+    if (event.id === config.insurance.eventId) {
+      if (!targetCityId) return failure('The insurance target city is unavailable.')
+      if (choiceId === config.insurance.acceptChoiceId) {
+        const started = this.startInsuranceContract(targetCityId)
+        if (!started.ok) return started
+      }
+      if (!state.insuranceOfferedCityIds.includes(targetCityId)) {
+        state.insuranceOfferedCityIds.push(targetCityId)
+        state.insuranceOfferedCityIds.sort(stableStringCompare)
+      }
+      return success(`Insurance event resolved for ${targetCityId}.`)
+    }
+    return success('No economy-content resolution required.')
+  }
+
+  private recordEconomyEventResolution(
+    eventId: string,
+    choiceId: string,
+    eventState: NonNullable<EmpiresCampaignState['event']>,
+  ): void {
+    const content = this.state.empire.economyContent
+    const id = eventState.instanceId
+      ?? `economy-event-${content.nextEventSequence++}`
+    if (content.eventHistory.some(record => record.id === id)) return
+    content.eventHistory.push({
+      id,
+      eventId,
+      choiceId,
+      resolvedAtCon: this.state.con,
+      targetCityId: eventState.targetCityId ?? null,
+      targetActorId: eventState.targetActorId ?? null,
+    })
+    this.compactEconomyContentHistory()
   }
 
   finishEmpire(): EmpiresActionResult {
@@ -2344,6 +2447,28 @@ export class EmpiresEndgameEngine {
     const choice = event.choices.find(item => item.id === choiceId)
     if (!choice) return 'Unknown event choice.'
     if (choice.deferredReason) return `That event choice is deferred: ${choice.deferredReason}`
+    const content = this.config.empire.economyContent
+    if (event.id === content.smuggling.eventId || event.id === content.horseTheft.eventId
+      || event.id === content.insurance.eventId) {
+      const expectedCityId = this.economyEventTargetCityId(event)
+      if (!expectedCityId || this.state.event.targetCityId !== expectedCityId) {
+        return 'The event target city is no longer eligible.'
+      }
+    }
+    if (event.id === content.horseTheft.eventId
+      && choice.id === content.horseTheft.dealChoiceId
+      && (!this.state.event.targetActorId
+        || this.economyEventTargetActorId(event) !== this.state.event.targetActorId)) {
+      return 'No hostile external target is available for the horse-theft pact.'
+    }
+    if (event.id === content.insurance.eventId && choice.id === content.insurance.acceptChoiceId) {
+      const cityId = this.state.event.targetCityId!
+      const buildingReason = this.economyBuildingBlockedReason(cityId, content.insurance.buildingId)
+      if (buildingReason) return buildingReason
+      if (this.state.empire.domesticEconomy.insuranceContracts.some(contract => (
+        contract.cityId === cityId && (contract.status === 'waiting' || contract.status === 'active')
+      ))) return 'The targeted city already has an open insurance contract.'
+    }
     if (choice.epidemicContainment) {
       const epidemicId = this.state.event.epidemicInstanceId
       const epidemic = epidemicId
@@ -2421,6 +2546,7 @@ export class EmpiresEndgameEngine {
       for (const item of currentLevel?.production ?? []) {
         production[item.resourceId] = (production[item.resourceId] ?? 0)
           + item.amount * targetedMultiplier * workerProductivityMultiplier
+            * this.customsIncomeMultiplier(city.id, definition.id)
       }
     }
     const foodId = this.config.empire.foodResourceId
@@ -2501,10 +2627,27 @@ export class EmpiresEndgameEngine {
         totalTariffGold: 0,
         smugglingEligible: false,
         lastTradeCon: null,
+        lastTradeCityId: null,
       },
       transferHistory: [],
       compactedTransferHistoryCount: 0,
       nextTransferSequence: 1,
+    }
+  }
+
+  private initialEconomyContentState(): EmpiresEconomyContentState {
+    return {
+      nextEventSequence: 1,
+      eventHistory: [],
+      compactedEventHistoryCount: 0,
+      resolvedOnceEventIds: [],
+      smugglingPolicy: null,
+      horseTheft: {
+        disabledAtCon: null,
+        nextEligibleCon: 1,
+        pact: null,
+      },
+      insuranceOfferedCityIds: [],
     }
   }
 
@@ -2620,7 +2763,7 @@ export class EmpiresEndgameEngine {
     const playerHand: string[] = []
     const godHand: string[] = []
     const state: EmpiresCampaignState = {
-      schemaVersion: 8,
+      schemaVersion: 9,
       configId: this.config.id,
       phase: 'cards',
       rng,
@@ -2680,6 +2823,7 @@ export class EmpiresEndgameEngine {
           academyTreatmentUsedCon: null,
         },
         domesticEconomy: this.initialDomesticEconomyState(),
+        economyContent: this.initialEconomyContentState(),
       },
       pendingResolution: null,
       minigame: null,
@@ -2973,26 +3117,119 @@ export class EmpiresEndgameEngine {
     external.customs.totalTariffGold ??= 0
     external.customs.smugglingEligible ??= false
     external.customs.lastTradeCon ??= null
+    external.customs.lastTradeCityId ??= null
     if (!Number.isInteger(external.customs.completedTrades) || external.customs.completedTrades < 0
       || !Number.isFinite(external.customs.totalTariffGold) || external.customs.totalTariffGold < 0
       || typeof external.customs.smugglingEligible !== 'boolean'
       || (external.customs.lastTradeCon !== null && (
         !Number.isInteger(external.customs.lastTradeCon)
         || external.customs.lastTradeCon < 0 || external.customs.lastTradeCon > state.con
-      ))) throw new Error('Invalid external Customs state')
+      ))
+      || (external.customs.lastTradeCityId !== null
+        && !state.empire.cities.some(city => city.id === external.customs.lastTradeCityId))) {
+      throw new Error('Invalid external Customs state')
+    }
     this.compactExternalHistory(state)
+  }
+
+  private normalizeEconomyContentState(state: EmpiresCampaignState): void {
+    const raw = (state.empire as EmpiresCampaignState['empire'] & {
+      economyContent?: EmpiresEconomyContentState
+    }).economyContent
+    const content = raw ?? this.initialEconomyContentState()
+    const config = this.config.empire.economyContent
+    const cityIds = new Set(state.empire.cities.map(city => city.id))
+    const actorIds = new Set(this.config.empire.externalEconomy.actors.map(actor => actor.id))
+    const historyIds = new Set<string>()
+    content.eventHistory ??= []
+    for (const record of content.eventHistory) {
+      const event = this.eventDefinitions.get(record?.eventId)
+      if (!record?.id || historyIds.has(record.id) || !event
+        || !event.choices.some(choice => choice.id === record.choiceId)
+        || !Number.isInteger(record.resolvedAtCon) || record.resolvedAtCon < 0
+        || record.resolvedAtCon > state.con
+        || (record.targetCityId !== null && !cityIds.has(record.targetCityId))
+        || (record.targetActorId !== null && !actorIds.has(record.targetActorId))) {
+        throw new Error(`Invalid economy-content event history ${record?.id ?? '<missing>'}`)
+      }
+      historyIds.add(record.id)
+    }
+    const nextSequence = content.nextEventSequence ?? 1
+    const compacted = content.compactedEventHistoryCount ?? 0
+    if (!Number.isInteger(nextSequence) || nextSequence < 1
+      || !Number.isInteger(compacted) || compacted < 0) {
+      throw new Error('Invalid economy-content event sequence or compaction state')
+    }
+    const usedSequence = [...historyIds].reduce((maximum, id) => {
+      const match = /^economy-event-(\d+)$/.exec(id)
+      return Math.max(maximum, match ? Number(match[1]) : 0)
+    }, 0)
+    content.nextEventSequence = Math.max(nextSequence, usedSequence + 1)
+    content.compactedEventHistoryCount = compacted
+    content.resolvedOnceEventIds = [...new Set(content.resolvedOnceEventIds ?? [])]
+      .filter(eventId => this.eventDefinitions.has(eventId))
+      .sort(stableStringCompare)
+
+    const policy = content.smugglingPolicy ?? null
+    if (policy) {
+      const validChoice = policy.choiceId === config.smuggling.stopChoiceId
+        || policy.choiceId === config.smuggling.taxChoiceId
+      if (!validChoice || !cityIds.has(policy.cityId)
+        || !Number.isInteger(policy.startedAtCon) || policy.startedAtCon < 0
+        || !Number.isInteger(policy.expiresAfterCon)
+        || policy.expiresAfterCon < policy.startedAtCon
+        || (policy.lastSettledCon !== null && (
+          !Number.isInteger(policy.lastSettledCon)
+          || policy.lastSettledCon < policy.startedAtCon
+          || policy.lastSettledCon > state.con
+        ))) throw new Error('Invalid Customs smuggling policy state')
+      const policyCity = state.empire.cities.find(city => city.id === policy.cityId)
+      if (policy.expiresAfterCon < state.con || !policyCity
+        || !this.isRegionAccessibleInState(state, policyCity.regionId)) {
+        content.smugglingPolicy = null
+      }
+    } else content.smugglingPolicy = null
+
+    content.horseTheft ??= this.initialEconomyContentState().horseTheft
+    const horse = content.horseTheft
+    horse.disabledAtCon ??= null
+    horse.nextEligibleCon ??= 1
+    horse.pact ??= null
+    if ((horse.disabledAtCon !== null && (
+      !Number.isInteger(horse.disabledAtCon) || horse.disabledAtCon < 0 || horse.disabledAtCon > state.con
+    )) || !Number.isInteger(horse.nextEligibleCon) || horse.nextEligibleCon < 1) {
+      throw new Error('Invalid horse-theft lifecycle state')
+    }
+    if (horse.pact) {
+      const relationship = state.external.relationships[horse.pact.actorId]?.status
+      if (!actorIds.has(horse.pact.actorId) || relationship !== 'hostile'
+        || !cityIds.has(horse.pact.cityId)
+        || !Number.isInteger(horse.pact.startedAtCon) || horse.pact.startedAtCon < 0
+        || (horse.pact.lastSettledCon !== null && (
+          !Number.isInteger(horse.pact.lastSettledCon)
+          || horse.pact.lastSettledCon < horse.pact.startedAtCon
+          || horse.pact.lastSettledCon > state.con
+        ))) {
+        horse.pact = null
+      }
+    }
+    content.insuranceOfferedCityIds = [...new Set(content.insuranceOfferedCityIds ?? [])]
+      .filter(cityId => cityIds.has(cityId))
+      .sort(stableStringCompare)
+    state.empire.economyContent = content
+    this.compactEconomyContentHistory(state)
   }
 
   private validateAndCloneSnapshot(snapshot: EmpiresCampaignState): EmpiresCampaignState {
     const snapshotVersion = (snapshot as { schemaVersion: number }).schemaVersion
     if (snapshotVersion !== 1 && snapshotVersion !== 2 && snapshotVersion !== 3
       && snapshotVersion !== 4 && snapshotVersion !== 5 && snapshotVersion !== 6
-      && snapshotVersion !== 7 && snapshotVersion !== 8) {
+      && snapshotVersion !== 7 && snapshotVersion !== 8 && snapshotVersion !== 9) {
       throw new Error('Unsupported Empire\'s Endgame snapshot schema')
     }
     if (snapshot.configId !== this.config.id) throw new Error('Snapshot belongs to a different config')
     const state = cloneSerializable(snapshot)
-    state.schemaVersion = 8
+    state.schemaVersion = 9
     this.normalizeGovernanceState(state, snapshotVersion)
     state.minigame ??= null
     state.minigameResultLog ??= []
@@ -3046,6 +3283,7 @@ export class EmpiresEndgameEngine {
     state.external.allianceThreat ??= 0
     state.external.nextWaveCon ??= this.nextWaveConAtOrAfter(state.con)
     this.normalizeExternalState(state)
+    this.normalizeEconomyContentState(state)
     state.epidemics ??= []
     state.nextEpidemicSequence ??= 1
     state.empire.medical ??= {
@@ -3278,6 +3516,7 @@ export class EmpiresEndgameEngine {
     state.pendingResolution = this.normalizePendingResolution(state)
     this.normalizeDivineGiftChoices(state)
     if (state.event) {
+      this.normalizePendingEventContext(state)
       state.event.empireSettlementPending ??= false
       if (
         state.event.empireSettlementPending
@@ -3290,7 +3529,7 @@ export class EmpiresEndgameEngine {
       state.phase === 'event'
       && (
         !state.event
-        || !this.eventCanResolve(this.eventDefinitions.get(state.event.eventId))
+        || !this.eventCanResolve(this.eventDefinitions.get(state.event.eventId), state)
       )
     ) {
       this.advanceSnapshotToNextCon(state)
@@ -4071,11 +4310,7 @@ export class EmpiresEndgameEngine {
       selectedEvent = this.selectEligibleEvent(this.config.empire.events)
       if (selectedEvent?.id === FAMINE_RATIONING_EVENT_ID) {
         this.state.phase = 'event'
-        this.state.event = {
-          eventId: selectedEvent.id,
-          empireSettlementPending: true,
-          epidemicInstanceId: this.eventEpidemicTarget(selectedEvent)?.id,
-        }
+        this.state.event = this.createEventState(selectedEvent, true)
         return
       }
     }
@@ -4089,11 +4324,7 @@ export class EmpiresEndgameEngine {
     }
     if (selectedEvent) {
       this.state.phase = 'event'
-      this.state.event = {
-        eventId: selectedEvent.id,
-        empireSettlementPending: false,
-        epidemicInstanceId: this.eventEpidemicTarget(selectedEvent)?.id,
-      }
+      this.state.event = this.createEventState(selectedEvent, false)
       return
     }
     this.clearCardFlagBonuses()
@@ -4140,6 +4371,7 @@ export class EmpiresEndgameEngine {
     this.settleEquipmentProduction()
     this.applyTreasuryIncome()
     this.settleDomesticEconomy()
+    this.settleEconomyContent()
     this.refreshProductions()
     if (this.totalPopulation() <= this.config.empire.defeatPopulationAtOrBelow) {
       this.setOutcome('defeat', 'The empire starved.')
@@ -4526,9 +4758,10 @@ export class EmpiresEndgameEngine {
         }
       } else if (effect.kind === 'population') {
         const amount = (effect.amount + (effect.amountPerLevel ?? 0) * level) * magnitude
-        const cities = effect.cityId
+        const populationTargetCityId = effect.cityId ?? targetCityId
+        const cities = populationTargetCityId
           ? this.state.empire.cities.filter(
-              city => city.id === effect.cityId && this.isCityAccessible(city.id),
+              city => city.id === populationTargetCityId && this.isCityAccessible(city.id),
             )
           : this.state.empire.cities.filter(city => this.isCityAccessible(city.id))
         const perCity = cities.length > 0 ? amount / cities.length : 0
@@ -5658,6 +5891,28 @@ export class EmpiresEndgameEngine {
     return Math.max(0, city.operationalBuildingLevels[buildingId] ?? 0)
   }
 
+  private externalTradeDisabled(): boolean {
+    const content = this.config.empire.economyContent
+    return content.enabled
+      && this.effectiveEmpireFlagValue(content.tradeCard.externalTradeDisabledFlagId) > 0
+  }
+
+  private internalTradeOnlyActive(): boolean {
+    const content = this.config.empire.economyContent
+    return content.enabled
+      && this.effectiveEmpireFlagValue(content.tradeCard.internalTradeOnlyFlagId) > 0
+  }
+
+  private customsIncomeMultiplier(cityId: string, buildingId: string): number {
+    const content = this.config.empire.economyContent
+    const policy = this.state.empire.economyContent?.smugglingPolicy
+    if (!content.enabled || buildingId !== this.config.empire.externalEconomy.customs.buildingId
+      || !policy || policy.cityId !== cityId || policy.expiresAfterCon < this.state.con) return 1
+    return policy.choiceId === content.smuggling.stopChoiceId
+      ? content.smuggling.stopCustomsIncomeMultiplier
+      : content.smuggling.taxCustomsIncomeMultiplier
+  }
+
   private externalDefinitionBlockedReason(
     definition: EmpiresExternalOfferDefinition,
     city?: EmpiresCityState,
@@ -5665,6 +5920,7 @@ export class EmpiresEndgameEngine {
     const external = this.config.empire.externalEconomy
     const actor = external.actors.find(candidate => candidate.id === definition.actorId)
     if (!external.enabled || !actor) return 'External diplomacy is unavailable.'
+    if (this.externalTradeDisabled()) return 'Изоляция валюты disables external trade.'
     if (!this.state.empire.researchedTechnologyIds.includes(external.tradeRoutesTechnologyId)) {
       return `Missing prerequisite: ${external.tradeRoutesTechnologyId}.`
     }
@@ -5736,7 +5992,10 @@ export class EmpiresEndgameEngine {
       ? external.customs.merchantGuildTariffBonusPercent
       : 0
     const tariffPercent = customsLevel * external.customs.tariffPercentPerLevel + guildBonus
-    const tariffGold = Math.floor(adjustedGold * Math.max(0, tariffPercent) / 100)
+    const tariffGold = Math.floor(
+      adjustedGold * Math.max(0, tariffPercent) / 100
+      * this.customsIncomeMultiplier(city.id, external.customs.buildingId),
+    )
     const knowledgeBonus = Math.floor(portLevel * external.seaPort.knowledgePerTradePerLevel)
     const quote = {
       ...fallback,
@@ -5822,6 +6081,47 @@ export class EmpiresEndgameEngine {
     const transferRemoved = Math.max(0, state.external.transferHistory.length - retention)
     if (transferRemoved > 0) state.external.transferHistory.splice(0, transferRemoved)
     state.external.compactedTransferHistoryCount += transferRemoved
+  }
+
+  private compactEconomyContentHistory(state: EmpiresCampaignState = this.state): void {
+    const content = state.empire.economyContent
+    const retention = this.config.empire.economyContent.eventHistoryRetention
+    const removed = Math.max(0, content.eventHistory.length - retention)
+    if (removed > 0) content.eventHistory.splice(0, removed)
+    content.compactedEventHistoryCount += removed
+  }
+
+  private settleEconomyContent(): void {
+    const config = this.config.empire.economyContent
+    if (!config.enabled) return
+    const content = this.state.empire.economyContent
+    const policy = content.smugglingPolicy
+    if (policy && policy.startedAtCon <= this.state.con && policy.expiresAfterCon >= this.state.con
+      && policy.lastSettledCon !== this.state.con) {
+      const city = this.city(policy.cityId)
+      if (city && this.isCityAccessible(city.id)) {
+        const populationGrowth = policy.choiceId === config.smuggling.stopChoiceId
+          ? config.smuggling.stopPopulationGrowth
+          : config.smuggling.taxPopulationGrowth
+        this.setCityPopulation(city, Math.max(0, city.population + populationGrowth))
+        policy.lastSettledCon = this.state.con
+      }
+    }
+    if (policy && policy.expiresAfterCon <= this.state.con) content.smugglingPolicy = null
+
+    const pact = content.horseTheft.pact
+    if (pact && pact.startedAtCon <= this.state.con && pact.lastSettledCon !== this.state.con) {
+      const relationship = this.state.external.relationships[pact.actorId]?.status
+      const city = this.city(pact.cityId)
+      if (relationship !== 'hostile' || !city || !this.isCityAccessible(city.id)) {
+        content.horseTheft.pact = null
+      } else {
+        const resourceId = config.horseTheft.livestockResourceId
+        this.state.empire.resources[resourceId] = (this.state.empire.resources[resourceId] ?? 0)
+          + config.horseTheft.enemyYieldPerCon
+        pact.lastSettledCon = this.state.con
+      }
+    }
   }
 
   private settleDomesticEconomy(): void {
@@ -6002,6 +6302,7 @@ export class EmpiresEndgameEngine {
     if (city && deliveredFraction > 0 && remaining > Number.EPSILON) {
       const donors = this.state.empire.cities
         .filter(candidate => candidate.id !== city.id && this.isCityAccessible(candidate.id))
+        .filter(candidate => !this.internalTradeOnlyActive() || candidate.regionId === city.regionId)
         .filter(candidate => (
           this.operationalBuildingFlagValue(candidate, 'templarTransferLossPercent') !== null
         ))
@@ -6114,15 +6415,94 @@ export class EmpiresEndgameEngine {
     if (bonus > 0) this.state.empire.resources.gold = savedGold + bonus
   }
 
+  private operationalEventCityIds(
+    buildingId: string,
+    state: EmpiresCampaignState = this.state,
+  ): string[] {
+    return state.empire.cities
+      .filter(city => this.isRegionAccessibleInState(state, city.regionId))
+      .filter(city => (city.operationalBuildingLevels[buildingId] ?? 0) > 0)
+      .filter(city => (city.buildingInteractionLocks[buildingId] ?? -1) !== state.con)
+      .map(city => city.id)
+      .sort(stableStringCompare)
+  }
+
+  private economyEventTargetCityId(
+    event: EmpiresEventDefinition,
+    state: EmpiresCampaignState = this.state,
+  ): string | null {
+    const content = this.config.empire.economyContent
+    if (!content.enabled) return null
+    if (event.id === content.smuggling.eventId) {
+      const cityId = state.external.customs.lastTradeCityId
+      return cityId && this.operationalEventCityIds(
+        this.config.empire.externalEconomy.customs.buildingId,
+        state,
+      ).includes(cityId) ? cityId : null
+    }
+    if (event.id === content.horseTheft.eventId) {
+      return this.operationalEventCityIds(content.horseTheft.stableBuildingId, state)[0] ?? null
+    }
+    if (event.id === content.insurance.eventId) {
+      const offered = new Set(state.empire.economyContent.insuranceOfferedCityIds)
+      return this.operationalEventCityIds(content.insurance.buildingId, state)
+        .filter(cityId => !offered.has(cityId))
+        .filter(cityId => !state.empire.domesticEconomy.insuranceContracts.some(contract => (
+          contract.cityId === cityId && (contract.status === 'waiting' || contract.status === 'active')
+        )))[0] ?? null
+    }
+    return null
+  }
+
+  private economyEventTargetActorId(
+    event: EmpiresEventDefinition,
+    state: EmpiresCampaignState = this.state,
+  ): string | null {
+    if (event.id !== this.config.empire.economyContent.horseTheft.eventId) return null
+    return this.config.empire.externalEconomy.actors
+      .filter(actor => state.external.relationships[actor.id]?.status === 'hostile')
+      .map(actor => actor.id)
+      .sort(stableStringCompare)[0] ?? null
+  }
+
+  private createEventState(
+    event: EmpiresEventDefinition,
+    empireSettlementPending: boolean,
+  ): NonNullable<EmpiresCampaignState['event']> {
+    const targetCityId = this.economyEventTargetCityId(event)
+    const targetActorId = this.economyEventTargetActorId(event)
+    const epidemicInstanceId = this.eventEpidemicTarget(event)?.id
+    const instanceId = `economy-event-${this.state.empire.economyContent.nextEventSequence++}`
+    return {
+      instanceId,
+      eventId: event.id,
+      empireSettlementPending,
+      ...(epidemicInstanceId ? { epidemicInstanceId } : {}),
+      ...(targetCityId ? { targetCityId } : {}),
+      ...(targetActorId ? { targetActorId } : {}),
+    }
+  }
+
   private eventIsEligible(event: EmpiresEventDefinition): boolean {
     if (event.deferredReason || !event.choices.some(choice => !choice.deferredReason)) return false
     if ((event.minimumCon ?? Number.NEGATIVE_INFINITY) > this.state.con) return false
     if ((event.maximumCon ?? Number.POSITIVE_INFINITY) < this.state.con) return false
-    if (event.id === 'event-horse-theft' && (this.state.empire.flags.horseTheftDisabled ?? 0) > 0) {
-      return false
+    const content = this.config.empire.economyContent
+    if (event.id === content.smuggling.eventId) {
+      if (!content.enabled || !this.state.external.customs.smugglingEligible
+        || this.state.empire.economyContent.resolvedOnceEventIds.includes(event.id)
+        || !this.economyEventTargetCityId(event)) return false
     }
-    if (event.id === this.config.empire.externalEconomy.customs.smugglingEventId
-      && !this.state.external.customs.smugglingEligible) return false
+    if (event.id === content.horseTheft.eventId) {
+      const horse = this.state.empire.economyContent.horseTheft
+      if (!content.enabled
+        || this.state.empire.domesticEconomy.fair.baronUnlockedAtCon === null
+        || horse.disabledAtCon !== null || horse.pact
+        || this.state.con < horse.nextEligibleCon
+        || !this.economyEventTargetCityId(event)) return false
+    }
+    if (event.id === content.insurance.eventId
+      && (!content.enabled || !this.economyEventTargetCityId(event))) return false
     if (event.epidemicTarget && !this.eventEpidemicTarget(event)) return false
     return !this.firstMissingDependency(event.prerequisites ?? [])
   }
@@ -6433,8 +6813,47 @@ export class EmpiresEndgameEngine {
     state.giftChoiceIds = [...existing, ...replacements]
   }
 
-  private eventCanResolve(event: EmpiresEventDefinition | undefined): boolean {
-    return Boolean(event && !event.deferredReason && event.choices.some(choice => !choice.deferredReason))
+  private normalizePendingEventContext(state: EmpiresCampaignState): void {
+    if (!state.event) return
+    const event = this.eventDefinitions.get(state.event.eventId)
+    if (!event) return
+    state.event.instanceId ??= `economy-event-${state.empire.economyContent.nextEventSequence++}`
+    const content = this.config.empire.economyContent
+    if (event.id === content.smuggling.eventId || event.id === content.horseTheft.eventId
+      || event.id === content.insurance.eventId) {
+      const targetCityId = this.economyEventTargetCityId(event, state)
+      if (targetCityId) state.event.targetCityId = targetCityId
+      else delete state.event.targetCityId
+    }
+    if (event.id === content.horseTheft.eventId) {
+      const targetActorId = this.economyEventTargetActorId(event, state)
+      if (targetActorId) state.event.targetActorId = targetActorId
+      else delete state.event.targetActorId
+    }
+  }
+
+  private eventCanResolve(
+    event: EmpiresEventDefinition | undefined,
+    state: EmpiresCampaignState = this.state,
+  ): boolean {
+    if (!event || event.deferredReason || !event.choices.some(choice => !choice.deferredReason)) return false
+    const content = this.config.empire.economyContent
+    if (event.id === content.smuggling.eventId) {
+      return Boolean(content.enabled && state.event?.targetCityId
+        && state.external.customs.smugglingEligible
+        && !state.empire.economyContent.resolvedOnceEventIds.includes(event.id))
+    }
+    if (event.id === content.horseTheft.eventId) {
+      const horse = state.empire.economyContent.horseTheft
+      return Boolean(content.enabled && state.event?.targetCityId
+        && state.empire.domesticEconomy.fair.baronUnlockedAtCon !== null
+        && horse.disabledAtCon === null && horse.pact === null
+        && state.con >= horse.nextEligibleCon)
+    }
+    if (event.id === content.insurance.eventId) {
+      return Boolean(content.enabled && state.event?.targetCityId)
+    }
+    return true
   }
 
   private advanceSnapshotToNextCon(state: EmpiresCampaignState): void {

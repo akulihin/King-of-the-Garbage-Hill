@@ -5,8 +5,8 @@ import BuilderDrawer from '../../components/empires-endgame/BuilderDrawer.vue'
 import { cloneEmpiresConfig, parseEmpiresConfig } from './config'
 import type { EmpiresEndgameConfig } from './types'
 
-describe('Empire\'s Endgame Builder schema-v10 JSON boundary', () => {
-  it('round-trips domestic economy, epidemics, medical rules, steel, loadouts, production lines, and combat through every JSON control', async () => {
+describe('Empire\'s Endgame Builder schema-v11 JSON boundary', () => {
+  it('round-trips economy content, domestic and external economy, combat, and lifecycle rules through every JSON control', async () => {
     const config = cloneEmpiresConfig(defaultConfigJson)
     const updates: EmpiresEndgameConfig[] = []
     const onExport = vi.fn()
@@ -27,9 +27,10 @@ describe('Empire\'s Endgame Builder schema-v10 JSON boundary', () => {
     expect(exported.combat).toEqual(config.combat)
     expect(exported.combat.enabled).toBe(true)
     expect(exported.combat.equipment).toHaveLength(config.combat.equipment.length)
-    expect(exported.schemaVersion).toBe(10)
+    expect(exported.schemaVersion).toBe(11)
     expect(exported.empire.domesticEconomy).toEqual(config.empire.domesticEconomy)
     expect(exported.empire.externalEconomy).toEqual(config.empire.externalEconomy)
+    expect(exported.empire.economyContent).toEqual(config.empire.economyContent)
     expect(exported.empire.seasons).toEqual(config.empire.seasons)
     expect(exported.empire.hiddenCombinations).toEqual(config.empire.hiddenCombinations)
     expect(exported.empire.epidemics).toEqual(config.empire.epidemics)
@@ -74,6 +75,13 @@ describe('Empire\'s Endgame Builder schema-v10 JSON boundary', () => {
     await fireEvent.update(editor, JSON.stringify(malformedEconomy))
     await fireEvent.click(getByRole('button', { name: /Проверить и применить/ }))
     expect(container.querySelector('.json-error')?.textContent).toMatch(/loan.*schedule/i)
+    expect(updates).toHaveLength(2)
+
+    const malformedContent = structuredClone(config)
+    malformedContent.empire.economyContent.smuggling.taxChoiceId = 'missing-choice'
+    await fireEvent.update(editor, JSON.stringify(malformedContent))
+    await fireEvent.click(getByRole('button', { name: /Проверить и применить/ }))
+    expect(container.querySelector('.json-error')?.textContent).toMatch(/smuggling\.taxChoiceId.*live event choice/i)
     expect(updates).toHaveLength(2)
   })
 })

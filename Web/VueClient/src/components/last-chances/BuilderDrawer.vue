@@ -20,12 +20,17 @@ import {
   LAST_CHANCES_AUGMENTS,
   LAST_CHANCES_COLLIDER_SHAPES,
   LAST_CHANCES_GESTURES,
+  LAST_CHANCES_TACTILE_PROFILES,
   migrateLastChancesConfig,
   type LastChancesAttackBehavior,
   type LastChancesAttackDefinition,
+  type LastChancesAttackSetControlDefinition,
   type LastChancesAugment,
   type LastChancesConfig,
+  type LastChancesDualSenseComboNodeDefinition,
   type LastChancesGesture,
+  type LastChancesMylorikActivationDefinition,
+  type LastChancesTactileProfile,
   type LastChancesWeaponDefinition,
   validateLastChancesConfig,
 } from '../../features/last-chances'
@@ -40,6 +45,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   close: []
   apply: [config: LastChancesConfig]
+  applyControls: [config: LastChancesConfig]
   save: [config: LastChancesConfig]
   clear: []
 }>()
@@ -59,6 +65,7 @@ const copy = {
     noConfig: 'The definition is still loading.',
     validate: 'Validate',
     apply: 'Apply & start fresh generation',
+    applyControls: 'Apply control tuning live',
     save: 'Save browser override',
     clear: 'Clear override',
     import: 'Import JSON',
@@ -75,8 +82,11 @@ const copy = {
     playerHelp: 'Starting body, mind and movement values',
     chances: 'Chances & erosion',
     chancesHelp: 'Death cost and permanent loss for the selected tier',
-    input: 'Input timing',
-    inputHelp: 'Windows used by both hands and every control method',
+    input: 'Controls & timing',
+    inputHelp: 'DeepList, mylorik and DualSense recognition values',
+    deepList: 'DeepList',
+    mylorik: 'mylorik',
+    dualSense: 'DualSense',
     attack: 'Selected attack',
     attackHelp: 'One weapon gesture at a time',
     loadout: 'Starting loadout',
@@ -118,6 +128,34 @@ const copy = {
     gamepadDeadZone: 'Gamepad dead zone',
     gamepadLeftButton: 'Primary button index',
     gamepadRightButton: 'Secondary button index',
+    techniqueHold: 'Technique hold threshold (ms)',
+    inputBuffer: 'One-intent buffer (ms)',
+    continuationWindow: 'Continuation window (ms)',
+    activationThreshold: 'Trigger activation',
+    releaseThreshold: 'Trigger release',
+    hysteresis: 'Trigger hysteresis',
+    shallowGate: 'Shallow gate',
+    mediumGate: 'Medium gate',
+    deepGate: 'Deep gate',
+    finalGate: 'Final gate',
+    feedbackCaps: 'Feedback safety caps',
+    maxMagnitude: 'Maximum magnitude',
+    maxDuration: 'Maximum effect (ms)',
+    blockedRepeat: 'Blocked-cue interval (ms)',
+    tactileProfile: 'Adaptive profile',
+    profileStart: 'Start position',
+    profileEnd: 'End position',
+    profileResistance: 'Resistance',
+    profileForce: 'Force',
+    profileTransition: 'Transition (ms)',
+    profileDuration: 'Effect duration (ms)',
+    profileMagnitude: 'Magnitude',
+    controlRecord: 'Selected weapon control record',
+    noControlRecord: 'This input set has no semantic control record.',
+    comboNode: 'Combo node',
+    nodeThreshold: 'Activation gate',
+    nodeExpiry: 'Cancel / expiry (ms)',
+    adaptiveOverride: 'Override adaptive profile',
     damage: 'Damage',
     cooldown: 'Cooldown (ms)',
     tapNoCooldown: 'Basic tap is always cooldown-free.',
@@ -191,6 +229,7 @@ const copy = {
     noConfig: 'Конфигурация ещё загружается.',
     validate: 'Проверить',
     apply: 'Применить в новой генерации',
+    applyControls: 'Применить управление без перезапуска',
     save: 'Сохранить в браузере',
     clear: 'Очистить замену',
     import: 'Импорт JSON',
@@ -207,8 +246,11 @@ const copy = {
     playerHelp: 'Начальные параметры тела, рассудка и движения',
     chances: 'Шансы и истощение',
     chancesHelp: 'Цена смерти и постоянные потери выбранного уровня',
-    input: 'Тайминги управления',
-    inputHelp: 'Окна для обеих рук и всех способов управления',
+    input: 'Управление и тайминги',
+    inputHelp: 'Распознавание DeepList, mylorik и DualSense',
+    deepList: 'DeepList',
+    mylorik: 'mylorik',
+    dualSense: 'DualSense',
     attack: 'Выбранная атака',
     attackHelp: 'Один жест оружия за раз',
     loadout: 'Стартовая экипировка',
@@ -250,6 +292,34 @@ const copy = {
     gamepadDeadZone: 'Мёртвая зона геймпада',
     gamepadLeftButton: 'Индекс основной кнопки',
     gamepadRightButton: 'Индекс вторичной кнопки',
+    techniqueHold: 'Порог задержки техники (мс)',
+    inputBuffer: 'Буфер одного намерения (мс)',
+    continuationWindow: 'Окно продолжения (мс)',
+    activationThreshold: 'Активация триггера',
+    releaseThreshold: 'Отпускание триггера',
+    hysteresis: 'Гистерезис триггера',
+    shallowGate: 'Неглубокий гейт',
+    mediumGate: 'Средний гейт',
+    deepGate: 'Глубокий гейт',
+    finalGate: 'Финальный гейт',
+    feedbackCaps: 'Безопасные пределы отклика',
+    maxMagnitude: 'Максимальная сила',
+    maxDuration: 'Максимальный эффект (мс)',
+    blockedRepeat: 'Интервал блок-сигнала (мс)',
+    tactileProfile: 'Адаптивный профиль',
+    profileStart: 'Начальная позиция',
+    profileEnd: 'Конечная позиция',
+    profileResistance: 'Сопротивление',
+    profileForce: 'Сила',
+    profileTransition: 'Переход (мс)',
+    profileDuration: 'Длительность (мс)',
+    profileMagnitude: 'Интенсивность',
+    controlRecord: 'Запись управления выбранного оружия',
+    noControlRecord: 'Для этого набора нет семантической записи управления.',
+    comboNode: 'Нода комбо',
+    nodeThreshold: 'Гейт активации',
+    nodeExpiry: 'Отмена / истечение (мс)',
+    adaptiveOverride: 'Переопределить адаптивный профиль',
     damage: 'Урон',
     cooldown: 'Откат (мс)',
     tapNoCooldown: 'У базового нажатия отката нет.',
@@ -324,9 +394,37 @@ const selectedAttackSet = ref<'primary' | 'secondary'>('primary')
 const selectedGesture = ref<LastChancesGesture>('tap')
 const selectedEnemyIndex = ref(0)
 const selectedTierIndex = ref(0)
+const selectedTactileProfile = ref<LastChancesTactileProfile>('click')
 const fileInput = ref<HTMLInputElement | null>(null)
 let syncingRaw = false
 const attackBehaviorBeforeDisable = new WeakMap<LastChancesAttackDefinition, LastChancesAttackBehavior>()
+type DisabledControlBinding = {
+  activations: LastChancesMylorikActivationDefinition[]
+  nodes: Array<{ index: number; node: LastChancesDualSenseComboNodeDefinition }>
+  predecessorNext: Array<{ id: string; next: string[] }>
+  startNodeId: string | null
+}
+const controlBindingBeforeDisable = new WeakMap<LastChancesAttackDefinition, DisabledControlBinding>()
+
+type DualSenseGateName = 'shallow' | 'medium' | 'deep' | 'final'
+
+function updateDualSenseGate(gate: DualSenseGateName, event: Event) {
+  const config = draft.value
+  const dualSense = config?.input.dualsense
+  const value = Number((event.target as HTMLInputElement).value)
+  if (!config || !dualSense || !Number.isFinite(value)) return
+
+  const previous = dualSense.gatePositions[gate]
+  for (const weapon of config.weapons) {
+    const records = [weapon.controls?.primary, weapon.controls?.secondary]
+    for (const record of records) {
+      for (const node of record?.dualsense.nodes ?? []) {
+        if (node.activationThreshold === previous) node.activationThreshold = value
+      }
+    }
+  }
+  dualSense.gatePositions[gate] = value
+}
 
 const validation = computed(() => draft.value
   ? validateLastChancesConfig(draft.value)
@@ -342,6 +440,16 @@ const selectedAttack = computed(() => {
 })
 const selectedEnemy = computed(() => draft.value?.enemies[selectedEnemyIndex.value] ?? null)
 const selectedTier = computed(() => draft.value?.progression.tiers[selectedTierIndex.value] ?? null)
+const selectedAdaptiveProfile = computed(() => (
+  draft.value?.input.dualsense?.feedback.profiles[selectedTactileProfile.value] ?? null
+))
+const selectedControlDefinition = computed(() => {
+  const controls = selectedWeapon.value?.controls
+  if (!controls) return null
+  return selectedAttackSet.value === 'secondary'
+    ? controls.secondary ?? null
+    : controls.primary
+})
 const primaryLoadoutWeapons = computed(() => draft.value?.weapons.filter(weapon => (
   (weapon.equipMode ?? (weapon.hand === 'right' ? 'secondaryOnly' : 'primaryOnly')) !== 'secondaryOnly'
 )) ?? [])
@@ -428,9 +536,11 @@ function setAttackEnabled(event: Event) {
   if (!attack) return
   const enabled = (event.target as HTMLInputElement).checked
   if (!enabled) {
+    if (selectedGesture.value === 'tap') return
     if (attack.behavior && attack.behavior !== 'disabled') {
       attackBehaviorBeforeDisable.set(attack, attack.behavior)
     }
+    removeSelectedControlBinding(attack)
     attack.enabled = false
     attack.behavior = 'disabled'
     return
@@ -445,6 +555,148 @@ function setAttackEnabled(event: Event) {
       : attack.kind === 'burst' ? 'circle' : 'capsule',
     traceMs: 600,
   }
+  restoreSelectedControlBinding(attack)
+}
+
+function removeSelectedControlBinding(attack: LastChancesAttackDefinition) {
+  const controls = selectedControlDefinition.value
+  if (!controls) return
+  const gesture = selectedGesture.value
+  const activations = controls.mylorik.activations
+    .filter(activation => activation.gesture === gesture)
+    .map(activation => ({ ...activation }))
+  controls.mylorik.activations = controls.mylorik.activations
+    .filter(activation => activation.gesture !== gesture)
+
+  const removedIds = new Set(
+    controls.dualsense.nodes
+      .filter(node => node.gesture === gesture)
+      .map(node => node.id),
+  )
+  const nodes = controls.dualsense.nodes.flatMap((node, index) => (
+    removedIds.has(node.id)
+      ? [{ index, node: JSON.parse(JSON.stringify(node)) as LastChancesDualSenseComboNodeDefinition }]
+      : []
+  ))
+  const predecessorNext = controls.dualsense.nodes.flatMap(node => (
+    node.next.some(id => removedIds.has(id))
+      ? [{ id: node.id, next: [...node.next] }]
+      : []
+  ))
+  const removedNodes = new Map(nodes.map(entry => [entry.node.id, entry.node]))
+  const expandNext = (id: string, seen = new Set<string>()): string[] => {
+    if (!removedIds.has(id)) return [id]
+    if (seen.has(id)) return []
+    seen.add(id)
+    return removedNodes.get(id)?.next.flatMap(next => expandNext(next, new Set(seen))) ?? []
+  }
+  controls.dualsense.nodes = controls.dualsense.nodes
+    .filter(node => !removedIds.has(node.id))
+    .map(node => ({
+      ...node,
+      next: [...new Set(node.next.flatMap(id => expandNext(id)))],
+    }))
+  const startNodeId = controls.dualsense.startNodeId
+  if (startNodeId && removedIds.has(startNodeId)) {
+    controls.dualsense.startNodeId = expandNext(startNodeId)[0]
+      ?? controls.dualsense.nodes[0]?.id
+      ?? null
+  }
+  controlBindingBeforeDisable.set(attack, {
+    activations,
+    nodes,
+    predecessorNext,
+    startNodeId,
+  })
+}
+
+function genericActivation(
+  controls: LastChancesAttackSetControlDefinition,
+  gesture: LastChancesGesture,
+): LastChancesMylorikActivationDefinition {
+  const base = gesture === 'doubleTap'
+    ? { intent: 'technique' as const, phase: 'tap' as const }
+    : gesture === 'hold'
+      ? { intent: 'technique' as const, phase: 'hold' as const }
+      : gesture === 'holdThenDoubleTap'
+        ? { intent: 'mobility' as const, phase: 'press' as const, context: 'continuation' as const }
+        : { intent: 'technique' as const, phase: 'hold' as const, context: 'continuation' as const }
+  let priority = 50
+  while (controls.mylorik.activations.some(activation => (
+    activation.intent === base.intent
+    && activation.phase === base.phase
+    && activation.context === ('context' in base ? base.context : undefined)
+    && activation.priority === priority
+  ))) priority -= 1
+  return { gesture, ...base, priority }
+}
+
+function genericDualSenseNode(
+  controls: LastChancesAttackSetControlDefinition,
+  gesture: LastChancesGesture,
+): LastChancesDualSenseComboNodeDefinition {
+  const gatePositions = draft.value?.input.dualsense?.gatePositions
+  const threshold = gesture === 'doubleTap'
+    ? gatePositions?.shallow
+    : gesture === 'hold'
+      ? gatePositions?.medium
+      : gesture === 'doubleTapHold' ? gatePositions?.deep : gatePositions?.final
+  const usedIds = new Set(controls.dualsense.nodes.map(node => node.id))
+  let id = gesture
+  let suffix = 2
+  while (usedIds.has(id)) id = `${gesture}-${suffix++}`
+  return {
+    id,
+    gesture,
+    entryContext: 'neutral',
+    activationThreshold: threshold ?? 0.48,
+    dispatch: 'release',
+    holdBehavior: gesture === 'hold' || gesture === 'doubleTapHold' ? 'charge' : 'none',
+    releaseBehavior: 'dispatch',
+    next: [],
+    cancel: 'release',
+    expiryMs: Math.max(1, draft.value?.input.mylorik?.continuationWindowMs ?? 480),
+    tactileProfile: gesture === 'hold' || gesture === 'doubleTapHold' ? 'ramp' : 'click',
+  }
+}
+
+function restoreSelectedControlBinding(attack: LastChancesAttackDefinition) {
+  const controls = selectedControlDefinition.value
+  if (!controls) return
+  const gesture = selectedGesture.value
+  const stored = controlBindingBeforeDisable.get(attack)
+  const activations = stored?.activations.length
+    ? stored.activations.map(activation => ({ ...activation }))
+    : [genericActivation(controls, gesture)]
+  controls.mylorik.activations.push(...activations)
+
+  if (stored?.nodes.length) {
+    for (const entry of [...stored.nodes].sort((left, right) => left.index - right.index)) {
+      controls.dualsense.nodes.splice(
+        Math.min(entry.index, controls.dualsense.nodes.length),
+        0,
+        JSON.parse(JSON.stringify(entry.node)) as LastChancesDualSenseComboNodeDefinition,
+      )
+    }
+    const validIds = new Set(controls.dualsense.nodes.map(node => node.id))
+    controls.dualsense.nodes.forEach((node) => {
+      node.next = node.next.filter(id => validIds.has(id))
+    })
+    stored.predecessorNext.forEach((predecessor) => {
+      const node = controls.dualsense.nodes.find(candidate => candidate.id === predecessor.id)
+      if (node) node.next = predecessor.next.filter(id => validIds.has(id))
+    })
+    if (stored.startNodeId && validIds.has(stored.startNodeId)) {
+      controls.dualsense.startNodeId = stored.startNodeId
+    }
+    return
+  }
+
+  const node = genericDualSenseNode(controls, gesture)
+  const previous = controls.dualsense.nodes.at(-1)
+  if (previous && !previous.next.includes(node.id)) previous.next.push(node.id)
+  controls.dualsense.nodes.push(node)
+  controls.dualsense.startNodeId ??= node.id
 }
 
 function setColliderShape(event: Event) {
@@ -515,7 +767,10 @@ watch(draft, (value) => {
 
 function parseRaw(): LastChancesConfig | null {
   try {
-    const value = migrateLastChancesConfig(JSON.parse(rawJson.value) as unknown)
+    const value = migrateLastChancesConfig(
+      JSON.parse(rawJson.value) as unknown,
+      props.config ?? undefined,
+    )
     const result = validateLastChancesConfig(value)
     if (!result.valid) {
       rawError.value = result.errors.join('\n')
@@ -569,6 +824,34 @@ function apply() {
   if (!value) return
   emit('apply', value)
   notice.value = t.value.applied
+}
+
+function applyControls() {
+  const value = currentValidDraft()
+  if (!value) return
+  emit('applyControls', value)
+  notice.value = t.value.applyControls
+}
+
+function nodeAttackName(node: LastChancesDualSenseComboNodeDefinition): string {
+  const weapon = selectedWeapon.value
+  const attacks = selectedAttackSet.value === 'secondary'
+    ? weapon?.secondaryAttacks
+    : weapon?.attacks
+  return attacks?.[node.gesture]?.name ?? node.gesture
+}
+
+function toggleNodeAdaptiveOverride(
+  node: LastChancesDualSenseComboNodeDefinition,
+  event: Event,
+) {
+  const enabled = (event.target as HTMLInputElement).checked
+  if (!enabled) {
+    delete node.adaptiveOverride
+    return
+  }
+  const profile = draft.value?.input.dualsense?.feedback.profiles[node.tactileProfile]
+  node.adaptiveOverride = profile ? { ...profile } : {}
 }
 
 function save() {
@@ -697,17 +980,104 @@ function exportJson() {
 
               <fieldset>
                 <legend><span><Zap :size="15" aria-hidden="true" />{{ t.input }}</span><small>{{ t.inputHelp }}</small></legend>
-                <div class="lc-fields-grid">
-                  <label>{{ t.doubleTap }}<input v-model.number="draft.input.doubleTapMs" type="number" min="1" step="10" /></label>
-                  <label>{{ t.tapCombo }}<input v-model.number="draft.input.tapComboWindowMs" type="number" min="1" step="10" /></label>
-                  <label>{{ t.hold }}<input v-model.number="draft.input.holdMs" type="number" min="1" step="10" /></label>
-                  <label>{{ t.holdMax }}<input v-model.number="draft.input.holdMaxMs" type="number" min="1" step="10" /></label>
-                  <label>{{ t.holdDouble }}<input v-model.number="draft.input.holdThenDoubleTapWindowMs" type="number" min="1" step="10" /></label>
-                  <label>{{ t.aimDeadZone }}<input v-model.number="draft.input.aimDeadZone" type="number" min="0" max="1" step="0.01" /></label>
-                  <label>{{ t.gamepadDeadZone }}<input v-model.number="draft.input.gamepadDeadZone" type="number" min="0" max="1" step="0.01" /></label>
-                  <label>{{ t.gamepadLeftButton }}<input v-model.number="draft.input.gamepadLeftButton" type="number" min="0" max="31" step="1" /></label>
-                  <label>{{ t.gamepadRightButton }}<input v-model.number="draft.input.gamepadRightButton" type="number" min="0" max="31" step="1" /></label>
-                </div>
+                <section class="lc-control-tuning">
+                  <h3>{{ t.deepList }}</h3>
+                  <div class="lc-fields-grid">
+                    <label>{{ t.doubleTap }}<input v-model.number="draft.input.doubleTapMs" type="number" min="1" step="10" /></label>
+                    <label>{{ t.tapCombo }}<input v-model.number="draft.input.tapComboWindowMs" type="number" min="1" step="10" /></label>
+                    <label>{{ t.hold }}<input v-model.number="draft.input.holdMs" type="number" min="1" step="10" /></label>
+                    <label>{{ t.holdMax }}<input v-model.number="draft.input.holdMaxMs" type="number" min="1" step="10" /></label>
+                    <label>{{ t.holdDouble }}<input v-model.number="draft.input.holdThenDoubleTapWindowMs" type="number" min="1" step="10" /></label>
+                    <label>{{ t.aimDeadZone }}<input v-model.number="draft.input.aimDeadZone" type="number" min="0" max="1" step="0.01" /></label>
+                    <label>{{ t.gamepadDeadZone }}<input v-model.number="draft.input.gamepadDeadZone" type="number" min="0" max="1" step="0.01" /></label>
+                    <label>{{ t.gamepadLeftButton }}<input v-model.number="draft.input.gamepadLeftButton" type="number" min="0" max="31" step="1" /></label>
+                    <label>{{ t.gamepadRightButton }}<input v-model.number="draft.input.gamepadRightButton" type="number" min="0" max="31" step="1" /></label>
+                  </div>
+                </section>
+
+                <section v-if="draft.input.mylorik" class="lc-control-tuning">
+                  <h3>{{ t.mylorik }}</h3>
+                  <div class="lc-fields-grid">
+                    <label>{{ t.techniqueHold }}<input v-model.number="draft.input.mylorik.techniqueHoldMs" type="number" min="1" step="10" /></label>
+                    <label>{{ t.inputBuffer }}<input v-model.number="draft.input.mylorik.bufferMs" type="number" min="0" step="10" /></label>
+                    <label>{{ t.continuationWindow }}<input v-model.number="draft.input.mylorik.continuationWindowMs" type="number" min="1" step="10" /></label>
+                  </div>
+                </section>
+
+                <section v-if="draft.input.dualsense" class="lc-control-tuning">
+                  <h3>{{ t.dualSense }}</h3>
+                  <div class="lc-fields-grid">
+                    <label>{{ t.activationThreshold }}<input v-model.number="draft.input.dualsense.activationThreshold" type="number" min="0" max="1" step="0.01" /></label>
+                    <label>{{ t.releaseThreshold }}<input v-model.number="draft.input.dualsense.releaseThreshold" type="number" min="0" max="1" step="0.01" /></label>
+                    <label>{{ t.hysteresis }}<input v-model.number="draft.input.dualsense.hysteresis" type="number" min="0" max="1" step="0.01" /></label>
+                    <label>{{ t.shallowGate }}<input :value="draft.input.dualsense.gatePositions.shallow" type="number" min="0" max="1" step="0.01" @input="updateDualSenseGate('shallow', $event)" /></label>
+                    <label>{{ t.mediumGate }}<input :value="draft.input.dualsense.gatePositions.medium" type="number" min="0" max="1" step="0.01" @input="updateDualSenseGate('medium', $event)" /></label>
+                    <label>{{ t.deepGate }}<input :value="draft.input.dualsense.gatePositions.deep" type="number" min="0" max="1" step="0.01" @input="updateDualSenseGate('deep', $event)" /></label>
+                    <label>{{ t.finalGate }}<input :value="draft.input.dualsense.gatePositions.final" type="number" min="0" max="1" step="0.01" @input="updateDualSenseGate('final', $event)" /></label>
+                  </div>
+                  <h4>{{ t.feedbackCaps }}</h4>
+                  <div class="lc-fields-grid">
+                    <label>{{ t.maxMagnitude }}<input v-model.number="draft.input.dualsense.feedback.maxMagnitude" type="number" min="0" max="1" step="0.01" /></label>
+                    <label>{{ t.maxDuration }}<input v-model.number="draft.input.dualsense.feedback.maxDurationMs" type="number" min="1" step="10" /></label>
+                    <label>{{ t.blockedRepeat }}<input v-model.number="draft.input.dualsense.feedback.blockedRepeatMs" type="number" min="0" step="10" /></label>
+                  </div>
+                  <div class="lc-profile-picker">
+                    <label>{{ t.tactileProfile }}
+                      <select v-model="selectedTactileProfile">
+                        <option v-for="profile in LAST_CHANCES_TACTILE_PROFILES" :key="profile" :value="profile">{{ profile }}</option>
+                      </select>
+                    </label>
+                  </div>
+                  <div v-if="selectedAdaptiveProfile" class="lc-fields-grid">
+                    <label>{{ t.profileStart }}<input v-model.number="selectedAdaptiveProfile.startPosition" type="number" min="0" max="1" step="0.01" /></label>
+                    <label>{{ t.profileEnd }}<input v-model.number="selectedAdaptiveProfile.endPosition" type="number" min="0" max="1" step="0.01" /></label>
+                    <label>{{ t.profileResistance }}<input v-model.number="selectedAdaptiveProfile.resistance" type="number" min="0" max="1" step="0.01" /></label>
+                    <label>{{ t.profileForce }}<input v-model.number="selectedAdaptiveProfile.force" type="number" min="0" max="1" step="0.01" /></label>
+                    <label>{{ t.profileTransition }}<input v-model.number="selectedAdaptiveProfile.transitionMs" type="number" min="0" step="10" /></label>
+                    <label>{{ t.profileDuration }}<input v-model.number="selectedAdaptiveProfile.effectMs" type="number" min="0" step="10" /></label>
+                    <label>{{ t.profileMagnitude }}<input v-model.number="selectedAdaptiveProfile.magnitude" type="number" min="0" max="1" step="0.01" /></label>
+                  </div>
+                  <div class="lc-control-record-editor">
+                    <h4>
+                      {{ t.controlRecord }}
+                      <template v-if="selectedWeapon">
+                        · {{ selectedWeapon.name }} · {{ selectedAttackSet === 'primary' ? t.primarySet : t.secondarySet }}
+                      </template>
+                    </h4>
+                    <p v-if="!selectedControlDefinition">{{ t.noControlRecord }}</p>
+                    <article
+                      v-for="node in selectedControlDefinition?.dualsense.nodes ?? []"
+                      :key="node.id"
+                      class="lc-combo-node-editor"
+                    >
+                      <header>
+                        <strong>{{ t.comboNode }} · {{ node.id }}</strong>
+                        <span>{{ nodeAttackName(node) }} · {{ node.tactileProfile }}</span>
+                      </header>
+                      <div class="lc-fields-grid">
+                        <label>{{ t.nodeThreshold }}<input v-model.number="node.activationThreshold" type="number" min="0" max="1" step="0.01" /></label>
+                        <label>{{ t.nodeExpiry }}<input v-model.number="node.expiryMs" type="number" min="0" step="10" /></label>
+                      </div>
+                      <label class="lc-check-field">
+                        <input
+                          type="checkbox"
+                          :checked="!!node.adaptiveOverride"
+                          @change="toggleNodeAdaptiveOverride(node, $event)"
+                        />
+                        <span>{{ t.adaptiveOverride }}</span>
+                      </label>
+                      <div v-if="node.adaptiveOverride" class="lc-fields-grid">
+                        <label>{{ t.profileStart }}<input v-model.number="node.adaptiveOverride.startPosition" type="number" min="0" max="1" step="0.01" /></label>
+                        <label>{{ t.profileEnd }}<input v-model.number="node.adaptiveOverride.endPosition" type="number" min="0" max="1" step="0.01" /></label>
+                        <label>{{ t.profileResistance }}<input v-model.number="node.adaptiveOverride.resistance" type="number" min="0" max="1" step="0.01" /></label>
+                        <label>{{ t.profileForce }}<input v-model.number="node.adaptiveOverride.force" type="number" min="0" max="1" step="0.01" /></label>
+                        <label>{{ t.profileTransition }}<input v-model.number="node.adaptiveOverride.transitionMs" type="number" min="0" step="10" /></label>
+                        <label>{{ t.profileDuration }}<input v-model.number="node.adaptiveOverride.effectMs" type="number" min="0" step="10" /></label>
+                        <label>{{ t.profileMagnitude }}<input v-model.number="node.adaptiveOverride.magnitude" type="number" min="0" max="1" step="0.01" /></label>
+                      </div>
+                    </article>
+                  </div>
+                </section>
               </fieldset>
 
               <fieldset v-if="draft.loadout">
@@ -771,6 +1141,7 @@ function exportJson() {
                     <input
                       type="checkbox"
                       :checked="selectedAttack.enabled !== false && selectedAttack.behavior !== 'disabled'"
+                      :disabled="selectedGesture === 'tap'"
                       @change="setAttackEnabled"
                     />
                     <span>{{ t.enabled }}</span>
@@ -887,6 +1258,7 @@ function exportJson() {
             </div>
             <div class="lc-builder-apply-actions">
               <button type="button" :disabled="!validation.valid || !!rawError" @click="save"><Save :size="14" aria-hidden="true" />{{ t.save }}</button>
+              <button type="button" class="is-control-live" :disabled="!validation.valid || !!rawError" @click="applyControls"><Zap :size="14" aria-hidden="true" />{{ t.applyControls }}</button>
               <button type="button" class="is-primary" :disabled="!validation.valid || !!rawError" @click="apply"><RotateCcw :size="14" aria-hidden="true" />{{ t.apply }}</button>
             </div>
           </footer>
@@ -968,6 +1340,21 @@ legend small { color: #656a67; font-size: 0.55rem; text-align: right; }
 .lc-check-field input { width: 1rem; min-height: 1rem; margin: 0; padding: 0; accent-color: #c8a45e; }
 .lc-check-field span { color: #b8b7b1; font-size: 0.58rem; }
 .lc-select-row { grid-template-columns: repeat(2, minmax(0, 1fr)); margin-bottom: 0.55rem; }
+.lc-control-tuning { display: grid; gap: 0.55rem; padding: 0.55rem 0; border-top: 1px solid rgba(255, 255, 255, 0.045); }
+.lc-control-tuning:first-of-type { padding-top: 0; border-top: 0; }
+.lc-control-tuning h3,
+.lc-control-tuning h4 { margin: 0; color: #b9aa89; font-size: 0.57rem; letter-spacing: 0.08em; text-transform: uppercase; }
+.lc-control-tuning h4 { margin-top: 0.15rem; color: #80768c; font-size: 0.51rem; }
+.lc-profile-picker { display: grid; grid-template-columns: minmax(9rem, 14rem); }
+.lc-profile-picker label { display: grid; gap: 0.25rem; color: #747a77; font-size: 0.54rem; font-weight: 700; }
+.lc-profile-picker select { width: 100%; min-height: 2rem; padding: 0.38rem 0.45rem; border: 1px solid rgba(255, 255, 255, 0.09); border-radius: 0.38rem; outline: none; color: #e1ded5; background: #0b0e0f; font: 600 0.66rem/1.2 var(--font-mono, monospace); color-scheme: dark; }
+.lc-control-record-editor { display: grid; gap: 0.45rem; padding-top: 0.5rem; border-top: 1px solid rgba(255, 255, 255, 0.045); }
+.lc-control-record-editor > h4 { line-height: 1.4; }
+.lc-control-record-editor > p { margin: 0; color: #676b68; font-size: 0.54rem; }
+.lc-combo-node-editor { display: grid; gap: 0.45rem; padding: 0.5rem; border: 1px solid rgba(157, 125, 195, 0.12); border-radius: 0.4rem; background: rgba(83, 58, 104, 0.035); }
+.lc-combo-node-editor > header { display: flex; align-items: baseline; justify-content: space-between; gap: 0.5rem; }
+.lc-combo-node-editor > header strong { color: #a79aac; font-size: 0.52rem; }
+.lc-combo-node-editor > header span { overflow: hidden; color: #66616b; font-size: 0.48rem; text-overflow: ellipsis; white-space: nowrap; }
 
 .lc-charge-editor { display: grid; gap: 0.5rem; margin-top: 0.65rem; padding-top: 0.65rem; border-top: 1px solid rgba(255, 255, 255, 0.055); }
 .lc-band-heading { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
@@ -994,8 +1381,9 @@ legend small { color: #656a67; font-size: 0.55rem; text-align: right; }
 .lc-builder-footer button { min-height: 2rem; display: inline-flex; align-items: center; justify-content: center; gap: 0.35rem; padding: 0.35rem 0.58rem; border: 1px solid rgba(255, 255, 255, 0.09); border-radius: 0.4rem; color: #aaada7; background: rgba(255, 255, 255, 0.025); font-size: 0.57rem; font-weight: 700; }
 .lc-builder-footer button:hover:not(:disabled) { color: #eeeae0; border-color: rgba(255, 255, 255, 0.22); }
 .lc-builder-footer button.is-danger { color: #bd7075; }
-.lc-builder-apply-actions { display: grid !important; grid-template-columns: 1fr 1fr; }
+.lc-builder-apply-actions { display: grid !important; grid-template-columns: 0.9fr 1.1fr 1.2fr; }
 .lc-builder-apply-actions button { min-height: 2.5rem; }
+.lc-builder-apply-actions button.is-control-live { color: #c7b6d9; border-color: rgba(159, 120, 194, 0.28); background: rgba(112, 74, 145, 0.08); }
 .lc-builder-apply-actions button.is-primary { color: #14120d; border-color: #c5a357; background: linear-gradient(135deg, #d0b16b, #9c722d); }
 .lc-builder-apply-actions button:disabled { opacity: 0.35; cursor: not-allowed; }
 .lc-builder-empty { place-self: center; color: #777c79; }

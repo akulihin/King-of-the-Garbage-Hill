@@ -25,6 +25,7 @@ export const EMPIRES_QA_SCENARIO_NAMES = [
   'governance',
   'domestic-economy',
   'external-trade',
+  'economy-content-event',
   'destroyed-west',
   'loyalty-rebellion',
   'relic-production-levels',
@@ -137,6 +138,9 @@ export interface EmpiresQaStateDigest {
   activeFairActivityCount: number
   activeExternalOfferCount: number
   externalOfferHistoryCount: number
+  economyEventHistoryCount: number
+  smugglingPolicyActive: boolean
+  horsePactActive: boolean
 }
 
 export interface EmpiresQaTraceEntry {
@@ -236,6 +240,10 @@ const SCENARIO_COPY: Record<EmpiresQaScenarioName, { title: string, description:
   'external-trade': {
     title: 'External actors and persisted offers',
     description: 'Людовик and Alliance merchants expose deterministic accept, decline, trade, transfer, and denial paths.',
+  },
+  'economy-content-event': {
+    title: 'Customs smuggling decision',
+    description: 'A completed Customs trade exposes its typed target, next-con policy, and bounded decision history.',
   },
   'destroyed-west': {
     title: 'Destroyed western region',
@@ -557,10 +565,45 @@ function createEventSnapshot(
   const event = firstEligibleEvent(config, state.con)
   if (!event) throw new Error('QA event scenario requires an event eligible for the current con.')
   state.phase = 'event'
-  state.event = { eventId: event.id, empireSettlementPending: false }
+  state.event = {
+    instanceId: `economy-event-${state.empire.economyContent.nextEventSequence++}`,
+    eventId: event.id,
+    empireSettlementPending: false,
+  }
   state.empire.daysRemaining = 0
   state.outcomeReason = null
   return state
+}
+
+function createEconomyContentEventSnapshot(
+  config: EmpiresEndgameConfig,
+  externalSnapshot: EmpiresCampaignState,
+): EmpiresCampaignState {
+  const state = cloneJson(externalSnapshot)
+  const content = config.empire.economyContent
+  const city = state.empire.cities
+    .filter(candidate => (candidate.operationalBuildingLevels[
+      config.empire.externalEconomy.customs.buildingId
+    ] ?? 0) > 0)
+    .sort((left, right) => left.id.localeCompare(right.id))[0]
+  const event = config.empire.events.find(item => item.id === content.smuggling.eventId)
+  if (!content.enabled || !city || !event || event.deferredReason) {
+    throw new Error('QA economy-content scenario requires live Customs smuggling carriers.')
+  }
+  state.external.customs.completedTrades = Math.max(1, state.external.customs.completedTrades)
+  state.external.customs.smugglingEligible = true
+  state.external.customs.lastTradeCon = state.con
+  state.external.customs.lastTradeCityId = city.id
+  state.phase = 'event'
+  state.event = {
+    instanceId: `economy-event-${state.empire.economyContent.nextEventSequence++}`,
+    eventId: event.id,
+    empireSettlementPending: false,
+    targetCityId: city.id,
+  }
+  state.empire.daysRemaining = 0
+  state.outcomeReason = null
+  return new EmpiresEndgameEngine(config, state).snapshot()
 }
 
 function createDestroyedRegionSnapshot(
@@ -1025,6 +1068,9 @@ export function digestEmpiresQaState(engine: EmpiresEndgameEngine): EmpiresQaSta
       .filter(activity => activity.expiresAfterCon >= engine.state.con).length,
     activeExternalOfferCount: engine.state.external.activeOffers.length,
     externalOfferHistoryCount: engine.state.external.offerHistory.length,
+    economyEventHistoryCount: engine.state.empire.economyContent.eventHistory.length,
+    smugglingPolicyActive: engine.state.empire.economyContent.smugglingPolicy !== null,
+    horsePactActive: engine.state.empire.economyContent.horseTheft.pact !== null,
   }
 }
 
@@ -1181,6 +1227,15 @@ export function validateEmpiresQaSnapshot(
       if (!config.empire.externalEconomy.actors.some(actor => actor.id === 'actor-louis')) {
         add('external-louis', 'External-trade scenario requires the authored Людовик actor.')
       }
+    } else if (scenarioName === 'economy-content-event') {
+      const content = config.empire.economyContent
+      if (snapshot.phase !== 'event' || snapshot.event?.eventId !== content.smuggling.eventId) {
+        add('phase', 'Economy-content scenario must expose the Customs smuggling event.')
+      }
+      if (!snapshot.event?.targetCityId
+        || snapshot.external.customs.lastTradeCityId !== snapshot.event.targetCityId) {
+        add('economy-event-target', 'Economy-content scenario must retain the traded Customs city.')
+      }
     } else if (scenarioName === 'destroyed-west') {
       if (snapshot.phase !== 'empire' || !snapshot.empire.destroyedRegionIds.includes('west')) {
         add('destroyed-region', 'Destroyed-west scenario must make the west inaccessible.')
@@ -1278,6 +1333,7 @@ export function createEmpiresQaScenarios(
   const epidemicOutbreak = createEpidemicOutbreakSnapshot(seededConfig, empireCouncil)
   const domesticEconomy = createDomesticEconomySnapshot(seededConfig, empireCouncil)
   const externalTrade = createExternalTradeSnapshot(seededConfig, empireCouncil)
+  const economyContentEvent = createEconomyContentEventSnapshot(seededConfig, externalTrade)
   const event = createEventSnapshot(seededConfig, empireCouncil)
   const battleDefense = createBattleSnapshot(seededConfig, baseEngine, 'battle-defense')
   const battleAssault = createBattleSnapshot(seededConfig, baseEngine, 'battle-assault')
@@ -1295,6 +1351,7 @@ export function createEmpiresQaScenarios(
     governance: cloneJson(empireCouncil),
     'domestic-economy': domesticEconomy,
     'external-trade': externalTrade,
+    'economy-content-event': economyContentEvent,
     'destroyed-west': destroyedWest,
     'loyalty-rebellion': loyaltyRebellion,
     'relic-production-levels': relicProductionLevels,

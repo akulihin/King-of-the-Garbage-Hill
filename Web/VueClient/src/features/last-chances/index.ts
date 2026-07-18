@@ -10,9 +10,13 @@ export {
   validateLastChancesConfig,
 } from './config'
 export { LastChancesEngine } from './engine'
+export * from './control-schemes'
 export {
   lastChancesEquipMode,
   resolveLastChancesLoadout,
   type LastChancesResolvedLoadout,
 } from './equipment'
+export * from './dualsense-hid'
+export * from './feedback'
+export * from './preferences'
 export * from './types'

@@ -11,6 +11,7 @@ import type {
   EmpiresCampaignState,
   EmpiresDependency,
   EmpiresDomesticEconomyConfig,
+  EmpiresEconomyContentConfig,
   EmpiresEffect,
   EmpiresEpidemicConfig,
   EmpiresEndgameConfig,
@@ -23,7 +24,7 @@ import { validateEmpiresEndgameConfig } from './engine'
 
 export const EMPIRES_CONFIG_URL = '/empires-endgame/game-config.json'
 export const EMPIRES_CONFIG_STORAGE_KEY = 'empires-endgame:config:v1'
-export const EMPIRES_CONFIG_SCHEMA_VERSION = 10
+export const EMPIRES_CONFIG_SCHEMA_VERSION = 11
 export const EMPIRES_ACTIVE_MINIGAME_CONFIG_ERROR = 'Нельзя менять правила во время боя. Сначала завершите бой или выйдите через действие отмены.'
 
 export function empiresConfigReplacementDisabledReason(
@@ -290,6 +291,42 @@ const EXTERNAL_ECONOMY_SCAFFOLD = {
   },
   reviewedAbsentBuildings: [],
 } satisfies EmpiresExternalConfig
+
+const ECONOMY_CONTENT_SCAFFOLD = {
+  enabled: false,
+  eventHistoryRetention: 24,
+  smuggling: {
+    eventId: 'event-customs-smuggling',
+    stopChoiceId: 'stop-smuggling',
+    taxChoiceId: 'tax-smuggling',
+    durationCons: 1,
+    stopCustomsIncomeMultiplier: 0,
+    taxCustomsIncomeMultiplier: 2,
+    stopPopulationGrowth: 100,
+    taxPopulationGrowth: -100,
+  },
+  horseTheft: {
+    eventId: 'event-horse-theft',
+    huntChoiceId: 'hunt-thieves',
+    dealChoiceId: 'make-deal',
+    ignoreChoiceId: 'ignore-theft',
+    stableBuildingId: '',
+    livestockResourceId: '',
+    noblePopulationClassId: '',
+    recurrenceCooldownCons: 2,
+    enemyYieldPerCon: 100,
+  },
+  insurance: {
+    eventId: 'event-bank-insurance',
+    acceptChoiceId: 'accept-insurance',
+    declineChoiceId: 'decline-insurance',
+    buildingId: '',
+  },
+  tradeCard: {
+    externalTradeDisabledFlagId: 'externalTradeDisabled',
+    internalTradeOnlyFlagId: 'internalTradeOnly',
+  },
+} satisfies EmpiresEconomyContentConfig
 
 const LOYALTY_V4_SCAFFOLD = {
   enabled: false,
@@ -729,6 +766,27 @@ function normalizeEmpiresConfigV10(config: Record<string, unknown>): Record<stri
   return config
 }
 
+function migrateEmpiresConfigV10ToV11(config: Record<string, unknown>): Record<string, unknown> {
+  if (isRecord(config.empire)) {
+    // Schema v10 could not own this lifecycle. Ignore forward-shaped fields on legacy
+    // fixtures/imports instead of accidentally activating P6C against incomplete carriers.
+    config.empire.economyContent = cloneJson(ECONOMY_CONTENT_SCAFFOLD)
+  }
+  config.schemaVersion = 11
+  return config
+}
+
+function normalizeEmpiresConfigV11(config: Record<string, unknown>): Record<string, unknown> {
+  normalizeEmpiresConfigV10(config)
+  if (isRecord(config.empire)) {
+    config.empire.economyContent = withScaffoldDefaults(
+      config.empire.economyContent,
+      ECONOMY_CONTENT_SCAFFOLD,
+    )
+  }
+  return config
+}
+
 const EMPIRES_CONFIG_MIGRATIONS: Record<
   number,
   (config: Record<string, unknown>) => Record<string, unknown>
@@ -742,6 +800,7 @@ const EMPIRES_CONFIG_MIGRATIONS: Record<
   7: migrateEmpiresConfigV7ToV8,
   8: migrateEmpiresConfigV8ToV9,
   9: migrateEmpiresConfigV9ToV10,
+  10: migrateEmpiresConfigV10ToV11,
 }
 
 /**
@@ -770,6 +829,7 @@ export function migrateEmpiresConfig(raw: unknown): unknown {
   if (version === 8) migrated = normalizeEmpiresConfigV8(migrated)
   if (version === 9) migrated = normalizeEmpiresConfigV9(migrated)
   if (version === 10) migrated = normalizeEmpiresConfigV10(migrated)
+  if (version === 11) migrated = normalizeEmpiresConfigV11(migrated)
   return migrated
 }
 
@@ -948,6 +1008,7 @@ const EMPIRES_LIVE_FLAG_ALLOWLIST = new Set([
   'famineYear',
   'famineYearCounter',
   'equippedRecruitCapacity',
+  'externalTradeDisabled',
   'horseTheftDisabled',
   'idleBuildingGoldBase',
   'loyaltyMultiplierPercent',
@@ -962,6 +1023,7 @@ const EMPIRES_LIVE_FLAG_ALLOWLIST = new Set([
   'coercionBuildingOverride',
   'darkExperimentsDisabled',
   'instantUnitEveryTurns',
+  'internalTradeOnly',
   'peasantProductivityPercent',
   'productionBoostAssignmentLimit',
   'productionBoostPercent',
@@ -980,6 +1042,7 @@ const EMPIRES_LIVE_FLAG_ALLOWLIST = new Set([
   'starvationLossMultiplierPercent',
   'surplusFoodPerGold',
   'templarTransferLossPercent',
+  'titheIncomePercent',
   'treasuryGoldPerSavedMillion',
   'theocracy',
   'unlimitedTavernRecruitment',
@@ -1745,6 +1808,83 @@ function validateExternalEconomyConfig(config: EmpiresEndgameConfig): void {
       throw new Error(`empire.externalEconomy reviewed absent building ${reviewed.id || '<missing>'} is invalid.`)
     }
     reviewedIds.add(reviewed.id)
+  }
+}
+
+function validateEconomyContentConfig(config: EmpiresEndgameConfig): void {
+  const content = config.empire.economyContent
+  if (!isRecord(content) || typeof content.enabled !== 'boolean') {
+    throw new Error('empire.economyContent must be an object with an enabled flag.')
+  }
+  if (!Number.isInteger(content.eventHistoryRetention) || content.eventHistoryRetention < 1) {
+    throw new Error('empire.economyContent.eventHistoryRetention must be a positive integer.')
+  }
+  if (!content.enabled) return
+
+  const eventById = new Map(config.empire.events.map(event => [event.id, event]))
+  const buildingIds = new Set(config.empire.buildings
+    .filter(building => !building.deferredReason)
+    .map(building => building.id))
+  const resourceIds = new Set(config.empire.resources.map(resource => resource.id))
+  const classIds = new Set(config.empire.populationClasses.map(item => item.id))
+  const liveChoice = (eventId: string, choiceId: string, label: string) => {
+    const event = eventById.get(eventId)
+    const choice = event?.choices.find(item => item.id === choiceId)
+    if (!event || event.deferredReason || !choice || choice.deferredReason) {
+      throw new Error(`empire.economyContent ${label} must reference a live event choice.`)
+    }
+  }
+
+  const smuggling = content.smuggling
+  if (smuggling.eventId !== config.empire.externalEconomy.customs.smugglingEventId
+    || !Number.isInteger(smuggling.durationCons) || smuggling.durationCons < 1
+    || [
+      smuggling.stopCustomsIncomeMultiplier,
+      smuggling.taxCustomsIncomeMultiplier,
+      smuggling.stopPopulationGrowth,
+      smuggling.taxPopulationGrowth,
+    ].some(value => !Number.isFinite(value))
+    || smuggling.stopCustomsIncomeMultiplier < 0
+    || smuggling.taxCustomsIncomeMultiplier < 0) {
+    throw new Error('empire.economyContent.smuggling has invalid carriers or values.')
+  }
+  liveChoice(smuggling.eventId, smuggling.stopChoiceId, 'smuggling.stopChoiceId')
+  liveChoice(smuggling.eventId, smuggling.taxChoiceId, 'smuggling.taxChoiceId')
+
+  const horseTheft = content.horseTheft
+  if (!buildingIds.has(horseTheft.stableBuildingId)
+    || horseTheft.stableBuildingId !== config.empire.externalEconomy.stable.buildingId
+    || !resourceIds.has(horseTheft.livestockResourceId)
+    || horseTheft.livestockResourceId !== config.empire.externalEconomy.stable.livestockResourceId
+    || !classIds.has(horseTheft.noblePopulationClassId)
+    || !Number.isInteger(horseTheft.recurrenceCooldownCons)
+    || horseTheft.recurrenceCooldownCons < 1
+    || !Number.isFinite(horseTheft.enemyYieldPerCon)
+    || horseTheft.enemyYieldPerCon < 0) {
+    throw new Error('empire.economyContent.horseTheft has invalid carriers or values.')
+  }
+  liveChoice(horseTheft.eventId, horseTheft.huntChoiceId, 'horseTheft.huntChoiceId')
+  liveChoice(horseTheft.eventId, horseTheft.dealChoiceId, 'horseTheft.dealChoiceId')
+  liveChoice(horseTheft.eventId, horseTheft.ignoreChoiceId, 'horseTheft.ignoreChoiceId')
+
+  const insurance = content.insurance
+  if (!buildingIds.has(insurance.buildingId)
+    || insurance.buildingId !== config.empire.domesticEconomy.insurance.buildingId) {
+    throw new Error('empire.economyContent.insurance must reference the live insurance building.')
+  }
+  liveChoice(insurance.eventId, insurance.acceptChoiceId, 'insurance.acceptChoiceId')
+  liveChoice(insurance.eventId, insurance.declineChoiceId, 'insurance.declineChoiceId')
+
+  const card = config.cards.find(definition => definition.id === 'card-diamonds-ace')
+  const tradeFlags = new Set(card?.inverted.effects.flatMap(effect => (
+    effect.kind === 'flag' ? [effect.flagId] : []
+  )) ?? [])
+  if (card?.inverted.deferredReason
+    || !content.tradeCard.externalTradeDisabledFlagId.trim()
+    || !content.tradeCard.internalTradeOnlyFlagId.trim()
+    || !tradeFlags.has(content.tradeCard.externalTradeDisabledFlagId)
+    || !tradeFlags.has(content.tradeCard.internalTradeOnlyFlagId)) {
+    throw new Error('empire.economyContent.tradeCard must reference both live inverted ♦A flags.')
   }
 }
 
@@ -3112,6 +3252,7 @@ export function validateEmpiresConfig(value: unknown): asserts value is EmpiresE
   validateEpidemicAndMedicalConfig(config)
   validateDomesticEconomyConfig(config)
   validateExternalEconomyConfig(config)
+  validateEconomyContentConfig(config)
   validateLoyaltyConfig(config)
   validatePoliticalEffects(config)
   validateSteelResearchConfig(config)

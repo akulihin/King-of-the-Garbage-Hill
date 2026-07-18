@@ -65,6 +65,21 @@ describe('Empire\'s Endgame deterministic QA scenarios', () => {
       insuranceContractCount: 0,
       activeFairActivityCount: 0,
     })
+    expect(fixtures['economy-content-event'].snapshot).toMatchObject({
+      phase: 'event',
+      event: {
+        eventId: config.empire.economyContent.smuggling.eventId,
+        targetCityId: expect.any(String),
+      },
+    })
+    expect(digestEmpiresQaState(new EmpiresEndgameEngine(
+      config,
+      fixtures['economy-content-event'].snapshot,
+    ))).toMatchObject({
+      economyEventHistoryCount: 0,
+      smugglingPolicyActive: false,
+      horsePactActive: false,
+    })
     expect(fixtures['destroyed-west'].snapshot.empire.destroyedRegionIds).toContain('west')
     expect(fixtures['relic-production-levels'].snapshot.empire.buildingLevelBonuses).toMatchObject({
       farm: 1,

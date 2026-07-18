@@ -977,6 +977,42 @@ export interface EmpiresExternalConfig {
   reviewedAbsentBuildings: EmpiresExternalReviewedAbsentBuilding[]
 }
 
+export interface EmpiresEconomyContentConfig {
+  enabled: boolean
+  eventHistoryRetention: number
+  smuggling: {
+    eventId: string
+    stopChoiceId: string
+    taxChoiceId: string
+    durationCons: number
+    stopCustomsIncomeMultiplier: number
+    taxCustomsIncomeMultiplier: number
+    stopPopulationGrowth: number
+    taxPopulationGrowth: number
+  }
+  horseTheft: {
+    eventId: string
+    huntChoiceId: string
+    dealChoiceId: string
+    ignoreChoiceId: string
+    stableBuildingId: string
+    livestockResourceId: string
+    noblePopulationClassId: string
+    recurrenceCooldownCons: number
+    enemyYieldPerCon: number
+  }
+  insurance: {
+    eventId: string
+    acceptChoiceId: string
+    declineChoiceId: string
+    buildingId: string
+  }
+  tradeCard: {
+    externalTradeDisabledFlagId: string
+    internalTradeOnlyFlagId: string
+  }
+}
+
 export interface EmpiresEmpireConfig {
   daysPerPhase: number
   foodResourceId: string
@@ -1000,6 +1036,7 @@ export interface EmpiresEmpireConfig {
   medical: EmpiresMedicalConfig
   domesticEconomy: EmpiresDomesticEconomyConfig
   externalEconomy: EmpiresExternalConfig
+  economyContent: EmpiresEconomyContentConfig
   loyalty: EmpiresLoyaltyConfig
 }
 
@@ -1010,7 +1047,7 @@ export interface EmpiresUpgradeConfig {
 }
 
 export interface EmpiresEndgameConfig {
-  schemaVersion: 10
+  schemaVersion: 11
   id: string
   title: string
   seed: string | number
@@ -1191,6 +1228,7 @@ export interface EmpiresExternalState {
     totalTariffGold: number
     smugglingEligible: boolean
     lastTradeCon: number | null
+    lastTradeCityId: string | null
   }
   transferHistory: EmpiresExternalTransferHistoryState[]
   compactedTransferHistoryCount: number
@@ -1209,6 +1247,44 @@ export interface EmpiresExternalTradeQuote {
   knowledgeBonus: number
   netGoldDelta: number
   blockedReason: string | null
+}
+
+export interface EmpiresEconomyEventHistoryState {
+  id: string
+  eventId: string
+  choiceId: string
+  resolvedAtCon: number
+  targetCityId: string | null
+  targetActorId: string | null
+}
+
+export interface EmpiresSmugglingPolicyState {
+  choiceId: string
+  cityId: string
+  startedAtCon: number
+  expiresAfterCon: number
+  lastSettledCon: number | null
+}
+
+export interface EmpiresHorseTheftPactState {
+  actorId: string
+  cityId: string
+  startedAtCon: number
+  lastSettledCon: number | null
+}
+
+export interface EmpiresEconomyContentState {
+  nextEventSequence: number
+  eventHistory: EmpiresEconomyEventHistoryState[]
+  compactedEventHistoryCount: number
+  resolvedOnceEventIds: string[]
+  smugglingPolicy: EmpiresSmugglingPolicyState | null
+  horseTheft: {
+    disabledAtCon: number | null
+    nextEligibleCon: number
+    pact: EmpiresHorseTheftPactState | null
+  }
+  insuranceOfferedCityIds: string[]
 }
 
 export interface EmpiresExternalOfferView {
@@ -1624,6 +1700,7 @@ export interface EmpiresEmpireState {
     academyTreatmentUsedCon: number | null
   }
   domesticEconomy: EmpiresDomesticEconomyState
+  economyContent: EmpiresEconomyContentState
 }
 
 export interface EmpiresEpidemicSource {
@@ -1719,7 +1796,10 @@ export interface EmpiresStartEpidemicRequest {
 }
 
 export interface EmpiresEventState {
+  instanceId?: string
   eventId: string
+  targetCityId?: string
+  targetActorId?: string
   epidemicInstanceId?: string
   /**
    * A famine crisis selected before end-of-empire food settlement. Missing on
@@ -1729,7 +1809,7 @@ export interface EmpiresEventState {
 }
 
 export interface EmpiresCampaignState {
-  schemaVersion: 8
+  schemaVersion: 9
   configId: string
   phase: EmpiresPhase
   rng: EmpiresRngState
@@ -1758,7 +1838,7 @@ export interface EmpiresCampaignState {
 }
 
 export interface EmpiresSnapshotEnvelope {
-  schemaVersion: 8
+  schemaVersion: 9
   savedAt: string
   state: EmpiresCampaignState
 }

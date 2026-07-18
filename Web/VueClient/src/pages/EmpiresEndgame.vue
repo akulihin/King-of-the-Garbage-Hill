@@ -207,6 +207,23 @@ const currentEvent = computed(() => {
   return workingConfig.value?.empire.events.find(event => event.id === eventId) ?? null
 })
 
+const currentEventDescription = computed(() => {
+  const event = currentEvent.value
+  if (!event) return ''
+  const context: string[] = []
+  const cityId = state.value?.event?.targetCityId
+  const actorId = state.value?.event?.targetActorId
+  if (cityId) {
+    const city = workingConfig.value?.empire.cities.find(item => item.id === cityId)
+    context.push(`Город: ${city?.name ?? cityId}.`)
+  }
+  if (actorId) {
+    const actor = workingConfig.value?.empire.externalEconomy.actors.find(item => item.id === actorId)
+    context.push(`Внешняя сторона: ${actor?.name ?? actorId}.`)
+  }
+  return [event.description, ...context].filter(Boolean).join(' ')
+})
+
 const giftChoices = computed(() => {
   if (!state.value || !workingConfig.value) return []
   const ids = new Set(state.value.giftChoiceIds)
@@ -289,6 +306,57 @@ const targetResolutionPrompt = computed(() => pendingResolution.value?.kind === 
   ? 'Выберите город для удара. Изменение необратимо.'
   : 'Выберите единственный город, который получит ресурсы.')
 
+function economyEventChoiceEffects(eventId: string, choiceId: string): string[] {
+  const config = workingConfig.value
+  if (!config) return []
+  const content = config.empire.economyContent
+  if (!content.enabled) return []
+  if (eventId === content.smuggling.eventId) {
+    const stops = choiceId === content.smuggling.stopChoiceId
+    const multiplier = stops
+      ? content.smuggling.stopCustomsIncomeMultiplier
+      : content.smuggling.taxCustomsIncomeMultiplier
+    const population = stops
+      ? content.smuggling.stopPopulationGrowth
+      : content.smuggling.taxPopulationGrowth
+    return [
+      `Следующий кон: доход и пошлины Таможни ×${multiplier}.`,
+      `Население выбранного города: ${population >= 0 ? '+' : ''}${formatNumber(population)}.`,
+      `Срок: ${content.smuggling.durationCons} кон.`,
+    ]
+  }
+  if (eventId === content.horseTheft.eventId) {
+    if (choiceId === content.horseTheft.huntChoiceId) {
+      return ['Кражи прекращаются навсегда.']
+    }
+    if (choiceId === content.horseTheft.dealChoiceId) {
+      const resource = config.empire.resources.find(
+        item => item.id === content.horseTheft.livestockResourceId,
+      )?.name ?? content.horseTheft.livestockResourceId
+      return [
+        `Со следующего кона: +${formatNumber(content.horseTheft.enemyYieldPerCon)} ${resource} за кон, пока выбранная сторона враждебна.`,
+        'Кражи в собственных конюшнях больше не повторяются.',
+      ]
+    }
+    if (choiceId === content.horseTheft.ignoreChoiceId) {
+      return [`Событие сможет повториться через ${content.horseTheft.recurrenceCooldownCons} кона.`]
+    }
+  }
+  if (eventId === content.insurance.eventId
+    && choiceId === content.insurance.acceptChoiceId) {
+    const insurance = config.empire.domesticEconomy.insurance
+    return [
+      `Договор активируется после ${insurance.calmTurnsRequired} спокойных конов.`,
+      `Защита действует ${insurance.activeDurationCons} конов и покрывает одно подходящее происшествие.`,
+    ]
+  }
+  if (eventId === content.insurance.eventId
+    && choiceId === content.insurance.declineChoiceId) {
+    return ['Для этого города предложение больше не повторится.']
+  }
+  return []
+}
+
 const eventChoiceViews = computed(() => currentEvent.value?.choices.map(choice => {
   const blockedReason = engine.value?.eventChoiceBlockedReason(choice.id)
   return {
@@ -296,7 +364,7 @@ const eventChoiceViews = computed(() => currentEvent.value?.choices.map(choice =
     name: choice.label,
     description: choice.description ?? '',
     costs: costsText(choice.resourceCosts),
-    effects: choice.effects.map(effectText),
+    effects: [...choice.effects.map(effectText), ...economyEventChoiceEffects(currentEvent.value!.id, choice.id)],
     disabled: Boolean(blockedReason),
     disabledReason: actionReasonText(blockedReason),
   }
@@ -345,7 +413,13 @@ function effectText(effect: EmpiresEffect) {
     return `Лояльность · ${target ?? effect.target.kind}: ${effect.amount >= 0 ? '+' : ''}${effect.amount}`
   }
   if (effect.kind === 'reputation') return `Репутация: ${effect.amount >= 0 ? '+' : ''}${effect.amount}`
-  return `${effect.flagId}: ${effect.amount >= 0 ? '+' : ''}${effect.amount}`
+  if (effect.flagId === 'externalTradeDisabled') return 'Внешняя торговля недоступна в этом коне'
+  if (effect.flagId === 'internalTradeOnly') return 'Межрегиональная торговля и услуги недоступны в этом коне'
+  if (effect.flagId === 'titheIncomePercent') return `Доход десятины: +${effect.amount}%`
+  if (effect.flagId === 'smithyWithoutIron') return 'Кузница не требует железо'
+  if (effect.flagId === 'stableWithoutLivestock') return 'Конюшня не требует лошадей'
+  const scaling = effect.amountPerLevel ? `; +${effect.amountPerLevel} за уровень` : ''
+  return `${effect.flagId}: ${effect.amount >= 0 ? '+' : ''}${effect.amount}${scaling}`
 }
 
 function costsText(costs: Array<{ resourceId: string, amount: number }> | undefined) {
@@ -1106,7 +1180,8 @@ function constructionDependencies(
   building: EmpiresBuildingDefinition,
   level: EmpiresBuildingLevelDefinition,
 ) {
-  if (!isStableBuilding(building) || (state.value?.empire.flags.stableWithoutLivestock ?? 0) <= 0) {
+  if (!isStableBuilding(building)
+    || (engine.value?.effectiveEmpireFlagValue('stableWithoutLivestock') ?? 0) <= 0) {
     return level.dependencies
   }
   return level.dependencies.filter(
@@ -1121,10 +1196,10 @@ function constructionResourceCosts(
   return level.resourceCosts.filter((cost) => {
     if (building.slot === 'smithy'
       && cost.resourceId === 'iron'
-      && (state.value?.empire.flags.smithyWithoutIron ?? 0) > 0) return false
+      && (engine.value?.effectiveEmpireFlagValue('smithyWithoutIron') ?? 0) > 0) return false
     if (isStableBuilding(building)
       && cost.resourceId === 'horses'
-      && (state.value?.empire.flags.stableWithoutLivestock ?? 0) > 0) return false
+      && (engine.value?.effectiveEmpireFlagValue('stableWithoutLivestock') ?? 0) > 0) return false
     return true
   })
 }
@@ -2037,7 +2112,7 @@ onUnmounted(() => {
         <EventDialog
           :open="true"
           :title="currentEvent.name"
-          :description="currentEvent.description"
+          :description="currentEventDescription"
           :category="`Событие · кон ${state.con}`"
           :choices="eventChoiceViews"
           @choose="chooseEvent"

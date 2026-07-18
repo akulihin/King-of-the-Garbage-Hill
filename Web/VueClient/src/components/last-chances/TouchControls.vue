@@ -8,6 +8,7 @@ export type AttackHand = 'primary' | 'secondary'
 
 const props = withDefaults(defineProps<{
   locale: LastChancesLocale
+  legacyLabel: string
   primaryName: string
   secondaryName: string
   primaryCue?: LastChancesHandActionCue | null
@@ -169,7 +170,8 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="lc-touch-controls" :class="{ 'is-disabled': disabled }" aria-label="Touch controls">
+  <div class="lc-touch-controls" :class="{ 'is-disabled': disabled }" :aria-label="legacyLabel">
+    <span class="lc-touch-legacy-note">{{ legacyLabel }}</span>
     <button
       v-if="interactionPrompt"
       class="lc-interact-button"
@@ -287,6 +289,26 @@ onBeforeUnmount(() => {
   padding: 0.6rem max(0.65rem, env(safe-area-inset-right)) max(0.7rem, env(safe-area-inset-bottom)) max(0.65rem, env(safe-area-inset-left));
   pointer-events: none;
   user-select: none;
+}
+
+.lc-touch-legacy-note {
+  position: absolute;
+  right: max(0.75rem, env(safe-area-inset-right));
+  bottom: max(7rem, calc(env(safe-area-inset-bottom) + 6.4rem));
+  max-width: 12rem;
+  overflow: hidden;
+  padding: 0.22rem 0.4rem;
+  border: 1px solid rgba(205, 171, 92, 0.2);
+  border-radius: 999px;
+  color: #a89772;
+  background: rgba(7, 9, 10, 0.76);
+  font-size: 0.43rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+  pointer-events: none;
 }
 
 .lc-touch-cluster {

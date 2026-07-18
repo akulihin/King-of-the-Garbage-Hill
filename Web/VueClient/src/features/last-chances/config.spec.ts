@@ -4,6 +4,7 @@ import {
   clearLastChancesConfig,
   cloneLastChancesConfig,
   loadLastChancesConfig,
+  migrateLastChancesConfig,
   saveLastChancesConfig,
   validateLastChancesConfig,
 } from './config'
@@ -17,6 +18,212 @@ import type {
 
 const defaultConfig = defaultConfigJson as unknown as LastChancesConfig
 
+interface ExpectedShippedControlRoute {
+  mylorik: string[]
+  dualsense: {
+    instant: string
+    start: string
+    nodes: string[]
+  }
+}
+
+/** Binding control-scheme plan, kept independent from the shipped JSON it verifies. */
+const EXPECTED_SHIPPED_CONTROL_ROUTES: Record<string, ExpectedShippedControlRoute> = {
+  'twohand-spear:primary': {
+    mylorik: [
+      'tap|strike|press|*|100',
+      'doubleTap|technique|tap|*|100',
+      'doubleTapHold|strike|press|continuation|80',
+      'hold|technique|hold|*|100',
+      'holdThenDoubleTap|mobility|press|continuation|80',
+    ],
+    dualsense: {
+      instant: 'tap',
+      start: 'doubleTap',
+      nodes: [
+        'doubleTap|doubleTap|neutral|0.22|release|none|dispatch|hold,doubleTapHold|release|480|click|*',
+        'hold|hold|neutral|0.48|release|charge|dispatch|holdThenDoubleTap|release|480|ramp|*',
+        'doubleTapHold|doubleTapHold|continuation|0.72|release|charge|dispatch||release|480|gate|*',
+        'holdThenDoubleTap|holdThenDoubleTap|continuation|0.9|press|none|cancel||release|480|followUp|middle',
+      ],
+    },
+  },
+  'twohand-spear:secondary': {
+    mylorik: [
+      'tap|strike|press|*|100',
+      'doubleTap|technique|tap|*|100',
+      'doubleTapHold|strike|press|continuation|80',
+      'hold|technique|hold|*|100',
+      'holdThenDoubleTap|mobility|press|stance|80',
+    ],
+    dualsense: {
+      instant: 'tap',
+      start: 'doubleTap',
+      nodes: [
+        'doubleTap|doubleTap|neutral|0.22|release|none|dispatch|hold,doubleTapHold|release|480|click|*',
+        'hold|hold|neutral|0.48|press|channel|dispatch|holdThenDoubleTap|release|480|tension|*',
+        'doubleTapHold|doubleTapHold|continuation|0.72|release|charge|dispatch||release|480|gate|*',
+        'holdThenDoubleTap|holdThenDoubleTap|stance|0.9|release|none|dispatch||release|480|followUp|*',
+      ],
+    },
+  },
+  'secondary-chain:primary': {
+    mylorik: [
+      'tap|strike|press|*|100',
+      'doubleTap|technique|tap|*|100',
+      'doubleTapHold|mobility|press|spin|80',
+      'hold|technique|hold|*|100',
+      'holdThenDoubleTap|strike|press|tether|80',
+    ],
+    dualsense: {
+      instant: 'tap',
+      start: 'hold',
+      nodes: [
+        'hold|hold|neutral|0.22|release|charge|dispatch|doubleTap,holdThenDoubleTap|release|480|tension|*',
+        'doubleTap|doubleTap|neutral|0.48|press|none|cancel|doubleTapHold|release|480|gate|*',
+        'doubleTapHold|doubleTapHold|spin|0.72|release|charge|dispatch||release|480|gate|*',
+        'holdThenDoubleTap|holdThenDoubleTap|tether|0.9|press|none|cancel||release|480|gate|*',
+      ],
+    },
+  },
+  'either-claws:primary': {
+    mylorik: [
+      'tap|strike|press|*|100',
+      'doubleTap|technique|tap|*|100',
+      'doubleTapHold|strike|press|continuation|80',
+      'hold|mobility|hold|*|100',
+      'holdThenDoubleTap|strike|press|dash|90',
+    ],
+    dualsense: {
+      instant: 'tap',
+      start: 'doubleTap',
+      nodes: [
+        'doubleTap|doubleTap|neutral|0.22|release|none|dispatch|hold|release|480|click|*',
+        'hold|hold|neutral|0.48|release|charge|dispatch|doubleTapHold,holdThenDoubleTap|release|480|ramp|*',
+        'doubleTapHold|doubleTapHold|neutral|0.72|release|none|dispatch||release|480|gate|*',
+        'holdThenDoubleTap|holdThenDoubleTap|dash|0.9|press|none|cancel||release|480|followUp|*',
+      ],
+    },
+  },
+  'secondary-spider-knife:primary': {
+    mylorik: [
+      'tap|strike|press|*|100',
+      'doubleTap|technique|tap|*|100',
+      'doubleTapHold|mobility|release|continuation|80',
+      'hold|technique|hold|*|100',
+      'holdThenDoubleTap|strike|press|flurry|80',
+    ],
+    dualsense: {
+      instant: 'tap',
+      start: 'doubleTap',
+      nodes: [
+        'doubleTap|doubleTap|neutral|0.22|release|none|dispatch|hold,doubleTapHold|release|480|click|*',
+        'hold|hold|neutral|0.48|press|channel|dispatch|holdThenDoubleTap|release|480|tension|*',
+        'holdThenDoubleTap|holdThenDoubleTap|flurry|0.72|release|none|dispatch||release|480|gate|*',
+        'doubleTapHold|doubleTapHold|neutral|0.9|release|charge|dispatch||release|480|gate|*',
+      ],
+    },
+  },
+  'twohand-axe:primary': {
+    mylorik: [
+      'tap|strike|press|*|100',
+      'doubleTap|technique|tap|*|100',
+      'doubleTapHold|technique|hold|grapple|80',
+    ],
+    dualsense: {
+      instant: 'tap',
+      start: 'doubleTap',
+      nodes: [
+        'doubleTap|doubleTap|neutral|0.22|press|none|cancel|doubleTapHold|release|480|gate|*',
+        'doubleTapHold|doubleTapHold|grapple|0.72|release|charge|dispatch||release|480|tension|*',
+      ],
+    },
+  },
+  'twohand-axe:secondary': {
+    mylorik: [
+      'tap|strike|press|*|100',
+      'hold|technique|hold|*|100',
+      'holdThenDoubleTap|mobility|press|spin|80',
+    ],
+    dualsense: {
+      instant: 'tap',
+      start: 'hold',
+      nodes: [
+        'hold|hold|neutral|0.22|press|channel|dispatch|holdThenDoubleTap|release|480|ramp|*',
+        'holdThenDoubleTap|holdThenDoubleTap|spin|0.72|release|none|dispatch||release|480|followUp|*',
+      ],
+    },
+  },
+  'twohand-katana:primary': {
+    mylorik: [
+      'tap|strike|press|*|100',
+      'doubleTap|technique|tap|*|100',
+      'doubleTapHold|strike|press|continuation|80',
+      'hold|technique|hold|*|100',
+      'holdThenDoubleTap|mobility|press|continuation|80',
+    ],
+    dualsense: {
+      instant: 'tap',
+      start: 'doubleTap',
+      nodes: [
+        'doubleTap|doubleTap|neutral|0.22|release|none|dispatch|hold,doubleTapHold|release|480|click|*',
+        'hold|hold|neutral|0.48|release|charge|dispatch|holdThenDoubleTap|release|480|ramp|*',
+        'doubleTapHold|doubleTapHold|continuation|0.72|release|none|dispatch||release|480|gate|*',
+        'holdThenDoubleTap|holdThenDoubleTap|continuation|0.9|press|none|cancel||release|480|followUp|katana-charge',
+      ],
+    },
+  },
+  'twohand-katana:secondary': {
+    mylorik: [
+      'tap|strike|press|*|100',
+      'doubleTap|technique|tap|*|100',
+      'doubleTapHold|strike|press|continuation|80',
+      'hold|technique|hold|*|100',
+      'holdThenDoubleTap|mobility|press|continuation|80',
+    ],
+    dualsense: {
+      instant: 'tap',
+      start: 'doubleTap',
+      nodes: [
+        'doubleTap|doubleTap|neutral|0.22|release|none|dispatch|hold,doubleTapHold|release|480|click|*',
+        'hold|hold|neutral|0.48|release|charge|dispatch|holdThenDoubleTap|release|480|ramp|*',
+        'doubleTapHold|doubleTapHold|continuation|0.72|release|none|dispatch||release|480|gate|*',
+        'holdThenDoubleTap|holdThenDoubleTap|continuation|0.9|press|none|cancel||release|480|followUp|iaido-ready',
+      ],
+    },
+  },
+  'hybrid-sword:primary': {
+    mylorik: [
+      'tap|strike|press|*|100',
+      'doubleTap|technique|tap|opening|80',
+      'doubleTapHold|technique|hold|opening|80',
+    ],
+    dualsense: {
+      instant: 'tap',
+      start: 'doubleTap',
+      nodes: [
+        'doubleTap|doubleTap|opening|0.22|release|none|dispatch|doubleTapHold|release|480|followUp|*',
+        'doubleTapHold|doubleTapHold|opening|0.72|release|charge|dispatch||release|480|gate|*',
+      ],
+    },
+  },
+  'hybrid-sword:secondary': {
+    mylorik: [
+      'tap|strike|press|*|100',
+      'doubleTap|technique|tap|opening|80',
+      'doubleTapHold|technique|hold|opening|80',
+    ],
+    dualsense: {
+      instant: 'tap',
+      start: 'doubleTap',
+      nodes: [
+        'doubleTap|doubleTap|opening|0.22|release|none|dispatch|doubleTapHold|release|480|followUp|*',
+        'doubleTapHold|doubleTapHold|opening|0.72|release|charge|dispatch||release|480|gate|*',
+      ],
+    },
+  },
+}
+
 function makeWeapon(
   id: string,
   equipMode: LastChancesEquipMode,
@@ -28,6 +235,7 @@ function makeWeapon(
   weapon.equipMode = equipMode
   delete weapon.hand
   delete weapon.secondaryAttacks
+  if (weapon.controls) delete weapon.controls.secondary
   return weapon
 }
 
@@ -45,6 +253,8 @@ function previousShippedSchemaV1Config(): LastChancesConfig {
   const config = cloneLastChancesConfig(defaultConfig)
   config.schemaVersion = 1
   delete config.input.tapComboWindowMs
+  delete config.input.mylorik
+  delete config.input.dualsense
   delete config.loadout
   removeRoomInteractions(config)
   const previousSpawns: Record<string, Array<{ x: number, y: number }>> = {
@@ -81,9 +291,15 @@ function previousShippedSchemaV1Config(): LastChancesConfig {
   config.weapons.forEach((weapon, index) => {
     weapon.hand = index === 0 ? 'left' : 'right'
     delete weapon.equipMode
+    delete weapon.trait
+    delete weapon.controls
     delete weapon.tapCombo
     delete weapon.secondaryAttacks
     delete weapon.secondaryTapCombo
+    Object.values(weapon.attacks).forEach((attack) => {
+      delete attack.behavior
+      delete attack.collider
+    })
   })
   config.weapons[0].attacks.tap.cooldownMs = 280
   config.weapons[1].attacks.tap.cooldownMs = 210
@@ -109,6 +325,17 @@ function schema3Config(): LastChancesConfig {
   return config
 }
 
+function stubCurrentConfigFetch() {
+  const fetchMock = vi.fn().mockResolvedValue({
+    ok: true,
+    status: 200,
+    statusText: 'OK',
+    json: async () => defaultConfig,
+  })
+  vi.stubGlobal('fetch', fetchMock)
+  return fetchMock
+}
+
 describe('99LC config and deterministic plan', () => {
   beforeEach(() => clearLastChancesConfig())
   afterEach(() => { vi.unstubAllGlobals() })
@@ -117,7 +344,7 @@ describe('99LC config and deterministic plan', () => {
     const result = validateLastChancesConfig(defaultConfig)
 
     expect(result.errors).toEqual([])
-    expect(defaultConfig.schemaVersion).toBe(3)
+    expect(defaultConfig.schemaVersion).toBe(4)
     expect(defaultConfig.chances).toBe(99)
     expect(defaultConfig.rooms.every(room => (room.spawnLayouts?.length ?? 0) >= 2)).toBe(true)
     expect(defaultConfig.progression.tiers).toHaveLength(7)
@@ -323,11 +550,12 @@ describe('99LC config and deterministic plan', () => {
     const previous = previousShippedSchemaV1Config()
     expect(validateLastChancesConfig(previous).valid).toBe(false)
     window.localStorage.setItem('99lc:game-config', JSON.stringify(previous))
+    stubCurrentConfigFetch()
 
-    const migrated = await loadLastChancesConfig({ url: '/fetch-must-not-run.json' })
+    const migrated = await loadLastChancesConfig({ url: '/99lc/schema-v4.json' })
 
-    expect(migrated.schemaVersion).toBe(1)
-    expect(migrated.weapons.map(weapon => weapon.attacks.tap.cooldownMs)).toEqual([0, 0])
+    expect(migrated.schemaVersion).toBe(4)
+    expect(migrated.weapons.every(weapon => weapon.attacks.tap.cooldownMs === 0)).toBe(true)
     expect(migrated.rooms.find(room => room.id === 'chest-gallery')?.enemySpawns).toContainEqual({ x: 780, y: 160 })
     expect(migrated.rooms.find(room => room.id === 'wrong-shadow-event')?.enemySpawns).toContainEqual({ x: 420, y: 370 })
     expect(validateLastChancesConfig(migrated).errors).toEqual([])
@@ -338,8 +566,9 @@ describe('99LC config and deterministic plan', () => {
     const chestGallery = previous.rooms.find(room => room.id === 'chest-gallery')!
     Object.assign(chestGallery.obstacles[1], { x: 775, y: 130, width: 20, height: 60 })
     window.localStorage.setItem('99lc:game-config', JSON.stringify(previous))
+    stubCurrentConfigFetch()
 
-    const migrated = await loadLastChancesConfig({ url: '/fetch-must-not-run.json' })
+    const migrated = await loadLastChancesConfig({ url: '/99lc/schema-v4.json' })
     const spawns = migrated.rooms.find(room => room.id === 'chest-gallery')?.enemySpawns
 
     expect(spawns).toContainEqual({ x: 730, y: 160 })
@@ -349,7 +578,7 @@ describe('99LC config and deterministic plan', () => {
     expect(validateLastChancesConfig(migrated).errors).toEqual([])
   })
 
-  it('upgrades a saved schema-v2 override while preserving run tuning and adopting the schema-v3 arsenal', async () => {
+  it('upgrades a saved schema-v2 override while preserving run tuning and adopting the schema-v4 arsenal', async () => {
     const legacy = cloneLastChancesConfig(defaultConfig)
     legacy.schemaVersion = 2
     legacy.seed = 'saved-schema-v2-run'
@@ -393,7 +622,7 @@ describe('99LC config and deterministic plan', () => {
       signal: undefined,
     })
     expect(migrated).toMatchObject({
-      schemaVersion: 3,
+      schemaVersion: 4,
       seed: 'saved-schema-v2-run',
       player: { baseStats: { attackPower: 137 } },
       loadout: defaultConfig.loadout,
@@ -427,6 +656,317 @@ describe('99LC config and deterministic plan', () => {
       'rooms[0].spawnLayouts is required by schemaVersion 2 or newer',
       'weapons[0].tapCombo must contain at least one basic-combo follow-up',
     ]))
+  })
+
+  describe('schema-v4 controls and migration', () => {
+    it('standalone-migrates an actual v1-shaped Builder definition through v2 and v3 fields', () => {
+      const v1 = previousShippedSchemaV1Config()
+      const before = JSON.stringify(v1)
+
+      const migrated = migrateLastChancesConfig(v1) as LastChancesConfig
+
+      expect(migrated).toMatchObject({
+        schemaVersion: 4,
+        input: {
+          tapComboWindowMs: 900,
+          mylorik: defaultConfig.input.mylorik,
+          dualsense: defaultConfig.input.dualsense,
+        },
+      })
+      expect(migrated.loadout).toEqual({
+        primaryWeaponId: v1.weapons[0].id,
+        secondaryWeaponId: v1.weapons[1].id,
+      })
+      expect(migrated.rooms.every(room => (room.spawnLayouts?.length ?? 0) === 2)).toBe(true)
+      expect(migrated.enemies.every(enemy => (
+        enemy.idleTurnRadiansPerSecond !== undefined
+        && enemy.preferredAttackRangeRatio !== undefined
+      ))).toBe(true)
+      expect(migrated.weapons.every(weapon => (
+        weapon.equipMode !== undefined
+        && weapon.trait !== undefined
+        && weapon.tapCombo?.length === 1
+        && weapon.controls !== undefined
+        && Object.values(weapon.attacks).every(attack => (
+          attack.behavior !== undefined && attack.collider !== undefined
+        ))
+      ))).toBe(true)
+      expect(migrated.weapons.map(weapon => weapon.trait)).toEqual([
+        'spearDistance',
+        'chainDotCarrier',
+      ])
+      expect(validateLastChancesConfig(migrated).errors).toEqual([])
+      expect(JSON.stringify(v1)).toBe(before)
+      expect(migrateLastChancesConfig(migrated)).toEqual(migrated)
+    })
+
+    it('clone-first migrates v1, v2, and v3 to v4 and keeps v4 idempotent', () => {
+      const v1 = previousShippedSchemaV1Config()
+      const v2 = cloneLastChancesConfig(defaultConfig)
+      v2.schemaVersion = 2
+      delete v2.input.mylorik
+      delete v2.input.dualsense
+      v2.weapons.forEach(weapon => delete weapon.controls)
+      const v3 = cloneLastChancesConfig(defaultConfig)
+      v3.schemaVersion = 3
+      delete v3.input.mylorik
+      delete v3.input.dualsense
+      v3.weapons.forEach(weapon => delete weapon.controls)
+
+      for (const legacy of [v1, v2, v3]) {
+        const before = JSON.stringify(legacy)
+        const migrated = migrateLastChancesConfig(legacy, defaultConfig) as LastChancesConfig
+        expect(migrated.schemaVersion).toBe(4)
+        expect(validateLastChancesConfig(migrated).errors).toEqual([])
+        expect(JSON.stringify(legacy)).toBe(before)
+        expect(migrated.input.mylorik).toEqual(defaultConfig.input.mylorik)
+        expect(migrated.input.dualsense).toEqual(defaultConfig.input.dualsense)
+        expect(migrated.weapons.map(weapon => weapon.controls)).toEqual(
+          defaultConfig.weapons.map(weapon => weapon.controls),
+        )
+      }
+
+      const before = JSON.stringify(defaultConfig)
+      const migratedV4 = migrateLastChancesConfig(defaultConfig) as LastChancesConfig
+      expect(migratedV4).toEqual(defaultConfig)
+      expect(migratedV4).not.toBe(defaultConfig)
+      expect(JSON.stringify(defaultConfig)).toBe(before)
+    })
+
+    it('fails clearly for an unknown future schema', () => {
+      const future = cloneLastChancesConfig(defaultConfig) as LastChancesConfig & { schemaVersion: number }
+      future.schemaVersion = 5
+
+      expect(() => migrateLastChancesConfig(future)).toThrow(
+        'Unsupported 99LC schemaVersion: schemaVersion 5 is newer than supported 4',
+      )
+    })
+
+    it('migrates a v3 browser override while preserving unrelated tuning', async () => {
+      const legacy = cloneLastChancesConfig(defaultConfig)
+      legacy.schemaVersion = 3
+      legacy.seed = 'v3-control-migration'
+      legacy.input.holdMs = 777
+      legacy.input.mylorik!.techniqueHoldMs = 999
+      legacy.player.baseStats.attackPower = 143
+      legacy.enemies[0].moveSpeed = 71
+      legacy.rooms[0].name = 'Saved room tuning'
+      legacy.weapons[0].attacks.doubleTap.damage = 91
+      legacy.weapons[0].controls!.primary.role = 'stale activation table'
+      window.localStorage.setItem('99lc:game-config', JSON.stringify(legacy))
+      const fetchMock = stubCurrentConfigFetch()
+
+      const migrated = await loadLastChancesConfig({ url: '/99lc/schema-v4.json' })
+
+      expect(fetchMock).toHaveBeenCalledOnce()
+      expect(migrated).toMatchObject({
+        schemaVersion: 4,
+        seed: 'v3-control-migration',
+        input: { holdMs: 777 },
+        player: { baseStats: { attackPower: 143 } },
+      })
+      expect(migrated.input.mylorik).toEqual(defaultConfig.input.mylorik)
+      expect(migrated.input.dualsense).toEqual(defaultConfig.input.dualsense)
+      expect(migrated.enemies[0].moveSpeed).toBe(71)
+      expect(migrated.rooms[0].name).toBe('Saved room tuning')
+      expect(migrated.weapons[0].attacks.doubleTap.damage).toBe(91)
+      expect(migrated.weapons[0].controls).toEqual(defaultConfig.weapons[0].controls)
+      expect(JSON.parse(window.localStorage.getItem('99lc:game-config')!).schemaVersion).toBe(4)
+    })
+
+    it('validates bindings, hysteresis, ordered gates, and bounded feedback', () => {
+      const invalid = cloneLastChancesConfig(defaultConfig)
+      invalid.input.mylorik!.gamepad.interactButton = invalid.input.mylorik!.gamepad.mobilityButton
+      invalid.input.mylorik!.keyboard.rightTechniqueKeys = ['KeyQ']
+      invalid.input.dualsense!.releaseThreshold = 0.2
+      invalid.input.dualsense!.hysteresis = 0.08
+      invalid.input.dualsense!.gatePositions.medium = 0.2
+      invalid.input.dualsense!.feedback.maxDurationMs = 2500
+      invalid.input.dualsense!.feedback.profiles.click.magnitude = 1.1
+
+      expect(validateLastChancesConfig(invalid).errors).toEqual(expect.arrayContaining([
+        'input.mylorik.gamepad.interactButton duplicates input.mylorik.gamepad.mobilityButton',
+        'input.mylorik.keyboard.rightTechniqueKeys duplicates key KeyQ from input.mylorik.keyboard.leftTechniqueKeys',
+        'input.dualsense.activationThreshold - releaseThreshold must be >= hysteresis',
+        'input.dualsense.gatePositions must be strictly increasing',
+        'input.dualsense.feedback.maxDurationMs must be <= 2000',
+        'input.dualsense.feedback.profiles.click.magnitude must be <= 1',
+      ]))
+
+      const unreachableNeutralGate = cloneLastChancesConfig(defaultConfig)
+      unreachableNeutralGate.input.dualsense!.activationThreshold = 0.5
+      unreachableNeutralGate.input.dualsense!.releaseThreshold = 0.1
+      unreachableNeutralGate.input.dualsense!.hysteresis = 0.11
+      expect(validateLastChancesConfig(unreachableNeutralGate).errors).toContain(
+        'input.dualsense.releaseThreshold must be >= hysteresis so the neutral re-arm gate is reachable',
+      )
+    })
+
+    it('pins every authored request while covering all 47 enabled slots with no extras', () => {
+      const sets = defaultConfig.weapons.flatMap((weapon) => [
+        { key: `${weapon.id}:primary`, attacks: weapon.attacks, controls: weapon.controls!.primary },
+        ...(weapon.secondaryAttacks
+          ? [{
+              key: `${weapon.id}:secondary`,
+              attacks: weapon.secondaryAttacks,
+              controls: weapon.controls!.secondary!,
+            }]
+          : []),
+      ])
+      expect(sets.map(set => set.key)).toEqual(Object.keys(EXPECTED_SHIPPED_CONTROL_ROUTES))
+
+      const mylorikRequest = (
+        activation: (typeof sets)[number]['controls']['mylorik']['activations'][number],
+      ): string => [
+        activation.gesture,
+        activation.intent,
+        activation.phase,
+        activation.context ?? '*',
+        activation.priority,
+      ].join('|')
+      const dualSenseRequest = (
+        node: (typeof sets)[number]['controls']['dualsense']['nodes'][number],
+      ): string => [
+        node.id,
+        node.gesture,
+        node.entryContext,
+        node.activationThreshold,
+        node.dispatch,
+        node.holdBehavior,
+        node.releaseBehavior,
+        node.next.join(','),
+        node.cancel,
+        node.expiryMs,
+        node.tactileProfile,
+        node.requiredChargeBandId ?? '*',
+      ].join('|')
+
+      let enabledCount = 0
+      let disabledCount = 0
+      for (const { key, attacks, controls } of sets) {
+        const authored = EXPECTED_SHIPPED_CONTROL_ROUTES[key]
+        expect(controls.mylorik.activations.map(mylorikRequest), key).toEqual(authored.mylorik)
+        expect({
+          instant: controls.dualsense.instantGesture,
+          start: controls.dualsense.startNodeId,
+          nodes: controls.dualsense.nodes.map(dualSenseRequest),
+        }, key).toEqual(authored.dualsense)
+
+        const enabled = Object.entries(attacks)
+          .filter(([, attack]) => attack.enabled !== false && attack.behavior !== 'disabled')
+          .map(([gesture]) => gesture)
+        const disabled = Object.entries(attacks)
+          .filter(([, attack]) => attack.enabled === false || attack.behavior === 'disabled')
+          .map(([gesture]) => gesture)
+        enabledCount += enabled.length
+        disabledCount += disabled.length
+        expect(controls.mylorik.activations.map(activation => activation.gesture).sort())
+          .toEqual([...enabled].sort())
+        expect([
+          controls.dualsense.instantGesture,
+          ...controls.dualsense.nodes.map(node => node.gesture),
+        ].sort()).toEqual([...enabled].sort())
+        expect(disabled).not.toContain(controls.dualsense.instantGesture)
+        expect(controls.mylorik.activations.filter(activation => (
+          activation.gesture === 'tap'
+          && activation.intent === 'strike'
+          && activation.phase === 'press'
+          && activation.context === undefined
+        ))).toHaveLength(1)
+
+        const nodes = new Map(controls.dualsense.nodes.map(node => [node.id, node]))
+        const visiting = new Set<string>()
+        const visited = new Set<string>()
+        const walk = (id: string): void => {
+          expect(visiting.has(id)).toBe(false)
+          if (visited.has(id)) return
+          visiting.add(id)
+          nodes.get(id)?.next.forEach(walk)
+          visiting.delete(id)
+          visited.add(id)
+        }
+        if (controls.dualsense.startNodeId) walk(controls.dualsense.startNodeId)
+        expect(visited.size).toBe(nodes.size)
+      }
+
+      expect(sets).toHaveLength(11)
+      expect(enabledCount).toBe(47)
+      expect(disabledCount).toBe(8)
+
+      const migrated = cloneLastChancesConfig(defaultConfig)
+      migrated.schemaVersion = 3
+      delete migrated.input.mylorik
+      delete migrated.input.dualsense
+      migrated.weapons.forEach(weapon => delete weapon.controls)
+      const rebuilt = migrateLastChancesConfig(migrated) as LastChancesConfig
+      expect(rebuilt.weapons.map(weapon => weapon.controls)).toEqual(
+        defaultConfig.weapons.map(weapon => weapon.controls),
+      )
+    })
+
+    it('rejects duplicate activations, graph cycles, unreachable nodes, and unmatched gates', () => {
+      const duplicate = cloneLastChancesConfig(defaultConfig)
+      const duplicateActivations = duplicate.weapons[0].controls!.primary.mylorik.activations
+      Object.assign(duplicateActivations[1], {
+        intent: duplicateActivations[0].intent,
+        phase: duplicateActivations[0].phase,
+        context: duplicateActivations[0].context,
+        priority: duplicateActivations[0].priority,
+      })
+      expect(validateLastChancesConfig(duplicate).errors).toContain(
+        'weapons[0].controls.primary.mylorik.activations[1] duplicates activation strike|press|*|100',
+      )
+
+      const cycle = cloneLastChancesConfig(defaultConfig)
+      cycle.weapons[0].controls!.primary.dualsense.nodes.at(-1)!.next = ['doubleTap']
+      expect(validateLastChancesConfig(cycle).errors).toContain(
+        'weapons[0].controls.primary.dualsense combo graph must be acyclic',
+      )
+
+      const unreachable = cloneLastChancesConfig(defaultConfig)
+      unreachable.weapons[0].controls!.primary.dualsense.nodes[0].next = ['hold']
+      expect(validateLastChancesConfig(unreachable).errors).toContain(
+        'weapons[0].controls.primary.dualsense combo node doubleTapHold is unreachable',
+      )
+
+      const unmatchedGate = cloneLastChancesConfig(defaultConfig)
+      unmatchedGate.weapons[0].controls!.primary.dualsense.nodes[0].activationThreshold = 0.33
+      expect(validateLastChancesConfig(unmatchedGate).errors).toContain(
+        'weapons[0].controls.primary.dualsense.nodes[0].activationThreshold must match an input.dualsense gate position',
+      )
+
+      const unsupportedLifecycle = cloneLastChancesConfig(defaultConfig)
+      const unsupportedNode = unsupportedLifecycle.weapons[0].controls!.primary.dualsense.nodes[0]
+      ;(unsupportedNode as unknown as { releaseBehavior: string }).releaseBehavior = 'maintain'
+      ;(unsupportedNode as unknown as { cancel: string }).cancel = 'explicit'
+      expect(validateLastChancesConfig(unsupportedLifecycle).errors).toEqual(expect.arrayContaining([
+        'weapons[0].controls.primary.dualsense.nodes[0].releaseBehavior must be dispatch or cancel',
+        'weapons[0].controls.primary.dualsense.nodes[0].cancel must be release or expiry',
+      ]))
+
+      const unknownBand = cloneLastChancesConfig(defaultConfig)
+      unknownBand.weapons[0].controls!.primary.dualsense.nodes.at(-1)!.requiredChargeBandId = 'missing'
+      expect(validateLastChancesConfig(unknownBand).errors).toContain(
+        'weapons[0].controls.primary.dualsense.nodes[3].requiredChargeBandId must reference an existing hold charge band',
+      )
+    })
+
+    it('carries the authored primary and secondary controls onto resolved weapons', () => {
+      const spearConfig = cloneLastChancesConfig(defaultConfig)
+      spearConfig.loadout!.primaryWeaponId = 'twohand-spear'
+      spearConfig.loadout!.secondaryWeaponId = null
+      const spear = spearConfig.weapons.find(weapon => weapon.id === 'twohand-spear')!
+      const resolvedSpear = resolveLastChancesLoadout(spearConfig)
+      expect(resolvedSpear.left?.controls).toEqual(spear.controls!.primary)
+      expect(resolvedSpear.right?.controls).toEqual(spear.controls!.secondary)
+      expect(resolvedSpear.left?.controls).not.toBe(spear.controls!.primary)
+
+      const paired = cloneLastChancesConfig(defaultConfig)
+      paired.loadout!.primaryWeaponId = 'either-claws'
+      paired.loadout!.secondaryWeaponId = 'secondary-chain'
+      const chain = paired.weapons.find(weapon => weapon.id === 'secondary-chain')!
+      expect(resolveLastChancesLoadout(paired).right?.controls).toEqual(chain.controls!.primary)
+    })
   })
 
   it('rejects cooldowns on basic taps and authored combo steps', () => {
@@ -626,6 +1166,7 @@ describe('99LC config and deterministic plan', () => {
       const config = cloneLastChancesConfig(defaultConfig)
       const weapon = makeWeapon('greatblade', 'twoHanded')
       weapon.secondaryAttacks = secondaryAttacks('greatblade-secondary')
+      weapon.controls!.secondary = cloneLastChancesConfig(defaultConfig).weapons[0].controls!.secondary
       weapon.augmentHooks = { fire: { damageMultiplier: 1.1 } }
       const supplemental = makeWeapon('sidearm', 'secondaryOnly', 1)
       removeRoomInteractions(config)
@@ -700,6 +1241,7 @@ describe('99LC config and deterministic plan', () => {
       const config = cloneLastChancesConfig(defaultConfig)
       const hybrid = makeWeapon('wand-blade', 'hybrid')
       hybrid.secondaryAttacks = secondaryAttacks('hybrid-secondary')
+      hybrid.controls!.secondary = cloneLastChancesConfig(defaultConfig).weapons[0].controls!.secondary
       hybrid.augmentHooks = { chemical: { damageMultiplier: 1.1 } }
       const supplemental = makeWeapon('shield', 'secondaryOnly', 1)
       supplemental.attacks.tap.name = 'shield-tap'

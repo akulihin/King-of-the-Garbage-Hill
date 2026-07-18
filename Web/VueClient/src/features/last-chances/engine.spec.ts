@@ -2,6 +2,12 @@ import { describe, expect, it, vi } from 'vitest'
 import defaultConfigJson from '../../../public/99lc/game-config.json'
 import { cloneLastChancesConfig } from './config'
 import { LastChancesEngine } from './engine'
+import {
+  DualSenseFeedbackController,
+  type LastChancesEnhancedFeedbackOutput,
+  type LastChancesFeedbackEffect,
+} from './feedback'
+import type { LastChancesGamepadReading } from './gamepad'
 import { buildLastChancesPlan } from './plan'
 import { attackWithLastChancesAugment } from './weapon-runtime'
 import {
@@ -12,6 +18,7 @@ import {
 import type {
   LastChancesAttackDefinition,
   LastChancesConfig,
+  LastChancesControlContext,
   LastChancesEnemyDefinition,
   LastChancesEnemyState,
   LastChancesGamePlan,
@@ -124,6 +131,8 @@ type EngineTestAccess = {
     }
   }) => void
   cooldownEnds: Map<string, number>
+  controlContextActive: (hand: LastChancesHand, context: LastChancesControlContext) => boolean
+  applyGamepadReading: (reading: LastChancesGamepadReading | null) => void
   createSnapshot: () => LastChancesSnapshot
   delayedAttacks: Array<{
     remainingMs: number
@@ -143,14 +152,48 @@ type EngineTestAccess = {
     },
   ) => void
   elapsedMs: number
+  frameNowMs: number
   enemies: RuntimeEnemy[]
   effects: unknown[]
+  feedbackController: DualSenseFeedbackController
   finishEnemyDeath: (enemy: RuntimeEnemy) => void
   gestures: {
     press: (hand: LastChancesHand, atMs: number) => void
     reset: () => void
     update: (atMs: number) => void
   }
+  mylorikControls: {
+    pressStrike: (hand: LastChancesHand, atMs: number, source: 'gamepad' | 'keyboard' | 'pointer') => void
+    pressTechnique: (hand: LastChancesHand, atMs: number, source: 'gamepad' | 'keyboard' | 'pointer') => void
+    releaseTechnique: (hand: LastChancesHand, atMs: number, source: 'gamepad' | 'keyboard' | 'pointer') => void
+    pressMobility: (hand: LastChancesHand, atMs: number, source: 'gamepad' | 'keyboard' | 'pointer') => void
+    releaseMobility: (hand: LastChancesHand, atMs: number, source: 'gamepad' | 'keyboard' | 'pointer') => void
+    snapshot: (hand: LastChancesHand, atMs: number) => {
+      techniquePressed: boolean
+      mobilityPressed: boolean
+      buffered: boolean
+    }
+  }
+  dualSenseControls: {
+    updateTrigger: (
+      hand: LastChancesHand,
+      value: number,
+      atMs: number,
+      controls: LastChancesResolvedWeapon['controls'],
+      source: 'gamepad' | 'keyboard' | 'pointer',
+    ) => void
+    pressBumper: (hand: LastChancesHand, atMs: number, source: 'gamepad' | 'keyboard' | 'pointer') => void
+    snapshot: (hand: LastChancesHand, atMs: number) => {
+      active: boolean
+      nodeId: string | null
+    }
+  }
+  activeMobilityPhysicalHand: LastChancesHand | null
+  keyboardDualSenseTriggers: Record<LastChancesHand, {
+    down: boolean
+    startedAt: number
+    gateIndex: number
+  }>
   heldChannels: Map<LastChancesHand, EngineTestAccess['activeAreas'][number]>
   killPlayer: (reason: string) => void
   moveQuests: Record<LastChancesHand, {
@@ -179,7 +222,10 @@ type EngineTestAccess = {
     armorMultiplierMs: number
     stats: { maxHp: number, armor: number }
   }
+  pointerAim: LastChancesVector
   roomElapsedMs: number
+  selectMobilityPhysicalHand: (atMs: number) => LastChancesHand | null
+  tapCombos: Record<LastChancesHand, { step: number, expiresAtMs: number }>
   spawnZoneAttack: (enemy: RuntimeEnemy) => void
   swarmSpawner: {
     remaining: number
@@ -216,6 +262,8 @@ type EngineTestAccess = {
   updateDelayedAttacks: (deltaMs: number) => void
   updateDelayedRecoveries: (deltaMs: number) => void
   updateEnemies: (deltaSeconds: number, deltaMs: number) => void
+  updateHeldWeaponMechanics: (deltaMs: number) => void
+  updateKeyboardDualSenseTriggers: (atMs: number) => void
   updatePlayer: (deltaSeconds: number) => void
   updateProjectiles: (deltaSeconds: number, deltaMs: number) => void
   weaponStates: Map<string, RuntimeWeaponState>
@@ -289,7 +337,97 @@ function weapon(config: LastChancesConfig, id: string) {
   return config.weapons.find(candidate => candidate.id === id)!
 }
 
+function gamepadReading(
+  pressedIndexes: number[] = [],
+  values: Partial<Record<number, number>> = {},
+  activeIndex = 0,
+): LastChancesGamepadReading {
+  const canonicalButtons = Array.from({ length: 16 }, (_, index) => {
+    const value = values[index] ?? (pressedIndexes.includes(index) ? 1 : 0)
+    return { pressed: pressedIndexes.includes(index), value }
+  })
+  const pressed = (index: number) => canonicalButtons[index]?.pressed === true
+    || (canonicalButtons[index]?.value ?? 0) >= 0.5
+  return {
+    status: pressedIndexes.length > 0 || Object.values(values).some(value => (value ?? 0) > 0)
+      ? 'active'
+      : 'idle',
+    activeIndex,
+    connectedCount: 1,
+    id: 'Engine test pad',
+    mapping: 'standard',
+    profile: 'standard',
+    meaningfulInput: true,
+    axes: [0, 0, 0, 0],
+    move: { x: 0, y: 0 },
+    aim: { x: 0, y: 0 },
+    buttons: {
+      left: pressed(4),
+      right: pressed(5),
+      l1: pressed(4),
+      r1: pressed(5),
+      circle: pressed(1),
+      cross: pressed(0),
+      options: pressed(9),
+      dpadUp: pressed(12),
+      dpadDown: pressed(13),
+      dpadLeft: pressed(14),
+      dpadRight: pressed(15),
+    },
+    triggers: { left: canonicalButtons[6]?.value ?? 0, right: canonicalButtons[7]?.value ?? 0 },
+    canonicalButtons,
+    sourceButtonIndexes: { left: 4, right: 5 },
+  }
+}
+
+function driveDualSenseTrigger(
+  access: EngineTestAccess,
+  physicalHand: LastChancesHand,
+  value: number,
+  atMs: number,
+): void {
+  access.elapsedMs = atMs
+  access.frameNowMs = Math.max(1, atMs)
+  const runtimeHand = physicalHand === 'left' ? 'right' : 'left'
+  access.dualSenseControls.updateTrigger(
+    physicalHand,
+    value,
+    atMs,
+    access.weapons.get(runtimeHand)?.controls,
+    'gamepad',
+  )
+}
+
 describe('99LC engine attempt lifecycle', () => {
+  it('unlocks every move only for the explicit controls QA fixture', () => {
+    const normal = new LastChancesEngine(makeCanvas(), defaultConfig)
+    const qa = new LastChancesEngine(makeCanvas(), defaultConfig, {}, { qaFixture: 'controls' })
+
+    try {
+      const normalSnapshot = (normal as unknown as EngineTestAccess).createSnapshot()
+      expect(normalSnapshot.moveQuests.every(quest => (
+        quest.unlocked.doubleTap === false
+        && quest.unlocked.doubleTapHold === false
+        && quest.unlocked.holdThenDoubleTap === false
+      ))).toBe(true)
+
+      const expectFullyUnlocked = (snapshot: LastChancesSnapshot) => {
+        expect(snapshot.moveQuests.every(quest => (
+          Object.values(quest.unlocked).every(Boolean)
+          && quest.tapQuestDone
+          && quest.holdQuestDone
+          && quest.comboQuestDone
+        ))).toBe(true)
+      }
+      expectFullyUnlocked((qa as unknown as EngineTestAccess).createSnapshot())
+      qa.newGeneration()
+      expectFullyUnlocked((qa as unknown as EngineTestAccess).createSnapshot())
+    } finally {
+      normal.destroy()
+      qa.destroy()
+    }
+  })
+
   it('retries the same generated room while retaining Chance cost and stat erosion', () => {
     const snapshots: LastChancesSnapshot[] = []
     let plan: LastChancesGamePlan | null = null
@@ -1601,6 +1739,1303 @@ describe('99LC move-unlock quests and elite/swarm rooms', () => {
         expect(node.swarm.definitionId).toBe('swarm-creep')
         expect(node.swarm.edges[0]).not.toBe(node.swarm.edges[1])
       }
+    }
+  })
+})
+
+describe('99LC control-scheme engine boundary', () => {
+  it.each(['mylorik', 'dualsense'] as const)(
+    'does not arm %s keyboard semantics while planning or paused',
+    (scheme) => {
+      const config = combatConfig('either-claws', 'secondary-chain')
+      const engine = new LastChancesEngine(makeCanvas(), config, {}, { controlScheme: scheme })
+      const access = engine as unknown as EngineTestAccess
+      unlockAllMoves(access)
+      const keyDown = (code: string) => window.dispatchEvent(new KeyboardEvent('keydown', { code }))
+      const expectKeyboardClean = () => {
+        expect(access.activeMobilityPhysicalHand).toBeNull()
+        expect(access.keyboardDualSenseTriggers.left.down).toBe(false)
+        expect(access.keyboardDualSenseTriggers.right.down).toBe(false)
+        for (const hand of ['left', 'right'] as const) {
+          expect(access.mylorikControls.snapshot(hand, performance.now())).toMatchObject({
+            techniquePressed: false,
+            mobilityPressed: false,
+          })
+          expect(access.dualSenseControls.snapshot(hand, performance.now()).active).toBe(false)
+        }
+      }
+
+      try {
+        keyDown('KeyQ')
+        keyDown('KeyE')
+        keyDown('Space')
+        expectKeyboardClean()
+
+        const opening = access.createSnapshot().availableNodeIds[0]
+        expect(engine.chooseNode(opening)).toBe(true)
+        engine.setPaused(true)
+        keyDown('KeyQ')
+        keyDown('KeyE')
+        keyDown('Space')
+        expectKeyboardClean()
+      } finally {
+        engine.destroy()
+      }
+    },
+  )
+
+  it('clears keyboard recognizers on pause, blur, and scheme replacement', () => {
+    const { engine, access } = startCombat(combatConfig('either-claws', 'secondary-chain'))
+    const key = (type: 'keydown' | 'keyup', code: string) => (
+      window.dispatchEvent(new KeyboardEvent(type, { code }))
+    )
+    const expectAllReleased = () => {
+      expect(access.activeMobilityPhysicalHand).toBeNull()
+      expect(access.keyboardDualSenseTriggers.left.down).toBe(false)
+      expect(access.keyboardDualSenseTriggers.right.down).toBe(false)
+      for (const hand of ['left', 'right'] as const) {
+        expect(access.mylorikControls.snapshot(hand, performance.now())).toMatchObject({
+          techniquePressed: false,
+          mobilityPressed: false,
+        })
+        expect(access.dualSenseControls.snapshot(hand, performance.now()).active).toBe(false)
+      }
+    }
+
+    try {
+      engine.setControlScheme('mylorik')
+      key('keydown', 'KeyQ')
+      key('keydown', 'Space')
+      expect(access.mylorikControls.snapshot('left', performance.now()).techniquePressed).toBe(true)
+      expect(access.activeMobilityPhysicalHand).not.toBeNull()
+      expect(access.mylorikControls.snapshot(
+        access.activeMobilityPhysicalHand!,
+        performance.now(),
+      ).mobilityPressed).toBe(true)
+      engine.setPaused(true)
+      expectAllReleased()
+
+      engine.setPaused(false)
+      key('keyup', 'KeyQ')
+      key('keyup', 'Space')
+      key('keydown', 'KeyE')
+      expect(access.mylorikControls.snapshot('right', performance.now()).techniquePressed).toBe(true)
+      window.dispatchEvent(new Event('blur'))
+      expectAllReleased()
+
+      key('keydown', 'KeyQ')
+      engine.setControlScheme('dualsense')
+      expectAllReleased()
+      key('keydown', 'KeyQ')
+      expect(access.dualSenseControls.snapshot('left', performance.now()).active).toBe(true)
+      engine.setControlScheme('mylorik')
+      expectAllReleased()
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('applies Builder control tuning live without changing the attempt or selected scheme', () => {
+    const config = combatConfig('twohand-axe', null)
+    const { engine, access } = startCombat(config)
+    engine.setControlScheme('mylorik')
+
+    try {
+      access.player.hp -= 17
+      access.cooldownEnds.set('right:tap', access.elapsedMs + 777)
+      access.moveQuests.right.roomKills.tap = 1
+      const before = access.createSnapshot()
+      const gameplay = (snapshot: LastChancesSnapshot) => ({
+        phase: snapshot.phase,
+        generation: snapshot.generation,
+        chances: snapshot.chances,
+        currentNodeId: snapshot.currentNodeId,
+        attemptPath: snapshot.attemptPath,
+        player: snapshot.player,
+        enemies: snapshot.enemies,
+        loadout: snapshot.loadout,
+        cooldowns: snapshot.cooldowns,
+        weaponStates: snapshot.weaponStates,
+        moveQuests: snapshot.moveQuests,
+      })
+      const edited = cloneLastChancesConfig(config)
+      Object.assign(edited.input, {
+        doubleTapMs: 271,
+        tapComboWindowMs: 911,
+        holdMs: 661,
+        holdMaxMs: 2311,
+        holdThenDoubleTapWindowMs: 491,
+      })
+      edited.input.mylorik!.techniqueHoldMs = 100
+      edited.input.mylorik!.bufferMs = 161
+      edited.input.mylorik!.continuationWindowMs = 501
+      Object.assign(edited.input.dualsense!, {
+        activationThreshold: 0.24,
+        releaseThreshold: 0.13,
+        hysteresis: 0.1,
+      })
+      const previousGates = { ...edited.input.dualsense!.gatePositions }
+      const nextGates = { shallow: 0.25, medium: 0.5, deep: 0.75, final: 0.92 }
+      edited.weapons.forEach((definition) => {
+        for (const controls of [definition.controls?.primary, definition.controls?.secondary]) {
+          controls?.dualsense.nodes.forEach((node) => {
+            const gate = (Object.keys(previousGates) as Array<keyof typeof previousGates>)
+              .find(candidate => previousGates[candidate] === node.activationThreshold)
+            if (gate) node.activationThreshold = nextGates[gate]
+          })
+        }
+      })
+      edited.input.dualsense!.gatePositions = nextGates
+      Object.assign(edited.input.dualsense!.feedback, {
+        maxMagnitude: 0.74,
+        maxDurationMs: 940,
+        blockedRepeatMs: 250,
+      })
+      edited.input.dualsense!.feedback.profiles.click = {
+        startPosition: 0.19,
+        endPosition: 0.31,
+        resistance: 0.25,
+        force: 0.29,
+        transitionMs: 36,
+        effectMs: 91,
+        magnitude: 0.23,
+      }
+      const adaptiveOverride = {
+        startPosition: 0.17,
+        endPosition: 0.32,
+        resistance: 0.26,
+        force: 0.3,
+        transitionMs: 38,
+        effectMs: 92,
+        magnitude: 0.24,
+      }
+      weapon(edited, 'twohand-axe').controls!.primary.dualsense.nodes[0].adaptiveOverride = {
+        ...adaptiveOverride,
+      }
+
+      expect(engine.applyControlDefinition(edited)).toBe(true)
+      const after = access.createSnapshot()
+      expect(after.controlScheme).toBe('mylorik')
+      expect(gameplay(after)).toEqual(gameplay(before))
+
+      const activeConfig = (access as unknown as { config: LastChancesConfig }).config
+      expect(activeConfig.input).toMatchObject(edited.input)
+      expect((access.gestures as unknown as { timings: object }).timings).toMatchObject({
+        doubleTapMs: 271,
+        holdMs: 661,
+        holdMaxMs: 2311,
+        holdThenDoubleTapWindowMs: 491,
+      })
+      expect((access.mylorikControls as unknown as { timings: object }).timings).toMatchObject({
+        techniqueHoldMs: 100,
+        bufferMs: 161,
+        continuationWindowMs: 501,
+      })
+      expect((access.dualSenseControls as unknown as { config: object }).config).toMatchObject({
+        activationThreshold: 0.24,
+        releaseThreshold: 0.13,
+        hysteresis: 0.1,
+        gatePositions: nextGates,
+      })
+      expect((access.feedbackController as unknown as { config: object }).config).toMatchObject({
+        maxMagnitude: 0.74,
+        maxDurationMs: 940,
+        blockedRepeatMs: 250,
+        profiles: { click: edited.input.dualsense!.feedback.profiles.click },
+      })
+      expect(access.weapons.get('left')!.controls!.dualsense.nodes[0]).toMatchObject({
+        activationThreshold: 0.25,
+        adaptiveOverride,
+      })
+
+      engine.setControlScheme('dualsense')
+      const feedback = vi.spyOn(access.feedbackController, 'emit')
+      const editedNode = access.weapons.get('left')!.controls!.dualsense.nodes[0]
+      ;(access as unknown as { handleSemanticInput: (event: object) => string })
+        .handleSemanticInput({
+          scheme: 'dualsense',
+          physicalHand: 'right',
+          hand: 'left',
+          intent: 'technique',
+          phase: 'hold',
+          context: editedNode.entryContext,
+          source: 'gamepad',
+          atMs: 50,
+          heldMs: 50,
+          value: 0.25,
+          gesture: editedNode.gesture,
+          nodeId: editedNode.id,
+          tactileProfile: editedNode.tactileProfile,
+          commit: false,
+          armed: true,
+        })
+      expect(feedback).toHaveBeenCalledWith(expect.objectContaining({ adaptiveOverride }))
+      engine.setControlScheme('mylorik')
+
+      access.mylorikControls.pressTechnique('left', 0, 'gamepad')
+      access.mylorikControls.releaseTechnique('left', 100, 'gamepad')
+      expect(access.createSnapshot().lastGesture).toMatchObject({
+        hand: 'right',
+        gesture: 'hold',
+        attackName: weapon(defaultConfig, 'twohand-axe').secondaryAttacks!.hold.name,
+      })
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('cancels a held Knife-spider channel on scheme switch without settling the action', () => {
+    const config = combatConfig('either-claws', 'secondary-spider-knife', 'guard', 1)
+    const { engine, access } = startCombat(config)
+    const spiderKnife = access.weapons.get('right')!
+
+    try {
+      access.startActiveArea(
+        'melee',
+        spiderKnife.attacks.hold,
+        { x: 1, y: 0 },
+        spiderKnife.id,
+        'right',
+        null,
+        true,
+      )
+      const channel = access.activeAreas.at(-1)!
+      access.heldChannels.set('right', channel)
+      const weaponState = access.weaponStates.get(spiderKnife.id)!
+      weaponState.resource = 41
+      weaponState.recoveryMs = 23
+      access.player.recoveryMs = 19
+      access.cooldownEnds.set('right:hold', access.elapsedMs + 777)
+
+      const before = access.createSnapshot()
+      const cooldownEnds = [...access.cooldownEnds.entries()]
+      const enemyHp = access.enemies.map(enemy => enemy.hp)
+      expect(access.heldChannels.get('right')).toBe(channel)
+
+      engine.setControlScheme('mylorik')
+
+      const after = access.createSnapshot()
+      expect(access.heldChannels.has('right')).toBe(false)
+      expect(access.activeAreas).not.toContain(channel)
+      expect(after.controlScheme).toBe('mylorik')
+      expect(after.phase).toBe(before.phase)
+      expect(after.currentNodeId).toBe(before.currentNodeId)
+      expect(after.attemptPath).toEqual(before.attemptPath)
+      expect(after.chances).toBe(before.chances)
+      expect(after.player).toEqual(before.player)
+      expect(after.enemies).toEqual(before.enemies)
+      expect(access.enemies.map(enemy => enemy.hp)).toEqual(enemyHp)
+      expect([...access.cooldownEnds.entries()]).toEqual(cooldownEnds)
+      expect(after.weaponStates).toEqual(before.weaponStates)
+      expect(after.moveQuests).toEqual(before.moveQuests)
+      expect(weaponState.resource).toBe(41)
+      expect(weaponState.recoveryMs).toBe(23)
+      expect(access.player.recoveryMs).toBe(19)
+      expect(access.cooldownEnds.get('right:hold')).toBe(access.elapsedMs + 777)
+      expect(after.lastGesture).toEqual(before.lastGesture)
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('cancels a held Knife-spider channel on live Builder apply without settling the action', () => {
+    const config = combatConfig('either-claws', 'secondary-spider-knife', 'guard', 1)
+    const { engine, access } = startCombat(config)
+    const spiderKnife = access.weapons.get('right')!
+    engine.setControlScheme('dualsense')
+
+    try {
+      access.startActiveArea(
+        'melee',
+        spiderKnife.attacks.hold,
+        { x: 1, y: 0 },
+        spiderKnife.id,
+        'right',
+        null,
+        true,
+      )
+      const channel = access.activeAreas.at(-1)!
+      access.heldChannels.set('right', channel)
+      const weaponState = access.weaponStates.get(spiderKnife.id)!
+      weaponState.resource = 37
+      weaponState.recoveryMs = 29
+      access.player.recoveryMs = 17
+      access.cooldownEnds.set('right:hold', access.elapsedMs + 901)
+      const before = access.createSnapshot()
+      const cooldownEnds = [...access.cooldownEnds.entries()]
+      const enemyHp = access.enemies.map(enemy => enemy.hp)
+      const edited = cloneLastChancesConfig(config)
+      edited.input.mylorik!.techniqueHoldMs += 1
+
+      expect(engine.applyControlDefinition(edited)).toBe(true)
+
+      const after = access.createSnapshot()
+      expect(access.heldChannels.has('right')).toBe(false)
+      expect(access.activeAreas).not.toContain(channel)
+      expect(after.controlScheme).toBe('dualsense')
+      expect(after.phase).toBe(before.phase)
+      expect(after.currentNodeId).toBe(before.currentNodeId)
+      expect(after.attemptPath).toEqual(before.attemptPath)
+      expect(after.chances).toBe(before.chances)
+      expect(after.player).toEqual(before.player)
+      expect(after.enemies).toEqual(before.enemies)
+      expect(access.enemies.map(enemy => enemy.hp)).toEqual(enemyHp)
+      expect([...access.cooldownEnds.entries()]).toEqual(cooldownEnds)
+      expect(after.weaponStates).toEqual(before.weaponStates)
+      expect(after.moveQuests).toEqual(before.moveQuests)
+      expect(weaponState.resource).toBe(37)
+      expect(weaponState.recoveryMs).toBe(29)
+      expect(access.player.recoveryMs).toBe(17)
+      expect(access.cooldownEnds.get('right:hold')).toBe(access.elapsedMs + 901)
+      expect(after.lastGesture).toEqual(before.lastGesture)
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('hot-switches adapters while preserving the complete live attempt', () => {
+    const config = combatConfig('hybrid-sword', 'secondary-chain')
+    const engine = new LastChancesEngine(makeCanvas(), config, {}, { controlScheme: 'legacy' })
+    const access = engine as unknown as EngineTestAccess
+    unlockAllMoves(access)
+    const opening = access.createSnapshot().availableNodeIds[0]
+    expect(engine.chooseNode(opening)).toBe(true)
+
+    try {
+      access.player.hp -= 17
+      access.enemies[0].hp -= 9
+      access.cooldownEnds.set('left:doubleTap', access.elapsedMs + 777)
+      access.weaponStates.get('secondary-chain')!.resource = 0.4
+      access.moveQuests.left.roomKills.tap = 1
+      const before = access.createSnapshot()
+      const gameplay = (snapshot: LastChancesSnapshot) => ({
+        phase: snapshot.phase,
+        generation: snapshot.generation,
+        chances: snapshot.chances,
+        currentNodeId: snapshot.currentNodeId,
+        attemptPath: snapshot.attemptPath,
+        player: snapshot.player,
+        enemies: snapshot.enemies,
+        loadout: snapshot.loadout,
+        cooldowns: snapshot.cooldowns,
+        weaponStates: snapshot.weaponStates,
+        moveQuests: snapshot.moveQuests,
+      })
+
+      engine.press('left')
+      engine.setControlScheme('mylorik')
+      const mylorik = access.createSnapshot()
+      expect(mylorik.controlScheme).toBe('mylorik')
+      expect(gameplay(mylorik)).toEqual(gameplay(before))
+      expect(mylorik.gestureInputs.every(input => !input.pressed)).toBe(true)
+
+      engine.setControlScheme('dualsense')
+      const dualsense = access.createSnapshot()
+      expect(dualsense.controlScheme).toBe('dualsense')
+      expect(gameplay(dualsense)).toEqual(gameplay(before))
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('routes mylorik technique holds and armed bumper continuations on trigger release', () => {
+    const held = startCombat(combatConfig('twohand-spear', null))
+    held.engine.setControlScheme('mylorik')
+    try {
+      held.access.mylorikControls.pressTechnique('right', 0, 'gamepad')
+      held.access.mylorikControls.releaseTechnique('right', 700, 'gamepad')
+      expect(held.access.createSnapshot().lastGesture).toMatchObject({
+        hand: 'left',
+        gesture: 'hold',
+        attackName: weapon(defaultConfig, 'twohand-spear').attacks.hold.name,
+      })
+    } finally {
+      held.engine.destroy()
+    }
+
+    const continuation = startCombat(combatConfig('twohand-spear', null))
+    continuation.engine.setControlScheme('mylorik')
+    try {
+      continuation.access.mylorikControls.pressTechnique('right', 0, 'gamepad')
+      continuation.access.mylorikControls.pressStrike('right', 700, 'gamepad')
+      expect(continuation.access.createSnapshot().lastGesture).toBeNull()
+      continuation.access.mylorikControls.releaseTechnique('right', 1_200, 'gamepad')
+      expect(continuation.access.createSnapshot().lastGesture).toMatchObject({
+        hand: 'left',
+        gesture: 'doubleTapHold',
+        attackName: weapon(defaultConfig, 'twohand-spear').attacks.doubleTapHold.name,
+      })
+    } finally {
+      continuation.engine.destroy()
+    }
+
+    const mobility = startCombat(combatConfig('either-claws', null))
+    mobility.engine.setControlScheme('mylorik')
+    try {
+      mobility.access.mylorikControls.pressMobility('right', 0, 'keyboard')
+      mobility.access.mylorikControls.releaseMobility('right', 700, 'keyboard')
+      expect(mobility.access.createSnapshot().lastGesture).toMatchObject({
+        hand: 'left',
+        gesture: 'hold',
+        attackName: weapon(defaultConfig, 'either-claws').attacks.hold.name,
+      })
+    } finally {
+      mobility.engine.destroy()
+    }
+  })
+
+  it('buffers mylorik only inside the configured 150 ms action window', () => {
+    const within = startCombat(combatConfig('either-claws', 'secondary-chain'))
+    within.engine.setControlScheme('mylorik')
+    try {
+      const bufferMs = within.engine.config.input.mylorik!.bufferMs
+      expect(bufferMs).toBe(150)
+      within.access.elapsedMs = 100
+      within.access.cooldownEnds.set('right:doubleTap', within.access.elapsedMs + bufferMs)
+      within.access.mylorikControls.pressTechnique('left', 0, 'gamepad')
+      within.access.mylorikControls.releaseTechnique('left', 100, 'gamepad')
+      expect(within.access.mylorikControls.snapshot('left', 100).buffered).toBe(true)
+      expect(within.access.createSnapshot().lastGesture).toBeNull()
+
+      within.access.elapsedMs = 250
+      within.access.mylorikControls.update(250)
+      expect(within.access.mylorikControls.snapshot('left', 250).buffered).toBe(false)
+      expect(within.access.createSnapshot().lastGesture).toMatchObject({
+        hand: 'right',
+        gesture: 'doubleTap',
+      })
+    } finally {
+      within.engine.destroy()
+    }
+
+    const outside = startCombat(combatConfig('either-claws', 'secondary-chain'))
+    outside.engine.setControlScheme('mylorik')
+    try {
+      const bufferMs = outside.engine.config.input.mylorik!.bufferMs
+      outside.access.elapsedMs = 100
+      outside.access.cooldownEnds.set('right:doubleTap', outside.access.elapsedMs + bufferMs + 1)
+      outside.access.mylorikControls.pressTechnique('left', 0, 'gamepad')
+      outside.access.mylorikControls.releaseTechnique('left', 100, 'gamepad')
+      expect(outside.access.mylorikControls.snapshot('left', 100).buffered).toBe(false)
+      expect(outside.access.createSnapshot()).toMatchObject({
+        lastGesture: null,
+        controlCue: { state: 'blocked', gesture: 'doubleTap' },
+      })
+
+      outside.access.elapsedMs = 251
+      outside.access.mylorikControls.update(251)
+      expect(outside.access.createSnapshot().lastGesture).toBeNull()
+    } finally {
+      outside.engine.destroy()
+    }
+  })
+
+  it.each(['keyboard', 'gamepad'] as const)(
+    'selects the armed physical technique hand for %s mylorik mobility',
+    (source) => {
+      const { engine, access } = startCombat(combatConfig('twohand-spear', null))
+      engine.setControlScheme('mylorik')
+      try {
+        access.mylorikControls.pressTechnique('right', 0, source)
+        expect(access.selectMobilityPhysicalHand(1_200)).toBe('right')
+      } finally {
+        engine.destroy()
+      }
+    },
+  )
+
+  it('keeps simultaneous bumpers as two strikes and reseeds held edges after a hot switch', () => {
+    const { engine, access } = startCombat(combatConfig('either-claws', 'secondary-chain'))
+    engine.setControlScheme('mylorik')
+    try {
+      access.applyGamepadReading(gamepadReading())
+      access.applyGamepadReading(gamepadReading([4, 5]))
+      expect(access.tapCombos).toMatchObject({ left: { step: 1 }, right: { step: 1 } })
+
+      engine.setControlScheme('dualsense')
+      access.applyGamepadReading(gamepadReading([4, 5]))
+      expect(access.tapCombos).toMatchObject({ left: { step: 1 }, right: { step: 1 } })
+
+      access.elapsedMs += 500
+      access.applyGamepadReading(gamepadReading())
+      access.applyGamepadReading(gamepadReading([4, 5]))
+      expect(access.tapCombos).toMatchObject({ left: { step: 2 }, right: { step: 2 } })
+      expect(access.createSnapshot().phase).toBe('playing')
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('retains the last non-zero right-stick aim until a newer aim source or disconnect', () => {
+    const { engine, access } = startCombat(combatConfig('either-claws', null))
+    try {
+      engine.pointerMove(0, 0)
+      const stalePointerAim = { ...access.pointerAim }
+      access.applyGamepadReading({
+        ...gamepadReading(),
+        status: 'active',
+        aim: { x: 0, y: 1 },
+      })
+      access.updatePlayer(0)
+      expect(access.player.aim).toEqual({ x: 0, y: 1 })
+
+      access.applyGamepadReading(gamepadReading())
+      access.updatePlayer(0)
+      expect(access.player.aim).toEqual({ x: 0, y: 1 })
+      expect(access.player.aim).not.toEqual(stalePointerAim)
+
+      engine.pointerMove(960, 320)
+      access.updatePlayer(0)
+      expect(access.player.aim).toEqual(access.pointerAim)
+
+      access.applyGamepadReading({
+        ...gamepadReading(),
+        status: 'active',
+        aim: { x: -1, y: 0 },
+      })
+      access.applyGamepadReading(gamepadReading())
+      access.applyGamepadReading(null)
+      access.updatePlayer(0)
+      expect(access.player.aim).toEqual(access.pointerAim)
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('requires DualSense focus before Cross confirms and never turns held Cross or Circle into combat', () => {
+    const config = combatConfig('either-claws', null, 'spider-knife', 1)
+    const engine = new LastChancesEngine(makeCanvas(), config, {}, { controlScheme: 'dualsense' })
+    const access = engine as unknown as EngineTestAccess
+    unlockAllMoves(access)
+
+    try {
+      access.applyGamepadReading(gamepadReading())
+      access.applyGamepadReading(gamepadReading([0]))
+      expect(access.createSnapshot().phase).toBe('planning')
+      expect(access.createSnapshot().selectedNodeId).toBeNull()
+
+      access.applyGamepadReading(gamepadReading())
+      access.applyGamepadReading(gamepadReading([15]))
+      expect(access.createSnapshot().selectedNodeId).not.toBeNull()
+      access.applyGamepadReading(gamepadReading())
+      access.applyGamepadReading(gamepadReading([0]))
+      expect(access.createSnapshot().phase).toBe('playing')
+
+      const spider = access.enemies[0]
+      spider.captureWindowMs = 1_200
+      spider.facing = { x: 1, y: 0 }
+      spider.position = { x: 210, y: 340 }
+      access.player.position = { x: 150, y: 340 }
+      expect(access.createSnapshot().interactionPrompt).toContain('Нож-паука')
+
+      // Cross is still held from route entry, so the combat phase cannot synthesize capture.
+      access.applyGamepadReading(gamepadReading([0]))
+      expect(access.createSnapshot().loadout?.secondaryWeaponId).toBeNull()
+
+      access.applyGamepadReading(gamepadReading())
+      access.applyGamepadReading(gamepadReading([1]))
+      expect(access.createSnapshot().lastGesture).toBeNull()
+      expect(access.createSnapshot().loadout?.secondaryWeaponId).toBeNull()
+
+      access.applyGamepadReading(gamepadReading())
+      access.applyGamepadReading(gamepadReading([0]))
+      expect(access.createSnapshot().loadout?.secondaryWeaponId).toBe('secondary-spider-knife')
+      expect(access.createSnapshot().lastGesture).toMatchObject({
+        attackName: 'Нож-паук схвачен со спины',
+      })
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('emits one immediate blocked cue for a Sword pull without an opening', () => {
+    const snapshots: LastChancesSnapshot[] = []
+    const config = combatConfig('hybrid-sword', null, 'guard', 1)
+    const engine = new LastChancesEngine(makeCanvas(), config, {
+      onSnapshot: snapshot => snapshots.push(snapshot),
+    }, { controlScheme: 'dualsense' })
+    const access = engine as unknown as EngineTestAccess
+    unlockAllMoves(access)
+    const openingNode = access.createSnapshot().availableNodeIds[0]
+    expect(engine.chooseNode(openingNode)).toBe(true)
+
+    try {
+      driveDualSenseTrigger(access, 'right', 0.22, 0)
+      driveDualSenseTrigger(access, 'right', 0.72, 100)
+
+      expect(snapshots.filter(snapshot => snapshot.controlCue?.state === 'blocked')).toHaveLength(1)
+      expect(access.createSnapshot()).toMatchObject({
+        lastGesture: null,
+        controlCue: { state: 'blocked', hand: 'left', gesture: 'doubleTap', atMs: 0 },
+      })
+      expect(access.dualSenseControls.snapshot('right', 100)).toMatchObject({
+        active: false,
+        nodeId: null,
+      })
+      expect(access.activeAreas).toHaveLength(0)
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('does not arm or advertise a DualSense node whose action is cooling down', () => {
+    const snapshots: LastChancesSnapshot[] = []
+    const config = combatConfig('either-claws', null, 'guard', 1)
+    const engine = new LastChancesEngine(makeCanvas(), config, {
+      onSnapshot: snapshot => snapshots.push(snapshot),
+    }, { controlScheme: 'dualsense' })
+    const access = engine as unknown as EngineTestAccess
+    unlockAllMoves(access)
+    const openingNode = access.createSnapshot().availableNodeIds[0]
+    expect(engine.chooseNode(openingNode)).toBe(true)
+
+    try {
+      access.cooldownEnds.set('left:doubleTap', 900)
+      driveDualSenseTrigger(access, 'right', 0.22, 0)
+      driveDualSenseTrigger(access, 'right', 0.48, 100)
+
+      expect(snapshots.filter(snapshot => snapshot.controlCue?.state === 'blocked')).toHaveLength(1)
+      expect(access.createSnapshot()).toMatchObject({
+        lastGesture: null,
+        controlCue: { state: 'blocked', hand: 'left', gesture: 'doubleTap', atMs: 0 },
+      })
+      expect(access.dualSenseControls.snapshot('right', 100)).toMatchObject({
+        active: false,
+        nodeId: null,
+      })
+      expect(access.cooldownEnds.get('left:doubleTap')).toBe(900)
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('isolates Sword opening context from a supplemental Knife-spider hand', () => {
+    const { engine, access } = startCombat(
+      combatConfig('hybrid-sword', 'secondary-spider-knife', 'guard', 1),
+    )
+    engine.setControlScheme('dualsense')
+    const target = access.enemies[0]
+    const spiderState = access.weaponStates.get('secondary-spider-knife')!
+
+    try {
+      target.statuses.openingMs = 2_000
+      target.lastPlayerHit = { hand: 'left', gesture: 'tap' }
+      placeEnemy(access, target, 500)
+
+      expect(access.controlContextActive('left', 'opening')).toBe(true)
+      expect(access.controlContextActive('right', 'opening')).toBe(false)
+      expect(access.controlContextActive('right', 'neutral')).toBe(true)
+      expect(access.controlContextActive('right', 'continuation')).toBe(false)
+
+      driveDualSenseTrigger(access, 'left', 0.22, 0)
+      driveDualSenseTrigger(access, 'left', 0, 100)
+
+      expect(access.createSnapshot().lastGesture).toMatchObject({
+        hand: 'right',
+        gesture: 'doubleTap',
+        attackName: weapon(defaultConfig, 'secondary-spider-knife').attacks.doubleTap.name,
+      })
+      expect(spiderState.resource).toBe(70)
+      expect(spiderState.resource).toBeGreaterThan(0)
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('keeps a Sword opening action from spending the supplemental Knife-spider', () => {
+    const { engine, access } = startCombat(
+      combatConfig('hybrid-sword', 'secondary-spider-knife', 'guard', 1),
+    )
+    engine.setControlScheme('dualsense')
+    const target = access.enemies[0]
+    const spiderState = access.weaponStates.get('secondary-spider-knife')!
+
+    try {
+      target.statuses.openingMs = 2_000
+      target.lastPlayerHit = { hand: 'left', gesture: 'tap' }
+      placeEnemy(access, target, 500)
+      const resourceBefore = spiderState.resource
+
+      driveDualSenseTrigger(access, 'right', 0.22, 0)
+      driveDualSenseTrigger(access, 'right', 0, 100)
+
+      expect(access.createSnapshot().lastGesture).toMatchObject({
+        hand: 'left',
+        gesture: 'doubleTap',
+        attackName: weapon(defaultConfig, 'hybrid-sword').attacks.doubleTap.name,
+      })
+      expect(access.createSnapshot().lastGesture?.attackName).not.toBe(
+        weapon(defaultConfig, 'secondary-spider-knife').attacks.doubleTapHold.name,
+      )
+      expect(spiderState.resource).toBe(resourceBefore)
+      expect(access.cooldownEnds.has('right:doubleTapHold')).toBe(false)
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it.each([
+    ['Spear', 'twohand-spear', null, 'right', 'left', 'doubleTap'],
+    ['Chain', 'either-claws', 'secondary-chain', 'left', 'right', 'hold'],
+    ['Claws', 'either-claws', null, 'right', 'left', 'doubleTap'],
+    ['Knife-spider', 'either-claws', 'secondary-spider-knife', 'left', 'right', 'doubleTap'],
+    ['Axe', 'twohand-axe', null, 'right', 'left', 'doubleTap'],
+    ['Katana', 'twohand-katana', null, 'right', 'left', 'doubleTap'],
+    ['Sword', 'hybrid-sword', null, 'right', 'left', 'doubleTap'],
+  ] as const)(
+    'executes the exact authored %s shallow trigger slot at controls-only Tier 0',
+    (_label, primaryId, secondaryId, physicalHand, runtimeHand, expectedGesture) => {
+      const { engine, access } = startCombat(combatConfig(primaryId, secondaryId))
+      engine.setControlScheme('dualsense')
+      try {
+        if (primaryId === 'hybrid-sword') access.enemies[0].statuses.openingMs = 2_000
+        const equipped = access.weapons.get(runtimeHand)!
+        const controls = equipped.controls!
+        const startNode = controls.dualsense.nodes.find(node => (
+          node.id === controls.dualsense.startNodeId
+        ))!
+        access.dualSenseControls.updateTrigger(
+          physicalHand,
+          startNode.activationThreshold,
+          0,
+          controls,
+          'gamepad',
+        )
+        access.dualSenseControls.updateTrigger(
+          physicalHand,
+          0,
+          1_800,
+          controls,
+          'gamepad',
+        )
+
+        expect(access.createSnapshot().lastGesture).toMatchObject({
+          hand: runtimeHand,
+          gesture: expectedGesture,
+          attackName: equipped.attacks[expectedGesture].name,
+        })
+        expect(access.createSnapshot().feedback.tier).toBe(0)
+      } finally {
+        engine.destroy()
+      }
+    },
+  )
+
+  it('keeps resolved gameplay identical between controls-only and fake Tier 2 feedback', async () => {
+    const config = combatConfig('twohand-spear', null)
+    const tier0 = startCombat(config)
+    const tier2 = startCombat(config)
+    const playEnhanced = vi.fn(async (_effect: LastChancesFeedbackEffect) => true)
+    const enhancedOutput: LastChancesEnhancedFeedbackOutput = {
+      capability: () => ({
+        tier: 2,
+        status: 'enhanced',
+        permission: 'granted',
+        message: null,
+      }),
+      play: playEnhanced,
+      neutralize: vi.fn(async () => undefined),
+      enableEnhancedFeatures: vi.fn(async () => true),
+      disableEnhancedFeatures: vi.fn(async () => undefined),
+    }
+    const fakeTier2 = new DualSenseFeedbackController(
+      config.input.dualsense!.feedback,
+      { mode: 'full', intensity: 1 },
+      { enhanced: enhancedOutput },
+    )
+
+    try {
+      tier0.engine.setControlScheme('dualsense')
+      tier2.engine.setControlScheme('dualsense')
+      await tier2.access.feedbackController.dispose()
+      tier2.access.feedbackController = fakeTier2
+
+      driveDualSenseTrigger(tier0.access, 'right', 0.22, 0)
+      driveDualSenseTrigger(tier0.access, 'right', 0, 1_800)
+      driveDualSenseTrigger(tier2.access, 'right', 0.22, 0)
+      driveDualSenseTrigger(tier2.access, 'right', 0, 1_800)
+      await fakeTier2.flush()
+
+      const expectedAttack = weapon(defaultConfig, 'twohand-spear').attacks.doubleTap.name
+      expect(tier0.access.createSnapshot().lastGesture).toMatchObject({
+        hand: 'left',
+        gesture: 'doubleTap',
+        attackName: expectedAttack,
+      })
+      expect(tier2.access.createSnapshot().lastGesture).toMatchObject({
+        hand: 'left',
+        gesture: 'doubleTap',
+        attackName: expectedAttack,
+      })
+      expect(tier0.access.activeAreas.map(area => area.attack.name)).toEqual([expectedAttack])
+      expect(tier2.access.activeAreas.map(area => area.attack.name)).toEqual([expectedAttack])
+      expect(playEnhanced).toHaveBeenCalled()
+      expect(tier0.access.createSnapshot().feedback.tier).toBe(0)
+      expect(tier2.access.createSnapshot().feedback.tier).toBe(2)
+
+      const gameplaySnapshot = (snapshot: LastChancesSnapshot): Partial<LastChancesSnapshot> => {
+        const gameplay: Partial<LastChancesSnapshot> = { ...snapshot }
+        delete gameplay.feedback
+        return gameplay
+      }
+      expect(gameplaySnapshot(tier2.access.createSnapshot()))
+        .toEqual(gameplaySnapshot(tier0.access.createSnapshot()))
+      expect(tier2.access.activeAreas).toEqual(tier0.access.activeAreas)
+      expect(tier2.access.projectiles).toEqual(tier0.access.projectiles)
+      expect(tier2.access.delayedAttacks).toEqual(tier0.access.delayedAttacks)
+      expect([...tier2.access.weaponStates]).toEqual([...tier0.access.weaponStates])
+    } finally {
+      tier0.engine.destroy()
+      tier2.engine.destroy()
+      await tier0.access.feedbackController.dispose()
+      await fakeTier2.dispose()
+    }
+  })
+
+  it('selects the legal Claws branch at full travel and reserves deep critical for an active dash', () => {
+    const neutral = startCombat(combatConfig('either-claws', null))
+    neutral.engine.setControlScheme('dualsense')
+    try {
+      driveDualSenseTrigger(neutral.access, 'right', 0.9, 0)
+      driveDualSenseTrigger(neutral.access, 'right', 0, 700)
+      expect(neutral.access.createSnapshot().lastGesture).toMatchObject({
+        hand: 'left',
+        gesture: 'doubleTapHold',
+        attackName: weapon(defaultConfig, 'either-claws').attacks.doubleTapHold.name,
+      })
+    } finally {
+      neutral.engine.destroy()
+    }
+
+    const dashing = startCombat(combatConfig('either-claws', null))
+    dashing.engine.setControlScheme('dualsense')
+    try {
+      dashing.access.performAttack(resolution('left', 'hold', 700))
+      expect(dashing.access.activeDash?.attack.behavior).toBe('clawDash')
+      driveDualSenseTrigger(dashing.access, 'right', 0.9, 800)
+      expect(dashing.access.createSnapshot().lastGesture).toMatchObject({
+        hand: 'left',
+        gesture: 'holdThenDoubleTap',
+        attackName: weapon(defaultConfig, 'either-claws').attacks.holdThenDoubleTap.name,
+      })
+      expect(dashing.access.activeDash).toBeNull()
+    } finally {
+      dashing.engine.destroy()
+    }
+  })
+
+  it('arms Spear spin only from the authored middle charge band', () => {
+    const { engine, access } = startCombat(combatConfig('twohand-spear', null))
+    engine.setControlScheme('dualsense')
+    try {
+      driveDualSenseTrigger(access, 'right', 0.9, 0)
+      expect(access.createSnapshot().lastGesture).toBeNull()
+      driveDualSenseTrigger(access, 'right', 0, 100)
+      expect(access.createSnapshot().lastGesture).toBeNull()
+      expect(access.createSnapshot().controlCue).toMatchObject({ state: 'blocked' })
+
+      driveDualSenseTrigger(access, 'right', 0.48, 1_000)
+      driveDualSenseTrigger(access, 'right', 0.9, 2_125)
+      expect(access.createSnapshot().lastGesture).toMatchObject({
+        hand: 'left',
+        gesture: 'holdThenDoubleTap',
+        attackName: weapon(defaultConfig, 'twohand-spear').attacks.holdThenDoubleTap.name,
+      })
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('advances the DualSense Q/E fallback through every authored digital gate', () => {
+    const { engine, access } = startCombat(combatConfig('twohand-spear', null))
+    engine.setControlScheme('dualsense')
+    try {
+      driveDualSenseTrigger(access, 'right', 0.22, 0)
+      access.keyboardDualSenseTriggers.right = { down: true, startedAt: 0, gateIndex: 0 }
+
+      access.updateKeyboardDualSenseTriggers(650)
+      expect(access.dualSenseControls.snapshot('right', 650).nodeId).toBe('hold')
+      access.updateKeyboardDualSenseTriggers(1_130)
+      expect(access.dualSenseControls.snapshot('right', 1_130).nodeId).toBe('doubleTapHold')
+      access.updateKeyboardDualSenseTriggers(1_610)
+      expect(access.dualSenseControls.snapshot('right', 1_610).nodeId).toBe('holdThenDoubleTap')
+      expect(access.createSnapshot().lastGesture?.gesture).toBe('holdThenDoubleTap')
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('keeps Spear stance alive through the L2 vault gate and commits on release', () => {
+    const { engine, access } = startCombat(combatConfig('twohand-spear', null))
+    engine.setControlScheme('dualsense')
+    try {
+      driveDualSenseTrigger(access, 'left', 0.48, 0)
+      access.updateHeldWeaponMechanics(16)
+      expect(access.heldChannels.get('right')?.attack.behavior).toBe('spearStance')
+
+      driveDualSenseTrigger(access, 'left', 0.9, 700)
+      driveDualSenseTrigger(access, 'left', 0, 750)
+      expect(access.createSnapshot().lastGesture).toMatchObject({
+        hand: 'right',
+        gesture: 'holdThenDoubleTap',
+        attackName: weapon(defaultConfig, 'twohand-spear').secondaryAttacks!.holdThenDoubleTap.name,
+      })
+      expect(access.activeDash?.attack.behavior).toBe('poleVault')
+      expect(access.heldChannels.has('right')).toBe(false)
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('commits the mylorik Knife-spider mobility throw on trigger release', () => {
+    const { engine, access } = startCombat(combatConfig('either-claws', 'secondary-spider-knife'))
+    engine.setControlScheme('mylorik')
+    try {
+      access.mylorikControls.pressTechnique('left', 0, 'gamepad')
+      access.mylorikControls.pressMobility('left', 700, 'gamepad')
+      expect(access.createSnapshot().lastGesture).toBeNull()
+
+      access.mylorikControls.releaseTechnique('left', 700, 'gamepad')
+      expect(access.createSnapshot().lastGesture).toMatchObject({
+        hand: 'right',
+        gesture: 'doubleTapHold',
+        attackName: weapon(defaultConfig, 'secondary-spider-knife').attacks.doubleTapHold.name,
+      })
+      expect(access.weaponStates.get('secondary-spider-knife')?.resource).toBe(0)
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('locks a gradual DualSense Knife-spider ratchet to twist and reserves throw for a direct pull', () => {
+    const twisting = startCombat(combatConfig('either-claws', 'secondary-spider-knife'))
+    twisting.engine.setControlScheme('dualsense')
+    try {
+      driveDualSenseTrigger(twisting.access, 'left', 0.22, 0)
+      driveDualSenseTrigger(twisting.access, 'left', 0.48, 100)
+      twisting.access.updateHeldWeaponMechanics(16)
+      expect(twisting.access.heldChannels.get('right')?.attack.behavior).toBe('spiderFlurry')
+      driveDualSenseTrigger(twisting.access, 'left', 0.72, 700)
+      driveDualSenseTrigger(twisting.access, 'left', 0, 750)
+      expect(twisting.access.createSnapshot().lastGesture).toMatchObject({
+        hand: 'right',
+        gesture: 'holdThenDoubleTap',
+        attackName: weapon(defaultConfig, 'secondary-spider-knife').attacks.holdThenDoubleTap.name,
+      })
+      expect(twisting.access.heldChannels.has('right')).toBe(false)
+    } finally {
+      twisting.engine.destroy()
+    }
+
+    const gradual = startCombat(combatConfig('either-claws', 'secondary-spider-knife'))
+    gradual.engine.setControlScheme('dualsense')
+    try {
+      driveDualSenseTrigger(gradual.access, 'left', 0.22, 0)
+      driveDualSenseTrigger(gradual.access, 'left', 0.48, 100)
+      gradual.access.updateHeldWeaponMechanics(16)
+      expect(gradual.access.heldChannels.get('right')?.attack.behavior).toBe('spiderFlurry')
+      driveDualSenseTrigger(gradual.access, 'left', 0.72, 700)
+      driveDualSenseTrigger(gradual.access, 'left', 0.9, 1_250)
+      driveDualSenseTrigger(gradual.access, 'left', 0, 1_300)
+      expect(gradual.access.createSnapshot().lastGesture).toMatchObject({
+        hand: 'right',
+        gesture: 'holdThenDoubleTap',
+        attackName: weapon(defaultConfig, 'secondary-spider-knife').attacks.holdThenDoubleTap.name,
+      })
+      expect(gradual.access.weaponStates.get('secondary-spider-knife')?.resource).toBeGreaterThan(0)
+      expect(gradual.access.heldChannels.has('right')).toBe(false)
+    } finally {
+      gradual.engine.destroy()
+    }
+
+    const direct = startCombat(combatConfig('either-claws', 'secondary-spider-knife'))
+    direct.engine.setControlScheme('dualsense')
+    try {
+      driveDualSenseTrigger(direct.access, 'left', 0.9, 0)
+      expect(direct.access.heldChannels.has('right')).toBe(false)
+      driveDualSenseTrigger(direct.access, 'left', 0, 700)
+      expect(direct.access.createSnapshot().lastGesture).toMatchObject({
+        hand: 'right',
+        gesture: 'doubleTapHold',
+        attackName: weapon(defaultConfig, 'secondary-spider-knife').attacks.doubleTapHold.name,
+      })
+      expect(direct.access.weaponStates.get('secondary-spider-knife')?.resource).toBe(0)
+    } finally {
+      direct.engine.destroy()
+    }
+  })
+
+  it('executes Chain spin throw, Axe grapple throw, and Axe spin leap through their contexts', () => {
+    const chain = startCombat(combatConfig('either-claws', 'secondary-chain'))
+    chain.engine.setControlScheme('dualsense')
+    try {
+      driveDualSenseTrigger(chain.access, 'left', 0.48, 0)
+      expect(chain.access.activeAreas.some(area => area.attack.behavior === 'chainSpin')).toBe(true)
+      driveDualSenseTrigger(chain.access, 'left', 0.72, 100)
+      driveDualSenseTrigger(chain.access, 'left', 0, 700)
+      expect(chain.access.createSnapshot().lastGesture).toMatchObject({
+        hand: 'right',
+        gesture: 'doubleTapHold',
+        attackName: weapon(defaultConfig, 'secondary-chain').attacks.doubleTapHold.name,
+      })
+    } finally {
+      chain.engine.destroy()
+    }
+
+    const grapple = startCombat(combatConfig('twohand-axe', null))
+    grapple.engine.setControlScheme('dualsense')
+    try {
+      grapple.access.weaponStates.get('twohand-axe')!.boundEnemyId = grapple.access.enemies[0].id
+      driveDualSenseTrigger(grapple.access, 'right', 0.72, 0)
+      driveDualSenseTrigger(grapple.access, 'right', 0, 700)
+      expect(grapple.access.createSnapshot().lastGesture).toMatchObject({
+        hand: 'left',
+        gesture: 'doubleTapHold',
+        attackName: weapon(defaultConfig, 'twohand-axe').attacks.doubleTapHold.name,
+      })
+    } finally {
+      grapple.engine.destroy()
+    }
+
+    const spin = startCombat(combatConfig('twohand-axe', null))
+    spin.engine.setControlScheme('dualsense')
+    try {
+      driveDualSenseTrigger(spin.access, 'left', 0.22, 0)
+      spin.access.updateHeldWeaponMechanics(16)
+      expect(spin.access.heldChannels.get('right')?.attack.behavior).toBe('axeSpin')
+      driveDualSenseTrigger(spin.access, 'left', 0.72, 700)
+      driveDualSenseTrigger(spin.access, 'left', 0, 750)
+      expect(spin.access.createSnapshot().lastGesture).toMatchObject({
+        hand: 'right',
+        gesture: 'holdThenDoubleTap',
+        attackName: weapon(defaultConfig, 'twohand-axe').secondaryAttacks!.holdThenDoubleTap.name,
+      })
+      expect(spin.access.activeDash?.attack.behavior).toBe('axeLeap')
+    } finally {
+      spin.engine.destroy()
+    }
+  })
+
+  it('chooses Katana flurry/hop-slash on a fast pull and charge continuations after arming', () => {
+    const primaryFast = startCombat(combatConfig('twohand-katana', null))
+    primaryFast.engine.setControlScheme('dualsense')
+    try {
+      driveDualSenseTrigger(primaryFast.access, 'right', 0.9, 0)
+      driveDualSenseTrigger(primaryFast.access, 'right', 0, 100)
+      expect(primaryFast.access.createSnapshot().lastGesture?.gesture).toBe('doubleTapHold')
+    } finally {
+      primaryFast.engine.destroy()
+    }
+
+    const primaryCharged = startCombat(combatConfig('twohand-katana', null))
+    primaryCharged.engine.setControlScheme('dualsense')
+    try {
+      driveDualSenseTrigger(primaryCharged.access, 'right', 0.48, 0)
+      driveDualSenseTrigger(primaryCharged.access, 'right', 0.9, 700)
+      expect(primaryCharged.access.createSnapshot().lastGesture).toMatchObject({
+        hand: 'left',
+        gesture: 'holdThenDoubleTap',
+        attackName: weapon(defaultConfig, 'twohand-katana').attacks.holdThenDoubleTap.name,
+      })
+    } finally {
+      primaryCharged.engine.destroy()
+    }
+
+    const secondaryFast = startCombat(combatConfig('twohand-katana', null))
+    secondaryFast.engine.setControlScheme('dualsense')
+    try {
+      driveDualSenseTrigger(secondaryFast.access, 'left', 0.9, 0)
+      driveDualSenseTrigger(secondaryFast.access, 'left', 0, 100)
+      expect(secondaryFast.access.createSnapshot().lastGesture?.gesture).toBe('doubleTapHold')
+    } finally {
+      secondaryFast.engine.destroy()
+    }
+
+    const secondaryCharged = startCombat(combatConfig('twohand-katana', null))
+    secondaryCharged.engine.setControlScheme('dualsense')
+    try {
+      driveDualSenseTrigger(secondaryCharged.access, 'left', 0.48, 0)
+      driveDualSenseTrigger(secondaryCharged.access, 'left', 0.9, 700)
+      expect(secondaryCharged.access.createSnapshot().lastGesture).toMatchObject({
+        hand: 'right',
+        gesture: 'holdThenDoubleTap',
+        attackName: weapon(defaultConfig, 'twohand-katana').secondaryAttacks!.holdThenDoubleTap.name,
+      })
+    } finally {
+      secondaryCharged.engine.destroy()
+    }
+  })
+
+  it('keeps both Sword clusters on the opening-gated Oberhau to Unterhau executor', () => {
+    for (const physicalHand of ['left', 'right'] as const) {
+      const { engine, access } = startCombat(combatConfig('hybrid-sword', null))
+      engine.setControlScheme('dualsense')
+      try {
+        access.enemies[0].statuses.openingMs = 2_000
+        driveDualSenseTrigger(access, physicalHand, 0.72, 0)
+        driveDualSenseTrigger(access, physicalHand, 0, 700)
+        const runtimeHand = physicalHand === 'left' ? 'right' : 'left'
+        const equipped = access.weapons.get(runtimeHand)!
+        expect(access.createSnapshot().lastGesture).toMatchObject({
+          hand: runtimeHand,
+          gesture: 'doubleTapHold',
+          attackName: equipped.attacks.doubleTapHold.name,
+        })
+        expect(access.delayedAttacks).toHaveLength(1)
+      } finally {
+        engine.destroy()
+      }
+    }
+  })
+
+  it('advertises a runtime continuation once at window open and keeps its input authoritative', () => {
+    const { engine, access } = startCombat(combatConfig('either-claws', null))
+    engine.setControlScheme('dualsense')
+    const feedback = vi.spyOn(access.feedbackController, 'emit')
+    const continuationEvents = () => feedback.mock.calls
+      .map(([event]) => event)
+      .filter(event => event.state === 'continuation' && event.profile === 'followUp')
+
+    try {
+      access.performAttack(resolution('left', 'hold', 700))
+
+      expect(access.activeDash?.attack.behavior).toBe('clawDash')
+      expect(continuationEvents()).toEqual([
+        expect.objectContaining({ hand: 'right', state: 'continuation', profile: 'followUp' }),
+      ])
+      expect(access.createSnapshot()).toMatchObject({
+        controlCue: {
+          hand: 'left',
+          state: 'continuation',
+          gesture: 'holdThenDoubleTap',
+          tactileProfile: 'followUp',
+        },
+        controlRoles: [expect.objectContaining({
+          hand: 'left',
+          nextGate: weapon(defaultConfig, 'either-claws').attacks.holdThenDoubleTap.name,
+        })],
+      })
+
+      access.update(0, 0)
+      access.update(0, 0)
+      expect(continuationEvents()).toHaveLength(1)
+
+      driveDualSenseTrigger(access, 'right', 0.9, 800)
+      expect(access.createSnapshot().lastGesture).toMatchObject({
+        hand: 'left',
+        gesture: 'holdThenDoubleTap',
+        attackName: weapon(defaultConfig, 'either-claws').attacks.holdThenDoubleTap.name,
+      })
+      expect(access.activeDash).toBeNull()
+      expect(continuationEvents()).toHaveLength(1)
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('does not leak an enemy opening into another weapon generic continuation', () => {
+    const { engine, access } = startCombat(combatConfig('twohand-spear', null))
+    engine.setControlScheme('dualsense')
+    const feedback = vi.spyOn(access.feedbackController, 'emit')
+    try {
+      access.enemies[0].statuses.openingMs = 1_000
+      access.update(0, 0)
+
+      expect(feedback.mock.calls
+        .map(([event]) => event)
+        .filter(event => event.state === 'continuation' && event.profile === 'followUp'))
+        .toEqual([])
+      for (const role of access.createSnapshot().controlRoles) {
+        const equipped = access.weapons.get(role.hand)!
+        const startNode = equipped.controls!.dualsense.nodes.find(node => (
+          node.id === equipped.controls!.dualsense.startNodeId
+        ))!
+        expect(role.nextGate).toBe(equipped.attacks[startNode.gesture].name)
+      }
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('uses mylorik bindings while surfacing an active contextual follow-up', () => {
+    const { engine, access } = startCombat(combatConfig('either-claws', null))
+    engine.setControlScheme('mylorik')
+    try {
+      access.performAttack(resolution('left', 'hold', 700))
+      const equipped = access.weapons.get('left')!
+      const role = access.createSnapshot().controlRoles.find(candidate => candidate.hand === 'left')
+
+      expect(role).toEqual({
+        hand: 'left',
+        instantMove: equipped.attacks.tap.name,
+        techniqueOrTrigger: equipped.controls!.role,
+        nextGate: equipped.attacks.holdThenDoubleTap.name,
+      })
+      expect(role?.techniqueOrTrigger).not.toBe(equipped.controls!.dualsense.triggerRole)
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('publishes authored trigger tension without deciding the released action', () => {
+    const { engine, access } = startCombat(combatConfig('either-claws', 'secondary-chain'))
+    engine.setControlScheme('dualsense')
+    const feedback = vi.spyOn(access.feedbackController, 'emit')
+    try {
+      driveDualSenseTrigger(access, 'left', 0.22, 0)
+
+      expect(access.createSnapshot().controlCue).toMatchObject({
+        hand: 'right',
+        state: 'tension',
+        gesture: 'hold',
+        tactileProfile: 'tension',
+      })
+      expect(feedback.mock.calls
+        .map(([event]) => event)
+        .filter(event => event.state === 'tension')).toEqual([
+          expect.objectContaining({ profile: 'tension', hand: 'left' }),
+        ])
+      expect(access.createSnapshot().lastGesture).toBeNull()
+
+      driveDualSenseTrigger(access, 'left', 0, 700)
+      expect(access.createSnapshot().lastGesture).toMatchObject({
+        hand: 'right',
+        gesture: 'hold',
+        attackName: weapon(defaultConfig, 'secondary-chain').attacks.hold.name,
+      })
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('emits one sharp impact only after a damage-free parry succeeds', () => {
+    const { engine, access } = startCombat(combatConfig('twohand-spear', null, 'guard', 1))
+    engine.setControlScheme('dualsense')
+    const feedback = vi.spyOn(access.feedbackController, 'emit')
+    const target = access.enemies[0]
+    let now = 1_000
+    vi.spyOn(performance, 'now').mockImplementation(() => now)
+
+    try {
+      placeEnemy(access, target, 70)
+      target.state = 'attacking'
+      target.attackWindupMs = 100
+
+      engine.press('right')
+      expect(feedback.mock.calls.some(([event]) => event.state === 'impact')).toBe(false)
+      now += 80
+      engine.release('right')
+
+      expect(target.state).toBe('chasing')
+      expect(access.player.hp).toBe(access.player.stats.maxHp)
+      expect(feedback.mock.calls
+        .map(([event]) => event)
+        .filter(event => event.state === 'impact')).toEqual([
+          expect.objectContaining({ profile: 'impact', hand: 'left', strength: 1 }),
+        ])
+    } finally {
+      engine.destroy()
+      vi.restoreAllMocks()
     }
   })
 })

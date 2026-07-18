@@ -15,6 +15,7 @@ type QaScenario =
   | 'governance'
   | 'domestic-economy'
   | 'external-trade'
+  | 'economy-content-event'
   | 'destroyed-west'
   | 'loyalty-rebellion'
   | 'relic-production-levels'
@@ -26,7 +27,7 @@ type QaScenario =
 
 const QA_SEED = 'cypress-empires-endgame'
 const CONFIG_STORAGE_KEY = 'empires-endgame:config:v1'
-const SAVE_STORAGE_KEY = 'empires-endgame:campaign:v8'
+const SAVE_STORAGE_KEY = 'empires-endgame:campaign:v9'
 const bundledConfig = bundledConfigJson as unknown as EmpiresEndgameConfig
 const TECHNOLOGY_COUNT = bundledConfig.empire.technologies.length
 
@@ -618,6 +619,17 @@ describe('Empire\'s Endgame deterministic browser scenarios', () => {
     cy.get('.event-choice:not(:disabled)').first().should('be.visible').click()
     cy.get('[role="dialog"][aria-labelledby="event-dialog-title"]').should('not.exist')
     cy.get('[data-testid="qa-digest"]').should('not.contain.text', 'event')
+  })
+
+  it('shows the typed Customs target and next-con consequences', () => {
+    visitScenario('economy-content-event')
+    cy.get('#event-dialog-title').should('contain.text', 'Тайный наркотрафик')
+    cy.get('#event-dialog-description').should('contain.text', 'Город:')
+    cy.get('.event-choice').should('have.length', 2)
+      .and('contain.text', 'Следующий кон')
+      .and('contain.text', 'Население выбранного города')
+    cy.get('.event-choice:not(:disabled)').first().click()
+    cy.get('[role="dialog"][aria-labelledby="event-dialog-title"]').should('not.exist')
   })
 
   it('shows an epidemic badge and the detailed city projection', () => {

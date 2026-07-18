@@ -44,9 +44,13 @@ export class LastChancesGestureRecognizer {
   }
 
   constructor(
-    private readonly timings: LastChancesGestureTimings,
+    private timings: LastChancesGestureTimings,
     private readonly emit: (resolution: LastChancesGestureResolution) => void,
   ) {}
+
+  updateTimings(timings: LastChancesGestureTimings): void {
+    this.timings = timings
+  }
 
   press(hand: LastChancesHand, atMs: number): void {
     const state = this.states[hand]

@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 3,
+  "schemaVersion": 4,
   "title": "99 Last Chances",
   "seed": "99LC-prototype",
   "chances": 99,
@@ -63,7 +63,73 @@
     "gamepadLeftButton": 4,
     "gamepadRightButton": 5,
     "leftKeys": ["KeyJ", "Space"],
-    "rightKeys": ["KeyK", "ShiftLeft", "ShiftRight"]
+    "rightKeys": ["KeyK", "ShiftLeft", "ShiftRight"],
+    "mylorik": {
+      "techniqueHoldMs": 650,
+      "bufferMs": 150,
+      "continuationWindowMs": 480,
+      "gamepad": {
+        "leftBumper": 4,
+        "rightBumper": 5,
+        "leftTrigger": 6,
+        "rightTrigger": 7,
+        "mobilityButton": 1,
+        "interactButton": 0
+      },
+      "keyboard": {
+        "leftTechniqueKeys": ["KeyQ"],
+        "rightTechniqueKeys": ["KeyE"],
+        "mobilityKeys": ["Space"],
+        "interactKeys": ["KeyF"],
+        "leftStrikeMouseButton": 0,
+        "rightStrikeMouseButton": 2
+      }
+    },
+    "dualsense": {
+      "activationThreshold": 0.22,
+      "releaseThreshold": 0.14,
+      "hysteresis": 0.08,
+      "gamepad": {
+        "leftBumper": 4,
+        "rightBumper": 5,
+        "leftTrigger": 6,
+        "rightTrigger": 7,
+        "circle": 1,
+        "cross": 0,
+        "options": 9
+      },
+      "keyboard": {
+        "leftTechniqueKeys": ["KeyQ"],
+        "rightTechniqueKeys": ["KeyE"],
+        "mobilityKeys": ["Space"],
+        "interactKeys": ["KeyF"],
+        "leftStrikeMouseButton": 0,
+        "rightStrikeMouseButton": 2
+      },
+      "gatePositions": {
+        "shallow": 0.22,
+        "medium": 0.48,
+        "deep": 0.72,
+        "final": 0.9
+      },
+      "feedback": {
+        "maxMagnitude": 0.7,
+        "maxDurationMs": 900,
+        "blockedRepeatMs": 240,
+        "profiles": {
+          "click": { "startPosition": 0.18, "endPosition": 0.3, "resistance": 0.24, "force": 0.28, "transitionMs": 35, "effectMs": 90, "magnitude": 0.22 },
+          "ramp": { "startPosition": 0.22, "endPosition": 0.86, "resistance": 0.3, "force": 0.55, "transitionMs": 140, "effectMs": 600, "magnitude": 0.38 },
+          "bandLight": { "startPosition": 0.2, "endPosition": 0.38, "resistance": 0.22, "force": 0.25, "transitionMs": 30, "effectMs": 80, "magnitude": 0.2 },
+          "bandMedium": { "startPosition": 0.4, "endPosition": 0.62, "resistance": 0.34, "force": 0.42, "transitionMs": 35, "effectMs": 95, "magnitude": 0.34 },
+          "bandStrong": { "startPosition": 0.64, "endPosition": 0.84, "resistance": 0.48, "force": 0.58, "transitionMs": 40, "effectMs": 110, "magnitude": 0.48 },
+          "gate": { "startPosition": 0.48, "endPosition": 0.78, "resistance": 0.52, "force": 0.62, "transitionMs": 70, "effectMs": 320, "magnitude": 0.46 },
+          "followUp": { "startPosition": 0.3, "endPosition": 0.56, "resistance": 0.3, "force": 0.36, "transitionMs": 45, "effectMs": 140, "magnitude": 0.3 },
+          "blocked": { "startPosition": 0.12, "endPosition": 0.34, "resistance": 0.46, "force": 0.42, "transitionMs": 45, "effectMs": 160, "magnitude": 0.32 },
+          "impact": { "startPosition": 0.16, "endPosition": 0.44, "resistance": 0.38, "force": 0.5, "transitionMs": 25, "effectMs": 120, "magnitude": 0.55 },
+          "tension": { "startPosition": 0.26, "endPosition": 0.82, "resistance": 0.44, "force": 0.58, "transitionMs": 100, "effectMs": 520, "magnitude": 0.4 }
+        }
+      }
+    }
   },
   "player": {
     "radius": 22,
@@ -1458,6 +1524,50 @@
           "invulnerabilityMs": 720,
           "recoveryMs": 460
         }
+      },
+      "controls": {
+        "primary": {
+          "role": "Right cluster — lance gearbox",
+          "mylorik": { "activations": [
+            { "gesture": "tap", "intent": "strike", "phase": "press", "priority": 100 },
+            { "gesture": "doubleTap", "intent": "technique", "phase": "tap", "priority": 100 },
+            { "gesture": "doubleTapHold", "intent": "strike", "phase": "press", "context": "continuation", "priority": 80 },
+            { "gesture": "hold", "intent": "technique", "phase": "hold", "priority": 100 },
+            { "gesture": "holdThenDoubleTap", "intent": "mobility", "phase": "press", "context": "continuation", "priority": 80 }
+          ] },
+          "dualsense": {
+            "instantGesture": "tap",
+            "triggerRole": "R2 thrust, overhead release, ram and spin",
+            "startNodeId": "doubleTap",
+            "nodes": [
+              { "id": "doubleTap", "gesture": "doubleTap", "entryContext": "neutral", "activationThreshold": 0.22, "dispatch": "release", "holdBehavior": "none", "releaseBehavior": "dispatch", "next": ["hold", "doubleTapHold"], "cancel": "release", "expiryMs": 480, "tactileProfile": "click" },
+              { "id": "hold", "gesture": "hold", "entryContext": "neutral", "activationThreshold": 0.48, "dispatch": "release", "holdBehavior": "charge", "releaseBehavior": "dispatch", "next": ["holdThenDoubleTap"], "cancel": "release", "expiryMs": 480, "tactileProfile": "ramp" },
+              { "id": "doubleTapHold", "gesture": "doubleTapHold", "entryContext": "continuation", "activationThreshold": 0.72, "dispatch": "release", "holdBehavior": "charge", "releaseBehavior": "dispatch", "next": [], "cancel": "release", "expiryMs": 480, "tactileProfile": "gate" },
+              { "id": "holdThenDoubleTap", "gesture": "holdThenDoubleTap", "entryContext": "continuation", "activationThreshold": 0.9, "dispatch": "press", "holdBehavior": "none", "releaseBehavior": "cancel", "next": [], "cancel": "release", "expiryMs": 480, "tactileProfile": "followUp", "requiredChargeBandId": "middle" }
+            ]
+          }
+        },
+        "secondary": {
+          "role": "Left cluster — parry, brace, stance and vault",
+          "mylorik": { "activations": [
+            { "gesture": "tap", "intent": "strike", "phase": "press", "priority": 100 },
+            { "gesture": "doubleTap", "intent": "technique", "phase": "tap", "priority": 100 },
+            { "gesture": "doubleTapHold", "intent": "strike", "phase": "press", "context": "continuation", "priority": 80 },
+            { "gesture": "hold", "intent": "technique", "phase": "hold", "priority": 100 },
+            { "gesture": "holdThenDoubleTap", "intent": "mobility", "phase": "press", "context": "stance", "priority": 80 }
+          ] },
+          "dualsense": {
+            "instantGesture": "tap",
+            "triggerRole": "L2 shove, brace, cutting stance and pole vault",
+            "startNodeId": "doubleTap",
+            "nodes": [
+              { "id": "doubleTap", "gesture": "doubleTap", "entryContext": "neutral", "activationThreshold": 0.22, "dispatch": "release", "holdBehavior": "none", "releaseBehavior": "dispatch", "next": ["hold", "doubleTapHold"], "cancel": "release", "expiryMs": 480, "tactileProfile": "click" },
+              { "id": "hold", "gesture": "hold", "entryContext": "neutral", "activationThreshold": 0.48, "dispatch": "press", "holdBehavior": "channel", "releaseBehavior": "dispatch", "next": ["holdThenDoubleTap"], "cancel": "release", "expiryMs": 480, "tactileProfile": "tension" },
+              { "id": "doubleTapHold", "gesture": "doubleTapHold", "entryContext": "continuation", "activationThreshold": 0.72, "dispatch": "release", "holdBehavior": "charge", "releaseBehavior": "dispatch", "next": [], "cancel": "release", "expiryMs": 480, "tactileProfile": "gate" },
+              { "id": "holdThenDoubleTap", "gesture": "holdThenDoubleTap", "entryContext": "stance", "activationThreshold": 0.9, "dispatch": "release", "holdBehavior": "none", "releaseBehavior": "dispatch", "next": [], "cancel": "release", "expiryMs": 480, "tactileProfile": "followUp" }
+            ]
+          }
+        }
       }
     },
     {
@@ -1747,6 +1857,29 @@
           ],
           "recoveryMs": 480
         }
+      },
+      "controls": {
+        "primary": {
+          "role": "Matching hand — lash and tension spool",
+          "mylorik": { "activations": [
+            { "gesture": "tap", "intent": "strike", "phase": "press", "priority": 100 },
+            { "gesture": "doubleTap", "intent": "technique", "phase": "tap", "priority": 100 },
+            { "gesture": "doubleTapHold", "intent": "mobility", "phase": "press", "context": "spin", "priority": 80 },
+            { "gesture": "hold", "intent": "technique", "phase": "hold", "priority": 100 },
+            { "gesture": "holdThenDoubleTap", "intent": "strike", "phase": "press", "context": "tether", "priority": 80 }
+          ] },
+          "dualsense": {
+            "instantGesture": "tap",
+            "triggerRole": "Trigger cast, spin, drag, throw and bind",
+            "startNodeId": "hold",
+            "nodes": [
+              { "id": "hold", "gesture": "hold", "entryContext": "neutral", "activationThreshold": 0.22, "dispatch": "release", "holdBehavior": "charge", "releaseBehavior": "dispatch", "next": ["doubleTap", "holdThenDoubleTap"], "cancel": "release", "expiryMs": 480, "tactileProfile": "tension" },
+              { "id": "doubleTap", "gesture": "doubleTap", "entryContext": "neutral", "activationThreshold": 0.48, "dispatch": "press", "holdBehavior": "none", "releaseBehavior": "cancel", "next": ["doubleTapHold"], "cancel": "release", "expiryMs": 480, "tactileProfile": "gate" },
+              { "id": "doubleTapHold", "gesture": "doubleTapHold", "entryContext": "spin", "activationThreshold": 0.72, "dispatch": "release", "holdBehavior": "charge", "releaseBehavior": "dispatch", "next": [], "cancel": "release", "expiryMs": 480, "tactileProfile": "gate" },
+              { "id": "holdThenDoubleTap", "gesture": "holdThenDoubleTap", "entryContext": "tether", "activationThreshold": 0.9, "dispatch": "press", "holdBehavior": "none", "releaseBehavior": "cancel", "next": [], "cancel": "release", "expiryMs": 480, "tactileProfile": "gate" }
+            ]
+          }
+        }
       }
     },
     {
@@ -2008,6 +2141,29 @@
           },
           "recoveryMs": 320
         }
+      },
+      "controls": {
+        "primary": {
+          "role": "Matching hand — slash and predator spring",
+          "mylorik": { "activations": [
+            { "gesture": "tap", "intent": "strike", "phase": "press", "priority": 100 },
+            { "gesture": "doubleTap", "intent": "technique", "phase": "tap", "priority": 100 },
+            { "gesture": "doubleTapHold", "intent": "strike", "phase": "press", "context": "continuation", "priority": 80 },
+            { "gesture": "hold", "intent": "mobility", "phase": "hold", "priority": 100 },
+            { "gesture": "holdThenDoubleTap", "intent": "strike", "phase": "press", "context": "dash", "priority": 90 }
+          ] },
+          "dualsense": {
+            "instantGesture": "tap",
+            "triggerRole": "Trigger rend, traversal, disarm and deep critical",
+            "startNodeId": "doubleTap",
+            "nodes": [
+              { "id": "doubleTap", "gesture": "doubleTap", "entryContext": "neutral", "activationThreshold": 0.22, "dispatch": "release", "holdBehavior": "none", "releaseBehavior": "dispatch", "next": ["hold"], "cancel": "release", "expiryMs": 480, "tactileProfile": "click" },
+              { "id": "hold", "gesture": "hold", "entryContext": "neutral", "activationThreshold": 0.48, "dispatch": "release", "holdBehavior": "charge", "releaseBehavior": "dispatch", "next": ["doubleTapHold", "holdThenDoubleTap"], "cancel": "release", "expiryMs": 480, "tactileProfile": "ramp" },
+              { "id": "doubleTapHold", "gesture": "doubleTapHold", "entryContext": "neutral", "activationThreshold": 0.72, "dispatch": "release", "holdBehavior": "none", "releaseBehavior": "dispatch", "next": [], "cancel": "release", "expiryMs": 480, "tactileProfile": "gate" },
+              { "id": "holdThenDoubleTap", "gesture": "holdThenDoubleTap", "entryContext": "dash", "activationThreshold": 0.9, "dispatch": "press", "holdBehavior": "none", "releaseBehavior": "cancel", "next": [], "cancel": "release", "expiryMs": 480, "tactileProfile": "followUp" }
+            ]
+          }
+        }
       }
     },
     {
@@ -2240,6 +2396,29 @@
             "bleedStackMultiplier": 1.5
           },
           "recoveryMs": 380
+        }
+      },
+      "controls": {
+        "primary": {
+          "role": "Matching hand — slash and ratcheting impale",
+          "mylorik": { "activations": [
+            { "gesture": "tap", "intent": "strike", "phase": "press", "priority": 100 },
+            { "gesture": "doubleTap", "intent": "technique", "phase": "tap", "priority": 100 },
+            { "gesture": "doubleTapHold", "intent": "mobility", "phase": "release", "context": "continuation", "priority": 80 },
+            { "gesture": "hold", "intent": "technique", "phase": "hold", "priority": 100 },
+            { "gesture": "holdThenDoubleTap", "intent": "strike", "phase": "press", "context": "flurry", "priority": 80 }
+          ] },
+          "dualsense": {
+            "instantGesture": "tap",
+            "triggerRole": "Trigger impale, flurry, twist and committed throw",
+            "startNodeId": "doubleTap",
+            "nodes": [
+              { "id": "doubleTap", "gesture": "doubleTap", "entryContext": "neutral", "activationThreshold": 0.22, "dispatch": "release", "holdBehavior": "none", "releaseBehavior": "dispatch", "next": ["hold", "doubleTapHold"], "cancel": "release", "expiryMs": 480, "tactileProfile": "click" },
+              { "id": "hold", "gesture": "hold", "entryContext": "neutral", "activationThreshold": 0.48, "dispatch": "press", "holdBehavior": "channel", "releaseBehavior": "dispatch", "next": ["holdThenDoubleTap"], "cancel": "release", "expiryMs": 480, "tactileProfile": "tension" },
+              { "id": "holdThenDoubleTap", "gesture": "holdThenDoubleTap", "entryContext": "flurry", "activationThreshold": 0.72, "dispatch": "release", "holdBehavior": "none", "releaseBehavior": "dispatch", "next": [], "cancel": "release", "expiryMs": 480, "tactileProfile": "gate" },
+              { "id": "doubleTapHold", "gesture": "doubleTapHold", "entryContext": "neutral", "activationThreshold": 0.9, "dispatch": "release", "holdBehavior": "charge", "releaseBehavior": "dispatch", "next": [], "cancel": "release", "expiryMs": 480, "tactileProfile": "gate" }
+            ]
+          }
         }
       }
     },
@@ -2734,6 +2913,42 @@
           "invulnerabilityMs": 900,
           "recoveryMs": 900
         }
+      },
+      "controls": {
+        "primary": {
+          "role": "Right cluster — chop and grapple lever",
+          "mylorik": { "activations": [
+            { "gesture": "tap", "intent": "strike", "phase": "press", "priority": 100 },
+            { "gesture": "doubleTap", "intent": "technique", "phase": "tap", "priority": 100 },
+            { "gesture": "doubleTapHold", "intent": "technique", "phase": "hold", "context": "grapple", "priority": 80 }
+          ] },
+          "dualsense": {
+            "instantGesture": "tap",
+            "triggerRole": "R2 grapple, maintain, aim and throw",
+            "startNodeId": "doubleTap",
+            "nodes": [
+              { "id": "doubleTap", "gesture": "doubleTap", "entryContext": "neutral", "activationThreshold": 0.22, "dispatch": "press", "holdBehavior": "none", "releaseBehavior": "cancel", "next": ["doubleTapHold"], "cancel": "release", "expiryMs": 480, "tactileProfile": "gate" },
+              { "id": "doubleTapHold", "gesture": "doubleTapHold", "entryContext": "grapple", "activationThreshold": 0.72, "dispatch": "release", "holdBehavior": "charge", "releaseBehavior": "dispatch", "next": [], "cancel": "release", "expiryMs": 480, "tactileProfile": "tension" }
+            ]
+          }
+        },
+        "secondary": {
+          "role": "Left cluster — long parry and flywheel",
+          "mylorik": { "activations": [
+            { "gesture": "tap", "intent": "strike", "phase": "press", "priority": 100 },
+            { "gesture": "hold", "intent": "technique", "phase": "hold", "priority": 100 },
+            { "gesture": "holdThenDoubleTap", "intent": "mobility", "phase": "press", "context": "spin", "priority": 80 }
+          ] },
+          "dualsense": {
+            "instantGesture": "tap",
+            "triggerRole": "L2 reflecting spin and momentum leap",
+            "startNodeId": "hold",
+            "nodes": [
+              { "id": "hold", "gesture": "hold", "entryContext": "neutral", "activationThreshold": 0.22, "dispatch": "press", "holdBehavior": "channel", "releaseBehavior": "dispatch", "next": ["holdThenDoubleTap"], "cancel": "release", "expiryMs": 480, "tactileProfile": "ramp" },
+              { "id": "holdThenDoubleTap", "gesture": "holdThenDoubleTap", "entryContext": "spin", "activationThreshold": 0.72, "dispatch": "release", "holdBehavior": "none", "releaseBehavior": "dispatch", "next": [], "cancel": "release", "expiryMs": 480, "tactileProfile": "followUp" }
+            ]
+          }
+        }
       }
     },
     {
@@ -3169,6 +3384,50 @@
           "invulnerabilityMs": 500,
           "recoveryMs": 360
         }
+      },
+      "controls": {
+        "primary": {
+          "role": "Right cluster — cut and draw-and-flow rail",
+          "mylorik": { "activations": [
+            { "gesture": "tap", "intent": "strike", "phase": "press", "priority": 100 },
+            { "gesture": "doubleTap", "intent": "technique", "phase": "tap", "priority": 100 },
+            { "gesture": "doubleTapHold", "intent": "strike", "phase": "press", "context": "continuation", "priority": 80 },
+            { "gesture": "hold", "intent": "technique", "phase": "hold", "priority": 100 },
+            { "gesture": "holdThenDoubleTap", "intent": "mobility", "phase": "press", "context": "continuation", "priority": 80 }
+          ] },
+          "dualsense": {
+            "instantGesture": "tap",
+            "triggerRole": "R2 overhead, charge, flurry and dance",
+            "startNodeId": "doubleTap",
+            "nodes": [
+              { "id": "doubleTap", "gesture": "doubleTap", "entryContext": "neutral", "activationThreshold": 0.22, "dispatch": "release", "holdBehavior": "none", "releaseBehavior": "dispatch", "next": ["hold", "doubleTapHold"], "cancel": "release", "expiryMs": 480, "tactileProfile": "click" },
+              { "id": "hold", "gesture": "hold", "entryContext": "neutral", "activationThreshold": 0.48, "dispatch": "release", "holdBehavior": "charge", "releaseBehavior": "dispatch", "next": ["holdThenDoubleTap"], "cancel": "release", "expiryMs": 480, "tactileProfile": "ramp" },
+              { "id": "doubleTapHold", "gesture": "doubleTapHold", "entryContext": "continuation", "activationThreshold": 0.72, "dispatch": "release", "holdBehavior": "none", "releaseBehavior": "dispatch", "next": [], "cancel": "release", "expiryMs": 480, "tactileProfile": "gate" },
+              { "id": "holdThenDoubleTap", "gesture": "holdThenDoubleTap", "entryContext": "continuation", "activationThreshold": 0.9, "dispatch": "press", "holdBehavior": "none", "releaseBehavior": "cancel", "next": [], "cancel": "release", "expiryMs": 480, "tactileProfile": "followUp", "requiredChargeBandId": "katana-charge" }
+            ]
+          }
+        },
+        "secondary": {
+          "role": "Left cluster — parry and movement/sheath rail",
+          "mylorik": { "activations": [
+            { "gesture": "tap", "intent": "strike", "phase": "press", "priority": 100 },
+            { "gesture": "doubleTap", "intent": "technique", "phase": "tap", "priority": 100 },
+            { "gesture": "doubleTapHold", "intent": "strike", "phase": "press", "context": "continuation", "priority": 80 },
+            { "gesture": "hold", "intent": "technique", "phase": "hold", "priority": 100 },
+            { "gesture": "holdThenDoubleTap", "intent": "mobility", "phase": "press", "context": "continuation", "priority": 80 }
+          ] },
+          "dualsense": {
+            "instantGesture": "tap",
+            "triggerRole": "L2 hop, hop-slash, Iaido and Flash",
+            "startNodeId": "doubleTap",
+            "nodes": [
+              { "id": "doubleTap", "gesture": "doubleTap", "entryContext": "neutral", "activationThreshold": 0.22, "dispatch": "release", "holdBehavior": "none", "releaseBehavior": "dispatch", "next": ["hold", "doubleTapHold"], "cancel": "release", "expiryMs": 480, "tactileProfile": "click" },
+              { "id": "hold", "gesture": "hold", "entryContext": "neutral", "activationThreshold": 0.48, "dispatch": "release", "holdBehavior": "charge", "releaseBehavior": "dispatch", "next": ["holdThenDoubleTap"], "cancel": "release", "expiryMs": 480, "tactileProfile": "ramp" },
+              { "id": "doubleTapHold", "gesture": "doubleTapHold", "entryContext": "continuation", "activationThreshold": 0.72, "dispatch": "release", "holdBehavior": "none", "releaseBehavior": "dispatch", "next": [], "cancel": "release", "expiryMs": 480, "tactileProfile": "gate" },
+              { "id": "holdThenDoubleTap", "gesture": "holdThenDoubleTap", "entryContext": "continuation", "activationThreshold": 0.9, "dispatch": "press", "holdBehavior": "none", "releaseBehavior": "cancel", "next": [], "cancel": "release", "expiryMs": 480, "tactileProfile": "followUp", "requiredChargeBandId": "iaido-ready" }
+            ]
+          }
+        }
       }
     },
     {
@@ -3533,6 +3792,42 @@
           "pierce": 0,
           "knockback": 0,
           "color": "#6ee7a8"
+        }
+      },
+      "controls": {
+        "primary": {
+          "role": "Matching hand — Zornhau and opening breaker",
+          "mylorik": { "activations": [
+            { "gesture": "tap", "intent": "strike", "phase": "press", "priority": 100 },
+            { "gesture": "doubleTap", "intent": "technique", "phase": "tap", "context": "opening", "priority": 80 },
+            { "gesture": "doubleTapHold", "intent": "technique", "phase": "hold", "context": "opening", "priority": 80 }
+          ] },
+          "dualsense": {
+            "instantGesture": "tap",
+            "triggerRole": "Trigger opening, Oberhau and delayed Unterhau",
+            "startNodeId": "doubleTap",
+            "nodes": [
+              { "id": "doubleTap", "gesture": "doubleTap", "entryContext": "opening", "activationThreshold": 0.22, "dispatch": "release", "holdBehavior": "none", "releaseBehavior": "dispatch", "next": ["doubleTapHold"], "cancel": "release", "expiryMs": 480, "tactileProfile": "followUp" },
+              { "id": "doubleTapHold", "gesture": "doubleTapHold", "entryContext": "opening", "activationThreshold": 0.72, "dispatch": "release", "holdBehavior": "charge", "releaseBehavior": "dispatch", "next": [], "cancel": "release", "expiryMs": 480, "tactileProfile": "gate" }
+            ]
+          }
+        },
+        "secondary": {
+          "role": "Matching hand — Zornhau and opening breaker",
+          "mylorik": { "activations": [
+            { "gesture": "tap", "intent": "strike", "phase": "press", "priority": 100 },
+            { "gesture": "doubleTap", "intent": "technique", "phase": "tap", "context": "opening", "priority": 80 },
+            { "gesture": "doubleTapHold", "intent": "technique", "phase": "hold", "context": "opening", "priority": 80 }
+          ] },
+          "dualsense": {
+            "instantGesture": "tap",
+            "triggerRole": "Trigger opening, Oberhau and delayed Unterhau",
+            "startNodeId": "doubleTap",
+            "nodes": [
+              { "id": "doubleTap", "gesture": "doubleTap", "entryContext": "opening", "activationThreshold": 0.22, "dispatch": "release", "holdBehavior": "none", "releaseBehavior": "dispatch", "next": ["doubleTapHold"], "cancel": "release", "expiryMs": 480, "tactileProfile": "followUp" },
+              { "id": "doubleTapHold", "gesture": "doubleTapHold", "entryContext": "opening", "activationThreshold": 0.72, "dispatch": "release", "holdBehavior": "charge", "releaseBehavior": "dispatch", "next": [], "cancel": "release", "expiryMs": 480, "tactileProfile": "gate" }
+            ]
+          }
         }
       }
     }

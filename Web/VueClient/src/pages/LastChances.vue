@@ -37,11 +37,20 @@ import {
   resolveLastChancesLoadout,
   saveLastChancesConfig as saveLastChancesConfigOverride,
   type LastChancesConfig,
+  type LastChancesControlScheme,
+  type LastChancesFeedbackPreferences,
   type LastChancesGamePlan,
   type LastChancesHand,
+  type LastChancesResolvedWeapon,
   type LastChancesSnapshot,
   type LastChancesStoryPage,
 } from '../features/last-chances'
+import {
+  loadLastChancesControlScheme,
+  loadLastChancesFeedbackPreferences,
+  saveLastChancesControlScheme,
+  saveLastChancesFeedbackPreferences,
+} from '../features/last-chances/preferences'
 import BuilderDrawer from '../components/last-chances/BuilderDrawer.vue'
 import RunMapOverlay, {
   type LastChancesLocale,
@@ -101,7 +110,14 @@ const copy = {
     combo: 'Combo',
     stageLabel: '99 Last Chances isometric combat arena',
     controls: 'Control language',
-    controlsHelp: 'Every device feeds the same two-hand gesture system.',
+    controlsHelp: 'Gamepad, keyboard, and mouse follow the selected scheme; touch always uses DeepList.',
+    controlScheme: 'Control scheme',
+    controlSchemeChanged: 'Control scheme changed to',
+    schemeSummaries: {
+      legacy: 'Five DeepList gestures per hand with the original timing windows.',
+      mylorik: 'Immediate strikes, tap/hold techniques, Mobility and Interact.',
+      dualsense: 'Shoulder-only combat with instant bumpers and analog combo triggers.',
+    },
     keyboard: 'Keyboard',
     keyboardMove: 'WASD / arrows move',
     keyboardAttack: 'attack with',
@@ -120,6 +136,52 @@ const copy = {
     touch: 'Touch',
     touchMove: 'Left stick moves · aim pad aims',
     touchAttack: 'Use either hand button for gestures',
+    touchLegacy: 'Touch always uses DeepList',
+    strike: 'Strike',
+    technique: 'Technique',
+    mobility: 'Mobility',
+    press: 'press',
+    release: 'release',
+    techniqueTap: 'Technique tap',
+    techniqueHold: 'Technique hold / charge',
+    instantMoves: 'Instant bumper moves',
+    comboTriggers: 'Analog combo triggers',
+    back: 'Back',
+    interactConfirm: 'Interact / Confirm',
+    feedback: 'DualSense feedback',
+    dualSenseActive: 'DualSense controls active',
+    feedbackMode: 'Feedback mode',
+    feedbackIntensity: 'Intensity',
+    controlsOnly: 'Controls only',
+    vibration: 'Vibration',
+    enhanced: 'Adaptive triggers + vibration',
+    feedbackUnavailable: 'Feedback unavailable',
+    feedbackError: 'Feedback error',
+    enableDualSense: 'Enable DualSense features',
+    disableEnhanced: 'Disable enhanced feedback',
+    dualSenseEnabled: 'DualSense feature request completed.',
+    dualSenseFailed: 'Enhanced DualSense feedback could not be enabled; controls remain active.',
+    tactileLegend: 'Tactile legend',
+    tactileLegendItems: [
+      'Light click · step accepted',
+      'Rising ramp · charge',
+      'Band tick · release armed',
+      'Firm gate · continuation',
+      'Double pulse · follow-up',
+      'Dull pulse · blocked',
+      'Sharp impact · contact',
+    ],
+    controlStates: {
+      ready: 'Ready',
+      charge: 'Charge',
+      continuation: 'Continuation ready',
+      tension: 'Tension',
+      blocked: 'Blocked',
+      impact: 'Impact',
+    },
+    feedbackUpdated: 'Feedback preference updated.',
+    controlsApplied: 'Control tuning applied without restarting the attempt.',
+    controlsRejected: 'Control tuning could not be applied to the current attempt.',
     interact: 'Interact',
     gestureGuide: 'Five gestures per hand',
     tap: 'Tap',
@@ -160,6 +222,8 @@ const copy = {
     questTapTask: 'Two tap kills in one room',
     questHoldTask: 'Two hold kills in one room',
     questComboTask: 'Hit an elite with every unlocked move',
+    questKillsWith: 'Two kills in one room with',
+    questEliteRoutes: 'Hit an elite with every unlocked route',
     questNextRoom: 'Next room:',
     questSwarm: 'Creeps incoming',
   },
@@ -211,6 +275,13 @@ const copy = {
     stageLabel: 'Изометрическая боевая арена 99 Last Chances',
     controls: 'Язык управления',
     controlsHelp: 'Все устройства используют одну систему жестов для двух рук.',
+    controlScheme: 'Схема управления',
+    controlSchemeChanged: 'Схема управления изменена на',
+    schemeSummaries: {
+      legacy: 'Пять жестов DeepList для каждой руки с исходными окнами распознавания.',
+      mylorik: 'Мгновенные удары, техники по нажатию/задержке, Mobility и Interact.',
+      dualsense: 'Бой только плечевыми кнопками: мгновенные бамперы и аналоговые комбо-триггеры.',
+    },
     keyboard: 'Клавиатура',
     keyboardMove: 'WASD / стрелки — движение',
     keyboardAttack: 'атака клавишами',
@@ -229,6 +300,52 @@ const copy = {
     touch: 'Сенсорный экран',
     touchMove: 'Левый стик — движение · площадка — прицел',
     touchAttack: 'Используйте кнопки обеих рук для жестов',
+    touchLegacy: 'Сенсорное управление всегда использует DeepList',
+    strike: 'Удар',
+    technique: 'Техника',
+    mobility: 'Mobility',
+    press: 'нажатие',
+    release: 'отпускание',
+    techniqueTap: 'Техника по нажатию',
+    techniqueHold: 'Техника с задержкой / зарядом',
+    instantMoves: 'Мгновенные мувы бамперами',
+    comboTriggers: 'Аналоговые комбо-триггеры',
+    back: 'Назад',
+    interactConfirm: 'Взаимодействие / Подтвердить',
+    feedback: 'Отклик DualSense',
+    dualSenseActive: 'Управление DualSense активно',
+    feedbackMode: 'Режим отклика',
+    feedbackIntensity: 'Интенсивность',
+    controlsOnly: 'Только управление',
+    vibration: 'Вибрация',
+    enhanced: 'Адаптивные триггеры + вибрация',
+    feedbackUnavailable: 'Отклик недоступен',
+    feedbackError: 'Ошибка отклика',
+    enableDualSense: 'Включить функции DualSense',
+    disableEnhanced: 'Отключить расширенный отклик',
+    dualSenseEnabled: 'Запрос функций DualSense завершён.',
+    dualSenseFailed: 'Расширенный отклик DualSense не включён; управление продолжает работать.',
+    tactileLegend: 'Тактильная легенда',
+    tactileLegendItems: [
+      'Лёгкий клик · шаг принят',
+      'Нарастающий упор · заряд',
+      'Щелчок сектора · отпускание готово',
+      'Твёрдый гейт · доступно продолжение',
+      'Двойной импульс · окно фоллоу-апа',
+      'Глухой импульс · заблокировано',
+      'Резкий удар · контакт',
+    ],
+    controlStates: {
+      ready: 'Готово',
+      charge: 'Заряд',
+      continuation: 'Продолжение готово',
+      tension: 'Натяжение',
+      blocked: 'Заблокировано',
+      impact: 'Контакт',
+    },
+    feedbackUpdated: 'Настройка отклика обновлена.',
+    controlsApplied: 'Тайминги управления применены без перезапуска попытки.',
+    controlsRejected: 'Не удалось применить тайминги к текущей попытке.',
     interact: 'Взаимодействовать',
     gestureGuide: 'Пять жестов для каждой руки',
     tap: 'Нажатие',
@@ -269,15 +386,49 @@ const copy = {
     questTapTask: 'Два убийства тапом в одной комнате',
     questHoldTask: 'Два убийства холдом в одной комнате',
     questComboTask: 'Попади по элиту всеми открытыми мувами',
+    questKillsWith: 'Два убийства в одной комнате через',
+    questEliteRoutes: 'Попадите по элиту всеми открытыми маршрутами',
     questNextRoom: 'Со следующей комнаты:',
     questSwarm: 'Крипы бегут',
   },
 } as const
 
+const CONTROL_SCHEME_OPTIONS: ReadonlyArray<{
+  id: LastChancesControlScheme
+  label: 'DeepList' | 'mylorik' | 'DualSense'
+}> = [
+  { id: 'legacy', label: 'DeepList' },
+  { id: 'mylorik', label: 'mylorik' },
+  { id: 'dualsense', label: 'DualSense' },
+]
+
+const FEEDBACK_MODE_OPTIONS: ReadonlyArray<{
+  id: LastChancesFeedbackPreferences['mode']
+  label: 'Off' | 'Reduced' | 'Full'
+}> = [
+  { id: 'off', label: 'Off' },
+  { id: 'reduced', label: 'Reduced' },
+  { id: 'full', label: 'Full' },
+]
+
+const qaControlsFixture = typeof window !== 'undefined'
+  && new URLSearchParams(window.location.search).get('qa') === '1'
+  && new URLSearchParams(window.location.search).get('fixture') === 'controls'
+
+function reducedMotionPreferred(): boolean {
+  return typeof window !== 'undefined'
+    && typeof window.matchMedia === 'function'
+    && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+}
+
 const locale = computed<LastChancesLocale>(() => currentLocale.value)
 const t = computed(() => copy[locale.value])
 const canvas = ref<HTMLCanvasElement | null>(null)
 const engine = shallowRef<LastChancesEngine | null>(null)
+const controlScheme = ref<LastChancesControlScheme>(loadLastChancesControlScheme())
+const feedbackPreferences = ref<LastChancesFeedbackPreferences>(
+  loadLastChancesFeedbackPreferences(undefined, reducedMotionPreferred()),
+)
 const config = ref<LastChancesConfig | null>(null)
 const plan = ref<LastChancesGamePlan | null>(null)
 const snapshot = ref<LastChancesSnapshot | null>(null)
@@ -326,6 +477,84 @@ const storyOpen = computed(() => storyPages.value.length > 0 && !!storyPage.valu
 const storyFinalLabel = computed(() => snapshot.value?.phase === 'planning'
   ? t.value.storyBegin
   : t.value.storyClose)
+const controlSchemeLabel = computed(() => (
+  CONTROL_SCHEME_OPTIONS.find(option => option.id === controlScheme.value)?.label ?? 'DeepList'
+))
+const controlSchemeSummary = computed(() => t.value.schemeSummaries[controlScheme.value])
+const feedbackStatusLabel = computed(() => {
+  switch (snapshot.value?.feedback?.status) {
+    case 'vibration': return t.value.vibration
+    case 'enhanced': return t.value.enhanced
+    case 'unavailable': return t.value.feedbackUnavailable
+    case 'error': return t.value.feedbackError
+    default: return t.value.controlsOnly
+  }
+})
+const feedbackIntensityPercent = computed(() => Math.round(feedbackPreferences.value.intensity * 100))
+
+const activeKeyboardDefinition = computed(() => (
+  controlScheme.value === 'dualsense'
+    ? config.value?.input.dualsense?.keyboard
+    : config.value?.input.mylorik?.keyboard
+))
+
+const keyboardActionText = computed(() => {
+  if (controlScheme.value === 'legacy') {
+    const left = config.value?.input.leftKeys.map(formatKey).join('/') || 'J/Space'
+    const right = config.value?.input.rightKeys.map(formatKey).join('/') || 'K/Shift'
+    return `${t.value.keyboardAttack} ${left} + ${right} · ${t.value.keyboardInteract}`
+  }
+  const bindings = activeKeyboardDefinition.value
+  const leftTechnique = bindings?.leftTechniqueKeys.map(formatKey).join('/') || 'Q'
+  const rightTechnique = bindings?.rightTechniqueKeys.map(formatKey).join('/') || 'E'
+  const mobility = bindings?.mobilityKeys.map(formatKey).join('/') || 'Space'
+  const interactKey = bindings?.interactKeys.map(formatKey).join('/') || 'F'
+  return `LMB/RMB = ${t.value.strike} · ${leftTechnique}/${rightTechnique} = ${t.value.technique} · ${mobility} = ${t.value.mobility} · ${interactKey} = ${t.value.interact}`
+})
+
+const mouseActionText = computed(() => controlScheme.value === 'legacy'
+  ? t.value.mouseAttack
+  : `LMB/RMB = ${t.value.strike}`)
+
+const gamepadBindingLines = computed(() => {
+  if (controlScheme.value === 'legacy') {
+    return [
+      `${t.value.gamepadMove} · ${t.value.gamepadAttack} ${formatGamepadButton(config.value?.input.gamepadLeftButton, 4)} / ${formatGamepadButton(config.value?.input.gamepadRightButton, 5)}`,
+      t.value.gamepadInteract,
+      t.value.gamepadMenu,
+    ]
+  }
+  if (controlScheme.value === 'mylorik') {
+    const gamepad = config.value?.input.mylorik?.gamepad
+    return [
+      `${t.value.gamepadMove} · ${formatGamepadButton(gamepad?.leftBumper, 4)}/${formatGamepadButton(gamepad?.rightBumper, 5)} = ${t.value.strike}`,
+      `${formatGamepadButton(gamepad?.leftTrigger, 6)}/${formatGamepadButton(gamepad?.rightTrigger, 7)} = ${t.value.technique} · ${formatGamepadButton(gamepad?.mobilityButton, 1)} = ${t.value.mobility}`,
+      `${formatGamepadButton(gamepad?.interactButton, 0)} = ${t.value.interact} · ${t.value.gamepadMenu}`,
+    ]
+  }
+  const gamepad = config.value?.input.dualsense?.gamepad
+  return [
+    `${t.value.gamepadMove} · ${formatGamepadButton(gamepad?.leftBumper, 4)}/${formatGamepadButton(gamepad?.rightBumper, 5)} = ${t.value.instantMoves}`,
+    `${formatGamepadButton(gamepad?.leftTrigger, 6)}/${formatGamepadButton(gamepad?.rightTrigger, 7)} = ${t.value.comboTriggers}`,
+    `${formatGamepadButton(gamepad?.circle, 1)} = ${t.value.back} · ${formatGamepadButton(gamepad?.cross, 0)} = ${t.value.interactConfirm} · Options = ${t.value.pause}`,
+  ]
+})
+
+const controlGuideItems = computed(() => {
+  if (controlScheme.value === 'legacy') {
+    return LAST_CHANCES_GESTURES.map(gesture => t.value[gesture])
+  }
+  if (controlScheme.value === 'mylorik') {
+    return [t.value.strike, t.value.techniqueTap, t.value.techniqueHold, t.value.mobility, t.value.interact]
+  }
+  return [
+    `L1/R1 · ${t.value.instantMoves}`,
+    `L2/R2 · ${t.value.comboTriggers}`,
+    `Circle · ${t.value.back}`,
+    `Cross · ${t.value.interactConfirm}`,
+    feedbackStatusLabel.value,
+  ]
+})
 
 const erosionStats = computed(() => {
   if (!config.value || !snapshot.value) return []
@@ -339,6 +568,38 @@ const erosionStats = computed(() => {
     { label: t.value.attackLost, value: base.attackPower - current.attackPower, icon: Swords },
   ].filter(stat => stat.value > 0)
 })
+
+function physicalGestureLabel(
+  weapon: LastChancesResolvedWeapon,
+  gesture: typeof LAST_CHANCES_GESTURES[number],
+): string {
+  if (controlScheme.value === 'legacy') return t.value[gesture]
+  if (controlScheme.value === 'mylorik') {
+    const activations = weapon.controls?.mylorik.activations
+      .filter(activation => activation.gesture === gesture)
+      .sort((left, right) => right.priority - left.priority) ?? []
+    if (activations.length === 0) return locale.value === 'ru' ? 'Недоступно' : 'Unavailable'
+    const labels = activations.map((activation) => {
+      const intent = activation.intent === 'strike'
+        ? t.value.strike
+        : activation.intent === 'technique' ? t.value.technique : t.value.mobility
+      const phase = activation.phase === 'press'
+        ? t.value.press
+        : activation.phase === 'tap'
+          ? t.value.tap
+          : activation.phase === 'hold' ? t.value.hold : t.value.release
+      return `${intent} · ${phase}`
+    })
+    return [...new Set(labels)].join(' / ')
+  }
+  if (weapon.controls?.dualsense.instantGesture === gesture) {
+    return `${weapon.hand === 'left' ? 'R1' : 'L1'} · ${t.value.instantMoves}`
+  }
+  if (weapon.controls?.dualsense.nodes.some(node => node.gesture === gesture)) {
+    return `${weapon.hand === 'left' ? 'R2' : 'L2'} · ${weapon.controls.dualsense.triggerRole}`
+  }
+  return locale.value === 'ru' ? 'Недоступно' : 'Unavailable'
+}
 
 const weaponCooldowns = computed<WeaponCooldown[]>(() => {
   if (!config.value) return []
@@ -356,6 +617,11 @@ const weaponCooldowns = computed<WeaponCooldown[]>(() => {
       name: weapon.name,
       input: snapshot.value?.gestureInputs.find(input => input.hand === weapon.hand),
       cue,
+      controlCue: snapshot.value?.controlCue?.hand === null
+        || snapshot.value?.controlCue?.hand === weapon.hand
+        ? snapshot.value?.controlCue ?? undefined
+        : undefined,
+      controlRole: snapshot.value?.controlRoles?.find(role => role.hand === weapon.hand),
       state,
       chargeMaxMs,
       gestures: LAST_CHANCES_GESTURES.map((gesture) => {
@@ -374,6 +640,7 @@ const weaponCooldowns = computed<WeaponCooldown[]>(() => {
         ))
         return {
           key: gesture,
+          physicalLabel: physicalGestureLabel(weapon, gesture),
           name: gesture === 'tap'
             ? weapon.tapCombo.map(attack => attack.name).join(' → ')
             : attack.name,
@@ -400,23 +667,35 @@ const weaponCooldowns = computed<WeaponCooldown[]>(() => {
 const moveQuestPanels = computed(() => {
   const quests = snapshot.value?.moveQuests ?? []
   return quests.map((quest) => {
+    const weapon = quest.hand === 'left'
+      ? equippedLoadout.value.left
+      : equippedLoadout.value.right
+    const prompt = (gesture: typeof LAST_CHANCES_GESTURES[number]) => (
+      weapon ? physicalGestureLabel(weapon, gesture) : t.value[gesture]
+    )
     const items = [
       {
         key: 'tap',
-        label: `${t.value.questTapTask} → ${t.value.doubleTap}`,
+        label: controlScheme.value === 'legacy'
+          ? `${t.value.questTapTask} → ${t.value.doubleTap}`
+          : `${t.value.questKillsWith} ${prompt('tap')} → ${prompt('doubleTap')}`,
         done: quest.tapQuestDone,
         progress: `${Math.min(quest.roomKills.tap, quest.killsRequired)}/${quest.killsRequired}`,
       },
       {
         key: 'hold',
-        label: `${t.value.questHoldTask} → ${t.value.holdThenDoubleTap}`,
+        label: controlScheme.value === 'legacy'
+          ? `${t.value.questHoldTask} → ${t.value.holdThenDoubleTap}`
+          : `${t.value.questKillsWith} ${prompt('hold')} → ${prompt('holdThenDoubleTap')}`,
         done: quest.holdQuestDone,
         progress: `${Math.min(quest.roomKills.hold, quest.killsRequired)}/${quest.killsRequired}`,
       },
       ...(quest.tapQuestDone && quest.holdQuestDone
         ? [{
             key: 'combo',
-            label: `${t.value.questComboTask} → ${t.value.doubleTapHold}`,
+            label: controlScheme.value === 'legacy'
+              ? `${t.value.questComboTask} → ${t.value.doubleTapHold}`
+              : `${t.value.questEliteRoutes} → ${prompt('doubleTapHold')}`,
             done: quest.comboQuestDone,
             progress: `${quest.comboGesturesHit.length}/${quest.comboGesturesRequired.length}`,
           }]
@@ -426,7 +705,7 @@ const moveQuestPanels = computed(() => {
       hand: quest.hand,
       title: quest.hand === 'left' ? t.value.questHandLeft : t.value.questHandRight,
       items,
-      pending: quest.pendingUnlocks.map(gesture => t.value[gesture]).join(', '),
+      pending: quest.pendingUnlocks.map(gesture => prompt(gesture)).join(', '),
       allDone: quest.comboQuestDone,
     }
   })
@@ -518,6 +797,63 @@ function setToast(message: string) {
   toastTimer = window.setTimeout(() => { toast.value = '' }, 3200)
 }
 
+function changeControlScheme(event: Event) {
+  const next = (event.target as HTMLSelectElement).value as LastChancesControlScheme
+  if (!CONTROL_SCHEME_OPTIONS.some(option => option.id === next) || next === controlScheme.value) return
+  controlScheme.value = next
+  saveLastChancesControlScheme(next)
+  engine.value?.setControlScheme(next)
+  setToast(`${t.value.controlSchemeChanged} ${controlSchemeLabel.value}.`)
+}
+
+function updateFeedbackPreferences() {
+  const next = {
+    mode: feedbackPreferences.value.mode,
+    intensity: Math.max(0, Math.min(1, Number(feedbackPreferences.value.intensity) || 0)),
+  } satisfies LastChancesFeedbackPreferences
+  feedbackPreferences.value = next
+  saveLastChancesFeedbackPreferences(next)
+  engine.value?.setFeedbackPreferences(next)
+  setToast(t.value.feedbackUpdated)
+}
+
+async function enableDualSenseFeatures() {
+  if (!engine.value) return
+  try {
+    const enabled = await engine.value.enableDualSenseFeatures()
+    setToast(enabled ? t.value.dualSenseEnabled : t.value.dualSenseFailed)
+  } catch {
+    setToast(t.value.dualSenseFailed)
+  }
+}
+
+function disableEnhancedFeedback() {
+  engine.value?.disableEnhancedFeedback()
+  setToast(t.value.controlsOnly)
+}
+
+function handleControllerUiCommand(command: 'confirm' | 'back' | 'pause'): boolean {
+  if (command === 'confirm') {
+    if (!storyOpen.value) return false
+    advanceStory()
+    return true
+  }
+  if (command === 'back') {
+    if (builderOpen.value) {
+      closeBuilder()
+      return true
+    }
+    if (routeMapOpen.value && snapshot.value?.phase === 'playing') {
+      closeMap()
+      return true
+    }
+    return false
+  }
+  if (snapshot.value?.phase !== 'playing') return false
+  togglePause()
+  return true
+}
+
 function onSnapshot(nextSnapshot: LastChancesSnapshot) {
   const previousPhase = snapshot.value?.phase
   const previousGeneration = snapshot.value?.generation
@@ -562,6 +898,11 @@ async function createEngine(nextConfig: LastChancesConfig) {
   const instance = new LastChancesEngine(canvas.value, config.value, {
     onPlan: nextPlan => { plan.value = nextPlan },
     onSnapshot,
+    onUiCommand: handleControllerUiCommand,
+  }, {
+    controlScheme: controlScheme.value,
+    feedbackPreferences: { ...feedbackPreferences.value },
+    qaFixture: qaControlsFixture ? 'controls' : undefined,
   })
   engine.value = instance
   instance.start()
@@ -652,6 +993,24 @@ async function applyBuilder(nextConfig: LastChancesConfig) {
   } catch (error) {
     loadError.value = error instanceof Error ? error.message : String(error)
   }
+}
+
+function applyBuilderControls(nextConfig: LastChancesConfig) {
+  if (!engine.value?.applyControlDefinition(nextConfig)) {
+    setToast(t.value.controlsRejected)
+    return
+  }
+  if (config.value) {
+    const source = cloneLastChancesConfig(nextConfig)
+    config.value.input = source.input
+    const sourceWeapons = new Map(source.weapons.map(weapon => [weapon.id, weapon]))
+    config.value.weapons.forEach((weapon) => {
+      const controls = sourceWeapons.get(weapon.id)?.controls
+      if (controls) weapon.controls = JSON.parse(JSON.stringify(controls)) as typeof controls
+      else delete weapon.controls
+    })
+  }
+  setToast(t.value.controlsApplied)
 }
 
 function saveBuilderOverride(nextConfig: LastChancesConfig) {
@@ -820,6 +1179,23 @@ onBeforeUnmount(() => {
           </Transition>
 
           <Transition name="lc-gesture-pop">
+            <div
+              v-if="controlScheme !== 'legacy' && snapshot?.phase === 'playing' && snapshot.controlCue"
+              :key="snapshot.controlCue.atMs"
+              class="lc-semantic-control-cue"
+              :class="`is-${snapshot.controlCue.state}`"
+              role="status"
+              data-testid="semantic-control-cue"
+            >
+              <span>{{ t.controlStates[snapshot.controlCue.state] }}</span>
+              <strong>{{ snapshot.controlCue.label }}</strong>
+              <small v-if="snapshot.controlCue.tactileProfile">
+                {{ snapshot.controlCue.tactileProfile }}
+              </small>
+            </div>
+          </Transition>
+
+          <Transition name="lc-gesture-pop">
             <button
               v-if="snapshot?.interactionPrompt"
               class="lc-arena-interaction"
@@ -846,6 +1222,8 @@ onBeforeUnmount(() => {
                     :key="choice.id"
                     type="button"
                     :disabled="!choice.available"
+                    :class="{ 'is-controller-selected': snapshot.selectedInteractionChoiceId === choice.id }"
+                    :aria-current="snapshot.selectedInteractionChoiceId === choice.id ? 'true' : undefined"
                     @click="chooseInteraction(choice.id)"
                   >
                     <strong>{{ choice.label }}</strong>
@@ -921,6 +1299,7 @@ onBeforeUnmount(() => {
 
           <TouchControls
             :locale="locale"
+            :legacy-label="t.touchLegacy"
             :primary-name="leftWeapon?.name ?? '—'"
             :secondary-name="rightWeapon?.name ?? '—'"
             :primary-cue="leftActionCue"
@@ -1001,23 +1380,107 @@ onBeforeUnmount(() => {
           </div>
         </section>
 
-        <WeaponCooldowns :locale="locale" :weapons="weaponCooldowns" />
+        <WeaponCooldowns
+          :locale="locale"
+          :control-scheme="controlScheme"
+          :weapons="weaponCooldowns"
+        />
       </aside>
     </main>
 
     <section class="lc-controls-dock" :aria-label="t.controls">
       <header>
-        <div><Eye :size="15" aria-hidden="true" /><span>{{ t.controls }}</span></div>
-        <p>{{ t.controlsHelp }}</p>
+        <div class="lc-control-heading">
+          <Eye :size="15" aria-hidden="true" />
+          <span>
+            <strong>{{ t.controls }}</strong>
+            <small>{{ t.controlsHelp }}</small>
+          </span>
+        </div>
+        <div class="lc-control-scheme-field">
+          <label for="lc-control-scheme">{{ t.controlScheme }}</label>
+          <select
+            id="lc-control-scheme"
+            :value="controlScheme"
+            data-testid="control-scheme-select"
+            @change="changeControlScheme"
+          >
+            <option
+              v-for="option in CONTROL_SCHEME_OPTIONS"
+              :key="option.id"
+              :value="option.id"
+            >
+              {{ option.label }}
+            </option>
+          </select>
+          <small data-testid="control-scheme-summary">{{ controlSchemeSummary }}</small>
+          <small v-if="qaControlsFixture" data-testid="qa-controls-fixture">
+            QA fixture · all moves unlocked
+          </small>
+        </div>
       </header>
+      <template v-if="controlScheme === 'dualsense'">
+        <div class="lc-feedback-controls">
+          <div>
+            <strong>{{ t.dualSenseActive }}</strong>
+            <span
+              :class="`is-${snapshot?.feedback?.status ?? 'controls-only'}`"
+              data-testid="dualsense-capability"
+            >
+              {{ t.feedback }} · Tier {{ snapshot?.feedback?.tier ?? 0 }} · {{ feedbackStatusLabel }}
+            </span>
+            <small v-if="snapshot?.feedback?.message">{{ snapshot.feedback.message }}</small>
+          </div>
+          <label>
+            <span>{{ t.feedbackMode }}</span>
+            <select v-model="feedbackPreferences.mode" @change="updateFeedbackPreferences">
+              <option v-for="option in FEEDBACK_MODE_OPTIONS" :key="option.id" :value="option.id">
+                {{ option.label }}
+              </option>
+            </select>
+          </label>
+          <label class="lc-feedback-intensity">
+            <span>{{ t.feedbackIntensity }} · {{ feedbackIntensityPercent }}%</span>
+            <input
+              v-model.number="feedbackPreferences.intensity"
+              type="range"
+              min="0"
+              max="1"
+              step="0.05"
+              :disabled="feedbackPreferences.mode === 'off'"
+              @change="updateFeedbackPreferences"
+            />
+          </label>
+          <button
+            v-if="snapshot?.feedback?.tier !== 2"
+            type="button"
+            data-testid="enable-dualsense-features"
+            @click="enableDualSenseFeatures"
+          >
+            {{ t.enableDualSense }}
+          </button>
+          <button
+            v-else
+            type="button"
+            data-testid="disable-dualsense-features"
+            @click="disableEnhancedFeedback"
+          >
+            {{ t.disableEnhanced }}
+          </button>
+        </div>
+        <div class="lc-tactile-legend" data-testid="dualsense-tactile-legend">
+          <strong>{{ t.tactileLegend }}</strong>
+          <span v-for="item in t.tactileLegendItems" :key="item">{{ item }}</span>
+        </div>
+      </template>
       <div class="lc-control-grid">
         <article>
           <Keyboard :size="18" aria-hidden="true" />
-          <div><strong>{{ t.keyboard }}</strong><span>{{ t.keyboardMove }}</span><small>{{ t.keyboardAttack }} {{ config?.input.leftKeys.map(formatKey).join('/') || 'Q' }} + {{ config?.input.rightKeys.map(formatKey).join('/') || 'E' }} · {{ t.keyboardInteract }}</small></div>
+          <div><strong>{{ t.keyboard }}</strong><span>{{ t.keyboardMove }}</span><small>{{ keyboardActionText }}</small></div>
         </article>
         <article>
           <MousePointer2 :size="18" aria-hidden="true" />
-          <div><strong>{{ t.mouse }}</strong><span>{{ t.mouseAim }}</span><small>{{ t.mouseAttack }}</small></div>
+          <div><strong>{{ t.mouse }}</strong><span>{{ t.mouseAim }}</span><small>{{ mouseActionText }}</small></div>
         </article>
         <article
           :class="{ 'is-connected': snapshot?.gamepad.connected }"
@@ -1030,20 +1493,23 @@ onBeforeUnmount(() => {
           <div>
             <strong>{{ t.gamepad }}</strong>
             <span :title="gamepadStatusText">{{ gamepadStatusText }}</span>
-            <small>{{ t.gamepadMove }} · {{ t.gamepadAttack }} {{ formatGamepadButton(config?.input.gamepadLeftButton, 4) }} / {{ formatGamepadButton(config?.input.gamepadRightButton, 5) }}</small>
-            <small>{{ t.gamepadInteract }}</small>
-            <small>{{ t.gamepadMenu }}</small>
+            <small v-for="line in gamepadBindingLines" :key="line">{{ line }}</small>
+            <template v-if="controlScheme !== 'legacy'">
+              <small v-for="role in snapshot?.controlRoles ?? []" :key="role.hand" class="lc-control-role">
+                {{ role.hand === 'left' ? 'R' : 'L' }} · {{ role.instantMove }} · {{ role.techniqueOrTrigger }}<template v-if="role.nextGate"> → {{ role.nextGate }}</template>
+              </small>
+            </template>
           </div>
         </article>
         <article>
           <Smartphone :size="18" aria-hidden="true" />
-          <div><strong>{{ t.touch }}</strong><span>{{ t.touchMove }}</span><small>{{ t.touchAttack }}</small></div>
+          <div><strong>{{ t.touch }} · DeepList</strong><span>{{ t.touchMove }}</span><small>{{ t.touchLegacy }}</small></div>
         </article>
       </div>
-      <div class="lc-gesture-guide">
-        <strong>{{ t.gestureGuide }}</strong>
-        <span v-for="gesture in LAST_CHANCES_GESTURES" :key="gesture">
-          {{ t[gesture] }}
+      <div class="lc-gesture-guide" data-testid="control-guide">
+        <strong>{{ controlScheme === 'legacy' ? t.gestureGuide : controlSchemeLabel }}</strong>
+        <span v-for="item in controlGuideItems" :key="item">
+          {{ item }}
         </span>
       </div>
     </section>
@@ -1066,6 +1532,7 @@ onBeforeUnmount(() => {
       :config="config"
       @close="closeBuilder"
       @apply="applyBuilder"
+      @apply-controls="applyBuilderControls"
       @save="saveBuilderOverride"
       @clear="clearBuilderOverride"
     />
@@ -1167,6 +1634,15 @@ onBeforeUnmount(() => {
 .lc-gesture-toast span { font-size: 0.48rem; font-weight: 800; letter-spacing: 0.09em; text-transform: uppercase; }
 .lc-gesture-toast strong { grid-column: 1 / -1; color: #e3ded1; font-size: 0.62rem; font-weight: 700; text-align: center; }
 
+.lc-semantic-control-cue { position: absolute; z-index: 15; left: 50%; top: 7.7rem; min-width: min(18rem, calc(100% - 2rem)); display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 0.12rem 0.55rem; padding: 0.4rem 0.65rem; transform: translateX(-50%); border: 1px solid rgba(152, 123, 183, 0.3); border-radius: 0.45rem; color: #aa96bd; background: rgba(10, 8, 13, 0.84); box-shadow: 0 0.7rem 1.5rem rgba(0, 0, 0, 0.28); backdrop-filter: blur(6px); pointer-events: none; }
+.lc-semantic-control-cue span { color: #92859e; font-size: 0.45rem; font-weight: 850; letter-spacing: 0.09em; text-transform: uppercase; }
+.lc-semantic-control-cue strong { grid-column: 1 / -1; overflow: hidden; color: #e0d9e6; font-size: 0.58rem; text-overflow: ellipsis; white-space: nowrap; }
+.lc-semantic-control-cue small { grid-column: 2; grid-row: 1; color: #776681; font: 700 0.43rem/1 var(--font-mono, monospace); text-transform: uppercase; }
+.lc-semantic-control-cue.is-charge,
+.lc-semantic-control-cue.is-tension { border-color: rgba(205, 166, 78, 0.35); }
+.lc-semantic-control-cue.is-blocked { border-color: rgba(199, 85, 92, 0.42); color: #d27f84; }
+.lc-semantic-control-cue.is-impact { border-color: rgba(116, 207, 155, 0.42); color: #91d8ae; }
+
 .lc-arena-interaction {
   position: absolute;
   z-index: 16;
@@ -1204,6 +1680,7 @@ onBeforeUnmount(() => {
 .lc-interaction-choices { display: grid; grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); gap: 0.55rem; margin-top: 1rem; }
 .lc-interaction-choices button { min-height: 7rem; display: grid; align-content: start; gap: 0.3rem; padding: 0.75rem; border: 1px solid rgba(201, 167, 94, 0.16); border-radius: 0.55rem; text-align: left; color: #ded8ca; background: rgba(201, 167, 94, 0.045); }
 .lc-interaction-choices button:hover:not(:disabled) { border-color: rgba(214, 181, 105, 0.42); background: rgba(201, 167, 94, 0.09); }
+.lc-interaction-choices button.is-controller-selected:not(:disabled) { border-color: #e2bd67; outline: 2px solid rgba(226, 189, 103, 0.52); outline-offset: 2px; background: rgba(201, 167, 94, 0.14); }
 .lc-interaction-choices button:disabled { opacity: 0.38; cursor: not-allowed; }
 .lc-interaction-choices strong { font: 600 0.82rem/1.25 Georgia, serif; }
 .lc-interaction-choices span { color: #777d79; font-size: 0.58rem; line-height: 1.42; }
@@ -1291,11 +1768,32 @@ onBeforeUnmount(() => {
 .lc-erosion-grid span { overflow: hidden; color: #737774; font-size: 0.48rem; text-overflow: ellipsis; white-space: nowrap; }
 .lc-erosion-grid strong { color: #c36d72; font: 700 0.54rem/1 var(--font-mono, monospace); }
 
-.lc-controls-dock { overflow: hidden; border: 1px solid var(--lc-line); border-radius: 0.75rem; background: rgba(9, 11, 12, 0.6); }
-.lc-controls-dock > header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 0.5rem 0.7rem; border-bottom: 1px solid rgba(255, 255, 255, 0.05); }
-.lc-controls-dock > header div { display: inline-flex; align-items: center; gap: 0.4rem; color: #c9c5bc; }
-.lc-controls-dock > header span { font-size: 0.6rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
-.lc-controls-dock > header p { margin: 0; color: #606562; font-size: 0.52rem; }
+.lc-controls-dock { position: relative; z-index: 4200; overflow: hidden; border: 1px solid var(--lc-line); border-radius: 0.75rem; background: rgba(9, 11, 12, 0.94); }
+.lc-controls-dock > header { display: grid; grid-template-columns: minmax(0, 1fr) minmax(18rem, 32rem); align-items: center; gap: 1rem; padding: 0.55rem 0.7rem; border-bottom: 1px solid rgba(255, 255, 255, 0.05); }
+.lc-control-heading { min-width: 0; display: flex; align-items: center; gap: 0.45rem; color: #c9c5bc; }
+.lc-control-heading > span { min-width: 0; display: grid; gap: 0.08rem; }
+.lc-control-heading strong { font-size: 0.6rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
+.lc-control-heading small { overflow: hidden; color: #606562; font-size: 0.5rem; text-overflow: ellipsis; white-space: nowrap; }
+.lc-control-scheme-field { min-width: 0; display: grid; grid-template-columns: auto minmax(7rem, 9rem) minmax(0, 1fr); align-items: center; gap: 0.45rem; }
+.lc-control-scheme-field label { color: #9c927b; font-size: 0.52rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; }
+.lc-control-scheme-field select,
+.lc-feedback-controls select { min-height: 1.9rem; padding: 0.28rem 0.45rem; border: 1px solid rgba(205, 171, 92, 0.22); border-radius: 0.35rem; outline: none; color: #ded8c9; background: #0b0e0f; font: 700 0.58rem/1 var(--font-mono, monospace); color-scheme: dark; }
+.lc-control-scheme-field select:focus-visible,
+.lc-feedback-controls select:focus-visible { border-color: rgba(218, 186, 111, 0.75); box-shadow: 0 0 0 2px rgba(205, 171, 92, 0.13); }
+.lc-control-scheme-field small { overflow: hidden; color: #6d716e; font-size: 0.49rem; line-height: 1.3; text-overflow: ellipsis; white-space: nowrap; }
+.lc-feedback-controls { display: grid; grid-template-columns: minmax(11rem, 1fr) auto minmax(10rem, 14rem) auto; align-items: center; gap: 0.65rem; padding: 0.48rem 0.7rem; border-bottom: 1px solid rgba(255, 255, 255, 0.045); background: rgba(65, 48, 85, 0.08); }
+.lc-feedback-controls > div { min-width: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 0.15rem 0.45rem; }
+.lc-feedback-controls strong { color: #bbb4c9; font-size: 0.54rem; text-transform: uppercase; }
+.lc-feedback-controls > div span { color: #8f92a0; font-size: 0.5rem; }
+.lc-feedback-controls > div span.is-enhanced { color: #a9d7bc; }
+.lc-feedback-controls > div span.is-error { color: #d28287; }
+.lc-feedback-controls > div small { grid-column: 1 / -1; overflow: hidden; color: #676b72; font-size: 0.46rem; text-overflow: ellipsis; white-space: nowrap; }
+.lc-feedback-controls label { display: grid; gap: 0.18rem; color: #7b7d84; font-size: 0.47rem; font-weight: 750; }
+.lc-feedback-intensity input { width: 100%; accent-color: #9b7cc1; }
+.lc-feedback-controls > button { min-height: 2rem; padding: 0.35rem 0.55rem; border: 1px solid rgba(157, 125, 195, 0.24); border-radius: 0.38rem; color: #b5a3ca; background: rgba(113, 78, 147, 0.08); font-size: 0.5rem; font-weight: 750; }
+.lc-tactile-legend { display: flex; align-items: center; flex-wrap: wrap; gap: 0.28rem; padding: 0.38rem 0.7rem; border-bottom: 1px solid rgba(255, 255, 255, 0.045); background: rgba(65, 48, 85, 0.045); }
+.lc-tactile-legend strong { margin-right: 0.2rem; color: #746b7f; font-size: 0.46rem; font-weight: 850; letter-spacing: 0.08em; text-transform: uppercase; }
+.lc-tactile-legend span { padding: 0.16rem 0.3rem; border: 1px solid rgba(157, 125, 195, 0.12); border-radius: 999px; color: #77727d; font-size: 0.43rem; }
 .lc-control-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .lc-control-grid article { min-width: 0; display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 0.5rem; padding: 0.55rem 0.7rem; border-right: 1px solid rgba(255, 255, 255, 0.045); color: #8c7650; }
 .lc-control-grid article:last-child { border-right: 0; }
@@ -1304,6 +1802,7 @@ onBeforeUnmount(() => {
 .lc-control-grid span,
 .lc-control-grid small { overflow: hidden; color: #666b68; font-size: 0.49rem; line-height: 1.3; text-overflow: ellipsis; white-space: nowrap; }
 .lc-control-grid small { color: #80765e; }
+.lc-control-grid small.lc-control-role { color: #9a88ac; }
 .lc-gesture-guide { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 0.35rem; padding: 0.42rem 0.6rem; border-top: 1px solid rgba(255, 255, 255, 0.045); }
 .lc-gesture-guide strong { margin-right: 0.25rem; color: #6d716e; font-size: 0.5rem; font-weight: 800; text-transform: uppercase; }
 .lc-gesture-guide span { padding: 0.2rem 0.38rem; border: 1px solid rgba(255, 255, 255, 0.065); border-radius: 999px; color: #989a94; background: rgba(255, 255, 255, 0.02); font-size: 0.47rem; font-weight: 650; }
@@ -1347,6 +1846,8 @@ onBeforeUnmount(() => {
   .lc-control-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .lc-control-grid article:nth-child(2) { border-right: 0; }
   .lc-control-grid article:nth-child(-n+2) { border-bottom: 1px solid rgba(255, 255, 255, 0.045); }
+  .lc-controls-dock > header { grid-template-columns: 1fr; gap: 0.5rem; }
+  .lc-feedback-controls { grid-template-columns: minmax(0, 1fr) minmax(8rem, auto); }
 }
 
 @media (max-width: 620px) {
@@ -1364,6 +1865,7 @@ onBeforeUnmount(() => {
   .lc-vital-label span { font-size: 0.43rem; }
   .lc-vital-label strong { font-size: 0.48rem; }
   .lc-gesture-toast { top: 5.6rem; }
+  .lc-semantic-control-cue { top: 8.15rem; min-width: min(16rem, calc(100% - 1rem)); }
   .lc-arena-interaction { bottom: 8rem; max-width: calc(100% - 8rem); }
   .lc-stage-footer { display: none; }
   .lc-telemetry { grid-template-columns: 1fr 1fr; gap: 0.4rem; }
@@ -1371,8 +1873,10 @@ onBeforeUnmount(() => {
   .lc-run-card,
   .lc-erosion-card { min-height: 100%; }
   .lc-telemetry :deep(.lc-cooldowns) { grid-column: 1 / -1; }
-  .lc-controls-dock > header { display: block; }
-  .lc-controls-dock > header p { margin-top: 0.2rem; }
+  .lc-control-scheme-field { grid-template-columns: minmax(6.5rem, auto) minmax(0, 1fr); }
+  .lc-control-scheme-field small { grid-column: 1 / -1; white-space: normal; }
+  .lc-feedback-controls { grid-template-columns: 1fr; }
+  .lc-feedback-controls > button { width: 100%; }
   .lc-control-grid { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; }
   .lc-control-grid article { flex: 0 0 78%; border-bottom: 0 !important; scroll-snap-align: start; }
   .lc-gesture-guide { justify-content: flex-start; }

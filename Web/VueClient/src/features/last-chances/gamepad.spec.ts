@@ -33,8 +33,12 @@ function gamepad(options: Partial<LastChancesGamepadLike> & { index: number }): 
 describe('99LC gamepad adapter', () => {
   it('normalizes standard axes and the configured L1/R1 shoulder buttons', () => {
     const buttons = Array.from({ length: 16 }, () => button())
+    buttons[0] = button(true)
+    buttons[1] = button(true)
     buttons[4] = button(true)
     buttons[5] = button(false, 0.7)
+    buttons[6] = button(false, 0.31)
+    buttons[7] = button(false, 0.82)
     const reading = readLastChancesGamepads([
       gamepad({ index: 3, axes: [0.1, -0.5, 0.6, 0.2], buttons }),
     ], config)
@@ -48,14 +52,26 @@ describe('99LC gamepad adapter', () => {
       move: { x: 0, y: -0.5 },
       aim: { x: 0.6, y: 0.2 },
       buttons: { left: true, right: true },
+      triggers: { left: 0.31, right: 0.82 },
       sourceButtonIndexes: { left: 4, right: 5 },
+    })
+    expect(reading.buttons).toMatchObject({
+      l1: true,
+      r1: true,
+      cross: true,
+      circle: true,
     })
   })
 
   it('maps a raw Bluetooth DualSense to canonical axes with shoulders untouched', () => {
     const buttons = Array.from({ length: 18 }, () => button())
+    // Raw Sony face order is Square, Cross, Circle, Triangle.
+    buttons[1] = button(true)
+    buttons[2] = button(true)
     buttons[4] = button(true)
     buttons[5] = button(false, 0.65)
+    buttons[6] = button(false, 0.27)
+    buttons[7] = button(false, 0.74)
     const reading = readLastChancesGamepads([
       gamepad({
         index: 1,
@@ -72,8 +88,12 @@ describe('99LC gamepad adapter', () => {
       move: { x: 0.5, y: -0.4 },
       aim: { x: -0.75, y: 0.6 },
       buttons: { left: true, right: true },
+      triggers: { left: 0.27, right: 0.74 },
       sourceButtonIndexes: { left: 4, right: 5 },
     })
+    expect(reading.buttons).toMatchObject({ cross: true, circle: true, l1: true, r1: true })
+    expect(reading.canonicalButtons[0]).toMatchObject({ pressed: true, value: 1 })
+    expect(reading.canonicalButtons[1]).toMatchObject({ pressed: true, value: 1 })
   })
 
   it('still remaps configured face buttons through the raw Sony profile', () => {
@@ -114,6 +134,18 @@ describe('99LC gamepad adapter', () => {
     const activeFirst = gamepad({ index: 0, axes: [-0.8, 0, 0, 0] })
     expect(adapter.poll([activeFirst, activeSecond]).activeIndex).toBe(4)
     expect(adapter.poll([activeFirst, idleSecond]).activeIndex).toBe(0)
+  })
+
+  it('treats a shallow analog trigger pull as meaningful for active-pad arbitration', () => {
+    const buttons = Array.from({ length: 16 }, () => button())
+    buttons[6] = button(false, 0.3)
+    const reading = readLastChancesGamepads([
+      gamepad({ index: 0 }),
+      gamepad({ index: 2, buttons }),
+    ], { ...config, analogTriggerThreshold: 0.22 })
+
+    expect(reading).toMatchObject({ activeIndex: 2, status: 'active' })
+    expect(reading.triggers.left).toBe(0.3)
   })
 
   it('recovers cleanly when the selected pad disconnects and later reconnects', () => {

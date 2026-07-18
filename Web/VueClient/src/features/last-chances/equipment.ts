@@ -29,6 +29,9 @@ function resolvedWeapon(
   const authoredTapCombo = useSecondaryAttacks
     ? weapon.secondaryTapCombo
     : weapon.tapCombo
+  const controls = useSecondaryAttacks
+    ? weapon.controls?.secondary
+    : weapon.controls?.primary
   return {
     id: weapon.id,
     name: weapon.name,
@@ -42,6 +45,9 @@ function resolvedWeapon(
       ? { augmentHooks: JSON.parse(JSON.stringify(weapon.augmentHooks)) as typeof weapon.augmentHooks }
       : {}),
     ...(weapon.tuning ? { tuning: { ...weapon.tuning } } : {}),
+    ...(controls
+      ? { controls: JSON.parse(JSON.stringify(controls)) as typeof controls }
+      : {}),
   }
 }
 

@@ -17,6 +17,7 @@ export interface LastChancesGamepadAdapterConfig {
   leftButton: number
   rightButton: number
   buttonThreshold?: number
+  analogTriggerThreshold?: number
 }
 
 export interface LastChancesGamepadVector {
@@ -39,9 +40,25 @@ export interface LastChancesGamepadReading {
   move: LastChancesGamepadVector
   aim: LastChancesGamepadVector
   buttons: {
+    /** DeepList-configured inputs. */
     left: boolean
     right: boolean
+    l1: boolean
+    r1: boolean
+    circle: boolean
+    cross: boolean
+    options: boolean
+    dpadUp: boolean
+    dpadDown: boolean
+    dpadLeft: boolean
+    dpadRight: boolean
   }
+  triggers: {
+    left: number
+    right: number
+  }
+  /** Canonicalized button values; Builder bindings index this array. */
+  canonicalButtons: readonly LastChancesGamepadButtonLike[]
   sourceButtonIndexes: {
     left: number
     right: number
@@ -117,10 +134,18 @@ function buttonPressed(
   return button.pressed || (Number.isFinite(button.value) && button.value >= threshold)
 }
 
+function buttonValue(gamepad: LastChancesGamepadLike, index: number): number {
+  const button = gamepad.buttons[index]
+  if (!button) return 0
+  if (Number.isFinite(button.value)) return clamp(button.value, 0, 1)
+  return button.pressed ? 1 : 0
+}
+
 function normalizeGamepad(
   gamepad: LastChancesGamepadLike,
   deadZone: number,
   buttonThreshold: number,
+  analogTriggerThreshold: number,
 ): NormalizedGamepad {
   const profile = profileFor(gamepad)
   const indexes = profile === 'sony-raw' ? RAW_SONY_AXIS_INDEXES : STANDARD_AXIS_INDEXES
@@ -132,6 +157,9 @@ function normalizeGamepad(
   ]
   const meaningfulInput = axes.some(value => value !== 0)
     || gamepad.buttons.some((_, index) => buttonPressed(gamepad, index, buttonThreshold))
+    || [6, 7].some(canonicalIndex => (
+      buttonValue(gamepad, sourceButtonIndex(profile, canonicalIndex)) >= analogTriggerThreshold
+    ))
   return { gamepad, profile, meaningfulInput, axes }
 }
 
@@ -161,7 +189,21 @@ function disconnectedReading(): LastChancesGamepadReading {
     axes: [0, 0, 0, 0],
     move: { x: 0, y: 0 },
     aim: { x: 0, y: 0 },
-    buttons: { left: false, right: false },
+    buttons: {
+      left: false,
+      right: false,
+      l1: false,
+      r1: false,
+      circle: false,
+      cross: false,
+      options: false,
+      dpadUp: false,
+      dpadDown: false,
+      dpadLeft: false,
+      dpadRight: false,
+    },
+    triggers: { left: 0, right: 0 },
+    canonicalButtons: [],
     sourceButtonIndexes: null,
   }
 }
@@ -173,16 +215,43 @@ export function readLastChancesGamepads(
 ): LastChancesGamepadReading {
   const deadZone = normalizedThreshold(config.deadZone, 0)
   const buttonThreshold = normalizedThreshold(config.buttonThreshold, DEFAULT_BUTTON_THRESHOLD)
+  const analogTriggerThreshold = normalizedThreshold(
+    config.analogTriggerThreshold,
+    buttonThreshold,
+  )
   const connected = gamepads
     .filter((gamepad): gamepad is LastChancesGamepadLike => Boolean(gamepad?.connected))
-    .map(gamepad => normalizeGamepad(gamepad, deadZone, buttonThreshold))
+    .map(gamepad => normalizeGamepad(
+      gamepad,
+      deadZone,
+      buttonThreshold,
+      analogTriggerThreshold,
+    ))
 
   if (connected.length === 0) return disconnectedReading()
 
   const selected = selectGamepad(connected, previousActiveIndex)
   const leftIndex = sourceButtonIndex(selected.profile, config.leftButton)
   const rightIndex = sourceButtonIndex(selected.profile, config.rightButton)
+  const crossIndex = sourceButtonIndex(selected.profile, 0)
+  const circleIndex = sourceButtonIndex(selected.profile, 1)
+  const l1Index = sourceButtonIndex(selected.profile, 4)
+  const r1Index = sourceButtonIndex(selected.profile, 5)
+  const l2Index = sourceButtonIndex(selected.profile, 6)
+  const r2Index = sourceButtonIndex(selected.profile, 7)
+  const optionsIndex = sourceButtonIndex(selected.profile, 9)
+  const dpadUpIndex = sourceButtonIndex(selected.profile, 12)
+  const dpadDownIndex = sourceButtonIndex(selected.profile, 13)
+  const dpadLeftIndex = sourceButtonIndex(selected.profile, 14)
+  const dpadRightIndex = sourceButtonIndex(selected.profile, 15)
   const [moveX, moveY, aimX, aimY] = selected.axes
+  const canonicalButtons = selected.gamepad.buttons.map((_, canonicalIndex) => {
+    const sourceIndex = sourceButtonIndex(selected.profile, canonicalIndex)
+    return {
+      pressed: buttonPressed(selected.gamepad, sourceIndex, buttonThreshold),
+      value: buttonValue(selected.gamepad, sourceIndex),
+    }
+  })
 
   return {
     status: selected.meaningfulInput ? 'active' : 'idle',
@@ -198,7 +267,21 @@ export function readLastChancesGamepads(
     buttons: {
       left: buttonPressed(selected.gamepad, leftIndex, buttonThreshold),
       right: buttonPressed(selected.gamepad, rightIndex, buttonThreshold),
+      l1: buttonPressed(selected.gamepad, l1Index, buttonThreshold),
+      r1: buttonPressed(selected.gamepad, r1Index, buttonThreshold),
+      circle: buttonPressed(selected.gamepad, circleIndex, buttonThreshold),
+      cross: buttonPressed(selected.gamepad, crossIndex, buttonThreshold),
+      options: buttonPressed(selected.gamepad, optionsIndex, buttonThreshold),
+      dpadUp: buttonPressed(selected.gamepad, dpadUpIndex, buttonThreshold),
+      dpadDown: buttonPressed(selected.gamepad, dpadDownIndex, buttonThreshold),
+      dpadLeft: buttonPressed(selected.gamepad, dpadLeftIndex, buttonThreshold),
+      dpadRight: buttonPressed(selected.gamepad, dpadRightIndex, buttonThreshold),
     },
+    triggers: {
+      left: buttonValue(selected.gamepad, l2Index),
+      right: buttonValue(selected.gamepad, r2Index),
+    },
+    canonicalButtons,
     sourceButtonIndexes: { left: leftIndex, right: rightIndex },
   }
 }

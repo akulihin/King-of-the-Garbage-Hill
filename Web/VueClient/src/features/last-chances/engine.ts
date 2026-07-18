@@ -14,11 +14,24 @@ import {
 import { resolveLastChancesLoadout } from './equipment'
 import { LastChancesGestureRecognizer } from './gestures'
 import {
+  DualSenseControlRecognizer,
+  MylorikControlRecognizer,
+  physicalClusterToRuntimeHand,
+  runtimeHandToPhysicalCluster,
+  type LastChancesControlSource,
+  type LastChancesSemanticInputEvent,
+} from './control-schemes'
+import {
   createLastChancesGamepadAdapter,
   type LastChancesGamepadAdapter,
   type LastChancesGamepadReading,
 } from './gamepad'
 import { buildLastChancesPlan } from './plan'
+import type { LastChancesFeedbackPreferences } from './preferences'
+import {
+  DualSenseFeedbackController,
+  type LastChancesHapticGamepadLike,
+} from './feedback'
 import { createLastChancesRng } from './rng'
 import {
   applyLastChancesStatusEffects,
@@ -41,8 +54,12 @@ import type {
   LastChancesArenaEdge,
   LastChancesAttackDefinition,
   LastChancesAttackBehavior,
+  LastChancesAttackSetControlDefinition,
   LastChancesAugment,
   LastChancesConfig,
+  LastChancesControlContext,
+  LastChancesControlRoleSnapshot,
+  LastChancesControlScheme,
   LastChancesCooldownSnapshot,
   LastChancesEnemyAttackKind,
   LastChancesEnemyBossPhaseDefinition,
@@ -54,6 +71,7 @@ import type {
   LastChancesGamePlan,
   LastChancesGamepadSnapshot,
   LastChancesGesture,
+  LastChancesGestureInputSnapshot,
   LastChancesGestureResolution,
   LastChancesGestureSnapshot,
   LastChancesHand,
@@ -69,9 +87,17 @@ import type {
   LastChancesPlanNode,
   LastChancesResolvedWeapon,
   LastChancesSnapshot,
+  LastChancesSemanticControlCue,
   LastChancesStats,
   LastChancesVector,
 } from './types'
+
+export interface LastChancesEngineOptions {
+  controlScheme?: LastChancesControlScheme
+  feedbackPreferences?: LastChancesFeedbackPreferences
+  /** Explicit opt-in fixture used by browser/manual control-routing QA. */
+  qaFixture?: 'controls'
+}
 
 interface RuntimePlayer {
   position: LastChancesVector
@@ -153,20 +179,20 @@ const MOVE_QUEST_COMBO_GESTURES: readonly LastChancesGesture[] = [
   'holdThenDoubleTap',
 ]
 
-function createHandMoveQuestState(): HandMoveQuestState {
+function createHandMoveQuestState(unlockAll = false): HandMoveQuestState {
   return {
     unlocked: {
       tap: true,
       hold: true,
-      doubleTap: false,
-      doubleTapHold: false,
-      holdThenDoubleTap: false,
+      doubleTap: unlockAll,
+      doubleTapHold: unlockAll,
+      holdThenDoubleTap: unlockAll,
     },
     pendingUnlocks: [],
     roomKills: { tap: 0, hold: 0 },
-    tapQuestDone: false,
-    holdQuestDone: false,
-    comboQuestDone: false,
+    tapQuestDone: unlockAll,
+    holdQuestDone: unlockAll,
+    comboQuestDone: unlockAll,
   }
 }
 
@@ -490,6 +516,8 @@ export class LastChancesEngine {
   private readonly enemyDefinitions: Map<string, LastChancesEnemyDefinition>
   private readonly weapons = new Map<LastChancesHand, LastChancesResolvedWeapon>()
   private readonly gestures: LastChancesGestureRecognizer
+  private readonly mylorikControls: MylorikControlRecognizer
+  private readonly dualSenseControls: DualSenseControlRecognizer
   private readonly pressedKeys = new Set<string>()
   private readonly cooldownEnds = new Map<string, number>()
   private readonly tapCombos: Record<LastChancesHand, RuntimeTapCombo> = {
@@ -497,7 +525,12 @@ export class LastChancesEngine {
     right: { step: 0, expiresAtMs: 0 },
   }
   private readonly gamepadButtons: Record<LastChancesHand, boolean> = { left: false, right: false }
-  private readonly gamepadAdapter: LastChancesGamepadAdapter
+  private gamepadAdapter: LastChancesGamepadAdapter
+  private controlSchemeValue: LastChancesControlScheme
+  private readonly qaControlsFixture: boolean
+  private controlCue: LastChancesSemanticControlCue | null = null
+  private feedbackPreferences: LastChancesFeedbackPreferences
+  private feedbackController: DualSenseFeedbackController
 
   private plan: LastChancesGamePlan
   private generation = 1
@@ -548,9 +581,52 @@ export class LastChancesEngine {
   private touchAim: LastChancesVector = { x: 0, y: 0 }
   private gamepadMove: LastChancesVector = { x: 0, y: 0 }
   private gamepadAim: LastChancesVector = { x: 0, y: 0 }
+  /** Keeps a centered right stick from handing aim back to an older pointer position. */
+  private retainedGamepadAim: LastChancesVector | null = null
   private pointerAim: LastChancesVector = { x: 1, y: 0 }
   private selectedNodeId: string | null = null
+  private selectedInteractionChoiceId: string | null = null
   private gamepadMenuAxisEngaged = false
+  private gamepadChoiceAxisEngaged = false
+  private gamepadNeedsReseed = false
+  private activeMobilityPhysicalHand: LastChancesHand | null = null
+  private keyboardMobilityStartedAt = 0
+  private keyboardMobilityCommitted = false
+  private readonly keyboardDualSenseTriggers: Record<LastChancesHand, {
+    down: boolean
+    startedAt: number
+    gateIndex: number
+  }> = {
+    left: { down: false, startedAt: 0, gateIndex: 0 },
+    right: { down: false, startedAt: 0, gateIndex: 0 },
+  }
+  private readonly gamepadControlButtons = {
+    leftStrike: false,
+    rightStrike: false,
+    leftTechnique: false,
+    rightTechnique: false,
+    mobility: false,
+    interact: false,
+    circle: false,
+    cross: false,
+    options: false,
+    dpadUp: false,
+    dpadDown: false,
+    dpadLeft: false,
+    dpadRight: false,
+  }
+  private readonly gamepadTriggerValues: Record<LastChancesHand, number> = { left: 0, right: 0 }
+  private readonly feedbackChargeBandIds: Record<LastChancesHand, string | null> = {
+    left: null,
+    right: null,
+  }
+  /** Runtime availability edges already advertised to the DualSense feedback layer. */
+  private continuationFeedbackWindowKeys = new Set<string>()
+  /** Successful hits may open data-authored generic continuation windows. */
+  private readonly feedbackHitWindowEnds: Record<LastChancesHand, number> = {
+    left: Number.NEGATIVE_INFINITY,
+    right: Number.NEGATIVE_INFINITY,
+  }
   private gamepadState: LastChancesGamepadSnapshot
   private cssWidth = 800
   private cssHeight = 600
@@ -562,6 +638,7 @@ export class LastChancesEngine {
     canvas: HTMLCanvasElement,
     config: LastChancesConfig,
     callbacks: LastChancesEngineCallbacks = {},
+    options: LastChancesEngineOptions = {},
   ) {
     const migratedConfig = migrateLastChancesConfig(config) as LastChancesConfig
     const validation = validateLastChancesConfig(migratedConfig)
@@ -573,10 +650,27 @@ export class LastChancesEngine {
     this.context = context
     this.callbacks = callbacks
     this.config = cloneLastChancesConfig(migratedConfig)
+    if (!this.config.input.mylorik || !this.config.input.dualsense) {
+      throw new Error('99LC schema v4 control definitions are required')
+    }
+    this.controlSchemeValue = options.controlScheme ?? 'legacy'
+    this.qaControlsFixture = options.qaFixture === 'controls'
+    if (this.qaControlsFixture) {
+      this.moveQuests = {
+        left: createHandMoveQuestState(true),
+        right: createHandMoveQuestState(true),
+      }
+    }
+    this.feedbackPreferences = options.feedbackPreferences ?? { mode: 'full', intensity: 1 }
+    this.feedbackController = new DualSenseFeedbackController(
+      this.config.input.dualsense.feedback,
+      this.feedbackPreferences,
+    )
     this.gamepadAdapter = createLastChancesGamepadAdapter({
       deadZone: this.config.input.gamepadDeadZone,
       leftButton: this.config.input.gamepadLeftButton,
       rightButton: this.config.input.gamepadRightButton,
+      analogTriggerThreshold: this.config.input.dualsense.activationThreshold,
     })
     const gamepadSupported = typeof navigator !== 'undefined' && typeof navigator.getGamepads === 'function'
     this.gamepadState = {
@@ -612,8 +706,18 @@ export class LastChancesEngine {
     this.gestures = new LastChancesGestureRecognizer(this.config.input, (resolution) => {
       this.performAttack(resolution)
     })
+    this.mylorikControls = new MylorikControlRecognizer(
+      this.config.input.mylorik,
+      event => this.handleSemanticInput(event),
+    )
+    this.dualSenseControls = new DualSenseControlRecognizer(
+      this.config.input.dualsense,
+      event => this.handleSemanticInput(event),
+    )
     this.availableNodeIds = this.plan.tiers[0].map(node => node.id)
-    this.selectedNodeId = this.availableNodeIds[0] ?? null
+    this.selectedNodeId = this.controlSchemeValue === 'dualsense'
+      ? null
+      : this.availableNodeIds[0] ?? null
     this.attachEvents()
     this.resizeObserver = typeof ResizeObserver === 'undefined'
       ? null
@@ -632,6 +736,89 @@ export class LastChancesEngine {
     this.frameId = requestAnimationFrame(this.tick)
   }
 
+  get controlScheme(): LastChancesControlScheme {
+    return this.controlSchemeValue
+  }
+
+  setControlScheme(scheme: LastChancesControlScheme): void {
+    if (scheme === this.controlSchemeValue || this.destroyed) return
+    this.cleanupControlInputsForReplacement()
+    this.controlSchemeValue = scheme
+    if (scheme === 'dualsense' && this.phase === 'planning') this.selectedNodeId = null
+    if (scheme !== 'dualsense' && this.phase === 'planning' && !this.selectedNodeId) {
+      this.selectedNodeId = this.availableNodeIds[0] ?? null
+    }
+    this.controlCue = {
+      hand: null,
+      intent: null,
+      state: 'ready',
+      gesture: null,
+      label: scheme === 'legacy' ? 'DeepList' : scheme === 'mylorik' ? 'mylorik' : 'DualSense',
+      tactileProfile: 'click',
+      atMs: this.elapsedMs,
+    }
+    this.render()
+    this.emitSnapshot(true)
+  }
+
+  setFeedbackPreferences(preferences: LastChancesFeedbackPreferences): void {
+    this.feedbackPreferences = {
+      mode: preferences.mode,
+      intensity: clamp(preferences.intensity, 0, 1),
+    }
+    void this.feedbackController.setPreferences(this.feedbackPreferences)
+    this.emitSnapshot(true)
+  }
+
+  async enableDualSenseFeatures(): Promise<boolean> {
+    const enabled = await this.feedbackController.enableEnhancedFeatures()
+    this.emitSnapshot(true)
+    return enabled
+  }
+
+  disableEnhancedFeedback(): void {
+    void this.feedbackController.disableEnhancedFeatures().finally(() => this.emitSnapshot(true))
+  }
+
+  /**
+   * Applies only the control-recognition definition. Combat/run data in the supplied
+   * Builder draft is intentionally ignored so this operation cannot reset the attempt.
+   */
+  applyControlDefinition(nextConfig: LastChancesConfig): boolean {
+    const migrated = migrateLastChancesConfig(nextConfig) as LastChancesConfig
+    const validation = validateLastChancesConfig(migrated)
+    if (!validation.valid || !migrated.input.mylorik || !migrated.input.dualsense) return false
+    this.cleanupControlInputsForReplacement()
+    this.config.input = JSON.parse(JSON.stringify(migrated.input)) as LastChancesConfig['input']
+    const nextWeapons = new Map(migrated.weapons.map(weapon => [weapon.id, weapon]))
+    for (const weapon of this.config.weapons) {
+      const next = nextWeapons.get(weapon.id)
+      weapon.controls = next?.controls
+        ? JSON.parse(JSON.stringify(next.controls)) as typeof next.controls
+        : undefined
+    }
+    this.gestures.updateTimings(this.config.input)
+    this.mylorikControls.updateConfig(this.config.input.mylorik)
+    this.dualSenseControls.updateConfig(this.config.input.dualsense)
+    const previousFeedbackController = this.feedbackController
+    const feedbackCleanup = previousFeedbackController.dispose()
+    const nextFeedbackController = new DualSenseFeedbackController(
+      this.config.input.dualsense.feedback,
+      this.feedbackPreferences,
+    )
+    nextFeedbackController.waitForOutputBarrier(feedbackCleanup)
+    this.feedbackController = nextFeedbackController
+    this.gamepadAdapter = createLastChancesGamepadAdapter({
+      deadZone: this.config.input.gamepadDeadZone,
+      leftButton: this.config.input.gamepadLeftButton,
+      rightButton: this.config.input.gamepadRightButton,
+      analogTriggerThreshold: this.config.input.dualsense.activationThreshold,
+    })
+    this.rebuildWeapons()
+    this.emitSnapshot(true)
+    return true
+  }
+
   destroy(): void {
     if (this.destroyed) return
     this.destroyed = true
@@ -640,8 +827,7 @@ export class LastChancesEngine {
     this.frameId = null
     this.resizeObserver?.disconnect()
     this.detachEvents()
-    this.pressedKeys.clear()
-    this.gestures.reset()
+    this.cleanupControlInputs(false)
     this.activeAreas = []
     this.heldChannels.clear()
     this.traces = []
@@ -650,6 +836,7 @@ export class LastChancesEngine {
     this.weaponActionEnds.clear()
     this.activeParryCollider = null
     this.provisionalParry = null
+    void this.feedbackController.dispose()
   }
 
   setPaused(paused: boolean): void {
@@ -661,9 +848,7 @@ export class LastChancesEngine {
     this.paused = paused
     this.lastFrameMs = performance.now()
     if (paused) {
-      this.gestures.reset()
-      this.gamepadButtons.left = false
-      this.gamepadButtons.right = false
+      this.cleanupControlInputs(false)
     }
     this.render()
     this.emitSnapshot(true)
@@ -677,6 +862,7 @@ export class LastChancesEngine {
     this.attemptPath.push(node.id)
     this.availableNodeIds = []
     this.selectedNodeId = null
+    this.selectedInteractionChoiceId = null
     this.player.position = { ...node.arena.playerSpawn }
     this.player.aim = { ...this.pointerAim }
     this.clearCombatTransients()
@@ -698,6 +884,8 @@ export class LastChancesEngine {
     this.cooldownEnds.clear()
     this.resetTapCombos()
     this.gestures.reset()
+    this.mylorikControls.reset()
+    this.dualSenseControls.reset()
     for (const hand of LAST_CHANCES_HANDS) {
       const quest = this.moveQuests[hand]
       for (const gesture of quest.pendingUnlocks) quest.unlocked[gesture] = true
@@ -818,8 +1006,8 @@ export class LastChancesEngine {
     this.generationBaseStats = copyStats(this.config.player.baseStats)
     this.player.stats = copyStats(this.generationBaseStats)
     this.moveQuests = {
-      left: createHandMoveQuestState(),
-      right: createHandMoveQuestState(),
+      left: createHandMoveQuestState(this.qaControlsFixture),
+      right: createHandMoveQuestState(this.qaControlsFixture),
     }
     this.resetAttempt()
     this.emitPlan()
@@ -834,6 +1022,9 @@ export class LastChancesEngine {
 
   setTouchAim(x: number, y: number): void {
     this.touchAim = normalizeInput(x, y)
+    if (vectorLength(this.touchAim) > this.config.input.aimDeadZone) {
+      this.retainedGamepadAim = null
+    }
   }
 
   press(hand: LastChancesHand): void {
@@ -867,6 +1058,7 @@ export class LastChancesEngine {
       x: world.x - this.player.position.x,
       y: world.y - this.player.position.y,
     }, this.pointerAim)
+    this.retainedGamepadAim = null
   }
 
   private readonly tick = (frameMs: number): void => {
@@ -876,6 +1068,11 @@ export class LastChancesEngine {
     this.frameNowMs = frameMs
     this.pollGamepad()
     this.gestures.update(frameMs)
+    this.mylorikControls.update(frameMs)
+    this.updateKeyboardDualSenseTriggers(frameMs)
+    this.dualSenseControls.update(frameMs, physicalHand => (
+      this.weapons.get(physicalClusterToRuntimeHand(physicalHand))?.controls
+    ))
     if (!this.paused) {
       this.elapsedMs += deltaMs
       if (this.phase === 'playing') this.update(deltaMs / 1000, deltaMs)
@@ -908,6 +1105,7 @@ export class LastChancesEngine {
     this.updateActiveAreas(deltaMs)
     this.updateHazards(deltaSeconds)
     this.updateMentalHealth(deltaSeconds)
+    this.syncContinuationFeedback()
     this.effects.forEach(effect => effect.remainingMs -= deltaMs)
     this.effects = this.effects.filter(effect => effect.remainingMs > 0)
     this.traces.forEach(trace => { trace.remainingMs -= deltaMs })
@@ -1744,6 +1942,383 @@ export class LastChancesEngine {
     }
   }
 
+  private handleSemanticInput(
+    event: LastChancesSemanticInputEvent,
+  ): 'handled' | 'buffer' | 'blocked' | 'observe' {
+    if (event.scheme !== this.controlSchemeValue || this.phase !== 'playing' || this.paused) {
+      return 'blocked'
+    }
+    const weapon = this.weapons.get(event.hand)
+    const controls = weapon?.controls
+    if (!weapon || !controls) return this.blockSemanticInput(event, null)
+
+    let gesture: LastChancesGesture | undefined
+    let tactileProfile = event.tactileProfile ?? 'click'
+    let adaptiveOverride: LastChancesAttackSetControlDefinition['dualsense']['nodes'][number]['adaptiveOverride']
+    if (event.scheme === 'dualsense') {
+      if (event.intent === 'strike') {
+        gesture = controls.dualsense.instantGesture
+      } else if (event.gesture && event.nodeId) {
+        const node = controls.dualsense.nodes.find(candidate => (
+          candidate.id === event.nodeId && candidate.gesture === event.gesture
+        ))
+        if (node) {
+          const requiredBand = node.requiredChargeBandId
+            ? weapon.attacks.hold.charge?.bands.find(band => band.id === node.requiredChargeBandId)
+            : undefined
+          const chargeContextAvailable = node.requiredChargeBandId === undefined
+            || (requiredBand !== undefined && event.heldMs >= requiredBand.minMs)
+          const contextAvailable = event.armed === true || (
+            (node.entryContext === 'neutral'
+              ? this.controlContextActive(event.hand, 'neutral')
+              : node.entryContext === 'continuation'
+              || this.controlContextActive(event.hand, node.entryContext))
+            && chargeContextAvailable
+          )
+          if (event.probe) {
+            return contextAvailable && this.gestureReady(event.hand, node.gesture)
+              ? 'handled'
+              : 'observe'
+          }
+          if (!contextAvailable) return event.commit
+            ? this.blockSemanticInput(event, node.gesture)
+            : 'observe'
+          gesture = event.gesture
+          adaptiveOverride = node.adaptiveOverride
+        }
+      } else if (event.source === 'keyboard' && event.intent === 'mobility') {
+        gesture = controls.mylorik.activations
+          .filter(activation => activation.intent === 'mobility' && activation.phase === event.phase)
+          .filter(activation => !activation.context || this.controlContextActive(event.hand, activation.context))
+          .sort((left, right) => right.priority - left.priority)[0]?.gesture
+      }
+    } else {
+      const candidates = controls.mylorik.activations
+        .filter(activation => activation.intent === event.intent && activation.phase === event.phase)
+        .filter(activation => {
+          if (!activation.context) return true
+          if (event.context && event.context !== 'continuation'
+            && event.context !== activation.context) return false
+          return activation.context === event.context
+            || this.controlContextActive(event.hand, activation.context)
+        })
+        .sort((left, right) => right.priority - left.priority)
+      const selected = event.context === undefined
+        ? candidates.find(candidate => candidate.context !== undefined)
+          ?? candidates.find(candidate => candidate.context === undefined)
+        : candidates.find(candidate => candidate.context !== undefined)
+      gesture = selected?.gesture
+    }
+
+    if (!gesture) {
+      const awaitingMylorikHold = event.scheme === 'mylorik'
+        && event.phase === 'press'
+        && controls.mylorik.activations.some(activation => (
+          activation.intent === event.intent && activation.phase === 'hold'
+        ))
+      if (awaitingMylorikHold || !event.commit) return event.scheme === 'dualsense'
+        ? 'handled'
+        : 'observe'
+      return this.blockSemanticInput(event, null)
+    }
+    const attack = weapon.attacks[gesture]
+    tactileProfile = event.tactileProfile ?? (gesture === 'hold' ? 'ramp' : 'click')
+    const tensionActive = tactileProfile === 'tension'
+      || event.context === 'grapple'
+      || event.context === 'tether'
+    if (!event.commit) {
+      const state = tensionActive
+        ? 'tension' as const
+        : event.context === 'continuation'
+          ? 'continuation' as const
+          : event.phase === 'hold' ? 'charge' as const : 'ready' as const
+      this.controlCue = {
+        hand: event.hand,
+        intent: event.intent,
+        state,
+        gesture,
+        label: attack.name,
+        tactileProfile,
+        atMs: this.elapsedMs,
+      }
+      if (event.scheme === 'dualsense') {
+        this.feedbackController.emit({
+          state: tensionActive ? 'tension' : state === 'ready' ? 'charge' : state,
+          profile: tactileProfile,
+          hand: event.physicalHand,
+          strength: event.value,
+          adaptiveOverride,
+        })
+      }
+      return event.scheme === 'dualsense' || event.probe ? 'handled' : 'observe'
+    }
+
+    if (!this.gestureReady(event.hand, gesture)) {
+      const cooldown = Math.max(
+        0,
+        (this.cooldownEnds.get(cooldownKey(event.hand, gesture)) ?? 0) - this.elapsedMs,
+      )
+      const recovery = Math.max(
+        this.player.recoveryMs,
+        this.weaponState(weapon).recoveryMs,
+        (this.weaponActionEnds.get(weapon.id) ?? 0) - this.elapsedMs,
+      )
+      const bufferWindow = this.config.input.mylorik?.bufferMs ?? 0
+      const unlocked = this.moveQuests[event.hand].unlocked[gesture]
+      const enabled = attack.enabled !== false && attack.behavior !== 'disabled'
+      if (event.scheme === 'mylorik' && enabled && unlocked
+        && Math.max(cooldown, recovery) > 0
+        && Math.max(cooldown, recovery) <= bufferWindow) return 'buffer'
+      return this.blockSemanticInput(event, gesture)
+    }
+
+    const chargedAttack = attackWithLastChancesAugment(attack, weapon)
+    const chargedHeldMs = gesture === 'holdThenDoubleTap'
+      ? event.heldMs
+      : gesture === 'hold' || gesture === 'doubleTapHold' ? event.heldMs : 0
+    if (attack.charge && !resolveLastChancesChargedAttack(chargedAttack, chargedHeldMs).band) {
+      return this.blockSemanticInput(event, gesture)
+    }
+
+    const state = tensionActive
+      ? 'tension' as const
+      : event.context === 'continuation' ? 'continuation' as const : 'ready' as const
+    this.controlCue = {
+      hand: event.hand,
+      intent: event.intent,
+      state,
+      gesture,
+      label: attack.name,
+      tactileProfile,
+      atMs: this.elapsedMs,
+    }
+    if (event.scheme === 'dualsense') {
+      this.feedbackController.emit({
+        state,
+        profile: tactileProfile,
+        hand: event.physicalHand,
+        strength: event.value || 1,
+        adaptiveOverride,
+      })
+    }
+    const startsDualSenseChannel = event.scheme === 'dualsense'
+      && event.phase === 'hold'
+      && gesture === 'hold'
+      && ['spearStance', 'axeSpin', 'spiderFlurry'].includes(attack.behavior ?? '')
+    if (startsDualSenseChannel) return 'handled'
+    this.performAttack({
+      hand: event.hand,
+      gesture,
+      atMs: this.elapsedMs,
+      heldMs: event.heldMs,
+      firstHoldMs: event.heldMs,
+    })
+    return 'handled'
+  }
+
+  private blockSemanticInput(
+    event: LastChancesSemanticInputEvent,
+    gesture: LastChancesGesture | null,
+  ): 'blocked' {
+    const weapon = this.weapons.get(event.hand)
+    this.controlCue = {
+      hand: event.hand,
+      intent: event.intent,
+      state: 'blocked',
+      gesture,
+      label: gesture && weapon ? weapon.attacks[gesture].name : 'Action unavailable',
+      tactileProfile: 'blocked',
+      atMs: this.elapsedMs,
+    }
+    if (event.scheme === 'dualsense') {
+      this.feedbackController.emit({
+        state: 'blocked',
+        profile: 'blocked',
+        hand: event.physicalHand,
+      })
+    }
+    this.emitSnapshot(true)
+    return 'blocked'
+  }
+
+  private controlContextActive(
+    hand: LastChancesHand,
+    context: LastChancesControlContext,
+  ): boolean {
+    const weapon = this.weapons.get(hand)
+    if (!weapon) return false
+    const channel = this.heldChannels.get(hand)
+    const handChannel = channel?.weaponId === weapon.id ? channel : undefined
+    const activeBehavior = handChannel?.attack.behavior
+    const state = this.weaponState(weapon)
+    if (context === 'neutral') {
+      return state.boundEnemyId === null
+        && !(this.activeDash?.hand === hand && this.activeDash.weaponId === weapon.id)
+        && handChannel === undefined
+        && !this.activeAreas.some(area => area.hand === hand && area.weaponId === weapon.id && (
+          area.attack.behavior === 'axeSpin'
+          || area.attack.behavior === 'spearSpin'
+          || area.attack.behavior === 'chainSpin'
+          || area.attack.behavior === 'spiderFlurry'
+        ))
+    }
+    if (context === 'opening') {
+      const hasOpeningRoute = weapon.controls?.mylorik.activations.some(activation => (
+        activation.context === 'opening'
+      )) || weapon.controls?.dualsense.nodes.some(node => node.entryContext === 'opening')
+      return hasOpeningRoute === true
+        && this.enemies.some(enemy => enemy.state !== 'dead' && enemy.statuses.openingMs > 0)
+    }
+    if (context === 'grapple' || context === 'tether') return state.boundEnemyId !== null
+    if (context === 'dash') {
+      return this.activeDash?.hand === hand && this.activeDash.weaponId === weapon.id
+    }
+    if (context === 'spin') return activeBehavior === 'axeSpin'
+      || activeBehavior === 'spearSpin'
+      || activeBehavior === 'chainSpin'
+      || this.activeAreas.some(area => area.hand === hand && area.weaponId === weapon.id && (
+        area.attack.behavior === 'axeSpin'
+        || area.attack.behavior === 'spearSpin'
+        || area.attack.behavior === 'chainSpin'
+      ))
+    if (context === 'stance') return activeBehavior === 'spearStance'
+    if (context === 'flurry') return activeBehavior === 'spiderFlurry'
+    if (context === 'continuation') {
+      return state.boundEnemyId !== null
+        || (this.activeDash?.hand === hand && this.activeDash.weaponId === weapon.id)
+        || handChannel !== undefined
+    }
+    return false
+  }
+
+  /**
+   * Maps authored control contexts onto concrete runtime windows. The keys are
+   * deliberately semantic (not attack IDs), so polling can observe a window for
+   * many frames without replaying its opening cue.
+   */
+  private continuationFeedbackSourceKeys(
+    hand: LastChancesHand,
+    context: LastChancesControlContext,
+  ): string[] {
+    if (context === 'neutral') return []
+    const weapon = this.weapons.get(hand)
+    if (!weapon) return []
+    const accepts = (candidate: LastChancesControlContext): boolean => (
+      context === 'continuation' || context === candidate
+    )
+    const keys = new Set<string>()
+
+    if (accepts('dash')
+      && this.activeDash?.hand === hand
+      && this.activeDash.weaponId === weapon.id) {
+      keys.add(`${hand}:dash`)
+    }
+
+    const addArea = (behavior: LastChancesAttackBehavior | undefined): void => {
+      const areaContext: LastChancesControlContext | null = behavior === 'spearStance'
+        ? 'stance'
+        : behavior === 'spiderFlurry'
+          ? 'flurry'
+          : behavior === 'axeSpin' || behavior === 'spearSpin' || behavior === 'chainSpin'
+            ? 'spin'
+            : null
+      if (areaContext && accepts(areaContext)) keys.add(`${hand}:channel:${areaContext}`)
+    }
+    addArea(this.heldChannels.get(hand)?.attack.behavior)
+    for (const area of this.activeAreas) {
+      if (area.hand === hand && area.weaponId === weapon.id) addArea(area.attack.behavior)
+    }
+
+    const state = this.weaponState(weapon)
+    if ((accepts('grapple') || accepts('tether')) && state.boundEnemyId !== null) {
+      keys.add(`${hand}:bound`)
+    }
+    if (context === 'opening'
+      && this.enemies.some(enemy => enemy.state !== 'dead' && enemy.statuses.openingMs > 0)) {
+      keys.add(`${hand}:opening`)
+    }
+    if (context === 'continuation' && this.feedbackHitWindowEnds[hand] > this.elapsedMs) {
+      keys.add(`${hand}:hit`)
+    }
+    return [...keys]
+  }
+
+  private continuationFeedbackNodeReady(
+    hand: LastChancesHand,
+    node: LastChancesAttackSetControlDefinition['dualsense']['nodes'][number],
+  ): boolean {
+    const weapon = this.weapons.get(hand)
+    if (!weapon) return false
+    const attack = weapon.attacks[node.gesture]
+    return attack.enabled !== false
+      && attack.behavior !== 'disabled'
+      && this.moveQuests[hand].unlocked[node.gesture]
+      && this.gestureReady(hand, node.gesture)
+  }
+
+  private markSuccessfulHitFeedbackWindow(hand: LastChancesHand): void {
+    const controls = this.weapons.get(hand)?.controls
+    const durationMs = Math.max(0, ...(controls?.dualsense.nodes
+      .filter(node => node.entryContext === 'continuation')
+      .map(node => node.expiryMs) ?? []))
+    if (durationMs <= 0) return
+    this.feedbackHitWindowEnds[hand] = Math.max(
+      this.feedbackHitWindowEnds[hand],
+      this.elapsedMs + durationMs,
+    )
+  }
+
+  /** Emits availability feedback only on a false-to-true runtime window edge. */
+  private syncContinuationFeedback(): void {
+    const available = new Map<string, {
+      hand: LastChancesHand
+      node: LastChancesAttackSetControlDefinition['dualsense']['nodes'][number]
+    }>()
+    if (this.controlSchemeValue === 'dualsense' && this.phase === 'playing' && !this.paused) {
+      for (const hand of LAST_CHANCES_HANDS) {
+        const controls = this.weapons.get(hand)?.controls
+        if (!controls) continue
+        for (const node of controls.dualsense.nodes) {
+          if (!this.continuationFeedbackNodeReady(hand, node)) continue
+          for (const key of this.continuationFeedbackSourceKeys(hand, node.entryContext)) {
+            const previous = available.get(key)
+            if (!previous || node.activationThreshold < previous.node.activationThreshold) {
+              available.set(key, { hand, node })
+            }
+          }
+        }
+      }
+    }
+
+    for (const [key, { hand, node }] of available) {
+      if (this.continuationFeedbackWindowKeys.has(key)) continue
+      const weapon = this.weapons.get(hand)
+      if (!weapon) continue
+      this.controlCue = {
+        hand,
+        intent: 'technique',
+        state: 'continuation',
+        gesture: node.gesture,
+        label: weapon.attacks[node.gesture].name,
+        tactileProfile: 'followUp',
+        atMs: this.elapsedMs,
+      }
+      this.feedbackController.emit({
+        state: 'continuation',
+        profile: 'followUp',
+        hand: runtimeHandToPhysicalCluster(hand),
+        adaptiveOverride: node.adaptiveOverride,
+      })
+    }
+    this.continuationFeedbackWindowKeys = new Set(available.keys())
+  }
+
+  private resetContinuationFeedbackTracking(): void {
+    this.continuationFeedbackWindowKeys.clear()
+    this.feedbackHitWindowEnds.left = Number.NEGATIVE_INFINITY
+    this.feedbackHitWindowEnds.right = Number.NEGATIVE_INFINITY
+  }
+
   private gestureReady(hand: LastChancesHand, gesture: LastChancesGesture): boolean {
     const weapon = this.weapons.get(hand)
     if (!weapon) return false
@@ -1755,7 +2330,20 @@ export class LastChancesEngine {
     if (this.provisionalParry
       && this.provisionalParry.weaponId === weapon.id
       && this.provisionalParry.hand !== hand) return false
-    if ((this.weaponActionEnds.get(weapon.id) ?? 0) > this.elapsedMs) return false
+    const behavior = attack.behavior
+    const contextualContinuation = (behavior === 'clawDeepStrike'
+      && this.activeDash?.hand === hand && this.activeDash.weaponId === weapon.id)
+      || (behavior === 'axeThrow' && state.boundEnemyId !== null)
+      || (behavior === 'chainBind' && state.boundEnemyId !== null)
+      || (behavior === 'chainThrow' && this.activeAreas.some(area => (
+        area.hand === hand && area.attack.behavior === 'chainSpin'
+      )))
+      || (behavior === 'spiderTwist' && this.heldChannels.get(hand)?.attack.behavior === 'spiderFlurry')
+      || (behavior === 'spiderThrow' && this.heldChannels.get(hand)?.attack.behavior === 'spiderFlurry')
+      || (behavior === 'poleVault' && this.heldChannels.get(hand)?.attack.behavior === 'spearStance')
+      || (behavior === 'axeLeap' && this.heldChannels.get(hand)?.attack.behavior === 'axeSpin')
+    if ((this.weaponActionEnds.get(weapon.id) ?? 0) > this.elapsedMs
+      && !contextualContinuation) return false
     const otherHandUsesWeapon = [...this.heldChannels.entries()].some(([channelHand, area]) => (
       channelHand !== hand && area.weaponId === weapon.id
     ))
@@ -1763,7 +2351,8 @@ export class LastChancesEngine {
     const axeRecoveryCancel = weapon.trait === 'axeHookRecovery'
       && gesture === 'tap'
       && state.recoveryMs > 0
-    if ((this.player.recoveryMs > 0 || state.recoveryMs > 0) && !axeRecoveryCancel) {
+    if ((this.player.recoveryMs > 0 || state.recoveryMs > 0)
+      && !axeRecoveryCancel && !contextualContinuation) {
       return false
     }
     return gesture === 'tap'
@@ -1874,10 +2463,25 @@ export class LastChancesEngine {
     profile: RuntimeEnemyCombatProfile,
   ): boolean {
     if (!this.playerParryCovers(enemy.position, enemy.definition.radius)) return false
+    const parryHand = this.provisionalParry?.hand ?? (() => {
+      const gesture = this.lastGesture
+      const attack = gesture ? this.weapons.get(gesture.hand)?.attacks[gesture.gesture] : undefined
+      return attack && PLAYER_PARRY_BEHAVIORS.has(attack.behavior ?? 'standard')
+        ? gesture?.hand ?? null
+        : null
+    })()
     this.consumeActiveParry()
     this.finishEnemyAttack(enemy, profile)
     enemy.attackCooldownMs += profile.parryWindowMs
     enemy.revealedMs = Math.max(enemy.revealedMs, 1200)
+    if (this.controlSchemeValue === 'dualsense' && parryHand) {
+      this.feedbackController.emit({
+        state: 'impact',
+        profile: 'impact',
+        hand: runtimeHandToPhysicalCluster(parryHand),
+        strength: 1,
+      })
+    }
     return true
   }
 
@@ -1908,12 +2512,23 @@ export class LastChancesEngine {
       : weapon.tapCombo[(comboStep - 1) % weapon.tapCombo.length]
     if (sourceAttack.enabled === false || sourceAttack.behavior === 'disabled') return
     const augmented = attackWithLastChancesAugment(sourceAttack, weapon)
+    if (sourceAttack.behavior === 'clawDeepStrike'
+      && this.activeDash?.hand === hand && this.activeDash.weaponId === weapon.id) {
+      this.activeDash = null
+      this.weaponActionEnds.delete(weapon.id)
+    }
     const chargeHeldMs = gesture === 'holdThenDoubleTap'
       ? resolution.firstHoldMs
       : gesture === 'hold' || gesture === 'doubleTapHold' ? resolution.heldMs : 0
     const charged = resolveLastChancesChargedAttack(augmented, chargeHeldMs)
     if (sourceAttack.charge && !charged.band) return
     const attack = charged.attack
+    if ((attack.behavior === 'spiderTwist'
+      || attack.behavior === 'spiderThrow'
+      || attack.behavior === 'poleVault'
+      || attack.behavior === 'axeLeap') && this.heldChannels.has(hand)) {
+      this.stopHeldChannel(hand)
+    }
     if (isAxeRecoveryCancel) {
       state.recoveryMs = 0
       this.player.recoveryMs = 0
@@ -2188,6 +2803,7 @@ export class LastChancesEngine {
       trailAccumulatorMs: 0,
       elapsedMs: 0,
     }
+    this.syncContinuationFeedback()
     this.addEffect('dash', attack, direction)
   }
 
@@ -2226,6 +2842,7 @@ export class LastChancesEngine {
     }
     else this.applyActiveAreaHits(area)
     if (area.remainingMs > 0 && area.remainingHits > 0) this.activeAreas.push(area)
+    this.syncContinuationFeedback()
   }
 
   private latchAxeTarget(area: RuntimeActiveArea): void {
@@ -2657,6 +3274,66 @@ export class LastChancesEngine {
     }
   }
 
+  private cancelHeldChannels(): void {
+    if (this.heldChannels.size === 0) return
+    const heldAreas = new Set(this.heldChannels.values())
+    this.activeAreas = this.activeAreas.filter(area => !heldAreas.has(area))
+    this.heldChannels.clear()
+  }
+
+  private controlInputSnapshot(
+    hand: LastChancesHand,
+    atMs: number,
+  ): LastChancesGestureInputSnapshot {
+    const legacy = this.gestures.snapshot(hand, atMs)
+    // Touch is always DeepList, including while another scheme is selected.
+    if (this.controlSchemeValue === 'legacy' || legacy.pressed || legacy.candidateGesture) return legacy
+    const weapon = this.weapons.get(hand)
+    const controls = weapon?.controls
+    if (this.controlSchemeValue === 'mylorik') {
+      const state = this.mylorikControls.snapshot(runtimeHandToPhysicalCluster(hand), atMs)
+      const intent = state.mobilityPressed ? 'mobility' : 'technique'
+      const phase = state.mobilityPressed
+        ? state.mobilityHeldMs >= (this.config.input.mylorik?.techniqueHoldMs ?? 0)
+          ? 'hold'
+          : 'press'
+        : state.techniqueArmed ? 'hold' : 'tap'
+      const candidate = controls?.mylorik.activations
+        .filter(activation => activation.intent === intent && activation.phase === phase)
+        .sort((left, right) => right.priority - left.priority)[0]?.gesture ?? null
+      const heldMs = state.mobilityPressed ? state.mobilityHeldMs : state.techniqueHeldMs
+      const pressed = state.mobilityPressed || state.techniquePressed
+      return {
+        hand,
+        phase: pressed ? 'pressing' : 'idle',
+        pressed,
+        progress: pressed
+          ? clamp(heldMs / Math.max(1, this.config.input.mylorik?.techniqueHoldMs ?? 1), 0, 1)
+          : 0,
+        remainingMs: pressed
+          ? Math.max(0, (this.config.input.mylorik?.techniqueHoldMs ?? 0) - heldMs)
+          : 0,
+        heldMs,
+        sequence: pressed ? 'first' : null,
+        candidateGesture: candidate,
+        pendingChargeMs: heldMs,
+      }
+    }
+    const state = this.dualSenseControls.snapshot(runtimeHandToPhysicalCluster(hand), atMs)
+    const node = controls?.dualsense.nodes.find(candidate => candidate.id === state.nodeId)
+    return {
+      hand,
+      phase: state.active ? 'pressing' : 'idle',
+      pressed: state.active,
+      progress: state.value,
+      remainingMs: 0,
+      heldMs: state.heldMs,
+      sequence: state.active ? 'first' : null,
+      candidateGesture: node?.gesture ?? null,
+      pendingChargeMs: state.heldMs,
+    }
+  }
+
   private updateHeldWeaponMechanics(deltaMs: number): void {
     const now = this.frameNowMs || performance.now()
     for (const hand of LAST_CHANCES_HANDS) {
@@ -2665,7 +3342,31 @@ export class LastChancesEngine {
         this.stopHeldChannel(hand)
         continue
       }
-      const input = this.gestures.snapshot(hand, now)
+      const input = this.controlInputSnapshot(hand, now)
+      const candidateAttack = input.candidateGesture
+        ? weapon.attacks[input.candidateGesture]
+        : null
+      const activeBand = input.pressed && candidateAttack?.charge
+        ? [...candidateAttack.charge.bands]
+          .reverse()
+          .find(band => input.heldMs >= band.minMs)
+        : undefined
+      if (this.controlSchemeValue === 'dualsense'
+        && activeBand && activeBand.id !== this.feedbackChargeBandIds[hand]) {
+        this.feedbackChargeBandIds[hand] = activeBand.id
+        const bandIndex = candidateAttack?.charge?.bands.findIndex(band => band.id === activeBand.id) ?? 0
+        const profile = bandIndex <= 0
+          ? 'bandLight' as const
+          : bandIndex === 1 ? 'bandMedium' as const : 'bandStrong' as const
+        this.feedbackController.emit({
+          state: 'charge',
+          profile,
+          hand: runtimeHandToPhysicalCluster(hand),
+          strength: Math.min(1, (bandIndex + 1) / 3),
+        })
+      } else if (!activeBand) {
+        this.feedbackChargeBandIds[hand] = null
+      }
       const holdAttack = weapon.attacks.hold
       if (input.pressed
         && input.sequence === 'secondTap'
@@ -2675,13 +3376,19 @@ export class LastChancesEngine {
         this.player.armorMultiplier = 2
         this.player.armorMultiplierMs = Math.max(this.player.armorMultiplierMs, deltaMs + 80)
       }
+      const existing = this.heldChannels.get(hand)
       const channelBehavior = holdAttack.behavior
+      const classifiedAsHold = this.controlSchemeValue === 'dualsense'
+        ? input.candidateGesture === 'hold' || existing !== undefined
+        : input.sequence === 'first' && input.heldMs >= (
+            this.controlSchemeValue === 'mylorik'
+              ? this.config.input.mylorik.techniqueHoldMs
+              : this.config.input.holdMs
+          )
       const channelEligible = input.pressed
-        && input.sequence === 'first'
-        && input.heldMs >= this.config.input.holdMs
+        && classifiedAsHold
         && this.gestureReady(hand, 'hold')
         && ['spearStance', 'axeSpin', 'spiderFlurry'].includes(channelBehavior ?? '')
-      const existing = this.heldChannels.get(hand)
       if (channelEligible && channelBehavior === 'axeSpin') {
         this.player.parryMs = Math.max(this.player.parryMs, deltaMs + 80)
       }
@@ -2710,6 +3417,7 @@ export class LastChancesEngine {
       )
       this.activeAreas.push(area)
       this.heldChannels.set(hand, area)
+      this.syncContinuationFeedback()
     }
   }
 
@@ -2962,6 +3670,17 @@ export class LastChancesEngine {
     const hpBeforeHit = enemy.hp
     enemy.hp = Math.max(0, enemy.hp - Math.max(0, scaledDamage - Math.max(0, armor)))
     const damageDealt = hpBeforeHit - enemy.hp
+    if (damageDealt > 0 && options.hand) {
+      this.markSuccessfulHitFeedbackWindow(options.hand)
+      if (this.controlSchemeValue === 'dualsense') {
+        this.feedbackController.emit({
+          state: 'impact',
+          profile: 'impact',
+          hand: runtimeHandToPhysicalCluster(options.hand),
+          strength: criticalHit ? 1 : 0.7,
+        })
+      }
+    }
     if (criticalHit && damageDealt > 0) {
       enemy.criticalHitMs = Math.max(
         enemy.criticalHitMs,
@@ -3135,6 +3854,7 @@ export class LastChancesEngine {
         enemy.definition.radius,
       )
     }
+    this.syncContinuationFeedback()
     if (enemy.hp > 0) {
       if (enemy.state === 'idle') enemy.state = 'chasing'
       return
@@ -3301,12 +4021,7 @@ export class LastChancesEngine {
       armor: Math.max(0, this.generationBaseStats.armor - erosion.armor),
     }
     this.player.stats = copyStats(this.generationBaseStats)
-    this.activeDash = null
-    this.activeAreas = []
-    this.delayedRecoveries = []
-    this.weaponActionEnds.clear()
-    this.activeParryCollider = null
-    this.provisionalParry = null
+    this.clearCombatTransients()
     this.deathReason = reason
     this.phase = this.chances > 0 ? 'dead' : 'outOfChances'
     this.emitSnapshot(true)
@@ -3317,6 +4032,7 @@ export class LastChancesEngine {
     this.clearCombatTransients()
     if (this.currentNode.interaction && !this.interactionResolved) {
       this.phase = 'interaction'
+      this.selectedInteractionChoiceId = null
       this.emitSnapshot(true)
       return
     }
@@ -3336,7 +4052,7 @@ export class LastChancesEngine {
     this.weaponActionEnds.clear()
     this.activeParryCollider = null
     this.provisionalParry = null
-    this.gestures.reset()
+    this.cleanupControlInputs(false)
     this.resetTapCombos()
     this.player.invulnerableMs = 0
     this.player.rootMs = 0
@@ -3364,8 +4080,11 @@ export class LastChancesEngine {
       )
       this.phase = 'planning'
       this.availableNodeIds = [...this.currentNode.nextNodeIds]
-      this.selectedNodeId = this.availableNodeIds[0] ?? null
+      this.selectedNodeId = this.controlSchemeValue === 'dualsense'
+        ? null
+        : this.availableNodeIds[0] ?? null
     }
+    this.selectedInteractionChoiceId = null
   }
 
   private interactionChoiceAvailable(choice: LastChancesInteractionChoice): boolean {
@@ -3480,7 +4199,10 @@ export class LastChancesEngine {
     this.paused = false
     this.currentNode = null
     this.availableNodeIds = this.plan.tiers[0].map(node => node.id)
-    this.selectedNodeId = this.availableNodeIds[0] ?? null
+    this.selectedNodeId = this.controlSchemeValue === 'dualsense'
+      ? null
+      : this.availableNodeIds[0] ?? null
+    this.selectedInteractionChoiceId = null
     this.gamepadMenuAxisEngaged = false
     this.attemptPath = []
     this.deathReason = null
@@ -3528,6 +4250,7 @@ export class LastChancesEngine {
     this.touchAim = { x: 0, y: 0 }
     this.gamepadMove = { x: 0, y: 0 }
     this.gamepadAim = { x: 0, y: 0 }
+    this.retainedGamepadAim = null
     this.player.position = { x: 0, y: 0 }
     this.player.aim = { x: 1, y: 0 }
     this.player.stats = copyStats(this.generationBaseStats)
@@ -3606,19 +4329,28 @@ export class LastChancesEngine {
 
   private resolveAim(): LastChancesVector {
     if (vectorLength(this.gamepadAim) > this.config.input.aimDeadZone) return this.gamepadAim
+    if (this.retainedGamepadAim) return this.retainedGamepadAim
     if (vectorLength(this.touchAim) > this.config.input.aimDeadZone) return this.touchAim
     return this.pointerAim
   }
 
   private pollGamepad(): void {
     if (typeof navigator === 'undefined' || typeof navigator.getGamepads !== 'function') {
+      void this.feedbackController.setGamepad(null)
       this.applyGamepadReading(null)
       return
     }
-    this.applyGamepadReading(this.gamepadAdapter.poll(Array.from(navigator.getGamepads())))
+    const gamepads = Array.from(navigator.getGamepads())
+    const reading = this.gamepadAdapter.poll(gamepads)
+    const active = reading.activeIndex === null
+      ? null
+      : gamepads.find(gamepad => gamepad?.index === reading.activeIndex) ?? null
+    void this.feedbackController.setGamepad(active as LastChancesHapticGamepadLike | null)
+    this.applyGamepadReading(reading)
   }
 
   private applyGamepadReading(reading: LastChancesGamepadReading | null): void {
+    const previousActiveIndex = this.gamepadState.activeIndex
     const nextState: LastChancesGamepadSnapshot = reading
       ? {
           supported: true,
@@ -3641,13 +4373,113 @@ export class LastChancesEngine {
           profile: null,
         }
     const metadataChanged = JSON.stringify(nextState) !== JSON.stringify(this.gamepadState)
+    const activePadChanged = previousActiveIndex !== nextState.activeIndex
     this.gamepadState = nextState
     this.gamepadMove = reading?.move ?? { x: 0, y: 0 }
     this.gamepadAim = reading?.aim ?? { x: 0, y: 0 }
+    if (!nextState.connected || activePadChanged) this.retainedGamepadAim = null
+    if (nextState.connected && vectorLength(this.gamepadAim) > this.config.input.aimDeadZone) {
+      this.retainedGamepadAim = { ...this.gamepadAim }
+    }
 
-    const nextButtons: Record<LastChancesHand, boolean> = reading?.buttons ?? { left: false, right: false }
+    const buttonAt = (index: number | undefined): boolean => {
+      if (index === undefined) return false
+      const button = reading?.canonicalButtons[index]
+      return button?.pressed === true || (button?.value ?? 0) >= 0.5
+    }
+    const valueAt = (index: number | undefined): number => {
+      if (index === undefined) return 0
+      const value = reading?.canonicalButtons[index]?.value ?? 0
+      return clamp(value, 0, 1)
+    }
+    if (activePadChanged || this.gamepadNeedsReseed) {
+      if (activePadChanged && previousActiveIndex !== null) {
+        this.commitHeldChannels()
+        this.commitOrCancelProvisionalParry()
+        this.gestures.reset()
+        this.mylorikControls.reset()
+        this.dualSenseControls.reset()
+      }
+      const mylorik = this.config.input.mylorik
+      const dualsense = this.config.input.dualsense
+      this.gamepadButtons.left = buttonAt(this.config.input.gamepadLeftButton)
+      this.gamepadButtons.right = buttonAt(this.config.input.gamepadRightButton)
+      this.gamepadControlButtons.leftStrike = buttonAt(
+        this.controlSchemeValue === 'dualsense' ? dualsense?.gamepad.leftBumper : mylorik?.gamepad.leftBumper,
+      )
+      this.gamepadControlButtons.rightStrike = buttonAt(
+        this.controlSchemeValue === 'dualsense' ? dualsense?.gamepad.rightBumper : mylorik?.gamepad.rightBumper,
+      )
+      this.gamepadControlButtons.leftTechnique = buttonAt(mylorik?.gamepad.leftTrigger)
+      this.gamepadControlButtons.rightTechnique = buttonAt(mylorik?.gamepad.rightTrigger)
+      this.gamepadControlButtons.mobility = buttonAt(mylorik?.gamepad.mobilityButton)
+      this.gamepadControlButtons.interact = buttonAt(mylorik?.gamepad.interactButton)
+      this.gamepadControlButtons.circle = buttonAt(dualsense?.gamepad.circle)
+      this.gamepadControlButtons.cross = buttonAt(dualsense?.gamepad.cross)
+      this.gamepadControlButtons.options = buttonAt(dualsense?.gamepad.options)
+      this.gamepadControlButtons.dpadUp = reading?.buttons.dpadUp ?? false
+      this.gamepadControlButtons.dpadDown = reading?.buttons.dpadDown ?? false
+      this.gamepadControlButtons.dpadLeft = reading?.buttons.dpadLeft ?? false
+      this.gamepadControlButtons.dpadRight = reading?.buttons.dpadRight ?? false
+      this.gamepadTriggerValues.left = valueAt(dualsense?.gamepad.leftTrigger)
+      this.gamepadTriggerValues.right = valueAt(dualsense?.gamepad.rightTrigger)
+      this.gamepadNeedsReseed = false
+      if (metadataChanged) this.emitSnapshot(true)
+      return
+    }
+
+    const nextButtons: Record<LastChancesHand, boolean> = {
+      left: buttonAt(this.config.input.gamepadLeftButton),
+      right: buttonAt(this.config.input.gamepadRightButton),
+    }
     const leftPressed = nextButtons.left && !this.gamepadButtons.left
     const rightPressed = nextButtons.right && !this.gamepadButtons.right
+    const mylorik = this.config.input.mylorik
+    const dualsense = this.config.input.dualsense
+    const leftStrike = buttonAt(
+      this.controlSchemeValue === 'dualsense' ? dualsense?.gamepad.leftBumper : mylorik?.gamepad.leftBumper,
+    )
+    const rightStrike = buttonAt(
+      this.controlSchemeValue === 'dualsense' ? dualsense?.gamepad.rightBumper : mylorik?.gamepad.rightBumper,
+    )
+    const leftStrikePressed = leftStrike && !this.gamepadControlButtons.leftStrike
+    const rightStrikePressed = rightStrike && !this.gamepadControlButtons.rightStrike
+    const leftTechnique = buttonAt(mylorik?.gamepad.leftTrigger)
+    const rightTechnique = buttonAt(mylorik?.gamepad.rightTrigger)
+    const mobility = buttonAt(mylorik?.gamepad.mobilityButton)
+    const interact = buttonAt(mylorik?.gamepad.interactButton)
+    const cross = buttonAt(dualsense?.gamepad.cross)
+    const circle = buttonAt(dualsense?.gamepad.circle)
+    const options = buttonAt(dualsense?.gamepad.options)
+    const crossPressed = cross && !this.gamepadControlButtons.cross
+    const circlePressed = circle && !this.gamepadControlButtons.circle
+    const optionsPressed = options && !this.gamepadControlButtons.options
+    const dpadMoved = (reading?.buttons.dpadRight && !this.gamepadControlButtons.dpadRight)
+      || (reading?.buttons.dpadDown && !this.gamepadControlButtons.dpadDown)
+      ? 1
+      : (reading?.buttons.dpadLeft && !this.gamepadControlButtons.dpadLeft)
+        || (reading?.buttons.dpadUp && !this.gamepadControlButtons.dpadUp) ? -1 : 0
+    const now = performance.now()
+
+    if (optionsPressed) {
+      const handled = this.callbacks.onUiCommand?.('pause') ?? false
+      if (!handled && this.phase === 'playing') this.setPaused(!this.paused)
+    }
+    if (circlePressed && this.controlSchemeValue === 'dualsense') {
+      const handled = this.callbacks.onUiCommand?.('back') ?? false
+      if (!handled && this.phase !== 'playing') this.blockSemanticInput({
+        scheme: 'dualsense',
+        physicalHand: 'left',
+        hand: 'right',
+        intent: 'mobility',
+        phase: 'press',
+        source: 'gamepad',
+        atMs: now,
+        heldMs: 0,
+        value: 1,
+        commit: true,
+      }, null)
+    }
 
     if (this.phase === 'planning' && !this.paused) {
       const menuAxis = reading?.move ?? { x: 0, y: 0 }
@@ -3658,38 +4490,142 @@ export class LastChancesEngine {
       } else if (Math.abs(dominantAxis) <= 0.25) {
         this.gamepadMenuAxisEngaged = false
       }
-      if (leftPressed) this.cycleSelectedNode(1)
-      if (rightPressed && this.selectedNodeId) this.chooseNode(this.selectedNodeId)
+      if (dpadMoved !== 0) this.cycleSelectedNode(dpadMoved)
+      if (this.controlSchemeValue === 'dualsense') {
+        if (crossPressed) {
+          const handled = this.callbacks.onUiCommand?.('confirm') ?? false
+          if (!handled && this.selectedNodeId) this.chooseNode(this.selectedNodeId)
+        }
+      } else {
+        if (leftPressed) this.cycleSelectedNode(1)
+        if (rightPressed && this.selectedNodeId) this.chooseNode(this.selectedNodeId)
+      }
     } else if (!this.paused && this.phase === 'playing') {
-      const interactionChord = leftPressed && rightPressed && this.interact()
-      if (!interactionChord) {
-        for (const hand of LAST_CHANCES_HANDS) {
-          const pressed = nextButtons[hand]
-          if (pressed && !this.gamepadButtons[hand]) this.press(hand)
-          if (!pressed && this.gamepadButtons[hand]) this.release(hand)
+      if (this.controlSchemeValue === 'legacy') {
+        const interactionChord = leftPressed && rightPressed && this.interact()
+        if (!interactionChord) {
+          for (const hand of LAST_CHANCES_HANDS) {
+            const pressed = nextButtons[hand]
+            if (pressed && !this.gamepadButtons[hand]) this.press(hand)
+            if (!pressed && this.gamepadButtons[hand]) this.release(hand)
+          }
+        }
+      } else if (this.controlSchemeValue === 'mylorik') {
+        if (leftStrikePressed) this.mylorikControls.pressStrike('left', now, 'gamepad')
+        if (rightStrikePressed) this.mylorikControls.pressStrike('right', now, 'gamepad')
+        if (leftTechnique && !this.gamepadControlButtons.leftTechnique) {
+          this.mylorikControls.pressTechnique('left', now, 'gamepad')
+        }
+        if (!leftTechnique && this.gamepadControlButtons.leftTechnique) {
+          this.mylorikControls.releaseTechnique('left', now, 'gamepad')
+        }
+        if (rightTechnique && !this.gamepadControlButtons.rightTechnique) {
+          this.mylorikControls.pressTechnique('right', now, 'gamepad')
+        }
+        if (!rightTechnique && this.gamepadControlButtons.rightTechnique) {
+          this.mylorikControls.releaseTechnique('right', now, 'gamepad')
+        }
+        if (mobility && !this.gamepadControlButtons.mobility) {
+          this.activeMobilityPhysicalHand = this.selectMobilityPhysicalHand(now)
+          if (this.activeMobilityPhysicalHand) {
+            this.mylorikControls.pressMobility(this.activeMobilityPhysicalHand, now, 'gamepad')
+          }
+        }
+        if (!mobility && this.gamepadControlButtons.mobility && this.activeMobilityPhysicalHand) {
+          this.mylorikControls.releaseMobility(this.activeMobilityPhysicalHand, now, 'gamepad')
+          this.activeMobilityPhysicalHand = null
+        }
+        if (interact && !this.gamepadControlButtons.interact) this.interact()
+      } else {
+        if (leftStrikePressed) this.dualSenseControls.pressBumper('left', now, 'gamepad')
+        if (rightStrikePressed) this.dualSenseControls.pressBumper('right', now, 'gamepad')
+        this.dualSenseControls.updateTrigger(
+          'left',
+          valueAt(dualsense?.gamepad.leftTrigger),
+          now,
+          this.weapons.get(physicalClusterToRuntimeHand('left'))?.controls,
+          'gamepad',
+        )
+        this.dualSenseControls.updateTrigger(
+          'right',
+          valueAt(dualsense?.gamepad.rightTrigger),
+          now,
+          this.weapons.get(physicalClusterToRuntimeHand('right'))?.controls,
+          'gamepad',
+        )
+        if (crossPressed) this.interact()
+        // Circle is intentionally a combat no-op under DualSense.
+      }
+    } else if (!this.paused && this.phase === 'interaction') {
+      if (this.controlSchemeValue === 'dualsense') {
+        const menuAxis = reading?.move ?? { x: 0, y: 0 }
+        const dominantAxis = Math.abs(menuAxis.x) >= Math.abs(menuAxis.y) ? menuAxis.x : menuAxis.y
+        if ((Math.abs(dominantAxis) >= 0.55 && !this.gamepadChoiceAxisEngaged) || dpadMoved !== 0) {
+          this.cycleSelectedInteractionChoice(dpadMoved || (dominantAxis > 0 ? 1 : -1))
+          this.gamepadChoiceAxisEngaged = true
+        } else if (Math.abs(dominantAxis) <= 0.25) this.gamepadChoiceAxisEngaged = false
+        if (crossPressed && this.selectedInteractionChoiceId) {
+          this.chooseInteraction(this.selectedInteractionChoiceId)
+        }
+      } else if (rightPressed) {
+        const choice = this.currentNode?.interaction?.choices.find(candidate => (
+          this.interactionChoiceAvailable(candidate)
+        ))
+        if (choice) this.chooseInteraction(choice.id)
+      }
+    } else if (!this.paused) {
+      const confirmPressed = this.controlSchemeValue === 'dualsense' ? crossPressed : rightPressed
+      if (confirmPressed) {
+        const handled = this.controlSchemeValue === 'dualsense'
+          ? this.callbacks.onUiCommand?.('confirm') ?? false
+          : false
+        if (!handled) {
+          if (this.phase === 'dead') this.retryAttempt()
+          if (this.phase === 'won' || this.phase === 'outOfChances') this.newGeneration()
         }
       }
-    } else if (rightPressed && !this.paused && this.phase === 'interaction') {
-      const choice = this.currentNode?.interaction?.choices.find(candidate => (
-        this.interactionChoiceAvailable(candidate)
-      ))
-      if (choice) this.chooseInteraction(choice.id)
-    } else if (rightPressed && !this.paused) {
-      if (this.phase === 'dead') this.retryAttempt()
-      if (this.phase === 'won' || this.phase === 'outOfChances') this.newGeneration()
     }
 
     this.gamepadButtons.left = nextButtons.left
     this.gamepadButtons.right = nextButtons.right
+    this.gamepadControlButtons.leftStrike = leftStrike
+    this.gamepadControlButtons.rightStrike = rightStrike
+    this.gamepadControlButtons.leftTechnique = leftTechnique
+    this.gamepadControlButtons.rightTechnique = rightTechnique
+    this.gamepadControlButtons.mobility = mobility
+    this.gamepadControlButtons.interact = interact
+    this.gamepadControlButtons.circle = circle
+    this.gamepadControlButtons.cross = cross
+    this.gamepadControlButtons.options = options
+    this.gamepadControlButtons.dpadUp = reading?.buttons.dpadUp ?? false
+    this.gamepadControlButtons.dpadDown = reading?.buttons.dpadDown ?? false
+    this.gamepadControlButtons.dpadLeft = reading?.buttons.dpadLeft ?? false
+    this.gamepadControlButtons.dpadRight = reading?.buttons.dpadRight ?? false
+    this.gamepadTriggerValues.left = valueAt(dualsense?.gamepad.leftTrigger)
+    this.gamepadTriggerValues.right = valueAt(dualsense?.gamepad.rightTrigger)
     if (metadataChanged) this.emitSnapshot(true)
   }
 
   private cycleSelectedNode(direction: number): void {
     if (this.availableNodeIds.length === 0) return
     const currentIndex = this.selectedNodeId === null ? -1 : this.availableNodeIds.indexOf(this.selectedNodeId)
-    const nextIndex = (Math.max(0, currentIndex) + direction + this.availableNodeIds.length)
+    const baseIndex = currentIndex < 0 ? (direction > 0 ? -1 : 0) : currentIndex
+    const nextIndex = (baseIndex + direction + this.availableNodeIds.length)
       % this.availableNodeIds.length
     this.selectedNodeId = this.availableNodeIds[nextIndex]
+    this.emitSnapshot(true)
+  }
+
+  private cycleSelectedInteractionChoice(direction: number): void {
+    const choices = this.currentNode?.interaction?.choices
+      .filter(choice => this.interactionChoiceAvailable(choice)) ?? []
+    if (choices.length === 0) return
+    const currentIndex = this.selectedInteractionChoiceId === null
+      ? -1
+      : choices.findIndex(choice => choice.id === this.selectedInteractionChoiceId)
+    const baseIndex = currentIndex < 0 ? (direction > 0 ? -1 : 0) : currentIndex
+    const nextIndex = (baseIndex + direction + choices.length) % choices.length
+    this.selectedInteractionChoiceId = choices[nextIndex].id
     this.emitSnapshot(true)
   }
 
@@ -3717,41 +4653,243 @@ export class LastChancesEngine {
     this.canvas.removeEventListener('contextmenu', this.handleContextMenu)
   }
 
+  private selectMobilityPhysicalHand(atMs: number): LastChancesHand | null {
+    const candidates = (['left', 'right'] as const).flatMap((physicalHand) => {
+      const hand = physicalClusterToRuntimeHand(physicalHand)
+      const weapon = this.weapons.get(hand)
+      const techniqueArmed = this.mylorikControls.snapshot(physicalHand, atMs).techniqueArmed
+      return (weapon?.controls?.mylorik.activations ?? [])
+        .filter(activation => activation.intent === 'mobility')
+        .filter(activation => !activation.context
+          || this.controlContextActive(hand, activation.context)
+          || (activation.context === 'continuation' && techniqueArmed))
+        .map(activation => ({ physicalHand, hand, activation }))
+    }).sort((left, right) => right.activation.priority - left.activation.priority)
+    const ready = candidates.find(candidate => this.gestureReady(
+      candidate.hand,
+      candidate.activation.gesture,
+    ))
+    return (ready ?? candidates[0])?.physicalHand ?? null
+  }
+
+  private updateKeyboardDualSenseTriggers(atMs: number): void {
+    if (this.controlSchemeValue !== 'dualsense'
+      || this.phase !== 'playing'
+      || this.paused
+      || this.destroyed) return
+    const holdThreshold = this.config.input.mylorik?.techniqueHoldMs ?? this.config.input.holdMs
+    const continuationStep = this.config.input.mylorik?.continuationWindowMs ?? 480
+    for (const physicalHand of ['left', 'right'] as const) {
+      const state = this.keyboardDualSenseTriggers[physicalHand]
+      if (!state.down) continue
+      const controls = this.weapons.get(physicalClusterToRuntimeHand(physicalHand))?.controls
+      const gates = [...new Set(controls?.dualsense.nodes
+        .map(node => node.activationThreshold) ?? [])].sort((left, right) => left - right)
+      while (state.gateIndex + 1 < gates.length) {
+        const nextIndex = state.gateIndex + 1
+        const nextAt = holdThreshold + Math.max(0, nextIndex - 1) * continuationStep
+        if (atMs - state.startedAt < nextAt) break
+        state.gateIndex = nextIndex
+        this.dualSenseControls.updateTrigger(
+          physicalHand,
+          gates[nextIndex],
+          atMs,
+          controls,
+          'keyboard',
+        )
+      }
+    }
+  }
+
   private readonly handleKeyDown = (event: KeyboardEvent): void => {
     const activeControl = this.phase === 'playing' && !this.paused
-    const isAttackKey = this.config.input.leftKeys.includes(event.code)
-      || this.config.input.rightKeys.includes(event.code)
-    const isInteractionKey = event.code === 'KeyE'
+    const semanticKeyboard = this.controlSchemeValue === 'legacy'
+      ? null
+      : this.controlSchemeValue === 'mylorik'
+        ? this.config.input.mylorik?.keyboard
+        : this.config.input.dualsense?.keyboard
+    const isAttackKey = semanticKeyboard
+      ? semanticKeyboard.leftTechniqueKeys.includes(event.code)
+        || semanticKeyboard.rightTechniqueKeys.includes(event.code)
+        || semanticKeyboard.mobilityKeys.includes(event.code)
+      : this.config.input.leftKeys.includes(event.code)
+        || this.config.input.rightKeys.includes(event.code)
+    const isInteractionKey = semanticKeyboard
+      ? semanticKeyboard.interactKeys.includes(event.code)
+      : event.code === 'KeyE'
     if (activeControl && (MOVEMENT_KEYS.has(event.code) || isAttackKey || isInteractionKey)) {
       event.preventDefault()
     }
     if (activeControl && MOVEMENT_KEYS.has(event.code)) this.pressedKeys.add(event.code)
+    if (!activeControl) return
     if (event.repeat) return
     if (activeControl && isInteractionKey) {
       this.interact()
       return
     }
-    if (this.config.input.leftKeys.includes(event.code)) this.press('left')
-    if (this.config.input.rightKeys.includes(event.code)) this.press('right')
+    if (!semanticKeyboard) {
+      if (this.config.input.leftKeys.includes(event.code)) this.press('left')
+      if (this.config.input.rightKeys.includes(event.code)) this.press('right')
+      return
+    }
+    const now = performance.now()
+    if (semanticKeyboard.leftTechniqueKeys.includes(event.code)) {
+      if (this.controlSchemeValue === 'dualsense') {
+        this.keyboardDualSenseTriggers.left = { down: true, startedAt: now, gateIndex: 0 }
+        this.dualSenseControls.updateTrigger(
+          'left',
+          this.config.input.dualsense?.activationThreshold ?? 0.22,
+          now,
+          this.weapons.get(physicalClusterToRuntimeHand('left'))?.controls,
+          'keyboard',
+        )
+      } else this.mylorikControls.pressTechnique('left', now, 'keyboard')
+    }
+    if (semanticKeyboard.rightTechniqueKeys.includes(event.code)) {
+      if (this.controlSchemeValue === 'dualsense') {
+        this.keyboardDualSenseTriggers.right = { down: true, startedAt: now, gateIndex: 0 }
+        this.dualSenseControls.updateTrigger(
+          'right',
+          this.config.input.dualsense?.activationThreshold ?? 0.22,
+          now,
+          this.weapons.get(physicalClusterToRuntimeHand('right'))?.controls,
+          'keyboard',
+        )
+      } else this.mylorikControls.pressTechnique('right', now, 'keyboard')
+    }
+    if (semanticKeyboard.mobilityKeys.includes(event.code)) {
+      const hand = this.selectMobilityPhysicalHand()
+      this.activeMobilityPhysicalHand = hand
+      this.keyboardMobilityStartedAt = now
+      this.keyboardMobilityCommitted = false
+      if (hand) {
+        if (this.controlSchemeValue === 'dualsense') {
+          this.keyboardMobilityCommitted = this.handleSemanticInput({
+            scheme: 'dualsense',
+            physicalHand: hand,
+            hand: physicalClusterToRuntimeHand(hand),
+            intent: 'mobility',
+            phase: 'press',
+            source: 'keyboard',
+            atMs: now,
+            heldMs: 0,
+            value: 1,
+            commit: true,
+          }) === 'handled'
+        } else this.mylorikControls.pressMobility(hand, now, 'keyboard')
+      }
+    }
   }
 
   private readonly handleKeyUp = (event: KeyboardEvent): void => {
     this.pressedKeys.delete(event.code)
-    if (this.config.input.leftKeys.includes(event.code)) this.release('left')
-    if (this.config.input.rightKeys.includes(event.code)) this.release('right')
+    if (this.phase !== 'playing' || this.paused || this.destroyed) return
+    if (this.controlSchemeValue === 'legacy') {
+      if (this.config.input.leftKeys.includes(event.code)) this.release('left')
+      if (this.config.input.rightKeys.includes(event.code)) this.release('right')
+      return
+    }
+    const keyboard = this.controlSchemeValue === 'mylorik'
+      ? this.config.input.mylorik?.keyboard
+      : this.config.input.dualsense?.keyboard
+    if (!keyboard) return
+    const now = performance.now()
+    if (keyboard.leftTechniqueKeys.includes(event.code)) {
+      if (this.controlSchemeValue === 'dualsense') {
+        this.keyboardDualSenseTriggers.left = { down: false, startedAt: 0, gateIndex: 0 }
+        this.dualSenseControls.updateTrigger(
+          'left',
+          0,
+          now,
+          this.weapons.get(physicalClusterToRuntimeHand('left'))?.controls,
+          'keyboard',
+        )
+      } else this.mylorikControls.releaseTechnique('left', now, 'keyboard')
+    }
+    if (keyboard.rightTechniqueKeys.includes(event.code)) {
+      if (this.controlSchemeValue === 'dualsense') {
+        this.keyboardDualSenseTriggers.right = { down: false, startedAt: 0, gateIndex: 0 }
+        this.dualSenseControls.updateTrigger(
+          'right',
+          0,
+          now,
+          this.weapons.get(physicalClusterToRuntimeHand('right'))?.controls,
+          'keyboard',
+        )
+      } else this.mylorikControls.releaseTechnique('right', now, 'keyboard')
+    }
+    if (keyboard.mobilityKeys.includes(event.code)) {
+      if (this.activeMobilityPhysicalHand) {
+        if (this.controlSchemeValue === 'dualsense') {
+          if (!this.keyboardMobilityCommitted) {
+            const heldMs = Math.max(0, now - this.keyboardMobilityStartedAt)
+            this.handleSemanticInput({
+              scheme: 'dualsense',
+              physicalHand: this.activeMobilityPhysicalHand,
+              hand: physicalClusterToRuntimeHand(this.activeMobilityPhysicalHand),
+              intent: 'mobility',
+              phase: heldMs >= (this.config.input.mylorik?.techniqueHoldMs ?? 0)
+                ? 'hold'
+                : 'release',
+              source: 'keyboard',
+              atMs: now,
+              heldMs,
+              value: 0,
+              commit: true,
+            })
+          }
+        } else {
+          this.mylorikControls.releaseMobility(this.activeMobilityPhysicalHand, now, 'keyboard')
+        }
+      }
+      this.activeMobilityPhysicalHand = null
+      this.keyboardMobilityStartedAt = 0
+      this.keyboardMobilityCommitted = false
+    }
   }
 
-  private readonly handleBlur = (): void => {
-    this.commitHeldChannels()
-    this.commitOrCancelProvisionalParry()
+  private cleanupControlInputs(settleHeld: boolean): void {
+    if (settleHeld) {
+      this.commitHeldChannels()
+      this.commitOrCancelProvisionalParry()
+    }
     this.pressedKeys.clear()
     this.touchMove = { x: 0, y: 0 }
     this.gamepadMove = { x: 0, y: 0 }
     this.gamepadAim = { x: 0, y: 0 }
+    this.retainedGamepadAim = null
     this.gamepadButtons.left = false
     this.gamepadButtons.right = false
+    for (const key of Object.keys(this.gamepadControlButtons) as Array<keyof typeof this.gamepadControlButtons>) {
+      this.gamepadControlButtons[key] = false
+    }
+    this.gamepadTriggerValues.left = 0
+    this.gamepadTriggerValues.right = 0
+    this.feedbackChargeBandIds.left = null
+    this.feedbackChargeBandIds.right = null
+    this.resetContinuationFeedbackTracking()
     this.gamepadMenuAxisEngaged = false
+    this.gamepadChoiceAxisEngaged = false
+    this.gamepadNeedsReseed = true
+    this.activeMobilityPhysicalHand = null
+    this.keyboardMobilityStartedAt = 0
+    this.keyboardMobilityCommitted = false
+    this.keyboardDualSenseTriggers.left = { down: false, startedAt: 0, gateIndex: 0 }
+    this.keyboardDualSenseTriggers.right = { down: false, startedAt: 0, gateIndex: 0 }
     this.gestures.reset()
+    this.mylorikControls.reset()
+    this.dualSenseControls.reset()
+    void this.feedbackController.neutralize()
+  }
+
+  private cleanupControlInputsForReplacement(): void {
+    this.cancelHeldChannels()
+    this.commitOrCancelProvisionalParry()
+    this.cleanupControlInputs(false)
+  }
+
+  private readonly handleBlur = (): void => {
+    this.cleanupControlInputs(true)
   }
 
   private readonly handlePointerMove = (event: PointerEvent): void => {
@@ -3761,12 +4899,28 @@ export class LastChancesEngine {
   private readonly handlePointerDown = (event: PointerEvent): void => {
     if (event.pointerType === 'touch') return
     this.canvas.setPointerCapture?.(event.pointerId)
-    if (event.button === 0) this.press('left')
-    if (event.button === 2) this.press('right')
+    if (this.controlSchemeValue === 'legacy') {
+      if (event.button === 0) this.press('left')
+      if (event.button === 2) this.press('right')
+      return
+    }
+    const keyboard = this.controlSchemeValue === 'mylorik'
+      ? this.config.input.mylorik?.keyboard
+      : this.config.input.dualsense?.keyboard
+    const physicalHand = event.button === keyboard?.leftStrikeMouseButton
+      ? 'left'
+      : event.button === keyboard?.rightStrikeMouseButton ? 'right' : null
+    if (!physicalHand) return
+    if (this.controlSchemeValue === 'mylorik') {
+      this.mylorikControls.pressStrike(physicalHand, performance.now(), 'pointer')
+    } else {
+      this.dualSenseControls.pressBumper(physicalHand, performance.now(), 'pointer')
+    }
   }
 
   private readonly handlePointerUp = (event: PointerEvent): void => {
     if (event.pointerType === 'touch') return
+    if (this.controlSchemeValue !== 'legacy') return
     if (event.button === 0) this.release('left')
     if (event.button === 2) this.release('right')
   }
@@ -3843,6 +4997,68 @@ export class LastChancesEngine {
         available: this.interactionChoiceAvailable(choice),
       })),
     }
+  }
+
+  private controlRoleSnapshots(): LastChancesControlRoleSnapshot[] {
+    if (this.controlSchemeValue === 'legacy') return []
+    return LAST_CHANCES_HANDS.flatMap((hand) => {
+      const weapon = this.weapons.get(hand)
+      const controls = weapon?.controls
+      if (!weapon || !controls) return []
+      if (this.controlSchemeValue === 'mylorik') {
+        const instant = controls.mylorik.activations
+          .filter(activation => activation.intent === 'strike' && activation.phase === 'press')
+          .sort((left, right) => right.priority - left.priority)[0]
+        const contextual = controls.mylorik.activations
+          .filter(activation => activation.context !== undefined)
+          .filter(activation => this.continuationFeedbackSourceKeys(
+            hand,
+            activation.context!,
+          ).length > 0)
+          .filter(activation => this.gestureReady(hand, activation.gesture))
+          .sort((left, right) => right.priority - left.priority)[0]
+        return [{
+          hand,
+          instantMove: instant ? weapon.attacks[instant.gesture].name : controls.role,
+          techniqueOrTrigger: controls.role,
+          nextGate: contextual ? weapon.attacks[contextual.gesture].name : null,
+        }]
+      }
+      const physicalHand = runtimeHandToPhysicalCluster(hand)
+      const trigger = this.dualSenseControls.snapshot(physicalHand, performance.now())
+      const activeNode = controls.dualsense.nodes.find(node => node.id === trigger.nodeId)
+      const firstNode = controls.dualsense.nodes.find(node => (
+        node.id === controls.dualsense.startNodeId
+      )) ?? controls.dualsense.nodes[0]
+      const nextNodes = activeNode?.next
+        .map(id => controls.dualsense.nodes.find(node => node.id === id))
+        .filter((node): node is NonNullable<typeof node> => node !== undefined)
+        .sort((left, right) => left.activationThreshold - right.activationThreshold) ?? []
+      const contextReady = (node: typeof nextNodes[number]): boolean => {
+        const requiredBand = node.requiredChargeBandId
+          ? weapon.attacks.hold.charge?.bands.find(band => band.id === node.requiredChargeBandId)
+          : undefined
+        const bandReady = node.requiredChargeBandId === undefined
+          || (requiredBand !== undefined && trigger.heldMs >= requiredBand.minMs)
+        if (!bandReady) return false
+        return node.entryContext === 'continuation'
+          || this.controlContextActive(hand, node.entryContext)
+      }
+      const contextualNode = controls.dualsense.nodes
+        .filter(node => node.entryContext !== 'neutral')
+        .filter(node => this.continuationFeedbackSourceKeys(hand, node.entryContext).length > 0)
+        .filter(node => this.continuationFeedbackNodeReady(hand, node))
+        .sort((left, right) => left.activationThreshold - right.activationThreshold)[0]
+      const nextNode = activeNode
+        ? nextNodes.find(contextReady) ?? nextNodes[0]
+        : contextualNode ?? firstNode
+      return [{
+        hand,
+        instantMove: weapon.attacks[controls.dualsense.instantGesture].name,
+        techniqueOrTrigger: controls.dualsense.triggerRole || controls.role,
+        nextGate: nextNode ? weapon.attacks[nextNode.gesture].name : null,
+      }]
+    })
   }
 
   private enemyStatusSnapshot(enemy: RuntimeEnemy): LastChancesEnemySnapshot['statuses'] {
@@ -3931,7 +5147,7 @@ export class LastChancesEngine {
         })
       }
     }
-    const gestureInputs = LAST_CHANCES_HANDS.map(hand => this.gestures.snapshot(hand, now))
+    const gestureInputs = LAST_CHANCES_HANDS.map(hand => this.controlInputSnapshot(hand, now))
     const actionCues = LAST_CHANCES_HANDS.flatMap((hand) => {
       const weapon = this.weapons.get(hand)
       if (!weapon) return []
@@ -4083,10 +5299,19 @@ export class LastChancesEngine {
           }
         : null,
       interactionPrompt: this.capturableKnifeSpider()
-        ? 'E / обе кнопки: схватить Нож-паука со спины'
+        ? this.controlSchemeValue === 'legacy'
+          ? 'E / обе кнопки: схватить Нож-паука со спины'
+          : this.controlSchemeValue === 'mylorik'
+            ? 'F / Cross: схватить Нож-паука со спины'
+            : 'Cross: схватить Нож-паука со спины'
         : null,
+      controlScheme: this.controlSchemeValue,
+      controlCue: this.controlCue ? { ...this.controlCue } : null,
+      controlRoles: this.controlRoleSnapshots(),
+      feedback: this.feedbackController.snapshot(),
       gamepad: { ...this.gamepadState },
       selectedNodeId: this.selectedNodeId,
+      selectedInteractionChoiceId: this.selectedInteractionChoiceId,
     }
   }
 
@@ -4580,7 +5805,7 @@ export class LastChancesEngine {
     for (const [handIndex, hand] of LAST_CHANCES_HANDS.entries()) {
       const weapon = this.weapons.get(hand)
       if (!weapon) continue
-      const input = this.gestures.snapshot(hand, now)
+      const input = this.controlInputSnapshot(hand, now)
       const candidate = input.candidateGesture
       const followUpBecameHold = input.pressed
         && input.sequence === 'afterHoldTap'

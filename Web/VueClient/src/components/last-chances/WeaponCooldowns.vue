@@ -2,8 +2,11 @@
 import { computed } from 'vue'
 import { CircleDot, Gauge, Lock, MousePointerClick, TimerReset, Zap } from 'lucide-vue-next'
 import type {
+  LastChancesControlRoleSnapshot,
+  LastChancesControlScheme,
   LastChancesGestureInputSnapshot,
   LastChancesHandActionCue,
+  LastChancesSemanticControlCue,
   LastChancesWeaponStateSnapshot,
 } from '../../features/last-chances'
 import type { LastChancesLocale } from './RunMapOverlay.vue'
@@ -13,6 +16,7 @@ export type GestureKey = 'tap' | 'doubleTap' | 'doubleTapHold' | 'hold' | 'holdT
 
 export type GestureCooldown = {
   key: GestureKey
+  physicalLabel?: string
   name: string
   remainingMs: number
   totalMs: number
@@ -30,12 +34,15 @@ export type WeaponCooldown = {
   gestures: GestureCooldown[]
   input?: LastChancesGestureInputSnapshot
   cue?: LastChancesHandActionCue
+  controlCue?: LastChancesSemanticControlCue
+  controlRole?: LastChancesControlRoleSnapshot
   state?: LastChancesWeaponStateSnapshot
   chargeMaxMs?: number
 }
 
 const props = defineProps<{
   locale: LastChancesLocale
+  controlScheme: LastChancesControlScheme
   weapons: WeaponCooldown[]
 }>()
 
@@ -43,6 +50,17 @@ const copy = {
   en: {
     title: 'Gesture memory',
     subtitle: 'One button, five intentions per hand',
+    schemeTitles: {
+      legacy: 'Gesture memory',
+      mylorik: 'Control routes',
+      dualsense: 'Trigger routes',
+    },
+    schemeSubtitles: {
+      legacy: 'One button, five intentions per hand',
+      mylorik: 'Immediate strikes and visible technique branches',
+      dualsense: 'Instant bumpers and authored combo gates',
+    },
+    nextGate: 'Next gate',
     primary: 'Primary hand',
     secondary: 'Secondary hand',
     ready: 'Ready',
@@ -79,6 +97,17 @@ const copy = {
   ru: {
     title: 'Память жестов',
     subtitle: 'Одна кнопка — пять намерений для каждой руки',
+    schemeTitles: {
+      legacy: 'Память жестов',
+      mylorik: 'Маршруты управления',
+      dualsense: 'Маршруты триггеров',
+    },
+    schemeSubtitles: {
+      legacy: 'Одна кнопка — пять намерений для каждой руки',
+      mylorik: 'Мгновенные удары и видимые ветки техник',
+      dualsense: 'Мгновенные бамперы и авторские комбо-гейты',
+    },
+    nextGate: 'Следующий гейт',
     primary: 'Основная рука',
     secondary: 'Вторая рука',
     ready: 'Готово',
@@ -115,6 +144,8 @@ const copy = {
 } as const
 
 const t = computed(() => copy[props.locale])
+const panelTitle = computed(() => t.value.schemeTitles[props.controlScheme])
+const panelSubtitle = computed(() => t.value.schemeSubtitles[props.controlScheme])
 
 function cooldownPercent(gesture: GestureCooldown): number {
   if (gesture.remainingMs <= 0 || gesture.totalMs <= 0) return 100
@@ -163,15 +194,35 @@ function chargeSegments(weapon: WeaponCooldown) {
 function activeChargeLabel(weapon: WeaponCooldown): string {
   return weapon.cue?.chargeBands.find(band => band.active)?.label ?? t.value.charge
 }
+
+function inputFeedbackLabel(weapon: WeaponCooldown): string {
+  if (props.controlScheme === 'legacy') {
+    return weapon.cue?.phase === 'recovery'
+      ? `${t.value.recovery} · ${Math.ceil(recoveryMs(weapon))} ms`
+      : t.value.input[weapon.input?.phase ?? 'idle']
+  }
+  if (weapon.cue?.phase === 'recovery') {
+    return `${t.value.recovery} · ${Math.ceil(recoveryMs(weapon))} ms`
+  }
+  if (weapon.controlCue?.label) return weapon.controlCue.label
+  if (weapon.controlRole?.nextGate) {
+    return `${t.value.nextGate}: ${weapon.controlRole.nextGate}`
+  }
+  return weapon.controlRole?.techniqueOrTrigger ?? t.value.ready
+}
+
+function gesturePrompt(gesture: GestureCooldown): string {
+  return gesture.physicalLabel || t.value.gestures[gesture.key]
+}
 </script>
 
 <template>
-  <section class="lc-cooldowns" :aria-label="t.title">
+  <section class="lc-cooldowns" :aria-label="panelTitle">
     <header class="lc-cooldown-heading">
       <div class="lc-cooldown-mark"><MousePointerClick :size="16" aria-hidden="true" /></div>
       <div>
-        <h2>{{ t.title }}</h2>
-        <p>{{ t.subtitle }}</p>
+        <h2>{{ panelTitle }}</h2>
+        <p>{{ panelSubtitle }}</p>
       </div>
     </header>
 
@@ -183,10 +234,17 @@ function activeChargeLabel(weapon: WeaponCooldown): string {
         :class="`is-${weapon.hand}`"
       >
         <header>
-          <span class="lc-hand-key">{{ weapon.hand === 'primary' ? 'L' : 'R' }}</span>
+          <span class="lc-hand-key">
+            {{ controlScheme === 'legacy'
+              ? (weapon.hand === 'primary' ? 'L' : 'R')
+              : (weapon.hand === 'primary' ? 'R' : 'L') }}
+          </span>
           <div>
             <small>{{ weapon.hand === 'primary' ? t.primary : t.secondary }}</small>
             <h3>{{ weapon.name }}</h3>
+            <span v-if="controlScheme !== 'legacy' && weapon.controlRole" class="lc-control-role-copy">
+              {{ weapon.controlRole.instantMove }} · {{ weapon.controlRole.techniqueOrTrigger }}
+            </span>
           </div>
           <CircleDot :size="15" aria-hidden="true" />
         </header>
@@ -230,9 +288,7 @@ function activeChargeLabel(weapon: WeaponCooldown): string {
           :style="{ '--cue-color': weapon.cue?.color || '#c7a45d' }"
           role="status"
         >
-          <span>{{ weapon.cue?.phase === 'recovery'
-            ? `${t.recovery} · ${Math.ceil(recoveryMs(weapon))} ms`
-            : t.input[weapon.input?.phase ?? 'idle'] }}</span>
+          <span>{{ inputFeedbackLabel(weapon) }}</span>
           <small v-if="weapon.cue?.phase !== 'recovery' && weapon.cue?.heldMs">{{ Math.ceil(weapon.cue.heldMs) }} ms</small>
           <small v-else-if="weapon.cue?.phase !== 'recovery' && weapon.input?.remainingMs">{{ Math.ceil(weapon.input.remainingMs) }} ms</small>
           <i aria-hidden="true">
@@ -292,7 +348,7 @@ function activeChargeLabel(weapon: WeaponCooldown): string {
             <div class="lc-gesture-copy">
               <span class="lc-gesture-index">{{ weapon.gestures.indexOf(gesture) + 1 }}</span>
               <span class="lc-gesture-name">
-                <small>{{ t.gestures[gesture.key] }}</small>
+                <small>{{ gesturePrompt(gesture) }}</small>
                 <strong>{{ gesture.name }}</strong>
               </span>
               <span class="lc-gesture-time">
@@ -385,6 +441,7 @@ function activeChargeLabel(weapon: WeaponCooldown): string {
 .is-secondary .lc-hand-key { border-color: rgba(170, 68, 77, 0.45); color: #c77479; }
 .lc-weapon header small { display: block; color: #666b69; font-size: 0.48rem; font-weight: 800; letter-spacing: 0.09em; text-transform: uppercase; }
 .lc-weapon header h3 { max-width: 13rem; margin: 0.08rem 0 0; overflow: hidden; color: #dedbd2; font-size: 0.7rem; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+.lc-control-role-copy { display: block; max-width: 13rem; margin-top: 0.12rem; overflow: hidden; color: #857993; font-size: 0.43rem; line-height: 1.2; text-overflow: ellipsis; white-space: nowrap; }
 
 .lc-weapon-state { display: flex; flex-wrap: wrap; align-items: center; gap: 0.32rem; padding: 0.38rem 0.55rem; border-bottom: 1px solid rgba(255, 255, 255, 0.04); background: rgba(255, 255, 255, 0.012); }
 .lc-resource { position: relative; min-width: 9rem; flex: 1 1 10rem; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 0.3rem; padding-bottom: 0.28rem; }

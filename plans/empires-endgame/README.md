@@ -59,7 +59,11 @@ Current execution status supplied by the designer on 2026-07-17:
   and transfers, Customs tariffs, western Stable consumers, coastal Sea Ports and
   diplomacy UI/QA landed as one change-set. Unauthored unions, relationship actions,
   player fleet/shipbuilding and the three reviewed absent buildings remain explicit.
-- **Next prompt: Phase 6C** (`phase-06c-economy-content.md`).
+- **Phase 6C — complete.** Schema-v11 economy-content configuration, save-envelope v9,
+  live tithe/material relics, targeted Customs smuggling, horse theft, insurance offers,
+  inverted ♦A trade isolation and exact deferred/raw-absent manifests landed as one
+  change-set.
+- **Next prompt: Phase 7** (`phase-07-quests-dialogue.md`).
 
 Scope decisions confirmed by the designer (2026-07-16):
 
@@ -86,7 +90,7 @@ graph TD
   P5 --> P6A
   P3B --> P6B[6B diplomacy + external trade]
   P6A --> P6B
-  P6B --> P6C[6C economy content closure]
+  P6B --> P6C[6C complete: economy content closure]
   P5 --> P7[7 quests + dialogue]
   P4C --> P7
   P3A --> P8[8 God presence]
@@ -118,8 +122,8 @@ graph TD
 | `phase-04c-advisors-persts-capital.md` | **Complete/historical. 4C:** advisor flow, suit/Grand Advisor rules, governor персты, capital slot governance. |
 | `phase-05-epidemics.md` | **Complete/historical.** Typed epidemic lifecycle, medical chain, vaccination faces, relic/combo closure and honest City Gates/Pharmaceuticals/Quarantine deferrals. |
 | `phase-06-economy-external.md` | **Complete/historical. 6A:** Bank/insurance/Fair/Temple and passive Tavern substrate. |
-| `phase-06b-diplomacy-external.md` | **6B:** real diplomacy/external trade, Людовик, Stable/Customs/Sea Port, missing trade buildings. |
-| `phase-06c-economy-content.md` | **6C:** economy gifts, relics, events, resources, technologies, and card faces. |
+| `phase-06b-diplomacy-external.md` | **Complete/historical. 6B:** real diplomacy/external trade, Людовик, Stable/Customs/Sea Port, missing trade buildings. |
+| `phase-06c-economy-content.md` | **Complete/historical. 6C:** reconciled economy gifts, relics, events, resources, technologies, and card faces; implemented every candidate with complete typed consumers. |
 | `phase-07-quests-dialogue.md` | Quest + dialogue-graph engine, journal/overlay UI, Палач quest port. |
 | `phase-08-god-presence.md` | Deck-memory, anti-bito, God lines, Милость confirmation. |
 | `phase-09-tavern-mystic.md` | Separate mystic-card catalog, hand order, Пиковая Дама, tavern minigame. |
@@ -255,8 +259,8 @@ graph TD
   named owners.
 - Temple preaching/tithe and operational relic slots are live. Relic flags are effective
   only while assigned to an accessible operational Temple; already-claimed legacy relics
-  migrate without duplicate one-time resolution. P6C owns further economy relic content,
-  not the slot lifecycle. Tavern levels feed the canonical army recruitment and maximum
+  migrate without duplicate one-time resolution. P6C subsequently delivered the two
+  economy relic consumers without changing the slot lifecycle. Tavern levels feed the canonical army recruitment and maximum
   morale readers; `tavernMinigame` alone remains P9-owned.
 
 ## P6B handoff
@@ -281,8 +285,32 @@ graph TD
   fleet was inferred from enemy naval TD, so fleet, shipbuilding and expedition-return
   capabilities remain blocked.
 - Чёрный рынок, Посольство and Внешний рынок remain config-absent reviewed identities. No
-  unions, relationship-changing actions or refusal consequences were invented. P6C owns
-  the Customs smuggling event and remaining economy content, not the external offer core.
+  unions, relationship-changing actions or refusal consequences were invented. P6C
+  subsequently consumed the Customs trade marker without changing the external offer core.
+
+## P6C handoff
+
+- The compatibility baseline is config schema 11 and campaign/save envelope 9. The new
+  canonical state owns bounded event decisions, one-shot Customs policy, horse-theft
+  disable/cooldown/hostile pact, offered insurance cities and stable event targets. A
+  genuine schema-v10 config receives this section disabled; schema-v8 saves receive empty
+  lifecycle state.
+- `relic-tithe` changes the P6A preaching quote with one final floor; the material relic
+  removes Smithy iron and Stable horses only through canonical construction helpers. Both
+  contribute only from an accessible operational Temple slot.
+- Customs smuggling requires real P6B trade provenance and freezes its Customs city.
+  Stop/tax consequences settle once during the next con and expire. Horse theft requires
+  the P6A барон plus an operational Stable; hunt disables, ignore cools down and deal
+  persists one hostile actor while paying through the horses ledger. The insurance event
+  starts the existing P6A contract rather than duplicating coverage state.
+- Inverted ♦A scales its owned temporary flags, blocks external offers, blocks cross-region
+  transfers and cross-region Temple donors, still permits same-region transfers, and
+  cleans up at the normal card boundary. Normal ♦6 remains deferred because monopoly,
+  cartel and Дон state do not exist.
+- The exact deferred candidates are the five P6C gifts, lumber concession, white-stone
+  event/resource, carpentry and normal ♦6. Fish-current subbranches, meteor radiation,
+  South resort/watermills, white-stone consumers and monopoly/Дон remain config-absent
+  P12B review rows rather than anonymous live content.
 
 ## How to execute the remaining prompts
 
@@ -295,7 +323,7 @@ to paste into one large task.
 The graph permits some separate-worktree parallelism, but these phases commonly touch the
 same config, types, engine, docs, and version file. The safest single-worktree order is:
 
-`6B → 6C → 7 → 8 → 9 → 10 → 11A → 11B → 12 → 12B → 13`.
+`7 → 8 → 9 → 10 → 11A → 11B → 12 → 12B → 13`.
 
 Use this opening prompt, replacing `<phase-file>` with exactly one file:
 
@@ -343,7 +371,8 @@ gates. Do not commit or push.
   flags and the pending TD-loss queue exactly once. P4B moves config to v6; P4C moves config
   to v7 and saves to v5; P5 moves config/save to v8/v6; P6A moves them to v9/v7 for typed
   domestic economy and migrates old relic flags into Temple-owned activation; P6B moves
-  them to v10/v8 for typed external relationships, offers, trades and transfers. Never reuse a hard-coded version if
+  them to v10/v8 for typed external relationships, offers, trades and transfers; P6C moves
+  them to v11/v9 for economy-content events, exact targets and bounded decision history. Never reuse a hard-coded version if
   the executed repository is already farther ahead.
 - **New component homes**: `src/components/empires-endgame/` (`TdBattle.vue`, `DialogueOverlay.vue`, `QuestJournal.vue`, `DeckMemoryPanel.vue`, …); new feature modules under `features/empires-endgame/` (`combat/`, `td/`, `quests.ts`, `alchemy/`, `tavern/`, `inventory/`, `chess/`).
 - `engine.ts` (~2.5k lines): extract internal modules (an `engine/` dir) only when a phase already touches that cluster; no big-bang refactor.

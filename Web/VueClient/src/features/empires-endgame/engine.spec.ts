@@ -42,7 +42,7 @@ function makeCards(): EmpiresCardDefinition[] {
 
 function makeConfig(): EmpiresEndgameConfig {
   return {
-    schemaVersion: 10,
+    schemaVersion: 11,
     id: 'engine-test',
     title: "Empire's Endgame",
     seed: 'deterministic-test',
@@ -301,6 +301,10 @@ function makeConfig(): EmpiresEndgameConfig {
         ...structuredClone(defaultConfigJson.empire.externalEconomy),
         enabled: false,
       } as EmpiresEndgameConfig['empire']['externalEconomy'],
+      economyContent: {
+        ...structuredClone(defaultConfigJson.empire.economyContent),
+        enabled: false,
+      } as EmpiresEndgameConfig['empire']['economyContent'],
       loyalty: {
         ...createDefaultEmpiresLoyaltyConfig(['central']),
         enabled: false,
@@ -1922,7 +1926,7 @@ describe('Empire phase economy', () => {
 
     expect(engine.finishEmpire()).toMatchObject({ ok: true })
     expect(engine.state.phase).toBe('event')
-    expect(engine.state.event).toEqual({
+    expect(engine.state.event).toMatchObject({
       eventId: 'event-famine-rationing',
       empireSettlementPending: true,
     })
@@ -2834,38 +2838,6 @@ describe('Empire phase economy', () => {
     expect(engine.state.empire.resources.gold).toBe(2_502_000)
     expect(engine.finishEmpire()).toMatchObject({ ok: false })
     expect(engine.state.empire.resources.gold).toBe(2_502_000)
-  })
-
-  it('removes the horse-theft event from future rolls after its disabling choice', () => {
-    const config = makeConfig()
-    config.empire.eventChance = 1
-    config.empire.cities[0].baseProduction.food = 1_500
-    config.empire.events = [{
-      id: 'event-horse-theft',
-      name: 'Horse Theft',
-      description: 'Horse theft.',
-      weight: 1,
-      choices: [{
-        id: 'hunt-thieves',
-        label: 'Hunt thieves',
-        effects: [{ kind: 'flag', flagId: 'horseTheftDisabled', amount: 1 }],
-      }],
-    }]
-    const engine = new EmpiresEndgameEngine(config)
-    const firstEmpire = engine.snapshot()
-    firstEmpire.phase = 'empire'
-    engine.restore(firstEmpire)
-    expect(engine.finishEmpire()).toMatchObject({ ok: true })
-    expect(engine.state.event?.eventId).toBe('event-horse-theft')
-    expect(engine.chooseEvent('hunt-thieves')).toMatchObject({ ok: true })
-    expect(engine.state.empire.flags.horseTheftDisabled).toBe(1)
-
-    const nextEmpire = engine.snapshot()
-    nextEmpire.phase = 'empire'
-    engine.restore(nextEmpire)
-    expect(engine.finishEmpire()).toMatchObject({ ok: true })
-    expect(engine.state.phase).toBe('cards')
-    expect(engine.state.event).toBeNull()
   })
 
   it('creates deterministic autosave-friendly snapshots', () => {

@@ -1,10 +1,18 @@
-import { cleanup, fireEvent, render, waitFor } from '@testing-library/vue'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { cleanup, fireEvent, render, waitFor, within } from '@testing-library/vue'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import defaultConfigJson from '../../public/99lc/game-config.json'
 
 const mocks = vi.hoisted(() => ({
   loadConfig: vi.fn(),
   interact: vi.fn(),
+  constructorCount: 0,
+  constructorOptions: [] as unknown[],
+  controlSchemes: [] as string[],
+  feedbackPreferences: [] as unknown[],
+  enableDualSenseFeatures: vi.fn().mockResolvedValue(true),
+  disableEnhancedFeedback: vi.fn(),
+  applyControlDefinition: vi.fn().mockReturnValue(true),
+  uiCommand: null as null | ((command: 'confirm' | 'back' | 'pause') => boolean),
   snapshot: null as unknown,
 }))
 
@@ -13,24 +21,50 @@ vi.mock('../features/last-chances', async () => {
     '../features/last-chances',
   )
   class FakeLastChancesEngine {
-    private readonly callbacks: { onSnapshot?: (snapshot: unknown) => void }
+    private readonly callbacks: {
+      onSnapshot?: (snapshot: unknown) => void
+      onUiCommand?: (command: 'confirm' | 'back' | 'pause') => boolean
+    }
 
     constructor(
       _canvas: unknown,
       _config: unknown,
-      callbacks: { onSnapshot?: (snapshot: unknown) => void } = {},
+      callbacks: {
+        onSnapshot?: (snapshot: unknown) => void
+        onUiCommand?: (command: 'confirm' | 'back' | 'pause') => boolean
+      } = {},
+      options?: unknown,
     ) {
       this.callbacks = callbacks
+      mocks.constructorCount += 1
+      mocks.constructorOptions.push(options)
+      mocks.uiCommand = callbacks.onUiCommand ?? null
     }
 
     start() {
       if (mocks.snapshot) this.callbacks.onSnapshot?.(mocks.snapshot)
     }
     destroy() {}
+    setPaused() {}
     setTouchMove() {}
     setTouchAim() {}
     press() {}
     release() {}
+    setControlScheme(scheme: string) {
+      mocks.controlSchemes.push(scheme)
+    }
+    setFeedbackPreferences(preferences: unknown) {
+      mocks.feedbackPreferences.push(preferences)
+    }
+    enableDualSenseFeatures() {
+      return mocks.enableDualSenseFeatures()
+    }
+    disableEnhancedFeedback() {
+      mocks.disableEnhancedFeedback()
+    }
+    applyControlDefinition(config: unknown) {
+      return mocks.applyControlDefinition(config)
+    }
     interact() {
       mocks.interact()
       return true
@@ -53,10 +87,24 @@ import LastChances from './LastChances.vue'
 
 const defaultConfig = defaultConfigJson as unknown as LastChancesConfig
 
+beforeEach(() => {
+  window.localStorage.clear()
+})
+
 afterEach(() => {
   cleanup()
+  window.localStorage.clear()
   mocks.loadConfig.mockReset()
   mocks.interact.mockReset()
+  mocks.constructorCount = 0
+  mocks.constructorOptions = []
+  mocks.controlSchemes = []
+  mocks.feedbackPreferences = []
+  mocks.enableDualSenseFeatures.mockClear()
+  mocks.disableEnhancedFeedback.mockClear()
+  mocks.applyControlDefinition.mockClear()
+  mocks.applyControlDefinition.mockReturnValue(true)
+  mocks.uiCommand = null
   mocks.snapshot = null
 })
 
@@ -104,7 +152,21 @@ function makeSnapshot(
     })),
     actionCues: [],
     weaponStates: [],
+    moveQuests: [],
+    swarm: null,
     interactionPrompt: null,
+    controlScheme: 'legacy',
+    controlCue: null,
+    controlRoles: [],
+    feedback: {
+      tier: 0,
+      status: 'controls-only',
+      mode: 'full',
+      intensity: 1,
+      reducedHaptics: false,
+      permission: 'not-requested',
+      message: null,
+    },
     gamepad: {
       supported: true,
       connected: false,
@@ -116,9 +178,179 @@ function makeSnapshot(
       profile: null,
     },
     selectedNodeId: null,
+    selectedInteractionChoiceId: null,
     ...overrides,
   }
 }
+
+describe('99LC control-scheme preference', () => {
+  it('defaults absent storage to DeepList and renders exactly three named options', async () => {
+    mocks.loadConfig.mockResolvedValue(cloneLastChancesConfig(defaultConfig))
+
+    const { getByLabelText } = render(LastChances)
+    const select = getByLabelText('Control scheme') as HTMLSelectElement
+
+    await waitFor(() => expect(mocks.constructorCount).toBe(1))
+    expect(select.value).toBe('legacy')
+    expect(Array.from(select.options).map(option => ({ value: option.value, text: option.text }))).toEqual([
+      { value: 'legacy', text: 'DeepList' },
+      { value: 'mylorik', text: 'mylorik' },
+      { value: 'dualsense', text: 'DualSense' },
+    ])
+    expect(mocks.constructorOptions[0]).toMatchObject({ controlScheme: 'legacy' })
+  })
+
+  it('falls back to DeepList when the stored scheme is unknown', async () => {
+    window.localStorage.setItem('99lc:control-scheme', 'unknown-scheme')
+    mocks.loadConfig.mockResolvedValue(cloneLastChancesConfig(defaultConfig))
+
+    const { getByLabelText } = render(LastChances)
+
+    await waitFor(() => expect(mocks.constructorCount).toBe(1))
+    expect((getByLabelText('Control scheme') as HTMLSelectElement).value).toBe('legacy')
+    expect(mocks.constructorOptions[0]).toMatchObject({ controlScheme: 'legacy' })
+  })
+
+  it('restores a known preference before engine creation', async () => {
+    window.localStorage.setItem('99lc:control-scheme', 'mylorik')
+    mocks.loadConfig.mockResolvedValue(cloneLastChancesConfig(defaultConfig))
+
+    const { getByLabelText, getByTestId } = render(LastChances)
+
+    await waitFor(() => expect(mocks.constructorCount).toBe(1))
+    expect((getByLabelText('Control scheme') as HTMLSelectElement).value).toBe('mylorik')
+    expect(getByTestId('control-scheme-summary').textContent).toContain('Immediate strikes')
+    expect(mocks.constructorOptions[0]).toMatchObject({ controlScheme: 'mylorik' })
+  })
+
+  it('hot-switches and persists without recreating the engine or mutating Builder config', async () => {
+    const config = cloneLastChancesConfig(defaultConfig)
+    const original = cloneLastChancesConfig(config)
+    mocks.snapshot = makeSnapshot(config)
+    mocks.loadConfig.mockResolvedValue(config)
+    const { getByLabelText, getByTestId } = render(LastChances)
+
+    await waitFor(() => expect(mocks.constructorCount).toBe(1))
+    await fireEvent.update(getByLabelText('Control scheme'), 'mylorik')
+
+    expect(mocks.constructorCount).toBe(1)
+    expect(mocks.controlSchemes).toEqual(['mylorik'])
+    expect(window.localStorage.getItem('99lc:control-scheme')).toBe('mylorik')
+    expect(config).toEqual(original)
+    expect(getByTestId('control-scheme-summary').textContent).toContain('Immediate strikes')
+    expect(getByTestId('control-guide').textContent).toContain('Technique hold')
+    expect(getByTestId('control-guide').textContent).not.toContain('Five gestures per hand')
+  })
+
+  it('bridges the Builder live-control payload without recreating or switching the engine', async () => {
+    const config = cloneLastChancesConfig(defaultConfig)
+    mocks.snapshot = makeSnapshot(config, { controlScheme: 'mylorik' })
+    mocks.loadConfig.mockResolvedValue(config)
+    const { getAllByRole, getByLabelText, getByRole } = render(LastChances)
+
+    await waitFor(() => expect(mocks.constructorCount).toBe(1))
+    await fireEvent.click(getAllByRole('button', { name: 'Builder' })[0])
+    await fireEvent.update(getByLabelText('Double-tap window (ms)'), '272')
+    await fireEvent.click(getByRole('button', { name: 'Apply control tuning live' }))
+
+    expect(mocks.applyControlDefinition).toHaveBeenCalledTimes(1)
+    expect((mocks.applyControlDefinition.mock.calls[0][0] as LastChancesConfig).input.doubleTapMs)
+      .toBe(272)
+    expect(mocks.constructorCount).toBe(1)
+    expect(mocks.controlSchemes).toEqual([])
+  })
+
+  it('requests enhanced DualSense access only from the explicit action', async () => {
+    const config = cloneLastChancesConfig(defaultConfig)
+    mocks.snapshot = makeSnapshot(config)
+    mocks.loadConfig.mockResolvedValue(config)
+    const { getByLabelText, getByTestId } = render(LastChances)
+
+    await waitFor(() => expect(mocks.constructorCount).toBe(1))
+    await fireEvent.update(getByLabelText('Control scheme'), 'dualsense')
+    expect(mocks.enableDualSenseFeatures).not.toHaveBeenCalled()
+    expect(getByTestId('dualsense-capability').textContent).toContain('Controls only')
+    expect(getByTestId('dualsense-capability').textContent).toContain('Tier 0')
+    expect(getByTestId('dualsense-tactile-legend').textContent).toContain('Light click')
+
+    await fireEvent.click(getByTestId('enable-dualsense-features'))
+    await waitFor(() => expect(mocks.enableDualSenseFeatures).toHaveBeenCalledTimes(1))
+  })
+
+  it('disables enhanced DualSense output only from its explicit action', async () => {
+    const config = cloneLastChancesConfig(defaultConfig)
+    window.localStorage.setItem('99lc:control-scheme', 'dualsense')
+    mocks.snapshot = makeSnapshot(config, {
+      controlScheme: 'dualsense',
+      feedback: {
+        tier: 2,
+        status: 'enhanced',
+        mode: 'full',
+        intensity: 1,
+        reducedHaptics: false,
+        permission: 'granted',
+        message: null,
+      },
+    })
+    mocks.loadConfig.mockResolvedValue(config)
+    const { getByTestId } = render(LastChances)
+
+    await waitFor(() => expect(mocks.constructorCount).toBe(1))
+    await fireEvent.click(getByTestId('disable-dualsense-features'))
+    expect(mocks.disableEnhancedFeedback).toHaveBeenCalledTimes(1)
+  })
+
+  it('bridges DualSense confirm to page-owned narrative before route selection', async () => {
+    const config = cloneLastChancesConfig(defaultConfig)
+    window.localStorage.setItem('99lc:control-scheme', 'dualsense')
+    mocks.snapshot = makeSnapshot(config, {
+      phase: 'planning',
+      availableNodeIds: ['opening-node'],
+      controlScheme: 'dualsense',
+    })
+    mocks.loadConfig.mockResolvedValue(config)
+    const { getByText } = render(LastChances)
+
+    await waitFor(() => expect(mocks.uiCommand).not.toBeNull())
+    expect(getByText(`1 / ${config.narrative!.prologue.length}`)).not.toBeNull()
+    expect(mocks.uiCommand?.('confirm')).toBe(true)
+    await waitFor(() => expect(getByText(`2 / ${config.narrative!.prologue.length}`)).not.toBeNull())
+  })
+
+  it('renders the explicit DualSense post-combat controller focus', async () => {
+    const config = cloneLastChancesConfig(defaultConfig)
+    window.localStorage.setItem('99lc:control-scheme', 'dualsense')
+    mocks.snapshot = makeSnapshot(config, {
+      phase: 'interaction',
+      controlScheme: 'dualsense',
+      selectedInteractionChoiceId: 'focused-choice',
+      interaction: {
+        title: 'Controller choice',
+        body: 'Select deliberately.',
+        choices: [{
+          id: 'focused-choice',
+          label: 'Focused',
+          description: 'The selected choice.',
+          effect: {},
+          available: true,
+        }, {
+          id: 'other-choice',
+          label: 'Other',
+          description: 'Not selected.',
+          effect: {},
+          available: true,
+        }],
+      },
+    })
+    mocks.loadConfig.mockResolvedValue(config)
+    const { getByRole } = render(LastChances)
+
+    await waitFor(() => {
+      expect(getByRole('button', { name: /Focused/ }).getAttribute('aria-current')).toBe('true')
+    })
+    expect(getByRole('button', { name: /Other/ }).getAttribute('aria-current')).toBeNull()
+  })
+})
 
 describe('99LC page loadout HUD', () => {
   it('ships exactly the seven requested weapon definitions', () => {
@@ -307,6 +539,155 @@ describe('99LC page loadout HUD', () => {
 })
 
 describe('99LC builder weapon controls', () => {
+  it('emits control tuning live without replacing the fresh-generation Apply action', async () => {
+    const config = cloneLastChancesConfig(defaultConfig)
+    const { container, emitted, getByLabelText, getByRole, getByText } = render(BuilderDrawer, {
+      props: { open: true, locale: 'en', config },
+    })
+
+    const scalarEdits: Array<[string, string]> = [
+      ['Double-tap window (ms)', '271'],
+      ['Basic-combo continuation window (ms)', '911'],
+      ['Hold threshold (ms)', '661'],
+      ['Hold combo limit (ms)', '2311'],
+      ['Hold follow-up tap window (ms)', '491'],
+      ['Technique hold threshold (ms)', '671'],
+      ['One-intent buffer (ms)', '161'],
+      ['Continuation window (ms)', '501'],
+      ['Trigger activation', '0.24'],
+      ['Trigger release', '0.13'],
+      ['Trigger hysteresis', '0.1'],
+      ['Shallow gate', '0.25'],
+      ['Medium gate', '0.5'],
+      ['Deep gate', '0.75'],
+      ['Final gate', '0.92'],
+      ['Maximum magnitude', '0.74'],
+      ['Maximum effect (ms)', '940'],
+      ['Blocked-cue interval (ms)', '250'],
+      ['Start position', '0.19'],
+      ['End position', '0.31'],
+      ['Resistance', '0.25'],
+      ['Force', '0.29'],
+      ['Transition (ms)', '36'],
+      ['Effect duration (ms)', '91'],
+      ['Magnitude', '0.23'],
+    ]
+    for (const [label, value] of scalarEdits) {
+      await fireEvent.update(getByLabelText(label), value)
+    }
+
+    const firstNode = container.querySelector<HTMLElement>('.lc-combo-node-editor')!
+    await fireEvent.click(within(firstNode).getByLabelText('Override adaptive profile'))
+    const overrideEdits: Array<[string, string]> = [
+      ['Start position', '0.17'],
+      ['End position', '0.32'],
+      ['Resistance', '0.26'],
+      ['Force', '0.3'],
+      ['Transition (ms)', '38'],
+      ['Effect duration (ms)', '92'],
+      ['Magnitude', '0.24'],
+    ]
+    for (const [label, value] of overrideEdits) {
+      await fireEvent.update(within(firstNode).getByLabelText(label), value)
+    }
+
+    expect(getByText('Definition valid')).not.toBeNull()
+    await fireEvent.click(getByRole('button', { name: 'Apply control tuning live' }))
+
+    const liveConfig = emitted().applyControls?.[0]?.[0] as LastChancesConfig
+    expect(liveConfig.input).toMatchObject({
+      doubleTapMs: 271,
+      tapComboWindowMs: 911,
+      holdMs: 661,
+      holdMaxMs: 2311,
+      holdThenDoubleTapWindowMs: 491,
+      mylorik: {
+        techniqueHoldMs: 671,
+        bufferMs: 161,
+        continuationWindowMs: 501,
+      },
+      dualsense: {
+        activationThreshold: 0.24,
+        releaseThreshold: 0.13,
+        hysteresis: 0.1,
+        gatePositions: { shallow: 0.25, medium: 0.5, deep: 0.75, final: 0.92 },
+        feedback: {
+          maxMagnitude: 0.74,
+          maxDurationMs: 940,
+          blockedRepeatMs: 250,
+          profiles: {
+            click: {
+              startPosition: 0.19,
+              endPosition: 0.31,
+              resistance: 0.25,
+              force: 0.29,
+              transitionMs: 36,
+              effectMs: 91,
+              magnitude: 0.23,
+            },
+          },
+        },
+      },
+    })
+    expect(liveConfig.weapons[0].controls?.primary.dualsense.nodes[0].adaptiveOverride).toEqual({
+      startPosition: 0.17,
+      endPosition: 0.32,
+      resistance: 0.26,
+      force: 0.3,
+      transitionMs: 38,
+      effectMs: 92,
+      magnitude: 0.24,
+    })
+    expect(emitted().apply).toBeUndefined()
+
+    await fireEvent.click(getByRole('button', { name: 'Apply & start fresh generation' }))
+    expect(emitted().apply).toHaveLength(1)
+  })
+
+  it('retunes every authored DualSense node that uses an edited global gate', async () => {
+    const config = cloneLastChancesConfig(defaultConfig)
+    const originalGates = { ...config.input.dualsense!.gatePositions }
+    const replacements = {
+      shallow: 0.25,
+      medium: 0.5,
+      deep: 0.75,
+      final: 0.92,
+    }
+    const originalNodes = config.weapons.flatMap(weapon => (
+      [weapon.controls?.primary, weapon.controls?.secondary].flatMap(record => (
+        record?.dualsense.nodes.map(node => ({ id: node.id, threshold: node.activationThreshold })) ?? []
+      ))
+    ))
+    const { emitted, getByLabelText, getByRole, getByText } = render(BuilderDrawer, {
+      props: { open: true, locale: 'en', config },
+    })
+
+    await fireEvent.update(getByLabelText('Shallow gate'), String(replacements.shallow))
+    await fireEvent.update(getByLabelText('Medium gate'), String(replacements.medium))
+    await fireEvent.update(getByLabelText('Deep gate'), String(replacements.deep))
+    await fireEvent.update(getByLabelText('Final gate'), String(replacements.final))
+
+    expect(getByText('Definition valid')).not.toBeNull()
+    await fireEvent.click(getByRole('button', { name: 'Apply control tuning live' }))
+    const liveConfig = emitted().applyControls?.[0]?.[0] as LastChancesConfig
+    expect(liveConfig.input.dualsense?.gatePositions).toEqual(replacements)
+
+    const updatedNodes = liveConfig.weapons.flatMap(weapon => (
+      [weapon.controls?.primary, weapon.controls?.secondary].flatMap(record => (
+        record?.dualsense.nodes.map(node => ({ id: node.id, threshold: node.activationThreshold })) ?? []
+      ))
+    ))
+    expect(updatedNodes).toHaveLength(originalNodes.length)
+    updatedNodes.forEach((node, index) => {
+      const original = originalNodes[index]
+      const gate = (Object.keys(originalGates) as Array<keyof typeof originalGates>)
+        .find(key => originalGates[key] === original.threshold)
+      expect(gate).toBeDefined()
+      expect(node.id).toBe(original.id)
+      expect(node.threshold).toBe(replacements[gate!])
+    })
+  })
+
   it('keeps enabled and behavior coupled and creates collision-free charge-band IDs', async () => {
     const config = cloneLastChancesConfig(defaultConfig)
     const attack = config.weapons[0].attacks.doubleTapHold
