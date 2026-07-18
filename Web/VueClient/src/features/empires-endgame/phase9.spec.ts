@@ -298,6 +298,8 @@ describe('Empire\'s Endgame Phase 9 Tavern and mystic cards', () => {
     const queenId = value.tavern.queen.mysticDefinitionId
     const listId = 'mystic-list'
     const lorikId = 'mystic-lorik'
+    delete value.mysticCards.find(card => card.id === listId)!.deferredReason
+    delete value.mysticCards.find(card => card.id === lorikId)!.deferredReason
     const engine = new EmpiresEndgameEngine(value)
     engine.state.con = 4
     engine.state.mystics.instances = {
@@ -409,6 +411,7 @@ describe('Empire\'s Endgame Phase 9 Tavern and mystic cards', () => {
     const state = new EmpiresEndgameEngine(value).snapshot()
     const queenId = value.tavern.queen.mysticDefinitionId
     const listId = 'mystic-list'
+    delete value.mysticCards.find(card => card.id === listId)!.deferredReason
     state.mystics.instances = {
       [queenId]: mystic(queenId, state.con, { inverted: true }),
       [listId]: mystic(listId, state.con),

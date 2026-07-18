@@ -24,7 +24,7 @@ deferred content (`validateDeferredReasons` / `validateLiveEffects` in
 `features/empires-endgame/config.ts`). Counts after completed phases come from the actual
 config/tests, not this historical baseline.
 
-Current execution status supplied by the designer on 2026-07-17:
+Current execution status, including the closure audit completed on 2026-07-18:
 
 - **Phase 0 — complete.** Its prompt is historical; do not amend/re-run it.
 - **Phase 1 — complete.** Its prompt is historical; do not amend/re-run it.
@@ -67,7 +67,7 @@ Current execution status supplied by the designer on 2026-07-17:
   triggers/graphs, persistent memory, atomic choices, mandatory dialogue, journal/overlay,
   all 43 later-demo Палач passages, Golden Idol/Witch typed event bridges and quest QA landed
   as one change-set. The Idol monument branch and the inventoried regional backlog remain
-  explicit P12B review items.
+  explicit future-tranche review items after the P12B closure audit.
 - **Phase 8 — complete.** Schema-v13 God configuration, save-envelope v11, immutable
   next-draw-first deck memory, serialized limited-use mode, deterministic capped
   consecutive-`бито` intervention/history, isolated authored God dialogue and accessible
@@ -88,8 +88,9 @@ Current execution status supplied by the designer on 2026-07-17:
 - **Phase 11A — complete/conditional.** Schema-v16 expedition configuration, save-envelope
   v14, typed fortress/zone payloads, canonical per-soldier roster, origin provisioning,
   abstract logistics time, complaint quest and the shared TD assault/settlement path landed
-  as one change-set. Opened-zone content, the later veteran bonus, Reaper/millet, the absent
-  plate exception and inverted ♠3 retain exact source-gap blockers.
+  as one change-set. Opened-zone content, the later veteran bonus, `Жнец`/`пшено`, the
+  carrier-less `Рыцарь Хладной Руки` plate exception and inverted ♠3 retain exact source-gap
+  blockers.
 - **Phase 11B — complete/conditional.** Schema-v17 inventory configuration, save-envelope
   v15, deterministic fixed-step falling-cart packing, immutable origin item ownership,
   exact-once packed-provision settlement, accessible controls, QA replay and the full
@@ -102,7 +103,14 @@ Current execution status supplied by the designer on 2026-07-17:
   is lower-priority background; movement, complete roster/instance eligibility, player
   loss/draw, entry/settlement and opponent/information policy are also semantically missing.
   Chess therefore remains absent from config/runtime/UI with no version bump.
-- **Next prompt: Phase 12B** (`phase-12b-content-closure.md`).
+- **Phase 12B — complete/conditional.** The complete raw-source→config→owner manifest
+  covers live, deferred, reviewed, absent and excluded content. The final audit has no
+  `ready-now` rows, so schema 17/save 15 remain unchanged and no executable mechanic/carrier
+  is added or un-deferred; three deferred display identities are reconciled. Residual
+  semantic/substrate gaps are explicitly routed to a future content tranche.
+  Machine coverage now rejects an unowned config carrier, a raw catalog group without a
+  disposition, and any final `ready-now` row.
+- **Next prompt: Phase 13** (`phase-13-stabilization.md`).
 
 Scope decisions confirmed by the designer (2026-07-16):
 
@@ -142,7 +150,7 @@ graph TD
   P7 --> P11A
   P11A --> P11B[11B complete: Tetris-inventory]
   P9 --> P12[12 Chess gate complete: blocked on design]
-  P6C --> P12B[12B content closure]
+  P6C --> P12B[12B complete: content closure]
   P10 --> P12B
   P11B --> P12B
   P12 --> P12B
@@ -170,7 +178,7 @@ graph TD
 | `phase-11-expeditions-inventory.md` | **Complete/conditional. 11A:** typed forts/zones, provisions, canonical soldiers/veterans, complaints and shared TD assault; exact residual source gaps remain blocked. |
 | `phase-11b-tetris-inventory.md` | **Complete/conditional. 11B:** deterministic falling-cart provision packing, immutable item ownership, optional direct-provision fallback, accessible UI and QA/full-chain coverage; equipment and perst semantics remain blocked. |
 | `phase-12-chess.md` | **Gate complete/conditional.** Current sources audited; implementation remains absent until the blocking P12 ledger cells receive complete designer verdicts. |
-| `phase-12b-content-closure.md` | Raw-source/config carrier closure sweep; no new substrate. |
+| `phase-12b-content-closure.md` | **Complete/conditional.** Exhaustive raw/config ownership manifest and machine assertion; no ready-now residue, schema/save change or invented substrate. |
 | `phase-13-stabilization.md` | Earliest-to-latest compatibility, all-minigame integration, storage/performance stabilization. |
 
 ## P3B handoff
@@ -242,10 +250,10 @@ graph TD
   Every city action and preview uses `cityAccessBlockedReason`; later phases must not bypass
   it for economy, epidemic, quest or diplomacy targets.
 - Forum (P4A), Military Academy (P3B), white stone (P6C), Колизей and Тетракорархос
-  (P4C/P12B review) remain explicitly deferred in the capital manifest. P6B made the
-  raw coastal city markers authoritative for dedicated Sea Port slots. Great houses and
-  unique races remain P7/P12B review rather
-  than anonymous governance flags.
+  (future-tranche review after P12B) remain explicitly deferred in the capital manifest.
+  P6B made the raw coastal city markers authoritative for dedicated Sea Port slots. Great
+  houses and unique races remain future-tranche review rather than anonymous governance
+  flags.
 
 ## P5 handoff
 
@@ -350,7 +358,7 @@ graph TD
 - The exact deferred candidates are the five P6C gifts, lumber concession, white-stone
   event/resource, carpentry and normal ♦6. Fish-current subbranches, meteor radiation,
   South resort/watermills, white-stone consumers and monopoly/Дон remain config-absent
-  P12B review rows rather than anonymous live content.
+  future-tranche review rows rather than anonymous live content.
 
 ## P9 handoff
 
@@ -416,8 +424,9 @@ graph TD
   Its common settlement path owns casualties, first/second wounds, veteran threshold,
   recovery, reward/zone/complaint exact-once guards and bounded digest-compacted history.
 - The exact residual manifest is `opened-zone-content`, the null later-battle veteran bonus,
-  the absent stable `холодная рука` plate exception, Reaper/millet semantics and every fort
-  beyond South. West and swamp profiles are configured combat inventories, not live routes.
+  the stable raw `Рыцарь Хладной Руки` identity without a current unit/passive/acquisition
+  carrier, `Жнец`/`пшено` semantics and every fort beyond South. West and swamp profiles are
+  configured combat inventories, not live routes.
 
 ## P11B handoff
 
@@ -464,6 +473,76 @@ graph TD
   Chess implementation must first receive complete designer verdicts for `P12-02` through
   `P12-09`, then execute the conditional half of `phase-12-chess.md` as its own change-set.
 
+## P12B handoff
+
+- Config schema remains 17 and campaign/save envelope remains 15. The closure sweep found
+  no `ready-now` row, un-deferred no marker and introduced no new content substrate. Its
+  exact boundary moves from 159 to 165 `deferredReason` properties because normal
+  `card-clubs-2`, normal `card-joker-jester`, inverted `card-diamonds-6`, normal
+  `card-diamonds-ace`, inverted `card-spades-5` and inverted `card-spades-8` now expose
+  missing or partial empire passives as explicit blockers; 34 entries remain across 15
+  `deferredSubfeatures` arrays, plus one each of the Grand Advisor `accessDeferredReason`,
+  Tavern Maria `encounterDeferredReason` and expedition veteran
+  `laterBattleBonusDeferredReason` markers. The surviving binary effects on ♥7 and ♦A are
+  capped at level 1 so card-improvement points cannot be spent on no-op levels.
+- `Web/VueClient/src/features/empires-endgame/content-coverage.ts` enumerates every owned
+  config carrier, including root, city-slot, quest-stage/node, unit-loadout, loyalty-gate and
+  nested TD IDs. `content-coverage-manifest.ts` freezes all 33 raw source entries, a
+  1,149-message JSON-export spine, residual review/out policy, stable identities, owners,
+  consumers, evidence, final dispositions and exact raw→config link counts.
+  `__tests__/phase12b.spec.ts` fails closed on an unowned nested carrier, a changed marker,
+  source-message drift, a removed link/disposition, any final `ready-now` row and Chess
+  leakage. Its maintained projection fingerprint also catches same-count message-ID and
+  valid-but-wrong-link substitutions. Raw semantic extraction remains a manual reviewed
+  artifact; the source spine/fingerprint is an ownership/drift boundary, not automatic
+  concept discovery. The extensionless prompt, population PNG and parent-message
+  `Palach`/`Palach2`, `EE_TD`, `EE_chest` and text attachments were manually inspected but
+  are not content-digested by the 1,149-ID spine.
+- The final configured inventory is 106 standard card faces (`10` live / `96` deferred),
+  with Антон де Лорян, Мария Брауз and Конрад Лоуренс reconciled to their exact current
+  definition identities without un-deferring either side;
+  17 gifts/relics (`12` / `5`), 9 resources (`7` / `2`), 22 buildings (`20` / `2`),
+  5 live units, 63 technologies/reforms/steel definitions (`42` unmarked / `21`
+  marker-deferred), 10 events
+  (`7` / `3`) and 4 live quests. Golden Idol retains one deferred choice. The separate
+  mystic catalog has four definitions (`1` live / `3` deferred); combat equipment has 32
+  (`22` unmarked / `10` deferred), while only eight have a reachable campaign acquisition
+  path and the other 24 remain blocked support definitions. TD grade-choice sets have 20
+  (`10` / `10`). The exact machine inventory has 1,112 config carriers (`823` live / `142`
+  blocked-semantic / `13` blocked-substrate / `134` review) and 355 stable raw semantic
+  identities (`18` live / `140` blocked-semantic / `56` blocked-substrate / `126` review /
+  `15` out) across 33 source entries and 1,149 frozen JSON message IDs. The population image
+  supplies the `500,000` total, an approximately half-area nonworking band and several class
+  labels. `общее` message `1511700113230397530` supplies Крепостные / Мещане / Дворяне /
+  Духовенство, while `застройка` message `1511796892000850051` links крестьяне→фермы,
+  мещане→ремесло and духовенство→храм. Together they own the five-class topology; the bundled
+  `250,000` / `200,000` / `30,000` / `10,000` / `10,000` class amounts are configuration
+  defaults rather than image-derived values. P6B-03 represents trade-harbor
+  message `1440660308434882642` through the live favorable Sea Port quote proxy, while a
+  separate blocked-semantic row retains the literal land-tax/water-zero contract pending
+  transaction-medium classification, exemption scope and Customs interaction. The
+  raw inventory explicitly retains construction message `1515084481201967266` and the seven
+  categories `Имперцы — легионеры/гвардия`, `Пограничные феодалы`, `Региональные феодалы`,
+  `Наемники`, `Дружина`, `Ополчение`, `Солдаты`; P3A's 12 semantic
+  and 3 substrate residuals; P3B's 51 absent steel nodes, 8 absent methods/gear prerequisites
+  and 3 absent military buildings; current technology/doctrine gaps, including the review
+  link from source `Плотничество` to differently modeled `resource:carpentry`, the one-off
+  `Госпиталь` relation to live `Больница`; and exact
+  P7/P8/P11/card seams. The exact P8 anti-bito line from `zbs` message
+  `1287539702731247656` is linked live. The 45 selected war named-message samples sit beneath
+  the complete 230-message war source spine and are not claimed to be an exhaustive unit
+  catalog.
+- TD, Tavern, Alchemy and Inventory remain the four live minigame lifecycles. Chess remains
+  blocked by the P12 semantic gate and absent from config, runtime, Builder, QA and UI.
+  Great houses/races, incomplete capital actions, the quest backlog, missing economy
+  branches and all other raw-absent sketches are future-content-tranche review or blocked
+  rows, not P13 work.
+- P13 receives this frozen manifest for compatibility, storage, performance and integrated
+  campaign stabilization. Any later content work must first update the manifest and obtain
+  the recorded designer verdict; it may not use P13 to create missing substrate.
+- The closure assertion/review change-set advances `GameVersion` once to `5.0.28`; config
+  and campaign/save schemas remain unchanged.
+
 ## How to execute the remaining prompts
 
 Run **one phase/subphase file per fresh Codex task and per change-set**. Do not combine
@@ -473,9 +552,12 @@ starting its dependent prompt. The lettered files are dependency boundaries, not
 to paste into one large task.
 
 The graph permits some separate-worktree parallelism, but these phases commonly touch the
-same config, types, engine, docs, and version file. The safest single-worktree order is:
+same config, types, engine, docs, and version file. The completed chain through content
+closure is:
 
-`7 → 8 → 9 → 10 → 11A → 11B → 12 → 12B → 13`.
+`7 → 8 → 9 → 10 → 11A → 11B → 12 → 12B`.
+
+The remaining single-worktree step is P13.
 
 Use this opening prompt, replacing `<phase-file>` with exactly one file:
 
@@ -508,7 +590,7 @@ gates. Do not commit or push.
 
 ## Architecture cornerstones
 
-- **One minigame envelope for all five minigames**: `EmpiresMinigameSession {kind, plan, seed, attempt, origin, rulesIdentity}` / `EmpiresMinigameResult`; campaign methods `beginMinigame` / `resolveMinigame` / `abortMinigame` (abort = authored penalty, no save-scumming). A reload restarts from immutable `plan + seed` with `attempt + 1`.
+- **One shared envelope for every implemented minigame**: TD, Tavern, Alchemy and Inventory use `EmpiresMinigameSession {kind, plan, seed, attempt, origin, rulesIdentity}` / `EmpiresMinigameResult`; campaign methods `beginMinigame` / `resolveMinigame` / `abortMinigame` (abort = authored penalty, no save-scumming). A reload restarts from immutable `plan + seed` with `attempt + 1`. Chess remains absent until its P12 semantic gates are resolved; if implemented later, it must join this same lifecycle rather than introduce a parallel one.
 - **Fixed-timestep sims** (deliberate divergence from last-chances' rAF-delta loop at `features/last-chances/engine.ts:724`): `step()` advances exactly `tickMs`; battle result = pure `f(plan, seed, commandLog)`; headless QA runs the *same* sim — a single resolution path. The rAF loop only accumulates time and interpolates rendering.
 - **Replay identity**: plans embed resolved simulation data or carry an immutable config/rules digest; commands use tick/turn indices. Config changes cannot mutate an active session.
 - **Shared combat module** `features/empires-endgame/combat/` (damage types, armor classes, counter matrix, equipment catalog) consumed by TD, expeditions, and events; steel techs pay off as `equipment` entries with tech prerequisites.

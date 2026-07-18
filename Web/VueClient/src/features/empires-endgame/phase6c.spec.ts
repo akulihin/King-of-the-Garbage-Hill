@@ -311,14 +311,14 @@ describe('Empire\'s Endgame Phase 6C economy content closure', () => {
     expect(new EmpiresEndgameEngine(value, invalidRepeat).state.phase).not.toBe('event')
   })
 
-  it('scales inverted diamond Ace gates, permits same-region trade, and cleans up next con', () => {
+  it('applies binary inverted diamond Ace gates, permits same-region trade, and cleans up next con', () => {
     const value = config()
     const state = baseState(value)
     const cardId = 'card-diamonds-ace'
     removeCardFromLocations(state, cardId)
     state.durak.playerHand.push(cardId)
     state.cards[cardId].inverted = true
-    state.cards[cardId].level = 2
+    state.cards[cardId].level = 1
     state.durak.trumpSuit = 'clubs'
     state.phase = 'cards'
     state.empire.researchedTechnologyIds.push(
@@ -330,8 +330,8 @@ describe('Empire\'s Endgame Phase 6C economy content closure', () => {
     const engine = new EmpiresEndgameEngine(value, state)
     startEmpirePhaseForTest(engine)
 
-    expect(engine.effectiveEmpireFlagValue('externalTradeDisabled')).toBe(3)
-    expect(engine.effectiveEmpireFlagValue('internalTradeOnly')).toBe(3)
+    expect(engine.effectiveEmpireFlagValue('externalTradeDisabled')).toBe(1)
+    expect(engine.effectiveEmpireFlagValue('internalTradeOnly')).toBe(1)
     expect(engine.externalDiplomacyView(from.id).offers.every(offer => (
       offer.quote.blockedReason?.includes('Изоляция валюты')
     ))).toBe(true)

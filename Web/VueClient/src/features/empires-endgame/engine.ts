@@ -4753,7 +4753,7 @@ export class EmpiresEndgameEngine {
     const seenDefinitions = new Set<string>()
     for (const [instanceId, instance] of Object.entries(state.mystics.instances)) {
       const definition = this.mysticDefinitions.get(instance.definitionId)
-      if (!definition || instance.id !== instanceId || instance.owner !== 'player'
+      if (!definition || definition.deferredReason || instance.id !== instanceId || instance.owner !== 'player'
         || seenDefinitions.has(instance.definitionId)
         || typeof instance.inverted !== 'boolean'
         || !['zone', 'returning'].includes(instance.status)

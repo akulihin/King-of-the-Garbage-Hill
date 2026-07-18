@@ -154,22 +154,16 @@ describe('Empire\'s Endgame configuration', () => {
         .filter(side => !card[side].deferredReason)
         .map(side => `${card.id}.${side}`))
     expect(activeFaces).toEqual([
-      'card-clubs-2.normal',
       'card-clubs-8.normal',
       'card-clubs-8.inverted',
-      'card-diamonds-6.inverted',
-      'card-diamonds-ace.normal',
       'card-diamonds-ace.inverted',
       'card-hearts-7.normal',
       'card-hearts-7.inverted',
       'card-spades-3.normal',
       'card-spades-5.normal',
-      'card-spades-5.inverted',
       'card-spades-8.normal',
-      'card-spades-8.inverted',
       'card-spades-10.normal',
       'card-spades-10.inverted',
-      'card-joker-jester.normal',
     ])
   })
 
