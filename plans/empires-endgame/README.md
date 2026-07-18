@@ -96,7 +96,13 @@ Current execution status supplied by the designer on 2026-07-17:
   prepare → pack/skip → assault → settlement path landed as one change-set. Packing is an
   optional provision-only route; equipment packing and the perst packer retain exact
   source-gap blockers.
-- **Next prompt: Phase 12** (`phase-12-chess.md`).
+- **Phase 12 — design gate complete/blocked.** The current board image plus every named
+  `карты`/`персонажи`/`общее` cross-reference were audited into the P12 executable-rules
+  table. The current image contains a black king while the only old no-king/capture-all note
+  is lower-priority background; movement, complete roster/instance eligibility, player
+  loss/draw, entry/settlement and opponent/information policy are also semantically missing.
+  Chess therefore remains absent from config/runtime/UI with no version bump.
+- **Next prompt: Phase 12B** (`phase-12b-content-closure.md`).
 
 Scope decisions confirmed by the designer (2026-07-16):
 
@@ -135,7 +141,7 @@ graph TD
   P3B --> P11A[11A complete: expeditions]
   P7 --> P11A
   P11A --> P11B[11B complete: Tetris-inventory]
-  P9 --> P12[12 Chess design gate]
+  P9 --> P12[12 Chess gate complete: blocked on design]
   P6C --> P12B[12B content closure]
   P10 --> P12B
   P11B --> P12B
@@ -163,7 +169,7 @@ graph TD
 | `phase-10-tetris-alchemy.md` | **Complete/conditional.** Deterministic Assembly, reagents, acceleration and configured explosion → typed epidemic; incomplete Disassembly/recipe/aftermath semantics retain exact blockers. |
 | `phase-11-expeditions-inventory.md` | **Complete/conditional. 11A:** typed forts/zones, provisions, canonical soldiers/veterans, complaints and shared TD assault; exact residual source gaps remain blocked. |
 | `phase-11b-tetris-inventory.md` | **Complete/conditional. 11B:** deterministic falling-cart provision packing, immutable item ownership, optional direct-provision fallback, accessible UI and QA/full-chain coverage; equipment and perst semantics remain blocked. |
-| `phase-12-chess.md` | Chess design gate; implementation stays disabled until the rules table is executable. |
+| `phase-12-chess.md` | **Gate complete/conditional.** Current sources audited; implementation remains absent until the blocking P12 ledger cells receive complete designer verdicts. |
 | `phase-12b-content-closure.md` | Raw-source/config carrier closure sweep; no new substrate. |
 | `phase-13-stabilization.md` | Earliest-to-latest compatibility, all-minigame integration, storage/performance stabilization. |
 
@@ -436,6 +442,28 @@ graph TD
   bonus or required-entry rule, so later work must not infer those contracts from the joke or
   from the provision implementation.
 
+## P12 handoff
+
+- The P12 readiness gate was executed against the current `шахматы` attachment and every
+  named cross-reference. Its complete executable-rules table and stable source identities
+  are in `docs/EMPIRES-ENDGAME-DESIGN-REVIEW.md`; P12B and P13 should use that audit rather
+  than the older compressed Chess summary.
+- The current source image visually shows an `8×8` board, a full black roster including a
+  king on `e8`, candidate player card placements, and a marked `g8` knight. The lower-priority
+  `ZBS MAKING` note instead says the enemy has no king and capture-all is victory. This
+  unresolved conflict blocks roster, check and termination semantics.
+- Legal movement/capture/special moves, complete player and enemy roster identities,
+  current-instance zone eligibility, Антон's full shared-controller cadence, player
+  loss/draw/repetition, entry/reward/failure/abort/card consequences, and opponent/privacy
+  policy are also missing semantics. They are not tunable-number gaps and may not receive
+  standard-Chess defaults.
+- Config schema remains 17 and campaign/save envelope remains 15. There is no `/chess`
+  carrier, fifth runtime minigame kind, player/debug entry, Builder surface, QA fixture or
+  placeholder engine. `GameVersion` is unchanged because the gate shipped no game behavior.
+- P12B may proceed with Chess unavailable and should preserve/assert that isolation. A later
+  Chess implementation must first receive complete designer verdicts for `P12-02` through
+  `P12-09`, then execute the conditional half of `phase-12-chess.md` as its own change-set.
+
 ## How to execute the remaining prompts
 
 Run **one phase/subphase file per fresh Codex task and per change-set**. Do not combine
@@ -574,7 +602,10 @@ sequential version bump, and commit-message proposal are mandatory for each subp
 - **ТД**: attack/defense на границах регионов vs Альянс; волны каждые 4 месяца (≈2 кона); башни 4 последовательных грейда (региональный→общий→общий→региональный ультра) × 4 варианта, стакаются; тир-схема (башня/стрелковый тип/снаряды/региональное); регион-правила: болото — недосягаемые вышки, лес — лучники на деревьях, север — только катапульты/требушеты + ТД против кораблей, пустыня — иссушение при дэфе; замковый дэф; юниты на дэф, заслоны, крепость-пост, партизаны/наёмники-кемпы (EE_TD sketch); Эдемская катапульта.
 - **Тетрис-алхимия**: Сбор (фигуры с 4 сторон к центральной конструкции; управление ближайшей; нельзя двигать назад; ускорение ×3 к центру) и Разбор; реагенты (убрать цвет, добавить серые, сброс ускорения); ускорение арифм. прогрессией, cap 400% → взрыв → эпидемия/мутанты у лаборатории; poison-craft путь со стенками.
 - **Тетрис-инвентарь**: паковка экспедиции, тележка, вещи падают в реальном времени.
-- **Шахматы**: важные карты = фигуры (казна/чистые улицы = ладьи, семья = фигуры, Антон = конь под управлением обоих раз в 2 хода); у врага нет короля. Sketch-level.
+- **Шахматы**: current sketch image shows candidate card placements and a full black roster
+  including a king; older background says казна/чистые улицы = ладьи, family = pieces,
+  shared Антон and no enemy king/capture-all. P12 found the sources non-executable and in
+  conflict, so Chess remains absent pending `P12-02`–`P12-09` designer verdicts.
 - **Таверна**: спавн ближе к лейту (не в 1-м прохождении; 100% на 2-м, потом 33%); две секции; найм наёмников, спиртное, слухи; Мария Брауз 33% (карты 2×2 → комбо 3-7-Т → Пиковая Дама).
 
 ### A7. Other systems (экспедиции, события, реликвии, божественные-награды, квесты)
