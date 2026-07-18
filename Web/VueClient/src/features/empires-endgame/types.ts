@@ -19,6 +19,13 @@ import type {
   AlchemyRulesIdentity,
   EmpiresAlchemyConfig,
 } from './alchemy/types'
+import type {
+  EmpiresInventoryConfig,
+  InventoryCommand,
+  InventoryPlan,
+  InventoryResult,
+  InventoryRulesIdentity,
+} from './inventory/types'
 
 export type {
   CombatArmorClassDefinition,
@@ -102,6 +109,24 @@ export type {
   AlchemyTerminalReason,
   EmpiresAlchemyConfig,
 } from './alchemy/types'
+export type {
+  EmpiresInventoryConfig,
+  InventoryActiveItem,
+  InventoryCommand,
+  InventoryFrameClock,
+  InventoryItemContent,
+  InventoryItemDefinition,
+  InventoryItemInstance,
+  InventoryMove,
+  InventoryOutcome,
+  InventoryPlacement,
+  InventoryPlan,
+  InventoryPoint,
+  InventoryResult,
+  InventoryRulesIdentity,
+  InventorySimulationState,
+  InventoryTerminalReason,
+} from './inventory/types'
 
 export const EMPIRES_SUITS = ['clubs', 'diamonds', 'hearts', 'spades'] as const
 export const EMPIRES_RANKS = [
@@ -1411,7 +1436,7 @@ export interface EmpiresUpgradeConfig {
 }
 
 export interface EmpiresEndgameConfig {
-  schemaVersion: 16
+  schemaVersion: 17
   id: string
   title: string
   seed: string | number
@@ -1419,6 +1444,7 @@ export interface EmpiresEndgameConfig {
   mysticCards: EmpiresMysticCardDefinition[]
   tavern: EmpiresTavernConfig
   alchemy: EmpiresAlchemyConfig
+  inventory: EmpiresInventoryConfig
   expeditions: EmpiresExpeditionsConfig
   durak: EmpiresDurakConfig
   upgrades: EmpiresUpgradeConfig
@@ -1666,6 +1692,7 @@ export interface EmpiresArmyState {
 export type EmpiresExpeditionStatus =
   | 'available'
   | 'planning'
+  | 'packing'
   | 'provisioning'
   | 'ready'
   | 'fighting'
@@ -1692,7 +1719,7 @@ export interface EmpiresExpeditionProvisionWithdrawal {
 }
 
 export interface EmpiresExpeditionProvisionPlan {
-  source: 'direct'
+  source: 'direct' | 'packing'
   resourceId: string
   requestedAmount: number
   requiredAmount: number
@@ -1704,6 +1731,9 @@ export interface EmpiresExpeditionProvisionPlan {
   paidInstallments: number
   withdrawnAmount: number
   packingEfficiencyPercent: number
+  packingScore: number
+  packingSessionId: string | null
+  packedItemInstanceIds: string[]
   withdrawals: EmpiresExpeditionProvisionWithdrawal[]
 }
 
@@ -1787,6 +1817,10 @@ export interface EmpiresExpeditionPlanningView {
   provisionRequired: number
   provisionRequested: number
   provisionWithdrawn: number
+  provisionSource: 'direct' | 'packing' | null
+  packingAvailable: boolean
+  packingEfficiencyPercent: number | null
+  packingScore: number | null
   enemyIntel: 'exact' | 'profile'
   enemyProfileName: string
   enemyDescription: string
@@ -1964,6 +1998,11 @@ export type EmpiresMinigameOriginContext =
     expeditionId: string
     attempt: number
   }
+  | {
+    kind: 'expedition-packing'
+    expeditionId: string
+    attempt: number
+  }
 
 export interface EmpiresMinigameOrigin {
   returnPhase: Exclude<EmpiresPhase, 'minigame'>
@@ -2000,14 +2039,25 @@ export interface EmpiresAlchemyMinigameSession {
   origin: EmpiresMinigameOrigin
 }
 
-export type EmpiresMinigameKind = 'td' | 'tavern' | 'alchemy'
+export interface EmpiresInventoryMinigameSession {
+  id: string
+  kind: 'inventory'
+  plan: InventoryPlan
+  rulesIdentity: InventoryRulesIdentity
+  seed: string | number
+  attempt: number
+  origin: EmpiresMinigameOrigin
+}
+
+export type EmpiresMinigameKind = 'td' | 'tavern' | 'alchemy' | 'inventory'
 
 export type EmpiresMinigameSession =
   | EmpiresTdMinigameSession
   | EmpiresTavernMinigameSession
   | EmpiresAlchemyMinigameSession
+  | EmpiresInventoryMinigameSession
 
-export type EmpiresMinigameResult = TdBattleResult | TavernResult | AlchemyResult
+export type EmpiresMinigameResult = TdBattleResult | TavernResult | AlchemyResult | InventoryResult
 
 export interface EmpiresMinigameResultRecord {
   sessionId: string
@@ -2550,7 +2600,7 @@ export interface EmpiresQuestRuntimeState {
 }
 
 export interface EmpiresCampaignState {
-  schemaVersion: 14
+  schemaVersion: 15
   configId: string
   phase: EmpiresPhase
   rng: EmpiresRngState
@@ -2585,7 +2635,7 @@ export interface EmpiresCampaignState {
 }
 
 export interface EmpiresSnapshotEnvelope {
-  schemaVersion: 14
+  schemaVersion: 15
   savedAt: string
   state: EmpiresCampaignState
 }

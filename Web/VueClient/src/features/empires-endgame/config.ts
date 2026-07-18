@@ -7,6 +7,7 @@ import type {
 } from './combat/types'
 import type { EmpiresTdConfig } from './td/types'
 import type { EmpiresAlchemyConfig } from './alchemy/types'
+import type { EmpiresInventoryConfig } from './inventory/types'
 import type {
   EmpiresBuildingSlotKind,
   EmpiresCampaignState,
@@ -30,7 +31,7 @@ import { validateEmpiresQuestsConfig } from './quests'
 
 export const EMPIRES_CONFIG_URL = '/empires-endgame/game-config.json'
 export const EMPIRES_CONFIG_STORAGE_KEY = 'empires-endgame:config:v1'
-export const EMPIRES_CONFIG_SCHEMA_VERSION = 16
+export const EMPIRES_CONFIG_SCHEMA_VERSION = 17
 export const EMPIRES_ACTIVE_MINIGAME_CONFIG_ERROR = 'Нельзя менять правила во время боя. Сначала завершите бой или выйдите через действие отмены.'
 
 export function empiresConfigReplacementDisabledReason(
@@ -285,6 +286,24 @@ const EXPEDITIONS_SCAFFOLD = {
   enemyProfiles: [],
   definitions: [],
 } satisfies EmpiresExpeditionsConfig
+
+const INVENTORY_SCAFFOLD = {
+  enabled: false,
+  tickMs: 50,
+  maxTicks: 2_400,
+  maxCommands: 256,
+  resultLogLimit: 32,
+  maxCatchUpTicksPerFrame: 8,
+  maxItems: 24,
+  targetUnitsPerItem: 500,
+  board: { width: 10, height: 14, cartHeight: 8 },
+  gravity: { intervalTicks: 10, spawnDelayTicks: 2 },
+  scoring: { pointsPerWeight: 100, fullRowBonus: 500 },
+  skipPolicy: 'direct-provision',
+  abortPolicy: 'abort-expedition',
+  itemDefinitions: [],
+  deferredSubfeatures: [],
+} satisfies EmpiresInventoryConfig
 
 const QUESTS_SCAFFOLD = {
   enabled: false,
@@ -1067,6 +1086,25 @@ function normalizeEmpiresConfigV16(config: Record<string, unknown>): Record<stri
   return config
 }
 
+function migrateEmpiresConfigV16ToV17(config: Record<string, unknown>): Record<string, unknown> {
+  // Schema v16 launches expeditions through direct provisioning and has no typed
+  // packing plan/result arm. Imported custom configs remain fail-closed.
+  config.inventory = cloneJson(INVENTORY_SCAFFOLD)
+  config.schemaVersion = 17
+  return config
+}
+
+function normalizeEmpiresConfigV17(config: Record<string, unknown>): Record<string, unknown> {
+  normalizeEmpiresConfigV16(config)
+  config.inventory = withScaffoldDefaults(config.inventory, INVENTORY_SCAFFOLD)
+  if (isRecord(config.inventory)) {
+    config.inventory.board = withScaffoldDefaults(config.inventory.board, INVENTORY_SCAFFOLD.board)
+    config.inventory.gravity = withScaffoldDefaults(config.inventory.gravity, INVENTORY_SCAFFOLD.gravity)
+    config.inventory.scoring = withScaffoldDefaults(config.inventory.scoring, INVENTORY_SCAFFOLD.scoring)
+  }
+  return config
+}
+
 const EMPIRES_CONFIG_MIGRATIONS: Record<
   number,
   (config: Record<string, unknown>) => Record<string, unknown>
@@ -1086,6 +1124,7 @@ const EMPIRES_CONFIG_MIGRATIONS: Record<
   13: migrateEmpiresConfigV13ToV14,
   14: migrateEmpiresConfigV14ToV15,
   15: migrateEmpiresConfigV15ToV16,
+  16: migrateEmpiresConfigV16ToV17,
 }
 
 /**
@@ -1120,6 +1159,7 @@ export function migrateEmpiresConfig(raw: unknown): unknown {
   if (version === 14) migrated = normalizeEmpiresConfigV14(migrated)
   if (version === 15) migrated = normalizeEmpiresConfigV15(migrated)
   if (version === 16) migrated = normalizeEmpiresConfigV16(migrated)
+  if (version === 17) migrated = normalizeEmpiresConfigV17(migrated)
   return migrated
 }
 
@@ -1276,6 +1316,10 @@ function validateDeferredReasons(config: EmpiresEndgameConfig): string[] {
   checkSubfeatures('alchemy', config.alchemy.deferredSubfeatures)
   for (const recipe of config.alchemy.recipes) {
     check(`alchemy recipe ${recipe.id}`, recipe.deferredReason)
+  }
+  checkSubfeatures('inventory', config.inventory.deferredSubfeatures)
+  for (const item of config.inventory.itemDefinitions) {
+    check(`inventory item ${item.id}`, item.deferredReason)
   }
   for (const zone of config.expeditions.zones) {
     checkSubfeatures(`expedition zone ${zone.id}`, zone.deferredSubfeatures)
@@ -2313,6 +2357,81 @@ function validateExpeditionsConfig(config: EmpiresEndgameConfig): void {
   }
   if (rules.enabled && rules.definitions.filter(definition => !definition.deferredReason).length === 0) {
     throw new Error('enabled expeditions require a live definition.')
+  }
+}
+
+function validateInventoryConfig(config: EmpiresEndgameConfig): void {
+  const rules = config.inventory
+  if (!rules || typeof rules.enabled !== 'boolean'
+    || !Array.isArray(rules.itemDefinitions)
+    || !Array.isArray(rules.deferredSubfeatures)) {
+    throw new Error('inventory must contain enabled, itemDefinitions, and deferredSubfeatures.')
+  }
+  if (!Number.isInteger(rules.tickMs) || rules.tickMs < 1
+    || !Number.isInteger(rules.maxTicks) || rules.maxTicks < 1
+    || !Number.isInteger(rules.maxCommands) || rules.maxCommands < 1
+    || !Number.isInteger(rules.resultLogLimit) || rules.resultLogLimit < 1
+    || !Number.isInteger(rules.maxCatchUpTicksPerFrame) || rules.maxCatchUpTicksPerFrame < 1
+    || !Number.isInteger(rules.maxItems) || rules.maxItems < 1
+    || !Number.isFinite(rules.targetUnitsPerItem) || rules.targetUnitsPerItem <= 0) {
+    throw new Error('inventory timing, command, retention, item, and catch-up limits must be positive.')
+  }
+  if (!Number.isInteger(rules.board.width) || rules.board.width < 4
+    || !Number.isInteger(rules.board.height) || rules.board.height < 6
+    || !Number.isInteger(rules.board.cartHeight) || rules.board.cartHeight < 2
+    || rules.board.cartHeight >= rules.board.height) {
+    throw new Error('inventory board and cart dimensions are invalid.')
+  }
+  if (!Number.isInteger(rules.gravity.intervalTicks) || rules.gravity.intervalTicks < 1
+    || !Number.isInteger(rules.gravity.spawnDelayTicks) || rules.gravity.spawnDelayTicks < 0) {
+    throw new Error('inventory gravity settings are invalid.')
+  }
+  if (!Number.isFinite(rules.scoring.pointsPerWeight) || rules.scoring.pointsPerWeight < 0
+    || !Number.isFinite(rules.scoring.fullRowBonus) || rules.scoring.fullRowBonus < 0
+    || rules.skipPolicy !== 'direct-provision'
+    || rules.abortPolicy !== 'abort-expedition') {
+    throw new Error('inventory scoring, skip, or abort policy is invalid.')
+  }
+  const resourceIds = new Set(config.empire.resources.map(resource => resource.id))
+  const equipmentIds = new Set(config.combat.equipment.map(equipment => equipment.id))
+  const definitionIds = new Set<string>()
+  for (const definition of rules.itemDefinitions) {
+    if (!definition.id?.trim() || definitionIds.has(definition.id) || !definition.name?.trim()
+      || !Number.isInteger(definition.weight) || definition.weight < 1
+      || !Array.isArray(definition.cells) || definition.cells.length === 0
+      || definition.cells.some(cell => !Number.isInteger(cell.x) || !Number.isInteger(cell.y))
+      || new Set(definition.cells.map(cell => `${cell.x}:${cell.y}`)).size !== definition.cells.length) {
+      throw new Error(`inventory item ${definition.id || '<missing>'} is invalid or repeated.`)
+    }
+    definitionIds.add(definition.id)
+    const width = Math.max(...definition.cells.map(cell => cell.x))
+      - Math.min(...definition.cells.map(cell => cell.x)) + 1
+    const height = Math.max(...definition.cells.map(cell => cell.y))
+      - Math.min(...definition.cells.map(cell => cell.y)) + 1
+    if (width > rules.board.width || height > rules.board.cartHeight) {
+      throw new Error(`inventory item ${definition.id} cannot fit inside the configured cart.`)
+    }
+    if (definition.content.kind === 'resource') {
+      if (!resourceIds.has(definition.content.resourceId)) {
+        throw new Error(`inventory item ${definition.id} references unknown resource ${definition.content.resourceId}.`)
+      }
+    } else if (definition.content.kind === 'equipment') {
+      if (!equipmentIds.has(definition.content.equipmentId)) {
+        throw new Error(`inventory item ${definition.id} references unknown equipment ${definition.content.equipmentId}.`)
+      }
+    } else {
+      throw new Error(`inventory item ${definition.id} has an unknown content kind.`)
+    }
+  }
+  if (rules.enabled) {
+    const liveResourceIds = new Set(rules.itemDefinitions
+      .filter(definition => !definition.deferredReason && definition.content.kind === 'resource')
+      .map(definition => definition.content.kind === 'resource' ? definition.content.resourceId : ''))
+    for (const expedition of config.expeditions.definitions.filter(definition => !definition.deferredReason)) {
+      if (!liveResourceIds.has(expedition.provisionResourceId)) {
+        throw new Error(`inventory needs a live item for expedition resource ${expedition.provisionResourceId}.`)
+      }
+    }
   }
 }
 
@@ -4012,6 +4131,7 @@ export function validateEmpiresConfig(value: unknown): asserts value is EmpiresE
   if (!Array.isArray(value.mysticCards)) throw new Error('Поле mysticCards должно быть массивом.')
   if (!isRecord(value.tavern)) throw new Error('Отсутствуют настройки Таверны.')
   if (!isRecord(value.alchemy)) throw new Error('Отсутствуют настройки Алхимии.')
+  if (!isRecord(value.inventory)) throw new Error('Отсутствуют настройки упаковки инвентаря.')
   if (!isRecord(value.expeditions)) throw new Error('Отсутствуют настройки экспедиций.')
 
   if (!isRecord(value.durak)) throw new Error('Отсутствуют настройки карточной партии.')
@@ -4074,6 +4194,7 @@ export function validateEmpiresConfig(value: unknown): asserts value is EmpiresE
   validateTavernConfig(config)
   validateAlchemyConfig(config)
   validateExpeditionsConfig(config)
+  validateInventoryConfig(config)
   validateExternalEconomyConfig(config)
   validateEconomyContentConfig(config)
   validateLoyaltyConfig(config)

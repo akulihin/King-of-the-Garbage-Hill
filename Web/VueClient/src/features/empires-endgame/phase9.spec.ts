@@ -79,10 +79,10 @@ describe('Empire\'s Endgame Phase 9 Tavern and mystic cards', () => {
     const migrated = migrateEmpiresConfig(legacy)
 
     expect(legacy).toEqual(original)
-    expect(migrated).toMatchObject({ schemaVersion: 16, mysticCards: [], tavern: { enabled: false } })
+    expect(migrated).toMatchObject({ schemaVersion: 17, mysticCards: [], tavern: { enabled: false } })
     expect(migrateEmpiresConfig(migrated)).toEqual(migrated)
     expect(() => validateEmpiresConfig(migrated)).not.toThrow()
-    expect(() => migrateEmpiresConfig({ ...migrated, schemaVersion: 17 })).toThrow(/future.*17/i)
+    expect(() => migrateEmpiresConfig({ ...migrated, schemaVersion: 18 })).toThrow(/future.*18/i)
   })
 
   it('keeps exactly 52 suited cards plus Joker and maps Maria separately from the mystic Queen', () => {
@@ -418,7 +418,7 @@ describe('Empire\'s Endgame Phase 9 Tavern and mystic cards', () => {
       value,
       importEmpiresCampaign(exportEmpiresCampaign(state), value.id),
     )
-    expect(restored.state.schemaVersion).toBe(14)
+    expect(restored.state.schemaVersion).toBe(15)
     expect(restored.state.mystics.zone).toEqual([listId, queenId])
 
     const legacyState = structuredClone(new EmpiresEndgameEngine(value).snapshot()) as unknown as Record<string, unknown>
@@ -431,7 +431,7 @@ describe('Empire\'s Endgame Phase 9 Tavern and mystic cards', () => {
       state: legacyState,
     }, value.id)
     expect(new EmpiresEndgameEngine(value, migrated).state).toMatchObject({
-      schemaVersion: 14,
+      schemaVersion: 15,
       mystics: { zone: [], instances: {} },
       tavern: { runOrdinal: 1, spawned: false },
     })

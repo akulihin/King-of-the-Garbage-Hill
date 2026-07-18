@@ -27,7 +27,7 @@ describe('Empire\'s Endgame Phase 4C governance', () => {
     const migrated = migrateEmpiresConfig(previous) as EmpiresEndgameConfig
     expect(previous).toEqual(original)
     expect(migrated).toMatchObject({
-      schemaVersion: 16,
+      schemaVersion: 17,
       governance: {
         enabled: false,
         advisors: [],
@@ -37,7 +37,7 @@ describe('Empire\'s Endgame Phase 4C governance', () => {
     })
     expect(migrateEmpiresConfig(migrated)).toEqual(migrated)
     expect(migrateEmpiresConfig(migrated)).not.toBe(migrated)
-    expect(() => migrateEmpiresConfig({ ...migrated, schemaVersion: 17 })).toThrow(/future.*17/i)
+    expect(() => migrateEmpiresConfig({ ...migrated, schemaVersion: 18 })).toThrow(/future.*18/i)
   })
 
   it('validates advisor, city-site, capital-carrier, and defense-layer references', () => {
@@ -79,7 +79,7 @@ describe('Empire\'s Endgame Phase 4C governance', () => {
     })
     const restored = new EmpiresEndgameEngine(value, engine.snapshot())
     expect(restored.state.governance).toEqual(engine.state.governance)
-    expect(restored.snapshotEnvelope('2026-07-17T00:00:00.000Z').schemaVersion).toBe(14)
+    expect(restored.snapshotEnvelope('2026-07-17T00:00:00.000Z').schemaVersion).toBe(15)
   })
 
   it('keeps clubs unavailable until an authored Grand Advisor grant, then makes clubs trump exactly once', () => {
@@ -109,7 +109,7 @@ describe('Empire\'s Endgame Phase 4C governance', () => {
     delete legacy.governance
 
     const restored = new EmpiresEndgameEngine(value, legacy)
-    expect(restored.state.schemaVersion).toBe(14)
+    expect(restored.state.schemaVersion).toBe(15)
     expect(restored.state.governance.advisors['advisor-grand']).toMatchObject({
       status: 'active',
       transitionSourceId: 'migration:legacy-restricted-trump',

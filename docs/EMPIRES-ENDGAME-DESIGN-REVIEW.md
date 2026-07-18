@@ -807,5 +807,49 @@ should instead feed a later off-screen hook remains open.
 - Военная логистика, Снабженцы and normal ♠3 are live through the planning quote and UI.
   Inverted ♠3 retains its exact blocker. The complete residual expedition blockers are
   `opened-zone-content`, `veteran.laterBattleBonus`, the absent `холодная рука` unit,
-  Reaper/millet semantics and all other unauthored forts. P11B alone owns falling-cart
-  packing and must attach packed item identities/efficiency to this frozen provision plan.
+  Reaper/millet semantics and all other unauthored forts. P11B owns falling-cart packing and
+  attaches packed item identities/efficiency to this frozen provision plan.
+
+## P11B Tetris-inventory source reconciliation
+
+| Carrier | Raw source | Executable interpretation / boundary |
+|---|---|---|
+| Falling cart and controls | `чо-добавить` messages `1449141593649975329`, `1449141656510136382` | Expedition inventory is packed in a real-time Tetris-like surface: items spawn above a cart at the bottom, gravity advances on fixed logical ticks, and the player moves/rotates each item before it locks. The export contains no linked image, dimensions, shapes, speed or button mapping, so all such values are explicit configuration defaults below. |
+| Packing outcome | `чо-добавить` message `1449141697308262610` | Poor placement means taking less. The replay therefore returns exact packed/unpacked item IDs and packed provision amount; efficiency is packed divided by eligible provision. Score is visible metadata only. Neither value overwrites P11A time or risk—P11A consumes the actual provision amount. |
+| Provision ownership | Forwarded `застройка` message `1508533049841815592` in `экспедиции`; P11A origin-provision contract | The immutable packing plan divides the requested provision available in accessible origin-region cities into stable item instances. Verified packed instances are withdrawn from their canonical cities exactly once at packing settlement; unpacked instances are never withdrawn. Abort, stale identity, rules mismatch or replay failure rolls back without item loss. |
+| Optional entry and abort | P11A direct provision is already authored; no inventory message states packing is mandatory or defines a skip penalty | Packing is optional. A confirmed skip uses the unchanged P11A direct-provision path and its installment rules with no invented penalty. Beginning packing spends the ordinary preparation days and starts one expedition attempt; abort ends that attempt and does not refund days, but consumes no provision. The same attempt cannot be replayed for a better result. |
+| Equipment and perst | `чо-добавить` messages `1449141593649975329`, `1449141802245296229`, `1449141852677607576` | The broad phrase mentions equipment and jokes about a perst packer/inventory watcher, but defines no equipment instances, eligibility, assault/return effect, stable perst, bonus or obligation. The bundled live catalog is provision-only; `equipmentPacking` and `perstPacker` remain separate blockers. |
+
+## P11B defaults and unresolved-semantics ledger
+
+| ID | JSON Pointer | Phase | Raw source | Chosen default | Rationale | Status | Designer verdict |
+|---|---|---:|---|---|---|---|---|
+| `P11B-01` | `/inventory/tickMs`; `/maxTicks`; `/maxCommands`; `/resultLogLimit`; `/maxCatchUpTicksPerFrame` | P11B | Fixed-tick/replay common contract; no values authored | `50 ms`; `2400` ticks; `256` commands; `32` retained complete minigame results with digest compaction; `8` catch-up ticks per visible frame | A 20 Hz simulation is responsive while deterministic; the two-minute cap and command/result bounds contain CPU and localStorage growth. Hidden tabs pause and discard backlog. | Open | Pending tick rate, time/command/session caps, retained result count and background policy. |
+| `P11B-02` | `/inventory/board`; `/inventory/gravity` | P11B | Message `1449141656510136382` supplies only a cart at the bottom and real-time falling items | Board `10×14`; bottom `8` rows are the cart; centered zero-rotation spawn; gravity every `10` ticks; `2`-tick delay between items | Ten columns preserves familiar Tetris width; the taller field exposes the falling approach while giving the cart most of the visible board. Half-second gravity and short respawn make the configured cap practical. | Open | Pending board/cart dimensions, spawn position/rotation, gravity curve, inter-item delay, overflow boundary and whether speed changes. |
+| `P11B-03` | `/inventory/itemDefinitions`; `/inventory/maxItems`; `/inventory/targetUnitsPerItem` | P11B | Sources say “вещи” and provisions/equipment but provide no inventory catalog, shapes, weights or item sizing | Four provision shapes: 2×2 crate weight `4`, three-cell bar weight `3`, three-cell corner weight `3`, four-cell crossbar weight `4`; maximum `24` instances; target `500` provision units per item | The small varied shapes prove rotation/collision without claiming named equipment. Stable per-city splitting covers the requested available provision exactly and the cap bounds plan/save size. | Open | Pending item catalog, shape-to-content mapping, weights, amount granularity, maximum items and whether equipment participates. |
+| `P11B-04` | `/inventory/scoring`; result `efficiencyPercent` | P11B | Message `1449141697308262610` says bad fit means taking little; no points or secondary modifier are authored | `100` points per configured item weight plus `500` once per newly completed cart row; efficiency is rounded `packedProvision / eligibleProvision × 100`; no duration/risk multiplier | Amount/identity, not points, is the trusted expedition output. The score rewards heavier pieces and full rows for player feedback without creating economy. Actual provision already feeds P11A's authored death-risk interpolation. | Open | Pending score formula, rounding, row behavior, whether efficiency changes duration/risk beyond actual provisions and any reward thresholds. |
+| `P11B-05` | `/inventory/skipPolicy`; `/inventory/abortPolicy` | P11B | Source does not say whether packing is required or define skip/failure consequences | `direct-provision`; `abort-expedition`; overflow/tick-cap preserve already packed items, leave the rest in origin and transition with that partial amount | The existing P11A route is the only authored fallback. Partial packing implements “мало взял”; abort is intentionally different from a completed/failed cart and prevents a free same-attempt retry. | Open | Pending required/optional entry, skip penalty, failure threshold, preparation-day refund and whether partial packing may proceed. |
+| `P11B-06` | Inventory command and fixed-tick order | P11B | Message `1449141656510136382` authors rotation but no exact controls, rotation direction, wall kicks, hard placement, pause or same-tick order | Arrow Left/Right or pointer buttons move; Space/pointer rotates clockwise without wall kicks; Arrow Down, Enter or pointer hard-places; P pauses; Escape opens abort confirmation. Contiguous commands execute before spawn/gravity at their logical tick. Rows award once and do not clear. | The mapping is keyboard-accessible and mirrors visible buttons. A single command-before-gravity order plus no wall kicks/line clearing keeps replay deterministic without importing unmentioned standard-Tetris rules. | Open | Pending controls, clockwise/counterclockwise support, wall kicks, soft/hard drop, pause behavior, input-vs-gravity order and line clearing. |
+
+## P11B exact live/deferred and remaining manifest
+
+- Config schema 17 and campaign/save schema 15 are live. Genuine schema-v16 configs receive
+  a disabled empty Inventory scaffold; schema-v14 saves receive additive packing fields and
+  no retroactive session, withdrawal or score.
+- The immutable plan owns rules identity, seed, attempt/origin, roster, stable item instances,
+  shapes, amounts and caps. Replay deterministically owns seeded order, centered spawn,
+  fixed gravity, collision/bounds, clockwise rotation, left/right movement, hard placement,
+  cart overflow, tick cap, scoring and exact packed/unpacked IDs. Commands and complete
+  results are bounded; falling render/runtime state is never serialized.
+- Settlement authenticates session/plan/expedition identity and replays before mutation.
+  Packed provision is recomputed from trusted instances and withdrawn once from its original
+  cities; unpacked provision remains. Failure keeps only already packed items, abort consumes
+  none, restore restarts the immutable session with `attempt + 1`, and duplicate/stale/rules-
+  mismatched results cannot mutate campaign state.
+- `InventoryPacking` exposes current/next item, cart/grid, score, efficiency, provision and
+  time with keyboard and pointer move/rotate/place, pause, abort confirmation, hidden-tab
+  pause, scripted QA policies and full expedition Cypress coverage. Confirmed skip uses the
+  unchanged P11A direct-provision path.
+- The exact retained blockers are `equipmentPacking` and `perstPacker`. No broad Inventory
+  marker remains, and no equipment effect, perst bonus, skip penalty or extra score-derived
+  expedition modifier was silently invented.

@@ -64,7 +64,7 @@ describe('Empire\'s Endgame Phase 5 epidemics', () => {
     const migrated = migrateEmpiresConfig(previous) as EmpiresEndgameConfig
     expect(previous).toEqual(original)
     expect(migrated).toMatchObject({
-      schemaVersion: 16,
+      schemaVersion: 17,
       empire: {
         epidemics: { enabled: false, definitions: [], protections: [] },
         medical: { enabled: false, defaultBattleRecoveryCons: 2 },
@@ -73,7 +73,7 @@ describe('Empire\'s Endgame Phase 5 epidemics', () => {
     })
     expect(() => validateEmpiresConfig(migrated)).not.toThrow()
     expect(migrateEmpiresConfig(migrated)).toEqual(migrated)
-    expect(() => migrateEmpiresConfig({ ...migrated, schemaVersion: 17 })).toThrow(/future.*17/i)
+    expect(() => migrateEmpiresConfig({ ...migrated, schemaVersion: 18 })).toThrow(/future.*18/i)
   })
 
   it('allocates class loss by authored weights with stable remainder and capacity handling', () => {
@@ -440,7 +440,7 @@ describe('Empire\'s Endgame Phase 5 epidemics', () => {
     delete (legacy.army as Partial<EmpiresCampaignState['army']>).recoveries
     const restored = new EmpiresEndgameEngine(value, legacy)
     expect(restored.state).toMatchObject({
-      schemaVersion: 14,
+      schemaVersion: 15,
       epidemics: [],
       nextEpidemicSequence: 1,
       army: { unitInstances: {}, nextUnitSequence: 1 },

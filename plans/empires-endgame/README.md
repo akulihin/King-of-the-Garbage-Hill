@@ -90,7 +90,13 @@ Current execution status supplied by the designer on 2026-07-17:
   abstract logistics time, complaint quest and the shared TD assault/settlement path landed
   as one change-set. Opened-zone content, the later veteran bonus, Reaper/millet, the absent
   plate exception and inverted ♠3 retain exact source-gap blockers.
-- **Next prompt: Phase 11B** (`phase-11b-tetris-inventory.md`).
+- **Phase 11B — complete/conditional.** Schema-v17 inventory configuration, save-envelope
+  v15, deterministic fixed-step falling-cart packing, immutable origin item ownership,
+  exact-once packed-provision settlement, accessible controls, QA replay and the full
+  prepare → pack/skip → assault → settlement path landed as one change-set. Packing is an
+  optional provision-only route; equipment packing and the perst packer retain exact
+  source-gap blockers.
+- **Next prompt: Phase 12** (`phase-12-chess.md`).
 
 Scope decisions confirmed by the designer (2026-07-16):
 
@@ -128,7 +134,7 @@ graph TD
   P5 --> P10
   P3B --> P11A[11A complete: expeditions]
   P7 --> P11A
-  P11A --> P11B[11B Tetris-inventory]
+  P11A --> P11B[11B complete: Tetris-inventory]
   P9 --> P12[12 Chess design gate]
   P6C --> P12B[12B content closure]
   P10 --> P12B
@@ -156,7 +162,7 @@ graph TD
 | `phase-09-tavern-mystic.md` | **Complete/conditional.** Deterministic Tavern, separate ordered mystic catalog/zone, 3–7–Т observer and Пиковая Дама pulse; exact incomplete subfeatures remain blocked. |
 | `phase-10-tetris-alchemy.md` | **Complete/conditional.** Deterministic Assembly, reagents, acceleration and configured explosion → typed epidemic; incomplete Disassembly/recipe/aftermath semantics retain exact blockers. |
 | `phase-11-expeditions-inventory.md` | **Complete/conditional. 11A:** typed forts/zones, provisions, canonical soldiers/veterans, complaints and shared TD assault; exact residual source gaps remain blocked. |
-| `phase-11b-tetris-inventory.md` | **11B:** deterministic falling-cart packing minigame. |
+| `phase-11b-tetris-inventory.md` | **Complete/conditional. 11B:** deterministic falling-cart provision packing, immutable item ownership, optional direct-provision fallback, accessible UI and QA/full-chain coverage; equipment and perst semantics remain blocked. |
 | `phase-12-chess.md` | Chess design gate; implementation stays disabled until the rules table is executable. |
 | `phase-12b-content-closure.md` | Raw-source/config carrier closure sweep; no new substrate. |
 | `phase-13-stabilization.md` | Earliest-to-latest compatibility, all-minigame integration, storage/performance stabilization. |
@@ -398,14 +404,37 @@ graph TD
   effective travel cons for requirements, risk and complaint history. Abort never refunds.
 - Военная логистика, Снабженцы and normal ♠3 are consumed by the same authoritative
   planning quote. The inverted ♠3 remains deferred because confusion cleanup and scope are
-  incomplete; P11B may add packed item identities/efficiency only to the frozen provision
-  plan and must not replace it with an empire-wide flag.
+  incomplete; P11B adds packed item identities/efficiency only to the frozen provision plan
+  and does not replace it with an empire-wide flag.
 - Expedition assault is an ordinary rules-identified TD replay with purpose `expedition`.
   Its common settlement path owns casualties, first/second wounds, veteran threshold,
   recovery, reward/zone/complaint exact-once guards and bounded digest-compacted history.
 - The exact residual manifest is `opened-zone-content`, the null later-battle veteran bonus,
   the absent stable `холодная рука` plate exception, Reaper/millet semantics and every fort
   beyond South. West and swamp profiles are configured combat inventories, not live routes.
+
+## P11B handoff
+
+- The compatibility baseline is config schema 17 and campaign/save envelope 15. Genuine
+  schema-v16 custom configs receive a disabled empty inventory scaffold, so migration never
+  silently activates bundled shapes or packing behavior.
+- Packing snapshots the selected roster, origin-region provision item IDs, shapes, amounts,
+  seed and rules identity into the shared minigame envelope. The falling runtime remains
+  derived. Restore replays the immutable plan with `attempt + 1`; stale, duplicate, malformed
+  or rules-mismatched results cannot mutate origin resources.
+- The bundled `10×14` field has an eight-row cart, deterministic gravity/rotation/collision,
+  a tick/command cap, bounded result history and hidden-tab pause/catch-up limits. Only packed
+  item IDs are withdrawn at verified packing settlement; unpacked items remain in their
+  canonical cities. Score and efficiency describe that result and do not create a second
+  expedition modifier: P11A's actual withdrawn provision amount remains the death-risk input.
+- Packing is optional because the source never states it is mandatory or defines a skip
+  penalty. The confirmed skip uses P11A's existing direct-provision path behind an explicit
+  confirmation. Aborting packing aborts the expedition attempt without deleting provision;
+  it cannot be restarted as the same attempt.
+- The exact residual inventory manifest is `equipmentPacking` and `perstPacker`. The raw
+  export contains no linked inventory/cart attachment, equipment instance mapping, packer
+  bonus or required-entry rule, so later work must not infer those contracts from the joke or
+  from the provision implementation.
 
 ## How to execute the remaining prompts
 

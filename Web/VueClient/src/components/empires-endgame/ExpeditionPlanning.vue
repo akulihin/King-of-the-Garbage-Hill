@@ -9,7 +9,8 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   close: []
-  launch: [unitInstanceIds: string[], provisionAmount: number, installmentCount: number]
+  pack: [unitInstanceIds: string[], provisionAmount: number]
+  skip: [unitInstanceIds: string[], provisionAmount: number, installmentCount: number]
   payInstallment: []
   assault: []
   abort: []
@@ -18,6 +19,7 @@ const emit = defineEmits<{
 const selectedIds = ref<string[]>([])
 const provisionAmount = ref(0)
 const installmentCount = ref(1)
+const skipOpen = ref(false)
 
 watch(() => [props.view.definitionId, props.view.status] as const, () => {
   selectedIds.value = [...props.view.selectedUnitInstanceIds]
@@ -48,6 +50,7 @@ function toggleUnit(unitInstanceId: string) {
 const statusLabel: Record<EmpiresExpeditionPlanningView['status'], string> = {
   available: 'доступна',
   planning: 'планирование',
+  packing: 'упаковка тележки',
   provisioning: 'снабжение',
   ready: 'готова к штурму',
   fighting: 'идёт штурм',
@@ -92,6 +95,7 @@ const statusLabel: Record<EmpiresExpeditionPlanningView['status'], string> = {
             <div><dt>Бонус карт</dt><dd>+{{ view.mapBonusPercent }}%</dd></div>
             <div><dt>В регионе</dt><dd>{{ view.provisionAvailable }}</dd></div>
             <div><dt>Списано</dt><dd>{{ view.provisionWithdrawn }}</dd></div>
+            <div v-if="view.packingEfficiencyPercent !== null"><dt>Упаковка</dt><dd>{{ view.packingEfficiencyPercent }}% · {{ view.packingScore }} оч.</dd></div>
           </dl>
           <p v-if="view.installmentBlockedReason" class="warning"><AlertTriangle :size="14" /> {{ view.installmentBlockedReason }}</p>
         </article>
@@ -138,14 +142,31 @@ const statusLabel: Record<EmpiresExpeditionPlanningView['status'], string> = {
         <button
           v-if="view.status === 'planning'"
           type="button"
-          data-testid="expedition-launch"
+          data-testid="expedition-pack"
           :disabled="!canLaunch"
-          @click="emit('launch', selectedIds, provisionAmount, installmentCount)"
-        >Снарядить экспедицию</button>
+          @click="emit('pack', selectedIds, provisionAmount)"
+        >Упаковать тележку</button>
+        <button
+          v-if="view.status === 'planning'"
+          class="secondary"
+          type="button"
+          data-testid="expedition-skip"
+          :disabled="!canLaunch"
+          @click="skipOpen = true"
+        >Пропустить упаковку</button>
         <button v-if="view.status === 'ready'" class="secondary" type="button" @click="emit('abort')">Отступить без возврата</button>
         <button v-if="view.status === 'ready'" type="button" data-testid="expedition-assault" @click="emit('assault')"><Swords :size="16" /> Начать штурм</button>
         <button v-if="view.status === 'won' || view.opened" type="button" @click="emit('close')">Зона открыта</button>
       </footer>
+
+      <div v-if="skipOpen" class="skip-dialog" role="dialog" aria-modal="true" aria-labelledby="expedition-skip-title">
+        <div>
+          <h3 id="expedition-skip-title">Снарядить экспедицию напрямую?</h3>
+          <p>Упаковка будет пропущена. Провизия спишется по прежнему прямому плану P11A, без очков упаковки.</p>
+          <button type="button" data-testid="expedition-confirm-skip" @click="skipOpen = false; emit('skip', selectedIds, provisionAmount, installmentCount)">Пропустить и снарядить</button>
+          <button class="secondary" type="button" @click="skipOpen = false">Вернуться</button>
+        </div>
+      </div>
     </section>
   </div>
 </template>
@@ -168,5 +189,6 @@ const statusLabel: Record<EmpiresExpeditionPlanningView['status'], string> = {
 .roster-list { display:grid; max-height:260px; grid-template-columns:1fr 1fr; gap:5px; overflow:auto; margin-top:10px; }.roster-list label { display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:8px; padding:8px; border:1px solid rgba(220,190,125,.12); border-radius:7px; background:rgba(0,0,0,.13); cursor:pointer; }.roster-list label.disabled { opacity:.45; cursor:not-allowed; }.roster-list label span { display:grid; }.roster-list label strong { font-size:.7rem; }.roster-list label small,.roster-list label em { color:rgba(238,227,204,.45); font-size:.55rem; font-style:normal; }.disabled-reason { grid-column:2/4; color:#d99b79!important; }.empty-roster { color:rgba(238,227,204,.45); font-size:.7rem; }
 .provision-controls { display:flex; align-items:end; gap:10px; margin-top:12px; }.provision-controls label { display:grid; gap:4px; color:rgba(238,227,204,.55); font-size:.58rem; }.provision-controls input,.provision-controls select { width:115px; height:34px; padding:0 8px; border:1px solid rgba(219,189,123,.2); border-radius:6px; color:#eee3cc; background:#182019; }.provision-controls > span { margin-left:auto; color:rgba(238,227,204,.48); font-size:.65rem; }.provision-controls b { color:#dcc276; }
 .expedition-panel > footer { display:flex; justify-content:flex-end; gap:7px; padding:16px; }.expedition-panel button.secondary { border-color:rgba(219,190,126,.22); color:#d8c9aa; background:rgba(255,255,255,.035); }
+.skip-dialog { position:fixed; z-index:95; inset:0; display:grid; place-items:center; padding:20px; background:rgba(0,0,0,.72); }.skip-dialog>div { display:grid; gap:10px; width:min(460px,100%); padding:22px; border:1px solid rgba(219,190,126,.35); background:#182019; }.skip-dialog h3,.skip-dialog p { margin:0; }
 @media(max-width:720px){.expedition-grid,.roster-list{grid-template-columns:1fr}.provision-controls{align-items:stretch;flex-direction:column}.provision-controls>span{margin-left:0}.expedition-panel>footer{flex-wrap:wrap}}
 </style>

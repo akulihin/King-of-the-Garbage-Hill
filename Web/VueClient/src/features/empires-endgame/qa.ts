@@ -3,6 +3,7 @@ import { resolveTdWithPolicy } from './td/qa'
 import { createTdRulesIdentity } from './td/engine'
 import { resolveTavern } from './tavern/engine'
 import { resolveAlchemyWithPolicy } from './alchemy/qa'
+import { resolveInventoryWithPolicy } from './inventory/qa'
 import { initialQuestMemory, questCurrentNode } from './quests'
 import type { TdQaPolicy } from './td/qa'
 import type { CombatArmorProfile, CombatWeaponProfile } from './combat/types'
@@ -97,7 +98,7 @@ export type EmpiresQaAction =
   | { kind: 'choose-gift', giftId: string }
   | { kind: 'resolve-target', targetId: string }
   | { kind: 'finish-empire' }
-  | { kind: 'resolve-minigame', policy: TdQaPolicy | 'tavern-fast' | 'alchemy-greedy' }
+  | { kind: 'resolve-minigame', policy: TdQaPolicy | 'tavern-fast' | 'alchemy-greedy' | 'inventory-spread' }
   | { kind: 'choose-event', eventId: string, choiceId: string }
   | { kind: 'advance-dialogue', questId: string, choiceId: string }
   | { kind: 'dismiss-dialogue', questId: string }
@@ -1863,7 +1864,9 @@ function chooseAutoplayAction(
               ? 'tavern-fast'
               : engine.state.minigame.kind === 'alchemy'
                 ? 'alchemy-greedy'
-                : tdPolicy,
+                : engine.state.minigame.kind === 'inventory'
+                  ? 'inventory-spread'
+                  : tdPolicy,
           },
           stall: null,
           checkedPlayerTurn: false,
@@ -1911,7 +1914,11 @@ function executeAutoplayAction(
     if (session.kind === 'alchemy') {
       return engine.resolveMinigame(resolveAlchemyWithPolicy(session.plan, session.seed, 'greedy'))
     }
-    if (action.policy === 'tavern-fast' || action.policy === 'alchemy-greedy') {
+    if (session.kind === 'inventory') {
+      return engine.resolveMinigame(resolveInventoryWithPolicy(session.plan, session.seed, 'spread'))
+    }
+    if (action.policy === 'tavern-fast' || action.policy === 'alchemy-greedy'
+      || action.policy === 'inventory-spread') {
       return { ok: false, message: 'The selected fast-resolve policy cannot settle a TD session.' }
     }
     return engine.resolveMinigame(resolveTdWithPolicy(session.plan, session.seed, action.policy))

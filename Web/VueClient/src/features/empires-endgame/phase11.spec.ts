@@ -142,7 +142,7 @@ describe('Empire\'s Endgame Phase 11 expeditions', () => {
     const migrated = migrateEmpiresConfig(legacy)
 
     expect(legacy).toEqual(untouched)
-    expect(migrated).toMatchObject({ schemaVersion: 16, expeditions: { enabled: false, definitions: [] } })
+    expect(migrated).toMatchObject({ schemaVersion: 17, expeditions: { enabled: false, definitions: [] } })
     expect(migrated.empire.map.objects.find(object => object.id === 'map-south-fortress')).toMatchObject({
       id: 'map-south-fortress',
       position,
@@ -156,7 +156,7 @@ describe('Empire\'s Endgame Phase 11 expeditions', () => {
     if (typedFort.kind !== 'fortress') throw new Error('Fixture fortress lost its typed payload.')
     typedFort.payload.zoneId = 'missing-zone'
     expect(() => validateEmpiresConfig(dangling)).toThrow(/fortress|expedition|zone/i)
-    expect(() => migrateEmpiresConfig({ ...migrated, schemaVersion: 17 })).toThrow(/future.*17/i)
+    expect(() => migrateEmpiresConfig({ ...migrated, schemaVersion: 18 })).toThrow(/future.*18/i)
   })
 
   it('withdraws direct provisions once, spends preparation days, restores safely, and retries without refund', () => {

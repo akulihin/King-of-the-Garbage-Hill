@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 16,
+  "schemaVersion": 17,
   "id": "empires-endgame-default",
   "title": "Empire's Endgame",
   "seed": "empires-endgame-authoritative-default-v1",
@@ -303,6 +303,31 @@
         "id": "mutantAftermath",
         "reason": "Мутанты через год не имеют типа события, TD-волны, города-цели или численных последствий."
       }
+    ]
+  },
+  "inventory": {
+    "enabled": true,
+    "tickMs": 50,
+    "maxTicks": 2400,
+    "maxCommands": 256,
+    "resultLogLimit": 32,
+    "maxCatchUpTicksPerFrame": 8,
+    "maxItems": 24,
+    "targetUnitsPerItem": 500,
+    "board": { "width": 10, "height": 14, "cartHeight": 8 },
+    "gravity": { "intervalTicks": 10, "spawnDelayTicks": 2 },
+    "scoring": { "pointsPerWeight": 100, "fullRowBonus": 500 },
+    "skipPolicy": "direct-provision",
+    "abortPolicy": "abort-expedition",
+    "itemDefinitions": [
+      { "id": "inventory-food-crate", "name": "Ящик провизии", "weight": 4, "content": { "kind": "resource", "resourceId": "food" }, "cells": [{ "x": 0, "y": 0 }, { "x": 1, "y": 0 }, { "x": 0, "y": 1 }, { "x": 1, "y": 1 }] },
+      { "id": "inventory-food-roll", "name": "Связка провизии", "weight": 3, "content": { "kind": "resource", "resourceId": "food" }, "cells": [{ "x": 0, "y": 0 }, { "x": 1, "y": 0 }, { "x": 2, "y": 0 }] },
+      { "id": "inventory-food-corner", "name": "Угловой тюк", "weight": 3, "content": { "kind": "resource", "resourceId": "food" }, "cells": [{ "x": 0, "y": 0 }, { "x": 0, "y": 1 }, { "x": 1, "y": 1 }] },
+      { "id": "inventory-food-crossbar", "name": "Поперечный тюк", "weight": 4, "content": { "kind": "resource", "resourceId": "food" }, "cells": [{ "x": 0, "y": 0 }, { "x": 1, "y": 0 }, { "x": 2, "y": 0 }, { "x": 1, "y": 1 }] }
+    ],
+    "deferredSubfeatures": [
+      { "id": "equipmentPacking", "reason": "Источник называет экипировку, но не задаёт, какие экземпляры доступны, когда они списываются и как влияют на штурм или возврат." },
+      { "id": "perstPacker", "reason": "Источник шутливо называет перста-упаковщика, но не задаёт стабильного перста, назначения, бонуса или обязательности." }
     ]
   },
   "expeditions": {

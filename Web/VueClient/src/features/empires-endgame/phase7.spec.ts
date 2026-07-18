@@ -328,7 +328,7 @@ describe('Empire\'s Endgame Phase 7 quest and dialogue engine', () => {
     const untouchedConfig = structuredClone(legacyConfig)
     const migrated = migrateEmpiresConfig(legacyConfig) as EmpiresEndgameConfig
     expect(legacyConfig).toEqual(untouchedConfig)
-    expect(migrated.schemaVersion).toBe(16)
+    expect(migrated.schemaVersion).toBe(17)
     expect(migrated.quests.definitions.find(quest => quest.id === 'quest-palach')
       ?.stages.flatMap(stage => stage.nodes)).toHaveLength(43)
     expect((migrated.quests as unknown as Record<string, unknown>).dialogueGraphs).toBeUndefined()
@@ -347,7 +347,7 @@ describe('Empire\'s Endgame Phase 7 quest and dialogue engine', () => {
     const restored = new EmpiresEndgameEngine(value, importEmpiresCampaign(envelope, value.id))
     expect(envelope).toEqual(untouchedEnvelope)
     expect(restored.state).toMatchObject({
-      schemaVersion: 14,
+      schemaVersion: 15,
       quests: {},
       questRuntime: {
         activeMandatoryQuestId: null,

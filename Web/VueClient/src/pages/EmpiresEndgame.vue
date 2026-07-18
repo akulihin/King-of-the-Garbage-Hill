@@ -37,6 +37,7 @@ import ExternalDiplomacyPanel from '../components/empires-endgame/ExternalDiplom
 import EmpireCard from '../components/empires-endgame/EmpireCard.vue'
 import EmpireMap from '../components/empires-endgame/EmpireMap.vue'
 import ExpeditionPlanning from '../components/empires-endgame/ExpeditionPlanning.vue'
+import InventoryPacking from '../components/empires-endgame/InventoryPacking.vue'
 import EventDialog from '../components/empires-endgame/EventDialog.vue'
 import GiftDraft from '../components/empires-endgame/GiftDraft.vue'
 import GovernancePanel from '../components/empires-endgame/GovernancePanel.vue'
@@ -103,6 +104,8 @@ import type {
   TdBattleResult,
   TdCommand,
   TavernResult,
+  InventoryCommand,
+  InventoryResult,
 } from '../features/empires-endgame/types'
 import type { AlchemyCommand, AlchemyResult } from '../features/empires-endgame/alchemy/types'
 
@@ -187,6 +190,8 @@ const phaseCopy = computed(() => ({
   event: ['Имперское событие', 'Ваше решение изменит следующий кон.'],
   minigame: state.value?.minigame?.kind === 'alchemy'
     ? ['Тетрис-алхимия', 'Соберите лабораторную конструкцию и удержите ускорение ниже взрывного порога.']
+    : state.value?.minigame?.kind === 'inventory'
+      ? ['Упаковка тележки', 'Уложите падающие вещи: только помещённая провизия отправится в экспедицию.']
     : activeTdPlan.value?.mode === 'assault'
     ? ['Наступление', `Прорвитесь к цели «${activeTdPlan.value.objective.name}».`]
     : state.value?.minigame?.kind === 'tavern'
@@ -981,6 +986,14 @@ function abortAlchemyExperiment(commandLog: AlchemyCommand[], abortTick: number)
   if (engine.value) action(engine.value.abortMinigame(commandLog, abortTick), false)
 }
 
+function resolveInventoryPacking(result: InventoryResult) {
+  if (engine.value) action(engine.value.resolveMinigame(result), false)
+}
+
+function abortInventoryPacking(commandLog: InventoryCommand[], abortTick: number) {
+  if (engine.value) action(engine.value.abortMinigame(commandLog, abortTick), false)
+}
+
 function abortTdBattle(commandLog: TdCommand[], abortTick: number) {
   if (engine.value) action(engine.value.abortMinigame(commandLog, abortTick))
 }
@@ -1404,6 +1417,15 @@ function launchExpedition(
     unitInstanceIds,
     provisionAmount,
     installmentCount,
+  ), false)
+}
+
+function packExpedition(unitInstanceIds: string[], provisionAmount: number) {
+  if (!engine.value || !activeExpeditionId.value) return
+  action(engine.value.beginExpeditionPacking(
+    activeExpeditionId.value,
+    unitInstanceIds,
+    provisionAmount,
   ), false)
 }
 
@@ -2473,12 +2495,20 @@ onUnmounted(() => {
           @resolved="resolveTavern"
         />
         <AlchemyBoard
-          v-else
+          v-else-if="state.minigame.kind === 'alchemy'"
           :key="`${state.minigame.id}:${state.minigame.attempt}`"
           :session="state.minigame"
           :qa-mode="qaMode"
           @resolved="resolveAlchemy"
           @abort="abortAlchemyExperiment"
+        />
+        <InventoryPacking
+          v-else
+          :key="`${state.minigame.id}:${state.minigame.attempt}`"
+          :session="state.minigame"
+          :qa-mode="qaMode"
+          @resolved="resolveInventoryPacking"
+          @abort="abortInventoryPacking"
         />
       </section>
 
@@ -2521,7 +2551,8 @@ onUnmounted(() => {
         v-if="activeExpeditionView && state.phase === 'empire'"
         :view="activeExpeditionView"
         @close="activeExpeditionId = null"
-        @launch="launchExpedition"
+        @pack="packExpedition"
+        @skip="launchExpedition"
         @pay-installment="payExpeditionInstallment"
         @assault="startExpeditionAssault"
         @abort="abortExpedition"

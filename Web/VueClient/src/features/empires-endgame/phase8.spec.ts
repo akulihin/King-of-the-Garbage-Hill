@@ -84,7 +84,7 @@ describe('Empire\'s Endgame Phase 8 God presence', () => {
 
     expect(legacy).toEqual(original)
     expect(migrated).toMatchObject({
-      schemaVersion: 16,
+      schemaVersion: 17,
       god: {
         enabled: false,
         deckMemory: { enabled: false, availability: 'always' },
@@ -104,7 +104,7 @@ describe('Empire\'s Endgame Phase 8 God presence', () => {
     const invalidCardReference = config()
     invalidCardReference.god.antiBito.excludedDefinitionIds.push('missing-card')
     expect(() => validateEmpiresConfig(invalidCardReference)).toThrow(/unknown card missing-card/i)
-    expect(() => migrateEmpiresConfig({ ...migrated, schemaVersion: 17 })).toThrow(/future.*17/i)
+    expect(() => migrateEmpiresConfig({ ...migrated, schemaVersion: 18 })).toThrow(/future.*18/i)
   })
 
   it('projects immutable next-draw order and consumes only successful limited openings', () => {
