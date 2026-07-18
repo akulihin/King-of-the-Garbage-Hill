@@ -85,6 +85,7 @@ import {
 } from '../features/empires-endgame/tavern/profile'
 import type {
   EmpiresActionResult,
+  EmpiresArmyUnitState,
   EmpiresBuildingDefinition,
   EmpiresBuildingLevelDefinition,
   EmpiresCampaignState,
@@ -1829,9 +1830,11 @@ const cityViews = computed(() => {
         .filter(cohort => cohort.count > 0)
         .sort((left, right) => left.id.localeCompare(right.id))
         .map(cohort => {
-          const recoveries = state.value!.army.recoveries.filter(recovery => (
-            recovery.cohortId === cohort.id && recovery.readyAtCon > state.value!.con
-          ))
+          const recoveries = cohort.unitInstanceIds
+            .map(unitInstanceId => state.value!.army.unitInstances[unitInstanceId])
+            .filter((unitInstance): unitInstance is EmpiresArmyUnitState => (
+              Boolean(unitInstance && unitInstance.readyAtCon > state.value!.con)
+            ))
           return {
           id: cohort.id,
           unitName: currentConfig.empire.units?.find(unit => unit.id === cohort.unitId)?.name ?? cohort.unitId,
@@ -1843,7 +1846,7 @@ const cityViews = computed(() => {
             ? currentConfig.combat.equipment.find(item => item.id === cohort.defenseEquipmentId)?.name
               ?? cohort.defenseEquipmentId
             : undefined,
-          recoveringCount: recoveries.reduce((total, recovery) => total + recovery.count, 0),
+          recoveringCount: recoveries.length,
           readyAtCon: recoveries.length
             ? Math.max(...recoveries.map(recovery => recovery.readyAtCon))
             : undefined,
@@ -1854,11 +1857,11 @@ const cityViews = computed(() => {
         city.id,
         currentConfig.empire.medical.medicalAcademyBuildingId,
       ) ?? 0) > 0
-        ? Object.entries(state.value.army.veterans)
-          .filter(([, veteran]) => veteran.wounds > 0)
-          .sort(([left], [right]) => left.localeCompare(right))
-          .map(([veteranId, veteran]) => ({
-            veteranId,
+        ? Object.values(state.value.army.unitInstances)
+          .filter(veteran => veteran.veteran && veteran.wounds > 0)
+          .sort((left, right) => left.id.localeCompare(right.id))
+          .map(veteran => ({
+            veteranId: veteran.id,
             unitName: currentConfig.empire.units?.find(unit => unit.id === veteran.unitId)?.name ?? veteran.unitId,
             wounds: veteran.wounds,
           }))

@@ -127,8 +127,6 @@ describe('Empire\'s Endgame configuration', () => {
     expect(deferred(config.empire.resources)).toEqual(['carpentry', 'whiteStone'])
     expect(deferred(config.empire.technologies)).toEqual([
       'tech-printing',
-      'tech-military-logistics',
-      'tech-supply-corps',
       'reform-technocracy',
       'reform-city-gates',
       'steel-voulge',
@@ -164,6 +162,7 @@ describe('Empire\'s Endgame configuration', () => {
       'card-diamonds-ace.inverted',
       'card-hearts-7.normal',
       'card-hearts-7.inverted',
+      'card-spades-3.normal',
       'card-spades-5.normal',
       'card-spades-5.inverted',
       'card-spades-8.normal',
@@ -275,7 +274,7 @@ describe('Empire\'s Endgame configuration', () => {
       'Режущее',
       'Колющее',
     ])
-    expect(config.combat.counterRules).toHaveLength(11)
+    expect(config.combat.counterRules).toHaveLength(17)
     expect(config.combat.equipment).toHaveLength(32)
     expect(combatWeapon(config, 'weapon-horseman-pick').damageLevels).toEqual({
       impact: 6,

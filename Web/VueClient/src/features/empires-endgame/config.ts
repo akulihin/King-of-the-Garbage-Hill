@@ -2193,6 +2193,7 @@ function validateExpeditionsConfig(config: EmpiresEndgameConfig): void {
   const variants = new Map(config.td.planVariants.map(variant => [variant.id, variant]))
   const questIds = new Set(config.quests.definitions.map(quest => quest.id))
   const mapObjects = new Map(config.empire.map.objects.map(object => [object.id, object]))
+  const liveTdExpeditions = rules.enabled && config.td.enabled
   if (mapObjects.size !== config.empire.map.objects.length) throw new Error('map object ids must be unique.')
 
   const zoneIds = new Set<string>()
@@ -2216,7 +2217,7 @@ function validateExpeditionsConfig(config: EmpiresEndgameConfig): void {
   for (const profile of rules.enemyProfiles) {
     if (!profile.id?.trim() || profileIds.has(profile.id) || !profile.name?.trim()
       || !profile.description?.trim() || !regionIds.has(profile.regionId)
-      || !waveIds.has(profile.waveId)) {
+      || liveTdExpeditions && !waveIds.has(profile.waveId)) {
       throw new Error(`expedition enemy profile ${profile.id || '<missing>'} is invalid or dangling.`)
     }
     profileIds.add(profile.id)
@@ -2240,11 +2241,11 @@ function validateExpeditionsConfig(config: EmpiresEndgameConfig): void {
     if (!zoneIds.has(expedition.zoneId)
       || !regionIds.has(expedition.originRegionId)
       || !regionIds.has(expedition.targetRegionId)
-      || !variant
-      || variant.mode !== 'assault'
-      || variant.purpose !== 'expedition'
       || !profile
-      || profile.waveId !== variant.waveId
+      || liveTdExpeditions && (!variant
+        || variant.mode !== 'assault'
+        || variant.purpose !== 'expedition'
+        || profile.waveId !== variant.waveId)
       || profile.regionId !== expedition.targetRegionId) {
       throw new Error(`expedition ${expedition.id} has a dangling zone, region, profile, or TD assault reference.`)
     }

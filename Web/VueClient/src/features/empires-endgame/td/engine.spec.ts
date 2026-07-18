@@ -34,6 +34,7 @@ function assaultDeployment(battlePlan: Pick<TdBattlePlan, 'battlefield'>): TdDep
     cohortId: 'cohort-capital-light',
     cityId: 'capital',
     unitId: 'unit-light',
+    unitInstanceIds: Array.from({ length: 8 }, (_, index) => `capital-light-${index + 1}`),
     count: 8,
     nodeId: battlePlan.battlefield.spawnerNodeId,
     speedPerSecond: 70,
@@ -174,6 +175,7 @@ describe('Empire\'s Endgame deterministic regional TD engine', () => {
       'forest-fort-defense',
       'north-ship-defense',
       'desert-fort-defense',
+      'desert-fort-expedition-assault',
     ])
     for (const variant of config.td.planVariants!) {
       expect(validateTdBattlePlan(plan(variant.id)), variant.id).toEqual([])
@@ -278,6 +280,7 @@ describe('Empire\'s Endgame deterministic regional TD engine', () => {
     const desert = plan('desert-fort-defense')
     desert.deployments = [{
       ...assaultDeployment(desert),
+      unitInstanceIds: assaultDeployment(desert).unitInstanceIds.slice(0, 4),
       count: 4,
       speedPerSecond: 0,
       nodeId: desert.battlefield.deploymentNodeId,
@@ -389,6 +392,7 @@ describe('Empire\'s Endgame deterministic regional TD engine', () => {
     battlePlan.wave.groups[0].speedPerSecond = 0.001
     battlePlan.deployments = [{
       ...assaultDeployment(battlePlan),
+      unitInstanceIds: ['post-terminal-unit'],
       count: 1,
       speedPerSecond: 0,
       nodeId: battlePlan.battlefield.deploymentNodeId,
@@ -416,6 +420,7 @@ describe('Empire\'s Endgame deterministic regional TD engine', () => {
     battlePlan.wave.groups[0].speedPerSecond = 0.001
     battlePlan.deployments = [{
       ...assaultDeployment(battlePlan),
+      unitInstanceIds: ['damage-catalog-unit'],
       count: 1,
       speedPerSecond: 0,
       nodeId: battlePlan.battlefield.deploymentNodeId,
@@ -442,6 +447,7 @@ describe('Empire\'s Endgame deterministic regional TD engine', () => {
       ...assaultDeployment(battlePlan),
       id: 'a-patient',
       cohortId: 'a-patient',
+      unitInstanceIds: ['patient-1'],
       count: 1,
       speedPerSecond: 0,
       nodeId: battlePlan.battlefield.deploymentNodeId,
@@ -452,6 +458,7 @@ describe('Empire\'s Endgame deterministic regional TD engine', () => {
       id: 'z-healer',
       cohortId: 'z-healer',
       unitId: 'unit-medical-healer',
+      unitInstanceIds: ['healer-1'],
       count: 1,
       speedPerSecond: 0,
       nodeId: battlePlan.battlefield.deploymentNodeId,
@@ -618,6 +625,7 @@ describe('Empire\'s Endgame deterministic regional TD engine', () => {
     defeatPlan.wave.groups[0].attackIntervalTicks = 1
     defeatPlan.wave.groups[0].weapon = { damageLevels: { impact: 100 }, tags: ['alliance'] }
     defeatPlan.deployments[0].count = 1
+    defeatPlan.deployments[0].unitInstanceIds = ['assault-defeat-unit']
     defeatPlan.deployments[0].maxHpPerUnit = 1
     defeatPlan.deployments[0].attackRange = 0
     defeatPlan.deployments[0].weapon = { damageLevels: { impact: 0 }, tags: ['unit'] }

@@ -27,6 +27,7 @@ export const EMPIRES_QA_SCENARIO_NAMES = [
   'target-city-resources',
   'target-meteor-city',
   'empire-council-with-points',
+  'expedition-planning',
   'governance',
   'domestic-economy',
   'mystic-tavern',
@@ -258,6 +259,10 @@ const SCENARIO_COPY: Record<EmpiresQaScenarioName, { title: string, description:
   'empire-council-with-points': {
     title: 'Empire and card council',
     description: 'The empire phase is active and the card council has points to spend.',
+  },
+  'expedition-planning': {
+    title: 'Southern expedition planning',
+    description: 'The South has a canonical roster and enough regional food to launch the fortress expedition.',
   },
   governance: {
     title: 'Advisor judgment and Perst assignment',
@@ -538,6 +543,46 @@ function createEmpireSnapshot(
   const mercyCardId = state.durak.playerHand.at(-1)
   if (mercyCardId) state.cards[mercyCardId].inverted = true
   return state
+}
+
+function createExpeditionPlanningSnapshot(
+  config: EmpiresEndgameConfig,
+  empireSnapshot: EmpiresCampaignState,
+): EmpiresCampaignState {
+  const state = cloneJson(empireSnapshot)
+  const city = state.empire.cities.find(candidate => candidate.regionId === 'south')
+  if (!city) throw new Error('QA expedition scenario requires an accessible southern city.')
+  for (const candidate of state.empire.cities.filter(item => item.regionId === 'south')) {
+    candidate.resources[config.empire.foodResourceId] = candidate.id === city.id ? 100_000 : 0
+  }
+  const cohortId = 'qa-expedition-south-light'
+  const unitInstanceIds = ['qa-expedition-unit-1', 'qa-expedition-unit-2']
+  city.recruitedUnitCohorts.push({
+    id: cohortId,
+    unitId: 'unit-light',
+    loadoutId: 'qa-expedition-loadout',
+    count: unitInstanceIds.length,
+    unitInstanceIds,
+    weaponEquipmentId: 'weapon-mace',
+    weapon: { damageLevels: { impact: 100 }, tags: ['mace', 'qa-expedition'] },
+    armor: null,
+  })
+  for (const id of unitInstanceIds) {
+    state.army.unitInstances[id] = {
+      id,
+      cityId: city.id,
+      cohortId,
+      unitId: 'unit-light',
+      healthRatio: 1,
+      veteran: false,
+      wounds: 0,
+      recoveryStartedAtCon: null,
+      readyAtCon: state.con,
+    }
+  }
+  state.empire.daysRemaining = Math.max(state.empire.daysRemaining, 10)
+  state.external.nextWaveCon = Number.MAX_SAFE_INTEGER
+  return new EmpiresEndgameEngine(config, state).snapshot()
 }
 
 function createDomesticEconomySnapshot(
@@ -1042,6 +1087,9 @@ function createBattleSnapshot(
   const state = engine.snapshot()
   const campaignCity = state.empire.cities.find(candidate => candidate.id === city.id)!
   const cohortId = `qa:${city.id}:${unit.id}:default`
+  const unitInstanceIds = Array.from({ length: 3 }, (_, index) => (
+    `qa:${scenarioName}:${city.id}:${unit.id}:${index + 1}`
+  ))
   campaignCity.recruitedUnitCohorts = campaignCity.recruitedUnitCohorts
     .filter(cohort => cohort.id !== cohortId)
   campaignCity.recruitedUnitCohorts.push({
@@ -1049,6 +1097,7 @@ function createBattleSnapshot(
     unitId: unit.id,
     loadoutId: 'qa-default',
     count: 3,
+    unitInstanceIds,
     weaponEquipmentId: weaponDefinition.id,
     ...(armorDefinition ? { defenseEquipmentId: armorDefinition.id } : {}),
     weapon: cloneJson(weaponDefinition.profile as CombatWeaponProfile),
@@ -1085,6 +1134,7 @@ function createBattleSnapshot(
       cohortId,
       cityId: city.id,
       unitId: unit.id,
+      unitInstanceIds,
       count: 3,
       nodeId: deploymentNodeId,
       speedPerSecond: variant.deploymentSpeedPerSecond,
@@ -1096,6 +1146,19 @@ function createBattleSnapshot(
         ? cloneJson(armorDefinition.profile as CombatArmorProfile)
         : null,
     }],
+  }
+  for (const id of unitInstanceIds) {
+    state.army.unitInstances[id] = {
+      id,
+      cityId: city.id,
+      cohortId,
+      unitId: unit.id,
+      healthRatio: 1,
+      veteran: false,
+      wounds: 0,
+      recoveryStartedAtCon: null,
+      readyAtCon: state.con,
+    }
   }
   state.phase = 'minigame'
   state.minigame = {
@@ -1443,6 +1506,13 @@ export function validateEmpiresQaSnapshot(
       if (Object.keys(snapshot.governance.governorAssignments).length !== 0) {
         add('perst-assignment', 'Governance scenario must begin before Perst assignment.')
       }
+    } else if (scenarioName === 'expedition-planning') {
+      const planning = engine.expeditionPlanningView('expedition-south-fortress')
+      if (snapshot.phase !== 'empire' || !planning
+        || planning.roster.filter(unit => unit.eligible).length < 2
+        || planning.provisionAvailable < planning.provisionRequired) {
+        add('expedition-planning', 'Expedition scenario must expose a funded canonical southern roster.')
+      }
     } else if (scenarioName === 'domestic-economy') {
       const economy = snapshot.empire.domesticEconomy
       const operationalCarriers = [
@@ -1591,6 +1661,7 @@ export function createEmpiresQaScenarios(
   const targetCityResources = createTargetedGiftSnapshot(seededConfig, divineGift, 'cityResources')
   const targetMeteorCity = createTargetedGiftSnapshot(seededConfig, divineGift, 'meteorCity')
   const empireCouncil = createEmpireSnapshot(seededConfig, divineGift)
+  const expeditionPlanning = createExpeditionPlanningSnapshot(seededConfig, empireCouncil)
   const destroyedWest = createDestroyedRegionSnapshot(seededConfig, empireCouncil, 'west')
   const loyaltyRebellion = createLoyaltyRebellionSnapshot(seededConfig, empireCouncil)
   const relicProductionLevels = createRelicBuildingLevelSnapshot(seededConfig, empireCouncil)
@@ -1617,6 +1688,7 @@ export function createEmpiresQaScenarios(
     'target-city-resources': targetCityResources,
     'target-meteor-city': targetMeteorCity,
     'empire-council-with-points': empireCouncil,
+    'expedition-planning': expeditionPlanning,
     governance: cloneJson(empireCouncil),
     'domestic-economy': domesticEconomy,
     'mystic-tavern': mysticTavern,

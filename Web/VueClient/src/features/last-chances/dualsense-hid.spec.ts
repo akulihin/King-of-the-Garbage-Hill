@@ -193,29 +193,6 @@ describe('isolated DualSense WebHID driver', () => {
     })
   })
 
-  it('uses the injected classifier for an allowed device no serializer supports', async () => {
-    const device = new FakeHidDevice('bluetooth')
-    const output = new DualSenseWebHidDriver({
-      hid: new FakeChooser([device]),
-      filters: [{ vendorId: 0x1234, productId: 0xabcd }],
-      isAllowedDevice: candidate => candidate instanceof FakeHidDevice && candidate.allowed,
-      serializers: [new FakeSerializer('usb')],
-      unsupportedDeviceCapability: candidate => (
-        candidate instanceof FakeHidDevice && candidate.transport === 'bluetooth'
-          ? { permission: 'usb-required', message: 'Reconnect over USB.' }
-          : null
-      ),
-    })
-    expect(await output.enableEnhancedFeatures()).toBe(false)
-    expect(device.log).toEqual([])
-    expect(output.capability()).toMatchObject({
-      tier: 0,
-      status: 'unavailable',
-      permission: 'usb-required',
-      message: 'Reconnect over USB.',
-    })
-  })
-
   it('attempts a neutral stop and closes after a failed output write', async () => {
     const device = new FakeHidDevice('usb')
     device.failReportId = 0x02

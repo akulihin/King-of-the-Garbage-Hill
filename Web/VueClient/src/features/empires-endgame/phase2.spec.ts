@@ -188,17 +188,17 @@ describe('Empire\'s Endgame Phase 2 campaign bridge', () => {
     }, value.id)
     const restored = new EmpiresEndgameEngine(value, migrated)
     expect(restored.state).toMatchObject({
-      schemaVersion: 13,
+      schemaVersion: 14,
       minigame: null,
       minigameResultLog: [],
       army: {
         equipmentStock: {},
         morale: 0,
         maxMorale: 2,
-        veterans: {},
+        unitInstances: {},
+        nextUnitSequence: 1,
         recruitmentPenalties: {},
         foundryInstantReadyConByCity: {},
-        recoveries: [],
       },
       external: {
         allianceThreat: 0,
@@ -245,7 +245,7 @@ describe('Empire\'s Endgame Phase 2 campaign bridge', () => {
     expect(engine.state.external.allianceThreat).toBe(1)
   })
 
-  it('promotes healthy survivors to veterans and applies victory morale', () => {
+  it('keeps healthy survivors ordinary and applies victory morale', () => {
     const value = config()
     const engine = new EmpiresEndgameEngine(value, battleSnapshot(value, 'veterans'))
     const session = engine.state.minigame!
@@ -255,7 +255,7 @@ describe('Empire\'s Endgame Phase 2 campaign bridge', () => {
       deployments: [{ deployed: 3, survived: 3, healthRatio: 1 }],
     })
     expect(engine.resolveMinigame(result)).toMatchObject({ ok: true })
-    expect(Object.values(engine.state.army.veterans)).toHaveLength(3)
+    expect(Object.values(engine.state.army.unitInstances).filter(unit => unit.veteran)).toHaveLength(0)
     expect(engine.state.army.morale).toBe(1)
   })
 

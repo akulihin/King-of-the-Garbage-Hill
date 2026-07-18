@@ -167,7 +167,6 @@ const copy = {
     dualSenseEnabled: 'DualSense feature request completed.',
     dualSenseFailed: 'Enhanced DualSense feedback could not be enabled; controls remain active.',
     dualSenseUnsupported: 'WebHID is unavailable in this browser or without HTTPS; controls remain active.',
-    dualSenseUsbOnly: 'Adaptive triggers need a USB cable: over Bluetooth they freeze controller input. Connect the pad by wire and try again; controls remain active.',
     tactileLegend: 'Tactile legend',
     tactileLegendItems: [
       'Light click · step accepted',
@@ -336,7 +335,6 @@ const copy = {
     dualSenseEnabled: 'Запрос функций DualSense завершён.',
     dualSenseFailed: 'Расширенный отклик DualSense не включён; управление продолжает работать.',
     dualSenseUnsupported: 'WebHID недоступен в этом браузере или без HTTPS; управление продолжает работать.',
-    dualSenseUsbOnly: 'Адаптивным триггерам нужен USB-кабель: по Bluetooth они замораживают ввод с геймпада. Подключите DualSense проводом и повторите; управление продолжает работать.',
     tactileLegend: 'Тактильная легенда',
     tactileLegendItems: [
       'Лёгкий клик · шаг принят',
@@ -848,12 +846,10 @@ async function enableDualSenseFeatures() {
   if (!engine.value) return
   try {
     const enabled = await engine.value.enableDualSenseFeatures()
-    const permission = snapshot.value?.feedback?.permission
+    const unsupported = snapshot.value?.feedback?.permission === 'unavailable'
     setToast(enabled
       ? t.value.dualSenseEnabled
-      : permission === 'usb-required' ? t.value.dualSenseUsbOnly
-      : permission === 'unavailable' ? t.value.dualSenseUnsupported
-      : t.value.dualSenseFailed)
+      : unsupported ? t.value.dualSenseUnsupported : t.value.dualSenseFailed)
   } catch {
     setToast(t.value.dualSenseFailed)
   }

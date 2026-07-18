@@ -5905,6 +5905,7 @@ export class EmpiresEndgameEngine {
     const dialogueBlock = this.mandatoryDialogueBlockedReason()
     if (dialogueBlock) return dialogueBlock
     if (!this.config.expeditions.enabled) return 'Экспедиции отключены в этой конфигурации.'
+    if (!this.config.td.enabled) return 'Штурмы экспедиций отключены вместе с TD.'
     if (definition.deferredReason) return definition.deferredReason
     if (this.state.phase !== 'empire') return 'Экспедиции планируются во время управления империей.'
     if (!this.isRegionAccessible(definition.originRegionId)) return 'Исходный регион недоступен.'
@@ -9598,7 +9599,14 @@ export class EmpiresEndgameEngine {
         : undefined
       const cohort = unitId ? cohorts.find(candidate => candidate.unitId === unitId) : undefined
       if (cohort) {
-        cohort.count = Math.max(0, cohort.count - 1)
+        const removedUnitId = [...cohort.unitInstanceIds].sort(stableStringCompare).at(-1)
+        if (removedUnitId) {
+          cohort.unitInstanceIds = cohort.unitInstanceIds.filter(id => id !== removedUnitId)
+          delete state.army.unitInstances[removedUnitId]
+          cohort.count = cohort.unitInstanceIds.length
+        } else {
+          cohort.count = Math.max(0, cohort.count - 1)
+        }
         if (cohort.count === 0) {
           city.recruitedUnitCohorts = city.recruitedUnitCohorts.filter(candidate => candidate.id !== cohort.id)
         }

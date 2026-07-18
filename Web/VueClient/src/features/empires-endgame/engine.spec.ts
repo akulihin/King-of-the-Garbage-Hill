@@ -43,7 +43,7 @@ function makeCards(): EmpiresCardDefinition[] {
 
 function makeConfig(): EmpiresEndgameConfig {
   return {
-    schemaVersion: 15,
+    schemaVersion: 16,
     id: 'engine-test',
     title: "Empire's Endgame",
     seed: 'deterministic-test',
@@ -58,6 +58,13 @@ function makeConfig(): EmpiresEndgameConfig {
       enabled: false,
       recipes: [],
     } as EmpiresEndgameConfig['alchemy'],
+    expeditions: {
+      ...structuredClone(defaultConfigJson.expeditions),
+      enabled: false,
+      zones: [],
+      enemyProfiles: [],
+      definitions: [],
+    } as EmpiresEndgameConfig['expeditions'],
     durak: {
       handSize: 6,
       maxAttackCards: 6,

@@ -124,7 +124,7 @@ describe('DualSense USB serializer', () => {
   })
 })
 
-describe('DualSense Bluetooth serializer (harness-only since M117)', () => {
+describe('DualSense Bluetooth serializer', () => {
   it('wraps the common payload in a 77-byte 0x31 report with tag, sequence and CRC-32', () => {
     const serializer = new BluetoothDualSenseSerializer()
     const first = serializer.serialize(effect())[0]
@@ -200,34 +200,30 @@ describe('DualSense device allowlist and factory', () => {
     })
   })
 
-  it('classifies a granted Bluetooth pad as usb-required instead of sending any 0x31 output (M117)', async () => {
-    const sent: number[] = []
-    const device: LastChancesHidDeviceLike = {
+  it('raises Tier 2 for a granted Bluetooth pad through CRC-framed output report 0x31', async () => {
+    const sent: Array<{ reportId: number; length: number }> = []
+    const device = {
       ...deviceWithReports([BLUETOOTH_OUTPUT_REPORT_ID], {
         vendorId: SONY_VENDOR_ID,
         productId: DUALSENSE_PRODUCT_ID,
       }),
+      opened: false,
       async open() {
-        throw new Error('a Bluetooth pad must never be opened by the production driver')
+        device.opened = true
       },
-      async sendReport(reportId: number) {
-        sent.push(reportId)
+      async sendReport(reportId: number, data: Uint8Array) {
+        sent.push({ reportId, length: data.length })
       },
     }
     vi.stubGlobal('window', { isSecureContext: true })
     vi.stubGlobal('navigator', { hid: { requestDevice: async () => [device] } })
     const output = createLastChancesDualSenseEnhancedOutput()
-    expect(await output?.enableEnhancedFeatures()).toBe(false)
-    expect(sent).toEqual([])
-    expect(output?.capability()).toMatchObject({
-      tier: 0,
-      status: 'unavailable',
-      permission: 'usb-required',
-    })
-    expect(output?.capability().message).toContain('USB')
+    expect(await output?.enableEnhancedFeatures()).toBe(true)
+    expect(sent).toEqual([{ reportId: BLUETOOTH_OUTPUT_REPORT_ID, length: 77 }])
+    expect(output?.capability()).toMatchObject({ tier: 2, status: 'enhanced', permission: 'granted' })
   })
 
-  it('still raises Tier 2 for a granted USB pad through output report 0x02', async () => {
+  it('raises Tier 2 for a granted USB pad through output report 0x02', async () => {
     const sent: number[] = []
     const device = {
       ...deviceWithReports([USB_OUTPUT_REPORT_ID], {

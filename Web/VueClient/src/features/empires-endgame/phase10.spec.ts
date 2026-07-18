@@ -51,7 +51,7 @@ function session(engine: EmpiresEndgameEngine): EmpiresAlchemyMinigameSession {
 }
 
 describe('Empire\'s Endgame Phase 10 Tetris-alchemy', () => {
-  it('migrates v14 fail-closed without mutation, is idempotent, and rejects future schema v16', () => {
+  it('migrates v14 fail-closed without mutation, is idempotent, and rejects future schema v17', () => {
     const legacy = structuredClone(bundledConfigJson) as unknown as Record<string, unknown>
     legacy.schemaVersion = 14
     delete legacy.alchemy
@@ -60,10 +60,10 @@ describe('Empire\'s Endgame Phase 10 Tetris-alchemy', () => {
     const migrated = migrateEmpiresConfig(legacy)
 
     expect(legacy).toEqual(original)
-    expect(migrated).toMatchObject({ schemaVersion: 15, alchemy: { enabled: false, recipes: [] } })
+    expect(migrated).toMatchObject({ schemaVersion: 16, alchemy: { enabled: false, recipes: [] } })
     expect(migrateEmpiresConfig(migrated)).toEqual(migrated)
     expect(() => validateEmpiresConfig(migrated)).not.toThrow()
-    expect(() => migrateEmpiresConfig({ ...migrated, schemaVersion: 16 })).toThrow(/future.*16/i)
+    expect(() => migrateEmpiresConfig({ ...migrated, schemaVersion: 17 })).toThrow(/future.*17/i)
   })
 
   it('closes the broad Alchemy carrier while retaining the exact raw-semantic blockers', () => {
@@ -247,11 +247,11 @@ describe('Empire\'s Endgame Phase 10 Tetris-alchemy', () => {
     expect(() => new EmpiresEndgameEngine(changed, activeSnapshot)).toThrow(/rules|config/i)
   })
 
-  it('round-trips schema v13, normalizes v12 additively, and rejects a future v14 envelope', () => {
+  it('round-trips schema v14, normalizes v12 additively, and rejects a future v15 envelope', () => {
     const value = config()
     const state = new EmpiresEndgameEngine(value).snapshot()
     const exported = exportEmpiresCampaign(state)
-    expect(exported).toMatchObject({ schemaVersion: 13, state: { schemaVersion: 13 } })
+    expect(exported).toMatchObject({ schemaVersion: 14, state: { schemaVersion: 14 } })
     expect(importEmpiresCampaign(exported, value.id)).toEqual(state)
 
     const legacyState = structuredClone(state) as unknown as Record<string, unknown>
@@ -263,9 +263,9 @@ describe('Empire\'s Endgame Phase 10 Tetris-alchemy', () => {
       state: legacyState,
     }, value.id)
     expect(new EmpiresEndgameEngine(value, restored).state).toMatchObject({
-      schemaVersion: 13,
+      schemaVersion: 14,
       alchemy: { explosionCount: 0, lastExplosion: null },
     })
-    expect(() => importEmpiresCampaign({ ...exported, schemaVersion: 14 }, value.id)).toThrow(/1–13/)
+    expect(() => importEmpiresCampaign({ ...exported, schemaVersion: 15 }, value.id)).toThrow(/1–14/)
   })
 })

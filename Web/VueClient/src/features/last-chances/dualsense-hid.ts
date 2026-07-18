@@ -59,16 +59,6 @@ export interface DualSenseWebHidDriverOptions {
   filters: readonly LastChancesHidDeviceFilter[]
   isAllowedDevice: (device: LastChancesHidDeviceLike) => boolean
   serializers: readonly DualSenseHidTransportSerializer[]
-  /**
-   * Classifies an allowlisted device that no installed serializer supports, so the
-   * capability can explain the real constraint (e.g. a Bluetooth pad that must be
-   * re-connected over USB, finding M117). Returning null/undefined keeps the
-   * generic no-verified-transport message.
-   */
-  unsupportedDeviceCapability?: (device: LastChancesHidDeviceLike) => {
-    permission: PermissionState
-    message: string
-  } | null
 }
 
 type PermissionState = LastChancesFeedbackOutputCapability['permission']
@@ -148,14 +138,9 @@ export class DualSenseWebHidDriver implements LastChancesEnhancedFeedbackOutput 
       }))
       .find(candidate => candidate.serializer)
     if (!match?.serializer) {
-      const allowed = devices.find(device => this.options.isAllowedDevice(device))
-      const classified = allowed
-        ? this.options.unsupportedDeviceCapability?.(allowed) ?? null
-        : null
-      this.permission = classified?.permission ?? 'unavailable'
+      this.permission = 'unavailable'
       this.status = 'unavailable'
-      this.message = classified?.message
-        ?? 'The selected HID device has no physically verified transport serializer.'
+      this.message = 'The selected HID device has no physically verified transport serializer.'
       return false
     }
 

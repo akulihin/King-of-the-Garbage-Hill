@@ -64,7 +64,7 @@ describe('Empire\'s Endgame Phase 5 epidemics', () => {
     const migrated = migrateEmpiresConfig(previous) as EmpiresEndgameConfig
     expect(previous).toEqual(original)
     expect(migrated).toMatchObject({
-      schemaVersion: 15,
+      schemaVersion: 16,
       empire: {
         epidemics: { enabled: false, definitions: [], protections: [] },
         medical: { enabled: false, defaultBattleRecoveryCons: 2 },
@@ -73,7 +73,7 @@ describe('Empire\'s Endgame Phase 5 epidemics', () => {
     })
     expect(() => validateEmpiresConfig(migrated)).not.toThrow()
     expect(migrateEmpiresConfig(migrated)).toEqual(migrated)
-    expect(() => migrateEmpiresConfig({ ...migrated, schemaVersion: 16 })).toThrow(/future.*16/i)
+    expect(() => migrateEmpiresConfig({ ...migrated, schemaVersion: 17 })).toThrow(/future.*17/i)
   })
 
   it('allocates class loss by authored weights with stable remainder and capacity handling', () => {
@@ -286,9 +286,19 @@ describe('Empire\'s Endgame Phase 5 epidemics', () => {
     city.operationalBuildingLevels[value.empire.medical.medicalAcademyBuildingId] = 1
     engine.state.empire.researchedTechnologyIds.push('doctrine-science')
     engine.state.empire.medical.nextFreeResearchCon = 2
-    engine.state.army.veterans.wounded = { unitId: 'unit-light', wounds: 1 }
+    engine.state.army.unitInstances.wounded = {
+      id: 'wounded',
+      cityId: city.id,
+      cohortId: 'academy-fixture',
+      unitId: 'unit-light',
+      healthRatio: 0.5,
+      veteran: true,
+      wounds: 1,
+      recoveryStartedAtCon: engine.state.con,
+      readyAtCon: engine.state.con + 2,
+    }
     expect(engine.treatVeteran('wounded')).toMatchObject({ ok: true })
-    expect(engine.state.army.veterans.wounded.wounds).toBe(0)
+    expect(engine.state.army.unitInstances.wounded.wounds).toBe(0)
     expect(engine.treatVeteran('wounded')).toMatchObject({ ok: false })
 
     expect(engine.finishEmpire().ok).toBe(true)
@@ -305,15 +315,30 @@ describe('Empire\'s Endgame Phase 5 epidemics', () => {
       const engine = empireEngine(value)
       const city = origin(engine)
       const cohortId = `medical-recovery-${hospital ? 'hospital' : 'field'}`
+      const unitInstanceIds = Array.from({ length: 3 }, (_, index) => `${cohortId}:${index + 1}`)
       city.recruitedUnitCohorts = [{
         id: cohortId,
         unitId: 'unit-light',
         loadoutId: 'medical-test',
         count: 3,
+        unitInstanceIds,
         weaponEquipmentId: 'weapon-mace',
         weapon: { damageLevels: { impact: 2 }, tags: ['mace'] },
         armor: null,
       }]
+      for (const id of unitInstanceIds) {
+        engine.state.army.unitInstances[id] = {
+          id,
+          cityId: city.id,
+          cohortId,
+          unitId: 'unit-light',
+          healthRatio: 1,
+          veteran: false,
+          wounds: 0,
+          recoveryStartedAtCon: null,
+          readyAtCon: engine.state.con,
+        }
+      }
       city.militaryPopulation = Math.max(city.militaryPopulation, 3)
       if (hospital) {
         engine.state.empire.researchedTechnologyIds.push('tech-medicine')
@@ -325,6 +350,7 @@ describe('Empire\'s Endgame Phase 5 epidemics', () => {
         cohortId,
         cityId: city.id,
         unitId: 'unit-light',
+        unitInstanceIds,
         count: 3,
         nodeId: 'node',
         speedPerSecond: 0,
@@ -355,13 +381,13 @@ describe('Empire\'s Endgame Phase 5 epidemics', () => {
       }
       ;(engine as unknown as { settleBattleOutcome: (result: unknown, session: unknown) => void })
         .settleBattleOutcome(result, session)
-      expect(engine.state.army.recoveries).toEqual([
-        expect.objectContaining({
+      expect(unitInstanceIds.map(id => engine.state.army.unitInstances[id])).toEqual(
+        unitInstanceIds.map(() => expect.objectContaining({
           cohortId,
-          count: 3,
+          recoveryStartedAtCon: engine.state.con,
           readyAtCon: engine.state.con + (hospital ? 1 : 2),
-        }),
-      ])
+        })),
+      )
       const deployments = (engine as unknown as {
         buildTdDeployments: (state: EmpiresCampaignState, nodeId: string, speed: number) => Array<{ cohortId: string }>
       }).buildTdDeployments(engine.state, 'node', 0)
@@ -414,10 +440,10 @@ describe('Empire\'s Endgame Phase 5 epidemics', () => {
     delete (legacy.army as Partial<EmpiresCampaignState['army']>).recoveries
     const restored = new EmpiresEndgameEngine(value, legacy)
     expect(restored.state).toMatchObject({
-      schemaVersion: 13,
+      schemaVersion: 14,
       epidemics: [],
       nextEpidemicSequence: 1,
-      army: { recoveries: [] },
+      army: { unitInstances: {}, nextUnitSequence: 1 },
       empire: {
         medical: { nextFreeResearchCon: null, awardedTechnologyIds: [] },
         domesticEconomy: { loans: [], insuranceContracts: [], persecution: null },

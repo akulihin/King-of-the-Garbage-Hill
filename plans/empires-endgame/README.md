@@ -85,7 +85,12 @@ Current execution status supplied by the designer on 2026-07-17:
   explosion→epidemic settlement, con-scoped laboratory lock, accessible controls and QA landed
   as one change-set. The broad Alchemy marker is closed; Disassembly launch rules, poison/wall
   recipes, science unlock mappings and mutant aftermath retain exact source-gap blockers.
-- **Next prompt: Phase 11A** (`phase-11-expeditions-inventory.md`).
+- **Phase 11A — complete/conditional.** Schema-v16 expedition configuration, save-envelope
+  v14, typed fortress/zone payloads, canonical per-soldier roster, origin provisioning,
+  abstract logistics time, complaint quest and the shared TD assault/settlement path landed
+  as one change-set. Opened-zone content, the later veteran bonus, Reaper/millet, the absent
+  plate exception and inverted ♠3 retain exact source-gap blockers.
+- **Next prompt: Phase 11B** (`phase-11b-tetris-inventory.md`).
 
 Scope decisions confirmed by the designer (2026-07-16):
 
@@ -121,7 +126,7 @@ graph TD
   P8 --> P9
   P3A --> P10[10 complete: Tetris-alchemy]
   P5 --> P10
-  P3B --> P11A[11A expeditions]
+  P3B --> P11A[11A complete: expeditions]
   P7 --> P11A
   P11A --> P11B[11B Tetris-inventory]
   P9 --> P12[12 Chess design gate]
@@ -150,7 +155,7 @@ graph TD
 | `phase-08-god-presence.md` | **Complete/historical.** Deck-memory, deterministic capped anti-bito, isolated authored God lines, Милость confirmation and device preference. |
 | `phase-09-tavern-mystic.md` | **Complete/conditional.** Deterministic Tavern, separate ordered mystic catalog/zone, 3–7–Т observer and Пиковая Дама pulse; exact incomplete subfeatures remain blocked. |
 | `phase-10-tetris-alchemy.md` | **Complete/conditional.** Deterministic Assembly, reagents, acceleration and configured explosion → typed epidemic; incomplete Disassembly/recipe/aftermath semantics retain exact blockers. |
-| `phase-11-expeditions-inventory.md` | **11A:** expeditions, forts/zones, provisions, veterans, TD assault. |
+| `phase-11-expeditions-inventory.md` | **Complete/conditional. 11A:** typed forts/zones, provisions, canonical soldiers/veterans, complaints and shared TD assault; exact residual source gaps remain blocked. |
 | `phase-11b-tetris-inventory.md` | **11B:** deterministic falling-cart packing minigame. |
 | `phase-12-chess.md` | Chess design gate; implementation stays disabled until the rules table is executable. |
 | `phase-12b-content-closure.md` | Raw-source/config carrier closure sweep; no new substrate. |
@@ -380,6 +385,27 @@ graph TD
   bundled Disassembly launch remains unavailable because the raw source gives conflicting
   control and success sketches. No later phase may infer poison inputs/outputs, science
   recipe mapping or a mutant event/TD lifecycle from these seams.
+
+## P11A handoff
+
+- The compatibility baseline is config schema 16 and campaign/save envelope 14. Genuine
+  schema-v15 custom configs receive discriminated map payloads plus a disabled empty
+  expedition scaffold; schema-v13 saves receive canonical soldier instances and empty
+  expedition state without retroactive launches, wounds or opened zones.
+- The unchanged `map-south-fortress` is the only live fort and opens the direct-provision
+  planner for `expedition-south-fortress`. Launch freezes stable soldier IDs/loadouts,
+  withdraws origin-region food exactly once, spends preparation days and uses abstract
+  effective travel cons for requirements, risk and complaint history. Abort never refunds.
+- Военная логистика, Снабженцы and normal ♠3 are consumed by the same authoritative
+  planning quote. The inverted ♠3 remains deferred because confusion cleanup and scope are
+  incomplete; P11B may add packed item identities/efficiency only to the frozen provision
+  plan and must not replace it with an empire-wide flag.
+- Expedition assault is an ordinary rules-identified TD replay with purpose `expedition`.
+  Its common settlement path owns casualties, first/second wounds, veteran threshold,
+  recovery, reward/zone/complaint exact-once guards and bounded digest-compacted history.
+- The exact residual manifest is `opened-zone-content`, the null later-battle veteran bonus,
+  the absent stable `холодная рука` plate exception, Reaper/millet semantics and every fort
+  beyond South. West and swamp profiles are configured combat inventories, not live routes.
 
 ## How to execute the remaining prompts
 

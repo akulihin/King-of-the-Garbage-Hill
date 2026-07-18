@@ -438,41 +438,6 @@
     "triggerHistoryRetention": 64,
     "definitions": [
       {
-        "id": "quest-expedition-south-complaint",
-        "name": "Жалоба южного региона",
-        "journalDescription": "Южные города недовольны частыми экспедициями и разовым изъятием провизии.",
-        "trigger": {
-          "kind": "manual",
-          "repeatable": true
-        },
-        "entryStageId": "south-expedition-complaint",
-        "mandatory": false,
-        "restartPolicy": "afterTerminal",
-        "stages": [
-          {
-            "id": "south-expedition-complaint",
-            "name": "Требование региона",
-            "entryNodeId": "south-expedition-complaint-notice",
-            "nodes": [
-              {
-                "id": "south-expedition-complaint-notice",
-                "speaker": "Представители южного региона",
-                "text": "Частые экспедиции снова забрали провизию южных городов. Регион требует, чтобы император услышал жалобу.",
-                "choices": [
-                  {
-                    "id": "acknowledge-south-expedition-complaint",
-                    "label": "Выслушать жалобу",
-                    "goto": {
-                      "kind": "complete"
-                    }
-                  }
-                ]
-              }
-            ]
-          }
-        ]
-      },
-      {
         "id": "quest-palach",
         "name": "Палач",
         "journalDescription": "Гранд-Советник предлагает освободить приговорённого палача и завербовать его в экспедицию.",
@@ -1782,6 +1747,41 @@
             ]
           }
         ]
+      },
+      {
+        "id": "quest-expedition-south-complaint",
+        "name": "Жалоба южного региона",
+        "journalDescription": "Южные города недовольны частыми экспедициями и разовым изъятием провизии.",
+        "trigger": {
+          "kind": "manual",
+          "repeatable": true
+        },
+        "entryStageId": "south-expedition-complaint",
+        "mandatory": false,
+        "restartPolicy": "afterTerminal",
+        "stages": [
+          {
+            "id": "south-expedition-complaint",
+            "name": "Требование региона",
+            "entryNodeId": "south-expedition-complaint-notice",
+            "nodes": [
+              {
+                "id": "south-expedition-complaint-notice",
+                "speaker": "Представители южного региона",
+                "text": "Частые экспедиции снова забрали провизию южных городов. Регион требует, чтобы император услышал жалобу.",
+                "choices": [
+                  {
+                    "id": "acknowledge-south-expedition-complaint",
+                    "label": "Выслушать жалобу",
+                    "goto": {
+                      "kind": "complete"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
       }
     ]
   },
@@ -2991,8 +2991,8 @@
           {
             "kind": "flag",
             "flagId": "worldMaps",
-            "amount": 0,
-            "amountPerLevel": 1
+            "amount": 1,
+            "amountPerLevel": 0
           },
           {
             "kind": "flag",
