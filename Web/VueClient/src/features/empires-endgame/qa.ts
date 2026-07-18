@@ -1,6 +1,7 @@
 import { EmpiresEndgameEngine } from './engine'
 import { resolveTdWithPolicy } from './td/qa'
 import { createTdRulesIdentity } from './td/engine'
+import { resolveTavern } from './tavern/engine'
 import { initialQuestMemory, questCurrentNode } from './quests'
 import type { TdQaPolicy } from './td/qa'
 import type { CombatArmorProfile, CombatWeaponProfile } from './combat/types'
@@ -14,6 +15,7 @@ import type {
   EmpiresPhase,
   TdBattlePlan,
   TdBattleMode,
+  EmpiresMinigameKind,
 } from './types'
 
 export const EMPIRES_QA_SCENARIO_NAMES = [
@@ -26,6 +28,7 @@ export const EMPIRES_QA_SCENARIO_NAMES = [
   'empire-council-with-points',
   'governance',
   'domestic-economy',
+  'mystic-tavern',
   'external-trade',
   'economy-content-event',
   'quest-dialogue',
@@ -91,7 +94,7 @@ export type EmpiresQaAction =
   | { kind: 'choose-gift', giftId: string }
   | { kind: 'resolve-target', targetId: string }
   | { kind: 'finish-empire' }
-  | { kind: 'resolve-minigame', policy: TdQaPolicy }
+  | { kind: 'resolve-minigame', policy: TdQaPolicy | 'tavern-fast' }
   | { kind: 'choose-event', eventId: string, choiceId: string }
   | { kind: 'advance-dialogue', questId: string, choiceId: string }
   | { kind: 'dismiss-dialogue', questId: string }
@@ -119,6 +122,7 @@ export interface EmpiresQaStateDigest {
   daysRemaining: number
   eventId: string | null
   minigameId: string | null
+  minigameKind: EmpiresMinigameKind | null
   minigameAttempt: number | null
   minigameMode: TdBattleMode | null
   minigameRegionId: string | null
@@ -204,8 +208,9 @@ export interface EmpiresQaAutoplayResult {
   resolvedEventIds: string[]
   resolvedMinigames: Array<{
     sessionId: string
-    mode: TdBattleMode
-    regionId: string
+    kind: EmpiresMinigameKind
+    mode: TdBattleMode | null
+    regionId: string | null
     rulesDigest: string
   }>
   trace: EmpiresQaTraceEntry[]
@@ -259,6 +264,10 @@ const SCENARIO_COPY: Record<EmpiresQaScenarioName, { title: string, description:
   'domestic-economy': {
     title: 'Domestic economy obligations and carriers',
     description: 'Bank, insurance, Fair, Temple, and Tavern carriers expose executable state and an active loan schedule.',
+  },
+  'mystic-tavern': {
+    title: 'Tavern and mystic cards',
+    description: 'A deterministic Tavern visit exposes both authored sections and the separate mystic row.',
   },
   'external-trade': {
     title: 'External actors and persisted offers',
@@ -573,6 +582,29 @@ function createDomesticEconomySnapshot(
   const engine = new EmpiresEndgameEngine(config, state)
   const loan = engine.takeLoan(cities[0].id)
   if (!loan.ok) throw new Error(`QA domestic-economy loan could not start: ${loan.message}`)
+  return engine.snapshot()
+}
+
+function createTavernSnapshot(
+  config: EmpiresEndgameConfig,
+  empireSnapshot: EmpiresCampaignState,
+): EmpiresCampaignState {
+  if (!config.tavern.enabled) throw new Error('QA Tavern scenario requires live Tavern rules.')
+  const state = cloneJson(empireSnapshot)
+  state.phase = 'empire'
+  state.con = Math.max(state.con, config.tavern.spawn.eligibleCon)
+  state.tavern.spawnChecked = true
+  state.tavern.spawned = true
+  state.tavern.spawnedAtCon = state.con
+  state.tavern.lastVisitedCon = null
+  state.empire.resources[config.empire.domesticEconomy.goldResourceId] = 100_000
+  const engine = new EmpiresEndgameEngine(config, state)
+  const city = engine.state.empire.cities.find(candidate => engine.isCityAccessible(candidate.id))
+  if (!city) throw new Error('QA Tavern scenario requires an accessible city.')
+  const result = engine.startTavernVisit(city.id)
+  if (!result.ok || engine.state.minigame?.kind !== 'tavern') {
+    throw new Error(`QA Tavern scenario could not start: ${result.message}`)
+  }
   return engine.snapshot()
 }
 
@@ -1165,14 +1197,17 @@ export function digestEmpiresQaState(engine: EmpiresEndgameEngine): EmpiresQaSta
     daysRemaining: engine.state.empire.daysRemaining,
     eventId: engine.state.event?.eventId ?? null,
     minigameId: engine.state.minigame?.id ?? null,
+    minigameKind: engine.state.minigame?.kind ?? null,
     minigameAttempt: engine.state.minigame?.attempt ?? null,
-    minigameMode: engine.state.minigame?.plan.mode ?? null,
-    minigameRegionId: engine.state.minigame?.plan.battlefield.regionId ?? null,
+    minigameMode: engine.state.minigame?.kind === 'td' ? engine.state.minigame.plan.mode : null,
+    minigameRegionId: engine.state.minigame?.kind === 'td'
+      ? engine.state.minigame.plan.battlefield.regionId
+      : null,
     minigameRulesSchemaVersion: engine.state.minigame?.rulesIdentity.configSchemaVersion ?? null,
     minigameRulesDigest: engine.state.minigame?.rulesIdentity.rulesDigest ?? null,
     minigameCommandLimit: engine.state.minigame?.plan.maxCommands ?? null,
     minigameResultCount: engine.state.minigameResultLog.length,
-    minigameResultLimit: engine.config.td.resultLogLimit ?? null,
+    minigameResultLimit: Math.max(1, engine.config.td.resultLogLimit ?? 32),
     minigameResultEvictedCount: engine.state.minigameResultCompaction.evictedCount,
     minigameResultHistoryDigest: engine.state.minigameResultCompaction.historyDigest,
     minigameResultLastSessionId: engine.state.minigameResultCompaction.lastSessionId,
@@ -1450,6 +1485,12 @@ export function validateEmpiresQaSnapshot(
       } else if (restoredEngine.cityEpidemicViews(active[0].cityId).length !== 1) {
         add('epidemic-view', 'Epidemic scenario must expose its restored city projection.')
       }
+    } else if (scenarioName === 'mystic-tavern') {
+      if (snapshot.phase !== 'minigame' || snapshot.minigame?.kind !== 'tavern') {
+        add('tavern-minigame', 'Tavern scenario must contain an active Tavern session.')
+      } else if (snapshot.minigame.plan.sections.join(',') !== 'tables,bar') {
+        add('tavern-sections', 'Tavern scenario must preserve the authored tables/bar order.')
+      }
     } else if (scenarioName in TD_QA_VARIANTS) {
       const expected = TD_QA_VARIANTS[scenarioName as keyof typeof TD_QA_VARIANTS]
       const expectedRules = qaRulesIdentity(config)
@@ -1502,6 +1543,7 @@ export function createEmpiresQaScenarios(
   const seasonDisclosure = createSeasonDisclosureSnapshot(seededConfig, empireCouncil)
   const epidemicOutbreak = createEpidemicOutbreakSnapshot(seededConfig, empireCouncil)
   const domesticEconomy = createDomesticEconomySnapshot(seededConfig, empireCouncil)
+  const mysticTavern = createTavernSnapshot(seededConfig, empireCouncil)
   const externalTrade = createExternalTradeSnapshot(seededConfig, empireCouncil)
   const economyContentEvent = createEconomyContentEventSnapshot(seededConfig, externalTrade)
   const questDialogue = createQuestDialogueSnapshot(seededConfig, empireCouncil)
@@ -1522,6 +1564,7 @@ export function createEmpiresQaScenarios(
     'empire-council-with-points': empireCouncil,
     governance: cloneJson(empireCouncil),
     'domestic-economy': domesticEconomy,
+    'mystic-tavern': mysticTavern,
     'external-trade': externalTrade,
     'economy-content-event': economyContentEvent,
     'quest-dialogue': questDialogue,
@@ -1686,7 +1729,10 @@ function chooseAutoplayAction(
   if (engine.state.phase === 'minigame') {
     return engine.state.minigame
       ? {
-          action: { kind: 'resolve-minigame', policy: tdPolicy },
+          action: {
+            kind: 'resolve-minigame',
+            policy: engine.state.minigame.kind === 'tavern' ? 'tavern-fast' : tdPolicy,
+          },
           stall: null,
           checkedPlayerTurn: false,
         }
@@ -1724,9 +1770,16 @@ function executeAutoplayAction(
   if (action.kind === 'finish-empire') return engine.finishEmpire()
   if (action.kind === 'resolve-minigame') {
     const session = engine.state.minigame
-    return session
-      ? engine.resolveMinigame(resolveTdWithPolicy(session.plan, session.seed, action.policy))
-      : { ok: false, message: 'No minigame session is active.' }
+    if (!session) return { ok: false, message: 'No minigame session is active.' }
+    if (session.kind === 'tavern') {
+      return engine.resolveMinigame(resolveTavern(session.plan, session.seed, [
+        { turn: 1, kind: 'finish' },
+      ]))
+    }
+    if (action.policy === 'tavern-fast') {
+      return { ok: false, message: 'Tavern fast resolve cannot settle a TD session.' }
+    }
+    return engine.resolveMinigame(resolveTdWithPolicy(session.plan, session.seed, action.policy))
   }
   if (action.kind === 'advance-dialogue') {
     return engine.advanceDialogue(action.questId, action.choiceId)
@@ -1818,8 +1871,11 @@ export function runEmpiresQaAutoplay(
     const resolvingMinigame = selected.action.kind === 'resolve-minigame' && engine.state.minigame
       ? {
           sessionId: engine.state.minigame.id,
-          mode: engine.state.minigame.plan.mode,
-          regionId: engine.state.minigame.plan.battlefield.regionId,
+          kind: engine.state.minigame.kind,
+          mode: engine.state.minigame.kind === 'td' ? engine.state.minigame.plan.mode : null,
+          regionId: engine.state.minigame.kind === 'td'
+            ? engine.state.minigame.plan.battlefield.regionId
+            : null,
           rulesDigest: engine.state.minigame.rulesIdentity.rulesDigest,
         }
       : null

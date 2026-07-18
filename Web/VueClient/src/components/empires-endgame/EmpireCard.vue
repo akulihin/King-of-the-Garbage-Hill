@@ -52,6 +52,7 @@ const suitSymbol = computed(() => ({
   clubs: '♣',
   spades: '♠',
   joker: '✦',
+  mystic: '◈',
 }[props.suit] ?? props.suit))
 
 const suitLabel = computed(() => ({
@@ -60,6 +61,7 @@ const suitLabel = computed(() => ({
   clubs: 'Народ',
   spades: 'Прогресс',
   joker: 'Шут',
+  mystic: 'Мистика',
 }[props.suit] ?? props.suit))
 
 const artStyle = computed(() => props.image ? { backgroundImage: `url(${JSON.stringify(props.image).slice(1, -1)})` } : undefined)
@@ -171,6 +173,7 @@ function choose() {
 .suit-clubs { --suit: #486b45; --suit-deep: #263e2b; }
 .suit-spades { --suit: #3d4d5d; --suit-deep: #202a36; }
 .suit-joker { --suit: #b89045; --suit-deep: #5c3e5f; }
+.suit-mystic { --suit: #8d6bae; --suit-deep: #3d274f; }
 .empire-card.interactive { cursor: pointer; }
 .empire-card.interactive:hover:not(:disabled) { z-index: 3; filter: brightness(1.04); box-shadow: 0 14px 34px rgba(0,0,0,.45), 0 0 0 2px color-mix(in srgb, var(--suit) 72%, #fff); transform: translateY(-10px) rotate(.5deg); }
 .empire-card.selected { box-shadow: 0 16px 36px rgba(0,0,0,.5), 0 0 0 3px #f1cc72; transform: translateY(-12px); }

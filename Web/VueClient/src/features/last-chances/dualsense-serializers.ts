@@ -152,11 +152,17 @@ function crc32(bytes: Iterable<number>): number {
 }
 
 /**
- * Deliberately never touches the pad's report mode (e.g. reading calibration
- * feature report 0x05): a Bluetooth DualSense accepts CRC-framed 0x31 output
- * while in simple HID mode, but flipping it to extended mode makes its input
- * reports vendor-typed — Chromium's Gamepad API can no longer map them and
- * controller input freezes until the pad power-cycles (finding M116).
+ * HARNESS-ONLY — excluded from `createLastChancesDualSenseEnhancedOutput`.
+ * M116 assumed only a feature-report read (calibration 0x05) flips a Bluetooth
+ * pad into extended report mode. Real hardware disproved that on 2026-07-18:
+ * the pad also switches as soon as it receives ANY 0x31 output packet — SDL's
+ * PS5 driver documents the same ("We can't even send an invalid effects packet,
+ * or it will put the controller in enhanced mode"). Extended mode makes the
+ * input reports vendor-typed (usage page 0xFF00), Chromium's Gamepad API can no
+ * longer map them, and controller input freezes until the pad power-cycles
+ * (finding M117). Production Tier 2 is therefore USB-only; this serializer is
+ * retained for the `/99lc/dualsense-harness.html` diagnostic page and for a
+ * possible future WebHID-input driver that would parse 0x31 input reports itself.
  */
 export class BluetoothDualSenseSerializer implements DualSenseHidTransportSerializer {
   readonly transport = 'bluetooth' as const
@@ -206,6 +212,9 @@ interface NavigatorWithHid {
  * Returns the production WebHID enhanced output, or null when the context cannot
  * host one (non-Chromium browser, insecure context, SSR). Null keeps the page at
  * Tier 0/1 with the same graceful fallback as before the transport shipped.
+ * Production Tier 2 is USB-only (finding M117): a granted Bluetooth pad is
+ * classified as `usb-required` instead of receiving output that would freeze its
+ * Gamepad API input.
  */
 export function createLastChancesDualSenseEnhancedOutput(): LastChancesEnhancedFeedbackOutput | null {
   if (typeof navigator === 'undefined' || typeof window === 'undefined' || !window.isSecureContext) {
@@ -217,6 +226,15 @@ export function createLastChancesDualSenseEnhancedOutput(): LastChancesEnhancedF
     hid,
     filters: DUALSENSE_HID_FILTERS,
     isAllowedDevice: isAllowedDualSenseDevice,
-    serializers: [new BluetoothDualSenseSerializer(), new UsbDualSenseSerializer()],
+    serializers: [new UsbDualSenseSerializer()],
+    unsupportedDeviceCapability: device => (
+      exposesOutputReport(device, BLUETOOTH_OUTPUT_REPORT_ID)
+        ? {
+            permission: 'usb-required',
+            message: 'Adaptive triggers require a USB connection: any Bluetooth trigger/rumble packet '
+              + 'switches the pad into a report mode the browser cannot read, freezing controller input.',
+          }
+        : null
+    ),
   })
 }

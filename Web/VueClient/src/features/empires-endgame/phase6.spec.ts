@@ -283,19 +283,24 @@ describe('Empire\'s Endgame Phase 6A domestic economy', () => {
     expect(restored.effectiveEmpireFlagValue('epidemicProtectionPercent')).toBe(0)
   })
 
-  it('feeds Tavern levels into recruitment and morale while retaining only the P9 capability blocker', () => {
+  it('feeds Tavern levels into recruitment and morale while exposing exact retained P9 blockers', () => {
     const { value, engine, cityIds } = economyEngine()
     const tavernCity = cityIds[4]
     const rules = value.empire.domesticEconomy.tavern
     const view = engine.domesticEconomyView(tavernCity).tavern
     expect(view).toMatchObject({
-      available: true,
+      available: false,
+      blockedReason: expect.any(String),
       recruitmentCapacityBonus: rules.recruitmentCapacityPerLevel,
       moraleMaximumBonus: rules.moraleMaximumPerLevel,
     })
-    expect(view.deferredCapabilities).toEqual([
-      expect.objectContaining({ id: 'tavernMinigame' }),
-    ])
+    expect(view.deferredCapabilities.map(capability => capability.id)).toEqual(expect.arrayContaining([
+      'maria2x2',
+      'mariaGunpowderLegacy',
+      'mysticTrioPassives',
+      'mysticLeaveAction',
+      'queenAppeasement',
+    ]))
     expect(engine.cityRecruitmentRemaining(tavernCity)).toBe(1000 + rules.recruitmentCapacityPerLevel)
     expect(engine.state.army.maxMorale).toBe(
       (value.empire.initialFlags?.maxCombatSpirit ?? 0) + rules.moraleMaximumPerLevel,
@@ -312,7 +317,7 @@ describe('Empire\'s Endgame Phase 6A domestic economy', () => {
     const migrated = migrateEmpiresConfig(legacyConfig)
     expect(legacyConfig).toEqual(original)
     expect(migrated).toMatchObject({
-      schemaVersion: 13,
+      schemaVersion: 14,
       empire: {
         domesticEconomy: { enabled: false },
         externalEconomy: { enabled: false },
@@ -321,7 +326,7 @@ describe('Empire\'s Endgame Phase 6A domestic economy', () => {
     })
     expect(() => validateEmpiresConfig(migrated)).not.toThrow()
     expect(migrateEmpiresConfig(migrated)).toEqual(migrated)
-    expect(() => migrateEmpiresConfig({ ...migrated, schemaVersion: 14 })).toThrow(/future.*14/i)
+    expect(() => migrateEmpiresConfig({ ...migrated, schemaVersion: 15 })).toThrow(/future.*15/i)
 
     const value = config()
     const legacyState = new EmpiresEndgameEngine(value).snapshot() as EmpiresCampaignState
@@ -335,7 +340,7 @@ describe('Empire\'s Endgame Phase 6A domestic economy', () => {
       state: legacyState,
     }, value.id)
     const restored = new EmpiresEndgameEngine(value, imported)
-    expect(restored.state.schemaVersion).toBe(11)
+    expect(restored.state.schemaVersion).toBe(12)
     expect(restored.state.empire.domesticEconomy).toMatchObject({
       loans: [],
       insuranceContracts: [],

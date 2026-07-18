@@ -276,6 +276,7 @@ describe('Empire\'s Endgame Phase 3B steel and equipment bridge', () => {
     const nextPhase = engine.snapshot()
     nextPhase.phase = 'divineGift'
     nextPhase.giftChoiceIds = ['gift-combat-spirit']
+    nextPhase.durak.discard.push(...nextPhase.durak.playerHand)
     nextPhase.durak.playerHand = []
     engine.restore(nextPhase)
     expect(engine.chooseGift('gift-combat-spirit')).toMatchObject({ ok: true })
@@ -293,6 +294,7 @@ describe('Empire\'s Endgame Phase 3B steel and equipment bridge', () => {
     giftBoundary.con = 3
     giftBoundary.phase = 'divineGift'
     giftBoundary.giftChoiceIds = ['gift-combat-spirit']
+    giftBoundary.durak.discard.push(...giftBoundary.durak.playerHand)
     giftBoundary.durak.playerHand = []
     boundary.restore(giftBoundary)
     expect(boundary.state.empire.researchedTechnologyIds).not.toContain('steel-timer-plus')

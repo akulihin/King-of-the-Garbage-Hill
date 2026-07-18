@@ -20,6 +20,7 @@ import type {
   EmpiresLoyaltyConfig,
   EmpiresMedicalConfig,
   EmpiresSeasonsConfig,
+  EmpiresTavernConfig,
 } from './types'
 import { EMPIRES_GOD_DIALOGUE_TRIGGERS } from './types'
 import { validateEmpiresEndgameConfig } from './engine'
@@ -27,7 +28,7 @@ import { validateEmpiresQuestsConfig } from './quests'
 
 export const EMPIRES_CONFIG_URL = '/empires-endgame/game-config.json'
 export const EMPIRES_CONFIG_STORAGE_KEY = 'empires-endgame:config:v1'
-export const EMPIRES_CONFIG_SCHEMA_VERSION = 13
+export const EMPIRES_CONFIG_SCHEMA_VERSION = 14
 export const EMPIRES_ACTIVE_MINIGAME_CONFIG_ERROR = 'Нельзя менять правила во время боя. Сначала завершите бой или выйдите через действие отмены.'
 
 export function empiresConfigReplacementDisabledReason(
@@ -185,6 +186,49 @@ const GOD_SCAFFOLD = {
     cancelLabel: 'Нет, тогда я попридержу...',
   },
 } satisfies EmpiresGodConfig
+
+const TAVERN_SCAFFOLD = {
+  enabled: false,
+  buildingId: '',
+  spawn: {
+    eligibleCon: 4,
+    firstRunChance: 0,
+    secondRunChance: 1,
+    laterRunChance: 0.33,
+  },
+  visitCooldownCons: 1,
+  maxCommands: 8,
+  mercenaries: {
+    baseOfferCount: 0,
+    spiritsOfferCount: 0,
+    offers: [],
+  },
+  spirits: {
+    goldCost: 0,
+    activationDelayCons: 1,
+    durationCons: 2,
+    cheapOfferMultiplier: 1,
+  },
+  rumors: {
+    goldCost: 0,
+    deckHintPosition: 1,
+    fallbackText: 'Слухи сегодня ничего не подтверждают.',
+  },
+  maria: {
+    encounterChance: 0.33,
+    standardCardDefinitionId: '',
+    title: 'Мария Брауз',
+    description: '',
+    encounterDeferredReason: 'Точные правила карточной партии 2×2 не определены.',
+  },
+  queen: {
+    mysticDefinitionId: '',
+    comboRanks: ['3', '7', 'ace'],
+    pulseEveryCons: 3,
+  },
+  historyRetention: 24,
+  deferredSubfeatures: [],
+} satisfies EmpiresTavernConfig
 
 const QUESTS_SCAFFOLD = {
   enabled: false,
@@ -875,6 +919,33 @@ function normalizeEmpiresConfigV13(config: Record<string, unknown>): Record<stri
   return config
 }
 
+function migrateEmpiresConfigV13ToV14(config: Record<string, unknown>): Record<string, unknown> {
+  // P9 adds an executable Tavern/minigame contract and a separate mystic catalog.
+  // Old custom configs remain fail-closed instead of silently gaining encounters.
+  config.mysticCards = []
+  config.tavern = cloneJson(TAVERN_SCAFFOLD)
+  config.schemaVersion = 14
+  return config
+}
+
+function normalizeEmpiresConfigV14(config: Record<string, unknown>): Record<string, unknown> {
+  normalizeEmpiresConfigV13(config)
+  if (!Array.isArray(config.mysticCards)) config.mysticCards = []
+  config.tavern = withScaffoldDefaults(config.tavern, TAVERN_SCAFFOLD)
+  if (isRecord(config.tavern)) {
+    config.tavern.spawn = withScaffoldDefaults(config.tavern.spawn, TAVERN_SCAFFOLD.spawn)
+    config.tavern.mercenaries = withScaffoldDefaults(
+      config.tavern.mercenaries,
+      TAVERN_SCAFFOLD.mercenaries,
+    )
+    config.tavern.spirits = withScaffoldDefaults(config.tavern.spirits, TAVERN_SCAFFOLD.spirits)
+    config.tavern.rumors = withScaffoldDefaults(config.tavern.rumors, TAVERN_SCAFFOLD.rumors)
+    config.tavern.maria = withScaffoldDefaults(config.tavern.maria, TAVERN_SCAFFOLD.maria)
+    config.tavern.queen = withScaffoldDefaults(config.tavern.queen, TAVERN_SCAFFOLD.queen)
+  }
+  return config
+}
+
 const EMPIRES_CONFIG_MIGRATIONS: Record<
   number,
   (config: Record<string, unknown>) => Record<string, unknown>
@@ -891,6 +962,7 @@ const EMPIRES_CONFIG_MIGRATIONS: Record<
   10: migrateEmpiresConfigV10ToV11,
   11: migrateEmpiresConfigV11ToV12,
   12: migrateEmpiresConfigV12ToV13,
+  13: migrateEmpiresConfigV13ToV14,
 }
 
 /**
@@ -922,6 +994,7 @@ export function migrateEmpiresConfig(raw: unknown): unknown {
   if (version === 11) migrated = normalizeEmpiresConfigV11(migrated)
   if (version === 12) migrated = normalizeEmpiresConfigV12(migrated)
   if (version === 13) migrated = normalizeEmpiresConfigV13(migrated)
+  if (version === 14) migrated = normalizeEmpiresConfigV14(migrated)
   return migrated
 }
 
@@ -1069,6 +1142,12 @@ function validateDeferredReasons(config: EmpiresEndgameConfig): string[] {
     check(`card ${card.id} normal face`, card.normal.deferredReason)
     check(`card ${card.id} inverted face`, card.inverted.deferredReason)
   }
+  for (const card of config.mysticCards) {
+    check(`mystic card ${card.id}`, card.deferredReason)
+    check(`mystic card ${card.id} normal face`, card.normal.deferredReason)
+    check(`mystic card ${card.id} inverted face`, card.inverted.deferredReason)
+  }
+  checkSubfeatures('tavern', config.tavern.deferredSubfeatures)
   for (const gift of config.gifts.definitions) check(`gift ${gift.id}`, gift.deferredReason)
   for (const resource of config.empire.resources) check(`resource ${resource.id}`, resource.deferredReason)
   for (const building of config.empire.buildings) {
@@ -1725,6 +1804,83 @@ function validateDomesticEconomyConfig(config: EmpiresEndgameConfig): void {
     || !Number.isFinite(economy.tavern.moraleMaximumPerLevel)
     || economy.tavern.moraleMaximumPerLevel < 0) {
     throw new Error('empire.domesticEconomy.tavern passive values must be non-negative.')
+  }
+}
+
+function validateTavernConfig(config: EmpiresEndgameConfig): void {
+  const tavern = config.tavern
+  if (!isRecord(tavern) || typeof tavern.enabled !== 'boolean') {
+    throw new Error('tavern must be an object with an enabled flag.')
+  }
+  if (!Array.isArray(config.mysticCards)) throw new Error('mysticCards must be an array.')
+  const mysticIds = new Set<string>()
+  for (const card of config.mysticCards) {
+    if (!card.id?.trim() || mysticIds.has(card.id) || !card.name?.trim()
+      || card.owner !== 'player' || typeof card.startsInverted !== 'boolean'
+      || !Number.isInteger(card.returnDelayCons) || card.returnDelayCons < 1
+      || !card.normal?.title?.trim() || !card.inverted?.title?.trim()) {
+      throw new Error(`mystic card ${card.id || '<missing>'} is invalid.`)
+    }
+    mysticIds.add(card.id)
+  }
+  if (!tavern.enabled) return
+  const chanceValues = [
+    tavern.spawn.firstRunChance,
+    tavern.spawn.secondRunChance,
+    tavern.spawn.laterRunChance,
+    tavern.maria.encounterChance,
+  ]
+  if (!Number.isInteger(tavern.spawn.eligibleCon) || tavern.spawn.eligibleCon < 1
+    || chanceValues.some(value => !Number.isFinite(value) || value < 0 || value > 1)
+    || tavern.spawn.firstRunChance !== 0 || tavern.spawn.secondRunChance !== 1
+    || !Number.isInteger(tavern.visitCooldownCons) || tavern.visitCooldownCons < 1
+    || !Number.isInteger(tavern.maxCommands) || tavern.maxCommands < 1
+    || !Number.isInteger(tavern.historyRetention) || tavern.historyRetention < 1) {
+    throw new Error('tavern spawn, visit, command, or history rules are invalid.')
+  }
+  const building = config.empire.buildings.find(candidate => candidate.id === tavern.buildingId)
+  if (!building || building.deferredReason) throw new Error('tavern must reference its live building carrier.')
+  const unitIds = new Set((config.empire.units ?? []).filter(unit => !unit.deferredReason).map(unit => unit.id))
+  const offerIds = new Set<string>()
+  for (const offer of tavern.mercenaries.offers) {
+    if (!offer.id?.trim() || offerIds.has(offer.id) || !offer.name?.trim()
+      || !unitIds.has(offer.unitId) || !Number.isInteger(offer.count) || offer.count < 1
+      || !Number.isFinite(offer.goldCost) || offer.goldCost < 0
+      || !Number.isFinite(offer.weight) || offer.weight <= 0
+      || typeof offer.spiritsEligible !== 'boolean') {
+      throw new Error(`tavern mercenary offer ${offer.id || '<missing>'} is invalid.`)
+    }
+    offerIds.add(offer.id)
+  }
+  if (!Number.isInteger(tavern.mercenaries.baseOfferCount)
+    || !Number.isInteger(tavern.mercenaries.spiritsOfferCount)
+    || tavern.mercenaries.baseOfferCount < 1
+    || tavern.mercenaries.spiritsOfferCount < tavern.mercenaries.baseOfferCount
+    || tavern.mercenaries.spiritsOfferCount > tavern.mercenaries.offers.length) {
+    throw new Error('tavern mercenary offer counts are invalid.')
+  }
+  if (!Number.isFinite(tavern.spirits.goldCost) || tavern.spirits.goldCost < 0
+    || !Number.isInteger(tavern.spirits.activationDelayCons) || tavern.spirits.activationDelayCons < 1
+    || !Number.isInteger(tavern.spirits.durationCons) || tavern.spirits.durationCons < 1
+    || !Number.isFinite(tavern.spirits.cheapOfferMultiplier)
+    || tavern.spirits.cheapOfferMultiplier <= 0 || tavern.spirits.cheapOfferMultiplier > 1
+    || !Number.isFinite(tavern.rumors.goldCost) || tavern.rumors.goldCost < 0
+    || !Number.isInteger(tavern.rumors.deckHintPosition) || tavern.rumors.deckHintPosition < 1
+    || !tavern.rumors.fallbackText.trim()) {
+    throw new Error('tavern spirits or rumor rules are invalid.')
+  }
+  const maria = config.cards.find(card => card.id === tavern.maria.standardCardDefinitionId)
+  if (!maria || maria.suit !== 'spades' || maria.rank !== 'queen') {
+    throw new Error('tavern Maria carrier must be the uniquely mapped standard queen of spades.')
+  }
+  if (!tavern.maria.title.trim() || !tavern.maria.description.trim()
+    || !tavern.maria.encounterDeferredReason.trim()) {
+    throw new Error('tavern Maria copy and explicit 2×2 blocker are required.')
+  }
+  if (!mysticIds.has(tavern.queen.mysticDefinitionId)
+    || tavern.queen.comboRanks.join(',') !== '3,7,ace'
+    || !Number.isInteger(tavern.queen.pulseEveryCons) || tavern.queen.pulseEveryCons < 1) {
+    throw new Error('tavern Queen mystic, 3–7–Т combo, or pulse cadence is invalid.')
   }
 }
 
@@ -3412,6 +3568,8 @@ export function validateEmpiresConfig(value: unknown): asserts value is EmpiresE
       throw new Error(`У карты ${rawCard.id} должны быть normal и inverted стороны.`)
     }
   }
+  if (!Array.isArray(value.mysticCards)) throw new Error('Поле mysticCards должно быть массивом.')
+  if (!isRecord(value.tavern)) throw new Error('Отсутствуют настройки Таверны.')
 
   if (!isRecord(value.durak)) throw new Error('Отсутствуют настройки карточной партии.')
   if (!isRecord(value.upgrades)) throw new Error('Отсутствуют настройки улучшений.')
@@ -3470,6 +3628,7 @@ export function validateEmpiresConfig(value: unknown): asserts value is EmpiresE
   validateTechnologySidesAndHiddenCombinations(config)
   validateEpidemicAndMedicalConfig(config)
   validateDomesticEconomyConfig(config)
+  validateTavernConfig(config)
   validateExternalEconomyConfig(config)
   validateEconomyContentConfig(config)
   validateLoyaltyConfig(config)

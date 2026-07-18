@@ -12,6 +12,12 @@ import {
   replayTdBattle,
   validateTdBattlePlan,
 } from './td/engine'
+import {
+  createTavernRulesIdentity,
+  replayTavern,
+  resolveTavern,
+  validateTavernPlan,
+} from './tavern/engine'
 import { resolveEmpiresUnitLoadout } from './equipment'
 import {
   allocateEpidemicClassLoss,
@@ -82,6 +88,8 @@ import type {
   EmpiresGodInterventionRecord,
   EmpiresMinigameResult,
   EmpiresMinigameSession,
+  EmpiresMysticCardDefinition,
+  EmpiresMysticCardInstance,
   EmpiresLoyaltyState,
   EmpiresLoyaltyTarget,
   EmpiresLoanQuote,
@@ -104,6 +112,9 @@ import type {
   EmpiresTechnologySideView,
   EmpiresSeasonView,
   EmpiresUnitDefinition,
+  TavernCommand,
+  TavernPlan,
+  TavernResult,
   TdBattleConsequenceDefinition,
   TdBattlePlan,
   TdCommand,
@@ -338,10 +349,14 @@ function uniqueIds<T extends { id: string }>(values: readonly T[]): boolean {
 
 export function validateEmpiresEndgameConfig(config: EmpiresEndgameConfig): string[] {
   const errors: string[] = []
-  if (config.schemaVersion !== 13) errors.push('schemaVersion must be 13')
+  if (config.schemaVersion !== 14) errors.push('schemaVersion must be 14')
   if (!config.id.trim()) errors.push('config id is required')
   if (config.cards.length !== 53) errors.push('cards must contain exactly 53 definitions')
   if (!uniqueIds(config.cards)) errors.push('card definition ids must be unique')
+  if (!uniqueIds(config.mysticCards)) errors.push('mystic card definition ids must be unique')
+  if (config.mysticCards.some(card => config.cards.some(standard => standard.id === card.id))) {
+    errors.push('standard and mystic definition IDs must be globally unique')
+  }
 
   for (const suit of EMPIRES_SUITS) {
     for (const rank of EMPIRES_RANKS) {
@@ -487,6 +502,7 @@ export class EmpiresEndgameEngine {
   state: EmpiresCampaignState
 
   private readonly definitions = new Map<string, EmpiresCardDefinition>()
+  private readonly mysticDefinitions = new Map<string, EmpiresMysticCardDefinition>()
   private readonly buildingDefinitions = new Map<string, EmpiresBuildingDefinition>()
   private readonly technologyDefinitions = new Map<string, EmpiresTechnologyDefinition>()
   private readonly unitDefinitions = new Map<string, EmpiresUnitDefinition>()
@@ -496,11 +512,16 @@ export class EmpiresEndgameEngine {
   private readonly combatEquipmentDefinitions = new Map<string, CombatEquipmentDefinition>()
   private readonly listeners = new Set<EmpiresStateListener>()
 
-  constructor(config: EmpiresEndgameConfig, snapshot?: EmpiresCampaignState) {
+  constructor(
+    config: EmpiresEndgameConfig,
+    snapshot?: EmpiresCampaignState,
+    options: { tavernRunOrdinal?: number } = {},
+  ) {
     const errors = validateEmpiresEndgameConfig(config)
     if (errors.length > 0) throw new Error(`Invalid Empire's Endgame config:\n${errors.join('\n')}`)
     this.config = cloneSerializable(config)
     for (const definition of this.config.cards) this.definitions.set(definition.id, definition)
+    for (const definition of this.config.mysticCards) this.mysticDefinitions.set(definition.id, definition)
     for (const definition of this.config.empire.buildings) {
       this.buildingDefinitions.set(definition.id, definition)
     }
@@ -515,7 +536,9 @@ export class EmpiresEndgameEngine {
       this.combatEquipmentDefinitions.set(definition.id, definition)
     }
 
-    this.state = snapshot ? this.validateAndCloneSnapshot(snapshot) : this.createInitialState()
+    this.state = snapshot
+      ? this.validateAndCloneSnapshot(snapshot)
+      : this.createInitialState(options.tavernRunOrdinal ?? 1)
     this.syncArmyMoraleCap()
     this.scheduleDelayedSteelResearch()
     this.awardDueSteelResearch()
@@ -536,7 +559,7 @@ export class EmpiresEndgameEngine {
   }
 
   snapshotEnvelope(savedAt = new Date().toISOString()): EmpiresSnapshotEnvelope {
-    return { schemaVersion: 11, savedAt, state: this.snapshot() }
+    return { schemaVersion: 12, savedAt, state: this.snapshot() }
   }
 
   restore(snapshot: EmpiresCampaignState): void {
@@ -559,16 +582,19 @@ export class EmpiresEndgameEngine {
     if (this.state.phase === 'victory' || this.state.phase === 'defeat') {
       return failure('A terminal campaign cannot start a minigame.')
     }
-    if (session.kind !== 'td') return failure('Unsupported minigame kind.')
-    const expectedRules = this.currentTdRulesIdentity()
+    const expectedRules = session.kind === 'td'
+      ? this.currentTdRulesIdentity()
+      : this.currentTavernRulesIdentity()
     if (session.id !== session.plan.sessionId
       || session.rulesIdentity.configSchemaVersion !== expectedRules.configSchemaVersion
       || session.rulesIdentity.rulesDigest !== expectedRules.rulesDigest
       || digestTdValue(session.rulesIdentity) !== digestTdValue(session.plan.rulesIdentity)) {
       return failure('Minigame rules identity does not match the active configuration and plan.')
     }
-    const planErrors = validateTdBattlePlan(session.plan)
-    if (planErrors.length > 0) return failure(`Invalid TD plan: ${planErrors.join('; ')}`)
+    const planErrors = session.kind === 'td'
+      ? validateTdBattlePlan(session.plan)
+      : validateTavernPlan(session.plan)
+    if (planErrors.length > 0) return failure(`Invalid ${session.kind} plan: ${planErrors.join('; ')}`)
     if (session.origin.returnPhase !== this.state.phase) {
       return failure('Minigame origin must return to the current campaign phase.')
     }
@@ -594,7 +620,10 @@ export class EmpiresEndgameEngine {
         : failure('No minigame session is active.')
     }
     if (this.state.phase !== 'minigame') return failure('The campaign is not in its minigame phase.')
-    const expectedRules = this.currentTdRulesIdentity()
+    if (result.kind !== session.kind) return failure('The minigame result kind does not match the active session.')
+    const expectedRules = session.kind === 'td'
+      ? this.currentTdRulesIdentity()
+      : this.currentTavernRulesIdentity()
     if (result.kind !== session.kind
       || result.sessionId !== session.id
       || result.planId !== session.plan.id
@@ -606,11 +635,18 @@ export class EmpiresEndgameEngine {
       || result.seed !== session.seed) {
       return failure('The minigame result does not match the active session.')
     }
-    const replayed = replayTdBattle(session.plan, session.seed, result.commandLog)
+    const replayed = session.kind === 'td' && result.kind === 'td'
+      ? replayTdBattle(session.plan, session.seed, result.commandLog)
+      : session.kind === 'tavern' && result.kind === 'tavern'
+        ? resolveTavern(session.plan, session.seed, result.commandLog)
+        : null
+    if (!replayed) return failure('Unsupported minigame result kind.')
     if (JSON.stringify(replayed) !== JSON.stringify(result)) {
       return failure('The minigame result failed deterministic replay validation.')
     }
-    this.settleBattleOutcome(result, session)
+    if (replayed.error) return failure(replayed.error)
+    if (session.kind === 'td' && result.kind === 'td') this.settleBattleOutcome(result, session)
+    else if (session.kind === 'tavern' && result.kind === 'tavern') this.settleTavernOutcome(result, session)
     return this.commit(`Minigame ${session.id} resolved as ${result.outcome}.`)
   }
 
@@ -623,6 +659,9 @@ export class EmpiresEndgameEngine {
       return lastResult?.outcome === 'aborted'
         ? success('The last minigame was already aborted.')
         : failure('No minigame session is active.')
+    }
+    if (session.kind !== 'td') {
+      return failure('This minigame has no authored abort consequence; finish the Tavern visit instead.')
     }
     const result = abortTdBattle(session.plan, session.seed, commandLog, abortTick)
     if (result.outcome !== 'aborted') {
@@ -637,6 +676,14 @@ export class EmpiresEndgameEngine {
     const instance = typeof instanceOrId === 'string' ? this.state.cards[instanceOrId] : null
     const definition = this.definitions.get(instance?.definitionId ?? instanceId)
     if (!definition) throw new Error(`Unknown card ${instanceId}`)
+    return definition
+  }
+
+  getMysticDefinition(instanceOrId: EmpiresMysticCardInstance | string): EmpiresMysticCardDefinition {
+    const instance = typeof instanceOrId === 'string' ? this.state.mystics.instances[instanceOrId] : instanceOrId
+    const definitionId = instance?.definitionId ?? (typeof instanceOrId === 'string' ? instanceOrId : '')
+    const definition = this.mysticDefinitions.get(definitionId)
+    if (!definition) throw new Error(`Unknown mystic card ${definitionId || instanceOrId}`)
     return definition
   }
 
@@ -1729,17 +1776,117 @@ export class EmpiresEndgameEngine {
         }),
       },
       tavern: {
-        available: tavernLevel > 0,
-        blockedReason: tavernLevel > 0
-          ? null
-          : this.economyBuildingBlockedReason(cityId, this.config.empire.domesticEconomy.tavern.buildingId),
+        available: this.tavernVisitBlockedReason(cityId) === null,
+        blockedReason: this.tavernVisitBlockedReason(cityId),
         recruitmentCapacityBonus: tavernLevel
           * this.config.empire.domesticEconomy.tavern.recruitmentCapacityPerLevel,
         moraleMaximumBonus: tavernLevel
           * this.config.empire.domesticEconomy.tavern.moraleMaximumPerLevel,
-        deferredCapabilities: cloneSerializable(tavernBuilding?.deferredSubfeatures ?? []),
+        deferredCapabilities: cloneSerializable([
+          ...(tavernBuilding?.deferredSubfeatures ?? []),
+          ...this.config.tavern.deferredSubfeatures,
+        ]),
+        spawned: this.state.tavern.spawned,
+        spawnedAtCon: this.state.tavern.spawnedAtCon,
+        runOrdinal: this.state.tavern.runOrdinal,
+        lastVisitedCon: this.state.tavern.lastVisitedCon,
+        spiritsActive: this.tavernSpiritsActive(),
+        spiritsReadyAtCon: this.state.tavern.spiritsReadyAtCon,
+        spiritsExpiresAfterCon: this.state.tavern.spiritsExpiresAfterCon,
       },
     }
+  }
+
+  tavernVisitBlockedReason(cityId: string): string | null {
+    const dialogueBlock = this.mandatoryDialogueBlockedReason()
+    if (dialogueBlock) return dialogueBlock
+    if (!this.config.tavern.enabled) return 'В этой конфигурации встреча в Таверне отключена.'
+    if (this.state.phase !== 'empire') return 'Посетить Таверну можно только во время управления империей.'
+    if (!this.state.tavern.spawned) {
+      if (!this.state.tavern.spawnChecked) {
+        return `Таверна появится или останется скрытой ближе к поздней игре, в коне ${this.config.tavern.spawn.eligibleCon}.`
+      }
+      return 'В этом прохождении Таверна не появилась.'
+    }
+    const city = this.city(cityId)
+    if (!city) return 'Нужен известный город для размещения нанятых отрядов.'
+    const access = this.cityAccessBlockedReason(cityId)
+    if (access) return access
+    if (this.state.tavern.lastVisitedCon !== null
+      && this.state.con < this.state.tavern.lastVisitedCon + this.config.tavern.visitCooldownCons) {
+      return `Таверна снова примет вас в коне ${this.state.tavern.lastVisitedCon + this.config.tavern.visitCooldownCons}.`
+    }
+    return null
+  }
+
+  startTavernVisit(cityId: string): EmpiresActionResult {
+    const blocked = this.tavernVisitBlockedReason(cityId)
+    if (blocked) return failure(blocked)
+    const tavern = this.config.tavern
+    const spiritsActive = this.tavernSpiritsActive()
+    const offerCount = spiritsActive
+      ? tavern.mercenaries.spiritsOfferCount
+      : tavern.mercenaries.baseOfferCount
+    const selectedOffers = pickEmpiresWeightedWithoutReplacement(
+      tavern.mercenaries.offers,
+      offerCount,
+      this.state.rng,
+    ).map(offer => ({
+      id: offer.id,
+      name: offer.name,
+      unitId: offer.unitId,
+      count: offer.count,
+      goldCost: Math.floor(offer.goldCost * (spiritsActive && offer.spiritsEligible
+        ? tavern.spirits.cheapOfferMultiplier
+        : 1)),
+    }))
+    const mariaPresent = nextEmpiresRandom(this.state.rng) < tavern.maria.encounterChance
+    const seed = Math.floor(nextEmpiresRandom(this.state.rng) * 0x1_0000_0000)
+    const planId = `tavern-${this.state.con}-${cityId}`
+    const sessionId = `${planId}:${seed}`
+    const rulesIdentity = this.currentTavernRulesIdentity()
+    const rumor = this.tavernRumorPlan()
+    const plan: TavernPlan = {
+      id: planId,
+      sessionId,
+      rulesIdentity,
+      con: this.state.con,
+      cityId,
+      goldAvailable: Math.max(
+        0,
+        this.state.empire.resources[this.config.empire.domesticEconomy.goldResourceId] ?? 0,
+      ),
+      sections: ['tables', 'bar'],
+      mercenaryOffers: selectedOffers,
+      drinks: {
+        goldCost: tavern.spirits.goldCost,
+        readyAtCon: this.state.con + tavern.spirits.activationDelayCons,
+        expiresAfterCon: this.state.con + tavern.spirits.activationDelayCons
+          + tavern.spirits.durationCons - 1,
+      },
+      rumor,
+      maria: {
+        present: mariaPresent,
+        title: tavern.maria.title,
+        description: tavern.maria.description,
+        deferredReason: mariaPresent ? tavern.maria.encounterDeferredReason : null,
+      },
+      maxCommands: tavern.maxCommands,
+    }
+    const planErrors = validateTavernPlan(plan)
+    if (planErrors.length > 0) return failure(`Invalid Tavern plan: ${planErrors.join('; ')}`)
+    return this.beginMinigame({
+      id: sessionId,
+      kind: 'tavern',
+      plan,
+      rulesIdentity,
+      seed,
+      attempt: 0,
+      origin: {
+        returnPhase: 'empire',
+        context: { kind: 'tavern-visit', cityId, con: this.state.con },
+      },
+    })
   }
 
   externalDiplomacyView(cityId: string): EmpiresExternalDiplomacyView {
@@ -3313,7 +3460,7 @@ export class EmpiresEndgameEngine {
     return questId ? `Resolve the mandatory dialogue ${questId} first.` : null
   }
 
-  private createInitialState(): EmpiresCampaignState {
+  private createInitialState(tavernRunOrdinal: number): EmpiresCampaignState {
     const rng = createEmpiresRngState(this.config.seed)
     const cosmeticRng = createEmpiresRngState(`${this.config.seed}:god-dialogue`)
     const cards: Record<string, EmpiresCardInstance> = Object.fromEntries(this.config.cards.map(definition => [
@@ -3325,7 +3472,7 @@ export class EmpiresEndgameEngine {
     const playerHand: string[] = []
     const godHand: string[] = []
     const state: EmpiresCampaignState = {
-      schemaVersion: 11,
+      schemaVersion: 12,
       configId: this.config.id,
       phase: 'cards',
       rng,
@@ -3340,6 +3487,29 @@ export class EmpiresEndgameEngine {
         dialogueOccurrences: {},
       },
       cards,
+      mystics: {
+        instances: {},
+        zone: [],
+        queenComboProgress: 0,
+        queenComboCompletedAtCon: null,
+        lastQueenPulseCon: null,
+        lastQueenPulseInstanceIds: [],
+        history: [],
+        compactedHistoryCount: 0,
+        compactedHistoryDigest: '',
+        nextHistorySequence: 1,
+      },
+      tavern: {
+        runOrdinal: Math.max(1, Math.floor(tavernRunOrdinal)),
+        spawnChecked: false,
+        spawned: false,
+        spawnedAtCon: null,
+        lastVisitedCon: null,
+        spiritsReadyAtCon: null,
+        spiritsExpiresAfterCon: null,
+        mariaVictory: false,
+        mariaVictoryAtCon: null,
+      },
       durak: {
         deck,
         playerHand,
@@ -3801,17 +3971,142 @@ export class EmpiresEndgameEngine {
     this.compactEconomyContentHistory(state)
   }
 
+  private normalizeTavernAndMysticState(state: EmpiresCampaignState): void {
+    state.tavern ??= {
+      runOrdinal: 1,
+      spawnChecked: false,
+      spawned: false,
+      spawnedAtCon: null,
+      lastVisitedCon: null,
+      spiritsReadyAtCon: null,
+      spiritsExpiresAfterCon: null,
+      mariaVictory: false,
+      mariaVictoryAtCon: null,
+    }
+    state.tavern.runOrdinal = Math.max(1, Math.floor(state.tavern.runOrdinal || 1))
+    if (typeof state.tavern.spawnChecked !== 'boolean' || typeof state.tavern.spawned !== 'boolean') {
+      throw new Error('Invalid Tavern spawn state')
+    }
+    const nullableCons = [
+      state.tavern.spawnedAtCon,
+      state.tavern.lastVisitedCon,
+      state.tavern.spiritsReadyAtCon,
+      state.tavern.spiritsExpiresAfterCon,
+      state.tavern.mariaVictoryAtCon,
+    ]
+    if (nullableCons.some(value => value !== null && (!Number.isInteger(value) || value < 1))) {
+      throw new Error('Invalid Tavern con lifecycle state')
+    }
+    if (state.tavern.spawned !== (state.tavern.spawnedAtCon !== null)
+      || state.tavern.spawned && !state.tavern.spawnChecked
+      || typeof state.tavern.mariaVictory !== 'boolean'
+      || state.tavern.mariaVictory !== (state.tavern.mariaVictoryAtCon !== null)
+      || (state.tavern.spiritsReadyAtCon === null) !== (state.tavern.spiritsExpiresAfterCon === null)
+      || (state.tavern.spiritsReadyAtCon !== null
+        && state.tavern.spiritsExpiresAfterCon! < state.tavern.spiritsReadyAtCon)) {
+      throw new Error('Inconsistent Tavern lifecycle state')
+    }
+
+    state.mystics ??= {
+      instances: {},
+      zone: [],
+      queenComboProgress: 0,
+      queenComboCompletedAtCon: null,
+      lastQueenPulseCon: null,
+      lastQueenPulseInstanceIds: [],
+      history: [],
+      compactedHistoryCount: 0,
+      compactedHistoryDigest: '',
+      nextHistorySequence: 1,
+    }
+    state.mystics.instances ??= {}
+    state.mystics.zone ??= []
+    const zoneIds = new Set(state.mystics.zone)
+    if (zoneIds.size !== state.mystics.zone.length) throw new Error('Mystic zone contains duplicate IDs')
+    for (const instanceId of state.mystics.zone) {
+      if (!state.mystics.instances[instanceId]) throw new Error(`Mystic zone references unknown ${instanceId}`)
+    }
+    const seenDefinitions = new Set<string>()
+    for (const [instanceId, instance] of Object.entries(state.mystics.instances)) {
+      const definition = this.mysticDefinitions.get(instance.definitionId)
+      if (!definition || instance.id !== instanceId || instance.owner !== 'player'
+        || seenDefinitions.has(instance.definitionId)
+        || typeof instance.inverted !== 'boolean'
+        || !['zone', 'returning'].includes(instance.status)
+        || !Number.isInteger(instance.spawnedAtCon) || instance.spawnedAtCon < 1
+        || !Number.isInteger(instance.lastChangedCon) || instance.lastChangedCon < instance.spawnedAtCon
+        || (instance.returnAtCon !== null && (!Number.isInteger(instance.returnAtCon)
+          || instance.returnAtCon <= instance.lastChangedCon))
+        || (instance.status === 'zone') !== zoneIds.has(instanceId)
+        || (instance.status === 'zone') !== (instance.returnAtCon === null)) {
+        throw new Error(`Invalid mystic instance ${instanceId}`)
+      }
+      seenDefinitions.add(instance.definitionId)
+    }
+    if (![0, 1, 2, 3].includes(state.mystics.queenComboProgress)) {
+      throw new Error('Invalid Queen combo progress')
+    }
+    if (state.mystics.queenComboCompletedAtCon !== null
+      && (!Number.isInteger(state.mystics.queenComboCompletedAtCon)
+        || state.mystics.queenComboProgress !== 3)) {
+      throw new Error('Invalid Queen combo completion state')
+    }
+    state.mystics.lastQueenPulseInstanceIds ??= []
+    if (new Set(state.mystics.lastQueenPulseInstanceIds).size
+      !== state.mystics.lastQueenPulseInstanceIds.length
+      || state.mystics.lastQueenPulseInstanceIds.some(id => !state.mystics.instances[id])) {
+      throw new Error('Invalid Queen pulse neighbor state')
+    }
+    state.mystics.history ??= []
+    state.mystics.compactedHistoryCount = Math.max(0, Math.floor(state.mystics.compactedHistoryCount ?? 0))
+    state.mystics.compactedHistoryDigest = typeof state.mystics.compactedHistoryDigest === 'string'
+      ? state.mystics.compactedHistoryDigest
+      : ''
+    state.mystics.nextHistorySequence = Math.max(1, Math.floor(state.mystics.nextHistorySequence ?? 1))
+    this.compactMysticHistory(state)
+  }
+
+  private validateStandardCardZones(state: EmpiresCampaignState): void {
+    const configuredIds = new Set(this.config.cards.map(card => card.id))
+    const instanceIds = Object.keys(state.cards)
+    if (instanceIds.length !== configuredIds.size
+      || instanceIds.some(id => !configuredIds.has(id))) {
+      throw new Error('Snapshot standard card instances do not match the exact core 53 catalog')
+    }
+    for (const [instanceId, instance] of Object.entries(state.cards)) {
+      if (instance.id !== instanceId || !configuredIds.has(instance.definitionId)) {
+        throw new Error(`Invalid standard card instance ${instanceId}`)
+      }
+    }
+    const located = [
+      ...state.durak.deck,
+      ...state.durak.playerHand,
+      ...state.durak.godHand,
+      ...state.durak.discard,
+      ...state.durak.table.flatMap(pair => [
+        pair.attackCardId,
+        ...(pair.defenseCardId ? [pair.defenseCardId] : []),
+      ]),
+    ]
+    if (located.length !== configuredIds.size || new Set(located).size !== located.length
+      || located.some(id => !configuredIds.has(id))) {
+      throw new Error('Every core card instance must occupy exactly one authoritative ordered Durak zone')
+    }
+  }
+
   private validateAndCloneSnapshot(snapshot: EmpiresCampaignState): EmpiresCampaignState {
     const snapshotVersion = (snapshot as { schemaVersion: number }).schemaVersion
     if (snapshotVersion !== 1 && snapshotVersion !== 2 && snapshotVersion !== 3
       && snapshotVersion !== 4 && snapshotVersion !== 5 && snapshotVersion !== 6
       && snapshotVersion !== 7 && snapshotVersion !== 8 && snapshotVersion !== 9
-      && snapshotVersion !== 10 && snapshotVersion !== 11) {
+      && snapshotVersion !== 10 && snapshotVersion !== 11 && snapshotVersion !== 12) {
       throw new Error('Unsupported Empire\'s Endgame snapshot schema')
     }
     if (snapshot.configId !== this.config.id) throw new Error('Snapshot belongs to a different config')
     const state = cloneSerializable(snapshot)
-    state.schemaVersion = 11
+    state.schemaVersion = 12
+    this.normalizeTavernAndMysticState(state)
+    this.validateStandardCardZones(state)
     if (!state.god || typeof state.god !== 'object' || Array.isArray(state.god)) state.god = {
       cosmeticRng: createEmpiresRngState(`${this.config.seed}:god-dialogue`),
       interventions: [],
@@ -4334,14 +4629,205 @@ export class EmpiresEndgameEngine {
     })
   }
 
+  private currentTavernRulesIdentity() {
+    return createTavernRulesIdentity(this.config.schemaVersion, {
+      tavern: this.config.tavern,
+      mysticCards: this.config.mysticCards,
+      units: (this.config.empire.units ?? []).map(unit => ({
+        id: unit.id,
+        deferredReason: unit.deferredReason,
+        td: unit.td,
+      })),
+      combatEquipment: this.config.combat.equipment,
+      godDeckMemory: this.config.god.deckMemory,
+    })
+  }
+
+  private tavernSpiritsActive(state: EmpiresCampaignState = this.state): boolean {
+    return state.tavern.spiritsReadyAtCon !== null
+      && state.tavern.spiritsExpiresAfterCon !== null
+      && state.con >= state.tavern.spiritsReadyAtCon
+      && state.con <= state.tavern.spiritsExpiresAfterCon
+  }
+
+  private tavernRumorPlan(): TavernPlan['rumor'] {
+    const rules = this.config.tavern.rumors
+    const memory = this.config.god.deckMemory
+    const authorized = this.config.god.enabled && memory.enabled
+      && (memory.availability === 'always'
+        || this.state.durak.deckMemoryInspectionsUsed < memory.inspectionsPerCon)
+    if (!authorized) return { goldCost: rules.goldCost, text: rules.fallbackText, deckHint: null }
+    const nextDrawFirst = [...this.state.durak.deck].reverse()
+    const instanceId = nextDrawFirst[rules.deckHintPosition - 1]
+    const instance = instanceId ? this.state.cards[instanceId] : null
+    const definition = instance ? this.definitions.get(instance.definitionId) : null
+    if (!definition) return { goldCost: rules.goldCost, text: rules.fallbackText, deckHint: null }
+    return {
+      goldCost: rules.goldCost,
+      text: 'Хозяин шепнул неточный, но проверяемый слух о порядке колоды.',
+      deckHint: {
+        position: rules.deckHintPosition,
+        suit: definition.suit,
+        rank: definition.rank,
+      },
+    }
+  }
+
+  private checkTavernSpawn(state: EmpiresCampaignState = this.state): void {
+    const rules = this.config.tavern
+    if (!rules.enabled || state.tavern.spawnChecked || state.con < rules.spawn.eligibleCon) return
+    const chance = state.tavern.runOrdinal <= 1
+      ? rules.spawn.firstRunChance
+      : state.tavern.runOrdinal === 2
+        ? rules.spawn.secondRunChance
+        : rules.spawn.laterRunChance
+    state.tavern.spawnChecked = true
+    state.tavern.spawned = chance >= 1 || (chance > 0 && nextEmpiresRandom(state.rng) < chance)
+    state.tavern.spawnedAtCon = state.tavern.spawned ? state.con : null
+    if (state.tavern.spawned) {
+      this.appendChronicle(state, {
+        kind: 'tavern',
+        sourceId: `tavern-spawn:${state.tavern.runOrdinal}:${state.con}`,
+        title: 'На болоте появилась Таверна «У List\'a»',
+        description: 'Неприметное здание выросло за ночь там, где бездонное болото не позволяет строить.',
+        target: { kind: 'empire' },
+      })
+    }
+  }
+
+  private appendMysticHistory(
+    state: EmpiresCampaignState,
+    kind: EmpiresCampaignState['mystics']['history'][number]['kind'],
+    sourceId: string,
+    instanceIds: readonly string[],
+  ): void {
+    state.mystics.history.push({
+      sequence: state.mystics.nextHistorySequence,
+      con: state.con,
+      kind,
+      sourceId,
+      instanceIds: [...instanceIds],
+    })
+    state.mystics.nextHistorySequence += 1
+    this.compactMysticHistory(state)
+  }
+
+  private compactMysticHistory(state: EmpiresCampaignState): void {
+    const limit = Math.max(1, this.config.tavern.historyRetention)
+    while (state.mystics.history.length > limit) {
+      const evicted = state.mystics.history.shift()!
+      state.mystics.compactedHistoryCount += 1
+      state.mystics.compactedHistoryDigest = digestTdValue({
+        previous: state.mystics.compactedHistoryDigest,
+        evicted,
+      })
+    }
+  }
+
+  private spawnMysticCard(
+    definitionId: string,
+    sourceId: string,
+    state: EmpiresCampaignState = this.state,
+  ): EmpiresMysticCardInstance | null {
+    const definition = this.mysticDefinitions.get(definitionId)
+    if (!definition || definition.deferredReason) return null
+    const existing = Object.values(state.mystics.instances).find(
+      instance => instance.definitionId === definitionId,
+    )
+    if (existing) return existing
+    const instance: EmpiresMysticCardInstance = {
+      id: definition.id,
+      definitionId: definition.id,
+      owner: definition.owner,
+      inverted: definition.startsInverted,
+      status: 'zone',
+      spawnedAtCon: state.con,
+      returnAtCon: null,
+      lastChangedCon: state.con,
+    }
+    state.mystics.instances[instance.id] = instance
+    state.mystics.zone.push(instance.id)
+    this.appendMysticHistory(state, 'spawn', sourceId, [instance.id])
+    return instance
+  }
+
+  private observeQueenCombo(cardId: string): boolean {
+    const state = this.state
+    const rules = this.config.tavern
+    if (!rules.enabled || !state.tavern.mariaVictory || state.mystics.queenComboProgress >= 3
+      || !state.cards[rules.maria.standardCardDefinitionId]) return false
+    const definition = this.getDefinition(cardId)
+    const expected = rules.queen.comboRanks[state.mystics.queenComboProgress]
+    if (definition.rank !== expected) return false
+    state.mystics.queenComboProgress = (state.mystics.queenComboProgress + 1) as 1 | 2 | 3
+    if (state.mystics.queenComboProgress < 3) return false
+    state.mystics.queenComboCompletedAtCon = state.con
+    return Boolean(this.spawnMysticCard(
+      rules.queen.mysticDefinitionId,
+      `queen-combo:${state.con}:${state.durak.bout}`,
+    ))
+  }
+
+  private tickMysticCards(state: EmpiresCampaignState = this.state): void {
+    const returning = Object.values(state.mystics.instances)
+      .filter(instance => instance.status === 'returning' && instance.returnAtCon! <= state.con)
+      .sort((left, right) => stableStringCompare(left.id, right.id))
+    for (const instance of returning) {
+      instance.status = 'zone'
+      instance.inverted = true
+      instance.returnAtCon = null
+      instance.lastChangedCon = state.con
+      state.mystics.zone.push(instance.id)
+      this.appendMysticHistory(state, 'return', `mystic-return:${instance.id}:${state.con}`, [instance.id])
+    }
+
+    const queenId = Object.values(state.mystics.instances).find(instance => (
+      instance.definitionId === this.config.tavern.queen.mysticDefinitionId
+      && instance.status === 'zone'
+    ))?.id
+    if (!queenId || state.mystics.lastQueenPulseCon === state.con) return
+    const queen = state.mystics.instances[queenId]
+    if ((state.con - queen.spawnedAtCon) % this.config.tavern.queen.pulseEveryCons !== 0) return
+    const index = state.mystics.zone.indexOf(queenId)
+    const neighborIds = [state.mystics.zone[index - 1], state.mystics.zone[index + 1]]
+      .filter((id): id is string => Boolean(id))
+    for (const id of neighborIds) {
+      const neighbor = state.mystics.instances[id]
+      neighbor.inverted = !neighbor.inverted
+      neighbor.lastChangedCon = state.con
+    }
+    state.mystics.lastQueenPulseCon = state.con
+    state.mystics.lastQueenPulseInstanceIds = neighborIds
+    this.appendMysticHistory(
+      state,
+      'queen-pulse',
+      `queen-pulse:${queenId}:${state.con}`,
+      neighborIds,
+    )
+  }
+
   private normalizeMinigameState(state: EmpiresCampaignState): void {
-    const currentRules = this.currentTdRulesIdentity()
+    const currentTdRules = this.currentTdRulesIdentity()
+    const currentTavernRules = this.currentTavernRulesIdentity()
     const rawLog = Array.isArray(state.minigameResultLog) ? state.minigameResultLog : []
     state.minigameResultLog = rawLog.flatMap((rawRecord, index) => {
       if (!rawRecord || typeof rawRecord !== 'object') return []
       const record = rawRecord as Partial<(typeof state.minigameResultLog)[number]>
       const result = record.result
-      if (!result || result.kind !== 'td') return []
+      if (!result || (result.kind !== 'td' && result.kind !== 'tavern')) return []
+      if (result.kind === 'tavern') {
+        if (!result.sessionId || !result.planId || !result.planDigest
+          || !result.commandDigest || result.outcome !== 'completed') return []
+        return [{
+          sessionId: record.sessionId ?? result.sessionId,
+          attempt: Math.max(0, Math.floor(record.attempt ?? 0)),
+          origin: record.origin ?? {
+            returnPhase: 'empire',
+            context: { kind: 'manual', sourceId: 'legacy-tavern-result' },
+          },
+          result: cloneSerializable(result),
+        }]
+      }
       const sessionId = record.sessionId ?? `legacy-result-${result.planId}-${index}`
       const normalizedResult = cloneSerializable(result) as EmpiresMinigameResult & {
         castleHp?: number
@@ -4385,29 +4871,34 @@ export class EmpiresEndgameEngine {
       origin?: EmpiresMinigameSession['origin']
       rulesIdentity?: TdRulesIdentity
     }
-    if (session.kind !== 'td' || !session.plan || session.seed === undefined) {
+    if ((session.kind !== 'td' && session.kind !== 'tavern') || !session.plan || session.seed === undefined) {
       throw new Error('Active minigame session is malformed')
     }
     session.id ??= `${session.plan.id}:${String(session.seed)}`
-    if (!session.rulesIdentity) {
-      session.rulesIdentity = cloneSerializable(currentRules)
+    if (session.kind === 'td' && !session.rulesIdentity) {
+      session.rulesIdentity = cloneSerializable(currentTdRules)
       session.plan = migrateLegacyActiveTdPlan(
         session.plan,
         session.id,
-        currentRules,
+        currentTdRules,
         this.config.td.maxCommands ?? 128,
         this.config.td.maxCatchUpTicksPerFrame ?? 8,
       )
-    } else if (session.rulesIdentity.configSchemaVersion !== currentRules.configSchemaVersion
-      || session.rulesIdentity.rulesDigest !== currentRules.rulesDigest) {
+    }
+    const expectedRules = session.kind === 'td' ? currentTdRules : currentTavernRules
+    if (!session.rulesIdentity
+      || session.rulesIdentity.configSchemaVersion !== expectedRules.configSchemaVersion
+      || session.rulesIdentity.rulesDigest !== expectedRules.rulesDigest) {
       throw new Error('Active minigame rules identity does not match the loaded configuration')
     }
     if (session.plan.sessionId !== session.id
       || digestTdValue(session.plan.rulesIdentity) !== digestTdValue(session.rulesIdentity)) {
       throw new Error('Active minigame plan identity is stale or malformed')
     }
-    const planErrors = validateTdBattlePlan(session.plan)
-    if (planErrors.length > 0) throw new Error(`Invalid restored TD plan: ${planErrors.join('; ')}`)
+    const planErrors = session.kind === 'td'
+      ? validateTdBattlePlan(session.plan)
+      : validateTavernPlan(session.plan)
+    if (planErrors.length > 0) throw new Error(`Invalid restored ${session.kind} plan: ${planErrors.join('; ')}`)
     session.origin ??= {
       returnPhase: 'cards',
       context: { kind: 'manual', sourceId: 'legacy-minigame' },
@@ -4420,7 +4911,10 @@ export class EmpiresEndgameEngine {
   }
 
   private compactMinigameResultLog(state: EmpiresCampaignState = this.state): void {
-    const limit = Math.max(1, Math.floor(this.config.td.resultLogLimit ?? 32))
+    const limit = Math.max(
+      1,
+      Math.floor(this.config.td.resultLogLimit ?? 32),
+    )
     while (state.minigameResultLog.length > limit) {
       const evicted = state.minigameResultLog.shift()!
       state.minigameResultCompaction.evictedCount += 1
@@ -4634,8 +5128,8 @@ export class EmpiresEndgameEngine {
   }
 
   private settleBattleOutcome(
-    result: EmpiresMinigameResult,
-    session: EmpiresMinigameSession,
+    result: Extract<EmpiresMinigameResult, { kind: 'td' }>,
+    session: Extract<EmpiresMinigameSession, { kind: 'td' }>,
   ): void {
     if (this.state.minigameResultLog.some(record => record.sessionId === session.id)) {
       throw new Error(`Minigame ${session.id} was already settled`)
@@ -4781,13 +5275,83 @@ export class EmpiresEndgameEngine {
     })
   }
 
+  private settleTavernOutcome(
+    result: TavernResult,
+    session: Extract<EmpiresMinigameSession, { kind: 'tavern' }>,
+  ): void {
+    if (result.error) throw new Error(result.error)
+    if (this.state.minigameResultLog.some(record => record.sessionId === session.id)) {
+      throw new Error(`Minigame ${session.id} was already settled`)
+    }
+    const goldResourceId = this.config.empire.domesticEconomy.goldResourceId
+    const currentGold = this.state.empire.resources[goldResourceId] ?? 0
+    if (result.goldSpent > currentGold + Number.EPSILON) {
+      throw new Error('Tavern result exceeds the current gold balance.')
+    }
+    this.state.empire.resources[goldResourceId] = Math.max(0, currentGold - result.goldSpent)
+
+    if (result.hiredOfferId) {
+      const offer = session.plan.mercenaryOffers.find(candidate => candidate.id === result.hiredOfferId)
+      const city = this.city(session.plan.cityId)
+      const unit = offer ? this.unitDefinitions.get(offer.unitId) : null
+      if (!offer || !city || !unit || unit.deferredReason || !unit.td) {
+        throw new Error('Tavern mercenary settlement references an unavailable offer, city, or unit.')
+      }
+      const weapon = this.combatWeaponProfile(unit.td.weaponEquipmentId)
+      const armor = this.combatArmorProfile(unit.td.armorEquipmentId)
+      if (!weapon) throw new Error(`Tavern mercenary ${offer.id} has no executable weapon profile.`)
+      this.addOrMergeCohort(city, unit, {
+        id: `tavern:${offer.id}`,
+        weaponEquipmentId: unit.td.weaponEquipmentId,
+        ...(unit.td.armorEquipmentId ? { defenseEquipmentId: unit.td.armorEquipmentId } : {}),
+        equipmentCosts: [],
+        weapon,
+        armor,
+      }, offer.count)
+    }
+    if (result.drinksPurchased) {
+      this.state.tavern.spiritsReadyAtCon = session.plan.drinks.readyAtCon
+      this.state.tavern.spiritsExpiresAfterCon = session.plan.drinks.expiresAfterCon
+    }
+    if (result.rumorPurchased && session.plan.rumor.deckHint
+      && this.config.god.deckMemory.availability === 'perCon') {
+      this.state.durak.deckMemoryInspectionsUsed += 1
+    }
+    this.state.tavern.lastVisitedCon = this.state.con
+    this.state.minigameResultLog.push({
+      sessionId: session.id,
+      attempt: session.attempt,
+      origin: cloneSerializable(session.origin),
+      result: cloneSerializable(result),
+    })
+    this.compactMinigameResultLog()
+    this.state.minigame = null
+    this.state.phase = session.origin.returnPhase
+    this.appendChronicle(this.state, {
+      kind: 'tavern',
+      sourceId: session.id,
+      title: 'Посещение Таверны «У List\'a»',
+      description: [
+        result.hiredOfferId ? 'Наняты наёмники.' : null,
+        result.drinksPurchased ? `Спиртное заказано; новые предложения откроются с кона ${session.plan.drinks.readyAtCon}.` : null,
+        result.rumorPurchased ? session.plan.rumor.text : null,
+        session.plan.maria.present ? 'У стойки замечена Мария Брауз.' : null,
+      ].filter(Boolean).join(' ') || 'Император покинул Таверну без сделки.',
+      target: { kind: 'city', cityId: session.plan.cityId },
+    })
+    this.refreshProductions()
+  }
+
   private playAttack(actor: EmpiresActor, cardId: string): EmpiresActionResult {
     if (!this.legalAttackCardIds(actor).includes(cardId)) return failure('That card is not a legal attack.')
     const defenderIsTaking = this.state.durak.stage === 'taking'
     this.removeFromHand(actor, cardId)
     this.state.durak.table.push({ attackCardId: cardId, defenseCardId: null })
+    const queenSpawned = this.observeQueenCombo(cardId)
     this.state.durak.stage = defenderIsTaking ? 'taking' : 'defense'
-    return this.commit(`${actor} attacked with ${this.getDefinition(cardId).name}.`)
+    return this.commit(`${actor} attacked with ${this.getDefinition(cardId).name}.${queenSpawned
+      ? ' Туз на миг стал Пиковой Дамой; она присоединилась к мистическому ряду.'
+      : ''}`)
   }
 
   private playDefense(actor: EmpiresActor, cardId: string, attackIndex?: number): EmpiresActionResult {
@@ -4795,10 +5359,13 @@ export class EmpiresEndgameEngine {
     if (!this.legalDefenseCardIds(actor, index).includes(cardId)) return failure('That card cannot beat the attack.')
     this.removeFromHand(actor, cardId)
     this.state.durak.table[index].defenseCardId = cardId
+    const queenSpawned = this.observeQueenCombo(cardId)
     this.state.durak.stage = this.state.durak.table.some(pair => !pair.defenseCardId)
       ? 'defense'
       : 'throwIn'
-    return this.commit(`${actor} defended with ${this.getDefinition(cardId).name}.`)
+    return this.commit(`${actor} defended with ${this.getDefinition(cardId).name}.${queenSpawned
+      ? ' Туз на миг стал Пиковой Дамой; она присоединилась к мистическому ряду.'
+      : ''}`)
   }
 
   private finalizeTake(): EmpiresActionResult {
@@ -5022,6 +5589,7 @@ export class EmpiresEndgameEngine {
   private startEmpirePhase(): void {
     this.clearCardFlagBonuses()
     this.state.phase = 'empire'
+    this.checkTavernSpawn()
     this.state.event = null
     this.state.empire.daysRemaining = this.config.empire.daysPerPhase
       - this.state.durak.playerHand.reduce(
@@ -5224,6 +5792,7 @@ export class EmpiresEndgameEngine {
     const previousSeason = currentSeason(completedCon, this.config.empire.seasons)
     this.state.phase = 'cards'
     this.state.con += 1
+    this.tickMysticCards()
     const completedRecoveries = this.state.army.recoveries
       .filter(recovery => recovery.readyAtCon <= this.state.con)
       .sort((left, right) => stableStringCompare(left.id, right.id))

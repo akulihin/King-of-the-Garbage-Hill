@@ -43,11 +43,16 @@ function makeCards(): EmpiresCardDefinition[] {
 
 function makeConfig(): EmpiresEndgameConfig {
   return {
-    schemaVersion: 13,
+    schemaVersion: 14,
     id: 'engine-test',
     title: "Empire's Endgame",
     seed: 'deterministic-test',
     cards: makeCards(),
+    mysticCards: [],
+    tavern: {
+      ...structuredClone(defaultConfigJson.tavern),
+      enabled: false,
+    } as EmpiresEndgameConfig['tavern'],
     durak: {
       handSize: 6,
       maxAttackCards: 6,
@@ -365,6 +370,35 @@ interface RoundSetup {
   deck?: string[]
 }
 
+function completeCardZones(
+  config: EmpiresEndgameConfig,
+  state: EmpiresCampaignState,
+): EmpiresCampaignState {
+  const configuredIds = new Set(config.cards.map(card => card.id))
+  const claimed = new Set<string>()
+  const unique = (ids: string[]) => ids.filter(id => {
+    if (!configuredIds.has(id) || claimed.has(id)) return false
+    claimed.add(id)
+    return true
+  })
+  state.durak.table = state.durak.table.filter((pair) => {
+    const ids = [pair.attackCardId, pair.defenseCardId].filter((id): id is string => Boolean(id))
+    if (ids.some(id => !configuredIds.has(id) || claimed.has(id))) return false
+    ids.forEach(id => claimed.add(id))
+    return true
+  })
+  state.durak.playerHand = unique(state.durak.playerHand)
+  state.durak.godHand = unique(state.durak.godHand)
+  state.durak.deck = unique(state.durak.deck)
+  state.durak.discard = unique(state.durak.discard)
+  state.durak.discard.push(...config.cards.map(card => card.id).filter(id => !claimed.has(id)))
+  return state
+}
+
+function restoreForTest(engine: EmpiresEndgameEngine, state: EmpiresCampaignState): void {
+  engine.restore(completeCardZones(engine.config, state))
+}
+
 function setupRound(engine: EmpiresEndgameEngine, setup: RoundSetup): void {
   const state = engine.snapshot()
   state.phase = 'cards'
@@ -372,10 +406,15 @@ function setupRound(engine: EmpiresEndgameEngine, setup: RoundSetup): void {
   state.durak.defender = setup.attacker === 'player' ? 'god' : 'player'
   state.durak.stage = 'attack'
   state.durak.table = []
-  state.durak.discard = []
   state.durak.playerHand = [...setup.playerHand]
   state.durak.godHand = [...setup.godHand]
   state.durak.deck = [...(setup.deck ?? ['clubs-ace'])]
+  const located = new Set([
+    ...state.durak.playerHand,
+    ...state.durak.godHand,
+    ...state.durak.deck,
+  ])
+  state.durak.discard = engine.config.cards.map(card => card.id).filter(id => !located.has(id))
   state.durak.defenderHandAtBoutStart = setup.attacker === 'player'
     ? setup.godHand.length
     : setup.playerHand.length
@@ -389,7 +428,7 @@ function setupRound(engine: EmpiresEndgameEngine, setup: RoundSetup): void {
     boutsWon: 0,
     boutsLost: 0,
   }
-  engine.restore(state)
+  restoreForTest(engine, state)
 }
 
 describe('Empire\'s Endgame Durak', () => {
@@ -501,7 +540,7 @@ describe('Empire\'s Endgame Durak', () => {
     const state = engine.snapshot()
     state.phase = 'divineGift'
     state.upgradePoints = 1
-    engine.restore(state)
+    restoreForTest(engine, state)
     expect(engine.restoreCard('hearts-5').ok).toBe(true)
     expect(engine.state.cards['hearts-5'].inverted).toBe(false)
   })
@@ -598,7 +637,7 @@ describe('default game config integration', () => {
       forced.durak.defender = 'god'
       forced.durak.stage = 'attack'
       forced.durak.defenderHandAtBoutStart = godHand.length
-      engine.restore(forced)
+      restoreForTest(engine, forced)
       let firstGiftId: string | null = null
       let empireFinishes = 0
       let eventChoices = 0
@@ -740,7 +779,7 @@ describe('Empire phase economy', () => {
     state.phase = 'divineGift'
     state.durak.playerHand = []
     state.giftChoiceIds = ['gift-a', 'gift-b', 'gift-c']
-    engine.restore(state)
+    restoreForTest(engine, state)
 
     expect(engine.chooseGift('gift-a')).toMatchObject({ ok: true })
     expect(engine.state.phase).toBe('divineGift')
@@ -787,7 +826,7 @@ describe('Empire phase economy', () => {
     state.durak.playerHand = []
     state.giftChoiceIds = ['gift-b', 'gift-c', 'gift-d']
     state.empire.flags.relicsUnlocked = 1
-    engine.restore(state)
+    restoreForTest(engine, state)
 
     expect(engine.chooseGift('gift-b')).toMatchObject({ ok: true })
     expect(engine.resolvePendingTarget('capital')).toMatchObject({ ok: true })
@@ -798,7 +837,7 @@ describe('Empire phase economy', () => {
     const nextEmpire = engine.snapshot()
     nextEmpire.phase = 'divineGift'
     nextEmpire.giftChoiceIds = ['gift-c', 'gift-d']
-    engine.restore(nextEmpire)
+    restoreForTest(engine, nextEmpire)
     expect(engine.chooseGift('gift-c')).toMatchObject({ ok: true })
     expect(engine.state.empire.cities[0].resources.wood).toBe(6)
   })
@@ -818,7 +857,7 @@ describe('Empire phase economy', () => {
     state.empire.activeGiftIds = ['gift-b']
     state.empire.giftResolutionTargets = { 'gift-b': 'capital' }
     state.empire.destroyedRegionIds = ['central']
-    engine.restore(state)
+    restoreForTest(engine, state)
 
     expect(engine.state.empire.giftResolutionTargets).toEqual({})
     expect(engine.chooseGift('gift-c')).toMatchObject({ ok: true })
@@ -839,7 +878,7 @@ describe('Empire phase economy', () => {
     state.empire.claimedGiftIds = ['gift-b']
     state.empire.activeGiftIds = ['gift-b']
     state.empire.giftResolutionTargets = { 'gift-b': 'capital' }
-    engine.restore(state)
+    restoreForTest(engine, state)
 
     expect(engine.chooseGift('gift-c')).toMatchObject({ ok: true })
     expect(engine.state.empire.cities[0].resources.wood).toBeUndefined()
@@ -859,7 +898,7 @@ describe('Empire phase economy', () => {
     state.giftChoiceIds = ['gift-a', 'gift-c', 'gift-d']
     state.empire.cities[0].buildingLevels.barracks = 5
     state.empire.cities[0].buildingLevels.mine = 2
-    engine.restore(state)
+    restoreForTest(engine, state)
 
     expect(engine.chooseGift('gift-a')).toMatchObject({ ok: true })
     expect(engine.resolvePendingTarget('capital')).toMatchObject({ ok: true })
@@ -881,7 +920,7 @@ describe('Empire phase economy', () => {
     state.phase = 'empire'
     state.empire.daysRemaining = 59
     state.empire.cities[0].resources = { wood: 7 }
-    engine.restore(state)
+    restoreForTest(engine, state)
 
     expect(engine.upgradeBuilding('capital', 'smithy')).toMatchObject({ ok: true })
     expect(engine.state.empire.cities[0].resources.wood).toBe(0)
@@ -894,7 +933,7 @@ describe('Empire phase economy', () => {
     starving.empire.resources.food = 200
     starving.empire.cities[0].population = 1000
     starving.empire.cities[0].populationClasses = { workers: 1000 }
-    engine.restore(starving)
+    restoreForTest(engine, starving)
 
     expect(engine.finishEmpire()).toMatchObject({ ok: true })
     expect(engine.state.empire.cities[0].resources.food).toBe(0)
@@ -931,7 +970,7 @@ describe('Empire phase economy', () => {
     state.phase = 'empire'
     state.empire.daysRemaining = 59
     state.empire.cities[0].resources.food = 30
-    engine.restore(state)
+    restoreForTest(engine, state)
 
     expect(engine.upgradeBuilding('capital', 'temple')).toMatchObject({ ok: true })
     expect(engine.state.empire.cities[0].foodCommitted).toBe(80)
@@ -969,7 +1008,7 @@ describe('Empire phase economy', () => {
     state.phase = 'empire'
     state.empire.daysRemaining = 59
     state.empire.cities[0].resources.food = 60
-    engine.restore(state)
+    restoreForTest(engine, state)
 
     expect(engine.recruitUnits('capital', 'levy')).toMatchObject({ ok: true })
     expect(engine.state.empire.cities[0].resources.food).toBe(60)
@@ -1004,7 +1043,7 @@ describe('Empire phase economy', () => {
     state.phase = 'divineGift'
     state.durak.playerHand = []
     state.giftChoiceIds = ['gift-a', 'gift-b', 'gift-c']
-    engine.restore(state)
+    restoreForTest(engine, state)
 
     expect(engine.chooseGift('gift-a')).toMatchObject({ ok: true })
     expect(engine.isRegionAccessible('central')).toBe(false)
@@ -1070,7 +1109,7 @@ describe('Empire phase economy', () => {
     state.phase = 'divineGift'
     state.durak.playerHand = []
     state.giftChoiceIds = ['gift-a', 'gift-b', 'gift-c']
-    engine.restore(state)
+    restoreForTest(engine, state)
 
     expect(engine.chooseGift('gift-a')).toMatchObject({ ok: true })
     expect(engine.state.empire.cities[0].buildingLevels.farm).toBe(2)
@@ -1094,7 +1133,7 @@ describe('Empire phase economy', () => {
     state.phase = 'divineGift'
     state.durak.playerHand = []
     state.giftChoiceIds = ['gift-a', 'gift-b', 'gift-c']
-    engine.restore(state)
+    restoreForTest(engine, state)
 
     expect(engine.chooseGift('gift-a')).toMatchObject({ ok: true })
     expect(engine.resolvePendingTarget('capital')).toMatchObject({ ok: true })
@@ -1129,7 +1168,7 @@ describe('Empire phase economy', () => {
     state.cards[arson.id].inverted = true
     state.empire.cities[0].recruitedUnits = { archers: 1, levy: 2 }
     state.giftChoiceIds = ['gift-a', 'gift-b', 'gift-c']
-    engine.restore(state)
+    restoreForTest(engine, state)
 
     expect(engine.chooseGift('gift-a')).toMatchObject({ ok: true })
     expect(engine.cityRecruitedUnitCount('capital')).toBe(2)
@@ -1180,7 +1219,7 @@ describe('Empire phase economy', () => {
         },
       ]
       state.giftChoiceIds = ['gift-a', 'gift-b', 'gift-c']
-      engine.restore(state)
+      restoreForTest(engine, state)
       expect(engine.chooseGift('gift-a')).toMatchObject({ ok: true })
       return {
         archers: engine.cityRecruitedUnitCount('capital', 'archers'),
@@ -1234,7 +1273,7 @@ describe('Empire phase economy', () => {
     const state = engine.snapshot()
     state.phase = 'empire'
     state.empire.daysRemaining = 59
-    engine.restore(state)
+    restoreForTest(engine, state)
 
     expect(engine.upgradeBuilding('capital', 'smithy')).toMatchObject({ ok: true })
     expect(engine.state.empire.resources).toMatchObject({ wood: 15, iron: 0, horses: 0 })
@@ -1318,7 +1357,7 @@ describe('Empire phase economy', () => {
     const state = engine.snapshot()
     state.phase = 'empire'
     state.empire.daysRemaining = 59
-    engine.restore(state)
+    restoreForTest(engine, state)
 
     expect(engine.research('metallurgy')).toMatchObject({ ok: true })
     expect(engine.research('machinery')).toEqual({
@@ -1338,7 +1377,7 @@ describe('Empire phase economy', () => {
     next.phase = 'divineGift'
     next.durak.playerHand = []
     next.giftChoiceIds = ['gift-c']
-    engine.restore(next)
+    restoreForTest(engine, next)
     expect(engine.chooseGift('gift-c')).toMatchObject({ ok: true })
     expect(engine.state.empire.researchUsage).toEqual({})
     expect(engine.research('machinery')).toMatchObject({ ok: true })
@@ -1356,7 +1395,7 @@ describe('Empire phase economy', () => {
     state.phase = 'divineGift'
     state.durak.playerHand = ['hearts-5', 'clubs-6']
     state.giftChoiceIds = ['gift-a', 'gift-b', 'gift-c']
-    engine.restore(state)
+    restoreForTest(engine, state)
 
     expect(engine.chooseGift('gift-a').ok).toBe(true)
     expect(engine.state.phase).toBe('empire')
@@ -1371,7 +1410,7 @@ describe('Empire phase economy', () => {
     state.phase = 'divineGift'
     state.giftChoiceIds = ['gift-a', 'gift-b', 'gift-c']
     state.durak.playerHand = []
-    engine.restore(state)
+    restoreForTest(engine, state)
 
     engine.chooseGift('gift-a')
     expect(engine.state.empire.resources.wood).toBe(27)
@@ -1381,7 +1420,7 @@ describe('Empire phase economy', () => {
     const next = engine.snapshot()
     next.phase = 'divineGift'
     next.giftChoiceIds = ['gift-c']
-    engine.restore(next)
+    restoreForTest(engine, next)
     engine.chooseGift('gift-c')
     expect(engine.state.empire.resources.wood).toBe(27)
   })
@@ -1399,7 +1438,7 @@ describe('Empire phase economy', () => {
       state.durak.playerHand = []
       state.giftChoiceIds = ['gift-a']
       state.pendingResolution = null
-      engine.restore(state)
+      restoreForTest(engine, state)
       expect(engine.chooseGift('gift-a')).toMatchObject({ ok: true })
     }
 
@@ -1420,7 +1459,7 @@ describe('Empire phase economy', () => {
     state.phase = 'divineGift'
     state.durak.playerHand = []
     state.giftChoiceIds = ['gift-a', 'gift-b', 'gift-c']
-    engine.restore(state)
+    restoreForTest(engine, state)
 
     expect(engine.chooseGift('gift-a')).toMatchObject({ ok: true })
     expect(engine.cityProduction('capital').food).toBe(1000)
@@ -1445,7 +1484,7 @@ describe('Empire phase economy', () => {
     state.cards['hearts-5'].level = 1
     state.durak.playerHand = ['hearts-5']
     state.giftChoiceIds = ['gift-a', 'gift-b', 'gift-c']
-    engine.restore(state)
+    restoreForTest(engine, state)
 
     expect(engine.chooseGift('gift-a')).toMatchObject({ ok: true })
     expect(engine.state.empire.flags.seasonalFlag).toBe(8)
@@ -1466,7 +1505,7 @@ describe('Empire phase economy', () => {
     state.empire.cities[0].population = 1000
     state.empire.cities[0].populationClasses = { workers: 1000 }
     state.empire.cities[0].baseProduction.food = 500
-    engine.restore(state)
+    restoreForTest(engine, state)
 
     expect(engine.finishEmpire().ok).toBe(true)
     expect(engine.state.empire.cities[0].population).toBe(750)
@@ -1531,7 +1570,7 @@ describe('Empire phase economy', () => {
     const state = engine.snapshot()
     state.phase = 'empire'
     state.empire.daysRemaining = 59
-    engine.restore(state)
+    restoreForTest(engine, state)
 
     expect(engine.upgradeBuilding('capital', 'smithy')).toMatchObject({ ok: true })
     expect(engine.state.empire.cities[0].buildingLevels).toMatchObject({
@@ -1581,7 +1620,7 @@ describe('Empire phase economy', () => {
     state.phase = 'divineGift'
     state.durak.playerHand = []
     state.giftChoiceIds = ['gift-a', 'gift-b', 'gift-c']
-    engine.restore(state)
+    restoreForTest(engine, state)
 
     expect(engine.chooseGift('gift-a')).toMatchObject({ ok: true })
     expect(engine.state.empire.cities[0].population).toBe(5)
@@ -1596,7 +1635,7 @@ describe('Empire phase economy', () => {
     const state = engine.snapshot()
     state.phase = 'empire'
     state.empire.daysRemaining = 59
-    engine.restore(state)
+    restoreForTest(engine, state)
 
     expect(engine.upgradeBuilding('capital', 'barracks')).toMatchObject({ ok: false })
     expect(engine.upgradeBuilding('capital', 'smithy')).toMatchObject({ ok: true })
@@ -1615,7 +1654,7 @@ describe('Empire phase economy', () => {
     state.phase = 'empire'
     state.empire.daysRemaining = 59
     state.empire.cities[0].buildingLevels.smithy = 1
-    engine.restore(state)
+    restoreForTest(engine, state)
 
     expect(engine.research('steel')).toMatchObject({ ok: false })
     expect(engine.research('metallurgy')).toMatchObject({ ok: true })
@@ -1644,7 +1683,7 @@ describe('Empire phase economy', () => {
     const state = engine.snapshot()
     state.phase = 'empire'
     state.empire.daysRemaining = 59
-    engine.restore(state)
+    restoreForTest(engine, state)
 
     expect(engine.recruitUnits('capital', 'levy', 0)).toMatchObject({ ok: false })
     expect(engine.recruitUnits('capital', 'levy', 3)).toMatchObject({ ok: true })
@@ -1720,7 +1759,7 @@ describe('Empire phase economy', () => {
     const state = engine.snapshot()
     state.phase = 'empire'
     state.empire.daysRemaining = 59
-    engine.restore(state)
+    restoreForTest(engine, state)
 
     expect(engine.recruitUnits('capital', 'cohort')).toMatchObject({ ok: true })
     expect(engine.state.empire.cities[0]).toMatchObject({
@@ -1774,7 +1813,7 @@ describe('Empire phase economy', () => {
     const state = engine.snapshot()
     state.phase = 'empire'
     state.empire.daysRemaining = 59
-    engine.restore(state)
+    restoreForTest(engine, state)
     expect(engine.state.empire.cities[0].operationalBuildingLevels.farm).toBe(1)
 
     const beforeRecruitment = engine.snapshot()
@@ -1808,7 +1847,7 @@ describe('Empire phase economy', () => {
     state.durak.playerHand = [agitators.id]
     state.cards[agitators.id].inverted = true
     state.giftChoiceIds = ['gift-a', 'gift-b', 'gift-c']
-    engine.restore(state)
+    restoreForTest(engine, state)
 
     expect(engine.chooseGift('gift-a')).toMatchObject({ ok: true })
     expect(engine.state.empire.flags.recruitmentDisabled).toBe(1)
@@ -1866,7 +1905,7 @@ describe('Empire phase economy', () => {
     state.durak.playerHand = [nutrition.id]
     state.cards[nutrition.id].level = 1
     state.giftChoiceIds = ['gift-a', 'gift-b', 'gift-c']
-    engine.restore(state)
+    restoreForTest(engine, state)
 
     expect(engine.chooseGift('gift-a')).toMatchObject({ ok: true })
     expect(engine.state.empire.flags.peasantProductivityPercent).toBe(100)
@@ -1878,7 +1917,7 @@ describe('Empire phase economy', () => {
     inverted.durak.playerHand = [nutrition.id]
     inverted.cards[nutrition.id].inverted = true
     inverted.giftChoiceIds = ['gift-a', 'gift-b', 'gift-c']
-    invertedEngine.restore(inverted)
+    restoreForTest(invertedEngine, inverted)
     expect(invertedEngine.chooseGift('gift-a')).toMatchObject({ ok: true })
     expect(invertedEngine.state.empire.flags.peasantProductivityPercent).toBe(-50)
     expect(invertedEngine.cityProduction('capital')).toMatchObject({ food: 50, iron: 5, wood: 5 })
@@ -1910,7 +1949,7 @@ describe('Empire phase economy', () => {
     const state = engine.snapshot()
     state.phase = 'empire'
     state.empire.cities[0].recruitedUnits = { guard: 2 }
-    engine.restore(state)
+    restoreForTest(engine, state)
 
     expect(engine.cityArmyFoodUpkeep('capital')).toBe(200)
     expect(engine.cityFoodConsumption('capital')).toBe(1300)
@@ -1930,7 +1969,7 @@ describe('Empire phase economy', () => {
     const engine = new EmpiresEndgameEngine(config)
     const state = engine.snapshot()
     state.phase = 'empire'
-    engine.restore(state)
+    restoreForTest(engine, state)
 
     expect(engine.finishEmpire()).toMatchObject({ ok: true })
     expect(engine.state.empire.cities[0].population).toBe(800)
@@ -1946,7 +1985,7 @@ describe('Empire phase economy', () => {
     const engine = new EmpiresEndgameEngine(config)
     const state = engine.snapshot()
     state.phase = 'empire'
-    engine.restore(state)
+    restoreForTest(engine, state)
 
     expect(engine.finishEmpire()).toMatchObject({ ok: true })
     expect(engine.state.phase).toBe('event')
@@ -1973,7 +2012,7 @@ describe('Empire phase economy', () => {
     const engine = new EmpiresEndgameEngine(config)
     const state = engine.snapshot()
     state.phase = 'empire'
-    engine.restore(state)
+    restoreForTest(engine, state)
 
     expect(engine.finishEmpire()).toMatchObject({ ok: true })
     expect(engine.state.event?.empireSettlementPending).toBe(true)
@@ -2059,7 +2098,7 @@ describe('Empire phase economy', () => {
     legacy.empire.cities[0].lastStarvationLoss = 250
     legacy.empire.resources.iron = 25
 
-    const restored = new EmpiresEndgameEngine(config, legacy)
+    const restored = new EmpiresEndgameEngine(config, completeCardZones(config, legacy))
     expect(restored.state.event?.empireSettlementPending).toBe(false)
     expect(restored.chooseEvent('strict-rations')).toMatchObject({ ok: true })
     expect(restored.state.empire.cities[0].population).toBe(750)
@@ -2075,7 +2114,7 @@ describe('Empire phase economy', () => {
     const engine = new EmpiresEndgameEngine(config)
     const state = engine.snapshot()
     state.phase = 'empire'
-    engine.restore(state)
+    restoreForTest(engine, state)
 
     expect(engine.finishEmpire()).toMatchObject({ ok: true })
     expect(engine.state.phase).toBe('cards')
@@ -2116,7 +2155,7 @@ describe('Empire phase economy', () => {
     const engine = new EmpiresEndgameEngine(config)
     const state = engine.snapshot()
     state.phase = 'empire'
-    engine.restore(state)
+    restoreForTest(engine, state)
 
     expect(engine.finishEmpire()).toMatchObject({ ok: true })
     expect(engine.state.event?.eventId).toBe('active-event')
@@ -2176,7 +2215,7 @@ describe('Empire phase economy', () => {
     state.empire.researchedTechnologyIds = ['metallurgy']
     state.empire.cities[0].recruitedUnits = { 'future-unit': 2 }
     state.empire.cities[0].militaryPopulation = 10
-    engine.restore(state)
+    restoreForTest(engine, state)
 
     expect(engine.cityArmyFoodUpkeep('capital')).toBe(0)
     expect(engine.chooseGift('gift-a')).toMatchObject({ ok: true })
@@ -2214,7 +2253,7 @@ describe('Empire phase economy', () => {
     const state = engine.snapshot()
     state.phase = 'empire'
     state.empire.daysRemaining = 59
-    engine.restore(state)
+    restoreForTest(engine, state)
 
     expect(engine.assignProductionBoost('capital', 'smithy')).toMatchObject({ ok: false })
     expect(engine.assignProductionBoost('capital', 'mine')).toMatchObject({ ok: true })
@@ -2275,7 +2314,7 @@ describe('Empire phase economy', () => {
     const state = engine.snapshot()
     state.phase = 'empire'
     state.empire.daysRemaining = 59
-    engine.restore(state)
+    restoreForTest(engine, state)
 
     expect(engine.upgradeBuilding('capital', 'hall')).toMatchObject({ ok: false })
     expect(engine.placeBuilding('capital', 'slot-mine', 'hall')).toMatchObject({ ok: false })
@@ -2320,7 +2359,7 @@ describe('Empire phase economy', () => {
     delete legacyEmpire.giftResolutionTargets
     delete legacyState.pendingResolution
 
-    const restored = new EmpiresEndgameEngine(config, legacy)
+    const restored = new EmpiresEndgameEngine(config, completeCardZones(config, legacy))
     expect(restored.state.empire.cities[0].buildingSlotAssignments).toMatchObject({
       'slot-mine': 'mine',
       'slot-lumber': 'lumber',
@@ -2405,7 +2444,7 @@ describe('Empire phase economy', () => {
     legacy.empire.flags.recruitmentDisabled = 1
     legacy.empire.cardFlagBonuses = { recruitmentDisabled: 1 }
 
-    const restored = new EmpiresEndgameEngine(config, legacy)
+    const restored = new EmpiresEndgameEngine(config, completeCardZones(config, legacy))
     expect(restored.state.phase).toBe('cards')
     expect(restored.state.con).toBe(5)
     expect(restored.state.event).toBeNull()
@@ -2454,7 +2493,7 @@ describe('Empire phase economy', () => {
       buildingLevelBonuses?: EmpiresCampaignState['empire']['buildingLevelBonuses']
     }).buildingLevelBonuses
 
-    const restored = new EmpiresEndgameEngine(config, legacy)
+    const restored = new EmpiresEndgameEngine(config, completeCardZones(config, legacy))
     expect(restored.state.empire.destroyedRegionIds).toEqual(expect.arrayContaining(['west', 'north']))
     expect(restored.state.empire.buildingLevelBonuses).toEqual({ farm: 2, lumber: 1 })
 
@@ -2481,7 +2520,7 @@ describe('Empire phase economy', () => {
       buildingInteractionLocks?: Record<string, number>
     }).buildingInteractionLocks
 
-    const restored = new EmpiresEndgameEngine(config, legacy)
+    const restored = new EmpiresEndgameEngine(config, completeCardZones(config, legacy))
     const migratedUnitCount = restored.cityRecruitedUnitCount('capital')
     expect(migratedUnitCount).toBe(2)
     expect(restored.state.empire.cities[0].buildingLevels.barracks).toBe(1)
@@ -2549,7 +2588,7 @@ describe('Empire phase economy', () => {
     readyForGift.durak.playerHand = [seasonalCard.id]
     readyForGift.cards[seasonalCard.id].level = 2
     readyForGift.giftChoiceIds = ['gift-a', 'gift-b', 'gift-c']
-    source.restore(readyForGift)
+    restoreForTest(source, readyForGift)
     expect(source.chooseGift('gift-a')).toMatchObject({ ok: true })
     expect(source.state.empire.flags.seasonalFlag).toBe(11)
     expect(source.state.empire.cardFlagBonuses).toEqual({ seasonalFlag: 4 })
@@ -2613,7 +2652,7 @@ describe('Empire phase economy', () => {
     state.phase = 'empire'
     state.empire.daysRemaining = 59
     state.empire.flags.equippedRecruitCapacity = 100
-    engine.restore(state)
+    restoreForTest(engine, state)
 
     expect(engine.cityRecruitmentRemaining('capital')).toBe(2)
     expect(engine.recruitUnits('capital', 'levy', 2)).toMatchObject({ ok: true })
@@ -2625,7 +2664,7 @@ describe('Empire phase economy', () => {
 
     const bypass = engine.snapshot()
     bypass.empire.flags.unlimitedTavernRecruitment = 1
-    engine.restore(bypass)
+    restoreForTest(engine, bypass)
     expect(engine.cityRecruitmentRemaining('capital')).toBeNull()
     expect(engine.recruitUnits('capital', 'levy')).toMatchObject({ ok: true })
     expect(engine.cityRecruitedUnitCount('capital', 'levy')).toBe(3)
@@ -2656,7 +2695,7 @@ describe('Empire phase economy', () => {
     unprotectedState.durak.playerHand = [famine.id]
     unprotectedState.cards[famine.id].inverted = true
     unprotectedState.giftChoiceIds = ['gift-a', 'gift-b', 'gift-c']
-    unprotected.restore(unprotectedState)
+    restoreForTest(unprotected, unprotectedState)
     expect(unprotected.chooseGift('gift-a')).toMatchObject({ ok: true })
     expect(unprotected.cityProduction('capital').food).toBe(500)
 
@@ -2671,7 +2710,7 @@ describe('Empire phase economy', () => {
     protectedState.durak.playerHand = [famine.id]
     protectedState.cards[famine.id].inverted = true
     protectedState.giftChoiceIds = ['gift-a', 'gift-b', 'gift-c']
-    protectedEngine.restore(protectedState)
+    restoreForTest(protectedEngine, protectedState)
     expect(protectedEngine.chooseGift('gift-a')).toMatchObject({ ok: true })
     expect(protectedEngine.state.empire.flags.famineYearCounter).toBe(1)
     expect(protectedEngine.cityProduction('capital').food).toBe(1_000)
@@ -2720,7 +2759,7 @@ describe('Empire phase economy', () => {
     famineState.durak.playerHand = [famine.id]
     famineState.cards[famine.id].inverted = true
     famineState.giftChoiceIds = ['gift-a', 'gift-b', 'gift-c']
-    protectedEngine.restore(famineState)
+    restoreForTest(protectedEngine, famineState)
     expect(protectedEngine.chooseGift('gift-a')).toMatchObject({ ok: true })
     expect(protectedEngine.cityProduction('capital').food).toBe(1_000)
 
@@ -2733,7 +2772,7 @@ describe('Empire phase economy', () => {
     efficientState.durak.playerHand = [famine.id]
     efficientState.cards[famine.id].inverted = true
     efficientState.giftChoiceIds = ['gift-a', 'gift-b', 'gift-c']
-    efficientEngine.restore(efficientState)
+    restoreForTest(efficientEngine, efficientState)
     expect(efficientEngine.chooseGift('gift-a')).toMatchObject({ ok: true })
     expect(efficientEngine.cityProduction('capital').food).toBe(1_000)
     expect(efficientEngine.cityFoodConsumption('capital')).toBe(900)
@@ -2773,7 +2812,7 @@ describe('Empire phase economy', () => {
     const engine = new EmpiresEndgameEngine(config)
     const state = engine.snapshot()
     state.phase = 'empire'
-    engine.restore(state)
+    restoreForTest(engine, state)
     expect(engine.finishEmpire()).toMatchObject({ ok: true })
     expect(engine.state.empire.resources.gold).toBe(12)
     expect(engine.finishEmpire()).toMatchObject({ ok: false })
@@ -2833,7 +2872,7 @@ describe('Empire phase economy', () => {
     capital.resources = { wood: 10, iron: 0 }
     alphaState.resources = { wood: 60, iron: 100 }
     zetaState.resources = { wood: 100, iron: 100 }
-    engine.restore(state)
+    restoreForTest(engine, state)
 
     expect(engine.cityAvailableResource('capital', 'wood')).toBeCloseTo(154)
     expect(engine.cityAvailableResource('capital', 'wood', false)).toBe(10)
@@ -2856,7 +2895,7 @@ describe('Empire phase economy', () => {
     const engine = new EmpiresEndgameEngine(config)
     const state = engine.snapshot()
     state.phase = 'empire'
-    engine.restore(state)
+    restoreForTest(engine, state)
 
     expect(engine.finishEmpire()).toMatchObject({ ok: true })
     expect(engine.state.empire.resources.gold).toBe(2_502_000)
@@ -2883,7 +2922,7 @@ describe('Empire phase economy', () => {
       const state = engine.snapshot()
       state.phase = 'empire'
       state.empire.daysRemaining = 1
-      engine.restore(state)
+      restoreForTest(engine, state)
       engine.finishEmpire()
     }
 

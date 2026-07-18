@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 13,
+  "schemaVersion": 14,
   "id": "empires-endgame-default",
   "title": "Empire's Endgame",
   "seed": "empires-endgame-authoritative-default-v1",
@@ -1560,6 +1560,129 @@
       }
     ]
   },
+  "mysticCards": [
+    {
+      "id": "mystic-list",
+      "name": "Лист",
+      "owner": "player",
+      "startsInverted": false,
+      "returnDelayCons": 3,
+      "normal": {
+        "title": "Лист",
+        "description": "Безумные советы мистическим образом ведут империю к успеху.",
+        "deferredReason": "Источник не задаёт величину и полный перечень множителей, которые повышает Лист."
+      },
+      "inverted": {
+        "title": "Перевёрнутый Лист",
+        "description": "Возле водоёмов исчезают люди, а из океана приближается нечто.",
+        "deferredReason": "Источник не задаёт водные цели, темп исчезновений, состояние существа и последствия его приближения."
+      },
+      "deferredReason": "Обе стороны Листа не имеют полного исполнимого контракта."
+    },
+    {
+      "id": "mystic-lorik",
+      "name": "Лорик",
+      "owner": "player",
+      "startsInverted": false,
+      "returnDelayCons": 3,
+      "normal": {
+        "title": "Лорик",
+        "description": "Лорик приносит успех на фронте и не оставляет осаждённой стране пути к восстановлению.",
+        "deferredReason": "Источник не задаёт цель, численный военный эффект и восстановление осаждённой страны; постоянная осада ещё не принадлежит P9."
+      },
+      "inverted": {
+        "title": "Перевёрнутый Лорик",
+        "description": "Воины впадают в ярость, не отличают союзников от врагов и атакуют ближайший аванпост.",
+        "deferredReason": "Источник не задаёт выбор аванпоста, состав отрядов, исход боя и последствия для союзной стороны."
+      },
+      "deferredReason": "Обе стороны Лорика зависят от неописанных фронтовых и осадных правил."
+    },
+    {
+      "id": "mystic-anatoliy",
+      "name": "Анатолий",
+      "owner": "player",
+      "startsInverted": false,
+      "returnDelayCons": 3,
+      "normal": {
+        "title": "Анатолий",
+        "description": "Повышает доход выбранного региона на 99.67893333333%.",
+        "deferredReason": "Точный процент известен, но источник не задаёт выбор региона, состав дохода, срок и повторное назначение."
+      },
+      "inverted": {
+        "title": "Перевёрнутый Анатолий",
+        "description": "В этой стороне карты что-то не так.",
+        "deferredReason": "Авторитетный экспорт не описывает перевёрнутую сторону Анатолия."
+      },
+      "deferredReason": "Выбор региона и перевёрнутая сторона Анатолия не имеют полного контракта."
+    },
+    {
+      "id": "mystic-queen-of-spades",
+      "name": "Пиковая Дама",
+      "owner": "player",
+      "startsInverted": true,
+      "returnDelayCons": 3,
+      "normal": {
+        "title": "Пиковая Дама",
+        "description": "Мистическая карта без масти и ранга."
+      },
+      "inverted": {
+        "title": "Пиковая Дама",
+        "description": "Раз в несколько конов атомарно переворачивает соседей в упорядоченном мистическом ряду."
+      }
+    }
+  ],
+  "tavern": {
+    "enabled": true,
+    "buildingId": "building-tavern",
+    "spawn": {
+      "eligibleCon": 4,
+      "firstRunChance": 0,
+      "secondRunChance": 1,
+      "laterRunChance": 0.33
+    },
+    "visitCooldownCons": 1,
+    "maxCommands": 8,
+    "mercenaries": {
+      "baseOfferCount": 2,
+      "spiritsOfferCount": 3,
+      "offers": [
+        { "id": "mercenary-light-scouts", "name": "Вольные разведчики", "unitId": "unit-light", "count": 1, "goldCost": 800, "weight": 4, "spiritsEligible": true },
+        { "id": "mercenary-light-company", "name": "Вольная рота", "unitId": "unit-light", "count": 2, "goldCost": 1400, "weight": 3, "spiritsEligible": true },
+        { "id": "mercenary-light-bargain", "name": "Сильная рота по слуховой цене", "unitId": "unit-light", "count": 3, "goldCost": 1800, "weight": 2, "spiritsEligible": true }
+      ]
+    },
+    "spirits": {
+      "goldCost": 500,
+      "activationDelayCons": 1,
+      "durationCons": 2,
+      "cheapOfferMultiplier": 0.67
+    },
+    "rumors": {
+      "goldCost": 300,
+      "deckHintPosition": 3,
+      "fallbackText": "Слух оказался хуже сведений Антона де Лоряна и не раскрыл ничего, чего император ещё не заслужил."
+    },
+    "maria": {
+      "encounterChance": 0.33,
+      "standardCardDefinitionId": "card-spades-queen",
+      "title": "Мария Брауз",
+      "description": "Мария играет с посетителями и предлагает сесть напротив неё в партию двое на двое.",
+      "encounterDeferredReason": "Экспорт не задаёт состав четырёх рук, порядок хода, команды, победителя и правила партнёров для партии 2×2."
+    },
+    "queen": {
+      "mysticDefinitionId": "mystic-queen-of-spades",
+      "comboRanks": ["3", "7", "ace"],
+      "pulseEveryCons": 3
+    },
+    "historyRetention": 24,
+    "deferredSubfeatures": [
+      { "id": "maria2x2", "reason": "Мария появляется с авторскими 33%, но точные правила партии 2×2 отсутствуют; кнопка игры остаётся недоступной." },
+      { "id": "mariaGunpowderLegacy", "reason": "Награда за победу должна сохранить слабое пороховое наследие без Марии, но численный эффект и пороховая ветка не определены." },
+      { "id": "mysticTrioPassives", "reason": "Лист, Лорик и Анатолий каталогизированы отдельно, но их неполные стороны нельзя нанять или применить." },
+      { "id": "mysticLeaveAction", "reason": "Источник обещает возврат потерянной карты перевёрнутой через несколько ходов, но не определяет допустимое действие, выводящее мистику из отдельной зоны." },
+      { "id": "queenAppeasement", "reason": "Удаление, умиротворение или ручное восстановление Пиковой Дамы источником не определено." }
+    ]
+  },
   "cards": [
     {
       "id": "card-clubs-2",
@@ -2906,7 +3029,7 @@
       "id": "card-spades-queen",
       "suit": "spades",
       "rank": "queen",
-      "name": "Дама пик",
+      "name": "Мария Брауз",
       "value": 60,
       "timeCostDays": 4,
       "drawUpgrade": 1,
@@ -7287,9 +7410,7 @@
             "effects": []
           }
         ],
-        "deferredSubfeatures": [
-          { "id": "tavernMinigame", "reason": "P9 владеет появлением Таверны между прохождениями, секциями найма/спиртного/слухов, Марией и мистическими картами; пассивный армейский hook уже активен." }
-        ]
+        "deferredSubfeatures": []
       },
       {
         "id": "building-stable",

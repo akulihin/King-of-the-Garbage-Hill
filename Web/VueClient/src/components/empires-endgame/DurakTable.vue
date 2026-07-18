@@ -33,6 +33,8 @@ export interface DurakPairView {
 
 const props = withDefaults(defineProps<{
   playerHand: DurakCardView[]
+  mysticCards?: DurakCardView[]
+  queenPulseIds?: string[]
   godHandCount: number
   table: DurakPairView[]
   deckCount: number
@@ -52,6 +54,8 @@ const props = withDefaults(defineProps<{
   remainingDeckInspections?: number | null
 }>(), {
   trumpCard: null,
+  mysticCards: () => [],
+  queenPulseIds: () => [],
   message: '',
   godLine: '',
   legalCardIds: () => [],
@@ -184,6 +188,20 @@ function symbolFor(suit: string) {
     </div>
 
     <footer class="player-zone">
+      <div v-if="mysticCards.length" class="mystic-zone" aria-label="Упорядоченный мистический ряд" data-testid="mystic-zone">
+        <div class="player-heading">
+          <div class="player-seal"><Sparkles :size="18" /></div>
+          <div><span>Мистический ряд</span><strong>{{ mysticCards.length }} карт без масти и ранга</strong></div>
+        </div>
+        <div class="player-hand">
+          <EmpireCard
+            v-for="card in mysticCards"
+            :key="card.id"
+            v-bind="card"
+            :badge="queenPulseIds.includes(card.id) ? 'Перевёрнута Пиковой Дамой' : ''"
+          />
+        </div>
+      </div>
       <div class="player-heading">
         <div class="player-seal"><Crown :size="18" /></div>
         <div>
@@ -243,6 +261,7 @@ function symbolFor(suit: string) {
 .trump-token span { font:700 1.8rem/1 Georgia,serif; }
 .trump-token small { margin-top:-16px; font:800 .5rem/1 var(--font-mono,monospace); text-transform:uppercase; }
 .discard-count { display:inline-flex; align-items:center; gap:4px; color:rgba(240,229,206,.48); font:700 .58rem/1 var(--font-mono,monospace); }
+.mystic-zone { display:grid; gap:10px; margin-bottom:16px; padding-bottom:16px; border-bottom:1px solid rgba(170,133,202,.2); }
 .memory-button { display:inline-flex; min-height:32px; align-items:center; gap:5px; padding:0 9px; border:1px solid rgba(209,183,116,.28); border-radius:6px; color:#dfc77f; background:rgba(11,23,18,.72); cursor:pointer; font:800 .54rem/1 var(--font-mono,monospace); }
 .memory-button small { display:grid; min-width:17px; height:17px; place-items:center; border-radius:50%; color:#211b12; background:#d2b567; }
 .memory-button:disabled { opacity:.42; cursor:not-allowed; }

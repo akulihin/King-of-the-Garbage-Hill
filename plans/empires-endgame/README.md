@@ -72,9 +72,15 @@ Current execution status supplied by the designer on 2026-07-17:
   next-draw-first deck memory, serialized limited-use mode, deterministic capped
   consecutive-`бито` intervention/history, isolated authored God dialogue and accessible
   Божественная Милость confirmation with versioned device-local opt-out landed as one
-  change-set. No card/gift carrier was un-deferred; inverted Joker, mystics and Tavern stay
-  P9-owned.
-- **Next prompt: Phase 9** (`phase-09-tavern-mystic.md`).
+  change-set. No card/gift carrier was un-deferred; inverted Joker remains deferred and P9
+  subsequently consumed the mystic/Tavern handoff.
+- **Phase 9 — complete/conditional.** Schema-v14 Tavern/mystic configuration,
+  save-envelope v12, cross-campaign `0/1/0.33` arrival progression, deterministic Tavern
+  replay/settlement, accessible two-section UI, separate ordered mystic zone, 3–7–Т observer
+  and atomic Пиковая Дама neighbor pulse landed as one change-set. The broad Tavern
+  marker is closed; Maria 2×2/powder legacy, trio passives/leave and Queen appeasement keep
+  exact source-gap blockers.
+- **Next prompt: Phase 10** (`phase-10-tetris-alchemy.md`).
 
 Scope decisions confirmed by the designer (2026-07-16):
 
@@ -105,7 +111,7 @@ graph TD
   P5 --> P7[7 complete: quests + dialogue]
   P4C --> P7
   P3A --> P8[8 complete: God presence]
-  P6A --> P9[9 Tavern + mystics]
+  P6A --> P9[9 complete: Tavern + mystics]
   P7 --> P9
   P8 --> P9
   P3A --> P10[10 Tetris-alchemy]
@@ -137,7 +143,7 @@ graph TD
 | `phase-06c-economy-content.md` | **Complete/historical. 6C:** reconciled economy gifts, relics, events, resources, technologies, and card faces; implemented every candidate with complete typed consumers. |
 | `phase-07-quests-dialogue.md` | **Complete/historical.** Quest/dialogue graph engine, journal/overlay UI, 43-passage Палач port and Golden Idol/Witch event bridges. |
 | `phase-08-god-presence.md` | **Complete/historical.** Deck-memory, deterministic capped anti-bito, isolated authored God lines, Милость confirmation and device preference. |
-| `phase-09-tavern-mystic.md` | Separate mystic-card catalog, hand order, Пиковая Дама, tavern minigame. |
+| `phase-09-tavern-mystic.md` | **Complete/conditional.** Deterministic Tavern, separate ordered mystic catalog/zone, 3–7–Т observer and Пиковая Дама pulse; exact incomplete subfeatures remain blocked. |
 | `phase-10-tetris-alchemy.md` | Assembly/disassembly tetris, reagents, configured explosion → typed epidemic. |
 | `phase-11-expeditions-inventory.md` | **11A:** expeditions, forts/zones, provisions, veterans, TD assault. |
 | `phase-11b-tetris-inventory.md` | **11B:** deterministic falling-cart packing minigame. |
@@ -271,8 +277,9 @@ graph TD
 - Temple preaching/tithe and operational relic slots are live. Relic flags are effective
   only while assigned to an accessible operational Temple; already-claimed legacy relics
   migrate without duplicate one-time resolution. P6C subsequently delivered the two
-  economy relic consumers without changing the slot lifecycle. Tavern levels feed the canonical army recruitment and maximum
-  morale readers; `tavernMinigame` alone remains P9-owned.
+  economy relic consumers without changing the slot lifecycle. Tavern levels feed the
+  canonical army recruitment and maximum morale readers. P9 subsequently closed the broad
+  `tavernMinigame` handoff and retained only its exact incomplete capability blockers.
 
 ## P6B handoff
 
@@ -322,6 +329,28 @@ graph TD
   event/resource, carpentry and normal ♦6. Fish-current subbranches, meteor radiation,
   South resort/watermills, white-stone consumers and monopoly/Дон remain config-absent
   P12B review rows rather than anonymous live content.
+
+## P9 handoff
+
+- The compatibility baseline is config schema 14 and campaign/save envelope 12. Genuine
+  schema-v13 custom configs receive an empty mystic catalog and disabled Tavern scaffold;
+  legacy saves receive empty Tavern/mystic lifecycle state without retroactive spawns.
+- Tavern sessions reuse the generic minigame envelope and are immutable
+  `plan + seed + commandLog` replays with a Tavern-specific rules digest. Settlement spends
+  gold and writes cohorts, spirits, rumor audit and result history exactly once; a rejected
+  or error replay cannot mutate the campaign.
+- Cross-campaign completed-run ordinals live in
+  `empires-endgame:profile:tavern:v1`, outside campaign saves. First run is absent, second is
+  guaranteed and later runs use `0.33` at con four. Character identity is not inferred;
+  exact reset/counting questions remain in `P9-01`.
+- The standard catalog remains exactly 52 suited definitions plus Joker. Mystic instances
+  use a separate authoritative ordered zone and never enter Durak legality/trump/refill/
+  winner accounting. After a persisted Maria victory, standard ranks 3–7–Т spawn a distinct
+  Queen; her configured start-next-con pulse atomically toggles immediate mystic neighbors.
+- `building-tavern` has no broad deferral. The complete residual manifest is
+  `maria2x2`, `mariaGunpowderLegacy`, `mysticTrioPassives`, `mysticLeaveAction` and
+  `queenAppeasement`, plus face-level reasons on Лист, Лорик and Анатолий. Later phases
+  must not treat these typed seams as proof of missing semantics.
 
 ## How to execute the remaining prompts
 
@@ -385,8 +414,9 @@ gates. Do not commit or push.
   them to v10/v8 for typed external relationships, offers, trades and transfers; P6C moves
   them to v11/v9 for economy-content events, exact targets and bounded decision history;
   P7 moves them to v12/v10 for quest graphs and dialogue memory; P8 moves them to v13/v11
-  for God configuration, cosmetic RNG, anti-bito history and deck-memory usage. Never reuse a hard-coded version if
-  the executed repository is already farther ahead.
+  for God configuration, cosmetic RNG, anti-bito history and deck-memory usage; P9 moves
+  them to v14/v12 for Tavern progression/replay and mystic-zone lifecycle. Never reuse a
+  hard-coded version if the executed repository is already farther ahead.
 - **New component homes**: `src/components/empires-endgame/` (`TdBattle.vue`, `DialogueOverlay.vue`, `QuestJournal.vue`, `DeckMemoryPanel.vue`, …); new feature modules under `features/empires-endgame/` (`combat/`, `td/`, `quests.ts`, `alchemy/`, `tavern/`, `inventory/`, `chess/`).
 - `engine.ts` (~2.5k lines): extract internal modules (an `engine/` dir) only when a phase already touches that cluster; no big-bang refactor.
 

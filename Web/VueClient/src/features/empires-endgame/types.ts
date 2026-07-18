@@ -7,6 +7,11 @@ import type {
   TdRulesIdentity,
   TdUnitProfile,
 } from './td/types'
+import type {
+  TavernPlan,
+  TavernResult,
+  TavernRulesIdentity,
+} from './tavern/types'
 
 export type {
   CombatArmorClassDefinition,
@@ -57,6 +62,16 @@ export type {
   TdUnitProfile,
   TdWaveDefinition,
 } from './td/types'
+export type {
+  TavernCommand,
+  TavernMariaPlan,
+  TavernMercenaryOfferPlan,
+  TavernPlan,
+  TavernReplayState,
+  TavernResult,
+  TavernRulesIdentity,
+  TavernRumorPlan,
+} from './tavern/types'
 
 export const EMPIRES_SUITS = ['clubs', 'diamonds', 'hearts', 'spades'] as const
 export const EMPIRES_RANKS = [
@@ -225,6 +240,77 @@ export interface EmpiresCardDefinition {
   maxLevel?: number
   normal: EmpiresCardFace
   inverted: EmpiresCardFace
+}
+
+export interface EmpiresMysticCardFace {
+  title: string
+  description: string
+  image?: string
+  deferredReason?: string
+}
+
+export interface EmpiresMysticCardDefinition {
+  id: string
+  name: string
+  owner: 'player'
+  startsInverted: boolean
+  returnDelayCons: number
+  normal: EmpiresMysticCardFace
+  inverted: EmpiresMysticCardFace
+  deferredReason?: string
+}
+
+export interface EmpiresTavernMercenaryOfferDefinition {
+  id: string
+  name: string
+  unitId: string
+  count: number
+  goldCost: number
+  weight: number
+  spiritsEligible: boolean
+}
+
+export interface EmpiresTavernConfig {
+  enabled: boolean
+  buildingId: string
+  spawn: {
+    eligibleCon: number
+    firstRunChance: number
+    secondRunChance: number
+    laterRunChance: number
+  }
+  visitCooldownCons: number
+  maxCommands: number
+  mercenaries: {
+    baseOfferCount: number
+    spiritsOfferCount: number
+    offers: EmpiresTavernMercenaryOfferDefinition[]
+  }
+  spirits: {
+    goldCost: number
+    activationDelayCons: number
+    durationCons: number
+    cheapOfferMultiplier: number
+  }
+  rumors: {
+    goldCost: number
+    deckHintPosition: number
+    fallbackText: string
+  }
+  maria: {
+    encounterChance: number
+    standardCardDefinitionId: string
+    title: string
+    description: string
+    encounterDeferredReason: string
+  }
+  queen: {
+    mysticDefinitionId: string
+    comboRanks: ['3', '7', 'ace']
+    pulseEveryCons: number
+  }
+  historyRetention: number
+  deferredSubfeatures: EmpiresDeferredSubfeature[]
 }
 
 export interface EmpiresJokerConfig {
@@ -1197,11 +1283,13 @@ export interface EmpiresUpgradeConfig {
 }
 
 export interface EmpiresEndgameConfig {
-  schemaVersion: 13
+  schemaVersion: 14
   id: string
   title: string
   seed: string | number
   cards: EmpiresCardDefinition[]
+  mysticCards: EmpiresMysticCardDefinition[]
+  tavern: EmpiresTavernConfig
   durak: EmpiresDurakConfig
   upgrades: EmpiresUpgradeConfig
   gifts: EmpiresGiftConfig
@@ -1233,6 +1321,50 @@ export interface EmpiresDeckMemoryCard {
   suit: EmpiresSuit | 'joker'
   rank: EmpiresCardRank
   inverted: boolean
+}
+
+export interface EmpiresMysticCardInstance {
+  id: string
+  definitionId: string
+  owner: 'player'
+  inverted: boolean
+  status: 'zone' | 'returning'
+  spawnedAtCon: number
+  returnAtCon: number | null
+  lastChangedCon: number
+}
+
+export interface EmpiresMysticHistoryEntry {
+  sequence: number
+  con: number
+  kind: 'spawn' | 'leave' | 'return' | 'queen-pulse'
+  sourceId: string
+  instanceIds: string[]
+}
+
+export interface EmpiresMysticState {
+  instances: Record<string, EmpiresMysticCardInstance>
+  zone: string[]
+  queenComboProgress: 0 | 1 | 2 | 3
+  queenComboCompletedAtCon: number | null
+  lastQueenPulseCon: number | null
+  lastQueenPulseInstanceIds: string[]
+  history: EmpiresMysticHistoryEntry[]
+  compactedHistoryCount: number
+  compactedHistoryDigest: string
+  nextHistorySequence: number
+}
+
+export interface EmpiresTavernState {
+  runOrdinal: number
+  spawnChecked: boolean
+  spawned: boolean
+  spawnedAtCon: number | null
+  lastVisitedCon: number | null
+  spiritsReadyAtCon: number | null
+  spiritsExpiresAfterCon: number | null
+  mariaVictory: boolean
+  mariaVictoryAtCon: number | null
 }
 
 export interface EmpiresDeckMemoryAvailability {
@@ -1537,13 +1669,18 @@ export type EmpiresMinigameOriginContext =
     kind: 'manual'
     sourceId: string
   }
+  | {
+    kind: 'tavern-visit'
+    cityId: string
+    con: number
+  }
 
 export interface EmpiresMinigameOrigin {
   returnPhase: Exclude<EmpiresPhase, 'minigame'>
   context: EmpiresMinigameOriginContext
 }
 
-export interface EmpiresMinigameSession {
+export interface EmpiresTdMinigameSession {
   id: string
   kind: 'td'
   plan: TdBattlePlan
@@ -1553,7 +1690,21 @@ export interface EmpiresMinigameSession {
   origin: EmpiresMinigameOrigin
 }
 
-export type EmpiresMinigameResult = TdBattleResult
+export interface EmpiresTavernMinigameSession {
+  id: string
+  kind: 'tavern'
+  plan: TavernPlan
+  rulesIdentity: TavernRulesIdentity
+  seed: string | number
+  attempt: number
+  origin: EmpiresMinigameOrigin
+}
+
+export type EmpiresMinigameKind = 'td' | 'tavern'
+
+export type EmpiresMinigameSession = EmpiresTdMinigameSession | EmpiresTavernMinigameSession
+
+export type EmpiresMinigameResult = TdBattleResult | TavernResult
 
 export interface EmpiresMinigameResultRecord {
   sessionId: string
@@ -1696,6 +1847,7 @@ export type EmpiresChronicleEntryKind =
   | 'insurance'
   | 'fair'
   | 'temple'
+  | 'tavern'
 
 export interface EmpiresChronicleEntry {
   id: string
@@ -1875,6 +2027,13 @@ export interface EmpiresDomesticEconomyView {
     recruitmentCapacityBonus: number
     moraleMaximumBonus: number
     deferredCapabilities: EmpiresDeferredSubfeature[]
+    spawned: boolean
+    spawnedAtCon: number | null
+    runOrdinal: number
+    lastVisitedCon: number | null
+    spiritsActive: boolean
+    spiritsReadyAtCon: number | null
+    spiritsExpiresAfterCon: number | null
   }
 }
 
@@ -2059,12 +2218,14 @@ export interface EmpiresQuestRuntimeState {
 }
 
 export interface EmpiresCampaignState {
-  schemaVersion: 11
+  schemaVersion: 12
   configId: string
   phase: EmpiresPhase
   rng: EmpiresRngState
   god: EmpiresGodState
   cards: Record<string, EmpiresCardInstance>
+  mystics: EmpiresMysticState
+  tavern: EmpiresTavernState
   durak: EmpiresDurakState
   performance: EmpiresPerformanceState
   con: number
@@ -2090,7 +2251,7 @@ export interface EmpiresCampaignState {
 }
 
 export interface EmpiresSnapshotEnvelope {
-  schemaVersion: 11
+  schemaVersion: 12
   savedAt: string
   state: EmpiresCampaignState
 }

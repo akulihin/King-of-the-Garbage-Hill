@@ -32,7 +32,7 @@ describe('Empire\'s Endgame deterministic QA scenarios', () => {
       expect(validateEmpiresQaSnapshot(config, fixture.snapshot, name)).toEqual({ ok: true, issues: [] })
       const serialized = JSON.parse(JSON.stringify(fixture.snapshot)) as EmpiresCampaignState
       const restored = new EmpiresEndgameEngine(config, serialized).snapshot()
-      if (name.startsWith('battle-')) {
+      if (serialized.minigame) {
         expect(restored).toEqual({
           ...serialized,
           minigame: { ...serialized.minigame!, attempt: serialized.minigame!.attempt + 1 },

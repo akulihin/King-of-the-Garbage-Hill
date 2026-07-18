@@ -64,7 +64,7 @@ describe('Empire\'s Endgame Phase 5 epidemics', () => {
     const migrated = migrateEmpiresConfig(previous) as EmpiresEndgameConfig
     expect(previous).toEqual(original)
     expect(migrated).toMatchObject({
-      schemaVersion: 13,
+      schemaVersion: 14,
       empire: {
         epidemics: { enabled: false, definitions: [], protections: [] },
         medical: { enabled: false, defaultBattleRecoveryCons: 2 },
@@ -73,7 +73,7 @@ describe('Empire\'s Endgame Phase 5 epidemics', () => {
     })
     expect(() => validateEmpiresConfig(migrated)).not.toThrow()
     expect(migrateEmpiresConfig(migrated)).toEqual(migrated)
-    expect(() => migrateEmpiresConfig({ ...migrated, schemaVersion: 14 })).toThrow(/future.*14/i)
+    expect(() => migrateEmpiresConfig({ ...migrated, schemaVersion: 15 })).toThrow(/future.*15/i)
   })
 
   it('allocates class loss by authored weights with stable remainder and capacity handling', () => {
@@ -252,12 +252,10 @@ describe('Empire\'s Endgame Phase 5 epidemics', () => {
       cardConfig.empire.eventChance = 0
       const state = new EmpiresEndgameEngine(cardConfig).snapshot()
       const cardId = Object.values(state.cards).find(card => card.definitionId === 'card-spades-10')!.id
-      state.durak.deck = state.durak.deck.filter(id => id !== cardId)
-      state.durak.godHand = state.durak.godHand.filter(id => id !== cardId)
-      state.durak.discard = state.durak.discard.filter(id => id !== cardId)
-      state.durak.table = state.durak.table.filter(pair => (
-        pair.attackCardId !== cardId && pair.defenseCardId !== cardId
-      ))
+      state.durak.deck = cardConfig.cards.map(card => card.id).filter(id => id !== cardId)
+      state.durak.godHand = []
+      state.durak.discard = []
+      state.durak.table = []
       state.durak.playerHand = [cardId]
       state.cards[cardId].inverted = inverted
       const gift = cardConfig.gifts.definitions.find(item => (
@@ -418,7 +416,7 @@ describe('Empire\'s Endgame Phase 5 epidemics', () => {
     delete (legacy.army as Partial<EmpiresCampaignState['army']>).recoveries
     const restored = new EmpiresEndgameEngine(value, legacy)
     expect(restored.state).toMatchObject({
-      schemaVersion: 11,
+      schemaVersion: 12,
       epidemics: [],
       nextEpidemicSequence: 1,
       army: { recoveries: [] },

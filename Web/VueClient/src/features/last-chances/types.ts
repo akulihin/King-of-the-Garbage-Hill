@@ -949,7 +949,7 @@ export interface LastChancesFeedbackSnapshot {
   mode: LastChancesFeedbackMode
   intensity: number
   reducedHaptics: boolean
-  permission: 'not-requested' | 'granted' | 'denied' | 'unavailable'
+  permission: 'not-requested' | 'granted' | 'denied' | 'unavailable' | 'usb-required'
   message: string | null
 }
 

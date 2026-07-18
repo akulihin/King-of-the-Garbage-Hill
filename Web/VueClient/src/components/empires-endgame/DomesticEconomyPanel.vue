@@ -19,6 +19,7 @@ const emit = defineEmits<{
   preach: [cityId: string]
   assignRelic: [cityId: string, slotIndex: number, giftId: string]
   clearRelic: [cityId: string, slotIndex: number]
+  visitTavern: [cityId: string]
 }>()
 
 function selectCity(event: Event) {
@@ -186,6 +187,21 @@ function loanBalance(loan: EmpiresDomesticEconomyView['bank']['loans'][number]) 
           <b>+{{ number(view.tavern.recruitmentCapacityBonus) }}</b>, максимум Боевого духа
           <b>+{{ number(view.tavern.moraleMaximumBonus) }}</b>.
         </p>
+        <p>
+          Прохождение <b>№{{ view.tavern.runOrdinal }}</b> ·
+          <template v-if="view.tavern.spawned">появилась в коне {{ view.tavern.spawnedAtCon }}</template>
+          <template v-else>пока скрыта</template>.
+          <template v-if="view.tavern.spiritsActive"> Спиртное действует сейчас.</template>
+          <template v-else-if="view.tavern.spiritsReadyAtCon"> Спиртное: коны {{ view.tavern.spiritsReadyAtCon }}–{{ view.tavern.spiritsExpiresAfterCon }}.</template>
+          <template v-if="view.tavern.lastVisitedCon"> Последнее посещение: кон {{ view.tavern.lastVisitedCon }}.</template>
+        </p>
+        <button
+          type="button"
+          data-testid="economy-visit-tavern"
+          :disabled="Boolean(view.tavern.blockedReason)"
+          :title="view.tavern.blockedReason || undefined"
+          @click="emit('visitTavern', view.cityId)"
+        >Посетить Таверну</button>
         <small v-if="view.tavern.blockedReason" class="reason">{{ view.tavern.blockedReason }}</small>
         <small v-for="capability in view.tavern.deferredCapabilities" :key="capability.id" class="deferred">
           {{ capability.id }}: {{ capability.reason }}

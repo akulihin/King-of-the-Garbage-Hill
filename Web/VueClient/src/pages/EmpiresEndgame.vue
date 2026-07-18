@@ -46,6 +46,7 @@ import TargetResolutionDialog, {
 } from '../components/empires-endgame/TargetResolutionDialog.vue'
 import TechTree from '../components/empires-endgame/TechTree.vue'
 import TdBattle from '../components/empires-endgame/TdBattle.vue'
+import TavernEncounter from '../components/empires-endgame/TavernEncounter.vue'
 import {
   clearCustomEmpiresConfig,
   cloneEmpiresConfig,
@@ -76,6 +77,10 @@ import {
   loadEmpiresGodUiPreferences,
   skipFutureDivineMercyConfirmations,
 } from '../features/empires-endgame/ui-preferences'
+import {
+  nextTavernRunOrdinal,
+  recordCompletedTavernRun,
+} from '../features/empires-endgame/tavern/profile'
 import type {
   EmpiresActionResult,
   EmpiresBuildingDefinition,
@@ -93,6 +98,7 @@ import type {
   EmpiresQuestChoiceTarget,
   TdBattleResult,
   TdCommand,
+  TavernResult,
 } from '../features/empires-endgame/types'
 
 type EmpireTab = 'map' | 'city' | 'economy' | 'diplomacy' | 'loyalty' | 'technology' | 'governance' | 'council'
@@ -134,7 +140,9 @@ const workingConfig = computed(() => editorOpen.value && editorConfig.value
   ? editorConfig.value
   : config.value)
 
-const activeTdPlan = computed(() => state.value?.minigame?.plan ?? null)
+const activeTdPlan = computed(() => state.value?.minigame?.kind === 'td'
+  ? state.value.minigame.plan
+  : null)
 
 const deckMemoryAvailability = computed(() => engine.value?.canInspectDeck() ?? {
   allowed: false,
@@ -167,7 +175,9 @@ const phaseCopy = computed(() => ({
   event: ['Имперское событие', 'Ваше решение изменит следующий кон.'],
   minigame: activeTdPlan.value?.mode === 'assault'
     ? ['Наступление', `Прорвитесь к цели «${activeTdPlan.value.objective.name}».`]
-    : ['Оборона империи', `Защитите цель «${activeTdPlan.value?.objective.name ?? 'крепость'}».`],
+    : state.value?.minigame?.kind === 'tavern'
+      ? ['Таверна «У List\'a»', 'Наймите наёмников, угостите посетителей или купите осторожный слух.']
+      : ['Оборона империи', `Защитите цель «${activeTdPlan.value?.objective.name ?? 'крепость'}».`],
   victory: ['Империя спасена', state.value?.outcomeReason || 'Эпоха выдержала последнюю ставку.'],
   defeat: ['Конец империи', state.value?.outcomeReason || 'Последняя ставка оказалась роковой.'],
 }[state.value?.phase ?? 'cards']))
@@ -617,13 +627,22 @@ function initializeEngine(nextConfig: EmpiresEndgameConfig, snapshot?: EmpiresCa
   deckMemoryCards.value = []
   deckMemoryRemaining.value = null
   mercyConfirmationCardId.value = null
-  const nextEngine = new EmpiresEndgameEngine(nextConfig, snapshot ?? undefined)
+  const nextEngine = new EmpiresEndgameEngine(
+    nextConfig,
+    snapshot ?? undefined,
+    { tavernRunOrdinal: nextTavernRunOrdinal() },
+  )
   engine.value = nextEngine
   state.value = structuredClone(nextEngine.state)
   unsubscribe = nextEngine.subscribe(nextState => {
     state.value = structuredClone(nextState)
     triggerRef(engine)
-    if (!qaMode.value) saveEmpiresCampaign(nextState)
+    if (!qaMode.value) {
+      saveEmpiresCampaign(nextState)
+      if (nextState.phase === 'victory' || nextState.phase === 'defeat') {
+        recordCompletedTavernRun(nextState.tavern.runOrdinal)
+      }
+    }
   })
   const firstRegion = nextConfig.empire.map.regions[0]
   const firstCity = nextConfig.empire.cities[0]
@@ -787,6 +806,31 @@ const playerHandViews = computed(() => state.value?.durak.playerHand
   .map(cardView)
   .filter((card): card is NonNullable<ReturnType<typeof cardView>> => Boolean(card)) ?? [])
 
+const mysticCardViews = computed(() => {
+  if (!state.value || !engine.value) return []
+  return state.value.mystics.zone.flatMap((instanceId) => {
+    const instance = state.value!.mystics.instances[instanceId]
+    if (!instance) return []
+    const definition = engine.value!.getMysticDefinition(instance)
+    const face = instance.inverted ? definition.inverted : definition.normal
+    return [{
+      id: instance.id,
+      name: definition.name,
+      title: face.title,
+      suit: 'mystic',
+      rank: '—',
+      timeCost: 0,
+      value: 0,
+      description: face.description,
+      image: face.image,
+      deferredReason: definition.deferredReason || face.deferredReason,
+      inverted: instance.inverted,
+      upgrades: 0,
+      trump: false,
+    }]
+  })
+})
+
 const tableViews = computed(() => state.value?.durak.table.flatMap(pair => {
   const attack = cardView(pair.attackCardId)
   if (!attack) return []
@@ -901,6 +945,14 @@ function finishEmpire() {
 
 function resolveTdBattle(result: TdBattleResult) {
   if (engine.value) action(engine.value.resolveMinigame(result))
+}
+
+function resolveTavern(result: TavernResult) {
+  if (engine.value) action(engine.value.resolveMinigame(result), false)
+}
+
+function startTavernVisit(cityId: string) {
+  if (engine.value) action(engine.value.startTavernVisit(cityId), false)
 }
 
 function abortTdBattle(commandLog: TdCommand[], abortTick: number) {
@@ -2081,6 +2133,8 @@ onUnmounted(() => {
       <section v-if="state.phase === 'cards' && !editorOpen" class="phase-content cards-phase">
         <DurakTable
           :player-hand="playerHandViews"
+          :mystic-cards="mysticCardViews"
+          :queen-pulse-ids="state.mystics.lastQueenPulseInstanceIds"
           :god-hand-count="state.durak.godHand.length"
           :table="tableViews"
           :deck-count="state.durak.deck.length"
@@ -2212,6 +2266,7 @@ onUnmounted(() => {
           @preach="preachAtTemple"
           @assign-relic="assignTempleRelic"
           @clear-relic="clearTempleRelic"
+          @visit-tavern="startTavernVisit"
         />
 
         <ExternalDiplomacyPanel
@@ -2289,11 +2344,20 @@ onUnmounted(() => {
 
       <section v-else-if="state.phase === 'minigame' && state.minigame" class="phase-content minigame-phase">
         <TdBattle
+          v-if="state.minigame.kind === 'td'"
           :key="`${state.minigame.id}:${state.minigame.attempt}`"
           :session="state.minigame"
           :qa-mode="qaMode"
           @resolved="resolveTdBattle"
           @abort="abortTdBattle"
+        />
+        <TavernEncounter
+          v-else
+          :key="`${state.minigame.id}:${state.minigame.attempt}`"
+          :session="state.minigame"
+          :mystic-cards="workingConfig.mysticCards"
+          :qa-mode="qaMode"
+          @resolved="resolveTavern"
         />
       </section>
 

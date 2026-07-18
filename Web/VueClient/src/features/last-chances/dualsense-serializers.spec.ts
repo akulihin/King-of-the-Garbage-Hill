@@ -124,7 +124,7 @@ describe('DualSense USB serializer', () => {
   })
 })
 
-describe('DualSense Bluetooth serializer', () => {
+describe('DualSense Bluetooth serializer (harness-only since M117)', () => {
   it('wraps the common payload in a 77-byte 0x31 report with tag, sequence and CRC-32', () => {
     const serializer = new BluetoothDualSenseSerializer()
     const first = serializer.serialize(effect())[0]
@@ -198,5 +198,55 @@ describe('DualSense device allowlist and factory', () => {
       status: 'controls-only',
       permission: 'not-requested',
     })
+  })
+
+  it('classifies a granted Bluetooth pad as usb-required instead of sending any 0x31 output (M117)', async () => {
+    const sent: number[] = []
+    const device: LastChancesHidDeviceLike = {
+      ...deviceWithReports([BLUETOOTH_OUTPUT_REPORT_ID], {
+        vendorId: SONY_VENDOR_ID,
+        productId: DUALSENSE_PRODUCT_ID,
+      }),
+      async open() {
+        throw new Error('a Bluetooth pad must never be opened by the production driver')
+      },
+      async sendReport(reportId: number) {
+        sent.push(reportId)
+      },
+    }
+    vi.stubGlobal('window', { isSecureContext: true })
+    vi.stubGlobal('navigator', { hid: { requestDevice: async () => [device] } })
+    const output = createLastChancesDualSenseEnhancedOutput()
+    expect(await output?.enableEnhancedFeatures()).toBe(false)
+    expect(sent).toEqual([])
+    expect(output?.capability()).toMatchObject({
+      tier: 0,
+      status: 'unavailable',
+      permission: 'usb-required',
+    })
+    expect(output?.capability().message).toContain('USB')
+  })
+
+  it('still raises Tier 2 for a granted USB pad through output report 0x02', async () => {
+    const sent: number[] = []
+    const device = {
+      ...deviceWithReports([USB_OUTPUT_REPORT_ID], {
+        vendorId: SONY_VENDOR_ID,
+        productId: DUALSENSE_PRODUCT_ID,
+      }),
+      opened: false,
+      async open() {
+        device.opened = true
+      },
+      async sendReport(reportId: number) {
+        sent.push(reportId)
+      },
+    }
+    vi.stubGlobal('window', { isSecureContext: true })
+    vi.stubGlobal('navigator', { hid: { requestDevice: async () => [device] } })
+    const output = createLastChancesDualSenseEnhancedOutput()
+    expect(await output?.enableEnhancedFeatures()).toBe(true)
+    expect(sent).toEqual([USB_OUTPUT_REPORT_ID])
+    expect(output?.capability()).toMatchObject({ tier: 2, status: 'enhanced', permission: 'granted' })
   })
 })

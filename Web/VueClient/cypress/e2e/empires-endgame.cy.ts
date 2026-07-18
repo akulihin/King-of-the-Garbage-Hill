@@ -15,6 +15,7 @@ type QaScenario =
   | 'empire-council-with-points'
   | 'governance'
   | 'domestic-economy'
+  | 'mystic-tavern'
   | 'external-trade'
   | 'economy-content-event'
   | 'quest-dialogue'
@@ -29,7 +30,7 @@ type QaScenario =
 
 const QA_SEED = 'cypress-empires-endgame'
 const CONFIG_STORAGE_KEY = 'empires-endgame:config:v1'
-const SAVE_STORAGE_KEY = 'empires-endgame:campaign:v11'
+const SAVE_STORAGE_KEY = 'empires-endgame:campaign:v12'
 const GOD_UI_PREFERENCES_STORAGE_KEY = 'empires-endgame:ui:god-presence:v1'
 const bundledConfig = bundledConfigJson as unknown as EmpiresEndgameConfig
 const TECHNOLOGY_COUNT = bundledConfig.empire.technologies.length
@@ -110,7 +111,7 @@ describe('Empire\'s Endgame deterministic browser scenarios', () => {
 
     cy.get('[data-testid="economy-city"]').select('city-south-cactus-wall')
     cy.contains('Пассивный армейский hook').should('be.visible')
-    cy.contains('tavernMinigame').should('be.visible')
+    cy.contains('maria2x2').should('be.visible')
   })
 
   it('accepts and declines serialized external offers with exact effects', () => {

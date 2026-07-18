@@ -243,7 +243,7 @@ describe('Empire\'s Endgame Phase 4A politics', () => {
     legacy.army.pendingLoyaltyDeltas = [{ cityId: city.id, amount: -1, sourceId: 'td:legacy' }]
 
     const restored = new EmpiresEndgameEngine(value, legacy)
-    expect(restored.state.schemaVersion).toBe(11)
+    expect(restored.state.schemaVersion).toBe(12)
     expect(restored.state.empire.cities[0].loyalty).toBe(3)
     expect(restored.state.empire.loyalty.regions.north.value).toBe(-3)
     expect(restored.state.empire.reputation).toBe(2)

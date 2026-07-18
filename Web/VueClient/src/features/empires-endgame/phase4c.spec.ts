@@ -27,7 +27,7 @@ describe('Empire\'s Endgame Phase 4C governance', () => {
     const migrated = migrateEmpiresConfig(previous) as EmpiresEndgameConfig
     expect(previous).toEqual(original)
     expect(migrated).toMatchObject({
-      schemaVersion: 13,
+      schemaVersion: 14,
       governance: {
         enabled: false,
         advisors: [],
@@ -37,7 +37,7 @@ describe('Empire\'s Endgame Phase 4C governance', () => {
     })
     expect(migrateEmpiresConfig(migrated)).toEqual(migrated)
     expect(migrateEmpiresConfig(migrated)).not.toBe(migrated)
-    expect(() => migrateEmpiresConfig({ ...migrated, schemaVersion: 14 })).toThrow(/future.*14/i)
+    expect(() => migrateEmpiresConfig({ ...migrated, schemaVersion: 15 })).toThrow(/future.*15/i)
   })
 
   it('validates advisor, city-site, capital-carrier, and defense-layer references', () => {
@@ -79,7 +79,7 @@ describe('Empire\'s Endgame Phase 4C governance', () => {
     })
     const restored = new EmpiresEndgameEngine(value, engine.snapshot())
     expect(restored.state.governance).toEqual(engine.state.governance)
-    expect(restored.snapshotEnvelope('2026-07-17T00:00:00.000Z').schemaVersion).toBe(11)
+    expect(restored.snapshotEnvelope('2026-07-17T00:00:00.000Z').schemaVersion).toBe(12)
   })
 
   it('keeps clubs unavailable until an authored Grand Advisor grant, then makes clubs trump exactly once', () => {
@@ -109,7 +109,7 @@ describe('Empire\'s Endgame Phase 4C governance', () => {
     delete legacy.governance
 
     const restored = new EmpiresEndgameEngine(value, legacy)
-    expect(restored.state.schemaVersion).toBe(11)
+    expect(restored.state.schemaVersion).toBe(12)
     expect(restored.state.governance.advisors['advisor-grand']).toMatchObject({
       status: 'active',
       transitionSourceId: 'migration:legacy-restricted-trump',
@@ -135,7 +135,11 @@ describe('Empire\'s Endgame Phase 4C governance', () => {
     const ready = engine.snapshot()
     ready.phase = 'divineGift'
     ready.giftChoiceIds = [chosenGift.id]
+    ready.durak.deck = value.cards.map(definition => definition.id).filter(id => id !== card!.id)
     ready.durak.playerHand = [card!.id]
+    ready.durak.godHand = []
+    ready.durak.discard = []
+    ready.durak.table = []
     ready.cards[card!.id].inverted = false
     ready.cards[card!.id].level = 0
     const active = new EmpiresEndgameEngine(value, ready)
