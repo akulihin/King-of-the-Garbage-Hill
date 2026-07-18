@@ -16,16 +16,18 @@ import type {
   EmpiresEpidemicConfig,
   EmpiresEndgameConfig,
   EmpiresExternalConfig,
+  EmpiresGodConfig,
   EmpiresLoyaltyConfig,
   EmpiresMedicalConfig,
   EmpiresSeasonsConfig,
 } from './types'
+import { EMPIRES_GOD_DIALOGUE_TRIGGERS } from './types'
 import { validateEmpiresEndgameConfig } from './engine'
 import { validateEmpiresQuestsConfig } from './quests'
 
 export const EMPIRES_CONFIG_URL = '/empires-endgame/game-config.json'
 export const EMPIRES_CONFIG_STORAGE_KEY = 'empires-endgame:config:v1'
-export const EMPIRES_CONFIG_SCHEMA_VERSION = 12
+export const EMPIRES_CONFIG_SCHEMA_VERSION = 13
 export const EMPIRES_ACTIVE_MINIGAME_CONFIG_ERROR = 'Нельзя менять правила во время боя. Сначала завершите бой или выйдите через действие отмены.'
 
 export function empiresConfigReplacementDisabledReason(
@@ -156,10 +158,33 @@ const STEEL_RESEARCH_SCAFFOLD = {
 
 const GOD_SCAFFOLD = {
   enabled: false,
+  deckMemory: {
+    enabled: false,
+    availability: 'always',
+    inspectionsPerCon: 0,
+    orientation: 'nextDrawFirst',
+    excludedDefinitionIds: [],
+  },
+  antiBito: {
+    enabled: false,
+    minimumConsecutiveBito: 1,
+    returnCount: 1,
+    maxInterventions: 0,
+    source: 'discard',
+    insertion: 'drawBottom',
+    orientation: 'preserve',
+    excludedDefinitionIds: [],
+    historyRetention: 16,
+  },
   lines: [],
-  deckMemoryRules: [],
-  antiBitoRules: [],
-}
+  dialogueLogRetention: 24,
+  mercyConfirmation: {
+    enabled: false,
+    title: 'Вы собираетесь потратить Божественную Милость ({available}/{cost}) на переворот карты',
+    confirmLabel: 'Да я и сам знаю! Не показывайте мне это больше!',
+    cancelLabel: 'Нет, тогда я попридержу...',
+  },
+} satisfies EmpiresGodConfig
 
 const QUESTS_SCAFFOLD = {
   enabled: false,
@@ -821,6 +846,35 @@ function normalizeEmpiresConfigV12(config: Record<string, unknown>): Record<stri
   return config
 }
 
+function migrateEmpiresConfigV12ToV13(config: Record<string, unknown>): Record<string, unknown> {
+  // Schema v12 exposed God-presence placeholders but had no executable readers.
+  // Replace forward-shaped legacy input with the disabled schema-v13 contract so
+  // importing an old custom config cannot silently activate new behavior.
+  config.god = cloneJson(GOD_SCAFFOLD)
+  config.schemaVersion = 13
+  return config
+}
+
+function normalizeEmpiresConfigV13(config: Record<string, unknown>): Record<string, unknown> {
+  normalizeEmpiresConfigV12(config)
+  config.god = withScaffoldDefaults(config.god, GOD_SCAFFOLD)
+  if (isRecord(config.god)) {
+    config.god.deckMemory = withScaffoldDefaults(
+      config.god.deckMemory,
+      GOD_SCAFFOLD.deckMemory,
+    )
+    config.god.antiBito = withScaffoldDefaults(
+      config.god.antiBito,
+      GOD_SCAFFOLD.antiBito,
+    )
+    config.god.mercyConfirmation = withScaffoldDefaults(
+      config.god.mercyConfirmation,
+      GOD_SCAFFOLD.mercyConfirmation,
+    )
+  }
+  return config
+}
+
 const EMPIRES_CONFIG_MIGRATIONS: Record<
   number,
   (config: Record<string, unknown>) => Record<string, unknown>
@@ -836,6 +890,7 @@ const EMPIRES_CONFIG_MIGRATIONS: Record<
   9: migrateEmpiresConfigV9ToV10,
   10: migrateEmpiresConfigV10ToV11,
   11: migrateEmpiresConfigV11ToV12,
+  12: migrateEmpiresConfigV12ToV13,
 }
 
 /**
@@ -866,6 +921,7 @@ export function migrateEmpiresConfig(raw: unknown): unknown {
   if (version === 10) migrated = normalizeEmpiresConfigV10(migrated)
   if (version === 11) migrated = normalizeEmpiresConfigV11(migrated)
   if (version === 12) migrated = normalizeEmpiresConfigV12(migrated)
+  if (version === 13) migrated = normalizeEmpiresConfigV13(migrated)
   return migrated
 }
 
@@ -2158,6 +2214,97 @@ function validateUniqueStringList(value: unknown, path: string): string[] {
   return result
 }
 
+function validateGodConfig(value: unknown, cardIds: ReadonlySet<string>): void {
+  if (!isRecord(value) || typeof value.enabled !== 'boolean') {
+    throw new Error('god must be an object with an enabled flag.')
+  }
+  if (!isRecord(value.deckMemory) || typeof value.deckMemory.enabled !== 'boolean') {
+    throw new Error('god.deckMemory must be an object with an enabled flag.')
+  }
+  const deckMemory = value.deckMemory
+  if (!['always', 'perCon'].includes(String(deckMemory.availability))) {
+    throw new Error('god.deckMemory.availability must be always or perCon.')
+  }
+  if (!Number.isInteger(deckMemory.inspectionsPerCon)
+    || Number(deckMemory.inspectionsPerCon) < (deckMemory.availability === 'perCon' ? 1 : 0)) {
+    throw new Error('god.deckMemory.inspectionsPerCon must match its availability mode.')
+  }
+  if (deckMemory.orientation !== 'nextDrawFirst') {
+    throw new Error('god.deckMemory.orientation must be nextDrawFirst.')
+  }
+  const deckMemoryExcluded = validateUniqueStringList(
+    deckMemory.excludedDefinitionIds,
+    'god.deckMemory.excludedDefinitionIds',
+  )
+  for (const cardId of deckMemoryExcluded) {
+    if (!cardIds.has(cardId)) {
+      throw new Error(`god.deckMemory references unknown card ${cardId}.`)
+    }
+  }
+
+  if (!isRecord(value.antiBito) || typeof value.antiBito.enabled !== 'boolean') {
+    throw new Error('god.antiBito must be an object with an enabled flag.')
+  }
+  const antiBito = value.antiBito
+  for (const [field, minimum] of [
+    ['minimumConsecutiveBito', 1],
+    ['returnCount', 1],
+    ['maxInterventions', antiBito.enabled ? 1 : 0],
+    ['historyRetention', 1],
+  ] as const) {
+    if (!Number.isInteger(antiBito[field]) || Number(antiBito[field]) < minimum) {
+      throw new Error(`god.antiBito.${field} must be an integer of at least ${minimum}.`)
+    }
+  }
+  if (antiBito.source !== 'discard') throw new Error('god.antiBito.source must be discard.')
+  if (!['drawBottom', 'drawTop', 'shuffle'].includes(String(antiBito.insertion))) {
+    throw new Error('god.antiBito.insertion must be drawBottom, drawTop, or shuffle.')
+  }
+  if (antiBito.orientation !== 'preserve') {
+    throw new Error('god.antiBito.orientation must be preserve.')
+  }
+  const antiBitoExcluded = validateUniqueStringList(
+    antiBito.excludedDefinitionIds,
+    'god.antiBito.excludedDefinitionIds',
+  )
+  for (const cardId of antiBitoExcluded) {
+    if (!cardIds.has(cardId)) throw new Error(`god.antiBito references unknown card ${cardId}.`)
+  }
+
+  if (!Array.isArray(value.lines)) throw new Error('god.lines must be an array.')
+  const lineIds = new Set<string>()
+  for (const rawLine of value.lines) {
+    if (!isRecord(rawLine) || typeof rawLine.id !== 'string' || !rawLine.id.trim()) {
+      throw new Error('god.lines entries need a non-empty id.')
+    }
+    if (lineIds.has(rawLine.id)) throw new Error(`god.lines repeats id ${rawLine.id}.`)
+    lineIds.add(rawLine.id)
+    if (!(EMPIRES_GOD_DIALOGUE_TRIGGERS as readonly unknown[]).includes(rawLine.trigger)) {
+      throw new Error(`god line ${rawLine.id} has an unknown trigger.`)
+    }
+    if (typeof rawLine.text !== 'string' || !rawLine.text.trim()) {
+      throw new Error(`god line ${rawLine.id} needs authored text.`)
+    }
+    if (typeof rawLine.weight !== 'number' || !Number.isFinite(rawLine.weight) || rawLine.weight <= 0) {
+      throw new Error(`god line ${rawLine.id} weight must be finite and positive.`)
+    }
+    if (typeof rawLine.once !== 'boolean') throw new Error(`god line ${rawLine.id} once must be boolean.`)
+  }
+  if (!Number.isInteger(value.dialogueLogRetention) || Number(value.dialogueLogRetention) < 1) {
+    throw new Error('god.dialogueLogRetention must be a positive integer.')
+  }
+  if (!isRecord(value.mercyConfirmation)
+    || typeof value.mercyConfirmation.enabled !== 'boolean') {
+    throw new Error('god.mercyConfirmation must be an object with an enabled flag.')
+  }
+  for (const field of ['title', 'confirmLabel', 'cancelLabel'] as const) {
+    if (typeof value.mercyConfirmation[field] !== 'string'
+      || !String(value.mercyConfirmation[field]).trim()) {
+      throw new Error(`god.mercyConfirmation.${field} must be a non-empty string.`)
+    }
+  }
+}
+
 function validateCombatConfig(
   value: unknown,
   technologies: readonly unknown[],
@@ -3287,7 +3434,7 @@ export function validateEmpiresConfig(value: unknown): asserts value is EmpiresE
     'waves',
     'planVariants',
   ])
-  validateScaffoldSection(value.god, 'god', ['lines', 'deckMemoryRules', 'antiBitoRules'])
+  validateGodConfig(value.god, cardIds)
   validateScaffoldSection(value.quests, 'quests', ['definitions'])
   validateSeasonsConfig(value as unknown as EmpiresEndgameConfig)
   if (!Array.isArray(value.empire.cities)) throw new Error('Поле empire.cities должно быть массивом.')

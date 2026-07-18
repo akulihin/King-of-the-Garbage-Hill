@@ -8,6 +8,7 @@ import type { EmpiresEndgameConfig } from '../../src/features/empires-endgame/ty
 type QaScenario =
   | 'pending-take'
   | 'empty-hand-pending-finish'
+  | 'anti-bito'
   | 'divine-gift'
   | 'target-city-resources'
   | 'target-meteor-city'
@@ -28,7 +29,8 @@ type QaScenario =
 
 const QA_SEED = 'cypress-empires-endgame'
 const CONFIG_STORAGE_KEY = 'empires-endgame:config:v1'
-const SAVE_STORAGE_KEY = 'empires-endgame:campaign:v10'
+const SAVE_STORAGE_KEY = 'empires-endgame:campaign:v11'
+const GOD_UI_PREFERENCES_STORAGE_KEY = 'empires-endgame:ui:god-presence:v1'
 const bundledConfig = bundledConfigJson as unknown as EmpiresEndgameConfig
 const TECHNOLOGY_COUNT = bundledConfig.empire.technologies.length
 
@@ -60,7 +62,7 @@ function firstGradientLuminance(backgroundImage: string) {
   return 0.2126 * red + 0.7152 * green + 0.0722 * blue
 }
 
-function expectStoredValue(key: string, value: string) {
+function expectStoredValue(key: string, value: string | null) {
   cy.window().then((window) => {
     expect(window.localStorage.getItem(key), key).to.equal(value)
   })
@@ -239,6 +241,83 @@ describe('Empire\'s Endgame deterministic browser scenarios', () => {
     cy.then(() => {
       expect(unloaded, 'the no-card recovery must not reload the page').to.equal(false)
     })
+  })
+
+  it('opens Tom\'s ordered deck memory without changing the campaign', () => {
+    visitScenario('pending-take')
+    cy.get('[data-testid="qa-digest"]').invoke('text').then((beforeDigest) => {
+      cy.get('[data-testid="inspect-deck-memory"]')
+        .should('be.visible')
+        .and('be.enabled')
+        .click()
+      cy.get('[data-testid="deck-memory-panel"]')
+        .should('be.visible')
+        .and('contain.text', 'Позиция 1 будет добрана следующей')
+      cy.get('[data-testid="deck-memory-panel"] ol li')
+        .should('have.length.greaterThan', 0)
+        .first()
+        .should('contain.text', '1')
+        .and(($card) => {
+          expect($card.text()).to.match(/Прямая|Перевёрнута/)
+        })
+      cy.get('[data-testid="qa-digest"]').should('have.text', beforeDigest)
+      cy.get('[aria-label="Закрыть память колоды"]').click()
+      cy.get('[data-testid="deck-memory-panel"]').should('not.exist')
+    })
+  })
+
+  it('intercepts a premature winner and renders the authored God line', () => {
+    visitScenario('anti-bito')
+    cy.get('[data-testid="god-dialogue-line"]')
+      .should('be.visible')
+      .and('have.text', 'игра закончится слишком быстро и это не интересно')
+    cy.get('[data-testid="qa-digest"]').should('contain.text', 'cards')
+  })
+
+  it('confirms Божественная Милость once, persists opt-out, and fails closed for bad prefs', () => {
+    visitScenario('empire-council-with-points', (window) => {
+      window.localStorage.setItem('kotgh_locale', 'ru')
+    })
+    cy.get('[data-testid^="council-restore-"]').first().as('restore').should('be.enabled').click()
+    cy.get('[data-testid="divine-mercy-confirmation"]')
+      .should('be.visible')
+      .and('contain.text', 'Вы собираетесь потратить Божественную Милость (3/1) на (переворот карты)')
+    cy.get('[data-testid="cancel-divine-mercy"]').should('be.focused').click()
+    cy.get('[data-testid="divine-mercy-confirmation"]').should('not.exist')
+    expectStoredValue(GOD_UI_PREFERENCES_STORAGE_KEY, null)
+
+    cy.get('@restore').click()
+    cy.get('[data-testid="confirm-divine-mercy"]')
+      .should('contain.text', 'Да я и сам знаю! Не показывайте мне это больше!')
+      .click()
+    cy.get('[data-testid="divine-mercy-confirmation"]').should('not.exist')
+    cy.window().then((window) => {
+      expect(JSON.parse(window.localStorage.getItem(GOD_UI_PREFERENCES_STORAGE_KEY) ?? 'null'))
+        .to.deep.equal({ schemaVersion: 1, skipDivineMercyConfirmation: true })
+    })
+
+    cy.reload()
+    cy.get('[data-testid="qa-panel"]').should('be.visible')
+    cy.get('[data-testid^="council-restore-"]').first().should('be.enabled').click()
+    cy.get('[data-testid="divine-mercy-confirmation"]').should('not.exist')
+
+    cy.window().then((window) => {
+      window.localStorage.setItem(GOD_UI_PREFERENCES_STORAGE_KEY, '{bad-json')
+    })
+    cy.reload()
+    cy.get('[data-testid^="council-restore-"]').first().should('be.enabled').click()
+    cy.get('[data-testid="divine-mercy-confirmation"]').should('be.visible')
+    cy.get('[data-testid="cancel-divine-mercy"]').click()
+
+    cy.window().then((window) => {
+      window.localStorage.setItem(GOD_UI_PREFERENCES_STORAGE_KEY, JSON.stringify({
+        schemaVersion: 2,
+        skipDivineMercyConfirmation: true,
+      }))
+    })
+    cy.reload()
+    cy.get('[data-testid^="council-restore-"]').first().should('be.enabled').click()
+    cy.get('[data-testid="divine-mercy-confirmation"]').should('be.visible')
   })
 
   it('keeps a deferred card playable in Durak while labelling its empire face', () => {

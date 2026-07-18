@@ -25,7 +25,7 @@ import {
   currentSeason,
   currentSeasonFoodMultiplier,
 } from './seasons'
-import { EMPIRES_RANKS, EMPIRES_SUITS } from './types'
+import { EMPIRES_GOD_DIALOGUE_TRIGGERS, EMPIRES_RANKS, EMPIRES_SUITS } from './types'
 import {
   compactQuestTriggerIdentity,
   evaluateQuestTriggerStarts,
@@ -52,6 +52,9 @@ import type {
   EmpiresCityLoyaltyView,
   EmpiresCityState,
   EmpiresDependency,
+  EmpiresDeckMemoryAvailability,
+  EmpiresDeckMemoryCard,
+  EmpiresDeckMemoryInspectionResult,
   EmpiresDomesticEconomyState,
   EmpiresDomesticEconomyView,
   EmpiresDomesticIncidentKind,
@@ -75,6 +78,8 @@ import type {
   EmpiresExternalState,
   EmpiresExternalTradeQuote,
   EmpiresGiftDefinition,
+  EmpiresGodDialogueTrigger,
+  EmpiresGodInterventionRecord,
   EmpiresMinigameResult,
   EmpiresMinigameSession,
   EmpiresLoyaltyState,
@@ -333,7 +338,7 @@ function uniqueIds<T extends { id: string }>(values: readonly T[]): boolean {
 
 export function validateEmpiresEndgameConfig(config: EmpiresEndgameConfig): string[] {
   const errors: string[] = []
-  if (config.schemaVersion !== 12) errors.push('schemaVersion must be 12')
+  if (config.schemaVersion !== 13) errors.push('schemaVersion must be 13')
   if (!config.id.trim()) errors.push('config id is required')
   if (config.cards.length !== 53) errors.push('cards must contain exactly 53 definitions')
   if (!uniqueIds(config.cards)) errors.push('card definition ids must be unique')
@@ -360,6 +365,35 @@ export function validateEmpiresEndgameConfig(config: EmpiresEndgameConfig): stri
   }
   if (!Number.isInteger(config.durak.boutsPerCon) || config.durak.boutsPerCon < 1) {
     errors.push('durak.boutsPerCon must be a positive integer')
+  }
+  if (!config.god || typeof config.god.enabled !== 'boolean') {
+    errors.push('god config is required')
+  } else {
+    if (!config.god.deckMemory
+      || !['always', 'perCon'].includes(config.god.deckMemory.availability)
+      || !Number.isInteger(config.god.deckMemory.inspectionsPerCon)
+      || config.god.deckMemory.inspectionsPerCon < (config.god.deckMemory.availability === 'perCon' ? 1 : 0)) {
+      errors.push('god.deckMemory must define valid availability and inspection limits')
+    }
+    if (!config.god.antiBito
+      || !Number.isInteger(config.god.antiBito.minimumConsecutiveBito)
+      || config.god.antiBito.minimumConsecutiveBito < 1
+      || !Number.isInteger(config.god.antiBito.returnCount)
+      || config.god.antiBito.returnCount < 1
+      || !Number.isInteger(config.god.antiBito.maxInterventions)
+      || config.god.antiBito.maxInterventions < (config.god.antiBito.enabled ? 1 : 0)
+      || !Number.isInteger(config.god.antiBito.historyRetention)
+      || config.god.antiBito.historyRetention < 1) {
+      errors.push('god.antiBito must define positive thresholds and bounded history')
+    }
+    if (!Number.isInteger(config.god.dialogueLogRetention) || config.god.dialogueLogRetention < 1) {
+      errors.push('god.dialogueLogRetention must be a positive integer')
+    }
+    if (!uniqueIds(config.god.lines)) errors.push('god line ids must be unique')
+    if (config.god.lines.some(line => !line.text.trim()
+      || !Number.isFinite(line.weight) || line.weight <= 0)) {
+      errors.push('god lines must define authored text and positive weights')
+    }
   }
   if (config.gifts.choiceCount !== 3) errors.push('gifts.choiceCount must be 3')
   if (config.gifts.definitions.length < config.gifts.choiceCount) {
@@ -502,7 +536,7 @@ export class EmpiresEndgameEngine {
   }
 
   snapshotEnvelope(savedAt = new Date().toISOString()): EmpiresSnapshotEnvelope {
-    return { schemaVersion: 10, savedAt, state: this.snapshot() }
+    return { schemaVersion: 11, savedAt, state: this.snapshot() }
   }
 
   restore(snapshot: EmpiresCampaignState): void {
@@ -613,6 +647,57 @@ export class EmpiresEndgameEngine {
       : this.state.durak.attacker
   }
 
+  canInspectDeck(): EmpiresDeckMemoryAvailability {
+    const rules = this.config.god.deckMemory
+    if (!this.config.god.enabled || !rules.enabled) {
+      return { allowed: false, reason: 'Память колоды недоступна в этом сценарии.', remainingInspections: null }
+    }
+    if (this.state.phase !== 'cards') {
+      return { allowed: false, reason: 'Порядок колоды можно изучать только во время карточной партии.', remainingInspections: null }
+    }
+    if (this.state.durak.deck.length === 0) {
+      return { allowed: false, reason: 'Колода пуста.', remainingInspections: 0 }
+    }
+    if (rules.availability === 'always') {
+      return { allowed: true, reason: null, remainingInspections: null }
+    }
+    const remaining = Math.max(0, rules.inspectionsPerCon - this.state.durak.deckMemoryInspectionsUsed)
+    return remaining > 0
+      ? { allowed: true, reason: null, remainingInspections: remaining }
+      : { allowed: false, reason: 'В этом коне память колоды уже использована.', remainingInspections: 0 }
+  }
+
+  inspectDeck(): EmpiresDeckMemoryInspectionResult {
+    const availability = this.canInspectDeck()
+    if (!availability.allowed) return { ok: false, message: availability.reason ?? 'Память колоды недоступна.' }
+    const excluded = new Set(this.config.god.deckMemory.excludedDefinitionIds)
+    const cards = this.state.durak.deck
+      .slice()
+      .reverse()
+      .flatMap((instanceId) => {
+        const instance = this.state.cards[instanceId]
+        const definition = instance ? this.definitions.get(instance.definitionId) : null
+        if (!instance || !definition || excluded.has(definition.id)) return []
+        return [{
+          position: 0,
+          instanceId,
+          definitionId: definition.id,
+          name: definition.name,
+          suit: definition.suit,
+          rank: definition.rank,
+          inverted: instance.inverted,
+        } satisfies EmpiresDeckMemoryCard]
+      })
+      .map((card, index) => Object.freeze({ ...card, position: index + 1 }))
+    const projection = Object.freeze(cards) as readonly EmpiresDeckMemoryCard[]
+    if (this.config.god.deckMemory.availability === 'perCon') {
+      this.state.durak.deckMemoryInspectionsUsed += 1
+      this.state.revision += 1
+      this.emit()
+    }
+    return { ok: true, message: 'Том восстановил порядок оставшейся колоды.', cards: projection }
+  }
+
   legalAttackCardIds(actor = this.state.durak.attacker): string[] {
     const durak = this.state.durak
     if (this.state.phase !== 'cards' || actor !== durak.attacker) return []
@@ -715,11 +800,15 @@ export class EmpiresEndgameEngine {
     if (durak.defender === 'player') {
       this.state.performance.successfulDefenses += 1
       this.state.performance.boutsWon += 1
+      this.godSpeak('boutWon')
     } else {
       this.state.performance.boutsLost += 1
+      this.godSpeak('boutLost')
     }
-    this.resolveBout(true)
-    return this.commit('The defense succeeded.')
+    const intervention = this.resolveBout(true)
+    return this.commit(intervention
+      ? this.antiBitoMessage(intervention)
+      : 'The defense succeeded.')
   }
 
   advanceGod(): EmpiresActionResult {
@@ -3226,6 +3315,7 @@ export class EmpiresEndgameEngine {
 
   private createInitialState(): EmpiresCampaignState {
     const rng = createEmpiresRngState(this.config.seed)
+    const cosmeticRng = createEmpiresRngState(`${this.config.seed}:god-dialogue`)
     const cards: Record<string, EmpiresCardInstance> = Object.fromEntries(this.config.cards.map(definition => [
       definition.id,
       { id: definition.id, definitionId: definition.id, level: 0, inverted: false },
@@ -3235,10 +3325,20 @@ export class EmpiresEndgameEngine {
     const playerHand: string[] = []
     const godHand: string[] = []
     const state: EmpiresCampaignState = {
-      schemaVersion: 10,
+      schemaVersion: 11,
       configId: this.config.id,
       phase: 'cards',
       rng,
+      god: {
+        cosmeticRng,
+        interventions: [],
+        interventionCompaction: { evictedCount: 0, historyDigest: '' },
+        nextInterventionSequence: 1,
+        dialogueLog: [],
+        dialogueCompaction: { evictedCount: 0, historyDigest: '' },
+        nextDialogueSequence: 1,
+        dialogueOccurrences: {},
+      },
       cards,
       durak: {
         deck,
@@ -3253,6 +3353,8 @@ export class EmpiresEndgameEngine {
         defenderHandAtBoutStart: 0,
         bout: 1,
         godInterventions: 0,
+        deckMemoryInspectionsUsed: 0,
+        consecutiveBito: 0,
       },
       performance: emptyPerformance(),
       con: 1,
@@ -3704,12 +3806,95 @@ export class EmpiresEndgameEngine {
     if (snapshotVersion !== 1 && snapshotVersion !== 2 && snapshotVersion !== 3
       && snapshotVersion !== 4 && snapshotVersion !== 5 && snapshotVersion !== 6
       && snapshotVersion !== 7 && snapshotVersion !== 8 && snapshotVersion !== 9
-      && snapshotVersion !== 10) {
+      && snapshotVersion !== 10 && snapshotVersion !== 11) {
       throw new Error('Unsupported Empire\'s Endgame snapshot schema')
     }
     if (snapshot.configId !== this.config.id) throw new Error('Snapshot belongs to a different config')
     const state = cloneSerializable(snapshot)
-    state.schemaVersion = 10
+    state.schemaVersion = 11
+    if (!state.god || typeof state.god !== 'object' || Array.isArray(state.god)) state.god = {
+      cosmeticRng: createEmpiresRngState(`${this.config.seed}:god-dialogue`),
+      interventions: [],
+      interventionCompaction: { evictedCount: 0, historyDigest: '' },
+      nextInterventionSequence: 1,
+      dialogueLog: [],
+      dialogueCompaction: { evictedCount: 0, historyDigest: '' },
+      nextDialogueSequence: 1,
+      dialogueOccurrences: {},
+    }
+    if (!state.god.cosmeticRng
+      || !Number.isInteger(state.god.cosmeticRng.state)
+      || !Number.isInteger(state.god.cosmeticRng.draws)
+      || state.god.cosmeticRng.draws < 0) {
+      state.god.cosmeticRng = createEmpiresRngState(`${this.config.seed}:god-dialogue`)
+    }
+    if (!Array.isArray(state.god.interventions)) state.god.interventions = []
+    const interventionCompaction = state.god.interventionCompaction as (
+      Partial<typeof state.god.interventionCompaction> | null | undefined
+    )
+    state.god.interventionCompaction = {
+      evictedCount: Number.isInteger(interventionCompaction?.evictedCount)
+        && Number(interventionCompaction?.evictedCount) >= 0
+        ? Number(interventionCompaction?.evictedCount)
+        : 0,
+      historyDigest: typeof interventionCompaction?.historyDigest === 'string'
+        ? interventionCompaction.historyDigest
+        : '',
+    }
+    if (!Array.isArray(state.god.dialogueLog)) state.god.dialogueLog = []
+    const dialogueCompaction = state.god.dialogueCompaction as (
+      Partial<typeof state.god.dialogueCompaction> | null | undefined
+    )
+    state.god.dialogueCompaction = {
+      evictedCount: Number.isInteger(dialogueCompaction?.evictedCount)
+        && Number(dialogueCompaction?.evictedCount) >= 0
+        ? Number(dialogueCompaction?.evictedCount)
+        : 0,
+      historyDigest: typeof dialogueCompaction?.historyDigest === 'string'
+        ? dialogueCompaction.historyDigest
+        : '',
+    }
+    if (!state.god.dialogueOccurrences || typeof state.god.dialogueOccurrences !== 'object'
+      || Array.isArray(state.god.dialogueOccurrences)) state.god.dialogueOccurrences = {}
+    state.god.interventions = state.god.interventions
+      .filter(record => record && Number.isInteger(record.sequence) && record.sequence > 0
+        && Number.isInteger(record.con) && record.con > 0
+        && Number.isInteger(record.bout) && record.bout > 0
+        && Array.isArray(record.returnedInstanceIds)
+        && record.returnedInstanceIds.every(instanceId => (
+          typeof instanceId === 'string' && Boolean(state.cards[instanceId])
+        ))
+        && new Set(record.returnedInstanceIds).size === record.returnedInstanceIds.length
+        && ['drawBottom', 'drawTop', 'shuffle'].includes(record.insertion)
+        && record.trigger === 'winner-after-consecutive-bito'
+        && typeof record.resultingDigest === 'string' && record.resultingDigest.length > 0)
+      .slice(-this.config.god.antiBito.historyRetention)
+    state.god.dialogueLog = state.god.dialogueLog
+      .filter(entry => entry && Number.isInteger(entry.sequence) && entry.sequence > 0
+        && typeof entry.lineId === 'string' && typeof entry.text === 'string'
+        && (EMPIRES_GOD_DIALOGUE_TRIGGERS as readonly string[]).includes(entry.trigger)
+        && Number.isInteger(entry.con) && entry.con > 0
+        && Number.isInteger(entry.bout) && entry.bout > 0
+        && Number.isInteger(entry.occurrence) && entry.occurrence > 0)
+      .slice(-this.config.god.dialogueLogRetention)
+    state.god.dialogueOccurrences = Object.fromEntries(Object.entries(state.god.dialogueOccurrences)
+      .filter(([, count]) => Number.isInteger(count) && count > 0))
+    const rawNextInterventionSequence = state.god.nextInterventionSequence
+    const rawNextDialogueSequence = state.god.nextDialogueSequence
+    state.god.nextInterventionSequence = Math.max(
+      1,
+      Number.isInteger(rawNextInterventionSequence) && rawNextInterventionSequence > 0
+        ? rawNextInterventionSequence
+        : 1,
+      ...state.god.interventions.map(record => record.sequence + 1),
+    )
+    state.god.nextDialogueSequence = Math.max(
+      1,
+      Number.isInteger(rawNextDialogueSequence) && rawNextDialogueSequence > 0
+        ? rawNextDialogueSequence
+        : 1,
+      ...state.god.dialogueLog.map(entry => entry.sequence + 1),
+    )
     this.normalizeGovernanceState(state, snapshotVersion)
     state.minigame ??= null
     state.minigameResultLog ??= []
@@ -3776,7 +3961,23 @@ export class EmpiresEndgameEngine {
     state.empire.medical.academyTreatmentUsedCon ??= null
     this.normalizeEpidemics(state, snapshotVersion)
     this.normalizeQuestState(state)
-    state.durak.godInterventions ??= 0
+    const rawGodInterventions = state.durak.godInterventions
+    state.durak.godInterventions = Math.max(
+      Number.isFinite(rawGodInterventions) ? Math.max(0, Math.floor(rawGodInterventions)) : 0,
+      state.god.interventionCompaction.evictedCount + state.god.interventions.length,
+    )
+    const rawDeckMemoryInspectionsUsed = state.durak.deckMemoryInspectionsUsed
+    state.durak.deckMemoryInspectionsUsed = Math.max(
+      0,
+      Number.isFinite(rawDeckMemoryInspectionsUsed)
+        ? Math.floor(rawDeckMemoryInspectionsUsed)
+        : 0,
+    )
+    const rawConsecutiveBito = state.durak.consecutiveBito
+    state.durak.consecutiveBito = Math.max(
+      0,
+      Number.isFinite(rawConsecutiveBito) ? Math.floor(rawConsecutiveBito) : 0,
+    )
     this.normalizeMinigameState(state)
     const missingDestroyedRegionState = state.empire.destroyedRegionIds === undefined
     const missingBuildingBonusState = state.empire.buildingLevelBonuses === undefined
@@ -4608,8 +4809,13 @@ export class EmpiresEndgameEngine {
       ...(pair.defenseCardId ? [pair.defenseCardId] : []),
     ])
     this.hand(defender).push(...collected)
+    let invertedAny = false
     if (defender === 'player' && durak.attacker === 'god') {
-      for (const pair of durak.table) this.state.cards[pair.attackCardId].inverted = true
+      for (const pair of durak.table) {
+        const instance = this.state.cards[pair.attackCardId]
+        invertedAny ||= !instance.inverted
+        instance.inverted = true
+      }
       this.state.performance.cardsTakenByPlayer += collected.length
     }
     if (defender === 'god') {
@@ -4620,13 +4826,22 @@ export class EmpiresEndgameEngine {
         collected.length,
       )
     }
-    if (durak.attacker === 'player') this.state.performance.boutsWon += 1
-    else this.state.performance.boutsLost += 1
-    this.resolveBout(false)
-    return this.commit(`${defender} took ${collected.length} cards.`)
+    this.godSpeak('take')
+    if (invertedAny) this.godSpeak('inversion')
+    if (durak.attacker === 'player') {
+      this.state.performance.boutsWon += 1
+      this.godSpeak('boutWon')
+    } else {
+      this.state.performance.boutsLost += 1
+      this.godSpeak('boutLost')
+    }
+    const intervention = this.resolveBout(false)
+    return this.commit(intervention
+      ? this.antiBitoMessage(intervention)
+      : `${defender} took ${collected.length} cards.`)
   }
 
-  private resolveBout(successfulDefense: boolean): void {
+  private resolveBout(successfulDefense: boolean): EmpiresGodInterventionRecord | null {
     const durak = this.state.durak
     const boutAttacker = durak.attacker
     const boutDefender = durak.defender
@@ -4635,6 +4850,9 @@ export class EmpiresEndgameEngine {
         pair.attackCardId,
         ...(pair.defenseCardId ? [pair.defenseCardId] : []),
       ]))
+      durak.consecutiveBito += 1
+    } else {
+      durak.consecutiveBito = 0
     }
     durak.table = []
     this.drawToHand(this.state, boutAttacker)
@@ -4647,13 +4865,23 @@ export class EmpiresEndgameEngine {
     durak.bout += 1
     this.state.boutsInCon += 1
 
-    const winner = this.finishedCardGameWinner(boutAttacker, boutDefender)
+    let winner = this.finishedCardGameWinner(boutAttacker, boutDefender)
+    let intervention: EmpiresGodInterventionRecord | null = null
     if (winner) {
-      this.setOutcome(winner === 'player' ? 'victory' : 'defeat', `${winner} emptied their hand.`)
-      return
+      intervention = this.applyAntiBito()
+      if (intervention) {
+        this.drawToHand(this.state, boutAttacker, true)
+        this.drawToHand(this.state, boutDefender, true)
+        winner = this.finishedCardGameWinner(boutAttacker, boutDefender)
+      }
+      if (winner) {
+        this.setOutcome(winner === 'player' ? 'victory' : 'defeat', `${winner} emptied their hand.`)
+        return intervention
+      }
     }
     durak.defenderHandAtBoutStart = this.hand(durak.defender).length
     if (this.state.boutsInCon >= this.config.durak.boutsPerCon) this.beginDivineGift()
+    return intervention
   }
 
   private finishedCardGameWinner(
@@ -4670,6 +4898,99 @@ export class EmpiresEndgameEngine {
     if (setting === 'attacker') return boutAttacker
     if (setting === 'defender') return boutDefender
     return setting
+  }
+
+  private godSpeak(trigger: EmpiresGodDialogueTrigger): void {
+    if (!this.config.god.enabled) return
+    const candidates = this.config.god.lines
+      .filter(line => line.trigger === trigger)
+      .filter(line => !line.once || (this.state.god.dialogueOccurrences[line.id] ?? 0) === 0)
+    const selected = pickEmpiresWeighted(candidates, this.state.god.cosmeticRng)
+    if (!selected) return
+    const occurrence = (this.state.god.dialogueOccurrences[selected.id] ?? 0) + 1
+    this.state.god.dialogueOccurrences[selected.id] = occurrence
+    this.state.god.dialogueLog.push({
+      sequence: this.state.god.nextDialogueSequence,
+      lineId: selected.id,
+      trigger,
+      text: selected.text,
+      con: this.state.con,
+      bout: this.state.durak.bout,
+      occurrence,
+    })
+    this.state.god.nextDialogueSequence += 1
+    while (this.state.god.dialogueLog.length > this.config.god.dialogueLogRetention) {
+      const evicted = this.state.god.dialogueLog.shift()!
+      this.state.god.dialogueCompaction.evictedCount += 1
+      this.state.god.dialogueCompaction.historyDigest = digestTdValue({
+        previous: this.state.god.dialogueCompaction.historyDigest,
+        evicted,
+      })
+    }
+  }
+
+  private applyAntiBito(): EmpiresGodInterventionRecord | null {
+    const rules = this.config.god.antiBito
+    const durak = this.state.durak
+    if (!this.config.god.enabled || !rules.enabled
+      || durak.consecutiveBito < rules.minimumConsecutiveBito
+      || durak.godInterventions >= rules.maxInterventions) return null
+
+    const excluded = new Set(rules.excludedDefinitionIds)
+    const pool = durak.discard.filter((instanceId) => {
+      const instance = this.state.cards[instanceId]
+      return Boolean(instance && !excluded.has(instance.definitionId))
+    })
+    const returnedInstanceIds: string[] = []
+    while (pool.length > 0 && returnedInstanceIds.length < rules.returnCount) {
+      const index = Math.floor(nextEmpiresRandom(this.state.rng) * pool.length)
+      returnedInstanceIds.push(pool.splice(index, 1)[0])
+    }
+    if (returnedInstanceIds.length === 0) return null
+
+    const returned = new Set(returnedInstanceIds)
+    durak.discard = durak.discard.filter(instanceId => !returned.has(instanceId))
+    if (rules.insertion === 'drawBottom') {
+      durak.deck.unshift(...returnedInstanceIds)
+    } else if (rules.insertion === 'drawTop') {
+      durak.deck.push(...returnedInstanceIds)
+    } else {
+      durak.deck = shuffleEmpires([...durak.deck, ...returnedInstanceIds], this.state.rng)
+    }
+    durak.godInterventions += 1
+    const record: EmpiresGodInterventionRecord = {
+      sequence: this.state.god.nextInterventionSequence,
+      con: this.state.con,
+      bout: durak.bout,
+      returnedInstanceIds,
+      insertion: rules.insertion,
+      trigger: 'winner-after-consecutive-bito',
+      resultingDigest: digestTdValue({
+        con: this.state.con,
+        bout: durak.bout,
+        deck: durak.deck,
+        discard: durak.discard,
+        gameplayRng: this.state.rng,
+      }),
+    }
+    this.state.god.nextInterventionSequence += 1
+    durak.consecutiveBito = 0
+    this.state.god.interventions.push(record)
+    while (this.state.god.interventions.length > rules.historyRetention) {
+      const evicted = this.state.god.interventions.shift()!
+      this.state.god.interventionCompaction.evictedCount += 1
+      this.state.god.interventionCompaction.historyDigest = digestTdValue({
+        previous: this.state.god.interventionCompaction.historyDigest,
+        evicted,
+      })
+    }
+    this.godSpeak('antiBito')
+    return record
+  }
+
+  private antiBitoMessage(record: EmpiresGodInterventionRecord): string {
+    const names = record.returnedInstanceIds.map(instanceId => this.getDefinition(instanceId).name)
+    return `Бог вернул из бито: ${names.join(', ')}.`
   }
 
   private beginDivineGift(): void {
@@ -4695,6 +5016,7 @@ export class EmpiresEndgameEngine {
     ).map(gift => gift.id)
     this.state.phase = 'divineGift'
     this.state.pendingResolution = null
+    this.godSpeak('giftOffered')
   }
 
   private startEmpirePhase(): void {
@@ -4918,6 +5240,8 @@ export class EmpiresEndgameEngine {
       })
     }
     this.state.boutsInCon = 0
+    this.state.durak.deckMemoryInspectionsUsed = 0
+    this.state.durak.consecutiveBito = 0
     this.state.performance = emptyPerformance()
     this.state.performanceScore = 0
     this.state.giftChoiceIds = []
@@ -7970,13 +8294,17 @@ export class EmpiresEndgameEngine {
     return god < player ? 'god' : 'player'
   }
 
-  private drawToHand(state: EmpiresCampaignState, actor: EmpiresActor): void {
+  private drawToHand(
+    state: EmpiresCampaignState,
+    actor: EmpiresActor,
+    preserveInstanceState = false,
+  ): void {
     const hand = this.handFromState(state, actor)
     while (hand.length < this.config.durak.handSize && state.durak.deck.length > 0) {
       const cardId = state.durak.deck.pop()
       if (!cardId) break
       hand.push(cardId)
-      if (actor === 'player') {
+      if (actor === 'player' && !preserveInstanceState) {
         const instance = state.cards[cardId]
         const definition = this.definitions.get(instance.definitionId)
         const maximum = definition?.maxLevel ?? this.config.upgrades.defaultMaxLevel

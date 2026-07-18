@@ -161,6 +161,7 @@ const copy = {
     disableEnhanced: 'Disable enhanced feedback',
     dualSenseEnabled: 'DualSense feature request completed.',
     dualSenseFailed: 'Enhanced DualSense feedback could not be enabled; controls remain active.',
+    dualSenseUnsupported: 'WebHID is unavailable in this browser or without HTTPS; controls remain active.',
     tactileLegend: 'Tactile legend',
     tactileLegendItems: [
       'Light click · step accepted',
@@ -325,6 +326,7 @@ const copy = {
     disableEnhanced: 'Отключить расширенный отклик',
     dualSenseEnabled: 'Запрос функций DualSense завершён.',
     dualSenseFailed: 'Расширенный отклик DualSense не включён; управление продолжает работать.',
+    dualSenseUnsupported: 'WebHID недоступен в этом браузере или без HTTPS; управление продолжает работать.',
     tactileLegend: 'Тактильная легенда',
     tactileLegendItems: [
       'Лёгкий клик · шаг принят',
@@ -821,7 +823,10 @@ async function enableDualSenseFeatures() {
   if (!engine.value) return
   try {
     const enabled = await engine.value.enableDualSenseFeatures()
-    setToast(enabled ? t.value.dualSenseEnabled : t.value.dualSenseFailed)
+    const unsupported = snapshot.value?.feedback?.permission === 'unavailable'
+    setToast(enabled
+      ? t.value.dualSenseEnabled
+      : unsupported ? t.value.dualSenseUnsupported : t.value.dualSenseFailed)
   } catch {
     setToast(t.value.dualSenseFailed)
   }

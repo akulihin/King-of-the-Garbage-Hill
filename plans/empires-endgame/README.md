@@ -68,7 +68,13 @@ Current execution status supplied by the designer on 2026-07-17:
   all 43 later-demo Палач passages, Golden Idol/Witch typed event bridges and quest QA landed
   as one change-set. The Idol monument branch and the inventoried regional backlog remain
   explicit P12B review items.
-- **Next prompt: Phase 8** (`phase-08-god-presence.md`).
+- **Phase 8 — complete.** Schema-v13 God configuration, save-envelope v11, immutable
+  next-draw-first deck memory, serialized limited-use mode, deterministic capped
+  consecutive-`бито` intervention/history, isolated authored God dialogue and accessible
+  Божественная Милость confirmation with versioned device-local opt-out landed as one
+  change-set. No card/gift carrier was un-deferred; inverted Joker, mystics and Tavern stay
+  P9-owned.
+- **Next prompt: Phase 9** (`phase-09-tavern-mystic.md`).
 
 Scope decisions confirmed by the designer (2026-07-16):
 
@@ -98,7 +104,7 @@ graph TD
   P6B --> P6C[6C complete: economy content closure]
   P5 --> P7[7 complete: quests + dialogue]
   P4C --> P7
-  P3A --> P8[8 God presence]
+  P3A --> P8[8 complete: God presence]
   P6A --> P9[9 Tavern + mystics]
   P7 --> P9
   P8 --> P9
@@ -130,7 +136,7 @@ graph TD
 | `phase-06b-diplomacy-external.md` | **Complete/historical. 6B:** real diplomacy/external trade, Людовик, Stable/Customs/Sea Port, missing trade buildings. |
 | `phase-06c-economy-content.md` | **Complete/historical. 6C:** reconciled economy gifts, relics, events, resources, technologies, and card faces; implemented every candidate with complete typed consumers. |
 | `phase-07-quests-dialogue.md` | **Complete/historical.** Quest/dialogue graph engine, journal/overlay UI, 43-passage Палач port and Golden Idol/Witch event bridges. |
-| `phase-08-god-presence.md` | Deck-memory, anti-bito, God lines, Милость confirmation. |
+| `phase-08-god-presence.md` | **Complete/historical.** Deck-memory, deterministic capped anti-bito, isolated authored God lines, Милость confirmation and device preference. |
 | `phase-09-tavern-mystic.md` | Separate mystic-card catalog, hand order, Пиковая Дама, tavern minigame. |
 | `phase-10-tetris-alchemy.md` | Assembly/disassembly tetris, reagents, configured explosion → typed epidemic. |
 | `phase-11-expeditions-inventory.md` | **11A:** expeditions, forts/zones, provisions, veterans, TD assault. |
@@ -377,7 +383,9 @@ gates. Do not commit or push.
   to v7 and saves to v5; P5 moves config/save to v8/v6; P6A moves them to v9/v7 for typed
   domestic economy and migrates old relic flags into Temple-owned activation; P6B moves
   them to v10/v8 for typed external relationships, offers, trades and transfers; P6C moves
-  them to v11/v9 for economy-content events, exact targets and bounded decision history. Never reuse a hard-coded version if
+  them to v11/v9 for economy-content events, exact targets and bounded decision history;
+  P7 moves them to v12/v10 for quest graphs and dialogue memory; P8 moves them to v13/v11
+  for God configuration, cosmetic RNG, anti-bito history and deck-memory usage. Never reuse a hard-coded version if
   the executed repository is already farther ahead.
 - **New component homes**: `src/components/empires-endgame/` (`TdBattle.vue`, `DialogueOverlay.vue`, `QuestJournal.vue`, `DeckMemoryPanel.vue`, …); new feature modules under `features/empires-endgame/` (`combat/`, `td/`, `quests.ts`, `alchemy/`, `tavern/`, `inventory/`, `chess/`).
 - `engine.ts` (~2.5k lines): extract internal modules (an `engine/` dir) only when a phase already touches that cluster; no big-bang refactor.

@@ -43,7 +43,7 @@ function makeCards(): EmpiresCardDefinition[] {
 
 function makeConfig(): EmpiresEndgameConfig {
   return {
-    schemaVersion: 12,
+    schemaVersion: 13,
     id: 'engine-test',
     title: "Empire's Endgame",
     seed: 'deterministic-test',
@@ -320,7 +320,14 @@ function makeConfig(): EmpiresEndgameConfig {
       equipment: [],
     },
     td: { enabled: false, battlefields: [], towers: [], waves: [] },
-    god: { enabled: false, lines: [], deckMemoryRules: [], antiBitoRules: [] },
+    god: {
+      enabled: false,
+      deckMemory: { enabled: false, availability: 'always', inspectionsPerCon: 0, orientation: 'nextDrawFirst', excludedDefinitionIds: [] },
+      antiBito: { enabled: false, minimumConsecutiveBito: 1, returnCount: 1, maxInterventions: 0, source: 'discard', insertion: 'drawBottom', orientation: 'preserve', excludedDefinitionIds: [], historyRetention: 16 },
+      lines: [],
+      dialogueLogRetention: 24,
+      mercyConfirmation: { enabled: false, title: 'Mercy {available}/{cost}', confirmLabel: 'Confirm', cancelLabel: 'Cancel' },
+    },
     quests: { enabled: false, definitions: [], dialogueGraphs: [] },
   }
 }

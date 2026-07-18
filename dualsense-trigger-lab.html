@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>L99 · DualSense Trigger Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bench:#F2F3F6;      /* DualSense shell gray */
+    --panel:#FFFFFF;
+    --ink:#14161F;        /* midnight navy */
+    --ink-soft:#5A5E6E;
+    --line:#D8DAE2;
+    --ps-blue:#0064D6;
+    --ice:#9AD1F5;        /* lightbar */
+    --amber:#C77800;
+    --ok:#0E8A4A;
+    --zone:rgba(0,100,214,.16);
+    --radius:14px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    background:var(--bench);
+    color:var(--ink);
+    font-family:'IBM Plex Mono',ui-monospace,monospace;
+    font-size:14px;
+    line-height:1.5;
+    padding:24px;
+    max-width:1060px;
+    margin:0 auto;
+  }
+  h1,h2,.display{font-family:'Space Grotesk',sans-serif}
+
+  /* ---------- header ---------- */
+  header{
+    display:flex;align-items:flex-end;justify-content:space-between;
+    gap:16px;flex-wrap:wrap;margin-bottom:20px;
+  }
+  .title-block .eyebrow{
+    font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-soft);
+  }
+  .title-block h1{font-size:30px;font-weight:700;letter-spacing:-.01em}
+  .glyphs{color:var(--ink-soft);font-size:13px;letter-spacing:.35em;margin-left:6px}
+  .conn{
+    display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+  }
+  .status{
+    display:inline-flex;align-items:center;gap:8px;
+    padding:8px 14px;border:1px solid var(--line);border-radius:999px;
+    background:var(--panel);font-size:12px;
+  }
+  .dot{width:9px;height:9px;border-radius:50%;background:var(--amber)}
+  .status[data-state="connected"] .dot{background:var(--ok)}
+  .status[data-state="connected"]{border-color:var(--ok)}
+  button{
+    font:inherit;cursor:pointer;border-radius:10px;border:1px solid var(--ink);
+    background:var(--ink);color:#fff;padding:10px 18px;font-weight:600;
+    transition:transform .08s ease,background .15s ease;
+  }
+  button:hover{background:var(--ps-blue);border-color:var(--ps-blue)}
+  button:active{transform:translateY(1px)}
+  button:focus-visible{outline:3px solid var(--ice);outline-offset:2px}
+  button.ghost{background:var(--panel);color:var(--ink);border-color:var(--line)}
+  button.ghost:hover{border-color:var(--ink);background:var(--panel)}
+  button:disabled{opacity:.4;cursor:not-allowed}
+
+  /* ---------- unsupported banner ---------- */
+  .banner{
+    display:none;background:#FFF6E8;border:1px solid var(--amber);
+    color:#6B4300;border-radius:var(--radius);padding:14px 18px;margin-bottom:20px;
+  }
+  .banner.show{display:block}
+
+  /* ---------- presets ---------- */
+  .presets{
+    background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+    padding:16px 18px;margin-bottom:20px;
+  }
+  .presets .row{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
+  .label{
+    font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-soft);
+  }
+  .chip{
+    background:var(--panel);color:var(--ink);border:1px solid var(--line);
+    padding:9px 16px;border-radius:999px;font-weight:500;font-size:13px;
+  }
+  .chip:hover{border-color:var(--ps-blue);color:var(--ps-blue);background:var(--panel)}
+  .chip[aria-pressed="true"]{background:var(--ink);color:#fff;border-color:var(--ink)}
+
+  /* ---------- trigger panels ---------- */
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px}
+  @media(max-width:760px){.grid{grid-template-columns:1fr}}
+  .trigger-card{
+    background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+    padding:18px;display:grid;grid-template-columns:84px 1fr;gap:18px;
+  }
+  .trigger-card h2{font-size:20px;font-weight:700;grid-column:1/-1}
+  .trigger-card h2 small{
+    font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:400;
+    color:var(--ink-soft);margin-left:8px;letter-spacing:.05em;
+  }
+
+  /* the signature element: live trigger rail */
+  .rail-wrap{display:flex;flex-direction:column;align-items:center;gap:8px}
+  .rail{
+    position:relative;width:56px;height:240px;
+    border:1px solid var(--line);border-radius:12px;background:var(--bench);
+    overflow:hidden;
+  }
+  .rail .zone{
+    position:absolute;left:0;right:0;background:var(--zone);
+    border-top:1px dashed var(--ps-blue);border-bottom:1px dashed var(--ps-blue);
+  }
+  .rail .fill{
+    position:absolute;left:0;right:0;top:0;height:0;
+    background:linear-gradient(var(--ice),var(--ps-blue));
+    opacity:.9;transition:height .03s linear;
+  }
+  .rail .tick{position:absolute;left:0;right:0;height:1px;background:var(--line)}
+  .rail-val{font-size:12px;color:var(--ink-soft)}
+  .rail-val b{color:var(--ink);font-weight:600}
+
+  /* controls */
+  .controls{display:flex;flex-direction:column;gap:12px}
+  .field{display:flex;flex-direction:column;gap:4px}
+  select,input[type=range]{width:100%}
+  select{
+    font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:8px;
+    background:var(--panel);color:var(--ink);
+  }
+  select:focus-visible,input[type=range]:focus-visible{outline:3px solid var(--ice);outline-offset:2px}
+  input[type=range]{accent-color:var(--ps-blue)}
+  .field .val{font-size:12px;color:var(--ink-soft)}
+  .param-name{font-size:12px;color:var(--ink)}
+
+  /* ---------- footer: log + extras ---------- */
+  .bottom{display:grid;grid-template-columns:1fr auto;gap:20px;align-items:start}
+  @media(max-width:760px){.bottom{grid-template-columns:1fr}}
+  .log{
+    background:var(--ink);color:#C9CDD9;border-radius:var(--radius);
+    padding:14px 16px;height:150px;overflow-y:auto;font-size:12px;
+  }
+  .log .t{color:#7C8296;margin-right:8px}
+  .log .ok{color:#7FD8A6}.log .warn{color:#F0B35C}.log .err{color:#F08A8A}
+  .extras{display:flex;flex-direction:column;gap:10px}
+
+  @media (prefers-reduced-motion: reduce){
+    *{transition:none !important}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="title-block">
+    <div class="eyebrow">L99 prototype · controller test bench</div>
+    <h1>DualSense Trigger Lab <span class="glyphs" aria-hidden="true">△ ○ ✕ □</span></h1>
+  </div>
+  <div class="conn">
+    <span class="status" id="status" data-state="off"><span class="dot"></span><span id="statusText">No controller</span></span>
+    <button id="connectBtn">Connect controller</button>
+  </div>
+</header>
+
+<div class="banner" id="banner"></div>
+
+<section class="presets" aria-labelledby="presetLabel">
+  <span class="label" id="presetLabel">Presets — applied to both triggers</span>
+  <div class="row" id="presetRow">
+    <button class="chip" data-preset="off"  aria-pressed="false">Normal (off)</button>
+    <button class="chip" data-preset="bow"  aria-pressed="false">Bow draw</button>
+    <button class="chip" data-preset="gun"  aria-pressed="false">Gun trigger</button>
+    <button class="chip" data-preset="auto" aria-pressed="false">Jackhammer</button>
+    <button class="chip" data-preset="wall" aria-pressed="false">Stiff wall</button>
+  </div>
+</section>
+
+<div class="grid">
+  <!-- L2 -->
+  <section class="trigger-card" aria-labelledby="l2h">
+    <h2 id="l2h">L2 <small>bytes 21–31</small></h2>
+    <div class="rail-wrap">
+      <div class="rail" id="railL" aria-hidden="true">
+        <div class="tick" style="top:25%"></div><div class="tick" style="top:50%"></div><div class="tick" style="top:75%"></div>
+        <div class="zone" id="zoneL" style="top:0;height:0"></div>
+        <div class="fill" id="fillL"></div>
+      </div>
+      <span class="rail-val">pull <b id="valL">0.00</b></span>
+    </div>
+    <div class="controls" id="ctrlL"></div>
+  </section>
+
+  <!-- R2 -->
+  <section class="trigger-card" aria-labelledby="r2h">
+    <h2 id="r2h">R2 <small>bytes 10–20</small></h2>
+    <div class="rail-wrap">
+      <div class="rail" id="railR" aria-hidden="true">
+        <div class="tick" style="top:25%"></div><div class="tick" style="top:50%"></div><div class="tick" style="top:75%"></div>
+        <div class="zone" id="zoneR" style="top:0;height:0"></div>
+        <div class="fill" id="fillR"></div>
+      </div>
+      <span class="rail-val">pull <b id="valR">0.00</b></span>
+    </div>
+    <div class="controls" id="ctrlR"></div>
+  </section>
+</div>
+
+<div class="bottom">
+  <div class="log" id="log" role="log" aria-label="Device log"></div>
+  <div class="extras">
+    <button class="ghost" id="rumbleBtn" disabled>Rumble test</button>
+    <button class="ghost" id="resetBtn" disabled>Release triggers</button>
+  </div>
+</div>
+
+<script>
+"use strict";
+
+/* ============================================================
+   L99 · DualSense adaptive trigger demo (WebHID)
+   USB:  output report 0x02, 47-byte common block
+   BT:   output report 0x31, seq + tag + common block + CRC32
+   ============================================================ */
+
+const SONY = 0x054C, DS = 0x0CE6, DS_EDGE = 0x0DF2;
+
+const $ = id => document.getElementById(id);
+const logEl = $("log");
+
+function log(msg, cls=""){
+  const line = document.createElement("div");
+  const t = new Date().toTimeString().slice(0,8);
+  line.innerHTML = `<span class="t">${t}</span><span class="${cls}">${msg}</span>`;
+  logEl.appendChild(line);
+  logEl.scrollTop = logEl.scrollHeight;
+}
+
+/* ---------- CRC32 (for Bluetooth output reports) ---------- */
+const CRC_TABLE = (() => {
+  const t = new Uint32Array(256);
+  for (let n = 0; n < 256; n++){
+    let c = n;
+    for (let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+    t[n] = c >>> 0;
+  }
+  return t;
+})();
+function crc32(bytes){
+  let c = 0xFFFFFFFF;
+  for (const b of bytes) c = CRC_TABLE[(c ^ b) & 0xFF] ^ (c >>> 8);
+  return (c ^ 0xFFFFFFFF) >>> 0;
+}
+
+/* ---------- device state ---------- */
+let device = null;
+let isBluetooth = false;
+let btSeq = 0;
+
+/* trigger effect state: mode + up to 3 params each */
+const state = {
+  L: { mode: 0x00, p: [0,0,0] },
+  R: { mode: 0x00, p: [0,0,0] },
+  rumbleWeak: 0, rumbleStrong: 0,
+};
+
+/* ---------- build + send the common 47-byte block ---------- */
+function buildCommon(){
+  const d = new Uint8Array(47);
+  d[0] = 0xFF;              // flags: enable rumble emulation + audio haptics
+  d[1] = 0xF7;              // flags: enable trigger motors, LEDs, lightbar
+  d[2] = state.rumbleWeak;  // right / weak motor
+  d[3] = state.rumbleStrong;// left / strong motor
+
+  // R2 effect: [10] mode, [11..] params
+  d[10] = state.R.mode;
+  d[11] = state.R.p[0]; d[12] = state.R.p[1]; d[13] = state.R.p[2];
+
+  // L2 effect: [21] mode, [22..] params
+  d[21] = state.L.mode;
+  d[22] = state.L.p[0]; d[23] = state.L.p[1]; d[24] = state.L.p[2];
+
+  // lightbar: L99 ice blue when connected
+  d[44] = 0x20; d[45] = 0x78; d[46] = 0xD6;
+  return d;
+}
+
+async function sendState(){
+  if (!device || !device.opened) return;
+  const common = buildCommon();
+  try {
+    if (!isBluetooth){
+      await device.sendReport(0x02, common);
+    } else {
+      // BT frame: reportId 0x31 + 77-byte payload, CRC32 over 0xA2|0x31|payload[0..72]
+      const payload = new Uint8Array(77);
+      payload[0] = (btSeq << 4) & 0xF0;
+      btSeq = (btSeq + 1) % 16;
+      payload[1] = 0x10;                 // DATA tag
+      payload.set(common, 2);
+      const crcInput = new Uint8Array(2 + 73);
+      crcInput[0] = 0xA2; crcInput[1] = 0x31;
+      crcInput.set(payload.subarray(0, 73), 2);
+      const crc = crc32(crcInput);
+      payload[73] =  crc         & 0xFF;
+      payload[74] = (crc >>> 8)  & 0xFF;
+      payload[75] = (crc >>> 16) & 0xFF;
+      payload[76] = (crc >>> 24) & 0xFF;
+      await device.sendReport(0x31, payload);
+    }
+  } catch (e){
+    log("Send failed: " + e.message, "err");
+  }
+}
+
+/* ---------- connect ---------- */
+async function connect(){
+  try {
+    const devices = await navigator.hid.requestDevice({
+      filters: [
+        { vendorId: SONY, productId: DS },
+        { vendorId: SONY, productId: DS_EDGE },
+      ]
+    });
+    if (!devices.length){ log("No device selected.", "warn"); return; }
+    device = devices[0];
+    if (!device.opened) await device.open();
+
+    // USB exposes output report 0x02; Bluetooth exposes 0x31
+    isBluetooth = true;
+    for (const col of device.collections){
+      for (const r of (col.outputReports || [])){
+        if (r.reportId === 0x02) isBluetooth = false;
+      }
+    }
+
+    $("status").dataset.state = "connected";
+    $("statusText").textContent =
+      device.productName + (isBluetooth ? " · Bluetooth" : " · USB");
+    $("rumbleBtn").disabled = false;
+    $("resetBtn").disabled = false;
+
+    log(`Connected: ${device.productName} over ${isBluetooth ? "Bluetooth (CRC32 framing)" : "USB"}`, "ok");
+    if (isBluetooth) log("Tip: USB is more reliable for trigger effects.", "warn");
+    await sendState();
+    log("Press any button on the pad so the Gamepad API picks it up for live input.", "");
+  } catch (e){
+    log("Connect failed: " + e.message, "err");
+  }
+}
+
+navigator.hid?.addEventListener("disconnect", ev => {
+  if (device && ev.device === device){
+    device = null;
+    $("status").dataset.state = "off";
+    $("statusText").textContent = "No controller";
+    $("rumbleBtn").disabled = true;
+    $("resetBtn").disabled = true;
+    log("Controller disconnected.", "warn");
+  }
+});
+
+/* ---------- effect modes + presets ---------- */
+const MODES = [
+  { v: 0x00, name: "Off (free)",               params: [] },
+  { v: 0x01, name: "Continuous resistance",     params: ["Start position", "Force"] },
+  { v: 0x02, name: "Section resistance",        params: ["Start", "End", "Force"] },
+  { v: 0x26, name: "Vibration / automatic",     params: ["Frequency", "Force", "Start"] },
+];
+
+const PRESETS = {
+  off:  { mode: 0x00, p: [0, 0, 0] },
+  bow:  { mode: 0x01, p: [0x20, 0xB0, 0] },      // resistance ramps from early in the pull
+  gun:  { mode: 0x02, p: [0x50, 0x78, 0xFF] },   // hard click zone mid-pull
+  auto: { mode: 0x26, p: [0x0F, 0xE0, 0x40] },   // ~machine-gun buzz past start point
+  wall: { mode: 0x01, p: [0x00, 0xFF, 0] },      // max resistance from the top
+};
+
+function applyPreset(name){
+  const pz = PRESETS[name];
+  for (const side of ["L","R"]){
+    state[side].mode = pz.mode;
+    state[side].p = [...pz.p];
+  }
+  document.querySelectorAll("#presetRow .chip").forEach(c =>
+    c.setAttribute("aria-pressed", String(c.dataset.preset === name)));
+  buildControls("L"); buildControls("R");
+  updateZones();
+  sendState();
+  log(`Preset applied: ${name} (mode 0x${pz.mode.toString(16).padStart(2,"0")})`, "ok");
+}
+
+document.querySelectorAll("#presetRow .chip").forEach(chip =>
+  chip.addEventListener("click", () => applyPreset(chip.dataset.preset)));
+
+/* ---------- per-trigger control panels ---------- */
+function buildControls(side){
+  const host = $(side === "L" ? "ctrlL" : "ctrlR");
+  host.innerHTML = "";
+  const st = state[side];
+
+  const modeField = document.createElement("div");
+  modeField.className = "field";
+  modeField.innerHTML = `<span class="label">Effect mode</span>`;
+  const sel = document.createElement("select");
+  for (const m of MODES){
+    const o = document.createElement("option");
+    o.value = m.v;
+    o.textContent = `0x${m.v.toString(16).padStart(2,"0")} — ${m.name}`;
+    if (m.v === st.mode) o.selected = true;
+    sel.appendChild(o);
+  }
+  sel.addEventListener("change", () => {
+    st.mode = Number(sel.value);
+    document.querySelectorAll("#presetRow .chip").forEach(c => c.setAttribute("aria-pressed","false"));
+    buildControls(side); updateZones(); sendState();
+  });
+  modeField.appendChild(sel);
+  host.appendChild(modeField);
+
+  const modeDef = MODES.find(m => m.v === st.mode);
+  modeDef.params.forEach((pname, i) => {
+    const f = document.createElement("div");
+    f.className = "field";
+    const valSpan = document.createElement("span");
+    valSpan.className = "val";
+    valSpan.textContent = `0x${st.p[i].toString(16).padStart(2,"0")} (${st.p[i]})`;
+    const lbl = document.createElement("span");
+    lbl.className = "param-name";
+    lbl.textContent = pname;
+    const r = document.createElement("input");
+    r.type = "range"; r.min = 0; r.max = 255; r.value = st.p[i];
+    r.setAttribute("aria-label", `${side}2 ${pname}`);
+    r.addEventListener("input", () => {
+      st.p[i] = Number(r.value);
+      valSpan.textContent = `0x${st.p[i].toString(16).padStart(2,"0")} (${st.p[i]})`;
+      updateZones();
+    });
+    r.addEventListener("change", () => sendState());
+    f.append(lbl, r, valSpan);
+    host.appendChild(f);
+  });
+}
+
+/* shade the configured resistance zone on each rail */
+function updateZones(){
+  for (const side of ["L","R"]){
+    const z = $(side === "L" ? "zoneL" : "zoneR");
+    const st = state[side];
+    let startPct = 0, endPct = 0;
+    if (st.mode === 0x01){ startPct = st.p[0]/255*100; endPct = 100; }
+    else if (st.mode === 0x02){ startPct = st.p[0]/255*100; endPct = st.p[1]/255*100; }
+    else if (st.mode === 0x26){ startPct = st.p[2]/255*100; endPct = 100; }
+    const h = Math.max(0, endPct - startPct);
+    z.style.top = startPct + "%";
+    z.style.height = h + "%";
+    z.style.display = h > 0 ? "block" : "none";
+  }
+}
+
+/* ---------- live trigger input via Gamepad API ---------- */
+function pollPads(){
+  const pads = navigator.getGamepads ? navigator.getGamepads() : [];
+  for (const p of pads){
+    if (!p) continue;
+    const id = p.id.toLowerCase();
+    if (!(id.includes("dualsense") || id.includes("054c") || id.includes("0ce6") || id.includes("0df2"))) continue;
+    const l2 = p.buttons[6]?.value ?? 0;
+    const r2 = p.buttons[7]?.value ?? 0;
+    $("fillL").style.height = (l2*100) + "%";
+    $("fillR").style.height = (r2*100) + "%";
+    $("valL").textContent = l2.toFixed(2);
+    $("valR").textContent = r2.toFixed(2);
+    break;
+  }
+  requestAnimationFrame(pollPads);
+}
+requestAnimationFrame(pollPads);
+
+/* ---------- extras ---------- */
+$("rumbleBtn").addEventListener("click", async () => {
+  state.rumbleWeak = 0x60; state.rumbleStrong = 0xC0;
+  await sendState();
+  setTimeout(async () => {
+    state.rumbleWeak = 0; state.rumbleStrong = 0;
+    await sendState();
+  }, 350);
+});
+
+$("resetBtn").addEventListener("click", () => applyPreset("off"));
+$("connectBtn").addEventListener("click", connect);
+
+/* ---------- capability check ---------- */
+(function init(){
+  const banner = $("banner");
+  if (!("hid" in navigator)){
+    banner.textContent = "WebHID isn't available in this browser. Adaptive trigger control needs Chrome or Edge on desktop (HTTPS). The live trigger readout below will still work via the Gamepad API.";
+    banner.classList.add("show");
+    $("connectBtn").disabled = true;
+    log("WebHID unavailable — read-only mode.", "warn");
+  } else if (!window.isSecureContext){
+    banner.textContent = "This page isn't running in a secure context. WebHID requires HTTPS (or localhost).";
+    banner.classList.add("show");
+    $("connectBtn").disabled = true;
+  } else {
+    log("Ready. Plug the DualSense in over USB and hit Connect.", "");
+  }
+  buildControls("L"); buildControls("R");
+  updateZones();
+})();
+</script>
+</body>
+</html>

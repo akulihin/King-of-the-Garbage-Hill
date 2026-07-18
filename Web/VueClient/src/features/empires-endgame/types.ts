@@ -75,6 +75,14 @@ export const EMPIRES_RANKS = [
   'ace',
 ] as const
 export const EMPIRES_ACTORS = ['player', 'god'] as const
+export const EMPIRES_GOD_DIALOGUE_TRIGGERS = [
+  'boutWon',
+  'boutLost',
+  'take',
+  'antiBito',
+  'giftOffered',
+  'inversion',
+] as const
 export const EMPIRES_PHASES = [
   'cards',
   'divineGift',
@@ -90,6 +98,7 @@ export type EmpiresSuit = typeof EMPIRES_SUITS[number]
 export type EmpiresRank = typeof EMPIRES_RANKS[number]
 export type EmpiresCardRank = EmpiresRank | 'joker'
 export type EmpiresActor = typeof EMPIRES_ACTORS[number]
+export type EmpiresGodDialogueTrigger = typeof EMPIRES_GOD_DIALOGUE_TRIGGERS[number]
 export type EmpiresPhase = typeof EMPIRES_PHASES[number]
 export type EmpiresFacilityLock = typeof EMPIRES_FACILITY_LOCKS[number]
 export type EmpiresActionResult = { ok: true, message: string } | { ok: false, message: string }
@@ -581,11 +590,48 @@ export interface EmpiresMapConfig {
   objects: EmpiresMapObjectDefinition[]
 }
 
-export interface EmpiresGodScaffoldConfig {
+export interface EmpiresGodDeckMemoryConfig {
   enabled: boolean
-  lines: never[]
-  deckMemoryRules: never[]
-  antiBitoRules: never[]
+  availability: 'always' | 'perCon'
+  inspectionsPerCon: number
+  orientation: 'nextDrawFirst'
+  excludedDefinitionIds: string[]
+}
+
+export interface EmpiresGodAntiBitoConfig {
+  enabled: boolean
+  minimumConsecutiveBito: number
+  returnCount: number
+  maxInterventions: number
+  source: 'discard'
+  insertion: 'drawBottom' | 'drawTop' | 'shuffle'
+  orientation: 'preserve'
+  excludedDefinitionIds: string[]
+  historyRetention: number
+}
+
+export interface EmpiresGodLineDefinition {
+  id: string
+  trigger: EmpiresGodDialogueTrigger
+  text: string
+  weight: number
+  once: boolean
+}
+
+export interface EmpiresMercyConfirmationConfig {
+  enabled: boolean
+  title: string
+  confirmLabel: string
+  cancelLabel: string
+}
+
+export interface EmpiresGodConfig {
+  enabled: boolean
+  deckMemory: EmpiresGodDeckMemoryConfig
+  antiBito: EmpiresGodAntiBitoConfig
+  lines: EmpiresGodLineDefinition[]
+  dialogueLogRetention: number
+  mercyConfirmation: EmpiresMercyConfirmationConfig
 }
 
 export type EmpiresQuestTrigger = (
@@ -1151,7 +1197,7 @@ export interface EmpiresUpgradeConfig {
 }
 
 export interface EmpiresEndgameConfig {
-  schemaVersion: 12
+  schemaVersion: 13
   id: string
   title: string
   seed: string | number
@@ -1163,7 +1209,7 @@ export interface EmpiresEndgameConfig {
   empire: EmpiresEmpireConfig
   combat: EmpiresCombatConfig
   td: EmpiresTdConfig
-  god: EmpiresGodScaffoldConfig
+  god: EmpiresGodConfig
   quests: EmpiresQuestsConfig
 }
 
@@ -1178,6 +1224,27 @@ export interface EmpiresCardInstance {
   level: number
   inverted: boolean
 }
+
+export interface EmpiresDeckMemoryCard {
+  position: number
+  instanceId: string
+  definitionId: string
+  name: string
+  suit: EmpiresSuit | 'joker'
+  rank: EmpiresCardRank
+  inverted: boolean
+}
+
+export interface EmpiresDeckMemoryAvailability {
+  allowed: boolean
+  reason: string | null
+  remainingInspections: number | null
+}
+
+export type EmpiresDeckMemoryInspectionResult = (
+  | { ok: true, message: string, cards: readonly EmpiresDeckMemoryCard[] }
+  | { ok: false, message: string, cards?: never }
+)
 
 export interface EmpiresTablePair {
   attackCardId: string
@@ -1199,6 +1266,44 @@ export interface EmpiresDurakState {
   defenderHandAtBoutStart: number
   bout: number
   godInterventions: number
+  deckMemoryInspectionsUsed: number
+  consecutiveBito: number
+}
+
+export interface EmpiresGodInterventionRecord {
+  sequence: number
+  con: number
+  bout: number
+  returnedInstanceIds: string[]
+  insertion: EmpiresGodAntiBitoConfig['insertion']
+  trigger: 'winner-after-consecutive-bito'
+  resultingDigest: string
+}
+
+export interface EmpiresGodHistoryCompaction {
+  evictedCount: number
+  historyDigest: string
+}
+
+export interface EmpiresGodDialogueEntry {
+  sequence: number
+  lineId: string
+  trigger: EmpiresGodDialogueTrigger
+  text: string
+  con: number
+  bout: number
+  occurrence: number
+}
+
+export interface EmpiresGodState {
+  cosmeticRng: EmpiresRngState
+  interventions: EmpiresGodInterventionRecord[]
+  interventionCompaction: EmpiresGodHistoryCompaction
+  nextInterventionSequence: number
+  dialogueLog: EmpiresGodDialogueEntry[]
+  dialogueCompaction: EmpiresGodHistoryCompaction
+  nextDialogueSequence: number
+  dialogueOccurrences: Record<string, number>
 }
 
 export interface EmpiresPerformanceState {
@@ -1954,10 +2059,11 @@ export interface EmpiresQuestRuntimeState {
 }
 
 export interface EmpiresCampaignState {
-  schemaVersion: 10
+  schemaVersion: 11
   configId: string
   phase: EmpiresPhase
   rng: EmpiresRngState
+  god: EmpiresGodState
   cards: Record<string, EmpiresCardInstance>
   durak: EmpiresDurakState
   performance: EmpiresPerformanceState
@@ -1984,7 +2090,7 @@ export interface EmpiresCampaignState {
 }
 
 export interface EmpiresSnapshotEnvelope {
-  schemaVersion: 10
+  schemaVersion: 11
   savedAt: string
   state: EmpiresCampaignState
 }

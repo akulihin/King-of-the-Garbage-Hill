@@ -13,8 +13,20 @@ export interface LastChancesHidDeviceFilter {
   usage?: number
 }
 
+export interface LastChancesHidReportLike {
+  readonly reportId?: number
+}
+
+export interface LastChancesHidCollectionLike {
+  readonly outputReports?: readonly LastChancesHidReportLike[]
+  readonly children?: readonly LastChancesHidCollectionLike[]
+}
+
 export interface LastChancesHidDeviceLike {
   readonly opened: boolean
+  readonly vendorId?: number
+  readonly productId?: number
+  readonly collections?: readonly LastChancesHidCollectionLike[]
   open(): Promise<void>
   close(): Promise<void>
   sendReport(reportId: number, data: Uint8Array): Promise<void>

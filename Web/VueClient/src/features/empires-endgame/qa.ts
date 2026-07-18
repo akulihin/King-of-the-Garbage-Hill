@@ -19,6 +19,7 @@ import type {
 export const EMPIRES_QA_SCENARIO_NAMES = [
   'pending-take',
   'empty-hand-pending-finish',
+  'anti-bito',
   'divine-gift',
   'target-city-resources',
   'target-meteor-city',
@@ -131,6 +132,14 @@ export interface EmpiresQaStateDigest {
   minigameResultLastSessionId: string | null
   minigameResultLastRulesDigest: string | null
   rngDraws: number
+  cosmeticRngDraws: number
+  deckMemoryInspectionsUsed: number
+  godInterventionCount: number
+  godInterventionHistoryCount: number
+  godInterventionHistoryDigest: string
+  godDialogueCount: number
+  godDialogueOrder: string[]
+  godDialogueHistoryDigest: string
   outcomeReason: string | null
   seasonId: string | null
   technologyDisclosureCount: number
@@ -222,6 +231,10 @@ const SCENARIO_COPY: Record<EmpiresQaScenarioName, { title: string, description:
   'empty-hand-pending-finish': {
     title: 'Empty hand pending finish',
     description: 'The player has no card left, but must still end the pending take.',
+  },
+  'anti-bito': {
+    title: 'Anti-bito winner interception',
+    description: 'A premature winner path returns eligible discard instances before the configured cap.',
   },
   'divine-gift': {
     title: 'Divine gift',
@@ -399,6 +412,42 @@ function createPendingTakeSnapshot(
   return state
 }
 
+function createAntiBitoSnapshot(engine: EmpiresEndgameEngine): EmpiresCampaignState {
+  const state = engine.snapshot()
+  const excludedDefinitions = new Set(engine.config.god.antiBito.excludedDefinitionIds)
+  const ordered = engine.config.cards.map(card => card.id)
+  const eligible = ordered.filter(cardId => !excludedDefinitions.has(state.cards[cardId].definitionId))
+  const attackCardId = eligible[0]
+  const defenseCardId = eligible[1]
+  const godHandCardId = eligible[2]
+  if (!engine.config.god.enabled || !engine.config.god.antiBito.enabled
+    || !attackCardId || !defenseCardId || !godHandCardId) {
+    throw new Error('QA anti-bito scenario requires live God rules and three eligible cards.')
+  }
+  const occupied = new Set([attackCardId, defenseCardId, godHandCardId])
+  state.phase = 'cards'
+  state.durak.consecutiveBito = Math.max(
+    0,
+    engine.config.god.antiBito.minimumConsecutiveBito - 1,
+  )
+  state.boutsInCon = 0
+  state.durak.deck = []
+  state.durak.playerHand = []
+  state.durak.godHand = [godHandCardId]
+  state.durak.discard = ordered.filter(cardId => !occupied.has(cardId))
+  state.durak.table = [{ attackCardId, defenseCardId }]
+  state.durak.attacker = 'player'
+  state.durak.defender = 'god'
+  state.durak.stage = 'throwIn'
+  state.durak.defenderHandAtBoutStart = 2
+  state.durak.godInterventions = 0
+  state.god.interventions = []
+  state.god.interventionCompaction = { evictedCount: 0, historyDigest: '' }
+  state.god.nextInterventionSequence = 1
+  state.outcomeReason = null
+  return new EmpiresEndgameEngine(engine.config, state).snapshot()
+}
+
 function createGiftSnapshot(engine: EmpiresEndgameEngine): EmpiresCampaignState {
   const state = engine.snapshot()
   const giftChoiceIds = engine.config.gifts.definitions
@@ -471,6 +520,8 @@ function createEmpireSnapshot(
   }
   const state = engine.snapshot()
   state.upgradePoints = Math.max(3, state.upgradePoints)
+  const mercyCardId = state.durak.playerHand.at(-1)
+  if (mercyCardId) state.cards[mercyCardId].inverted = true
   return state
 }
 
@@ -1127,6 +1178,14 @@ export function digestEmpiresQaState(engine: EmpiresEndgameEngine): EmpiresQaSta
     minigameResultLastSessionId: engine.state.minigameResultCompaction.lastSessionId,
     minigameResultLastRulesDigest: engine.state.minigameResultCompaction.lastRulesDigest,
     rngDraws: engine.state.rng.draws,
+    cosmeticRngDraws: engine.state.god.cosmeticRng.draws,
+    deckMemoryInspectionsUsed: engine.state.durak.deckMemoryInspectionsUsed,
+    godInterventionCount: engine.state.durak.godInterventions,
+    godInterventionHistoryCount: engine.state.god.interventions.length,
+    godInterventionHistoryDigest: engine.state.god.interventionCompaction.historyDigest,
+    godDialogueCount: engine.state.god.dialogueLog.length,
+    godDialogueOrder: engine.state.god.dialogueLog.map(entry => `${entry.sequence}:${entry.lineId}`),
+    godDialogueHistoryDigest: engine.state.god.dialogueCompaction.historyDigest,
     outcomeReason: engine.state.outcomeReason,
     seasonId: engine.currentSeasonView()?.id ?? null,
     technologyDisclosureCount: engine.state.empire.chronicle
@@ -1268,6 +1327,18 @@ export function validateEmpiresQaSnapshot(
       }
       if (!engine.canEndAttack('player')) {
         add('pending-finish', 'Empty-hand scenario must expose the end-attack action.')
+      }
+    } else if (scenarioName === 'anti-bito') {
+      if (snapshot.phase !== 'cards' || snapshot.durak.deck.length !== 0
+        || !engine.canEndAttack('player')) {
+        add('anti-bito-winner-path', 'Anti-bito scenario must expose an empty-deck winner path.')
+      }
+      const excluded = new Set(config.god.antiBito.excludedDefinitionIds)
+      const eligibleDiscards = snapshot.durak.discard.filter(cardId => (
+        !excluded.has(snapshot.cards[cardId].definitionId)
+      ))
+      if (eligibleDiscards.length < config.god.antiBito.returnCount) {
+        add('anti-bito-discard', 'Anti-bito scenario needs the configured number of eligible discards.')
       }
     } else if (scenarioName === 'divine-gift' && snapshot.phase !== 'divineGift') {
       add('phase', 'Divine-gift scenario has the wrong phase.')
@@ -1420,6 +1491,7 @@ export function createEmpiresQaScenarios(
   const baseEngine = new EmpiresEndgameEngine(seededConfig)
   const pendingTake = createPendingTakeSnapshot(baseEngine, false)
   const emptyHandPendingFinish = createPendingTakeSnapshot(baseEngine, true)
+  const antiBito = createAntiBitoSnapshot(baseEngine)
   const divineGift = createGiftSnapshot(baseEngine)
   const targetCityResources = createTargetedGiftSnapshot(seededConfig, divineGift, 'cityResources')
   const targetMeteorCity = createTargetedGiftSnapshot(seededConfig, divineGift, 'meteorCity')
@@ -1443,6 +1515,7 @@ export function createEmpiresQaScenarios(
   const snapshots: Record<EmpiresQaScenarioName, EmpiresCampaignState> = {
     'pending-take': pendingTake,
     'empty-hand-pending-finish': emptyHandPendingFinish,
+    'anti-bito': antiBito,
     'divine-gift': divineGift,
     'target-city-resources': targetCityResources,
     'target-meteor-city': targetMeteorCity,

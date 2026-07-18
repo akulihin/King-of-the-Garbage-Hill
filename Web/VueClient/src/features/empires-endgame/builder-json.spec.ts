@@ -5,7 +5,7 @@ import BuilderDrawer from '../../components/empires-endgame/BuilderDrawer.vue'
 import { cloneEmpiresConfig, parseEmpiresConfig } from './config'
 import type { EmpiresEndgameConfig } from './types'
 
-describe('Empire\'s Endgame Builder schema-v12 JSON boundary', () => {
+describe('Empire\'s Endgame Builder schema-v13 JSON boundary', () => {
   it('round-trips economy content, domestic and external economy, combat, and lifecycle rules through every JSON control', async () => {
     const config = cloneEmpiresConfig(defaultConfigJson)
     const updates: EmpiresEndgameConfig[] = []
@@ -27,7 +27,8 @@ describe('Empire\'s Endgame Builder schema-v12 JSON boundary', () => {
     expect(exported.combat).toEqual(config.combat)
     expect(exported.combat.enabled).toBe(true)
     expect(exported.combat.equipment).toHaveLength(config.combat.equipment.length)
-    expect(exported.schemaVersion).toBe(12)
+    expect(exported.schemaVersion).toBe(13)
+    expect(exported.god).toEqual(config.god)
     expect(exported.quests).toEqual(config.quests)
     expect(exported.quests.definitions.find(quest => quest.id === 'quest-palach')
       ?.stages.flatMap(stage => stage.nodes)).toHaveLength(43)

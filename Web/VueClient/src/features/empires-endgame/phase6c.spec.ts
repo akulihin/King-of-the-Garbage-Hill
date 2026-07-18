@@ -356,7 +356,7 @@ describe('Empire\'s Endgame Phase 6C economy content closure', () => {
     const untouched = structuredClone(legacyConfig)
     const migrated = migrateEmpiresConfig(legacyConfig)
     expect(legacyConfig).toEqual(untouched)
-    expect(migrated).toMatchObject({ schemaVersion: 12, empire: { economyContent: { enabled: false } } })
+    expect(migrated).toMatchObject({ schemaVersion: 13, empire: { economyContent: { enabled: false } } })
     expect(migrateEmpiresConfig(migrated)).toEqual(migrated)
 
     const badChoice = config()
@@ -374,7 +374,7 @@ describe('Empire\'s Endgame Phase 6C economy content closure', () => {
       savedAt: '2026-07-17T00:00:00.000Z',
       state: legacyState,
     }, current.id)
-    expect(imported.schemaVersion).toBe(10)
+    expect(imported.schemaVersion).toBe(11)
     expect(new EmpiresEndgameEngine(current, imported).state.empire.economyContent).toMatchObject({
       eventHistory: [],
       resolvedOnceEventIds: [],

@@ -654,3 +654,41 @@ should instead feed a later off-screen hook remains open.
   (`1515711359231201330`); and the six-phase bucket-crusader escalation
   (`1515780591558066306`). North↔forest follow-ups and Great-house/race sketches from
   adjacent channels also remain review-only. None receives a fabricated live quest graph.
+
+## P8 God-presence source reconciliation
+
+| Carrier | Raw source | Executable interpretation / boundary |
+|---|---|---|
+| Tom's deck memory | Older `ZBS MAKING - empires-endgame` messages `1286406761712058562`, `1287000636591968287`; current `персонажи` message `1287807704202608722` | Tom has phenomenal memory and knows the exact card/order after God exposes the shuffled stack. The engine exposes the remaining standard deck next-draw-first with stable identity and direct/inverted instance state; inspection never changes deck or RNG. |
+| Anti-bito | Older `ZBS MAKING - empires-endgame` message `1287539702731247656` | Only an otherwise terminal winner path may intervene, and only after the configured consecutive successful-`бито` streak. Eligible discard instances are selected without replacement by gameplay RNG, keep upgrade/orientation state, are returned to the configured deck end, then normal refill/winner resolution resumes. Empty/insufficient discard and cap boundaries remain terminal-safe. |
+| High-importance exclusion | Anti-bito message `1287539702731247656`; current `карты` message `1448613565631037490` | The raw anti-bito note excludes cards important to the king; the current card source identifies Hearts as the royal family and individually describes J/Q/K/A losses. The bundled exclusion is therefore `card-hearts-jack`, `card-hearts-queen`, `card-hearts-king`, `card-hearts-ace`; upgraded eligible cards deliberately remain selectable. |
+| God dialogue | Anti-bito message `1287539702731247656` | The exact authored anti-bito thought is the only enabled line: `игра закончится слишком быстро и это не интересно`. `boutWon`, `boutLost`, `take`, `giftOffered` and `inversion` are audited selector triggers with no bundled lines because no canonical copy was found. |
+| Божественная Милость | Current `карты` message `1471794815556517950` (same exported content at `1287805947728892058`: message `1471794815556517950`) | The raw prompt explicitly names `переворот карты`, so confirmation wraps the existing `restoreCard`/one-point turn-upright action only—not choosing a divine gift. The title and both authored choices are config data; affirmative success persists the “do not show again” preference outside campaign state. |
+
+## P8 defaults and unresolved-semantics ledger
+
+| ID | JSON Pointer | Phase | Raw source | Chosen default | Rationale | Status | Designer verdict |
+|---|---|---:|---|---|---|---|---|
+| `P8-01` | `/god/deckMemory/availability`; `/god/deckMemory/inspectionsPerCon` | P8 | Messages `1286406761712058562`, `1287000636591968287`; `персонажи` `1287807704202608722` | `always`; `0` means unlimited. Custom `perCon` requires a positive limit and resets at `startNextCon` | The source gives exact knowledge but no later-con cadence or inspection budget. Always-visible knowledge matches Tom knowing rather than repeatedly spending a power; the limited mode remains configurable. | Open | Pending whether memory is initial-shuffle-only, always available, or limited per con, and the exact limit/reset. |
+| `P8-02` | `/god/deckMemory/orientation`; `/god/deckMemory/excludedDefinitionIds` | P8 | Message `1287000636591968287` | `nextDrawFirst`; no standard-card exclusions | Tom knows exact positions. Showing position 1 as the next actual `pop()` draw is the least ambiguous UI orientation. Mystic cards are not in the standard 53-card catalog and remain P9-owned. | Open | Pending whether the designer wants top-to-bottom physical stack order instead. |
+| `P8-03` | `/god/antiBito/minimumConsecutiveBito` | P8 | Message `1287539702731247656`: “несколько раз подряд происходит бито” | `3`; a take resets the streak, and a successful intervention consumes/resets it | “Several” and reset semantics are not numeric. Three is the smallest conventional value above “a couple” and avoids another intervention after only one new `бито`. | Open | Pending exact consecutive count and whether takes/interventions reset it. |
+| `P8-04` | `/god/antiBito/returnCount`; `/god/antiBito/maxInterventions`; `/god/antiBito/insertion` | P8 | Message `1287539702731247656`: random “охапку” from `бито` goes back into the deck and is shown | Return `3`; campaign cap `3`; `drawBottom` | No count, exact deck position or terminal cap is authored. Three makes a visible handful; a strict cap guarantees autoplay termination; draw-bottom gives both players a refill chance before the returned cards reappear when possible. | Open | Pending return count, cap, insertion location/order and whether the cap is per con or campaign. |
+| `P8-05` | `/god/antiBito/excludedDefinitionIds` | P8 | Messages `1287539702731247656`, `1448613565631037490` | Hearts J/Q/K/A | The anti-bito source excludes king-important cards and the current catalog uniquely names Hearts as the royal family with individual J/Q/K/A consequences. No broader “important” taxonomy is authored. | Open | Pending whether any non-royal card is also high-importance and whether individual royal cards may return. |
+| `P8-06` | `/god/antiBito/historyRetention`; `/god/dialogueLogRetention` | P8 | No retention values authored | `16` intervention records; `24` dialogue entries, with digest compaction | Both streams need bounded replay evidence under the common contract; these bounds exceed the bundled intervention cap and ordinary simultaneous dialogue volume without unbounded saves. | Open | Pending preferred retained-history sizes. |
+| `P8-07` | `/god/lines` | P8 | Message `1287539702731247656` | One repeatable weight-1 `antiBito` line using the exact authored thought; every other audited trigger has no entry | The source supplies no canonical win/loss/take/gift/inversion lines or priority rules. Empty trigger pools are safer than invented dialogue. | Open | Pending full canonical line catalog, weights, once/repeat and priority behavior. |
+| `P8-08` | `/god/mercyConfirmation`; device preference `empires-endgame:ui:god-presence:v1` | P8 | `карты` message `1471794815556517950` | Wrap `restoreCard`; interpolate available/cost into the authored `(1/1)` slot; affirmative success saves `skipDivineMercyConfirmation: true`; corrupt/future prefs restore `false` | `переворот карты` gives a unique existing action carrier. Preference versioning and fail-closed parsing are implementation contracts absent from campaign design. | Open | Pending whether `(1/1)` must remain literal, whether any other action spends Милость, and how a player re-enables warnings. |
+
+## P8 exact live/deferred and remaining manifest
+
+- Schema-v13 God presence and save schema 11 are live: immutable deck memory, serialized
+  limited-use mode, consecutive-`бито` winner interception, bounded replay records, isolated
+  cosmetic dialogue RNG/log and the accessible card-restoration confirmation.
+- Only `god-anti-bito-too-fast` is enabled. The audited `boutWon`, `boutLost`, `take`,
+  `giftOffered` and `inversion` triggers intentionally have empty pools until exact lines are
+  authored.
+- No existing card face or gift was un-deferred. `card-joker-jester` inverted remains
+  deferred, and the standard 53-card inspection/anti-bito implementation contains no mystic
+  definitions. Mystic eligibility and every Tavern interaction remain wholly P9-owned.
+- Anti-bito preserves selected instances—including upgrades and inverted state—and may
+  therefore return upgraded eligible cards as the source describes. The royal-family
+  exclusion is the only bundled importance mapping; broader importance remains `P8-05`.

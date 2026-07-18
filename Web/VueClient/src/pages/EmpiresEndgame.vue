@@ -28,6 +28,8 @@ import {
 import BuilderDrawer from '../components/empires-endgame/BuilderDrawer.vue'
 import CityView from '../components/empires-endgame/CityView.vue'
 import DialogueOverlay from '../components/empires-endgame/DialogueOverlay.vue'
+import DeckMemoryPanel from '../components/empires-endgame/DeckMemoryPanel.vue'
+import DivineMercyConfirmation from '../components/empires-endgame/DivineMercyConfirmation.vue'
 import DurakTable from '../components/empires-endgame/DurakTable.vue'
 import DomesticEconomyPanel from '../components/empires-endgame/DomesticEconomyPanel.vue'
 import ExternalDiplomacyPanel from '../components/empires-endgame/ExternalDiplomacyPanel.vue'
@@ -70,6 +72,10 @@ import {
   loadEmpiresCampaign,
   saveEmpiresCampaign,
 } from '../features/empires-endgame/persistence'
+import {
+  loadEmpiresGodUiPreferences,
+  skipFutureDivineMercyConfirmations,
+} from '../features/empires-endgame/ui-preferences'
 import type {
   EmpiresActionResult,
   EmpiresBuildingDefinition,
@@ -78,6 +84,7 @@ import type {
   EmpiresCardInstance,
   EmpiresCityState,
   EmpiresDependency,
+  EmpiresDeckMemoryCard,
   EmpiresEffect,
   EmpiresEndgameConfig,
   EmpiresMapObjectDefinition,
@@ -99,6 +106,10 @@ const fatalError = ref('')
 const fatalSaveRecoverable = ref(false)
 const lastMessage = ref('Добро пожаловать на последнюю игру империи.')
 const godBusy = ref(false)
+const deckMemoryOpen = ref(false)
+const deckMemoryCards = ref<readonly EmpiresDeckMemoryCard[]>([])
+const deckMemoryRemaining = ref<number | null>(null)
+const mercyConfirmationCardId = ref<string | null>(null)
 const editorOpen = ref(false)
 const editorDirty = ref(false)
 const questJournalOpen = ref(false)
@@ -124,6 +135,30 @@ const workingConfig = computed(() => editorOpen.value && editorConfig.value
   : config.value)
 
 const activeTdPlan = computed(() => state.value?.minigame?.plan ?? null)
+
+const deckMemoryAvailability = computed(() => engine.value?.canInspectDeck() ?? {
+  allowed: false,
+  reason: 'Память колоды недоступна.',
+  remainingInspections: null,
+})
+
+const latestGodLine = computed(() => state.value?.god.dialogueLog.at(-1)?.text ?? '')
+
+const mercyConfirmationCard = computed(() => {
+  const cardId = mercyConfirmationCardId.value
+  if (!cardId || !engine.value) return null
+  return {
+    id: cardId,
+    name: engine.value.getDefinition(cardId).name,
+  }
+})
+
+const mercyConfirmationTitle = computed(() => {
+  const copy = workingConfig.value?.god.mercyConfirmation.title ?? ''
+  return copy
+    .replace('{available}', String(state.value?.upgradePoints ?? 0))
+    .replace('{cost}', String(workingConfig.value?.upgrades.restoreCost ?? 0))
+})
 
 const phaseCopy = computed(() => ({
   cards: ['Карточная партия', 'Переиграйте Бога Азарта в подкидного дурака.'],
@@ -578,6 +613,10 @@ function actionReasonText(reason: string | null | undefined) {
 
 function initializeEngine(nextConfig: EmpiresEndgameConfig, snapshot?: EmpiresCampaignState | null) {
   unsubscribe?.()
+  deckMemoryOpen.value = false
+  deckMemoryCards.value = []
+  deckMemoryRemaining.value = null
+  mercyConfirmationCardId.value = null
   const nextEngine = new EmpiresEndgameEngine(nextConfig, snapshot ?? undefined)
   engine.value = nextEngine
   state.value = structuredClone(nextEngine.state)
@@ -772,6 +811,16 @@ const playerCanTake = computed(() => engine.value?.canTake('player') ?? false)
 
 const playerCanFinish = computed(() => engine.value?.canEndAttack('player') ?? false)
 
+function openDeckMemory() {
+  if (!engine.value) return
+  const result = engine.value.inspectDeck()
+  showMessage(result.message)
+  if (!result.ok) return
+  deckMemoryCards.value = result.cards
+  deckMemoryRemaining.value = engine.value.canInspectDeck().remainingInspections
+  deckMemoryOpen.value = true
+}
+
 function playCard(cardId: string) {
   if (!engine.value || !state.value) return
   const attackIndex = state.value.durak.stage === 'defense'
@@ -787,6 +836,27 @@ function chooseGift(giftId: string) {
   if (result.ok && !engine.value.state.pendingResolution && engine.value.state.phase === 'empire') {
     activeEmpireTab.value = 'map'
   }
+}
+
+function requestCardRestoration(cardId: string) {
+  if (!engine.value || !workingConfig.value) return
+  const confirmation = workingConfig.value.god.mercyConfirmation
+  const preferences = loadEmpiresGodUiPreferences()
+  if (!workingConfig.value.god.enabled || !confirmation.enabled
+    || preferences.skipDivineMercyConfirmation) {
+    action(engine.value.restoreCard(cardId), false)
+    return
+  }
+  mercyConfirmationCardId.value = cardId
+}
+
+function confirmCardRestoration() {
+  const cardId = mercyConfirmationCardId.value
+  if (!cardId || !engine.value) return
+  const result = engine.value.restoreCard(cardId)
+  if (result.ok) skipFutureDivineMercyConfirmations()
+  mercyConfirmationCardId.value = null
+  action(result, false)
 }
 
 function resolvePendingTarget(cityId: string) {
@@ -2020,13 +2090,18 @@ onUnmounted(() => {
           :attacker="state.durak.attacker"
           :stage="state.durak.stage"
           :message="godBusy ? 'Бог Азарта выбирает карту…' : lastMessage"
+          :god-line="latestGodLine"
           :legal-card-ids="legalPlayerCardIds"
           :can-take="playerCanTake"
           :can-finish="playerCanFinish"
           :disabled="godBusy"
+          :can-inspect-deck="deckMemoryAvailability.allowed"
+          :deck-inspection-reason="deckMemoryAvailability.reason"
+          :remaining-deck-inspections="deckMemoryAvailability.remainingInspections"
           @play="playCard"
           @take="action(engine.takeCards('player'))"
           @finish="action(engine.endAttack('player'))"
+          @inspect-deck="openDeckMemory"
         />
         <aside class="rules-note"><BookOpen :size="16" /><span><b>Подкидной дурак:</b> бейтесь мастью или козырем, подкидывайте только достоинства со стола. Добранная из обычной колоды карта усиливается; взятая у Бога приходит перевёрнутой.</span></aside>
       </section>
@@ -2203,7 +2278,7 @@ onUnmounted(() => {
               />
               <div class="council-actions">
                 <button :data-testid="`council-improve-${card.instance.id}`" type="button" :disabled="state.upgradePoints < workingConfig.upgrades.improveCost" @click="action(engine.improveCard(card.instance.id), false)"><Sparkles :size="14" /> Улучшить · {{ workingConfig.upgrades.improveCost }}</button>
-                <button v-if="card.instance.inverted" :data-testid="`council-restore-${card.instance.id}`" type="button" :disabled="state.upgradePoints < workingConfig.upgrades.restoreCost" @click="action(engine.restoreCard(card.instance.id), false)"><RotateCcw :size="14" /> Восстановить · {{ workingConfig.upgrades.restoreCost }}</button>
+                <button v-if="card.instance.inverted" :data-testid="`council-restore-${card.instance.id}`" type="button" :disabled="state.upgradePoints < workingConfig.upgrades.restoreCost" @click="requestCardRestoration(card.instance.id)"><RotateCcw :size="14" /> Восстановить · {{ workingConfig.upgrades.restoreCost }}</button>
                 <small v-if="state.upgradePoints < workingConfig.upgrades.improveCost">Нужно {{ workingConfig.upgrades.improveCost }} очко кона</small>
               </div>
             </article>
@@ -2255,6 +2330,24 @@ onUnmounted(() => {
         :open="questJournalOpen"
         :entries="questJournalEntries"
         @close="questJournalOpen = false"
+      />
+
+      <DeckMemoryPanel
+        :open="deckMemoryOpen"
+        :cards="deckMemoryCards"
+        :remaining-inspections="deckMemoryRemaining"
+        @close="deckMemoryOpen = false"
+      />
+
+      <DivineMercyConfirmation
+        v-if="mercyConfirmationCard && workingConfig.god.mercyConfirmation.enabled"
+        :open="true"
+        :title="mercyConfirmationTitle"
+        :confirm-label="workingConfig.god.mercyConfirmation.confirmLabel"
+        :cancel-label="workingConfig.god.mercyConfirmation.cancelLabel"
+        :card-name="mercyConfirmationCard.name"
+        @confirm="confirmCardRestoration"
+        @cancel="mercyConfirmationCardId = null"
       />
 
       <DialogueOverlay

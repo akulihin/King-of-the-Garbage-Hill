@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import {
   ArrowDownToLine,
+  Brain,
   CheckCheck,
   CircleDotDashed,
   Crown,
@@ -41,23 +42,32 @@ const props = withDefaults(defineProps<{
   attacker: 'player' | 'god'
   stage: string
   message?: string
+  godLine?: string
   legalCardIds?: string[]
   canTake?: boolean
   canFinish?: boolean
   disabled?: boolean
+  canInspectDeck?: boolean
+  deckInspectionReason?: string | null
+  remainingDeckInspections?: number | null
 }>(), {
   trumpCard: null,
   message: '',
+  godLine: '',
   legalCardIds: () => [],
   canTake: false,
   canFinish: false,
   disabled: false,
+  canInspectDeck: false,
+  deckInspectionReason: null,
+  remainingDeckInspections: null,
 })
 
 const emit = defineEmits<{
   play: [cardId: string]
   take: []
   finish: []
+  inspectDeck: []
 }>()
 
 const godCardsShown = computed(() => Math.min(9, Math.max(0, props.godHandCount)))
@@ -91,6 +101,7 @@ function symbolFor(suit: string) {
         <span>Ваш противник</span>
         <h2>Бог Азарта</h2>
         <p>{{ attacker === 'god' ? 'Ведёт игру' : 'Ждёт вашего решения' }}</p>
+        <blockquote v-if="godLine" data-testid="god-dialogue-line" role="status">{{ godLine }}</blockquote>
       </div>
       <div class="god-hand" :aria-label="`У Бога ${godHandCount} карт`">
         <EmpireCard
@@ -124,6 +135,17 @@ function symbolFor(suit: string) {
           </div>
         </div>
         <span class="discard-count"><CheckCheck :size="13" /> Бито: {{ discardCount }}</span>
+        <button
+          data-testid="inspect-deck-memory"
+          type="button"
+          class="memory-button"
+          :disabled="disabled || !canInspectDeck"
+          :title="deckInspectionReason || 'Показать карты в порядке следующего добора'"
+          @click="emit('inspectDeck')"
+        >
+          <Brain :size="14" /> Память колоды
+          <small v-if="remainingDeckInspections !== null">{{ remainingDeckInspections }}</small>
+        </button>
       </div>
 
       <div class="battle-zone" aria-label="Карты на столе">
@@ -199,6 +221,7 @@ function symbolFor(suit: string) {
 .god-copy > span { color: #879fbb; font: 800 .6rem/1 var(--font-mono,monospace); letter-spacing: .13em; text-transform: uppercase; }
 .god-copy h2 { margin: 5px 0 2px; font: 700 1.7rem/1 Georgia,serif; }
 .god-copy p { margin: 0; color: rgba(240,229,206,.48); font-size: .7rem; }
+.god-copy blockquote { max-width:520px; margin:9px 0 0; padding:8px 10px; border-left:2px solid #d0b262; border-radius:0 6px 6px 0; color:#e9dab8; background:rgba(210,178,98,.08); font:italic .68rem/1.4 Georgia,serif; }
 .god-hand { display: flex; min-width: 260px; height: 92px; align-items: center; justify-content: flex-end; padding-right: 35px; }
 .god-hand :deep(.empire-card) { width: 58px; min-width: 58px; height: 88px; margin-right: -37px; border-radius: 6px; transform: rotate(calc((var(--fan-index) - (var(--fan-total) + 1) / 2) * 2.6deg)); transform-origin: center 130%; }
 .god-hand :deep(.card-back-pattern) { border-width: 1px; }
@@ -220,6 +243,10 @@ function symbolFor(suit: string) {
 .trump-token span { font:700 1.8rem/1 Georgia,serif; }
 .trump-token small { margin-top:-16px; font:800 .5rem/1 var(--font-mono,monospace); text-transform:uppercase; }
 .discard-count { display:inline-flex; align-items:center; gap:4px; color:rgba(240,229,206,.48); font:700 .58rem/1 var(--font-mono,monospace); }
+.memory-button { display:inline-flex; min-height:32px; align-items:center; gap:5px; padding:0 9px; border:1px solid rgba(209,183,116,.28); border-radius:6px; color:#dfc77f; background:rgba(11,23,18,.72); cursor:pointer; font:800 .54rem/1 var(--font-mono,monospace); }
+.memory-button small { display:grid; min-width:17px; height:17px; place-items:center; border-radius:50%; color:#211b12; background:#d2b567; }
+.memory-button:disabled { opacity:.42; cursor:not-allowed; }
+.memory-button:focus-visible { outline:2px solid #eed381; outline-offset:3px; }
 
 .battle-zone { position:relative; z-index:1; display:flex; min-height:330px; flex-wrap:wrap; align-content:center; justify-content:center; gap:10px 4px; }
 .battle-pair { position:relative; width:146px; height:238px; }

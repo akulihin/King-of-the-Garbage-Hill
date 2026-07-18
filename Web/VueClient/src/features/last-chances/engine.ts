@@ -32,6 +32,7 @@ import {
   DualSenseFeedbackController,
   type LastChancesHapticGamepadLike,
 } from './feedback'
+import { createLastChancesDualSenseEnhancedOutput } from './dualsense-serializers'
 import { createLastChancesRng } from './rng'
 import {
   applyLastChancesStatusEffects,
@@ -665,6 +666,7 @@ export class LastChancesEngine {
     this.feedbackController = new DualSenseFeedbackController(
       this.config.input.dualsense.feedback,
       this.feedbackPreferences,
+      { enhanced: createLastChancesDualSenseEnhancedOutput() },
     )
     this.gamepadAdapter = createLastChancesGamepadAdapter({
       deadZone: this.config.input.gamepadDeadZone,
@@ -805,6 +807,7 @@ export class LastChancesEngine {
     const nextFeedbackController = new DualSenseFeedbackController(
       this.config.input.dualsense.feedback,
       this.feedbackPreferences,
+      { enhanced: createLastChancesDualSenseEnhancedOutput() },
     )
     nextFeedbackController.waitForOutputBarrier(feedbackCleanup)
     this.feedbackController = nextFeedbackController

@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 12,
+  "schemaVersion": 13,
   "id": "empires-endgame-default",
   "title": "Empire's Endgame",
   "seed": "empires-endgame-authoritative-default-v1",
@@ -201,10 +201,46 @@
     ]
   },
   "god": {
-    "enabled": false,
-    "lines": [],
-    "deckMemoryRules": [],
-    "antiBitoRules": []
+    "enabled": true,
+    "deckMemory": {
+      "enabled": true,
+      "availability": "always",
+      "inspectionsPerCon": 0,
+      "orientation": "nextDrawFirst",
+      "excludedDefinitionIds": []
+    },
+    "antiBito": {
+      "enabled": true,
+      "minimumConsecutiveBito": 3,
+      "returnCount": 3,
+      "maxInterventions": 3,
+      "source": "discard",
+      "insertion": "drawBottom",
+      "orientation": "preserve",
+      "excludedDefinitionIds": [
+        "card-hearts-jack",
+        "card-hearts-queen",
+        "card-hearts-king",
+        "card-hearts-ace"
+      ],
+      "historyRetention": 16
+    },
+    "lines": [
+      {
+        "id": "god-anti-bito-too-fast",
+        "trigger": "antiBito",
+        "text": "игра закончится слишком быстро и это не интересно",
+        "weight": 1,
+        "once": false
+      }
+    ],
+    "dialogueLogRetention": 24,
+    "mercyConfirmation": {
+      "enabled": true,
+      "title": "Вы собираетесь потратить Божественную Милость ({available}/{cost}) на (переворот карты)",
+      "confirmLabel": "Да я и сам знаю! Не показывайте мне это больше!",
+      "cancelLabel": "Нет, тогда я попридержу..."
+    }
   },
   "quests": {
     "enabled": true,
