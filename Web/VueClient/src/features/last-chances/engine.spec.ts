@@ -121,6 +121,13 @@ type EngineTestAccess = {
   activeDash: {
     attack: LastChancesAttackDefinition
   } | null
+  activeLoadout: {
+    primaryWeaponId: string | null
+    secondaryWeaponId: string | null
+    artifactId?: string | null
+    outfitId?: string | null
+  } | null
+  groundWeapons: Array<{ id: string, weaponId: string, position: LastChancesVector }>
   applyInteractionChoice: (choice: {
     id: string
     title: string
@@ -131,6 +138,7 @@ type EngineTestAccess = {
     }
   }) => void
   cooldownEnds: Map<string, number>
+  canExploreRoom: () => boolean
   controlContextActive: (hand: LastChancesHand, context: LastChancesControlContext) => boolean
   applyGamepadReading: (reading: LastChancesGamepadReading | null) => void
   createSnapshot: () => LastChancesSnapshot
@@ -157,6 +165,8 @@ type EngineTestAccess = {
   effects: unknown[]
   feedbackController: DualSenseFeedbackController
   finishEnemyDeath: (enemy: RuntimeEnemy) => void
+  damagePlayerMental: (damage: number) => void
+  startEmptyRightHandDash: () => boolean
   gestures: {
     press: (hand: LastChancesHand, atMs: number) => void
     reset: () => void
@@ -214,13 +224,14 @@ type EngineTestAccess = {
     position: LastChancesVector
     aim: LastChancesVector
     hp: number
+    mentalHealth: number
     invulnerableMs: number
     recoveryMs: number
     rootMs: number
     parryMs: number
     armorMultiplier: number
     armorMultiplierMs: number
-    stats: { maxHp: number, armor: number }
+    stats: { maxHp: number, maxMentalHealth: number, moveSpeed: number, armor: number }
   }
   pointerAim: LastChancesVector
   roomElapsedMs: number
@@ -258,6 +269,7 @@ type EngineTestAccess = {
   ) => void
   traces: unknown[]
   update: (deltaSeconds: number, deltaMs: number) => void
+  updateClearedRoom: (deltaSeconds: number, deltaMs: number) => void
   updateActiveAreas: (deltaMs: number) => void
   updateDelayedAttacks: (deltaMs: number) => void
   updateDelayedRecoveries: (deltaMs: number) => void
@@ -428,6 +440,74 @@ describe('99LC engine attempt lifecycle', () => {
     }
   })
 
+  it('unlocks every move and omits quest UI state when move quests are disabled', () => {
+    const config = cloneLastChancesConfig(defaultConfig)
+    config.progression.moveQuestsEnabled = false
+    const engine = new LastChancesEngine(makeCanvas(), config)
+    const access = engine as unknown as EngineTestAccess
+
+    try {
+      expect(access.createSnapshot().moveQuests).toEqual([])
+      expect(Object.values(access.moveQuests.left.unlocked).every(Boolean)).toBe(true)
+      const opening = access.createSnapshot().availableNodeIds[0]
+      expect(engine.chooseNode(opening)).toBe(true)
+      expect(Object.values(access.moveQuests.right.unlocked).every(Boolean)).toBe(true)
+      engine.newGeneration()
+      expect(access.createSnapshot().moveQuests).toEqual([])
+      expect(Object.values(access.moveQuests.right.unlocked).every(Boolean)).toBe(true)
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('applies artifact and outfit passives to combat damage, healing, armor, and speed', () => {
+    const config = combatConfig('hybrid-sword', null, 'guard', 1)
+    config.loadout!.artifactId = 'blood-idol'
+    config.loadout!.outfitId = 'knight-armor'
+    const { engine, access } = startCombat(config)
+
+    try {
+      const snapshot = access.createSnapshot()
+      expect(snapshot.player.stats.armor).toBe(config.player.baseStats.armor + 14)
+      expect(snapshot.player.stats.moveSpeed).toBeCloseTo(config.player.baseStats.moveSpeed * 0.84)
+
+      const target = access.enemies[0]
+      target.definition.armor = 0
+      target.hp = 500
+      target.definition.maxHp = 500
+      access.player.hp = 50
+      const attack = weapon(config, 'hybrid-sword').attacks.tap
+      access.damageEnemy(target, attack, 0, { x: 1, y: 0 }, {
+        hand: 'left',
+        gesture: 'tap',
+      })
+      const damageDealt = 500 - target.hp
+      expect(access.player.hp).toBeCloseTo(50 + damageDealt * 0.2)
+
+      access.activeLoadout!.artifactId = 'mind-anchor'
+      access.player.mentalHealth = 100
+      access.damagePlayerMental(10)
+      expect(access.player.mentalHealth).toBe(94)
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('lets ninja clothing dash on right click semantics only with an empty right hand', () => {
+    const config = combatConfig('either-claws', null, 'guard', 1)
+    config.loadout!.outfitId = 'ninja-clothes'
+    const { engine, access } = startCombat(config)
+
+    try {
+      expect(access.weapons.has('right')).toBe(false)
+      expect(access.startEmptyRightHandDash()).toBe(true)
+      expect(access.activeDash?.attack.name).toBe('Рывок одежды ниндзя')
+      expect(access.startEmptyRightHandDash()).toBe(false)
+    } finally {
+      engine.destroy()
+    }
+  })
+
   it('retries the same generated room while retaining Chance cost and stat erosion', () => {
     const snapshots: LastChancesSnapshot[] = []
     let plan: LastChancesGamePlan | null = null
@@ -470,6 +550,28 @@ describe('99LC engine attempt lifecycle', () => {
     } finally {
       engine.destroy()
       vi.restoreAllMocks()
+    }
+  })
+
+  it('keeps the cleared room explorable until the route map is opened', () => {
+    const config = combatConfig('hybrid-sword', null, 'guard', 1)
+    const { engine, access } = startCombat(config)
+
+    try {
+      access.enemies[0].state = 'dead'
+      access.update(0.016, 16)
+      expect(access.createSnapshot().phase).toBe('planning')
+      expect(access.canExploreRoom()).toBe(true)
+
+      const beforeX = access.player.position.x
+      engine.setTouchMove(1, 0)
+      access.updateClearedRoom(0.25, 250)
+      expect(access.player.position.x).toBeGreaterThan(beforeX)
+
+      engine.setRouteMapVisible(true)
+      expect(access.canExploreRoom()).toBe(false)
+    } finally {
+      engine.destroy()
     }
   })
 
@@ -890,6 +992,42 @@ describe('99LC seven-weapon mechanics', () => {
       expect(spider.captureWindowMs).toBeGreaterThan(0)
       expect(spider.facing).toEqual({ x: 1, y: 0 })
       expect(access.createSnapshot().interactionPrompt).toContain('Нож-паука')
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('swaps a captured Knife-spider into the right hand and leaves a two-handed weapon on the floor', () => {
+    const config = combatConfig('twohand-spear', null, 'spider-knife', 1)
+    const { engine, access } = startCombat(config)
+    const spider = access.enemies[0]
+
+    try {
+      spider.captureWindowMs = 1_200
+      spider.facing = { x: 1, y: 0 }
+      spider.position = { x: 210, y: 340 }
+      access.player.position = { x: 150, y: 340 }
+
+      expect(engine.interact()).toBe(true)
+      expect(spider.state).toBe('dead')
+      expect(access.activeLoadout).toMatchObject({
+        primaryWeaponId: null,
+        secondaryWeaponId: 'secondary-spider-knife',
+      })
+      expect(access.groundWeapons).toHaveLength(1)
+      expect(access.groundWeapons[0]).toMatchObject({
+        weaponId: 'twohand-spear',
+        position: spider.position,
+      })
+      expect(access.createSnapshot().interactionPrompt).toContain('Двуручное копьё')
+
+      expect(engine.interact()).toBe(true)
+      expect(access.activeLoadout).toMatchObject({
+        primaryWeaponId: 'twohand-spear',
+        secondaryWeaponId: null,
+      })
+      expect(access.groundWeapons.map(weapon => weapon.weaponId))
+        .toEqual(['secondary-spider-knife'])
     } finally {
       engine.destroy()
     }
@@ -1708,7 +1846,7 @@ describe('99LC move-unlock quests and elite/swarm rooms', () => {
         expect(creep.state).toBe('chasing')
       }
 
-      access.roomElapsedMs = 600
+      access.roomElapsedMs = 200
       access.updateSwarmSpawner()
       expect(access.enemies).toHaveLength(11)
 

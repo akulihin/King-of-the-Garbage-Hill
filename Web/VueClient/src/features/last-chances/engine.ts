@@ -53,6 +53,7 @@ import {
 } from './weapon-runtime'
 import type {
   LastChancesArenaEdge,
+  LastChancesArtifactDefinition,
   LastChancesAttackDefinition,
   LastChancesAttackBehavior,
   LastChancesAttackSetControlDefinition,
@@ -79,6 +80,7 @@ import type {
   LastChancesHitEffectDefinition,
   LastChancesHazardDefinition,
   LastChancesMoveQuestSnapshot,
+  LastChancesOutfitDefinition,
   LastChancesZoneShape,
   LastChancesInteractionChoice,
   LastChancesInteractionSnapshot,
@@ -137,8 +139,17 @@ interface RuntimeEnemy {
   lastPlayerHit: { hand: LastChancesHand, gesture: LastChancesGesture } | null
   /** Per-hand gestures that have landed on this enemy; the elite combo quest reads it on death. */
   gestureHits: Record<LastChancesHand, Set<LastChancesGesture>>
+  /** An opened target touched by Oberhaw refreshes its cooldown on any later death. */
+  swordExecutionMarked: boolean
   /** Swarm creeps spawn outside the arena and skip the bounds clamp until fully inside. */
   entering: boolean
+}
+
+interface RuntimeGroundWeapon {
+  id: string
+  weaponId: string
+  augment: LastChancesAugment
+  position: LastChancesVector
 }
 
 interface RuntimeZoneAttack {
@@ -262,6 +273,10 @@ interface RuntimeActiveArea {
   baseRepeatIntervalMs: number
   rotationAssisted: boolean
   latchedIds: Set<string>
+  /** Horizontal pointer travel matching this Sword sweep. */
+  swordMatchingMousePx: number
+  /** Current nonlinear Zornhaw mouse-motion damage bonus. */
+  swordMotionDamageBonus: number
 }
 
 interface RuntimeEffect {
@@ -274,6 +289,8 @@ interface RuntimeEffect {
   color: string
   remainingMs: number
   totalMs: number
+  /** Nonlinear Sword impact strength, 0–1. */
+  intensity?: number
 }
 
 interface RuntimeColliderTrace {
@@ -293,6 +310,15 @@ interface RuntimeDelayedAttack {
   attack: LastChancesAttackDefinition
   direction: LastChancesVector
   context: AttackExecutionContext
+  targetPosition?: LastChancesVector
+  targetEnemyId?: string | null
+}
+
+interface RuntimeSwordAdvance {
+  weaponId: string
+  direction: LastChancesVector
+  remainingDistance: number
+  speed: number
 }
 
 interface RuntimeDelayedRecovery {
@@ -321,6 +347,13 @@ interface RuntimeWeaponState {
   rhythm: 'idle' | 'early' | 'good' | 'late'
   basicHits: number
   spinInertiaDirection: LastChancesVector | null
+  perfectTimingMs: number
+  fatigueMs: number
+  unterhauDueAtMs: number
+  unterhauTargetId: string | null
+  unterhauTargetPosition: LastChancesVector | null
+  unterhauPrimed: boolean
+  lastMotionDamageBonus: number
 }
 
 interface AttackExecutionContext {
@@ -339,6 +372,8 @@ interface DamageEnemyOptions {
   gesture?: LastChancesGesture
   storedDot?: LastChancesStoredDot | null
   distance?: number
+  damageMultiplier?: number
+  impactIntensity?: number
 }
 
 interface RuntimeEnemyCombatProfile {
@@ -548,6 +583,11 @@ export class LastChancesEngine {
   private generationBaseStats: LastChancesStats
   private activeLoadout: LastChancesLoadoutDefinition | null
   private corpseBoundPrimaryWeaponId: string | null = null
+  private groundWeapons: RuntimeGroundWeapon[] = []
+  private nextGroundWeaponId = 1
+  private ninjaDashReadyAtMs = 0
+  /** The page-owned route overlay suppresses cleared-room exploration while it is visible. */
+  private routeMapVisible = true
   private currentNode: LastChancesPlanNode | null = null
   private availableNodeIds: string[] = []
   private attemptPath: string[] = []
@@ -575,6 +615,7 @@ export class LastChancesEngine {
   private readonly hazardSuppressedUntil = new Map<string, number>()
   private interactionResolved = false
   private activeDash: RuntimeDash | null = null
+  private activeSwordAdvance: RuntimeSwordAdvance | null = null
   private nextProjectileId = 1
   private lastGesture: LastChancesGestureSnapshot | null = null
   private player: RuntimePlayer
@@ -585,6 +626,16 @@ export class LastChancesEngine {
   /** Keeps a centered right stick from handing aim back to an older pointer position. */
   private retainedGamepadAim: LastChancesVector | null = null
   private pointerAim: LastChancesVector = { x: 1, y: 0 }
+  private pointerClientX: number | null = null
+  private pointerDeltaX = 0
+  private readonly immediateSwordInput: Record<LastChancesHand, {
+    firstTapExecuted: boolean
+    oberhauExecuted: boolean
+    unterhauExecuted: boolean
+  }> = {
+    left: { firstTapExecuted: false, oberhauExecuted: false, unterhauExecuted: false },
+    right: { firstTapExecuted: false, oberhauExecuted: false, unterhauExecuted: false },
+  }
   private selectedNodeId: string | null = null
   private selectedInteractionChoiceId: string | null = null
   private gamepadMenuAxisEngaged = false
@@ -656,7 +707,7 @@ export class LastChancesEngine {
     }
     this.controlSchemeValue = options.controlScheme ?? 'legacy'
     this.qaControlsFixture = options.qaFixture === 'controls'
-    if (this.qaControlsFixture) {
+    if (this.qaControlsFixture || this.config.progression.moveQuestsEnabled === false) {
       this.moveQuests = {
         left: createHandMoveQuestState(true),
         right: createHandMoveQuestState(true),
@@ -706,7 +757,7 @@ export class LastChancesEngine {
       armorMultiplierMs: 0,
     }
     this.gestures = new LastChancesGestureRecognizer(this.config.input, (resolution) => {
-      this.performAttack(resolution)
+      this.handleLegacyGestureResolution(resolution)
     })
     this.mylorikControls = new MylorikControlRecognizer(
       this.config.input.mylorik,
@@ -770,6 +821,12 @@ export class LastChancesEngine {
     }
     void this.feedbackController.setPreferences(this.feedbackPreferences)
     this.emitSnapshot(true)
+  }
+
+  setRouteMapVisible(visible: boolean): void {
+    this.routeMapVisible = visible
+    if (visible) this.cleanupControlInputs(false)
+    this.render()
   }
 
   async enableDualSenseFeatures(): Promise<boolean> {
@@ -862,6 +919,7 @@ export class LastChancesEngine {
     const node = this.plan.nodes.find(candidate => candidate.id === nodeId)
     if (!node) return false
     this.currentNode = node
+    this.routeMapVisible = false
     this.attemptPath.push(node.id)
     this.availableNodeIds = []
     this.selectedNodeId = null
@@ -897,6 +955,8 @@ export class LastChancesEngine {
     }
     this.zoneAttacks = []
     this.swarmSpawner = null
+    this.groundWeapons = []
+    this.ninjaDashReadyAtMs = 0
     const swarmDefinition = node.swarm
       ? this.enemyDefinitions.get(node.swarm.definitionId)
       : undefined
@@ -936,6 +996,7 @@ export class LastChancesEngine {
         statuses: createLastChancesStatuses(),
         lastPlayerHit: null,
         gestureHits: { left: new Set(), right: new Set() },
+        swordExecutionMarked: false,
         entering: false,
       }
     })
@@ -960,20 +1021,19 @@ export class LastChancesEngine {
   }
 
   interact(): boolean {
-    if (this.phase !== 'playing' || this.paused || !this.activeLoadout) return false
+    if (!this.canExploreRoom() || this.paused || !this.activeLoadout) return false
+    const groundWeapon = this.nearestGroundWeapon()
+    if (groundWeapon) return this.pickUpGroundWeapon(groundWeapon)
+    if (this.phase !== 'playing') return false
     const spider = this.capturableKnifeSpider()
     if (!spider) return false
-    const candidateConfig = cloneLastChancesConfig(this.config)
-    candidateConfig.loadout = this.normalizeLoadoutAugments({
-      ...this.activeLoadout,
-      secondaryWeaponId: 'secondary-spider-knife',
-    })
-    const resolved = resolveLastChancesLoadout(candidateConfig)
-    if (resolved.right?.id !== 'secondary-spider-knife') return false
+    const heldRight = this.weapons.get('right')
+    if (heldRight) this.dropRightHandWeapon(spider.position, heldRight)
     spider.state = 'dead'
     this.activeLoadout = this.normalizeLoadoutAugments({
       ...this.activeLoadout,
       secondaryWeaponId: 'secondary-spider-knife',
+      secondaryAugment: 'none',
     })
     this.weaponStates.delete('secondary-spider-knife')
     this.rebuildWeapons()
@@ -1003,14 +1063,19 @@ export class LastChancesEngine {
     this.chances = this.config.chances
     this.totalDeaths = 0
     this.corpseBoundPrimaryWeaponId = null
+    this.nextGroundWeaponId = 1
     this.elapsedMs = 0
     this.lastSnapshotAt = Number.NEGATIVE_INFINITY
     this.nextProjectileId = 1
     this.generationBaseStats = copyStats(this.config.player.baseStats)
     this.player.stats = copyStats(this.generationBaseStats)
     this.moveQuests = {
-      left: createHandMoveQuestState(this.qaControlsFixture),
-      right: createHandMoveQuestState(this.qaControlsFixture),
+      left: createHandMoveQuestState(
+        this.qaControlsFixture || this.config.progression.moveQuestsEnabled === false,
+      ),
+      right: createHandMoveQuestState(
+        this.qaControlsFixture || this.config.progression.moveQuestsEnabled === false,
+      ),
     }
     this.resetAttempt()
     this.emitPlan()
@@ -1032,7 +1097,28 @@ export class LastChancesEngine {
 
   press(hand: LastChancesHand): void {
     if (this.phase !== 'playing' || this.paused || this.destroyed) return
-    this.gestures.press(hand, performance.now())
+    const now = performance.now()
+    this.gestures.press(hand, now)
+    const weapon = this.weapons.get(hand)
+    if (weapon?.trait !== 'swordRhythm') return
+    const input = this.gestures.snapshot(hand, now)
+    const immediate = this.immediateSwordInput[hand]
+    if (input.sequence === 'first') {
+      immediate.firstTapExecuted = this.gestureReady(hand, 'tap')
+      immediate.oberhauExecuted = false
+      immediate.unterhauExecuted = false
+      if (immediate.firstTapExecuted) {
+        this.performAttack({ hand, gesture: 'tap', atMs: this.elapsedMs, heldMs: 0, firstHoldMs: 0 })
+      }
+      return
+    }
+    if (input.sequence === 'secondTap') {
+      immediate.oberhauExecuted = this.gestureReady(hand, 'doubleTap')
+      immediate.unterhauExecuted = false
+      if (immediate.oberhauExecuted) {
+        this.performAttack({ hand, gesture: 'doubleTap', atMs: this.elapsedMs, heldMs: 0, firstHoldMs: 0 })
+      }
+    }
   }
 
   release(hand: LastChancesHand): void {
@@ -1049,6 +1135,54 @@ export class LastChancesEngine {
     this.gestures.release(hand, now)
   }
 
+  private handleLegacyGestureResolution(resolution: LastChancesGestureResolution): void {
+    const weapon = this.weapons.get(resolution.hand)
+    const immediate = this.immediateSwordInput[resolution.hand]
+    if (weapon?.trait === 'swordRhythm') {
+      if (resolution.gesture === 'tap' && immediate.firstTapExecuted) {
+        this.resetImmediateSwordInput(resolution.hand)
+        return
+      }
+      if (resolution.gesture === 'doubleTap' && immediate.oberhauExecuted) {
+        this.cancelPendingUnterhau(weapon)
+        this.resetImmediateSwordInput(resolution.hand)
+        return
+      }
+      if (resolution.gesture === 'doubleTapHold' && immediate.oberhauExecuted) {
+        if (!immediate.unterhauExecuted
+          && resolution.heldMs >= tuningValue(weapon, 'unterhauHoldMs', 1000)) {
+          immediate.unterhauExecuted = this.executePendingUnterhau(resolution.hand)
+        }
+        if (!immediate.unterhauExecuted) this.cancelPendingUnterhau(weapon)
+        this.resetImmediateSwordInput(resolution.hand)
+        return
+      }
+    }
+    this.resetImmediateSwordInput(resolution.hand)
+    this.performAttack(resolution)
+  }
+
+  private resetImmediateSwordInput(hand: LastChancesHand): void {
+    this.immediateSwordInput[hand] = {
+      firstTapExecuted: false,
+      oberhauExecuted: false,
+      unterhauExecuted: false,
+    }
+  }
+
+  private updateImmediateSwordInputs(now: number): void {
+    for (const hand of LAST_CHANCES_HANDS) {
+      const immediate = this.immediateSwordInput[hand]
+      if (!immediate.oberhauExecuted || immediate.unterhauExecuted) continue
+      const weapon = this.weapons.get(hand)
+      if (weapon?.trait !== 'swordRhythm') continue
+      const input = this.gestures.snapshot(hand, now)
+      if (!input.pressed || input.sequence !== 'secondTap') continue
+      if (input.heldMs < tuningValue(weapon, 'unterhauHoldMs', 1000)) continue
+      immediate.unterhauExecuted = this.executePendingUnterhau(hand)
+    }
+  }
+
   pointerMove(clientX: number, clientY: number): void {
     if (!this.currentNode) return
     const bounds = this.canvas.getBoundingClientRect()
@@ -1061,6 +1195,8 @@ export class LastChancesEngine {
       x: world.x - this.player.position.x,
       y: world.y - this.player.position.y,
     }, this.pointerAim)
+    if (this.pointerClientX !== null) this.pointerDeltaX += clientX - this.pointerClientX
+    this.pointerClientX = clientX
     this.retainedGamepadAim = null
   }
 
@@ -1071,6 +1207,7 @@ export class LastChancesEngine {
     this.frameNowMs = frameMs
     this.pollGamepad()
     this.gestures.update(frameMs)
+    this.updateImmediateSwordInputs(frameMs)
     this.mylorikControls.update(frameMs)
     this.updateKeyboardDualSenseTriggers(frameMs)
     this.dualSenseControls.update(frameMs, physicalHand => (
@@ -1079,6 +1216,7 @@ export class LastChancesEngine {
     if (!this.paused) {
       this.elapsedMs += deltaMs
       if (this.phase === 'playing') this.update(deltaMs / 1000, deltaMs)
+      else if (this.canExploreRoom()) this.updateClearedRoom(deltaMs / 1000, deltaMs)
     }
     this.render()
     this.emitSnapshot(false)
@@ -1096,10 +1234,13 @@ export class LastChancesEngine {
     if (this.player.armorMultiplierMs <= 0) this.player.armorMultiplier = 1
     for (const state of this.weaponStates.values()) {
       state.recoveryMs = Math.max(0, state.recoveryMs - deltaMs)
+      state.perfectTimingMs = Math.max(0, state.perfectTimingMs - deltaMs)
+      state.fatigueMs = Math.max(0, state.fatigueMs - deltaMs)
     }
     this.updateHeldWeaponMechanics(deltaMs)
     this.updateDelayedAttacks(deltaMs)
     this.updateDelayedRecoveries(deltaMs)
+    this.updateSwordAdvance(deltaSeconds)
     this.updatePlayer(deltaSeconds)
     this.updateProjectiles(deltaSeconds, deltaMs)
     this.updateSwarmSpawner()
@@ -1113,9 +1254,20 @@ export class LastChancesEngine {
     this.effects = this.effects.filter(effect => effect.remainingMs > 0)
     this.traces.forEach(trace => { trace.remainingMs -= deltaMs })
     this.traces = this.traces.filter(trace => trace.remainingMs > 0)
+    this.pointerDeltaX = 0
     if (this.phase === 'playing'
       && (this.swarmSpawner?.remaining ?? 0) <= 0
       && this.enemies.every(enemy => enemy.state === 'dead')) this.completeRoom()
+  }
+
+  private canExploreRoom(): boolean {
+    return this.phase === 'playing'
+      || (this.phase === 'planning' && this.currentNode !== null && !this.routeMapVisible)
+  }
+
+  private updateClearedRoom(deltaSeconds: number, deltaMs: number): void {
+    this.player.invulnerableMs = Math.max(0, this.player.invulnerableMs - deltaMs)
+    this.updatePlayer(deltaSeconds)
   }
 
   private updateDelayedAttacks(deltaMs: number): void {
@@ -1127,8 +1279,58 @@ export class LastChancesEngine {
     this.delayedAttacks = this.delayedAttacks.filter(delayed => delayed.remainingMs > 0)
     if (this.phase !== 'playing') return
     for (const delayed of ready) {
-      this.executeAttack(delayed.attack, delayed.direction, delayed.context)
+      this.executeAttack(
+        delayed.attack,
+        this.resolveDelayedAttackDirection(delayed),
+        delayed.context,
+      )
+      if (delayed.attack.behavior === 'swordFollowUp') {
+        const state = this.weaponState(delayed.context.weapon)
+        state.unterhauDueAtMs = 0
+        state.unterhauTargetId = null
+        state.unterhauTargetPosition = null
+        state.unterhauPrimed = false
+      }
     }
+  }
+
+  private resolveDelayedAttackDirection(delayed: RuntimeDelayedAttack): LastChancesVector {
+    if (delayed.attack.behavior !== 'swordFollowUp') return delayed.direction
+    const originalTarget = delayed.targetEnemyId
+      ? this.enemies.find(enemy => enemy.id === delayed.targetEnemyId)
+      : null
+    if (originalTarget?.state !== 'dead') {
+      const distance = Math.sqrt(distanceSquared(this.player.position, originalTarget.position))
+      if (distance <= delayed.attack.range + originalTarget.definition.radius) {
+        return normalize({
+          x: originalTarget.position.x - this.player.position.x,
+          y: originalTarget.position.y - this.player.position.y,
+        }, delayed.direction)
+      }
+      return normalize(this.player.aim, delayed.direction)
+    }
+    if (delayed.targetEnemyId) {
+      const nearest = this.enemies
+        .filter(enemy => enemy.state !== 'dead')
+        .sort((left, right) => (
+          distanceSquared(this.player.position, left.position)
+            - distanceSquared(this.player.position, right.position)
+          || left.id.localeCompare(right.id)
+        ))[0]
+      if (nearest) {
+        return normalize({
+          x: nearest.position.x - this.player.position.x,
+          y: nearest.position.y - this.player.position.y,
+        }, delayed.direction)
+      }
+    }
+    if (delayed.targetPosition) {
+      return normalize({
+        x: delayed.targetPosition.x - this.player.position.x,
+        y: delayed.targetPosition.y - this.player.position.y,
+      }, delayed.direction)
+    }
+    return normalize(this.player.aim, delayed.direction)
   }
 
   private updateDelayedRecoveries(deltaMs: number): void {
@@ -1163,6 +1365,18 @@ export class LastChancesEngine {
       remainingMs: delayMs,
       recoveryMs,
     })
+  }
+
+  private updateSwordAdvance(deltaSeconds: number): void {
+    const advance = this.activeSwordAdvance
+    if (!advance || advance.remainingDistance <= 0) return
+    const travel = Math.min(advance.remainingDistance, advance.speed * deltaSeconds)
+    this.moveCircle(this.player.position, {
+      x: advance.direction.x * travel,
+      y: advance.direction.y * travel,
+    }, this.config.player.radius)
+    advance.remainingDistance -= travel
+    if (advance.remainingDistance <= EPSILON) this.activeSwordAdvance = null
   }
 
   private updatePlayer(deltaSeconds: number): void {
@@ -1319,8 +1533,8 @@ export class LastChancesEngine {
       ? { x: 0, y: 0 }
       : this.resolveMovement()
     this.moveCircle(this.player.position, {
-      x: movement.x * this.player.stats.moveSpeed * deltaSeconds,
-      y: movement.y * this.player.stats.moveSpeed * deltaSeconds,
+      x: movement.x * this.effectivePlayerStats().moveSpeed * deltaSeconds,
+      y: movement.y * this.effectivePlayerStats().moveSpeed * deltaSeconds,
     }, this.config.player.radius)
   }
 
@@ -1611,6 +1825,7 @@ export class LastChancesEngine {
       statuses: createLastChancesStatuses(),
       lastPlayerHit: null,
       gestureHits: { left: new Set(), right: new Set() },
+      swordExecutionMarked: false,
       entering: true,
     })
   }
@@ -1637,7 +1852,9 @@ export class LastChancesEngine {
     for (const enemy of this.enemies) {
       if (enemy.hp <= 0) continue
       updateLastChancesStatuses(enemy.statuses, deltaMs, amount => {
+        const hpBeforeTick = enemy.hp
         enemy.hp = Math.max(0, enemy.hp - amount)
+        this.restoreFromLifesteal(hpBeforeTick - enemy.hp)
         if (enemy.hp <= 0) this.finishEnemyDeath(enemy)
       })
       if (enemy.state === 'dead') continue
@@ -1903,7 +2120,7 @@ export class LastChancesEngine {
       ), 0),
     )
     if (pressure > 0) {
-      this.player.mentalHealth = Math.max(0, this.player.mentalHealth - pressure * deltaSeconds)
+      this.damagePlayerMental(pressure * deltaSeconds)
     } else {
       this.player.mentalHealth = Math.min(
         this.player.stats.maxMentalHealth,
@@ -1931,10 +2148,7 @@ export class LastChancesEngine {
     for (const hazard of this.currentNode.arena.hazards) {
       if (!this.hazardActive(hazard) || !this.playerTouchesHazard(hazard)) continue
       if (hazard.kind === 'mentalFog') {
-        this.player.mentalHealth = Math.max(
-          0,
-          this.player.mentalHealth - hazard.mentalDamagePerSecond * deltaSeconds,
-        )
+        this.damagePlayerMental(hazard.mentalDamagePerSecond * deltaSeconds)
         if (this.player.mentalHealth <= 0) this.killPlayer(`Mental health collapsed in ${hazard.name}`)
         continue
       }
@@ -2538,9 +2752,21 @@ export class LastChancesEngine {
       attack.damage *= tuningValue(weapon, 'recoveryCancelDamageMultiplier', 1.35)
     }
     if (weapon.trait === 'swordRhythm' && gesture === 'tap') {
-      this.applySwordRhythm(state, attack, hand)
+      if (!this.applySwordRhythm(state, attack, hand)) return
     }
-    if (gesture !== 'tap') this.cooldownEnds.set(key, this.elapsedMs + attack.cooldownMs)
+    if (weapon.trait === 'swordRhythm'
+      && (gesture === 'doubleTap' || gesture === 'doubleTapHold')) {
+      this.morphSwordAttack(weapon.id)
+    }
+    if (gesture !== 'tap') {
+      const cooldownEnd = this.elapsedMs + attack.cooldownMs
+      this.cooldownEnds.set(key, cooldownEnd)
+      if (weapon.trait === 'swordRhythm'
+        && (gesture === 'doubleTap' || gesture === 'doubleTapHold')) {
+        this.cooldownEnds.set(cooldownKey(hand, 'doubleTap'), cooldownEnd)
+        this.cooldownEnds.set(cooldownKey(hand, 'doubleTapHold'), cooldownEnd)
+      }
+    }
     this.lastGesture = {
       hand,
       gesture,
@@ -2621,21 +2847,21 @@ export class LastChancesEngine {
     }
     if (attack.behavior === 'swordFollowUp') {
       const openingAttack = attackWithLastChancesAugment(weapon.attacks.doubleTap, weapon)
-      const followUpDelayMs = tuningValue(attack, 'followUpDelayMs', openingAttack.durationMs)
-      const actionDurationMs = followUpDelayMs + attack.durationMs + (attack.lingerMs ?? 0)
-      this.weaponActionEnds.set(weapon.id, this.elapsedMs + actionDurationMs)
-      this.scheduleRecovery(weapon.id, attack.recoveryMs, actionDurationMs)
+      this.prepareSwordOberhau(state, openingAttack, direction)
       this.executeAttack(openingAttack, direction, {
         ...context,
         gesture: 'doubleTap',
       })
-      this.delayedAttacks.push({
-        remainingMs: followUpDelayMs,
-        attack,
-        direction: { ...direction },
-        context,
-      })
+      if (resolution.heldMs >= tuningValue(weapon, 'unterhauHoldMs', 1000)) {
+        this.queueSwordUnterhau(context, attack, direction, 0)
+      } else {
+        this.cancelPendingUnterhau(weapon)
+      }
       return
+    }
+
+    if (attack.behavior === 'swordOpening') {
+      this.prepareSwordOberhau(state, attack, direction)
     }
 
     const actionDurationMs = attack.durationMs + (attack.lingerMs ?? 0)
@@ -3441,6 +3667,13 @@ export class LastChancesEngine {
         rhythm: 'idle',
         basicHits: 0,
         spinInertiaDirection: null,
+        perfectTimingMs: 0,
+        fatigueMs: 0,
+        unterhauDueAtMs: 0,
+        unterhauTargetId: null,
+        unterhauTargetPosition: null,
+        unterhauPrimed: false,
+        lastMotionDamageBonus: 0,
       }
       this.weaponStates.set(weapon.id, state)
     }
@@ -3531,6 +3764,8 @@ export class LastChancesEngine {
       ),
       rotationAssisted: false,
       latchedIds: new Set(),
+      swordMatchingMousePx: 0,
+      swordMotionDamageBonus: 0,
     }
   }
 
@@ -3673,6 +3908,7 @@ export class LastChancesEngine {
     const hpBeforeHit = enemy.hp
     enemy.hp = Math.max(0, enemy.hp - Math.max(0, scaledDamage - Math.max(0, armor)))
     const damageDealt = hpBeforeHit - enemy.hp
+    this.restoreFromLifesteal(damageDealt)
     if (damageDealt > 0 && options.hand) {
       this.markSuccessfulHitFeedbackWindow(options.hand)
       if (this.controlSchemeValue === 'dualsense') {
@@ -3944,7 +4180,10 @@ export class LastChancesEngine {
 
   private damagePlayer(rawDamage: number, source: string): void {
     if (this.player.invulnerableMs > 0 || this.phase !== 'playing') return
-    const damage = Math.max(1, rawDamage - this.player.stats.armor * this.player.armorMultiplier)
+    const damage = Math.max(
+      1,
+      rawDamage - this.effectivePlayerStats().armor * this.player.armorMultiplier,
+    )
     this.player.hp = Math.max(0, this.player.hp - damage)
     this.player.invulnerableMs = this.config.player.invulnerabilityMs
     if (this.player.hp <= 0) this.killPlayer(`Killed by ${source}`)
@@ -3956,6 +4195,42 @@ export class LastChancesEngine {
     this.player.hp = Math.max(0, this.player.hp - Math.max(1, rawDamage))
     this.player.invulnerableMs = this.config.player.invulnerabilityMs
     if (this.player.hp <= 0) this.killPlayer(`Killed by ${source}`)
+  }
+
+  private activeArtifact(): LastChancesArtifactDefinition | null {
+    const id = this.activeLoadout?.artifactId
+    return id ? this.config.artifacts?.find(artifact => artifact.id === id) ?? null : null
+  }
+
+  private activeOutfit(): LastChancesOutfitDefinition | null {
+    const id = this.activeLoadout?.outfitId
+    return id ? this.config.outfits?.find(outfit => outfit.id === id) ?? null : null
+  }
+
+  private effectivePlayerStats(): LastChancesStats {
+    const outfit = this.activeOutfit()
+    return {
+      ...this.player.stats,
+      moveSpeed: this.player.stats.moveSpeed * (outfit?.moveSpeedMultiplier ?? 1),
+      armor: this.player.stats.armor + (outfit?.armorBonus ?? 0),
+    }
+  }
+
+  private damagePlayerMental(rawDamage: number): void {
+    const reduction = clamp(this.activeArtifact()?.mentalDamageReduction ?? 0, 0, 1)
+    this.player.mentalHealth = Math.max(
+      0,
+      this.player.mentalHealth - Math.max(0, rawDamage) * (1 - reduction),
+    )
+  }
+
+  private restoreFromLifesteal(damageDealt: number): void {
+    const ratio = clamp(this.activeArtifact()?.lifestealRatio ?? 0, 0, 1)
+    if (ratio <= 0 || damageDealt <= 0 || this.player.hp <= 0) return
+    this.player.hp = Math.min(
+      this.player.stats.maxHp,
+      this.player.hp + damageDealt * ratio,
+    )
   }
 
   private spawnZoneAttack(enemy: RuntimeEnemy): void {
@@ -4082,6 +4357,7 @@ export class LastChancesEngine {
         this.player.mentalHealth + this.config.progression.roomMentalRecovery,
       )
       this.phase = 'planning'
+      this.routeMapVisible = false
       this.availableNodeIds = [...this.currentNode.nextNodeIds]
       this.selectedNodeId = this.controlSchemeValue === 'dualsense'
         ? null
@@ -4134,13 +4410,21 @@ export class LastChancesEngine {
       this.player.stats.maxMentalHealth,
     )
     if (this.activeLoadout && (effect.primaryWeaponId !== undefined
-      || effect.secondaryWeaponId !== undefined)) {
+      || effect.secondaryWeaponId !== undefined
+      || effect.artifactId !== undefined
+      || effect.outfitId !== undefined)) {
       this.activeLoadout = this.normalizeLoadoutAugments({
         ...this.activeLoadout,
         primaryWeaponId: effect.primaryWeaponId ?? this.activeLoadout.primaryWeaponId,
         secondaryWeaponId: effect.secondaryWeaponId !== undefined
           ? effect.secondaryWeaponId
           : this.activeLoadout.secondaryWeaponId,
+        artifactId: effect.artifactId !== undefined
+          ? effect.artifactId
+          : this.activeLoadout.artifactId,
+        outfitId: effect.outfitId !== undefined
+          ? effect.outfitId
+          : this.activeLoadout.outfitId,
       })
       this.rebuildWeapons()
       this.cooldownEnds.clear()
@@ -4174,7 +4458,9 @@ export class LastChancesEngine {
   ): LastChancesLoadoutDefinition {
     const normalized = { ...loadout }
     const catalog = new Map(this.config.weapons.map(weapon => [weapon.id, weapon]))
-    const primary = catalog.get(normalized.primaryWeaponId)
+    const primary = normalized.primaryWeaponId
+      ? catalog.get(normalized.primaryWeaponId)
+      : undefined
     const supports = (
       weapon: typeof primary,
       augment: LastChancesAugment | undefined,
@@ -4199,6 +4485,7 @@ export class LastChancesEngine {
 
   private resetAttempt(): void {
     this.phase = 'planning'
+    this.routeMapVisible = true
     this.paused = false
     this.currentNode = null
     this.availableNodeIds = this.plan.tiers[0].map(node => node.id)
@@ -4226,6 +4513,8 @@ export class LastChancesEngine {
     this.enemies = []
     this.zoneAttacks = []
     this.swarmSpawner = null
+    this.groundWeapons = []
+    this.ninjaDashReadyAtMs = 0
     // Quest unlocks and completed quests survive the death; only room-scoped counters reset.
     for (const hand of LAST_CHANCES_HANDS) {
       this.moveQuests[hand].roomKills = { tap: 0, hold: 0 }
@@ -4281,6 +4570,147 @@ export class LastChancesEngine {
     return !this.currentNode.arena.obstacles.some(obstacle => (
       segmentHitsObstacle(enemy.position, this.player.position, obstacle)
     ))
+  }
+
+  private addGroundWeapon(
+    weaponId: string,
+    augment: LastChancesAugment | undefined,
+    position: LastChancesVector,
+  ): void {
+    if (!this.config.weapons.some(weapon => weapon.id === weaponId)) return
+    this.groundWeapons.push({
+      id: `ground-weapon-${this.nextGroundWeaponId++}`,
+      weaponId,
+      augment: augment ?? 'none',
+      position: { ...position },
+    })
+  }
+
+  private dropRightHandWeapon(
+    position: LastChancesVector,
+    heldRight: LastChancesResolvedWeapon,
+  ): void {
+    if (!this.activeLoadout) return
+    if (this.activeLoadout.secondaryWeaponId === heldRight.id) {
+      this.addGroundWeapon(heldRight.id, this.activeLoadout.secondaryAugment, position)
+      this.activeLoadout = {
+        ...this.activeLoadout,
+        secondaryWeaponId: null,
+        secondaryAugment: 'none',
+      }
+      return
+    }
+    if (this.activeLoadout.primaryWeaponId === heldRight.id) {
+      this.addGroundWeapon(heldRight.id, this.activeLoadout.primaryAugment, position)
+      this.activeLoadout = {
+        ...this.activeLoadout,
+        primaryWeaponId: null,
+        primaryAugment: 'none',
+      }
+    }
+  }
+
+  private nearestGroundWeapon(): RuntimeGroundWeapon | null {
+    return this.groundWeapons
+      .map(weapon => ({
+        weapon,
+        distance: Math.sqrt(distanceSquared(this.player.position, weapon.position)),
+      }))
+      .filter(candidate => candidate.distance <= 105)
+      .sort((left, right) => left.distance - right.distance)[0]?.weapon ?? null
+  }
+
+  private pickUpGroundWeapon(groundWeapon: RuntimeGroundWeapon): boolean {
+    if (!this.activeLoadout) return false
+    const definition = this.config.weapons.find(weapon => weapon.id === groundWeapon.weaponId)
+    if (!definition) return false
+    const pickedIndex = this.groundWeapons.findIndex(weapon => weapon.id === groundWeapon.id)
+    if (pickedIndex < 0) return false
+    this.groundWeapons.splice(pickedIndex, 1)
+    const next = { ...this.activeLoadout }
+    const mode = definition.equipMode ?? (definition.hand === 'right' ? 'secondaryOnly' : 'primaryOnly')
+    if (mode === 'secondaryOnly') {
+      if (next.secondaryWeaponId) {
+        this.addGroundWeapon(next.secondaryWeaponId, next.secondaryAugment, groundWeapon.position)
+      }
+      next.secondaryWeaponId = definition.id
+      next.secondaryAugment = groundWeapon.augment
+    } else {
+      if (next.primaryWeaponId) {
+        this.addGroundWeapon(next.primaryWeaponId, next.primaryAugment, groundWeapon.position)
+      }
+      next.primaryWeaponId = definition.id
+      next.primaryAugment = groundWeapon.augment
+      if (mode === 'twoHanded') {
+        if (next.secondaryWeaponId) {
+          this.addGroundWeapon(next.secondaryWeaponId, next.secondaryAugment, groundWeapon.position)
+        }
+        next.secondaryWeaponId = null
+        next.secondaryAugment = next.primaryAugment
+      }
+    }
+    this.activeLoadout = this.normalizeLoadoutAugments(next)
+    this.rebuildWeapons()
+    this.cooldownEnds.clear()
+    this.resetTapCombos()
+    this.lastGesture = {
+      hand: mode === 'secondaryOnly' ? 'right' : 'left',
+      gesture: 'tap',
+      attackName: `${definition.name} подобран`,
+      atMs: this.elapsedMs,
+    }
+    this.emitSnapshot(true)
+    return true
+  }
+
+  private startEmptyRightHandDash(): boolean {
+    const dash = this.activeOutfit()?.emptyRightHandDash
+    if (!dash || !this.canExploreRoom() || this.routeMapVisible || this.paused
+      || this.weapons.has('right') || this.activeDash || this.elapsedMs < this.ninjaDashReadyAtMs) {
+      return false
+    }
+    const direction = normalize(this.player.aim, { x: 1, y: 0 })
+    const attack: LastChancesAttackDefinition = {
+      name: 'Рывок одежды ниндзя',
+      kind: 'dash',
+      behavior: 'poleVault',
+      damage: 0,
+      cooldownMs: dash.cooldownMs,
+      range: dash.distance,
+      radius: this.config.player.radius,
+      arcDegrees: 0,
+      durationMs: dash.durationMs,
+      projectileSpeed: 0,
+      pierce: 0,
+      knockback: 0,
+      color: '#718aa2',
+      collider: { shape: 'capsule', width: this.config.player.radius * 2, traceMs: 260 },
+      invulnerabilityMs: dash.durationMs,
+    }
+    this.activeDash = {
+      origin: { ...this.player.position },
+      direction,
+      remainingDistance: dash.distance,
+      speed: dash.distance / Math.max(0.08, dash.durationMs / 1000),
+      damage: 0,
+      radius: this.config.player.radius,
+      knockback: 0,
+      hitIds: new Set(),
+      hitRecords: new Map(),
+      remainingHits: 0,
+      color: attack.color,
+      attack,
+      weaponId: this.activeOutfit()?.id ?? 'ninja-outfit',
+      hand: 'right',
+      storedDot: null,
+      landingBurst: false,
+      trailAccumulatorMs: 0,
+      elapsedMs: 0,
+    }
+    this.player.invulnerableMs = Math.max(this.player.invulnerableMs, dash.durationMs)
+    this.ninjaDashReadyAtMs = this.elapsedMs + dash.cooldownMs
+    this.addEffect('dash', attack, direction)
+    return true
   }
 
   private capturableKnifeSpider(): RuntimeEnemy | null {
@@ -4484,7 +4914,7 @@ export class LastChancesEngine {
       }, null)
     }
 
-    if (this.phase === 'planning' && !this.paused) {
+    if (this.phase === 'planning' && this.routeMapVisible && !this.paused) {
       const menuAxis = reading?.move ?? { x: 0, y: 0 }
       const dominantAxis = Math.abs(menuAxis.x) >= Math.abs(menuAxis.y) ? menuAxis.x : menuAxis.y
       if (Math.abs(dominantAxis) >= 0.55 && !this.gamepadMenuAxisEngaged) {
@@ -4706,6 +5136,7 @@ export class LastChancesEngine {
 
   private readonly handleKeyDown = (event: KeyboardEvent): void => {
     const activeControl = this.phase === 'playing' && !this.paused
+    const movementControl = this.canExploreRoom() && !this.routeMapVisible && !this.paused
     const semanticKeyboard = this.controlSchemeValue === 'legacy'
       ? null
       : this.controlSchemeValue === 'mylorik'
@@ -4720,10 +5151,15 @@ export class LastChancesEngine {
     const isInteractionKey = semanticKeyboard
       ? semanticKeyboard.interactKeys.includes(event.code)
       : event.code === 'KeyE'
-    if (activeControl && (MOVEMENT_KEYS.has(event.code) || isAttackKey || isInteractionKey)) {
+    if ((movementControl && MOVEMENT_KEYS.has(event.code))
+      || (activeControl && (isAttackKey || isInteractionKey))) {
       event.preventDefault()
     }
-    if (activeControl && MOVEMENT_KEYS.has(event.code)) this.pressedKeys.add(event.code)
+    if (movementControl && MOVEMENT_KEYS.has(event.code)) this.pressedKeys.add(event.code)
+    if (movementControl && isInteractionKey && !event.repeat) {
+      this.interact()
+      return
+    }
     if (!activeControl) return
     if (event.repeat) return
     if (activeControl && isInteractionKey) {
@@ -4902,6 +5338,7 @@ export class LastChancesEngine {
   private readonly handlePointerDown = (event: PointerEvent): void => {
     if (event.pointerType === 'touch') return
     this.canvas.setPointerCapture?.(event.pointerId)
+    if (event.button === 2 && !this.weapons.has('right') && this.startEmptyRightHandDash()) return
     if (this.controlSchemeValue === 'legacy') {
       if (event.button === 0) this.press('left')
       if (event.button === 2) this.press('right')
@@ -5227,7 +5664,9 @@ export class LastChancesEngine {
         recoveryMs: state.recoveryMs,
       }]
     })
-    const moveQuests: LastChancesMoveQuestSnapshot[] = LAST_CHANCES_HANDS.map((hand) => {
+    const moveQuests: LastChancesMoveQuestSnapshot[] = this.config.progression.moveQuestsEnabled === false
+      ? []
+      : LAST_CHANCES_HANDS.map((hand) => {
       const quest = this.moveQuests[hand]
       const required = this.comboQuestGestures(hand)
       let bestComboHits: LastChancesGesture[] = []
@@ -5249,7 +5688,12 @@ export class LastChancesEngine {
         comboGesturesHit: bestComboHits,
         comboGesturesRequired: required,
       }
-    })
+      })
+    const effectiveStats = this.effectivePlayerStats()
+    const groundWeapon = this.nearestGroundWeapon()
+    const groundWeaponName = groundWeapon
+      ? this.config.weapons.find(weapon => weapon.id === groundWeapon.weaponId)?.name
+      : null
     return {
       phase: this.phase,
       paused: this.paused,
@@ -5267,7 +5711,7 @@ export class LastChancesEngine {
         aim: { ...this.player.aim },
         hp: this.player.hp,
         mentalHealth: this.player.mentalHealth,
-        stats: copyStats(this.player.stats),
+        stats: copyStats(effectiveStats),
         invulnerableForMs: this.player.invulnerableMs,
         armorMultiplier: this.player.armorMultiplier,
         armorMultiplierForMs: this.player.armorMultiplierMs,
@@ -5294,6 +5738,13 @@ export class LastChancesEngine {
       actionCues,
       weaponStates,
       moveQuests,
+      groundWeapons: this.groundWeapons.map(weapon => ({
+        id: weapon.id,
+        weaponId: weapon.weaponId,
+        name: this.config.weapons.find(definition => definition.id === weapon.weaponId)?.name
+          ?? weapon.weaponId,
+        position: { ...weapon.position },
+      })),
       swarm: this.swarmSpawner
         ? {
             definitionId: this.swarmSpawner.definition.id,
@@ -5301,7 +5752,9 @@ export class LastChancesEngine {
             total: this.swarmSpawner.total,
           }
         : null,
-      interactionPrompt: this.capturableKnifeSpider()
+      interactionPrompt: groundWeapon && groundWeaponName
+        ? `${this.controlSchemeValue === 'legacy' ? 'E' : this.controlSchemeValue === 'mylorik' ? 'F / Cross' : 'Cross'}: подобрать ${groundWeaponName}`
+        : this.capturableKnifeSpider()
         ? this.controlSchemeValue === 'legacy'
           ? 'E / обе кнопки: схватить Нож-паука со спины'
           : this.controlSchemeValue === 'mylorik'
@@ -5368,6 +5821,12 @@ export class LastChancesEngine {
       items.push({
         depth: projectile.position.x + projectile.position.y,
         draw: () => this.renderProjectile(projectile, node),
+      })
+    }
+    for (const weapon of this.groundWeapons) {
+      items.push({
+        depth: weapon.position.x + weapon.position.y,
+        draw: () => this.renderGroundWeapon(weapon, node),
       })
     }
     items.push({
@@ -5535,8 +5994,10 @@ export class LastChancesEngine {
   private renderEnemy(enemy: RuntimeEnemy, node: LastChancesPlanNode): void {
     const context = this.context
     const point = this.worldToScreen(enemy.position, node)
-    const radius = Math.max(7, enemy.definition.radius * this.entityScale(node) * 1.45)
     const profile = this.enemyCombatProfile(enemy)
+    const radius = profile.role === 'creep'
+      ? Math.max(2.33, enemy.definition.radius * this.entityScale(node) * 1.45 / 3)
+      : Math.max(7, enemy.definition.radius * this.entityScale(node) * 1.45)
     const visible = this.enemyVisible(enemy)
     context.save()
     context.globalAlpha = visible ? 1 : enemy.state === 'noticing' ? 0.18 : 0.07
@@ -5754,6 +6215,26 @@ export class LastChancesEngine {
     context.restore()
   }
 
+  private renderGroundWeapon(weapon: RuntimeGroundWeapon, node: LastChancesPlanNode): void {
+    const context = this.context
+    const point = this.worldToScreen(weapon.position, node)
+    const nearby = this.nearestGroundWeapon()?.id === weapon.id
+    context.save()
+    context.translate(point.x, point.y - 5)
+    context.rotate(-0.38)
+    context.shadowColor = nearby ? '#f0cf79' : '#8da1ad'
+    context.shadowBlur = nearby ? 18 : 8
+    context.strokeStyle = nearby ? '#f4d98d' : '#b9c4c8'
+    context.lineWidth = nearby ? 4 : 3
+    context.beginPath()
+    context.moveTo(-12, 5)
+    context.lineTo(13, -6)
+    context.stroke()
+    context.fillStyle = '#66533b'
+    context.fillRect(-15, 2, 7, 5)
+    context.restore()
+  }
+
   private renderProjectile(projectile: RuntimeProjectile, node: LastChancesPlanNode): void {
     const point = this.worldToScreen(projectile.position, node)
     const radius = Math.max(3, projectile.radius * this.entityScale(node) * 1.6)
@@ -5944,6 +6425,7 @@ export class LastChancesEngine {
 
   private renderHud(): void {
     const context = this.context
+    const effectiveStats = this.effectivePlayerStats()
     context.textAlign = 'left'
     context.fillStyle = 'rgba(255,255,255,.9)'
     context.font = '700 15px system-ui'
@@ -5958,7 +6440,7 @@ export class LastChancesEngine {
       68,
     )
     context.fillStyle = 'rgba(255,255,255,.54)'
-    context.fillText(`ATK ${Math.round(this.player.stats.attackPower)}%`, 22, 86)
+    context.fillText(`ATK ${Math.round(effectiveStats.attackPower)}%`, 22, 86)
     if (this.currentNode) {
       context.textAlign = 'right'
       context.fillStyle = 'rgba(255,255,255,.66)'
@@ -5967,7 +6449,8 @@ export class LastChancesEngine {
   }
 
   private renderOverlay(): void {
-    if (this.phase === 'playing' && !this.paused) return
+    if ((this.phase === 'playing' && !this.paused)
+      || (this.phase === 'planning' && this.currentNode && !this.routeMapVisible)) return
     const context = this.context
     const centerY = this.cssHeight * 0.48
     context.fillStyle = 'rgba(4, 3, 8, .52)'

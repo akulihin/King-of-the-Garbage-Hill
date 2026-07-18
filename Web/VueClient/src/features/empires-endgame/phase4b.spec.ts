@@ -369,7 +369,7 @@ describe('Empire\'s Endgame Phase 4B seasons and political technology', () => {
       empire: EmpiresEndgameConfig['empire'] & { seasons: { legacyDefinitions?: unknown[] } }
     }
     expect(previous).toEqual(before)
-    expect(migrated.schemaVersion).toBe(14)
+    expect(migrated.schemaVersion).toBe(15)
     expect(migrated.empire.seasons).toMatchObject({
       enabled: false,
       definitions: [],

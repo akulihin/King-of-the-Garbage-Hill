@@ -39,6 +39,7 @@ function resolvedWeapon(
     attacks,
     tapCombo: [attacks.tap, ...(authoredTapCombo ?? [])],
     ...(weapon.trait ? { trait: weapon.trait } : {}),
+    ...(weapon.staggerEnabled === undefined ? {} : { staggerEnabled: weapon.staggerEnabled }),
     ...(weapon.resource ? { resource: { ...weapon.resource } } : {}),
     augment: augment ?? weapon.defaultAugment ?? 'none',
     ...(weapon.augmentHooks
@@ -66,14 +67,22 @@ export function resolveLastChancesLoadout(config: LastChancesConfig): LastChance
   }
 
   const catalog = new Map(config.weapons.map(weapon => [weapon.id, weapon]))
-  const primary = catalog.get(config.loadout.primaryWeaponId)
+  const primaryId = config.loadout.primaryWeaponId
+  const primary = primaryId ? catalog.get(primaryId) : undefined
   const supplementalId = config.loadout.secondaryWeaponId
   const supplemental = supplementalId ? catalog.get(supplementalId) : undefined
-  if (!primary) return { left: null, right: null }
+  if (!primary) {
+    return {
+      left: null,
+      right: supplemental
+        ? resolvedWeapon(supplemental, 'right', false, config.loadout.secondaryAugment)
+        : null,
+    }
+  }
 
   const primaryMode = lastChancesEquipMode(primary)
   const left = resolvedWeapon(primary, 'left', false, config.loadout.primaryAugment)
-  if (primaryMode === 'twoHanded' || (primaryMode === 'hybrid' && !supplemental)) {
+  if (primaryMode === 'twoHanded') {
     return {
       left,
       right: resolvedWeapon(

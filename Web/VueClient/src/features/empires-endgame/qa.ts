@@ -2,6 +2,7 @@ import { EmpiresEndgameEngine } from './engine'
 import { resolveTdWithPolicy } from './td/qa'
 import { createTdRulesIdentity } from './td/engine'
 import { resolveTavern } from './tavern/engine'
+import { resolveAlchemyWithPolicy } from './alchemy/qa'
 import { initialQuestMemory, questCurrentNode } from './quests'
 import type { TdQaPolicy } from './td/qa'
 import type { CombatArmorProfile, CombatWeaponProfile } from './combat/types'
@@ -29,6 +30,7 @@ export const EMPIRES_QA_SCENARIO_NAMES = [
   'governance',
   'domestic-economy',
   'mystic-tavern',
+  'alchemy-experiment',
   'external-trade',
   'economy-content-event',
   'quest-dialogue',
@@ -94,7 +96,7 @@ export type EmpiresQaAction =
   | { kind: 'choose-gift', giftId: string }
   | { kind: 'resolve-target', targetId: string }
   | { kind: 'finish-empire' }
-  | { kind: 'resolve-minigame', policy: TdQaPolicy | 'tavern-fast' }
+  | { kind: 'resolve-minigame', policy: TdQaPolicy | 'tavern-fast' | 'alchemy-greedy' }
   | { kind: 'choose-event', eventId: string, choiceId: string }
   | { kind: 'advance-dialogue', questId: string, choiceId: string }
   | { kind: 'dismiss-dialogue', questId: string }
@@ -268,6 +270,10 @@ const SCENARIO_COPY: Record<EmpiresQaScenarioName, { title: string, description:
   'mystic-tavern': {
     title: 'Tavern and mystic cards',
     description: 'A deterministic Tavern visit exposes both authored sections and the separate mystic row.',
+  },
+  'alchemy-experiment': {
+    title: 'Tetris-alchemy experiment',
+    description: 'A source-backed Assembly session is ready for real controls or deterministic QA explosion settlement.',
   },
   'external-trade': {
     title: 'External actors and persisted offers',
@@ -604,6 +610,47 @@ function createTavernSnapshot(
   const result = engine.startTavernVisit(city.id)
   if (!result.ok || engine.state.minigame?.kind !== 'tavern') {
     throw new Error(`QA Tavern scenario could not start: ${result.message}`)
+  }
+  return engine.snapshot()
+}
+
+function createAlchemySnapshot(
+  config: EmpiresEndgameConfig,
+  empireSnapshot: EmpiresCampaignState,
+): EmpiresCampaignState {
+  const recipe = config.alchemy.recipes.find(candidate => !candidate.deferredReason)
+  if (!config.alchemy.enabled || !recipe) {
+    throw new Error('QA Alchemy scenario requires one live recipe.')
+  }
+  const state = cloneJson(empireSnapshot)
+  state.phase = 'empire'
+  state.event = null
+  state.minigame = null
+  state.outcomeReason = null
+  state.empire.daysRemaining = Math.max(config.alchemy.dayCost + 1, config.empire.daysPerPhase)
+  const accessEngine = new EmpiresEndgameEngine(config, state)
+  const cityDefinition = config.empire.cities.find(definition => (
+    definition.slots.some(slot => slot.kind === 'unique')
+    && accessEngine.isCityAccessible(definition.id)
+  ))
+  const city = state.empire.cities.find(candidate => candidate.id === cityDefinition?.id)
+  const slot = cityDefinition?.slots.find(candidate => candidate.kind === 'unique')
+  if (!city || !slot) throw new Error('QA Alchemy scenario requires an accessible unique city slot.')
+  city.buildingLevels[config.alchemy.buildingId] = 1
+  city.operationalBuildingLevels[config.alchemy.buildingId] = 1
+  city.buildingSlotAssignments[slot.id] = config.alchemy.buildingId
+  for (const dependency of recipe.prerequisites) {
+    if (dependency.kind === 'technology') {
+      state.empire.researchedTechnologyIds = [...new Set([
+        ...state.empire.researchedTechnologyIds,
+        dependency.technologyId,
+      ])]
+    }
+  }
+  const engine = new EmpiresEndgameEngine(config, state)
+  const result = engine.startAlchemyExperiment(city.id, recipe.id)
+  if (!result.ok || engine.state.minigame?.kind !== 'alchemy') {
+    throw new Error(`QA Alchemy scenario could not start: ${result.message}`)
   }
   return engine.snapshot()
 }
@@ -1491,6 +1538,13 @@ export function validateEmpiresQaSnapshot(
       } else if (snapshot.minigame.plan.sections.join(',') !== 'tables,bar') {
         add('tavern-sections', 'Tavern scenario must preserve the authored tables/bar order.')
       }
+    } else if (scenarioName === 'alchemy-experiment') {
+      if (snapshot.phase !== 'minigame' || snapshot.minigame?.kind !== 'alchemy') {
+        add('alchemy-minigame', 'Alchemy scenario must contain an active laboratory session.')
+      } else if (snapshot.minigame.plan.recipe.deferredReason
+        || snapshot.minigame.plan.rulesIdentity.rulesDigest !== snapshot.minigame.rulesIdentity.rulesDigest) {
+        add('alchemy-rules', 'Alchemy scenario must carry a live recipe and matching immutable rules identity.')
+      }
     } else if (scenarioName in TD_QA_VARIANTS) {
       const expected = TD_QA_VARIANTS[scenarioName as keyof typeof TD_QA_VARIANTS]
       const expectedRules = qaRulesIdentity(config)
@@ -1544,6 +1598,7 @@ export function createEmpiresQaScenarios(
   const epidemicOutbreak = createEpidemicOutbreakSnapshot(seededConfig, empireCouncil)
   const domesticEconomy = createDomesticEconomySnapshot(seededConfig, empireCouncil)
   const mysticTavern = createTavernSnapshot(seededConfig, empireCouncil)
+  const alchemyExperiment = createAlchemySnapshot(seededConfig, empireCouncil)
   const externalTrade = createExternalTradeSnapshot(seededConfig, empireCouncil)
   const economyContentEvent = createEconomyContentEventSnapshot(seededConfig, externalTrade)
   const questDialogue = createQuestDialogueSnapshot(seededConfig, empireCouncil)
@@ -1565,6 +1620,7 @@ export function createEmpiresQaScenarios(
     governance: cloneJson(empireCouncil),
     'domestic-economy': domesticEconomy,
     'mystic-tavern': mysticTavern,
+    'alchemy-experiment': alchemyExperiment,
     'external-trade': externalTrade,
     'economy-content-event': economyContentEvent,
     'quest-dialogue': questDialogue,
@@ -1731,7 +1787,11 @@ function chooseAutoplayAction(
       ? {
           action: {
             kind: 'resolve-minigame',
-            policy: engine.state.minigame.kind === 'tavern' ? 'tavern-fast' : tdPolicy,
+            policy: engine.state.minigame.kind === 'tavern'
+              ? 'tavern-fast'
+              : engine.state.minigame.kind === 'alchemy'
+                ? 'alchemy-greedy'
+                : tdPolicy,
           },
           stall: null,
           checkedPlayerTurn: false,
@@ -1776,8 +1836,11 @@ function executeAutoplayAction(
         { turn: 1, kind: 'finish' },
       ]))
     }
-    if (action.policy === 'tavern-fast') {
-      return { ok: false, message: 'Tavern fast resolve cannot settle a TD session.' }
+    if (session.kind === 'alchemy') {
+      return engine.resolveMinigame(resolveAlchemyWithPolicy(session.plan, session.seed, 'greedy'))
+    }
+    if (action.policy === 'tavern-fast' || action.policy === 'alchemy-greedy') {
+      return { ok: false, message: 'The selected fast-resolve policy cannot settle a TD session.' }
     }
     return engine.resolveMinigame(resolveTdWithPolicy(session.plan, session.seed, action.policy))
   }

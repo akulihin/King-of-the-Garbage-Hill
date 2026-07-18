@@ -12,6 +12,8 @@ import {
   HeartPulse,
   Keyboard,
   Map as MapIcon,
+  Maximize2,
+  Minimize2,
   MousePointer2,
   Pause,
   Play,
@@ -70,6 +72,9 @@ const copy = {
     online: 'Simulation live',
     waiting: 'Waiting for a route',
     map: 'Run map',
+    routeReady: 'Route map ready',
+    fullscreen: 'Full screen',
+    exitFullscreen: 'Exit full screen',
     pause: 'Pause',
     resume: 'Resume',
     retry: 'Retry attempt',
@@ -236,6 +241,9 @@ const copy = {
     online: 'Симуляция запущена',
     waiting: 'Ожидание маршрута',
     map: 'Карта забега',
+    routeReady: 'Карта маршрута готова',
+    fullscreen: 'На весь экран',
+    exitFullscreen: 'Выйти из полного экрана',
     pause: 'Пауза',
     resume: 'Продолжить',
     retry: 'Повторить попытку',
@@ -428,6 +436,7 @@ function reducedMotionPreferred(): boolean {
 const locale = computed<LastChancesLocale>(() => currentLocale.value)
 const t = computed(() => copy[locale.value])
 const canvas = ref<HTMLCanvasElement | null>(null)
+const pageRoot = ref<HTMLElement | null>(null)
 const engine = shallowRef<LastChancesEngine | null>(null)
 const controlScheme = ref<LastChancesControlScheme>(loadLastChancesControlScheme())
 const feedbackPreferences = ref<LastChancesFeedbackPreferences>(
@@ -439,6 +448,7 @@ const snapshot = ref<LastChancesSnapshot | null>(null)
 const loading = ref(true)
 const loadError = ref('')
 const routeMapOpen = ref(false)
+const isFullscreen = ref(false)
 const builderOpen = ref(false)
 const toast = ref('')
 const visitedNodeIds = ref(new Set<string>())
@@ -474,6 +484,12 @@ const equippedLoadout = computed(() => {
 })
 const leftWeapon = computed(() => equippedLoadout.value.left)
 const rightWeapon = computed(() => equippedLoadout.value.right)
+const equippedArtifact = computed(() => config.value?.artifacts?.find(
+  artifact => artifact.id === snapshot.value?.loadout?.artifactId,
+) ?? null)
+const equippedOutfit = computed(() => config.value?.outfits?.find(
+  outfit => outfit.id === snapshot.value?.loadout?.outfitId,
+) ?? null)
 const leftActionCue = computed(() => snapshot.value?.actionCues?.find(cue => cue.hand === 'left') ?? null)
 const rightActionCue = computed(() => snapshot.value?.actionCues?.find(cue => cue.hand === 'right') ?? null)
 const storyPage = computed(() => storyPages.value[storyIndex.value] ?? null)
@@ -780,7 +796,7 @@ const recentGesture = computed(() => {
 function beginStory(pages: LastChancesStoryPage[] | undefined) {
   storyPages.value = pages ? pages.map(page => ({ ...page })) : []
   storyIndex.value = 0
-  if (storyPages.value.length > 0) routeMapOpen.value = false
+  if (storyPages.value.length > 0) updateRouteMapVisibility(false)
 }
 
 function advanceStory() {
@@ -791,7 +807,7 @@ function advanceStory() {
   }
   storyPages.value = []
   storyIndex.value = 0
-  if (snapshot.value?.phase === 'planning') routeMapOpen.value = true
+  if (snapshot.value?.phase === 'planning') updateRouteMapVisibility(true)
   void nextTick(() => canvas.value?.focus())
 }
 
@@ -852,7 +868,8 @@ function handleControllerUiCommand(command: 'confirm' | 'back' | 'pause'): boole
       closeBuilder()
       return true
     }
-    if (routeMapOpen.value && snapshot.value?.phase === 'playing') {
+    if (routeMapOpen.value && (snapshot.value?.phase === 'playing'
+      || (snapshot.value?.phase === 'planning' && snapshot.value.currentNodeId))) {
       closeMap()
       return true
     }
@@ -873,11 +890,12 @@ function onSnapshot(nextSnapshot: LastChancesSnapshot) {
   nextSnapshot.attemptPath.forEach(id => nextVisited.add(id))
   visitedNodeIds.value = nextVisited
   snapshot.value = nextSnapshot
-  if (nextSnapshot.phase === 'planning' && nextSnapshot.availableNodeIds.length > 0 && !storyOpen.value) {
-    routeMapOpen.value = true
+  if (nextSnapshot.phase === 'planning' && nextSnapshot.currentNodeId === null
+    && nextSnapshot.availableNodeIds.length > 0 && !storyOpen.value) {
+    updateRouteMapVisibility(true)
   }
   if (previousPhase === 'planning' && nextSnapshot.phase === 'playing') {
-    routeMapOpen.value = false
+    updateRouteMapVisibility(false)
     resumeAfterMap = false
     void nextTick(() => canvas.value?.focus())
   }
@@ -915,7 +933,7 @@ async function createEngine(nextConfig: LastChancesConfig) {
   })
   engine.value = instance
   instance.start()
-  routeMapOpen.value = !storyOpen.value
+  updateRouteMapVisibility(!storyOpen.value)
 }
 
 async function loadDefinition(useBrowserOverride = true) {
@@ -939,7 +957,7 @@ async function loadDefinition(useBrowserOverride = true) {
 
 function chooseNode(nodeId: string) {
   if (!engine.value?.chooseNode(nodeId)) return
-  routeMapOpen.value = false
+  updateRouteMapVisibility(false)
   resumeAfterMap = false
   void nextTick(() => canvas.value?.focus())
 }
@@ -948,11 +966,11 @@ function openMap() {
   if (!plan.value || !snapshot.value) return
   resumeAfterMap = snapshot.value.phase === 'playing' && !snapshot.value.paused
   if (resumeAfterMap) engine.value?.setPaused(true)
-  routeMapOpen.value = true
+  updateRouteMapVisibility(true)
 }
 
 function closeMap() {
-  routeMapOpen.value = false
+  updateRouteMapVisibility(false)
   if (resumeAfterMap && snapshot.value?.phase === 'playing') engine.value?.setPaused(false)
   resumeAfterMap = false
   void nextTick(() => canvas.value?.focus())
@@ -966,13 +984,13 @@ function togglePause() {
 
 function retryAttempt() {
   if (!engine.value?.retryAttempt()) return
-  routeMapOpen.value = true
+  updateRouteMapVisibility(true)
 }
 
 function newGeneration() {
   beginStory(config.value?.narrative?.prologue)
   engine.value?.newGeneration()
-  routeMapOpen.value = !storyOpen.value
+  updateRouteMapVisibility(!storyOpen.value)
   builderOpen.value = false
 }
 
@@ -1067,6 +1085,30 @@ function interact() {
   void nextTick(() => canvas.value?.focus())
 }
 
+function updateRouteMapVisibility(visible: boolean) {
+  routeMapOpen.value = visible
+  engine.value?.setRouteMapVisible(visible)
+}
+
+function syncFullscreenState() {
+  isFullscreen.value = document.fullscreenElement === pageRoot.value
+  void nextTick(() => canvas.value?.focus())
+}
+
+async function toggleFullscreen() {
+  if (!pageRoot.value) return
+  try {
+    if (document.fullscreenElement === pageRoot.value) await document.exitFullscreen()
+    else await pageRoot.value.requestFullscreen({ navigationUI: 'hide' })
+  } catch (error) {
+    setToast(error instanceof Error ? error.message : String(error))
+  }
+}
+
+function blockFullscreenContextMenu(event: MouseEvent) {
+  if (isFullscreen.value) event.preventDefault()
+}
+
 function formatKey(code: string): string {
   if (code.startsWith('Key')) return code.slice(3)
   if (code.startsWith('Digit')) return code.slice(5)
@@ -1100,22 +1142,28 @@ function deathReason(): string {
   return reason
 }
 
-onMounted(() => { void loadDefinition() })
+onMounted(() => {
+  document.addEventListener('fullscreenchange', syncFullscreenState)
+  void loadDefinition()
+})
 
 onBeforeUnmount(() => {
   loadController?.abort()
   engine.value?.destroy()
+  document.removeEventListener('fullscreenchange', syncFullscreenState)
   if (toastTimer !== null) window.clearTimeout(toastTimer)
 })
 </script>
 
 <template>
   <div
+    ref="pageRoot"
     class="lc-page"
     :class="{
       'is-mental-low': mentalPercent < 35,
       'is-critical': hpPercent < 30,
     }"
+    @contextmenu="blockFullscreenContextMenu"
   >
     <header class="lc-page-header">
       <div class="lc-title-lockup">
@@ -1131,8 +1179,18 @@ onBeforeUnmount(() => {
         <span class="lc-live-state" :class="{ active: !!snapshot && !loading }">
           <i aria-hidden="true" />{{ snapshot && !loading ? t.online : t.waiting }}
         </span>
-        <button type="button" :disabled="!plan" @click="openMap">
+        <button
+          type="button"
+          :disabled="!plan"
+          :class="{ 'is-route-ready': snapshot?.phase === 'planning' && !!snapshot.currentNodeId && !routeMapOpen }"
+          @click="openMap"
+        >
           <MapIcon :size="15" aria-hidden="true" />{{ t.map }}
+        </button>
+        <button type="button" @click="toggleFullscreen">
+          <Minimize2 v-if="isFullscreen" :size="15" aria-hidden="true" />
+          <Maximize2 v-else :size="15" aria-hidden="true" />
+          {{ isFullscreen ? t.exitFullscreen : t.fullscreen }}
         </button>
         <button type="button" :disabled="snapshot?.phase !== 'playing'" @click="togglePause">
           <Play v-if="snapshot?.paused" :size="15" aria-hidden="true" />
@@ -1206,10 +1264,23 @@ onBeforeUnmount(() => {
 
           <Transition name="lc-gesture-pop">
             <button
+              v-if="snapshot?.phase === 'planning' && snapshot.currentNodeId && snapshot.availableNodeIds.length && !routeMapOpen"
+              class="lc-route-ready"
+              type="button"
+              @click="openMap"
+            >
+              <MapIcon :size="17" aria-hidden="true" />
+              <strong>{{ t.routeReady }}</strong>
+              <span>{{ t.chooseRoute }}</span>
+            </button>
+          </Transition>
+
+          <Transition name="lc-gesture-pop">
+            <button
               v-if="snapshot?.interactionPrompt"
               class="lc-arena-interaction"
               type="button"
-              :disabled="snapshot.paused || snapshot.phase !== 'playing'"
+              :disabled="snapshot.paused || !['playing', 'planning'].includes(snapshot.phase)"
               data-testid="interaction-prompt"
               @click="interact"
             >
@@ -1316,7 +1387,7 @@ onBeforeUnmount(() => {
             :primary-available="!!leftWeapon"
             :secondary-available="!!rightWeapon"
             :interaction-prompt="snapshot?.interactionPrompt ?? null"
-            :disabled="snapshot?.phase !== 'playing' || snapshot.paused"
+            :disabled="!snapshot || !['playing', 'planning'].includes(snapshot.phase) || snapshot.paused || routeMapOpen"
             @move="setTouchMove"
             @aim="setTouchAim"
             @press="pressTouch"
@@ -1331,6 +1402,10 @@ onBeforeUnmount(() => {
           <span v-if="(snapshot?.player.armorMultiplier ?? 1) > 1">
             <Shield :size="12" aria-hidden="true" />{{ t.armor }} ×{{ snapshot?.player.armorMultiplier }}
             · {{ Math.ceil(snapshot?.player.armorMultiplierForMs ?? 0) }} ms
+          </span>
+          <span v-if="equippedArtifact || equippedOutfit">
+            <Sparkles :size="12" aria-hidden="true" />
+            {{ [equippedArtifact?.name, equippedOutfit?.name].filter(Boolean).join(' · ') }}
           </span>
         </footer>
       </section>
@@ -1349,7 +1424,7 @@ onBeforeUnmount(() => {
         </section>
 
         <section class="lc-run-card">
-          <header><MapIcon :size="15" aria-hidden="true" /><span>{{ t.map }}</span><button type="button" @click="openMap">{{ t.chooseRoute }}<ChevronRight :size="12" aria-hidden="true" /></button></header>
+          <header :class="{ 'is-route-ready': snapshot?.phase === 'planning' && !!snapshot.currentNodeId && !routeMapOpen }"><MapIcon :size="15" aria-hidden="true" /><span>{{ t.map }}</span><button type="button" @click="openMap">{{ t.chooseRoute }}<ChevronRight :size="12" aria-hidden="true" /></button></header>
           <dl>
             <div><dt>{{ t.tier }}</dt><dd>{{ (snapshot?.currentTierIndex ?? 0) + 1 }} / {{ config?.progression.tiers.length ?? 7 }}</dd></div>
             <div><dt>{{ t.room }}</dt><dd>{{ currentNode?.roomName ?? t.noRoom }}</dd></div>
@@ -1529,7 +1604,7 @@ onBeforeUnmount(() => {
       :nodes="runMapNodes"
       :edges="runMapEdges"
       :seed="plan?.seed ?? config?.seed ?? '—'"
-      :allow-close="snapshot?.phase === 'playing'"
+      :allow-close="snapshot?.phase === 'playing' || (snapshot?.phase === 'planning' && !!snapshot.currentNodeId)"
       :selected-node-id="snapshot?.selectedNodeId ?? null"
       @choose="chooseNode"
       @close="closeMap"
@@ -1571,6 +1646,19 @@ onBeforeUnmount(() => {
   isolation: isolate;
 }
 
+.lc-page:fullscreen {
+  width: 100vw;
+  height: 100dvh;
+  padding: 0.65rem;
+  overflow: auto;
+  overscroll-behavior: none;
+  background: #07090a;
+  touch-action: manipulation;
+  user-select: none;
+}
+.lc-page:fullscreen .lc-cockpit { min-height: 0; }
+.lc-page:fullscreen .lc-stage-screen { min-height: clamp(32rem, 68dvh, 58rem); }
+
 .lc-page::before {
   content: '';
   position: fixed;
@@ -1607,6 +1695,9 @@ onBeforeUnmount(() => {
 .lc-header-actions button { min-height: 2.1rem; display: inline-flex; align-items: center; justify-content: center; gap: 0.35rem; padding: 0.4rem 0.6rem; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 0.42rem; color: #a8aba6; background: rgba(255, 255, 255, 0.025); font-size: 0.57rem; font-weight: 750; white-space: nowrap; }
 .lc-header-actions button:hover:not(:disabled) { color: #f0ece2; border-color: rgba(255, 255, 255, 0.2); }
 .lc-header-actions button.is-builder { color: #d2b66f; border-color: rgba(198, 160, 79, 0.24); background: rgba(163, 121, 42, 0.08); }
+.lc-header-actions button.is-route-ready,
+.lc-run-card > header.is-route-ready { animation: lc-route-ready 1.35s ease-in-out infinite; }
+.lc-header-actions button.is-route-ready { color: #f4d77e; border-color: rgba(236, 195, 91, 0.65); background: rgba(193, 139, 31, 0.16); }
 .lc-header-actions button:disabled { opacity: 0.32; cursor: not-allowed; }
 .lc-live-state { display: inline-flex; align-items: center; gap: 0.35rem; margin-right: 0.2rem; color: #686d69; font-size: 0.53rem; font-weight: 800; letter-spacing: 0.07em; text-transform: uppercase; }
 .lc-live-state i { width: 0.42rem; height: 0.42rem; border-radius: 50%; background: #676b68; }
@@ -1616,6 +1707,10 @@ onBeforeUnmount(() => {
 .lc-cockpit { min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr) 19rem; gap: 0.8rem; }
 .lc-stage-panel { min-width: 0; overflow: hidden; border: 1px solid var(--lc-line); border-radius: 0.85rem; background: #080a0b; box-shadow: 0 1.5rem 4rem rgba(0, 0, 0, 0.32); }
 .lc-stage-screen { position: relative; min-height: clamp(31rem, 61vh, 46rem); overflow: hidden; background: #08080b; }
+.lc-route-ready { position: absolute; z-index: 18; left: 50%; bottom: 5.3rem; min-width: 13rem; display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 0.12rem 0.55rem; padding: 0.65rem 0.85rem; transform: translateX(-50%); border: 1px solid rgba(239, 199, 99, 0.72); border-radius: 999px; color: #f3d77e; background: rgba(25, 21, 12, 0.9); box-shadow: 0 0 1.8rem rgba(221, 172, 51, 0.38); animation: lc-route-ready 1.35s ease-in-out infinite; }
+.lc-route-ready svg { grid-row: 1 / span 2; }
+.lc-route-ready strong { font-size: 0.62rem; text-transform: uppercase; }
+.lc-route-ready span { color: #a99562; font-size: 0.5rem; }
 .lc-stage-screen::before,
 .lc-stage-screen::after { content: ''; position: absolute; z-index: 8; inset: 0; pointer-events: none; }
 .lc-stage-screen::before { background: radial-gradient(ellipse at center, transparent 48%, rgba(0, 0, 0, 0.53) 100%); }
@@ -1823,6 +1918,9 @@ onBeforeUnmount(() => {
 .lc-page.is-critical .lc-stage-screen { box-shadow: inset 0 0 6rem rgba(139, 31, 40, 0.16); }
 
 @keyframes lc-loading-turn { to { transform: rotate(360deg); } }
+@keyframes lc-route-ready {
+  50% { box-shadow: 0 0 2.4rem rgba(235, 184, 57, 0.56); filter: brightness(1.18); }
+}
 .lc-gesture-pop-enter-active,
 .lc-gesture-pop-leave-active,
 .lc-phase-fade-enter-active,
@@ -1865,7 +1963,7 @@ onBeforeUnmount(() => {
   .lc-title-sigil { width: 2.5rem; height: 2.5rem; }
   .lc-title-lockup p { font-size: 0.44rem; }
   .lc-title-lockup h1 { font-size: 1.1rem; }
-  .lc-header-actions { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); width: 100%; }
+  .lc-header-actions { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); width: 100%; }
   .lc-header-actions button { min-width: 0; padding: 0.35rem 0.2rem; font-size: 0.48rem; }
   .lc-header-actions button svg { display: none; }
   .lc-stage-screen { min-height: 74dvh; }

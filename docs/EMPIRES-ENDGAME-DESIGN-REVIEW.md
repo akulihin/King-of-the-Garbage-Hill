@@ -414,7 +414,7 @@ linked map/city-layout images. Stable named Перст identities come from `т�
 | Пандемия из-за прививок | `epidemic-vaccination-pandemic` | Separate refresh-on-duplicate epidemic started by inverted `card-spades-10` at the lowest accessible city | Numeric stages, weights and spread values are defaults. |
 | Больница | `building-hospital`; `unit-medical-healer`; `weapon-light-crossbow` | Operational city impact ×0.9, wounded TD survivors recover in one con instead of two, and Hospital-gated healers deterministically heal damaged allied squads | Healer TD stats, healing cadence/charges and the light-crossbow profile are defaults pending an authored combat table. |
 | Медицинская академия | `building-medical-academy`; `empire.medical` | Operational empire protection ×0.5, free eligible secondary technology every three cons, and one veteran treatment per con with 50% death chance | Stable-ID selection among eligible technology definitions is deterministic but not authored. |
-| Алхимическая лавка + Амбар | `building-alchemy`; `hidden-granary-alchemy-plague` | The live passive building triggers plague exactly once when the Granary reform and an operational Alchemy building coexist; origin is the lowest stable eligible city | `alchemyMinigame` and its poison/potion/lab mechanics remain P10. Trainers/infected rats have no stable carrier or consequences. |
+| Алхимическая лавка + Амбар | `building-alchemy`; `hidden-granary-alchemy-plague` | The live passive building triggers plague exactly once when the Granary reform and an operational Alchemy building coexist; origin is the lowest stable eligible city | P10 subsequently closes the broad `alchemyMinigame` handoff with a calibration Assembly. Its exact poison/wall/science/mutant gaps remain capability-deferred. Trainers/infected rats have no stable carrier or consequences. |
 | Прививки | `card-spades-10` | Normal face adds configured virus-mortality reduction; inverted face starts the configured pandemic through the canonical effect/start funnel | Normal 10% +10%/level and the pandemic numeric table are defaults pending confirmation. |
 | Реликвия защиты от эпидемий | `relic-epidemic-ward` | While stored in an accessible operational Temple slot, adds 25 protection points consumed as multiplicative reduction of population, production and loyalty consequences | The raw “25” is interpreted as consequence reduction, not outbreak prevention (`P5-03`); P6A moved all relic flags behind the Temple slot lifecycle. |
 | Городские врата | `reform-city-gates`; `event-city-gates-epidemic` | Typed seal/open choices are executable once per active epidemic: seal prevents future intercity spread and doubles local impact; open retains normal local impact/spread. Already infected cities are untouched | The reform and bundled event remain deferred because the light side's crime/public-order contract is absent. The dark policy is retained as validated epidemic substrate. |
@@ -438,9 +438,10 @@ linked map/city-layout images. Stable named Перст identities come from `т�
 
 ## P5 remaining-deferred and review manifest
 
-- `building-alchemy` is live for prerequisite/combination behavior, with only the validated
-  `alchemyMinigame` capability deferred to P10. Poison, potion, active laboratory and
-  military-equipment behavior must not be inferred from the plague hook.
+- `building-alchemy` is live for prerequisite/combination behavior. P10 subsequently closes
+  the broad active-laboratory handoff; poison/wall recipes, science unlock mappings,
+  Disassembly launch rules and mutant aftermath remain exact capability blockers rather
+  than implications of the plague hook.
 - `reform-city-gates` and `event-city-gates-epidemic` remain bundled-deferred because the
   light crime side is incomplete. Custom/live future carriers may use both validated
   containment choices; no unread crime flag was restored.
@@ -733,3 +734,39 @@ should instead feed a later off-screen hook remains open.
   `mysticTrioPassives`, `mysticLeaveAction` and `queenAppeasement`. Лист, Лорик and
   Анатолий each also retain face-level reasons. No generic Tavern or mystic marker
   remains.
+
+## P10 Tetris-alchemy source reconciliation
+
+| Carrier | Raw source | Executable interpretation / boundary |
+|---|---|---|
+| Assembly movement and lock | `тетрис-алхимия` message `1493658357393784853` and its attached board sketch | Canonical tetrominoes spawn in serialized random order from top/right/bottom/left after a `2–5` second delay and may overlap while travelling. The nearest active piece is controlled; top/right/bottom/left then stable ID resolves exact ties. Space rotates, arrows move in three legal directions, outward movement and crossing the central construction are rejected, inward input moves three cells, and contact locks the piece into the construction. |
+| Assembly completion | Message `1493658357393784853` says to create a specified construction without leaving the screen but supplies no launch shape or output | One neutral `alchemy-calibration-assembly` recipe freezes a small gray core and a cross target. It uses only O tetrominoes and has no economic reward; success writes the ordinary Alchemy chronicle and cannot imply a poison, medicine or technology result. Exact board/shape defaults are ledgered below. |
+| Disassembly | Message `1493663542908424354` | The pure engine supports complementary remove-on-contact resolution, but the bundled carrier remains unavailable. The source alternates between removing everything and retaining an “условно, это обсуждаемо” 2×2 square, and between controlling the current piece and choosing the next side; those are missing semantics, not numeric defaults. |
+| Reagents | `тетрис-алхимия` messages `1493664036070359241`, `1493664247161553137` and adjacent remove-color/reset messages | Enter exposes and pauses for one shared reagent menu. Remove-color deletes every matching primary-color cell from construction and travelling pieces, add-gray turns one selected active piece neutral, and reset returns acceleration to its base/count zero. Charges and ordering defaults are ledgered below. |
+| Acceleration and explosion | Messages `1493664652914331790`, `1493666141506109551`, `1493666595283664988`, `1493666717216538794`, `1493666857398436032`, `1493667063200481480` | Settled pieces advance the exact triangular sequence `0,1,3,6,10…` in percentage points. The source says “превысила 400%”, so exactly 400% is safe and only `>400%` explodes. Replay emits a trusted plague request through the P5 epidemic funnel and records the authored failure title. |
+| Poison walls, recipes and mutants | `тетрис-алхимия` poison-wall note; `Технологии - доктрины-и-реформы` message `1368907400123519066`; explosion/mutant follow-up in the same Alchemy channel | No poison/medicine recipe has complete inputs, outputs, storage, consumer or reward; the science message explicitly says to invent the mechanics. The one-year mutants have no event/TD/state type, target or consequences. These remain distinct unavailable capabilities rather than rewards inferred from flavor. |
+
+## P10 defaults and unresolved-semantics ledger
+
+| ID | JSON Pointer | Phase | Raw source | Chosen default | Rationale | Status | Designer verdict |
+|---|---|---:|---|---|---|---|---|
+| `P10-01` | `/alchemy/tickMs`; `/alchemy/maxTicks`; `/alchemy/maxCommands`; `/alchemy/resultLogLimit`; `/alchemy/maxCatchUpTicksPerFrame` | P10 | Fixed-tick/replay common contract; no values authored | `50 ms`; `5000` ticks; `256` commands; `32` complete results with rolling digest compaction; `8` catch-up ticks per frame | A 50 ms tick maps the authored 2–5 seconds to exact `40–100` ticks. The caps permit a long construction while bounding CPU, command and localStorage growth; hidden tabs pause and discard backlog. | Open | Pending simulation frequency, session/command caps, retained result count and background policy. |
+| `P10-02` | `/alchemy/board`; `/alchemy/pieces`; `/alchemy/recipes/0` | P10 | Message `1493658357393784853` and attachment specify a central random figure, ordinary Tetris pieces and a target construction, but no dimensions or launch recipe | Board `41×41`, center `20:20`; canonical I/O/T/L/J/S/Z definitions; gray 2×2 core; 20-cell cross target; O-only calibration; empty reward | Odd dimensions give every side the same 20-cell approach. Seven pieces are the ordinary tetromino catalog. The no-output calibration proves the sourced substrate without fabricating poison, medicine, resource or research semantics. | Open | Pending exact board, central figure selection, target catalog, allowed pieces, colors and recipe reward. |
+| `P10-03` | `/alchemy/spawn`; `/alchemy/colors` | P10 | Message `1493658357393784853` authors four sides, random order, `2–5` seconds and inward ×3; base speed and tie rule are absent | Delay `40–100` ticks; base auto-move every `10` ticks at 100%; primary colors red/yellow/blue/green; nearest Manhattan cell distance with top/right/bottom/left then stable ID ties | The authored delay and ×3 are retained exactly. Cell distance matches the visible grid; stable side/ID ties prevent iteration-order replays. Color names come directly from the reagent source. | Open | Pending base speed, nearest metric/ties, spawn-edge alignment and whether all sides share one queue. |
+| `P10-04` | `/alchemy/reagents` | P10 | Reagent messages define effects and menu/pause but no inventory, charge count or exact multi-object scope/order | One charge of each; remove-color affects construction then active pieces atomically; add-gray selects one active piece; reset sets settled acceleration count to zero/base | One charge exposes every authored control without inventing acquisition/economy. Atomic application at a logical tick makes replay/order deterministic. | Open | Pending acquisition, charges, whether colors affect travelling pieces, selection rules, order and replenishment. |
+| `P10-05` | `/alchemy/acceleration` | P10 | Messages `1493664652914331790`, `1493666141506109551`, `1493666717216538794` | Base `100%`; `+1` percentage point triangular step after every `1` settled piece; threshold `400`; boundary `above` | The exact example is triangular and says the interval may later be one or two; one piece is the smallest configured interval. “Превысила” resolves the boundary as strict `>`. | Open | Pending base speed, one-vs-two piece interval, maximum-speed behavior and whether reagents alter the settled-piece count. |
+| `P10-06` | `/alchemy/dayCost`; `/alchemy/explosion` | P10 | Explosion messages author dead lab workers, epidemic catastrophe near the lab and later mutants, but no time cost, disease/severity or retry rule | Session costs `4` days and abort/failure does not refund; explosion starts `epidemic-plague` at severity multiplier `1.5`; the originating lab is locked for the rest of the con | Four days creates an explicit opportunity cost without inventing a reward. Plague reuses the only authored Alchemy disease carrier. The configurable canonical lock is the required visible anti-retry consequence where lab damage is not numerically authored. | Open | Pending day/abort cost, disease definition, severity, lab damage duration and whether workers/population also die immediately. |
+
+## P10 exact live/deferred and remaining manifest
+
+- Config schema 15 and campaign/save schema 13 are live. Alchemy plan, seed, bounded command
+  log, rules identity and result share the hardened minigame envelope; restore restarts from
+  immutable input with `attempt + 1`, and rejected replay/settlement rolls back atomically.
+- `building-alchemy` has no whole-item or broad `alchemyMinigame` deferral. The calibration
+  Assembly, four-side overlap/spawn, nearest-piece control, contact lock, three reagents,
+  triangular acceleration, strict-above-400 explosion, typed epidemic settlement, same-con
+  lab lock, accessible UI, fake-clock input test and visible QA/Cypress outbreak are live.
+- The exact remaining blockers are `disassemblyRules`, `poisonWallRecipes`,
+  `scienceRecipeUnlocks` and `mutantAftermath`. The engine's generic Disassembly transition
+  is not a launched recipe and does not resolve the source's conflicting control/success
+  sketches. No poison, medicine, wall, technology or mutant carrier was silently enabled.

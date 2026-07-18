@@ -6,6 +6,7 @@ import type {
   EmpiresCombatConfig,
 } from './combat/types'
 import type { EmpiresTdConfig } from './td/types'
+import type { EmpiresAlchemyConfig } from './alchemy/types'
 import type {
   EmpiresBuildingSlotKind,
   EmpiresCampaignState,
@@ -28,7 +29,7 @@ import { validateEmpiresQuestsConfig } from './quests'
 
 export const EMPIRES_CONFIG_URL = '/empires-endgame/game-config.json'
 export const EMPIRES_CONFIG_STORAGE_KEY = 'empires-endgame:config:v1'
-export const EMPIRES_CONFIG_SCHEMA_VERSION = 14
+export const EMPIRES_CONFIG_SCHEMA_VERSION = 15
 export const EMPIRES_ACTIVE_MINIGAME_CONFIG_ERROR = 'Нельзя менять правила во время боя. Сначала завершите бой или выйдите через действие отмены.'
 
 export function empiresConfigReplacementDisabledReason(
@@ -229,6 +230,45 @@ const TAVERN_SCAFFOLD = {
   historyRetention: 24,
   deferredSubfeatures: [],
 } satisfies EmpiresTavernConfig
+
+const ALCHEMY_SCAFFOLD = {
+  enabled: false,
+  buildingId: '',
+  tickMs: 50,
+  maxTicks: 5_000,
+  maxCommands: 256,
+  resultLogLimit: 32,
+  maxCatchUpTicksPerFrame: 8,
+  dayCost: 0,
+  board: { width: 21, height: 21, centerX: 10, centerY: 10 },
+  spawn: {
+    minDelayTicks: 30,
+    maxDelayTicks: 100,
+    baseMoveIntervalTicks: 8,
+    inwardSpeedMultiplier: 3,
+  },
+  acceleration: {
+    baseSpeedPercent: 100,
+    stepPercent: 1,
+    piecesPerStep: 1,
+    explosionThresholdPercent: 400,
+    explosionBoundary: 'above',
+  },
+  reagents: {
+    removeColorCharges: 0,
+    addGrayCharges: 0,
+    resetAccelerationCharges: 0,
+  },
+  explosion: {
+    epidemicDefinitionId: '',
+    severityMultiplier: 1,
+    lockBuildingForCon: true,
+  },
+  colors: [],
+  pieces: [],
+  recipes: [],
+  deferredSubfeatures: [],
+} satisfies EmpiresAlchemyConfig
 
 const QUESTS_SCAFFOLD = {
   enabled: false,
@@ -946,6 +986,36 @@ function normalizeEmpiresConfigV14(config: Record<string, unknown>): Record<stri
   return config
 }
 
+function migrateEmpiresConfigV14ToV15(config: Record<string, unknown>): Record<string, unknown> {
+  // Schema v14 had no Alchemy plan, replay, or settlement arm. Legacy custom
+  // configurations remain fail-closed instead of inheriting bundled laboratory rules.
+  config.alchemy = cloneJson(ALCHEMY_SCAFFOLD)
+  config.schemaVersion = 15
+  return config
+}
+
+function normalizeEmpiresConfigV15(config: Record<string, unknown>): Record<string, unknown> {
+  normalizeEmpiresConfigV14(config)
+  config.alchemy = withScaffoldDefaults(config.alchemy, ALCHEMY_SCAFFOLD)
+  if (isRecord(config.alchemy)) {
+    config.alchemy.board = withScaffoldDefaults(config.alchemy.board, ALCHEMY_SCAFFOLD.board)
+    config.alchemy.spawn = withScaffoldDefaults(config.alchemy.spawn, ALCHEMY_SCAFFOLD.spawn)
+    config.alchemy.acceleration = withScaffoldDefaults(
+      config.alchemy.acceleration,
+      ALCHEMY_SCAFFOLD.acceleration,
+    )
+    config.alchemy.reagents = withScaffoldDefaults(
+      config.alchemy.reagents,
+      ALCHEMY_SCAFFOLD.reagents,
+    )
+    config.alchemy.explosion = withScaffoldDefaults(
+      config.alchemy.explosion,
+      ALCHEMY_SCAFFOLD.explosion,
+    )
+  }
+  return config
+}
+
 const EMPIRES_CONFIG_MIGRATIONS: Record<
   number,
   (config: Record<string, unknown>) => Record<string, unknown>
@@ -963,6 +1033,7 @@ const EMPIRES_CONFIG_MIGRATIONS: Record<
   11: migrateEmpiresConfigV11ToV12,
   12: migrateEmpiresConfigV12ToV13,
   13: migrateEmpiresConfigV13ToV14,
+  14: migrateEmpiresConfigV14ToV15,
 }
 
 /**
@@ -995,6 +1066,7 @@ export function migrateEmpiresConfig(raw: unknown): unknown {
   if (version === 12) migrated = normalizeEmpiresConfigV12(migrated)
   if (version === 13) migrated = normalizeEmpiresConfigV13(migrated)
   if (version === 14) migrated = normalizeEmpiresConfigV14(migrated)
+  if (version === 15) migrated = normalizeEmpiresConfigV15(migrated)
   return migrated
 }
 
@@ -1148,6 +1220,10 @@ function validateDeferredReasons(config: EmpiresEndgameConfig): string[] {
     check(`mystic card ${card.id} inverted face`, card.inverted.deferredReason)
   }
   checkSubfeatures('tavern', config.tavern.deferredSubfeatures)
+  checkSubfeatures('alchemy', config.alchemy.deferredSubfeatures)
+  for (const recipe of config.alchemy.recipes) {
+    check(`alchemy recipe ${recipe.id}`, recipe.deferredReason)
+  }
   for (const gift of config.gifts.definitions) check(`gift ${gift.id}`, gift.deferredReason)
   for (const resource of config.empire.resources) check(`resource ${resource.id}`, resource.deferredReason)
   for (const building of config.empire.buildings) {
@@ -1270,6 +1346,9 @@ function validateLiveEffects(config: EmpiresEndgameConfig): string[] {
       }
     }
   }
+  for (const recipe of config.alchemy.recipes) {
+    if (!recipe.deferredReason) collectDependencies(recipe.prerequisites)
+  }
 
   const check = (
     label: string,
@@ -1336,6 +1415,9 @@ function validateLiveEffects(config: EmpiresEndgameConfig): string[] {
   }
   for (const offer of config.empire.externalEconomy.offers) {
     check(`external offer ${offer.id} decline effects`, offer.declineEffects)
+  }
+  for (const recipe of config.alchemy.recipes) {
+    check(`alchemy recipe ${recipe.id}`, recipe.rewards, recipe.deferredReason)
   }
   return errors
 }
@@ -1884,6 +1966,134 @@ function validateTavernConfig(config: EmpiresEndgameConfig): void {
   }
 }
 
+function validateAlchemyConfig(config: EmpiresEndgameConfig): void {
+  const alchemy = config.alchemy
+  if (!isRecord(alchemy) || typeof alchemy.enabled !== 'boolean') {
+    throw new Error('alchemy must be an object with an enabled flag.')
+  }
+  for (const [name, value] of Object.entries({
+    tickMs: alchemy.tickMs,
+    maxTicks: alchemy.maxTicks,
+    maxCommands: alchemy.maxCommands,
+    resultLogLimit: alchemy.resultLogLimit,
+    maxCatchUpTicksPerFrame: alchemy.maxCatchUpTicksPerFrame,
+  })) {
+    if (!Number.isInteger(value) || value < 1) throw new Error(`alchemy.${name} must be a positive integer.`)
+  }
+  if (!Number.isFinite(alchemy.dayCost) || alchemy.dayCost < 0) {
+    throw new Error('alchemy.dayCost must be finite and non-negative.')
+  }
+  if (!isRecord(alchemy.board)
+    || !Number.isInteger(alchemy.board.width) || alchemy.board.width < 5
+    || !Number.isInteger(alchemy.board.height) || alchemy.board.height < 5
+    || !Number.isInteger(alchemy.board.centerX) || alchemy.board.centerX < 0
+    || alchemy.board.centerX >= alchemy.board.width
+    || !Number.isInteger(alchemy.board.centerY) || alchemy.board.centerY < 0
+    || alchemy.board.centerY >= alchemy.board.height) {
+    throw new Error('alchemy.board dimensions and center are invalid.')
+  }
+  if (!isRecord(alchemy.spawn)
+    || !Number.isInteger(alchemy.spawn.minDelayTicks) || alchemy.spawn.minDelayTicks < 1
+    || !Number.isInteger(alchemy.spawn.maxDelayTicks)
+    || alchemy.spawn.maxDelayTicks < alchemy.spawn.minDelayTicks
+    || !Number.isInteger(alchemy.spawn.baseMoveIntervalTicks)
+    || alchemy.spawn.baseMoveIntervalTicks < 1
+    || !Number.isFinite(alchemy.spawn.inwardSpeedMultiplier)
+    || alchemy.spawn.inwardSpeedMultiplier < 1) {
+    throw new Error('alchemy.spawn timing and sourced inward speed are invalid.')
+  }
+  if (!isRecord(alchemy.acceleration)
+    || !Number.isFinite(alchemy.acceleration.baseSpeedPercent)
+    || alchemy.acceleration.baseSpeedPercent <= 0
+    || !Number.isFinite(alchemy.acceleration.stepPercent)
+    || alchemy.acceleration.stepPercent <= 0
+    || !Number.isInteger(alchemy.acceleration.piecesPerStep)
+    || alchemy.acceleration.piecesPerStep < 1
+    || !Number.isFinite(alchemy.acceleration.explosionThresholdPercent)
+    || alchemy.acceleration.explosionThresholdPercent <= alchemy.acceleration.baseSpeedPercent
+    || !['above', 'at-or-above'].includes(alchemy.acceleration.explosionBoundary)) {
+    throw new Error('alchemy.acceleration progression and explosion boundary are invalid.')
+  }
+  if (!isRecord(alchemy.reagents)
+    || Object.values(alchemy.reagents).some(value => !Number.isInteger(value) || value < 0)) {
+    throw new Error('alchemy.reagents charges must be non-negative integers.')
+  }
+  if (!isRecord(alchemy.explosion)
+    || typeof alchemy.explosion.epidemicDefinitionId !== 'string'
+    || !Number.isFinite(alchemy.explosion.severityMultiplier)
+    || alchemy.explosion.severityMultiplier <= 0
+    || typeof alchemy.explosion.lockBuildingForCon !== 'boolean') {
+    throw new Error('alchemy.explosion must define a typed epidemic and lock policy.')
+  }
+  if (!Array.isArray(alchemy.colors) || !Array.isArray(alchemy.pieces)
+    || !Array.isArray(alchemy.recipes) || !Array.isArray(alchemy.deferredSubfeatures)) {
+    throw new Error('alchemy colors, pieces, recipes, and deferredSubfeatures must be arrays.')
+  }
+  if (!alchemy.enabled) return
+  const building = config.empire.buildings.find(candidate => candidate.id === alchemy.buildingId)
+  if (!building || building.deferredReason) throw new Error('alchemy must reference a live building carrier.')
+  if (building.deferredSubfeatures?.some(item => item.id === 'alchemyMinigame')) {
+    throw new Error('live alchemy cannot retain the broad alchemyMinigame blocker.')
+  }
+  if (!config.empire.epidemics.definitions.some(definition => (
+    definition.id === alchemy.explosion.epidemicDefinitionId
+  ))) throw new Error('alchemy explosion references an unknown epidemic definition.')
+  const validColors = new Set(['red', 'yellow', 'blue', 'green'])
+  if (alchemy.colors.length === 0 || new Set(alchemy.colors).size !== alchemy.colors.length
+    || alchemy.colors.some(color => !validColors.has(color))) {
+    throw new Error('alchemy.colors must contain unique primary reagent colors.')
+  }
+  const pieceIds = new Set<string>()
+  for (const piece of alchemy.pieces) {
+    if (!piece.id?.trim() || pieceIds.has(piece.id) || !piece.name?.trim()
+      || !Array.isArray(piece.cells) || piece.cells.length === 0
+      || piece.cells.some(cell => !Number.isInteger(cell.x) || !Number.isInteger(cell.y))
+      || new Set(piece.cells.map(cell => `${cell.x}:${cell.y}`)).size !== piece.cells.length) {
+      throw new Error(`alchemy piece ${piece.id || '<missing>'} is invalid.`)
+    }
+    pieceIds.add(piece.id)
+  }
+  const recipeIds = new Set<string>()
+  const buildingIds = new Set(config.empire.buildings.map(item => item.id))
+  const technologyIds = new Set(config.empire.technologies.map(item => item.id))
+  const inBoard = (cell: { x: number, y: number }) => Number.isInteger(cell.x)
+    && Number.isInteger(cell.y) && cell.x >= 0 && cell.x < alchemy.board.width
+    && cell.y >= 0 && cell.y < alchemy.board.height
+  const validateDependencies = (dependencies: readonly EmpiresDependency[], recipeId: string) => {
+    for (const dependency of dependencies) {
+      if (dependency.kind === 'technology' && !technologyIds.has(dependency.technologyId)) {
+        throw new Error(`alchemy recipe ${recipeId} references unknown technology ${dependency.technologyId}.`)
+      }
+      if (dependency.kind === 'building' && !buildingIds.has(dependency.buildingId)) {
+        throw new Error(`alchemy recipe ${recipeId} references unknown building ${dependency.buildingId}.`)
+      }
+    }
+  }
+  for (const recipe of alchemy.recipes) {
+    if (!recipe.id?.trim() || recipeIds.has(recipe.id) || !recipe.name?.trim()
+      || !recipe.description?.trim() || !['assembly', 'disassembly'].includes(recipe.mode)
+      || !['experiment', 'medicine', 'poison'].includes(recipe.family)
+      || !Array.isArray(recipe.initialCells) || recipe.initialCells.length === 0
+      || !Array.isArray(recipe.targetCells) || recipe.targetCells.length === 0
+      || recipe.initialCells.some(cell => !inBoard(cell) || !['red', 'yellow', 'blue', 'green', 'gray'].includes(cell.color))
+      || recipe.targetCells.some(cell => !inBoard(cell)
+        || cell.color !== undefined && !validColors.has(cell.color))
+      || new Set(recipe.initialCells.map(cell => `${cell.x}:${cell.y}`)).size !== recipe.initialCells.length
+      || new Set(recipe.targetCells.map(cell => `${cell.x}:${cell.y}`)).size !== recipe.targetCells.length
+      || !Array.isArray(recipe.pieceDefinitionIds) || recipe.pieceDefinitionIds.length === 0
+      || new Set(recipe.pieceDefinitionIds).size !== recipe.pieceDefinitionIds.length
+      || recipe.pieceDefinitionIds.some(id => !pieceIds.has(id))
+      || !Array.isArray(recipe.prerequisites) || !Array.isArray(recipe.rewards)) {
+      throw new Error(`alchemy recipe ${recipe.id || '<missing>'} is invalid.`)
+    }
+    recipeIds.add(recipe.id)
+    validateDependencies(recipe.prerequisites, recipe.id)
+  }
+  if (alchemy.recipes.every(recipe => Boolean(recipe.deferredReason))) {
+    throw new Error('enabled alchemy requires at least one live recipe or experiment.')
+  }
+}
+
 function validateExternalEconomyConfig(config: EmpiresEndgameConfig): void {
   const external = config.empire.externalEconomy
   if (!isRecord(external) || typeof external.enabled !== 'boolean') {
@@ -2352,6 +2562,9 @@ function validatePoliticalEffects(config: EmpiresEndgameConfig): void {
   }
   for (const offer of config.empire.externalEconomy.offers) {
     validateEffects(offer.declineEffects, `external offer ${offer.id} decline effects`)
+  }
+  for (const recipe of config.alchemy.recipes) {
+    validateEffects(recipe.rewards, `alchemy recipe ${recipe.id} rewards`)
   }
 }
 
@@ -3570,6 +3783,7 @@ export function validateEmpiresConfig(value: unknown): asserts value is EmpiresE
   }
   if (!Array.isArray(value.mysticCards)) throw new Error('Поле mysticCards должно быть массивом.')
   if (!isRecord(value.tavern)) throw new Error('Отсутствуют настройки Таверны.')
+  if (!isRecord(value.alchemy)) throw new Error('Отсутствуют настройки Алхимии.')
 
   if (!isRecord(value.durak)) throw new Error('Отсутствуют настройки карточной партии.')
   if (!isRecord(value.upgrades)) throw new Error('Отсутствуют настройки улучшений.')
@@ -3629,6 +3843,7 @@ export function validateEmpiresConfig(value: unknown): asserts value is EmpiresE
   validateEpidemicAndMedicalConfig(config)
   validateDomesticEconomyConfig(config)
   validateTavernConfig(config)
+  validateAlchemyConfig(config)
   validateExternalEconomyConfig(config)
   validateEconomyContentConfig(config)
   validateLoyaltyConfig(config)

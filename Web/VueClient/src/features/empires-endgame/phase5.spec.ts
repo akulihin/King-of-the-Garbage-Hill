@@ -40,7 +40,7 @@ function startPlague(engine: EmpiresEndgameEngine, cityId = origin(engine).id) {
 }
 
 describe('Empire\'s Endgame Phase 5 epidemics', () => {
-  it('migrates v7 into disabled epidemic/medical and economy scaffolds without mutation and rejects v14', () => {
+  it('migrates v7 into disabled epidemic/medical and economy scaffolds without mutation and rejects v16', () => {
     const previous = structuredClone(defaultConfigJson) as unknown as Record<string, unknown>
     previous.schemaVersion = 7
     const empire = previous.empire as Record<string, unknown>
@@ -64,7 +64,7 @@ describe('Empire\'s Endgame Phase 5 epidemics', () => {
     const migrated = migrateEmpiresConfig(previous) as EmpiresEndgameConfig
     expect(previous).toEqual(original)
     expect(migrated).toMatchObject({
-      schemaVersion: 14,
+      schemaVersion: 15,
       empire: {
         epidemics: { enabled: false, definitions: [], protections: [] },
         medical: { enabled: false, defaultBattleRecoveryCons: 2 },
@@ -73,7 +73,7 @@ describe('Empire\'s Endgame Phase 5 epidemics', () => {
     })
     expect(() => validateEmpiresConfig(migrated)).not.toThrow()
     expect(migrateEmpiresConfig(migrated)).toEqual(migrated)
-    expect(() => migrateEmpiresConfig({ ...migrated, schemaVersion: 15 })).toThrow(/future.*15/i)
+    expect(() => migrateEmpiresConfig({ ...migrated, schemaVersion: 16 })).toThrow(/future.*16/i)
   })
 
   it('allocates class loss by authored weights with stable remainder and capacity handling', () => {
@@ -216,14 +216,12 @@ describe('Empire\'s Endgame Phase 5 epidemics', () => {
     }
   })
 
-  it('triggers the Granary plus Alchemy plague once and keeps only the P10 lab capability deferred', () => {
+  it('triggers the Granary plus Alchemy plague once and hands the closed lab carrier to P10', () => {
     const value = config()
     value.empire.epidemics.maxSpreadTargetsPerSettlement = 0
     const alchemy = value.empire.buildings.find(item => item.id === 'building-alchemy')!
     expect(alchemy.deferredReason).toBeUndefined()
-    expect(alchemy.deferredSubfeatures).toEqual([
-      expect.objectContaining({ id: 'alchemyMinigame' }),
-    ])
+    expect(alchemy.deferredSubfeatures ?? []).toEqual([])
     const engine = empireEngine(value)
     const city = origin(engine)
     city.buildingLevels[alchemy.id] = 1
@@ -416,7 +414,7 @@ describe('Empire\'s Endgame Phase 5 epidemics', () => {
     delete (legacy.army as Partial<EmpiresCampaignState['army']>).recoveries
     const restored = new EmpiresEndgameEngine(value, legacy)
     expect(restored.state).toMatchObject({
-      schemaVersion: 12,
+      schemaVersion: 13,
       epidemics: [],
       nextEpidemicSequence: 1,
       army: { recoveries: [] },

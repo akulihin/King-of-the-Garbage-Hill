@@ -89,14 +89,36 @@ const copy = {
     dualSense: 'DualSense',
     attack: 'Selected attack',
     attackHelp: 'One weapon gesture at a time',
+    moveDescription: 'In-game move description',
+    swordSettings: 'Mercenary Sword',
+    swordSettingsHelp: 'Rhythm, advance, motion damage, stagger and follow-up tuning',
+    swordStaggerEnabled: 'Zornhaw stagger and Unstoppable enabled',
+    swordPerfectStart: 'Ideal timing starts (ms)',
+    swordPerfectEnd: 'Perfect timing ends (ms)',
+    swordFatigue: 'Early-hit fatigue (ms)',
+    swordAdvanceDistance: 'Advance distance',
+    swordAdvanceSpeed: 'Advance speed',
+    swordMotionBonus: 'Maximum mouse bonus',
+    swordMotionPixels: 'Mouse travel for maximum (px)',
+    swordStagger: 'Stagger per hit (ms)',
+    swordStaggerThreshold: 'Unstoppable threshold (ms)',
+    swordUnstoppable: 'Unstoppable duration (ms)',
+    swordUnterhauHold: 'Unterhaw hold (ms)',
+    swordEmptyOffhand: 'Empty off-hand damage multiplier',
     loadout: 'Starting loadout',
     loadoutHelp: 'Select the two active slots and their augment symbols',
+    moveQuestsEnabled: 'Move-unlock quests enabled',
     enemy: 'Selected enemy',
     enemyHelp: 'Awareness, pursuit and attack tuning',
     weapon: 'Weapon',
     primaryWeapon: 'Primary weapon',
     secondaryWeapon: 'Secondary weapon',
     noSecondary: 'Empty secondary slot',
+    noPrimary: 'Empty primary slot',
+    artifact: 'Artifact',
+    noArtifact: 'No artifact',
+    outfit: 'Outfit',
+    noOutfit: 'No outfit',
     primaryAugment: 'Primary augment',
     secondaryAugment: 'Secondary augment',
     attackSet: 'Input set',
@@ -253,14 +275,36 @@ const copy = {
     dualSense: 'DualSense',
     attack: 'Выбранная атака',
     attackHelp: 'Один жест оружия за раз',
+    moveDescription: 'Игровое описание мува',
+    swordSettings: 'Меч наемника',
+    swordSettingsHelp: 'Ритм, наступание, движение мыши, стаггер и продолжение',
+    swordStaggerEnabled: 'Стаггер Zornhaw и Неудержимость включены',
+    swordPerfectStart: 'Начало идеального тайминга (мс)',
+    swordPerfectEnd: 'Конец идеального тайминга (мс)',
+    swordFatigue: 'Усталость за ранний удар (мс)',
+    swordAdvanceDistance: 'Дистанция наступания',
+    swordAdvanceSpeed: 'Скорость наступания',
+    swordMotionBonus: 'Максимальный бонус мыши',
+    swordMotionPixels: 'Путь мыши для максимума (px)',
+    swordStagger: 'Стаггер за удар (мс)',
+    swordStaggerThreshold: 'Порог Неудержимости (мс)',
+    swordUnstoppable: 'Длительность Неудержимости (мс)',
+    swordUnterhauHold: 'Удержание Unterhaw (мс)',
+    swordEmptyOffhand: 'Множитель урона с пустой второй рукой',
     loadout: 'Стартовая экипировка',
     loadoutHelp: 'Выберите два активных слота и символы-аугментации',
+    moveQuestsEnabled: 'Квесты для открытия мувов включены',
     enemy: 'Выбранный враг',
     enemyHelp: 'Обнаружение, преследование и настройка атак',
     weapon: 'Оружие',
     primaryWeapon: 'Основное оружие',
     secondaryWeapon: 'Вторичное оружие',
     noSecondary: 'Пустой вторичный слот',
+    noPrimary: 'Пустой основной слот',
+    artifact: 'Артефакт',
+    noArtifact: 'Без артефакта',
+    outfit: 'Одежда',
+    noOutfit: 'Без одежды',
     primaryAugment: 'Аугментация основного',
     secondaryAugment: 'Аугментация вторичного',
     attackSet: 'Набор ввода',
@@ -483,6 +527,7 @@ const secondaryAugmentInherited = computed(() => {
 
 function loadDraft(config: LastChancesConfig) {
   draft.value = cloneLastChancesConfig(config)
+  draft.value.progression.moveQuestsEnabled ??= true
   syncingRaw = true
   rawJson.value = JSON.stringify(draft.value, null, 2)
   rawError.value = ''
@@ -962,6 +1007,10 @@ function exportJson() {
                 <legend><span><RotateCcw :size="15" aria-hidden="true" />{{ t.chances }}</span><small>{{ t.chancesHelp }}</small></legend>
                 <div class="lc-fields-grid">
                   <label>{{ t.chanceCount }}<input v-model.number="draft.chances" type="number" min="1" step="1" /></label>
+                  <label class="lc-check-field">
+                    <input v-model="draft.progression.moveQuestsEnabled" type="checkbox" />
+                    <span>{{ t.moveQuestsEnabled }}</span>
+                  </label>
                   <label>{{ t.tier }}
                     <select v-model.number="selectedTierIndex">
                       <option v-for="(tier, index) in draft.progression.tiers" :key="tier.id" :value="index">{{ index + 1 }} · {{ tier.label }}</option>
@@ -1089,6 +1138,7 @@ function exportJson() {
                       data-testid="builder-primary-loadout"
                       @change="normalizeLoadoutForPrimary"
                     >
+                      <option :value="null">{{ t.noPrimary }}</option>
                       <option v-for="weapon in primaryLoadoutWeapons" :key="weapon.id" :value="weapon.id">{{ weapon.name }}</option>
                     </select>
                   </label>
@@ -1111,6 +1161,18 @@ function exportJson() {
                   <label>{{ t.secondaryAugment }}
                     <select v-model="draft.loadout.secondaryAugment" :disabled="secondaryAugmentInherited || !draft.loadout.secondaryWeaponId">
                       <option v-for="augment in secondaryAugmentOptions" :key="augment" :value="augment">{{ augmentLabel(augment) }}</option>
+                    </select>
+                  </label>
+                  <label>{{ t.artifact }}
+                    <select v-model="draft.loadout.artifactId">
+                      <option :value="null">{{ t.noArtifact }}</option>
+                      <option v-for="artifact in draft.artifacts ?? []" :key="artifact.id" :value="artifact.id">{{ artifact.name }}</option>
+                    </select>
+                  </label>
+                  <label>{{ t.outfit }}
+                    <select v-model="draft.loadout.outfitId">
+                      <option :value="null">{{ t.noOutfit }}</option>
+                      <option v-for="outfit in draft.outfits ?? []" :key="outfit.id" :value="outfit.id">{{ outfit.name }}</option>
                     </select>
                   </label>
                 </div>
@@ -1137,6 +1199,7 @@ function exportJson() {
                   </label>
                 </div>
                 <div v-if="selectedAttack" class="lc-fields-grid">
+                  <label class="lc-wide-field">{{ t.moveDescription }}<input v-model="selectedAttack.description" type="text" /></label>
                   <label class="lc-check-field">
                     <input
                       type="checkbox"
@@ -1180,6 +1243,28 @@ function exportJson() {
                     <span>{{ t.chargeEnabled }}</span>
                   </label>
                 </div>
+                <section v-if="selectedWeapon?.id === 'hybrid-sword' && selectedWeapon.tuning" class="lc-control-tuning">
+                  <h3>{{ t.swordSettings }}</h3>
+                  <small>{{ t.swordSettingsHelp }}</small>
+                  <div class="lc-fields-grid">
+                    <label class="lc-check-field">
+                      <input v-model="selectedWeapon.staggerEnabled" type="checkbox" />
+                      <span>{{ t.swordStaggerEnabled }}</span>
+                    </label>
+                    <label>{{ t.swordPerfectStart }}<input v-model.number="selectedWeapon.tuning.rhythmPerfectStartMs" type="number" min="1" step="25" /></label>
+                    <label>{{ t.swordPerfectEnd }}<input v-model.number="selectedWeapon.tuning.rhythmPerfectEndMs" type="number" min="1" step="25" /></label>
+                    <label>{{ t.swordFatigue }}<input v-model.number="selectedWeapon.tuning.rhythmFatigueMs" type="number" min="0" step="100" /></label>
+                    <label>{{ t.swordAdvanceDistance }}<input v-model.number="selectedWeapon.tuning.advanceDistance" type="number" min="0" step="1" /></label>
+                    <label>{{ t.swordAdvanceSpeed }}<input v-model.number="selectedWeapon.tuning.advanceSpeed" type="number" min="1" step="5" /></label>
+                    <label>{{ t.swordMotionBonus }}<input v-model.number="selectedWeapon.tuning.mouseDamageBonusMax" type="number" min="0" max="1" step="0.01" /></label>
+                    <label>{{ t.swordMotionPixels }}<input v-model.number="selectedWeapon.tuning.mouseMotionForMaxBonusPx" type="number" min="1" step="5" /></label>
+                    <label>{{ t.swordStagger }}<input v-model.number="selectedWeapon.tuning.staggerDurationMs" type="number" min="0" step="50" /></label>
+                    <label>{{ t.swordStaggerThreshold }}<input v-model.number="selectedWeapon.tuning.unstoppableThresholdMs" type="number" min="1" step="100" /></label>
+                    <label>{{ t.swordUnstoppable }}<input v-model.number="selectedWeapon.tuning.unstoppableDurationMs" type="number" min="0" step="100" /></label>
+                    <label>{{ t.swordUnterhauHold }}<input v-model.number="selectedWeapon.tuning.unterhauHoldMs" type="number" min="1" step="50" /></label>
+                    <label>{{ t.swordEmptyOffhand }}<input v-model.number="selectedWeapon.tuning.emptyOffhandDamageMultiplier" type="number" min="1" step="0.05" /></label>
+                  </div>
+                </section>
                 <div v-if="selectedAttack?.charge" class="lc-charge-editor">
                   <div class="lc-fields-grid">
                     <label>{{ t.chargeMax }}<input v-model.number="selectedAttack.charge.maxMs" type="number" min="1" step="25" /></label>
@@ -1345,6 +1430,7 @@ legend small { color: #656a67; font-size: 0.55rem; text-align: right; }
 .lc-control-tuning h3,
 .lc-control-tuning h4 { margin: 0; color: #b9aa89; font-size: 0.57rem; letter-spacing: 0.08em; text-transform: uppercase; }
 .lc-control-tuning h4 { margin-top: 0.15rem; color: #80768c; font-size: 0.51rem; }
+.lc-wide-field { grid-column: 1 / -1; }
 .lc-profile-picker { display: grid; grid-template-columns: minmax(9rem, 14rem); }
 .lc-profile-picker label { display: grid; gap: 0.25rem; color: #747a77; font-size: 0.54rem; font-weight: 700; }
 .lc-profile-picker select { width: 100%; min-height: 2rem; padding: 0.38rem 0.45rem; border: 1px solid rgba(255, 255, 255, 0.09); border-radius: 0.38rem; outline: none; color: #e1ded5; background: #0b0e0f; font: 600 0.66rem/1.2 var(--font-mono, monospace); color-scheme: dark; }

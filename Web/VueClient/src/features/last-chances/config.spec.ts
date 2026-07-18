@@ -364,9 +364,16 @@ describe('99LC config and deterministic plan', () => {
     const unsupplemented = cloneLastChancesConfig(defaultConfig)
     unsupplemented.loadout!.secondaryWeaponId = null
     expect(resolveLastChancesLoadout(unsupplemented)).toMatchObject({
-      left: { id: 'twohand-spear', hand: 'left', augment: 'none' },
-      right: { id: 'twohand-spear', hand: 'right', augment: 'none' },
+      left: { id: 'hybrid-sword', hand: 'left', augment: 'none' },
+      right: { id: 'hybrid-sword', hand: 'right', augment: 'none' },
     })
+    expect(defaultConfig.weapons.find(weapon => weapon.id === 'hybrid-sword')?.name)
+      .toBe('Меч наемника')
+    expect(defaultConfig.progression.moveQuestsEnabled).toBe(true)
+    expect(defaultConfig.artifacts).toHaveLength(3)
+    expect(defaultConfig.outfits).toHaveLength(2)
+    expect(defaultConfig.enemies.find(enemy => enemy.id === 'swarm-creep')?.swarm?.spawnIntervalMs)
+      .toBe(200)
     expect(defaultConfig.enemies.map(enemy => enemy.name)).toEqual(expect.arrayContaining([
       'Слуга',
       'Бегущий степлер',
@@ -1023,6 +1030,8 @@ describe('99LC config and deterministic plan', () => {
     it('accepts typed colliders, charge bands, statuses, resources, and augments', () => {
       const config = schema3Config()
       const weapon = config.weapons[0]
+      config.loadout!.primaryWeaponId = weapon.id
+      config.loadout!.secondaryWeaponId = null
       const attack = weapon.attacks.hold
       weapon.resource = { kind: 'chain', max: 1, initial: 0, label: 'Stored DOT', color: '#86d981' }
       weapon.defaultAugment = 'poison'

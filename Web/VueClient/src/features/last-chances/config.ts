@@ -484,33 +484,43 @@ const ATTACK_SET_CONTROL_SEEDS: Record<string, AttackSetControlSeed> = {
     ],
   },
   'hybrid-sword:primary': {
-    role: 'Matching hand — Zornhau and opening breaker',
-    triggerRole: 'Trigger opening, Oberhau and delayed Unterhau',
+    role: 'Left hand — instant Zornhaw, Oberhaw morph and held Unterhaw',
+    triggerRole: 'Trigger Oberhaw immediately; hold through the Unterhaw gate',
     mylorik: {
       tap: mylorikActivation('strike', 'press'),
-      doubleTap: mylorikActivation('technique', 'tap', 'opening'),
-      doubleTapHold: mylorikActivation('technique', 'hold', 'opening'),
+      doubleTap: mylorikActivation('technique', 'tap'),
+      doubleTapHold: mylorikActivation('technique', 'hold'),
     },
     dualsense: [
-      dualSenseNode('doubleTap', 'opening', 0.22, { next: ['doubleTapHold'], tactileProfile: 'followUp' }),
-      dualSenseNode('doubleTapHold', 'opening', 0.72, {
+      dualSenseNode('doubleTap', 'neutral', 0.22, {
+        next: ['doubleTapHold'],
+        expiryMs: 1000,
+        tactileProfile: 'followUp',
+      }),
+      dualSenseNode('doubleTapHold', 'continuation', 0.72, {
         holdBehavior: 'charge',
+        expiryMs: 1000,
         tactileProfile: 'gate',
       }),
     ],
   },
   'hybrid-sword:secondary': {
-    role: 'Matching hand — Zornhau and opening breaker',
-    triggerRole: 'Trigger opening, Oberhau and delayed Unterhau',
+    role: 'Legacy Sword secondary route',
+    triggerRole: 'Legacy Sword secondary trigger route',
     mylorik: {
       tap: mylorikActivation('strike', 'press'),
-      doubleTap: mylorikActivation('technique', 'tap', 'opening'),
-      doubleTapHold: mylorikActivation('technique', 'hold', 'opening'),
+      doubleTap: mylorikActivation('technique', 'tap'),
+      doubleTapHold: mylorikActivation('technique', 'hold'),
     },
     dualsense: [
-      dualSenseNode('doubleTap', 'opening', 0.22, { next: ['doubleTapHold'], tactileProfile: 'followUp' }),
-      dualSenseNode('doubleTapHold', 'opening', 0.72, {
+      dualSenseNode('doubleTap', 'neutral', 0.22, {
+        next: ['doubleTapHold'],
+        expiryMs: 1000,
+        tactileProfile: 'followUp',
+      }),
+      dualSenseNode('doubleTapHold', 'continuation', 0.72, {
         holdBehavior: 'charge',
+        expiryMs: 1000,
         tactileProfile: 'gate',
       }),
     ],
@@ -1408,6 +1418,7 @@ function validateAttack(
   const record = asRecord(value, path, errors)
   if (!record) return
   requireString(record, 'name', path, errors)
+  if (record.description !== undefined) requireString(record, 'description', path, errors)
   if (!LAST_CHANCES_ATTACK_KINDS.includes(record.kind as typeof LAST_CHANCES_ATTACK_KINDS[number])) {
     errors.push(`${path}.kind must be one of ${LAST_CHANCES_ATTACK_KINDS.join(', ')}`)
   }
@@ -1601,6 +1612,12 @@ function validateInteraction(value: unknown, path: string, errors: string[]): vo
       }
       if (effect.secondaryWeaponId !== undefined && effect.secondaryWeaponId !== null) {
         requireString(effect, 'secondaryWeaponId', `${choicePath}.effect`, errors)
+      }
+      if (effect.artifactId !== undefined && effect.artifactId !== null) {
+        requireString(effect, 'artifactId', `${choicePath}.effect`, errors)
+      }
+      if (effect.outfitId !== undefined && effect.outfitId !== null) {
+        requireString(effect, 'outfitId', `${choicePath}.effect`, errors)
       }
     }
     if (typeof choice.id === 'string') {
@@ -2233,6 +2250,9 @@ function validateWeapons(
     if (weapon.corpseBound !== undefined && typeof weapon.corpseBound !== 'boolean') {
       errors.push(`${path}.corpseBound must be a boolean`)
     }
+    if (weapon.staggerEnabled !== undefined && typeof weapon.staggerEnabled !== 'boolean') {
+      errors.push(`${path}.staggerEnabled must be a boolean`)
+    }
     if (weapon.trait !== undefined && !LAST_CHANCES_WEAPON_TRAITS.includes(
       weapon.trait as typeof LAST_CHANCES_WEAPON_TRAITS[number],
     )) {
@@ -2292,14 +2312,14 @@ function validateWeapons(
       validateAttackSet(weapon.secondaryAttacks, `${path}.secondaryAttacks`, errors, schemaVersion)
     }
     const equipMode = inferredEquipMode(weapon)
-    if ((equipMode === 'twoHanded' || equipMode === 'hybrid') && weapon.secondaryAttacks === undefined) {
+    if (equipMode === 'twoHanded' && weapon.secondaryAttacks === undefined) {
       errors.push(`${path}.secondaryAttacks is required for ${equipMode} equipment`)
     }
     validateTapCombo(
       weapon.secondaryTapCombo,
       `${path}.secondaryTapCombo`,
       errors,
-      schemaVersion >= 2 && (equipMode === 'twoHanded' || equipMode === 'hybrid'),
+      schemaVersion >= 2 && equipMode === 'twoHanded',
       schemaVersion,
     )
     if (typeof weapon.id === 'string') {
@@ -2327,7 +2347,10 @@ function validateWeapons(
 
   const loadout = asRecord(loadoutValue, 'loadout', errors)
   if (!loadout) return
-  requireString(loadout, 'primaryWeaponId', 'loadout', errors)
+  if (loadout.primaryWeaponId !== null
+    && (typeof loadout.primaryWeaponId !== 'string' || loadout.primaryWeaponId.trim().length === 0)) {
+    errors.push('loadout.primaryWeaponId must be a non-empty string or null')
+  }
   if (loadout.secondaryWeaponId !== null
     && (typeof loadout.secondaryWeaponId !== 'string' || loadout.secondaryWeaponId.trim().length === 0)) {
     errors.push('loadout.secondaryWeaponId must be a non-empty string or null')
@@ -2339,26 +2362,26 @@ function validateWeapons(
       errors.push(`loadout.${key} must be one of ${LAST_CHANCES_AUGMENTS.join(', ')}`)
     }
   }
-  if (typeof loadout.primaryWeaponId !== 'string') return
-  const primary = catalog.get(loadout.primaryWeaponId)
-  if (!primary) {
-    errors.push(`loadout.primaryWeaponId references unknown weapon ${loadout.primaryWeaponId}`)
-    return
-  }
-  const primaryMode = inferredEquipMode(primary)
-  if (primaryMode === 'secondaryOnly') {
-    errors.push('loadout.primaryWeaponId cannot equip a secondaryOnly weapon')
-  }
-  const primaryAugment = typeof loadout.primaryAugment === 'string'
-    ? loadout.primaryAugment
-    : 'none'
-  const primaryHooks = typeof primary.augmentHooks === 'object'
-    && primary.augmentHooks !== null
-    && !Array.isArray(primary.augmentHooks)
-    ? primary.augmentHooks as UnknownRecord
+  const primary = typeof loadout.primaryWeaponId === 'string'
+    ? catalog.get(loadout.primaryWeaponId)
     : null
-  if (primaryAugment !== 'none' && !primaryHooks?.[primaryAugment]) {
-    errors.push(`loadout.primaryAugment ${primaryAugment} is not supported by ${loadout.primaryWeaponId}`)
+  if (typeof loadout.primaryWeaponId === 'string' && !primary) {
+    errors.push(`loadout.primaryWeaponId references unknown weapon ${loadout.primaryWeaponId}`)
+  }
+  const primaryMode = primary ? inferredEquipMode(primary) : null
+  if (primaryMode === 'secondaryOnly') errors.push('loadout.primaryWeaponId cannot equip a secondaryOnly weapon')
+  if (primary) {
+    const primaryAugment = typeof loadout.primaryAugment === 'string'
+      ? loadout.primaryAugment
+      : 'none'
+    const primaryHooks = typeof primary.augmentHooks === 'object'
+      && primary.augmentHooks !== null
+      && !Array.isArray(primary.augmentHooks)
+      ? primary.augmentHooks as UnknownRecord
+      : null
+    if (primaryAugment !== 'none' && !primaryHooks?.[primaryAugment]) {
+      errors.push(`loadout.primaryAugment ${primaryAugment} is not supported by ${loadout.primaryWeaponId}`)
+    }
   }
 
   const secondaryId = typeof loadout.secondaryWeaponId === 'string'
@@ -2367,9 +2390,7 @@ function validateWeapons(
   if (primaryMode === 'twoHanded' && secondaryId) {
     errors.push('loadout.secondaryWeaponId must be null while a twoHanded weapon is equipped')
   }
-  if (!secondaryId) {
-    return
-  }
+  if (!secondaryId) return
 
   const secondary = catalog.get(secondaryId)
   if (!secondary) {
@@ -2393,6 +2414,69 @@ function validateWeapons(
     : null
   if (secondaryAugment !== 'none' && !secondaryHooks?.[secondaryAugment]) {
     errors.push(`loadout.secondaryAugment ${secondaryAugment} is not supported by ${secondaryId}`)
+  }
+}
+
+function validateEquipmentCatalogs(root: UnknownRecord, errors: string[]): void {
+  const artifactIds = new Set<string>()
+  if (root.artifacts !== undefined && !Array.isArray(root.artifacts)) {
+    errors.push('artifacts must be an array')
+  } else if (Array.isArray(root.artifacts)) {
+    root.artifacts.forEach((value, index) => {
+      const path = `artifacts[${index}]`
+      const artifact = asRecord(value, path, errors)
+      if (!artifact) return
+      requireString(artifact, 'id', path, errors)
+      requireString(artifact, 'name', path, errors)
+      requireString(artifact, 'description', path, errors)
+      for (const key of ['mentalDamageReduction', 'lifestealRatio'] as const) {
+        if (artifact[key] !== undefined) validateUnitNumber(artifact, key, path, errors)
+      }
+      if (typeof artifact.id === 'string') {
+        if (artifactIds.has(artifact.id)) errors.push(`${path}.id duplicates ${artifact.id}`)
+        artifactIds.add(artifact.id)
+      }
+    })
+  }
+
+  const outfitIds = new Set<string>()
+  if (root.outfits !== undefined && !Array.isArray(root.outfits)) {
+    errors.push('outfits must be an array')
+  } else if (Array.isArray(root.outfits)) {
+    root.outfits.forEach((value, index) => {
+      const path = `outfits[${index}]`
+      const outfit = asRecord(value, path, errors)
+      if (!outfit) return
+      requireString(outfit, 'id', path, errors)
+      requireString(outfit, 'name', path, errors)
+      requireString(outfit, 'description', path, errors)
+      requireNumber(outfit, 'armorBonus', path, errors)
+      requirePositiveNumber(outfit, 'moveSpeedMultiplier', path, errors)
+      if (outfit.emptyRightHandDash !== undefined) {
+        const dash = asRecord(outfit.emptyRightHandDash, `${path}.emptyRightHandDash`, errors)
+        if (dash) {
+          requirePositiveNumber(dash, 'distance', `${path}.emptyRightHandDash`, errors)
+          requirePositiveNumber(dash, 'durationMs', `${path}.emptyRightHandDash`, errors)
+          requireNumber(dash, 'cooldownMs', `${path}.emptyRightHandDash`, errors)
+        }
+      }
+      if (typeof outfit.id === 'string') {
+        if (outfitIds.has(outfit.id)) errors.push(`${path}.id duplicates ${outfit.id}`)
+        outfitIds.add(outfit.id)
+      }
+    })
+  }
+
+  const loadout = typeof root.loadout === 'object' && root.loadout !== null
+    && !Array.isArray(root.loadout) ? root.loadout as UnknownRecord : null
+  if (!loadout) return
+  for (const [key, ids] of [['artifactId', artifactIds], ['outfitId', outfitIds]] as const) {
+    const id = loadout[key]
+    if (id !== undefined && id !== null && (typeof id !== 'string' || id.trim().length === 0)) {
+      errors.push(`loadout.${key} must be a non-empty string or null`)
+    } else if (typeof id === 'string' && !ids.has(id)) {
+      errors.push(`loadout.${key} references unknown ${key === 'artifactId' ? 'artifact' : 'outfit'} ${id}`)
+    }
   }
 }
 
@@ -2696,6 +2780,16 @@ function validateContentReferences(root: UnknownRecord, errors: string[]): void 
     const id = (weaponValue as UnknownRecord).id
     return typeof id === 'string' ? [id] : []
   }))
+  const artifactIds = new Set(Array.isArray(root.artifacts) ? root.artifacts.flatMap((value) => {
+    if (typeof value !== 'object' || value === null || Array.isArray(value)) return []
+    const id = (value as UnknownRecord).id
+    return typeof id === 'string' ? [id] : []
+  }) : [])
+  const outfitIds = new Set(Array.isArray(root.outfits) ? root.outfits.flatMap((value) => {
+    if (typeof value !== 'object' || value === null || Array.isArray(value)) return []
+    const id = (value as UnknownRecord).id
+    return typeof id === 'string' ? [id] : []
+  }) : [])
   root.rooms.forEach((roomValue, roomIndex) => {
     if (typeof roomValue !== 'object' || roomValue === null || Array.isArray(roomValue)) return
     const interaction = (roomValue as UnknownRecord).interaction
@@ -2709,6 +2803,15 @@ function validateContentReferences(root: UnknownRecord, errors: string[]): void 
         const weaponId = (effect as UnknownRecord)[key]
         if (typeof weaponId === 'string' && !weaponIds.has(weaponId)) {
           errors.push(`rooms[${roomIndex}].interaction.choices[${choiceIndex}].effect.${key} references unknown weapon ${weaponId}`)
+        }
+      }
+      for (const [key, ids, label] of [
+        ['artifactId', artifactIds, 'artifact'],
+        ['outfitId', outfitIds, 'outfit'],
+      ] as const) {
+        const id = (effect as UnknownRecord)[key]
+        if (typeof id === 'string' && !ids.has(id)) {
+          errors.push(`rooms[${roomIndex}].interaction.choices[${choiceIndex}].effect.${key} references unknown ${label} ${id}`)
         }
       }
     })
@@ -2799,11 +2902,16 @@ export function validateLastChancesConfig(value: unknown): LastChancesConfigVali
   if (progression) {
     requireNumber(progression, 'roomHpRecovery', 'progression', errors)
     requireNumber(progression, 'roomMentalRecovery', 'progression', errors)
+    if (progression.moveQuestsEnabled !== undefined
+      && typeof progression.moveQuestsEnabled !== 'boolean') {
+      errors.push('progression.moveQuestsEnabled must be a boolean')
+    }
     validateTiers(progression.tiers, roomIds, enemyIds, errors)
   }
   validateGraphCapacity(root, errors)
   validateSpawnGeometry(root, errors)
   validateWeapons(root.weapons, root.loadout, errors, schemaVersion, dualSenseGatePositions)
+  validateEquipmentCatalogs(root, errors)
   validateContentReferences(root, errors)
   validateNarrative(root.narrative, errors)
 

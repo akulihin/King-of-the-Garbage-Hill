@@ -26,6 +26,7 @@ import {
   Wheat,
 } from 'lucide-vue-next'
 import BuilderDrawer from '../components/empires-endgame/BuilderDrawer.vue'
+import AlchemyBoard from '../components/empires-endgame/AlchemyBoard.vue'
 import CityView from '../components/empires-endgame/CityView.vue'
 import DialogueOverlay from '../components/empires-endgame/DialogueOverlay.vue'
 import DeckMemoryPanel from '../components/empires-endgame/DeckMemoryPanel.vue'
@@ -100,6 +101,7 @@ import type {
   TdCommand,
   TavernResult,
 } from '../features/empires-endgame/types'
+import type { AlchemyCommand, AlchemyResult } from '../features/empires-endgame/alchemy/types'
 
 type EmpireTab = 'map' | 'city' | 'economy' | 'diplomacy' | 'loyalty' | 'technology' | 'governance' | 'council'
 
@@ -173,7 +175,9 @@ const phaseCopy = computed(() => ({
   divineGift: ['Божественный дар', 'Выберите одно из трёх последствий вашей игры.'],
   empire: ['Два месяца власти', 'Распорядитесь временем, людьми и наследием империи.'],
   event: ['Имперское событие', 'Ваше решение изменит следующий кон.'],
-  minigame: activeTdPlan.value?.mode === 'assault'
+  minigame: state.value?.minigame?.kind === 'alchemy'
+    ? ['Тетрис-алхимия', 'Соберите лабораторную конструкцию и удержите ускорение ниже взрывного порога.']
+    : activeTdPlan.value?.mode === 'assault'
     ? ['Наступление', `Прорвитесь к цели «${activeTdPlan.value.objective.name}».`]
     : state.value?.minigame?.kind === 'tavern'
       ? ['Таверна «У List\'a»', 'Наймите наёмников, угостите посетителей или купите осторожный слух.']
@@ -953,6 +957,18 @@ function resolveTavern(result: TavernResult) {
 
 function startTavernVisit(cityId: string) {
   if (engine.value) action(engine.value.startTavernVisit(cityId), false)
+}
+
+function startAlchemyExperiment(cityId: string, recipeId: string) {
+  if (engine.value) action(engine.value.startAlchemyExperiment(cityId, recipeId), false)
+}
+
+function resolveAlchemy(result: AlchemyResult) {
+  if (engine.value) action(engine.value.resolveMinigame(result), false)
+}
+
+function abortAlchemyExperiment(commandLog: AlchemyCommand[], abortTick: number) {
+  if (engine.value) action(engine.value.abortMinigame(commandLog, abortTick), false)
 }
 
 function abortTdBattle(commandLog: TdCommand[], abortTick: number) {
@@ -2267,6 +2283,7 @@ onUnmounted(() => {
           @assign-relic="assignTempleRelic"
           @clear-relic="clearTempleRelic"
           @visit-tavern="startTavernVisit"
+          @start-alchemy="startAlchemyExperiment"
         />
 
         <ExternalDiplomacyPanel
@@ -2352,12 +2369,20 @@ onUnmounted(() => {
           @abort="abortTdBattle"
         />
         <TavernEncounter
-          v-else
+          v-else-if="state.minigame.kind === 'tavern'"
           :key="`${state.minigame.id}:${state.minigame.attempt}`"
           :session="state.minigame"
           :mystic-cards="workingConfig.mysticCards"
           :qa-mode="qaMode"
           @resolved="resolveTavern"
+        />
+        <AlchemyBoard
+          v-else
+          :key="`${state.minigame.id}:${state.minigame.attempt}`"
+          :session="state.minigame"
+          :qa-mode="qaMode"
+          @resolved="resolveAlchemy"
+          @abort="abortAlchemyExperiment"
         />
       </section>
 

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Banknote, Church, FerrisWheel, Landmark, ShieldCheck, Wine } from 'lucide-vue-next'
+import { Banknote, Church, FerrisWheel, FlaskConical, Landmark, ShieldCheck, Wine } from 'lucide-vue-next'
 import type { EmpiresDomesticEconomyView } from '../../features/empires-endgame/types'
 
 defineProps<{
@@ -20,6 +20,7 @@ const emit = defineEmits<{
   assignRelic: [cityId: string, slotIndex: number, giftId: string]
   clearRelic: [cityId: string, slotIndex: number]
   visitTavern: [cityId: string]
+  startAlchemy: [cityId: string, recipeId: string]
 }>()
 
 function selectCity(event: Event) {
@@ -204,6 +205,32 @@ function loanBalance(loan: EmpiresDomesticEconomyView['bank']['loans'][number]) 
         >Посетить Таверну</button>
         <small v-if="view.tavern.blockedReason" class="reason">{{ view.tavern.blockedReason }}</small>
         <small v-for="capability in view.tavern.deferredCapabilities" :key="capability.id" class="deferred">
+          {{ capability.id }}: {{ capability.reason }}
+        </small>
+      </article>
+
+      <article class="economy-card alchemy-card" data-testid="economy-alchemy">
+        <header><FlaskConical :size="18" /><h4>Алхимия</h4></header>
+        <p>
+          Лабораторные фигуры идут к конструкции с четырёх сторон. Ускорение растёт
+          арифметически; превышение порога создаст эпидемию у этого города.
+        </p>
+        <button
+          v-for="recipe in view.alchemy.recipes"
+          :key="recipe.id"
+          type="button"
+          :data-testid="`alchemy-recipe-${recipe.id}`"
+          :disabled="Boolean(recipe.blockedReason)"
+          :title="recipe.blockedReason || undefined"
+          @click="emit('startAlchemy', view.cityId, recipe.id)"
+        >
+          <span>{{ recipe.name }} · {{ recipe.mode === 'assembly' ? 'Сбор' : 'Разбор' }}</span>
+          <small>{{ recipe.family }}</small>
+          <em v-if="recipe.blockedReason">{{ recipe.blockedReason }}</em>
+        </button>
+        <small v-if="view.alchemy.blockedReason && !view.alchemy.recipes.length" class="reason">{{ view.alchemy.blockedReason }}</small>
+        <small>Взрывов в летописи: {{ view.alchemy.explosionCount }}.</small>
+        <small v-for="capability in view.alchemy.deferredCapabilities" :key="capability.id" class="deferred">
           {{ capability.id }}: {{ capability.reason }}
         </small>
       </article>

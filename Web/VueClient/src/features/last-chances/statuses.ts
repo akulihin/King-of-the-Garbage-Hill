@@ -26,6 +26,10 @@ export interface LastChancesRuntimeStatuses {
   attackSlowMs: number
   openingMs: number
   boundMs: number
+  /** Control immunity granted to elites/bosses after enough cumulative Sword stagger. */
+  unstoppableMs: number
+  /** Sword stagger accumulated since the previous Unstoppable window. */
+  staggerAccumulatedMs: number
 }
 
 export interface LastChancesStoredDot {
@@ -69,6 +73,8 @@ export function createLastChancesStatuses(): LastChancesRuntimeStatuses {
     attackSlowMs: 0,
     openingMs: 0,
     boundMs: 0,
+    unstoppableMs: 0,
+    staggerAccumulatedMs: 0,
   }
 }
 
@@ -106,6 +112,14 @@ export function applyLastChancesStatusEffects(
   if (!effects) return
   for (const effect of effects) {
     if ((effect.chance ?? 1) < random()) continue
+    if (status.unstoppableMs > 0 && [
+      'stun',
+      'microstun',
+      'disarm',
+      'slow',
+      'attackSlow',
+      'bound',
+    ].includes(effect.status)) continue
     const stacks = Math.max(1, effect.stacks ?? 1)
     if (LAST_CHANCES_DOT_KINDS.includes(effect.status as LastChancesDotKind)) {
       const kind = effect.status as LastChancesDotKind
@@ -147,6 +161,9 @@ export function applyLastChancesStatusEffects(
     if (effect.status === 'bound') {
       status.boundMs = Math.max(status.boundMs, effect.durationMs)
     }
+    if (effect.status === 'unstoppable') {
+      status.unstoppableMs = Math.max(status.unstoppableMs, effect.durationMs)
+    }
   }
 }
 
@@ -184,6 +201,7 @@ export function updateLastChancesStatuses(
   status.attackSlowMs = Math.max(0, status.attackSlowMs - deltaMs)
   if (status.attackSlowMs <= 0) status.attackSlowMultiplier = 1
   status.boundMs = Math.max(0, status.boundMs - deltaMs)
+  status.unstoppableMs = Math.max(0, status.unstoppableMs - deltaMs)
 }
 
 export function captureLastChancesDot(

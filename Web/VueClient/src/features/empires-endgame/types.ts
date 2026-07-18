@@ -12,6 +12,13 @@ import type {
   TavernResult,
   TavernRulesIdentity,
 } from './tavern/types'
+import type {
+  AlchemyCommand,
+  AlchemyPlan,
+  AlchemyResult,
+  AlchemyRulesIdentity,
+  EmpiresAlchemyConfig,
+} from './alchemy/types'
 
 export type {
   CombatArmorClassDefinition,
@@ -72,6 +79,29 @@ export type {
   TavernRulesIdentity,
   TavernRumorPlan,
 } from './tavern/types'
+export type {
+  AlchemyActivePiece,
+  AlchemyCell,
+  AlchemyColor,
+  AlchemyCommand,
+  AlchemyExplosionRequest,
+  AlchemyFrameClock,
+  AlchemyMode,
+  AlchemyMove,
+  AlchemyOutcome,
+  AlchemyPieceDefinition,
+  AlchemyPlan,
+  AlchemyPoint,
+  AlchemyRecipeDefinition,
+  AlchemyRecipeFamily,
+  AlchemyResult,
+  AlchemyRulesIdentity,
+  AlchemySide,
+  AlchemySimulationState,
+  AlchemyTargetCell,
+  AlchemyTerminalReason,
+  EmpiresAlchemyConfig,
+} from './alchemy/types'
 
 export const EMPIRES_SUITS = ['clubs', 'diamonds', 'hearts', 'spades'] as const
 export const EMPIRES_RANKS = [
@@ -1283,13 +1313,14 @@ export interface EmpiresUpgradeConfig {
 }
 
 export interface EmpiresEndgameConfig {
-  schemaVersion: 14
+  schemaVersion: 15
   id: string
   title: string
   seed: string | number
   cards: EmpiresCardDefinition[]
   mysticCards: EmpiresMysticCardDefinition[]
   tavern: EmpiresTavernConfig
+  alchemy: EmpiresAlchemyConfig
   durak: EmpiresDurakConfig
   upgrades: EmpiresUpgradeConfig
   gifts: EmpiresGiftConfig
@@ -1674,6 +1705,12 @@ export type EmpiresMinigameOriginContext =
     cityId: string
     con: number
   }
+  | {
+    kind: 'alchemy-experiment'
+    cityId: string
+    recipeId: string
+    con: number
+  }
 
 export interface EmpiresMinigameOrigin {
   returnPhase: Exclude<EmpiresPhase, 'minigame'>
@@ -1700,11 +1737,24 @@ export interface EmpiresTavernMinigameSession {
   origin: EmpiresMinigameOrigin
 }
 
-export type EmpiresMinigameKind = 'td' | 'tavern'
+export interface EmpiresAlchemyMinigameSession {
+  id: string
+  kind: 'alchemy'
+  plan: AlchemyPlan
+  rulesIdentity: AlchemyRulesIdentity
+  seed: string | number
+  attempt: number
+  origin: EmpiresMinigameOrigin
+}
 
-export type EmpiresMinigameSession = EmpiresTdMinigameSession | EmpiresTavernMinigameSession
+export type EmpiresMinigameKind = 'td' | 'tavern' | 'alchemy'
 
-export type EmpiresMinigameResult = TdBattleResult | TavernResult
+export type EmpiresMinigameSession =
+  | EmpiresTdMinigameSession
+  | EmpiresTavernMinigameSession
+  | EmpiresAlchemyMinigameSession
+
+export type EmpiresMinigameResult = TdBattleResult | TavernResult | AlchemyResult
 
 export interface EmpiresMinigameResultRecord {
   sessionId: string
@@ -1848,6 +1898,7 @@ export type EmpiresChronicleEntryKind =
   | 'fair'
   | 'temple'
   | 'tavern'
+  | 'alchemy'
 
 export interface EmpiresChronicleEntry {
   id: string
@@ -2035,6 +2086,19 @@ export interface EmpiresDomesticEconomyView {
     spiritsReadyAtCon: number | null
     spiritsExpiresAfterCon: number | null
   }
+  alchemy: {
+    available: boolean
+    blockedReason: string | null
+    recipes: Array<{
+      id: string
+      name: string
+      mode: 'assembly' | 'disassembly'
+      family: 'experiment' | 'medicine' | 'poison'
+      blockedReason: string | null
+    }>
+    deferredCapabilities: EmpiresDeferredSubfeature[]
+    explosionCount: number
+  }
 }
 
 export interface EmpiresEmpireState {
@@ -2116,6 +2180,7 @@ export interface EmpiresEpidemicState {
   stageId: string
   stageIndex: number
   severity: number
+  severityMultiplier: number
   startedCon: number
   remainingStageDuration: number
   remainingDuration: number
@@ -2161,6 +2226,18 @@ export interface EmpiresStartEpidemicRequest {
   definitionId: string
   originCityId: string
   source: EmpiresEpidemicSource
+  severity?: number
+}
+
+export interface EmpiresAlchemyState {
+  explosionCount: number
+  lastExplosion: {
+    sessionId: string
+    cityId: string
+    epidemicDefinitionId: string
+    epidemicInstanceId: string
+    con: number
+  } | null
 }
 
 export interface EmpiresEventState {
@@ -2218,7 +2295,7 @@ export interface EmpiresQuestRuntimeState {
 }
 
 export interface EmpiresCampaignState {
-  schemaVersion: 12
+  schemaVersion: 13
   configId: string
   phase: EmpiresPhase
   rng: EmpiresRngState
@@ -2226,6 +2303,7 @@ export interface EmpiresCampaignState {
   cards: Record<string, EmpiresCardInstance>
   mystics: EmpiresMysticState
   tavern: EmpiresTavernState
+  alchemy: EmpiresAlchemyState
   durak: EmpiresDurakState
   performance: EmpiresPerformanceState
   con: number
@@ -2251,7 +2329,7 @@ export interface EmpiresCampaignState {
 }
 
 export interface EmpiresSnapshotEnvelope {
-  schemaVersion: 12
+  schemaVersion: 13
   savedAt: string
   state: EmpiresCampaignState
 }

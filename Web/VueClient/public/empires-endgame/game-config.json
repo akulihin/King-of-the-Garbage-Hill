@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 14,
+  "schemaVersion": 15,
   "id": "empires-endgame-default",
   "title": "Empire's Endgame",
   "seed": "empires-endgame-authoritative-default-v1",
@@ -198,6 +198,97 @@
       { "id": "forest-fort-defense", "name": "Оборона западного леса", "mode": "defense", "battlefieldId": "battlefield-forest", "waveId": "alliance-forest-wave", "objective": { "id": "forest-fort", "name": "Лесной форт", "kind": "fort", "owner": "player", "nodeId": "forest-objective", "maxHp": 100, "armor": null }, "deploymentSpeedPerSecond": 0 },
       { "id": "north-ship-defense", "name": "Оборона северного берега от кораблей", "mode": "defense", "battlefieldId": "battlefield-north-shore", "waveId": "alliance-north-ships", "objective": { "id": "north-shore-fort", "name": "Береговой форт", "kind": "fort", "owner": "player", "nodeId": "north-objective", "maxHp": 120, "armor": null }, "deploymentSpeedPerSecond": 0 },
       { "id": "desert-fort-defense", "name": "Оборона южной границы", "mode": "defense", "battlefieldId": "battlefield-desert", "waveId": "alliance-desert-wave", "objective": { "id": "desert-fort", "name": "Пустынный форт", "kind": "fort", "owner": "player", "nodeId": "desert-objective", "maxHp": 100, "armor": null }, "deploymentSpeedPerSecond": 0 }
+    ]
+  },
+  "alchemy": {
+    "enabled": true,
+    "buildingId": "building-alchemy",
+    "tickMs": 50,
+    "maxTicks": 5000,
+    "maxCommands": 256,
+    "resultLogLimit": 32,
+    "maxCatchUpTicksPerFrame": 8,
+    "dayCost": 4,
+    "board": {
+      "width": 41,
+      "height": 41,
+      "centerX": 20,
+      "centerY": 20
+    },
+    "spawn": {
+      "minDelayTicks": 40,
+      "maxDelayTicks": 100,
+      "baseMoveIntervalTicks": 10,
+      "inwardSpeedMultiplier": 3
+    },
+    "acceleration": {
+      "baseSpeedPercent": 100,
+      "stepPercent": 1,
+      "piecesPerStep": 1,
+      "explosionThresholdPercent": 400,
+      "explosionBoundary": "above"
+    },
+    "reagents": {
+      "removeColorCharges": 1,
+      "addGrayCharges": 1,
+      "resetAccelerationCharges": 1
+    },
+    "explosion": {
+      "epidemicDefinitionId": "epidemic-plague",
+      "severityMultiplier": 1.5,
+      "lockBuildingForCon": true
+    },
+    "colors": ["red", "yellow", "blue", "green"],
+    "pieces": [
+      { "id": "alchemy-piece-i", "name": "Линия", "cells": [{ "x": -1, "y": 0 }, { "x": 0, "y": 0 }, { "x": 1, "y": 0 }, { "x": 2, "y": 0 }] },
+      { "id": "alchemy-piece-o", "name": "Квадрат", "cells": [{ "x": 0, "y": 0 }, { "x": 1, "y": 0 }, { "x": 0, "y": 1 }, { "x": 1, "y": 1 }] },
+      { "id": "alchemy-piece-t", "name": "Т-элемент", "cells": [{ "x": -1, "y": 0 }, { "x": 0, "y": 0 }, { "x": 1, "y": 0 }, { "x": 0, "y": 1 }] },
+      { "id": "alchemy-piece-l", "name": "Г-элемент", "cells": [{ "x": 0, "y": -1 }, { "x": 0, "y": 0 }, { "x": 0, "y": 1 }, { "x": 1, "y": 1 }] },
+      { "id": "alchemy-piece-j", "name": "Обратный Г-элемент", "cells": [{ "x": 0, "y": -1 }, { "x": 0, "y": 0 }, { "x": 0, "y": 1 }, { "x": -1, "y": 1 }] },
+      { "id": "alchemy-piece-s", "name": "Зигзаг", "cells": [{ "x": 0, "y": 0 }, { "x": 1, "y": 0 }, { "x": -1, "y": 1 }, { "x": 0, "y": 1 }] },
+      { "id": "alchemy-piece-z", "name": "Обратный зигзаг", "cells": [{ "x": -1, "y": 0 }, { "x": 0, "y": 0 }, { "x": 0, "y": 1 }, { "x": 1, "y": 1 }] }
+    ],
+    "recipes": [
+      {
+        "id": "alchemy-calibration-assembly",
+        "name": "Калибровочный Сбор",
+        "description": "Соберите крестообразную молекулярную конструкцию вокруг серого ядра.",
+        "mode": "assembly",
+        "family": "experiment",
+        "initialCells": [
+          { "x": 20, "y": 20, "color": "gray" },
+          { "x": 21, "y": 20, "color": "gray" },
+          { "x": 20, "y": 21, "color": "gray" },
+          { "x": 21, "y": 21, "color": "gray" }
+        ],
+        "targetCells": [
+          { "x": 20, "y": 18 }, { "x": 21, "y": 18 }, { "x": 20, "y": 19 }, { "x": 21, "y": 19 },
+          { "x": 18, "y": 20 }, { "x": 19, "y": 20 }, { "x": 20, "y": 20 }, { "x": 21, "y": 20 }, { "x": 22, "y": 20 }, { "x": 23, "y": 20 },
+          { "x": 18, "y": 21 }, { "x": 19, "y": 21 }, { "x": 20, "y": 21 }, { "x": 21, "y": 21 }, { "x": 22, "y": 21 }, { "x": 23, "y": 21 },
+          { "x": 20, "y": 22 }, { "x": 21, "y": 22 }, { "x": 20, "y": 23 }, { "x": 21, "y": 23 }
+        ],
+        "pieceDefinitionIds": ["alchemy-piece-o"],
+        "prerequisites": [{ "kind": "technology", "technologyId": "tech-medicine" }],
+        "rewards": []
+      }
+    ],
+    "deferredSubfeatures": [
+      {
+        "id": "disassemblyRules",
+        "reason": "Разбор остаётся недоступен: источник предлагает взаимоисключающие схемы управления и прямо помечает финальную конструкцию как обсуждаемую."
+      },
+      {
+        "id": "poisonWallRecipes",
+        "reason": "Poison-craft со стенками не задаёт точные входы, выходы, хранение ядов или боевого потребителя."
+      },
+      {
+        "id": "scienceRecipeUnlocks",
+        "reason": "Научная ветка не называет исполнимые рецепты, их формы, награды и точные технологии-анлоки."
+      },
+      {
+        "id": "mutantAftermath",
+        "reason": "Мутанты через год не имеют типа события, TD-волны, города-цели или численных последствий."
+      }
     ]
   },
   "god": {
@@ -7498,12 +7589,7 @@
             "effects": []
           }
         ],
-        "deferredSubfeatures": [
-          {
-            "id": "alchemyMinigame",
-            "reason": "P10 реализует активную лабораторию, яды, зелья и военное снаряжение."
-          }
-        ]
+        "deferredSubfeatures": []
       },
       {
         "id": "building-hospital",

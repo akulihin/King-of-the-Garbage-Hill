@@ -150,6 +150,7 @@
   "progression": {
     "roomHpRecovery": 8,
     "roomMentalRecovery": 12,
+    "moveQuestsEnabled": true,
     "tiers": [
       {
         "id": "tier-1",
@@ -322,6 +323,12 @@
             "effect": { "mentalHealth": -8, "stats": { "attackPower": 12 } }
           },
           {
+            "id": "take-ninja-clothes",
+            "label": "Забрать одежду ниндзя",
+            "description": "Лёгкая одежда позволяет делать рывок правой кнопкой мыши, пока правая рука пуста.",
+            "effect": { "outfitId": "ninja-clothes" }
+          },
+          {
             "id": "leave-apartment-drawer",
             "label": "Закрыть ящик",
             "description": "Не брать ничего из квартиры, которая только притворяется домом.",
@@ -412,9 +419,21 @@
           },
           {
             "id": "buy-sword",
-            "label": "Купить меч",
-            "description": "Гибридный меч держит ритм Zornhau двумя руками; цепь или когти могут занять вторую.",
+            "label": "Купить Меч наемника",
+            "description": "Меч наемника держит ритм Zornhau двумя руками; цепь или когти могут занять вторую.",
             "effect": { "chanceCost": 2, "primaryWeaponId": "hybrid-sword" }
+          },
+          {
+            "id": "buy-mind-talisman",
+            "label": "Купить Талисман ясности",
+            "description": "Артефакт снижает получаемый в бою ментальный урон на 25%.",
+            "effect": { "chanceCost": 2, "artifactId": "mind-talisman" }
+          },
+          {
+            "id": "buy-blood-idol",
+            "label": "Купить Кровавый идол",
+            "description": "Артефакт восстанавливает здоровье в размере 20% от фактически нанесённого урона.",
+            "effect": { "chanceCost": 3, "artifactId": "blood-idol" }
           },
           {
             "id": "leave-merchant",
@@ -567,6 +586,18 @@
             "label": "Забрать цепь",
             "description": "Цепь занимает вторую руку, парирует, крутится вокруг героя и стягивает цели.",
             "effect": { "chanceCost": 1, "secondaryWeaponId": "secondary-chain" }
+          },
+          {
+            "id": "claim-mind-anchor",
+            "label": "Забрать Якорь рассудка",
+            "description": "Тяжёлый артефакт снижает получаемый в бою ментальный урон на 40%.",
+            "effect": { "chanceCost": 3, "artifactId": "mind-anchor" }
+          },
+          {
+            "id": "claim-knight-armor",
+            "label": "Надеть броню рыцаря",
+            "description": "Сильно повышает броню, но немного снижает скорость движения.",
+            "effect": { "chanceCost": 3, "outfitId": "knight-armor" }
           },
           {
             "id": "leave-chest",
@@ -1003,7 +1034,7 @@
       "swarm": {
         "total": 100,
         "initialBurst": 10,
-        "spawnIntervalMs": 600
+        "spawnIntervalMs": 200
       },
       "attackDamage": 1,
       "attackCooldownMs": 900,
@@ -1012,11 +1043,50 @@
       "color": "#c9b458"
     }
   ],
+  "artifacts": [
+    {
+      "id": "mind-talisman",
+      "name": "Талисман ясности",
+      "description": "Снижает получаемый в бою ментальный урон на 25%.",
+      "mentalDamageReduction": 0.25
+    },
+    {
+      "id": "mind-anchor",
+      "name": "Якорь рассудка",
+      "description": "Снижает получаемый в бою ментальный урон на 40%.",
+      "mentalDamageReduction": 0.4
+    },
+    {
+      "id": "blood-idol",
+      "name": "Кровавый идол",
+      "description": "Восстанавливает здоровье в размере 20% от фактически нанесённого урона.",
+      "lifestealRatio": 0.2
+    }
+  ],
+  "outfits": [
+    {
+      "id": "ninja-clothes",
+      "name": "Одежда ниндзя",
+      "description": "Позволяет делать рывок правой кнопкой мыши, если правая рука пуста.",
+      "armorBonus": 0,
+      "moveSpeedMultiplier": 1,
+      "emptyRightHandDash": { "distance": 165, "durationMs": 180, "cooldownMs": 900 }
+    },
+    {
+      "id": "knight-armor",
+      "name": "Броня рыцаря",
+      "description": "Даёт +14 брони и снижает скорость движения на 16%.",
+      "armorBonus": 14,
+      "moveSpeedMultiplier": 0.84
+    }
+  ],
   "loadout": {
-    "primaryWeaponId": "twohand-spear",
+    "primaryWeaponId": "hybrid-sword",
     "secondaryWeaponId": null,
     "primaryAugment": "none",
-    "secondaryAugment": "none"
+    "secondaryAugment": "none",
+    "artifactId": null,
+    "outfitId": null
   },
   "weapons": [
     {
@@ -3432,25 +3502,34 @@
     },
     {
       "id": "hybrid-sword",
-      "name": "Меч",
+      "name": "Меч наемника",
       "equipMode": "hybrid",
-      "description": "Обе кнопки держат ритм Zornhau: поздний удар отпускает врага, ранний утомляет героя, точный открывает Oberhau.",
+      "description": "Полуторный меч: все мувы находятся в левой руке, а пустая вторая рука повышает урон на 50%.",
       "chanceCost": 2,
       "trait": "swordRhythm",
+      "staggerEnabled": true,
       "tuning": {
-        "rhythmEarlyMs": 170,
-        "rhythmGoodMaxMs": 540,
-        "rhythmFatigueMs": 900,
-        "rhythmKnockbackBonus": 18,
-        "rhythmMicrostunMs": 180,
-        "rhythmStepDistance": 18,
+        "rhythmPerfectStartMs": 500,
+        "rhythmPerfectEndMs": 600,
+        "rhythmOverlayVisibleMs": 1050,
+        "rhythmPerfectFeedbackMs": 480,
+        "rhythmFatigueMs": 2000,
+        "advanceDistance": 14.4,
+        "advanceSpeed": 144,
+        "mouseDamageBonusMax": 0.25,
+        "mouseMotionForMaxBonusPx": 160,
+        "staggerDurationMs": 500,
+        "unstoppableThresholdMs": 3000,
+        "unstoppableDurationMs": 5000,
+        "unterhauHoldMs": 1000,
+        "emptyOffhandDamageMultiplier": 1.5,
         "openingEveryHits": 3,
         "openingDurationMs": 1600
       },
       "defaultAugment": "none",
       "tapCombo": [
         {
-          "name": "Zornhau справа налево",
+          "name": "Zornhaw справа налево",
           "behavior": "swordRhythm",
           "kind": "melee",
           "damage": 19,
@@ -3467,7 +3546,8 @@
             "shape": "sweep",
             "width": 38,
             "traceMs": 620,
-            "rotationDegrees": -122
+            "followsPlayer": true,
+            "rotationDegrees": 118
           },
           "hitEffects": [
             {
@@ -3477,43 +3557,14 @@
               "refresh": "replace"
             }
           ]
-        },
-        {
-          "name": "Zornhau с наступлением",
-          "behavior": "swordRhythm",
-          "kind": "dash",
-          "damage": 22,
-          "cooldownMs": 0,
-          "range": 138,
-          "radius": 20,
-          "arcDegrees": 128,
-          "durationMs": 240,
-          "projectileSpeed": 0,
-          "pierce": 7,
-          "knockback": 30,
-          "color": "#f6c85f",
-          "collider": {
-            "shape": "sweep",
-            "width": 40,
-            "traceMs": 700,
-            "followsPlayer": true,
-            "rotationDegrees": 128
-          },
-          "hitEffects": [
-            {
-              "status": "opening",
-              "durationMs": 1600,
-              "chance": 0.28,
-              "refresh": "replace"
-            }
-          ]
         }
       ],
       "attacks": {
         "tap": {
-          "name": "Zornhau в правильном ритме",
+          "name": "Zornhaw слева направо",
+          "description": "Zornhaw: Движения прицелом повышают урон. Удары в правильном ритме не дают устать.",
           "behavior": "swordRhythm",
-          "kind": "dash",
+          "kind": "melee",
           "damage": 17,
           "cooldownMs": 0,
           "range": 124,
@@ -3529,7 +3580,7 @@
             "width": 36,
             "traceMs": 620,
             "followsPlayer": true,
-            "rotationDegrees": 118
+            "rotationDegrees": -118
           },
           "hitEffects": [
             {
@@ -3541,36 +3592,41 @@
           ]
         },
         "doubleTap": {
-          "name": "Oberhau в открытую стойку",
+          "name": "Oberhaw",
+          "description": "Oberhaw казнит открывшихся ◇ врагов. Откатывается когда враг умирает.",
           "behavior": "swordOpening",
           "kind": "melee",
-          "damage": 37,
-          "cooldownMs": 1900,
+          "damage": 26,
+          "cooldownMs": 2800,
           "range": 138,
-          "radius": 12,
+          "radius": 24,
           "arcDegrees": 26,
-          "durationMs": 215,
+          "durationMs": 180,
           "projectileSpeed": 0,
           "pierce": 1,
           "knockback": 26,
           "color": "#55c7ff",
           "collider": {
             "shape": "capsule",
-            "width": 24,
+            "width": 48,
             "traceMs": 720
+          },
+          "tuning": {
+            "executionDamageMultiplier": 3.25
           },
           "recoveryMs": 240
         },
         "doubleTapHold": {
-          "name": "Oberhau → Unterhau",
+          "name": "Oberhaw → Unterhaw",
+          "description": "Unterhaw продолжает комбо после Obehraw.",
           "behavior": "swordFollowUp",
           "kind": "melee",
           "damage": 28,
-          "cooldownMs": 3400,
+          "cooldownMs": 2800,
           "range": 146,
           "radius": 15,
           "arcDegrees": 48,
-          "durationMs": 520,
+          "durationMs": 260,
           "projectileSpeed": 0,
           "pierce": 3,
           "knockback": 22,
@@ -3583,9 +3639,6 @@
           },
           "repeatHits": 1,
           "repeatIntervalMs": 250,
-          "tuning": {
-            "followUpDelayMs": 230
-          },
           "recoveryMs": 360
         },
         "hold": {
@@ -3796,36 +3849,36 @@
       },
       "controls": {
         "primary": {
-          "role": "Matching hand — Zornhau and opening breaker",
+          "role": "Left hand — instant Zornhaw, Oberhaw morph and held Unterhaw",
           "mylorik": { "activations": [
             { "gesture": "tap", "intent": "strike", "phase": "press", "priority": 100 },
-            { "gesture": "doubleTap", "intent": "technique", "phase": "tap", "context": "opening", "priority": 80 },
-            { "gesture": "doubleTapHold", "intent": "technique", "phase": "hold", "context": "opening", "priority": 80 }
+            { "gesture": "doubleTap", "intent": "technique", "phase": "tap", "priority": 80 },
+            { "gesture": "doubleTapHold", "intent": "technique", "phase": "hold", "priority": 80 }
           ] },
           "dualsense": {
             "instantGesture": "tap",
-            "triggerRole": "Trigger opening, Oberhau and delayed Unterhau",
+            "triggerRole": "Trigger Oberhaw immediately; hold through the Unterhaw gate",
             "startNodeId": "doubleTap",
             "nodes": [
-              { "id": "doubleTap", "gesture": "doubleTap", "entryContext": "opening", "activationThreshold": 0.22, "dispatch": "release", "holdBehavior": "none", "releaseBehavior": "dispatch", "next": ["doubleTapHold"], "cancel": "release", "expiryMs": 480, "tactileProfile": "followUp" },
-              { "id": "doubleTapHold", "gesture": "doubleTapHold", "entryContext": "opening", "activationThreshold": 0.72, "dispatch": "release", "holdBehavior": "charge", "releaseBehavior": "dispatch", "next": [], "cancel": "release", "expiryMs": 480, "tactileProfile": "gate" }
+              { "id": "doubleTap", "gesture": "doubleTap", "entryContext": "neutral", "activationThreshold": 0.22, "dispatch": "release", "holdBehavior": "none", "releaseBehavior": "dispatch", "next": ["doubleTapHold"], "cancel": "release", "expiryMs": 1000, "tactileProfile": "followUp" },
+              { "id": "doubleTapHold", "gesture": "doubleTapHold", "entryContext": "continuation", "activationThreshold": 0.72, "dispatch": "release", "holdBehavior": "charge", "releaseBehavior": "dispatch", "next": [], "cancel": "release", "expiryMs": 1000, "tactileProfile": "gate" }
             ]
           }
         },
         "secondary": {
-          "role": "Matching hand — Zornhau and opening breaker",
+          "role": "Legacy Sword secondary route",
           "mylorik": { "activations": [
             { "gesture": "tap", "intent": "strike", "phase": "press", "priority": 100 },
-            { "gesture": "doubleTap", "intent": "technique", "phase": "tap", "context": "opening", "priority": 80 },
-            { "gesture": "doubleTapHold", "intent": "technique", "phase": "hold", "context": "opening", "priority": 80 }
+            { "gesture": "doubleTap", "intent": "technique", "phase": "tap", "priority": 80 },
+            { "gesture": "doubleTapHold", "intent": "technique", "phase": "hold", "priority": 80 }
           ] },
           "dualsense": {
             "instantGesture": "tap",
-            "triggerRole": "Trigger opening, Oberhau and delayed Unterhau",
+            "triggerRole": "Legacy Sword secondary trigger route",
             "startNodeId": "doubleTap",
             "nodes": [
-              { "id": "doubleTap", "gesture": "doubleTap", "entryContext": "opening", "activationThreshold": 0.22, "dispatch": "release", "holdBehavior": "none", "releaseBehavior": "dispatch", "next": ["doubleTapHold"], "cancel": "release", "expiryMs": 480, "tactileProfile": "followUp" },
-              { "id": "doubleTapHold", "gesture": "doubleTapHold", "entryContext": "opening", "activationThreshold": 0.72, "dispatch": "release", "holdBehavior": "charge", "releaseBehavior": "dispatch", "next": [], "cancel": "release", "expiryMs": 480, "tactileProfile": "gate" }
+              { "id": "doubleTap", "gesture": "doubleTap", "entryContext": "neutral", "activationThreshold": 0.22, "dispatch": "release", "holdBehavior": "none", "releaseBehavior": "dispatch", "next": ["doubleTapHold"], "cancel": "release", "expiryMs": 1000, "tactileProfile": "followUp" },
+              { "id": "doubleTapHold", "gesture": "doubleTapHold", "entryContext": "continuation", "activationThreshold": 0.72, "dispatch": "release", "holdBehavior": "charge", "releaseBehavior": "dispatch", "next": [], "cancel": "release", "expiryMs": 1000, "tactileProfile": "gate" }
             ]
           }
         }

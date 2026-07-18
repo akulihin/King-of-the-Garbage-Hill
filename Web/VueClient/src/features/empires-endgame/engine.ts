@@ -18,6 +18,12 @@ import {
   resolveTavern,
   validateTavernPlan,
 } from './tavern/engine'
+import {
+  abortAlchemy,
+  createAlchemyRulesIdentity,
+  replayAlchemy,
+  validateAlchemyPlan,
+} from './alchemy/engine'
 import { resolveEmpiresUnitLoadout } from './equipment'
 import {
   allocateEpidemicClassLoss,
@@ -44,6 +50,10 @@ import {
 } from './quests'
 import type { EmpiresQuestTriggerContext } from './quests'
 import type {
+  AlchemyCommand,
+  AlchemyPlan,
+  AlchemyResult,
+  AlchemyRulesIdentity,
   EmpiresActionResult,
   EmpiresActor,
   EmpiresBuildingDefinition,
@@ -349,7 +359,7 @@ function uniqueIds<T extends { id: string }>(values: readonly T[]): boolean {
 
 export function validateEmpiresEndgameConfig(config: EmpiresEndgameConfig): string[] {
   const errors: string[] = []
-  if (config.schemaVersion !== 14) errors.push('schemaVersion must be 14')
+  if (config.schemaVersion !== 15) errors.push('schemaVersion must be 15')
   if (!config.id.trim()) errors.push('config id is required')
   if (config.cards.length !== 53) errors.push('cards must contain exactly 53 definitions')
   if (!uniqueIds(config.cards)) errors.push('card definition ids must be unique')
@@ -559,7 +569,7 @@ export class EmpiresEndgameEngine {
   }
 
   snapshotEnvelope(savedAt = new Date().toISOString()): EmpiresSnapshotEnvelope {
-    return { schemaVersion: 12, savedAt, state: this.snapshot() }
+    return { schemaVersion: 13, savedAt, state: this.snapshot() }
   }
 
   restore(snapshot: EmpiresCampaignState): void {
@@ -584,7 +594,9 @@ export class EmpiresEndgameEngine {
     }
     const expectedRules = session.kind === 'td'
       ? this.currentTdRulesIdentity()
-      : this.currentTavernRulesIdentity()
+      : session.kind === 'tavern'
+        ? this.currentTavernRulesIdentity()
+        : this.currentAlchemyRulesIdentity()
     if (session.id !== session.plan.sessionId
       || session.rulesIdentity.configSchemaVersion !== expectedRules.configSchemaVersion
       || session.rulesIdentity.rulesDigest !== expectedRules.rulesDigest
@@ -593,7 +605,9 @@ export class EmpiresEndgameEngine {
     }
     const planErrors = session.kind === 'td'
       ? validateTdBattlePlan(session.plan)
-      : validateTavernPlan(session.plan)
+      : session.kind === 'tavern'
+        ? validateTavernPlan(session.plan)
+        : validateAlchemyPlan(session.plan)
     if (planErrors.length > 0) return failure(`Invalid ${session.kind} plan: ${planErrors.join('; ')}`)
     if (session.origin.returnPhase !== this.state.phase) {
       return failure('Minigame origin must return to the current campaign phase.')
@@ -623,7 +637,9 @@ export class EmpiresEndgameEngine {
     if (result.kind !== session.kind) return failure('The minigame result kind does not match the active session.')
     const expectedRules = session.kind === 'td'
       ? this.currentTdRulesIdentity()
-      : this.currentTavernRulesIdentity()
+      : session.kind === 'tavern'
+        ? this.currentTavernRulesIdentity()
+        : this.currentAlchemyRulesIdentity()
     if (result.kind !== session.kind
       || result.sessionId !== session.id
       || result.planId !== session.plan.id
@@ -639,18 +655,30 @@ export class EmpiresEndgameEngine {
       ? replayTdBattle(session.plan, session.seed, result.commandLog)
       : session.kind === 'tavern' && result.kind === 'tavern'
         ? resolveTavern(session.plan, session.seed, result.commandLog)
-        : null
+        : session.kind === 'alchemy' && result.kind === 'alchemy'
+          ? replayAlchemy(session.plan, session.seed, result.commandLog)
+          : null
     if (!replayed) return failure('Unsupported minigame result kind.')
     if (JSON.stringify(replayed) !== JSON.stringify(result)) {
       return failure('The minigame result failed deterministic replay validation.')
     }
     if (replayed.error) return failure(replayed.error)
-    if (session.kind === 'td' && result.kind === 'td') this.settleBattleOutcome(result, session)
-    else if (session.kind === 'tavern' && result.kind === 'tavern') this.settleTavernOutcome(result, session)
+    const beforeSettlement = cloneSerializable(this.state)
+    try {
+      if (session.kind === 'td' && result.kind === 'td') this.settleBattleOutcome(result, session)
+      else if (session.kind === 'tavern' && result.kind === 'tavern') this.settleTavernOutcome(result, session)
+      else if (session.kind === 'alchemy' && result.kind === 'alchemy') this.settleAlchemyOutcome(result, session)
+    } catch (error) {
+      this.state = beforeSettlement
+      return failure(error instanceof Error ? error.message : 'Minigame settlement was rejected.')
+    }
     return this.commit(`Minigame ${session.id} resolved as ${result.outcome}.`)
   }
 
-  abortMinigame(commandLog: readonly TdCommand[] = [], abortTick = 0): EmpiresActionResult {
+  abortMinigame(
+    commandLog: readonly TdCommand[] | readonly AlchemyCommand[] = [],
+    abortTick = 0,
+  ): EmpiresActionResult {
     const session = this.state.minigame
     if (!session || this.state.phase !== 'minigame') {
       const lastResult = this.state.minigameResultLog[
@@ -660,14 +688,23 @@ export class EmpiresEndgameEngine {
         ? success('The last minigame was already aborted.')
         : failure('No minigame session is active.')
     }
-    if (session.kind !== 'td') {
+    if (session.kind === 'tavern') {
       return failure('This minigame has no authored abort consequence; finish the Tavern visit instead.')
     }
-    const result = abortTdBattle(session.plan, session.seed, commandLog, abortTick)
+    const result = session.kind === 'td'
+      ? abortTdBattle(session.plan, session.seed, commandLog as readonly TdCommand[], abortTick)
+      : abortAlchemy(session.plan, session.seed, commandLog as readonly AlchemyCommand[], abortTick)
     if (result.outcome !== 'aborted') {
       return failure(result.error ?? 'The minigame could not be aborted from that command log.')
     }
-    this.settleBattleOutcome(result, session)
+    const beforeSettlement = cloneSerializable(this.state)
+    try {
+      if (session.kind === 'td' && result.kind === 'td') this.settleBattleOutcome(result, session)
+      else if (session.kind === 'alchemy' && result.kind === 'alchemy') this.settleAlchemyOutcome(result, session)
+    } catch (error) {
+      this.state = beforeSettlement
+      return failure(error instanceof Error ? error.message : 'Minigame abort settlement was rejected.')
+    }
     return this.commit(`Minigame ${session.id} aborted with its configured penalty.`)
   }
 
@@ -1734,6 +1771,7 @@ export class EmpiresEndgameEngine {
       this.config.empire.domesticEconomy.tavern.buildingId,
     )
     const tavernBuilding = this.buildingDefinitions.get(this.config.empire.domesticEconomy.tavern.buildingId)
+    const alchemyBuilding = this.buildingDefinitions.get(this.config.alchemy.buildingId)
     return {
       cityId,
       selectedCityName,
@@ -1793,6 +1831,27 @@ export class EmpiresEndgameEngine {
         spiritsActive: this.tavernSpiritsActive(),
         spiritsReadyAtCon: this.state.tavern.spiritsReadyAtCon,
         spiritsExpiresAfterCon: this.state.tavern.spiritsExpiresAfterCon,
+      },
+      alchemy: {
+        available: this.config.alchemy.recipes.some(recipe => (
+          this.alchemyExperimentBlockedReason(cityId, recipe.id) === null
+        )),
+        blockedReason: this.alchemyExperimentBlockedReason(
+          cityId,
+          this.config.alchemy.recipes.find(recipe => !recipe.deferredReason)?.id ?? '',
+        ),
+        recipes: this.config.alchemy.recipes.map(recipe => ({
+          id: recipe.id,
+          name: recipe.name,
+          mode: recipe.mode,
+          family: recipe.family,
+          blockedReason: this.alchemyExperimentBlockedReason(cityId, recipe.id),
+        })),
+        deferredCapabilities: cloneSerializable([
+          ...(alchemyBuilding?.deferredSubfeatures ?? []),
+          ...this.config.alchemy.deferredSubfeatures,
+        ]),
+        explosionCount: this.state.alchemy.explosionCount,
       },
     }
   }
@@ -1887,6 +1946,80 @@ export class EmpiresEndgameEngine {
         context: { kind: 'tavern-visit', cityId, con: this.state.con },
       },
     })
+  }
+
+  alchemyExperimentBlockedReason(cityId: string, recipeId: string): string | null {
+    const dialogueBlock = this.mandatoryDialogueBlockedReason()
+    if (dialogueBlock) return dialogueBlock
+    if (!this.config.alchemy.enabled) return 'Активная лаборатория отключена в этой конфигурации.'
+    if (this.state.phase !== 'empire') return 'Эксперимент можно начать только во время управления империей.'
+    const city = this.city(cityId)
+    if (!city) return 'Нужен известный город с Алхимической лавкой.'
+    const access = this.cityAccessBlockedReason(cityId)
+    if (access) return access
+    const building = this.buildingDefinitions.get(this.config.alchemy.buildingId)
+    if (!building || building.deferredReason) return 'Алхимическая лавка недоступна.'
+    if (this.isBuildingInteractionLocked(city, building.id)) {
+      return 'Лаборатория повреждена и закрыта до следующего кона.'
+    }
+    if (this.effectiveOperationalBuildingLevel(cityId, building.id) < 1) {
+      return 'В выбранном городе нет работающей Алхимической лавки.'
+    }
+    const recipe = this.config.alchemy.recipes.find(candidate => candidate.id === recipeId)
+    if (!recipe) return 'Неизвестный лабораторный план.'
+    if (recipe.deferredReason) return recipe.deferredReason
+    const missing = this.firstMissingDependency(recipe.prerequisites, city, true)
+    if (missing) return `Нужно: ${missing}.`
+    if (this.state.empire.daysRemaining < this.config.alchemy.dayCost) {
+      return `Нужно ${this.config.alchemy.dayCost} дней на лабораторную сессию.`
+    }
+    return null
+  }
+
+  startAlchemyExperiment(cityId: string, recipeId: string): EmpiresActionResult {
+    const blocked = this.alchemyExperimentBlockedReason(cityId, recipeId)
+    if (blocked) return failure(blocked)
+    const recipe = this.config.alchemy.recipes.find(candidate => candidate.id === recipeId)!
+    const seed = Math.floor(nextEmpiresRandom(this.state.rng) * 0x1_0000_0000)
+    const planId = `alchemy-${this.state.con}-${cityId}-${recipe.id}`
+    const sessionId = `${planId}:${seed}`
+    const rulesIdentity = this.currentAlchemyRulesIdentity()
+    const plan: AlchemyPlan = {
+      id: planId,
+      sessionId,
+      rulesIdentity,
+      originCityId: cityId,
+      buildingId: this.config.alchemy.buildingId,
+      recipe: cloneSerializable(recipe),
+      tickMs: this.config.alchemy.tickMs,
+      maxTicks: this.config.alchemy.maxTicks,
+      maxCommands: this.config.alchemy.maxCommands,
+      maxCatchUpTicksPerFrame: this.config.alchemy.maxCatchUpTicksPerFrame,
+      board: cloneSerializable(this.config.alchemy.board),
+      spawn: cloneSerializable(this.config.alchemy.spawn),
+      acceleration: cloneSerializable(this.config.alchemy.acceleration),
+      reagents: cloneSerializable(this.config.alchemy.reagents),
+      explosion: cloneSerializable(this.config.alchemy.explosion),
+      colors: cloneSerializable(this.config.alchemy.colors),
+      pieces: cloneSerializable(this.config.alchemy.pieces),
+    }
+    const planErrors = validateAlchemyPlan(plan)
+    if (planErrors.length > 0) return failure(`Invalid Alchemy plan: ${planErrors.join('; ')}`)
+    this.state.empire.daysRemaining -= this.config.alchemy.dayCost
+    const result = this.beginMinigame({
+      id: sessionId,
+      kind: 'alchemy',
+      plan,
+      rulesIdentity,
+      seed,
+      attempt: 0,
+      origin: {
+        returnPhase: 'empire',
+        context: { kind: 'alchemy-experiment', cityId, recipeId, con: this.state.con },
+      },
+    })
+    if (!result.ok) this.state.empire.daysRemaining += this.config.alchemy.dayCost
+    return result
   }
 
   externalDiplomacyView(cityId: string): EmpiresExternalDiplomacyView {
@@ -3472,7 +3605,7 @@ export class EmpiresEndgameEngine {
     const playerHand: string[] = []
     const godHand: string[] = []
     const state: EmpiresCampaignState = {
-      schemaVersion: 12,
+      schemaVersion: 13,
       configId: this.config.id,
       phase: 'cards',
       rng,
@@ -3509,6 +3642,10 @@ export class EmpiresEndgameEngine {
         spiritsExpiresAfterCon: null,
         mariaVictory: false,
         mariaVictoryAtCon: null,
+      },
+      alchemy: {
+        explosionCount: 0,
+        lastExplosion: null,
       },
       durak: {
         deck,
@@ -4099,13 +4236,24 @@ export class EmpiresEndgameEngine {
     if (snapshotVersion !== 1 && snapshotVersion !== 2 && snapshotVersion !== 3
       && snapshotVersion !== 4 && snapshotVersion !== 5 && snapshotVersion !== 6
       && snapshotVersion !== 7 && snapshotVersion !== 8 && snapshotVersion !== 9
-      && snapshotVersion !== 10 && snapshotVersion !== 11 && snapshotVersion !== 12) {
+      && snapshotVersion !== 10 && snapshotVersion !== 11 && snapshotVersion !== 12
+      && snapshotVersion !== 13) {
       throw new Error('Unsupported Empire\'s Endgame snapshot schema')
     }
     if (snapshot.configId !== this.config.id) throw new Error('Snapshot belongs to a different config')
     const state = cloneSerializable(snapshot)
-    state.schemaVersion = 12
+    state.schemaVersion = 13
     this.normalizeTavernAndMysticState(state)
+    state.alchemy ??= { explosionCount: 0, lastExplosion: null }
+    state.alchemy.explosionCount = Math.max(0, Math.floor(state.alchemy.explosionCount ?? 0))
+    if (state.alchemy.lastExplosion) {
+      const record = state.alchemy.lastExplosion
+      if (!record.sessionId?.trim() || !record.cityId?.trim()
+        || !record.epidemicDefinitionId?.trim() || !record.epidemicInstanceId?.trim()
+        || !Number.isInteger(record.con) || record.con < 1) {
+        throw new Error('Invalid persisted Alchemy explosion summary')
+      }
+    }
     this.validateStandardCardZones(state)
     if (!state.god || typeof state.god !== 'object' || Array.isArray(state.god)) state.god = {
       cosmeticRng: createEmpiresRngState(`${this.config.seed}:god-dialogue`),
@@ -4643,6 +4791,14 @@ export class EmpiresEndgameEngine {
     })
   }
 
+  private currentAlchemyRulesIdentity(): AlchemyRulesIdentity {
+    return createAlchemyRulesIdentity(this.config.schemaVersion, this.config.alchemy, {
+      buildings: this.config.empire.buildings,
+      technologies: this.config.empire.technologies,
+      epidemics: this.config.empire.epidemics,
+    })
+  }
+
   private tavernSpiritsActive(state: EmpiresCampaignState = this.state): boolean {
     return state.tavern.spiritsReadyAtCon !== null
       && state.tavern.spiritsExpiresAfterCon !== null
@@ -4809,21 +4965,23 @@ export class EmpiresEndgameEngine {
   private normalizeMinigameState(state: EmpiresCampaignState): void {
     const currentTdRules = this.currentTdRulesIdentity()
     const currentTavernRules = this.currentTavernRulesIdentity()
+    const currentAlchemyRules = this.currentAlchemyRulesIdentity()
     const rawLog = Array.isArray(state.minigameResultLog) ? state.minigameResultLog : []
     state.minigameResultLog = rawLog.flatMap((rawRecord, index) => {
       if (!rawRecord || typeof rawRecord !== 'object') return []
       const record = rawRecord as Partial<(typeof state.minigameResultLog)[number]>
       const result = record.result
-      if (!result || (result.kind !== 'td' && result.kind !== 'tavern')) return []
-      if (result.kind === 'tavern') {
+      if (!result || (result.kind !== 'td' && result.kind !== 'tavern' && result.kind !== 'alchemy')) return []
+      if (result.kind === 'tavern' || result.kind === 'alchemy') {
         if (!result.sessionId || !result.planId || !result.planDigest
-          || !result.commandDigest || result.outcome !== 'completed') return []
+          || !result.commandDigest
+          || result.kind === 'tavern' && result.outcome !== 'completed') return []
         return [{
           sessionId: record.sessionId ?? result.sessionId,
           attempt: Math.max(0, Math.floor(record.attempt ?? 0)),
           origin: record.origin ?? {
             returnPhase: 'empire',
-            context: { kind: 'manual', sourceId: 'legacy-tavern-result' },
+            context: { kind: 'manual', sourceId: `legacy-${result.kind}-result` },
           },
           result: cloneSerializable(result),
         }]
@@ -4869,9 +5027,10 @@ export class EmpiresEndgameEngine {
       id?: string
       attempt?: number
       origin?: EmpiresMinigameSession['origin']
-      rulesIdentity?: TdRulesIdentity
+      rulesIdentity?: TdRulesIdentity | AlchemyRulesIdentity
     }
-    if ((session.kind !== 'td' && session.kind !== 'tavern') || !session.plan || session.seed === undefined) {
+    if ((session.kind !== 'td' && session.kind !== 'tavern' && session.kind !== 'alchemy')
+      || !session.plan || session.seed === undefined) {
       throw new Error('Active minigame session is malformed')
     }
     session.id ??= `${session.plan.id}:${String(session.seed)}`
@@ -4885,7 +5044,11 @@ export class EmpiresEndgameEngine {
         this.config.td.maxCatchUpTicksPerFrame ?? 8,
       )
     }
-    const expectedRules = session.kind === 'td' ? currentTdRules : currentTavernRules
+    const expectedRules = session.kind === 'td'
+      ? currentTdRules
+      : session.kind === 'tavern'
+        ? currentTavernRules
+        : currentAlchemyRules
     if (!session.rulesIdentity
       || session.rulesIdentity.configSchemaVersion !== expectedRules.configSchemaVersion
       || session.rulesIdentity.rulesDigest !== expectedRules.rulesDigest) {
@@ -4897,7 +5060,9 @@ export class EmpiresEndgameEngine {
     }
     const planErrors = session.kind === 'td'
       ? validateTdBattlePlan(session.plan)
-      : validateTavernPlan(session.plan)
+      : session.kind === 'tavern'
+        ? validateTavernPlan(session.plan)
+        : validateAlchemyPlan(session.plan)
     if (planErrors.length > 0) throw new Error(`Invalid restored ${session.kind} plan: ${planErrors.join('; ')}`)
     session.origin ??= {
       returnPhase: 'cards',
@@ -4911,10 +5076,10 @@ export class EmpiresEndgameEngine {
   }
 
   private compactMinigameResultLog(state: EmpiresCampaignState = this.state): void {
-    const limit = Math.max(
-      1,
+    const limit = Math.max(1, Math.min(
       Math.floor(this.config.td.resultLogLimit ?? 32),
-    )
+      Math.floor(this.config.alchemy.resultLogLimit ?? 32),
+    ))
     while (state.minigameResultLog.length > limit) {
       const evicted = state.minigameResultLog.shift()!
       state.minigameResultCompaction.evictedCount += 1
@@ -5340,6 +5505,105 @@ export class EmpiresEndgameEngine {
       target: { kind: 'city', cityId: session.plan.cityId },
     })
     this.refreshProductions()
+  }
+
+  private settleAlchemyOutcome(
+    result: AlchemyResult,
+    session: Extract<EmpiresMinigameSession, { kind: 'alchemy' }>,
+  ): void {
+    if (result.error) throw new Error(result.error)
+    if (this.state.minigameResultLog.some(record => record.sessionId === session.id)) {
+      throw new Error(`Minigame ${session.id} was already settled`)
+    }
+    const context = session.origin.context
+    if (context.kind !== 'alchemy-experiment'
+      || context.cityId !== session.plan.originCityId
+      || context.recipeId !== session.plan.recipe.id
+      || result.recipeId !== session.plan.recipe.id
+      || result.mode !== session.plan.recipe.mode) {
+      throw new Error('Alchemy result origin or recipe does not match its immutable plan.')
+    }
+    const city = this.city(session.plan.originCityId)
+    if (!city || this.cityAccessBlockedReason(city.id)) {
+      throw new Error('Alchemy result origin city is no longer accessible.')
+    }
+    if (session.plan.buildingId !== this.config.alchemy.buildingId
+      || this.effectiveOperationalBuildingLevel(city.id, session.plan.buildingId) < 1) {
+      throw new Error('Alchemy result origin no longer has its operational laboratory.')
+    }
+
+    if (result.outcome === 'success') {
+      this.applyEffects(
+        session.plan.recipe.rewards,
+        0,
+        undefined,
+        `alchemy:${session.id}`,
+        1,
+        city.id,
+      )
+      this.appendChronicle(this.state, {
+        kind: 'alchemy',
+        sourceId: `alchemy:${session.id}`,
+        title: session.plan.recipe.mode === 'assembly' ? 'Алхимический Сбор завершён' : 'Алхимический Разбор завершён',
+        description: `${session.plan.recipe.name}; скорость ${result.speedPercent}%.`,
+        target: { kind: 'city', cityId: city.id },
+      })
+    } else if (result.outcome === 'explosion') {
+      const request = result.explosionRequest
+      if (!request
+        || request.originCityId !== city.id
+        || request.epidemicDefinitionId !== session.plan.explosion.epidemicDefinitionId
+        || request.severity !== session.plan.explosion.severityMultiplier
+        || request.source.kind !== 'alchemy'
+        || request.source.id !== `alchemy:${session.id}`) {
+        throw new Error('Alchemy explosion result contains an untrusted epidemic request.')
+      }
+      const epidemic = this.startEpidemicInternal({
+        definitionId: request.epidemicDefinitionId,
+        originCityId: request.originCityId,
+        severity: request.severity,
+        source: cloneSerializable(request.source),
+      })
+      if (!epidemic.ok || !epidemic.instanceId) throw new Error(epidemic.message)
+      if (session.plan.explosion.lockBuildingForCon) {
+        city.buildingInteractionLocks[session.plan.buildingId] = this.state.con
+      }
+      this.state.alchemy.explosionCount += 1
+      this.state.alchemy.lastExplosion = {
+        sessionId: session.id,
+        cityId: city.id,
+        epidemicDefinitionId: request.epidemicDefinitionId,
+        epidemicInstanceId: epidemic.instanceId,
+        con: this.state.con,
+      }
+      this.appendChronicle(this.state, {
+        kind: 'alchemy',
+        sourceId: `alchemy-explosion:${session.id}`,
+        title: 'Вы провалили химический эксперимент',
+        description: `Взрыв в лаборатории ${city.name} вызвал эпидемиологическую катастрофу.`,
+        target: { kind: 'city', cityId: city.id },
+      })
+    }
+
+    this.state.minigameResultLog.push({
+      sessionId: session.id,
+      attempt: session.attempt,
+      origin: cloneSerializable(session.origin),
+      result: cloneSerializable(result),
+    })
+    this.compactMinigameResultLog()
+    this.state.minigame = null
+    this.state.phase = session.origin.returnPhase
+    this.refreshProductions()
+    this.evaluateQuestTriggers({
+      kind: 'minigameResult',
+      sessionId: session.id,
+      minigameKind: session.kind,
+      outcome: result.outcome,
+      con: this.state.con,
+    })
+    if (this.state.phase === 'empire' && this.state.empire.daysRemaining <= 0
+      && !this.mandatoryDialogueBlockedReason()) this.finishEmpireInternal()
   }
 
   private playAttack(actor: EmpiresActor, cardId: string): EmpiresActionResult {
@@ -6260,6 +6524,10 @@ export class EmpiresEndgameEngine {
     if (!request.source.id?.trim() || !sourceKinds.includes(request.source.kind)) {
       return { ok: false, changed: false, message: 'Invalid epidemic source provenance.' }
     }
+    const severityMultiplier = request.severity ?? 1
+    if (!Number.isFinite(severityMultiplier) || severityMultiplier <= 0) {
+      return { ok: false, changed: false, message: 'Invalid epidemic severity multiplier.' }
+    }
 
     const existing = this.state.epidemics.find(epidemic => (
       epidemic.definitionId === definition.id
@@ -6278,7 +6546,8 @@ export class EmpiresEndgameEngine {
       const firstStage = definition.stages[0]
       existing.stageId = firstStage.id
       existing.stageIndex = 0
-      existing.severity = firstStage.severity
+      existing.severityMultiplier = severityMultiplier
+      existing.severity = firstStage.severity * severityMultiplier
       existing.remainingStageDuration = firstStage.durationCons
       existing.remainingDuration = epidemicDuration(definition)
       existing.lastImpact = null
@@ -6306,7 +6575,8 @@ export class EmpiresEndgameEngine {
       cityId: city.id,
       stageId: firstStage.id,
       stageIndex: 0,
-      severity: firstStage.severity,
+      severity: firstStage.severity * severityMultiplier,
+      severityMultiplier,
       startedCon: this.state.con,
       remainingStageDuration: firstStage.durationCons,
       remainingDuration: epidemicDuration(definition),
@@ -6405,9 +6675,9 @@ export class EmpiresEndgameEngine {
       }
     }
     const policy = epidemic.containment.mode === 'undecided' ? this.activeEpidemicPolicy() : null
-    const localImpactMultiplier = epidemic.containment.mode === 'undecided'
+    const localImpactMultiplier = (epidemic.containment.mode === 'undecided'
       ? policy?.withinCitySpeedMultiplier ?? 1
-      : epidemic.containment.localImpactMultiplier
+      : epidemic.containment.localImpactMultiplier) * epidemic.severityMultiplier
     const preventsSpread = epidemic.containment.mode === 'undecided'
       ? policy?.preventsIntercitySpread ?? false
       : epidemic.containment.preventsIntercitySpread
@@ -6604,7 +6874,7 @@ export class EmpiresEndgameEngine {
         if (!nextStage) throw new Error(`Epidemic ${epidemic.id} exhausted its stages early.`)
         epidemic.stageIndex += 1
         epidemic.stageId = nextStage.id
-        epidemic.severity = nextStage.severity
+        epidemic.severity = nextStage.severity * epidemic.severityMultiplier
         epidemic.remainingStageDuration = nextStage.durationCons
       }
     }
@@ -6616,6 +6886,7 @@ export class EmpiresEndgameEngine {
       const result = this.startEpidemicInternal({
         definitionId: request.definitionId,
         originCityId: request.cityId,
+        severity: request.parent.severityMultiplier,
         source: {
           kind: 'spread',
           id: `spread:${request.parent.id}:${this.state.con}:${request.cityId}`,
@@ -6647,6 +6918,8 @@ export class EmpiresEndgameEngine {
     const rules = this.epidemicRulesIdentity()
     const instanceIds = new Set<string>()
     for (const epidemic of state.epidemics) {
+      epidemic.severityMultiplier = Number.isFinite(epidemic.severityMultiplier)
+        && epidemic.severityMultiplier > 0 ? epidemic.severityMultiplier : 1
       if (!epidemic || typeof epidemic.id !== 'string' || !epidemic.id
         || instanceIds.has(epidemic.id)
         || !definitionIds.has(epidemic.definitionId)
@@ -6664,7 +6937,8 @@ export class EmpiresEndgameEngine {
       }
       const definition = this.epidemicDefinition(epidemic.definitionId)!
       const stage = definition.stages[epidemic.stageIndex]
-      if (!stage || stage.id !== epidemic.stageId || stage.severity !== epidemic.severity
+      if (!stage || stage.id !== epidemic.stageId
+        || stage.severity * epidemic.severityMultiplier !== epidemic.severity
         || JSON.stringify(epidemic.affectedClasses) !== JSON.stringify(definition.affectedClasses)) {
         throw new Error(`Epidemic ${epidemic.id} does not match its definition.`)
       }

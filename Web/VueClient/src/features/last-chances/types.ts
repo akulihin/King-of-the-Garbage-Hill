@@ -69,6 +69,7 @@ export const LAST_CHANCES_STATUS_KINDS = [
   'armorBreak',
   'opening',
   'bound',
+  'unstoppable',
 ] as const
 export const LAST_CHANCES_STATUS_REFRESH_MODES = ['refresh', 'extend', 'stack', 'replace'] as const
 export const LAST_CHANCES_WEAPON_TRAITS = [
@@ -281,6 +282,8 @@ export interface LastChancesAugmentHookDefinition {
 
 export interface LastChancesAttackDefinition {
   name: string
+  /** Player-facing move copy shown in the gesture-memory panel. */
+  description?: string
   kind: LastChancesAttackKind
   /** Schema-v3 actions may explicitly disable an un-authored gesture slot. */
   enabled?: boolean
@@ -375,6 +378,8 @@ export interface LastChancesWeaponDefinition {
   /** Marks the exported concept whose weapon remains associated with the place of death. */
   corpseBound?: boolean
   trait?: LastChancesWeaponTrait
+  /** Designer switch for the Sword's stagger/Unstoppable subsystem. */
+  staggerEnabled?: boolean
   resource?: LastChancesWeaponResourceDefinition
   defaultAugment?: LastChancesAugment
   augmentHooks?: Partial<Record<LastChancesAugment, LastChancesAugmentHookDefinition>>
@@ -392,11 +397,37 @@ export interface LastChancesWeaponDefinition {
 }
 
 export interface LastChancesLoadoutDefinition {
-  primaryWeaponId: string
-  /** Null leaves an ordinary off-hand empty; two-handed and unsupplemented hybrid weapons fill it themselves. */
+  /** Runtime pickups may leave the primary hand empty even though shipped starting loadouts do not. */
+  primaryWeaponId: string | null
+  /** Null leaves the off-hand empty; only a two-handed weapon mirrors its second input there. */
   secondaryWeaponId: string | null
   primaryAugment?: LastChancesAugment
   secondaryAugment?: LastChancesAugment
+  artifactId?: string | null
+  outfitId?: string | null
+}
+
+export interface LastChancesArtifactDefinition {
+  id: string
+  name: string
+  description: string
+  /** Fraction of combat mental damage prevented, from 0 through 1. */
+  mentalDamageReduction?: number
+  /** Fraction of actual damage dealt restored as physical health, from 0 through 1. */
+  lifestealRatio?: number
+}
+
+export interface LastChancesOutfitDefinition {
+  id: string
+  name: string
+  description: string
+  armorBonus: number
+  moveSpeedMultiplier: number
+  emptyRightHandDash?: {
+    distance: number
+    durationMs: number
+    cooldownMs: number
+  }
 }
 
 export interface LastChancesResolvedWeapon {
@@ -406,6 +437,7 @@ export interface LastChancesResolvedWeapon {
   attacks: Record<LastChancesGesture, LastChancesAttackDefinition>
   tapCombo: LastChancesAttackDefinition[]
   trait?: LastChancesWeaponTrait
+  staggerEnabled?: boolean
   resource?: LastChancesWeaponResourceDefinition
   augment: LastChancesAugment
   augmentHooks?: Partial<Record<LastChancesAugment, LastChancesAugmentHookDefinition>>
@@ -540,6 +572,8 @@ export interface LastChancesInteractionEffect {
   stats?: Partial<LastChancesStats>
   primaryWeaponId?: string
   secondaryWeaponId?: string | null
+  artifactId?: string | null
+  outfitId?: string | null
 }
 
 export interface LastChancesInteractionChoice {
@@ -690,11 +724,15 @@ export interface LastChancesConfig {
   progression: {
     roomHpRecovery: number
     roomMentalRecovery: number
+    /** Defaults to true for older definitions. False unlocks every move and hides move quests. */
+    moveQuestsEnabled?: boolean
     tiers: LastChancesTierDefinition[]
   }
   rooms: LastChancesRoomTemplate[]
   enemies: LastChancesEnemyDefinition[]
   weapons: LastChancesWeaponDefinition[]
+  artifacts?: LastChancesArtifactDefinition[]
+  outfits?: LastChancesOutfitDefinition[]
   /** Optional catalog-backed equipment selection. Omitted schema-v1 definitions retain their legacy hand slots. */
   loadout?: LastChancesLoadoutDefinition
   narrative?: LastChancesNarrativeDefinition
@@ -890,6 +928,16 @@ export interface LastChancesWeaponStateSnapshot {
   storedDot: Exclude<LastChancesStatusKind, 'bleed'> | null
   rhythm: 'idle' | 'early' | 'good' | 'late'
   recoveryMs: number
+  /** Remaining visual confirmation after a 500–600 ms Sword rhythm hit. */
+  perfectTimingMs: number
+  /** Remaining Sword-only fatigue; off-hand weapons remain usable. */
+  fatigueMs: number
+  /** Time until a held second input resolves Unterhaw. */
+  unterhauWindowMs: number
+  /** Oberhaw connected, so the otherwise dim Unterhaw menu row should glow. */
+  unterhauPrimed: boolean
+  /** Mouse-motion damage bonus earned by the current/last Zornhaw, from 0 through its cap. */
+  motionDamageBonus: number
 }
 
 export interface LastChancesMoveQuestSnapshot {
@@ -913,6 +961,13 @@ export interface LastChancesSwarmSnapshot {
   /** Creeps still queued outside the map. */
   remaining: number
   total: number
+}
+
+export interface LastChancesGroundWeaponSnapshot {
+  id: string
+  weaponId: string
+  name: string
+  position: LastChancesVector
 }
 
 export interface LastChancesGamepadSnapshot {
@@ -977,6 +1032,7 @@ export interface LastChancesSnapshot {
   actionCues: LastChancesHandActionCue[]
   weaponStates: LastChancesWeaponStateSnapshot[]
   moveQuests: LastChancesMoveQuestSnapshot[]
+  groundWeapons: LastChancesGroundWeaponSnapshot[]
   swarm: LastChancesSwarmSnapshot | null
   interactionPrompt: string | null
   controlScheme: LastChancesControlScheme

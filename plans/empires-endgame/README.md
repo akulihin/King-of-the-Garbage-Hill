@@ -80,7 +80,12 @@ Current execution status supplied by the designer on 2026-07-17:
   and atomic Пиковая Дама neighbor pulse landed as one change-set. The broad Tavern
   marker is closed; Maria 2×2/powder legacy, trio passives/leave and Queen appeasement keep
   exact source-gap blockers.
-- **Next prompt: Phase 10** (`phase-10-tetris-alchemy.md`).
+- **Phase 10 — complete/conditional.** Schema-v15 Alchemy configuration, save-envelope v13,
+  deterministic four-side Assembly, reagents, arithmetic acceleration, replay-authenticated
+  explosion→epidemic settlement, con-scoped laboratory lock, accessible controls and QA landed
+  as one change-set. The broad Alchemy marker is closed; Disassembly launch rules, poison/wall
+  recipes, science unlock mappings and mutant aftermath retain exact source-gap blockers.
+- **Next prompt: Phase 11A** (`phase-11-expeditions-inventory.md`).
 
 Scope decisions confirmed by the designer (2026-07-16):
 
@@ -114,7 +119,7 @@ graph TD
   P6A --> P9[9 complete: Tavern + mystics]
   P7 --> P9
   P8 --> P9
-  P3A --> P10[10 Tetris-alchemy]
+  P3A --> P10[10 complete: Tetris-alchemy]
   P5 --> P10
   P3B --> P11A[11A expeditions]
   P7 --> P11A
@@ -144,7 +149,7 @@ graph TD
 | `phase-07-quests-dialogue.md` | **Complete/historical.** Quest/dialogue graph engine, journal/overlay UI, 43-passage Палач port and Golden Idol/Witch event bridges. |
 | `phase-08-god-presence.md` | **Complete/historical.** Deck-memory, deterministic capped anti-bito, isolated authored God lines, Милость confirmation and device preference. |
 | `phase-09-tavern-mystic.md` | **Complete/conditional.** Deterministic Tavern, separate ordered mystic catalog/zone, 3–7–Т observer and Пиковая Дама pulse; exact incomplete subfeatures remain blocked. |
-| `phase-10-tetris-alchemy.md` | Assembly/disassembly tetris, reagents, configured explosion → typed epidemic. |
+| `phase-10-tetris-alchemy.md` | **Complete/conditional.** Deterministic Assembly, reagents, acceleration and configured explosion → typed epidemic; incomplete Disassembly/recipe/aftermath semantics retain exact blockers. |
 | `phase-11-expeditions-inventory.md` | **11A:** expeditions, forts/zones, provisions, veterans, TD assault. |
 | `phase-11b-tetris-inventory.md` | **11B:** deterministic falling-cart packing minigame. |
 | `phase-12-chess.md` | Chess design gate; implementation stays disabled until the rules table is executable. |
@@ -240,8 +245,8 @@ graph TD
   free secondary technology cadence and once-per-con 50%-fatal treatment are live. Numeric
   epidemic stages, class weights, healer combat stats and deterministic free-tech choice
   are configurable defaults retained in the designer-review ledger.
-- Alchemy is live only for its plague-combination substrate; `alchemyMinigame` remains a
-  visible deferred capability owned by P10. The Granary+Alchemy plague trigger consumes
+- Alchemy was live here only for its plague-combination substrate; P10 subsequently closed
+  the broad minigame handoff with a deterministic calibration Assembly. The Granary+Alchemy plague trigger consumes
   P4B's exact-once hidden-combination memory and selects the lowest stable operational
   Alchemy city. Trainers/rats remain deferred without a stable carrier or consequences.
 - Both `card-spades-10` faces and the epidemic relic are live. Raw `персонажи` uniquely
@@ -351,6 +356,30 @@ graph TD
   `maria2x2`, `mariaGunpowderLegacy`, `mysticTrioPassives`, `mysticLeaveAction` and
   `queenAppeasement`, plus face-level reasons on Лист, Лорик and Анатолий. Later phases
   must not treat these typed seams as proof of missing semantics.
+
+## P10 handoff
+
+- The compatibility baseline is config schema 15 and campaign/save envelope 13. Genuine
+  schema-v14 custom configs receive a disabled empty Alchemy scaffold; schema-v12 saves
+  receive an empty bounded explosion summary without changing earlier outcomes.
+- Alchemy reuses the generic immutable `plan + seed + commandLog` envelope. Fixed logical
+  ticks own spawn, movement, nearest-piece control, lock, reagent use, triangular
+  acceleration and terminal results. Reload increments the attempt and replays from the
+  frozen plan; active config/rules mismatch is rejected.
+- The live bundled calibration recipe is Assembly only. Tetrominoes approach from all four
+  sides after serialized 2–5-second delays, may overlap in flight, and cannot move outward
+  or pass the central construction. Inward input moves ×3. Remove-color, add-gray and
+  acceleration-reset reagents each have one configured charge.
+- Exceeding, not merely reaching, the configured 400% threshold creates a trusted plague
+  request at the originating laboratory through P5's epidemic funnel. Severity is frozen in
+  the plan, the canonical building-interaction lock prevents a same-con retry, and restore
+  cannot clear or duplicate either consequence.
+- `building-alchemy` has no whole-item or `alchemyMinigame` marker. The complete residual
+  manifest is `disassemblyRules`, `poisonWallRecipes`, `scienceRecipeUnlocks` and
+  `mutantAftermath`. The pure engine has a complementary remove-on-contact mode, but the
+  bundled Disassembly launch remains unavailable because the raw source gives conflicting
+  control and success sketches. No later phase may infer poison inputs/outputs, science
+  recipe mapping or a mutant event/TD lifecycle from these seams.
 
 ## How to execute the remaining prompts
 
