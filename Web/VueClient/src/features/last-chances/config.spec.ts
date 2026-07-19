@@ -23,6 +23,7 @@ interface ExpectedShippedControlRoute {
   dualsense: {
     instant: string
     start: string
+    preGate?: string
     nodes: string[]
   }
 }
@@ -39,10 +40,10 @@ const EXPECTED_SHIPPED_CONTROL_ROUTES: Record<string, ExpectedShippedControlRout
     ],
     dualsense: {
       instant: 'tap',
-      start: 'doubleTap',
+      start: 'hold',
+      preGate: 'doubleTap',
       nodes: [
-        'doubleTap|doubleTap|neutral|0.22|release|none|dispatch|hold,doubleTapHold|release|480|click|*',
-        'hold|hold|neutral|0.48|release|charge|dispatch|holdThenDoubleTap|release|480|ramp|*',
+        'hold|hold|neutral|0.48|release|charge|dispatch|doubleTapHold,holdThenDoubleTap|release|480|ramp|*',
         'doubleTapHold|doubleTapHold|continuation|0.72|release|charge|dispatch||release|480|gate|*',
         'holdThenDoubleTap|holdThenDoubleTap|continuation|0.9|press|none|cancel||release|480|followUp|middle',
       ],
@@ -58,10 +59,10 @@ const EXPECTED_SHIPPED_CONTROL_ROUTES: Record<string, ExpectedShippedControlRout
     ],
     dualsense: {
       instant: 'tap',
-      start: 'doubleTap',
+      start: 'hold',
+      preGate: 'doubleTap',
       nodes: [
-        'doubleTap|doubleTap|neutral|0.22|release|none|dispatch|hold,doubleTapHold|release|480|click|*',
-        'hold|hold|neutral|0.48|press|channel|dispatch|holdThenDoubleTap|release|480|tension|*',
+        'hold|hold|neutral|0.48|press|channel|dispatch|doubleTapHold,holdThenDoubleTap|release|480|tension|*',
         'doubleTapHold|doubleTapHold|continuation|0.72|release|charge|dispatch||release|480|gate|*',
         'holdThenDoubleTap|holdThenDoubleTap|stance|0.9|release|none|dispatch||release|480|followUp|*',
       ],
@@ -828,9 +829,10 @@ describe('99LC config and deterministic plan', () => {
         calmIntervalMs: [2800, 4600],
         panicIntervalMs: [320, 720],
       })
-      const spearNodes = migrated.weapons[0].controls!.primary.dualsense.nodes
-      const forces = spearNodes.map(node => node.adaptiveOverride?.force)
-      expect(forces).toEqual([0.3, 0.55, 0.8, 1])
+      const spearControls = migrated.weapons[0].controls!.primary.dualsense
+      expect(spearControls.preGateGesture).toBe('doubleTap')
+      const forces = spearControls.nodes.map(node => node.adaptiveOverride?.force)
+      expect(forces).toEqual([0.55, 0.8, 1])
     })
 
     it('accepts controls without any haptics block or node ticks', () => {
@@ -915,6 +917,7 @@ describe('99LC config and deterministic plan', () => {
         expect({
           instant: controls.dualsense.instantGesture,
           start: controls.dualsense.startNodeId,
+          preGate: controls.dualsense.preGateGesture,
           nodes: controls.dualsense.nodes.map(dualSenseRequest),
         }, key).toEqual(authored.dualsense)
 
@@ -930,6 +933,7 @@ describe('99LC config and deterministic plan', () => {
           .toEqual([...enabled].sort())
         expect([
           controls.dualsense.instantGesture,
+          ...(controls.dualsense.preGateGesture ? [controls.dualsense.preGateGesture] : []),
           ...controls.dualsense.nodes.map(node => node.gesture),
         ].sort()).toEqual([...enabled].sort())
         expect(disabled).not.toContain(controls.dualsense.instantGesture)
@@ -984,13 +988,13 @@ describe('99LC config and deterministic plan', () => {
       )
 
       const cycle = cloneLastChancesConfig(defaultConfig)
-      cycle.weapons[0].controls!.primary.dualsense.nodes.at(-1)!.next = ['doubleTap']
+      cycle.weapons[0].controls!.primary.dualsense.nodes.at(-1)!.next = ['hold']
       expect(validateLastChancesConfig(cycle).errors).toContain(
         'weapons[0].controls.primary.dualsense combo graph must be acyclic',
       )
 
       const unreachable = cloneLastChancesConfig(defaultConfig)
-      unreachable.weapons[0].controls!.primary.dualsense.nodes[0].next = ['hold']
+      unreachable.weapons[0].controls!.primary.dualsense.nodes[0].next = ['holdThenDoubleTap']
       expect(validateLastChancesConfig(unreachable).errors).toContain(
         'weapons[0].controls.primary.dualsense combo node doubleTapHold is unreachable',
       )
@@ -1013,7 +1017,7 @@ describe('99LC config and deterministic plan', () => {
       const unknownBand = cloneLastChancesConfig(defaultConfig)
       unknownBand.weapons[0].controls!.primary.dualsense.nodes.at(-1)!.requiredChargeBandId = 'missing'
       expect(validateLastChancesConfig(unknownBand).errors).toContain(
-        'weapons[0].controls.primary.dualsense.nodes[3].requiredChargeBandId must reference an existing hold charge band',
+        'weapons[0].controls.primary.dualsense.nodes[2].requiredChargeBandId must reference an existing hold charge band',
       )
     })
 

@@ -227,6 +227,8 @@ interface AttackSetControlSeed {
   triggerRole: string
   mylorik: Partial<Record<LastChancesGesture, MylorikActivationWithoutGesture>>
   dualsense: DualSenseNodeSeed[]
+  /** Quick action dispatched when a pull releases before reaching any node. */
+  preGateGesture?: LastChancesGesture
   haptics?: LastChancesWeaponHapticsDefinition
 }
 
@@ -273,14 +275,15 @@ const ATTACK_SET_CONTROL_SEEDS: Record<string, AttackSetControlSeed> = {
       hold: mylorikActivation('technique', 'hold'),
       holdThenDoubleTap: mylorikActivation('mobility', 'press', 'continuation'),
     },
+    // "Click before the gate": a pull released before the замах pocket fires
+    // the distance poke; the 0.48 pocket owns the three release sectors, the
+    // 0.72 firm gate arms the charged ram, and 0.9 (after the middle sector)
+    // commits the overhead spin.
+    preGateGesture: 'doubleTap',
     dualsense: [
-      dualSenseNode('doubleTap', 'neutral', 0.22, {
-        next: ['hold', 'doubleTapHold'],
-        adaptiveOverride: { startPosition: 0.22, endPosition: 0.32, force: 0.3 },
-      }),
       dualSenseNode('hold', 'neutral', 0.48, {
         holdBehavior: 'charge',
-        next: ['holdThenDoubleTap'],
+        next: ['doubleTapHold', 'holdThenDoubleTap'],
         tactileProfile: 'ramp',
         entryTick: { durationMs: 35, magnitude: 0.25 },
         adaptiveOverride: { startPosition: 0.48, endPosition: 0.58, force: 0.55 },
@@ -315,16 +318,16 @@ const ATTACK_SET_CONTROL_SEEDS: Record<string, AttackSetControlSeed> = {
       hold: mylorikActivation('technique', 'hold'),
       holdThenDoubleTap: mylorikActivation('mobility', 'press', 'stance'),
     },
+    // Quick release = the wide haft shove; the 0.48 pocket is the cutting
+    // stance channel, its 0.72 gate arms the armored kick charge, and the
+    // early-stance pole-plant pocket at 0.9 launches the vault on release.
+    preGateGesture: 'doubleTap',
     dualsense: [
-      dualSenseNode('doubleTap', 'neutral', 0.22, {
-        next: ['hold', 'doubleTapHold'],
-        adaptiveOverride: { startPosition: 0.22, endPosition: 0.32, force: 0.3 },
-      }),
       dualSenseNode('hold', 'neutral', 0.48, {
         dispatch: 'press',
         holdBehavior: 'channel',
         releaseBehavior: 'dispatch',
-        next: ['holdThenDoubleTap'],
+        next: ['doubleTapHold', 'holdThenDoubleTap'],
         tactileProfile: 'tension',
         entryTick: null,
       }),
@@ -710,6 +713,9 @@ function buildAttackSetControls(
       triggerRole: seed.triggerRole,
       startNodeId: nodes[0]?.id ?? null,
       nodes,
+      ...(seed.preGateGesture && enabledGestures.has(seed.preGateGesture)
+        ? { preGateGesture: seed.preGateGesture }
+        : {}),
       ...(seed.haptics ? { haptics: seed.haptics } : {}),
     },
   }
@@ -2339,6 +2345,17 @@ function validateAttackSetControls(
   const nodes = new Map<string, UnknownRecord>()
   const dualSenseSlotCounts = new Map<LastChancesGesture, number>()
   if (dualsense.instantGesture === 'tap') dualSenseSlotCounts.set('tap', 1)
+  if (dualsense.preGateGesture !== undefined) {
+    const preGate = dualsense.preGateGesture as LastChancesGesture
+    if (!LAST_CHANCES_GESTURES.includes(preGate)) {
+      errors.push(`${path}.dualsense.preGateGesture must be one of ${LAST_CHANCES_GESTURES.join(', ')}`)
+    } else {
+      dualSenseSlotCounts.set(preGate, (dualSenseSlotCounts.get(preGate) ?? 0) + 1)
+      if (!enabledGestures.has(preGate)) {
+        errors.push(`${path}.dualsense.preGateGesture routes disabled slot ${preGate}`)
+      }
+    }
+  }
   dualsense.nodes.forEach((nodeValue, index) => {
     const nodePath = `${path}.dualsense.nodes[${index}]`
     const node = asRecord(nodeValue, nodePath, errors)

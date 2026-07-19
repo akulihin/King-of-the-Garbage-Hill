@@ -2791,9 +2791,12 @@ describe('99LC control-scheme engine boundary', () => {
         const startNode = controls.dualsense.nodes.find(node => (
           node.id === controls.dualsense.startNodeId
         ))!
+        // Pre-gate sets fire their shallow slot by releasing before the first
+        // pocket; classic sets enter their shallow start node.
+        const preGate = controls.dualsense.preGateGesture
         access.dualSenseControls.updateTrigger(
           physicalHand,
-          startNode.activationThreshold,
+          preGate ? 0.3 : startNode.activationThreshold,
           0,
           controls,
           'gamepad',
@@ -2801,7 +2804,7 @@ describe('99LC control-scheme engine boundary', () => {
         access.dualSenseControls.updateTrigger(
           physicalHand,
           0,
-          1_800,
+          preGate ? 200 : 1_800,
           controls,
           'gamepad',
         )
@@ -3308,20 +3311,22 @@ describe('99LC control-scheme engine boundary', () => {
     const feedback = vi.spyOn(access.feedbackController, 'emit')
     try {
       driveDualSenseTrigger(access, 'right', 0.3, 0)
-      driveDualSenseTrigger(access, 'right', 0.55, 30)
+      expect(feedback).not.toHaveBeenCalled()
 
+      driveDualSenseTrigger(access, 'right', 0.55, 30)
+      driveDualSenseTrigger(access, 'right', 0.75, 60)
       const cues = feedback.mock.calls
         .map(([event]) => event)
-        .filter(event => event.state === 'charge')
+        .filter(event => event.state === 'charge' || event.state === 'continuation')
       expect(cues).toEqual([
-        expect.objectContaining({ profile: 'click', tick: { durationMs: 25, magnitude: 0.15 } }),
         expect.objectContaining({ profile: 'ramp', tick: { durationMs: 35, magnitude: 0.25 } }),
+        expect.objectContaining({ profile: 'gate', tick: { durationMs: 45, magnitude: 0.35 } }),
       ])
       expect(feedback.mock.calls.every(([event]) => event.strength === undefined)).toBe(true)
 
       const emitted = feedback.mock.calls.length
-      driveDualSenseTrigger(access, 'right', 0.56, 60)
-      driveDualSenseTrigger(access, 'right', 0.57, 90)
+      driveDualSenseTrigger(access, 'right', 0.76, 90)
+      driveDualSenseTrigger(access, 'right', 0.77, 120)
       expect(feedback.mock.calls.length).toBe(emitted)
     } finally {
       engine.destroy()
@@ -3333,14 +3338,56 @@ describe('99LC control-scheme engine boundary', () => {
     engine.setControlScheme('dualsense')
     const feedback = vi.spyOn(access.feedbackController, 'emit')
     try {
-      driveDualSenseTrigger(access, 'right', 0.3, 0)
-      driveDualSenseTrigger(access, 'right', 0.55, 30)
+      driveDualSenseTrigger(access, 'right', 0.55, 0)
+      driveDualSenseTrigger(access, 'right', 0.75, 30)
 
       const forces = feedback.mock.calls
         .map(([event]) => event)
-        .filter(event => event.state === 'charge')
+        .filter(event => event.state === 'charge' || event.state === 'continuation')
         .map(event => event.adaptiveOverride?.force)
-      expect(forces).toEqual([0.3, 0.55])
+      expect(forces).toEqual([0.55, 0.8])
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('fires the spear distance poke on a release before the замах pocket', () => {
+    const { engine, access } = startCombat(combatConfig('twohand-spear', null))
+    engine.setControlScheme('dualsense')
+    const feedback = vi.spyOn(access.feedbackController, 'emit')
+    try {
+      driveDualSenseTrigger(access, 'right', 0.3, 0)
+      driveDualSenseTrigger(access, 'right', 0, 150)
+      expect(access.createSnapshot().lastGesture).toMatchObject({
+        hand: 'left',
+        gesture: 'doubleTap',
+        attackName: 'Тычок на дистанции',
+      })
+      expect(feedback.mock.calls.some(([event]) => event.pattern !== undefined)).toBe(true)
+
+      // A pull that reaches the pocket resolves the pocket, never a second poke.
+      driveDualSenseTrigger(access, 'right', 0.55, 1_000)
+      driveDualSenseTrigger(access, 'right', 0, 1_700)
+      expect(access.createSnapshot().lastGesture).toMatchObject({
+        hand: 'left',
+        gesture: 'hold',
+      })
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('fires the haft shove on a quick left-trigger release before the stance pocket', () => {
+    const { engine, access } = startCombat(combatConfig('twohand-spear', null))
+    engine.setControlScheme('dualsense')
+    try {
+      driveDualSenseTrigger(access, 'left', 0.3, 0)
+      driveDualSenseTrigger(access, 'left', 0, 150)
+      expect(access.createSnapshot().lastGesture).toMatchObject({
+        hand: 'right',
+        gesture: 'doubleTap',
+        attackName: 'Широкий толчок древком',
+      })
     } finally {
       engine.destroy()
     }

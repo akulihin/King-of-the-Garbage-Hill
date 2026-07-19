@@ -402,6 +402,12 @@ export interface LastChancesAttackSetControlDefinition {
     startNodeId: string | null
     nodes: LastChancesDualSenseComboNodeDefinition[]
     haptics?: LastChancesWeaponHapticsDefinition
+    /**
+     * Quick action fired when a pull releases before reaching any combo node:
+     * the "click before the gate" (e.g. the spear's distance poke). Routes its
+     * gesture instead of a node.
+     */
+    preGateGesture?: LastChancesGesture
   }
 }
 

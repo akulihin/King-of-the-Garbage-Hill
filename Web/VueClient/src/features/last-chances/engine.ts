@@ -2338,6 +2338,11 @@ export class LastChancesEngine {
           adaptiveOverride = node.adaptiveOverride
           entryTick = node.entryTick
         }
+      } else if (event.preGate && event.gesture
+        && controls.dualsense.preGateGesture === event.gesture) {
+        // Quick release before any combo node: the authored "click before the
+        // gate" action (e.g. the spear's distance poke).
+        gesture = event.gesture
       } else if (event.source === 'keyboard' && event.intent === 'mobility') {
         gesture = controls.mylorik.activations
           .filter(activation => activation.intent === 'mobility' && activation.phase === event.phase)
@@ -5520,8 +5525,14 @@ export class LastChancesEngine {
       const state = this.keyboardDualSenseTriggers[physicalHand]
       if (!state.down) continue
       const controls = this.weapons.get(physicalClusterToRuntimeHand(physicalHand))?.controls
-      const gates = [...new Set(controls?.dualsense.nodes
-        .map(node => node.activationThreshold) ?? [])].sort((left, right) => left - right)
+      // Anchor the walk at the activation threshold: when the first node sits
+      // on a deeper gate (pre-gate weapons like the spear), the held key must
+      // still climb through that node's gate instead of skipping past it.
+      const activation = this.config.input.dualsense?.activationThreshold ?? 0.22
+      const gates = [activation, ...[...new Set(controls?.dualsense.nodes
+        .map(node => node.activationThreshold) ?? [])]
+        .filter(gate => gate > activation)
+        .sort((left, right) => left - right)]
       while (state.gateIndex + 1 < gates.length) {
         const nextIndex = state.gateIndex + 1
         const nextAt = holdThreshold + Math.max(0, nextIndex - 1) * continuationStep

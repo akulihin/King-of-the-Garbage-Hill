@@ -1608,15 +1608,15 @@
           "dualsense": {
             "instantGesture": "tap",
             "triggerRole": "R2 thrust, overhead release, ram and spin",
-            "startNodeId": "doubleTap",
+            "startNodeId": "hold",
+            "preGateGesture": "doubleTap",
             "haptics": {
               "baseTrigger": { "startPosition": 0.16, "endPosition": 0.24, "force": 0.35 },
               "gateTick": { "durationMs": 25, "magnitude": 0.15 },
               "commitPattern": [{ "delayMs": 0, "durationMs": 70, "magnitude": 0.6 }]
             },
             "nodes": [
-              { "id": "doubleTap", "gesture": "doubleTap", "entryContext": "neutral", "activationThreshold": 0.22, "dispatch": "release", "holdBehavior": "none", "releaseBehavior": "dispatch", "next": ["hold", "doubleTapHold"], "cancel": "release", "expiryMs": 480, "tactileProfile": "click", "adaptiveOverride": { "startPosition": 0.22, "endPosition": 0.32, "force": 0.3 } },
-              { "id": "hold", "gesture": "hold", "entryContext": "neutral", "activationThreshold": 0.48, "dispatch": "release", "holdBehavior": "charge", "releaseBehavior": "dispatch", "next": ["holdThenDoubleTap"], "cancel": "release", "expiryMs": 480, "tactileProfile": "ramp", "entryTick": { "durationMs": 35, "magnitude": 0.25 }, "adaptiveOverride": { "startPosition": 0.48, "endPosition": 0.58, "force": 0.55 } },
+              { "id": "hold", "gesture": "hold", "entryContext": "neutral", "activationThreshold": 0.48, "dispatch": "release", "holdBehavior": "charge", "releaseBehavior": "dispatch", "next": ["doubleTapHold", "holdThenDoubleTap"], "cancel": "release", "expiryMs": 480, "tactileProfile": "ramp", "entryTick": { "durationMs": 35, "magnitude": 0.25 }, "adaptiveOverride": { "startPosition": 0.48, "endPosition": 0.58, "force": 0.55 } },
               { "id": "doubleTapHold", "gesture": "doubleTapHold", "entryContext": "continuation", "activationThreshold": 0.72, "dispatch": "release", "holdBehavior": "charge", "releaseBehavior": "dispatch", "next": [], "cancel": "release", "expiryMs": 480, "tactileProfile": "gate", "entryTick": { "durationMs": 45, "magnitude": 0.35 }, "adaptiveOverride": { "startPosition": 0.72, "endPosition": 0.82, "force": 0.8 } },
               { "id": "holdThenDoubleTap", "gesture": "holdThenDoubleTap", "entryContext": "continuation", "activationThreshold": 0.9, "dispatch": "press", "holdBehavior": "none", "releaseBehavior": "cancel", "next": [], "cancel": "release", "expiryMs": 480, "tactileProfile": "followUp", "requiredChargeBandId": "middle", "entryTick": { "durationMs": 55, "magnitude": 0.45 }, "adaptiveOverride": { "startPosition": 0.9, "endPosition": 0.98, "force": 1 } }
             ]
@@ -1634,15 +1634,15 @@
           "dualsense": {
             "instantGesture": "tap",
             "triggerRole": "L2 shove, brace, cutting stance and pole vault",
-            "startNodeId": "doubleTap",
+            "startNodeId": "hold",
+            "preGateGesture": "doubleTap",
             "haptics": {
               "baseTrigger": { "startPosition": 0.14, "endPosition": 0.14, "resistance": 0.2 },
               "gateTick": { "durationMs": 25, "magnitude": 0.12 },
               "commitPattern": [{ "delayMs": 0, "durationMs": 50, "magnitude": 0.4 }]
             },
             "nodes": [
-              { "id": "doubleTap", "gesture": "doubleTap", "entryContext": "neutral", "activationThreshold": 0.22, "dispatch": "release", "holdBehavior": "none", "releaseBehavior": "dispatch", "next": ["hold", "doubleTapHold"], "cancel": "release", "expiryMs": 480, "tactileProfile": "click", "adaptiveOverride": { "startPosition": 0.22, "endPosition": 0.32, "force": 0.3 } },
-              { "id": "hold", "gesture": "hold", "entryContext": "neutral", "activationThreshold": 0.48, "dispatch": "press", "holdBehavior": "channel", "releaseBehavior": "dispatch", "next": ["holdThenDoubleTap"], "cancel": "release", "expiryMs": 480, "tactileProfile": "tension", "entryTick": null },
+              { "id": "hold", "gesture": "hold", "entryContext": "neutral", "activationThreshold": 0.48, "dispatch": "press", "holdBehavior": "channel", "releaseBehavior": "dispatch", "next": ["doubleTapHold", "holdThenDoubleTap"], "cancel": "release", "expiryMs": 480, "tactileProfile": "tension", "entryTick": null },
               { "id": "doubleTapHold", "gesture": "doubleTapHold", "entryContext": "continuation", "activationThreshold": 0.72, "dispatch": "release", "holdBehavior": "charge", "releaseBehavior": "dispatch", "next": [], "cancel": "release", "expiryMs": 480, "tactileProfile": "gate", "adaptiveOverride": { "startPosition": 0.72, "endPosition": 0.82, "force": 0.65 } },
               { "id": "holdThenDoubleTap", "gesture": "holdThenDoubleTap", "entryContext": "stance", "activationThreshold": 0.9, "dispatch": "release", "holdBehavior": "none", "releaseBehavior": "dispatch", "next": [], "cancel": "release", "expiryMs": 480, "tactileProfile": "followUp", "adaptiveOverride": { "startPosition": 0.9, "endPosition": 0.98, "force": 0.9 } }
             ]

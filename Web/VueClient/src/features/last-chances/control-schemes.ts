@@ -35,6 +35,8 @@ export interface LastChancesSemanticInputEvent {
   probe?: boolean
   /** A node that was accepted earlier in this same trigger pull. */
   armed?: boolean
+  /** Quick release before any combo node was reached: dispatch the set's preGateGesture. */
+  preGate?: boolean
 }
 
 export type LastChancesSemanticInputHandler = (
@@ -537,7 +539,11 @@ export class DualSenseControlRecognizer {
           this.states[physicalHand] = dualSenseTriggerState(true)
           return
         }
-      } else if (!selected && !activeNode) {
+      } else if (!selected && !activeNode && reachable.length > 0) {
+        // Reachable nodes exist but none is eligible: an illegal pull. A pull
+        // still below every authored gate (reachable empty — the pre-gate
+        // zone) instead stays active, waiting to reach the first pocket or to
+        // release into the set's preGateGesture.
         const blockedNode = reachable.reduce<typeof reachable[number] | undefined>(
           (deepest, node) => !deepest || node.activationThreshold > deepest.activationThreshold
             ? node
@@ -586,6 +592,23 @@ export class DualSenseControlRecognizer {
         tactileProfile: node.tactileProfile,
         commit: true,
         armed: true,
+      })
+    } else if (!state.activeNodeId && controls?.dualsense.preGateGesture) {
+      // The pull never reached a combo node: the "click before the gate"
+      // dispatches the authored quick action (e.g. the spear's distance poke).
+      this.emit({
+        scheme: 'dualsense',
+        physicalHand,
+        hand: physicalClusterToRuntimeHand(physicalHand),
+        intent: 'technique',
+        phase: 'release',
+        source: state.source,
+        atMs,
+        heldMs: Math.max(0, atMs - state.startedAt),
+        value: normalized,
+        gesture: controls.dualsense.preGateGesture,
+        commit: true,
+        preGate: true,
       })
     }
     this.states[physicalHand] = dualSenseTriggerState(normalized > neutralRearmGate)
