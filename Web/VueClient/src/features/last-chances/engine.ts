@@ -1,5 +1,7 @@
 import {
   cloneLastChancesConfig,
+  DEFAULT_LAST_CHANCES_BAND_TICK,
+  DEFAULT_LAST_CHANCES_GATE_TICK,
   LastChancesConfigError,
   migrateLastChancesConfig,
   validateLastChancesConfig,
@@ -33,7 +35,7 @@ import {
   type LastChancesHapticGamepadLike,
 } from './feedback'
 import { createLastChancesDualSenseEnhancedOutput } from './dualsense-serializers'
-import { createLastChancesRng } from './rng'
+import { createLastChancesRng, lastChancesRandomInt } from './rng'
 import {
   applyLastChancesStatusEffects,
   captureLastChancesDot,
@@ -52,6 +54,7 @@ import {
   resolveLastChancesChargedAttack,
 } from './weapon-runtime'
 import type {
+  LastChancesAdaptiveTriggerProfileDefinition,
   LastChancesArenaEdge,
   LastChancesArtifactDefinition,
   LastChancesAttackDefinition,
@@ -72,6 +75,7 @@ import type {
   LastChancesEngineCallbacks,
   LastChancesGamePlan,
   LastChancesGamepadSnapshot,
+  LastChancesGateTickDefinition,
   LastChancesGesture,
   LastChancesGestureInputSnapshot,
   LastChancesGestureResolution,
@@ -92,6 +96,7 @@ import type {
   LastChancesSnapshot,
   LastChancesSemanticControlCue,
   LastChancesStats,
+  LastChancesTactileProfile,
   LastChancesVector,
 } from './types'
 
@@ -100,6 +105,17 @@ export interface LastChancesEngineOptions {
   feedbackPreferences?: LastChancesFeedbackPreferences
   /** Explicit opt-in fixture used by browser/manual control-routing QA. */
   qaFixture?: 'controls'
+}
+
+/** Base under a partial baseTrigger/detent merge; all-zero = fully relaxed trigger. */
+const RELAXED_TRIGGER_PROFILE: LastChancesAdaptiveTriggerProfileDefinition = {
+  startPosition: 0,
+  endPosition: 0,
+  resistance: 0,
+  force: 0,
+  transitionMs: 0,
+  effectMs: 0,
+  magnitude: 0,
 }
 
 interface RuntimePlayer {
@@ -672,6 +688,13 @@ export class LastChancesEngine {
     left: null,
     right: null,
   }
+  /** Active per-physical-hand trigger detent (the current node's merged profile); null = resting. */
+  private readonly triggerDetents: Record<LastChancesHand, LastChancesAdaptiveTriggerProfileDefinition | null> = {
+    left: null,
+    right: null,
+  }
+  /** Living spider-knife escape-burst scheduler; null while no wriggling weapon is equipped. */
+  private spiderWriggle: { rng: () => number, nextAtMs: number } | null = null
   /** Runtime availability edges already advertised to the DualSense feedback layer. */
   private continuationFeedbackWindowKeys = new Set<string>()
   /** Successful hits may open data-authored generic continuation windows. */
@@ -797,6 +820,7 @@ export class LastChancesEngine {
     if (scheme === this.controlSchemeValue || this.destroyed) return
     this.cleanupControlInputsForReplacement()
     this.controlSchemeValue = scheme
+    this.pushTriggerBaseline()
     if (scheme === 'dualsense' && this.phase === 'planning') this.selectedNodeId = null
     if (scheme !== 'dualsense' && this.phase === 'planning' && !this.selectedNodeId) {
       this.selectedNodeId = this.availableNodeIds[0] ?? null
@@ -831,8 +855,49 @@ export class LastChancesEngine {
 
   async enableDualSenseFeatures(): Promise<boolean> {
     const enabled = await this.feedbackController.enableEnhancedFeatures()
+    if (enabled) this.pushTriggerBaseline()
     this.emitSnapshot(true)
     return enabled
+  }
+
+  /** The equipped set's resting trigger block for a physical hand, or null to relax it. */
+  private restingTriggerProfile(
+    physicalHand: LastChancesHand,
+  ): LastChancesAdaptiveTriggerProfileDefinition | null {
+    if (this.controlSchemeValue !== 'dualsense') return null
+    const baseTrigger = this.weapons.get(physicalClusterToRuntimeHand(physicalHand))
+      ?.controls?.dualsense.haptics?.baseTrigger
+    return baseTrigger ? { ...RELAXED_TRIGGER_PROFILE, ...baseTrigger } : null
+  }
+
+  /**
+   * Persistent Tier-2 trigger state: the active node's detent when a combo is
+   * in flight, else the weapon's resting block — so gates are physically felt
+   * between effects, not only while one plays.
+   */
+  private pushTriggerBaseline(): void {
+    void this.feedbackController.setTriggerBaseline({
+      left: this.triggerDetents.left ?? this.restingTriggerProfile('left'),
+      right: this.triggerDetents.right ?? this.restingTriggerProfile('right'),
+    })
+  }
+
+  /** Moves a hand's detent to the entered node's merged profile ("moving detent" gearbox feel). */
+  private armTriggerDetent(
+    physicalHand: LastChancesHand,
+    profile: LastChancesTactileProfile,
+    adaptiveOverride?: Partial<LastChancesAdaptiveTriggerProfileDefinition>,
+  ): void {
+    const base = this.config.input.dualsense?.feedback.profiles[profile]
+    if (!base) return
+    this.triggerDetents[physicalHand] = { ...base, ...adaptiveOverride }
+    this.pushTriggerBaseline()
+  }
+
+  private releaseTriggerDetent(physicalHand: LastChancesHand): void {
+    if (!this.triggerDetents[physicalHand]) return
+    this.triggerDetents[physicalHand] = null
+    this.pushTriggerBaseline()
   }
 
   disableEnhancedFeedback(): void {
@@ -1248,6 +1313,7 @@ export class LastChancesEngine {
       }
     }
     this.updateHeldWeaponMechanics(deltaMs)
+    this.updateSpiderKnifeWriggle()
     this.updateDelayedAttacks(deltaMs)
     this.updateDelayedRecoveries(deltaMs)
     this.updateSwordAdvance(deltaSeconds)
@@ -2120,6 +2186,62 @@ export class LastChancesEngine {
     this.nextProjectileId += 1
   }
 
+  /**
+   * The living spider-knife tries to escape: random alternating left/right
+   * motor bursts whose frequency and strength escalate as its durability
+   * drains (it panics as it dies). Ambient-only — priority sits below every
+   * deliberate combat cue, and any guard failing stops the scheduler at once.
+   */
+  private updateSpiderKnifeWriggle(): void {
+    const wriggleWeapon = [...this.weapons.values()].find(candidate => (
+      candidate.controls?.dualsense.haptics?.wriggle
+    ))
+    const active = this.controlSchemeValue === 'dualsense'
+      && this.phase === 'playing'
+      && !this.paused
+      && this.feedbackPreferences.mode === 'full'
+      && wriggleWeapon !== undefined
+    if (!active) {
+      this.spiderWriggle = null
+      return
+    }
+    const wriggle = wriggleWeapon.controls!.dualsense.haptics!.wriggle!
+    const state = this.weaponState(wriggleWeapon)
+    const durabilityFraction = state.maxResource > 0
+      ? clamp(state.resource / state.maxResource, 0, 1)
+      : 0
+    const panic = 1 - Math.pow(durabilityFraction, wriggle.curveExponent)
+    const nextInterval = (rng: () => number): number => {
+      const calm = wriggle.calmIntervalMs[0]
+        + rng() * (wriggle.calmIntervalMs[1] - wriggle.calmIntervalMs[0])
+      const panicked = wriggle.panicIntervalMs[0]
+        + rng() * (wriggle.panicIntervalMs[1] - wriggle.panicIntervalMs[0])
+      return calm + (panicked - calm) * panic
+    }
+    if (!this.spiderWriggle) {
+      const rng = createLastChancesRng(`${this.config.seed}:wriggle:${this.generation}`)
+      this.spiderWriggle = { rng, nextAtMs: this.elapsedMs + nextInterval(rng) }
+      return
+    }
+    if (this.elapsedMs < this.spiderWriggle.nextAtMs) return
+    const rng = this.spiderWriggle.rng
+    const magnitude = wriggle.calmMagnitude
+      + (wriggle.panicMagnitude - wriggle.calmMagnitude) * panic
+    const pulses = lastChancesRandomInt(rng, wriggle.pulsesPerBurst[0], wriggle.pulsesPerBurst[1])
+    const startLeft = rng() < 0.5
+    this.feedbackController.emit({
+      state: 'wriggle',
+      profile: 'click',
+      pattern: Array.from({ length: pulses }, (_, pulse) => ({
+        delayMs: pulse * (wriggle.pulseMs + 30),
+        durationMs: wriggle.pulseMs,
+        magnitude,
+        hand: (pulse % 2 === 0) === startLeft ? 'left' as const : 'right' as const,
+      })),
+    })
+    this.spiderWriggle.nextAtMs = this.elapsedMs + nextInterval(rng)
+  }
+
   private updateMentalHealth(deltaSeconds: number): void {
     const pressure = Math.min(
       this.config.mentalHealth.maxPressurePerSecond,
@@ -2183,6 +2305,7 @@ export class LastChancesEngine {
     let gesture: LastChancesGesture | undefined
     let tactileProfile = event.tactileProfile ?? 'click'
     let adaptiveOverride: LastChancesAttackSetControlDefinition['dualsense']['nodes'][number]['adaptiveOverride']
+    let entryTick: LastChancesGateTickDefinition | null | undefined
     if (event.scheme === 'dualsense') {
       if (event.intent === 'strike') {
         gesture = controls.dualsense.instantGesture
@@ -2213,6 +2336,7 @@ export class LastChancesEngine {
             : 'observe'
           gesture = event.gesture
           adaptiveOverride = node.adaptiveOverride
+          entryTick = node.entryTick
         }
       } else if (event.source === 'keyboard' && event.intent === 'mobility') {
         gesture = controls.mylorik.activations
@@ -2270,11 +2394,18 @@ export class LastChancesEngine {
         atMs: this.elapsedMs,
       }
       if (event.scheme === 'dualsense') {
+        // One short tick per gate crossed (the recognizer only emits on node
+        // advance); the trigger value never scales the motors. Tension and
+        // authored-silent nodes keep only the adaptive-trigger block.
+        if (event.nodeId) this.armTriggerDetent(event.physicalHand, tactileProfile, adaptiveOverride)
+        const tick = tensionActive || entryTick === null
+          ? null
+          : entryTick ?? controls.dualsense.haptics?.gateTick ?? DEFAULT_LAST_CHANCES_GATE_TICK
         this.feedbackController.emit({
           state: tensionActive ? 'tension' : state === 'ready' ? 'charge' : state,
           profile: tactileProfile,
           hand: event.physicalHand,
-          strength: event.value,
+          tick,
           adaptiveOverride,
         })
       }
@@ -2321,12 +2452,19 @@ export class LastChancesEngine {
       atMs: this.elapsedMs,
     }
     if (event.scheme === 'dualsense') {
+      // Committed actions play the weapon's authored rumble signature so each
+      // weapon is recognizable by touch. Tension commits (channel/grip starts)
+      // stay adaptive-trigger-only — the spool feel, not a rumble.
+      if (event.nodeId) this.armTriggerDetent(event.physicalHand, tactileProfile, adaptiveOverride)
+      const commitPattern = controls.dualsense.haptics?.commitPattern
       this.feedbackController.emit({
         state,
         profile: tactileProfile,
         hand: event.physicalHand,
-        strength: event.value || 1,
         adaptiveOverride,
+        ...(tensionActive
+          ? { tick: null }
+          : commitPattern && commitPattern.length > 0 ? { pattern: commitPattern } : {}),
       })
     }
     const startsDualSenseChannel = event.scheme === 'dualsense'
@@ -3628,9 +3766,11 @@ export class LastChancesEngine {
       const weapon = this.weapons.get(hand)
       if (!weapon) {
         this.stopHeldChannel(hand)
+        this.releaseTriggerDetent(runtimeHandToPhysicalCluster(hand))
         continue
       }
       const input = this.controlInputSnapshot(hand, now)
+      if (!input.pressed) this.releaseTriggerDetent(runtimeHandToPhysicalCluster(hand))
       const candidateAttack = input.candidateGesture
         ? weapon.attacks[input.candidateGesture]
         : null
@@ -3646,11 +3786,19 @@ export class LastChancesEngine {
         const profile = bandIndex <= 0
           ? 'bandLight' as const
           : bandIndex === 1 ? 'bandMedium' as const : 'bandStrong' as const
+        // Pulse-count coding: band N is N short pulses, so charge depth is
+        // readable by touch on both tiers instead of a single stronger buzz.
+        const bandTick = weapon.controls?.dualsense.haptics?.bandTick
+          ?? DEFAULT_LAST_CHANCES_BAND_TICK
         this.feedbackController.emit({
           state: 'charge',
           profile,
           hand: runtimeHandToPhysicalCluster(hand),
-          strength: Math.min(1, (bandIndex + 1) / 3),
+          pattern: Array.from({ length: bandIndex + 1 }, (_, pulse) => ({
+            delayMs: pulse * (bandTick.pulseMs + bandTick.gapMs),
+            durationMs: bandTick.pulseMs,
+            magnitude: Math.min(1, bandTick.magnitude + bandIndex * bandTick.magnitudeStep),
+          })),
         })
       } else if (!activeBand) {
         this.feedbackChargeBandIds[hand] = null
@@ -4690,6 +4838,9 @@ export class LastChancesEngine {
         this.stopHeldChannel(hand)
       }
     }
+    this.triggerDetents.left = null
+    this.triggerDetents.right = null
+    this.pushTriggerBaseline()
   }
 
   private normalizeLoadoutAugments(
@@ -5571,6 +5722,9 @@ export class LastChancesEngine {
     this.gestures.reset()
     this.mylorikControls.reset()
     this.dualSenseControls.reset()
+    this.triggerDetents.left = null
+    this.triggerDetents.right = null
+    this.spiderWriggle = null
     void this.feedbackController.neutralize()
   }
 

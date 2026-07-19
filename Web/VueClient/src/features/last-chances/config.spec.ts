@@ -812,6 +812,62 @@ describe('99LC config and deterministic plan', () => {
       )
     })
 
+    it('re-seeds every shipped haptics personality and trigger ladder from a controls-less config', () => {
+      const stripped = cloneLastChancesConfig(defaultConfig)
+      stripped.schemaVersion = 2
+      delete stripped.input.mylorik
+      delete stripped.input.dualsense
+      stripped.weapons.forEach(weapon => delete weapon.controls)
+
+      const migrated = migrateLastChancesConfig(stripped) as LastChancesConfig
+      migrated.weapons.forEach((weapon, index) => {
+        expect(weapon.controls).toEqual(defaultConfig.weapons[index].controls)
+      })
+      const spider = migrated.weapons.find(weapon => weapon.id === 'secondary-spider-knife')
+      expect(spider?.controls?.primary.dualsense.haptics?.wriggle).toMatchObject({
+        calmIntervalMs: [2800, 4600],
+        panicIntervalMs: [320, 720],
+      })
+      const spearNodes = migrated.weapons[0].controls!.primary.dualsense.nodes
+      const forces = spearNodes.map(node => node.adaptiveOverride?.force)
+      expect(forces).toEqual([0.3, 0.55, 0.8, 1])
+    })
+
+    it('accepts controls without any haptics block or node ticks', () => {
+      const bare = cloneLastChancesConfig(defaultConfig)
+      const dualsense = bare.weapons[0].controls!.primary.dualsense
+      delete dualsense.haptics
+      dualsense.nodes.forEach((node) => {
+        delete node.entryTick
+        delete node.adaptiveOverride
+      })
+      expect(validateLastChancesConfig(bare).errors).toEqual([])
+    })
+
+    it('validates haptics blocks, commit patterns, wriggle ranges, and entry ticks', () => {
+      const invalid = cloneLastChancesConfig(defaultConfig)
+      const spear = invalid.weapons[0].controls!.primary.dualsense
+      spear.haptics!.gateTick!.durationMs = -5
+      spear.haptics!.commitPattern = Array.from({ length: 9 }, () => (
+        { delayMs: 0, durationMs: 40, magnitude: 0.5 }
+      ))
+      spear.nodes[1].entryTick = { durationMs: 30, magnitude: 1.4 }
+      const chain = invalid.weapons[1].controls!.primary.dualsense
+      chain.haptics!.commitPattern = [{ delayMs: 1990, durationMs: 40, magnitude: 0.5 }]
+      const spider = invalid.weapons[3].controls!.primary.dualsense
+      spider.haptics!.wriggle!.calmIntervalMs = [4600, 2800]
+      spider.haptics!.wriggle!.pulsesPerBurst = [3, 1]
+
+      expect(validateLastChancesConfig(invalid).errors).toEqual(expect.arrayContaining([
+        'weapons[0].controls.primary.dualsense.haptics.gateTick.durationMs must be a finite number > 0',
+        'weapons[0].controls.primary.dualsense.haptics.commitPattern must contain 1-8 pulses',
+        'weapons[0].controls.primary.dualsense.nodes[1].entryTick.magnitude must be <= 1',
+        'weapons[1].controls.primary.dualsense.haptics.commitPattern[0] must end within 2000ms of pattern start',
+        'weapons[3].controls.primary.dualsense.haptics.wriggle.calmIntervalMs minimum must be <= maximum',
+        'weapons[3].controls.primary.dualsense.haptics.wriggle.pulsesPerBurst must be an integer [min, max] pair with 1 <= min <= max',
+      ]))
+    })
+
     it('pins every authored request while covering all 47 enabled slots with no extras', () => {
       const sets = defaultConfig.weapons.flatMap((weapon) => [
         { key: `${weapon.id}:primary`, attacks: weapon.attacks, controls: weapon.controls!.primary },

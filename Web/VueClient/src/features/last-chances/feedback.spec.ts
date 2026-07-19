@@ -8,6 +8,7 @@ import {
   type LastChancesFeedbackEffect,
   type LastChancesFeedbackOutputCapability,
   type LastChancesGamepadHapticActuatorLike,
+  type LastChancesTriggerBaseline,
 } from './feedback'
 import {
   LAST_CHANCES_TACTILE_PROFILES,
@@ -65,10 +66,12 @@ function deferred(): { promise: Promise<void>, resolve: () => void } {
 
 class FakeEnhancedOutput implements LastChancesEnhancedFeedbackOutput {
   readonly effects: LastChancesFeedbackEffect[] = []
+  readonly baselines: LastChancesTriggerBaseline[] = []
   neutralizeCalls = 0
   enableCalls = 0
   disableCalls = 0
   disposeCalls = 0
+  writeBaselineCalls = 0
   playResult = true
   maxConcurrent = 0
   playGate: Promise<void> | null = null
@@ -116,9 +119,44 @@ class FakeEnhancedOutput implements LastChancesEnhancedFeedbackOutput {
     this.disposeCalls += 1
     this.callLog?.push(`${this.label}:dispose`)
   }
+
+  async setBaseline(baseline: LastChancesTriggerBaseline): Promise<void> {
+    this.baselines.push(baseline)
+    this.callLog?.push(`${this.label}:setBaseline`)
+  }
+
+  async writeBaseline(): Promise<void> {
+    this.writeBaselineCalls += 1
+    this.callLog?.push(`${this.label}:writeBaseline`)
+  }
 }
 
 const fullPreferences: LastChancesFeedbackPreferences = { mode: 'full', intensity: 1 }
+
+function manualScheduler() {
+  let now = 0
+  const timers: { at: number, fn: () => void, cancelled: boolean }[] = []
+  const schedule = (fn: () => void, delayMs: number) => {
+    const timer = { at: now + delayMs, fn, cancelled: false }
+    timers.push(timer)
+    return () => { timer.cancelled = true }
+  }
+  const advance = async (ms: number) => {
+    now += ms
+    while (true) {
+      const due = timers
+        .filter(timer => !timer.cancelled && timer.at <= now)
+        .sort((left, right) => left.at - right.at)[0]
+      if (!due) break
+      timers.splice(timers.indexOf(due), 1)
+      due.fn()
+      await Promise.resolve()
+      await Promise.resolve()
+    }
+  }
+  const pending = () => timers.filter(timer => !timer.cancelled).length
+  return { schedule, advance, pending }
+}
 
 describe('99LC feedback controller', () => {
   it('coalesces a frame to the strongest semantic effect and applies configured caps', async () => {
@@ -343,6 +381,197 @@ describe('99LC feedback controller', () => {
   })
 })
 
+describe('99LC feedback patterns and ticks', () => {
+  it('plays a multi-pulse pattern in authored order with per-pulse hands', async () => {
+    const scheduler = manualScheduler()
+    const enhanced = new FakeEnhancedOutput()
+    await enhanced.enableEnhancedFeatures()
+    const controller = new DualSenseFeedbackController(controllerConfig(), fullPreferences, {
+      enhanced,
+      schedule: scheduler.schedule,
+    })
+
+    expect(controller.emit({
+      state: 'charge',
+      profile: 'bandStrong',
+      hand: 'left',
+      pattern: [
+        { delayMs: 0, durationMs: 40, magnitude: 0.3 },
+        { delayMs: 110, durationMs: 40, magnitude: 0.38 },
+        { delayMs: 220, durationMs: 40, magnitude: 0.46, hand: 'right' },
+      ],
+    })).toBe(true)
+    await controller.flush()
+    expect(enhanced.effects).toHaveLength(1)
+
+    await scheduler.advance(110)
+    await controller.flush()
+    expect(enhanced.effects).toHaveLength(2)
+
+    await scheduler.advance(110)
+    await controller.flush()
+    expect(enhanced.effects).toHaveLength(3)
+    expect(enhanced.effects.map(next => next.hand)).toEqual(['left', 'left', 'right'])
+    expect(enhanced.effects.map(next => next.magnitude)).toEqual([0.3, 0.38, 0.46])
+    expect(enhanced.effects.map(next => next.durationMs)).toEqual([40, 40, 40])
+  })
+
+  it('cancels the remaining pattern pulses when a stronger cue arrives', async () => {
+    const scheduler = manualScheduler()
+    const enhanced = new FakeEnhancedOutput()
+    await enhanced.enableEnhancedFeatures()
+    const controller = new DualSenseFeedbackController(controllerConfig(), fullPreferences, {
+      enhanced,
+      schedule: scheduler.schedule,
+    })
+
+    controller.emit({
+      state: 'wriggle',
+      profile: 'click',
+      pattern: [
+        { delayMs: 0, durationMs: 60, magnitude: 0.2, hand: 'left' },
+        { delayMs: 90, durationMs: 60, magnitude: 0.2, hand: 'right' },
+        { delayMs: 180, durationMs: 60, magnitude: 0.2, hand: 'left' },
+      ],
+    })
+    await controller.flush()
+    expect(enhanced.effects).toHaveLength(1)
+
+    expect(controller.emit({ state: 'impact', profile: 'impact', hand: 'both' })).toBe(true)
+    await controller.flush()
+    await scheduler.advance(400)
+    await controller.flush()
+
+    const wrigglePulses = enhanced.effects.filter(next => next.state === 'wriggle')
+    expect(wrigglePulses).toHaveLength(1)
+    expect(enhanced.effects.filter(next => next.state === 'impact')).toHaveLength(1)
+  })
+
+  it('refuses ambient wriggle while a deliberate cue is pending', async () => {
+    const enhanced = new FakeEnhancedOutput()
+    await enhanced.enableEnhancedFeatures()
+    const controller = new DualSenseFeedbackController(controllerConfig(), fullPreferences, { enhanced })
+
+    controller.emit({ state: 'charge', profile: 'bandLight', hand: 'left' })
+    expect(controller.emit({
+      state: 'wriggle',
+      profile: 'click',
+      pattern: [{ delayMs: 0, durationMs: 60, magnitude: 0.2, hand: 'left' }],
+    })).toBe(false)
+    await controller.flush()
+    expect(enhanced.effects.map(next => next.state)).toEqual(['charge'])
+  })
+
+  it('sends trigger-only cues to the enhanced output and never to motor rumble', async () => {
+    const playEffect = vi.fn(async () => 'complete')
+    const gamepad = {
+      connected: true,
+      vibrationActuator: { effects: ['dual-rumble'], playEffect },
+    }
+    const tierOne = new DualSenseFeedbackController(controllerConfig(), fullPreferences, { gamepad })
+    expect(tierOne.emit({ state: 'tension', profile: 'tension', hand: 'left', tick: null })).toBe(true)
+    await tierOne.flush()
+    expect(playEffect).not.toHaveBeenCalled()
+
+    const enhanced = new FakeEnhancedOutput()
+    await enhanced.enableEnhancedFeatures()
+    const tierTwo = new DualSenseFeedbackController(controllerConfig(), fullPreferences, { enhanced })
+    expect(tierTwo.emit({ state: 'tension', profile: 'tension', hand: 'left', tick: null })).toBe(true)
+    await tierTwo.flush()
+    expect(enhanced.effects).toHaveLength(1)
+    expect(enhanced.effects[0]).toMatchObject({ magnitude: 0, triggerOnly: true })
+  })
+
+  it('overrides the profile motor shape with an explicit tick', async () => {
+    const enhanced = new FakeEnhancedOutput()
+    await enhanced.enableEnhancedFeatures()
+    const controller = new DualSenseFeedbackController(controllerConfig(), fullPreferences, { enhanced })
+
+    controller.emit({
+      state: 'charge',
+      profile: 'ramp',
+      hand: 'right',
+      tick: { durationMs: 30, magnitude: 0.2 },
+    })
+    await controller.flush()
+    expect(enhanced.effects[0]).toMatchObject({ magnitude: 0.2, durationMs: 30 })
+  })
+
+  it('restores the Tier-2 baseline when an effect expires (M119)', async () => {
+    const scheduler = manualScheduler()
+    const enhanced = new FakeEnhancedOutput()
+    await enhanced.enableEnhancedFeatures()
+    const controller = new DualSenseFeedbackController(controllerConfig(), fullPreferences, {
+      enhanced,
+      schedule: scheduler.schedule,
+    })
+
+    controller.emit({ state: 'impact', profile: 'impact', hand: 'both' })
+    await controller.flush()
+    expect(enhanced.writeBaselineCalls).toBe(0)
+    await scheduler.advance(150)
+    expect(enhanced.writeBaselineCalls).toBe(1)
+  })
+
+  it('replaces a pending motor stop when a newer effect plays first', async () => {
+    const scheduler = manualScheduler()
+    const enhanced = new FakeEnhancedOutput()
+    await enhanced.enableEnhancedFeatures()
+    const controller = new DualSenseFeedbackController(controllerConfig(), fullPreferences, {
+      enhanced,
+      schedule: scheduler.schedule,
+    })
+
+    controller.emit({ state: 'impact', profile: 'impact', hand: 'both' })
+    await controller.flush()
+    controller.emit({ state: 'blocked', profile: 'blocked', hand: 'both' })
+    await controller.flush()
+    await scheduler.advance(500)
+    expect(enhanced.writeBaselineCalls).toBe(1)
+  })
+
+  it('cancels scheduled pulses and stops on neutralize and dispose', async () => {
+    const scheduler = manualScheduler()
+    const enhanced = new FakeEnhancedOutput()
+    await enhanced.enableEnhancedFeatures()
+    const controller = new DualSenseFeedbackController(controllerConfig(), fullPreferences, {
+      enhanced,
+      schedule: scheduler.schedule,
+    })
+
+    controller.emit({
+      state: 'wriggle',
+      profile: 'click',
+      pattern: [
+        { delayMs: 0, durationMs: 60, magnitude: 0.2 },
+        { delayMs: 120, durationMs: 60, magnitude: 0.2 },
+      ],
+    })
+    await controller.flush()
+    expect(scheduler.pending()).toBeGreaterThan(0)
+
+    await controller.neutralize()
+    expect(scheduler.pending()).toBe(0)
+    await scheduler.advance(1000)
+    expect(enhanced.effects).toHaveLength(1)
+    expect(enhanced.writeBaselineCalls).toBe(0)
+    await controller.dispose()
+    expect(scheduler.pending()).toBe(0)
+  })
+
+  it('forwards the resting trigger baseline to the enhanced output', async () => {
+    const enhanced = new FakeEnhancedOutput()
+    const controller = new DualSenseFeedbackController(controllerConfig(), fullPreferences, { enhanced })
+
+    const baseline: LastChancesTriggerBaseline = {
+      left: adaptiveProfile({ startPosition: 0.2, endPosition: 0.3 }),
+      right: null,
+    }
+    await controller.setTriggerBaseline(baseline)
+    expect(enhanced.baselines).toEqual([baseline])
+  })
+})
+
 describe('standards Gamepad haptics output', () => {
   it('detects supported effects and bounds every playEffect parameter', async () => {
     const playEffect = vi.fn(async () => 'complete')
@@ -362,10 +591,29 @@ describe('standards Gamepad haptics output', () => {
       duration: 90,
       startDelay: 0,
       strongMagnitude: 0.45,
-      weakMagnitude: 0.29250000000000004,
+      weakMagnitude: 0,
       leftTrigger: 0.45,
       rightTrigger: 0,
     })
+  })
+
+  it('splits hands across motors to mirror Tier-2 spatial rumble', async () => {
+    const playEffect = vi.fn(async () => 'complete')
+    const output = new StandardsGamepadHapticsOutput({
+      connected: true,
+      vibrationActuator: { effects: ['dual-rumble'], playEffect },
+    })
+
+    await output.play(effect({ hand: 'right', magnitude: 0.4 }))
+    expect(playEffect).toHaveBeenLastCalledWith('dual-rumble', expect.objectContaining({
+      strongMagnitude: 0,
+      weakMagnitude: 0.4,
+    }))
+    await output.play(effect({ hand: 'both', magnitude: 0.4 }))
+    expect(playEffect).toHaveBeenLastCalledWith('dual-rumble', expect.objectContaining({
+      strongMagnitude: 0.4,
+      weakMagnitude: 0.4 * 0.65,
+    }))
   })
 
   it('uses pulse as a feature-detected fallback and sends a neutral stop', async () => {

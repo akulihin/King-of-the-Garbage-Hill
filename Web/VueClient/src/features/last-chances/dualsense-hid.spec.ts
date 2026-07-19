@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { BLUETOOTH_INPUT_REPORT_ID, type LastChancesHidInputReportEventLike } from './dualsense-input'
-import type { LastChancesFeedbackEffect } from './feedback'
+import type { LastChancesFeedbackEffect, LastChancesTriggerBaseline } from './feedback'
 import {
   BLUETOOTH_INPUT_RETAINED_MESSAGE,
   DualSenseWebHidDriver,
@@ -102,6 +102,13 @@ class FakeSerializer implements DualSenseHidTransportSerializer {
   neutral(): readonly DualSenseHidPacket[] {
     const reportId = this.transport === 'usb' ? 0x01 : 0x31
     return [{ reportId, data: new Uint8Array([0, 0, 0]) }]
+  }
+
+  baseline(state: LastChancesTriggerBaseline): readonly DualSenseHidPacket[] {
+    const reportId = this.transport === 'usb' ? 0x01 : 0x31
+    const encode = (profile: LastChancesTriggerBaseline['left']) =>
+      profile ? Math.round(profile.resistance * 100) : 0
+    return [{ reportId, data: new Uint8Array([9, encode(state.left), encode(state.right)]) }]
   }
 }
 
@@ -250,6 +257,89 @@ describe('isolated DualSense WebHID driver', () => {
       'send:2:2,70',
       'send:3:100',
     ])
+  })
+})
+
+describe('resting trigger baseline', () => {
+  it('writes the recorded baseline once and skips deep-equal duplicates', async () => {
+    const device = new FakeHidDevice('usb')
+    const output = driver(new FakeChooser([device]))
+    await output.enableEnhancedFeatures()
+
+    const profile = effect().adaptiveProfile
+    await output.setBaseline({ left: profile, right: null })
+    await output.setBaseline({ left: { ...profile }, right: null })
+    expect(device.log).toEqual(['open', 'send:1:0,0,0', 'send:1:9,40,0'])
+  })
+
+  it('re-writes the baseline after an effect stomps the trigger state', async () => {
+    const device = new FakeHidDevice('usb')
+    const output = driver(new FakeChooser([device]))
+    await output.enableEnhancedFeatures()
+
+    const profile = effect().adaptiveProfile
+    await output.setBaseline({ left: profile, right: null })
+    await output.play(effect(0.5))
+    await output.writeBaseline()
+    expect(device.log.slice(2)).toEqual([
+      'send:1:9,40,0',
+      'send:2:2,50',
+      'send:3:100',
+      'send:1:9,40,0',
+    ])
+  })
+
+  it('records a baseline set before enable and writes it once output activates', async () => {
+    const device = new FakeHidDevice('usb')
+    const output = driver(new FakeChooser([device]))
+
+    const profile = effect().adaptiveProfile
+    await output.setBaseline({ left: null, right: profile })
+    expect(device.log).toEqual([])
+    await output.enableEnhancedFeatures()
+    expect(device.log).toEqual(['open', 'send:1:0,0,0', 'send:1:9,0,40'])
+  })
+
+  it('restores the armed baseline when enhanced output re-activates on a retained pad', async () => {
+    const device = new FakeHidDevice('bluetooth')
+    const output = driver(new FakeChooser([device]))
+    await output.enableEnhancedFeatures()
+    const profile = effect().adaptiveProfile
+    await output.setBaseline({ left: null, right: profile })
+    await output.disableEnhancedFeatures()
+
+    await output.enableEnhancedFeatures()
+    expect(device.log[device.log.length - 1]).toBe('send:49:9,0,40')
+    expect(output.capability()).toMatchObject({ tier: 2, status: 'enhanced' })
+  })
+
+  it('serializes baseline writes behind in-flight effect writes', async () => {
+    const device = new FakeHidDevice('usb')
+    const output = driver(new FakeChooser([device]))
+    await output.enableEnhancedFeatures()
+
+    const profile = effect().adaptiveProfile
+    await Promise.all([
+      output.play(effect(0.3)),
+      output.setBaseline({ left: profile, right: null }),
+    ])
+    expect(device.log.slice(2)).toEqual([
+      'send:2:2,30',
+      'send:3:100',
+      'send:1:9,40,0',
+    ])
+  })
+
+  it('demotes like a failed play when the baseline write fails', async () => {
+    const device = new FakeHidDevice('usb')
+    const output = driver(new FakeChooser([device]))
+    await output.enableEnhancedFeatures()
+
+    device.failReportId = 0x01
+    await output.setBaseline({ left: effect().adaptiveProfile, right: null })
+    expect(output.capability()).toMatchObject({ tier: 0, status: 'error' })
+    expect(output.capability().message).toContain('write 1 failed')
+    expect(device.opened).toBe(false)
   })
 })
 

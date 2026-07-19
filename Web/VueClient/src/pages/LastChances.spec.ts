@@ -564,6 +564,17 @@ describe('99LC builder weapon controls', () => {
       ['Maximum magnitude', '0.74'],
       ['Maximum effect (ms)', '940'],
       ['Blocked-cue interval (ms)', '250'],
+    ]
+    for (const [label, value] of scalarEdits) {
+      await fireEvent.update(getByLabelText(label), value)
+    }
+
+    // Shipped combo nodes now carry authored adaptiveOverride ladders, so the
+    // shared-profile labels are ambiguous document-wide; scope to the grid
+    // that follows the tactile-profile picker.
+    const profileGrid = container
+      .querySelector<HTMLElement>('.lc-profile-picker')!.nextElementSibling as HTMLElement
+    const profileEdits: Array<[string, string]> = [
       ['Start position', '0.19'],
       ['End position', '0.31'],
       ['Resistance', '0.25'],
@@ -572,12 +583,14 @@ describe('99LC builder weapon controls', () => {
       ['Effect duration (ms)', '91'],
       ['Magnitude', '0.23'],
     ]
-    for (const [label, value] of scalarEdits) {
-      await fireEvent.update(getByLabelText(label), value)
+    for (const [label, value] of profileEdits) {
+      await fireEvent.update(within(profileGrid).getByLabelText(label), value)
     }
 
     const firstNode = container.querySelector<HTMLElement>('.lc-combo-node-editor')!
-    await fireEvent.click(within(firstNode).getByLabelText('Override adaptive profile'))
+    const overrideToggle = within(firstNode)
+      .getByLabelText('Override adaptive profile') as HTMLInputElement
+    expect(overrideToggle.checked).toBe(true)
     const overrideEdits: Array<[string, string]> = [
       ['Start position', '0.17'],
       ['End position', '0.32'],

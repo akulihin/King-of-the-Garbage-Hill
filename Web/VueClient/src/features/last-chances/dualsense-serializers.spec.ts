@@ -115,6 +115,19 @@ describe('DualSense USB serializer', () => {
     expect([...data.subarray(22, 32)]).toEqual(new Array(10).fill(0))
   })
 
+  it('baseline keeps per-hand trigger blocks while both motors stay off', () => {
+    const profile = effect().adaptiveProfile
+    const data = new UsbDualSenseSerializer().baseline({ left: profile, right: null })[0].data
+    expect(data).toHaveLength(47)
+    expect(data[0]).toBe(0x0f)
+    expect(data[38]).toBe(0x04)
+    expect(data[2]).toBe(0)
+    expect(data[3]).toBe(0)
+    expect(data[10]).toBe(0x05)
+    expect([...data.subarray(11, 21)]).toEqual(new Array(10).fill(0))
+    expect([...data.subarray(21, 25)]).toEqual([0x02, 51, 204, 128])
+  })
+
   it('supports only devices whose descriptor exposes output report 0x02', () => {
     const serializer = new UsbDualSenseSerializer()
     expect(serializer.supports(deviceWithReports([USB_OUTPUT_REPORT_ID]))).toBe(true)
@@ -150,6 +163,17 @@ describe('DualSense Bluetooth serializer', () => {
     const sequenceBytes = Array.from({ length: 17 }, () => serializer.neutral()[0].data[0])
     expect(sequenceBytes[15]).toBe(0xf0)
     expect(sequenceBytes[16]).toBe(0x00)
+  })
+
+  it('frames baseline packets exactly like effect packets', () => {
+    const profile = effect().adaptiveProfile
+    const packet = new BluetoothDualSenseSerializer().baseline({ left: null, right: profile })[0]
+    expect(packet.reportId).toBe(BLUETOOTH_OUTPUT_REPORT_ID)
+    expect(packet.data).toHaveLength(77)
+    const usbPayload = new UsbDualSenseSerializer().baseline({ left: null, right: profile })[0].data
+    expect([...packet.data.subarray(2, 49)]).toEqual([...usbPayload])
+    const crc = referenceCrc32([0xa2, BLUETOOTH_OUTPUT_REPORT_ID, ...packet.data.subarray(0, 73)])
+    expect(packet.data[73]).toBe(crc & 0xff)
   })
 
   it('supports devices exposing output report 0x31, including nested collections', () => {

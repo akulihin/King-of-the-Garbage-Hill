@@ -129,6 +129,7 @@ export const LAST_CHANCES_FEEDBACK_STATES = [
   'tension',
   'blocked',
   'impact',
+  'wriggle',
 ] as const
 
 export type LastChancesHand = typeof LAST_CHANCES_HANDS[number]
@@ -345,6 +346,48 @@ export interface LastChancesDualSenseComboNodeDefinition {
   /** Existing hold-charge band that must be armed before this branch becomes legal. */
   requiredChargeBandId?: string
   adaptiveOverride?: Partial<LastChancesAdaptiveTriggerProfileDefinition>
+  /**
+   * Motor tick on entering this node; explicit null makes the entry
+   * adaptive-trigger-only. Omitted nodes fall back to the set's gateTick.
+   */
+  entryTick?: LastChancesGateTickDefinition | null
+}
+
+/** Short single motor tick marking a discrete state change. */
+export interface LastChancesGateTickDefinition {
+  durationMs: number
+  magnitude: number
+}
+
+/** Charge-band pulse-count coding: band N plays N pulses of rising magnitude. */
+export interface LastChancesBandTickDefinition {
+  pulseMs: number
+  gapMs: number
+  magnitude: number
+  magnitudeStep: number
+}
+
+/** Living-weapon escape bursts; intervals/magnitudes lerp calm→panic as durability drains. */
+export interface LastChancesWeaponWriggleDefinition {
+  calmIntervalMs: [number, number]
+  panicIntervalMs: [number, number]
+  calmMagnitude: number
+  panicMagnitude: number
+  pulseMs: number
+  pulsesPerBurst: [number, number]
+  curveExponent: number
+}
+
+/** Per-attack-set DualSense haptic personality; every field falls back to a global default. */
+export interface LastChancesWeaponHapticsDefinition {
+  /** Persistent resting trigger block while this set is armed (position/resistance/force fields). */
+  baseTrigger?: Partial<LastChancesAdaptiveTriggerProfileDefinition>
+  /** Default motor tick on gate entry; nodes may override via entryTick. */
+  gateTick?: LastChancesGateTickDefinition
+  bandTick?: LastChancesBandTickDefinition
+  /** Rumble signature played when a committed action fires. */
+  commitPattern?: LastChancesFeedbackPulseDefinition[]
+  wriggle?: LastChancesWeaponWriggleDefinition
 }
 
 export interface LastChancesAttackSetControlDefinition {
@@ -358,6 +401,7 @@ export interface LastChancesAttackSetControlDefinition {
     triggerRole: string
     startNodeId: string | null
     nodes: LastChancesDualSenseComboNodeDefinition[]
+    haptics?: LastChancesWeaponHapticsDefinition
   }
 }
 
@@ -654,6 +698,15 @@ export interface LastChancesAdaptiveTriggerProfileDefinition {
   transitionMs: number
   effectMs: number
   magnitude: number
+}
+
+/** One motor pulse inside a multi-pulse rumble pattern; delays count from pattern start. */
+export interface LastChancesFeedbackPulseDefinition {
+  delayMs: number
+  durationMs: number
+  magnitude: number
+  /** Omitted pulses inherit the emitting event's hand. */
+  hand?: LastChancesHand | 'both'
 }
 
 export interface LastChancesDualSenseInputDefinition {

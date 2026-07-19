@@ -2,6 +2,7 @@ import type { LastChancesGamepadLike } from './gamepad'
 import type { LastChancesFeedbackPreferences } from './preferences'
 import type {
   LastChancesAdaptiveTriggerProfileDefinition,
+  LastChancesFeedbackPulseDefinition,
   LastChancesFeedbackSnapshot,
   LastChancesFeedbackState,
   LastChancesFeedbackTier,
@@ -10,6 +11,19 @@ import type {
 } from './types'
 
 export type LastChancesFeedbackHand = LastChancesHand | 'both'
+
+export type LastChancesFeedbackPulse = LastChancesFeedbackPulseDefinition
+
+export interface LastChancesFeedbackTick {
+  durationMs: number
+  magnitude: number
+}
+
+/** Resting adaptive-trigger state restored between effects; null relaxes that hand. */
+export interface LastChancesTriggerBaseline {
+  left: LastChancesAdaptiveTriggerProfileDefinition | null
+  right: LastChancesAdaptiveTriggerProfileDefinition | null
+}
 
 export interface DualSenseFeedbackControllerConfig {
   maxMagnitude: number
@@ -24,6 +38,13 @@ export interface LastChancesSemanticFeedbackEvent {
   hand?: LastChancesHand
   strength?: number
   adaptiveOverride?: Partial<LastChancesAdaptiveTriggerProfileDefinition>
+  /**
+   * Short motor tick replacing the profile's magnitude/effectMs; explicit null
+   * makes the effect adaptive-trigger-only (zero motors, Tier 2 only).
+   */
+  tick?: LastChancesFeedbackTick | null
+  /** Multi-pulse rumble pattern; when present it supersedes tick and the profile motor shape. */
+  pattern?: readonly LastChancesFeedbackPulse[]
 }
 
 export interface LastChancesFeedbackEffect {
@@ -34,6 +55,8 @@ export interface LastChancesFeedbackEffect {
   durationMs: number
   priority: number
   adaptiveProfile: LastChancesAdaptiveTriggerProfileDefinition
+  /** Adaptive-trigger-only effect: never routed to motor-only Tier-1 output. */
+  triggerOnly?: boolean
 }
 
 export interface LastChancesFeedbackOutputCapability {
@@ -58,6 +81,10 @@ export interface LastChancesEnhancedFeedbackOutput extends LastChancesFeedbackOu
    * reports while a Bluetooth pad is stuck in extended report mode (M118).
    */
   hidInputSnapshot?(): LastChancesGamepadLike | null
+  /** Records the resting trigger state; writes it when the enhanced output is active. */
+  setBaseline?(baseline: LastChancesTriggerBaseline): Promise<void>
+  /** Re-writes the recorded baseline: motors off, resting trigger resistance kept. */
+  writeBaseline?(): Promise<void>
 }
 
 export interface LastChancesGamepadHapticEffectParameters {
@@ -87,12 +114,18 @@ export interface LastChancesHapticGamepadLike {
 
 interface QueuedFeedbackEffect extends LastChancesFeedbackEffect {
   sequence: number
+  /** Pattern pulses must stay distinct; they never merge with a queued twin. */
+  coalesce?: boolean
 }
+
+export type LastChancesFeedbackSchedule = (fn: () => void, delayMs: number) => () => void
 
 export interface DualSenseFeedbackControllerOutputs {
   gamepad?: LastChancesHapticGamepadLike | null
   enhanced?: LastChancesEnhancedFeedbackOutput | null
   now?: () => number
+  /** Timer seam for pattern pulses and the Tier-2 motor-stop; returns a cancel. */
+  schedule?: LastChancesFeedbackSchedule
 }
 
 const MAX_PENDING_EFFECTS = 8
@@ -108,6 +141,14 @@ const PROFILE_PRIORITIES: Record<LastChancesTactileProfile, number> = {
   blocked: 80,
   impact: 100,
   tension: 35,
+}
+
+/** Ambient living-weapon wriggle sits below every deliberate cue. */
+const WRIGGLE_PRIORITY = 10
+
+const defaultSchedule: LastChancesFeedbackSchedule = (fn, delayMs) => {
+  const id = setTimeout(fn, Math.max(0, delayMs))
+  return () => clearTimeout(id)
 }
 
 function clamp(value: number, minimum: number, maximum: number): number {
@@ -181,11 +222,13 @@ export class StandardsGamepadHapticsOutput implements LastChancesFeedbackOutput 
     try {
       const type = effectType(actuator)
       if (type && actuator.playEffect) {
+        // Mirrors the Tier-2 spatial split: left hand = strong motor, right
+        // hand = weak motor, both = strong plus attenuated weak.
         await actuator.playEffect(type, {
           duration,
           startDelay: 0,
-          strongMagnitude: magnitude,
-          weakMagnitude: magnitude * 0.65,
+          strongMagnitude: effect.hand === 'right' ? 0 : magnitude,
+          weakMagnitude: effect.hand === 'left' ? 0 : effect.hand === 'right' ? magnitude : magnitude * 0.65,
           leftTrigger: effect.hand === 'right' ? 0 : magnitude,
           rightTrigger: effect.hand === 'left' ? 0 : magnitude,
         })
@@ -233,10 +276,17 @@ export class StandardsGamepadHapticsOutput implements LastChancesFeedbackOutput 
   }
 }
 
+interface ActiveFeedbackPattern {
+  priority: number
+  reducedAllowed: boolean
+  cancels: Set<() => void>
+}
+
 export class DualSenseFeedbackController {
   private readonly gamepadOutput: StandardsGamepadHapticsOutput
   private readonly enhancedOutput: LastChancesEnhancedFeedbackOutput | null
   private readonly now: () => number
+  private readonly schedule: LastChancesFeedbackSchedule
   private preferences: LastChancesFeedbackPreferences
   private readonly queue: QueuedFeedbackEffect[] = []
   private drainPromise: Promise<void> | null = null
@@ -249,6 +299,8 @@ export class DualSenseFeedbackController {
   private neutralizePromise: Promise<void> | null = null
   private disposePromise: Promise<void> | null = null
   private gamepadTransition: Promise<void> = Promise.resolve()
+  private activePattern: ActiveFeedbackPattern | null = null
+  private cancelPendingStop: (() => void) | null = null
 
   constructor(
     private readonly config: DualSenseFeedbackControllerConfig,
@@ -267,6 +319,7 @@ export class DualSenseFeedbackController {
     )
     this.enhancedOutput = outputs.enhanced ?? null
     this.now = outputs.now ?? (() => performance.now())
+    this.schedule = outputs.schedule ?? defaultSchedule
   }
 
   snapshot(): LastChancesFeedbackSnapshot {
@@ -295,6 +348,7 @@ export class DualSenseFeedbackController {
     if (preferences.mode === 'off') {
       await this.neutralize()
     } else if (preferences.mode === 'reduced') {
+      if (this.activePattern && !this.activePattern.reducedAllowed) this.clearActivePattern()
       for (let index = this.queue.length - 1; index >= 0; index -= 1) {
         if (!this.effectAllowedInReducedMode(this.queue[index])) this.queue.splice(index, 1)
       }
@@ -305,6 +359,7 @@ export class DualSenseFeedbackController {
     if (this.disposed || gamepad === this.gamepad) return
     this.gamepad = gamepad
     const releaseOutput = this.blockOutputs()
+    this.cancelScheduled()
     this.queue.splice(0)
     const transition = this.gamepadTransition.then(async () => {
       await this.flush()
@@ -346,29 +401,137 @@ export class DualSenseFeedbackController {
     }
 
     const strength = clamp(event.strength ?? 1, 0, 1)
+    const priority = event.state === 'wriggle'
+      ? WRIGGLE_PRIORITY
+      : PROFILE_PRIORITIES[event.profile]
+    if (this.activePattern && priority > this.activePattern.priority) this.clearActivePattern()
+
+    if (event.pattern && event.pattern.length > 0) {
+      if (!this.emitPattern(event, adaptiveProfile, strength, priority)) return false
+      if (isBlocked) this.lastBlockedAt = atMs
+      return true
+    }
+
+    const triggerOnly = event.tick === null
     const effect: QueuedFeedbackEffect = {
       state: event.state,
       profile: event.profile,
       hand: event.hand ?? 'both',
-      magnitude: clamp(
-        adaptiveProfile.magnitude * strength * this.preferences.intensity,
+      magnitude: triggerOnly ? 0 : clamp(
+        (event.tick ? event.tick.magnitude : adaptiveProfile.magnitude)
+        * strength * this.preferences.intensity,
         0,
         Math.max(0, this.config.maxMagnitude),
       ),
       durationMs: clamp(
-        adaptiveProfile.effectMs,
+        event.tick?.durationMs ?? adaptiveProfile.effectMs,
         0,
         Math.max(0, this.config.maxDurationMs),
       ),
-      priority: PROFILE_PRIORITIES[event.profile],
+      priority,
       adaptiveProfile: { ...adaptiveProfile },
+      triggerOnly,
       sequence: this.sequence++,
     }
-    if (effect.magnitude <= 0 || effect.durationMs <= 0) return false
+    if ((effect.magnitude <= 0 && !triggerOnly) || effect.durationMs <= 0) return false
     if (!this.enqueue(effect)) return false
     if (isBlocked) this.lastBlockedAt = atMs
     this.scheduleDrain()
     return true
+  }
+
+  private emitPattern(
+    event: LastChancesSemanticFeedbackEvent,
+    adaptiveProfile: LastChancesAdaptiveTriggerProfileDefinition,
+    strength: number,
+    priority: number,
+  ): boolean {
+    if (this.activePattern && priority < this.activePattern.priority) return false
+    const strongestPending = this.queue.reduce(
+      (strongest, candidate) => Math.max(strongest, candidate.priority),
+      Number.NEGATIVE_INFINITY,
+    )
+    if (strongestPending > priority) return false
+    this.clearActivePattern()
+
+    const pattern: ActiveFeedbackPattern = {
+      priority,
+      reducedAllowed: this.effectAllowedInReducedMode(event),
+      cancels: new Set(),
+    }
+    this.activePattern = pattern
+    for (const pulse of event.pattern ?? []) {
+      if (pulse.delayMs <= 0) {
+        this.enqueuePatternPulse(event, adaptiveProfile, pulse, strength, priority, pattern)
+        continue
+      }
+      const cancel = this.schedule(() => {
+        pattern.cancels.delete(cancel)
+        if (pattern.cancels.size === 0 && this.activePattern === pattern) this.activePattern = null
+        this.enqueuePatternPulse(event, adaptiveProfile, pulse, strength, priority, pattern)
+      }, pulse.delayMs)
+      pattern.cancels.add(cancel)
+    }
+    if (pattern.cancels.size === 0 && this.activePattern === pattern) this.activePattern = null
+    return true
+  }
+
+  private enqueuePatternPulse(
+    event: LastChancesSemanticFeedbackEvent,
+    adaptiveProfile: LastChancesAdaptiveTriggerProfileDefinition,
+    pulse: LastChancesFeedbackPulse,
+    strength: number,
+    priority: number,
+    pattern: ActiveFeedbackPattern,
+  ): void {
+    if (this.disposed || this.preferences.mode === 'off') return
+    if (this.preferences.mode === 'reduced' && !pattern.reducedAllowed) return
+    const effect: QueuedFeedbackEffect = {
+      state: event.state,
+      profile: event.profile,
+      hand: pulse.hand ?? event.hand ?? 'both',
+      magnitude: clamp(
+        pulse.magnitude * strength * this.preferences.intensity,
+        0,
+        Math.max(0, this.config.maxMagnitude),
+      ),
+      durationMs: clamp(pulse.durationMs, 0, Math.max(0, this.config.maxDurationMs)),
+      priority,
+      adaptiveProfile: { ...adaptiveProfile },
+      sequence: this.sequence++,
+      coalesce: false,
+    }
+    if (effect.magnitude <= 0 || effect.durationMs <= 0) return
+    if (!this.enqueue(effect)) return
+    this.scheduleDrain()
+  }
+
+  private clearActivePattern(): void {
+    const pattern = this.activePattern
+    if (!pattern) return
+    this.activePattern = null
+    for (const cancel of pattern.cancels) cancel()
+    pattern.cancels.clear()
+  }
+
+  private cancelScheduled(): void {
+    this.clearActivePattern()
+    if (this.cancelPendingStop) {
+      this.cancelPendingStop()
+      this.cancelPendingStop = null
+    }
+  }
+
+  /** Pushes the resting adaptive-trigger state to the enhanced output (Tier 2). */
+  async setTriggerBaseline(baseline: LastChancesTriggerBaseline): Promise<void> {
+    if (this.disposed) return
+    const enhanced = this.enhancedOutput
+    if (!enhanced?.setBaseline) return
+    try {
+      await enhanced.setBaseline(baseline)
+    } catch (error) {
+      this.controllerError = `Feedback baseline failed: ${errorMessage(error)}`
+    }
   }
 
   hidGamepadSnapshot(): LastChancesGamepadLike | null {
@@ -396,6 +559,7 @@ export class DualSenseFeedbackController {
   }
 
   neutralize(): Promise<void> {
+    this.cancelScheduled()
     this.queue.splice(0)
     if (this.disposed) return this.disposePromise ?? Promise.resolve()
     if (this.neutralizePromise) return this.neutralizePromise
@@ -417,6 +581,7 @@ export class DualSenseFeedbackController {
   dispose(): Promise<void> {
     if (this.disposePromise) return this.disposePromise
     this.disposed = true
+    this.cancelScheduled()
     this.queue.splice(0)
     const releaseOutput = this.blockOutputs()
     const pendingNeutralize = this.neutralizePromise
@@ -451,8 +616,10 @@ export class DualSenseFeedbackController {
   }
 
   private enqueue(effect: QueuedFeedbackEffect): boolean {
-    const same = this.queue.find(candidate => (
-      candidate.state === effect.state && candidate.profile === effect.profile
+    const same = effect.coalesce === false ? undefined : this.queue.find(candidate => (
+      candidate.state === effect.state
+      && candidate.profile === effect.profile
+      && candidate.coalesce !== false
     ))
     if (same) {
       same.hand = same.hand === effect.hand ? same.hand : 'both'
@@ -502,9 +669,38 @@ export class DualSenseFeedbackController {
       const enhanced = this.enhancedOutput?.capability().tier === 2
         ? this.enhancedOutput
         : null
-      if (enhanced && await enhanced.play(effect)) continue
+      if (enhanced && await enhanced.play(effect)) {
+        this.scheduleEnhancedStop(effect)
+        continue
+      }
+      if (effect.triggerOnly) continue
       if (await this.gamepadOutput.play(effect)) continue
       return
+    }
+  }
+
+  /**
+   * The WebHID output keeps the motors energized until the next write (M119),
+   * so every played effect schedules a baseline re-write at its durationMs.
+   */
+  private scheduleEnhancedStop(effect: LastChancesFeedbackEffect): void {
+    if (this.cancelPendingStop) this.cancelPendingStop()
+    this.cancelPendingStop = this.schedule(() => {
+      this.cancelPendingStop = null
+      void this.stopEnhancedMotors()
+    }, Math.max(1, effect.durationMs))
+  }
+
+  private async stopEnhancedMotors(): Promise<void> {
+    if (this.disposed || this.outputBlockCount > 0) return
+    if (this.queue.length > 0 || this.drainPromise) return
+    const enhanced = this.enhancedOutput
+    if (!enhanced || enhanced.capability().tier !== 2) return
+    try {
+      if (enhanced.writeBaseline) await enhanced.writeBaseline()
+      else await enhanced.neutralize()
+    } catch (error) {
+      this.controllerError = `Feedback stop failed: ${errorMessage(error)}`
     }
   }
 

@@ -6,6 +6,7 @@ import type {
   LastChancesEnhancedFeedbackOutput,
   LastChancesFeedbackEffect,
   LastChancesFeedbackOutputCapability,
+  LastChancesTriggerBaseline,
 } from './feedback'
 import type { LastChancesGamepadLike } from './gamepad'
 
@@ -65,6 +66,8 @@ export interface DualSenseHidTransportSerializer {
   supports(device: LastChancesHidDeviceLike): boolean
   serialize(effect: LastChancesFeedbackEffect): readonly DualSenseHidPacket[]
   neutral(): readonly DualSenseHidPacket[]
+  /** Motors off while each hand keeps (or relaxes) its resting trigger block. */
+  baseline(state: LastChancesTriggerBaseline): readonly DualSenseHidPacket[]
 }
 
 export interface DualSenseWebHidDriverOptions {
@@ -78,6 +81,31 @@ type PermissionState = LastChancesFeedbackOutputCapability['permission']
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
+}
+
+function cloneBaseline(baseline: LastChancesTriggerBaseline): LastChancesTriggerBaseline {
+  return {
+    left: baseline.left ? { ...baseline.left } : null,
+    right: baseline.right ? { ...baseline.right } : null,
+  }
+}
+
+function baselineEquals(
+  left: LastChancesTriggerBaseline,
+  right: LastChancesTriggerBaseline | null,
+): boolean {
+  if (!right) return false
+  const handEquals = (a: LastChancesTriggerBaseline['left'], b: LastChancesTriggerBaseline['left']) => {
+    if (!a || !b) return a === b
+    return a.startPosition === b.startPosition
+      && a.endPosition === b.endPosition
+      && a.resistance === b.resistance
+      && a.force === b.force
+      && a.transitionMs === b.transitionMs
+      && a.effectMs === b.effectMs
+      && a.magnitude === b.magnitude
+  }
+  return handEquals(left.left, right.left) && handEquals(left.right, right.right)
 }
 
 function isPermissionDenial(error: unknown): boolean {
@@ -105,6 +133,9 @@ export class DualSenseWebHidDriver implements LastChancesEnhancedFeedbackOutput 
   private message: string | null = null
   private writer: Promise<void> = Promise.resolve()
   private disposed = false
+  private baseline: LastChancesTriggerBaseline = { left: null, right: null }
+  /** Null when the pad's trigger state no longer matches the baseline (after any effect write). */
+  private lastWrittenBaseline: LastChancesTriggerBaseline | null = null
 
   constructor(private readonly options: DualSenseWebHidDriverOptions) {
     if (!options.hid || options.filters.length === 0 || options.serializers.length === 0) {
@@ -149,6 +180,8 @@ export class DualSenseWebHidDriver implements LastChancesEnhancedFeedbackOutput 
           this.outputActive = true
           this.status = 'enhanced'
           this.message = null
+          this.lastWrittenBaseline = { left: null, right: null }
+          await this.writeBaselineIfPending()
         } catch (error) {
           await this.failAndClose(`DualSense open failed: ${errorMessage(error)}`)
           return false
@@ -207,6 +240,8 @@ export class DualSenseWebHidDriver implements LastChancesEnhancedFeedbackOutput 
       this.outputActive = true
       this.status = 'enhanced'
       this.message = null
+      this.lastWrittenBaseline = { left: null, right: null }
+      await this.writeBaselineIfPending()
       return true
     } catch (error) {
       await this.failAndClose(`DualSense open failed: ${errorMessage(error)}`)
@@ -231,11 +266,51 @@ export class DualSenseWebHidDriver implements LastChancesEnhancedFeedbackOutput 
     this.writer = operation.catch(() => undefined)
     try {
       await operation
+      // The effect payload stomps the resting trigger blocks and leaves the
+      // motors energized; only a later baseline/neutral write restores them.
+      this.lastWrittenBaseline = null
       return true
     } catch (error) {
       await this.failAndClose(`DualSense output failed: ${errorMessage(error)}`)
       return false
     }
+  }
+
+  /** Records the resting trigger state and writes it through when it changed. */
+  async setBaseline(baseline: LastChancesTriggerBaseline): Promise<void> {
+    this.baseline = cloneBaseline(baseline)
+    if (this.disposed || !this.outputActive) return
+    if (baselineEquals(this.baseline, this.lastWrittenBaseline)) return
+    await this.writeBaseline()
+  }
+
+  /** Re-writes the recorded baseline: motors off, resting trigger resistance kept. */
+  async writeBaseline(): Promise<void> {
+    const device = this.device
+    const serializer = this.serializer
+    if (this.disposed || !device?.opened || !serializer || !this.outputActive) return
+
+    let packets: readonly DualSenseHidPacket[]
+    try {
+      packets = serializer.baseline(this.baseline)
+    } catch (error) {
+      await this.failAndClose(`DualSense baseline serialization failed: ${errorMessage(error)}`)
+      return
+    }
+
+    const written = cloneBaseline(this.baseline)
+    const operation = this.writer.then(() => this.writePackets(packets))
+    this.writer = operation.catch(() => undefined)
+    try {
+      await operation
+      this.lastWrittenBaseline = written
+    } catch (error) {
+      await this.failAndClose(`DualSense baseline failed: ${errorMessage(error)}`)
+    }
+  }
+
+  private async writeBaselineIfPending(): Promise<void> {
+    if (this.baseline.left || this.baseline.right) await this.writeBaseline()
   }
 
   async neutralize(): Promise<void> {
@@ -245,6 +320,7 @@ export class DualSenseWebHidDriver implements LastChancesEnhancedFeedbackOutput 
     await this.writer
     try {
       await this.writePackets(serializer.neutral())
+      this.lastWrittenBaseline = { left: null, right: null }
     } catch (error) {
       await this.failAndClose(`DualSense cleanup failed: ${errorMessage(error)}`)
     }
@@ -272,6 +348,7 @@ export class DualSenseWebHidDriver implements LastChancesEnhancedFeedbackOutput 
       }
     }
     this.outputActive = false
+    this.lastWrittenBaseline = null
     if (options.keepBluetoothInput && device?.opened && this.inputReader) {
       // The BT pad is stuck in extended report mode until it power-cycles
       // (M118): closing the device would kill all controller input, so it
@@ -316,6 +393,7 @@ export class DualSenseWebHidDriver implements LastChancesEnhancedFeedbackOutput 
       }
     }
     this.outputActive = false
+    this.lastWrittenBaseline = null
     if (device?.opened && this.inputReader) {
       // Keep the retained BT input path alive (M118): only output is demoted.
       // If the failure was a real disconnect, the report stream goes stale and

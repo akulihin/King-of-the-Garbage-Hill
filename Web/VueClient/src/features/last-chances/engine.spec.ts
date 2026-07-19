@@ -290,6 +290,7 @@ type EngineTestAccess = {
   updateDelayedRecoveries: (deltaMs: number) => void
   updateEnemies: (deltaSeconds: number, deltaMs: number) => void
   updateHeldWeaponMechanics: (deltaMs: number) => void
+  updateSpiderKnifeWriggle: () => void
   updateKeyboardDualSenseTriggers: (atMs: number) => void
   updatePlayer: (deltaSeconds: number) => void
   updateProjectiles: (deltaSeconds: number, deltaMs: number) => void
@@ -3296,6 +3297,224 @@ describe('99LC control-scheme engine boundary', () => {
         gesture: 'hold',
         attackName: weapon(defaultConfig, 'secondary-chain').attacks.hold.name,
       })
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('emits one authored gate tick per crossed node and never scales motors by trigger value', () => {
+    const { engine, access } = startCombat(combatConfig('twohand-spear', null))
+    engine.setControlScheme('dualsense')
+    const feedback = vi.spyOn(access.feedbackController, 'emit')
+    try {
+      driveDualSenseTrigger(access, 'right', 0.3, 0)
+      driveDualSenseTrigger(access, 'right', 0.55, 30)
+
+      const cues = feedback.mock.calls
+        .map(([event]) => event)
+        .filter(event => event.state === 'charge')
+      expect(cues).toEqual([
+        expect.objectContaining({ profile: 'click', tick: { durationMs: 25, magnitude: 0.15 } }),
+        expect.objectContaining({ profile: 'ramp', tick: { durationMs: 35, magnitude: 0.25 } }),
+      ])
+      expect(feedback.mock.calls.every(([event]) => event.strength === undefined)).toBe(true)
+
+      const emitted = feedback.mock.calls.length
+      driveDualSenseTrigger(access, 'right', 0.56, 60)
+      driveDualSenseTrigger(access, 'right', 0.57, 90)
+      expect(feedback.mock.calls.length).toBe(emitted)
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('carries the per-node adaptive ladder so deeper spear gates press back harder', () => {
+    const { engine, access } = startCombat(combatConfig('twohand-spear', null))
+    engine.setControlScheme('dualsense')
+    const feedback = vi.spyOn(access.feedbackController, 'emit')
+    try {
+      driveDualSenseTrigger(access, 'right', 0.3, 0)
+      driveDualSenseTrigger(access, 'right', 0.55, 30)
+
+      const forces = feedback.mock.calls
+        .map(([event]) => event)
+        .filter(event => event.state === 'charge')
+        .map(event => event.adaptiveOverride?.force)
+      expect(forces).toEqual([0.3, 0.55])
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('keeps a channel-start tension commit adaptive-trigger-only', () => {
+    const config = combatConfig('either-claws', 'secondary-spider-knife', 'guard', 1)
+    const { engine, access } = startCombat(config)
+    engine.setControlScheme('dualsense')
+    const feedback = vi.spyOn(access.feedbackController, 'emit')
+    try {
+      driveDualSenseTrigger(access, 'left', 0.3, 0)
+      driveDualSenseTrigger(access, 'left', 0.5, 40)
+
+      const tension = feedback.mock.calls
+        .map(([event]) => event)
+        .filter(event => event.state === 'tension')
+      expect(tension).toEqual([
+        expect.objectContaining({ profile: 'tension', tick: null }),
+      ])
+      expect(tension[0]?.pattern).toBeUndefined()
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('plays the authored weapon signature pattern on a committed strike', () => {
+    const { engine, access } = startCombat(combatConfig('twohand-spear', null, 'guard', 1))
+    engine.setControlScheme('dualsense')
+    const feedback = vi.spyOn(access.feedbackController, 'emit')
+    try {
+      access.dualSenseControls.pressBumper('right', 10, 'gamepad')
+
+      const commits = feedback.mock.calls
+        .map(([event]) => event)
+        .filter(event => event.pattern !== undefined)
+      expect(commits).toEqual([
+        expect.objectContaining({
+          pattern: [{ delayMs: 0, durationMs: 70, magnitude: 0.6 }],
+        }),
+      ])
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('codes armed charge bands as 1/2/3-pulse patterns once per band per hold', () => {
+    const { engine, access } = startCombat(combatConfig('twohand-spear', null))
+    engine.setControlScheme('dualsense')
+    const feedback = vi.spyOn(access.feedbackController, 'emit')
+    try {
+      driveDualSenseTrigger(access, 'right', 0.55, 0)
+      feedback.mockClear()
+
+      driveDualSenseTrigger(access, 'right', 0.55, 700)
+      access.updateHeldWeaponMechanics(16)
+      driveDualSenseTrigger(access, 'right', 0.55, 1200)
+      access.updateHeldWeaponMechanics(16)
+      driveDualSenseTrigger(access, 'right', 0.55, 1700)
+      access.updateHeldWeaponMechanics(16)
+      access.updateHeldWeaponMechanics(16)
+
+      const bands = feedback.mock.calls
+        .map(([event]) => event)
+        .filter(event => event.state === 'charge' && event.pattern !== undefined)
+      expect(bands.map(event => event.pattern!.length)).toEqual([1, 2, 3])
+      expect(bands.map(event => event.profile)).toEqual(['bandLight', 'bandMedium', 'bandStrong'])
+      expect(bands[2].pattern![1]).toMatchObject({ delayMs: 110, durationMs: 40 })
+      expect(bands[2].pattern![1].magnitude).toBeCloseTo(0.46, 5)
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('keeps a persistent trigger baseline: resting block, moving detent, release restore', () => {
+    const { engine, access } = startCombat(combatConfig('twohand-spear', null))
+    const baseline = vi.spyOn(access.feedbackController, 'setTriggerBaseline')
+    try {
+      engine.setControlScheme('dualsense')
+      expect(baseline).toHaveBeenLastCalledWith({
+        left: expect.objectContaining({ startPosition: 0.14, endPosition: 0.14, resistance: 0.2 }),
+        right: expect.objectContaining({ startPosition: 0.16, endPosition: 0.24, force: 0.35 }),
+      })
+
+      driveDualSenseTrigger(access, 'right', 0.55, 0)
+      expect(baseline).toHaveBeenLastCalledWith(expect.objectContaining({
+        right: expect.objectContaining({ startPosition: 0.48, endPosition: 0.58, force: 0.55 }),
+      }))
+
+      driveDualSenseTrigger(access, 'right', 0, 40)
+      access.updateHeldWeaponMechanics(16)
+      expect(baseline).toHaveBeenLastCalledWith(expect.objectContaining({
+        right: expect.objectContaining({ startPosition: 0.16, endPosition: 0.24, force: 0.35 }),
+      }))
+
+      engine.setControlScheme('mylorik')
+      expect(baseline).toHaveBeenLastCalledWith({ left: null, right: null })
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('wriggles the living spider-knife with alternating-hand bursts that escalate as it weakens', () => {
+    const config = combatConfig('either-claws', 'secondary-spider-knife', 'guard', 1)
+    const { engine, access } = startCombat(config)
+    engine.setControlScheme('dualsense')
+    const feedback = vi.spyOn(access.feedbackController, 'emit')
+    const wriggles = () => feedback.mock.calls
+      .map(([event]) => event)
+      .filter(event => event.state === 'wriggle')
+    try {
+      access.elapsedMs = 0
+      access.updateSpiderKnifeWriggle()
+      expect(wriggles()).toHaveLength(0)
+      for (let atMs = 0; atMs <= 6000 && wriggles().length === 0; atMs += 100) {
+        access.elapsedMs = atMs
+        access.updateSpiderKnifeWriggle()
+      }
+
+      const calm = wriggles()
+      expect(calm).toHaveLength(1)
+      const calmPattern = calm[0].pattern!
+      expect(calmPattern.length).toBeGreaterThanOrEqual(1)
+      expect(calmPattern.length).toBeLessThanOrEqual(3)
+      expect(calmPattern.every(pulse => pulse.hand === 'left' || pulse.hand === 'right')).toBe(true)
+      calmPattern.slice(1).forEach((pulse, index) => {
+        expect(pulse.hand).not.toBe(calmPattern[index].hand)
+      })
+      expect(calmPattern[0].magnitude).toBeCloseTo(0.1, 5)
+
+      const state = access.weaponStates.get('secondary-spider-knife')!
+      state.resource = 4
+      feedback.mockClear()
+      for (let atMs = 6000; atMs <= 9000; atMs += 50) {
+        access.elapsedMs = atMs
+        access.updateSpiderKnifeWriggle()
+      }
+      const panicked = wriggles()
+      expect(panicked.length).toBeGreaterThanOrEqual(3)
+      expect(panicked[0].pattern![0].magnitude).toBeGreaterThan(0.4)
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('silences the spider wriggle instantly on scheme change, pause, and missing knife', () => {
+    const config = combatConfig('either-claws', 'secondary-spider-knife', 'guard', 1)
+    const { engine, access } = startCombat(config)
+    engine.setControlScheme('dualsense')
+    const feedback = vi.spyOn(access.feedbackController, 'emit')
+    const drive = (fromMs: number) => {
+      for (let atMs = fromMs; atMs <= fromMs + 6000; atMs += 100) {
+        access.elapsedMs = atMs
+        access.updateSpiderKnifeWriggle()
+      }
+    }
+    const wriggleCount = () => feedback.mock.calls
+      .filter(([event]) => event.state === 'wriggle').length
+    try {
+      engine.setControlScheme('mylorik')
+      drive(0)
+      expect(wriggleCount()).toBe(0)
+
+      engine.setControlScheme('dualsense')
+      engine.setFeedbackPreferences({ mode: 'off', intensity: 1 })
+      drive(10_000)
+      expect(wriggleCount()).toBe(0)
+
+      engine.setFeedbackPreferences({ mode: 'full', intensity: 1 })
+      const state = access.weaponStates.get('secondary-spider-knife')!
+      state.resource = 0
+      access.weapons.delete('right')
+      drive(20_000)
+      expect(wriggleCount()).toBe(0)
     } finally {
       engine.destroy()
     }

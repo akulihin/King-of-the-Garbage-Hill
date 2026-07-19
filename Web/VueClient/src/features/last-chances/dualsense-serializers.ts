@@ -6,7 +6,11 @@ import {
   type LastChancesHidDeviceFilter,
   type LastChancesHidDeviceLike,
 } from './dualsense-hid'
-import type { LastChancesEnhancedFeedbackOutput, LastChancesFeedbackEffect } from './feedback'
+import type {
+  LastChancesEnhancedFeedbackOutput,
+  LastChancesFeedbackEffect,
+  LastChancesTriggerBaseline,
+} from './feedback'
 import type { LastChancesAdaptiveTriggerProfileDefinition } from './types'
 
 export const SONY_VENDOR_ID = 0x054c
@@ -94,16 +98,31 @@ export function buildDualSenseEffectPayload(effect: LastChancesFeedbackEffect): 
   return payload
 }
 
-export function buildDualSenseNeutralPayload(): Uint8Array {
+/**
+ * Resting state between effects: motors off while each trigger keeps (or
+ * relaxes) its per-hand resistance block, so weapon detents survive the stop
+ * write that ends every rumble effect (M119 fix).
+ */
+export function buildDualSenseBaselinePayload(baseline: LastChancesTriggerBaseline): Uint8Array {
   const payload = new Uint8Array(COMMON_PAYLOAD_LENGTH)
   payload[OFFSET_VALID_FLAG0] = VALID_FLAG0_COMPATIBLE_VIBRATION
     | VALID_FLAG0_HAPTICS_SELECT
     | VALID_FLAG0_RIGHT_TRIGGER
     | VALID_FLAG0_LEFT_TRIGGER
   payload[OFFSET_VALID_FLAG2] = VALID_FLAG2_COMPATIBLE_VIBRATION2
-  payload.set(neutralTriggerBlock(), OFFSET_RIGHT_TRIGGER)
-  payload.set(neutralTriggerBlock(), OFFSET_LEFT_TRIGGER)
+  payload.set(
+    baseline.right ? triggerBlock(baseline.right) : neutralTriggerBlock(),
+    OFFSET_RIGHT_TRIGGER,
+  )
+  payload.set(
+    baseline.left ? triggerBlock(baseline.left) : neutralTriggerBlock(),
+    OFFSET_LEFT_TRIGGER,
+  )
   return payload
+}
+
+export function buildDualSenseNeutralPayload(): Uint8Array {
+  return buildDualSenseBaselinePayload({ left: null, right: null })
 }
 
 function exposesOutputReport(device: LastChancesHidDeviceLike, reportId: number): boolean {
@@ -128,6 +147,10 @@ export class UsbDualSenseSerializer implements DualSenseHidTransportSerializer {
 
   neutral(): readonly DualSenseHidPacket[] {
     return [{ reportId: USB_OUTPUT_REPORT_ID, data: buildDualSenseNeutralPayload() }]
+  }
+
+  baseline(state: LastChancesTriggerBaseline): readonly DualSenseHidPacket[] {
+    return [{ reportId: USB_OUTPUT_REPORT_ID, data: buildDualSenseBaselinePayload(state) }]
   }
 }
 
@@ -178,6 +201,10 @@ export class BluetoothDualSenseSerializer implements DualSenseHidTransportSerial
 
   neutral(): readonly DualSenseHidPacket[] {
     return [this.packet(buildDualSenseNeutralPayload())]
+  }
+
+  baseline(state: LastChancesTriggerBaseline): readonly DualSenseHidPacket[] {
+    return [this.packet(buildDualSenseBaselinePayload(state))]
   }
 
   private packet(common: Uint8Array): DualSenseHidPacket {

@@ -25,12 +25,15 @@ import type {
   LastChancesConfigValidation,
   LastChancesAttackDefinition,
   LastChancesAttackSetControlDefinition,
+  LastChancesBandTickDefinition,
   LastChancesDualSenseInputDefinition,
+  LastChancesGateTickDefinition,
   LastChancesMylorikActivationDefinition,
   LastChancesMylorikInputDefinition,
   LastChancesGesture,
   LastChancesTactileProfile,
   LastChancesWeaponDefinition,
+  LastChancesWeaponHapticsDefinition,
   LoadLastChancesConfigOptions,
 } from './types'
 
@@ -95,8 +98,8 @@ const DEFAULT_ADAPTIVE_PROFILES: LastChancesDualSenseInputDefinition['feedback']
     resistance: 0.3,
     force: 0.55,
     transitionMs: 140,
-    effectMs: 600,
-    magnitude: 0.38,
+    effectMs: 160,
+    magnitude: 0.27,
   },
   bandLight: {
     startPosition: 0.2,
@@ -131,8 +134,8 @@ const DEFAULT_ADAPTIVE_PROFILES: LastChancesDualSenseInputDefinition['feedback']
     resistance: 0.52,
     force: 0.62,
     transitionMs: 70,
-    effectMs: 320,
-    magnitude: 0.46,
+    effectMs: 140,
+    magnitude: 0.32,
   },
   followUp: {
     startPosition: 0.3,
@@ -167,15 +170,28 @@ const DEFAULT_ADAPTIVE_PROFILES: LastChancesDualSenseInputDefinition['feedback']
     resistance: 0.44,
     force: 0.58,
     transitionMs: 100,
-    effectMs: 520,
-    magnitude: 0.4,
+    effectMs: 160,
+    magnitude: 0.28,
   },
+}
+
+/** Fallbacks when an attack set authors no haptics block (or omits a field). */
+export const DEFAULT_LAST_CHANCES_GATE_TICK: LastChancesGateTickDefinition = {
+  durationMs: 30,
+  magnitude: 0.2,
+}
+
+export const DEFAULT_LAST_CHANCES_BAND_TICK: LastChancesBandTickDefinition = {
+  pulseMs: 40,
+  gapMs: 70,
+  magnitude: 0.3,
+  magnitudeStep: 0.08,
 }
 
 const DEFAULT_DUALSENSE_INPUT: LastChancesDualSenseInputDefinition = {
   activationThreshold: 0.22,
-  releaseThreshold: 0.14,
-  hysteresis: 0.08,
+  releaseThreshold: 0.16,
+  hysteresis: 0.06,
   gamepad: {
     leftBumper: 4,
     rightBumper: 5,
@@ -211,6 +227,7 @@ interface AttackSetControlSeed {
   triggerRole: string
   mylorik: Partial<Record<LastChancesGesture, MylorikActivationWithoutGesture>>
   dualsense: DualSenseNodeSeed[]
+  haptics?: LastChancesWeaponHapticsDefinition
 }
 
 function mylorikActivation(
@@ -241,6 +258,7 @@ function dualSenseNode(
     tactileProfile: options.tactileProfile ?? 'click',
     ...(options.requiredChargeBandId ? { requiredChargeBandId: options.requiredChargeBandId } : {}),
     ...(options.adaptiveOverride ? { adaptiveOverride: options.adaptiveOverride } : {}),
+    ...(options.entryTick !== undefined ? { entryTick: options.entryTick } : {}),
   }
 }
 
@@ -256,22 +274,36 @@ const ATTACK_SET_CONTROL_SEEDS: Record<string, AttackSetControlSeed> = {
       holdThenDoubleTap: mylorikActivation('mobility', 'press', 'continuation'),
     },
     dualsense: [
-      dualSenseNode('doubleTap', 'neutral', 0.22, { next: ['hold', 'doubleTapHold'] }),
+      dualSenseNode('doubleTap', 'neutral', 0.22, {
+        next: ['hold', 'doubleTapHold'],
+        adaptiveOverride: { startPosition: 0.22, endPosition: 0.32, force: 0.3 },
+      }),
       dualSenseNode('hold', 'neutral', 0.48, {
         holdBehavior: 'charge',
         next: ['holdThenDoubleTap'],
         tactileProfile: 'ramp',
+        entryTick: { durationMs: 35, magnitude: 0.25 },
+        adaptiveOverride: { startPosition: 0.48, endPosition: 0.58, force: 0.55 },
       }),
       dualSenseNode('doubleTapHold', 'continuation', 0.72, {
         holdBehavior: 'charge',
         tactileProfile: 'gate',
+        entryTick: { durationMs: 45, magnitude: 0.35 },
+        adaptiveOverride: { startPosition: 0.72, endPosition: 0.82, force: 0.8 },
       }),
       dualSenseNode('holdThenDoubleTap', 'continuation', 0.9, {
         dispatch: 'press',
         requiredChargeBandId: 'middle',
         tactileProfile: 'followUp',
+        entryTick: { durationMs: 55, magnitude: 0.45 },
+        adaptiveOverride: { startPosition: 0.9, endPosition: 0.98, force: 1 },
       }),
     ],
+    haptics: {
+      baseTrigger: { startPosition: 0.16, endPosition: 0.24, force: 0.35 },
+      gateTick: { durationMs: 25, magnitude: 0.15 },
+      commitPattern: [{ delayMs: 0, durationMs: 70, magnitude: 0.6 }],
+    },
   },
   'twohand-spear:secondary': {
     role: 'Left cluster — parry, brace, stance and vault',
@@ -284,23 +316,34 @@ const ATTACK_SET_CONTROL_SEEDS: Record<string, AttackSetControlSeed> = {
       holdThenDoubleTap: mylorikActivation('mobility', 'press', 'stance'),
     },
     dualsense: [
-      dualSenseNode('doubleTap', 'neutral', 0.22, { next: ['hold', 'doubleTapHold'] }),
+      dualSenseNode('doubleTap', 'neutral', 0.22, {
+        next: ['hold', 'doubleTapHold'],
+        adaptiveOverride: { startPosition: 0.22, endPosition: 0.32, force: 0.3 },
+      }),
       dualSenseNode('hold', 'neutral', 0.48, {
         dispatch: 'press',
         holdBehavior: 'channel',
         releaseBehavior: 'dispatch',
         next: ['holdThenDoubleTap'],
         tactileProfile: 'tension',
+        entryTick: null,
       }),
       dualSenseNode('doubleTapHold', 'continuation', 0.72, {
         holdBehavior: 'charge',
         tactileProfile: 'gate',
+        adaptiveOverride: { startPosition: 0.72, endPosition: 0.82, force: 0.65 },
       }),
       dualSenseNode('holdThenDoubleTap', 'stance', 0.9, {
         dispatch: 'release',
         tactileProfile: 'followUp',
+        adaptiveOverride: { startPosition: 0.9, endPosition: 0.98, force: 0.9 },
       }),
     ],
+    haptics: {
+      baseTrigger: { startPosition: 0.14, endPosition: 0.14, resistance: 0.2 },
+      gateTick: { durationMs: 25, magnitude: 0.12 },
+      commitPattern: [{ delayMs: 0, durationMs: 50, magnitude: 0.4 }],
+    },
   },
   'secondary-chain:primary': {
     role: 'Matching hand — lash and tension spool',
@@ -317,21 +360,36 @@ const ATTACK_SET_CONTROL_SEEDS: Record<string, AttackSetControlSeed> = {
         holdBehavior: 'charge',
         next: ['doubleTap', 'holdThenDoubleTap'],
         tactileProfile: 'tension',
+        entryTick: null,
+        adaptiveOverride: { startPosition: 0.22, endPosition: 0.22, resistance: 0.3 },
       }),
       dualSenseNode('doubleTap', 'neutral', 0.48, {
         dispatch: 'press',
         next: ['doubleTapHold'],
         tactileProfile: 'gate',
+        adaptiveOverride: { startPosition: 0.48, endPosition: 0.48, resistance: 0.5 },
       }),
       dualSenseNode('doubleTapHold', 'spin', 0.72, {
         holdBehavior: 'charge',
         tactileProfile: 'gate',
+        entryTick: { durationMs: 50, magnitude: 0.4 },
+        adaptiveOverride: { startPosition: 0.72, endPosition: 0.72, resistance: 0.7 },
       }),
       dualSenseNode('holdThenDoubleTap', 'tether', 0.9, {
         dispatch: 'press',
         tactileProfile: 'gate',
+        entryTick: { durationMs: 50, magnitude: 0.4 },
+        adaptiveOverride: { startPosition: 0.9, endPosition: 0.9, resistance: 0.9 },
       }),
     ],
+    haptics: {
+      baseTrigger: { startPosition: 0.1, endPosition: 0.1, resistance: 0.28 },
+      gateTick: { durationMs: 40, magnitude: 0.3 },
+      commitPattern: [
+        { delayMs: 0, durationMs: 45, magnitude: 0.45 },
+        { delayMs: 125, durationMs: 45, magnitude: 0.45 },
+      ],
+    },
   },
   'either-claws:primary': {
     role: 'Matching hand — slash and predator spring',
@@ -344,20 +402,34 @@ const ATTACK_SET_CONTROL_SEEDS: Record<string, AttackSetControlSeed> = {
       holdThenDoubleTap: mylorikActivation('strike', 'press', 'dash', 90),
     },
     dualsense: [
-      dualSenseNode('doubleTap', 'neutral', 0.22, { next: ['hold'] }),
+      dualSenseNode('doubleTap', 'neutral', 0.22, {
+        next: ['hold'],
+        adaptiveOverride: { startPosition: 0.22, endPosition: 0.3, force: 0.3 },
+      }),
       dualSenseNode('hold', 'neutral', 0.48, {
         holdBehavior: 'charge',
         next: ['doubleTapHold', 'holdThenDoubleTap'],
         tactileProfile: 'ramp',
+        adaptiveOverride: { startPosition: 0.48, endPosition: 0.56, force: 0.55 },
       }),
       dualSenseNode('doubleTapHold', 'neutral', 0.72, {
         tactileProfile: 'gate',
+        adaptiveOverride: { startPosition: 0.72, endPosition: 0.8, force: 0.8 },
       }),
       dualSenseNode('holdThenDoubleTap', 'dash', 0.9, {
         dispatch: 'press',
         tactileProfile: 'followUp',
+        adaptiveOverride: { startPosition: 0.9, endPosition: 0.98, force: 1 },
       }),
     ],
+    haptics: {
+      baseTrigger: { startPosition: 0.2, endPosition: 0.3, force: 0.5 },
+      gateTick: { durationMs: 18, magnitude: 0.3 },
+      commitPattern: [
+        { delayMs: 0, durationMs: 30, magnitude: 0.5 },
+        { delayMs: 80, durationMs: 30, magnitude: 0.5 },
+      ],
+    },
   },
   'secondary-spider-knife:primary': {
     role: 'Matching hand — slash and ratcheting impale',
@@ -370,22 +442,50 @@ const ATTACK_SET_CONTROL_SEEDS: Record<string, AttackSetControlSeed> = {
       holdThenDoubleTap: mylorikActivation('strike', 'press', 'flurry'),
     },
     dualsense: [
-      dualSenseNode('doubleTap', 'neutral', 0.22, { next: ['hold', 'doubleTapHold'] }),
+      dualSenseNode('doubleTap', 'neutral', 0.22, {
+        next: ['hold', 'doubleTapHold'],
+        adaptiveOverride: { startPosition: 0.22, endPosition: 0.28, force: 0.35 },
+      }),
       dualSenseNode('hold', 'neutral', 0.48, {
         dispatch: 'press',
         holdBehavior: 'channel',
         releaseBehavior: 'dispatch',
         next: ['holdThenDoubleTap'],
         tactileProfile: 'tension',
+        entryTick: null,
+        adaptiveOverride: { startPosition: 0.48, endPosition: 0.48, resistance: 0.45 },
       }),
       dualSenseNode('holdThenDoubleTap', 'flurry', 0.72, {
         tactileProfile: 'gate',
+        entryTick: { durationMs: 30, magnitude: 0.3 },
+        adaptiveOverride: { startPosition: 0.72, endPosition: 0.78, force: 0.7 },
       }),
       dualSenseNode('doubleTapHold', 'neutral', 0.9, {
         holdBehavior: 'charge',
         tactileProfile: 'gate',
+        entryTick: { durationMs: 45, magnitude: 0.5 },
+        adaptiveOverride: { startPosition: 0.9, endPosition: 0.96, force: 1 },
       }),
     ],
+    haptics: {
+      baseTrigger: { startPosition: 0.12, endPosition: 0.12, resistance: 0.22 },
+      gateTick: { durationMs: 20, magnitude: 0.2 },
+      bandTick: { pulseMs: 30, gapMs: 60, magnitude: 0.28, magnitudeStep: 0.1 },
+      commitPattern: [
+        { delayMs: 0, durationMs: 30, magnitude: 0.3 },
+        { delayMs: 90, durationMs: 30, magnitude: 0.45 },
+        { delayMs: 180, durationMs: 30, magnitude: 0.6 },
+      ],
+      wriggle: {
+        calmIntervalMs: [2800, 4600],
+        panicIntervalMs: [320, 720],
+        calmMagnitude: 0.1,
+        panicMagnitude: 0.45,
+        pulseMs: 60,
+        pulsesPerBurst: [1, 3],
+        curveExponent: 1.6,
+      },
+    },
   },
   'twohand-axe:primary': {
     role: 'Right cluster — chop and grapple lever',
@@ -400,12 +500,21 @@ const ATTACK_SET_CONTROL_SEEDS: Record<string, AttackSetControlSeed> = {
         dispatch: 'press',
         next: ['doubleTapHold'],
         tactileProfile: 'gate',
+        adaptiveOverride: { startPosition: 0.22, endPosition: 0.34, force: 0.5 },
       }),
       dualSenseNode('doubleTapHold', 'grapple', 0.72, {
         holdBehavior: 'charge',
         tactileProfile: 'tension',
+        entryTick: null,
+        adaptiveOverride: { startPosition: 0.72, endPosition: 0.72, resistance: 0.85 },
       }),
     ],
+    haptics: {
+      baseTrigger: { startPosition: 0.12, endPosition: 0.12, resistance: 0.4 },
+      gateTick: { durationMs: 60, magnitude: 0.4 },
+      bandTick: { pulseMs: 55, gapMs: 90, magnitude: 0.4, magnitudeStep: 0.1 },
+      commitPattern: [{ delayMs: 0, durationMs: 90, magnitude: 0.7 }],
+    },
   },
   'twohand-axe:secondary': {
     role: 'Left cluster — long parry and flywheel',
@@ -422,12 +531,21 @@ const ATTACK_SET_CONTROL_SEEDS: Record<string, AttackSetControlSeed> = {
         releaseBehavior: 'dispatch',
         next: ['holdThenDoubleTap'],
         tactileProfile: 'ramp',
+        entryTick: null,
+        adaptiveOverride: { startPosition: 0.22, endPosition: 0.22, resistance: 0.5 },
       }),
       dualSenseNode('holdThenDoubleTap', 'spin', 0.72, {
         dispatch: 'release',
         tactileProfile: 'followUp',
+        adaptiveOverride: { startPosition: 0.72, endPosition: 0.82, force: 0.8 },
       }),
     ],
+    haptics: {
+      baseTrigger: { startPosition: 0.12, endPosition: 0.12, resistance: 0.4 },
+      gateTick: { durationMs: 60, magnitude: 0.4 },
+      bandTick: { pulseMs: 55, gapMs: 90, magnitude: 0.4, magnitudeStep: 0.1 },
+      commitPattern: [{ delayMs: 0, durationMs: 70, magnitude: 0.55 }],
+    },
   },
   'twohand-katana:primary': {
     role: 'Right cluster — cut and draw-and-flow rail',
@@ -440,21 +558,33 @@ const ATTACK_SET_CONTROL_SEEDS: Record<string, AttackSetControlSeed> = {
       holdThenDoubleTap: mylorikActivation('mobility', 'press', 'continuation'),
     },
     dualsense: [
-      dualSenseNode('doubleTap', 'neutral', 0.22, { next: ['hold', 'doubleTapHold'] }),
+      dualSenseNode('doubleTap', 'neutral', 0.22, {
+        next: ['hold', 'doubleTapHold'],
+        adaptiveOverride: { startPosition: 0.22, endPosition: 0.3, force: 0.2 },
+      }),
       dualSenseNode('hold', 'neutral', 0.48, {
         holdBehavior: 'charge',
         next: ['holdThenDoubleTap'],
         tactileProfile: 'ramp',
+        adaptiveOverride: { startPosition: 0.48, endPosition: 0.56, force: 0.4 },
       }),
       dualSenseNode('doubleTapHold', 'continuation', 0.72, {
         tactileProfile: 'gate',
+        adaptiveOverride: { startPosition: 0.72, endPosition: 0.8, force: 0.6 },
       }),
       dualSenseNode('holdThenDoubleTap', 'continuation', 0.9, {
         dispatch: 'press',
         requiredChargeBandId: 'katana-charge',
         tactileProfile: 'followUp',
+        adaptiveOverride: { startPosition: 0.9, endPosition: 0.98, force: 0.85 },
       }),
     ],
+    haptics: {
+      baseTrigger: { startPosition: 0.18, endPosition: 0.26, force: 0.22 },
+      gateTick: { durationMs: 15, magnitude: 0.12 },
+      bandTick: { pulseMs: 25, gapMs: 60, magnitude: 0.2, magnitudeStep: 0.06 },
+      commitPattern: [{ delayMs: 0, durationMs: 40, magnitude: 0.5 }],
+    },
   },
   'twohand-katana:secondary': {
     role: 'Left cluster — parry and movement/sheath rail',
@@ -467,21 +597,33 @@ const ATTACK_SET_CONTROL_SEEDS: Record<string, AttackSetControlSeed> = {
       holdThenDoubleTap: mylorikActivation('mobility', 'press', 'continuation'),
     },
     dualsense: [
-      dualSenseNode('doubleTap', 'neutral', 0.22, { next: ['hold', 'doubleTapHold'] }),
+      dualSenseNode('doubleTap', 'neutral', 0.22, {
+        next: ['hold', 'doubleTapHold'],
+        adaptiveOverride: { startPosition: 0.22, endPosition: 0.3, force: 0.2 },
+      }),
       dualSenseNode('hold', 'neutral', 0.48, {
         holdBehavior: 'charge',
         next: ['holdThenDoubleTap'],
         tactileProfile: 'ramp',
+        adaptiveOverride: { startPosition: 0.48, endPosition: 0.56, force: 0.4 },
       }),
       dualSenseNode('doubleTapHold', 'continuation', 0.72, {
         tactileProfile: 'gate',
+        adaptiveOverride: { startPosition: 0.72, endPosition: 0.8, force: 0.6 },
       }),
       dualSenseNode('holdThenDoubleTap', 'continuation', 0.9, {
         dispatch: 'press',
         requiredChargeBandId: 'iaido-ready',
         tactileProfile: 'followUp',
+        adaptiveOverride: { startPosition: 0.9, endPosition: 0.98, force: 0.85 },
       }),
     ],
+    haptics: {
+      baseTrigger: { startPosition: 0.18, endPosition: 0.26, force: 0.22 },
+      gateTick: { durationMs: 15, magnitude: 0.12 },
+      bandTick: { pulseMs: 25, gapMs: 60, magnitude: 0.2, magnitudeStep: 0.06 },
+      commitPattern: [{ delayMs: 0, durationMs: 40, magnitude: 0.5 }],
+    },
   },
   'hybrid-sword:primary': {
     role: 'Left hand — instant Zornhaw, Oberhaw morph and held Unterhaw',
@@ -496,13 +638,20 @@ const ATTACK_SET_CONTROL_SEEDS: Record<string, AttackSetControlSeed> = {
         next: ['doubleTapHold'],
         expiryMs: 1000,
         tactileProfile: 'followUp',
+        adaptiveOverride: { startPosition: 0.22, endPosition: 0.3, force: 0.25 },
       }),
       dualSenseNode('doubleTapHold', 'neutral', 0.72, {
         holdBehavior: 'charge',
         expiryMs: 1000,
         tactileProfile: 'gate',
+        entryTick: { durationMs: 50, magnitude: 0.4 },
+        adaptiveOverride: { startPosition: 0.72, endPosition: 0.84, force: 0.9 },
       }),
     ],
+    haptics: {
+      gateTick: { durationMs: 30, magnitude: 0.2 },
+      commitPattern: [{ delayMs: 0, durationMs: 60, magnitude: 0.55 }],
+    },
   },
   'hybrid-sword:secondary': {
     role: 'Legacy Sword secondary route',
@@ -517,13 +666,20 @@ const ATTACK_SET_CONTROL_SEEDS: Record<string, AttackSetControlSeed> = {
         next: ['doubleTapHold'],
         expiryMs: 1000,
         tactileProfile: 'followUp',
+        adaptiveOverride: { startPosition: 0.22, endPosition: 0.3, force: 0.25 },
       }),
       dualSenseNode('doubleTapHold', 'neutral', 0.72, {
         holdBehavior: 'charge',
         expiryMs: 1000,
         tactileProfile: 'gate',
+        entryTick: { durationMs: 50, magnitude: 0.4 },
+        adaptiveOverride: { startPosition: 0.72, endPosition: 0.84, force: 0.9 },
       }),
     ],
+    haptics: {
+      gateTick: { durationMs: 30, magnitude: 0.2 },
+      commitPattern: [{ delayMs: 0, durationMs: 60, magnitude: 0.55 }],
+    },
   },
 }
 
@@ -554,6 +710,7 @@ function buildAttackSetControls(
       triggerRole: seed.triggerRole,
       startNodeId: nodes[0]?.id ?? null,
       nodes,
+      ...(seed.haptics ? { haptics: seed.haptics } : {}),
     },
   }
 }
@@ -1132,6 +1289,93 @@ function validateAdaptiveProfile(
   if (typeof profile.startPosition === 'number' && typeof profile.endPosition === 'number'
     && profile.startPosition > profile.endPosition) {
     errors.push(`${path}.startPosition must be <= endPosition`)
+  }
+}
+
+const MAX_FEEDBACK_PATTERN_PULSES = 8
+
+function validateGateTick(value: unknown, path: string, errors: string[]): void {
+  const tick = asRecord(value, path, errors)
+  if (!tick) return
+  requirePositiveNumber(tick, 'durationMs', path, errors)
+  if (typeof tick.durationMs === 'number' && tick.durationMs > MAX_FEEDBACK_DURATION_MS) {
+    errors.push(`${path}.durationMs must be <= ${MAX_FEEDBACK_DURATION_MS}`)
+  }
+  validateUnitNumber(tick, 'magnitude', path, errors)
+}
+
+function validateMsRange(record: UnknownRecord, key: string, path: string, errors: string[]): void {
+  const value = record[key]
+  if (!Array.isArray(value) || value.length !== 2
+    || value.some(item => typeof item !== 'number' || !Number.isFinite(item) || item <= 0)) {
+    errors.push(`${path}.${key} must be a [minMs, maxMs] pair of finite numbers > 0`)
+    return
+  }
+  if ((value[0] as number) > (value[1] as number)) {
+    errors.push(`${path}.${key} minimum must be <= maximum`)
+  }
+}
+
+function validateWeaponHaptics(value: unknown, path: string, errors: string[]): void {
+  const haptics = asRecord(value, path, errors)
+  if (!haptics) return
+  if (haptics.baseTrigger !== undefined) {
+    validateAdaptiveProfile(haptics.baseTrigger, `${path}.baseTrigger`, MAX_FEEDBACK_DURATION_MS, errors, true)
+  }
+  if (haptics.gateTick !== undefined) validateGateTick(haptics.gateTick, `${path}.gateTick`, errors)
+  if (haptics.bandTick !== undefined) {
+    const bandTick = asRecord(haptics.bandTick, `${path}.bandTick`, errors)
+    if (bandTick) {
+      requirePositiveNumber(bandTick, 'pulseMs', `${path}.bandTick`, errors)
+      requirePositiveNumber(bandTick, 'gapMs', `${path}.bandTick`, errors)
+      validateUnitNumber(bandTick, 'magnitude', `${path}.bandTick`, errors)
+      validateUnitNumber(bandTick, 'magnitudeStep', `${path}.bandTick`, errors)
+    }
+  }
+  if (haptics.commitPattern !== undefined) {
+    if (!Array.isArray(haptics.commitPattern)) {
+      errors.push(`${path}.commitPattern must be an array`)
+    } else {
+      if (haptics.commitPattern.length === 0
+        || haptics.commitPattern.length > MAX_FEEDBACK_PATTERN_PULSES) {
+        errors.push(`${path}.commitPattern must contain 1-${MAX_FEEDBACK_PATTERN_PULSES} pulses`)
+      }
+      haptics.commitPattern.forEach((pulseValue, index) => {
+        const pulsePath = `${path}.commitPattern[${index}]`
+        const pulse = asRecord(pulseValue, pulsePath, errors)
+        if (!pulse) return
+        requireNumber(pulse, 'delayMs', pulsePath, errors)
+        requirePositiveNumber(pulse, 'durationMs', pulsePath, errors)
+        validateUnitNumber(pulse, 'magnitude', pulsePath, errors)
+        if (typeof pulse.delayMs === 'number' && typeof pulse.durationMs === 'number'
+          && pulse.delayMs + pulse.durationMs > MAX_FEEDBACK_DURATION_MS) {
+          errors.push(`${pulsePath} must end within ${MAX_FEEDBACK_DURATION_MS}ms of pattern start`)
+        }
+        if (pulse.hand !== undefined && pulse.hand !== 'left' && pulse.hand !== 'right'
+          && pulse.hand !== 'both') {
+          errors.push(`${pulsePath}.hand must be left, right, or both`)
+        }
+      })
+    }
+  }
+  if (haptics.wriggle !== undefined) {
+    const wrigglePath = `${path}.wriggle`
+    const wriggle = asRecord(haptics.wriggle, wrigglePath, errors)
+    if (wriggle) {
+      validateMsRange(wriggle, 'calmIntervalMs', wrigglePath, errors)
+      validateMsRange(wriggle, 'panicIntervalMs', wrigglePath, errors)
+      validateUnitNumber(wriggle, 'calmMagnitude', wrigglePath, errors)
+      validateUnitNumber(wriggle, 'panicMagnitude', wrigglePath, errors)
+      requirePositiveNumber(wriggle, 'pulseMs', wrigglePath, errors)
+      const bursts = wriggle.pulsesPerBurst
+      if (!Array.isArray(bursts) || bursts.length !== 2
+        || bursts.some(item => !Number.isInteger(item) || (item as number) < 1)
+        || (bursts.length === 2 && Number.isInteger(bursts[0]) && Number.isInteger(bursts[1])
+          && (bursts[0] as number) > (bursts[1] as number))) {
+        errors.push(`${wrigglePath}.pulsesPerBurst must be an integer [min, max] pair with 1 <= min <= max`)
+      }
+      requirePositiveNumber(wriggle, 'curveExponent', wrigglePath, errors)
+    }
   }
 }
 
@@ -2084,6 +2328,9 @@ function validateAttackSetControls(
   if (!enabledGestures.has(dualsense.instantGesture as LastChancesGesture)) {
     errors.push(`${path}.dualsense.instantGesture must reference an enabled action`)
   }
+  if (dualsense.haptics !== undefined) {
+    validateWeaponHaptics(dualsense.haptics, `${path}.dualsense.haptics`, errors)
+  }
   if (!Array.isArray(dualsense.nodes)) {
     errors.push(`${path}.dualsense.nodes must be an array`)
     return
@@ -2158,6 +2405,9 @@ function validateAttackSetControls(
         errors,
         true,
       )
+    }
+    if (node.entryTick !== undefined && node.entryTick !== null) {
+      validateGateTick(node.entryTick, `${nodePath}.entryTick`, errors)
     }
   })
 
