@@ -2808,8 +2808,8 @@
     ]
   },
   "DopaMetaChosen": {
-    "passiveNameRussian": "Законодатель меты",
-    "passiveNameEnglish": "Meta Setter",
+    "passiveNameRussian": "Мета",
+    "passiveNameEnglish": "Meta",
     "phrases": [
       {
         "russian": "잘 생긴",
@@ -2818,16 +2818,6 @@
       {
         "russian": "이제 내가 보여줄거야.",
         "english": "Now I'll show you."
-      }
-    ]
-  },
-  "DopaImpact": {
-    "passiveNameRussian": "Пассивный импакт",
-    "passiveNameEnglish": "Passive Impact",
-    "phrases": [
-      {
-        "russian": "Импакт.",
-        "english": "Impact."
       }
     ]
   },

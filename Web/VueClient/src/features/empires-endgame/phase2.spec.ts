@@ -70,14 +70,19 @@ function battleSnapshot(
   return snapshot
 }
 
-function manualSession(value: EmpiresEndgameConfig): EmpiresMinigameSession {
+function manualSession(
+  value: EmpiresEndgameConfig,
+  sequence = 1,
+  suffix = 'td',
+): EmpiresMinigameSession {
   const source = createEmpiresQaScenarios(value, { seed: 'phase2-manual' })['battle-defense'].snapshot.minigame!
   const session = clone(source)
-  session.id = 'manual-td-session'
-  session.plan.id = 'manual-td-plan'
-  session.plan.sessionId = session.id
+  session.sequence = sequence
+  session.plan.id = `manual-${suffix}-plan`
   session.plan.deployments = []
-  session.seed = 'manual-td-seed'
+  session.seed = `manual-${suffix}-seed`
+  session.id = `ee:${sequence}:${session.plan.id}:${session.seed}`
+  session.plan.sessionId = session.id
   session.attempt = 0
   session.origin = { returnPhase: 'cards', context: { kind: 'manual', sourceId: 'phase2-spec' } }
   return session
@@ -157,9 +162,7 @@ describe('Empire\'s Endgame Phase 2 campaign bridge', () => {
     expect(engine.resolveMinigame(result)).toMatchObject({ ok: true })
     expect(engine.state.minigameResultLog).toHaveLength(1)
 
-    const abortSession = manualSession(value)
-    abortSession.id = 'manual-abort-session'
-    abortSession.plan.sessionId = abortSession.id
+    const abortSession = manualSession(value, 2, 'abort')
     expect(engine.beginMinigame(abortSession)).toMatchObject({ ok: true })
     expect(engine.abortMinigame()).toMatchObject({ ok: true })
     expect(engine.abortMinigame()).toMatchObject({ ok: true })
@@ -188,7 +191,7 @@ describe('Empire\'s Endgame Phase 2 campaign bridge', () => {
     }, value.id)
     const restored = new EmpiresEndgameEngine(value, migrated)
     expect(restored.state).toMatchObject({
-      schemaVersion: 15,
+      schemaVersion: 16,
       minigame: null,
       minigameResultLog: [],
       army: {
@@ -241,7 +244,7 @@ describe('Empire\'s Endgame Phase 2 campaign bridge', () => {
     expect(engine.state.empire.chronicle.map(entry => entry.kind).slice(-2))
       .toEqual(['battle-loss', 'loyalty'])
     expect(engine.state.empire.loyalty.consumedBattleLossIds)
-      .toContain(`td-loss:${session.id}:${city.id}`)
+      .toContain(`td-loss:minigame:${session.sequence}:${city.id}`)
     expect(engine.state.external.allianceThreat).toBe(1)
   })
 

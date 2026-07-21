@@ -43,6 +43,11 @@ import {
   currentSeason,
   currentSeasonFoodMultiplier,
 } from './seasons'
+import {
+  EMPIRES_SAVE_SCHEMA_VERSION,
+  EMPIRES_STABILIZATION_BUDGETS,
+  empiresUtf8ByteLength,
+} from './stabilization'
 import { EMPIRES_GOD_DIALOGUE_TRIGGERS, EMPIRES_RANKS, EMPIRES_SUITS } from './types'
 import {
   compactQuestTriggerIdentity,
@@ -53,6 +58,8 @@ import {
   questMemoryRequirementsMet,
   questStateIsTerminal,
   questTriggerIdentity,
+  questTriggerCompactionCoordinate,
+  questTriggerKindFromIdentity,
 } from './quests'
 import type { EmpiresQuestTriggerContext } from './quests'
 import type {
@@ -594,7 +601,7 @@ export class EmpiresEndgameEngine {
   }
 
   snapshotEnvelope(savedAt = new Date().toISOString()): EmpiresSnapshotEnvelope {
-    return { schemaVersion: 15, savedAt, state: this.snapshot() }
+    return { schemaVersion: EMPIRES_SAVE_SCHEMA_VERSION, savedAt, state: this.snapshot() }
   }
 
   restore(snapshot: EmpiresCampaignState): void {
@@ -608,6 +615,58 @@ export class EmpiresEndgameEngine {
     this.emit()
   }
 
+  private nextMinigameSequence(state: EmpiresCampaignState = this.state): number {
+    return state.minigameResultCompaction.settledThroughSequence + 1
+  }
+
+  private canonicalMinigameSessionId(
+    sequence: number,
+    planId: string,
+    seed: string | number,
+  ): string {
+    return `ee:${sequence}:${planId}:${String(seed)}`
+  }
+
+  private canonicalMinigameSequence(sessionId: string): number | null {
+    const match = /^ee:(\d+):/.exec(sessionId)
+    if (!match) return null
+    const sequence = Number(match[1])
+    return Number.isSafeInteger(sequence) && sequence > 0 ? sequence : null
+  }
+
+  private minigameAlreadySettled(session: Pick<EmpiresMinigameSession, 'id' | 'sequence'>): boolean {
+    return session.sequence <= this.state.minigameResultCompaction.settledThroughSequence
+      || this.state.minigameResultCompaction.legacySettledSessionIds.includes(session.id)
+      || this.state.minigameResultLog.some(record => record.sessionId === session.id)
+  }
+
+  private recordMinigameResult(
+    session: EmpiresMinigameSession,
+    result: EmpiresMinigameResult,
+  ): void {
+    const compaction = this.state.minigameResultCompaction
+    const expectedSequence = compaction.settledThroughSequence + 1
+    if (session.sequence !== expectedSequence) {
+      throw new Error(`Minigame ${session.id} settlement sequence is stale or skipped`)
+    }
+    this.state.minigameResultLog.push({
+      sessionId: session.id,
+      sequence: session.sequence,
+      attempt: session.attempt,
+      origin: cloneSerializable(session.origin),
+      result: cloneSerializable(result),
+    })
+    compaction.settledThroughSequence = session.sequence
+    if (this.canonicalMinigameSequence(session.id) === null
+      && !compaction.legacySettledSessionIds.includes(session.id)) {
+      compaction.legacySettledSessionIds.push(session.id)
+      compaction.legacySettledSessionIds = compaction.legacySettledSessionIds
+        .slice(-EMPIRES_STABILIZATION_BUDGETS.legacySettledSessionRetention)
+    }
+    this.compactMinigameResultLog()
+    this.compactBattleLossIdentities(this.state)
+  }
+
   beginMinigame(session: EmpiresMinigameSession): EmpiresActionResult {
     const dialogueBlock = this.mandatoryDialogueBlockedReason()
     if (dialogueBlock) return failure(dialogueBlock)
@@ -616,6 +675,14 @@ export class EmpiresEndgameEngine {
     }
     if (this.state.phase === 'victory' || this.state.phase === 'defeat') {
       return failure('A terminal campaign cannot start a minigame.')
+    }
+    const nextSequence = this.nextMinigameSequence()
+    if (nextSequence > EMPIRES_STABILIZATION_BUDGETS.maxSettledMinigames) {
+      return failure(`The campaign reached its ${EMPIRES_STABILIZATION_BUDGETS.maxSettledMinigames}-minigame safety limit.`)
+    }
+    if (session.sequence !== nextSequence
+      || session.id !== this.canonicalMinigameSessionId(session.sequence, session.plan.id, session.seed)) {
+      return failure('Minigame session sequence or canonical identity is stale or skipped.')
     }
     const expectedRules = session.kind === 'td'
       ? this.currentTdRulesIdentity()
@@ -658,8 +725,13 @@ export class EmpiresEndgameEngine {
         && record.result.planDigest === result.planDigest
         && record.result.commandDigest === result.commandDigest
       ))
-      return existing
-        ? success(`Minigame ${existing.sessionId} was already resolved.`)
+      const canonicalSequence = this.canonicalMinigameSequence(result.sessionId)
+      const compacted = canonicalSequence !== null
+        && canonicalSequence <= this.state.minigameResultCompaction.settledThroughSequence
+      const legacy = this.state.minigameResultCompaction.legacySettledSessionIds
+        .includes(result.sessionId)
+      return existing || compacted || legacy
+        ? success(`Minigame ${result.sessionId} was already resolved.`)
         : failure('No minigame session is active.')
     }
     if (this.state.phase !== 'minigame') return failure('The campaign is not in its minigame phase.')
@@ -702,6 +774,8 @@ export class EmpiresEndgameEngine {
       else if (session.kind === 'tavern' && result.kind === 'tavern') this.settleTavernOutcome(result, session)
       else if (session.kind === 'alchemy' && result.kind === 'alchemy') this.settleAlchemyOutcome(result, session)
       else if (session.kind === 'inventory' && result.kind === 'inventory') this.settleInventoryOutcome(result, session)
+      this.recordMinigameResult(session, result)
+      this.finishEmpireAfterDayConsumingMinigame(session.kind)
     } catch (error) {
       this.state = beforeSettlement
       return failure(error instanceof Error ? error.message : 'Minigame settlement was rejected.')
@@ -738,6 +812,8 @@ export class EmpiresEndgameEngine {
       if (session.kind === 'td' && result.kind === 'td') this.settleBattleOutcome(result, session)
       else if (session.kind === 'alchemy' && result.kind === 'alchemy') this.settleAlchemyOutcome(result, session)
       else if (session.kind === 'inventory' && result.kind === 'inventory') this.settleInventoryOutcome(result, session)
+      this.recordMinigameResult(session, result)
+      this.finishEmpireAfterDayConsumingMinigame(session.kind)
     } catch (error) {
       this.state = beforeSettlement
       return failure(error instanceof Error ? error.message : 'Minigame abort settlement was rejected.')
@@ -1511,7 +1587,9 @@ export class EmpiresEndgameEngine {
       })
     const selectedIds = expedition.rosterUnitInstanceIds.length > 0
       ? expedition.rosterUnitInstanceIds
-      : roster.filter(item => item.eligible).map(item => item.unitInstanceId)
+      : roster.filter(item => item.eligible)
+          .map(item => item.unitInstanceId)
+          .slice(0, EMPIRES_STABILIZATION_BUDGETS.maxRosterUnitInstances)
     const provisionRequired = selectedIds.reduce((total, id) => {
       const instance = this.state.army.unitInstances[id]
       return total + Math.max(0, this.unitDefinitions.get(instance?.unitId ?? '')?.foodUpkeep ?? 0)
@@ -1527,6 +1605,7 @@ export class EmpiresEndgameEngine {
       blockedReason: this.expeditionAvailabilityBlockedReason(definition),
       roster,
       selectedUnitInstanceIds: [...selectedIds],
+      rosterSelectionLimit: EMPIRES_STABILIZATION_BUDGETS.maxRosterUnitInstances,
       plannedDurationCons: definition.baseDurationCons,
       effectiveDurationCons: expedition.provisionPlan?.effectiveDurationCons ?? effectiveDurationCons,
       preparationDays: definition.preparationDays,
@@ -1610,6 +1689,9 @@ export class EmpiresEndgameEngine {
     if (ids.length === 0 || ids.length !== rosterUnitInstanceIds.length) {
       return failure('Выберите непустой список уникальных отрядов.')
     }
+    if (ids.length > EMPIRES_STABILIZATION_BUDGETS.maxRosterUnitInstances) {
+      return failure(`В одной экспедиции может быть не больше ${EMPIRES_STABILIZATION_BUDGETS.maxRosterUnitInstances} отрядов.`)
+    }
     const planning = this.expeditionPlanningView(expeditionId)!
     const eligibleIds = new Set(planning.roster.filter(item => item.eligible).map(item => item.unitInstanceId))
     if (ids.some(id => !eligibleIds.has(id))) return failure('В составе есть недоступный отряд.')
@@ -1648,8 +1730,9 @@ export class EmpiresEndgameEngine {
       return failure('В исходном регионе нет провизии, которую можно упаковать.')
     }
     const seed = Math.floor(nextEmpiresRandom(this.state.rng) * 0x1_0000_0000)
+    const sequence = this.nextMinigameSequence()
     const planId = `inventory-${definition.id}-attempt-${expedition.assaultAttempts}`
-    const sessionId = `${planId}:${seed}`
+    const sessionId = this.canonicalMinigameSessionId(sequence, planId, seed)
     const rulesIdentity = this.currentInventoryRulesIdentity()
     const plan: InventoryPlan = {
       id: planId,
@@ -1708,6 +1791,7 @@ export class EmpiresEndgameEngine {
     this.state.empire.daysRemaining -= definition.preparationDays
     const started = this.beginMinigame({
       id: sessionId,
+      sequence,
       kind: 'inventory',
       plan,
       rulesIdentity,
@@ -1741,6 +1825,9 @@ export class EmpiresEndgameEngine {
     const ids = [...new Set(rosterUnitInstanceIds)]
     if (ids.length === 0 || ids.length !== rosterUnitInstanceIds.length) {
       return failure('Выберите непустой список уникальных отрядов.')
+    }
+    if (ids.length > EMPIRES_STABILIZATION_BUDGETS.maxRosterUnitInstances) {
+      return failure(`В одной экспедиции может быть не больше ${EMPIRES_STABILIZATION_BUDGETS.maxRosterUnitInstances} отрядов.`)
     }
     const planning = this.expeditionPlanningView(expeditionId)!
     const eligibleIds = new Set(planning.roster.filter(item => item.eligible).map(item => item.unitInstanceId))
@@ -1900,8 +1987,9 @@ export class EmpiresEndgameEngine {
       return failure('Не все выбранные отряды можно развернуть на этом штурме.')
     }
     const seed = Math.floor(nextEmpiresRandom(this.state.rng) * 0x1_0000_0000)
+    const sequence = this.nextMinigameSequence()
     const planId = `expedition-${definition.id}-attempt-${expedition.assaultAttempts}`
-    const sessionId = `${planId}:${seed}`
+    const sessionId = this.canonicalMinigameSessionId(sequence, planId, seed)
     const rulesIdentity = this.currentTdRulesIdentity()
     const researchedTechnologyIds = new Set(this.state.empire.researchedTechnologyIds)
     const plan: TdBattlePlan = {
@@ -1942,6 +2030,7 @@ export class EmpiresEndgameEngine {
     expedition.activeSessionId = sessionId
     const started = this.beginMinigame({
       id: sessionId,
+      sequence,
       kind: 'td',
       plan,
       rulesIdentity,
@@ -2448,8 +2537,9 @@ export class EmpiresEndgameEngine {
     }))
     const mariaPresent = nextEmpiresRandom(this.state.rng) < tavern.maria.encounterChance
     const seed = Math.floor(nextEmpiresRandom(this.state.rng) * 0x1_0000_0000)
+    const sequence = this.nextMinigameSequence()
     const planId = `tavern-${this.state.con}-${cityId}`
-    const sessionId = `${planId}:${seed}`
+    const sessionId = this.canonicalMinigameSessionId(sequence, planId, seed)
     const rulesIdentity = this.currentTavernRulesIdentity()
     const rumor = this.tavernRumorPlan()
     const plan: TavernPlan = {
@@ -2483,6 +2573,7 @@ export class EmpiresEndgameEngine {
     if (planErrors.length > 0) return failure(`Invalid Tavern plan: ${planErrors.join('; ')}`)
     return this.beginMinigame({
       id: sessionId,
+      sequence,
       kind: 'tavern',
       plan,
       rulesIdentity,
@@ -2528,8 +2619,9 @@ export class EmpiresEndgameEngine {
     if (blocked) return failure(blocked)
     const recipe = this.config.alchemy.recipes.find(candidate => candidate.id === recipeId)!
     const seed = Math.floor(nextEmpiresRandom(this.state.rng) * 0x1_0000_0000)
+    const sequence = this.nextMinigameSequence()
     const planId = `alchemy-${this.state.con}-${cityId}-${recipe.id}`
-    const sessionId = `${planId}:${seed}`
+    const sessionId = this.canonicalMinigameSessionId(sequence, planId, seed)
     const rulesIdentity = this.currentAlchemyRulesIdentity()
     const plan: AlchemyPlan = {
       id: planId,
@@ -2555,6 +2647,7 @@ export class EmpiresEndgameEngine {
     this.state.empire.daysRemaining -= this.config.alchemy.dayCost
     const result = this.beginMinigame({
       id: sessionId,
+      sequence,
       kind: 'alchemy',
       plan,
       rulesIdentity,
@@ -3479,8 +3572,7 @@ export class EmpiresEndgameEngine {
       || !Number.isFinite(input.lost) || input.lost < 0 || input.lost > input.deployed) {
       throw new Error('Battle-loss counts are invalid.')
     }
-    if (this.state.empire.loyalty.consumedBattleLossIds.includes(input.id)) return false
-    this.state.empire.loyalty.consumedBattleLossIds.push(input.id)
+    if (!this.rememberBattleLossIdentity(this.state, input.id, input.target)) return false
     const ratio = input.lost / input.deployed
     this.appendChronicle(this.state, {
       kind: 'battle-loss',
@@ -3493,6 +3585,58 @@ export class EmpiresEndgameEngine {
       && (this.state.empire.flags.casualtyLoyaltyPenaltyDisabled ?? 0) <= 0) {
       this.applyLoyaltyDelta(input.target, this.config.td.settlement!.loyaltyDelta, input.id)
     }
+    return true
+  }
+
+  private battleLossMinigameIdentity(identity: string): { sequence: number, cityId: string } | null {
+    const match = /^td-loss:minigame:(\d+):([^:]+)$/.exec(identity)
+    if (!match) return null
+    const sequence = Number(match[1])
+    return Number.isSafeInteger(sequence) && sequence > 0 && match[2].length > 0
+      ? { sequence, cityId: match[2] }
+      : null
+  }
+
+  private compactBattleLossIdentities(state: EmpiresCampaignState): void {
+    const identities = state.empire.loyalty.consumedBattleLossIds
+    while (identities.length > EMPIRES_STABILIZATION_BUDGETS.recentBattleLossIdentityRetention) {
+      const activeSequence = state.minigame?.kind === 'td' ? state.minigame.sequence : null
+      const evictIndex = identities.findIndex((identity) => {
+        const canonical = this.battleLossMinigameIdentity(identity)
+        return canonical === null || canonical.sequence !== activeSequence
+      })
+      if (evictIndex < 0) return
+      const [evicted] = identities.splice(evictIndex, 1)
+      state.empire.loyalty.battleLossCompaction.evictedCount += 1
+      state.empire.loyalty.battleLossCompaction.historyDigest = digestTdValue({
+        previous: state.empire.loyalty.battleLossCompaction.historyDigest,
+        identity: evicted,
+      })
+      if (this.battleLossMinigameIdentity(evicted) === null) {
+        state.empire.loyalty.battleLossCompaction.sealedLegacyIdentities = true
+      }
+    }
+  }
+
+  private rememberBattleLossIdentity(
+    state: EmpiresCampaignState,
+    identity: string,
+    target: EmpiresLoyaltyTarget,
+  ): boolean {
+    if (state.empire.loyalty.consumedBattleLossIds.includes(identity)) return false
+    const canonical = this.battleLossMinigameIdentity(identity)
+    if (canonical === null) {
+      if (state.empire.loyalty.battleLossCompaction.sealedLegacyIdentities) return false
+    } else {
+      if (canonical.sequence <= state.minigameResultCompaction.settledThroughSequence) return false
+      if (target.kind !== 'city' || target.cityId !== canonical.cityId
+        || state.minigame?.kind !== 'td' || state.minigame.sequence !== canonical.sequence
+        || !state.minigame.plan.deployments.some(deployment => deployment.cityId === canonical.cityId)) {
+        return false
+      }
+    }
+    state.empire.loyalty.consumedBattleLossIds.push(identity)
+    this.compactBattleLossIdentities(state)
     return true
   }
 
@@ -3856,7 +4000,7 @@ export class EmpiresEndgameEngine {
     }
   }
 
-  private normalizeQuestState(state: EmpiresCampaignState): void {
+  private normalizeQuestState(state: EmpiresCampaignState, snapshotVersion: number): void {
     state.quests ??= {}
     state.questRuntime ??= {
       activeMandatoryQuestId: null,
@@ -3886,6 +4030,13 @@ export class EmpiresEndgameEngine {
 
     for (const [questId, quest] of Object.entries(state.quests)) {
       const definition = this.questDefinitions.get(questId)
+      if (snapshotVersion >= 16 && (!Array.isArray(quest.consumedTriggerIds)
+        || !Number.isSafeInteger(quest.compactedTriggerCount) || quest.compactedTriggerCount < 0
+        || typeof quest.compactedTriggerDigest !== 'string'
+        || !isRecordValue(quest.compactedTriggerWatermarks) || !Array.isArray(quest.sealedTriggerKinds)
+        || (quest.compactedTriggerCount > 0 && quest.compactedTriggerDigest.length === 0))) {
+        throw new Error(`Persisted quest trigger compaction is malformed for ${questId}`)
+      }
       quest.questId = questId
       quest.memory ??= {}
       quest.run = Math.max(1, Math.floor(quest.run ?? 1))
@@ -3895,6 +4046,13 @@ export class EmpiresEndgameEngine {
         .filter(identity => typeof identity === 'string' && identity.length > 0)
       quest.compactedTriggerCount = Math.max(0, Math.floor(quest.compactedTriggerCount ?? 0))
       quest.compactedTriggerDigest ??= ''
+      quest.compactedTriggerWatermarks = Object.fromEntries(
+        Object.entries(quest.compactedTriggerWatermarks ?? {}).filter(([, sequence]) => (
+          Number.isSafeInteger(sequence) && sequence > 0
+        )),
+      )
+      quest.sealedTriggerKinds = [...new Set(quest.sealedTriggerKinds ?? [])]
+        .filter(kind => typeof kind === 'string' && kind.length > 0)
       quest.startedAtCon = Math.max(0, Math.floor(quest.startedAtCon ?? state.con))
       quest.finishedAtCon ??= null
       if (!this.config.quests.enabled) {
@@ -3956,6 +4114,16 @@ export class EmpiresEndgameEngine {
         evicted,
       )
       quest.compactedTriggerCount += 1
+      const coordinate = questTriggerCompactionCoordinate(evicted)
+      if (coordinate) {
+        quest.compactedTriggerWatermarks[coordinate.key] = Math.max(
+          quest.compactedTriggerWatermarks[coordinate.key] ?? 0,
+          coordinate.sequence,
+        )
+      } else {
+        const kind = questTriggerKindFromIdentity(evicted)
+        if (kind && !quest.sealedTriggerKinds.includes(kind)) quest.sealedTriggerKinds.push(kind)
+      }
     }
   }
 
@@ -3995,6 +4163,8 @@ export class EmpiresEndgameEngine {
       consumedTriggerIds,
       compactedTriggerCount: previous?.compactedTriggerCount ?? 0,
       compactedTriggerDigest: previous?.compactedTriggerDigest ?? '',
+      compactedTriggerWatermarks: cloneSerializable(previous?.compactedTriggerWatermarks ?? {}),
+      sealedTriggerKinds: [...(previous?.sealedTriggerKinds ?? [])],
       startedAtCon: this.state.con,
       finishedAtCon: node.terminal ? this.state.con : null,
     }
@@ -4171,9 +4341,10 @@ export class EmpiresEndgameEngine {
           rewardApplied: false,
           zoneApplied: false,
           complaintTriggerIds: [],
+          complaintThroughAttempt: 0,
           installmentBlockedReason: null,
           resultHistory: [],
-          resultCompaction: { evictedCount: 0, historyDigest: '' },
+          resultCompaction: { evictedCount: 0, historyDigest: '', maxEvictedAttempt: 0 },
         } satisfies EmpiresExpeditionState,
       ])),
     }
@@ -4191,7 +4362,7 @@ export class EmpiresEndgameEngine {
     const playerHand: string[] = []
     const godHand: string[] = []
     const state: EmpiresCampaignState = {
-      schemaVersion: 15,
+      schemaVersion: EMPIRES_SAVE_SCHEMA_VERSION,
       configId: this.config.id,
       phase: 'cards',
       rng,
@@ -4300,6 +4471,8 @@ export class EmpiresEndgameEngine {
         historyDigest: '',
         lastSessionId: null,
         lastRulesDigest: null,
+        settledThroughSequence: 0,
+        legacySettledSessionIds: [],
       },
       army: {
         equipmentStock: {},
@@ -4319,6 +4492,13 @@ export class EmpiresEndgameEngine {
         ...this.initialExternalState(),
       },
       epidemics: [],
+      epidemicCompaction: {
+        evictedCount: 0,
+        historyDigest: '',
+        lastInstanceId: null,
+        lastRulesDigest: null,
+        maxEvictedSequence: 0,
+      },
       nextEpidemicSequence: 1,
       quests: {},
       questRuntime: {
@@ -4890,7 +5070,7 @@ export class EmpiresEndgameEngine {
     delete state.army.recoveries
   }
 
-  private normalizeExpeditionsState(state: EmpiresCampaignState): void {
+  private normalizeExpeditionsState(state: EmpiresCampaignState, snapshotVersion: number): void {
     state.expeditions ??= this.initialExpeditionsState()
     const zoneIds = new Set(this.config.expeditions.zones.map(zone => zone.id))
     state.expeditions.openedZoneIds = [...new Set(state.expeditions.openedZoneIds ?? [])]
@@ -4935,10 +5115,93 @@ export class EmpiresEndgameEngine {
       expedition.outcome ??= null
       expedition.rewardApplied ??= false
       expedition.zoneApplied ??= false
-      expedition.complaintTriggerIds = [...new Set(expedition.complaintTriggerIds ?? [])]
+      const rawComplaintTriggerIds = expedition.complaintTriggerIds
+      if (snapshotVersion >= 16 && (!Array.isArray(rawComplaintTriggerIds)
+        || rawComplaintTriggerIds.some(id => typeof id !== 'string' || id.length === 0)
+        || new Set(rawComplaintTriggerIds).size !== rawComplaintTriggerIds.length)) {
+        throw new Error(`Expedition ${definition.id} has invalid complaint identity history`)
+      }
+      expedition.complaintTriggerIds = [...new Set(rawComplaintTriggerIds ?? [])]
+        .filter(id => typeof id === 'string' && id.length > 0)
+      const legacyComplaintWatermark = expedition.complaintTriggerIds.reduce((maximum, identity) => {
+        const attempt = Number(/:(\d+)$/.exec(identity)?.[1] ?? 0)
+        return Number.isSafeInteger(attempt) ? Math.max(maximum, attempt) : maximum
+      }, 0)
+      if (snapshotVersion >= 16 && (!Number.isSafeInteger(expedition.complaintThroughAttempt)
+        || expedition.complaintThroughAttempt < 0
+        || expedition.complaintThroughAttempt > expedition.assaultAttempts)) {
+        throw new Error(`Expedition ${definition.id} has invalid complaint compaction state`)
+      }
+      expedition.complaintThroughAttempt = snapshotVersion >= 16
+        ? expedition.complaintThroughAttempt
+        : Math.max(legacyComplaintWatermark, expedition.complaintThroughAttempt ?? 0)
+      if (snapshotVersion >= 16 && expedition.complaintTriggerIds.some((identity) => {
+        const prefix = `expedition-complaint:${definition.id}:`
+        const attempt = identity.startsWith(prefix) ? Number(identity.slice(prefix.length)) : 0
+        return !Number.isSafeInteger(attempt) || attempt < 1
+          || attempt > expedition.complaintThroughAttempt
+      })) {
+        throw new Error(`Expedition ${definition.id} has inconsistent complaint identity history`)
+      }
+      expedition.complaintTriggerIds = expedition.complaintTriggerIds
+        .slice(-EMPIRES_STABILIZATION_BUDGETS.recentExpeditionComplaintRetention)
       expedition.installmentBlockedReason ??= null
-      expedition.resultHistory ??= []
-      expedition.resultCompaction ??= { evictedCount: 0, historyDigest: '' }
+      if (snapshotVersion < 16) {
+        expedition.resultHistory ??= []
+        expedition.resultCompaction ??= { evictedCount: 0, historyDigest: '', maxEvictedAttempt: 0 }
+      } else if (!Array.isArray(expedition.resultHistory)
+        || !isRecordValue(expedition.resultCompaction)) {
+        throw new Error(`Expedition ${definition.id} has missing result compaction state`)
+      }
+      const resultCompaction = expedition.resultCompaction
+      const validResultEvictedCount = Number.isSafeInteger(resultCompaction.evictedCount)
+        && resultCompaction.evictedCount >= 0
+        && resultCompaction.evictedCount <= expedition.assaultAttempts
+      const validMaxEvictedAttempt = Number.isSafeInteger(resultCompaction.maxEvictedAttempt)
+        && resultCompaction.maxEvictedAttempt >= 0
+        && resultCompaction.maxEvictedAttempt <= expedition.assaultAttempts
+      if (snapshotVersion >= 16 && (!Array.isArray(expedition.resultHistory)
+        || !validResultEvictedCount || !validMaxEvictedAttempt
+        || typeof resultCompaction.historyDigest !== 'string'
+        || (resultCompaction.evictedCount > 0
+          && (resultCompaction.historyDigest.length === 0
+            || resultCompaction.maxEvictedAttempt < resultCompaction.evictedCount)))) {
+        throw new Error(`Expedition ${definition.id} has invalid result compaction state`)
+      }
+      resultCompaction.evictedCount = validResultEvictedCount ? resultCompaction.evictedCount : 0
+      resultCompaction.historyDigest = typeof resultCompaction.historyDigest === 'string'
+        ? resultCompaction.historyDigest
+        : ''
+      resultCompaction.maxEvictedAttempt = validMaxEvictedAttempt
+        ? resultCompaction.maxEvictedAttempt
+        : 0
+      const seenAttempts = new Set<number>()
+      expedition.resultHistory = expedition.resultHistory.filter((entry) => {
+        const valid = entry && Number.isSafeInteger(entry.attempt) && entry.attempt > 0
+          && entry.attempt <= expedition.assaultAttempts && !seenAttempts.has(entry.attempt)
+          && entry.attempt > resultCompaction.maxEvictedAttempt
+          && Number.isSafeInteger(entry.con) && entry.con > 0
+          && ['victory', 'defeat', 'aborted'].includes(entry.outcome)
+          && (entry.sessionId === null
+            || typeof entry.sessionId === 'string' && entry.sessionId.length > 0)
+          && [
+            entry.combatLostUnitInstanceIds,
+            entry.attritionLostUnitInstanceIds,
+            entry.removedVeteranUnitInstanceIds,
+            entry.newlyVeteranUnitInstanceIds,
+          ].every(ids => Array.isArray(ids)
+            && ids.every(id => typeof id === 'string' && id.length > 0)
+            && new Set(ids).size === ids.length)
+          && Number.isFinite(entry.provisionWithdrawn) && entry.provisionWithdrawn >= 0
+          && typeof entry.rewardApplied === 'boolean'
+          && typeof entry.zoneApplied === 'boolean'
+          && typeof entry.complaintApplied === 'boolean'
+        if (valid) seenAttempts.add(entry.attempt)
+        else if (snapshotVersion >= 16) {
+          throw new Error(`Expedition ${definition.id} has malformed or duplicate result history`)
+        }
+        return valid
+      }).sort((left, right) => left.attempt - right.attempt)
       if (new Set(expedition.rosterUnitInstanceIds).size !== expedition.rosterUnitInstanceIds.length
         || expedition.rosterUnitInstanceIds.some(id => !state.army.unitInstances[id])) {
         if (expedition.status === 'planning' || expedition.status === 'available') {
@@ -4964,6 +5227,10 @@ export class EmpiresEndgameEngine {
         previous: expedition.resultCompaction.historyDigest,
         evicted,
       })
+      expedition.resultCompaction.maxEvictedAttempt = Math.max(
+        expedition.resultCompaction.maxEvictedAttempt,
+        evicted.attempt,
+      )
     }
   }
 
@@ -5001,12 +5268,24 @@ export class EmpiresEndgameEngine {
       && snapshotVersion !== 4 && snapshotVersion !== 5 && snapshotVersion !== 6
       && snapshotVersion !== 7 && snapshotVersion !== 8 && snapshotVersion !== 9
       && snapshotVersion !== 10 && snapshotVersion !== 11 && snapshotVersion !== 12
-      && snapshotVersion !== 13 && snapshotVersion !== 14 && snapshotVersion !== 15) {
+      && snapshotVersion !== 13 && snapshotVersion !== 14 && snapshotVersion !== 15
+      && snapshotVersion !== 16) {
       throw new Error('Unsupported Empire\'s Endgame snapshot schema')
     }
     if (snapshot.configId !== this.config.id) throw new Error('Snapshot belongs to a different config')
     const state = cloneSerializable(snapshot)
-    state.schemaVersion = 15
+    if (snapshotVersion >= 16) {
+      if (!isRecordValue(state.quests) || !isRecordValue(state.questRuntime)) {
+        throw new Error('Current snapshot requires quest state and quest runtime state')
+      }
+      if (!isRecordValue(state.expeditions)) {
+        throw new Error('Current snapshot requires expedition state')
+      }
+      if (!isRecordValue(state.empire?.loyalty)) {
+        throw new Error('Current snapshot requires Empire loyalty state')
+      }
+    }
+    state.schemaVersion = EMPIRES_SAVE_SCHEMA_VERSION
     this.normalizeTavernAndMysticState(state)
     state.alchemy ??= { explosionCount: 0, lastExplosion: null }
     state.alchemy.explosionCount = Math.max(0, Math.floor(state.alchemy.explosionCount ?? 0))
@@ -5019,15 +5298,18 @@ export class EmpiresEndgameEngine {
       }
     }
     this.validateStandardCardZones(state)
-    if (!state.god || typeof state.god !== 'object' || Array.isArray(state.god)) state.god = {
-      cosmeticRng: createEmpiresRngState(`${this.config.seed}:god-dialogue`),
-      interventions: [],
-      interventionCompaction: { evictedCount: 0, historyDigest: '' },
-      nextInterventionSequence: 1,
-      dialogueLog: [],
-      dialogueCompaction: { evictedCount: 0, historyDigest: '' },
-      nextDialogueSequence: 1,
-      dialogueOccurrences: {},
+    if (!state.god || typeof state.god !== 'object' || Array.isArray(state.god)) {
+      if (snapshotVersion >= 16) throw new Error('Current snapshot requires God runtime state')
+      state.god = {
+        cosmeticRng: createEmpiresRngState(`${this.config.seed}:god-dialogue`),
+        interventions: [],
+        interventionCompaction: { evictedCount: 0, historyDigest: '' },
+        nextInterventionSequence: 1,
+        dialogueLog: [],
+        dialogueCompaction: { evictedCount: 0, historyDigest: '' },
+        nextDialogueSequence: 1,
+        dialogueOccurrences: {},
+      }
     }
     if (!state.god.cosmeticRng
       || !Number.isInteger(state.god.cosmeticRng.state)
@@ -5035,26 +5317,46 @@ export class EmpiresEndgameEngine {
       || state.god.cosmeticRng.draws < 0) {
       state.god.cosmeticRng = createEmpiresRngState(`${this.config.seed}:god-dialogue`)
     }
-    if (!Array.isArray(state.god.interventions)) state.god.interventions = []
+    if (!Array.isArray(state.god.interventions)) {
+      if (snapshotVersion >= 16) throw new Error('Current snapshot requires God intervention history')
+      state.god.interventions = []
+    }
     const interventionCompaction = state.god.interventionCompaction as (
       Partial<typeof state.god.interventionCompaction> | null | undefined
     )
+    const validInterventionEvictedCount = Number.isSafeInteger(interventionCompaction?.evictedCount)
+      && Number(interventionCompaction?.evictedCount) >= 0
+    if (snapshotVersion >= 16 && (!isRecordValue(interventionCompaction)
+      || !validInterventionEvictedCount || typeof interventionCompaction.historyDigest !== 'string'
+      || (Number(interventionCompaction.evictedCount) > 0
+        && interventionCompaction.historyDigest.length === 0))) {
+      throw new Error('Persisted God intervention compaction is missing or malformed')
+    }
     state.god.interventionCompaction = {
-      evictedCount: Number.isInteger(interventionCompaction?.evictedCount)
-        && Number(interventionCompaction?.evictedCount) >= 0
+      evictedCount: validInterventionEvictedCount
         ? Number(interventionCompaction?.evictedCount)
         : 0,
       historyDigest: typeof interventionCompaction?.historyDigest === 'string'
         ? interventionCompaction.historyDigest
         : '',
     }
-    if (!Array.isArray(state.god.dialogueLog)) state.god.dialogueLog = []
+    if (!Array.isArray(state.god.dialogueLog)) {
+      if (snapshotVersion >= 16) throw new Error('Current snapshot requires God dialogue history')
+      state.god.dialogueLog = []
+    }
     const dialogueCompaction = state.god.dialogueCompaction as (
       Partial<typeof state.god.dialogueCompaction> | null | undefined
     )
+    const validDialogueEvictedCount = Number.isSafeInteger(dialogueCompaction?.evictedCount)
+      && Number(dialogueCompaction?.evictedCount) >= 0
+    if (snapshotVersion >= 16 && (!isRecordValue(dialogueCompaction)
+      || !validDialogueEvictedCount || typeof dialogueCompaction.historyDigest !== 'string'
+      || (Number(dialogueCompaction.evictedCount) > 0
+        && dialogueCompaction.historyDigest.length === 0))) {
+      throw new Error('Persisted God dialogue compaction is missing or malformed')
+    }
     state.god.dialogueCompaction = {
-      evictedCount: Number.isInteger(dialogueCompaction?.evictedCount)
-        && Number(dialogueCompaction?.evictedCount) >= 0
+      evictedCount: validDialogueEvictedCount
         ? Number(dialogueCompaction?.evictedCount)
         : 0,
       historyDigest: typeof dialogueCompaction?.historyDigest === 'string'
@@ -5075,7 +5377,14 @@ export class EmpiresEndgameEngine {
         && ['drawBottom', 'drawTop', 'shuffle'].includes(record.insertion)
         && record.trigger === 'winner-after-consecutive-bito'
         && typeof record.resultingDigest === 'string' && record.resultingDigest.length > 0)
-      .slice(-this.config.god.antiBito.historyRetention)
+    while (state.god.interventions.length > this.config.god.antiBito.historyRetention) {
+      const evicted = state.god.interventions.shift()!
+      state.god.interventionCompaction.evictedCount += 1
+      state.god.interventionCompaction.historyDigest = digestTdValue({
+        previous: state.god.interventionCompaction.historyDigest,
+        evicted,
+      })
+    }
     state.god.dialogueLog = state.god.dialogueLog
       .filter(entry => entry && Number.isInteger(entry.sequence) && entry.sequence > 0
         && typeof entry.lineId === 'string' && typeof entry.text === 'string'
@@ -5083,7 +5392,14 @@ export class EmpiresEndgameEngine {
         && Number.isInteger(entry.con) && entry.con > 0
         && Number.isInteger(entry.bout) && entry.bout > 0
         && Number.isInteger(entry.occurrence) && entry.occurrence > 0)
-      .slice(-this.config.god.dialogueLogRetention)
+    while (state.god.dialogueLog.length > this.config.god.dialogueLogRetention) {
+      const evicted = state.god.dialogueLog.shift()!
+      state.god.dialogueCompaction.evictedCount += 1
+      state.god.dialogueCompaction.historyDigest = digestTdValue({
+        previous: state.god.dialogueCompaction.historyDigest,
+        evicted,
+      })
+    }
     state.god.dialogueOccurrences = Object.fromEntries(Object.entries(state.god.dialogueOccurrences)
       .filter(([, count]) => Number.isInteger(count) && count > 0))
     const rawNextInterventionSequence = state.god.nextInterventionSequence
@@ -5104,12 +5420,19 @@ export class EmpiresEndgameEngine {
     )
     this.normalizeGovernanceState(state, snapshotVersion)
     state.minigame ??= null
-    state.minigameResultLog ??= []
-    state.minigameResultCompaction ??= {
-      evictedCount: 0,
-      historyDigest: '',
-      lastSessionId: null,
-      lastRulesDigest: null,
+    if (snapshotVersion < 16) {
+      state.minigameResultLog ??= []
+      state.minigameResultCompaction ??= {
+        evictedCount: 0,
+        historyDigest: '',
+        lastSessionId: null,
+        lastRulesDigest: null,
+        settledThroughSequence: 0,
+        legacySettledSessionIds: [],
+      }
+    } else if (!Array.isArray(state.minigameResultLog)
+      || !isRecordValue(state.minigameResultCompaction)) {
+      throw new Error('Current snapshot requires minigame result and compaction state')
     }
     state.army ??= {
       equipmentStock: {},
@@ -5149,8 +5472,20 @@ export class EmpiresEndgameEngine {
     state.external.nextWaveCon ??= this.nextWaveConAtOrAfter(state.con)
     this.normalizeExternalState(state)
     this.normalizeEconomyContentState(state)
-    state.epidemics ??= []
-    state.nextEpidemicSequence ??= 1
+    if (snapshotVersion < 16) {
+      state.epidemics ??= []
+      state.epidemicCompaction ??= {
+        evictedCount: 0,
+        historyDigest: '',
+        lastInstanceId: null,
+        lastRulesDigest: null,
+        maxEvictedSequence: 0,
+      }
+      state.nextEpidemicSequence ??= 1
+    } else if (!Array.isArray(state.epidemics) || !isRecordValue(state.epidemicCompaction)
+      || !Number.isSafeInteger(state.nextEpidemicSequence)) {
+      throw new Error('Current snapshot requires epidemic compaction and sequence state')
+    }
     state.empire.medical ??= {
       nextFreeResearchCon: null,
       awardedTechnologyIds: [],
@@ -5160,7 +5495,7 @@ export class EmpiresEndgameEngine {
     state.empire.medical.awardedTechnologyIds ??= []
     state.empire.medical.academyTreatmentUsedCon ??= null
     this.normalizeEpidemics(state, snapshotVersion)
-    this.normalizeQuestState(state)
+    this.normalizeQuestState(state, snapshotVersion)
     const rawGodInterventions = state.durak.godInterventions
     state.durak.godInterventions = Math.max(
       Number.isFinite(rawGodInterventions) ? Math.max(0, Math.floor(rawGodInterventions)) : 0,
@@ -5277,10 +5612,10 @@ export class EmpiresEndgameEngine {
       city.buildingInteractionLocks ??= {}
     }
     this.normalizeArmyUnitInstances(state, snapshotVersion)
-    this.normalizeExpeditionsState(state)
-    this.normalizeMinigameState(state)
+    this.normalizeExpeditionsState(state, snapshotVersion)
+    this.normalizeMinigameState(state, snapshotVersion)
     this.normalizeDomesticEconomyState(state, snapshotVersion)
-    this.normalizePoliticalState(state)
+    this.normalizePoliticalState(state, snapshotVersion)
     this.migratePendingLoyaltyDeltas(state)
     state.empire.cardFlagBonuses ??= state.phase === 'empire' || state.phase === 'event'
       ? this.heldCardFlagBonuses(state)
@@ -5533,8 +5868,37 @@ export class EmpiresEndgameEngine {
     return awardedAny
   }
 
+  private sharedMinigameResultRetentionPolicy() {
+    return {
+      td: this.config.td.resultLogLimit ?? 32,
+      alchemy: this.config.alchemy.resultLogLimit,
+      inventory: this.config.inventory.resultLogLimit,
+      saveUtf8Bytes: EMPIRES_STABILIZATION_BUDGETS.longCampaignSaveUtf8Bytes,
+    }
+  }
+
+  private settlementRulesIdentityConfig(): Omit<EmpiresEndgameConfig, 'seed'> {
+    const { seed: _initializationSeed, ...rules } = this.config
+    return rules
+  }
+
   private currentTdRulesIdentity(): TdRulesIdentity {
     return createTdRulesIdentity(this.config.schemaVersion, this.config.combat, this.config.td, {
+      technologies: this.config.empire.technologies,
+      units: this.config.empire.units ?? [],
+      buildings: this.config.empire.buildings,
+      steelResearch: this.config.empire.steelResearch,
+      medical: this.config.empire.medical,
+      loyalty: this.config.empire.loyalty,
+      expeditions: this.config.expeditions,
+      quests: this.config.quests,
+      settlementConfig: this.settlementRulesIdentityConfig(),
+      sharedResultRetention: this.sharedMinigameResultRetentionPolicy(),
+    })
+  }
+
+  private legacyV15TdRulesIdentity(configSchemaVersion: number): TdRulesIdentity {
+    return createTdRulesIdentity(configSchemaVersion, this.config.combat, this.config.td, {
       technologies: this.config.empire.technologies,
       units: this.config.empire.units ?? [],
       buildings: this.config.empire.buildings,
@@ -5553,6 +5917,23 @@ export class EmpiresEndgameEngine {
       })),
       combatEquipment: this.config.combat.equipment,
       godDeckMemory: this.config.god.deckMemory,
+      settlementCurrencyResourceId: this.config.empire.domesticEconomy.goldResourceId,
+      loyalty: this.config.empire.loyalty,
+      sharedResultRetention: this.sharedMinigameResultRetentionPolicy(),
+    })
+  }
+
+  private legacyV15TavernRulesIdentity(configSchemaVersion: number) {
+    return createTavernRulesIdentity(configSchemaVersion, {
+      tavern: this.config.tavern,
+      mysticCards: this.config.mysticCards,
+      units: (this.config.empire.units ?? []).map(unit => ({
+        id: unit.id,
+        deferredReason: unit.deferredReason,
+        td: unit.td,
+      })),
+      combatEquipment: this.config.combat.equipment,
+      godDeckMemory: this.config.god.deckMemory,
     })
   }
 
@@ -5561,11 +5942,36 @@ export class EmpiresEndgameEngine {
       buildings: this.config.empire.buildings,
       technologies: this.config.empire.technologies,
       epidemics: this.config.empire.epidemics,
+      loyalty: this.config.empire.loyalty,
+      quests: this.config.quests,
+      settlementConfig: this.settlementRulesIdentityConfig(),
+      sharedResultRetention: this.sharedMinigameResultRetentionPolicy(),
+    })
+  }
+
+  private legacyV15AlchemyRulesIdentity(configSchemaVersion: number): AlchemyRulesIdentity {
+    return createAlchemyRulesIdentity(configSchemaVersion, this.config.alchemy, {
+      buildings: this.config.empire.buildings,
+      technologies: this.config.empire.technologies,
+      epidemics: this.config.empire.epidemics,
     })
   }
 
   private currentInventoryRulesIdentity(): InventoryRulesIdentity {
     return createInventoryRulesIdentity(this.config.schemaVersion, this.config.inventory, {
+      resources: this.config.empire.resources,
+      equipment: this.config.combat.equipment,
+      expeditions: this.config.expeditions,
+      cities: this.config.empire.cities,
+      loyalty: this.config.empire.loyalty,
+      quests: this.config.quests,
+      settlementConfig: this.settlementRulesIdentityConfig(),
+      sharedResultRetention: this.sharedMinigameResultRetentionPolicy(),
+    })
+  }
+
+  private legacyV15InventoryRulesIdentity(configSchemaVersion: number): InventoryRulesIdentity {
+    return createInventoryRulesIdentity(configSchemaVersion, this.config.inventory, {
       resources: this.config.empire.resources,
       equipment: this.config.combat.equipment,
       expeditions: this.config.expeditions.definitions,
@@ -5735,16 +6141,34 @@ export class EmpiresEndgameEngine {
     )
   }
 
-  private normalizeMinigameState(state: EmpiresCampaignState): void {
+  private normalizeMinigameState(state: EmpiresCampaignState, snapshotVersion: number): void {
     const currentTdRules = this.currentTdRulesIdentity()
     const currentTavernRules = this.currentTavernRulesIdentity()
     const currentAlchemyRules = this.currentAlchemyRulesIdentity()
     const currentInventoryRules = this.currentInventoryRulesIdentity()
+    const rawCompaction = state.minigameResultCompaction as Partial<
+      EmpiresCampaignState['minigameResultCompaction']
+    > | null | undefined
+    const validEvictedCount = Number.isSafeInteger(rawCompaction?.evictedCount)
+      && Number(rawCompaction?.evictedCount) >= 0
+      && Number(rawCompaction?.evictedCount) <= EMPIRES_STABILIZATION_BUDGETS.maxSettledMinigames
+    if (snapshotVersion >= 16 && (!isRecordValue(rawCompaction) || !validEvictedCount
+      || !Array.isArray(rawCompaction.legacySettledSessionIds)
+      || !Number.isSafeInteger(rawCompaction.settledThroughSequence)
+      || typeof rawCompaction.historyDigest !== 'string'
+      || !(typeof rawCompaction.lastSessionId === 'string' || rawCompaction.lastSessionId === null)
+      || !(typeof rawCompaction.lastRulesDigest === 'string' || rawCompaction.lastRulesDigest === null))) {
+      throw new Error('Persisted minigame compaction state is missing or malformed')
+    }
+    const evictedCount = validEvictedCount ? Number(rawCompaction?.evictedCount) : 0
     const rawLog = Array.isArray(state.minigameResultLog) ? state.minigameResultLog : []
     state.minigameResultLog = rawLog.flatMap((rawRecord, index) => {
       if (!rawRecord || typeof rawRecord !== 'object') return []
       const record = rawRecord as Partial<(typeof state.minigameResultLog)[number]>
       const result = record.result
+      if (snapshotVersion >= 16 && (!Number.isSafeInteger(record.sequence)
+        || Number(record.sequence) <= 0 || !Number.isSafeInteger(record.attempt)
+        || Number(record.attempt) < 0)) return []
       if (!result || (result.kind !== 'td' && result.kind !== 'tavern'
         && result.kind !== 'alchemy' && result.kind !== 'inventory')) return []
       if (result.kind === 'tavern' || result.kind === 'alchemy' || result.kind === 'inventory') {
@@ -5753,6 +6177,9 @@ export class EmpiresEndgameEngine {
           || result.kind === 'tavern' && result.outcome !== 'completed') return []
         return [{
           sessionId: record.sessionId ?? result.sessionId,
+          sequence: snapshotVersion < 16
+            ? evictedCount + index + 1
+            : Math.floor(record.sequence ?? 0),
           attempt: Math.max(0, Math.floor(record.attempt ?? 0)),
           origin: record.origin ?? {
             returnPhase: 'empire',
@@ -5778,6 +6205,9 @@ export class EmpiresEndgameEngine {
       }
       return [{
         sessionId,
+        sequence: snapshotVersion < 16
+          ? evictedCount + index + 1
+          : Math.floor(record.sequence ?? 0),
         attempt: Math.max(0, Math.floor(record.attempt ?? 0)),
         origin: record.origin ?? {
           returnPhase: 'cards',
@@ -5786,11 +6216,85 @@ export class EmpiresEndgameEngine {
         result: normalizedResult,
       }]
     })
-    state.minigameResultCompaction ??= {
-      evictedCount: 0,
-      historyDigest: '',
-      lastSessionId: null,
-      lastRulesDigest: null,
+    if (snapshotVersion >= 16 && state.minigameResultLog.length !== rawLog.length) {
+      throw new Error('Persisted minigame result log contains a malformed record')
+    }
+    if (snapshotVersion < 16) {
+      state.minigameResultLog.forEach((record, index) => {
+        record.sequence = evictedCount + index + 1
+      })
+    }
+    for (const record of state.minigameResultLog) {
+      if (!record.result.rulesIdentity
+        || !Number.isSafeInteger(record.result.rulesIdentity.configSchemaVersion)
+        || record.result.rulesIdentity.configSchemaVersion <= 0
+        || typeof record.result.rulesIdentity.rulesDigest !== 'string'
+        || record.result.rulesIdentity.rulesDigest.length === 0) {
+        throw new Error('Persisted minigame result rules identity is malformed')
+      }
+      if (record.sessionId !== record.result.sessionId) {
+        throw new Error('Persisted minigame result session identities are inconsistent')
+      }
+      const canonicalSequence = this.canonicalMinigameSequence(record.sessionId)
+      if (canonicalSequence !== null && canonicalSequence !== record.sequence) {
+        throw new Error('Persisted minigame result canonical sequence is inconsistent')
+      }
+    }
+    const expectedSequences = state.minigameResultLog.map((_, index) => evictedCount + index + 1)
+    if (snapshotVersion >= 16 && state.minigameResultLog.some((record, index) => (
+      record.sequence !== expectedSequences[index]
+    ))) {
+      throw new Error('Persisted minigame result sequences are not contiguous')
+    }
+    const settledThroughSequence = evictedCount + state.minigameResultLog.length
+    if (settledThroughSequence > EMPIRES_STABILIZATION_BUDGETS.maxSettledMinigames) {
+      throw new Error('Persisted minigame settlement count exceeds the shipped safety limit')
+    }
+    if (snapshotVersion >= 16 && rawCompaction?.settledThroughSequence !== settledThroughSequence) {
+      throw new Error('Persisted minigame settlement watermark is inconsistent')
+    }
+    const rawLegacyIds = (rawCompaction?.legacySettledSessionIds ?? []) as unknown[]
+    if (snapshotVersion >= 16 && rawLegacyIds.some(id => (
+      typeof id === 'string' && this.canonicalMinigameSequence(id) !== null
+    ))) throw new Error('Persisted legacy minigame identity tail contains a canonical session')
+    if (snapshotVersion >= 16 && evictedCount > 0
+      && (typeof rawCompaction?.historyDigest !== 'string' || rawCompaction.historyDigest.length === 0
+        || typeof rawCompaction.lastSessionId !== 'string' || rawCompaction.lastSessionId.length === 0
+        || typeof rawCompaction.lastRulesDigest !== 'string' || rawCompaction.lastRulesDigest.length === 0)) {
+      throw new Error('Persisted minigame compaction evidence is incomplete')
+    }
+    const compactedCanonicalSequence = typeof rawCompaction?.lastSessionId === 'string'
+      ? this.canonicalMinigameSequence(rawCompaction.lastSessionId)
+      : null
+    if (snapshotVersion >= 16 && compactedCanonicalSequence !== null
+      && compactedCanonicalSequence !== evictedCount) {
+      throw new Error('Persisted minigame compaction identity is inconsistent')
+    }
+    const legacyIds = [
+      ...rawLegacyIds,
+      ...(rawCompaction?.lastSessionId
+        && (snapshotVersion < 16
+          || this.canonicalMinigameSequence(rawCompaction.lastSessionId) === null)
+        ? [rawCompaction.lastSessionId]
+        : []),
+      ...state.minigameResultLog
+        .map(record => record.sessionId),
+    ].filter((id): id is string => typeof id === 'string' && id.length > 0)
+      .filter(id => this.canonicalMinigameSequence(id) === null)
+    state.minigameResultCompaction = {
+      evictedCount,
+      historyDigest: typeof rawCompaction?.historyDigest === 'string'
+        ? rawCompaction.historyDigest
+        : '',
+      lastSessionId: typeof rawCompaction?.lastSessionId === 'string'
+        ? rawCompaction.lastSessionId
+        : null,
+      lastRulesDigest: typeof rawCompaction?.lastRulesDigest === 'string'
+        ? rawCompaction.lastRulesDigest
+        : null,
+      settledThroughSequence,
+      legacySettledSessionIds: [...new Set(legacyIds)]
+        .slice(-EMPIRES_STABILIZATION_BUDGETS.legacySettledSessionRetention),
     }
     this.compactMinigameResultLog(state)
 
@@ -5800,16 +6304,47 @@ export class EmpiresEndgameEngine {
     }
     const session = state.minigame as EmpiresMinigameSession & {
       id?: string
+      sequence?: number
       attempt?: number
       origin?: EmpiresMinigameSession['origin']
-      rulesIdentity?: TdRulesIdentity | AlchemyRulesIdentity | InventoryRulesIdentity
+      rulesIdentity?: TdRulesIdentity | ReturnType<typeof createTavernRulesIdentity>
+        | AlchemyRulesIdentity | InventoryRulesIdentity
     }
     if ((session.kind !== 'td' && session.kind !== 'tavern' && session.kind !== 'alchemy'
       && session.kind !== 'inventory')
       || !session.plan || session.seed === undefined) {
       throw new Error('Active minigame session is malformed')
     }
+    if (snapshotVersion < 16
+      && (!isRecordValue(session.origin) || !isRecordValue(session.origin.context))) {
+      session.origin = {
+        returnPhase: 'cards',
+        context: { kind: 'manual', sourceId: 'legacy-minigame' },
+      }
+    }
     session.id ??= `${session.plan.id}:${String(session.seed)}`
+    if (snapshotVersion < 16) {
+      const legacySessionId = session.id
+      session.sequence = this.nextMinigameSequence(state)
+      session.id = this.canonicalMinigameSessionId(session.sequence, session.plan.id, session.seed)
+      session.plan.sessionId = session.id
+      if (session.origin?.context.kind === 'expedition-assault') {
+        const expedition = state.expeditions.byDefinitionId[session.origin.context.expeditionId]
+        if (expedition?.activeSessionId === legacySessionId) expedition.activeSessionId = session.id
+      }
+      if (session.origin?.context.kind === 'expedition-packing') {
+        const expedition = state.expeditions.byDefinitionId[session.origin.context.expeditionId]
+        if (expedition?.activeSessionId === legacySessionId) expedition.activeSessionId = session.id
+        if (expedition?.provisionPlan?.source === 'packing'
+          && expedition.provisionPlan.packingSessionId === legacySessionId) {
+          expedition.provisionPlan.packingSessionId = session.id
+        }
+      }
+    } else if (!Number.isSafeInteger(session.sequence)
+      || session.sequence !== this.nextMinigameSequence(state)
+      || session.id !== this.canonicalMinigameSessionId(session.sequence, session.plan.id, session.seed)) {
+      throw new Error('Active minigame sequence or canonical identity is stale or malformed')
+    }
     if (session.kind === 'td' && !session.rulesIdentity) {
       session.rulesIdentity = cloneSerializable(currentTdRules)
       session.plan = migrateLegacyActiveTdPlan(
@@ -5843,6 +6378,25 @@ export class EmpiresEndgameEngine {
         : session.kind === 'alchemy'
           ? currentAlchemyRules
           : currentInventoryRules
+    if (snapshotVersion < 16 && session.rulesIdentity
+      && Number.isSafeInteger(session.rulesIdentity.configSchemaVersion)
+      && session.rulesIdentity.configSchemaVersion > 0) {
+      const legacyConfigSchemaVersion = session.rulesIdentity.configSchemaVersion
+      const legacyRules = session.kind === 'td'
+        ? this.legacyV15TdRulesIdentity(legacyConfigSchemaVersion)
+        : session.kind === 'tavern'
+          ? this.legacyV15TavernRulesIdentity(legacyConfigSchemaVersion)
+          : session.kind === 'alchemy'
+            ? this.legacyV15AlchemyRulesIdentity(legacyConfigSchemaVersion)
+          : session.kind === 'inventory'
+            ? this.legacyV15InventoryRulesIdentity(legacyConfigSchemaVersion)
+            : currentAlchemyRules
+      if (session.rulesIdentity.configSchemaVersion === legacyRules.configSchemaVersion
+        && session.rulesIdentity.rulesDigest === legacyRules.rulesDigest) {
+        session.rulesIdentity = cloneSerializable(expectedRules)
+        session.plan.rulesIdentity = cloneSerializable(expectedRules)
+      }
+    }
     if (!session.rulesIdentity
       || session.rulesIdentity.configSchemaVersion !== expectedRules.configSchemaVersion
       || session.rulesIdentity.rulesDigest !== expectedRules.rulesDigest) {
@@ -5860,12 +6414,72 @@ export class EmpiresEndgameEngine {
           ? validateAlchemyPlan(session.plan)
           : validateInventoryPlan(session.plan)
     if (planErrors.length > 0) throw new Error(`Invalid restored ${session.kind} plan: ${planErrors.join('; ')}`)
-    session.origin ??= {
-      returnPhase: 'cards',
-      context: { kind: 'manual', sourceId: 'legacy-minigame' },
-    }
-    if ((session.origin as { returnPhase: string }).returnPhase === 'minigame') {
-      session.origin.returnPhase = 'cards'
+    if (snapshotVersion < 16) {
+      if ((session.origin as { returnPhase: string }).returnPhase === 'minigame') {
+        session.origin.returnPhase = 'cards'
+      }
+    } else {
+      const rawOrigin = session.origin as unknown
+      if (!isRecordValue(rawOrigin) || !isRecordValue(rawOrigin.context)
+        || !['cards', 'divineGift', 'empire', 'event'].includes(String(rawOrigin.returnPhase))) {
+        throw new Error('Active minigame origin is missing or malformed')
+      }
+      const context = rawOrigin.context
+      const nonEmptyString = (value: unknown): value is string => (
+        typeof value === 'string' && value.trim().length > 0
+      )
+      const positiveInteger = (value: unknown): value is number => (
+        Number.isSafeInteger(value) && Number(value) > 0
+      )
+      if (context.kind === 'manual') {
+        if (session.kind !== 'td' || !nonEmptyString(context.sourceId)) {
+          throw new Error('Active minigame origin context is incompatible with its kind')
+        }
+      } else if (context.kind === 'alliance-wave') {
+        if (session.kind !== 'td' || rawOrigin.returnPhase !== 'cards'
+          || !positiveInteger(context.scheduledCon) || !nonEmptyString(context.waveId)
+          || session.plan.scheduledCon !== context.scheduledCon
+          || session.plan.wave.id !== context.waveId) {
+          throw new Error('Active alliance TD origin does not match its immutable plan')
+        }
+      } else if (context.kind === 'tavern-visit') {
+        if (session.kind !== 'tavern' || rawOrigin.returnPhase !== 'empire'
+          || !nonEmptyString(context.cityId) || !positiveInteger(context.con)
+          || session.plan.cityId !== context.cityId || session.plan.con !== context.con
+          || context.con !== state.con) {
+          throw new Error('Active Tavern origin does not match its immutable plan')
+        }
+      } else if (context.kind === 'alchemy-experiment') {
+        if (session.kind !== 'alchemy' || rawOrigin.returnPhase !== 'empire'
+          || !nonEmptyString(context.cityId) || !nonEmptyString(context.recipeId)
+          || !positiveInteger(context.con)
+          || session.plan.originCityId !== context.cityId
+          || session.plan.recipe.id !== context.recipeId || context.con !== state.con) {
+          throw new Error('Active Alchemy origin does not match its immutable plan')
+        }
+      } else if (context.kind === 'expedition-assault') {
+        const definition = nonEmptyString(context.expeditionId)
+          ? this.expeditionDefinitions.get(context.expeditionId)
+          : undefined
+        const variant = definition
+          ? this.config.td.planVariants?.find(candidate => candidate.id === definition.tdVariantId)
+          : undefined
+        if (session.kind !== 'td' || rawOrigin.returnPhase !== 'empire'
+          || !positiveInteger(context.attempt) || !definition || !variant
+          || session.plan.mode !== 'assault' || session.plan.scheduledCon !== state.con
+          || session.plan.battlefield.id !== variant.battlefieldId
+          || session.plan.wave.id !== variant.waveId
+          || digestTdValue(session.plan.objective) !== digestTdValue(variant.objective)) {
+          throw new Error('Active expedition TD origin does not match its immutable plan')
+        }
+      } else if (context.kind === 'expedition-packing') {
+        if (session.kind !== 'inventory' || rawOrigin.returnPhase !== 'empire'
+          || !nonEmptyString(context.expeditionId) || !positiveInteger(context.attempt)) {
+          throw new Error('Active Inventory origin is incompatible with its expedition lifecycle')
+        }
+      } else {
+        throw new Error('Active minigame origin context is missing or unknown')
+      }
     }
     session.attempt = Math.max(0, Math.floor(session.attempt ?? 0)) + 1
     if (session.origin.context.kind === 'expedition-assault') {
@@ -5904,12 +6518,20 @@ export class EmpiresEndgameEngine {
       Math.floor(this.config.alchemy.resultLogLimit ?? 32),
       Math.floor(this.config.inventory.resultLogLimit ?? 32),
     ))
-    while (state.minigameResultLog.length > limit) {
+    const retainedEnvelopeBytes = () => empiresUtf8ByteLength(JSON.stringify({
+      schemaVersion: EMPIRES_SAVE_SCHEMA_VERSION,
+      savedAt: '2000-01-01T00:00:00.000Z',
+      state,
+    }))
+    const detailByteTarget = EMPIRES_STABILIZATION_BUDGETS.longCampaignSaveUtf8Bytes - 1_024
+    while (state.minigameResultLog.length > limit
+      || (state.minigameResultLog.length > 0 && retainedEnvelopeBytes() > detailByteTarget)) {
       const evicted = state.minigameResultLog.shift()!
       state.minigameResultCompaction.evictedCount += 1
       state.minigameResultCompaction.historyDigest = digestTdValue({
         previous: state.minigameResultCompaction.historyDigest,
         sessionId: evicted.sessionId,
+        sequence: evicted.sequence,
         attempt: evicted.attempt,
         rulesDigest: evicted.result.rulesIdentity.rulesDigest,
         resultDigest: digestTdValue(evicted.result),
@@ -5961,6 +6583,7 @@ export class EmpiresEndgameEngine {
     speedPerSecond: number,
     rosterUnitInstanceIds?: ReadonlySet<string>,
   ): TdDeploymentPlan[] {
+    let remainingUnitInstances = EMPIRES_STABILIZATION_BUDGETS.maxRosterUnitInstances
     return state.empire.cities
       .filter(city => this.isRegionAccessibleInState(state, city.regionId))
       .sort((left, right) => stableStringCompare(left.id, right.id))
@@ -5981,7 +6604,9 @@ export class EmpiresEndgameEngine {
                 && instance.readyAtCon <= state.con)
             })
             .sort(stableStringCompare)
+            .slice(0, remainingUnitInstances)
           if (availableUnitInstanceIds.length <= 0) return []
+          remainingUnitInstances -= availableUnitInstanceIds.length
           return [{
             id: cohort.id,
             cohortId: cohort.id,
@@ -6066,8 +6691,9 @@ export class EmpiresEndgameEngine {
     if (!wave) throw new Error(`TD variant ${variant.id} references a missing wave`)
     const threat = Math.max(0, state.external.allianceThreat)
     const seed = Math.floor(nextEmpiresRandom(state.rng) * 0x1_0000_0000)
+    const sequence = this.nextMinigameSequence(state)
     const planId = `td-${variant.mode}-${completedCon}-${variant.id}`
-    const sessionId = `${planId}:${seed}`
+    const sessionId = this.canonicalMinigameSessionId(sequence, planId, seed)
     const rulesIdentity = this.currentTdRulesIdentity()
     const researchedTechnologyIds = new Set(state.empire.researchedTechnologyIds)
     const plan: TdBattlePlan = {
@@ -6110,6 +6736,7 @@ export class EmpiresEndgameEngine {
     state.external.allianceThreat = Math.max(0, threat + td.alliance!.threatPerWave)
     state.minigame = {
       id: sessionId,
+      sequence,
       kind: 'td',
       plan,
       rulesIdentity,
@@ -6323,8 +6950,12 @@ export class EmpiresEndgameEngine {
       && (definition.complaint.minimumLossRatio === null
         || lossRatio >= definition.complaint.minimumLossRatio)
     const complaintId = `expedition-complaint:${definition.id}:${expedition.assaultAttempts}`
-    if (!matches || expedition.complaintTriggerIds.includes(complaintId)) return false
+    if (!matches || expedition.assaultAttempts <= expedition.complaintThroughAttempt
+      || expedition.complaintTriggerIds.includes(complaintId)) return false
+    expedition.complaintThroughAttempt = expedition.assaultAttempts
     expedition.complaintTriggerIds.push(complaintId)
+    expedition.complaintTriggerIds = expedition.complaintTriggerIds
+      .slice(-EMPIRES_STABILIZATION_BUDGETS.recentExpeditionComplaintRetention)
     this.applyLoyaltyDelta(
       { kind: 'region', regionId: definition.originRegionId },
       definition.complaint.loyaltyDelta,
@@ -6508,7 +7139,7 @@ export class EmpiresEndgameEngine {
     result: Extract<EmpiresMinigameResult, { kind: 'td' }>,
     session: Extract<EmpiresMinigameSession, { kind: 'td' }>,
   ): void {
-    if (this.state.minigameResultLog.some(record => record.sessionId === session.id)) {
+    if (this.minigameAlreadySettled(session)) {
       throw new Error(`Minigame ${session.id} was already settled`)
     }
     const settlement = this.config.td.settlement!
@@ -6647,7 +7278,7 @@ export class EmpiresEndgameEngine {
 
     for (const [cityId, loss] of cityLosses) {
       this.consumeBattleLoss({
-        id: `td-loss:${session.id}:${cityId}`,
+        id: `td-loss:minigame:${session.sequence}:${cityId}`,
         target: { kind: 'city', cityId },
         deployed: loss.deployed,
         lost: loss.lost,
@@ -6683,13 +7314,6 @@ export class EmpiresEndgameEngine {
       removedVeteranUnitInstanceIds,
       newlyVeteranUnitInstanceIds,
     })
-    this.state.minigameResultLog.push({
-      sessionId: session.id,
-      attempt: session.attempt,
-      origin: cloneSerializable(session.origin),
-      result: cloneSerializable(result),
-    })
-    this.compactMinigameResultLog()
     this.state.minigame = null
     this.state.phase = session.origin.returnPhase
     this.refreshProductions()
@@ -6707,7 +7331,7 @@ export class EmpiresEndgameEngine {
     session: Extract<EmpiresMinigameSession, { kind: 'tavern' }>,
   ): void {
     if (result.error) throw new Error(result.error)
-    if (this.state.minigameResultLog.some(record => record.sessionId === session.id)) {
+    if (this.minigameAlreadySettled(session)) {
       throw new Error(`Minigame ${session.id} was already settled`)
     }
     const goldResourceId = this.config.empire.domesticEconomy.goldResourceId
@@ -6745,13 +7369,6 @@ export class EmpiresEndgameEngine {
       this.state.durak.deckMemoryInspectionsUsed += 1
     }
     this.state.tavern.lastVisitedCon = this.state.con
-    this.state.minigameResultLog.push({
-      sessionId: session.id,
-      attempt: session.attempt,
-      origin: cloneSerializable(session.origin),
-      result: cloneSerializable(result),
-    })
-    this.compactMinigameResultLog()
     this.state.minigame = null
     this.state.phase = session.origin.returnPhase
     this.appendChronicle(this.state, {
@@ -6774,7 +7391,7 @@ export class EmpiresEndgameEngine {
     session: Extract<EmpiresMinigameSession, { kind: 'alchemy' }>,
   ): void {
     if (result.error) throw new Error(result.error)
-    if (this.state.minigameResultLog.some(record => record.sessionId === session.id)) {
+    if (this.minigameAlreadySettled(session)) {
       throw new Error(`Minigame ${session.id} was already settled`)
     }
     const context = session.origin.context
@@ -6847,13 +7464,6 @@ export class EmpiresEndgameEngine {
       })
     }
 
-    this.state.minigameResultLog.push({
-      sessionId: session.id,
-      attempt: session.attempt,
-      origin: cloneSerializable(session.origin),
-      result: cloneSerializable(result),
-    })
-    this.compactMinigameResultLog()
     this.state.minigame = null
     this.state.phase = session.origin.returnPhase
     this.refreshProductions()
@@ -6864,8 +7474,6 @@ export class EmpiresEndgameEngine {
       outcome: result.outcome,
       con: this.state.con,
     })
-    if (this.state.phase === 'empire' && this.state.empire.daysRemaining <= 0
-      && !this.mandatoryDialogueBlockedReason()) this.finishEmpireInternal()
   }
 
   private settleInventoryOutcome(
@@ -6873,7 +7481,7 @@ export class EmpiresEndgameEngine {
     session: Extract<EmpiresMinigameSession, { kind: 'inventory' }>,
   ): void {
     if (result.error) throw new Error(result.error)
-    if (this.state.minigameResultLog.some(record => record.sessionId === session.id)) {
+    if (this.minigameAlreadySettled(session)) {
       throw new Error(`Minigame ${session.id} was already settled`)
     }
     const context = session.origin.context
@@ -6954,13 +7562,6 @@ export class EmpiresEndgameEngine {
       })
     }
 
-    this.state.minigameResultLog.push({
-      sessionId: session.id,
-      attempt: session.attempt,
-      origin: cloneSerializable(session.origin),
-      result: cloneSerializable(result),
-    })
-    this.compactMinigameResultLog()
     this.state.minigame = null
     this.state.phase = session.origin.returnPhase
     this.refreshProductions()
@@ -6971,6 +7572,12 @@ export class EmpiresEndgameEngine {
       outcome: result.outcome,
       con: this.state.con,
     })
+  }
+
+  private finishEmpireAfterDayConsumingMinigame(kind: EmpiresMinigameSession['kind']): void {
+    if (kind === 'tavern') return
+    if (this.state.phase === 'empire' && this.state.empire.daysRemaining <= 0
+      && !this.mandatoryDialogueBlockedReason()) this.finishEmpireInternal()
   }
 
   private playAttack(actor: EmpiresActor, cardId: string): EmpiresActionResult {
@@ -8272,13 +8879,92 @@ export class EmpiresEndgameEngine {
         target: { kind: 'city', cityId: request.cityId },
       })
     }
+    this.compactEpidemicHistory()
     this.refreshProductions()
+  }
+
+  private epidemicInstanceSequence(instanceId: string): number | null {
+    const match = /:(\d+)$/.exec(instanceId)
+    if (!match) return null
+    const sequence = Number(match[1])
+    return Number.isSafeInteger(sequence) && sequence > 0 ? sequence : null
+  }
+
+  private compactEpidemicHistory(state: EmpiresCampaignState = this.state): void {
+    const ended = state.epidemics
+      .filter(epidemic => epidemic.endedAtCon !== null)
+      .sort((left, right) => (
+        (left.endedAtCon ?? Number.MAX_SAFE_INTEGER) - (right.endedAtCon ?? Number.MAX_SAFE_INTEGER)
+        || left.startedCon - right.startedCon
+        || stableStringCompare(left.id, right.id)
+      ))
+    const evict = ended.slice(0, Math.max(
+      0,
+      ended.length - EMPIRES_STABILIZATION_BUDGETS.endedEpidemicRetention,
+    ))
+    if (evict.length === 0) return
+    const evictedIds = new Set(evict.map(epidemic => epidemic.id))
+    for (const epidemic of evict) {
+      state.epidemicCompaction.evictedCount += 1
+      state.epidemicCompaction.historyDigest = digestTdValue({
+        previous: state.epidemicCompaction.historyDigest,
+        epidemic,
+      })
+      state.epidemicCompaction.lastInstanceId = epidemic.id
+      state.epidemicCompaction.lastRulesDigest = epidemic.rulesDigest
+      state.epidemicCompaction.maxEvictedSequence = Math.max(
+        state.epidemicCompaction.maxEvictedSequence,
+        this.epidemicInstanceSequence(epidemic.id) ?? 0,
+      )
+    }
+    state.epidemics = state.epidemics.filter(epidemic => !evictedIds.has(epidemic.id))
   }
 
   private normalizeEpidemics(state: EmpiresCampaignState, snapshotVersion: number): void {
     if (!Array.isArray(state.epidemics)) throw new Error('Invalid epidemic state.')
     if (snapshotVersion < 6 && state.epidemics.length > 0) {
       throw new Error('Legacy saves cannot contain epidemic state.')
+    }
+    const rawCompaction = state.epidemicCompaction as Partial<
+      EmpiresCampaignState['epidemicCompaction']
+    > | null | undefined
+    const validEvictedCount = Number.isSafeInteger(rawCompaction?.evictedCount)
+      && Number(rawCompaction?.evictedCount) >= 0
+    if (snapshotVersion >= 16 && (!isRecordValue(rawCompaction) || !validEvictedCount
+      || typeof rawCompaction.historyDigest !== 'string'
+      || !(typeof rawCompaction.lastInstanceId === 'string' || rawCompaction.lastInstanceId === null)
+      || !(typeof rawCompaction.lastRulesDigest === 'string' || rawCompaction.lastRulesDigest === null)
+      || !Number.isSafeInteger(rawCompaction.maxEvictedSequence)
+      || Number(rawCompaction.maxEvictedSequence) < 0
+      || (Number(rawCompaction.evictedCount) > 0
+        && (rawCompaction.historyDigest.length === 0 || !rawCompaction.lastInstanceId
+          || !rawCompaction.lastRulesDigest || Number(rawCompaction.maxEvictedSequence) < 1)))) {
+      throw new Error('Persisted epidemic compaction evidence is missing or malformed.')
+    }
+    const compactedLastSequence = typeof rawCompaction?.lastInstanceId === 'string'
+      ? this.epidemicInstanceSequence(rawCompaction.lastInstanceId)
+      : null
+    const rawMaxEvictedSequence = Number.isSafeInteger(rawCompaction?.maxEvictedSequence)
+      && Number(rawCompaction?.maxEvictedSequence) >= 0
+      ? Number(rawCompaction?.maxEvictedSequence)
+      : snapshotVersion < 16 ? compactedLastSequence ?? 0 : null
+    if (rawMaxEvictedSequence === null) {
+      throw new Error('Persisted epidemic compaction watermark is missing or invalid.')
+    }
+    state.epidemicCompaction = {
+      evictedCount: validEvictedCount
+        ? Number(rawCompaction?.evictedCount)
+        : 0,
+      historyDigest: typeof rawCompaction?.historyDigest === 'string'
+        ? rawCompaction.historyDigest
+        : '',
+      lastInstanceId: typeof rawCompaction?.lastInstanceId === 'string'
+        ? rawCompaction.lastInstanceId
+        : null,
+      lastRulesDigest: typeof rawCompaction?.lastRulesDigest === 'string'
+        ? rawCompaction.lastRulesDigest
+        : null,
+      maxEvictedSequence: rawMaxEvictedSequence,
     }
     const definitionIds = new Set(this.config.empire.epidemics.definitions.map(item => item.id))
     const cityIds = new Set(this.config.empire.cities.map(item => item.id))
@@ -8317,10 +9003,26 @@ export class EmpiresEndgameEngine {
       )).sort(stableStringCompare)
       instanceIds.add(epidemic.id)
     }
-    state.nextEpidemicSequence = Number.isInteger(state.nextEpidemicSequence)
-      && state.nextEpidemicSequence > 0
+    const maximumPersistedSequence = state.epidemics.reduce((maximum, epidemic) => (
+      Math.max(maximum, this.epidemicInstanceSequence(epidemic.id) ?? 0)
+    ), 0)
+    const maximumKnownSequence = Math.max(
+      maximumPersistedSequence,
+      state.epidemicCompaction.maxEvictedSequence,
+    )
+    if (snapshotVersion >= 16 && (!Number.isSafeInteger(state.nextEpidemicSequence)
+      || state.nextEpidemicSequence <= maximumKnownSequence)) {
+      throw new Error('Persisted epidemic sequence is not above retained and compacted identities.')
+    }
+    state.nextEpidemicSequence = snapshotVersion >= 16
       ? state.nextEpidemicSequence
-      : state.epidemics.length + 1
+      : Math.max(
+          maximumKnownSequence + 1,
+          Number.isInteger(state.nextEpidemicSequence) && state.nextEpidemicSequence > 0
+            ? state.nextEpidemicSequence
+            : 1,
+        )
+    this.compactEpidemicHistory(state)
   }
 
   private epidemicProductionMultiplier(cityId: string): number {
@@ -10062,10 +10764,15 @@ export class EmpiresEndgameEngine {
         ])),
       ])),
       consumedBattleLossIds: [],
+      battleLossCompaction: {
+        evictedCount: 0,
+        historyDigest: '',
+        sealedLegacyIdentities: false,
+      },
     }
   }
 
-  private normalizePoliticalState(state: EmpiresCampaignState): void {
+  private normalizePoliticalState(state: EmpiresCampaignState, snapshotVersion: number): void {
     const initial = this.initialLoyaltyState()
     const legacyFlags = state.empire.flags
     const rawReputation = Number.isFinite(state.empire.reputation)
@@ -10079,6 +10786,28 @@ export class EmpiresEndgameEngine {
       (state.empire.loyalty.consumedBattleLossIds ?? [])
         .filter(id => typeof id === 'string' && id.length > 0),
     )]
+    const rawBattleLossCompaction = state.empire.loyalty.battleLossCompaction as Partial<
+      EmpiresLoyaltyState['battleLossCompaction']
+    > | null | undefined
+    const validBattleLossCount = Number.isSafeInteger(rawBattleLossCompaction?.evictedCount)
+      && Number(rawBattleLossCompaction?.evictedCount) >= 0
+    if (snapshotVersion >= 16 && (!isRecordValue(rawBattleLossCompaction)
+      || !validBattleLossCount || typeof rawBattleLossCompaction.historyDigest !== 'string'
+      || typeof rawBattleLossCompaction.sealedLegacyIdentities !== 'boolean'
+      || (Number(rawBattleLossCompaction.evictedCount) > 0
+        && rawBattleLossCompaction.historyDigest.length === 0))) {
+      throw new Error('Persisted battle-loss compaction evidence is missing or malformed')
+    }
+    state.empire.loyalty.battleLossCompaction = {
+      evictedCount: validBattleLossCount
+        ? Number(rawBattleLossCompaction?.evictedCount)
+        : 0,
+      historyDigest: typeof rawBattleLossCompaction?.historyDigest === 'string'
+        ? rawBattleLossCompaction.historyDigest
+        : '',
+      sealedLegacyIdentities: rawBattleLossCompaction?.sealedLegacyIdentities === true,
+    }
+    this.compactBattleLossIdentities(state)
 
     for (const definition of this.config.empire.map.regions) {
       const flagId = `loyalty${definition.id.charAt(0).toUpperCase()}${definition.id.slice(1)}`
@@ -10119,6 +10848,7 @@ export class EmpiresEndgameEngine {
       'epidemic-start', 'epidemic-impact', 'epidemic-spread',
       'epidemic-containment', 'epidemic-end',
       'loan', 'insurance', 'fair', 'temple',
+      'tavern', 'alchemy', 'expedition', 'veteran',
     ])
     const seenIds = new Set<string>()
     state.empire.chronicle = (state.empire.chronicle ?? [])
@@ -10183,6 +10913,7 @@ export class EmpiresEndgameEngine {
       })
       if (target.kind === 'region') this.updateRegionControl(state, target.regionId, identity)
     }
+    this.compactBattleLossIdentities(state)
     delete state.army.pendingLoyaltyDeltas
   }
 

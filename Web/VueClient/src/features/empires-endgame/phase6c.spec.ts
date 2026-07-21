@@ -374,7 +374,7 @@ describe('Empire\'s Endgame Phase 6C economy content closure', () => {
       savedAt: '2026-07-17T00:00:00.000Z',
       state: legacyState,
     }, current.id)
-    expect(imported.schemaVersion).toBe(15)
+    expect(imported.schemaVersion).toBe(8)
     expect(new EmpiresEndgameEngine(current, imported).state.empire.economyContent).toMatchObject({
       eventHistory: [],
       resolvedOnceEventIds: [],

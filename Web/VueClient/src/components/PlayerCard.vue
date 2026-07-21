@@ -59,7 +59,7 @@ const levelUpQuotes: Record<string, string[]> = {
   'DeepList': ['гек?'],
   'Братишка': ['Буль!'],
   'Дезморалист': ['Всё бесполезно...', 'Сдавайся...', 'Нет смысла...'],
-  'Допа': ['Тактика решает.', 'По плану.', 'Рассчитано.'],
+  'Dopa': ['Тактика решает.', 'По плану.', 'Рассчитано.'],
   'Geralt': ['Ветер воет...', 'Место Силы...'],
   'Молодой Глеб': ['Опять нерфят...', 'Сколько можно?!', 'Риоты совсем...', 'Да как так?!'],
   'TheBoys': ['Diabolical.', 'Работаем, пацаны.', 'Oi! Кого качаем?', 'Voilà!'],
@@ -185,7 +185,7 @@ const widgetHelpCopy = {
   eren: ['Rumbling only checks losses in round 10. The left counter shows Attack Titan readiness; fire marks show accumulated hatred.', 'RUMBLING проверяет только поражения в 10-м раунде. Счётчик слева показывает готовность Атакующего Титана, а метки 🔥 — накопленную ненависть.'],
   naruto: ['A ready Harem replaces Block. After use it recharges for two turns; Block remains ordinary while cooling down.', 'Готовый Гарем заменяет Блок. После использования он перезаряжается два хода; во время отката Блок остаётся обычным.'],
   gordon: ['Crowbar tracks every resolved fight; every third one is a win. Headcrabs show their remaining incubation time, and zombies can never raise Intelligence above zero.', 'Монтировка считает состоявшиеся бои: каждый третий становится победой. Для хэдкрабов показано время до превращения, а зомби больше не могут поднять Интеллект выше нуля.'],
-  jonSnow: ['Skill unlocks Server King. Wolves mark the two weakest players; Castle Black shows the remaining position lock.', 'Скилл открывает Короля Сервера. Волки отмечают двух слабейших игроков, а Черный Замок показывает оставшееся удержание позиции.'],
+  jonSnow: ['Skill unlocks Server King. Wolves mark the two weakest players; Castle Black shows the remaining position lock and counts only other same-side winners.', 'Скилл открывает Короля Сервера. Волки отмечают двух слабейших игроков, а Черный Замок показывает оставшееся удержание позиции и считает только победы других соратников.'],
   bulk: ['The current chance for Boole to lose his turn. BUFFED means his zero-Psyche stat boost is active.', 'Текущий шанс Буля пропустить ход. BUFFED означает усиление характеристик при нулевой Психике.'],
   tea: ['When tea is ready, the next attack spends it for one point and makes the target skip their next turn.', 'Когда чай готов, следующая атака потратит его: даст очко и заставит цель пропустить следующий ход.'],
   jew: ['Tracks the Psyche accumulated by the PROFIT mechanic.', 'Счётчик показывает, сколько Психики уже накоплено механикой PROFIT.'],
@@ -286,6 +286,16 @@ const rarityClass = computed(() => {
 
 const isGeralt = computed(() => props.player?.character.name === 'Геральт')
 const isEren = computed(() => props.player?.character.name === 'Эрен Йегер')
+const isDopa = computed(() => props.player?.character.name === 'Dopa')
+const isDopaMetaChoice = computed(() => isDopa.value
+  && hasLvlUpPoints.value
+  && passiveStates.value?.dopa?.metaChoiceReady === true)
+const dopaIq = computed(() => {
+  const intelligence = props.player?.character.intelligence ?? 0
+  return intelligence >= 7
+    ? 200 + (intelligence - 7) * 9 + Math.max(0, intelligence - 9)
+    : 200 - (7 - intelligence)
+})
 const isIrelia = computed(() => props.player?.character.passives.some((p: { name: string }) => p.name === 'Main Ирелия') ?? false)
 const goblin = computed(() => passiveStates.value?.goblinSwarm ?? null)
 const geralt = computed(() => passiveStates.value?.geralt ?? null)
@@ -302,6 +312,7 @@ const usesSpecialLevelUpPanel = computed(() => {
     || (name === 'Стая Гоблинов' && !!goblin.value)
     || (name === 'Геральт' && !!geralt.value)
     || (name === 'TheBoys' && !!theBoys.value)
+    || (name === 'Dopa' && passiveStates.value?.dopa?.metaChoiceReady === true)
     || (name === 'Котики' && !!passiveStates.value?.kotiki)
     || hasPassive('Vampyr Позорный')
     || hasPassive('Main Ирелия')
@@ -806,15 +817,15 @@ function doomModuleStatus(module: string): { text: string; state: 'live' | 'done
       </div>
 
       <!-- Intelligence -->
-      <div class="stat-block" :class="{ 'resist-hit': resistFlash.includes('intelligence'), 'lvl-up-available': hasLvlUpPoints, 'stat-pulse': pulsingStats.has('intelligence') }">
+      <div v-if="!isDopaMetaChoice" class="stat-block" :class="{ 'resist-hit': resistFlash.includes('intelligence'), 'lvl-up-available': hasLvlUpPoints, 'stat-pulse': pulsingStats.has('intelligence') }">
         <div class="stat-row">
-          <span class="gi gi-lg gi-int">{{ isEren ? 'Злость' : 'INT' }}</span>
+          <span class="gi gi-lg gi-int">{{ isEren ? 'Злость' : isDopa ? 'IQ' : 'INT' }}</span>
           <div class="stat-bar-bg">
             <div v-if="showGhost.has('intelligence')" class="stat-bar-ghost intelligence" :style="{ width: `${(ghostStats?.int ?? 0) * 10}%` }" :key="'ghost-int-' + (ghostStats?.int ?? 0)" />
             <div class="stat-bar intelligence" :style="{ width: `${player.character.intelligence * 10}%` }" />
           </div>
-          <span class="stat-val stat-intelligence">{{ player.character.intelligence }}</span>
-          <button v-if="hasLvlUpPoints && !usesSpecialLevelUpPanel" class="lvl-btn" data-sfx-skip-default="true" :disabled="store.isLevelingUp" :title="isEren ? '+1 Злость' : '+1 Intelligence'" @click="handleLevelUp(1)">+</button>
+          <span class="stat-val stat-intelligence">{{ isDopa ? dopaIq : player.character.intelligence }}</span>
+          <button v-if="hasLvlUpPoints && !usesSpecialLevelUpPanel" class="lvl-btn" data-sfx-skip-default="true" :disabled="store.isLevelingUp" :title="isEren ? '+1 Злость' : isDopa ? '+IQ' : '+1 Intelligence'" @click="handleLevelUp(1)">+</button>
         </div>
         <div v-if="isMe && !isMadara" class="resist-row">
           <span class="resist-badge"><span class="gi gi-def">DEF</span> {{ player.character.intelligenceResist }}</span>
@@ -822,7 +833,7 @@ function doomModuleStatus(module: string): { text: string; state: 'live' | 'done
         </div>
       </div>
       <!-- Strength -->
-      <div class="stat-block" :class="{ 'resist-hit': resistFlash.includes('strength'), 'lvl-up-available': hasLvlUpPoints, 'stat-pulse': pulsingStats.has('strength') }">
+      <div v-if="!isDopaMetaChoice" class="stat-block" :class="{ 'resist-hit': resistFlash.includes('strength'), 'lvl-up-available': hasLvlUpPoints, 'stat-pulse': pulsingStats.has('strength') }">
         <div class="stat-row">
           <span class="gi gi-lg gi-str">STR</span>
           <div class="stat-bar-bg">
@@ -838,7 +849,7 @@ function doomModuleStatus(module: string): { text: string; state: 'live' | 'done
         </div>
       </div>
       <!-- Speed -->
-      <div class="stat-block" :class="{ 'lvl-up-available': hasLvlUpPoints, 'stat-pulse': pulsingStats.has('speed') }">
+      <div v-if="!isDopaMetaChoice" class="stat-block" :class="{ 'lvl-up-available': hasLvlUpPoints, 'stat-pulse': pulsingStats.has('speed') }">
         <div class="stat-row">
           <span class="gi gi-lg gi-spd">SPD</span>
           <div class="stat-bar-bg">
@@ -854,7 +865,7 @@ function doomModuleStatus(module: string): { text: string; state: 'live' | 'done
         </div>
       </div>
       <!-- Floating stat change numbers -->
-      <TransitionGroup name="float-num" tag="div" class="floating-numbers-container">
+      <TransitionGroup v-if="!isDopaMetaChoice" name="float-num" tag="div" class="floating-numbers-container">
         <span
           v-for="fn in floatingNumbers.filter(f => f.stat !== 'psyche')"
           :key="fn.id"
@@ -865,7 +876,7 @@ function doomModuleStatus(module: string): { text: string; state: 'live' | 'done
             Math.abs(fn.delta) >= 3 ? 'float-big' : '',
           ]"
         >
-          {{ fn.delta > 0 ? '+' : '' }}{{ fn.delta }} <span class="float-stat-label">{{ isEren && fn.stat === 'intelligence' ? 'Злость' : { intelligence: 'INT', strength: 'STR', speed: 'SPD', psyche: 'PSY' }[fn.stat] }}</span>
+          {{ fn.delta > 0 ? '+' : '' }}{{ fn.delta }} <span class="float-stat-label">{{ isEren && fn.stat === 'intelligence' ? 'Злость' : isDopa && fn.stat === 'intelligence' ? 'IQ' : { intelligence: 'INT', strength: 'STR', speed: 'SPD', psyche: 'PSY' }[fn.stat] }}</span>
         </span>
       </TransitionGroup>
     </div>
@@ -889,7 +900,7 @@ function doomModuleStatus(module: string): { text: string; state: 'live' | 'done
     </div>
 
     <!-- Psyche (separated — different stat type, hidden during kotiki lvl-up) -->
-    <div v-if="!isTerminalMode" class="pc-psyche-box">
+    <div v-if="!isTerminalMode && !isDopaMetaChoice" class="pc-psyche-box">
       <div class="stat-block" :class="{ 'resist-hit': resistFlash.includes('psyche'), 'lvl-up-available': hasLvlUpPoints, 'stat-pulse': pulsingStats.has('psyche') }">
         <div class="stat-row">
           <span class="gi gi-lg gi-psy">{{ isEren ? 'Самоуверенность' : 'PSY' }}</span>
@@ -1297,7 +1308,7 @@ function doomModuleStatus(module: string): { text: string; state: 'live' | 'done
       <div class="jon-metrics">
         <span>🧠 +{{ passiveStates.jonSnow.bastardIntelligenceBonus }} {{ t('earned INT', 'Интеллекта') }}</span>
         <span>🏰 {{ passiveStates.jonSnow.blackCastleActive ? passiveStates.jonSnow.blackCastleTurnsRemaining : '—' }}</span>
-        <span>👑 {{ passiveStates.jonSnow.loyaltyVictories }} {{ t('loyal wins', 'побед стороны') }}</span>
+        <span>👑 {{ passiveStates.jonSnow.loyaltyVictories }} {{ t('ally wins', 'побед соратников') }}</span>
         <span v-if="passiveStates.jonSnow.watchEnded" class="jon-watch-ended">
           I DUN WAN IT
         </span>

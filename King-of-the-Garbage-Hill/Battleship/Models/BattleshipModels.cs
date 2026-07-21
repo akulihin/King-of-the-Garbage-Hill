@@ -22,6 +22,10 @@ public class BattleshipGame
     public DateTime LastActivity { get; set; } = DateTime.UtcNow;
     /// <summary>Final Boarding is one global transition; this guard prevents repeat bonuses/conversions.</summary>
     public bool BoardingTriggered { get; set; }
+    /// <summary>The shot that triggered Boarding is suspended until every mandatory ship is deployed.</summary>
+    public bool BoardingResolutionPaused { get; set; }
+    public bool PausedTurnContinues { get; set; }
+    public bool PausedMoveSummons { get; set; }
     /// <summary>Poison belongs to a physical board. Key = that board owner's DiscordId.</summary>
     public Dictionary<string, HashSet<(int row, int col)>> PoisonZonesByBoardOwner { get; set; } = new();
 
@@ -113,6 +117,10 @@ public class BattleshipPlayer
     public int LastSummonDeployShotCount { get; set; } = -10; // For 2-shot cooldown
     public bool HasShotThisTurn { get; set; } // For manual move before-shot restriction
     public List<PendingSummonDeploy> PendingSummons { get; set; } = new(); // Delayed summon abilities (pirate/cursed boat death, boarding)
+    /// <summary>Stable cursor for the shared Ballista projectile-origin cycle.</summary>
+    public int NextBallistaAnimationIndex { get; set; }
+    /// <summary>Server-authoritative end of the pause after a combo-preserving hit.</summary>
+    public DateTime NextShotAllowedAtUtc { get; set; } = DateTime.MinValue;
 }
 
 public class Board

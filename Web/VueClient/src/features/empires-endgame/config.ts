@@ -28,6 +28,7 @@ import type {
 import { EMPIRES_GOD_DIALOGUE_TRIGGERS } from './types'
 import { validateEmpiresEndgameConfig } from './engine'
 import { validateEmpiresQuestsConfig } from './quests'
+import { EMPIRES_STABILIZATION_BUDGETS } from './stabilization'
 
 export const EMPIRES_CONFIG_URL = '/empires-endgame/game-config.json'
 export const EMPIRES_CONFIG_STORAGE_KEY = 'empires-endgame:config:v1'
@@ -44,6 +45,45 @@ export function empiresConfigReplacementDisabledReason(
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function requireBudgetAtMost(value: number, path: string, maximum: number): void {
+  if (value > maximum) throw new Error(`${path} exceeds the shipped safety ceiling ${maximum}.`)
+}
+
+function validateRealtimeBudgets(
+  path: string,
+  values: {
+    tickMs: number
+    maxTicks: number
+    maxCommands: number
+    maxCatchUpTicksPerFrame: number
+    resultLogLimit?: number
+  },
+): void {
+  requireBudgetAtMost(values.maxTicks, `${path}.maxTicks`, EMPIRES_STABILIZATION_BUDGETS.maxTicks)
+  requireBudgetAtMost(values.maxCommands, `${path}.maxCommands`, EMPIRES_STABILIZATION_BUDGETS.maxCommands)
+  requireBudgetAtMost(
+    values.maxCatchUpTicksPerFrame,
+    `${path}.maxCatchUpTicksPerFrame`,
+    EMPIRES_STABILIZATION_BUDGETS.maxCatchUpTicksPerFrame,
+  )
+  requireBudgetAtMost(
+    values.tickMs * values.maxTicks,
+    `${path} logical replay duration`,
+    EMPIRES_STABILIZATION_BUDGETS.maxLogicalReplayDurationMs,
+  )
+  if (values.resultLogLimit !== undefined) {
+    requireBudgetAtMost(
+      values.resultLogLimit,
+      `${path}.resultLogLimit`,
+      EMPIRES_STABILIZATION_BUDGETS.maxResultRetention,
+    )
+  }
+}
+
+function validateHistoryBudget(value: number, path: string): void {
+  requireBudgetAtMost(value, path, EMPIRES_STABILIZATION_BUDGETS.maxHistoryRetention)
 }
 
 const COMBAT_SCAFFOLD = {
@@ -1127,6 +1167,21 @@ const EMPIRES_CONFIG_MIGRATIONS: Record<
   16: migrateEmpiresConfigV16ToV17,
 }
 
+/** Applies exactly one explicit schema migration to a cloned config value. */
+export function migrateEmpiresConfigOneStep(raw: unknown): unknown {
+  if (!isRecord(raw)) return raw
+  const migrated = cloneJson(raw)
+  const version = migrated.schemaVersion
+  if (typeof version === 'number' && version > EMPIRES_CONFIG_SCHEMA_VERSION) {
+    throw new Error(`Unsupported future Empire's Endgame config schemaVersion ${version}.`)
+  }
+  if (version === EMPIRES_CONFIG_SCHEMA_VERSION) return migrated
+  if (typeof version !== 'number' || !EMPIRES_CONFIG_MIGRATIONS[version]) {
+    throw new Error(`Unsupported Empire's Endgame config schemaVersion ${String(version)}.`)
+  }
+  return EMPIRES_CONFIG_MIGRATIONS[version](migrated)
+}
+
 /**
  * Clones JSON config input and applies every sequential migration before validation.
  * Current-version inputs are cloned but otherwise unchanged.
@@ -1139,9 +1194,7 @@ export function migrateEmpiresConfig(raw: unknown): unknown {
     throw new Error(`Unsupported future Empire's Endgame config schemaVersion ${version}.`)
   }
   while (typeof version === 'number' && version < EMPIRES_CONFIG_SCHEMA_VERSION) {
-    const migrate = EMPIRES_CONFIG_MIGRATIONS[version]
-    if (!migrate) break
-    migrated = migrate(migrated)
+    migrated = migrateEmpiresConfigOneStep(migrated) as Record<string, unknown>
     version = migrated.schemaVersion
   }
   if (version === 2) migrated = normalizeEmpiresConfigV2(migrated)
@@ -1712,6 +1765,15 @@ function validateEpidemicAndMedicalConfig(config: EmpiresEndgameConfig): void {
     || epidemics.maxSpreadTargetsPerSettlement < 0) {
     throw new Error('empire.epidemics retention and spread limits are invalid.')
   }
+  validateHistoryBudget(
+    epidemics.chronicleImpactEntriesPerEpidemic,
+    'empire.epidemics.chronicleImpactEntriesPerEpidemic',
+  )
+  requireBudgetAtMost(
+    epidemics.maxSpreadTargetsPerSettlement,
+    'empire.epidemics.maxSpreadTargetsPerSettlement',
+    EMPIRES_STABILIZATION_BUDGETS.maxPlanItems,
+  )
   if (!Array.isArray(epidemics.definitions) || !Array.isArray(epidemics.protections)) {
     throw new Error('empire.epidemics definitions and protections must be arrays.')
   }
@@ -1875,6 +1937,7 @@ function validateDomesticEconomyConfig(config: EmpiresEndgameConfig): void {
   if (!Number.isInteger(economy.historyRetention) || economy.historyRetention < 1) {
     throw new Error('empire.domesticEconomy.historyRetention must be a positive integer.')
   }
+  validateHistoryBudget(economy.historyRetention, 'empire.domesticEconomy.historyRetention')
   if (!economy.enabled) return
 
   const resourceIds = new Set(config.empire.resources.map(resource => resource.id))
@@ -2030,6 +2093,13 @@ function validateTavernConfig(config: EmpiresEndgameConfig): void {
     || !Number.isInteger(tavern.historyRetention) || tavern.historyRetention < 1) {
     throw new Error('tavern spawn, visit, command, or history rules are invalid.')
   }
+  requireBudgetAtMost(tavern.maxCommands, 'tavern.maxCommands', EMPIRES_STABILIZATION_BUDGETS.maxCommands)
+  validateHistoryBudget(tavern.historyRetention, 'tavern.historyRetention')
+  requireBudgetAtMost(
+    tavern.mercenaries.offers.length,
+    'tavern.mercenaries.offers',
+    EMPIRES_STABILIZATION_BUDGETS.maxTavernOffers,
+  )
   const building = config.empire.buildings.find(candidate => candidate.id === tavern.buildingId)
   if (!building || building.deferredReason) throw new Error('tavern must reference its live building carrier.')
   const unitIds = new Set((config.empire.units ?? []).filter(unit => !unit.deferredReason).map(unit => unit.id))
@@ -2090,6 +2160,7 @@ function validateAlchemyConfig(config: EmpiresEndgameConfig): void {
   })) {
     if (!Number.isInteger(value) || value < 1) throw new Error(`alchemy.${name} must be a positive integer.`)
   }
+  validateRealtimeBudgets('alchemy', alchemy)
   if (!Number.isFinite(alchemy.dayCost) || alchemy.dayCost < 0) {
     throw new Error('alchemy.dayCost must be finite and non-negative.')
   }
@@ -2102,6 +2173,11 @@ function validateAlchemyConfig(config: EmpiresEndgameConfig): void {
     || alchemy.board.centerY >= alchemy.board.height) {
     throw new Error('alchemy.board dimensions and center are invalid.')
   }
+  requireBudgetAtMost(
+    alchemy.board.width * alchemy.board.height,
+    'alchemy.board cells',
+    EMPIRES_STABILIZATION_BUDGETS.maxBoardCells,
+  )
   if (!isRecord(alchemy.spawn)
     || !Number.isInteger(alchemy.spawn.minDelayTicks) || alchemy.spawn.minDelayTicks < 1
     || !Number.isInteger(alchemy.spawn.maxDelayTicks)
@@ -2215,6 +2291,7 @@ function validateExpeditionsConfig(config: EmpiresEndgameConfig): void {
   if (!Number.isInteger(rules.resultHistoryRetention) || rules.resultHistoryRetention < 1) {
     throw new Error('expeditions.resultHistoryRetention must be a positive integer.')
   }
+  validateHistoryBudget(rules.resultHistoryRetention, 'expeditions.resultHistoryRetention')
   if (rules.timeModel !== 'preparation-days-and-abstract-travel-cons') {
     throw new Error('expeditions.timeModel is unknown.')
   }
@@ -2336,6 +2413,12 @@ function validateExpeditionsConfig(config: EmpiresEndgameConfig): void {
           || expedition.complaint.minimumDurationCons < 1))) {
       throw new Error(`expedition ${expedition.id} has invalid complaint criteria.`)
     }
+    if (rules.resultHistoryRetention < expedition.complaint.launches - 1) {
+      throw new Error(
+        `expeditions.resultHistoryRetention must retain at least ${expedition.complaint.launches - 1}`
+        + ` prior launches for expedition ${expedition.id} complaint criteria.`,
+      )
+    }
     if (expedition.returnProvisionPolicy !== 'none' || expedition.repeatable) {
       throw new Error(`expedition ${expedition.id} has unsupported return or repeat semantics.`)
     }
@@ -2376,12 +2459,19 @@ function validateInventoryConfig(config: EmpiresEndgameConfig): void {
     || !Number.isFinite(rules.targetUnitsPerItem) || rules.targetUnitsPerItem <= 0) {
     throw new Error('inventory timing, command, retention, item, and catch-up limits must be positive.')
   }
+  validateRealtimeBudgets('inventory', rules)
+  requireBudgetAtMost(rules.maxItems, 'inventory.maxItems', EMPIRES_STABILIZATION_BUDGETS.maxPlanItems)
   if (!Number.isInteger(rules.board.width) || rules.board.width < 4
     || !Number.isInteger(rules.board.height) || rules.board.height < 6
     || !Number.isInteger(rules.board.cartHeight) || rules.board.cartHeight < 2
     || rules.board.cartHeight >= rules.board.height) {
     throw new Error('inventory board and cart dimensions are invalid.')
   }
+  requireBudgetAtMost(
+    rules.board.width * rules.board.height,
+    'inventory.board cells',
+    EMPIRES_STABILIZATION_BUDGETS.maxBoardCells,
+  )
   if (!Number.isInteger(rules.gravity.intervalTicks) || rules.gravity.intervalTicks < 1
     || !Number.isInteger(rules.gravity.spawnDelayTicks) || rules.gravity.spawnDelayTicks < 0) {
     throw new Error('inventory gravity settings are invalid.')
@@ -2448,6 +2538,7 @@ function validateExternalEconomyConfig(config: EmpiresEndgameConfig): void {
     || external.persecutionPricePenaltyPercent < 0) {
     throw new Error('empire.externalEconomy cadence and retention values must be positive integers.')
   }
+  validateHistoryBudget(external.historyRetention, 'empire.externalEconomy.historyRetention')
   if (!external.enabled) return
 
   const resourceIds = new Set(config.empire.resources.map(resource => resource.id))
@@ -2652,6 +2743,7 @@ function validateEconomyContentConfig(config: EmpiresEndgameConfig): void {
   if (!Number.isInteger(content.eventHistoryRetention) || content.eventHistoryRetention < 1) {
     throw new Error('empire.economyContent.eventHistoryRetention must be a positive integer.')
   }
+  validateHistoryBudget(content.eventHistoryRetention, 'empire.economyContent.eventHistoryRetention')
   if (!content.enabled) return
 
   const eventById = new Map(config.empire.events.map(event => [event.id, event]))
@@ -2808,6 +2900,7 @@ function validateLoyaltyConfig(config: EmpiresEndgameConfig): void {
   if (!Number.isInteger(loyalty.chronicleRetention) || loyalty.chronicleRetention < 1) {
     throw new Error('empire.loyalty.chronicleRetention must be a positive integer.')
   }
+  validateHistoryBudget(loyalty.chronicleRetention, 'empire.loyalty.chronicleRetention')
 
   if (!Array.isArray(loyalty.classGates)) throw new Error('empire.loyalty.classGates must be an array.')
   const buildingIds = new Set(config.empire.buildings.map(building => building.id))
@@ -2966,6 +3059,7 @@ function validateGodConfig(value: unknown, cardIds: ReadonlySet<string>): void {
       throw new Error(`god.antiBito.${field} must be an integer of at least ${minimum}.`)
     }
   }
+  validateHistoryBudget(antiBito.historyRetention, 'god.antiBito.historyRetention')
   if (antiBito.source !== 'discard') throw new Error('god.antiBito.source must be discard.')
   if (!['drawBottom', 'drawTop', 'shuffle'].includes(String(antiBito.insertion))) {
     throw new Error('god.antiBito.insertion must be drawBottom, drawTop, or shuffle.')
@@ -3003,6 +3097,7 @@ function validateGodConfig(value: unknown, cardIds: ReadonlySet<string>): void {
   if (!Number.isInteger(value.dialogueLogRetention) || Number(value.dialogueLogRetention) < 1) {
     throw new Error('god.dialogueLogRetention must be a positive integer.')
   }
+  validateHistoryBudget(Number(value.dialogueLogRetention), 'god.dialogueLogRetention')
   if (!isRecord(value.mercyConfirmation)
     || typeof value.mercyConfirmation.enabled !== 'boolean') {
     throw new Error('god.mercyConfirmation must be an object with an enabled flag.')
@@ -3530,6 +3625,13 @@ function validateTdConfig(
   requirePositiveInteger(td.maxCommands, 'td.maxCommands')
   requirePositiveInteger(td.resultLogLimit, 'td.resultLogLimit')
   requirePositiveInteger(td.maxCatchUpTicksPerFrame, 'td.maxCatchUpTicksPerFrame')
+  validateRealtimeBudgets('td', {
+    tickMs: td.tickMs!,
+    maxTicks: td.maxTicks!,
+    maxCommands: td.maxCommands!,
+    maxCatchUpTicksPerFrame: td.maxCatchUpTicksPerFrame!,
+    resultLogLimit: td.resultLogLimit!,
+  })
   requirePositiveInteger(td.waveEveryCons, 'td.waveEveryCons')
   requireFinite(td.startingBuildResources, 'td.startingBuildResources')
 

@@ -461,17 +461,6 @@ public class GameHub : Hub
         if (success) await PushStateToPlayer(gameId, discordId);
     }
 
-    public async Task DopaChoice(ulong gameId, string tactic)
-    {
-        var discordId = GetDiscordId();
-        if (discordId == 0) { await SendNotAuthenticated(); return; }
-
-        var (success, error) = await _gameService.DopaChoice(gameId, discordId, tactic);
-        await Clients.Caller.SendAsync("ActionResult", new { action = "dopaChoice", success, error });
-
-        if (success) await PushStateToPlayer(gameId, discordId);
-    }
-
     // ── Kira Actions ─────────────────────────────────────────────────
 
     public async Task DeathNoteWrite(ulong gameId, Guid targetPlayerId, string characterName)
@@ -1340,6 +1329,7 @@ public class GameHub : Hub
         }
 
         await PushBattleshipStateToAll(gameId);
+        await RunBattleshipBotPump(gameId);
     }
 
     public async Task BattleshipSelectArmy(string gameId, string faction)
@@ -1524,6 +1514,7 @@ public class GameHub : Hub
         }
 
         await PushBattleshipStateToAll(gameId);
+        await RunBattleshipBotPump(gameId);
     }
 
     public async Task BattleshipManualMove(string gameId, string shipId, string direction, int distance = 1)
@@ -1664,16 +1655,19 @@ public class GameHub : Hub
         if (!BattleshipBotPumps.TryAdd(gameId, 0)) return;
         try
         {
+            var delayBeforeNextStepMs = 0;
             while (_battleshipService.IsBotTurn(gameId))
             {
-                // Same reset window as the client-enforced human delay. The lock is free,
-                // so a human may deploy a summon against the bot during these two seconds.
-                await Task.Delay(2000);
+                // Misses hand control over immediately. A combo-preserving hit opens an
+                // eight-second, lock-free deployment window before the bot's next shot.
+                if (delayBeforeNextStepMs > 0)
+                    await Task.Delay(delayBeforeNextStepMs);
                 var step = _battleshipService.ProcessBotStep(gameId);
                 if (!step.Acted) break;
                 if (step.Shot != null)
                     await SendBattleshipShotEvent(gameId, step.Shot);
                 await PushBattleshipStateToAll(gameId);
+                delayBeforeNextStepMs = step.Shot is { Hit: true, TurnContinues: true } ? 8000 : 0;
             }
         }
         finally

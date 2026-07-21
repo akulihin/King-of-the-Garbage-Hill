@@ -181,8 +181,19 @@ function getPredictionResult(playerId: string): Prediction | null {
 function isProtected(player: Player): boolean {
   if ((props.roundNo ?? 0) === 10 && player.character.passives.some(
     (p: { name: string }) => p.name === 'Стримснайпят и банят и банят и банят'
+      || (p.name === 'Permaban' && player.status.place === 1)
   )) return true
   return false
+}
+
+function dopaIq(intelligence: number): number {
+  return intelligence >= 7
+    ? 200 + (intelligence - 7) * 9 + Math.max(0, intelligence - 9)
+    : 200 - (7 - intelligence)
+}
+
+function displayIntelligence(characterName: string, intelligence: number): number {
+  return characterName === 'Dopa' ? dopaIq(intelligence) : intelligence
 }
 
 /** Map a 0-based leaderboard index to a hill tier class (hill-1 … hill-6) */
@@ -455,7 +466,7 @@ const { tipText, tipVisible, tipPos, showTip, moveTip, hideTip } = useTip()
             </span>
           </template>
           <template v-else>
-            <span class="stat stat-intelligence" title="Intelligence"><span class="gi gi-int">INT</span>{{ player.character.intelligence }}</span>
+            <span class="stat stat-intelligence" :title="player.character.name === 'Dopa' ? 'IQ' : 'Intelligence'"><span class="gi gi-int">{{ player.character.name === 'Dopa' ? 'IQ' : 'INT' }}</span>{{ displayIntelligence(player.character.name, player.character.intelligence) }}</span>
             <span class="stat stat-strength" title="Strength"><span class="gi gi-str">STR</span>{{ player.character.strength }}</span>
             <span class="stat stat-speed" title="Speed"><span class="gi gi-spd">SPD</span>{{ player.character.speed }}</span>
             <span class="stat stat-psyche" title="Psyche"><span class="gi gi-psy">PSY</span>{{ player.character.psyche }}</span>
@@ -554,7 +565,7 @@ const { tipText, tipVisible, tipPos, showTip, moveTip, hideTip } = useTip()
               >
               <span>{{ name }}</span>
               <span v-if="charCatalogMap[name]" class="predict-option-stats">
-                <span class="gi gi-int">INT</span>{{ charCatalogMap[name].intelligence }}
+                <span class="gi gi-int">{{ name === 'Dopa' ? 'IQ' : 'INT' }}</span>{{ displayIntelligence(name, charCatalogMap[name].intelligence) }}
                 <span class="gi gi-str">STR</span>{{ charCatalogMap[name].strength }}
                 <span class="gi gi-spd">SPD</span>{{ charCatalogMap[name].speed }}
                 <span class="gi gi-psy">PSY</span>{{ charCatalogMap[name].psyche }}

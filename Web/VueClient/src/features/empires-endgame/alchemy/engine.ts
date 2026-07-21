@@ -1,8 +1,12 @@
 import { createEmpiresRngState, nextEmpiresRandomInt } from '../rng'
 import { digestTdValue } from '../td/engine'
+import { EMPIRES_STABILIZATION_BUDGETS } from '../stabilization'
 import type {
   EmpiresBuildingDefinition,
   EmpiresEpidemicConfig,
+  EmpiresEndgameConfig,
+  EmpiresLoyaltyConfig,
+  EmpiresQuestsConfig,
   EmpiresTechnologyDefinition,
 } from '../types'
 import {
@@ -302,6 +306,10 @@ export function createAlchemyRulesIdentity(
     buildings: readonly EmpiresBuildingDefinition[]
     technologies: readonly EmpiresTechnologyDefinition[]
     epidemics: EmpiresEpidemicConfig
+    loyalty?: EmpiresLoyaltyConfig
+    quests?: EmpiresQuestsConfig
+    settlementConfig?: Omit<EmpiresEndgameConfig, 'seed'>
+    sharedResultRetention?: unknown
   },
 ): AlchemyRulesIdentity {
   return {
@@ -319,10 +327,22 @@ export function validateAlchemyPlan(plan: AlchemyPlan): string[] {
     || !finiteInteger(plan.maxCommands, 1) || !finiteInteger(plan.maxCatchUpTicksPerFrame, 1)) {
     errors.push('Alchemy timing, tick, command, and catch-up limits must be positive integers.')
   }
+  if (plan.maxTicks > EMPIRES_STABILIZATION_BUDGETS.maxTicks
+    || plan.maxCommands > EMPIRES_STABILIZATION_BUDGETS.maxCommands
+    || plan.maxCatchUpTicksPerFrame > EMPIRES_STABILIZATION_BUDGETS.maxCatchUpTicksPerFrame
+    || plan.tickMs * plan.maxTicks > EMPIRES_STABILIZATION_BUDGETS.maxLogicalReplayDurationMs) {
+    errors.push('Alchemy runtime limits exceed the shipped safety ceiling.')
+  }
   if (!finiteInteger(plan.board.width, 5) || !finiteInteger(plan.board.height, 5)
     || !finiteInteger(plan.board.centerX) || !finiteInteger(plan.board.centerY)
     || plan.board.centerX >= plan.board.width || plan.board.centerY >= plan.board.height) {
     errors.push('Alchemy board dimensions and center are invalid.')
+  }
+  if (plan.board.width * plan.board.height > EMPIRES_STABILIZATION_BUDGETS.maxBoardCells
+    || plan.pieces.length > EMPIRES_STABILIZATION_BUDGETS.maxPlanItems
+    || plan.recipe.initialCells.length > EMPIRES_STABILIZATION_BUDGETS.maxPlanItems
+    || plan.recipe.targetCells.length > EMPIRES_STABILIZATION_BUDGETS.maxPlanItems) {
+    errors.push('Alchemy board or component count exceeds the shipped safety ceiling.')
   }
   if (!finiteInteger(plan.spawn.minDelayTicks, 1)
     || !finiteInteger(plan.spawn.maxDelayTicks, plan.spawn.minDelayTicks)

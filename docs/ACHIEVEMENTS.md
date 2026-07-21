@@ -4,9 +4,9 @@
 
 ## 1. Achievement model
 
-The live catalog contains exactly **108** achievements: **12 Global**, **82 Character**, and **14 Interaction**. `AchievementDefinition` owns paired EN/RU names, descriptions and secret hints plus category, icon, rarity, target, related characters and rewards (`AchievementClass.cs` `AchievementDefinition`/`AllAchievements`). `tools/audit-achievements.sh` hard-fails unless all expected IDs are unique, present and evaluated.
+The live catalog contains exactly **110** achievements: **12 Global**, **83 Character**, and **15 Interaction**. `AchievementDefinition` owns paired EN/RU names, descriptions and secret hints plus category, icon, rarity, target, related characters and rewards (`AchievementClass.cs` `AchievementDefinition`/`AllAchievements`). `tools/audit-achievements.sh` hard-fails unless all expected IDs are unique, present and evaluated.
 
-The 82 Character-category IDs retain two catalog slots for each of the 41 represented character definitions/forms. `c_salldorum_double_cola` is the deliberate presentation exception: it is secret and has an empty `CharacterNames` list, so locked or character-filtered player surfaces do not associate it with Salldorum. Difficulty is not the reward rarity. In particular, the pre-existing hard cards `c_rick_portals`, `c_itachi_tax`, and `c_kotiki_reunion` remain Rare so their historic rewards stay unchanged; all other rows likewise show their live rarity explicitly.
+The first 82 Character-category IDs retain two catalog slots for each of the 41 represented character definitions/forms. Dopa additionally has the bonus Permaban card `c_dopa_permaban`, suggested by the rework itself. `c_salldorum_double_cola` is the deliberate presentation exception: it is secret and has an empty `CharacterNames` list, so locked or character-filtered player surfaces do not associate it with Salldorum. Difficulty is not the reward rarity. In particular, the pre-existing hard cards `c_rick_portals`, `c_itachi_tax`, and `c_kotiki_reunion` remain Rare so their historic rewards stay unchanged; all other rows likewise show their live rarity explicitly.
 
 Progress has two layers:
 
@@ -53,7 +53,7 @@ Character achievements require the named character/form even if another holder c
 | Кира | First Name Basis / По имени и насмерть<br>`c_kira_first_name` · Common / 10 ZBS | Write one correct victim into Тетрадь смерти. | Perfect Crime / Идеальное преступление<br>`c_kira_perfect_crime` · Epic / 100 ZBS + 1 box | Record successful Тетрадь смерти kills against 3 distinct victims. |
 | Монстр без имени | No One Escapes the Story / Из этой истории не уйти<br>`c_monster_no_escape` · Common / 10 ZBS | Execute one pawn through Пейзаж конца света. | Beautiful Apocalypse / Прекрасный апокалипсис<br>`c_monster_apocalypse` · Epic / 100 ZBS + 1 box | Execute at least 2 pawns through Пейзаж конца света. |
 | Продавец Сомнительных Тактик | Three Easy Payments / Три выгодных платежа<br>`c_seller_marks` · Uncommon / 25 ZBS | Mark 3 distinct players. | Market Manipulator / Повелитель рынка<br>`c_seller_market` · Epic / 100 ZBS + 1 box | Mark all 5 opponents and accumulate at least 100 Skill in Секретный билд. |
-| Dopa | Ward Diff / Разница в вардах<br>`c_dopa_foresight` · Common / 10 ZBS | Trigger Взгляд в будущее once. | Three Steps Ahead / На три шага впереди<br>`c_dopa_big_brain` · Epic / 100 ZBS + 1 box | Trigger Взгляд в будущее 3 times. |
+| Dopa | Ward Diff / Разница в вардах<br>`c_dopa_foresight` · Common / 10 ZBS | Trigger Взгляд в будущее once. | Three Steps Ahead / На три шага впереди<br>`c_dopa_big_brain` · Epic / 100 ZBS + 1 box<br><br>Rank One, Account Gone / Топ-1, аккаунта нет<br>`c_dopa_permaban` · Epic / 100 ZBS + 1 box | Trigger Взгляд в будущее 3 times.<br><br>Enter turn 10 in first place and trigger Permaban. |
 | Salldorum | Open Happiness / Открой счастье<br>`c_salldorum_cola` · Uncommon / 25 ZBS | Drink the Time Capsule cola once. | History Repeats Itself / История повторяется<br>`c_salldorum_double_cola` · Legendary / 228 ZBS + 2 boxes · **secret, unbound** | The only description/hint copy is: «Колу можно выпить дважды, если знать историю.» `CharacterNames` is empty. |
 | Геральт | Witcher’s Payday / Ведьмачья получка<br>`c_geralt_contracts` · Uncommon / 25 ZBS | Resolve 3 contract fights. | All Signs Point to Trouble / Все Знаки ведут к беде<br>`c_geralt_path` · Epic / 100 ZBS + 1 box | Reveal all 4 contract targets through Медитация. |
 | Котики | Cat Came Back / Один котик вернулся<br>`c_kotiki_one_back` · Common / 10 ZBS | Reclaim either Минька or Штормяк. | The Cats Came Back / Котики вернулись<br>`c_kotiki_reunion` · Rare / 50 ZBS | Reclaim both cats by winning their return attacks. |
@@ -80,13 +80,13 @@ Character achievements require the named character/form even if another holder c
 | Sakura | Still in the Story / Всё ещё в сюжете<br>`c_sakura_three` · Rare / 50 ZBS · **secret** | Finish alive in the actual top 3. | Useful After All / Всё-таки полезна<br>`c_sakura_first` · Legendary / 228 ZBS + 2 boxes · **secret** | Finish alive at actual place 1 after at least 5 resolved fight wins. |
 | DooM Guy | Rip, Tear, Roll / Рви, кромсай, ролль<br>`c_doom_loadout` · Rare / 50 ZBS | Enter Roll Mode with active modules in all 4 stages. | BFG Division / Дивизия BFG<br>`c_doom_bfg` · Epic / 100 ZBS + 1 box | Defeat at least 3 distinct players in one BFG wave, including its primary target. |
 | Эрен Йегер | Tatake! Tatake! / Татакай! Татакай!<br>`c_eren_tatake` · Uncommon / 25 ZBS | Trigger the Tatake sound twice in total. | The Rumbling / Гул Земли<br>`c_eren_rumbling` · Epic / 100 ZBS + 1 box | Kill at least 2 distinct players with Rumbling. |
-| Наруто (original) | Believe in the Harem / Поверь в гарем<br>`c_naruto_harem` · Rare / 50 ZBS | Cancel 3 fights with Гарем но джутсу. Clone actions do not count. | Shadow Hokage Dividend / Дивиденды теневого Хокаге<br>`c_naruto_rasengan` · Legendary / 228 ZBS + 2 boxes | Receive at least 30 points from Теневые and finish alive at actual place 1. |
+| Наруто (original) | Believe in the Harem / Поверь в гарем<br>`c_naruto_harem` · Rare / 50 ZBS | Provoke 3 enemy Skips with Гарем но джутсу. One canceled multi-fight queue is one Skip; clone actions do not count. | Shadow Hokage Dividend / Дивиденды теневого Хокаге<br>`c_naruto_rasengan` · Legendary / 228 ZBS + 2 boxes | Receive at least 30 points from Теневые and finish alive at actual place 1. |
 | Гордон Фримен | Unforeseen Consequences / Непредвиденные последствия<br>`c_gordon_rescue` · Uncommon / 25 ZBS | Remove 3 headcrabs in one match. | Half-Life 3 Confirmed / Halflife 3 подтверждён<br>`c_gordon_halflife3` · Epic / 100 ZBS + 1 box | Successfully release Halflife 3. |
 | Джон Сноу | Bastard No More / Больше не бастард<br>`c_jon_king` · Uncommon / 25 ZBS | Reach 228 Skill and transform into Король Сервера. | And Now My Watch Is Ended / И теперь мой дозор окончен<br>`c_jon_watch` · Epic / 100 ZBS + 1 box | Overcome one death through Мой дозор окончен, then finish alive in the actual top 3. |
 
 The live definitions and every paired condition are in `AchievementClass.cs` `AllAchievements`/`TrackGameEnd`; the relevant passive state types and observation hooks are catalogued character-by-character in [CHARACTERS.md](CHARACTERS.md).
 
-## 4. Interaction achievements (14, all secret)
+## 4. Interaction achievements (15, all secret)
 
 Locked interaction cards expose only a deliberately vague hint. The exact rules below are implementation documentation, not player-facing card copy.
 
@@ -105,6 +105,7 @@ Locked interaction cards expose only a deliberately vague hint. The exact rules 
 | `x_deeplist_octopus` | Eight Arms in the Plan / Восемь щупалец по плану | DeepList gets Осьминожка into Сомнительная тактика's friend list and later reaches a triggered Стёб entry against her. DeepList earns it. | Epic · 100 ZBS + 1 box |
 | `x_goblin_bad_architecture` | Building Code Violation / Нарушение строительных норм | Стая Гоблинов's Ziggurat learns Булькает from Братишка (or transformed mylorik) and the Goblin player finishes alive. Goblins earn it. | Rare · 50 ZBS |
 | `x_eren_goblins` | Tiny Titans / Крошечные титаны | Эрен Йегер kills Стая Гоблинов with Rumbling. Eren earns it. | Epic · 100 ZBS + 1 box |
+| `x_naruto_failed_heroes` | Heroes Don't Always Save the World / Герои не всегда спасают мир | The original Naruto earns it when a three-Naruto Расенган reaches a resolved fight against round-10 Эрен but Rumbling still triggers, or against round-8 Мадара but he remains unsealed. Its description and locked hint are deliberately empty: the card exposes only its name after unlock. | Legendary · 228 ZBS + 2 boxes |
 | `x_gordon_theboys` | There Is No Counter to a Crowbar but Another Crowbar! / Против лома нет приема, кроме другого лома! | TheBoys attacks Гордон Фримен while СуперМудень is active, but Gordon's third-fight Монтировка victory stops the attack. Gordon earns it. The locked card exposes no hint or character association. | Legendary · 228 ZBS + 2 boxes |
 
 All interaction evaluation is in `AchievementClass.cs` `TrackGameEnd`; the observation point and recipient for each relationship are indexed by subsystem in [INTERACTION-MATRIX.md](INTERACTION-MATRIX.md) §8.
@@ -116,10 +117,10 @@ All interaction evaluation is in `AchievementClass.cs` `TrackGameEnd`; the obser
 | Common | 10 ZBS | 11 |
 | Uncommon | 25 ZBS | 27 |
 | Rare | 50 ZBS | 20 |
-| Epic | 100 ZBS + 1 loot box | 35 |
-| Legendary | 228 ZBS + 2 loot boxes | 15 |
+| Epic | 100 ZBS + 1 loot box | 36 |
+| Legendary | 228 ZBS + 2 loot boxes | 16 |
 
-The reward switch is centralized in `AchievementClass.cs` `AchievementDefinition`. Completing the current catalog awards **8,705 ZBS and 65 loot boxes** in total. `AchievementBoard` reports earned/current-catalog totals by summing live unlocked definitions; these numbers are a catalog summary, not a historical transaction ledger (`GameHub.cs` `RequestAchievements`).
+The reward switch is centralized in `AchievementClass.cs` `AchievementDefinition`. Completing the current catalog awards **9,033 ZBS and 68 loot boxes** in total. `AchievementBoard` reports earned/current-catalog totals by summing live unlocked definitions; these numbers are a catalog summary, not a historical transaction ledger (`GameHub.cs` `RequestAchievements`).
 
 ## 6. Secrets, queues, and Вечное Цукуеми
 
@@ -130,7 +131,7 @@ The reward switch is centralized in `AchievementClass.cs` `AchievementDefinition
 
 ## 7. V1 migration and compatibility
 
-V2 was introduced as an intentional fresh catalog. Its current 108 `g_…` / `c_…` / `x_…` IDs remain disjoint from the older V1 achievement IDs, so V1 unlocks do **not** grant V2 rewards or appear as V2 completions. This expansion is **not another reset**: all original 34 V2 IDs, progress rows, unlocks and issued rewards remain intact (including the original Rare rewards on Rick, Itachi and Cats), while later expansion IDs begin tracking after their deployment. Existing account JSON remains readable:
+V2 was introduced as an intentional fresh catalog. Its current 110 `g_…` / `c_…` / `x_…` IDs remain disjoint from the older V1 achievement IDs, so V1 unlocks do **not** grant V2 rewards or appear as V2 completions. This expansion is **not another reset**: all original 34 V2 IDs, progress rows, unlocks and issued rewards remain intact (including the original Rare rewards on Rick, Itachi and Cats), while later expansion IDs begin tracking after their deployment. Existing account JSON remains readable:
 
 - `EnsureInitialized` null-fills the account containers without deleting unknown legacy progress rows (`AchievementClass.cs` `EnsureInitialized`).
 - Account startup explicitly removes the two retired secret-character IDs from persisted `Progress` and `NewlyUnlocked`; already-issued rewards are not clawed back (`UserAccounts.cs` `MigrateUnknownBugAccount`).

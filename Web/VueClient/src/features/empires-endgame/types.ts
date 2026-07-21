@@ -1769,11 +1769,13 @@ export interface EmpiresExpeditionState {
   rewardApplied: boolean
   zoneApplied: boolean
   complaintTriggerIds: string[]
+  complaintThroughAttempt: number
   installmentBlockedReason: string | null
   resultHistory: EmpiresExpeditionResultHistoryEntry[]
   resultCompaction: {
     evictedCount: number
     historyDigest: string
+    maxEvictedAttempt: number
   }
 }
 
@@ -1807,6 +1809,7 @@ export interface EmpiresExpeditionPlanningView {
   blockedReason: string | null
   roster: EmpiresExpeditionPlanningUnitView[]
   selectedUnitInstanceIds: string[]
+  rosterSelectionLimit: number
   plannedDurationCons: number
   effectiveDurationCons: number
   preparationDays: number
@@ -2011,6 +2014,7 @@ export interface EmpiresMinigameOrigin {
 
 export interface EmpiresTdMinigameSession {
   id: string
+  sequence: number
   kind: 'td'
   plan: TdBattlePlan
   rulesIdentity: TdRulesIdentity
@@ -2021,6 +2025,7 @@ export interface EmpiresTdMinigameSession {
 
 export interface EmpiresTavernMinigameSession {
   id: string
+  sequence: number
   kind: 'tavern'
   plan: TavernPlan
   rulesIdentity: TavernRulesIdentity
@@ -2031,6 +2036,7 @@ export interface EmpiresTavernMinigameSession {
 
 export interface EmpiresAlchemyMinigameSession {
   id: string
+  sequence: number
   kind: 'alchemy'
   plan: AlchemyPlan
   rulesIdentity: AlchemyRulesIdentity
@@ -2041,6 +2047,7 @@ export interface EmpiresAlchemyMinigameSession {
 
 export interface EmpiresInventoryMinigameSession {
   id: string
+  sequence: number
   kind: 'inventory'
   plan: InventoryPlan
   rulesIdentity: InventoryRulesIdentity
@@ -2061,6 +2068,7 @@ export type EmpiresMinigameResult = TdBattleResult | TavernResult | AlchemyResul
 
 export interface EmpiresMinigameResultRecord {
   sessionId: string
+  sequence: number
   attempt: number
   origin: EmpiresMinigameOrigin
   result: EmpiresMinigameResult
@@ -2071,6 +2079,8 @@ export interface EmpiresMinigameResultCompaction {
   historyDigest: string
   lastSessionId: string | null
   lastRulesDigest: string | null
+  settledThroughSequence: number
+  legacySettledSessionIds: string[]
 }
 
 export interface EmpiresProductionBoostAssignment {
@@ -2180,6 +2190,13 @@ export interface EmpiresLoyaltyState {
   regions: Record<string, EmpiresRegionLoyaltyState>
   classModifiers: Record<string, Record<string, number>>
   consumedBattleLossIds: string[]
+  battleLossCompaction: EmpiresBattleLossCompaction
+}
+
+export interface EmpiresBattleLossCompaction {
+  evictedCount: number
+  historyDigest: string
+  sealedLegacyIdentities: boolean
 }
 
 export type EmpiresChronicleEntryKind =
@@ -2497,6 +2514,14 @@ export interface EmpiresEpidemicState {
   endReason: 'resolved' | 'origin-inaccessible' | null
 }
 
+export interface EmpiresEpidemicHistoryCompaction {
+  evictedCount: number
+  historyDigest: string
+  lastInstanceId: string | null
+  lastRulesDigest: string | null
+  maxEvictedSequence: number
+}
+
 export interface EmpiresEpidemicProtectionBreakdown {
   id: string
   name: string
@@ -2574,6 +2599,8 @@ export interface EmpiresQuestState {
   consumedTriggerIds: string[]
   compactedTriggerCount: number
   compactedTriggerDigest: string
+  compactedTriggerWatermarks: Record<string, number>
+  sealedTriggerKinds: string[]
   startedAtCon: number
   finishedAtCon: number | null
 }
@@ -2600,7 +2627,7 @@ export interface EmpiresQuestRuntimeState {
 }
 
 export interface EmpiresCampaignState {
-  schemaVersion: 15
+  schemaVersion: 16
   configId: string
   phase: EmpiresPhase
   rng: EmpiresRngState
@@ -2625,6 +2652,7 @@ export interface EmpiresCampaignState {
   expeditions: EmpiresExpeditionsState
   external: EmpiresExternalState
   epidemics: EmpiresEpidemicState[]
+  epidemicCompaction: EmpiresEpidemicHistoryCompaction
   nextEpidemicSequence: number
   quests: Record<string, EmpiresQuestState>
   questRuntime: EmpiresQuestRuntimeState
@@ -2635,7 +2663,7 @@ export interface EmpiresCampaignState {
 }
 
 export interface EmpiresSnapshotEnvelope {
-  schemaVersion: 15
+  schemaVersion: 16
   savedAt: string
   state: EmpiresCampaignState
 }

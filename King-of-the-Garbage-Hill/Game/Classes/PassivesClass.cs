@@ -199,7 +199,8 @@ public class PassivesClass
     public Dopa.MacroClass DopaMacro { get; set; } = new();
     public Dopa.VisionClass DopaVision { get; set; } = new();
     public Dopa.MetaChoiceClass DopaMetaChoice { get; set; } = new();
-    public bool DopaWonThisRound { get; set; } = false;
+    public bool DopaPermabanTriggered { get; set; } = false;
+    public bool RoundTenBanApplied { get; set; } = false;
 
     // Салдорум
     public int SaldorumCorruptionCount { get; set; } = 0;

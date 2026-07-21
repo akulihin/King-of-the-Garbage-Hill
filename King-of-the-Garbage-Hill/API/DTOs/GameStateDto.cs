@@ -23,6 +23,7 @@ public class GameStateDto
     public int RumblingKillCount { get; set; }
     public bool IsRoundTransitionPaused { get; set; }
     public string TransitionDeadlineUtc { get; set; }
+    public int HalfLifeReleaseSerial { get; set; }
     public string GlobalLogs { get; set; }
 
     /// <summary>Full history of all global logs across all rounds.</summary>
@@ -128,9 +129,6 @@ public class PlayerDto
 
     /// <summary>True when this player is Gleb and can transform to "Молодой Глеб" (round 1 only).</summary>
     public bool YoungGlebAvailable { get; set; }
-
-    /// <summary>True when this player is Dopa and hasn't chosen a tactic yet.</summary>
-    public bool DopaChoiceNeeded { get; set; }
 
     /// <summary>Character mastery points for this player's character (only set for isMe).</summary>
     public int CharacterMasteryPoints { get; set; }
@@ -496,6 +494,8 @@ public class FightEntryDto
 
     /// <summary>When true, this fight entry is hidden from non-admin players (e.g. Saitama solo kills).</summary>
     public bool HiddenFromNonAdmin { get; set; }
+    /// <summary>When true, this is Dopa's second, shadow action.</summary>
+    public bool ShadowAction { get; set; }
 
     /// <summary>Whether a Portal Gun swap occurred in this fight (Rick swaps leaderboard position with the loser).</summary>
     public bool PortalGunSwap { get; set; }
@@ -674,16 +674,16 @@ public class GordonHalfLifeStateDto
     public int Postponements { get; set; }
     public bool CanAnnounce { get; set; }
     public bool PendingDecision { get; set; }
+    public string DecisionKind { get; set; }
     public int DecisionSerial { get; set; }
     public string DeadlineUtc { get; set; }
     public decimal RawPoints { get; set; }
-    public decimal BaseMultiplier { get; set; }
     public bool SuperMultiplierDisabled { get; set; }
     public decimal Exponent { get; set; }
     public decimal FinalPoints { get; set; }
     public string FreezeLabel { get; set; }
     public string PostponeLabel { get; set; }
-    public string FailureMessage { get; set; }
+    public string DecisionMessage { get; set; }
 }
 
 public class BulkStateDto
@@ -792,6 +792,7 @@ public class DopaStateDto
     public bool VisionReady { get; set; }
     public int VisionCooldown { get; set; }
     public string ChosenTactic { get; set; }
+    public bool MetaChoiceReady { get; set; }
     public bool NeedSecondAttack { get; set; }
 }
 

@@ -40,6 +40,7 @@ const props = withDefaults(defineProps<{
   roundKey?: string | number
   rewriteHistoryRounds?: number[]
   rewriteHistoryPendingRound?: number | null
+  rewriteHistoryLastChance?: boolean
 }>(), {
   letopis: '',
   gameStory: null,
@@ -55,6 +56,7 @@ const props = withDefaults(defineProps<{
   roundKey: '',
   rewriteHistoryRounds: () => [],
   rewriteHistoryPendingRound: null,
+  rewriteHistoryLastChance: false,
 })
 
 type DisplayFight = FightEntry & {
@@ -93,6 +95,16 @@ function setTab(tab: 'fights' | 'all' | 'letopis' | 'story') {
   userSwitchedTab.value = true
   if (tab === 'fights') hasUnseenFights.value = false
 }
+
+const lastAutoOpenedRewriteKey = ref('')
+watch([() => props.rewriteHistoryLastChance, () => props.roundKey], ([isLastChance, roundKey]) => {
+  const rewriteKey = String(roundKey)
+  if (!isLastChance || !rewriteKey || lastAutoOpenedRewriteKey.value === rewriteKey) return
+
+  lastAutoOpenedRewriteKey.value = rewriteKey
+  activeTab.value = 'letopis'
+  userSwitchedTab.value = true
+}, { immediate: true })
 
 function dismissStoryPopup() {
   showStoryPopup.value = false
@@ -1442,12 +1454,17 @@ function getDisplayCharName(orig: string, u: string): string {
 
     <!-- Летопись -->
     <div v-if="activeTab === 'letopis'" class="fa-letopis">
-      <div v-if="rewriteHistoryRounds.length" class="fa-rewrite-history">
+      <div
+        v-if="rewriteHistoryRounds.length"
+        class="fa-rewrite-history"
+        :class="{ 'is-last-chance': rewriteHistoryLastChance }"
+      >
         <div v-for="roundNumber in rewriteHistoryRounds" :key="roundNumber" class="fa-rewrite-row">
           <span class="fa-rewrite-round">{{ chronicleText(`Round #${roundNumber}`, `Раунд #${roundNumber}`) }}</span>
           <button
             type="button"
             class="fa-rewrite-button"
+            :class="{ 'is-last-chance': rewriteHistoryLastChance }"
             data-sfx-utility="true"
             :disabled="rewriteHistoryPendingRound !== null"
             @click="emit('rewrite-history', roundNumber)"
@@ -1472,7 +1489,7 @@ function getDisplayCharName(orig: string, u: string): string {
       <div v-if="!sortedFights.length" class="fa-empty">Бои еще не начались</div>
       <div v-else class="fa-all-list">
         <div v-for="(f, idx) in sortedFights" :key="fightRowKey(f, idx)"
-          class="fa-all-row" :class="{ 'my-attack': isMyAttack(f), 'clickable': isReplayFight(f) && !isInjectedFight(f), 'is-injected': isInjectedFight(f) }"
+          class="fa-all-row" :class="{ 'my-attack': isMyAttack(f), 'clickable': isReplayFight(f) && !isInjectedFight(f), 'is-injected': isInjectedFight(f), 'is-shadow-action': f.shadowAction }"
           @click="jumpToFightReplay(f)">
           <!-- Left name (loser / defender for block-skip) -->
           <span class="fa-all-name fa-all-name-left" :class="{ 'name-winner': allFightLeft(f).isWinner }" :title="allFightLeft(f).name">
@@ -1498,6 +1515,7 @@ function getDisplayCharName(orig: string, u: string): string {
           </span>
           <!-- Portal badge -->
           <span v-if="f.portalGunSwap" class="fa-portal-badge">PORTAL</span>
+          <span v-if="f.shadowAction" class="fa-shadow-badge">ТЕНЬ</span>
           <span v-if="isInjectedFight(f)" class="fa-injected-badge">INJECTED</span>
           <!-- Play button for own fights -->
           <span v-if="isReplayFight(f) && !isInjectedFight(f)" class="fa-all-play" title="Смотреть бой">▶</span>
@@ -1762,6 +1780,28 @@ function getDisplayCharName(orig: string, u: string): string {
 .fa-all-list { display: flex; flex-direction: column; gap: 3px; max-width: 480px; margin: 0 auto; }
 .fa-all-row { position: relative; display: grid; grid-template-columns: 1fr auto 1fr auto; align-items: center; gap: 4px; padding: 5px 8px; border-radius: var(--radius); background: var(--bg-inset); font-size: 12px; border: 1px solid transparent; transition: all 0.15s; overflow: hidden; }
 .fa-all-row.my-attack { border-left: 2px solid var(--accent-gold-dim); }
+.fa-all-row.is-shadow-action {
+  border-color: rgba(154, 163, 175, 0.28);
+  border-left: 2px dashed rgba(154, 163, 175, 0.58);
+  background: linear-gradient(90deg, rgba(85, 91, 101, 0.22), rgba(30, 33, 39, 0.52));
+  box-shadow: inset 0 0 14px rgba(0, 0, 0, 0.28);
+  opacity: 0.68;
+}
+.fa-all-row.is-shadow-action .fa-all-ava { filter: grayscale(1) brightness(0.68); border-color: rgba(154, 163, 175, 0.35); }
+.fa-all-row.is-shadow-action .fa-all-name,
+.fa-all-row.is-shadow-action .fa-all-center { color: #8f96a1; text-shadow: none; }
+.fa-shadow-badge {
+  position: absolute;
+  top: 2px;
+  right: 4px;
+  padding: 1px 4px;
+  border: 1px solid rgba(154, 163, 175, 0.42);
+  border-radius: 3px;
+  background: rgba(18, 20, 24, 0.88);
+  color: #9aa3af;
+  font: 800 7px/1.2 var(--font-mono);
+  letter-spacing: 0.12em;
+}
 .fa-all-row.clickable { cursor: pointer; }
 .fa-all-row.clickable:hover { background: rgba(180, 150, 255, 0.12); border-color: rgba(180, 150, 255, 0.3); }
 .fa-all-play { font-size: 10px; color: var(--text-dim); flex-shrink: 0; opacity: 0.4; transition: opacity 0.15s; }
@@ -1840,6 +1880,10 @@ function getDisplayCharName(orig: string, u: string): string {
   border-radius: 6px;
   background: linear-gradient(90deg, rgba(46, 102, 176, 0.12), rgba(13, 25, 44, 0.22));
 }
+.fa-rewrite-history.is-last-chance .fa-rewrite-row {
+  border-color: rgba(255, 195, 72, 0.7);
+  background: linear-gradient(90deg, rgba(177, 94, 27, 0.2), rgba(75, 35, 81, 0.3));
+}
 .fa-rewrite-round { color: var(--accent-gold); font-family: var(--font-mono); font-size: 11px; font-weight: 800; white-space: nowrap; }
 .fa-rewrite-button {
   min-height: 40px;
@@ -1857,11 +1901,20 @@ function getDisplayCharName(orig: string, u: string): string {
   animation: rewrite-history-glow 1.45s ease-in-out infinite;
 }
 .fa-rewrite-button:hover:not(:disabled) { filter: brightness(1.15); transform: translateY(-1px); }
+.fa-rewrite-button.is-last-chance {
+  border-color: rgba(255, 219, 124, 0.95);
+  background: linear-gradient(135deg, rgba(196, 91, 28, 0.98), rgba(144, 45, 102, 0.96));
+  animation: rewrite-history-last-chance-glow 0.85s ease-in-out infinite;
+}
 .fa-rewrite-button:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
 .fa-rewrite-button:disabled { cursor: wait; filter: saturate(0.6); opacity: 0.6; animation: none; }
 @keyframes rewrite-history-glow {
   0%, 100% { box-shadow: 0 0 8px rgba(75, 157, 255, 0.45), inset 0 0 8px rgba(255, 255, 255, 0.06); }
   50% { box-shadow: 0 0 17px rgba(105, 184, 255, 0.9), 0 0 28px rgba(111, 73, 207, 0.38), inset 0 0 12px rgba(255, 255, 255, 0.12); }
+}
+@keyframes rewrite-history-last-chance-glow {
+  0%, 100% { box-shadow: 0 0 10px rgba(255, 174, 55, 0.7), 0 0 18px rgba(210, 58, 113, 0.35), inset 0 0 9px rgba(255, 255, 255, 0.1); }
+  50% { box-shadow: 0 0 22px rgba(255, 206, 103, 1), 0 0 38px rgba(232, 71, 143, 0.62), inset 0 0 14px rgba(255, 255, 255, 0.18); }
 }
 .fa-letopis-content { font-size: 11px; line-height: 1.6; color: var(--text-secondary); font-family: var(--font-mono); }
 .fa-letopis-content :deep(strong) { color: var(--accent-gold); }

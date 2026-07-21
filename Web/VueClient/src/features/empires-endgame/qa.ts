@@ -1,10 +1,12 @@
 import { EmpiresEndgameEngine } from './engine'
 import { resolveTdWithPolicy } from './td/qa'
-import { createTdRulesIdentity } from './td/engine'
+import { createTdRulesIdentity, digestTdValue } from './td/engine'
 import { resolveTavern } from './tavern/engine'
-import { resolveAlchemyWithPolicy } from './alchemy/qa'
+import { resolveAlchemyExplosionFixture, resolveAlchemyWithPolicy } from './alchemy/qa'
 import { resolveInventoryWithPolicy } from './inventory/qa'
 import { initialQuestMemory, questCurrentNode } from './quests'
+import { EMPIRES_STABILIZATION_BUDGETS } from './stabilization'
+import { exportEmpiresCampaign, importEmpiresCampaign } from './persistence'
 import type { TdQaPolicy } from './td/qa'
 import type { CombatArmorProfile, CombatWeaponProfile } from './combat/types'
 import type {
@@ -20,6 +22,8 @@ import type {
   EmpiresMinigameKind,
 } from './types'
 
+const STABILIZATION_FAMINE_EVENT_ID = 'event-famine-rationing'
+
 export const EMPIRES_QA_SCENARIO_NAMES = [
   'pending-take',
   'empty-hand-pending-finish',
@@ -29,6 +33,7 @@ export const EMPIRES_QA_SCENARIO_NAMES = [
   'target-meteor-city',
   'empire-council-with-points',
   'expedition-planning',
+  'inventory-packing',
   'governance',
   'domestic-economy',
   'mystic-tavern',
@@ -139,6 +144,8 @@ export interface EmpiresQaStateDigest {
   minigameResultHistoryDigest: string
   minigameResultLastSessionId: string | null
   minigameResultLastRulesDigest: string | null
+  minigameSettledThroughSequence: number
+  legacySettledMinigameCount: number
   rngDraws: number
   cosmeticRngDraws: number
   deckMemoryInspectionsUsed: number
@@ -154,6 +161,12 @@ export interface EmpiresQaStateDigest {
   activeAdvisorCount: number
   governorAssignmentCount: number
   activeEpidemicCount: number
+  retainedEpidemicCount: number
+  evictedEpidemicCount: number
+  epidemicHistoryDigest: string
+  recentBattleLossIdentityCount: number
+  evictedBattleLossIdentityCount: number
+  battleLossHistoryDigest: string
   activeLoanCount: number
   insuranceContractCount: number
   activeFairActivityCount: number
@@ -166,6 +179,8 @@ export interface EmpiresQaStateDigest {
   activeQuestStatus: string | null
   activeQuestNodeId: string | null
   questHistoryCount: number
+  questCompactedHistoryCount: number
+  questCompactedTriggerCount: number
   questStateDigest: string
 }
 
@@ -222,6 +237,45 @@ export interface EmpiresQaAutoplayResult {
   snapshot: EmpiresCampaignState
 }
 
+export const EMPIRES_STABILIZATION_SEED_MATRIX = [
+  'phase13-alpha',
+  'phase13-beta',
+  'phase13-gamma',
+] as const
+
+export interface EmpiresStabilizationCampaignCoverage {
+  durak: boolean
+  empireSettlement: boolean
+  defense: boolean
+  assault: boolean
+  loyaltyRebellion: boolean
+  loyaltyRecovery: boolean
+  epidemicBeforeFamine: boolean
+  domesticEconomy: boolean
+  externalEconomy: boolean
+  questDialogue: boolean
+  godPresence: boolean
+  governance: boolean
+  pendingResolution: boolean
+  tavernAndMystics: boolean
+  alchemyExplosion: boolean
+  expeditionPacking: boolean
+  expeditionAssault: boolean
+  finalSaveReload: boolean
+  chessDisabled: boolean
+}
+
+export interface EmpiresStabilizationCampaignResult {
+  seed: string | number
+  steps: number
+  autoplaySteps: number
+  coverage: EmpiresStabilizationCampaignCoverage
+  checkpointDigests: string[]
+  finalDigest: string
+  saveUtf8Bytes: number
+  snapshot: EmpiresCampaignState
+}
+
 export interface EmpiresQaDeckInspection {
   bottomCardId: string | null
   nextDrawCardId: string | null
@@ -264,6 +318,10 @@ const SCENARIO_COPY: Record<EmpiresQaScenarioName, { title: string, description:
   'expedition-planning': {
     title: 'Southern expedition planning',
     description: 'The South has a canonical roster and enough regional food to launch the fortress expedition.',
+  },
+  'inventory-packing': {
+    title: 'Expedition inventory packing',
+    description: 'A funded southern expedition is inside its immutable, restorable Inventory session.',
   },
   governance: {
     title: 'Advisor judgment and Perst assignment',
@@ -356,11 +414,23 @@ function cloneJson<T>(value: T): T {
 }
 
 function qaRulesIdentity(config: EmpiresEndgameConfig) {
+  const { seed: _initializationSeed, ...settlementConfig } = config
   return createTdRulesIdentity(config.schemaVersion, config.combat, config.td, {
     technologies: config.empire.technologies,
     units: config.empire.units ?? [],
     buildings: config.empire.buildings,
     steelResearch: config.empire.steelResearch,
+    medical: config.empire.medical,
+    loyalty: config.empire.loyalty,
+    expeditions: config.expeditions,
+    quests: config.quests,
+    settlementConfig,
+    sharedResultRetention: {
+      td: config.td.resultLogLimit ?? 32,
+      alchemy: config.alchemy.resultLogLimit,
+      inventory: config.inventory.resultLogLimit,
+      saveUtf8Bytes: EMPIRES_STABILIZATION_BUDGETS.longCampaignSaveUtf8Bytes,
+    },
   })
 }
 
@@ -586,6 +656,28 @@ function createExpeditionPlanningSnapshot(
   return new EmpiresEndgameEngine(config, state).snapshot()
 }
 
+function createInventoryPackingSnapshot(
+  config: EmpiresEndgameConfig,
+  expeditionPlanningSnapshot: EmpiresCampaignState,
+): EmpiresCampaignState {
+  const expeditionId = 'expedition-south-fortress'
+  const engine = new EmpiresEndgameEngine(config, expeditionPlanningSnapshot)
+  const planningResult = engine.beginExpeditionPlanning(expeditionId)
+  if (!planningResult.ok) throw new Error(`QA Inventory planning failed: ${planningResult.message}`)
+  const view = engine.expeditionPlanningView(expeditionId)
+  const ids = view?.roster.filter(item => item.eligible).slice(0, 2)
+    .map(item => item.unitInstanceId) ?? []
+  const required = ids.reduce((total, id) => {
+    const unit = view?.roster.find(item => item.unitInstanceId === id)
+    return total + (unit?.foodPerCon ?? 0) * (view?.effectiveDurationCons ?? 0)
+  }, 0)
+  const packing = engine.beginExpeditionPacking(expeditionId, ids, required)
+  if (!packing.ok || engine.state.minigame?.kind !== 'inventory') {
+    throw new Error(`QA Inventory packing failed: ${packing.message}`)
+  }
+  return engine.snapshot()
+}
+
 function createDomesticEconomySnapshot(
   config: EmpiresEndgameConfig,
   empireSnapshot: EmpiresCampaignState,
@@ -789,6 +881,8 @@ function createQuestDialogueSnapshot(
     consumedTriggerIds: [`quest:${definition.id}:trigger:conReached:con:2`],
     compactedTriggerCount: 0,
     compactedTriggerDigest: '',
+    compactedTriggerWatermarks: {},
+    sealedTriggerKinds: [],
     startedAtCon: state.con,
     finishedAtCon: null,
   }
@@ -1080,12 +1174,14 @@ function createBattleSnapshot(
     throw new Error(`QA ${scenarioName} variant no longer matches its expected mode and region.`)
   }
   const rulesIdentity = qaRulesIdentity(config)
+  const state = engine.snapshot()
   const planId = `qa-${scenarioName}-${variant.id}`
-  const sessionId = `${planId}:qa-seed`
+  const sequence = state.minigameResultCompaction.settledThroughSequence + 1
+  const seed = `qa-${scenarioName}`
+  const sessionId = `ee:${sequence}:${planId}:${seed}`
   const deploymentNodeId = variant.mode === 'assault'
     ? battlefield.spawnerNodeId
     : battlefield.deploymentNodeId
-  const state = engine.snapshot()
   const campaignCity = state.empire.cities.find(candidate => candidate.id === city.id)!
   const cohortId = `qa:${city.id}:${unit.id}:default`
   const unitInstanceIds = Array.from({ length: 3 }, (_, index) => (
@@ -1164,10 +1260,11 @@ function createBattleSnapshot(
   state.phase = 'minigame'
   state.minigame = {
     id: sessionId,
+    sequence,
     kind: 'td',
     plan,
     rulesIdentity: cloneJson(rulesIdentity),
-    seed: `qa-${scenarioName}`,
+    seed,
     attempt: 0,
     origin: {
       returnPhase: 'cards',
@@ -1318,11 +1415,17 @@ export function digestEmpiresQaState(engine: EmpiresEndgameEngine): EmpiresQaSta
     minigameRulesDigest: engine.state.minigame?.rulesIdentity.rulesDigest ?? null,
     minigameCommandLimit: engine.state.minigame?.plan.maxCommands ?? null,
     minigameResultCount: engine.state.minigameResultLog.length,
-    minigameResultLimit: Math.max(1, engine.config.td.resultLogLimit ?? 32),
+    minigameResultLimit: Math.max(1, Math.min(
+      engine.config.td.resultLogLimit ?? 32,
+      engine.config.alchemy.resultLogLimit,
+      engine.config.inventory.resultLogLimit,
+    )),
     minigameResultEvictedCount: engine.state.minigameResultCompaction.evictedCount,
     minigameResultHistoryDigest: engine.state.minigameResultCompaction.historyDigest,
     minigameResultLastSessionId: engine.state.minigameResultCompaction.lastSessionId,
     minigameResultLastRulesDigest: engine.state.minigameResultCompaction.lastRulesDigest,
+    minigameSettledThroughSequence: engine.state.minigameResultCompaction.settledThroughSequence,
+    legacySettledMinigameCount: engine.state.minigameResultCompaction.legacySettledSessionIds.length,
     rngDraws: engine.state.rng.draws,
     cosmeticRngDraws: engine.state.god.cosmeticRng.draws,
     deckMemoryInspectionsUsed: engine.state.durak.deckMemoryInspectionsUsed,
@@ -1340,6 +1443,12 @@ export function digestEmpiresQaState(engine: EmpiresEndgameEngine): EmpiresQaSta
       .filter(advisor => advisor.status === 'active').length,
     governorAssignmentCount: Object.keys(engine.state.governance.governorAssignments).length,
     activeEpidemicCount: engine.state.epidemics.filter(epidemic => epidemic.endedAtCon === null).length,
+    retainedEpidemicCount: engine.state.epidemics.length,
+    evictedEpidemicCount: engine.state.epidemicCompaction.evictedCount,
+    epidemicHistoryDigest: engine.state.epidemicCompaction.historyDigest,
+    recentBattleLossIdentityCount: engine.state.empire.loyalty.consumedBattleLossIds.length,
+    evictedBattleLossIdentityCount: engine.state.empire.loyalty.battleLossCompaction.evictedCount,
+    battleLossHistoryDigest: engine.state.empire.loyalty.battleLossCompaction.historyDigest,
     activeLoanCount: engine.state.empire.domesticEconomy.loans
       .filter(loan => loan.status === 'active' || loan.status === 'defaulted').length,
     insuranceContractCount: engine.state.empire.domesticEconomy.insuranceContracts.length,
@@ -1354,6 +1463,9 @@ export function digestEmpiresQaState(engine: EmpiresEndgameEngine): EmpiresQaSta
     activeQuestStatus: activeQuest?.status ?? null,
     activeQuestNodeId: activeQuest?.nodeId ?? null,
     questHistoryCount: engine.state.questRuntime.history.length,
+    questCompactedHistoryCount: engine.state.questRuntime.compactedHistoryCount,
+    questCompactedTriggerCount: Object.values(engine.state.quests)
+      .reduce((total, quest) => total + quest.compactedTriggerCount, 0),
     questStateDigest: JSON.stringify(Object.values(engine.state.quests)
       .sort((left, right) => left.questId.localeCompare(right.questId))
       .map(quest => ({
@@ -1514,6 +1626,13 @@ export function validateEmpiresQaSnapshot(
         || planning.provisionAvailable < planning.provisionRequired) {
         add('expedition-planning', 'Expedition scenario must expose a funded canonical southern roster.')
       }
+    } else if (scenarioName === 'inventory-packing') {
+      if (snapshot.phase !== 'minigame' || snapshot.minigame?.kind !== 'inventory') {
+        add('inventory-minigame', 'Inventory scenario must contain an active packing session.')
+      } else if (snapshot.minigame.plan.rulesIdentity.rulesDigest
+        !== snapshot.minigame.rulesIdentity.rulesDigest) {
+        add('inventory-rules', 'Inventory scenario must preserve matching immutable rules identity.')
+      }
     } else if (scenarioName === 'domestic-economy') {
       const economy = snapshot.empire.domesticEconomy
       const operationalCarriers = [
@@ -1663,6 +1782,7 @@ export function createEmpiresQaScenarios(
   const targetMeteorCity = createTargetedGiftSnapshot(seededConfig, divineGift, 'meteorCity')
   const empireCouncil = createEmpireSnapshot(seededConfig, divineGift)
   const expeditionPlanning = createExpeditionPlanningSnapshot(seededConfig, empireCouncil)
+  const inventoryPacking = createInventoryPackingSnapshot(seededConfig, expeditionPlanning)
   const destroyedWest = createDestroyedRegionSnapshot(seededConfig, empireCouncil, 'west')
   const loyaltyRebellion = createLoyaltyRebellionSnapshot(seededConfig, empireCouncil)
   const relicProductionLevels = createRelicBuildingLevelSnapshot(seededConfig, empireCouncil)
@@ -1690,6 +1810,7 @@ export function createEmpiresQaScenarios(
     'target-meteor-city': targetMeteorCity,
     'empire-council-with-points': empireCouncil,
     'expedition-planning': expeditionPlanning,
+    'inventory-packing': inventoryPacking,
     governance: cloneJson(empireCouncil),
     'domestic-economy': domesticEconomy,
     'mystic-tavern': mysticTavern,
@@ -1990,7 +2111,10 @@ export function runEmpiresQaAutoplay(
   const seededConfig = configWithSeed(config, seed)
   const startSnapshot = options.startSnapshot ?? createAutoplayStartSnapshot(seededConfig)
   const engine = new EmpiresEndgameEngine(seededConfig, startSnapshot)
-  const maxSteps = options.maxSteps ?? 10_000
+  const maxSteps = Math.min(
+    EMPIRES_STABILIZATION_BUDGETS.qaActions,
+    Math.max(1, Math.floor(options.maxSteps ?? EMPIRES_STABILIZATION_BUDGETS.qaActions)),
+  )
   const tdPolicy = options.tdPolicy ?? 'balanced'
   const trace: EmpiresQaTraceEntry[] = []
   const phaseVisits = emptyPhaseVisits()
@@ -2052,5 +2176,595 @@ export function runEmpiresQaAutoplay(
     trace,
     stall,
     snapshot: engine.snapshot(),
+  }
+}
+
+function requireStabilizationAction(
+  result: EmpiresActionResult,
+  label: string,
+): void {
+  if (!result.ok) throw new Error(`Phase 13 ${label} failed: ${result.message}`)
+}
+
+function stabilizationCheckpoint(
+  checkpoints: string[],
+  label: string,
+  engine: EmpiresEndgameEngine,
+): void {
+  checkpoints.push(digestTdValue({ label, state: digestEmpiresQaState(engine) }))
+}
+
+function firstStabilizationDifference(left: unknown, right: unknown, path = '$'): string | null {
+  if (Object.is(left, right)) return null
+  if (typeof left !== typeof right || left === null || right === null) return path
+  if (typeof left !== 'object') return path
+  if (Array.isArray(left) || Array.isArray(right)) {
+    if (!Array.isArray(left) || !Array.isArray(right) || left.length !== right.length) return `${path}.length`
+    for (let index = 0; index < left.length; index += 1) {
+      const difference = firstStabilizationDifference(left[index], right[index], `${path}[${index}]`)
+      if (difference) return difference
+    }
+    return null
+  }
+  const leftRecord = left as Record<string, unknown>
+  const rightRecord = right as Record<string, unknown>
+  const keys = [...new Set([...Object.keys(leftRecord), ...Object.keys(rightRecord)])].sort()
+  for (const key of keys) {
+    if (!(key in leftRecord) || !(key in rightRecord)) return `${path}.${key}`
+    const difference = firstStabilizationDifference(leftRecord[key], rightRecord[key], `${path}.${key}`)
+    if (difference) return difference
+  }
+  return null
+}
+
+function createStabilizationCampaignStart(
+  config: EmpiresEndgameConfig,
+): EmpiresCampaignState {
+  const bootstrap = new EmpiresEndgameEngine(config)
+  const state = createAntiBitoSnapshot(bootstrap)
+  const domestic = config.empire.domesticEconomy
+  const external = config.empire.externalEconomy
+  const carrierIds = [
+    domestic.loan.bankBuildingId,
+    domestic.insurance.buildingId,
+    domestic.fair.buildingId,
+    domestic.temple.buildingId,
+    domestic.tavern.buildingId,
+  ]
+
+  state.con = Math.max(2, config.tavern.spawn.eligibleCon)
+  state.boutsInCon = Math.max(0, config.durak.boutsPerCon - 2)
+  state.empire.daysRemaining = Math.max(config.empire.daysPerPhase, 30)
+  state.external.nextWaveCon = Number.MAX_SAFE_INTEGER
+  state.outcomeReason = null
+  state.pendingResolution = null
+  state.minigame = null
+  state.event = null
+
+  for (const resourceId of Object.keys(state.empire.resources)) {
+    state.empire.resources[resourceId] = Math.max(state.empire.resources[resourceId] ?? 0, 100_000)
+  }
+  state.empire.resources[domestic.goldResourceId] = 100_000
+  for (const city of state.empire.cities) {
+    for (const resourceId of Object.keys(city.resources)) {
+      city.resources[resourceId] = Math.max(city.resources[resourceId] ?? 0, 100_000)
+    }
+  }
+
+  const accessEngine = new EmpiresEndgameEngine(config, state)
+  const accessibleCities = accessEngine.state.empire.cities
+    .filter(city => accessEngine.isCityAccessible(city.id))
+  const usedUniqueCityIds = new Set<string>()
+  const installBuilding = (cityId: string, buildingId: string, slotKind: 'unique' | 'maritime'): void => {
+    const city = state.empire.cities.find(candidate => candidate.id === cityId)
+    const definition = config.empire.cities.find(candidate => candidate.id === cityId)
+    const slot = definition?.slots.find(candidate => candidate.kind === slotKind)
+    if (!city || !slot) {
+      throw new Error(`Phase 13 cannot stage ${buildingId}: ${cityId} has no ${slotKind} slot.`)
+    }
+    city.buildingLevels[buildingId] = 1
+    city.operationalBuildingLevels[buildingId] = 1
+    city.buildingSlotAssignments[slot.id] = buildingId
+  }
+
+  const domesticCities = accessibleCities
+    .filter(city => config.empire.cities.find(definition => definition.id === city.id)
+      ?.slots.some(slot => slot.kind === 'unique'))
+    .slice(0, carrierIds.length)
+  if (!domestic.enabled || domesticCities.length !== carrierIds.length) {
+    throw new Error('Phase 13 continuous campaign requires five domestic carrier cities.')
+  }
+  for (const [index, buildingId] of carrierIds.entries()) {
+    const city = state.empire.cities.find(candidate => candidate.id === domesticCities[index].id)!
+    usedUniqueCityIds.add(city.id)
+    installBuilding(city.id, buildingId, 'unique')
+    city.baseProduction[domestic.goldResourceId] = 200
+    city.lastProduction[domestic.goldResourceId] = 200
+  }
+
+  const externalCity = accessibleCities.find(city => {
+    const definition = config.empire.cities.find(candidate => candidate.id === city.id)
+    return !usedUniqueCityIds.has(city.id)
+      && definition?.slots.some(slot => slot.kind === 'unique')
+      && definition.slots.some(slot => slot.kind === 'maritime')
+  })
+  if (!external.enabled || external.offers.length < 2 || !externalCity) {
+    throw new Error('Phase 13 continuous campaign requires a distinct maritime trade city.')
+  }
+  usedUniqueCityIds.add(externalCity.id)
+  installBuilding(externalCity.id, external.customs.buildingId, 'unique')
+  installBuilding(externalCity.id, external.seaPort.buildingId, 'maritime')
+  const externalCityState = state.empire.cities.find(city => city.id === externalCity.id)!
+  externalCityState.resources[external.goldResourceId] = 100_000
+  for (const offer of external.offers) {
+    externalCityState.resources[offer.resourceId] = Math.max(
+      externalCityState.resources[offer.resourceId] ?? 0,
+      offer.resourceAmount * 2,
+    )
+  }
+  state.empire.reputation = Math.max(3, ...external.offers.map(offer => offer.minimumReputation))
+  state.empire.flags[external.transfer.speedFlagId] = 25
+  state.empire.flags[external.customs.merchantGuildsFlagId] = 1
+  state.external.nextOfferRefreshCon = state.con
+
+  const recipe = config.alchemy.recipes.find(candidate => !candidate.deferredReason)
+  const alchemyCity = accessibleCities.find(city => {
+    const definition = config.empire.cities.find(candidate => candidate.id === city.id)
+    return !usedUniqueCityIds.has(city.id)
+      && definition?.slots.some(slot => slot.kind === 'unique')
+  })
+  if (!config.alchemy.enabled || !recipe || !alchemyCity) {
+    throw new Error('Phase 13 continuous campaign requires a distinct live Alchemy carrier.')
+  }
+  usedUniqueCityIds.add(alchemyCity.id)
+  installBuilding(alchemyCity.id, config.alchemy.buildingId, 'unique')
+
+  const stagedBuildingIds = [
+    ...carrierIds,
+    external.customs.buildingId,
+    external.seaPort.buildingId,
+    config.alchemy.buildingId,
+  ]
+  const stagedTechnologyIds = [
+    domestic.loan.bankingTechnologyId,
+    domestic.fair.technologyId,
+    external.tradeRoutesTechnologyId,
+    external.transfer.compassTechnologyId,
+    external.customs.merchantGuildsTechnologyId,
+    ...recipe.prerequisites.flatMap(dependency => (
+      dependency.kind === 'technology' ? [dependency.technologyId] : []
+    )),
+    ...stagedBuildingIds.flatMap(buildingId => config.empire.buildings
+      .find(building => building.id === buildingId)?.levels
+      .flatMap(level => level.dependencies ?? [])
+      .flatMap(dependency => dependency.kind === 'technology' ? [dependency.technologyId] : []) ?? []),
+  ]
+  state.empire.researchedTechnologyIds = [...new Set([
+    ...state.empire.researchedTechnologyIds,
+    ...stagedTechnologyIds,
+  ])]
+
+  state.tavern.spawnChecked = true
+  state.tavern.spawned = true
+  state.tavern.spawnedAtCon = state.con
+  state.tavern.lastVisitedCon = null
+
+  const expeditionCity = state.empire.cities.find(city => (
+    city.regionId === 'south' && accessEngine.isCityAccessible(city.id)
+  ))
+  if (!expeditionCity) throw new Error('Phase 13 continuous campaign requires a southern expedition city.')
+  const cohortId = 'qa-expedition-south-light'
+  const unitInstanceIds = ['qa-expedition-unit-1', 'qa-expedition-unit-2']
+  expeditionCity.resources[config.empire.foodResourceId] = 100_000
+  expeditionCity.recruitedUnitCohorts = expeditionCity.recruitedUnitCohorts
+    .filter(cohort => cohort.id !== cohortId)
+  expeditionCity.recruitedUnitCohorts.push({
+    id: cohortId,
+    unitId: 'unit-light',
+    loadoutId: 'qa-expedition-loadout',
+    count: unitInstanceIds.length,
+    unitInstanceIds,
+    weaponEquipmentId: 'weapon-mace',
+    weapon: { damageLevels: { impact: 100 }, tags: ['mace', 'qa-expedition'] },
+    armor: null,
+  })
+  for (const id of unitInstanceIds) {
+    state.army.unitInstances[id] = {
+      id,
+      cityId: expeditionCity.id,
+      cohortId,
+      unitId: 'unit-light',
+      healthRatio: 1,
+      veteran: false,
+      wounds: 0,
+      recoveryStartedAtCon: null,
+      readyAtCon: state.con,
+    }
+  }
+
+  return new EmpiresEndgameEngine(config, state).snapshot()
+}
+
+/**
+ * Runs the final deterministic integration campaign on one engine and one
+ * accumulating state. Fixture-only prerequisites are staged on that same state;
+ * every transition and settlement is crossed through a public action.
+ */
+export function runEmpiresStabilizationCampaign(
+  config: EmpiresEndgameConfig,
+  seed: string | number,
+): EmpiresStabilizationCampaignResult {
+  const campaignConfig = configWithSeed(config, seed)
+  campaignConfig.empire.eventChance = 1
+  for (const event of campaignConfig.empire.events) {
+    if (event.id !== STABILIZATION_FAMINE_EVENT_ID) {
+      event.deferredReason ??= 'Phase 13 famine ordering fixture.'
+    }
+  }
+  const stabilizationGiftIds = new Set([
+    'gift-resource-grant',
+    'gift-combat-spirit',
+    'gift-meteor',
+  ])
+  for (const gift of campaignConfig.gifts.definitions) {
+    if (!stabilizationGiftIds.has(gift.id)) {
+      gift.deferredReason ??= 'Phase 13 targeted-resolution fixture.'
+    }
+  }
+  campaignConfig.god.antiBito.returnCount = Math.max(
+    campaignConfig.god.antiBito.returnCount,
+    campaignConfig.durak.handSize * 2,
+  )
+  const expeditionVariant = campaignConfig.td.planVariants?.find(candidate => (
+    candidate.id === 'desert-fort-expedition-assault'
+  ))
+  if (!expeditionVariant) throw new Error('Phase 13 expedition assault variant is missing.')
+  expeditionVariant.objective.maxHp = 1
+
+  const engine = new EmpiresEndgameEngine(
+    campaignConfig,
+    createStabilizationCampaignStart(campaignConfig),
+  )
+  const checkpoints: string[] = []
+  const resolvedTdModes: TdBattleMode[] = []
+  let steps = 0
+  let autoplaySteps = 0
+  let checkedPlayerTurns = 0
+  let sawPendingResolution = false
+
+  const assertActionBudget = (label: string): void => {
+    if (steps >= EMPIRES_STABILIZATION_BUDGETS.qaActions) {
+      throw new Error(`Phase 13 exceeded the action cap before ${label}.`)
+    }
+  }
+  const runAction = <T extends { ok: boolean, message: string }>(
+    label: string,
+    action: () => T,
+    autoplay = false,
+  ): T => {
+    assertActionBudget(label)
+    const result = action()
+    requireStabilizationAction(result, label)
+    steps += 1
+    if (autoplay) autoplaySteps += 1
+    return result
+  }
+  const runMutation = <T>(label: string, action: () => T): T => {
+    assertActionBudget(label)
+    const result = action()
+    steps += 1
+    return result
+  }
+
+  runAction('God anti-bito intervention', () => engine.endAttack('player'))
+  const inspection = runAction('God deck inspection', () => engine.inspectDeck())
+  if (inspection.cards.length === 0) {
+    throw new Error('Phase 13 God deck inspection returned no visible cards.')
+  }
+  stabilizationCheckpoint(checkpoints, 'god-presence', engine)
+
+  const targetedGiftId = campaignConfig.gifts.definitions.find(gift => (
+    gift.resolution?.kind === 'cityResources' && !gift.deferredReason
+  ))?.id
+  if (!targetedGiftId) throw new Error('Phase 13 has no live targeted resource gift.')
+  while (engine.state.phase !== 'empire' || engine.state.questRuntime.activeMandatoryQuestId) {
+    if (engine.state.phase === 'victory' || engine.state.phase === 'defeat') {
+      throw new Error(`Phase 13 reached ${engine.state.phase} before the empire chain.`)
+    }
+    const choice = chooseAutoplayAction(engine, 'balanced')
+    if (choice.checkedPlayerTurn) checkedPlayerTurns += 1
+    let action = choice.action
+    if (engine.state.phase === 'divineGift' && !engine.state.pendingResolution) {
+      if (!engine.state.giftChoiceIds.includes(targetedGiftId)) {
+        throw new Error('Phase 13 targeted resource gift was not offered by the live choice rules.')
+      }
+      action = { kind: 'choose-gift', giftId: targetedGiftId }
+    }
+    if (!action || choice.stall) {
+      throw new Error(`Phase 13 continuous autoplay stalled: ${choice.stall?.message ?? 'no action'}`)
+    }
+    runAction(`continuous autoplay ${action.kind}`, () => executeAutoplayAction(engine, action!), true)
+    sawPendingResolution ||= engine.state.pendingResolution !== null || action.kind === 'resolve-target'
+  }
+  stabilizationCheckpoint(checkpoints, 'durak-pending-quest-empire', engine)
+
+  const advisorId = campaignConfig.governance.advisors.find(advisor => (
+    engine.state.governance.advisors[advisor.id]?.status === 'awaiting-judgment'
+    && !engine.advisorTransitionBlockedReason(advisor.id, 'pardon')
+  ))?.id
+  const perstId = campaignConfig.governance.persts[0]?.id
+  const governorRegionId = campaignConfig.governance.governor.regionIds[0]
+  if (!advisorId || !perstId || !governorRegionId) {
+    throw new Error('Phase 13 continuous campaign has no legal governance transition.')
+  }
+  runAction('advisor judgment', () => engine.transitionAdvisor(advisorId, 'pardon'))
+  runAction('Perst assignment', () => engine.assignGovernor(perstId, governorRegionId))
+  stabilizationCheckpoint(checkpoints, 'governance', engine)
+
+  const domestic = campaignConfig.empire.domesticEconomy
+  const bankCity = engine.state.empire.cities.find(city => (
+    (city.operationalBuildingLevels[domestic.loan.bankBuildingId] ?? 0) > 0
+  ))
+  const insuranceCity = engine.state.empire.cities.find(city => (
+    (city.operationalBuildingLevels[domestic.insurance.buildingId] ?? 0) > 0
+  ))
+  const fairCity = engine.state.empire.cities.find(city => (
+    (city.operationalBuildingLevels[domestic.fair.buildingId] ?? 0) > 0
+  ))
+  const fairAction = domestic.fair.actions[0]
+  if (!bankCity || !insuranceCity || !fairCity || !fairAction) {
+    throw new Error('Phase 13 continuous campaign lost a domestic economy carrier.')
+  }
+  runAction('Bank loan', () => engine.takeLoan(bankCity.id))
+  runAction('insurance contract', () => engine.startInsurance(insuranceCity.id))
+  runAction('Fair action', () => engine.performFairAction(fairCity.id, fairAction.id))
+  stabilizationCheckpoint(checkpoints, 'domestic-economy', engine)
+
+  if (engine.state.external.activeOffers.length < 2) {
+    throw new Error('Phase 13 continuous campaign did not refresh two external offers at empire start.')
+  }
+  runAction('external offer acceptance', () => executeEmpiresQaExternalOfferPolicy(engine, 'accept-first'))
+  runAction('external offer decline', () => executeEmpiresQaExternalOfferPolicy(engine, 'decline-first'))
+  stabilizationCheckpoint(checkpoints, 'external-economy', engine)
+
+  runMutation('north loyalty unrest 1', () => (
+    engine.applyLoyaltyDelta({ kind: 'region', regionId: 'north' }, -6, 'qa:north:unrest-1')
+  ))
+  runMutation('north loyalty unrest 2', () => (
+    engine.applyLoyaltyDelta({ kind: 'region', regionId: 'north' }, -1, 'qa:north:unrest-2')
+  ))
+  const northRebelled = engine.state.empire.loyalty.regions.north?.status === 'rebellious'
+  runMutation('north loyalty recovery 1', () => (
+    engine.applyLoyaltyDelta({ kind: 'region', regionId: 'north' }, 7, 'qa:north:recovery-1')
+  ))
+  runMutation('north loyalty recovery 2', () => (
+    engine.applyLoyaltyDelta({ kind: 'region', regionId: 'north' }, 1, 'qa:north:recovery-2')
+  ))
+  const northRecovered = engine.state.empire.loyalty.regions.north?.status !== 'rebellious'
+  runMutation('west loyalty unrest 1', () => (
+    engine.applyLoyaltyDelta({ kind: 'region', regionId: 'west' }, -6, 'qa:west:unrest-1')
+  ))
+  runMutation('west loyalty unrest 2', () => (
+    engine.applyLoyaltyDelta({ kind: 'region', regionId: 'west' }, -1, 'qa:west:unrest-2')
+  ))
+  const westRebellious = engine.state.empire.loyalty.regions.west?.status === 'rebellious'
+  stabilizationCheckpoint(checkpoints, 'loyalty-rebellion-recovery', engine)
+
+  const tavernCity = engine.state.empire.cities.find(city => engine.isCityAccessible(city.id))
+  if (!tavernCity) throw new Error('Phase 13 continuous campaign has no Tavern city.')
+  runAction('Tavern visit', () => engine.startTavernVisit(tavernCity.id))
+  if (engine.state.minigame?.kind !== 'tavern') throw new Error('Phase 13 Tavern session is missing.')
+  const tavernResult = resolveTavern(engine.state.minigame.plan, engine.state.minigame.seed, [
+    { turn: 1, kind: 'finish' },
+  ])
+  runAction('Tavern settlement', () => engine.resolveMinigame(tavernResult))
+
+  // Maria's authored encounter remains explicitly deferred, so stage only
+  // that prerequisite and cross the live 3-7-Ace Queen spawn through the
+  // production card actions on this same accumulating engine.
+  const preMysticCardState = {
+    phase: engine.state.phase,
+    durak: cloneJson(engine.state.durak),
+    performance: cloneJson(engine.state.performance),
+    boutsInCon: engine.state.boutsInCon,
+    rng: cloneJson(engine.state.rng),
+    god: cloneJson(engine.state.god),
+  }
+  const comboThree = campaignConfig.cards.find(card => card.rank === '3')
+  const comboSeven = campaignConfig.cards.find(card => (
+    card.rank === '7' && card.suit === comboThree?.suit
+  ))
+  const comboAce = campaignConfig.cards.find(card => card.rank === 'ace')
+  const comboIds = new Set([comboThree?.id, comboSeven?.id, comboAce?.id].filter(Boolean))
+  const comboFillers = campaignConfig.cards.filter(card => !comboIds.has(card.id)).slice(0, 2)
+  if (!comboThree || !comboSeven || !comboAce || comboFillers.length !== 2) {
+    throw new Error('Phase 13 continuous campaign lost the authored mystic combo cards.')
+  }
+  runMutation('stage deferred Maria prerequisite and legal mystic combo bout', () => {
+    engine.state.tavern.mariaVictory = true
+    engine.state.tavern.mariaVictoryAtCon = engine.state.con
+    engine.state.phase = 'cards'
+    engine.state.durak.attacker = 'player'
+    engine.state.durak.defender = 'god'
+    engine.state.durak.stage = 'attack'
+    engine.state.durak.table = []
+    engine.state.durak.discard = []
+    engine.state.durak.consecutiveBito = 0
+    engine.state.boutsInCon = 0
+    engine.state.durak.playerHand = [comboThree.id, comboFillers[0].id]
+    engine.state.durak.godHand = [comboSeven.id, comboAce.id, comboFillers[1].id]
+    const stagedHandIds = new Set([
+      ...engine.state.durak.playerHand,
+      ...engine.state.durak.godHand,
+    ])
+    engine.state.durak.deck = campaignConfig.cards
+      .map(card => card.id)
+      .filter(cardId => !stagedHandIds.has(cardId))
+    engine.state.durak.defenderHandAtBoutStart = engine.state.durak.godHand.length
+  })
+  runAction('mystic combo 3', () => engine.playCard(comboThree.id))
+  runAction('mystic combo 7', () => engine.playCardFor('god', comboSeven.id))
+  runAction('mystic combo defended bout', () => engine.endAttack('player'))
+  runAction('mystic combo Ace', () => engine.playCardFor('god', comboAce.id))
+  const queenMysticId = campaignConfig.tavern.queen.mysticDefinitionId
+  if (!engine.state.mystics.zone.includes(queenMysticId)
+    || !engine.state.mystics.history.some(entry => (
+      entry.kind === 'spawn' && entry.instanceIds.includes(queenMysticId)
+    ))) {
+    throw new Error('Phase 13 live mystic combo did not spawn the Queen.')
+  }
+  runMutation('restore the empire phase after the isolated legal card prerequisite', () => {
+    engine.state.phase = preMysticCardState.phase
+    engine.state.durak = preMysticCardState.durak
+    engine.state.performance = preMysticCardState.performance
+    engine.state.boutsInCon = preMysticCardState.boutsInCon
+    engine.state.rng = preMysticCardState.rng
+    engine.state.god = preMysticCardState.god
+  })
+  stabilizationCheckpoint(checkpoints, 'tavern-mystics', engine)
+
+  const recipe = campaignConfig.alchemy.recipes.find(candidate => !candidate.deferredReason)
+  const alchemyCity = engine.state.empire.cities.find(city => (
+    engine.isCityAccessible(city.id)
+    && (city.operationalBuildingLevels[campaignConfig.alchemy.buildingId] ?? 0) > 0
+  ))
+  if (!recipe || !alchemyCity) throw new Error('Phase 13 continuous campaign lost its Alchemy carrier.')
+  runAction('Alchemy experiment', () => engine.startAlchemyExperiment(alchemyCity.id, recipe.id))
+  if (engine.state.minigame?.kind !== 'alchemy') throw new Error('Phase 13 Alchemy session is missing.')
+  const explosion = resolveAlchemyExplosionFixture(engine.state.minigame.plan, engine.state.minigame.seed)
+  runAction('Alchemy explosion settlement', () => engine.resolveMinigame(explosion))
+  stabilizationCheckpoint(checkpoints, 'alchemy-explosion', engine)
+
+  const settleBattle = (scenario: 'battle-defense' | 'battle-assault'): void => {
+    const prepared = createBattleSnapshot(campaignConfig, engine, scenario)
+    if (prepared.minigame?.kind !== 'td') throw new Error(`Phase 13 ${scenario} session is missing.`)
+    const session = cloneJson(prepared.minigame)
+    session.origin.returnPhase = engine.state.phase
+    engine.state.empire.cities = prepared.empire.cities
+    engine.state.army = prepared.army
+    runAction(`${scenario} start`, () => engine.beginMinigame(session))
+    if (engine.state.minigame?.kind !== 'td') throw new Error(`Phase 13 ${scenario} did not start.`)
+    resolvedTdModes.push(engine.state.minigame.plan.mode)
+    const result = resolveTdWithPolicy(
+      engine.state.minigame.plan,
+      engine.state.minigame.seed,
+      'balanced',
+    )
+    runAction(`${scenario} settlement`, () => engine.resolveMinigame(result))
+  }
+  settleBattle('battle-defense')
+  stabilizationCheckpoint(checkpoints, 'td-defense', engine)
+  settleBattle('battle-assault')
+  stabilizationCheckpoint(checkpoints, 'td-assault', engine)
+
+  const expeditionId = 'expedition-south-fortress'
+  runAction('expedition planning', () => engine.beginExpeditionPlanning(expeditionId))
+  const planning = engine.expeditionPlanningView(expeditionId)
+  const rosterIds = planning?.roster.filter(item => item.eligible).slice(0, 2)
+    .map(item => item.unitInstanceId) ?? []
+  const requiredProvision = rosterIds.reduce((total, id) => (
+    total + (planning?.roster.find(item => item.unitInstanceId === id)?.foodPerCon ?? 0)
+      * (planning?.effectiveDurationCons ?? 0)
+  ), 0)
+  if (rosterIds.length !== 2 || requiredProvision <= 0) {
+    throw new Error('Phase 13 expedition planning did not retain its two staged units.')
+  }
+  runAction('expedition packing start', () => (
+    engine.beginExpeditionPacking(expeditionId, rosterIds, requiredProvision)
+  ))
+  if (engine.state.minigame?.kind !== 'inventory') {
+    throw new Error('Phase 13 Inventory session is missing.')
+  }
+  const inventoryResult = resolveInventoryWithPolicy(
+    engine.state.minigame.plan,
+    engine.state.minigame.seed,
+    'spread',
+  )
+  runAction('Inventory settlement', () => engine.resolveMinigame(inventoryResult))
+  runAction('expedition assault start', () => engine.startExpeditionAssault(expeditionId))
+  if (engine.state.minigame?.kind !== 'td') {
+    throw new Error('Phase 13 expedition TD session is missing.')
+  }
+  const expeditionAssault = resolveTdWithPolicy(
+    engine.state.minigame.plan,
+    engine.state.minigame.seed,
+    'balanced',
+  )
+  runAction('expedition assault settlement', () => engine.resolveMinigame(expeditionAssault))
+  stabilizationCheckpoint(checkpoints, 'expedition-packing-assault', engine)
+
+  const activeEpidemicBeforeFamine = engine.state.epidemics.some(epidemic => epidemic.endedAtCon === null)
+  engine.state.empire.daysRemaining = 0
+  engine.state.empire.resources[campaignConfig.empire.foodResourceId] = 0
+  engine.state.external.nextWaveCon = Number.MAX_SAFE_INTEGER
+  for (const city of engine.state.empire.cities) {
+    city.resources[campaignConfig.empire.foodResourceId] = 0
+    city.baseProduction[campaignConfig.empire.foodResourceId] = 0
+    city.lastProduction[campaignConfig.empire.foodResourceId] = 0
+  }
+  runAction('epidemic/famine settlement', () => engine.finishEmpire())
+  const epidemicBeforeFamine = activeEpidemicBeforeFamine
+    && engine.state.event?.eventId === STABILIZATION_FAMINE_EVENT_ID
+    && engine.state.empire.chronicle.some(entry => entry.kind === 'epidemic-impact')
+  stabilizationCheckpoint(checkpoints, 'epidemic-before-famine', engine)
+
+  const exported = exportEmpiresCampaign(engine.snapshot())
+  const saveUtf8Bytes = new TextEncoder().encode(JSON.stringify(exported)).byteLength
+  if (saveUtf8Bytes > EMPIRES_STABILIZATION_BUDGETS.longCampaignSaveUtf8Bytes) {
+    throw new Error(`Phase 13 campaign save exceeded ${EMPIRES_STABILIZATION_BUDGETS.longCampaignSaveUtf8Bytes} bytes.`)
+  }
+  const imported = importEmpiresCampaign(exported, campaignConfig.id)
+  const restored = new EmpiresEndgameEngine(campaignConfig, imported)
+  const reloadDifference = firstStabilizationDifference(restored.snapshot(), imported)
+  stabilizationCheckpoint(checkpoints, 'final-save-reload', restored)
+
+  const coverage: EmpiresStabilizationCampaignCoverage = {
+    durak: checkedPlayerTurns > 0,
+    empireSettlement: restored.state.phase === 'event',
+    defense: resolvedTdModes.includes('defense'),
+    assault: resolvedTdModes.includes('assault'),
+    loyaltyRebellion: northRebelled && westRebellious,
+    loyaltyRecovery: northRecovered,
+    epidemicBeforeFamine,
+    domesticEconomy: restored.state.empire.domesticEconomy.loans.length > 0
+      && restored.state.empire.domesticEconomy.insuranceContracts.length > 0
+      && restored.state.empire.domesticEconomy.fair.activeActivities.length > 0,
+    externalEconomy: restored.state.external.offerHistory.length >= 2,
+    questDialogue: restored.state.questRuntime.history.length > 0,
+    godPresence: inspection.cards.length > 0 && restored.state.god.interventions.length > 0,
+    governance: restored.state.governance.advisors[advisorId].status === 'active'
+      && Boolean(restored.state.governance.governorAssignments[governorRegionId]),
+    pendingResolution: sawPendingResolution && restored.state.pendingResolution === null,
+    tavernAndMystics: restored.state.minigameResultLog.some(record => record.result.kind === 'tavern')
+      && restored.state.mystics.zone.includes(queenMysticId)
+      && restored.state.mystics.history.some(entry => (
+        entry.kind === 'spawn' && entry.instanceIds.includes(queenMysticId)
+      )),
+    alchemyExplosion: explosion.outcome === 'explosion'
+      && restored.state.minigameResultLog.some(record => record.result.kind === 'alchemy'),
+    expeditionPacking: inventoryResult.outcome === 'completed'
+      && restored.state.minigameResultLog.some(record => record.result.kind === 'inventory'),
+    expeditionAssault: restored.state.expeditions.byDefinitionId[expeditionId]?.status === 'won',
+    finalSaveReload: reloadDifference === null,
+    chessDisabled: !('chess' in campaignConfig)
+      && restored.state.minigame?.kind !== ('chess' as EmpiresMinigameKind),
+  }
+  if (Object.values(coverage).some(value => !value)) {
+    const missing = Object.entries(coverage).filter(([, value]) => !value).map(([key]) => key)
+    throw new Error(`Phase 13 campaign missed coverage: ${missing.join(', ')}${
+      reloadDifference ? ` (reload drift at ${reloadDifference})` : ''
+    }`)
+  }
+
+  const snapshot = restored.snapshot()
+  return {
+    seed,
+    steps,
+    autoplaySteps,
+    coverage,
+    checkpointDigests: checkpoints,
+    finalDigest: digestTdValue({ checkpoints, snapshot: digestEmpiresQaState(restored) }),
+    saveUtf8Bytes,
+    snapshot,
   }
 }

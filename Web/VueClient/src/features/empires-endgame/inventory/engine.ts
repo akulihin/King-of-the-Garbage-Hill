@@ -1,8 +1,14 @@
 import { createEmpiresRngState, nextEmpiresRandomInt } from '../rng'
 import { digestTdValue } from '../td/engine'
+import { EMPIRES_STABILIZATION_BUDGETS } from '../stabilization'
 import type {
   CombatEquipmentDefinition,
   EmpiresExpeditionDefinition,
+  EmpiresExpeditionsConfig,
+  EmpiresEndgameConfig,
+  EmpiresInitialCity,
+  EmpiresLoyaltyConfig,
+  EmpiresQuestsConfig,
   EmpiresResourceDefinition,
 } from '../types'
 import { INVENTORY_MOVES } from './types'
@@ -209,7 +215,12 @@ export function createInventoryRulesIdentity(
   references: {
     resources: readonly EmpiresResourceDefinition[]
     equipment: readonly CombatEquipmentDefinition[]
-    expeditions: readonly EmpiresExpeditionDefinition[]
+    expeditions: readonly EmpiresExpeditionDefinition[] | EmpiresExpeditionsConfig
+    cities?: readonly EmpiresInitialCity[]
+    loyalty?: EmpiresLoyaltyConfig
+    quests?: EmpiresQuestsConfig
+    settlementConfig?: Omit<EmpiresEndgameConfig, 'seed'>
+    sharedResultRetention?: unknown
   },
 ): InventoryRulesIdentity {
   return {
@@ -231,9 +242,22 @@ export function validateInventoryPlan(plan: InventoryPlan): string[] {
     || !finiteInteger(plan.maxItems, 1)) {
     errors.push('Inventory attempt, timing, command, item, and catch-up limits must be positive integers.')
   }
+  if (plan.maxTicks > EMPIRES_STABILIZATION_BUDGETS.maxTicks
+    || plan.maxCommands > EMPIRES_STABILIZATION_BUDGETS.maxCommands
+    || plan.maxCatchUpTicksPerFrame > EMPIRES_STABILIZATION_BUDGETS.maxCatchUpTicksPerFrame
+    || plan.maxItems > EMPIRES_STABILIZATION_BUDGETS.maxPlanItems
+    || plan.tickMs * plan.maxTicks > EMPIRES_STABILIZATION_BUDGETS.maxLogicalReplayDurationMs) {
+    errors.push('Inventory runtime limits exceed the shipped safety ceiling.')
+  }
   if (!finiteInteger(plan.board.width, 4) || !finiteInteger(plan.board.height, 6)
     || !finiteInteger(plan.board.cartHeight, 2) || plan.board.cartHeight >= plan.board.height) {
     errors.push('Inventory board and cart dimensions are invalid.')
+  }
+  if (plan.board.width * plan.board.height > EMPIRES_STABILIZATION_BUDGETS.maxBoardCells
+    || plan.rosterUnitInstanceIds.length > EMPIRES_STABILIZATION_BUDGETS.maxRosterUnitInstances
+    || plan.itemDefinitions.length > EMPIRES_STABILIZATION_BUDGETS.maxPlanItems
+    || plan.itemInstances.length > EMPIRES_STABILIZATION_BUDGETS.maxPlanItems) {
+    errors.push('Inventory board or component count exceeds the shipped safety ceiling.')
   }
   if (!finiteInteger(plan.gravity.intervalTicks, 1)
     || !finiteInteger(plan.gravity.spawnDelayTicks)) errors.push('Inventory gravity rules are invalid.')

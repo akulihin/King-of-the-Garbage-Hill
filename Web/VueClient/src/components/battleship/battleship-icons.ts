@@ -172,6 +172,26 @@ const buckshot = svgFilled(
   '<circle cx="15" cy="17" r="2"/>'
 )
 
+const mast = svg(
+  '<line x1="7" y1="3" x2="7" y2="21" stroke-width="2.5"/>' +
+  '<path d="M8 4h10l-3 4 3 4H8" fill="currentColor"/>'
+)
+
+const boiler = svg(
+  '<rect x="5" y="7" width="14" height="12" rx="3"/>' +
+  '<circle cx="12" cy="12" r="3"/>' +
+  '<path d="M9 4h6v3M8 19v2M16 19v2"/>'
+)
+
+const armor = svg(
+  '<path d="M12 3l7 3v5c0 5-3 8-7 10-4-2-7-5-7-10V6l7-3z"/>' +
+  '<path d="M12 7v9M8.5 11.5h7"/>'
+)
+
+const bow = svgFilled(
+  '<path d="M12 2l7 9h-4v11H9V11H5l7-9z"/>'
+)
+
 // ---------------------------------------------------------------------------
 // UI
 // ---------------------------------------------------------------------------
@@ -284,6 +304,10 @@ export const ICONS: Record<string, string> = {
   greekFire,
   whiteStone,
   buckshot,
+  mast,
+  boiler,
+  armor,
+  bow,
 
   // UI
   anchor,

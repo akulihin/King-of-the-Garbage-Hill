@@ -3,6 +3,7 @@ import { computed, type Component } from 'vue'
 import {
   Award,
   BadgeCheck,
+  Ban,
   Bird,
   Box,
   BriefcaseBusiness,
@@ -62,6 +63,7 @@ const icons: Record<string, Component> = {
   axe: Sword,
   badge: BadgeCheck,
   balance: Scale,
+  ban: Ban,
   bat: Feather,
   bird: Bird,
   bolt: Zap,

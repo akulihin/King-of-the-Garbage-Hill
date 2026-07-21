@@ -79,7 +79,7 @@ describe('Empire\'s Endgame Phase 4C governance', () => {
     })
     const restored = new EmpiresEndgameEngine(value, engine.snapshot())
     expect(restored.state.governance).toEqual(engine.state.governance)
-    expect(restored.snapshotEnvelope('2026-07-17T00:00:00.000Z').schemaVersion).toBe(15)
+    expect(restored.snapshotEnvelope('2026-07-17T00:00:00.000Z').schemaVersion).toBe(16)
   })
 
   it('keeps clubs unavailable until an authored Grand Advisor grant, then makes clubs trump exactly once', () => {
@@ -109,7 +109,7 @@ describe('Empire\'s Endgame Phase 4C governance', () => {
     delete legacy.governance
 
     const restored = new EmpiresEndgameEngine(value, legacy)
-    expect(restored.state.schemaVersion).toBe(15)
+    expect(restored.state.schemaVersion).toBe(16)
     expect(restored.state.governance.advisors['advisor-grand']).toMatchObject({
       status: 'active',
       transitionSourceId: 'migration:legacy-restricted-trump',

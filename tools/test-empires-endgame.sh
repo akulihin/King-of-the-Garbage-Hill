@@ -5,9 +5,34 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CLIENT_DIR="$ROOT_DIR/Web/VueClient"
 PORT="${EMPIRES_E2E_PORT:-4174}"
 BASE_URL="http://127.0.0.1:$PORT"
-VITE_LOG="${TMPDIR:-/tmp}/empires-endgame-vite-$$.log"
 RUN_UNITS=1
 RUN_BROWSER=1
+
+create_task_temp_dir() {
+  local candidate task_dir
+
+  for candidate in "${TMPDIR:-}" "${TEMP:-}" "${TMP:-}" /tmp; do
+    if [[ -z "$candidate" || ! -d "$candidate" || ! -w "$candidate" ]]; then
+      continue
+    fi
+    if task_dir="$(mktemp -d "$candidate/empires-endgame.XXXXXX" 2>/dev/null)"; then
+      printf '%s\n' "$task_dir"
+      return 0
+    fi
+  done
+
+  echo "Could not create a writable temporary directory for the Empire's Endgame test gate." >&2
+  return 1
+}
+
+EMPIRES_TASK_TEMP_DIR="$(create_task_temp_dir)"
+export TMPDIR="$EMPIRES_TASK_TEMP_DIR"
+export TEMP="$EMPIRES_TASK_TEMP_DIR"
+export TMP="$EMPIRES_TASK_TEMP_DIR"
+export XDG_CONFIG_HOME="$EMPIRES_TASK_TEMP_DIR/xdg-config"
+export XDG_CACHE_HOME="$EMPIRES_TASK_TEMP_DIR/xdg-cache"
+mkdir -p "$XDG_CONFIG_HOME" "$XDG_CACHE_HOME"
+VITE_LOG="$EMPIRES_TASK_TEMP_DIR/vite.log"
 
 case "${1:-}" in
   --unit-only) RUN_BROWSER=0 ;;
@@ -24,7 +49,10 @@ cleanup() {
     kill "$VITE_PID" 2>/dev/null || true
     wait "$VITE_PID" 2>/dev/null || true
   fi
-  rm -f "$VITE_LOG"
+  rm -f -- "$VITE_LOG"
+  if [[ -n "${EMPIRES_TASK_TEMP_DIR:-}" && -d "$EMPIRES_TASK_TEMP_DIR" ]]; then
+    rm -rf -- "$EMPIRES_TASK_TEMP_DIR"
+  fi
 }
 trap cleanup EXIT INT TERM
 
@@ -35,9 +63,17 @@ prepare_cypress_runtime() {
   binary="${CYPRESS_RUN_BINARY:-$cache_root/$version/Cypress/Cypress}"
 
   if [[ ! -x "$binary" ]]; then
+    if [[ -z "${CYPRESS_RUN_BINARY:-}" && -z "${CYPRESS_CACHE_FOLDER:-}" ]]; then
+      export CYPRESS_CACHE_FOLDER="$EMPIRES_TASK_TEMP_DIR/cypress-cache"
+      cache_root="$CYPRESS_CACHE_FOLDER"
+      binary="$cache_root/$version/Cypress/Cypress"
+    fi
     echo "Installing the pinned Cypress $version browser binary..."
     pnpm exec cypress install
   fi
+  # Cypress otherwise derives a different binary cache from the task-local
+  # XDG cache even though the pinned binary was resolved above.
+  export CYPRESS_RUN_BINARY="$binary"
 
   if ! command -v ldd >/dev/null || [[ ! -x "$binary" ]]; then
     return

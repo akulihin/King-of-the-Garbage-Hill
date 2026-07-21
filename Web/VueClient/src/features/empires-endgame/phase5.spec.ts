@@ -440,7 +440,7 @@ describe('Empire\'s Endgame Phase 5 epidemics', () => {
     delete (legacy.army as Partial<EmpiresCampaignState['army']>).recoveries
     const restored = new EmpiresEndgameEngine(value, legacy)
     expect(restored.state).toMatchObject({
-      schemaVersion: 15,
+      schemaVersion: 16,
       epidemics: [],
       nextEpidemicSequence: 1,
       army: { unitInstances: {}, nextUnitSequence: 1 },

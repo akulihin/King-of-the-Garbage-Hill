@@ -6,6 +6,7 @@ import {
   loadBundledEmpiresConfig,
   loadEmpiresConfig,
   migrateEmpiresConfig,
+  migrateEmpiresConfigOneStep,
   parseEmpiresConfig,
   readEmpiresJsonFile,
   validateEmpiresConfig,
@@ -18,6 +19,8 @@ import {
   loadEmpiresCampaign,
   saveEmpiresCampaign,
 } from '../persistence'
+import { authenticEmpiresV1Config } from './authentic-v1-config.fixture'
+import { authenticEmpiresV1SaveChain } from './authentic-v1-save-chain.fixture'
 import { digestEmpiresQaState } from '../qa'
 import type { EmpiresCampaignState, EmpiresEndgameConfig } from '../types'
 
@@ -59,18 +62,7 @@ function stripSchemaV4Fields(legacy: UnknownRecord): void {
 }
 
 function makeV1Config(): UnknownRecord {
-  const legacy = jsonClone(defaultConfigJson) as UnknownRecord
-  stripSchemaV4Fields(legacy)
-  legacy.schemaVersion = 1
-  delete legacy.combat
-  delete legacy.td
-  delete legacy.god
-  delete legacy.quests
-  const empire = legacy.empire as UnknownRecord
-  delete empire.seasons
-  delete empire.hiddenCombinations
-  delete empire.loyalty
-  return legacy
+  return jsonClone(authenticEmpiresV1Config()) as UnknownRecord
 }
 
 /** A real pre-P3 custom config shape, before regional fields and rules caps existed. */
@@ -160,6 +152,7 @@ function scaffoldState(state: EmpiresCampaignState) {
     army: state.army,
     external: state.external,
     epidemics: state.epidemics,
+    epidemicCompaction: state.epidemicCompaction,
     domesticEconomy: state.empire.domesticEconomy,
     quests: state.quests,
     cityLoyalty: state.empire.cities.map(city => city.loyalty),
@@ -258,6 +251,195 @@ describe('Empire\'s Endgame full-chain compatibility scaffolding', () => {
     expect(() => validateEmpiresConfig(migrated)).not.toThrow()
     expect(migrateEmpiresConfig(migrated)).toEqual(migrated)
     expect(migrateEmpiresConfig(migrated)).not.toBe(migrated)
+  })
+
+  it('matches the authentic pre-P0 artifact through direct and explicit one-step migration', () => {
+    const authentic = makeV1Config()
+    const untouched = jsonClone(authentic)
+    expect(Object.keys(authentic).sort()).toEqual([
+      'cards', 'durak', 'empire', 'gifts', 'id', 'schemaVersion', 'seed', 'title', 'upgrades',
+    ])
+
+    const direct = migrateEmpiresConfig(authentic)
+    let sequential: unknown = authentic
+    for (let version = 1; version < 17; version += 1) {
+      const input = sequential
+      const before = jsonClone(sequential)
+      sequential = migrateEmpiresConfigOneStep(sequential)
+      expect(sequential).toMatchObject({ schemaVersion: version + 1 })
+      expect(input).toEqual(before)
+    }
+    sequential = migrateEmpiresConfig(sequential)
+
+    expect(authentic).toEqual(untouched)
+    expect(sequential).toEqual(direct)
+    expect(() => validateEmpiresConfig(sequential)).not.toThrow()
+  })
+
+  it('restores a representative immutable custom config from every schema generation', () => {
+    const generations: UnknownRecord[] = []
+    let generation = makeV1Config()
+    generations.push(jsonClone(generation))
+    while (Number(generation.schemaVersion) < 17) {
+      generation = migrateEmpiresConfigOneStep(generation) as UnknownRecord
+      generations.push(jsonClone(generation))
+    }
+
+    expect(generations.map(item => item.schemaVersion)).toEqual(
+      Array.from({ length: 17 }, (_, index) => index + 1),
+    )
+    for (const candidate of generations) {
+      const version = Number(candidate.schemaVersion)
+      candidate.id = `custom-schema-${version}`
+      candidate.seed = `custom-seed-${version}`
+      candidate.title = `Custom schema ${version}`
+      ;(candidate.empire as UnknownRecord).daysPerPhase = 40 + version
+
+      if (version === 13) {
+        const god = candidate.god as UnknownRecord
+        god.dialogueLogRetention = 19
+        god.lines = [{
+          id: 'custom-god-line',
+          trigger: 'giftOffered',
+          text: 'Custom preserved God line.',
+          weight: 2,
+          once: true,
+        }]
+      }
+      if (version === 14) {
+        const tavern = candidate.tavern as UnknownRecord
+        const rumors = tavern.rumors as UnknownRecord
+        tavern.historyRetention = 17
+        rumors.fallbackText = 'Custom preserved rumor.'
+        candidate.mysticCards = [{
+          id: 'custom-mystic',
+          name: 'Custom Mystic',
+          owner: 'player',
+          startsInverted: true,
+          returnDelayCons: 5,
+          normal: { title: 'Custom Face', description: 'Custom normal face.' },
+          inverted: { title: 'Custom Reverse', description: 'Custom inverted face.' },
+          deferredReason: 'Custom fixture remains unavailable.',
+        }]
+      }
+      if (version === 15) {
+        const alchemy = candidate.alchemy as UnknownRecord
+        alchemy.dayCost = 7
+        alchemy.colors = ['red']
+        alchemy.pieces = [{
+          id: 'custom-alchemy-piece',
+          name: 'Custom Piece',
+          cells: [{ x: 0, y: 0 }, { x: 1, y: 0 }],
+        }]
+        alchemy.recipes = [{
+          id: 'custom-alchemy-recipe',
+          name: 'Custom Recipe',
+          description: 'Custom preserved disabled recipe.',
+          mode: 'assembly',
+          family: 'experiment',
+          initialCells: [{ x: 10, y: 10, color: 'gray' }],
+          targetCells: [{ x: 10, y: 9, color: 'red' }],
+          pieceDefinitionIds: ['custom-alchemy-piece'],
+          prerequisites: [],
+          rewards: [],
+          deferredReason: 'Custom fixture remains unavailable.',
+        }]
+      }
+      if (version === 16) {
+        const expeditions = candidate.expeditions as UnknownRecord
+        const map = (candidate.empire as UnknownRecord).map as UnknownRecord
+        const regionId = String(((map.regions as UnknownRecord[])[0]).id)
+        expeditions.resultHistoryRetention = 13
+        expeditions.zones = [{
+          id: 'custom-expedition-zone',
+          name: 'Custom Zone',
+          regionId,
+          subregionIds: [],
+          rewards: [],
+        }]
+        expeditions.enemyProfiles = [{
+          id: 'custom-expedition-profile',
+          name: 'Custom Profile',
+          regionId,
+          waveId: 'custom-disabled-wave',
+          description: 'Custom preserved disabled enemy profile.',
+        }]
+      }
+      if (version === 17) {
+        const inventory = candidate.inventory as UnknownRecord
+        const empire = candidate.empire as UnknownRecord
+        const resourceId = String(((empire.resources as UnknownRecord[])[0]).id)
+        inventory.targetUnitsPerItem = 321
+        inventory.itemDefinitions = [{
+          id: 'custom-inventory-item',
+          name: 'Custom Item',
+          cells: [{ x: 0, y: 0 }, { x: 0, y: 1 }],
+          weight: 2,
+          content: { kind: 'resource', resourceId },
+          deferredReason: 'Custom fixture remains unavailable.',
+        }]
+      }
+
+      const before = jsonClone(candidate)
+      const restored = cloneEmpiresConfig(candidate)
+      expect(candidate).toEqual(before)
+      expect(restored).toMatchObject({
+        schemaVersion: 17,
+        id: `custom-schema-${version}`,
+        seed: `custom-seed-${version}`,
+        title: `Custom schema ${version}`,
+        empire: { daysPerPhase: 40 + version },
+      })
+      if (version === 13) {
+        expect(restored.god).toMatchObject({
+          dialogueLogRetention: 19,
+          lines: [{
+            id: 'custom-god-line',
+            trigger: 'giftOffered',
+            text: 'Custom preserved God line.',
+            weight: 2,
+            once: true,
+          }],
+        })
+      }
+      if (version === 14) {
+        expect(restored.tavern).toMatchObject({
+          historyRetention: 17,
+          rumors: { fallbackText: 'Custom preserved rumor.' },
+        })
+        expect(restored.mysticCards).toEqual([
+          expect.objectContaining({ id: 'custom-mystic', returnDelayCons: 5 }),
+        ])
+      }
+      if (version === 15) {
+        expect(restored.alchemy).toMatchObject({
+          dayCost: 7,
+          colors: ['red'],
+          pieces: [expect.objectContaining({ id: 'custom-alchemy-piece' })],
+          recipes: [expect.objectContaining({
+            id: 'custom-alchemy-recipe',
+            pieceDefinitionIds: ['custom-alchemy-piece'],
+          })],
+        })
+      }
+      if (version === 16) {
+        expect(restored.expeditions).toMatchObject({
+          resultHistoryRetention: 13,
+          zones: [expect.objectContaining({ id: 'custom-expedition-zone' })],
+          enemyProfiles: [expect.objectContaining({ id: 'custom-expedition-profile' })],
+        })
+      }
+      if (version === 17) {
+        expect(restored.inventory).toMatchObject({
+          targetUnitsPerItem: 321,
+          itemDefinitions: [expect.objectContaining({ id: 'custom-inventory-item', weight: 2 })],
+        })
+      }
+    }
+
+    const dangling = currentConfig()
+    dangling.inventory.itemDefinitions[0].content = { kind: 'resource', resourceId: 'missing-resource' }
+    expect(() => validateEmpiresConfig(dangling)).toThrow(/inventory.*resource|unknown.*resource/i)
   })
 
   it('rejects an unknown future v18 config before validation', () => {
@@ -521,13 +703,92 @@ describe('Empire\'s Endgame full-chain compatibility scaffolding', () => {
     })
     expect(new EmpiresEndgameEngine(config, restored.snapshot()).snapshot()).toEqual(restored.snapshot())
 
-    expect(() => importEmpiresCampaign({ ...envelope, schemaVersion: 16 }, config.id))
-      .toThrow(/версии 1–15/)
+    expect(() => importEmpiresCampaign({ ...envelope, schemaVersion: 17 }, config.id))
+      .toThrow(/версии 1–16/)
     expect(() => importEmpiresCampaign({
       ...envelope,
-      schemaVersion: 15,
-      state: { ...(envelope.state as UnknownRecord), schemaVersion: 16 },
-    }, config.id)).toThrow(/версии 1–15/)
+      schemaVersion: 16,
+      state: { ...(envelope.state as UnknownRecord), schemaVersion: 17 },
+    }, config.id)).toThrow(/версии 1–16/)
+  })
+
+  it('restores the authentic v1 save directly and through every historical schema checkpoint', () => {
+    const config = currentConfig()
+    const checkpoints = authenticEmpiresV1SaveChain()
+    const untouched = jsonClone(checkpoints)
+    const expectedCommits = [
+      'b1dba5d8',
+      'd21c8e08',
+      'f9dde5df',
+      '79602d95',
+      '1940a5bf',
+      'a73a4c2c',
+      '5e57d597',
+      '38aab631',
+      'e7d1b902',
+      'e775f3cf',
+      'c9b524a0',
+      'b64b3c0a',
+      'e789bc98',
+      '49f96d9a',
+      '473015d4',
+    ]
+    expect(checkpoints.map(checkpoint => checkpoint.sourceCommit)).toEqual(expectedCommits)
+    expect(checkpoints.map(checkpoint => checkpoint.envelope.schemaVersion)).toEqual(
+      Array.from({ length: 15 }, (_, index) => index + 1),
+    )
+    expect(checkpoints.map(checkpoint => checkpoint.envelope.state.schemaVersion)).toEqual(
+      Array.from({ length: 15 }, (_, index) => index + 1),
+    )
+
+    const restore = (envelope: unknown, expectedSourceVersion: number) => {
+      const imported = importEmpiresCampaign(envelope, config.id)
+      expect(imported.schemaVersion).toBe(expectedSourceVersion)
+      return new EmpiresEndgameEngine(config, imported).snapshot()
+    }
+    const direct = restore(checkpoints[0]!.envelope, 1)
+    // The v15 checkpoint is the result of restoring the same v1 state through
+    // each historical production engine exactly once, not a relabelled v1.
+    const sequential = restore(checkpoints.at(-1)!.envelope, 15)
+
+    expect(sequential).toEqual(direct)
+    for (const checkpoint of checkpoints) {
+      expect(restore(checkpoint.envelope, checkpoint.envelope.schemaVersion)).toEqual(direct)
+    }
+    expect(checkpoints).toEqual(untouched)
+
+    const currentEnvelope = {
+      schemaVersion: 16,
+      savedAt: checkpoints[0]!.envelope.savedAt,
+      state: direct,
+    }
+    const currentBefore = jsonClone(currentEnvelope)
+    expect(restore(currentEnvelope, 16)).toEqual(direct)
+    expect(currentEnvelope).toEqual(currentBefore)
+  })
+
+  it('preserves a legacy state version through envelope import until engine normalization', () => {
+    const config = currentConfig()
+    const legacy = jsonClone(new EmpiresEndgameEngine(config).snapshot()) as unknown as UnknownRecord
+    legacy.schemaVersion = 4
+    ;(legacy.durak as UnknownRecord).trumpSuit = 'clubs'
+    delete legacy.governance
+    const envelope = {
+      schemaVersion: 4,
+      savedAt: '2026-07-21T00:00:00.000Z',
+      state: legacy,
+    }
+    const untouched = jsonClone(envelope)
+
+    const imported = importEmpiresCampaign(envelope, config.id)
+    expect(imported.schemaVersion).toBe(4)
+    expect(envelope).toEqual(untouched)
+    const restored = new EmpiresEndgameEngine(config, imported)
+    expect(restored.state.schemaVersion).toBe(16)
+    expect(restored.state.governance.advisors['advisor-grand']).toMatchObject({
+      status: 'active',
+      transitionSourceId: 'migration:legacy-restricted-trump',
+    })
   })
 
   it('migrates and settles a genuine v2 active TD save with canonical legacy cohort identity', () => {
@@ -633,6 +894,7 @@ describe('Empire\'s Endgame full-chain compatibility scaffolding', () => {
     const config = currentConfig()
     const fresh = new EmpiresEndgameEngine(config)
     const legacy = jsonClone(fresh.snapshot()) as unknown as UnknownRecord
+    legacy.schemaVersion = 1
     delete legacy.minigame
     delete legacy.minigameResultLog
     delete legacy.minigameResultCompaction
@@ -662,6 +924,8 @@ describe('Empire\'s Endgame full-chain compatibility scaffolding', () => {
         historyDigest: '',
         lastSessionId: null,
         lastRulesDigest: null,
+        settledThroughSequence: 0,
+        legacySettledSessionIds: [],
       },
       army: {
         equipmentStock: {},
@@ -674,6 +938,13 @@ describe('Empire\'s Endgame full-chain compatibility scaffolding', () => {
       },
       external: fresh.state.external,
       epidemics: [],
+      epidemicCompaction: {
+        evictedCount: 0,
+        historyDigest: '',
+        lastInstanceId: null,
+        lastRulesDigest: null,
+        maxEvictedSequence: 0,
+      },
       domesticEconomy: fresh.state.empire.domesticEconomy,
       quests: {},
       cityLoyalty: config.empire.cities.map(() => 0),

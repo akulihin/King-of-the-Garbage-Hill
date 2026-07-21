@@ -17,6 +17,10 @@ public static class GordonFreeman
 
     public const string HalfLifeAnnouncement = "Внимание! Halflife 3 был анонсирован!!!";
     public const string HalfLifeFailure = "Недостаточно профита, нельзя  выпускать игру.";
+    public const string HalfLifeReleaseDecision =
+        "Игра готова к релизу. Гейб предлагает зафиксировать текущий профит или перенести релиз ещё раз.";
+    public const string ReleaseNowLabel = "Выпустить игру!";
+    public const string WaitForMoreProfitLabel = "Нет, ждем! Я хочу еще больше профита!!!";
     public const string RoundThreeAnnouncementPrompt =
         "Так, первый, второй... о, третий раунд. Самое время для анонса третьего Halflife!";
     public const string SilencePhrase = "Молчание: ...";
@@ -75,13 +79,14 @@ public static class GordonFreeman
         public bool Released { get; set; }
         public int ReleaseRound { get; set; }
         public int Postponements { get; set; }
+        public bool SuccessDecisionOffered { get; set; }
+        public bool PendingReleaseConfirmation { get; set; }
         public bool ActionSubmittedThisRound { get; set; }
         public bool PendingDecision { get; set; }
         public int DecisionSerial { get; set; }
         public DateTimeOffset? DeadlineUtc { get; set; }
         public decimal RawPoints { get; set; }
         public int OrdinaryMultiplier { get; set; }
-        public decimal BaseMultiplier { get; set; }
         public bool SuperMultiplierDisabled { get; set; }
         public decimal Exponent { get; set; }
         public decimal OrdinarySettlement { get; set; }
@@ -211,7 +216,7 @@ public static class GordonFreeman
             || player.Passives.Gordon.WakeUsed || game.IsKratosEvent)
             return false;
 
-        if (player.Status.IsSkip) return true;
+        if (player.Status.IsSkip || IsUnderItachiEyes(player, game)) return true;
         return game.RoundNo == 9 && Madara.IsEternalTsukuyomiActive(game);
     }
 
@@ -224,6 +229,8 @@ public static class GordonFreeman
         if (game.RoundNo == 9 && Madara.IsEternalTsukuyomiActive(game))
             state.WakeReservedForEternalTsukuyomi = true;
 
+        CancelItachiEyes(player, game);
+
         player.Status.IsSkip = false;
         player.Status.IsBlock = false;
         player.Status.IsAutoMove = false;
@@ -233,6 +240,25 @@ public static class GordonFreeman
         player.Status.WhoToAttackThisTurn.Clear();
         player.Status.AddInGamePersonalLogs($"{WakeUp}: G-Man вернул вас в этот ход.\n");
         return true;
+    }
+
+    private static bool IsUnderItachiEyes(GamePlayerBridgeClass player, GameClass game) =>
+        game.PlayersList.Any(source =>
+            !source.Passives.IsDead
+            && source.GameCharacter.Passive.Any(passive => passive.PassiveName == "Глаза Итачи")
+            && source.Passives.ItachiTsukuyomi.TsukuyomiActiveTarget == player.GetPlayerId());
+
+    private static void CancelItachiEyes(GamePlayerBridgeClass player, GameClass game)
+    {
+        foreach (var source in game.PlayersList.Where(source =>
+                     source.GameCharacter.Passive.Any(passive => passive.PassiveName == "Глаза Итачи")
+                     && (source.Passives.ItachiTsukuyomi.TsukuyomiActiveTarget == player.GetPlayerId()
+                         || source.Passives.ItachiTsukuyomi.TsukuyomiTargetThisRound == player.GetPlayerId())))
+        {
+            source.Passives.ItachiTsukuyomi.TsukuyomiActiveTarget = Guid.Empty;
+            source.Passives.ItachiTsukuyomi.TsukuyomiTargetThisRound = Guid.Empty;
+            game.Phrases.ItachiTsukuyomiEnd.SendLog(source, false);
+        }
     }
 
     public static bool IsAwakeForEternalTsukuyomi(GamePlayerBridgeClass player, GameClass game) =>
@@ -283,9 +309,6 @@ public static class GordonFreeman
         halfLife.OrdinaryMultiplier = gordon.Status.GetRoundScoreMultiplier(game);
         halfLife.SuperMultiplierDisabled = gordon.Status.IsRoundScoreMultiplierDisabledByTolya(game);
         halfLife.Exponent = halfLife.RawPoints;
-        halfLife.BaseMultiplier = halfLife.SuperMultiplierDisabled
-            ? halfLife.OrdinaryMultiplier
-            : CalculateHalfLifeMultiplier(halfLife.RawPoints);
         halfLife.OrdinarySettlement = halfLife.RawPoints * halfLife.OrdinaryMultiplier;
         halfLife.FinalPoints = gordon.Passives.Gordon.AllZombiesPenaltyRound == game.RoundNo
             ? 0
@@ -296,29 +319,33 @@ public static class GordonFreeman
 
         if (halfLife.Exponent >= 3)
         {
-            halfLife.Released = true;
-            halfLife.Finished = true;
-            gordon.Passives.AchievementTracker.GordonHalfLifeReleased = true;
-            halfLife.ReleaseBonusPoints = Math.Max(0, halfLife.FinalPoints - halfLife.OrdinarySettlement);
-            halfLife.ReleaseItachiThiefIds = new HashSet<Guid>(halfLife.AttemptItachiThiefIds);
-            var releaseCalculation = halfLife.SuperMultiplierDisabled
-                ? $"Подсчет отключил супермножитель: {halfLife.RawPoints} × {halfLife.OrdinaryMultiplier} = {halfLife.FinalPoints} обычных очков."
-                : $"{halfLife.RawPoints} × {halfLife.RawPoints}^{halfLife.Exponent} = {halfLife.FinalPoints} обычных очков.";
-            game.AddGlobalLogs(PhrasePayload.Encode(
-                HalfLife3,
-                releaseCalculation,
-                "Half-Life 3",
-                halfLife.SuperMultiplierDisabled
-                    ? $"Counting disabled the super multiplier: {halfLife.RawPoints} × {halfLife.OrdinaryMultiplier} = {halfLife.FinalPoints} regular points."
-                    : $"{halfLife.RawPoints} × {halfLife.RawPoints}^{halfLife.Exponent} = {halfLife.FinalPoints} regular points."));
+            if (!gordon.IsBot() && halfLife.Postponements < 3
+                                && !halfLife.SuccessDecisionOffered)
+            {
+                halfLife.SuccessDecisionOffered = true;
+                game.AddGlobalLogs(PhrasePayload.Encode(
+                    HalfLife3,
+                    $"{HalfLifeReleaseDecision}\nПрофит: {halfLife.FinalPoints} очков.",
+                    "Half-Life 3",
+                    $"The game is ready. Gabe can lock in {halfLife.FinalPoints} points or wait for more profit."));
+                return BeginHalfLifeDecision(game, halfLife, releaseConfirmation: true);
+            }
+
+            ReleaseHalfLife3(gordon, game);
             return false;
         }
 
+        var failureCalculation = halfLife.SuperMultiplierDisabled
+            ? $"Подсчет отключил расчет степени: начислено {halfLife.FinalPoints} обычных очков."
+            : $"{halfLife.RawPoints}^{halfLife.Exponent} = {halfLife.FinalPoints} обычных очков.";
+        var failureCalculationEnglish = halfLife.SuperMultiplierDisabled
+            ? $"Counting disabled the power calculation: {halfLife.FinalPoints} regular points awarded."
+            : $"{halfLife.RawPoints}^{halfLife.Exponent} = {halfLife.FinalPoints} regular points.";
         game.AddGlobalLogs(PhrasePayload.Encode(
             HalfLife3,
-            $"{HalfLifeFailure}\n{halfLife.RawPoints} очков, множитель {halfLife.BaseMultiplier}, итог {halfLife.FinalPoints}.",
+            $"{HalfLifeFailure}\n{failureCalculation}",
             "Half-Life 3",
-            $"Not enough profit to release the game.\n{halfLife.RawPoints} points, multiplier {halfLife.BaseMultiplier}, final total {halfLife.FinalPoints}."));
+            $"Not enough profit to release the game.\n{failureCalculationEnglish}"));
 
         if (halfLife.Postponements >= 3)
         {
@@ -333,7 +360,16 @@ public static class GordonFreeman
             return false;
         }
 
+        return BeginHalfLifeDecision(game, halfLife, releaseConfirmation: false);
+    }
+
+    private static bool BeginHalfLifeDecision(
+        GameClass game,
+        HalfLifeState halfLife,
+        bool releaseConfirmation)
+    {
         halfLife.PendingDecision = true;
+        halfLife.PendingReleaseConfirmation = releaseConfirmation;
         halfLife.DecisionSerial++;
         halfLife.DeadlineUtc = DateTimeOffset.UtcNow.AddSeconds(20);
         game.IsRoundTransitionPaused = true;
@@ -342,7 +378,30 @@ public static class GordonFreeman
         return true;
     }
 
-    private static decimal CalculateHalfLifeMultiplier(decimal points)
+    private static void ReleaseHalfLife3(GamePlayerBridgeClass gordon, GameClass game)
+    {
+        var halfLife = gordon.Passives.Gordon.HalfLife;
+        halfLife.Released = true;
+        halfLife.Finished = true;
+        halfLife.PendingReleaseConfirmation = false;
+        gordon.Passives.AchievementTracker.GordonHalfLifeReleased = true;
+        halfLife.ReleaseBonusPoints = Math.Max(0, halfLife.FinalPoints - halfLife.OrdinarySettlement);
+        halfLife.ReleaseItachiThiefIds = new HashSet<Guid>(halfLife.AttemptItachiThiefIds);
+        var releaseCalculation = halfLife.SuperMultiplierDisabled
+            ? $"Подсчет отключил расчет степени: начислено {halfLife.FinalPoints} обычных очков."
+            : $"{halfLife.RawPoints}^{halfLife.Exponent} = {halfLife.FinalPoints} обычных очков.";
+        game.AddGlobalLogs(PhrasePayload.Encode(
+            HalfLife3,
+            releaseCalculation,
+            "Half-Life 3",
+            halfLife.SuperMultiplierDisabled
+                ? $"Counting disabled the power calculation: {halfLife.FinalPoints} regular points awarded."
+                : $"{halfLife.RawPoints}^{halfLife.Exponent} = {halfLife.FinalPoints} regular points."));
+        game.HalfLifeReleaseSerial++;
+        game.StateRevision++;
+    }
+
+    private static decimal CalculateHalfLifePoints(decimal points)
     {
         if (points <= 0) return 0;
 
@@ -353,16 +412,6 @@ public static class GordonFreeman
         if (double.IsNaN(value) || double.IsInfinity(value) || value > (double)safeMaximum)
             return safeMaximum;
         return Math.Round((decimal)value, 2);
-    }
-
-    private static decimal CalculateHalfLifePoints(decimal points)
-    {
-        if (points <= 0) return 0;
-        var multiplier = CalculateHalfLifeMultiplier(points);
-        var safeMaximum = decimal.MaxValue / 1000m;
-        if (multiplier >= safeMaximum / points)
-            return safeMaximum;
-        return Math.Round(points * multiplier, 2);
     }
 
     public static decimal ProjectRegularSettlement(GamePlayerBridgeClass player, GameClass game)
@@ -408,28 +457,50 @@ public static class GordonFreeman
                 || (halfLife.PendingDecision && serial != halfLife.DecisionSerial))
                 return false;
 
-            if (choice.Equals("postpone", StringComparison.OrdinalIgnoreCase)
-                && halfLife.Postponements < 3)
+            var releaseChoice = choice.Equals("release", StringComparison.OrdinalIgnoreCase);
+            var postponeChoice = choice.Equals("postpone", StringComparison.OrdinalIgnoreCase);
+            var freezeChoice = choice.Equals("freeze", StringComparison.OrdinalIgnoreCase);
+
+            if (releaseChoice && halfLife.PendingReleaseConfirmation)
+            {
+                ReleaseHalfLife3(gordon, game);
+            }
+            else if (postponeChoice && halfLife.Postponements < 3)
             {
                 var cost = halfLife.Postponements + 1;
-                halfLife.SettlementOverride = halfLife.FinalPoints - cost * halfLife.OrdinaryMultiplier;
-                halfLife.Postponements++;
-                halfLife.ReleaseRound = game.RoundNo + 1;
-                halfLife.AttemptItachiThiefIds.Clear();
-                game.AddGlobalLogs(halfLife.Postponements switch
+                if (halfLife.FinalPoints < cost)
                 {
-                    1 => "Внимание! Halflife 3 был перенесен.",
-                    2 => "Внимание! Halflife 3 был перенесен повторно.",
-                    _ => "Внимание! Halflife 3 был перенесен в третий раз!!!",
-                });
+                    halfLife.Finished = true;
+                    halfLife.Released = false;
+                    game.AddGlobalLogs(
+                        $"Halflife 3 был отменен: для переноса нужно {cost} очк., доступно {halfLife.FinalPoints}.");
+                }
+                else
+                {
+                    halfLife.SettlementOverride = halfLife.FinalPoints - cost;
+                    halfLife.Postponements++;
+                    halfLife.ReleaseRound = game.RoundNo + 1;
+                    halfLife.AttemptItachiThiefIds.Clear();
+                    game.AddGlobalLogs(halfLife.Postponements switch
+                    {
+                        1 => "Внимание! Halflife 3 был перенесен.",
+                        2 => "Внимание! Halflife 3 был перенесен повторно.",
+                        _ => "Внимание! Halflife 3 был перенесен в третий раз!!!",
+                    });
+                }
             }
-            else
+            else if (freezeChoice && !halfLife.PendingReleaseConfirmation)
             {
                 halfLife.Finished = true;
                 game.AddGlobalLogs(FreezePhrases[SecureRandom.Next(0, FreezePhrases.Length - 1)]);
             }
+            else
+            {
+                return false;
+            }
 
             halfLife.PendingDecision = false;
+            halfLife.PendingReleaseConfirmation = false;
             halfLife.DeadlineUtc = null;
             game.TransitionDeadlineUtc = null;
             game.StateRevision++;
@@ -445,7 +516,11 @@ public static class GordonFreeman
             || halfLife.DeadlineUtc > DateTimeOffset.UtcNow)
             return false;
 
-        return ResolveHalfLifeDecision(gordon, game, halfLife.DecisionSerial, "freeze");
+        return ResolveHalfLifeDecision(
+            gordon,
+            game,
+            halfLife.DecisionSerial,
+            halfLife.PendingReleaseConfirmation ? "release" : "freeze");
     }
 
     public static decimal? ConsumeSettlementOverride(GamePlayerBridgeClass player)
@@ -458,10 +533,17 @@ public static class GordonFreeman
     }
 
     public static string GetFreezeLabel(State state) =>
-        FreezeLabels[Math.Min(state.HalfLife.Postponements, FreezeLabels.Length - 1)];
+        state.HalfLife.PendingReleaseConfirmation
+            ? ReleaseNowLabel
+            : FreezeLabels[Math.Min(state.HalfLife.Postponements, FreezeLabels.Length - 1)];
 
     public static string GetPostponeLabel(State state) =>
-        PostponeLabels[Math.Min(state.HalfLife.Postponements, PostponeLabels.Length - 1)];
+        state.HalfLife.PendingReleaseConfirmation
+            ? WaitForMoreProfitLabel
+            : PostponeLabels[Math.Min(state.HalfLife.Postponements, PostponeLabels.Length - 1)];
+
+    public static string GetDecisionMessage(State state) =>
+        state.HalfLife.PendingReleaseConfirmation ? HalfLifeReleaseDecision : HalfLifeFailure;
 
     public static void HandleRoundPhrase(GamePlayerBridgeClass player, int roundNo)
     {

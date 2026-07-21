@@ -25,7 +25,10 @@ import {
   playBattleshipPhaseChange,
   playBattleshipTurnStart,
   playBattleshipWeaponSelect,
+  playComboStack,
 } from 'src/services/sound'
+
+const COMBO_HIT_DELAY_MS = 8000
 
 /** Weapon entry shown in the weapon bar / consumed by keyboard shortcuts. */
 export interface BattleshipWeaponOption {
@@ -73,6 +76,7 @@ export const useBattleshipStore = defineStore('battleship', () => {
   const selectedShotType = ref('Ballista')
   const selectedWeaponType = ref('Ballista')
   const shotDelayActive = ref(false)
+  let shotDelayTimeout: ReturnType<typeof setTimeout> | null = null
   const summonDeployMode = ref<BattleshipSummonDeployMode | null>(null)
   const summonType = ref('Ram')
 
@@ -131,6 +135,20 @@ export const useBattleshipStore = defineStore('battleship', () => {
 
   function setCellVfxHandler(handler: CellVfxHandler | null) {
     cellVfxHandler = handler
+  }
+
+  function activateShotDelay(durationMs: number) {
+    if (shotDelayTimeout) clearTimeout(shotDelayTimeout)
+    if (durationMs <= 0) {
+      shotDelayActive.value = false
+      shotDelayTimeout = null
+      return
+    }
+    shotDelayActive.value = true
+    shotDelayTimeout = setTimeout(() => {
+      shotDelayActive.value = false
+      shotDelayTimeout = null
+    }, durationMs)
   }
 
   // -- Derived State ----------------------------------------------
@@ -228,6 +246,7 @@ export const useBattleshipStore = defineStore('battleship', () => {
     const oldMap = new Map(oldCells.map(c => [`${c.row},${c.col}`, c]))
     let freezeSoundPlayed = false
     let explodeSoundPlayed = false
+    let summonSpawnSoundPlayed = false
     for (const cell of newCells) {
       const key = `${cell.row},${cell.col}`
       if (map.value.has(key)) continue // already animating from shot result
@@ -235,7 +254,10 @@ export const useBattleshipStore = defineStore('battleship', () => {
       if (!old) continue
 
       // Detect newly changed states
-      if (cell.isShipSunk && !old.isShipSunk) {
+      if (cell.hasSummon && !old.hasSummon) {
+        triggerCellAnim(target, cell.row, cell.col, 'anim-summon-spawn', 1000)
+        if (!summonSpawnSoundPlayed) { playComboStack(1); summonSpawnSoundPlayed = true }
+      } else if (cell.isShipSunk && !old.isShipSunk) {
         triggerCellAnim(target, cell.row, cell.col, 'anim-sunk', 800)
       } else if (cell.isDestroyed && !old.isDestroyed) {
         triggerCellAnim(target, cell.row, cell.col, 'anim-destroy', 500)
@@ -309,6 +331,7 @@ export const useBattleshipStore = defineStore('battleship', () => {
         lastShotResult.value = null
         lastShotCell.value = null
         markedCells.value = new Set()
+        activateShotDelay(0)
       }
 
       detectBranderDetonation(oldState, state)
@@ -317,6 +340,7 @@ export const useBattleshipStore = defineStore('battleship', () => {
 
       // Sync selectedShotType from server (auto-reset after WhiteStone/Buckshot)
       const me = state.player1?.isMe ? state.player1 : state.player2
+      activateShotDelay(me?.shotDelayRemainingMs ?? 0)
       if (me?.selectedShotType) {
         selectedShotType.value = me.selectedShotType
         selectedWeaponType.value = me.selectedShotType === 'WhiteStone' || me.selectedShotType === 'Buckshot'
@@ -411,10 +435,9 @@ export const useBattleshipStore = defineStore('battleship', () => {
           && (shotVfxHandler?.(result.row, result.col, shotTarget, fireShotEffects) ?? false)
         if (!handled) fireShotEffects()
 
-        // On hit that continues turn, add 2s delay before allowing next shot
+        // A combo-preserving hit opens the summon-response window. Misses never delay.
         if (result.hit && result.turnContinues) {
-          shotDelayActive.value = true
-          setTimeout(() => { shotDelayActive.value = false }, 2000)
+          activateShotDelay(COMBO_HIT_DELAY_MS)
         }
       }
     }
@@ -444,6 +467,7 @@ export const useBattleshipStore = defineStore('battleship', () => {
     signalrService.onBattleshipEvent = null
     signalrService.onShipCatalog = null
     signalrService.onBattleshipStats = null
+    activateShotDelay(0)
   }
 
   // -- Actions ----------------------------------------------------

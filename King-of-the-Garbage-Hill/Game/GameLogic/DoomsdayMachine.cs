@@ -126,9 +126,36 @@ public class DoomsdayMachine : IServiceSingleton
             player.Status.IsTargetSkipped = Guid.Empty;
             player.Status.IsTargetBlocked = Guid.Empty;
             player.Status.IsAbleToWin = true;
+            player.Status.IsShadowAction = false;
             player.Passives.SaitamaUnnoticed.PretendedLossThisFight = false;
             player.Passives.AchievementTracker.SpartanRespectTriggeredThisFight = Guid.Empty;
         }
+    }
+
+    private static void MarkHiddenFight(
+        GameClass game,
+        GamePlayerBridgeClass attacker,
+        GamePlayerBridgeClass defender,
+        int globalLogsLengthBeforeFight)
+    {
+        if (!attacker.Status.HideCurrentFight && !defender.Status.HideCurrentFight)
+            return;
+
+        var lastFight = game.WebFightLog.LastOrDefault();
+        if (lastFight != null)
+        {
+            lastFight.HiddenFromNonAdmin = true;
+            lastFight.ShadowAction = attacker.Status.IsShadowAction;
+        }
+
+        var globalLogsNow = game.GetGlobalLogs();
+        if (globalLogsNow.Length > globalLogsLengthBeforeFight)
+            game.HiddenGlobalLogSnippets.Add(globalLogsNow[globalLogsLengthBeforeFight..]);
+
+        attacker.Status.HideCurrentFight = false;
+        defender.Status.HideCurrentFight = false;
+        attacker.Status.IsShadowAction = false;
+        defender.Status.IsShadowAction = false;
     }
 
     public void DeepCopyGameCharacterToFightCharacter(GameClass game)
@@ -494,7 +521,21 @@ public class DoomsdayMachine : IServiceSingleton
             }
         }
 
-        foreach (var player in game.PlayersList)
+        // Gordon's submitted attacks resolve before any incoming fights can spend a charged
+        // Монтировка. Every other attacker keeps the existing leaderboard order.
+        var fightCalculationOrder = game.PlayersList.ToList();
+        var attackingGordon = fightCalculationOrder.Find(player =>
+            GordonFreeman.Is(player)
+            && !player.Status.IsBlock
+            && !player.Status.IsSkip
+            && player.Status.WhoToAttackThisTurn.Count > 0);
+        if (attackingGordon != null)
+        {
+            fightCalculationOrder.Remove(attackingGordon);
+            fightCalculationOrder.Insert(0, attackingGordon);
+        }
+
+        foreach (var player in fightCalculationOrder)
         {
             if (player.Passives.IsDead) continue;
 
@@ -544,8 +585,7 @@ public class DoomsdayMachine : IServiceSingleton
                         && !UnknownBug.Is(candidate)
                         && !Madara.IsSealed(candidate)
                         && !player.IsTeamMember(game, candidate.GetPlayerId())
-                        && !(game.RoundNo == 10 && candidate.GameCharacter.Passive.Any(x =>
-                            x.PassiveName == "Стримснайпят и банят и банят и банят"))));
+                        && !Tigr.IsRoundTenBanned(candidate, game.RoundNo)));
 
                     var originalExtraTargets = targetsToFight.Skip(1).ToList();
                     targetsToFight = railgunTargets
@@ -780,6 +820,8 @@ public class DoomsdayMachine : IServiceSingleton
                         SkillGainedFromClassDefender = Math.Round(skillGainedFromClassDefender, 1),
                     });
 
+                    MarkHiddenFight(game, player, playerIamAttacking, globalLogsLenBefore);
+
                     UnknownBug.TryCommitExploit(game, player, playerIamAttacking, false);
 
                     //fight Reset
@@ -825,6 +867,8 @@ public class DoomsdayMachine : IServiceSingleton
                         SkillGainedFromClassAttacker = Math.Round(skillGainedFromClassAttacker, 1),
                         SkillGainedFromClassDefender = Math.Round(skillGainedFromClassDefender, 1),
                     });
+
+                    MarkHiddenFight(game, player, playerIamAttacking, globalLogsLenBefore);
 
                     UnknownBug.TryCommitExploit(game, player, playerIamAttacking, false);
 
@@ -1577,25 +1621,9 @@ public class DoomsdayMachine : IServiceSingleton
                 player.Status.FightEnemyWasTooGood = false;
                 player.Status.FightEnemyWasTooStronk = false;
 
-                // Hide fight from non-admin logs (e.g. Saitama solo kills)
-                if (player.Status.HideCurrentFight || playerIamAttacking.Status.HideCurrentFight)
-                {
-                    // Mark the WebFightLog entry as hidden
-                    var lastFight = game.WebFightLog.LastOrDefault();
-                    if (lastFight != null)
-                        lastFight.HiddenFromNonAdmin = true;
-
-                    // Extract the global log text written during this fight and mark it as hidden
-                    var globalLogsNow = game.GetGlobalLogs();
-                    if (globalLogsNow.Length > globalLogsLenBefore)
-                    {
-                        var fightLogText = globalLogsNow.Substring(globalLogsLenBefore);
-                        game.HiddenGlobalLogSnippets.Add(fightLogText);
-                    }
-
-                    player.Status.HideCurrentFight = false;
-                    playerIamAttacking.Status.HideCurrentFight = false;
-                }
+                // Hide private fights in every outcome path and preserve Dopa's second action as a
+                // separately styled shadow row for the participants/admin.
+                MarkHiddenFight(game, player, playerIamAttacking, globalLogsLenBefore);
 
                 // Mark Portal Gun swap on the WebFightLog entry
                 if (player.Passives.RickPortalGun.SwapActive)
@@ -1923,8 +1951,7 @@ public class DoomsdayMachine : IServiceSingleton
             // Banned on the last round ("Стримснайпят и банят...") — the ban neutralises Tigr ("не может
             // действовать"), so his "Тигр топ" swap must not still vault him to first place. Mirrors the
             // round-10 ban carve-out used by the Монстр forced-attack in CheckIfReady.
-            if (game.RoundNo == 10 &&
-                player.GameCharacter.Passive.Any(y => y.PassiveName == "Стримснайпят и банят и банят и банят"))
+            if (Tigr.IsRoundTenBanned(player, game.RoundNo))
                 continue;
 
             var tigr = player.Passives.TigrTop;

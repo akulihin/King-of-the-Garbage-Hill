@@ -92,6 +92,10 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
             intStr = "Злость";
             psyStr = "Самоуверенность";
         }
+        else if (character.Name == Dopa.CharacterName)
+        {
+            intStr = "IQ";
+        }
 
         var sakuraText = "";
         if (player.GameCharacter.Passive.Count == 0) sakuraText = "\nИх... нет...\n";
@@ -283,8 +287,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
             && salldorum.Passives.SalldorumTimeCapsule.BuriedAtPosition == number)
             customString += "🥤";
 
-        if (game.RoundNo == 10 && player2.GameCharacter.Passive.Any(
-            x => x.PassiveName == "Стримснайпят и банят и банят и банят"))
+        if (Tigr.IsRoundTenBanned(player2, game.RoundNo))
             customString += "🚫";
 
         if ((player1.PlayerType == 2 || player1.GetPlayerId() == player2.GetPlayerId()) && Madara.IsSealed(player2))
@@ -1219,6 +1222,10 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
             intStr = "Злость";
             psyStr = "Самоуверенность";
         }
+        else if (character.Name == Dopa.CharacterName)
+        {
+            intStr = "IQ";
+        }
 
         var splitter = "▬▬▬▬▬▬▬▬▬▬▬▬▬";
         /*
@@ -1361,6 +1368,23 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
             return embed;
         }
 
+        if (player.GameCharacter.Name == Dopa.CharacterName
+            && player.Status.LvlUpPoints > 0
+            && player.Passives.DopaMetaChoice.StatLevelUpsTaken >= 1
+            && !player.Passives.DopaMetaChoice.Triggered)
+        {
+            embed.WithColor(Color.Blue);
+            embed.WithFooter($"{GetTimeLeft(player)}");
+            embed.AddField("_____",
+                "__Выберите мету вместо второго улучшения статов:__\n \n" +
+                "1. **Стомп:** +9 Силы и 99 *Скилла*.\n" +
+                "2. **Фарм:** \"Взгляд в будущее\" приносит вдвое больше очков.\n" +
+                "3. **Доминация:** Победы приносят Допе +20 *Скилла*, а цель теряет **бонусное** очко и иногда психику. (шанс 33%)\n" +
+                "4. **Роум:** При победе над врагами, не стоящими по соседству в таблице, **Крадет** у них **бонусное** очко и 3 *Морали*.\n");
+            embed.WithThumbnailUrl(character.AvatarCurrent);
+            return embed;
+        }
+
         var text2 = "__Подними один из статов на 1:__";
         // m3: a transformed Молодой Глеб keeps Name == "Глеб" but carries the "Main Ирелия" passive
         // (the same marker the level-up nerf uses) — key the caption off it so it matches the effect.
@@ -1368,11 +1392,12 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         embed.WithColor(Color.Blue);
         embed.WithFooter($"{GetTimeLeft(player)}");
         //embed.WithCurrentTimestamp();
-        var intelligenceName = character.Name == ErenYeager.CharacterName ? "Злость" : "Интеллект";
+        var intelligenceName = character.Name == ErenYeager.CharacterName ? "Злость"
+            : character.Name == Dopa.CharacterName ? "IQ" : "Интеллект";
         var psycheName = character.Name == ErenYeager.CharacterName ? "Самоуверенность" : "Психика";
         var levelUpStats = UnknownBug.Is(character)
             ? "```cs\n1. ERR: cant_get_stat\n2. ERR: cant_get_stat\n3. ERR: cant_get_stat\n4. ERR: cant_get_stat\n```"
-            : $"1. **{intelligenceName}:** {character.GetIntelligence()}\n" +
+            : $"1. **{intelligenceName}:** {(character.Name == Dopa.CharacterName ? character.GetIntelligenceString() : character.GetIntelligence())}\n" +
               $"2. **Сила:** {character.GetStrength()}\n" +
               $"3. **Скорость:** {character.GetSpeed()}\n" +
               $"4. **{psycheName}:** {character.GetPsyche()}\n";
@@ -1519,8 +1544,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
             placeHolder = "Что-то заставило тебя скипнуть...";
         }
 
-        if (!player.Status.ConfirmedSkip &&
-            player.GameCharacter.Passive.Any(x => x.PassiveName == "Стримснайпят и банят и банят и банят"))
+        if (!player.Status.ConfirmedSkip && Tigr.IsRoundTenBanned(player, game.RoundNo))
         {
             isDisabled = true;
             placeHolder = "Обжаловать бан...";
@@ -1602,6 +1626,22 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
     public async Task<SelectMenuBuilder> GetLvlUpMenu(GamePlayerBridgeClass player, GameClass game)
     {
+        if (player.GameCharacter.Name == Dopa.CharacterName
+            && player.Status.LvlUpPoints > 0
+            && player.Passives.DopaMetaChoice.StatLevelUpsTaken >= 1
+            && !player.Passives.DopaMetaChoice.Triggered)
+        {
+            return new SelectMenuBuilder()
+                .WithMinValues(1)
+                .WithMaxValues(1)
+                .WithCustomId("lvl-up")
+                .WithPlaceholder("Выбрать мету")
+                .AddOption("Стомп", "1", "+9 Силы и 99 Скилла")
+                .AddOption("Фарм", "2", "Взгляд в будущее приносит вдвое больше очков")
+                .AddOption("Доминация", "3", "+20 Скилла за победу и дебафф цели")
+                .AddOption("Роум", "4", "Кража очка и 3 Морали у несоседней цели");
+        }
+
         if (player.GameCharacter.Name == DoomGuy.CharacterName)
         {
             var stage = DoomGuy.StageForRound(game.RoundNo);
@@ -1633,7 +1673,8 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
             placeholderText = "Выбор нерфа";
         }
 
-        var intelligenceName = player.GameCharacter.Name == ErenYeager.CharacterName ? "Злость" : "Интеллект";
+        var intelligenceName = player.GameCharacter.Name == ErenYeager.CharacterName ? "Злость"
+            : player.GameCharacter.Name == Dopa.CharacterName ? "IQ" : "Интеллект";
         var psycheName = player.GameCharacter.Name == ErenYeager.CharacterName ? "Самоуверенность" : "Психика";
         var charMenu = new SelectMenuBuilder()
             .WithMinValues(1)
@@ -1759,9 +1800,11 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
             var halfLife = player.Passives.Gordon.HalfLife;
             if (GordonFreeman.Is(player) && halfLife.PendingDecision)
             {
+                var primaryChoice = halfLife.PendingReleaseConfirmation ? "release" : "freeze";
                 components.WithButton(new ButtonBuilder(
                     GordonFreeman.GetFreezeLabel(player.Passives.Gordon),
-                    $"gordon-hl3-freeze:{halfLife.DecisionSerial}", ButtonStyle.Danger));
+                    $"gordon-hl3-{primaryChoice}:{halfLife.DecisionSerial}",
+                    halfLife.PendingReleaseConfirmation ? ButtonStyle.Success : ButtonStyle.Danger));
                 components.WithButton(new ButtonBuilder(
                     GordonFreeman.GetPostponeLabel(player.Passives.Gordon),
                     $"gordon-hl3-postpone:{halfLife.DecisionSerial}", ButtonStyle.Primary));

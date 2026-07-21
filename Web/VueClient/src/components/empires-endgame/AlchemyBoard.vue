@@ -21,6 +21,7 @@ import type {
   AlchemySimulationState,
 } from '../../features/empires-endgame/alchemy/types'
 import type { EmpiresAlchemyMinigameSession } from '../../features/empires-endgame/types'
+import MinigameAbortDialog from './MinigameAbortDialog.vue'
 
 const props = defineProps<{
   session: EmpiresAlchemyMinigameSession
@@ -40,6 +41,7 @@ const emitted = ref(false)
 let frameHandle = 0
 let lastFrame: number | null = null
 let accumulatorMs = 0
+let pausedBeforeAbort = true
 
 const controlled = computed(() => state.value.activePieces.find(piece => piece.id === state.value.controlledPieceId) ?? null)
 const activeCells = computed(() => state.value.activePieces.flatMap(piece => (
@@ -58,7 +60,7 @@ const progress = computed(() => {
 const warning = computed(() => state.value.speedPercent >= props.session.plan.acceleration.explosionThresholdPercent * .85)
 
 function command(value: Omit<AlchemyCommand, 'tick' | 'sequence' | 'sessionId' | 'planId'>) {
-  if (paused.value || state.value.terminalReason) return
+  if (paused.value || abortOpen.value || state.value.terminalReason) return
   const next = {
     tick: state.value.tick,
     sequence: state.value.commandLog.length,
@@ -108,19 +110,39 @@ function tick(timestamp: number) {
   frameHandle = requestAnimationFrame(tick)
 }
 
-function togglePause() {
-  paused.value = !paused.value
+function resetFrameClock() {
   lastFrame = null
+  accumulatorMs = 0
+}
+
+function togglePause() {
+  if (abortOpen.value) return
+  paused.value = !paused.value
+  resetFrameClock()
 }
 
 function toggleReagents() {
+  if (abortOpen.value) return
   reagentOpen.value = !reagentOpen.value
   if (reagentOpen.value) paused.value = true
-  lastFrame = null
+  resetFrameClock()
+}
+
+function isInteractiveTarget(target: EventTarget | null): boolean {
+  return target instanceof Element && Boolean(target.closest(
+    'button, input, select, textarea, a[href], summary, [contenteditable]:not([contenteditable="false"]), [role="button"], [role="link"]',
+  ))
 }
 
 function onKeydown(event: KeyboardEvent) {
-  if (event.target instanceof HTMLInputElement || event.target instanceof HTMLSelectElement) return
+  if (event.defaultPrevented || abortOpen.value) return
+  if (event.ctrlKey || event.metaKey || event.altKey) return
+  if (event.key === 'Escape') {
+    event.preventDefault()
+    openAbort()
+    return
+  }
+  if (isInteractiveTarget(event.target)) return
   const directions: Partial<Record<string, AlchemyMove>> = {
     ArrowUp: 'up', ArrowRight: 'right', ArrowDown: 'down', ArrowLeft: 'left',
   }
@@ -130,23 +152,36 @@ function onKeydown(event: KeyboardEvent) {
   } else if (event.code === 'Space') {
     event.preventDefault()
     command({ kind: 'rotate' })
-  } else if (event.key === 'Enter') {
+  } else if (event.key === 'Enter' && !event.repeat) {
     toggleReagents()
-  } else if (event.key.toLowerCase() === 'p') {
+  } else if (event.key.toLowerCase() === 'p' && !event.repeat) {
     togglePause()
-  } else if (event.key === 'Escape') {
-    abortOpen.value = true
   }
+}
+
+function openAbort() {
+  if (abortOpen.value || emitted.value) return
+  pausedBeforeAbort = paused.value
+  paused.value = true
+  resetFrameClock()
+  abortOpen.value = true
+}
+
+function cancelAbort() {
+  abortOpen.value = false
+  paused.value = pausedBeforeAbort
+  resetFrameClock()
 }
 
 function confirmAbort() {
   paused.value = true
+  resetFrameClock()
   abortOpen.value = false
   emit('abort', structuredClone(state.value.commandLog), state.value.tick)
 }
 
 function qaResolve(outcome: 'success' | 'explosion') {
-  if (!props.qaMode || emitted.value) return
+  if (!props.qaMode || emitted.value || abortOpen.value) return
   emitted.value = true
   paused.value = true
   emit('resolved', outcome === 'explosion'
@@ -156,7 +191,7 @@ function qaResolve(outcome: 'success' | 'explosion') {
 
 function onVisibilityChange() {
   if (document.hidden) paused.value = true
-  lastFrame = null
+  resetFrameClock()
 }
 
 onMounted(async () => {
@@ -197,6 +232,9 @@ onUnmounted(() => {
         class="alchemy__board"
         :style="boardStyle"
         role="img"
+        tabindex="0"
+        data-testid="alchemy-keyboard-surface"
+        aria-describedby="alchemy-keyboard-help"
         :aria-label="`Поле ${session.plan.board.width} на ${session.plan.board.height}; активных фигур ${state.activePieces.length}; построено ячеек ${state.construction.length}`"
       >
         <i
@@ -237,7 +275,7 @@ onUnmounted(() => {
           <button type="button" aria-label="Вправо" @click="move('right')">→</button>
           <button type="button" aria-label="Вниз" @click="move('down')">↓</button>
         </div>
-        <small>Стрелки — движение; внутрь ×{{ session.plan.spawn.inwardSpeedMultiplier }}. Space — поворот. Назад к краю нельзя.</small>
+        <small id="alchemy-keyboard-help">Стрелки — движение; внутрь ×{{ session.plan.spawn.inwardSpeedMultiplier }}. Space — поворот. Назад к краю нельзя.</small>
 
         <button type="button" data-testid="alchemy-reagents" @click="toggleReagents">Реагенты (Enter)</button>
         <div v-if="reagentOpen" class="reagents" data-testid="alchemy-reagent-panel">
@@ -257,11 +295,11 @@ onUnmounted(() => {
           <button type="button" data-testid="alchemy-qa-success" @click="qaResolve('success')">QA: до результата</button>
           <button type="button" data-testid="alchemy-qa-explosion" @click="qaResolve('explosion')">QA: взрыв</button>
         </div>
-        <button class="danger" type="button" data-testid="alchemy-abort" @click="abortOpen = true"><X :size="16" /> Прервать опыт (Esc)</button>
+        <button class="danger" type="button" data-testid="alchemy-abort" @click="openAbort"><X :size="16" /> Прервать опыт (Esc)</button>
       </aside>
     </div>
 
-    <details class="alchemy__accessible-state">
+    <details class="alchemy__accessible-state" data-testid="alchemy-text-state">
       <summary>Текстовое состояние поля</summary>
       <p>Тик {{ state.tick }}; фигур установлено {{ state.settledPieces }}; активных {{ state.activePieces.length }}.</p>
       <ul>
@@ -271,14 +309,18 @@ onUnmounted(() => {
       </ul>
     </details>
 
-    <div v-if="abortOpen" class="abort-dialog" role="dialog" aria-modal="true" aria-labelledby="alchemy-abort-title">
-      <div>
-        <h3 id="alchemy-abort-title">Прервать лабораторную сессию?</h3>
-        <p>Потраченные на опыт дни не возвращаются; награды не применяются.</p>
-        <button type="button" data-testid="alchemy-confirm-abort" @click="confirmAbort">Прервать</button>
-        <button type="button" @click="abortOpen = false">Продолжить опыт</button>
-      </div>
-    </div>
+    <MinigameAbortDialog
+      v-if="abortOpen"
+      id-prefix="alchemy-abort"
+      title="Прервать лабораторную сессию?"
+      description="Потраченные на опыт дни не возвращаются; награды не применяются."
+      confirm-label="Прервать"
+      continue-label="Продолжить опыт"
+      confirm-test-id="alchemy-confirm-abort"
+      continue-test-id="alchemy-continue"
+      @confirm="confirmAbort"
+      @cancel="cancelAbort"
+    />
   </section>
 </template>
 
@@ -307,6 +349,5 @@ onUnmounted(() => {
 .direction-pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; }.direction-pad button:first-child { grid-column: 2; }.direction-pad button:last-child { grid-column: 2; }.direction-pad button { display: grid; place-items: center; font-size: 1.1rem; }
 .reagents, .qa-actions { display: grid; gap: 7px; padding: 9px; border: 1px solid rgba(255,255,255,.1); }.reagents > div { display: grid; grid-template-columns: repeat(2, 1fr); gap: 5px; }.reagents > div button { text-transform: capitalize; }
 .danger { border-color: rgba(238, 97, 73, .65) !important; background: rgba(105, 29, 21, .65) !important; }.alchemy__accessible-state { padding: 10px 13px; border: 1px solid rgba(119, 210, 157, .2); }.alchemy__accessible-state ul { max-height: 130px; overflow: auto; }
-.abort-dialog { position: fixed; inset: 0; z-index: 90; display: grid; place-items: center; padding: 20px; background: rgba(0, 0, 0, .72); }.abort-dialog > div { display: grid; gap: 10px; width: min(430px, 100%); padding: 22px; border: 1px solid #d6725d; background: #14251f; }.abort-dialog h3, .abort-dialog p { margin: 0; }
 @media (max-width: 820px) { .alchemy__layout { grid-template-columns: 1fr; }.alchemy__board { --size: min(92vw, 620px); }.alchemy__metrics { text-align: left; }.alchemy { padding: 9px; } }
 </style>

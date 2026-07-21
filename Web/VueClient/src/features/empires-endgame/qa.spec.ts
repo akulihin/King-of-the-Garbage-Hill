@@ -3,6 +3,7 @@ import defaultConfigJson from '../../../public/empires-endgame/game-config.json'
 import { EmpiresEndgameEngine } from './engine'
 import {
   EMPIRES_QA_SCENARIO_NAMES,
+  EMPIRES_STABILIZATION_SEED_MATRIX,
   checkEmpiresQaPlayerTurnInvariant,
   createEmpiresQaScenarios,
   digestEmpiresQaState,
@@ -10,8 +11,10 @@ import {
   inspectEmpiresQaDeck,
   listEmpiresQaPlayerCardActions,
   runEmpiresQaAutoplay,
+  runEmpiresStabilizationCampaign,
   validateEmpiresQaSnapshot,
 } from './qa'
+import { EMPIRES_STABILIZATION_BUDGETS } from './stabilization'
 import { createEmpiresRngState, shuffleEmpires } from './rng'
 import type { EmpiresCampaignState, EmpiresEndgameConfig } from './types'
 
@@ -322,6 +325,72 @@ describe('Empire\'s Endgame traced seeded autoplay', () => {
     expect(second.trace).toEqual(first.trace)
     expect(second.snapshot).toEqual(first.snapshot)
   })
+})
+
+describe('Empire\'s Endgame Phase 13 stabilization campaign', () => {
+  it('crosses every live system within action/save budgets and repeats the critical seed exactly', () => {
+    const config = defaultConfig()
+    const runs = EMPIRES_STABILIZATION_SEED_MATRIX.map(seed => (
+      runEmpiresStabilizationCampaign(config, seed)
+    ))
+
+    for (const run of runs) {
+      expect(Object.values(run.coverage).every(Boolean)).toBe(true)
+      expect(run.steps).toBe(run.autoplaySteps + 35)
+      expect(run.steps).toBeLessThanOrEqual(EMPIRES_STABILIZATION_BUDGETS.qaActions)
+      expect(run.saveUtf8Bytes).toBeLessThanOrEqual(
+        EMPIRES_STABILIZATION_BUDGETS.longCampaignSaveUtf8Bytes,
+      )
+      expect(run.checkpointDigests).toHaveLength(13)
+      expect(run.finalDigest).toMatch(/^[0-9a-f]{16}$/)
+
+      expect(run.snapshot.phase).toBe('event')
+      expect(run.snapshot.event?.eventId).toBe('event-famine-rationing')
+      expect(run.snapshot.pendingResolution).toBeNull()
+      expect(run.snapshot.minigame).toBeNull()
+      expect(run.snapshot.minigameResultLog.map(record => record.sequence)).toEqual([1, 2, 3, 4, 5, 6])
+      expect(run.snapshot.minigameResultLog.map(record => record.result.kind)).toEqual([
+        'tavern',
+        'alchemy',
+        'td',
+        'td',
+        'inventory',
+        'td',
+      ])
+      expect(run.snapshot.empire.claimedGiftIds).toContain('gift-resource-grant')
+      expect(run.snapshot.empire.domesticEconomy.loans).toHaveLength(1)
+      expect(run.snapshot.empire.domesticEconomy.insuranceContracts).toHaveLength(1)
+      expect(run.snapshot.empire.domesticEconomy.fair.activeActivities).toHaveLength(1)
+      expect(run.snapshot.external.offerHistory).toHaveLength(2)
+      expect(run.snapshot.questRuntime.history.length).toBeGreaterThan(0)
+      expect(run.snapshot.god.interventions).toHaveLength(1)
+      expect(run.snapshot.mystics.zone).toContain(config.tavern.queen.mysticDefinitionId)
+      expect(run.snapshot.mystics.history).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          kind: 'spawn',
+          instanceIds: [config.tavern.queen.mysticDefinitionId],
+        }),
+      ]))
+      expect(run.snapshot.empire.loyalty.regions.west?.status).toBe('rebellious')
+      expect(run.snapshot.empire.loyalty.regions.north?.status).not.toBe('rebellious')
+      expect(run.snapshot.expeditions.byDefinitionId['expedition-south-fortress']?.status).toBe('won')
+      expect(run.snapshot.empire.chronicle.map(entry => entry.kind)).toEqual(expect.arrayContaining([
+        'loan',
+        'insurance',
+        'fair',
+        'rebellion',
+        'recovery',
+        'tavern',
+        'alchemy',
+        'battle-loss',
+        'expedition',
+        'epidemic-impact',
+      ]))
+    }
+
+    const repeated = runEmpiresStabilizationCampaign(config, 'phase13-beta')
+    expect(repeated).toEqual(runs.find(run => run.seed === 'phase13-beta'))
+  }, 120_000)
 })
 
 describe('Empire\'s Endgame deck orientation', () => {

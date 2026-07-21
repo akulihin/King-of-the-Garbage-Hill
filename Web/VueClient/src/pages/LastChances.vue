@@ -210,6 +210,11 @@ const copy = {
     interactionChoose: 'Take this outcome',
     interactionUnavailable: 'Unavailable for the current loadout or Chances',
     interactionCost: 'Cost',
+    altarEyebrow: 'Boss altar',
+    altarAccept: 'Sacrifice 5 Chances',
+    altarDecline: 'Enter without saving',
+    altarUnavailable: 'Not enough Chances for the sacrifice',
+    turrets: 'turrets',
     storyContinue: 'Continue',
     storyBegin: 'Enter the remembered run',
     storyClose: 'Close the memory',
@@ -231,7 +236,7 @@ const copy = {
     questKillsWith: 'Two kills in one room with',
     questEliteRoutes: 'Hit an elite with every unlocked route',
     questNextRoom: 'Next room:',
-    questSwarm: 'Creeps incoming',
+    questSwarm: 'Cockroaches incoming',
   },
   ru: {
     eyebrow: 'Первый игровой прототип · детерминированная память',
@@ -378,6 +383,11 @@ const copy = {
     interactionChoose: 'Принять этот исход',
     interactionUnavailable: 'Недоступно с текущей экипировкой или запасом Шансов',
     interactionCost: 'Цена',
+    altarEyebrow: 'Алтарь босса',
+    altarAccept: 'Принести жертву 5 Шансов',
+    altarDecline: 'Войти без сохранения',
+    altarUnavailable: 'Для жертвы не хватает Шансов',
+    turrets: 'турелей',
     storyContinue: 'Продолжить',
     storyBegin: 'Войти в запомненный забег',
     storyClose: 'Закрыть воспоминание',
@@ -399,7 +409,7 @@ const copy = {
     questKillsWith: 'Два убийства в одной комнате через',
     questEliteRoutes: 'Попадите по элиту всеми открытыми маршрутами',
     questNextRoom: 'Со следующей комнаты:',
-    questSwarm: 'Крипы бегут',
+    questSwarm: 'Тараканы бегут',
   },
 } as const
 
@@ -526,7 +536,7 @@ const keyboardActionText = computed(() => {
   const leftTechnique = bindings?.leftTechniqueKeys.map(formatKey).join('/') || 'Q'
   const rightTechnique = bindings?.rightTechniqueKeys.map(formatKey).join('/') || 'E'
   const mobility = bindings?.mobilityKeys.map(formatKey).join('/') || 'Space'
-  const interactKey = bindings?.interactKeys.map(formatKey).join('/') || 'F'
+  const interactKey = bindings?.interactKeys.map(formatKey).join('/') || 'E'
   return `LMB/RMB = ${t.value.strike} · ${leftTechnique}/${rightTechnique} = ${t.value.technique} · ${mobility} = ${t.value.mobility} · ${interactKey} = ${t.value.interact}`
 })
 
@@ -764,7 +774,7 @@ const runMapNodes = computed<RunMapNode[]>(() => {
       id: node.id,
       name: node.label,
       tier: node.tierIndex + 1,
-      kind: tier?.kind === 'boss' ? 'boss' : node.roomArchetype,
+      kind: tier?.kind === 'boss' || node.altar ? 'boss' : node.roomArchetype,
       state,
     }
   })
@@ -777,6 +787,7 @@ const runMapEdges = computed<RunMapEdge[]>(() => plan.value?.nodes.flatMap(node 
 const phaseOverlay = computed(() => {
   const state = snapshot.value
   if (!state) return null
+  if (state.altarPrompt) return null
   if (state.paused && state.phase === 'playing') {
     return { kind: 'paused', eyebrow: t.value.pause, title: t.value.pauseTitle, body: t.value.pauseBody }
   }
@@ -794,7 +805,7 @@ const phaseOverlay = computed(() => {
 
 const recentGesture = computed(() => {
   const state = snapshot.value
-  if (!state?.lastGesture || state.phase !== 'playing') return null
+  if (!state?.lastGesture || !['playing', 'planning'].includes(state.phase) || routeMapOpen.value) return null
   return state.elapsedMs - state.lastGesture.atMs < 850 ? state.lastGesture : null
 })
 
@@ -987,7 +998,7 @@ function togglePause() {
 
 function retryAttempt() {
   if (!engine.value?.retryAttempt()) return
-  updateRouteMapVisibility(true)
+  updateRouteMapVisibility(snapshot.value?.altarPrompt ? false : true)
 }
 
 function newGeneration() {
@@ -999,6 +1010,11 @@ function newGeneration() {
 
 function chooseInteraction(choiceId: string) {
   engine.value?.chooseInteraction(choiceId)
+}
+
+function resolveAltar(accept: boolean) {
+  if (!engine.value?.resolveAltar(accept)) return
+  void nextTick(() => canvas.value?.focus())
 }
 
 function openBuilder() {
@@ -1250,7 +1266,7 @@ onBeforeUnmount(() => {
 
           <Transition name="lc-gesture-pop">
             <div
-              v-if="controlScheme !== 'legacy' && snapshot?.phase === 'playing' && snapshot.controlCue"
+              v-if="controlScheme !== 'legacy' && snapshot && ['playing', 'planning'].includes(snapshot.phase) && !routeMapOpen && snapshot.controlCue"
               :key="snapshot.controlCue.atMs"
               class="lc-semantic-control-cue"
               :class="`is-${snapshot.controlCue.state}`"
@@ -1291,6 +1307,31 @@ onBeforeUnmount(() => {
               <span>{{ t.interact }}</span>
               <strong>{{ snapshot.interactionPrompt }}</strong>
             </button>
+          </Transition>
+
+          <Transition name="lc-phase-fade">
+            <div v-if="snapshot?.altarPrompt" class="lc-interaction-overlay lc-altar-overlay">
+              <div class="lc-interaction-card">
+                <p>{{ t.altarEyebrow }}</p>
+                <h2>{{ snapshot.altarPrompt.prompt }}</h2>
+                <span>{{ snapshot.altarPrompt.available ? t.interactionChoose : t.altarUnavailable }}</span>
+                <div class="lc-interaction-choices lc-altar-choices">
+                  <button
+                    type="button"
+                    :disabled="!snapshot.altarPrompt.available"
+                    data-testid="altar-accept"
+                    @click="resolveAltar(true)"
+                  >
+                    <strong>{{ t.altarAccept }}</strong>
+                    <small>{{ t.interactionCost }}: −{{ snapshot.altarPrompt.chanceCost }} {{ t.chancePlural }}</small>
+                  </button>
+                  <button type="button" data-testid="altar-decline" @click="resolveAltar(false)">
+                    <strong>{{ t.altarDecline }}</strong>
+                    <small>{{ t.interactionChoose }}</small>
+                  </button>
+                </div>
+              </div>
+            </div>
           </Transition>
 
           <Transition name="lc-phase-fade">
@@ -1400,7 +1441,7 @@ onBeforeUnmount(() => {
         </div>
 
         <footer class="lc-stage-footer">
-          <span><i :class="alertedEnemies ? 'is-alert' : ''" aria-hidden="true" />{{ t.currentThreat }} · {{ alertedEnemies ? t.noticed : t.calm }}</span>
+          <span><i :class="alertedEnemies || snapshot?.turretAlarm ? 'is-alert' : ''" aria-hidden="true" />{{ t.currentThreat }} · {{ alertedEnemies || snapshot?.turretAlarm ? t.noticed : t.calm }}</span>
           <span v-if="snapshot"><Activity :size="12" aria-hidden="true" />{{ t.speed }} {{ formatNumber(snapshot.player.stats.moveSpeed) }} · {{ t.armor }} {{ formatNumber(snapshot.player.stats.armor) }}</span>
           <span v-if="(snapshot?.player.armorMultiplier ?? 1) > 1">
             <Shield :size="12" aria-hidden="true" />{{ t.armor }} ×{{ snapshot?.player.armorMultiplier }}
@@ -1431,7 +1472,17 @@ onBeforeUnmount(() => {
           <dl>
             <div><dt>{{ t.tier }}</dt><dd>{{ (snapshot?.currentTierIndex ?? 0) + 1 }} / {{ config?.progression.tiers.length ?? 7 }}</dd></div>
             <div><dt>{{ t.room }}</dt><dd>{{ currentNode?.roomName ?? t.noRoom }}</dd></div>
-            <div><dt>{{ t.enemies }}</dt><dd>{{ livingEnemies.length }}<template v-if="snapshot?.swarm?.remaining"> +{{ snapshot.swarm.remaining }}</template></dd></div>
+            <div>
+              <dt>{{ t.enemies }}</dt>
+              <dd>
+                {{ livingEnemies.length }}
+                <template v-if="snapshot?.swarm?.infinite"> +∞</template>
+                <template v-else-if="snapshot?.swarm?.remaining"> +{{ snapshot.swarm.remaining }}</template>
+                <template v-if="snapshot?.turrets?.some(turret => !turret.disabled)">
+                  +{{ snapshot.turrets.filter(turret => !turret.disabled).length }} {{ t.turrets }}
+                </template>
+              </dd>
+            </div>
             <div><dt>{{ t.deaths }}</dt><dd>{{ snapshot?.totalDeaths ?? 0 }}</dd></div>
             <div><dt>{{ t.generation }}</dt><dd>#{{ snapshot?.generation ?? 1 }}</dd></div>
             <div class="is-seed"><dt>{{ t.seed }}</dt><dd>{{ plan?.seed ?? config?.seed ?? '—' }}</dd></div>

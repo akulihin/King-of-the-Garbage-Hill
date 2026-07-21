@@ -2,6 +2,7 @@ import {
   LAST_CHANCES_ATTACK_BEHAVIORS,
   LAST_CHANCES_ATTACK_KINDS,
   LAST_CHANCES_AUGMENTS,
+  LAST_CHANCES_BOSS_HOLE_SHAPES,
   LAST_CHANCES_COLLIDER_SHAPES,
   LAST_CHANCES_CONTROL_CONTEXTS,
   LAST_CHANCES_CONTROL_INTENTS,
@@ -42,7 +43,7 @@ export const LAST_CHANCES_CONFIG_STORAGE_KEY = '99lc:game-config'
 
 type UnknownRecord = Record<string, unknown>
 
-const CURRENT_LAST_CHANCES_SCHEMA_VERSION = 4
+const CURRENT_LAST_CHANCES_SCHEMA_VERSION = 5
 const MAX_GAMEPAD_BUTTON_INDEX = 31
 const MAX_FEEDBACK_DURATION_MS = 2_000
 const MAX_CONTROL_EXPIRY_MS = 10_000
@@ -74,9 +75,9 @@ const DEFAULT_MYLORIK_INPUT: LastChancesMylorikInputDefinition = {
   },
   keyboard: {
     leftTechniqueKeys: ['KeyQ'],
-    rightTechniqueKeys: ['KeyE'],
+    rightTechniqueKeys: ['KeyF'],
     mobilityKeys: ['Space'],
-    interactKeys: ['KeyF'],
+    interactKeys: ['KeyE'],
     leftStrikeMouseButton: 0,
     rightStrikeMouseButton: 2,
   },
@@ -638,12 +639,14 @@ const ATTACK_SET_CONTROL_SEEDS: Record<string, AttackSetControlSeed> = {
     },
     dualsense: [
       dualSenseNode('doubleTap', 'neutral', 0.22, {
+        dispatch: 'press',
+        releaseBehavior: 'cancel',
         next: ['doubleTapHold'],
         expiryMs: 1000,
         tactileProfile: 'followUp',
         adaptiveOverride: { startPosition: 0.22, endPosition: 0.3, force: 0.25 },
       }),
-      dualSenseNode('doubleTapHold', 'neutral', 0.72, {
+      dualSenseNode('doubleTapHold', 'continuation', 0.72, {
         holdBehavior: 'charge',
         expiryMs: 1000,
         tactileProfile: 'gate',
@@ -666,12 +669,14 @@ const ATTACK_SET_CONTROL_SEEDS: Record<string, AttackSetControlSeed> = {
     },
     dualsense: [
       dualSenseNode('doubleTap', 'neutral', 0.22, {
+        dispatch: 'press',
+        releaseBehavior: 'cancel',
         next: ['doubleTapHold'],
         expiryMs: 1000,
         tactileProfile: 'followUp',
         adaptiveOverride: { startPosition: 0.22, endPosition: 0.3, force: 0.25 },
       }),
-      dualSenseNode('doubleTapHold', 'neutral', 0.72, {
+      dualSenseNode('doubleTapHold', 'continuation', 0.72, {
         holdBehavior: 'charge',
         expiryMs: 1000,
         tactileProfile: 'gate',
@@ -1071,7 +1076,7 @@ function mergeLegacyDefinitionWithCurrent(
 }
 
 /**
- * Clone-first sequential migration for the real schema-v1/v2/v3 definitions.
+ * Clone-first sequential migration for the real schema-v1/v2/v3/v4 definitions.
  * A current definition lets old browser overrides retain run tuning while taking
  * the shipped v4 catalog records that did not exist when the override was saved.
  */
@@ -1573,6 +1578,9 @@ function validateCollider(value: unknown, path: string, errors: string[]): void 
   if (collider.strictInnerRange !== undefined && typeof collider.strictInnerRange !== 'boolean') {
     errors.push(`${path}.strictInnerRange must be a boolean`)
   }
+  if (collider.passesThroughWalls !== undefined && typeof collider.passesThroughWalls !== 'boolean') {
+    errors.push(`${path}.passesThroughWalls must be a boolean`)
+  }
   if (collider.width !== undefined) requirePositiveNumber(collider, 'width', path, errors)
   if (collider.tickMs !== undefined) requirePositiveNumber(collider, 'tickMs', path, errors)
   if (collider.followsPlayer !== undefined && typeof collider.followsPlayer !== 'boolean') {
@@ -1947,6 +1955,101 @@ function validateRooms(value: unknown, errors: string[], requireSpawnLayouts: bo
     }
     validateHazards(room.hazards, `${path}.hazards`, errors)
     validateInteraction(room.interaction, `${path}.interaction`, errors)
+    if (room.encounter !== undefined) {
+      const encounterPath = `${path}.encounter`
+      const encounter = asRecord(room.encounter, encounterPath, errors)
+      if (encounter) {
+        if (!Array.isArray(encounter.enemyIds)
+          || encounter.enemyIds.some(enemyId => (
+            typeof enemyId !== 'string' || enemyId.trim().length === 0
+          ))) {
+          errors.push(`${encounterPath}.enemyIds must be a string array`)
+        }
+        if (encounter.swarmEnemyId !== undefined) {
+          requireString(encounter, 'swarmEnemyId', encounterPath, errors)
+        }
+        if (encounter.infiniteSwarm !== undefined
+          && typeof encounter.infiniteSwarm !== 'boolean') {
+          errors.push(`${encounterPath}.infiniteSwarm must be a boolean`)
+        }
+        if (encounter.infiniteSwarm === true && encounter.swarmEnemyId === undefined) {
+          errors.push(`${encounterPath}.swarmEnemyId is required for an infinite swarm`)
+        }
+      }
+    }
+    if (room.turrets !== undefined) {
+      if (!Array.isArray(room.turrets) || room.turrets.length === 0) {
+        errors.push(`${path}.turrets must be a non-empty array when provided`)
+      } else {
+        const turretIds = new Set<string>()
+        room.turrets.forEach((turretValue, turretIndex) => {
+          const turretPath = `${path}.turrets[${turretIndex}]`
+          const turret = asRecord(turretValue, turretPath, errors)
+          if (!turret) return
+          requireString(turret, 'id', turretPath, errors)
+          requireString(turret, 'name', turretPath, errors)
+          validateVector(turret.position, `${turretPath}.position`, errors)
+          requireNumber(turret, 'facingDegrees', turretPath, errors)
+          requireNumber(turret, 'rotationDegreesPerSecond', turretPath, errors, -360)
+          for (const key of ['visionRange', 'visionAngleDegrees', 'interactionRange',
+            'fireIntervalMs', 'projectileSpeed', 'projectileRadius', 'damage'] as const) {
+            requirePositiveNumber(turret, key, turretPath, errors)
+          }
+          requireString(turret, 'color', turretPath, errors)
+          if (typeof turret.id === 'string') {
+            if (turretIds.has(turret.id)) errors.push(`${turretPath}.id duplicates ${turret.id}`)
+            turretIds.add(turret.id)
+          }
+        })
+      }
+    }
+    if (room.bossHoles !== undefined) {
+      if (!Array.isArray(room.bossHoles) || room.bossHoles.length !== 4) {
+        errors.push(`${path}.bossHoles must contain exactly four holes`)
+      } else {
+        const holes = new Map<string, UnknownRecord>()
+        const shapes = new Set<string>()
+        room.bossHoles.forEach((holeValue, holeIndex) => {
+          const holePath = `${path}.bossHoles[${holeIndex}]`
+          const hole = asRecord(holeValue, holePath, errors)
+          if (!hole) return
+          requireString(hole, 'id', holePath, errors)
+          requireString(hole, 'linkedHoleId', holePath, errors)
+          validateVector(hole.position, `${holePath}.position`, errors)
+          requireString(hole, 'color', holePath, errors)
+          if (!LAST_CHANCES_BOSS_HOLE_SHAPES.includes(
+            hole.shape as typeof LAST_CHANCES_BOSS_HOLE_SHAPES[number],
+          )) {
+            errors.push(`${holePath}.shape must be one of ${LAST_CHANCES_BOSS_HOLE_SHAPES.join(', ')}`)
+          }
+          if (typeof hole.shape === 'string') shapes.add(hole.shape)
+          if (typeof hole.id === 'string') {
+            if (holes.has(hole.id)) errors.push(`${holePath}.id duplicates ${hole.id}`)
+            holes.set(hole.id, hole)
+          }
+        })
+        if (shapes.size !== room.bossHoles.length) {
+          errors.push(`${path}.bossHoles must use four different shapes`)
+        }
+        for (const [holeId, hole] of holes) {
+          const linkedId = hole.linkedHoleId
+          const linked = typeof linkedId === 'string' ? holes.get(linkedId) : undefined
+          if (!linked) errors.push(`${path}.bossHoles ${holeId} references unknown link ${String(linkedId)}`)
+          else if (linked.linkedHoleId !== holeId) {
+            errors.push(`${path}.bossHoles link ${holeId} -> ${linkedId} must be reciprocal`)
+          }
+        }
+      }
+    }
+    if (room.altar !== undefined) {
+      const altarPath = `${path}.altar`
+      const altar = asRecord(room.altar, altarPath, errors)
+      if (altar) {
+        validateVector(altar.position, `${altarPath}.position`, errors)
+        requireInteger(altar, 'chanceCost', altarPath, errors, 1)
+        requireString(altar, 'prompt', altarPath, errors)
+      }
+    }
     if (typeof room.id === 'string') {
       if (ids.has(room.id)) errors.push(`${path}.id duplicates ${room.id}`)
       ids.add(room.id)
@@ -2068,6 +2171,35 @@ function validateEnemies(value: unknown, errors: string[], schemaVersion: number
         }
       }
     }
+    if (enemy.cockroachMother !== undefined) {
+      const motherPath = `${path}.cockroachMother`
+      const mother = asRecord(enemy.cockroachMother, motherPath, errors)
+      if (mother) {
+        if (!Array.isArray(mother.retreatHealthRatios)
+          || mother.retreatHealthRatios.length === 0
+          || !mother.retreatHealthRatios.every(ratio => (
+            typeof ratio === 'number' && Number.isFinite(ratio) && ratio > 0 && ratio < 1
+          ))) {
+          errors.push(`${motherPath}.retreatHealthRatios must be a non-empty array of ratios between 0 and 1`)
+        } else {
+          for (let index = 1; index < mother.retreatHealthRatios.length; index += 1) {
+            if ((mother.retreatHealthRatios[index] as number)
+              >= (mother.retreatHealthRatios[index - 1] as number)) {
+              errors.push(`${motherPath}.retreatHealthRatios must be strictly descending`)
+              break
+            }
+          }
+        }
+        for (const key of ['retreatSpeed', 'hideMs', 'blastRadius',
+          'blastDamageMaxHpRatio'] as const) {
+          requirePositiveNumber(mother, key, motherPath, errors)
+        }
+        if (typeof mother.blastDamageMaxHpRatio === 'number'
+          && mother.blastDamageMaxHpRatio > 1) {
+          errors.push(`${motherPath}.blastDamageMaxHpRatio must be <= 1`)
+        }
+      }
+    }
     requireNumber(enemy, 'visionAngleDegrees', path, errors)
     requireNumber(enemy, 'attackDamage', path, errors)
     requireNumber(enemy, 'mentalPressurePerSecond', path, errors)
@@ -2141,6 +2273,24 @@ function validateTiers(
           errors.push(`${path}.roomTemplateIds references unknown room ${roomId}`)
         }
       })
+    }
+    if (tier.guaranteedRoomTemplateIds !== undefined) {
+      requireStringArray(tier, 'guaranteedRoomTemplateIds', path, errors)
+      if (Array.isArray(tier.guaranteedRoomTemplateIds)) {
+        if (typeof tier.nodeCount === 'number'
+          && tier.guaranteedRoomTemplateIds.length > tier.nodeCount) {
+          errors.push(`${path}.guaranteedRoomTemplateIds cannot exceed nodeCount`)
+        }
+        tier.guaranteedRoomTemplateIds.forEach((roomId) => {
+          if (typeof roomId === 'string' && !roomIds.has(roomId)) {
+            errors.push(`${path}.guaranteedRoomTemplateIds references unknown room ${roomId}`)
+          }
+          if (typeof roomId === 'string' && Array.isArray(tier.roomTemplateIds)
+            && !tier.roomTemplateIds.includes(roomId)) {
+            errors.push(`${path}.guaranteedRoomTemplateIds room ${roomId} must also appear in roomTemplateIds`)
+          }
+        })
+      }
     }
     if (typeof tier.id === 'string') {
       if (ids.has(tier.id)) errors.push(`${path}.id duplicates ${tier.id}`)
@@ -2791,6 +2941,7 @@ function eligibleEnemySpawnRadii(root: UnknownRecord): {
   }
 
   const roomEnemyRadii = new Map<string, number>()
+  const randomlyEligibleEnemyIds = new Set<string>()
   const progression = typeof root.progression === 'object' && root.progression !== null
     && !Array.isArray(root.progression) ? root.progression as UnknownRecord : null
   if (progression && Array.isArray(progression.tiers)) {
@@ -2801,6 +2952,7 @@ function eligibleEnemySpawnRadii(root: UnknownRecord): {
       const radius = Math.max(0, ...tier.enemyPool.flatMap((poolValue) => {
         if (typeof poolValue !== 'object' || poolValue === null || Array.isArray(poolValue)) return []
         const enemyId = (poolValue as UnknownRecord).enemyId
+        if (typeof enemyId === 'string') randomlyEligibleEnemyIds.add(enemyId)
         return typeof enemyId === 'string' && enemyRadii.has(enemyId)
           ? [enemyRadii.get(enemyId) as number]
           : []
@@ -2809,11 +2961,33 @@ function eligibleEnemySpawnRadii(root: UnknownRecord): {
         if (typeof roomId !== 'string') return
         roomEnemyRadii.set(roomId, Math.max(roomEnemyRadii.get(roomId) ?? 0, radius))
       })
+      if (Array.isArray(tier.guaranteedEnemyIds)) {
+        tier.guaranteedEnemyIds.forEach((enemyId) => {
+          if (typeof enemyId === 'string') randomlyEligibleEnemyIds.add(enemyId)
+        })
+      }
+    })
+  }
+  if (Array.isArray(root.rooms)) {
+    root.rooms.forEach((roomValue) => {
+      if (typeof roomValue !== 'object' || roomValue === null || Array.isArray(roomValue)) return
+      const room = roomValue as UnknownRecord
+      const encounter = typeof room.encounter === 'object' && room.encounter !== null
+        && !Array.isArray(room.encounter) ? room.encounter as UnknownRecord : null
+      if (typeof room.id !== 'string' || !encounter || !Array.isArray(encounter.enemyIds)) return
+      const fixedRadius = Math.max(0, ...encounter.enemyIds.flatMap(enemyId => (
+        typeof enemyId === 'string' && enemyRadii.has(enemyId)
+          ? [enemyRadii.get(enemyId) as number]
+          : []
+      )))
+      roomEnemyRadii.set(room.id, fixedRadius)
     })
   }
 
   return {
-    globalEnemyRadius: Math.max(0, ...enemyRadii.values()),
+    globalEnemyRadius: Math.max(0, ...[...randomlyEligibleEnemyIds].flatMap(enemyId => (
+      enemyRadii.has(enemyId) ? [enemyRadii.get(enemyId) as number] : []
+    ))),
     roomEnemyRadii,
   }
 }
@@ -2934,6 +3108,15 @@ function validateSpawnGeometry(root: UnknownRecord, errors: string[]): void {
       })
     })
   }
+  root.rooms.forEach((roomValue) => {
+    if (typeof roomValue !== 'object' || roomValue === null || Array.isArray(roomValue)) return
+    const room = roomValue as UnknownRecord
+    const encounter = typeof room.encounter === 'object' && room.encounter !== null
+      && !Array.isArray(room.encounter) ? room.encounter as UnknownRecord : null
+    if (typeof room.id === 'string' && encounter && Array.isArray(encounter.enemyIds)) {
+      roomEnemyCounts.set(room.id, encounter.enemyIds.length)
+    }
+  })
   const player = typeof root.player === 'object' && root.player !== null && !Array.isArray(root.player)
     ? root.player as UnknownRecord : null
   const playerRadius = player && typeof player.radius === 'number' && Number.isFinite(player.radius)
@@ -3063,9 +3246,61 @@ function validateContentReferences(root: UnknownRecord, errors: string[]): void 
     const id = (value as UnknownRecord).id
     return typeof id === 'string' ? [id] : []
   }) : [])
+  const enemies = new Map(Array.isArray(root.enemies) ? root.enemies.flatMap((value) => {
+    if (typeof value !== 'object' || value === null || Array.isArray(value)) return []
+    const enemy = value as UnknownRecord
+    return typeof enemy.id === 'string' ? [[enemy.id, enemy] as const] : []
+  }) : [])
+  const bossTierRoomIds = new Set<string>()
+  const progression = typeof root.progression === 'object' && root.progression !== null
+    && !Array.isArray(root.progression) ? root.progression as UnknownRecord : null
+  if (progression && Array.isArray(progression.tiers)) {
+    progression.tiers.forEach((tierValue) => {
+      if (typeof tierValue !== 'object' || tierValue === null || Array.isArray(tierValue)) return
+      const tier = tierValue as UnknownRecord
+      if (tier.kind !== 'boss' || !Array.isArray(tier.roomTemplateIds)) return
+      tier.roomTemplateIds.forEach((roomId) => {
+        if (typeof roomId === 'string') bossTierRoomIds.add(roomId)
+      })
+    })
+  }
   root.rooms.forEach((roomValue, roomIndex) => {
     if (typeof roomValue !== 'object' || roomValue === null || Array.isArray(roomValue)) return
-    const interaction = (roomValue as UnknownRecord).interaction
+    const room = roomValue as UnknownRecord
+    const encounter = typeof room.encounter === 'object' && room.encounter !== null
+      && !Array.isArray(room.encounter) ? room.encounter as UnknownRecord : null
+    const fixedEnemies = encounter && Array.isArray(encounter.enemyIds)
+      ? encounter.enemyIds.flatMap(enemyId => (
+          typeof enemyId === 'string' && enemies.has(enemyId) ? [enemies.get(enemyId)!] : []
+        ))
+      : []
+    const hasFixedBoss = fixedEnemies.some(enemy => (
+      enemy.role === 'boss' || enemy.bossPhases !== undefined || enemy.cockroachMother !== undefined
+    ))
+    const hasCockroachMother = fixedEnemies.some(enemy => enemy.cockroachMother !== undefined)
+    if ((hasFixedBoss || (typeof room.id === 'string' && bossTierRoomIds.has(room.id)))
+      && (typeof room.altar !== 'object' || room.altar === null || Array.isArray(room.altar))) {
+      errors.push(`rooms[${roomIndex}].altar is required for every boss room`)
+    }
+    if (hasCockroachMother && (!Array.isArray(room.bossHoles) || room.bossHoles.length !== 4)) {
+      errors.push(`rooms[${roomIndex}].bossHoles is required for a Cockroach Mother encounter`)
+    }
+    if (encounter && Array.isArray(encounter.enemyIds)) {
+      encounter.enemyIds.forEach((enemyId, enemyIndex) => {
+        if (typeof enemyId === 'string' && !enemies.has(enemyId)) {
+          errors.push(`rooms[${roomIndex}].encounter.enemyIds[${enemyIndex}] references unknown enemy ${enemyId}`)
+        }
+      })
+    }
+    if (encounter && typeof encounter.swarmEnemyId === 'string') {
+      const swarmEnemy = enemies.get(encounter.swarmEnemyId)
+      if (!swarmEnemy) {
+        errors.push(`rooms[${roomIndex}].encounter.swarmEnemyId references unknown enemy ${encounter.swarmEnemyId}`)
+      } else if (swarmEnemy.swarm === undefined) {
+        errors.push(`rooms[${roomIndex}].encounter.swarmEnemyId must reference an enemy with a swarm block`)
+      }
+    }
+    const interaction = room.interaction
     if (typeof interaction !== 'object' || interaction === null || Array.isArray(interaction)
       || !Array.isArray((interaction as UnknownRecord).choices)) return
     ((interaction as UnknownRecord).choices as unknown[]).forEach((choiceValue, choiceIndex) => {
@@ -3097,10 +3332,13 @@ export function validateLastChancesConfig(value: unknown): LastChancesConfigVali
   if (!root) return { valid: false, errors }
 
   if (root.schemaVersion !== 1 && root.schemaVersion !== 2
-    && root.schemaVersion !== 3 && root.schemaVersion !== 4) {
-    errors.push('schemaVersion must be 1, 2, 3, or 4')
+    && root.schemaVersion !== 3 && root.schemaVersion !== 4
+    && root.schemaVersion !== 5) {
+    errors.push('schemaVersion must be 1, 2, 3, 4, or 5')
   }
-  const schemaVersion = root.schemaVersion === 4
+  const schemaVersion = root.schemaVersion === 5
+    ? 5
+    : root.schemaVersion === 4
     ? 4
     : root.schemaVersion === 3
       ? 3

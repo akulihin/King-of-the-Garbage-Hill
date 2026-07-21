@@ -113,7 +113,8 @@ describe('Empire\'s Endgame Phase 7 quest and dialogue engine', () => {
       nodeId: base.stages[0].entryNodeId, memory: {}, run: 1, nodeVisit: 1,
       lastAppliedChoiceIdentity: null,
       consumedTriggerIds: [starts[0].triggerIdentity], compactedTriggerCount: 0,
-      compactedTriggerDigest: '', startedAtCon: 2, finishedAtCon: 2,
+      compactedTriggerDigest: '', compactedTriggerWatermarks: {}, sealedTriggerKinds: [],
+      startedAtCon: 2, finishedAtCon: 2,
     }
     expect(evaluateQuestTriggerStarts(definitions, { 'q-con': consumed }, contexts[0], readers)
       .some(start => start.definition.id === 'q-con')).toBe(false)
@@ -347,7 +348,7 @@ describe('Empire\'s Endgame Phase 7 quest and dialogue engine', () => {
     const restored = new EmpiresEndgameEngine(value, importEmpiresCampaign(envelope, value.id))
     expect(envelope).toEqual(untouchedEnvelope)
     expect(restored.state).toMatchObject({
-      schemaVersion: 15,
+      schemaVersion: 16,
       quests: {},
       questRuntime: {
         activeMandatoryQuestId: null,

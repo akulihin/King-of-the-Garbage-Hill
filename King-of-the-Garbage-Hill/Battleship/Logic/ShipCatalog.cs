@@ -18,7 +18,7 @@ public static class ShipCatalog
             Id = "single", Name = "Single", NameRu = "Однёр",
             DeckCount = 1, Range = RangeClass.Close, Cost = 0, IsFree = true,
             DefaultArmor = 2, Speed = 1, Space = 1, Regions = new() { },
-            Description = "Basic 1-deck close-range ship",
+            Description = "Базовый однопалубный корабль ближнего боя с Баллистой.",
             DefaultWeapons = new() { new WeaponTemplate { Type = WeaponType.Ballista } }
         },
         new ShipDefinition
@@ -26,7 +26,7 @@ public static class ShipCatalog
             Id = "double", Name = "Double", NameRu = "Двухпалубник",
             DeckCount = 2, Range = RangeClass.Mid, Cost = 0, IsFree = true,
             DefaultArmor = 2, Speed = 1, Space = 1, Regions = new() { },
-            Description = "Basic 2-deck mid-range ship",
+            Description = "Базовый двухпалубный корабль средней дальности с Баллистой.",
             DefaultWeapons = new() { new WeaponTemplate { Type = WeaponType.Ballista } }
         },
         new ShipDefinition
@@ -34,18 +34,18 @@ public static class ShipCatalog
             Id = "triple", Name = "Triple", NameRu = "Тройка",
             DeckCount = 3, Range = RangeClass.Tetra, Cost = 0, IsFree = true,
             DefaultArmor = 2, Speed = 1, Space = 1, Regions = new() { Region.Tetracor },
-            Description = "Basic 3-deck ship with Tetracatapult",
+            Description = "Базовый трёхпалубный артиллерийский корабль с Тетракамнемётом.",
             DefaultWeapons = new()
             {
                 new WeaponTemplate { Type = WeaponType.Tetracatapult, Ammo = 1, DeckIndex = 1, AimSpeed = 20 }
             },
             AvailableUpgrades = new()
             {
-                new UpgradeDefinition { Id = "triple_crew", Name = "Crew", NameRu = "Экипаж", Cost = 2, Description = "Spawns pirate boat on death", Effect = "spawn_pirate_boat" },
-                new UpgradeDefinition { Id = "triple_ammo", Name = "Extra Ammo", NameRu = "Доп. снаряды", Cost = 4, Description = "+2 White Stones on boarding", Effect = "extra_ammo" },
-                new UpgradeDefinition { Id = "triple_armor_1", Name = "Armor Deck 1", NameRu = "Броня палуба 1", Cost = 4, Description = "+4 HP to deck 1", Effect = "armor_deck_0" },
-                new UpgradeDefinition { Id = "triple_armor_2", Name = "Armor Deck 2", NameRu = "Броня палуба 2", Cost = 4, Description = "+4 HP to deck 2", Effect = "armor_deck_1" },
-                new UpgradeDefinition { Id = "triple_armor_3", Name = "Armor Deck 3", NameRu = "Броня палуба 3", Cost = 4, Description = "+4 HP to deck 3", Effect = "armor_deck_2" },
+                new UpgradeDefinition { Id = "triple_crew", Name = "Crew", NameRu = "Экипаж", Cost = 2, Description = "Если Трёшка дожила до абордажа, выпускает одну Пиратскую лодку.", Effect = "spawn_pirate_boat" },
+                new UpgradeDefinition { Id = "triple_ammo", Name = "Extra Ammo", NameRu = "Второй боезапас", Cost = 4, Description = "При начале абордажа Тетракамнемёт получает 2 дополнительных Белых камня.", Effect = "extra_ammo" },
+                new UpgradeDefinition { Id = "triple_armor_1", Name = "Armor Deck 1", NameRu = "Броня палубы 1", Cost = 4, Description = "Увеличивает прочность первой палубы на 4, но не выше 9.", Effect = "armor_deck_0" },
+                new UpgradeDefinition { Id = "triple_armor_2", Name = "Armor Deck 2", NameRu = "Броня палубы 2", Cost = 4, Description = "Увеличивает прочность второй палубы на 4, но не выше 9.", Effect = "armor_deck_1" },
+                new UpgradeDefinition { Id = "triple_armor_3", Name = "Armor Deck 3", NameRu = "Броня палубы 3", Cost = 4, Description = "Увеличивает прочность третьей палубы на 4, но не выше 9.", Effect = "armor_deck_2" },
             }
         },
         new ShipDefinition
@@ -53,7 +53,7 @@ public static class ShipCatalog
             Id = "tetranavis", Name = "Tetranavis", NameRu = "Тетранавис",
             DeckCount = 4, Range = RangeClass.Mid, Cost = 0, IsFree = true,
             DeckHpOverrides = new() { 2, 4, 2, 2 }, Speed = 1, Space = 1, Regions = new() { Region.Tetracor },
-            Description = "4-deck flagship with boiler, mast, tetracatapult, and ballista",
+            Description = "Четырёхпалубный флагман: Котельная, Мачта, Тетракамнемёт и Баллиста.",
             DefaultWeapons = new()
             {
                 new WeaponTemplate { Type = WeaponType.Boiler, DeckIndex = 0 },
@@ -63,9 +63,9 @@ public static class ShipCatalog
             },
             AvailableUpgrades = new()
             {
-                new UpgradeDefinition { Id = "tetra_discus", Name = "Discus Thrower", NameRu = "Дискобол", Cost = 1, Description = "Additional disc projectile", Effect = "discus" },
-                new UpgradeDefinition { Id = "tetra_boiler_fire", Name = "Greek Fire", NameRu = "Греческий огонь", Cost = 4, Description = "Boiler produces Greek Fire summon", Effect = "greek_fire" },
-                new UpgradeDefinition { Id = "tetra_boiler_brander", Name = "Brander", NameRu = "Брандер", Cost = 4, Description = "Boiler produces Brander summon", Effect = "brander" },
+                new UpgradeDefinition { Id = "tetra_discus", Name = "Discus Thrower", NameRu = "Дискобол", Cost = 1, Description = "Дополнительный дисковый снаряд. Пока не реализован.", Effect = "discus" },
+                new UpgradeDefinition { Id = "tetra_boiler_fire", Name = "Greek Fire", NameRu = "Греческий огонь", Cost = 4, Description = "Котельная даёт один выстрел Греческим огнём по своему полю.", Effect = "greek_fire" },
+                new UpgradeDefinition { Id = "tetra_boiler_brander", Name = "Brander", NameRu = "Брандер", Cost = 4, Description = "Котельная позволяет один раз за матч призвать Брандер.", Effect = "brander" },
             }
         },
 
@@ -76,7 +76,7 @@ public static class ShipCatalog
             DeckCount = 1, Range = RangeClass.Close, Cost = 34,
             DefaultArmor = 1, Speed = 3, Space = 1, Regions = new() { Region.South, Region.West },
             Abilities = new() { "ballista_immune", "auto_win_boarding" },
-            Description = "Nimble + auto-win on boarding",
+            Description = "Не получает урон от Баллисты и гарантирует победу при абордаже, пока жив и не встречает второго живого Иссушителя.",
             DefaultWeapons = new() { new WeaponTemplate { Type = WeaponType.Ballista } }
         },
         new ShipDefinition
@@ -85,7 +85,7 @@ public static class ShipCatalog
             DeckCount = 3, Range = RangeClass.CloseMelee, Cost = 28,
             DeckHpOverrides = new() { 4, 4, 4 }, Speed = 1, Space = 1, Regions = new() { Region.North },
             Abilities = new() { "freeze_nearby", "burn_resist" },
-            Description = "Freezes nearby ships, immune to burn, no ranged weapons",
+            Description = "Замораживает вражеские призывы в своей зоне, не горит и не имеет дальнобойного оружия.",
             DefaultWeapons = new() // CloseMelee = no ranged weapons
         },
         new ShipDefinition
@@ -94,7 +94,7 @@ public static class ShipCatalog
             DeckCount = 1, Range = RangeClass.Mid, Cost = 25,
             DeckHpOverrides = new() { 6 }, Speed = 0, Space = 1, IsHome = true, Regions = new() { Region.North, Region.East },
             Abilities = new() { "burn_resist", "poison_cone" },
-            Description = "Burn resist + poison cone attack",
+            Description = "Неподвижный огнеупорный корабль с ядовитым конусом перед носом.",
             DefaultWeapons = new() { new WeaponTemplate { Type = WeaponType.Ballista } }
         },
         new ShipDefinition
@@ -103,7 +103,7 @@ public static class ShipCatalog
             DeckCount = 1, Range = RangeClass.Close, Cost = 16,
             DefaultArmor = 1, Speed = 3, Space = 1, Regions = new() { Region.West },
             Abilities = new() { "ballista_immune" },
-            Description = "Immune to ballista shots",
+            Description = "Однопалубный корабль, не получающий урон от обычных выстрелов Баллисты.",
             DefaultWeapons = new() { new WeaponTemplate { Type = WeaponType.Ballista } }
         },
         new ShipDefinition
@@ -112,7 +112,7 @@ public static class ShipCatalog
             DeckCount = 1, Range = RangeClass.Close, Cost = 15,
             DefaultArmor = 2, Speed = 1, Space = 1, Regions = new() { Region.East },
             Abilities = new() { "poison_cone" },
-            Description = "Poison cone attack",
+            Description = "Создаёт перед носом ядовитый конус, уничтожающий корабли и призывы в зоне.",
             DefaultWeapons = new() { new WeaponTemplate { Type = WeaponType.Ballista } }
         },
         new ShipDefinition
@@ -121,7 +121,7 @@ public static class ShipCatalog
             DeckCount = 3, Range = RangeClass.Mid, Cost = 14,
             DeckHpOverrides = new() { 1, 1, 1 }, Speed = 2, Space = 1, Regions = new() { Region.West },
             Abilities = new() { "auto_dodge_bow_stern" },
-            Description = "Auto-dodges bow/stern shots, speed 2",
+            Description = "Автоматически уклоняется от выстрелов в нос или корму, если позади есть место.",
             DefaultWeapons = new() { new WeaponTemplate { Type = WeaponType.Ballista } }
         },
         new ShipDefinition
@@ -130,7 +130,7 @@ public static class ShipCatalog
             DeckCount = 1, Range = RangeClass.Mid, Cost = 12,
             DeckHpOverrides = new() { 6 }, Speed = 0, Space = 1, IsHome = true, Regions = new() { Region.North },
             Abilities = new() { "burn_resist" },
-            Description = "Heavy armor, stationary, burn resist",
+            Description = "Неподвижный однопалубный корабль с прочностью 6 и огнеупорностью.",
             DefaultWeapons = new() { new WeaponTemplate { Type = WeaponType.Ballista } }
         },
         new ShipDefinition
@@ -139,7 +139,7 @@ public static class ShipCatalog
             DeckCount = 1, Range = RangeClass.Close, Cost = 6,
             DefaultArmor = 2, Speed = 1, Space = 1, Regions = new() { Region.South },
             Abilities = new() { "spawn_cursed_boat" },
-            Description = "Spawns cursed boat on death",
+            Description = "После гибели позволяет выпустить Проклятую лодку из колонки своей гибели.",
             DefaultWeapons = new() { new WeaponTemplate { Type = WeaponType.Ballista } }
         },
         new ShipDefinition
@@ -148,7 +148,7 @@ public static class ShipCatalog
             DeckCount = 2, Range = RangeClass.Far, Cost = 10,
             DeckHpOverrides = new() { 1, 1 }, Speed = 1, Space = 1, ExplosionRadius = 2, Regions = new() { Region.East },
             Abilities = new() { "explode_on_hit" },
-            Description = "Explodes on ANY hit, burns area (radius=2). Горючка weapon.",
+            Description = "Взрывается при любом уроне, поражая зону радиусом 2; вооружена Горючкой.",
             DefaultWeapons = new()
             {
                 new WeaponTemplate { Type = WeaponType.Incendiary, Ammo = 2, DeckIndex = 0, AimSpeed = 20 } // Горючка
@@ -160,7 +160,7 @@ public static class ShipCatalog
             DeckCount = 2, Range = RangeClass.Mid, Cost = 5,
             DeckHpOverrides = new() { 1, 1 }, Speed = 2, Space = 1, Regions = new() { Region.West },
             Abilities = new() { "manual_move_after_hit" },
-            Description = "Manual move after being hit, speed 2",
+            Description = "После потери палубы один раз может вручную сместиться на 1–2 клетки.",
             DefaultWeapons = new() { new WeaponTemplate { Type = WeaponType.Ballista } }
         },
         new ShipDefinition
@@ -169,7 +169,7 @@ public static class ShipCatalog
             DeckCount = 2, Range = RangeClass.Mid, Cost = 4,
             DeckHpOverrides = new() { 2, 2 }, Space = 1, Regions = new() { Region.South },
             Abilities = new() { "spawn_pirate_boat" },
-            Description = "Spawns pirate boat on death",
+            Description = "После обычной гибели позволяет выпустить Пиратскую лодку из колонки своей гибели.",
             DefaultWeapons = new() { new WeaponTemplate { Type = WeaponType.Ballista } }
         },
     };

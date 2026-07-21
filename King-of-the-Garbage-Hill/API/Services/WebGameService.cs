@@ -696,7 +696,7 @@ public class WebGameService
         var (game, player) = FindGameAndPlayer(gameId, discordId, allowPausedTransition: true);
         if (game == null) return Task.FromResult((false, "Game not found"));
         if (player == null) return Task.FromResult((false, "Player not in this game"));
-        if (choice is not "freeze" and not "postpone")
+        if (choice is not "freeze" and not "postpone" and not "release")
             return Task.FromResult((false, "Invalid Halflife 3 decision"));
         return Task.FromResult(GordonFreeman.ResolveHalfLifeDecision(player, game, serial, choice)
             ? (true, (string)null)
@@ -1055,24 +1055,6 @@ public class WebGameService
             player.Status.AddInGamePersonalLogs("Я чувствую удачу!\n");
         }
 
-        return Task.FromResult((true, (string)null));
-    }
-
-    public Task<(bool success, string error)> DopaChoice(ulong gameId, ulong discordId, string tactic)
-    {
-        var (game, player) = FindGameAndPlayer(gameId, discordId);
-        if (game == null) return Task.FromResult((false, "Game not found"));
-        if (player == null) return Task.FromResult((false, "Player not in this game"));
-        if (!player.GameCharacter.Passive.Any(p => p.PassiveName == "Законодатель меты"))
-            return Task.FromResult((false, "You don't have this passive"));
-        if (player.Passives.DopaMetaChoice.Triggered)
-            return Task.FromResult((false, "Already chosen"));
-
-        var validTactics = new[] { "Стомп", "Фарм", "Доминация", "Роум" };
-        if (!validTactics.Contains(tactic))
-            return Task.FromResult((false, "Invalid tactic"));
-
-        _characterPassives.ApplyDopaChoice(player, game, tactic);
         return Task.FromResult((true, (string)null));
     }
 

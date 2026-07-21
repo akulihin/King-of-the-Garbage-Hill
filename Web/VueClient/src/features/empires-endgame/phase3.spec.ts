@@ -18,16 +18,21 @@ function config(): EmpiresEndgameConfig {
   return cloneEmpiresConfig(defaultConfigJson)
 }
 
-function shortSession(value: EmpiresEndgameConfig, suffix: string): EmpiresMinigameSession {
+function shortSession(
+  value: EmpiresEndgameConfig,
+  suffix: string,
+  sequence: number,
+): EmpiresMinigameSession {
   const source = createEmpiresQaScenarios(value, { seed: `phase3-${suffix}` })['battle-defense']
     .snapshot.minigame!
   const session = clone(source)
-  session.id = `phase3-session-${suffix}`
+  session.sequence = sequence
   session.plan.id = `phase3-plan-${suffix}`
-  session.plan.sessionId = session.id
   session.plan.maxTicks = 1
   session.plan.deployments = []
   session.seed = `phase3-seed-${suffix}`
+  session.id = `ee:${sequence}:${session.plan.id}:${session.seed}`
+  session.plan.sessionId = session.id
   session.attempt = 0
   session.origin = {
     returnPhase: 'cards',
@@ -51,9 +56,9 @@ describe('Empire\'s Endgame Phase 3 minigame retention', () => {
     const value = config()
     value.td.resultLogLimit = 1
     const engine = new EmpiresEndgameEngine(value)
-    const first = shortSession(value, 'first')
+    const first = shortSession(value, 'first', 1)
     const firstResult = resolveSession(engine, first)
-    const second = shortSession(value, 'second')
+    const second = shortSession(value, 'second', 2)
     resolveSession(engine, second)
 
     expect(engine.state.minigameResultLog).toHaveLength(1)
@@ -62,13 +67,12 @@ describe('Empire\'s Endgame Phase 3 minigame retention', () => {
       evictedCount: 1,
       lastSessionId: first.id,
       lastRulesDigest: first.rulesIdentity.rulesDigest,
+      settledThroughSequence: 2,
+      legacySettledSessionIds: [],
     })
     expect(engine.state.minigameResultCompaction.historyDigest).toMatch(/^[0-9a-f]{16}$/)
 
-    expect(engine.resolveMinigame(firstResult)).toEqual({
-      ok: false,
-      message: 'No minigame session is active.',
-    })
+    expect(engine.resolveMinigame(firstResult)).toMatchObject({ ok: true })
     expect(engine.state.minigameResultCompaction.evictedCount).toBe(1)
 
     const restored = new EmpiresEndgameEngine(value, engine.snapshot())

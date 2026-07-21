@@ -139,6 +139,7 @@ public static class GameStateMapper
             RumblingKillCount = ErenYeager.GetRumblingKillCount(game),
             IsRoundTransitionPaused = game.IsRoundTransitionPaused,
             TransitionDeadlineUtc = game.TransitionDeadlineUtc?.ToString("o"),
+            HalfLifeReleaseSerial = game.HalfLifeReleaseSerial,
             GlobalLogs = requestingPlayer == null
                 ? (isAdmin ? game.GetGlobalLogs() : StripHiddenLogs(game.GetGlobalLogs(), game.HiddenGlobalLogSnippets, requestingPlayer, game))
                 : GameLocalization.TextForClient(requestingPlayer.DiscordId,
@@ -378,13 +379,6 @@ public static class GameStateMapper
             dto.YoungGlebAvailable = true;
         }
 
-        // Dopa — tactic choice needed
-        if (isMe && player.GameCharacter.Passive.Any(p => p.PassiveName == "Законодатель меты")
-            && !player.Passives.DopaMetaChoice.Triggered)
-        {
-            dto.DopaChoiceNeeded = true;
-        }
-
         // Private terminal state is visible only to its owner.
         if (isMe && viewerIsTerminal)
         {
@@ -505,16 +499,16 @@ public static class GameStateMapper
                                     Postponements = halfLife.Postponements,
                                     CanAnnounce = GordonFreeman.CanAnnounceHalfLife3(player, game),
                                     PendingDecision = halfLife.PendingDecision,
+                                    DecisionKind = halfLife.PendingReleaseConfirmation ? "release" : "failure",
                                     DecisionSerial = halfLife.DecisionSerial,
                                     DeadlineUtc = halfLife.DeadlineUtc?.ToString("o"),
                                     RawPoints = halfLife.RawPoints,
-                                    BaseMultiplier = halfLife.BaseMultiplier,
                                     SuperMultiplierDisabled = halfLife.SuperMultiplierDisabled,
                                     Exponent = halfLife.Exponent,
                                     FinalPoints = halfLife.FinalPoints,
                                     FreezeLabel = GordonFreeman.GetFreezeLabel(gordon),
                                     PostponeLabel = GordonFreeman.GetPostponeLabel(gordon),
-                                    FailureMessage = GordonFreeman.HalfLifeFailure,
+                                    DecisionMessage = GordonFreeman.GetDecisionMessage(gordon),
                                 },
                             };
                             anySet = true;
@@ -731,6 +725,9 @@ public static class GameStateMapper
                             VisionReady = player.Passives.DopaVision.Cooldown == 0,
                             VisionCooldown = player.Passives.DopaVision.Cooldown,
                             ChosenTactic = player.Passives.DopaMetaChoice.ChosenTactic,
+                            MetaChoiceReady = player.Status.LvlUpPoints > 0
+                                && player.Passives.DopaMetaChoice.StatLevelUpsTaken >= 1
+                                && !player.Passives.DopaMetaChoice.Triggered,
                             NeedSecondAttack = player.Status.WhoToAttackThisTurn.Count == 1 && !player.Status.IsReady,
                         };
                         anySet = true;

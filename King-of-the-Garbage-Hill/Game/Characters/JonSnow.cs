@@ -247,7 +247,9 @@ public static class JonSnow
         GamePlayerBridgeClass jon,
         GamePlayerBridgeClass winner)
     {
-        if (!HasPassive(jon, BlackCastle)) return;
+        if (!HasPassive(jon, BlackCastle)
+            || winner.GetPlayerId() == jon.GetPlayerId())
+            return;
 
         var jonPlace = jon.Status.GetPlaceAtLeaderBoard();
         var winnerPlace = winner.Status.GetPlaceAtLeaderBoard();
@@ -314,8 +316,7 @@ public static class JonSnow
             if (target == null
                 || target.Passives.IsDead
                 || UnknownBug.Is(target)
-                || game.RoundNo == 10 && target.GameCharacter.Passive.Any(passive =>
-                    passive.PassiveName == "Стримснайпят и банят и банят и банят"))
+                || Tigr.IsRoundTenBanned(target, game.RoundNo))
                 continue;
 
             var redirectedIndex = target.Status.WhoToAttackThisTurn.FindIndex(

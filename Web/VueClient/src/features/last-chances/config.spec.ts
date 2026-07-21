@@ -202,9 +202,10 @@ const EXPECTED_SHIPPED_CONTROL_ROUTES: Record<string, ExpectedShippedControlRout
     dualsense: {
       instant: 'tap',
       start: 'doubleTap',
+      preGate: undefined,
       nodes: [
-        'doubleTap|doubleTap|neutral|0.22|release|none|dispatch|doubleTapHold|release|1000|followUp|*',
-        'doubleTapHold|doubleTapHold|neutral|0.72|release|charge|dispatch||release|1000|gate|*',
+        'doubleTap|doubleTap|neutral|0.22|press|none|cancel|doubleTapHold|release|1000|followUp|*',
+        'doubleTapHold|doubleTapHold|continuation|0.72|release|charge|dispatch||release|1000|gate|*',
       ],
     },
   },
@@ -217,9 +218,10 @@ const EXPECTED_SHIPPED_CONTROL_ROUTES: Record<string, ExpectedShippedControlRout
     dualsense: {
       instant: 'tap',
       start: 'doubleTap',
+      preGate: undefined,
       nodes: [
-        'doubleTap|doubleTap|neutral|0.22|release|none|dispatch|doubleTapHold|release|1000|followUp|*',
-        'doubleTapHold|doubleTapHold|neutral|0.72|release|charge|dispatch||release|1000|gate|*',
+        'doubleTap|doubleTap|neutral|0.22|press|none|cancel|doubleTapHold|release|1000|followUp|*',
+        'doubleTapHold|doubleTapHold|continuation|0.72|release|charge|dispatch||release|1000|gate|*',
       ],
     },
   },
@@ -345,7 +347,7 @@ describe('99LC config and deterministic plan', () => {
     const result = validateLastChancesConfig(defaultConfig)
 
     expect(result.errors).toEqual([])
-    expect(defaultConfig.schemaVersion).toBe(4)
+    expect(defaultConfig.schemaVersion).toBe(5)
     expect(defaultConfig.chances).toBe(99)
     expect(defaultConfig.rooms.every(room => (room.spawnLayouts?.length ?? 0) >= 2)).toBe(true)
     expect(defaultConfig.progression.tiers).toHaveLength(7)
@@ -371,13 +373,39 @@ describe('99LC config and deterministic plan', () => {
     expect(sword?.name).toBe('Меч наемника')
     expect(sword?.primaryHandOnly).toBe(true)
     expect(sword?.staggerEnabled).toBe(true)
-    expect(sword?.attacks.tap.description).toContain('Движения прицелом повышают урон')
+    expect(sword?.attacks.tap.description).not.toContain('Движения прицелом')
+    expect(sword?.tuning).toMatchObject({
+      rhythmMissesPerRoomBeforeFatigue: 3,
+      rhythmConsecutiveMissesBeforeFatigue: 2,
+      unterhauCooldownMultiplier: 3,
+    })
     expect(sword?.attacks.doubleTap.collider?.width).toBe(48)
+    const axe = defaultConfig.weapons.find(weapon => weapon.id === 'twohand-axe')
+    expect(axe?.attacks.tap.description).toContain('Движения прицелом в сторону взмаха')
+    expect(axe?.tuning).toMatchObject({
+      mouseDamageBonusMax: 0.25,
+      mouseMotionForMaxBonusPx: 160,
+    })
+    expect(defaultConfig.enemies.find(enemy => enemy.id === 'spider-knife')).toMatchObject({
+      maxHp: 48,
+      armor: 2,
+    })
     expect(defaultConfig.progression.moveQuestsEnabled).toBe(true)
     expect(defaultConfig.artifacts).toHaveLength(3)
     expect(defaultConfig.outfits).toHaveLength(2)
-    expect(defaultConfig.enemies.find(enemy => enemy.id === 'swarm-creep')?.swarm?.spawnIntervalMs)
+    expect(defaultConfig.enemies.find(enemy => enemy.id === 'swarm-cockroach')?.swarm?.spawnIntervalMs)
       .toBe(200)
+    expect(defaultConfig.enemies.find(enemy => enemy.id === 'swarm-cockroach')).toMatchObject({
+      name: 'Таракан',
+      role: 'cockroach',
+      maxHp: 1,
+      attackDamage: 1,
+    })
+    expect(defaultConfig.rooms.find(room => room.id === 'turret-crossfire')?.turrets).toHaveLength(4)
+    expect(defaultConfig.rooms.find(room => room.id === 'cockroach-mother-lair')).toMatchObject({
+      encounter: { enemyIds: ['cockroach-mother'], infiniteSwarm: true },
+      altar: { chanceCost: 5 },
+    })
     expect(defaultConfig.enemies.map(enemy => enemy.name)).toEqual(expect.arrayContaining([
       'Слуга',
       'Бегущий степлер',
@@ -473,7 +501,7 @@ describe('99LC config and deterministic plan', () => {
     invalid.rooms[0].spawnLayouts![0].enemySpawns[0] = { ...invalid.rooms[0].playerSpawn }
 
     expect(validateLastChancesConfig(invalid).errors).toContain(
-      'rooms[0].spawnLayouts[0].enemySpawns[0] overlaps playerSpawn with combined radius 42',
+      'rooms[0].spawnLayouts[0].enemySpawns[0] overlaps playerSpawn with combined radius 46',
     )
   })
 
@@ -565,7 +593,7 @@ describe('99LC config and deterministic plan', () => {
 
     const migrated = await loadLastChancesConfig({ url: '/99lc/schema-v4.json' })
 
-    expect(migrated.schemaVersion).toBe(4)
+    expect(migrated.schemaVersion).toBe(5)
     expect(migrated.weapons.every(weapon => weapon.attacks.tap.cooldownMs === 0)).toBe(true)
     expect(migrated.rooms.find(room => room.id === 'chest-gallery')?.enemySpawns).toContainEqual({ x: 780, y: 160 })
     expect(migrated.rooms.find(room => room.id === 'wrong-shadow-event')?.enemySpawns).toContainEqual({ x: 420, y: 370 })
@@ -633,7 +661,7 @@ describe('99LC config and deterministic plan', () => {
       signal: undefined,
     })
     expect(migrated).toMatchObject({
-      schemaVersion: 4,
+      schemaVersion: 5,
       seed: 'saved-schema-v2-run',
       player: { baseStats: { attackPower: 137 } },
       loadout: defaultConfig.loadout,
@@ -669,7 +697,7 @@ describe('99LC config and deterministic plan', () => {
     ]))
   })
 
-  describe('schema-v4 controls and migration', () => {
+  describe('schema-v5 content and schema-v4 controls migration', () => {
     it('standalone-migrates an actual v1-shaped Builder definition through v2 and v3 fields', () => {
       const v1 = previousShippedSchemaV1Config()
       const before = JSON.stringify(v1)
@@ -677,7 +705,7 @@ describe('99LC config and deterministic plan', () => {
       const migrated = migrateLastChancesConfig(v1) as LastChancesConfig
 
       expect(migrated).toMatchObject({
-        schemaVersion: 4,
+        schemaVersion: 5,
         input: {
           tapComboWindowMs: 900,
           mylorik: defaultConfig.input.mylorik,
@@ -711,7 +739,7 @@ describe('99LC config and deterministic plan', () => {
       expect(migrateLastChancesConfig(migrated)).toEqual(migrated)
     })
 
-    it('clone-first migrates v1, v2, and v3 to v4 and keeps v4 idempotent', () => {
+    it('clone-first migrates v1, v2, v3, and v4 to v5 and keeps v5 idempotent', () => {
       const v1 = previousShippedSchemaV1Config()
       const v2 = cloneLastChancesConfig(defaultConfig)
       v2.schemaVersion = 2
@@ -727,7 +755,7 @@ describe('99LC config and deterministic plan', () => {
       for (const legacy of [v1, v2, v3]) {
         const before = JSON.stringify(legacy)
         const migrated = migrateLastChancesConfig(legacy, defaultConfig) as LastChancesConfig
-        expect(migrated.schemaVersion).toBe(4)
+        expect(migrated.schemaVersion).toBe(5)
         expect(validateLastChancesConfig(migrated).errors).toEqual([])
         expect(JSON.stringify(legacy)).toBe(before)
         expect(migrated.input.mylorik).toEqual(defaultConfig.input.mylorik)
@@ -746,10 +774,10 @@ describe('99LC config and deterministic plan', () => {
 
     it('fails clearly for an unknown future schema', () => {
       const future = cloneLastChancesConfig(defaultConfig) as LastChancesConfig & { schemaVersion: number }
-      future.schemaVersion = 5
+      future.schemaVersion = 6
 
       expect(() => migrateLastChancesConfig(future)).toThrow(
-        'Unsupported 99LC schemaVersion: schemaVersion 5 is newer than supported 4',
+        'Unsupported 99LC schemaVersion: schemaVersion 6 is newer than supported 5',
       )
     })
 
@@ -771,7 +799,7 @@ describe('99LC config and deterministic plan', () => {
 
       expect(fetchMock).toHaveBeenCalledOnce()
       expect(migrated).toMatchObject({
-        schemaVersion: 4,
+        schemaVersion: 5,
         seed: 'v3-control-migration',
         input: { holdMs: 777 },
         player: { baseStats: { attackPower: 143 } },
@@ -782,7 +810,7 @@ describe('99LC config and deterministic plan', () => {
       expect(migrated.rooms[0].name).toBe('Saved room tuning')
       expect(migrated.weapons[0].attacks.doubleTap.damage).toBe(91)
       expect(migrated.weapons[0].controls).toEqual(defaultConfig.weapons[0].controls)
-      expect(JSON.parse(window.localStorage.getItem('99lc:game-config')!).schemaVersion).toBe(4)
+      expect(JSON.parse(window.localStorage.getItem('99lc:game-config')!).schemaVersion).toBe(5)
     })
 
     it('validates bindings, hysteresis, ordered gates, and bounded feedback', () => {
@@ -1066,15 +1094,32 @@ describe('99LC config and deterministic plan', () => {
     const colossus = invalid.enemies.find(enemy => enemy.id === 'colossus')!
     const colossusIndex = invalid.enemies.indexOf(colossus)
     delete colossus.zone
-    const creep = invalid.enemies.find(enemy => enemy.id === 'swarm-creep')!
-    const creepIndex = invalid.enemies.indexOf(creep)
-    creep.swarm = { total: 5, initialBurst: 9, spawnIntervalMs: 600 }
+    const cockroach = invalid.enemies.find(enemy => enemy.id === 'swarm-cockroach')!
+    const cockroachIndex = invalid.enemies.indexOf(cockroach)
+    cockroach.swarm = { total: 5, initialBurst: 9, spawnIntervalMs: 600 }
     invalid.progression.tiers[2].guaranteedEnemyIds = ['no-such-enemy']
 
     expect(validateLastChancesConfig(invalid).errors).toEqual(expect.arrayContaining([
       `enemies[${colossusIndex}].zone is required when attackKind is zone`,
-      `enemies[${creepIndex}].swarm.initialBurst must be <= total`,
+      `enemies[${cockroachIndex}].swarm.initialBurst must be <= total`,
       'progression.tiers[2].guaranteedEnemyIds references unknown enemy no-such-enemy',
+    ]))
+  })
+
+  it('requires altars in every boss room and four holes for the Cockroach Mother', () => {
+    const invalid = cloneLastChancesConfig(defaultConfig)
+    const motherRoom = invalid.rooms.find(room => room.id === 'cockroach-mother-lair')!
+    const motherRoomIndex = invalid.rooms.indexOf(motherRoom)
+    const curatorRoom = invalid.rooms.find(room => room.id === 'curator-threshold')!
+    const curatorRoomIndex = invalid.rooms.indexOf(curatorRoom)
+    delete motherRoom.altar
+    delete motherRoom.bossHoles
+    delete curatorRoom.altar
+
+    expect(validateLastChancesConfig(invalid).errors).toEqual(expect.arrayContaining([
+      `rooms[${motherRoomIndex}].altar is required for every boss room`,
+      `rooms[${motherRoomIndex}].bossHoles is required for a Cockroach Mother encounter`,
+      `rooms[${curatorRoomIndex}].altar is required for every boss room`,
     ]))
   })
 
@@ -1118,6 +1163,7 @@ describe('99LC config and deterministic plan', () => {
         innerRange: 35,
         width: 22,
         traceMs: 360,
+        passesThroughWalls: true,
         followsPlayer: true,
         tickMs: 120,
         rotationDegrees: -110,
@@ -1177,6 +1223,7 @@ describe('99LC config and deterministic plan', () => {
         traceMs: -1,
         tickMs: 0,
       }
+      ;(attack.collider as unknown as { passesThroughWalls: string }).passesThroughWalls = 'yes'
       attack.charge = {
         maxMs: 800,
         bands: [
@@ -1199,6 +1246,7 @@ describe('99LC config and deterministic plan', () => {
         'weapons[0].attacks.hold.collider.traceMs must be a finite number >= 0',
         'weapons[0].attacks.hold.collider.width must be a finite number > 0',
         'weapons[0].attacks.hold.collider.tickMs must be a finite number > 0',
+        'weapons[0].attacks.hold.collider.passesThroughWalls must be a boolean',
         'weapons[0].attacks.hold.charge.bands[1].minMs must be strictly greater than the previous charge band',
         'weapons[0].attacks.hold.charge.bands[2].minMs must be <= weapons[0].attacks.hold.charge.maxMs',
         'weapons[0].attacks.hold.hitEffects[0].durationMs must be a finite number > 0',

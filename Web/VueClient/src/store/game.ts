@@ -535,7 +535,7 @@ export const useGameStore = defineStore('game', () => {
 
   async function resolveHalfLife3Decision(
     decisionSerial: number,
-    choice: 'freeze' | 'postpone',
+    choice: 'freeze' | 'postpone' | 'release',
   ) {
     if (!gameState.value) return
     await signalrService.resolveHalfLife3Decision(
@@ -646,11 +646,6 @@ export const useGameStore = defineStore('game', () => {
   async function doomChainsaw(passiveName: string) {
     if (!gameState.value) return
     await signalrService.doomChainsaw(gameState.value.gameId, passiveName)
-  }
-
-  async function dopaChoice(tactic: string) {
-    if (!gameState.value) return
-    await signalrService.dopaChoice(gameState.value.gameId, tactic)
   }
 
   async function deathNoteWrite(targetPlayerId: string, characterName: string) {
@@ -1041,7 +1036,6 @@ export const useGameStore = defineStore('game', () => {
     youngGleb,
     doomRoll,
     doomChainsaw,
-    dopaChoice,
     deathNoteWrite,
     shinigamiEyes,
     rewriteHistory,

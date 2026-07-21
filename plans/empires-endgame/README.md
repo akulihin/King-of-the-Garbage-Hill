@@ -6,9 +6,10 @@ does not silently equate every raw sketch with committed scope: every known syst
 catalog item has an owner, conditional gate, review status, or explicit exclusion in
 `COVERAGE-MATRIX.md`.
 
-Each remaining phase/subphase file is the opening prompt for a fresh Codex task using
+Each phase/subphase file is its historical opening prompt for a fresh Codex task using
 **5.6 Sol** on the designer's machine. Read it with `COMMON-EXECUTION-CONTRACT.md`.
-Subphases are separate change-sets and must run in dependency order.
+Subphases were separate change-sets and ran in dependency order; the scheduled program is
+now complete through P13.
 
 **Hard requirement**: the raw design export `DiscordExports/Empires_Endgame/`
 (+ `DiscordExports/empire_prompt`, the Palach HTML demos, the `EE_TD` sketch) exists only
@@ -24,7 +25,7 @@ deferred content (`validateDeferredReasons` / `validateLiveEffects` in
 `features/empires-endgame/config.ts`). Counts after completed phases come from the actual
 config/tests, not this historical baseline.
 
-Current execution status, including the closure audit completed on 2026-07-18:
+Current execution status, including final stabilization completed on 2026-07-21:
 
 - **Phase 0 — complete.** Its prompt is historical; do not amend/re-run it.
 - **Phase 1 — complete.** Its prompt is historical; do not amend/re-run it.
@@ -110,7 +111,15 @@ Current execution status, including the closure audit completed on 2026-07-18:
   semantic/substrate gaps are explicitly routed to a future content tranche.
   Machine coverage now rejects an unowned config carrier, a raw catalog group without a
   disposition, and any final `ready-now` row.
-- **Next prompt: Phase 13** (`phase-13-stabilization.md`).
+- **Phase 13 — complete/conditional.** Config remains schema 17; stabilization-only save
+  state advances to schema 16. The authentic v1 config and campaign/save chain, every
+  representative config generation, all four live minigame restore/settlement paths,
+  runtime lifecycle state, bounded histories/storage/replay work, real input/accessibility/
+  background behavior and the deterministic campaign seed matrix are covered. The P12B
+  manifest remains frozen and Chess remains absent behind its recorded semantic gate.
+- **Completion program closed.** There is no next prompt in this pack. Any later content
+  tranche must begin with explicit designer verdicts and a new scoped plan rather than
+  treating P13 as permission to un-defer content.
 
 Scope decisions confirmed by the designer (2026-07-16):
 
@@ -154,7 +163,7 @@ graph TD
   P10 --> P12B
   P11B --> P12B
   P12 --> P12B
-  P12B --> P13[13 stabilization]
+  P12B --> P13[13 complete: stabilization]
 ```
 
 | File | Ships |
@@ -543,21 +552,89 @@ graph TD
 - The closure assertion/review change-set advances `GameVersion` once to `5.0.28`; config
   and campaign/save schemas remain unchanged.
 
-## How to execute the remaining prompts
+## P13 handoff
 
-Run **one phase/subphase file per fresh Codex task and per change-set**. Do not combine
+- Config remains schema 17. Campaign/save envelope advances from 15 to 16 only for
+  stabilization state: canonical minigame settlement sequences/watermark, epidemic-history
+  compaction and consumed-battle-loss compaction. The v16 storage key reads all supported
+  older keys. Import requires matching source envelope/state versions and preserves that
+  old state version until engine normalization, closing the migration path that previously
+  stamped a legacy state current before its version-conditioned fills ran.
+- The checked-in authentic pre-P0 v1 configuration and representative custom definitions
+  from every schema generation exercise direct and explicit stepwise v1→v17 migration,
+  non-mutation, idempotence, disabled/partial sections, dangling references and future-v18
+  rejection. The authentic pre-P0 campaign fixture also retains production-engine save
+  checkpoints v1→v15; direct v1 restore and every checkpoint independently normalize to the
+  same v16 state without input mutation. Save v1→v16 coverage includes the previously shipped
+  runtime lifecycles and every live minigame: TD defense/assault, Tavern, Alchemy and
+  Inventory. Restored active sessions preserve immutable plan/rules identity, increment
+  attempt once, retain abort and stale-rules guards and settle through deterministic replay
+  exactly once. Current v16 restore rejects missing quest, quest-runtime, expedition or
+  loyalty roots and active-session origin/context that contradicts its kind, plan or
+  expedition lifecycle.
+- Every new live minigame session owns a monotonic sequence and canonical identity.
+  Settlement advances its watermark only after canonical effects succeed; retained results
+  share the smallest configured TD/Alchemy/Inventory tail (32 bundled), while compacted
+  canonical sequences and up to 64 legacy non-canonical IDs preserve the exact-once guard.
+  A campaign rejects skipped/stale sequence identities and stops at 4,096 settlements.
+- `stabilization.ts` centralizes the shipped ceilings: 10,000 QA actions/ticks, 512 commands,
+  16 catch-up ticks per frame, 300 seconds logical replay, 256 result/history entries,
+  4,096 board cells, 256 immutable plan items, 64 Tavern offers and a 512 KiB serialized
+  save. Bundled TD/Alchemy/Inventory baselines remain below them. Ended epidemics retain 32
+  readable records, while battle-loss consumption and expedition complaints each retain 64
+  recent IDs, with older detail folded into digests or attempt watermarks; the existing
+  chronicle, economy, God, quest, mystic and expedition histories keep their bounded tails
+  and compaction provenance. Autosave and manual export share the bounded serializer and a
+  persistent `role="alert"` on failure. Startup engine-validates stored candidates
+  newest-to-oldest before choosing one, so an invalid newest key does not mask an older
+  recoverable campaign.
+- Alchemy and Inventory global keyboard shortcuts no longer consume Enter/Space/arrow input
+  from focused native controls. Their shared labelled abort `alertdialog` pauses simulation,
+  blocks game input, starts on the safe continue action, traps Tab and restores trigger
+  focus/frame origin on cancel. Fake-clock component tests cover pointer/keyboard commands,
+  semantic text alternatives, focus, background-tab backlog discard and modal pause.
+- QA adds a restorable active `inventory-packing` fixture and exposes result retention plus
+  the settlement watermark in its digest; the visible QA strip includes the readable result
+  count. TD Cypress proves fast resolve changes that count from zero to one. The integrated
+  campaign uses one continuously accumulated engine for `phase13-alpha`, `phase13-beta`
+  and `phase13-gamma` under the 10,000-action cap. Every run owns 13 ordered checkpoints
+  and one six-result log; beta repeats to the exact final snapshot, digest and result. The
+  runner stages Maria's unavailable encounter prerequisite only, then crosses the live
+  3→7→Ace observer through real card actions and verifies the Пиковая Дама spawn/history.
+  Final-day Inventory settlement persists its watermark before normal next-con wave
+  scheduling. The older traced autoplay matrix remains
+  `qa-seed-1`, `qa-seed-2`, numeric `1701`, with `qa-repeatable` reproducing its trace,
+  event sequence and snapshot.
+- P12B's exact inventory remains unchanged: 1,112 config carriers, 355 stable raw semantic
+  identities, 33 source entries and the 1,149-message spine, with no `ready-now` row. TD,
+  Tavern, Alchemy and Inventory remain the only runtime minigame kinds. Chess still has no
+  config carrier, runtime/UI/QA/Builder entry or placeholder engine until `P12-02`–`P12-09`
+  receive complete designer verdicts.
+- Final verification is the complete `tools/test-empires-endgame.sh` unit/browser gate,
+  frontend production build, changed-doc verifier, passive audit, backend build and
+  simulation safety net. Exact measured timings/save-size baseline and command outcomes
+  belong in the final change-set handoff rather than this maintained behavior contract.
+  The stabilization change-set advances the current sequential `GameVersion` once from
+  `5.0.31` to `5.0.32`.
+
+## How to execute the completed prompts
+
+The scheduled program is complete through P13. Historically, each phase/subphase ran as one
+fresh Codex task and one change-set. Do not combine
 `3A`+`3B`, `4A`+`4B`+`4C`, `6A`+`6B`+`6C`, `11A`+`11B`, or `12`+`12B` in one prompt.
 Finish, review, and let the user commit (or otherwise cleanly isolate) one change-set before
 starting its dependent prompt. The lettered files are dependency boundaries, not chapters
 to paste into one large task.
 
 The graph permits some separate-worktree parallelism, but these phases commonly touch the
-same config, types, engine, docs, and version file. The completed chain through content
-closure is:
+same config, types, engine, docs, and version file. The completed chain through stabilization
+is:
 
-`7 → 8 → 9 → 10 → 11A → 11B → 12 → 12B`.
+`7 → 8 → 9 → 10 → 11A → 11B → 12 → 12B → 13`.
 
-The remaining single-worktree step is P13.
+There is no remaining single-worktree prompt in this completion program. The template below
+is retained only as the execution shape for a separately approved future tranche; it does
+not authorize one.
 
 Use this opening prompt, replacing `<phase-file>` with exactly one file:
 
@@ -583,7 +660,7 @@ gates. Do not commit or push.
 
 - `COMMON-EXECUTION-CONTRACT.md` owns source hierarchy, preflight, honest un-deferral,
   replay/config identity, migration, accessibility, QA, docs, version, and git rules for
-  every remaining phase. Phase prompts contain only phase-specific deltas.
+  every phase in this completed program. Phase prompts contain only phase-specific deltas.
 - `COVERAGE-MATRIX.md` owns program scope and routing, including design items absent from
   current `game-config.json`. A phase may update the matrix but may not silently omit an item.
 - Phase prompts override this overview only for a narrower, explicitly named contract.
@@ -609,10 +686,13 @@ gates. Do not commit or push.
   them to v11/v9 for economy-content events, exact targets and bounded decision history;
   P7 moves them to v12/v10 for quest graphs and dialogue memory; P8 moves them to v13/v11
   for God configuration, cosmetic RNG, anti-bito history and deck-memory usage; P9 moves
-  them to v14/v12 for Tavern progression/replay and mystic-zone lifecycle. Never reuse a
-  hard-coded version if the executed repository is already farther ahead.
-- **New component homes**: `src/components/empires-endgame/` (`TdBattle.vue`, `DialogueOverlay.vue`, `QuestJournal.vue`, `DeckMemoryPanel.vue`, …); new feature modules under `features/empires-endgame/` (`combat/`, `td/`, `quests.ts`, `alchemy/`, `tavern/`, `inventory/`, `chess/`).
-- `engine.ts` (~2.5k lines): extract internal modules (an `engine/` dir) only when a phase already touches that cluster; no big-bang refactor.
+  them to v14/v12 for Tavern progression/replay and mystic-zone lifecycle; P10 moves them to
+  v15/v13 for Alchemy; P11A to v16/v14 for expeditions; P11B to v17/v15 for Inventory; P12
+  and P12B keep those versions; P13 keeps config v17 and advances saves to v16 for bounded
+  stabilization identity/compaction state. Never reuse a hard-coded version if the executed
+  repository is already farther ahead.
+- **Component homes**: `src/components/empires-endgame/` (`TdBattle.vue`, `DialogueOverlay.vue`, `QuestJournal.vue`, `DeckMemoryPanel.vue`, `MinigameAbortDialog.vue`, …); feature modules live under `features/empires-endgame/` (`combat/`, `td/`, `quests.ts`, `alchemy/`, `tavern/`, `inventory/`). Chess deliberately has no module until its P12 gate is resolved.
+- `engine.ts` remains a large central class; extract internal modules (an `engine/` dir) only when a scoped change already touches that cluster, never as a big-bang refactor.
 
 ## Standing per-phase gate
 
@@ -623,7 +703,12 @@ sequential version bump, and commit-message proposal are mandatory for each subp
 ## Verification contract (program-wide)
 
 - Focused unit tests per phase: `pnpm --dir Web/VueClient run test:empires`.
-- New QA scenarios as the program progresses: `battle-defense`, `battle-assault`, `epidemic-outbreak`, `quest-dialogue`, `mystic-tavern`, `anti-bito`; new QA actions `resolve-minigame` (with a scripted policy) and `advance-dialogue`. The QA harness lives in `features/empires-endgame/qa.ts` (`digestEmpiresQaState`, trace + stall diagnostics, autoplay loop).
+- Final named QA scenarios include `battle-defense`, `battle-assault`, regional defenses,
+  `epidemic-outbreak`, `quest-dialogue`, `mystic-tavern`, `alchemy-experiment`,
+  `expedition-planning`, `inventory-packing`, `anti-bito`, governance and economy fixtures;
+  actions include `resolve-minigame` (with scripted policies) and `advance-dialogue`. The QA
+  harness lives in `features/empires-endgame/qa.ts` (`digestEmpiresQaState`, trace + stall
+  diagnostics, bounded autoplay loop).
 - Cypress specs drive settlement via `?qa=1&scenario=…&seed=…`; deterministic component
   tests must also prove real keyboard/pointer input reaches the production simulator.
 - TD determinism gate: the same `(plan, seed, commandLog)` run twice yields an identical result digest (asserted in `td/engine.spec.ts`); headless autoplay terminates under a tick cap for 3 seeds × 3 policies.

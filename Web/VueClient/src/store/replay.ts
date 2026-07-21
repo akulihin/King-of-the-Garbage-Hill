@@ -113,7 +113,6 @@ export function buildShiftedPlayer(
     hasTerminalMarker: preFight.hasTerminalMarker,
     darksciChoiceNeeded: preFight.darksciChoiceNeeded,
     youngGlebAvailable: preFight.youngGlebAvailable,
-    dopaChoiceNeeded: preFight.dopaChoiceNeeded,
     predictions: preFight.predictions,
   }
 }

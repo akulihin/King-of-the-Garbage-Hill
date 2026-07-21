@@ -16,6 +16,7 @@ import Blackjack21 from 'src/components/Blackjack21.vue'
 import AchievementPopup from 'src/components/AchievementPopup.vue'
 import TerminalCommitOverlay from 'src/components/TerminalCommitOverlay.vue'
 import HalfLife3Transition from 'src/components/HalfLife3Transition.vue'
+import HalfLife3Release from 'src/components/HalfLife3Release.vue'
 import type { Player } from 'src/services/signalr'
 import {
   playAttackSelection,
@@ -72,9 +73,21 @@ const gameIdNum = computed(() => Number(props.gameId))
 let gameOverOverlayTimer: ReturnType<typeof setTimeout> | null = null
 let finishPresentationFallbackTimer: ReturnType<typeof setTimeout> | null = null
 let terminalCommitTimer: ReturnType<typeof setTimeout> | null = null
+let halfLifeReleaseTimer: ReturnType<typeof setTimeout> | null = null
 
 const terminalCommitVisible = ref(false)
 const terminalCommitPoints = ref(0)
+const halfLifeReleaseVisible = ref(false)
+
+watch(() => store.gameState?.halfLifeReleaseSerial, (serial, previousSerial) => {
+  if (serial == null || previousSerial == null || serial <= previousSerial) return
+  halfLifeReleaseVisible.value = true
+  if (halfLifeReleaseTimer) clearTimeout(halfLifeReleaseTimer)
+  halfLifeReleaseTimer = setTimeout(() => {
+    halfLifeReleaseVisible.value = false
+    halfLifeReleaseTimer = null
+  }, 5000)
+})
 
 watch(() => store.myTerminalState?.commitSerial, (serial, previousSerial) => {
   if (!store.isTerminalMode || serial == null || previousSerial == null || serial <= previousSerial) return
@@ -208,6 +221,7 @@ onUnmounted(() => {
   if (gameOverOverlayTimer) clearTimeout(gameOverOverlayTimer)
   if (finishPresentationFallbackTimer) clearTimeout(finishPresentationFallbackTimer)
   if (terminalCommitTimer) clearTimeout(terminalCommitTimer)
+  if (halfLifeReleaseTimer) clearTimeout(halfLifeReleaseTimer)
   if (store.isConnected && gameIdNum.value) {
     store.leaveGame(gameIdNum.value)
   }
@@ -502,7 +516,7 @@ async function wakeGordon(): Promise<void> {
   }
 }
 
-async function resolveHalfLife3Decision(choice: 'freeze' | 'postpone'): Promise<void> {
+async function resolveHalfLife3Decision(choice: 'freeze' | 'postpone' | 'release'): Promise<void> {
   const serial = gordonHalfLife.value?.decisionSerial
   if (gordonActionPending.value || serial == null || !gordonHalfLife.value?.pendingDecision) return
   gordonActionPending.value = true
@@ -677,6 +691,13 @@ const gameOverPodium = computed(() => {
     .sort((a, b) => a.status.place - b.status.place)
     .slice(0, 6)
 })
+
+function displayCharacterIntelligence(name: string, intelligence: number): number {
+  if (name !== 'Dopa') return intelligence
+  return intelligence >= 7
+    ? 200 + (intelligence - 7) * 9 + Math.max(0, intelligence - 9)
+    : 200 - (7 - intelligence)
+}
 
 function playFinishedWinnerThemes() {
   if (!store.gameState) return
@@ -875,6 +896,10 @@ const rewriteHistoryRounds = computed(() => {
   if (!game || !state || store.myPlayer?.isDead || game.isFinished || game.roundNo >= 8 || state.historyRewritten) return []
   return Array.from({ length: Math.max(0, game.roundNo - 1) }, (_, index) => index + 1)
 })
+
+const rewriteHistoryLastChance = computed(() =>
+  store.gameState?.roundNo === 7 && rewriteHistoryRounds.value.length > 0,
+)
 
 // ── Animated Previous Round Logs ─────────────────────────────────────
 type PrevLogColor = 'purple' | 'gold' | 'green' | 'red' | 'blue' | 'orange' | 'muted'
@@ -1203,6 +1228,7 @@ const rumblingEmbers = Array.from({ length: 36 }, (_, index) => ({
       </div>
     </Teleport>
     <TerminalCommitOverlay v-if="terminalCommitVisible" :points="terminalCommitPoints" />
+    <HalfLife3Release v-if="halfLifeReleaseVisible" />
     <HalfLife3Transition
       v-if="transitionPaused"
       :is-gordon="isGordon"
@@ -1299,7 +1325,7 @@ const rumblingEmbers = Array.from({ length: 36 }, (_, index) => ({
               </div>
               <div class="draft-side-name">{{ store.gameState.draftOptions[1].name }}</div>
               <div class="draft-side-stats">
-                <span>🧠 {{ store.gameState.draftOptions[1].intelligence }}</span>
+                <span>🧠 {{ displayCharacterIntelligence(store.gameState.draftOptions[1].name, store.gameState.draftOptions[1].intelligence) }}</span>
                 <span>💪 {{ store.gameState.draftOptions[1].strength }}</span>
                 <span>⚡ {{ store.gameState.draftOptions[1].speed }}</span>
                 <span>🧿 {{ store.gameState.draftOptions[1].psyche }}</span>
@@ -1320,7 +1346,7 @@ const rumblingEmbers = Array.from({ length: 36 }, (_, index) => ({
               <h2 class="draft-center-name">{{ store.gameState.draftOptions[0].name }}</h2>
               <div class="draft-center-tier">Tier {{ store.gameState.draftOptions[0].tier }}</div>
               <div class="draft-center-stats">
-                <span class="draft-stat" title="Intelligence">🧠 {{ store.gameState.draftOptions[0].intelligence }}</span>
+                <span class="draft-stat" :title="store.gameState.draftOptions[0].name === 'Dopa' ? 'IQ' : 'Intelligence'">🧠 {{ displayCharacterIntelligence(store.gameState.draftOptions[0].name, store.gameState.draftOptions[0].intelligence) }}</span>
                 <span class="draft-stat" title="Strength">💪 {{ store.gameState.draftOptions[0].strength }}</span>
                 <span class="draft-stat" title="Speed">⚡ {{ store.gameState.draftOptions[0].speed }}</span>
                 <span class="draft-stat" title="Psyche">🧿 {{ store.gameState.draftOptions[0].psyche }}</span>
@@ -1347,7 +1373,7 @@ const rumblingEmbers = Array.from({ length: 36 }, (_, index) => ({
               </div>
               <div class="draft-side-name">{{ store.gameState.draftOptions[2].name }}</div>
               <div class="draft-side-stats">
-                <span>🧠 {{ store.gameState.draftOptions[2].intelligence }}</span>
+                <span>🧠 {{ displayCharacterIntelligence(store.gameState.draftOptions[2].name, store.gameState.draftOptions[2].intelligence) }}</span>
                 <span>💪 {{ store.gameState.draftOptions[2].strength }}</span>
                 <span>⚡ {{ store.gameState.draftOptions[2].speed }}</span>
                 <span>🧿 {{ store.gameState.draftOptions[2].psyche }}</span>
@@ -1446,13 +1472,6 @@ const rumblingEmbers = Array.from({ length: 36 }, (_, index) => ({
             <button class="act-btn doom-roll" :disabled="transitionPaused" title="Отключить Мораль и Предположения; получать случайные модули и +2 очка" @click="store.doomRoll()">
               Let's Roll!
             </button>
-          </div>
-
-          <div v-if="me?.dopaChoiceNeeded" class="act-group">
-            <button class="act-btn dopa-stomp" :disabled="transitionPaused" title="Стомп: +9 Силы и 99 Скилла" @click="store.dopaChoice('Стомп')">Стомп</button>
-            <button class="act-btn dopa-farm" :disabled="transitionPaused" title="Фарм: Взгляд в будущее x2" @click="store.dopaChoice('Фарм')">Фарм</button>
-            <button class="act-btn dopa-domination" :disabled="transitionPaused" title="Доминация: +20 Skill/win, target -1 bonus" @click="store.dopaChoice('Доминация')">Доминация</button>
-            <button class="act-btn dopa-roam" :disabled="transitionPaused" title="Роум: Steal from non-adjacent" @click="store.dopaChoice('Роум')">Роум</button>
           </div>
 
           <div v-if="(store.gameState.roundNo ?? 0) >= 8 && !store.isKira && !isMadara && !me?.status.confirmedPredict" class="act-group">
@@ -1599,6 +1618,7 @@ const rumblingEmbers = Array.from({ length: 36 }, (_, index) => ({
               :fight-style="fightStyle"
               :rewrite-history-rounds="rewriteHistoryRounds"
               :rewrite-history-pending-round="store.rewritingHistoryRound"
+              :rewrite-history-last-chance="rewriteHistoryLastChance"
               @resist-flash="onResistFlash"
               @justice-reset="onJusticeReset"
               @justice-transfer="onJusticeTransfer"

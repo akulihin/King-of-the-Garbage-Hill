@@ -421,7 +421,7 @@ describe('Empire\'s Endgame Phase 9 Tavern and mystic cards', () => {
       value,
       importEmpiresCampaign(exportEmpiresCampaign(state), value.id),
     )
-    expect(restored.state.schemaVersion).toBe(15)
+    expect(restored.state.schemaVersion).toBe(16)
     expect(restored.state.mystics.zone).toEqual([listId, queenId])
 
     const legacyState = structuredClone(new EmpiresEndgameEngine(value).snapshot()) as unknown as Record<string, unknown>
@@ -434,7 +434,7 @@ describe('Empire\'s Endgame Phase 9 Tavern and mystic cards', () => {
       state: legacyState,
     }, value.id)
     expect(new EmpiresEndgameEngine(value, migrated).state).toMatchObject({
-      schemaVersion: 15,
+      schemaVersion: 16,
       mystics: { zone: [], instances: {} },
       tavern: { runOrdinal: 1, spawned: false },
     })

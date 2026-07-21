@@ -247,11 +247,11 @@ describe('Empire\'s Endgame Phase 10 Tetris-alchemy', () => {
     expect(() => new EmpiresEndgameEngine(changed, activeSnapshot)).toThrow(/rules|config/i)
   })
 
-  it('round-trips schema v15, normalizes v12 additively, and rejects a future v16 envelope', () => {
+  it('round-trips schema v16, normalizes v12 additively, and rejects a future v17 envelope', () => {
     const value = config()
     const state = new EmpiresEndgameEngine(value).snapshot()
     const exported = exportEmpiresCampaign(state)
-    expect(exported).toMatchObject({ schemaVersion: 15, state: { schemaVersion: 15 } })
+    expect(exported).toMatchObject({ schemaVersion: 16, state: { schemaVersion: 16 } })
     expect(importEmpiresCampaign(exported, value.id)).toEqual(state)
 
     const legacyState = structuredClone(state) as unknown as Record<string, unknown>
@@ -263,9 +263,9 @@ describe('Empire\'s Endgame Phase 10 Tetris-alchemy', () => {
       state: legacyState,
     }, value.id)
     expect(new EmpiresEndgameEngine(value, restored).state).toMatchObject({
-      schemaVersion: 15,
+      schemaVersion: 16,
       alchemy: { explosionCount: 0, lastExplosion: null },
     })
-    expect(() => importEmpiresCampaign({ ...exported, schemaVersion: 16 }, value.id)).toThrow(/1–15/)
+    expect(() => importEmpiresCampaign({ ...exported, schemaVersion: 17 }, value.id)).toThrow(/1–16/)
   })
 })

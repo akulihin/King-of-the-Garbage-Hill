@@ -74,6 +74,9 @@ const hasEnemySummonOnMyBoard = computed(() => {
   return store.myBoard?.cells.some(c => c.hasSummon && c.summonOwnerId && c.summonOwnerId !== myId) ?? false
 })
 
+const boardingPlacementPending = computed(() =>
+  !!myPlayer.value?.hasPendingBoardingDeployment || !!enemyPlayer.value?.hasPendingBoardingDeployment)
+
 // Penalty zone: rows 0-2 highlighted when enemy summons present (#3)
 const penaltyZoneRows = computed<number[]>(() => {
   if (!hasEnemySummonOnMyBoard.value) return []
@@ -84,19 +87,23 @@ const penaltyZoneRows = computed<number[]>(() => {
   return hasInPenaltyZone ? [0, 1, 2] : []
 })
 
-const canDeploySummon = computed(() => {
+function canDeploySummonType(type: string): boolean {
   if (!myPlayer.value || !enemyPlayer.value) return false
+  if (boardingPlacementPending.value) return false
   const p = myPlayer.value
-  if (!availableSummons.value.includes(store.summonType)) return false
+  if (!availableSummons.value.includes(type)) return false
   const isReentry = p.summons?.some(s =>
-    s.type === store.summonType && s.waitingForTurnBack) ?? false
+    s.type === type && s.waitingForTurnBack) ?? false
   // ТЗ #10: Brander is outside the four normal per-match uses
-  if (!isReentry && store.summonType !== 'Brander' && p.summonSlotsUsed >= p.maxSummonSlots) return false
+  if (!isReentry && type !== 'Brander' && p.summonSlotsUsed >= p.maxSummonSlots) return false
   const threshold = 5 * (p.summonSlotsUsed + 1)
   if (!isReentry && phase.value !== 'Boarding' && p.revealedCellCount < threshold) return false
   if (phase.value !== 'Boarding' && p.summonCooldownRemaining > 0) return false
   return true
-})
+}
+
+const canDeploySummon = computed(() => canDeploySummonType(store.summonType))
+const deployableSummons = computed(() => availableSummons.value.filter(canDeploySummonType))
 
 function enterSummonDeployMode() {
   if (!canDeploySummon.value) return
@@ -113,6 +120,7 @@ function enterSummonDeployMode() {
 }
 
 function enterPendingSummonDeployMode(ps: BattleshipPendingSummon) {
+  if (boardingPlacementPending.value && !ps.isBoarding) return
   store.summonDeployMode = {
     type: ps.type,
     pendingId: ps.id,
@@ -156,11 +164,15 @@ const summonDeployAllowedCells = computed<{ row: number; col: number }[]>(() => 
 
 // ── Shot delay countdown ────────────────────────────────────
 const shotDelayRemaining = ref(0)
+const SHOT_DELAY_SECONDS = 8
 let shotDelayTimer: ReturnType<typeof setInterval> | null = null
 
 watch(() => store.shotDelayActive, (active) => {
   if (active) {
-    shotDelayRemaining.value = 2.0
+    shotDelayRemaining.value = Math.min(
+      SHOT_DELAY_SECONDS,
+      Math.max(0.1, (myPlayer.value?.shotDelayRemainingMs ?? SHOT_DELAY_SECONDS * 1000) / 1000),
+    )
     shotDelayTimer = setInterval(() => {
       shotDelayRemaining.value = Math.max(0, +(shotDelayRemaining.value - 0.1).toFixed(1))
       if (shotDelayRemaining.value <= 0 && shotDelayTimer) {
@@ -179,6 +191,9 @@ const isBuckshotMode = computed(() => store.selectedShotType === 'Buckshot')
 const isIncendiaryMode = computed(() => store.selectedShotType === 'Incendiary')
 const isGreekFireMode = computed(() => store.selectedShotType === 'GreekFire')
 const hasCapturedShip = computed(() => store.myBoard?.cells.some(c => c.isCaptured && !c.isDestroyed) ?? false)
+const catapultReady = computed(() => isMyTurn.value && !store.shotDelayActive &&
+  !boardingPlacementPending.value && !hasCapturedShip.value &&
+  store.availableWeapons.some(w => w.type === 'Tetracatapult' && w.aimSpeed <= 0 && w.hasAmmo))
 const aoeHighlight = ref<{ row: number; col: number }[]>([])
 
 function updateAoeHighlight(row: number, col: number) {
@@ -351,7 +366,7 @@ const myBoardRangeOverlays = computed(() => {
     }
 
     if (abilities.includes('explode_on_hit')) {
-      const radius = ship.definitionId === 'incendiary_barge' ? 2 : (ship.space ?? 1)
+      const radius = ship.explosionRadius || ship.space || 1
       const occupied = getOccupiedCells(ship)
       for (const [r, c] of occupied) {
         for (let dr = -radius; dr <= radius; dr++) {
@@ -556,7 +571,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="phase-content">
+  <div class="phase-content" :class="{ 'catapult-ready': catapultReady }">
     <div v-if="firstTurnBanner" class="bs-banner bs-banner--gold first-turn-banner">{{ firstTurnBanner }}</div>
     <div v-if="phase === 'Boarding'" class="bs-banner bs-banner--warning">Абордаж! Близкие корабли идут на таран.</div>
 
@@ -571,9 +586,30 @@ onUnmounted(() => {
       @select-weapon="handleWeaponSelect"
     />
 
+    <!-- Summons stay directly below weapons; choosing an icon immediately opens cell selection. -->
+    <SummonBar
+      :my-player="myPlayer"
+      :phase="phase"
+      :shot-count="store.shotCount"
+      :can-deploy-summon="canDeploySummon"
+      :boarding-placement-pending="boardingPlacementPending"
+      :deployable-summons="deployableSummons"
+      :available-summons="availableSummons"
+      :summon-deploy-mode="store.summonDeployMode"
+      @enter-deploy="enterSummonDeployMode"
+      @enter-pending-deploy="enterPendingSummonDeployMode"
+      @cancel-deploy="store.cancelSummonDeploy()"
+      @set-summon-type="(t: string) => store.summonType = t"
+    />
+
+    <div v-if="catapultReady" class="catapult-ready-label" role="status">Камнемёт готов к выстрелу!</div>
+
     <!-- Status Banners -->
-    <div v-if="myPlayer?.pendingSummons?.some(p => p.isBoarding)" class="bs-banner bs-banner--warning">
+    <div v-if="myPlayer?.hasPendingBoardingDeployment" class="bs-banner bs-banner--warning">
       Разместите все абордажные корабли перед выстрелом!
+    </div>
+    <div v-else-if="enemyPlayer?.hasPendingBoardingDeployment" class="bs-banner bs-banner--warning">
+      Противник расставляет абордажные корабли. Бой продолжится после завершения расстановки.
     </div>
     <div v-if="myPlayer?.hasPenalty" class="bs-banner bs-banner--warning">
       Штраф: следующий ход будет пропущен!
@@ -583,7 +619,7 @@ onUnmounted(() => {
     </div>
     <div v-if="store.shotDelayActive" class="bs-banner bs-banner--info shot-delay-banner">
       Прицеливание... <span class="delay-countdown bs-mono">{{ shotDelayRemaining.toFixed(1) }}с</span>
-      <div class="delay-progress" :style="{ width: ((2 - shotDelayRemaining) / 2 * 100) + '%' }"></div>
+      <div class="delay-progress" :style="{ width: ((SHOT_DELAY_SECONDS - shotDelayRemaining) / SHOT_DELAY_SECONDS * 100) + '%' }"></div>
     </div>
 
     <!-- Battle Boards -->
@@ -605,7 +641,7 @@ onUnmounted(() => {
             :is-enemy="true"
             :cell-size="42"
             :shot-type="store.selectedShotType"
-            :clickable="(isMyTurn && !store.shotDelayActive && !isGreekFireMode && !hasCapturedShip) || !!store.summonDeployMode"
+            :clickable="(isMyTurn && !store.shotDelayActive && !boardingPlacementPending && !isGreekFireMode && !hasCapturedShip) || !!store.summonDeployMode"
             :highlight-cells="enemyHighlight"
             :blocked-rows="activeBlockedRows"
             :animated-cells="store.enemyAnimatedCells"
@@ -655,7 +691,7 @@ onUnmounted(() => {
             :summon-trail-cells="mySummonTrails"
             :ship-name-map="myShipNameMap"
             :range-overlay-cells="myBoardRangeOverlays"
-            :clickable="(hasCapturedShip || hasEnemySummonOnMyBoard || isGreekFireMode) && isMyTurn && !store.shotDelayActive"
+            :clickable="(hasCapturedShip || hasEnemySummonOnMyBoard || isGreekFireMode) && isMyTurn && !store.shotDelayActive && !boardingPlacementPending"
             @cell-click="handleMyBoardCellClick"
             @tip-show="showTip" @tip-move="moveTip" @tip-hide="hideTip"
           />
@@ -701,20 +737,6 @@ onUnmounted(() => {
       <BattleLogPanel :entries="gameLog" />
     </div>
 
-    <!-- Summon Bar -->
-    <SummonBar
-      :my-player="myPlayer"
-      :phase="phase"
-      :shot-count="store.shotCount"
-      :can-deploy-summon="canDeploySummon"
-      :available-summons="availableSummons"
-      :summon-deploy-mode="store.summonDeployMode"
-      @enter-deploy="enterSummonDeployMode"
-      @enter-pending-deploy="enterPendingSummonDeployMode"
-      @cancel-deploy="store.cancelSummonDeploy()"
-      @set-summon-type="(t: string) => store.summonType = t"
-    />
-
     <!-- Action Bar -->
     <ActionBar
       :maneuverable-ships="maneuverableShips"
@@ -739,6 +761,47 @@ onUnmounted(() => {
 
 <style scoped>
 .phase-content { margin-top: 0.5rem; }
+
+.catapult-ready::before {
+  content: '';
+  position: fixed;
+  inset: 7px;
+  z-index: 1000;
+  pointer-events: none;
+  border: 3px solid rgba(255, 255, 255, 0.92);
+  border-radius: 16px;
+  box-shadow:
+    inset 0 0 42px 10px rgba(255, 255, 255, 0.34),
+    0 0 36px 12px rgba(255, 255, 255, 0.7);
+  animation: catapult-screen-ready 1.1s ease-in-out infinite alternate;
+}
+.catapult-ready-label {
+  position: relative;
+  z-index: 2;
+  margin: 0.35rem 0 0.5rem;
+  padding: 0.45rem 0.75rem;
+  color: #0f172a;
+  background: rgba(255, 255, 255, 0.94);
+  border-radius: 8px;
+  text-align: center;
+  font-weight: 950;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  box-shadow: 0 0 26px 8px rgba(255, 255, 255, 0.55);
+  animation: catapult-label-ready 0.85s ease-in-out infinite alternate;
+}
+@keyframes catapult-screen-ready {
+  from { opacity: 0.42; filter: brightness(0.9); }
+  to { opacity: 1; filter: brightness(1.35); }
+}
+@keyframes catapult-label-ready {
+  from { transform: scale(0.99); }
+  to { transform: scale(1.015); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .catapult-ready::before,
+  .catapult-ready-label { animation: none; }
+}
 
 .first-turn-banner {
   font-weight: 700;

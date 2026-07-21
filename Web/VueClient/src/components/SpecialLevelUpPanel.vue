@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { DoomGuyState, GeraltState, GoblinSwarmState, Player, TheBoysState } from 'src/services/signalr'
+import type { DoomGuyState, DopaState, GeraltState, GoblinSwarmState, Player, TheBoysState } from 'src/services/signalr'
+import { formatPassiveDescription } from 'src/services/textFormatting'
 
 type LevelUpIndex = 1 | 2 | 3 | 4
 
@@ -30,6 +31,7 @@ const goblin = computed<GoblinSwarmState | null>(() => states.value?.goblinSwarm
 const geralt = computed<GeraltState | null>(() => states.value?.geralt ?? null)
 const theBoys = computed<TheBoysState | null>(() => states.value?.theBoys ?? null)
 const doom = computed<DoomGuyState | null>(() => states.value?.doomGuy ?? null)
+const dopa = computed<DopaState | null>(() => states.value?.dopa ?? null)
 
 const hasPassive = (name: string) => props.player.character.passives.some(passive => passive.name === name)
 
@@ -39,6 +41,7 @@ const kind = computed(() => {
   if (name === 'Стая Гоблинов' && goblin.value) return 'goblin'
   if (name === 'Геральт' && geralt.value) return 'geralt'
   if (name === 'TheBoys' && theBoys.value) return 'theboys'
+  if (name === 'Dopa' && dopa.value?.metaChoiceReady) return 'dopa'
   if (name === 'Котики' && states.value?.kotiki) return 'kotiki'
   if (hasPassive('Vampyr Позорный')) return 'vampyr'
   if (hasPassive('Main Ирелия')) return 'irelia'
@@ -65,6 +68,7 @@ const header = computed(() => {
     case 'goblin': return { eyebrow: 'СОВЕТ СТАИ', title: 'Куда пустить новых гоблинов?', hint: 'Сравни текущее производство с результатом следующего уровня.' }
     case 'geralt': return { eyebrow: 'ВЕДЬМАЧЬЯ АЛХИМИЯ', title: 'Подготовить масло', hint: 'Масло срабатывает после Медитации против соответствующего типа чудовищ.' }
     case 'theboys': return { eyebrow: 'VOUGHT FIELD TEAM', title: theBoys.value?.superDickActive ? 'Butcher работает один' : 'Кого прокачать?', hint: theBoys.value?.superDickActive ? 'СуперМудень отключил остальные ветки. Следующее очко будет потрачено без усиления.' : 'Каждый выбор даёт +2 к связанному стату. Первые четыре выбора могут открыть скрытую комбинацию, а x4 одной ветки — ультимейт.' }
+    case 'dopa': return { eyebrow: 'DOPA // ВТОРОЕ УЛУЧШЕНИЕ', title: 'Выбрать мету', hint: 'Этот выбор заменяет улучшение характеристики: стат не повысится.' }
     case 'kotiki': return { eyebrow: 'LVL-МЯК', title: 'Справедливости много не бывает', hint: 'Котики не качают статы — это очко сразу превращается в живую Справедливость.' }
     case 'vampyr': return { eyebrow: 'VAMPYR ПОЗОРНЫЙ', title: 'Никаких статов для тебя', hint: 'Выбор характеристики — обманка: очко тратится, но ни один стат не растёт.' }
     case 'irelia': return { eyebrow: 'RIOT BALANCE TEAM', title: 'Нерфа не избежать', hint: 'Выбери характеристику, которая потеряет 1. Очко прокачки будет потрачено.' }
@@ -194,6 +198,13 @@ const choices = computed<Choice[]>(() => {
       }
       return choices
     }
+    case 'dopa':
+      return [
+        { index: 1, icon: '⚔️', title: 'Стомп', kicker: 'СИЛОВАЯ МЕТА', description: '+9 Силы и 99 *Скилла*.', outcome: 'Выбрать Стомп', badge: '+9 STR' },
+        { index: 2, icon: '👁️', title: 'Фарм', kicker: 'ЭКОНОМИЧЕСКАЯ МЕТА', description: '"Взгляд в будущее" приносит вдвое больше очков.', outcome: 'Выбрать Фарм', badge: '×2' },
+        { index: 3, icon: '👑', title: 'Доминация', kicker: 'ПОБЕДНАЯ МЕТА', description: 'Победы приносят Допе +20 *Скилла*, а цель теряет **бонусное** очко и иногда психику. (шанс 33%)', outcome: 'Выбрать Доминацию', badge: '33%' },
+        { index: 4, icon: '🧭', title: 'Роум', kicker: 'МЕТА ТАБЛИЦЫ', description: 'При победе над врагами, не стоящими по соседству в таблице, **Крадет** у них **бонусное** очко и 3 *Морали*.', outcome: 'Выбрать Роум', badge: 'STEAL' },
+      ]
     case 'kotiki':
       return [{ index: 1, icon: '⚖️', title: 'Получить Справедливость', kicker: `СЕЙЧАС ${c.justice}`, description: 'Срабатывает сразу и не меняет характеристики.', outcome: `${c.justice} → ${Math.min(5, c.justice + 1)} Справедливости`, badge: '+1' }]
     case 'vampyr':
@@ -252,7 +263,7 @@ function choose(choice: Choice) {
         <span class="levelup-choice__body">
           <span class="levelup-choice__kicker">{{ choice.kicker }}</span>
           <strong>{{ choice.title }}</strong>
-          <span class="levelup-choice__description">{{ choice.description }}</span>
+          <span class="levelup-choice__description" v-html="formatPassiveDescription(choice.description)" />
           <span class="levelup-choice__outcome">{{ choice.outcome }}</span>
         </span>
         <span v-if="choice.badge" class="levelup-choice__badge">{{ choice.badge }}</span>
@@ -299,6 +310,7 @@ function choose(choice: Choice) {
 .special-levelup--goblin { --accent: #83c341; --accent-rgb: 131, 195, 65; }
 .special-levelup--geralt { --accent: #d8af63; --accent-rgb: 216, 175, 99; }
 .special-levelup--theboys { --accent: #ef5350; --accent-rgb: 239, 83, 80; }
+.special-levelup--dopa { --accent: #4a90d9; --accent-rgb: 74, 144, 217; }
 .special-levelup--kotiki { --accent: #ffb74d; --accent-rgb: 255, 183, 77; }
 .special-levelup--vampyr { --accent: #b46cff; --accent-rgb: 180, 108, 255; }
 .special-levelup--irelia { --accent: #ff5c6c; --accent-rgb: 255, 92, 108; }

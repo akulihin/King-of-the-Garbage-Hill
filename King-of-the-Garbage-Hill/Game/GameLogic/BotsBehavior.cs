@@ -151,14 +151,10 @@ public class BotsBehavior : IServiceSingleton
         switch (player.GameCharacter.Name)
         {
             case "Dopa":
-                // Законодатель меты normally resolves while entering round 1, before the bot acts.
-                // Record and pilot that actual persistent choice; only roll here as a defensive fallback.
-                var tactic = player.Passives.DopaMetaChoice.Triggered
-                    ? player.Passives.DopaMetaChoice.ChosenTactic
-                    : Pick("Стомп", "Фарм", "Доминация", "Роум");
+                // Pick a persistent plan now, but do not activate it until Dopa spends his second
+                // level-up. Before that point he genuinely has no meta.
+                var tactic = Pick("Стомп", "Фарм", "Доминация", "Роум");
                 player.AiPlaystyle = $"Dopa:{tactic}";
-                if (!player.Passives.DopaMetaChoice.Triggered)
-                    _characterPassives.ApplyDopaChoice(player, game, tactic);
                 break;
             case "Darksci":
                 var darksciPlan = Pick("Stable", "Unstable");
@@ -987,7 +983,7 @@ public class BotsBehavior : IServiceSingleton
                 foreach (var target in allTargets.ToList().Where(target => Smart(bot, game)
                              ? _gameUpdateMess.CustomLeaderBoardBeforeNumber(
                                  bot, target.Player, game, target.PlaceAtLeaderBoard()).Contains("🚫", StringComparison.Ordinal)
-                             : target.Player.GameCharacter.Passive.Any(x => x.PassiveName == "Стримснайпят и банят и банят и банят")))
+                             : Tigr.IsRoundTenBanned(target.Player, game.RoundNo)))
                 {
                     allTargets.Remove(target);
                 }
@@ -2437,7 +2433,7 @@ public class BotsBehavior : IServiceSingleton
                                 && targetWins == winCounts.Values.Max())
                                 target.AttackPreference += targetWins * 5 + 3;
                         }
-                        // A charged Шэн makes the next attack occupy the selected target's cell.
+                        // A charged Шэн always occupies the selected target's cell; prefer an upward move.
                         if (bot.Passives.SalldorumShen.Charges > 0
                             && target.Player.Status.GetPlaceAtLeaderBoard() < bot.Status.GetPlaceAtLeaderBoard())
                             target.AttackPreference += 8;
@@ -4304,6 +4300,7 @@ public class BotsBehavior : IServiceSingleton
                 var chroniclerRound = game.RoundNo - 3;
                 if (chroniclerRound > 0)
                     target.Score += target.Knowledge.WinsByRound.GetValueOrDefault(chroniclerRound) * 5;
+                // Downward attacks also move; an upward move remains the strategically preferred spend.
                 if (bot.Passives.SalldorumShen.Charges > 0
                     && target.Place < bot.Status.GetPlaceAtLeaderBoard()) target.Score += 8;
                 if (target.EstimatedJustice == 0) target.Score += 3;
@@ -4786,11 +4783,18 @@ public class BotsBehavior : IServiceSingleton
                 else skillNumber = 3;
             }
 
-            // Dopa's game-start tactic is a persistent playstyle and needs its own build.
+            // Dopa spends his second level-up on the planned meta. Later level-ups use that build.
             if (player.GameCharacter.Name == "Dopa")
             {
                 var dopaTactic = player.Passives.DopaMetaChoice.ChosenTactic;
-                if (Smart(player, game) && dopaTactic == "Доминация")
+                if (!player.Passives.DopaMetaChoice.Triggered
+                    && player.Passives.DopaMetaChoice.StatLevelUpsTaken >= 1)
+                    skillNumber = HasPlaystyle(player, "Стомп") ? 1
+                        : HasPlaystyle(player, "Фарм") ? 2
+                        : HasPlaystyle(player, "Доминация") ? 3
+                        : HasPlaystyle(player, "Роум") ? 4
+                        : _rand.Random(1, 4);
+                else if (Smart(player, game) && dopaTactic == "Доминация")
                     skillNumber = strength < 10 ? 2 : speed < 10 ? 3 : 1;
                 else if (Smart(player, game) && dopaTactic == "Роум")
                     skillNumber = speed < 10 ? 3 : strength < 8 ? 2 : 1;

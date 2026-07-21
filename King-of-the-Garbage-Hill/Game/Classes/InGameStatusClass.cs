@@ -75,6 +75,8 @@ public class InGameStatus
 
     /// <summary>Temporary flag: when true, the current fight should be hidden from non-admin logs.</summary>
     public bool HideCurrentFight { get; set; }
+    /// <summary>Temporary flag: the current fight is Dopa's second, shadow action.</summary>
+    public bool IsShadowAction { get; set; }
 
     private int PlaceAtLeaderBoard { get; set; }
     public List<Guid> WhoToAttackThisTurn { get; set; }

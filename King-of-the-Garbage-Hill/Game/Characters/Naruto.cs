@@ -22,12 +22,14 @@ public static class Naruto
         public List<Guid> NarutoPlayerIds { get; set; } = new();
         public bool HaremActiveThisRound { get; set; }
         public int HaremCooldown { get; set; }
-        public int HaremSkippedFights { get; set; }
+        public int HaremProvokedSkips { get; set; }
         public int JusticeSnapshot { get; set; }
         public Guid SummonAutoWinTarget { get; set; }
         public bool ShadowSettlementResolved { get; set; }
         public bool HasDispersed { get; set; }
         public decimal ShadowPointsTransferred { get; set; }
+        public bool ResolvedTripleRasenganAgainstEren { get; set; }
+        public bool ResolvedTripleRasenganAgainstMadara { get; set; }
     }
 
     public static bool IsNaruto(GamePlayerBridgeClass player) =>
@@ -217,19 +219,15 @@ public static class Naruto
                 attacker.GetPlayerId() != harem.GetPlayerId()
                 && !UnknownBug.Is(attacker)
                 && queues[attacker.GetPlayerId()].Contains(harem.GetPlayerId())).ToList();
-            var skipped = attackers.Sum(attacker => queues[attacker.GetPlayerId()].Count);
-            if (skipped > 0)
-            {
-                harem.Status.AddRegularPoints(skipped, HaremJutsu);
-                harem.Passives.Naruto.HaremSkippedFights += skipped;
-            }
+
+            foreach (var _ in attackers)
+                RewardHaremSkip(harem);
 
             foreach (var attacker in attackers)
                 canceledAttackers.Add(attacker.GetPlayerId());
         }
 
-        var uniqueSkippedFights = canceledAttackers.Sum(attackerId => queues[attackerId].Count);
-        game.SkipPlayersThisRound += uniqueSkippedFights;
+        game.SkipPlayersThisRound += canceledAttackers.Count;
         foreach (var attackerId in canceledAttackers)
         {
             var attacker = game.PlayersList.Find(player => player.GetPlayerId() == attackerId);
@@ -256,16 +254,24 @@ public static class Naruto
         if (haremTargets.Count == 0) return false;
 
         foreach (var harem in haremTargets)
-        {
-            harem.Status.AddRegularPoints(validTargets.Count, HaremJutsu);
-            harem.Passives.Naruto.HaremSkippedFights += validTargets.Count;
-        }
+            RewardHaremSkip(harem);
 
-        game.SkipPlayersThisRound += validTargets.Count;
+        game.SkipPlayersThisRound++;
         attacker.Status.WhoToAttackThisTurn.Clear();
         attacker.Status.IsBlock = false;
         attacker.Status.IsSkip = true;
         return true;
+    }
+
+    private static void RewardHaremSkip(GamePlayerBridgeClass harem)
+    {
+        harem.Status.AddRegularPoints(1, HaremJutsu);
+        harem.Passives.Naruto.HaremProvokedSkips++;
+        harem.Status.AddInGamePersonalLogs(PhrasePayload.Encode(
+            HaremJutsu,
+            "Техника соблазнения!",
+            "Harem Jutsu",
+            "Seduction Technique!") + "\n");
     }
 
     private static IEnumerable<Guid> ValidFightTargets(
@@ -324,6 +330,52 @@ public static class Naruto
         GamePlayerBridgeClass target) =>
         IsNaruto(attacker)
         && attacker.Passives.Naruto.SummonAutoWinTarget == target.GetPlayerId();
+
+    public static void RecordResolvedTripleRasengan(
+        GamePlayerBridgeClass attacker,
+        GameClass game,
+        bool attack)
+    {
+        if (!attack || !IsNaruto(attacker)) return;
+
+        var targetId = attacker.Status.IsWonThisCalculation != Guid.Empty
+            ? attacker.Status.IsWonThisCalculation
+            : attacker.Status.IsLostThisCalculation;
+        if (targetId == Guid.Empty) return;
+
+        var target = game.PlayersList.Find(player => player.GetPlayerId() == targetId);
+        if (target == null || GetJointAttackers(game, target, attacker).Count != 3) return;
+
+        var original = game.PlayersList.Find(player =>
+            IsNaruto(player)
+            && !player.Passives.Naruto.IsClone
+            && player.GetPlayerId() == attacker.Passives.Naruto.OriginalPlayerId);
+        if (original == null) return;
+
+        if (game.RoundNo == 10 && target.GameCharacter.Name == ErenYeager.CharacterName)
+            original.Passives.Naruto.ResolvedTripleRasenganAgainstEren = true;
+        if (game.RoundNo == 8 && Madara.IsMadara(target))
+            original.Passives.Naruto.ResolvedTripleRasenganAgainstMadara = true;
+    }
+
+    public static bool HeroesFailedToSaveWorld(GamePlayerBridgeClass original, GameClass game)
+    {
+        if (original?.GameCharacter?.Name != CharacterName || original.Passives.Naruto.IsClone)
+            return false;
+
+        var state = original.Passives.Naruto;
+        var eren = game.PlayersList.Find(player =>
+            player.GameCharacter.Name == ErenYeager.CharacterName
+            && player.GameCharacter.Passive.Any(passive => passive.PassiveName == ErenYeager.Rumbling));
+        var failedToStopRumbling = state.ResolvedTripleRasenganAgainstEren
+                                   && eren?.Passives.Eren.RumblingTriggered == true;
+
+        var madara = Madara.Find(game);
+        var failedToSealMadara = state.ResolvedTripleRasenganAgainstMadara
+                                 && madara != null
+                                 && !madara.Passives.Madara.Sealed;
+        return failedToStopRumbling || failedToSealMadara;
+    }
 
     public static bool PredictionAwardsPoints(
         GamePlayerBridgeClass predictor,

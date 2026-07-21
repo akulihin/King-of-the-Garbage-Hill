@@ -335,6 +335,10 @@ public static class BattleshipGameEngine
 
         if (ship.IsDestroyed)
         {
+            // The capturer owns the reconnaissance gained when the originally enemy ship
+            // finally dies on its physical board.
+            var capturer = game.GetOpponent(shooter.DiscordId);
+            RevealShip(shooter.Board, ship, capturer);
             ship.Statuses.Remove(ShipStatusType.Capture);
             game.AddLog($"{shooter.Username} уничтожил захваченный {ship.Name}!");
             HandleShipDeath(game, shooter, ship, ShipDestructionCause.Capture);
@@ -1054,6 +1058,11 @@ public static class BattleshipGameEngine
         var p2 = game.Player2;
         if (p1 == null || p2 == null) return (false, null);
 
+        // Once Boarding has begun, a sole surviving Desiccator guarantees victory even
+        // when both sides had one at the transition and temporarily cancelled each other.
+        var desiccatorWin = CheckDesiccatorBoardingWin(game);
+        if (desiccatorWin.gameOver) return desiccatorWin;
+
         var destroyedWin = CheckFleetDestructionWin(game);
         if (destroyedWin.gameOver) return destroyedWin;
 
@@ -1129,36 +1138,28 @@ public static class BattleshipGameEngine
     {
         if (game.BoardingTriggered || game.IsFinished) return;
         game.BoardingTriggered = true;
+
+        // Resolve this before entering the deployment phase. Two living Desiccators only
+        // suppress this auto-win while both remain alive; their other passives stay active.
+        var desiccatorWin = CheckDesiccatorBoardingWin(game);
+        if (desiccatorWin.gameOver)
+        {
+            game.IsFinished = true;
+            game.WinnerId = desiccatorWin.winnerId;
+            game.Phase = BsGamePhase.GameOver;
+            game.AddLog("Иссушитель обеспечил автоматическую победу до расстановки абордажных кораблей!");
+            return;
+        }
+
         game.Phase = BsGamePhase.Boarding;
 
-        // Desiccator auto-win check
-        var p1HasDesiccator = game.Player1.Board.PlacedShips.Any(s => s.Abilities.Contains("auto_win_boarding") &&
-            !s.IsDestroyed && !s.Statuses.Contains(ShipStatusType.Capture));
-        var p2HasDesiccator = game.Player2.Board.PlacedShips.Any(s => s.Abilities.Contains("auto_win_boarding") &&
-            !s.IsDestroyed && !s.Statuses.Contains(ShipStatusType.Capture));
+        var boardingPlayers = game.GetPlayers()
+            .Where(player => !HasLivingMidShip(player))
+            .ToHashSet();
 
-        if (p1HasDesiccator && !p2HasDesiccator)
-        {
-            game.IsFinished = true;
-            game.WinnerId = game.Player1.DiscordId;
-            game.Phase = BsGamePhase.GameOver;
-            game.AddLog("Иссушитель обеспечил автоматическую победу в абордаже!");
-            return;
-        }
-        if (p2HasDesiccator && !p1HasDesiccator)
-        {
-            game.IsFinished = true;
-            game.WinnerId = game.Player2.DiscordId;
-            game.Phase = BsGamePhase.GameOver;
-            game.AddLog("Иссушитель обеспечил автоматическую победу в абордаже!");
-            return;
-        }
-        // If both have Desiccator — ALL passives disabled (nimble, ballista_immune, auto_win)
-        DisableDualDesiccators(game);
-
-        // Resolve both players in the same transition. I02 was explicitly rejected, so the
-        // converted source remains on its original board; IsSummon prevents another conversion.
-        foreach (var player in game.GetPlayers())
+        // Only the side whose Mid line is gone deploys Close ships onto the enemy board.
+        // If an effect removes both Mid lines in one resolution, both sides qualify.
+        foreach (var player in boardingPlayers)
         {
             foreach (var ship in player.Board.PlacedShips)
             {
@@ -1250,28 +1251,20 @@ public static class BattleshipGameEngine
         }
     }
 
-    /// <summary>
-    /// If both players have a Desiccator, disable all its live passives.
-    /// </summary>
-    public static void DisableDualDesiccators(BattleshipGame game)
+    private static bool HasLivingMidShip(BattleshipPlayer player)
     {
-        var p1HasDesiccator = game.Player1.Board.PlacedShips.Any(s => s.DefinitionId == "desiccator" &&
+        return player.Board.PlacedShips.Any(s => s.Range == RangeClass.Mid && !s.IsSummon &&
             !s.IsDestroyed && !s.Statuses.Contains(ShipStatusType.Capture));
-        var p2HasDesiccator = game.Player2.Board.PlacedShips.Any(s => s.DefinitionId == "desiccator" &&
-            !s.IsDestroyed && !s.Statuses.Contains(ShipStatusType.Capture));
+    }
 
-        if (!p1HasDesiccator || !p2HasDesiccator) return;
-
-        foreach (var p in game.GetPlayers())
-        {
-            foreach (var ship in p.Board.PlacedShips.Where(s => s.DefinitionId == "desiccator" && !s.IsDestroyed &&
-                         !s.Statuses.Contains(ShipStatusType.Capture)))
-            {
-                ship.Abilities.Remove("ballista_immune");
-                ship.Abilities.Remove("auto_win_boarding");
-            }
-        }
-        game.AddLog("Два Иссушителя в игре — все пассивки Иссушителей отключены!");
+    private static (bool gameOver, string winnerId) CheckDesiccatorBoardingWin(BattleshipGame game)
+    {
+        if (!game.BoardingTriggered) return (false, null);
+        var owners = game.GetPlayers().Where(player => player.Board.PlacedShips.Any(s =>
+                s.Abilities.Contains("auto_win_boarding") && !s.IsDestroyed &&
+                !s.Statuses.Contains(ShipStatusType.Capture)))
+            .ToList();
+        return owners.Count == 1 ? (true, owners[0].DiscordId) : (false, null);
     }
 
     // ── Summon Movement ──────────────────────────────────────────────

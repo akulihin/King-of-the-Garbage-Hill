@@ -1006,3 +1006,56 @@ inventories and their counts are intentionally not interchangeable.
 - P13 receives the frozen manifest solely for compatibility, storage, performance and
   integrated-campaign stabilization. Missing content or substrate belongs to a separately
   authorized future content tranche after its recorded designer question is answered.
+
+## P13 stabilization budgets and measured baselines
+
+P13 adds no content semantics. Its ceilings are technical safety contracts chosen above
+the shipped definition and measured deterministic campaign, then enforced equally for
+bundled/custom config, imported plans and save/export paths. They are not claims about an
+authored balance value and do not un-defer any carrier.
+
+| ID | Runtime surface | Shipped ceiling | Measured bundled baseline / rationale |
+|---|---|---:|---|
+| `P13-01` | Headless QA campaign actions | `10,000` | The continuously accumulated `phase13-alpha/beta/gamma` campaigns use `46/48/48` actions respectively (`11/13/13` autoplay actions), with 35 explicit/staged actions and 13 checkpoints in every run; repeated beta reproduces the exact final snapshot, digest and result. The ceiling is more than 200× the measured maximum and turns a stall into a bounded diagnostic. |
+| `P13-02` | Fixed-step replay | `10,000` ticks, `512` commands, `16` catch-up ticks/frame, `300,000 ms` logical duration | Bundled TD, Alchemy and Inventory values remain below every ceiling. Hidden-tab handlers pause and reset the accumulator rather than replaying wall-clock backlog. |
+| `P13-03` | Plans and component-owned collections | `4,096` board cells, `256` plan/catalog items, `2,048` canonical roster IDs, `64` Tavern offers | These permit the current boards/catalogs and bundled cohorts with broad custom-config headroom while preventing a definition from allocating or rendering an unbounded structure. TD counts a cohort deployment as one simulator actor and applies the separate roster-ID ceiling to its frozen membership. |
+| `P13-04` | Configurable retained results/history | `256` entries | Current per-system retention remains the configured lower value; the campaign result log uses the minimum of TD, Alchemy and Inventory limits. The ceiling rejects pathological custom definitions rather than increasing shipped retention. |
+| `P13-05` | Durable exact-once identities | `4,096` settled minigames; `64` legacy session IDs; `64` recent battle-loss IDs; `64` recent expedition-complaint IDs | Canonical schema-16 session sequences compact to a settlement watermark. The bounded legacy lists cover non-canonical pre-v16 provenance; canonical battle-loss identities bind to the matching TD sequence/city, while expedition complaint/result attempt watermarks preserve exact-once membership after readable detail compacts. Arbitrary new legacy identities fail closed after their compatibility evidence is sealed. |
+| `P13-06` | Ended epidemic detail | `32` ended instances plus every active instance | Older ended detail folds into count/digest/last-identity provenance; active epidemics are never evicted. |
+| `P13-07` | UTF-8 campaign envelope | `524,288` bytes | Final continuous-chain envelopes measured `80,682`, `82,427` and `84,851` bytes for alpha/beta/gamma: less than 17% of the ceiling. Autosave, manual export and current import enforce the same UTF-8 count and report a persistent page alert on save/export failure; oversized genuine legacy histories may normalize and compact before their first current export. |
+
+## P13 exact outcome and program closure
+
+- Config schema remains `17`; campaign/envelope schema advances from `15` to `16` for
+  canonical minigame sequences, exact-once compaction and bounded epidemic/battle-loss
+  provenance plus quest/expedition watermarks. Persistence validates envelope/state
+  agreement and preserves the source state version until the engine performs version-
+  conditioned normalization.
+- The exact historical config-v1 payload from commit `b1dba5d8` migrates directly and by
+  explicit one-step application to the same current config without input mutation.
+  Representative immutable custom fixtures cover every schema generation, empty disabled
+  future sections, non-default values at each late-system schema boundary and dangling-
+  reference/future-version rejection. A second authentic fixture retains production-engine
+  campaign checkpoints v1–v15; direct v1 restore and every checkpoint independently reach
+  the same v16 state without input mutation.
+- TD defense/assault, Tavern, Alchemy and Inventory all restore immutable plans with
+  `attempt + 1`, current rules identity and exact-once settlement. Tavern retains its
+  authored no-abort contract; the other kinds prove abort settlement. Chess remains absent
+  from config, type unions, entry points and the campaign assertion. Current v16 restore
+  rejects missing quest, quest-runtime, expedition or loyalty roots and active-session
+  origin/context that contradicts the session kind, immutable plan or expedition lifecycle.
+  Browser startup engine-validates stored candidates newest-to-oldest; autosave and manual
+  export share one bounded serializer and persistent failure alert.
+- The deterministic integration campaign crosses Durak, empire settlement, central
+  defense/assault, loyalty rebellion/recovery, epidemic-before-famine ordering, domestic
+  and external economy, quest dialogue, God memory/intervention, governance, targeted
+  resolution, Tavern settlement, the live 3→7→Ace Пиковая Дама spawn, Alchemy explosion and
+  Inventory→expedition TD. Only Maria's still-deferred prerequisite is staged; the observer
+  sequence itself uses production card actions. Final-day settlement advances the durable
+  minigame watermark before normal next-con wave scheduling, and the final current save
+  reloads without normalization drift.
+- The P12B frozen ownership result remains exact: `1,112` config carriers and `355` raw
+  semantic identities, zero `ready-now`, fingerprint `eac79318d85827f6`. P13 changes no
+  disposition and fabricates no blocked semantics. The planned implementation program is
+  therefore complete under the Phase-13 completion definition; later content requires a
+  separately authorized tranche and the existing designer verdicts.

@@ -21,6 +21,7 @@ c_doom_bfg
 c_doom_loadout
 c_dopa_big_brain
 c_dopa_foresight
+c_dopa_permaban
 c_eren_rumbling
 c_eren_tatake
 c_geralt_contracts
@@ -111,6 +112,7 @@ x_gordon_theboys
 x_itachi_madara
 x_kira_kratos
 x_monster_witness
+x_naruto_failed_heroes
 x_rick_most_wanted
 x_spartan_dragon
 x_spartan_kratos
@@ -203,14 +205,16 @@ done <<< "$expected"
 global_count=$(printf '%s\n' "$definitions" | rg -c '^g_' || true)
 character_count=$(printf '%s\n' "$definitions" | rg -c '^c_' || true)
 interaction_count=$(printf '%s\n' "$definitions" | rg -c '^x_' || true)
-if [ "$global_count" -ne 12 ] || [ "$character_count" -ne 82 ] || [ "$interaction_count" -ne 14 ]; then
-  echo "BAD category counts: global=$global_count character=$character_count interaction=$interaction_count (expected 12/82/14)"
+if [ "$global_count" -ne 12 ] || [ "$character_count" -ne 83 ] || [ "$interaction_count" -ne 15 ]; then
+  echo "BAD category counts: global=$global_count character=$character_count interaction=$interaction_count (expected 12/83/15)"
   fail=1
 fi
 
 pair_count=$(printf '%s\n' "$character_pairs" | sed '/^$/d' | wc -l)
 paired_ids=$(printf '%s\n' "$character_pairs" | awk -F'|' '{ print $2; print $3 }' | sort)
-defined_character_ids=$(printf '%s\n' "$definitions" | rg '^c_' | sort)
+# Dopa's designer-invited Permaban achievement is an explicit bonus card outside the
+# otherwise strict one-normal/one-hard roster pairing.
+defined_character_ids=$(printf '%s\n' "$definitions" | rg '^c_' | rg -v '^c_dopa_permaban$' | sort)
 pair_names=$(printf '%s\n' "$character_pairs" | cut -d'|' -f1 | sort)
 roster_names=$(jq -r '.[] | select(.Name != "unknown_bug" and .Name != "Баг") | .Name' King-of-the-Garbage-Hill/DataBase/characters.json | sort)
 duplicate_pair_ids=$(printf '%s\n' "$paired_ids" | uniq -d)
@@ -241,4 +245,4 @@ if [ "$fail" -ne 0 ]; then
   exit 1
 fi
 
-echo "audit-achievements: 108 definitions (12 global / 82 character / 14 interaction), 41 normal/hard character pairs, all unique and evaluated."
+echo "audit-achievements: 110 definitions (12 global / 83 character / 15 interaction), 41 normal/hard character pairs plus Dopa's Permaban bonus card, all unique and evaluated."

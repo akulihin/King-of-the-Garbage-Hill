@@ -83,10 +83,11 @@ export const LAST_CHANCES_WEAPON_TRAITS = [
 ] as const
 export const LAST_CHANCES_WEAPON_RESOURCE_KINDS = ['chain', 'durability', 'rhythm'] as const
 export const LAST_CHANCES_AUGMENTS = ['none', 'bleed', 'poison', 'fire', 'chemical'] as const
-export const LAST_CHANCES_ENEMY_ROLES = ['creep', 'standard', 'elite', 'boss'] as const
+export const LAST_CHANCES_ENEMY_ROLES = ['creep', 'cockroach', 'standard', 'elite', 'boss'] as const
 export const LAST_CHANCES_ENEMY_ATTACK_KINDS = ['melee', 'leap', 'projectile', 'heavy', 'zone'] as const
 export const LAST_CHANCES_ZONE_SHAPES = ['circle', 'square', 'triangle'] as const
 export const LAST_CHANCES_ARENA_EDGES = ['top', 'bottom', 'left', 'right'] as const
+export const LAST_CHANCES_BOSS_HOLE_SHAPES = ['circle', 'square', 'triangle', 'diamond'] as const
 export const LAST_CHANCES_HAZARD_KINDS = ['spikes', 'mentalFog'] as const
 export const LAST_CHANCES_EQUIP_MODES = [
   'twoHanded',
@@ -147,6 +148,7 @@ export type LastChancesEnemyRole = typeof LAST_CHANCES_ENEMY_ROLES[number]
 export type LastChancesEnemyAttackKind = typeof LAST_CHANCES_ENEMY_ATTACK_KINDS[number]
 export type LastChancesZoneShape = typeof LAST_CHANCES_ZONE_SHAPES[number]
 export type LastChancesArenaEdge = typeof LAST_CHANCES_ARENA_EDGES[number]
+export type LastChancesBossHoleShape = typeof LAST_CHANCES_BOSS_HOLE_SHAPES[number]
 export type LastChancesHazardKind = typeof LAST_CHANCES_HAZARD_KINDS[number]
 export type LastChancesEquipMode = typeof LAST_CHANCES_EQUIP_MODES[number]
 export type LastChancesControlScheme = typeof LAST_CHANCES_CONTROL_SCHEMES[number]
@@ -204,6 +206,8 @@ export interface LastChancesColliderDefinition {
   innerRange?: number
   /** Reject targets whose body overlaps the protected inner radius, not only centers fully inside it. */
   strictInnerRange?: boolean
+  /** Explicit opt-out from the default rule that solid room obstacles block attacks. */
+  passesThroughWalls?: boolean
   width?: number
   traceMs: number
   followsPlayer?: boolean
@@ -525,11 +529,21 @@ export interface LastChancesEnemyZoneDefinition {
 }
 
 export interface LastChancesEnemySwarmDefinition {
-  /** Total creeps the room event feeds in; they accumulate if not killed. */
+  /** Total cockroaches the ordinary room event feeds in; they accumulate if not killed. */
   total: number
-  /** Creeps released immediately when the room starts. */
+  /** Cockroaches released immediately when the room starts. */
   initialBurst: number
   spawnIntervalMs: number
+}
+
+export interface LastChancesCockroachMotherDefinition {
+  /** Remaining-health gates that force a retreat through the linked boss holes. */
+  retreatHealthRatios: number[]
+  retreatSpeed: number
+  hideMs: number
+  blastRadius: number
+  /** Pure blast damage as a fraction of the player's maximum HP. */
+  blastDamageMaxHpRatio: number
 }
 
 export interface LastChancesEnemyDefinition {
@@ -549,7 +563,7 @@ export interface LastChancesEnemyDefinition {
   attackRange: number
   /** Distance the chaser tries to retain as a fraction of attackRange. */
   preferredAttackRangeRatio?: number
-  /** Combat role controls attack queuing: creeps ignore the shared queue. */
+  /** Combat role controls attack queuing: creeps and cockroaches ignore the shared queue. */
   role?: LastChancesEnemyRole
   attackKind?: LastChancesEnemyAttackKind
   attackRadius?: number
@@ -562,8 +576,10 @@ export interface LastChancesEnemyDefinition {
   bossPhases?: LastChancesEnemyBossPhaseDefinition[]
   /** Required when attackKind is 'zone': the telegraphed ground zone is the enemy's only damage source. */
   zone?: LastChancesEnemyZoneDefinition
-  /** Marks a swarm-event enemy: a rolled plan slot becomes a trickle of `total` creeps from two map edges. */
+  /** Marks a swarm-event enemy: a rolled plan slot becomes a trickle of `total` cockroaches from two map edges. */
   swarm?: LastChancesEnemySwarmDefinition
+  /** Adds the staged linked-hole attack used by the optional Mother of Cockroaches boss. */
+  cockroachMother?: LastChancesCockroachMotherDefinition
   attackDamage: number
   attackCooldownMs: number
   attackWindupMs: number
@@ -587,9 +603,11 @@ export interface LastChancesTierDefinition {
   deathCost: number
   erosion: LastChancesStatErosion
   enemyPool: LastChancesEnemyPoolEntry[]
-  /** Always spawned in every node of the tier, before the random enemyCount roll. */
+  /** Each ID is assigned to one route node in this tier before the random enemyCount roll. */
   guaranteedEnemyIds?: string[]
   roomTemplateIds: string[]
+  /** Each room ID is assigned to one route node, so a special room exists but remains bypassable. */
+  guaranteedRoomTemplateIds?: string[]
   accent: string
 }
 
@@ -641,6 +659,45 @@ export interface LastChancesRoomInteractionDefinition {
   choices: LastChancesInteractionChoice[]
 }
 
+export interface LastChancesFixedEncounterDefinition {
+  /** Fixed placed enemies replace the tier's random enemy roll. */
+  enemyIds: string[]
+  /** Optional swarm event that replaces the tier's random swarm roll. */
+  swarmEnemyId?: string
+  /** The swarm keeps spawning until the room's boss dies. */
+  infiniteSwarm?: boolean
+}
+
+export interface LastChancesTurretDefinition {
+  id: string
+  name: string
+  position: LastChancesVector
+  facingDegrees: number
+  rotationDegreesPerSecond: number
+  visionRange: number
+  visionAngleDegrees: number
+  interactionRange: number
+  fireIntervalMs: number
+  projectileSpeed: number
+  projectileRadius: number
+  damage: number
+  color: string
+}
+
+export interface LastChancesBossHoleDefinition {
+  id: string
+  shape: LastChancesBossHoleShape
+  position: LastChancesVector
+  linkedHoleId: string
+  color: string
+}
+
+export interface LastChancesBossAltarDefinition {
+  position: LastChancesVector
+  chanceCost: number
+  prompt: string
+}
+
 export interface LastChancesSpawnLayoutDefinition {
   id: string
   name: string
@@ -660,6 +717,10 @@ export interface LastChancesRoomTemplate {
   obstacles: LastChancesObstacleDefinition[]
   hazards?: LastChancesHazardDefinition[]
   interaction?: LastChancesRoomInteractionDefinition
+  encounter?: LastChancesFixedEncounterDefinition
+  turrets?: LastChancesTurretDefinition[]
+  bossHoles?: LastChancesBossHoleDefinition[]
+  altar?: LastChancesBossAltarDefinition
 }
 
 export interface LastChancesStoryPage {
@@ -838,16 +899,20 @@ export interface LastChancesPlanNode {
     hazards: LastChancesHazardDefinition[]
   }
   interaction: LastChancesRoomInteractionDefinition | null
+  turrets: LastChancesTurretDefinition[]
+  bossHoles: LastChancesBossHoleDefinition[]
+  altar: LastChancesBossAltarDefinition | null
   enemies: LastChancesPlanEnemy[]
-  /** Present when the enemy roll produced a swarm event; the swarm replaces its rolled slots. */
+  /** Present when the enemy roll produced a cockroach event; the swarm replaces its rolled slots. */
   swarm: LastChancesPlanSwarm | null
   nextNodeIds: string[]
 }
 
 export interface LastChancesPlanSwarm {
   definitionId: string
-  /** Two distinct arena edges the creeps run in from. */
+  /** Two distinct arena edges the cockroaches run in from. */
   edges: [LastChancesArenaEdge, LastChancesArenaEdge]
+  infinite?: boolean
 }
 
 export interface LastChancesGamePlan {
@@ -991,13 +1056,13 @@ export interface LastChancesWeaponStateSnapshot {
   recoveryMs: number
   /** Remaining visual confirmation after a 500–600 ms Sword rhythm hit. */
   perfectTimingMs: number
-  /** Remaining Sword-only fatigue; off-hand weapons remain usable. */
+  /** Remaining fatigue that blocks only the Mercenary Sword's ordinary tap. */
   fatigueMs: number
   /** Time until a held second input resolves Unterhaw. */
   unterhauWindowMs: number
   /** Oberhaw connected, so the otherwise dim Unterhaw menu row should glow. */
   unterhauPrimed: boolean
-  /** Mouse-motion damage bonus earned by the current/last Zornhaw, from 0 through its cap. */
+  /** Mouse-motion damage bonus earned by the current/last assisted basic sweep. */
   motionDamageBonus: number
 }
 
@@ -1019,9 +1084,25 @@ export interface LastChancesMoveQuestSnapshot {
 
 export interface LastChancesSwarmSnapshot {
   definitionId: string
-  /** Creeps still queued outside the map. */
+  /** Cockroaches still queued outside the map; null means the boss-fed stream is infinite. */
+  infinite: boolean
   remaining: number
   total: number
+}
+
+export interface LastChancesTurretSnapshot {
+  id: string
+  name: string
+  position: LastChancesVector
+  facing: LastChancesVector
+  disabled: boolean
+  seesPlayer: boolean
+}
+
+export interface LastChancesAltarPromptSnapshot {
+  prompt: string
+  chanceCost: number
+  available: boolean
 }
 
 export interface LastChancesGroundWeaponSnapshot {
@@ -1095,6 +1176,10 @@ export interface LastChancesSnapshot {
   moveQuests: LastChancesMoveQuestSnapshot[]
   groundWeapons: LastChancesGroundWeaponSnapshot[]
   swarm: LastChancesSwarmSnapshot | null
+  turrets: LastChancesTurretSnapshot[]
+  turretAlarm: boolean
+  altarPrompt: LastChancesAltarPromptSnapshot | null
+  cockroachesExtinct: boolean
   interactionPrompt: string | null
   controlScheme: LastChancesControlScheme
   controlCue: LastChancesSemanticControlCue | null

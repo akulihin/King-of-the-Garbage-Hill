@@ -72,3 +72,58 @@ input reaches production simulators, and localStorage/performance/history behavi
 The program is complete when all guaranteed/live scope is implemented and verified, while
 every unresolved raw idea is visibly classified as blocked, review, or out. Completion does
 not require fabricating unresolved semantics or deleting honest deferrals.
+
+## Execution outcome — 2026-07-21
+
+Status: **Complete/Conditional.** The guaranteed live scope is stabilized; conditional means
+only that P12's Chess semantics and P12B's explicitly blocked/review/out content remain
+outside the executable program. No content carrier was added or un-deferred.
+
+- The authentic pre-P0 config fixture and representative schemas v1–v17 cover direct versus
+  stepwise migration, input immutability, idempotence, disabled/partial custom sections,
+  dangling references and future-v18 rejection. A second authentic fixture records the same
+  pre-P0 campaign at production save checkpoints v1–v15; direct v1 restore and every
+  historical checkpoint reach the same v16 state without mutating their inputs. Config
+  schema remains 17.
+- Campaign/save advances to schema 16 for stabilization state only. Legacy envelope import
+  now preserves its matching source state version until engine normalization. Save v1–v16
+  and active TD defense/assault, Tavern, Alchemy and Inventory sessions retain immutable
+  plan/rules identity, restore with `attempt + 1`, reject stale rules and settle/abort once.
+  Current saves cannot erase required quest, quest-runtime, expedition or loyalty roots, and
+  a current active session must retain a well-formed origin/context consistent with its
+  kind, plan and expedition lifecycle.
+- Canonical minigame sequences plus a persisted settlement watermark keep exact-once
+  identity after readable result detail is compacted. Legacy non-canonical IDs have a
+  bounded compatibility tail. Epidemic and consumed-battle-loss histories gained typed
+  compaction; expedition complaints/results retain attempt watermarks after their 64-entry
+  readable identity tails compact. These join the already bounded chronicle, economy, God,
+  quest, mystic and expedition histories.
+- Shipped ceilings are enforced for ticks, commands, catch-up, logical replay duration,
+  QA actions, result/history retention, board/plan/offer sizes, settled minigames and the
+  512 KiB serialized save boundary. Bundled TD/Alchemy/Inventory values are recorded below
+  those ceilings in `docs/WEB-CLIENT.md`. Autosave and manual export use the same bounded
+  serializer and expose a persistent `role="alert"` when that boundary blocks either path.
+  Startup validates candidate saves through the production engine newest-to-oldest, so a
+  structurally readable but semantically invalid newest key cannot hide an older valid save.
+- Alchemy and Inventory ignore game shortcuts from native interactive controls. Their shared
+  abort dialog pauses simulation, blocks input, exposes labelled modal semantics, starts on
+  the safe action, traps focus and restores focus/frame origin. TD, Alchemy and Inventory
+  fake-clock tests cover production keyboard/pointer commands, semantic alternatives and
+  background-tab backlog discard.
+- QA includes an active Inventory fixture, the visible result count and settlement-watermark
+  diagnostics. One continuously accumulated engine per `phase13-alpha`, `phase13-beta` and
+  `phase13-gamma` run records 13 ordered checkpoints and six minigame settlements; beta
+  repeats to the exact final snapshot, digest and result. The campaign stages only Maria's
+  still-deferred prerequisite, then performs the live 3→7→Ace card sequence through public
+  actions and retains the resulting Пиковая Дама spawn/history. Final-day minigame settlement
+  records its exact-once watermark before the next-con wave is scheduled. The hard action
+  cap is 10,000. The older traced-autoplay seed matrix and `qa-repeatable` trace check remain
+  as complementary coverage. TD Cypress verifies a visible zero-to-one settlement result
+  instead of only checking that the board disappears.
+- The P12B closure assertion remains the final content boundary: 1,112 config carriers, 355
+  raw semantic identities, 33 sources, the 1,149-message spine and zero `ready-now` rows.
+  Chess still has no config/runtime/UI/QA/Builder surface until `P12-02`–`P12-09` are decided.
+- Final command outcomes and measured timing/save-size observations are reported in the
+  change-set handoff after the full unit/browser gate, production build, documentation
+  verifier, backend build, passive audit and simulation run; this plan records the stable
+  acceptance contract rather than machine-specific timing claims.

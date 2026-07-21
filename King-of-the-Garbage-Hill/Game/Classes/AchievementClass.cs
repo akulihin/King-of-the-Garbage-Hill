@@ -360,6 +360,10 @@ public static class AchievementService
             "As Dopa, trigger Взгляд в будущее 3 times in one match.",
             "Играя за Dopa, активируйте Взгляд в будущее 3 раза за матч.",
             AchievementCategory.Character, "eye-glow", "epic", 3, characterNames: new[] { "Dopa" }),
+        new("c_dopa_permaban", "Rank One, Account Gone", "Топ-1, аккаунта нет",
+            "As Dopa, enter turn 10 in first place and get Permabanned.",
+            "Играя за Dopa, начните 10-й ход на первом месте и получите Permaban.",
+            AchievementCategory.Character, "ban", "epic", characterNames: new[] { "Dopa" }),
 
         new("c_salldorum_cola", "Open Happiness", "Открой счастье",
             "As Salldorum, drink the Time Capsule cola once.",
@@ -609,8 +613,8 @@ public static class AchievementService
             AchievementCategory.Character, "falling", "epic", 2, characterNames: new[] { "Эрен Йегер" }),
 
         new("c_naruto_harem", "Believe in the Harem", "Поверь в гарем",
-            "As the original Наруто, cancel 3 fights with Гарем но джутсу.",
-            "Играя за оригинального Наруто, отмените 3 боя с помощью Гарем но джутсу.",
+            "As the original Наруто, provoke 3 enemy skips with Гарем но джутсу.",
+            "Играя за оригинального Наруто, спровоцируйте 3 вражеских Скипа с помощью Гарем но джутсу.",
             AchievementCategory.Character, "heart", "rare", 3, characterNames: new[] { "Наруто" }),
         new("c_naruto_rasengan", "Shadow Hokage Dividend", "Дивиденды теневого Хокаге",
             "As the original Наруто, receive 30 points from Теневые and finish alive in 1st place.",
@@ -731,6 +735,12 @@ public static class AchievementService
             secretHint: "A very large march meets a very numerous little problem.",
             secretHintRu: "Очень большой марш встречает очень многочисленную маленькую проблему.",
             characterNames: new[] { "Эрен Йегер", "Стая Гоблинов" }),
+        new("x_naruto_failed_heroes", "Heroes Don't Always Save the World",
+            "Герои не всегда спасают мир",
+            "",
+            "",
+            AchievementCategory.Interaction, "shield-cross", "legendary", isSecret: true,
+            characterNames: new[] { Naruto.CharacterName, ErenYeager.CharacterName, Madara.CharacterName }),
         new("x_gordon_theboys", "There Is No Counter to a Crowbar but Another Crowbar!",
             "Против лома нет приема, кроме другого лома!",
             "The Hero with a Crowbar stopped the Super Crowbar.",
@@ -959,6 +969,8 @@ public static class AchievementService
         {
             SetBestProgress(account, "c_dopa_foresight", tracker.DopaVisionProcs);
             SetBestProgress(account, "c_dopa_big_brain", tracker.DopaVisionProcs);
+            SetBestProgress(account, "c_dopa_permaban",
+                player.Passives.DopaPermabanTriggered ? 1 : 0);
         }
 
         if (characterName == "Salldorum")
@@ -1197,10 +1209,12 @@ public static class AchievementService
 
         if (characterName == Naruto.CharacterName && !player.Passives.Naruto.IsClone)
         {
-            SetBestProgress(account, "c_naruto_harem", player.Passives.Naruto.HaremSkippedFights);
+            SetBestProgress(account, "c_naruto_harem", player.Passives.Naruto.HaremProvokedSkips);
             SetBestProgress(account, "c_naruto_rasengan",
                 ToProgress(player.Passives.Naruto.ShadowPointsTransferred),
                 alive && actualPlace == 1);
+            SetBestProgress(account, "x_naruto_failed_heroes",
+                Naruto.HeroesFailedToSaveWorld(player, game) ? 1 : 0);
         }
 
         if (characterName == "Гордон Фримен")

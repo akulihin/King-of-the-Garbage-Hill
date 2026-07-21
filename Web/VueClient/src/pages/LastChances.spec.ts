@@ -738,6 +738,11 @@ describe('99LC builder weapon controls', () => {
     await fireEvent.update(getByLabelText('Weapon'), '4')
     await fireEvent.update(getByLabelText('Gesture'), 'hold')
     await fireEvent.click(getByLabelText('Gesture enabled'))
+    const wallToggle = getByLabelText('Passes through walls') as HTMLInputElement
+    expect(wallToggle.checked).toBe(false)
+    await fireEvent.click(wallToggle)
+    expect(wallToggle.checked).toBe(true)
+    await fireEvent.click(wallToggle)
 
     expect(getByText('Definition valid')).not.toBeNull()
     await fireEvent.click(getByRole('tab', { name: /Raw JSON/i }))
@@ -745,7 +750,7 @@ describe('99LC builder weapon controls', () => {
     expect(raw.weapons[4].attacks.hold).toMatchObject({
       enabled: true,
       behavior: 'standard',
-      collider: { shape: 'sector', traceMs: 600 },
+      collider: { shape: 'sector', traceMs: 600, passesThroughWalls: false },
     })
   })
 })

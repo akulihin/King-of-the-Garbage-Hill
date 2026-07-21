@@ -18,6 +18,8 @@ export type GameState = {
   isRoundTransitionPaused: boolean
   /** Server-authoritative deadline for the current transition decision. */
   transitionDeadlineUtc?: string
+  /** Public monotonic event identity for the Halflife 3 release celebration. */
+  halfLifeReleaseSerial: number
   isRumblingWarningActive: boolean
   /** Persistent public Rumbling aftermath intensity, clamped to 0..4 victims. */
   rumblingKillCount: number
@@ -82,8 +84,6 @@ export type Player = {
   darksciChoiceNeeded?: boolean
   /** True when Gleb can transform to Young Gleb (round 1). */
   youngGlebAvailable?: boolean
-  /** True when Dopa needs to choose a tactic. */
-  dopaChoiceNeeded?: boolean
   character: Character
   status: PlayerStatus
   predictions?: Prediction[]
@@ -204,6 +204,7 @@ export type DopaState = {
   visionReady: boolean
   visionCooldown: number
   chosenTactic: string
+  metaChoiceReady: boolean
   needSecondAttack: boolean
 }
 export type GoblinSwarmState = {
@@ -271,16 +272,16 @@ export type GordonHalfLifeState = {
   postponements: number
   canAnnounce: boolean
   pendingDecision: boolean
+  decisionKind: 'failure' | 'release'
   decisionSerial: number
   deadlineUtc?: string
   rawPoints: number
-  baseMultiplier: number
   superMultiplierDisabled: boolean
   exponent: number
   finalPoints: number
   freezeLabel: string
   postponeLabel: string
-  failureMessage: string
+  decisionMessage: string
 }
 
 export type GordonState = {
@@ -697,6 +698,10 @@ export type FightEntry = {
   /** ForOneFight stat modifications applied to the defender. */
   defenderForOneFightMods: ForOneFightMod[]
 
+  /** Hidden from non-participants by the server. */
+  hiddenFromNonAdmin: boolean
+  /** Dopa's second, visually shadowed action. */
+  shadowAction: boolean
   /** Whether a Portal Gun swap occurred in this fight. */
   portalGunSwap: boolean
   /** Whether Storm (Котики) appeared in this fight via "Рандомное поведение". */
@@ -975,6 +980,8 @@ export type BattleshipPlayerState = {
   stunShotExpiry: number
   hasPenalty: boolean
   hasShotThisTurn: boolean
+  hasPendingBoardingDeployment: boolean
+  shotDelayRemainingMs: number
   summonCooldownRemaining: number
   fleet: BattleshipShip[] | null
   board: BattleshipBoard | null
@@ -1049,6 +1056,7 @@ export type BattleshipShip = {
   upgrades: string[]
   speed: number
   space: number
+  explosionRadius: number
   regions: string[]
   decks: BattleshipDeck[]
   weapons: BattleshipWeapon[]
@@ -1528,7 +1536,7 @@ class SignalRService {
   async resolveHalfLife3Decision(
     gameId: number,
     decisionSerial: number,
-    choice: 'freeze' | 'postpone',
+    choice: 'freeze' | 'postpone' | 'release',
   ): Promise<void> {
     await this.connection?.invoke('ResolveHalfLife3Decision', gameId, decisionSerial, choice)
   }
@@ -1599,10 +1607,6 @@ class SignalRService {
 
   async doomChainsaw(gameId: number, passiveName: string): Promise<void> {
     await this.connection?.invoke('DoomChainsaw', gameId, passiveName)
-  }
-
-  async dopaChoice(gameId: number, tactic: string): Promise<void> {
-    await this.connection?.invoke('DopaChoice', gameId, tactic)
   }
 
   // ── Kira Actions ───────────────────────────────────────────────

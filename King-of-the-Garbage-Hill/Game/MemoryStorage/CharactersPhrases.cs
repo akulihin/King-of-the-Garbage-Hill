@@ -213,7 +213,6 @@ public class CharactersUniquePhrase
     public PhraseClass DopaVisionReady;
     public PhraseClass DopaVisionProc;
     public PhraseClass DopaMetaChosen;
-    public PhraseClass DopaImpact;
     public PhraseClass DopaDomination;
     public PhraseClass DopaRoam;
 
@@ -1203,12 +1202,9 @@ public class CharactersUniquePhrase
         DopaVisionProc.PassiveLogRus.Add("럭키. 골든.");
         DopaVisionProc.PassiveLogRus.Add("나는 미래를 본다. 사이트를 통해 나를 번역하지 마라.");
 
-        DopaMetaChosen = new PhraseClass("Законодатель меты");
+        DopaMetaChosen = new PhraseClass("Мета");
         DopaMetaChosen.PassiveLogRus.Add("잘 생긴");
         DopaMetaChosen.PassiveLogRus.Add("이제 내가 보여줄거야.");
-
-        DopaImpact = new PhraseClass("Пассивный импакт");
-        DopaImpact.PassiveLogRus.Add("Импакт.");
 
         DopaDomination = new PhraseClass("Доминация");
         DopaDomination.PassiveLogRus.Add("Доминирую.");

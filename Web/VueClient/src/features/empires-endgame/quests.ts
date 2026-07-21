@@ -3,6 +3,7 @@ import type {
   EmpiresDependency,
   EmpiresEffect,
   EmpiresEndgameConfig,
+  EmpiresMinigameResult,
   EmpiresQuestChoiceDefinition,
   EmpiresQuestDefinition,
   EmpiresQuestMemoryRequirement,
@@ -10,8 +11,8 @@ import type {
   EmpiresQuestNodeDefinition,
   EmpiresQuestState,
   EmpiresResourceAmount,
-  TdBattleOutcome,
 } from './types'
+import { EMPIRES_STABILIZATION_BUDGETS } from './stabilization'
 
 export type EmpiresQuestTriggerContext =
   | { kind: 'empireStart', con: number }
@@ -20,8 +21,8 @@ export type EmpiresQuestTriggerContext =
   | {
     kind: 'minigameResult'
     sessionId: string
-    minigameKind: 'td'
-    outcome: TdBattleOutcome
+    minigameKind: EmpiresMinigameResult['kind']
+    outcome: EmpiresMinigameResult['outcome']
     con: number
   }
   | { kind: 'manual', questId: string, sourceId: string, con: number }
@@ -244,9 +245,13 @@ export function validateEmpiresQuestsConfig(config: EmpiresEndgameConfig): strin
   }
   if (!Number.isInteger(quests.historyRetention) || quests.historyRetention < 1) {
     errors.push('quests.historyRetention must be a positive integer')
+  } else if (quests.historyRetention > EMPIRES_STABILIZATION_BUDGETS.maxHistoryRetention) {
+    errors.push(`quests.historyRetention exceeds the shipped safety ceiling ${EMPIRES_STABILIZATION_BUDGETS.maxHistoryRetention}`)
   }
   if (!Number.isInteger(quests.triggerHistoryRetention) || quests.triggerHistoryRetention < 1) {
     errors.push('quests.triggerHistoryRetention must be a positive integer')
+  } else if (quests.triggerHistoryRetention > EMPIRES_STABILIZATION_BUDGETS.maxHistoryRetention) {
+    errors.push(`quests.triggerHistoryRetention exceeds the shipped safety ceiling ${EMPIRES_STABILIZATION_BUDGETS.maxHistoryRetention}`)
   }
   if (!Array.isArray(quests.definitions)) return [...errors, 'quests.definitions must be an array']
   const questIds = quests.definitions.map(item => item?.id)
@@ -675,7 +680,7 @@ export function evaluateQuestTriggerStarts(
     const identity = questTriggerIdentity(definition, context)
     if (!identity) return []
     const state = states[definition.id]
-    if (state?.consumedTriggerIds.includes(identity)) return []
+    if (state && questTriggerWasConsumed(state, identity)) return []
     if (state?.status === 'active' || state?.status === 'suspended') return []
     if (state && (!definition.trigger.repeatable || (definition.restartPolicy ?? 'never') !== 'afterTerminal')) {
       return []
@@ -700,6 +705,33 @@ export function compactQuestTriggerIdentity(
     hash = Math.imul(hash, 0x01000193) >>> 0
   }
   return hash.toString(16).padStart(8, '0')
+}
+
+export function questTriggerKindFromIdentity(identity: string): string | null {
+  return /^quest:[^:]+:trigger:([^:]+)/.exec(identity)?.[1] ?? null
+}
+
+export function questTriggerCompactionCoordinate(
+  identity: string,
+): { key: string, sequence: number } | null {
+  const con = /^(.*):con:(\d+)$/.exec(identity)
+  const complaint = /^(.*:expedition-complaint:[^:]+):(\d+)$/.exec(identity)
+  const minigame = /^(.*:trigger:minigameResult:ee):(\d+):/.exec(identity)
+  const match = con ?? complaint ?? minigame
+  if (!match) return null
+  const sequence = Number(match[2])
+  return Number.isSafeInteger(sequence) && sequence > 0
+    ? { key: match[1], sequence }
+    : null
+}
+
+export function questTriggerWasConsumed(state: EmpiresQuestState, identity: string): boolean {
+  if (state.consumedTriggerIds.includes(identity)) return true
+  const coordinate = questTriggerCompactionCoordinate(identity)
+  if (coordinate
+    && (state.compactedTriggerWatermarks?.[coordinate.key] ?? 0) >= coordinate.sequence) return true
+  const kind = questTriggerKindFromIdentity(identity)
+  return Boolean(kind && state.sealedTriggerKinds?.includes(kind))
 }
 
 export function questStateIsTerminal(state: Pick<EmpiresQuestState, 'status'>): boolean {

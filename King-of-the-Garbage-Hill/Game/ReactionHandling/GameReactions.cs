@@ -159,6 +159,7 @@ public sealed class GameReaction : IServiceSingleton
 
                 var isHalfLifeDecision =
                     button.Data.CustomId.StartsWith("gordon-hl3-freeze:", StringComparison.Ordinal)
+                    || button.Data.CustomId.StartsWith("gordon-hl3-release:", StringComparison.Ordinal)
                     || button.Data.CustomId.StartsWith("gordon-hl3-postpone:", StringComparison.Ordinal);
                 if (game?.IsRoundTransitionPaused == true && !isHalfLifeDecision)
                 {
@@ -174,9 +175,12 @@ public sealed class GameReaction : IServiceSingleton
                         ? button.Data.CustomId[(separator + 1)..]
                         : "";
                     var choice = button.Data.CustomId.StartsWith(
-                        "gordon-hl3-postpone:", StringComparison.Ordinal)
+                            "gordon-hl3-postpone:", StringComparison.Ordinal)
                         ? "postpone"
-                        : "freeze";
+                        : button.Data.CustomId.StartsWith(
+                            "gordon-hl3-release:", StringComparison.Ordinal)
+                            ? "release"
+                            : "freeze";
                     if (int.TryParse(serialText, out var serial)
                         && GordonFreeman.ResolveHalfLifeDecision(player, game, serial, choice))
                     {
@@ -818,6 +822,14 @@ public sealed class GameReaction : IServiceSingleton
                 return false;
             }
 
+            if (player.GameCharacter.Passive.Any(x => x.PassiveName == Dopa.Macro)
+                && status.WhoToAttackThisTurn.Contains(whoToAttack.GetPlayerId()))
+            {
+                await _help.SendMsgAndDeleteItAfterRound(player,
+                    "Макро: второе действие должно выбрать другую цель", 0);
+                return false;
+            }
+
             status.WhoToAttackThisTurn.Add(whoToAttack.GetPlayerId());
 
             // Pickle Rick: firing the Portal Gun (i.e. choosing a target while pickled) counts as
@@ -867,7 +879,7 @@ public sealed class GameReaction : IServiceSingleton
             // end Weedwick
 
 
-            if (whoToAttack.GameCharacter.Passive.Any(x => x.PassiveName == "Стримснайпят и банят и банят и банят") && game.RoundNo == 10)
+            if (Tigr.IsRoundTenBanned(whoToAttack, game.RoundNo))
             {
                 status.WhoToAttackThisTurn = new List<Guid>();
                 await _help.SendMsgAndDeleteItAfterRound(player, "Выбранный игрок недоступен в связи с баном за нарушение правил", 0);
@@ -1056,6 +1068,29 @@ public sealed class GameReaction : IServiceSingleton
                 default:
                     return;
             }
+            player.Status.LvlUpPoints--;
+            return;
+        }
+
+        // Dopa's second normal level-up is replaced by the four-way meta choice. The selected
+        // index is the same 1-4 contract used by every level-up surface, but no stat is awarded.
+        var dopaMeta = player.Passives.DopaMetaChoice;
+        if (player.GameCharacter.Name == Dopa.CharacterName
+            && player.GameCharacter.Passive.Any(passive => passive.PassiveName == Dopa.Meta)
+            && !dopaMeta.Triggered
+            && dopaMeta.StatLevelUpsTaken >= 1)
+        {
+            var tactic = skillNumber switch
+            {
+                1 => "Стомп",
+                2 => "Фарм",
+                3 => "Доминация",
+                4 => "Роум",
+                _ => null,
+            };
+            if (tactic == null) return;
+
+            CharacterPassives.ApplyDopaChoice(player, game, tactic);
             player.Status.LvlUpPoints--;
             return;
         }
@@ -1449,6 +1484,12 @@ public sealed class GameReaction : IServiceSingleton
                 }
                 break;
         }
+
+        if (player.GameCharacter.Name == Dopa.CharacterName
+            && player.GameCharacter.Passive.Any(passive => passive.PassiveName == Dopa.Meta)
+            && !player.Passives.DopaMetaChoice.Triggered
+            && skillNumber is >= 1 and <= 4)
+            player.Passives.DopaMetaChoice.StatLevelUpsTaken++;
 
         player.Status.LvlUpPoints--;
 

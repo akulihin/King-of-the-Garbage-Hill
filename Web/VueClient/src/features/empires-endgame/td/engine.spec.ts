@@ -15,6 +15,7 @@ import {
   validateTdCommandLog,
 } from './engine'
 import { createTdPolicyCommandLog, resolveTdWithPolicy, TD_QA_POLICIES } from './qa'
+import { EMPIRES_STABILIZATION_BUDGETS } from '../stabilization'
 import type {
   TdBattlePlan,
   TdCommand,
@@ -53,6 +54,7 @@ function plan(variantId = 'central-castle-defense'): TdBattlePlan {
   const wave = config.td.waves.find(candidate => candidate.id === variant.waveId)
   if (!battlefield || !wave) throw new Error(`Variant ${variantId} has incomplete test data.`)
   const id = `td-spec-${variantId}`
+  const { seed: _initializationSeed, ...settlementConfig } = config
   const battlePlan: TdBattlePlan = {
     id,
     sessionId: `${id}:session`,
@@ -61,6 +63,17 @@ function plan(variantId = 'central-castle-defense'): TdBattlePlan {
       units: config.empire.units ?? [],
       buildings: config.empire.buildings,
       steelResearch: config.empire.steelResearch,
+      medical: config.empire.medical,
+      loyalty: config.empire.loyalty,
+      expeditions: config.expeditions,
+      quests: config.quests,
+      settlementConfig,
+      sharedResultRetention: {
+        td: config.td.resultLogLimit ?? 32,
+        alchemy: config.alchemy.resultLogLimit,
+        inventory: config.inventory.resultLogLimit,
+        saveUtf8Bytes: EMPIRES_STABILIZATION_BUDGETS.longCampaignSaveUtf8Bytes,
+      },
     }),
     mode: variant.mode,
     scheduledCon: 2,
@@ -668,10 +681,12 @@ describe('Empire\'s Endgame deterministic regional TD engine', () => {
 
     const stalePlan = plan()
     stalePlan.rulesIdentity = clone(changed)
+    stalePlan.sessionId = `ee:1:${stalePlan.id}:stale-rules`
     const campaign = new EmpiresEndgameEngine(config)
     expect(campaign.beginMinigame({
       kind: 'td',
       id: stalePlan.sessionId,
+      sequence: 1,
       attempt: 0,
       rulesIdentity: clone(changed),
       seed: 'stale-rules',
@@ -686,10 +701,12 @@ describe('Empire\'s Endgame deterministic regional TD engine', () => {
     })
 
     const activePlan = plan()
+    activePlan.sessionId = `ee:1:${activePlan.id}:active-rules`
     const activeCampaign = new EmpiresEndgameEngine(config)
     expect(activeCampaign.beginMinigame({
       kind: 'td',
       id: activePlan.sessionId,
+      sequence: 1,
       attempt: 0,
       rulesIdentity: clone(activePlan.rulesIdentity),
       seed: 'active-rules',

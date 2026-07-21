@@ -350,25 +350,25 @@ Approving an `I` item means “make code and UI match the behavior stated here.�
 
 | ID | Correction to approve | Evidence |
 |---|---|---|
-| I01 | Make Final Boarding idempotent; resolve both players and grant bonuses exactly once. | `BattleshipGameEngine.cs:1095-1214`, `BattleshipService.cs:557-567` |
+| I01 | Make Final Boarding idempotent; resolve both players and grant bonuses exactly once. | `BattleshipGameEngine.cs:1137-1230`, `BattleshipService.cs:746-788` |
 | I02 | Remove converted source ships from their board, active abilities and victory accounting. | `BattleshipGameEngine.cs:1129-1147` |
 | I03 | Reject repeat damage to a 0-HP deck; it cannot grant another turn. | `BattleshipGameEngine.cs:123-143`, `:674-731` |
 | I04 | Apply White Stone and Greek Fire effects even when a cell was previously revealed/hit, subject to normal legality. | `BattleshipGameEngine.cs:123-162` |
 | I05 | Expose CAPTURE to the client, permit its own-board target, consume ammunition normally and remove the undocumented second-Pirate toggle. | `BattleshipGameEngine.cs:53-80`, `:1483-1501`; `CombatPhase.vue:220-231` |
 | I06 | Constrain poison to one physical board and remove Iceberg's undocumented third row. | `BattleshipGameEngine.cs:1617-1715` |
-| I07 | Credit reveal thresholds to the correct player; show intact occupancy in Scout-revealed cells without marking a hit. | `BattleshipGameEngine.cs:773-824`; `BattleshipService.cs:1611-1640` |
-| I08 | Preserve source ship/deck identity for weapons. A destroyed module cannot fire, and multiple identical weapons must be individually selectable. | `BattleshipModels.cs:199-213`; `ShipCatalog.cs:211-221`; `BattleshipService.cs:731-775` |
-| I09 | Send/render destroyed, frozen, devastated, captured and permanent-fire cell states. | `BattleshipService.cs:1749-1765`; `signalr.ts:945-949`; `CellComponent.vue:34-49` |
+| I07 | Credit reveal thresholds to the correct player; show intact occupancy in Scout-revealed cells without marking a hit. | `BattleshipGameEngine.cs:786-864`; `BattleshipService.cs:1662-1908` |
+| I08 | Preserve source ship/deck identity for special weapons. A destroyed module cannot fire, and multiple identical special weapons remain individually selectable; the later shared-Ballista rule is the explicit baseline-action exception. | `BattleshipModels.cs` `Weapon`; `ShipCatalog.cs` `CreateShip`; `BattleshipService` `MapAvailableWeapons`/`SelectNextBallistaAnimationSource` |
+| I09 | Send/render destroyed, frozen, devastated, captured and permanent-fire cell states. | `BattleshipService.cs:1836-1908`; `signalr.ts:1030-1037`; `CellComponent.vue:34-49` |
 | I10 | Preserve per-instance upgrades for both Triple slots and validate mutually exclusive boiler upgrades for free Tetranavis. | `FleetValidator.cs:35-52`, `:104-145` |
 | I11 | Spawn Triple crew only once, from a surviving eligible Triple, during the one-time boarding transition; never create an invisible summon. | `BattleshipGameEngine.cs:832-849`, `:1149-1167` |
-| I12 | Do not move summons on Penalty/Stun/invalid no-shot turns; run victory checks after valid-shot movement deaths. | `BattleshipService.cs:487-505`, `:603-619`, `:1314-1320` |
-| I13 | Register summons in the board grid immediately on spawn/reentry and apply Drakkar Freeze before movement. | `BattleshipService.cs:842-946`, `:958-1021` |
+| I12 | Do not move summons on Penalty/Stun/invalid no-shot turns; run victory checks after valid-shot movement deaths. | `BattleshipService.cs:475-604`, `:746-821`, `:1436-1572` |
+| I13 | Register summons in the board grid immediately on spawn/reentry and apply Drakkar Freeze before movement. | `BattleshipService.cs:895-1143`; `BattleshipGameEngine.cs:1432-1483` |
 | I14 | Damage the deck at the collision coordinate and center Scout's collision reveal on that coordinate. | `BattleshipGameEngine.cs:1419-1528` |
 | I15 | Make Light Wood dodge only into the documented free cell behind; remove opposite fallback and stale hit metadata. | `BattleshipGameEngine.cs:1737-1798` |
 | I16 | Include the physical target board and all AoE cells in SignalR shot events. | `GameHub.cs:1409-1465`; `battleship.ts:210-221` |
-| I17 | Enforce setup phases; lock/revalidate confirmed placement; restore a previous placement after failed reposition; do not replace bots after setup starts. | `BattleshipService.cs:198-225`, `:361-456`, `:1111-1127` |
+| I17 | Enforce setup phases; lock/revalidate confirmed placement; restore a previous placement after failed reposition; do not replace bots after setup starts. | `BattleshipService.cs:198-225`, `:290-461` |
 | I18 | Remove bot access to hidden ship positions; add legal summon-targeting and maneuver parity where applicable. | `BattleshipBotAI.cs:818+` |
-| I19 | Show only legal weapons, label Aim in revealed cells, and retain Buckshot during Boarding unless explicitly prohibited. | `WeaponBar.vue:51-68`; `BattleshipService.cs:1538+` |
+| I19 | Show only legal weapons, label Aim in revealed cells, and retain Buckshot during Boarding unless explicitly prohibited. | `WeaponBar.vue:51-72`; `BattleshipService.cs:1763-1834` |
 | I20 | Decide whether the GDD's nine embedded UI icons are final assets; current inline SVGs differ materially for Ram and Scout. | `battleship-icons.ts` |
 
 ### Approval checklist for Part C
@@ -464,7 +464,7 @@ Current state: armor-type multipliers and Freeze/Devastated resource rewards are
 
 ### X06 — Desiccator boarding behavior
 
-Current state: one surviving Desiccator auto-wins at boarding, so its speed-three boarding behavior is normally unreachable. It matters only when both players have Desiccator and passives are disabled.
+Current state: one surviving Desiccator auto-wins at boarding, so its speed-three boarding behavior is normally unreachable. When both players have a living Desiccator, only the auto-win is deferred; all other passives remain active and ordinary Boarding continues until one Desiccator is destroyed.
 
 - [x] Intended niche behavior
 - [ ] Desiccator should board instead of auto-win
@@ -543,6 +543,8 @@ Implemented 2026-07-17 as finding M112. The implementation follows the checked d
 - Part E uses the designer exception: Greek Fire targets only the shooter's own board.
 
 The live rule description is [BattleshipGDD.md](../BattleshipGDD.md); hub/DTO and client contracts are in [WEB-BACKEND.md](WEB-BACKEND.md) §4/§10 and [WEB-CLIENT.md](WEB-CLIENT.md) §12.
+
+Designer follow-up implemented 2026-07-21 (finding M126) supersedes the earlier symmetric-conversion/shared-weapon assumptions: only the side without Mid deploys Close ships, mandatory deployment is a global barrier, Ballista is one shared UI/server action with cyclic Mid origins (Close joins only in Boarding), and dual Desiccators defer only their auto-win until one dies. The same follow-up adds the 8-second hit-only combo window, direct summon selection, placement deck/zone visualization and CAPTURE-death reveal credit. The exact live rules remain in the linked GDD.
 
 ## Implementation order after approval
 

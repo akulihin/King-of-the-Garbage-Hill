@@ -57,7 +57,6 @@ const isLockedPredict = computed(() => {
 
 const darksciChoiceNeeded = computed(() => me.value?.darksciChoiceNeeded ?? false)
 const youngGlebAvailable = computed(() => me.value?.youngGlebAvailable ?? false)
-const dopaChoiceNeeded = computed(() => me.value?.dopaChoiceNeeded ?? false)
 const dopaSecondAttack = computed(() => me.value?.passiveAbilityStates?.dopa?.needSecondAttack ?? false)
 
 </script>
@@ -151,13 +150,6 @@ const dopaSecondAttack = computed(() => me.value?.passiveAbilityStates?.dopa?.ne
       >
         Вспомнить Молодость
       </button>
-    </div>
-
-    <div v-if="dopaChoiceNeeded" class="action-group dopa-choice">
-      <button class="act-btn dopa-stomp" title="Стомп: +9 Силы и 99 Скилла" @click="store.dopaChoice('Стомп')">Стомп</button>
-      <button class="act-btn dopa-farm" title="Фарм: Взгляд в будущее x2" @click="store.dopaChoice('Фарм')">Фарм</button>
-      <button class="act-btn dopa-domination" title="Доминация: +20 Skill/win, target -1 bonus" @click="store.dopaChoice('Доминация')">Доминация</button>
-      <button class="act-btn dopa-roam" title="Роум: Steal from non-adjacent" @click="store.dopaChoice('Роум')">Роум</button>
     </div>
 
     <div v-if="dopaSecondAttack" class="action-group">

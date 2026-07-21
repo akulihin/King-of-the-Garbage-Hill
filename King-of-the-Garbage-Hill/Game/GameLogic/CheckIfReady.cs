@@ -583,8 +583,8 @@ public class CheckIfReady : IServiceSingleton
 
         if (playerWhoWon.Status.AutoMoveTimes >= 10) playerWhoWon.DiscordUsername = "НейроБот";
 
-        if (playerWhoWon.Status.AutoMoveTimes >= 9 &&
-            playerWhoWon.GameCharacter.Passive.Any(x => x.PassiveName == "Стримснайпят и банят и банят и банят"))
+        if (playerWhoWon.Status.AutoMoveTimes >= 9
+            && Tigr.IsRoundTenBanned(playerWhoWon, 10))
             playerWhoWon.DiscordUsername = "НейроБот";
 
         var isTeam = false;
@@ -1467,8 +1467,7 @@ public class CheckIfReady : IServiceSingleton
                 {
                     var targets = players.Where(p => p.GetPlayerId() != t.GetPlayerId()
                         && !p.Passives.IsDead
-                        && !(game.RoundNo == 10 && p.GameCharacter.Passive.Any(x =>
-                            x.PassiveName == "Стримснайпят и банят и банят и банят"))).ToList();
+                        && !Tigr.IsRoundTenBanned(p, game.RoundNo)).ToList();
                     if (targets.Count > 0)
                     {
                         t.Status.WhoToAttackThisTurn.Add(targets[Random.Shared.Next(targets.Count)].GetPlayerId());
@@ -1507,7 +1506,7 @@ public class CheckIfReady : IServiceSingleton
                         !p.Passives.IsDead &&
                         !UnknownBug.Is(p) &&
                         // Round-10-banned Тигр stays banned — mirror Монстр's carve-out (finding M11)
-                        !(game.RoundNo == 10 && p.GameCharacter.Passive.Any(x => x.PassiveName == "Стримснайпят и банят и банят и банят")) &&
+                        !Tigr.IsRoundTenBanned(p, game.RoundNo) &&
                         // Immunity: Котики immune to transferred Storm taunts
                         !(p.GameCharacter.Passive.Any(x => x.PassiveName == "Кошачья засада") && !isOriginalKotiki) &&
                         // Original Котики: once per enemy per game
@@ -1564,8 +1563,7 @@ public class CheckIfReady : IServiceSingleton
                     v.Passives.MonsterNoEscapeUntilRound >= game.RoundNo &&
                     !v.Passives.IsDead &&
                     !UnknownBug.Is(v) &&
-                    !(game.RoundNo == 10 && v.GameCharacter.Passive.Any(
-                        x => x.PassiveName == "Стримснайпят и банят и банят и банят"))))
+                    !Tigr.IsRoundTenBanned(v, game.RoundNo)))
                 {
                     if (victim.Status.IsBlock || victim.Status.IsSkip)
                     {
@@ -1576,8 +1574,7 @@ public class CheckIfReady : IServiceSingleton
                             var targets = players.Where(p =>
                                 p.GetPlayerId() != victim.GetPlayerId()
                                 && !p.Passives.IsDead
-                                && !(game.RoundNo == 10 && p.GameCharacter.Passive.Any(x =>
-                                    x.PassiveName == "Стримснайпят и банят и банят и банят"))
+                                && !Tigr.IsRoundTenBanned(p, game.RoundNo)
                                 && !Naruto.IsNarutoPair(victim, p)).ToList();
                             if (targets.Count > 0)
                                 victim.Status.WhoToAttackThisTurn.Add(
@@ -1622,8 +1619,8 @@ public class CheckIfReady : IServiceSingleton
                     Naruto.SanitizeMutualTargets(game);
                 }
 
-                // Шэн is spent by the next real submitted attack. A target ahead selects its exact
-                // cell; crossed players have their primary attack redirected instead of gaining a fight.
+                // Шэн is spent by the next real submitted attack. The holder takes the target's exact
+                // cell from either direction; only the selected target's existing main attack is redirected.
                 // Eternal Tsukuyomi erases the submitted attack before it can spend the charge.
                 if (!game.IsKratosEvent && !Madara.IsEternalTsukuyomiRound(game))
                 {

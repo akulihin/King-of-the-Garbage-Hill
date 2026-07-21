@@ -20,6 +20,8 @@ const props = defineProps<{
   shipEdges?: { top: boolean; right: boolean; bottom: boolean; left: boolean }
   summonTrails?: string[]
   rangeOverlay?: string
+  deckSymbols?: string[]
+  bowDirection?: 'up' | 'left'
 }>()
 
 const cellStyle = computed(() => {
@@ -129,6 +131,19 @@ const summonNames: Record<string, string> = {
   CursedBoat: 'Проклятый корабль', PirateBoat: 'Пиратская лодка',
 }
 
+const deckSymbolNames: Record<string, string> = {
+  ballista: 'Баллиста',
+  catapult: 'Тетракамнемёт',
+  mast: 'Мачта',
+  boiler: 'Котельная',
+  incendiary: 'Горючка',
+  armor: 'Усиленная броня',
+}
+
+const deckSymbolHtml = computed(() => (props.deckSymbols ?? [])
+  .map(symbol => ({ symbol, html: renderIcon(symbol, 10) })))
+const bowHtml = computed(() => props.bowDirection ? renderIcon('bow', 10) : '')
+
 defineEmits<{
   (e: 'tipShow', ev: MouseEvent, text: string): void
   (e: 'tipMove', ev: MouseEvent): void
@@ -178,6 +193,9 @@ const cellTooltip = computed(() => {
     extras.push(`След: ${summonNames[type] ?? type}`)
   if (props.lastShot) extras.push('Последний выстрел')
   if (props.marked) extras.push('Метка')
+  if (props.bowDirection) extras.push('Нос корабля')
+  for (const symbol of props.deckSymbols ?? [])
+    extras.push(`Палуба: ${deckSymbolNames[symbol] ?? symbol}`)
 
   const parts = [base, ...extras].filter(Boolean)
   if (parts.length === 0) return coord.trim()
@@ -192,6 +210,10 @@ const cellTooltip = computed(() => {
     @mouseleave="$emit('tipHide')"
   >
     <span v-if="cellIconHtml" class="cell-icon" v-html="cellIconHtml"></span>
+    <span v-if="isPlacement && bowHtml" class="deck-bow" :class="'deck-bow--' + bowDirection" v-html="bowHtml"></span>
+    <span v-if="isPlacement && deckSymbolHtml.length" class="deck-symbols">
+      <span v-for="entry in deckSymbolHtml" :key="entry.symbol" class="deck-symbol" :class="'deck-symbol--' + entry.symbol" v-html="entry.html"></span>
+    </span>
   </div>
 </template>
 
@@ -388,6 +410,45 @@ const cellTooltip = computed(() => {
   justify-content: center;
 }
 
+.deck-bow {
+  position: absolute;
+  top: 1px;
+  left: 1px;
+  display: flex;
+  color: #fff;
+  filter: drop-shadow(0 0 3px rgba(255, 255, 255, 0.9));
+  z-index: 4;
+  pointer-events: none;
+}
+.deck-bow--left { transform: rotate(-90deg); }
+.deck-symbols {
+  position: absolute;
+  right: 1px;
+  bottom: 1px;
+  display: flex;
+  flex-wrap: wrap-reverse;
+  justify-content: flex-end;
+  gap: 1px;
+  max-width: calc(100% - 2px);
+  z-index: 4;
+  pointer-events: none;
+}
+.deck-symbol {
+  width: 12px;
+  height: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  border-radius: 3px;
+  background: rgba(5, 15, 30, 0.82);
+  box-shadow: 0 0 4px rgba(255, 255, 255, 0.35);
+}
+.deck-symbol--armor { color: #facc15; }
+.deck-symbol--catapult { color: #f8fafc; }
+.deck-symbol--boiler,
+.deck-symbol--incendiary { color: #fb923c; }
+
 /* -- Shot impact animations --------------------------------------- */
 .anim-hit {
   animation: cell-hit-flash 0.4s ease-out forwards;
@@ -431,6 +492,26 @@ const cellTooltip = computed(() => {
 .anim-explode {
   animation: cell-explode 0.6s ease-out forwards;
   z-index: 2;
+}
+.anim-summon-spawn {
+  animation: cell-summon-spawn 1s ease-out forwards;
+  z-index: 4;
+}
+
+@keyframes cell-summon-spawn {
+  0% {
+    transform: scale(0.35);
+    background: white;
+    box-shadow: 0 0 0 0 rgba(255, 255, 255, 1), 0 0 28px 12px rgba(255, 255, 255, 0.95);
+  }
+  35% {
+    transform: scale(1.35);
+    box-shadow: 0 0 0 9px rgba(255, 255, 255, 0.45), 0 0 22px 9px var(--accent-gold);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 18px transparent, 0 0 0 transparent;
+  }
 }
 
 @keyframes cell-hit-flash {

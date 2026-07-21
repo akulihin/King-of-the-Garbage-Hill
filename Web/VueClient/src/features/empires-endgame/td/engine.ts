@@ -6,6 +6,7 @@ import type {
   EmpiresCombatConfig,
 } from '../combat/types'
 import { createEmpiresRngState, nextEmpiresRandom } from '../rng'
+import { EMPIRES_STABILIZATION_BUDGETS } from '../stabilization'
 import type {
   EmpiresTdConfig,
   TdBattlePlan,
@@ -797,6 +798,29 @@ export function validateTdBattlePlan(plan: TdBattlePlan): string[] {
   if (!Number.isInteger(plan.maxCommands) || plan.maxCommands <= 0) errors.push('maxCommands must be a positive integer')
   if (!Number.isInteger(plan.maxCatchUpTicksPerFrame) || plan.maxCatchUpTicksPerFrame <= 0) {
     errors.push('maxCatchUpTicksPerFrame must be a positive integer')
+  }
+  if (plan.maxTicks > EMPIRES_STABILIZATION_BUDGETS.maxTicks) errors.push('maxTicks exceeds the shipped safety ceiling')
+  if (plan.maxCommands > EMPIRES_STABILIZATION_BUDGETS.maxCommands) errors.push('maxCommands exceeds the shipped safety ceiling')
+  if (plan.maxCatchUpTicksPerFrame > EMPIRES_STABILIZATION_BUDGETS.maxCatchUpTicksPerFrame) {
+    errors.push('maxCatchUpTicksPerFrame exceeds the shipped safety ceiling')
+  }
+  if (plan.tickMs * plan.maxTicks > EMPIRES_STABILIZATION_BUDGETS.maxLogicalReplayDurationMs) {
+    errors.push('logical replay duration exceeds the shipped safety ceiling')
+  }
+  if ([
+    plan.battlefield.laneGraph.nodes.length,
+    plan.battlefield.laneGraph.edges.length,
+    plan.battlefield.buildSpots.length,
+    plan.towerBases.length,
+    plan.towerChoices.length,
+    plan.gradeChoices.length,
+  ].some(length => length > EMPIRES_STABILIZATION_BUDGETS.maxPlanItems)
+    || plan.wave.groups.reduce((total, group) => total + group.count, 0)
+      + plan.deployments.length
+      > EMPIRES_STABILIZATION_BUDGETS.maxPlanItems
+    || plan.deployments.reduce((total, deployment) => total + deployment.unitInstanceIds.length, 0)
+      > EMPIRES_STABILIZATION_BUDGETS.maxRosterUnitInstances) {
+    errors.push('TD plan component or actor count exceeds the shipped safety ceiling')
   }
   if (!finite(plan.startingBuildResources) || plan.startingBuildResources < 0) {
     errors.push('startingBuildResources must be finite and non-negative')

@@ -53,6 +53,7 @@ function session(): EmpiresMinigameSession {
   }
   return {
     id: sessionId,
+    sequence: 1,
     kind: 'td',
     plan,
     rulesIdentity,
@@ -73,6 +74,18 @@ async function advanceOneTick() {
   if (!secondFrame) throw new Error('TD component did not schedule its second frame')
   secondFrame(1 + config.td.tickMs!)
   await Promise.resolve()
+}
+
+async function runNextFrame(timestamp: number) {
+  const frame = frameCallbacks.shift()
+  if (!frame) throw new Error('TD component did not schedule the expected frame')
+  frame(timestamp)
+  await Promise.resolve()
+}
+
+function setDocumentHidden(hidden: boolean) {
+  Object.defineProperty(document, 'hidden', { configurable: true, value: hidden })
+  document.dispatchEvent(new Event('visibilitychange'))
 }
 
 beforeEach(() => {
@@ -131,4 +144,25 @@ describe('Empire\'s Endgame TD production input path', () => {
       expect(result.terminalReason).toBe('tick-cap')
     },
   )
+
+  it('exposes canvas and text alternatives while discarding hidden-tab elapsed time', async () => {
+    const onResolved = vi.fn<(result: TdBattleResult) => void>()
+    const view = render(TdBattle, { props: { session: session(), onResolved } })
+    expect(view.getByRole('img', { name: /Оборона:/ })).toBeTruthy()
+    expect(view.getByTestId('td-text-state').textContent).toContain('Вражеские группы')
+
+    await fireEvent.click(view.getByTestId('td-start'))
+    await runNextFrame(1)
+    setDocumentHidden(true)
+    await runNextFrame(50_001)
+    expect(view.getByTestId('td-command-status').textContent).toContain('фоне')
+    expect(onResolved).not.toHaveBeenCalled()
+
+    setDocumentHidden(false)
+    await runNextFrame(100_001)
+    expect(onResolved).not.toHaveBeenCalled()
+    await runNextFrame(100_001 + config.td.tickMs!)
+    await waitFor(() => expect(onResolved).toHaveBeenCalledTimes(1))
+    expect(onResolved.mock.calls[0][0].terminalReason).toBe('tick-cap')
+  })
 })

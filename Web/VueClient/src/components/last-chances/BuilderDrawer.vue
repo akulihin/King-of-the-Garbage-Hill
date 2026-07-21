@@ -90,20 +90,25 @@ const copy = {
     attack: 'Selected attack',
     attackHelp: 'One weapon gesture at a time',
     moveDescription: 'In-game move description',
+    axeSettings: 'Two-handed Axe',
+    axeSettingsHelp: 'Direction-assisted basic tap damage',
+    axeMotionBonus: 'Maximum mouse bonus',
+    axeMotionPixels: 'Mouse travel for maximum (px)',
     swordSettings: 'Mercenary Sword',
-    swordSettingsHelp: 'Rhythm, advance, motion damage, stagger and follow-up tuning',
+    swordSettingsHelp: 'Rhythm, fatigue, advance, stagger and follow-up tuning',
     swordStaggerEnabled: 'Zornhaw stagger and Unstoppable enabled',
     swordPerfectStart: 'Ideal timing starts (ms)',
     swordPerfectEnd: 'Perfect timing ends (ms)',
-    swordFatigue: 'Early-hit fatigue (ms)',
+    swordFatigue: 'Fatigue duration (ms)',
+    swordRoomMisses: 'Misses per room before fatigue',
+    swordConsecutiveMisses: 'Consecutive misses before fatigue',
     swordAdvanceDistance: 'Advance distance',
     swordAdvanceSpeed: 'Advance speed',
-    swordMotionBonus: 'Maximum mouse bonus',
-    swordMotionPixels: 'Mouse travel for maximum (px)',
     swordStagger: 'Stagger per hit (ms)',
     swordStaggerThreshold: 'Unstoppable threshold (ms)',
     swordUnstoppable: 'Unstoppable duration (ms)',
     swordUnterhauHold: 'Unterhaw hold (ms)',
+    swordUnterhauCooldown: 'Unterhaw cooldown multiplier',
     swordEmptyOffhand: 'Empty off-hand damage multiplier',
     loadout: 'Starting loadout',
     loadoutHelp: 'Select the two active slots and their augment symbols',
@@ -194,6 +199,7 @@ const copy = {
     noCollider: 'No collider',
     innerRange: 'Inner dead zone',
     strictInnerRange: 'Exclude overlapping bodies',
+    passesThroughWalls: 'Passes through walls',
     colliderWidth: 'Collider width',
     traceMs: 'Trace fade (ms)',
     chargeEnabled: 'Charge bands enabled',
@@ -276,20 +282,25 @@ const copy = {
     attack: 'Выбранная атака',
     attackHelp: 'Один жест оружия за раз',
     moveDescription: 'Игровое описание мува',
+    axeSettings: 'Двуручная секира',
+    axeSettingsHelp: 'Усиление обычного тапа движением прицела по направлению взмаха',
+    axeMotionBonus: 'Максимальный бонус мыши',
+    axeMotionPixels: 'Путь мыши для максимума (px)',
     swordSettings: 'Меч наемника',
-    swordSettingsHelp: 'Ритм, наступание, движение мыши, стаггер и продолжение',
+    swordSettingsHelp: 'Ритм, усталость, наступание, стаггер и продолжение',
     swordStaggerEnabled: 'Стаггер Zornhaw и Неудержимость включены',
     swordPerfectStart: 'Начало идеального тайминга (мс)',
     swordPerfectEnd: 'Конец идеального тайминга (мс)',
-    swordFatigue: 'Усталость за ранний удар (мс)',
+    swordFatigue: 'Длительность усталости (мс)',
+    swordRoomMisses: 'Промахов за комнату до усталости',
+    swordConsecutiveMisses: 'Промахов подряд до усталости',
     swordAdvanceDistance: 'Дистанция наступания',
     swordAdvanceSpeed: 'Скорость наступания',
-    swordMotionBonus: 'Максимальный бонус мыши',
-    swordMotionPixels: 'Путь мыши для максимума (px)',
     swordStagger: 'Стаггер за удар (мс)',
     swordStaggerThreshold: 'Порог Неудержимости (мс)',
     swordUnstoppable: 'Длительность Неудержимости (мс)',
     swordUnterhauHold: 'Удержание Unterhaw (мс)',
+    swordUnterhauCooldown: 'Множитель отката Unterhaw',
     swordEmptyOffhand: 'Множитель урона с пустой второй рукой',
     loadout: 'Стартовая экипировка',
     loadoutHelp: 'Выберите два активных слота и символы-аугментации',
@@ -380,6 +391,7 @@ const copy = {
     noCollider: 'Без коллайдера',
     innerRange: 'Внутренняя мёртвая зона',
     strictInnerRange: 'Не задевать тела в мёртвой зоне',
+    passesThroughWalls: 'Проходит через стены',
     colliderWidth: 'Ширина коллайдера',
     traceMs: 'Затухание следа (мс)',
     chargeEnabled: 'Сектора зарядки включены',
@@ -602,6 +614,7 @@ function setAttackEnabled(event: Event) {
       ? 'sector'
       : attack.kind === 'burst' ? 'circle' : 'capsule',
     traceMs: 600,
+    passesThroughWalls: false,
   }
   restoreSelectedControlBinding(attack)
 }
@@ -756,7 +769,7 @@ function setColliderShape(event: Event) {
     return
   }
   current.collider = {
-    ...(current.collider ?? { traceMs: 600 }),
+    ...(current.collider ?? { traceMs: 600, passesThroughWalls: false }),
     shape: shape as typeof LAST_CHANCES_COLLIDER_SHAPES[number],
   }
 }
@@ -1238,6 +1251,10 @@ function exportJson() {
                       <input v-model="selectedAttack.collider.strictInnerRange" type="checkbox" />
                       <span>{{ t.strictInnerRange }}</span>
                     </label>
+                    <label class="lc-check-field">
+                      <input v-model="selectedAttack.collider.passesThroughWalls" type="checkbox" />
+                      <span>{{ t.passesThroughWalls }}</span>
+                    </label>
                     <label>{{ t.colliderWidth }}<input v-model.number="selectedAttack.collider.width" type="number" min="0" step="1" /></label>
                     <label>{{ t.traceMs }}<input v-model.number="selectedAttack.collider.traceMs" type="number" min="0" step="25" /></label>
                   </template>
@@ -1246,6 +1263,15 @@ function exportJson() {
                     <span>{{ t.chargeEnabled }}</span>
                   </label>
                 </div>
+                <section v-if="selectedWeapon?.id === 'twohand-axe' && selectedWeapon.tuning" class="lc-control-tuning">
+                  <h3>{{ t.axeSettings }}</h3>
+                  <small>{{ t.axeSettingsHelp }}</small>
+                  <div class="lc-control-grid-fields">
+                    <label>{{ t.axeMotionBonus }}<input v-model.number="selectedWeapon.tuning.mouseDamageBonusMax" type="number" min="0" max="1" step="0.01" /></label>
+                    <label>{{ t.axeMotionPixels }}<input v-model.number="selectedWeapon.tuning.mouseMotionForMaxBonusPx" type="number" min="1" step="5" /></label>
+                  </div>
+                </section>
+
                 <section v-if="selectedWeapon?.id === 'hybrid-sword' && selectedWeapon.tuning" class="lc-control-tuning">
                   <h3>{{ t.swordSettings }}</h3>
                   <small>{{ t.swordSettingsHelp }}</small>
@@ -1257,14 +1283,15 @@ function exportJson() {
                     <label>{{ t.swordPerfectStart }}<input v-model.number="selectedWeapon.tuning.rhythmPerfectStartMs" type="number" min="1" step="25" /></label>
                     <label>{{ t.swordPerfectEnd }}<input v-model.number="selectedWeapon.tuning.rhythmPerfectEndMs" type="number" min="1" step="25" /></label>
                     <label>{{ t.swordFatigue }}<input v-model.number="selectedWeapon.tuning.rhythmFatigueMs" type="number" min="0" step="100" /></label>
+                    <label>{{ t.swordRoomMisses }}<input v-model.number="selectedWeapon.tuning.rhythmMissesPerRoomBeforeFatigue" type="number" min="1" step="1" /></label>
+                    <label>{{ t.swordConsecutiveMisses }}<input v-model.number="selectedWeapon.tuning.rhythmConsecutiveMissesBeforeFatigue" type="number" min="1" step="1" /></label>
                     <label>{{ t.swordAdvanceDistance }}<input v-model.number="selectedWeapon.tuning.advanceDistance" type="number" min="0" step="1" /></label>
                     <label>{{ t.swordAdvanceSpeed }}<input v-model.number="selectedWeapon.tuning.advanceSpeed" type="number" min="1" step="5" /></label>
-                    <label>{{ t.swordMotionBonus }}<input v-model.number="selectedWeapon.tuning.mouseDamageBonusMax" type="number" min="0" max="1" step="0.01" /></label>
-                    <label>{{ t.swordMotionPixels }}<input v-model.number="selectedWeapon.tuning.mouseMotionForMaxBonusPx" type="number" min="1" step="5" /></label>
                     <label>{{ t.swordStagger }}<input v-model.number="selectedWeapon.tuning.staggerDurationMs" type="number" min="0" step="50" /></label>
                     <label>{{ t.swordStaggerThreshold }}<input v-model.number="selectedWeapon.tuning.unstoppableThresholdMs" type="number" min="1" step="100" /></label>
                     <label>{{ t.swordUnstoppable }}<input v-model.number="selectedWeapon.tuning.unstoppableDurationMs" type="number" min="0" step="100" /></label>
                     <label>{{ t.swordUnterhauHold }}<input v-model.number="selectedWeapon.tuning.unterhauHoldMs" type="number" min="1" step="50" /></label>
+                    <label>{{ t.swordUnterhauCooldown }}<input v-model.number="selectedWeapon.tuning.unterhauCooldownMultiplier" type="number" min="1" step="0.5" /></label>
                     <label>{{ t.swordEmptyOffhand }}<input v-model.number="selectedWeapon.tuning.emptyOffhandDamageMultiplier" type="number" min="1" step="0.05" /></label>
                   </div>
                 </section>

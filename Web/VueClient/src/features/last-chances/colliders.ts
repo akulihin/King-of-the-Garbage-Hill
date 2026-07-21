@@ -21,6 +21,8 @@ export interface LastChancesAttackColliderDefinition {
   shape: LastChancesColliderShape
   innerRange?: number
   strictInnerRange?: boolean
+  /** Missing/false means room obstacles occlude the collider. */
+  passesThroughWalls?: boolean
   /** Full collider width for capsule and sweep shapes. */
   width?: number
   /** Static clockwise rotation from the supplied attack direction. */

@@ -127,19 +127,7 @@ public class Salldorum
 
             shen.Charges--;
             var originalOrder = game.PlayersList.ToList();
-            var originalPosition = player.Status.GetPlaceAtLeaderBoard();
             var selectedPosition = target.Status.GetPlaceAtLeaderBoard();
-            if (selectedPosition >= originalPosition)
-            {
-                player.Status.AddInGamePersonalLogs(
-                    $"Шэн: Атака на {target.DiscordUsername}. Цель уже позади, заряд потрачен. Осталось: {shen.Charges}.\n");
-                continue;
-            }
-
-            var crossedPlayers = originalOrder.Where(candidate =>
-                    candidate.Status.GetPlaceAtLeaderBoard() > selectedPosition
-                    && candidate.Status.GetPlaceAtLeaderBoard() < originalPosition)
-                .ToList();
             var projectedOrder = originalOrder.Where(candidate => candidate.GetPlayerId() != player.GetPlayerId()).ToList();
             projectedOrder.Insert(selectedPosition - 1, player);
             var movesLockedPosition = originalOrder.Any(candidate =>
@@ -164,26 +152,41 @@ public class Salldorum
             shen.HeldPosition = selectedPosition;
             shen.HoldThroughRound = game.RoundNo + 1;
 
-            var redirectedActions = 0;
-            foreach (var victim in crossedPlayers.Where(candidate =>
-                         !candidate.Passives.IsDead
-                         && !UnknownBug.Is(candidate)
-                         && !(game.RoundNo == 10 && candidate.GameCharacter.Passive.Any(passive =>
-                             passive.PassiveName == "Стримснайпят и банят и банят и банят"))))
+            var redirectedAction = false;
+            if (!target.Passives.IsDead
+                && !UnknownBug.Is(target)
+                && !Tigr.IsRoundTenBanned(target, game.RoundNo))
             {
-                var mainAttackIndex = victim.Status.WhoToAttackThisTurn.FindIndex(
-                    targetId => targetId != victim.GetPlayerId());
-                if (mainAttackIndex < 0)
-                    continue;
-
-                victim.Status.WhoToAttackThisTurn[mainAttackIndex] = player.GetPlayerId();
-                redirectedActions++;
+                var mainAttackIndex = target.Status.WhoToAttackThisTurn.FindIndex(
+                    targetId => targetId != target.GetPlayerId());
+                if (mainAttackIndex >= 0)
+                {
+                    target.Status.WhoToAttackThisTurn[mainAttackIndex] = player.GetPlayerId();
+                    redirectedAction = true;
+                }
             }
 
             player.Status.AddInGamePersonalLogs(
                 $"Шэн: Переместился на место {selectedPosition} через {target.DiscordUsername}. " +
-                $"Зарядов осталось: {shen.Charges}. Перенаправлено действий: {redirectedActions}.\n");
+                $"Зарядов осталось: {shen.Charges}. Действие цели перенаправлено: {(redirectedAction ? "да" : "нет")}.\n");
         }
+    }
+
+    public static bool IsNearestLowerEnemy(
+        GameClass game,
+        GamePlayerBridgeClass passiveHolder,
+        GamePlayerBridgeClass attacker)
+    {
+        var holderPosition = passiveHolder.Status.GetPlaceAtLeaderBoard();
+        var nearestLowerEnemy = game.PlayersList
+            .Where(candidate => !candidate.Passives.IsDead
+                                && candidate.GetPlayerId() != passiveHolder.GetPlayerId()
+                                && candidate.Status.GetPlaceAtLeaderBoard() > holderPosition
+                                && !passiveHolder.IsTeamMember(game, candidate.GetPlayerId()))
+            .OrderBy(candidate => candidate.Status.GetPlaceAtLeaderBoard())
+            .FirstOrDefault();
+
+        return nearestLowerEnemy?.GetPlayerId() == attacker.GetPlayerId();
     }
 
     public static void ApplyShenPositionHolds(GameClass game)

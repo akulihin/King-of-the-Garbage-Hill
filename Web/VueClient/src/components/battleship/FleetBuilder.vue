@@ -135,8 +135,25 @@ function toggleUpgrade(globalIndex: number, upgradeId: string) {
   if (idx >= 0) {
     slot.upgrades.splice(idx, 1)
   } else {
+    const upgrade = getShipDef(slot.definitionId)?.availableUpgrades.find(u => u.id === upgradeId)
+    if (!upgrade || upgrade.cost > coinsLeft.value) return
     slot.upgrades.push(upgradeId)
   }
+}
+
+function canToggleUpgrade(globalIndex: number, upgradeId: string): boolean {
+  const slot = slots.value[globalIndex]
+  if (!slot) return false
+  if (slot.upgrades.includes(upgradeId)) return true
+  const upgrade = getShipDef(slot.definitionId)?.availableUpgrades.find(u => u.id === upgradeId)
+  return !!upgrade && upgrade.cost <= coinsLeft.value
+}
+
+function upgradeDescription(upgrade: { name: string; description: string; cost: number }): string {
+  const description = upgrade.description?.trim() || upgrade.name
+  return /цена\s*:/i.test(description)
+    ? description
+    : `${description} Цена: ${upgrade.cost} монет.`
 }
 
 const BOILER_UPGRADE_IDS = ['tetra_boiler_fire', 'tetra_boiler_brander']
@@ -154,9 +171,23 @@ function hasBoilerUpgrade(globalIndex: number): boolean {
 function setBoilerChoice(globalIndex: number, choice: 'GreekFire' | 'Brander') {
   const slot = slots.value[globalIndex]
   if (!slot) return
+  if (!canSetBoilerChoice(globalIndex, choice)) return
   boilerWeaponChoice.value = choice
   slot.upgrades = slot.upgrades.filter(u => !isBoilerUpgrade(u))
   slot.upgrades.push(choice === 'GreekFire' ? 'tetra_boiler_fire' : 'tetra_boiler_brander')
+}
+
+function canSetBoilerChoice(globalIndex: number, choice: 'GreekFire' | 'Brander'): boolean {
+  const slot = slots.value[globalIndex]
+  if (!slot) return false
+  const targetId = choice === 'GreekFire' ? 'tetra_boiler_fire' : 'tetra_boiler_brander'
+  if (slot.upgrades.includes(targetId)) return true
+  const definition = getShipDef(slot.definitionId)
+  const targetCost = definition?.availableUpgrades.find(u => u.id === targetId)?.cost ?? Number.POSITIVE_INFINITY
+  const selectedCost = definition?.availableUpgrades
+    .filter(u => slot.upgrades.includes(u.id) && isBoilerUpgrade(u.id))
+    .reduce((sum, u) => sum + u.cost, 0) ?? 0
+  return targetCost - selectedCost <= coinsLeft.value
 }
 
 async function confirmFleet() {
@@ -286,10 +317,10 @@ function catalogForDeck(dc: number) {
             <template v-for="upg in getShipDef(slot.definitionId)!.availableUpgrades" :key="upg.id">
               <template v-if="isBoilerUpgrade(upg.id)"><!-- handled below --></template>
               <button
-                v-else-if="upg.name === 'Diskomety' || upg.name === 'Дискометы'"
+                v-else-if="upg.id === 'tetra_discus'"
                 class="upgrade-btn upgrade-disabled"
                 disabled
-                @mouseenter="showTip($event, 'WIP')" @mousemove="moveTip" @mouseleave="hideTip"
+                @mouseenter="showTip($event, upgradeDescription(upg))" @mousemove="moveTip" @mouseleave="hideTip"
               >
                 {{ upg.nameRu || upg.name }} ({{ upg.cost }}c) <span class="wip-badge bs-mono">WIP</span>
               </button>
@@ -297,8 +328,12 @@ function catalogForDeck(dc: number) {
                 v-else
                 class="upgrade-btn"
                 :aria-pressed="slot.upgrades.includes(upg.id)"
-                :class="slot.upgrades.includes(upg.id) ? 'upgrade-active' : 'upgrade-inactive'"
-                @mouseenter="showTip($event, upg.description || upg.name)"
+                :class="[
+                  slot.upgrades.includes(upg.id) ? 'upgrade-active' : 'upgrade-inactive',
+                  !canToggleUpgrade(globalIndex, upg.id) ? 'upgrade-unavailable' : ''
+                ]"
+                :disabled="!canToggleUpgrade(globalIndex, upg.id)"
+                @mouseenter="showTip($event, canToggleUpgrade(globalIndex, upg.id) ? upgradeDescription(upg) : `${upgradeDescription(upg)} Не хватает ${upg.cost - coinsLeft} монет.`)"
                 @mousemove="moveTip" @mouseleave="hideTip"
                 @click="toggleUpgrade(globalIndex, upg.id)"
               >
@@ -310,8 +345,8 @@ function catalogForDeck(dc: number) {
             <div v-if="getShipDef(slot.definitionId)!.availableUpgrades.some(u => isBoilerUpgrade(u.id))" class="boiler-choice">
               <span class="boiler-label bs-mono">Котельная ({{ getShipDef(slot.definitionId)!.availableUpgrades.find(u => isBoilerUpgrade(u.id))?.cost ?? 0 }}c):</span>
               <button class="upgrade-btn" :class="{ 'upgrade-inactive': hasBoilerUpgrade(globalIndex) }" @click="slot.upgrades = slot.upgrades.filter(u => !isBoilerUpgrade(u))" :disabled="!hasBoilerUpgrade(globalIndex)">Нет</button>
-              <button class="upgrade-btn" :class="hasBoilerUpgrade(globalIndex) && boilerWeaponChoice === 'GreekFire' ? 'upgrade-active' : 'upgrade-inactive'" @click="setBoilerChoice(globalIndex, 'GreekFire')">Греческий огонь</button>
-              <button class="upgrade-btn" :class="hasBoilerUpgrade(globalIndex) && boilerWeaponChoice === 'Brander' ? 'upgrade-active' : 'upgrade-inactive'" @click="setBoilerChoice(globalIndex, 'Brander')">Брандер</button>
+              <button class="upgrade-btn" :class="[hasBoilerUpgrade(globalIndex) && boilerWeaponChoice === 'GreekFire' ? 'upgrade-active' : 'upgrade-inactive', !canSetBoilerChoice(globalIndex, 'GreekFire') ? 'upgrade-unavailable' : '']" :disabled="!canSetBoilerChoice(globalIndex, 'GreekFire')" @mouseenter="showTip($event, upgradeDescription(getShipDef(slot.definitionId)!.availableUpgrades.find(u => u.id === 'tetra_boiler_fire')!))" @mousemove="moveTip" @mouseleave="hideTip" @click="setBoilerChoice(globalIndex, 'GreekFire')">Греческий огонь</button>
+              <button class="upgrade-btn" :class="[hasBoilerUpgrade(globalIndex) && boilerWeaponChoice === 'Brander' ? 'upgrade-active' : 'upgrade-inactive', !canSetBoilerChoice(globalIndex, 'Brander') ? 'upgrade-unavailable' : '']" :disabled="!canSetBoilerChoice(globalIndex, 'Brander')" @mouseenter="showTip($event, upgradeDescription(getShipDef(slot.definitionId)!.availableUpgrades.find(u => u.id === 'tetra_boiler_brander')!))" @mousemove="moveTip" @mouseleave="hideTip" @click="setBoilerChoice(globalIndex, 'Brander')">Брандер</button>
             </div>
           </div>
         </div>
@@ -321,7 +356,7 @@ function catalogForDeck(dc: number) {
       <div v-if="catalogForDeck(dc).length" class="deck-catalog">
         <div class="catalog-label">Доступные замены:</div>
         <div class="ship-catalog">
-          <div v-for="def in catalogForDeck(dc)" :key="def.id" class="bs-card catalog-card">
+          <div v-for="def in catalogForDeck(dc)" :key="def.id" class="bs-card catalog-card" :class="{ 'catalog-card-unavailable': def.cost > coinsLeft || defaultSlotsLeft(dc) === 0 }">
             <div class="catalog-header">
               <div class="catalog-name-row">
                 <span class="catalog-ship-name">{{ def.nameRu || def.name }}</span>
@@ -534,6 +569,15 @@ function catalogForDeck(dc: number) {
   opacity: 0.5;
   cursor: not-allowed;
 }
+.upgrade-unavailable,
+.upgrade-btn:disabled {
+  background: color-mix(in srgb, var(--text-dim) 10%, var(--bg-inset));
+  color: var(--text-dim);
+  border-color: color-mix(in srgb, var(--text-dim) 25%, transparent);
+  opacity: 0.48;
+  cursor: not-allowed;
+  filter: grayscale(1);
+}
 .wip-badge {
   font-size: 0.55rem;
   color: var(--text-dim);
@@ -589,6 +633,14 @@ function catalogForDeck(dc: number) {
     0 10px 28px rgba(0, 0, 0, 0.32),
     0 0 26px color-mix(in srgb, var(--accent-gold) 10%, transparent),
     inset 0 1px 0 var(--glass-highlight);
+}
+.catalog-card-unavailable {
+  filter: grayscale(0.85);
+  opacity: 0.58;
+}
+.catalog-card-unavailable:hover {
+  transform: none;
+  box-shadow: inset 0 1px 0 var(--glass-highlight);
 }
 .catalog-header {
   display: flex;

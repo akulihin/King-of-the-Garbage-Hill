@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 4,
+  "schemaVersion": 5,
   "title": "99 Last Chances",
   "seed": "99LC-prototype",
   "chances": 99,
@@ -78,9 +78,9 @@
       },
       "keyboard": {
         "leftTechniqueKeys": ["KeyQ"],
-        "rightTechniqueKeys": ["KeyE"],
+        "rightTechniqueKeys": ["KeyF"],
         "mobilityKeys": ["Space"],
-        "interactKeys": ["KeyF"],
+        "interactKeys": ["KeyE"],
         "leftStrikeMouseButton": 0,
         "rightStrikeMouseButton": 2
       }
@@ -100,9 +100,9 @@
       },
       "keyboard": {
         "leftTechniqueKeys": ["KeyQ"],
-        "rightTechniqueKeys": ["KeyE"],
+        "rightTechniqueKeys": ["KeyF"],
         "mobilityKeys": ["Space"],
-        "interactKeys": ["KeyF"],
+        "interactKeys": ["KeyE"],
         "leftStrikeMouseButton": 0,
         "rightStrikeMouseButton": 2
       },
@@ -181,7 +181,7 @@
           { "enemyId": "running-stapler", "weight": 4 },
           { "enemyId": "guard", "weight": 3 },
           { "enemyId": "spider-knife", "weight": 2 },
-          { "enemyId": "swarm-creep", "weight": 2 }
+          { "enemyId": "swarm-cockroach", "weight": 2 }
         ],
         "roomTemplateIds": ["combat-hall", "office-memory", "merchant-crossing", "chest-gallery", "rest-conservatory"],
         "accent": "#9db5a3"
@@ -199,10 +199,11 @@
           { "enemyId": "running-stapler", "weight": 3 },
           { "enemyId": "guard", "weight": 4 },
           { "enemyId": "spider-knife", "weight": 3 },
-          { "enemyId": "swarm-creep", "weight": 2 }
+          { "enemyId": "swarm-cockroach", "weight": 2 }
         ],
         "guaranteedEnemyIds": ["colossus"],
-        "roomTemplateIds": ["office-memory", "trap-passage", "rest-conservatory", "wrong-shadow-event"],
+        "guaranteedRoomTemplateIds": ["turret-crossfire"],
+        "roomTemplateIds": ["office-memory", "trap-passage", "rest-conservatory", "wrong-shadow-event", "turret-crossfire"],
         "accent": "#a68eac"
       },
       {
@@ -218,10 +219,11 @@
           { "enemyId": "chimera", "weight": 2 },
           { "enemyId": "spider-knife", "weight": 4 },
           { "enemyId": "invisible-wolf", "weight": 1 },
-          { "enemyId": "swarm-creep", "weight": 2 }
+          { "enemyId": "swarm-cockroach", "weight": 2 }
         ],
         "guaranteedEnemyIds": ["colossus"],
-        "roomTemplateIds": ["trap-passage", "chest-gallery", "rest-conservatory", "wrong-shadow-event"],
+        "guaranteedRoomTemplateIds": ["cockroach-mother-lair"],
+        "roomTemplateIds": ["trap-passage", "chest-gallery", "rest-conservatory", "wrong-shadow-event", "cockroach-mother-lair"],
         "accent": "#a67982"
       },
       {
@@ -237,7 +239,7 @@
           { "enemyId": "chimera", "weight": 4 },
           { "enemyId": "spider-knife", "weight": 4 },
           { "enemyId": "invisible-wolf", "weight": 2 },
-          { "enemyId": "swarm-creep", "weight": 2 }
+          { "enemyId": "swarm-cockroach", "weight": 2 }
         ],
         "guaranteedEnemyIds": ["colossus"],
         "roomTemplateIds": ["combat-hall", "wrong-shadow-event"],
@@ -734,6 +736,109 @@
       }
     },
     {
+      "id": "turret-crossfire",
+      "name": "Зал перекрёстного наблюдения",
+      "archetype": "puzzle",
+      "width": 1000,
+      "height": 720,
+      "playerSpawn": { "x": 80, "y": 360 },
+      "spawnLayouts": [
+        {
+          "id": "silent-machines",
+          "name": "Молчаливые машины",
+          "enemySpawns": [{ "x": 920, "y": 360 }]
+        },
+        {
+          "id": "crossed-sights",
+          "name": "Перекрёстные прицелы",
+          "enemySpawns": [{ "x": 500, "y": 360 }]
+        }
+      ],
+      "obstacles": [
+        { "x": 190, "y": 245, "width": 90, "height": 230, "elevation": 105 },
+        { "x": 455, "y": 80, "width": 90, "height": 190, "elevation": 110 },
+        { "x": 455, "y": 450, "width": 90, "height": 190, "elevation": 110 },
+        { "x": 720, "y": 245, "width": 90, "height": 230, "elevation": 105 }
+      ],
+      "encounter": { "enemyIds": [] },
+      "turrets": [
+        {
+          "id": "turret-circle", "name": "Турель «Круг»",
+          "position": { "x": 315, "y": 115 },
+          "facingDegrees": 15, "rotationDegreesPerSecond": 24,
+          "visionRange": 520, "visionAngleDegrees": 56, "interactionRange": 78,
+          "fireIntervalMs": 110, "projectileSpeed": 1050, "projectileRadius": 6,
+          "damage": 38, "color": "#ff6659"
+        },
+        {
+          "id": "turret-square", "name": "Турель «Квадрат»",
+          "position": { "x": 685, "y": 115 },
+          "facingDegrees": 165, "rotationDegreesPerSecond": -21,
+          "visionRange": 520, "visionAngleDegrees": 56, "interactionRange": 78,
+          "fireIntervalMs": 110, "projectileSpeed": 1050, "projectileRadius": 6,
+          "damage": 38, "color": "#ff6659"
+        },
+        {
+          "id": "turret-triangle", "name": "Турель «Треугольник»",
+          "position": { "x": 685, "y": 605 },
+          "facingDegrees": 195, "rotationDegreesPerSecond": 27,
+          "visionRange": 520, "visionAngleDegrees": 56, "interactionRange": 78,
+          "fireIntervalMs": 110, "projectileSpeed": 1050, "projectileRadius": 6,
+          "damage": 38, "color": "#ff6659"
+        },
+        {
+          "id": "turret-diamond", "name": "Турель «Ромб»",
+          "position": { "x": 315, "y": 605 },
+          "facingDegrees": 345, "rotationDegreesPerSecond": -18,
+          "visionRange": 520, "visionAngleDegrees": 56, "interactionRange": 78,
+          "fireIntervalMs": 110, "projectileSpeed": 1050, "projectileRadius": 6,
+          "damage": 38, "color": "#ff6659"
+        }
+      ]
+    },
+    {
+      "id": "cockroach-mother-lair",
+      "name": "Гнездо Матери тараканов",
+      "archetype": "combat",
+      "width": 1200,
+      "height": 840,
+      "playerSpawn": { "x": 95, "y": 420 },
+      "spawnLayouts": [
+        {
+          "id": "mother-center",
+          "name": "Мать в центре",
+          "enemySpawns": [{ "x": 670, "y": 420 }]
+        },
+        {
+          "id": "mother-far-wall",
+          "name": "Мать у дальней стены",
+          "enemySpawns": [{ "x": 930, "y": 420 }]
+        }
+      ],
+      "obstacles": [
+        { "x": 390, "y": 300, "width": 70, "height": 90, "elevation": 45 },
+        { "x": 390, "y": 450, "width": 70, "height": 90, "elevation": 45 },
+        { "x": 740, "y": 300, "width": 70, "height": 90, "elevation": 45 },
+        { "x": 740, "y": 450, "width": 70, "height": 90, "elevation": 45 }
+      ],
+      "encounter": {
+        "enemyIds": ["cockroach-mother"],
+        "swarmEnemyId": "swarm-cockroach",
+        "infiniteSwarm": true
+      },
+      "bossHoles": [
+        { "id": "circle-hole", "shape": "circle", "position": { "x": 85, "y": 85 }, "linkedHoleId": "triangle-hole", "color": "#b87954" },
+        { "id": "square-hole", "shape": "square", "position": { "x": 1115, "y": 85 }, "linkedHoleId": "diamond-hole", "color": "#8f694f" },
+        { "id": "triangle-hole", "shape": "triangle", "position": { "x": 1115, "y": 755 }, "linkedHoleId": "circle-hole", "color": "#9f5d45" },
+        { "id": "diamond-hole", "shape": "diamond", "position": { "x": 85, "y": 755 }, "linkedHoleId": "square-hole", "color": "#765947" }
+      ],
+      "altar": {
+        "position": { "x": 150, "y": 420 },
+        "chanceCost": 5,
+        "prompt": "Хотите ли вы принести жертву 5 шансов?"
+      }
+    },
+    {
       "id": "curator-threshold",
       "name": "Порог Куратора",
       "archetype": "event",
@@ -757,15 +862,20 @@
         { "x": 430, "y": 460, "width": 95, "height": 210, "elevation": 145 },
         { "x": 760, "y": 85, "width": 75, "height": 175, "elevation": 105 },
         { "x": 760, "y": 500, "width": 75, "height": 175, "elevation": 105 }
-      ]
+      ],
+      "altar": {
+        "position": { "x": 175, "y": 380 },
+        "chanceCost": 5,
+        "prompt": "Хотите ли вы принести жертву 5 шансов?"
+      }
     }
   ],
   "enemies": [
     {
       "id": "servant",
       "name": "Слуга",
-      "maxHp": 28,
-      "radius": 20,
+      "maxHp": 34,
+      "radius": 24,
       "moveSpeed": 105,
       "armor": 0,
       "dodge": 0.05,
@@ -789,8 +899,8 @@
     {
       "id": "running-stapler",
       "name": "Бегущий степлер",
-      "maxHp": 20,
-      "radius": 16,
+      "maxHp": 26,
+      "radius": 20,
       "moveSpeed": 145,
       "armor": 1,
       "dodge": 0.12,
@@ -865,10 +975,10 @@
     {
       "id": "spider-knife",
       "name": "Нож-паук",
-      "maxHp": 24,
+      "maxHp": 48,
       "radius": 16,
       "moveSpeed": 205,
-      "armor": 0,
+      "armor": 2,
       "dodge": 0.38,
       "idleTurnRadiansPerSecond": 0.52,
       "visionRange": 330,
@@ -988,6 +1098,41 @@
       "color": "#4e2947"
     },
     {
+      "id": "cockroach-mother",
+      "name": "Мать тараканов",
+      "maxHp": 620,
+      "radius": 74,
+      "moveSpeed": 255,
+      "armor": 7,
+      "dodge": 0.12,
+      "idleTurnRadiansPerSecond": 0.45,
+      "visionRange": 1200,
+      "visionAngleDegrees": 360,
+      "noticeMs": 120,
+      "alertPauseMs": 180,
+      "attackRange": 360,
+      "preferredAttackRangeRatio": 0.55,
+      "role": "boss",
+      "attackKind": "leap",
+      "attackRadius": 30,
+      "leapDistance": 390,
+      "leapDurationMs": 360,
+      "targetLockMs": 135,
+      "attackDamage": 27,
+      "attackCooldownMs": 760,
+      "attackWindupMs": 510,
+      "parryWindowMs": 105,
+      "mentalPressurePerSecond": 4.8,
+      "color": "#6f3b2f",
+      "cockroachMother": {
+        "retreatHealthRatios": [0.75, 0.5, 0.25],
+        "retreatSpeed": 460,
+        "hideMs": 5000,
+        "blastRadius": 1100,
+        "blastDamageMaxHpRatio": 0.8
+      }
+    },
+    {
       "id": "colossus",
       "name": "Исполин",
       "maxHp": 400,
@@ -1017,8 +1162,8 @@
       "color": "#8a4a3c"
     },
     {
-      "id": "swarm-creep",
-      "name": "Крип",
+      "id": "swarm-cockroach",
+      "name": "Таракан",
       "maxHp": 1,
       "radius": 6,
       "moveSpeed": 160,
@@ -1029,7 +1174,7 @@
       "alertPauseMs": 1,
       "attackRange": 14,
       "preferredAttackRangeRatio": 0.9,
-      "role": "creep",
+      "role": "cockroach",
       "attackKind": "melee",
       "swarm": {
         "total": 100,
@@ -2546,7 +2691,9 @@
       "trait": "axeHookRecovery",
       "tuning": {
         "recoveryCancelDamageMultiplier": 1.35,
-        "hookPullDistance": 16
+        "hookPullDistance": 16,
+        "mouseDamageBonusMax": 0.25,
+        "mouseMotionForMaxBonusPx": 160
       },
       "defaultAugment": "none",
       "augmentHooks": {
@@ -2685,6 +2832,7 @@
       "attacks": {
         "tap": {
           "name": "Вальяжный полукруг секирой",
+          "description": "Движения прицелом в сторону взмаха повышают урон.",
           "behavior": "axeSwing",
           "kind": "melee",
           "damage": 20,
@@ -3584,14 +3732,15 @@
         "rhythmOverlayVisibleMs": 1050,
         "rhythmPerfectFeedbackMs": 480,
         "rhythmFatigueMs": 2000,
+        "rhythmMissesPerRoomBeforeFatigue": 3,
+        "rhythmConsecutiveMissesBeforeFatigue": 2,
         "advanceDistance": 14.4,
         "advanceSpeed": 144,
-        "mouseDamageBonusMax": 0.25,
-        "mouseMotionForMaxBonusPx": 160,
         "staggerDurationMs": 500,
         "unstoppableThresholdMs": 3000,
         "unstoppableDurationMs": 5000,
         "unterhauHoldMs": 1000,
+        "unterhauCooldownMultiplier": 3,
         "emptyOffhandDamageMultiplier": 1.5,
         "openingEveryHits": 3,
         "openingDurationMs": 1600
@@ -3632,7 +3781,7 @@
       "attacks": {
         "tap": {
           "name": "Zornhaw слева направо",
-          "description": "Zornhaw: Движения прицелом повышают урон. Удары в правильном ритме не дают устать.",
+          "description": "Zornhaw: удары в правильном ритме не дают устать.",
           "behavior": "swordRhythm",
           "kind": "melee",
           "damage": 17,
@@ -3684,7 +3833,7 @@
           "tuning": {
             "executionDamageMultiplier": 3.25
           },
-          "recoveryMs": 240
+          "recoveryMs": 500
         },
         "doubleTapHold": {
           "name": "Oberhaw → Unterhaw",
@@ -3692,7 +3841,7 @@
           "behavior": "swordFollowUp",
           "kind": "melee",
           "damage": 28,
-          "cooldownMs": 2800,
+          "cooldownMs": 8400,
           "range": 146,
           "radius": 15,
           "arcDegrees": 48,
@@ -3855,14 +4004,14 @@
             "width": 24,
             "traceMs": 720
           },
-          "recoveryMs": 240
+          "recoveryMs": 500
         },
         "doubleTapHold": {
           "name": "Oberhau → Unterhau второй кнопкой",
           "behavior": "swordFollowUp",
           "kind": "melee",
           "damage": 28,
-          "cooldownMs": 3400,
+          "cooldownMs": 5700,
           "range": 146,
           "radius": 15,
           "arcDegrees": 48,
@@ -3934,8 +4083,8 @@
               "commitPattern": [{ "delayMs": 0, "durationMs": 60, "magnitude": 0.55 }]
             },
             "nodes": [
-              { "id": "doubleTap", "gesture": "doubleTap", "entryContext": "neutral", "activationThreshold": 0.22, "dispatch": "release", "holdBehavior": "none", "releaseBehavior": "dispatch", "next": ["doubleTapHold"], "cancel": "release", "expiryMs": 1000, "tactileProfile": "followUp", "adaptiveOverride": { "startPosition": 0.22, "endPosition": 0.3, "force": 0.25 } },
-              { "id": "doubleTapHold", "gesture": "doubleTapHold", "entryContext": "neutral", "activationThreshold": 0.72, "dispatch": "release", "holdBehavior": "charge", "releaseBehavior": "dispatch", "next": [], "cancel": "release", "expiryMs": 1000, "tactileProfile": "gate", "entryTick": { "durationMs": 50, "magnitude": 0.4 }, "adaptiveOverride": { "startPosition": 0.72, "endPosition": 0.84, "force": 0.9 } }
+              { "id": "doubleTap", "gesture": "doubleTap", "entryContext": "neutral", "activationThreshold": 0.22, "dispatch": "press", "holdBehavior": "none", "releaseBehavior": "cancel", "next": ["doubleTapHold"], "cancel": "release", "expiryMs": 1000, "tactileProfile": "followUp", "adaptiveOverride": { "startPosition": 0.22, "endPosition": 0.3, "force": 0.25 } },
+              { "id": "doubleTapHold", "gesture": "doubleTapHold", "entryContext": "continuation", "activationThreshold": 0.72, "dispatch": "release", "holdBehavior": "charge", "releaseBehavior": "dispatch", "next": [], "cancel": "release", "expiryMs": 1000, "tactileProfile": "gate", "entryTick": { "durationMs": 50, "magnitude": 0.4 }, "adaptiveOverride": { "startPosition": 0.72, "endPosition": 0.84, "force": 0.9 } }
             ]
           }
         },
@@ -3955,8 +4104,8 @@
               "commitPattern": [{ "delayMs": 0, "durationMs": 60, "magnitude": 0.55 }]
             },
             "nodes": [
-              { "id": "doubleTap", "gesture": "doubleTap", "entryContext": "neutral", "activationThreshold": 0.22, "dispatch": "release", "holdBehavior": "none", "releaseBehavior": "dispatch", "next": ["doubleTapHold"], "cancel": "release", "expiryMs": 1000, "tactileProfile": "followUp", "adaptiveOverride": { "startPosition": 0.22, "endPosition": 0.3, "force": 0.25 } },
-              { "id": "doubleTapHold", "gesture": "doubleTapHold", "entryContext": "neutral", "activationThreshold": 0.72, "dispatch": "release", "holdBehavior": "charge", "releaseBehavior": "dispatch", "next": [], "cancel": "release", "expiryMs": 1000, "tactileProfile": "gate", "entryTick": { "durationMs": 50, "magnitude": 0.4 }, "adaptiveOverride": { "startPosition": 0.72, "endPosition": 0.84, "force": 0.9 } }
+              { "id": "doubleTap", "gesture": "doubleTap", "entryContext": "neutral", "activationThreshold": 0.22, "dispatch": "press", "holdBehavior": "none", "releaseBehavior": "cancel", "next": ["doubleTapHold"], "cancel": "release", "expiryMs": 1000, "tactileProfile": "followUp", "adaptiveOverride": { "startPosition": 0.22, "endPosition": 0.3, "force": 0.25 } },
+              { "id": "doubleTapHold", "gesture": "doubleTapHold", "entryContext": "continuation", "activationThreshold": 0.72, "dispatch": "release", "holdBehavior": "charge", "releaseBehavior": "dispatch", "next": [], "cancel": "release", "expiryMs": 1000, "tactileProfile": "gate", "entryTick": { "durationMs": 50, "magnitude": 0.4 }, "adaptiveOverride": { "startPosition": 0.72, "endPosition": 0.84, "force": 0.9 } }
             ]
           }
         }

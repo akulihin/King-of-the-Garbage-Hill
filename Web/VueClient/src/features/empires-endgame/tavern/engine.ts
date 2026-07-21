@@ -1,4 +1,5 @@
 import { digestTdValue } from '../td/engine'
+import { EMPIRES_STABILIZATION_BUDGETS } from '../stabilization'
 import type {
   TavernCommand,
   TavernPlan,
@@ -27,6 +28,12 @@ export function validateTavernPlan(plan: TavernPlan): string[] {
   }
   if (!Number.isInteger(plan.maxCommands) || plan.maxCommands < 1) {
     errors.push('Tavern plan maxCommands must be a positive integer.')
+  }
+  if (plan.maxCommands > EMPIRES_STABILIZATION_BUDGETS.maxCommands) {
+    errors.push('Tavern plan maxCommands exceeds the shipped safety ceiling.')
+  }
+  if (plan.mercenaryOffers.length > EMPIRES_STABILIZATION_BUDGETS.maxTavernOffers) {
+    errors.push('Tavern offer count exceeds the shipped safety ceiling.')
   }
   if (plan.sections.length !== 2
     || plan.sections[0] !== 'tables'

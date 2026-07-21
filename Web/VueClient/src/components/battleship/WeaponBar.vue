@@ -59,7 +59,7 @@ function handleSelect(weaponType: string, shotType: string, weaponId: string) {
           !w.hasAmmo ? 'wb-weapon--used' : '',
           w.aimSpeed > 0 ? 'wb-weapon--charging' : ''
         ]"
-        :aria-pressed="selectedShotType === w.shotType && selectedWeaponId === w.id"
+        :aria-pressed="selectedShotType === w.shotType && (w.shotType === 'Ballista' || selectedWeaponId === w.id)"
         :disabled="!w.hasAmmo || w.aimSpeed > 0"
         @mouseenter="showTip($event, weaponTooltip(w.shotType) + (w.aimSpeed > 0 ? ` (Прицел: ${w.aimSpeed} клет.)` : '') + ` [${wi + 1}]`)"
         @mousemove="moveTip"
@@ -73,7 +73,7 @@ function handleSelect(weaponType: string, shotType: string, weaponId: string) {
           <span class="wb-aim-charge-fill" :style="{ width: Math.max(5, (1 - w.aimSpeed / 20) * 100) + '%' }"></span>
           <span class="wb-aim-charge-text bs-mono">{{ w.aimSpeed }}</span>
         </span>
-        <span class="wb-source">{{ w.shipName }}</span>
+        <span v-if="w.shotType !== 'Ballista'" class="wb-source">{{ w.shipName }}</span>
         <span class="wb-hotkey bs-mono">{{ wi + 1 }}</span>
       </button>
     </div>

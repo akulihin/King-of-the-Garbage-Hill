@@ -1331,8 +1331,14 @@ public class CharacterClass
 
     public string GetIntelligenceString()
     {
-        if (Name == "Dopa")
-            return "200IQ";
+        if (Name == Dopa.CharacterName)
+        {
+            var intelligence = GetIntelligence();
+            var iq = intelligence >= 7
+                ? 200 + (intelligence - 7) * 9 + Math.Max(0, intelligence - 9)
+                : 200 - (7 - intelligence);
+            return iq.ToString();
+        }
 
         return $"{GetIntelligence()}{IntelligenceExtraText}";
     }

@@ -98,9 +98,9 @@ public class CharacterPassives : IServiceSingleton
                 naruto.FightCharacter.GetStrength() + 2, Naruto.Rasengan);
             naruto.Status.AddInGamePersonalLogs(PhrasePayload.Encode(
                 Naruto.Rasengan,
-                $"Совместный Расенган: Справедливость {justice}, +2 Силы.",
+                "РАСЕНГАН!",
                 "Rasengan",
-                $"Combined Rasengan: {justice} Justice, +2 Strength.") + "\n");
+                "RASENGAN!") + "\n");
             return;
         }
 
@@ -114,9 +114,9 @@ public class CharacterPassives : IServiceSingleton
             naruto.FightCharacter.GetPsyche() + 3, Naruto.Rasengan);
         naruto.Status.AddInGamePersonalLogs(PhrasePayload.Encode(
             Naruto.Rasengan,
-            $"Рассен-шурикен: Справедливость {justice}, +3 всех статов.",
+            "РАСЕНШУРИКЕН!!!!!!!!111",
             "Rasengan",
-            $"Rasen Shuriken: {justice} Justice, +3 to every stat.") + "\n");
+            "RASENSHURIKEN!!!!!!!!111") + "\n");
     }
 
 
@@ -1075,12 +1075,11 @@ public class CharacterPassives : IServiceSingleton
                     }
                     break;
 
-                // Salldorum — Очко: +1 bonus point when attacked by someone lower on leaderboard
+                // Salldorum — Очко: +1 regular point when attacked by the nearest living enemy below
                 case "Очко":
-                    if (target.GameCharacter.Name == "Salldorum"
-                        && me.Status.GetPlaceAtLeaderBoard() > target.Status.GetPlaceAtLeaderBoard())
+                    if (Salldorum.IsNearestLowerEnemy(game, target, me))
                     {
-                        target.Status.AddBonusPoints(1, "Очко");
+                        target.Status.AddRegularPoints(1, "Очко");
                         game.Phrases.SalldorumOchko.SendLog(target, false);
                     }
                     break;
@@ -1634,7 +1633,10 @@ public class CharacterPassives : IServiceSingleton
                 case "Макро":
                     me.Passives.DopaMacro.FightsProcessed++;
                     if (me.Passives.DopaMacro.FightsProcessed > 1)
+                    {
                         me.Status.HideCurrentFight = true;
+                        me.Status.IsShadowAction = true;
+                    }
                     break;
 
                 // Napoleon — Вступить в союз: form alliance on first attack; check joint attacks
@@ -1906,7 +1908,7 @@ public class CharacterPassives : IServiceSingleton
                         var debt = target.Passives.SellerTacticBonusEarned;
                         if (debt > 0)
                         {
-                            var stolen = Math.Ceiling(debt / 2);
+                            var stolen = debt / 2;
                             target.Status.AddBonusPoints(-stolen, "Выгодная сделка");
                             me.Status.AddBonusPoints(stolen, "Выгодная сделка");
                         }
@@ -2371,12 +2373,13 @@ public class CharacterPassives : IServiceSingleton
                     }
                     break;
 
-                case "Пассивный импакт":
-                    if (me.Status.IsWonThisCalculation != Guid.Empty)
-                        me.Passives.DopaWonThisRound = true;
+                case "Макро":
+                    me.Passives.DopaMacro.FightsResolved++;
                     break;
 
                 case "Доминация":
+                    if (me.GameCharacter.Name == Dopa.CharacterName
+                        && me.Passives.DopaMetaChoice.ChosenTactic != "Доминация") break;
                     if (me.Status.IsWonThisCalculation != Guid.Empty)
                     {
                         me.GameCharacter.AddExtraSkill(20, "Доминация");
@@ -2389,6 +2392,8 @@ public class CharacterPassives : IServiceSingleton
                     break;
 
                 case "Роум":
+                    if (me.GameCharacter.Name == Dopa.CharacterName
+                        && me.Passives.DopaMetaChoice.ChosenTactic != "Роум") break;
                     if (me.Status.IsWonThisCalculation != Guid.Empty)
                     {
                         var myPlace = me.Status.GetPlaceAtLeaderBoard();
@@ -2556,6 +2561,7 @@ public class CharacterPassives : IServiceSingleton
     {
         TheBoysSpreadVirus(player, game);
         Madara.RecordResolvedFight(player, game, defense);
+        Naruto.RecordResolvedTripleRasengan(player, game, attack);
 
         if (attack && GordonFreeman.Is(player)
             && (player.Status.IsWonThisCalculation != Guid.Empty
@@ -2600,13 +2606,14 @@ public class CharacterPassives : IServiceSingleton
                 case "Впарить говна":
                     if (p.GetPlayerId() != player.GetPlayerId())
                     {
-                        // +1 bonus for wins over outplay-marked enemies only
+                        // +1 base bonus for wins over outplay-marked enemies only
                         if (player.Passives.SellerVparitGovnaRoundsLeft > 0 &&
                             player.Passives.SellerOutplayTargets.Count > 0 &&
                             player.Passives.SellerOutplayTargets.Contains(player.Status.IsWonThisCalculation))
                         {
+                            var bonusBefore = player.Status.GetBonusPointsEarnedThisRound();
                             player.Status.AddBonusPoints(1, "Впарить говна");
-                            player.Passives.SellerTacticBonusEarned++;
+                            player.Passives.SellerTacticBonusEarned += player.Status.GetBonusPointsEarnedThisRound() - bonusBefore;
                         }
                     }
                     break;
@@ -2621,7 +2628,7 @@ public class CharacterPassives : IServiceSingleton
                         if (isMarked || hasTactic)
                         {
                             p.Passives.SellerProfitableDealsThisRound++;
-                            p.GameCharacter.AddMoral(5, "Выгодная сделка");
+                            p.GameCharacter.AddMoral(3, "Выгодная сделка");
                         }
                     }
                     break;
@@ -2630,10 +2637,10 @@ public class CharacterPassives : IServiceSingleton
                     // p = seller, player = fight participant who attacked seller and won
                     if (attack && player.Status.IsWonThisCalculation == p.GetPlayerId())
                     {
-                        if (_rand.Luck(1, 10))
+                        if (_rand.Luck(1, 5))
                         {
-                            player.Status.AddBonusPoints(2, "Большой куш");
-                            p.Status.AddBonusPoints(-2, "Большой куш");
+                            player.Status.AddBonusPoints(3, "Большой куш");
+                            p.Status.AddBonusPoints(-3, "Большой куш");
                             game.Phrases.SellerBolshoiKushEnemy.SendLog(player, false);
                         }
                     }
@@ -4825,17 +4832,11 @@ public class CharacterPassives : IServiceSingleton
                     player.Passives.SellerProfitableDealsThisRound = 0;
                     break;
 
-                case "Пассивный импакт":
-                    if (player.Passives.DopaWonThisRound)
-                    {
-                        player.Status.AddBonusPoints(1, "Пассивный импакт");
-                        game.Phrases.DopaImpact.SendLog(player, false);
-                    }
-                    player.Passives.DopaWonThisRound = false;
-                    break;
-
                 case "Взгляд в будущее":
                     if (player.Passives.DopaVision.Cooldown > 0) break;
+                    // Both Макро attacks must become real fights. A submitted target that Blocks or
+                    // Skips does not satisfy the simultaneous-attack promise (M130).
+                    if (player.Passives.DopaMacro.FightsResolved < 2) break;
                     // Filter out self-ID (block action) — vision requires two actual enemy targets
                     var visionTargets = player.Status.WhoToAttackThisTurn
                         .Where(t => t != player.GetPlayerId()).ToList();
@@ -4853,7 +4854,10 @@ public class CharacterPassives : IServiceSingleton
 
                     if (visionProc)
                     {
-                        int pointsAward = player.GameCharacter.Passive.Any(x => x.PassiveName == "Фарм") ? 4 : 2;
+                        var farmActive = player.GameCharacter.Passive.Any(x => x.PassiveName == "Фарм")
+                            && (player.GameCharacter.Name != Dopa.CharacterName
+                                || player.Passives.DopaMetaChoice.ChosenTactic == "Фарм");
+                        int pointsAward = farmActive ? 4 : 2;
                         player.Status.AddRegularPoints(pointsAward, "Взгляд в будущее");
                         player.GameCharacter.AddExtraSkill(50, "Взгляд в будущее");
                         player.Passives.DopaVision.Cooldown = 1;
@@ -5704,19 +5708,7 @@ public class CharacterPassives : IServiceSingleton
 
                     case "Стримснайпят и банят и банят и банят":
                         if (game.RoundNo == 10)
-                        {
-                            player.Status.IsSkip = true;
-                            player.Status.ConfirmedSkip = false;
-                            player.Status.IsBlock = false;
-                            player.Status.IsReady = true;
-                            player.Status.WhoToAttackThisTurn = new List<Guid>();
-                            player.GameCharacter.SetPsyche(0, "Стримснайпят и банят и банят и банят");
-                            player.GameCharacter.SetIntelligence(0,
-                                "Стримснайпят и банят и банят и банят");
-                            player.GameCharacter.SetStrength(10, "Стримснайпят и банят и банят и банят");
-                            game.AddGlobalLogs(
-                                $"{player.DiscordUsername}: ЕБАННЫЕ БАНЫ НА 10 ЛЕТ");
-                        }
+                            Tigr.ApplyRoundTenBan(player, game);
 
                         break;
 
@@ -6314,6 +6306,7 @@ public class CharacterPassives : IServiceSingleton
 
                     case "Макро":
                         player.Passives.DopaMacro.FightsProcessed = 0;
+                        player.Passives.DopaMacro.FightsResolved = 0;
                         break;
 
                     case "Get cancer":
@@ -6326,15 +6319,6 @@ public class CharacterPassives : IServiceSingleton
                             player.Passives.DopaVision.Cooldown--;
                             if (player.Passives.DopaVision.Cooldown == 0)
                                 game.Phrases.DopaVisionReady.SendLog(player, false);
-                        }
-                        break;
-
-                    case "Законодатель меты":
-                        if (game.RoundNo == 1 && player.IsBot() && !player.Passives.DopaMetaChoice.Triggered)
-                        {
-                            var tactics = new[] { "Стомп", "Фарм", "Доминация", "Роум" };
-                            var chosen = tactics[_rand.Random(0, 3)];
-                            ApplyDopaChoice(player, game, chosen);
                         }
                         break;
 
@@ -6575,8 +6559,7 @@ public class CharacterPassives : IServiceSingleton
             var marked = game.PlayersList.Find(x => x.GetPlayerId() == markedId);
             // "кроме банов": the anti-skip must NOT lift the round-10 Тигр ban (finding M10) —
             // un-banning breaks the other systems (targeting, Тигр-топ) that assume he's banned.
-            var markedIsBanned = marked != null && game.RoundNo == 10 &&
-                marked.GameCharacter.Passive.Any(x => x.PassiveName == "Стримснайпят и банят и банят и банят");
+            var markedIsBanned = marked != null && Tigr.IsRoundTenBanned(marked, game.RoundNo);
             if (marked != null && marked.Status.IsSkip && !marked.Status.ConfirmedSkip && !markedIsBanned)
             {
                 marked.Status.IsSkip = false;
@@ -6592,7 +6575,7 @@ public class CharacterPassives : IServiceSingleton
 
 
 
-    public void ApplyDopaChoice(GamePlayerBridgeClass player, GameClass game, string tactic)
+    public static void ApplyDopaChoice(GamePlayerBridgeClass player, GameClass game, string tactic)
     {
         player.Passives.DopaMetaChoice.Triggered = true;
         player.Passives.DopaMetaChoice.ChosenTactic = tactic;
@@ -6600,7 +6583,19 @@ public class CharacterPassives : IServiceSingleton
         var allTactics = new[] { "Стомп", "Фарм", "Доминация", "Роум" };
         foreach (var t in allTactics.Where(t => t != tactic))
             player.GameCharacter.Passive.RemoveAll(x => x.PassiveName == t);
-        player.GameCharacter.Passive.RemoveAll(x => x.PassiveName == "Законодатель меты");
+
+        var meta = player.GameCharacter.Passive.Find(x => x.PassiveName == Dopa.Meta);
+        if (meta != null)
+        {
+            meta.PassiveDescription = tactic switch
+            {
+                "Стомп" => "+9 Силы и 99 *Скилла*.",
+                "Фарм" => "\"Взгляд в будущее\" приносит вдвое больше очков.",
+                "Доминация" => "Победы приносят Допе +20 *Скилла*, а цель теряет **бонусное** очко и иногда психику. (шанс 33%)",
+                "Роум" => "При победе над врагами, не стоящими по соседству в таблице, **Крадет** у них **бонусное** очко и 3 *Морали*.",
+                _ => meta.PassiveDescription,
+            };
+        }
 
         if (tactic == "Стомп")
         {
@@ -6719,6 +6714,14 @@ public class CharacterPassives : IServiceSingleton
                         game.Phrases.TigrTop.SendLog(player, false);
                     }
 
+                    break;
+
+                case "Permaban":
+                    if (game.RoundNo == 10 && player.Status.GetPlaceAtLeaderBoard() == 1)
+                    {
+                        player.Passives.DopaPermabanTriggered = true;
+                        Tigr.ApplyRoundTenBan(player, game);
+                    }
                     break;
 
                 case "Много выебывается":

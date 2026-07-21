@@ -30,6 +30,7 @@ import {
 } from './gamepad'
 import { buildLastChancesPlan } from './plan'
 import type { LastChancesFeedbackPreferences } from './preferences'
+import { resolveLastChancesSpearChargeVisual } from './spear-visuals'
 import {
   DualSenseFeedbackController,
   type LastChancesHapticGamepadLike,
@@ -84,6 +85,8 @@ import type {
   LastChancesHitEffectDefinition,
   LastChancesHazardDefinition,
   LastChancesMoveQuestSnapshot,
+  LastChancesBossHoleDefinition,
+  LastChancesBossAltarDefinition,
   LastChancesOutfitDefinition,
   LastChancesZoneShape,
   LastChancesInteractionChoice,
@@ -97,6 +100,7 @@ import type {
   LastChancesSemanticControlCue,
   LastChancesStats,
   LastChancesTactileProfile,
+  LastChancesTurretDefinition,
   LastChancesVector,
 } from './types'
 
@@ -157,8 +161,17 @@ interface RuntimeEnemy {
   gestureHits: Record<LastChancesHand, Set<LastChancesGesture>>
   /** An opened target touched by Oberhaw refreshes its cooldown on any later death. */
   swordExecutionMarked: boolean
-  /** Swarm creeps spawn outside the arena and skip the bounds clamp until fully inside. */
+  /** Swarm cockroaches spawn outside the arena and skip the bounds clamp until fully inside. */
   entering: boolean
+  motherRetreatsTriggered: number
+  motherRetreat: RuntimeMotherRetreat | null
+}
+
+interface RuntimeMotherRetreat {
+  stage: 'approaching' | 'hidden'
+  entranceHoleId: string
+  exitHoleId: string
+  detonateAtMs: number
 }
 
 interface RuntimeGroundWeapon {
@@ -166,6 +179,11 @@ interface RuntimeGroundWeapon {
   weaponId: string
   augment: LastChancesAugment
   position: LastChancesVector
+}
+
+interface RuntimeRewardChest {
+  position: LastChancesVector
+  opened: boolean
 }
 
 interface RuntimeZoneAttack {
@@ -187,6 +205,31 @@ interface RuntimeSwarmSpawner {
   spawnedCount: number
   nextSpawnAtMs: number
   rng: () => number
+  infinite: boolean
+}
+
+interface RuntimeTurret {
+  definition: LastChancesTurretDefinition
+  facing: LastChancesVector
+  disabled: boolean
+  seesPlayer: boolean
+  fireCooldownMs: number
+}
+
+interface RuntimeHoleStrike {
+  holeId: string
+  center: LastChancesVector
+  radius: number
+  damageMaxHpRatio: number
+  spawnedAtMs: number
+  detonateAtMs: number
+  sourceName: string
+}
+
+interface RuntimeBossCheckpoint {
+  nodeId: string
+  attemptPath: string[]
+  loadout: LastChancesLoadoutDefinition | null
 }
 
 interface HandMoveQuestState {
@@ -289,10 +332,10 @@ interface RuntimeActiveArea {
   baseRepeatIntervalMs: number
   rotationAssisted: boolean
   latchedIds: Set<string>
-  /** Horizontal pointer travel matching this Sword sweep. */
-  swordMatchingMousePx: number
-  /** Current nonlinear Zornhaw mouse-motion damage bonus. */
-  swordMotionDamageBonus: number
+  /** Horizontal pointer travel matching a direction-assisted basic sweep. */
+  matchingAimMotionPx: number
+  /** Current nonlinear direction-assisted damage bonus. */
+  motionDamageBonus: number
 }
 
 interface RuntimeEffect {
@@ -314,6 +357,15 @@ interface RuntimeColliderTrace {
   color: string
   remainingMs: number
   totalMs: number
+}
+
+interface RuntimeSpearSpriteLayout {
+  center: LastChancesVector
+  axis: LastChancesVector
+  perpendicular: LastChancesVector
+  width: number
+  height: number
+  pivotRatio: number
 }
 
 interface RuntimeTapCombo {
@@ -365,6 +417,9 @@ interface RuntimeWeaponState {
   spinInertiaDirection: LastChancesVector | null
   perfectTimingMs: number
   fatigueMs: number
+  roomTimingMisses: number
+  consecutiveTimingMisses: number
+  fatigueTriggeredByTapAtMs: number
   unterhauDueAtMs: number
   unterhauTargetId: string | null
   unterhauTargetPosition: LastChancesVector | null
@@ -522,6 +577,12 @@ function tuningValue(
   return typeof value === 'number' && Number.isFinite(value) ? value : fallback
 }
 
+function isCockroachDefinition(definition: LastChancesEnemyDefinition): boolean {
+  return definition.swarm !== undefined
+    && definition.maxHp === 1
+    && definition.attackDamage === 1
+}
+
 function pointHitsObstacle(
   point: LastChancesVector,
   radius: number,
@@ -557,6 +618,13 @@ function segmentHitsObstacle(
     if (minimum > maximum) return false
   }
   return true
+}
+
+function colliderOrigin(collider: LastChancesRuntimeCollider): LastChancesVector {
+  if (collider.shape === 'sector') return collider.origin
+  if (collider.shape === 'circle') return collider.center
+  if (collider.shape === 'sweep') return collider.pivot
+  return collider.start
 }
 
 export class LastChancesEngine {
@@ -600,6 +668,7 @@ export class LastChancesEngine {
   private activeLoadout: LastChancesLoadoutDefinition | null
   private corpseBoundPrimaryWeaponId: string | null = null
   private groundWeapons: RuntimeGroundWeapon[] = []
+  private rewardChest: RuntimeRewardChest | null = null
   private nextGroundWeaponId = 1
   private ninjaDashReadyAtMs = 0
   /** The page-owned route overlay suppresses cleared-room exploration while it is visible. */
@@ -610,7 +679,13 @@ export class LastChancesEngine {
   private deathReason: string | null = null
   private enemies: RuntimeEnemy[] = []
   private zoneAttacks: RuntimeZoneAttack[] = []
+  private holeStrikes: RuntimeHoleStrike[] = []
   private swarmSpawner: RuntimeSwarmSpawner | null = null
+  private turrets: RuntimeTurret[] = []
+  private turretAlarmMs = 0
+  private altarPromptActive = false
+  private bossCheckpoint: RuntimeBossCheckpoint | null = null
+  private cockroachesExtinct = false
   private moveQuests: Record<LastChancesHand, HandMoveQuestState> = {
     left: createHandMoveQuestState(),
     right: createHandMoveQuestState(),
@@ -707,6 +782,7 @@ export class LastChancesEngine {
   private cssHeight = 600
   private dpr = 1
   private frameNowMs = 0
+  private spearImage: HTMLImageElement | null = null
   private readonly resizeObserver: ResizeObserver | null
 
   constructor(
@@ -723,6 +799,14 @@ export class LastChancesEngine {
 
     this.canvas = canvas
     this.context = context
+    if (typeof Image !== 'undefined') {
+      this.spearImage = new Image()
+      this.spearImage.decoding = 'async'
+      this.spearImage.onload = () => {
+        if (!this.destroyed) this.render()
+      }
+      this.spearImage.src = '/99lc/twohand-spear.png'
+    }
     this.callbacks = callbacks
     this.config = cloneLastChancesConfig(migratedConfig)
     if (!this.config.input.mylorik || !this.config.input.dualsense) {
@@ -965,7 +1049,7 @@ export class LastChancesEngine {
   }
 
   setPaused(paused: boolean): void {
-    if (this.paused === paused || this.destroyed) return
+    if (this.paused === paused || this.destroyed || (this.altarPromptActive && !paused)) return
     if (paused) {
       this.commitHeldChannels()
       this.commitOrCancelProvisionalParry()
@@ -1008,6 +1092,7 @@ export class LastChancesEngine {
     this.hazardHitCycles.clear()
     this.hazardSuppressedUntil.clear()
     this.interactionResolved = false
+    this.rewardChest = null
     this.cooldownEnds.clear()
     this.resetTapCombos()
     this.gestures.reset()
@@ -1020,14 +1105,38 @@ export class LastChancesEngine {
       quest.pendingUnlocks = []
       quest.roomKills = { tap: 0, hold: 0 }
     }
+    for (const weapon of this.weapons.values()) {
+      if (weapon.trait !== 'swordRhythm') continue
+      const state = this.weaponState(weapon)
+      state.lastTapAtMs = Number.NEGATIVE_INFINITY
+      state.rhythm = 'idle'
+      state.perfectTimingMs = 0
+      state.fatigueMs = 0
+      state.roomTimingMisses = 0
+      state.consecutiveTimingMisses = 0
+      state.fatigueTriggeredByTapAtMs = Number.NEGATIVE_INFINITY
+    }
     this.zoneAttacks = []
+    this.holeStrikes = []
     this.swarmSpawner = null
+    this.turretAlarmMs = 0
+    this.turrets = node.turrets.map((definition) => {
+      const angle = definition.facingDegrees * Math.PI / 180
+      return {
+        definition,
+        facing: { x: Math.cos(angle), y: Math.sin(angle) },
+        disabled: false,
+        seesPlayer: false,
+        fireCooldownMs: 0,
+      }
+    })
     this.groundWeapons = []
     this.ninjaDashReadyAtMs = 0
     const swarmDefinition = node.swarm
       ? this.enemyDefinitions.get(node.swarm.definitionId)
       : undefined
-    if (node.swarm && swarmDefinition?.swarm) {
+    if (node.swarm && swarmDefinition?.swarm
+      && !(this.cockroachesExtinct && isCockroachDefinition(swarmDefinition))) {
       this.swarmSpawner = {
         definition: swarmDefinition,
         edges: node.swarm.edges,
@@ -1036,6 +1145,7 @@ export class LastChancesEngine {
         spawnedCount: 0,
         nextSpawnAtMs: 0,
         rng: createLastChancesRng(`${node.seed}:swarm`),
+        infinite: node.swarm.infinite === true,
       }
     }
     this.enemies = node.enemies.map((enemy) => {
@@ -1065,11 +1175,16 @@ export class LastChancesEngine {
         gestureHits: { left: new Set(), right: new Set() },
         swordExecutionMarked: false,
         entering: false,
+        motherRetreatsTriggered: 0,
+        motherRetreat: null,
       }
     })
     this.phase = 'playing'
     this.deathReason = null
-    if (this.enemies.length === 0 && !this.swarmSpawner) this.completeRoom()
+    this.altarPromptActive = node.altar !== null
+    if (this.altarPromptActive) this.paused = true
+    if (this.enemies.length === 0 && !this.swarmSpawner
+      && this.turrets.every(turret => turret.disabled)) this.completeRoom()
     this.render()
     this.emitSnapshot(true)
     return true
@@ -1081,7 +1196,28 @@ export class LastChancesEngine {
     if (!choice || !this.interactionChoiceAvailable(choice)) return false
     this.applyInteractionChoice(choice)
     this.interactionResolved = true
+    this.rewardChest = null
     this.finishRoomTransition()
+    this.render()
+    this.emitSnapshot(true)
+    return true
+  }
+
+  resolveAltar(accept: boolean): boolean {
+    const altar = this.currentNode?.altar
+    if (!this.altarPromptActive || !altar || this.phase !== 'playing') return false
+    if (accept) {
+      if (this.chances < altar.chanceCost) return false
+      this.chances -= altar.chanceCost
+      this.bossCheckpoint = {
+        nodeId: this.currentNode!.id,
+        attemptPath: [...this.attemptPath],
+        loadout: this.activeLoadout ? { ...this.activeLoadout } : null,
+      }
+    }
+    this.altarPromptActive = false
+    this.paused = false
+    this.lastFrameMs = performance.now()
     this.render()
     this.emitSnapshot(true)
     return true
@@ -1089,8 +1225,27 @@ export class LastChancesEngine {
 
   interact(): boolean {
     if (!this.canExploreRoom() || this.paused || !this.activeLoadout) return false
+    const turret = this.nearestActiveTurret()
+    if (turret && this.turretAlarmMs <= 0) {
+      turret.disabled = true
+      turret.seesPlayer = false
+      if (this.turrets.every(candidate => candidate.disabled)
+        && this.enemies.every(enemy => enemy.state === 'dead')
+        && !this.swarmSpawner) this.completeRoom()
+      this.emitSnapshot(true)
+      return true
+    }
     const groundWeapon = this.nearestGroundWeapon()
     if (groundWeapon) return this.pickUpGroundWeapon(groundWeapon)
+    const rewardChest = this.nearbyRewardChest()
+    if (rewardChest) {
+      rewardChest.opened = true
+      this.phase = 'interaction'
+      this.selectedInteractionChoiceId = null
+      this.cleanupControlInputs(false)
+      this.emitSnapshot(true)
+      return true
+    }
     if (this.phase !== 'playing') return false
     const spider = this.capturableKnifeSpider()
     if (!spider) return false
@@ -1118,7 +1273,17 @@ export class LastChancesEngine {
 
   retryAttempt(): boolean {
     if (this.phase !== 'dead' || this.chances <= 0) return false
+    const checkpoint = this.bossCheckpoint
+    this.bossCheckpoint = null
     this.resetAttempt()
+    if (checkpoint) {
+      this.activeLoadout = checkpoint.loadout ? { ...checkpoint.loadout } : null
+      this.rebuildWeapons()
+      this.attemptPath = checkpoint.attemptPath.slice(0, -1)
+      this.availableNodeIds = [checkpoint.nodeId]
+      this.selectedNodeId = checkpoint.nodeId
+      this.chooseNode(checkpoint.nodeId)
+    }
     this.render()
     this.emitSnapshot(true)
     return true
@@ -1129,6 +1294,8 @@ export class LastChancesEngine {
     this.plan = buildLastChancesPlan(this.config, this.generation, seedOverride)
     this.chances = this.config.chances
     this.totalDeaths = 0
+    this.bossCheckpoint = null
+    this.cockroachesExtinct = false
     this.corpseBoundPrimaryWeaponId = null
     this.nextGroundWeaponId = 1
     this.elapsedMs = 0
@@ -1163,7 +1330,7 @@ export class LastChancesEngine {
   }
 
   press(hand: LastChancesHand): void {
-    if (this.phase !== 'playing' || this.paused || this.destroyed) return
+    if (!this.canUseRoomActions() || this.paused || this.destroyed) return
     const now = performance.now()
     this.gestures.press(hand, now)
     const weapon = this.weapons.get(hand)
@@ -1192,7 +1359,7 @@ export class LastChancesEngine {
     if (this.destroyed) return
     const now = performance.now()
     const input = this.gestures.snapshot(hand, now)
-    if (this.phase === 'playing'
+    if (this.canUseRoomActions()
       && !this.paused
       && input.pressed
       && input.sequence === 'first'
@@ -1240,13 +1407,20 @@ export class LastChancesEngine {
   private updateImmediateSwordInputs(now: number): void {
     for (const hand of LAST_CHANCES_HANDS) {
       const immediate = this.immediateSwordInput[hand]
-      if (!immediate.oberhauExecuted || immediate.unterhauExecuted) continue
       const weapon = this.weapons.get(hand)
       if (weapon?.trait !== 'swordRhythm') continue
-      const input = this.gestures.snapshot(hand, now)
-      if (!input.pressed || input.sequence !== 'secondTap') continue
-      if (input.heldMs < tuningValue(weapon, 'unterhauHoldMs', 1000)) continue
-      immediate.unterhauExecuted = this.executePendingUnterhau(hand)
+      const holdGateMs = tuningValue(weapon, 'unterhauHoldMs', 1000)
+      if (immediate.oberhauExecuted && !immediate.unterhauExecuted) {
+        const input = this.gestures.snapshot(hand, now)
+        if (input.pressed && input.sequence === 'secondTap' && input.heldMs >= holdGateMs) {
+          immediate.unterhauExecuted = this.executePendingUnterhau(hand)
+        }
+      }
+      if (this.controlSchemeValue !== 'dualsense') continue
+      const trigger = this.dualSenseControls.snapshot(runtimeHandToPhysicalCluster(hand), now)
+      if (trigger.active && trigger.nodeId === 'doubleTapHold' && trigger.heldMs >= holdGateMs) {
+        this.executePendingUnterhau(hand)
+      }
     }
   }
 
@@ -1274,12 +1448,12 @@ export class LastChancesEngine {
     this.frameNowMs = frameMs
     this.pollGamepad()
     this.gestures.update(frameMs)
-    this.updateImmediateSwordInputs(frameMs)
     this.mylorikControls.update(frameMs)
     this.updateKeyboardDualSenseTriggers(frameMs)
     this.dualSenseControls.update(frameMs, physicalHand => (
       this.weapons.get(physicalClusterToRuntimeHand(physicalHand))?.controls
     ))
+    this.updateImmediateSwordInputs(frameMs)
     if (!this.paused) {
       this.elapsedMs += deltaMs
       if (this.phase === 'playing') this.update(deltaMs / 1000, deltaMs)
@@ -1318,9 +1492,11 @@ export class LastChancesEngine {
     this.updateDelayedRecoveries(deltaMs)
     this.updateSwordAdvance(deltaSeconds)
     this.updatePlayer(deltaSeconds)
+    this.updateTurrets(deltaSeconds, deltaMs)
     this.updateProjectiles(deltaSeconds, deltaMs)
     this.updateSwarmSpawner()
     this.updateEnemies(deltaSeconds, deltaMs)
+    this.updateHoleStrikes()
     this.updateZoneAttacks()
     this.updateActiveAreas(deltaMs)
     this.updateHazards(deltaSeconds)
@@ -1333,7 +1509,8 @@ export class LastChancesEngine {
     this.pointerDeltaX = 0
     if (this.phase === 'playing'
       && (this.swarmSpawner?.remaining ?? 0) <= 0
-      && this.enemies.every(enemy => enemy.state === 'dead')) this.completeRoom()
+      && this.enemies.every(enemy => enemy.state === 'dead')
+      && this.turrets.every(turret => turret.disabled)) this.completeRoom()
   }
 
   private canExploreRoom(): boolean {
@@ -1341,9 +1518,32 @@ export class LastChancesEngine {
       || (this.phase === 'planning' && this.currentNode !== null && !this.routeMapVisible)
   }
 
+  private canUseRoomActions(): boolean {
+    return this.canExploreRoom() && !this.routeMapVisible
+  }
+
   private updateClearedRoom(deltaSeconds: number, deltaMs: number): void {
     this.player.invulnerableMs = Math.max(0, this.player.invulnerableMs - deltaMs)
+    this.player.rootMs = Math.max(0, this.player.rootMs - deltaMs)
+    this.player.recoveryMs = Math.max(0, this.player.recoveryMs - deltaMs)
+    for (const state of this.weaponStates.values()) {
+      state.recoveryMs = Math.max(0, state.recoveryMs - deltaMs)
+      state.perfectTimingMs = Math.max(0, state.perfectTimingMs - deltaMs)
+      state.fatigueMs = Math.max(0, state.fatigueMs - deltaMs)
+    }
+    this.updateHeldWeaponMechanics(deltaMs)
+    this.updateDelayedAttacks(deltaMs)
+    this.updateDelayedRecoveries(deltaMs)
+    this.updateSwordAdvance(deltaSeconds)
     this.updatePlayer(deltaSeconds)
+    this.updateProjectiles(deltaSeconds, deltaMs)
+    this.updateActiveAreas(deltaMs)
+    this.syncContinuationFeedback()
+    this.effects.forEach(effect => { effect.remainingMs -= deltaMs })
+    this.effects = this.effects.filter(effect => effect.remainingMs > 0)
+    this.traces.forEach(trace => { trace.remainingMs -= deltaMs })
+    this.traces = this.traces.filter(trace => trace.remainingMs > 0)
+    this.pointerDeltaX = 0
   }
 
   private updateDelayedAttacks(deltaMs: number): void {
@@ -1353,9 +1553,10 @@ export class LastChancesEngine {
       if (delayed.remainingMs <= 0) ready.push(delayed)
     }
     this.delayedAttacks = this.delayedAttacks.filter(delayed => delayed.remainingMs > 0)
-    if (this.phase !== 'playing') return
+    if (!this.canUseRoomActions()) return
     for (const delayed of ready) {
-      this.executeAttack(
+      if (delayed.attack.behavior === 'swordFollowUp') this.executeSwordFollowUp(delayed)
+      else this.executeAttack(
         delayed.attack,
         this.resolveDelayedAttackDirection(delayed),
         delayed.context,
@@ -1372,40 +1573,6 @@ export class LastChancesEngine {
 
   private resolveDelayedAttackDirection(delayed: RuntimeDelayedAttack): LastChancesVector {
     if (delayed.attack.behavior !== 'swordFollowUp') return delayed.direction
-    const originalTarget = delayed.targetEnemyId
-      ? this.enemies.find(enemy => enemy.id === delayed.targetEnemyId)
-      : null
-    if (originalTarget?.state !== 'dead') {
-      const distance = Math.sqrt(distanceSquared(this.player.position, originalTarget.position))
-      if (distance <= delayed.attack.range + originalTarget.definition.radius) {
-        return normalize({
-          x: originalTarget.position.x - this.player.position.x,
-          y: originalTarget.position.y - this.player.position.y,
-        }, delayed.direction)
-      }
-      return normalize(this.player.aim, delayed.direction)
-    }
-    if (delayed.targetEnemyId) {
-      const nearest = this.enemies
-        .filter(enemy => enemy.state !== 'dead')
-        .sort((left, right) => (
-          distanceSquared(this.player.position, left.position)
-            - distanceSquared(this.player.position, right.position)
-          || left.id.localeCompare(right.id)
-        ))[0]
-      if (nearest) {
-        return normalize({
-          x: nearest.position.x - this.player.position.x,
-          y: nearest.position.y - this.player.position.y,
-        }, delayed.direction)
-      }
-    }
-    if (delayed.targetPosition) {
-      return normalize({
-        x: delayed.targetPosition.x - this.player.position.x,
-        y: delayed.targetPosition.y - this.player.position.y,
-      }, delayed.direction)
-    }
     return normalize(this.player.aim, delayed.direction)
   }
 
@@ -1529,7 +1696,13 @@ export class LastChancesEngine {
           continue
         }
         if (!dashColliders.some(collider => (
-          colliderHitsCircle(collider, enemy.position, enemy.definition.radius)
+          this.attackColliderHitsCircle(
+            collider,
+            enemy.position,
+            enemy.definition.radius,
+            this.activeDash!.attack,
+            dashStart,
+          )
         ))) continue
         const nextHit = (previous?.hits ?? 0) + 1
         this.activeDash.hitRecords.set(enemy.id, {
@@ -1731,9 +1904,10 @@ export class LastChancesEngine {
         this.addColliderTrace(sweptCollider, projectile.attack)
       }
       const arena = this.currentNode?.arena
-      const hitObstacle = arena?.obstacles.some(obstacle => (
-        segmentHitsObstacle(projectileStart, projectile.position, obstacle, projectile.radius)
-      )) ?? false
+      const hitObstacle = projectile.attack?.collider?.passesThroughWalls !== true
+        && (arena?.obstacles.some(obstacle => (
+          segmentHitsObstacle(projectileStart, projectile.position, obstacle, projectile.radius)
+        )) ?? false)
       const hitBoundary = !!arena && (
         projectile.position.x - projectile.radius <= 0
         || projectile.position.y - projectile.radius <= 0
@@ -1805,7 +1979,13 @@ export class LastChancesEngine {
       }
       for (const enemy of this.enemies) {
         if (enemy.state === 'dead' || projectile.hitIds.has(enemy.id)) continue
-        if (!colliderHitsCircle(sweptCollider, enemy.position, enemy.definition.radius)) continue
+        if (!this.attackColliderHitsCircle(
+          sweptCollider,
+          enemy.position,
+          enemy.definition.radius,
+          projectile.attack,
+          projectileStart,
+        )) continue
         projectile.hitIds.add(enemy.id)
         projectile.remainingHits -= 1
         const direction = normalize(projectile.velocity)
@@ -1851,21 +2031,89 @@ export class LastChancesEngine {
   private updateSwarmSpawner(): void {
     const spawner = this.swarmSpawner
     const node = this.currentNode
-    if (!spawner || spawner.remaining <= 0 || !node) return
+    if (!spawner || (!spawner.infinite && spawner.remaining <= 0) || !node) return
     const swarm = spawner.definition.swarm
     if (!swarm) return
-    while (spawner.remaining > 0 && this.roomElapsedMs >= spawner.nextSpawnAtMs) {
-      this.spawnSwarmCreep(spawner, node)
+    while ((spawner.infinite || spawner.remaining > 0)
+      && this.roomElapsedMs >= spawner.nextSpawnAtMs) {
+      this.spawnSwarmCockroach(spawner, node)
       spawner.spawnedCount += 1
-      spawner.remaining -= 1
-      // The initial burst pours out in one tick; afterwards one creep per interval.
+      if (!spawner.infinite) spawner.remaining -= 1
+      // The initial burst pours out in one tick; afterwards one cockroach per interval.
       if (spawner.spawnedCount >= swarm.initialBurst) {
         spawner.nextSpawnAtMs = this.roomElapsedMs + swarm.spawnIntervalMs
       }
     }
   }
 
-  private spawnSwarmCreep(spawner: RuntimeSwarmSpawner, node: LastChancesPlanNode): void {
+  private updateTurrets(deltaSeconds: number, deltaMs: number): void {
+    const node = this.currentNode
+    if (!node || this.turrets.length === 0) return
+    for (const turret of this.turrets) {
+      if (turret.disabled) {
+        turret.seesPlayer = false
+        continue
+      }
+      const rotation = turret.definition.rotationDegreesPerSecond * Math.PI / 180 * deltaSeconds
+      const angle = Math.atan2(turret.facing.y, turret.facing.x) + rotation
+      turret.facing = { x: Math.cos(angle), y: Math.sin(angle) }
+      turret.seesPlayer = this.turretCanSeePlayer(turret, node)
+      turret.fireCooldownMs = Math.max(0, turret.fireCooldownMs - deltaMs)
+    }
+    if (this.turrets.some(turret => !turret.disabled && turret.seesPlayer)) {
+      this.turretAlarmMs = Math.max(this.turretAlarmMs, 650)
+    } else {
+      this.turretAlarmMs = Math.max(0, this.turretAlarmMs - deltaMs)
+    }
+    if (this.turretAlarmMs <= 0) return
+    for (const turret of this.turrets) {
+      if (turret.disabled) continue
+      const direction = normalize({
+        x: this.player.position.x - turret.definition.position.x,
+        y: this.player.position.y - turret.definition.position.y,
+      }, turret.facing)
+      turret.facing = direction
+      if (turret.fireCooldownMs > 0) continue
+      const radius = turret.definition.projectileRadius
+      const speed = turret.definition.projectileSpeed
+      this.projectiles.push({
+        id: this.nextProjectileId++,
+        position: {
+          x: turret.definition.position.x + direction.x * (radius + 18),
+          y: turret.definition.position.y + direction.y * (radius + 18),
+        },
+        velocity: { x: direction.x * speed, y: direction.y * speed },
+        radius,
+        damage: turret.definition.damage,
+        knockback: 0,
+        remainingDistance: turret.definition.visionRange,
+        remainingMs: turret.definition.visionRange / speed * 1000,
+        remainingHits: 1,
+        hitIds: new Set(),
+        color: turret.definition.color,
+        source: 'enemy',
+        sourceName: turret.definition.name,
+      })
+      turret.fireCooldownMs = turret.definition.fireIntervalMs
+    }
+  }
+
+  private turretCanSeePlayer(turret: RuntimeTurret, node: LastChancesPlanNode): boolean {
+    const toPlayer = {
+      x: this.player.position.x - turret.definition.position.x,
+      y: this.player.position.y - turret.definition.position.y,
+    }
+    const distance = vectorLength(toPlayer)
+    if (distance > turret.definition.visionRange) return false
+    const direction = normalize(toPlayer)
+    const dot = direction.x * turret.facing.x + direction.y * turret.facing.y
+    if (dot < Math.cos(turret.definition.visionAngleDegrees * Math.PI / 360)) return false
+    return !node.arena.obstacles.some(obstacle => (
+      segmentHitsObstacle(turret.definition.position, this.player.position, obstacle)
+    ))
+  }
+
+  private spawnSwarmCockroach(spawner: RuntimeSwarmSpawner, node: LastChancesPlanNode): void {
     const definition = spawner.definition
     const edge = spawner.edges[spawner.spawnedCount % 2]
     const margin = definition.radius * 2 + 6
@@ -1903,6 +2151,8 @@ export class LastChancesEngine {
       gestureHits: { left: new Set(), right: new Set() },
       swordExecutionMarked: false,
       entering: true,
+      motherRetreatsTriggered: 0,
+      motherRetreat: null,
     })
   }
 
@@ -1918,18 +2168,34 @@ export class LastChancesEngine {
       }
       return
     }
+    if (enemy.definition.cockroachMother && this.currentNode) {
+      enemy.position.x = clamp(
+        enemy.position.x + delta.x,
+        enemy.definition.radius,
+        this.currentNode.arena.width - enemy.definition.radius,
+      )
+      enemy.position.y = clamp(
+        enemy.position.y + delta.y,
+        enemy.definition.radius,
+        this.currentNode.arena.height - enemy.definition.radius,
+      )
+      return
+    }
     this.moveCircle(enemy.position, delta, enemy.definition.radius)
   }
 
   private updateEnemies(deltaSeconds: number, deltaMs: number): void {
     let queuedAttackerActive = this.enemies.some((enemy) => {
-      return enemy.state === 'attacking' && this.enemyCombatProfile(enemy).role !== 'creep'
+      const role = this.enemyCombatProfile(enemy).role
+      return enemy.state === 'attacking' && role !== 'creep' && role !== 'cockroach'
     })
     for (const enemy of this.enemies) {
       if (enemy.hp <= 0) continue
+      if (this.updateCockroachMotherRetreat(enemy, deltaSeconds)) continue
       updateLastChancesStatuses(enemy.statuses, deltaMs, amount => {
         const hpBeforeTick = enemy.hp
         enemy.hp = Math.max(0, enemy.hp - amount)
+        this.applyCockroachMotherHealthGate(enemy)
         this.restoreFromLifesteal(hpBeforeTick - enemy.hp)
         if (enemy.hp <= 0) this.finishEnemyDeath(enemy)
       })
@@ -1988,13 +2254,15 @@ export class LastChancesEngine {
       }
 
       enemy.facing = normalize(toPlayer, enemy.facing)
-      const mayUseQueue = profile.role === 'creep' || !queuedAttackerActive
+      const mayUseQueue = profile.role === 'creep'
+        || profile.role === 'cockroach'
+        || !queuedAttackerActive
       if (distance <= profile.attackRange
         && enemy.attackCooldownMs <= 0
         && enemy.statuses.disarmMs <= 0
         && mayUseQueue) {
         this.startEnemyAttack(enemy, profile)
-        if (profile.role !== 'creep') queuedAttackerActive = true
+        if (profile.role !== 'creep' && profile.role !== 'cockroach') queuedAttackerActive = true
         continue
       }
       const desiredDistance = profile.attackRange
@@ -2013,6 +2281,102 @@ export class LastChancesEngine {
         }
       }
     }
+  }
+
+  private updateCockroachMotherRetreat(enemy: RuntimeEnemy, deltaSeconds: number): boolean {
+    const retreat = enemy.motherRetreat
+    const mother = enemy.definition.cockroachMother
+    const node = this.currentNode
+    if (!retreat || !mother || !node) return false
+    const entrance = node.bossHoles.find(hole => hole.id === retreat.entranceHoleId)
+    const exit = node.bossHoles.find(hole => hole.id === retreat.exitHoleId)
+    if (!entrance || !exit) {
+      enemy.motherRetreat = null
+      return false
+    }
+    if (retreat.stage === 'approaching') {
+      const offset = {
+        x: entrance.position.x - enemy.position.x,
+        y: entrance.position.y - enemy.position.y,
+      }
+      const distance = vectorLength(offset)
+      const direction = normalize(offset, enemy.facing)
+      enemy.facing = direction
+      const travel = Math.min(distance, mother.retreatSpeed * deltaSeconds)
+      this.moveEnemy(enemy, { x: direction.x * travel, y: direction.y * travel })
+      if (distance > enemy.definition.radius * 0.55) return true
+      enemy.position = { ...entrance.position }
+      retreat.stage = 'hidden'
+      retreat.detonateAtMs = this.elapsedMs + mother.hideMs
+      this.holeStrikes.push({
+        holeId: exit.id,
+        center: { ...exit.position },
+        radius: mother.blastRadius,
+        damageMaxHpRatio: mother.blastDamageMaxHpRatio,
+        spawnedAtMs: this.elapsedMs,
+        detonateAtMs: retreat.detonateAtMs,
+        sourceName: `${enemy.definition.name}: удар из норы`,
+      })
+      return true
+    }
+    if (this.elapsedMs < retreat.detonateAtMs) return true
+    enemy.position = { ...exit.position }
+    enemy.facing = normalize({
+      x: this.player.position.x - exit.position.x,
+      y: this.player.position.y - exit.position.y,
+    }, enemy.facing)
+    enemy.attackCooldownMs = Math.max(enemy.attackCooldownMs, 650)
+    enemy.state = 'chasing'
+    enemy.motherRetreat = null
+    return true
+  }
+
+  private applyCockroachMotherHealthGate(enemy: RuntimeEnemy): void {
+    const mother = enemy.definition.cockroachMother
+    const node = this.currentNode
+    if (!mother || !node || enemy.motherRetreat) return
+    const threshold = mother.retreatHealthRatios[enemy.motherRetreatsTriggered]
+    if (threshold === undefined || enemy.hp > enemy.definition.maxHp * threshold) return
+    const holes = node.bossHoles
+    if (holes.length === 0) return
+    enemy.hp = Math.max(enemy.hp, enemy.definition.maxHp * threshold)
+    const entrance = [...holes].sort((left, right) => (
+      distanceSquared(enemy.position, left.position) - distanceSquared(enemy.position, right.position)
+    ))[0]
+    const exit = holes.find(hole => hole.id === entrance.linkedHoleId)
+    if (!exit) return
+    enemy.motherRetreatsTriggered += 1
+    enemy.motherRetreat = {
+      stage: 'approaching',
+      entranceHoleId: entrance.id,
+      exitHoleId: exit.id,
+      detonateAtMs: 0,
+    }
+    enemy.state = 'chasing'
+    enemy.attackWindupMs = 0
+    enemy.lockedAttackDirection = null
+    enemy.leapRemainingDistance = 0
+    enemy.statuses.stunMs = 0
+    enemy.statuses.boundMs = 0
+  }
+
+  private updateHoleStrikes(): void {
+    if (this.holeStrikes.length === 0) return
+    const pending: RuntimeHoleStrike[] = []
+    for (const strike of this.holeStrikes) {
+      if (this.elapsedMs < strike.detonateAtMs) {
+        pending.push(strike)
+        continue
+      }
+      const hitRadius = strike.radius + this.config.player.radius
+      if (distanceSquared(this.player.position, strike.center) <= hitRadius * hitRadius) {
+        this.damagePlayerPure(
+          this.player.stats.maxHp * strike.damageMaxHpRatio,
+          strike.sourceName,
+        )
+      }
+    }
+    this.holeStrikes = pending
   }
 
   private enemyCombatProfile(enemy: RuntimeEnemy): RuntimeEnemyCombatProfile {
@@ -2197,7 +2561,7 @@ export class LastChancesEngine {
       candidate.controls?.dualsense.haptics?.wriggle
     ))
     const active = this.controlSchemeValue === 'dualsense'
-      && this.phase === 'playing'
+      && this.canUseRoomActions()
       && !this.paused
       && this.feedbackPreferences.mode === 'full'
       && wriggleWeapon !== undefined
@@ -2246,7 +2610,9 @@ export class LastChancesEngine {
     const pressure = Math.min(
       this.config.mentalHealth.maxPressurePerSecond,
       this.enemies.reduce((sum, enemy) => (
-        enemy.state === 'noticing' || enemy.state === 'alerted'
+        enemy.motherRetreat?.stage === 'hidden'
+          ? sum
+          : enemy.state === 'noticing' || enemy.state === 'alerted'
           || enemy.state === 'chasing' || enemy.state === 'attacking'
           ? sum + enemy.definition.mentalPressurePerSecond
           : sum
@@ -2295,7 +2661,7 @@ export class LastChancesEngine {
   private handleSemanticInput(
     event: LastChancesSemanticInputEvent,
   ): 'handled' | 'buffer' | 'blocked' | 'observe' {
-    if (event.scheme !== this.controlSchemeValue || this.phase !== 'playing' || this.paused) {
+    if (event.scheme !== this.controlSchemeValue || !this.canUseRoomActions() || this.paused) {
       return 'blocked'
     }
     const weapon = this.weapons.get(event.hand)
@@ -2651,7 +3017,7 @@ export class LastChancesEngine {
       hand: LastChancesHand
       node: LastChancesAttackSetControlDefinition['dualsense']['nodes'][number]
     }>()
-    if (this.controlSchemeValue === 'dualsense' && this.phase === 'playing' && !this.paused) {
+    if (this.controlSchemeValue === 'dualsense' && this.canUseRoomActions() && !this.paused) {
       for (const hand of LAST_CHANCES_HANDS) {
         const controls = this.weapons.get(hand)?.controls
         if (!controls) continue
@@ -2724,6 +3090,7 @@ export class LastChancesEngine {
       || (behavior === 'spiderThrow' && this.heldChannels.get(hand)?.attack.behavior === 'spiderFlurry')
       || (behavior === 'poleVault' && this.heldChannels.get(hand)?.attack.behavior === 'spearStance')
       || (behavior === 'axeLeap' && this.heldChannels.get(hand)?.attack.behavior === 'axeSpin')
+      || (behavior === 'swordFollowUp' && state.unterhauDueAtMs > 0)
       || swordMorph
     if ((this.weaponActionEnds.get(weapon.id) ?? 0) > this.elapsedMs
       && !contextualContinuation) return false
@@ -2738,13 +3105,14 @@ export class LastChancesEngine {
       && !axeRecoveryCancel && !contextualContinuation) {
       return false
     }
-    if (weapon.trait === 'swordRhythm' && state.fatigueMs > 0) return false
-    if (weapon.trait === 'swordRhythm'
-      && (gesture === 'doubleTap' || gesture === 'doubleTapHold')) {
-      return Math.max(
-        this.cooldownEnds.get(cooldownKey(hand, 'doubleTap')) ?? 0,
-        this.cooldownEnds.get(cooldownKey(hand, 'doubleTapHold')) ?? 0,
-      ) <= this.elapsedMs
+    if (weapon.trait === 'swordRhythm' && gesture === 'tap' && state.fatigueMs > 0) return false
+    if (weapon.trait === 'swordRhythm' && gesture === 'doubleTap') {
+      return (this.cooldownEnds.get(cooldownKey(hand, 'doubleTap')) ?? 0) <= this.elapsedMs
+    }
+    if (weapon.trait === 'swordRhythm' && gesture === 'doubleTapHold') {
+      const unterhauReady = (this.cooldownEnds.get(cooldownKey(hand, 'doubleTapHold')) ?? 0)
+        <= this.elapsedMs
+      return state.unterhauDueAtMs > 0 && unterhauReady
     }
     return gesture === 'tap'
       || (this.cooldownEnds.get(cooldownKey(hand, gesture)) ?? 0) <= this.elapsedMs
@@ -2877,7 +3245,7 @@ export class LastChancesEngine {
   }
 
   private performAttack(resolution: LastChancesGestureResolution): void {
-    if (this.phase !== 'playing' || this.paused || !this.currentNode) return
+    if (!this.canUseRoomActions() || this.paused || !this.currentNode) return
     const { hand, gesture } = resolution
     const weapon = this.weapons.get(hand)
     if (!weapon) return
@@ -2893,6 +3261,13 @@ export class LastChancesEngine {
     }
     const state = this.weaponState(weapon)
     if (!this.gestureReady(hand, gesture)) return
+    if (weapon.trait === 'swordRhythm'
+      && gesture === 'doubleTapHold'
+      && state.unterhauDueAtMs > 0) {
+      if (resolution.heldMs < tuningValue(weapon, 'unterhauHoldMs', 1000)) return
+      this.executePendingUnterhau(hand)
+      return
+    }
     const isAxeRecoveryCancel = weapon.trait === 'axeHookRecovery'
       && gesture === 'tap'
       && state.recoveryMs > 0
@@ -2914,6 +3289,9 @@ export class LastChancesEngine {
     const charged = resolveLastChancesChargedAttack(augmented, chargeHeldMs)
     if (sourceAttack.charge && !charged.band) return
     const attack = charged.attack
+    if (weapon.trait === 'axeHookRecovery' && gesture === 'tap') {
+      state.lastMotionDamageBonus = 0
+    }
     if ((attack.behavior === 'spiderTwist'
       || attack.behavior === 'spiderThrow'
       || attack.behavior === 'poleVault'
@@ -2930,16 +3308,18 @@ export class LastChancesEngine {
     }
     if (weapon.trait === 'swordRhythm'
       && (gesture === 'doubleTap' || gesture === 'doubleTapHold')) {
-      this.morphSwordAttack(weapon.id)
+      this.morphSwordAttack(weapon)
     }
     if (gesture !== 'tap') {
-      const cooldownEnd = this.elapsedMs + attack.cooldownMs
-      this.cooldownEnds.set(key, cooldownEnd)
-      if (weapon.trait === 'swordRhythm'
-        && (gesture === 'doubleTap' || gesture === 'doubleTapHold')) {
-        this.cooldownEnds.set(cooldownKey(hand, 'doubleTap'), cooldownEnd)
-        this.cooldownEnds.set(cooldownKey(hand, 'doubleTapHold'), cooldownEnd)
-      }
+      const cooldownAttack = weapon.trait === 'swordRhythm' && gesture === 'doubleTapHold'
+        ? weapon.attacks.doubleTap
+        : attack
+      this.cooldownEnds.set(
+        weapon.trait === 'swordRhythm' && gesture === 'doubleTapHold'
+          ? cooldownKey(hand, 'doubleTap')
+          : key,
+        this.elapsedMs + cooldownAttack.cooldownMs,
+      )
     }
     this.lastGesture = {
       hand,
@@ -3021,22 +3401,22 @@ export class LastChancesEngine {
     }
     if (attack.behavior === 'swordFollowUp') {
       const openingAttack = attackWithLastChancesAugment(weapon.attacks.doubleTap, weapon)
-      this.prepareSwordOberhau(weapon, state, openingAttack, direction)
+      this.prepareSwordOberhau(weapon, state, hand, openingAttack, direction)
       this.executeAttack(openingAttack, direction, {
         ...context,
         gesture: 'doubleTap',
       })
+      this.scheduleRecovery(weapon.id, openingAttack.recoveryMs, openingAttack.durationMs)
       if (resolution.heldMs >= tuningValue(weapon, 'unterhauHoldMs', 1000)) {
         this.queueSwordUnterhau(context, attack, direction, openingAttack.durationMs)
       } else {
         this.cancelPendingUnterhau(weapon)
-        this.scheduleRecovery(weapon.id, openingAttack.recoveryMs, openingAttack.durationMs)
       }
       return
     }
 
     if (attack.behavior === 'swordOpening') {
-      this.prepareSwordOberhau(weapon, state, attack, direction)
+      this.prepareSwordOberhau(weapon, state, hand, attack, direction)
     }
 
     const actionDurationMs = attack.durationMs + (attack.lingerMs ?? 0)
@@ -3168,7 +3548,7 @@ export class LastChancesEngine {
         : {}),
     })
     this.nextProjectileId += 1
-    this.addEffect('hit', attack, direction)
+    if (attack.behavior !== 'spearRelease') this.addEffect('hit', attack, direction)
   }
 
   private performDash(
@@ -3262,7 +3642,13 @@ export class LastChancesEngine {
     )
     const target = this.enemies
       .filter(enemy => enemy.state !== 'dead'
-        && colliderHitsCircle(collider, enemy.position, enemy.definition.radius))
+        && this.attackColliderHitsCircle(
+          collider,
+          enemy.position,
+          enemy.definition.radius,
+          area.attack,
+          area.origin,
+        ))
       .sort((left, right) => (
         distanceSquared(area.origin, left.position) - distanceSquared(area.origin, right.position)
         || left.id.localeCompare(right.id)
@@ -3325,21 +3711,21 @@ export class LastChancesEngine {
         const movement = this.resolveMovement()
         const authoredRotation = area.attack.collider.rotationDegrees ?? 360
         const rotationSign = Math.sign(authoredRotation) || 1
-        if (area.attack.behavior === 'swordRhythm'
+        if (area.attack.behavior === 'axeSwing'
           && Math.abs(this.pointerDeltaX) > 0
           && Math.sign(this.pointerDeltaX) === rotationSign) {
-          area.swordMatchingMousePx += Math.abs(this.pointerDeltaX)
+          area.matchingAimMotionPx += Math.abs(this.pointerDeltaX)
           const weapon = this.weapons.get(area.hand)
           const progress = clamp(
-            area.swordMatchingMousePx
+            area.matchingAimMotionPx
               / Math.max(1, tuningValue(weapon, 'mouseMotionForMaxBonusPx', 160)),
             0,
             1,
           )
-          area.swordMotionDamageBonus = progress
+          area.motionDamageBonus = progress
             * tuningValue(weapon, 'mouseDamageBonusMax', 0.25)
           const state = weapon ? this.weaponState(weapon) : null
-          if (state) state.lastMotionDamageBonus = area.swordMotionDamageBonus
+          if (state) state.lastMotionDamageBonus = area.motionDamageBonus
         }
         const movementTurn = area.direction.x * movement.y - area.direction.y * movement.x
         const rotationCanBeAssisted = ['chainSpin', 'axeSpin'].includes(area.attack.behavior ?? '')
@@ -3416,7 +3802,13 @@ export class LastChancesEngine {
       const previous = area.hitIds.get(enemy.id)
       if (previous && (previous.hits >= repeatHits
         || this.elapsedMs - previous.lastAtMs < repeatInterval)) continue
-      if (!colliderHitsCircle(collider, enemy.position, enemy.definition.radius)) continue
+      if (!this.attackColliderHitsCircle(
+        collider,
+        enemy.position,
+        enemy.definition.radius,
+        area.attack,
+        area.origin,
+      )) continue
       const nextHit = (previous?.hits ?? 0) + 1
       if (area.attack.behavior === 'katanaFlurry'
         && (enemy.definition.dodge ?? 0) >= tuningValue(area.attack, 'dodgeThreshold', 0.25)
@@ -3468,17 +3860,8 @@ export class LastChancesEngine {
         gesture: area.gesture,
         storedDot: area.storedDot,
         distance: vectorLength(toEnemy),
-        damageMultiplier: 1 + area.swordMotionDamageBonus,
-        impactIntensity: area.attack.behavior === 'swordRhythm'
-          ? Math.pow(clamp(
-              area.swordMotionDamageBonus / Math.max(
-                0.001,
-                tuningValue(this.weapons.get(area.hand), 'mouseDamageBonusMax', 0.25),
-              ),
-              0,
-              1,
-            ), 2)
-          : undefined,
+        damageMultiplier: 1 + area.motionDamageBonus,
+        impactIntensity: area.attack.behavior === 'swordRhythm' ? 0 : undefined,
       })
     }
   }
@@ -3566,21 +3949,6 @@ export class LastChancesEngine {
       return
     }
     if (context.chargeBandId === 'middle') {
-      const target = this.enemies
-        .filter(enemy => enemy.state !== 'dead')
-        .map(enemy => ({
-          enemy,
-          distance: Math.sqrt(distanceSquared(this.player.position, enemy.position)),
-        }))
-        .filter(candidate => candidate.distance >= Math.max(80, attack.range * 0.25)
-          && candidate.distance <= attack.range)
-        .sort((left, right) => left.distance - right.distance)[0]?.enemy
-      const aimed = target
-        ? normalize({
-            x: target.position.x - this.player.position.x,
-            y: target.position.y - this.player.position.y,
-          }, direction)
-        : direction
       const mediumAttack = {
         ...attack,
         kind: 'projectile' as const,
@@ -3590,7 +3958,11 @@ export class LastChancesEngine {
           { status: 'stun' as const, durationMs: 1000 },
         ],
       }
-      this.performProjectile(mediumAttack, aimed, context)
+      this.performProjectile(
+        mediumAttack,
+        this.spearReleaseDirection(mediumAttack, direction, context.chargeBandId),
+        context,
+      )
       return
     }
     this.performProjectile(
@@ -3602,6 +3974,29 @@ export class LastChancesEngine {
       direction,
       context,
     )
+  }
+
+  private spearReleaseDirection(
+    attack: LastChancesAttackDefinition,
+    fallback: LastChancesVector,
+    chargeBandId: string | undefined,
+  ): LastChancesVector {
+    if (chargeBandId !== 'middle') return normalize(fallback)
+    const target = this.enemies
+      .filter(enemy => enemy.state !== 'dead')
+      .map(enemy => ({
+        enemy,
+        distance: Math.sqrt(distanceSquared(this.player.position, enemy.position)),
+      }))
+      .filter(candidate => candidate.distance >= Math.max(80, attack.range * 0.25)
+        && candidate.distance <= attack.range)
+      .sort((left, right) => left.distance - right.distance)[0]?.enemy
+    return target
+      ? normalize({
+          x: target.position.x - this.player.position.x,
+          y: target.position.y - this.player.position.y,
+        }, fallback)
+      : normalize(fallback)
   }
 
   private pinProjectileTargets(projectile: RuntimeProjectile): void {
@@ -3881,6 +4276,9 @@ export class LastChancesEngine {
         spinInertiaDirection: null,
         perfectTimingMs: 0,
         fatigueMs: 0,
+        roomTimingMisses: 0,
+        consecutiveTimingMisses: 0,
+        fatigueTriggeredByTapAtMs: Number.NEGATIVE_INFINITY,
         unterhauDueAtMs: 0,
         unterhauTargetId: null,
         unterhauTargetPosition: null,
@@ -3916,20 +4314,39 @@ export class LastChancesEngine {
       perfectStartMs,
       tuningValue(weapon, 'rhythmPerfectEndMs', 600),
     )
-    if (interval < perfectStartMs) {
-      state.rhythm = 'early'
-      const fatigueMs = tuningValue(weapon, 'rhythmFatigueMs', 2000)
-      state.recoveryMs = Math.max(state.recoveryMs, fatigueMs)
-      state.fatigueMs = Math.max(state.fatigueMs, fatigueMs)
-      this.tapCombos[hand].step = 0
-      this.activeSwordAdvance = null
-      return false
-    }
-    if (interval <= perfectEndMs) {
+    const firstTap = interval === Number.POSITIVE_INFINITY
+    const missedTiming = !firstTap && (interval < perfectStartMs || interval > perfectEndMs)
+    state.fatigueTriggeredByTapAtMs = Number.NEGATIVE_INFINITY
+    if (interval < perfectStartMs) state.rhythm = 'early'
+    else if (interval <= perfectEndMs) {
       state.rhythm = 'good'
       state.perfectTimingMs = tuningValue(weapon, 'rhythmPerfectFeedbackMs', 480)
-    } else {
-      state.rhythm = interval === Number.POSITIVE_INFINITY ? 'idle' : 'late'
+    } else state.rhythm = firstTap ? 'idle' : 'late'
+
+    if (missedTiming) {
+      state.roomTimingMisses += 1
+      state.consecutiveTimingMisses += 1
+      const missesPerRoom = Math.max(
+        1,
+        Math.round(tuningValue(weapon, 'rhythmMissesPerRoomBeforeFatigue', 3)),
+      )
+      const consecutiveMisses = Math.max(
+        1,
+        Math.round(tuningValue(weapon, 'rhythmConsecutiveMissesBeforeFatigue', 2)),
+      )
+      if (state.roomTimingMisses >= missesPerRoom
+        || state.consecutiveTimingMisses >= consecutiveMisses) {
+        state.fatigueMs = Math.max(
+          state.fatigueMs,
+          tuningValue(weapon, 'rhythmFatigueMs', 2000),
+        )
+        state.roomTimingMisses = 0
+        state.consecutiveTimingMisses = 0
+        state.fatigueTriggeredByTapAtMs = this.elapsedMs
+        this.tapCombos[hand].step = 0
+      }
+    } else if (!firstTap) {
+      state.consecutiveTimingMisses = 0
     }
     this.activeSwordAdvance = {
       weaponId: weapon?.id ?? 'hybrid-sword',
@@ -3940,7 +4357,8 @@ export class LastChancesEngine {
     return true
   }
 
-  private morphSwordAttack(weaponId: string): void {
+  private morphSwordAttack(weapon: LastChancesResolvedWeapon): void {
+    const weaponId = weapon.id
     const morphing = this.activeAreas.filter(area => (
       area.weaponId === weaponId && area.attack.behavior === 'swordRhythm'
     ))
@@ -3955,19 +4373,32 @@ export class LastChancesEngine {
     }
     if (this.activeSwordAdvance?.weaponId === weaponId) this.activeSwordAdvance = null
     this.weaponActionEnds.delete(weaponId)
+    const state = this.weaponState(weapon)
+    const withinDoubleTap = this.elapsedMs - state.lastTapAtMs <= this.config.input.doubleTapMs
+    if (withinDoubleTap && state.fatigueTriggeredByTapAtMs === state.lastTapAtMs) {
+      state.fatigueMs = 0
+      state.fatigueTriggeredByTapAtMs = Number.NEGATIVE_INFINITY
+    }
   }
 
   private prepareSwordOberhau(
     weapon: LastChancesResolvedWeapon,
     state: RuntimeWeaponState,
+    hand: LastChancesHand,
     attack: LastChancesAttackDefinition,
     direction: LastChancesVector,
   ): void {
+    state.lastTapAtMs = Number.NEGATIVE_INFINITY
+    state.rhythm = 'idle'
+    state.perfectTimingMs = 0
     state.unterhauDueAtMs = this.elapsedMs + tuningValue(
       weapon,
       'unterhauHoldMs',
       1000,
     )
+    if ((this.cooldownEnds.get(cooldownKey(hand, 'doubleTapHold')) ?? 0) > this.elapsedMs) {
+      state.unterhauDueAtMs = 0
+    }
     state.unterhauTargetId = null
     state.unterhauTargetPosition = {
       x: this.player.position.x + direction.x * attack.range,
@@ -4000,10 +4431,19 @@ export class LastChancesEngine {
       targetEnemyId: state.unterhauTargetId,
     }
     const actionDurationMs = Math.max(0, delayMs) + attack.durationMs + (attack.lingerMs ?? 0)
+    const unterhauCooldownMs = Math.max(
+      attack.cooldownMs,
+      context.weapon.attacks.doubleTap.cooldownMs
+        * tuningValue(context.weapon, 'unterhauCooldownMultiplier', 3),
+    )
+    this.cooldownEnds.set(
+      cooldownKey(context.hand, 'doubleTapHold'),
+      this.elapsedMs + unterhauCooldownMs,
+    )
     this.weaponActionEnds.set(context.weapon.id, this.elapsedMs + actionDurationMs)
     this.scheduleRecovery(context.weapon.id, attack.recoveryMs, actionDurationMs)
     if (delayed.remainingMs <= 0) {
-      this.executeAttack(attack, this.resolveDelayedAttackDirection(delayed), delayed.context)
+      this.executeSwordFollowUp(delayed)
       state.unterhauDueAtMs = 0
       state.unterhauTargetId = null
       state.unterhauTargetPosition = null
@@ -4011,6 +4451,60 @@ export class LastChancesEngine {
       return
     }
     this.delayedAttacks.push(delayed)
+  }
+
+  private executeSwordFollowUp(delayed: RuntimeDelayedAttack): void {
+    const weapon = delayed.context.weapon
+    const maximumRange = weapon.attacks.doubleTap.range
+    let automaticTarget: RuntimeEnemy | null = null
+    if (delayed.targetEnemyId) {
+      const originalTarget = this.enemies.find(enemy => enemy.id === delayed.targetEnemyId)
+      if (originalTarget?.state !== 'dead'
+        && Math.sqrt(distanceSquared(this.player.position, originalTarget.position))
+          <= maximumRange + originalTarget.definition.radius) {
+        automaticTarget = originalTarget
+      } else {
+        automaticTarget = this.enemies
+          .filter(enemy => enemy.state !== 'dead'
+            && Math.sqrt(distanceSquared(this.player.position, enemy.position))
+              <= maximumRange + enemy.definition.radius)
+          .sort((left, right) => (
+            distanceSquared(this.player.position, left.position)
+              - distanceSquared(this.player.position, right.position)
+            || left.id.localeCompare(right.id)
+          ))[0] ?? null
+      }
+    }
+    if (!automaticTarget) {
+      this.executeAttack(
+        delayed.attack,
+        this.resolveDelayedAttackDirection(delayed),
+        delayed.context,
+      )
+      return
+    }
+    const direction = normalize({
+      x: automaticTarget.position.x - this.player.position.x,
+      y: automaticTarget.position.y - this.player.position.y,
+    }, delayed.direction)
+    this.addColliderTrace(
+      resolveAttackCollider(this.player.position, direction, delayed.attack),
+      delayed.attack,
+    )
+    this.addEffect('melee', delayed.attack, direction)
+    this.damageEnemy(
+      automaticTarget,
+      delayed.attack,
+      delayed.attack.knockback,
+      direction,
+      {
+        weaponId: weapon.id,
+        hand: delayed.context.hand,
+        gesture: 'doubleTapHold',
+        storedDot: delayed.context.storedDot,
+        distance: Math.sqrt(distanceSquared(this.player.position, automaticTarget.position)),
+      },
+    )
   }
 
   private executePendingUnterhau(hand: LastChancesHand): boolean {
@@ -4130,8 +4624,8 @@ export class LastChancesEngine {
       ),
       rotationAssisted: false,
       latchedIds: new Set(),
-      swordMatchingMousePx: 0,
-      swordMotionDamageBonus: 0,
+      matchingAimMotionPx: 0,
+      motionDamageBonus: 0,
     }
   }
 
@@ -4192,7 +4686,7 @@ export class LastChancesEngine {
     direction: LastChancesVector,
     options: DamageEnemyOptions = {},
   ): void {
-    if (enemy.state === 'dead') return
+    if (enemy.state === 'dead' || enemy.motherRetreat) return
     enemy.revealedMs = 900
     if (options.hand && options.gesture) {
       enemy.lastPlayerHit = { hand: options.hand, gesture: options.gesture }
@@ -4278,9 +4772,11 @@ export class LastChancesEngine {
         - enemy.statuses.armorBreak
     const hpBeforeHit = enemy.hp
     enemy.hp = Math.max(0, enemy.hp - Math.max(0, scaledDamage - Math.max(0, armor)))
+    this.applyCockroachMotherHealthGate(enemy)
     const damageDealt = hpBeforeHit - enemy.hp
     this.restoreFromLifesteal(damageDealt)
     if (damageDealt > 0 && attack.behavior === 'swordOpening' && state
+      && state.unterhauDueAtMs > 0
       && state.unterhauTargetId === null) {
       state.unterhauTargetId = enemy.id
       state.unterhauTargetPosition = { ...enemy.position }
@@ -4498,6 +4994,26 @@ export class LastChancesEngine {
   private finishEnemyDeath(enemy: RuntimeEnemy): void {
     if (enemy.state === 'dead') return
     enemy.state = 'dead'
+    if (enemy.definition.role === 'boss' || enemy.definition.bossPhases) {
+      if (this.bossCheckpoint?.nodeId === this.currentNode?.id) this.bossCheckpoint = null
+    }
+    if (enemy.definition.cockroachMother) {
+      this.cockroachesExtinct = true
+      this.swarmSpawner = null
+      this.holeStrikes = []
+      for (const candidate of this.enemies) {
+        if (candidate !== enemy && isCockroachDefinition(candidate.definition)) {
+          candidate.state = 'dead'
+          candidate.hp = 0
+        }
+      }
+      for (const node of this.plan.nodes) {
+        if (!node.swarm) continue
+        const definition = this.enemyDefinitions.get(node.swarm.definitionId)
+        if (definition && isCockroachDefinition(definition)) node.swarm = null
+      }
+      this.emitPlan()
+    }
     this.recordMoveQuestKill(enemy)
     this.player.mentalHealth = Math.min(
       this.player.stats.maxMentalHealth,
@@ -4539,7 +5055,7 @@ export class LastChancesEngine {
     if (enemy.definition.role !== 'elite') return
     for (const hand of LAST_CHANCES_HANDS) {
       const quest = this.moveQuests[hand]
-      if (!quest.tapQuestDone || !quest.holdQuestDone || quest.comboQuestDone) continue
+      if (!this.moveQuestPrerequisitesDone(hand) || quest.comboQuestDone) continue
       const required = this.comboQuestGestures(hand)
       if (required.length === 0) continue
       if (!required.every(gesture => enemy.gestureHits[hand].has(gesture))) continue
@@ -4564,8 +5080,22 @@ export class LastChancesEngine {
     if (!weapon) return []
     return MOVE_QUEST_COMBO_GESTURES.filter((gesture) => {
       const attack = weapon.attacks[gesture]
-      return attack.enabled !== false && attack.behavior !== 'disabled'
+      return this.moveQuests[hand].unlocked[gesture]
+        && attack.enabled !== false
+        && attack.behavior !== 'disabled'
     })
+  }
+
+  private moveQuestPrerequisitesDone(hand: LastChancesHand): boolean {
+    const weapon = this.weapons.get(hand)
+    if (!weapon) return false
+    const quest = this.moveQuests[hand]
+    const attackAvailable = (gesture: 'tap' | 'hold'): boolean => {
+      const attack = weapon.attacks[gesture]
+      return attack.enabled !== false && attack.behavior !== 'disabled'
+    }
+    return (!attackAvailable('tap') || quest.tapQuestDone)
+      && (!attackAvailable('hold') || quest.holdQuestDone)
   }
 
   private damagePlayer(rawDamage: number, source: string): void {
@@ -4699,8 +5229,15 @@ export class LastChancesEngine {
     if (!this.currentNode || this.phase !== 'playing') return
     this.clearCombatTransients()
     if (this.currentNode.interaction && !this.interactionResolved) {
-      this.phase = 'interaction'
+      this.phase = 'planning'
+      this.routeMapVisible = false
+      this.availableNodeIds = []
+      this.selectedNodeId = null
       this.selectedInteractionChoiceId = null
+      this.rewardChest = {
+        position: this.rewardChestPosition(),
+        opened: false,
+      }
       this.emitSnapshot(true)
       return
     }
@@ -4710,6 +5247,7 @@ export class LastChancesEngine {
 
   private clearCombatTransients(): void {
     this.projectiles = []
+    this.holeStrikes = []
     this.activeDash = null
     this.activeSwordAdvance = null
     this.activeAreas = []
@@ -4735,6 +5273,7 @@ export class LastChancesEngine {
 
   private finishRoomTransition(): void {
     if (!this.currentNode) return
+    this.rewardChest = null
     if (this.currentNode.tierIndex >= this.plan.tiers.length - 1) {
       this.phase = 'won'
       this.availableNodeIds = []
@@ -4907,7 +5446,11 @@ export class LastChancesEngine {
     this.rebuildWeapons()
     this.enemies = []
     this.zoneAttacks = []
+    this.holeStrikes = []
     this.swarmSpawner = null
+    this.turrets = []
+    this.turretAlarmMs = 0
+    this.altarPromptActive = false
     this.groundWeapons = []
     this.ninjaDashReadyAtMs = 0
     // Quest unlocks and completed quests survive the death; only room-scoped counters reset.
@@ -4930,6 +5473,7 @@ export class LastChancesEngine {
     this.hazardHitCycles.clear()
     this.hazardSuppressedUntil.clear()
     this.interactionResolved = false
+    this.rewardChest = null
     this.cooldownEnds.clear()
     this.resetTapCombos()
     this.gestures.reset()
@@ -5017,6 +5561,46 @@ export class LastChancesEngine {
       }))
       .filter(candidate => candidate.distance <= 105)
       .sort((left, right) => left.distance - right.distance)[0]?.weapon ?? null
+  }
+
+  private nearestActiveTurret(): RuntimeTurret | null {
+    return this.turrets
+      .filter(turret => !turret.disabled)
+      .map(turret => ({
+        turret,
+        distance: Math.sqrt(distanceSquared(
+          this.player.position,
+          turret.definition.position,
+        )),
+      }))
+      .filter(candidate => candidate.distance <= candidate.turret.definition.interactionRange)
+      .sort((left, right) => left.distance - right.distance)[0]?.turret ?? null
+  }
+
+  private nearbyRewardChest(): RuntimeRewardChest | null {
+    if (!this.rewardChest || this.rewardChest.opened) return null
+    return Math.sqrt(distanceSquared(this.player.position, this.rewardChest.position)) <= 115
+      ? this.rewardChest
+      : null
+  }
+
+  private rewardChestPosition(): LastChancesVector {
+    if (!this.currentNode) return { ...this.player.position }
+    const arena = this.currentNode.arena
+    const candidates: LastChancesVector[] = [
+      { x: arena.width * 0.72, y: arena.height * 0.5 },
+      { x: arena.width * 0.58, y: arena.height * 0.28 },
+      { x: arena.width * 0.58, y: arena.height * 0.72 },
+      { x: arena.width * 0.45, y: arena.height * 0.5 },
+    ]
+    const radius = 26
+    return candidates.find(candidate => (
+      candidate.x >= radius
+      && candidate.x <= arena.width - radius
+      && candidate.y >= radius
+      && candidate.y <= arena.height - radius
+      && !arena.obstacles.some(obstacle => pointHitsObstacle(candidate, radius, obstacle))
+    )) ?? { ...this.player.position }
   }
 
   private pickUpGroundWeapon(groundWeapon: RuntimeGroundWeapon): boolean {
@@ -5136,15 +5720,102 @@ export class LastChancesEngine {
     return candidates[0]?.enemy ?? null
   }
 
+  private attackPathBlocked(start: LastChancesVector, end: LastChancesVector): boolean {
+    return this.currentNode?.arena.obstacles.some(obstacle => (
+      segmentHitsObstacle(start, end, obstacle)
+    )) ?? false
+  }
+
+  private attackColliderHitsCircle(
+    collider: LastChancesRuntimeCollider,
+    target: LastChancesVector,
+    radius: number,
+    attack: LastChancesAttackDefinition | undefined,
+    origin = colliderOrigin(collider),
+  ): boolean {
+    if (!colliderHitsCircle(collider, target, radius)) return false
+    return attack?.collider?.passesThroughWalls === true
+      || !this.attackPathBlocked(origin, target)
+  }
+
+  private circleCanOccupy(position: LastChancesVector, radius: number): boolean {
+    if (!this.currentNode) return false
+    const arena = this.currentNode.arena
+    return position.x >= radius
+      && position.y >= radius
+      && position.x <= arena.width - radius
+      && position.y <= arena.height - radius
+      && !arena.obstacles.some(obstacle => pointHitsObstacle(position, radius, obstacle))
+  }
+
+  private maximumSafeMovementFraction(
+    position: LastChancesVector,
+    delta: LastChancesVector,
+    radius: number,
+  ): number {
+    if (vectorLength(delta) <= EPSILON) return 0
+    const candidate = {
+      x: position.x + delta.x,
+      y: position.y + delta.y,
+    }
+    if (this.circleCanOccupy(candidate, radius)) return 1
+    let safe = 0
+    let blocked = 1
+    for (let iteration = 0; iteration < 14; iteration += 1) {
+      const fraction = (safe + blocked) / 2
+      const probe = {
+        x: position.x + delta.x * fraction,
+        y: position.y + delta.y * fraction,
+      }
+      if (this.circleCanOccupy(probe, radius)) safe = fraction
+      else blocked = fraction
+    }
+    return safe
+  }
+
+  /**
+   * Advances a circle in short continuous steps. At contact, the unresolved
+   * distance is projected onto a free wall tangent and keeps its full length,
+   * matching the no-slowdown wall sliding used by character controllers.
+   */
   private moveCircle(position: LastChancesVector, delta: LastChancesVector, radius: number): void {
     if (!this.currentNode) return
-    const arena = this.currentNode.arena
-    const previousX = position.x
-    position.x = clamp(position.x + delta.x, radius, arena.width - radius)
-    if (arena.obstacles.some(obstacle => pointHitsObstacle(position, radius, obstacle))) position.x = previousX
-    const previousY = position.y
-    position.y = clamp(position.y + delta.y, radius, arena.height - radius)
-    if (arena.obstacles.some(obstacle => pointHitsObstacle(position, radius, obstacle))) position.y = previousY
+    const distance = vectorLength(delta)
+    if (distance <= EPSILON) return
+    const maximumStep = Math.max(1, Math.min(4, radius * 0.25))
+    const steps = Math.max(1, Math.ceil(distance / maximumStep))
+    const step = { x: delta.x / steps, y: delta.y / steps }
+    const stepDistance = distance / steps
+
+    for (let index = 0; index < steps; index += 1) {
+      const safeFraction = this.maximumSafeMovementFraction(position, step, radius)
+      position.x += step.x * safeFraction
+      position.y += step.y * safeFraction
+      if (safeFraction >= 1 - EPSILON) continue
+
+      const slideDistance = stepDistance * (1 - safeFraction)
+      const slides: Array<{ delta: LastChancesVector, distance: number, alignment: number }> = []
+      for (const axis of ['x', 'y'] as const) {
+        if (Math.abs(step[axis]) <= EPSILON) continue
+        const slide = {
+          x: axis === 'x' ? Math.sign(step.x) * slideDistance : 0,
+          y: axis === 'y' ? Math.sign(step.y) * slideDistance : 0,
+        }
+        const fraction = this.maximumSafeMovementFraction(position, slide, radius)
+        const resolved = { x: slide.x * fraction, y: slide.y * fraction }
+        slides.push({
+          delta: resolved,
+          distance: vectorLength(resolved),
+          alignment: Math.abs(step[axis]),
+        })
+      }
+      const best = slides.sort((left, right) => (
+        right.distance - left.distance || right.alignment - left.alignment
+      ))[0]
+      if (!best || best.distance <= EPSILON) continue
+      position.x += best.delta.x
+      position.y += best.delta.y
+    }
   }
 
   private resolveMovement(): LastChancesVector {
@@ -5342,7 +6013,7 @@ export class LastChancesEngine {
         if (leftPressed) this.cycleSelectedNode(1)
         if (rightPressed && this.selectedNodeId) this.chooseNode(this.selectedNodeId)
       }
-    } else if (!this.paused && this.phase === 'playing') {
+    } else if (!this.paused && this.canUseRoomActions()) {
       if (this.controlSchemeValue === 'legacy') {
         const interactionChord = leftPressed && rightPressed && this.interact()
         if (!interactionChord) {
@@ -5516,7 +6187,7 @@ export class LastChancesEngine {
 
   private updateKeyboardDualSenseTriggers(atMs: number): void {
     if (this.controlSchemeValue !== 'dualsense'
-      || this.phase !== 'playing'
+      || !this.canUseRoomActions()
       || this.paused
       || this.destroyed) return
     const holdThreshold = this.config.input.mylorik?.techniqueHoldMs ?? this.config.input.holdMs
@@ -5550,7 +6221,7 @@ export class LastChancesEngine {
   }
 
   private readonly handleKeyDown = (event: KeyboardEvent): void => {
-    const activeControl = this.phase === 'playing' && !this.paused
+    const activeControl = this.canUseRoomActions() && !this.paused
     const movementControl = this.canExploreRoom() && !this.routeMapVisible && !this.paused
     const semanticKeyboard = this.controlSchemeValue === 'legacy'
       ? null
@@ -5572,14 +6243,12 @@ export class LastChancesEngine {
     }
     if (movementControl && MOVEMENT_KEYS.has(event.code)) this.pressedKeys.add(event.code)
     if (movementControl && isInteractionKey && !event.repeat) {
-      this.interact()
-      return
+      if (this.interact()) return
     }
     if (!activeControl) return
     if (event.repeat) return
     if (activeControl && isInteractionKey) {
-      this.interact()
-      return
+      if (this.interact()) return
     }
     if (!semanticKeyboard) {
       if (this.config.input.leftKeys.includes(event.code)) this.press('left')
@@ -5637,7 +6306,7 @@ export class LastChancesEngine {
 
   private readonly handleKeyUp = (event: KeyboardEvent): void => {
     this.pressedKeys.delete(event.code)
-    if (this.phase !== 'playing' || this.paused || this.destroyed) return
+    if (!this.canUseRoomActions() || this.paused || this.destroyed) return
     if (this.controlSchemeValue === 'legacy') {
       if (this.config.input.leftKeys.includes(event.code)) this.release('left')
       if (this.config.input.rightKeys.includes(event.code)) this.release('right')
@@ -5800,13 +6469,15 @@ export class LastChancesEngine {
   }
 
   private layout(): IsometricLayout {
-    const maximumWidth = this.cssWidth * 0.88
-    const maximumHeight = this.cssHeight * 0.68
-    const diamondWidth = Math.max(1, Math.min(maximumWidth, maximumHeight / 0.52))
-    const diamondHeight = diamondWidth * 0.52
+    const sidePadding = clamp(this.cssWidth * 0.018, 12, 24)
+    const top = clamp(this.cssHeight * 0.12, 64, 84)
+    const bottomPadding = clamp(this.cssHeight * 0.035, 16, 28)
+    const diamondWidth = Math.max(1, this.cssWidth - sidePadding * 2)
+    const availableHeight = Math.max(1, this.cssHeight - top - bottomPadding)
+    const diamondHeight = Math.max(1, Math.min(availableHeight, diamondWidth / 1.55))
     return {
       centerX: this.cssWidth / 2,
-      top: Math.max(Math.min(76, this.cssHeight * 0.14), (this.cssHeight - diamondHeight) / 2),
+      top,
       diamondWidth,
       diamondHeight,
     }
@@ -5983,7 +6654,7 @@ export class LastChancesEngine {
           && enemy.attackWindupMs > 0
           && enemy.attackWindupMs <= profile.parryWindowMs,
         phaseName: profile.phaseName,
-        visible: this.enemyVisible(enemy),
+        visible: enemy.motherRetreat?.stage === 'hidden' ? false : this.enemyVisible(enemy),
         captureAvailable: enemy.captureWindowMs > 0 && this.capturableKnifeSpider()?.id === enemy.id,
         statuses: this.enemyStatusSnapshot(enemy),
       }
@@ -6107,7 +6778,7 @@ export class LastChancesEngine {
         killsRequired: MOVE_QUEST_KILLS_REQUIRED,
         tapQuestDone: quest.tapQuestDone,
         holdQuestDone: quest.holdQuestDone,
-        comboQuestAvailable: quest.tapQuestDone && quest.holdQuestDone && !quest.comboQuestDone,
+        comboQuestAvailable: this.moveQuestPrerequisitesDone(hand) && !quest.comboQuestDone,
         comboQuestDone: quest.comboQuestDone,
         comboGesturesHit: bestComboHits,
         comboGesturesRequired: required,
@@ -6115,6 +6786,8 @@ export class LastChancesEngine {
       })
     const effectiveStats = this.effectivePlayerStats()
     const groundWeapon = this.nearestGroundWeapon()
+    const rewardChest = this.nearbyRewardChest()
+    const nearbyTurret = this.nearestActiveTurret()
     const groundWeaponName = groundWeapon
       ? this.config.weapons.find(weapon => weapon.id === groundWeapon.weaponId)?.name
       : null
@@ -6174,16 +6847,38 @@ export class LastChancesEngine {
             definitionId: this.swarmSpawner.definition.id,
             remaining: this.swarmSpawner.remaining,
             total: this.swarmSpawner.total,
+            infinite: this.swarmSpawner.infinite,
           }
         : null,
-      interactionPrompt: groundWeapon && groundWeaponName
-        ? `${this.controlSchemeValue === 'legacy' ? 'E' : this.controlSchemeValue === 'mylorik' ? 'F / Cross' : 'Cross'}: подобрать ${groundWeaponName}`
+      turrets: this.turrets.map(turret => ({
+        id: turret.definition.id,
+        name: turret.definition.name,
+        position: { ...turret.definition.position },
+        facing: { ...turret.facing },
+        disabled: turret.disabled,
+        seesPlayer: turret.seesPlayer,
+      })),
+      turretAlarm: this.turretAlarmMs > 0,
+      altarPrompt: this.altarPromptActive && this.currentNode?.altar
+        ? {
+            prompt: this.currentNode.altar.prompt,
+            chanceCost: this.currentNode.altar.chanceCost,
+            available: this.chances >= this.currentNode.altar.chanceCost,
+          }
+        : null,
+      cockroachesExtinct: this.cockroachesExtinct,
+      interactionPrompt: nearbyTurret && this.turretAlarmMs <= 0
+        ? `${this.controlSchemeValue === 'dualsense' ? 'E / Cross' : 'E'}: отключить ${nearbyTurret.definition.name}`
+        : groundWeapon && groundWeaponName
+        ? `${this.controlSchemeValue === 'dualsense' ? 'E / Cross' : 'E'}: подобрать ${groundWeaponName}`
+        : rewardChest
+        ? `${this.controlSchemeValue === 'dualsense' ? 'E / Cross' : 'E'}: открыть сундук с наградой`
         : this.capturableKnifeSpider()
         ? this.controlSchemeValue === 'legacy'
           ? 'E / обе кнопки: схватить Нож-паука со спины'
           : this.controlSchemeValue === 'mylorik'
-            ? 'F / Cross: схватить Нож-паука со спины'
-            : 'Cross: схватить Нож-паука со спины'
+            ? 'E / Cross: схватить Нож-паука со спины'
+            : 'E / Cross: схватить Нож-паука со спины'
         : null,
       controlScheme: this.controlSchemeValue,
       controlCue: this.controlCue ? { ...this.controlCue } : null,
@@ -6226,7 +6921,7 @@ export class LastChancesEngine {
   }
 
   private renderSwordRhythmOverlay(): void {
-    if (this.phase !== 'playing' || this.paused) return
+    if (!this.canUseRoomActions() || this.paused || !this.currentNode) return
     const weapon = [...this.weapons.values()].find(candidate => candidate.trait === 'swordRhythm')
     if (!weapon) return
     const state = this.weaponState(weapon)
@@ -6247,10 +6942,15 @@ export class LastChancesEngine {
     if (interval > visibleMs && !activeSwordArea && state.perfectTimingMs <= 0) return
 
     const context = this.context
-    const centerX = this.cssWidth / 2
-    const centerY = this.cssHeight * 0.5
-    const circleRadius = clamp(this.cssWidth * 0.022, 18, 28)
-    const halfSpan = clamp(this.cssWidth * 0.23, 110, 240)
+    const playerPoint = this.worldToScreen(this.player.position, this.currentNode)
+    const playerRadius = Math.max(
+      8,
+      this.config.player.radius * this.entityScale(this.currentNode) * 1.55,
+    )
+    const centerX = playerPoint.x
+    const centerY = playerPoint.y - playerRadius
+    const circleRadius = clamp(this.cssWidth * 0.022, 18, 28) * 0.9
+    const halfSpan = clamp(this.cssWidth * 0.23, 110, 240) * 0.9
     const progress = clamp(interval / perfectStartMs, 0, 1)
     const inPerfectZone = interval >= perfectStartMs && interval <= perfectEndMs
     const feedbackTotal = Math.max(1, tuningValue(weapon, 'rhythmPerfectFeedbackMs', 480))
@@ -6265,7 +6965,7 @@ export class LastChancesEngine {
     const movingRight = centerX + halfSpan - (halfSpan - circleRadius) * progress
 
     context.save()
-    context.globalAlpha = opacity * 0.78
+    context.globalAlpha = opacity * 0.78 * 0.8
     context.lineCap = 'round'
     context.strokeStyle = 'rgba(228, 235, 239, .24)'
     context.lineWidth = 4
@@ -6308,28 +7008,17 @@ export class LastChancesEngine {
     }
     context.restore()
 
-    if (activeSwordArea) {
-      const sign = Math.sign(activeSwordArea.attack.collider?.rotationDegrees ?? 1) || 1
-      const bonus = Math.round(activeSwordArea.swordMotionDamageBonus * 100)
-      context.save()
-      context.globalAlpha = 0.88
-      context.textAlign = 'center'
-      context.font = '800 12px system-ui'
-      context.fillStyle = '#e7d9ad'
-      context.fillText(
-        `${sign > 0 ? 'ДВИГАЙ МЫШЬ →' : '← ДВИГАЙ МЫШЬ'}${bonus > 0 ? `  +${bonus}%` : ''}`,
-        centerX,
-        centerY + circleRadius + 25,
-      )
-      context.restore()
-    }
   }
 
   private renderArena(node: LastChancesPlanNode): void {
     this.renderFloor(node)
+    for (const hole of node.bossHoles) this.renderBossHole(hole, node)
     for (const hazard of node.arena.hazards) this.renderHazard(hazard, node)
     for (const zone of this.zoneAttacks) this.renderZoneAttack(zone, node)
+    for (const strike of this.holeStrikes) this.renderHoleStrike(strike, node)
+    for (const turret of this.turrets) this.renderTurretVision(turret, node)
     for (const enemy of this.enemies) this.renderVision(enemy, node)
+    this.renderSpearChargePreview(node)
     const items: Array<{ depth: number, draw: () => void }> = []
     for (const obstacle of node.arena.obstacles) {
       items.push({
@@ -6338,9 +7027,21 @@ export class LastChancesEngine {
       })
     }
     for (const enemy of this.enemies) {
-      if (enemy.state !== 'dead') {
+      if (enemy.state !== 'dead' && enemy.motherRetreat?.stage !== 'hidden') {
         items.push({ depth: enemy.position.x + enemy.position.y, draw: () => this.renderEnemy(enemy, node) })
       }
+    }
+    for (const turret of this.turrets) {
+      items.push({
+        depth: turret.definition.position.x + turret.definition.position.y,
+        draw: () => this.renderTurret(turret, node),
+      })
+    }
+    if (node.altar) {
+      items.push({
+        depth: node.altar.position.x + node.altar.position.y,
+        draw: () => this.renderBossAltar(node.altar as LastChancesBossAltarDefinition, node),
+      })
     }
     for (const projectile of this.projectiles) {
       items.push({
@@ -6354,6 +7055,12 @@ export class LastChancesEngine {
         draw: () => this.renderGroundWeapon(weapon, node),
       })
     }
+    if (this.rewardChest) {
+      items.push({
+        depth: this.rewardChest.position.x + this.rewardChest.position.y,
+        draw: () => this.renderRewardChest(this.rewardChest as RuntimeRewardChest, node),
+      })
+    }
     items.push({
       depth: this.player.position.x + this.player.position.y,
       draw: () => this.renderPlayer(node),
@@ -6362,6 +7069,156 @@ export class LastChancesEngine {
     for (const trace of this.traces) this.renderColliderTrace(trace, node)
     for (const effect of this.effects) this.renderEffect(effect, node)
     this.renderActionCues(node)
+  }
+
+  private renderBossHole(hole: LastChancesBossHoleDefinition, node: LastChancesPlanNode): void {
+    const context = this.context
+    const point = this.worldToScreen(hole.position, node)
+    const radius = Math.max(10, 34 * this.entityScale(node))
+    context.save()
+    context.translate(point.x, point.y)
+    context.scale(1, 0.48)
+    context.beginPath()
+    if (hole.shape === 'circle') context.arc(0, 0, radius, 0, Math.PI * 2)
+    else if (hole.shape === 'square') context.rect(-radius, -radius, radius * 2, radius * 2)
+    else if (hole.shape === 'triangle') {
+      context.moveTo(0, -radius * 1.25)
+      context.lineTo(radius * 1.15, radius)
+      context.lineTo(-radius * 1.15, radius)
+      context.closePath()
+    } else {
+      context.moveTo(0, -radius * 1.3)
+      context.lineTo(radius * 1.15, 0)
+      context.lineTo(0, radius * 1.3)
+      context.lineTo(-radius * 1.15, 0)
+      context.closePath()
+    }
+    context.fillStyle = '#050405'
+    context.shadowColor = hole.color
+    context.shadowBlur = 10
+    context.fill()
+    context.strokeStyle = hole.color
+    context.lineWidth = 2.5
+    context.stroke()
+    context.restore()
+  }
+
+  private renderHoleStrike(strike: RuntimeHoleStrike, node: LastChancesPlanNode): void {
+    const context = this.context
+    const duration = Math.max(1, strike.detonateAtMs - strike.spawnedAtMs)
+    const urgency = clamp(1 - (strike.detonateAtMs - this.elapsedMs) / duration, 0, 1)
+    const points = Array.from({ length: 40 }, (_, index) => {
+      const angle = index / 40 * Math.PI * 2
+      return this.worldToScreen({
+        x: strike.center.x + Math.cos(angle) * strike.radius,
+        y: strike.center.y + Math.sin(angle) * strike.radius,
+      }, node)
+    })
+    context.save()
+    context.beginPath()
+    points.forEach((point, index) => index === 0
+      ? context.moveTo(point.x, point.y)
+      : context.lineTo(point.x, point.y))
+    context.closePath()
+    context.fillStyle = `rgba(209, 37, 28, ${0.08 + urgency * 0.22})`
+    context.fill()
+    context.strokeStyle = urgency > 0.72 ? '#fff0d5' : '#ef493d'
+    context.lineWidth = 2 + urgency * 5
+    context.setLineDash([12, 8])
+    context.stroke()
+    context.setLineDash([])
+    const point = this.worldToScreen(strike.center, node)
+    context.font = '900 11px system-ui'
+    context.textAlign = 'center'
+    context.fillStyle = '#ffb4a7'
+    context.fillText(`${Math.max(0, (strike.detonateAtMs - this.elapsedMs) / 1000).toFixed(1)} сек`, point.x, point.y - 28)
+    context.restore()
+  }
+
+  private renderTurretVision(turret: RuntimeTurret, node: LastChancesPlanNode): void {
+    if (turret.disabled) return
+    const context = this.context
+    const origin = this.worldToScreen(turret.definition.position, node)
+    const facingAngle = Math.atan2(turret.facing.y, turret.facing.x)
+    const halfArc = turret.definition.visionAngleDegrees * Math.PI / 360
+    context.beginPath()
+    context.moveTo(origin.x, origin.y)
+    for (let step = 0; step <= 18; step += 1) {
+      const angle = facingAngle - halfArc + halfArc * 2 * step / 18
+      const point = this.worldToScreen({
+        x: turret.definition.position.x + Math.cos(angle) * turret.definition.visionRange,
+        y: turret.definition.position.y + Math.sin(angle) * turret.definition.visionRange,
+      }, node)
+      context.lineTo(point.x, point.y)
+    }
+    context.closePath()
+    context.fillStyle = this.turretAlarmMs > 0
+      ? 'rgba(255, 36, 42, .2)'
+      : 'rgba(244, 196, 91, .07)'
+    context.fill()
+  }
+
+  private renderTurret(turret: RuntimeTurret, node: LastChancesPlanNode): void {
+    const context = this.context
+    const point = this.worldToScreen(turret.definition.position, node)
+    const aim = this.worldToScreen({
+      x: turret.definition.position.x + turret.facing.x * 48,
+      y: turret.definition.position.y + turret.facing.y * 48,
+    }, node)
+    const scale = Math.max(8, 20 * this.entityScale(node))
+    context.save()
+    context.beginPath()
+    context.arc(point.x, point.y - scale * 0.65, scale, 0, Math.PI * 2)
+    context.fillStyle = turret.disabled ? '#343638' : '#555d61'
+    context.strokeStyle = turret.disabled ? '#72787a' : turret.definition.color
+    context.lineWidth = 2.5
+    context.fill()
+    context.stroke()
+    context.beginPath()
+    context.moveTo(point.x, point.y - scale * 0.65)
+    context.lineTo(aim.x, aim.y - scale * 0.65)
+    context.strokeStyle = turret.disabled ? '#606466' : turret.definition.color
+    context.lineWidth = scale * 0.48
+    context.stroke()
+    if (turret.disabled) {
+      context.font = `900 ${scale * 1.45}px system-ui`
+      context.textAlign = 'center'
+      context.fillStyle = '#a8b0b1'
+      context.fillText('×', point.x, point.y - scale * 0.2)
+    } else if (this.nearestActiveTurret()?.definition.id === turret.definition.id
+      && this.turretAlarmMs <= 0) {
+      context.font = '800 9px system-ui'
+      context.textAlign = 'center'
+      context.fillStyle = '#a8f1ce'
+      context.fillText('E · ОТКЛЮЧИТЬ', point.x, point.y - scale * 2.35)
+    }
+    context.restore()
+  }
+
+  private renderBossAltar(altar: LastChancesBossAltarDefinition, node: LastChancesPlanNode): void {
+    const context = this.context
+    const point = this.worldToScreen(altar.position, node)
+    const scale = Math.max(9, 26 * this.entityScale(node))
+    context.save()
+    context.translate(point.x, point.y - scale)
+    context.shadowColor = '#d89b66'
+    context.shadowBlur = 14
+    context.fillStyle = '#34241f'
+    context.strokeStyle = '#d89b66'
+    context.lineWidth = 2
+    context.beginPath()
+    context.moveTo(-scale * 0.9, scale)
+    context.lineTo(-scale * 0.55, -scale * 0.65)
+    context.lineTo(scale * 0.55, -scale * 0.65)
+    context.lineTo(scale * 0.9, scale)
+    context.closePath()
+    context.fill()
+    context.stroke()
+    context.beginPath()
+    context.arc(0, -scale * 0.8, scale * 0.28, 0, Math.PI * 2)
+    context.fillStyle = '#f2c278'
+    context.fill()
+    context.restore()
   }
 
   private renderHazard(hazard: LastChancesHazardDefinition, node: LastChancesPlanNode): void {
@@ -6484,9 +7341,36 @@ export class LastChancesEngine {
     context.stroke()
   }
 
+  private renderRewardChest(chest: RuntimeRewardChest, node: LastChancesPlanNode): void {
+    const context = this.context
+    const point = this.worldToScreen(chest.position, node)
+    const scale = Math.max(8, 24 * this.entityScale(node))
+    const glow = 0.55 + Math.sin(this.elapsedMs / 180) * 0.15
+    context.save()
+    context.translate(point.x, point.y - scale * 0.55)
+    context.shadowColor = '#f0c96d'
+    context.shadowBlur = chest.opened ? 8 : 14 + glow * 8
+    context.fillStyle = chest.opened ? '#65513a' : '#8b6838'
+    context.strokeStyle = chest.opened ? '#ad956d' : '#f0c96d'
+    context.lineWidth = 2
+    context.beginPath()
+    context.roundRect(-scale * 1.2, -scale * 0.45, scale * 2.4, scale * 1.2, scale * 0.18)
+    context.fill()
+    context.stroke()
+    context.beginPath()
+    context.arc(0, -scale * 0.35, scale * 1.05, Math.PI, 0)
+    context.fillStyle = chest.opened ? '#4f4234' : '#a57d42'
+    context.fill()
+    context.stroke()
+    context.fillStyle = '#e9d28c'
+    context.fillRect(-scale * 0.12, scale * 0.05, scale * 0.24, scale * 0.38)
+    context.restore()
+  }
+
   private renderVision(enemy: RuntimeEnemy, node: LastChancesPlanNode): void {
     if (!this.enemyVisible(enemy)
       || enemy.state === 'dead'
+      || enemy.motherRetreat?.stage === 'hidden'
       || enemy.state === 'chasing'
       || enemy.state === 'attacking') return
     const context = this.context
@@ -6520,8 +7404,10 @@ export class LastChancesEngine {
     const context = this.context
     const point = this.worldToScreen(enemy.position, node)
     const profile = this.enemyCombatProfile(enemy)
-    const radius = profile.role === 'creep'
+    const radius = isCockroachDefinition(enemy.definition)
       ? Math.max(2.33, enemy.definition.radius * this.entityScale(node) * 1.45 / 3)
+      : profile.role === 'creep'
+        ? Math.max(8, enemy.definition.radius * this.entityScale(node) * 1.62)
       : Math.max(7, enemy.definition.radius * this.entityScale(node) * 1.45)
     const visible = this.enemyVisible(enemy)
     context.save()
@@ -6671,7 +7557,24 @@ export class LastChancesEngine {
   private renderEnemyBody(enemy: RuntimeEnemy, point: LastChancesVector, radius: number): void {
     const context = this.context
     context.beginPath()
-    if (enemy.definition.id === 'spider-knife') {
+    if (enemy.definition.cockroachMother) {
+      for (const side of [-1, 1]) {
+        for (let leg = 0; leg < 3; leg += 1) {
+          const y = point.y - radius * (1.35 - leg * 0.48)
+          context.moveTo(point.x + side * radius * 0.55, y)
+          context.lineTo(point.x + side * radius * 1.55, y + (leg - 1) * radius * 0.42)
+        }
+      }
+      context.strokeStyle = enemy.definition.color
+      context.lineWidth = Math.max(2, radius * 0.13)
+      context.stroke()
+      context.beginPath()
+      context.ellipse(point.x, point.y - radius * 0.85, radius * 0.72, radius * 1.35, 0, 0, Math.PI * 2)
+      context.moveTo(point.x - radius * 0.62, point.y - radius * 1.25)
+      context.ellipse(point.x - radius * 0.48, point.y - radius * 1.1, radius * 0.65, radius * 1.05, -0.45, 0, Math.PI * 2)
+      context.moveTo(point.x + radius * 0.62, point.y - radius * 1.25)
+      context.ellipse(point.x + radius * 0.48, point.y - radius * 1.1, radius * 0.65, radius * 1.05, 0.45, 0, Math.PI * 2)
+    } else if (enemy.definition.id === 'spider-knife') {
       for (const side of [-1, 1]) {
         for (let leg = 0; leg < 3; leg += 1) {
           const y = point.y - radius * (1.2 - leg * 0.42)
@@ -6738,16 +7641,18 @@ export class LastChancesEngine {
     context.strokeStyle = this.player.invulnerableMs > 0 ? '#ffffff' : this.config.renderer.playerAccent
     context.lineWidth = 3
     context.stroke()
-    const aimEnd = this.worldToScreen({
-      x: this.player.position.x + this.player.aim.x * 74,
-      y: this.player.position.y + this.player.aim.y * 74,
-    }, node)
-    context.beginPath()
-    context.moveTo(point.x, point.y - radius)
-    context.lineTo(aimEnd.x, aimEnd.y - radius)
-    context.strokeStyle = this.config.renderer.playerAccent
-    context.lineWidth = 2
-    context.stroke()
+    if (!this.primarySpearWeapon()) {
+      const aimEnd = this.worldToScreen({
+        x: this.player.position.x + this.player.aim.x * 74,
+        y: this.player.position.y + this.player.aim.y * 74,
+      }, node)
+      context.beginPath()
+      context.moveTo(point.x, point.y - radius)
+      context.lineTo(aimEnd.x, aimEnd.y - radius)
+      context.strokeStyle = this.config.renderer.playerAccent
+      context.lineWidth = 2
+      context.stroke()
+    }
     if (this.player.armorMultiplier > 1 && this.player.armorMultiplierMs > 0) {
       context.beginPath()
       context.arc(point.x, point.y - radius, radius * 1.45, Math.PI * 0.15, Math.PI * 0.85)
@@ -6791,6 +7696,7 @@ export class LastChancesEngine {
       context.fillText('УСТАЛОСТЬ', point.x, point.y - radius * 3)
     }
     context.restore()
+    this.renderHeldSpear(node, point, radius)
   }
 
   private renderGroundWeapon(weapon: RuntimeGroundWeapon, node: LastChancesPlanNode): void {
@@ -6816,6 +7722,37 @@ export class LastChancesEngine {
   private renderProjectile(projectile: RuntimeProjectile, node: LastChancesPlanNode): void {
     const point = this.worldToScreen(projectile.position, node)
     const radius = Math.max(3, projectile.radius * this.entityScale(node) * 1.6)
+    if (projectile.source === 'player'
+      && projectile.weaponId === 'twohand-spear'
+      && projectile.attack?.behavior === 'spearRelease') {
+      const direction = normalize(projectile.velocity)
+      const layout = this.spearSpriteLayout(
+        node,
+        { x: point.x, y: point.y - radius * 0.7 },
+        direction,
+        Math.max(8, this.config.player.radius * this.entityScale(node) * 1.55),
+      )
+      const context = this.context
+      context.save()
+      context.globalAlpha = 0.5
+      context.strokeStyle = '#ff3347'
+      context.shadowColor = '#ff3347'
+      context.shadowBlur = 12
+      context.lineWidth = Math.max(2, radius * 0.35)
+      context.beginPath()
+      context.moveTo(
+        layout.center.x - layout.axis.x * layout.width * 0.58,
+        layout.center.y - layout.axis.y * layout.width * 0.58,
+      )
+      context.lineTo(
+        layout.center.x - layout.axis.x * layout.width * 0.2,
+        layout.center.y - layout.axis.y * layout.width * 0.2,
+      )
+      context.stroke()
+      context.restore()
+      this.drawSpearSprite(layout)
+      return
+    }
     this.context.beginPath()
     this.context.arc(point.x, point.y - radius, radius, 0, Math.PI * 2)
     this.context.fillStyle = projectile.color
@@ -6828,6 +7765,378 @@ export class LastChancesEngine {
       this.context.stroke()
     }
     this.context.shadowBlur = 0
+  }
+
+  private primarySpearWeapon(): LastChancesResolvedWeapon | null {
+    const weapon = this.weapons.get('left')
+    return weapon?.trait === 'spearDistance'
+      && weapon.attacks.hold.behavior === 'spearRelease'
+      ? weapon
+      : null
+  }
+
+  private spearChargePresentation(atMs: number): {
+    weapon: LastChancesResolvedWeapon
+    heldMs: number
+    visual: NonNullable<ReturnType<typeof resolveLastChancesSpearChargeVisual>>
+  } | null {
+    const weapon = this.primarySpearWeapon()
+    if (!weapon || !this.gestureReady('left', 'hold')) return null
+    const input = this.controlInputSnapshot('left', atMs)
+    const isDeeperBranch = input.candidateGesture === 'doubleTapHold'
+      || input.candidateGesture === 'holdThenDoubleTap'
+    const holdingFirstPress = input.pressed && input.sequence === 'first' && !isDeeperBranch
+    const awaitingRelease = input.phase === 'holdFollowUpWindow'
+    if (!holdingFirstPress && !awaitingRelease) return null
+    const heldMs = awaitingRelease ? input.pendingChargeMs : input.heldMs
+    const visual = resolveLastChancesSpearChargeVisual(weapon.attacks.hold, heldMs)
+    return visual ? { weapon, heldMs, visual } : null
+  }
+
+  private renderSpearChargePreview(node: LastChancesPlanNode): void {
+    if (this.paused || !this.canUseRoomActions()) return
+    const presentation = this.spearChargePresentation(this.frameNowMs || performance.now())
+    if (!presentation) return
+    const sourceAttack = attackWithLastChancesAugment(
+      presentation.weapon.attacks.hold,
+      presentation.weapon,
+    )
+    const previewHeldMs = Math.max(
+      presentation.heldMs,
+      presentation.visual.previewBand.minMs,
+    )
+    const charged = resolveLastChancesChargedAttack(sourceAttack, previewHeldMs)
+    if (!charged.band) return
+    const direction = this.spearReleaseDirection(
+      charged.attack,
+      this.player.aim,
+      charged.band.id,
+    )
+    let collider: LastChancesRuntimeCollider
+    if (charged.band.id === 'early') {
+      collider = resolveAttackCollider(
+        this.player.position,
+        direction,
+        {
+          ...charged.attack,
+          kind: 'melee',
+          collider: {
+            ...(charged.attack.collider ?? { traceMs: 900 }),
+            shape: 'sector',
+            innerRange: 52,
+          },
+        },
+      )
+    } else {
+      const projectileRadius = Math.max(
+        charged.attack.radius,
+        (charged.attack.collider?.width ?? 0) / 2,
+      )
+      const spawnOffset = Math.max(0, tuningValue(charged.attack, 'projectileSpawnOffset', 0))
+      const startDistance = this.config.player.radius + projectileRadius + 2 + spawnOffset
+      const start = {
+        x: this.player.position.x + direction.x * startDistance,
+        y: this.player.position.y + direction.y * startDistance,
+      }
+      const travel = this.spearPreviewTravelDistance(
+        node,
+        start,
+        direction,
+        Math.max(0, charged.attack.range - spawnOffset),
+        projectileRadius,
+      )
+      collider = {
+        shape: 'capsule',
+        start,
+        end: {
+          x: start.x + direction.x * travel,
+          y: start.y + direction.y * travel,
+        },
+        radius: projectileRadius,
+      }
+    }
+
+    const context = this.context
+    const alpha = presentation.visual.armed ? 0.82 : 0.36
+    const pulse = 0.78 + Math.sin(this.elapsedMs / 115) * 0.12
+    context.save()
+    context.setLineDash([9, 7])
+    context.lineCap = 'round'
+    context.lineJoin = 'round'
+    context.globalAlpha = alpha * pulse
+    context.strokeStyle = presentation.visual.previewBand.color
+    context.fillStyle = presentation.visual.previewBand.color
+    context.shadowColor = presentation.visual.previewBand.color
+    context.shadowBlur = presentation.visual.armed ? 12 : 5
+    context.lineWidth = presentation.visual.armed ? 2.6 : 1.7
+    for (const path of colliderTracePath(collider)) {
+      if (path.points.length === 0) continue
+      context.beginPath()
+      path.points.forEach((world, index) => {
+        const point = this.worldToScreen(world, node)
+        if (index === 0) context.moveTo(point.x, point.y)
+        else context.lineTo(point.x, point.y)
+      })
+      if (path.closed) context.closePath()
+      context.stroke()
+      if (path.closed) {
+        context.globalAlpha = alpha * 0.045
+        context.fill()
+        context.globalAlpha = alpha * pulse
+      }
+    }
+    if (collider.shape === 'capsule') {
+      const start = this.worldToScreen(collider.start, node)
+      const end = this.worldToScreen(collider.end, node)
+      const axis = normalize({ x: end.x - start.x, y: end.y - start.y })
+      const perpendicular = { x: -axis.y, y: axis.x }
+      const arrowSize = presentation.visual.stage === 'late' ? 12 : 9
+      context.beginPath()
+      context.moveTo(start.x, start.y)
+      context.lineTo(end.x, end.y)
+      context.moveTo(end.x, end.y)
+      context.lineTo(
+        end.x - axis.x * arrowSize + perpendicular.x * arrowSize * 0.55,
+        end.y - axis.y * arrowSize + perpendicular.y * arrowSize * 0.55,
+      )
+      context.moveTo(end.x, end.y)
+      context.lineTo(
+        end.x - axis.x * arrowSize - perpendicular.x * arrowSize * 0.55,
+        end.y - axis.y * arrowSize - perpendicular.y * arrowSize * 0.55,
+      )
+      context.stroke()
+    }
+    context.restore()
+  }
+
+  private spearPreviewTravelDistance(
+    node: LastChancesPlanNode,
+    start: LastChancesVector,
+    direction: LastChancesVector,
+    requestedTravel: number,
+    radius: number,
+  ): number {
+    let boundaryTravel = requestedTravel
+    const axisLimit = (
+      position: number,
+      component: number,
+      extent: number,
+    ): number => {
+      if (component > EPSILON) return (extent - radius - position) / component
+      if (component < -EPSILON) return (radius - position) / component
+      return Number.POSITIVE_INFINITY
+    }
+    boundaryTravel = Math.min(
+      boundaryTravel,
+      axisLimit(start.x, direction.x, node.arena.width),
+      axisLimit(start.y, direction.y, node.arena.height),
+    )
+    boundaryTravel = clamp(boundaryTravel, 0, requestedTravel)
+    const pointAt = (distance: number): LastChancesVector => ({
+      x: start.x + direction.x * distance,
+      y: start.y + direction.y * distance,
+    })
+    const hitsObstacleAt = (distance: number): boolean => node.arena.obstacles.some(obstacle => (
+      segmentHitsObstacle(start, pointAt(distance), obstacle, radius)
+    ))
+    if (!hitsObstacleAt(boundaryTravel)) return boundaryTravel
+    let safe = 0
+    let blocked = boundaryTravel
+    for (let step = 0; step < 16; step += 1) {
+      const candidate = (safe + blocked) / 2
+      if (hitsObstacleAt(candidate)) blocked = candidate
+      else safe = candidate
+    }
+    return safe
+  }
+
+  private spearSpriteLayout(
+    node: LastChancesPlanNode,
+    center: LastChancesVector,
+    direction: LastChancesVector,
+    playerRadius: number,
+    verticalTilt = 0,
+  ): RuntimeSpearSpriteLayout {
+    const origin = this.worldToScreen(this.player.position, node)
+    const projected = this.worldToScreen({
+      x: this.player.position.x + direction.x * 100,
+      y: this.player.position.y + direction.y * 100,
+    }, node)
+    const projection = { x: projected.x - origin.x, y: projected.y - origin.y }
+    const pixelsPerWorldUnit = Math.max(0.01, vectorLength(projection) / 100)
+    const baseAxis = normalize(projection)
+    const axis = normalize({ x: baseAxis.x, y: baseAxis.y + verticalTilt }, baseAxis)
+    const pivotRatio = 0.43
+    const idleFrontReach = this.primarySpearWeapon()?.attacks.tap.range ?? 176
+    const authoredWidth = idleFrontReach / (1 - pivotRatio) * pixelsPerWorldUnit
+    const width = clamp(authoredWidth, playerRadius * 5.6, playerRadius * 13.5)
+    const imageAspect = this.spearImage && this.spearImage.naturalWidth > 0
+      ? this.spearImage.naturalHeight / this.spearImage.naturalWidth
+      : 0.22
+    return {
+      center,
+      axis,
+      perpendicular: { x: -axis.y, y: axis.x },
+      width,
+      height: width * imageAspect,
+      pivotRatio,
+    }
+  }
+
+  private drawSpearSprite(layout: RuntimeSpearSpriteLayout): void {
+    const context = this.context
+    const angle = Math.atan2(layout.axis.y, layout.axis.x)
+    context.save()
+    context.translate(layout.center.x, layout.center.y)
+    context.rotate(angle)
+    context.shadowColor = '#ff263c'
+    context.shadowBlur = Math.max(7, layout.height * 0.34)
+    if (this.spearImage?.complete && this.spearImage.naturalWidth > 0) {
+      context.drawImage(
+        this.spearImage,
+        -layout.width * layout.pivotRatio,
+        -layout.height / 2,
+        layout.width,
+        layout.height,
+      )
+    } else {
+      const rear = -layout.width * layout.pivotRatio
+      const tip = layout.width * (1 - layout.pivotRatio)
+      context.strokeStyle = '#ff3048'
+      context.lineWidth = Math.max(3, layout.height * 0.08)
+      context.beginPath()
+      context.moveTo(rear, 0)
+      context.lineTo(tip, 0)
+      context.stroke()
+      context.fillStyle = '#d8dce0'
+      context.beginPath()
+      context.moveTo(tip, 0)
+      context.lineTo(tip - layout.height * 0.38, -layout.height * 0.12)
+      context.lineTo(tip - layout.height * 0.38, layout.height * 0.12)
+      context.closePath()
+      context.fill()
+    }
+    context.restore()
+  }
+
+  private renderHeldSpear(
+    node: LastChancesPlanNode,
+    playerPoint: LastChancesVector,
+    playerRadius: number,
+  ): void {
+    const spear = this.primarySpearWeapon()
+    if (!spear || this.projectiles.some(projectile => (
+      projectile.weaponId === spear.id && projectile.attack?.behavior === 'spearRelease'
+    ))) return
+
+    let direction = normalize(this.player.aim)
+    let forwardWorld = 0
+    let liftRadii = 0
+    let forwardRadii = 0
+    let verticalTilt = 0
+    const activeArea = [...this.activeAreas]
+      .reverse()
+      .find(area => area.weaponId === spear.id)
+    const activeDash = this.activeDash?.weaponId === spear.id ? this.activeDash : null
+    if (activeArea) {
+      const progress = clamp(
+        1 - activeArea.remainingMs / Math.max(1, activeArea.totalMs),
+        0,
+        1,
+      )
+      const shape = activeArea.attack.collider?.shape
+        ?? (activeArea.kind === 'burst' ? 'circle' : 'sector')
+      if (shape === 'sweep') {
+        direction = rotateVector(activeArea.direction, activeArea.sweepDegrees * Math.PI / 180)
+      } else if (shape === 'sector') {
+        const eased = 0.5 - Math.cos(progress * Math.PI) / 2
+        const arc = Math.min(170, activeArea.attack.arcDegrees)
+        direction = rotateVector(
+          activeArea.direction,
+          (-arc / 2 + arc * eased) * Math.PI / 180,
+        )
+      } else if (shape === 'capsule') {
+        direction = normalize(activeArea.direction)
+        const attackTravel = Math.max(
+          24,
+          activeArea.attack.range - (activeArea.attack.collider?.innerRange ?? 0),
+        )
+        forwardWorld = Math.sin(progress * Math.PI) * Math.min(72, attackTravel * 0.36)
+      }
+    } else if (activeDash) {
+      direction = normalize(activeDash.direction)
+      const progress = clamp(activeDash.elapsedMs / Math.max(1, activeDash.attack.durationMs), 0, 1)
+      if (activeDash.attack.behavior === 'poleVault') {
+        liftRadii = Math.sin(progress * Math.PI) * 2.25
+        direction = rotateVector(direction, -Math.sin(progress * Math.PI) * Math.PI * 0.46)
+      }
+    } else {
+      const charge = this.spearChargePresentation(this.frameNowMs || performance.now())
+      if (charge) {
+        liftRadii = charge.visual.liftRadii
+        forwardRadii = charge.visual.forwardRadii
+        verticalTilt = charge.visual.verticalTilt
+      }
+    }
+
+    const ordinaryCenter = { x: playerPoint.x, y: playerPoint.y - playerRadius }
+    const baseLayout = this.spearSpriteLayout(node, ordinaryCenter, direction, playerRadius)
+    const center = {
+      x: ordinaryCenter.x + baseLayout.axis.x * forwardRadii * playerRadius,
+      y: ordinaryCenter.y + baseLayout.axis.y * forwardRadii * playerRadius
+        - liftRadii * playerRadius,
+    }
+    if (forwardWorld > 0) {
+      const origin = this.worldToScreen(this.player.position, node)
+      const forward = this.worldToScreen({
+        x: this.player.position.x + direction.x * forwardWorld,
+        y: this.player.position.y + direction.y * forwardWorld,
+      }, node)
+      center.x += forward.x - origin.x
+      center.y += forward.y - origin.y
+    }
+    const layout = this.spearSpriteLayout(node, center, direction, playerRadius, verticalTilt)
+    const context = this.context
+    const gripSpacing = playerRadius * 0.34
+    const firstGrip = {
+      x: center.x - layout.axis.x * gripSpacing,
+      y: center.y - layout.axis.y * gripSpacing,
+    }
+    const secondGrip = {
+      x: center.x + layout.axis.x * gripSpacing,
+      y: center.y + layout.axis.y * gripSpacing,
+    }
+    if (liftRadii > 0.08) {
+      context.save()
+      context.strokeStyle = this.config.renderer.playerAccent
+      context.lineWidth = Math.max(3, playerRadius * 0.28)
+      context.lineCap = 'round'
+      context.beginPath()
+      context.moveTo(
+        ordinaryCenter.x - layout.perpendicular.x * playerRadius * 0.28,
+        ordinaryCenter.y - layout.perpendicular.y * playerRadius * 0.28,
+      )
+      context.lineTo(firstGrip.x, firstGrip.y)
+      context.moveTo(
+        ordinaryCenter.x + layout.perpendicular.x * playerRadius * 0.28,
+        ordinaryCenter.y + layout.perpendicular.y * playerRadius * 0.28,
+      )
+      context.lineTo(secondGrip.x, secondGrip.y)
+      context.stroke()
+      context.restore()
+    }
+    this.drawSpearSprite(layout)
+    context.save()
+    context.fillStyle = this.config.renderer.player
+    context.strokeStyle = this.config.renderer.playerAccent
+    context.lineWidth = 1.5
+    for (const grip of [firstGrip, secondGrip]) {
+      context.beginPath()
+      context.arc(grip.x, grip.y, Math.max(2.5, playerRadius * 0.2), 0, Math.PI * 2)
+      context.fill()
+      context.stroke()
+    }
+    context.restore()
   }
 
   private renderColliderTrace(

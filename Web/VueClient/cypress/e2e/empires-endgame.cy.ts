@@ -3,6 +3,7 @@
 import bundledConfigJson from '../../public/empires-endgame/game-config.json'
 import { createEmpiresQaScenarios } from '../../src/features/empires-endgame/qa'
 import { EmpiresEndgameEngine } from '../../src/features/empires-endgame/engine'
+import { EMPIRES_SAVE_STORAGE_KEY } from '../../src/features/empires-endgame/persistence'
 import type { EmpiresEndgameConfig } from '../../src/features/empires-endgame/types'
 
 type QaScenario =
@@ -30,7 +31,6 @@ type QaScenario =
 
 const QA_SEED = 'cypress-empires-endgame'
 const CONFIG_STORAGE_KEY = 'empires-endgame:config:v1'
-const SAVE_STORAGE_KEY = 'empires-endgame:campaign:v12'
 const GOD_UI_PREFERENCES_STORAGE_KEY = 'empires-endgame:ui:god-presence:v1'
 const bundledConfig = bundledConfigJson as unknown as EmpiresEndgameConfig
 const TECHNOLOGY_COUNT = bundledConfig.empire.technologies.length
@@ -417,32 +417,32 @@ describe('Empire\'s Endgame deterministic browser scenarios', () => {
     const productionConfig = 'production-config-sentinel'
     const importSnapshot = createEmpiresQaScenarios(bundledConfig, { seed: QA_SEED }).event.snapshot
     const importEnvelope = {
-      schemaVersion: 1,
+      schemaVersion: importSnapshot.schemaVersion,
       savedAt: '2026-07-15T00:00:00.000Z',
       state: importSnapshot,
     }
 
     visitScenario('empire-council-with-points', (window) => {
-      window.localStorage.setItem(SAVE_STORAGE_KEY, productionCampaign)
+      window.localStorage.setItem(EMPIRES_SAVE_STORAGE_KEY, productionCampaign)
       window.localStorage.setItem(CONFIG_STORAGE_KEY, productionConfig)
     })
     cy.window().then(window => cy.stub(window, 'confirm').returns(true))
 
     cy.get('[data-testid="new-campaign"]').click()
     cy.contains('.campaign-toast', 'только в QA').should('be.visible')
-    expectStoredValue(SAVE_STORAGE_KEY, productionCampaign)
+    expectStoredValue(EMPIRES_SAVE_STORAGE_KEY, productionCampaign)
     expectStoredValue(CONFIG_STORAGE_KEY, productionConfig)
 
     cy.get('[data-testid="open-constructor"]').click()
     cy.get('[data-testid="constructor-save"]').click()
     cy.get('[data-testid="constructor-save"]').should('contain.text', 'Сохранено')
     cy.get('[data-testid="qa-digest"]').should('be.visible')
-    expectStoredValue(SAVE_STORAGE_KEY, productionCampaign)
+    expectStoredValue(EMPIRES_SAVE_STORAGE_KEY, productionCampaign)
     expectStoredValue(CONFIG_STORAGE_KEY, productionConfig)
 
     cy.get('[data-testid="constructor-reset"]').click()
     cy.contains('.campaign-toast', 'восстановлен только в QA').should('be.visible')
-    expectStoredValue(SAVE_STORAGE_KEY, productionCampaign)
+    expectStoredValue(EMPIRES_SAVE_STORAGE_KEY, productionCampaign)
     expectStoredValue(CONFIG_STORAGE_KEY, productionConfig)
 
     cy.get('[data-testid="import-campaign"]').selectFile({
@@ -452,7 +452,7 @@ describe('Empire\'s Endgame deterministic browser scenarios', () => {
       lastModified: Date.now(),
     }, { force: true })
     cy.contains('.campaign-toast', 'временный QA-стенд').should('be.visible')
-    expectStoredValue(SAVE_STORAGE_KEY, productionCampaign)
+    expectStoredValue(EMPIRES_SAVE_STORAGE_KEY, productionCampaign)
     expectStoredValue(CONFIG_STORAGE_KEY, productionConfig)
   })
 

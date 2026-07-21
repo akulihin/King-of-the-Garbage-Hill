@@ -15,7 +15,7 @@ const props = withDefaults(defineProps<{
 })
 
 const emit = defineEmits<{
-  resolve: [choice: 'freeze' | 'postpone']
+  resolve: [choice: 'freeze' | 'postpone' | 'release']
 }>()
 
 const { overlayRef, dialogRef, focusFirstControl, trapTabKey } = useFocusTrapDialog()
@@ -55,7 +55,7 @@ function onDialogKeydown(event: KeyboardEvent): void {
   trapTabKey(event)
 }
 
-function resolve(choice: 'freeze' | 'postpone'): void {
+function resolve(choice: 'freeze' | 'postpone' | 'release'): void {
   if (actionsDisabled.value) return
   emit('resolve', choice)
 }
@@ -101,7 +101,7 @@ onUnmounted(() => {
           </div>
           <h2 id="hl3-transition-title">HALFLIFE 3</h2>
           <p id="hl3-transition-description" class="hl3-failure">
-            {{ halfLife.failureMessage || 'Недостаточно профита, нельзя  выпускать игру.' }}
+            {{ halfLife.decisionMessage || 'Недостаточно профита, нельзя  выпускать игру.' }}
           </p>
 
           <div class="hl3-deadline" :class="{ expired: isExpired }" role="timer" aria-live="polite">
@@ -120,12 +120,8 @@ onUnmounted(() => {
               <strong>{{ halfLife.rawPoints }}</strong>
             </div>
             <div class="hl3-profit-cell">
-              <span>{{ t('Super multiplier', 'Супермножитель') }}</span>
-              <strong>{{ halfLife.baseMultiplier }}</strong>
-            </div>
-            <div class="hl3-profit-cell">
-              <span>{{ t('Exponent', 'Степень') }}</span>
-              <strong>{{ halfLife.exponent }}</strong>
+              <span>{{ t('Power calculation', 'Расчёт степени') }}</span>
+              <strong>{{ halfLife.rawPoints }}^{{ halfLife.exponent }}</strong>
             </div>
             <div class="hl3-profit-cell hl3-profit-total">
               <span>{{ t('Final total', 'Финальная сумма') }}</span>
@@ -134,8 +130,8 @@ onUnmounted(() => {
           </div>
           <p v-if="halfLife.superMultiplierDisabled" class="hl3-tolya-disabled">
             {{ t(
-              'Tolya disabled pre-orders: the ordinary score multiplier applies.',
-              'Подсчет Толи отключил предзаказы: действует обычный множитель очков.',
+              'Tolya disabled pre-orders: ordinary points are awarded.',
+              'Подсчет Толи отключил предзаказы: начисляются обычные очки.',
             ) }}
           </p>
 
@@ -148,9 +144,9 @@ onUnmounted(() => {
               class="hl3-choice hl3-freeze"
               type="button"
               :disabled="actionsDisabled"
-              @click="resolve('freeze')"
+              @click="resolve(halfLife.decisionKind === 'release' ? 'release' : 'freeze')"
             >
-              <span aria-hidden="true">❄</span>
+              <span aria-hidden="true">{{ halfLife.decisionKind === 'release' ? '🚀' : '❄' }}</span>
               <strong>{{ halfLife.freezeLabel || t('Freeze the game', 'Заморозить игру') }}</strong>
             </button>
             <button
@@ -298,7 +294,7 @@ onUnmounted(() => {
 
 .hl3-profit {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 7px;
   margin-top: 18px;
 }

@@ -17,6 +17,7 @@ import type {
   InventorySimulationState,
 } from '../../features/empires-endgame/inventory/types'
 import type { EmpiresInventoryMinigameSession } from '../../features/empires-endgame/types'
+import MinigameAbortDialog from './MinigameAbortDialog.vue'
 
 const props = defineProps<{
   session: EmpiresInventoryMinigameSession
@@ -35,6 +36,7 @@ const emitted = ref(false)
 let frameHandle = 0
 let lastFrame: number | null = null
 let accumulatorMs = 0
+let pausedBeforeAbort = true
 
 const activeCells = computed(() => state.value.activeItem
   ? inventoryItemCells(props.session.plan, state.value.activeItem)
@@ -65,7 +67,7 @@ const efficiency = computed(() => props.session.plan.eligibleProvisionAmount > 0
 const elapsedSeconds = computed(() => Math.floor(state.value.tick * props.session.plan.tickMs / 1000))
 
 function command(value: Omit<InventoryCommand, 'tick' | 'sequence' | 'sessionId' | 'planId'>) {
-  if (paused.value || state.value.terminalReason) return
+  if (paused.value || abortOpen.value || state.value.terminalReason) return
   const next = {
     tick: state.value.tick,
     sequence: state.value.commandLog.length,
@@ -110,13 +112,32 @@ function tick(timestamp: number) {
   frameHandle = requestAnimationFrame(tick)
 }
 
-function togglePause() {
-  paused.value = !paused.value
+function resetFrameClock() {
   lastFrame = null
+  accumulatorMs = 0
+}
+
+function togglePause() {
+  if (abortOpen.value) return
+  paused.value = !paused.value
+  resetFrameClock()
+}
+
+function isInteractiveTarget(target: EventTarget | null): boolean {
+  return target instanceof Element && Boolean(target.closest(
+    'button, input, select, textarea, a[href], summary, [contenteditable]:not([contenteditable="false"]), [role="button"], [role="link"]',
+  ))
 }
 
 function onKeydown(event: KeyboardEvent) {
-  if (event.target instanceof HTMLInputElement || event.target instanceof HTMLSelectElement) return
+  if (event.defaultPrevented || abortOpen.value) return
+  if (event.ctrlKey || event.metaKey || event.altKey) return
+  if (event.key === 'Escape') {
+    event.preventDefault()
+    openAbort()
+    return
+  }
+  if (isInteractiveTarget(event.target)) return
   if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
     event.preventDefault()
     move(event.key === 'ArrowLeft' ? 'left' : 'right')
@@ -126,21 +147,34 @@ function onKeydown(event: KeyboardEvent) {
   } else if (event.key === 'ArrowDown' || event.key === 'Enter') {
     event.preventDefault()
     command({ kind: 'place' })
-  } else if (event.key.toLowerCase() === 'p') {
+  } else if (event.key.toLowerCase() === 'p' && !event.repeat) {
     togglePause()
-  } else if (event.key === 'Escape') {
-    abortOpen.value = true
   }
+}
+
+function openAbort() {
+  if (abortOpen.value || emitted.value) return
+  pausedBeforeAbort = paused.value
+  paused.value = true
+  resetFrameClock()
+  abortOpen.value = true
+}
+
+function cancelAbort() {
+  abortOpen.value = false
+  paused.value = pausedBeforeAbort
+  resetFrameClock()
 }
 
 function confirmAbort() {
   paused.value = true
+  resetFrameClock()
   abortOpen.value = false
   emit('abort', structuredClone(state.value.commandLog), state.value.tick)
 }
 
 function qaResolve() {
-  if (!props.qaMode || emitted.value) return
+  if (!props.qaMode || emitted.value || abortOpen.value) return
   emitted.value = true
   paused.value = true
   emit('resolved', resolveInventoryWithPolicy(props.session.plan, props.session.seed, 'spread'))
@@ -148,7 +182,7 @@ function qaResolve() {
 
 function onVisibilityChange() {
   if (document.hidden) paused.value = true
-  lastFrame = null
+  resetFrameClock()
 }
 
 onMounted(async () => {
@@ -190,6 +224,9 @@ onUnmounted(() => {
         class="inventory__board"
         :style="boardStyle"
         role="img"
+        tabindex="0"
+        data-testid="inventory-keyboard-surface"
+        aria-describedby="inventory-keyboard-help"
         :aria-label="`Поле ${session.plan.board.width} на ${session.plan.board.height}; тележка занимает нижние ${session.plan.board.cartHeight} рядов; уложено ${state.placements.length} вещей`"
       >
         <i class="cart-zone" aria-hidden="true" />
@@ -230,14 +267,14 @@ onUnmounted(() => {
           <button type="button" aria-label="Сдвинуть вправо" data-testid="inventory-right" @click="move('right')">→</button>
         </div>
         <button type="button" data-testid="inventory-place" @click="command({ kind: 'place' })">Уложить в тележку (Enter/↓)</button>
-        <small>←/→ — сдвиг · Space — поворот · Enter или ↓ — мгновенно уложить.</small>
+        <small id="inventory-keyboard-help">←/→ — сдвиг · Space — поворот · Enter или ↓ — мгновенно уложить.</small>
 
         <button v-if="qaMode" type="button" data-testid="inventory-fast-resolve" @click="qaResolve">QA: быстро упаковать</button>
-        <button class="danger" type="button" data-testid="inventory-abort" @click="abortOpen = true"><X :size="16" /> Прервать экспедицию (Esc)</button>
+        <button class="danger" type="button" data-testid="inventory-abort" @click="openAbort"><X :size="16" /> Прервать экспедицию (Esc)</button>
       </aside>
     </div>
 
-    <details class="inventory__accessible-state">
+    <details class="inventory__accessible-state" data-testid="inventory-text-state">
       <summary>Текстовое состояние тележки</summary>
       <p>Тик {{ state.tick }}; уложено {{ state.placements.length }}; осталось {{ state.queueItemInstanceIds.length + (state.activeItem ? 1 : 0) }}.</p>
       <ul>
@@ -247,14 +284,18 @@ onUnmounted(() => {
       </ul>
     </details>
 
-    <div v-if="abortOpen" class="inventory__dialog" role="dialog" aria-modal="true" aria-labelledby="inventory-abort-title">
-      <div>
-        <h3 id="inventory-abort-title">Прервать упаковку и экспедицию?</h3>
-        <p>Подготовительные дни уже потрачены. Провизия не уйдёт, но эта попытка будет записана как прерванная.</p>
-        <button type="button" data-testid="inventory-confirm-abort" @click="confirmAbort">Прервать экспедицию</button>
-        <button type="button" @click="abortOpen = false">Продолжить упаковку</button>
-      </div>
-    </div>
+    <MinigameAbortDialog
+      v-if="abortOpen"
+      id-prefix="inventory-abort"
+      title="Прервать упаковку и экспедицию?"
+      description="Подготовительные дни уже потрачены. Провизия не уйдёт, но эта попытка будет записана как прерванная."
+      confirm-label="Прервать экспедицию"
+      continue-label="Продолжить упаковку"
+      confirm-test-id="inventory-confirm-abort"
+      continue-test-id="inventory-continue"
+      @confirm="confirmAbort"
+      @cancel="cancelAbort"
+    />
   </section>
 </template>
 
@@ -273,6 +314,5 @@ onUnmounted(() => {
 .inventory button { min-height:39px; padding:7px 10px; border:1px solid rgba(224,184,99,.5); color:inherit; background:rgba(112,74,27,.72); cursor:pointer; }.inventory button:focus-visible { outline:2px solid #fff0a8; outline-offset:2px; }.inventory button:disabled { opacity:.45; cursor:not-allowed; }
 .inventory__buttons { display:grid; grid-template-columns:repeat(3,1fr); gap:5px; }.inventory__buttons button { display:grid; place-items:center; font-size:1.15rem; }.inventory__controls > small { color:#ad9b78; line-height:1.4; }.danger { border-color:rgba(238,97,73,.65)!important; background:rgba(105,29,21,.65)!important; }
 .inventory__accessible-state { padding:10px 13px; border:1px solid rgba(211,170,88,.22); }.inventory__accessible-state ul { max-height:130px; overflow:auto; }
-.inventory__dialog { position:fixed; inset:0; z-index:90; display:grid; place-items:center; padding:20px; background:rgba(0,0,0,.74); }.inventory__dialog>div { display:grid; gap:10px; width:min(450px,100%); padding:22px; border:1px solid #d6725d; background:#241b10; }.inventory__dialog h3,.inventory__dialog p { margin:0; }
 @media(max-width:800px){.inventory__layout{grid-template-columns:1fr}.inventory__board{--size:min(90vw,560px)}.inventory{padding:9px}}
 </style>

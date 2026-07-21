@@ -25,8 +25,10 @@ import type {
   LastChancesGesture,
   LastChancesGestureResolution,
   LastChancesHand,
+  LastChancesPlanNode,
   LastChancesResolvedWeapon,
   LastChancesSnapshot,
+  LastChancesTurretDefinition,
   LastChancesVector,
 } from './types'
 
@@ -77,6 +79,9 @@ interface RuntimeWeaponState {
   rhythm: 'idle' | 'early' | 'good' | 'late'
   perfectTimingMs: number
   fatigueMs: number
+  roomTimingMisses: number
+  consecutiveTimingMisses: number
+  fatigueTriggeredByTapAtMs: number
   unterhauDueAtMs: number
   unterhauTargetId: string | null
   unterhauTargetPosition: LastChancesVector | null
@@ -104,6 +109,13 @@ interface RuntimeEnemy {
   gestureHits: Record<LastChancesHand, Set<LastChancesGesture>>
   entering: boolean
   swordExecutionMarked: boolean
+  motherRetreatsTriggered: number
+  motherRetreat: {
+    stage: 'approaching' | 'hidden'
+    entranceHoleId: string
+    exitHoleId: string
+    detonateAtMs: number
+  } | null
 }
 
 interface RuntimeAttackContext {
@@ -119,14 +131,15 @@ interface RuntimeAttackContext {
 type EngineTestAccess = {
   activeAreas: Array<{
     attack: LastChancesAttackDefinition
+    direction: LastChancesVector
     remainingMs: number
     storedDot: LastChancesStoredDot | null
     weaponId: string
     rotationAssisted: boolean
     sweepDegrees: number
     authoredRepeatHits: number
-    swordMotionDamageBonus: number
-    swordMatchingMousePx: number
+    motionDamageBonus: number
+    matchingAimMotionPx: number
   }>
   activeDash: {
     attack: LastChancesAttackDefinition
@@ -138,6 +151,7 @@ type EngineTestAccess = {
     outfitId?: string | null
   } | null
   groundWeapons: Array<{ id: string, weaponId: string, position: LastChancesVector }>
+  rewardChest: { position: LastChancesVector, opened: boolean } | null
   applyInteractionChoice: (choice: {
     id: string
     title: string
@@ -150,6 +164,8 @@ type EngineTestAccess = {
   cooldownEnds: Map<string, number>
   canExploreRoom: () => boolean
   controlContextActive: (hand: LastChancesHand, context: LastChancesControlContext) => boolean
+  currentNode: LastChancesPlanNode | null
+  plan: LastChancesGamePlan
   applyGamepadReading: (reading: LastChancesGamepadReading | null) => void
   pollGamepad: () => void
   gamepadState: { id: string | null, connected: boolean }
@@ -179,6 +195,8 @@ type EngineTestAccess = {
   effects: unknown[]
   feedbackController: DualSenseFeedbackController
   finishEnemyDeath: (enemy: RuntimeEnemy) => void
+  bossCheckpoint: { nodeId: string } | null
+  cockroachesExtinct: boolean
   damagePlayerMental: (damage: number) => void
   startEmptyRightHandDash: () => boolean
   gestures: {
@@ -220,6 +238,17 @@ type EngineTestAccess = {
   }>
   heldChannels: Map<LastChancesHand, EngineTestAccess['activeAreas'][number]>
   killPlayer: (reason: string) => void
+  layout: () => {
+    centerX: number
+    top: number
+    diamondWidth: number
+    diamondHeight: number
+  }
+  moveCircle: (
+    position: LastChancesVector,
+    delta: LastChancesVector,
+    radius: number,
+  ) => void
   moveQuests: Record<LastChancesHand, {
     unlocked: Record<LastChancesGesture, boolean>
     pendingUnlocks: LastChancesGesture[]
@@ -251,6 +280,13 @@ type EngineTestAccess = {
   pointerDeltaX: number
   roomElapsedMs: number
   selectMobilityPhysicalHand: (atMs: number) => LastChancesHand | null
+  spearPreviewTravelDistance: (
+    node: LastChancesPlanNode,
+    start: LastChancesVector,
+    direction: LastChancesVector,
+    requestedTravel: number,
+    radius: number,
+  ) => number
   tapCombos: Record<LastChancesHand, { step: number, expiresAtMs: number }>
   spawnZoneAttack: (enemy: RuntimeEnemy) => void
   swarmSpawner: {
@@ -259,8 +295,28 @@ type EngineTestAccess = {
     spawnedCount: number
     nextSpawnAtMs: number
     edges: [string, string]
+    infinite: boolean
   } | null
+  turrets: Array<{
+    definition: LastChancesTurretDefinition
+    facing: LastChancesVector
+    disabled: boolean
+    seesPlayer: boolean
+    fireCooldownMs: number
+  }>
+  turretAlarmMs: number
+  holeStrikes: Array<{
+    holeId: string
+    center: LastChancesVector
+    radius: number
+    damageMaxHpRatio: number
+    spawnedAtMs: number
+    detonateAtMs: number
+    sourceName: string
+  }>
   updateSwarmSpawner: () => void
+  updateTurrets: (deltaSeconds: number, deltaMs: number) => void
+  updateHoleStrikes: () => void
   updateZoneAttacks: () => void
   zoneAttacks: Array<{
     shape: string
@@ -323,6 +379,13 @@ function combatConfig(
   config.progression.tiers[0].enemyCount = [enemyCount, enemyCount]
   config.progression.tiers[0].enemyPool = [{ enemyId, weight: 1 }]
   config.progression.tiers[0].roomTemplateIds = ['combat-hall']
+  return config
+}
+
+function specialRoomConfig(roomId: string): LastChancesConfig {
+  const config = combatConfig('hybrid-sword', null, 'guard', 1)
+  config.progression.tiers[0].roomTemplateIds = [roomId]
+  config.progression.tiers[0].guaranteedRoomTemplateIds = undefined
   return config
 }
 
@@ -569,7 +632,7 @@ describe('99LC engine attempt lifecycle', () => {
     }
   })
 
-  it('keeps the cleared room explorable until the route map is opened', () => {
+  it('keeps attacks and ground-item pickup active in a cleared room until the route map opens', () => {
     const config = combatConfig('hybrid-sword', null, 'guard', 1)
     const { engine, access } = startCombat(config)
 
@@ -579,6 +642,16 @@ describe('99LC engine attempt lifecycle', () => {
       expect(access.createSnapshot().phase).toBe('planning')
       expect(access.canExploreRoom()).toBe(true)
 
+      access.performAttack(resolution('left', 'tap'))
+      expect(access.activeAreas.some(area => area.attack.behavior === 'swordRhythm')).toBe(true)
+      access.groundWeapons.push({
+        id: 'cleared-room-chain',
+        weaponId: 'secondary-chain',
+        position: { ...access.player.position },
+      })
+      expect(engine.interact()).toBe(true)
+      expect(access.createSnapshot().loadout?.secondaryWeaponId).toBe('secondary-chain')
+
       const beforeX = access.player.position.x
       engine.setTouchMove(1, 0)
       access.updateClearedRoom(0.25, 250)
@@ -586,6 +659,40 @@ describe('99LC engine attempt lifecycle', () => {
 
       engine.setRouteMapVisible(true)
       expect(access.canExploreRoom()).toBe(false)
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('spawns the room reward chest after combat and opens choices only through interaction', () => {
+    const config = combatConfig('hybrid-sword', null, 'guard', 1)
+    const combatRoom = config.rooms.find(room => room.id === 'combat-hall')!
+    const chestInteraction = config.rooms.find(room => room.id === 'chest-gallery')!.interaction!
+    combatRoom.interaction = chestInteraction
+    const { engine, access } = startCombat(config)
+
+    try {
+      access.enemies[0].state = 'dead'
+      access.update(0.016, 16)
+      expect(access.createSnapshot()).toMatchObject({
+        phase: 'planning',
+        availableNodeIds: [],
+        interaction: null,
+      })
+      expect(access.rewardChest).not.toBeNull()
+
+      access.player.position = { ...access.rewardChest!.position }
+      expect(access.createSnapshot().interactionPrompt).toContain('E: открыть сундук')
+      expect(engine.interact()).toBe(true)
+      expect(access.createSnapshot()).toMatchObject({
+        phase: 'interaction',
+        interaction: { title: chestInteraction.title },
+      })
+
+      const leaveChoice = chestInteraction.choices.at(-1)!
+      expect(engine.chooseInteraction(leaveChoice.id)).toBe(true)
+      expect(access.createSnapshot().phase).toBe('planning')
+      expect(access.createSnapshot().availableNodeIds.length).toBeGreaterThan(0)
     } finally {
       engine.destroy()
     }
@@ -626,6 +733,72 @@ describe('99LC engine attempt lifecycle', () => {
 })
 
 describe('99LC seven-weapon mechanics', () => {
+  it('fills the game window with a horizontal arena projection', () => {
+    const { engine, access } = startCombat(combatConfig('twohand-spear', null, 'guard', 1))
+
+    try {
+      const layout = access.layout()
+      expect(layout.diamondWidth).toBeGreaterThanOrEqual(960 * 0.95)
+      expect(layout.diamondHeight).toBeGreaterThanOrEqual(640 * 0.8)
+      expect(layout.diamondWidth / layout.diamondHeight).toBeGreaterThan(1.5)
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('slides along a wall at full movement speed instead of stopping or slowing down', () => {
+    const config = combatConfig('twohand-spear', null, 'guard', 1)
+    const { engine, access } = startCombat(config)
+    const obstacle = access.currentNode!.arena.obstacles[0]
+    const radius = config.player.radius
+    const position = {
+      x: obstacle.x - radius,
+      y: obstacle.y + radius + 12,
+    }
+    const start = { ...position }
+    const delta = { x: 24, y: 18 }
+
+    try {
+      access.moveCircle(position, delta, radius)
+
+      expect(position.x).toBeCloseTo(start.x, 3)
+      expect(position.y - start.y).toBeCloseTo(Math.hypot(delta.x, delta.y), 3)
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('blocks attack colliders at walls by default and preserves the explicit opt-out', () => {
+    const config = combatConfig('twohand-spear', null, 'guard', 1)
+    const { engine, access } = startCombat(config)
+    const target = access.enemies[0]
+    const attack = weapon(config, 'twohand-spear').attacks.tap
+    access.currentNode!.arena.obstacles = [{
+      x: access.player.position.x + 82,
+      y: access.player.position.y - 120,
+      width: 20,
+      height: 240,
+      elevation: 60,
+    }]
+    placeEnemy(access, target, 150)
+
+    try {
+      const initialHp = target.hp
+      access.startActiveArea('melee', attack, { x: 1, y: 0 }, 'twohand-spear', 'left')
+      expect(target.hp).toBe(initialHp)
+
+      access.activeAreas = []
+      const throughWalls = {
+        ...attack,
+        collider: { ...attack.collider!, passesThroughWalls: true },
+      }
+      access.startActiveArea('melee', throughWalls, { x: 1, y: 0 }, 'twohand-spear', 'left')
+      expect(target.hp).toBeLessThan(initialHp)
+    } finally {
+      engine.destroy()
+    }
+  })
+
   it('keeps the spear dead zone harmless, boosts the sweet spot, and leaves collider traces', () => {
     const config = combatConfig('twohand-spear', null, 'guard', 2)
     const { engine, access } = startCombat(config)
@@ -738,6 +911,39 @@ describe('99LC seven-weapon mechanics', () => {
       expect(late.projectiles[0].carriedIds).toBeInstanceOf(Set)
     } finally {
       casts.forEach(cast => cast.engine.destroy())
+    }
+  })
+
+  it('stops the charged-throw telegraph at the first obstacle or arena edge', () => {
+    const { engine, access } = startCombat(combatConfig('twohand-spear', null, 'guard', 1))
+
+    try {
+      const node = access.currentNode!
+      const obstacle = node.arena.obstacles[0]
+      const radius = 14
+      const obstacleStart = {
+        x: obstacle.x - 100,
+        y: obstacle.y + obstacle.height / 2,
+      }
+      const obstacleTravel = access.spearPreviewTravelDistance(
+        node,
+        obstacleStart,
+        { x: 1, y: 0 },
+        300,
+        radius,
+      )
+      expect(obstacleTravel).toBeCloseTo(100 - radius, 1)
+
+      const boundaryTravel = access.spearPreviewTravelDistance(
+        node,
+        { x: node.arena.width - 100, y: node.arena.height / 2 },
+        { x: 1, y: 0 },
+        300,
+        radius,
+      )
+      expect(boundaryTravel).toBeCloseTo(100 - radius)
+    } finally {
+      engine.destroy()
     }
   })
 
@@ -1507,7 +1713,7 @@ describe('99LC seven-weapon mechanics', () => {
     }
   })
 
-  it('classifies the 500–600 ms sword rhythm and executes an opened target with Oberhaw', () => {
+  it('uses hidden 3-total/2-consecutive Sword misses, keeps the last Zornhaw, and lets Oberhaw cancel its fatigue', () => {
     const config = combatConfig('hybrid-sword', null, 'curator-shadow', 1)
     const { engine, access } = startCombat(config)
     const sword = weapon(config, 'hybrid-sword')
@@ -1521,23 +1727,56 @@ describe('99LC seven-weapon mechanics', () => {
       access.performAttack(resolution('left', 'tap'))
       expect(access.weaponStates.get('hybrid-sword')).toMatchObject({
         rhythm: 'early',
-        recoveryMs: 2000,
-        fatigueMs: 2000,
+        roomTimingMisses: 1,
+        consecutiveTimingMisses: 1,
+        fatigueMs: 0,
       })
 
-      access.weaponStates.get('hybrid-sword')!.recoveryMs = 0
-      access.weaponStates.get('hybrid-sword')!.fatigueMs = 0
-      access.player.recoveryMs = 0
       access.elapsedMs += 500
       access.performAttack(resolution('left', 'tap'))
       expect(access.weaponStates.get('hybrid-sword')).toMatchObject({
         rhythm: 'good',
         perfectTimingMs: 480,
+        roomTimingMisses: 1,
+        consecutiveTimingMisses: 0,
       })
 
       access.elapsedMs += 700
       access.performAttack(resolution('left', 'tap'))
-      expect(access.weaponStates.get('hybrid-sword')?.rhythm).toBe('late')
+      expect(access.weaponStates.get('hybrid-sword')).toMatchObject({
+        rhythm: 'late',
+        roomTimingMisses: 2,
+        consecutiveTimingMisses: 1,
+        fatigueMs: 0,
+      })
+
+      access.elapsedMs += 499
+      access.performAttack(resolution('left', 'tap'))
+      expect(access.weaponStates.get('hybrid-sword')).toMatchObject({
+        rhythm: 'early',
+        roomTimingMisses: 0,
+        consecutiveTimingMisses: 0,
+        fatigueMs: 2000,
+      })
+      expect(access.activeAreas.some(area => area.attack.behavior === 'swordRhythm')).toBe(true)
+
+      access.performAttack(resolution('left', 'doubleTap'))
+      expect(access.weaponStates.get('hybrid-sword')).toMatchObject({
+        rhythm: 'idle',
+        fatigueMs: 0,
+      })
+      expect(access.activeAreas.some(area => area.attack.behavior === 'swordRhythm')).toBe(false)
+      expect(access.activeAreas.some(area => area.attack.behavior === 'swordOpening')).toBe(true)
+      access.updateDelayedRecoveries(sword.attacks.doubleTap.durationMs)
+      expect(access.weaponStates.get('hybrid-sword')?.recoveryMs).toBe(500)
+      expect(access.player.recoveryMs).toBe(500)
+      access.performAttack(resolution('left', 'tap'))
+      expect(access.createSnapshot().lastGesture?.gesture).toBe('doubleTap')
+      access.weaponStates.get('hybrid-sword')!.recoveryMs = 0
+      access.player.recoveryMs = 0
+      access.elapsedMs += 500
+      access.performAttack(resolution('left', 'tap'))
+      expect(access.weaponStates.get('hybrid-sword')?.rhythm).toBe('idle')
 
       const cleanTap = { ...sword.attacks.tap, hitEffects: [] }
       target.definition.maxHp = 500
@@ -1573,7 +1812,7 @@ describe('99LC seven-weapon mechanics', () => {
     }
   })
 
-  it('keeps the held sword input as Oberhau followed by the additional Unterhau collider', () => {
+  it('adds Unterhaw after Oberhaw as automatic target damage with a separate triple cooldown', () => {
     const config = combatConfig('hybrid-sword', null, 'guard', 1)
     const { engine, access } = startCombat(config)
     const target = access.enemies[0]
@@ -1584,40 +1823,86 @@ describe('99LC seven-weapon mechanics', () => {
       target.hp = 500
       target.statuses.openingMs = 1600
       placeEnemy(access, target, 100)
-      access.performAttack(resolution('left', 'doubleTapHold', 1000))
+      access.performAttack(resolution('left', 'doubleTap'))
 
       expect(access.activeAreas.map(area => area.attack.behavior)).toContain('swordOpening')
       expect(access.activeAreas.map(area => area.attack.behavior)).not.toContain('swordFollowUp')
-      expect(access.delayedAttacks).toHaveLength(1)
-      expect(access.delayedAttacks[0].attack.behavior).toBe('swordFollowUp')
       expect(target.statuses.openingMs).toBe(0)
       const hpAfterOberhau = target.hp
 
-      access.updateDelayedAttacks(access.delayedAttacks[0].remainingMs)
+      access.elapsedMs += 1000
+      access.performAttack(resolution('left', 'doubleTapHold', 1000))
 
-      expect(access.activeAreas.map(area => area.attack.behavior)).toContain('swordFollowUp')
+      expect(access.delayedAttacks).toHaveLength(0)
+      expect(access.activeAreas.map(area => area.attack.behavior)).not.toContain('swordFollowUp')
       expect(target.hp).toBeLessThan(hpAfterOberhau)
       expect(500 - target.hp).toBeGreaterThan(
         weapon(config, 'hybrid-sword').attacks.doubleTapHold.damage,
+      )
+      expect(access.cooldownEnds.get('left:doubleTap')).toBe(
+        weapon(config, 'hybrid-sword').attacks.doubleTap.cooldownMs,
+      )
+      expect(access.cooldownEnds.get('left:doubleTapHold')).toBe(
+        access.elapsedMs + weapon(config, 'hybrid-sword').attacks.doubleTap.cooldownMs * 3,
       )
     } finally {
       engine.destroy()
     }
   })
 
-  it('alternates Zornhaw sweep directions, applies matching mouse motion and morphs into Oberhaw', () => {
-    const config = combatConfig('hybrid-sword', null, 'guard', 1)
-    const { engine, access } = startCombat(config)
+  it('retargets Unterhaw only when Oberhaw target vanished and otherwise falls back to the current aim collider', () => {
+    const retargeted = startCombat(combatConfig('hybrid-sword', null, 'guard', 2))
+    const missed = startCombat(combatConfig('hybrid-sword', null, 'guard', 1))
 
     try {
+      const [original, fallback] = retargeted.access.enemies
+      for (const enemy of [original, fallback]) {
+        enemy.definition.maxHp = 500
+        enemy.definition.armor = 0
+        enemy.hp = 500
+      }
+      placeEnemy(retargeted.access, original, 100)
+      placeEnemy(retargeted.access, fallback, 500)
+      retargeted.access.performAttack(resolution('left', 'doubleTap'))
+      expect(retargeted.access.weaponStates.get('hybrid-sword')?.unterhauTargetId).toBe(original.id)
+      original.state = 'dead'
+      placeEnemy(retargeted.access, fallback, 105)
+      const fallbackHp = fallback.hp
+      retargeted.access.elapsedMs += 1000
+      retargeted.access.performAttack(resolution('left', 'doubleTapHold', 1000))
+      expect(fallback.hp).toBeLessThan(fallbackHp)
+      expect(retargeted.access.activeAreas.map(area => area.attack.behavior)).not.toContain('swordFollowUp')
+
+      placeEnemy(missed.access, missed.access.enemies[0], 500)
+      missed.access.performAttack(resolution('left', 'doubleTap'))
+      expect(missed.access.weaponStates.get('hybrid-sword')?.unterhauTargetId).toBeNull()
+      missed.access.elapsedMs += 1000
+      missed.access.pointerAim = { x: 0, y: 1 }
+      missed.access.player.aim = { x: 0, y: 1 }
+      missed.access.performAttack(resolution('left', 'doubleTapHold', 1000))
+      expect(missed.access.activeAreas.map(area => area.attack.behavior)).toContain('swordFollowUp')
+      expect(missed.access.activeAreas.at(-1)?.direction).toEqual({ x: 0, y: 1 })
+    } finally {
+      retargeted.engine.destroy()
+      missed.engine.destroy()
+    }
+  })
+
+  it('alternates and morphs Zornhaw without mouse scaling, while Axe tap inherits that bonus', () => {
+    const config = combatConfig('hybrid-sword', null, 'guard', 1)
+    const swordRun = startCombat(config)
+    const axeRun = startCombat(combatConfig('twohand-axe', null, 'guard', 1))
+
+    try {
+      const { access } = swordRun
       placeEnemy(access, access.enemies[0], 500)
       access.performAttack(resolution('left', 'tap'))
       expect(access.activeAreas.at(-1)?.attack.collider?.rotationDegrees).toBe(118)
 
       access.pointerDeltaX = 160
       access.updateActiveAreas(10)
-      expect(access.activeAreas.at(-1)?.swordMotionDamageBonus).toBeCloseTo(0.25)
-      expect(access.weaponStates.get('hybrid-sword')?.lastMotionDamageBonus).toBeCloseTo(0.25)
+      expect(access.activeAreas.at(-1)?.motionDamageBonus).toBe(0)
+      expect(access.weaponStates.get('hybrid-sword')?.lastMotionDamageBonus).toBe(0)
 
       access.elapsedMs += 500
       access.performAttack(resolution('left', 'tap'))
@@ -1626,8 +1911,16 @@ describe('99LC seven-weapon mechanics', () => {
       access.performAttack(resolution('left', 'doubleTap'))
       expect(access.activeAreas.some(area => area.attack.behavior === 'swordRhythm')).toBe(false)
       expect(access.activeAreas.some(area => area.attack.behavior === 'swordOpening')).toBe(true)
+
+      placeEnemy(axeRun.access, axeRun.access.enemies[0], 500)
+      axeRun.access.performAttack(resolution('left', 'tap'))
+      axeRun.access.pointerDeltaX = 160
+      axeRun.access.updateActiveAreas(10)
+      expect(axeRun.access.activeAreas.at(-1)?.motionDamageBonus).toBeCloseTo(0.25)
+      expect(axeRun.access.weaponStates.get('twohand-axe')?.lastMotionDamageBonus).toBeCloseTo(0.25)
     } finally {
-      engine.destroy()
+      swordRun.engine.destroy()
+      axeRun.engine.destroy()
     }
   })
 
@@ -1767,6 +2060,164 @@ describe('99LC seven-weapon mechanics', () => {
   })
 })
 
+describe('99LC authored turret, altar, and Cockroach Mother rooms', () => {
+  it('places the optional authored rooms on levels three and four', () => {
+    const plan = buildLastChancesPlan(cloneLastChancesConfig(defaultConfig))
+    const turretRooms = plan.tiers[2].filter(node => node.roomTemplateId === 'turret-crossfire')
+    const motherRooms = plan.tiers[3].filter(node => node.roomTemplateId === 'cockroach-mother-lair')
+
+    expect(turretRooms).toHaveLength(1)
+    expect(turretRooms[0].turrets).toHaveLength(4)
+    expect(turretRooms[0].enemies).toHaveLength(0)
+    expect(motherRooms).toHaveLength(1)
+    expect(motherRooms[0].enemies.map(enemy => enemy.definitionId)).toEqual(['cockroach-mother'])
+    expect(motherRooms[0].swarm).toMatchObject({
+      definitionId: 'swarm-cockroach',
+      infinite: true,
+    })
+    expect(motherRooms[0].bossHoles).toHaveLength(4)
+    expect(motherRooms[0].altar?.chanceCost).toBe(5)
+    expect(plan.tiers[3].some(node => node.roomTemplateId !== 'cockroach-mother-lair')).toBe(true)
+  })
+
+  it('links every turret into one alarm and lets the player disable only quiet turrets', () => {
+    const { engine, access } = startCombat(specialRoomConfig('turret-crossfire'))
+
+    try {
+      expect(access.enemies).toHaveLength(0)
+      expect(access.turrets).toHaveLength(4)
+      const watcher = access.turrets[0]
+      access.player.position = {
+        x: watcher.definition.position.x + watcher.facing.x * 50,
+        y: watcher.definition.position.y + watcher.facing.y * 50,
+      }
+      access.updateTurrets(0, 0)
+
+      expect(access.turretAlarmMs).toBeGreaterThan(0)
+      expect(access.projectiles).toHaveLength(4)
+      expect(engine.interact()).toBe(false)
+
+      for (const turret of access.turrets) {
+        access.turretAlarmMs = 0
+        access.player.position = { ...turret.definition.position }
+        expect(engine.interact()).toBe(true)
+        expect(turret.disabled).toBe(true)
+      }
+      expect(access.createSnapshot().phase).toBe('planning')
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('spends five Chances on a one-use boss checkpoint and reactivates the altar after death', () => {
+    const config = specialRoomConfig('curator-threshold')
+    config.progression.tiers[0].enemyPool = [{ enemyId: 'curator-shadow', weight: 1 }]
+    const { engine, access } = startCombat(config)
+
+    try {
+      const entered = access.createSnapshot()
+      expect(entered.paused).toBe(true)
+      expect(entered.altarPrompt).toEqual({
+        prompt: 'Хотите ли вы принести жертву 5 шансов?',
+        chanceCost: 5,
+        available: true,
+      })
+      expect(engine.resolveAltar(true)).toBe(true)
+      expect(access.createSnapshot()).toMatchObject({ paused: false, chances: config.chances - 5 })
+      expect(access.bossCheckpoint?.nodeId).toBe(access.currentNode?.id)
+
+      access.killPlayer('Поражение у босса')
+      const afterDeath = access.createSnapshot().chances
+      expect(engine.retryAttempt()).toBe(true)
+      expect(access.createSnapshot()).toMatchObject({
+        phase: 'playing',
+        paused: true,
+        currentNodeId: access.currentNode?.id,
+      })
+      expect(access.createSnapshot().altarPrompt?.chanceCost).toBe(5)
+      expect(access.bossCheckpoint).toBeNull()
+
+      expect(engine.resolveAltar(true)).toBe(true)
+      expect(access.createSnapshot().chances).toBe(afterDeath - 5)
+      access.finishEnemyDeath(access.enemies[0])
+      expect(access.bossCheckpoint).toBeNull()
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('runs all three linked-hole retreats and exterminates cockroaches when their Mother dies', () => {
+    const config = specialRoomConfig('cockroach-mother-lair')
+    const { engine, access } = startCombat(config)
+
+    try {
+      expect(engine.resolveAltar(false)).toBe(true)
+      expect(access.swarmSpawner).toMatchObject({ infinite: true })
+      access.updateSwarmSpawner()
+      const mother = access.enemies.find(enemy => enemy.definition.id === 'cockroach-mother')!
+      expect(mother).toBeTruthy()
+      expect(access.enemies.filter(enemy => enemy.definition.id === 'swarm-cockroach')).toHaveLength(10)
+
+      const lethalAttack: LastChancesAttackDefinition = {
+        ...weapon(config, 'hybrid-sword').attacks.tap,
+        damage: mother.definition.maxHp * 2,
+        damageType: 'true',
+      }
+      const thresholds = mother.definition.cockroachMother!.retreatHealthRatios
+      for (const [index, threshold] of thresholds.entries()) {
+        access.damageEnemy(mother, lethalAttack, 0, { x: 1, y: 0 })
+        expect(mother.hp).toBe(mother.definition.maxHp * threshold)
+        expect(mother.motherRetreatsTriggered).toBe(index + 1)
+        expect(mother.motherRetreat?.stage).toBe('approaching')
+
+        const entrance = access.currentNode!.bossHoles.find(
+          hole => hole.id === mother.motherRetreat!.entranceHoleId,
+        )!
+        const linkedExit = access.currentNode!.bossHoles.find(
+          hole => hole.id === entrance.linkedHoleId,
+        )!
+        expect(mother.motherRetreat?.exitHoleId).toBe(linkedExit.id)
+
+        mother.position = { ...entrance.position }
+        access.updateEnemies(0, 0)
+        expect(mother.motherRetreat?.stage).toBe('hidden')
+        const strike = access.holeStrikes[0]
+        expect(strike.holeId).toBe(linkedExit.id)
+        expect(strike.detonateAtMs - access.elapsedMs).toBe(5000)
+
+        const farthestHole = [...access.currentNode!.bossHoles].sort((left, right) => {
+          const leftDistance = (left.position.x - strike.center.x) ** 2
+            + (left.position.y - strike.center.y) ** 2
+          const rightDistance = (right.position.x - strike.center.x) ** 2
+            + (right.position.y - strike.center.y) ** 2
+          return rightDistance - leftDistance
+        })[0]
+        access.player.position = { ...farthestHole.position }
+        access.player.invulnerableMs = 0
+        const hpBeforeBlast = access.player.hp
+        access.elapsedMs = strike.detonateAtMs + 1
+        access.updateHoleStrikes()
+        expect(access.player.hp).toBe(hpBeforeBlast)
+        access.updateEnemies(0, 0)
+        expect(mother.motherRetreat).toBeNull()
+        expect(mother.position).toEqual(linkedExit.position)
+      }
+
+      access.damageEnemy(mother, lethalAttack, 0, { x: 1, y: 0 })
+      expect(mother.state).toBe('dead')
+      expect(access.cockroachesExtinct).toBe(true)
+      expect(access.swarmSpawner).toBeNull()
+      expect(access.enemies
+        .filter(enemy => enemy.definition.id === 'swarm-cockroach')
+        .every(enemy => enemy.state === 'dead')).toBe(true)
+      expect(access.plan.nodes.every(node => node.swarm?.definitionId !== 'swarm-cockroach')).toBe(true)
+      expect(access.createSnapshot().cockroachesExtinct).toBe(true)
+    } finally {
+      engine.destroy()
+    }
+  })
+})
+
 describe('99LC move-unlock quests and elite/swarm rooms', () => {
   it('locks compound gestures until two tap kills in one room unlock the double tap', () => {
     const config = combatConfig('twohand-spear', null, 'servant', 3)
@@ -1853,17 +2304,20 @@ describe('99LC move-unlock quests and elite/swarm rooms', () => {
     try {
       const quest = access.moveQuests.left
       quest.tapQuestDone = true
-      quest.holdQuestDone = true
+      quest.holdQuestDone = false
       quest.unlocked.doubleTap = true
       quest.unlocked.holdThenDoubleTap = true
 
       const weapon = access.weapons.get('left')!
+      weapon.attacks.hold.enabled = false
       const elite = access.enemies[0]
       elite.hp = 5000
       elite.definition.maxHp = 5000
       const required = access.createSnapshot().moveQuests
         .find(candidate => candidate.hand === 'left')!.comboGesturesRequired
-      expect(required).toEqual(['tap', 'hold', 'doubleTap', 'holdThenDoubleTap'])
+      expect(required).toEqual(['tap', 'doubleTap', 'holdThenDoubleTap'])
+      expect(access.createSnapshot().moveQuests
+        .find(candidate => candidate.hand === 'left')!.comboQuestAvailable).toBe(true)
 
       for (const gesture of required) {
         access.damageEnemy(elite, weapon.attacks.tap, 0, { x: 1, y: 0 }, {
@@ -1930,8 +2384,8 @@ describe('99LC move-unlock quests and elite/swarm rooms', () => {
     }
   })
 
-  it('feeds the creep swarm from two distinct edges and holds the room open until it drains', () => {
-    const config = combatConfig('twohand-spear', null, 'swarm-creep', 1)
+  it('feeds the cockroach swarm from two distinct edges and holds the room open until it drains', () => {
+    const config = combatConfig('twohand-spear', null, 'swarm-cockroach', 1)
     const { engine, access } = startCombat(config, { unlockMoves: false })
 
     try {
@@ -1939,21 +2393,21 @@ describe('99LC move-unlock quests and elite/swarm rooms', () => {
       expect(access.swarmSpawner!.edges[0]).not.toBe(access.swarmSpawner!.edges[1])
       expect(access.enemies).toHaveLength(0)
       expect(access.createSnapshot().phase).toBe('playing')
-      expect(access.createSnapshot().swarm).toMatchObject({ definitionId: 'swarm-creep', total: 100 })
+      expect(access.createSnapshot().swarm).toMatchObject({ definitionId: 'swarm-cockroach', total: 100 })
 
       access.updateSwarmSpawner()
       expect(access.enemies).toHaveLength(10)
       expect(access.swarmSpawner!.remaining).toBe(90)
-      for (const creep of access.enemies) {
-        expect(creep.entering).toBe(true)
-        expect(creep.state).toBe('chasing')
+      for (const cockroach of access.enemies) {
+        expect(cockroach.entering).toBe(true)
+        expect(cockroach.state).toBe('chasing')
       }
 
       access.roomElapsedMs = 200
       access.updateSwarmSpawner()
       expect(access.enemies).toHaveLength(11)
 
-      for (const creep of access.enemies) creep.state = 'dead'
+      for (const cockroach of access.enemies) cockroach.state = 'dead'
       access.update(0.001, 1)
       expect(access.createSnapshot().phase).toBe('playing')
 
@@ -1965,19 +2419,28 @@ describe('99LC move-unlock quests and elite/swarm rooms', () => {
     }
   })
 
-  it('plans one guaranteed colossus per tier 3-6 node and extracts swarm slots from rolls', () => {
+  it('maximizes same-tier room variety and places each guaranteed colossus or swarm only once', () => {
     const plan = buildLastChancesPlan(cloneLastChancesConfig(defaultConfig))
+    for (const tier of plan.tiers) {
+      const authoredTier = defaultConfig.progression.tiers[tier[0].tierIndex]
+      expect(new Set(tier.map(node => node.roomTemplateId)).size).toBe(
+        Math.min(tier.length, new Set(authoredTier.roomTemplateIds).size),
+      )
+      expect(tier.filter(node => node.swarm && node.swarm.infinite !== true).length)
+        .toBeLessThanOrEqual(1)
+      const colossusCount = tier.flatMap(node => node.enemies)
+        .filter(enemy => enemy.definitionId === 'colossus').length
+      expect(colossusCount).toBe(
+        tier[0].tierKind === 'normal' && tier[0].tierIndex >= 2 && tier[0].tierIndex <= 5
+          ? 1
+          : 0,
+      )
+    }
     for (const node of plan.nodes) {
-      const colossusCount = node.enemies.filter(enemy => enemy.definitionId === 'colossus').length
-      if (node.tierKind === 'normal' && node.tierIndex >= 2 && node.tierIndex <= 5) {
-        expect(colossusCount).toBe(1)
-      } else {
-        expect(colossusCount).toBe(0)
-      }
       // Swarm rolls never place a walking enemy; they become the node's swarm event.
-      expect(node.enemies.some(enemy => enemy.definitionId === 'swarm-creep')).toBe(false)
+      expect(node.enemies.some(enemy => enemy.definitionId === 'swarm-cockroach')).toBe(false)
       if (node.swarm) {
-        expect(node.swarm.definitionId).toBe('swarm-creep')
+        expect(node.swarm.definitionId).toBe('swarm-cockroach')
         expect(node.swarm.edges[0]).not.toBe(node.swarm.edges[1])
       }
     }
@@ -2059,7 +2522,7 @@ describe('99LC control-scheme engine boundary', () => {
       engine.setPaused(false)
       key('keyup', 'KeyQ')
       key('keyup', 'Space')
-      key('keydown', 'KeyE')
+      key('keydown', 'KeyF')
       expect(access.mylorikControls.snapshot('right', performance.now()).techniquePressed).toBe(true)
       window.dispatchEvent(new Event('blur'))
       expectAllReleased()
@@ -3166,12 +3629,13 @@ describe('99LC control-scheme engine boundary', () => {
     }
   })
 
-  it('keeps every Sword move on the left runtime hand and arms Unterhaw after 1 second', () => {
+  it('keeps every Sword move on the left runtime hand and resolves Unterhaw at the 1-second gate', () => {
     const { engine, access } = startCombat(combatConfig('hybrid-sword', null))
     engine.setControlScheme('dualsense')
     try {
       expect(access.weapons.has('right')).toBe(false)
       driveDualSenseTrigger(access, 'right', 0.72, 0)
+      driveDualSenseTrigger(access, 'right', 0.72, 1)
       driveDualSenseTrigger(access, 'right', 0, 1000)
       const equipped = access.weapons.get('left')!
       expect(access.createSnapshot().lastGesture).toMatchObject({
@@ -3179,7 +3643,10 @@ describe('99LC control-scheme engine boundary', () => {
         gesture: 'doubleTapHold',
         attackName: equipped.attacks.doubleTapHold.name,
       })
-      expect(access.delayedAttacks).toHaveLength(1)
+      expect(access.delayedAttacks).toHaveLength(0)
+      expect(access.cooldownEnds.get('left:doubleTapHold')).toBe(
+        access.elapsedMs + equipped.attacks.doubleTap.cooldownMs * 3,
+      )
     } finally {
       engine.destroy()
     }

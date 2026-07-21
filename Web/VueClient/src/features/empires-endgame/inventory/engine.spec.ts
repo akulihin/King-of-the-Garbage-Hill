@@ -103,6 +103,45 @@ describe('inventory packing fixed-step replay', () => {
       accumulatorMs: 0,
       droppedMs: 800,
     })
+
+    const runCadence = (cadence: readonly number[]) => {
+      const cadenceState = createInventorySimulation(value, 'cadence')
+      let accumulatorMs = 0
+      let rotatePending = true
+      for (const elapsedMs of cadence) {
+        const clock = consumeInventoryFrameTime(
+          accumulatorMs,
+          elapsedMs,
+          value.tickMs,
+          value.maxCatchUpTicksPerFrame,
+        )
+        accumulatorMs = clock.accumulatorMs
+        for (let index = 0; index < clock.ticks && !cadenceState.terminalReason; index += 1) {
+          const commands: InventoryCommand[] = rotatePending
+            ? [{
+                tick: cadenceState.tick,
+                sequence: cadenceState.commandLog.length,
+                sessionId: value.sessionId,
+                planId: value.id,
+                kind: 'rotate',
+              }]
+            : []
+          stepInventorySimulation(value, cadenceState, commands)
+          rotatePending = false
+        }
+      }
+      return { state: cadenceState, accumulatorMs }
+    }
+
+    const steady = runCadence([50, 50, 50, 50, 50, 50, 50, 50])
+    const jittered = runCadence([20, 30, 120, 80, 25, 75, 50])
+    expect(jittered).toEqual(steady)
+    expect(steady.state.tick).toBe(8)
+    expect(steady.state.commandLog).toEqual([
+      expect.objectContaining({ kind: 'rotate', tick: 0, sequence: 0 }),
+    ])
+    expect(replayInventory(value, 'cadence', jittered.state.commandLog))
+      .toEqual(replayInventory(value, 'cadence', steady.state.commandLog))
   })
 
   it('keeps placed items, leaves all other item IDs unpacked, and terminates on cart overflow', () => {

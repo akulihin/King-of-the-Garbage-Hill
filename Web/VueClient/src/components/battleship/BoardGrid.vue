@@ -34,6 +34,8 @@ const emit = defineEmits<{
   (e: 'cellClick', row: number, col: number): void
   (e: 'cellHover', row: number, col: number): void
   (e: 'cellRightClick', row: number, col: number): void
+  (e: 'cellPointerDown', row: number, col: number, event: PointerEvent): void
+  (e: 'cellPointerUp', row: number, col: number, event: PointerEvent): void
   (e: 'tipShow', ev: MouseEvent, text: string): void
   (e: 'tipMove', ev: MouseEvent): void
   (e: 'tipHide'): void
@@ -94,6 +96,37 @@ const shipEdgeMap = computed(() => {
   return map
 })
 
+type BowDirection = 'up' | 'left'
+const deckVisualMap = computed(() => {
+  const map = new Map<string, { symbols: string[]; bowDirection?: BowDirection }>()
+  for (const ship of props.ships ?? []) {
+    if (!ship.isPlaced) continue
+    for (let i = 0; i < ship.deckCount; i++) {
+      const row = ship.orientation === 'Vertical' ? ship.row + i : ship.row
+      const col = ship.orientation === 'Horizontal' ? ship.col + i : ship.col
+      const deck = ship.decks[i]
+      const symbols: string[] = []
+      if (deck?.module && !deck.moduleDestroyed) {
+        const moduleKey: Record<string, string> = {
+          ballista: 'ballista',
+          tetracatapult: 'catapult',
+          mast: 'mast',
+          boiler: 'boiler',
+          incendiary: 'incendiary',
+        }
+        const icon = moduleKey[deck.module]
+        if (icon) symbols.push(icon)
+      }
+      if ((deck?.maxHp ?? 0) > 2) symbols.push('armor')
+      map.set(`${row},${col}`, {
+        symbols,
+        bowDirection: i === 0 ? (ship.orientation === 'Vertical' ? 'up' : 'left') : undefined,
+      })
+    }
+  }
+  return map
+})
+
 function isLastShot(row: number, col: number): boolean {
   return props.lastShotCell?.row === row && props.lastShotCell?.col === col
 }
@@ -120,6 +153,10 @@ function getRangeOverlay(row: number, col: number): string | undefined {
   return props.rangeOverlayCells?.get(`${row},${col}`)
 }
 
+function getDeckVisual(row: number, col: number) {
+  return deckVisualMap.value.get(`${row},${col}`)
+}
+
 function handleRightClick(row: number, col: number, event: Event) {
   event.preventDefault()
   emit('cellRightClick', row, col)
@@ -133,6 +170,14 @@ function handleClick(row: number, col: number) {
 
 function handleHover(row: number, col: number) {
   emit('cellHover', row, col)
+}
+
+function handlePointerDown(row: number, col: number, event: PointerEvent) {
+  if (event.button === 0) emit('cellPointerDown', row, col, event)
+}
+
+function handlePointerUp(row: number, col: number, event: PointerEvent) {
+  if (event.button === 0) emit('cellPointerUp', row, col, event)
 }
 </script>
 
@@ -167,8 +212,12 @@ function handleHover(row: number, col: number) {
           :ship-edges="getShipEdges(r - 1, c - 1)"
           :ship-name="getShipName(r - 1, c - 1)"
           :range-overlay="getRangeOverlay(r - 1, c - 1)"
+          :deck-symbols="getDeckVisual(r - 1, c - 1)?.symbols"
+          :bow-direction="getDeckVisual(r - 1, c - 1)?.bowDirection"
           @click="handleClick(r - 1, c - 1)"
           @mouseenter="handleHover(r - 1, c - 1)"
+          @pointerdown="handlePointerDown(r - 1, c - 1, $event)"
+          @pointerup="handlePointerUp(r - 1, c - 1, $event)"
           @contextmenu="handleRightClick(r - 1, c - 1, $event)"
           @tip-show="(ev: MouseEvent, text: string) => emit('tipShow', ev, text)"
           @tip-move="(ev: MouseEvent) => emit('tipMove', ev)"

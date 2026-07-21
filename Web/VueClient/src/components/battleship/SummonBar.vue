@@ -11,6 +11,8 @@ const props = defineProps<{
   phase: string
   shotCount: number
   canDeploySummon: boolean
+  boardingPlacementPending: boolean
+  deployableSummons: string[]
   availableSummons: string[]
   summonDeployMode: {
     type: string
@@ -34,7 +36,7 @@ const summonType = ref('Ram')
 
 watch(summonType, (val) => {
   emit('setSummonType', val)
-})
+}, { flush: 'sync' })
 
 // Keep the selection valid when availability changes (ТЗ #11/#12)
 watch(() => props.availableSummons, (list) => {
@@ -84,6 +86,11 @@ function iconFor(type: string): string {
 function posLabel(row: number, col: number): string {
   return String.fromCharCode(65 + col) + (row + 1)
 }
+
+function chooseSummon(type: string) {
+  summonType.value = type
+  if (props.deployableSummons.includes(type)) emit('enterDeploy')
+}
 </script>
 
 <template>
@@ -98,25 +105,17 @@ function posLabel(row: number, col: number): string {
           class="bs-seg-btn"
           type="button"
           :aria-pressed="summonType === type"
+          :disabled="!deployableSummons.includes(type)"
+          :class="{ 'summon-choice-unavailable': !deployableSummons.includes(type) }"
           @mouseenter="showTip($event, summonDescriptions[type] ?? '')"
           @mousemove="moveTip"
           @mouseleave="hideTip"
-          @click="summonType = type"
+          @click="chooseSummon(type)"
         >
           <span class="sb-seg-icon" v-html="iconFor(type)" />
           {{ nameRu(type) }}
         </button>
       </div>
-      <button
-        class="bs-btn bs-btn--primary sb-deploy-btn"
-        :disabled="!canDeploySummon"
-        @mouseenter="showTip($event, canDeploySummon ? (selectedWaitingSummon ? 'Выберите подсвеченную клетку на краю вражеского поля' : 'Выберите клетку на строке 1 вражеского поля') : '')"
-        @mousemove="moveTip"
-        @mouseleave="hideTip"
-        @click="emit('enterDeploy')"
-      >
-        {{ selectedWaitingSummon ? 'Вернуть на карту' : 'Разместить на карте' }}
-      </button>
       <span v-if="!canDeploySummon && myPlayer" class="sb-hint">
         <template v-if="!selectedWaitingSummon && summonType === 'Brander' && myPlayer.branderUsed">
           Брандер уже использован
@@ -158,16 +157,23 @@ function posLabel(row: number, col: number): string {
     <!-- 3. Pending Summons -->
     <div v-if="myPlayer?.pendingSummons?.length" class="pending-bar bs-bar">
       <span class="sb-label">Ожидающие призывы:</span>
-      <div v-for="ps in myPlayer!.pendingSummons" :key="ps.id" class="pending-entry">
+      <button
+        v-for="ps in myPlayer!.pendingSummons"
+        :key="ps.id"
+        type="button"
+        class="pending-entry"
+        :class="{ 'pending-entry--blocked': boardingPlacementPending && !ps.isBoarding }"
+        :disabled="boardingPlacementPending && !ps.isBoarding"
+        @click="emit('enterPendingDeploy', ps)"
+      >
+        <span class="sb-seg-icon" v-html="iconFor(ps.type)" />
         <span class="pending-name">{{ ps.sourceShipName || ps.type }}</span>
         <span v-if="ps.isBoarding" class="bs-chip bs-chip--red boarding-badge">абордаж</span>
         <span v-if="ps.allowedColumns.length" class="sb-hint">
           (столбцы: {{ ps.allowedColumns.map(c => String.fromCharCode(65 + c)).join(', ') }})
         </span>
-        <button class="bs-btn bs-btn--primary sb-deploy-btn" @click="emit('enterPendingDeploy', ps)">
-          Разместить на карте
-        </button>
-      </div>
+        <span class="pending-action">Выбрать клетку</span>
+      </button>
     </div>
 
     <!-- 4. Deploy Mode Banner -->
@@ -232,6 +238,11 @@ function posLabel(row: number, col: number): string {
   padding: 4px 14px;
   font-size: 0.75rem;
 }
+.summon-choice-unavailable {
+  opacity: 0.38;
+  filter: grayscale(1);
+  cursor: not-allowed;
+}
 
 /* ── Hint text ─────────────────────────────────────────── */
 .sb-hint {
@@ -275,12 +286,38 @@ function posLabel(row: number, col: number): string {
   align-items: center;
   flex-wrap: wrap;
   gap: 0.5rem;
+  width: 100%;
+  padding: 0.45rem 0.6rem;
+  color: var(--text-secondary);
+  background: color-mix(in srgb, var(--accent-gold) 8%, var(--bg-inset));
+  border: 1px solid color-mix(in srgb, var(--accent-gold) 35%, transparent);
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: left;
+}
+.pending-entry:hover {
+  border-color: var(--accent-gold);
+  box-shadow: var(--glow-gold);
+}
+.pending-entry--blocked,
+.pending-entry--blocked:hover {
+  opacity: 0.42;
+  filter: grayscale(1);
+  cursor: not-allowed;
+  border-color: var(--border-subtle);
+  box-shadow: none;
 }
 
 .pending-name {
   font-weight: 600;
   color: var(--text-secondary);
   font-size: 0.8rem;
+}
+.pending-action {
+  margin-left: auto;
+  font-size: 0.65rem;
+  font-weight: 800;
+  color: var(--accent-gold);
 }
 
 /* ── Boarding badge ────────────────────────────────────── */

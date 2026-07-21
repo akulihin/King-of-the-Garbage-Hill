@@ -35,6 +35,7 @@ const selectedRequired = computed(() => selectedUnits.value.reduce((total, unit)
 ), 0))
 const canLaunch = computed(() => props.view.status === 'planning'
   && selectedIds.value.length > 0
+  && selectedIds.value.length <= props.view.rosterSelectionLimit
   && Number.isFinite(provisionAmount.value)
   && provisionAmount.value >= 0)
 
@@ -42,6 +43,7 @@ function toggleUnit(unitInstanceId: string) {
   if (selectedIds.value.includes(unitInstanceId)) {
     selectedIds.value = selectedIds.value.filter(id => id !== unitInstanceId)
   } else {
+    if (selectedIds.value.length >= props.view.rosterSelectionLimit) return
     selectedIds.value = [...selectedIds.value, unitInstanceId]
   }
   provisionAmount.value = selectedRequired.value
@@ -103,7 +105,7 @@ const statusLabel: Record<EmpiresExpeditionPlanningView['status'], string> = {
 
       <article v-if="view.status === 'planning'" class="roster-card">
         <header>
-          <div><h3>Состав экспедиции</h3><small>У каждого бойца сохраняются собственные здоровье, раны и статус ветерана.</small></div>
+          <div><h3>Состав экспедиции</h3><small>У каждого бойца сохраняются собственные здоровье, раны и статус ветерана. Лимит состава: {{ view.rosterSelectionLimit }}.</small></div>
           <b>{{ selectedIds.length }} выбрано</b>
         </header>
         <div class="roster-list">
@@ -111,7 +113,7 @@ const statusLabel: Record<EmpiresExpeditionPlanningView['status'], string> = {
             <input
               type="checkbox"
               :checked="selectedIds.includes(unit.unitInstanceId)"
-              :disabled="!unit.eligible"
+              :disabled="!unit.eligible || (!selectedIds.includes(unit.unitInstanceId) && selectedIds.length >= view.rosterSelectionLimit)"
               :data-testid="`expedition-unit-${unit.unitInstanceId}`"
               @change="toggleUnit(unit.unitInstanceId)"
             >

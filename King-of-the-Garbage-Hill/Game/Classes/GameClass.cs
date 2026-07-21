@@ -23,7 +23,7 @@ public class GameClass
         GlobalLogs = "";
         IsCheckIfReady = true;
         SkipPlayersThisRound = 0;
-        GameVersion = "Версия: 5.0.28";
+        GameVersion = "Версия: 5.0.40";
         GameMode = gameMode;
         CreatorId = creatorId;
         Teams = new List<TeamPlay>();
@@ -63,6 +63,8 @@ public class GameClass
     public bool IsRoundTransitionPaused { get; set; }
     public DateTimeOffset? TransitionDeadlineUtc { get; set; }
     public long StateRevision { get; set; }
+    /// <summary>Public monotonic event identity for the full-screen Halflife 3 release celebration.</summary>
+    public int HalfLifeReleaseSerial { get; set; }
 
     private string GlobalLogs { get; set; }
     public string GameMode { get; set; }

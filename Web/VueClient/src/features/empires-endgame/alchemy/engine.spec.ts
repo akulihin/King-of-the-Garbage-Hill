@@ -195,12 +195,41 @@ describe('Tetris-alchemy fixed-step engine', () => {
     expect(state.construction).toEqual([{ x: 6, y: 6, color: 'gray' }])
   })
 
-  it('caps catch-up and replays identical commands independently of frame cadence', () => {
+  it('caps catch-up and reaches the same logical state across genuine multi-frame cadences', () => {
     expect(consumeAlchemyFrameTime(0, 10_000, 50, 4)).toEqual({ ticks: 4, accumulatorMs: 0, droppedMs: 9_800 })
     const value = plan()
-    const first = replayAlchemy(value, 'cadence', [])
-    const second = replayAlchemy(value, 'cadence', [])
-    expect(second).toEqual(first)
+    const runCadence = (cadence: readonly number[]) => {
+      const state = createAlchemySimulation(value, 'cadence')
+      let accumulatorMs = 0
+      let rotatePending = true
+      for (const elapsedMs of cadence) {
+        const clock = consumeAlchemyFrameTime(
+          accumulatorMs,
+          elapsedMs,
+          value.tickMs,
+          value.maxCatchUpTicksPerFrame,
+        )
+        accumulatorMs = clock.accumulatorMs
+        for (let index = 0; index < clock.ticks && !state.terminalReason; index += 1) {
+          const commands = rotatePending
+            ? [command(value, state, { kind: 'rotate' })]
+            : []
+          stepAlchemySimulation(value, state, commands)
+          rotatePending = false
+        }
+      }
+      return { state, accumulatorMs }
+    }
+
+    const steady = runCadence([50, 50, 50, 50, 50, 50, 50, 50])
+    const jittered = runCadence([20, 30, 120, 80, 25, 75, 50])
+    expect(jittered).toEqual(steady)
+    expect(steady.state.tick).toBe(8)
+    expect(steady.state.commandLog).toEqual([
+      expect.objectContaining({ kind: 'rotate', tick: 0, sequence: 0 }),
+    ])
+    expect(replayAlchemy(value, 'cadence', jittered.state.commandLog))
+      .toEqual(replayAlchemy(value, 'cadence', steady.state.commandLog))
   })
 
   it('terminates three seeds by three bounded QA policies using immutable bundled rules', () => {

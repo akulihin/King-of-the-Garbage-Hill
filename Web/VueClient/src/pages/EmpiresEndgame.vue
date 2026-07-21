@@ -72,6 +72,7 @@ import {
 } from '../features/empires-endgame/qa'
 import {
   clearEmpiresCampaign,
+  exportEmpiresCampaign,
   importEmpiresCampaign,
   loadEmpiresCampaign,
   saveEmpiresCampaign,
@@ -118,6 +119,7 @@ const state = ref<EmpiresCampaignState | null>(null)
 const loading = ref(true)
 const fatalError = ref('')
 const fatalSaveRecoverable = ref(false)
+const autosaveError = ref('')
 const lastMessage = ref('Добро пожаловать на последнюю игру империи.')
 const godBusy = ref(false)
 const deckMemoryOpen = ref(false)
@@ -545,6 +547,21 @@ function showMessage(message: string) {
   }, 6500)
 }
 
+function persistCampaign(stateToSave: EmpiresCampaignState): boolean {
+  try {
+    saveEmpiresCampaign(stateToSave)
+    autosaveError.value = ''
+    return true
+  }
+  catch (error) {
+    const detail = error instanceof Error ? error.message : 'неизвестная ошибка'
+    autosaveError.value = error instanceof Error && /превышает лимит/.test(error.message)
+      ? `Автосохранение и экспорт приостановлены: ${detail} Уменьшите состояние кампании.`
+      : `Автосохранение приостановлено: ${detail} Экспортируйте кампанию для резервной копии.`
+    return false
+  }
+}
+
 function formatNumber(value: number) {
   return new Intl.NumberFormat('ru-RU', {
     notation: Math.abs(value) >= 10_000 ? 'compact' : 'standard',
@@ -657,7 +674,7 @@ function initializeEngine(nextConfig: EmpiresEndgameConfig, snapshot?: EmpiresCa
     state.value = structuredClone(nextState)
     triggerRef(engine)
     if (!qaMode.value) {
-      saveEmpiresCampaign(nextState)
+      persistCampaign(nextState)
       if (nextState.phase === 'victory' || nextState.phase === 'defeat') {
         recordCompletedTavernRun(nextState.tavern.runOrdinal)
       }
@@ -671,7 +688,7 @@ function initializeEngine(nextConfig: EmpiresEndgameConfig, snapshot?: EmpiresCa
   if (!activeCityId.value || !nextConfig.empire.cities.some(city => city.id === activeCityId.value)) {
     activeCityId.value = firstCity?.id ?? ''
   }
-  if (!qaMode.value) saveEmpiresCampaign(nextEngine.state)
+  if (!qaMode.value) persistCampaign(nextEngine.state)
   void runGodTurns()
 }
 
@@ -720,6 +737,7 @@ async function boot() {
   loading.value = true
   fatalError.value = ''
   fatalSaveRecoverable.value = false
+  let storedCandidateSeen = false
   try {
     const loadedConfig = await loadEmpiresConfig()
     config.value = loadedConfig
@@ -748,12 +766,16 @@ async function boot() {
       }
     }
     else {
-      const savedCampaign = loadEmpiresCampaign(loadedConfig.id)
+      const savedCampaign = loadEmpiresCampaign(loadedConfig.id, (candidate) => {
+        storedCandidateSeen = true
+        new EmpiresEndgameEngine(loadedConfig, candidate)
+      })
       fatalSaveRecoverable.value = savedCampaign !== null
       initializeEngine(loadedConfig, savedCampaign)
     }
   }
   catch (error) {
+    fatalSaveRecoverable.value ||= storedCandidateSeen
     fatalError.value = error instanceof Error ? error.message : 'Игру не удалось запустить.'
   }
   finally {
@@ -1013,7 +1035,17 @@ function startNewCampaign(ask = true) {
 
 function exportSave() {
   if (!engine.value) return
-  downloadEmpiresJson('empires-endgame-save.json', engine.value.snapshotEnvelope())
+  try {
+    downloadEmpiresJson(
+      'empires-endgame-save.json',
+      exportEmpiresCampaign(engine.value.snapshot()),
+    )
+    autosaveError.value = ''
+  }
+  catch (error) {
+    const detail = error instanceof Error ? error.message : 'неизвестная ошибка'
+    autosaveError.value = `Экспорт приостановлен: ${detail} Уменьшите состояние кампании.`
+  }
 }
 
 async function importSave(event: Event) {
@@ -1023,7 +1055,7 @@ async function importSave(event: Event) {
     const raw: unknown = JSON.parse(await file.text())
     engine.value.restore(importEmpiresCampaign(raw, config.value.id))
     state.value = structuredClone(engine.value.state)
-    if (!qaMode.value) saveEmpiresCampaign(engine.value.state)
+    if (!qaMode.value) persistCampaign(engine.value.state)
     showMessage(qaMode.value
       ? 'Кампания загружена во временный QA-стенд. Основное автосохранение не изменено.'
       : 'Кампания загружена.')
@@ -2244,7 +2276,7 @@ onUnmounted(() => {
         </label>
         <button data-testid="qa-reload" type="button" @click="loadQaScenario()"><RotateCcw :size="14" /> Сбросить сценарий</button>
         <button data-testid="qa-autoplay" type="button" @click="runQaAutoplay"><Play :size="14" /> Автотест кампании</button>
-        <code v-if="qaDigest" data-testid="qa-digest">{{ qaDigest.phase }} · r{{ qaDigest.revision }} · {{ qaDigest.currentActor ?? '—' }} / {{ qaDigest.stage }}</code>
+        <code v-if="qaDigest" data-testid="qa-digest">{{ qaDigest.phase }} · r{{ qaDigest.revision }} · {{ qaDigest.currentActor ?? '—' }} / {{ qaDigest.stage }} · результаты {{ qaDigest.minigameResultCount }}</code>
         <span v-if="qaAutoplaySummary" data-testid="qa-autoplay-result">{{ qaAutoplaySummary }}</span>
       </aside>
 
@@ -2262,6 +2294,7 @@ onUnmounted(() => {
       </section>
 
       <div v-if="lastMessage" class="campaign-toast" role="status"><Sparkles :size="14" />{{ lastMessage }}</div>
+      <div v-if="autosaveError" class="campaign-save-error" role="alert">{{ autosaveError }}</div>
 
       <section v-if="state.phase === 'cards' && !editorOpen" class="phase-content cards-phase">
         <DurakTable
@@ -2621,6 +2654,7 @@ onUnmounted(() => {
 .header-actions { display:flex; justify-content:flex-end; gap:5px; }.header-actions button { display:inline-flex; height:36px; align-items:center; justify-content:center; gap:5px; padding:0 10px; border:1px solid rgba(217,191,133,.15); border-radius:6px; color:#d8cdb7; background:rgba(255,255,255,.035); cursor:pointer; }.header-actions .builder-button { border-color:rgba(210,177,99,.32); color:#e3cc91; background:rgba(210,177,99,.08); }
 .phase-banner { position:relative; z-index:2; display:flex; max-width:1500px; align-items:flex-end; justify-content:space-between; gap:25px; margin:0 auto 14px; padding:22px 24px; border:1px solid rgba(216,190,133,.14); border-radius:14px; background:linear-gradient(110deg,rgba(29,34,27,.96),rgba(19,25,24,.9)); }.phase-banner > div > span { color:var(--gold); font:800 .58rem/1 monospace; letter-spacing:.13em; text-transform:uppercase; }.phase-banner h2 { margin:5px 0 2px; font:700 clamp(1.6rem,3vw,2.35rem)/1 Georgia,serif; }.phase-banner p { margin:0; color:rgba(237,227,205,.53); font-size:.78rem; }.phase-banner ol { display:flex; margin:0; padding:0; list-style:none; }.phase-banner li { display:flex; min-width:76px; align-items:center; justify-content:center; gap:5px; padding:8px 10px; border-bottom:2px solid rgba(237,227,205,.12); color:rgba(237,227,205,.32); font-size:.62rem; }.phase-banner li.active { border-color:var(--gold); color:#ead28f; }.phase-banner li.passed { border-color:#6d8e72; color:#8eaa8f; }
 .campaign-toast { position:sticky; z-index:30; top:68px; display:flex; width:fit-content; max-width:min(680px,90vw); align-items:center; gap:7px; margin:0 auto 12px; padding:8px 12px; border:1px solid rgba(216,186,111,.26); border-radius:30px; color:#dfcc9b; background:rgba(27,28,22,.96); box-shadow:0 10px 30px rgba(0,0,0,.28); font-size:.69rem; }
+.campaign-save-error { position:sticky; z-index:29; top:108px; width:min(760px,92vw); margin:0 auto 12px; padding:9px 12px; border:1px solid rgba(220,91,72,.55); border-radius:8px; color:#ffd2c8; background:rgba(72,22,17,.96); font-size:.7rem; line-height:1.4; }
 .phase-content { position:relative; z-index:2; max-width:1500px; margin:0 auto; }.cards-phase { display:grid; gap:10px; }.rules-note { display:flex; align-items:flex-start; gap:8px; padding:11px 14px; border:1px solid rgba(216,190,133,.12); border-radius:8px; color:rgba(237,227,205,.52); background:rgba(20,24,20,.82); font-size:.68rem; line-height:1.5; }.rules-note svg { flex:none; color:#b99e5d; }
 .gift-phase { min-height:580px; padding:36px 0; }.gift-intro { max-width:640px; margin:0 auto 28px; text-align:center; }.gift-intro > svg { color:var(--gold); }.gift-intro > span { display:block; margin:9px 0 5px; color:#a9925f; font:800 .6rem/1 monospace; letter-spacing:.12em; text-transform:uppercase; }.gift-intro h2 { margin:0; font:700 2.2rem/1 Georgia,serif; }.gift-intro p { color:rgba(237,227,205,.5); }.gift-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; max-width:1100px; margin:auto; }.gift-grid > button { position:relative; display:grid; min-height:360px; grid-template-rows:auto auto auto 1fr auto auto; place-items:center; padding:21px; overflow:hidden; border:1px solid rgba(211,182,112,.25); border-radius:14px; color:#eee3cc; background:radial-gradient(circle at 50% 20%,rgba(200,169,94,.11),transparent 34%),#171a15; text-align:center; cursor:pointer; transition:transform .15s,border-color .15s; }.gift-grid > button:hover { border-color:#c5a760; transform:translateY(-5px); }.gift-rarity { justify-self:end; color:#b29a64; font:800 .52rem/1 monospace; text-transform:uppercase; }.gift-sigil { display:grid; width:76px; height:76px; place-items:center; margin:11px; border:1px solid rgba(218,187,112,.28); border-radius:50%; color:#d4b564; background:rgba(210,177,95,.06); }.gift-grid h3 { margin:3px; font:700 1.35rem/1.1 Georgia,serif; }.gift-grid p { color:rgba(238,227,204,.54); font-size:.73rem; line-height:1.45; }.gift-grid ul { margin:0; padding:0; color:#c8b786; font-size:.67rem; list-style:none; }.gift-grid strong { align-self:end; margin-top:14px; padding:8px 13px; border-radius:6px; color:#261e12; background:#d6b866; font-size:.72rem; }
 .empire-toolbar { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:9px; padding:8px; border:1px solid rgba(216,190,133,.14); border-radius:10px; background:#141814; }.empire-toolbar nav { display:flex; flex-wrap:wrap; gap:4px; }.empire-toolbar nav button,.end-empire-button { display:inline-flex; min-height:36px; align-items:center; gap:5px; padding:0 11px; border:1px solid transparent; border-radius:6px; color:rgba(237,227,205,.5); background:transparent; cursor:pointer; }.empire-toolbar nav button.active { border-color:rgba(209,177,98,.25); color:#e1c779; background:rgba(209,177,98,.08); }.days-left { display:flex; align-items:center; gap:6px; color:#b8a77f; font-size:.68rem; }.days-left b { color:#e1c779; }.end-empire-button { border-color:#8f7845; color:#261f14; background:#c9aa5e; font-weight:800; }.resource-ribbon { display:flex; gap:6px; margin-bottom:9px; overflow-x:auto; }.resource-ribbon > span { display:grid; min-width:105px; grid-template-columns:auto 1fr; align-items:center; gap:2px 6px; padding:7px 10px; border:1px solid rgba(217,191,133,.12); border-radius:7px; background:rgba(18,22,18,.9); }.resource-ribbon svg { grid-row:1/3; color:#ac945a; }.resource-ribbon small { color:rgba(237,227,205,.42); font-size:.52rem; }.resource-ribbon b { font:800 .76rem/1 Georgia,serif; }
