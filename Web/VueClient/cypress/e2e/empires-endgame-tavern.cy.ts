@@ -18,8 +18,13 @@ describe('Empire\'s Endgame Tavern browser flow', () => {
     cy.get('[data-testid^="tavern-hire-"]').first().should('be.enabled').click()
     cy.contains('button', 'Барная стойка').click()
     cy.get('[data-testid="tavern-buy-rumor"]').should('be.enabled').click()
-    cy.contains('Загадочная тройка').should('be.visible')
-    cy.contains('неполные контракты нельзя нанять', { matchCase: false }).should('be.visible')
+    cy.get('.panel.regulars').within(() => {
+      cy.contains('Загадочная тройка').should('be.visible')
+      cy.contains('Лист').should('be.visible')
+      cy.contains('Лорик').should('be.visible')
+      cy.contains('Анатолий').should('be.visible')
+      cy.contains('После посещения доступных мистиков можно пригласить в Совет карт.').should('be.visible')
+    })
 
     cy.get('[data-testid="tavern-qa-resolve"]').click()
     cy.get('[data-testid="tavern-minigame"]').should('not.exist')

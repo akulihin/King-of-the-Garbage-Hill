@@ -26,6 +26,20 @@ import type {
   InventoryResult,
   InventoryRulesIdentity,
 } from './inventory/types'
+import type {
+  ClashCommand,
+  ClashPlan,
+  ClashResult,
+  ClashRulesIdentity,
+  EmpiresClashConfig,
+} from './clash/types'
+import type {
+  ChessCommand,
+  ChessPlan,
+  ChessResult,
+  ChessRulesIdentity,
+  EmpiresChessConfig,
+} from './chess/types'
 
 export type {
   CombatArmorClassDefinition,
@@ -127,6 +141,51 @@ export type {
   InventorySimulationState,
   InventoryTerminalReason,
 } from './inventory/types'
+export type {
+  ClashAbilityDefinition,
+  ClashActiveStatus,
+  ClashCellState,
+  ClashCommand,
+  ClashCorpseState,
+  ClashDeploymentResult,
+  ClashFieldVariantDefinition,
+  ClashLogEntry,
+  ClashOutcome,
+  ClashPassiveDefinition,
+  ClashPhase,
+  ClashPlan,
+  ClashPlanUnit,
+  ClashRegionModifierDefinition,
+  ClashResult,
+  ClashRulesIdentity,
+  ClashSide,
+  ClashSimulationState,
+  ClashStatusDefinition,
+  ClashTerrainDefinition,
+  ClashUnitDefinition,
+  ClashUnitState,
+  EmpiresClashConfig,
+} from './clash/types'
+export type {
+  ChessAntonRules,
+  ChessCommand,
+  ChessControlPhase,
+  ChessMove,
+  ChessOutcome,
+  ChessPieceSetup,
+  ChessPieceState,
+  ChessPlan,
+  ChessResult,
+  ChessRole,
+  ChessRulesIdentity,
+  ChessSettlementConfig,
+  ChessSide,
+  ChessSquare,
+  ChessState,
+  ChessTerminalReason,
+  ChessVariantRules,
+  EmpiresChessConfig,
+} from './chess/types'
 
 export const EMPIRES_SUITS = ['clubs', 'diamonds', 'hearts', 'spades'] as const
 export const EMPIRES_RANKS = [
@@ -301,6 +360,7 @@ export interface EmpiresMysticCardFace {
   title: string
   description: string
   image?: string
+  effects: EmpiresEffect[]
   deferredReason?: string
 }
 
@@ -354,10 +414,16 @@ export interface EmpiresTavernConfig {
   }
   maria: {
     encounterChance: number
+    playerRoundWinChance: number
+    roundsToWin: number
     standardCardDefinitionId: string
     title: string
     description: string
-    encounterDeferredReason: string
+  }
+  mystics: {
+    recruitmentGoldCost: number
+    appeasementUpgradePointCost: number
+    recruitableDefinitionIds: string[]
   }
   queen: {
     mysticDefinitionId: string
@@ -794,6 +860,8 @@ export interface EmpiresExpeditionDefinition {
   zoneId: string
   triggerQuestId?: string
   tdVariantId: string
+  battleMode: 'td' | 'clash'
+  clashVariantId: string | null
   enemyProfileId: string
   stages: Array<'planning' | 'provisioning' | 'assault' | 'settlement'>
   eligibleUnitIds: string[]
@@ -821,8 +889,10 @@ export interface EmpiresExpeditionsConfig {
   veteran: {
     qualifyingMaximumHealthRatio: number
     removalWounds: number
-    laterBattleBonus: null
-    laterBattleBonusDeferredReason: string
+    laterBattleBonus: {
+      kind: 'deploymentSpeedPercent'
+      percent: number
+    }
   }
   zones: EmpiresExpeditionZoneDefinition[]
   enemyProfiles: EmpiresExpeditionEnemyProfileDefinition[]
@@ -1259,7 +1329,11 @@ export interface EmpiresCapitalSiteDefinition {
   owner: 'P3B' | 'P4A' | 'P4C/P12B' | 'P6C'
   buildingId?: string
   mapObjectId?: string
-  deferredReason: string
+  description: string
+  cooldownCons: number
+  resourceCosts: EmpiresResourceAmount[]
+  effects: EmpiresEffect[]
+  deferredReason?: string
 }
 
 export interface EmpiresCapitalGovernanceConfig {
@@ -1436,7 +1510,7 @@ export interface EmpiresUpgradeConfig {
 }
 
 export interface EmpiresEndgameConfig {
-  schemaVersion: 17
+  schemaVersion: 19
   id: string
   title: string
   seed: string | number
@@ -1453,6 +1527,8 @@ export interface EmpiresEndgameConfig {
   empire: EmpiresEmpireConfig
   combat: EmpiresCombatConfig
   td: EmpiresTdConfig
+  clash: EmpiresClashConfig
+  chess: EmpiresChessConfig
   god: EmpiresGodConfig
   quests: EmpiresQuestsConfig
 }
@@ -1493,7 +1569,7 @@ export interface EmpiresMysticCardInstance {
 export interface EmpiresMysticHistoryEntry {
   sequence: number
   con: number
-  kind: 'spawn' | 'leave' | 'return' | 'queen-pulse'
+  kind: 'spawn' | 'leave' | 'return' | 'appease' | 'queen-pulse'
   sourceId: string
   instanceIds: string[]
 }
@@ -1734,6 +1810,9 @@ export interface EmpiresExpeditionProvisionPlan {
   packingScore: number
   packingSessionId: string | null
   packedItemInstanceIds: string[]
+  packedEquipmentAmounts: Record<string, number>
+  returnedEquipmentAmounts: Record<string, number>
+  packerPerstId: string | null
   withdrawals: EmpiresExpeditionProvisionWithdrawal[]
 }
 
@@ -1815,6 +1894,7 @@ export interface EmpiresExpeditionPlanningView {
   preparationDays: number
   speedPercent: number
   mapBonusPercent: number
+  veteranDeploymentSpeedPercent: number
   maxInstallments: number
   provisionAvailable: number
   provisionRequired: number
@@ -2006,6 +2086,12 @@ export type EmpiresMinigameOriginContext =
     expeditionId: string
     attempt: number
   }
+  | {
+    kind: 'capital-chess'
+    capitalSiteId: string
+    cityId: string
+    con: number
+  }
 
 export interface EmpiresMinigameOrigin {
   returnPhase: Exclude<EmpiresPhase, 'minigame'>
@@ -2056,15 +2142,46 @@ export interface EmpiresInventoryMinigameSession {
   origin: EmpiresMinigameOrigin
 }
 
-export type EmpiresMinigameKind = 'td' | 'tavern' | 'alchemy' | 'inventory'
+export interface EmpiresClashMinigameSession {
+  id: string
+  sequence: number
+  kind: 'clash'
+  plan: ClashPlan
+  rulesIdentity: ClashRulesIdentity
+  seed: string | number
+  turnLog: ClashCommand[]
+  attempt: number
+  origin: EmpiresMinigameOrigin
+}
+
+export interface EmpiresChessMinigameSession {
+  id: string
+  sequence: number
+  kind: 'chess'
+  plan: ChessPlan
+  rulesIdentity: ChessRulesIdentity
+  seed: string | number
+  attempt: number
+  origin: EmpiresMinigameOrigin
+}
+
+export type EmpiresMinigameKind = 'td' | 'tavern' | 'alchemy' | 'inventory' | 'clash' | 'chess'
 
 export type EmpiresMinigameSession =
   | EmpiresTdMinigameSession
   | EmpiresTavernMinigameSession
   | EmpiresAlchemyMinigameSession
   | EmpiresInventoryMinigameSession
+  | EmpiresClashMinigameSession
+  | EmpiresChessMinigameSession
 
-export type EmpiresMinigameResult = TdBattleResult | TavernResult | AlchemyResult | InventoryResult
+export type EmpiresMinigameResult =
+  | TdBattleResult
+  | TavernResult
+  | AlchemyResult
+  | InventoryResult
+  | ClashResult
+  | ChessResult
 
 export interface EmpiresMinigameResultRecord {
   sessionId: string
@@ -2217,10 +2334,12 @@ export type EmpiresChronicleEntryKind =
   | 'insurance'
   | 'fair'
   | 'temple'
+  | 'gift'
   | 'tavern'
   | 'alchemy'
   | 'expedition'
   | 'veteran'
+  | 'governance'
 
 export interface EmpiresChronicleEntry {
   id: string
@@ -2387,6 +2506,7 @@ export interface EmpiresDomesticEconomyView {
   fair: {
     actions: EmpiresFairActionView[]
     baronUnlockedAtCon: number | null
+    exchangeBlockedReason: string | null
   }
   temple: {
     preachBlockedReason: string | null
@@ -2420,6 +2540,8 @@ export interface EmpiresDomesticEconomyView {
     }>
     deferredCapabilities: EmpiresDeferredSubfeature[]
     explosionCount: number
+    pendingMutantAftermathCount: number
+    nextMutantAftermathCon: number | null
   }
 }
 
@@ -2568,6 +2690,25 @@ export interface EmpiresAlchemyState {
     epidemicInstanceId: string
     con: number
   } | null
+  pendingMutantAftermaths: Array<{
+    id: string
+    sourceSessionId: string
+    cityId: string
+    scheduledAtCon: number
+    dueCon: number
+    populationLoss: number
+    loyaltyDelta: number
+  }>
+  lastMutantAftermath: {
+    id: string
+    sourceSessionId: string
+    cityId: string
+    scheduledAtCon: number
+    dueCon: number
+    settledAtCon: number
+    populationLost: number
+    loyaltyDelta: number
+  } | null
 }
 
 export interface EmpiresEventState {
@@ -2627,7 +2768,7 @@ export interface EmpiresQuestRuntimeState {
 }
 
 export interface EmpiresCampaignState {
-  schemaVersion: 16
+  schemaVersion: 18
   configId: string
   phase: EmpiresPhase
   rng: EmpiresRngState
@@ -2663,7 +2804,7 @@ export interface EmpiresCampaignState {
 }
 
 export interface EmpiresSnapshotEnvelope {
-  schemaVersion: 16
+  schemaVersion: 18
   savedAt: string
   state: EmpiresCampaignState
 }

@@ -229,10 +229,24 @@ onUnmounted(() => {
 
 // ── Character passive sound watchers ──────────────────────────────────
 
-// Rick: game start theme — play when Rick joins, stop on first action
+// Intro/start themes must not play during the 3-way pick — only after the player locks in.
+// During the draft `myPlayer.character` reflects the currently *highlighted* option, so the
+// character name alone is not a safe trigger.
+const myCharacterConfirmed = computed(() => {
+  const gs = store.gameState
+  const st = store.myPlayer?.status
+  if (!gs || !st) return false
+  // Draft: not finalized while still showing this player's 3 options and not confirmed.
+  if (gs.isDraftPickPhase && !st.isDraftPickConfirmed && gs.draftOptions) return false
+  // ARAM: not finalized until the roll is confirmed.
+  if (gs.isAramPickPhase && !st.isAramRollConfirmed) return false
+  return true // no pick phase (normal mode) ⇒ finalized from the start
+})
+
+// Rick: game start theme — play once the pick is confirmed, stop on first action
 const rickThemePlaying = ref(false)
-watch(() => store.myPlayer?.character.name, (name) => {
-  if (name === 'Рик Санчез' && !rickThemePlaying.value && (store.gameState?.roundNo ?? 0) <= 1) {
+watch([() => store.myPlayer?.character.name, myCharacterConfirmed] as const, ([name, confirmed]) => {
+  if (name === 'Рик Санчез' && confirmed && !rickThemePlaying.value && (store.gameState?.roundNo ?? 0) <= 1) {
     rickThemePlaying.value = true
     playRickGameStartTheme()
   }
@@ -304,10 +318,10 @@ watch(() => store.gameState, (state) => {
   }
 }, { immediate: true })
 
-// DooM Guy: owner-only opening theme, stopped after the first committed action.
+// DooM Guy: owner-only opening theme, started once the pick is confirmed, stopped after the first committed action.
 const doomThemePlaying = ref(false)
-watch(() => store.myPlayer?.character.name, (name) => {
-  if (name === 'DooM Guy' && !doomThemePlaying.value && (store.gameState?.roundNo ?? 0) <= 1) {
+watch([() => store.myPlayer?.character.name, myCharacterConfirmed] as const, ([name, confirmed]) => {
+  if (name === 'DooM Guy' && confirmed && !doomThemePlaying.value && (store.gameState?.roundNo ?? 0) <= 1) {
     doomThemePlaying.value = true
     playDoomGameStartTheme()
   }
@@ -366,9 +380,9 @@ watch(() => store.myGiantBeans, (beans, prevBeans) => {
 const kiraThemePlaying = ref(false)
 const kiraResumeAfterReplay = ref(false)
 
-// Start Kira theme when character joins (no round restriction)
-watch(() => store.myPlayer?.character.name, (name) => {
-  if (name === 'Кира' && !kiraThemePlaying.value) {
+// Start Kira theme once the pick is confirmed (no round restriction)
+watch([() => store.myPlayer?.character.name, myCharacterConfirmed] as const, ([name, confirmed]) => {
+  if (name === 'Кира' && confirmed && !kiraThemePlaying.value) {
     kiraThemePlaying.value = true
     playKiraGameStartTheme()
   }
@@ -410,10 +424,10 @@ watch(() => store.gameState?.isFinished, (finished) => {
   }
 })
 
-// Geralt: game start theme (Req 3) — pausable loop on round 1
+// Geralt: game start theme (Req 3) — pausable loop on round 1, started once the pick is confirmed
 const geraltThemePlaying = ref(false)
-watch(() => store.myPlayer?.character.name, (name) => {
-  if (name === 'Геральт' && !geraltThemePlaying.value && (store.gameState?.roundNo ?? 0) <= 1) {
+watch([() => store.myPlayer?.character.name, myCharacterConfirmed] as const, ([name, confirmed]) => {
+  if (name === 'Геральт' && confirmed && !geraltThemePlaying.value && (store.gameState?.roundNo ?? 0) <= 1) {
     geraltThemePlaying.value = true
     playGeraltGameStartTheme()
   }

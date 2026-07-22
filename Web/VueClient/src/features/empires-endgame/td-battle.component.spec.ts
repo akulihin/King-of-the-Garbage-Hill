@@ -18,8 +18,11 @@ function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T
 }
 
-function session(): EmpiresMinigameSession {
-  const variant = config.td.planVariants!.find(item => item.id === 'central-castle-defense')!
+function session(
+  variantId = 'central-castle-defense',
+  maxTicks = 1,
+): EmpiresMinigameSession {
+  const variant = config.td.planVariants!.find(item => item.id === variantId)!
   const battlefield = config.td.battlefields.find(item => item.id === variant.battlefieldId)!
   const wave = config.td.waves.find(item => item.id === variant.waveId)!
   const rulesIdentity = createTdRulesIdentity(config.schemaVersion, config.combat, config.td, {
@@ -37,7 +40,7 @@ function session(): EmpiresMinigameSession {
     scheduledCon: 2,
     threat: 0,
     tickMs: config.td.tickMs!,
-    maxTicks: 1,
+    maxTicks,
     maxCommands: config.td.maxCommands!,
     maxCatchUpTicksPerFrame: config.td.maxCatchUpTicksPerFrame!,
     startingBuildResources: config.td.startingBuildResources!,
@@ -164,5 +167,20 @@ describe('Empire\'s Endgame TD production input path', () => {
     await runNextFrame(100_001 + config.td.tickMs!)
     await waitFor(() => expect(onResolved).toHaveBeenCalledTimes(1))
     expect(onResolved.mock.calls[0][0].terminalReason).toBe('tick-cap')
+  })
+
+  it('presents northern grades as intentionally not applicable after building artillery', async () => {
+    const activeSession = session('north-ship-defense', 10)
+    const base = activeSession.plan.towerBases[0]
+    const view = render(TdBattle, { props: { session: activeSession } })
+
+    await fireEvent.click(view.getByTestId('td-start'))
+    await fireEvent.click(view.getByTestId(`td-build-${base.id}`))
+    await advanceOneTick()
+
+    expect(view.getByTestId('td-grade-drawer').textContent).toContain(
+      'Северные башни не имеют последовательных грейдов: доступны только базовые катапульты и требушеты.',
+    )
+    expect(view.queryAllByTestId(/^td-upgrade-/)).toHaveLength(0)
   })
 })

@@ -29,6 +29,8 @@ function plan(itemCount = 4, cartHeight = 5): InventoryPlan {
     requestedProvisionAmount: itemCount * 500,
     requiredProvisionAmount: itemCount * 500,
     eligibleProvisionAmount: itemCount * 500,
+    eligibleEquipmentAmounts: {},
+    packerPerstId: null,
     rosterUnitInstanceIds: ['unit-1'],
     tickMs: 50,
     maxTicks: 500,
@@ -152,6 +154,37 @@ describe('inventory packing fixed-step replay', () => {
     expect(result.packedItemInstanceIds.length).toBeGreaterThan(0)
     expect(result.unpackedItemInstanceIds.length).toBeGreaterThan(0)
     expect(new Set([...result.packedItemInstanceIds, ...result.unpackedItemInstanceIds]).size).toBe(4)
+  })
+
+  it('packs typed equipment independently from provision and preserves its campaign handoff identity', () => {
+    const value = plan(1)
+    value.maxItems = 2
+    value.eligibleEquipmentAmounts = { 'weapon-laurel-spear': 1 }
+    value.packerPerstId = 'perst-fourth-trevor'
+    value.itemDefinitions.push({
+      id: 'laurel-spear',
+      name: 'Лавровое копьё',
+      weight: 1,
+      content: { kind: 'equipment', equipmentId: 'weapon-laurel-spear' },
+      cells: [{ x: 0, y: 0 }],
+    })
+    value.itemInstances.push({
+      id: 'equipment-1',
+      definitionId: 'laurel-spear',
+      originCityId: null,
+      content: { kind: 'equipment', equipmentId: 'weapon-laurel-spear' },
+      amount: 1,
+    })
+
+    const result = resolveInventoryWithPolicy(value, 'equipment', 'spread')
+
+    expect(result).toMatchObject({
+      outcome: 'completed',
+      packedProvisionAmount: 500,
+      packedEquipmentAmounts: { 'weapon-laurel-spear': 1 },
+      eligibleEquipmentAmounts: { 'weapon-laurel-spear': 1 },
+      packerPerstId: 'perst-fourth-trevor',
+    })
   })
 
   it('authenticates command identity, caps logs, and produces a replayable abort without packing effects', () => {

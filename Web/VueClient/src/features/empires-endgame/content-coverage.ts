@@ -71,6 +71,14 @@ function carrierAvailability(deferredReason?: string): EmpiresConfigCarrierAvail
   return deferredReason ? 'deferred' : 'configured'
 }
 
+function clashCarrierAvailability(value: {
+  deferredReason?: string
+  reviewReason?: string
+}): EmpiresConfigCarrierAvailability {
+  if (value.reviewReason) return 'review'
+  return carrierAvailability(value.deferredReason)
+}
+
 export function collectEmpiresConfigCarriers(config: EmpiresEndgameConfig): EmpiresConfigCarrier[] {
   const carriers: EmpiresConfigCarrier[] = []
   const add = (key: string, availability: EmpiresConfigCarrierAvailability = 'configured') => {
@@ -205,7 +213,7 @@ export function collectEmpiresConfigCarriers(config: EmpiresEndgameConfig): Empi
 
   for (const offer of config.tavern.mercenaries.offers) add(`tavern-offer:${offer.id}`)
   addSubfeatures('tavern-subfeature', config.tavern.deferredSubfeatures)
-  add('tavern-maria-game', carrierAvailability(config.tavern.maria.encounterDeferredReason))
+  add('tavern-maria-game')
   for (const piece of config.alchemy.pieces) add(`alchemy-piece:${piece.id}`)
   for (const recipe of config.alchemy.recipes) {
     add(`alchemy-recipe:${recipe.id}`, carrierAvailability(recipe.deferredReason))
@@ -225,10 +233,34 @@ export function collectEmpiresConfigCarriers(config: EmpiresEndgameConfig): Empi
   for (const expedition of config.expeditions.definitions) {
     add(`expedition:${expedition.id}`, carrierAvailability(expedition.deferredReason))
   }
-  add(
-    'expedition-veteran-later-bonus',
-    carrierAvailability(config.expeditions.veteran.laterBattleBonusDeferredReason),
-  )
+  add('expedition-veteran-later-bonus')
+
+  add('clash:catalog')
+  for (const field of config.clash.fieldVariants) {
+    add(`clash-field:${field.id}`, clashCarrierAvailability(field))
+  }
+  for (const status of config.clash.statuses) {
+    add(`clash-status:${status.id}`, clashCarrierAvailability(status))
+  }
+  for (const terrain of config.clash.terrain) {
+    add(`clash-terrain:${terrain.id}`, clashCarrierAvailability(terrain))
+  }
+  for (const region of config.clash.regions) {
+    add(`clash-region:${region.id}`, clashCarrierAvailability(region))
+  }
+  for (const route of config.clash.assaultRoutes) {
+    add(`clash-assault-route:${route.id}`, clashCarrierAvailability(route))
+  }
+  for (const unit of config.clash.roster) {
+    add(`clash-unit:${unit.id}`, clashCarrierAvailability(unit))
+  }
+  addSubfeatures('clash-subfeature', config.clash.deferredSubfeatures)
+
+  add('chess:variant')
+  add(`chess-entry:${config.chess.entryCapitalSiteId}`)
+  add('chess:anton')
+  add('chess:settlement')
+  for (const piece of config.chess.setup) add(`chess-piece:${piece.id}`)
 
   for (const region of config.empire.map.regions) add(`map-region:${region.id}`)
   for (const subregion of config.empire.map.subregions) add(`map-subregion:${subregion.id}`)
@@ -313,6 +345,8 @@ export function collectEmpiresConfigCarriers(config: EmpiresEndgameConfig): Empi
     'alchemy',
     'expeditions',
     'inventory',
+    'clash',
+    'chess',
   ]) add(`lifecycle:${lifecycle}`)
 
   return carriers

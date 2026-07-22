@@ -8,7 +8,6 @@ import {
 import { EmpiresEndgameEngine } from './engine'
 import { resolveInventoryWithPolicy } from './inventory/qa'
 import { exportEmpiresCampaign, importEmpiresCampaign } from './persistence'
-import { createEmpiresQaScenarios } from './qa'
 import { replayTdBattle } from './td/engine'
 import type {
   EmpiresEndgameConfig,
@@ -25,8 +24,42 @@ function config(): EmpiresEndgameConfig {
 }
 
 function engine(value = config()): EmpiresEndgameEngine {
-  const fixture = createEmpiresQaScenarios(value, { seed: 'phase11b' })['expedition-planning']
-  return new EmpiresEndgameEngine(value, fixture.snapshot)
+  const state = new EmpiresEndgameEngine(value).snapshot()
+  state.phase = 'empire'
+  state.event = null
+  state.minigame = null
+  state.empire.daysRemaining = 20
+  state.external.nextWaveCon = Number.MAX_SAFE_INTEGER
+  const city = state.empire.cities.find(candidate => candidate.regionId === 'south')!
+  for (const candidate of state.empire.cities.filter(item => item.regionId === 'south')) {
+    candidate.resources.food = candidate.id === city.id ? 100_000 : 0
+  }
+  const unitInstanceIds = ['phase11b-unit-1', 'phase11b-unit-2']
+  city.recruitedUnitCohorts.push({
+    id: 'phase11b-cohort',
+    unitId: 'unit-light',
+    loadoutId: 'phase11b-loadout',
+    count: unitInstanceIds.length,
+    unitInstanceIds,
+    weaponEquipmentId: 'weapon-mace',
+    weapon: { damageLevels: { impact: 100 }, tags: ['mace', 'phase11b'] },
+    armor: null,
+  })
+  for (const id of unitInstanceIds) {
+    state.army.unitInstances[id] = {
+      id,
+      cityId: city.id,
+      cohortId: 'phase11b-cohort',
+      unitId: 'unit-light',
+      healthRatio: 1,
+      veteran: false,
+      wounds: 0,
+      recoveryStartedAtCon: null,
+      readyAtCon: state.con,
+    }
+  }
+  state.army.nextUnitSequence = unitInstanceIds.length + 1
+  return new EmpiresEndgameEngine(value, state)
 }
 
 function beginPlanning(value: EmpiresEndgameEngine) {
@@ -53,7 +86,7 @@ function southFood(value: EmpiresEndgameEngine): number {
 }
 
 describe('Empire\'s Endgame Phase 11B inventory packing integration', () => {
-  it('migrates schema v16 fail-closed, validates resource/equipment references, and rejects future v18', () => {
+  it('migrates schema v16 fail-closed, validates resource/equipment references, and rejects future v20', () => {
     const legacy = structuredClone(bundledConfigJson) as unknown as Record<string, unknown>
     legacy.schemaVersion = 16
     delete legacy.inventory
@@ -62,11 +95,22 @@ describe('Empire\'s Endgame Phase 11B inventory packing integration', () => {
 
     expect(legacy).toEqual(untouched)
     expect(migrated).toMatchObject({
-      schemaVersion: 17,
+      schemaVersion: 19,
       inventory: { enabled: false, itemDefinitions: [] },
     })
     expect(migrateEmpiresConfig(migrated)).toEqual(migrated)
     expect(() => validateEmpiresConfig(migrated)).not.toThrow()
+    const shipped = config()
+    expect(shipped.inventory.deferredSubfeatures).toEqual([])
+    expect(shipped.inventory.equipmentPacking).toEqual({ maxItems: 2, targetUnitsPerItem: 1 })
+    expect(shipped.inventory.perstPacker).toEqual({
+      perstId: 'perst-fourth-trevor',
+      requireOriginGovernor: true,
+      bonusEquipmentItems: 2,
+    })
+    expect(shipped.inventory.itemDefinitions.filter(item => (
+      !item.deferredReason && item.content.kind === 'equipment'
+    ))).toHaveLength(4)
 
     const danglingResource = config()
     danglingResource.inventory.itemDefinitions[0].content = { kind: 'resource', resourceId: 'missing' }
@@ -87,7 +131,7 @@ describe('Empire\'s Endgame Phase 11B inventory packing integration', () => {
     const uncoveredExpedition = config()
     uncoveredExpedition.expeditions.definitions[0].provisionResourceId = 'wood'
     expect(() => validateEmpiresConfig(uncoveredExpedition)).toThrow(/live item.*wood/i)
-    expect(() => migrateEmpiresConfig({ ...migrated, schemaVersion: 18 })).toThrow(/future.*18/i)
+    expect(() => migrateEmpiresConfig({ ...migrated, schemaVersion: 20 })).toThrow(/future.*20/i)
   })
 
   it('consumes packed item ownership once, retains unpacked provisions, and rejects stale or duplicate results', () => {
@@ -153,6 +197,58 @@ describe('Empire\'s Endgame Phase 11B inventory packing integration', () => {
     expect(restored.state.expeditions.byDefinitionId[EXPEDITION_ID]).toMatchObject({
       status: 'aborted',
       resultHistory: [expect.objectContaining({ outcome: 'aborted', provisionWithdrawn: 0 })],
+    })
+  })
+
+  it('packs campaign equipment, gives origin-governor Trevor two extra slots, and returns unused gear once', () => {
+    const value = config()
+    value.td.planVariants.find(item => item.id === 'desert-fort-expedition-assault')!.objective.maxHp = 1
+    const equipmentIds = [
+      'weapon-laurel-spear',
+      'weapon-lancet-spear',
+      'weapon-diamond-spear',
+      'weapon-cross-spear',
+    ]
+
+    const withoutTrevor = engine(value)
+    for (const equipmentId of equipmentIds) withoutTrevor.state.army.equipmentStock[equipmentId] = 1
+    const basic = beginPlanning(withoutTrevor)
+    expect(withoutTrevor.beginExpeditionPacking(EXPEDITION_ID, basic.ids, basic.required))
+      .toMatchObject({ ok: true })
+    expect(Object.keys(activeInventory(withoutTrevor).plan.eligibleEquipmentAmounts)).toHaveLength(2)
+
+    const game = engine(value)
+    for (const equipmentId of equipmentIds) game.state.army.equipmentStock[equipmentId] = 1
+    game.state.governance.governorAssignments.south = {
+      perstId: 'perst-fourth-trevor',
+      regionId: 'south',
+      assignedAtCon: game.state.con,
+    }
+    const packed = beginPlanning(game)
+    expect(game.beginExpeditionPacking(EXPEDITION_ID, packed.ids, packed.required)).toMatchObject({ ok: true })
+    const inventory = activeInventory(game)
+    expect(inventory.plan).toMatchObject({
+      packerPerstId: 'perst-fourth-trevor',
+      eligibleEquipmentAmounts: Object.fromEntries(equipmentIds.map(id => [id, 1])),
+    })
+    const result = resolveInventoryWithPolicy(inventory.plan, inventory.seed, 'spread')
+    expect(result).toMatchObject({
+      outcome: 'completed',
+      packedEquipmentAmounts: Object.fromEntries(equipmentIds.map(id => [id, 1])),
+      packerPerstId: 'perst-fourth-trevor',
+    })
+    expect(game.resolveMinigame(result)).toMatchObject({ ok: true })
+    for (const equipmentId of equipmentIds) expect(game.state.army.equipmentStock[equipmentId]).toBe(0)
+    expect(game.startExpeditionAssault(EXPEDITION_ID)).toMatchObject({ ok: true })
+    const td = game.state.minigame as EmpiresTdMinigameSession
+    expect(td.plan.equipmentStock).toEqual(result.packedEquipmentAmounts)
+    const battle = replayTdBattle(td.plan, td.seed, [])
+    expect(battle.outcome).toBe('victory')
+    expect(game.resolveMinigame(battle)).toMatchObject({ ok: true })
+    for (const equipmentId of equipmentIds) expect(game.state.army.equipmentStock[equipmentId]).toBe(1)
+    expect(game.state.expeditions.byDefinitionId[EXPEDITION_ID].provisionPlan).toMatchObject({
+      packedEquipmentAmounts: result.packedEquipmentAmounts,
+      returnedEquipmentAmounts: result.packedEquipmentAmounts,
     })
   })
 

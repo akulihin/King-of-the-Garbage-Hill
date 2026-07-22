@@ -173,7 +173,7 @@ describe('Empire\'s Endgame Phase 6A domestic economy', () => {
       .toMatch(/permanently unavailable/i)
   })
 
-  it('activates insurance after three calm settlements, pays a covered incident once, rejects siege, and expires', () => {
+  it('activates insurance after three calm settlements, pays a covered siege once, and expires', () => {
     const { value, engine, cityIds } = economyEngine()
     const insuranceCity = cityIds[1]
     expect(engine.startInsurance(insuranceCity)).toMatchObject({ ok: true })
@@ -187,16 +187,7 @@ describe('Empire\'s Endgame Phase 6A domestic economy', () => {
     const restored = new EmpiresEndgameEngine(value, engine.snapshot())
     const restoredContract = restored.state.empire.domesticEconomy.insuranceContracts[0]
     const goldBefore = restored.state.empire.resources[value.empire.domesticEconomy.goldResourceId]
-    expect(restored.consumeDomesticIncident(insuranceCity, 'siege', 'siege:qa')).toMatchObject({
-      ok: false,
-      message: expect.stringMatching(/Окружение/),
-    })
-    const diseaseId = value.empire.epidemics.definitions[0].id
-    expect(restored.startEpidemic({
-      definitionId: diseaseId,
-      originCityId: insuranceCity,
-      source: { kind: 'qa', id: 'qa:insurance-covered-epidemic' },
-    })).toMatchObject({ ok: true })
+    expect(restored.consumeDomesticIncident(insuranceCity, 'siege', 'siege:qa')).toMatchObject({ ok: true })
     const expectedPayout = Math.min(
       value.empire.domesticEconomy.insurance.maximumPayoutGold,
       value.empire.domesticEconomy.insurance.basePayoutGold
@@ -205,14 +196,10 @@ describe('Empire\'s Endgame Phase 6A domestic economy', () => {
     expect(restoredContract).toMatchObject({
       status: 'consumed',
       payoutGold: expectedPayout,
-      payoutIncidentId: expect.stringMatching(/^insurance:epidemic:/),
+      payoutIncidentId: 'siege:qa',
     })
     expect(restored.state.empire.resources[value.empire.domesticEconomy.goldResourceId]).toBe(goldBefore + expectedPayout)
-    expect(restored.consumeDomesticIncident(
-      insuranceCity,
-      'epidemic',
-      restoredContract.payoutIncidentId!,
-    )).toMatchObject({ ok: true })
+    expect(restored.consumeDomesticIncident(insuranceCity, 'siege', 'siege:qa')).toMatchObject({ ok: true })
     expect(restored.state.empire.resources[value.empire.domesticEconomy.goldResourceId]).toBe(goldBefore + expectedPayout)
 
     const expiry = economyEngine()
@@ -283,7 +270,7 @@ describe('Empire\'s Endgame Phase 6A domestic economy', () => {
     expect(restored.effectiveEmpireFlagValue('epidemicProtectionPercent')).toBe(0)
   })
 
-  it('feeds Tavern levels into recruitment and morale while exposing exact retained P9 blockers', () => {
+  it('feeds Tavern levels into recruitment and morale with all accepted guest mechanics live', () => {
     const { value, engine, cityIds } = economyEngine()
     const tavernCity = cityIds[4]
     const rules = value.empire.domesticEconomy.tavern
@@ -294,13 +281,7 @@ describe('Empire\'s Endgame Phase 6A domestic economy', () => {
       recruitmentCapacityBonus: rules.recruitmentCapacityPerLevel,
       moraleMaximumBonus: rules.moraleMaximumPerLevel,
     })
-    expect(view.deferredCapabilities.map(capability => capability.id)).toEqual(expect.arrayContaining([
-      'maria2x2',
-      'mariaGunpowderLegacy',
-      'mysticTrioPassives',
-      'mysticLeaveAction',
-      'queenAppeasement',
-    ]))
+    expect(view.deferredCapabilities).toEqual([])
     expect(engine.cityRecruitmentRemaining(tavernCity)).toBe(1000 + rules.recruitmentCapacityPerLevel)
     expect(engine.state.army.maxMorale).toBe(
       (value.empire.initialFlags?.maxCombatSpirit ?? 0) + rules.moraleMaximumPerLevel,
@@ -317,7 +298,7 @@ describe('Empire\'s Endgame Phase 6A domestic economy', () => {
     const migrated = migrateEmpiresConfig(legacyConfig)
     expect(legacyConfig).toEqual(original)
     expect(migrated).toMatchObject({
-      schemaVersion: 17,
+      schemaVersion: 19,
       empire: {
         domesticEconomy: { enabled: false },
         externalEconomy: { enabled: false },
@@ -326,7 +307,7 @@ describe('Empire\'s Endgame Phase 6A domestic economy', () => {
     })
     expect(() => validateEmpiresConfig(migrated)).not.toThrow()
     expect(migrateEmpiresConfig(migrated)).toEqual(migrated)
-    expect(() => migrateEmpiresConfig({ ...migrated, schemaVersion: 18 })).toThrow(/future.*18/i)
+    expect(() => migrateEmpiresConfig({ ...migrated, schemaVersion: 20 })).toThrow(/future.*20/i)
 
     const value = config()
     const legacyState = new EmpiresEndgameEngine(value).snapshot() as EmpiresCampaignState
@@ -340,7 +321,7 @@ describe('Empire\'s Endgame Phase 6A domestic economy', () => {
       state: legacyState,
     }, value.id)
     const restored = new EmpiresEndgameEngine(value, imported)
-    expect(restored.state.schemaVersion).toBe(16)
+    expect(restored.state.schemaVersion).toBe(18)
     expect(restored.state.empire.domesticEconomy).toMatchObject({
       loans: [],
       insuranceContracts: [],

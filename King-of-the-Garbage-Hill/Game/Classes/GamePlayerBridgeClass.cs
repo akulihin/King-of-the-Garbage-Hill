@@ -59,6 +59,11 @@ public class GamePlayerBridgeClass
     /// humans; the simulation report records it so individual builds can be measured.</summary>
     public string AiPlaystyle { get; set; } = "";
 
+    /// <summary>Number of consecutive voluntary Block actions submitted by AI levels 1-3. The bot
+    /// attack policy uses this seat-level counter to guarantee an attack after a short defensive streak;
+    /// successful attacks reset it. L0 stays an unrestricted random-control baseline.</summary>
+    public int ConsecutiveBotBlocks { get; set; }
+
     /// <summary>
     /// What a strict bot has actually observed as an ordinary player. Target selection for AI levels 2/3
     /// must go through this memory instead of reading another bridge's hidden character/action state.

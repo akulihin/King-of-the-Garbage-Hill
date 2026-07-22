@@ -147,10 +147,19 @@ type EngineTestAccess = {
   activeLoadout: {
     primaryWeaponId: string | null
     secondaryWeaponId: string | null
+    primaryAugment?: string
+    secondaryAugment?: string
     artifactId?: string | null
     outfitId?: string | null
   } | null
   groundWeapons: Array<{ id: string, weaponId: string, position: LastChancesVector }>
+  groundOuroboros: Array<{
+    id: string
+    items: Array<'fang' | 'acid' | 'scale'>
+    position: LastChancesVector
+    source: 'room' | 'corpse'
+    nodeId: string
+  }>
   rewardChest: { position: LastChancesVector, opened: boolean } | null
   applyInteractionChoice: (choice: {
     id: string
@@ -198,6 +207,7 @@ type EngineTestAccess = {
   bossCheckpoint: { nodeId: string } | null
   cockroachesExtinct: boolean
   damagePlayerMental: (damage: number) => void
+  damagePlayer: (damage: number, source: string) => void
   startEmptyRightHandDash: () => boolean
   gestures: {
     press: (hand: LastChancesHand, atMs: number) => void
@@ -730,9 +740,118 @@ describe('99LC engine attempt lifecycle', () => {
       engine.destroy()
     }
   })
+
+  it('stacks the Ouroboros set through kills and repeat corpse pickups in the same room', () => {
+    const config = combatConfig('hybrid-sword', null, 'guard', 2)
+    const { engine, access } = startCombat(config)
+    const nodeId = access.currentNode!.id
+    const deathPosition = { ...access.player.position }
+
+    try {
+      access.groundOuroboros.push({
+        id: 'test-ouroboros-set',
+        items: ['fang', 'acid', 'scale'],
+        position: { ...access.player.position },
+        source: 'room',
+        nodeId,
+      })
+
+      expect(engine.interact()).toBe(true)
+      expect(access.createSnapshot()).toMatchObject({
+        chances: 64,
+        loadout: {
+          secondaryWeaponId: 'secondary-ouroboros-fang',
+          secondaryAugment: 'ouroborosAcid',
+          outfitId: 'ouroboros-scale',
+        },
+        ouroboros: {
+          equipped: { fang: true, acid: true, scale: true },
+          acidChancesSpent: 5,
+          lifestealPercent: 5,
+          roomScaleStacks: 1,
+          damageReductionPercent: 10,
+          fullSet: true,
+        },
+      })
+
+      const fangAttack = weapon(config, 'secondary-ouroboros-fang').attacks.tap
+      const firstTarget = access.enemies[0]
+      firstTarget.definition.armor = 0
+      firstTarget.hp = 10
+      access.player.hp = 50
+      access.damageEnemy(firstTarget, fangAttack, 0, { x: 1, y: 0 }, {
+        weaponId: 'secondary-ouroboros-fang',
+        hand: 'right',
+        gesture: 'tap',
+      })
+      expect(access.createSnapshot().ouroboros?.fangKillStacks).toBe(1)
+
+      const secondTarget = access.enemies[1]
+      secondTarget.definition.armor = 0
+      secondTarget.hp = 100
+      access.player.hp = 50
+      access.damageEnemy(secondTarget, { ...fangAttack, damage: 20 }, 0, { x: 1, y: 0 }, {
+        weaponId: 'secondary-ouroboros-fang',
+        hand: 'right',
+        gesture: 'tap',
+      })
+      expect(secondTarget.hp).toBeCloseTo(79)
+      expect(access.player.hp).toBeCloseTo(51.05)
+
+      access.player.invulnerableMs = 0
+      access.player.hp = 100
+      const armor = access.createSnapshot().player.stats.armor
+      access.damagePlayer(20, 'Ouroboros test')
+      expect(access.player.hp).toBeCloseTo(100 - Math.max(1, 20 - armor) * 0.9)
+
+      access.elapsedMs = 100
+      access.performAttack(resolution('right', 'tap'))
+      expect(access.createSnapshot().cooldowns.find(entry => (
+        entry.hand === 'right' && entry.gesture === 'tap'
+      ))).toMatchObject({ remainingMs: 5000, totalMs: 5000, ready: false })
+      access.elapsedMs += 5000
+      expect(access.createSnapshot().cooldowns.find(entry => (
+        entry.hand === 'right' && entry.gesture === 'tap'
+      ))?.ready).toBe(true)
+
+      access.player.position = deathPosition
+      access.killPlayer('Ouroboros corpse test')
+      expect(access.createSnapshot().chances).toBe(63)
+      expect(engine.retryAttempt()).toBe(true)
+      expect(engine.chooseNode(nodeId)).toBe(true)
+
+      const corpse = access.createSnapshot().groundOuroboros[0]
+      expect(corpse).toMatchObject({
+        id: expect.stringContaining('ouroboros-corpse-'),
+        items: ['fang', 'acid', 'scale'],
+        position: deathPosition,
+        chanceCost: 35,
+      })
+      access.player.position = { ...corpse.position }
+      expect(engine.interact()).toBe(true)
+      expect(access.createSnapshot()).toMatchObject({
+        chances: 28,
+        ouroboros: {
+          fangKillStacks: 1,
+          acidChancesSpent: 10,
+          lifestealPercent: 10,
+          roomScaleStacks: 2,
+          damageReductionPercent: 20,
+          fullSet: true,
+        },
+      })
+
+      access.player.invulnerableMs = 0
+      access.player.hp = 100
+      access.damagePlayer(20, 'Ouroboros repeat-pickup test')
+      expect(access.player.hp).toBeCloseTo(100 - Math.max(1, 20 - armor) * 0.8)
+    } finally {
+      engine.destroy()
+    }
+  })
 })
 
-describe('99LC seven-weapon mechanics', () => {
+describe('99LC eight-weapon mechanics', () => {
   it('fills the game window with a horizontal arena projection', () => {
     const { engine, access } = startCombat(combatConfig('twohand-spear', null, 'guard', 1))
 

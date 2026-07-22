@@ -68,6 +68,12 @@ const nextGrade = computed(() => selectedTower.value ? nextTdTowerGrade(selected
 const currentGradeSet = computed(() => plan.value.gradeChoices.find(set => (
   set.regionId === plan.value.battlefield.regionId && set.grade === nextGrade.value
 )) ?? null)
+const currentGradeUnavailableReason = computed(() => {
+  const set = currentGradeSet.value
+  if (!set) return null
+  if (set.availability === 'notApplicable') return set.reason ?? 'Этот грейд не применяется в данном регионе.'
+  return set.deferredReason ?? null
+})
 const enemiesRemaining = computed(() => simulation.value.enemies.filter(enemy => enemy.hp > 0).length)
 const totalEnemies = computed(() => plan.value.wave.groups.reduce((sum, group) => sum + group.count, 0))
 const deploymentCount = computed(() => plan.value.deployments.reduce((sum, item) => sum + item.count, 0))
@@ -164,7 +170,7 @@ const buildOptions = computed<CommandOption<TdTowerBaseDefinition>[]>(() => {
 })
 
 const upgradeOptions = computed<CommandOption<TdTowerChoiceDefinition>[]>(() => {
-  if (!selectedTower.value || !currentGradeSet.value || currentGradeSet.value.deferredReason) return []
+  if (!selectedTower.value || !currentGradeSet.value || currentGradeUnavailableReason.value) return []
   const choices = new Map(plan.value.towerChoices.map(choice => [choice.id, choice]))
   return currentGradeSet.value.choiceIds.flatMap((choiceId) => {
     const definition = choices.get(choiceId)
@@ -182,7 +188,7 @@ const choicePanelMessage = computed(() => {
       : 'Для этой позиции нет доступной основы башни.'
   }
   if (nextGrade.value > 4) return 'Башня получила все четыре последовательных грейда.'
-  if (currentGradeSet.value?.deferredReason) return currentGradeSet.value.deferredReason
+  if (currentGradeUnavailableReason.value) return currentGradeUnavailableReason.value
   if (!currentGradeSet.value) return `Грейд ${nextGrade.value} не настроен для этого региона.`
   return 'Выберите одно из доступных улучшений.'
 })

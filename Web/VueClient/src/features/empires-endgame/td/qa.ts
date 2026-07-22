@@ -25,7 +25,10 @@ function choiceForGrade(
     candidate.regionId === plan.battlefield.regionId
     && candidate.grade === grade
   ))
-  if (!set || set.deferredReason || set.choiceIds.length === 0) return null
+  if (!set
+    || set.availability === 'notApplicable'
+    || set.deferredReason
+    || set.choiceIds.length === 0) return null
   const choiceId = set.choiceIds[choiceIndex % set.choiceIds.length]
   return plan.towerChoices.find(choice => choice.id === choiceId) ?? null
 }

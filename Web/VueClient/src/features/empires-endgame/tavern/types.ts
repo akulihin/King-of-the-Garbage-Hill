@@ -25,7 +25,8 @@ export interface TavernMariaPlan {
   present: boolean
   title: string
   description: string
-  deferredReason: string | null
+  roundsToWin: number
+  playerRoundWins: boolean[]
 }
 
 export interface TavernPlan {
@@ -51,6 +52,7 @@ export type TavernCommand =
   | { turn: number, kind: 'hire', offerId: string }
   | { turn: number, kind: 'buy-drinks' }
   | { turn: number, kind: 'buy-rumor' }
+  | { turn: number, kind: 'play-maria' }
   | { turn: number, kind: 'finish' }
 
 export interface TavernReplayState {
@@ -59,6 +61,8 @@ export interface TavernReplayState {
   hiredOfferId: string | null
   drinksPurchased: boolean
   rumorPurchased: boolean
+  mariaPlayed: boolean
+  mariaVictory: boolean
   goldSpent: number
   finished: boolean
   error: string | null
@@ -76,6 +80,8 @@ export interface TavernResult {
   hiredOfferId: string | null
   drinksPurchased: boolean
   rumorPurchased: boolean
+  mariaPlayed: boolean
+  mariaVictory: boolean
   goldSpent: number
   mariaPresent: boolean
   outcome: 'completed'

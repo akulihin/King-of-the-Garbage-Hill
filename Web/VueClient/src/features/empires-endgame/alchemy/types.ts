@@ -56,6 +56,13 @@ export interface AlchemyRecipeDefinition {
   deferredReason?: string
 }
 
+export interface AlchemyMutantAftermathDefinition {
+  kind: 'mutant-outbreak'
+  delayCons: number
+  populationLoss: number
+  loyaltyDelta: number
+}
+
 export interface EmpiresAlchemyConfig {
   enabled: boolean
   buildingId: string
@@ -93,6 +100,7 @@ export interface EmpiresAlchemyConfig {
     epidemicDefinitionId: string
     severityMultiplier: number
     lockBuildingForCon: boolean
+    mutantAftermath: AlchemyMutantAftermathDefinition
   }
   colors: Array<Exclude<AlchemyColor, 'gray'>>
   pieces: AlchemyPieceDefinition[]
@@ -175,6 +183,7 @@ export interface AlchemyExplosionRequest {
   originCityId: string
   epidemicDefinitionId: string
   severity: number
+  mutantAftermath: AlchemyMutantAftermathDefinition
   source: {
     kind: 'alchemy'
     id: string

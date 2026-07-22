@@ -194,21 +194,22 @@ describe('Empire\'s Endgame Phase 4A politics', () => {
     expect(permit.state.empire.loyalty.regions.west.value).toBe(-2)
   })
 
-  it('keeps the bundled Forum deferred but its confirmed operational reader doubles both signs temporally', () => {
+  it('keeps the bundled Forum and lumber concession live while doubling both loyalty signs temporally', () => {
     const bundled = config()
     expect(bundled.empire.buildings.find(item => item.id === 'municipal-capital-forum')?.deferredReason)
-      .toBeTruthy()
+      .toBeUndefined()
     expect(bundled.cards.find(item => item.id === 'card-clubs-2')?.inverted.deferredReason)
-      .toBeTruthy()
+      .toBeUndefined()
     const concession = bundled.empire.events.find(item => item.id === 'event-lumber-concession')!
-    expect(concession.deferredReason).toContain('follow-up')
+    expect(concession.deferredReason).toBeUndefined()
+    expect(concession.choices.find(choice => choice.id === 'alternate-forest')?.effects)
+      .toContainEqual({ kind: 'reputation', amount: 1 })
     expect(concession.choices.flatMap(choice => choice.effects).some(effect => (
       effect.kind === 'flag' && /^loyalty(?:North|West)$/.test(effect.flagId)
     ))).toBe(false)
 
     const value = config()
     const forum = value.empire.buildings.find(item => item.id === 'municipal-capital-forum')!
-    delete forum.deferredReason
     forum.levels[0].effects = forum.levels[0].effects?.filter(
       effect => effect.kind === 'flag' && effect.flagId === 'loyaltyMultiplierPercent',
     )
@@ -243,7 +244,7 @@ describe('Empire\'s Endgame Phase 4A politics', () => {
     legacy.army.pendingLoyaltyDeltas = [{ cityId: city.id, amount: -1, sourceId: 'td:legacy' }]
 
     const restored = new EmpiresEndgameEngine(value, legacy)
-    expect(restored.state.schemaVersion).toBe(16)
+    expect(restored.state.schemaVersion).toBe(18)
     expect(restored.state.empire.cities[0].loyalty).toBe(3)
     expect(restored.state.empire.loyalty.regions.north.value).toBe(-3)
     expect(restored.state.empire.reputation).toBe(2)

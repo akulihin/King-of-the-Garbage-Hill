@@ -1,11 +1,26 @@
 import { describe, expect, it } from 'vitest'
 import defaultConfigJson from '../../../../public/empires-endgame/game-config.json'
-import { cloneEmpiresConfig } from '../config'
 import { createEmpiresRngState } from '../rng'
-import type { CombatArmorProfile, CombatWeaponProfile } from './types'
+import type { CombatArmorProfile, CombatWeaponProfile, EmpiresCombatConfig } from './types'
 import { autoSelectDamageType, resolveDamage } from './damage'
 
-const rules = cloneEmpiresConfig(defaultConfigJson).combat
+const rules = JSON.parse(JSON.stringify(defaultConfigJson.combat)) as EmpiresCombatConfig
+
+function configuredWeapon(equipmentId: string): CombatWeaponProfile {
+  const equipment = rules.equipment.find(item => item.id === equipmentId)
+  if (!equipment || equipment.kind !== 'weapon' || !('damageLevels' in equipment.profile)) {
+    throw new Error(`Missing configured combat weapon ${equipmentId}`)
+  }
+  return equipment.profile
+}
+
+function configuredArmor(equipmentId: string): CombatArmorProfile {
+  const equipment = rules.equipment.find(item => item.id === equipmentId)
+  if (!equipment || equipment.kind === 'weapon' || !('classId' in equipment.profile)) {
+    throw new Error(`Missing configured combat armor ${equipmentId}`)
+  }
+  return equipment.profile
+}
 
 function weapon(
   damageLevels: CombatWeaponProfile['damageLevels'],
@@ -253,6 +268,103 @@ describe('Empire\'s Endgame combat counter matrix', () => {
       finalDamage: 4,
     })
     expect(result.counterRules).toEqual([])
+  })
+
+  it('resolves the accepted ice-pick and lancet-arrow defaults through existing counters', () => {
+    const icePick = resolveDamage(
+      configuredWeapon('weapon-ice-pick'),
+      configuredArmor('armor-brigandine'),
+      rules,
+    )
+    expect(icePick).toMatchObject({
+      chosenType: 'piercing',
+      rawDamage: 4,
+      finalDamage: 4,
+      weaponPassivesDisabled: false,
+      armorPassivesDisabled: true,
+    })
+    expect(icePick.counterRules).toContainEqual(expect.objectContaining({
+      ruleId: 'armor-breaker-counters-all-armor',
+      counteredSide: 'armor',
+    }))
+
+    const lancetArrow = resolveDamage(
+      configuredWeapon('weapon-lancet-arrow'),
+      configuredArmor('shield-generic'),
+      rules,
+    )
+    expect(lancetArrow).toMatchObject({
+      chosenType: 'piercing',
+      rawDamage: 3,
+      finalDamage: 0,
+      weaponPassivesDisabled: true,
+      armorPassivesDisabled: true,
+    })
+    expect(lancetArrow.counterRules).toEqual(expect.arrayContaining([
+      expect.objectContaining({ ruleId: 'piercing-overmatches-armor', counteredSide: 'armor' }),
+      expect.objectContaining({ ruleId: 'shield-blocks-arrows', counteredSide: 'weapon' }),
+    ]))
+  })
+
+  it('uses the accepted combat profiles for every activated steel carrier', () => {
+    expect(configuredWeapon('weapon-voulge')).toMatchObject({
+      damageLevels: { chopping: 3, piercing: 3, cutting: 2 },
+    })
+    expect(configuredWeapon('weapon-halberd')).toMatchObject({
+      damageLevels: { chopping: 4, crushing: 5, piercing: 4 },
+    })
+    expect(configuredWeapon('weapon-lance')).toMatchObject({
+      damageLevels: { piercing: 6, impact: 2 },
+    })
+    expect(configuredWeapon('weapon-ship-cannon')).toMatchObject({
+      damageLevels: { impact: 7, crushing: 6 },
+    })
+    expect(configuredWeapon('weapon-hand-bombard')).toMatchObject({
+      damageLevels: { impact: 5, piercing: 3 },
+    })
+    expect(configuredWeapon('weapon-arquebus')).toMatchObject({
+      damageLevels: { piercing: 6, impact: 2 },
+    })
+    expect([
+      configuredArmor('armor-butted-mail').level,
+      configuredArmor('armor-riveted-mail').level,
+      configuredArmor('armor-full-mail').level,
+      configuredArmor('armor-double-mail').level,
+      configuredArmor('armor-steel-mail').level,
+    ]).toEqual([1, 2, 3, 4, 5])
+    expect([
+      configuredArmor('armor-nasal-helm').level,
+      configuredArmor('armor-bucket-helm').level,
+      configuredArmor('armor-kettle-hat').level,
+      configuredArmor('armor-iron-breastplate').level,
+      configuredArmor('armor-steel-cuirass').level,
+    ]).toEqual([1, 2, 2, 3, 4])
+
+    expect(resolveDamage(
+      configuredWeapon('weapon-arquebus'),
+      configuredArmor('armor-steel-cuirass'),
+      rules,
+    )).toMatchObject({
+      chosenType: 'piercing',
+      rawDamage: 6,
+      armorPassivesDisabled: true,
+    })
+  })
+
+  it.each([
+    ['armor-butted-mail', 1],
+    ['armor-brigandine', 4],
+    ['armor-padded-jack', 2],
+    ['armor-iron-breastplate', 3],
+    ['shield-generic', 2],
+  ] as const)('%s uses level %i as its strict piercing threshold', (equipmentId, level) => {
+    const configured = configuredArmor(equipmentId)
+
+    expect(configured.level).toBe(level)
+    expect(resolveDamage(weapon({ piercing: level }), configured, rules).counterRules)
+      .not.toContainEqual(expect.objectContaining({ ruleId: 'piercing-overmatches-armor' }))
+    expect(resolveDamage(weapon({ piercing: level + 1 }), configured, rules).counterRules)
+      .toContainEqual(expect.objectContaining({ ruleId: 'piercing-overmatches-armor' }))
   })
 
   it('is pure, deterministic, and does not consume the serialized RNG stream', () => {

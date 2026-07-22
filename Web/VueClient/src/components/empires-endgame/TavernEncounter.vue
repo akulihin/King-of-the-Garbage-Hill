@@ -113,16 +113,23 @@ function finish() {
         <header><Sparkles :size="19" /><h3>Загадочная тройка</h3></header>
         <div v-for="card in mysticCards.filter(item => item.id !== 'mystic-queen-of-spades')" :key="card.id">
           <b>{{ card.name }}</b>
-          <small>{{ card.deferredReason }}</small>
+          <small>{{ card.normal.description }}</small>
         </div>
-        <p>Неполные контракты нельзя нанять: каталог не превращает неопределённую пассивку в живой эффект.</p>
+        <p>После посещения доступных мистиков можно пригласить в Совет карт.</p>
       </article>
 
       <article v-if="session.plan.maria.present" class="panel maria" data-testid="tavern-maria">
         <header><Sparkles :size="19" /><h3>{{ session.plan.maria.title }}</h3></header>
         <p>{{ session.plan.maria.description }}</p>
-        <button type="button" disabled :title="session.plan.maria.deferredReason || undefined">Сыграть двое на двое</button>
-        <small>{{ session.plan.maria.deferredReason }}</small>
+        <button
+          type="button"
+          data-testid="tavern-play-maria"
+          :disabled="replay.mariaPlayed"
+          @click="command({ kind: 'play-maria' })"
+        >Сыграть двое на двое</button>
+        <small v-if="replay.mariaPlayed" role="status">
+          {{ replay.mariaVictory ? 'Победа: пороховое наследие сохранено.' : 'Мария выиграла эту партию.' }}
+        </small>
       </article>
       <article v-else class="panel"><h3>Место Марии пустует</h3><p>Сегодня за обычными посетителями наблюдает только хозяин.</p></article>
     </div>

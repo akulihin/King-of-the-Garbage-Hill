@@ -80,9 +80,18 @@ export const LAST_CHANCES_WEAPON_TRAITS = [
   'axeHookRecovery',
   'katanaFlow',
   'swordRhythm',
+  'ouroborosFang',
 ] as const
 export const LAST_CHANCES_WEAPON_RESOURCE_KINDS = ['chain', 'durability', 'rhythm'] as const
-export const LAST_CHANCES_AUGMENTS = ['none', 'bleed', 'poison', 'fire', 'chemical'] as const
+export const LAST_CHANCES_AUGMENTS = [
+  'none',
+  'bleed',
+  'poison',
+  'fire',
+  'chemical',
+  'ouroborosAcid',
+] as const
+export const LAST_CHANCES_OUROBOROS_ITEMS = ['fang', 'acid', 'scale'] as const
 export const LAST_CHANCES_ENEMY_ROLES = ['creep', 'cockroach', 'standard', 'elite', 'boss'] as const
 export const LAST_CHANCES_ENEMY_ATTACK_KINDS = ['melee', 'leap', 'projectile', 'heavy', 'zone'] as const
 export const LAST_CHANCES_ZONE_SHAPES = ['circle', 'square', 'triangle'] as const
@@ -144,6 +153,7 @@ export type LastChancesStatusRefreshMode = typeof LAST_CHANCES_STATUS_REFRESH_MO
 export type LastChancesWeaponTrait = typeof LAST_CHANCES_WEAPON_TRAITS[number]
 export type LastChancesWeaponResourceKind = typeof LAST_CHANCES_WEAPON_RESOURCE_KINDS[number]
 export type LastChancesAugment = typeof LAST_CHANCES_AUGMENTS[number]
+export type LastChancesOuroborosItem = typeof LAST_CHANCES_OUROBOROS_ITEMS[number]
 export type LastChancesEnemyRole = typeof LAST_CHANCES_ENEMY_ROLES[number]
 export type LastChancesEnemyAttackKind = typeof LAST_CHANCES_ENEMY_ATTACK_KINDS[number]
 export type LastChancesZoneShape = typeof LAST_CHANCES_ZONE_SHAPES[number]
@@ -486,6 +496,25 @@ export interface LastChancesOutfitDefinition {
   }
 }
 
+export interface LastChancesOuroborosSetDefinition {
+  name: string
+  fangWeaponId: string
+  acidAugment: LastChancesAugment
+  scaleOutfitId: string
+  chanceCosts: Record<LastChancesOuroborosItem, number>
+  /** Additive outgoing-damage fraction earned per qualifying finishing blow. */
+  fangDamagePerKill: number
+  /** Lifesteal fraction gained for every Chance ever spent on Acid pickups. */
+  acidLifestealPerChance: number
+  /** Additive incoming-damage reduction earned per Scale pickup in the same room. */
+  scaleDamageReductionPerPickup: number
+}
+
+export interface LastChancesOuroborosPickupDefinition {
+  item: LastChancesOuroborosItem
+  position: LastChancesVector
+}
+
 export interface LastChancesResolvedWeapon {
   id: string
   name: string
@@ -721,6 +750,7 @@ export interface LastChancesRoomTemplate {
   turrets?: LastChancesTurretDefinition[]
   bossHoles?: LastChancesBossHoleDefinition[]
   altar?: LastChancesBossAltarDefinition
+  ouroborosPickup?: LastChancesOuroborosPickupDefinition
 }
 
 export interface LastChancesStoryPage {
@@ -824,7 +854,7 @@ export interface LastChancesInputDefinition {
 }
 
 export interface LastChancesConfig {
-  schemaVersion: 1 | 2 | 3 | 4
+  schemaVersion: 1 | 2 | 3 | 4 | 5 | 6
   title: string
   seed: string
   chances: number
@@ -855,6 +885,7 @@ export interface LastChancesConfig {
   weapons: LastChancesWeaponDefinition[]
   artifacts?: LastChancesArtifactDefinition[]
   outfits?: LastChancesOutfitDefinition[]
+  ouroborosSet?: LastChancesOuroborosSetDefinition
   /** Optional catalog-backed equipment selection. Omitted schema-v1 definitions retain their legacy hand slots. */
   loadout?: LastChancesLoadoutDefinition
   narrative?: LastChancesNarrativeDefinition
@@ -902,6 +933,7 @@ export interface LastChancesPlanNode {
   turrets: LastChancesTurretDefinition[]
   bossHoles: LastChancesBossHoleDefinition[]
   altar: LastChancesBossAltarDefinition | null
+  ouroborosPickup: LastChancesOuroborosPickupDefinition | null
   enemies: LastChancesPlanEnemy[]
   /** Present when the enemy roll produced a cockroach event; the swarm replaces its rolled slots. */
   swarm: LastChancesPlanSwarm | null
@@ -1112,6 +1144,26 @@ export interface LastChancesGroundWeaponSnapshot {
   position: LastChancesVector
 }
 
+export interface LastChancesGroundOuroborosSnapshot {
+  id: string
+  items: LastChancesOuroborosItem[]
+  position: LastChancesVector
+  chanceCost: number
+  affordable: boolean
+}
+
+export interface LastChancesOuroborosSnapshot {
+  equipped: Record<LastChancesOuroborosItem, boolean>
+  discovered: Record<LastChancesOuroborosItem, boolean>
+  fangKillStacks: number
+  damageBonusPercent: number
+  acidChancesSpent: number
+  lifestealPercent: number
+  roomScaleStacks: number
+  damageReductionPercent: number
+  fullSet: boolean
+}
+
 export interface LastChancesGamepadSnapshot {
   supported: boolean
   connected: boolean
@@ -1175,6 +1227,8 @@ export interface LastChancesSnapshot {
   weaponStates: LastChancesWeaponStateSnapshot[]
   moveQuests: LastChancesMoveQuestSnapshot[]
   groundWeapons: LastChancesGroundWeaponSnapshot[]
+  groundOuroboros: LastChancesGroundOuroborosSnapshot[]
+  ouroboros: LastChancesOuroborosSnapshot | null
   swarm: LastChancesSwarmSnapshot | null
   turrets: LastChancesTurretSnapshot[]
   turretAlarm: boolean

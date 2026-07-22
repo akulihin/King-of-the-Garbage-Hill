@@ -75,6 +75,8 @@ public class BotsBehavior : IServiceSingleton
     private const int SmartDropReadyBonus = 4;          // L2: next in-range Harm breaks the Strength pool and Drops
     // ── Phase 3: per-character pilot fixes (Smart/Omni-gated so L1 stays the control) ──
     private const int SmartSellerMarkFloor = 20;        // L2: Продавец marks on ATTACK regardless of win/loss — spreading marks dominates winnability
+    private const int NarutoSharedTargetInterest = 3;
+    private const int MaximumConsecutiveBotBlocks = 2;
 
     public async Task HandleBotBehavior(GamePlayerBridgeClass player, GameClass game)
     {
@@ -94,11 +96,10 @@ public class BotsBehavior : IServiceSingleton
         if (player.Status.LvlUpPoints > 0)
             await HandleLvlUpBot(player, game);
 
-        // L0/L1 retain the historical exact prediction. Naruto, Sakura and Itachi are the designer's
-        // explicit challenge exception at every AI level: they also identify Madara and must attack him.
+        // Every strict bot with an ordinary prediction sheet identifies Madara during Клоны Сусано.
+        // Naruto, Sakura and Itachi additionally have to submit their ordinary attack against him.
         var mustAcceptMadaraChallenge = Madara.MustAcceptRoundEightBotChallenge(player, game);
-        if (!Smart(player, game) || mustAcceptMadaraChallenge)
-            Madara.ForceRoundEightBotPrediction(player, game);
+        Madara.ForceRoundEightBotPrediction(player, game);
 
         // Forced skips are already complete actions. In particular, Шоковый щит must not let a
         // bot immediately replace the skip with its ordinary attack decision.
@@ -1006,9 +1007,9 @@ public class BotsBehavior : IServiceSingleton
                 }
             }
 
-            // L0/L1 retain the scripted system override. Fair L2/L3 may strongly target an inferred
-            // Eren after the public warning, but never locate him by his hidden Name/passive fields.
-            if (!Smart(bot, game) && await TryForceRumblingAttack(bot, game, allTargets)) return;
+            // Round-10 event targets are explicit designer-scripted exceptions at every AI level.
+            // Monster has roster-wide priority; only a roster without Monster falls through to Eren.
+            if (await TryForceRoundTenBossAttack(bot, game, allTargets)) return;
 
             // L0 (Dumb): pure-random attack/block, respecting real cannot-block / cannot-attack rules.
             if (Dumb(bot, game))
@@ -1175,6 +1176,11 @@ public class BotsBehavior : IServiceSingleton
                 howManyAttackingTheSameTarget = allTargets
                     .FindAll(x => x.Player.Status.WhoToAttackThisTurn.Contains(target.GetPlayerId())).Count;
                 target.AttackPreference -= howManyAttackingTheSameTarget;
+
+                // Naruto coordination deliberately overrides the generic anti-dogpile instinct. Later
+                // Naruto bots in the action order receive the requested +3 for a sibling's live target.
+                if (OtherNarutoTargets(bot, game, target.GetPlayerId()))
+                    target.AttackPreference += NarutoSharedTargetInterest;
 
 
                 //target
@@ -3462,6 +3468,11 @@ public class BotsBehavior : IServiceSingleton
             if (!Naruto.CanChooseBlock(bot))
                 isBlock = noBlock;
 
+            // The entertainment guard wins over every strategic/character block plan. Reusing the
+            // cannot-block fallback below makes legacy AI retry the full target pool authoritatively.
+            if (!CanVoluntarilyBlock(bot, game, allTargets.Count > 0))
+                isBlock = noBlock;
+
             //end custom behaviour After calculation Tens
 
 
@@ -3474,10 +3485,11 @@ public class BotsBehavior : IServiceSingleton
                 maximumRandomNumberForBlock = minimumRandomNumberForBlock;
 
             var isBlockCheck = _rand.Random(minimumRandomNumberForBlock, maximumRandomNumberForBlock);
-            if (isBlockCheck > isBlock && !isAttacked && mandatoryAttack == -1)
+            if (isBlockCheck > isBlock && !isAttacked && mandatoryAttack == -1
+                && CanVoluntarilyBlock(bot, game, allTargets.Count > 0))
             {
                 //block
-                await _gameReaction.HandleAttack(bot, null, -10);
+                await SubmitBotBlock(bot);
                 ResetTens(allTargets);
                 return;
             }
@@ -3505,7 +3517,7 @@ public class BotsBehavior : IServiceSingleton
                     // No valid targets left (everyone else dead / round-10 banned) — block instead of
                     // indexing an empty list. This threw IndexOutOfRange, masked by the Discord NRE
                     // into a frozen game. Mirrors the block-and-return above. See AUDIT-FINDINGS M14.
-                    await _gameReaction.HandleAttack(bot, null, -10);
+                    await SubmitBotBlock(bot);
                     ResetTens(allTargets);
                     return;
                 }
@@ -3542,7 +3554,7 @@ public class BotsBehavior : IServiceSingleton
                 await _global.TrySendServiceMessage(
                     $"**{UnknownBug.PublicName(bot)}** {passives} не напал ни на кого.\n" +
                     $"Round: {game.RoundNo}\n");
-                await _gameReaction.HandleAttack(bot, null, -10);
+                await SubmitBotBlock(bot);
             }
 
             // Dopa Макро — bot needs second attack (smart Vision-aware targeting)
@@ -3595,18 +3607,19 @@ public class BotsBehavior : IServiceSingleton
     /// <summary>
     /// L2/L3 policy over an ordinary player's projection. The only opponent inputs admitted here are
     /// public place/team/menu eligibility, owner-visible leaderboard annotations, this bot's prediction,
-    /// and viewer-scoped memories captured by <see cref="BotInformation"/>. Do not add a raw opponent
-    /// GameCharacter, Passives, score, Justice, or live Status action read to this path.
+    /// and viewer-scoped memories captured by <see cref="BotInformation"/>. The scripted round-10
+    /// Monster/Eren target and Naruto sibling coordination run before/alongside this projection as explicit
+    /// designer exceptions. Do not add any other raw opponent GameCharacter, Passives, score, Justice, or
+    /// live Status action read to this path.
     /// </summary>
     private async Task HandleFairBotAttack(GamePlayerBridgeClass bot, GameClass game, List<Nanobot> allTargets)
     {
         if (allTargets.Count == 0)
         {
-            await _gameReaction.HandleAttack(bot, null, -10);
+            await SubmitBotBlock(bot);
             return;
         }
 
-        InferPublicRulePatterns(bot, game, allTargets);
         var catalog = GetFairCatalog();
         var targets = allTargets.Select(target => BuildFairTarget(bot, game, target, catalog)).ToList();
 
@@ -3621,6 +3634,8 @@ public class BotsBehavior : IServiceSingleton
         }
 
         var blockPlan = GetFairBlockPlan(bot, game, targets);
+        var mustEndBlockStreak = !CanVoluntarilyBlock(bot, game,
+            targets.Any(target => !target.IsTeammate));
         var mandatory = targets.Where(target => target.Mandatory && target.Score > 0)
             .OrderByDescending(target => target.Score)
             .ThenBy(target => target.Place)
@@ -3629,12 +3644,14 @@ public class BotsBehavior : IServiceSingleton
         var attacked = mandatory != null && await AttackPlayer(bot, mandatory.Place);
         if (!attacked && mandatory == null && ShouldFairBotBlock(bot, game, targets, blockPlan))
         {
-            await _gameReaction.HandleAttack(bot, null, -10);
+            await SubmitBotBlock(bot);
             ResetTens(allTargets);
             return;
         }
 
         var pool = targets.Where(target => target.Score > 0 && target != mandatory).ToList();
+        if (pool.Count == 0 && mustEndBlockStreak)
+            pool = targets.Where(target => !target.IsTeammate && target != mandatory).ToList();
         while (!attacked && pool.Count > 0)
         {
             var selected = PickFairTarget(pool, Advanced(bot, game));
@@ -3644,7 +3661,7 @@ public class BotsBehavior : IServiceSingleton
 
         if (!attacked)
         {
-            await _gameReaction.HandleAttack(bot, null, -10);
+            await SubmitBotBlock(bot);
             ResetTens(allTargets);
             return;
         }
@@ -3815,30 +3832,6 @@ public class BotsBehavior : IServiceSingleton
             return true;
         return bot.GameCharacter.Name is "Продавец Сомнительных Тактик" or "Толя" or "Кира"
                or "Napoleon Wonnafcuk" or "Таинственный Суппорт";
-    }
-
-    private void InferPublicRulePatterns(GamePlayerBridgeClass bot, GameClass game, IReadOnlyList<Nanobot> targets)
-    {
-        if (!Advanced(bot, game) || game.RoundNo != 10
-            || !BotInformation.VisibleCurrentGlobalLogs(bot, game).Contains("Эрена Йегера", StringComparison.Ordinal))
-            return;
-
-        var candidates = targets.Select(target => new
-            {
-                Target = target,
-                PlaceSixRounds = bot.AiKnowledge.Opponent(target.GetPlayerId()).PlacesByRound
-                    .Count(entry => entry.Key <= 8 && entry.Value == 6),
-            })
-            .Where(entry => entry.PlaceSixRounds >= 5)
-            .OrderByDescending(entry => entry.PlaceSixRounds)
-            .ThenBy(entry => entry.Target.PlaceAtLeaderBoard())
-            .ToList();
-        if (candidates.Count == 0 || candidates.Count > 1
-            && candidates[0].PlaceSixRounds == candidates[1].PlaceSixRounds)
-            return;
-
-        BotInformation.RecordPrediction(bot, candidates[0].Target.GetPlayerId(), ErenYeager.CharacterName,
-            82, "round-10 warning + repeated public place-six pattern", game.RoundNo);
     }
 
     private static SkillClassType ParseKnownClass(string text)
@@ -4328,15 +4321,11 @@ public class BotsBehavior : IServiceSingleton
             case ErenYeager.CharacterName:
                 target.Score += MarkerNumber(target.Markers, "🔥") * 3;
                 break;
-        }
 
-        // The round-ten warning is public; the row association remains a confidence-weighted inference.
-        if (game.RoundNo == 10 && Predicted(target, ErenYeager.CharacterName, advanced ? 60 : 80)
-            && bot.Status.GetPlaceAtLeaderBoard() > target.Place
-            && bot.Status.GetPlaceAtLeaderBoard() < 6)
-        {
-            target.Score += 30;
-            target.Mandatory = true;
+            case Naruto.CharacterName:
+                if (OtherNarutoTargets(bot, game, target.Id))
+                    target.Score += NarutoSharedTargetInterest;
+                break;
         }
 
         var predictedBratishka = targets.FirstOrDefault(other =>
@@ -4347,6 +4336,15 @@ public class BotsBehavior : IServiceSingleton
 
     private static bool Predicted(FairTarget target, string characterName, int confidence)
         => target.Prediction?.CharacterName == characterName && target.Prediction.Confidence >= confidence;
+
+    private static bool OtherNarutoTargets(GamePlayerBridgeClass bot, GameClass game, Guid targetId)
+        => Naruto.IsNaruto(bot) && game.PlayersList.Any(other =>
+            other.GetPlayerId() != bot.GetPlayerId()
+            && !other.Passives.IsDead
+            && Naruto.IsNaruto(other)
+            && !other.Status.IsBlock
+            && !other.Status.IsSkip
+            && other.Status.WhoToAttackThisTurn.Contains(targetId));
 
     private static bool ApproximatelyEqualsAnyOwnStat(GamePlayerBridgeClass bot, FairTarget target)
         => Math.Abs(bot.GameCharacter.GetIntelligence() - target.EstimatedIntelligence) < 0.6m
@@ -4501,9 +4499,10 @@ public class BotsBehavior : IServiceSingleton
         if (bot.GameCharacter.Passive.Any(passive => passive.PassiveName is "Спарта" or "Aggress"))
             return false;
         if (plan == FairBlockPlan.ForceAttack) return false;
-        if (plan == FairBlockPlan.ForceBlock) return true;
 
         var available = targets.Where(target => target.Score > 0).ToList();
+        if (!CanVoluntarilyBlock(bot, game, targets.Any(target => !target.IsTeammate))) return false;
+        if (plan == FairBlockPlan.ForceBlock) return true;
         if (available.Count == 0) return true;
         var best = available.Max(target => target.Score);
         if (game.RoundNo == 10)
@@ -4542,7 +4541,7 @@ public class BotsBehavior : IServiceSingleton
         // are authoritatively converted to Skip by GameReactions.
         if (allTargets.Count == 0)
         {
-            await _gameReaction.HandleAttack(bot, null, -10);
+            await SubmitBotBlock(bot);
             return;
         }
 
@@ -4560,7 +4559,7 @@ public class BotsBehavior : IServiceSingleton
         var slots = attackSlots + (canBlock ? 1 : 0);
         if (canBlock && _rand.Random(1, slots) == slots)
         {
-            await _gameReaction.HandleAttack(bot, null, -10);
+            await SubmitBotBlock(bot);
             return;
         }
 
@@ -4589,12 +4588,30 @@ public class BotsBehavior : IServiceSingleton
 
         // Nothing attackable → block (engine force-attacks anyway if the bot legitimately can't block).
         if (!attacked)
-            await _gameReaction.HandleAttack(bot, null, -10);
+            await SubmitBotBlock(bot);
+    }
+
+    private static bool CanVoluntarilyBlock(GamePlayerBridgeClass bot, GameClass game, bool hasAttackTarget)
+        => !hasAttackTarget || Dumb(bot, game) || bot.ConsecutiveBotBlocks < MaximumConsecutiveBotBlocks;
+
+    private async Task<bool> SubmitBotBlock(GamePlayerBridgeClass bot)
+    {
+        var submitted = await _gameReaction.HandleAttack(bot, null, -10);
+        if (!submitted) return false;
+
+        if (bot.Status.IsBlock)
+            bot.ConsecutiveBotBlocks++;
+        else
+            bot.ConsecutiveBotBlocks = 0;
+        return true;
     }
 
     public async Task<bool> AttackPlayer(GamePlayerBridgeClass bot, int whoToAttack)
     {
-        return await _gameReaction.HandleAttack(bot, null, whoToAttack);
+        var attacked = await _gameReaction.HandleAttack(bot, null, whoToAttack);
+        if (attacked && bot.Status.WhoToAttackThisTurn.Count > 0 && !bot.Status.IsBlock)
+            bot.ConsecutiveBotBlocks = 0;
+        return attacked;
     }
 
     public void ResetTens(List<Nanobot> nanobots)
@@ -4893,6 +4910,7 @@ public class BotsBehavior : IServiceSingleton
             return false;
 
         player.Status.WhoToAttackThisTurn.Clear();
+        player.ConsecutiveBotBlocks = 0;
         player.Status.IsReady = true;
         player.Status.ConfirmedPredict = true;
         return true;
@@ -4996,23 +5014,26 @@ public class BotsBehavior : IServiceSingleton
         }
     }
 
-    private async Task<bool> TryForceRumblingAttack(
+    private async Task<bool> TryForceRoundTenBossAttack(
         GamePlayerBridgeClass bot,
         GameClass game,
         List<Nanobot> allTargets)
     {
         // Forced skips and other unable-to-act states return before HandleBotAttack reaches this rule.
-        var rumblingEren = game.RoundNo == 10
-            ? allTargets.Find(x =>
-                x.Player.GameCharacter.Name == ErenYeager.CharacterName
-                && x.Player.GameCharacter.Passive.Any(p => p.PassiveName == ErenYeager.Rumbling))
-            : null;
-        if (rumblingEren == null
-            || bot.Status.GetPlaceAtLeaderBoard() <= rumblingEren.PlaceAtLeaderBoard()
-            || bot.Status.GetPlaceAtLeaderBoard() >= 6)
+        if (game.RoundNo != 10)
             return false;
 
-        if (!await AttackPlayer(bot, rumblingEren.PlaceAtLeaderBoard()))
+        var monsterExists = game.PlayersList.Any(player =>
+            player.GameCharacter.Name == "Монстр без имени");
+        var mandatoryTarget = monsterExists
+            ? allTargets.Find(target => target.Player.GameCharacter.Name == "Монстр без имени")
+            : allTargets.Find(target =>
+                target.Player.GameCharacter.Name == ErenYeager.CharacterName
+                && bot.Status.GetPlaceAtLeaderBoard() > target.PlaceAtLeaderBoard());
+        if (mandatoryTarget == null)
+            return false;
+
+        if (!await AttackPlayer(bot, mandatoryTarget.PlaceAtLeaderBoard()))
             return false;
 
         // Dopa's Macro keeps the turn open until a second distinct target is submitted.

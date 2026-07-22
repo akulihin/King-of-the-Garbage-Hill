@@ -287,7 +287,10 @@ public static class Madara
         GamePlayerBridgeClass bot, GameClass game)
     {
         if (game?.RoundNo != 8 || bot?.PlayerType != 404 || bot.Passives.IsDead
-            || IsMadara(bot)) return;
+            || game.GameMode == "Aram" || IsMadara(bot)
+            || bot.GameCharacter.DoomRollMode
+            || bot.GameCharacter.Passive.Any(passive =>
+                passive.PassiveName is "Тетрадь смерти" or "AdminPlayerType")) return;
 
         var madara = Find(game);
         if (madara == null || madara.Passives.Madara.Sealed) return;

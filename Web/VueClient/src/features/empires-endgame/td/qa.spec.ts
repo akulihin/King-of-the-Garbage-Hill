@@ -42,17 +42,25 @@ describe('TD deterministic QA policies', () => {
       .not.toBe('invalid-command')
   })
 
-  it('does not invent tower commands for an assault or deferred regional upgrades', () => {
+  it('uses completed regional grades without inventing assault or northern upgrades', () => {
     expect(createTdPolicyCommandLog(planFor('battle-assault'), 'balanced')).toEqual([])
 
-    for (const scenario of ['battle-swamp', 'battle-forest', 'battle-north', 'battle-desert'] as const) {
+    for (const scenario of ['battle-swamp', 'battle-forest', 'battle-desert'] as const) {
       const plan = planFor(scenario)
       const commands = createTdPolicyCommandLog(plan, 'balanced')
       expect(commands.length).toBeGreaterThan(0)
-      expect(commands.every(command => command.kind === 'build-tower')).toBe(true)
+      expect(commands.some(command => command.kind === 'upgrade-tower')).toBe(true)
       expect(resolveTdWithPolicy(plan, `td-qa-${scenario}`, 'balanced').terminalReason)
         .not.toBe('invalid-command')
     }
+
+    const north = planFor('battle-north')
+    const northCommands = createTdPolicyCommandLog(north, 'balanced')
+    expect(northCommands.length).toBeGreaterThan(0)
+    expect(northCommands.every(command => command.kind === 'build-tower')).toBe(true)
+    expect(north.gradeChoices.every(set => set.availability === 'notApplicable')).toBe(true)
+    expect(resolveTdWithPolicy(north, 'td-qa-battle-north', 'balanced').terminalReason)
+      .not.toBe('invalid-command')
   })
 
   it('honors the plan command cap while authoring a policy log', () => {

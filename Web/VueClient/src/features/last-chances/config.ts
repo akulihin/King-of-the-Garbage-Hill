@@ -14,6 +14,7 @@ import {
   LAST_CHANCES_GESTURES,
   LAST_CHANCES_HAZARD_KINDS,
   LAST_CHANCES_HANDS,
+  LAST_CHANCES_OUROBOROS_ITEMS,
   LAST_CHANCES_STATUS_KINDS,
   LAST_CHANCES_STATUS_REFRESH_MODES,
   LAST_CHANCES_TACTILE_PROFILES,
@@ -43,7 +44,7 @@ export const LAST_CHANCES_CONFIG_STORAGE_KEY = '99lc:game-config'
 
 type UnknownRecord = Record<string, unknown>
 
-const CURRENT_LAST_CHANCES_SCHEMA_VERSION = 5
+const CURRENT_LAST_CHANCES_SCHEMA_VERSION = 6
 const MAX_GAMEPAD_BUTTON_INDEX = 31
 const MAX_FEEDBACK_DURATION_MS = 2_000
 const MAX_CONTROL_EXPIRY_MS = 10_000
@@ -59,6 +60,7 @@ const LEGACY_SHIPPED_WEAPON_TRAITS: Record<
   'twohand-axe': 'axeHookRecovery',
   'twohand-katana': 'katanaFlow',
   'hybrid-sword': 'swordRhythm',
+  'secondary-ouroboros-fang': 'ouroborosFang',
 }
 
 const DEFAULT_MYLORIK_INPUT: LastChancesMylorikInputDefinition = {
@@ -689,6 +691,18 @@ const ATTACK_SET_CONTROL_SEEDS: Record<string, AttackSetControlSeed> = {
       commitPattern: [{ delayMs: 0, durationMs: 60, magnitude: 0.55 }],
     },
   },
+  'secondary-ouroboros-fang:primary': {
+    role: 'Matching hand — five-second dagger strike',
+    triggerRole: 'No trigger technique',
+    mylorik: {
+      tap: mylorikActivation('strike', 'press'),
+    },
+    dualsense: [],
+    haptics: {
+      gateTick: { durationMs: 24, magnitude: 0.2 },
+      commitPattern: [{ delayMs: 0, durationMs: 45, magnitude: 0.48 }],
+    },
+  },
 }
 
 function buildAttackSetControls(
@@ -1098,6 +1112,18 @@ export function migrateLastChancesConfig(
 
   if (version === 1) repairSchemaV1(migrated)
   if (currentDefinition) return mergeLegacyDefinitionWithCurrent(migrated, currentDefinition)
+
+  // Ouroboros is a schema-v6 run system. Old standalone definitions may have
+  // been produced by cloning a newer Builder catalog; do not reinterpret those
+  // incidental fields as authored legacy content.
+  delete migrated.ouroborosSet
+  if (Array.isArray(migrated.rooms)) {
+    migrated.rooms.forEach((roomValue) => {
+      if (typeof roomValue === 'object' && roomValue !== null && !Array.isArray(roomValue)) {
+        delete (roomValue as UnknownRecord).ouroborosPickup
+      }
+    })
+  }
 
   if (migrated.schemaVersion === 1) migrateSchemaV1ToV2(migrated)
   if (migrated.schemaVersion === 2) migrateSchemaV2ToV3(migrated)
@@ -1750,6 +1776,7 @@ function validateAttackSet(
   path: string,
   errors: string[],
   schemaVersion: number,
+  allowTapCooldown = false,
 ): void {
   const attacks = asRecord(value, path, errors)
   if (!attacks) return
@@ -1758,7 +1785,7 @@ function validateAttackSet(
   }
   const tap = attacks.tap
   if (typeof tap === 'object' && tap !== null && !Array.isArray(tap)
-    && (tap as UnknownRecord).cooldownMs !== 0) {
+    && (tap as UnknownRecord).cooldownMs !== 0 && !allowTapCooldown) {
     errors.push(`${path}.tap.cooldownMs must be 0 because basic taps have no cooldown`)
   }
 }
@@ -1903,6 +1930,19 @@ function validateRooms(value: unknown, errors: string[], requireSpawnLayouts: bo
     requirePositiveNumber(room, 'width', path, errors)
     requirePositiveNumber(room, 'height', path, errors)
     validateVector(room.playerSpawn, `${path}.playerSpawn`, errors)
+    if (room.ouroborosPickup !== undefined) {
+      const pickup = asRecord(room.ouroborosPickup, `${path}.ouroborosPickup`, errors)
+      if (pickup) {
+        if (!LAST_CHANCES_OUROBOROS_ITEMS.includes(
+          pickup.item as typeof LAST_CHANCES_OUROBOROS_ITEMS[number],
+        )) {
+          errors.push(
+            `${path}.ouroborosPickup.item must be one of ${LAST_CHANCES_OUROBOROS_ITEMS.join(', ')}`,
+          )
+        }
+        validateVector(pickup.position, `${path}.ouroborosPickup.position`, errors)
+      }
+    }
     if (room.enemySpawns !== undefined && (!Array.isArray(room.enemySpawns) || room.enemySpawns.length === 0)) {
       errors.push(`${path}.enemySpawns must be a non-empty array when provided`)
     } else if (Array.isArray(room.enemySpawns)) {
@@ -2703,7 +2743,13 @@ function validateWeapons(
     if (schemaVersion >= 2 && weapon.equipMode === undefined) {
       errors.push(`${path}.equipMode is required by schemaVersion ${schemaVersion}`)
     }
-    validateAttackSet(weapon.attacks, `${path}.attacks`, errors, schemaVersion)
+    validateAttackSet(
+      weapon.attacks,
+      `${path}.attacks`,
+      errors,
+      schemaVersion,
+      weapon.trait === 'ouroborosFang' || weapon.id === 'secondary-ouroboros-fang',
+    )
     if (schemaVersion >= 4) {
       const controls = asRecord(weapon.controls, `${path}.controls`, errors)
       if (controls) {
@@ -2729,7 +2775,13 @@ function validateWeapons(
     }
     validateTapCombo(weapon.tapCombo, `${path}.tapCombo`, errors, schemaVersion >= 2, schemaVersion)
     if (weapon.secondaryAttacks !== undefined) {
-      validateAttackSet(weapon.secondaryAttacks, `${path}.secondaryAttacks`, errors, schemaVersion)
+      validateAttackSet(
+        weapon.secondaryAttacks,
+        `${path}.secondaryAttacks`,
+        errors,
+        schemaVersion,
+        weapon.trait === 'ouroborosFang',
+      )
     }
     const equipMode = inferredEquipMode(weapon)
     if ((equipMode === 'twoHanded'
@@ -2802,7 +2854,8 @@ function validateWeapons(
       && !Array.isArray(primary.augmentHooks)
       ? primary.augmentHooks as UnknownRecord
       : null
-    if (primaryAugment !== 'none' && !primaryHooks?.[primaryAugment]) {
+    if (primaryAugment !== 'none' && primaryAugment !== 'ouroborosAcid'
+      && !primaryHooks?.[primaryAugment]) {
       errors.push(`loadout.primaryAugment ${primaryAugment} is not supported by ${loadout.primaryWeaponId}`)
     }
   }
@@ -2835,7 +2888,8 @@ function validateWeapons(
     && !Array.isArray(secondary.augmentHooks)
     ? secondary.augmentHooks as UnknownRecord
     : null
-  if (secondaryAugment !== 'none' && !secondaryHooks?.[secondaryAugment]) {
+  if (secondaryAugment !== 'none' && secondaryAugment !== 'ouroborosAcid'
+    && !secondaryHooks?.[secondaryAugment]) {
     errors.push(`loadout.secondaryAugment ${secondaryAugment} is not supported by ${secondaryId}`)
   }
 }
@@ -2899,6 +2953,73 @@ function validateEquipmentCatalogs(root: UnknownRecord, errors: string[]): void 
       errors.push(`loadout.${key} must be a non-empty string or null`)
     } else if (typeof id === 'string' && !ids.has(id)) {
       errors.push(`loadout.${key} references unknown ${key === 'artifactId' ? 'artifact' : 'outfit'} ${id}`)
+    }
+  }
+}
+
+function validateOuroborosSet(root: UnknownRecord, errors: string[], schemaVersion: number): void {
+  if (schemaVersion < 6) return
+  if (root.ouroborosSet === undefined) return
+  const set = asRecord(root.ouroborosSet, 'ouroborosSet', errors)
+  if (!set) return
+  requireString(set, 'name', 'ouroborosSet', errors)
+  requireString(set, 'fangWeaponId', 'ouroborosSet', errors)
+  requireString(set, 'scaleOutfitId', 'ouroborosSet', errors)
+  if (!LAST_CHANCES_AUGMENTS.includes(set.acidAugment as typeof LAST_CHANCES_AUGMENTS[number])
+    || set.acidAugment === 'none') {
+    errors.push(`ouroborosSet.acidAugment must be a non-none augment`)
+  }
+  const costs = asRecord(set.chanceCosts, 'ouroborosSet.chanceCosts', errors)
+  if (costs) {
+    for (const item of LAST_CHANCES_OUROBOROS_ITEMS) {
+      requireInteger(costs, item, 'ouroborosSet.chanceCosts', errors, 1)
+    }
+  }
+  for (const key of [
+    'fangDamagePerKill',
+    'acidLifestealPerChance',
+    'scaleDamageReductionPerPickup',
+  ] as const) {
+    requirePositiveNumber(set, key, 'ouroborosSet', errors)
+  }
+
+  const weapons = Array.isArray(root.weapons) ? root.weapons : []
+  const fang = weapons.find(value => (
+    typeof value === 'object' && value !== null && !Array.isArray(value)
+    && (value as UnknownRecord).id === set.fangWeaponId
+  )) as UnknownRecord | undefined
+  if (!fang) {
+    errors.push(`ouroborosSet.fangWeaponId references unknown weapon ${String(set.fangWeaponId)}`)
+  } else if (fang.trait !== 'ouroborosFang' || inferredEquipMode(fang) !== 'secondaryOnly') {
+    errors.push('ouroborosSet.fangWeaponId must reference an ouroborosFang secondaryOnly weapon')
+  }
+
+  const outfits = Array.isArray(root.outfits) ? root.outfits : []
+  if (!outfits.some(value => (
+    typeof value === 'object' && value !== null && !Array.isArray(value)
+    && (value as UnknownRecord).id === set.scaleOutfitId
+  ))) {
+    errors.push(`ouroborosSet.scaleOutfitId references unknown outfit ${String(set.scaleOutfitId)}`)
+  }
+
+  const pickupCounts = new Map(LAST_CHANCES_OUROBOROS_ITEMS.map(item => [item, 0]))
+  if (Array.isArray(root.rooms)) {
+    root.rooms.forEach((value) => {
+      if (typeof value !== 'object' || value === null || Array.isArray(value)) return
+      const pickup = (value as UnknownRecord).ouroborosPickup
+      if (typeof pickup !== 'object' || pickup === null || Array.isArray(pickup)) return
+      const item = (pickup as UnknownRecord).item
+      if (LAST_CHANCES_OUROBOROS_ITEMS.includes(
+        item as typeof LAST_CHANCES_OUROBOROS_ITEMS[number],
+      )) {
+        pickupCounts.set(item as typeof LAST_CHANCES_OUROBOROS_ITEMS[number],
+          (pickupCounts.get(item as typeof LAST_CHANCES_OUROBOROS_ITEMS[number]) ?? 0) + 1)
+      }
+    })
+  }
+  for (const item of LAST_CHANCES_OUROBOROS_ITEMS) {
+    if ((pickupCounts.get(item) ?? 0) === 0) {
+      errors.push(`ouroborosSet requires at least one room pickup for ${item}`)
     }
   }
 }
@@ -3158,6 +3279,19 @@ function validateSpawnGeometry(root: UnknownRecord, errors: string[]): void {
       })
     }
     validateSpawnPoint(room.playerSpawn, `${roomPath}.playerSpawn`, playerRadius, room, errors)
+    const ouroborosPickup = typeof room.ouroborosPickup === 'object'
+      && room.ouroborosPickup !== null && !Array.isArray(room.ouroborosPickup)
+      ? room.ouroborosPickup as UnknownRecord
+      : null
+    if (ouroborosPickup) {
+      validateSpawnPoint(
+        ouroborosPickup.position,
+        `${roomPath}.ouroborosPickup.position`,
+        16,
+        room,
+        errors,
+      )
+    }
     const enemyRadius = typeof room.id === 'string'
       ? roomEnemyRadii.get(room.id) ?? globalEnemyRadius
       : globalEnemyRadius
@@ -3333,18 +3467,20 @@ export function validateLastChancesConfig(value: unknown): LastChancesConfigVali
 
   if (root.schemaVersion !== 1 && root.schemaVersion !== 2
     && root.schemaVersion !== 3 && root.schemaVersion !== 4
-    && root.schemaVersion !== 5) {
-    errors.push('schemaVersion must be 1, 2, 3, 4, or 5')
+    && root.schemaVersion !== 5 && root.schemaVersion !== 6) {
+    errors.push('schemaVersion must be 1, 2, 3, 4, 5, or 6')
   }
-  const schemaVersion = root.schemaVersion === 5
-    ? 5
-    : root.schemaVersion === 4
-    ? 4
-    : root.schemaVersion === 3
-      ? 3
-      : root.schemaVersion === 2
-        ? 2
-        : 1
+  const schemaVersion = root.schemaVersion === 6
+    ? 6
+    : root.schemaVersion === 5
+      ? 5
+      : root.schemaVersion === 4
+        ? 4
+        : root.schemaVersion === 3
+          ? 3
+          : root.schemaVersion === 2
+            ? 2
+            : 1
   requireString(root, 'title', 'config', errors)
   requireString(root, 'seed', 'config', errors)
   requireInteger(root, 'chances', 'config', errors, 1)
@@ -3423,6 +3559,7 @@ export function validateLastChancesConfig(value: unknown): LastChancesConfigVali
   validateSpawnGeometry(root, errors)
   validateWeapons(root.weapons, root.loadout, errors, schemaVersion, dualSenseGatePositions)
   validateEquipmentCatalogs(root, errors)
+  validateOuroborosSet(root, errors, schemaVersion)
   validateContentReferences(root, errors)
   validateNarrative(root.narrative, errors)
 

@@ -49,6 +49,12 @@ function plan(overrides: Partial<AlchemyPlan> = {}): AlchemyPlan {
       epidemicDefinitionId: 'epidemic-plague',
       severityMultiplier: 1.5,
       lockBuildingForCon: true,
+      mutantAftermath: {
+        kind: 'mutant-outbreak',
+        delayCons: 2,
+        populationLoss: 10_000,
+        loyaltyDelta: -1,
+      },
     },
     colors: ['red', 'yellow', 'blue', 'green'],
     pieces: [{ id: 'single', name: 'Single', cells: [{ x: 0, y: 0 }] }],

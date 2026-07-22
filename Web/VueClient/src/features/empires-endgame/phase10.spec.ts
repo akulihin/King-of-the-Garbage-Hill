@@ -51,7 +51,7 @@ function session(engine: EmpiresEndgameEngine): EmpiresAlchemyMinigameSession {
 }
 
 describe('Empire\'s Endgame Phase 10 Tetris-alchemy', () => {
-  it('migrates v14 fail-closed without mutation, is idempotent, and rejects future schema v18', () => {
+  it('migrates v14 fail-closed without mutation, is idempotent, and rejects future schema v20', () => {
     const legacy = structuredClone(bundledConfigJson) as unknown as Record<string, unknown>
     legacy.schemaVersion = 14
     delete legacy.alchemy
@@ -60,26 +60,38 @@ describe('Empire\'s Endgame Phase 10 Tetris-alchemy', () => {
     const migrated = migrateEmpiresConfig(legacy)
 
     expect(legacy).toEqual(original)
-    expect(migrated).toMatchObject({ schemaVersion: 17, alchemy: { enabled: false, recipes: [] } })
+    expect(migrated).toMatchObject({ schemaVersion: 19, alchemy: { enabled: false, recipes: [] } })
     expect(migrateEmpiresConfig(migrated)).toEqual(migrated)
     expect(() => validateEmpiresConfig(migrated)).not.toThrow()
-    expect(() => migrateEmpiresConfig({ ...migrated, schemaVersion: 18 })).toThrow(/future.*18/i)
+    expect(() => migrateEmpiresConfig({ ...migrated, schemaVersion: 20 })).toThrow(/future.*20/i)
   })
 
-  it('closes the broad Alchemy carrier while retaining the exact raw-semantic blockers', () => {
+  it('ships assembly, disassembly, poison-wall, and medicine recipes with no deferred Alchemy ledger entries', () => {
     const value = config()
     const building = value.empire.buildings.find(candidate => candidate.id === value.alchemy.buildingId)!
     expect(building.deferredReason).toBeUndefined()
     expect(building.deferredSubfeatures ?? []).toEqual([])
     expect(value.alchemy.recipes.filter(recipe => !recipe.deferredReason)).toEqual([
-      expect.objectContaining({ id: 'alchemy-calibration-assembly', mode: 'assembly' }),
+      expect.objectContaining({ id: 'alchemy-calibration-assembly', mode: 'assembly', family: 'experiment' }),
+      expect.objectContaining({
+        id: 'alchemy-salvage-disassembly',
+        mode: 'disassembly',
+        rewards: [{ kind: 'resource', resourceId: 'stone', amount: 300 }],
+      }),
+      expect.objectContaining({
+        id: 'alchemy-poison-wall-assembly',
+        mode: 'assembly',
+        family: 'poison',
+        rewards: [{ kind: 'resource', resourceId: 'stone', amount: 500 }],
+      }),
+      expect.objectContaining({
+        id: 'alchemy-clinical-lattice-assembly',
+        mode: 'assembly',
+        family: 'medicine',
+        rewards: [{ kind: 'resource', resourceId: 'knowledge', amount: 400 }],
+      }),
     ])
-    expect(value.alchemy.deferredSubfeatures.map(item => item.id)).toEqual([
-      'disassemblyRules',
-      'poisonWallRecipes',
-      'scienceRecipeUnlocks',
-      'mutantAftermath',
-    ])
+    expect(value.alchemy.deferredSubfeatures).toEqual([])
     expect(() => validateEmpiresConfig(value)).not.toThrow()
 
     const unknownRecipe = cloneEmpiresConfig(value)
@@ -155,6 +167,7 @@ describe('Empire\'s Endgame Phase 10 Tetris-alchemy', () => {
       epidemicDefinitionId: value.alchemy.explosion.epidemicDefinitionId,
       severity: value.alchemy.explosion.severityMultiplier,
       source: { kind: 'alchemy', id: `alchemy:${active.id}` },
+      mutantAftermath: value.alchemy.explosion.mutantAftermath,
     } })
     expect(engine.resolveMinigame(result)).toMatchObject({ ok: true })
     const epidemic = engine.state.epidemics.find(candidate => candidate.source.kind === 'alchemy')
@@ -164,6 +177,19 @@ describe('Empire\'s Endgame Phase 10 Tetris-alchemy', () => {
     expect(engine.state.alchemy).toMatchObject({
       explosionCount: 1,
       lastExplosion: { sessionId: active.id, epidemicInstanceId: epidemic?.id },
+      pendingMutantAftermaths: [{
+        id: `alchemy-mutants:${active.id}`,
+        sourceSessionId: active.id,
+        cityId: fixture.cityId,
+        scheduledAtCon: engine.state.con,
+        dueCon: engine.state.con + value.alchemy.explosion.mutantAftermath.delayCons,
+        populationLoss: value.alchemy.explosion.mutantAftermath.populationLoss,
+        loyaltyDelta: value.alchemy.explosion.mutantAftermath.loyaltyDelta,
+      }],
+    })
+    expect(engine.domesticEconomyView(fixture.cityId).alchemy).toMatchObject({
+      pendingMutantAftermathCount: 1,
+      nextMutantAftermathCon: engine.state.con + value.alchemy.explosion.mutantAftermath.delayCons,
     })
     expect(engine.alchemyExperimentBlockedReason(fixture.cityId, fixture.recipeId)).toMatch(/закрыта|недоступ/i)
 
@@ -171,6 +197,29 @@ describe('Empire\'s Endgame Phase 10 Tetris-alchemy', () => {
     expect(restored.state.epidemics).toHaveLength(1)
     expect(restored.state.alchemy.explosionCount).toBe(1)
     expect(restored.alchemyExperimentBlockedReason(fixture.cityId, fixture.recipeId)).not.toBeNull()
+    const populationBefore = restored.state.empire.cities.find(candidate => candidate.id === fixture.cityId)!.population
+    const advance = restored as unknown as { startNextCon: () => void }
+    for (let elapsed = 0; elapsed < value.alchemy.explosion.mutantAftermath.delayCons; elapsed += 1) {
+      advance.startNextCon()
+    }
+    const affectedCity = restored.state.empire.cities.find(candidate => candidate.id === fixture.cityId)!
+    expect(affectedCity.population).toBe(Math.max(
+      0,
+      populationBefore - value.alchemy.explosion.mutantAftermath.populationLoss,
+    ))
+    expect(restored.state.alchemy).toMatchObject({
+      pendingMutantAftermaths: [],
+      lastMutantAftermath: {
+        id: `alchemy-mutants:${active.id}`,
+        sourceSessionId: active.id,
+        populationLost: populationBefore - affectedCity.population,
+        loyaltyDelta: value.alchemy.explosion.mutantAftermath.loyaltyDelta,
+      },
+    })
+    const settledPopulation = affectedCity.population
+    advance.startNextCon()
+    expect(restored.state.empire.cities.find(candidate => candidate.id === fixture.cityId)!.population)
+      .toBe(settledPopulation)
   })
 
   it('provides a deterministic QA explosion fixture for the bundled launch rules', () => {
@@ -247,11 +296,11 @@ describe('Empire\'s Endgame Phase 10 Tetris-alchemy', () => {
     expect(() => new EmpiresEndgameEngine(changed, activeSnapshot)).toThrow(/rules|config/i)
   })
 
-  it('round-trips schema v16, normalizes v12 additively, and rejects a future v17 envelope', () => {
+  it('round-trips schema v18, normalizes v12 additively, and rejects a future v19 envelope', () => {
     const value = config()
     const state = new EmpiresEndgameEngine(value).snapshot()
     const exported = exportEmpiresCampaign(state)
-    expect(exported).toMatchObject({ schemaVersion: 16, state: { schemaVersion: 16 } })
+    expect(exported).toMatchObject({ schemaVersion: 18, state: { schemaVersion: 18 } })
     expect(importEmpiresCampaign(exported, value.id)).toEqual(state)
 
     const legacyState = structuredClone(state) as unknown as Record<string, unknown>
@@ -263,9 +312,9 @@ describe('Empire\'s Endgame Phase 10 Tetris-alchemy', () => {
       state: legacyState,
     }, value.id)
     expect(new EmpiresEndgameEngine(value, restored).state).toMatchObject({
-      schemaVersion: 16,
+      schemaVersion: 18,
       alchemy: { explosionCount: 0, lastExplosion: null },
     })
-    expect(() => importEmpiresCampaign({ ...exported, schemaVersion: 17 }, value.id)).toThrow(/1–16/)
+    expect(() => importEmpiresCampaign({ ...exported, schemaVersion: 19 }, value.id)).toThrow(/1–18/)
   })
 })

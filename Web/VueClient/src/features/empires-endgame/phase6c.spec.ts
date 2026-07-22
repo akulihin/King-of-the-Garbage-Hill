@@ -107,16 +107,124 @@ describe('Empire\'s Endgame Phase 6C economy content closure', () => {
     for (const id of [
       'gift-earthquake', 'gift-tailwind', 'gift-fish-currents',
       'gift-meteor-iron', 'gift-desert-tsunami',
-    ]) expect(gift(id).deferredReason, id).toBeTruthy()
+    ]) expect(gift(id).deferredReason, id).toBeUndefined()
     for (const id of ['event-customs-smuggling', 'event-horse-theft', 'event-bank-insurance']) {
       expect(event(id).deferredReason, id).toBeUndefined()
     }
-    for (const id of ['event-lumber-concession', 'event-white-stone']) {
-      expect(event(id).deferredReason, id).toBeTruthy()
-    }
-    for (const id of ['whiteStone', 'carpentry']) expect(resource(id).deferredReason, id).toBeTruthy()
-    expect(card('card-diamonds-6').normal.deferredReason).toBeTruthy()
+    for (const id of ['whiteStone', 'carpentry']) expect(resource(id).deferredReason, id).toBeUndefined()
+    expect(card('card-diamonds-6').normal.deferredReason).toBeUndefined()
     expect(card('card-diamonds-ace').inverted.deferredReason).toBeUndefined()
+  })
+
+  it('consumes Землетрясение on the first scheduled wave exactly once', () => {
+    const value = config()
+    const state = baseState(value)
+    const completedCon = value.td.waveEveryCons!
+    state.phase = 'cards'
+    state.external.nextWaveCon = completedCon
+    state.external.allianceThreat = 0
+    state.empire.flags.earthquakeCharges = 1
+    const engine = new EmpiresEndgameEngine(value, state)
+    const internal = engine as unknown as {
+      scheduleDueWaveOnState(state: EmpiresCampaignState, completedCon: number): void
+    }
+    const variant = value.td.planVariants!.find(item => !item.deferredReason && item.purpose !== 'expedition')!
+    const configuredWave = value.td.waves.find(item => item.id === variant.waveId)!
+    const configuredEnemyCount = configuredWave.groups.reduce((total, group) => total + group.count, 0)
+
+    internal.scheduleDueWaveOnState(engine.state, completedCon)
+
+    expect(engine.state.minigame?.kind).toBe('td')
+    if (engine.state.minigame?.kind !== 'td') throw new Error('Expected a TD wave.')
+    expect(engine.state.minigame.plan.wave.groups.reduce((total, group) => total + group.count, 0))
+      .toBe(configuredEnemyCount - 1)
+    expect(engine.state.empire.flags.earthquakeCharges).toBeUndefined()
+    expect(engine.state.empire.chronicle.filter(entry => (
+      entry.sourceId === `gift-earthquake:${completedCon}`
+    ))).toHaveLength(1)
+
+    engine.state.minigame = null
+    engine.state.phase = 'cards'
+    engine.state.external.nextWaveCon = completedCon
+    internal.scheduleDueWaveOnState(engine.state, completedCon)
+    expect(engine.state.empire.chronicle.filter(entry => (
+      entry.sourceId === `gift-earthquake:${completedCon}`
+    ))).toHaveLength(1)
+  })
+
+  it('settles Слияние течений once per con for five turns, then clears with one catastrophe', () => {
+    const value = config()
+    const state = baseState(value)
+    state.phase = 'divineGift'
+    state.giftChoiceIds = ['gift-fish-currents']
+    state.empire.resources[value.empire.foodResourceId] = 0
+    const engine = new EmpiresEndgameEngine(value, state)
+
+    expect(engine.chooseGift('gift-fish-currents')).toMatchObject({ ok: true })
+    expect(engine.state.empire.flags.fishCurrentTurns).toBe(5)
+    for (let turn = 0; turn < 5; turn += 1) {
+      engine.state.phase = 'empire'
+      engine.state.event = null
+      engine.state.minigame = null
+      engine.state.outcomeReason = null
+      engine.state.empire.daysRemaining = value.empire.daysPerPhase
+      engine.state.external.nextWaveCon = Number.MAX_SAFE_INTEGER
+      for (const city of engine.state.empire.cities) {
+        city.resources[value.empire.foodResourceId] = 1_000_000_000
+      }
+      expect(engine.finishEmpire()).toMatchObject({ ok: true })
+    }
+
+    expect(engine.state.empire.resources[value.empire.foodResourceId]).toBe(3_000_000)
+    expect(engine.state.empire.flags.fishCurrentTurns).toBeUndefined()
+    expect(engine.state.empire.chronicle).toContainEqual(expect.objectContaining({
+      sourceId: expect.stringContaining('gift-fish-currents:catastrophe:'),
+      requestedAmount: -1,
+    }))
+    expect(engine.state.empire.chronicle.filter(entry => (
+      entry.sourceId.startsWith('gift-fish-currents:')
+      && !entry.sourceId.includes(':catastrophe:')
+    ))).toHaveLength(5)
+  })
+
+  it('routes Tailwind, Meteor Iron, and Desert Tsunami through live transfer, target, and recurring production consumers', () => {
+    const value = config()
+    const choose = (giftId: string) => {
+      const state = baseState(value)
+      state.phase = 'divineGift'
+      state.giftChoiceIds = [giftId]
+      return new EmpiresEndgameEngine(value, state)
+    }
+
+    const tailwind = choose('gift-tailwind')
+    expect(tailwind.chooseGift('gift-tailwind')).toMatchObject({ ok: true })
+    expect(tailwind.effectiveEmpireFlagValue('transferSpeedPercent')).toBe(50)
+    expect(tailwind.externalDiplomacyView('city-north-frost-harbor').transfer.effectiveTimeCostDays)
+      .toBeLessThan(value.empire.externalEconomy.transfer.baseTimeCostDays)
+
+    const meteor = choose('gift-meteor-iron')
+    const targetId = 'city-tetrakor-capital'
+    const target = meteor.state.empire.cities.find(city => city.id === targetId)!
+    const ironBefore = target.resources.iron
+    expect(meteor.chooseGift('gift-meteor-iron')).toMatchObject({ ok: true })
+    expect(meteor.resolvePendingTarget(targetId)).toMatchObject({ ok: true })
+    expect(target.resources.iron).toBe(ironBefore + 500000)
+    expect(meteor.state.epidemics).toContainEqual(expect.objectContaining({ cityId: targetId }))
+
+    const tsunami = choose('gift-desert-tsunami')
+    startEmpirePhaseForTest(tsunami)
+    const baseline = structuredClone(tsunami.state.empire.productionMultipliers)
+    tsunami.state.phase = 'divineGift'
+    tsunami.state.giftChoiceIds = ['gift-desert-tsunami']
+    expect(tsunami.chooseGift('gift-desert-tsunami')).toMatchObject({ ok: true })
+    expect(tsunami.state.empire.activeGiftIds).toContain('gift-desert-tsunami')
+    expect(tsunami.state.empire.productionMultipliers.food / baseline.food).toBeCloseTo(1.25)
+    expect(tsunami.state.empire.productionMultipliers.iron / (baseline.iron ?? 1)).toBeCloseTo(1.1)
+    expect(tsunami.state.empire.productionMultipliers.gold / baseline.gold).toBeCloseTo(0.9)
+    startEmpirePhaseForTest(tsunami)
+    expect(tsunami.state.empire.productionMultipliers.food / baseline.food).toBeCloseTo(1.25)
+    expect(tsunami.state.empire.productionMultipliers.iron / (baseline.iron ?? 1)).toBeCloseTo(1.1)
+    expect(tsunami.state.empire.productionMultipliers.gold / baseline.gold).toBeCloseTo(0.9)
   })
 
   it('applies tithe rounding and both material exemptions only through an operational Temple slot', () => {
@@ -356,7 +464,10 @@ describe('Empire\'s Endgame Phase 6C economy content closure', () => {
     const untouched = structuredClone(legacyConfig)
     const migrated = migrateEmpiresConfig(legacyConfig)
     expect(legacyConfig).toEqual(untouched)
-    expect(migrated).toMatchObject({ schemaVersion: 17, empire: { economyContent: { enabled: false } } })
+    expect(migrated).toMatchObject({
+      schemaVersion: current.schemaVersion,
+      empire: { economyContent: { enabled: false } },
+    })
     expect(migrateEmpiresConfig(migrated)).toEqual(migrated)
 
     const badChoice = config()

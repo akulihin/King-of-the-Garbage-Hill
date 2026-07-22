@@ -63,6 +63,10 @@ export function validateTavernPlan(plan: TavernPlan): string[] {
     || !plan.rumor.deckHint.suit.trim() || !plan.rumor.deckHint.rank.trim()
   )) errors.push('Tavern rumor deck hint is invalid.')
   if (plan.maria.present && !plan.maria.title.trim()) errors.push('Tavern Maria title is required.')
+  if (!Number.isInteger(plan.maria.roundsToWin) || plan.maria.roundsToWin < 1
+    || plan.maria.playerRoundWins.length !== plan.maria.roundsToWin * 2 - 1) {
+    errors.push('Tavern Maria match must freeze a complete odd best-of series.')
+  }
   if (!plan.rulesIdentity.rulesDigest.trim()) errors.push('Tavern rules identity is required.')
   return errors
 }
@@ -74,6 +78,8 @@ export function createTavernReplayState(): TavernReplayState {
     hiredOfferId: null,
     drinksPurchased: false,
     rumorPurchased: false,
+    mariaPlayed: false,
+    mariaVictory: false,
     goldSpent: 0,
     finished: false,
     error: null,
@@ -116,6 +122,14 @@ export function applyTavernCommand(
   } else if (command.kind === 'buy-rumor') {
     if (state.rumorPurchased) state.error = 'A rumor was already purchased.'
     else if (spend(plan.rumor.goldCost)) state.rumorPurchased = true
+  } else if (command.kind === 'play-maria') {
+    if (!plan.maria.present) state.error = 'Maria is not present in this Tavern visit.'
+    else if (state.mariaPlayed) state.error = 'The Maria match was already played.'
+    else {
+      state.mariaPlayed = true
+      state.mariaVictory = plan.maria.playerRoundWins.filter(Boolean).length
+        >= plan.maria.roundsToWin
+    }
   } else if (command.kind === 'finish') {
     state.finished = true
   } else {
@@ -154,6 +168,8 @@ export function resolveTavern(
     hiredOfferId: replay.hiredOfferId,
     drinksPurchased: replay.drinksPurchased,
     rumorPurchased: replay.rumorPurchased,
+    mariaPlayed: replay.mariaPlayed,
+    mariaVictory: replay.mariaVictory,
     goldSpent: replay.goldSpent,
     mariaPresent: plan.maria.present,
     outcome: 'completed',

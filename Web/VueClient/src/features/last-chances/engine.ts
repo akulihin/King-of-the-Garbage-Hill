@@ -48,7 +48,11 @@ import {
   type LastChancesRuntimeStatuses,
   type LastChancesStoredDot,
 } from './statuses'
-import { LAST_CHANCES_GESTURES, LAST_CHANCES_HANDS } from './types'
+import {
+  LAST_CHANCES_GESTURES,
+  LAST_CHANCES_HANDS,
+  LAST_CHANCES_OUROBOROS_ITEMS,
+} from './types'
 import {
   attackWithLastChancesAugment,
   LAST_CHANCES_GESTURE_COLORS,
@@ -88,6 +92,7 @@ import type {
   LastChancesBossHoleDefinition,
   LastChancesBossAltarDefinition,
   LastChancesOutfitDefinition,
+  LastChancesOuroborosItem,
   LastChancesZoneShape,
   LastChancesInteractionChoice,
   LastChancesInteractionSnapshot,
@@ -179,6 +184,14 @@ interface RuntimeGroundWeapon {
   weaponId: string
   augment: LastChancesAugment
   position: LastChancesVector
+}
+
+interface RuntimeGroundOuroboros {
+  id: string
+  items: LastChancesOuroborosItem[]
+  position: LastChancesVector
+  source: 'room' | 'corpse'
+  nodeId: string
 }
 
 interface RuntimeRewardChest {
@@ -668,6 +681,22 @@ export class LastChancesEngine {
   private activeLoadout: LastChancesLoadoutDefinition | null
   private corpseBoundPrimaryWeaponId: string | null = null
   private groundWeapons: RuntimeGroundWeapon[] = []
+  private groundOuroboros: RuntimeGroundOuroboros[] = []
+  private readonly ouroborosCorpses = new Map<string, RuntimeGroundOuroboros[]>()
+  private ouroborosDiscovered: Record<LastChancesOuroborosItem, boolean> = {
+    fang: false,
+    acid: false,
+    scale: false,
+  }
+  private ouroborosEquipped: Record<LastChancesOuroborosItem, boolean> = {
+    fang: false,
+    acid: false,
+    scale: false,
+  }
+  private ouroborosFangKillStacks = 0
+  private ouroborosAcidChancesSpent = 0
+  private readonly ouroborosScaleRoomStacks = new Map<string, number>()
+  private nextGroundOuroborosId = 1
   private rewardChest: RuntimeRewardChest | null = null
   private nextGroundWeaponId = 1
   private ninjaDashReadyAtMs = 0
@@ -1131,6 +1160,17 @@ export class LastChancesEngine {
       }
     })
     this.groundWeapons = []
+    this.groundOuroboros = (this.ouroborosCorpses.get(node.id) ?? [])
+      .map(pickup => ({ ...pickup, items: [...pickup.items], position: { ...pickup.position } }))
+    if (node.ouroborosPickup && !this.ouroborosDiscovered[node.ouroborosPickup.item]) {
+      this.groundOuroboros.push({
+        id: `ouroboros-room-${node.id}-${node.ouroborosPickup.item}`,
+        items: [node.ouroborosPickup.item],
+        position: { ...node.ouroborosPickup.position },
+        source: 'room',
+        nodeId: node.id,
+      })
+    }
     this.ninjaDashReadyAtMs = 0
     const swarmDefinition = node.swarm
       ? this.enemyDefinitions.get(node.swarm.definitionId)
@@ -1237,6 +1277,8 @@ export class LastChancesEngine {
     }
     const groundWeapon = this.nearestGroundWeapon()
     if (groundWeapon) return this.pickUpGroundWeapon(groundWeapon)
+    const ouroboros = this.nearestGroundOuroboros()
+    if (ouroboros) return this.pickUpGroundOuroboros(ouroboros)
     const rewardChest = this.nearbyRewardChest()
     if (rewardChest) {
       rewardChest.opened = true
@@ -1298,6 +1340,14 @@ export class LastChancesEngine {
     this.cockroachesExtinct = false
     this.corpseBoundPrimaryWeaponId = null
     this.nextGroundWeaponId = 1
+    this.groundOuroboros = []
+    this.ouroborosCorpses.clear()
+    this.ouroborosDiscovered = { fang: false, acid: false, scale: false }
+    this.ouroborosEquipped = { fang: false, acid: false, scale: false }
+    this.ouroborosFangKillStacks = 0
+    this.ouroborosAcidChancesSpent = 0
+    this.ouroborosScaleRoomStacks.clear()
+    this.nextGroundOuroborosId = 1
     this.elapsedMs = 0
     this.lastSnapshotAt = Number.NEGATIVE_INFINITY
     this.nextProjectileId = 1
@@ -2194,7 +2244,7 @@ export class LastChancesEngine {
       if (this.updateCockroachMotherRetreat(enemy, deltaSeconds)) continue
       updateLastChancesStatuses(enemy.statuses, deltaMs, amount => {
         const hpBeforeTick = enemy.hp
-        enemy.hp = Math.max(0, enemy.hp - amount)
+        enemy.hp = Math.max(0, enemy.hp - amount * this.ouroborosDamageMultiplier())
         this.applyCockroachMotherHealthGate(enemy)
         this.restoreFromLifesteal(hpBeforeTick - enemy.hp)
         if (enemy.hp <= 0) this.finishEnemyDeath(enemy)
@@ -3114,6 +3164,9 @@ export class LastChancesEngine {
         <= this.elapsedMs
       return state.unterhauDueAtMs > 0 && unterhauReady
     }
+    if (gesture === 'tap' && weapon.trait === 'ouroborosFang') {
+      return (this.cooldownEnds.get(cooldownKey(hand, gesture)) ?? 0) <= this.elapsedMs
+    }
     return gesture === 'tap'
       || (this.cooldownEnds.get(cooldownKey(hand, gesture)) ?? 0) <= this.elapsedMs
   }
@@ -3310,9 +3363,11 @@ export class LastChancesEngine {
       && (gesture === 'doubleTap' || gesture === 'doubleTapHold')) {
       this.morphSwordAttack(weapon)
     }
-    if (gesture !== 'tap') {
+    if (gesture !== 'tap' || weapon.trait === 'ouroborosFang') {
       const cooldownAttack = weapon.trait === 'swordRhythm' && gesture === 'doubleTapHold'
         ? weapon.attacks.doubleTap
+        : weapon.trait === 'ouroborosFang' && gesture === 'tap'
+          ? weapon.attacks.tap
         : attack
       this.cooldownEnds.set(
         weapon.trait === 'swordRhythm' && gesture === 'doubleTapHold'
@@ -4764,6 +4819,7 @@ export class LastChancesEngine {
     if (weapon?.trait === 'swordRhythm' && !this.weapons.has('right')) {
       multiplier *= tuningValue(weapon, 'emptyOffhandDamageMultiplier', 1.5)
     }
+    multiplier *= this.ouroborosDamageMultiplier()
     multiplier *= options.damageMultiplier ?? 1
     const scaledDamage = attack.damage * multiplier * this.player.stats.attackPower / 100
     const armor = attack.damageType === 'true'
@@ -4994,6 +5050,10 @@ export class LastChancesEngine {
   private finishEnemyDeath(enemy: RuntimeEnemy): void {
     if (enemy.state === 'dead') return
     enemy.state = 'dead'
+    const role = enemy.definition.role ?? 'standard'
+    if (this.ouroborosEquipped.fang && role !== 'creep' && role !== 'cockroach') {
+      this.ouroborosFangKillStacks += 1
+    }
     if (enemy.definition.role === 'boss' || enemy.definition.bossPhases) {
       if (this.bossCheckpoint?.nodeId === this.currentNode?.id) this.bossCheckpoint = null
     }
@@ -5100,10 +5160,11 @@ export class LastChancesEngine {
 
   private damagePlayer(rawDamage: number, source: string): void {
     if (this.player.invulnerableMs > 0 || this.phase !== 'playing') return
-    const damage = Math.max(
+    const afterArmor = Math.max(
       1,
       rawDamage - this.effectivePlayerStats().armor * this.player.armorMultiplier,
     )
+    const damage = afterArmor * Math.max(0, 1 - this.ouroborosRoomDamageReduction())
     this.player.hp = Math.max(0, this.player.hp - damage)
     this.player.invulnerableMs = this.config.player.invulnerabilityMs
     if (this.player.hp <= 0) this.killPlayer(`Killed by ${source}`)
@@ -5112,7 +5173,9 @@ export class LastChancesEngine {
   /** Pure damage ignores armor; invulnerability frames still apply. */
   private damagePlayerPure(rawDamage: number, source: string): void {
     if (this.player.invulnerableMs > 0 || this.phase !== 'playing') return
-    this.player.hp = Math.max(0, this.player.hp - Math.max(1, rawDamage))
+    const damage = Math.max(1, rawDamage)
+      * Math.max(0, 1 - this.ouroborosRoomDamageReduction())
+    this.player.hp = Math.max(0, this.player.hp - damage)
     this.player.invulnerableMs = this.config.player.invulnerabilityMs
     if (this.player.hp <= 0) this.killPlayer(`Killed by ${source}`)
   }
@@ -5145,12 +5208,30 @@ export class LastChancesEngine {
   }
 
   private restoreFromLifesteal(damageDealt: number): void {
-    const ratio = clamp(this.activeArtifact()?.lifestealRatio ?? 0, 0, 1)
+    const set = this.config.ouroborosSet
+    const ouroborosRatio = this.ouroborosEquipped.acid && set
+      ? this.ouroborosAcidChancesSpent * set.acidLifestealPerChance
+      : 0
+    const ratio = Math.max(0, this.activeArtifact()?.lifestealRatio ?? 0) + ouroborosRatio
     if (ratio <= 0 || damageDealt <= 0 || this.player.hp <= 0) return
     this.player.hp = Math.min(
       this.player.stats.maxHp,
       this.player.hp + damageDealt * ratio,
     )
+  }
+
+  private ouroborosDamageMultiplier(): number {
+    const set = this.config.ouroborosSet
+    return this.ouroborosEquipped.fang && set
+      ? 1 + this.ouroborosFangKillStacks * set.fangDamagePerKill
+      : 1
+  }
+
+  private ouroborosRoomDamageReduction(): number {
+    const set = this.config.ouroborosSet
+    if (!this.ouroborosEquipped.scale || !set || !this.currentNode) return 0
+    return (this.ouroborosScaleRoomStacks.get(this.currentNode.id) ?? 0)
+      * set.scaleDamageReductionPerPickup
   }
 
   private spawnZoneAttack(enemy: RuntimeEnemy): void {
@@ -5186,6 +5267,43 @@ export class LastChancesEngine {
     this.zoneAttacks = pending
   }
 
+  private loadoutWithoutOuroboros(
+    loadout: LastChancesLoadoutDefinition | null,
+  ): LastChancesLoadoutDefinition | null {
+    const set = this.config.ouroborosSet
+    if (!loadout || !set) return loadout ? { ...loadout } : null
+    const next = { ...loadout }
+    if (next.secondaryWeaponId === set.fangWeaponId) {
+      next.secondaryWeaponId = null
+      next.secondaryAugment = 'none'
+    }
+    if (next.primaryAugment === set.acidAugment) next.primaryAugment = 'none'
+    if (next.secondaryAugment === set.acidAugment) next.secondaryAugment = 'none'
+    if (next.outfitId === set.scaleOutfitId) next.outfitId = null
+    return next
+  }
+
+  private dropEquippedOuroborosOnDeath(): void {
+    if (!this.currentNode || !this.config.ouroborosSet) return
+    const items = LAST_CHANCES_OUROBOROS_ITEMS.filter(item => this.ouroborosEquipped[item])
+    if (items.length === 0) return
+    const corpse: RuntimeGroundOuroboros = {
+      id: `ouroboros-corpse-${this.nextGroundOuroborosId++}`,
+      items,
+      position: { ...this.player.position },
+      source: 'corpse',
+      nodeId: this.currentNode.id,
+    }
+    const corpses = this.ouroborosCorpses.get(this.currentNode.id) ?? []
+    corpses.push(corpse)
+    this.ouroborosCorpses.set(this.currentNode.id, corpses)
+    for (const item of items) this.ouroborosEquipped[item] = false
+    this.activeLoadout = this.loadoutWithoutOuroboros(this.activeLoadout)
+    if (this.bossCheckpoint) {
+      this.bossCheckpoint.loadout = this.loadoutWithoutOuroboros(this.bossCheckpoint.loadout)
+    }
+  }
+
   private playerInsideZone(zone: RuntimeZoneAttack): boolean {
     // Test the player circle in the zone's local (unrotated) frame.
     const local = rotateVector({
@@ -5202,6 +5320,7 @@ export class LastChancesEngine {
 
   private killPlayer(reason: string): void {
     if (this.phase !== 'playing') return
+    this.dropEquippedOuroborosOnDeath()
     const activePrimary = this.activeLoadout
       ? this.config.weapons.find(weapon => weapon.id === this.activeLoadout?.primaryWeaponId)
       : null
@@ -5399,7 +5518,8 @@ export class LastChancesEngine {
       weapon: typeof primary,
       augment: LastChancesAugment | undefined,
     ): LastChancesAugment => (
-      augment && augment !== 'none' && weapon?.augmentHooks?.[augment]
+      augment && augment !== 'none'
+        && (augment === this.config.ouroborosSet?.acidAugment || weapon?.augmentHooks?.[augment])
         ? augment
         : 'none'
     )
@@ -5452,6 +5572,7 @@ export class LastChancesEngine {
     this.turretAlarmMs = 0
     this.altarPromptActive = false
     this.groundWeapons = []
+    this.groundOuroboros = []
     this.ninjaDashReadyAtMs = 0
     // Quest unlocks and completed quests survive the death; only room-scoped counters reset.
     for (const hand of LAST_CHANCES_HANDS) {
@@ -5561,6 +5682,107 @@ export class LastChancesEngine {
       }))
       .filter(candidate => candidate.distance <= 105)
       .sort((left, right) => left.distance - right.distance)[0]?.weapon ?? null
+  }
+
+  private ouroborosItemName(item: LastChancesOuroborosItem): string {
+    const set = this.config.ouroborosSet
+    if (item === 'fang') {
+      return this.config.weapons.find(weapon => weapon.id === set?.fangWeaponId)?.name
+        ?? 'Клык Уробороса'
+    }
+    if (item === 'scale') {
+      return this.config.outfits?.find(outfit => outfit.id === set?.scaleOutfitId)?.name
+        ?? 'Чешуя Уробороса'
+    }
+    return 'Кислота Уробороса'
+  }
+
+  private ouroborosPickupCost(pickup: RuntimeGroundOuroboros): number {
+    const costs = this.config.ouroborosSet?.chanceCosts
+    return costs
+      ? pickup.items.reduce((total, item) => total + costs[item], 0)
+      : 0
+  }
+
+  private nearestGroundOuroboros(): RuntimeGroundOuroboros | null {
+    return this.groundOuroboros
+      .map(pickup => ({
+        pickup,
+        distance: Math.sqrt(distanceSquared(this.player.position, pickup.position)),
+      }))
+      .filter(candidate => candidate.distance <= 105)
+      .sort((left, right) => left.distance - right.distance)[0]?.pickup ?? null
+  }
+
+  private pickUpGroundOuroboros(pickup: RuntimeGroundOuroboros): boolean {
+    const set = this.config.ouroborosSet
+    if (!set || !this.currentNode || !this.activeLoadout) return false
+    const index = this.groundOuroboros.findIndex(candidate => candidate.id === pickup.id)
+    if (index < 0) return false
+    const cost = this.ouroborosPickupCost(pickup)
+    if (this.chances < cost) return false
+
+    this.chances -= cost
+    for (const item of pickup.items) {
+      this.ouroborosDiscovered[item] = true
+      this.ouroborosEquipped[item] = true
+      if (item === 'acid') this.ouroborosAcidChancesSpent += set.chanceCosts.acid
+      if (item === 'scale') {
+        this.ouroborosScaleRoomStacks.set(
+          this.currentNode.id,
+          (this.ouroborosScaleRoomStacks.get(this.currentNode.id) ?? 0) + 1,
+        )
+      }
+    }
+
+    this.groundOuroboros.splice(index, 1)
+    if (pickup.source === 'corpse') {
+      const remaining = (this.ouroborosCorpses.get(pickup.nodeId) ?? [])
+        .filter(candidate => candidate.id !== pickup.id)
+      if (remaining.length > 0) this.ouroborosCorpses.set(pickup.nodeId, remaining)
+      else this.ouroborosCorpses.delete(pickup.nodeId)
+    }
+
+    const next = { ...this.activeLoadout }
+    if (pickup.items.includes('fang')) {
+      const primary = next.primaryWeaponId
+        ? this.config.weapons.find(weapon => weapon.id === next.primaryWeaponId)
+        : null
+      if (primary?.equipMode === 'twoHanded') {
+        this.addGroundWeapon(primary.id, next.primaryAugment, pickup.position)
+        next.primaryWeaponId = null
+        next.primaryAugment = 'none'
+      }
+      if (next.secondaryWeaponId && next.secondaryWeaponId !== set.fangWeaponId) {
+        this.addGroundWeapon(next.secondaryWeaponId, next.secondaryAugment, pickup.position)
+      }
+      next.secondaryWeaponId = set.fangWeaponId
+      next.secondaryAugment = 'none'
+    }
+    if (pickup.items.includes('scale')) next.outfitId = set.scaleOutfitId
+    if (this.ouroborosEquipped.acid) {
+      if (next.primaryAugment === set.acidAugment) next.primaryAugment = 'none'
+      if (next.secondaryAugment === set.acidAugment) next.secondaryAugment = 'none'
+      if (this.ouroborosEquipped.fang && next.secondaryWeaponId === set.fangWeaponId) {
+        next.secondaryAugment = set.acidAugment
+      } else if (next.primaryWeaponId) {
+        next.primaryAugment = set.acidAugment
+      } else if (next.secondaryWeaponId) {
+        next.secondaryAugment = set.acidAugment
+      }
+    }
+    this.activeLoadout = this.normalizeLoadoutAugments(next)
+    this.rebuildWeapons()
+    this.cooldownEnds.clear()
+    this.resetTapCombos()
+    this.lastGesture = {
+      hand: pickup.items.includes('fang') ? 'right' : 'left',
+      gesture: 'tap',
+      attackName: pickup.items.map(item => this.ouroborosItemName(item)).join(' · '),
+      atMs: this.elapsedMs,
+    }
+    this.emitSnapshot(true)
+    return true
   }
 
   private nearestActiveTurret(): RuntimeTurret | null {
@@ -6664,8 +6886,9 @@ export class LastChancesEngine {
       const weapon = this.weapons.get(hand)
       if (!weapon) continue
       for (const gesture of LAST_CHANCES_GESTURES) {
-        const totalMs = gesture === 'tap' ? 0 : weapon.attacks[gesture].cooldownMs
-        const remainingMs = gesture === 'tap'
+        const tapHasCooldown = gesture === 'tap' && weapon.trait === 'ouroborosFang'
+        const totalMs = gesture === 'tap' && !tapHasCooldown ? 0 : weapon.attacks[gesture].cooldownMs
+        const remainingMs = gesture === 'tap' && !tapHasCooldown
           ? 0
           : Math.max(0, (this.cooldownEnds.get(cooldownKey(hand, gesture)) ?? 0) - this.elapsedMs)
         cooldowns.push({
@@ -6786,11 +7009,22 @@ export class LastChancesEngine {
       })
     const effectiveStats = this.effectivePlayerStats()
     const groundWeapon = this.nearestGroundWeapon()
+    const groundOuroboros = this.nearestGroundOuroboros()
     const rewardChest = this.nearbyRewardChest()
     const nearbyTurret = this.nearestActiveTurret()
     const groundWeaponName = groundWeapon
       ? this.config.weapons.find(weapon => weapon.id === groundWeapon.weaponId)?.name
       : null
+    const ouroborosCost = groundOuroboros
+      ? this.ouroborosPickupCost(groundOuroboros)
+      : 0
+    const ouroborosNames = groundOuroboros
+      ? groundOuroboros.items.map(item => this.ouroborosItemName(item)).join(' · ')
+      : null
+    const ouroborosSet = this.config.ouroborosSet
+    const roomScaleStacks = this.currentNode
+      ? this.ouroborosScaleRoomStacks.get(this.currentNode.id) ?? 0
+      : 0
     return {
       phase: this.phase,
       paused: this.paused,
@@ -6842,6 +7076,29 @@ export class LastChancesEngine {
           ?? weapon.weaponId,
         position: { ...weapon.position },
       })),
+      groundOuroboros: this.groundOuroboros.map(pickup => ({
+        id: pickup.id,
+        items: [...pickup.items],
+        position: { ...pickup.position },
+        chanceCost: this.ouroborosPickupCost(pickup),
+        affordable: this.chances >= this.ouroborosPickupCost(pickup),
+      })),
+      ouroboros: ouroborosSet
+        ? {
+            equipped: { ...this.ouroborosEquipped },
+            discovered: { ...this.ouroborosDiscovered },
+            fangKillStacks: this.ouroborosFangKillStacks,
+            damageBonusPercent: this.ouroborosFangKillStacks
+              * ouroborosSet.fangDamagePerKill * 100,
+            acidChancesSpent: this.ouroborosAcidChancesSpent,
+            lifestealPercent: this.ouroborosAcidChancesSpent
+              * ouroborosSet.acidLifestealPerChance * 100,
+            roomScaleStacks,
+            damageReductionPercent: roomScaleStacks
+              * ouroborosSet.scaleDamageReductionPerPickup * 100,
+            fullSet: LAST_CHANCES_OUROBOROS_ITEMS.every(item => this.ouroborosEquipped[item]),
+          }
+        : null,
       swarm: this.swarmSpawner
         ? {
             definitionId: this.swarmSpawner.definition.id,
@@ -6871,6 +7128,8 @@ export class LastChancesEngine {
         ? `${this.controlSchemeValue === 'dualsense' ? 'E / Cross' : 'E'}: отключить ${nearbyTurret.definition.name}`
         : groundWeapon && groundWeaponName
         ? `${this.controlSchemeValue === 'dualsense' ? 'E / Cross' : 'E'}: подобрать ${groundWeaponName}`
+        : groundOuroboros && ouroborosNames
+        ? `${this.controlSchemeValue === 'dualsense' ? 'E / Cross' : 'E'}: подобрать ${ouroborosNames} (−${ouroborosCost} Шансов)${this.chances < ouroborosCost ? ' · недостаточно Шансов' : ''}`
         : rewardChest
         ? `${this.controlSchemeValue === 'dualsense' ? 'E / Cross' : 'E'}: открыть сундук с наградой`
         : this.capturableKnifeSpider()
@@ -7053,6 +7312,12 @@ export class LastChancesEngine {
       items.push({
         depth: weapon.position.x + weapon.position.y,
         draw: () => this.renderGroundWeapon(weapon, node),
+      })
+    }
+    for (const pickup of this.groundOuroboros) {
+      items.push({
+        depth: pickup.position.x + pickup.position.y,
+        draw: () => this.renderGroundOuroboros(pickup, node),
       })
     }
     if (this.rewardChest) {
@@ -7634,13 +7899,21 @@ export class LastChancesEngine {
       context.shadowColor = '#bffcff'
       context.shadowBlur = 16
     }
-    context.beginPath()
-    context.arc(point.x, point.y - radius, radius, 0, Math.PI * 2)
-    context.fillStyle = this.config.renderer.player
-    context.fill()
-    context.strokeStyle = this.player.invulnerableMs > 0 ? '#ffffff' : this.config.renderer.playerAccent
-    context.lineWidth = 3
-    context.stroke()
+    const fullOuroborosSet = this.config.ouroborosSet
+      && LAST_CHANCES_OUROBOROS_ITEMS.every(item => this.ouroborosEquipped[item])
+    if (fullOuroborosSet) {
+      this.renderOuroborosIcon(point.x, point.y - radius, radius)
+    } else {
+      context.beginPath()
+      context.arc(point.x, point.y - radius, radius, 0, Math.PI * 2)
+      context.fillStyle = this.config.renderer.player
+      context.fill()
+      context.strokeStyle = this.player.invulnerableMs > 0
+        ? '#ffffff'
+        : this.config.renderer.playerAccent
+      context.lineWidth = 3
+      context.stroke()
+    }
     if (!this.primarySpearWeapon()) {
       const aimEnd = this.worldToScreen({
         x: this.player.position.x + this.player.aim.x * 74,
@@ -7699,6 +7972,67 @@ export class LastChancesEngine {
     this.renderHeldSpear(node, point, radius)
   }
 
+  private renderOuroborosIcon(x: number, y: number, radius: number): void {
+    const context = this.context
+    context.save()
+    context.beginPath()
+    context.arc(x, y, radius, 0, Math.PI * 2)
+    context.fillStyle = '#10180f'
+    context.fill()
+    context.strokeStyle = '#d6b85f'
+    context.lineWidth = Math.max(2, radius * 0.12)
+    context.stroke()
+
+    context.lineCap = 'round'
+    context.beginPath()
+    context.arc(x, y, radius * 0.67, -0.2, Math.PI * 1.72)
+    context.strokeStyle = '#77a84d'
+    context.lineWidth = radius * 0.34
+    context.shadowColor = '#9ed36a'
+    context.shadowBlur = radius * 0.35
+    context.stroke()
+    context.shadowBlur = 0
+
+    for (let index = 0; index < 8; index += 1) {
+      const angle = 0.2 + index * Math.PI * 0.21
+      context.beginPath()
+      context.arc(
+        x + Math.cos(angle) * radius * 0.67,
+        y + Math.sin(angle) * radius * 0.67,
+        Math.max(1.2, radius * 0.055),
+        0,
+        Math.PI * 2,
+      )
+      context.fillStyle = '#d7c56f'
+      context.fill()
+    }
+
+    const headX = x + Math.cos(-0.2) * radius * 0.67
+    const headY = y + Math.sin(-0.2) * radius * 0.67
+    context.save()
+    context.translate(headX, headY)
+    context.rotate(Math.PI * 0.42)
+    context.beginPath()
+    context.moveTo(radius * 0.28, 0)
+    context.lineTo(-radius * 0.18, -radius * 0.24)
+    context.lineTo(-radius * 0.22, radius * 0.24)
+    context.closePath()
+    context.fillStyle = '#98c963'
+    context.fill()
+    context.beginPath()
+    context.arc(radius * 0.02, -radius * 0.08, Math.max(1, radius * 0.045), 0, Math.PI * 2)
+    context.fillStyle = '#e45045'
+    context.fill()
+    context.restore()
+
+    context.beginPath()
+    context.arc(x, y, radius * 0.26, 0, Math.PI * 2)
+    context.strokeStyle = '#d6b85f'
+    context.lineWidth = Math.max(1.5, radius * 0.07)
+    context.stroke()
+    context.restore()
+  }
+
   private renderGroundWeapon(weapon: RuntimeGroundWeapon, node: LastChancesPlanNode): void {
     const context = this.context
     const point = this.worldToScreen(weapon.position, node)
@@ -7716,6 +8050,35 @@ export class LastChancesEngine {
     context.stroke()
     context.fillStyle = '#66533b'
     context.fillRect(-15, 2, 7, 5)
+    context.restore()
+  }
+
+  private renderGroundOuroboros(
+    pickup: RuntimeGroundOuroboros,
+    node: LastChancesPlanNode,
+  ): void {
+    const point = this.worldToScreen(pickup.position, node)
+    const nearby = this.nearestGroundOuroboros()?.id === pickup.id
+    const radius = nearby ? 16 : 13
+    const context = this.context
+    context.save()
+    context.shadowColor = nearby ? '#a7df71' : '#6f8f50'
+    context.shadowBlur = nearby ? 22 : 10
+    this.renderOuroborosIcon(point.x, point.y - radius, radius)
+    if (pickup.items.length > 1) {
+      context.beginPath()
+      context.arc(point.x + radius * 0.8, point.y - radius * 1.8, radius * 0.48, 0, Math.PI * 2)
+      context.fillStyle = '#171c13'
+      context.fill()
+      context.strokeStyle = '#d6b85f'
+      context.lineWidth = 1.5
+      context.stroke()
+      context.font = `800 ${Math.max(9, radius * 0.72)}px system-ui`
+      context.textAlign = 'center'
+      context.textBaseline = 'middle'
+      context.fillStyle = '#eef5d8'
+      context.fillText(String(pickup.items.length), point.x + radius * 0.8, point.y - radius * 1.8)
+    }
     context.restore()
   }
 

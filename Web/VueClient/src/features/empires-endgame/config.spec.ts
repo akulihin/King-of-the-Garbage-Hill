@@ -90,9 +90,9 @@ describe('Empire\'s Endgame configuration', () => {
     expect(() => validateEmpiresConfig(config)).not.toThrow()
   })
 
-  it('marks future-mode rewards as deferred while keeping implemented rewards draftable', () => {
+  it('keeps every accepted reward draftable', () => {
     const config = makeConfig()
-    const deferredIds = [
+    const acceptedIds = [
       'gift-earthquake',
       'gift-tailwind',
       'gift-fish-currents',
@@ -100,8 +100,8 @@ describe('Empire\'s Endgame configuration', () => {
       'gift-desert-tsunami',
     ]
 
-    for (const giftId of deferredIds) {
-      expect(gift(config, giftId).deferredReason?.trim()).toBeTruthy()
+    for (const giftId of acceptedIds) {
+      expect(gift(config, giftId).deferredReason).toBeUndefined()
     }
     expect(gift(config, 'relic-tithe').deferredReason).toBeUndefined()
     expect(gift(config, 'relic-resource-exemption').deferredReason).toBeUndefined()
@@ -114,46 +114,23 @@ describe('Empire\'s Endgame configuration', () => {
     const deferred = <T extends { id: string, deferredReason?: string }>(items: T[]) =>
       items.filter(item => item.deferredReason).map(item => item.id)
 
-    expect(deferred(config.empire.buildings)).toEqual([
-      'building-military-academy',
-      'municipal-capital-forum',
-    ])
+    expect(deferred(config.empire.buildings)).toEqual([])
     expect(deferred(config.empire.units ?? [])).toEqual([])
-    expect(deferred(config.empire.events)).toEqual([
-      'event-lumber-concession',
-      'event-city-gates-epidemic',
-      'event-white-stone',
-    ])
-    expect(deferred(config.empire.resources)).toEqual(['carpentry', 'whiteStone'])
-    expect(deferred(config.empire.technologies)).toEqual([
-      'tech-printing',
-      'reform-technocracy',
-      'reform-city-gates',
-      'steel-voulge',
-      'steel-halberd',
-      'steel-lance',
-      'steel-butted-mail',
-      'steel-riveted-mail',
-      'steel-full-mail',
-      'steel-double-mail',
-      'steel-steel-mail',
-      'steel-nasal-helm',
-      'steel-bucket-helm',
-      'steel-kettle-hat',
-      'steel-iron-breastplate',
-      'steel-steel-cuirass',
-      'steel-water-hammer',
-      'steel-heavy-water-hammer',
-      'steel-ship-cannon',
-      'steel-hand-bombard',
-      'steel-arquebus',
-    ])
+    expect(deferred(config.empire.events)).toEqual([])
+    expect(deferred(config.empire.resources)).toEqual([])
+    expect(deferred(config.empire.technologies.filter(technology => !technology.steel))).toEqual([])
 
     const activeFaces = config.cards.flatMap(card =>
       (['normal', 'inverted'] as const)
         .filter(side => !card[side].deferredReason)
         .map(side => `${card.id}.${side}`))
-    expect(activeFaces).toEqual([
+    expect(activeFaces).toHaveLength(106)
+    expect(new Set(activeFaces)).toHaveLength(106)
+  })
+
+  it('gives every newly accepted standard face an executable suit default', () => {
+    const config = makeConfig()
+    const previouslyLive = new Set([
       'card-clubs-8.normal',
       'card-clubs-8.inverted',
       'card-diamonds-ace.inverted',
@@ -165,6 +142,49 @@ describe('Empire\'s Endgame configuration', () => {
       'card-spades-10.normal',
       'card-spades-10.inverted',
     ])
+    let acceptedFaces = 0
+
+    for (const card of config.cards) {
+      for (const side of ['normal', 'inverted'] as const) {
+        const key = `${card.id}.${side}`
+        const face = card[side]
+        expect(face.deferredReason, key).toBeUndefined()
+        if (previouslyLive.has(key)) continue
+        acceptedFaces += 1
+        expect(face.description, key).not.toMatch(/пока не определ|Настройте его в редакторе/)
+        expect(face.effects.length, key).toBeGreaterThan(0)
+
+        const hasSuitDefault = card.suit === 'clubs'
+          ? face.effects.some(effect => effect.kind === 'loyaltyAllCities')
+          : card.suit === 'diamonds'
+            ? face.effects.some(effect => (
+                effect.kind === 'resourceMultiplier' && effect.resourceId === 'gold'
+              ))
+            : card.suit === 'hearts'
+              ? face.effects.some(effect => effect.kind === 'population' && !effect.cityId)
+              : card.suit === 'spades'
+                ? face.effects.some(effect => (
+                    effect.kind === 'resource' && effect.resourceId === 'knowledge'
+                  ))
+                : face.effects.some(effect => effect.kind === 'time')
+        expect(hasSuitDefault, key).toBe(true)
+      }
+    }
+
+    expect(acceptedFaces).toBe(96)
+    expect(config.cards.find(card => card.id === 'card-clubs-2')?.inverted.effects)
+      .toContainEqual({
+        kind: 'flag',
+        flagId: 'streetCleanliness',
+        amount: -1,
+        amountPerLevel: -1,
+      })
+    expect(config.cards.find(card => card.id === 'card-hearts-ace')?.normal.effects)
+      .toEqual(expect.arrayContaining([
+        expect.objectContaining({ kind: 'flag', flagId: 'unitMoraleEnabled' }),
+        expect.objectContaining({ kind: 'flag', flagId: 'unitActivesEnabled' }),
+      ]))
+    expect(() => validateEmpiresConfig(config)).not.toThrow()
   })
 
   it('rejects malformed future-content labels and unsupported live flags', () => {
@@ -257,7 +277,7 @@ describe('Empire\'s Endgame configuration', () => {
     )
   })
 
-  it('ships the enabled authored combat catalog without un-deferring gameplay carriers', () => {
+  it('ships the enabled authored combat catalog with accepted equipment defaults', () => {
     const config = makeConfig()
 
     expect(config.combat.enabled).toBe(true)
@@ -269,24 +289,33 @@ describe('Empire\'s Endgame configuration', () => {
       'Колющее',
     ])
     expect(config.combat.counterRules).toHaveLength(17)
-    expect(config.combat.equipment).toHaveLength(32)
+    expect(config.combat.equipment).toHaveLength(45)
     expect(combatWeapon(config, 'weapon-horseman-pick').damageLevels).toEqual({
       impact: 6,
       piercing: 4,
       crushing: 3,
     })
-    expect(config.combat.equipment.filter(item => item.deferredReason).map(item => item.id)).toEqual([
-      'weapon-long-sword',
-      'weapon-ice-pick',
-      'weapon-lancet-arrow',
-      'armor-butted-mail',
-      'armor-brigandine',
-      'armor-padded-jack',
-      'armor-iron-breastplate',
-      'shield-generic',
-      'weapon-misericorde',
-      'weapon-desmond-fork',
-    ])
+    expect(config.combat.equipment.filter(item => item.deferredReason)).toEqual([])
+    expect(combatWeapon(config, 'weapon-long-sword').damageLevels).toEqual({
+      chopping: 3,
+      cutting: 1,
+      piercing: 4,
+      impact: 2,
+      crushing: 2,
+    })
+    expect(combatWeapon(config, 'weapon-ice-pick').damageLevels).toEqual({ piercing: 4, impact: 2 })
+    expect(combatWeapon(config, 'weapon-lancet-arrow').damageLevels).toEqual({ piercing: 3, cutting: 1 })
+    expect(combatWeapon(config, 'weapon-misericorde').damageLevels).toEqual({ piercing: 5, cutting: 1 })
+    expect(combatWeapon(config, 'weapon-desmond-fork').damageLevels).toEqual({ piercing: 4, impact: 2 })
+    expect(combatArmor(config, 'armor-butted-mail')).toEqual({ classId: 'mail', level: 1 })
+    expect(combatArmor(config, 'armor-brigandine')).toEqual({ classId: 'brigandine', level: 4 })
+    expect(combatArmor(config, 'armor-padded-jack')).toEqual({ classId: 'textile', level: 2 })
+    expect(combatArmor(config, 'armor-iron-breastplate')).toEqual({ classId: 'plate', level: 3 })
+    expect(combatArmor(config, 'shield-generic')).toEqual({
+      classId: 'shield',
+      level: 2,
+      tags: ['blocks-arrows'],
+    })
     expect(() => validateEmpiresConfig(config)).not.toThrow()
   })
 
@@ -354,5 +383,71 @@ describe('Empire\'s Endgame configuration', () => {
     const oneTypeMixed = makeConfig()
     combatWeapon(oneTypeMixed, 'weapon-mace').mixed = true
     expect(() => validateEmpiresConfig(oneTypeMixed)).toThrow(/at least two damage types/)
+  })
+
+  it('ships six completed regional TD grade sets and explicit northern non-applicability', () => {
+    const config = makeConfig()
+    const towerById = new Map(config.td.towers.map(tower => [tower.id, tower]))
+    const expectedGradeOne = [
+      { cost: 15, maxHpBonus: 0, rangeBonus: 90, attackIntervalTicksDelta: 0, damageLevelBonuses: {} },
+      { cost: 15, maxHpBonus: 75, rangeBonus: 0, attackIntervalTicksDelta: 0, damageLevelBonuses: {} },
+      { cost: 15, maxHpBonus: 0, rangeBonus: 0, attackIntervalTicksDelta: -4, damageLevelBonuses: {} },
+      { cost: 15, maxHpBonus: 0, rangeBonus: 0, attackIntervalTicksDelta: 0, damageLevelBonuses: { impact: 1 } },
+    ]
+    const expectedGradeFour = [
+      { cost: 30, maxHpBonus: 0, rangeBonus: 0, attackIntervalTicksDelta: 0, damageLevelBonuses: { impact: 3 } },
+      { cost: 30, maxHpBonus: 0, rangeBonus: 100, attackIntervalTicksDelta: 0, damageLevelBonuses: {} },
+      { cost: 30, maxHpBonus: 0, rangeBonus: 0, attackIntervalTicksDelta: -6, damageLevelBonuses: {} },
+      { cost: 30, maxHpBonus: 150, rangeBonus: 0, attackIntervalTicksDelta: 0, damageLevelBonuses: {} },
+    ]
+
+    expect(config.td.towers).toHaveLength(40)
+    for (const regionId of ['east', 'west', 'south']) {
+      for (const [grade, expected] of [[1, expectedGradeOne], [4, expectedGradeFour]] as const) {
+        const set = config.td.gradeChoices!.find(candidate => (
+          candidate.regionId === regionId && candidate.grade === grade
+        ))!
+        expect(set.choiceIds).toHaveLength(4)
+        expect(set.deferredReason).toBeUndefined()
+        expect(set.choiceIds.map((choiceId) => {
+          const tower = towerById.get(choiceId)!
+          return {
+            cost: tower.cost,
+            maxHpBonus: tower.maxHpBonus,
+            rangeBonus: tower.rangeBonus,
+            attackIntervalTicksDelta: tower.attackIntervalTicksDelta,
+            damageLevelBonuses: tower.damageLevelBonuses,
+          }
+        })).toEqual(expected)
+      }
+    }
+
+    const northSets = config.td.gradeChoices!.filter(set => set.regionId === 'north')
+    expect(northSets).toHaveLength(4)
+    expect(northSets.every(set => (
+      set.availability === 'notApplicable'
+      && set.choiceIds.length === 0
+      && Boolean(set.reason?.trim())
+      && !set.deferredReason
+    ))).toBe(true)
+    expect(config.td.gradeChoices!.filter(set => set.deferredReason)).toEqual([])
+    expect(() => validateEmpiresConfig(config)).not.toThrow()
+  })
+
+  it('rejects malformed not-applicable TD grade contracts', () => {
+    const missingReason = makeConfig()
+    const missingReasonSet = missingReason.td.gradeChoices!.find(set => set.id === 'north-grade-1')!
+    missingReasonSet.reason = '   '
+    expect(() => validateEmpiresConfig(missingReason)).toThrow(/reason must be non-empty/)
+
+    const exposedChoice = makeConfig()
+    const exposedChoiceSet = exposedChoice.td.gradeChoices!.find(set => set.id === 'north-grade-1')!
+    exposedChoiceSet.choiceIds.push('tower-g1-height')
+    expect(() => validateEmpiresConfig(exposedChoice)).toThrow(/must be unavailable/)
+
+    const misplacedReason = makeConfig()
+    const misplacedReasonSet = misplacedReason.td.gradeChoices!.find(set => set.id === 'east-grade-1')!
+    misplacedReasonSet.reason = 'Only not-applicable sets may explain their absence.'
+    expect(() => validateEmpiresConfig(misplacedReason)).toThrow(/only valid when not applicable/)
   })
 })

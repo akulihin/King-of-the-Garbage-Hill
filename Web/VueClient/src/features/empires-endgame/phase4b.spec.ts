@@ -333,24 +333,35 @@ describe('Empire\'s Endgame Phase 4B seasons and political technology', () => {
     expect(engine.researchQuote('steel-theocracy-proof').blockedReason).toBeNull()
   })
 
-  it('keeps undefined crime, political faces, technocracy, printing, and epidemic effects deferred', () => {
+  it('ships accepted Technocracy, Printing, and City Gates defaults through live effect kinds', () => {
     const value = config()
-    expect(value.empire.technologies.find(item => item.id === 'reform-technocracy')?.deferredReason).toBeTruthy()
-    expect(value.empire.technologies.find(item => item.id === 'reform-city-gates')).toMatchObject({
-      deferredReason: expect.any(String),
+    const technocracy = value.empire.technologies.find(item => item.id === 'reform-technocracy')!
+    expect(technocracy.deferredReason).toBeUndefined()
+    expect(technocracy).toMatchObject({
+      effects: expect.arrayContaining([
+        expect.objectContaining({ kind: 'resourceMultiplier', resourceId: 'knowledge', multiplier: 1.25 }),
+        expect.objectContaining({ kind: 'loyaltyAllCities', amount: -1 }),
+      ]),
+    })
+    const cityGates = value.empire.technologies.find(item => item.id === 'reform-city-gates')!
+    expect(cityGates.deferredReason).toBeUndefined()
+    expect(cityGates).toMatchObject({
       effects: [],
       sides: { definitions: expect.any(Array) },
     })
-    expect(value.empire.technologies.find(item => item.id === 'tech-printing')?.deferredReason).toBeTruthy()
+    const printing = value.empire.technologies.find(item => item.id === 'tech-printing')!
+    expect(printing.deferredReason).toBeUndefined()
+    expect(printing).toMatchObject({
+      effects: [expect.objectContaining({ kind: 'resourceMultiplier', resourceId: 'knowledge' })],
+    })
     for (const cardId of ['card-hearts-5', 'card-hearts-king']) {
       const card = value.cards.find(candidate => candidate.id === cardId)!
-      expect(card.normal.deferredReason).toBeTruthy()
-      expect(card.inverted.deferredReason).toBeTruthy()
+      expect(card.normal.deferredReason).toBeUndefined()
+      expect(card.inverted.deferredReason).toBeUndefined()
     }
 
     const unreadCrime = config()
     const gates = unreadCrime.empire.technologies.find(item => item.id === 'reform-city-gates')!
-    delete gates.deferredReason
     gates.effects.push({ kind: 'flag', flagId: 'crimeMultiplierPercent', amount: -50 })
     expect(() => validateEmpiresConfig(unreadCrime)).toThrow(/unsupported live flag crimeMultiplierPercent/)
   })
@@ -369,7 +380,7 @@ describe('Empire\'s Endgame Phase 4B seasons and political technology', () => {
       empire: EmpiresEndgameConfig['empire'] & { seasons: { legacyDefinitions?: unknown[] } }
     }
     expect(previous).toEqual(before)
-    expect(migrated.schemaVersion).toBe(17)
+    expect(migrated.schemaVersion).toBe(config().schemaVersion)
     expect(migrated.empire.seasons).toMatchObject({
       enabled: false,
       definitions: [],

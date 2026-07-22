@@ -4,6 +4,9 @@ import { createTdRulesIdentity, digestTdValue } from './td/engine'
 import { resolveTavern } from './tavern/engine'
 import { resolveAlchemyExplosionFixture, resolveAlchemyWithPolicy } from './alchemy/qa'
 import { resolveInventoryWithPolicy } from './inventory/qa'
+import { createClashRulesIdentity } from './clash/engine'
+import { createClashQaPlan, resolveClashWithPolicy } from './clash/qa'
+import { resolveChessWithDeterministicAi } from './chess/engine'
 import { initialQuestMemory, questCurrentNode } from './quests'
 import { EMPIRES_STABILIZATION_BUDGETS } from './stabilization'
 import { exportEmpiresCampaign, importEmpiresCampaign } from './persistence'
@@ -34,6 +37,7 @@ export const EMPIRES_QA_SCENARIO_NAMES = [
   'empire-council-with-points',
   'expedition-planning',
   'inventory-packing',
+  'chess-match',
   'governance',
   'domestic-economy',
   'mystic-tavern',
@@ -48,6 +52,7 @@ export const EMPIRES_QA_SCENARIO_NAMES = [
   'epidemic-outbreak',
   'battle-defense',
   'battle-assault',
+  'battle-clash',
   'battle-swamp',
   'battle-forest',
   'battle-north',
@@ -103,7 +108,7 @@ export type EmpiresQaAction =
   | { kind: 'choose-gift', giftId: string }
   | { kind: 'resolve-target', targetId: string }
   | { kind: 'finish-empire' }
-  | { kind: 'resolve-minigame', policy: TdQaPolicy | 'tavern-fast' | 'alchemy-greedy' | 'inventory-spread' }
+  | { kind: 'resolve-minigame', policy: TdQaPolicy | 'tavern-fast' | 'alchemy-greedy' | 'inventory-spread' | 'clash-balanced' | 'chess-deterministic' }
   | { kind: 'choose-event', eventId: string, choiceId: string }
   | { kind: 'advance-dialogue', questId: string, choiceId: string }
   | { kind: 'dismiss-dialogue', questId: string }
@@ -323,6 +328,10 @@ const SCENARIO_COPY: Record<EmpiresQaScenarioName, { title: string, description:
     title: 'Expedition inventory packing',
     description: 'A funded southern expedition is inside its immutable, restorable Inventory session.',
   },
+  'chess-match': {
+    title: 'Шахматы в Колизее',
+    description: 'Детерминированная партия с белым королём и чёрным Антоном готова для управления и QA-расчёта.',
+  },
   governance: {
     title: 'Advisor judgment and Perst assignment',
     description: 'The empire phase is ready for one advisor judgment and one permanent Perst governor flow.',
@@ -379,6 +388,10 @@ const SCENARIO_COPY: Record<EmpiresQaScenarioName, { title: string, description:
     title: 'Central Alliance assault',
     description: 'A deterministic player assault on the central Alliance fort is ready for QA.',
   },
+  'battle-clash': {
+    title: 'Клэш: наступательный бой',
+    description: 'Детерминированный бой на улицах поселения готов для управления и быстрого QA-расчёта.',
+  },
   'battle-swamp': {
     title: 'Eastern swamp defense',
     description: 'The swamp battlefield and its inaccessible tower clearings are ready for QA.',
@@ -429,6 +442,27 @@ function qaRulesIdentity(config: EmpiresEndgameConfig) {
       td: config.td.resultLogLimit ?? 32,
       alchemy: config.alchemy.resultLogLimit,
       inventory: config.inventory.resultLogLimit,
+      clash: config.clash.resultLogLimit,
+      chess: config.chess.resultLogLimit,
+      saveUtf8Bytes: EMPIRES_STABILIZATION_BUDGETS.longCampaignSaveUtf8Bytes,
+    },
+  })
+}
+
+function qaClashRulesIdentity(config: EmpiresEndgameConfig) {
+  const { seed: _initializationSeed, ...settlementConfig } = config
+  return createClashRulesIdentity(config.schemaVersion, config.clash, {
+    expeditions: config.expeditions,
+    cities: config.empire.cities,
+    loyalty: config.empire.loyalty,
+    quests: config.quests,
+    settlementConfig,
+    sharedResultRetention: {
+      td: config.td.resultLogLimit ?? 32,
+      alchemy: config.alchemy.resultLogLimit,
+      inventory: config.inventory.resultLogLimit,
+      clash: config.clash.resultLogLimit,
+      chess: config.chess.resultLogLimit,
       saveUtf8Bytes: EMPIRES_STABILIZATION_BUDGETS.longCampaignSaveUtf8Bytes,
     },
   })
@@ -613,7 +647,7 @@ function createEmpireSnapshot(
   state.upgradePoints = Math.max(3, state.upgradePoints)
   const mercyCardId = state.durak.playerHand.at(-1)
   if (mercyCardId) state.cards[mercyCardId].inverted = true
-  return state
+  return new EmpiresEndgameEngine(config, state).snapshot()
 }
 
 function createExpeditionPlanningSnapshot(
@@ -1093,8 +1127,13 @@ function createOutcomeSnapshot(
   return state
 }
 
-const TD_QA_VARIANTS: Record<
+type EmpiresTdQaScenarioName = Exclude<
   Extract<EmpiresQaScenarioName, `battle-${string}`>,
+  'battle-clash'
+>
+
+const TD_QA_VARIANTS: Record<
+  EmpiresTdQaScenarioName,
   { variantId: string, expectedMode: TdBattleMode, expectedRegionId: string }
 > = {
   'battle-defense': {
@@ -1132,7 +1171,7 @@ const TD_QA_VARIANTS: Record<
 function createBattleSnapshot(
   config: EmpiresEndgameConfig,
   engine: EmpiresEndgameEngine,
-  scenarioName: keyof typeof TD_QA_VARIANTS,
+  scenarioName: EmpiresTdQaScenarioName,
 ): EmpiresCampaignState {
   const scenario = TD_QA_VARIANTS[scenarioName]
   const variant = (config.td.planVariants ?? []).find(candidate => (
@@ -1274,6 +1313,47 @@ function createBattleSnapshot(
   return state
 }
 
+function createClashSnapshot(
+  config: EmpiresEndgameConfig,
+  engine: EmpiresEndgameEngine,
+): EmpiresCampaignState {
+  const state = engine.snapshot()
+  const sequence = state.minigameResultCompaction.settledThroughSequence + 1
+  const seed = 'qa-battle-clash'
+  const planId = 'qa-battle-clash-settlement-3x4'
+  const sessionId = `ee:${sequence}:${planId}:${seed}`
+  const rulesIdentity = qaClashRulesIdentity(config)
+  const plan = createClashQaPlan(config.clash, seed, sessionId, rulesIdentity, planId)
+  state.phase = 'minigame'
+  state.minigame = {
+    id: sessionId,
+    sequence,
+    kind: 'clash',
+    plan,
+    rulesIdentity: cloneJson(rulesIdentity),
+    seed,
+    turnLog: [],
+    attempt: 0,
+    origin: {
+      returnPhase: 'cards',
+      context: { kind: 'manual', sourceId: 'qa:battle-clash' },
+    },
+  }
+  return state
+}
+
+function createChessSnapshot(
+  config: EmpiresEndgameConfig,
+  empireSnapshot: EmpiresCampaignState,
+): EmpiresCampaignState {
+  const engine = new EmpiresEndgameEngine(config, cloneJson(empireSnapshot))
+  const started = engine.startChessMatch()
+  if (!started.ok || engine.state.minigame?.kind !== 'chess') {
+    throw new Error(`QA chess-match scenario could not start: ${started.message}`)
+  }
+  return engine.snapshot()
+}
+
 export function listEmpiresQaPlayerCardActions(
   engine: EmpiresEndgameEngine,
 ): EmpiresQaPlayerCardAction[] {
@@ -1410,7 +1490,9 @@ export function digestEmpiresQaState(engine: EmpiresEndgameEngine): EmpiresQaSta
     minigameMode: engine.state.minigame?.kind === 'td' ? engine.state.minigame.plan.mode : null,
     minigameRegionId: engine.state.minigame?.kind === 'td'
       ? engine.state.minigame.plan.battlefield.regionId
-      : null,
+      : engine.state.minigame?.kind === 'clash'
+        ? engine.state.minigame.plan.region.id
+        : null,
     minigameRulesSchemaVersion: engine.state.minigame?.rulesIdentity.configSchemaVersion ?? null,
     minigameRulesDigest: engine.state.minigame?.rulesIdentity.rulesDigest ?? null,
     minigameCommandLimit: engine.state.minigame?.plan.maxCommands ?? null,
@@ -1419,6 +1501,8 @@ export function digestEmpiresQaState(engine: EmpiresEndgameEngine): EmpiresQaSta
       engine.config.td.resultLogLimit ?? 32,
       engine.config.alchemy.resultLogLimit,
       engine.config.inventory.resultLogLimit,
+      engine.config.clash.resultLogLimit,
+      engine.config.chess.resultLogLimit,
     )),
     minigameResultEvictedCount: engine.state.minigameResultCompaction.evictedCount,
     minigameResultHistoryDigest: engine.state.minigameResultCompaction.historyDigest,
@@ -1633,6 +1717,17 @@ export function validateEmpiresQaSnapshot(
         !== snapshot.minigame.rulesIdentity.rulesDigest) {
         add('inventory-rules', 'Inventory scenario must preserve matching immutable rules identity.')
       }
+    } else if (scenarioName === 'chess-match') {
+      if (snapshot.phase !== 'minigame' || snapshot.minigame?.kind !== 'chess') {
+        add('chess-minigame', 'Chess scenario must contain an active Coliseum match.')
+      } else if (
+        snapshot.minigame.rulesIdentity.configSchemaVersion !== config.schemaVersion
+        || snapshot.minigame.plan.rulesIdentity.rulesDigest
+          !== snapshot.minigame.rulesIdentity.rulesDigest
+        || snapshot.minigame.plan.maxCommands !== config.chess.maxCommands
+      ) {
+        add('chess-rules', 'Chess scenario must preserve the current immutable rules identity and command cap.')
+      }
     } else if (scenarioName === 'domestic-economy') {
       const economy = snapshot.empire.domesticEconomy
       const operationalCarriers = [
@@ -1735,6 +1830,18 @@ export function validateEmpiresQaSnapshot(
         || snapshot.minigame.plan.rulesIdentity.rulesDigest !== snapshot.minigame.rulesIdentity.rulesDigest) {
         add('alchemy-rules', 'Alchemy scenario must carry a live recipe and matching immutable rules identity.')
       }
+    } else if (scenarioName === 'battle-clash') {
+      if (snapshot.phase !== 'minigame' || snapshot.minigame?.kind !== 'clash') {
+        add('clash-minigame', 'battle-clash must contain an active Clash session.')
+      } else {
+        const expected = qaClashRulesIdentity(config)
+        if (snapshot.minigame.rulesIdentity.rulesDigest !== expected.rulesDigest) {
+          add('clash-rules', 'battle-clash must preserve the current immutable Clash rules identity.')
+        }
+        if (snapshot.minigame.plan.field.id !== 'settlement-3x4') {
+          add('clash-field', 'battle-clash must use the sourced settlement field.')
+        }
+      }
     } else if (scenarioName in TD_QA_VARIANTS) {
       const expected = TD_QA_VARIANTS[scenarioName as keyof typeof TD_QA_VARIANTS]
       const expectedRules = qaRulesIdentity(config)
@@ -1783,6 +1890,7 @@ export function createEmpiresQaScenarios(
   const empireCouncil = createEmpireSnapshot(seededConfig, divineGift)
   const expeditionPlanning = createExpeditionPlanningSnapshot(seededConfig, empireCouncil)
   const inventoryPacking = createInventoryPackingSnapshot(seededConfig, expeditionPlanning)
+  const chessMatch = createChessSnapshot(seededConfig, empireCouncil)
   const destroyedWest = createDestroyedRegionSnapshot(seededConfig, empireCouncil, 'west')
   const loyaltyRebellion = createLoyaltyRebellionSnapshot(seededConfig, empireCouncil)
   const relicProductionLevels = createRelicBuildingLevelSnapshot(seededConfig, empireCouncil)
@@ -1797,6 +1905,7 @@ export function createEmpiresQaScenarios(
   const event = createEventSnapshot(seededConfig, empireCouncil)
   const battleDefense = createBattleSnapshot(seededConfig, baseEngine, 'battle-defense')
   const battleAssault = createBattleSnapshot(seededConfig, baseEngine, 'battle-assault')
+  const battleClash = createClashSnapshot(seededConfig, baseEngine)
   const battleSwamp = createBattleSnapshot(seededConfig, baseEngine, 'battle-swamp')
   const battleForest = createBattleSnapshot(seededConfig, baseEngine, 'battle-forest')
   const battleNorth = createBattleSnapshot(seededConfig, baseEngine, 'battle-north')
@@ -1811,6 +1920,7 @@ export function createEmpiresQaScenarios(
     'empire-council-with-points': empireCouncil,
     'expedition-planning': expeditionPlanning,
     'inventory-packing': inventoryPacking,
+    'chess-match': chessMatch,
     governance: cloneJson(empireCouncil),
     'domestic-economy': domesticEconomy,
     'mystic-tavern': mysticTavern,
@@ -1825,6 +1935,7 @@ export function createEmpiresQaScenarios(
     'epidemic-outbreak': epidemicOutbreak,
     'battle-defense': battleDefense,
     'battle-assault': battleAssault,
+    'battle-clash': battleClash,
     'battle-swamp': battleSwamp,
     'battle-forest': battleForest,
     'battle-north': battleNorth,
@@ -1835,7 +1946,14 @@ export function createEmpiresQaScenarios(
   }
 
   return Object.fromEntries(EMPIRES_QA_SCENARIO_NAMES.map((name) => {
-    const snapshot = snapshots[name]
+    const rawSnapshot = snapshots[name]
+    const snapshot = (() => {
+      const normalized = new EmpiresEndgameEngine(seededConfig, rawSnapshot).snapshot()
+      if (normalized.minigame && rawSnapshot.minigame) {
+        normalized.minigame.attempt = rawSnapshot.minigame.attempt
+      }
+      return normalized
+    })()
     const validation = validateEmpiresQaSnapshot(seededConfig, snapshot, name)
     if (!validation.ok) {
       throw new Error(`Invalid Empire's Endgame QA scenario ${name}: ${validation.issues
@@ -1987,7 +2105,11 @@ function chooseAutoplayAction(
                 ? 'alchemy-greedy'
                 : engine.state.minigame.kind === 'inventory'
                   ? 'inventory-spread'
-                  : tdPolicy,
+                  : engine.state.minigame.kind === 'clash'
+                    ? 'clash-balanced'
+                    : engine.state.minigame.kind === 'chess'
+                      ? 'chess-deterministic'
+                      : tdPolicy,
           },
           stall: null,
           checkedPlayerTurn: false,
@@ -2038,8 +2160,15 @@ function executeAutoplayAction(
     if (session.kind === 'inventory') {
       return engine.resolveMinigame(resolveInventoryWithPolicy(session.plan, session.seed, 'spread'))
     }
+    if (session.kind === 'clash') {
+      return engine.resolveMinigame(resolveClashWithPolicy(session.plan, session.seed, 'balanced'))
+    }
+    if (session.kind === 'chess') {
+      return engine.resolveMinigame(resolveChessWithDeterministicAi(session.plan, session.seed))
+    }
     if (action.policy === 'tavern-fast' || action.policy === 'alchemy-greedy'
-      || action.policy === 'inventory-spread') {
+      || action.policy === 'inventory-spread' || action.policy === 'clash-balanced'
+      || action.policy === 'chess-deterministic') {
       return { ok: false, message: 'The selected fast-resolve policy cannot settle a TD session.' }
     }
     return engine.resolveMinigame(resolveTdWithPolicy(session.plan, session.seed, action.policy))
@@ -2141,7 +2270,9 @@ export function runEmpiresQaAutoplay(
           mode: engine.state.minigame.kind === 'td' ? engine.state.minigame.plan.mode : null,
           regionId: engine.state.minigame.kind === 'td'
             ? engine.state.minigame.plan.battlefield.regionId
-            : null,
+            : engine.state.minigame.kind === 'clash'
+              ? engine.state.minigame.plan.region.id
+              : null,
           rulesDigest: engine.state.minigame.rulesIdentity.rulesDigest,
         }
       : null
@@ -2395,6 +2526,7 @@ export function runEmpiresStabilizationCampaign(
   seed: string | number,
 ): EmpiresStabilizationCampaignResult {
   const campaignConfig = configWithSeed(config, seed)
+  campaignConfig.chess.enabled = false
   campaignConfig.empire.eventChance = 1
   for (const event of campaignConfig.empire.events) {
     if (event.id !== STABILIZATION_FAMINE_EVENT_ID) {
@@ -2746,7 +2878,7 @@ export function runEmpiresStabilizationCampaign(
       && restored.state.minigameResultLog.some(record => record.result.kind === 'inventory'),
     expeditionAssault: restored.state.expeditions.byDefinitionId[expeditionId]?.status === 'won',
     finalSaveReload: reloadDifference === null,
-    chessDisabled: !('chess' in campaignConfig)
+    chessDisabled: !campaignConfig.chess.enabled
       && restored.state.minigame?.kind !== ('chess' as EmpiresMinigameKind),
   }
   if (Object.values(coverage).some(value => !value)) {

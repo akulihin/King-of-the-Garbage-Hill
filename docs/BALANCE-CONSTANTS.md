@@ -218,7 +218,7 @@ Achievement progress targets and the complete 110-entry rule catalog are in [ACH
 | Мадара | base / rarity | Int 7, Str 9, Speed 10, Psyche 9; Tier 5 | characters.json:1486-1521 |
 | Мадара | Бог шиноби thresholds | >1 unique attacker: TooGOOD; >2: TooSTONK; >3: fight Skill = 100 | Madara.cs:55-110; CP:461-467,1019-1025 |
 | Мадара | Второй метеорит | blocked attack: no −1 bonus; +2 regular | DM:519-544 |
-| Мадара | Клоны Сусано | round 8; live strict-bot reaction delay 30 s; L0/L1 exact prediction but ordinary action; strict-bot Наруто/Sakura/Итачи exact-predict + attack at every level; +1 live Justice at >2 unique attackers; seal at all 5 unique + ≥5 losses | `Madara.RoundEightBotReactionDelaySeconds`; `Madara.ForceRoundEightBotPrediction`; `Madara.MustAcceptRoundEightBotChallenge`; `Madara.RefreshIncomingEffects` |
+| Мадара | Клоны Сусано | round 8; live strict-bot reaction delay 30 s; every strict bot with an ordinary prediction sheet fills exact Madara; strict-bot Наруто/Sakura/Итачи also attack at every level; +1 live Justice at >2 unique attackers; seal at all 5 unique + ≥5 losses | `Madara.RoundEightBotReactionDelaySeconds`; `Madara.ForceRoundEightBotPrediction`; `Madara.MustAcceptRoundEightBotChallenge`; `Madara.RefreshIncomingEffects` |
 | Мадара | Вечное Цукуеми | arm at all 5 unique attackers in one turn or place 1 entering r10; authoritative r10 skips every ordinary player, while unknown_bug and reserved-Wake Gordon retain real actions; fooled-viewer bonus = max living score − viewer score + 1 (0 if sole winner) | `Madara.PrepareEternalTsukuyomiRound`; `Madara.GetIllusoryBonus`; `UnknownBug.Is` |
 | Рик | Пушка | invention Int ≥ 30; +1 charge/lvl-up; fired round ×2 regular points | GR:1155-1165, CP:4042-4066 |
 | Рик | Бобы | stack: −1 Str/Speed/Psyche, Int = base×stacks; ≤3 ingredients per lvl-up | CP:2100-2116, GR:1174-1202 |
@@ -282,10 +282,10 @@ Achievement progress targets and the complete 110-entry rule catalog are in [ACH
 | Эрен Йегер | Дрочун mutual attack | +2 regular once per mutual enemy per round | CP:2558-2569 |
 | Эрен Йегер | Атакующий Титан | off-cooldown block removed; +5 each stat per fight for the turn; no incoming target → −2 Psyche; cooldown 1 full next turn | DM:282-294; CP:62-72,517-521,1119-1123,3739-3758 |
 | Эрен Йегер | Titan audio roll | `use_most` 50%; files 1–3 split the other 50% uniformly | sound.ts:1002-1006 |
-| Эрен Йегер | Rumbling gate / reach | round 10; acting bots at opening places strictly between Eren and 6 must attack Eren; fewer than 2 losses **during round 10 only**; kills projected places strictly between Eren and place 6 | `BotsBehavior.cs` `TryForceRumblingAttack`; CP:2662-2667,3672-3718; ErenYeager.cs:38-53 |
+| Эрен Йегер | Rumbling gate / reach | round 10; only if no Monster exists, every acting bot below Eren (including place 6) must attack selectable Eren; fewer than 2 losses **during round 10 only**; kills projected places strictly between Eren and place 6 | `BotsBehavior.TryForceRoundTenBossAttack`; CP:2662-2667,3672-3718; ErenYeager.cs:38-53 |
 | Наруто | base / rarity | Int 3, Str 3, Speed 4, Psyche 5; Tier 5 | characters.json:1449-1483 |
 | Наруто | Гарем но джутсу | original-only Block replacement while ready; +1 regular and «Техника соблазнения!» per enemy converted into Skip (not per canceled queued fight); cooldown 2 full following turns after every use | `Naruto.cs` `ResolveHaremQueues`, `RewardHaremSkip`, `TryCancelHaremFights`; CP `HandleEndOfRound` |
-| Наруто | Теневые | 2 independent strict-bot clones; clones cannot Block and attack at every AI level (no legal target → Skip); sibling attacks illegal; living siblings are virtual L0/L1 action slots only for the original; r10 settlement immediately after Rumbling; sibling prediction value 0; correct enemy predictions +1 projected once; clone score/death seats end at 0 / bottom two | `Naruto.cs:40-67`; `BotsBehavior.cs:3464-3467`, `BotsBehavior.cs:4397-4401`, `BotsBehavior.cs:4554-4565`; `GameReactions.cs:913-936` |
+| Наруто | Теневые / bot focus | 2 independent strict-bot clones; clones cannot Block and attack at every AI level (no legal target → Skip); sibling attacks illegal; living siblings are virtual L0/L1 action slots only for the original; target already queued by another living Naruto gets `+3` L1 interest or L2/L3 score; r10 settlement immediately after Rumbling; sibling prediction value 0; correct enemy predictions +1 projected once; clone score/death seats end at 0 / bottom two | `Naruto.cs:40-67`; `BotsBehavior.OtherNarutoTargets`; `GameReactions.cs:913-936` |
 | Наруто | Расенган | 2 joint attackers: summed Justice, +2 Str each, «РАСЕНГАН!»; 3: summed Justice, +3 Int/Str/Speed/Psyche each, «РАСЕНШУРИКЕН!!!!!!!!111» | CP:85-121; `Naruto.cs` `SnapshotJustice`, `GetJointAttackers` |
 | Наруто | Призыв | exactly 1 Naruto on target; prior-round loss to that target with target TooGOOD or TooSTONK → terminal auto-win, otherwise refusal only | `Naruto.cs` `IsSoloAttack`, `WonPoweredFightLastRound`; DM:880-899 |
 | Гордон Фримен | base / rarity / copy exclusions | Int 7, Str 2, Speed 3, Psyche 9; Tier 5; all 4 passives non-Standalone; complete kit excluded from ARAM and Бензопила | `characters.json` Гордон Фримен; `CharactersPull.GetAramPassives`; CP:2790-2793 |
@@ -301,20 +301,72 @@ Achievement progress targets and the complete 110-entry rule catalog are in [ACH
 | Джон Сноу | Черный Замок | starts at marked place 4; exact hold for action rounds 1–3 and 3 action rounds on every re-entry; +1 bonus per **other** same-side player's resolved win, never Jon's own win and none while at place 4; King turns an eligible award into 2 royal points and logs 2 phrases | `JonSnow.BlackCastlePlace`/`BlackCastleTurns`; `FinalizeInitialPositions`/`AwardBlackCastleLoyalty`/`FinalizePositionEffects` |
 | Джон Сноу | Мой дозор окончен | 1 death overcome; current Int →0 and capped at 0 permanently; ordinary Gordon zombie flag applied; 2 trigger lines at 50% each | `JonSnow.TryEndWatch`; `CharacterClass.IntelligenceCappedAtZero` |
 
+## Empire's Endgame executable-ledger defaults
+
+These are the designer-accepted fallback values introduced by the 2026-07-21 executable
+supersession in `EMPIRES-ENDGAME-DESIGN-REVIEW.md`. The JSON remains the editable scenario
+source; the engine anchors below are the trusted consumers.
+
+| System | Tunable | Accepted value | Anchor |
+|---|---|---:|---|
+| Card fallback — Clubs | all-city loyalty | upright `+1 + 1×level`; inverted `-1 - 1×level` | `public/empires-endgame/game-config.json` card faces; `EmpiresEndgameEngine.applyEffects` |
+| Card fallback — Diamonds | gold multiplier | upright `1.05 + 0.02×level`; inverted `0.95 - 0.02×level` | `public/empires-endgame/game-config.json` card faces; `EmpiresEndgameEngine.applyEffects` |
+| Card fallback — Hearts | population | upright `+25,000 + 25,000×level`; inverted negative of same | `public/empires-endgame/game-config.json` card faces; `EmpiresEndgameEngine.applyEffects` |
+| Card fallback — Spades | knowledge | upright `+500 + 500×level`; inverted negative of same | `public/empires-endgame/game-config.json` card faces; `EmpiresEndgameEngine.applyEffects` |
+| Card fallback — Joker | time | upright `+2 + 1×level` days; inverted negative of same | `public/empires-endgame/game-config.json` card faces; `EmpiresEndgameEngine.applyEffects` |
+| Maria | encounter / player win / target wins | `0.33` / `0.55` / `2`; victory grants gunpowder knowledge | `tavern.maria`; `EmpiresEndgameEngine.settleTavernOutcome` |
+| Mystic recruitment / Queen | recruit `500` gold; appease `1` upgrade point; pulse every `3` cons; return delay `3` cons | exact | `tavern.mystics`; `tavern.queen`; `mysticCards`; `EmpiresEndgameEngine.tickMysticCards` |
+| Лист | upright gold+food / inverted population+loyalty | `×1.1`; `-1,000` and `-1` all cities | `mystic-list` faces |
+| Лорик | maximum combat spirit | `+1` / `-1` | `mystic-lorik` faces |
+| Анатолий | gold+food multiplier | `×1.9967893333333` / `×0.5` | `mystic-anatoliy` faces |
+| Chess rules | board / draw / Anton | `8×8`; `100` plies; threefold repetition; Anton extra opportunity every `2` white turns | `chess.rules`; `chess.anton`; `chess/engine.ts` |
+| Chess settlement | win / loss / draw / abort | `+2,500` gold, `+1,000` knowledge / `-1` all-city loyalty / `0` / `-1` all-city loyalty | `chess.settlement`; `EmpiresEndgameEngine.settleChessOutcome` |
+| Capital Tetrakorarchos | cost / cooldown / effect | `1,000` gold / `2` cons / `+1` all-city loyalty, `+500` knowledge | `governance.capital.sites[capital-tetrakorarchos]`; `activateCapitalSite` |
+| Capital Forum | cost / cooldown / effect | `750` gold + `50` carpentry / `2` cons / `+3` days, `+1` reputation | `governance.capital.sites[capital-forum]`; `activateCapitalSite` |
+| Capital Coliseum | cost / cooldown | free / `1` con; launches Chess | `governance.capital.sites[capital-coliseum]`; `activateCapitalSite` |
+| Capital Academy | cost / cooldown / effect | `1,500` gold + `500` iron + `25,000` white stone / `3` cons / `+1` max combat spirit | `governance.capital.sites[capital-military-academy]`; `activateCapitalSite` |
+| Capital white-stone mine | cost / cooldown / effect | `500` gold / `1` con / `+50,000` white stone, `-1,000` population | `governance.capital.sites[capital-white-stone]`; `activateCapitalSite` |
+| Academy building | delayed army / elite | `2` free units per war technology after `1` con; `militaryElite +1` | `building-military-academy` level effects |
+| Foundry | discounts / instant cadence | `15%` resource, time and upkeep; one instant order every `2` cons | `building-foundry` level effects |
+| Sea Port | expedition speed | `+10%` | `building-sea-port` level effects |
+| Fair | exchange / external discount | `50%` exchange rate; `10%` external-trade discount | `building-fair` level effects |
+| Printing | knowledge multiplier | `×1.1` | `tech-printing` effects |
+| Technocracy | knowledge / loyalty / reputation | `×1.25`; `-1` all-city loyalty; `-1` reputation | `reform-technocracy` effects |
+| Generals | max spirit / rally | `+1` / `1` | `tech-generals` effects; Generals rally engine action |
+| Lumber carpentry | per-settlement level 1 / 2 / 3 | `50` / `100` / `200` carpentry | `building-lumber` production |
+| Earthquake | charges | `1`; removes one scheduled TD enemy once | `gift-earthquake`; `EmpiresEndgameEngine.consumeEarthquakeChargeForWave` |
+| Tailwind | city-transfer speed | `+50%` | `gift-tailwind`; external-economy transfer quote reader |
+| Fish Currents | duration / food / terminal consequence | `5` settlements / `600,000` food each / `-1` loyalty in every city | `gift-fish-currents`; `EmpiresEndgameEngine.settleFishCurrents` |
+| Meteor Iron | target reward | `+500,000` iron and one plague start | `gift-meteor-iron` effects |
+| Desert Tsunami | per-empire multipliers | food `×1.25`, iron `×1.1`, gold `×0.9` | `gift-desert-tsunami` effects |
+| Alchemy recipes | salvage / poison wall / clinical lattice | `+300` stone / `+500` stone / `+400` knowledge; clinical lattice requires Medicine + Printing | `alchemy.recipes`; `settleAlchemyOutcome` |
+| Alchemy explosion | epidemic / delayed aftermath | severity `×1.5`; after `2` cons: `-10,000` population and `-1` loyalty | `alchemy.explosion`; delayed-aftermath engine handlers |
+| Inventory equipment | cap / target / Trevor | `2` equipment items; `1` target unit each; Trevor adds `2` slots | `inventory.equipmentPacking`; `inventory.perstPacker`; `beginExpeditionPacking` |
+| Expedition veteran | qualification / removal / later speed | health ≤ `50%`; removed at `2` wounds; later deployment `+10%` | `expeditions.veteran`; TD deployment builder |
+| South zone reward | first victory | `+1,000` gold and `+500` knowledge | `expeditions.zones[zone-south-beyond-dunes]`; `settleExpeditionResult` |
+| Regional TD grade 1 | east/west/south cost and four options | cost `15`; range `+90`, HP `+75`, interval `-4`, or impact `+1` | `td.gradeChoices`; `td.towers` regional grade-1 rows |
+| Regional TD grade 4 | east/west/south cost and four options | cost `30`; impact `+3`, range `+100`, interval `-6`, or HP `+150` | `td.gradeChoices`; `td.towers` regional grade-4 rows |
+| Smith production | five line shares | basic/polearm/armor/firearms/artillery each `0.2` of `smithCapacity` | `td.equipmentProductionLines`; `settleEquipmentProduction` |
+| Accepted weapon profiles | Voulge / Lance / ice pick / lancet arrow / misericorde / Desmond fork | `3 chop,3 pierce,2 cut` / `6 pierce,2 impact` / `4 pierce,2 impact` / `3 pierce,1 cut` / `5 pierce,1 cut` / `4 pierce,2 impact` | `combat.equipment` matching IDs; `phase3b.spec.ts` |
+| Accepted ranged/artillery profiles | ship cannon / hand bombard / arquebus | `7 impact,6 crushing` / `5 impact,3 piercing` / `6 piercing,2 impact` | `combat.equipment` matching IDs; `phase3b.spec.ts` |
+| Accepted armor levels | mail progression / helms / breastplate / cuirass / brigandine / padded jack / shield | mail `1/2/3/4/5`; helms `1/2/2`; breastplate `3`; cuirass `4`; brigandine `4`; padded jack `2`; shield `2` | `combat.equipment` matching IDs; `phase3b.spec.ts` |
+
 ## Bot AI difficulty
 
 Per-game `AiDifficulty` is 0/1/2/3 and defaults to **3** for Discord, web and simulation. `--ai-difficulty N` overrides the simulation field; `--ai-probe N [--ai-probe-char "Name"]` and `--ab-char` provide per-seat A/B measurement through `GamePlayerBridgeClass.AiDifficulty` and `BotsBehavior.EffectiveDifficulty`.
 
-**L2 and L3 share one hard visibility boundary.** They may use the acting bot's own state, public leaderboard projection/markers, legal target menu, sanitized global logs, the acting player's current/last personal logs, public resolved fight outcomes and exact detail from fights in which that bot participated. They may not read an opponent's current Block/Skip/attack, real character, stats, passives, score, Justice or private histories. `BotInformation.CaptureVisibleRound` persists only that player-visible evidence in `GamePlayerBridgeClass.AiKnowledge`. L3 differs only in how it reasons over the evidence: longer horizons, confidence-weighted hypotheses, public roster/rule constraints and deterministic best-target selection. The full decision catalogue is [BOT-AI-DESIGNER-REVIEW.md](BOT-AI-DESIGNER-REVIEW.md).
+**L2 and L3 share one hard ordinary-visibility boundary.** They may use the acting bot's own state, public leaderboard projection/markers, legal target menu, sanitized global logs, the acting player's current/last personal logs, public resolved fight outcomes and exact detail from fights in which that bot participated. They may not otherwise read an opponent's current Block/Skip/attack, real character, stats, passives, score, Justice or private histories. The explicit scripted exceptions are exact Madara prediction during round-8 Клоны Сусано, exact Monster/Eren target selection on round 10, and Naruto's live sibling-target focus. `BotInformation.CaptureVisibleRound` persists only ordinary player-visible evidence in `GamePlayerBridgeClass.AiKnowledge`. L3 differs from L2 in how it reasons over that evidence: longer horizons, confidence-weighted hypotheses, public roster/rule constraints and deterministic best-target selection. The full decision catalogue is [BOT-AI-DESIGNER-REVIEW.md](BOT-AI-DESIGNER-REVIEW.md).
 
 | Constant / rule | Value | Meaning | Anchor |
 |---|---:|---|---|
-| `AiDifficulty` | **3** | default level; 0 random, 1 frozen legacy, 2 fair strategic, 3 fair advanced inference | `GameClass.AiDifficulty`; `BotsBehavior.EffectiveDifficulty` |
+| `AiDifficulty` | **3** | default level; 0 random, 1 legacy, 2 fair strategic, 3 fair advanced inference | `GameClass.AiDifficulty`; `BotsBehavior.EffectiveDifficulty` |
 | `--ai-difficulty` / `--ai-probe` / `--ab-char` | 0-3 | whole-field override, one-seat probe and paired seeded A/B measurement | `SimulationRunner`; `BotGameFactory.CreatePlayers` |
 | L0 action policy | uniform legal choice | random legal level-up and random target/Block slot; Naruto's two living illegal siblings remain virtual attack slots only for these odds; respects cannot-block, rejected targets and Макро's second action | `BotsBehavior.HandleBotAttackRandom`; `Naruto.GetBotActionTargetSlotCount` |
 | L1 knowledge policy | legacy privileged | historical control path is intentionally frozen and is **not** covered by the L2/L3 fairness guarantee; simulation exact-prediction prefill remains L1-only | `BotsBehavior.HandleBotAttack`; `BotGameFactory.CreatePlayers` |
 | `AiPlaystyle` | once/match | L2/L3 retain one coherent build/character plan; sim reports record it | `BotsBehavior.EnsureBotPlaystyle`; `GamePlayerBridgeClass.AiPlaystyle` |
-| Bot action preparation | spend every point first | level-ups complete before forced Skip, Madara response, Kira action or attack/Block choice | `BotsBehavior.HandleBotBehavior` |
+| Bot action preparation | spend every point first | level-ups complete before Madara prediction, forced Skip, Kira action or attack/Block choice | `BotsBehavior.HandleBotBehavior` |
+| round-10 scripted target | Monster; else lower-than-Eren | every level attacks selectable Monster first; only a roster without Monster lets bots below Eren (including place 6) attack Eren | `BotsBehavior.TryForceRoundTenBossAttack` |
+| Naruto shared-target interest | `+3` | L1 classical interest and L2/L3 fair score when another living Naruto already queued the target | `BotsBehavior.OtherNarutoTargets` |
 | visible-memory retention | 10 global rounds | stored sanitized global-log snapshots older than completed round − 9 are discarded; structured opponent history remains match-scoped | `BotInformation.CaptureVisibleRound` |
 | L2 / L3 general target horizon | 3 / 6 rounds | weighted public results, targeting and defense patterns used by target scoring | `BotsBehavior.ApplyFairUniversalPreference` |
 | L2 / L3 incoming-attack horizon | 2 / 5 rounds | estimates how often each opponent publicly attacked this bot; replaces live attack-queue reads | `BotsBehavior.HistoricalIncoming` |
@@ -328,15 +380,15 @@ Per-game `AiDifficulty` is 0/1/2/3 and defaults to **3** for Discord, web and si
 | prediction tier prior | 18/14/12/9/8/7/6 | public-catalogue weight for tiers ≥6/5/4/3/2/1/other | `CharacterPassives.FairPredictionPrior` |
 | L2 inferred prediction | 25% prior; 40-85% evidence | stable catalogue prior when evidence score <45, otherwise earned class/own-fight/log evidence; stronger old evidence is retained | `CharacterPassives.HandleFairBotPredict` |
 | L3 inferred prediction | 35-92% | same legal evidence plus public natural-roll and incompatibility rules, longer history and an all-different assignment; it never reads the real roster | `CharacterPassives.HandleFairBotPredict`; `ApplyFairRosterConstraints` |
-| exact prediction confidence | 100% | public Толя/Коммуникация, owner-only Сверхразум/Naruto reveal, or the explicit round-8 strict-bot Naruto/Sakura/Itachi Madara challenge | `CharacterPassives.SeedFairExactPredictions`; `Madara.ForceRoundEightBotPrediction` |
+| exact prediction confidence | 100% | public Толя/Коммуникация, owner-only Сверхразум/Naruto reveal, or exact Madara for every strict bot with an ordinary prediction sheet during round-8 Клоны Сусано | `CharacterPassives.SeedFairExactPredictions`; `Madara.ForceRoundEightBotPrediction` |
 | Monster hypothesis | abstain | the bot may infer `Монстр без имени`, but leaves the submitted prediction blank because it cannot score and can punish a guess | `CharacterPassives.RecordFairPredictionChoice` |
 | L2 generic Block odds | 1/4 neutral | PreferBlock 1/2; PreferAttack 1/5; 0 Justice + best score <7 gives 1/2; top two + historical incoming ≥1.5 + best <10 gives 2/3 | `BotsBehavior.ShouldFairBotBlock` |
 | L3 generic Block rules | deterministic | PreferBlock if best <15; top two with incoming ≥1.5 and best <12; bottom three with own Justice ≤1 and best <7; otherwise only if best <5 | `BotsBehavior.ShouldFairBotBlock` |
-| round-10 generic economy | leader Block; others attack | only the acting bot's public place is used; character-specific forced action plans still win | `BotsBehavior.ShouldFairBotBlock` |
+| maximum consecutive voluntary Blocks | **2** | AI levels 1–3 must attack on the next turn when a target exists; attack or forced Skip resets the seat counter; L0 remains unrestricted random | `MaximumConsecutiveBotBlocks`; `GamePlayerBridgeClass.ConsecutiveBotBlocks`; `BotsBehavior.CanVoluntarilyBlock` |
+| round-10 generic economy | leader Block; others attack | Monster/Eren scripted targeting wins first; otherwise only the acting bot's public place is used and character-specific forced action plans win | `BotsBehavior.TryForceRoundTenBossAttack`; `BotsBehavior.ShouldFairBotBlock` |
 | `SmartMoralWaitPlace3` / `Place4` / `Leader` | 8 / 13 / 8 Moral | score-conversion patience for L2/L3 | `BotsBehavior.HandleBotMoral` |
 | `SmartPsycheFloor` | 4 | generic level-up raises Psyche once the best stat is at least 8; character plans override | `BotsBehavior.HandleLvlUpBot` |
 | `SmartSellerMarkFloor` | 20 | makes an unmarked Seller target dominant while the mark is ready | `BotsBehavior.ApplyFairCharacterPreference` |
 | Джон Сноу fair target weights | places 1–4 `+3`; current weakest mark `−4`; ForceAttack | keeps **Еще один бастард** armed while preferring non-weak upper/Castle targets | `BotsBehavior.ApplyFairCharacterPreference`/`GetFairBlockPlan` |
 | persistent plans | random once | Dopa 4; Darksci 2; Глеб 2; TheBoys 9 (4 focused + 5 combinations); Goblins 4; Rick/Itachi/Kratos/Cats/Tolya/Monster/Support 2 each; other characters use Adaptive | `BotsBehavior.EnsureBotPlaystyle` |
 | fair Kira confidence | L2 25%; L3 35-90%; reveal 100% | L2 uses public catalogue priors; L3 scores legal logs/class/place history; Shinigami Eyes reads an exact identity only after the target ID is in the owner's reveal list | `BotsBehavior.HandleFairBotKira`; `FairKiraGuessScore` |
-| L3 Rumbling inference | 82% | public round-10 warning plus a unique opponent observed at place 6 in at least 5 of rounds 1-8; the guess may be absent or wrong | `BotsBehavior.InferPublicRulePatterns` |

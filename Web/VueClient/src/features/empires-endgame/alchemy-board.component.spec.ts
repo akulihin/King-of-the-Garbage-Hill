@@ -41,7 +41,17 @@ function session(): EmpiresAlchemyMinigameSession {
       explosionBoundary: 'above',
     },
     reagents: { removeColorCharges: 1, addGrayCharges: 1, resetAccelerationCharges: 1 },
-    explosion: { epidemicDefinitionId: 'epidemic-plague', severityMultiplier: 1.5, lockBuildingForCon: true },
+    explosion: {
+      epidemicDefinitionId: 'epidemic-plague',
+      severityMultiplier: 1.5,
+      lockBuildingForCon: true,
+      mutantAftermath: {
+        kind: 'mutant-outbreak',
+        delayCons: 2,
+        populationLoss: 10_000,
+        loyaltyDelta: -1,
+      },
+    },
     colors: ['red'],
     pieces: [{ id: 'single', name: 'Один блок', cells: [{ x: 0, y: 0 }] }],
   }

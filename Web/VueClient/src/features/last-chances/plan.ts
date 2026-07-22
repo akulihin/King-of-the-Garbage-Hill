@@ -214,6 +214,9 @@ function makeNode(
     turrets: (room.turrets ?? []).map(turret => JSON.parse(JSON.stringify(turret))),
     bossHoles: (room.bossHoles ?? []).map(hole => JSON.parse(JSON.stringify(hole))),
     altar: room.altar ? JSON.parse(JSON.stringify(room.altar)) : null,
+    ouroborosPickup: room.ouroborosPickup
+      ? JSON.parse(JSON.stringify(room.ouroborosPickup))
+      : null,
     enemies: roll.enemies,
     swarm: roll.swarm,
     nextNodeIds: [],

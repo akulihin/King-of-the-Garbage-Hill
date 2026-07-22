@@ -93,6 +93,23 @@ describe('Empire\'s Endgame deterministic QA scenarios', () => {
       questHistoryCount: 0,
       questStateDigest: expect.stringContaining('"id":"quest-palach"'),
     })
+    expect(fixtures['chess-match'].snapshot).toMatchObject({
+      phase: 'minigame',
+      minigame: {
+        kind: 'chess',
+        attempt: 0,
+        origin: {
+          returnPhase: 'empire',
+          context: { kind: 'capital-chess', capitalSiteId: 'capital-coliseum' },
+        },
+        plan: {
+          maxCommands: config.chess.maxCommands,
+          setup: expect.arrayContaining([
+            expect.objectContaining({ id: 'black-anton', square: 'g8', anton: true }),
+          ]),
+        },
+      },
+    })
     expect(fixtures['destroyed-west'].snapshot.empire.destroyedRegionIds).toContain('west')
     expect(fixtures['relic-production-levels'].snapshot.empire.buildingLevelBonuses).toMatchObject({
       farm: 1,
@@ -125,7 +142,12 @@ describe('Empire\'s Endgame deterministic QA scenarios', () => {
     expect(fixtures['battle-north'].snapshot.minigame?.plan).toMatchObject({
       battlefield: { regionId: 'north' },
       gradeChoices: expect.arrayContaining([
-        expect.objectContaining({ grade: 1, choiceIds: [], deferredReason: expect.any(String) }),
+        expect.objectContaining({
+          grade: 1,
+          choiceIds: [],
+          availability: 'notApplicable',
+          reason: expect.any(String),
+        }),
       ]),
     })
     expect(fixtures['battle-desert'].snapshot.minigame?.plan).toMatchObject({
@@ -141,7 +163,11 @@ describe('Empire\'s Endgame deterministic QA scenarios', () => {
       const digest = digestEmpiresQaState(battleEngine)
       expect(digest.minigameRulesSchemaVersion).toBe(config.schemaVersion)
       expect(digest.minigameRulesDigest).toBe(fixtures[name].snapshot.minigame?.rulesIdentity.rulesDigest)
-      expect(digest.minigameCommandLimit).toBe(config.td.maxCommands)
+      expect(digest.minigameCommandLimit).toBe(
+        fixtures[name].snapshot.minigame?.kind === 'clash'
+          ? config.clash.maxCommands
+          : config.td.maxCommands,
+      )
       expect(digest.minigameResultLimit).toBe(config.td.resultLogLimit)
       expect(digest).toMatchObject({
         minigameResultEvictedCount: 0,

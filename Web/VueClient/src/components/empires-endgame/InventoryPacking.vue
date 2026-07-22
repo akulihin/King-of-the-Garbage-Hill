@@ -12,6 +12,7 @@ import {
 import { resolveInventoryWithPolicy } from '../../features/empires-endgame/inventory/qa'
 import type {
   InventoryCommand,
+  InventoryItemInstance,
   InventoryMove,
   InventoryResult,
   InventorySimulationState,
@@ -60,11 +61,36 @@ const nextInstance = computed(() => props.session.plan.itemInstances.find(item =
 const nextDefinition = computed(() => props.session.plan.itemDefinitions.find(item => (
   item.id === nextInstance.value?.definitionId
 )) ?? null)
-const packedAmount = computed(() => state.value.placements.reduce((total, placement) => total + placement.amount, 0))
+const packedProvisionAmount = computed(() => {
+  const packed = new Set(state.value.placements.map(placement => placement.instanceId))
+  return props.session.plan.itemInstances
+    .filter(instance => packed.has(instance.id) && instance.content.kind === 'resource')
+    .reduce((total, instance) => total + instance.amount, 0)
+})
+const packedEquipmentAmount = computed(() => {
+  const packed = new Set(state.value.placements.map(placement => placement.instanceId))
+  return props.session.plan.itemInstances
+    .filter(instance => packed.has(instance.id) && instance.content.kind === 'equipment')
+    .reduce((total, instance) => total + instance.amount, 0)
+})
+const eligibleEquipmentAmount = computed(() => Object.values(
+  props.session.plan.eligibleEquipmentAmounts,
+).reduce((total, amount) => total + amount, 0))
 const efficiency = computed(() => props.session.plan.eligibleProvisionAmount > 0
-  ? Math.round(packedAmount.value / props.session.plan.eligibleProvisionAmount * 100)
+  ? Math.round(packedProvisionAmount.value / props.session.plan.eligibleProvisionAmount * 100)
   : 100)
 const elapsedSeconds = computed(() => Math.floor(state.value.tick * props.session.plan.tickMs / 1000))
+
+function itemAmountLabel(instance: InventoryItemInstance): string {
+  return instance.content.kind === 'resource'
+    ? `${instance.amount} провизии`
+    : `${instance.amount} снаряжения`
+}
+
+function placementAmountLabel(instanceId: string): string {
+  const instance = props.session.plan.itemInstances.find(item => item.id === instanceId)
+  return instance ? itemAmountLabel(instance) : 'неизвестная вещь'
+}
 
 function command(value: Omit<InventoryCommand, 'tick' | 'sequence' | 'sessionId' | 'planId'>) {
   if (paused.value || abortOpen.value || state.value.terminalReason) return
@@ -205,12 +231,14 @@ onUnmounted(() => {
       <div>
         <span>Экспедиция · упаковка тележки</span>
         <h2 id="inventory-title"><PackageCheck :size="25" /> Провизия в дорогу</h2>
-        <p>В тележку уедут только уложенные вещи. Остальное останется в исходном регионе.</p>
+        <p>В тележку уедут только уложенные провизия и снаряжение. Неиспользованное в бою снаряжение вернётся в арсенал.</p>
       </div>
       <dl aria-live="polite">
         <div><dt>Счёт</dt><dd data-testid="inventory-score">{{ state.score }}</dd></div>
         <div><dt>Эффективность</dt><dd>{{ efficiency }}%</dd></div>
-        <div><dt>Провизия</dt><dd>{{ packedAmount }}/{{ session.plan.eligibleProvisionAmount }}</dd></div>
+        <div><dt>Провизия</dt><dd>{{ packedProvisionAmount }}/{{ session.plan.eligibleProvisionAmount }}</dd></div>
+        <div v-if="eligibleEquipmentAmount > 0"><dt>Снаряжение</dt><dd data-testid="inventory-equipment-amount">{{ packedEquipmentAmount }}/{{ eligibleEquipmentAmount }}</dd></div>
+        <div v-if="session.plan.packerPerstId"><dt>Укладчик</dt><dd>Однорукий Трэвор</dd></div>
         <div><dt>Время</dt><dd>{{ elapsedSeconds }} сек.</dd></div>
       </dl>
     </header>
@@ -250,12 +278,12 @@ onUnmounted(() => {
         <div class="item-card">
           <small>Падает сейчас</small>
           <strong>{{ activeDefinition?.name ?? 'ожидание' }}</strong>
-          <span v-if="activeInstance">{{ activeInstance.amount }} провизии · вес {{ activeDefinition?.weight }}</span>
+          <span v-if="activeInstance">{{ itemAmountLabel(activeInstance) }} · вес {{ activeDefinition?.weight }}</span>
         </div>
         <div class="item-card item-card--next">
           <small>Следующая вещь</small>
           <strong>{{ nextDefinition?.name ?? 'нет' }}</strong>
-          <span v-if="nextInstance">{{ nextInstance.amount }} провизии</span>
+          <span v-if="nextInstance">{{ itemAmountLabel(nextInstance) }}</span>
         </div>
 
         <button type="button" data-testid="inventory-pause" @click="togglePause">
@@ -279,7 +307,7 @@ onUnmounted(() => {
       <p>Тик {{ state.tick }}; уложено {{ state.placements.length }}; осталось {{ state.queueItemInstanceIds.length + (state.activeItem ? 1 : 0) }}.</p>
       <ul>
         <li v-for="placement in state.placements" :key="placement.instanceId">
-          {{ placement.instanceId }}: {{ placement.amount }} провизии, координаты {{ placement.cells.map(cell => `${cell.x}:${cell.y}`).join(', ') }}.
+          {{ placement.instanceId }}: {{ placementAmountLabel(placement.instanceId) }}, координаты {{ placement.cells.map(cell => `${cell.x}:${cell.y}`).join(', ') }}.
         </li>
       </ul>
     </details>

@@ -79,28 +79,28 @@ describe('Empire\'s Endgame Phase 12B content closure', () => {
   it('owns the exact bundled carrier snapshot and leaves no ready-now row', () => {
     const value = config()
     expect(validateEmpiresContentCoverage(value, EMPIRES_CONTENT_COVERAGE_MANIFEST)).toEqual([])
-    expect(collectEmpiresConfigCarriers(value)).toHaveLength(1112)
-    expect(Object.values(EMPIRES_CONTENT_CARRIER_SNAPSHOT).flat()).toHaveLength(1112)
+    expect(collectEmpiresConfigCarriers(value)).toHaveLength(1354)
+    expect(Object.values(EMPIRES_CONTENT_CARRIER_SNAPSHOT).flat()).toHaveLength(1354)
 
     expect(summarizeEmpiresContentCoverage(EMPIRES_CONTENT_COVERAGE_MANIFEST)).toEqual({
       config: {
-        live: 823,
+        live: 1160,
         'ready-now': 0,
-        'blocked-semantic': 142,
-        'blocked-substrate': 13,
-        review: 134,
+        'blocked-semantic': 120,
+        'blocked-substrate': 11,
+        review: 63,
         out: 0,
       },
       raw: {
-        live: 18,
+        live: 67,
         'ready-now': 0,
-        'blocked-semantic': 140,
-        'blocked-substrate': 56,
-        review: 126,
+        'blocked-semantic': 194,
+        'blocked-substrate': 52,
+        review: 133,
         out: 15,
       },
-      configTotal: 1112,
-      rawTotal: 355,
+      configTotal: 1354,
+      rawTotal: 461,
       sourceTotal: 33,
       sourceMessageTotal: 1149,
     })
@@ -121,16 +121,11 @@ describe('Empire\'s Endgame Phase 12B content closure', () => {
     expect(validateEmpiresContentCoverage(unowned, EMPIRES_CONTENT_COVERAGE_MANIFEST))
       .toContain('unowned config carrier resource:phase12b-unowned-resource')
 
-    const markerRemoved = config()
-    const dirtyStreets = markerRemoved.cards.find(card => card.id === 'card-clubs-2')!
-    delete dirtyStreets.inverted.deferredReason
-    expect(validateEmpiresContentCoverage(markerRemoved, EMPIRES_CONTENT_COVERAGE_MANIFEST))
-      .toContain('config carrier card-face:card-clubs-2:inverted changed availability from deferred to configured')
-
-    const veteranMarkerRemoved = config()
-    delete veteranMarkerRemoved.expeditions.veteran.laterBattleBonusDeferredReason
-    expect(validateEmpiresContentCoverage(veteranMarkerRemoved, EMPIRES_CONTENT_COVERAGE_MANIFEST))
-      .toContain('config carrier expedition-veteran-later-bonus changed availability from deferred to configured')
+    const markerIntroduced = config()
+    markerIntroduced.cards.find(card => card.id === 'card-clubs-2')!.inverted.deferredReason =
+      'Synthetic regression marker.'
+    expect(validateEmpiresContentCoverage(markerIntroduced, EMPIRES_CONTENT_COVERAGE_MANIFEST))
+      .toContain('config carrier card-face:card-clubs-2:inverted changed availability from configured to deferred')
 
     const nestedUnowned = config()
     const city = nestedUnowned.empire.cities[0]
@@ -165,7 +160,7 @@ describe('Empire\'s Endgame Phase 12B content closure', () => {
 
   it('fingerprints the maintained source spine and exact raw-group projection', () => {
     // This freezes the maintained manifest projection. It does not read or discover raw files.
-    const expectedFingerprint = 'eac79318d85827f6'
+    const expectedFingerprint = '2750a78d8ecb4055'
     expect(coverageProjectionFingerprint(EMPIRES_CONTENT_COVERAGE_MANIFEST))
       .toBe(expectedFingerprint)
 
@@ -263,11 +258,15 @@ describe('Empire\'s Endgame Phase 12B content closure', () => {
       .find(group => group.id === 'p3a-assault-campaign-semantic-residuals')!
       .linkedConfigCarrierKeys).toEqual(['lifecycle:td'])
     expect(EMPIRES_CONTENT_COVERAGE_MANIFEST.rawCatalogGroups
-      .find(group => group.id === 'p3a-naval-substrate-residuals')!
+      .find(group => group.id === 'p3a-naval-player-fleet')!
       .linkedConfigCarrierKeys).toEqual([
-      'building-subfeature:building-sea-port:sea-port-player-fleet',
-      'building-subfeature:building-sea-port:sea-port-shipbuilding-expeditions',
+      'building:building-sea-port',
+      'building-level:building-sea-port:1',
+      'lifecycle:expeditions',
     ])
+    expect(EMPIRES_CONTENT_COVERAGE_MANIFEST.rawCatalogGroups
+      .find(group => group.id === 'p3a-naval-siege-residual')!)
+      .toMatchObject({ disposition: 'blocked-substrate', expectedLinkedConfigCarrierCount: 3 })
     expect(EMPIRES_CONTENT_COVERAGE_MANIFEST.rawCatalogGroups
       .find(group => group.id === 'small-temple-residuals')!
       .linkedConfigCarrierKeys).toEqual(['building:building-small-temple'])
@@ -366,27 +365,27 @@ describe('Empire\'s Endgame Phase 12B content closure', () => {
     }
   })
 
-  it('keeps exact card identities while all unimplemented sides remain unavailable', () => {
+  it('keeps all 106 exact card faces executable, including the source-mapped identities', () => {
     const value = config()
     expect(value.cards).toHaveLength(53)
     expect(value.cards.flatMap(card => [card.normal, card.inverted])).toHaveLength(106)
     expect(value.cards.flatMap(card => [card.normal, card.inverted])
-      .filter(side => !side.deferredReason)).toHaveLength(10)
+      .filter(side => !side.deferredReason)).toHaveLength(106)
 
     expect(value.cards.find(card => card.id === 'card-spades-jack')).toMatchObject({
       name: 'Антон де Лорян',
-      normal: { title: 'Антон де Лорян', deferredReason: expect.any(String) },
-      inverted: { deferredReason: expect.any(String) },
+      normal: { title: 'Антон де Лорян', effects: expect.any(Array) },
+      inverted: { effects: expect.any(Array) },
     })
     expect(value.cards.find(card => card.id === 'card-spades-queen')).toMatchObject({
       name: 'Мария Брауз',
-      normal: { title: 'Мария Брауз', deferredReason: expect.any(String) },
-      inverted: { deferredReason: expect.any(String) },
+      normal: { title: 'Мария Брауз', effects: expect.any(Array) },
+      inverted: { effects: expect.any(Array) },
     })
     expect(value.cards.find(card => card.id === 'card-spades-king')).toMatchObject({
       name: 'Конрад Лоуренс',
-      normal: { title: 'Конрад Лоуренс', deferredReason: expect.any(String) },
-      inverted: { deferredReason: expect.any(String) },
+      normal: { title: 'Конрад Лоуренс', effects: expect.any(Array) },
+      inverted: { effects: expect.any(Array) },
     })
 
     const liveMappings = EMPIRES_CONTENT_COVERAGE_MANIFEST.rawCatalogGroups
@@ -405,7 +404,7 @@ describe('Empire\'s Endgame Phase 12B content closure', () => {
       expect(boundCarriers).toEqual(group.linkedConfigCarrierKeys)
     }
     expect(EMPIRES_CONTENT_COVERAGE_MANIFEST.configGroups
-      .find(group => group.id === 'config:cards:review:deferred')!.configCarrierKeys)
+      .find(group => group.id === 'config:cards:live:configured')!.configCarrierKeys)
       .toEqual(expect.arrayContaining([
         'card-face:card-hearts-ace:normal',
         'card-face:card-hearts-ace:inverted',
@@ -424,11 +423,13 @@ describe('Empire\'s Endgame Phase 12B content closure', () => {
       ['card-spades-5', 'inverted'],
       ['card-spades-8', 'inverted'],
     ] as const) {
-      expect(value.cards.find(card => card.id === cardId)![side].deferredReason).toBeTruthy()
+      const face = value.cards.find(card => card.id === cardId)![side]
+      expect(face.deferredReason).toBeUndefined()
+      expect(face.effects.length).toBeGreaterThan(0)
     }
   })
 
-  it('applies only the source-complete live sides at their exact scaling boundary', () => {
+  it('applies authored and deterministic fallback card effects at their exact scaling boundary', () => {
     const value = config()
     const held = (cardId: string, inverted: boolean): EmpiresEndgameEngine => {
       const state = new EmpiresEndgameEngine(value).snapshot()
@@ -453,17 +454,17 @@ describe('Empire\'s Endgame Phase 12B content closure', () => {
 
     const famine = held('card-spades-8', true)
     expect(famine.state.empire.productionMultipliers.food ?? 1).toBe(1)
-    expect(famine.state.empire.flags.famineYear).toBeUndefined()
+    expect(famine.state.empire.flags.famineYear).toBe(2)
 
     const currency = held('card-diamonds-ace', false)
-    expect(currency.state.empire.productionMultipliers.gold ?? 1).toBe(1)
+    expect(currency.state.empire.productionMultipliers.gold ?? 1).toBe(1.07)
 
     const cartel = held('card-diamonds-6', true)
-    expect(cartel.state.empire.productionMultipliers.gold ?? 1).toBe(1)
+    expect(cartel.state.empire.productionMultipliers.gold ?? 1).toBeCloseTo(0.93)
 
     const brainDrain = held('card-spades-5', true)
     expect(brainDrain.state.empire.resources.knowledge)
-      .toBe(value.empire.initialResources.knowledge)
+      .toBe(value.empire.initialResources.knowledge - 1_000)
 
     const isolation = held('card-diamonds-ace', true)
     expect(isolation.state.empire.flags).toMatchObject({
@@ -482,61 +483,59 @@ describe('Empire\'s Endgame Phase 12B content closure', () => {
     }
   })
 
-  it('freezes the retained marker boundary and rejects restored deferred mystics', () => {
+  it('keeps the accepted campaign free of deferral markers and rejects unknown mystics', () => {
     const value = config()
-    expect(countProperty(value, 'deferredReason')).toBe(165)
-    const deferredSubfeatures = collectArrays(value, 'deferredSubfeatures')
-    expect(deferredSubfeatures).toHaveLength(15)
-    expect(deferredSubfeatures.reduce((total, items) => total + items.length, 0)).toBe(34)
-    expect(countProperty(value, 'accessDeferredReason')).toBe(1)
-    expect(countProperty(value, 'encounterDeferredReason')).toBe(1)
-    expect(countProperty(value, 'laterBattleBonusDeferredReason')).toBe(1)
-
-    const deferredMystics = value.mysticCards.filter(definition => definition.deferredReason)
-    expect(deferredMystics).toHaveLength(3)
-    for (const definition of deferredMystics) {
-      const parentMarkerRemoved = config()
-      delete parentMarkerRemoved.mysticCards
-        .find(candidate => candidate.id === definition.id)!.deferredReason
-      expect(validateEmpiresContentCoverage(parentMarkerRemoved, EMPIRES_CONTENT_COVERAGE_MANIFEST))
-        .toContain(`config carrier mystic-card:${definition.id} changed availability from deferred to configured`)
-
-      for (const side of ['normal', 'inverted'] as const) {
-        const faceMarkerRemoved = config()
-        delete faceMarkerRemoved.mysticCards
-          .find(candidate => candidate.id === definition.id)![side].deferredReason
-        expect(validateEmpiresContentCoverage(faceMarkerRemoved, EMPIRES_CONTENT_COVERAGE_MANIFEST))
-          .toContain(`config carrier mystic-card-face:${definition.id}:${side} changed availability from deferred to configured`)
-      }
-    }
+    const withoutClash = structuredClone(value)
+    delete (withoutClash as unknown as Record<string, unknown>).clash
+    expect(countProperty(withoutClash, 'deferredReason')).toBe(0)
+    const deferredSubfeatures = collectArrays(withoutClash, 'deferredSubfeatures')
+    expect(deferredSubfeatures.reduce((total, items) => total + items.length, 0)).toBe(0)
+    expect(countProperty(withoutClash, 'accessDeferredReason')).toBe(0)
+    expect(countProperty(withoutClash, 'encounterDeferredReason')).toBe(0)
+    expect(countProperty(withoutClash, 'laterBattleBonusDeferredReason')).toBe(0)
+    expect(value.mysticCards).toHaveLength(4)
+    expect(value.mysticCards.every(definition => (
+      !definition.deferredReason
+      && !definition.normal.deferredReason
+      && !definition.inverted.deferredReason
+    ))).toBe(true)
 
     const state = new EmpiresEndgameEngine(value).snapshot()
-    const deferred = value.mysticCards.find(definition => definition.deferredReason)!
-    state.mystics.instances[deferred.id] = {
-      id: deferred.id,
-      definitionId: deferred.id,
-      owner: deferred.owner,
-      inverted: deferred.startsInverted,
+    const unknownId = 'missing-mystic'
+    state.mystics.instances[unknownId] = {
+      id: unknownId,
+      definitionId: unknownId,
+      owner: 'player',
+      inverted: false,
       status: 'zone',
       spawnedAtCon: 1,
       returnAtCon: null,
       lastChangedCon: Math.max(1, state.con),
     }
-    state.mystics.zone.push(deferred.id)
+    state.mystics.zone.push(unknownId)
     expect(() => new EmpiresEndgameEngine(value, state)).toThrow(/Invalid mystic instance/)
   })
 
-  it('preserves the P12 Chess gate and four-kind minigame boundary', () => {
-    const value = config() as EmpiresEndgameConfig & Record<string, unknown>
-    expect(value.chess).toBeUndefined()
-    expect(collectEmpiresConfigCarriers(value).some(carrier => /chess/i.test(carrier.key))).toBe(false)
-    expect(EMPIRES_QA_SCENARIO_NAMES.some(name => /chess/i.test(name))).toBe(false)
+  it('owns the live P12 Chess carrier, QA scenario, and shared lifecycle boundary', () => {
+    const value = config()
+    expect(value.chess.enabled).toBe(true)
+    const chessCarriers = collectEmpiresConfigCarriers(value)
+      .map(carrier => carrier.key)
+      .filter(key => key.startsWith('chess') || key === 'lifecycle:chess')
+    expect(chessCarriers).toEqual(expect.arrayContaining([
+      'chess:variant',
+      'chess-entry:capital-coliseum',
+      'chess:anton',
+      'chess:settlement',
+      'lifecycle:chess',
+    ]))
+    expect(chessCarriers.filter(key => key.startsWith('chess-piece:'))).toHaveLength(31)
+    expect(EMPIRES_QA_SCENARIO_NAMES).toContain('chess-match')
     const chessGate = EMPIRES_CONTENT_COVERAGE_MANIFEST.rawCatalogGroups
       .find(group => group.id === 'chess-gate')
     expect(chessGate).toMatchObject({
-      disposition: 'blocked-substrate',
-      expectedLinkedConfigCarrierCount: 0,
-      linkedConfigCarrierKeys: [],
+      disposition: 'live',
+      expectedLinkedConfigCarrierCount: 36,
     })
   })
 })

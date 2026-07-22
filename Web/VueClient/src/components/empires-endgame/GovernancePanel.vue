@@ -17,6 +17,8 @@ const props = defineProps<{
 const emit = defineEmits<{
   advisor: [advisorId: string, action: EmpiresAdvisorTransitionAction]
   assignGovernor: [perstId: string, regionId: string]
+  activateCapitalSite: [siteId: string]
+  rallyGenerals: []
 }>()
 
 const selectedRegions = ref<Record<string, string>>({})
@@ -49,6 +51,20 @@ const regionSites = (regionId: string) => props.config.governance.governor.cityS
   .sort((left, right) => left.order - right.order)
 const accessibleSiteCount = (regionId: string) => regionSites(regionId)
   .filter(site => props.engine.isCityAccessible(site.cityId)).length
+const capitalSiteBlocked = (siteId: string) => props.engine.capitalSiteBlockedReason(siteId) ?? ''
+const generalsRallyBlocked = () => props.engine.generalsRallyBlockedReason() ?? ''
+const capitalSiteActionLabel = (siteId: string) => (
+  props.config.chess.enabled && props.config.chess.entryCapitalSiteId === siteId
+    ? 'Играть в шахматы'
+    : 'Применить'
+)
+const capitalSiteCost = (siteId: string) => {
+  const site = props.config.governance.capital.sites.find(candidate => candidate.id === siteId)
+  return (site?.resourceCosts ?? []).map(cost => {
+    const resource = props.config.empire.resources.find(candidate => candidate.id === cost.resourceId)
+    return `${cost.amount.toLocaleString('ru-RU')} ${resource?.name ?? cost.resourceId}`
+  }).join(' · ')
+}
 </script>
 
 <template>
@@ -67,6 +83,14 @@ const accessibleSiteCount = (regionId: string) => regionSites(regionId)
     <section aria-labelledby="advisor-heading">
       <h3 id="advisor-heading"><Gavel :size="18" /> Суд над советниками</h3>
       <p class="section-copy">В начале правления можно помиловать одного из трёх советников; двое остальных должны быть казнены.</p>
+      <button
+        v-if="state.empire.researchedTechnologyIds.includes('tech-generals')"
+        type="button"
+        data-testid="generals-rally"
+        :disabled="Boolean(generalsRallyBlocked())"
+        :title="generalsRallyBlocked()"
+        @click="emit('rallyGenerals')"
+      >Приказ генералов · поднять Боевой дух</button>
       <div class="advisor-grid">
         <article v-for="advisor in standardAdvisors" :key="advisor.id" :data-testid="`advisor-${advisor.id}`">
           <div><b>{{ advisor.name }}</b><small>{{ suitLabel(advisor.suit) }}</small></div>
@@ -145,7 +169,18 @@ const accessibleSiteCount = (regionId: string) => regionSites(regionId)
       <div class="capital-grid">
         <article v-for="site in config.governance.capital.sites" :key="site.id" :data-testid="`capital-site-${site.id}`">
           <div><b>{{ site.name }}</b><small>{{ site.owner }}</small></div>
-          <p>{{ site.deferredReason }}</p>
+          <p>{{ site.deferredReason || site.description }}</p>
+          <small v-if="!site.deferredReason">
+            {{ capitalSiteCost(site.id) || 'Без платы' }} · перезарядка {{ site.cooldownCons }} кон.
+          </small>
+          <button
+            v-if="!site.deferredReason"
+            :data-testid="`capital-site-activate-${site.id}`"
+            type="button"
+            :disabled="Boolean(capitalSiteBlocked(site.id))"
+            :title="capitalSiteBlocked(site.id)"
+            @click="emit('activateCapitalSite', site.id)"
+          >{{ capitalSiteActionLabel(site.id) }}</button>
         </article>
       </div>
     </section>

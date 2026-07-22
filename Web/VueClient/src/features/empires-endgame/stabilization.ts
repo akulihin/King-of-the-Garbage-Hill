@@ -25,7 +25,7 @@ export const EMPIRES_STABILIZATION_BUDGETS = Object.freeze({
   longCampaignSaveUtf8Bytes: 512 * 1_024,
 })
 
-export const EMPIRES_SAVE_SCHEMA_VERSION = 16 as const
+export const EMPIRES_SAVE_SCHEMA_VERSION = 18 as const
 
 export function empiresUtf8ByteLength(value: string): number {
   return new TextEncoder().encode(value).byteLength

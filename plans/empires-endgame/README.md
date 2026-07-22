@@ -9,7 +9,7 @@ catalog item has an owner, conditional gate, review status, or explicit exclusio
 Each phase/subphase file is its historical opening prompt for a fresh Codex task using
 **5.6 Sol** on the designer's machine. Read it with `COMMON-EXECUTION-CONTRACT.md`.
 Subphases were separate change-sets and ran in dependency order; the scheduled program is
-now complete through P13.
+now complete through P14.
 
 **Hard requirement**: the raw design export `DiscordExports/Empires_Endgame/`
 (+ `DiscordExports/empire_prompt`, the Palach HTML demos, the `EE_TD` sketch) exists only
@@ -25,101 +25,151 @@ deferred content (`validateDeferredReasons` / `validateLiveEffects` in
 `features/empires-endgame/config.ts`). Counts after completed phases come from the actual
 config/tests, not this historical baseline.
 
-Current execution status, including final stabilization completed on 2026-07-21:
+Current execution status, including the 2026-07-21 executable-ledger supersession and the
+separate post-stabilization Clash extension:
+
+**Executable supersession (2026-07-21):** the designer's later instruction to implement the
+proposed ledger changes supersedes the earlier boundary-only reading of accepted defaults.
+Every existing configured non-Clash ledger carrier is now executable: all 106 standard card
+faces are live, the non-Clash config contains no deferral fields or non-empty
+`deferredSubfeatures`, and Chess is playable from the Coliseum through the shared exact-once
+minigame lifecycle. Authored behavior remains authoritative; where the source omitted a
+number or complete rule, the implementation uses the deterministic configurable default
+recorded in `docs/EMPIRES-ENDGAME-DESIGN-REVIEW.md`'s `ES-001`–`ES-011` table.
+
+The current boundary is config schema 19 and save schema 18. The coverage manifest owns
+1,354 config carriers (`1,160` live / `120` blocked-semantic / `11` blocked-substrate / `63`
+review) and 461 raw semantic identities (`67` live / `194` blocked-semantic / `52`
+blocked-substrate / `133` review / `15` out). The remaining blocked/review carriers belong to
+the separately disabled P14 Clash scope. Raw-only identities that have no compatible campaign
+carrier remain provenance in the manifest; the supersession does not fabricate unrelated
+systems solely to attach them.
+
+| Current family | Executable closure |
+|---|---|
+| Cards | All 106 normal/inverted faces execute. Authored effects win; otherwise the accepted suit fallback changes all-city loyalty, gold production, population, knowledge or time with level scaling. |
+| Combat, steel and TD | Every configured combat/steel carrier has a typed profile; five production lines each own `0.2` capacity and 21 recipes feed equipment. East, west and south have complete configured grade-1/grade-4 TD choices; north uses explicit `notApplicable` slots. |
+| Governance and campaign content | Completing all starting advisor judgments unlocks the Grand Advisor and ♣ trump. Tetrakorarchos, Forum, Coliseum, Academy and the white-stone mine have costs/cooldowns/settlement, with distinct Foundry/Academy capital slots. Configured resources, buildings, technologies, gifts, events and quest choices have runtime consumers. |
+| Tavern and mystics | Maria uses `0.33` encounter chance, `0.55` round-win chance and two wins; victory grants gunpowder knowledge. List, Lorik and Anatoliy cost 500 gold, Queen appeasement costs one upgrade point, and mystic effects plus leave/return/pulse state are durable. |
+| Alchemy | Calibration, salvage disassembly, poison wall and clinical lattice are live. Explosion aftermath settles exactly once two cons later for −10,000 population and −1 loyalty. |
+| Inventory and expeditions | Four provision and four equipment items are packable; at most two equipment items target one unit each, Trevor adds two equipment slots, withdrawal is atomic and unused equipment returns. South rewards +1,000 gold/+500 knowledge once; veterans deploy 10% faster in later battles. |
+| Chess | The Coliseum launches deterministic 8×8 Chess with standard movement/check/capture, no castling or en passant, queen-only promotion, 15 black pieces/no black king, Антон on g8, capture-all victory and 100-ply/threefold draws. Win pays +2,500 gold/+1,000 knowledge; defeat or abort costs one loyalty in every city; draw is neutral. |
+
+The phase bullets below preserve the state at each phase close. Any historical statement that
+a configured non-Clash carrier remained deferred or that Chess was absent is superseded by the
+current executable boundary above.
 
 - **Phase 0 — complete.** Its prompt is historical; do not amend/re-run it.
 - **Phase 1 — complete.** Its prompt is historical; do not amend/re-run it.
 - **Phase 2 — complete.** Its prompt is historical; do not amend or re-run it. Phase 3A
   regression-checked the landed baseline before applying its explicit post-P2 hardening.
-- **Phase 3A — complete.** Rules identity, bounded replay/history, accessible real-input TD,
+- **Phase 3A — complete (historical close).** Rules identity, bounded replay/history, accessible real-input TD,
   five regional fields and reusable assault landed as one change-set.
-- **Phase 3B — complete.** Schema-v4 steel research, four exact spearhead production
+- **Phase 3B — complete (historical close).** Schema-v4 steel research, four exact spearhead production
   payoffs, equipped cohorts, shared Smithy capacity, Foundry, the morale floor and the
   complete latest-source/deferral ledger landed as one change-set.
-- **Phase 4A — complete.** Schema-v5 typed loyalty/reputation, workforce and class gates,
+- **Phase 4A — complete (historical close).** Schema-v5 typed loyalty/reputation, workforce and class gates,
   reversible regional rebellion, bounded political chronicle, exact-once TD-loss pressure
   and northern raids landed as one change-set. Capital Forum and inverted club 2 retain
   explicit blockers for their undefined mechanics.
-- **Phase 4B — complete.** Schema-v6 seasons, typed technology sides and hidden
+- **Phase 4B — complete (historical close).** Schema-v6 seasons, typed technology sides and hidden
   combinations, complete political reforms, smith specialization and explicit crime/content
   deferrals landed as one change-set.
-- **Phase 4C — complete.** Schema-v7 advisor/perst/capital governance, save-envelope v5,
+- **Phase 4C — complete (historical close).** Schema-v7 advisor/perst/capital governance, save-envelope v5,
   canonical trump critical effects, exact advisor judgment, permanent named-перст region
   expansion and the capital/review manifest landed as one change-set.
-- **Phase 5 — complete.** Schema-v8 typed epidemics/medical configuration, save-envelope
+- **Phase 5 — complete (historical close).** Schema-v8 typed epidemics/medical configuration, save-envelope
   v6, deterministic settlement/spread/containment, medical buildings and healer/recovery,
   vaccination faces, epidemic relic, hidden plague combination and epidemic UI/QA landed
   as one change-set. City Gates remains honestly deferred on its undefined crime side.
-- **Phase 6A — complete.** Schema-v9 domestic-economy configuration, save-envelope v7,
+- **Phase 6A — complete (historical close).** Schema-v9 domestic-economy configuration, save-envelope v7,
   scheduled Bank debt/default/гонения, calm-turn insurance, ordered Fair activities,
   Temple preaching/relic slots, passive Tavern army hooks and economy UI/QA landed as one
   change-set. Capability-level blockers retain every undefined market, siege, Temple-branch,
   baron and Tavern-minigame behavior.
-- **Phase 6B — complete.** Schema-v10 external-economy configuration, save-envelope v8,
+- **Phase 6B — complete (historical close).** Schema-v10 external-economy configuration, save-envelope v8,
   deterministic weighted offers, explicit accept/decline history, trusted-resource trade
   and transfers, Customs tariffs, western Stable consumers, coastal Sea Ports and
   diplomacy UI/QA landed as one change-set. Unauthored unions, relationship actions,
   player fleet/shipbuilding and the three reviewed absent buildings remain explicit.
-- **Phase 6C — complete.** Schema-v11 economy-content configuration, save-envelope v9,
+- **Phase 6C — complete (historical close).** Schema-v11 economy-content configuration, save-envelope v9,
   live tithe/material relics, targeted Customs smuggling, horse theft, insurance offers,
   inverted ♦A trade isolation and exact deferred/raw-absent manifests landed as one
   change-set.
-- **Phase 7 — complete.** Schema-v12 quest configuration, save-envelope v10, deterministic
+- **Phase 7 — complete (historical close).** Schema-v12 quest configuration, save-envelope v10, deterministic
   triggers/graphs, persistent memory, atomic choices, mandatory dialogue, journal/overlay,
   all 43 later-demo Палач passages, Golden Idol/Witch typed event bridges and quest QA landed
   as one change-set. The Idol monument branch and the inventoried regional backlog remain
   explicit future-tranche review items after the P12B closure audit.
-- **Phase 8 — complete.** Schema-v13 God configuration, save-envelope v11, immutable
+- **Phase 8 — complete (historical close).** Schema-v13 God configuration, save-envelope v11, immutable
   next-draw-first deck memory, serialized limited-use mode, deterministic capped
   consecutive-`бито` intervention/history, isolated authored God dialogue and accessible
   Божественная Милость confirmation with versioned device-local opt-out landed as one
   change-set. No card/gift carrier was un-deferred; inverted Joker remains deferred and P9
   subsequently consumed the mystic/Tavern handoff.
-- **Phase 9 — complete/conditional.** Schema-v14 Tavern/mystic configuration,
+- **Phase 9 — complete/conditional (historical close).** Schema-v14 Tavern/mystic configuration,
   save-envelope v12, cross-campaign `0/1/0.33` arrival progression, deterministic Tavern
   replay/settlement, accessible two-section UI, separate ordered mystic zone, 3–7–Т observer
   and atomic Пиковая Дама neighbor pulse landed as one change-set. The broad Tavern
   marker is closed; Maria 2×2/powder legacy, trio passives/leave and Queen appeasement keep
   exact source-gap blockers.
-- **Phase 10 — complete/conditional.** Schema-v15 Alchemy configuration, save-envelope v13,
+- **Phase 10 — complete/conditional (historical close).** Schema-v15 Alchemy configuration, save-envelope v13,
   deterministic four-side Assembly, reagents, arithmetic acceleration, replay-authenticated
   explosion→epidemic settlement, con-scoped laboratory lock, accessible controls and QA landed
   as one change-set. The broad Alchemy marker is closed; Disassembly launch rules, poison/wall
   recipes, science unlock mappings and mutant aftermath retain exact source-gap blockers.
-- **Phase 11A — complete/conditional.** Schema-v16 expedition configuration, save-envelope
+- **Phase 11A — complete/conditional (historical close).** Schema-v16 expedition configuration, save-envelope
   v14, typed fortress/zone payloads, canonical per-soldier roster, origin provisioning,
   abstract logistics time, complaint quest and the shared TD assault/settlement path landed
   as one change-set. Opened-zone content, the later veteran bonus, `Жнец`/`пшено`, the
   carrier-less `Рыцарь Хладной Руки` plate exception and inverted ♠3 retain exact source-gap
   blockers.
-- **Phase 11B — complete/conditional.** Schema-v17 inventory configuration, save-envelope
+- **Phase 11B — complete/conditional (historical close).** Schema-v17 inventory configuration, save-envelope
   v15, deterministic fixed-step falling-cart packing, immutable origin item ownership,
   exact-once packed-provision settlement, accessible controls, QA replay and the full
   prepare → pack/skip → assault → settlement path landed as one change-set. Packing is an
   optional provision-only route; equipment packing and the perst packer retain exact
   source-gap blockers.
-- **Phase 12 — design gate complete/blocked.** The current board image plus every named
+- **Phase 12 — historical design gate, subsequently superseded.** The board image plus every named
   `карты`/`персонажи`/`общее` cross-reference were audited into the P12 executable-rules
   table. The current image contains a black king while the only old no-king/capture-all note
   is lower-priority background; movement, complete roster/instance eligibility, player
   loss/draw, entry/settlement and opponent/information policy are also semantically missing.
-  Chess therefore remains absent from config/runtime/UI with no version bump.
-- **Phase 12B — complete/conditional.** The complete raw-source→config→owner manifest
-  covers live, deferred, reviewed, absent and excluded content. The final audit has no
-  `ready-now` rows, so schema 17/save 15 remain unchanged and no executable mechanic/carrier
-  is added or un-deferred; three deferred display identities are reconciled. Residual
+  At that phase close Chess remained absent; `ES-010` later supplied the complete executable
+  contract and shipped it at the Coliseum.
+- **Phase 12B — complete/conditional (historical close).** The complete raw-source→config→owner manifest
+  covered live, deferred, reviewed, absent and excluded content. That audit had no
+  `ready-now` rows, so schema 17/save 15 remained unchanged and no executable mechanic/carrier
+  was added or un-deferred; three deferred display identities were reconciled. Residual
   semantic/substrate gaps are explicitly routed to a future content tranche.
   Machine coverage now rejects an unowned config carrier, a raw catalog group without a
   disposition, and any final `ready-now` row.
-- **Phase 13 — complete/conditional.** Config remains schema 17; stabilization-only save
+- **Phase 13 — complete/conditional (historical close).** Config remained schema 17; stabilization-only save
   state advances to schema 16. The authentic v1 config and campaign/save chain, every
   representative config generation, all four live minigame restore/settlement paths,
   runtime lifecycle state, bounded histories/storage/replay work, real input/accessibility/
   background behavior and the deterministic campaign seed matrix are covered. The P12B
-  manifest remains frozen and Chess remains absent behind its recorded semantic gate.
-- **Completion program closed.** There is no next prompt in this pack. Any later content
-  tranche must begin with explicit designer verdicts and a new scoped plan rather than
-  treating P13 as permission to un-defer content.
+  manifest was frozen and Chess was absent behind its then-recorded semantic gate.
+- **Phase 14 — complete/conditional.** Config schema 18 and save schema 17 add the pure
+  turn-log-replayed `clash` envelope arm, a disabled-until-valid 105-row `война` catalog,
+  accessible grid UI and deterministic QA. Eight source-complete roster definitions are
+  executable in trusted manual/QA plans; 88 rows are per-row deferred and nine are
+  review-only. Both existing offensive routes remain TD and campaign Clash entry fails
+  closed because generic recruited cohorts/P11A soldiers have no authored mapping to the
+  named roster or field-selection rule. TD remains the live defense mode, and P13's
+  compatibility, storage and replay gates remain regression baselines. The repository now
+  sits at config schema 19/save schema 18 after Chess: schema 17 remains the first accepted
+  Clash carrier and migrates forward, while Chess state is legal only from save schema 18.
+- **Executable ledger supersession — complete.** Every configured non-Clash carrier is live.
+  Accepted changes include five equal-capacity steel production lines and 21 recipes; complete
+  east/west/south TD grades; live Grand Advisor and capital actions; campaign resources,
+  buildings, technologies, gifts and quest consumers; complete Tavern mystics; four Alchemy
+  recipes and delayed aftermath; equipment-aware Inventory and expedition settlement; and the
+  Coliseum Chess match. Config/save are 19/18. P14 Clash remains disabled and separately
+  ledgered rather than being pulled into campaign routing.
+- **Completion program closed through Phase 14.** There is no next prompt in this pack. Any later content
+  tranche must begin with a separately scoped replacement design and new plan rather than
+  treating acceptance of the existing ledger or P13 as permission to un-defer content.
 
 Scope decisions confirmed by the designer (2026-07-16):
 
@@ -158,12 +208,13 @@ graph TD
   P3B --> P11A[11A complete: expeditions]
   P7 --> P11A
   P11A --> P11B[11B complete: Tetris-inventory]
-  P9 --> P12[12 Chess gate complete: blocked on design]
+  P9 --> P12[12 historical Chess gate]
   P6C --> P12B[12B complete: content closure]
   P10 --> P12B
   P11B --> P12B
   P12 --> P12B
   P12B --> P13[13 complete: stabilization]
+  P13 --> P14[14 complete: Clash engine + fail-closed campaign route]
 ```
 
 | File | Ships |
@@ -182,13 +233,19 @@ graph TD
 | `phase-06c-economy-content.md` | **Complete/historical. 6C:** reconciled economy gifts, relics, events, resources, technologies, and card faces; implemented every candidate with complete typed consumers. |
 | `phase-07-quests-dialogue.md` | **Complete/historical.** Quest/dialogue graph engine, journal/overlay UI, 43-passage Палач port and Golden Idol/Witch event bridges. |
 | `phase-08-god-presence.md` | **Complete/historical.** Deck-memory, deterministic capped anti-bito, isolated authored God lines, Милость confirmation and device preference. |
-| `phase-09-tavern-mystic.md` | **Complete/conditional.** Deterministic Tavern, separate ordered mystic catalog/zone, 3–7–Т observer and Пиковая Дама pulse; exact incomplete subfeatures remain blocked. |
-| `phase-10-tetris-alchemy.md` | **Complete/conditional.** Deterministic Assembly, reagents, acceleration and configured explosion → typed epidemic; incomplete Disassembly/recipe/aftermath semantics retain exact blockers. |
-| `phase-11-expeditions-inventory.md` | **Complete/conditional. 11A:** typed forts/zones, provisions, canonical soldiers/veterans, complaints and shared TD assault; exact residual source gaps remain blocked. |
-| `phase-11b-tetris-inventory.md` | **Complete/conditional. 11B:** deterministic falling-cart provision packing, immutable item ownership, optional direct-provision fallback, accessible UI and QA/full-chain coverage; equipment and perst semantics remain blocked. |
-| `phase-12-chess.md` | **Gate complete/conditional.** Current sources audited; implementation remains absent until the blocking P12 ledger cells receive complete designer verdicts. |
-| `phase-12b-content-closure.md` | **Complete/conditional.** Exhaustive raw/config ownership manifest and machine assertion; no ready-now residue, schema/save change or invented substrate. |
-| `phase-13-stabilization.md` | Earliest-to-latest compatibility, all-minigame integration, storage/performance stabilization. |
+| `phase-09-tavern-mystic.md` | **Complete/historical.** Initial deterministic Tavern/mystic close; `ES-007` later made Maria, all mystic faces, leave/return and Queen appeasement executable. |
+| `phase-10-tetris-alchemy.md` | **Complete/historical.** Initial Assembly close; `ES-008` later added salvage disassembly, poison wall, clinical lattice and delayed mutant aftermath. |
+| `phase-11-expeditions-inventory.md` | **Complete/historical. 11A:** initial typed expedition close; `ES-003`/`ES-009` later completed equipment handoff, rewards and the veteran deployment bonus. |
+| `phase-11b-tetris-inventory.md` | **Complete/historical. 11B:** initial provision-packing close; `ES-009` later added equipment packing, Trevor capacity, atomic withdrawal and unused-item return. |
+| `phase-12-chess.md` | **Historical gate, superseded.** Its source audit remains evidence; `ES-010` now owns the live 8×8 Coliseum Chess contract. |
+| `phase-12b-content-closure.md` | **Complete/historical.** Original exhaustive ownership manifest; `ES-011` advances its current projection to config/save 19/18 and the counts recorded above. |
+| `phase-13-stabilization.md` | **Complete/historical.** Earliest-to-latest compatibility, then-live minigame integration and storage/performance stabilization; current 19/18 migration extends this baseline. |
+| `phase14clash.md` | **Complete/conditional.** Pure turn-based Clash, shared envelope/replay/settlement, disabled exact `война` catalog, accessible UI and QA; campaign assault remains fail-closed on the missing cohort→named-roster/field mapping. |
+
+The handoff sections below are a historical archive of what each phase passed to its immediate
+successor. They intentionally preserve then-current schema numbers and open questions. For the
+present runtime, `ES-001`–`ES-011` and the current snapshot at the top of this file override
+every archived claim that a configured non-Clash carrier was unavailable.
 
 ## P3B handoff
 
@@ -204,12 +261,12 @@ graph TD
 - Research and recruitment availability/cost are engine quotes, not UI rules. TD identity
   covers combat, TD, technologies, units, buildings and steel settings; later changes to any
   of those inputs must continue to invalidate mismatched active sessions.
-- Foundry defaults and Smithy capacity splits remain open ledger values. Foundry is live in
+- Foundry defaults and Smithy capacity splits are accepted ledger values. Foundry is live in
   non-capital cities, while `capital-sixth-slot` is a visible deferred subfeature because the
   capital's unswappable Temple occupies its unique slot. TechTree and building details expose
   subfeature reasons. Military Academy, ♥A, Ударные, Мастерская, Баллиста and Двор
   Гвардейской Дружины are not follow-up cleanup; their exact missing semantics/substrate must
-  arrive through the owning later phase or a designer verdict.
+  arrive through a separately scoped replacement design.
 - Compatible old saves migrate deterministically. If an active old-rule minigame cannot
   satisfy current rules identity, the UI rejects reinterpretation and offers an explicit
   discard-and-restart recovery.
@@ -460,7 +517,7 @@ graph TD
   bonus or required-entry rule, so later work must not infer those contracts from the joke or
   from the provision implementation.
 
-## P12 handoff
+## P12 handoff (historical; superseded by `ES-010`)
 
 - The P12 readiness gate was executed against the current `шахматы` attachment and every
   named cross-reference. Its complete executable-rules table and stable source identities
@@ -475,14 +532,14 @@ graph TD
   loss/draw/repetition, entry/reward/failure/abort/card consequences, and opponent/privacy
   policy are also missing semantics. They are not tunable-number gaps and may not receive
   standard-Chess defaults.
-- Config schema remains 17 and campaign/save envelope remains 15. There is no `/chess`
+- At the P12 close, config schema remained 17 and campaign/save envelope remained 15. There was no `/chess`
   carrier, fifth runtime minigame kind, player/debug entry, Builder surface, QA fixture or
   placeholder engine. `GameVersion` is unchanged because the gate shipped no game behavior.
-- P12B may proceed with Chess unavailable and should preserve/assert that isolation. A later
-  Chess implementation must first receive complete designer verdicts for `P12-02` through
-  `P12-09`, then execute the conditional half of `phase-12-chess.md` as its own change-set.
+- P12B proceeded with Chess unavailable and preserved that isolation. `ES-010` subsequently
+  supplied the missing decisions and shipped the 8×8 Coliseum game; this archived gate is no
+  longer the current runtime contract.
 
-## P12B handoff
+## P12B handoff (historical; superseded by `ES-001`–`ES-011`)
 
 - Config schema remains 17 and campaign/save envelope remains 15. The closure sweep found
   no `ready-now` row, un-deferred no marker and introduced no new content substrate. Its
@@ -541,18 +598,22 @@ graph TD
   `1287539702731247656` is linked live. The 45 selected war named-message samples sit beneath
   the complete 230-message war source spine and are not claimed to be an exhaustive unit
   catalog.
-- TD, Tavern, Alchemy and Inventory remain the four live minigame lifecycles. Chess remains
-  blocked by the P12 semantic gate and absent from config, runtime, Builder, QA and UI.
+- At the P12B/P13 close, TD, Tavern, Alchemy and Inventory were the four campaign-reachable lifecycles frozen by
+  P12B/P13. P14 subsequently adds the disabled/fail-closed Clash runtime/envelope arm and
+  manual QA surface without inventing campaign entry. Chess was then governed by its
+  separately scoped semantic gate; `ES-010` later made it the fifth campaign-reachable
+  minigame without enabling Clash.
   Great houses/races, incomplete capital actions, the quest backlog, missing economy
   branches and all other raw-absent sketches are future-content-tranche review or blocked
   rows, not P13 work.
 - P13 receives this frozen manifest for compatibility, storage, performance and integrated
-  campaign stabilization. Any later content work must first update the manifest and obtain
-  the recorded designer verdict; it may not use P13 to create missing substrate.
+  campaign stabilization. Any later content work must first update the manifest under a
+  separately scoped replacement design; it may not use acceptance of the current ledger or
+  P13 to create missing substrate.
 - The closure assertion/review change-set advances `GameVersion` once to `5.0.28`; config
   and campaign/save schemas remain unchanged.
 
-## P13 handoff
+## P13 handoff (historical stabilization baseline)
 
 - Config remains schema 17. Campaign/save envelope advances from 15 to 16 only for
   stabilization state: canonical minigame settlement sequences/watermark, epidemic-history
@@ -605,11 +666,12 @@ graph TD
   scheduling. The older traced autoplay matrix remains
   `qa-seed-1`, `qa-seed-2`, numeric `1701`, with `qa-repeatable` reproducing its trace,
   event sequence and snapshot.
-- P12B's exact inventory remains unchanged: 1,112 config carriers, 355 stable raw semantic
+- At P13 close, P12B's exact inventory remained unchanged: 1,112 config carriers, 355 stable raw semantic
   identities, 33 source entries and the 1,149-message spine, with no `ready-now` row. TD,
-  Tavern, Alchemy and Inventory remain the only runtime minigame kinds. Chess still has no
-  config carrier, runtime/UI/QA/Builder entry or placeholder engine until `P12-02`–`P12-09`
-  receive complete designer verdicts.
+  Tavern, Alchemy and Inventory remained the only runtime minigame kinds. Chess still had no
+  config carrier, runtime/UI/QA/Builder entry or placeholder engine. `ES-010` and `ES-011`
+  supersede that historical absence with live Chess and the current 19/18 compatibility
+  boundary.
 - Final verification is the complete `tools/test-empires-endgame.sh` unit/browser gate,
   frontend production build, changed-doc verifier, passive audit, backend build and
   simulation safety net. Exact measured timings/save-size baseline and command outcomes
@@ -619,7 +681,7 @@ graph TD
 
 ## How to execute the completed prompts
 
-The scheduled program is complete through P13. Historically, each phase/subphase ran as one
+The scheduled program is complete through P14. Historically, each phase/subphase ran as one
 fresh Codex task and one change-set. Do not combine
 `3A`+`3B`, `4A`+`4B`+`4C`, `6A`+`6B`+`6C`, `11A`+`11B`, or `12`+`12B` in one prompt.
 Finish, review, and let the user commit (or otherwise cleanly isolate) one change-set before
@@ -627,10 +689,10 @@ starting its dependent prompt. The lettered files are dependency boundaries, not
 to paste into one large task.
 
 The graph permits some separate-worktree parallelism, but these phases commonly touch the
-same config, types, engine, docs, and version file. The completed chain through stabilization
-is:
+same config, types, engine, docs, and version file. The safest single-worktree chain through
+the Clash extension is:
 
-`7 → 8 → 9 → 10 → 11A → 11B → 12 → 12B → 13`.
+`7 → 8 → 9 → 10 → 11A → 11B → 12 → 12B → 13 → 14`.
 
 There is no remaining single-worktree prompt in this completion program. The template below
 is retained only as the execution shape for a separately approved future tranche; it does
@@ -667,8 +729,17 @@ gates. Do not commit or push.
 
 ## Architecture cornerstones
 
-- **One shared envelope for every implemented minigame**: TD, Tavern, Alchemy and Inventory use `EmpiresMinigameSession {kind, plan, seed, attempt, origin, rulesIdentity}` / `EmpiresMinigameResult`; campaign methods `beginMinigame` / `resolveMinigame` / `abortMinigame` (abort = authored penalty, no save-scumming). A reload restarts from immutable `plan + seed` with `attempt + 1`. Chess remains absent until its P12 semantic gates are resolved; if implemented later, it must join this same lifecycle rather than introduce a parallel one.
+- **One shared envelope for every implemented minigame**: TD, Tavern, Alchemy, Inventory,
+  Chess and Clash use `EmpiresMinigameSession {kind, plan, seed, attempt, origin,
+  rulesIdentity}` / `EmpiresMinigameResult`; Clash additionally persists its authenticated
+  `turnLog`. Campaign methods `beginMinigame` / `resolveMinigame` / `abortMinigame` remain
+  exact-once (abort = configured penalty, no save-scumming). Reload reconstructs immutable
+  `plan + seed + command/turn log` with `attempt + 1`. Chess is campaign-reachable through the
+  Coliseum; Clash keeps the same lifecycle substrate but remains disabled for campaign entry.
 - **Fixed-timestep sims** (deliberate divergence from last-chances' rAF-delta loop at `features/last-chances/engine.ts:724`): `step()` advances exactly `tickMs`; battle result = pure `f(plan, seed, commandLog)`; headless QA runs the *same* sim — a single resolution path. The rAF loop only accumulates time and interpolates rendering.
+- **Turn-based Clash** deliberately has no `tickMs`, rAF accumulator or fixed-step state:
+  `applyClashCommand` is its only transition and the result is pure
+  `f(plan, seed, turnLog)`. Reload and QA replay that same ordered log.
 - **Replay identity**: plans embed resolved simulation data or carry an immutable config/rules digest; commands use tick/turn indices. Config changes cannot mutate an active session.
 - **Shared combat module** `features/empires-endgame/combat/` (damage types, armor classes, counter matrix, equipment catalog) consumed by TD, expeditions, and events; steel techs pay off as `equipment` entries with tech prerequisites.
 - **State discipline**: reputation and loyalty are first-class typed political state. Keep flags only for temporary/configured scalar modifiers; seasons use a pure `currentSeason()`. Other per-entity/lifecycle data (epidemics, army/morale/veterans, quests, the minigame session) also remains typed.
@@ -689,9 +760,15 @@ gates. Do not commit or push.
   them to v14/v12 for Tavern progression/replay and mystic-zone lifecycle; P10 moves them to
   v15/v13 for Alchemy; P11A to v16/v14 for expeditions; P11B to v17/v15 for Inventory; P12
   and P12B keep those versions; P13 keeps config v17 and advances saves to v16 for bounded
-  stabilization identity/compaction state. Never reuse a hard-coded version if the executed
+  stabilization identity/compaction state; P14 moves config to v18 and saves to v17 for
+  Clash rules plus authenticated active-session turn logs. The current Chess boundary moves
+  config to v19 and saves to v18; valid v17 Clash sessions migrate forward, while a Chess
+  session is rejected before v18. Never reuse a hard-coded version if the executed
   repository is already farther ahead.
-- **Component homes**: `src/components/empires-endgame/` (`TdBattle.vue`, `DialogueOverlay.vue`, `QuestJournal.vue`, `DeckMemoryPanel.vue`, `MinigameAbortDialog.vue`, …); feature modules live under `features/empires-endgame/` (`combat/`, `td/`, `quests.ts`, `alchemy/`, `tavern/`, `inventory/`). Chess deliberately has no module until its P12 gate is resolved.
+- **Component homes**: `src/components/empires-endgame/` (`TdBattle.vue`, `ChessBoard.vue`,
+  `ClashBattle.vue`, `DialogueOverlay.vue`, `QuestJournal.vue`, `DeckMemoryPanel.vue`,
+  `MinigameAbortDialog.vue`, …); feature modules live under `features/empires-endgame/`
+  (`combat/`, `td/`, `chess/`, `clash/`, `quests.ts`, `alchemy/`, `tavern/`, `inventory/`).
 - `engine.ts` remains a large central class; extract internal modules (an `engine/` dir) only when a scoped change already touches that cluster, never as a big-bang refactor.
 
 ## Standing per-phase gate
@@ -705,7 +782,7 @@ sequential version bump, and commit-message proposal are mandatory for each subp
 - Focused unit tests per phase: `pnpm --dir Web/VueClient run test:empires`.
 - Final named QA scenarios include `battle-defense`, `battle-assault`, regional defenses,
   `epidemic-outbreak`, `quest-dialogue`, `mystic-tavern`, `alchemy-experiment`,
-  `expedition-planning`, `inventory-packing`, `anti-bito`, governance and economy fixtures;
+  `expedition-planning`, `inventory-packing`, `chess-match`, `anti-bito`, governance and economy fixtures;
   actions include `resolve-minigame` (with scripted policies) and `advance-dialogue`. The QA
   harness lives in `features/empires-endgame/qa.ts` (`digestEmpiresQaState`, trace + stall
   diagnostics, bounded autoplay loop).
@@ -769,10 +846,12 @@ sequential version bump, and commit-message proposal are mandatory for each subp
 - **ТД**: attack/defense на границах регионов vs Альянс; волны каждые 4 месяца (≈2 кона); башни 4 последовательных грейда (региональный→общий→общий→региональный ультра) × 4 варианта, стакаются; тир-схема (башня/стрелковый тип/снаряды/региональное); регион-правила: болото — недосягаемые вышки, лес — лучники на деревьях, север — только катапульты/требушеты + ТД против кораблей, пустыня — иссушение при дэфе; замковый дэф; юниты на дэф, заслоны, крепость-пост, партизаны/наёмники-кемпы (EE_TD sketch); Эдемская катапульта.
 - **Тетрис-алхимия**: Сбор (фигуры с 4 сторон к центральной конструкции; управление ближайшей; нельзя двигать назад; ускорение ×3 к центру) и Разбор; реагенты (убрать цвет, добавить серые, сброс ускорения); ускорение арифм. прогрессией, cap 400% → взрыв → эпидемия/мутанты у лаборатории; poison-craft путь со стенками.
 - **Тетрис-инвентарь**: паковка экспедиции, тележка, вещи падают в реальном времени.
-- **Шахматы**: current sketch image shows candidate card placements and a full black roster
-  including a king; older background says казна/чистые улицы = ладьи, family = pieces,
-  shared Антон and no enemy king/capture-all. P12 found the sources non-executable and in
-  conflict, so Chess remains absent pending `P12-02`–`P12-09` designer verdicts.
+- **Шахматы**: the sketch image shows candidate card placements and a full black roster,
+  while older background says казна/чистые улицы = ладьи, family = pieces, shared Антон and
+  no enemy king/capture-all. P12 recorded the conflict. `ES-010` resolves the runtime contract
+  as an 8×8 Coliseum game with standard movement/check/capture, no castling or en passant,
+  queen-only promotion, 15 black pieces and no black king, Антон on g8, deterministic AI,
+  capture-all victory, 100-ply/threefold draws and exact-once campaign settlement.
 - **Таверна**: спавн ближе к лейту (не в 1-м прохождении; 100% на 2-м, потом 33%); две секции; найм наёмников, спиртное, слухи; Мария Брауз 33% (карты 2×2 → комбо 3-7-Т → Пиковая Дама).
 
 ### A7. Other systems (экспедиции, события, реликвии, божественные-награды, квесты)

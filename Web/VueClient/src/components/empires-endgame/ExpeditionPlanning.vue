@@ -118,7 +118,7 @@ const statusLabel: Record<EmpiresExpeditionPlanningView['status'], string> = {
               @change="toggleUnit(unit.unitInstanceId)"
             >
             <span><strong>{{ unit.unitName }}</strong><small>{{ unit.cityName }} · {{ unit.unitInstanceId }}</small></span>
-            <em v-if="unit.veteran">Ветеран · ран {{ unit.wounds }}</em>
+            <em v-if="unit.veteran">Ветеран · ран {{ unit.wounds }} · +{{ view.veteranDeploymentSpeedPercent }}% скорость</em>
             <em v-else>{{ Math.round(unit.healthRatio * 100) }}% здоровья</em>
             <small v-if="unit.disabledReason" class="disabled-reason">{{ unit.disabledReason }}</small>
           </label>

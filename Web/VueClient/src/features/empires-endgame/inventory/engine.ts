@@ -271,6 +271,11 @@ export function validateInventoryPlan(plan: InventoryPlan): string[] {
     || plan.eligibleProvisionAmount > plan.requestedProvisionAmount + Number.EPSILON) {
     errors.push('Inventory provision amounts are invalid.')
   }
+  if (!plan.eligibleEquipmentAmounts || Object.entries(plan.eligibleEquipmentAmounts).some(([, amount]) => (
+    !Number.isFinite(amount) || amount <= 0
+  ))) {
+    errors.push('Inventory eligible equipment amounts are invalid.')
+  }
   if (plan.rosterUnitInstanceIds.length === 0
     || new Set(plan.rosterUnitInstanceIds).size !== plan.rosterUnitInstanceIds.length) {
     errors.push('Inventory plan needs a unique non-empty roster snapshot.')
@@ -294,23 +299,38 @@ export function validateInventoryPlan(plan: InventoryPlan): string[] {
     definitions.set(definition.id, definition)
   }
   const instanceIds = new Set<string>()
-  let totalAmount = 0
+  let totalProvisionAmount = 0
+  const totalEquipmentAmounts: Record<string, number> = {}
   for (const instance of plan.itemInstances) {
     const definition = definitions.get(instance.definitionId)
     if (!instance.id?.trim() || instanceIds.has(instance.id) || !definition
-      || !instance.originCityId?.trim() || !Number.isFinite(instance.amount) || instance.amount <= 0
-      || digestTdValue(instance.content) !== digestTdValue(definition.content)
-      || instance.content.kind !== 'resource'
-      || instance.content.resourceId !== plan.provisionResourceId) {
-      errors.push(`Inventory item instance ${instance.id || '<missing>'} is invalid, stale, or not a provision.`)
+      || !Number.isFinite(instance.amount) || instance.amount <= 0
+      || digestTdValue(instance.content) !== digestTdValue(definition.content)) {
+      errors.push(`Inventory item instance ${instance.id || '<missing>'} is invalid or stale.`)
       continue
     }
     instanceIds.add(instance.id)
-    totalAmount += instance.amount
+    if (instance.content.kind === 'resource') {
+      if (!instance.originCityId?.trim() || instance.content.resourceId !== plan.provisionResourceId) {
+        errors.push(`Inventory item instance ${instance.id} is not valid expedition provision.`)
+        continue
+      }
+      totalProvisionAmount += instance.amount
+    } else {
+      if (instance.originCityId !== null
+        || !(instance.content.equipmentId in plan.eligibleEquipmentAmounts)) {
+        errors.push(`Inventory item instance ${instance.id} is not eligible equipment.`)
+        continue
+      }
+      totalEquipmentAmounts[instance.content.equipmentId] = (
+        totalEquipmentAmounts[instance.content.equipmentId] ?? 0
+      ) + instance.amount
+    }
   }
   if (plan.itemInstances.length === 0 || plan.itemInstances.length > plan.maxItems
-    || Math.abs(totalAmount - plan.eligibleProvisionAmount) > 0.000001) {
-    errors.push('Inventory item instances must cover the eligible provision amount exactly.')
+    || Math.abs(totalProvisionAmount - plan.eligibleProvisionAmount) > 0.000001
+    || digestTdValue(totalEquipmentAmounts) !== digestTdValue(plan.eligibleEquipmentAmounts)) {
+    errors.push('Inventory item instances must cover eligible provision and equipment exactly.')
   }
   return errors
 }
@@ -451,8 +471,15 @@ function resultFromState(
 ): InventoryResult {
   const packed = new Set(state.placements.map(placement => placement.instanceId))
   const packedProvisionAmount = plan.itemInstances
-    .filter(instance => packed.has(instance.id))
+    .filter(instance => packed.has(instance.id) && instance.content.kind === 'resource')
     .reduce((total, instance) => total + instance.amount, 0)
+  const packedEquipmentAmounts: Record<string, number> = {}
+  for (const instance of plan.itemInstances) {
+    if (!packed.has(instance.id) || instance.content.kind !== 'equipment') continue
+    packedEquipmentAmounts[instance.content.equipmentId] = (
+      packedEquipmentAmounts[instance.content.equipmentId] ?? 0
+    ) + instance.amount
+  }
   return {
     kind: 'inventory',
     sessionId: plan.sessionId,
@@ -476,6 +503,9 @@ function resultFromState(
       : 100,
     packedProvisionAmount,
     eligibleProvisionAmount: plan.eligibleProvisionAmount,
+    packedEquipmentAmounts,
+    eligibleEquipmentAmounts: clone(plan.eligibleEquipmentAmounts),
+    packerPerstId: plan.packerPerstId,
     packedItemInstanceIds: plan.itemInstances.filter(instance => packed.has(instance.id)).map(instance => instance.id),
     unpackedItemInstanceIds: plan.itemInstances.filter(instance => !packed.has(instance.id)).map(instance => instance.id),
     placements: clone(state.placements),

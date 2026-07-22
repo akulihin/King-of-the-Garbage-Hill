@@ -220,6 +220,7 @@ const copy = {
       poison: 'Poison symbol',
       fire: 'Fire symbol',
       chemical: 'Chemical symbol',
+      ouroborosAcid: 'Ouroboros Acid',
     },
     enemyHp: 'Health',
     enemyArmor: 'Armor',
@@ -412,6 +413,7 @@ const copy = {
       poison: 'Символ яда',
       fire: 'Символ огня',
       chemical: 'Символ химикатов',
+      ouroborosAcid: 'Кислота Уробороса',
     },
     enemyHp: 'Здоровье',
     enemyArmor: 'Броня',
@@ -521,7 +523,8 @@ const selectedSecondaryLoadoutWeapon = computed(() => draft.value?.weapons.find(
 ) ?? null)
 function supportedAugments(weapon: LastChancesWeaponDefinition | null): LastChancesAugment[] {
   return LAST_CHANCES_AUGMENTS.filter(augment => (
-    augment === 'none' || weapon?.augmentHooks?.[augment] !== undefined
+    augment === 'none' || augment === 'ouroborosAcid'
+      || weapon?.augmentHooks?.[augment] !== undefined
   ))
 }
 const primaryAugmentOptions = computed(() => supportedAugments(selectedPrimaryLoadoutWeapon.value))

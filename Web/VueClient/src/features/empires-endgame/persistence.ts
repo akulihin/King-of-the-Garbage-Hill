@@ -5,7 +5,9 @@ import {
   empiresUtf8ByteLength,
 } from './stabilization'
 
-export const EMPIRES_SAVE_STORAGE_KEY = 'empires-endgame:campaign:v16'
+export const EMPIRES_SAVE_STORAGE_KEY = 'empires-endgame:campaign:v18'
+export const EMPIRES_LEGACY_V17_SAVE_STORAGE_KEY = 'empires-endgame:campaign:v17'
+export const EMPIRES_LEGACY_V16_SAVE_STORAGE_KEY = 'empires-endgame:campaign:v16'
 export const EMPIRES_LEGACY_V15_SAVE_STORAGE_KEY = 'empires-endgame:campaign:v15'
 export const EMPIRES_LEGACY_V14_SAVE_STORAGE_KEY = 'empires-endgame:campaign:v14'
 export const EMPIRES_LEGACY_V13_SAVE_STORAGE_KEY = 'empires-endgame:campaign:v13'
@@ -74,6 +76,8 @@ export function loadEmpiresCampaign(
 ): EmpiresCampaignState | null {
   const storageKeys = [
     EMPIRES_SAVE_STORAGE_KEY,
+    EMPIRES_LEGACY_V17_SAVE_STORAGE_KEY,
+    EMPIRES_LEGACY_V16_SAVE_STORAGE_KEY,
     EMPIRES_LEGACY_V15_SAVE_STORAGE_KEY,
     EMPIRES_LEGACY_V14_SAVE_STORAGE_KEY,
     EMPIRES_LEGACY_V13_SAVE_STORAGE_KEY,
@@ -121,6 +125,8 @@ export function loadEmpiresCampaign(
 
 export function clearEmpiresCampaign() {
   window.localStorage.removeItem(EMPIRES_SAVE_STORAGE_KEY)
+  window.localStorage.removeItem(EMPIRES_LEGACY_V17_SAVE_STORAGE_KEY)
+  window.localStorage.removeItem(EMPIRES_LEGACY_V16_SAVE_STORAGE_KEY)
   window.localStorage.removeItem(EMPIRES_LEGACY_V15_SAVE_STORAGE_KEY)
   window.localStorage.removeItem(EMPIRES_LEGACY_V14_SAVE_STORAGE_KEY)
   window.localStorage.removeItem(EMPIRES_LEGACY_V13_SAVE_STORAGE_KEY)
@@ -153,9 +159,9 @@ export function importEmpiresCampaign(value: unknown, configId: string): Empires
     ? Number(value.schemaVersion)
     : null
   const envelope = migrateEmpiresSnapshotEnvelope(value)
-  if (!envelope) throw new Error('Это не поддерживаемое сохранение Empire\'s Endgame версии 1–16 с согласованной версией состояния.')
+  if (!envelope) throw new Error('Это не поддерживаемое сохранение Empire\'s Endgame версии 1–18 с согласованной версией состояния.')
   // Legacy histories predate the bounded compaction model. Let the engine
-  // normalize them first; every subsequent v16 save/export enforces 512 KiB.
+  // normalize them first; every subsequent v18 save/export enforces 512 KiB.
   if (sourceSchemaVersion === EMPIRES_SAVE_SCHEMA_VERSION) serializeBoundedEnvelope(envelope)
   if (envelope.state.configId !== configId) {
     throw new Error('Сохранение создано для другой конфигурации игры.')

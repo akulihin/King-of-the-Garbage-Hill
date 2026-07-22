@@ -142,13 +142,25 @@ export interface TdTowerChoiceDefinition {
   targetPriority?: TdTargetPriority
 }
 
-export interface TdGradeChoiceSetDefinition {
+interface TdGradeChoiceSetBaseDefinition {
   id: string
   regionId: string
   grade: 1 | 2 | 3 | 4
   choiceIds: string[]
-  deferredReason?: string
 }
+
+export type TdGradeChoiceSetDefinition = TdGradeChoiceSetBaseDefinition & (
+  | {
+    availability?: 'available'
+    reason?: never
+    deferredReason?: string
+  }
+  | {
+    availability: 'notApplicable'
+    reason: string
+    deferredReason?: never
+  }
+)
 
 export interface TdEnemyGroupDefinition {
   id: string

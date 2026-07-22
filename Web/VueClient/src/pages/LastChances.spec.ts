@@ -353,8 +353,8 @@ describe('99LC control-scheme preference', () => {
 })
 
 describe('99LC page loadout HUD', () => {
-  it('ships exactly the seven requested weapon definitions', () => {
-    expect(defaultConfig.weapons).toHaveLength(7)
+  it('ships exactly the eight requested weapon definitions', () => {
+    expect(defaultConfig.weapons).toHaveLength(8)
     expect(defaultConfig.weapons.map(weapon => weapon.id)).toEqual([
       'twohand-spear',
       'secondary-chain',
@@ -363,6 +363,7 @@ describe('99LC page loadout HUD', () => {
       'twohand-axe',
       'twohand-katana',
       'hybrid-sword',
+      'secondary-ouroboros-fang',
     ])
   })
 

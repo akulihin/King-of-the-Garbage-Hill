@@ -17,12 +17,7 @@ function config(): EmpiresEndgameConfig {
 function disableTdMinigame(value: EmpiresEndgameConfig): void {
   value.td.enabled = false
   value.td.regionalCatalogEnabled = false
-  value.td.towerBases = []
-  value.td.battlefields = []
-  value.td.towers = []
-  value.td.gradeChoices = []
-  value.td.waves = []
-  value.td.planVariants = []
+  value.expeditions.enabled = false
 }
 
 function empireState(engine: EmpiresEndgameEngine, con = 1): EmpiresCampaignState {
@@ -69,7 +64,7 @@ function testSteel(
 }
 
 describe('Empire\'s Endgame Phase 3B steel and equipment bridge', () => {
-  it('catalogues every existing carrier without claiming unsupported steel payoffs are live', () => {
+  it('catalogues every steel carrier with an executable payoff and Academy elite source', () => {
     const value = config()
     const steel = value.empire.technologies.filter(technology => technology.category === 'steel')
     expect(steel).toHaveLength(22)
@@ -79,11 +74,40 @@ describe('Empire\'s Endgame Phase 3B steel and equipment bridge', () => {
       'steel-lancet-spearhead',
       'steel-diamond-spearhead',
       'steel-cross-spearhead',
+      'steel-voulge',
+      'steel-halberd',
+      'steel-lance',
+      'steel-butted-mail',
+      'steel-riveted-mail',
+      'steel-full-mail',
+      'steel-double-mail',
+      'steel-steel-mail',
+      'steel-nasal-helm',
+      'steel-bucket-helm',
+      'steel-kettle-hat',
+      'steel-iron-breastplate',
+      'steel-steel-cuirass',
+      'steel-water-hammer',
+      'steel-heavy-water-hammer',
+      'steel-ship-cannon',
+      'steel-hand-bombard',
+      'steel-arquebus',
     ])
-    expect(steel.filter(technology => !technology.deferredReason)
-      .every(technology => technology.steel?.payoff === 'equipment')).toBe(true)
+    expect(steel.filter(technology => technology.steel?.payoff === 'equipment')).toHaveLength(20)
+    expect(steel.filter(technology => technology.steel?.payoff === 'unlock-only').map(technology => technology.id))
+      .toEqual(['steel-water-hammer', 'steel-heavy-water-hammer'])
+    expect(steel.every(technology => !technology.deferredReason && technology.steel?.payoff !== 'deferred'))
+      .toBe(true)
     expect(value.empire.technologies.find(technology => technology.id === 'steel-lance')?.steel)
-      .toMatchObject({ generation: 4, stage: 'plus', eliteRequired: true })
+      .toMatchObject({
+        generation: 4,
+        stage: 'plus',
+        payoff: 'equipment',
+        equipmentIds: ['weapon-lance'],
+        eliteRequired: true,
+      })
+    expect(value.empire.buildings.find(building => building.id === 'building-military-academy')
+      ?.levels[0].effects).toContainEqual({ kind: 'flag', flagId: 'militaryElite', amount: 1 })
     const generals = value.empire.technologies.find(technology => technology.id === 'tech-generals')!
     const foundry = value.empire.technologies.find(technology => technology.id === 'tech-foundry')!
     expect(generals.deferredReason).toBeUndefined()
@@ -91,12 +115,18 @@ describe('Empire\'s Endgame Phase 3B steel and equipment bridge', () => {
     expect(foundry.deferredReason).toBeUndefined()
     expect(foundry).toMatchObject({ name: 'Литье стали', deferredSubfeatures: expect.any(Array) })
     expect(value.empire.buildings.find(building => building.id === 'building-foundry'))
-      .toMatchObject({ deferredSubfeatures: [{ id: 'capital-sixth-slot' }] })
+      .toMatchObject({ deferredSubfeatures: [] })
     const engine = new EmpiresEndgameEngine(value)
     const state = empireState(engine)
     state.empire.researchedTechnologyIds.push('steel-cross-spearhead')
     engine.restore(state)
-    expect(engine.state.empire.steelResearch.delayedFree['steel-lance']).toBeUndefined()
+    expect(engine.state.empire.steelResearch.delayedFree['steel-lance']).toEqual({
+      scheduledAtCon: 1,
+      eligibleCon: 3,
+      awardedAtCon: null,
+    })
+    expect(engine.researchQuote('steel-lance').blockedReason)
+      .toBe('A military elite is required for this research.')
   })
 
   it('rejects fabricated steel loadouts and incomplete Academy or Hearts-Ace carriers', () => {
@@ -115,15 +145,16 @@ describe('Empire\'s Endgame Phase 3B steel and equipment bridge', () => {
       .toThrow(/must consume its technology-linked equipment weapon-laurel-spear/)
 
     const academy = config()
-    delete academy.empire.buildings
-      .find(building => building.id === 'building-military-academy')!.deferredReason
-    expect(() => validateEmpiresConfig(academy)).toThrow(/freeUnitsPerWarTechnology/)
+    const academyEffects = academy.empire.buildings
+      .find(building => building.id === 'building-military-academy')!.levels[0].effects
+    academyEffects.splice(academyEffects.findIndex(effect => (
+      effect.kind === 'flag' && effect.flagId === 'militaryElite'
+    )), 1)
+    expect(() => validateEmpiresConfig(academy)).toThrow(/operational capital source for militaryElite/)
 
-    for (const face of ['normal', 'inverted'] as const) {
-      const ace = config()
-      delete ace.cards.find(card => card.id === 'card-hearts-ace')![face].deferredReason
-      expect(() => validateEmpiresConfig(ace)).toThrow(/unit(Morale|Actives)/)
-    }
+    const ace = config().cards.find(card => card.id === 'card-hearts-ace')!
+    expect(ace.normal.deferredReason).toBeUndefined()
+    expect(ace.inverted.deferredReason).toBeUndefined()
 
     const crossBranchAccess = config()
     crossBranchAccess.empire.technologies
@@ -327,6 +358,29 @@ describe('Empire\'s Endgame Phase 3B steel and equipment bridge', () => {
       .toBe('Missing prerequisite: steel-same-required.')
   })
 
+  it('uses an operational capital Military Academy as the military elite gate for Lance', () => {
+    const value = config()
+    const engine = new EmpiresEndgameEngine(value)
+    const state = empireState(engine, 1)
+    state.empire.researchedTechnologyIds.push('doctrine-war', 'steel-cross-spearhead')
+    const capital = state.empire.cities.find(city => city.id === value.governance.capital.cityId)!
+    const capitalDefinition = value.empire.cities.find(city => city.id === capital.id)!
+    const slot = capitalDefinition.slots.find(candidate => (
+      candidate.kind === 'unique' && !capital.buildingSlotAssignments[candidate.id]
+    ))!
+    capital.buildingLevels['building-military-academy'] = 1
+    capital.operationalBuildingLevels['building-military-academy'] = 1
+    capital.buildingSlotAssignments[slot.id] = 'building-military-academy'
+    engine.restore(state)
+    expect(engine.state.empire.steelResearch.delayedFree['steel-lance']?.eligibleCon).toBe(3)
+
+    const eligible = engine.snapshot()
+    eligible.con = 3
+    engine.restore(eligible)
+    expect(engine.state.empire.researchedTechnologyIds).toContain('steel-lance')
+    expect(engine.state.empire.steelResearch.delayedFree['steel-lance']?.awardedAtCon).toBe(3)
+  })
+
   it('shares Smithy capacity, consumes produced stock once, and freezes loadouts into cohorts and TD plans', () => {
     const value = config()
     const engine = new EmpiresEndgameEngine(value)
@@ -335,8 +389,8 @@ describe('Empire\'s Endgame Phase 3B steel and equipment bridge', () => {
     engine.restore(state)
     expect(engine.finishEmpire()).toMatchObject({ ok: true })
     expect(engine.state.army.equipmentStock).toMatchObject({
-      'basic-kit': 65,
-      'weapon-laurel-spear': 65,
+      'basic-kit': 26,
+      'weapon-laurel-spear': 26,
     })
     expect(engine.state.army.equipmentStock['weapon-lancet-spear'] ?? 0).toBe(0)
 
@@ -383,6 +437,53 @@ describe('Empire\'s Endgame Phase 3B steel and equipment bridge', () => {
       .toEqual(laurel.weapon)
   })
 
+  it('splits all Smithy capacity deterministically and consumes the new steel stock through recruitment', () => {
+    const value = config()
+    expect(value.td.equipmentProductionLines).toHaveLength(5)
+    expect(value.td.equipmentProductionLines!.reduce((total, line) => total + line.capacityShare, 0))
+      .toBeCloseTo(1)
+
+    const engine = new EmpiresEndgameEngine(value)
+    const productionState = empireState(engine)
+    productionState.empire.researchedTechnologyIds.push(
+      'tech-ironwork',
+      ...value.empire.technologies
+        .filter(technology => technology.category === 'steel')
+        .map(technology => technology.id),
+    )
+    engine.restore(productionState)
+    expect(engine.finishEmpire()).toMatchObject({ ok: true })
+    expect(engine.state.army.equipmentStock).toMatchObject({
+      'basic-kit': 26,
+      'weapon-lance': 26,
+      'armor-steel-cuirass': 26,
+      'weapon-arquebus': 26,
+      'weapon-ship-cannon': 26,
+    })
+
+    const arquebusState = empireState(engine)
+    arquebusState.empire.researchedTechnologyIds = ['doctrine-war', 'steel-arquebus']
+    arquebusState.army.equipmentStock = { 'basic-kit': 2, 'weapon-arquebus': 1 }
+    engine.restore(arquebusState)
+    expect(engine.recruitmentQuote('city-tetrakor-capital', 'unit-regular')).toMatchObject({
+      loadoutId: 'arquebus',
+      blockedReason: null,
+    })
+    expect(engine.recruitUnits('city-tetrakor-capital', 'unit-regular')).toMatchObject({ ok: true })
+    expect(engine.state.army.equipmentStock).toEqual({ 'basic-kit': 0, 'weapon-arquebus': 0 })
+
+    const cuirassState = empireState(engine)
+    cuirassState.empire.researchedTechnologyIds = ['doctrine-war', 'steel-steel-cuirass']
+    cuirassState.army.equipmentStock = { 'basic-kit': 3, 'armor-steel-cuirass': 1 }
+    engine.restore(cuirassState)
+    expect(engine.recruitmentQuote('city-tetrakor-capital', 'unit-heavy')).toMatchObject({
+      loadoutId: 'steel-cuirass',
+      blockedReason: null,
+    })
+    expect(engine.recruitUnits('city-tetrakor-capital', 'unit-heavy')).toMatchObject({ ok: true })
+    expect(engine.state.army.equipmentStock).toEqual({ 'basic-kit': 0, 'armor-steel-cuirass': 0 })
+  })
+
   it('keeps campaign equipment production live when the TD minigame is disabled', () => {
     const value = config()
     disableTdMinigame(value)
@@ -394,8 +495,8 @@ describe('Empire\'s Endgame Phase 3B steel and equipment bridge', () => {
 
     expect(engine.finishEmpire()).toMatchObject({ ok: true })
     expect(engine.state.army.equipmentStock).toMatchObject({
-      'basic-kit': 65,
-      'weapon-laurel-spear': 65,
+      'basic-kit': 26,
+      'weapon-laurel-spear': 26,
     })
   })
 
@@ -488,23 +589,20 @@ describe('Empire\'s Endgame Phase 3B steel and equipment bridge', () => {
 
   it('settles tower equipment spending against campaign stock exactly once', () => {
     const value = config()
-    for (const base of value.td.towerBases!) {
-      base.loadouts = [{
-        id: 'laurel-stock-settlement',
-        priority: 1,
-        weaponEquipmentId: 'weapon-laurel-spear',
-        equipmentCosts: [{ equipmentId: 'weapon-laurel-spear', amount: 1 }],
-      }]
-    }
     const engine = new EmpiresEndgameEngine(value)
     const state = empireState(engine, 2)
     state.external.nextWaveCon = 2
-    state.empire.researchedTechnologyIds.push('steel-laurel-spearhead')
-    state.army.equipmentStock['weapon-laurel-spear'] = 2
+    state.empire.researchedTechnologyIds.push('steel-ship-cannon')
+    state.army.equipmentStock['weapon-ship-cannon'] = 2
     engine.restore(state)
     expect(engine.finishEmpire()).toMatchObject({ ok: true })
     const session = engine.state.minigame!
-    const before = engine.state.army.equipmentStock['weapon-laurel-spear']
+    const towerBase = session.plan.towerBases.find(base => base.id === 'tower-base-center')!
+    expect(towerBase.loadouts).toContainEqual(expect.objectContaining({
+      id: 'ship-cannon',
+      weaponEquipmentId: 'weapon-ship-cannon',
+    }))
+    const before = engine.state.army.equipmentStock['weapon-ship-cannon']
     const command = {
       tick: 0,
       sequence: 0,
@@ -512,16 +610,16 @@ describe('Empire\'s Endgame Phase 3B steel and equipment bridge', () => {
       planId: session.plan.id,
       kind: 'build-tower' as const,
       spotId: session.plan.battlefield.buildSpots[0].id,
-      towerBaseId: session.plan.towerBases[0].id,
+      towerBaseId: towerBase.id,
     }
 
     expect(engine.abortMinigame([command], 1)).toMatchObject({ ok: true })
-    expect(engine.state.army.equipmentStock['weapon-laurel-spear']).toBe(before - 1)
+    expect(engine.state.army.equipmentStock['weapon-ship-cannon']).toBe(before - 1)
     expect(engine.state.minigameResultLog.at(-1)?.result.equipmentSpent)
-      .toEqual({ 'weapon-laurel-spear': 1 })
-    const after = engine.state.army.equipmentStock['weapon-laurel-spear']
+      .toEqual({ 'weapon-ship-cannon': 1 })
+    const after = engine.state.army.equipmentStock['weapon-ship-cannon']
     expect(engine.abortMinigame([command], 1)).toMatchObject({ ok: true })
-    expect(engine.state.army.equipmentStock['weapon-laurel-spear']).toBe(after)
+    expect(engine.state.army.equipmentStock['weapon-ship-cannon']).toBe(after)
   })
 
   it('applies Foundry quotes/cadence/upkeep and the relic morale floor through typed consumers', () => {
@@ -542,10 +640,8 @@ describe('Empire\'s Endgame Phase 3B steel and equipment bridge', () => {
     engine.restore(blockedCapital)
     const capitalUniqueSlot = value.empire.cities
       .find(candidate => candidate.id === capital.id)!.slots.find(slot => slot.kind === 'unique')!
-    expect(engine.placeBuilding(capital.id, capitalUniqueSlot.id, 'building-foundry')).toEqual({
-      ok: false,
-      message: 'That building cannot be placed in this city.',
-    })
+    expect(engine.placeBuilding(capital.id, capitalUniqueSlot.id, 'building-foundry'))
+      .toMatchObject({ ok: true })
 
     const state = empireState(engine)
     state.empire.researchedTechnologyIds.push(

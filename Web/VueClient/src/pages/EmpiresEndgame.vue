@@ -28,6 +28,8 @@ import {
 import BuilderDrawer from '../components/empires-endgame/BuilderDrawer.vue'
 import AlchemyBoard from '../components/empires-endgame/AlchemyBoard.vue'
 import CityView from '../components/empires-endgame/CityView.vue'
+import ChessBoard from '../components/empires-endgame/ChessBoard.vue'
+import ClashBattle from '../components/empires-endgame/ClashBattle.vue'
 import DialogueOverlay from '../components/empires-endgame/DialogueOverlay.vue'
 import DeckMemoryPanel from '../components/empires-endgame/DeckMemoryPanel.vue'
 import DivineMercyConfirmation from '../components/empires-endgame/DivineMercyConfirmation.vue'
@@ -107,6 +109,10 @@ import type {
   TavernResult,
   InventoryCommand,
   InventoryResult,
+  ChessCommand,
+  ChessResult,
+  ClashCommand,
+  ClashResult,
 } from '../features/empires-endgame/types'
 import type { AlchemyCommand, AlchemyResult } from '../features/empires-endgame/alchemy/types'
 
@@ -194,6 +200,10 @@ const phaseCopy = computed(() => ({
     ? ['Тетрис-алхимия', 'Соберите лабораторную конструкцию и удержите ускорение ниже взрывного порога.']
     : state.value?.minigame?.kind === 'inventory'
       ? ['Упаковка тележки', 'Уложите падающие вещи: только помещённая провизия отправится в экспедицию.']
+    : state.value?.minigame?.kind === 'chess'
+      ? ['Шахматы Бога Азарта', 'Возьмите все чёрные фигуры раньше, чем двор доберётся до вашего короля.']
+    : state.value?.minigame?.kind === 'clash'
+      ? ['Клэш армий', 'Расставьте отряды и проведите штурм по рядам поля боя.']
     : activeTdPlan.value?.mode === 'assault'
     ? ['Наступление', `Прорвитесь к цели «${activeTdPlan.value.objective.name}».`]
     : state.value?.minigame?.kind === 'tavern'
@@ -980,6 +990,14 @@ function assignGovernor(perstId: string, regionId: string) {
   if (engine.value) action(engine.value.assignGovernor(perstId, regionId), false)
 }
 
+function rallyGenerals() {
+  if (engine.value) action(engine.value.rallyGenerals(), false)
+}
+
+function activateCapitalSite(siteId: string) {
+  if (engine.value) action(engine.value.activateCapitalSite(siteId), false)
+}
+
 function finishEmpire() {
   if (engine.value) action(engine.value.finishEmpire())
 }
@@ -1014,6 +1032,26 @@ function resolveInventoryPacking(result: InventoryResult) {
 
 function abortInventoryPacking(commandLog: InventoryCommand[], abortTick: number) {
   if (engine.value) action(engine.value.abortMinigame(commandLog, abortTick), false)
+}
+
+function resolveChess(result: ChessResult) {
+  if (engine.value) action(engine.value.resolveMinigame(result), false)
+}
+
+function abortChess(commandLog: ChessCommand[]) {
+  if (engine.value) action(engine.value.abortMinigame(commandLog), false)
+}
+
+function resolveClash(result: ClashResult) {
+  if (engine.value) action(engine.value.resolveMinigame(result), false)
+}
+
+function abortClash(commandLog: ClashCommand[], turn: number) {
+  if (engine.value) action(engine.value.abortMinigame(commandLog, turn), false)
+}
+
+function recordClashProgress(commandLog: ClashCommand[]) {
+  if (engine.value) action(engine.value.recordClashProgress(commandLog), false)
 }
 
 function abortTdBattle(commandLog: TdCommand[], abortTick: number) {
@@ -1992,6 +2030,10 @@ function performFairAction(cityId: string, actionId: string) {
   if (engine.value) action(engine.value.performFairAction(cityId, actionId))
 }
 
+function exchangeAtFair(cityId: string) {
+  if (engine.value) action(engine.value.exchangeAtFair(cityId))
+}
+
 function preachAtTemple(cityId: string) {
   if (engine.value) action(engine.value.preachAtTemple(cityId))
 }
@@ -2194,6 +2236,39 @@ const councilCards = computed(() => {
     .filter((item): item is { instance: EmpiresCardInstance, view: NonNullable<ReturnType<typeof cardView>> } => Boolean(item.instance && item.view))
 })
 
+const councilMystics = computed(() => {
+  if (!state.value || !engine.value) return []
+  return state.value.mystics.zone.flatMap((instanceId) => {
+    const instance = state.value!.mystics.instances[instanceId]
+    if (!instance) return []
+    const definition = engine.value!.getMysticDefinition(instance)
+    const face = instance.inverted ? definition.inverted : definition.normal
+    return [{ instance, definition, face }]
+  })
+})
+
+const recruitableMystics = computed(() => {
+  if (!workingConfig.value || !state.value) return []
+  const ownedDefinitionIds = new Set(
+    Object.values(state.value.mystics.instances).map(instance => instance.definitionId),
+  )
+  return workingConfig.value.tavern.mystics.recruitableDefinitionIds
+    .filter(id => !ownedDefinitionIds.has(id))
+    .flatMap(id => workingConfig.value!.mysticCards.filter(definition => definition.id === id))
+})
+
+const returningMystics = computed(() => {
+  if (!state.value || !engine.value) return []
+  return Object.values(state.value.mystics.instances)
+    .filter(instance => instance.status === 'returning')
+    .map(instance => ({ instance, definition: engine.value!.getMysticDefinition(instance) }))
+})
+
+const councilGold = computed(() => {
+  if (!state.value || !workingConfig.value) return 0
+  return state.value.empire.resources[workingConfig.value.empire.domesticEconomy.goldResourceId] ?? 0
+})
+
 function selectCouncilCard(cardId: string) {
   selectedCouncilCardId.value = cardId
   if (!workingConfig.value || !state.value) return
@@ -2203,6 +2278,18 @@ function selectCouncilCard(cardId: string) {
   )) {
     showMessage('Карта выбрана. Очки улучшений выдаются за выполненные условия кона.')
   }
+}
+
+function recruitMystic(definitionId: string) {
+  if (engine.value) action(engine.value.recruitMystic(definitionId), false)
+}
+
+function dismissMystic(instanceId: string) {
+  if (engine.value) action(engine.value.dismissMystic(instanceId), false)
+}
+
+function appeaseQueen() {
+  if (engine.value) action(engine.value.appeaseQueen(), false)
 }
 
 onMounted(() => void boot())
@@ -2430,6 +2517,7 @@ onUnmounted(() => {
           @persecution="beginPersecution"
           @start-insurance="startInsurance"
           @fair-action="performFairAction"
+          @fair-exchange="exchangeAtFair"
           @preach="preachAtTemple"
           @assign-relic="assignTempleRelic"
           @clear-relic="clearTempleRelic"
@@ -2486,6 +2574,8 @@ onUnmounted(() => {
           :engine="engine"
           @advisor="transitionAdvisor"
           @assign-governor="assignGovernor"
+          @rally-generals="rallyGenerals"
+          @activate-capital-site="activateCapitalSite"
         />
 
         <div v-else class="council-view">
@@ -2507,6 +2597,42 @@ onUnmounted(() => {
             </article>
           </div>
           <div v-else class="empty-council"><Shield :size="38" /><h3>Рука императора пуста</h3><p>Карты, оставшиеся после партии, станут пассивами вашего следующего периода правления.</p></div>
+
+          <section class="mystic-council" data-testid="mystic-council">
+            <header>
+              <div><span>Мистический ряд</span><h3>Гости Таверны</h3></div>
+              <small>{{ workingConfig.tavern.mystics.recruitmentGoldCost.toLocaleString('ru-RU') }} золота за приглашение</small>
+            </header>
+            <div v-if="councilMystics.length" class="mystic-row">
+              <article v-for="card in councilMystics" :key="card.instance.id" :data-testid="`council-mystic-${card.instance.id}`">
+                <div><b>{{ card.face.title }}</b><small>{{ card.face.description }}</small></div>
+                <div class="mystic-actions">
+                  <button
+                    v-if="card.definition.id === workingConfig.tavern.queen.mysticDefinitionId && card.instance.inverted"
+                    type="button"
+                    data-testid="council-appease-queen"
+                    :disabled="state.upgradePoints < workingConfig.tavern.mystics.appeasementUpgradePointCost"
+                    @click="appeaseQueen"
+                  >Умиротворить · {{ workingConfig.tavern.mystics.appeasementUpgradePointCost }} ОУ</button>
+                  <button type="button" :data-testid="`council-dismiss-${card.instance.id}`" @click="dismissMystic(card.instance.id)">Отпустить</button>
+                </div>
+              </article>
+            </div>
+            <div v-if="recruitableMystics.length" class="mystic-recruits">
+              <button
+                v-for="definition in recruitableMystics"
+                :key="definition.id"
+                type="button"
+                :data-testid="`council-recruit-${definition.id}`"
+                :disabled="state.tavern.lastVisitedCon === null || councilGold < workingConfig.tavern.mystics.recruitmentGoldCost"
+                @click="recruitMystic(definition.id)"
+              >Пригласить {{ definition.name }}</button>
+            </div>
+            <small v-if="state.tavern.lastVisitedCon === null && recruitableMystics.length">Сначала посетите Таверну.</small>
+            <small v-for="card in returningMystics" :key="card.instance.id" class="mystic-return">
+              {{ card.definition.name }} вернётся перевёрнутым в коне {{ card.instance.returnAtCon }}.
+            </small>
+          </section>
         </div>
       </section>
 
@@ -2536,12 +2662,29 @@ onUnmounted(() => {
           @abort="abortAlchemyExperiment"
         />
         <InventoryPacking
-          v-else
+          v-else-if="state.minigame.kind === 'inventory'"
           :key="`${state.minigame.id}:${state.minigame.attempt}`"
           :session="state.minigame"
           :qa-mode="qaMode"
           @resolved="resolveInventoryPacking"
           @abort="abortInventoryPacking"
+        />
+        <ClashBattle
+          v-else-if="state.minigame.kind === 'clash'"
+          :key="`${state.minigame.id}:${state.minigame.attempt}`"
+          :session="state.minigame"
+          :qa-mode="qaMode"
+          @resolve="resolveClash"
+          @abort="abortClash"
+          @progress="recordClashProgress"
+        />
+        <ChessBoard
+          v-else-if="state.minigame.kind === 'chess'"
+          :key="`${state.minigame.id}:${state.minigame.attempt}`"
+          :session="state.minigame"
+          :qa-mode="qaMode"
+          @resolved="resolveChess"
+          @abort="abortChess"
         />
       </section>
 
@@ -2660,6 +2803,7 @@ onUnmounted(() => {
 .empire-toolbar { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:9px; padding:8px; border:1px solid rgba(216,190,133,.14); border-radius:10px; background:#141814; }.empire-toolbar nav { display:flex; flex-wrap:wrap; gap:4px; }.empire-toolbar nav button,.end-empire-button { display:inline-flex; min-height:36px; align-items:center; gap:5px; padding:0 11px; border:1px solid transparent; border-radius:6px; color:rgba(237,227,205,.5); background:transparent; cursor:pointer; }.empire-toolbar nav button.active { border-color:rgba(209,177,98,.25); color:#e1c779; background:rgba(209,177,98,.08); }.days-left { display:flex; align-items:center; gap:6px; color:#b8a77f; font-size:.68rem; }.days-left b { color:#e1c779; }.end-empire-button { border-color:#8f7845; color:#261f14; background:#c9aa5e; font-weight:800; }.resource-ribbon { display:flex; gap:6px; margin-bottom:9px; overflow-x:auto; }.resource-ribbon > span { display:grid; min-width:105px; grid-template-columns:auto 1fr; align-items:center; gap:2px 6px; padding:7px 10px; border:1px solid rgba(217,191,133,.12); border-radius:7px; background:rgba(18,22,18,.9); }.resource-ribbon svg { grid-row:1/3; color:#ac945a; }.resource-ribbon small { color:rgba(237,227,205,.42); font-size:.52rem; }.resource-ribbon b { font:800 .76rem/1 Georgia,serif; }
 .resource-ribbon > .season-chip { border-color:rgba(112,161,176,.25); background:rgba(34,64,72,.18); }.resource-ribbon > .season-chip svg { color:#83b2c0; }.resource-ribbon > .season-chip b { color:#b9dce5; }
 .council-view { min-height:550px; padding:20px; border:1px solid rgba(216,190,133,.15); border-radius:16px; background:rgba(18,22,18,.93); }.council-view > header { display:flex; align-items:end; justify-content:space-between; margin-bottom:18px; }.council-view header span { color:#a9935f; font:800 .56rem/1 monospace; text-transform:uppercase; }.council-view h2 { margin:4px 0 0; font:700 1.8rem/1 Georgia,serif; }.council-view header > b { color:#ddc37b; }.council-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:18px; }.council-grid article { display:grid; justify-items:center; align-content:start; gap:9px; }.council-actions { display:grid; width:184px; gap:5px; }.council-actions > button { display:flex; align-items:center; justify-content:center; gap:5px; min-height:34px; border:1px solid rgba(212,180,100,.28); border-radius:6px; color:#deca94; background:rgba(210,176,95,.08); font-size:.65rem; cursor:pointer; }.council-actions > button:disabled { opacity:.42; cursor:not-allowed; }.council-actions > small { color:rgba(237,227,205,.5); font-size:.58rem; text-align:center; }.empty-council { display:grid; min-height:390px; place-content:center; place-items:center; color:rgba(237,227,205,.4); text-align:center; }.empty-council h3 { margin:12px 0 4px; color:#e5d9c2; }
+.mystic-council { display:grid; gap:10px; margin-top:18px; padding:14px; border:1px solid rgba(117,134,183,.3); border-radius:10px; background:rgba(44,40,65,.28); }.mystic-council > header { display:flex; align-items:end; justify-content:space-between; gap:12px; }.mystic-council h3 { margin:4px 0 0; font:700 1.15rem/1 Georgia,serif; }.mystic-council small { color:rgba(225,217,239,.56); font-size:.62rem; }.mystic-row { display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:8px; }.mystic-row > article { display:grid; gap:8px; padding:10px; border:1px solid rgba(150,139,190,.24); border-radius:7px; background:rgba(17,18,28,.58); }.mystic-row article > div:first-child { display:grid; gap:4px; }.mystic-row b { color:#ddd0ef; }.mystic-actions,.mystic-recruits { display:flex; flex-wrap:wrap; gap:6px; }.mystic-actions button,.mystic-recruits button { min-height:31px; padding:5px 9px; border:1px solid rgba(155,139,198,.35); border-radius:5px; color:#ddd0ef; background:rgba(115,92,157,.16); cursor:pointer; }.mystic-actions button:disabled,.mystic-recruits button:disabled { opacity:.42; cursor:not-allowed; }.mystic-return { display:block; }
 .event-phase { display:grid; min-height:600px; place-items:center; }.event-card { max-width:760px; padding:34px; border:1px solid rgba(215,184,108,.24); border-radius:16px; background:radial-gradient(circle at 50% 10%,rgba(189,158,90,.1),transparent 28%),#171a15; text-align:center; box-shadow:0 28px 90px rgba(0,0,0,.4); }.event-card > span { color:#ae955c; font:800 .58rem/1 monospace; letter-spacing:.12em; text-transform:uppercase; }.event-icon { display:grid; width:85px; height:85px; place-items:center; margin:18px auto; border:1px solid rgba(217,184,105,.27); border-radius:50%; color:#d2b464; }.event-card h2 { margin:0; font:700 2rem/1 Georgia,serif; }.event-card > p { color:rgba(237,227,205,.55); line-height:1.55; }.event-choices { display:grid; gap:8px; margin-top:24px; text-align:left; }.event-choices button { display:grid; gap:4px; padding:13px 15px; border:1px solid rgba(215,184,108,.16); border-radius:8px; color:#eadfc8; background:rgba(255,255,255,.025); cursor:pointer; }.event-choices button:hover { border-color:#b59856; background:rgba(181,152,86,.07); }.event-choices span { color:rgba(237,227,205,.52); font-size:.7rem; }.event-choices small { color:#bca873; }.event-choices em { color:#83a883; font-size:.65rem; font-style:normal; }
 .outcome-phase { display:grid; min-height:620px; place-content:center; place-items:center; text-align:center; }.outcome-sigil { display:grid; width:120px; height:120px; place-items:center; border:1px solid rgba(212,179,99,.34); border-radius:50%; color:#d7b763; background:rgba(208,175,94,.07); }.outcome-phase.defeat .outcome-sigil { border-color:rgba(169,74,76,.35); color:#bd6e70; background:rgba(130,42,46,.1); }.outcome-phase > span { margin-top:18px; color:#aa935d; font:800 .58rem/1 monospace; letter-spacing:.14em; text-transform:uppercase; }.outcome-phase h2 { margin:7px 0; font:700 2.8rem/1 Georgia,serif; }.outcome-phase > p { max-width:580px; color:rgba(237,227,205,.53); }.outcome-phase dl { display:flex; gap:8px; }.outcome-phase dl div { min-width:105px; padding:11px; border:1px solid rgba(216,190,133,.12); border-radius:8px; }.outcome-phase dt { color:rgba(237,227,205,.42); font-size:.57rem; }.outcome-phase dd { margin:5px 0 0; color:#dec47c; font:800 1.1rem/1 Georgia,serif; }.outcome-phase > button { display:flex; align-items:center; gap:6px; margin-top:20px; padding:11px 15px; border:1px solid #927746; border-radius:7px; color:#271f12; background:#d0af5d; font-weight:800; cursor:pointer; }
 .endgame-page.editor-active { padding-right: min(620px, 43vw); }

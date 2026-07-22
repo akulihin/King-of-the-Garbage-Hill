@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 5,
+  "schemaVersion": 6,
   "title": "99 Last Chances",
   "seed": "99LC-prototype",
   "chances": 99,
@@ -287,6 +287,7 @@
       "width": 760,
       "height": 520,
       "playerSpawn": { "x": 95, "y": 260 },
+      "ouroborosPickup": { "item": "fang", "position": { "x": 170, "y": 260 } },
       "spawnLayouts": [
         {
           "id": "missing-cutlery",
@@ -377,6 +378,7 @@
       "width": 900,
       "height": 620,
       "playerSpawn": { "x": 105, "y": 310 },
+      "ouroborosPickup": { "item": "acid", "position": { "x": 180, "y": 310 } },
       "spawnLayouts": [
         {
           "id": "guarded-counter",
@@ -544,6 +546,7 @@
       "width": 920,
       "height": 700,
       "playerSpawn": { "x": 105, "y": 350 },
+      "ouroborosPickup": { "item": "scale", "position": { "x": 180, "y": 350 } },
       "spawnLayouts": [
         {
           "id": "gallery-pincer",
@@ -1223,8 +1226,25 @@
       "description": "Даёт +14 брони и снижает скорость движения на 16%.",
       "armorBonus": 14,
       "moveSpeedMultiplier": 0.84
+    },
+    {
+      "id": "ouroboros-scale",
+      "name": "Чешуя Уробороса",
+      "description": "Снижает получаемый урон в каждой комнате на 10% за каждый подбор в этой комнате.",
+      "armorBonus": 0,
+      "moveSpeedMultiplier": 1
     }
   ],
+  "ouroborosSet": {
+    "name": "Комплект Уробороса",
+    "fangWeaponId": "secondary-ouroboros-fang",
+    "acidAugment": "ouroborosAcid",
+    "scaleOutfitId": "ouroboros-scale",
+    "chanceCosts": { "fang": 10, "acid": 5, "scale": 20 },
+    "fangDamagePerKill": 0.05,
+    "acidLifestealPerChance": 0.01,
+    "scaleDamageReductionPerPickup": 0.1
+  },
   "loadout": {
     "primaryWeaponId": "hybrid-sword",
     "secondaryWeaponId": null,
@@ -4107,6 +4127,93 @@
               { "id": "doubleTap", "gesture": "doubleTap", "entryContext": "neutral", "activationThreshold": 0.22, "dispatch": "press", "holdBehavior": "none", "releaseBehavior": "cancel", "next": ["doubleTapHold"], "cancel": "release", "expiryMs": 1000, "tactileProfile": "followUp", "adaptiveOverride": { "startPosition": 0.22, "endPosition": 0.3, "force": 0.25 } },
               { "id": "doubleTapHold", "gesture": "doubleTapHold", "entryContext": "continuation", "activationThreshold": 0.72, "dispatch": "release", "holdBehavior": "charge", "releaseBehavior": "dispatch", "next": [], "cancel": "release", "expiryMs": 1000, "tactileProfile": "gate", "entryTick": { "durationMs": 50, "magnitude": 0.4 }, "adaptiveOverride": { "startPosition": 0.72, "endPosition": 0.84, "force": 0.9 } }
             ]
+          }
+        }
+      }
+    },
+    {
+      "id": "secondary-ouroboros-fang",
+      "name": "Клык Уробороса",
+      "equipMode": "secondaryOnly",
+      "description": "Кинжальный удар с откатом 5 секунд. Добивания врагов выше крипа или таракана навсегда усиливают исходящий урон в этой генерации.",
+      "chanceCost": 10,
+      "corpseBound": true,
+      "trait": "ouroborosFang",
+      "defaultAugment": "none",
+      "augmentHooks": { "ouroborosAcid": {} },
+      "attacks": {
+        "tap": {
+          "name": "Укус Клыком Уробороса",
+          "behavior": "standard",
+          "kind": "melee",
+          "damage": 30,
+          "cooldownMs": 5000,
+          "range": 82,
+          "radius": 11,
+          "arcDegrees": 64,
+          "durationMs": 150,
+          "projectileSpeed": 0,
+          "pierce": 1,
+          "knockback": 5,
+          "color": "#9ed36a",
+          "collider": { "shape": "sweep", "width": 22, "traceMs": 480, "rotationDegrees": 66 }
+        },
+        "doubleTap": {
+          "name": "Приём не задан", "enabled": false, "behavior": "disabled", "kind": "melee",
+          "damage": 0, "cooldownMs": 0, "range": 0, "radius": 0, "arcDegrees": 0,
+          "durationMs": 0, "projectileSpeed": 0, "pierce": 0, "knockback": 0, "color": "#55c7ff"
+        },
+        "doubleTapHold": {
+          "name": "Приём не задан", "enabled": false, "behavior": "disabled", "kind": "melee",
+          "damage": 0, "cooldownMs": 0, "range": 0, "radius": 0, "arcDegrees": 0,
+          "durationMs": 0, "projectileSpeed": 0, "pierce": 0, "knockback": 0, "color": "#b680ff"
+        },
+        "hold": {
+          "name": "Приём не задан", "enabled": false, "behavior": "disabled", "kind": "melee",
+          "damage": 0, "cooldownMs": 0, "range": 0, "radius": 0, "arcDegrees": 0,
+          "durationMs": 0, "projectileSpeed": 0, "pierce": 0, "knockback": 0, "color": "#ff9f43"
+        },
+        "holdThenDoubleTap": {
+          "name": "Приём не задан", "enabled": false, "behavior": "disabled", "kind": "melee",
+          "damage": 0, "cooldownMs": 0, "range": 0, "radius": 0, "arcDegrees": 0,
+          "durationMs": 0, "projectileSpeed": 0, "pierce": 0, "knockback": 0, "color": "#6ee7a8"
+        }
+      },
+      "tapCombo": [
+        {
+          "name": "Укус Клыком Уробороса",
+          "behavior": "standard",
+          "kind": "melee",
+          "damage": 30,
+          "cooldownMs": 0,
+          "range": 82,
+          "radius": 11,
+          "arcDegrees": 64,
+          "durationMs": 150,
+          "projectileSpeed": 0,
+          "pierce": 1,
+          "knockback": 5,
+          "color": "#9ed36a",
+          "collider": { "shape": "sweep", "width": 22, "traceMs": 480, "rotationDegrees": -66 }
+        }
+      ],
+      "controls": {
+        "primary": {
+          "role": "Matching hand — five-second dagger strike",
+          "mylorik": {
+            "activations": [
+              { "gesture": "tap", "intent": "strike", "phase": "press", "priority": 100 }
+            ]
+          },
+          "dualsense": {
+            "instantGesture": "tap",
+            "triggerRole": "No trigger technique",
+            "startNodeId": null,
+            "nodes": [],
+            "haptics": {
+              "gateTick": { "durationMs": 24, "magnitude": 0.2 },
+              "commitPattern": [{ "delayMs": 0, "durationMs": 45, "magnitude": 0.48 }]
+            }
           }
         }
       }

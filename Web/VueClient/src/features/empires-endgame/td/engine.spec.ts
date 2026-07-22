@@ -72,6 +72,8 @@ function plan(variantId = 'central-castle-defense'): TdBattlePlan {
         td: config.td.resultLogLimit ?? 32,
         alchemy: config.alchemy.resultLogLimit,
         inventory: config.inventory.resultLogLimit,
+        clash: config.clash.resultLogLimit,
+        chess: config.chess.resultLogLimit,
         saveUtf8Bytes: EMPIRES_STABILIZATION_BUDGETS.longCampaignSaveUtf8Bytes,
       },
     }),
@@ -246,6 +248,41 @@ describe('Empire\'s Endgame deterministic regional TD engine', () => {
     expect(battlePlan.gradeChoices.map(set => set.grade)).toEqual([1, 2, 3, 4])
   })
 
+  it.each([
+    ['east', 'swamp-fort-defense'],
+    ['west', 'forest-fort-defense'],
+    ['south', 'desert-fort-defense'],
+  ] as const)('executes the completed grade-1 through grade-4 %s tower path', (_, variantId) => {
+    const battlePlan = plan(variantId)
+    const state = createTdSimulation(battlePlan, `completed-grades-${variantId}`)
+    const build = buildCommand(battlePlan)
+
+    expect(tdCommandDisabledReason(battlePlan, state, build)).toBeNull()
+    stepTdSimulation(battlePlan, state, [build])
+
+    const appliedChoiceIds: string[] = []
+    for (const grade of [1, 2, 3, 4] as const) {
+      const set = battlePlan.gradeChoices.find(candidate => candidate.grade === grade)!
+      expect(set).toMatchObject({ choiceIds: expect.any(Array) })
+      expect(set.choiceIds).toHaveLength(4)
+      expect(set.deferredReason).toBeUndefined()
+      const choiceId = set.choiceIds[0]
+      const command: TdCommand = {
+        ...commandIdentity(battlePlan, state.tick, grade),
+        kind: 'upgrade-tower',
+        spotId: battlePlan.battlefield.buildSpots[0].id,
+        choiceId,
+      }
+      expect(tdCommandDisabledReason(battlePlan, state, command)).toBeNull()
+      stepTdSimulation(battlePlan, state, [command])
+      appliedChoiceIds.push(choiceId)
+    }
+
+    expect(state.towers[0].choiceIds).toEqual(appliedChoiceIds)
+    expect(state.buildResources).toBe(20)
+    expect(state.commandErrors).toEqual([])
+  })
+
   it('applies swamp reachability plus forest tree targeting and durability data', () => {
     const swamp = plan('swamp-fort-defense')
     configureSingleDurableEnemy(swamp, ['melee'])
@@ -270,6 +307,14 @@ describe('Empire\'s Endgame deterministic regional TD engine', () => {
   it('enforces north artillery categories/no upgrades and applies desert defender attrition', () => {
     const north = plan('north-ship-defense')
     const northState = createTdSimulation(north, 'north-categories')
+    const northReason = 'Северные башни не имеют последовательных грейдов: доступны только базовые катапульты и требушеты.'
+    expect(north.gradeChoices).toHaveLength(4)
+    expect(north.gradeChoices.every(set => (
+      set.availability === 'notApplicable'
+      && set.reason === northReason
+      && set.choiceIds.length === 0
+      && !set.deferredReason
+    ))).toBe(true)
     expect(tdCommandDisabledReason(north, northState, buildCommand(north))).toBeNull()
 
     const forbiddenBase = clone(config.td.towerBases!.find(base => base.id === 'tower-base-center')!)
@@ -288,7 +333,7 @@ describe('Empire\'s Endgame deterministic regional TD engine', () => {
       kind: 'upgrade-tower',
       spotId: north.battlefield.buildSpots[0].id,
       choiceId: northChoice.id,
-    })).toContain('Северный источник запрещает улучшения башен')
+    })).toBe(northReason)
 
     const desert = plan('desert-fort-defense')
     desert.deployments = [{
@@ -307,6 +352,26 @@ describe('Empire\'s Endgame deterministic regional TD engine', () => {
     for (let tick = 0; tick <= 100; tick += 1) stepTdSimulation(desert, desertState)
     expect(desertState.squads[0].hp).toBe(79)
     expect(desertState.damageByType.attrition).toBe(1)
+  })
+
+  it('rejects malformed not-applicable grade sets without treating them as deferred', () => {
+    const exposedChoice = plan('north-ship-defense')
+    exposedChoice.gradeChoices[0].choiceIds.push('tower-g1-height')
+    expect(validateTdBattlePlan(exposedChoice)).toContain(
+      'not-applicable grade set north-grade-1 must not expose choices',
+    )
+
+    const missingReason = plan('north-ship-defense')
+    delete missingReason.gradeChoices[0].reason
+    expect(validateTdBattlePlan(missingReason)).toContain(
+      'not-applicable grade set north-grade-1 needs a reason',
+    )
+
+    const mixedGate = plan('north-ship-defense')
+    mixedGate.gradeChoices[0].deferredReason = 'Future gate.'
+    expect(validateTdBattlePlan(mixedGate)).toContain(
+      'not-applicable grade set north-grade-1 cannot be deferred',
+    )
   })
 
   it('rejects executable plans with unknown combat references or disconnected routes', () => {

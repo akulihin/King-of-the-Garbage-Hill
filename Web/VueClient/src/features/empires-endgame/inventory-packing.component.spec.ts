@@ -20,6 +20,8 @@ function session(): EmpiresInventoryMinigameSession {
     requestedProvisionAmount: 500,
     requiredProvisionAmount: 500,
     eligibleProvisionAmount: 500,
+    eligibleEquipmentAmounts: {},
+    packerPerstId: null,
     rosterUnitInstanceIds: ['unit-instance-1'],
     tickMs: 50,
     maxTicks: 2,

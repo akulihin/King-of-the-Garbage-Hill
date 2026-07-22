@@ -30,6 +30,21 @@ import {
   replayInventory,
   validateInventoryPlan,
 } from './inventory/engine'
+import {
+  abortClash,
+  createClashRulesIdentity,
+  replayClash,
+  replayClashState,
+  validateClashPlan,
+} from './clash/engine'
+import {
+  abortChess,
+  createChessPlanFromConfig,
+  createChessRulesIdentity,
+  digestChessValue,
+  resolveChess,
+  validateChessPlan,
+} from './chess/engine'
 import { resolveEmpiresUnitLoadout } from './equipment'
 import {
   allocateEpidemicClassLoss,
@@ -149,6 +164,13 @@ import type {
   InventoryPlan,
   InventoryResult,
   InventoryRulesIdentity,
+  ClashCommand,
+  ClashPlan,
+  ClashResult,
+  ClashRulesIdentity,
+  ChessCommand,
+  ChessResult,
+  ChessRulesIdentity,
   TdBattleConsequenceDefinition,
   TdBattlePlan,
   TdCommand,
@@ -194,6 +216,15 @@ const FAMINE_RATIONING_EVENT_ID = 'event-famine-rationing'
 
 function cloneSerializable<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T
+}
+
+function clashCommandLogExtends(
+  persisted: readonly ClashCommand[],
+  candidate: unknown,
+): candidate is readonly ClashCommand[] {
+  return Array.isArray(candidate)
+    && candidate.length >= persisted.length
+    && digestTdValue(candidate.slice(0, persisted.length)) === digestTdValue(persisted)
 }
 
 function stableStringCompare(left: string, right: string): number {
@@ -387,7 +418,7 @@ function uniqueIds<T extends { id: string }>(values: readonly T[]): boolean {
 
 export function validateEmpiresEndgameConfig(config: EmpiresEndgameConfig): string[] {
   const errors: string[] = []
-  if (config.schemaVersion !== 17) errors.push('schemaVersion must be 17')
+  if (config.schemaVersion !== 19) errors.push('schemaVersion must be 19')
   if (!config.id.trim()) errors.push('config id is required')
   if (config.cards.length !== 53) errors.push('cards must contain exactly 53 definitions')
   if (!uniqueIds(config.cards)) errors.push('card definition ids must be unique')
@@ -690,7 +721,11 @@ export class EmpiresEndgameEngine {
         ? this.currentTavernRulesIdentity()
         : session.kind === 'alchemy'
           ? this.currentAlchemyRulesIdentity()
-          : this.currentInventoryRulesIdentity()
+          : session.kind === 'inventory'
+            ? this.currentInventoryRulesIdentity()
+            : session.kind === 'clash'
+              ? this.currentClashRulesIdentity()
+              : this.currentChessRulesIdentity()
     if (session.id !== session.plan.sessionId
       || session.rulesIdentity.configSchemaVersion !== expectedRules.configSchemaVersion
       || session.rulesIdentity.rulesDigest !== expectedRules.rulesDigest
@@ -703,8 +738,15 @@ export class EmpiresEndgameEngine {
         ? validateTavernPlan(session.plan)
         : session.kind === 'alchemy'
           ? validateAlchemyPlan(session.plan)
-          : validateInventoryPlan(session.plan)
+          : session.kind === 'inventory'
+            ? validateInventoryPlan(session.plan)
+            : session.kind === 'clash'
+              ? validateClashPlan(session.plan)
+              : validateChessPlan(session.plan)
     if (planErrors.length > 0) return failure(`Invalid ${session.kind} plan: ${planErrors.join('; ')}`)
+    if (session.kind === 'clash' && session.turnLog.length > 0) {
+      return failure('A new Clash session must start with an empty turn log.')
+    }
     if (session.origin.returnPhase !== this.state.phase) {
       return failure('Minigame origin must return to the current campaign phase.')
     }
@@ -714,6 +756,22 @@ export class EmpiresEndgameEngine {
     })
     this.state.phase = 'minigame'
     return this.commit(`Minigame ${session.id} started.`)
+  }
+
+  recordClashProgress(commandLog: readonly ClashCommand[]): EmpiresActionResult {
+    const session = this.state.minigame
+    if (!session || session.kind !== 'clash' || this.state.phase !== 'minigame') {
+      return failure('No Clash session is active.')
+    }
+    if (!clashCommandLogExtends(session.turnLog, commandLog)) {
+      return failure('Clash progress does not extend the persisted turn log.')
+    }
+    const replayed = replayClashState(session.plan, session.seed, commandLog)
+    if (replayed.error || replayed.commandLog.length !== commandLog.length) {
+      return failure(replayed.error ?? 'Clash progress failed deterministic replay validation.')
+    }
+    session.turnLog = cloneSerializable(commandLog)
+    return this.commit(`Clash ${session.id} progress saved.`)
   }
 
   resolveMinigame(result: EmpiresMinigameResult): EmpiresActionResult {
@@ -742,11 +800,18 @@ export class EmpiresEndgameEngine {
         ? this.currentTavernRulesIdentity()
         : session.kind === 'alchemy'
           ? this.currentAlchemyRulesIdentity()
-          : this.currentInventoryRulesIdentity()
+          : session.kind === 'inventory'
+            ? this.currentInventoryRulesIdentity()
+            : session.kind === 'clash'
+              ? this.currentClashRulesIdentity()
+              : this.currentChessRulesIdentity()
+    const expectedPlanDigest = session.kind === 'chess'
+      ? digestChessValue(session.plan)
+      : digestTdValue(session.plan)
     if (result.kind !== session.kind
       || result.sessionId !== session.id
       || result.planId !== session.plan.id
-      || result.planDigest !== digestTdValue(session.plan)
+      || result.planDigest !== expectedPlanDigest
       || result.rulesIdentity.configSchemaVersion !== session.rulesIdentity.configSchemaVersion
       || result.rulesIdentity.rulesDigest !== session.rulesIdentity.rulesDigest
       || session.rulesIdentity.configSchemaVersion !== expectedRules.configSchemaVersion
@@ -754,6 +819,13 @@ export class EmpiresEndgameEngine {
       || result.seed !== session.seed) {
       return failure('The minigame result does not match the active session.')
     }
+    if (session.kind === 'clash' && result.kind === 'clash'
+      && !clashCommandLogExtends(session.turnLog, result.turnLog)) {
+      return failure('Clash result does not extend the persisted turn log.')
+    }
+    const clashReplay = session.kind === 'clash' && result.kind === 'clash'
+      ? replayClash(session.plan, session.seed, result.turnLog)
+      : null
     const replayed = session.kind === 'td' && result.kind === 'td'
       ? replayTdBattle(session.plan, session.seed, result.commandLog)
       : session.kind === 'tavern' && result.kind === 'tavern'
@@ -762,7 +834,11 @@ export class EmpiresEndgameEngine {
           ? replayAlchemy(session.plan, session.seed, result.commandLog)
           : session.kind === 'inventory' && result.kind === 'inventory'
             ? replayInventory(session.plan, session.seed, result.commandLog)
-            : null
+            : session.kind === 'chess' && result.kind === 'chess'
+              ? resolveChess(session.plan, session.seed, result.commandLog)
+              : clashReplay && 'kind' in clashReplay && clashReplay.kind === 'clash'
+                ? clashReplay
+                : null
     if (!replayed) return failure('Unsupported minigame result kind.')
     if (JSON.stringify(replayed) !== JSON.stringify(result)) {
       return failure('The minigame result failed deterministic replay validation.')
@@ -774,6 +850,8 @@ export class EmpiresEndgameEngine {
       else if (session.kind === 'tavern' && result.kind === 'tavern') this.settleTavernOutcome(result, session)
       else if (session.kind === 'alchemy' && result.kind === 'alchemy') this.settleAlchemyOutcome(result, session)
       else if (session.kind === 'inventory' && result.kind === 'inventory') this.settleInventoryOutcome(result, session)
+      else if (session.kind === 'clash' && result.kind === 'clash') this.settleClashOutcome(result, session)
+      else if (session.kind === 'chess' && result.kind === 'chess') this.settleChessOutcome(result, session)
       this.recordMinigameResult(session, result)
       this.finishEmpireAfterDayConsumingMinigame(session.kind)
     } catch (error) {
@@ -784,8 +862,9 @@ export class EmpiresEndgameEngine {
   }
 
   abortMinigame(
-    commandLog: readonly TdCommand[] | readonly AlchemyCommand[] | readonly InventoryCommand[] = [],
-    abortTick = 0,
+    commandLog: readonly TdCommand[] | readonly AlchemyCommand[] | readonly InventoryCommand[]
+      | readonly ClashCommand[] | readonly ChessCommand[] = [],
+    abortTickOrTurn = 0,
   ): EmpiresActionResult {
     const session = this.state.minigame
     if (!session || this.state.phase !== 'minigame') {
@@ -799,11 +878,18 @@ export class EmpiresEndgameEngine {
     if (session.kind === 'tavern') {
       return failure('This minigame has no authored abort consequence; finish the Tavern visit instead.')
     }
+    if (session.kind === 'clash' && !clashCommandLogExtends(session.turnLog, commandLog)) {
+      return failure('Clash abort does not extend the persisted turn log.')
+    }
     const result = session.kind === 'td'
-      ? abortTdBattle(session.plan, session.seed, commandLog as readonly TdCommand[], abortTick)
+      ? abortTdBattle(session.plan, session.seed, commandLog as readonly TdCommand[], abortTickOrTurn)
       : session.kind === 'alchemy'
-        ? abortAlchemy(session.plan, session.seed, commandLog as readonly AlchemyCommand[], abortTick)
-        : abortInventory(session.plan, session.seed, commandLog as readonly InventoryCommand[], abortTick)
+        ? abortAlchemy(session.plan, session.seed, commandLog as readonly AlchemyCommand[], abortTickOrTurn)
+        : session.kind === 'inventory'
+          ? abortInventory(session.plan, session.seed, commandLog as readonly InventoryCommand[], abortTickOrTurn)
+          : session.kind === 'clash'
+            ? abortClash(session.plan, session.seed, commandLog as readonly ClashCommand[], abortTickOrTurn)
+            : abortChess(session.plan, session.seed, commandLog as readonly ChessCommand[])
     if (result.outcome !== 'aborted') {
       return failure(result.error ?? 'The minigame could not be aborted from that command log.')
     }
@@ -812,6 +898,8 @@ export class EmpiresEndgameEngine {
       if (session.kind === 'td' && result.kind === 'td') this.settleBattleOutcome(result, session)
       else if (session.kind === 'alchemy' && result.kind === 'alchemy') this.settleAlchemyOutcome(result, session)
       else if (session.kind === 'inventory' && result.kind === 'inventory') this.settleInventoryOutcome(result, session)
+      else if (session.kind === 'clash' && result.kind === 'clash') this.settleClashOutcome(result, session)
+      else if (session.kind === 'chess' && result.kind === 'chess') this.settleChessOutcome(result, session)
       this.recordMinigameResult(session, result)
       this.finishEmpireAfterDayConsumingMinigame(session.kind)
     } catch (error) {
@@ -1115,6 +1203,86 @@ export class EmpiresEndgameEngine {
     return this.commit(`${this.getDefinition(cardId).name} restored.`)
   }
 
+  recruitMystic(definitionId: string): EmpiresActionResult {
+    const dialogueBlock = this.mandatoryDialogueBlockedReason()
+    if (dialogueBlock) return failure(dialogueBlock)
+    if (!this.config.tavern.enabled) return failure('The Tavern is disabled.')
+    if (this.state.phase !== 'empire') return failure('Mystics can only join during the empire phase.')
+    if (this.state.tavern.lastVisitedCon === null) {
+      return failure('Visit the Tavern before inviting mystics to the Council.')
+    }
+    if (!this.config.tavern.mystics.recruitableDefinitionIds.includes(definitionId)) {
+      return failure('That mystic cannot be recruited from the Tavern.')
+    }
+    const definition = this.mysticDefinitions.get(definitionId)
+    if (!definition || definition.deferredReason
+      || definition.normal.deferredReason || definition.inverted.deferredReason) {
+      return failure('That mystic is not available.')
+    }
+    if (Object.values(this.state.mystics.instances).some(
+      instance => instance.definitionId === definitionId,
+    )) return failure(`${definition.name} already belongs to this campaign.`)
+    const goldId = this.config.empire.domesticEconomy.goldResourceId
+    const cost = this.config.tavern.mystics.recruitmentGoldCost
+    if ((this.state.empire.resources[goldId] ?? 0) < cost) return failure('Not enough gold.')
+    this.state.empire.resources[goldId] -= cost
+    if (!this.spawnMysticCard(definitionId, `mystic-recruit:${definitionId}:${this.state.con}`)) {
+      this.state.empire.resources[goldId] += cost
+      return failure('That mystic could not join the Council.')
+    }
+    this.refreshHeldPassiveEffects()
+    return this.commit(`${definition.name} joined the Council for ${cost} gold.`)
+  }
+
+  dismissMystic(instanceId: string): EmpiresActionResult {
+    const dialogueBlock = this.mandatoryDialogueBlockedReason()
+    if (dialogueBlock) return failure(dialogueBlock)
+    if (this.state.phase !== 'empire') return failure('Mystics can only leave during the empire phase.')
+    const instance = this.state.mystics.instances[instanceId]
+    const definition = instance ? this.mysticDefinitions.get(instance.definitionId) : null
+    if (!instance || !definition) return failure('Unknown mystic card.')
+    if (instance.status !== 'zone') return failure(`${definition.name} is already away.`)
+    const index = this.state.mystics.zone.indexOf(instance.id)
+    if (index < 0) return failure(`${definition.name} is not in the Council.`)
+    this.state.mystics.zone.splice(index, 1)
+    instance.status = 'returning'
+    instance.returnAtCon = this.state.con + definition.returnDelayCons
+    instance.lastChangedCon = this.state.con
+    this.appendMysticHistory(
+      this.state,
+      'leave',
+      `mystic-dismiss:${instance.id}:${this.state.con}`,
+      [instance.id],
+    )
+    this.refreshHeldPassiveEffects()
+    return this.commit(`${definition.name} left until con ${instance.returnAtCon}.`)
+  }
+
+  appeaseQueen(): EmpiresActionResult {
+    const dialogueBlock = this.mandatoryDialogueBlockedReason()
+    if (dialogueBlock) return failure(dialogueBlock)
+    if (this.state.phase !== 'empire') return failure('The Queen can only be appeased during the empire phase.')
+    const queen = Object.values(this.state.mystics.instances).find(instance => (
+      instance.definitionId === this.config.tavern.queen.mysticDefinitionId
+      && instance.status === 'zone'
+    ))
+    if (!queen) return failure('The Queen is not in the Council.')
+    if (!queen.inverted) return failure('The Queen is already appeased.')
+    const cost = this.config.tavern.mystics.appeasementUpgradePointCost
+    if (this.state.upgradePoints < cost) return failure('Not enough upgrade points.')
+    this.state.upgradePoints -= cost
+    queen.inverted = false
+    queen.lastChangedCon = this.state.con
+    this.appendMysticHistory(
+      this.state,
+      'appease',
+      `queen-appease:${queen.id}:${this.state.con}`,
+      [queen.id],
+    )
+    this.refreshHeldPassiveEffects()
+    return this.commit(`The Queen was appeased for ${cost} upgrade point${cost === 1 ? '' : 's'}.`)
+  }
+
   upgradeBuilding(cityId: string, buildingId: string): EmpiresActionResult {
     const dialogueBlock = this.mandatoryDialogueBlockedReason()
     if (dialogueBlock) return failure(dialogueBlock)
@@ -1281,7 +1449,8 @@ export class EmpiresEndgameEngine {
     if (missingEquipment) return empty(`Not enough equipment: ${missingEquipment.equipmentId}.`)
     const discount = Math.max(0, Math.min(
       100,
-      this.operationalBuildingFlagValue(city, 'armyProductionDiscountPercent') ?? 0,
+      (this.operationalBuildingFlagValue(city, 'armyProductionDiscountPercent') ?? 0)
+        + Math.max(0, this.effectiveEmpireFlagValue('armyProductionDiscountPercent')),
     ))
     const resourceCosts = [...unit.resourceCosts.reduce((totals, cost) => {
       totals.set(cost.resourceId, (totals.get(cost.resourceId) ?? 0) + cost.amount * count)
@@ -1383,6 +1552,40 @@ export class EmpiresEndgameEngine {
     return this.commit('Production boost assignment cleared.')
   }
 
+  generalsRallyBlockedReason(): string | null {
+    const dialogueBlock = this.mandatoryDialogueBlockedReason()
+    if (dialogueBlock) return dialogueBlock
+    if (this.state.phase !== 'empire') return 'Генералы собирают войска только во время управления империей.'
+    if (!this.state.empire.researchedTechnologyIds.includes('tech-generals')) {
+      return 'Сначала изучите Назначение генералов.'
+    }
+    const amount = Math.max(0, Math.floor(this.effectiveEmpireFlagValue('generalRallyAmount')))
+    if (amount <= 0) return 'У генералов нет доступного приказа.'
+    if (this.state.empire.flags.generalRallyLastUsedCon === this.state.con) {
+      return 'Генералы уже собирали войска в этом кону.'
+    }
+    this.syncArmyMoraleCap()
+    return this.state.army.morale >= this.state.army.maxMorale
+      ? 'Боевой дух уже на максимуме.'
+      : null
+  }
+
+  rallyGenerals(): EmpiresActionResult {
+    const blocked = this.generalsRallyBlockedReason()
+    if (blocked) return failure(blocked)
+    const amount = Math.max(0, Math.floor(this.effectiveEmpireFlagValue('generalRallyAmount')))
+    this.state.army.morale = Math.min(this.state.army.maxMorale, this.state.army.morale + amount)
+    this.state.empire.flags.generalRallyLastUsedCon = this.state.con
+    this.appendChronicle(this.state, {
+      kind: 'governance',
+      sourceId: `generals-rally:${this.state.con}`,
+      title: 'Генералы собрали войска',
+      description: `Боевой дух повышен на ${amount}.`,
+      target: { kind: 'empire' },
+    })
+    return this.commit('Генералы повысили Боевой дух.')
+  }
+
   research(technologyId: string): EmpiresActionResult {
     const dialogueBlock = this.mandatoryDialogueBlockedReason()
     if (dialogueBlock) return failure(dialogueBlock)
@@ -1412,6 +1615,7 @@ export class EmpiresEndgameEngine {
       }
     }
     this.applyEffects(technology.effects, 0)
+    this.awardMilitaryAcademyUnits(technology)
     this.selectTechnologySide(technology)
     this.scheduleDelayedSteelResearch()
     this.awardDueSteelResearch()
@@ -1471,8 +1675,7 @@ export class EmpiresEndgameEngine {
           : gateReason ?? `This + steel stage unlocks automatically at con ${eligible}.`,
       }
     }
-    if (technology.steel?.eliteRequired
-      && (this.state.empire.flags[this.config.empire.steelResearch.militaryEliteFlagId] ?? 0) <= 0) {
+    if (technology.steel?.eliteRequired && !this.militaryEliteAvailable()) {
       return { ...base, blockedReason: 'A military elite is required for this research.' }
     }
     const usageKey = this.researchUsageKey(technology)
@@ -1538,7 +1741,11 @@ export class EmpiresEndgameEngine {
       candidate => candidate.id === definition.enemyProfileId,
     )!
     const wave = this.config.td.waves.find(candidate => candidate.id === profile.waveId)!
-    const speedPercent = Math.max(0, this.effectiveEmpireFlagValue('expeditionSpeedPercent'))
+    const speedPercent = Math.max(
+      0,
+      this.effectiveEmpireFlagValue('expeditionSpeedPercent')
+        + this.operationalEmpireBuildingFlagValue('expeditionSpeedPercent'),
+    )
     const mapBonusPercent = Math.max(0, this.effectiveEmpireFlagValue('logisticsMapBonusPercent'))
     const effectiveDurationCons = this.expeditionEffectiveDuration(
       definition,
@@ -1611,6 +1818,7 @@ export class EmpiresEndgameEngine {
       preparationDays: definition.preparationDays,
       speedPercent: expedition.provisionPlan?.speedPercent ?? speedPercent,
       mapBonusPercent: expedition.provisionPlan?.mapBonusPercent ?? mapBonusPercent,
+      veteranDeploymentSpeedPercent: this.config.expeditions.veteran.laterBattleBonus.percent,
       maxInstallments: this.expeditionMaximumInstallments(),
       provisionAvailable: this.expeditionOriginProvisionAvailable(definition),
       provisionRequired: expedition.provisionPlan?.requiredAmount ?? provisionRequired,
@@ -1698,7 +1906,11 @@ export class EmpiresEndgameEngine {
     if (this.state.empire.daysRemaining < definition.preparationDays) {
       return failure(`Для подготовки нужно ${definition.preparationDays} дней.`)
     }
-    const speedPercent = Math.max(0, this.effectiveEmpireFlagValue('expeditionSpeedPercent'))
+    const speedPercent = Math.max(
+      0,
+      this.effectiveEmpireFlagValue('expeditionSpeedPercent')
+        + this.operationalEmpireBuildingFlagValue('expeditionSpeedPercent'),
+    )
     const mapBonusPercent = Math.max(0, this.effectiveEmpireFlagValue('logisticsMapBonusPercent'))
     const effectiveDurationCons = this.expeditionEffectiveDuration(definition, speedPercent, mapBonusPercent)
     const requiredAmount = ids.reduce((total, id) => (
@@ -1710,11 +1922,24 @@ export class EmpiresEndgameEngine {
       return failure(`Для упаковки нужно назначить больше нуля и не менее ${minimumAmount} провизии.`)
     }
     const liveDefinitions = this.config.inventory.itemDefinitions.filter(item => (
-      !item.deferredReason
-      && item.content.kind === 'resource'
-      && item.content.resourceId === definition.provisionResourceId
+      !item.deferredReason && (
+        item.content.kind === 'resource'
+          ? item.content.resourceId === definition.provisionResourceId
+          : (this.state.army.equipmentStock[item.content.equipmentId] ?? 0) > 0
+      )
     ))
-    if (liveDefinitions.length === 0) return failure('Для этой провизии нет доступных упаковочных предметов.')
+    if (!liveDefinitions.some(item => item.content.kind === 'resource')) {
+      return failure('Для этой провизии нет доступных упаковочных предметов.')
+    }
+    const packerRules = this.config.inventory.perstPacker
+    const originAssignment = this.state.governance.governorAssignments[definition.originRegionId]
+    const packerAssigned = packerRules.requireOriginGovernor
+      ? originAssignment?.perstId === packerRules.perstId
+      : Object.values(this.state.governance.governorAssignments)
+          .some(assignment => assignment.perstId === packerRules.perstId)
+    const packerPerstId = packerAssigned ? packerRules.perstId : null
+    const equipmentItemLimit = this.config.inventory.equipmentPacking.maxItems
+      + (packerPerstId ? packerRules.bonusEquipmentItems : 0)
 
     const before = cloneSerializable(this.state)
     expedition.assaultAttempts += 1
@@ -1724,6 +1949,7 @@ export class EmpiresEndgameEngine {
       expedition.assaultAttempts,
       provisionAmount,
       liveDefinitions,
+      equipmentItemLimit,
     )
     if (inventoryItems.items.length === 0 || inventoryItems.eligibleAmount <= 0) {
       this.state = before
@@ -1745,6 +1971,8 @@ export class EmpiresEndgameEngine {
       requestedProvisionAmount: provisionAmount,
       requiredProvisionAmount: requiredAmount,
       eligibleProvisionAmount: inventoryItems.eligibleAmount,
+      eligibleEquipmentAmounts: inventoryItems.eligibleEquipmentAmounts,
+      packerPerstId,
       rosterUnitInstanceIds: [...ids].sort(stableStringCompare),
       tickMs: this.config.inventory.tickMs,
       maxTicks: this.config.inventory.maxTicks,
@@ -1786,6 +2014,9 @@ export class EmpiresEndgameEngine {
       packingScore: 0,
       packingSessionId: sessionId,
       packedItemInstanceIds: [],
+      packedEquipmentAmounts: {},
+      returnedEquipmentAmounts: {},
+      packerPerstId,
       withdrawals: [],
     }
     this.state.empire.daysRemaining -= definition.preparationDays
@@ -1839,7 +2070,11 @@ export class EmpiresEndgameEngine {
     if (!Number.isInteger(installmentCount) || installmentCount < 1 || installmentCount > maxInstallments) {
       return failure(`Провизию можно разделить максимум на ${maxInstallments} платежа.`)
     }
-    const speedPercent = Math.max(0, this.effectiveEmpireFlagValue('expeditionSpeedPercent'))
+    const speedPercent = Math.max(
+      0,
+      this.effectiveEmpireFlagValue('expeditionSpeedPercent')
+        + this.operationalEmpireBuildingFlagValue('expeditionSpeedPercent'),
+    )
     const mapBonusPercent = Math.max(0, this.effectiveEmpireFlagValue('logisticsMapBonusPercent'))
     const effectiveDurationCons = this.expeditionEffectiveDuration(
       definition,
@@ -1900,6 +2135,9 @@ export class EmpiresEndgameEngine {
       packingScore: 0,
       packingSessionId: null,
       packedItemInstanceIds: [],
+      packedEquipmentAmounts: {},
+      returnedEquipmentAmounts: {},
+      packerPerstId: null,
       withdrawals: [],
     }
     this.state.empire.daysRemaining -= definition.preparationDays
@@ -1930,12 +2168,15 @@ export class EmpiresEndgameEngine {
     if (!definition || !expedition) return failure('Неизвестная экспедиция.')
     if (expedition.status === 'planning') return this.cancelExpeditionPlanning(expeditionId)
     if (expedition.status === 'fighting') {
-      if (this.state.minigame?.kind !== 'td'
+      if ((this.state.minigame?.kind !== 'td' && this.state.minigame?.kind !== 'clash')
+        || this.state.minigame.kind !== definition.battleMode
         || this.state.minigame.origin.context.kind !== 'expedition-assault'
         || this.state.minigame.origin.context.expeditionId !== expeditionId) {
         return failure('Активный бой экспедиции не совпадает с её состоянием.')
       }
-      return this.abortMinigame()
+      return this.state.minigame.kind === 'clash'
+        ? this.abortMinigame(this.state.minigame.turnLog)
+        : this.abortMinigame()
     }
     if (expedition.status === 'packing') {
       if (this.state.minigame?.kind !== 'inventory'
@@ -1958,6 +2199,13 @@ export class EmpiresEndgameEngine {
     if (!definition || !expedition) return failure('Неизвестная экспедиция.')
     if (this.state.phase !== 'empire' || expedition.status !== 'ready' || !expedition.provisionPlan) {
       return failure('Экспедиция ещё не готова к штурму.')
+    }
+    if (definition.battleMode === 'clash') {
+      const route = this.config.clash.assaultRoutes.find(candidate => (
+        candidate.sourceKind === 'expedition' && candidate.sourceId === definition.id
+      ))
+      return failure(route?.deferredReason
+        ?? 'Для штурма Клэшем не задано соответствие походных отрядов именному ростеру война.')
     }
     const rosterIds = new Set(expedition.rosterUnitInstanceIds)
     if (rosterIds.size === 0 || [...rosterIds].some((id) => {
@@ -1982,6 +2230,16 @@ export class EmpiresEndgameEngine {
       variant.deploymentSpeedPerSecond,
       rosterIds,
     )
+    const veteranIds = new Set(expedition.rosterSnapshot
+      .filter(snapshot => snapshot.veteranAtLaunch)
+      .map(snapshot => snapshot.unitInstanceId))
+    const veteranSpeedBonus = this.config.expeditions.veteran.laterBattleBonus.percent / 100
+    for (const deployment of deployments) {
+      const veteranCount = deployment.unitInstanceIds.filter(id => veteranIds.has(id)).length
+      if (veteranCount > 0) {
+        deployment.speedPerSecond *= 1 + veteranSpeedBonus * veteranCount / deployment.count
+      }
+    }
     const deployedIds = new Set(deployments.flatMap(deployment => deployment.unitInstanceIds))
     if (deployedIds.size !== rosterIds.size || [...rosterIds].some(id => !deployedIds.has(id))) {
       return failure('Не все выбранные отряды можно развернуть на этом штурме.')
@@ -2022,7 +2280,9 @@ export class EmpiresEndgameEngine {
       wave: cloneSerializable(wave),
       combat: cloneSerializable(this.config.combat),
       deployments,
-      equipmentStock: cloneSerializable(this.state.army.equipmentStock),
+      equipmentStock: cloneSerializable(expedition.provisionPlan.source === 'packing'
+        ? expedition.provisionPlan.packedEquipmentAmounts
+        : this.state.army.equipmentStock),
     }
     const planErrors = validateTdBattlePlan(plan)
     if (planErrors.length > 0) return failure(`Invalid expedition TD plan: ${planErrors.join('; ')}`)
@@ -2313,6 +2573,47 @@ export class EmpiresEndgameEngine {
     return this.commit(`${action.name} started in ${cityId}.`)
   }
 
+  fairExchangeBlockedReason(cityId: string): string | null {
+    const dialogueBlock = this.mandatoryDialogueBlockedReason()
+    if (dialogueBlock) return dialogueBlock
+    if (this.state.phase !== 'empire') return 'Обмен на Ярмарке доступен только во время управления империей.'
+    const fair = this.config.empire.domesticEconomy.fair
+    const building = this.economyBuildingBlockedReason(cityId, fair.buildingId)
+    if (building) return building
+    if (!this.state.empire.researchedTechnologyIds.includes(fair.technologyId)) {
+      return `Missing prerequisite: ${fair.technologyId}.`
+    }
+    const city = this.city(cityId)!
+    const rate = this.operationalBuildingFlagValue(city, 'fairResourceExchangeRatePercent') ?? 0
+    if (rate <= 0) return 'У Ярмарки нет действующего курса обмена.'
+    if (this.state.empire.flags[`fairExchangeLastUsed:${cityId}`] === this.state.con) {
+      return 'Ярмарка уже провела обмен в этом кону.'
+    }
+    return this.firstMissingResource([{ resourceId: 'wood', amount: 1000 }], city, true)
+      ? 'Для обмена нужно 1000 дерева.'
+      : null
+  }
+
+  exchangeAtFair(cityId: string): EmpiresActionResult {
+    const blocked = this.fairExchangeBlockedReason(cityId)
+    if (blocked) return failure(blocked)
+    const city = this.city(cityId)!
+    const rate = this.operationalBuildingFlagValue(city, 'fairResourceExchangeRatePercent')!
+    const gold = Math.floor(1000 * rate / 100)
+    this.payResources([{ resourceId: 'wood', amount: 1000 }], city, true)
+    const goldId = this.config.empire.domesticEconomy.goldResourceId
+    this.state.empire.resources[goldId] = (this.state.empire.resources[goldId] ?? 0) + gold
+    this.state.empire.flags[`fairExchangeLastUsed:${cityId}`] = this.state.con
+    this.appendChronicle(this.state, {
+      kind: 'fair',
+      sourceId: `fair-exchange:${cityId}:${this.state.con}`,
+      title: 'Внутренний обмен Ярмарки',
+      description: `1000 дерева обменяно на ${gold} золота.`,
+      target: { kind: 'city', cityId },
+    })
+    return this.commit(`Ярмарка обменяла 1000 дерева на ${gold} золота.`)
+  }
+
   preachAtTemple(cityId: string): EmpiresActionResult {
     const dialogueBlock = this.mandatoryDialogueBlockedReason()
     if (dialogueBlock) return failure(dialogueBlock)
@@ -2435,6 +2736,7 @@ export class EmpiresEndgameEngine {
           blockedReason: this.fairActionBlockedReason(cityId, action.id),
         })),
         baronUnlockedAtCon: this.state.empire.domesticEconomy.fair.baronUnlockedAtCon,
+        exchangeBlockedReason: this.fairExchangeBlockedReason(cityId),
       },
       temple: {
         preachBlockedReason: this.templePreachingBlockedReason(cityId),
@@ -2488,6 +2790,13 @@ export class EmpiresEndgameEngine {
           ...this.config.alchemy.deferredSubfeatures,
         ]),
         explosionCount: this.state.alchemy.explosionCount,
+        pendingMutantAftermathCount: this.state.alchemy.pendingMutantAftermaths
+          .filter(aftermath => aftermath.cityId === cityId).length,
+        nextMutantAftermathCon: this.state.alchemy.pendingMutantAftermaths
+          .filter(aftermath => aftermath.cityId === cityId)
+          .reduce<number | null>((next, aftermath) => (
+            next === null ? aftermath.dueCon : Math.min(next, aftermath.dueCon)
+          ), null),
       },
     }
   }
@@ -2536,6 +2845,10 @@ export class EmpiresEndgameEngine {
         : 1)),
     }))
     const mariaPresent = nextEmpiresRandom(this.state.rng) < tavern.maria.encounterChance
+    const mariaRoundWins = Array.from(
+      { length: tavern.maria.roundsToWin * 2 - 1 },
+      () => nextEmpiresRandom(this.state.rng) < tavern.maria.playerRoundWinChance,
+    )
     const seed = Math.floor(nextEmpiresRandom(this.state.rng) * 0x1_0000_0000)
     const sequence = this.nextMinigameSequence()
     const planId = `tavern-${this.state.con}-${cityId}`
@@ -2565,7 +2878,8 @@ export class EmpiresEndgameEngine {
         present: mariaPresent,
         title: tavern.maria.title,
         description: tavern.maria.description,
-        deferredReason: mariaPresent ? tavern.maria.encounterDeferredReason : null,
+        roundsToWin: tavern.maria.roundsToWin,
+        playerRoundWins: mariaRoundWins,
       },
       maxCommands: tavern.maxCommands,
     }
@@ -3486,9 +3800,29 @@ export class EmpiresEndgameEngine {
     this.state.governance.nextAdvisorTransitionSequence += 1
     if (action === 'grant-access') {
       this.state.durak.trumpSuit = this.config.governance.trump.restrictedSuit
+    } else {
+      this.unlockGrandAdvisorAfterJudgment(this.state)
     }
     this.refreshProductions()
     return this.commit(`${advisor.name}: ${action}.`)
+  }
+
+  private unlockGrandAdvisorAfterJudgment(state: EmpiresCampaignState): void {
+    const grandAdvisor = this.config.governance.advisors.find(advisor => advisor.grandAdvisor)
+    if (!grandAdvisor || state.governance.advisors[grandAdvisor.id]?.status !== 'locked') return
+    const judgmentAdvisors = this.config.governance.advisors.filter(advisor => advisor.decisionId)
+    if (judgmentAdvisors.some(advisor => (
+      state.governance.advisors[advisor.id]?.status === 'awaiting-judgment'
+      || state.governance.advisors[advisor.id]?.status === 'locked'
+    ))) return
+    state.governance.advisors[grandAdvisor.id] = {
+      status: 'active',
+      transitionSequence: state.governance.nextAdvisorTransitionSequence,
+      transitionedAtCon: state.con,
+      transitionSourceId: 'governance:starting-judgment-complete',
+    }
+    state.governance.nextAdvisorTransitionSequence += 1
+    state.durak.trumpSuit = this.config.governance.trump.restrictedSuit
   }
 
   advisorAlignment(advisorId: string): 'locked' | 'balanced' | 'specialized' {
@@ -3522,6 +3856,116 @@ export class EmpiresEndgameEngine {
     this.refreshProductions()
     const perst = this.config.governance.persts.find(candidate => candidate.id === perstId)!
     return this.commit(`${perst.title} ${perst.name} permanently assigned to ${regionId}.`)
+  }
+
+  capitalSiteBlockedReason(siteId: string): string | null {
+    const dialogueBlock = this.mandatoryDialogueBlockedReason()
+    if (dialogueBlock) return dialogueBlock
+    if (!this.config.governance.enabled) return 'Governance is disabled.'
+    if (this.state.phase !== 'empire') return 'Capital actions are only available in the empire phase.'
+    const site = this.config.governance.capital.sites.find(candidate => candidate.id === siteId)
+    if (!site) return 'Unknown capital site.'
+    if (site.deferredReason) return site.deferredReason
+    const capital = this.city(this.config.governance.capital.cityId)
+    if (!capital || !this.isCityAccessible(capital.id)) return 'The capital is not accessible.'
+    if (site.buildingId && this.effectiveOperationalBuildingLevel(capital.id, site.buildingId) < 1) {
+      return `The capital needs an operational ${site.buildingId}.`
+    }
+    if (site.mapObjectId && !this.config.empire.map.objects.some(object => object.id === site.mapObjectId)) {
+      return `The capital site is missing map object ${site.mapObjectId}.`
+    }
+    const lastUsedCon = this.state.empire.flags[`capitalSiteLastUsed:${site.id}`] ?? 0
+    if (lastUsedCon > 0 && this.state.con - lastUsedCon < site.cooldownCons) {
+      return `The site is ready again on con ${lastUsedCon + site.cooldownCons}.`
+    }
+    const missing = this.firstMissingResource(site.resourceCosts, capital, true)
+    return missing ? `Not enough ${missing}.` : null
+  }
+
+  chessEntryBlockedReason(): string | null {
+    if (!this.config.chess.enabled) return 'Шахматы отключены в этой конфигурации.'
+    const siteId = this.config.chess.entryCapitalSiteId
+    if (!siteId) return 'Для шахмат не выбран вход в столице.'
+    return this.capitalSiteBlockedReason(siteId)
+  }
+
+  startChessMatch(): EmpiresActionResult {
+    const blocked = this.chessEntryBlockedReason()
+    if (blocked) return failure(blocked)
+
+    const before = cloneSerializable(this.state)
+    const site = this.config.governance.capital.sites.find(
+      candidate => candidate.id === this.config.chess.entryCapitalSiteId,
+    )!
+    const capital = this.city(this.config.governance.capital.cityId)!
+    const seed = Math.floor(nextEmpiresRandom(this.state.rng) * 0x1_0000_0000)
+    const sequence = this.nextMinigameSequence()
+    const planId = `chess-${this.state.con}-${site.id}`
+    const sessionId = this.canonicalMinigameSessionId(sequence, planId, seed)
+    const plan = createChessPlanFromConfig(this.config.schemaVersion, this.config.chess, {
+      id: planId,
+      sessionId,
+    })
+    const planErrors = validateChessPlan(plan)
+    if (planErrors.length > 0) {
+      this.state = before
+      return failure(`Invalid Chess plan: ${planErrors.join('; ')}`)
+    }
+
+    this.payResources(site.resourceCosts, capital, true)
+    this.applyEffects(site.effects, 0, undefined, `capital-site:${site.id}`, 1, capital.id)
+    this.state.empire.flags[`capitalSiteLastUsed:${site.id}`] = this.state.con
+    this.appendChronicle(this.state, {
+      kind: 'governance',
+      sourceId: `capital-site:${site.id}:${this.state.con}`,
+      title: site.name,
+      description: site.description,
+      target: { kind: 'city', cityId: capital.id },
+    })
+    this.refreshProductions()
+
+    const started = this.beginMinigame({
+      id: sessionId,
+      sequence,
+      kind: 'chess',
+      plan,
+      rulesIdentity: plan.rulesIdentity,
+      seed,
+      attempt: 0,
+      origin: {
+        returnPhase: 'empire',
+        context: {
+          kind: 'capital-chess',
+          capitalSiteId: site.id,
+          cityId: capital.id,
+          con: this.state.con,
+        },
+      },
+    })
+    if (!started.ok) this.state = before
+    return started
+  }
+
+  activateCapitalSite(siteId: string): EmpiresActionResult {
+    if (this.config.chess.enabled && siteId === this.config.chess.entryCapitalSiteId) {
+      return this.startChessMatch()
+    }
+    const blocked = this.capitalSiteBlockedReason(siteId)
+    if (blocked) return failure(blocked)
+    const site = this.config.governance.capital.sites.find(candidate => candidate.id === siteId)!
+    const capital = this.city(this.config.governance.capital.cityId)!
+    this.payResources(site.resourceCosts, capital, true)
+    this.applyEffects(site.effects, 0, undefined, `capital-site:${site.id}`, 1, capital.id)
+    this.state.empire.flags[`capitalSiteLastUsed:${site.id}`] = this.state.con
+    this.appendChronicle(this.state, {
+      kind: 'governance',
+      sourceId: `capital-site:${site.id}:${this.state.con}`,
+      title: site.name,
+      description: site.description,
+      target: { kind: 'city', cityId: capital.id },
+    })
+    this.refreshProductions()
+    return this.commit(`${site.name} activated.`)
   }
 
   applyLoyaltyDelta(target: EmpiresLoyaltyTarget, amount: number, sourceId: string): number {
@@ -3998,6 +4442,7 @@ export class EmpiresEndgameEngine {
         : maximumSequence + 1,
       governorAssignments,
     }
+    this.unlockGrandAdvisorAfterJudgment(state)
   }
 
   private normalizeQuestState(state: EmpiresCampaignState, snapshotVersion: number): void {
@@ -4403,6 +4848,8 @@ export class EmpiresEndgameEngine {
       alchemy: {
         explosionCount: 0,
         lastExplosion: null,
+        pendingMutantAftermaths: [],
+        lastMutantAftermath: null,
       },
       durak: {
         deck,
@@ -5098,13 +5545,27 @@ export class EmpiresEndgameEngine {
         expedition.provisionPlan.packingScore ??= 0
         expedition.provisionPlan.packingSessionId ??= null
         expedition.provisionPlan.packedItemInstanceIds ??= []
+        expedition.provisionPlan.packedEquipmentAmounts ??= {}
+        expedition.provisionPlan.returnedEquipmentAmounts ??= {}
+        expedition.provisionPlan.packerPerstId ??= null
         if (!['direct', 'packing'].includes(expedition.provisionPlan.source)
           || !Number.isFinite(expedition.provisionPlan.packingEfficiencyPercent)
           || !Number.isFinite(expedition.provisionPlan.packingScore)
           || (expedition.provisionPlan.packingSessionId !== null
             && typeof expedition.provisionPlan.packingSessionId !== 'string')
           || new Set(expedition.provisionPlan.packedItemInstanceIds).size
-            !== expedition.provisionPlan.packedItemInstanceIds.length) {
+            !== expedition.provisionPlan.packedItemInstanceIds.length
+          || Object.entries(expedition.provisionPlan.packedEquipmentAmounts).some(([, amount]) => (
+            !Number.isFinite(amount) || amount <= 0
+          ))
+          || Object.entries(expedition.provisionPlan.returnedEquipmentAmounts).some(([id, amount]) => (
+            !Number.isFinite(amount) || amount < 0
+            || amount > (expedition.provisionPlan!.packedEquipmentAmounts[id] ?? 0) + Number.EPSILON
+          ))
+          || expedition.provisionPlan.packerPerstId !== null
+            && !this.config.governance.persts.some(perst => (
+              perst.id === expedition.provisionPlan!.packerPerstId
+            ))) {
           throw new Error(`Expedition ${definition.id} has invalid packing settlement state`)
         }
       }
@@ -5269,7 +5730,7 @@ export class EmpiresEndgameEngine {
       && snapshotVersion !== 7 && snapshotVersion !== 8 && snapshotVersion !== 9
       && snapshotVersion !== 10 && snapshotVersion !== 11 && snapshotVersion !== 12
       && snapshotVersion !== 13 && snapshotVersion !== 14 && snapshotVersion !== 15
-      && snapshotVersion !== 16) {
+      && snapshotVersion !== 16 && snapshotVersion !== 17 && snapshotVersion !== 18) {
       throw new Error('Unsupported Empire\'s Endgame snapshot schema')
     }
     if (snapshot.configId !== this.config.id) throw new Error('Snapshot belongs to a different config')
@@ -5287,7 +5748,12 @@ export class EmpiresEndgameEngine {
     }
     state.schemaVersion = EMPIRES_SAVE_SCHEMA_VERSION
     this.normalizeTavernAndMysticState(state)
-    state.alchemy ??= { explosionCount: 0, lastExplosion: null }
+    state.alchemy ??= {
+      explosionCount: 0,
+      lastExplosion: null,
+      pendingMutantAftermaths: [],
+      lastMutantAftermath: null,
+    }
     state.alchemy.explosionCount = Math.max(0, Math.floor(state.alchemy.explosionCount ?? 0))
     if (state.alchemy.lastExplosion) {
       const record = state.alchemy.lastExplosion
@@ -5295,6 +5761,39 @@ export class EmpiresEndgameEngine {
         || !record.epidemicDefinitionId?.trim() || !record.epidemicInstanceId?.trim()
         || !Number.isInteger(record.con) || record.con < 1) {
         throw new Error('Invalid persisted Alchemy explosion summary')
+      }
+    }
+    state.alchemy.pendingMutantAftermaths ??= []
+    if (!Array.isArray(state.alchemy.pendingMutantAftermaths)) {
+      throw new Error('Invalid persisted Alchemy mutant aftermath queue')
+    }
+    state.alchemy.lastMutantAftermath ??= null
+    const mutantIds = new Set<string>()
+    for (const pending of state.alchemy.pendingMutantAftermaths) {
+      if (!pending.id?.trim() || mutantIds.has(pending.id) || !pending.sourceSessionId?.trim()
+        || !state.empire.cities.some(city => city.id === pending.cityId)
+        || !Number.isInteger(pending.scheduledAtCon) || pending.scheduledAtCon < 1
+        || !Number.isInteger(pending.dueCon) || pending.dueCon <= pending.scheduledAtCon
+        || pending.dueCon <= state.con
+        || !Number.isFinite(pending.populationLoss) || pending.populationLoss < 0
+        || !Number.isFinite(pending.loyaltyDelta)) {
+        throw new Error('Invalid persisted Alchemy mutant aftermath')
+      }
+      mutantIds.add(pending.id)
+    }
+    state.alchemy.pendingMutantAftermaths.sort((left, right) => (
+      left.dueCon - right.dueCon || stableStringCompare(left.id, right.id)
+    ))
+    if (state.alchemy.lastMutantAftermath) {
+      const record = state.alchemy.lastMutantAftermath
+      if (!record.id?.trim() || mutantIds.has(record.id) || !record.sourceSessionId?.trim()
+        || !state.empire.cities.some(city => city.id === record.cityId)
+        || !Number.isInteger(record.scheduledAtCon) || record.scheduledAtCon < 1
+        || !Number.isInteger(record.dueCon) || record.dueCon <= record.scheduledAtCon
+        || !Number.isInteger(record.settledAtCon) || record.settledAtCon < record.dueCon
+        || !Number.isFinite(record.populationLost) || record.populationLost < 0
+        || !Number.isFinite(record.loyaltyDelta)) {
+        throw new Error('Invalid persisted Alchemy mutant aftermath summary')
       }
     }
     this.validateStandardCardZones(state)
@@ -5790,8 +6289,7 @@ export class EmpiresEndgameEngine {
   private delayedSteelGateBlockedReason(technology: EmpiresTechnologyDefinition): string | null {
     const steel = technology.steel
     if (!steel || steel.stage !== 'plus') return null
-    if (steel.eliteRequired
-      && (this.state.empire.flags[this.config.empire.steelResearch.militaryEliteFlagId] ?? 0) <= 0) {
+    if (steel.eliteRequired && !this.militaryEliteAvailable()) {
       return 'A military elite is required for this research.'
     }
     for (const dependency of technology.prerequisites) {
@@ -5799,6 +6297,17 @@ export class EmpiresEndgameEngine {
       if (missing) return `Missing prerequisite: ${missing}.`
     }
     return null
+  }
+
+  private militaryEliteAvailable(): boolean {
+    const flagId = this.config.empire.steelResearch.militaryEliteFlagId
+    if (this.effectiveEmpireFlagValue(flagId) > 0) return true
+    const capital = this.city(this.config.governance.capital.cityId)
+    return Boolean(
+      capital
+      && this.isCityAccessible(capital.id)
+      && (this.operationalBuildingFlagValue(capital, flagId) ?? 0) > 0,
+    )
   }
 
   private awardDueMedicalAcademyResearch(): boolean {
@@ -5827,6 +6336,7 @@ export class EmpiresEndgameEngine {
     this.state.empire.researchedTechnologyIds.push(technology.id)
     this.state.empire.medical.awardedTechnologyIds.push(technology.id)
     this.applyEffects(technology.effects, 0)
+    this.awardMilitaryAcademyUnits(technology)
     this.selectTechnologySide(technology)
     this.scheduleDelayedSteelResearch()
     this.appendChronicle(this.state, {
@@ -5873,6 +6383,8 @@ export class EmpiresEndgameEngine {
       td: this.config.td.resultLogLimit ?? 32,
       alchemy: this.config.alchemy.resultLogLimit,
       inventory: this.config.inventory.resultLogLimit,
+      clash: this.config.clash.resultLogLimit,
+      chess: this.config.chess.resultLogLimit,
       saveUtf8Bytes: EMPIRES_STABILIZATION_BUDGETS.longCampaignSaveUtf8Bytes,
     }
   }
@@ -5975,6 +6487,207 @@ export class EmpiresEndgameEngine {
       resources: this.config.empire.resources,
       equipment: this.config.combat.equipment,
       expeditions: this.config.expeditions.definitions,
+    })
+  }
+
+  private currentClashRulesIdentity(): ClashRulesIdentity {
+    return createClashRulesIdentity(this.config.schemaVersion, this.config.clash, {
+      expeditions: this.config.expeditions,
+      cities: this.config.empire.cities,
+      loyalty: this.config.empire.loyalty,
+      quests: this.config.quests,
+      settlementConfig: this.settlementRulesIdentityConfig(),
+      sharedResultRetention: this.sharedMinigameResultRetentionPolicy(),
+    })
+  }
+
+  private currentChessRulesIdentity(): ChessRulesIdentity {
+    return createChessRulesIdentity(
+      this.config.schemaVersion,
+      this.config.chess.rules,
+      this.config.chess.anton,
+      this.config.chess.setup,
+      this.config.chess.maxCommands,
+      this.config.chess.settlement,
+    )
+  }
+
+  private legacyV17ConfigProjection(): Record<string, unknown> {
+    const projected = cloneSerializable(this.config) as unknown as Record<string, unknown>
+    projected.schemaVersion = 17
+    delete projected.clash
+    delete projected.chess
+    const expeditions = projected.expeditions
+    if (isRecordValue(expeditions) && Array.isArray(expeditions.definitions)) {
+      expeditions.definitions = expeditions.definitions.map(rawDefinition => {
+        if (!isRecordValue(rawDefinition)) return rawDefinition
+        const definition = { ...rawDefinition }
+        delete definition.battleMode
+        delete definition.clashVariantId
+        return definition
+      })
+    }
+    return projected
+  }
+
+  private legacyV17SettlementRulesIdentityConfig(): Record<string, unknown> {
+    const projected = this.legacyV17ConfigProjection()
+    delete projected.seed
+    return projected
+  }
+
+  private legacyV17SharedResultRetentionPolicy() {
+    return {
+      td: this.config.td.resultLogLimit ?? 32,
+      alchemy: this.config.alchemy.resultLogLimit,
+      inventory: this.config.inventory.resultLogLimit,
+      saveUtf8Bytes: EMPIRES_STABILIZATION_BUDGETS.longCampaignSaveUtf8Bytes,
+    }
+  }
+
+  private legacyV17ExpeditionsProjection(): EmpiresEndgameConfig['expeditions'] {
+    return (this.legacyV17ConfigProjection().expeditions
+      ?? this.config.expeditions) as EmpiresEndgameConfig['expeditions']
+  }
+
+  private legacyV17RulesIdentity(
+    kind: Exclude<EmpiresMinigameSession['kind'], 'clash' | 'chess'>,
+  ) {
+    const settlementConfig = this.legacyV17SettlementRulesIdentityConfig()
+    const sharedResultRetention = this.legacyV17SharedResultRetentionPolicy()
+    const expeditions = this.legacyV17ExpeditionsProjection()
+    if (kind === 'td') {
+      return createTdRulesIdentity(17, this.config.combat, this.config.td, {
+        technologies: this.config.empire.technologies,
+        units: this.config.empire.units ?? [],
+        buildings: this.config.empire.buildings,
+        steelResearch: this.config.empire.steelResearch,
+        medical: this.config.empire.medical,
+        loyalty: this.config.empire.loyalty,
+        expeditions,
+        quests: this.config.quests,
+        settlementConfig,
+        sharedResultRetention,
+      })
+    }
+    if (kind === 'tavern') {
+      return createTavernRulesIdentity(17, {
+        tavern: this.config.tavern,
+        mysticCards: this.config.mysticCards,
+        units: (this.config.empire.units ?? []).map(unit => ({
+          id: unit.id,
+          deferredReason: unit.deferredReason,
+          td: unit.td,
+        })),
+        combatEquipment: this.config.combat.equipment,
+        godDeckMemory: this.config.god.deckMemory,
+        settlementCurrencyResourceId: this.config.empire.domesticEconomy.goldResourceId,
+        loyalty: this.config.empire.loyalty,
+        sharedResultRetention,
+      })
+    }
+    if (kind === 'alchemy') {
+      return createAlchemyRulesIdentity(17, this.config.alchemy, {
+        buildings: this.config.empire.buildings,
+        technologies: this.config.empire.technologies,
+        epidemics: this.config.empire.epidemics,
+        loyalty: this.config.empire.loyalty,
+        quests: this.config.quests,
+        settlementConfig,
+        sharedResultRetention,
+      })
+    }
+    return createInventoryRulesIdentity(17, this.config.inventory, {
+      resources: this.config.empire.resources,
+      equipment: this.config.combat.equipment,
+      expeditions,
+      cities: this.config.empire.cities,
+      loyalty: this.config.empire.loyalty,
+      quests: this.config.quests,
+      settlementConfig,
+      sharedResultRetention,
+    })
+  }
+
+  private legacyV18ConfigProjection(): Record<string, unknown> {
+    const projected = cloneSerializable(this.config) as unknown as Record<string, unknown>
+    projected.schemaVersion = 18
+    delete projected.chess
+    return projected
+  }
+
+  private legacyV18RulesIdentity(
+    kind: Exclude<EmpiresMinigameSession['kind'], 'chess'>,
+  ) {
+    const projected = this.legacyV18ConfigProjection()
+    delete projected.seed
+    const sharedResultRetention = {
+      td: this.config.td.resultLogLimit ?? 32,
+      alchemy: this.config.alchemy.resultLogLimit,
+      inventory: this.config.inventory.resultLogLimit,
+      clash: this.config.clash.resultLogLimit,
+      saveUtf8Bytes: EMPIRES_STABILIZATION_BUDGETS.longCampaignSaveUtf8Bytes,
+    }
+    if (kind === 'td') {
+      return createTdRulesIdentity(18, this.config.combat, this.config.td, {
+        technologies: this.config.empire.technologies,
+        units: this.config.empire.units ?? [],
+        buildings: this.config.empire.buildings,
+        steelResearch: this.config.empire.steelResearch,
+        medical: this.config.empire.medical,
+        loyalty: this.config.empire.loyalty,
+        expeditions: this.config.expeditions,
+        quests: this.config.quests,
+        settlementConfig: projected,
+        sharedResultRetention,
+      })
+    }
+    if (kind === 'tavern') {
+      return createTavernRulesIdentity(18, {
+        tavern: this.config.tavern,
+        mysticCards: this.config.mysticCards,
+        units: (this.config.empire.units ?? []).map(unit => ({
+          id: unit.id,
+          deferredReason: unit.deferredReason,
+          td: unit.td,
+        })),
+        combatEquipment: this.config.combat.equipment,
+        godDeckMemory: this.config.god.deckMemory,
+        settlementCurrencyResourceId: this.config.empire.domesticEconomy.goldResourceId,
+        loyalty: this.config.empire.loyalty,
+        sharedResultRetention,
+      })
+    }
+    if (kind === 'alchemy') {
+      return createAlchemyRulesIdentity(18, this.config.alchemy, {
+        buildings: this.config.empire.buildings,
+        technologies: this.config.empire.technologies,
+        epidemics: this.config.empire.epidemics,
+        loyalty: this.config.empire.loyalty,
+        quests: this.config.quests,
+        settlementConfig: projected,
+        sharedResultRetention,
+      })
+    }
+    if (kind === 'inventory') {
+      return createInventoryRulesIdentity(18, this.config.inventory, {
+        resources: this.config.empire.resources,
+        equipment: this.config.combat.equipment,
+        expeditions: this.config.expeditions,
+        cities: this.config.empire.cities,
+        loyalty: this.config.empire.loyalty,
+        quests: this.config.quests,
+        settlementConfig: projected,
+        sharedResultRetention,
+      })
+    }
+    return createClashRulesIdentity(18, this.config.clash, {
+      expeditions: this.config.expeditions,
+      cities: this.config.empire.cities,
+      loyalty: this.config.empire.loyalty,
+      quests: this.config.quests,
+      settlementConfig: projected,
+      sharedResultRetention,
     })
   }
 
@@ -6122,6 +6835,7 @@ export class EmpiresEndgameEngine {
     ))?.id
     if (!queenId || state.mystics.lastQueenPulseCon === state.con) return
     const queen = state.mystics.instances[queenId]
+    if (!queen.inverted) return
     if ((state.con - queen.spawnedAtCon) % this.config.tavern.queen.pulseEveryCons !== 0) return
     const index = state.mystics.zone.indexOf(queenId)
     const neighborIds = [state.mystics.zone[index - 1], state.mystics.zone[index + 1]]
@@ -6146,6 +6860,8 @@ export class EmpiresEndgameEngine {
     const currentTavernRules = this.currentTavernRulesIdentity()
     const currentAlchemyRules = this.currentAlchemyRulesIdentity()
     const currentInventoryRules = this.currentInventoryRulesIdentity()
+    const currentClashRules = this.currentClashRulesIdentity()
+    const currentChessRules = this.currentChessRulesIdentity()
     const rawCompaction = state.minigameResultCompaction as Partial<
       EmpiresCampaignState['minigameResultCompaction']
     > | null | undefined
@@ -6170,8 +6886,12 @@ export class EmpiresEndgameEngine {
         || Number(record.sequence) <= 0 || !Number.isSafeInteger(record.attempt)
         || Number(record.attempt) < 0)) return []
       if (!result || (result.kind !== 'td' && result.kind !== 'tavern'
-        && result.kind !== 'alchemy' && result.kind !== 'inventory')) return []
-      if (result.kind === 'tavern' || result.kind === 'alchemy' || result.kind === 'inventory') {
+        && result.kind !== 'alchemy' && result.kind !== 'inventory'
+        && result.kind !== 'clash' && result.kind !== 'chess')) return []
+      if (snapshotVersion < 17 && result.kind === 'clash') return []
+      if (snapshotVersion < 18 && result.kind === 'chess') return []
+      if (result.kind === 'tavern' || result.kind === 'alchemy'
+        || result.kind === 'inventory' || result.kind === 'clash' || result.kind === 'chess') {
         if (!result.sessionId || !result.planId || !result.planDigest
           || !result.commandDigest
           || result.kind === 'tavern' && result.outcome !== 'completed') return []
@@ -6308,12 +7028,18 @@ export class EmpiresEndgameEngine {
       attempt?: number
       origin?: EmpiresMinigameSession['origin']
       rulesIdentity?: TdRulesIdentity | ReturnType<typeof createTavernRulesIdentity>
-        | AlchemyRulesIdentity | InventoryRulesIdentity
+        | AlchemyRulesIdentity | InventoryRulesIdentity | ClashRulesIdentity | ChessRulesIdentity
     }
     if ((session.kind !== 'td' && session.kind !== 'tavern' && session.kind !== 'alchemy'
-      && session.kind !== 'inventory')
+      && session.kind !== 'inventory' && session.kind !== 'clash' && session.kind !== 'chess')
       || !session.plan || session.seed === undefined) {
       throw new Error('Active minigame session is malformed')
+    }
+    if (snapshotVersion < 17 && session.kind === 'clash') {
+      throw new Error('Snapshots before schema v17 cannot contain a Clash session')
+    }
+    if (snapshotVersion < 18 && session.kind === 'chess') {
+      throw new Error('Snapshots before schema v18 cannot contain a Chess session')
     }
     if (snapshotVersion < 16
       && (!isRecordValue(session.origin) || !isRecordValue(session.origin.context))) {
@@ -6371,13 +7097,21 @@ export class EmpiresEndgameEngine {
         deployment.unitInstanceIds = compatible
       }
     }
+    if (session.kind === 'inventory') {
+      session.plan.eligibleEquipmentAmounts ??= {}
+      session.plan.packerPerstId ??= null
+    }
     const expectedRules = session.kind === 'td'
       ? currentTdRules
       : session.kind === 'tavern'
         ? currentTavernRules
         : session.kind === 'alchemy'
           ? currentAlchemyRules
-          : currentInventoryRules
+          : session.kind === 'inventory'
+            ? currentInventoryRules
+            : session.kind === 'clash'
+              ? currentClashRules
+              : currentChessRules
     if (snapshotVersion < 16 && session.rulesIdentity
       && Number.isSafeInteger(session.rulesIdentity.configSchemaVersion)
       && session.rulesIdentity.configSchemaVersion > 0) {
@@ -6397,6 +7131,22 @@ export class EmpiresEndgameEngine {
         session.plan.rulesIdentity = cloneSerializable(expectedRules)
       }
     }
+    if (session.kind !== 'clash' && session.kind !== 'chess'
+      && session.rulesIdentity?.configSchemaVersion === 17) {
+      const legacyRules = this.legacyV17RulesIdentity(session.kind)
+      if (session.rulesIdentity.rulesDigest === legacyRules.rulesDigest) {
+        session.rulesIdentity = cloneSerializable(expectedRules)
+        session.plan.rulesIdentity = cloneSerializable(expectedRules)
+      }
+    }
+    if (session.kind !== 'chess'
+      && session.rulesIdentity?.configSchemaVersion === 18) {
+      const legacyRules = this.legacyV18RulesIdentity(session.kind)
+      if (session.rulesIdentity.rulesDigest === legacyRules.rulesDigest) {
+        session.rulesIdentity = cloneSerializable(expectedRules)
+        session.plan.rulesIdentity = cloneSerializable(expectedRules)
+      }
+    }
     if (!session.rulesIdentity
       || session.rulesIdentity.configSchemaVersion !== expectedRules.configSchemaVersion
       || session.rulesIdentity.rulesDigest !== expectedRules.rulesDigest) {
@@ -6412,8 +7162,20 @@ export class EmpiresEndgameEngine {
         ? validateTavernPlan(session.plan)
         : session.kind === 'alchemy'
           ? validateAlchemyPlan(session.plan)
-          : validateInventoryPlan(session.plan)
+          : session.kind === 'inventory'
+            ? validateInventoryPlan(session.plan)
+            : session.kind === 'clash'
+              ? validateClashPlan(session.plan)
+              : validateChessPlan(session.plan)
     if (planErrors.length > 0) throw new Error(`Invalid restored ${session.kind} plan: ${planErrors.join('; ')}`)
+    if (session.kind === 'clash') {
+      const rawTurnLog = (session as unknown as { turnLog?: unknown }).turnLog
+      if (!Array.isArray(rawTurnLog)) throw new Error('Active Clash turn log is missing or malformed')
+      const replayed = replayClashState(session.plan, session.seed, session.turnLog)
+      if (replayed.error || replayed.commandLog.length !== session.turnLog.length) {
+        throw new Error(replayed.error ?? 'Active Clash turn log failed deterministic replay validation')
+      }
+    }
     if (snapshotVersion < 16) {
       if ((session.origin as { returnPhase: string }).returnPhase === 'minigame') {
         session.origin.returnPhase = 'cards'
@@ -6432,7 +7194,7 @@ export class EmpiresEndgameEngine {
         Number.isSafeInteger(value) && Number(value) > 0
       )
       if (context.kind === 'manual') {
-        if (session.kind !== 'td' || !nonEmptyString(context.sourceId)) {
+        if ((session.kind !== 'td' && session.kind !== 'clash') || !nonEmptyString(context.sourceId)) {
           throw new Error('Active minigame origin context is incompatible with its kind')
         }
       } else if (context.kind === 'alliance-wave') {
@@ -6461,21 +7223,48 @@ export class EmpiresEndgameEngine {
         const definition = nonEmptyString(context.expeditionId)
           ? this.expeditionDefinitions.get(context.expeditionId)
           : undefined
-        const variant = definition
-          ? this.config.td.planVariants?.find(candidate => candidate.id === definition.tdVariantId)
-          : undefined
-        if (session.kind !== 'td' || rawOrigin.returnPhase !== 'empire'
-          || !positiveInteger(context.attempt) || !definition || !variant
-          || session.plan.mode !== 'assault' || session.plan.scheduledCon !== state.con
-          || session.plan.battlefield.id !== variant.battlefieldId
-          || session.plan.wave.id !== variant.waveId
-          || digestTdValue(session.plan.objective) !== digestTdValue(variant.objective)) {
-          throw new Error('Active expedition TD origin does not match its immutable plan')
+        if (rawOrigin.returnPhase !== 'empire'
+          || !positiveInteger(context.attempt) || !definition) {
+          throw new Error('Active expedition battle origin does not match its lifecycle')
+        }
+        if (definition.battleMode === 'td') {
+          const variant = this.config.td.planVariants?.find(
+            candidate => candidate.id === definition.tdVariantId,
+          )
+          if (session.kind !== 'td' || !variant
+            || session.plan.mode !== 'assault' || session.plan.scheduledCon !== state.con
+            || session.plan.battlefield.id !== variant.battlefieldId
+            || session.plan.wave.id !== variant.waveId
+            || digestTdValue(session.plan.objective) !== digestTdValue(variant.objective)) {
+            throw new Error('Active expedition TD origin does not match its immutable plan')
+          }
+        } else {
+          const field = this.config.clash.fieldVariants.find(
+            candidate => candidate.id === definition.clashVariantId,
+          )
+          if (session.kind !== 'clash' || !field
+            || session.plan.field.id !== field.id) {
+            throw new Error('Active expedition Clash origin does not match its immutable plan')
+          }
         }
       } else if (context.kind === 'expedition-packing') {
         if (session.kind !== 'inventory' || rawOrigin.returnPhase !== 'empire'
           || !nonEmptyString(context.expeditionId) || !positiveInteger(context.attempt)) {
           throw new Error('Active Inventory origin is incompatible with its expedition lifecycle')
+        }
+      } else if (context.kind === 'capital-chess') {
+        const site = nonEmptyString(context.capitalSiteId)
+          ? this.config.governance.capital.sites.find(candidate => candidate.id === context.capitalSiteId)
+          : undefined
+        if (session.kind !== 'chess' || rawOrigin.returnPhase !== 'empire'
+          || !nonEmptyString(context.capitalSiteId) || !nonEmptyString(context.cityId)
+          || !positiveInteger(context.con)
+          || !site || Boolean(site.deferredReason)
+          || context.capitalSiteId !== this.config.chess.entryCapitalSiteId
+          || context.cityId !== this.config.governance.capital.cityId
+          || context.con !== state.con
+          || state.empire.flags[`capitalSiteLastUsed:${context.capitalSiteId}`] !== context.con) {
+          throw new Error('Active Chess origin does not match its capital lifecycle')
         }
       } else {
         throw new Error('Active minigame origin context is missing or unknown')
@@ -6498,6 +7287,7 @@ export class EmpiresEndgameEngine {
         || expedition.assaultAttempts !== session.origin.context.attempt
         || expedition.provisionPlan?.source !== 'packing'
         || expedition.provisionPlan.packingSessionId !== session.id
+        || session.plan.packerPerstId !== expedition.provisionPlan.packerPerstId
         || session.plan.expeditionId !== definition.id
         || session.plan.expeditionAttempt !== session.origin.context.attempt
         || session.plan.originRegionId !== definition.originRegionId
@@ -6517,6 +7307,8 @@ export class EmpiresEndgameEngine {
       Math.floor(this.config.td.resultLogLimit ?? 32),
       Math.floor(this.config.alchemy.resultLogLimit ?? 32),
       Math.floor(this.config.inventory.resultLogLimit ?? 32),
+      Math.floor(this.config.clash.resultLogLimit ?? 32),
+      Math.floor(this.config.chess.resultLogLimit ?? 32),
     ))
     const retainedEnvelopeBytes = () => empiresUtf8ByteLength(JSON.stringify({
       schemaVersion: EMPIRES_SAVE_SCHEMA_VERSION,
@@ -6655,6 +7447,30 @@ export class EmpiresEndgameEngine {
     return scaled
   }
 
+  private consumeEarthquakeChargeForWave(
+    state: EmpiresCampaignState,
+    wave: TdWaveDefinition,
+    completedCon: number,
+  ): void {
+    const charges = Math.max(0, Math.floor(state.empire.flags.earthquakeCharges ?? 0))
+    const livingEnemies = wave.groups.reduce((total, group) => total + Math.max(0, group.count), 0)
+    if (charges <= 0 || livingEnemies <= 1) return
+    const groupIndex = wave.groups.findIndex(group => group.count > 0)
+    if (groupIndex < 0) return
+    const group = wave.groups[groupIndex]
+    if (group.count === 1) wave.groups.splice(groupIndex, 1)
+    else group.count -= 1
+    if (charges === 1) delete state.empire.flags.earthquakeCharges
+    else state.empire.flags.earthquakeCharges = charges - 1
+    this.appendChronicle(state, {
+      kind: 'gift',
+      sourceId: `gift-earthquake:${completedCon}`,
+      title: 'Землетрясение',
+      description: `До начала боя уничтожен один отряд ${group.id}.`,
+      target: { kind: 'empire' },
+    })
+  }
+
   private scheduleDueWaveOnState(state: EmpiresCampaignState, completedCon: number): void {
     const td = this.config.td
     if (!td.enabled || state.minigame || completedCon < state.external.nextWaveCon) return
@@ -6670,6 +7486,12 @@ export class EmpiresEndgameEngine {
     } | null = null
     for (let offset = 0; offset < liveVariants.length; offset += 1) {
       const variant = liveVariants[(preferredIndex + offset) % liveVariants.length]
+      const assaultRoute = variant.mode === 'assault'
+        ? this.config.clash.assaultRoutes.find(candidate => (
+            candidate.sourceKind === 'campaign' && candidate.sourceId === variant.id
+          ))
+        : undefined
+      if (assaultRoute?.battleMode === 'clash') continue
       const battlefield = td.battlefields.find(field => field.id === variant.battlefieldId)
       if (!battlefield) continue
       const nodeId = variant.mode === 'assault'
@@ -6690,6 +7512,8 @@ export class EmpiresEndgameEngine {
     const wave = td.waves.find(candidate => candidate.id === variant.waveId)
     if (!wave) throw new Error(`TD variant ${variant.id} references a missing wave`)
     const threat = Math.max(0, state.external.allianceThreat)
+    const scaledWave = this.scaleAllianceWave(wave, threat)
+    this.consumeEarthquakeChargeForWave(state, scaledWave, completedCon)
     const seed = Math.floor(nextEmpiresRandom(state.rng) * 0x1_0000_0000)
     const sequence = this.nextMinigameSequence(state)
     const planId = `td-${variant.mode}-${completedCon}-${variant.id}`
@@ -6725,7 +7549,7 @@ export class EmpiresEndgameEngine {
       towerChoices: cloneSerializable(td.towers),
       gradeChoices: cloneSerializable((td.gradeChoices ?? [])
         .filter(set => set.regionId === battlefield.regionId)),
-      wave: this.scaleAllianceWave(wave, threat),
+      wave: scaledWave,
       combat: cloneSerializable(this.config.combat),
       deployments,
       equipmentStock: cloneSerializable(state.army.equipmentStock),
@@ -6758,7 +7582,17 @@ export class EmpiresEndgameEngine {
     const dialogueBlock = this.mandatoryDialogueBlockedReason()
     if (dialogueBlock) return dialogueBlock
     if (!this.config.expeditions.enabled) return 'Экспедиции отключены в этой конфигурации.'
-    if (!this.config.td.enabled) return 'Штурмы экспедиций отключены вместе с TD.'
+    if (definition.battleMode === 'td' && !this.config.td.enabled) {
+      return 'Штурмы экспедиций отключены вместе с TD.'
+    }
+    if (definition.battleMode === 'clash') {
+      const route = this.config.clash.assaultRoutes.find(candidate => (
+        candidate.sourceKind === 'expedition' && candidate.sourceId === definition.id
+      ))
+      if (!this.config.clash.enabled) return 'Клэш отключён в этой конфигурации.'
+      if (route?.deferredReason) return route.deferredReason
+      return 'Для Клэша не задано соответствие походных отрядов именному ростеру война.'
+    }
     if (definition.deferredReason) return definition.deferredReason
     if (this.state.phase !== 'empire') return 'Экспедиции планируются во время управления империей.'
     if (!this.isRegionAccessible(definition.originRegionId)) return 'Исходный регион недоступен.'
@@ -6824,20 +7658,63 @@ export class EmpiresEndgameEngine {
     attempt: number,
     requestedAmount: number,
     itemDefinitions: readonly InventoryItemDefinition[],
-  ): { items: InventoryItemInstance[], eligibleAmount: number } {
+    equipmentItemLimit: number,
+  ): {
+    items: InventoryItemInstance[]
+    eligibleAmount: number
+    eligibleEquipmentAmounts: Record<string, number>
+  } {
+    const resourceDefinitions = itemDefinitions.filter(item => item.content.kind === 'resource')
+    const equipmentDefinitions = itemDefinitions.filter(item => item.content.kind === 'equipment')
+    const equipmentItems: InventoryItemInstance[] = []
+    const eligibleEquipmentAmounts: Record<string, number> = {}
+    const maximumEquipmentItems = Math.min(
+      Math.max(0, Math.floor(equipmentItemLimit)),
+      Math.max(0, this.config.inventory.maxItems - 1),
+    )
+    const remainingEquipmentStock = cloneSerializable(this.state.army.equipmentStock)
+    for (const itemDefinition of equipmentDefinitions) {
+      if (itemDefinition.content.kind !== 'equipment') continue
+      let remaining = Math.max(
+        0,
+        remainingEquipmentStock[itemDefinition.content.equipmentId] ?? 0,
+      )
+      while (remaining > Number.EPSILON && equipmentItems.length < maximumEquipmentItems) {
+        const amount = Math.min(
+          remaining,
+          this.config.inventory.equipmentPacking.targetUnitsPerItem,
+        )
+        const sequence = equipmentItems.length + 1
+        equipmentItems.push({
+          id: `inventory:${definition.id}:${attempt}:equipment:${String(sequence).padStart(3, '0')}`,
+          definitionId: itemDefinition.id,
+          originCityId: null,
+          content: cloneSerializable(itemDefinition.content),
+          amount,
+        })
+        eligibleEquipmentAmounts[itemDefinition.content.equipmentId] = (
+          eligibleEquipmentAmounts[itemDefinition.content.equipmentId] ?? 0
+        ) + amount
+        remaining -= amount
+      }
+      remainingEquipmentStock[itemDefinition.content.equipmentId] = remaining
+      if (equipmentItems.length >= maximumEquipmentItems) break
+    }
+
+    const maximumProvisionItems = this.config.inventory.maxItems - equipmentItems.length
     const cities = this.expeditionOriginCities(definition)
     const reservations: Array<{ cityId: string, amount: number }> = []
     let remaining = Math.max(0, requestedAmount)
     for (const city of cities) {
-      if (remaining <= Number.EPSILON || reservations.length >= this.config.inventory.maxItems) break
+      if (remaining <= Number.EPSILON || reservations.length >= maximumProvisionItems) break
       const amount = Math.min(remaining, Math.max(0, city.resources[definition.provisionResourceId] ?? 0))
       if (amount <= Number.EPSILON) continue
       reservations.push({ cityId: city.id, amount })
       remaining -= amount
     }
     const eligibleAmount = reservations.reduce((total, reservation) => total + reservation.amount, 0)
-    const items: InventoryItemInstance[] = []
-    let remainingSlots = this.config.inventory.maxItems
+    const provisionItems: InventoryItemInstance[] = []
+    let remainingSlots = maximumProvisionItems
     reservations.forEach((reservation, reservationIndex) => {
       const remainingReservations = reservations.length - reservationIndex - 1
       const maximumForCity = Math.max(1, remainingSlots - remainingReservations)
@@ -6851,10 +7728,10 @@ export class EmpiresEndgameEngine {
           ? reservation.amount - allocated
           : reservation.amount / count
         allocated += amount
-        const sequence = items.length + 1
-        const itemDefinition = itemDefinitions[(sequence - 1) % itemDefinitions.length]
-        items.push({
-          id: `inventory:${definition.id}:${attempt}:${String(sequence).padStart(3, '0')}`,
+        const sequence = provisionItems.length + 1
+        const itemDefinition = resourceDefinitions[(sequence - 1) % resourceDefinitions.length]
+        provisionItems.push({
+          id: `inventory:${definition.id}:${attempt}:provision:${String(sequence).padStart(3, '0')}`,
           definitionId: itemDefinition.id,
           originCityId: reservation.cityId,
           content: cloneSerializable(itemDefinition.content),
@@ -6863,7 +7740,11 @@ export class EmpiresEndgameEngine {
       }
       remainingSlots -= count
     })
-    return { items, eligibleAmount }
+    return {
+      items: [...provisionItems, ...equipmentItems],
+      eligibleAmount,
+      eligibleEquipmentAmounts,
+    }
   }
 
   private expeditionOriginCities(definition: EmpiresExpeditionDefinition): EmpiresCityState[] {
@@ -6979,6 +7860,7 @@ export class EmpiresEndgameEngine {
       || expedition.resultHistory.some(entry => entry.attempt === expedition.assaultAttempts)) {
       throw new Error('Expedition abort settlement is missing or duplicated')
     }
+    this.returnPackedExpeditionEquipment(expedition)
     const complaintApplied = this.applyExpeditionComplaint(definition, expedition, 0)
     expedition.resultHistory.push({
       attempt: expedition.assaultAttempts,
@@ -7058,8 +7940,8 @@ export class EmpiresEndgameEngine {
   }
 
   private settleExpeditionResult(
-    result: Extract<EmpiresMinigameResult, { kind: 'td' }>,
-    session: Extract<EmpiresMinigameSession, { kind: 'td' }>,
+    result: Extract<EmpiresMinigameResult, { kind: 'td' | 'clash' }>,
+    session: Extract<EmpiresMinigameSession, { kind: 'td' | 'clash' }>,
     summary: {
       combatLostUnitInstanceIds: string[]
       attritionLostUnitInstanceIds: string[]
@@ -7081,6 +7963,10 @@ export class EmpiresEndgameEngine {
     if (expedition.resultHistory.some(entry => entry.attempt === context.attempt)) {
       throw new Error(`Expedition attempt ${context.attempt} was already settled`)
     }
+    this.returnPackedExpeditionEquipment(
+      expedition,
+      result.kind === 'td' ? result.equipmentSpent : {},
+    )
     const won = result.outcome === 'victory'
     if (won && !expedition.zoneApplied) {
       if (!this.state.expeditions.openedZoneIds.includes(definition.zoneId)) {
@@ -7133,6 +8019,34 @@ export class EmpiresEndgameEngine {
         : `Попытка ${context.attempt} завершилась без открытия зоны.`,
       target: { kind: 'region', regionId: definition.originRegionId },
     })
+  }
+
+  private returnPackedExpeditionEquipment(
+    expedition: EmpiresExpeditionState,
+    spentEquipmentAmounts: Readonly<Record<string, number>> = {},
+  ): void {
+    const provision = expedition.provisionPlan
+    if (!provision || provision.source !== 'packing') return
+    for (const [equipmentId, amount] of Object.entries(spentEquipmentAmounts)) {
+      if (!Number.isFinite(amount) || amount < 0
+        || amount > (provision.packedEquipmentAmounts[equipmentId] ?? 0) + Number.EPSILON) {
+        throw new Error(`Expedition equipment spend references unpacked equipment ${equipmentId}`)
+      }
+    }
+    const returned: Record<string, number> = {}
+    for (const [equipmentId, packedAmount] of Object.entries(provision.packedEquipmentAmounts)) {
+      const spent = spentEquipmentAmounts[equipmentId] ?? 0
+      if (!Number.isFinite(spent) || spent < 0 || spent > packedAmount + Number.EPSILON) {
+        throw new Error(`Expedition equipment spend exceeds packed amount for ${equipmentId}`)
+      }
+      const amount = Math.max(0, packedAmount - spent)
+      if (amount <= Number.EPSILON) continue
+      returned[equipmentId] = amount
+      this.state.army.equipmentStock[equipmentId] = (
+        this.state.army.equipmentStock[equipmentId] ?? 0
+      ) + amount
+    }
+    provision.returnedEquipmentAmounts = returned
   }
 
   private settleBattleOutcome(
@@ -7264,16 +8178,24 @@ export class EmpiresEndgameEngine {
       cityLosses.set(snapshot.cityId, aggregate)
     }
 
+    const packedExpeditionProvision = session.origin.context.kind === 'expedition-assault'
+      ? this.state.expeditions.byDefinitionId[
+          session.origin.context.expeditionId
+        ]?.provisionPlan
+      : null
     for (const [equipmentId, amount] of Object.entries(result.equipmentSpent ?? {})) {
       if (!Number.isFinite(amount) || amount < 0
         || amount > (session.plan.equipmentStock[equipmentId] ?? 0) + Number.EPSILON
-        || amount > (this.state.army.equipmentStock[equipmentId] ?? 0) + Number.EPSILON) {
+        || packedExpeditionProvision?.source !== 'packing'
+          && amount > (this.state.army.equipmentStock[equipmentId] ?? 0) + Number.EPSILON) {
         throw new Error(`TD result has invalid equipment spend for ${equipmentId}`)
       }
-      this.state.army.equipmentStock[equipmentId] = Math.max(
-        0,
-        (this.state.army.equipmentStock[equipmentId] ?? 0) - amount,
-      )
+      if (packedExpeditionProvision?.source !== 'packing') {
+        this.state.army.equipmentStock[equipmentId] = Math.max(
+          0,
+          (this.state.army.equipmentStock[equipmentId] ?? 0) - amount,
+        )
+      }
     }
 
     for (const [cityId, loss] of cityLosses) {
@@ -7313,6 +8235,241 @@ export class EmpiresEndgameEngine {
       attritionLostUnitInstanceIds,
       removedVeteranUnitInstanceIds,
       newlyVeteranUnitInstanceIds,
+    })
+    this.state.minigame = null
+    this.state.phase = session.origin.returnPhase
+    this.refreshProductions()
+    this.evaluateQuestTriggers({
+      kind: 'minigameResult',
+      sessionId: session.id,
+      minigameKind: session.kind,
+      outcome: result.outcome,
+      con: this.state.con,
+    })
+  }
+
+  private settleClashOutcome(
+    result: ClashResult,
+    session: Extract<EmpiresMinigameSession, { kind: 'clash' }>,
+  ): void {
+    if (result.error) throw new Error(result.error)
+    if (this.minigameAlreadySettled(session)) {
+      throw new Error(`Minigame ${session.id} was already settled`)
+    }
+
+    const planUnits = new Map(session.plan.roster.map(unit => [unit.instanceId, unit]))
+    const resultUnits = new Map(result.deployments.map(unit => [unit.unitInstanceId, unit]))
+    if (resultUnits.size !== result.deployments.length) {
+      throw new Error('Clash result repeats a deployed unit identity')
+    }
+    for (const deployment of result.deployments) {
+      const planned = planUnits.get(deployment.unitInstanceId)
+      if (!planned
+        || deployment.side !== planned.side
+        || deployment.campaignUnitInstanceId !== (planned.campaignUnitInstanceId ?? null)
+        || deployment.cityId !== (planned.cityId ?? null)
+        || deployment.cohortId !== (planned.cohortId ?? null)
+        || deployment.unitId !== (planned.unitId ?? null)
+        || deployment.deployed !== 1
+        || ![0, 1].includes(deployment.survived)
+        || !Number.isFinite(deployment.healthRatio)
+        || deployment.healthRatio < 0
+        || deployment.healthRatio > 1) {
+        throw new Error(`Clash deployment ${deployment.unitInstanceId} does not match its plan`)
+      }
+    }
+
+    const settlement = this.config.clash.settlement
+    const cityLosses = new Map<string, { deployed: number, lost: number }>()
+    const combatLostUnitInstanceIds: string[] = []
+    const removedVeteranUnitInstanceIds: string[] = []
+    const newlyVeteranUnitInstanceIds: string[] = []
+    const survivingUnitInstanceIds: string[] = []
+    for (const deployment of result.deployments) {
+      if (deployment.side !== 'attacker' || !deployment.campaignUnitInstanceId) continue
+      const planned = planUnits.get(deployment.unitInstanceId)!
+      if (!planned.cityId || !planned.cohortId || !planned.unitId) {
+        throw new Error(`Clash campaign unit ${planned.instanceId} has incomplete ownership`)
+      }
+      const instance = this.state.army.unitInstances[deployment.campaignUnitInstanceId]
+      const city = this.city(planned.cityId)
+      const cohort = city?.recruitedUnitCohorts.find(candidate => candidate.id === planned.cohortId)
+      if (!instance || !city || !cohort
+        || instance.cityId !== planned.cityId
+        || instance.cohortId !== planned.cohortId
+        || instance.unitId !== planned.unitId
+        || !cohort.unitInstanceIds.includes(instance.id)
+        || instance.readyAtCon > this.state.con) {
+        throw new Error(`Clash campaign unit ${deployment.campaignUnitInstanceId} is stale`)
+      }
+      const lost = 1 - deployment.survived
+      const aggregate = cityLosses.get(city.id) ?? { deployed: 0, lost: 0 }
+      aggregate.deployed += 1
+      aggregate.lost += lost
+      cityLosses.set(city.id, aggregate)
+      if (lost > 0) {
+        if (!this.removeArmyUnitInstance(instance.id)) {
+          throw new Error(`Clash lost unknown army unit ${instance.id}`)
+        }
+        combatLostUnitInstanceIds.push(instance.id)
+        if ((this.state.empire.flags.casualtyRecruitGrowthPenaltyDisabled ?? 0) <= 0) {
+          const penaltyKey = this.recruitmentPenaltyKey(city.id, planned.unitId)
+          this.state.army.recruitmentPenalties[penaltyKey] = (
+            this.state.army.recruitmentPenalties[penaltyKey] ?? 0
+          ) + settlement.recruitmentPenaltyPerLoss
+          city.militaryPopulation = Math.max(
+            0,
+            city.militaryPopulation - settlement.growthPenaltyPerLoss,
+          )
+        }
+        continue
+      }
+
+      if (deployment.healthRatio < 1) {
+        const medical = this.config.empire.medical
+        const hospitalOperational = medical.enabled
+          && this.effectiveOperationalBuildingLevel(city.id, medical.hospitalBuildingId) > 0
+        const recoveryCons = hospitalOperational
+          ? medical.hospitalBattleRecoveryCons
+          : medical.defaultBattleRecoveryCons
+        const wasVeteran = instance.veteran
+        const nextWounds = instance.wounds + 1
+        if (wasVeteran && nextWounds >= this.config.expeditions.veteran.removalWounds) {
+          this.removeArmyUnitInstance(instance.id)
+          removedVeteranUnitInstanceIds.push(instance.id)
+          this.appendChronicle(this.state, {
+            kind: 'veteran',
+            sourceId: `veteran-removal:${session.id}:${instance.id}`,
+            title: 'Ветеран выбыл из армии',
+            description: `${instance.id} получил ещё одно ранение и не вернулся в строй.`,
+            target: { kind: 'city', cityId: city.id },
+          })
+          continue
+        }
+        instance.healthRatio = deployment.healthRatio
+        instance.recoveryStartedAtCon = this.state.con
+        instance.readyAtCon = this.state.con + recoveryCons
+        if (wasVeteran) instance.wounds = nextWounds
+        else if (deployment.healthRatio
+          <= this.config.expeditions.veteran.qualifyingMaximumHealthRatio) {
+          instance.veteran = true
+          instance.wounds = 1
+          newlyVeteranUnitInstanceIds.push(instance.id)
+        }
+      }
+      survivingUnitInstanceIds.push(instance.id)
+    }
+
+    const expeditionId = session.origin.context.kind === 'expedition-assault'
+      ? session.origin.context.expeditionId
+      : null
+    const attritionLostUnitInstanceIds = expeditionId
+      ? this.applyExpeditionAttrition(expeditionId, survivingUnitInstanceIds)
+      : []
+    if (expeditionId) {
+      const expedition = this.state.expeditions.byDefinitionId[expeditionId]
+      for (const id of attritionLostUnitInstanceIds) {
+        const snapshot = expedition?.rosterSnapshot.find(item => item.unitInstanceId === id)
+        if (!snapshot) continue
+        const aggregate = cityLosses.get(snapshot.cityId) ?? { deployed: 0, lost: 0 }
+        aggregate.lost += 1
+        cityLosses.set(snapshot.cityId, aggregate)
+      }
+    }
+    for (const [cityId, loss] of cityLosses) {
+      this.consumeBattleLoss({
+        id: `clash-loss:minigame:${session.sequence}:${cityId}`,
+        target: { kind: 'city', cityId },
+        deployed: loss.deployed,
+        lost: loss.lost,
+      })
+    }
+
+    const moraleDelta = result.outcome === 'victory'
+      ? settlement.victoryMoraleDelta
+      : result.outcome === 'aborted'
+        ? settlement.abortMoraleDelta
+        : settlement.defeatMoraleDelta
+    this.syncArmyMoraleCap()
+    this.state.army.morale = Math.max(
+      this.armyMoraleMinimum(),
+      Math.min(this.state.army.maxMorale, this.state.army.morale + moraleDelta),
+    )
+    if (result.outcome === 'aborted') {
+      this.state.external.allianceThreat = Math.max(
+        0,
+        this.state.external.allianceThreat + settlement.abortAllianceThreatDelta,
+      )
+    }
+    this.settleExpeditionResult(result, session, {
+      combatLostUnitInstanceIds,
+      attritionLostUnitInstanceIds,
+      removedVeteranUnitInstanceIds,
+      newlyVeteranUnitInstanceIds,
+    })
+    this.state.minigame = null
+    this.state.phase = session.origin.returnPhase
+    this.refreshProductions()
+    this.evaluateQuestTriggers({
+      kind: 'minigameResult',
+      sessionId: session.id,
+      minigameKind: session.kind,
+      outcome: result.outcome,
+      con: this.state.con,
+    })
+  }
+
+  private settleChessOutcome(
+    result: ChessResult,
+    session: Extract<EmpiresMinigameSession, { kind: 'chess' }>,
+  ): void {
+    if (result.error) throw new Error(result.error)
+    if (this.minigameAlreadySettled(session)) {
+      throw new Error(`Minigame ${session.id} was already settled`)
+    }
+    if (!['white-win', 'black-win', 'draw', 'aborted'].includes(result.outcome)) {
+      throw new Error('Chess can only settle a terminal or aborted game')
+    }
+
+    const settlement = session.plan.settlement
+    if (result.outcome === 'white-win') {
+      this.state.empire.resources[settlement.goldResourceId] = (
+        this.state.empire.resources[settlement.goldResourceId] ?? 0
+      ) + settlement.victoryGold
+      this.state.empire.resources[settlement.knowledgeResourceId] = (
+        this.state.empire.resources[settlement.knowledgeResourceId] ?? 0
+      ) + settlement.victoryKnowledge
+    } else {
+      const loyaltyDelta = result.outcome === 'black-win'
+        ? settlement.defeatAllCityLoyaltyDelta
+        : result.outcome === 'aborted'
+          ? settlement.abortAllCityLoyaltyDelta
+          : settlement.drawAllCityLoyaltyDelta
+      if (loyaltyDelta !== 0) {
+        for (const city of this.state.empire.cities) {
+          this.applyLoyaltyDelta(
+            { kind: 'city', cityId: city.id },
+            loyaltyDelta,
+            `chess:${session.id}:${result.outcome}:${city.id}`,
+          )
+        }
+      }
+    }
+
+    this.appendChronicle(this.state, {
+      kind: 'governance',
+      sourceId: `chess-result:${session.id}`,
+      title: result.outcome === 'white-win' ? 'Шахматная победа'
+        : result.outcome === 'black-win' ? 'Шахматное поражение'
+          : result.outcome === 'draw' ? 'Шахматная ничья' : 'Шахматная партия прервана',
+      description: result.outcome === 'white-win'
+        ? `Казна получила ${settlement.victoryGold}, а знания — ${settlement.victoryKnowledge}.`
+        : result.outcome === 'draw'
+          ? 'Партия завершилась без награды и штрафа.'
+          : 'Лояльность каждого города снизилась.',
+      target: { kind: 'city', cityId: session.origin.context.kind === 'capital-chess'
+        ? session.origin.context.cityId
+        : this.config.governance.capital.cityId },
     })
     this.state.minigame = null
     this.state.phase = session.origin.returnPhase
@@ -7368,6 +8525,14 @@ export class EmpiresEndgameEngine {
       && this.config.god.deckMemory.availability === 'perCon') {
       this.state.durak.deckMemoryInspectionsUsed += 1
     }
+    if (result.mariaPlayed && result.mariaVictory) {
+      this.state.tavern.mariaVictory = true
+      this.state.tavern.mariaVictoryAtCon ??= this.state.con
+      this.state.empire.flags.mariaGunpowderKnowledge = Math.max(
+        1,
+        this.state.empire.flags.mariaGunpowderKnowledge ?? 0,
+      )
+    }
     this.state.tavern.lastVisitedCon = this.state.con
     this.state.minigame = null
     this.state.phase = session.origin.returnPhase
@@ -7380,6 +8545,11 @@ export class EmpiresEndgameEngine {
         result.drinksPurchased ? `Спиртное заказано; новые предложения откроются с кона ${session.plan.drinks.readyAtCon}.` : null,
         result.rumorPurchased ? session.plan.rumor.text : null,
         session.plan.maria.present ? 'У стойки замечена Мария Брауз.' : null,
+        result.mariaPlayed
+          ? result.mariaVictory
+            ? 'Партия двое на двое выиграна; Мария оставила слабое пороховое наследие.'
+            : 'Партия двое на двое проиграна.'
+          : null,
       ].filter(Boolean).join(' ') || 'Император покинул Таверну без сделки.',
       target: { kind: 'city', cityId: session.plan.cityId },
     })
@@ -7434,7 +8604,9 @@ export class EmpiresEndgameEngine {
         || request.epidemicDefinitionId !== session.plan.explosion.epidemicDefinitionId
         || request.severity !== session.plan.explosion.severityMultiplier
         || request.source.kind !== 'alchemy'
-        || request.source.id !== `alchemy:${session.id}`) {
+        || request.source.id !== `alchemy:${session.id}`
+        || digestTdValue(request.mutantAftermath)
+          !== digestTdValue(session.plan.explosion.mutantAftermath)) {
         throw new Error('Alchemy explosion result contains an untrusted epidemic request.')
       }
       const epidemic = this.startEpidemicInternal({
@@ -7455,11 +8627,28 @@ export class EmpiresEndgameEngine {
         epidemicInstanceId: epidemic.instanceId,
         con: this.state.con,
       }
+      const mutantId = `alchemy-mutants:${session.id}`
+      if (this.state.alchemy.pendingMutantAftermaths.some(item => item.id === mutantId)
+        || this.state.alchemy.lastMutantAftermath?.id === mutantId) {
+        throw new Error('Alchemy mutant aftermath was already scheduled.')
+      }
+      this.state.alchemy.pendingMutantAftermaths.push({
+        id: mutantId,
+        sourceSessionId: session.id,
+        cityId: city.id,
+        scheduledAtCon: this.state.con,
+        dueCon: this.state.con + request.mutantAftermath.delayCons,
+        populationLoss: request.mutantAftermath.populationLoss,
+        loyaltyDelta: request.mutantAftermath.loyaltyDelta,
+      })
+      this.state.alchemy.pendingMutantAftermaths.sort((left, right) => (
+        left.dueCon - right.dueCon || stableStringCompare(left.id, right.id)
+      ))
       this.appendChronicle(this.state, {
         kind: 'alchemy',
         sourceId: `alchemy-explosion:${session.id}`,
         title: 'Вы провалили химический эксперимент',
-        description: `Взрыв в лаборатории ${city.name} вызвал эпидемиологическую катастрофу.`,
+        description: `Взрыв в лаборатории ${city.name} вызвал эпидемиологическую катастрофу; мутанты проявятся через ${request.mutantAftermath.delayCons} кона.`,
         target: { kind: 'city', cityId: city.id },
       })
     }
@@ -7505,8 +8694,12 @@ export class EmpiresEndgameEngine {
         !== digestTdValue(expedition.rosterUnitInstanceIds)
       || result.expeditionId !== definition.id
       || result.expeditionAttempt !== context.attempt
+      || digestTdValue(result.eligibleEquipmentAmounts)
+        !== digestTdValue(session.plan.eligibleEquipmentAmounts)
+      || result.packerPerstId !== session.plan.packerPerstId
       || expedition.provisionPlan?.source !== 'packing'
-      || expedition.provisionPlan.packingSessionId !== session.id) {
+      || expedition.provisionPlan.packingSessionId !== session.id
+      || session.plan.packerPerstId !== expedition.provisionPlan.packerPerstId) {
       throw new Error('Inventory result does not match its active expedition packing lifecycle.')
     }
 
@@ -7515,17 +8708,29 @@ export class EmpiresEndgameEngine {
     } else {
       const packedIds = new Set(result.packedItemInstanceIds)
       const cityAmounts: Record<string, number> = {}
+      const equipmentAmounts: Record<string, number> = {}
       for (const item of session.plan.itemInstances) {
         if (!packedIds.has(item.id)) continue
-        if (item.content.kind !== 'resource'
-          || item.content.resourceId !== definition.provisionResourceId) {
-          throw new Error(`Packed item ${item.id} is not a trusted expedition provision.`)
+        if (item.content.kind === 'resource') {
+          if (item.content.resourceId !== definition.provisionResourceId || !item.originCityId) {
+            throw new Error(`Packed item ${item.id} is not a trusted expedition provision.`)
+          }
+          cityAmounts[item.originCityId] = (cityAmounts[item.originCityId] ?? 0) + item.amount
+        } else {
+          if (item.originCityId !== null) {
+            throw new Error(`Packed equipment ${item.id} has an invalid city owner.`)
+          }
+          equipmentAmounts[item.content.equipmentId] = (
+            equipmentAmounts[item.content.equipmentId] ?? 0
+          ) + item.amount
         }
-        cityAmounts[item.originCityId] = (cityAmounts[item.originCityId] ?? 0) + item.amount
       }
       const packedAmount = Object.values(cityAmounts).reduce((total, amount) => total + amount, 0)
       if (Math.abs(packedAmount - result.packedProvisionAmount) > 0.000001) {
         throw new Error('Packed provision amount does not match the trusted item instances.')
+      }
+      if (digestTdValue(equipmentAmounts) !== digestTdValue(result.packedEquipmentAmounts)) {
+        throw new Error('Packed equipment amounts do not match the trusted item instances.')
       }
       for (const [cityId, amount] of Object.entries(cityAmounts)) {
         const city = this.city(cityId)
@@ -7534,9 +8739,20 @@ export class EmpiresEndgameEngine {
           throw new Error(`Packed provision ownership became stale in ${cityId}.`)
         }
       }
+      for (const [equipmentId, amount] of Object.entries(equipmentAmounts)) {
+        if ((this.state.army.equipmentStock[equipmentId] ?? 0) + Number.EPSILON < amount) {
+          throw new Error(`Packed equipment ownership became stale for ${equipmentId}.`)
+        }
+      }
       for (const [cityId, amount] of Object.entries(cityAmounts)) {
         const city = this.city(cityId)!
         city.resources[definition.provisionResourceId] -= amount
+      }
+      for (const [equipmentId, amount] of Object.entries(equipmentAmounts)) {
+        this.state.army.equipmentStock[equipmentId] = Math.max(
+          0,
+          (this.state.army.equipmentStock[equipmentId] ?? 0) - amount,
+        )
       }
       const provision = expedition.provisionPlan
       provision.paidInstallments = 1
@@ -7544,6 +8760,9 @@ export class EmpiresEndgameEngine {
       provision.packingEfficiencyPercent = result.efficiencyPercent
       provision.packingScore = result.score
       provision.packedItemInstanceIds = [...result.packedItemInstanceIds]
+      provision.packedEquipmentAmounts = cloneSerializable(equipmentAmounts)
+      provision.returnedEquipmentAmounts = {}
+      provision.packerPerstId = result.packerPerstId
       provision.withdrawals = [{
         installment: 1,
         con: this.state.con,
@@ -7557,7 +8776,7 @@ export class EmpiresEndgameEngine {
         kind: 'expedition',
         sourceId: `inventory-packing:${session.id}`,
         title: result.outcome === 'completed' ? 'Тележка экспедиции упакована' : 'Упаковка тележки завершилась досрочно',
-        description: `${result.packedItemInstanceIds.length} вещей; ${packedAmount} провизии; эффективность ${result.efficiencyPercent}%; счёт ${result.score}.`,
+        description: `${result.packedItemInstanceIds.length} вещей; ${packedAmount} провизии; ${Object.values(equipmentAmounts).reduce((total, amount) => total + amount, 0)} снаряжения; эффективность ${result.efficiencyPercent}%; счёт ${result.score}.`,
         target: { kind: 'region', regionId: definition.originRegionId },
       })
     }
@@ -7575,7 +8794,7 @@ export class EmpiresEndgameEngine {
   }
 
   private finishEmpireAfterDayConsumingMinigame(kind: EmpiresMinigameSession['kind']): void {
-    if (kind === 'tavern') return
+    if (kind === 'tavern' || kind === 'chess') return
     if (this.state.phase === 'empire' && this.state.empire.daysRemaining <= 0
       && !this.mandatoryDialogueBlockedReason()) this.finishEmpireInternal()
   }
@@ -7886,6 +9105,20 @@ export class EmpiresEndgameEngine {
       )
       this.recordCardFlagBonuses(face.effects, instance.level, magnitude)
     }
+    for (const instanceId of this.state.mystics.zone) {
+      const instance = this.state.mystics.instances[instanceId]
+      const definition = instance ? this.mysticDefinitions.get(instance.definitionId) : null
+      if (!instance || instance.status !== 'zone' || !definition || definition.deferredReason) continue
+      const face = instance.inverted ? definition.inverted : definition.normal
+      if (face.deferredReason) continue
+      this.applyEffects(
+        face.effects,
+        0,
+        phaseEffectKinds,
+        `mystic:${definition.id}:${instance.inverted ? 'inverted' : 'normal'}`,
+      )
+      this.recordCardFlagBonuses(face.effects, 0, 1)
+    }
     if ((this.state.empire.flags.militaryArson ?? 0) > 0) this.applyMilitaryArson()
     for (const city of this.state.empire.cities) this.updateOperationalBuildings(city)
     for (const city of this.state.empire.cities) {
@@ -7951,6 +9184,7 @@ export class EmpiresEndgameEngine {
 
   private settleEmpireEconomy(): void {
     this.refreshProductions()
+    this.settleFishCurrents()
     const foodId = this.config.empire.foodResourceId
     for (const city of this.state.empire.cities) {
       if (!this.isCityAccessible(city.id)) {
@@ -7996,6 +9230,33 @@ export class EmpiresEndgameEngine {
     }
   }
 
+  private settleFishCurrents(): void {
+    const turns = Math.max(0, Math.floor(this.state.empire.flags.fishCurrentTurns ?? 0))
+    if (turns <= 0 || this.state.empire.flags.fishCurrentLastSettledCon === this.state.con) return
+    const foodId = this.config.empire.foodResourceId
+    const food = 600000
+    this.state.empire.resources[foodId] = (this.state.empire.resources[foodId] ?? 0) + food
+    this.state.empire.flags.fishCurrentLastSettledCon = this.state.con
+    if (turns === 1) delete this.state.empire.flags.fishCurrentTurns
+    else this.state.empire.flags.fishCurrentTurns = turns - 1
+    this.appendChronicle(this.state, {
+      kind: 'gift',
+      sourceId: `gift-fish-currents:${this.state.con}`,
+      title: 'Слияние течений',
+      description: `Рыбное изобилие принесло ${food} еды; осталось ходов: ${turns - 1}.`,
+      target: { kind: 'empire' },
+    })
+    if (turns !== 1) return
+    for (const city of this.state.empire.cities) {
+      if (!this.isCityAccessible(city.id)) continue
+      this.applyLoyaltyDelta(
+        { kind: 'city', cityId: city.id },
+        -1,
+        `gift-fish-currents:catastrophe:${this.state.con}:${city.id}`,
+      )
+    }
+  }
+
   private uncoveredFoodDeficit(): number {
     const foodId = this.config.empire.foodResourceId
     let empireFood = Math.max(0, this.state.empire.resources[foodId] ?? 0)
@@ -8025,11 +9286,67 @@ export class EmpiresEndgameEngine {
     return pickEmpiresWeighted(eligible, this.state.rng)
   }
 
+  private settleAlchemyMutantAftermaths(state: EmpiresCampaignState = this.state): void {
+    const due = state.alchemy.pendingMutantAftermaths
+      .filter(item => item.dueCon <= state.con)
+      .sort((left, right) => left.dueCon - right.dueCon || stableStringCompare(left.id, right.id))
+    if (due.length === 0) return
+    const dueIds = new Set(due.map(item => item.id))
+    state.alchemy.pendingMutantAftermaths = state.alchemy.pendingMutantAftermaths
+      .filter(item => !dueIds.has(item.id))
+    for (const aftermath of due) {
+      const city = state.empire.cities.find(candidate => candidate.id === aftermath.cityId)
+      if (!city) throw new Error(`Alchemy mutant aftermath references missing city ${aftermath.cityId}`)
+      const populationBefore = city.population
+      this.setCityPopulation(city, Math.max(0, city.population - aftermath.populationLoss))
+      const populationLost = populationBefore - city.population
+      const loyaltyTarget = { kind: 'city', cityId: city.id } as const
+      let loyaltyDelta = 0
+      if (this.config.empire.loyalty.enabled) {
+        const loyaltyBefore = this.loyaltyTargetValue(state, loyaltyTarget)
+        const loyaltyAfter = this.clampLoyalty(loyaltyBefore + aftermath.loyaltyDelta)
+        this.setLoyaltyTargetValue(state, loyaltyTarget, loyaltyAfter)
+        loyaltyDelta = loyaltyAfter - loyaltyBefore
+        this.appendChronicle(state, {
+          kind: 'loyalty',
+          sourceId: `${aftermath.id}:loyalty`,
+          title: 'Изменение лояльности',
+          description: `${this.loyaltyTargetLabel(loyaltyTarget)}: ${this.signedNumber(loyaltyBefore)} → ${this.signedNumber(loyaltyAfter)}.`,
+          target: loyaltyTarget,
+          requestedAmount: aftermath.loyaltyDelta,
+          appliedAmount: loyaltyDelta,
+        })
+      }
+      state.alchemy.lastMutantAftermath = {
+        id: aftermath.id,
+        sourceSessionId: aftermath.sourceSessionId,
+        cityId: aftermath.cityId,
+        scheduledAtCon: aftermath.scheduledAtCon,
+        dueCon: aftermath.dueCon,
+        settledAtCon: state.con,
+        populationLost,
+        loyaltyDelta,
+      }
+      this.appendChronicle(state, {
+        kind: 'alchemy',
+        sourceId: aftermath.id,
+        title: 'Мутанты вырвались из лаборатории',
+        description: `${city.name} потерял ${populationLost} населения; лояльность ${this.signedNumber(loyaltyDelta)}.`,
+        target: { kind: 'city', cityId: city.id },
+      })
+    }
+    if (state === this.state) {
+      this.refreshLoyaltyDependents()
+      this.refreshProductions()
+    }
+  }
+
   private startNextCon(): void {
     const completedCon = this.state.con
     const previousSeason = currentSeason(completedCon, this.config.empire.seasons)
     this.state.phase = 'cards'
     this.state.con += 1
+    this.settleAlchemyMutantAftermaths()
     this.tickMysticCards()
     const completedRecoveries = Object.values(this.state.army.unitInstances)
       .filter(instance => instance.recoveryStartedAtCon !== null && instance.readyAtCon <= this.state.con)
@@ -9174,7 +10491,54 @@ export class EmpiresEndgameEngine {
         bonuses[effect.flagId] = (bonuses[effect.flagId] ?? 0) + amount
       }
     }
+    for (const instanceId of state.mystics.zone) {
+      const instance = state.mystics.instances[instanceId]
+      const definition = instance ? this.mysticDefinitions.get(instance.definitionId) : null
+      if (!instance || instance.status !== 'zone' || !definition || definition.deferredReason) continue
+      const face = instance.inverted ? definition.inverted : definition.normal
+      if (face.deferredReason) continue
+      for (const effect of face.effects) {
+        if (effect.kind !== 'flag') continue
+        bonuses[effect.flagId] = (bonuses[effect.flagId] ?? 0) + effect.amount
+      }
+    }
     return bonuses
+  }
+
+  private refreshHeldPassiveEffects(): void {
+    this.clearCardFlagBonuses()
+    const flagKinds = new Set<EffectKind>(['flag'])
+    for (const cardId of this.state.durak.playerHand) {
+      const instance = this.state.cards[cardId]
+      const definition = instance ? this.definitions.get(instance.definitionId) : null
+      if (!instance || !definition) continue
+      const face = instance.inverted ? definition.inverted : definition.normal
+      if (face.deferredReason) continue
+      const magnitude = this.cardEffectMagnitude(definition)
+      this.applyEffects(
+        face.effects,
+        instance.level,
+        flagKinds,
+        `card:${definition.id}:${instance.inverted ? 'inverted' : 'normal'}`,
+        magnitude,
+      )
+      this.recordCardFlagBonuses(face.effects, instance.level, magnitude)
+    }
+    for (const instanceId of this.state.mystics.zone) {
+      const instance = this.state.mystics.instances[instanceId]
+      const definition = instance ? this.mysticDefinitions.get(instance.definitionId) : null
+      if (!instance || instance.status !== 'zone' || !definition || definition.deferredReason) continue
+      const face = instance.inverted ? definition.inverted : definition.normal
+      if (face.deferredReason) continue
+      this.applyEffects(
+        face.effects,
+        0,
+        flagKinds,
+        `mystic:${definition.id}:${instance.inverted ? 'inverted' : 'normal'}`,
+      )
+      this.recordCardFlagBonuses(face.effects, 0, 1)
+    }
+    this.refreshProductions()
   }
 
   private clearCardFlagBonuses(): void {
@@ -9310,6 +10674,45 @@ export class EmpiresEndgameEngine {
       target.unitInstanceIds.push(id)
     }
     target.count = target.unitInstanceIds.length
+  }
+
+  private awardMilitaryAcademyUnits(technology: EmpiresTechnologyDefinition): void {
+    if (technology.category !== 'technology' || technology.groupId !== 'war' || technology.steel) return
+    const capital = this.city(this.config.governance.capital.cityId)
+    if (!capital || !this.isCityAccessible(capital.id)) return
+    const count = Math.max(0, Math.floor(
+      (this.operationalBuildingFlagValue(capital, 'freeUnitsPerWarTechnology') ?? 0)
+        + Math.max(0, this.effectiveEmpireFlagValue('academyFreeUnitBonus')),
+    ))
+    if (count <= 0) return
+    const deliveryTurns = Math.max(0, Math.floor(
+      this.operationalBuildingFlagValue(capital, 'academyDeliveryTurns') ?? 0,
+    ))
+    const unit = this.unitDefinitions.get('unit-light')
+    if (!unit || unit.deferredReason || !unit.td) return
+    const weapon = this.combatWeaponProfile(unit.td.weaponEquipmentId)
+    const armor = this.combatArmorProfile(unit.td.armorEquipmentId)
+    if (!weapon) throw new Error('Military Academy free units have no executable weapon profile.')
+    const firstSequence = this.state.army.nextUnitSequence
+    this.addOrMergeCohort(capital, unit, {
+      id: `military-academy:${unit.id}`,
+      weaponEquipmentId: unit.td.weaponEquipmentId,
+      ...(unit.td.armorEquipmentId ? { defenseEquipmentId: unit.td.armorEquipmentId } : {}),
+      equipmentCosts: [],
+      weapon,
+      armor,
+    }, count)
+    for (let sequence = firstSequence; sequence < this.state.army.nextUnitSequence; sequence += 1) {
+      const instance = this.state.army.unitInstances[`army-unit:${sequence}`]
+      if (instance) instance.readyAtCon = this.state.con + deliveryTurns
+    }
+    this.appendChronicle(this.state, {
+      kind: 'technology-disclosure',
+      sourceId: `military-academy:${technology.id}:${this.state.con}`,
+      title: 'Военная академия готовит подкрепление',
+      description: `${count} отряда прибудут к кону ${this.state.con + deliveryTurns}.`,
+      target: { kind: 'city', cityId: capital.id },
+    })
   }
 
   private empireFlagValueInState(state: EmpiresCampaignState, flagId: string): number {
@@ -9730,12 +11133,17 @@ export class EmpiresEndgameEngine {
       : 0
     const portBonus = Math.floor(definition.goldAmount
       * portLevel * external.seaPort.tradeGoldBonusPercentPerLevel / 100)
+    const fairMarketPercent = Math.max(
+      0,
+      this.operationalBuildingFlagValue(city, 'fairExternalTradeDiscountPercent') ?? 0,
+    )
+    const fairMarketBonus = Math.floor(definition.goldAmount * fairMarketPercent / 100)
     const persecutionPenalty = this.state.empire.domesticEconomy.persecution
       ? Math.ceil(definition.goldAmount * external.persecutionPricePenaltyPercent / 100)
       : 0
     const adjustedGold = definition.direction === 'import'
-      ? Math.max(1, definition.goldAmount - portBonus + persecutionPenalty)
-      : Math.max(0, definition.goldAmount + portBonus - persecutionPenalty)
+      ? Math.max(1, definition.goldAmount - portBonus - fairMarketBonus + persecutionPenalty)
+      : Math.max(0, definition.goldAmount + portBonus + fairMarketBonus - persecutionPenalty)
     const customsLevel = this.operationalBuildingFlagValue(city, external.customs.tariffFlagId) !== null
       ? this.externalBuildingLevel(city, external.customs.buildingId)
       : 0
@@ -10012,6 +11420,13 @@ export class EmpiresEndgameEngine {
   private operationalBuildingFlagValue(city: EmpiresCityState, flagId: string): number | null {
     const values = this.operationalBuildingFlagEntries(city, flagId).map(entry => entry.value)
     return values.length > 0 ? Math.max(...values) : null
+  }
+
+  private operationalEmpireBuildingFlagValue(flagId: string): number {
+    return this.state.empire.cities.reduce((total, city) => {
+      if (!this.isCityAccessible(city.id)) return total
+      return total + (this.operationalBuildingFlagValue(city, flagId) ?? 0)
+    }, 0)
   }
 
   private inheritedOperationalBuildingFlagValue(city: EmpiresCityState, flagId: string): number | null {
@@ -10349,6 +11764,19 @@ export class EmpiresEndgameEngine {
         this.cardEffectMagnitude(definition),
       )
     }
+    for (const instanceId of this.state.mystics.zone) {
+      const instance = this.state.mystics.instances[instanceId]
+      const definition = instance ? this.mysticDefinitions.get(instance.definitionId) : null
+      if (!instance || instance.status !== 'zone' || !definition || definition.deferredReason) continue
+      const face = instance.inverted ? definition.inverted : definition.normal
+      if (face.deferredReason) continue
+      this.applyEffects(
+        face.effects,
+        0,
+        productionKinds,
+        `mystic:${definition.id}:${instance.inverted ? 'inverted' : 'normal'}`,
+      )
+    }
   }
 
   private claimGift(gift: EmpiresGiftDefinition): void {
@@ -10631,6 +12059,7 @@ export class EmpiresEndgameEngine {
     this.clearCardFlagBonusesFromState(state)
     state.phase = 'cards'
     state.con += 1
+    this.settleAlchemyMutantAftermaths(state)
     state.boutsInCon = 0
     state.performance = emptyPerformance()
     state.performanceScore = 0
@@ -10848,7 +12277,7 @@ export class EmpiresEndgameEngine {
       'epidemic-start', 'epidemic-impact', 'epidemic-spread',
       'epidemic-containment', 'epidemic-end',
       'loan', 'insurance', 'fair', 'temple',
-      'tavern', 'alchemy', 'expedition', 'veteran',
+      'tavern', 'alchemy', 'expedition', 'veteran', 'governance',
     ])
     const seenIds = new Set<string>()
     state.empire.chronicle = (state.empire.chronicle ?? [])

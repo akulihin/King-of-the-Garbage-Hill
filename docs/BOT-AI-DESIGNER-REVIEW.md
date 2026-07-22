@@ -4,7 +4,7 @@ This document is the review surface for bot decisions. It describes what the bot
 
 The central contract is deliberate:
 
-- **Level 1 is the frozen legacy baseline.** It was written before the fair-information boundary and may read privileged internal state. It is retained for replay and simulation comparison, not as the fairness model.
+- **Level 1 is the legacy baseline.** Its large historical decision body predates the fair-information boundary and may read privileged internal state. It is retained for replay and simulation comparison, while the explicit cross-level event/fun rules still apply to it.
 - **Level 2 is the competent fair bot.** It uses only information its character or an ordinary player could see. The rewrite preserves its strategic goals; uncertainty and weighted choice keep it fallible.
 - **Level 3 is the advanced fair bot.** It gets no additional secret facts. It is stronger because it remembers more, knows the public rules exactly, combines clues, tracks confidence, and makes firmer choices.
 - Level 0 exists as a legal random simulation control, but is outside this level 1–3 design review.
@@ -34,18 +34,19 @@ Primary implementation: `Game/GameLogic/BotsBehavior.cs` (`HandleBotBehavior`, `
 | AI-INFO-OWN-FIGHT | When the bot personally fought someone, the exact class and Justice shown in that fight and a summary of how strong the opponent looked. | The participant sees more detail in its own fight than an uninvolved spectator. | `LastObservedClass`, `LastObservedJustice`, and `LastObservedFightEdge` in `BotOpponentKnowledge`. |
 | AI-INFO-RULES | Public character definitions, base stats, tier/roll rules, mutual-exclusion rules, fight math, and passive behavior. | L3 is allowed to know exactly how the published game works. | `CharactersPull.GetVisibleCharacters` plus rule-coded inference in `BotsBehavior` and `CharacterPassives`. |
 | AI-INFO-REVEAL | An exact identity when a public effect or the bot's own ability reveals it. | It is no longer hidden from that viewer. | Public `Толя` and `Коммуникация` reveals; owner-visible `Сверхразум`, Naruto pairing, and `Глаза бога смерти`. Exact evidence is stored with `IsExactReveal`. |
+| AI-INFO-SCRIPT | Three explicit designer events may reveal otherwise hidden data. | They create coordinated set pieces rather than ordinary deduction. | Round-8 Клоны Сусано reveals Madara to strict bots with prediction sheets; round 10 reveals the selectable Monster or fallback Eren target; a Naruto may follow another living Naruto's submitted target. |
 
 ### Forbidden inputs
 
 | ID | L2/L3 must not know | Practical rule |
 |---|---|---|
-| AI-INFO-NO-ACTION | Whether an opponent is currently blocking, skipping, ready, or whom they selected this unresolved turn. | Never read an opponent's live `IsBlock`, `IsSkip`, `ConfirmedSkip`, or `WhoToAttackThisTurn` to choose an action. Historical resolved defense is allowed. The web mapper also redacts opponent block/skip fields (`GameStateMapper.MapStatus`). |
-| AI-INFO-NO-IDENTITY | A hidden opponent character, passives, transform, or exact six-character roster assignment. | Predictions must come from the visible catalogue and evidence. Do not dereference `target.GameCharacter.Name` or target passive state except behind a viewer-owned exact reveal. |
+| AI-INFO-NO-ACTION | Whether an opponent is currently blocking, skipping, ready, or whom they selected this unresolved turn. | Never read an opponent's live `IsBlock`, `IsSkip`, `ConfirmedSkip`, or `WhoToAttackThisTurn` to choose an ordinary action. Historical resolved defense is allowed. The sole live-action exception is Naruto sibling target focus. The web mapper also redacts opponent block/skip fields (`GameStateMapper.MapStatus`). |
+| AI-INFO-NO-IDENTITY | A hidden opponent character, passives, transform, or exact six-character roster assignment. | Predictions must normally come from the visible catalogue and evidence. Do not dereference `target.GameCharacter.Name` or target passive state except behind a viewer-owned exact reveal or the scripted Madara/round-10 target rules above. |
 | AI-INFO-NO-STATS | Exact opponent stats, Skill, Psyche, Moral, score, Justice, or private marks not shown to this viewer. | Use public place, shown annotations, own-fight observations, and estimates. Unknown Justice remains unknown. |
 | AI-INFO-NO-PRIVATE-LOG | Another player's personal logs, admin-only/hidden fights, hidden global snippets, or a raw cumulative log containing information the viewer missed. | Consume the viewer-scoped projection in `BotInformation`; do not parse raw opponent logs or hidden rows. |
 | AI-INFO-NO-ORACLE | A simulator, server helper, or exact fight function must not answer a strategic question using the real target state. | L2/L3 simulations start without true predictions. Their fight edge is an estimate from legal evidence, not `EstimateOmniFightEdge`. |
 
-The boundary is structural: the fair attack method builds a `FairTarget` projection containing public identity/place/team/markers, viewer memory, a prediction, and estimates. Its comment explicitly forbids adding raw opponent `GameCharacter`, `Passives`, score, Justice, or live action reads.
+The boundary is structural: the fair attack method builds a `FairTarget` projection containing public identity/place/team/markers, viewer memory, a prediction, and estimates. Its comment explicitly names the three scripted exceptions and forbids adding any other raw opponent `GameCharacter`, `Passives`, score, Justice, or live action reads.
 
 ## 3. Shared turn pipeline
 
@@ -56,7 +57,7 @@ The boundary is structural: the fair attack method builds a `FairTarget` project
 | AI-TURN-03 | A strategic bot commits to one character plan for the game. | `EnsureBotPlaystyle` writes `AiPlaystyle` once for strict L2/L3 bots. See section 9. |
 | AI-TURN-04 | The bot spends all pending level-up points before any action. | `HandleLvlUpBot` loops until `LvlUpPoints == 0`, including before forced skips. |
 | AI-TURN-05 | Forced skips stay skips; the ordinary AI may not overwrite them. | `CompleteForcedSkip` clears the bot's own queue and confirms the turn. |
-| AI-TURN-06 | Post-round-10 and locked `Мадара` states cannot take a normal action. Three named shinobi always answer his round-8 challenge. | Round `> 10` submits the no-target action. `Мадара` is action-locked on round 8 or while sealed. L0/L1 keep the historical scripted exact prediction. Strict-bot Наруто, Sakura and Итачи at every level exact-predict and attack Madara after level-ups/forced-Skip handling; the later clone injection adds their second fight. Other L2/L3 bots must use legal evidence. |
+| AI-TURN-06 | Post-round-10 and locked `Мадара` states cannot take a normal action. Every prediction-capable strict bot answers Клоны Сусано; three named shinobi also attack. | Round `> 10` submits the no-target action. `Мадара` is action-locked on round 8 or while sealed. Every strict bot except ARAM/Kira/Madara/Admin/Let's Roll fills exact Madara after level-ups. Strict-bot Наруто, Sakura and Итачи additionally attack after forced-Skip handling; the later clone injection adds their second fight. |
 | AI-TURN-07 | The bot decides how to spend Moral, then uses character widgets such as Kira's notebook, then attacks or blocks. | `HandleBotMoral` → `HandleBotKira` when applicable → `HandleBotAttack`. L0 skips the strategic Moral/Kira stages. |
 | AI-TURN-08 | Prediction is a separate between-round decision and stops after round 8. | `CharacterPassives.HandleBotPredict` skips dead bots, rounds 9+, Kira, and normal prediction for `Мадара`; then removes Sakura-forbidden predictions in `finally`. |
 
@@ -67,9 +68,10 @@ The same scoring skeleton is used by L2 and L3. Character rules add or subtract 
 | ID | Designer view | Technical detail |
 |---|---|---|
 | AI-ATTACK-ELIGIBLE | Only selectable living opponents are considered; the bot does not attack itself or its Naruto pair. Public round-10 bans and the visible Darksci quit line remove targets. Removing two Naruto siblings must not itself increase Block odds. | `HandleBotAttack` builds the legal `Nanobot` list, uses the viewer's `🚫` annotation for the round-10 `Тигр` ban, and parses only sanitized visible logs for `Нахуй эту игру`. L0/L1 count each living sibling as a virtual attack slot only in the action roll (`Naruto.GetBotActionTargetSlotCount`). |
+| AI-ATTACK-R10 | Treat the finale's boss target as a set-piece obligation at every AI level. | Before ordinary scoring/blocking, attack selectable `Монстр без имени`. Only when no Monster exists, bots below selectable `Эрен Йегер` attack him, including place 6. Monster's existence has priority even for its own seat, which cannot target itself and proceeds normally. |
 | AI-ATTACK-BASE | Every legal enemy begins plausible. A target ahead of the bot gets a small urgency bonus; first place gets a slight anti-dogpile penalty. | Start at 10; first place `-1`; a place numerically above the bot `+1`. |
 | AI-ATTACK-LOSS | Do not immediately repeat a clearly awful matchup. Prefer opponents the bot has beaten over opponents that have beaten it. | A recent `TooGOOD` personal loss is `-7`; a better-stats loss is `-5`. Public win/loss history adds a clamped `-2..+2`. L2 looks back 3 rounds; L3 6. |
-| AI-ATTACK-CROWD | Avoid blindly piling onto someone already targeted, unless the character benefits from attention. | Recent public target count subtracts up to 2. `Толя`, LeCrisp and several character rules intentionally reverse or reuse this signal. |
+| AI-ATTACK-CROWD | Avoid blindly piling onto someone already targeted, unless the character benefits from attention. | Recent public target count subtracts up to 2. `Толя`, LeCrisp and several character rules intentionally reverse or reuse this signal. Naruto is the live exception: a target already queued by another living Naruto receives `+3`. |
 | AI-ATTACK-DEFENSE | A history of frequent blocks/skips makes a target less attractive, but a kit that progresses through expected defense is less discouraged. The bot never knows the current block. | At a weighted historical defense rate of at least 60%, L2 applies `-2` (`-1` for a bypass/progress kit); L3 applies `-4` (`-1` for a bypass/progress kit). Progress kits include the bot's own `Автопобеда`, `Безжалостный охотник`, charged portal, eligible Spartan/Sirinoks marks, or the named attack-through-defense kits. |
 | AI-ATTACK-CLASS | Use a target-type or class tell when the bot actually owns that information. | Matching the bot's skill target is `+3` early/`+2` late; a known nemesis advantage is `+5`; a known reverse nemesis is `-2` at L2 and `-4` at L3. No hidden target class is read. |
 | AI-ATTACK-JUSTICE | Use exact Justice only after personally seeing it, then update the estimate from public results. | The last own-fight Justice is reset after a public win and incremented by public losses. A visible WUF marker implies zero. Relative Justice changes score by up to 5; equal known Justice is `-3`. If never observed, the value stays unknown. |
@@ -89,6 +91,7 @@ Block decisions use the bot's own state, public place, target scores, and **hist
 | AI-BLOCK-PLAN | Character pilots may force attack, force block, or merely prefer one. | `GetFairBlockPlan`; the per-character decisions are catalogued in section 10. |
 | AI-BLOCK-L2 | L2 sometimes blocks based on a preference, low own Justice, leader pressure, or a generic 25% chance. | Prefer-block is 50%; prefer-attack blocks 20%; neutral at zero Justice with weak targets is 50%; a pressured top-two bot is 2/3; otherwise 1/4. |
 | AI-BLOCK-L3 | L3 makes threshold decisions instead of rolling. | Prefer-block blocks if best score `<15`; prefer-attack never blocks; a pressured top-two bot blocks below 12; a trailing low-Justice bot blocks below 7; otherwise it blocks below 5. |
+| AI-BLOCK-STREAK | Levels 1–3 cannot turn optimal defense into a boring permanent loop. | After 2 consecutive voluntary Blocks, the next turn must attack when a target exists. A successful attack or forced Skip resets `ConsecutiveBotBlocks`; no-target fallbacks remain legal. L0 is unchanged. |
 | AI-BLOCK-R10 | On round 10, a leader may defend a win; others generally attack. | If no mandatory attack, place 1 blocks unless its plan prefers attack. |
 | AI-BLOCK-NO-TARGET | No positive/legal target becomes a block/no-target action. | Empty target list or all rejected submissions call `HandleAttack(..., -10)`. |
 
@@ -97,7 +100,7 @@ Block decisions use the bot's own state, public place, target scores, and **hist
 | ID | Designer view | Technical detail |
 |---|---|---|
 | AI-PRED-CATALOG | Unknown characters are guessed from the same visible catalogue a player can study, not from the actual six seats. | Fair candidates exclude Sakura and `unknown_bug`, exclude team-only entries in FFA, exclude the bot's own known name, and deduplicate names. |
-| AI-PRED-EXACT | Exact public or owner-visible reveals override guesses permanently. The named Madara challengers are the one designer-scripted identity exception. | `Толя` public reveal; `Коммуникация` when one public name maps to one Pink-Ward id; owner `Сверхразум`; Naruto sibling. Round-8 strict-bot Naruto/Sakura/Itachi receive exact Madara through `ForceRoundEightBotPrediction`. Stored at confidence 100 and protected from weaker replacement. |
+| AI-PRED-EXACT | Exact public or owner-visible reveals override guesses permanently. Клоны Сусано is the designer-scripted identity exception. | `Толя` public reveal; `Коммуникация` when one public name maps to one Pink-Ward id; owner `Сверхразум`; Naruto sibling. On round 8 every strict bot with an ordinary prediction sheet receives exact Madara through `ForceRoundEightBotPrediction`; Kira/Madara/ARAM/Admin/Let's Roll remain excluded. |
 | AI-PRED-RULES | Known roster rules eliminate impossible combinations. | LeCrisp and `Толя` exclude each other; HardKitty and `Эрен Йегер` exclude each other; once a tier-4 identity is exactly known, other tier-4 candidates are removed. |
 | AI-PRED-EVIDENCE | Use owned class tells, own-fight class, current/previous personal logs, sanitized public tells, and AWDKA's own Volibear stat feedback. | `FairPredictionScore`, `AwdkaFairPredictionScore`. Tells include `Ничего не понимает`, `Они позорят военное искусство`, `Стёб`, `Панцирь`, Darksci's named public lines, and failed `Толя` reveal. Transferred effects make some tells strong evidence, not certainty. |
 | AI-PRED-L2 | L2 guesses each player separately. Strong evidence wins; weak evidence keeps a previous guess or draws from a tier-weighted prior. Duplicate guessed names are possible because L2 does not solve the whole roster. | Score `<45` uses prior/old evidence at confidence at least 25. Strong evidence starts at confidence 40, capped at 85. Tier prior weights are 18/14/12/9/8/7/6 from highest to lowest bands. |
@@ -209,16 +212,17 @@ These rules sit on top of the universal score. “Estimate” means the legal co
 | AI-CHAR-SUPPORT | `Таинственный Суппорт` | Choose a strong leader as carry, then perform the periodic support fight and interact with its carry. | Before mark, adds estimated offensive stats and `+10` for top two. Every third round non-carry `+12` plus edge; carry `+15` and friendly permission. Forces attack while choosing carry, every third round, or under `Carry`; otherwise even rounds prefer block. |
 | AI-CHAR-GOBLINS | `Стая Гоблинов` | Seek useful standalone passives for Ziggurat, valuable mining positions, and plausible wins. Build/defend while population is small. | Confident new standalone passive `+12`; places 1/2/6 gain worker-scaled value; estimated edge bonuses/penalties. Force-block to build at useful place/late/Ziggurat conditions; otherwise prefer block below 10 goblins. |
 | AI-CHAR-CATS | `Котики` | Follow deployed cats, spread Storm taunts, and prefer strong but beatable prey. | Deployed Minka/Storm target `+20`; untaunted `+5`, taunted `-3`; estimated max stat and edge add value. Force attack late or after deployment; otherwise force block every third round from round 3. |
-| AI-CHAR-MONSTER | `Монстр без имени` | Avoid opponents estimated to tie one of its stats, seek observed Justice, and become aggressive at the end. | Near-equal own stat `-8`; estimated Justice `×2`; round 10 `+10`, leaders another `+5`. Force-block rounds 1–2; `Apocalypse` attacks from round 3; `Twin` may block under historical pressure; always attack round 10. |
+| AI-CHAR-MONSTER | `Монстр без имени` | Avoid opponents estimated to tie one of its stats, seek observed Justice, and become aggressive at the end. Every other actionable bot converges on Monster for the finale. | Near-equal own stat `-8`; estimated Justice `×2`; round 10 `+10`, leaders another `+5`. Force-block rounds 1–2; `Apocalypse` attacks from round 3; `Twin` may block under historical pressure; always attack round 10. The cross-roster mandatory targeting is AI-ATTACK-R10. |
 | AI-CHAR-THEBOYS | TheBoys | Complete Francie orders, spread Kompromat, use chemical weapon on plausible fights, and pursue visible hero/leader value. | Order target `+20` and mandatory at one round left; new Kompromat `+10`; chemical level, visible `🦸`, armed virus, and top-three bonuses. Always attacks. |
 | AI-CHAR-SELLER | `Продавец Сомнительных Тактик` | Spread marks whenever ready; later exploit marked players, especially the round-10 leader. | Ready unmarked targets get at least 20, marked target `-5`; cooldown fights prefer nonnegative edge; round-10 marked leader `+15`, other marked `+6`. Forces attack when ready. |
 | AI-CHAR-SALLDORUM | Salldorum | Use the three-round Chronicle signal, spend Shen on players ahead, and value observed zero Justice. | Public win exactly three rounds ago `+5`; charged Shen versus player ahead `+8`; estimated Justice zero `+3`. Before block evaluation, may rewrite the best owned loss round during rounds 5–7; force-block once in rounds 1–3 for Time Capsule. |
 | AI-CHAR-GERALT | `Геральт` | Hunt the owner-visible monster type with contracts/oil, and use fights to climb toward leaders. | Parses own leaderboard monster-type text; contracts `×4`, applied oil tier `×3`, 3+ contracts `+8`; unknown type `-5`; place-climb and top-two bonuses. Force-block without oil; prefer meditation blocks while fewer than 3 enemies revealed through round 6; force attack from round 8 or with oil after reveal goal. |
-| AI-CHAR-EREN | `Эрен Йегер` | As Eren, value visible fire marks. Against Eren on round 10, L3 may identify the forced target from public rule-shaped history. | Own pilot adds visible fire count `×3`. L3 sees the public round-10 Eren warning, looks for a unique opponent who occupied place 6 in at least five rounds through round 8, stores an 82-confidence hypothesis, and makes the inferred in-range target mandatory. L2 has no oracle and only acts on a much stronger pre-existing Eren prediction. |
+| AI-CHAR-EREN | `Эрен Йегер` | As Eren, value visible fire marks. Against Eren on round 10, all levels join the set-piece only when Monster is absent. | Own pilot adds visible fire count `×3`. AI-ATTACK-R10 gives every bot below selectable Eren, including place 6, the exact mandatory target when no Monster exists. |
+| AI-CHAR-NARUTO | `Наруто` | Coordinate the trio into joint attacks without making siblings legal targets. | Another living Naruto's already submitted target gets `+3` classical L1 interest or fair L2/L3 score. Clones still force attack, the original keeps its ordinary Block/Harem policy, and L0 remains random apart from clone no-block legality. |
 | AI-CHAR-JON | `Джон Сноу` | Always submit an attack so **Еще один бастард** can protect a marked weak player; prefer useful upper/Castle targets without farming the current weakest marks directly. | Places 1–4 get `+3`; either owner-visible weakest target gets `−4`. Both fair levels force attack instead of voluntary Block, and legacy bots also always attack (`BotsBehavior.ApplyFairCharacterPreference`/`GetFairBlockPlan`/legacy block policy). |
 | AI-CHAR-HARD-OCTO | HardKitty / `Осьминожка` | Their own attack uses the universal target policy; both avoid voluntary block. Other bots treat a sufficiently predicted identity with the caution in section 4. | `GetFairBlockPlan` returns force-attack. No separate owner target-score case. |
 | AI-CHAR-SAKURA | Sakura | Use the universal target policy; defend a late top-three position only when earlier public rounds show pressure. Always answer Madara's round-8 challenge. | From round 8 at place 1–3 with historical incoming attacks, prefer block; otherwise prefer attack. On the challenge round the exact Madara attack wins first. Sakura prediction remains forbidden. |
-| AI-CHAR-DEFAULT | DooM Guy, `Наруто`, `Мадара`, `unknown_bug`, and any unlisted/transform-only entry | Use universal targeting unless the engine/character owns a separate forced action. | Neutral fair block plan by default. Naruto pairs stay excluded from legal targets; L0/L1 use virtual sibling action slots, and strict-bot Naruto exact-predicts/attacks Madara on round 8. `Мадара` turn locks are handled in the shared pipeline. `unknown_bug` identity remains masked/unguessable. |
+| AI-CHAR-DEFAULT | DooM Guy, `Мадара`, `unknown_bug`, and any unlisted/transform-only entry | Use universal targeting unless the engine/character owns a separate forced action. | Neutral fair block plan by default. `Мадара` turn locks are handled in the shared pipeline. `unknown_bug` identity remains masked/unguessable. |
 
 ## 11. Exact L3 advantages over L2
 
@@ -231,7 +235,6 @@ This list is the designer guarantee: L3 is smarter by reasoning, not by receivin
 | AI-L3-EDGE | Uses confidence-weighted public character/stat estimates and prior own-fight evidence in the universal win plan. | Universal win plan reacts only to a recent own-fight edge, although character pilots may use the shared estimate. |
 | AI-L3-CONFIDENCE | Scales predicted-character caution by confidence and often accepts lower confidence thresholds for character-specific inference. | Flat caution and usually stricter character thresholds. |
 | AI-L3-PREDICT | Solves an all-different public roster, prioritizes the most constrained seat, and uses public roll/action/defense patterns and longer-lived evidence. | Guesses seats independently; weak seats use a tier prior or prior guess. |
-| AI-L3-RULES | Can infer `Эрен Йегер` from a public warning plus a unique repeated-place pattern. | Cannot locate Eren from the warning alone. |
 | AI-L3-KIRA | Ranks notebook names using class, log, place-history, and prior evidence with a margin-based confidence. | Draws a tier-weighted legal catalogue name unless Eyes revealed the truth. |
 | AI-L3-BLOCK | Applies deterministic target-score and historical-pressure thresholds. | Preserves human-like random block probabilities. |
 | AI-L3-COUNTERPLAY | Penalizes reverse nemesis and historically defensive targets more strongly. | Uses smaller penalties so uncertain evidence does not overrule its baseline. |
@@ -240,7 +243,7 @@ No L3 branch reads the real opponent identity, live block, exact private stats, 
 
 ## 12. L1 legacy behavior and fairness warning
 
-L1 is intentionally not rewritten in this change. It is useful as a stable control, but it should not be advertised as a fair human-equivalent bot.
+L1 retains its legacy body as a comparison control, but the cross-level designer rules (Madara/round-10 targets, Naruto focus, and the two-Block streak cap) also apply to it. It should not be advertised as a fair human-equivalent bot.
 
 | ID | Legacy decision | Designer consequence |
 |---|---|---|
@@ -250,10 +253,10 @@ L1 is intentionally not rewritten in this change. It is useful as a stable contr
 | AI-L1-LOGS | Parses legacy raw global/personal/leaderboard strings directly. | Some deductions are legitimate, but the old path does not enforce the viewer filter as a single boundary. |
 | AI-L1-PREDICT | Uses legacy character-specific log deductions; all-bot simulation additionally preloads the true roster for L1 only. | Suitable for a frozen benchmark, not a fairness test. Live L1 and simulation L1 can differ in prediction knowledge. |
 | AI-L1-KIRA | Prioritizes leaders but chooses unknown names from the **actual current roster** after eliminating revealed/failed names. | This is explicit identity cheating and remains only because L1 is frozen. L2/L3 use the visible catalogue. |
-| AI-L1-MADARA-EREN | Receives the historical exact `Мадара` prediction and scripted `Гул земли` targeting. | L2/L3 must associate the public warning with a player through legal evidence; no server-located target, except the explicit all-level Naruto/Sakura/Itachi Madara challenge script. |
+| AI-L1-MADARA-EREN | Shares the cross-level exact Madara prediction and Monster-first/Eren-fallback target rules. | These are explicit set-piece rules rather than an L1-only advantage. Naruto/Sakura/Itachi additionally make the ordinary Madara attack. |
 | AI-L1-MORAL | Uses the common character Moral policy but earlier/wasteful point thresholds at places 3–4 and leaders. | L2 was not made dumber here: it keeps the existing improved economy thresholds. |
 | AI-L1-LEVEL | Uses the common fixed character builds but has no L2 persistent-plan branches or Psyche-floor correction. | L2/L3 retain and extend the stronger build logic. |
-| AI-L1-BLOCK | Uses legacy random slots plus character overrides, sometimes informed by current opponent actions. | L2/L3 replace the information source while keeping character intent. |
+| AI-L1-BLOCK | Uses legacy random slots plus character overrides, sometimes informed by current opponent actions. | L2/L3 replace the information source while keeping character intent; every level 1–3 is forced to attack after two consecutive voluntary Blocks when a target exists. |
 
 ## 13. Known limitations and follow-up choices
 
@@ -280,14 +283,14 @@ Write a verdict beside each stable ID. “Edit” should state the desired playe
 - [ ] AI-LEVEL-1 — Keep / Edit / Remove: ___
 - [ ] AI-LEVEL-2 — Keep / Edit / Remove: ___
 - [ ] AI-LEVEL-3 — Keep / Edit / Remove: ___
-- [ ] AI-INFO-OWN through AI-INFO-REVEAL — Keep / Edit / Remove: ___
+- [ ] AI-INFO-OWN through AI-INFO-SCRIPT — Keep / Edit / Remove: ___
 - [ ] AI-INFO-NO-ACTION through AI-INFO-NO-ORACLE — Keep / Edit / Remove: ___
 - [ ] AI-TURN-01 through AI-TURN-08 — Keep / Edit / Remove: ___
 
 ### General strategy
 
-- [ ] AI-ATTACK-ELIGIBLE through AI-ATTACK-MACRO — Keep / Edit / Remove: ___
-- [ ] AI-BLOCK-HARD through AI-BLOCK-NO-TARGET — Keep / Edit / Remove: ___
+- [ ] AI-ATTACK-ELIGIBLE through AI-ATTACK-MACRO (including AI-ATTACK-R10) — Keep / Edit / Remove: ___
+- [ ] AI-BLOCK-HARD through AI-BLOCK-NO-TARGET (including AI-BLOCK-STREAK) — Keep / Edit / Remove: ___
 - [ ] AI-PRED-CATALOG through AI-PRED-SAKURA — Keep / Edit / Remove: ___
 - [ ] AI-KIRA-EYES through AI-KIRA-L3 — Keep / Edit / Remove: ___
 - [ ] AI-MORAL-LEADER through AI-MORAL-DEFAULT — Keep / Edit / Remove: ___
@@ -309,7 +312,7 @@ Write a verdict beside each stable ID. “Edit” should state the desired playe
 - [ ] AI-CHAR-SAITAMA / AI-CHAR-TOXIC / AI-CHAR-DOPA / AI-CHAR-RICK — Keep / Edit / Remove: ___
 - [ ] AI-CHAR-ITACHI / AI-CHAR-VAMPUR / AI-CHAR-NAPOLEON / AI-CHAR-SUPPORT — Keep / Edit / Remove: ___
 - [ ] AI-CHAR-GOBLINS / AI-CHAR-CATS / AI-CHAR-MONSTER / AI-CHAR-THEBOYS — Keep / Edit / Remove: ___
-- [ ] AI-CHAR-SELLER / AI-CHAR-SALLDORUM / AI-CHAR-GERALT / AI-CHAR-EREN — Keep / Edit / Remove: ___
+- [ ] AI-CHAR-SELLER / AI-CHAR-SALLDORUM / AI-CHAR-GERALT / AI-CHAR-EREN / AI-CHAR-NARUTO — Keep / Edit / Remove: ___
 - [ ] AI-CHAR-HARD-OCTO / AI-CHAR-SAKURA / AI-CHAR-DEFAULT — Keep / Edit / Remove: ___
 
 ### L3 advantage and limitations
@@ -327,5 +330,5 @@ Fairness and strength are separate checks.
 3. **Safety simulation:** run `bash tools/simulate.sh --ai-difficulty 2` and `bash tools/simulate.sh --ai-difficulty 3`; exit 0 means no game exception/freeze.
 4. **Strength comparison:** use `--ai-probe 3 --ai-probe-char "Name"` against an L2 field, or the paired `bash tools/ab.sh <character> 3 <coverage> <seed> 2`. Compare win rate, average place, score, and each `AiPlaystyle`, not only aggregate wins.
 5. **Information test cases:** specifically stage an opponent choosing block late, then confirm an L2/L3 action is unchanged until that block becomes a resolved visible result. Repeat with hidden identity, hidden score, private logs, hidden fights, and a simulator-preloaded roster.
-6. **Inference test cases:** verify L3 improves only after evidence exists: public `Толя` reveal, own fight class/Justice, repeated public defense, Darksci speaker line, and round-10 Eren warning plus a unique place-six pattern.
+6. **Inference test cases:** verify L3 improves only after evidence exists: public `Толя` reveal, own fight class/Justice, repeated public defense, and the Darksci speaker line. Separately verify the explicitly scripted Madara, round-10 Monster/Eren and Naruto-focus rules at every applicable level.
 7. **Designer play-test:** watch one replay for every AI-CHAR ID and record whether the decision looks understandable from the information visible to that bot. A strong result reached for a hidden reason is still a failed fairness test.

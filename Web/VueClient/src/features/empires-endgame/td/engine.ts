@@ -343,7 +343,11 @@ export function tdCommandDisabledReason(
   if (!choice) return `Unknown tower choice ${command.choiceId}.`
   const grade = nextTdTowerGrade(tower)
   const set = choiceSetForGrade(plan, grade)
-  if (!set || set.deferredReason) return set?.deferredReason ?? `Grade ${grade} is unavailable in this region.`
+  if (!set) return `Grade ${grade} is unavailable in this region.`
+  if (set.availability === 'notApplicable') {
+    return set.reason ?? `Grade ${grade} does not apply in this region.`
+  }
+  if (set.deferredReason) return set.deferredReason
   if (choice.grade !== grade || !set.choiceIds.includes(choice.id)) {
     return `Tower ${command.spotId} requires a configured grade-${grade} choice.`
   }
@@ -929,10 +933,22 @@ export function validateTdBattlePlan(plan: TdBattlePlan): string[] {
   for (const set of plan.gradeChoices.filter(item => item.regionId === plan.battlefield.regionId)) {
     if (grades.has(set.grade)) errors.push(`region ${set.regionId} repeats grade ${set.grade}`)
     grades.add(set.grade)
-    if (set.deferredReason) {
+    if (set.availability !== undefined
+      && set.availability !== 'available'
+      && set.availability !== 'notApplicable') {
+      errors.push(`grade set ${set.id} has unknown availability`)
+    }
+    if (set.availability === 'notApplicable') {
+      if (!set.reason?.trim()) errors.push(`not-applicable grade set ${set.id} needs a reason`)
+      if (set.deferredReason) errors.push(`not-applicable grade set ${set.id} cannot be deferred`)
+      if (set.choiceIds.length > 0) errors.push(`not-applicable grade set ${set.id} must not expose choices`)
+    } else if (set.deferredReason) {
       if (set.choiceIds.length > 0) errors.push(`deferred grade set ${set.id} must not expose choices`)
     } else if (set.choiceIds.length !== 4) {
       errors.push(`live grade set ${set.id} must contain exactly four choices`)
+    }
+    if (set.availability !== 'notApplicable' && set.reason !== undefined) {
+      errors.push(`grade set ${set.id} reason is only valid when not applicable`)
     }
     for (const choiceId of set.choiceIds) {
       const choice = plan.towerChoices.find(item => item.id === choiceId)

@@ -271,11 +271,26 @@ describe('Empire\'s Endgame Phase 7 quest and dialogue engine', () => {
 
   it('bridges Golden Idol and Witch Apprenticeship through consumed quest resolutions', () => {
     const value = config()
+    const monument = new EmpiresEndgameEngine(value, eventState(value, 'event-golden-idol'))
+    const monumentTarget = monument.state.empire.cities
+      .filter(city => monument.isCityAccessible(city.id))
+      .sort((left, right) => left.population - right.population || left.id.localeCompare(right.id))[0]
+    const monumentPopulation = monumentTarget.population
+    expect(monument.eventChoiceBlockedReason('idol-monument')).toBeNull()
+    expect(monument.chooseEvent('idol-monument').ok).toBe(true)
+    expect(monument.state.empire.cities.find(city => city.id === monumentTarget.id)?.population)
+      .toBe(monumentPopulation + 1000)
+    expect(monument.state.epidemics).toContainEqual(expect.objectContaining({ cityId: monumentTarget.id }))
+    expect(monument.state.quests['quest-golden-idol']).toMatchObject({
+      status: 'completed',
+      memory: {
+        monumentRaised: true,
+        fallenWarriorRestored: true,
+        bloodyDiseaseAccepted: true,
+      },
+    })
+
     const idol = new EmpiresEndgameEngine(value, eventState(value, 'event-golden-idol'))
-    const beforeDeferred = idol.snapshot()
-    expect(idol.eventChoiceBlockedReason('idol-monument')).toMatch(/deferred/i)
-    expect(idol.chooseEvent('idol-monument').ok).toBe(false)
-    expect(idol.snapshot()).toEqual(beforeDeferred)
     const beforeGold = idol.state.empire.resources.gold
     const beforeWood = idol.state.empire.resources.wood
     const beforeIron = idol.state.empire.resources.iron
@@ -329,7 +344,7 @@ describe('Empire\'s Endgame Phase 7 quest and dialogue engine', () => {
     const untouchedConfig = structuredClone(legacyConfig)
     const migrated = migrateEmpiresConfig(legacyConfig) as EmpiresEndgameConfig
     expect(legacyConfig).toEqual(untouchedConfig)
-    expect(migrated.schemaVersion).toBe(17)
+    expect(migrated.schemaVersion).toBe(value.schemaVersion)
     expect(migrated.quests.definitions.find(quest => quest.id === 'quest-palach')
       ?.stages.flatMap(stage => stage.nodes)).toHaveLength(43)
     expect((migrated.quests as unknown as Record<string, unknown>).dialogueGraphs).toBeUndefined()
@@ -348,7 +363,7 @@ describe('Empire\'s Endgame Phase 7 quest and dialogue engine', () => {
     const restored = new EmpiresEndgameEngine(value, importEmpiresCampaign(envelope, value.id))
     expect(envelope).toEqual(untouchedEnvelope)
     expect(restored.state).toMatchObject({
-      schemaVersion: 16,
+      schemaVersion: new EmpiresEndgameEngine(value).snapshot().schemaVersion,
       quests: {},
       questRuntime: {
         activeMandatoryQuestId: null,

@@ -402,7 +402,12 @@ export function validateAlchemyPlan(plan: AlchemyPlan): string[] {
   if (!plan.explosion.epidemicDefinitionId?.trim()
     || !Number.isFinite(plan.explosion.severityMultiplier)
     || plan.explosion.severityMultiplier <= 0
-    || typeof plan.explosion.lockBuildingForCon !== 'boolean') {
+    || typeof plan.explosion.lockBuildingForCon !== 'boolean'
+    || plan.explosion.mutantAftermath?.kind !== 'mutant-outbreak'
+    || !finiteInteger(plan.explosion.mutantAftermath.delayCons, 1)
+    || !Number.isFinite(plan.explosion.mutantAftermath.populationLoss)
+    || plan.explosion.mutantAftermath.populationLoss < 0
+    || !Number.isFinite(plan.explosion.mutantAftermath.loyaltyDelta)) {
     errors.push('Alchemy explosion consequence is invalid.')
   }
   return errors
@@ -624,6 +629,7 @@ function resultFromState(
       epidemicDefinitionId: plan.explosion.epidemicDefinitionId,
       severity: plan.explosion.severityMultiplier,
       source: { kind: 'alchemy', id: `alchemy:${plan.sessionId}` },
+      mutantAftermath: clone(plan.explosion.mutantAftermath),
     } : null,
     error: state.error,
   }

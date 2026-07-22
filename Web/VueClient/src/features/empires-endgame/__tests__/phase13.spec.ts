@@ -172,32 +172,32 @@ describe('Empire\'s Endgame Phase 13 stabilization contracts', () => {
 
   it('freezes the final P12B carrier/raw inventory and maintained projection fingerprint', () => {
     const value = config()
-    expect(collectEmpiresConfigCarriers(value)).toHaveLength(1_112)
-    expect(Object.values(EMPIRES_CONTENT_CARRIER_SNAPSHOT).flat()).toHaveLength(1_112)
+    expect(collectEmpiresConfigCarriers(value)).toHaveLength(1_354)
+    expect(Object.values(EMPIRES_CONTENT_CARRIER_SNAPSHOT).flat()).toHaveLength(1_354)
     expect(summarizeEmpiresContentCoverage(EMPIRES_CONTENT_COVERAGE_MANIFEST)).toEqual({
       config: {
-        live: 823,
+        live: 1160,
         'ready-now': 0,
-        'blocked-semantic': 142,
-        'blocked-substrate': 13,
-        review: 134,
+        'blocked-semantic': 120,
+        'blocked-substrate': 11,
+        review: 63,
         out: 0,
       },
       raw: {
-        live: 18,
+        live: 67,
         'ready-now': 0,
-        'blocked-semantic': 140,
-        'blocked-substrate': 56,
-        review: 126,
+        'blocked-semantic': 194,
+        'blocked-substrate': 52,
+        review: 133,
         out: 15,
       },
-      configTotal: 1_112,
-      rawTotal: 355,
+      configTotal: 1_354,
+      rawTotal: 461,
       sourceTotal: 33,
       sourceMessageTotal: 1_149,
     })
     expect(coverageProjectionFingerprint(EMPIRES_CONTENT_COVERAGE_MANIFEST))
-      .toBe('eac79318d85827f6')
+      .toBe('2750a78d8ecb4055')
   })
 
   it('restores every active minigame variant immutably and enforces its authored abort policy', () => {
@@ -303,7 +303,7 @@ describe('Empire\'s Endgame Phase 13 stabilization contracts', () => {
       expect(firstSession.attempt, `${name} first restart attempt`).toBe(legacySession.attempt + 1)
 
       const currentEnvelope = exportEmpiresCampaign(first.snapshot())
-      expect(currentEnvelope).toMatchObject({ schemaVersion: 16, state: { schemaVersion: 16 } })
+      expect(currentEnvelope).toMatchObject({ schemaVersion: 18, state: { schemaVersion: 18 } })
       const second = new EmpiresEndgameEngine(
         value,
         importEmpiresCampaign(currentEnvelope, value.id),
@@ -970,7 +970,7 @@ describe('Empire\'s Endgame Phase 13 stabilization contracts', () => {
         EMPIRES_STABILIZATION_BUDGETS.longCampaignSaveUtf8Bytes,
       )
       window.localStorage.setItem(EMPIRES_SAVE_STORAGE_KEY, JSON.stringify({
-        schemaVersion: 16,
+        schemaVersion: 18,
         savedAt: '2026-07-21T00:00:00.000Z',
         state: oversizedCurrent,
       }))

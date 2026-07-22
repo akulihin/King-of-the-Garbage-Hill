@@ -8,6 +8,9 @@ import type {
 import type { EmpiresTdConfig } from './td/types'
 import type { EmpiresAlchemyConfig } from './alchemy/types'
 import type { EmpiresInventoryConfig } from './inventory/types'
+import { CLASH_SCAFFOLD } from './clash/catalog'
+import { validateClashConfig } from './clash/engine'
+import { createRecommendedChessConfig, validateChessConfig } from './chess/engine'
 import type {
   EmpiresBuildingSlotKind,
   EmpiresCampaignState,
@@ -32,7 +35,7 @@ import { EMPIRES_STABILIZATION_BUDGETS } from './stabilization'
 
 export const EMPIRES_CONFIG_URL = '/empires-endgame/game-config.json'
 export const EMPIRES_CONFIG_STORAGE_KEY = 'empires-endgame:config:v1'
-export const EMPIRES_CONFIG_SCHEMA_VERSION = 17
+export const EMPIRES_CONFIG_SCHEMA_VERSION = 19
 export const EMPIRES_ACTIVE_MINIGAME_CONFIG_ERROR = 'Нельзя менять правила во время боя. Сначала завершите бой или выйдите через действие отмены.'
 
 export function empiresConfigReplacementDisabledReason(
@@ -92,6 +95,12 @@ const COMBAT_SCAFFOLD = {
   armorClasses: [],
   counterRules: [],
   equipment: [],
+}
+
+const CHESS_SCAFFOLD = {
+  ...createRecommendedChessConfig(),
+  enabled: false,
+  setup: [],
 }
 
 const TD_V2_SCAFFOLD = {
@@ -259,10 +268,16 @@ const TAVERN_SCAFFOLD = {
   },
   maria: {
     encounterChance: 0.33,
+    playerRoundWinChance: 0.55,
+    roundsToWin: 2,
     standardCardDefinitionId: '',
     title: 'Мария Брауз',
     description: '',
-    encounterDeferredReason: 'Точные правила карточной партии 2×2 не определены.',
+  },
+  mystics: {
+    recruitmentGoldCost: 500,
+    appeasementUpgradePointCost: 1,
+    recruitableDefinitionIds: [],
   },
   queen: {
     mysticDefinitionId: '',
@@ -305,6 +320,12 @@ const ALCHEMY_SCAFFOLD = {
     epidemicDefinitionId: '',
     severityMultiplier: 1,
     lockBuildingForCon: true,
+    mutantAftermath: {
+      kind: 'mutant-outbreak',
+      delayCons: 2,
+      populationLoss: 0,
+      loyaltyDelta: 0,
+    },
   },
   colors: [],
   pieces: [],
@@ -319,8 +340,7 @@ const EXPEDITIONS_SCAFFOLD = {
   veteran: {
     qualifyingMaximumHealthRatio: 0.5,
     removalWounds: 2,
-    laterBattleBonus: null,
-    laterBattleBonusDeferredReason: 'The raw expedition source names a later-battle veteran payoff but does not define it.',
+    laterBattleBonus: { kind: 'deploymentSpeedPercent', percent: 10 },
   },
   zones: [],
   enemyProfiles: [],
@@ -336,6 +356,8 @@ const INVENTORY_SCAFFOLD = {
   maxCatchUpTicksPerFrame: 8,
   maxItems: 24,
   targetUnitsPerItem: 500,
+  equipmentPacking: { maxItems: 2, targetUnitsPerItem: 1 },
+  perstPacker: { perstId: '', requireOriginGovernor: true, bonusEquipmentItems: 2 },
   board: { width: 10, height: 14, cartHeight: 8 },
   gravity: { intervalTicks: 10, spawnDelayTicks: 2 },
   scoring: { pointsPerWeight: 100, fullRowBonus: 500 },
@@ -753,11 +775,18 @@ function migrateEmpiresConfigV3ToV4(config: Record<string, unknown>): Record<str
   const hadEquipmentProduction = Array.isArray(rawTd.equipmentProduction)
   const oldRecipes = hadEquipmentProduction ? rawTd.equipmentProduction as unknown[] : []
   const recipeCount = Math.max(1, oldRecipes.length)
-  const lines = oldRecipes.map((_, index) => ({
-    id: `legacy-smithy-${index + 1}`,
-    capacityFlagId: 'smithCapacity',
-    capacityShare: 1 / recipeCount,
-  }))
+  let allocatedLegacyCapacity = 0
+  const lines = oldRecipes.map((_, index) => {
+    const capacityShare = index === oldRecipes.length - 1
+      ? Math.max(0, 1 - allocatedLegacyCapacity)
+      : Math.min(1 / recipeCount, Math.max(0, 1 - allocatedLegacyCapacity))
+    allocatedLegacyCapacity += capacityShare
+    return {
+      id: `legacy-smithy-${index + 1}`,
+      capacityFlagId: 'smithCapacity',
+      capacityShare,
+    }
+  })
   const recipes = oldRecipes.map((rawRecipe, index) => isRecord(rawRecipe)
     ? {
         ...rawRecipe,
@@ -894,6 +923,61 @@ function migrateEmpiresConfigV7ToV8(config: Record<string, unknown>): Record<str
   if (isRecord(config.empire)) {
     config.empire.epidemics = withScaffoldDefaults(config.empire.epidemics, EPIDEMICS_SCAFFOLD)
     config.empire.medical = withScaffoldDefaults(config.empire.medical, MEDICAL_SCAFFOLD)
+    const epidemicIds = new Set(
+      isRecord(config.empire.epidemics) && Array.isArray(config.empire.epidemics.definitions)
+        ? config.empire.epidemics.definitions.flatMap(definition => (
+            isRecord(definition) && typeof definition.id === 'string' ? [definition.id] : []
+          ))
+        : [],
+    )
+    if (!epidemicIds.has('epidemic-plague')
+      && isRecord(config.quests) && Array.isArray(config.quests.definitions)) {
+      for (const quest of config.quests.definitions) {
+        if (!isRecord(quest) || quest.id !== 'quest-golden-idol' || !Array.isArray(quest.stages)) continue
+        for (const stage of quest.stages) {
+          if (!isRecord(stage) || !Array.isArray(stage.nodes)) continue
+          for (const node of stage.nodes) {
+            if (!isRecord(node) || !Array.isArray(node.choices)) continue
+            const choice = node.choices.find(candidate => isRecord(candidate) && candidate.id === 'idol-monument')
+            if (!isRecord(choice)) continue
+            choice.deferredReason = 'Legacy custom rules do not contain the epidemic required by this choice.'
+            choice.deferredVisibility = 'visible'
+            if (Array.isArray(choice.effects)) {
+              choice.effects = choice.effects.filter(effect => !(
+                isRecord(effect)
+                && effect.kind === 'epidemicStart'
+                && effect.definitionId === 'epidemic-plague'
+              ))
+            }
+          }
+        }
+      }
+      if (Array.isArray(config.empire.events)) {
+        for (const event of config.empire.events) {
+          if (!isRecord(event) || event.id !== 'event-golden-idol' || !Array.isArray(event.choices)) continue
+          event.choices = event.choices.filter(choice => !isRecord(choice) || choice.id !== 'idol-monument')
+        }
+      }
+    }
+    if (isRecord(config.gifts) && Array.isArray(config.gifts.definitions)) {
+      for (const gift of config.gifts.definitions) {
+        if (!isRecord(gift) || !Array.isArray(gift.effects)) continue
+        const missingStart = gift.effects.some(effect => (
+          isRecord(effect)
+          && effect.kind === 'epidemicStart'
+          && (typeof effect.definitionId !== 'string' || !epidemicIds.has(effect.definitionId))
+        ))
+        if (!missingStart) continue
+        gift.effects = gift.effects.filter(effect => !(
+          isRecord(effect)
+          && effect.kind === 'epidemicStart'
+          && (typeof effect.definitionId !== 'string' || !epidemicIds.has(effect.definitionId))
+        ))
+        gift.deferredReason = typeof gift.deferredReason === 'string'
+          ? gift.deferredReason
+          : 'Legacy custom rules do not contain the epidemic required by this gift.'
+      }
+    }
   }
   config.schemaVersion = 8
   return config
@@ -1046,6 +1130,16 @@ function migrateEmpiresConfigV13ToV14(config: Record<string, unknown>): Record<s
 function normalizeEmpiresConfigV14(config: Record<string, unknown>): Record<string, unknown> {
   normalizeEmpiresConfigV13(config)
   if (!Array.isArray(config.mysticCards)) config.mysticCards = []
+  config.mysticCards = config.mysticCards.map((rawCard) => {
+    if (!isRecord(rawCard)) return rawCard
+    const normal = isRecord(rawCard.normal) ? rawCard.normal : {}
+    const inverted = isRecord(rawCard.inverted) ? rawCard.inverted : {}
+    return {
+      ...rawCard,
+      normal: { ...normal, effects: Array.isArray(normal.effects) ? normal.effects : [] },
+      inverted: { ...inverted, effects: Array.isArray(inverted.effects) ? inverted.effects : [] },
+    }
+  })
   config.tavern = withScaffoldDefaults(config.tavern, TAVERN_SCAFFOLD)
   if (isRecord(config.tavern)) {
     config.tavern.spawn = withScaffoldDefaults(config.tavern.spawn, TAVERN_SCAFFOLD.spawn)
@@ -1056,6 +1150,7 @@ function normalizeEmpiresConfigV14(config: Record<string, unknown>): Record<stri
     config.tavern.spirits = withScaffoldDefaults(config.tavern.spirits, TAVERN_SCAFFOLD.spirits)
     config.tavern.rumors = withScaffoldDefaults(config.tavern.rumors, TAVERN_SCAFFOLD.rumors)
     config.tavern.maria = withScaffoldDefaults(config.tavern.maria, TAVERN_SCAFFOLD.maria)
+    config.tavern.mystics = withScaffoldDefaults(config.tavern.mystics, TAVERN_SCAFFOLD.mystics)
     config.tavern.queen = withScaffoldDefaults(config.tavern.queen, TAVERN_SCAFFOLD.queen)
   }
   return config
@@ -1141,6 +1236,201 @@ function normalizeEmpiresConfigV17(config: Record<string, unknown>): Record<stri
     config.inventory.board = withScaffoldDefaults(config.inventory.board, INVENTORY_SCAFFOLD.board)
     config.inventory.gravity = withScaffoldDefaults(config.inventory.gravity, INVENTORY_SCAFFOLD.gravity)
     config.inventory.scoring = withScaffoldDefaults(config.inventory.scoring, INVENTORY_SCAFFOLD.scoring)
+    config.inventory.equipmentPacking = withScaffoldDefaults(
+      config.inventory.equipmentPacking,
+      INVENTORY_SCAFFOLD.equipmentPacking,
+    )
+    config.inventory.perstPacker = withScaffoldDefaults(
+      config.inventory.perstPacker,
+      INVENTORY_SCAFFOLD.perstPacker,
+    )
+  }
+  return config
+}
+
+function migrateEmpiresConfigV17ToV18(config: Record<string, unknown>): Record<string, unknown> {
+  // Schema v17 has the stabilized four-kind minigame envelope, but no
+  // offensive Clash rules or explicit assault-mode selector. Existing assault
+  // definitions retain their TD behavior and the new mode stays fail-closed.
+  config.clash = cloneJson(CLASH_SCAFFOLD)
+  if (isRecord(config.clash) && Array.isArray(config.clash.assaultRoutes)) {
+    const expeditionIds = new Set(
+      isRecord(config.expeditions) && Array.isArray(config.expeditions.definitions)
+        ? config.expeditions.definitions.flatMap(definition => (
+            isRecord(definition) && typeof definition.id === 'string' ? [definition.id] : []
+          ))
+        : [],
+    )
+    const tdVariantIds = new Set(
+      isRecord(config.td) && Array.isArray(config.td.planVariants)
+        ? config.td.planVariants.flatMap(variant => (
+            isRecord(variant) && typeof variant.id === 'string' ? [variant.id] : []
+          ))
+        : [],
+    )
+    config.clash.assaultRoutes = config.clash.assaultRoutes.filter(route => (
+      isRecord(route)
+      && (route.sourceKind === 'expedition'
+        ? typeof route.sourceId === 'string' && expeditionIds.has(route.sourceId)
+        : route.sourceKind === 'campaign'
+          && typeof route.sourceId === 'string'
+          && tdVariantIds.has(route.sourceId))
+    ))
+  }
+  if (isRecord(config.expeditions) && Array.isArray(config.expeditions.definitions)) {
+    config.expeditions.definitions = config.expeditions.definitions.map(rawDefinition => (
+      isRecord(rawDefinition)
+        ? { ...rawDefinition, battleMode: 'td', clashVariantId: null }
+        : rawDefinition
+    ))
+  }
+  config.schemaVersion = 18
+  return config
+}
+
+function normalizeEmpiresConfigV18(config: Record<string, unknown>): Record<string, unknown> {
+  normalizeEmpiresConfigV17(config)
+  config.clash = withScaffoldDefaults(config.clash, CLASH_SCAFFOLD as unknown as Record<string, unknown>)
+  if (isRecord(config.clash)) {
+    config.clash.morale = withScaffoldDefaults(config.clash.morale, CLASH_SCAFFOLD.morale)
+    config.clash.settlement = withScaffoldDefaults(config.clash.settlement, CLASH_SCAFFOLD.settlement)
+  }
+  if (isRecord(config.expeditions) && Array.isArray(config.expeditions.definitions)) {
+    config.expeditions.definitions = config.expeditions.definitions.map(rawDefinition => {
+      if (!isRecord(rawDefinition)) return rawDefinition
+      return {
+        ...rawDefinition,
+        battleMode: rawDefinition.battleMode ?? 'td',
+        clashVariantId: rawDefinition.clashVariantId ?? null,
+      }
+    })
+  }
+  return config
+}
+
+function migrateEmpiresConfigV18ToV19(config: Record<string, unknown>): Record<string, unknown> {
+  // Schema v18 has no Chess lifecycle. Existing custom definitions remain
+  // fail-closed and must explicitly opt in after reviewing the new rules.
+  config.chess = cloneJson(CHESS_SCAFFOLD)
+  config.schemaVersion = 19
+  return config
+}
+
+function normalizeEmpiresConfigV19(config: Record<string, unknown>): Record<string, unknown> {
+  normalizeEmpiresConfigV18(config)
+  if (isRecord(config.expeditions) && isRecord(config.expeditions.veteran)
+    && !isRecord(config.expeditions.veteran.laterBattleBonus)) {
+    config.expeditions.veteran.laterBattleBonus = cloneJson(
+      EXPEDITIONS_SCAFFOLD.veteran.laterBattleBonus,
+    )
+  }
+  if (isRecord(config.governance)
+    && isRecord(config.governance.capital)
+    && Array.isArray(config.governance.capital.sites)) {
+    config.governance.capital.sites = config.governance.capital.sites.map((rawSite) => {
+      if (!isRecord(rawSite)) return rawSite
+      const hasExecutableContract = typeof rawSite.description === 'string'
+        && Number.isInteger(rawSite.cooldownCons)
+        && Array.isArray(rawSite.resourceCosts)
+        && Array.isArray(rawSite.effects)
+      return {
+        ...rawSite,
+        description: typeof rawSite.description === 'string' ? rawSite.description : '',
+        cooldownCons: Number.isInteger(rawSite.cooldownCons) ? rawSite.cooldownCons : 1,
+        resourceCosts: Array.isArray(rawSite.resourceCosts) ? rawSite.resourceCosts : [],
+        effects: Array.isArray(rawSite.effects) ? rawSite.effects : [],
+        ...(!hasExecutableContract && typeof rawSite.deferredReason !== 'string'
+          ? {
+              deferredReason:
+                'Legacy custom capital site has no executable action contract; review it before enabling.',
+            }
+          : {}),
+      }
+    })
+  }
+  const epidemicDefinitionIds = new Set(
+    isRecord(config.empire)
+      && isRecord(config.empire.epidemics)
+      && Array.isArray(config.empire.epidemics.definitions)
+      ? config.empire.epidemics.definitions.flatMap(definition => (
+          isRecord(definition) && typeof definition.id === 'string' ? [definition.id] : []
+        ))
+      : [],
+  )
+  const unavailableQuestChoices = new Set<string>()
+  if (isRecord(config.quests) && Array.isArray(config.quests.definitions)) {
+    config.quests.definitions = config.quests.definitions.map((rawQuest) => {
+      if (!isRecord(rawQuest) || typeof rawQuest.id !== 'string' || !Array.isArray(rawQuest.stages)) {
+        return rawQuest
+      }
+      return {
+        ...rawQuest,
+        stages: rawQuest.stages.map((rawStage) => {
+          if (!isRecord(rawStage) || !Array.isArray(rawStage.nodes)) return rawStage
+          return {
+            ...rawStage,
+            nodes: rawStage.nodes.map((rawNode) => {
+              if (!isRecord(rawNode) || !Array.isArray(rawNode.choices)) return rawNode
+              return {
+                ...rawNode,
+                choices: rawNode.choices.map((rawChoice) => {
+                  if (!isRecord(rawChoice) || typeof rawChoice.id !== 'string'
+                    || !Array.isArray(rawChoice.effects)) return rawChoice
+                  const missingEpidemic = rawChoice.effects.some(effect => (
+                    isRecord(effect)
+                    && effect.kind === 'epidemicStart'
+                    && (typeof effect.definitionId !== 'string'
+                      || !epidemicDefinitionIds.has(effect.definitionId))
+                  ))
+                  if (!missingEpidemic) return rawChoice
+                  unavailableQuestChoices.add(`${rawQuest.id}:${rawChoice.id}`)
+                  return {
+                    ...rawChoice,
+                    effects: rawChoice.effects.filter(effect => !(
+                      isRecord(effect)
+                      && effect.kind === 'epidemicStart'
+                      && (typeof effect.definitionId !== 'string'
+                        || !epidemicDefinitionIds.has(effect.definitionId))
+                    )),
+                    deferredReason: typeof rawChoice.deferredReason === 'string'
+                      ? rawChoice.deferredReason
+                      : 'Legacy custom rules do not contain the epidemic required by this choice.',
+                    deferredVisibility: rawChoice.deferredVisibility ?? 'visible',
+                  }
+                }),
+              }
+            }),
+          }
+        }),
+      }
+    })
+  }
+  if (unavailableQuestChoices.size > 0 && isRecord(config.empire) && Array.isArray(config.empire.events)) {
+    config.empire.events = config.empire.events.map((rawEvent) => {
+      if (!isRecord(rawEvent) || !Array.isArray(rawEvent.choices)) return rawEvent
+      return {
+        ...rawEvent,
+        choices: rawEvent.choices.filter((rawChoice) => {
+          if (!isRecord(rawChoice) || !isRecord(rawChoice.questResolution)) return true
+          const questId = rawChoice.questResolution.questId
+          const choiceId = rawChoice.questResolution.choiceId
+          return typeof questId !== 'string' || typeof choiceId !== 'string'
+            || !unavailableQuestChoices.has(`${questId}:${choiceId}`)
+        }),
+      }
+    })
+  }
+  config.chess = withScaffoldDefaults(
+    config.chess,
+    CHESS_SCAFFOLD as unknown as Record<string, unknown>,
+  )
+  if (isRecord(config.chess)) {
+    config.chess.rules = withScaffoldDefaults(config.chess.rules, CHESS_SCAFFOLD.rules)
+    config.chess.anton = withScaffoldDefaults(config.chess.anton, CHESS_SCAFFOLD.anton)
+    config.chess.settlement = withScaffoldDefaults(
+      config.chess.settlement,
+      CHESS_SCAFFOLD.settlement,
+    )
   }
   return config
 }
@@ -1165,6 +1455,8 @@ const EMPIRES_CONFIG_MIGRATIONS: Record<
   14: migrateEmpiresConfigV14ToV15,
   15: migrateEmpiresConfigV15ToV16,
   16: migrateEmpiresConfigV16ToV17,
+  17: migrateEmpiresConfigV17ToV18,
+  18: migrateEmpiresConfigV18ToV19,
 }
 
 /** Applies exactly one explicit schema migration to a cloned config value. */
@@ -1213,6 +1505,8 @@ export function migrateEmpiresConfig(raw: unknown): unknown {
   if (version === 15) migrated = normalizeEmpiresConfigV15(migrated)
   if (version === 16) migrated = normalizeEmpiresConfigV16(migrated)
   if (version === 17) migrated = normalizeEmpiresConfigV17(migrated)
+  if (version === 18) migrated = normalizeEmpiresConfigV18(migrated)
+  if (version === 19) migrated = normalizeEmpiresConfigV19(migrated)
   return migrated
 }
 
@@ -1374,6 +1668,28 @@ function validateDeferredReasons(config: EmpiresEndgameConfig): string[] {
   for (const item of config.inventory.itemDefinitions) {
     check(`inventory item ${item.id}`, item.deferredReason)
   }
+  checkSubfeatures('clash', config.clash.deferredSubfeatures)
+  for (const field of config.clash.fieldVariants) {
+    check(`clash field ${field.id}`, field.deferredReason)
+  }
+  for (const status of config.clash.statuses) {
+    check(`clash status ${status.id}`, status.deferredReason)
+  }
+  for (const terrain of config.clash.terrain) {
+    check(`clash terrain ${terrain.id}`, terrain.deferredReason)
+  }
+  for (const region of config.clash.regions) {
+    check(`clash region ${region.id}`, region.deferredReason)
+  }
+  for (const unit of config.clash.roster) {
+    check(`clash unit ${unit.id}`, unit.deferredReason)
+    if (unit.reviewReason !== undefined && (
+      typeof unit.reviewReason !== 'string' || !unit.reviewReason.trim()
+    )) errors.push(`clash unit ${unit.id} reviewReason must be a non-empty string`)
+  }
+  for (const route of config.clash.assaultRoutes) {
+    check(`clash assault route ${route.id}`, route.deferredReason)
+  }
   for (const zone of config.expeditions.zones) {
     checkSubfeatures(`expedition zone ${zone.id}`, zone.deferredSubfeatures)
   }
@@ -1420,9 +1736,11 @@ function validateDeferredReasons(config: EmpiresEndgameConfig): string[] {
 }
 
 const EMPIRES_LIVE_FLAG_ALLOWLIST = new Set([
+  'antimonopolyService',
   'famineProtectionTurns',
   'famineYear',
   'famineYearCounter',
+  'mapConfusion',
   'equippedRecruitCapacity',
   'expeditionProvisionInstallmentTurns',
   'expeditionSpeedPercent',
@@ -1433,6 +1751,9 @@ const EMPIRES_LIVE_FLAG_ALLOWLIST = new Set([
   'militaryArson',
   'maxCombatSpirit',
   'minimumCombatSpirit',
+  'royalAgitation',
+  'sabotageRisk',
+  'streetCleanliness',
   'armyProductionDiscountPercent',
   'armyProductionTimeDiscountPercent',
   'armyUpkeepDiscountPercent',
@@ -1453,8 +1774,19 @@ const EMPIRES_LIVE_FLAG_ALLOWLIST = new Set([
   'smithSpecializationLocked',
   'smithCapacity',
   'customsPolicy',
+  'earthquakeCharges',
+  'fishCurrentLastSettledCon',
+  'fishCurrentTurns',
+  'freeUnitsPerWarTechnology',
+  'academyDeliveryTurns',
+  'academyFreeUnitBonus',
+  'militaryElite',
+  'fairExternalTradeDiscountPercent',
+  'fairResourceExchangeRatePercent',
+  'generalRallyAmount',
   'mountedRecruitment',
   'maritimeTradeCapacity',
+  'mariaGunpowderKnowledge',
   'merchantGuilds',
   'transferSpeedPercent',
   'stableWithoutLivestock',
@@ -1465,6 +1797,10 @@ const EMPIRES_LIVE_FLAG_ALLOWLIST = new Set([
   'treasuryGoldPerSavedMillion',
   'theocracy',
   'unlimitedTavernRecruitment',
+  'unitActivesDisabled',
+  'unitActivesEnabled',
+  'unitMoraleDisabled',
+  'unitMoraleEnabled',
   'worldMaps',
 ])
 
@@ -1536,6 +1872,10 @@ function validateLiveEffects(config: EmpiresEndgameConfig): string[] {
     check(`card ${card.id} normal face`, card.normal.effects, card.normal.deferredReason)
     check(`card ${card.id} inverted face`, card.inverted.effects, card.inverted.deferredReason)
   }
+  for (const card of config.mysticCards) {
+    check(`mystic card ${card.id} normal face`, card.normal.effects ?? [], card.deferredReason || card.normal.deferredReason)
+    check(`mystic card ${card.id} inverted face`, card.inverted.effects ?? [], card.deferredReason || card.inverted.deferredReason)
+  }
   for (const gift of config.gifts.definitions) {
     check(`gift ${gift.id}`, gift.effects, gift.deferredReason)
   }
@@ -1581,6 +1921,9 @@ function validateLiveEffects(config: EmpiresEndgameConfig): string[] {
   }
   for (const recipe of config.alchemy.recipes) {
     check(`alchemy recipe ${recipe.id}`, recipe.rewards, recipe.deferredReason)
+  }
+  for (const site of config.governance.capital.sites) {
+    check(`governance capital site ${site.id}`, site.effects ?? [], site.deferredReason)
   }
   return errors
 }
@@ -2073,7 +2416,10 @@ function validateTavernConfig(config: EmpiresEndgameConfig): void {
     if (!card.id?.trim() || mysticIds.has(card.id) || !card.name?.trim()
       || card.owner !== 'player' || typeof card.startsInverted !== 'boolean'
       || !Number.isInteger(card.returnDelayCons) || card.returnDelayCons < 1
-      || !card.normal?.title?.trim() || !card.inverted?.title?.trim()) {
+      || !card.normal?.title?.trim() || !card.normal.description?.trim()
+      || !Array.isArray(card.normal.effects)
+      || !card.inverted?.title?.trim() || !card.inverted.description?.trim()
+      || !Array.isArray(card.inverted.effects)) {
       throw new Error(`mystic card ${card.id || '<missing>'} is invalid.`)
     }
     mysticIds.add(card.id)
@@ -2084,6 +2430,7 @@ function validateTavernConfig(config: EmpiresEndgameConfig): void {
     tavern.spawn.secondRunChance,
     tavern.spawn.laterRunChance,
     tavern.maria.encounterChance,
+    tavern.maria.playerRoundWinChance,
   ]
   if (!Number.isInteger(tavern.spawn.eligibleCon) || tavern.spawn.eligibleCon < 1
     || chanceValues.some(value => !Number.isFinite(value) || value < 0 || value > 1)
@@ -2136,10 +2483,25 @@ function validateTavernConfig(config: EmpiresEndgameConfig): void {
     throw new Error('tavern Maria carrier must be the uniquely mapped standard queen of spades.')
   }
   if (!tavern.maria.title.trim() || !tavern.maria.description.trim()
-    || !tavern.maria.encounterDeferredReason.trim()) {
-    throw new Error('tavern Maria copy and explicit 2×2 blocker are required.')
+    || !Number.isInteger(tavern.maria.roundsToWin) || tavern.maria.roundsToWin < 1) {
+    throw new Error('tavern Maria copy and match rules are invalid.')
   }
-  if (!mysticIds.has(tavern.queen.mysticDefinitionId)
+  const recruitableMysticIds = tavern.mystics.recruitableDefinitionIds
+  if (!Number.isFinite(tavern.mystics.recruitmentGoldCost)
+    || tavern.mystics.recruitmentGoldCost < 0
+    || !Number.isInteger(tavern.mystics.appeasementUpgradePointCost)
+    || tavern.mystics.appeasementUpgradePointCost < 1
+    || recruitableMysticIds.length === 0
+    || new Set(recruitableMysticIds).size !== recruitableMysticIds.length
+    || recruitableMysticIds.some((id) => {
+      const definition = config.mysticCards.find(card => card.id === id)
+      return !definition || definition.deferredReason
+        || definition.normal.deferredReason || definition.inverted.deferredReason
+    })) {
+    throw new Error('tavern recruitable mystics and their action costs are invalid.')
+  }
+  if (recruitableMysticIds.includes(tavern.queen.mysticDefinitionId)
+    || !mysticIds.has(tavern.queen.mysticDefinitionId)
     || tavern.queen.comboRanks.join(',') !== '3,7,ace'
     || !Number.isInteger(tavern.queen.pulseEveryCons) || tavern.queen.pulseEveryCons < 1) {
     throw new Error('tavern Queen mystic, 3–7–Т combo, or pulse cadence is invalid.')
@@ -2208,7 +2570,14 @@ function validateAlchemyConfig(config: EmpiresEndgameConfig): void {
     || typeof alchemy.explosion.epidemicDefinitionId !== 'string'
     || !Number.isFinite(alchemy.explosion.severityMultiplier)
     || alchemy.explosion.severityMultiplier <= 0
-    || typeof alchemy.explosion.lockBuildingForCon !== 'boolean') {
+    || typeof alchemy.explosion.lockBuildingForCon !== 'boolean'
+    || !isRecord(alchemy.explosion.mutantAftermath)
+    || alchemy.explosion.mutantAftermath.kind !== 'mutant-outbreak'
+    || !Number.isInteger(alchemy.explosion.mutantAftermath.delayCons)
+    || alchemy.explosion.mutantAftermath.delayCons < 1
+    || !Number.isFinite(alchemy.explosion.mutantAftermath.populationLoss)
+    || alchemy.explosion.mutantAftermath.populationLoss < 0
+    || !Number.isFinite(alchemy.explosion.mutantAftermath.loyaltyDelta)) {
     throw new Error('alchemy.explosion must define a typed epidemic and lock policy.')
   }
   if (!Array.isArray(alchemy.colors) || !Array.isArray(alchemy.pieces)
@@ -2300,9 +2669,12 @@ function validateExpeditionsConfig(config: EmpiresEndgameConfig): void {
     || rules.veteran.qualifyingMaximumHealthRatio > 1
     || !Number.isInteger(rules.veteran.removalWounds)
     || rules.veteran.removalWounds < 2
-    || rules.veteran.laterBattleBonus !== null
-    || !rules.veteran.laterBattleBonusDeferredReason?.trim()) {
-    throw new Error('expeditions.veteran must define the sourced threshold/removal rule and an explicit missing bonus.')
+    || !isRecord(rules.veteran.laterBattleBonus)
+    || rules.veteran.laterBattleBonus.kind !== 'deploymentSpeedPercent'
+    || !Number.isFinite(rules.veteran.laterBattleBonus.percent)
+    || rules.veteran.laterBattleBonus.percent <= 0
+    || rules.veteran.laterBattleBonus.percent > 100) {
+    throw new Error('expeditions.veteran must define the sourced threshold, removal rule, and deployment-speed bonus.')
   }
 
   const regionIds = new Set(config.empire.map.regions.map(region => region.id))
@@ -2315,6 +2687,7 @@ function validateExpeditionsConfig(config: EmpiresEndgameConfig): void {
   const questIds = new Set(config.quests.definitions.map(quest => quest.id))
   const mapObjects = new Map(config.empire.map.objects.map(object => [object.id, object]))
   const liveTdExpeditions = rules.enabled && config.td.enabled
+    && rules.definitions.some(definition => definition.battleMode === 'td' && !definition.deferredReason)
   if (mapObjects.size !== config.empire.map.objects.length) throw new Error('map object ids must be unique.')
 
   const zoneIds = new Set<string>()
@@ -2349,9 +2722,13 @@ function validateExpeditionsConfig(config: EmpiresEndgameConfig): void {
     if (!expedition.id?.trim() || expeditionIds.has(expedition.id) || !expedition.name?.trim()) {
       throw new Error(`expedition ${expedition.id || '<missing>'} is invalid or repeated.`)
     }
+    if (!['td', 'clash'].includes(expedition.battleMode)) {
+      throw new Error(`expedition ${expedition.id} has an unknown battleMode.`)
+    }
     expeditionIds.add(expedition.id)
     const fort = mapObjects.get(expedition.fortObjectId)
     const variant = variants.get(expedition.tdVariantId)
+    const clashVariant = config.clash.fieldVariants.find(candidate => candidate.id === expedition.clashVariantId)
     const profile = rules.enemyProfiles.find(candidate => candidate.id === expedition.enemyProfileId)
     if (!fort || fort.kind !== 'fortress'
       || fort.payload.expeditionId !== expedition.id
@@ -2363,12 +2740,16 @@ function validateExpeditionsConfig(config: EmpiresEndgameConfig): void {
       || !regionIds.has(expedition.originRegionId)
       || !regionIds.has(expedition.targetRegionId)
       || !profile
-      || liveTdExpeditions && (!variant
+      || rules.enabled && !expedition.deferredReason && expedition.battleMode === 'td' && (!config.td.enabled
+        || !variant
         || variant.mode !== 'assault'
         || variant.purpose !== 'expedition'
         || profile.waveId !== variant.waveId)
+      || rules.enabled && !expedition.deferredReason && expedition.battleMode === 'clash' && (!config.clash.enabled
+        || !clashVariant
+        || clashVariant.deferredReason)
       || profile.regionId !== expedition.targetRegionId) {
-      throw new Error(`expedition ${expedition.id} has a dangling zone, region, profile, or TD assault reference.`)
+      throw new Error(`expedition ${expedition.id} has a dangling zone, region, profile, or battle reference.`)
     }
     if (expedition.triggerQuestId && !questIds.has(expedition.triggerQuestId)) {
       throw new Error(`expedition ${expedition.id} references unknown trigger quest ${expedition.triggerQuestId}.`)
@@ -2459,6 +2840,19 @@ function validateInventoryConfig(config: EmpiresEndgameConfig): void {
     || !Number.isFinite(rules.targetUnitsPerItem) || rules.targetUnitsPerItem <= 0) {
     throw new Error('inventory timing, command, retention, item, and catch-up limits must be positive.')
   }
+  if (!isRecord(rules.equipmentPacking)
+    || !Number.isInteger(rules.equipmentPacking.maxItems)
+    || rules.equipmentPacking.maxItems < 1
+    || !Number.isFinite(rules.equipmentPacking.targetUnitsPerItem)
+    || rules.equipmentPacking.targetUnitsPerItem <= 0
+    || !isRecord(rules.perstPacker)
+    || typeof rules.perstPacker.perstId !== 'string'
+    || typeof rules.perstPacker.requireOriginGovernor !== 'boolean'
+    || !Number.isInteger(rules.perstPacker.bonusEquipmentItems)
+    || rules.perstPacker.bonusEquipmentItems < 0
+    || rules.equipmentPacking.maxItems + rules.perstPacker.bonusEquipmentItems > rules.maxItems) {
+    throw new Error('inventory equipment packing and Perst capacity rules are invalid.')
+  }
   validateRealtimeBudgets('inventory', rules)
   requireBudgetAtMost(rules.maxItems, 'inventory.maxItems', EMPIRES_STABILIZATION_BUDGETS.maxPlanItems)
   if (!Number.isInteger(rules.board.width) || rules.board.width < 4
@@ -2514,6 +2908,10 @@ function validateInventoryConfig(config: EmpiresEndgameConfig): void {
     }
   }
   if (rules.enabled) {
+    if (!rules.perstPacker.perstId.trim()
+      || !config.governance.persts.some(perst => perst.id === rules.perstPacker.perstId)) {
+      throw new Error('inventory Perst packer references an unknown Perst.')
+    }
     const liveResourceIds = new Set(rules.itemDefinitions
       .filter(definition => !definition.deferredReason && definition.content.kind === 'resource')
       .map(definition => definition.content.kind === 'resource' ? definition.content.resourceId : ''))
@@ -2521,6 +2919,62 @@ function validateInventoryConfig(config: EmpiresEndgameConfig): void {
       if (!liveResourceIds.has(expedition.provisionResourceId)) {
         throw new Error(`inventory needs a live item for expedition resource ${expedition.provisionResourceId}.`)
       }
+    }
+    if (!rules.itemDefinitions.some(definition => (
+      !definition.deferredReason && definition.content.kind === 'equipment'
+    ))) {
+      throw new Error('enabled inventory needs at least one live equipment item.')
+    }
+  }
+}
+
+function validateClashReferences(config: EmpiresEndgameConfig): void {
+  const routeIds = new Set<string>()
+  const fieldIds = new Set(config.clash.fieldVariants.map(field => field.id))
+  const liveFieldIds = new Set(config.clash.fieldVariants
+    .filter(field => !field.deferredReason)
+    .map(field => field.id))
+  const tdVariantIds = new Set(config.td.planVariants.map(variant => variant.id))
+  const expeditionById = new Map(config.expeditions.definitions.map(definition => [definition.id, definition]))
+
+  for (const route of config.clash.assaultRoutes) {
+    if (!route.id?.trim() || routeIds.has(route.id)) {
+      throw new Error(`clash assault route ${route.id || '<missing>'} is invalid or repeated.`)
+    }
+    routeIds.add(route.id)
+    if (!['campaign', 'expedition'].includes(route.sourceKind) || !route.sourceId?.trim()) {
+      throw new Error(`clash assault route ${route.id} has an invalid source.`)
+    }
+    const permitsDeferredLegacyReference = !config.clash.enabled && Boolean(route.deferredReason?.trim())
+    if (route.sourceKind === 'campaign' && !tdVariantIds.has(route.sourceId)
+      && !permitsDeferredLegacyReference) {
+      throw new Error(`clash assault route ${route.id} references an unknown campaign assault.`)
+    }
+    const expedition = route.sourceKind === 'expedition' ? expeditionById.get(route.sourceId) : undefined
+    if (route.sourceKind === 'expedition' && !expedition && !permitsDeferredLegacyReference) {
+      throw new Error(`clash assault route ${route.id} references an unknown expedition.`)
+    }
+    if (route.clashVariantId !== null && !fieldIds.has(route.clashVariantId)) {
+      throw new Error(`clash assault route ${route.id} references an unknown Clash field.`)
+    }
+    if (route.battleMode === 'td') {
+      if ((!route.tdVariantId || !tdVariantIds.has(route.tdVariantId))
+        && !permitsDeferredLegacyReference) {
+        throw new Error(`clash assault route ${route.id} needs a live TD variant.`)
+      }
+    } else if (route.battleMode === 'clash') {
+      if (!config.clash.enabled || !route.clashVariantId || !liveFieldIds.has(route.clashVariantId)) {
+        throw new Error(`clash assault route ${route.id} cannot enable an incomplete Clash field.`)
+      }
+    } else {
+      throw new Error(`clash assault route ${route.id} has an unknown battleMode.`)
+    }
+    if (expedition && (
+      expedition.battleMode !== route.battleMode
+      || route.battleMode === 'td' && expedition.tdVariantId !== route.tdVariantId
+      || route.battleMode === 'clash' && expedition.clashVariantId !== route.clashVariantId
+    )) {
+      throw new Error(`clash assault route ${route.id} disagrees with expedition ${expedition.id}.`)
     }
   }
 }
@@ -2981,6 +3435,10 @@ function validatePoliticalEffects(config: EmpiresEndgameConfig): void {
     validateEffects(card.normal.effects, `card ${card.id} normal effects`)
     validateEffects(card.inverted.effects, `card ${card.id} inverted effects`)
   }
+  for (const card of config.mysticCards) {
+    validateEffects(card.normal.effects ?? [], `mystic card ${card.id} normal effects`)
+    validateEffects(card.inverted.effects ?? [], `mystic card ${card.id} inverted effects`)
+  }
   for (const gift of config.gifts.definitions) validateEffects(gift.effects, `gift ${gift.id} effects`)
   for (const building of config.empire.buildings) {
     for (const level of building.levels) validateEffects(level.effects ?? [], `building ${building.id} level ${level.level} effects`)
@@ -2999,6 +3457,9 @@ function validatePoliticalEffects(config: EmpiresEndgameConfig): void {
   }
   for (const recipe of config.alchemy.recipes) {
     validateEffects(recipe.rewards, `alchemy recipe ${recipe.id} rewards`)
+  }
+  for (const site of config.governance.capital.sites) {
+    validateEffects(site.effects ?? [], `governance capital site ${site.id} effects`)
   }
 }
 
@@ -3441,6 +3902,34 @@ function validateSteelResearchConfig(config: EmpiresEndgameConfig): void {
       throw new Error(`live steel technology ${technology.id} cannot have a deferred payoff.`)
     }
   }
+
+  const eliteTechnologies = config.empire.technologies.filter(technology => (
+    !technology.deferredReason && technology.steel?.eliteRequired
+  ))
+  for (const technology of eliteTechnologies) {
+    if (!technology.prerequisites.some(dependency => (
+      dependency.kind === 'flag'
+      && dependency.flagId === steel.militaryEliteFlagId
+      && dependency.minimum > 0
+    ))) {
+      throw new Error(`elite steel technology ${technology.id} needs the configured military elite flag prerequisite.`)
+    }
+  }
+  if (eliteTechnologies.length > 0) {
+    const capitalId = config.governance.capital.cityId
+    const hasOperationalSource = config.empire.buildings.some(building => (
+      !building.deferredReason
+      && building.allowedCityIds?.includes(capitalId)
+      && building.levels.some(level => level.effects.some(effect => (
+        effect.kind === 'flag'
+        && effect.flagId === steel.militaryEliteFlagId
+        && effect.amount > 0
+      )))
+    ))
+    if (!hasOperationalSource) {
+      throw new Error(`live elite steel research needs an operational capital source for ${steel.militaryEliteFlagId}.`)
+    }
+  }
 }
 
 function validateGovernanceConfig(config: EmpiresEndgameConfig): void {
@@ -3488,8 +3977,8 @@ function validateGovernanceConfig(config: EmpiresEndgameConfig): void {
         throw new Error(`advisor ${advisor.id} technology ${technologyId} must use its advisor prerequisite.`)
       }
     }
-    if (advisor.grandAdvisor && advisor.initialStatus === 'locked' && !advisor.accessDeferredReason?.trim()) {
-      throw new Error(`locked grand advisor ${advisor.id} needs an accessDeferredReason.`)
+    if (advisor.accessDeferredReason !== undefined && !advisor.accessDeferredReason.trim()) {
+      throw new Error(`advisor ${advisor.id} has an empty accessDeferredReason.`)
     }
   }
   for (const decision of governance.advisorDecisions) {
@@ -3588,11 +4077,22 @@ function validateGovernanceConfig(config: EmpiresEndgameConfig): void {
   validateUniqueStringList(governance.capital.sites.map(site => site.id), 'governance capital sites')
   const buildingIds = new Set(config.empire.buildings.map(building => building.id))
   const mapObjectIds = new Set(config.empire.map.objects.map(object => object.id))
+  const resourceIds = new Set(config.empire.resources.map(resource => resource.id))
   for (const site of governance.capital.sites) {
-    if (!site.name?.trim() || !site.deferredReason?.trim()
+    if (!site.name?.trim()
       || (site.buildingId !== undefined && !buildingIds.has(site.buildingId))
       || (site.mapObjectId !== undefined && !mapObjectIds.has(site.mapObjectId))) {
-      throw new Error(`governance capital site ${site.id} has an invalid carrier or deferredReason.`)
+      throw new Error(`governance capital site ${site.id} has an invalid carrier.`)
+    }
+    if (site.deferredReason !== undefined && !site.deferredReason.trim()) {
+      throw new Error(`governance capital site ${site.id} has an empty deferredReason.`)
+    }
+    if (!site.deferredReason && (!site.description?.trim()
+      || !Number.isInteger(site.cooldownCons) || site.cooldownCons < 1
+      || !Array.isArray(site.resourceCosts) || !Array.isArray(site.effects)
+      || site.resourceCosts.some(cost => !resourceIds.has(cost.resourceId)
+        || !Number.isFinite(cost.amount) || cost.amount < 0))) {
+      throw new Error(`live governance capital site ${site.id} needs an executable action contract.`)
     }
   }
 }
@@ -4016,7 +4516,27 @@ function validateTdConfig(
     if (set.deferredReason !== undefined && !set.deferredReason.trim()) {
       throw new Error(`td grade choice set ${set.id} deferredReason must be non-empty.`)
     }
-    if (set.deferredReason) {
+    if (set.availability !== undefined
+      && set.availability !== 'available'
+      && set.availability !== 'notApplicable') {
+      throw new Error(`td grade choice set ${set.id} has unknown availability.`)
+    }
+    if (set.reason !== undefined && (typeof set.reason !== 'string' || !set.reason.trim())) {
+      throw new Error(`td grade choice set ${set.id} reason must be non-empty.`)
+    }
+    if (set.availability === 'notApplicable') {
+      if (!set.reason?.trim()) {
+        throw new Error(`not-applicable td grade choice set ${set.id} needs a reason.`)
+      }
+      if (set.deferredReason) {
+        throw new Error(`not-applicable td grade choice set ${set.id} cannot be deferred.`)
+      }
+      if (set.choiceIds.length > 0) {
+        throw new Error(`not-applicable td grade choice set ${set.id} must be unavailable.`)
+      }
+    } else if (set.reason !== undefined) {
+      throw new Error(`td grade choice set ${set.id} reason is only valid when not applicable.`)
+    } else if (set.deferredReason) {
       if (set.choiceIds.length > 0) throw new Error(`deferred td grade choice set ${set.id} must be unavailable.`)
     } else if (set.choiceIds.length !== 4) {
       throw new Error(`live td grade choice set ${set.id} must contain exactly four choices.`)
@@ -4234,6 +4754,8 @@ export function validateEmpiresConfig(value: unknown): asserts value is EmpiresE
   if (!isRecord(value.tavern)) throw new Error('Отсутствуют настройки Таверны.')
   if (!isRecord(value.alchemy)) throw new Error('Отсутствуют настройки Алхимии.')
   if (!isRecord(value.inventory)) throw new Error('Отсутствуют настройки упаковки инвентаря.')
+  if (!isRecord(value.clash)) throw new Error('Отсутствуют настройки Клэша.')
+  if (!isRecord(value.chess)) throw new Error('Отсутствуют настройки шахмат.')
   if (!isRecord(value.expeditions)) throw new Error('Отсутствуют настройки экспедиций.')
 
   if (!isRecord(value.durak)) throw new Error('Отсутствуют настройки карточной партии.')
@@ -4256,6 +4778,15 @@ export function validateEmpiresConfig(value: unknown): asserts value is EmpiresE
     'gradeChoices',
     'waves',
     'planVariants',
+  ])
+  validateScaffoldSection(value.clash, 'clash', [
+    'fieldVariants',
+    'statuses',
+    'terrain',
+    'regions',
+    'assaultRoutes',
+    'roster',
+    'deferredSubfeatures',
   ])
   validateGodConfig(value.god, cardIds)
   validateScaffoldSection(value.quests, 'quests', ['definitions'])
@@ -4297,6 +4828,67 @@ export function validateEmpiresConfig(value: unknown): asserts value is EmpiresE
   validateAlchemyConfig(config)
   validateExpeditionsConfig(config)
   validateInventoryConfig(config)
+  const clashErrors = validateClashConfig(config.clash)
+  if (clashErrors.length > 0) throw new Error(clashErrors.map(error => `clash.${error}`).join('\n'))
+  requireBudgetAtMost(
+    config.clash.maxCommands,
+    'clash.maxCommands',
+    EMPIRES_STABILIZATION_BUDGETS.maxCommands,
+  )
+  requireBudgetAtMost(
+    config.clash.maxTurns,
+    'clash.maxTurns',
+    EMPIRES_STABILIZATION_BUDGETS.maxCommands,
+  )
+  requireBudgetAtMost(
+    config.clash.resultLogLimit,
+    'clash.resultLogLimit',
+    EMPIRES_STABILIZATION_BUDGETS.maxResultRetention,
+  )
+  requireBudgetAtMost(
+    config.clash.roster.length,
+    'clash.roster',
+    EMPIRES_STABILIZATION_BUDGETS.maxPlanItems,
+  )
+  for (const field of config.clash.fieldVariants) {
+    requireBudgetAtMost(
+      field.columns * field.rowsPerSide * 2,
+      `clash.fieldVariants.${field.id}.cells`,
+      EMPIRES_STABILIZATION_BUDGETS.maxBoardCells,
+    )
+  }
+  validateClashReferences(config)
+  const chessErrors = validateChessConfig(config.chess, EMPIRES_CONFIG_SCHEMA_VERSION)
+  if (chessErrors.length > 0) throw new Error(chessErrors.map(error => `chess.${error}`).join('\n'))
+  requireBudgetAtMost(
+    config.chess.maxCommands,
+    'chess.maxCommands',
+    EMPIRES_STABILIZATION_BUDGETS.maxCommands,
+  )
+  requireBudgetAtMost(
+    config.chess.resultLogLimit,
+    'chess.resultLogLimit',
+    EMPIRES_STABILIZATION_BUDGETS.maxResultRetention,
+  )
+  if (config.chess.enabled) {
+    const entrySite = config.governance.capital.sites.find(
+      site => site.id === config.chess.entryCapitalSiteId,
+    )
+    if (!entrySite || entrySite.deferredReason) {
+      throw new Error('chess.entryCapitalSiteId must reference a live capital site.')
+    }
+    const resourceIds = new Set(config.empire.resources.map(resource => resource.id))
+    if (!resourceIds.has(config.chess.settlement.goldResourceId)
+      || !resourceIds.has(config.chess.settlement.knowledgeResourceId)) {
+      throw new Error('chess settlement references an unknown Empire resource.')
+    }
+    const danglingPiece = config.chess.setup.find(piece => (
+      piece.sourceDefinitionId && !cardIds.has(piece.sourceDefinitionId)
+    ))
+    if (danglingPiece) {
+      throw new Error(`chess setup piece ${danglingPiece.id} references an unknown card.`)
+    }
+  }
   validateExternalEconomyConfig(config)
   validateEconomyContentConfig(config)
   validateLoyaltyConfig(config)

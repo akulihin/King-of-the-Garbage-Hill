@@ -16,6 +16,7 @@ const emit = defineEmits<{
   persecution: [cityId: string]
   startInsurance: [cityId: string]
   fairAction: [cityId: string, actionId: string]
+  fairExchange: [cityId: string]
   preach: [cityId: string]
   assignRelic: [cityId: string, slotIndex: number, giftId: string]
   clearRelic: [cityId: string, slotIndex: number]
@@ -122,7 +123,7 @@ function loanBalance(loan: EmpiresDomesticEconomyView['bank']['loans'][number]) 
             источник {{ view.insurance.contract.payoutIncidentId ?? 'нет' }}.
           </small>
         </template>
-        <p v-else>Контракт активируется после трёх спокойных конов и покрывает эпидемию или метеор.</p>
+        <p v-else>Контракт активируется после трёх спокойных конов и покрывает эпидемию, метеор, набег, ядерный удар или осаду.</p>
         <button
           type="button"
           data-testid="economy-start-insurance"
@@ -131,11 +132,17 @@ function loanBalance(loan: EmpiresDomesticEconomyView['bank']['loans'][number]) 
           @click="emit('startInsurance', view.cityId)"
         >Выбрать контракт</button>
         <small v-if="view.insurance.startBlockedReason" class="reason">{{ view.insurance.startBlockedReason }}</small>
-        <small class="deferred">Окружение не подменяется проигранной домашней битвой.</small>
       </article>
 
       <article class="economy-card fair-card">
         <header><FerrisWheel :size="18" /><h4>Ярмарка</h4></header>
+        <button
+          type="button"
+          data-testid="fair-resource-exchange"
+          :disabled="Boolean(view.fair.exchangeBlockedReason)"
+          :title="view.fair.exchangeBlockedReason || undefined"
+          @click="emit('fairExchange', view.cityId)"
+        >Обменять 1000 дерева по курсу Ярмарки</button>
         <button
           v-for="action in view.fair.actions"
           :key="action.id"
@@ -230,6 +237,9 @@ function loanBalance(loan: EmpiresDomesticEconomyView['bank']['loans'][number]) 
         </button>
         <small v-if="view.alchemy.blockedReason && !view.alchemy.recipes.length" class="reason">{{ view.alchemy.blockedReason }}</small>
         <small>Взрывов в летописи: {{ view.alchemy.explosionCount }}.</small>
+        <small v-if="view.alchemy.pendingMutantAftermathCount > 0" class="reason" data-testid="alchemy-mutant-warning">
+          Мутанты: {{ view.alchemy.pendingMutantAftermathCount }} очаг; последствия в коне {{ view.alchemy.nextMutantAftermathCon }}.
+        </small>
         <small v-for="capability in view.alchemy.deferredCapabilities" :key="capability.id" class="deferred">
           {{ capability.id }}: {{ capability.reason }}
         </small>

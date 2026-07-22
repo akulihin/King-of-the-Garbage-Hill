@@ -110,8 +110,10 @@ describe('Empire\'s Endgame deterministic browser scenarios', () => {
       .should('contain.text', 'Реликвия защиты от эпидемий')
 
     cy.get('[data-testid="economy-city"]').select('city-south-cactus-wall')
-    cy.contains('Пассивный армейский hook').should('be.visible')
-    cy.contains('maria2x2').should('be.visible')
+    cy.get('.tavern-card')
+      .should('contain.text', 'Пассивный армейский hook')
+      .and('contain.text', 'Посетить Таверну')
+    cy.get('.tavern-card .deferred').should('not.exist')
   })
 
   it('accepts and declines serialized external offers with exact effects', () => {
@@ -321,17 +323,15 @@ describe('Empire\'s Endgame deterministic browser scenarios', () => {
     cy.get('[data-testid="divine-mercy-confirmation"]').should('be.visible')
   })
 
-  it('keeps a deferred card playable in Durak while labelling its empire face', () => {
+  it('keeps a live card playable in Durak while exposing its empire production carrier', () => {
     visitScenario('pending-take')
     cy.get('.player-hand .empire-card.interactive:not(:disabled)')
       .scrollIntoView()
       .should('have.length', 1)
-      .and('have.class', 'deferred')
+      .and('not.have.class', 'deferred')
       .within(() => {
-        cy.get('.deferred-status')
-          .should('exist')
-          .and('contain.text', 'Будущая механика')
-          .and('have.attr', 'title')
+        cy.get('.deferred-status').should('not.exist')
+        cy.contains('производство золота').should('be.visible')
       })
     cy.get('[data-testid="qa-digest"]').invoke('text').then((beforeDigest) => {
       cy.get('.player-hand .empire-card.interactive:not(:disabled)').click()
@@ -341,19 +341,17 @@ describe('Empire\'s Endgame deterministic browser scenarios', () => {
     })
   })
 
-  it('labels remaining deferred technology while exposing live Fair and Smithy carriers', () => {
+  it('exposes live Printing, Fair, Steel, and Smithy carriers without obsolete deferred labels', () => {
     visitScenario('empire-council-with-points')
     cy.get('[data-testid="tab-technology"]').click()
     cy.get('[data-testid="technology-node-tech-printing"]')
       .scrollIntoView()
-      .should('have.class', 'deferred')
+      .should('not.have.class', 'deferred')
       .click({ force: true })
-    cy.get('.tech-detail .deferred-reason')
-      .should('be.visible')
-      .and('contain.text', 'сброшенных карт')
+    cy.get('.tech-detail .deferred-reason').should('not.exist')
     cy.get('.tech-detail .research-button')
       .should('be.disabled')
-      .and('contain.text', 'Будущая механика')
+      .and('contain.text', 'Изучить')
     cy.get('[data-testid="technology-node-tech-fair"]')
       .scrollIntoView()
       .should('not.have.class', 'deferred')

@@ -22,7 +22,7 @@ interface ExpectedShippedControlRoute {
   mylorik: string[]
   dualsense: {
     instant: string
-    start: string
+    start: string | null
     preGate?: string
     nodes: string[]
   }
@@ -225,6 +225,16 @@ const EXPECTED_SHIPPED_CONTROL_ROUTES: Record<string, ExpectedShippedControlRout
       ],
     },
   },
+  'secondary-ouroboros-fang:primary': {
+    mylorik: [
+      'tap|strike|press|*|100',
+    ],
+    dualsense: {
+      instant: 'tap',
+      start: null,
+      nodes: [],
+    },
+  },
 }
 
 function makeWeapon(
@@ -250,6 +260,10 @@ function secondaryAttacks(prefix: string) {
 
 function removeRoomInteractions(config: LastChancesConfig): void {
   config.rooms.forEach(room => { delete room.interaction })
+}
+
+function removeOuroborosSet(config: LastChancesConfig): void {
+  delete config.ouroborosSet
 }
 
 function previousShippedSchemaV1Config(): LastChancesConfig {
@@ -347,7 +361,7 @@ describe('99LC config and deterministic plan', () => {
     const result = validateLastChancesConfig(defaultConfig)
 
     expect(result.errors).toEqual([])
-    expect(defaultConfig.schemaVersion).toBe(5)
+    expect(defaultConfig.schemaVersion).toBe(6)
     expect(defaultConfig.chances).toBe(99)
     expect(defaultConfig.rooms.every(room => (room.spawnLayouts?.length ?? 0) >= 2)).toBe(true)
     expect(defaultConfig.progression.tiers).toHaveLength(7)
@@ -392,7 +406,7 @@ describe('99LC config and deterministic plan', () => {
     })
     expect(defaultConfig.progression.moveQuestsEnabled).toBe(true)
     expect(defaultConfig.artifacts).toHaveLength(3)
-    expect(defaultConfig.outfits).toHaveLength(2)
+    expect(defaultConfig.outfits).toHaveLength(3)
     expect(defaultConfig.enemies.find(enemy => enemy.id === 'swarm-cockroach')?.swarm?.spawnIntervalMs)
       .toBe(200)
     expect(defaultConfig.enemies.find(enemy => enemy.id === 'swarm-cockroach')).toMatchObject({
@@ -425,6 +439,7 @@ describe('99LC config and deterministic plan', () => {
       'twohand-axe',
       'twohand-katana',
       'hybrid-sword',
+      'secondary-ouroboros-fang',
     ])
   })
 
@@ -593,8 +608,11 @@ describe('99LC config and deterministic plan', () => {
 
     const migrated = await loadLastChancesConfig({ url: '/99lc/schema-v4.json' })
 
-    expect(migrated.schemaVersion).toBe(5)
-    expect(migrated.weapons.every(weapon => weapon.attacks.tap.cooldownMs === 0)).toBe(true)
+    expect(migrated.schemaVersion).toBe(6)
+    expect(migrated.weapons.filter(weapon => weapon.id !== 'secondary-ouroboros-fang')
+      .every(weapon => weapon.attacks.tap.cooldownMs === 0)).toBe(true)
+    expect(migrated.weapons.find(weapon => weapon.id === 'secondary-ouroboros-fang')
+      ?.attacks.tap.cooldownMs).toBe(5000)
     expect(migrated.rooms.find(room => room.id === 'chest-gallery')?.enemySpawns).toContainEqual({ x: 780, y: 160 })
     expect(migrated.rooms.find(room => room.id === 'wrong-shadow-event')?.enemySpawns).toContainEqual({ x: 420, y: 370 })
     expect(validateLastChancesConfig(migrated).errors).toEqual([])
@@ -620,6 +638,7 @@ describe('99LC config and deterministic plan', () => {
   it('upgrades a saved schema-v2 override while preserving run tuning and adopting the schema-v4 arsenal', async () => {
     const legacy = cloneLastChancesConfig(defaultConfig)
     legacy.schemaVersion = 2
+    legacy.weapons = legacy.weapons.filter(weapon => weapon.id !== 'secondary-ouroboros-fang')
     legacy.seed = 'saved-schema-v2-run'
     legacy.player.baseStats.attackPower = 137
     legacy.enemies[0].moveSpeed = 73
@@ -661,7 +680,7 @@ describe('99LC config and deterministic plan', () => {
       signal: undefined,
     })
     expect(migrated).toMatchObject({
-      schemaVersion: 5,
+      schemaVersion: 6,
       seed: 'saved-schema-v2-run',
       player: { baseStats: { attackPower: 137 } },
       loadout: defaultConfig.loadout,
@@ -697,7 +716,7 @@ describe('99LC config and deterministic plan', () => {
     ]))
   })
 
-  describe('schema-v5 content and schema-v4 controls migration', () => {
+  describe('schema-v6 content and schema-v4 controls migration', () => {
     it('standalone-migrates an actual v1-shaped Builder definition through v2 and v3 fields', () => {
       const v1 = previousShippedSchemaV1Config()
       const before = JSON.stringify(v1)
@@ -705,7 +724,7 @@ describe('99LC config and deterministic plan', () => {
       const migrated = migrateLastChancesConfig(v1) as LastChancesConfig
 
       expect(migrated).toMatchObject({
-        schemaVersion: 5,
+        schemaVersion: 6,
         input: {
           tapComboWindowMs: 900,
           mylorik: defaultConfig.input.mylorik,
@@ -739,7 +758,7 @@ describe('99LC config and deterministic plan', () => {
       expect(migrateLastChancesConfig(migrated)).toEqual(migrated)
     })
 
-    it('clone-first migrates v1, v2, v3, and v4 to v5 and keeps v5 idempotent', () => {
+    it('clone-first migrates v1, v2, v3, and v4 to v6 and keeps v6 idempotent', () => {
       const v1 = previousShippedSchemaV1Config()
       const v2 = cloneLastChancesConfig(defaultConfig)
       v2.schemaVersion = 2
@@ -755,7 +774,7 @@ describe('99LC config and deterministic plan', () => {
       for (const legacy of [v1, v2, v3]) {
         const before = JSON.stringify(legacy)
         const migrated = migrateLastChancesConfig(legacy, defaultConfig) as LastChancesConfig
-        expect(migrated.schemaVersion).toBe(5)
+        expect(migrated.schemaVersion).toBe(6)
         expect(validateLastChancesConfig(migrated).errors).toEqual([])
         expect(JSON.stringify(legacy)).toBe(before)
         expect(migrated.input.mylorik).toEqual(defaultConfig.input.mylorik)
@@ -774,10 +793,10 @@ describe('99LC config and deterministic plan', () => {
 
     it('fails clearly for an unknown future schema', () => {
       const future = cloneLastChancesConfig(defaultConfig) as LastChancesConfig & { schemaVersion: number }
-      future.schemaVersion = 6
+      future.schemaVersion = 7
 
       expect(() => migrateLastChancesConfig(future)).toThrow(
-        'Unsupported 99LC schemaVersion: schemaVersion 6 is newer than supported 5',
+        'Unsupported 99LC schemaVersion: schemaVersion 7 is newer than supported 6',
       )
     })
 
@@ -799,7 +818,7 @@ describe('99LC config and deterministic plan', () => {
 
       expect(fetchMock).toHaveBeenCalledOnce()
       expect(migrated).toMatchObject({
-        schemaVersion: 5,
+        schemaVersion: 6,
         seed: 'v3-control-migration',
         input: { holdMs: 777 },
         player: { baseStats: { attackPower: 143 } },
@@ -810,7 +829,7 @@ describe('99LC config and deterministic plan', () => {
       expect(migrated.rooms[0].name).toBe('Saved room tuning')
       expect(migrated.weapons[0].attacks.doubleTap.damage).toBe(91)
       expect(migrated.weapons[0].controls).toEqual(defaultConfig.weapons[0].controls)
-      expect(JSON.parse(window.localStorage.getItem('99lc:game-config')!).schemaVersion).toBe(5)
+      expect(JSON.parse(window.localStorage.getItem('99lc:game-config')!).schemaVersion).toBe(6)
     })
 
     it('validates bindings, hysteresis, ordered gates, and bounded feedback', () => {
@@ -987,9 +1006,9 @@ describe('99LC config and deterministic plan', () => {
         expect(visited.size).toBe(nodes.size)
       }
 
-      expect(sets).toHaveLength(11)
-      expect(enabledCount).toBe(47)
-      expect(disabledCount).toBe(8)
+      expect(sets).toHaveLength(12)
+      expect(enabledCount).toBe(48)
+      expect(disabledCount).toBe(12)
 
       const migrated = cloneLastChancesConfig(defaultConfig)
       migrated.schemaVersion = 3
@@ -1271,12 +1290,12 @@ describe('99LC config and deterministic plan', () => {
       }
 
       expect(validateLastChancesConfig(config).errors).toEqual(expect.arrayContaining([
-        `weapons[0].trait must be one of spearDistance, chainDotCarrier, clawParity, spiderDurability, axeHookRecovery, katanaFlow, swordRhythm`,
+        `weapons[0].trait must be one of spearDistance, chainDotCarrier, clawParity, spiderDurability, axeHookRecovery, katanaFlow, swordRhythm, ouroborosFang`,
         'weapons[0].resource.initial must be <= max',
         'weapons[0].augmentHooks.poison.behaviors[0] uses unknown behavior not-a-behavior',
         'weapons[0].augmentHooks.poison.damageMultiplier must be a finite number >= 0',
         'weapons[0].augmentHooks.poison.hitEffects[0].durationMs must be a finite number > 0',
-        'loadout.primaryAugment must be one of none, bleed, poison, fire, chemical',
+        'loadout.primaryAugment must be one of none, bleed, poison, fire, chemical, ouroborosAcid',
       ]))
     })
   })
@@ -1284,6 +1303,7 @@ describe('99LC config and deterministic plan', () => {
   describe('catalog equipment modes', () => {
     it('resolves a two-handed weapon into ten attacks and rejects a supplemental weapon', () => {
       const config = cloneLastChancesConfig(defaultConfig)
+      removeOuroborosSet(config)
       const weapon = makeWeapon('greatblade', 'twoHanded')
       weapon.secondaryAttacks = secondaryAttacks('greatblade-secondary')
       weapon.controls!.secondary = cloneLastChancesConfig(defaultConfig).weapons[0].controls!.secondary
@@ -1322,6 +1342,7 @@ describe('99LC config and deterministic plan', () => {
 
     it('allows an either-hand weapon in one slot or duplicated into both slots', () => {
       const config = cloneLastChancesConfig(defaultConfig)
+      removeOuroborosSet(config)
       const weapon = makeWeapon('shortsword', 'eitherHand')
       removeRoomInteractions(config)
       config.weapons = [weapon]
@@ -1340,6 +1361,7 @@ describe('99LC config and deterministic plan', () => {
 
     it('pairs primary-only and secondary-only weapons while permitting an intentionally empty slot', () => {
       const config = cloneLastChancesConfig(defaultConfig)
+      removeOuroborosSet(config)
       const primary = makeWeapon('spear', 'primaryOnly')
       const secondary = makeWeapon('knife', 'secondaryOnly', 1)
       removeRoomInteractions(config)
@@ -1359,6 +1381,7 @@ describe('99LC config and deterministic plan', () => {
 
     it('switches a hybrid between its own second attack set and a supplemental weapon', () => {
       const config = cloneLastChancesConfig(defaultConfig)
+      removeOuroborosSet(config)
       const hybrid = makeWeapon('wand-blade', 'hybrid')
       hybrid.secondaryAttacks = secondaryAttacks('hybrid-secondary')
       hybrid.controls!.secondary = cloneLastChancesConfig(defaultConfig).weapons[0].controls!.secondary

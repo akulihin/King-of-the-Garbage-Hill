@@ -79,10 +79,16 @@ describe('Empire\'s Endgame Phase 9 Tavern and mystic cards', () => {
     const migrated = migrateEmpiresConfig(legacy)
 
     expect(legacy).toEqual(original)
-    expect(migrated).toMatchObject({ schemaVersion: 17, mysticCards: [], tavern: { enabled: false } })
+    expect(migrated).toMatchObject({
+      schemaVersion: bundledConfigJson.schemaVersion,
+      mysticCards: [],
+      tavern: { enabled: false },
+    })
     expect(migrateEmpiresConfig(migrated)).toEqual(migrated)
     expect(() => validateEmpiresConfig(migrated)).not.toThrow()
-    expect(() => migrateEmpiresConfig({ ...migrated, schemaVersion: 18 })).toThrow(/future.*18/i)
+    const futureVersion = bundledConfigJson.schemaVersion + 1
+    expect(() => migrateEmpiresConfig({ ...migrated, schemaVersion: futureVersion }))
+      .toThrow(new RegExp(`future.*${futureVersion}`, 'i'))
   })
 
   it('keeps exactly 52 suited cards plus Joker and maps Maria separately from the mystic Queen', () => {
@@ -156,7 +162,12 @@ describe('Empire\'s Endgame Phase 9 Tavern and mystic cards', () => {
       'Tavern plan sections must preserve the authored tables/bar order.',
     )
     expect(session.plan.mercenaryOffers).toHaveLength(value.tavern.mercenaries.baseOfferCount)
-    expect(session.plan.maria).toMatchObject({ present: true, deferredReason: expect.any(String) })
+    expect(session.plan.maria).toMatchObject({
+      present: true,
+      roundsToWin: value.tavern.maria.roundsToWin,
+      playerRoundWins: expect.any(Array),
+    })
+    expect(session.plan.maria.playerRoundWins).toHaveLength(value.tavern.maria.roundsToWin * 2 - 1)
     expect(session.plan.rumor.deckHint).toMatchObject({ position: value.tavern.rumors.deckHintPosition })
     expect(first.state.god.cosmeticRng).toEqual(cosmeticBefore)
 
@@ -367,6 +378,47 @@ describe('Empire\'s Endgame Phase 9 Tavern and mystic cards', () => {
     expect(engine.state.mystics.history.at(-1)).toMatchObject({ kind: 'return', instanceIds: [listId] })
   })
 
+  it('recruits, applies, dismisses, returns, and appeases mystics through public actions', () => {
+    const value = config()
+    const state = empireSnapshot(value)
+    state.tavern.lastVisitedCon = state.con
+    const goldId = value.empire.domesticEconomy.goldResourceId
+    const goldBefore = state.empire.resources[goldId]
+    const engine = new EmpiresEndgameEngine(value, state)
+    const baseGoldMultiplier = engine.state.empire.productionMultipliers.gold ?? 1
+    const baseMoraleMaximum = engine.state.army.maxMorale
+
+    expect(engine.recruitMystic('mystic-list')).toMatchObject({ ok: true })
+    expect(engine.state.empire.resources[goldId])
+      .toBe(goldBefore - value.tavern.mystics.recruitmentGoldCost)
+    expect(engine.state.empire.productionMultipliers.gold).toBeCloseTo(baseGoldMultiplier * 1.1)
+    expect(engine.recruitMystic('mystic-list')).toMatchObject({ ok: false })
+
+    expect(engine.recruitMystic('mystic-lorik')).toMatchObject({ ok: true })
+    expect(engine.state.army.maxMorale).toBe(baseMoraleMaximum + 1)
+    expect(engine.dismissMystic('mystic-lorik')).toMatchObject({ ok: true })
+    const returning = engine.state.mystics.instances['mystic-lorik']
+    expect(returning).toMatchObject({
+      status: 'returning',
+      returnAtCon: state.con + value.mysticCards.find(card => card.id === 'mystic-lorik')!.returnDelayCons,
+    })
+    expect(engine.state.army.maxMorale).toBe(baseMoraleMaximum)
+
+    const queenId = value.tavern.queen.mysticDefinitionId
+    engine.state.mystics.instances[queenId] = mystic(queenId, engine.state.con, { inverted: true })
+    engine.state.mystics.zone.push(queenId)
+    engine.state.upgradePoints = value.tavern.mystics.appeasementUpgradePointCost
+    expect(engine.appeaseQueen()).toMatchObject({ ok: true })
+    expect(engine.state.mystics.instances[queenId].inverted).toBe(false)
+    expect(engine.state.upgradePoints).toBe(0)
+    expect(engine.state.mystics.history.at(-1)).toMatchObject({ kind: 'appease', instanceIds: [queenId] })
+
+    engine.state.con = returning.returnAtCon!
+    internals(engine).tickMysticCards()
+    expect(returning).toMatchObject({ status: 'zone', inverted: true, returnAtCon: null })
+    expect(engine.state.mystics.instances['mystic-list'].inverted).toBe(false)
+  })
+
   it('keeps mystics out of Durak legality, trump, refill, and winner accounting', () => {
     const value = config()
     value.god.antiBito.enabled = false
@@ -421,7 +473,7 @@ describe('Empire\'s Endgame Phase 9 Tavern and mystic cards', () => {
       value,
       importEmpiresCampaign(exportEmpiresCampaign(state), value.id),
     )
-    expect(restored.state.schemaVersion).toBe(16)
+    expect(restored.state.schemaVersion).toBe(18)
     expect(restored.state.mystics.zone).toEqual([listId, queenId])
 
     const legacyState = structuredClone(new EmpiresEndgameEngine(value).snapshot()) as unknown as Record<string, unknown>
@@ -434,7 +486,7 @@ describe('Empire\'s Endgame Phase 9 Tavern and mystic cards', () => {
       state: legacyState,
     }, value.id)
     expect(new EmpiresEndgameEngine(value, migrated).state).toMatchObject({
-      schemaVersion: 16,
+      schemaVersion: 18,
       mystics: { zone: [], instances: {} },
       tavern: { runOrdinal: 1, spawned: false },
     })
@@ -447,19 +499,50 @@ describe('Empire\'s Endgame Phase 9 Tavern and mystic cards', () => {
     expect(() => new EmpiresEndgameEngine(value, duplicateCore)).toThrow(/exactly one authoritative/i)
   })
 
-  it('retains explicit blockers for every raw semantic that is still absent', () => {
+  it('ships the accepted Maria and mystic defaults without residual Tavern blockers', () => {
     const value = config()
-    const trio = ['mystic-list', 'mystic-lorik', 'mystic-anatoliy']
-      .map(id => value.mysticCards.find(card => card.id === id))
-    expect(trio).toEqual(trio.map(card => expect.objectContaining({ deferredReason: expect.any(String) })))
-    expect(value.tavern.maria.encounterChance).toBe(0.33)
-    expect(value.tavern.maria.encounterDeferredReason).toMatch(/2×2/)
-    expect(value.tavern.deferredSubfeatures.map(item => item.id)).toEqual(expect.arrayContaining([
-      'maria2x2',
-      'mariaGunpowderLegacy',
-      'mysticTrioPassives',
-      'mysticLeaveAction',
-      'queenAppeasement',
-    ]))
+    expect(value.tavern.maria).toMatchObject({
+      encounterChance: 0.33,
+      playerRoundWinChance: 0.55,
+      roundsToWin: 2,
+    })
+    expect(value.tavern.mystics).toEqual({
+      recruitmentGoldCost: 500,
+      appeasementUpgradePointCost: 1,
+      recruitableDefinitionIds: ['mystic-list', 'mystic-lorik', 'mystic-anatoliy'],
+    })
+    expect(value.tavern.deferredSubfeatures).toEqual([])
+
+    const byId = (id: string) => value.mysticCards.find(card => card.id === id)!
+    for (const id of value.tavern.mystics.recruitableDefinitionIds) {
+      const definition = byId(id)
+      expect(definition.deferredReason).toBeUndefined()
+      expect(definition.normal.deferredReason).toBeUndefined()
+      expect(definition.inverted.deferredReason).toBeUndefined()
+    }
+    expect(byId('mystic-list').normal.effects).toEqual([
+      { kind: 'resourceMultiplier', resourceId: 'gold', multiplier: 1.1 },
+      { kind: 'resourceMultiplier', resourceId: 'food', multiplier: 1.1 },
+    ])
+    expect(byId('mystic-list').inverted.effects).toEqual([
+      { kind: 'population', amount: -1000 },
+      { kind: 'loyaltyAllCities', amount: -1 },
+    ])
+    expect(byId('mystic-lorik').normal.effects).toEqual([
+      { kind: 'flag', flagId: 'maxCombatSpirit', amount: 1 },
+    ])
+    expect(byId('mystic-lorik').inverted.effects).toEqual([
+      { kind: 'flag', flagId: 'maxCombatSpirit', amount: -1 },
+    ])
+    expect(byId('mystic-anatoliy').normal.effects).toEqual([
+      { kind: 'resourceMultiplier', resourceId: 'gold', multiplier: 1.9967893333333 },
+      { kind: 'resourceMultiplier', resourceId: 'food', multiplier: 1.9967893333333 },
+    ])
+    expect(byId('mystic-anatoliy').inverted.effects).toEqual([
+      { kind: 'resourceMultiplier', resourceId: 'gold', multiplier: 0.5 },
+      { kind: 'resourceMultiplier', resourceId: 'food', multiplier: 0.5 },
+    ])
+    expect(byId('mystic-queen-of-spades').normal.effects).toEqual([])
+    expect(byId('mystic-queen-of-spades').inverted.effects).toEqual([])
   })
 })

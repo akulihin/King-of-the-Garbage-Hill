@@ -191,7 +191,7 @@ describe('Empire\'s Endgame Phase 2 campaign bridge', () => {
     }, value.id)
     const restored = new EmpiresEndgameEngine(value, migrated)
     expect(restored.state).toMatchObject({
-      schemaVersion: 16,
+      schemaVersion: 18,
       minigame: null,
       minigameResultLog: [],
       army: {
@@ -276,18 +276,19 @@ describe('Empire\'s Endgame Phase 2 campaign bridge', () => {
 })
 
 describe('Empire\'s Endgame Phase 2 army carriers', () => {
-  it('keeps disabled-empty TD compatible and validates the enabled bundled 4x4 catalog', () => {
+  it('keeps a disabled TD runtime compatible after dependent expedition routes are disabled', () => {
     const enabled = config()
     expect(() => validateEmpiresConfig(enabled)).not.toThrow()
     const disabled = cloneEmpiresConfig(enabled)
     disabled.td.enabled = false
+    disabled.expeditions.enabled = false
     disabled.td.regionalCatalogEnabled = false
-    disabled.td.towerBases = []
     disabled.td.battlefields = []
     disabled.td.towers = []
     disabled.td.gradeChoices = []
     disabled.td.waves = []
     disabled.td.planVariants = []
+    disabled.clash.assaultRoutes = []
     expect(() => validateEmpiresConfig(disabled)).not.toThrow()
   })
 
@@ -344,7 +345,7 @@ describe('Empire\'s Endgame Phase 2 army carriers', () => {
     expect(engine.research('tech-ironwork')).toMatchObject({ ok: true })
     expect(engine.effectiveOperationalBuildingLevel(city.id, 'building-smithy')).toBe(1)
     expect(engine.finishEmpire()).toMatchObject({ ok: true })
-    expect(engine.state.army.equipmentStock['basic-kit']).toBe(5)
+    expect(engine.state.army.equipmentStock['basic-kit']).toBe(2)
     expect(engine.state.army.equipmentStock['weapon-laurel-spear']).toBeUndefined()
   })
 
@@ -375,7 +376,7 @@ describe('Empire\'s Endgame Phase 2 army carriers', () => {
       const result = engine.recruitUnits(city.id, unitId)
       if (!result.ok) throw new Error(`${unitId}: ${result.message}`)
     }
-    expect(engine.state.army.equipmentStock['basic-kit']).toBe(90)
+    expect(engine.state.army.equipmentStock['basic-kit']).toBe(88)
     expect(engine.state.army.equipmentStock['weapon-laurel-spear']).toBe(0)
     expect(engine.finishEmpire()).toMatchObject({ ok: true })
     expect(engine.state.phase).toBe('minigame')

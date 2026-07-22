@@ -28,7 +28,7 @@ function session(): { session: EmpiresTavernMinigameSession, mysticCards: Return
 afterEach(cleanup)
 
 describe('Empire\'s Endgame Tavern production input path', () => {
-  it('routes pointer and keyboard commands through deterministic replay and exposes authored blockers', async () => {
+  it('routes hiring, rumors, and Maria through deterministic replay', async () => {
     const fixture = session()
     const onResolved = vi.fn<(result: TavernResult) => void>()
     const view = render(TavernEncounter, {
@@ -45,15 +45,23 @@ describe('Empire\'s Endgame Tavern production input path', () => {
     await userEvent.keyboard('{Enter}')
 
     expect(view.getByTestId('tavern-maria')).toBeTruthy()
-    expect((view.getByRole('button', { name: 'Сыграть двое на двое' }) as HTMLButtonElement).disabled)
-      .toBe(true)
-    expect(view.getByText(/неполные контракты нельзя нанять/i)).toBeTruthy()
+    const maria = view.getByRole('button', { name: 'Сыграть двое на двое' }) as HTMLButtonElement
+    expect(maria.disabled).toBe(false)
+    await fireEvent.click(maria)
+    expect(view.getByText(/Победа: пороховое наследие|Мария выиграла эту партию/)).toBeTruthy()
+    expect(view.getByText(/можно пригласить в Совет карт/i)).toBeTruthy()
     await fireEvent.click(view.getByTestId('tavern-qa-resolve'))
 
     expect(onResolved).toHaveBeenCalledTimes(1)
     const result = onResolved.mock.calls[0][0]
     expect(result.error).toBeNull()
-    expect(result.commandLog.map(command => command.kind)).toEqual(['hire', 'buy-rumor', 'finish'])
+    expect(result.commandLog.map(command => command.kind)).toEqual([
+      'hire',
+      'buy-rumor',
+      'play-maria',
+      'finish',
+    ])
+    expect(result.mariaPlayed).toBe(true)
     expect(result.commandDigest).toMatch(/^[0-9a-f]{16}$/)
   })
 })

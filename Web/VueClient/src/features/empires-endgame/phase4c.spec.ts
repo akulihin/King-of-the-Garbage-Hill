@@ -27,7 +27,7 @@ describe('Empire\'s Endgame Phase 4C governance', () => {
     const migrated = migrateEmpiresConfig(previous) as EmpiresEndgameConfig
     expect(previous).toEqual(original)
     expect(migrated).toMatchObject({
-      schemaVersion: 17,
+      schemaVersion: 19,
       governance: {
         enabled: false,
         advisors: [],
@@ -37,7 +37,7 @@ describe('Empire\'s Endgame Phase 4C governance', () => {
     })
     expect(migrateEmpiresConfig(migrated)).toEqual(migrated)
     expect(migrateEmpiresConfig(migrated)).not.toBe(migrated)
-    expect(() => migrateEmpiresConfig({ ...migrated, schemaVersion: 18 })).toThrow(/future.*18/i)
+    expect(() => migrateEmpiresConfig({ ...migrated, schemaVersion: 20 })).toThrow(/future.*20/i)
   })
 
   it('validates advisor, city-site, capital-carrier, and defense-layer references', () => {
@@ -75,11 +75,16 @@ describe('Empire\'s Endgame Phase 4C governance', () => {
       'advisor-science': { status: 'active', transitionSequence: 1, transitionSourceId: 'advisor-judgment:pardon' },
       'advisor-trade': { status: 'executed', transitionSequence: 2, transitionSourceId: 'advisor-judgment:execute' },
       'advisor-war': { status: 'executed', transitionSequence: 3, transitionSourceId: 'advisor-judgment:execute' },
-      'advisor-grand': { status: 'locked', transitionSequence: null },
+      'advisor-grand': {
+        status: 'active',
+        transitionSequence: 4,
+        transitionSourceId: 'governance:starting-judgment-complete',
+      },
     })
     const restored = new EmpiresEndgameEngine(value, engine.snapshot())
     expect(restored.state.governance).toEqual(engine.state.governance)
-    expect(restored.snapshotEnvelope('2026-07-17T00:00:00.000Z').schemaVersion).toBe(16)
+    expect(restored.snapshotEnvelope('2026-07-17T00:00:00.000Z').schemaVersion)
+      .toBe(new EmpiresEndgameEngine(value).snapshotEnvelope('2026-07-17T00:00:00.000Z').schemaVersion)
   })
 
   it('keeps clubs unavailable until an authored Grand Advisor grant, then makes clubs trump exactly once', () => {
@@ -109,7 +114,7 @@ describe('Empire\'s Endgame Phase 4C governance', () => {
     delete legacy.governance
 
     const restored = new EmpiresEndgameEngine(value, legacy)
-    expect(restored.state.schemaVersion).toBe(16)
+    expect(restored.state.schemaVersion).toBe(new EmpiresEndgameEngine(value).snapshot().schemaVersion)
     expect(restored.state.governance.advisors['advisor-grand']).toMatchObject({
       status: 'active',
       transitionSourceId: 'migration:legacy-restricted-trump',
@@ -176,7 +181,7 @@ describe('Empire\'s Endgame Phase 4C governance', () => {
     expect(() => new EmpiresEndgameEngine(value, dangling)).toThrow(/Invalid governance governor assignment north/)
   })
 
-  it('keeps capital carriers and unresolved semantics explicitly deferred to their owning phases', () => {
+  it('ships every accepted capital carrier through the shared live action substrate', () => {
     const value = config()
     expect(value.governance.capital).toMatchObject({ cityId: 'city-tetrakor-capital' })
     expect(value.governance.capital.sites.map(site => [site.name, site.owner])).toEqual([
@@ -186,7 +191,9 @@ describe('Empire\'s Endgame Phase 4C governance', () => {
       ['Военная академия', 'P3B'],
       ['Шахта белого камня', 'P6C'],
     ])
-    expect(value.governance.capital.sites.every(site => Boolean(site.deferredReason))).toBe(true)
+    expect(value.governance.capital.sites.every(site => !site.deferredReason)).toBe(true)
+    expect(value.governance.advisors.find(advisor => advisor.id === 'advisor-grand')?.accessDeferredReason)
+      .toBeUndefined()
     expect(value.empire.buildings.find(building => building.id === 'municipal-capital-forum')?.allowedCityIds)
       .toEqual(['city-tetrakor-capital'])
     expect(value.empire.buildings.find(building => building.id === 'building-military-academy')?.allowedCityIds)

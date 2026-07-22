@@ -142,7 +142,11 @@ describe('Empire\'s Endgame Phase 11 expeditions', () => {
     const migrated = migrateEmpiresConfig(legacy)
 
     expect(legacy).toEqual(untouched)
-    expect(migrated).toMatchObject({ schemaVersion: 17, expeditions: { enabled: false, definitions: [] } })
+    expect(migrated).toMatchObject({
+      schemaVersion: 19,
+      clash: { enabled: false },
+      expeditions: { enabled: false, definitions: [] },
+    })
     expect(migrated.empire.map.objects.find(object => object.id === 'map-south-fortress')).toMatchObject({
       id: 'map-south-fortress',
       position,
@@ -156,7 +160,7 @@ describe('Empire\'s Endgame Phase 11 expeditions', () => {
     if (typedFort.kind !== 'fortress') throw new Error('Fixture fortress lost its typed payload.')
     typedFort.payload.zoneId = 'missing-zone'
     expect(() => validateEmpiresConfig(dangling)).toThrow(/fortress|expedition|zone/i)
-    expect(() => migrateEmpiresConfig({ ...migrated, schemaVersion: 18 })).toThrow(/future.*18/i)
+    expect(() => migrateEmpiresConfig({ ...migrated, schemaVersion: 20 })).toThrow(/future.*20/i)
   })
 
   it('withdraws direct provisions once, spends preparation days, restores safely, and retries without refund', () => {
@@ -199,6 +203,7 @@ describe('Empire\'s Endgame Phase 11 expeditions', () => {
       enemyIntel: 'exact',
       mapBonusPercent: 100,
       speedPercent: 25,
+      veteranDeploymentSpeedPercent: 10,
     })
     expect(view.enemyGroups).toEqual([
       expect.objectContaining({ id: 'south-unarmored-raiders', count: 8, armorClassId: null }),
@@ -221,7 +226,7 @@ describe('Empire\'s Endgame Phase 11 expeditions', () => {
     expect(militaryLogistics.effects).toContainEqual({ kind: 'flag', flagId: 'expeditionSpeedPercent', amount: 25 })
     expect(supplyCorps.effects).toContainEqual({ kind: 'flag', flagId: 'expeditionProvisionInstallmentTurns', amount: 4 })
     expect(maps.normal.deferredReason).toBeUndefined()
-    expect(maps.inverted.deferredReason).toMatch(/дипломат|квест/i)
+    expect(maps.inverted.deferredReason).toBeUndefined()
   })
 
   it('runs the real expedition TD path and settles zone, reward, complaint, and replay guard once', () => {
@@ -232,6 +237,12 @@ describe('Empire\'s Endgame Phase 11 expeditions', () => {
     variant.objective.maxHp = 1
     const engine = expeditionEngine(value)
     const goldBefore = engine.state.empire.resources.gold ?? 0
+    const knowledgeBefore = engine.state.empire.resources.knowledge ?? 0
+    const zone = value.expeditions.zones.find(item => item.id === 'zone-south-beyond-dunes')!
+    const zoneGold = zone.rewards.find(effect => effect.kind === 'resource' && effect.resourceId === 'gold')
+    const zoneKnowledge = zone.rewards.find(
+      effect => effect.kind === 'resource' && effect.resourceId === 'knowledge',
+    )
     planAndLaunch(engine)
     expect(engine.startExpeditionAssault(EXPEDITION_ID)).toMatchObject({ ok: true })
     const session = activeTd(engine)
@@ -248,7 +259,12 @@ describe('Empire\'s Endgame Phase 11 expeditions', () => {
       resultHistory: [expect.objectContaining({ complaintApplied: true, rewardApplied: true })],
     })
     expect(engine.state.expeditions.openedZoneIds).toEqual(['zone-south-beyond-dunes'])
-    expect(engine.state.empire.resources.gold).toBe(goldBefore + 7)
+    expect(engine.state.empire.resources.gold).toBe(
+      goldBefore + 7 + (zoneGold?.kind === 'resource' ? zoneGold.amount : 0),
+    )
+    expect(engine.state.empire.resources.knowledge).toBe(
+      knowledgeBefore + (zoneKnowledge?.kind === 'resource' ? zoneKnowledge.amount : 0),
+    )
     expect(engine.state.quests['quest-expedition-south-complaint']).toBeDefined()
     expect(engine.resolveMinigame(result)).toMatchObject({ ok: true, message: expect.stringMatching(/already resolved/i) })
     expect(engine.snapshot()).toEqual(settled)
@@ -269,6 +285,11 @@ describe('Empire\'s Endgame Phase 11 expeditions', () => {
     const view = engine.expeditionPlanningView(EXPEDITION_ID)!
     expect(engine.launchExpedition(EXPEDITION_ID, [unitId], view.provisionRequired, 1)).toMatchObject({ ok: true })
     expect(engine.startExpeditionAssault(EXPEDITION_ID)).toMatchObject({ ok: true })
+    const veteranSession = activeTd(engine)
+    const variant = engine.config.td.planVariants.find(item => item.id === 'desert-fort-expedition-assault')!
+    expect(veteranSession.plan.deployments[0].speedPerSecond).toBeCloseTo(
+      variant.deploymentSpeedPerSecond * 1.1,
+    )
     settleSynthetic(engine, 'defeat', 0.9)
     expect(engine.state.army.unitInstances[unitId]).toBeUndefined()
     expect(engine.state.expeditions.byDefinitionId[EXPEDITION_ID].resultHistory.at(-1))
@@ -276,8 +297,7 @@ describe('Empire\'s Endgame Phase 11 expeditions', () => {
     expect(engine.config.expeditions.veteran).toMatchObject({
       qualifyingMaximumHealthRatio: 0.5,
       removalWounds: 2,
-      laterBattleBonus: null,
-      laterBattleBonusDeferredReason: expect.any(String),
+      laterBattleBonus: { kind: 'deploymentSpeedPercent', percent: 10 },
     })
   })
 

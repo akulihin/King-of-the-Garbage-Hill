@@ -38,6 +38,15 @@ export interface EmpiresInventoryConfig {
   maxCatchUpTicksPerFrame: number
   maxItems: number
   targetUnitsPerItem: number
+  equipmentPacking: {
+    maxItems: number
+    targetUnitsPerItem: number
+  }
+  perstPacker: {
+    perstId: string
+    requireOriginGovernor: boolean
+    bonusEquipmentItems: number
+  }
   board: {
     width: number
     height: number
@@ -65,7 +74,7 @@ export interface InventoryRulesIdentity {
 export interface InventoryItemInstance {
   id: string
   definitionId: string
-  originCityId: string
+  originCityId: string | null
   content: InventoryItemContent
   amount: number
 }
@@ -81,6 +90,8 @@ export interface InventoryPlan {
   requestedProvisionAmount: number
   requiredProvisionAmount: number
   eligibleProvisionAmount: number
+  eligibleEquipmentAmounts: Record<string, number>
+  packerPerstId: string | null
   rosterUnitInstanceIds: string[]
   tickMs: number
   maxTicks: number
@@ -157,6 +168,9 @@ export interface InventoryResult {
   efficiencyPercent: number
   packedProvisionAmount: number
   eligibleProvisionAmount: number
+  packedEquipmentAmounts: Record<string, number>
+  eligibleEquipmentAmounts: Record<string, number>
+  packerPerstId: string | null
   packedItemInstanceIds: string[]
   unpackedItemInstanceIds: string[]
   placements: InventoryPlacement[]
