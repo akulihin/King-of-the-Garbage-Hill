@@ -267,22 +267,22 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
             }
 
-        // Goblin board objects — visible only to the owner/admin
+        // Goblin board objects — visible only to the owner
         var goblinPlayer = game.PlayersList.Find(p => p.GameCharacter.Name == "Стая Гоблинов");
-        if (goblinPlayer != null && (player1.GameCharacter.Name == "Стая Гоблинов" || player1.PlayerType == 2))
+        if (goblinPlayer != null && player1.GameCharacter.Name == "Стая Гоблинов")
         {
             if (number is 1 or 2 or 6) customString += "⛏️";
             if (goblinPlayer.Passives.GoblinZiggurat.BuiltPositions.Contains(number)) customString += "🏛️";
         }
 
-        // Protection indicators follow the same owner/admin boundary
-        if ((player1.GameCharacter.Name == "Стая Гоблинов" || player1.PlayerType == 2) && player2.Passives.GoblinZiggurat.IsInZiggurat)
+        // Protection indicators follow the same owner boundary
+        if (player1.GameCharacter.Name == "Стая Гоблинов" && player2.Passives.GoblinZiggurat.IsInZiggurat)
             customString += "🛡️";
 
-        // The cola is a fixed board-cell object. Only Salldorum and admins see its location.
+        // The cola is a fixed board-cell object. Only Salldorum sees its location.
         var salldorum = game.PlayersList.Find(player => player.GameCharacter.Name == "Salldorum");
         if (salldorum != null
-            && (player1.GetPlayerId() == salldorum.GetPlayerId() || player1.PlayerType == 2)
+            && player1.GetPlayerId() == salldorum.GetPlayerId()
             && salldorum.Passives.SalldorumTimeCapsule.Buried
             && salldorum.Passives.SalldorumTimeCapsule.BuriedAtPosition == number)
             customString += "🥤";
@@ -290,16 +290,16 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         if (Tigr.IsRoundTenBanned(player2, game.RoundNo))
             customString += "🚫";
 
-        if ((player1.PlayerType == 2 || player1.GetPlayerId() == player2.GetPlayerId()) && Madara.IsSealed(player2))
+        if (player1.GetPlayerId() == player2.GetPlayerId() && Madara.IsSealed(player2))
             customString += "🚫";
 
-        // DooM Guy demon nests — visible only to the owner/admin.
-        if ((player1.GameCharacter.Name == DoomGuy.CharacterName || player1.PlayerType == 2)
+        // DooM Guy demon nests — visible only to the owner.
+        if (player1.GameCharacter.Name == DoomGuy.CharacterName
             && game.PlayersList.Any(x => x.GameCharacter.Name == DoomGuy.CharacterName && x.Passives.DoomGuy.DemonNests.Contains(player2.GetPlayerId())))
             customString += "🔥";
 
-        // Counter-attack vulnerability is also owner/admin-only character knowledge.
-        if ((player1.GameCharacter.Name == DoomGuy.CharacterName || player1.PlayerType == 2)
+        // Counter-attack vulnerability is also owner-only character knowledge.
+        if (player1.GameCharacter.Name == DoomGuy.CharacterName
             && game.PlayersList.Any(x => x.GameCharacter.Name == DoomGuy.CharacterName
                 && x.Passives.DoomGuy.CounterAttackMarks.GetValueOrDefault(player2.GetPlayerId()) == game.RoundNo))
             customString += "🎯";
@@ -325,14 +325,16 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
             }
         }
 
-        // Джон Сноу's Castle cell and two weakest-player marks are intentionally public.
+        // Джон Сноу's Castle cell and two weakest-player marks — visible only to the Джон Сноу owner.
         var jonSnow = JonSnow.Find(game.PlayersList);
         if (jonSnow != null
+            && player1.GetPlayerId() == jonSnow.GetPlayerId()
             && jonSnow.GameCharacter.Passive.Any(passive =>
                 passive.PassiveName == JonSnow.BlackCastle)
             && number == JonSnow.BlackCastlePlace)
             customString += "🏰";
         if (jonSnow != null
+            && player1.GetPlayerId() == jonSnow.GetPlayerId()
             && !jonSnow.Passives.IsDead
             && JonSnow.HasPassive(jonSnow, JonSnow.AnotherBastard)
             && jonSnow.Passives.JonSnow.WeakestPlayerIds.Contains(player2.GetPlayerId()))
