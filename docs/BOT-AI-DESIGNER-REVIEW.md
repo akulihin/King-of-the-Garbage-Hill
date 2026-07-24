@@ -145,7 +145,7 @@ L3 deliberately uses the same Moral policy as L2. Its advantage comes from infor
 
 | ID | Character | Choices and purpose |
 |---|---|---|
-| AI-PLAN-DOPA | Dopa | Chooses the intended `Мета` plan (`Стомп`, `Фарм`, `Доминация`, or `Роум`) once, but does not apply it during setup. The ordinary first level-up raises a stat; the second routes the plan through the same no-stat meta choice used by humans. |
+| AI-PLAN-DOPA | Dopa | Chooses the intended `Законодатель меты` plan (`Стомп`, `Фарм`, `Доминация`, or `Роум`) once, but does not apply it during setup. The ordinary first level-up raises a stat; the second routes the plan through the same no-stat meta choice used by humans. |
 | AI-PLAN-DARKSCI | Darksci | Random `Stable` or `Unstable`. `Stable` immediately applies the own-kit Skill/Moral benefit; `Unstable` prefers fights whose estimated edge is not too bad. |
 | AI-PLAN-GLEB | Young-capable `Глеб` | Random `Classic` or `Young`. `Young` performs the real transformation and seeds three META targets using only owned class tells and public place. |
 | AI-PLAN-BOYS | TheBoys | Random `Francie`, `Butcher`, `Kimiko`, or `M.M.`; concentrates level-ups toward the selected ultimate. |

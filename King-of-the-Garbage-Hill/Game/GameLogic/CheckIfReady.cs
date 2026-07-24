@@ -1459,6 +1459,17 @@ public class CheckIfReady : IServiceSingleton
                     geralt.Status.IsBlock = true;
                 }
 
+                // Dopa Макро — a submitted block is only the self-ID placeholder in
+                // WhoToAttackThisTurn; turn it into a real defensive block here so incoming
+                // attackers get blocked (and Dopa marks himself for "Взгляд в будущее"). The
+                // self-ID stays in the list; his paired attack still resolves (self is filtered
+                // out of targetsToFight, and the forced-fight carve-out processes the attack).
+                foreach (var t in players.Where(p =>
+                             !p.Passives.IsDead
+                             && p.GameCharacter.Passive.Any(x => x.PassiveName == "Макро")
+                             && p.Status.WhoToAttackThisTurn.Contains(p.GetPlayerId())))
+                    t.Status.IsBlock = true;
+
                 // Aggress — Toxic Mate auto-attacks random target instead of auto-blocking
                 foreach (var t in players.Where(t =>
                              !game.IsKratosEvent && !t.Passives.IsDead

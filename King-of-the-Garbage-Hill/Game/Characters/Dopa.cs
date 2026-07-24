@@ -6,7 +6,7 @@ public class Dopa
     public const string Macro = "Макро";
     public const string Vision = "Взгляд в будущее";
     public const string Permaban = "Permaban";
-    public const string Meta = "Мета";
+    public const string Meta = "Законодатель меты";
 
     public class MacroClass
     {

@@ -4834,34 +4834,38 @@ public class CharacterPassives : IServiceSingleton
 
                 case "Взгляд в будущее":
                     if (player.Passives.DopaVision.Cooldown > 0) break;
-                    // Both Макро attacks must become real fights. A submitted target that Blocks or
-                    // Skips does not satisfy the simultaneous-attack promise (M130).
-                    if (player.Passives.DopaMacro.FightsResolved < 2) break;
-                    // Filter out self-ID (block action) — vision requires two actual enemy targets
-                    var visionTargets = player.Status.WhoToAttackThisTurn
-                        .Where(t => t != player.GetPlayerId()).ToList();
-                    if (visionTargets.Count < 2) break;
 
-                    var t1Id = visionTargets[0];
-                    var t2Id = visionTargets[1];
-                    var t1 = game.PlayersList.Find(x => x.GetPlayerId() == t1Id);
-                    var t2 = game.PlayersList.Find(x => x.GetPlayerId() == t2Id);
-                    if (t1 == null || t2 == null) break;
+                    // Dopa's two Макро selections; a Block records his OWN id (self-target),
+                    // so a participant may be Dopa himself.
+                    var visionParticipants = player.Status.WhoToAttackThisTurn.Distinct().ToList();
+                    if (visionParticipants.Count < 2) break;
 
-                    bool visionProc = false;
-                    if (t1.Status.WhoToAttackThisTurn.Contains(t2Id)) visionProc = true;
-                    if (t2.Status.WhoToAttackThisTurn.Contains(t1Id)) visionProc = true;
+                    var visionAId = visionParticipants[0];
+                    var visionBId = visionParticipants[1];
+                    var visionDopaId = player.GetPlayerId();
+                    var visionA = game.PlayersList.Find(x => x.GetPlayerId() == visionAId);
+                    var visionB = game.PlayersList.Find(x => x.GetPlayerId() == visionBId);
 
-                    if (visionProc)
+                    // Count predicted attacks by AIM only — a target's Block/Skip is irrelevant
+                    // (the promise is about who nападает, not whether the fight resolves). Dopa's
+                    // own attacks never count; when he blocked, only the other side attacking him
+                    // (his self-ID participant) can score. Both directions hitting = two predictions.
+                    var visionCount = 0;
+                    if (visionAId != visionDopaId && visionA != null
+                        && visionA.Status.WhoToAttackThisTurn.Contains(visionBId)) visionCount++;
+                    if (visionBId != visionDopaId && visionB != null
+                        && visionB.Status.WhoToAttackThisTurn.Contains(visionAId)) visionCount++;
+
+                    if (visionCount > 0)
                     {
                         var farmActive = player.GameCharacter.Passive.Any(x => x.PassiveName == "Фарм")
                             && (player.GameCharacter.Name != Dopa.CharacterName
                                 || player.Passives.DopaMetaChoice.ChosenTactic == "Фарм");
-                        int pointsAward = farmActive ? 4 : 2;
+                        int pointsAward = (farmActive ? 4 : 2) * visionCount;
                         player.Status.AddRegularPoints(pointsAward, "Взгляд в будущее");
-                        player.GameCharacter.AddExtraSkill(50, "Взгляд в будущее");
+                        player.GameCharacter.AddExtraSkill(50 * visionCount, "Взгляд в будущее");
                         player.Passives.DopaVision.Cooldown = 1;
-                        player.Passives.AchievementTracker.DopaVisionProcs++;
+                        player.Passives.AchievementTracker.DopaVisionProcs += visionCount;
                         game.Phrases.DopaVisionProc.SendLog(player, false);
                     }
                     break;

@@ -1202,7 +1202,7 @@ public class CharactersUniquePhrase
         DopaVisionProc.PassiveLogRus.Add("럭키. 골든.");
         DopaVisionProc.PassiveLogRus.Add("나는 미래를 본다. 사이트를 통해 나를 번역하지 마라.");
 
-        DopaMetaChosen = new PhraseClass("Мета");
+        DopaMetaChosen = new PhraseClass("Законодатель меты");
         DopaMetaChosen.PassiveLogRus.Add("잘 생긴");
         DopaMetaChosen.PassiveLogRus.Add("이제 내가 보여줄거야.");
 

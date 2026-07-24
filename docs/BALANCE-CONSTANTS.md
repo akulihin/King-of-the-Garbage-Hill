@@ -233,8 +233,8 @@ Achievement progress targets and the complete 110-entry rule catalog are in [ACH
 | Продавец | Закуп | level-up +10 | GR:1359-1363 |
 | Продавец | Сделка | +1 base bonus & +3 Moral per deal; round-10 debt steal = actual tactic credits/2 exactly | CP:1903-1916, 2606-2633, 4822-4832 |
 | Продавец | Куш | 20% → attacker steals 3 bonus | CP:2636-2646 |
-| Dopa | Взгляд | 2 resolved Macro fights required; +2 regular (+4 Фарм) +50 Skill, cd 1 | CP:4834-4865 |
-| Dopa | Мета (2nd level-up) | consumes the upgrade with no stat; Стомп +9 Str +99 Skill; Доминация +20 Skill/−1 bonus/33% −1 Psyche; Роум steal 1 bonus + 3 Moral | `GameReactions.cs:1075-1095`; `CharacterPassives.ApplyDopaChoice` |
+| Dopa | Взгляд | +2 regular (+4 Фарм) +50 Skill per attack **aimed** between his two Макро participants; both directions → everything ×2 (points/Skill/achievement); a target's Block/Skip is irrelevant; cd 1 | CP:4835-4872 |
+| Dopa | Законодатель меты (2nd level-up) | consumes the upgrade with no stat; Стомп +9 Str +99 Skill; Доминация +20 Skill/−1 bonus/33% −1 Psyche; Роум steal 1 bonus + 3 Moral | `GameReactions.cs:1075-1095`; `CharacterPassives.ApplyDopaChoice` |
 | Dopa | Permaban | entering round 10 at place 1 → shared Тигр ban: Skip, stats 0 Int / 10 Str / 0 Psyche | `CharacterPassives.cs:6718-6723`; `Tigr.ApplyRoundTenBan` |
 | Dopa | IQ display | Int 7/8/9/10 → IQ 200/209/218/228; below 7 subtract 1 IQ per Int | `CharacterClass.GetIntelligenceString` |
 | Napoleon | Союз | joint attack: can't lose, +3 Moral; Завоеватель +1 bonus | CP:1460-1475, 2122-2145 |
