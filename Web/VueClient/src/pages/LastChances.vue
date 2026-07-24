@@ -209,18 +209,8 @@ const copy = {
     interactionEyebrow: 'The room remembers the offer',
     interactionChoose: 'Take this outcome',
     interactionUnavailable: 'Unavailable for the current loadout or Chances',
-    ouroborosSet: 'Ouroboros Set',
-    ouroborosComplete: 'Complete set · Ouroboros form active',
-    ouroborosFang: 'Fang',
-    ouroborosAcid: 'Acid',
-    ouroborosScale: 'Scale',
-    ouroborosWaiting: 'Not found',
-    ouroborosDropped: 'At the corpse',
-    ouroborosEquipped: 'Equipped',
-    ouroborosKills: 'qualifying kills',
-    ouroborosSpent: 'Chances spent',
-    ouroborosRoomStacks: 'pickups in this room',
-    ouroborosHealing: 'healing',
+    events: 'Log',
+    eventsEmpty: 'Nothing has happened yet',
     interactionCost: 'Cost',
     altarEyebrow: 'Boss altar',
     altarAccept: 'Sacrifice 5 Chances',
@@ -394,18 +384,8 @@ const copy = {
     interactionEyebrow: 'Комната помнит предложение',
     interactionChoose: 'Принять этот исход',
     interactionUnavailable: 'Недоступно с текущей экипировкой или запасом Шансов',
-    ouroborosSet: 'Комплект Уробороса',
-    ouroborosComplete: 'Полный комплект · форма Уробороса активна',
-    ouroborosFang: 'Клык',
-    ouroborosAcid: 'Кислота',
-    ouroborosScale: 'Чешуя',
-    ouroborosWaiting: 'Не найдено',
-    ouroborosDropped: 'Осталось у трупа',
-    ouroborosEquipped: 'Экипировано',
-    ouroborosKills: 'подходящих добиваний',
-    ouroborosSpent: 'Шансов потрачено',
-    ouroborosRoomStacks: 'подборов в этой комнате',
-    ouroborosHealing: 'лечения',
+    events: 'Журнал',
+    eventsEmpty: 'Пока ничего не произошло',
     interactionCost: 'Цена',
     altarEyebrow: 'Алтарь босса',
     altarAccept: 'Принести жертву 5 Шансов',
@@ -505,6 +485,8 @@ const mentalPercent = computed(() => {
 const chancePercent = computed(() => snapshot.value && config.value
   ? Math.max(0, Math.min(100, snapshot.value.chances / Math.max(1, config.value.chances) * 100))
   : 100)
+/** Newest first, trimmed to what fits the sidebar card. */
+const recentEvents = computed(() => [...(snapshot.value?.events ?? [])].reverse().slice(0, 5))
 const activeTierIndex = computed(() => snapshot.value?.currentTierIndex ?? 0)
 const activeTier = computed(() => config.value?.progression.tiers[activeTierIndex.value] ?? null)
 const nextDeathCost = computed(() => activeTier.value?.deathCost ?? 1)
@@ -1491,42 +1473,15 @@ onBeforeUnmount(() => {
           </div>
         </section>
 
-        <section
-          v-if="snapshot?.ouroboros"
-          class="lc-ouroboros-card"
-          :class="{ 'is-complete': snapshot.ouroboros.fullSet }"
-        >
+        <section class="lc-event-card" data-testid="event-log">
           <header>
             <CircleDotDashed :size="15" aria-hidden="true" />
-            <span>{{ t.ouroborosSet }}</span>
+            <span>{{ t.events }}</span>
           </header>
-          <p v-if="snapshot.ouroboros.fullSet">{{ t.ouroborosComplete }}</p>
-          <dl>
-            <div>
-              <dt>{{ t.ouroborosFang }}</dt>
-              <dd>
-                +{{ formatNumber(snapshot.ouroboros.damageBonusPercent) }}%
-                · {{ snapshot.ouroboros.fangKillStacks }} {{ t.ouroborosKills }}
-              </dd>
-              <small>{{ snapshot.ouroboros.equipped.fang ? t.ouroborosEquipped : snapshot.ouroboros.discovered.fang ? t.ouroborosDropped : t.ouroborosWaiting }}</small>
-            </div>
-            <div>
-              <dt>{{ t.ouroborosAcid }}</dt>
-              <dd>
-                {{ formatNumber(snapshot.ouroboros.lifestealPercent) }}% {{ t.ouroborosHealing }}
-                · {{ snapshot.ouroboros.acidChancesSpent }} {{ t.ouroborosSpent }}
-              </dd>
-              <small>{{ snapshot.ouroboros.equipped.acid ? t.ouroborosEquipped : snapshot.ouroboros.discovered.acid ? t.ouroborosDropped : t.ouroborosWaiting }}</small>
-            </div>
-            <div>
-              <dt>{{ t.ouroborosScale }}</dt>
-              <dd>
-                −{{ formatNumber(snapshot.ouroboros.damageReductionPercent) }}%
-                · {{ snapshot.ouroboros.roomScaleStacks }} {{ t.ouroborosRoomStacks }}
-              </dd>
-              <small>{{ snapshot.ouroboros.equipped.scale ? t.ouroborosEquipped : snapshot.ouroboros.discovered.scale ? t.ouroborosDropped : t.ouroborosWaiting }}</small>
-            </div>
-          </dl>
+          <ol v-if="recentEvents.length" aria-live="polite">
+            <li v-for="entry in recentEvents" :key="entry.id">{{ entry.text }}</li>
+          </ol>
+          <p v-else>{{ t.eventsEmpty }}</p>
         </section>
 
         <section class="lc-run-card">
@@ -1941,7 +1896,7 @@ onBeforeUnmount(() => {
 
 .lc-telemetry { min-width: 0; align-self: start; display: grid; gap: 0.7rem; }
 .lc-chance-card,
-.lc-ouroboros-card,
+.lc-event-card,
 .lc-run-card,
 .lc-erosion-card,
 .lc-quest-card { border: 1px solid var(--lc-line); border-radius: 0.7rem; background: linear-gradient(145deg, rgba(255, 255, 255, 0.02), rgba(8, 10, 11, 0.55)); box-shadow: 0 0.7rem 1.5rem rgba(0, 0, 0, 0.17); }
@@ -1957,16 +1912,16 @@ onBeforeUnmount(() => {
 .lc-chance-card strong { color: #717673; font-size: 0.53rem; font-weight: 700; }
 .lc-chance-card > div:last-child > span { color: #b95a60; font: 700 0.72rem/1.4 var(--font-mono, monospace); }
 
-.lc-ouroboros-card { overflow: hidden; padding: 0.65rem; border-color: rgba(126, 166, 79, 0.22); background: radial-gradient(circle at 90% 0, rgba(120, 161, 70, 0.11), transparent 45%), linear-gradient(145deg, rgba(255, 255, 255, 0.02), rgba(8, 10, 11, 0.55)); }
-.lc-ouroboros-card.is-complete { border-color: rgba(197, 176, 90, 0.55); box-shadow: 0 0 1.7rem rgba(126, 167, 73, 0.19), inset 0 0 1.2rem rgba(197, 176, 90, 0.05); }
-.lc-ouroboros-card > header { display: flex; align-items: center; gap: 0.38rem; color: #9cca68; }
-.lc-ouroboros-card > header span { color: #d7d8bd; font-size: 0.62rem; font-weight: 850; letter-spacing: 0.07em; text-transform: uppercase; }
-.lc-ouroboros-card > p { margin: 0.45rem 0 0; color: #d7bd68; font-size: 0.53rem; font-weight: 750; }
-.lc-ouroboros-card dl { display: grid; gap: 0.28rem; margin: 0.55rem 0 0; }
-.lc-ouroboros-card dl > div { display: grid; grid-template-columns: auto 1fr; gap: 0.12rem 0.5rem; padding: 0.36rem 0.42rem; border: 1px solid rgba(144, 177, 89, 0.09); border-radius: 0.38rem; background: rgba(86, 112, 50, 0.045); }
-.lc-ouroboros-card dt { color: #a7c57c; font-size: 0.54rem; font-weight: 850; text-transform: uppercase; }
-.lc-ouroboros-card dd { margin: 0; color: #c6c8b8; font: 650 0.52rem/1.2 var(--font-mono, monospace); text-align: right; }
-.lc-ouroboros-card small { grid-column: 1 / -1; color: #67705e; font-size: 0.46rem; }
+.lc-event-card { overflow: hidden; padding: 0.65rem; border-color: rgba(126, 166, 79, 0.22); background: radial-gradient(circle at 90% 0, rgba(120, 161, 70, 0.11), transparent 45%), linear-gradient(145deg, rgba(255, 255, 255, 0.02), rgba(8, 10, 11, 0.55)); }
+.lc-event-card > header { display: flex; align-items: center; gap: 0.38rem; color: #9cca68; }
+.lc-event-card > header span { color: #d7d8bd; font-size: 0.62rem; font-weight: 850; letter-spacing: 0.07em; text-transform: uppercase; }
+.lc-event-card > p { margin: 0.45rem 0 0; color: #67705e; font-size: 0.5rem; }
+.lc-event-card ol { display: grid; gap: 0.22rem; margin: 0.5rem 0 0; padding: 0; list-style: none; }
+.lc-event-card li { padding: 0.3rem 0.42rem; border: 1px solid rgba(144, 177, 89, 0.09); border-radius: 0.38rem; color: #c6c8b8; background: rgba(86, 112, 50, 0.045); font-size: 0.52rem; font-weight: 650; }
+/* Newest line reads brightest; older lines recede down the list. */
+.lc-event-card li:first-child { color: #e2e6cf; border-color: rgba(159, 197, 98, 0.3); }
+.lc-event-card li:nth-child(n + 3) { color: #8b9184; }
+.lc-event-card li:nth-child(n + 5) { color: #6b7168; }
 
 .lc-run-card { overflow: hidden; }
 .lc-run-card > header { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 0.4rem; padding: 0.55rem 0.65rem; border-bottom: 1px solid rgba(255, 255, 255, 0.055); color: #b39758; }

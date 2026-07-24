@@ -443,6 +443,30 @@ describe('99LC config and deterministic plan', () => {
     ])
   })
 
+  it('re-pairs the boss holes reciprocally and rerolls the pairing across generations', () => {
+    const pairings = new Set<string>()
+    for (let generation = 1; generation <= 24; generation += 1) {
+      const plan = buildLastChancesPlan(defaultConfig, generation)
+      for (const node of plan.nodes) {
+        if (node.bossHoles.length === 0) continue
+        expect(node.bossHoles).toHaveLength(4)
+        const byId = new Map(node.bossHoles.map(hole => [hole.id, hole]))
+        for (const hole of node.bossHoles) {
+          const partner = byId.get(hole.linkedHoleId)
+          expect(partner).toBeTruthy()
+          expect(partner!.id).not.toBe(hole.id)
+          expect(partner!.linkedHoleId).toBe(hole.id)
+        }
+        pairings.add([...node.bossHoles]
+          .map(hole => [hole.id, hole.linkedHoleId].sort().join('~'))
+          .sort()
+          .join('|'))
+      }
+    }
+    // Four holes admit exactly three perfect matchings; the roll must not be stuck on one.
+    expect(pairings.size).toBeGreaterThan(1)
+  })
+
   it('rebuilds identical rooms, enemies, and links for the same generation', () => {
     const first = buildLastChancesPlan(defaultConfig, 3)
     const retry = buildLastChancesPlan(defaultConfig, 3)
@@ -502,8 +526,8 @@ describe('99LC config and deterministic plan', () => {
   it('rejects authored player and enemy spawns that overlap room geometry', () => {
     const invalid = cloneLastChancesConfig(defaultConfig)
     const roomIndex = invalid.rooms.findIndex(room => room.id === 'chest-gallery')
-    invalid.rooms[roomIndex].spawnLayouts![0].enemySpawns[0] = { x: 675, y: 120 }
-    invalid.rooms[roomIndex].playerSpawn = { x: 445, y: 330 }
+    invalid.rooms[roomIndex].spawnLayouts![0].enemySpawns[0] = { x: 929, y: 160 }
+    invalid.rooms[roomIndex].playerSpawn = { x: 662, y: 351 }
 
     expect(validateLastChancesConfig(invalid).errors).toEqual(expect.arrayContaining([
       expect.stringContaining(`rooms[${roomIndex}].spawnLayouts[0].enemySpawns[0] overlaps room obstacle 1`),
@@ -613,15 +637,15 @@ describe('99LC config and deterministic plan', () => {
       .every(weapon => weapon.attacks.tap.cooldownMs === 0)).toBe(true)
     expect(migrated.weapons.find(weapon => weapon.id === 'secondary-ouroboros-fang')
       ?.attacks.tap.cooldownMs).toBe(5000)
-    expect(migrated.rooms.find(room => room.id === 'chest-gallery')?.enemySpawns).toContainEqual({ x: 780, y: 160 })
-    expect(migrated.rooms.find(room => room.id === 'wrong-shadow-event')?.enemySpawns).toContainEqual({ x: 420, y: 370 })
+    expect(migrated.rooms.find(room => room.id === 'combat-hall')?.enemySpawns).toContainEqual({ x: 1020, y: 337 })
+    expect(migrated.rooms.find(room => room.id === 'wrong-shadow-event')?.enemySpawns).toContainEqual({ x: 961, y: 562 })
     expect(validateLastChancesConfig(migrated).errors).toEqual([])
   })
 
   it('keeps a safe legacy spawn when customized geometry makes its replacement unsafe', async () => {
     const previous = previousShippedSchemaV1Config()
     const chestGallery = previous.rooms.find(room => room.id === 'chest-gallery')!
-    Object.assign(chestGallery.obstacles[1], { x: 775, y: 130, width: 20, height: 60 })
+    Object.assign(chestGallery.obstacles[1], { x: 765, y: 130, width: 30, height: 60 })
     window.localStorage.setItem('99lc:game-config', JSON.stringify(previous))
     stubCurrentConfigFetch()
 
@@ -630,8 +654,8 @@ describe('99LC config and deterministic plan', () => {
 
     expect(spawns).toContainEqual({ x: 730, y: 160 })
     expect(spawns).not.toContainEqual({ x: 780, y: 160 })
-    expect(spawns).toContainEqual({ x: 785, y: 550 })
-    expect(spawns).toContainEqual({ x: 350, y: 345 })
+    expect(spawns).toContainEqual({ x: 720, y: 550 })
+    expect(spawns).toContainEqual({ x: 425, y: 345 })
     expect(validateLastChancesConfig(migrated).errors).toEqual([])
   })
 

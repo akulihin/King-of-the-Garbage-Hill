@@ -798,15 +798,35 @@ function buildLegacyAttackSetControls(
   }
 }
 
+/**
+ * Repair targets for spawn points authored against retired room geometry, keyed by their
+ * historical `x:y`. A relocation only fires when the saved point no longer fits the current
+ * room, so entries stay valid across reshapes; targets are the proportional position in the
+ * current 16:9 rooms, nudged clear of obstacles.
+ */
 const LEGACY_SPAWN_RELOCATIONS: Record<string, Record<string, { x: number, y: number }>> = {
+  'combat-hall': {
+    '805:335': { x: 1020, y: 337 },
+    '510:120': { x: 646, y: 121 },
+    '520:560': { x: 651, y: 571 },
+  },
   'chest-gallery': {
     '730:160': { x: 780, y: 160 },
     '720:550': { x: 785, y: 550 },
     '425:345': { x: 350, y: 345 },
   },
+  'rest-conservatory': {
+    '855:355': { x: 1094, y: 355 },
+  },
   'wrong-shadow-event': {
-    '570:595': { x: 650, y: 595 },
+    '570:595': { x: 828, y: 597 },
     '420:345': { x: 420, y: 370 },
+    '755:560': { x: 961, y: 562 },
+    '560:105': { x: 709, y: 105 },
+  },
+  'curator-threshold': {
+    '900:200': { x: 1100, y: 199 },
+    '900:560': { x: 1100, y: 557 },
   },
 }
 

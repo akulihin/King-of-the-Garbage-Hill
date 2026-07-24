@@ -1202,6 +1202,13 @@ export interface LastChancesFeedbackSnapshot {
   message: string | null
 }
 
+/** One line in the run feed. `atMs` is engine time, used to fade older lines out. */
+export interface LastChancesEventLogEntry {
+  id: string
+  text: string
+  atMs: number
+}
+
 export interface LastChancesSnapshot {
   phase: LastChancesPhase
   paused: boolean
@@ -1229,6 +1236,7 @@ export interface LastChancesSnapshot {
   groundWeapons: LastChancesGroundWeaponSnapshot[]
   groundOuroboros: LastChancesGroundOuroborosSnapshot[]
   ouroboros: LastChancesOuroborosSnapshot | null
+  events: LastChancesEventLogEntry[]
   swarm: LastChancesSwarmSnapshot | null
   turrets: LastChancesTurretSnapshot[]
   turretAlarm: boolean

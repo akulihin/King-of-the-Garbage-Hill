@@ -8,6 +8,7 @@ import {
 import { LAST_CHANCES_ARENA_EDGES } from './types'
 import type {
   LastChancesArenaEdge,
+  LastChancesBossHoleDefinition,
   LastChancesConfig,
   LastChancesGamePlan,
   LastChancesPlanEnemy,
@@ -25,6 +26,25 @@ function copyVector(value: LastChancesVector): LastChancesVector {
 
 function distanceSquared(a: LastChancesVector, b: LastChancesVector): number {
   return (a.x - b.x) ** 2 + (a.y - b.y) ** 2
+}
+
+/**
+ * Re-pairs the boss holes into a random perfect matching for this node. The authored links in
+ * the room template are only a default; rolling them per generation means a player cannot learn
+ * which hole answers which from a previous run. Reciprocity is preserved.
+ */
+function linkBossHoles(
+  holes: readonly LastChancesBossHoleDefinition[],
+  rng: () => number,
+): LastChancesBossHoleDefinition[] {
+  const copied = holes.map(hole => JSON.parse(JSON.stringify(hole)) as LastChancesBossHoleDefinition)
+  if (copied.length < 2 || copied.length % 2 !== 0) return copied
+  const order = lastChancesShuffle(copied, rng)
+  for (let index = 0; index < order.length; index += 2) {
+    order[index].linkedHoleId = order[index + 1].id
+    order[index + 1].linkedHoleId = order[index].id
+  }
+  return copied
 }
 
 interface EnemyPlanRoll {
@@ -212,7 +232,7 @@ function makeNode(
       ? JSON.parse(JSON.stringify(room.interaction)) as LastChancesPlanNode['interaction']
       : null,
     turrets: (room.turrets ?? []).map(turret => JSON.parse(JSON.stringify(turret))),
-    bossHoles: (room.bossHoles ?? []).map(hole => JSON.parse(JSON.stringify(hole))),
+    bossHoles: linkBossHoles(room.bossHoles ?? [], createLastChancesRng(`${seed}:boss-holes`)),
     altar: room.altar ? JSON.parse(JSON.stringify(room.altar)) : null,
     ouroborosPickup: room.ouroborosPickup
       ? JSON.parse(JSON.stringify(room.ouroborosPickup))

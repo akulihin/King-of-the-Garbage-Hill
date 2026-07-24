@@ -248,12 +248,14 @@ type EngineTestAccess = {
   }>
   heldChannels: Map<LastChancesHand, EngineTestAccess['activeAreas'][number]>
   killPlayer: (reason: string) => void
-  layout: () => {
-    centerX: number
-    top: number
-    diamondWidth: number
-    diamondHeight: number
+  cssWidth: number
+  entityScale: (node: LastChancesPlanNode) => number
+  layout: (arenaWidth?: number, arenaHeight?: number) => {
+    originX: number
+    originY: number
+    scale: number
   }
+  worldToScreen: (point: LastChancesVector, node: LastChancesPlanNode) => LastChancesVector
   moveCircle: (
     position: LastChancesVector,
     delta: LastChancesVector,
@@ -774,6 +776,15 @@ describe('99LC engine attempt lifecycle', () => {
         },
       })
 
+      // One feed line per piece, then the set's own name exactly once, on completion.
+      const pickupLog = access.createSnapshot().events.map(entry => entry.text)
+      expect(pickupLog).toEqual([
+        'Подобрано: Клык Уробороса',
+        'Подобрано: Кислота Уробороса',
+        'Подобрано: Чешуя Уробороса',
+        'Комплект Уробороса собран',
+      ])
+
       const fangAttack = weapon(config, 'secondary-ouroboros-fang').attacks.tap
       const firstTarget = access.enemies[0]
       firstTarget.definition.armor = 0
@@ -852,14 +863,29 @@ describe('99LC engine attempt lifecycle', () => {
 })
 
 describe('99LC eight-weapon mechanics', () => {
-  it('fills the game window with a horizontal arena projection', () => {
+  it('projects the arena top-down at one uniform scale on both axes', () => {
     const { engine, access } = startCombat(combatConfig('twohand-spear', null, 'guard', 1))
 
     try {
-      const layout = access.layout()
-      expect(layout.diamondWidth).toBeGreaterThanOrEqual(960 * 0.95)
-      expect(layout.diamondHeight).toBeGreaterThanOrEqual(640 * 0.8)
-      expect(layout.diamondWidth / layout.diamondHeight).toBeGreaterThan(1.5)
+      const node = access.currentNode!
+      const arena = node.arena
+      // The room is authored 16:9 and fitted whole, corner to corner.
+      expect(arena.width / arena.height).toBeCloseTo(16 / 9, 2)
+      const topLeft = access.worldToScreen({ x: 0, y: 0 }, node)
+      const topRight = access.worldToScreen({ x: arena.width, y: 0 }, node)
+      const bottomLeft = access.worldToScreen({ x: 0, y: arena.height }, node)
+
+      // Axis-aligned: no isometric shear.
+      expect(topRight.y).toBeCloseTo(topLeft.y, 6)
+      expect(bottomLeft.x).toBeCloseTo(topLeft.x, 6)
+
+      // Isotropic: one world unit is the same number of pixels in x and in y, so screen
+      // speed cannot depend on the direction of travel.
+      const scaleX = (topRight.x - topLeft.x) / arena.width
+      const scaleY = (bottomLeft.y - topLeft.y) / arena.height
+      expect(scaleX).toBeCloseTo(scaleY, 6)
+      expect(scaleX).toBeCloseTo(access.entityScale(node), 6)
+      expect(arena.width * scaleX).toBeGreaterThanOrEqual(access.cssWidth * 0.6)
     } finally {
       engine.destroy()
     }
@@ -882,6 +908,45 @@ describe('99LC eight-weapon mechanics', () => {
 
       expect(position.x).toBeCloseTo(start.x, 3)
       expect(position.y - start.y).toBeCloseTo(Math.hypot(delta.x, delta.y), 3)
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('cuts the corner when walking straight into the edge of an obstacle', () => {
+    const config = combatConfig('twohand-spear', null, 'guard', 1)
+    const { engine, access } = startCombat(config)
+    const obstacle = access.currentNode!.arena.obstacles[0]
+    const radius = config.player.radius
+    // Dead ahead into the obstacle face, but only just overlapping its top edge.
+    const position = { x: obstacle.x - radius - 1, y: obstacle.y + 4 }
+    const start = { ...position }
+
+    try {
+      access.moveCircle(position, { x: 12, y: 0 }, radius)
+
+      // Pure +x input has no wall tangent here, so the old resolver froze; the correction
+      // slides the circle clear of the edge instead.
+      expect(Math.abs(position.y - start.y)).toBeGreaterThan(1)
+      expect(Math.hypot(position.x - start.x, position.y - start.y)).toBeLessThanOrEqual(12 + 1e-6)
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('stops dead centre against a long wall instead of drifting sideways', () => {
+    const config = combatConfig('twohand-spear', null, 'guard', 1)
+    const { engine, access } = startCombat(config)
+    const obstacle = access.currentNode!.arena.obstacles[0]
+    const radius = config.player.radius
+    const position = { x: obstacle.x - radius - 1, y: obstacle.y + obstacle.height / 2 }
+    const start = { ...position }
+
+    try {
+      access.moveCircle(position, { x: 12, y: 0 }, radius)
+
+      expect(position.y).toBeCloseTo(start.y, 6)
+      expect(position.x - start.x).toBeLessThanOrEqual(1 + 1e-6)
     } finally {
       engine.destroy()
     }
@@ -979,6 +1044,9 @@ describe('99LC eight-weapon mechanics', () => {
       target.definition.maxHp = 500
       target.definition.armor = 0
       target.hp = 500
+      // The 16:9 rooms are wider than the spear's flight plus carry, so start the pair
+      // downrange: the pin needs the carry to actually reach the perimeter.
+      access.player.position.x += 180
       placeEnemy(access, target, 150)
       access.performAttack(resolution('left', 'hold', 1750))
 
@@ -2283,6 +2351,7 @@ describe('99LC authored turret, altar, and Cockroach Mother rooms', () => {
         damageType: 'true',
       }
       const thresholds = mother.definition.cockroachMother!.retreatHealthRatios
+      const exitHoleIds: string[] = []
       for (const [index, threshold] of thresholds.entries()) {
         access.damageEnemy(mother, lethalAttack, 0, { x: 1, y: 0 })
         expect(mother.hp).toBe(mother.definition.maxHp * threshold)
@@ -2295,13 +2364,18 @@ describe('99LC authored turret, altar, and Cockroach Mother rooms', () => {
         const linkedExit = access.currentNode!.bossHoles.find(
           hole => hole.id === entrance.linkedHoleId,
         )!
-        expect(mother.motherRetreat?.exitHoleId).toBe(linkedExit.id)
+        // The strike answers from the entrance or from its pair, chosen per retreat.
+        const exit = access.currentNode!.bossHoles.find(
+          hole => hole.id === mother.motherRetreat!.exitHoleId,
+        )!
+        expect([entrance.id, linkedExit.id]).toContain(exit.id)
+        exitHoleIds.push(exit.id === entrance.id ? 'entrance' : 'linked')
 
         mother.position = { ...entrance.position }
         access.updateEnemies(0, 0)
         expect(mother.motherRetreat?.stage).toBe('hidden')
         const strike = access.holeStrikes[0]
-        expect(strike.holeId).toBe(linkedExit.id)
+        expect(strike.holeId).toBe(exit.id)
         expect(strike.detonateAtMs - access.elapsedMs).toBe(5000)
 
         const farthestHole = [...access.currentNode!.bossHoles].sort((left, right) => {
@@ -2319,8 +2393,9 @@ describe('99LC authored turret, altar, and Cockroach Mother rooms', () => {
         expect(access.player.hp).toBe(hpBeforeBlast)
         access.updateEnemies(0, 0)
         expect(mother.motherRetreat).toBeNull()
-        expect(mother.position).toEqual(linkedExit.position)
+        expect(mother.position).toEqual(exit.position)
       }
+      expect(exitHoleIds).toHaveLength(thresholds.length)
 
       access.damageEnemy(mother, lethalAttack, 0, { x: 1, y: 0 })
       expect(mother.state).toBe('dead')
@@ -3107,9 +3182,16 @@ describe('99LC control-scheme engine boundary', () => {
       expect(access.player.aim).toEqual({ x: 0, y: 1 })
       expect(access.player.aim).not.toEqual(stalePointerAim)
 
+      // Re-normalising an already unit vector can move it by one ULP, so compare direction
+      // rather than bit-identical components.
+      const expectAimMatchesPointer = (): void => {
+        expect(access.player.aim.x).toBeCloseTo(access.pointerAim.x, 9)
+        expect(access.player.aim.y).toBeCloseTo(access.pointerAim.y, 9)
+      }
+
       engine.pointerMove(960, 320)
       access.updatePlayer(0)
-      expect(access.player.aim).toEqual(access.pointerAim)
+      expectAimMatchesPointer()
 
       access.applyGamepadReading({
         ...gamepadReading(),
@@ -3119,7 +3201,7 @@ describe('99LC control-scheme engine boundary', () => {
       access.applyGamepadReading(gamepadReading())
       access.applyGamepadReading(null)
       access.updatePlayer(0)
-      expect(access.player.aim).toEqual(access.pointerAim)
+      expectAimMatchesPointer()
     } finally {
       engine.destroy()
     }
