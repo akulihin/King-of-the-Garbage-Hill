@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 6,
+  "schemaVersion": 7,
   "title": "99 Last Chances",
   "seed": "99LC-prototype",
   "chances": 99,
@@ -137,6 +137,7 @@
     "baseStats": {
       "maxHp": 100,
       "maxMentalHealth": 100,
+      "maxStamina": 100,
       "attackPower": 100,
       "moveSpeed": 220,
       "armor": 4
@@ -146,6 +147,14 @@
     "calmRecoveryPerSecond": 2,
     "restoreOnKill": 7,
     "maxPressurePerSecond": 12
+  },
+  "stamina": {
+    "regenPerSecond": 5,
+    "outOfCombatRegenPerSecond": 25,
+    "attackCost": 2,
+    "handAlternationRestore": 5,
+    "comboRestore": 2,
+    "comboWindowMs": 900
   },
   "progression": {
     "roomHpRecovery": 8,
@@ -159,7 +168,7 @@
         "nodeCount": 2,
         "enemyCount": [2, 3],
         "deathCost": 1,
-        "erosion": { "maxHp": 1, "maxMentalHealth": 1, "attackPower": 1, "moveSpeed": 0, "armor": 0 },
+        "erosion": { "maxHp": 1, "maxMentalHealth": 1, "maxStamina": 0, "attackPower": 1, "moveSpeed": 0, "armor": 0 },
         "enemyPool": [
           { "enemyId": "servant", "weight": 6 },
           { "enemyId": "running-stapler", "weight": 4 },
@@ -175,7 +184,7 @@
         "nodeCount": 3,
         "enemyCount": [3, 4],
         "deathCost": 1,
-        "erosion": { "maxHp": 1, "maxMentalHealth": 1, "attackPower": 1, "moveSpeed": 0.25, "armor": 0 },
+        "erosion": { "maxHp": 1, "maxMentalHealth": 1, "maxStamina": 0, "attackPower": 1, "moveSpeed": 0.25, "armor": 0 },
         "enemyPool": [
           { "enemyId": "servant", "weight": 6 },
           { "enemyId": "running-stapler", "weight": 4 },
@@ -193,7 +202,7 @@
         "nodeCount": 3,
         "enemyCount": [3, 5],
         "deathCost": 1,
-        "erosion": { "maxHp": 1, "maxMentalHealth": 1.5, "attackPower": 1, "moveSpeed": 0.25, "armor": 0 },
+        "erosion": { "maxHp": 1, "maxMentalHealth": 1.5, "maxStamina": 0, "attackPower": 1, "moveSpeed": 0.25, "armor": 0 },
         "enemyPool": [
           { "enemyId": "servant", "weight": 4 },
           { "enemyId": "running-stapler", "weight": 3 },
@@ -213,7 +222,7 @@
         "nodeCount": 3,
         "enemyCount": [4, 5],
         "deathCost": 1,
-        "erosion": { "maxHp": 1.5, "maxMentalHealth": 1.5, "attackPower": 1, "moveSpeed": 0.5, "armor": 0 },
+        "erosion": { "maxHp": 1.5, "maxMentalHealth": 1.5, "maxStamina": 0, "attackPower": 1, "moveSpeed": 0.5, "armor": 0 },
         "enemyPool": [
           { "enemyId": "guard", "weight": 4 },
           { "enemyId": "chimera", "weight": 2 },
@@ -233,7 +242,7 @@
         "nodeCount": 2,
         "enemyCount": [4, 6],
         "deathCost": 1,
-        "erosion": { "maxHp": 2, "maxMentalHealth": 2, "attackPower": 1, "moveSpeed": 0.5, "armor": 0.1 },
+        "erosion": { "maxHp": 2, "maxMentalHealth": 2, "maxStamina": 0, "attackPower": 1, "moveSpeed": 0.5, "armor": 0.1 },
         "enemyPool": [
           { "enemyId": "guard", "weight": 3 },
           { "enemyId": "chimera", "weight": 4 },
@@ -252,7 +261,7 @@
         "nodeCount": 2,
         "enemyCount": [5, 7],
         "deathCost": 1,
-        "erosion": { "maxHp": 2, "maxMentalHealth": 2.5, "attackPower": 1, "moveSpeed": 0.75, "armor": 0.15 },
+        "erosion": { "maxHp": 2, "maxMentalHealth": 2.5, "maxStamina": 0, "attackPower": 1, "moveSpeed": 0.75, "armor": 0.15 },
         "enemyPool": [
           { "enemyId": "guard", "weight": 2 },
           { "enemyId": "chimera", "weight": 5 },
@@ -270,7 +279,7 @@
         "nodeCount": 1,
         "enemyCount": [1, 1],
         "deathCost": 1,
-        "erosion": { "maxHp": 3, "maxMentalHealth": 3, "attackPower": 1, "moveSpeed": 1, "armor": 0.25 },
+        "erosion": { "maxHp": 3, "maxMentalHealth": 3, "maxStamina": 0, "attackPower": 1, "moveSpeed": 1, "armor": 0.25 },
         "enemyPool": [
           { "enemyId": "curator-shadow", "weight": 1 }
         ],
@@ -440,6 +449,18 @@
             "effect": { "chanceCost": 3, "artifactId": "blood-idol" }
           },
           {
+            "id": "buy-stamina-lungs",
+            "label": "Купить Лёгкие бегуна",
+            "description": "Артефакт повышает максимальный запас стамины на 25%.",
+            "effect": { "chanceCost": 2, "artifactId": "stamina-lungs" }
+          },
+          {
+            "id": "buy-second-wind",
+            "label": "Купить Второе дыхание",
+            "description": "Артефакт восстанавливает дополнительные 10 стамины в секунду.",
+            "effect": { "chanceCost": 3, "artifactId": "second-wind" }
+          },
+          {
             "id": "leave-merchant",
             "label": "Не торговать",
             "description": "Сохранить Шансы и уйти с текущей сборкой.",
@@ -603,6 +624,12 @@
             "label": "Надеть броню рыцаря",
             "description": "Сильно повышает броню, но немного снижает скорость движения.",
             "effect": { "chanceCost": 3, "outfitId": "knight-armor" }
+          },
+          {
+            "id": "claim-breather-harness",
+            "label": "Надеть дыхательную упряжь",
+            "description": "Удваивает восстановление стамины из любого источника.",
+            "effect": { "chanceCost": 2, "outfitId": "breather-harness" }
           },
           {
             "id": "leave-chest",
@@ -1209,6 +1236,18 @@
       "name": "Кровавый идол",
       "description": "Восстанавливает здоровье в размере 20% от фактически нанесённого урона.",
       "lifestealRatio": 0.2
+    },
+    {
+      "id": "stamina-lungs",
+      "name": "Лёгкие бегуна",
+      "description": "Повышает максимальный запас стамины на 25%.",
+      "maxStaminaMultiplier": 1.25
+    },
+    {
+      "id": "second-wind",
+      "name": "Второе дыхание",
+      "description": "Восстанавливает дополнительные 10 стамины в секунду.",
+      "staminaRegenPerSecond": 10
     }
   ],
   "outfits": [
@@ -1233,6 +1272,14 @@
       "description": "Снижает получаемый урон в каждой комнате на 10% за каждый подбор в этой комнате.",
       "armorBonus": 0,
       "moveSpeedMultiplier": 1
+    },
+    {
+      "id": "breather-harness",
+      "name": "Дыхательная упряжь",
+      "description": "Удваивает восстановление стамины из любого источника.",
+      "armorBonus": 0,
+      "moveSpeedMultiplier": 1,
+      "staminaRegenMultiplier": 2
     }
   ],
   "ouroborosSet": {
@@ -3760,7 +3807,9 @@
         "unstoppableThresholdMs": 3000,
         "unstoppableDurationMs": 5000,
         "unterhauHoldMs": 1000,
+        "unterhauWindowMs": 900,
         "unterhauCooldownMultiplier": 3,
+        "fatigueStaminaMultiplier": 10,
         "emptyOffhandDamageMultiplier": 1.5,
         "openingEveryHits": 3,
         "openingDurationMs": 1600
@@ -4230,6 +4279,7 @@
     "obstacleSide": "#211d28",
     "player": "#d8e1d1",
     "playerAccent": "#9ce5d7",
-    "mental": "#bb87cf"
+    "mental": "#bb87cf",
+    "stamina": "#e0b64a"
   }
 }

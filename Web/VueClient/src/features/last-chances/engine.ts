@@ -133,6 +133,7 @@ interface RuntimePlayer {
   aim: LastChancesVector
   hp: number
   mentalHealth: number
+  stamina: number
   stats: LastChancesStats
   invulnerableMs: number
   rootMs: number
@@ -436,6 +437,13 @@ interface RuntimeWeaponState {
   consecutiveTimingMisses: number
   fatigueTriggeredByTapAtMs: number
   unterhauDueAtMs: number
+  /**
+   * Absolute deadline for a primed Unterhau. It is deliberately later than `unterhauDueAtMs`:
+   * the due stamp is anchored to the previous frame's `elapsedMs` while the hold gate measures
+   * real time from the press, so an expiry sharing the same stamp always won the race and the
+   * follow-up could never fire while the room's update loop was running (M134).
+   */
+  unterhauExpiresAtMs: number
   unterhauTargetId: string | null
   unterhauTargetPosition: LastChancesVector | null
   unterhauPrimed: boolean
@@ -667,6 +675,10 @@ export class LastChancesEngine {
     right: { step: 0, expiresAtMs: 0 },
   }
   private readonly gamepadButtons: Record<LastChancesHand, boolean> = { left: false, right: false }
+  /** Hand and elapsed stamp of the last action that actually executed, for the stamina refunds. */
+  private lastAttackHand: LastChancesHand | null = null
+  private lastAttackAtMs = Number.NEGATIVE_INFINITY
+  private staminaRefusedAtMs: number | null = null
   private gamepadAdapter: LastChancesGamepadAdapter
   private controlSchemeValue: LastChancesControlScheme
   private readonly qaControlsFixture: boolean
@@ -896,6 +908,7 @@ export class LastChancesEngine {
       aim: { x: 1, y: 0 },
       hp: baseStats.maxHp,
       mentalHealth: baseStats.maxMentalHealth,
+      stamina: baseStats.maxStamina,
       stats: baseStats,
       invulnerableMs: 0,
       rootMs: 0,
@@ -1136,6 +1149,7 @@ export class LastChancesEngine {
     this.rewardChest = null
     this.cooldownEnds.clear()
     this.resetTapCombos()
+    this.resetStaminaChain()
     this.gestures.reset()
     for (const hand of LAST_CHANCES_HANDS) this.resetImmediateSwordInput(hand)
     this.mylorikControls.reset()
@@ -1540,14 +1554,7 @@ export class LastChancesEngine {
       state.recoveryMs = Math.max(0, state.recoveryMs - deltaMs)
       state.perfectTimingMs = Math.max(0, state.perfectTimingMs - deltaMs)
       state.fatigueMs = Math.max(0, state.fatigueMs - deltaMs)
-      if (state.unterhauDueAtMs > 0
-        && this.elapsedMs >= state.unterhauDueAtMs
-        && !this.delayedAttacks.some(delayed => delayed.attack.behavior === 'swordFollowUp')) {
-        state.unterhauDueAtMs = 0
-        state.unterhauTargetId = null
-        state.unterhauTargetPosition = null
-        state.unterhauPrimed = false
-      }
+      this.expirePendingUnterhau(state)
     }
     this.updateHeldWeaponMechanics(deltaMs)
     this.updateSpiderKnifeWriggle()
@@ -1564,6 +1571,7 @@ export class LastChancesEngine {
     this.updateActiveAreas(deltaMs)
     this.updateHazards(deltaSeconds)
     this.updateMentalHealth(deltaSeconds)
+    this.updateStamina(deltaSeconds)
     this.syncContinuationFeedback()
     this.effects.forEach(effect => effect.remainingMs -= deltaMs)
     this.effects = this.effects.filter(effect => effect.remainingMs > 0)
@@ -1593,6 +1601,7 @@ export class LastChancesEngine {
       state.recoveryMs = Math.max(0, state.recoveryMs - deltaMs)
       state.perfectTimingMs = Math.max(0, state.perfectTimingMs - deltaMs)
       state.fatigueMs = Math.max(0, state.fatigueMs - deltaMs)
+      this.expirePendingUnterhau(state)
     }
     this.updateHeldWeaponMechanics(deltaMs)
     this.updateDelayedAttacks(deltaMs)
@@ -1601,6 +1610,7 @@ export class LastChancesEngine {
     this.updatePlayer(deltaSeconds)
     this.updateProjectiles(deltaSeconds, deltaMs)
     this.updateActiveAreas(deltaMs)
+    this.updateStamina(deltaSeconds)
     this.syncContinuationFeedback()
     this.effects.forEach(effect => { effect.remainingMs -= deltaMs })
     this.effects = this.effects.filter(effect => effect.remainingMs > 0)
@@ -2689,8 +2699,13 @@ export class LastChancesEngine {
     this.spiderWriggle.nextAtMs = this.elapsedMs + nextInterval(rng)
   }
 
-  private updateMentalHealth(deltaSeconds: number): void {
-    const pressure = Math.min(
+  /**
+   * An enemy exerts pressure once it has noticed the player and until it dies or loses them.
+   * A hidden Cockroach Mother is deliberately excluded: she is off the board while retreating.
+   * This is the shared definition of "in combat" for both mental health and stamina.
+   */
+  private combatPressurePerSecond(): number {
+    return Math.min(
       this.config.mentalHealth.maxPressurePerSecond,
       this.enemies.reduce((sum, enemy) => (
         enemy.motherRetreat?.stage === 'hidden'
@@ -2701,6 +2716,10 @@ export class LastChancesEngine {
           : sum
       ), 0),
     )
+  }
+
+  private updateMentalHealth(deltaSeconds: number): void {
+    const pressure = this.combatPressurePerSecond()
     if (pressure > 0) {
       this.damagePlayerMental(pressure * deltaSeconds)
     } else {
@@ -2710,6 +2729,31 @@ export class LastChancesEngine {
       )
     }
     if (this.player.mentalHealth <= 0) this.killPlayer('Mental health collapsed')
+  }
+
+  /** Stamina regenerated per second right now, including equipment. */
+  private staminaRegenPerSecond(): number {
+    const stamina = this.config.stamina
+    const base = this.combatPressurePerSecond() > 0
+      ? stamina.regenPerSecond
+      : stamina.outOfCombatRegenPerSecond
+    return this.scaleStaminaGain(base + (this.activeArtifact()?.staminaRegenPerSecond ?? 0))
+  }
+
+  /**
+   * The stamina outfit doubles restoration "from any source", so every gain — passive
+   * regeneration and the alternation/combo attack refunds alike — goes through here.
+   */
+  private scaleStaminaGain(amount: number): number {
+    return amount * Math.max(0, this.activeOutfit()?.staminaRegenMultiplier ?? 1)
+  }
+
+  private updateStamina(deltaSeconds: number): void {
+    this.player.stamina = clamp(
+      this.player.stamina + this.staminaRegenPerSecond() * deltaSeconds,
+      0,
+      this.effectivePlayerStats().maxStamina,
+    )
   }
 
   private hazardActive(hazard: LastChancesHazardDefinition): boolean {
@@ -3150,7 +3194,10 @@ export class LastChancesEngine {
     if (!weapon) return false
     const attack = weapon.attacks[gesture]
     if (attack.enabled === false || attack.behavior === 'disabled') return false
-    if (!this.moveQuests[hand].unlocked[gesture]) return false
+    // The Sword's Unterhau is its signature follow-up and ships unlocked; every other weapon
+    // still earns `doubleTapHold` from the elite combo quest.
+    const questExempt = weapon.trait === 'swordRhythm' && gesture === 'doubleTapHold'
+    if (!questExempt && !this.moveQuests[hand].unlocked[gesture]) return false
     const state = this.weaponState(weapon)
     if (state.resource <= 0 && weapon.resource?.kind !== 'rhythm') return false
     if (this.provisionalParry
@@ -3188,7 +3235,6 @@ export class LastChancesEngine {
       && !axeRecoveryCancel && !contextualContinuation) {
       return false
     }
-    if (weapon.trait === 'swordRhythm' && gesture === 'tap' && state.fatigueMs > 0) return false
     if (weapon.trait === 'swordRhythm' && gesture === 'doubleTap') {
       return (this.cooldownEnds.get(cooldownKey(hand, 'doubleTap')) ?? 0) <= this.elapsedMs
     }
@@ -3354,6 +3400,12 @@ export class LastChancesEngine {
       this.executePendingUnterhau(hand)
       return
     }
+    // Before advanceTapCombo and every cooldown/rhythm mutation, so a refusal changes nothing.
+    const staminaCost = this.staminaCostFor(weapon, hand, gesture)
+    if (!this.canAffordStamina(staminaCost)) {
+      this.refuseForStamina(hand)
+      return
+    }
     const isAxeRecoveryCancel = weapon.trait === 'axeHookRecovery'
       && gesture === 'tap'
       && state.recoveryMs > 0
@@ -3409,6 +3461,7 @@ export class LastChancesEngine {
         this.elapsedMs + cooldownAttack.cooldownMs,
       )
     }
+    this.settleStaminaForAttack(hand, staminaCost)
     this.lastGesture = {
       hand,
       gesture,
@@ -3530,6 +3583,71 @@ export class LastChancesEngine {
     }
   }
 
+  /**
+   * The action a gesture would run, resolved without mutating the tap-combo step. Affordability
+   * has to be known before `advanceTapCombo` so a refusal cannot corrupt the chain.
+   */
+  private peekSourceAttack(
+    weapon: LastChancesResolvedWeapon,
+    hand: LastChancesHand,
+    gesture: LastChancesGesture,
+  ): LastChancesAttackDefinition {
+    if (gesture !== 'tap') return weapon.attacks[gesture]
+    const combo = this.tapCombos[hand]
+    const step = combo.step > 0 && this.elapsedMs <= combo.expiresAtMs ? combo.step + 1 : 1
+    return weapon.tapCombo[(step - 1) % weapon.tapCombo.length]
+  }
+
+  /**
+   * Stamina debited by one action. Fatigue does not stop the weapon any more — it makes every
+   * swing ruinously expensive instead, which is the Mercenary Sword's whole rhythm pressure.
+   */
+  private staminaCostFor(
+    weapon: LastChancesResolvedWeapon,
+    hand: LastChancesHand,
+    gesture: LastChancesGesture,
+  ): number {
+    const attack = this.peekSourceAttack(weapon, hand, gesture)
+    const base = Math.max(0, attack.staminaCost ?? this.config.stamina.attackCost)
+    const fatigued = this.weaponState(weapon).fatigueMs > 0
+    return fatigued
+      ? base * Math.max(1, tuningValue(weapon, 'fatigueStaminaMultiplier', 10))
+      : base
+  }
+
+  private canAffordStamina(cost: number): boolean {
+    return cost <= 0 || this.player.stamina >= cost
+  }
+
+  /** An unaffordable action does not happen at all; the HUD blinks the bar instead. */
+  private refuseForStamina(hand: LastChancesHand): void {
+    this.staminaRefusedAtMs = this.elapsedMs
+    this.feedbackController.emit({ state: 'blocked', profile: 'blocked', hand })
+    this.emitSnapshot(true)
+  }
+
+  /**
+   * Charges an executed action and pays back the skill refunds. Alternating hands and continuing
+   * a chain both refund, and they stack; the debit itself is never waived, so a chained tap is a
+   * wash rather than free.
+   */
+  private settleStaminaForAttack(hand: LastChancesHand, cost: number): void {
+    const stamina = this.config.stamina
+    const chained = this.lastAttackHand !== null
+      && this.elapsedMs - this.lastAttackAtMs <= stamina.comboWindowMs
+    let restore = chained ? stamina.comboRestore : 0
+    if (this.lastAttackHand !== null && this.lastAttackHand !== hand) {
+      restore += stamina.handAlternationRestore
+    }
+    this.player.stamina = clamp(
+      this.player.stamina - cost + this.scaleStaminaGain(restore),
+      0,
+      this.effectivePlayerStats().maxStamina,
+    )
+    this.lastAttackHand = hand
+    this.lastAttackAtMs = this.elapsedMs
+  }
+
   private advanceTapCombo(hand: LastChancesHand): number {
     const combo = this.tapCombos[hand]
     combo.step = combo.step > 0 && this.elapsedMs <= combo.expiresAtMs
@@ -3554,6 +3672,13 @@ export class LastChancesEngine {
       if (combo.step <= 0) continue
       combo.expiresAtMs = Math.max(combo.expiresAtMs, this.elapsedMs + durationMs)
     }
+  }
+
+  /** A chain cannot survive a room change or a death; the next action starts a fresh one. */
+  private resetStaminaChain(): void {
+    this.lastAttackHand = null
+    this.lastAttackAtMs = Number.NEGATIVE_INFINITY
+    this.staminaRefusedAtMs = null
   }
 
   private resetTapCombos(): void {
@@ -4368,6 +4493,7 @@ export class LastChancesEngine {
         consecutiveTimingMisses: 0,
         fatigueTriggeredByTapAtMs: Number.NEGATIVE_INFINITY,
         unterhauDueAtMs: 0,
+        unterhauExpiresAtMs: 0,
         unterhauTargetId: null,
         unterhauTargetPosition: null,
         unterhauPrimed: false,
@@ -4403,7 +4529,9 @@ export class LastChancesEngine {
       tuningValue(weapon, 'rhythmPerfectEndMs', 600),
     )
     const firstTap = interval === Number.POSITIVE_INFINITY
-    const missedTiming = !firstTap && (interval < perfectStartMs || interval > perfectEndMs)
+    // Only rushing the rhythm tires the arm. Waiting longer than the perfect window still reads
+    // as 'late' for the overlay, but a patient player is never punished for it (M136).
+    const missedTiming = !firstTap && interval < perfectStartMs
     state.fatigueTriggeredByTapAtMs = Number.NEGATIVE_INFINITY
     if (interval < perfectStartMs) state.rhythm = 'early'
     else if (interval <= perfectEndMs) {
@@ -4484,8 +4612,11 @@ export class LastChancesEngine {
       'unterhauHoldMs',
       1000,
     )
+    state.unterhauExpiresAtMs = state.unterhauDueAtMs
+      + Math.max(1, tuningValue(weapon, 'unterhauWindowMs', 900))
     if ((this.cooldownEnds.get(cooldownKey(hand, 'doubleTapHold')) ?? 0) > this.elapsedMs) {
       state.unterhauDueAtMs = 0
+      state.unterhauExpiresAtMs = 0
     }
     state.unterhauTargetId = null
     state.unterhauTargetPosition = {
@@ -4496,11 +4627,27 @@ export class LastChancesEngine {
   }
 
   private cancelPendingUnterhau(weapon: LastChancesResolvedWeapon): void {
-    const state = this.weaponState(weapon)
+    this.disarmPendingUnterhau(this.weaponState(weapon))
+  }
+
+  private disarmPendingUnterhau(state: RuntimeWeaponState): void {
     state.unterhauDueAtMs = 0
+    state.unterhauExpiresAtMs = 0
     state.unterhauTargetId = null
     state.unterhauTargetPosition = null
     state.unterhauPrimed = false
+  }
+
+  /**
+   * Drops a primed follow-up once its window has closed. It must key off `unterhauExpiresAtMs`,
+   * never the due stamp: the due stamp shares its clock with the hold gate and would always
+   * disarm the follow-up a frame before the player could reach it.
+   */
+  private expirePendingUnterhau(state: RuntimeWeaponState): void {
+    if (state.unterhauDueAtMs <= 0) return
+    if (this.elapsedMs < state.unterhauExpiresAtMs) return
+    if (this.delayedAttacks.some(delayed => delayed.attack.behavior === 'swordFollowUp')) return
+    this.disarmPendingUnterhau(state)
   }
 
   private queueSwordUnterhau(
@@ -4532,67 +4679,45 @@ export class LastChancesEngine {
     this.scheduleRecovery(context.weapon.id, attack.recoveryMs, actionDurationMs)
     if (delayed.remainingMs <= 0) {
       this.executeSwordFollowUp(delayed)
-      state.unterhauDueAtMs = 0
-      state.unterhauTargetId = null
-      state.unterhauTargetPosition = null
-      state.unterhauPrimed = false
+      this.disarmPendingUnterhau(state)
       return
     }
     this.delayedAttacks.push(delayed)
   }
 
+  /**
+   * The Unterhau swings for real in all three cases — at the Oberhau victim while it lives, at
+   * the nearest living enemy once it does not, and along the aim when the room is empty. Every
+   * one of them goes through `executeAttack`, so the follow-up always spawns its authored sweep
+   * collider instead of the invisible direct damage it used to apply to a live target (M135).
+   */
   private executeSwordFollowUp(delayed: RuntimeDelayedAttack): void {
-    const weapon = delayed.context.weapon
-    const maximumRange = weapon.attacks.doubleTap.range
-    let automaticTarget: RuntimeEnemy | null = null
-    if (delayed.targetEnemyId) {
-      const originalTarget = this.enemies.find(enemy => enemy.id === delayed.targetEnemyId)
-      if (originalTarget?.state !== 'dead'
-        && Math.sqrt(distanceSquared(this.player.position, originalTarget.position))
-          <= maximumRange + originalTarget.definition.radius) {
-        automaticTarget = originalTarget
-      } else {
-        automaticTarget = this.enemies
-          .filter(enemy => enemy.state !== 'dead'
-            && Math.sqrt(distanceSquared(this.player.position, enemy.position))
-              <= maximumRange + enemy.definition.radius)
-          .sort((left, right) => (
-            distanceSquared(this.player.position, left.position)
-              - distanceSquared(this.player.position, right.position)
-            || left.id.localeCompare(right.id)
-          ))[0] ?? null
-      }
-    }
-    if (!automaticTarget) {
-      this.executeAttack(
-        delayed.attack,
-        this.resolveDelayedAttackDirection(delayed),
-        delayed.context,
-      )
-      return
-    }
-    const direction = normalize({
-      x: automaticTarget.position.x - this.player.position.x,
-      y: automaticTarget.position.y - this.player.position.y,
-    }, delayed.direction)
-    this.addColliderTrace(
-      resolveAttackCollider(this.player.position, direction, delayed.attack),
-      delayed.attack,
+    const maximumRange = delayed.attack.range
+    const inReach = (enemy: RuntimeEnemy): boolean => (
+      Math.sqrt(distanceSquared(this.player.position, enemy.position))
+        <= maximumRange + enemy.definition.radius
     )
-    this.addEffect('melee', delayed.attack, direction)
-    this.damageEnemy(
-      automaticTarget,
-      delayed.attack,
-      delayed.attack.knockback,
-      direction,
-      {
-        weaponId: weapon.id,
-        hand: delayed.context.hand,
-        gesture: 'doubleTapHold',
-        storedDot: delayed.context.storedDot,
-        distance: Math.sqrt(distanceSquared(this.player.position, automaticTarget.position)),
-      },
-    )
+    const originalTarget = delayed.targetEnemyId
+      ? this.enemies.find(enemy => (
+        enemy.id === delayed.targetEnemyId && enemy.state !== 'dead'
+      )) ?? null
+      : null
+    const automaticTarget = originalTarget && inReach(originalTarget)
+      ? originalTarget
+      : this.enemies
+        .filter(enemy => enemy.state !== 'dead' && inReach(enemy))
+        .sort((left, right) => (
+          distanceSquared(this.player.position, left.position)
+            - distanceSquared(this.player.position, right.position)
+          || left.id.localeCompare(right.id)
+        ))[0] ?? null
+    const direction = automaticTarget
+      ? normalize({
+        x: automaticTarget.position.x - this.player.position.x,
+        y: automaticTarget.position.y - this.player.position.y,
+      }, delayed.direction)
+      : this.resolveDelayedAttackDirection(delayed)
+    this.executeAttack(delayed.attack, direction, delayed.context)
   }
 
   private executePendingUnterhau(hand: LastChancesHand): boolean {
@@ -4600,6 +4725,12 @@ export class LastChancesEngine {
     if (weapon?.trait !== 'swordRhythm') return false
     const state = this.weaponState(weapon)
     if (state.unterhauDueAtMs <= 0) return false
+    // This path bypasses performAttack, so it pays for itself.
+    const staminaCost = this.staminaCostFor(weapon, hand, 'doubleTapHold')
+    if (!this.canAffordStamina(staminaCost)) {
+      this.refuseForStamina(hand)
+      return false
+    }
     const attack = attackWithLastChancesAugment(weapon.attacks.doubleTapHold, weapon)
     const direction = normalize(this.player.aim)
     const resolution: LastChancesGestureResolution = {
@@ -4609,6 +4740,7 @@ export class LastChancesEngine {
       heldMs: tuningValue(weapon, 'unterhauHoldMs', 1000),
       firstHoldMs: 0,
     }
+    this.settleStaminaForAttack(hand, staminaCost)
     this.lastGesture = {
       hand,
       gesture: 'doubleTapHold',
@@ -5225,8 +5357,10 @@ export class LastChancesEngine {
 
   private effectivePlayerStats(): LastChancesStats {
     const outfit = this.activeOutfit()
+    const artifact = this.activeArtifact()
     return {
       ...this.player.stats,
+      maxStamina: this.player.stats.maxStamina * Math.max(0, artifact?.maxStaminaMultiplier ?? 1),
       moveSpeed: this.player.stats.moveSpeed * (outfit?.moveSpeedMultiplier ?? 1),
       armor: this.player.stats.armor + (outfit?.armorBonus ?? 0),
     }
@@ -5366,6 +5500,7 @@ export class LastChancesEngine {
     this.generationBaseStats = {
       maxHp: Math.max(1, this.generationBaseStats.maxHp - erosion.maxHp),
       maxMentalHealth: Math.max(1, this.generationBaseStats.maxMentalHealth - erosion.maxMentalHealth),
+      maxStamina: Math.max(1, this.generationBaseStats.maxStamina - erosion.maxStamina),
       attackPower: Math.max(1, this.generationBaseStats.attackPower - erosion.attackPower),
       moveSpeed: Math.max(1, this.generationBaseStats.moveSpeed - erosion.moveSpeed),
       armor: Math.max(0, this.generationBaseStats.armor - erosion.armor),
@@ -5414,6 +5549,7 @@ export class LastChancesEngine {
     for (const hand of LAST_CHANCES_HANDS) this.resetImmediateSwordInput(hand)
     this.cleanupControlInputs(false)
     this.resetTapCombos()
+    this.resetStaminaChain()
     this.player.invulnerableMs = 0
     this.player.rootMs = 0
     this.player.recoveryMs = 0
@@ -5477,6 +5613,7 @@ export class LastChancesEngine {
           1,
           this.player.stats.maxMentalHealth + (effect.stats.maxMentalHealth ?? 0),
         ),
+        maxStamina: Math.max(1, this.player.stats.maxStamina + (effect.stats.maxStamina ?? 0)),
         attackPower: Math.max(1, this.player.stats.attackPower + (effect.stats.attackPower ?? 0)),
         moveSpeed: Math.max(1, this.player.stats.moveSpeed + (effect.stats.moveSpeed ?? 0)),
         armor: Math.max(0, this.player.stats.armor + (effect.stats.armor ?? 0)),
@@ -5630,6 +5767,7 @@ export class LastChancesEngine {
     this.rewardChest = null
     this.cooldownEnds.clear()
     this.resetTapCombos()
+    this.resetStaminaChain()
     this.gestures.reset()
     for (const hand of LAST_CHANCES_HANDS) this.resetImmediateSwordInput(hand)
     this.pressedKeys.clear()
@@ -5645,6 +5783,7 @@ export class LastChancesEngine {
     this.player.stats = copyStats(this.generationBaseStats)
     this.player.hp = this.player.stats.maxHp
     this.player.mentalHealth = this.player.stats.maxMentalHealth
+    this.player.stamina = this.effectivePlayerStats().maxStamina
     this.player.invulnerableMs = 0
     this.player.rootMs = 0
     this.player.recoveryMs = 0
@@ -7134,10 +7273,12 @@ export class LastChancesEngine {
         aim: { ...this.player.aim },
         hp: this.player.hp,
         mentalHealth: this.player.mentalHealth,
+        stamina: this.player.stamina,
         stats: copyStats(effectiveStats),
         invulnerableForMs: this.player.invulnerableMs,
         armorMultiplier: this.player.armorMultiplier,
         armorMultiplierForMs: this.player.armorMultiplierMs,
+        staminaRefusedAtMs: this.staminaRefusedAtMs,
       },
       enemies,
       projectiles: this.projectiles.map(projectile => ({
@@ -8841,8 +8982,14 @@ export class LastChancesEngine {
       22,
       68,
     )
+    context.fillStyle = this.config.renderer.stamina
+    context.fillText(
+      `STAM ${Math.ceil(this.player.stamina)} / ${Math.ceil(effectiveStats.maxStamina)}`,
+      22,
+      86,
+    )
     context.fillStyle = 'rgba(255,255,255,.54)'
-    context.fillText(`ATK ${Math.round(effectiveStats.attackPower)}%`, 22, 86)
+    context.fillText(`ATK ${Math.round(effectiveStats.attackPower)}%`, 22, 104)
     if (this.currentNode) {
       context.textAlign = 'right'
       context.fillStyle = 'rgba(255,255,255,.66)'

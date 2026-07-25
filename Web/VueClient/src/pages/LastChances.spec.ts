@@ -129,8 +129,10 @@ function makeSnapshot(
       aim: { x: 1, y: 0 },
       hp: config.player.baseStats.maxHp,
       mentalHealth: config.player.baseStats.maxMentalHealth,
+      stamina: config.player.baseStats.maxStamina,
       stats: { ...config.player.baseStats },
       invulnerableForMs: 0,
+      staminaRefusedAtMs: null,
     },
     enemies: [],
     projectiles: [],
@@ -349,6 +351,58 @@ describe('99LC control-scheme preference', () => {
       expect(getByRole('button', { name: /Focused/ }).getAttribute('aria-current')).toBe('true')
     })
     expect(getByRole('button', { name: /Other/ }).getAttribute('aria-current')).toBeNull()
+  })
+})
+
+describe('99LC page vitals HUD', () => {
+  async function renderWithVitals(
+    player: Partial<LastChancesSnapshot['player']>,
+  ): Promise<HTMLElement> {
+    const config = cloneLastChancesConfig(defaultConfig)
+    const base = makeSnapshot(config)
+    mocks.snapshot = { ...base, player: { ...base.player, ...player } }
+    mocks.loadConfig.mockResolvedValue(config)
+    const { container } = render(LastChances)
+    await waitFor(() => {
+      expect(container.querySelector('[data-testid="stamina-bar"]')).toBeTruthy()
+    })
+    return container as HTMLElement
+  }
+
+  it('draws the stamina bar under physical health and fills it from the snapshot', async () => {
+    const container = await renderWithVitals({ stamina: 37 })
+
+    const stamina = container.querySelector('[data-testid="stamina-bar"]')!
+    expect(stamina.closest('.lc-vitals')?.classList.contains('is-physical')).toBe(true)
+    expect(stamina.querySelector('i')?.getAttribute('style')).toContain('width: 37%')
+    expect(stamina.classList.contains('is-refused')).toBe(false)
+  })
+
+  it('blinks the stamina bar only just after an action was refused', async () => {
+    const refused = await renderWithVitals({ stamina: 1, staminaRefusedAtMs: 1000 })
+    expect(
+      refused.querySelector('[data-testid="stamina-bar"]')!.classList.contains('is-refused'),
+    ).toBe(true)
+
+    cleanup()
+    // Same refusal, long past — the blink must not linger.
+    const settled = await renderWithVitals({ stamina: 1, staminaRefusedAtMs: 100 })
+    expect(
+      settled.querySelector('[data-testid="stamina-bar"]')!.classList.contains('is-refused'),
+    ).toBe(false)
+  })
+
+  it('fogs the corners as stamina drains and closes the vignette as the mind goes', async () => {
+    const healthy = await renderWithVitals({ stamina: 100, mentalHealth: 100 })
+    expect(healthy.querySelector('.lc-breath-fog')?.getAttribute('style')).toContain('--lc-fog: 0')
+    expect(healthy.querySelector('.lc-mental-vignette')?.getAttribute('style'))
+      .toContain('--lc-vignette: 0')
+
+    cleanup()
+    const spent = await renderWithVitals({ stamina: 0, mentalHealth: 0 })
+    expect(spent.querySelector('.lc-breath-fog')?.getAttribute('style')).toContain('--lc-fog: 1')
+    expect(spent.querySelector('.lc-mental-vignette')?.getAttribute('style'))
+      .toContain('--lc-vignette: 1')
   })
 })
 

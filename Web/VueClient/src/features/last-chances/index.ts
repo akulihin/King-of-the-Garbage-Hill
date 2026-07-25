@@ -19,4 +19,5 @@ export {
 export * from './dualsense-hid'
 export * from './feedback'
 export * from './preferences'
+export * from './vital-atmosphere'
 export * from './types'

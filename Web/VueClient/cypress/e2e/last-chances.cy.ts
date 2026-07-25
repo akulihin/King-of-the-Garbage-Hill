@@ -28,6 +28,7 @@ interface DurableConfigFixture {
     baseStats: {
       maxHp: number
       maxMentalHealth: number
+      maxStamina: number
     }
   }
   progression: {

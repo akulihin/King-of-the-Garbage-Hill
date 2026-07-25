@@ -83,6 +83,7 @@ interface RuntimeWeaponState {
   consecutiveTimingMisses: number
   fatigueTriggeredByTapAtMs: number
   unterhauDueAtMs: number
+  unterhauExpiresAtMs: number
   unterhauTargetId: string | null
   unterhauTargetPosition: LastChancesVector | null
   unterhauPrimed: boolean
@@ -280,14 +281,24 @@ type EngineTestAccess = {
     aim: LastChancesVector
     hp: number
     mentalHealth: number
+    stamina: number
     invulnerableMs: number
     recoveryMs: number
     rootMs: number
     parryMs: number
     armorMultiplier: number
     armorMultiplierMs: number
-    stats: { maxHp: number, maxMentalHealth: number, moveSpeed: number, armor: number }
+    stats: {
+      maxHp: number
+      maxMentalHealth: number
+      maxStamina: number
+      moveSpeed: number
+      armor: number
+    }
   }
+  staminaRefusedAtMs: number | null
+  updateStamina: (deltaSeconds: number) => void
+  executePendingUnterhau: (hand: LastChancesHand) => boolean
   pointerAim: LastChancesVector
   pointerDeltaX: number
   roomElapsedMs: number
@@ -1900,7 +1911,7 @@ describe('99LC eight-weapon mechanics', () => {
     }
   })
 
-  it('uses hidden 3-total/2-consecutive Sword misses, keeps the last Zornhaw, and lets Oberhaw cancel its fatigue', () => {
+  it('tires the Sword only on rushed taps, keeps the last Zornhaw, and lets Oberhaw cancel its fatigue', () => {
     const config = combatConfig('hybrid-sword', null, 'curator-shadow', 1)
     const { engine, access } = startCombat(config)
     const sword = weapon(config, 'hybrid-sword')
@@ -1928,10 +1939,20 @@ describe('99LC eight-weapon mechanics', () => {
         consecutiveTimingMisses: 0,
       })
 
+      // Hitting slower than the perfect window is a stylistic 'late', never a miss.
       access.elapsedMs += 700
       access.performAttack(resolution('left', 'tap'))
       expect(access.weaponStates.get('hybrid-sword')).toMatchObject({
         rhythm: 'late',
+        roomTimingMisses: 1,
+        consecutiveTimingMisses: 0,
+        fatigueMs: 0,
+      })
+
+      access.elapsedMs += 499
+      access.performAttack(resolution('left', 'tap'))
+      expect(access.weaponStates.get('hybrid-sword')).toMatchObject({
+        rhythm: 'early',
         roomTimingMisses: 2,
         consecutiveTimingMisses: 1,
         fatigueMs: 0,
@@ -1999,7 +2020,7 @@ describe('99LC eight-weapon mechanics', () => {
     }
   })
 
-  it('adds Unterhaw after Oberhaw as automatic target damage with a separate triple cooldown', () => {
+  it('swings Unterhaw at the Oberhaw target with a real collider and a separate triple cooldown', () => {
     const config = combatConfig('hybrid-sword', null, 'guard', 1)
     const { engine, access } = startCombat(config)
     const target = access.enemies[0]
@@ -2021,7 +2042,7 @@ describe('99LC eight-weapon mechanics', () => {
       access.performAttack(resolution('left', 'doubleTapHold', 1000))
 
       expect(access.delayedAttacks).toHaveLength(0)
-      expect(access.activeAreas.map(area => area.attack.behavior)).not.toContain('swordFollowUp')
+      expect(access.activeAreas.map(area => area.attack.behavior)).toContain('swordFollowUp')
       expect(target.hp).toBeLessThan(hpAfterOberhau)
       expect(500 - target.hp).toBeGreaterThan(
         weapon(config, 'hybrid-sword').attacks.doubleTapHold.damage,
@@ -2058,7 +2079,7 @@ describe('99LC eight-weapon mechanics', () => {
       retargeted.access.elapsedMs += 1000
       retargeted.access.performAttack(resolution('left', 'doubleTapHold', 1000))
       expect(fallback.hp).toBeLessThan(fallbackHp)
-      expect(retargeted.access.activeAreas.map(area => area.attack.behavior)).not.toContain('swordFollowUp')
+      expect(retargeted.access.activeAreas.map(area => area.attack.behavior)).toContain('swordFollowUp')
 
       placeEnemy(missed.access, missed.access.enemies[0], 500)
       missed.access.performAttack(resolution('left', 'doubleTap'))
@@ -2072,6 +2093,207 @@ describe('99LC eight-weapon mechanics', () => {
     } finally {
       retargeted.engine.destroy()
       missed.engine.destroy()
+    }
+  })
+
+  it('resolves the Unterhau across real frames instead of expiring on its own hold gate', () => {
+    // The regression driver for M134: the previous expiry shared its clock with the hold gate,
+    // so stepping the actual loop past 1000 ms disarmed the follow-up before it could fire.
+    const config = combatConfig('hybrid-sword', null, 'guard', 1)
+    const { engine, access } = startCombat(config)
+    const target = access.enemies[0]
+
+    try {
+      target.definition.maxHp = 500
+      target.definition.armor = 0
+      target.hp = 500
+      target.statuses.openingMs = 1600
+      placeEnemy(access, target, 100)
+      access.performAttack(resolution('left', 'doubleTap'))
+      const primed = access.weaponStates.get('hybrid-sword')!
+      expect(primed.unterhauDueAtMs).toBeGreaterThan(0)
+      expect(primed.unterhauExpiresAtMs).toBeGreaterThan(primed.unterhauDueAtMs)
+
+      // 70 frames at 16 ms takes elapsed well past the 1000 ms gate, still inside the window.
+      for (let frame = 0; frame < 70; frame += 1) {
+        access.elapsedMs += 16
+        access.update(0.016, 16)
+      }
+      expect(access.weaponStates.get('hybrid-sword')?.unterhauDueAtMs).toBeGreaterThan(0)
+
+      const hpBefore = target.hp
+      expect(access.executePendingUnterhau('left')).toBe(true)
+      expect(access.activeAreas.map(area => area.attack.behavior)).toContain('swordFollowUp')
+      expect(target.hp).toBeLessThan(hpBefore)
+
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('drops an unclaimed Unterhau past its window, in combat and in a cleared room alike', () => {
+    for (const step of ['update', 'updateClearedRoom'] as const) {
+      const { engine, access } = startCombat(combatConfig('hybrid-sword', null, 'guard', 1))
+      try {
+        placeEnemy(access, access.enemies[0], 100)
+        access.performAttack(resolution('left', 'doubleTap'))
+        expect(access.weaponStates.get('hybrid-sword')?.unterhauDueAtMs).toBeGreaterThan(0)
+
+        // 140 frames at 16 ms clears the 1000 ms gate plus the 900 ms window.
+        for (let frame = 0; frame < 140; frame += 1) {
+          access.elapsedMs += 16
+          access[step](0.016, 16)
+        }
+        expect(access.weaponStates.get('hybrid-sword')?.unterhauDueAtMs).toBe(0)
+        expect(access.executePendingUnterhau('left')).toBe(false)
+      } finally {
+        engine.destroy()
+      }
+    }
+  })
+
+  it('charges stamina per action and refunds chained and alternating hands on top of it', () => {
+    const config = combatConfig('hybrid-sword', 'secondary-chain')
+    const { engine, access } = startCombat(config)
+    const { attackCost, comboRestore, handAlternationRestore } = config.stamina
+
+    try {
+      // Starts below the maximum so the refunds are visible instead of clamped away.
+      access.player.stamina = 60
+
+      // The opening action of a chain has nothing to continue, so it pays full price.
+      access.performAttack(resolution('left', 'tap'))
+      expect(access.player.stamina).toBe(60 - attackCost)
+
+      // Continuing the chain refunds, and the debit is never waived — a chained tap is a wash.
+      access.elapsedMs += 200
+      access.performAttack(resolution('left', 'tap'))
+      expect(access.player.stamina).toBe(60 - attackCost * 2 + comboRestore)
+
+      // Switching hands stacks the alternation refund on the chain refund.
+      access.elapsedMs += 200
+      access.performAttack(resolution('right', 'tap'))
+      expect(access.player.stamina).toBe(
+        60 - attackCost * 3 + comboRestore * 2 + handAlternationRestore,
+      )
+
+      // A gap longer than the window starts a fresh chain, so no refund at all.
+      const beforeGap = access.player.stamina
+      access.elapsedMs += config.stamina.comboWindowMs + 1
+      access.performAttack(resolution('right', 'tap'))
+      expect(access.player.stamina).toBe(beforeGap - attackCost)
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('refuses an action it cannot pay for without touching combo, cooldown or rhythm state', () => {
+    const config = combatConfig('hybrid-sword', null, 'guard', 1)
+    config.weapons.find(weaponDefinition => weaponDefinition.id === 'hybrid-sword')!
+      .attacks.doubleTap.staminaCost = 40
+    const { engine, access } = startCombat(config)
+
+    try {
+      access.player.stamina = 39
+      const comboBefore = access.tapCombos.left.step
+      const rhythmBefore = access.weaponStates.get('hybrid-sword')!.lastTapAtMs
+
+      access.performAttack(resolution('left', 'doubleTap'))
+      expect(access.staminaRefusedAtMs).toBe(access.elapsedMs)
+      expect(access.player.stamina).toBe(39)
+      expect(access.tapCombos.left.step).toBe(comboBefore)
+      expect(access.weaponStates.get('hybrid-sword')!.lastTapAtMs).toBe(rhythmBefore)
+      expect(access.cooldownEnds.has('left:doubleTap')).toBe(false)
+      expect(access.activeAreas.map(area => area.attack.behavior)).not.toContain('swordOpening')
+
+      // One more point is enough and the very same input goes through.
+      access.player.stamina = 40
+      access.performAttack(resolution('left', 'doubleTap'))
+      expect(access.activeAreas.map(area => area.attack.behavior)).toContain('swordOpening')
+      expect(access.player.stamina).toBe(0)
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('lets a tired Sword keep swinging at ten times the stamina price', () => {
+    const config = combatConfig('hybrid-sword', null, 'guard', 1)
+    const { engine, access } = startCombat(config)
+
+    try {
+      const state = access.weaponStates.get('hybrid-sword')!
+      access.player.stamina = 100
+      access.performAttack(resolution('left', 'tap'))
+      expect(access.player.stamina).toBe(98)
+
+      state.fatigueMs = 2000
+      access.elapsedMs += 550
+      access.performAttack(resolution('left', 'tap'))
+      // Still swings — fatigue no longer blocks the tap, it just costs 2 × 10 with a +2 refund.
+      expect(access.createSnapshot().lastGesture?.gesture).toBe('tap')
+      expect(access.player.stamina).toBe(98 - 20 + 2)
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('regenerates stamina slowly under pressure and quickly once nothing is hunting', () => {
+    const config = combatConfig('hybrid-sword', null, 'guard', 1)
+    const { engine, access } = startCombat(config)
+
+    try {
+      access.enemies[0].state = 'chasing'
+      access.player.stamina = 0
+      access.updateStamina(1)
+      expect(access.player.stamina).toBeCloseTo(config.stamina.regenPerSecond)
+
+      access.enemies[0].state = 'idle'
+      access.player.stamina = 0
+      access.updateStamina(1)
+      expect(access.player.stamina).toBeCloseTo(config.stamina.outOfCombatRegenPerSecond)
+
+      // Regeneration stops at the maximum rather than banking a reserve.
+      access.player.stamina = 0
+      access.updateStamina(30)
+      expect(access.player.stamina).toBe(config.player.baseStats.maxStamina)
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('applies the stamina artifacts and the doubling harness to maximum, regen and refunds', () => {
+    const config = combatConfig('hybrid-sword', null, 'guard', 1)
+    const { engine, access } = startCombat(config)
+
+    try {
+      access.enemies[0].state = 'idle'
+
+      access.activeLoadout!.artifactId = 'stamina-lungs'
+      expect(access.createSnapshot().player.stats.maxStamina)
+        .toBeCloseTo(config.player.baseStats.maxStamina * 1.25)
+      access.player.stamina = 0
+      access.updateStamina(30)
+      expect(access.player.stamina).toBeCloseTo(config.player.baseStats.maxStamina * 1.25)
+
+      access.activeLoadout!.artifactId = 'second-wind'
+      access.player.stamina = 0
+      access.updateStamina(1)
+      expect(access.player.stamina).toBeCloseTo(config.stamina.outOfCombatRegenPerSecond + 10)
+
+      // The harness doubles restoration from every source: passive regen and attack refunds.
+      access.activeLoadout!.outfitId = 'breather-harness'
+      access.player.stamina = 0
+      access.updateStamina(1)
+      expect(access.player.stamina).toBeCloseTo((config.stamina.outOfCombatRegenPerSecond + 10) * 2)
+
+      access.activeLoadout!.artifactId = null
+      access.player.stamina = 50
+      access.performAttack(resolution('left', 'tap'))
+      access.elapsedMs += 200
+      access.performAttack(resolution('left', 'tap'))
+      expect(access.player.stamina).toBe(50 - 2 - 2 + config.stamina.comboRestore * 2)
+    } finally {
+      engine.destroy()
     }
   })
 
@@ -3005,6 +3227,9 @@ describe('99LC control-scheme engine boundary', () => {
       access.cooldownEnds.set('left:doubleTap', access.elapsedMs + 777)
       access.weaponStates.get('secondary-chain')!.resource = 0.4
       access.moveQuests.left.roomKills.tap = 1
+      // The baseline is taken with the gesture already pressed, so the comparison isolates the
+      // scheme switch from the attack that press legitimately executes.
+      engine.press('left')
       const before = access.createSnapshot()
       const gameplay = (snapshot: LastChancesSnapshot) => ({
         phase: snapshot.phase,
@@ -3020,7 +3245,6 @@ describe('99LC control-scheme engine boundary', () => {
         moveQuests: snapshot.moveQuests,
       })
 
-      engine.press('left')
       engine.setControlScheme('mylorik')
       const mylorik = access.createSnapshot()
       expect(mylorik.controlScheme).toBe('mylorik')

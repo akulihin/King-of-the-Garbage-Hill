@@ -134,6 +134,7 @@ const copy = {
     tier: 'Tier',
     maxHp: 'Physical health',
     maxMental: 'Mental health',
+    maxStamina: 'Stamina',
     moveSpeed: 'Move speed',
     armor: 'Armor',
     attackPower: 'Attack power',
@@ -327,6 +328,7 @@ const copy = {
     tier: 'Уровень',
     maxHp: 'Физическое здоровье',
     maxMental: 'Ментальное здоровье',
+    maxStamina: 'Стамина',
     moveSpeed: 'Скорость движения',
     armor: 'Броня',
     attackPower: 'Сила атаки',
@@ -1014,6 +1016,7 @@ function exportJson() {
                 <div class="lc-fields-grid">
                   <label>{{ t.maxHp }}<input v-model.number="draft.player.baseStats.maxHp" type="number" min="1" step="1" /></label>
                   <label>{{ t.maxMental }}<input v-model.number="draft.player.baseStats.maxMentalHealth" type="number" min="1" step="1" /></label>
+                  <label>{{ t.maxStamina }}<input v-model.number="draft.player.baseStats.maxStamina" type="number" min="1" step="1" /></label>
                   <label>{{ t.moveSpeed }}<input v-model.number="draft.player.baseStats.moveSpeed" type="number" min="1" step="1" /></label>
                   <label>{{ t.armor }}<input v-model.number="draft.player.baseStats.armor" type="number" min="0" step="1" /></label>
                   <label>{{ t.attackPower }}<input v-model.number="draft.player.baseStats.attackPower" type="number" min="1" step="1" /></label>

@@ -28,6 +28,7 @@ import {
   Target,
   TriangleAlert,
   Trophy,
+  Wind,
 } from 'lucide-vue-next'
 import { currentLocale } from '../i18n'
 import {
@@ -37,6 +38,7 @@ import {
   LAST_CHANCES_GESTURES,
   loadLastChancesConfig,
   resolveLastChancesLoadout,
+  resolveLastChancesVitalAtmosphere,
   saveLastChancesConfig as saveLastChancesConfigOverride,
   type LastChancesConfig,
   type LastChancesControlScheme,
@@ -87,6 +89,7 @@ const copy = {
     loadingHint: 'Reading the runtime JSON and preparing the first generation.',
     physical: 'Physical health',
     mental: 'Mental health',
+    stamina: 'Stamina',
     chances: 'Chances remaining',
     chanceSingular: 'Chance',
     chancePlural: 'Chances',
@@ -262,6 +265,7 @@ const copy = {
     loadingHint: 'Читаем JSON и готовим первую генерацию.',
     physical: 'Физическое здоровье',
     mental: 'Ментальное здоровье',
+    stamina: 'Стамина',
     chances: 'Осталось Шансов',
     chanceSingular: 'Шанс',
     chancePlural: 'Шансов',
@@ -482,9 +486,24 @@ const mentalPercent = computed(() => {
   const player = snapshot.value?.player
   return player ? Math.max(0, Math.min(100, player.mentalHealth / Math.max(1, player.stats.maxMentalHealth) * 100)) : 0
 })
+const staminaPercent = computed(() => {
+  const player = snapshot.value?.player
+  return player ? Math.max(0, Math.min(100, player.stamina / Math.max(1, player.stats.maxStamina) * 100)) : 0
+})
 const chancePercent = computed(() => snapshot.value && config.value
   ? Math.max(0, Math.min(100, snapshot.value.chances / Math.max(1, config.value.chances) * 100))
   : 100)
+/** Corner fog and edge vignette, derived from the same ratios the bars show. */
+const vitalAtmosphere = computed(() => resolveLastChancesVitalAtmosphere(
+  staminaPercent.value / 100,
+  mentalPercent.value / 100,
+))
+/** Brief blink after an action was refused for missing stamina. */
+const staminaRefused = computed(() => {
+  const state = snapshot.value
+  const refusedAtMs = state?.player.staminaRefusedAtMs
+  return typeof refusedAtMs === 'number' && state.elapsedMs - refusedAtMs < 620
+})
 /** Newest first, trimmed to what fits the sidebar card. */
 const recentEvents = computed(() => [...(snapshot.value?.events ?? [])].reverse().slice(0, 5))
 const activeTierIndex = computed(() => snapshot.value?.currentTierIndex ?? 0)
@@ -1184,10 +1203,7 @@ onBeforeUnmount(() => {
   <div
     ref="pageRoot"
     class="lc-page"
-    :class="{
-      'is-mental-low': mentalPercent < 35,
-      'is-critical': hpPercent < 30,
-    }"
+    :class="{ 'is-critical': hpPercent < 30 }"
     @contextmenu="blockFullscreenContextMenu"
   >
     <header class="lc-page-header">
@@ -1236,6 +1252,20 @@ onBeforeUnmount(() => {
         <div class="lc-stage-screen">
           <canvas ref="canvas" class="lc-canvas" tabindex="0" :aria-label="t.stageLabel" />
 
+          <div
+            class="lc-mental-vignette"
+            aria-hidden="true"
+            :style="{ '--lc-vignette': vitalAtmosphere.vignetteIntensity }"
+          />
+          <div
+            class="lc-breath-fog"
+            aria-hidden="true"
+            :style="{
+              '--lc-fog': vitalAtmosphere.fogIntensity,
+              '--lc-breath-ms': `${vitalAtmosphere.breathPeriodMs}ms`,
+            }"
+          />
+
           <div v-if="snapshot" class="lc-stage-hud" aria-live="polite">
             <div class="lc-vitals is-physical">
               <div class="lc-vital-label">
@@ -1244,6 +1274,18 @@ onBeforeUnmount(() => {
                 <strong>{{ Math.ceil(snapshot.player.hp) }} / {{ Math.ceil(snapshot.player.stats.maxHp) }}</strong>
               </div>
               <span class="lc-vital-track"><i :style="{ width: `${hpPercent}%` }" /></span>
+
+              <div class="lc-vital-label is-stamina">
+                <Wind :size="13" aria-hidden="true" />
+                <span>{{ t.stamina }}</span>
+                <strong>{{ Math.ceil(snapshot.player.stamina) }} / {{ Math.ceil(snapshot.player.stats.maxStamina) }}</strong>
+              </div>
+              <span
+                class="lc-vital-track is-stamina"
+                :class="{ 'is-refused': staminaRefused }"
+                :key="snapshot.player.staminaRefusedAtMs ?? 'ready'"
+                data-testid="stamina-bar"
+              ><i :style="{ width: `${staminaPercent}%` }" /></span>
             </div>
 
             <div class="lc-room-readout">
@@ -1697,7 +1739,7 @@ onBeforeUnmount(() => {
     </Transition>
 
     <p class="sr-only" aria-live="polite">
-      {{ snapshot ? `${t.physical} ${Math.ceil(snapshot.player.hp)}. ${t.mental} ${Math.ceil(snapshot.player.mentalHealth)}. ${t.chances} ${snapshot.chances}.` : '' }}
+      {{ snapshot ? `${t.physical} ${Math.ceil(snapshot.player.hp)}. ${t.mental} ${Math.ceil(snapshot.player.mentalHealth)}. ${t.stamina} ${Math.ceil(snapshot.player.stamina)}. ${t.chances} ${snapshot.chances}.` : '' }}
     </p>
   </div>
 </template>
@@ -1800,6 +1842,10 @@ onBeforeUnmount(() => {
 .is-physical .lc-vital-track i { background: linear-gradient(90deg, #64242b, #c7656a); box-shadow: 0 0 0.65rem rgba(185, 72, 80, 0.48); }
 .is-mental { color: #9b86ae; }
 .is-mental .lc-vital-track i { margin-left: auto; background: linear-gradient(90deg, #7d6791, #b3a0c5); box-shadow: 0 0 0.65rem rgba(142, 112, 169, 0.42); }
+/* Stamina rides under physical health inside the same column, so it outranks the red ramp. */
+.lc-vital-label.is-stamina { color: #d0a64c; margin-top: 0.12rem; }
+.is-physical .lc-vital-track.is-stamina i { background: linear-gradient(90deg, #6a5320, #e0b64a); box-shadow: 0 0 0.65rem rgba(216, 176, 71, 0.42); }
+.lc-vital-track.is-refused { animation: lc-stamina-refused 0.62s ease-out 1; }
 .lc-room-readout { min-width: 9rem; display: grid; justify-items: center; text-align: center; }
 .lc-room-readout small { color: #69575a; font-size: 0.48rem; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; }
 .lc-room-readout strong { max-width: 16rem; overflow: hidden; color: #e6dfd1; font: 600 0.78rem/1.3 Georgia, serif; text-overflow: ellipsis; white-space: nowrap; }
@@ -1997,12 +2043,48 @@ onBeforeUnmount(() => {
 .lc-page-toast { position: fixed; z-index: 5000; left: 50%; bottom: max(1rem, env(safe-area-inset-bottom)); max-width: min(34rem, calc(100vw - 2rem)); margin: 0; padding: 0.65rem 0.9rem; transform: translateX(-50%); border: 1px solid rgba(191, 160, 89, 0.3); border-radius: 0.5rem; color: #d7c594; background: rgba(10, 12, 13, 0.94); box-shadow: 0 1rem 2rem rgba(0, 0, 0, 0.45); font-size: 0.64rem; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 
-.lc-page.is-mental-low .lc-stage-screen { box-shadow: inset 0 0 5rem rgba(99, 61, 116, 0.12); }
+/* The mental vignette below now carries this cue continuously; only the blood tint stays binary. */
 .lc-page.is-critical .lc-stage-screen { box-shadow: inset 0 0 6rem rgba(139, 31, 40, 0.16); }
+
+/* Purple closing in from every edge as the mind gives out. */
+.lc-mental-vignette {
+  position: absolute;
+  z-index: 9;
+  inset: 0;
+  pointer-events: none;
+  opacity: var(--lc-vignette, 0);
+  transition: opacity 0.4s ease;
+  background:
+    radial-gradient(ellipse at center, transparent 22%, rgba(99, 61, 116, 0.62) 78%, rgba(58, 32, 74, 0.86) 100%);
+}
+
+/* Corners fogging over as the lungs give out, breathing faster the emptier the bar. */
+.lc-breath-fog {
+  position: absolute;
+  z-index: 10;
+  inset: 0;
+  pointer-events: none;
+  opacity: var(--lc-fog, 0);
+  transition: opacity 0.4s ease;
+  animation: lc-breath var(--lc-breath-ms, 5200ms) ease-in-out infinite;
+  background:
+    radial-gradient(38% 44% at 0% 0%, rgba(226, 232, 236, 0.34), transparent 72%),
+    radial-gradient(38% 44% at 100% 0%, rgba(226, 232, 236, 0.34), transparent 72%),
+    radial-gradient(42% 48% at 0% 100%, rgba(226, 232, 236, 0.3), transparent 72%),
+    radial-gradient(42% 48% at 100% 100%, rgba(226, 232, 236, 0.3), transparent 72%);
+}
 
 @keyframes lc-loading-turn { to { transform: rotate(360deg); } }
 @keyframes lc-route-ready {
   50% { box-shadow: 0 0 2.4rem rgba(235, 184, 57, 0.56); filter: brightness(1.18); }
+}
+@keyframes lc-breath {
+  0%, 100% { transform: scale(1); filter: blur(0.5px); }
+  50% { transform: scale(1.06); filter: blur(1.4px); }
+}
+@keyframes lc-stamina-refused {
+  0%, 100% { border-color: rgba(255, 255, 255, 0.08); box-shadow: none; }
+  25%, 75% { border-color: rgba(235, 184, 57, 0.85); box-shadow: 0 0 0.9rem rgba(235, 184, 57, 0.6); }
 }
 .lc-gesture-pop-enter-active,
 .lc-gesture-pop-leave-active,
@@ -2075,7 +2157,13 @@ onBeforeUnmount(() => {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .lc-loading-mark { animation: none; }
+  /* The fog stays, but stops breathing — a full-screen pulse is the worst offender here. */
+  .lc-loading-mark,
+  .lc-breath-fog,
+  .lc-vital-track.is-refused { animation: none; }
+  .lc-vital-track.is-refused { border-color: rgba(235, 184, 57, 0.85); }
+  .lc-mental-vignette,
+  .lc-breath-fog,
   .lc-vital-track i,
   .lc-gesture-pop-enter-active,
   .lc-gesture-pop-leave-active,

@@ -361,7 +361,7 @@ describe('99LC config and deterministic plan', () => {
     const result = validateLastChancesConfig(defaultConfig)
 
     expect(result.errors).toEqual([])
-    expect(defaultConfig.schemaVersion).toBe(6)
+    expect(defaultConfig.schemaVersion).toBe(7)
     expect(defaultConfig.chances).toBe(99)
     expect(defaultConfig.rooms.every(room => (room.spawnLayouts?.length ?? 0) >= 2)).toBe(true)
     expect(defaultConfig.progression.tiers).toHaveLength(7)
@@ -405,8 +405,8 @@ describe('99LC config and deterministic plan', () => {
       armor: 2,
     })
     expect(defaultConfig.progression.moveQuestsEnabled).toBe(true)
-    expect(defaultConfig.artifacts).toHaveLength(3)
-    expect(defaultConfig.outfits).toHaveLength(3)
+    expect(defaultConfig.artifacts).toHaveLength(5)
+    expect(defaultConfig.outfits).toHaveLength(4)
     expect(defaultConfig.enemies.find(enemy => enemy.id === 'swarm-cockroach')?.swarm?.spawnIntervalMs)
       .toBe(200)
     expect(defaultConfig.enemies.find(enemy => enemy.id === 'swarm-cockroach')).toMatchObject({
@@ -632,7 +632,7 @@ describe('99LC config and deterministic plan', () => {
 
     const migrated = await loadLastChancesConfig({ url: '/99lc/schema-v4.json' })
 
-    expect(migrated.schemaVersion).toBe(6)
+    expect(migrated.schemaVersion).toBe(7)
     expect(migrated.weapons.filter(weapon => weapon.id !== 'secondary-ouroboros-fang')
       .every(weapon => weapon.attacks.tap.cooldownMs === 0)).toBe(true)
     expect(migrated.weapons.find(weapon => weapon.id === 'secondary-ouroboros-fang')
@@ -704,7 +704,7 @@ describe('99LC config and deterministic plan', () => {
       signal: undefined,
     })
     expect(migrated).toMatchObject({
-      schemaVersion: 6,
+      schemaVersion: 7,
       seed: 'saved-schema-v2-run',
       player: { baseStats: { attackPower: 137 } },
       loadout: defaultConfig.loadout,
@@ -740,7 +740,7 @@ describe('99LC config and deterministic plan', () => {
     ]))
   })
 
-  describe('schema-v6 content and schema-v4 controls migration', () => {
+  describe('schema-v7 content and schema-v4 controls migration', () => {
     it('standalone-migrates an actual v1-shaped Builder definition through v2 and v3 fields', () => {
       const v1 = previousShippedSchemaV1Config()
       const before = JSON.stringify(v1)
@@ -748,7 +748,7 @@ describe('99LC config and deterministic plan', () => {
       const migrated = migrateLastChancesConfig(v1) as LastChancesConfig
 
       expect(migrated).toMatchObject({
-        schemaVersion: 6,
+        schemaVersion: 7,
         input: {
           tapComboWindowMs: 900,
           mylorik: defaultConfig.input.mylorik,
@@ -782,7 +782,7 @@ describe('99LC config and deterministic plan', () => {
       expect(migrateLastChancesConfig(migrated)).toEqual(migrated)
     })
 
-    it('clone-first migrates v1, v2, v3, and v4 to v6 and keeps v6 idempotent', () => {
+    it('clone-first migrates v1, v2, v3, and v4 to v7 and keeps v7 idempotent', () => {
       const v1 = previousShippedSchemaV1Config()
       const v2 = cloneLastChancesConfig(defaultConfig)
       v2.schemaVersion = 2
@@ -798,7 +798,7 @@ describe('99LC config and deterministic plan', () => {
       for (const legacy of [v1, v2, v3]) {
         const before = JSON.stringify(legacy)
         const migrated = migrateLastChancesConfig(legacy, defaultConfig) as LastChancesConfig
-        expect(migrated.schemaVersion).toBe(6)
+        expect(migrated.schemaVersion).toBe(7)
         expect(validateLastChancesConfig(migrated).errors).toEqual([])
         expect(JSON.stringify(legacy)).toBe(before)
         expect(migrated.input.mylorik).toEqual(defaultConfig.input.mylorik)
@@ -815,12 +815,52 @@ describe('99LC config and deterministic plan', () => {
       expect(JSON.stringify(defaultConfig)).toBe(before)
     })
 
+    it('backfills stamina into a saved schema-v6 override instead of rejecting it', () => {
+      // Everything stamina-related is now required, so a v6 override saved by the previously
+      // deployed build would otherwise fail validation and become unloadable.
+      const v6 = cloneLastChancesConfig(defaultConfig) as LastChancesConfig & {
+        stamina?: unknown
+        renderer: Record<string, unknown>
+      }
+      v6.schemaVersion = 6
+      v6.seed = 'v6-stamina-migration'
+      delete v6.stamina
+      delete (v6.player.baseStats as Record<string, unknown>).maxStamina
+      v6.progression.tiers.forEach((tier) => {
+        delete (tier.erosion as unknown as Record<string, unknown>).maxStamina
+      })
+      delete v6.renderer.stamina
+      expect(validateLastChancesConfig(v6).valid).toBe(false)
+
+      const before = JSON.stringify(v6)
+      const migrated = migrateLastChancesConfig(v6, defaultConfig) as LastChancesConfig
+      expect(validateLastChancesConfig(migrated).errors).toEqual([])
+      expect(migrated.schemaVersion).toBe(7)
+      expect(migrated.seed).toBe('v6-stamina-migration')
+      expect(migrated.stamina).toEqual(defaultConfig.stamina)
+      expect(migrated.player.baseStats.maxStamina).toBe(100)
+      expect(migrated.progression.tiers.every(tier => tier.erosion.maxStamina === 0)).toBe(true)
+      expect(migrated.renderer.stamina).toBe('#e0b64a')
+      expect(JSON.stringify(v6)).toBe(before)
+    })
+
+    it('keeps stamina values a designer already authored in an override', () => {
+      const v6 = cloneLastChancesConfig(defaultConfig)
+      v6.schemaVersion = 6
+      v6.stamina.attackCost = 9
+      v6.player.baseStats.maxStamina = 250
+
+      const migrated = migrateLastChancesConfig(v6, defaultConfig) as LastChancesConfig
+      expect(migrated.stamina.attackCost).toBe(9)
+      expect(migrated.player.baseStats.maxStamina).toBe(250)
+    })
+
     it('fails clearly for an unknown future schema', () => {
       const future = cloneLastChancesConfig(defaultConfig) as LastChancesConfig & { schemaVersion: number }
-      future.schemaVersion = 7
+      future.schemaVersion = 8
 
       expect(() => migrateLastChancesConfig(future)).toThrow(
-        'Unsupported 99LC schemaVersion: schemaVersion 7 is newer than supported 6',
+        'Unsupported 99LC schemaVersion: schemaVersion 8 is newer than supported 7',
       )
     })
 
@@ -842,7 +882,7 @@ describe('99LC config and deterministic plan', () => {
 
       expect(fetchMock).toHaveBeenCalledOnce()
       expect(migrated).toMatchObject({
-        schemaVersion: 6,
+        schemaVersion: 7,
         seed: 'v3-control-migration',
         input: { holdMs: 777 },
         player: { baseStats: { attackPower: 143 } },
@@ -853,7 +893,7 @@ describe('99LC config and deterministic plan', () => {
       expect(migrated.rooms[0].name).toBe('Saved room tuning')
       expect(migrated.weapons[0].attacks.doubleTap.damage).toBe(91)
       expect(migrated.weapons[0].controls).toEqual(defaultConfig.weapons[0].controls)
-      expect(JSON.parse(window.localStorage.getItem('99lc:game-config')!).schemaVersion).toBe(6)
+      expect(JSON.parse(window.localStorage.getItem('99lc:game-config')!).schemaVersion).toBe(7)
     })
 
     it('validates bindings, hysteresis, ordered gates, and bounded feedback', () => {

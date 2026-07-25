@@ -32,6 +32,7 @@ import type {
   LastChancesGateTickDefinition,
   LastChancesMylorikActivationDefinition,
   LastChancesMylorikInputDefinition,
+  LastChancesStaminaDefinition,
   LastChancesGesture,
   LastChancesTactileProfile,
   LastChancesWeaponDefinition,
@@ -44,7 +45,7 @@ export const LAST_CHANCES_CONFIG_STORAGE_KEY = '99lc:game-config'
 
 type UnknownRecord = Record<string, unknown>
 
-const CURRENT_LAST_CHANCES_SCHEMA_VERSION = 6
+const CURRENT_LAST_CHANCES_SCHEMA_VERSION = 7
 const MAX_GAMEPAD_BUTTON_INDEX = 31
 const MAX_FEEDBACK_DURATION_MS = 2_000
 const MAX_CONTROL_EXPIRY_MS = 10_000
@@ -190,6 +191,19 @@ export const DEFAULT_LAST_CHANCES_BAND_TICK: LastChancesBandTickDefinition = {
   magnitude: 0.3,
   magnitudeStep: 0.08,
 }
+
+/** Schema-v7 stamina baseline, used only to backfill definitions authored before stamina existed. */
+export const DEFAULT_LAST_CHANCES_STAMINA: LastChancesStaminaDefinition = {
+  regenPerSecond: 5,
+  outOfCombatRegenPerSecond: 25,
+  attackCost: 2,
+  handAlternationRestore: 5,
+  comboRestore: 2,
+  comboWindowMs: 900,
+}
+
+const DEFAULT_LAST_CHANCES_MAX_STAMINA = 100
+const DEFAULT_LAST_CHANCES_STAMINA_COLOR = '#e0b64a'
 
 const DEFAULT_DUALSENSE_INPUT: LastChancesDualSenseInputDefinition = {
   activationThreshold: 0.22,
@@ -992,6 +1006,34 @@ function migrateSchemaV2ToV3(migrated: UnknownRecord): void {
   migrated.schemaVersion = 3
 }
 
+/**
+ * Schema v7 introduced stamina. Older definitions carry no `stamina` block, no `maxStamina`
+ * stat/erosion entry and no stamina renderer colour, all of which validation now requires, so a
+ * previously saved override would otherwise become unloadable. Fill only what is missing —
+ * an override that already authored a value keeps it.
+ */
+function backfillStaminaFields(migrated: UnknownRecord): void {
+  if (migrated.stamina === undefined) {
+    migrated.stamina = cloneUnknown(DEFAULT_LAST_CHANCES_STAMINA)
+  }
+  const player = asRecordOrNull(migrated.player)
+  const baseStats = player ? asRecordOrNull(player.baseStats) : null
+  if (baseStats && baseStats.maxStamina === undefined) {
+    baseStats.maxStamina = DEFAULT_LAST_CHANCES_MAX_STAMINA
+  }
+  const progression = asRecordOrNull(migrated.progression)
+  if (progression && Array.isArray(progression.tiers)) {
+    progression.tiers.forEach((tierValue) => {
+      const erosion = asRecordOrNull(asRecordOrNull(tierValue)?.erosion)
+      if (erosion && erosion.maxStamina === undefined) erosion.maxStamina = 0
+    })
+  }
+  const renderer = asRecordOrNull(migrated.renderer)
+  if (renderer && renderer.stamina === undefined) {
+    renderer.stamina = DEFAULT_LAST_CHANCES_STAMINA_COLOR
+  }
+}
+
 function attachCurrentControlCatalog(
   weaponsValue: unknown,
   currentWeapons?: LastChancesWeaponDefinition[],
@@ -1053,6 +1095,7 @@ function mergeLegacyDefinitionWithCurrent(
     'graph',
     'player',
     'mentalHealth',
+    'stamina',
     'progression',
     'narrative',
     'renderer',
@@ -1131,6 +1174,9 @@ export function migrateLastChancesConfig(
   if (version === CURRENT_LAST_CHANCES_SCHEMA_VERSION) return migrated
 
   if (version === 1) repairSchemaV1(migrated)
+  // Stamina fields are validated on the legacy value itself, so backfill before any validation.
+  // The schema stamp stays with the callers below, which own the version chain.
+  backfillStaminaFields(migrated)
   if (currentDefinition) return mergeLegacyDefinitionWithCurrent(migrated, currentDefinition)
 
   // Ouroboros is a schema-v6 run system. Old standalone definitions may have
@@ -1160,6 +1206,12 @@ export function migrateLastChancesConfig(
   attachCurrentControlCatalog(migrated.weapons)
   migrated.schemaVersion = CURRENT_LAST_CHANCES_SCHEMA_VERSION
   return migrated
+}
+
+function asRecordOrNull(value: unknown): UnknownRecord | null {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+    ? value as UnknownRecord
+    : null
 }
 
 function asRecord(value: unknown, path: string, errors: string[]): UnknownRecord | null {
@@ -1539,11 +1591,13 @@ function validateStats(value: unknown, path: string, errors: string[], allowZero
   const record = asRecord(value, path, errors)
   if (!record) return
   if (allowZero) {
-    for (const key of ['maxHp', 'maxMentalHealth', 'attackPower', 'moveSpeed', 'armor'] as const) {
+    for (const key of ['maxHp', 'maxMentalHealth', 'maxStamina', 'attackPower', 'moveSpeed',
+      'armor'] as const) {
       requireNumber(record, key, path, errors)
     }
   } else {
-    for (const key of ['maxHp', 'maxMentalHealth', 'attackPower', 'moveSpeed'] as const) {
+    for (const key of ['maxHp', 'maxMentalHealth', 'maxStamina', 'attackPower',
+      'moveSpeed'] as const) {
       requirePositiveNumber(record, key, path, errors)
     }
     requireNumber(record, 'armor', path, errors)
@@ -1904,7 +1958,8 @@ function validateInteraction(value: unknown, path: string, errors: string[]): vo
       if (effect.stats !== undefined) {
         const stats = asRecord(effect.stats, `${choicePath}.effect.stats`, errors)
         if (stats) {
-          for (const key of ['maxHp', 'maxMentalHealth', 'attackPower', 'moveSpeed', 'armor'] as const) {
+          for (const key of ['maxHp', 'maxMentalHealth', 'maxStamina', 'attackPower', 'moveSpeed',
+            'armor'] as const) {
             if (stats[key] !== undefined
               && (typeof stats[key] !== 'number' || !Number.isFinite(stats[key]))) {
               errors.push(`${choicePath}.effect.stats.${key} must be a finite number`)
@@ -2929,6 +2984,13 @@ function validateEquipmentCatalogs(root: UnknownRecord, errors: string[]): void 
       for (const key of ['mentalDamageReduction', 'lifestealRatio'] as const) {
         if (artifact[key] !== undefined) validateUnitNumber(artifact, key, path, errors)
       }
+      // Stamina passives scale past 1, so they cannot go through the 0..1 unit check above.
+      if (artifact.maxStaminaMultiplier !== undefined) {
+        requirePositiveNumber(artifact, 'maxStaminaMultiplier', path, errors)
+      }
+      if (artifact.staminaRegenPerSecond !== undefined) {
+        requireNumber(artifact, 'staminaRegenPerSecond', path, errors)
+      }
       if (typeof artifact.id === 'string') {
         if (artifactIds.has(artifact.id)) errors.push(`${path}.id duplicates ${artifact.id}`)
         artifactIds.add(artifact.id)
@@ -2956,6 +3018,9 @@ function validateEquipmentCatalogs(root: UnknownRecord, errors: string[]): void 
           requirePositiveNumber(dash, 'durationMs', `${path}.emptyRightHandDash`, errors)
           requireNumber(dash, 'cooldownMs', `${path}.emptyRightHandDash`, errors)
         }
+      }
+      if (outfit.staminaRegenMultiplier !== undefined) {
+        requirePositiveNumber(outfit, 'staminaRegenMultiplier', path, errors)
       }
       if (typeof outfit.id === 'string') {
         if (outfitIds.has(outfit.id)) errors.push(`${path}.id duplicates ${outfit.id}`)
@@ -3487,20 +3552,23 @@ export function validateLastChancesConfig(value: unknown): LastChancesConfigVali
 
   if (root.schemaVersion !== 1 && root.schemaVersion !== 2
     && root.schemaVersion !== 3 && root.schemaVersion !== 4
-    && root.schemaVersion !== 5 && root.schemaVersion !== 6) {
-    errors.push('schemaVersion must be 1, 2, 3, 4, 5, or 6')
+    && root.schemaVersion !== 5 && root.schemaVersion !== 6
+    && root.schemaVersion !== 7) {
+    errors.push('schemaVersion must be 1, 2, 3, 4, 5, 6, or 7')
   }
-  const schemaVersion = root.schemaVersion === 6
-    ? 6
-    : root.schemaVersion === 5
-      ? 5
-      : root.schemaVersion === 4
-        ? 4
-        : root.schemaVersion === 3
-          ? 3
-          : root.schemaVersion === 2
-            ? 2
-            : 1
+  const schemaVersion = root.schemaVersion === 7
+    ? 7
+    : root.schemaVersion === 6
+      ? 6
+      : root.schemaVersion === 5
+        ? 5
+        : root.schemaVersion === 4
+          ? 4
+          : root.schemaVersion === 3
+            ? 3
+            : root.schemaVersion === 2
+              ? 2
+              : 1
   requireString(root, 'title', 'config', errors)
   requireString(root, 'seed', 'config', errors)
   requireInteger(root, 'chances', 'config', errors, 1)
@@ -3563,6 +3631,15 @@ export function validateLastChancesConfig(value: unknown): LastChancesConfigVali
     requireNumber(mentalHealth, 'maxPressurePerSecond', 'mentalHealth', errors)
   }
 
+  const stamina = asRecord(root.stamina, 'stamina', errors)
+  if (stamina) {
+    for (const key of ['regenPerSecond', 'outOfCombatRegenPerSecond', 'attackCost',
+      'handAlternationRestore', 'comboRestore'] as const) {
+      requireNumber(stamina, key, 'stamina', errors)
+    }
+    requirePositiveNumber(stamina, 'comboWindowMs', 'stamina', errors)
+  }
+
   const progression = asRecord(root.progression, 'progression', errors)
   const roomIds = validateRooms(root.rooms, errors, schemaVersion >= 2)
   const enemyIds = validateEnemies(root.enemies, errors, schemaVersion)
@@ -3589,7 +3666,7 @@ export function validateLastChancesConfig(value: unknown): LastChancesConfigVali
     requirePositiveNumber(renderer, 'snapshotHz', 'renderer', errors)
     requirePositiveNumber(renderer, 'floorGridSize', 'renderer', errors)
     for (const key of ['background', 'floor', 'floorGrid', 'obstacleTop', 'obstacleSide',
-      'player', 'playerAccent', 'mental'] as const) {
+      'player', 'playerAccent', 'mental', 'stamina'] as const) {
       requireString(renderer, key, 'renderer', errors)
     }
   }

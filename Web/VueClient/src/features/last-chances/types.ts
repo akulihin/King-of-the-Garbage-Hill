@@ -198,6 +198,7 @@ export interface LastChancesVector {
 export interface LastChancesStats {
   maxHp: number
   maxMentalHealth: number
+  maxStamina: number
   attackPower: number
   moveSpeed: number
   armor: number
@@ -206,9 +207,30 @@ export interface LastChancesStats {
 export interface LastChancesStatErosion {
   maxHp: number
   maxMentalHealth: number
+  maxStamina: number
   attackPower: number
   moveSpeed: number
   armor: number
+}
+
+/**
+ * Stamina is the yellow bar under physical health. Every action debits it, skilled play refunds
+ * part of the debit, and disengaging refills it quickly. An action that cannot be paid for is
+ * refused outright rather than executed at a discount.
+ */
+export interface LastChancesStaminaDefinition {
+  /** Points regained per second while at least one enemy is hunting the player. */
+  regenPerSecond: number
+  /** Points regained per second while nothing is hunting the player. */
+  outOfCombatRegenPerSecond: number
+  /** Default debit for an action without its own `staminaCost`. */
+  attackCost: number
+  /** Refund when the acting hand differs from the previous action's hand. */
+  handAlternationRestore: number
+  /** Refund for every action that continues an unbroken chain. */
+  comboRestore: number
+  /** Maximum gap between two actions that still counts as one chain. */
+  comboWindowMs: number
 }
 
 export interface LastChancesColliderDefinition {
@@ -332,6 +354,8 @@ export interface LastChancesAttackDefinition {
   tuning?: Record<string, number>
   resourceCost?: number
   consumeAllResource?: boolean
+  /** Stamina spent by this action. Defaults to the global `stamina.attackCost`. */
+  staminaCost?: number
 }
 
 export interface LastChancesMylorikActivationDefinition {
@@ -481,6 +505,10 @@ export interface LastChancesArtifactDefinition {
   mentalDamageReduction?: number
   /** Fraction of actual damage dealt restored as physical health, from 0 through 1. */
   lifestealRatio?: number
+  /** Multiplier applied to the player's maximum stamina, above 0. */
+  maxStaminaMultiplier?: number
+  /** Flat stamina points added to every stamina regeneration second. */
+  staminaRegenPerSecond?: number
 }
 
 export interface LastChancesOutfitDefinition {
@@ -494,6 +522,8 @@ export interface LastChancesOutfitDefinition {
     durationMs: number
     cooldownMs: number
   }
+  /** Multiplier applied to stamina restored from any source — regeneration and attack rewards alike. */
+  staminaRegenMultiplier?: number
 }
 
 export interface LastChancesOuroborosSetDefinition {
@@ -854,7 +884,7 @@ export interface LastChancesInputDefinition {
 }
 
 export interface LastChancesConfig {
-  schemaVersion: 1 | 2 | 3 | 4 | 5 | 6
+  schemaVersion: 1 | 2 | 3 | 4 | 5 | 6 | 7
   title: string
   seed: string
   chances: number
@@ -873,6 +903,7 @@ export interface LastChancesConfig {
     restoreOnKill: number
     maxPressurePerSecond: number
   }
+  stamina: LastChancesStaminaDefinition
   progression: {
     roomHpRecovery: number
     roomMentalRecovery: number
@@ -901,6 +932,7 @@ export interface LastChancesConfig {
     player: string
     playerAccent: string
     mental: string
+    stamina: string
   }
 }
 
@@ -959,10 +991,16 @@ export interface LastChancesPlayerSnapshot {
   aim: LastChancesVector
   hp: number
   mentalHealth: number
+  stamina: number
   stats: LastChancesStats
   invulnerableForMs: number
   armorMultiplier?: number
   armorMultiplierForMs?: number
+  /**
+   * Elapsed timestamp of the most recent action refused for missing stamina, so the HUD can
+   * blink the bar. Null until an action is actually refused.
+   */
+  staminaRefusedAtMs?: number | null
 }
 
 export interface LastChancesEnemySnapshot {
