@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import type { BattleshipBoard, BattleshipShip } from 'src/services/signalr'
 import CellComponent from './CellComponent.vue'
 import { renderIcon } from './battleship-icons'
+import { occupiedCells } from './battleship-geometry'
 
 const props = withDefaults(
   defineProps<{
@@ -23,6 +24,9 @@ const props = withDefaults(
     summonTrailCells?: Map<string, string[]>
     shipNameMap?: Map<string, string>
     rangeOverlayCells?: Map<string, string>
+    maneuverActive?: boolean
+    maneuverShipCells?: { row: number; col: number }[]
+    maneuverTargetCells?: { row: number; col: number }[]
     cellSize?: number
   }>(),
   {
@@ -96,14 +100,14 @@ const shipEdgeMap = computed(() => {
   return map
 })
 
-type BowDirection = 'up' | 'left'
+type BowDirection = 'up' | 'left' | 'up-left' | 'up-right'
 const deckVisualMap = computed(() => {
   const map = new Map<string, { symbols: string[]; bowDirection?: BowDirection }>()
   for (const ship of props.ships ?? []) {
     if (!ship.isPlaced) continue
-    for (let i = 0; i < ship.deckCount; i++) {
-      const row = ship.orientation === 'Vertical' ? ship.row + i : ship.row
-      const col = ship.orientation === 'Horizontal' ? ship.col + i : ship.col
+    const shipCells = occupiedCells(ship)
+    for (let i = 0; i < shipCells.length; i++) {
+      const { row, col } = shipCells[i]
       const deck = ship.decks[i]
       const symbols: string[] = []
       if (deck?.module && !deck.moduleDestroyed) {
@@ -120,7 +124,11 @@ const deckVisualMap = computed(() => {
       if ((deck?.maxHp ?? 0) > 2) symbols.push('armor')
       map.set(`${row},${col}`, {
         symbols,
-        bowDirection: i === 0 ? (ship.orientation === 'Vertical' ? 'up' : 'left') : undefined,
+        bowDirection: i === 0
+          ? (ship.abilities.includes('diagonal_shape')
+              ? (ship.orientation === 'Vertical' ? 'up-right' : 'up-left')
+              : (ship.orientation === 'Vertical' ? 'up' : 'left'))
+          : undefined,
       })
     }
   }
@@ -155,6 +163,14 @@ function getRangeOverlay(row: number, col: number): string | undefined {
 
 function getDeckVisual(row: number, col: number) {
   return deckVisualMap.value.get(`${row},${col}`)
+}
+
+function isManeuverShipCell(row: number, col: number): boolean {
+  return props.maneuverShipCells?.some(cell => cell.row === row && cell.col === col) ?? false
+}
+
+function isManeuverTarget(row: number, col: number): boolean {
+  return props.maneuverTargetCells?.some(cell => cell.row === row && cell.col === col) ?? false
 }
 
 function handleRightClick(row: number, col: number, event: Event) {
@@ -199,7 +215,7 @@ function handlePointerUp(row: number, col: number, event: PointerEvent) {
           :cell="getCell(r - 1, c - 1)"
           :is-enemy="isEnemy"
           :is-placement="isPlacement"
-          :clickable="clickable"
+          :clickable="clickable && (!maneuverActive || isManeuverTarget(r - 1, c - 1))"
           :shot-type="shotType"
           :highlighted="isHighlighted(r - 1, c - 1)"
           :space-highlight="isSpaceHighlighted(r - 1, c - 1)"
@@ -214,6 +230,9 @@ function handlePointerUp(row: number, col: number, event: PointerEvent) {
           :range-overlay="getRangeOverlay(r - 1, c - 1)"
           :deck-symbols="getDeckVisual(r - 1, c - 1)?.symbols"
           :bow-direction="getDeckVisual(r - 1, c - 1)?.bowDirection"
+          :maneuver-active="maneuverActive"
+          :maneuver-ship-cell="isManeuverShipCell(r - 1, c - 1)"
+          :maneuver-target="isManeuverTarget(r - 1, c - 1)"
           @click="handleClick(r - 1, c - 1)"
           @mouseenter="handleHover(r - 1, c - 1)"
           @pointerdown="handlePointerDown(r - 1, c - 1, $event)"

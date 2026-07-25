@@ -212,13 +212,21 @@ public class AdminPanel : ModuleBaseCustom
         //тасуем игроков
         playersList = playersList.OrderBy(_ => Guid.NewGuid()).ToList();
         playersList = playersList.OrderByDescending(x => x.Status.GetScore()).ToList();
-        playersList = _characterPassives.HandleEventsBeforeFirstRound(playersList);
+        var deferredPreGameStage = Cthulhu.RequiresPreGameStage(playersList);
+        if (!deferredPreGameStage)
+            playersList = _characterPassives.HandleEventsBeforeFirstRound(playersList);
 
         //выдаем место в таблице
         for (var i = 0; i < playersList.Count; i++) playersList[i].Status.SetPlaceAtLeaderBoard(i + 1);
 
         //создаем игру
         var game = new GameClass(playersList, gameId, Context.User.Id) { IsCheckIfReady = false };
+        if (deferredPreGameStage)
+        {
+            game.IsDraftPickPhase = true;
+            foreach (var player in playersList)
+                player.Status.IsDraftPickConfirmed = true;
+        }
 
         //отправить меню игры
         foreach (var player in playersList) await _upd.WaitMess(player, game);
@@ -235,8 +243,11 @@ public class AdminPanel : ModuleBaseCustom
 
 
         //handle round #0
-        await _characterPassives.HandleNextRound(game);
-        _characterPassives.HandleBotPredict(game);
+        if (!deferredPreGameStage)
+        {
+            await _characterPassives.HandleNextRound(game);
+            _characterPassives.HandleBotPredict(game);
+        }
 
         foreach (var player in playersList) await _upd.UpdateMessage(player);
         game.IsCheckIfReady = true;

@@ -14,7 +14,7 @@ public static class PlacementValidator
 
     public static (bool valid, string error) ValidatePlacement(Board board, Ship ship, int row, int col, Orientation orientation)
     {
-        var cells = GetOccupiedCells(ship.Decks.Count, row, col, orientation);
+        var cells = ship.GetOccupiedCells(row, col, orientation);
 
         // Check bounds
         foreach (var (r, c) in cells)

@@ -53,7 +53,8 @@ public class GameNotificationService
             try
             {
                 // This roster is deliberately absent from every persistent/public replay surface.
-                if (game.PlayersList.Any(UnknownBug.Is))
+                if (game.PlayersList.Any(UnknownBug.Is)
+                    || Cthulhu.ExcludeFromReplaysAndStory(game))
                     return;
 
                 var replayData = _replayService.BuildReplayData(game);
@@ -87,7 +88,8 @@ public class GameNotificationService
                 await BroadcastGameState(game);
                 await SendGameEvent(game.GameId, "GameFinished");
                 if (!Madara.IsEternalTsukuyomiActive(game)
-                    && !game.PlayersList.Any(UnknownBug.Is))
+                    && !game.PlayersList.Any(UnknownBug.Is)
+                    && !Cthulhu.ExcludeFromReplaysAndStory(game))
                     _storyService.GenerateStoryAsync(game);
                 _lastSnapshot.TryRemove(game.GameId, out _);
 

@@ -246,6 +246,9 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
             players += "\n\n";
         }
 
+        if (Cthulhu.IsNechtoActive(game) && !game.IsFinished)
+            players += $"{Cthulhu.NechtoPlace}. {Cthulhu.Nechto}\n\n";
+
         return players;
     }
 
@@ -253,6 +256,8 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         GameClass game, int number)
     {
         var customString = "";
+        if (game.CthulhuState.MadPlayerIds.Contains(player2.GetPlayerId()))
+            customString += "🌀";
 
         foreach (var passive in player1.GameCharacter.Passive)
             switch (passive.PassiveName)
@@ -1238,7 +1243,12 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         */
 
         var isMadara = Madara.IsMadara(player);
-        var statLines = UnknownBug.Is(character)
+        var statLines = Cthulhu.IsUntransformed(player)
+            ? $"**{intStr}:** ∞\n"
+              + $"**{strStr}:** ∞\n"
+              + $"**{speStr}:** ∞\n"
+              + $"**{psyStr}:** ∞\n"
+            : UnknownBug.Is(character)
             ? "```cs\nName: unknown_bug\nERR: cant_get_stat\nERR: cant_get_stat\nERR: cant_get_stat\nERR: cant_get_stat\n```\n"
             : isMadara
             ? $"**{intStr}:** {character.GetIntelligenceString()}\n"
@@ -1569,6 +1579,9 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                 && !Naruto.IsNarutoPair(player, playerToAttack))
                 attackMenu.AddOption("Напасть на " + playerToAttack.DiscordUsername, playerToAttack.GetPlayerId().ToString(), emote: _playerChoiceAttackList[i]);
         }
+
+        if (Cthulhu.IsNechtoActive(game) && game.RoundNo <= 10)
+            attackMenu.AddOption("Напасть на Нечто", Cthulhu.NechtoAttackOption);
 
         if (attackMenu.Options.Count == 0) attackMenu.AddOption("ТЫ ВСЕХ УБИЛ", "kratos-death");
 
@@ -1943,6 +1956,39 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         embed.WithTitle("Draft Pick — Choose Your Character");
         embed.WithFooter("Draft Pick Phase");
 
+        if (game.CthulhuState.DepthsCallStageActive
+            && game.CthulhuState.DepthsCallAnswers.TryGetValue(
+                player.GetPlayerId(), out var depthsAnswer)
+            && depthsAnswer == null)
+        {
+            embed.WithColor(new Color(12, 60, 90));
+            embed.WithTitle("Откликнуться на зов глубин");
+            embed.WithDescription("Сделай выбор.");
+            return embed;
+        }
+
+        if (game.CthulhuState.AdeptStageActive
+            && Cthulhu.IsUntransformed(player)
+            && game.DraftOptions.TryGetValue(player.GetPlayerId(), out var adeptOptions))
+        {
+            embed.WithColor(new Color(12, 60, 90));
+            embed.WithTitle("Выбери адепта");
+            embed.WithDescription("Выбери одного из доступных адептов:");
+            for (var i = 0; i < adeptOptions.Count; i++)
+            {
+                var adept = adeptOptions[i];
+                var passives = string.Join(", ",
+                    adept.Passive.Where(passive => passive.Visible)
+                        .Select(passive => passive.PassiveName));
+                embed.AddField(
+                    $"{i + 1}. {adept.Name} (Tier {adept.Tier})",
+                    $"INT: {adept.GetIntelligence()} | STR: {adept.GetStrength()} | " +
+                    $"SPD: {adept.GetSpeed()} | PSY: {adept.GetPsyche()}\n" +
+                    $"Passives: {(string.IsNullOrEmpty(passives) ? "—" : passives)}");
+            }
+            return embed;
+        }
+
         if (player.Status.IsDraftPickConfirmed)
         {
             if (UnknownBug.Is(player))
@@ -1997,6 +2043,30 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
     public ComponentBuilder GetDraftPickButtons(GamePlayerBridgeClass player, GameClass game)
     {
         var components = new ComponentBuilder();
+
+        if (game.CthulhuState.DepthsCallStageActive
+            && game.CthulhuState.DepthsCallAnswers.TryGetValue(
+                player.GetPlayerId(), out var depthsAnswer)
+            && depthsAnswer == null)
+        {
+            components.WithButton(new ButtonBuilder(
+                "Да", "depths-yes", ButtonStyle.Success));
+            components.WithButton(new ButtonBuilder(
+                "Нет", "depths-no", ButtonStyle.Danger));
+            components.WithButton(GetEndGameButton(player, game), row: 1);
+            return components;
+        }
+
+        if (game.CthulhuState.AdeptStageActive
+            && Cthulhu.IsUntransformed(player)
+            && game.DraftOptions.TryGetValue(player.GetPlayerId(), out var adeptOptions))
+        {
+            for (var i = 0; i < adeptOptions.Count; i++)
+                components.WithButton(new ButtonBuilder(
+                    adeptOptions[i].Name, $"draft_pick_{i}", ButtonStyle.Primary));
+            components.WithButton(GetEndGameButton(player, game), row: 1);
+            return components;
+        }
 
         if (!player.Status.IsDraftPickConfirmed)
         {

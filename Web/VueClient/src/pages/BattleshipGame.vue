@@ -59,6 +59,7 @@ function handleKeydown(e: KeyboardEvent) {
     return
   }
   if (phase.value !== 'Combat' && phase.value !== 'Boarding') return
+  if (store.myPlayer?.pendingManeuver) return
   const idx = parseInt(e.key) - 1
   if (idx >= 0 && idx < store.availableWeapons.length) {
     const w = store.availableWeapons[idx]

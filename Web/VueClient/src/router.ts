@@ -13,6 +13,7 @@ export type AppRouteNames =
   | 'fightCalculator'
   | 'lastChances'
   | 'empiresEndgame'
+  | 'clash'
   | 'battleship'
   | 'battleshipGame'
   | 'battleshipSpectate'
@@ -84,6 +85,11 @@ export const routes: RouteRecordRaw[] = [
     name: 'empiresEndgame',
     path: '/empires-endgame',
     component: () => import('./pages/EmpiresEndgame.vue'),
+  },
+  {
+    name: 'clash',
+    path: '/clash',
+    component: () => import('./pages/Clash.vue'),
   },
   {
     name: 'widget',

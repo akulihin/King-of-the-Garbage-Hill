@@ -1,5 +1,5 @@
 import { digestTdValue } from '../td/engine'
-import { CLASH_CORE_LIVE_UNIT_IDS } from './catalog'
+import { CLASH_CORE_LIVE_UNIT_IDS, CLASH_QA_ABILITIES } from './catalog'
 import {
   applyClashCommand,
   clashResultFromState,
@@ -51,7 +51,7 @@ export function createClashQaPlan(
     .filter((candidate): candidate is ClashUnitDefinition => Boolean(candidate && !candidate.deferredReason))
   if (definitions.length < 4) throw new Error('Clash QA requires at least four live roster definitions.')
   const perSide = Math.min(6, field.columns * (field.rowsPerSide - field.reinforcementRows))
-  return createClashPlan({
+  const plan = createClashPlan({
     id: planId,
     sessionId,
     rulesIdentity,
@@ -66,6 +66,11 @@ export function createClashQaPlan(
       }))
     )),
   })
+  const igniteCarrier = plan.units.find(definition => definition.id === 'shield-bearer')
+  if (igniteCarrier) igniteCarrier.abilities = [{ ...CLASH_QA_ABILITIES.ignite }]
+  const moraleCarrier = plan.units.find(definition => definition.id === 'legionary')
+  if (moraleCarrier) moraleCarrier.abilities = [{ ...CLASH_QA_ABILITIES.morale }]
+  return plan
 }
 
 function choosePlacement(
@@ -102,6 +107,61 @@ function choosePlacement(
   }
 }
 
+function activationLimit(plan: ClashPlan, state: ClashSimulationState, side: ClashSide): number {
+  const morale = state.morale[side]
+  if (morale > plan.morale.positiveThresholdExclusive) return plan.morale.positiveActivationCharges
+  if (morale < plan.morale.negativeThresholdExclusive) {
+    return state.clashNumber % plan.morale.negativeActivationCooldownTurns === 0 ? 1 : 0
+  }
+  return plan.morale.neutralActivationCharges
+}
+
+function chooseActivation(
+  plan: ClashPlan,
+  state: ClashSimulationState,
+  side: ClashSide,
+): Extract<ClashCommand, { kind: 'activate' }> | null {
+  if (state.betweenClashes[side].activationCount >= activationLimit(plan, state, side)) return null
+  const definitions = new Map(plan.units.map(definition => [definition.id, definition]))
+  const units = Object.values(state.units)
+    .filter(unit => unit.side === side && unit.alive && unit.deployed)
+    .sort((left, right) => stableCompare(left.instanceId, right.instanceId))
+  const enemies = Object.values(state.units)
+    .filter(unit => unit.side !== side && unit.alive && unit.deployed)
+    .sort((left, right) => stableCompare(left.instanceId, right.instanceId))
+  for (const unit of units) {
+    const definition = definitions.get(unit.definitionId)
+    if (!definition) continue
+    for (const ability of [...definition.abilities].sort((left, right) => stableCompare(left.id, right.id))) {
+      if ((unit.abilityCharges[ability.id] ?? 0) <= 0
+        || (unit.abilityReadyClash[ability.id] ?? 0) > state.clashNumber) continue
+      if (ability.target === 'enemy') {
+        const target = enemies[0]
+        if (!target) continue
+        return {
+          turn: state.turn + 1,
+          kind: 'activate',
+          side,
+          unitInstanceId: unit.instanceId,
+          abilityId: ability.id,
+          targetUnitInstanceId: target.instanceId,
+        }
+      }
+      if (ability.target === 'self' || ability.kind === 'morale') {
+        return {
+          turn: state.turn + 1,
+          kind: 'activate',
+          side,
+          unitInstanceId: unit.instanceId,
+          abilityId: ability.id,
+          targetSide: side,
+        }
+      }
+    }
+  }
+  return null
+}
+
 export function chooseClashQaCommand(
   plan: ClashPlan,
   state: ClashSimulationState,
@@ -113,6 +173,8 @@ export function chooseClashQaCommand(
   }
   if (state.phase === 'clash-ready') return { turn: state.turn + 1, kind: 'resolve-clash' }
   const side = state.expectedSide!
+  const activation = chooseActivation(plan, state, side)
+  if (activation) return activation
   if (!state.betweenClashes[side].placementUsed) {
     const placement = choosePlacement(plan, state, side, policy)
     if (placement) return placement

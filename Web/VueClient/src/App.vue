@@ -10,11 +10,12 @@ import { currentLocale, setLocale, type AppLocale } from './i18n'
 
 const store = useGameStore()
 const route = useRoute()
-const localPublicRouteNames = new Set(['lastChances', 'empiresEndgame'])
+const localPublicRouteNames = new Set(['lastChances', 'empiresEndgame', 'clash'])
 const isLocalPublicRoute = (name: unknown) => typeof name === 'string' && localPublicRouteNames.has(name)
 const isLocalPublicExperience = computed(() => isLocalPublicRoute(route.name))
 const isPublicExperience = computed(() => route.name === 'replay' || isLocalPublicExperience.value)
 const terminalSession = computed(() => route.name === 'game' && store.isTerminalMode)
+const deepSession = computed(() => route.name === 'game' && store.isDeepSession)
 const showRecoveredAchievementCelebration = computed(() =>
   store.isAuthenticated
   && store.newlyUnlockedAchievements.length > 0
@@ -173,8 +174,9 @@ async function changeLocale(language: AppLocale) {
 </script>
 
 <template>
-  <div class="app" :class="{ 'is-terminal-session': terminalSession }">
+  <div class="app" :class="{ 'is-terminal-session': terminalSession, 'is-deep-session': deepSession }">
     <div v-if="terminalSession" class="terminal-crt-layer" aria-hidden="true" />
+    <div v-if="deepSession" class="deep-caustics-layer" aria-hidden="true" />
     <div class="language-switcher" role="group" aria-label="Language / Язык">
       <button
         :class="{ active: currentLocale === 'ru' }"
@@ -228,6 +230,7 @@ async function changeLocale(language: AppLocale) {
           <RouterLink to="/fight-calculator">{{ currentLocale === 'ru' ? 'Калькулятор боя' : 'Fight Lab' }}</RouterLink>
           <RouterLink to="/99lc">99 Last Chances</RouterLink>
           <RouterLink to="/empires-endgame">Empire's Endgame</RouterLink>
+          <RouterLink to="/clash">Clash</RouterLink>
         </nav>
 
         <div class="top-bar-right">
@@ -429,6 +432,74 @@ async function changeLocale(language: AppLocale) {
   box-shadow: inset 0 0 18px rgba(0, 255, 65, 0.025), 0 0 14px rgba(0, 255, 65, 0.06);
 }
 
+.app.is-deep-session {
+  --bg-primary: #020a14;
+  --bg-secondary: #04121f;
+  --bg-surface: #061a27;
+  --bg-card: #061724;
+  --bg-card-hover: #092535;
+  --bg-inset: #010812;
+  --glass-bg: rgba(2, 15, 27, 0.88);
+  --glass-bg-heavy: rgba(1, 10, 20, 0.96);
+  --glass-border: rgba(25, 194, 184, 0.25);
+  --glass-highlight: rgba(62, 230, 200, 0.07);
+  --text-primary: #a8d8e8;
+  --text-secondary: #6fb3c9;
+  --text-muted: #568ca1;
+  --text-dim: #345b70;
+  --accent-gold: #3ee6c8;
+  --accent-gold-dim: #169f9b;
+  --accent-teal: #19c2b8;
+  --accent-teal-dim: #0e767c;
+  --accent-blue: #58b8d8;
+  --accent-green: #3ee6c8;
+  --accent-green-dim: #169f9b;
+  --accent-purple: #52c6cc;
+  --border-color: rgba(25, 194, 184, 0.25);
+  --border-subtle: rgba(25, 194, 184, 0.14);
+  --glow-gold: 0 0 14px rgba(62, 230, 200, 0.25);
+  --glow-green: 0 0 14px rgba(25, 194, 184, 0.3);
+  isolation: isolate;
+  overflow-x: hidden;
+  color: var(--text-primary);
+  background:
+    radial-gradient(ellipse at 50% -15%, rgba(25, 194, 184, 0.14), transparent 48%),
+    linear-gradient(160deg, #010711, #031421 52%, #020a14);
+}
+
+.deep-caustics-layer {
+  position: fixed;
+  z-index: 9988;
+  inset: -15%;
+  pointer-events: none;
+  opacity: 0.34;
+  background:
+    repeating-radial-gradient(
+      ellipse at 35% 10%,
+      rgba(62, 230, 200, 0.16) 0 2px,
+      transparent 3px 34px
+    ),
+    radial-gradient(ellipse at center, transparent 45%, rgba(0, 5, 14, 0.72) 110%);
+  mix-blend-mode: screen;
+  animation: deep-caustics-drift 18s ease-in-out infinite alternate;
+}
+
+.app.is-deep-session .top-bar {
+  border-bottom-color: rgba(25, 194, 184, 0.32);
+  background: linear-gradient(90deg, rgba(2, 10, 20, 0.98), rgba(4, 28, 39, 0.94), rgba(2, 10, 20, 0.98));
+  box-shadow: 0 0 18px rgba(25, 194, 184, 0.12);
+}
+
+.app.is-deep-session :is(.card, .panel, .game-panel) {
+  border-color: rgba(25, 194, 184, 0.22);
+  box-shadow: inset 0 0 20px rgba(25, 194, 184, 0.025), 0 0 16px rgba(25, 194, 184, 0.055);
+}
+
+@keyframes deep-caustics-drift {
+  from { transform: translate3d(-2%, -1%, 0) rotate(-1deg) scale(1); }
+  to { transform: translate3d(3%, 2%, 0) rotate(1deg) scale(1.05); }
+}
+
 @keyframes terminal-crt-flicker {
   0%, 91%, 94%, 100% { opacity: 0.68; transform: translate(0); }
   92% { opacity: 0.48; transform: translateY(1px); }
@@ -443,7 +514,8 @@ async function changeLocale(language: AppLocale) {
 
 @media (prefers-reduced-motion: reduce) {
   .terminal-crt-layer,
-  .app.is-terminal-session .logo-text { animation: none; }
+  .app.is-terminal-session .logo-text,
+  .deep-caustics-layer { animation: none; }
 }
 
 .language-switcher {

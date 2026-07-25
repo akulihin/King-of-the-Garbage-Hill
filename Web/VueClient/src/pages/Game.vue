@@ -17,6 +17,7 @@ import AchievementPopup from 'src/components/AchievementPopup.vue'
 import TerminalCommitOverlay from 'src/components/TerminalCommitOverlay.vue'
 import HalfLife3Transition from 'src/components/HalfLife3Transition.vue'
 import HalfLife3Release from 'src/components/HalfLife3Release.vue'
+import DeepVeil from 'src/components/DeepVeil.vue'
 import type { Player } from 'src/services/signalr'
 import {
   playAttackSelection,
@@ -74,10 +75,12 @@ let gameOverOverlayTimer: ReturnType<typeof setTimeout> | null = null
 let finishPresentationFallbackTimer: ReturnType<typeof setTimeout> | null = null
 let terminalCommitTimer: ReturnType<typeof setTimeout> | null = null
 let halfLifeReleaseTimer: ReturnType<typeof setTimeout> | null = null
+let deepVeilTimer: ReturnType<typeof setTimeout> | null = null
 
 const terminalCommitVisible = ref(false)
 const terminalCommitPoints = ref(0)
 const halfLifeReleaseVisible = ref(false)
+const deepVeilVisible = ref(false)
 
 watch(() => store.gameState?.halfLifeReleaseSerial, (serial, previousSerial) => {
   if (serial == null || previousSerial == null || serial <= previousSerial) return
@@ -87,6 +90,16 @@ watch(() => store.gameState?.halfLifeReleaseSerial, (serial, previousSerial) => 
     halfLifeReleaseVisible.value = false
     halfLifeReleaseTimer = null
   }, 5000)
+})
+
+watch(() => store.gameState?.abyssSerial, (serial, previousSerial) => {
+  if (serial == null || previousSerial == null || serial <= previousSerial) return
+  deepVeilVisible.value = true
+  if (deepVeilTimer) clearTimeout(deepVeilTimer)
+  deepVeilTimer = setTimeout(() => {
+    deepVeilVisible.value = false
+    deepVeilTimer = null
+  }, 6000)
 })
 
 watch(() => store.myTerminalState?.commitSerial, (serial, previousSerial) => {
@@ -222,6 +235,7 @@ onUnmounted(() => {
   if (finishPresentationFallbackTimer) clearTimeout(finishPresentationFallbackTimer)
   if (terminalCommitTimer) clearTimeout(terminalCommitTimer)
   if (halfLifeReleaseTimer) clearTimeout(halfLifeReleaseTimer)
+  if (deepVeilTimer) clearTimeout(deepVeilTimer)
   if (store.isConnected && gameIdNum.value) {
     store.leaveGame(gameIdNum.value)
   }
@@ -1243,6 +1257,7 @@ const rumblingEmbers = Array.from({ length: 36 }, (_, index) => ({
     </Teleport>
     <TerminalCommitOverlay v-if="terminalCommitVisible" :points="terminalCommitPoints" />
     <HalfLife3Release v-if="halfLifeReleaseVisible" />
+    <DeepVeil v-if="deepVeilVisible" />
     <HalfLife3Transition
       v-if="transitionPaused"
       :is-gordon="isGordon"
@@ -1323,6 +1338,50 @@ const rumblingEmbers = Array.from({ length: 36 }, (_, index) => ({
           <div class="skeleton-line skeleton-pulse" style="width:50%"></div>
           <div class="skeleton-line skeleton-pulse" style="width:70%"></div>
           <div class="skeleton-line skeleton-pulse" style="width:60%"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Blocking binary pre-game prompt -->
+    <div
+      v-else-if="store.gameState.isDraftPickPhase && store.depthsCallPromptActive"
+      class="draft-pick-overlay depths-call-overlay"
+    >
+      <div class="draft-pick-container depths-call-container">
+        <h2 class="draft-pick-title">Откликнуться на зов глубин</h2>
+        <div class="depths-call-actions">
+          <button class="depths-answer yes" @click="store.depthsCallChoice(true)">Да</button>
+          <button class="depths-answer no" @click="store.depthsCallChoice(false)">Нет</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Four-choice ritual layout -->
+    <div
+      v-else-if="store.gameState.isDraftPickPhase && store.gameState.draftOptions && store.gameState.draftPickHeading"
+      class="draft-pick-overlay"
+    >
+      <div class="draft-pick-container">
+        <h2 class="draft-pick-title">{{ store.gameState.draftPickHeading }}</h2>
+        <div class="draft-ritual-layout">
+          <article
+            v-for="option in store.gameState.draftOptions"
+            :key="option.name"
+            class="draft-ritual-card"
+          >
+            <img :src="option.avatar" :alt="option.name" class="draft-ritual-avatar" />
+            <h3>{{ option.name }}</h3>
+            <div class="draft-ritual-stats">
+              <span>🧠 {{ displayCharacterIntelligence(option.name, option.intelligence) }}</span>
+              <span>💪 {{ option.strength }}</span>
+              <span>⚡ {{ option.speed }}</span>
+              <span>🧿 {{ option.psyche }}</span>
+            </div>
+            <div class="draft-ritual-passives">
+              <span v-for="passive in option.passives" :key="passive.name">{{ passive.name }}</span>
+            </div>
+            <button class="draft-play-btn" @click="store.draftSelect(option.name)">Выбрать</button>
+          </article>
         </div>
       </div>
     </div>
@@ -1977,6 +2036,90 @@ const rumblingEmbers = Array.from({ length: 36 }, (_, index) => ({
   align-items: center;
   justify-content: center;
   gap: 24px;
+}
+
+.draft-ritual-layout {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(180px, 1fr));
+  gap: 18px;
+  margin-top: 24px;
+}
+
+.draft-ritual-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid rgba(25, 194, 184, 0.34);
+  border-radius: 16px;
+  background: linear-gradient(160deg, rgba(4, 28, 39, 0.96), rgba(2, 10, 20, 0.96));
+  box-shadow: 0 0 22px rgba(25, 194, 184, 0.1), inset 0 0 22px rgba(62, 230, 200, 0.04);
+}
+
+.draft-ritual-card h3 {
+  margin: 0;
+  color: #a8d8e8;
+}
+
+.draft-ritual-avatar {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 12px;
+  object-fit: cover;
+}
+
+.draft-ritual-stats,
+.draft-ritual-passives {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 7px 10px;
+  color: #6fb3c9;
+  font-size: 12px;
+}
+
+.draft-ritual-passives {
+  min-height: 44px;
+  align-content: flex-start;
+  color: #3ee6c8;
+}
+
+.depths-call-container {
+  max-width: 680px;
+  padding: 54px 32px;
+  border: 1px solid rgba(25, 194, 184, 0.38);
+  border-radius: 24px;
+  background: radial-gradient(circle at 50% 0%, rgba(25, 194, 184, 0.14), transparent 48%), #020a14;
+  box-shadow: 0 0 60px rgba(25, 194, 184, 0.16);
+}
+
+.depths-call-actions {
+  display: flex;
+  justify-content: center;
+  gap: 22px;
+  margin-top: 34px;
+}
+
+.depths-answer {
+  min-width: 150px;
+  padding: 14px 26px;
+  border: 1px solid rgba(62, 230, 200, 0.5);
+  border-radius: 12px;
+  color: #a8d8e8;
+  background: rgba(4, 28, 39, 0.92);
+  font: 800 18px/1 var(--font-display);
+  cursor: pointer;
+}
+
+.depths-answer:hover {
+  color: #020a14;
+  background: #3ee6c8;
+}
+
+@media (max-width: 900px) {
+  .draft-ritual-layout {
+    grid-template-columns: repeat(2, minmax(160px, 1fr));
+  }
 }
 
 /* ── Side panels (paid characters) ── */

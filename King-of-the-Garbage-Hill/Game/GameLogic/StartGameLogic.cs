@@ -294,6 +294,9 @@ public class StartGameLogic : IServiceSingleton
                 if (character.Name == Naruto.CharacterName
                     && !CanNaturallyRollNaruto(account, strictBotCount, team))
                     continue;
+                if (Cthulhu.Is(character)
+                    && !Cthulhu.CanNaturallyRoll(playersList, reservedCharacters, team))
+                    continue;
 
                 // The newcomer roll is an exact 30% branch. Do not leave DooM Guy in the
                 // weighted fallback pool when that branch misses, or the real chance exceeds 30%.
@@ -303,7 +306,8 @@ public class StartGameLogic : IServiceSingleton
                     : character.Tier;
                 var range = GetRangeFromTier(rollTier);
                 if (mode != "bot" && character.Tier == 4 && account.IsBot()) range *= 3;
-                if (character.Tier < 4 && account.IsBot() && character.Name != "Кира") continue;
+                if (character.Tier < 4 && account.IsBot()
+                    && character.Name != "Кира" && !Cthulhu.Is(character)) continue;
                 if (character.Name == "Кира" && account.IsBot()) range = GetRangeFromTier(1) / 2;
                 if (character.Passive.Any(x => x.PassiveName == "Top Laner")) range = (int)(range * topLaner);
                 var pityBonus = account.TierPity.GetValueOrDefault(rollTier, 0);
@@ -397,6 +401,7 @@ public class StartGameLogic : IServiceSingleton
     {
         var allCharacters = _charactersPull.GetRollableCharacters();
         allCharacters.RemoveAll(character => UnknownBug.Is(character.Name));
+        allCharacters.RemoveAll(character => Cthulhu.Is(character.Name));
 
         // Remove team-mode-only characters for non-team games
         allCharacters = allCharacters.Where(x => !x.TeamModeOnly).ToList();

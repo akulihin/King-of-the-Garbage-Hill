@@ -180,7 +180,7 @@ describe('Empire\'s Endgame deterministic browser scenarios', () => {
     cy.get('[data-testid="advisor-execute-advisor-war"]').click()
     cy.get('[data-testid="advisor-advisor-science"]').should('contain.text', 'Помилован · активен')
     cy.get('[data-testid="advisor-advisor-trade"]').should('contain.text', 'Казнён')
-    cy.get('[data-testid="advisor-grand-status"]').should('contain.text', 'Закрыт')
+    cy.get('[data-testid="advisor-grand-status"]').should('contain.text', 'Помилован · активен')
 
     cy.get('[data-testid="governance-region-north"]').should('contain.text', 'Доступно 2 / 5 городов')
     cy.get('[data-testid="perst-region-perst-fourth-trevor"]').select('north')

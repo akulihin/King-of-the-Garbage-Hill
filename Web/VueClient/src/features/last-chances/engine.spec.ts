@@ -144,6 +144,17 @@ type EngineTestAccess = {
   }>
   activeDash: {
     attack: LastChancesAttackDefinition
+    direction: LastChancesVector
+    speed: number
+    hand: LastChancesHand
+    ram?: {
+      runMs: number
+      releasedAtMs: number | null
+      speed: number
+      staminaAccumulatorMs: number
+      streakAccumulatorMs: number
+      tierCued: number
+    }
   } | null
   activeLoadout: {
     primaryWeaponId: string | null
@@ -311,6 +322,14 @@ type EngineTestAccess = {
     radius: number,
   ) => number
   tapCombos: Record<LastChancesHand, { step: number, expiresAtMs: number }>
+  pierceMash: Record<LastChancesHand, { expiresAtMs: number, hits: number }>
+  startBreakthrough: (hand: LastChancesHand) => boolean
+  staminaCostFor: (
+    weapon: LastChancesResolvedWeapon,
+    hand: LastChancesHand,
+    gesture: LastChancesGesture,
+    chargeHeldMs?: number,
+  ) => number
   spawnZoneAttack: (enemy: RuntimeEnemy) => void
   swarmSpawner: {
     remaining: number
@@ -4487,6 +4506,299 @@ describe('99LC control-scheme engine boundary', () => {
     } finally {
       engine.destroy()
       vi.restoreAllMocks()
+    }
+  })
+})
+
+describe('99LC Двуручное копьё v2', () => {
+  const V2 = 'twohand-spear-v2'
+
+  it('fires Охота on the press edge and swallows the recognizer’s deferred tap', () => {
+    const config = combatConfig(V2, null, 'guard', 1)
+    const { engine, access } = startCombat(config)
+    let now = 1000
+    vi.spyOn(performance, 'now').mockImplementation(() => now)
+
+    try {
+      // «Моментальная»: the strike lands on the press itself, without waiting out the 260 ms
+      // double-tap window every other DeepList weapon pays.
+      engine.press('left')
+      expect(access.createSnapshot().lastGesture).toMatchObject({
+        gesture: 'tap',
+        attackName: 'Охота',
+        comboStep: 1,
+      })
+
+      now += 60
+      engine.release('left')
+      now += config.input.doubleTapMs + 20
+      access.gestures.update(now)
+      // The deferred resolution is a duplicate of what already ran, so the chain must not
+      // have advanced to the second thrust.
+      expect(access.createSnapshot().lastGesture).toMatchObject({ comboStep: 1 })
+      expect(access.tapCombos.left.step).toBe(1)
+    } finally {
+      engine.destroy()
+      vi.restoreAllMocks()
+    }
+  })
+
+  it('walks the tap chain thrust, thrust, then slash', () => {
+    const config = combatConfig(V2, null, 'guard', 1)
+    const { engine, access } = startCombat(config)
+
+    try {
+      const names: string[] = []
+      for (let step = 0; step < 3; step += 1) {
+        access.performAttack(resolution('left', 'tap'))
+        names.push(access.createSnapshot().lastGesture!.attackName)
+      }
+      expect(names).toEqual(['Охота', 'Шаг и косой выпад', 'Обратный рассекатель'])
+      const left = access.weapons.get('left')!
+      expect(left.tapCombo.map(attack => attack.collider?.shape))
+        .toEqual(['capsule', 'capsule', 'sector'])
+      // The sprite length is derived from attacks.tap.range, so v2 must keep v1's reach here
+      // or the identical-model requirement breaks.
+      expect(left.attacks.tap.range).toBe(176)
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('opens a fixed mash window on «Прокол» that re-fires on tap for 5 stamina each', () => {
+    const config = combatConfig(V2, null, 'guard', 1)
+    const { engine, access } = startCombat(config)
+
+    try {
+      access.player.stamina = 100
+      access.performAttack(resolution('left', 'doubleTap'))
+      expect(access.createSnapshot().lastGesture?.attackName).toBe('Прокол')
+      const openedAt = access.pierceMash.left.expiresAtMs
+      expect(openedAt).toBeGreaterThan(access.elapsedMs)
+      expect(access.pierceMash.left.hits).toBe(1)
+
+      // A tap inside the window is intercepted into another «Прокол» — the 900 ms cooldown and
+      // the 165 ms action lock of the thrust it interrupts must not be able to refuse it.
+      const before = access.player.stamina
+      access.performAttack(resolution('left', 'tap'))
+      expect(access.createSnapshot().lastGesture?.attackName).toBe('Прокол')
+      expect(access.pierceMash.left.hits).toBe(2)
+      expect(before - access.player.stamina).toBe(5 - config.stamina.comboRestore)
+      // Fixed: a second thrust does not buy more time.
+      expect(access.pierceMash.left.expiresAtMs).toBe(openedAt)
+
+      // Mashing is bounded by stamina, not by endurance.
+      access.player.stamina = 4
+      access.performAttack(resolution('left', 'tap'))
+      expect(access.staminaRefusedAtMs).toBe(access.elapsedMs)
+      expect(access.pierceMash.left.hits).toBe(2)
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('restores the ordinary Охота chain once the mash window lapses', () => {
+    const config = combatConfig(V2, null, 'guard', 1)
+    const { engine, access } = startCombat(config)
+
+    try {
+      access.performAttack(resolution('left', 'doubleTap'))
+      // Past the window, and past the thrust's own 165 ms action lock.
+      access.elapsedMs += 2500
+      expect(access.pierceMash.left.expiresAtMs).toBeLessThan(access.elapsedMs)
+      access.performAttack(resolution('left', 'tap'))
+      expect(access.createSnapshot().lastGesture?.attackName).toBe('Охота')
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('morphs a held «Прокол» into «Прорыв», ramping 0.5× to 2× and steering with the cursor', () => {
+    const config = combatConfig(V2, null, 'guard', 1)
+    const { engine, access } = startCombat(config)
+
+    try {
+      access.player.stamina = 100
+      access.performAttack(resolution('left', 'doubleTap'))
+      expect(access.pierceMash.left.expiresAtMs).toBeGreaterThan(access.elapsedMs)
+
+      expect(access.startBreakthrough('left')).toBe(true)
+      // Starting the run consumes the mash window rather than racing it.
+      expect(access.pierceMash.left.expiresAtMs).toBe(0)
+      const base = access.player.stats.moveSpeed
+      const dash = access.activeDash!
+      expect(dash.attack.behavior).toBe('spearBreakthrough')
+      expect(dash.speed).toBeCloseTo(base * 0.5, 5)
+
+      // 0.25 s in it is at base speed; by 2 s it has climbed to double.
+      access.updatePlayer(0.25)
+      expect(access.activeDash!.speed).toBeCloseTo(base, 5)
+      for (let frame = 0; frame < 17; frame += 1) access.updatePlayer(0.1)
+      // 1.95 s in, all but the last sliver of the 0.25 s + 1.75 s ramp has been spent.
+      expect(access.activeDash!.speed / base).toBeGreaterThan(1.95)
+      expect(access.activeDash!.speed / base).toBeLessThanOrEqual(2)
+
+      // The cursor steers the run: moving the pointer turns the charge mid-flight.
+      expect(access.activeDash!.direction.x).toBeCloseTo(1, 5)
+      access.pointerAim = { x: 0, y: 1 }
+      access.updatePlayer(0.05)
+      expect(access.activeDash!.direction.y).toBeCloseTo(1, 5)
+      expect(access.activeDash!.direction.x).toBeCloseTo(0, 5)
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('drains a stamina every 0.1 s of «Прорыв» and caps the run at two seconds', () => {
+    const config = combatConfig(V2, null, 'guard', 1)
+    const { engine, access } = startCombat(config)
+
+    try {
+      access.startBreakthrough('left')
+      access.player.stamina = 100
+      for (let frame = 0; frame < 10; frame += 1) access.updatePlayer(0.1)
+      expect(access.player.stamina).toBe(90)
+
+      // Two seconds is the ceiling: past it the run releases itself and coasts to a stop.
+      for (let frame = 0; frame < 10; frame += 1) access.updatePlayer(0.1)
+      expect(access.activeDash!.ram!.releasedAtMs).not.toBeNull()
+      const coasting = access.activeDash!.speed
+      access.updatePlayer(0.05)
+      expect(access.activeDash!.speed).toBeLessThan(coasting)
+      for (let frame = 0; frame < 20; frame += 1) access.updatePlayer(0.05)
+      expect(access.activeDash).toBeNull()
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('ends «Прорыв» when stamina runs out', () => {
+    const config = combatConfig(V2, null, 'guard', 1)
+    const { engine, access } = startCombat(config)
+
+    try {
+      access.startBreakthrough('left')
+      access.player.stamina = 3
+      for (let frame = 0; frame < 3; frame += 1) access.updatePlayer(0.1)
+      expect(access.player.stamina).toBe(0)
+      expect(access.activeDash!.ram!.releasedAtMs).not.toBeNull()
+      for (let frame = 0; frame < 20; frame += 1) access.updatePlayer(0.05)
+      expect(access.activeDash).toBeNull()
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('shoves bodies out to the side the run passed them on', () => {
+    const config = combatConfig(V2, null, 'guard', 1)
+    const { engine, access } = startCombat(config)
+
+    try {
+      const target = access.enemies[0]
+      const attack = weapon(config, V2).attacks.doubleTapHold as LastChancesAttackDefinition
+      for (const offset of [40, -40]) {
+        placeEnemy(access, target, 60, offset)
+        const before = { ...target.position }
+        access.damageEnemy(target, attack, attack.knockback, { x: 1, y: 0 }, { hand: 'left' })
+        // Direction is +x, so the lateral normal is +y: a body below is pushed further down,
+        // one above further up — the lane ahead clears instead of filling.
+        expect(Math.sign(target.position.y - before.y)).toBe(Math.sign(offset))
+        expect(Math.abs(target.position.x - before.x)).toBeLessThan(1)
+      }
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('prices the замах and «Акали» by charge band without touching the shipped weapons', () => {
+    const config = combatConfig(V2, null, 'guard', 1)
+    const { engine, access } = startCombat(config)
+
+    try {
+      const left = access.weapons.get('left')!
+      expect([650, 1125, 1650].map(held => access.staminaCostFor(left, 'left', 'hold', held)))
+        .toEqual([10, 15, 20])
+      expect([650, 1125, 1650]
+        .map(held => access.staminaCostFor(left, 'left', 'holdThenDoubleTap', held)))
+        .toEqual([15, 20, 25])
+      expect(access.staminaCostFor(left, 'left', 'tap')).toBe(2)
+      expect(access.staminaCostFor(left, 'left', 'doubleTap')).toBe(5)
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('leaves every shipped weapon on the global stamina cost after the band-aware rework', () => {
+    for (const shipped of defaultConfig.weapons) {
+      if (shipped.id === V2) continue
+      const secondaryOnly = shipped.equipMode === 'secondaryOnly'
+      const config = secondaryOnly
+        ? combatConfig('hybrid-sword', shipped.id, 'guard', 1)
+        : combatConfig(shipped.id, null, 'guard', 1)
+      const { engine, access } = startCombat(config)
+      try {
+        for (const hand of ['left', 'right'] as const) {
+          const equipped = access.weapons.get(hand)
+          if (!equipped) continue
+          for (const gesture of Object.keys(equipped.attacks) as LastChancesGesture[]) {
+            for (const held of [0, 700, 1200, 1700]) {
+              expect(access.staminaCostFor(equipped, hand, gesture, held))
+                .toBe(config.stamina.attackCost)
+            }
+          }
+        }
+      } finally {
+        engine.destroy()
+      }
+    }
+  })
+
+  it('trades the early замах slash for «Заколоть» and hands the slash to an early «Акали»', () => {
+    const config = combatConfig(V2, null, 'guard', 1)
+    const { engine, access } = startCombat(config)
+
+    try {
+      // Quick release: a close, small, hard-hitting plant with the shaft guard lifted.
+      access.performAttack(resolution('left', 'hold', 700))
+      const stab = access.activeAreas.at(-1)!
+      expect(stab.attack.behavior).toBe('spearReleaseV2')
+      expect(stab.attack.collider?.innerRange).toBe(0)
+      expect(stab.attack.collider?.strictInnerRange).toBe(false)
+      expect(stab.attack.arcDegrees).toBe(70)
+      const base = weapon(config, V2).attacks.hold as LastChancesAttackDefinition
+      expect(stab.attack.range).toBeLessThan(base.range * 0.2)
+      expect(stab.attack.damage).toBeGreaterThan(base.damage)
+      expect(access.projectiles).toHaveLength(0)
+
+      // The same quick-release window now also affords a weak «Акали» — the wide rassekatel
+      // that used to be the early замах.
+      access.activeAreas.length = 0
+      access.elapsedMs += 2000
+      access.performAttack(resolution('left', 'holdThenDoubleTap', 0, 700))
+      const slash = access.activeAreas.at(-1)!
+      expect(slash.attack.behavior).toBe('spearOverheadSpin')
+      expect(slash.attack.collider?.shape).toBe('sector')
+      expect(slash.attack.arcDegrees).toBe(165)
+      const spin = weapon(config, V2).attacks.holdThenDoubleTap as LastChancesAttackDefinition
+      expect(slash.attack.damage).toBeLessThan(spin.damage * 1.3 * 4)
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('keeps the charged «Акали» a 360° overhead sweep with v1’s spin rules', () => {
+    const config = combatConfig(V2, null, 'guard', 1)
+    const { engine, access } = startCombat(config)
+
+    try {
+      access.performAttack(resolution('left', 'holdThenDoubleTap', 0, 1700))
+      const area = access.activeAreas.at(-1)!
+      expect(area.attack.collider?.shape).toBe('sweep')
+      expect(area.attack.arcDegrees).toBe(360)
+      // The spin context other weapons key off must still recognise the overhead variant.
+      expect(access.controlContextActive('left', 'spin')).toBe(true)
+    } finally {
+      engine.destroy()
     }
   })
 })

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using King_of_the_Garbage_Hill.Battleship.Models;
 
 namespace King_of_the_Garbage_Hill.Battleship.Logic;
@@ -18,6 +19,7 @@ public static class ShipCatalog
             Id = "single", Name = "Single", NameRu = "Однёр",
             DeckCount = 1, Range = RangeClass.Close, Cost = 0, IsFree = true,
             DefaultArmor = 2, Speed = 1, Space = 1, Regions = new() { },
+            Factions = new() { Faction.Empire, Faction.Alliance },
             Description = "Базовый однопалубный корабль ближнего боя с Баллистой.",
             DefaultWeapons = new() { new WeaponTemplate { Type = WeaponType.Ballista } }
         },
@@ -26,6 +28,7 @@ public static class ShipCatalog
             Id = "double", Name = "Double", NameRu = "Двухпалубник",
             DeckCount = 2, Range = RangeClass.Mid, Cost = 0, IsFree = true,
             DefaultArmor = 2, Speed = 1, Space = 1, Regions = new() { },
+            Factions = new() { Faction.Empire, Faction.Alliance },
             Description = "Базовый двухпалубный корабль средней дальности с Баллистой.",
             DefaultWeapons = new() { new WeaponTemplate { Type = WeaponType.Ballista } }
         },
@@ -34,6 +37,7 @@ public static class ShipCatalog
             Id = "triple", Name = "Triple", NameRu = "Тройка",
             DeckCount = 3, Range = RangeClass.Tetra, Cost = 0, IsFree = true,
             DefaultArmor = 2, Speed = 1, Space = 1, Regions = new() { Region.Tetracor },
+            Factions = new() { Faction.Empire, Faction.Alliance },
             Description = "Базовый трёхпалубный артиллерийский корабль с Тетракамнемётом.",
             DefaultWeapons = new()
             {
@@ -64,6 +68,27 @@ public static class ShipCatalog
             AvailableUpgrades = new()
             {
                 new UpgradeDefinition { Id = "tetra_discus", Name = "Discus Thrower", NameRu = "Дискобол", Cost = 1, Description = "Дополнительный дисковый снаряд. Пока не реализован.", Effect = "discus" },
+                new UpgradeDefinition { Id = "tetra_boiler_fire", Name = "Greek Fire", NameRu = "Греческий огонь", Cost = 4, Description = "Котельная даёт один выстрел Греческим огнём по своему полю.", Effect = "greek_fire" },
+                new UpgradeDefinition { Id = "tetra_boiler_brander", Name = "Brander", NameRu = "Брандер", Cost = 4, Description = "Котельная позволяет один раз за матч призвать Брандер.", Effect = "brander" },
+            }
+        },
+        new ShipDefinition
+        {
+            Id = "famous_diagonal_ship", Name = "Знаменитый диагональный корабль", NameRu = "Знаменитый диагональный корабль",
+            DeckCount = 4, Range = RangeClass.Mid, Cost = 0, IsFree = true, IsHome = true,
+            DeckHpOverrides = new() { 4, 4, 4, 4 }, Speed = 1, Space = 1,
+            Regions = new() { Region.Tetracor }, Factions = new() { Faction.Alliance },
+            Abilities = new() { "diagonal_shape" },
+            Description = "Домашний флагман Альянса с четырьмя палубами по диагонали: Котельная, Мачта, Тетракамнемёт и Баллиста.",
+            DefaultWeapons = new()
+            {
+                new WeaponTemplate { Type = WeaponType.Boiler, DeckIndex = 0 },
+                new WeaponTemplate { Type = WeaponType.Mast, DeckIndex = 1 },
+                new WeaponTemplate { Type = WeaponType.Tetracatapult, Ammo = 1, DeckIndex = 2, AimSpeed = 20 },
+                new WeaponTemplate { Type = WeaponType.Ballista, DeckIndex = 3 },
+            },
+            AvailableUpgrades = new()
+            {
                 new UpgradeDefinition { Id = "tetra_boiler_fire", Name = "Greek Fire", NameRu = "Греческий огонь", Cost = 4, Description = "Котельная даёт один выстрел Греческим огнём по своему полю.", Effect = "greek_fire" },
                 new UpgradeDefinition { Id = "tetra_boiler_brander", Name = "Brander", NameRu = "Брандер", Cost = 4, Description = "Котельная позволяет один раз за матч призвать Брандер.", Effect = "brander" },
             }
@@ -147,6 +172,7 @@ public static class ShipCatalog
             Id = "incendiary_barge", Name = "Incendiary Barge", NameRu = "Горючая баржа",
             DeckCount = 2, Range = RangeClass.Far, Cost = 10,
             DeckHpOverrides = new() { 1, 1 }, Speed = 1, Space = 1, ExplosionRadius = 2, Regions = new() { Region.East },
+            Factions = new() { Faction.Alliance },
             Abilities = new() { "explode_on_hit" },
             Description = "Взрывается при любом уроне, поражая зону радиусом 2; вооружена Горючкой.",
             DefaultWeapons = new()
@@ -159,8 +185,19 @@ public static class ShipCatalog
             Id = "maneuvering_double", Name = "Maneuvering Double", NameRu = "Маневрирующая двойка",
             DeckCount = 2, Range = RangeClass.Mid, Cost = 5,
             DeckHpOverrides = new() { 1, 1 }, Speed = 2, Space = 1, Regions = new() { Region.West },
+            Factions = new() { Faction.Alliance },
             Abilities = new() { "manual_move_after_hit" },
             Description = "После потери палубы один раз может вручную сместиться на 1–2 клетки.",
+            DefaultWeapons = new() { new WeaponTemplate { Type = WeaponType.Ballista } }
+        },
+        new ShipDefinition
+        {
+            Id = "famous_ramming_ship", Name = "Знаменитый Врезающийся корабль", NameRu = "Знаменитый Врезающийся корабль",
+            DeckCount = 2, Range = RangeClass.Mid, Cost = 5,
+            DeckHpOverrides = new() { 1, 1 }, Speed = 2, Space = 1, Regions = new() { Region.West },
+            Factions = new() { Faction.Alliance },
+            Abilities = new() { "manual_move_after_hit", "ramming_maneuver" },
+            Description = "После потери палубы один раз маневрирует на 1–2 клетки, игнорируя Space союзников и уничтожая перекрытую союзную палубу.",
             DefaultWeapons = new() { new WeaponTemplate { Type = WeaponType.Ballista } }
         },
         new ShipDefinition
@@ -168,6 +205,7 @@ public static class ShipCatalog
             Id = "pirates", Name = "Pirates", NameRu = "Пираты",
             DeckCount = 2, Range = RangeClass.Mid, Cost = 4,
             DeckHpOverrides = new() { 2, 2 }, Space = 1, Regions = new() { Region.South },
+            Factions = new() { Faction.Alliance },
             Abilities = new() { "spawn_pirate_boat" },
             Description = "После обычной гибели позволяет выпустить Пиратскую лодку из колонки своей гибели.",
             DefaultWeapons = new() { new WeaponTemplate { Type = WeaponType.Ballista } }
@@ -224,8 +262,26 @@ public static class ShipCatalog
                 ship.Decks[wt.DeckIndex].Module = WeaponModuleName(wt.Type);
         }
 
-        // Assign modules to decks for Tetranavis
-        if (def.Id == "tetranavis")
+        // Every Mid deck carries its own Ballista, including the special decks of both
+        // four-deck flagships. A special module remains the deck's primary visual module.
+        if (def.Range == RangeClass.Mid)
+        {
+            for (var deckIndex = 0; deckIndex < ship.Decks.Count; deckIndex++)
+            {
+                if (ship.Weapons.Any(w => w.Type == WeaponType.Ballista && w.DeckIndex == deckIndex)) continue;
+                ship.Weapons.Add(new Weapon
+                {
+                    Type = WeaponType.Ballista,
+                    ShipId = ship.Id,
+                    DeckIndex = deckIndex,
+                });
+                if (ship.Decks[deckIndex].Module == null)
+                    ship.Decks[deckIndex].Module = "ballista";
+            }
+        }
+
+        // Assign the four special deck modules on both faction flagships.
+        if (def.Id is "tetranavis" or "famous_diagonal_ship")
         {
             if (ship.Decks.Count > 0) ship.Decks[0].Module = "boiler";
             if (ship.Decks.Count > 1) ship.Decks[1].Module = "mast";

@@ -5,14 +5,18 @@ using King_of_the_Garbage_Hill.Battleship.Models;
 namespace King_of_the_Garbage_Hill.Battleship.Logic;
 
 /// <summary>
-/// Validates fleet selection: 40 coin budget, max 3 regions, valid ship/upgrade combos.
+/// Validates fleet selection: faction budget, max 3 regions, valid ship/upgrade combos.
 /// Fleet template: 4x1-deck, 3x2-deck, 2x3-deck, 1x4-deck (10 ships total).
 /// Purchased ships replace defaults of same deck count.
 /// </summary>
 public static class FleetValidator
 {
-    public const int MaxBudget = 40;
+    public const int EmpireBudget = 40;
+    public const int AllianceBudget = 50;
     public const int MaxRegions = 3;
+
+    public static int GetBudget(Faction faction) =>
+        faction == Faction.Alliance ? AllianceBudget : EmpireBudget;
 
     /// <summary>Template: deck-count → number of ships required.</summary>
     public static readonly Dictionary<int, int> Template = new() { { 1, 4 }, { 2, 3 }, { 3, 2 }, { 4, 1 } };
@@ -21,7 +25,9 @@ public static class FleetValidator
     /// Validates purchased ship selections (budget, regions, upgrade combos, deck-count slots).
     /// Purchases are non-free ships only; free defaults are filled by BuildFleetFromSelections.
     /// </summary>
-    public static (bool valid, string error) ValidateFleet(List<FleetSelection> selections)
+    public static (bool valid, string error) ValidateFleet(
+        List<FleetSelection> selections,
+        Faction faction = Faction.Empire)
     {
         if (selections == null) selections = new List<FleetSelection>();
 
@@ -37,6 +43,8 @@ public static class FleetValidator
             var def = ShipCatalog.GetById(sel.DefinitionId);
             if (def == null)
                 return (false, $"Неизвестный корабль: {sel.DefinitionId}");
+            if (!def.Factions.Contains(faction))
+                return (false, $"{def.NameRu ?? def.Name} недоступен для фракции {faction}.");
 
             if (sel.Upgrades?.Count != sel.Upgrades?.Distinct().Count())
                 return (false, $"Апгрейд корабля {def.Name} выбран несколько раз.");
@@ -91,13 +99,14 @@ public static class FleetValidator
                 return (false, $"Слишком много кораблей с {def.DeckCount} палубами.");
         }
 
-        if (totalCost > MaxBudget)
-            return (false, $"Превышен бюджет: {totalCost}/{MaxBudget} монет.");
+        var maxBudget = GetBudget(faction);
+        if (totalCost > maxBudget)
+            return (false, $"Превышен бюджет: {totalCost}/{maxBudget} монет.");
 
         if (regions.Count > MaxRegions)
             return (false, $"Максимум {MaxRegions} региона. Выбрано: {regions.Count}.");
 
-        var defaultIds = new Dictionary<int, string> { { 1, "single" }, { 2, "double" }, { 3, "triple" }, { 4, "tetranavis" } };
+        var defaultIds = DefaultIds(faction);
         foreach (var (deckCount, defaultId) in defaultIds)
         {
             var remainingDefaultSlots = Template[deckCount] - purchasedPerDeck[deckCount];
@@ -111,7 +120,9 @@ public static class FleetValidator
     /// <summary>
     /// Builds full 10-ship fleet from purchases by filling remaining slots with defaults.
     /// </summary>
-    public static List<FleetSelection> BuildFleetFromSelections(List<FleetSelection> purchases)
+    public static List<FleetSelection> BuildFleetFromSelections(
+        List<FleetSelection> purchases,
+        Faction faction = Faction.Empire)
     {
         var result = new List<FleetSelection>();
 
@@ -122,7 +133,7 @@ public static class FleetValidator
         foreach (var sel in purchases ?? new List<FleetSelection>())
         {
             var def = ShipCatalog.GetById(sel.DefinitionId);
-            if (def == null) continue;
+            if (def == null || !def.Factions.Contains(faction)) continue;
             if (def.IsFree)
             {
                 // Each free Triple/Tetranavis slot keeps its own paid upgrades.
@@ -138,7 +149,7 @@ public static class FleetValidator
         }
 
         // Default free ships per deck count
-        var defaults = new Dictionary<int, string> { { 1, "single" }, { 2, "double" }, { 3, "triple" }, { 4, "tetranavis" } };
+        var defaults = DefaultIds(faction);
 
         foreach (var (deckCount, needed) in Template)
         {
@@ -191,8 +202,10 @@ public static class FleetValidator
     /// <summary>
     /// Get the full 10-ship default fleet (all free, no upgrades).
     /// </summary>
-    public static List<FleetSelection> GetDefaultFleet()
+    public static List<FleetSelection> GetDefaultFleet(Faction faction = Faction.Empire)
     {
+        var flagshipId = faction == Faction.Alliance ? "famous_diagonal_ship" : "tetranavis";
+        var flagshipName = ShipCatalog.GetById(flagshipId)?.Name ?? flagshipId;
         return new List<FleetSelection>
         {
             new() { DefinitionId = "single", ShipName = "Single", Cost = 0 },
@@ -204,7 +217,15 @@ public static class FleetValidator
             new() { DefinitionId = "double", ShipName = "Double", Cost = 0 },
             new() { DefinitionId = "triple", ShipName = "Triple", Cost = 0 },
             new() { DefinitionId = "triple", ShipName = "Triple", Cost = 0 },
-            new() { DefinitionId = "tetranavis", ShipName = "Tetranavis", Cost = 0 },
+            new() { DefinitionId = flagshipId, ShipName = flagshipName, Cost = 0 },
         };
     }
+
+    private static Dictionary<int, string> DefaultIds(Faction faction) => new()
+    {
+        { 1, "single" },
+        { 2, "double" },
+        { 3, "triple" },
+        { 4, faction == Faction.Alliance ? "famous_diagonal_ship" : "tetranavis" },
+    };
 }

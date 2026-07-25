@@ -65,10 +65,17 @@ Movers (end-of-round order): Тигр-топ swap → Portal-Gun swap → HardKi
 
 Score sorting restores an active **Черный Замок** to exact place 4 for three action rounds; **Король Сервера** otherwise floors Jon at place 3. Explicit position effects are allowed to break either score-derived placement, and a Castle move away cancels the active hold (`JonSnow.ApplyLeaderboardRules`/`FinalizePositionEffects`). Ziggurat and Storm restoration also veto their otherwise-protective swap when its destination is occupied by unknown_bug, so neither lock can displace it as a bystander (`DoomsdayMachine` restore pipeline).
 
+### Match-ending source
+
+| Mechanic | Trigger | Final-placement interaction |
+|---|---|---|
+| Космический ужас | every eligible player has lost once to the isolated place-7 entity, or two complete consecutive rounds pass without attacking it | ends the current round immediately. A living Вестник receives score equal to current top + 1 and the table is re-sorted before ordinary winner settlement; the all-four-adept safety valve has no Вестник, so its current leader remains first. Sakura's alternate top-three winner is suppressed for this ending (`Cthulhu.HandleEndOfRound`/`ApplyHeraldFinalPlacement`; `CheckIfReady.HandleLastRound`) |
+
 ## 4. Steal / copy / redirect chains
 
 | Mechanic | Direction | Interacts with | Verified behavior |
 |---|---|---|---|
+| Морок | steals 1 immediate bonus point from each enemy defeated by the Вестник | score floor / unknown_bug / Kimiko shutdown | the victim debit floors at 0 and the Вестник still receives nominal +1; unknown_bug is excluded from both sides of the transfer. Disabling the Вестник's passive abilities suppresses the whole Морок result hook (`Cthulhu.HandleResolvedFight`) |
 | Еврей (`HandleJews`, `CP:6739-6817`) | steals fight win point | Октопус ink | ink debits the Jew instead of the attacker (`CP:6839-6856`); Napoleon & fellow Евреи immune victims |
 | PointFunnel (unknown_bug) | copies each resolved win by the selected stream target as +1 regular | Еврей / INT / score redirects / Exploit | source payout is ignored, so Jews and other target-side score transforms cannot suppress or inflate the copy. No second combat outcome is created. If the source loser carried Exploit, its private pot gains +1. Any real unknown_bug win over the carrier also gains one stack, including a defensive win when the carrier attacked; a direct attacking win is observed before commit and never counted twice (`UnknownBug.RecordResolvedFight` / `TryCommitExploit`) |
 | Король Сервера bonus transform | doubles every positive/negative bonus mutation received by Jon | bonus transfers / zero floor / Черный Замок / Впарить говна | only Jon's receiver-side amount becomes royal ×2; a separate source/taker keeps its own nominal mutation unless it is Jon too. The ordinary Jon score floor then applies to the doubled debit. Черный Замок ignores Jon's own victories; its eligible other-ally +1 becomes +2 and emits two King phrases on one line. A Впарить говна win likewise credits +2 and records the actual +2 in `SellerTacticBonusEarned`, so a later Выгодная сделка takes exactly 1 (`InGameStatusClass.AddBonusPointsCore`; `JonSnow.AwardBlackCastleLoyalty`; `CP:2606-2617`) |
@@ -104,6 +111,7 @@ Score sorting restores an active **Черный Замок** to exact place 4 fo
 
 | Interceptor | Effect | Anchor |
 |---|---|---|
+| Морок | directly sets a defeated enemy's Psyche to 0 and caps later positive Add/Set/ForOneFight mutations. This documented exception bypasses `MinusPsycheLog`; unknown_bug and reanimated Madara setter immunities still reject the set, but their mad mark is independent and remains. DeepList's initial mark is status-only | `Cthulhu.HandleResolvedFight`; `CharacterClass.AddPsyche`/`SetPsyche`/`SetPsycheForOneFight` |
 | Булькает (Братишка) | zeroes all moral; blocks all skill gains | CC:1125-1130, 963, 1010 |
 | Геральт (by Name) | gains no moral at all | CC:1132-1134 |
 | BlockMoralGain (cancer, Оковы) | blocks positive moral | CC:1137-1141 |
@@ -143,6 +151,7 @@ Copy rule: random Standalone passive from the **last attacked** enemy, no duplic
 | Gordon's four passives | excluded: all are `Standalone: false`; ARAM excludes Gordon's entire set, and Бензопила explicitly filters all four before presenting choices (`characters.json` Гордон Фримен; `CharactersPull.GetAramPassives`; CP:2790-2793) |
 | Jon Snow's six passives | excluded: all are `Standalone: false`; ARAM excludes Jon's entire set, and Бензопила explicitly filters all six identifiers (`characters.json` Джон Сноу; `CharactersPull.GetAramPassives`; CP Бензопила choice filter) |
 | unknown_bug's four passives | excluded: all are `Standalone: false`, and Бензопила separately rejects `AdminPlayerType`, `AutoWin`, `PointFunnel` and `Exploit`; the secret kit cannot appear on another holder (`UnknownBug.HasSpecialPassive`; `CharacterPassives.cs:2759-2772`) |
+| Морок / Ктулху transform | Морок is `Standalone: false`, so Ziggurat never learns it. The selected adept receives it through an explicit bridge transform instead: its new `Name` is the adept name, so existing name-gated adept hooks and widgets continue to dispatch for the new holder; Осьминожка's ink slot is replaced rather than coexisting (`Cthulhu.InjectMorok`/`ApplyAdeptChoice`; `GameUpdateMess`; `GordonFreeman`; `Geralt`; `CharacterPassives`) |
 
 ## 7. Same-target stacking notes
 

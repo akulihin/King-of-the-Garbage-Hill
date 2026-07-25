@@ -161,7 +161,8 @@ public class ReplayService : IServiceSingleton
 
     public ReplayDataDto BuildReplayData(GameClass game)
     {
-        if (game.PlayersList.Any(UnknownBug.Is))
+        if (game.PlayersList.Any(UnknownBug.Is)
+            || Cthulhu.ExcludeFromReplaysAndStory(game))
             throw new InvalidOperationException("This roster cannot be persisted as a replay.");
 
         var replay = new ReplayDataDto
@@ -323,7 +324,8 @@ public class ReplayService : IServiceSingleton
     {
         return replay?.PlayerSummaries?.Any(player =>
             string.Equals(player.CharacterName, UnknownBug.CharacterName, StringComparison.Ordinal)
-            || string.Equals(player.CharacterName, UnknownBug.LegacyCharacterName, StringComparison.Ordinal)) == true;
+            || string.Equals(player.CharacterName, UnknownBug.LegacyCharacterName, StringComparison.Ordinal)
+            || string.Equals(player.CharacterName, Cthulhu.CharacterName, StringComparison.Ordinal)) == true;
     }
 
     private static List<ReplayRoundPlayerDto> CapturePlayers(

@@ -18,12 +18,15 @@ public class GameStateDto
     public bool IsAramPickPhase { get; set; }
     public bool IsDraftPickPhase { get; set; }
     public List<DraftOptionDto> DraftOptions { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string DraftPickHeading { get; set; }
     public bool IsKratosEvent { get; set; }
     public bool IsRumblingWarningActive { get; set; }
     public int RumblingKillCount { get; set; }
     public bool IsRoundTransitionPaused { get; set; }
     public string TransitionDeadlineUtc { get; set; }
     public int HalfLifeReleaseSerial { get; set; }
+    public int AbyssSerial { get; set; }
     public string GlobalLogs { get; set; }
 
     /// <summary>Full history of all global logs across all rounds.</summary>
@@ -72,6 +75,12 @@ public class PlayerDto
     public bool IsBot { get; set; }
     public bool IsWebPlayer { get; set; }
     public int TeamId { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool IsBoardEntity { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool IsDeepSession { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool DepthsCallPromptActive { get; set; }
 
     /// <summary>Whether this player is another member of the viewing Naruto's initialized trio.</summary>
     public bool IsNarutoAlly { get; set; }
@@ -157,6 +166,8 @@ public class CharacterDto
     public int Strength { get; set; }
     public int Speed { get; set; }
     public int Psyche { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string StatDisplayOverride { get; set; }
 
     // Derived
     public string SkillDisplay { get; set; }
@@ -191,6 +202,8 @@ public class PassiveDto
     public string Name { get; set; }
     public string Description { get; set; }
     public bool Visible { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string Theme { get; set; }
 }
 
 public class PlayerStatusDto

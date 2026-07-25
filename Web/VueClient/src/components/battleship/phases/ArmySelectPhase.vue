@@ -14,7 +14,15 @@ const { tipText, tipVisible, tipPos, showTip, moveTip, hideTip } = useTip()
       <h3 class="card-title bs-title">Выберите армию</h3>
       <div class="army-options">
         <button class="bs-btn bs-btn--primary bs-btn--lg" @click="store.selectArmy('Empire')">Империя</button>
-        <button class="bs-btn bs-btn--lg" disabled @mouseenter="showTip($event, 'Скоро')" @mousemove="moveTip" @mouseleave="hideTip">Альянс (скоро)</button>
+        <button
+          class="bs-btn bs-btn--primary bs-btn--lg"
+          @mouseenter="showTip($event, 'Бюджет 50 монет и уникальные корабли Альянса')"
+          @mousemove="moveTip"
+          @mouseleave="hideTip"
+          @click="store.selectArmy('Alliance')"
+        >
+          Альянс
+        </button>
       </div>
     </div>
 

@@ -12,6 +12,7 @@ import ActionBar from '../ActionBar.vue'
 import VfxCanvas from '../VfxCanvas.vue'
 import ProjectileLayer, { type BattleshipProjectileKind } from '../ProjectileLayer.vue'
 import { renderIcon } from '../battleship-icons'
+import { occupiedCells as occupiedCellPositions } from '../battleship-geometry'
 
 const store = useBattleshipStore()
 const { tipText, tipVisible, tipPos, showTip, moveTip, hideTip } = useTip()
@@ -22,6 +23,13 @@ const myPlayer = computed(() => store.myPlayer)
 const enemyPlayer = computed(() => store.enemyPlayer)
 const myFleet = computed(() => store.myFleet)
 const gameLog = computed(() => store.gameLog)
+const pendingManeuver = computed(() => myPlayer.value?.pendingManeuver ?? null)
+const pendingManeuverShip = computed(() =>
+  myFleet.value.find(ship => ship.id === pendingManeuver.value?.shipId) ?? null)
+const maneuverShipCells = computed(() =>
+  pendingManeuverShip.value ? occupiedCellPositions(pendingManeuverShip.value) : [])
+const maneuverTargetCells = computed(() =>
+  pendingManeuver.value?.options.map(option => ({ row: option.row, col: option.col })) ?? [])
 
 // ── Weapon selection (state lives in the store) ───────────────
 const selectedWeaponShip = computed(() => {
@@ -220,6 +228,7 @@ const enemyHighlight = computed(() => {
 
 // ── Handlers ─────────────────────────────────────────────────
 async function handleEnemyCellClick(row: number, col: number) {
+  if (pendingManeuver.value) return
   if (store.summonDeployMode) {
     const mode = store.summonDeployMode
     const allowed = summonDeployAllowedCells.value.some(cell => cell.row === row && cell.col === col)
@@ -245,6 +254,12 @@ async function handleEnemyCellClick(row: number, col: number) {
 
 async function handleMyBoardCellClick(row: number, col: number) {
   if (!isMyTurn.value || (phase.value !== 'Combat' && phase.value !== 'Boarding')) return
+  if (pendingManeuver.value) {
+    const option = pendingManeuver.value.options.find(value => value.row === row && value.col === col)
+    if (option)
+      await store.manualMove(pendingManeuver.value.shipId, option.direction, option.distance)
+    return
+  }
   if (store.shotDelayActive) return
   if (myPlayer.value?.pendingSummons?.some(p => p.isBoarding)) return
   const cell = store.myBoard?.cells.find(c => c.row === row && c.col === col)
@@ -271,10 +286,6 @@ async function handleWeaponSelect(weaponType: string, shotType: string, weaponId
   await store.selectWeapon(weaponType, shotType, weaponId)
 }
 
-async function handleManualMove(shipId: string, direction: string, distance: number) {
-  await store.manualMove(shipId, direction, distance)
-}
-
 function handleEnemyRightClick(row: number, col: number) {
   store.toggleMarkedCell(row, col)
 }
@@ -293,7 +304,7 @@ const shotResultClass = computed(() => {
     'shot-hit': r.hit && !r.scratched,
     'shot-miss': r.miss && !r.scratched,
     'shot-scratch': r.scratched && !r.miss,
-    'shot-dodge': r.scratched && r.miss,
+    'shot-dodge': r.dodged,
     'shot-sunk': r.shipSunk,
     'shot-burn': r.burned,
     'shot-destroy': r.destroyed && !r.shipSunk,
@@ -455,24 +466,15 @@ function hasTrailType(map: Map<string, string[]>, type: string): boolean {
   return false
 }
 
-function getOccupiedCells(ship: { row: number; col: number; deckCount: number; orientation: string }): [number, number][] {
-  const cells: [number, number][] = []
-  for (let i = 0; i < ship.deckCount; i++) {
-    const r = ship.orientation === 'Vertical' ? ship.row + i : ship.row
-    const c = ship.orientation === 'Horizontal' ? ship.col + i : ship.col
-    cells.push([r, c])
-  }
-  return cells
+function getOccupiedCells(ship: {
+  row: number
+  col: number
+  deckCount: number
+  orientation: string
+  abilities?: string[]
+}): [number, number][] {
+  return occupiedCellPositions(ship).map(cell => [cell.row, cell.col])
 }
-
-// ── Maneuverable ships for ActionBar ─────────────────────────
-const maneuverableShips = computed(() => {
-  if (!isMyTurn.value || !myPlayer.value) return []
-  // ТЗ #21: activation is per ship — each Maneuvering Double moves once
-  return myFleet.value
-    .filter(s => s.abilities.includes('manual_move_after_hit') && !s.isDestroyed && !s.hasManeuvered && s.decks.some(d => d.isDestroyed))
-    .map(s => ({ id: s.id, name: s.name, orientation: s.orientation }))
-})
 
 const cursedBoatSummons = computed(() => {
   return (myPlayer.value?.summons?.filter(s => s.waitingForDirectionChoice) ?? [])
@@ -519,6 +521,7 @@ function projectileKindFor(result: BattleshipShotResult | null): BattleshipProje
 
 function impactTypeFor(result: BattleshipShotResult | null): BattleshipImpactType {
   if (!result) return 'miss'
+  if (result.dodged) return 'scratch'
   if (result.shipSunk) return 'sunk'
   if (result.burned) return 'burn'
   if (result.destroyed) return 'destroy'
@@ -538,8 +541,18 @@ onMounted(() => {
     const sourceShip = myFleet.value.find(ship => ship.id === result?.sourceShipId)
     const sourceCells = sourceShip ? getOccupiedCells(sourceShip) : []
     const sourceIndex = Math.max(0, Math.min(result?.sourceDeckIndex ?? 0, sourceCells.length - 1))
-    const [sourceRow, sourceCol] = sourceCells[sourceIndex] ?? [0, 0]
-    const sourceStage = sourceShip ? myStageRef.value : null
+    const fallback = sourceCells[sourceIndex] ?? [0, 0]
+    const sourceRow = (result?.sourceRow ?? -1) >= 0 ? result!.sourceRow : fallback[0]
+    const sourceCol = (result?.sourceCol ?? -1) >= 0 ? result!.sourceCol : fallback[1]
+    const myId = store.gameState?.myPlayerId
+    const enemyId = enemyPlayer.value?.discordId
+    const sourceStage = result?.sourceBoardPlayerId === myId
+      ? myStageRef.value
+      : result?.sourceBoardPlayerId === enemyId
+        ? enemyStageRef.value
+        : sourceShip
+          ? myStageRef.value
+          : null
 
     return projectileLayerRef.value.fire(
       sourceStage,
@@ -571,7 +584,14 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="phase-content" :class="{ 'catapult-ready': catapultReady }">
+  <div
+    class="phase-content"
+    :class="{ 'catapult-ready': catapultReady && !pendingManeuver, 'maneuver-lock': !!pendingManeuver }"
+  >
+    <div v-if="pendingManeuver" class="bs-banner bs-banner--warning maneuver-banner">
+      Обязательный манёвр: выберите ярко-зелёную клетку для корабля
+      «{{ pendingManeuver.shipName }}».
+    </div>
     <div v-if="firstTurnBanner" class="bs-banner bs-banner--gold first-turn-banner">{{ firstTurnBanner }}</div>
     <div v-if="phase === 'Boarding'" class="bs-banner bs-banner--warning">Абордаж! Близкие корабли идут на таран.</div>
 
@@ -623,7 +643,14 @@ onUnmounted(() => {
     </div>
 
     <!-- Battle Boards -->
-    <div class="combat-layout" :class="{ 'board-shake': store.screenShake, 'boarding-zoom': boardingZoomActive }">
+    <div
+      class="combat-layout"
+      :class="{
+        'board-shake': store.screenShake,
+        'boarding-zoom': boardingZoomActive,
+        'maneuver-focus': !!pendingManeuver,
+      }"
+    >
       <!-- Enemy Board (primary) -->
       <div class="board-section board-enemy" :class="[{ 'board-active': !isMyTurn }, weaponCursorClass]">
         <div class="board-label">
@@ -641,7 +668,7 @@ onUnmounted(() => {
             :is-enemy="true"
             :cell-size="42"
             :shot-type="store.selectedShotType"
-            :clickable="(isMyTurn && !store.shotDelayActive && !boardingPlacementPending && !isGreekFireMode && !hasCapturedShip) || !!store.summonDeployMode"
+            :clickable="!pendingManeuver && ((isMyTurn && !store.shotDelayActive && !boardingPlacementPending && !isGreekFireMode && !hasCapturedShip) || !!store.summonDeployMode)"
             :highlight-cells="enemyHighlight"
             :blocked-rows="activeBlockedRows"
             :animated-cells="store.enemyAnimatedCells"
@@ -691,7 +718,10 @@ onUnmounted(() => {
             :summon-trail-cells="mySummonTrails"
             :ship-name-map="myShipNameMap"
             :range-overlay-cells="myBoardRangeOverlays"
-            :clickable="(hasCapturedShip || hasEnemySummonOnMyBoard || isGreekFireMode) && isMyTurn && !store.shotDelayActive && !boardingPlacementPending"
+            :clickable="!!pendingManeuver || ((hasCapturedShip || hasEnemySummonOnMyBoard || isGreekFireMode) && isMyTurn && !store.shotDelayActive && !boardingPlacementPending)"
+            :maneuver-active="!!pendingManeuver"
+            :maneuver-ship-cells="maneuverShipCells"
+            :maneuver-target-cells="maneuverTargetCells"
             @cell-click="handleMyBoardCellClick"
             @tip-show="showTip" @tip-move="moveTip" @tip-hide="hideTip"
           />
@@ -739,13 +769,12 @@ onUnmounted(() => {
 
     <!-- Action Bar -->
     <ActionBar
-      :maneuverable-ships="maneuverableShips"
+      :maneuverable-ships="[]"
       :cursed-boat-summons="cursedBoatSummons"
       :shot-result="store.lastShotResult"
       :shot-result-class="shotResultClass"
       :is-my-turn="isMyTurn"
       :can-pass-boarding="myPlayer?.canPassBoarding ?? false"
-      @manual-move="handleManualMove"
       @set-cursed-direction="(id: string, dir: string) => store.setCursedBoatDirection(id, dir)"
       @pass-boarding="store.passBoardingTurn()"
     />
@@ -761,6 +790,36 @@ onUnmounted(() => {
 
 <style scoped>
 .phase-content { margin-top: 0.5rem; }
+
+.maneuver-banner {
+  position: sticky;
+  top: 8px;
+  z-index: 40;
+  margin-bottom: 0.65rem;
+  border: 2px solid #86efac;
+  box-shadow: 0 0 24px rgba(34, 197, 94, 0.45);
+  text-align: center;
+  font-weight: 900;
+}
+.maneuver-lock > :not(.combat-layout):not(.maneuver-banner):not(.pc-tooltip) {
+  filter: grayscale(1) brightness(0.48);
+  opacity: 0.5;
+  pointer-events: none;
+}
+.maneuver-focus .board-enemy {
+  filter: grayscale(1) brightness(0.42);
+  opacity: 0.44;
+  pointer-events: none;
+}
+.maneuver-focus .board-mine {
+  position: relative;
+  z-index: 4;
+  padding: 0.55rem;
+  border: 2px solid #facc15;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--bg-primary) 92%, #facc15);
+  box-shadow: 0 0 26px rgba(250, 204, 21, 0.34);
+}
 
 .catapult-ready::before {
   content: '';

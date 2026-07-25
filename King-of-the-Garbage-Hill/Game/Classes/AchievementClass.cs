@@ -123,6 +123,7 @@ public class InGameAchievementTracker
     public int WeedHarvested { get; set; }
     public bool YoungGlebPinkWardUsed { get; set; }
     public bool TransformedFromMylorik { get; set; }
+    public bool TransformedFromCthulhu { get; set; }
     public HashSet<Guid> KratosEventVictimIds { get; set; } = new();
     public int GeraltContractFightsResolved { get; set; }
     public Dictionary<Guid, int> GeraltContractFightsRemaining { get; set; } = new();
@@ -832,8 +833,11 @@ public static class AchievementService
         var rewardWin = rewardPlace == 1 && alive;
         var isYoungGleb = (characterName is "Глеб" or "Молодой Глеб")
             && player.GameCharacter.Passive.Any(passive => passive.PassiveName == "Main Ирелия");
-        var isMylorik = characterName == "mylorik" || tracker.TransformedFromMylorik;
-        var isNativeShark = characterName == "Братишка" && !tracker.TransformedFromMylorik;
+        var isMylorik = (characterName == "mylorik" || tracker.TransformedFromMylorik)
+                        && !tracker.TransformedFromCthulhu;
+        var isNativeShark = characterName == "Братишка"
+                            && !tracker.TransformedFromMylorik
+                            && !tracker.TransformedFromCthulhu;
 
         // Вечное Цукуеми projects a different final result to every non-Madara viewer. Evaluating
         // real-result achievements here would leak or contradict that private ending, so V2 is
@@ -1031,7 +1035,7 @@ public static class AchievementService
                 alive && actualPlace == 1 && carryAlive && carryPlace == 2 ? 1 : 0);
         }
 
-        if (characterName == "Осьминожка")
+        if (characterName == "Осьминожка" && !tracker.TransformedFromCthulhu)
         {
             var visitedPlaces = player.Passives.OctopusTentaclesList.LeaderboardPlace.Distinct().Count();
             SetBestProgress(account, "c_octopus_tour", visitedPlaces);
@@ -1161,7 +1165,7 @@ public static class AchievementService
             SetBestProgress(account, "c_vampyr_feast", activeBites, alive);
         }
 
-        if (characterName == "Краборак")
+        if (characterName == "Краборак" && !tracker.TransformedFromCthulhu)
         {
             var shellFriends = player.Passives.CraboRackShell.FriendList.Distinct().Count();
             SetBestProgress(account, "c_crab_shell", shellFriends);

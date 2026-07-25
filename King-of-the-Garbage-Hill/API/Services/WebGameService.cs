@@ -362,6 +362,7 @@ public class WebGameService
                                               forcedCharacterName,
                                               StringComparison.Ordinal);
             if (UnknownBug.Is(originalCharacter)
+                || Cthulhu.Is(originalCharacter)
                 || botToReplace.IsLootBoxCharacterReward
                 || forcedCharacterAssigned)
             {
@@ -396,17 +397,26 @@ public class WebGameService
         }
         else
         {
-            // No draft: run initialization immediately (original flow)
-            playersList = _characterPassives.HandleEventsBeforeFirstRound(playersList);
-            game.PlayersList = playersList;
-            game.ExploitPlayersList = playersList
-                .Where(player => !UnknownBug.Is(player) && !player.Passives.IsDead).ToList();
-            for (var i = 0; i < playersList.Count; i++)
-                playersList[i].Status.SetPlaceAtLeaderBoard(i + 1);
+            if (Cthulhu.RequiresPreGameStage(playersList))
+            {
+                game.IsDraftPickPhase = true;
+                foreach (var player in playersList)
+                    player.Status.IsDraftPickConfirmed = true;
+            }
+            else
+            {
+                // No draft: run initialization immediately (original flow)
+                playersList = _characterPassives.HandleEventsBeforeFirstRound(playersList);
+                game.PlayersList = playersList;
+                game.ExploitPlayersList = playersList
+                    .Where(player => !UnknownBug.Is(player) && !player.Passives.IsDead).ToList();
+                for (var i = 0; i < playersList.Count; i++)
+                    playersList[i].Status.SetPlaceAtLeaderBoard(i + 1);
 
-            game.RollExploit();
-            await _characterPassives.HandleNextRound(game);
-            _characterPassives.HandleBotPredict(game);
+                game.RollExploit();
+                await _characterPassives.HandleNextRound(game);
+                _characterPassives.HandleBotPredict(game);
+            }
 
             game.IsCheckIfReady = true;
             Console.WriteLine($"[WebAPI] Web game {gameId} created by {creatorUsername} ({creatorId})");
@@ -483,6 +493,14 @@ public class WebGameService
 
             var selected = options.Find(c => c.Name == characterName);
             if (selected == null) return Task.FromResult((false, "Character not in your draft options"));
+            if (game.CthulhuState.AdeptStageActive && Cthulhu.IsUntransformed(player))
+            {
+                var herald = Cthulhu.ApplyAdeptChoice(
+                    game, player, selected.Name, _userAccounts, _charactersPull);
+                return Task.FromResult(herald != null
+                    ? (true, (string)null)
+                    : (false, "Adept choice is no longer available"));
+            }
             if (UnknownBug.Is(selected))
                 return Task.FromResult((false, "Character is not available as a draft choice"));
 
@@ -554,6 +572,20 @@ public class WebGameService
 
             game.PlayersList[idx] = newBridge;
             return Task.FromResult((true, (string)null));
+        }
+    }
+
+    public (bool success, string error) DepthsCallChoice(
+        ulong gameId, ulong discordId, bool agree)
+    {
+        var (game, player) = FindGameAndPlayer(gameId, discordId);
+        if (game == null) return (false, "Game not found");
+        if (player == null) return (false, "Player not in this game");
+        lock (game)
+        {
+            return Cthulhu.SubmitDepthsAnswer(game, player, agree)
+                ? (true, null)
+                : (false, "No pending depths call choice");
         }
     }
 
@@ -739,6 +771,7 @@ public class WebGameService
         player.Status.IsReady = false;
         player.Status.IsBlock = false;
         player.Status.WhoToAttackThisTurn = new List<Guid>();
+        Cthulhu.ClearPendingNechtoAttack(game, player);
 
         if (player.Status.ChangeMindWhat.Contains("Вы использовали Авто Ход"))
         {

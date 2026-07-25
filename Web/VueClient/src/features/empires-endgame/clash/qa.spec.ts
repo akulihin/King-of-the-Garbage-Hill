@@ -30,4 +30,21 @@ describe('Clash headless QA', () => {
     expect(right).toEqual(left)
     expect(digestClashQaResult(right)).toBe(digestClashQaResult(left))
   })
+
+  it('keeps QA-only activatables inside the immutable plan and exercises them', () => {
+    const rules = config()
+    const plan = createClashQaPlan(rules, 'qa-activatables')
+    expect(plan.units.find(unit => unit.id === 'shield-bearer')?.abilities)
+      .toEqual([expect.objectContaining({ id: 'qa-ignite', target: 'enemy' })])
+    expect(plan.units.find(unit => unit.id === 'legionary')?.abilities)
+      .toEqual([expect.objectContaining({ id: 'qa-morale', kind: 'morale' })])
+    expect(rules.roster.find(unit => unit.id === 'shield-bearer')?.abilities).toEqual([])
+    expect(rules.roster.find(unit => unit.id === 'legionary')?.abilities).toEqual([])
+
+    const result = resolveClashWithPolicy(plan, 'qa-activatables', 'balanced')
+    expect(result.turnLog.some(command => command.kind === 'activate')).toBe(true)
+    expect(result.turnLog.some(command => (
+      command.kind === 'activate' && command.abilityId === 'qa-ignite'
+    ))).toBe(true)
+  })
 })

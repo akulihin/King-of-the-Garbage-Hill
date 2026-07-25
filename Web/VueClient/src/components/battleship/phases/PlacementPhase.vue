@@ -5,6 +5,7 @@ import type { BattleshipShip } from 'src/services/signalr'
 import { useTip } from 'src/composables/useTip'
 import BoardGrid from '../BoardGrid.vue'
 import BsIcon from '../BsIcon.vue'
+import { anchorForDeck, occupiedCells } from '../battleship-geometry'
 
 const store = useBattleshipStore()
 const { tipText, tipVisible, tipPos, showTip, moveTip, hideTip } = useTip()
@@ -24,10 +25,10 @@ const previewAnchor = computed(() => {
   if (!placementHoverCell.value) return null
   const orientation = store.placementOrientation
   const offset = dragState.value?.deckOffset ?? 0
-  return {
-    row: placementHoverCell.value.row - (orientation === 'Vertical' ? offset : 0),
-    col: placementHoverCell.value.col - (orientation === 'Horizontal' ? offset : 0),
-  }
+  const selected = myFleet.value.find(ship => ship.id === (dragState.value?.shipId ?? store.selectedShipId))
+  return selected
+    ? anchorForDeck(selected, placementHoverCell.value, orientation, offset)
+    : placementHoverCell.value
 })
 
 const zoneHighlightRows = computed<number[]>(() => {
@@ -44,13 +45,8 @@ const placementHighlight = computed(() => {
   if (!ship) return []
   const { row, col } = previewAnchor.value
   const orientation = store.placementOrientation
-  const cells: { row: number; col: number; valid: boolean }[] = []
-  for (let i = 0; i < ship.deckCount; i++) {
-    const r = orientation === 'Vertical' ? row + i : row
-    const c = orientation === 'Horizontal' ? col + i : col
-    cells.push({ row: r, col: c, valid: r >= 0 && r < 10 && c >= 0 && c < 10 })
-  }
-  return cells.filter(c => c.row >= 0 && c.row < 10 && c.col >= 0 && c.col < 10)
+  return occupiedCells({ ...ship, row, col, orientation })
+    .filter(cell => cell.row >= 0 && cell.row < 10 && cell.col >= 0 && cell.col < 10)
 })
 
 const placementSpaceHighlight = computed(() => {
@@ -60,16 +56,10 @@ const placementSpaceHighlight = computed(() => {
   const space = ship.space ?? 1
   const { row, col } = previewAnchor.value
   const orientation = store.placementOrientation
-  const shipCells = new Set<string>()
-  for (let i = 0; i < ship.deckCount; i++) {
-    const r = orientation === 'Vertical' ? row + i : row
-    const c = orientation === 'Horizontal' ? col + i : col
-    shipCells.add(`${r},${c}`)
-  }
+  const previewCells = occupiedCells({ ...ship, row, col, orientation })
+  const shipCells = new Set(previewCells.map(cell => `${cell.row},${cell.col}`))
   const zoneCells = new Set<string>()
-  for (let i = 0; i < ship.deckCount; i++) {
-    const dr = orientation === 'Vertical' ? row + i : row
-    const dc = orientation === 'Horizontal' ? col + i : col
+  for (const { row: dr, col: dc } of previewCells) {
     for (let sr = -space; sr <= space; sr++) {
       for (let sc = -space; sc <= space; sc++) {
         const r = dr + sr
@@ -89,13 +79,6 @@ const placementSpaceHighlight = computed(() => {
 
 type ZoneType = 'freeze' | 'poison' | 'explosion'
 type PlacementPose = Pick<BattleshipShip, 'row' | 'col' | 'orientation' | 'deckCount' | 'space' | 'explosionRadius' | 'abilities'>
-
-function occupiedCells(ship: PlacementPose): { row: number; col: number }[] {
-  return Array.from({ length: ship.deckCount }, (_, i) => ({
-    row: ship.orientation === 'Vertical' ? ship.row + i : ship.row,
-    col: ship.orientation === 'Horizontal' ? ship.col + i : ship.col,
-  }))
-}
 
 function squareZone(ship: PlacementPose, radius: number): { row: number; col: number }[] {
   const cells = new Map<string, { row: number; col: number }>()
@@ -248,7 +231,12 @@ onBeforeUnmount(() => window.removeEventListener('pointerup', cancelDrag))
         <h4 class="section-label">Расстановка кораблей</h4>
         <button class="bs-btn bs-btn--sm orientation-btn" @click="store.toggleOrientation()">
           <BsIcon icon="rotate" :size="13" />
-          Повернуть ({{ store.placementOrientation === 'Horizontal' ? 'горизонт.' : 'вертик.' }})
+          Повернуть
+          ({{
+            myFleet.find(s => s.id === store.selectedShipId)?.abilities.includes('diagonal_shape')
+              ? (store.placementOrientation === 'Horizontal' ? 'диаг. ↘' : 'диаг. ↙')
+              : (store.placementOrientation === 'Horizontal' ? 'горизонт.' : 'вертик.')
+          }})
         </button>
 
         <div class="ship-list">

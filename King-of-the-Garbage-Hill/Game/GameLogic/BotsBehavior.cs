@@ -1010,6 +1010,7 @@ public class BotsBehavior : IServiceSingleton
             // Round-10 event targets are explicit designer-scripted exceptions at every AI level.
             // Monster has roster-wide priority; only a roster without Monster falls through to Eren.
             if (await TryForceRoundTenBossAttack(bot, game, allTargets)) return;
+            if (await TryForceNechtoAttack(bot, game)) return;
 
             // L0 (Dumb): pure-random attack/block, respecting real cannot-block / cannot-attack rules.
             if (Dumb(bot, game))
@@ -4632,8 +4633,11 @@ public class BotsBehavior : IServiceSingleton
                 if (player.GameCharacter.GetIntelligence() < 10) options.Add(1);
                 if (player.GameCharacter.GetStrength() < 10) options.Add(2);
                 if (player.GameCharacter.GetSpeed() < 10) options.Add(3);
-                if (player.GameCharacter.GetPsyche() < 10) options.Add(4);
-                var pick = options.Count > 0 ? options[_rand.Random(0, options.Count - 1)] : 4;
+                if (player.GameCharacter.GetPsyche() < 10
+                    && !Cthulhu.IsHerald(game, player)) options.Add(4);
+                var pick = options.Count > 0
+                    ? options[_rand.Random(0, options.Count - 1)]
+                    : Cthulhu.IsHerald(game, player) ? 1 : 4;
                 var pointsBefore = player.Status.LvlUpPoints;
                 await _gameReaction.HandleLvlUp(player, null, pick);
                 if (player.Status.LvlUpPoints == pointsBefore) break; // unspendable point (M50) — bank it, don't spin
@@ -4659,25 +4663,21 @@ public class BotsBehavior : IServiceSingleton
                 new(3, speed),
                 new(4, psyche)
             };
+            if (Cthulhu.IsHerald(game, player))
+                stats.RemoveAll(stat => stat.StatIndex == 4);
 
             stats = stats.OrderByDescending(x => x.StatCount).ToList();
 
-            if (stats.First().StatCount < 10)
-                skillNumber = stats.First().StatIndex;
-            else if (stats[1].StatCount < 10)
-                skillNumber = stats[1].StatIndex;
-            else if (stats[2].StatCount < 10)
-                skillNumber = stats[2].StatIndex;
-            else if (stats[3].StatCount < 10)
-                skillNumber = stats[3].StatIndex;
-            else
-                skillNumber = 4;
+            skillNumber = stats.FirstOrDefault(stat => stat.StatCount < 10)?.StatIndex
+                          ?? (Cthulhu.IsHerald(game, player) ? 1 : 4);
 
             // L2-11: keep a minimum Psyche before over-stacking one offensive stat — a broken Psyche pool
             // costs −20% Мораль and low Psyche invites tilt/skip passives + loses the ±psyche fight term.
             // Only nudges the generic pick (the per-character builds below still win) and only once the
             // top stat is already tall, so it doesn't slow a character's core stat race.
-            if (Smart(player, game) && psyche < SmartPsycheFloor && stats.First().StatCount >= 8)
+            if (Smart(player, game) && !Cthulhu.IsHerald(game, player)
+                                    && psyche < SmartPsycheFloor
+                                    && stats.First().StatCount >= 8)
                 skillNumber = 4;
 
             //game.RoundNo is 3 or 5 or 7 or 9
@@ -5046,6 +5046,18 @@ public class BotsBehavior : IServiceSingleton
                 await AttackPlayer(bot, secondTarget.PlaceAtLeaderBoard());
         }
 
+        return true;
+    }
+
+    private async Task<bool> TryForceNechtoAttack(
+        GamePlayerBridgeClass bot,
+        GameClass game)
+    {
+        if (!Cthulhu.IsNechtoActive(game) || game.RoundNo > 10)
+            return false;
+        if (!await AttackPlayer(bot, Cthulhu.NechtoPlace))
+            return false;
+        bot.ConsecutiveBotBlocks = 0;
         return true;
     }
 }

@@ -10,6 +10,7 @@ using King_of_the_Garbage_Hill.DiscordFramework;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.Characters;
 using King_of_the_Garbage_Hill.Game.DiscordMessages;
+using King_of_the_Garbage_Hill.Game.MemoryStorage;
 using King_of_the_Garbage_Hill.Game.ReactionHandling;
 using King_of_the_Garbage_Hill.Game.Services;
 using King_of_the_Garbage_Hill.Helpers;
@@ -31,6 +32,8 @@ public class CheckIfReady : IServiceSingleton
     private readonly DoomsdayMachine _round;
     private readonly GameUpdateMess _upd;
     private readonly DiscordWidgetService _widgetService;
+    private readonly CharactersPull _charactersPull;
+    private readonly SecureRandom _secureRandom;
 
 
     private int _finishedGames;
@@ -40,7 +43,7 @@ public class CheckIfReady : IServiceSingleton
     public CheckIfReady(Global global, GameUpdateMess upd, DoomsdayMachine round,
         GameUpdateMess gameUpdateMess, BotsBehavior botsBehavior, LoginFromConsole logs, UserAccounts accounts,
         HelperFunctions help, GameReaction gameReaction, CharacterPassives characterPassives,
-        DiscordWidgetService widgetService)
+        DiscordWidgetService widgetService, CharactersPull charactersPull, SecureRandom secureRandom)
     {
         _global = global;
         _upd = upd;
@@ -53,6 +56,8 @@ public class CheckIfReady : IServiceSingleton
         _gameReaction = gameReaction;
         _characterPassives = characterPassives;
         _widgetService = widgetService;
+        _charactersPull = charactersPull;
+        _secureRandom = secureRandom;
         CheckTimer();
     }
 
@@ -562,12 +567,15 @@ public class CheckIfReady : IServiceSingleton
             game.AddGlobalLogs($"Гоблины построили Зиккурат на вершине! {goblinZigWinner.DiscordUsername} побеждает!");
         }
 
+        Cthulhu.ApplyHeraldFinalPlacement(game);
         JonSnow.HandleFinalPosition(game);
 
         // Одна из трех: solo-only and only across an uncontested top-three cutoff. If a fourth
         // living player has Sakura's score, she did not earn a complete top-three place.
-        var top3Player = game.PlayersList.FirstOrDefault(x =>
-            Sakura.HasUncontestedSoloTopThree(game, x));
+        var top3Player = game.CthulhuState.HorrorFired
+            ? null
+            : game.PlayersList.FirstOrDefault(x =>
+                Sakura.HasUncontestedSoloTopThree(game, x));
         if (top3Player != null)
         {
             var oneOfThree = top3Player.GameCharacter.Passive.Find(x => x.PassiveName == Sakura.OneOfThree);
@@ -1211,15 +1219,38 @@ public class CheckIfReady : IServiceSingleton
                 {
                     // Defensive live-upgrade guard: a naturally rolled private character is
                     // already the final assignment, never a draft choice that may be declined.
-                    foreach (var lockedPlayer in game.PlayersList.Where(UnknownBug.Is))
+                    foreach (var lockedPlayer in game.PlayersList.Where(player =>
+                                 UnknownBug.Is(player)
+                                 || (Cthulhu.IsUntransformed(player)
+                                     && !game.DraftOptions.ContainsKey(player.GetPlayerId()))))
                     {
                         lockedPlayer.Status.IsDraftPickConfirmed = true;
                         lockedPlayer.Status.MoveListPage = 6;
                         game.DraftOptions.Remove(lockedPlayer.GetPlayerId());
                     }
 
+                    Cthulhu.EnsureBotAdeptAutoPick(
+                        game, _charactersPull, _secureRandom, _accounts);
                     if (game.PlayersList.All(x => x.Status.IsDraftPickConfirmed))
                     {
+                        if (Cthulhu.TryBeginAdeptStage(game, _charactersPull))
+                        {
+                            foreach (var player in game.PlayersList.Where(p => p.PlayerType != 404))
+                                await _upd.UpdateMessage(player);
+                            continue;
+                        }
+
+                        if (Cthulhu.TryBeginDepthsCallStage(game))
+                        {
+                            foreach (var player in game.PlayersList.Where(p => p.PlayerType != 404))
+                                await _upd.UpdateMessage(player);
+                            continue;
+                        }
+
+                        if (game.CthulhuState.DepthsCallStageActive
+                            && !game.CthulhuState.DepthsCallResolved)
+                            continue;
+
                         game.IsDraftPickPhase = false;
                         game.DraftOptions.Clear();
 

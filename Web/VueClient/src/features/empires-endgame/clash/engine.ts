@@ -70,6 +70,21 @@ export function createClashRulesIdentity(
   }
 }
 
+function clashConfigComponentCount(config: EmpiresClashConfig): number {
+  return config.fieldVariants.length
+    + config.statuses.length
+    + config.terrain.length
+    + config.regions.length
+    + config.roster.length
+    + config.assaultRoutes.length
+    + config.deferredSubfeatures.length
+    + config.fieldVariants.reduce((total, field) => total + field.terrainCellIds.length, 0)
+    + config.roster.reduce(
+      (total, unit) => total + unit.passives.length + unit.abilities.length,
+      0,
+    )
+}
+
 export function validateClashConfig(config: EmpiresClashConfig): string[] {
   const errors: string[] = []
   if (typeof config.enabled !== 'boolean') errors.push('enabled must be boolean')
@@ -84,6 +99,9 @@ export function validateClashConfig(config: EmpiresClashConfig): string[] {
   }
   if (config.maxCommands > EMPIRES_STABILIZATION_BUDGETS.maxCommands) {
     errors.push('maxCommands exceeds the shipped safety ceiling')
+  }
+  if (clashConfigComponentCount(config) > EMPIRES_STABILIZATION_BUDGETS.maxPlanItems) {
+    errors.push('config aggregate component count exceeds the shipped safety ceiling')
   }
   if (!['attacker', 'defender'].includes(config.placementFirstSide)) {
     errors.push('placementFirstSide is invalid')
@@ -357,6 +375,19 @@ export function validateClashPlan(plan: ClashPlan): string[] {
     || plan.terrain.length > EMPIRES_STABILIZATION_BUDGETS.maxPlanItems
     || plan.roster.length > EMPIRES_STABILIZATION_BUDGETS.maxRosterUnitInstances) {
     errors.push('plan component or actor count exceeds the shipped safety ceiling')
+  }
+  const nestedUnitComponentCount = (plan.units as unknown[]).reduce((total, rawUnit) => (
+    total + (isRecord(rawUnit) && Array.isArray(rawUnit.passives) ? rawUnit.passives.length : 0)
+      + (isRecord(rawUnit) && Array.isArray(rawUnit.abilities) ? rawUnit.abilities.length : 0)
+  ), 0)
+  const aggregateComponentCount = 2
+    + plan.units.length
+    + plan.statuses.length
+    + plan.terrain.length
+    + plan.field.terrainCellIds.length
+    + nestedUnitComponentCount
+  if (aggregateComponentCount > EMPIRES_STABILIZATION_BUDGETS.maxPlanItems) {
+    errors.push('plan aggregate component count exceeds the shipped safety ceiling')
   }
   if (plan.field.deferredReason !== undefined) {
     if (nonEmptyString(plan.field.deferredReason)) errors.push(`plan field ${plan.field.id} is deferred`)
@@ -1541,7 +1572,10 @@ function applyAbilityEffect(
   } else if (ability.kind === 'cleanse') {
     for (const target of targets) target.statuses = []
   } else if (ability.kind === 'morale') {
-    const side = command.targetSide ?? source.side
+    const side = ability.target === 'enemy' || ability.target === 'all-enemies'
+      ? opposite(source.side)
+      : source.side
+    if (command.targetSide !== undefined && command.targetSide !== side) return false
     state.morale[side] = Math.max(plan.morale.minimum, Math.min(
       plan.morale.maximum,
       state.morale[side] + (ability.value ?? 0),
@@ -1572,6 +1606,7 @@ function applyAbilityEffect(
       dealDamage(plan, state, definitions, null, source, 1, { bypassesShields: true })
     }
   } else if (ability.kind === 'spawn' && ability.spawnUnitId) {
+    if ((command.targetSide ?? source.side) !== source.side) return false
     const cell = findCell(
       state,
       command.targetSide ?? source.side,

@@ -185,6 +185,61 @@ import type {
   CombatWeaponProfile,
 } from './combat/types'
 
+type LegacyBundledMinigameKind = Exclude<EmpiresMinigameSession['kind'], 'chess'>
+
+/**
+ * Immutable rules identities at the two bundled config boundaries immediately
+ * before Chess. Schema v17 was emitted by commit 69230b07; schema v18 is that
+ * exact artifact after the Phase-14 v17 -> v18 migration. These cannot be
+ * reconstructed by deleting newer config sections because later bundled
+ * catalog edits alter the settlement projection shared by every minigame.
+ */
+const AUTHENTIC_BUNDLED_LEGACY_RULES_DIGESTS: Readonly<Record<
+  17 | 18,
+  Readonly<Partial<Record<LegacyBundledMinigameKind, string>>>
+>> = {
+  17: {
+    td: '9d06db5f8e787590',
+    tavern: 'bda17289c466fd64',
+    alchemy: '811cbf29fbff5088',
+    inventory: '7072b88e10cf43d4',
+  },
+  18: {
+    td: 'b90b7e94b057fb65',
+    tavern: '2871f17de5462196',
+    alchemy: 'ea7d4b6ba97401c4',
+    inventory: '93f9d6bb12721fdb',
+    clash: 'd8a3fdd15b5e8ab8',
+  },
+}
+
+/**
+ * The accepted successor is pinned as well as the legacy input. This prevents
+ * an authentic bundled save from being silently rebound to a custom config
+ * that happens to retain the bundled ID.
+ */
+const AUTHENTIC_BUNDLED_CURRENT_RULES_DIGESTS: Readonly<
+  Record<LegacyBundledMinigameKind, string>
+> = {
+  td: '568db9aff067c217',
+  tavern: 'c809dbe4efb8267e',
+  alchemy: '732dd9c02d8f349b',
+  inventory: '6c25d4369350c468',
+  clash: '521030aa5b858e36',
+}
+
+function isAuthenticBundledLegacyRulesUpgrade(
+  kind: LegacyBundledMinigameKind,
+  legacy: { configSchemaVersion: number; rulesDigest: string },
+  current: { configSchemaVersion: number; rulesDigest: string },
+): boolean {
+  if (legacy.configSchemaVersion !== 17 && legacy.configSchemaVersion !== 18) return false
+  return AUTHENTIC_BUNDLED_LEGACY_RULES_DIGESTS[legacy.configSchemaVersion][kind]
+      === legacy.rulesDigest
+    && current.configSchemaVersion === 19
+    && AUTHENTIC_BUNDLED_CURRENT_RULES_DIGESTS[kind] === current.rulesDigest
+}
+
 const EFFECT_KINDS = [
   'resource',
   'resourceMultiplier',
@@ -7134,7 +7189,12 @@ export class EmpiresEndgameEngine {
     if (session.kind !== 'clash' && session.kind !== 'chess'
       && session.rulesIdentity?.configSchemaVersion === 17) {
       const legacyRules = this.legacyV17RulesIdentity(session.kind)
-      if (session.rulesIdentity.rulesDigest === legacyRules.rulesDigest) {
+      if (session.rulesIdentity.rulesDigest === legacyRules.rulesDigest
+        || isAuthenticBundledLegacyRulesUpgrade(
+          session.kind,
+          session.rulesIdentity,
+          expectedRules,
+        )) {
         session.rulesIdentity = cloneSerializable(expectedRules)
         session.plan.rulesIdentity = cloneSerializable(expectedRules)
       }
@@ -7142,7 +7202,12 @@ export class EmpiresEndgameEngine {
     if (session.kind !== 'chess'
       && session.rulesIdentity?.configSchemaVersion === 18) {
       const legacyRules = this.legacyV18RulesIdentity(session.kind)
-      if (session.rulesIdentity.rulesDigest === legacyRules.rulesDigest) {
+      if (session.rulesIdentity.rulesDigest === legacyRules.rulesDigest
+        || isAuthenticBundledLegacyRulesUpgrade(
+          session.kind,
+          session.rulesIdentity,
+          expectedRules,
+        )) {
         session.rulesIdentity = cloneSerializable(expectedRules)
         session.plan.rulesIdentity = cloneSerializable(expectedRules)
       }

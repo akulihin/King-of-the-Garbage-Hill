@@ -66,6 +66,7 @@ import type {
   LastChancesAttackBehavior,
   LastChancesAttackSetControlDefinition,
   LastChancesAugment,
+  LastChancesColliderDefinition,
   LastChancesConfig,
   LastChancesControlContext,
   LastChancesControlRoleSnapshot,
@@ -324,6 +325,24 @@ interface RuntimeDash {
   landingBurst: boolean
   trailAccumulatorMs: number
   elapsedMs: number
+  /**
+   * «Прорыв» only. A breakthrough is *held*, not charged: it is time-budgeted instead of
+   * distance-budgeted, steers with the cursor, ramps its speed and coasts to a stop when the
+   * button comes up. Every other dash leaves this undefined and keeps the constant-speed path.
+   */
+  ram?: RuntimeBreakthrough
+}
+
+interface RuntimeBreakthrough {
+  runMs: number
+  /** Elapsed stamp of the release (or of the cap/exhaustion that stood in for one). */
+  releasedAtMs: number | null
+  speed: number
+  staminaAccumulatorMs: number
+  /** Kept apart from the dash's shared trail timer so an augment's trail cannot starve it. */
+  streakAccumulatorMs: number
+  /** Highest speed tier already announced, so each escalation cue fires exactly once. */
+  tierCued: number
 }
 
 interface RuntimeActiveArea {
@@ -508,6 +527,29 @@ const PLAYER_PARRY_BEHAVIORS = new Set<LastChancesAttackBehavior>([
   'katanaParry',
 ])
 const EPSILON = 0.000001
+/** Below this speed a coasting «Прорыв» is treated as stopped. */
+const BREAKTHROUGH_STOP_SPEED = 8
+
+/**
+ * Двуручное копьё v2 keeps the замах and the overhead spin of the original lance, so both
+ * spear generations have to answer the shared release/spin rules — projectile carry, wall
+ * pinning, the spin's fog suppression, headshot bonus and continuation context.
+ */
+function isSpearReleaseBehavior(behavior: LastChancesAttackBehavior | undefined): boolean {
+  return behavior === 'spearRelease' || behavior === 'spearReleaseV2'
+}
+
+function isSpearSpinBehavior(behavior: LastChancesAttackBehavior | undefined): boolean {
+  return behavior === 'spearSpin' || behavior === 'spearOverheadSpin'
+}
+
+/**
+ * v2 is identified by the behavior of its tap rather than by `trait` or `id`, because both
+ * hands of a two-handed weapon share those and the reworked rules are primary-hand only.
+ */
+function isSpearV2Primary(weapon: LastChancesResolvedWeapon | undefined | null): boolean {
+  return weapon?.attacks.tap.behavior === 'spearHunt'
+}
 
 function clamp(value: number, minimum: number, maximum: number): number {
   return Math.max(minimum, Math.min(maximum, value))
@@ -674,6 +716,15 @@ export class LastChancesEngine {
     left: { step: 0, expiresAtMs: 0 },
     right: { step: 0, expiresAtMs: 0 },
   }
+  /**
+   * Двуручное копьё v2: a landed «Прокол» opens a fixed window in which every tap re-fires the
+   * thrust instead of walking the tap chain. The window is stamped once and never extended, so
+   * the ceiling on a single burst is mashing speed against stamina, not endurance.
+   */
+  private readonly pierceMash: Record<LastChancesHand, { expiresAtMs: number; hits: number }> = {
+    left: { expiresAtMs: 0, hits: 0 },
+    right: { expiresAtMs: 0, hits: 0 },
+  }
   private readonly gamepadButtons: Record<LastChancesHand, boolean> = { left: false, right: false }
   /** Hand and elapsed stamp of the last action that actually executed, for the stamina refunds. */
   private lastAttackHand: LastChancesHand | null = null
@@ -772,13 +823,30 @@ export class LastChancesEngine {
   private pointerAim: LastChancesVector = { x: 1, y: 0 }
   private pointerClientX: number | null = null
   private pointerDeltaX = 0
-  private readonly immediateSwordInput: Record<LastChancesHand, {
-    firstTapExecuted: boolean
-    oberhauExecuted: boolean
+  /**
+   * Weapons that answer on the press edge instead of waiting out the double-tap window record
+   * what they already fired here, so the recognizer's deferred resolution can be swallowed as a
+   * duplicate. Shared by the Mercenary Sword's rhythm and Двуручное копьё v2's «Моментальная»
+   * Охота — both trade the 260 ms `doubleTapMs` wait for zero-latency response.
+   */
+  private readonly immediateHandInput: Record<LastChancesHand, {
+    tapExecuted: boolean
+    doubleTapExecuted: boolean
     unterhauExecuted: boolean
+    breakthroughStarted: boolean
   }> = {
-    left: { firstTapExecuted: false, oberhauExecuted: false, unterhauExecuted: false },
-    right: { firstTapExecuted: false, oberhauExecuted: false, unterhauExecuted: false },
+    left: {
+      tapExecuted: false,
+      doubleTapExecuted: false,
+      unterhauExecuted: false,
+      breakthroughStarted: false,
+    },
+    right: {
+      tapExecuted: false,
+      doubleTapExecuted: false,
+      unterhauExecuted: false,
+      breakthroughStarted: false,
+    },
   }
   private selectedNodeId: string | null = null
   private selectedInteractionChoiceId: string | null = null
@@ -1151,7 +1219,7 @@ export class LastChancesEngine {
     this.resetTapCombos()
     this.resetStaminaChain()
     this.gestures.reset()
-    for (const hand of LAST_CHANCES_HANDS) this.resetImmediateSwordInput(hand)
+    for (const hand of LAST_CHANCES_HANDS) this.resetImmediateHandInput(hand)
     this.mylorikControls.reset()
     this.dualSenseControls.reset()
     for (const hand of LAST_CHANCES_HANDS) {
@@ -1411,25 +1479,30 @@ export class LastChancesEngine {
     const now = performance.now()
     this.gestures.press(hand, now)
     const weapon = this.weapons.get(hand)
-    if (weapon?.trait !== 'swordRhythm') return
+    const instant = weapon?.trait === 'swordRhythm' || isSpearV2Primary(weapon)
+    if (!instant) return
     const input = this.gestures.snapshot(hand, now)
-    const immediate = this.immediateSwordInput[hand]
+    const immediate = this.immediateHandInput[hand]
     if (input.sequence === 'first') {
-      immediate.firstTapExecuted = this.gestureReady(hand, 'tap')
-      immediate.oberhauExecuted = false
+      immediate.tapExecuted = this.gestureReady(hand, 'tap')
+      immediate.doubleTapExecuted = false
       immediate.unterhauExecuted = false
-      if (immediate.firstTapExecuted) {
+      immediate.breakthroughStarted = false
+      if (immediate.tapExecuted) {
         this.performAttack({ hand, gesture: 'tap', atMs: this.elapsedMs, heldMs: 0, firstHoldMs: 0 })
       }
       return
     }
     if (input.sequence === 'secondTap') {
-      immediate.oberhauExecuted = this.gestureReady(hand, 'doubleTap')
+      immediate.doubleTapExecuted = this.gestureReady(hand, 'doubleTap')
       immediate.unterhauExecuted = false
-      if (immediate.oberhauExecuted) {
+      immediate.breakthroughStarted = false
+      if (immediate.doubleTapExecuted) {
         this.performAttack({ hand, gesture: 'doubleTap', atMs: this.elapsedMs, heldMs: 0, firstHoldMs: 0 })
       }
     }
+    // 'afterHoldTap' is deliberately left to the recognizer: «Акали» has to resolve on release
+    // so it can read `firstHoldMs` and pick its charge band.
   }
 
   release(hand: LastChancesHand): void {
@@ -1448,46 +1521,61 @@ export class LastChancesEngine {
 
   private handleLegacyGestureResolution(resolution: LastChancesGestureResolution): void {
     const weapon = this.weapons.get(resolution.hand)
-    const immediate = this.immediateSwordInput[resolution.hand]
+    const immediate = this.immediateHandInput[resolution.hand]
     if (weapon?.trait === 'swordRhythm') {
-      if (resolution.gesture === 'tap' && immediate.firstTapExecuted) {
-        this.resetImmediateSwordInput(resolution.hand)
+      if (resolution.gesture === 'tap' && immediate.tapExecuted) {
+        this.resetImmediateHandInput(resolution.hand)
         return
       }
-      if (resolution.gesture === 'doubleTap' && immediate.oberhauExecuted) {
+      if (resolution.gesture === 'doubleTap' && immediate.doubleTapExecuted) {
         this.cancelPendingUnterhau(weapon)
-        this.resetImmediateSwordInput(resolution.hand)
+        this.resetImmediateHandInput(resolution.hand)
         return
       }
-      if (resolution.gesture === 'doubleTapHold' && immediate.oberhauExecuted) {
+      if (resolution.gesture === 'doubleTapHold' && immediate.doubleTapExecuted) {
         if (!immediate.unterhauExecuted
           && resolution.heldMs >= tuningValue(weapon, 'unterhauHoldMs', 1000)) {
           immediate.unterhauExecuted = this.executePendingUnterhau(resolution.hand)
         }
         if (!immediate.unterhauExecuted) this.cancelPendingUnterhau(weapon)
-        this.resetImmediateSwordInput(resolution.hand)
+        this.resetImmediateHandInput(resolution.hand)
         return
       }
     }
-    this.resetImmediateSwordInput(resolution.hand)
+    if (isSpearV2Primary(weapon)) {
+      // «Прорыв» is started by the frame poll well below `holdMs`, so a short run releases as
+      // `doubleTap` and a long one as `doubleTapHold`. Both have to be swallowed or the player
+      // eats a second «Прокол» at the end of every breakthrough.
+      const alreadyRun = resolution.gesture === 'tap'
+        ? immediate.tapExecuted
+        : resolution.gesture === 'doubleTap' || resolution.gesture === 'doubleTapHold'
+          ? immediate.doubleTapExecuted || immediate.breakthroughStarted
+          : false
+      if (alreadyRun) {
+        this.resetImmediateHandInput(resolution.hand)
+        return
+      }
+    }
+    this.resetImmediateHandInput(resolution.hand)
     this.performAttack(resolution)
   }
 
-  private resetImmediateSwordInput(hand: LastChancesHand): void {
-    this.immediateSwordInput[hand] = {
-      firstTapExecuted: false,
-      oberhauExecuted: false,
+  private resetImmediateHandInput(hand: LastChancesHand): void {
+    this.immediateHandInput[hand] = {
+      tapExecuted: false,
+      doubleTapExecuted: false,
       unterhauExecuted: false,
+      breakthroughStarted: false,
     }
   }
 
   private updateImmediateSwordInputs(now: number): void {
     for (const hand of LAST_CHANCES_HANDS) {
-      const immediate = this.immediateSwordInput[hand]
+      const immediate = this.immediateHandInput[hand]
       const weapon = this.weapons.get(hand)
       if (weapon?.trait !== 'swordRhythm') continue
       const holdGateMs = tuningValue(weapon, 'unterhauHoldMs', 1000)
-      if (immediate.oberhauExecuted && !immediate.unterhauExecuted) {
+      if (immediate.doubleTapExecuted && !immediate.unterhauExecuted) {
         const input = this.gestures.snapshot(hand, now)
         if (input.pressed && input.sequence === 'secondTap' && input.heldMs >= holdGateMs) {
           immediate.unterhauExecuted = this.executePendingUnterhau(hand)
@@ -1702,10 +1790,14 @@ export class LastChancesEngine {
       const deltaMs = deltaSeconds * 1000
       this.activeDash.trailAccumulatorMs += deltaMs
       this.activeDash.elapsedMs += deltaMs
+      if (this.activeDash.ram) this.updateBreakthrough(this.activeDash, deltaMs)
       const dashStartDelayMs = tuningValue(this.activeDash.attack, 'dashStartDelayMs', 0)
-      const travel = this.activeDash.elapsedMs > dashStartDelayMs
-        ? Math.min(this.activeDash.remainingDistance, this.activeDash.speed * deltaSeconds)
-        : 0
+      // A breakthrough spends time, not a distance budget, so it is never clamped by one.
+      const travel = this.activeDash.ram
+        ? this.activeDash.speed * deltaSeconds
+        : this.activeDash.elapsedMs > dashStartDelayMs
+          ? Math.min(this.activeDash.remainingDistance, this.activeDash.speed * deltaSeconds)
+          : 0
       const dashStart = { ...this.player.position }
       this.moveCircle(this.player.position, {
         x: this.activeDash.direction.x * travel,
@@ -1754,15 +1846,18 @@ export class LastChancesEngine {
         }, this.activeDash.direction, this.activeDash.weaponId, this.activeDash.hand,
         null, false, this.activeDash.gesture)
       }
-      this.activeDash.remainingDistance -= travel
+      if (!this.activeDash.ram) this.activeDash.remainingDistance -= travel
       for (const enemy of this.enemies) {
         if (this.activeDash.remainingHits <= 0) break
         if (enemy.state === 'dead') continue
         const isFlurry = this.activeDash.attack.behavior === 'katanaFlurry'
+        // A breakthrough can run over the same body several times across two seconds, so it
+        // shares the flurry's interval-gated re-hits without sharing its dodge rule.
+        const repeatsHits = isFlurry || this.activeDash.ram !== undefined
         const previous = this.activeDash.hitRecords.get(enemy.id)
         const repeatHits = Math.max(1, this.activeDash.attack.repeatHits ?? 1)
         const repeatInterval = Math.max(1, this.activeDash.attack.repeatIntervalMs ?? 120)
-        if (isFlurry) {
+        if (repeatsHits) {
           if (previous && (previous.hits >= repeatHits
             || this.activeDash.elapsedMs - previous.lastAtMs < repeatInterval)) continue
         } else if (this.activeDash.hitIds.has(enemy.id)) {
@@ -1782,7 +1877,7 @@ export class LastChancesEngine {
           lastAtMs: this.activeDash.elapsedMs,
           hits: nextHit,
         })
-        if (!isFlurry) this.activeDash.hitIds.add(enemy.id)
+        if (!repeatsHits) this.activeDash.hitIds.add(enemy.id)
         this.activeDash.remainingHits -= 1
         if (isFlurry
           && (enemy.definition.dodge ?? 0)
@@ -1802,7 +1897,11 @@ export class LastChancesEngine {
           },
         )
       }
-      if (this.activeDash.remainingDistance <= EPSILON) {
+      const dashFinished = this.activeDash.ram
+        ? this.activeDash.ram.releasedAtMs !== null
+          && this.activeDash.speed <= BREAKTHROUGH_STOP_SPEED
+        : this.activeDash.remainingDistance <= EPSILON
+      if (dashFinished) {
         const finishedDash = this.activeDash
         this.activeDash = null
         if (finishedDash.landingBurst) {
@@ -1858,6 +1957,149 @@ export class LastChancesEngine {
       x: movement.x * this.effectivePlayerStats().moveSpeed * deltaSeconds,
       y: movement.y * this.effectivePlayerStats().moveSpeed * deltaSeconds,
     }, this.config.player.radius)
+  }
+
+  /**
+   * One frame of «Прорыв». The run opens at half the player's base speed, snaps to full over
+   * `rampToBaseMs`, then keeps climbing to double over `rampToMaxMs` — so holding longer is
+   * rewarded rather than merely tolerated. It lasts exactly as long as the button is held
+   * (capped at `maxRunMs`); releasing does not stop it, it coasts down over `decelerationMs`.
+   */
+  private updateBreakthrough(dash: RuntimeDash, deltaMs: number): void {
+    const ram = dash.ram
+    if (!ram) return
+    const attack = dash.attack
+    const base = this.effectivePlayerStats().moveSpeed
+    const startMultiplier = tuningValue(attack, 'startSpeedMultiplier', 0.5)
+    const peakMultiplier = tuningValue(attack, 'peakSpeedMultiplier', 2)
+    const rampToBaseMs = Math.max(1, tuningValue(attack, 'rampToBaseMs', 250))
+    const rampToMaxMs = Math.max(1, tuningValue(attack, 'rampToMaxMs', 1750))
+    const maxRunMs = Math.max(0, tuningValue(attack, 'maxRunMs', 2000))
+
+    // Steering is what makes this a charge rather than a dash: `player.aim` was refreshed from
+    // the pointer/right stick at the top of updatePlayer, so the run simply follows the cursor.
+    dash.direction = normalize(this.player.aim, dash.direction)
+
+    if (ram.releasedAtMs === null) {
+      ram.runMs += deltaMs
+      const held = Math.min(ram.runMs, maxRunMs)
+      ram.speed = base * (held <= rampToBaseMs
+        ? startMultiplier + (1 - startMultiplier) * (held / rampToBaseMs)
+        : 1 + (peakMultiplier - 1) * Math.min(1, (held - rampToBaseMs) / rampToMaxMs))
+      // 1 stamina per 0.1 s, debited directly instead of through settleStaminaForAttack, which
+      // would refund combo/hand-alternation stamina on every tick and reset the chain stamps.
+      const tickMs = Math.max(1, tuningValue(attack, 'staminaPerTickMs', 100))
+      const tickCost = Math.max(0, tuningValue(attack, 'staminaPerTick', 1))
+      ram.staminaAccumulatorMs += deltaMs
+      while (ram.staminaAccumulatorMs >= tickMs) {
+        ram.staminaAccumulatorMs -= tickMs
+        this.player.stamina = Math.max(0, this.player.stamina - tickCost)
+      }
+      if (ram.runMs >= maxRunMs) {
+        ram.releasedAtMs = this.elapsedMs
+      } else if (tickCost > 0 && this.player.stamina <= 0) {
+        ram.releasedAtMs = this.elapsedMs
+        this.refuseForStamina(dash.hand)
+      }
+    } else {
+      const decelerationMs = Math.max(1, tuningValue(attack, 'decelerationMs', 300))
+      ram.speed = Math.max(0, ram.speed - base * peakMultiplier * (deltaMs / decelerationMs))
+    }
+    dash.speed = ram.speed
+
+    // Escalation. There is no camera or audio in 99LC, so "more epic the longer it runs" is
+    // carried entirely by the trail: longer streaks every frame, and a shockwave each time the
+    // run crosses a whole speed tier.
+    const tier = Math.floor(ram.speed / base)
+    if (tier > ram.tierCued) {
+      ram.tierCued = tier
+      this.addEffect(
+        'shock',
+        { ...attack, durationMs: 320, range: attack.radius * (2 + tier) },
+        dash.direction,
+      )
+    }
+    ram.streakAccumulatorMs += deltaMs
+    const streakIntervalMs = Math.max(16, tuningValue(attack, 'streakIntervalMs', 90))
+    if (ram.streakAccumulatorMs >= streakIntervalMs) {
+      ram.streakAccumulatorMs = 0
+      const intensity = this.breakthroughIntensity(dash)
+      this.addEffect(
+        'dash',
+        { ...attack, durationMs: 220, range: attack.range * (0.4 + intensity) },
+        dash.direction,
+      )
+    }
+  }
+
+  /**
+   * Watches the still-down second press of a double-tap and turns it into «Прорыв» once it has
+   * outlasted `breakthroughHoldMs` — a deliberately snappier gate (~200 ms) than the global
+   * `input.holdMs`, so the freeze in the «Прокол» pose reads as one beat rather than a pause.
+   * The same poll returns the run when the button comes up.
+   */
+  private updateBreakthroughInput(
+    hand: LastChancesHand,
+    input: LastChancesGestureInputSnapshot,
+    now: number,
+  ): void {
+    const running = this.activeDash?.ram && this.activeDash.hand === hand
+      ? this.activeDash
+      : null
+    if (running?.ram && !input.pressed && running.ram.releasedAtMs === null) {
+      running.ram.releasedAtMs = this.elapsedMs
+    }
+    if (running) return
+    const immediate = this.immediateHandInput[hand]
+    if (immediate.breakthroughStarted) return
+    // Each scheme expresses "the second press is still down" differently: DeepList has a literal
+    // second tap, mylorik a continuation press, DualSense a held trigger past its gate.
+    const holdingSecond = this.controlSchemeValue === 'dualsense'
+      ? (() => {
+          const trigger = this.dualSenseControls.snapshot(runtimeHandToPhysicalCluster(hand), now)
+          return trigger.active && trigger.nodeId === 'doubleTapHold'
+        })()
+      : this.controlSchemeValue === 'mylorik'
+        ? input.pressed && input.candidateGesture === 'doubleTapHold'
+        : input.pressed && input.sequence === 'secondTap'
+    if (!holdingSecond) return
+    const gateMs = tuningValue(
+      this.weapons.get(hand)?.attacks.doubleTapHold,
+      'breakthroughHoldMs',
+      200,
+    )
+    if (input.heldMs < gateMs) return
+    immediate.breakthroughStarted = this.startBreakthrough(hand)
+  }
+
+  /** How far into the 0.5×…2× ramp the run currently is, for the escalating visuals. */
+  private breakthroughIntensity(dash: RuntimeDash): number {
+    const base = Math.max(1, this.effectivePlayerStats().moveSpeed)
+    const startMultiplier = tuningValue(dash.attack, 'startSpeedMultiplier', 0.5)
+    const peakMultiplier = tuningValue(dash.attack, 'peakSpeedMultiplier', 2)
+    const span = Math.max(EPSILON, peakMultiplier - startMultiplier)
+    return clamp((dash.speed / base - startMultiplier) / span, 0, 1)
+  }
+
+  /**
+   * The «Морф»: the «Прокол» still standing in front of the player is interrupted and, without
+   * finishing, becomes the run. Routed through `performAttack` rather than straight to
+   * `performDash` so the breakthrough still pays stamina, stamps its cooldown, books recovery
+   * and answers the move-quest gate exactly like a normally dispatched action.
+   */
+  private startBreakthrough(hand: LastChancesHand): boolean {
+    const weapon = this.weapons.get(hand)
+    if (!weapon || weapon.attacks.doubleTapHold.behavior !== 'spearBreakthrough') return false
+    this.morphIntoPierce(weapon, hand)
+    this.closePierceMash(hand)
+    this.performAttack({
+      hand,
+      gesture: 'doubleTapHold',
+      atMs: this.elapsedMs,
+      heldMs: tuningValue(weapon.attacks.doubleTapHold, 'breakthroughHoldMs', 200),
+      firstHoldMs: 0,
+    })
+    return this.activeDash?.ram !== undefined && this.activeDash.hand === hand
   }
 
   /**
@@ -2084,7 +2326,7 @@ export class LastChancesEngine {
           gesture: projectile.gesture,
           storedDot: projectile.storedDot,
         })
-        if (attack.behavior === 'spearRelease'
+        if (isSpearReleaseBehavior(attack.behavior)
           && projectile.carriedIds
           && enemy.hp > 0) {
           projectile.carriedIds.add(enemy.id)
@@ -3021,7 +3263,7 @@ export class LastChancesEngine {
         && handChannel === undefined
         && !this.activeAreas.some(area => area.hand === hand && area.weaponId === weapon.id && (
           area.attack.behavior === 'axeSpin'
-          || area.attack.behavior === 'spearSpin'
+          || isSpearSpinBehavior(area.attack.behavior)
           || area.attack.behavior === 'chainSpin'
           || area.attack.behavior === 'spiderFlurry'
         ))
@@ -3038,11 +3280,11 @@ export class LastChancesEngine {
       return this.activeDash?.hand === hand && this.activeDash.weaponId === weapon.id
     }
     if (context === 'spin') return activeBehavior === 'axeSpin'
-      || activeBehavior === 'spearSpin'
+      || isSpearSpinBehavior(activeBehavior)
       || activeBehavior === 'chainSpin'
       || this.activeAreas.some(area => area.hand === hand && area.weaponId === weapon.id && (
         area.attack.behavior === 'axeSpin'
-        || area.attack.behavior === 'spearSpin'
+        || isSpearSpinBehavior(area.attack.behavior)
         || area.attack.behavior === 'chainSpin'
       ))
     if (context === 'stance') return activeBehavior === 'spearStance'
@@ -3084,7 +3326,7 @@ export class LastChancesEngine {
         ? 'stance'
         : behavior === 'spiderFlurry'
           ? 'flurry'
-          : behavior === 'axeSpin' || behavior === 'spearSpin' || behavior === 'chainSpin'
+          : behavior === 'axeSpin' || isSpearSpinBehavior(behavior) || behavior === 'chainSpin'
             ? 'spin'
             : null
       if (areaContext && accepts(areaContext)) keys.add(`${hand}:channel:${areaContext}`)
@@ -3221,6 +3463,11 @@ export class LastChancesEngine {
       || (behavior === 'poleVault' && this.heldChannels.get(hand)?.attack.behavior === 'spearStance')
       || (behavior === 'axeLeap' && this.heldChannels.get(hand)?.attack.behavior === 'axeSpin')
       || (behavior === 'swordFollowUp' && state.unterhauDueAtMs > 0)
+      // «Прорыв» morphs out of a «Прокол» that is still live, so the thrust's own action lock
+      // must not be what refuses it — the same allowance the sword morph gets.
+      || (behavior === 'spearBreakthrough' && this.activeAreas.some(area => (
+        area.hand === hand && area.weaponId === weapon.id && area.attack.behavior === 'spearPierce'
+      )))
       || swordMorph
     if ((this.weaponActionEnds.get(weapon.id) ?? 0) > this.elapsedMs
       && !contextualContinuation) return false
@@ -3391,6 +3638,13 @@ export class LastChancesEngine {
       }
       this.cancelProvisionalParry()
     }
+    // Ahead of gestureReady/stamina/combo handling, and downstream of all three control schemes,
+    // so a tap inside the «Прокол» window becomes another «Прокол» no matter how it was produced.
+    if (gesture === 'tap' && isSpearV2Primary(weapon) && this.pierceMashActive(hand)) {
+      this.morphIntoPierce(weapon, hand)
+      this.performAttack({ ...resolution, gesture: 'doubleTap' })
+      return
+    }
     const state = this.weaponState(weapon)
     if (!this.gestureReady(hand, gesture)) return
     if (weapon.trait === 'swordRhythm'
@@ -3400,8 +3654,13 @@ export class LastChancesEngine {
       this.executePendingUnterhau(hand)
       return
     }
+    // Resolved up here so the stamina gate can price the charge band the release will
+    // actually land in; it depends only on `resolution`, never on the combo cursor.
+    const chargeHeldMs = gesture === 'holdThenDoubleTap'
+      ? resolution.firstHoldMs
+      : gesture === 'hold' || gesture === 'doubleTapHold' ? resolution.heldMs : 0
     // Before advanceTapCombo and every cooldown/rhythm mutation, so a refusal changes nothing.
-    const staminaCost = this.staminaCostFor(weapon, hand, gesture)
+    const staminaCost = this.staminaCostFor(weapon, hand, gesture, chargeHeldMs)
     if (!this.canAffordStamina(staminaCost)) {
       this.refuseForStamina(hand)
       return
@@ -3421,9 +3680,6 @@ export class LastChancesEngine {
       this.activeDash = null
       this.weaponActionEnds.delete(weapon.id)
     }
-    const chargeHeldMs = gesture === 'holdThenDoubleTap'
-      ? resolution.firstHoldMs
-      : gesture === 'hold' || gesture === 'doubleTapHold' ? resolution.heldMs : 0
     const charged = resolveLastChancesChargedAttack(augmented, chargeHeldMs)
     if (sourceAttack.charge && !charged.band) return
     const attack = charged.attack
@@ -3513,7 +3769,18 @@ export class LastChancesEngine {
       this.player.armorMultiplier = 2
       this.player.armorMultiplierMs = Math.max(this.player.armorMultiplierMs, 500)
     }
-    if (attack.behavior === 'spearSpin') {
+    if (attack.behavior === 'spearPierce') {
+      if (!this.pierceMashActive(hand)) {
+        this.pierceMash[hand].expiresAtMs = this.elapsedMs
+          + Math.max(0, tuningValue(attack, 'mashWindowMs', 2000))
+        this.pierceMash[hand].hits = 0
+        // Whatever the chain was mid-way through, the burst restarts it at Охота afterwards.
+        this.tapCombos[hand].step = 0
+        this.tapCombos[hand].expiresAtMs = 0
+      }
+      this.pierceMash[hand].hits += 1
+    }
+    if (isSpearSpinBehavior(attack.behavior)) {
       for (const hazard of this.currentNode.arena.hazards) {
         if (hazard.kind === 'mentalFog') {
           this.hazardSuppressedUntil.set(
@@ -3601,13 +3868,22 @@ export class LastChancesEngine {
   /**
    * Stamina debited by one action. Fatigue does not stop the weapon any more — it makes every
    * swing ruinously expensive instead, which is the Mercenary Sword's whole rhythm pressure.
+   *
+   * Charged actions are priced through their band, so a weapon can make a deeper wind-up cost
+   * more (Двуручное копьё v2 climbs 10/15/20 across the замах). The band resolved here is
+   * provably the one `performAttack` executes: for every charged gesture `peekSourceAttack`
+   * returns the very object `sourceAttack` uses, and it is handed the same `chargeHeldMs`.
    */
   private staminaCostFor(
     weapon: LastChancesResolvedWeapon,
     hand: LastChancesHand,
     gesture: LastChancesGesture,
+    chargeHeldMs = 0,
   ): number {
-    const attack = this.peekSourceAttack(weapon, hand, gesture)
+    const peeked = this.peekSourceAttack(weapon, hand, gesture)
+    const attack = peeked.charge
+      ? resolveLastChancesChargedAttack(peeked, chargeHeldMs).attack
+      : peeked
     const base = Math.max(0, attack.staminaCost ?? this.config.stamina.attackCost)
     const fatigued = this.weaponState(weapon).fatigueMs > 0
     return fatigued
@@ -3685,7 +3961,18 @@ export class LastChancesEngine {
     for (const hand of LAST_CHANCES_HANDS) {
       this.tapCombos[hand].step = 0
       this.tapCombos[hand].expiresAtMs = 0
+      this.closePierceMash(hand)
     }
+  }
+
+  /** Ends the «Прокол» mash window; the next tap walks the ordinary Охота chain again. */
+  private closePierceMash(hand: LastChancesHand): void {
+    this.pierceMash[hand].expiresAtMs = 0
+    this.pierceMash[hand].hits = 0
+  }
+
+  private pierceMashActive(hand: LastChancesHand): boolean {
+    return this.pierceMash[hand].expiresAtMs > this.elapsedMs
   }
 
   private executeAttack(
@@ -3695,6 +3982,14 @@ export class LastChancesEngine {
   ): void {
     if (attack.behavior === 'spearRelease') {
       this.performSpearRelease(attack, direction, context)
+      return
+    }
+    if (attack.behavior === 'spearReleaseV2') {
+      this.performSpearReleaseV2(attack, direction, context)
+      return
+    }
+    if (attack.behavior === 'spearOverheadSpin') {
+      this.performSpearOverheadSpin(attack, direction, context)
       return
     }
     if (attack.kind === 'melee') this.performMelee(attack, direction, context)
@@ -3756,12 +4051,12 @@ export class LastChancesEngine {
       hand: context.hand,
       gesture: context.gesture,
       storedDot: context.storedDot,
-      ...(attack.behavior === 'spearRelease' && context.chargeBandId === 'late'
+      ...(isSpearReleaseBehavior(attack.behavior) && context.chargeBandId === 'late'
         ? { carriedIds: new Set<string>() }
         : {}),
     })
     this.nextProjectileId += 1
-    if (attack.behavior !== 'spearRelease') this.addEffect('hit', attack, direction)
+    if (!isSpearReleaseBehavior(attack.behavior)) this.addEffect('hit', attack, direction)
   }
 
   private performDash(
@@ -3788,7 +4083,9 @@ export class LastChancesEngine {
       remainingHits: traversalOnly
         ? 0
         : (attack.pierce + 1) * (
-            attack.behavior === 'katanaFlurry' ? Math.max(1, attack.repeatHits ?? 1) : 1
+            attack.behavior === 'katanaFlurry' || attack.behavior === 'spearBreakthrough'
+              ? Math.max(1, attack.repeatHits ?? 1)
+              : 1
           ),
       color: attack.color,
       attack: { ...attack },
@@ -3799,6 +4096,18 @@ export class LastChancesEngine {
       landingBurst: attack.behavior === 'axeLeap' || attack.behavior === 'clawDash',
       trailAccumulatorMs: 0,
       elapsedMs: 0,
+    }
+    if (attack.behavior === 'spearBreakthrough') {
+      this.activeDash.ram = {
+        runMs: 0,
+        releasedAtMs: null,
+        speed: this.effectivePlayerStats().moveSpeed
+          * tuningValue(attack, 'startSpeedMultiplier', 0.5),
+        staminaAccumulatorMs: 0,
+        streakAccumulatorMs: 0,
+        tierCued: 0,
+      }
+      this.activeDash.speed = this.activeDash.ram.speed
     }
     this.syncContinuationFeedback()
     this.addEffect('dash', attack, direction)
@@ -4037,7 +4346,7 @@ export class LastChancesEngine {
       area.remainingHits -= 1
       this.tryParryEnemy(enemy, area.attack)
       let resolvedAttack = area.attack
-      if (area.attack.behavior === 'spearSpin') {
+      if (isSpearSpinBehavior(area.attack.behavior)) {
         const headPoint = {
           x: enemy.position.x + enemy.facing.x * enemy.definition.radius
             * tuningValue(area.attack, 'headshotOffsetRatio', 0.55),
@@ -4187,6 +4496,85 @@ export class LastChancesEngine {
       direction,
       context,
     )
+  }
+
+  /**
+   * The v2 замах. Its middle and late releases are the original lance's — throw-and-stun, then
+   * the piercing wall-pin — but the early release is no longer the wide slash. That slash moved
+   * onto the early «Акали»; a quick release now plants the spear into the ground in front of the
+   * player as «Заколоть»: a small, close volume that hits far harder than the sweep it replaced.
+   *
+   * Note the inverted inner range. Every other spear action protects its shaft with a 52-unit
+   * dead zone; «Заколоть» is explicitly a point-blank stab, so that exclusion is lifted here.
+   */
+  private performSpearReleaseV2(
+    attack: LastChancesAttackDefinition,
+    direction: LastChancesVector,
+    context: AttackExecutionContext,
+  ): void {
+    if (context.chargeBandId === 'early') {
+      this.performMelee({
+        ...attack,
+        kind: 'melee',
+        collider: {
+          ...(attack.collider ?? { traceMs: 900 }),
+          shape: 'sector',
+          innerRange: 0,
+          strictInnerRange: false,
+        },
+      }, direction, context)
+      return
+    }
+    if (context.chargeBandId === 'middle') {
+      const mediumAttack = {
+        ...attack,
+        kind: 'projectile' as const,
+        pierce: 0,
+        hitEffects: [
+          ...(attack.hitEffects ?? []),
+          { status: 'stun' as const, durationMs: 1000 },
+        ],
+      }
+      this.performProjectile(
+        mediumAttack,
+        this.spearReleaseDirection(mediumAttack, direction, context.chargeBandId),
+        context,
+      )
+      return
+    }
+    this.performProjectile(
+      { ...attack, kind: 'projectile', pierce: Math.max(attack.pierce, 8) },
+      direction,
+      context,
+    )
+  }
+
+  /**
+   * «Акали». The charged bands are the original overhead spin; the new `spin-early` band is the
+   * wide rassekatel inherited from v1's early замах, so a follow-up tap is finally worth
+   * something during the quick-release window — at a fraction of a full spin's output.
+   */
+  private performSpearOverheadSpin(
+    attack: LastChancesAttackDefinition,
+    direction: LastChancesVector,
+    context: AttackExecutionContext,
+  ): void {
+    if (context.chargeBandId === 'spin-early') {
+      this.performMelee({
+        ...attack,
+        kind: 'melee',
+        collider: {
+          ...(attack.collider ?? { traceMs: 900 }),
+          shape: 'sector',
+          innerRange: 52,
+          strictInnerRange: true,
+          rotationDegrees: undefined,
+          followsPlayer: false,
+        },
+      }, direction, context)
+      return
+    }
+    this.performBurst(attack, direction, context)
   }
 
   private spearReleaseDirection(
@@ -4425,6 +4813,9 @@ export class LastChancesEngine {
         this.player.armorMultiplier = 2
         this.player.armorMultiplierMs = Math.max(this.player.armorMultiplierMs, deltaMs + 80)
       }
+      if (weapon.attacks.doubleTapHold.behavior === 'spearBreakthrough') {
+        this.updateBreakthroughInput(hand, input, now)
+      }
       const existing = this.heldChannels.get(hand)
       const channelBehavior = holdAttack.behavior
       const classifiedAsHold = this.controlSchemeValue === 'dualsense'
@@ -4571,6 +4962,30 @@ export class LastChancesEngine {
       speed: Math.max(1, tuningValue(weapon, 'advanceSpeed', 144)),
     }
     return true
+  }
+
+  /**
+   * Clears the way for the next «Прокол» of a mash burst. Like the sword morph, the thrust that
+   * is still live is interrupted rather than allowed to finish — that is what lets mashing faster
+   * than the 165 ms swing actually land more thrusts instead of being rate-capped by it.
+   *
+   * The double-tap cooldown is dropped here and immediately re-stamped by `performAttack`, so the
+   * last thrust of a burst leaves an ordinary cooldown behind and `gestureReady` needs no change.
+   */
+  private morphIntoPierce(weapon: LastChancesResolvedWeapon, hand: LastChancesHand): void {
+    const morphing = this.activeAreas.filter(area => (
+      area.weaponId === weapon.id
+      && area.hand === hand
+      && area.attack.behavior === 'spearPierce'
+    ))
+    for (const area of morphing) {
+      this.addColliderTrace(this.activeAreaCollider(area), { ...area.attack, color: '#9fe4ff' })
+    }
+    if (morphing.length > 0) {
+      this.activeAreas = this.activeAreas.filter(area => !morphing.includes(area))
+    }
+    this.weaponActionEnds.delete(weapon.id)
+    this.cooldownEnds.delete(cooldownKey(hand, 'doubleTap'))
   }
 
   private morphSwordAttack(weapon: LastChancesResolvedWeapon): void {
@@ -4726,7 +5141,12 @@ export class LastChancesEngine {
     const state = this.weaponState(weapon)
     if (state.unterhauDueAtMs <= 0) return false
     // This path bypasses performAttack, so it pays for itself.
-    const staminaCost = this.staminaCostFor(weapon, hand, 'doubleTapHold')
+    const staminaCost = this.staminaCostFor(
+      weapon,
+      hand,
+      'doubleTapHold',
+      tuningValue(weapon, 'unterhauHoldMs', 1000),
+    )
     if (!this.canAffordStamina(staminaCost)) {
       this.refuseForStamina(hand)
       return false
@@ -5186,6 +5606,24 @@ export class LastChancesEngine {
         x: target.x - enemy.position.x,
         y: target.y - enemy.position.y,
       }, enemy.definition.radius)
+    } else if (attack.behavior === 'spearBreakthrough') {
+      // A breakthrough barges through rather than punting away: bodies are thrown out to the
+      // side the player passed them on, so the lane ahead of the run clears instead of filling.
+      const lateral = { x: -direction.y, y: direction.x }
+      const offset = {
+        x: enemy.position.x - this.player.position.x,
+        y: enemy.position.y - this.player.position.y,
+      }
+      const side = lateral.x * offset.x + lateral.y * offset.y >= 0 ? 1 : -1
+      const distance = Math.max(
+        tuningValue(attack, 'shoveDistance', 46),
+        knockback * tuningValue(attack, 'shoveDistancePerKnockback', 0.5),
+      )
+      this.moveCircle(
+        enemy.position,
+        { x: lateral.x * side * distance, y: lateral.y * side * distance },
+        enemy.definition.radius,
+      )
     } else if (knockback > 0) {
       this.moveCircle(
         enemy.position,
@@ -5546,7 +5984,7 @@ export class LastChancesEngine {
     this.weaponActionEnds.clear()
     this.activeParryCollider = null
     this.provisionalParry = null
-    for (const hand of LAST_CHANCES_HANDS) this.resetImmediateSwordInput(hand)
+    for (const hand of LAST_CHANCES_HANDS) this.resetImmediateHandInput(hand)
     this.cleanupControlInputs(false)
     this.resetTapCombos()
     this.resetStaminaChain()
@@ -5769,7 +6207,7 @@ export class LastChancesEngine {
     this.resetTapCombos()
     this.resetStaminaChain()
     this.gestures.reset()
-    for (const hand of LAST_CHANCES_HANDS) this.resetImmediateSwordInput(hand)
+    for (const hand of LAST_CHANCES_HANDS) this.resetImmediateHandInput(hand)
     this.pressedKeys.clear()
     this.touchMove = { x: 0, y: 0 }
     this.touchAim = { x: 0, y: 0 }
@@ -7513,6 +7951,7 @@ export class LastChancesEngine {
     for (const turret of this.turrets) this.renderTurretVision(turret, node)
     for (const enemy of this.enemies) this.renderVision(enemy, node)
     this.renderSpearChargePreview(node)
+    this.renderSpearFollowUpPreview(node)
     const items: Array<{ depth: number, draw: () => void }> = []
     for (const obstacle of node.arena.obstacles) {
       items.push({
@@ -7568,7 +8007,63 @@ export class LastChancesEngine {
     items.sort((a, b) => a.depth - b.depth).forEach(item => item.draw())
     for (const trace of this.traces) this.renderColliderTrace(trace, node)
     for (const effect of this.effects) this.renderEffect(effect, node)
+    this.renderPierceMashCue(node)
     this.renderActionCues(node)
+  }
+
+  /**
+   * The «Прокол» mash invitation. It has to read at a glance and from the corner of the eye,
+   * because the whole window is two seconds long: a ring that closes as the window drains, a
+   * fast pulse that sets the mashing tempo, and a running count of thrusts already landed.
+   */
+  private renderPierceMashCue(node: LastChancesPlanNode): void {
+    if (this.paused || !this.canUseRoomActions()) return
+    const hand = LAST_CHANCES_HANDS.find(candidate => this.pierceMashActive(candidate))
+    if (!hand) return
+    const mash = this.pierceMash[hand]
+    const weapon = this.weapons.get(hand)
+    const windowMs = Math.max(
+      1,
+      tuningValue(weapon?.attacks.doubleTap, 'mashWindowMs', 2000),
+    )
+    const remaining = clamp((mash.expiresAtMs - this.elapsedMs) / windowMs, 0, 1)
+    const point = this.worldToScreen(this.player.position, node)
+    const radius = Math.max(10, this.config.player.radius * this.entityScale(node))
+    const pulse = 0.5 + Math.sin(this.elapsedMs / 90) * 0.5
+    const color = LAST_CHANCES_GESTURE_COLORS.doubleTap
+    const context = this.context
+    context.save()
+    context.lineCap = 'round'
+    // Draining ring: how much of the window is left.
+    context.globalAlpha = 0.85
+    context.strokeStyle = color
+    context.lineWidth = Math.max(2.5, radius * 0.17)
+    context.beginPath()
+    context.arc(
+      point.x,
+      point.y,
+      radius * 1.62,
+      -Math.PI / 2,
+      -Math.PI / 2 + Math.PI * 2 * remaining,
+    )
+    context.stroke()
+    // Tempo ring: the beat to mash at.
+    context.globalAlpha = 0.2 + pulse * 0.45
+    context.lineWidth = Math.max(1.5, radius * 0.09)
+    context.beginPath()
+    context.arc(point.x, point.y, radius * (1.9 + pulse * 0.45), 0, Math.PI * 2)
+    context.stroke()
+    context.globalAlpha = 0.72 + pulse * 0.28
+    context.fillStyle = color
+    context.textAlign = 'center'
+    context.font = `900 ${Math.max(10, radius * 0.72)}px system-ui`
+    context.fillText('БЕЙ!', point.x, point.y - radius * 2.5)
+    if (mash.hits > 1) {
+      context.globalAlpha = 0.9
+      context.font = `900 ${Math.max(8, radius * 0.5)}px system-ui`
+      context.fillText(`×${mash.hits}`, point.x, point.y - radius * 1.85)
+    }
+    context.restore()
   }
 
   private renderBossHole(hole: LastChancesBossHoleDefinition, node: LastChancesPlanNode): void {
@@ -7990,7 +8485,7 @@ export class LastChancesEngine {
       context.fillStyle = '#bceaff'
       context.fillText('НЕУДЕРЖИМОСТЬ', point.x, point.y - radius * 3.55)
     }
-    if (this.activeAreas.some(area => area.attack.behavior === 'spearSpin')) {
+    if (this.activeAreas.some(area => isSpearSpinBehavior(area.attack.behavior))) {
       const headWorld = {
         x: enemy.position.x + enemy.facing.x * enemy.definition.radius * 0.55,
         y: enemy.position.y + enemy.facing.y * enemy.definition.radius * 0.55,
@@ -8316,8 +8811,8 @@ export class LastChancesEngine {
     const radius = Math.max(3, projectile.radius * this.entityScale(node))
     point.y += radius
     if (projectile.source === 'player'
-      && projectile.weaponId === 'twohand-spear'
-      && projectile.attack?.behavior === 'spearRelease') {
+      && projectile.weaponId === this.primarySpearWeapon()?.id
+      && isSpearReleaseBehavior(projectile.attack?.behavior)) {
       const direction = normalize(projectile.velocity)
       const layout = this.spearSpriteLayout(
         node,
@@ -8363,7 +8858,7 @@ export class LastChancesEngine {
   private primarySpearWeapon(): LastChancesResolvedWeapon | null {
     const weapon = this.weapons.get('left')
     return weapon?.trait === 'spearDistance'
-      && weapon.attacks.hold.behavior === 'spearRelease'
+      && isSpearReleaseBehavior(weapon.attacks.hold.behavior)
       ? weapon
       : null
   }
@@ -8405,63 +8900,123 @@ export class LastChancesEngine {
       this.player.aim,
       charged.band.id,
     )
-    let collider: LastChancesRuntimeCollider
-    if (charged.band.id === 'early') {
-      collider = resolveAttackCollider(
-        this.player.position,
-        direction,
-        {
-          ...charged.attack,
-          kind: 'melee',
-          collider: {
-            ...(charged.attack.collider ?? { traceMs: 900 }),
-            shape: 'sector',
-            innerRange: 52,
-          },
-        },
-      )
-    } else {
-      const projectileRadius = Math.max(
-        charged.attack.radius,
-        (charged.attack.collider?.width ?? 0) / 2,
-      )
-      const spawnOffset = Math.max(0, tuningValue(charged.attack, 'projectileSpawnOffset', 0))
-      const startDistance = this.config.player.radius + projectileRadius + 2 + spawnOffset
-      const start = {
-        x: this.player.position.x + direction.x * startDistance,
-        y: this.player.position.y + direction.y * startDistance,
-      }
-      const travel = this.spearPreviewTravelDistance(
-        node,
-        start,
-        direction,
-        Math.max(0, charged.attack.range - spawnOffset),
-        projectileRadius,
-      )
-      collider = {
-        shape: 'capsule',
-        start,
-        end: {
-          x: start.x + direction.x * travel,
-          y: start.y + direction.y * travel,
-        },
-        radius: projectileRadius,
-      }
-    }
+    // v1's early release is the wide rassekatel behind its 52-unit shaft guard; v2's is
+    // «Заколоть», a point-blank plant, so its preview drops the guard exactly as the strike does.
+    const meleeCollider = charged.band.id !== 'early'
+      ? null
+      : presentation.weapon.attacks.hold.behavior === 'spearReleaseV2'
+        ? { innerRange: 0, strictInnerRange: false }
+        : { innerRange: 52 }
+    const collider = this.spearPreviewCollider(node, charged.attack, direction, meleeCollider)
+    this.strokeSpearPreview(
+      node,
+      collider,
+      presentation.visual.previewBand.color,
+      presentation.visual.armed,
+      presentation.visual.stage === 'late' ? 12 : 9,
+    )
+  }
 
+  /**
+   * Двуручное копьё v2 only: «Акали»'s own dotted volume, drawn alongside the замах's rather
+   * than instead of it. The whole point of the rework is that a single wind-up now telegraphs
+   * both of its outcomes at once, told apart by colour — замах in its warm band colours,
+   * «Акали» in the spin's greens.
+   */
+  private renderSpearFollowUpPreview(node: LastChancesPlanNode): void {
+    if (this.paused || !this.canUseRoomActions()) return
+    const weapon = this.primarySpearWeapon()
+    if (!weapon || !isSpearV2Primary(weapon)) return
+    if (!this.gestureReady('left', 'holdThenDoubleTap')) return
+    const presentation = this.spearChargePresentation(this.frameNowMs || performance.now())
+    if (!presentation) return
+    const followUp = attackWithLastChancesAugment(weapon.attacks.holdThenDoubleTap, weapon)
+    const charged = resolveLastChancesChargedAttack(followUp, presentation.heldMs)
+    // Unlike the замах preview the held time is not rounded up to the next band: the follow-up
+    // simply is not available yet below its first band, and the preview should say so.
+    if (!charged.band) return
+    const direction = normalize(this.player.aim)
+    const collider: LastChancesRuntimeCollider = charged.band.id === 'spin-early'
+      ? this.spearPreviewCollider(node, charged.attack, direction, {
+          innerRange: 52,
+          strictInnerRange: true,
+          rotationDegrees: undefined,
+        })
+      : {
+          // A 360° sweep resolves to one bar at its current angle, which telegraphs nothing.
+          // The ring the spin will carve is the honest preview of it.
+          shape: 'circle',
+          center: { ...this.player.position },
+          innerRadius: Math.max(0, charged.attack.collider?.innerRange ?? 0),
+          outerRadius: Math.max(charged.attack.range, charged.attack.radius),
+        }
+    this.strokeSpearPreview(node, collider, charged.band.color, true, 9)
+  }
+
+  /**
+   * The volume a spear release would occupy. Melee bands preview the sector they will swing;
+   * everything else previews the projectile's ray, cut short by whatever wall would stop it.
+   */
+  private spearPreviewCollider(
+    node: LastChancesPlanNode,
+    attack: LastChancesAttackDefinition,
+    direction: LastChancesVector,
+    meleeCollider: Partial<LastChancesColliderDefinition> | null,
+  ): LastChancesRuntimeCollider {
+    if (meleeCollider) {
+      return resolveAttackCollider(this.player.position, direction, {
+        ...attack,
+        kind: 'melee',
+        collider: {
+          ...(attack.collider ?? { traceMs: 900 }),
+          shape: 'sector',
+          ...meleeCollider,
+        },
+      })
+    }
+    const projectileRadius = Math.max(attack.radius, (attack.collider?.width ?? 0) / 2)
+    const spawnOffset = Math.max(0, tuningValue(attack, 'projectileSpawnOffset', 0))
+    const startDistance = this.config.player.radius + projectileRadius + 2 + spawnOffset
+    const start = {
+      x: this.player.position.x + direction.x * startDistance,
+      y: this.player.position.y + direction.y * startDistance,
+    }
+    const travel = this.spearPreviewTravelDistance(
+      node,
+      start,
+      direction,
+      Math.max(0, attack.range - spawnOffset),
+      projectileRadius,
+    )
+    return {
+      shape: 'capsule',
+      start,
+      end: { x: start.x + direction.x * travel, y: start.y + direction.y * travel },
+      radius: projectileRadius,
+    }
+  }
+
+  /** Draws one dotted telegraph. Kept separate so several can share the frame. */
+  private strokeSpearPreview(
+    node: LastChancesPlanNode,
+    collider: LastChancesRuntimeCollider,
+    color: string,
+    armed: boolean,
+    arrowSize: number,
+  ): void {
     const context = this.context
-    const alpha = presentation.visual.armed ? 0.82 : 0.36
+    const alpha = armed ? 0.82 : 0.36
     const pulse = 0.78 + Math.sin(this.elapsedMs / 115) * 0.12
     context.save()
     context.setLineDash([9, 7])
     context.lineCap = 'round'
     context.lineJoin = 'round'
     context.globalAlpha = alpha * pulse
-    context.strokeStyle = presentation.visual.previewBand.color
-    context.fillStyle = presentation.visual.previewBand.color
-    context.shadowColor = presentation.visual.previewBand.color
-    context.shadowBlur = presentation.visual.armed ? 12 : 5
-    context.lineWidth = presentation.visual.armed ? 2.6 : 1.7
+    context.strokeStyle = color
+    context.fillStyle = color
+    context.shadowColor = color
+    context.shadowBlur = armed ? 12 : 5
+    context.lineWidth = armed ? 2.6 : 1.7
     for (const path of colliderTracePath(collider)) {
       if (path.points.length === 0) continue
       context.beginPath()
@@ -8483,7 +9038,6 @@ export class LastChancesEngine {
       const end = this.worldToScreen(collider.end, node)
       const axis = normalize({ x: end.x - start.x, y: end.y - start.y })
       const perpendicular = { x: -axis.y, y: axis.x }
-      const arrowSize = presentation.visual.stage === 'late' ? 12 : 9
       context.beginPath()
       context.moveTo(start.x, start.y)
       context.lineTo(end.x, end.y)
@@ -8619,7 +9173,7 @@ export class LastChancesEngine {
   ): void {
     const spear = this.primarySpearWeapon()
     if (!spear || this.projectiles.some(projectile => (
-      projectile.weaponId === spear.id && projectile.attack?.behavior === 'spearRelease'
+      projectile.weaponId === spear.id && isSpearReleaseBehavior(projectile.attack?.behavior)
     ))) return
 
     let direction = normalize(this.player.aim)
@@ -8631,7 +9185,14 @@ export class LastChancesEngine {
       .reverse()
       .find(area => area.weaponId === spear.id)
     const activeDash = this.activeDash?.weaponId === spear.id ? this.activeDash : null
-    if (activeArea) {
+    if (activeDash?.ram) {
+      // «Прорыв» holds the «Прокол» pose it morphed out of for the whole run, and drives the
+      // spear further forward as the charge builds — the taran silhouette.
+      direction = normalize(activeDash.direction)
+      const intensity = this.breakthroughIntensity(activeDash)
+      forwardRadii = 0.3 + 0.7 * intensity
+      liftRadii = 0.05 * Math.sin(this.elapsedMs / 70) * intensity
+    } else if (activeArea) {
       const progress = clamp(
         1 - activeArea.remainingMs / Math.max(1, activeArea.totalMs),
         0,
@@ -8639,8 +9200,22 @@ export class LastChancesEngine {
       )
       const shape = activeArea.attack.collider?.shape
         ?? (activeArea.kind === 'burst' ? 'circle' : 'sector')
-      if (shape === 'sweep') {
+      if (shape === 'sweep' && activeArea.attack.behavior === 'spearOverheadSpin') {
+        // v1 yaws the shaft around the body like a lawnmower. «Акали» instead holds it up and
+        // spins it overhead, so the pose lifts clear of the grip and stops tilting.
         direction = rotateVector(activeArea.direction, activeArea.sweepDegrees * Math.PI / 180)
+        liftRadii = 2.3
+        forwardRadii = 0
+        verticalTilt = 0
+      } else if (shape === 'sweep') {
+        direction = rotateVector(activeArea.direction, activeArea.sweepDegrees * Math.PI / 180)
+      } else if (shape === 'sector' && activeArea.attack.behavior === 'spearReleaseV2') {
+        // «Заколоть» does not sweep: the spear drives forward and pitches tip-down into the
+        // ground, so it borrows the thrust's forward push instead of the slash arc.
+        direction = normalize(activeArea.direction)
+        const attackTravel = Math.max(24, activeArea.attack.range)
+        forwardWorld = Math.sin(progress * Math.PI) * Math.min(48, attackTravel * 0.4)
+        verticalTilt = 0.42 + 0.28 * progress
       } else if (shape === 'sector') {
         const eased = 0.5 - Math.cos(progress * Math.PI) / 2
         const arc = Math.min(170, activeArea.attack.arcDegrees)

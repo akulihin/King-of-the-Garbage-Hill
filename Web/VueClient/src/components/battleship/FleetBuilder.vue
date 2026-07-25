@@ -16,7 +16,6 @@ function t(english: string, russian: string): string {
 
 // Template: deckCount → slot count
 const TEMPLATE: Record<number, number> = { 1: 4, 2: 3, 3: 2, 4: 1 }
-const DEFAULT_IDS: Record<number, string> = { 1: 'single', 2: 'double', 3: 'triple', 4: 'tetranavis' }
 const DECK_LABELS: Record<number, string> = { 1: '1-палубные', 2: '2-палубные', 3: '3-палубные', 4: '4-палубные' }
 
 interface FleetSlot {
@@ -28,10 +27,16 @@ interface FleetSlot {
 }
 
 // Initialize all 10 slots with defaults
+function defaultId(deckCount: number, faction: string | undefined): string {
+  if (deckCount === 4)
+    return faction === 'Alliance' ? 'famous_diagonal_ship' : 'tetranavis'
+  return ({ 1: 'single', 2: 'double', 3: 'triple' } as Record<number, string>)[deckCount]
+}
+
 function createDefaultSlots(): FleetSlot[] {
   const slots: FleetSlot[] = []
   for (const dc of [1, 2, 3, 4]) {
-    const defId = DEFAULT_IDS[dc]
+    const defId = defaultId(dc, store.myPlayer?.faction)
     for (let i = 0; i < TEMPLATE[dc]; i++) {
       slots.push({ definitionId: defId, shipName: defId.charAt(0).toUpperCase() + defId.slice(1), cost: 0, upgrades: [], isDefault: true })
     }
@@ -74,7 +79,8 @@ const totalCost = computed(() => {
   return cost
 })
 
-const coinsLeft = computed(() => 40 - totalCost.value)
+const fleetBudget = computed(() => store.myPlayer?.faction === 'Alliance' ? 50 : 40)
+const coinsLeft = computed(() => fleetBudget.value - totalCost.value)
 
 const buyableShips = computed(() => catalog.value.filter(s => !s.isFree))
 
@@ -120,9 +126,9 @@ function removeShip(globalIndex: number) {
   if (slot.isDefault) return
   const def = getShipDef(slot.definitionId)
   const dc = def?.deckCount ?? 1
-  const defaultId = DEFAULT_IDS[dc]
-  slot.definitionId = defaultId
-  slot.shipName = defaultId.charAt(0).toUpperCase() + defaultId.slice(1)
+  const replacementId = defaultId(dc, store.myPlayer?.faction)
+  slot.definitionId = replacementId
+  slot.shipName = replacementId.charAt(0).toUpperCase() + replacementId.slice(1)
   slot.cost = 0
   slot.upgrades = []
   slot.isDefault = true
@@ -213,6 +219,8 @@ function abilityLabel(a: string): string {
     case 'burn_resist': return 'Огнеупорность — не горит'
     case 'auto_dodge_bow_stern': return 'Авто-уклонение при попадании в нос/корму'
     case 'manual_move_after_hit': return 'Маневр — двигается после потери палубы'
+    case 'ramming_maneuver': return 'Таранный маневр — может войти в Space союзника и уничтожить перекрытые палубы'
+    case 'diagonal_shape': return 'Диагональный корпус из четырёх палуб'
     case 'explode_on_hit': return 'Взрывается при любом попадании'
     case 'spawn_pirate_boat': return 'Пираты — выпускают Пиратскую лодку при гибели'
     case 'spawn_cursed_boat': return 'Выпускает проклятый корабль при гибели'
@@ -230,6 +238,8 @@ function abilityShortLabel(a: string): string {
     case 'burn_resist': return t('Fireproof', 'Огнеупорный')
     case 'auto_dodge_bow_stern': return t('Auto-dodge', 'Авто-уклонение')
     case 'manual_move_after_hit': return t('Maneuver', 'Маневр')
+    case 'ramming_maneuver': return t('Ramming maneuver', 'Таранный маневр')
+    case 'diagonal_shape': return t('Diagonal hull', 'Диагональный корпус')
     case 'explode_on_hit': return t('Explosive', 'Взрывной')
     case 'spawn_pirate_boat': return t('Pirates', 'Пираты')
     case 'spawn_cursed_boat': return t('Cursed boat', 'Проклятый кораблик')
@@ -273,7 +283,7 @@ function catalogForDeck(dc: number) {
           @mouseleave="hideTip"
         >
           <BsIcon icon="coins" :size="14" />
-          {{ coinsLeft }} / 40 монет
+          {{ coinsLeft }} / {{ fleetBudget }} монет
         </div>
         <div
           class="bs-chip region-counter bs-mono"

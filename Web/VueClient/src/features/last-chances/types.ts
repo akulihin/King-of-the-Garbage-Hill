@@ -17,6 +17,14 @@ export const LAST_CHANCES_ATTACK_BEHAVIORS = [
   'spearKick',
   'spearStance',
   'poleVault',
+  // Двуручное копьё v2. `spearHunt` on `attacks.tap` is also the weapon-set
+  // discriminator (`isSpearV2Primary`): it must stay per-attack-set, because a
+  // weapon-level trait/tuning check would leak onto the shared secondary hand.
+  'spearHunt',
+  'spearPierce',
+  'spearBreakthrough',
+  'spearReleaseV2',
+  'spearOverheadSpin',
   'chainStrike',
   'chainSpin',
   'chainThrow',
@@ -263,6 +271,8 @@ export interface LastChancesAttackOverrides {
   invulnerabilityMs?: number
   repeatHits?: number
   repeatIntervalMs?: number
+  /** Per-band stamina price, resolved before the action is paid for. */
+  staminaCost?: number
 }
 
 export interface LastChancesChargeBandDefinition {

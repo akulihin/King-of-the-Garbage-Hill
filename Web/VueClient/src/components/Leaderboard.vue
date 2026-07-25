@@ -72,6 +72,7 @@ function getPredictedCharInfo(playerId: string): CharacterInfo | null {
 
 /** Whether this player's data is masked (non-admin viewing an opponent) */
 function isMasked(player: Player): boolean {
+  if (player.isBoardEntity) return false
   if (props.isAdmin) return false
   if (player.playerId === props.myPlayerId) return false
   return player.character.name === '???'
@@ -375,7 +376,7 @@ const { tipText, tipVisible, tipPos, showTip, moveTip, hideTip } = useTip()
             @mousemove="moveTip"
             @mouseleave="hideTip"
           />
-          <span v-if="isLastPlace(index, sorted.length)" class="dno-label">ДНО</span>
+          <span v-if="!player.isBoardEntity && isLastPlace(index, sorted.length)" class="dno-label">ДНО</span>
         </div>
 
         <!-- Avatar -->
@@ -499,7 +500,7 @@ const { tipText, tipVisible, tipPos, showTip, moveTip, hideTip } = useTip()
 
         <!-- Game-end prediction result -->
         <div
-          v-if="isFinished && player.playerId !== myPlayerId && getPredictionResult(player.playerId)"
+          v-if="isFinished && !player.isBoardEntity && player.playerId !== myPlayerId && getPredictionResult(player.playerId)"
           class="lb-predict-result"
           :class="{
             'predict-correct': getPredictionResult(player.playerId)?.isCorrect,
@@ -513,7 +514,7 @@ const { tipText, tipVisible, tipPos, showTip, moveTip, hideTip } = useTip()
 
         <!-- Predict button (opponents only, if allowed, not at game end) -->
         <div
-          v-else-if="player.playerId !== myPlayerId && canPredict && !isFinished"
+          v-else-if="!player.isBoardEntity && player.playerId !== myPlayerId && canPredict && !isFinished"
           class="lb-predict"
           @click.stop
         >

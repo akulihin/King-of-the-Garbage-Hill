@@ -77,7 +77,9 @@ public class BotGameFactory : IServiceSingleton
             ? SecureRandom.Shuffle(playersList)
             : playersList.OrderBy(_ => Guid.NewGuid()).ToList();
         playersList = playersList.OrderByDescending(x => x.Status.GetScore()).ToList();
-        playersList = _characterPassives.HandleEventsBeforeFirstRound(playersList);
+        var deferredPreGameStage = Cthulhu.RequiresPreGameStage(playersList);
+        if (!deferredPreGameStage)
+            playersList = _characterPassives.HandleEventsBeforeFirstRound(playersList);
 
         //выдаем место в таблице
         for (var i = 0; i < playersList.Count; i++) playersList[i].Status.SetPlaceAtLeaderBoard(i + 1);
@@ -85,6 +87,12 @@ public class BotGameFactory : IServiceSingleton
 
         //создаем игру
         var game = new GameClass(playersList, gameId, creatorId, 300, mode) { IsCheckIfReady = false };
+        if (deferredPreGameStage)
+        {
+            game.IsDraftPickPhase = true;
+            foreach (var player in playersList)
+                player.Status.IsDraftPickConfirmed = true;
+        }
         game.AiDifficulty = Math.Clamp(aiDifficulty, 0, 3);
 
         // --ai-probe: run one bot at a different level than the field (A/B measurement). By character name
@@ -135,7 +143,8 @@ public class BotGameFactory : IServiceSingleton
         }
 
         //handle round #0
-        await _characterPassives.HandleNextRound(game);
+        if (!deferredPreGameStage)
+            await _characterPassives.HandleNextRound(game);
 
         game.IsCheckIfReady = true;
 

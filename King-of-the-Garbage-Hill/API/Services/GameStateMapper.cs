@@ -91,6 +91,8 @@ public static class GameStateMapper
         var viewerIsTerminal = UnknownBug.Is(requestingPlayer);
         var canInspectPlayers = isAdmin || requestingPlayer?.GameCharacter.Passive.Any(
             passive => passive.PassiveName == UnknownBug.AdminPlayerType) == true;
+        var isAdeptChooser = game.CthulhuState.AdeptStageActive
+                             && Cthulhu.IsUntransformed(requestingPlayer);
         List<DraftOptionDto> scopedDraftOptions = null;
         if (game.IsDraftPickPhase && requestingPlayer != null
             && game.DraftOptions.TryGetValue(requestingPlayer.GetPlayerId(), out var draftOpts))
@@ -108,7 +110,7 @@ public static class GameStateMapper
                     Strength = option.Character.GetStrength(),
                     Description = option.Character.Description,
                     Tier = option.Character.Tier,
-                    Cost = option.OriginalIndex == 0 ? 0 : 5,
+                    Cost = isAdeptChooser || option.OriginalIndex == 0 ? 0 : 5,
                     Passives = option.Character.Passive
                         .Where(passive => passive.Visible && passive.PassiveName != Madara.EternalTsukuyomi)
                         .Select(passive => new PassiveDto
@@ -134,12 +136,14 @@ public static class GameStateMapper
             IsAramPickPhase = game.IsAramPickPhase,
             IsDraftPickPhase = game.IsDraftPickPhase,
             DraftOptions = scopedDraftOptions,
+            DraftPickHeading = isAdeptChooser ? "Выбери адепта" : null,
             IsKratosEvent = game.IsKratosEvent,
             IsRumblingWarningActive = ErenYeager.IsRumblingWarningActive(game),
             RumblingKillCount = ErenYeager.GetRumblingKillCount(game),
             IsRoundTransitionPaused = game.IsRoundTransitionPaused,
             TransitionDeadlineUtc = game.TransitionDeadlineUtc?.ToString("o"),
             HalfLifeReleaseSerial = game.HalfLifeReleaseSerial,
+            AbyssSerial = game.CthulhuState.AbyssSerial,
             GlobalLogs = requestingPlayer == null
                 ? (isAdmin ? game.GetGlobalLogs() : StripHiddenLogs(game.GetGlobalLogs(), game.HiddenGlobalLogSnippets, requestingPlayer, game))
                 : GameLocalization.TextForClient(requestingPlayer.DiscordId,
@@ -188,6 +192,33 @@ public static class GameStateMapper
             var isMe = requestingPlayer != null && player.GetPlayerId() == requestingPlayer.GetPlayerId();
             dto.Players.Add(MapPlayer(player, requestingPlayer, isMe, isAdmin, canInspectPlayers,
                 game.PlayersList, game, viewerIsTerminal, viewerIsTheBoys));
+        }
+
+        if (Cthulhu.IsNechtoActive(game) && !game.IsFinished)
+        {
+            dto.Players.Add(new PlayerDto
+            {
+                PlayerId = Cthulhu.NechtoRowId,
+                DiscordUsername = Cthulhu.Nechto,
+                IsBot = true,
+                IsBoardEntity = true,
+                Character = new CharacterDto
+                {
+                    Name = Cthulhu.Nechto,
+                    Avatar = "/art/avatars/nechto.png",
+                    AvatarCurrent = "/art/avatars/nechto.png",
+                    Intelligence = 10,
+                    Strength = 10,
+                    Speed = 10,
+                    Psyche = 10,
+                    Passives = new List<PassiveDto>(),
+                },
+                Status = new PlayerStatusDto
+                {
+                    Place = Cthulhu.NechtoPlace,
+                    Score = 0,
+                },
+            });
         }
 
         foreach (var team in game.Teams)
@@ -274,6 +305,25 @@ public static class GameStateMapper
             Character = MapCharacter(player.GameCharacter, isMe, canInspectPlayers, game?.IsFinished ?? false),
             Status = MapStatus(player, isMe, canInspectPlayers, game?.IsFinished ?? false),
         };
+        if (isMe && game != null)
+        {
+            dto.IsDeepSession = Cthulhu.IsUntransformed(player)
+                                || Cthulhu.IsHerald(game, player);
+            dto.DepthsCallPromptActive =
+                game.CthulhuState.DepthsCallStageActive
+                && game.CthulhuState.DepthsCallAnswers.TryGetValue(
+                    player.GetPlayerId(), out var depthsAnswer)
+                && depthsAnswer == null;
+            if (Cthulhu.IsUntransformed(player))
+                dto.Character.StatDisplayOverride = "∞";
+            if (Cthulhu.IsHerald(game, player))
+            {
+                var morok = dto.Character.Passives.Find(passive =>
+                    passive.Name == Cthulhu.Morok);
+                if (morok != null)
+                    morok.Theme = "deep";
+            }
+        }
 
         // Predictions — visible to the owning player, and to everyone at game end
         var isFinished = game?.IsFinished ?? false;
@@ -1566,7 +1616,12 @@ public static class GameStateMapper
     {
         if (string.IsNullOrEmpty(text)) return text;
 
-        foreach (var privateName in new[] { UnknownBug.CharacterName, UnknownBug.LegacyCharacterName })
+        foreach (var privateName in new[]
+                 {
+                     UnknownBug.CharacterName,
+                     UnknownBug.LegacyCharacterName,
+                     Cthulhu.CharacterName
+                 })
         {
             var isolatedName = $@"(?<![\p{{L}}\p{{N}}_]){Regex.Escape(privateName)}(?![\p{{L}}\p{{N}}_])";
             text = Regex.Replace(text, isolatedName, "???", RegexOptions.CultureInvariant);

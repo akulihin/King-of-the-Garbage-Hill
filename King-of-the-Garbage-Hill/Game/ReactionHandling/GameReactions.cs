@@ -246,6 +246,7 @@ public sealed class GameReaction : IServiceSingleton
                         player.Status.IsReady = false;
                         player.Status.IsBlock = false;
                         player.Status.WhoToAttackThisTurn = new List<Guid>();
+                        Cthulhu.ClearPendingNechtoAttack(game, player);
 
                         if (status.ChangeMindWhat.Contains("Вы использовали Авто Ход"))
                         {
@@ -499,7 +500,15 @@ public sealed class GameReaction : IServiceSingleton
                     case "draft_pick_0":
                     case "draft_pick_1":
                     case "draft_pick_2":
+                    case "draft_pick_3":
                         await HandleDraftPick(player, game, int.Parse(button.Data.CustomId.Split('_')[2]));
+                        break;
+                    case "depths-yes":
+                    case "depths-no":
+                        lock (game)
+                            Cthulhu.SubmitDepthsAnswer(
+                                game, player, button.Data.CustomId == "depths-yes");
+                        await _upd.UpdateMessage(player);
                         break;
                 }
                 
@@ -589,6 +598,12 @@ public sealed class GameReaction : IServiceSingleton
             if (optionIndex < 0 || optionIndex >= options.Count) return;
 
             var selected = options[optionIndex];
+            if (game.CthulhuState.AdeptStageActive && Cthulhu.IsUntransformed(player))
+            {
+                newBridge = Cthulhu.ApplyAdeptChoice(
+                    game, player, selected.Name, _accounts, _charactersPull);
+                return;
+            }
             if (UnknownBug.Is(selected)) return;
             if (game.PlayersList.Any(p => p != player
                                           && (p.GameCharacter.Name == selected.Name
@@ -786,16 +801,27 @@ public sealed class GameReaction : IServiceSingleton
             return true;
         }
 
-            GamePlayerBridgeClass whoToAttack;
+            GamePlayerBridgeClass whoToAttack = null;
+            var nechtoIntent = false;
             if (!player.IsBot() && !player.Status.IsAutoMove)
             {
-                var selectedId = Guid.Parse(string.Join("", button.Data.Values));
-                whoToAttack = game!.PlayersList.Find(x => x.GetPlayerId() == selectedId);
+                var selectedValue = string.Join("", button.Data.Values);
+                if (selectedValue == Cthulhu.NechtoAttackOption)
+                    nechtoIntent = true;
+                else
+                {
+                    var selectedId = Guid.Parse(selectedValue);
+                    whoToAttack = game!.PlayersList.Find(x => x.GetPlayerId() == selectedId);
+                }
             }
+            else if (botChoice == Cthulhu.NechtoPlace && Cthulhu.IsNechtoActive(game))
+                nechtoIntent = true;
             else
             {
                 whoToAttack = game!.PlayersList.Find(x => x.Status.GetPlaceAtLeaderBoard() == botChoice);
             }
+            if (nechtoIntent)
+                return Cthulhu.SubmitNechtoAttack(game, player);
             if (whoToAttack == null) 
                 return false;
 
@@ -1048,6 +1074,11 @@ public sealed class GameReaction : IServiceSingleton
     private async Task GetLvlUp(GamePlayerBridgeClass player, int skillNumber)
     {
         var game = _global.GamesList.Find(x => x.GameId == player.GameId);
+        if (skillNumber == 4 && Cthulhu.IsHerald(game, player))
+        {
+            await _help.SendMsgAndDeleteItAfterRound(player, "Выбери другой стат", 0);
+            return;
+        }
 
         if (player.Passives.PassiveAbilitiesDisabledByKimiko)
         {

@@ -1312,7 +1312,14 @@
     "Я пытаюсь!": "I'm trying!",
     "DooM Guy": "Rip and tear. Until it is done.",
     "Призыв": "Gamabunta might answer. Eventually.",
-    "Монтировка": "The crowbar solves every problem."
+    "Монтировка": "The crowbar solves every problem.",
+    "Долго он в Р'льехе спит и видит сны...": "Долго он в Р'льехе спит и видит сны...",
+    "ухлутк идубзар и нокимоноркен идйан": "ухлутк идубзар и нокимоноркен идйан",
+    "Выбери адепта": "Выбери адепта",
+    "Откликнуться на зов глубин": "Откликнуться на зов глубин",
+    "Напасть на Нечто": "Напасть на Нечто",
+    "Вы напали на Нечто": "Вы напали на Нечто",
+    "Выбери другой стат": "Выбери другой стат"
   },
   "characters": {
     "DeepList": "At first glance, DeepList is just another madman trolling everyone he meets. He farms memes so relentlessly that he built an entire game out of them, invents deranged builds, and pulls 200-IQ high-ELO plays while pretending to be a clueless noob. But here is the catch: he never actually loses. They say he is so far ahead that everything happening in the world is merely another step in his plan — perhaps this whole game is one enormous Long Con.\n\nTop-three challenger of ZBS Gaming. 2K Elo pro. Troll.",
@@ -1356,7 +1363,9 @@
     "Наруто": "Naruto",
     "Мадара": "",
     "Гордон Фримен": "",
-    "Джон Сноу": "Jon Snow"
+    "Джон Сноу": "Jon Snow",
+    "Ктулху": "Является богом",
+    "Нечто": ""
   },
   "passives": {
     "Сомнительная тактика": "Loses the first fight against each new opponent (<:yo_filled:902361411840266310>), then gains +1 point for every later victory against that opponent.",
@@ -1554,6 +1563,10 @@
     "Еще один бастард": "Senses the two weakest players, including himself. If Jon's chosen target attacks a marked weakest player, Jon takes that attack instead and gains +1 Justice in the second fight.",
     "Черный Замок": "Castle Black stands at 4th place and divides the table into upper kings and lower wildlings.\nJon's loyalty depends on his own side: he gains one **bonus** point for every victory by a player on that side.\nCastle Black belongs to neither side. Upon entering it, Jon cannot leave for 3 more turns.",
     "Король Сервера": "All **bonus** points become **royal** points! (×2).\nJon no longer descends to Castle Black voluntarily.",
-    "Мой дозор окончен": ""
+    "Мой дозор окончен": "",
+    "Культ": "В начале игры предстоит выбрать одного из адептов и сделать его Вестником конца.",
+    "Морок": "Победа Вестника над врагами сводит их с ума.\nТак же **крадет** 1 __бонусное__ очко.",
+    "Нечто": "Когда весь мир сойдет с ума, с морских глубин придет Ң̷є̵ҫ̸т̶һ̴о̷",
+    "Космический ужас": "Рядом с вечностью и смерть порою умирает.\nИ тогда придҀⷶ꜇ⷩⷬⷩⷴ҆ ꙁⷫⷩꚍⷬⷱ҆ꜿ ꚙ҆ꝕⷴꜽꝁⷫ҆ꚜꞇꝁⷴ ҩⷫ ꙉ҆ꚍ. Ҁⷱ꜇ⷴ ҏⷴꜽꚁꚛ҆ꙉ ꜽ ꚍⷱ꜇҆ꚃ҆ꚙꞇꝁ҆҆ Ꚋ ꜙꙉⷱꚍꞇꝁ҆ ꝕꚙꚍꚙ҆҆ ꙋꙉ҆ꚍꚍⷫⷱꚜꞇ."
   }
 }

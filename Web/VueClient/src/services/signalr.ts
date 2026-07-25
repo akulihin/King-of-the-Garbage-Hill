@@ -13,6 +13,7 @@ export type GameState = {
   isAramPickPhase: boolean
   isDraftPickPhase: boolean
   draftOptions: DraftOptionDto[] | null
+  draftPickHeading?: string
   isKratosEvent: boolean
   /** True while the round pipeline is waiting for an inter-round character decision. */
   isRoundTransitionPaused: boolean
@@ -20,6 +21,8 @@ export type GameState = {
   transitionDeadlineUtc?: string
   /** Public monotonic event identity for the Halflife 3 release celebration. */
   halfLifeReleaseSerial: number
+  /** Public monotonic identity for the full-screen abyss transition. */
+  abyssSerial: number
   isRumblingWarningActive: boolean
   /** Persistent public Rumbling aftermath intensity, clamped to 0..4 victims. */
   rumblingKillCount: number
@@ -54,6 +57,12 @@ export type Player = {
   isBot: boolean
   isWebPlayer: boolean
   teamId: number
+  /** Synthetic public board row rather than a roster participant. */
+  isBoardEntity?: boolean
+  /** Owner-only presentation flag for the abyssal session theme. */
+  isDeepSession?: boolean
+  /** Owner-only pre-game binary prompt. */
+  depthsCallPromptActive?: boolean
   /** Whether this player is another member of the viewing Naruto's initialized trio. */
   isNarutoAlly: boolean
   /** Public recognition awarded by Madara after the Red Tiger phrase. */
@@ -462,6 +471,7 @@ export type Character = {
   strength: number
   speed: number
   psyche: number
+  statDisplayOverride?: string
   skillDisplay: string
   moralDisplay: string
   justice: number
@@ -487,6 +497,7 @@ export type Passive = {
   name: string
   description: string
   visible: boolean
+  theme?: string
 }
 
 export type ScoreBreakdownEntry = {
@@ -981,6 +992,7 @@ export type BattleshipPlayerState = {
   hasPenalty: boolean
   hasShotThisTurn: boolean
   hasPendingBoardingDeployment: boolean
+  pendingManeuver: BattleshipPendingManeuver | null
   shotDelayRemainingMs: number
   summonCooldownRemaining: number
   fleet: BattleshipShip[] | null
@@ -1010,6 +1022,19 @@ export type BattleshipPendingSummon = {
   sourceShipName: string
 }
 
+export type BattleshipPendingManeuver = {
+  shipId: string
+  shipName: string
+  options: BattleshipManeuverOption[]
+}
+
+export type BattleshipManeuverOption = {
+  direction: string
+  distance: number
+  row: number
+  col: number
+}
+
 export type BattleshipBoard = {
   cells: BattleshipCell[]
 }
@@ -1028,8 +1053,10 @@ export type BattleshipCell = {
   summonType: string | null
   isScratched: boolean
   summonTrails?: string[]
+  summonDeaths?: string[]
   isBurnResistMarked?: boolean
   isDodgeMarked?: boolean
+  isManeuverDodgeMarked?: boolean
   isDestroyed?: boolean
   isShipSunk?: boolean
   isFrozen?: boolean
@@ -1053,6 +1080,7 @@ export type BattleshipShip = {
   range: string
   cost: number
   abilities: string[]
+  factions: string[]
   upgrades: string[]
   speed: number
   space: number
@@ -1136,6 +1164,7 @@ export type BattleshipShotResult = {
   destroyed: boolean
   shipSunk: boolean
   burned: boolean
+  dodged: boolean
   row: number
   col: number
   turnContinues: boolean
@@ -1143,6 +1172,9 @@ export type BattleshipShotResult = {
   affectedShipName: string | null
   sourceShipId: string | null
   sourceDeckIndex: number
+  sourceRow: number
+  sourceCol: number
+  sourceBoardPlayerId: string | null
   projectileType: 'Arrow' | 'Stone' | 'Buckshot' | 'Fire' | null
   targetPlayerId: string | null
 }
@@ -1589,6 +1621,10 @@ class SignalRService {
 
   async draftSelect(gameId: number, characterName: string): Promise<void> {
     await this.connection?.invoke('DraftSelect', gameId, characterName)
+  }
+
+  async depthsCallChoice(gameId: number, agree: boolean): Promise<void> {
+    await this.connection?.invoke('DepthsCallChoice', gameId, agree)
   }
 
   // ── Darksci / Young Gleb ───────────────────────────────────────

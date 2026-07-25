@@ -49,7 +49,8 @@ public class GameStoryService
     /// </summary>
     public void GenerateStoryAsync(GameClass game)
     {
-        if (game.PlayersList.Any(UnknownBug.Is))
+        if (game.PlayersList.Any(UnknownBug.Is)
+            || Cthulhu.ExcludeFromReplaysAndStory(game))
             return;
 
         if (string.IsNullOrWhiteSpace(_apiKey))

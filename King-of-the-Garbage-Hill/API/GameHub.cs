@@ -432,6 +432,18 @@ public class GameHub : Hub
         if (success) await PushStateToPlayer(gameId, discordId);
     }
 
+    public async Task DepthsCallChoice(ulong gameId, bool agree)
+    {
+        var discordId = GetDiscordId();
+        if (discordId == 0) { await SendNotAuthenticated(); return; }
+
+        var (success, error) = _gameService.DepthsCallChoice(gameId, discordId, agree);
+        await Clients.Caller.SendAsync("ActionResult",
+            new { action = "depthsCallChoice", success, error });
+
+        if (success) await PushStateToPlayer(gameId, discordId);
+    }
+
     public async Task YoungGleb(ulong gameId)
     {
         var discordId = GetDiscordId();

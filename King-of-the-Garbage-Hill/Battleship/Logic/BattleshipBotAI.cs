@@ -19,9 +19,9 @@ public static class BattleshipBotAI
     /// Randomly selects ships within same constraints as player (budget, regions, template).
     /// Uses BuildFleetFromSelections to fill defaults.
     /// </summary>
-    public static List<FleetSelection> SelectFleet()
+    public static List<FleetSelection> SelectFleet(Faction faction = Faction.Empire)
     {
-        var budget = FleetValidator.MaxBudget;
+        var budget = FleetValidator.GetBudget(faction);
         var regions = new HashSet<Region>();
         var purchases = new List<FleetSelection>();
 
@@ -30,7 +30,7 @@ public static class BattleshipBotAI
 
         // Shuffle non-free candidates
         var candidates = ShipCatalog.AllShips
-            .Where(s => !s.IsFree)
+            .Where(s => !s.IsFree && s.Factions.Contains(faction))
             .OrderBy(_ => Rng.Next())
             .ToList();
 
@@ -58,7 +58,7 @@ public static class BattleshipBotAI
         ApplyUpgrades(purchases, ref budget, archetype);
 
         // Build full fleet (fills defaults for empty slots)
-        return FleetValidator.BuildFleetFromSelections(purchases);
+        return FleetValidator.BuildFleetFromSelections(purchases, faction);
     }
 
     private static bool CanAddRegion(ShipDefinition def, HashSet<Region> regions)

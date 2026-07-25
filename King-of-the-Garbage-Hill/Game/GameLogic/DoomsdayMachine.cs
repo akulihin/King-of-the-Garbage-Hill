@@ -9,6 +9,7 @@ using King_of_the_Garbage_Hill.DiscordFramework;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.Characters;
 using King_of_the_Garbage_Hill.Game.DiscordMessages;
+using King_of_the_Garbage_Hill.Game.MemoryStorage;
 using King_of_the_Garbage_Hill.Helpers;
 
 namespace King_of_the_Garbage_Hill.Game.GameLogic;
@@ -20,17 +21,21 @@ public class DoomsdayMachine : IServiceSingleton
     private readonly CalculateRounds _calculateRounds;
     private readonly GameUpdateMess _gameUpdateMess;
     private readonly SecureRandom _rand;
+    private readonly CharactersPull _charactersPull;
     private readonly Dictionary<ulong, PendingRoundContinuation> _pendingRounds = new();
 
     private sealed record PendingRoundContinuation(ReplayRoundDto ReplayRound, Stopwatch Watch);
 
-    public DoomsdayMachine(CharacterPassives characterPassives, LoginFromConsole logs, CalculateRounds calculateRounds, GameUpdateMess gameUpdateMess, SecureRandom rand)
+    public DoomsdayMachine(CharacterPassives characterPassives, LoginFromConsole logs,
+        CalculateRounds calculateRounds, GameUpdateMess gameUpdateMess, SecureRandom rand,
+        CharactersPull charactersPull)
     {
         _characterPassives = characterPassives;
         _logs = logs;
         _calculateRounds = calculateRounds;
         _gameUpdateMess = gameUpdateMess;
         _rand = rand;
+        _charactersPull = charactersPull;
     }
 
     public async Task InitializeAsync()
@@ -1612,6 +1617,12 @@ public class DoomsdayMachine : IServiceSingleton
                     playerIamAttacking,
                     resolvedWinner,
                     resolvedLoser);
+                Cthulhu.HandleResolvedFight(
+                    game,
+                    player,
+                    playerIamAttacking,
+                    resolvedWinner,
+                    resolvedLoser);
                 
                 _characterPassives.HandleShark(game); //used only for shark...
 
@@ -1758,6 +1769,8 @@ public class DoomsdayMachine : IServiceSingleton
         // Rumbling is deliberately the first post-fight passive settlement on round 10.
         _characterPassives.HandleRumblingAfterFights(game);
         Naruto.SettleShadowClones(game);
+        Cthulhu.ResolveNechtoAttacks(game, _calculateRounds, _charactersPull);
+        Cthulhu.HandleEndOfRound(game);
 
 
 

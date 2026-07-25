@@ -584,7 +584,8 @@ public class SimulationRunner : IServiceSingleton
             return $"unknown or team-only character: {name}";
         if (names.Contains("LeCrisp") && names.Contains("Толя"))
             return "LeCrisp and Толя cannot be in the same game";
-        if (names.Count(n => pool.First(x => x.Name == n).Tier == 4) > 1)
+        if (names.Count(n => pool.First(x => x.Name == n).Tier == 4) > 1
+            && !Cthulhu.AdeptNames.All(names.Contains))
             return "at most one Tier-4 character per game";
         return null;
     }

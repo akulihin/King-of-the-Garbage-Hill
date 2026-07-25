@@ -6,7 +6,9 @@ import {
   createClashRulesIdentity,
 } from './clash/engine'
 import { resolveClashWithPolicy } from './clash/qa'
+import { AUTHENTIC_V17_V18_RULES_IDENTITIES } from './compatibility/authentic-v17-v18-rules.fixture'
 import { EmpiresEndgameEngine } from './engine'
+import { createEmpiresQaScenarios } from './qa'
 import { EMPIRES_STABILIZATION_BUDGETS } from './stabilization'
 import { createTdRulesIdentity } from './td/engine'
 import type {
@@ -312,9 +314,11 @@ function activeClashState(
 
 describe('Empire\'s Endgame Phase 14 Clash integration', () => {
   let value: EmpiresEndgameConfig
+  let qaFixtures: ReturnType<typeof createEmpiresQaScenarios>
 
   beforeAll(() => {
     value = config()
+    qaFixtures = createEmpiresQaScenarios(value, { seed: 'phase14-authentic-compatibility' })
   })
 
   it('migrates schema v17 through fail-closed Clash and Chess defaults and rejects future configs', () => {
@@ -370,6 +374,89 @@ describe('Empire\'s Endgame Phase 14 Clash integration', () => {
     const restoredClash = new EmpiresEndgameEngine(value, clashFixture.state)
     expect((restoredClash.state.minigame as EmpiresClashMinigameSession).rulesIdentity)
       .toEqual(currentClashRulesIdentity(value))
+  })
+
+  it('upgrades authentic bundled v17 and v18 active minigames without rebinding them to stale current rules', () => {
+    const cases = [
+      { fixture: 'battle-defense', kind: 'td' },
+      { fixture: 'mystic-tavern', kind: 'tavern' },
+      { fixture: 'alchemy-experiment', kind: 'alchemy' },
+      { fixture: 'inventory-packing', kind: 'inventory' },
+    ] as const
+
+    for (const testCase of cases) {
+      const currentState = clone(qaFixtures[testCase.fixture].snapshot)
+      const currentSession = currentState.minigame
+      if (!currentSession || currentSession.kind !== testCase.kind) {
+        throw new Error(`${testCase.fixture} has no ${testCase.kind} session.`)
+      }
+
+      for (const boundary of [
+        {
+          configSchemaVersion: 17 as const,
+          saveSchemaVersion: 16,
+          identity: AUTHENTIC_V17_V18_RULES_IDENTITIES[17][testCase.kind],
+        },
+        {
+          configSchemaVersion: 18 as const,
+          saveSchemaVersion: 17,
+          identity: AUTHENTIC_V17_V18_RULES_IDENTITIES[18][testCase.kind],
+        },
+      ]) {
+        const legacyState = clone(currentState)
+        legacyState.schemaVersion = boundary.saveSchemaVersion as EmpiresCampaignState['schemaVersion']
+        const legacySession = legacyState.minigame
+        if (!legacySession || legacySession.kind !== testCase.kind) {
+          throw new Error(`${testCase.fixture} lost its ${testCase.kind} session.`)
+        }
+        const mutableIdentity = legacySession as unknown as {
+          rulesIdentity: { configSchemaVersion: number; rulesDigest: string }
+          plan: { rulesIdentity: { configSchemaVersion: number; rulesDigest: string } }
+        }
+        mutableIdentity.rulesIdentity = clone(boundary.identity)
+        mutableIdentity.plan.rulesIdentity = clone(boundary.identity)
+        const untouched = clone(legacyState)
+
+        let restored: EmpiresEndgameEngine
+        try {
+          restored = new EmpiresEndgameEngine(value, legacyState)
+        } catch (error) {
+          throw new Error(
+            `${testCase.kind} v${boundary.configSchemaVersion}: ${String(error)}`,
+          )
+        }
+        const restoredSession = restored.state.minigame
+        if (!restoredSession || restoredSession.kind !== testCase.kind) {
+          throw new Error(`${testCase.fixture} did not survive v${boundary.configSchemaVersion}.`)
+        }
+
+        expect(legacyState, `${testCase.kind} v${boundary.configSchemaVersion} input mutation`)
+          .toEqual(untouched)
+        expect(restoredSession.rulesIdentity, `${testCase.kind} v${boundary.configSchemaVersion}`)
+          .toEqual(currentSession.rulesIdentity)
+      }
+    }
+
+    const clashFixture = activeClashState(value, 'authentic-v18')
+    clashFixture.state.schemaVersion = 17 as EmpiresCampaignState['schemaVersion']
+    const clashSession = clashFixture.state.minigame
+    if (!clashSession || clashSession.kind !== 'clash') {
+      throw new Error('Authentic v18 Clash fixture is unavailable.')
+    }
+    clashSession.rulesIdentity = clone(AUTHENTIC_V17_V18_RULES_IDENTITIES[18].clash)
+    clashSession.plan.rulesIdentity = clone(AUTHENTIC_V17_V18_RULES_IDENTITIES[18].clash)
+    const restoredClash = new EmpiresEndgameEngine(value, clashFixture.state)
+    expect(restoredClash.state.minigame?.rulesIdentity).toEqual(currentClashRulesIdentity(value))
+
+    const staleConfig = clone(value)
+    staleConfig.empire.eventChance = staleConfig.empire.eventChance === 0 ? 0.5 : 0
+    const staleLegacy = clone(qaFixtures['battle-defense'].snapshot)
+    staleLegacy.schemaVersion = 16 as EmpiresCampaignState['schemaVersion']
+    if (staleLegacy.minigame?.kind !== 'td') throw new Error('Stale v17 TD fixture is unavailable.')
+    staleLegacy.minigame.rulesIdentity = clone(AUTHENTIC_V17_V18_RULES_IDENTITIES[17].td)
+    staleLegacy.minigame.plan.rulesIdentity = clone(AUTHENTIC_V17_V18_RULES_IDENTITIES[17].td)
+    expect(() => new EmpiresEndgameEngine(staleConfig, staleLegacy))
+      .toThrow(/active minigame rules identity does not match/i)
   })
 
   it('rejects a missing Clash journal and an over-budget restored plan', () => {

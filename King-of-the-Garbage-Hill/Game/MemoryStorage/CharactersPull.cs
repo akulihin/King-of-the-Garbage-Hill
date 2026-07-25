@@ -50,6 +50,9 @@ public class CharactersPull : IServiceSingleton
         var privateCharacter = allCharacters.FirstOrDefault(UnknownBug.Is);
         if (privateCharacter != null)
             characters.Add(privateCharacter);
+        var cthulhu = allCharacters.FirstOrDefault(x => Cthulhu.Is(x.Name));
+        if (cthulhu != null)
+            characters.Add(cthulhu);
         return characters;
     }
 

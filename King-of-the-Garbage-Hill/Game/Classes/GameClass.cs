@@ -16,6 +16,7 @@ public class GameClass
         RoundNo = 1;
         Phrases = new CharactersUniquePhrase();
         PlayersList = playersList;
+        CthulhuState.RosterHadCthulhu = PlayersList.Any(Cthulhu.Is);
         GameId = gameId;
         TurnLengthInSecond = turnLengthInSecond;
         TimePassed = new Stopwatch();
@@ -23,7 +24,7 @@ public class GameClass
         GlobalLogs = "";
         IsCheckIfReady = true;
         SkipPlayersThisRound = 0;
-        GameVersion = "Версия: 5.1.0";
+        GameVersion = "Версия: 5.1.3";
         GameMode = gameMode;
         CreatorId = creatorId;
         Teams = new List<TeamPlay>();
@@ -82,6 +83,7 @@ public class GameClass
     public bool IsAramPickPhase { get; set; }
     public bool IsDraftPickPhase { get; set; }
     public Dictionary<Guid, List<CharacterClass>> DraftOptions { get; set; } = new();
+    public Cthulhu.GameState CthulhuState { get; set; } = new();
 
     public List<GamePlayerBridgeClass> ExploitPlayersList { get; set; }
     public int LastExploit { get; set; } = -1;

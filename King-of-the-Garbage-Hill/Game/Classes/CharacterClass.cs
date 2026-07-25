@@ -64,6 +64,7 @@ public class CharacterClass
     public bool TeamModeOnly { get; set; }
     public bool DoomRollMode { get; set; }
     public bool IntelligenceCappedAtZero { get; set; }
+    public bool PsycheCappedAtZero { get; set; }
     public int JonSnowBastardIntelligenceBonus { get; set; }
     public bool JonSnowBecameKing { get; set; }
 
@@ -1405,6 +1406,7 @@ public class CharacterClass
     {
         if (howMuchToAdd < 0 && UnknownBug.Is(this)) return;
         if (howMuchToAdd < 0 && Madara.HasReanimatedBody(this)) return;
+        if (PsycheCappedAtZero && howMuchToAdd > 0) howMuchToAdd = 0;
         if (skillName != "Прокачка" && skillName != "Читы")
         {
             skillName = $"|>Stat<|{skillName}";
@@ -1455,6 +1457,7 @@ public class CharacterClass
     {
         if (howMuchToSet < GetPsyche() && UnknownBug.Is(this)) return;
         if (howMuchToSet < GetPsyche() && Madara.HasReanimatedBody(this)) return;
+        if (PsycheCappedAtZero && howMuchToSet > 0) howMuchToSet = 0;
         if (skillName != "Прокачка" && skillName != "Читы")
         {
             skillName = $"|>Stat<|{skillName}";
@@ -1496,6 +1499,7 @@ public class CharacterClass
     {
         if (howMuchToSet < GetPsyche() && UnknownBug.Is(this)) return;
         if (howMuchToSet < GetPsyche() && Madara.HasReanimatedBody(this)) return;
+        if (PsycheCappedAtZero && howMuchToSet > 0) howMuchToSet = 0;
         //Set Stat only for one fight, not for the whole round!
         //Only used with "GameCharacter" because this overwrites "FightCharacter" mechanics
 

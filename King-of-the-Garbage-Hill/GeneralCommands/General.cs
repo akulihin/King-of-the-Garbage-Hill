@@ -288,7 +288,10 @@ public class General : ModuleBaseCustom
         playersList = playersList.OrderBy(_ => Guid.NewGuid()).ToList();
         playersList = playersList.OrderByDescending(x => x.Status.GetScore()).ToList();
         var isDraftPick = API.Services.WebGameService.EnableDraftPick && mode == "normal";
-        if (mode != "aram" && !isDraftPick)
+        var deferredPreGameStage = mode != "aram"
+                                   && !isDraftPick
+                                   && Cthulhu.RequiresPreGameStage(playersList);
+        if (mode != "aram" && !isDraftPick && !deferredPreGameStage)
         {
             playersList = _characterPassives.HandleEventsBeforeFirstRound(playersList);
         }
@@ -439,6 +442,12 @@ public class General : ModuleBaseCustom
 
         //создаем игру
         var game = new GameClass(playersList, gameId, Context.User.Id) { IsCheckIfReady = false };
+        if (deferredPreGameStage)
+        {
+            game.IsDraftPickPhase = true;
+            foreach (var player in playersList)
+                player.Status.IsDraftPickConfirmed = true;
+        }
         if (mode == "aram")
         {
             game.IsAramPickPhase = true;
@@ -457,7 +466,8 @@ public class General : ModuleBaseCustom
                 if (account == null) continue;
                 var originalCharacter = player.GameCharacter;
                 player.Status.MoveListPage = 6;
-                if (UnknownBug.Is(originalCharacter) || player.IsLootBoxCharacterReward)
+                if (UnknownBug.Is(originalCharacter) || Cthulhu.Is(originalCharacter)
+                                                    || player.IsLootBoxCharacterReward)
                 {
                     player.Status.IsDraftPickConfirmed = true;
                     continue;
@@ -492,7 +502,7 @@ public class General : ModuleBaseCustom
 
 
         //handle round #0
-        if (mode == "normal" && !isDraftPick)
+        if (mode == "normal" && !isDraftPick && !deferredPreGameStage)
         {
             await _characterPassives.HandleNextRound(game);
             _characterPassives.HandleBotPredict(game);

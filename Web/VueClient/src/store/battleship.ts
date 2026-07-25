@@ -230,7 +230,7 @@ export const useBattleshipStore = defineStore('battleship', () => {
     if (result.shipSunk) triggerCellAnim(target, row, col, 'anim-sunk', 800)
     else if (result.burned) triggerCellAnim(target, row, col, 'anim-burn-ignite', 700)
     else if (result.destroyed) triggerCellAnim(target, row, col, 'anim-destroy', 500)
-    else if (result.scratched && result.miss) triggerCellAnim(target, row, col, 'anim-dodge', 500)
+    else if (result.dodged) triggerCellAnim(target, row, col, 'anim-dodge', 500)
     else if (result.scratched) triggerCellAnim(target, row, col, 'anim-scratch', 500)
     else if (result.hit) triggerCellAnim(target, row, col, 'anim-hit', 400)
     else if (result.miss) triggerCellAnim(target, row, col, 'anim-miss', 400)
@@ -409,7 +409,7 @@ export const useBattleshipStore = defineStore('battleship', () => {
           killStreakDisplay.value = killStreak.value
           if (killStreakTimer) clearTimeout(killStreakTimer)
           killStreakTimer = setTimeout(() => { killStreakDisplay.value = 0 }, 3000)
-        } else if (result.miss || (result.scratched && result.miss)) {
+        } else if (result.miss || result.dodged) {
           killStreak.value = 0
         }
 
@@ -418,7 +418,7 @@ export const useBattleshipStore = defineStore('battleship', () => {
           triggerShotAnim(result, shotTarget)
           if (result.shipSunk) playBattleshipShipSunk()
           else if (result.burned) playBattleshipBurn()
-          else if (result.scratched && result.miss) playBattleshipDodge()
+          else if (result.dodged) playBattleshipDodge()
           else if (result.hit) playBattleshipHit()
           else if (result.miss) playBattleshipMiss()
           else playBattleshipShot()

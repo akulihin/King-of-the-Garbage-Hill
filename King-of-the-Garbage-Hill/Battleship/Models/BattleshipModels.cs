@@ -154,10 +154,14 @@ public class Cell
     public Summon SummonRef { get; set; }
     public bool WasShipHit { get; set; } // Snapshot: a ship was present when this cell was hit (persists after ship moves)
     public bool WasScratched { get; set; } // Snapshot: hit damaged but didn't destroy a deck (persists after ship moves)
+    public bool WasRevealedShip { get; set; } // Anonymous intact occupancy preserved while the moved ship remains alive
     /// <summary>Every summon type that has visited this physical cell, including the spawn cell.</summary>
     public HashSet<SummonType> SummonTrails { get; set; } = new();
+    /// <summary>Persistent type-specific markers for summons destroyed on this physical cell.</summary>
+    public List<SummonType> SummonDeaths { get; set; } = new();
     public bool BurnResistMarked { get; set; } // BurnResist ship survived fire/explosion here — shown dark-green to both players (ТЗ #4)
     public bool WasDodge { get; set; } // Юркая единичка dodged a ballista shot here — static салатовый mark for both players (ТЗ #6)
+    public bool WasManeuverDodge { get; set; } // Light Wood Triple moved away — persistent pink shot-history mark
 }
 
 public class Ship
@@ -185,16 +189,26 @@ public class Ship
     public bool IsHome { get; set; } // "Домашний" unit — used for first-turn tiebreaker
     public bool HasExploded { get; set; } // Idempotency guard: explode_on_hit fires once (death paths re-enter via HandleShipDeath)
     public bool HasManeuvered { get; set; } // ТЗ #21: manual_move_after_hit is once PER SHIP, not per player
-    /// <summary>Destroyed-deck coordinates vacated by Maneuvering Double; reconciled only on final death.</summary>
+    /// <summary>Coordinates vacated by hidden movement; reconciled only on final death.</summary>
     public List<(int row, int col)> ManeuverStaleHitCells { get; set; } = new();
+    /// <summary>While alive, the opponent must not infer the ship's new position from an earlier reveal.</summary>
+    public bool HasHiddenMovement { get; set; }
 
     public List<(int row, int col)> GetOccupiedCells()
     {
+        return GetOccupiedCells(Row, Col, Orientation);
+    }
+
+    public List<(int row, int col)> GetOccupiedCells(int row, int col, Orientation orientation)
+    {
         var cells = new List<(int, int)>();
+        var isDiagonal = Abilities.Contains("diagonal_shape");
         for (var i = 0; i < Decks.Count; i++)
         {
-            var r = Orientation == Orientation.Vertical ? Row + i : Row;
-            var c = Orientation == Orientation.Horizontal ? Col + i : Col;
+            var r = isDiagonal || orientation == Orientation.Vertical ? row + i : row;
+            var c = isDiagonal
+                ? col + (orientation == Orientation.Horizontal ? i : -i)
+                : orientation == Orientation.Horizontal ? col + i : col;
             cells.Add((r, c));
         }
         return cells;
@@ -246,6 +260,7 @@ public class Summon
     public bool WaitingForTurnBack { get; set; } // Summon at edge, waiting to be re-sent
     public bool WaitingForDirectionChoice { get; set; } // CursedBoat waiting for owner to choose direction after collision
     public bool IsBoardingShip { get; set; } // Close ship converted during Final Boarding
+    public string SourceShipId { get; set; } // Original Close ship for boarding Ballista VFX
     public bool HasDetonated { get; set; } // Brander chain-explosion idempotency guard
 }
 
@@ -263,6 +278,16 @@ public class PendingSummonDeploy
     public int CollisionDamage { get; set; }
     public int RevealRadius { get; set; } = 1; // From original ship's Space
     public string SourceShipName { get; set; } // For log messages
+    public string SourceShipId { get; set; } // Original Close ship for boarding Ballista VFX
+}
+
+public class ManualMoveOption
+{
+    public Direction Direction { get; set; }
+    public int Distance { get; set; }
+    /// <summary>New first-deck anchor selected by clicking the highlighted board cell.</summary>
+    public int Row { get; set; }
+    public int Col { get; set; }
 }
 
 public class FleetSelection
@@ -281,6 +306,7 @@ public class ShotResult
     public bool Scratched { get; set; }
     public bool Destroyed { get; set; }
     public bool Burned { get; set; }
+    public bool Dodged { get; set; }
     public bool ShipSunk { get; set; }
     public int Row { get; set; }
     public int Col { get; set; }
@@ -290,6 +316,10 @@ public class ShotResult
     /// <summary>Opaque source identity; only its owner can resolve it to a visible ship coordinate.</summary>
     public string SourceShipId { get; set; }
     public int SourceDeckIndex { get; set; } = -1;
+    public int SourceRow { get; set; } = -1;
+    public int SourceCol { get; set; } = -1;
+    /// <summary>Physical board owner containing the projectile origin.</summary>
+    public string SourceBoardPlayerId { get; set; }
     public string ProjectileType { get; set; }
     /// <summary>Physical board owner targeted by this action; fixes own-board VFX routing.</summary>
     public string TargetPlayerId { get; set; }
@@ -306,7 +336,7 @@ public class ShipDefinition
     public int DefaultArmor { get; set; } = 2; // HP per deck
     public int Space { get; set; } = 1;
     public int ExplosionRadius { get; set; }
-    public Faction Faction { get; set; } = Faction.Empire;
+    public List<Faction> Factions { get; set; } = new() { Faction.Empire };
     public List<Region> Regions { get; set; } = new();
     public List<string> Abilities { get; set; } = new();
     public List<WeaponTemplate> DefaultWeapons { get; set; } = new();

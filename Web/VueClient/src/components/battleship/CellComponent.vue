@@ -21,7 +21,10 @@ const props = defineProps<{
   summonTrails?: string[]
   rangeOverlay?: string
   deckSymbols?: string[]
-  bowDirection?: 'up' | 'left'
+  bowDirection?: 'up' | 'left' | 'up-left' | 'up-right'
+  maneuverActive?: boolean
+  maneuverShipCell?: boolean
+  maneuverTarget?: boolean
 }>()
 
 const cellStyle = computed(() => {
@@ -40,6 +43,7 @@ const cellClass = computed(() => {
   else if (props.cell.isBurning) classes.push('cell-burning')
   else if (props.cell.isFrozen) classes.push('cell-frozen')
   else if (props.cell.isBurnResistMarked) classes.push('cell-burn-resist')
+  else if (props.cell.isManeuverDodgeMarked) classes.push('cell-maneuver-dodge')
   else if (props.cell.isScratched) classes.push('cell-scratched')
   else if (props.cell.isHit && props.cell.hasShip) classes.push('cell-hit')
   else if (props.cell.isHit) classes.push('cell-hit-empty')
@@ -72,6 +76,9 @@ const cellClass = computed(() => {
 
   // Marked cell overlay
   if (props.marked) classes.push('cell-marked')
+  if (props.maneuverActive) classes.push('cell-maneuver-muted')
+  if (props.maneuverShipCell) classes.push('cell-maneuver-ship')
+  if (props.maneuverTarget) classes.push('cell-maneuver-target')
 
   // Ship silhouette borders
   if (props.shipEdges) {
@@ -143,6 +150,14 @@ const deckSymbolNames: Record<string, string> = {
 const deckSymbolHtml = computed(() => (props.deckSymbols ?? [])
   .map(symbol => ({ symbol, html: renderIcon(symbol, 10) })))
 const bowHtml = computed(() => props.bowDirection ? renderIcon('bow', 10) : '')
+const summonDeathHtml = computed(() => (props.cell?.summonDeaths ?? []).map(type => ({
+  type,
+  html: renderIcon(type === 'CursedBoat'
+    ? 'cursedBoat'
+    : type === 'PirateBoat'
+      ? 'pirateBoat'
+      : type.toLowerCase(), 9),
+})))
 
 defineEmits<{
   (e: 'tipShow', ev: MouseEvent, text: string): void
@@ -169,6 +184,7 @@ const cellTooltip = computed(() => {
   else if (props.cell.isBurnResistMarked) base = `Огнеупорный корабль — устоял против огня${ship}`
   else if (props.cell.isFrozen) base = `Заморожено`
   else if (props.cell.isCaptured) base = `Захвачено`
+  else if (props.cell.isManeuverDodgeMarked) base = `Лёгкая тройка увернулась — прежняя клетка`
   else if (props.cell.isScratched) base = `Поцарапано — можно стрелять повторно`
   else if (props.cell.isHit && props.cell.hasShip) base = `Попадание${ship}`
   else if (props.cell.isDodgeMarked) base = `Юркая единичка увернулась — баллиста бессильна`
@@ -189,8 +205,11 @@ const cellTooltip = computed(() => {
   addState(props.cell.isScratched, 'Поцарапано')
   addState(props.cell.isCaptured, 'Захвачено')
   addState(props.cell.isDodgeMarked, 'Уклонение')
+  addState(props.cell.isManeuverDodgeMarked, 'Манёвренное уклонение')
   for (const type of props.summonTrails ?? [])
     extras.push(`След: ${summonNames[type] ?? type}`)
+  for (const type of props.cell.summonDeaths ?? [])
+    extras.push(`Погиб: ${summonNames[type] ?? type}`)
   if (props.lastShot) extras.push('Последний выстрел')
   if (props.marked) extras.push('Метка')
   if (props.bowDirection) extras.push('Нос корабля')
@@ -210,9 +229,18 @@ const cellTooltip = computed(() => {
     @mouseleave="$emit('tipHide')"
   >
     <span v-if="cellIconHtml" class="cell-icon" v-html="cellIconHtml"></span>
-    <span v-if="isPlacement && bowHtml" class="deck-bow" :class="'deck-bow--' + bowDirection" v-html="bowHtml"></span>
-    <span v-if="isPlacement && deckSymbolHtml.length" class="deck-symbols">
+    <span v-if="bowHtml" class="deck-bow" :class="'deck-bow--' + bowDirection" v-html="bowHtml"></span>
+    <span v-if="deckSymbolHtml.length" class="deck-symbols">
       <span v-for="entry in deckSymbolHtml" :key="entry.symbol" class="deck-symbol" :class="'deck-symbol--' + entry.symbol" v-html="entry.html"></span>
+    </span>
+    <span v-if="summonDeathHtml.length" class="summon-deaths">
+      <span
+        v-for="(death, deathIndex) in summonDeathHtml"
+        :key="`${death.type}-${deathIndex}`"
+        class="summon-death"
+        :class="'summon-death--' + death.type.toLowerCase()"
+        v-html="death.html"
+      ></span>
     </span>
   </div>
 </template>
@@ -315,6 +343,13 @@ const cellTooltip = computed(() => {
   color: var(--bs-poison, var(--accent-green));
 }
 
+/* Light Wood Triple auto-maneuver: persistent pink origin marker. */
+.cell-maneuver-dodge {
+  background: color-mix(in srgb, #ec4899 32%, var(--bg-primary));
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, #f472b6 72%, transparent);
+  color: #f9a8d4;
+}
+
 .cell-destroyed {
   background: color-mix(in srgb, var(--bs-hit, var(--accent-red)) 16%, var(--bg-inset));
   background-image: radial-gradient(circle at 30% 30%, color-mix(in srgb, var(--bs-hit, var(--accent-red)) 22%, transparent) 0%, transparent 60%),
@@ -378,6 +413,35 @@ const cellTooltip = computed(() => {
   z-index: 1;
 }
 
+.cell-maneuver-muted {
+  filter: grayscale(1) brightness(0.38);
+  opacity: 0.48;
+  pointer-events: none;
+}
+.cell-maneuver-ship {
+  filter: none;
+  opacity: 1;
+  outline: 3px solid #facc15;
+  outline-offset: -3px;
+  z-index: 5;
+}
+.cell-maneuver-target {
+  filter: none;
+  opacity: 1;
+  pointer-events: auto;
+  cursor: pointer;
+  background: color-mix(in srgb, #22c55e 62%, var(--bg-primary)) !important;
+  outline: 3px solid #86efac;
+  outline-offset: -3px;
+  box-shadow: 0 0 16px rgba(34, 197, 94, 0.9);
+  z-index: 6;
+  animation: maneuver-target-pulse 0.75s ease-in-out infinite alternate;
+}
+@keyframes maneuver-target-pulse {
+  from { box-shadow: 0 0 7px rgba(34, 197, 94, 0.62); }
+  to { box-shadow: 0 0 19px rgba(34, 197, 94, 1); }
+}
+
 .cell-zone {
   background: color-mix(in srgb, var(--accent-blue) 10%, transparent) !important;
   outline: 1px dashed color-mix(in srgb, var(--accent-blue) 40%, transparent);
@@ -421,6 +485,8 @@ const cellTooltip = computed(() => {
   pointer-events: none;
 }
 .deck-bow--left { transform: rotate(-90deg); }
+.deck-bow--up-left { transform: rotate(-45deg); }
+.deck-bow--up-right { transform: rotate(45deg); }
 .deck-symbols {
   position: absolute;
   right: 1px;
@@ -448,6 +514,39 @@ const cellTooltip = computed(() => {
 .deck-symbol--catapult { color: #f8fafc; }
 .deck-symbol--boiler,
 .deck-symbol--incendiary { color: #fb923c; }
+
+.summon-deaths {
+  position: absolute;
+  left: 1px;
+  bottom: 1px;
+  display: flex;
+  flex-wrap: wrap-reverse;
+  gap: 1px;
+  max-width: calc(100% - 2px);
+  z-index: 5;
+  pointer-events: none;
+}
+.summon-death {
+  position: relative;
+  width: 11px;
+  height: 11px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #fca5a5;
+  border: 1px solid rgba(248, 113, 113, 0.9);
+  border-radius: 50%;
+  background: rgba(69, 10, 10, 0.88);
+  filter: grayscale(0.3);
+}
+.summon-death::after {
+  content: '×';
+  position: absolute;
+  color: #fff;
+  font-size: 9px;
+  font-weight: 900;
+  text-shadow: 0 0 2px #000;
+}
 
 /* -- Shot impact animations --------------------------------------- */
 .anim-hit {

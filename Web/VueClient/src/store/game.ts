@@ -143,6 +143,10 @@ export const useGameStore = defineStore('game', () => {
   const myPortalGun = computed(() => myPlayer.value?.portalGun ?? null)
 
   const isTerminalMode = computed(() => myPlayer.value?.isTerminalMode ?? false)
+  const isDeepSession = computed(() => myPlayer.value?.isDeepSession ?? false)
+  const depthsCallPromptActive = computed(
+    () => myPlayer.value?.depthsCallPromptActive ?? false,
+  )
 
   const myTerminalState = computed(() => myPlayer.value?.terminalState ?? null)
 
@@ -618,6 +622,11 @@ export const useGameStore = defineStore('game', () => {
     await signalrService.draftSelect(gameState.value.gameId, characterName)
   }
 
+  async function depthsCallChoice(agree: boolean) {
+    if (!gameState.value) return
+    await signalrService.depthsCallChoice(gameState.value.gameId, agree)
+  }
+
   async function aramReroll(slot: number) {
     if (!gameState.value) return
     await signalrService.aramReroll(gameState.value.gameId, slot)
@@ -1002,6 +1011,8 @@ export const useGameStore = defineStore('game', () => {
     isKira,
     myPortalGun,
     isTerminalMode,
+    isDeepSession,
+    depthsCallPromptActive,
     myTerminalState,
     myPickleRick,
     myGiantBeans,
@@ -1030,6 +1041,7 @@ export const useGameStore = defineStore('game', () => {
     demandContractReward,
     predict,
     draftSelect,
+    depthsCallChoice,
     aramReroll,
     aramConfirm,
     darksciChoice,

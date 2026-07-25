@@ -797,7 +797,21 @@ function doomModuleStatus(module: string): { text: string; state: 'live' | 'done
     <div class="pc-top-left">
 
     <!-- Stats with bars + resist/quality -->
-    <div v-if="!isTerminalMode" class="pc-stats">
+    <div v-if="player.character.statDisplayOverride" class="pc-stats pc-stat-override">
+      <div
+        v-for="label in ['INT', 'STR', 'SPD', 'PSY']"
+        :key="label"
+        class="stat-block"
+      >
+        <div class="stat-row">
+          <span class="gi gi-lg">{{ label }}</span>
+          <div class="stat-bar-bg stat-override-line" />
+          <span class="stat-val">{{ player.character.statDisplayOverride }}</span>
+        </div>
+      </div>
+    </div>
+
+    <div v-else-if="!isTerminalMode" class="pc-stats">
       <div v-if="hasLvlUpPoints" class="lvl-up-badge" :class="{ 'nerf-badge': isIrelia }" :style="levelUpTint ? { background: levelUpTint } : {}">
         {{ usesSpecialLevelUpPanel ? `${lvlUpPoints} особый выбор` : `+${lvlUpPoints} очков` }}
         <span v-if="levelUpQuip" class="lvl-up-quip">{{ levelUpQuip }}</span>
@@ -2361,6 +2375,27 @@ function doomModuleStatus(module: string): { text: string; state: 'live' | 'done
   display: flex;
   flex-direction: column;
   gap: 5px;
+}
+
+.pc-stat-override {
+  padding: 12px;
+  border: 1px solid rgba(62, 230, 200, 0.26);
+  background: linear-gradient(145deg, rgba(2, 10, 20, 0.96), rgba(4, 28, 38, 0.82));
+  box-shadow: inset 0 0 24px rgba(25, 194, 184, 0.08);
+}
+
+.pc-stat-override .stat-val {
+  color: #3ee6c8;
+  font-size: 22px;
+  text-shadow: 0 0 12px rgba(62, 230, 200, 0.7);
+}
+
+.stat-override-line {
+  background: repeating-linear-gradient(
+    90deg,
+    rgba(25, 194, 184, 0.35) 0 8px,
+    transparent 8px 14px
+  );
 }
 
 .stat-row {

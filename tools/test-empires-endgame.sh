@@ -57,7 +57,8 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 prepare_cypress_runtime() {
-  local version cache_root binary missing runtime_root runtime_lib download_dir package
+  local version cache_root binary binary_dir binary_state_dir state_cache_root
+  local missing runtime_root runtime_lib download_dir package
   version="$(node -p "require('cypress/package.json').version")"
   cache_root="${CYPRESS_CACHE_FOLDER:-$HOME/.cache/Cypress}"
   binary="${CYPRESS_RUN_BINARY:-$cache_root/$version/Cypress/Cypress}"
@@ -71,9 +72,28 @@ prepare_cypress_runtime() {
     echo "Installing the pinned Cypress $version browser binary..."
     pnpm exec cypress install
   fi
-  # Cypress otherwise derives a different binary cache from the task-local
-  # XDG cache even though the pinned binary was resolved above.
-  export CYPRESS_RUN_BINARY="$binary"
+
+  binary="$(node -e "process.stdout.write(require('fs').realpathSync(process.argv[1]))" "$binary")"
+  binary_dir="$(dirname "$binary")"
+  binary_state_dir="$(dirname "$binary_dir")"
+  if [[ ! -w "$binary_state_dir" ]]; then
+    # Cypress writes binary_state.json beside the binary directory. Keep the
+    # real installation read-only while preserving Cypress's normal verify step
+    # through a writable cache facade.
+    state_cache_root="$EMPIRES_TASK_TEMP_DIR/cypress-cache"
+    mkdir -p "$state_cache_root/$version"
+    ln -s "$binary_dir" "$state_cache_root/$version/Cypress"
+    if [[ -f "$binary_state_dir/binary_state.json" ]]; then
+      cp "$binary_state_dir/binary_state.json" "$state_cache_root/$version/binary_state.json"
+    fi
+    export CYPRESS_CACHE_FOLDER="$state_cache_root"
+    unset CYPRESS_RUN_BINARY
+    binary="$state_cache_root/$version/Cypress/Cypress"
+  else
+    # Cypress otherwise derives a different binary cache from the task-local
+    # XDG cache even though the pinned binary was resolved above.
+    export CYPRESS_RUN_BINARY="$binary"
+  fi
 
   if ! command -v ldd >/dev/null || [[ ! -x "$binary" ]]; then
     return

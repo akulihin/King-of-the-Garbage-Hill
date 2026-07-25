@@ -59,7 +59,8 @@ public enum ShipStatusType
 
 public enum Faction
 {
-    Empire
+    Empire,
+    Alliance
 }
 
 public enum Region

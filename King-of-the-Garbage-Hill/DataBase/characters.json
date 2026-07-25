@@ -813,6 +813,53 @@
     "Tier": -1
   },
   {
+    "Name": "Ктулху",
+    "Intelligence": 10,
+    "Psyche": 10,
+    "Speed": 10,
+    "Strength": 10,
+    "Avatar": "https://r2.ozvmusic.com/kotgh/art/avatars/cthulhu.png",
+    "Passive": [
+      {
+        "PassiveDescription": "В начале игры предстоит выбрать одного из адептов и сделать его Вестником конца.",
+        "PassiveName": "Культ",
+        "Visible": true
+      },
+      {
+        "PassiveDescription": "Победа Вестника над врагами сводит их с ума.\nТак же **крадет** 1 __бонусное__ очко.",
+        "PassiveName": "Морок",
+        "Visible": true
+      },
+      {
+        "PassiveDescription": "Когда весь мир сойдет с ума, с морских глубин придет Ң̷є̵ҫ̸т̶һ̴о̷",
+        "PassiveName": "Нечто",
+        "Visible": true
+      },
+      {
+        "PassiveDescription": "Рядом с вечностью и смерть порою умирает.\nИ тогда придҀⷶ꜇ⷩⷬⷩⷴ҆ ꙁⷫⷩꚍⷬⷱ҆ꜿ ꚙ҆ꝕⷴꜽꝁⷫ҆ꚜꞇꝁⷴ ҩⷫ ꙉ҆ꚍ. Ҁⷱ꜇ⷴ ҏⷴꜽꚁꚛ҆ꙉ ꜽ ꚍⷱ꜇҆ꚃ҆ꚙꞇꝁ҆҆ Ꚋ ꜙꙉⷱꚍꞇꝁ҆ ꝕꚙꚍꚙ҆҆ ꙋꙉ҆ꚍꚍⷫⷱꚜꞇ.",
+        "PassiveName": "Космический ужас",
+        "Visible": true
+      }
+    ],
+    "Description": "Является богом",
+    "StoryAgent": "",
+    "BrowserCatalog": false,
+    "Tier": -1
+  },
+  {
+    "Name": "Нечто",
+    "Intelligence": 10,
+    "Psyche": 10,
+    "Speed": 10,
+    "Strength": 10,
+    "Avatar": "https://r2.ozvmusic.com/kotgh/art/avatars/nechto.png",
+    "Passive": [],
+    "Description": "",
+    "StoryAgent": "",
+    "BrowserCatalog": false,
+    "Tier": -2
+  },
+  {
     "Name": "Сайтама",
     "Intelligence": 1,
     "Psyche": 10,

@@ -235,6 +235,47 @@ const EXPECTED_SHIPPED_CONTROL_ROUTES: Record<string, ExpectedShippedControlRout
       nodes: [],
     },
   },
+  // Двуручное копьё v2 reuses the lance's ladder; the one deliberate difference is the
+  // follow-up gate, which now arms on the early замах band so «Акали» is reachable during
+  // the quick-release window.
+  'twohand-spear-v2:primary': {
+    mylorik: [
+      'tap|strike|press|*|100',
+      'doubleTap|technique|tap|*|100',
+      'doubleTapHold|strike|press|continuation|80',
+      'hold|technique|hold|*|100',
+      'holdThenDoubleTap|mobility|press|continuation|80',
+    ],
+    dualsense: {
+      instant: 'tap',
+      start: 'hold',
+      preGate: 'doubleTap',
+      nodes: [
+        'hold|hold|neutral|0.48|release|charge|dispatch|doubleTapHold,holdThenDoubleTap|release|480|ramp|*',
+        'doubleTapHold|doubleTapHold|continuation|0.72|release|charge|dispatch||release|480|gate|*',
+        'holdThenDoubleTap|holdThenDoubleTap|continuation|0.9|press|none|cancel||release|480|followUp|early',
+      ],
+    },
+  },
+  'twohand-spear-v2:secondary': {
+    mylorik: [
+      'tap|strike|press|*|100',
+      'doubleTap|technique|tap|*|100',
+      'doubleTapHold|strike|press|continuation|80',
+      'hold|technique|hold|*|100',
+      'holdThenDoubleTap|mobility|press|stance|80',
+    ],
+    dualsense: {
+      instant: 'tap',
+      start: 'hold',
+      preGate: 'doubleTap',
+      nodes: [
+        'hold|hold|neutral|0.48|press|channel|dispatch|doubleTapHold,holdThenDoubleTap|release|480|tension|*',
+        'doubleTapHold|doubleTapHold|continuation|0.72|release|charge|dispatch||release|480|gate|*',
+        'holdThenDoubleTap|holdThenDoubleTap|stance|0.9|release|none|dispatch||release|480|followUp|*',
+      ],
+    },
+  },
 }
 
 function makeWeapon(
@@ -374,14 +415,21 @@ describe('99LC config and deterministic plan', () => {
     expect(shippedSpear?.trait).toBe('spearDistance')
     expect(shippedSpear?.secondaryAttacks).toBeDefined()
     expect(shippedSpear?.secondaryTapCombo?.length).toBeGreaterThanOrEqual(1)
-    expect(loadout.left?.tapCombo).toHaveLength(2)
-    expect(loadout.right).toBeNull()
+    // The shipped loadout is Двуручное копьё v2. Being two-handed, it fills both inputs from
+    // itself: the primary set is the Охота chain, the second input is its own secondary set.
+    expect(loadout.left?.id).toBe('twohand-spear-v2')
+    expect(loadout.left?.tapCombo).toHaveLength(3)
+    expect(loadout.left?.tapCombo.map(attack => attack.behavior))
+      .toEqual(['spearHunt', 'spearHunt', 'standard'])
+    expect(loadout.right?.id).toBe('twohand-spear-v2')
+    expect(loadout.right?.attacks.hold.behavior).toBe('spearStance')
     expect(new Set(loadout.left?.tapCombo.map(attack => attack.name)).size).toBe(loadout.left?.tapCombo.length)
+    // An empty secondary slot changes nothing for a two-handed primary.
     const unsupplemented = cloneLastChancesConfig(defaultConfig)
     unsupplemented.loadout!.secondaryWeaponId = null
     expect(resolveLastChancesLoadout(unsupplemented)).toMatchObject({
-      left: { id: 'hybrid-sword', hand: 'left', augment: 'none' },
-      right: null,
+      left: { id: 'twohand-spear-v2', hand: 'left', augment: 'none' },
+      right: { id: 'twohand-spear-v2', hand: 'right', augment: 'none' },
     })
     const sword = defaultConfig.weapons.find(weapon => weapon.id === 'hybrid-sword')
     expect(sword?.name).toBe('Меч наемника')
@@ -440,6 +488,7 @@ describe('99LC config and deterministic plan', () => {
       'twohand-katana',
       'hybrid-sword',
       'secondary-ouroboros-fang',
+      'twohand-spear-v2',
     ])
   })
 
@@ -981,7 +1030,7 @@ describe('99LC config and deterministic plan', () => {
       ]))
     })
 
-    it('pins every authored request while covering all 47 enabled slots with no extras', () => {
+    it('pins every authored request while covering all 58 enabled slots with no extras', () => {
       const sets = defaultConfig.weapons.flatMap((weapon) => [
         { key: `${weapon.id}:primary`, attacks: weapon.attacks, controls: weapon.controls!.primary },
         ...(weapon.secondaryAttacks
@@ -1070,8 +1119,8 @@ describe('99LC config and deterministic plan', () => {
         expect(visited.size).toBe(nodes.size)
       }
 
-      expect(sets).toHaveLength(12)
-      expect(enabledCount).toBe(48)
+      expect(sets).toHaveLength(14)
+      expect(enabledCount).toBe(58)
       expect(disabledCount).toBe(12)
 
       const migrated = cloneLastChancesConfig(defaultConfig)

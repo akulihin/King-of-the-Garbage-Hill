@@ -55,6 +55,7 @@ const LEGACY_SHIPPED_WEAPON_TRAITS: Record<
   typeof LAST_CHANCES_WEAPON_TRAITS[number]
 > = {
   'twohand-spear': 'spearDistance',
+  'twohand-spear-v2': 'spearDistance',
   'secondary-chain': 'chainDotCarrier',
   'either-claws': 'clawParity',
   'secondary-spider-knife': 'spiderDurability',
@@ -715,6 +716,86 @@ const ATTACK_SET_CONTROL_SEEDS: Record<string, AttackSetControlSeed> = {
     haptics: {
       gateTick: { durationMs: 24, magnitude: 0.2 },
       commitPattern: [{ delayMs: 0, durationMs: 45, magnitude: 0.48 }],
+    },
+  },
+  'twohand-spear-v2:primary': {
+    role: 'Right cluster — v2 lance gearbox',
+    triggerRole: 'R2 hunt, pierce mash, breakthrough and overhead Акали',
+    mylorik: {
+      tap: mylorikActivation('strike', 'press'),
+      doubleTap: mylorikActivation('technique', 'tap'),
+      doubleTapHold: mylorikActivation('strike', 'press', 'continuation'),
+      hold: mylorikActivation('technique', 'hold'),
+      holdThenDoubleTap: mylorikActivation('mobility', 'press', 'continuation'),
+    },
+    // Same ladder as the original lance, with one deliberate difference: the follow-up gate
+    // now arms on the *early* замах pocket rather than the middle one, because v2 trades the
+    // early wide slash away from the hold and hands it to a weak «Акали» instead.
+    preGateGesture: 'doubleTap',
+    dualsense: [
+      dualSenseNode('hold', 'neutral', 0.48, {
+        holdBehavior: 'charge',
+        next: ['doubleTapHold', 'holdThenDoubleTap'],
+        tactileProfile: 'ramp',
+        entryTick: { durationMs: 35, magnitude: 0.25 },
+        adaptiveOverride: { startPosition: 0.48, endPosition: 0.58, force: 0.55 },
+      }),
+      dualSenseNode('doubleTapHold', 'continuation', 0.72, {
+        holdBehavior: 'charge',
+        tactileProfile: 'gate',
+        entryTick: { durationMs: 45, magnitude: 0.35 },
+        adaptiveOverride: { startPosition: 0.72, endPosition: 0.82, force: 0.8 },
+      }),
+      dualSenseNode('holdThenDoubleTap', 'continuation', 0.9, {
+        dispatch: 'press',
+        requiredChargeBandId: 'early',
+        tactileProfile: 'followUp',
+        entryTick: { durationMs: 55, magnitude: 0.45 },
+        adaptiveOverride: { startPosition: 0.9, endPosition: 0.98, force: 1 },
+      }),
+    ],
+    haptics: {
+      baseTrigger: { startPosition: 0.16, endPosition: 0.24, force: 0.35 },
+      gateTick: { durationMs: 25, magnitude: 0.15 },
+      commitPattern: [{ delayMs: 0, durationMs: 70, magnitude: 0.6 }],
+    },
+  },
+  'twohand-spear-v2:secondary': {
+    role: 'Left cluster — parry, brace, stance and vault',
+    triggerRole: 'L2 shove, brace, cutting stance and pole vault',
+    mylorik: {
+      tap: mylorikActivation('strike', 'press'),
+      doubleTap: mylorikActivation('technique', 'tap'),
+      doubleTapHold: mylorikActivation('strike', 'press', 'continuation'),
+      hold: mylorikActivation('technique', 'hold'),
+      holdThenDoubleTap: mylorikActivation('mobility', 'press', 'stance'),
+    },
+    // Copied verbatim from the original lance — v2 only reworks the primary hand.
+    preGateGesture: 'doubleTap',
+    dualsense: [
+      dualSenseNode('hold', 'neutral', 0.48, {
+        dispatch: 'press',
+        holdBehavior: 'channel',
+        releaseBehavior: 'dispatch',
+        next: ['doubleTapHold', 'holdThenDoubleTap'],
+        tactileProfile: 'tension',
+        entryTick: null,
+      }),
+      dualSenseNode('doubleTapHold', 'continuation', 0.72, {
+        holdBehavior: 'charge',
+        tactileProfile: 'gate',
+        adaptiveOverride: { startPosition: 0.72, endPosition: 0.82, force: 0.65 },
+      }),
+      dualSenseNode('holdThenDoubleTap', 'stance', 0.9, {
+        dispatch: 'release',
+        tactileProfile: 'followUp',
+        adaptiveOverride: { startPosition: 0.9, endPosition: 0.98, force: 0.9 },
+      }),
+    ],
+    haptics: {
+      baseTrigger: { startPosition: 0.14, endPosition: 0.14, resistance: 0.2 },
+      gateTick: { durationMs: 25, magnitude: 0.12 },
+      commitPattern: [{ delayMs: 0, durationMs: 50, magnitude: 0.4 }],
     },
   },
 }
@@ -1657,6 +1738,7 @@ function validateAttackOverrides(value: unknown, path: string, errors: string[])
     'rootMs',
     'invulnerabilityMs',
     'repeatIntervalMs',
+    'staminaCost',
   ] as const) {
     if (overrides[key] !== undefined) requireNumber(overrides, key, path, errors)
   }

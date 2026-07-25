@@ -196,6 +196,7 @@ watch(
         locked: !passive.visible,
         'terminal-code-block': isTerminalMode,
         'jon-king-highlight': jonKingHighlightIndex === idx,
+        'deep-highlight': passive.theme === 'deep',
       }"
       :tabindex="isTerminalMode || !passive.visible ? -1 : 0"
       :role="isTerminalMode || !passive.visible ? undefined : 'button'"
@@ -389,6 +390,18 @@ watch(
   box-shadow: inset 0 -8px 8px -8px rgba(100, 210, 255, 0.8);
   text-shadow: 0 0 8px rgba(120, 215, 255, 0.35);
   animation: jon-king-description-glow 1s ease-in-out infinite alternate;
+}
+
+.skill-card.deep-highlight {
+  border-color: rgba(25, 194, 184, 0.72);
+  border-left-color: #3ee6c8;
+  background: linear-gradient(100deg, rgba(2, 24, 34, 0.95), rgba(3, 13, 24, 0.82));
+  box-shadow: 0 0 24px rgba(25, 194, 184, 0.34), inset 0 0 18px rgba(62, 230, 200, 0.08);
+}
+
+.skill-card.deep-highlight .skill-name {
+  color: #3ee6c8;
+  text-shadow: 0 0 12px rgba(62, 230, 200, 0.72);
 }
 
 @keyframes jon-king-description-glow {

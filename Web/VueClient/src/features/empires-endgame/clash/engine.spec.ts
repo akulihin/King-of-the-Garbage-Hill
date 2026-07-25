@@ -9,6 +9,7 @@ import {
   validateClashPlan,
 } from './engine'
 import { CLASH_SCAFFOLD } from './catalog'
+import { EMPIRES_STABILIZATION_BUDGETS } from '../stabilization'
 import type {
   ClashAbilityDefinition,
   ClashCommand,
@@ -217,6 +218,19 @@ describe('Clash pure engine', () => {
     )
   })
 
+  it('rejects imported Clash configs whose nested catalogs exceed the aggregate ceiling', () => {
+    const overBudget = clone(CLASH_SCAFFOLD)
+    const template = overBudget.fieldVariants[0]
+    overBudget.fieldVariants.push(...Array.from(
+      { length: EMPIRES_STABILIZATION_BUDGETS.maxPlanItems },
+      (_, index) => ({ ...clone(template), id: `extra-field-${index}` }),
+    ))
+
+    expect(validateClashConfig(overBudget)).toContain(
+      'config aggregate component count exceeds the shipped safety ceiling',
+    )
+  })
+
   it('rejects malformed and over-budget imported plans at the restore boundary', () => {
     const plan = planFor([fighter('a', 1, 3, 1)], [fighter('d', 1, 3, 1)])
     expect(validateClashPlan(plan)).toEqual([])
@@ -224,6 +238,22 @@ describe('Clash pure engine', () => {
     const overBudget = clone(plan)
     overBudget.maxCommands = 513
     expect(validateClashPlan(overBudget)).toContain('plan budget exceeds the shipped safety ceiling')
+
+    const overAggregateBudget = clone(plan)
+    overAggregateBudget.units[0].passives = Array.from(
+      { length: EMPIRES_STABILIZATION_BUDGETS.maxPlanItems },
+      (_, index) => ({
+        id: `shield-${index}`,
+        name: `Shield ${index}`,
+        description: 'fixture',
+        kind: 'shield' as const,
+        category: 'shield' as const,
+        charges: 1,
+      }),
+    )
+    expect(validateClashPlan(overAggregateBudget)).toContain(
+      'plan aggregate component count exceeds the shipped safety ceiling',
+    )
 
     const duplicateCatalogIds = clone(plan)
     duplicateCatalogIds.statuses.push(clone(duplicateCatalogIds.statuses[0]))
@@ -363,6 +393,66 @@ describe('Clash pure engine', () => {
       abilityId: 'poke', targetUnitInstanceId: 'd-0',
     })
     expect(rejected.error).toContain('morale')
+  })
+
+  it('rejects a forged self-morale target on the opposing side', () => {
+    const morale: ClashAbilityDefinition = {
+      id: 'morale', name: 'Боевой дух', kind: 'morale', charges: 1, reloadTurns: 0,
+      target: 'self', value: 1,
+    }
+    const plan = planFor(
+      [fighter('caster', 0, 9, 2, { abilities: [morale] })],
+      [fighter('target', 0, 9, 1)],
+    )
+    let state = placeConfiguredFront(plan)
+    state = applyClashCommand(plan, state, { turn: state.turn + 1, kind: 'resolve-clash' })
+    expect(state).toMatchObject({ phase: 'between-clashes', expectedSide: 'attacker' })
+    const defenderMorale = state.morale.defender
+
+    const rejected = applyClashCommand(plan, state, {
+      turn: state.turn + 1,
+      kind: 'activate',
+      side: 'attacker',
+      unitInstanceId: 'a-0',
+      abilityId: morale.id,
+      targetSide: 'defender',
+    })
+
+    expect(rejected.error).toContain('target is invalid')
+    expect(rejected.morale.defender).toBe(defenderMorale)
+    expect(rejected.commandLog).toHaveLength(state.commandLog.length)
+  })
+
+  it('rejects a forged spawn into the opposing side of the board', () => {
+    const spawn: ClashAbilityDefinition = {
+      id: 'spawn', name: 'Подкрепление', kind: 'spawn', charges: 1, reloadTurns: 0,
+      target: 'cell', spawnUnitId: 'target',
+    }
+    const plan = planFor(
+      [fighter('caster', 0, 9, 2, { abilities: [spawn] })],
+      [fighter('target', 0, 9, 1)],
+    )
+    let state = placeConfiguredFront(plan)
+    state = applyClashCommand(plan, state, { turn: state.turn + 1, kind: 'resolve-clash' })
+    expect(state).toMatchObject({ phase: 'between-clashes', expectedSide: 'attacker' })
+    const unitCount = Object.keys(state.units).length
+
+    const rejected = applyClashCommand(plan, state, {
+      turn: state.turn + 1,
+      kind: 'activate',
+      side: 'attacker',
+      unitInstanceId: 'a-0',
+      abilityId: spawn.id,
+      targetSide: 'defender',
+      targetRow: 1,
+      targetColumn: 0,
+    })
+
+    expect(rejected.error).toContain('target is invalid')
+    expect(Object.keys(rejected.units)).toHaveLength(unitCount)
+    expect(rejected.cells.find(cell => (
+      cell.side === 'defender' && cell.row === 1 && cell.column === 0
+    ))?.unitInstanceId).toBeNull()
   })
 
   it('permits negative-morale activations only every second clash', () => {
