@@ -97,9 +97,9 @@ public class GameHub : Hub
             lastPlayedCharacter,
             isGodAdmin = AdminLobbyService.IsGodAdmin(discordId),
         });
-        if (_adminLobbyService.IsReserved(discordId))
-            await Clients.Caller.SendAsync(
-                "AdminLobbyReserved", new { reserved = true });
+        await Clients.Caller.SendAsync(
+            "AdminLobbyReserved",
+            new { reserved = _adminLobbyService.IsReserved(discordId) });
         Console.WriteLine($"[WebAPI] Connection {Context.ConnectionId} authenticated as Discord user {discordId}");
     }
 

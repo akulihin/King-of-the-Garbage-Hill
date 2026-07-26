@@ -452,7 +452,7 @@ function handleVisibilityChange() {
             :disabled="store.godReservation"
             @click="openAdminLobby"
           >
-            Админская игра
+            {{ t('Admin Match', 'Админская игра') }}
           </button>
         </div>
       </div>

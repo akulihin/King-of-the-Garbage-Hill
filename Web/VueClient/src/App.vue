@@ -201,7 +201,7 @@ async function changeLocale(language: AppLocale) {
     <Transition name="reservation-fade">
       <div v-if="store.godReservation" class="god-reservation-overlay" role="status">
         <span aria-hidden="true">✦</span>
-        <strong>Вы были избраны богом.</strong>
+        <strong>{{ currentLocale === 'ru' ? 'Вы были избраны богом.' : 'You have been chosen by God.' }}</strong>
         <small>{{ currentLocale === 'ru' ? 'Ожидайте начала админской игры.' : 'Wait for the admin match to begin.' }}</small>
       </div>
     </Transition>

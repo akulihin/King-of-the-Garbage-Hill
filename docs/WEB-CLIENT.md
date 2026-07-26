@@ -28,15 +28,15 @@ Routes (`router.ts` `routes`/`createRouter` — history mode needs the backend S
 | Path | Name | Page | Purpose | Anchor |
 |---|---|---|---|---|
 | `/` and `/game` | — | redirect → /games | | `router.ts:22-29` |
-| `/games` | lobby | pages/Lobby.vue | game list, Daily Quest board, reward hub/loot, replays | `router.ts:30-34` |
-| `/admin-lobby` | adminLobby | pages/AdminLobby.vue | god-admin-only curated six-seat staging lobby | `router.ts` `adminLobby` |
-| `/game/:gameId` | game | pages/Game.vue | the in-game view | `router.ts:35-40` |
-| `/spectate/:gameId` | spectate | pages/Spectate.vue | read-only live view | `router.ts:41-46` |
-| `/replay/:gameId` | replay | pages/Replay.vue | REST-loaded replay browser | `router.ts:47-52` |
-| `/home` | home | pages/Home.vue | account profile and patch-note mocks | `router.ts:53-57` |
-| `/fortress-of-doom` | fortressOfDoom | pages/FortressOfDoom.vue | live Fortress of Doom account loadout | `router.ts:58-62` |
-| `/store` | store | pages/Store.vue | account roll-weight storefront | `router.ts:63-67`; `Store.vue:1-352` |
-| `/achievements` | achievements | pages/Achievements.vue | dedicated searchable/filterable achievement center | `router.ts:68-72`; `Achievements.vue:1-22` |
+| `/games` | lobby | pages/Lobby.vue | game list, Daily Quest board, reward hub/loot, replays | `router.ts:33-36` |
+| `/admin-lobby` | adminLobby | pages/AdminLobby.vue | god-admin-only curated six-seat staging lobby | `router.ts:37-41` |
+| `/game/:gameId` | game | pages/Game.vue | the in-game view | `router.ts:42-47` |
+| `/spectate/:gameId` | spectate | pages/Spectate.vue | read-only live view | `router.ts:48-53` |
+| `/replay/:gameId` | replay | pages/Replay.vue | REST-loaded replay browser | `router.ts:54-59` |
+| `/home` | home | pages/Home.vue | account profile and patch-note mocks | `router.ts:60-64` |
+| `/fortress-of-doom` | fortressOfDoom | pages/FortressOfDoom.vue | live Fortress of Doom account loadout | `router.ts:65-69` |
+| `/store` | store | pages/Store.vue | account roll-weight storefront | `router.ts:70-74`; `Store.vue:1-352` |
+| `/achievements` | achievements | pages/Achievements.vue | dedicated searchable/filterable achievement center | `router.ts:75-79`; `Achievements.vue:1-22` |
 | `/fight-calculator` | fightCalculator | pages/FightCalculator.vue | local two-team equipment fight simulator | `router.ts`; `FightCalculator.vue` |
 | `/99lc` | lastChances | pages/LastChances.vue | local real-time 99 Last Chances prototype and builder | `router.ts`; `LastChances.vue` |
 | `/empires-endgame` | empiresEndgame | pages/EmpiresEndgame.vue | local deterministic Durak/empire campaign and definition editors | `router.ts` `routes`; `EmpiresEndgame.vue` |

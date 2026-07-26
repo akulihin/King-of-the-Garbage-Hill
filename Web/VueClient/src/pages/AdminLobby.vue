@@ -27,6 +27,7 @@ const collapsedGuilds = ref<Set<string>>(new Set())
 const botChoiceSlot = ref<number | null>(null)
 const busyAction = ref('')
 let presencePoll: ReturnType<typeof setInterval> | null = null
+let presenceRequestInFlight = false
 let initialized = false
 
 function t(english: string, russian: string): string {
@@ -103,12 +104,23 @@ onUnmounted(() => {
 
 function startPresencePoll() {
   stopPresencePoll()
-  void store.requestAdminLobbyPresence()
+  void pollPresence()
   presencePoll = setInterval(() => {
     if (inviteSlot.value !== null && store.isConnected) {
-      void store.requestAdminLobbyPresence()
+      void pollPresence()
     }
   }, 1000)
+}
+
+async function pollPresence() {
+  if (presenceRequestInFlight) return
+  presenceRequestInFlight = true
+  try {
+    await store.requestAdminLobbyPresence()
+  }
+  finally {
+    presenceRequestInFlight = false
+  }
 }
 
 function stopPresencePoll() {
@@ -227,7 +239,7 @@ function aiLabel(difficulty: number): string {
     <header class="admin-header">
       <div>
         <span class="eyebrow">{{ t('Curated match', 'Кураторский матч') }}</span>
-        <h1>Админская игра</h1>
+        <h1>{{ t('Admin Match', 'Админская игра') }}</h1>
         <p>
           {{ t(
             'Compose six seats, choose bot intelligence and pin characters before the game exists.',
@@ -268,10 +280,10 @@ function aiLabel(difficulty: number): string {
             <h2>{{ t('Empty seat', 'Свободное место') }}</h2>
             <div class="empty-actions">
               <button class="choice-button" @click="botChoiceSlot = slotIndex">
-                <Bot :size="18" /> Добавить бота
+                <Bot :size="18" /> {{ t('Add bot', 'Добавить бота') }}
               </button>
               <button class="choice-button" @click="openInvitePanel(slotIndex)">
-                <UserPlus :size="18" /> Пригласить игрока
+                <UserPlus :size="18" /> {{ t('Invite player', 'Пригласить игрока') }}
               </button>
             </div>
             <div v-if="botChoiceSlot === slotIndex" class="difficulty-picker">
@@ -308,7 +320,7 @@ function aiLabel(difficulty: number): string {
                 :disabled="Boolean(busyAction)"
                 @change="setCharacter(slotIndex, $event)"
               >
-                <option value="">случайный</option>
+                <option value="">{{ t('random', 'случайный') }}</option>
                 <option
                   v-for="character in store.adminLobbyState.characters"
                   :key="character.name"
@@ -331,10 +343,10 @@ function aiLabel(difficulty: number): string {
         </p>
         <div>
           <button class="cancel-button" :disabled="Boolean(busyAction)" @click="cancelLobby">
-            отмена
+            {{ t('cancel', 'отмена') }}
           </button>
           <button class="start-button" :disabled="Boolean(busyAction)" @click="startGame">
-            {{ busyAction === 'start' ? t('Starting…', 'Запускаем…') : 'Начать игру' }}
+            {{ busyAction === 'start' ? t('Starting…', 'Запускаем…') : t('Start game', 'Начать игру') }}
           </button>
         </div>
       </footer>
@@ -365,7 +377,7 @@ function aiLabel(difficulty: number): string {
           <div class="filter-row">
             <div class="filter-chips" role="group" :aria-label="t('Status filter', 'Фильтр статуса')">
               <button :class="{ active: statusFilter === 'site' }" @click="statusFilter = 'site'">
-                Онлайн на сайте
+                {{ t('Online on the site', 'Онлайн на сайте') }}
               </button>
               <button :class="{ active: statusFilter === 'discord' }" @click="statusFilter = 'discord'">
                 Discord
@@ -417,12 +429,12 @@ function aiLabel(difficulty: number): string {
                 </span>
                 <span class="member-name">
                   <strong>{{ user.username }}</strong>
-                  <small v-if="isBusy(user)">уже играет</small>
+                  <small v-if="isBusy(user)">{{ t('already playing', 'уже играет') }}</small>
                   <small v-else-if="isReserved(user)">{{ t('reserved', 'зарезервирован') }}</small>
                   <small v-else-if="selectedHumanIds.has(user.discordId)">
                     {{ t('already seated', 'уже в лобби') }}
                   </small>
-                  <small v-else-if="!user.hasDiscord">Без Discord</small>
+                  <small v-else-if="!user.hasDiscord">{{ t('No Discord', 'Без Discord') }}</small>
                 </span>
                 <span class="status-pair">
                   <span

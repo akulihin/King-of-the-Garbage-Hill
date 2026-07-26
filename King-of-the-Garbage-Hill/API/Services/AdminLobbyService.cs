@@ -874,8 +874,16 @@ public sealed class AdminLobbyService
         var connections = _notificationService.GetConnections(slot.DiscordId);
         if (connections.Count > 0)
         {
-            await _hubContext.Clients.Clients(connections.ToList())
-                .SendAsync("AdminLobbyReserved", new { reserved = false });
+            try
+            {
+                await _hubContext.Clients.Clients(connections.ToList())
+                    .SendAsync("AdminLobbyReserved", new { reserved = false });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(
+                    $"[WebAPI] Admin lobby overlay clear failed for {slot.DiscordId}: {ex.Message}");
+            }
         }
 
         if (!cancellation || !slot.NotifiedByDm)
@@ -901,8 +909,16 @@ public sealed class AdminLobbyService
         AdminLobbyStateDto state;
         lock (lobby)
             state = BuildState(lobby);
-        await _hubContext.Clients.Clients(connections.ToList())
-            .SendAsync("AdminLobbyState", state);
+        try
+        {
+            await _hubContext.Clients.Clients(connections.ToList())
+                .SendAsync("AdminLobbyState", state);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(
+                $"[WebAPI] Admin lobby owner refresh failed for {lobby.OwnerId}: {ex.Message}");
+        }
     }
 
     private static (ulong GameId, string Error) ResetStarting(
