@@ -287,6 +287,7 @@ type EngineTestAccess = {
     pressBumper: (hand: LastChancesHand, atMs: number, source: 'gamepad' | 'keyboard' | 'pointer') => void
     snapshot: (hand: LastChancesHand, atMs: number) => {
       active: boolean
+      value: number
       nodeId: string | null
       armedNodeId: string | null
     }
@@ -4400,16 +4401,16 @@ describe('99LC control-scheme engine boundary', () => {
     }
   })
 
-  it('selects the legal Claws branch at full travel and reserves deep critical for an active dash', () => {
+  it('uses the raw Claws R4 dash and reserves deep critical for an armed dash pocket', () => {
     const neutral = startCombat(combatConfig('either-claws', null))
     neutral.engine.setControlScheme('dualsense')
     try {
-      driveDualSenseTrigger(neutral.access, 'right', 0.9, 0)
+      driveDualSenseTrigger(neutral.access, 'right', 0.95, 0)
       driveDualSenseTrigger(neutral.access, 'right', 0, 700)
       expect(neutral.access.createSnapshot().lastGesture).toMatchObject({
         hand: 'left',
-        gesture: 'doubleTapHold',
-        attackName: weapon(defaultConfig, 'either-claws').attacks.doubleTapHold.name,
+        gesture: 'hold',
+        attackName: weapon(defaultConfig, 'either-claws').attacks.hold.name,
       })
     } finally {
       neutral.engine.destroy()
@@ -4418,9 +4419,11 @@ describe('99LC control-scheme engine boundary', () => {
     const dashing = startCombat(combatConfig('either-claws', null))
     dashing.engine.setControlScheme('dualsense')
     try {
+      driveDualSenseTrigger(dashing.access, 'right', 0.5, 800)
+      armDualSensePocket(dashing.access, 'right', 1_250)
       dashing.access.performAttack(resolution('left', 'hold', 700))
       expect(dashing.access.activeDash?.attack.behavior).toBe('clawDash')
-      driveDualSenseTrigger(dashing.access, 'right', 0.9, 800)
+      driveDualSenseTrigger(dashing.access, 'right', 0.95, 1_300)
       expect(dashing.access.createSnapshot().lastGesture).toMatchObject({
         hand: 'left',
         gesture: 'holdThenDoubleTap',
@@ -4432,25 +4435,35 @@ describe('99LC control-scheme engine boundary', () => {
     }
   })
 
-  it('arms Spear spin only from the authored middle charge band', () => {
-    const { engine, access } = startCombat(combatConfig('twohand-spear', null))
-    engine.setControlScheme('dualsense')
+  it('keeps raw Spear R4 on ram and unlocks spin only from an armed middle pocket', () => {
+    const raw = startCombat(combatConfig('twohand-spear', null))
+    raw.engine.setControlScheme('dualsense')
     try {
-      driveDualSenseTrigger(access, 'right', 0.9, 0)
-      expect(access.createSnapshot().lastGesture).toBeNull()
-      driveDualSenseTrigger(access, 'right', 0, 100)
-      expect(access.createSnapshot().lastGesture).toBeNull()
-      expect(access.createSnapshot().controlCue).toMatchObject({ state: 'blocked' })
+      driveDualSenseTrigger(raw.access, 'right', 0.95, 0)
+      expect(raw.access.createSnapshot().lastGesture).toBeNull()
+      driveDualSenseTrigger(raw.access, 'right', 0, 100)
+      expect(raw.access.createSnapshot().lastGesture).toMatchObject({
+        hand: 'left',
+        gesture: 'doubleTapHold',
+        attackName: weapon(defaultConfig, 'twohand-spear').attacks.doubleTapHold.name,
+      })
+    } finally {
+      raw.engine.destroy()
+    }
 
-      driveDualSenseTrigger(access, 'right', 0.48, 1_000)
-      driveDualSenseTrigger(access, 'right', 0.9, 2_125)
-      expect(access.createSnapshot().lastGesture).toMatchObject({
+    const armed = startCombat(combatConfig('twohand-spear', null))
+    armed.engine.setControlScheme('dualsense')
+    try {
+      driveDualSenseTrigger(armed.access, 'right', 0.5, 0)
+      armDualSensePocket(armed.access, 'right', 450)
+      driveDualSenseTrigger(armed.access, 'right', 0.95, 500)
+      expect(armed.access.createSnapshot().lastGesture).toMatchObject({
         hand: 'left',
         gesture: 'holdThenDoubleTap',
         attackName: weapon(defaultConfig, 'twohand-spear').attacks.holdThenDoubleTap.name,
       })
     } finally {
-      engine.destroy()
+      armed.engine.destroy()
     }
   })
 
@@ -4458,31 +4471,33 @@ describe('99LC control-scheme engine boundary', () => {
     const { engine, access } = startCombat(combatConfig('twohand-spear', null))
     engine.setControlScheme('dualsense')
     try {
-      driveDualSenseTrigger(access, 'right', 0.22, 0)
+      driveDualSenseTrigger(access, 'right', 0.25, 0)
       access.keyboardDualSenseTriggers.right = { down: true, startedAt: 0, gateIndex: 0 }
 
       access.updateKeyboardDualSenseTriggers(650)
-      expect(access.dualSenseControls.snapshot('right', 650).nodeId).toBe('hold')
+      expect(access.dualSenseControls.snapshot('right', 650).nodeId).toBe('hold-middle')
       access.updateKeyboardDualSenseTriggers(1_130)
-      expect(access.dualSenseControls.snapshot('right', 1_130).nodeId).toBe('doubleTapHold')
+      expect(access.dualSenseControls.snapshot('right', 1_130).nodeId).toBe('ram-short')
       access.updateKeyboardDualSenseTriggers(1_610)
-      expect(access.dualSenseControls.snapshot('right', 1_610).nodeId).toBe('holdThenDoubleTap')
-      expect(access.createSnapshot().lastGesture?.gesture).toBe('holdThenDoubleTap')
+      expect(access.dualSenseControls.snapshot('right', 1_610).nodeId).toBe('ram-strong')
+      expect(access.dualSenseControls.snapshot('right', 1_610).value).toBe(0.95)
+      driveDualSenseTrigger(access, 'right', 0, 1_700)
+      expect(access.createSnapshot().lastGesture?.gesture).toBe('doubleTapHold')
     } finally {
       engine.destroy()
     }
   })
 
-  it('keeps Spear stance alive through the L2 vault gate and commits on release', () => {
+  it('keeps Spear stance alive until its armed vault push-through commits', () => {
     const { engine, access } = startCombat(combatConfig('twohand-spear', null))
     engine.setControlScheme('dualsense')
     try {
-      driveDualSenseTrigger(access, 'left', 0.48, 0)
+      driveDualSenseTrigger(access, 'left', 0.25, 0)
       access.updateHeldWeaponMechanics(16)
       expect(access.heldChannels.get('right')?.attack.behavior).toBe('spearStance')
 
-      driveDualSenseTrigger(access, 'left', 0.9, 700)
-      driveDualSenseTrigger(access, 'left', 0, 750)
+      armDualSensePocket(access, 'left', 450)
+      driveDualSenseTrigger(access, 'left', 0.95, 500)
       expect(access.createSnapshot().lastGesture).toMatchObject({
         hand: 'right',
         gesture: 'holdThenDoubleTap',
@@ -4515,15 +4530,15 @@ describe('99LC control-scheme engine boundary', () => {
     }
   })
 
-  it('locks a gradual DualSense Knife-spider ratchet to twist and reserves throw for a direct pull', () => {
+  it('locks Knife-spider throw behind an armed twist and blocks a raw full pull', () => {
     const twisting = startCombat(combatConfig('either-claws', 'secondary-spider-knife'))
     twisting.engine.setControlScheme('dualsense')
     try {
-      driveDualSenseTrigger(twisting.access, 'left', 0.22, 0)
-      driveDualSenseTrigger(twisting.access, 'left', 0.48, 100)
+      driveDualSenseTrigger(twisting.access, 'left', 0.25, 0)
+      driveDualSenseTrigger(twisting.access, 'left', 0.5, 100)
       twisting.access.updateHeldWeaponMechanics(16)
       expect(twisting.access.heldChannels.get('right')?.attack.behavior).toBe('spiderFlurry')
-      driveDualSenseTrigger(twisting.access, 'left', 0.72, 700)
+      driveDualSenseTrigger(twisting.access, 'left', 0.75, 700)
       driveDualSenseTrigger(twisting.access, 'left', 0, 750)
       expect(twisting.access.createSnapshot().lastGesture).toMatchObject({
         hand: 'right',
@@ -4535,39 +4550,36 @@ describe('99LC control-scheme engine boundary', () => {
       twisting.engine.destroy()
     }
 
-    const gradual = startCombat(combatConfig('either-claws', 'secondary-spider-knife'))
-    gradual.engine.setControlScheme('dualsense')
+    const armed = startCombat(combatConfig('either-claws', 'secondary-spider-knife'))
+    armed.engine.setControlScheme('dualsense')
     try {
-      driveDualSenseTrigger(gradual.access, 'left', 0.22, 0)
-      driveDualSenseTrigger(gradual.access, 'left', 0.48, 100)
-      gradual.access.updateHeldWeaponMechanics(16)
-      expect(gradual.access.heldChannels.get('right')?.attack.behavior).toBe('spiderFlurry')
-      driveDualSenseTrigger(gradual.access, 'left', 0.72, 700)
-      driveDualSenseTrigger(gradual.access, 'left', 0.9, 1_250)
-      driveDualSenseTrigger(gradual.access, 'left', 0, 1_300)
-      expect(gradual.access.createSnapshot().lastGesture).toMatchObject({
+      driveDualSenseTrigger(armed.access, 'left', 0.25, 0)
+      driveDualSenseTrigger(armed.access, 'left', 0.5, 100)
+      armed.access.updateHeldWeaponMechanics(16)
+      expect(armed.access.heldChannels.get('right')?.attack.behavior).toBe('spiderFlurry')
+      driveDualSenseTrigger(armed.access, 'left', 0.75, 700)
+      armDualSensePocket(armed.access, 'left', 1_150)
+      driveDualSenseTrigger(armed.access, 'left', 0.95, 1_200)
+      expect(armed.access.createSnapshot().lastGesture).toMatchObject({
         hand: 'right',
-        gesture: 'holdThenDoubleTap',
-        attackName: weapon(defaultConfig, 'secondary-spider-knife').attacks.holdThenDoubleTap.name,
+        gesture: 'doubleTapHold',
+        attackName: weapon(defaultConfig, 'secondary-spider-knife').attacks.doubleTapHold.name,
       })
-      expect(gradual.access.weaponStates.get('secondary-spider-knife')?.resource).toBeGreaterThan(0)
-      expect(gradual.access.heldChannels.has('right')).toBe(false)
+      expect(armed.access.weaponStates.get('secondary-spider-knife')?.resource).toBe(0)
+      expect(armed.access.heldChannels.has('right')).toBe(false)
     } finally {
-      gradual.engine.destroy()
+      armed.engine.destroy()
     }
 
     const direct = startCombat(combatConfig('either-claws', 'secondary-spider-knife'))
     direct.engine.setControlScheme('dualsense')
     try {
-      driveDualSenseTrigger(direct.access, 'left', 0.9, 0)
+      driveDualSenseTrigger(direct.access, 'left', 0.95, 0)
       expect(direct.access.heldChannels.has('right')).toBe(false)
       driveDualSenseTrigger(direct.access, 'left', 0, 700)
-      expect(direct.access.createSnapshot().lastGesture).toMatchObject({
-        hand: 'right',
-        gesture: 'doubleTapHold',
-        attackName: weapon(defaultConfig, 'secondary-spider-knife').attacks.doubleTapHold.name,
-      })
-      expect(direct.access.weaponStates.get('secondary-spider-knife')?.resource).toBe(0)
+      expect(direct.access.createSnapshot().lastGesture).toBeNull()
+      expect(direct.access.createSnapshot().controlCue).toMatchObject({ state: 'blocked' })
+      expect(direct.access.weaponStates.get('secondary-spider-knife')?.resource).toBeGreaterThan(0)
     } finally {
       direct.engine.destroy()
     }
@@ -4577,9 +4589,10 @@ describe('99LC control-scheme engine boundary', () => {
     const chain = startCombat(combatConfig('either-claws', 'secondary-chain'))
     chain.engine.setControlScheme('dualsense')
     try {
-      driveDualSenseTrigger(chain.access, 'left', 0.48, 0)
+      driveDualSenseTrigger(chain.access, 'left', 0.25, 0)
+      driveDualSenseTrigger(chain.access, 'left', 0.5, 100)
       expect(chain.access.activeAreas.some(area => area.attack.behavior === 'chainSpin')).toBe(true)
-      driveDualSenseTrigger(chain.access, 'left', 0.72, 100)
+      driveDualSenseTrigger(chain.access, 'left', 0.75, 200)
       driveDualSenseTrigger(chain.access, 'left', 0, 700)
       expect(chain.access.createSnapshot().lastGesture).toMatchObject({
         hand: 'right',
@@ -4594,7 +4607,7 @@ describe('99LC control-scheme engine boundary', () => {
     grapple.engine.setControlScheme('dualsense')
     try {
       grapple.access.weaponStates.get('twohand-axe')!.boundEnemyId = grapple.access.enemies[0].id
-      driveDualSenseTrigger(grapple.access, 'right', 0.72, 0)
+      driveDualSenseTrigger(grapple.access, 'right', 0.75, 0)
       driveDualSenseTrigger(grapple.access, 'right', 0, 700)
       expect(grapple.access.createSnapshot().lastGesture).toMatchObject({
         hand: 'left',
@@ -4608,10 +4621,10 @@ describe('99LC control-scheme engine boundary', () => {
     const spin = startCombat(combatConfig('twohand-axe', null))
     spin.engine.setControlScheme('dualsense')
     try {
-      driveDualSenseTrigger(spin.access, 'left', 0.22, 0)
+      driveDualSenseTrigger(spin.access, 'left', 0.25, 0)
       spin.access.updateHeldWeaponMechanics(16)
       expect(spin.access.heldChannels.get('right')?.attack.behavior).toBe('axeSpin')
-      driveDualSenseTrigger(spin.access, 'left', 0.72, 700)
+      driveDualSenseTrigger(spin.access, 'left', 0.75, 700)
       driveDualSenseTrigger(spin.access, 'left', 0, 750)
       expect(spin.access.createSnapshot().lastGesture).toMatchObject({
         hand: 'right',
@@ -4624,13 +4637,13 @@ describe('99LC control-scheme engine boundary', () => {
     }
   })
 
-  it('chooses Katana flurry/hop-slash on a fast pull and charge continuations after arming', () => {
+  it('keeps raw Katana R4 on full charge and unlocks armed dance/flash finishers', () => {
     const primaryFast = startCombat(combatConfig('twohand-katana', null))
     primaryFast.engine.setControlScheme('dualsense')
     try {
-      driveDualSenseTrigger(primaryFast.access, 'right', 0.9, 0)
+      driveDualSenseTrigger(primaryFast.access, 'right', 0.95, 0)
       driveDualSenseTrigger(primaryFast.access, 'right', 0, 100)
-      expect(primaryFast.access.createSnapshot().lastGesture?.gesture).toBe('doubleTapHold')
+      expect(primaryFast.access.createSnapshot().lastGesture?.gesture).toBe('hold')
     } finally {
       primaryFast.engine.destroy()
     }
@@ -4638,8 +4651,9 @@ describe('99LC control-scheme engine boundary', () => {
     const primaryCharged = startCombat(combatConfig('twohand-katana', null))
     primaryCharged.engine.setControlScheme('dualsense')
     try {
-      driveDualSenseTrigger(primaryCharged.access, 'right', 0.48, 0)
-      driveDualSenseTrigger(primaryCharged.access, 'right', 0.9, 700)
+      driveDualSenseTrigger(primaryCharged.access, 'right', 0.5, 0)
+      armDualSensePocket(primaryCharged.access, 'right', 450)
+      driveDualSenseTrigger(primaryCharged.access, 'right', 0.95, 700)
       expect(primaryCharged.access.createSnapshot().lastGesture).toMatchObject({
         hand: 'left',
         gesture: 'holdThenDoubleTap',
@@ -4652,9 +4666,9 @@ describe('99LC control-scheme engine boundary', () => {
     const secondaryFast = startCombat(combatConfig('twohand-katana', null))
     secondaryFast.engine.setControlScheme('dualsense')
     try {
-      driveDualSenseTrigger(secondaryFast.access, 'left', 0.9, 0)
+      driveDualSenseTrigger(secondaryFast.access, 'left', 0.95, 0)
       driveDualSenseTrigger(secondaryFast.access, 'left', 0, 100)
-      expect(secondaryFast.access.createSnapshot().lastGesture?.gesture).toBe('doubleTapHold')
+      expect(secondaryFast.access.createSnapshot().lastGesture?.gesture).toBe('hold')
     } finally {
       secondaryFast.engine.destroy()
     }
@@ -4662,8 +4676,9 @@ describe('99LC control-scheme engine boundary', () => {
     const secondaryCharged = startCombat(combatConfig('twohand-katana', null))
     secondaryCharged.engine.setControlScheme('dualsense')
     try {
-      driveDualSenseTrigger(secondaryCharged.access, 'left', 0.48, 0)
-      driveDualSenseTrigger(secondaryCharged.access, 'left', 0.9, 700)
+      driveDualSenseTrigger(secondaryCharged.access, 'left', 0.5, 0)
+      armDualSensePocket(secondaryCharged.access, 'left', 450)
+      driveDualSenseTrigger(secondaryCharged.access, 'left', 0.95, 700)
       expect(secondaryCharged.access.createSnapshot().lastGesture).toMatchObject({
         hand: 'right',
         gesture: 'holdThenDoubleTap',
@@ -4679,8 +4694,8 @@ describe('99LC control-scheme engine boundary', () => {
     engine.setControlScheme('dualsense')
     try {
       expect(access.weapons.has('right')).toBe(false)
-      driveDualSenseTrigger(access, 'right', 0.72, 0)
-      driveDualSenseTrigger(access, 'right', 0.72, 1)
+      driveDualSenseTrigger(access, 'right', 0.75, 0)
+      driveDualSenseTrigger(access, 'right', 0.75, 1)
       driveDualSenseTrigger(access, 'right', 0, 1000)
       const equipped = access.weapons.get('left')!
       expect(access.createSnapshot().lastGesture).toMatchObject({
@@ -4697,7 +4712,7 @@ describe('99LC control-scheme engine boundary', () => {
     }
   })
 
-  it('advertises a runtime continuation once at window open and keeps its input authoritative', () => {
+  it('advertises the armed invitation and runtime continuation once each', () => {
     const { engine, access } = startCombat(combatConfig('either-claws', null))
     engine.setControlScheme('dualsense')
     const feedback = vi.spyOn(access.feedbackController, 'emit')
@@ -4706,10 +4721,12 @@ describe('99LC control-scheme engine boundary', () => {
       .filter(event => event.state === 'continuation' && event.profile === 'followUp')
 
     try {
+      driveDualSenseTrigger(access, 'right', 0.5, 800)
+      armDualSensePocket(access, 'right', 1_250)
       access.performAttack(resolution('left', 'hold', 700))
-
       expect(access.activeDash?.attack.behavior).toBe('clawDash')
       expect(continuationEvents()).toEqual([
+        expect.objectContaining({ hand: 'right', state: 'continuation', profile: 'followUp' }),
         expect.objectContaining({ hand: 'right', state: 'continuation', profile: 'followUp' }),
       ])
       expect(access.createSnapshot()).toMatchObject({
@@ -4727,16 +4744,16 @@ describe('99LC control-scheme engine boundary', () => {
 
       access.update(0, 0)
       access.update(0, 0)
-      expect(continuationEvents()).toHaveLength(1)
+      expect(continuationEvents()).toHaveLength(2)
 
-      driveDualSenseTrigger(access, 'right', 0.9, 800)
+      driveDualSenseTrigger(access, 'right', 0.95, 1_300)
       expect(access.createSnapshot().lastGesture).toMatchObject({
         hand: 'left',
         gesture: 'holdThenDoubleTap',
         attackName: weapon(defaultConfig, 'either-claws').attacks.holdThenDoubleTap.name,
       })
       expect(access.activeDash).toBeNull()
-      expect(continuationEvents()).toHaveLength(1)
+      expect(continuationEvents()).toHaveLength(2)
     } finally {
       engine.destroy()
     }
@@ -4791,7 +4808,7 @@ describe('99LC control-scheme engine boundary', () => {
     engine.setControlScheme('dualsense')
     const feedback = vi.spyOn(access.feedbackController, 'emit')
     try {
-      driveDualSenseTrigger(access, 'left', 0.22, 0)
+      driveDualSenseTrigger(access, 'left', 0.25, 0)
 
       expect(access.createSnapshot().controlCue).toMatchObject({
         hand: 'right',
@@ -4817,22 +4834,19 @@ describe('99LC control-scheme engine boundary', () => {
     }
   })
 
-  it('emits one authored gate tick per crossed node and never scales motors by trigger value', () => {
+  it('coalesces a fast gate sweep to one tick and never scales motors by trigger value', () => {
     const { engine, access } = startCombat(combatConfig('twohand-spear', null))
     engine.setControlScheme('dualsense')
     const feedback = vi.spyOn(access.feedbackController, 'emit')
     try {
-      driveDualSenseTrigger(access, 'right', 0.3, 0)
-      expect(feedback).not.toHaveBeenCalled()
-
-      driveDualSenseTrigger(access, 'right', 0.55, 30)
+      driveDualSenseTrigger(access, 'right', 0.25, 0)
+      driveDualSenseTrigger(access, 'right', 0.5, 30)
       driveDualSenseTrigger(access, 'right', 0.75, 60)
       const cues = feedback.mock.calls
         .map(([event]) => event)
         .filter(event => event.state === 'charge' || event.state === 'continuation')
       expect(cues).toEqual([
         expect.objectContaining({ profile: 'ramp', tick: { durationMs: 35, magnitude: 0.25 } }),
-        expect.objectContaining({ profile: 'gate', tick: { durationMs: 45, magnitude: 0.35 } }),
       ])
       expect(feedback.mock.calls.every(([event]) => event.strength === undefined)).toBe(true)
 
@@ -4850,14 +4864,15 @@ describe('99LC control-scheme engine boundary', () => {
     engine.setControlScheme('dualsense')
     const feedback = vi.spyOn(access.feedbackController, 'emit')
     try {
-      driveDualSenseTrigger(access, 'right', 0.55, 0)
-      driveDualSenseTrigger(access, 'right', 0.75, 30)
+      driveDualSenseTrigger(access, 'right', 0.25, 0)
+      driveDualSenseTrigger(access, 'right', 0.5, 250)
+      driveDualSenseTrigger(access, 'right', 0.75, 500)
 
       const forces = feedback.mock.calls
         .map(([event]) => event)
         .filter(event => event.state === 'charge' || event.state === 'continuation')
         .map(event => event.adaptiveOverride?.force)
-      expect(forces).toEqual([0.55, 0.8])
+      expect(forces).toEqual([0.42, 0.58, 0.8])
     } finally {
       engine.destroy()
     }
@@ -4868,7 +4883,7 @@ describe('99LC control-scheme engine boundary', () => {
     engine.setControlScheme('dualsense')
     const feedback = vi.spyOn(access.feedbackController, 'emit')
     try {
-      driveDualSenseTrigger(access, 'right', 0.3, 0)
+      driveDualSenseTrigger(access, 'right', 0.22, 0)
       driveDualSenseTrigger(access, 'right', 0, 150)
       expect(access.createSnapshot().lastGesture).toMatchObject({
         hand: 'left',
@@ -4893,7 +4908,7 @@ describe('99LC control-scheme engine boundary', () => {
     const { engine, access } = startCombat(combatConfig('twohand-spear', null))
     engine.setControlScheme('dualsense')
     try {
-      driveDualSenseTrigger(access, 'left', 0.3, 0)
+      driveDualSenseTrigger(access, 'left', 0.22, 0)
       driveDualSenseTrigger(access, 'left', 0, 150)
       expect(access.createSnapshot().lastGesture).toMatchObject({
         hand: 'right',
@@ -4946,7 +4961,7 @@ describe('99LC control-scheme engine boundary', () => {
     }
   })
 
-  it('codes armed charge bands as 1/2/3-pulse patterns once per band per hold', () => {
+  it('codes floored charge bands by pulse count once per band per hold', () => {
     const { engine, access } = startCombat(combatConfig('twohand-spear', null))
     engine.setControlScheme('dualsense')
     const feedback = vi.spyOn(access.feedbackController, 'emit')
@@ -4965,10 +4980,10 @@ describe('99LC control-scheme engine boundary', () => {
       const bands = feedback.mock.calls
         .map(([event]) => event)
         .filter(event => event.state === 'charge' && event.pattern !== undefined)
-      expect(bands.map(event => event.pattern!.length)).toEqual([1, 2, 3])
-      expect(bands.map(event => event.profile)).toEqual(['bandLight', 'bandMedium', 'bandStrong'])
-      expect(bands[2].pattern![1]).toMatchObject({ delayMs: 110, durationMs: 40 })
-      expect(bands[2].pattern![1].magnitude).toBeCloseTo(0.46, 5)
+      expect(bands.map(event => event.pattern!.length)).toEqual([2, 3])
+      expect(bands.map(event => event.profile)).toEqual(['bandMedium', 'bandStrong'])
+      expect(bands[1].pattern![1]).toMatchObject({ delayMs: 110, durationMs: 40 })
+      expect(bands[1].pattern![1].magnitude).toBeCloseTo(0.46, 5)
     } finally {
       engine.destroy()
     }
@@ -4986,7 +5001,7 @@ describe('99LC control-scheme engine boundary', () => {
 
       driveDualSenseTrigger(access, 'right', 0.55, 0)
       expect(baseline).toHaveBeenLastCalledWith(expect.objectContaining({
-        right: expect.objectContaining({ startPosition: 0.48, endPosition: 0.58, force: 0.55 }),
+        right: expect.objectContaining({ startPosition: 0.5, endPosition: 0.6, force: 0.58 }),
       }))
 
       driveDualSenseTrigger(access, 'right', 0, 40)
@@ -5329,7 +5344,7 @@ describe('99LC Двуручное копьё v2', () => {
     }
   })
 
-  it('leaves every shipped weapon on the global stamina cost after the band-aware rework', () => {
+  it('keeps global stamina costs except the authored Axe max bands', () => {
     for (const shipped of defaultConfig.weapons) {
       if (shipped.id === V2) continue
       const secondaryOnly = shipped.equipMode === 'secondaryOnly'
@@ -5343,8 +5358,11 @@ describe('99LC Двуручное копьё v2', () => {
           if (!equipped) continue
           for (const gesture of Object.keys(equipped.attacks) as LastChancesGesture[]) {
             for (const held of [0, 700, 1200, 1700]) {
+              const authoredBandCost = equipped.attacks[gesture].charge?.bands
+                .filter(band => held >= band.minMs)
+                .at(-1)?.overrides?.staminaCost
               expect(access.staminaCostFor(equipped, hand, gesture, held))
-                .toBe(config.stamina.attackCost)
+                .toBe(authoredBandCost ?? config.stamina.attackCost)
             }
           }
         }

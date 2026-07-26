@@ -459,9 +459,9 @@ describe('DualSense control recognizer', () => {
       expect.objectContaining({
         nodeId: 'throw-finisher',
         gesture: 'doubleTapHold',
-        armed: undefined,
       }),
     ])
+    expect(rawPull.find(event => event.nodeId === 'throw-finisher')).not.toHaveProperty('armed')
     expect(rawPull.filter(event => event.commit && event.phase === 'release')).toHaveLength(0)
   })
 })
