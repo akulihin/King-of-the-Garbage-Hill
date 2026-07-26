@@ -25,5 +25,7 @@ public class Itachi
         public Guid TsukuyomiActiveTarget { get; set; } = Guid.Empty;
         public decimal TotalStolenPoints { get; set; } = 0;
         public Dictionary<Guid, decimal> StolenFromPlayers { get; set; } = new();
+        // Enemies ever marked by Tsukuyomi: the technique never works twice on the same enemy
+        public List<Guid> CaughtPlayers { get; set; } = new();
     }
 }

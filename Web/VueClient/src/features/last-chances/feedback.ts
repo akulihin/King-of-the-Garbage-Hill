@@ -145,6 +145,8 @@ const PROFILE_PRIORITIES: Record<LastChancesTactileProfile, number> = {
 
 /** Ambient living-weapon wriggle sits below every deliberate cue. */
 const WRIGGLE_PRIORITY = 10
+/** Armed-loop previews sit above ambient wriggle but below every deliberate click. */
+const TELEGRAPH_PRIORITY = 15
 
 const defaultSchedule: LastChancesFeedbackSchedule = (fn, delayMs) => {
   const id = setTimeout(fn, Math.max(0, delayMs))
@@ -403,7 +405,9 @@ export class DualSenseFeedbackController {
     const strength = clamp(event.strength ?? 1, 0, 1)
     const priority = event.state === 'wriggle'
       ? WRIGGLE_PRIORITY
-      : PROFILE_PRIORITIES[event.profile]
+      : event.state === 'telegraph'
+        ? TELEGRAPH_PRIORITY
+        : PROFILE_PRIORITIES[event.profile]
     if (this.activePattern && priority > this.activePattern.priority) this.clearActivePattern()
 
     if (event.pattern && event.pattern.length > 0) {

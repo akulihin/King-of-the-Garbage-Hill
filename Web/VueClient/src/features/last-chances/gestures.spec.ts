@@ -128,6 +128,24 @@ describe('99LC five-gesture recognizer', () => {
     })
   })
 
+  it('cancels one hand without emitting or disturbing the other hand', () => {
+    const events: LastChancesGestureResolution[] = []
+    const recognizer = makeRecognizer(events)
+
+    recognizer.press('left', 0)
+    recognizer.press('right', 20)
+    recognizer.cancel('left')
+    recognizer.update(900)
+
+    expect(recognizer.snapshot('left', 900).phase).toBe('idle')
+    expect(recognizer.snapshot('right', 900)).toMatchObject({
+      phase: 'pressing',
+      pressed: true,
+      heldMs: 880,
+    })
+    expect(events).toEqual([])
+  })
+
   it('keeps the hold follow-up boundary inclusive and falls back just outside it', () => {
     const events: LastChancesGestureResolution[] = []
     const recognizer = makeRecognizer(events)

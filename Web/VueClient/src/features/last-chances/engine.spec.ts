@@ -129,7 +129,38 @@ interface RuntimeAttackContext {
   storedDot: LastChancesStoredDot | null
 }
 
+interface RuntimeEnemyCombatProfile {
+  phaseName: string | null
+  attackKind: string
+  projectileSpeed: number
+  projectileKnockback: number
+  attackRadius: number
+  attackDamage: number
+  attackRange: number
+}
+
+interface RuntimeProjectile {
+  id: number
+  position: LastChancesVector
+  velocity: LastChancesVector
+  radius: number
+  damage: number
+  knockback: number
+  remainingDistance: number
+  remainingMs: number
+  remainingHits: number
+  hitIds: Set<string>
+  color: string
+  source: 'player' | 'enemy'
+  sourceName: string
+  attack?: LastChancesAttackDefinition
+  weaponId?: string
+  hand?: LastChancesHand
+  carriedIds?: Set<string>
+}
+
 type EngineTestAccess = {
+  canvas: HTMLCanvasElement
   activeAreas: Array<{
     attack: LastChancesAttackDefinition
     direction: LastChancesVector
@@ -156,6 +187,8 @@ type EngineTestAccess = {
       tierCued: number
     }
   } | null
+  activeParryAttack: LastChancesAttackDefinition | null
+  activatePlayerParry: (attack: LastChancesAttackDefinition, minimumDurationMs?: number) => void
   activeLoadout: {
     primaryWeaponId: string | null
     secondaryWeaponId: string | null
@@ -222,6 +255,7 @@ type EngineTestAccess = {
   damagePlayer: (damage: number, source: string) => void
   startEmptyRightHandDash: () => boolean
   gestures: {
+    cancel: (hand: LastChancesHand) => void
     press: (hand: LastChancesHand, atMs: number) => void
     reset: () => void
     update: (atMs: number) => void
@@ -246,10 +280,15 @@ type EngineTestAccess = {
       controls: LastChancesResolvedWeapon['controls'],
       source: 'gamepad' | 'keyboard' | 'pointer',
     ) => void
+    update: (
+      atMs: number,
+      controls: (hand: LastChancesHand) => LastChancesResolvedWeapon['controls'] | undefined,
+    ) => void
     pressBumper: (hand: LastChancesHand, atMs: number, source: 'gamepad' | 'keyboard' | 'pointer') => void
     snapshot: (hand: LastChancesHand, atMs: number) => {
       active: boolean
       nodeId: string | null
+      armedNodeId: string | null
     }
   }
   activeMobilityPhysicalHand: LastChancesHand | null
@@ -273,6 +312,15 @@ type EngineTestAccess = {
     delta: LastChancesVector,
     radius: number,
   ) => void
+  movementVelocity: LastChancesVector
+  pressedPointerButtons: Set<number>
+  handlePointerDown: (event: PointerEvent) => void
+  handlePointerMove: (event: PointerEvent) => void
+  handlePointerUp: (event: PointerEvent) => void
+  handlePointerCancel: (event: PointerEvent) => void
+  handleLostPointerCapture: (event: PointerEvent) => void
+  pressedKeys: Set<string>
+  updatePlayer: (deltaSeconds: number) => void
   moveQuests: Record<LastChancesHand, {
     unlocked: Record<LastChancesGesture, boolean>
     pendingUnlocks: LastChancesGesture[]
@@ -366,11 +414,9 @@ type EngineTestAccess = {
     size: number
     detonateAtMs: number
   }>
-  projectiles: Array<{
-    attack?: LastChancesAttackDefinition
-    remainingHits: number
-    carriedIds?: Set<string>
-  }>
+  projectiles: RuntimeProjectile[]
+  enemyCombatProfile: (enemy: RuntimeEnemy) => RuntimeEnemyCombatProfile
+  spawnEnemyProjectile: (enemy: RuntimeEnemy, profile: RuntimeEnemyCombatProfile) => void
   startActiveArea: (
     kind: 'melee' | 'burst',
     attack: LastChancesAttackDefinition,
@@ -421,6 +467,17 @@ function combatConfig(
   config.progression.tiers[0].enemyCount = [enemyCount, enemyCount]
   config.progression.tiers[0].enemyPool = [{ enemyId, weight: 1 }]
   config.progression.tiers[0].roomTemplateIds = ['combat-hall']
+  const enemy = config.enemies.find(candidate => candidate.id === enemyId)
+  if (enemy?.role === 'boss' || enemy?.bossPhases || enemy?.cockroachMother) {
+    const sourceAltar = config.rooms.find(room => room.id === 'curator-threshold')?.altar
+    const combatHall = config.rooms.find(room => room.id === 'combat-hall')
+    if (sourceAltar && combatHall) {
+      combatHall.altar = {
+        ...sourceAltar,
+        position: { ...sourceAltar.position },
+      }
+    }
+  }
   return config
 }
 
@@ -529,6 +586,34 @@ function driveDualSenseTrigger(
     access.weapons.get(runtimeHand)?.controls,
     'gamepad',
   )
+}
+
+function armDualSensePocket(
+  access: EngineTestAccess,
+  physicalHand: LastChancesHand,
+  atMs: number,
+): void {
+  access.elapsedMs = atMs
+  access.frameNowMs = Math.max(1, atMs)
+  access.dualSenseControls.update(atMs, hand => (
+    access.weapons.get(hand === 'left' ? 'right' : 'left')?.controls
+  ))
+  expect(access.dualSenseControls.snapshot(physicalHand, atMs).armedNodeId).not.toBeNull()
+}
+
+function mousePointerEvent(
+  button: number,
+  buttons: number,
+  pointerId = 7,
+): PointerEvent {
+  return {
+    pointerType: 'mouse',
+    pointerId,
+    button,
+    buttons,
+    clientX: 480,
+    clientY: 320,
+  } as PointerEvent
 }
 
 describe('99LC engine attempt lifecycle', () => {
@@ -701,6 +786,49 @@ describe('99LC engine attempt lifecycle', () => {
 
       engine.setRouteMapVisible(true)
       expect(access.canExploreRoom()).toBe(false)
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('offers an unvisited same-tier neighbor for half of current body and mind', () => {
+    const config = cloneLastChancesConfig(defaultConfig)
+    const firstTier = config.progression.tiers.find(tier => tier.id === 'tier-1')!
+    firstTier.enemyCount = [1, 1]
+    firstTier.enemyPool = [{ enemyId: 'guard', weight: 1 }]
+    firstTier.roomTemplateIds = ['combat-hall']
+    delete config.rooms.find(room => room.id === 'false-apartment')!.interaction
+    const engine = new LastChancesEngine(makeCanvas(), config)
+    const access = engine as unknown as EngineTestAccess
+
+    try {
+      expect(engine.chooseNode(access.createSnapshot().availableNodeIds[0])).toBe(true)
+      access.enemies.forEach(enemy => { enemy.state = 'dead' })
+      access.update(0.016, 16)
+      const firstTierNode = access.createSnapshot().availableNodeIds[0]
+      expect(engine.chooseNode(firstTierNode)).toBe(true)
+
+      access.player.hp = 80
+      access.player.mentalHealth = 60
+      access.enemies.forEach(enemy => { enemy.state = 'dead' })
+      access.update(0.016, 16)
+      const route = access.createSnapshot()
+      expect(route.sacrificeNodeIds).toHaveLength(1)
+      expect(route.availableNodeIds).toEqual(expect.arrayContaining(route.sacrificeNodeIds))
+      const hpBeforeDetour = route.player.hp
+      const mindBeforeDetour = route.player.mentalHealth
+
+      expect(engine.chooseNode(route.sacrificeNodeIds[0])).toBe(true)
+      const detour = access.createSnapshot()
+      expect(detour.currentTierIndex).toBe(route.currentTierIndex)
+      expect(detour.player.hp).toBe(hpBeforeDetour * config.progression.sameTierSacrificeRatio)
+      expect(detour.player.mentalHealth)
+        .toBe(mindBeforeDetour * config.progression.sameTierSacrificeRatio)
+      expect(detour.events.at(-1)?.text).toContain('Боковой путь')
+
+      access.enemies.forEach(enemy => { enemy.state = 'dead' })
+      access.update(0.016, 16)
+      expect(access.createSnapshot().sacrificeNodeIds).toEqual([])
     } finally {
       engine.destroy()
     }
@@ -938,6 +1066,241 @@ describe('99LC eight-weapon mechanics', () => {
 
       expect(position.x).toBeCloseTo(start.x, 3)
       expect(position.y - start.y).toBeCloseTo(Math.hypot(delta.x, delta.y), 3)
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('uses the authored acceleration and braking ramps without delaying a new direction', () => {
+    const config = combatConfig('twohand-spear', null, 'guard', 1)
+    config.player.accelerationMs = 100
+    config.player.decelerationMs = 50
+    const { engine, access } = startCombat(config)
+    const startX = access.player.position.x
+
+    try {
+      access.pressedKeys.add('KeyD')
+      access.updatePlayer(0.025)
+      expect(access.movementVelocity).toEqual({ x: 55, y: 0 })
+      expect(access.player.position.x - startX).toBeCloseTo(1.375, 6)
+
+      access.updatePlayer(0.025)
+      access.updatePlayer(0.025)
+      access.updatePlayer(0.025)
+      expect(access.movementVelocity).toEqual({ x: 220, y: 0 })
+      expect(access.player.position.x - startX).toBeCloseTo(13.75, 6)
+
+      // Turning speed was explicitly left out of the prototype: a new direction takes control
+      // on this frame instead of being ignored while the previous direction brakes.
+      access.pressedKeys.delete('KeyD')
+      access.pressedKeys.add('KeyA')
+      access.updatePlayer(0.025)
+      expect(access.movementVelocity).toEqual({ x: -220, y: 0 })
+
+      access.pressedKeys.clear()
+      const releaseX = access.player.position.x
+      access.updatePlayer(0.025)
+      expect(access.movementVelocity).toEqual({ x: -110, y: 0 })
+      expect(access.player.position.x).toBeCloseTo(releaseX - 2.75, 6)
+      access.updatePlayer(0.025)
+      expect(access.movementVelocity).toEqual({ x: 0, y: 0 })
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('stops residual walking velocity on the attack-button edge', () => {
+    const config = combatConfig('hybrid-sword', null, 'guard', 1)
+    const { engine, access } = startCombat(config)
+
+    try {
+      engine.setTouchMove(1, 0)
+      access.updatePlayer(0.05)
+      expect(access.movementVelocity.x).toBeGreaterThan(0)
+
+      engine.press('left')
+
+      expect(access.movementVelocity).toEqual({ x: 0, y: 0 })
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('tracks simultaneous mouse-button edges independently and clears both on cancellation', () => {
+    const config = combatConfig('twohand-spear', null, 'guard', 1)
+    const { engine, access } = startCombat(config)
+    const gesture = (hand: LastChancesHand) => (
+      access.createSnapshot().gestureInputs.find(input => input.hand === hand)!
+    )
+    const pointer = (
+      button: number,
+      buttons: number,
+      pointerId = 7,
+    ): PointerEvent => ({
+      pointerType: 'mouse',
+      pointerId,
+      button,
+      buttons,
+      clientX: 480,
+      clientY: 320,
+    }) as PointerEvent
+
+    try {
+      access.handlePointerDown(pointer(0, 1))
+      expect(gesture('left').pressed).toBe(true)
+      expect(gesture('right').pressed).toBe(false)
+
+      // Chord changes are pointermove events whose `buttons` bitmask carries both edges.
+      access.handlePointerMove(pointer(2, 3))
+      expect(gesture('left').pressed).toBe(true)
+      expect(gesture('right').pressed).toBe(true)
+      expect(access.pressedPointerButtons).toEqual(new Set([0, 2]))
+
+      access.handlePointerMove(pointer(0, 2))
+      expect(gesture('left').pressed).toBe(false)
+      expect(gesture('right').pressed).toBe(true)
+
+      access.handlePointerUp(pointer(2, 0))
+      expect(gesture('right').pressed).toBe(false)
+      expect(access.pressedPointerButtons.size).toBe(0)
+
+      access.handlePointerDown(pointer(0, 1, 8))
+      access.handlePointerMove(pointer(2, 3, 8))
+      access.handlePointerCancel(pointer(-1, 0, 8))
+      expect(gesture('left').phase).toBe('idle')
+      expect(gesture('right').phase).toBe('idle')
+      access.gestures.update(performance.now() + config.input.holdMaxMs + 1000)
+      expect(access.createSnapshot().lastGesture).toBeNull()
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('tracks an RMB-first chord and both partial releases independently', () => {
+    const config = combatConfig('twohand-spear', null, 'guard', 1)
+    const { engine, access } = startCombat(config)
+    const gesture = (hand: LastChancesHand) => (
+      access.createSnapshot().gestureInputs.find(input => input.hand === hand)!
+    )
+
+    try {
+      access.handlePointerDown(mousePointerEvent(2, 2, 17))
+      expect(gesture('left').pressed).toBe(false)
+      expect(gesture('right').pressed).toBe(true)
+
+      access.handlePointerMove(mousePointerEvent(0, 3, 17))
+      expect(gesture('left').pressed).toBe(true)
+      expect(gesture('right').pressed).toBe(true)
+      expect(access.pressedPointerButtons.size).toBe(2)
+
+      access.handlePointerMove(mousePointerEvent(2, 1, 17))
+      expect(gesture('left').pressed).toBe(true)
+      expect(gesture('right').pressed).toBe(false)
+      expect(access.pressedPointerButtons).toEqual(new Set([0]))
+
+      access.handlePointerUp(mousePointerEvent(0, 0, 17))
+      expect(gesture('left').pressed).toBe(false)
+      expect(gesture('right').pressed).toBe(false)
+      expect(access.pressedPointerButtons.size).toBe(0)
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('cancels a lost-capture chord and ignores its stale held stream', () => {
+    const config = combatConfig('twohand-spear', null, 'guard', 1)
+    const { engine, access } = startCombat(config)
+    const gesture = (hand: LastChancesHand) => (
+      access.createSnapshot().gestureInputs.find(input => input.hand === hand)!
+    )
+
+    try {
+      access.handlePointerDown(mousePointerEvent(0, 1, 23))
+      access.handlePointerMove(mousePointerEvent(2, 3, 23))
+      access.handleLostPointerCapture(mousePointerEvent(-1, 3, 23))
+
+      expect(gesture('left').phase).toBe('idle')
+      expect(gesture('right').phase).toBe('idle')
+      expect(access.pressedPointerButtons.size).toBe(0)
+
+      access.handlePointerMove(mousePointerEvent(2, 3, 23))
+      access.handlePointerUp(mousePointerEvent(2, 1, 23))
+      expect(gesture('left').phase).toBe('idle')
+      expect(gesture('right').phase).toBe('idle')
+      expect(access.pressedPointerButtons.size).toBe(0)
+
+      access.handlePointerUp(mousePointerEvent(0, 0, 23))
+      access.gestures.update(performance.now() + config.input.holdMaxMs + 1000)
+      expect(access.createSnapshot().lastGesture).toBeNull()
+
+      access.handlePointerDown(mousePointerEvent(2, 2, 24))
+      expect(gesture('right').pressed).toBe(true)
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('drops held mouse streams across blur and control-scheme replacement', () => {
+    const config = combatConfig('twohand-spear', null, 'guard', 1)
+    const { engine, access } = startCombat(config)
+    const gesture = (hand: LastChancesHand) => (
+      access.createSnapshot().gestureInputs.find(input => input.hand === hand)!
+    )
+
+    try {
+      access.handlePointerDown(mousePointerEvent(0, 1, 31))
+      expect(gesture('left').pressed).toBe(true)
+
+      window.dispatchEvent(new Event('blur'))
+      expect(gesture('left').phase).toBe('idle')
+      expect(access.pressedPointerButtons.size).toBe(0)
+      access.handlePointerMove(mousePointerEvent(0, 1, 31))
+      expect(gesture('left').phase).toBe('idle')
+      expect(access.pressedPointerButtons.size).toBe(0)
+
+      access.handlePointerUp(mousePointerEvent(0, 0, 31))
+      access.handlePointerDown(mousePointerEvent(0, 1, 32))
+      expect(gesture('left').pressed).toBe(true)
+
+      engine.setControlScheme('mylorik')
+      expect(access.pressedPointerButtons.size).toBe(0)
+      access.handlePointerMove(mousePointerEvent(0, 1, 32))
+      expect(access.pressedPointerButtons.size).toBe(0)
+
+      access.handlePointerUp(mousePointerEvent(0, 0, 32))
+      access.handlePointerDown(mousePointerEvent(0, 1, 33))
+      expect(access.pressedPointerButtons).toEqual(new Set([0]))
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('starts an empty-right-hand Ninja dash from RMB added to an LMB chord', () => {
+    const config = combatConfig('either-claws', null, 'guard', 1)
+    config.loadout!.outfitId = 'ninja-clothes'
+    const { engine, access } = startCombat(config)
+    const leftGesture = () => (
+      access.createSnapshot().gestureInputs.find(input => input.hand === 'left')!
+    )
+
+    try {
+      expect(access.weapons.has('right')).toBe(false)
+      access.handlePointerDown(mousePointerEvent(0, 1, 41))
+      expect(leftGesture().pressed).toBe(true)
+      expect(access.activeDash).toBeNull()
+
+      access.handlePointerMove(mousePointerEvent(2, 3, 41))
+      expect(access.activeDash?.attack.name).toBe('Рывок одежды ниндзя')
+      expect(leftGesture().pressed).toBe(true)
+      expect(access.pressedPointerButtons.size).toBe(2)
+
+      access.handlePointerMove(mousePointerEvent(2, 1, 41))
+      expect(leftGesture().pressed).toBe(true)
+      expect(access.pressedPointerButtons).toEqual(new Set([0]))
+
+      access.handlePointerUp(mousePointerEvent(0, 0, 41))
+      expect(leftGesture().pressed).toBe(false)
+      expect(access.pressedPointerButtons.size).toBe(0)
     } finally {
       engine.destroy()
     }
@@ -1319,6 +1682,104 @@ describe('99LC eight-weapon mechanics', () => {
     }
   })
 
+  it('uses the active parry and Axe-spin tuning when reflecting projectiles', () => {
+    const parryConfig = combatConfig('twohand-spear', null, 'guard', 1)
+    const parryAttack = weapon(parryConfig, 'twohand-spear').secondaryAttacks!.tap
+    parryAttack.tuning = {
+      ...parryAttack.tuning,
+      reflectedProjectileMinimumRange: 333,
+      reflectedProjectilePierce: 2,
+    }
+    const parryRun = startCombat(parryConfig)
+
+    try {
+      parryRun.access.currentNode!.arena.obstacles = []
+      parryRun.access.player.aim = { x: 1, y: 0 }
+      parryRun.access.activatePlayerParry(parryAttack)
+      expect(parryRun.access.activeParryAttack).toBe(parryAttack)
+      parryRun.access.projectiles.push({
+        id: 991,
+        position: {
+          x: parryRun.access.player.position.x + 40,
+          y: parryRun.access.player.position.y,
+        },
+        velocity: { x: -200, y: 0 },
+        radius: 5,
+        damage: 7,
+        knockback: 0,
+        remainingDistance: 50,
+        remainingMs: 1000,
+        remainingHits: 1,
+        hitIds: new Set(),
+        color: '#fff',
+        source: 'enemy',
+        sourceName: 'Parry fixture',
+      })
+
+      parryRun.access.updateProjectiles(0.1, 100)
+      expect(parryRun.access.projectiles[0]).toMatchObject({
+        source: 'player',
+        remainingDistance: 333,
+        remainingHits: 3,
+        sourceName: 'Parried projectile',
+      })
+
+      parryRun.access.player.parryMs = 1
+      parryRun.access.update(0, 2)
+      expect(parryRun.access.activeParryAttack).toBeNull()
+    } finally {
+      parryRun.engine.destroy()
+    }
+
+    const axeConfig = combatConfig('twohand-axe', null, 'guard', 1)
+    const axeSpin = weapon(axeConfig, 'twohand-axe').secondaryAttacks!.hold
+    axeSpin.tuning = {
+      ...axeSpin.tuning,
+      reflectedProjectileMinimumRange: 444,
+      reflectedProjectilePierce: 3,
+    }
+    const axeRun = startCombat(axeConfig)
+
+    try {
+      axeRun.access.currentNode!.arena.obstacles = []
+      axeRun.access.startActiveArea(
+        'burst',
+        axeSpin,
+        { x: 1, y: 0 },
+        'twohand-axe',
+        'right',
+      )
+      axeRun.access.projectiles.push({
+        id: 992,
+        position: {
+          x: axeRun.access.player.position.x + 70,
+          y: axeRun.access.player.position.y,
+        },
+        velocity: { x: -200, y: 0 },
+        radius: 5,
+        damage: 7,
+        knockback: 0,
+        remainingDistance: 80,
+        remainingMs: 1000,
+        remainingHits: 1,
+        hitIds: new Set(),
+        color: '#fff',
+        source: 'enemy',
+        sourceName: 'Axe fixture',
+      })
+
+      axeRun.access.updateProjectiles(0.1, 100)
+      expect(axeRun.access.projectiles[0]).toMatchObject({
+        source: 'player',
+        remainingDistance: 444,
+        remainingHits: 4,
+        sourceName: 'Axe-reflected projectile',
+      })
+    } finally {
+      axeRun.engine.destroy()
+    }
+  })
+
   it('keeps pole-vault traversal non-damaging along the full invulnerable path', () => {
     const config = combatConfig('twohand-spear', null, 'guard', 1)
     const { engine, access } = startCombat(config)
@@ -1405,6 +1866,33 @@ describe('99LC eight-weapon mechanics', () => {
       expect(pathTarget.hp).toBe(500)
       expect(endpointTarget.hp).toBeLessThan(500)
       expect(access.activeAreas.at(-1)?.attack.name).toContain('финальная царапина')
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('builds Chemical dash trails from the authored attack tuning', () => {
+    const config = combatConfig('either-claws', null, 'guard', 1)
+    config.loadout!.primaryAugment = 'chemical'
+    const clawDash = weapon(config, 'either-claws').attacks.hold
+    clawDash.tuning = {
+      ...clawDash.tuning,
+      chemicalTrailDamage: 3,
+      chemicalTrailPierce: 4,
+      chemicalTrailKnockback: 5,
+    }
+    const { engine, access } = startCombat(config)
+
+    try {
+      access.performAttack(resolution('left', 'hold', 1100))
+      access.updatePlayer(0.1)
+
+      expect(access.activeAreas.find(area => area.attack.name.includes('химический след'))?.attack)
+        .toMatchObject({
+          damage: 3,
+          pierce: 4,
+          knockback: 5,
+        })
     } finally {
       engine.destroy()
     }
@@ -1515,8 +2003,13 @@ describe('99LC eight-weapon mechanics', () => {
     }
   })
 
-  it('runs the katana flurry as repeated path hits and applies dodge to every second strike', () => {
+  it('runs the katana flurry as repeated path hits and applies its authored dodge cadence', () => {
     const config = combatConfig('twohand-katana', null, 'guard', 1)
+    const flurry = weapon(config, 'twohand-katana').attacks.doubleTapHold
+    flurry.tuning = {
+      ...flurry.tuning,
+      dodgeEveryHits: 3,
+    }
     const { engine, access } = startCombat(config)
     const target = access.enemies[0]
 
@@ -1530,13 +2023,8 @@ describe('99LC eight-weapon mechanics', () => {
       expect(access.activeDash?.attack.behavior).toBe('katanaFlurry')
 
       for (let step = 0; step < 9; step += 1) access.updatePlayer(0.13)
-      expect(500 - target.hp).toBeGreaterThan(config.weapons.find(
-        candidate => candidate.id === 'twohand-katana',
-      )!.attacks.doubleTapHold.damage)
-      expect(500 - target.hp).toBeLessThan(
-        config.weapons.find(candidate => candidate.id === 'twohand-katana')!
-          .attacks.doubleTapHold.damage * 7,
-      )
+      // Seven authored contacts with every third dodged leaves five damaging strikes.
+      expect(500 - target.hp).toBe(flurry.damage * 5)
     } finally {
       engine.destroy()
     }
@@ -1657,6 +2145,12 @@ describe('99LC eight-weapon mechanics', () => {
 
   it('unlocks the chain second rotation only when movement assists its authored direction', () => {
     const config = combatConfig('either-claws', 'secondary-chain', 'guard', 1)
+    const chainSpin = weapon(config, 'secondary-chain').attacks.doubleTap
+    chainSpin.tuning = {
+      ...chainSpin.tuning,
+      assistMovementThreshold: 1.1,
+      assistMultiplier: 3,
+    }
     const { engine, access } = startCombat(config)
 
     try {
@@ -1669,9 +2163,18 @@ describe('99LC eight-weapon mechanics', () => {
 
       engine.setTouchMove(0, 1)
       access.updateActiveAreas(100)
+      expect(spin.rotationAssisted).toBe(false)
+      expect(spin.attack.repeatHits).toBe(1)
+      const beforeAssistedStep = spin.sweepDegrees
+
+      spin.attack.tuning = {
+        ...spin.attack.tuning,
+        assistMovementThreshold: 0.2,
+      }
+      access.updateActiveAreas(100)
       expect(spin.rotationAssisted).toBe(true)
       expect(spin.attack.repeatHits).toBe(spin.authoredRepeatHits)
-      expect(spin.sweepDegrees - unassistedDegrees).toBeGreaterThan(unassistedDegrees)
+      expect(spin.sweepDegrees - beforeAssistedStep).toBeCloseTo(unassistedDegrees * 3, 5)
     } finally {
       engine.destroy()
     }
@@ -1679,6 +2182,15 @@ describe('99LC eight-weapon mechanics', () => {
 
   it('shares claw parity across two hands and applies bleed plus microstagger on alternating hits', () => {
     const config = combatConfig('either-claws', 'either-claws', 'guard', 1)
+    const clawDefinition = weapon(config, 'either-claws')
+    clawDefinition.tuning = {
+      ...clawDefinition.tuning,
+      bleedEveryHits: 3,
+      parityBleedDurationMs: 4321,
+      parityBleedStacks: 2,
+      parityBleedTickDamage: 1.7,
+      parityBleedTickMs: 333,
+    }
     const { engine, access } = startCombat(config)
     const claws = weapon(config, 'either-claws')
     const target = access.enemies[0]
@@ -1688,12 +2200,22 @@ describe('99LC eight-weapon mechanics', () => {
       access.damageEnemy(target, claws.attacks.tap, 0, { x: 1, y: 0 }, { hand: 'left' })
       access.elapsedMs = 300
       access.damageEnemy(target, claws.attacks.tap, 0, { x: 1, y: 0 }, { hand: 'right' })
+      expect(access.weaponStates.get('either-claws')?.resource).toBe(1)
+      expect(target.statuses.dots.bleed.stacks).toBe(0)
+      access.elapsedMs = 500
+      access.damageEnemy(target, claws.attacks.tap, 0, { x: 1, y: 0 }, { hand: 'left' })
 
       expect(access.weaponStates.get('either-claws')).toMatchObject({
-        successfulHits: 2,
-        lastHitHand: 'right',
+        successfulHits: 3,
+        lastHitHand: 'left',
+        resource: 0,
       })
-      expect(target.statuses.dots.bleed.stacks).toBe(1)
+      expect(target.statuses.dots.bleed).toMatchObject({
+        stacks: 2,
+        remainingMs: 4321,
+        tickDamage: 1.7,
+        tickMs: 333,
+      })
       expect(target.statuses.stunMs).toBeGreaterThanOrEqual(90)
     } finally {
       engine.destroy()
@@ -1857,6 +2379,7 @@ describe('99LC eight-weapon mechanics', () => {
   it('refunds katana cooldowns on hit and clears the true-damage flash cooldown on a kill', () => {
     const config = combatConfig('twohand-katana', null, 'curator-shadow', 1)
     const { engine, access } = startCombat(config)
+    expect(engine.resolveAltar(false)).toBe(true)
     const katana = weapon(config, 'twohand-katana')
     const target = access.enemies[0]
 
@@ -1933,6 +2456,7 @@ describe('99LC eight-weapon mechanics', () => {
   it('tires the Sword only on rushed taps, keeps the last Zornhaw, and lets Oberhaw cancel its fatigue', () => {
     const config = combatConfig('hybrid-sword', null, 'curator-shadow', 1)
     const { engine, access } = startCombat(config)
+    expect(engine.resolveAltar(false)).toBe(true)
     const sword = weapon(config, 'hybrid-sword')
     const target = access.enemies[0]
 
@@ -2486,13 +3010,62 @@ describe('99LC eight-weapon mechanics', () => {
       engine.destroy()
     }
   })
+
+  it('uses base-enemy and boss-phase projectile knockback tuning on player hits', () => {
+    const baseConfig = combatConfig('twohand-spear', null, 'running-stapler', 1)
+    const stapler = baseConfig.enemies.find(enemy => enemy.id === 'running-stapler')!
+    stapler.projectileKnockback = 40
+    const baseRun = startCombat(baseConfig)
+
+    try {
+      baseRun.access.currentNode!.arena.obstacles = []
+      const enemy = baseRun.access.enemies[0]!
+      enemy.position = {
+        x: baseRun.access.player.position.x - 100,
+        y: baseRun.access.player.position.y,
+      }
+      const profile = baseRun.access.enemyCombatProfile(enemy)
+      baseRun.access.spawnEnemyProjectile(enemy, profile)
+      expect(baseRun.access.projectiles[0]).toMatchObject({
+        remainingHits: 1,
+        knockback: 40,
+      })
+      const startX = baseRun.access.player.position.x
+      baseRun.access.updateProjectiles(0.3, 300)
+      expect(baseRun.access.player.position.x).toBeCloseTo(startX + 40)
+    } finally {
+      baseRun.engine.destroy()
+    }
+
+    const phaseConfig = combatConfig('twohand-spear', null, 'curator-shadow', 1)
+    const curator = phaseConfig.enemies.find(enemy => enemy.id === 'curator-shadow')!
+    const projectilePhase = curator.bossPhases!.find(phase => phase.attackKind === 'projectile')!
+    projectilePhase.projectileKnockback = 9
+    const phaseRun = startCombat(phaseConfig)
+
+    try {
+      const enemy = phaseRun.access.enemies[0]!
+      enemy.hp = enemy.definition.maxHp * 0.5
+      const profile = phaseRun.access.enemyCombatProfile(enemy)
+      expect(profile.phaseName).toBe('Архив чужих смертей')
+      phaseRun.access.spawnEnemyProjectile(enemy, profile)
+      expect(phaseRun.access.projectiles[0]).toMatchObject({
+        remainingHits: 1,
+        knockback: 9,
+      })
+    } finally {
+      phaseRun.engine.destroy()
+    }
+  })
 })
 
 describe('99LC authored turret, altar, and Cockroach Mother rooms', () => {
   it('places the optional authored rooms on levels three and four', () => {
     const plan = buildLastChancesPlan(cloneLastChancesConfig(defaultConfig))
-    const turretRooms = plan.tiers[2].filter(node => node.roomTemplateId === 'turret-crossfire')
-    const motherRooms = plan.tiers[3].filter(node => node.roomTemplateId === 'cockroach-mother-lair')
+    const turretTier = plan.tiers.find(tier => tier[0]?.tierId === 'tier-3') ?? []
+    const motherTier = plan.tiers.find(tier => tier[0]?.tierId === 'tier-4') ?? []
+    const turretRooms = turretTier.filter(node => node.roomTemplateId === 'turret-crossfire')
+    const motherRooms = motherTier.filter(node => node.roomTemplateId === 'cockroach-mother-lair')
 
     expect(turretRooms).toHaveLength(1)
     expect(turretRooms[0].turrets).toHaveLength(4)
@@ -2505,11 +3078,18 @@ describe('99LC authored turret, altar, and Cockroach Mother rooms', () => {
     })
     expect(motherRooms[0].bossHoles).toHaveLength(4)
     expect(motherRooms[0].altar?.chanceCost).toBe(5)
-    expect(plan.tiers[3].some(node => node.roomTemplateId !== 'cockroach-mother-lair')).toBe(true)
+    expect(motherTier.some(node => node.roomTemplateId !== 'cockroach-mother-lair')).toBe(true)
   })
 
   it('links every turret into one alarm and lets the player disable only quiet turrets', () => {
-    const { engine, access } = startCombat(specialRoomConfig('turret-crossfire'))
+    const config = specialRoomConfig('turret-crossfire')
+    const turretRoom = config.rooms.find(room => room.id === 'turret-crossfire')!
+    turretRoom.turretAlarmHoldMs = 321
+    turretRoom.turrets!.forEach((turret) => {
+      turret.projectileSpawnOffset = 33
+      turret.projectileKnockback = 6
+    })
+    const { engine, access } = startCombat(config)
 
     try {
       expect(access.enemies).toHaveLength(0)
@@ -2521,8 +3101,16 @@ describe('99LC authored turret, altar, and Cockroach Mother rooms', () => {
       }
       access.updateTurrets(0, 0)
 
-      expect(access.turretAlarmMs).toBeGreaterThan(0)
+      expect(access.turretAlarmMs).toBe(321)
       expect(access.projectiles).toHaveLength(4)
+      expect(access.projectiles[0]).toMatchObject({
+        knockback: 6,
+        remainingHits: 1,
+      })
+      expect(Math.hypot(
+        access.projectiles[0]!.position.x - watcher.definition.position.x,
+        access.projectiles[0]!.position.y - watcher.definition.position.y,
+      )).toBeCloseTo(watcher.definition.projectileRadius + 33)
       expect(engine.interact()).toBe(false)
 
       for (const turret of access.turrets) {
@@ -2550,6 +3138,8 @@ describe('99LC authored turret, altar, and Cockroach Mother rooms', () => {
         chanceCost: 5,
         available: true,
       })
+      access.moveQuests.left.tapQuestDone = true
+      access.moveQuests.left.unlocked.doubleTap = true
       expect(engine.resolveAltar(true)).toBe(true)
       expect(access.createSnapshot()).toMatchObject({ paused: false, chances: config.chances - 5 })
       expect(access.bossCheckpoint?.nodeId).toBe(access.currentNode?.id)
@@ -2564,6 +3154,8 @@ describe('99LC authored turret, altar, and Cockroach Mother rooms', () => {
       })
       expect(access.createSnapshot().altarPrompt?.chanceCost).toBe(5)
       expect(access.bossCheckpoint).toBeNull()
+      expect(access.moveQuests.left.tapQuestDone).toBe(true)
+      expect(access.moveQuests.left.unlocked.doubleTap).toBe(true)
 
       expect(engine.resolveAltar(true)).toBe(true)
       expect(access.createSnapshot().chances).toBe(afterDeath - 5)
@@ -2576,6 +3168,12 @@ describe('99LC authored turret, altar, and Cockroach Mother rooms', () => {
 
   it('runs all three linked-hole retreats and exterminates cockroaches when their Mother dies', () => {
     const config = specialRoomConfig('cockroach-mother-lair')
+    const motherTuning = config.enemies.find(
+      enemy => enemy.id === 'cockroach-mother',
+    )!.cockroachMother!
+    motherTuning.entranceRadiusRatio = 0.1
+    motherTuning.exitRecoveryMs = 321
+    motherTuning.sameHoleChance = 1
     const { engine, access } = startCombat(config)
 
     try {
@@ -2602,16 +3200,20 @@ describe('99LC authored turret, altar, and Cockroach Mother rooms', () => {
         const entrance = access.currentNode!.bossHoles.find(
           hole => hole.id === mother.motherRetreat!.entranceHoleId,
         )!
-        const linkedExit = access.currentNode!.bossHoles.find(
-          hole => hole.id === entrance.linkedHoleId,
-        )!
-        // The strike answers from the entrance or from its pair, chosen per retreat.
+        // The authored probability is forced to 1 for this fixture, so every strike must
+        // answer from the entrance rather than its linked partner.
         const exit = access.currentNode!.bossHoles.find(
           hole => hole.id === mother.motherRetreat!.exitHoleId,
         )!
-        expect([entrance.id, linkedExit.id]).toContain(exit.id)
+        expect(exit.id).toBe(entrance.id)
         exitHoleIds.push(exit.id === entrance.id ? 'entrance' : 'linked')
 
+        mother.position = {
+          x: entrance.position.x + mother.definition.radius * 0.2,
+          y: entrance.position.y,
+        }
+        access.updateEnemies(0, 0)
+        expect(mother.motherRetreat?.stage).toBe('approaching')
         mother.position = { ...entrance.position }
         access.updateEnemies(0, 0)
         expect(mother.motherRetreat?.stage).toBe('hidden')
@@ -2632,11 +3234,13 @@ describe('99LC authored turret, altar, and Cockroach Mother rooms', () => {
         access.elapsedMs = strike.detonateAtMs + 1
         access.updateHoleStrikes()
         expect(access.player.hp).toBe(hpBeforeBlast)
+        mother.attackCooldownMs = 0
         access.updateEnemies(0, 0)
         expect(mother.motherRetreat).toBeNull()
         expect(mother.position).toEqual(exit.position)
+        expect(mother.attackCooldownMs).toBe(321)
       }
-      expect(exitHoleIds).toHaveLength(thresholds.length)
+      expect(exitHoleIds).toEqual(Array(thresholds.length).fill('entrance'))
 
       access.damageEnemy(mother, lethalAttack, 0, { x: 1, y: 0 })
       expect(mother.state).toBe('dead')
@@ -2709,7 +3313,7 @@ describe('99LC move-unlock quests and elite/swarm rooms', () => {
     }
   })
 
-  it('keeps earned unlocks across a death but resets them on a new generation', () => {
+  it('resets earned unlocks with the rest of attempt progress after a death', () => {
     const config = combatConfig('twohand-spear', null, 'servant', 2)
     const { engine, access } = startCombat(config, { unlockMoves: false })
 
@@ -2720,13 +3324,10 @@ describe('99LC move-unlock quests and elite/swarm rooms', () => {
       access.killPlayer('test death')
       expect(access.createSnapshot().phase).toBe('dead')
       expect(engine.retryAttempt()).toBe(true)
-      expect(access.moveQuests.left.tapQuestDone).toBe(true)
-      expect(access.moveQuests.left.unlocked.doubleTap).toBe(true)
-      expect(access.moveQuests.left.roomKills.tap).toBe(0)
-
-      engine.newGeneration()
       expect(access.moveQuests.left.tapQuestDone).toBe(false)
       expect(access.moveQuests.left.unlocked.doubleTap).toBe(false)
+      expect(access.moveQuests.left.pendingUnlocks).toEqual([])
+      expect(access.moveQuests.left.roomKills.tap).toBe(0)
     } finally {
       engine.destroy()
     }
@@ -2866,7 +3467,7 @@ describe('99LC move-unlock quests and elite/swarm rooms', () => {
       const colossusCount = tier.flatMap(node => node.enemies)
         .filter(enemy => enemy.definitionId === 'colossus').length
       expect(colossusCount).toBe(
-        tier[0].tierKind === 'normal' && tier[0].tierIndex >= 2 && tier[0].tierIndex <= 5
+        ['tier-3', 'tier-4', 'tier-5', 'tier-6'].includes(tier[0].tierId)
           ? 1
           : 0,
       )
@@ -3014,7 +3615,7 @@ describe('99LC control-scheme engine boundary', () => {
         hysteresis: 0.1,
       })
       const previousGates = { ...edited.input.dualsense!.gatePositions }
-      const nextGates = { shallow: 0.25, medium: 0.5, deep: 0.75, final: 0.92 }
+      const nextGates = { shallow: 0.25, medium: 0.5, deep: 0.75, final: 0.94 }
       edited.weapons.forEach((definition) => {
         for (const controls of [definition.controls?.primary, definition.controls?.secondary]) {
           controls?.dualsense.nodes.forEach((node) => {
@@ -3561,7 +4162,7 @@ describe('99LC control-scheme engine boundary', () => {
     expect(engine.chooseNode(openingNode)).toBe(true)
 
     try {
-      driveDualSenseTrigger(access, 'right', 0.22, 0)
+      driveDualSenseTrigger(access, 'right', 0.25, 0)
       driveDualSenseTrigger(access, 'right', 0, 100)
 
       expect(snapshots.filter(snapshot => snapshot.controlCue?.state === 'blocked')).toHaveLength(0)
@@ -3595,8 +4196,8 @@ describe('99LC control-scheme engine boundary', () => {
 
     try {
       access.cooldownEnds.set('left:doubleTap', 900)
-      driveDualSenseTrigger(access, 'right', 0.22, 0)
-      driveDualSenseTrigger(access, 'right', 0.48, 100)
+      driveDualSenseTrigger(access, 'right', 0.25, 0)
+      driveDualSenseTrigger(access, 'right', 0.5, 100)
 
       expect(snapshots.filter(snapshot => snapshot.controlCue?.state === 'blocked')).toHaveLength(1)
       expect(access.createSnapshot()).toMatchObject({
@@ -3631,7 +4232,7 @@ describe('99LC control-scheme engine boundary', () => {
       expect(access.controlContextActive('right', 'neutral')).toBe(true)
       expect(access.controlContextActive('right', 'continuation')).toBe(false)
 
-      driveDualSenseTrigger(access, 'left', 0.22, 0)
+      driveDualSenseTrigger(access, 'left', 0.25, 0)
       driveDualSenseTrigger(access, 'left', 0, 100)
 
       expect(access.createSnapshot().lastGesture).toMatchObject({
@@ -3660,7 +4261,7 @@ describe('99LC control-scheme engine boundary', () => {
       placeEnemy(access, target, 500)
       const resourceBefore = spiderState.resource
 
-      driveDualSenseTrigger(access, 'right', 0.22, 0)
+      driveDualSenseTrigger(access, 'right', 0.25, 0)
       driveDualSenseTrigger(access, 'right', 0, 100)
 
       expect(access.createSnapshot().lastGesture).toMatchObject({
@@ -3703,7 +4304,7 @@ describe('99LC control-scheme engine boundary', () => {
         const preGate = controls.dualsense.preGateGesture
         access.dualSenseControls.updateTrigger(
           physicalHand,
-          preGate ? 0.3 : startNode.activationThreshold,
+          preGate ? 0.22 : startNode.activationThreshold,
           0,
           controls,
           'gamepad',

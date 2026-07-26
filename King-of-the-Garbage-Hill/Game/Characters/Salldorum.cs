@@ -33,35 +33,70 @@ public class Salldorum
         public bool HistoryRewritten { get; set; } = false;
         public int RewrittenRound { get; set; } = -1;
         public List<int> PositionHistory { get; set; } = new(); // index=round-1, value=position
-        public Dictionary<int, Dictionary<Guid, List<Guid>>> WinPointRecipients { get; set; } = new();
+        public List<HistoricalLossClass> HistoricalLosses { get; set; } = new();
     }
 
-    public static void RecordWinPointRecipients(
+    public class HistoricalLossClass
+    {
+        public int RoundNumber { get; set; }
+        public decimal RewrittenWinPoints { get; set; }
+        public decimal RewrittenWinMoral { get; set; }
+        public decimal RewrittenWinSkill { get; set; }
+        public List<HistoricalPointRecipientClass> PointRecipients { get; set; } = new();
+    }
+
+    public class HistoricalPointRecipientClass
+    {
+        public Guid PlayerId { get; set; }
+        public decimal Points { get; set; }
+    }
+
+    public static void RecordHistoricalLoss(
         GamePlayerBridgeClass defeated,
-        int roundNumber,
-        Guid winnerId,
-        IEnumerable<Guid> recipientIds)
+        GamePlayerBridgeClass winner,
+        GameClass game,
+        IEnumerable<Guid> recipientIds,
+        bool teamMate)
     {
         if (defeated.GameCharacter.Name != "Salldorum")
             return;
 
-        var ledger = defeated.Passives.SalldorumChronicler.WinPointRecipients;
-        if (!ledger.TryGetValue(roundNumber, out var roundLedger))
+        var rewrittenWinSkill = 0m;
+        if (defeated.FightCharacter.GetSkillClass() == "Сила")
         {
-            roundLedger = new Dictionary<Guid, List<Guid>>();
-            ledger[roundNumber] = roundLedger;
+            rewrittenWinSkill = 4 * defeated.GameCharacter.GetClassSkillMultiplier();
+            var extraSkillMultiplier = defeated.GameCharacter.GetExtraSkillMultiplier();
+            if (extraSkillMultiplier > 0)
+                rewrittenWinSkill *= extraSkillMultiplier + 1;
         }
 
-        // Chronicler rewrites one win per distinct enemy, even if that enemy beat
-        // Salldorum more than once in the selected round. Keep the recipients of
-        // the first such win; an empty list deliberately records a scoreless ally win.
-        if (roundLedger.ContainsKey(winnerId))
-            return;
+        var historicalLoss = new HistoricalLossClass
+        {
+            RoundNumber = game.RoundNo,
+            RewrittenWinPoints = teamMate ? 0 : defeated.Status.GetRoundScoreMultiplier(game),
+            RewrittenWinMoral = teamMate || game.RoundNo <= 1
+                ? 0
+                : Math.Max(0,
+                    defeated.Status.GetPlaceAtLeaderBoard() - winner.Status.GetPlaceAtLeaderBoard()),
+            RewrittenWinSkill = rewrittenWinSkill,
+        };
 
-        roundLedger[winnerId] = recipientIds
-            .Where(id => id != Guid.Empty)
+        historicalLoss.PointRecipients = recipientIds
+            .Where(playerId => playerId != Guid.Empty)
             .Distinct()
+            .Select(playerId =>
+            {
+                var recipient = game.PlayersList.Find(candidate => candidate.GetPlayerId() == playerId);
+                return new HistoricalPointRecipientClass
+                {
+                    PlayerId = playerId,
+                    Points = recipient?.Status.GetRoundScoreMultiplier(game) ?? 0,
+                };
+            })
+            .Where(recipient => recipient.Points > 0)
             .ToList();
+
+        defeated.Passives.SalldorumChronicler.HistoricalLosses.Add(historicalLoss);
     }
 
     public static bool TryDrinkTimeCapsule(
@@ -318,42 +353,59 @@ public class Salldorum
         var chronicler = player.Passives.SalldorumChronicler;
         if (chronicler.HistoryRewritten)
             return (false, "History has already been rewritten");
-        if (game.RoundNo >= 8)
-            return (false, "Too late to rewrite history (before round 8 only)");
+        if (game.RoundNo > 9)
+            return (false, "Too late to rewrite history (through round 9 only)");
         if (roundNumber < 1 || roundNumber >= game.RoundNo)
             return (false, "Invalid round number");
 
         chronicler.HistoryRewritten = true;
         chronicler.RewrittenRound = roundNumber;
 
-        var salloLosses = player.Status.WhoToLostEveryRound
-            .Where(x => x.RoundNo == roundNumber)
-            .ToList();
-        var roundMultiplier = roundNumber switch { <= 4 => 1m, <= 9 => 2m, _ => 4m };
-        var roundWinners = salloLosses
-            .Select(loss => game.PlayersList.Find(x => x.GetPlayerId() == loss.EnemyId))
-            .Where(enemy => enemy != null)
-            .DistinctBy(enemy => enemy!.GetPlayerId())
+        var historicalLosses = chronicler.HistoricalLosses
+            .Where(loss => loss.RoundNumber == roundNumber)
             .ToList();
 
-        decimal totalStolen = 0;
-        foreach (var enemy in roundWinners)
+        decimal totalPointsAwarded = 0;
+        decimal totalPointsRecalled = 0;
+        decimal totalMoralAwarded = 0;
+        decimal totalSkillAwarded = 0;
+        foreach (var historicalLoss in historicalLosses)
         {
-            var winnerId = enemy!.GetPlayerId();
-            var recipientIds = chronicler.WinPointRecipients.TryGetValue(roundNumber, out var roundLedger)
-                               && roundLedger.TryGetValue(winnerId, out var recordedRecipients)
-                ? recordedRecipients
-                : new List<Guid> { winnerId };
-
-            foreach (var recipientId in recipientIds.Distinct())
+            if (historicalLoss.RewrittenWinPoints > 0)
             {
-                var holder = game.PlayersList.Find(candidate => candidate.GetPlayerId() == recipientId) ?? enemy;
-                if (UnknownBug.Is(holder)) continue;
-
-                holder.Status.AddBonusPoints(-roundMultiplier, "Великий летописец");
-                player.Status.AddBonusPoints(roundMultiplier, "Великий летописец");
-                totalStolen += roundMultiplier;
+                player.Status.AddBonusPoints(historicalLoss.RewrittenWinPoints, "Великий летописец");
+                totalPointsAwarded += historicalLoss.RewrittenWinPoints;
             }
+
+            totalMoralAwarded += historicalLoss.RewrittenWinMoral;
+            totalSkillAwarded += historicalLoss.RewrittenWinSkill;
+
+            foreach (var pointRecipient in historicalLoss.PointRecipients
+                         .GroupBy(recipient => recipient.PlayerId)
+                         .Select(group => group.First()))
+            {
+                var holder = game.PlayersList.Find(candidate =>
+                    candidate.GetPlayerId() == pointRecipient.PlayerId);
+                if (holder == null || UnknownBug.Is(holder))
+                    continue;
+
+                holder.Status.AddBonusPoints(-pointRecipient.Points, "Великий летописец");
+                totalPointsRecalled += pointRecipient.Points;
+            }
+        }
+
+        if (totalMoralAwarded > 0)
+            player.GameCharacter.AddMoral(
+                totalMoralAwarded, "Великий летописец", isFightMoral: true);
+
+        if (totalSkillAwarded > 0)
+        {
+            var currentExtraSkillMultiplier = player.GameCharacter.GetExtraSkillMultiplier();
+            var skillBeforeCurrentMultiplier = currentExtraSkillMultiplier > 0
+                ? totalSkillAwarded / (currentExtraSkillMultiplier + 1)
+                : totalSkillAwarded;
+            player.GameCharacter.AddExtraSkill(
+                skillBeforeCurrentMultiplier, "Великий летописец");
         }
 
         player.GameCharacter.AddPsyche(2, "Великий летописец");
@@ -371,7 +423,10 @@ public class Salldorum
         }
 
         player.Status.AddInGamePersonalLogs(
-            $"Великий летописец: История раунда {roundNumber} переписана! Украдено {totalStolen} очков.\n");
+            $"Великий летописец: История раунда {roundNumber} переписана! " +
+            $"Поражений обращено в победы: {historicalLosses.Count}. " +
+            $"Начислено {totalPointsAwarded} очков, {totalMoralAwarded} Морали и " +
+            $"{totalSkillAwarded} Скилла; отозвано {totalPointsRecalled} победных очков.\n");
         game.AddGlobalLogs(Random.Shared.Next(2) == 0
             ? $"Salldorum: Помните {roundNumber} ход? На самом деле в этот день пришло подкрепление из Киева и мы всех победили!"
             : $"Salldorum: А вы знали, что в {roundNumber} ход на самом деле мы подписали мирный договор и этих поражений не было...");

@@ -128,6 +128,9 @@ public class PlayerDto
     /// <summary>Butcher sup marker, serialized only when the viewing player is TheBoys.</summary>
     public bool IsTheBoysSupTarget { get; set; }
 
+    /// <summary>Deadly Virus toxin marker, serialized only to the TheBoys source that infected this row.</summary>
+    public bool IsTheBoysVirusTarget { get; set; }
+
     /// <summary>Owner-scoped Homelander rage against this opponent.</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public int? HomelanderRagePercent { get; set; }

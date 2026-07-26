@@ -487,7 +487,12 @@ public static class GameStateMapper
 
         // Butcher marks are secret: only the TheBoys viewer sees the icon on marked enemy rows.
         if (viewerIsTheBoys && !isMe)
+        {
             dto.IsTheBoysSupTarget = player.Passives.TheBoysSupMark;
+            dto.IsTheBoysVirusTarget =
+                player.Passives.TheBoysVirus
+                && player.Passives.TheBoysVirusSource == requestingPlayer.GetPlayerId();
+        }
 
         // Passive ability widgets — only visible to the owning player
         if (isMe && game != null)

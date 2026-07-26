@@ -1291,7 +1291,7 @@ public class CharactersUniquePhrase
         ItachiTsukuyomiSteal.PassiveLogRus.Add("Я планировал это с самого начала");
         ItachiTsukuyomiSteal.PassiveLogRus.Add("Все это ради деревни");
 
-        ItachiTsukuyomiReveal.PassiveLogRus.Add("Всё это было в глазах у Итачи...");
+        ItachiTsukuyomiReveal.PassiveLogRus.Add("Итачи: Всё это время ты был внутри моей иллюзии.");
 
         // Продавец
         SellerVparit = new PhraseClass("Впарить говна");
@@ -1603,8 +1603,8 @@ public class CharactersUniquePhrase
         TheBoysKompromatReward.PassiveLogRus.Add("М.М.: Все данные сходятся. Очки умножены.");
         TheBoysKompromatReward.PassiveLogRus.Add("М.М.: Компромат работает. Результат налицо.");
 
-        TheBoysVirusApply.PassiveLogRus.Add("Francie: Вирус против Суперов... А что если он не сработает не цели?");
-        TheBoysVirusApply.PassiveLogRus.Add("Butcher: Тогда нам всем пиздец. Ну что, поехали?");
+        TheBoysVirusApply.PassiveLogRus.Add(
+            "Francie: Вирус против Суперов... А что если он не сработает не цели?\nButcher: Тогда нам всем пиздец. Ну что, поехали?");
 
         TheBoysButcherHunt.PassiveLogRus.Add("Бучер: Нашёл супа. Vought за это не заплатит, но мне похуй.");
         TheBoysButcherHunt.PassiveLogRus.Add("Бучер: *ищет кочергу* Иди сюда, ублюдок.");

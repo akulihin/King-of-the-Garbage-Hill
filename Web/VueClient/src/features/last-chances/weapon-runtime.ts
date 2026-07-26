@@ -36,15 +36,25 @@ function applyMultiplier(
 export function resolveLastChancesChargedAttack(
   source: LastChancesAttackDefinition,
   heldMs: number,
+  minBandId?: string,
 ): LastChancesResolvedAttack {
   const attack = cloneAttack(source)
   const charge = attack.charge
   if (!charge) return { attack, band: null, heldMs, chargeProgress: 0 }
   const clampedHeldMs = Math.max(0, Math.min(heldMs, charge.maxMs))
-  const band = [...charge.bands]
+  const sortedBands = [...charge.bands]
     .sort((left, right) => left.minMs - right.minMs)
+  const timedBand = sortedBands
     .filter(candidate => clampedHeldMs >= candidate.minMs)
     .at(-1) ?? null
+  const minimumBand = minBandId
+    ? sortedBands.find(candidate => candidate.id === minBandId) ?? null
+    : null
+  const band = minimumBand && (
+    !timedBand || sortedBands.indexOf(minimumBand) > sortedBands.indexOf(timedBand)
+  )
+    ? minimumBand
+    : timedBand
   if (band) {
     attack.damage = applyMultiplier(attack.damage, band.damageMultiplier)
     attack.range = applyMultiplier(attack.range, band.rangeMultiplier)

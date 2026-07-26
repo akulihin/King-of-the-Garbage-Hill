@@ -113,6 +113,13 @@ const copy = {
     loadout: 'Starting loadout',
     loadoutHelp: 'Select the two active slots and their augment symbols',
     moveQuestsEnabled: 'Move-unlock quests enabled',
+    moveQuestKills: 'Kills per move quest',
+    sameTierSacrifice: 'Same-tier health retained',
+    attackStopsMovement: 'Attacks stop movement immediately',
+    minimumParry: 'Minimum parry window (ms)',
+    revealOnParry: 'Enemy reveal after parry (ms)',
+    revealOnHit: 'Enemy reveal after hit (ms)',
+    minimumDamage: 'Minimum damage taken',
     enemy: 'Selected enemy',
     enemyHelp: 'Awareness, pursuit and attack tuning',
     weapon: 'Weapon',
@@ -136,6 +143,8 @@ const copy = {
     maxMental: 'Mental health',
     maxStamina: 'Stamina',
     moveSpeed: 'Move speed',
+    acceleration: 'Acceleration to full speed (ms)',
+    deceleration: 'Braking to rest (ms)',
     armor: 'Armor',
     attackPower: 'Attack power',
     radius: 'Body radius',
@@ -153,6 +162,7 @@ const copy = {
     holdMax: 'Hold combo limit (ms)',
     holdDouble: 'Hold follow-up tap window (ms)',
     aimDeadZone: 'Aim dead zone',
+    actionDirectionDeadZone: 'Action-direction dead zone',
     gamepadDeadZone: 'Gamepad dead zone',
     gamepadLeftButton: 'Primary button index',
     gamepadRightButton: 'Secondary button index',
@@ -307,6 +317,13 @@ const copy = {
     loadout: 'Стартовая экипировка',
     loadoutHelp: 'Выберите два активных слота и символы-аугментации',
     moveQuestsEnabled: 'Квесты для открытия мувов включены',
+    moveQuestKills: 'Убийств на квест мува',
+    sameTierSacrifice: 'Здоровье после бокового пути',
+    attackStopsMovement: 'Атаки мгновенно останавливают движение',
+    minimumParry: 'Минимальное окно парирования (мс)',
+    revealOnParry: 'Раскрытие врага после парирования (мс)',
+    revealOnHit: 'Раскрытие врага после удара (мс)',
+    minimumDamage: 'Минимальный получаемый урон',
     enemy: 'Выбранный враг',
     enemyHelp: 'Обнаружение, преследование и настройка атак',
     weapon: 'Оружие',
@@ -330,6 +347,8 @@ const copy = {
     maxMental: 'Ментальное здоровье',
     maxStamina: 'Стамина',
     moveSpeed: 'Скорость движения',
+    acceleration: 'Разгон до полной скорости (мс)',
+    deceleration: 'Торможение до остановки (мс)',
     armor: 'Броня',
     attackPower: 'Сила атаки',
     radius: 'Радиус тела',
@@ -347,6 +366,7 @@ const copy = {
     holdMax: 'Предел задержки для комбинации (мс)',
     holdDouble: 'Окно повтора после задержки (мс)',
     aimDeadZone: 'Мёртвая зона прицела',
+    actionDirectionDeadZone: 'Мёртвая зона направления мува',
     gamepadDeadZone: 'Мёртвая зона геймпада',
     gamepadLeftButton: 'Индекс основной кнопки',
     gamepadRightButton: 'Индекс вторичной кнопки',
@@ -1018,10 +1038,20 @@ function exportJson() {
                   <label>{{ t.maxMental }}<input v-model.number="draft.player.baseStats.maxMentalHealth" type="number" min="1" step="1" /></label>
                   <label>{{ t.maxStamina }}<input v-model.number="draft.player.baseStats.maxStamina" type="number" min="1" step="1" /></label>
                   <label>{{ t.moveSpeed }}<input v-model.number="draft.player.baseStats.moveSpeed" type="number" min="1" step="1" /></label>
+                  <label>{{ t.acceleration }}<input v-model.number="draft.player.accelerationMs" type="number" min="1" step="5" /></label>
+                  <label>{{ t.deceleration }}<input v-model.number="draft.player.decelerationMs" type="number" min="1" step="5" /></label>
                   <label>{{ t.armor }}<input v-model.number="draft.player.baseStats.armor" type="number" min="0" step="1" /></label>
                   <label>{{ t.attackPower }}<input v-model.number="draft.player.baseStats.attackPower" type="number" min="1" step="1" /></label>
                   <label>{{ t.radius }}<input v-model.number="draft.player.radius" type="number" min="1" step="1" /></label>
                   <label>{{ t.invulnerability }}<input v-model.number="draft.player.invulnerabilityMs" type="number" min="0" step="25" /></label>
+                  <label class="lc-check-field">
+                    <input v-model="draft.combat.attackStopsMovement" type="checkbox" />
+                    <span>{{ t.attackStopsMovement }}</span>
+                  </label>
+                  <label>{{ t.minimumParry }}<input v-model.number="draft.combat.minimumPlayerParryMs" type="number" min="1" step="10" /></label>
+                  <label>{{ t.revealOnParry }}<input v-model.number="draft.combat.enemyRevealOnParryMs" type="number" min="0" step="50" /></label>
+                  <label>{{ t.revealOnHit }}<input v-model.number="draft.combat.enemyRevealOnHitMs" type="number" min="0" step="50" /></label>
+                  <label>{{ t.minimumDamage }}<input v-model.number="draft.combat.minimumPlayerDamageTaken" type="number" min="0" step="0.25" /></label>
                 </div>
               </fieldset>
 
@@ -1033,6 +1063,8 @@ function exportJson() {
                     <input v-model="draft.progression.moveQuestsEnabled" type="checkbox" />
                     <span>{{ t.moveQuestsEnabled }}</span>
                   </label>
+                  <label>{{ t.moveQuestKills }}<input v-model.number="draft.progression.moveQuestKillsRequired" type="number" min="1" step="1" /></label>
+                  <label>{{ t.sameTierSacrifice }}<input v-model.number="draft.progression.sameTierSacrificeRatio" type="number" min="0.01" max="1" step="0.05" /></label>
                   <label>{{ t.tier }}
                     <select v-model.number="selectedTierIndex">
                       <option v-for="(tier, index) in draft.progression.tiers" :key="tier.id" :value="index">{{ index + 1 }} · {{ tier.label }}</option>
@@ -1060,6 +1092,7 @@ function exportJson() {
                     <label>{{ t.holdMax }}<input v-model.number="draft.input.holdMaxMs" type="number" min="1" step="10" /></label>
                     <label>{{ t.holdDouble }}<input v-model.number="draft.input.holdThenDoubleTapWindowMs" type="number" min="1" step="10" /></label>
                     <label>{{ t.aimDeadZone }}<input v-model.number="draft.input.aimDeadZone" type="number" min="0" max="1" step="0.01" /></label>
+                    <label>{{ t.actionDirectionDeadZone }}<input v-model.number="draft.input.actionDirectionDeadZone" type="number" min="0" max="1" step="0.01" /></label>
                     <label>{{ t.gamepadDeadZone }}<input v-model.number="draft.input.gamepadDeadZone" type="number" min="0" max="1" step="0.01" /></label>
                     <label>{{ t.gamepadLeftButton }}<input v-model.number="draft.input.gamepadLeftButton" type="number" min="0" max="31" step="1" /></label>
                     <label>{{ t.gamepadRightButton }}<input v-model.number="draft.input.gamepadRightButton" type="number" min="0" max="31" step="1" /></label>

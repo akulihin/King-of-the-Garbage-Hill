@@ -91,6 +91,8 @@ export type Player = {
   hasTerminalMarker?: boolean
   /** Butcher's secret sup marker; only supplied to the TheBoys viewer. */
   isTheBoysSupTarget?: boolean
+  /** Deadly Virus toxin marker; only supplied to the TheBoys player that owns the infection. */
+  isTheBoysVirusTarget?: boolean
   /** Homelander-owner-only rage accumulated against this opponent. */
   homelanderRagePercent?: number
   /** The charged laser was already spent on this opponent. */

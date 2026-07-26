@@ -129,6 +129,11 @@ export class LastChancesGestureRecognizer {
     this.states.right = makeState()
   }
 
+  /** Abandons one physical input stream without resolving its pending tap/hold. */
+  cancel(hand: LastChancesHand): void {
+    this.states[hand] = makeState()
+  }
+
   isPressed(hand: LastChancesHand): boolean {
     return this.states[hand].down
   }

@@ -898,12 +898,15 @@ public static class AchievementService
 
         if (characterName == "Стая Гоблинов")
         {
-            var builtPositions = player.Passives.GoblinZiggurat.BuiltPositions.Distinct().ToList();
+            var zig = player.Passives.GoblinZiggurat;
+            var builtPositions = zig.BuiltPositions.Distinct().ToList();
             SetBestProgress(account, "c_goblin_architect", builtPositions.Count);
 
-            var summit = builtPositions.Contains(1);
-            SetBestProgress(account, "c_goblin_summit", summit ? 1 : 0,
-                summit && rewardWin && actualPlace == 1);
+            // The card requires *receiving* the enforced win, not merely owning a place-1 Ziggurat
+            // while winning on score: only HandleLastRound's overtake sets EnforcedWinTriggered.
+            // Cthulhu/Jon Snow can still displace the Goblins after it, so the place is re-checked (m57).
+            SetBestProgress(account, "c_goblin_summit", zig.EnforcedWinTriggered ? 1 : 0,
+                zig.EnforcedWinTriggered && rewardWin && actualPlace == 1);
         }
 
         if (characterName == "Рик Санчез")

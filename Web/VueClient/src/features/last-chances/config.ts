@@ -28,7 +28,10 @@ import type {
   LastChancesAttackDefinition,
   LastChancesAttackSetControlDefinition,
   LastChancesBandTickDefinition,
+  LastChancesChargeBandDefinition,
+  LastChancesCombatDefinition,
   LastChancesDualSenseInputDefinition,
+  LastChancesFeedbackPulseDefinition,
   LastChancesGateTickDefinition,
   LastChancesMylorikActivationDefinition,
   LastChancesMylorikInputDefinition,
@@ -45,7 +48,7 @@ export const LAST_CHANCES_CONFIG_STORAGE_KEY = '99lc:game-config'
 
 type UnknownRecord = Record<string, unknown>
 
-const CURRENT_LAST_CHANCES_SCHEMA_VERSION = 7
+const CURRENT_LAST_CHANCES_SCHEMA_VERSION = 9
 const MAX_GAMEPAD_BUTTON_INDEX = 31
 const MAX_FEEDBACK_DURATION_MS = 2_000
 const MAX_CONTROL_EXPIRY_MS = 10_000
@@ -98,7 +101,7 @@ const DEFAULT_ADAPTIVE_PROFILES: LastChancesDualSenseInputDefinition['feedback']
     magnitude: 0.22,
   },
   ramp: {
-    startPosition: 0.22,
+    startPosition: 0.25,
     endPosition: 0.86,
     resistance: 0.3,
     force: 0.55,
@@ -134,8 +137,8 @@ const DEFAULT_ADAPTIVE_PROFILES: LastChancesDualSenseInputDefinition['feedback']
     magnitude: 0.48,
   },
   gate: {
-    startPosition: 0.48,
-    endPosition: 0.78,
+    startPosition: 0.5,
+    endPosition: 0.8,
     resistance: 0.52,
     force: 0.62,
     transitionMs: 70,
@@ -205,11 +208,26 @@ export const DEFAULT_LAST_CHANCES_STAMINA: LastChancesStaminaDefinition = {
 
 const DEFAULT_LAST_CHANCES_MAX_STAMINA = 100
 const DEFAULT_LAST_CHANCES_STAMINA_COLOR = '#e0b64a'
+const DEFAULT_LAST_CHANCES_ACCELERATION_MS = 100
+const DEFAULT_LAST_CHANCES_DECELERATION_MS = 50
+const DEFAULT_LAST_CHANCES_ACTION_DIRECTION_DEAD_ZONE = 0.2
+const DEFAULT_LAST_CHANCES_MOVE_QUEST_KILLS_REQUIRED = 2
+const DEFAULT_LAST_CHANCES_SAME_TIER_SACRIFICE_RATIO = 0.5
+
+export const DEFAULT_LAST_CHANCES_COMBAT: LastChancesCombatDefinition = {
+  attackStopsMovement: true,
+  minimumPlayerParryMs: 180,
+  enemyRevealOnParryMs: 1200,
+  enemyRevealOnHitMs: 900,
+  minimumPlayerDamageTaken: 1,
+}
 
 const DEFAULT_DUALSENSE_INPUT: LastChancesDualSenseInputDefinition = {
-  activationThreshold: 0.22,
+  activationThreshold: 0.25,
   releaseThreshold: 0.16,
   hysteresis: 0.06,
+  armMs: 450,
+  telegraphPeriodMs: 900,
   gamepad: {
     leftBumper: 4,
     rightBumper: 5,
@@ -221,10 +239,10 @@ const DEFAULT_DUALSENSE_INPUT: LastChancesDualSenseInputDefinition = {
   },
   keyboard: JSON.parse(JSON.stringify(DEFAULT_MYLORIK_INPUT.keyboard)) as LastChancesMylorikInputDefinition['keyboard'],
   gatePositions: {
-    shallow: 0.22,
-    medium: 0.48,
-    deep: 0.72,
-    final: 0.9,
+    shallow: 0.25,
+    medium: 0.5,
+    deep: 0.75,
+    final: 0.95,
   },
   feedback: {
     maxMagnitude: 0.7,
@@ -238,7 +256,7 @@ type MylorikActivationWithoutGesture = Omit<LastChancesMylorikActivationDefiniti
 type DualSenseNodeSeed = Omit<
   LastChancesAttackSetControlDefinition['dualsense']['nodes'][number],
   'id'
->
+> & { id?: string }
 
 interface AttackSetControlSeed {
   role: string
@@ -274,11 +292,62 @@ function dualSenseNode(
     releaseBehavior: options.releaseBehavior ?? (options.dispatch === 'press' ? 'cancel' : 'dispatch'),
     next: options.next ?? [],
     cancel: options.cancel ?? 'release',
-    expiryMs: options.expiryMs ?? 480,
+    expiryMs: options.expiryMs ?? 2_300,
     tactileProfile: options.tactileProfile ?? 'click',
-    ...(options.requiredChargeBandId ? { requiredChargeBandId: options.requiredChargeBandId } : {}),
-    ...(options.adaptiveOverride ? { adaptiveOverride: options.adaptiveOverride } : {}),
-    ...(options.entryTick !== undefined ? { entryTick: options.entryTick } : {}),
+    ...options,
+  }
+}
+
+function telegraphPulses(
+  count: number,
+  magnitude = 0.24,
+): LastChancesFeedbackPulseDefinition[] {
+  return Array.from({ length: count }, (_, pulse) => ({
+    delayMs: pulse * 95,
+    durationMs: 30,
+    magnitude: Math.min(1, magnitude + pulse * 0.04),
+  }))
+}
+
+const SOFTENED_FINISHER_WALL = {
+  startPosition: 0.78,
+  endPosition: 0.95,
+  resistance: 0.18,
+  force: 0.24,
+} as const
+
+const AXE_MAX_BAND: LastChancesChargeBandDefinition = {
+  id: 'axe-max',
+  label: 'Максимальный рычаг',
+  minMs: 1_650,
+  color: '#f2b2ff',
+  damageMultiplier: 1.65,
+  knockbackMultiplier: 1.8,
+  durationMultiplier: 1.3,
+  overrides: { staminaCost: 3 },
+}
+
+const AXE_LEAP_MAX_BAND: LastChancesChargeBandDefinition = {
+  id: 'axe-leap-max',
+  label: 'Предельный мах',
+  minMs: 1_700,
+  color: '#c8ffe4',
+  rangeMultiplier: 1.85,
+  damageMultiplier: 1.7,
+  knockbackMultiplier: 1.75,
+  durationMultiplier: 1.35,
+  overrides: { staminaCost: 3 },
+}
+
+function appendDualSenseFinisherBands(weapon: LastChancesWeaponDefinition): void {
+  if (weapon.id !== 'twohand-axe') return
+  const primaryBands = weapon.attacks.doubleTapHold.charge?.bands
+  if (primaryBands && !primaryBands.some(band => band.id === AXE_MAX_BAND.id)) {
+    primaryBands.push(cloneUnknown(AXE_MAX_BAND))
+  }
+  const secondaryBands = weapon.secondaryAttacks?.holdThenDoubleTap.charge?.bands
+  if (secondaryBands && !secondaryBands.some(band => band.id === AXE_LEAP_MAX_BAND.id)) {
+    secondaryBands.push(cloneUnknown(AXE_LEAP_MAX_BAND))
   }
 }
 
@@ -293,37 +362,64 @@ const ATTACK_SET_CONTROL_SEEDS: Record<string, AttackSetControlSeed> = {
       hold: mylorikActivation('technique', 'hold'),
       holdThenDoubleTap: mylorikActivation('mobility', 'press', 'continuation'),
     },
-    // "Click before the gate": a pull released before the замах pocket fires
-    // the distance poke; the 0.48 pocket owns the three release sectors, the
-    // 0.72 firm gate arms the charged ram, and 0.9 (after the middle sector)
-    // commits the overhead spin.
     preGateGesture: 'doubleTap',
     dualsense: [
-      dualSenseNode('hold', 'neutral', 0.48, {
+      dualSenseNode('hold', 'neutral', 0.25, {
+        id: 'hold-early',
         holdBehavior: 'charge',
-        next: ['doubleTapHold', 'holdThenDoubleTap'],
+        next: ['hold-middle'],
         tactileProfile: 'ramp',
+        chargeBandOverrideId: 'early',
+        telegraph: telegraphPulses(1),
         entryTick: { durationMs: 35, magnitude: 0.25 },
-        adaptiveOverride: { startPosition: 0.48, endPosition: 0.58, force: 0.55 },
+        adaptiveOverride: { startPosition: 0.25, endPosition: 0.34, force: 0.42 },
       }),
-      dualSenseNode('doubleTapHold', 'continuation', 0.72, {
+      dualSenseNode('hold', 'neutral', 0.5, {
+        id: 'hold-middle',
         holdBehavior: 'charge',
+        next: ['ram-short', 'spin-finisher'],
+        chargeBandOverrideId: 'middle',
+        telegraph: telegraphPulses(2),
+        armedTriggerOverride: SOFTENED_FINISHER_WALL,
+        tactileProfile: 'ramp',
+        adaptiveOverride: { startPosition: 0.5, endPosition: 0.6, force: 0.58 },
+      }),
+      dualSenseNode('doubleTapHold', 'continuation', 0.75, {
+        id: 'ram-short',
+        holdBehavior: 'charge',
+        next: ['ram-strong', 'spin-finisher'],
+        chargeBandOverrideId: 'ram-short',
+        armedTriggerOverride: SOFTENED_FINISHER_WALL,
         tactileProfile: 'gate',
         entryTick: { durationMs: 45, magnitude: 0.35 },
-        adaptiveOverride: { startPosition: 0.72, endPosition: 0.82, force: 0.8 },
+        adaptiveOverride: { startPosition: 0.75, endPosition: 0.85, force: 0.8 },
       }),
-      dualSenseNode('holdThenDoubleTap', 'continuation', 0.9, {
+      dualSenseNode('doubleTapHold', 'continuation', 0.95, {
+        id: 'ram-strong',
+        holdBehavior: 'charge',
+        chargeBandOverrideId: 'ram-strong',
+        tactileProfile: 'gate',
+        entryTick: { durationMs: 55, magnitude: 0.45 },
+        adaptiveOverride: { startPosition: 0.95, endPosition: 1, force: 1 },
+      }),
+      dualSenseNode('holdThenDoubleTap', 'continuation', 0.95, {
+        id: 'spin-finisher',
         dispatch: 'press',
-        requiredChargeBandId: 'middle',
+        entryRequiresArmed: true,
+        chargeBandOverrideId: 'spin-middle',
         tactileProfile: 'followUp',
         entryTick: { durationMs: 55, magnitude: 0.45 },
-        adaptiveOverride: { startPosition: 0.9, endPosition: 0.98, force: 1 },
+        adaptiveOverride: { startPosition: 0.95, endPosition: 1, force: 1 },
       }),
     ],
     haptics: {
       baseTrigger: { startPosition: 0.16, endPosition: 0.24, force: 0.35 },
       gateTick: { durationMs: 25, magnitude: 0.15 },
       commitPattern: [{ delayMs: 0, durationMs: 70, magnitude: 0.6 }],
+      depthTicks: [
+        { position: 0.85, tick: { durationMs: 18, magnitude: 0.13 } },
+        { position: 0.9, tick: { durationMs: 18, magnitude: 0.16 } },
+      ],
     },
   },
   'twohand-spear:secondary': {
@@ -336,34 +432,58 @@ const ATTACK_SET_CONTROL_SEEDS: Record<string, AttackSetControlSeed> = {
       hold: mylorikActivation('technique', 'hold'),
       holdThenDoubleTap: mylorikActivation('mobility', 'press', 'stance'),
     },
-    // Quick release = the wide haft shove; the 0.48 pocket is the cutting
-    // stance channel, its 0.72 gate arms the armored kick charge, and the
-    // early-stance pole-plant pocket at 0.9 launches the vault on release.
     preGateGesture: 'doubleTap',
     dualsense: [
-      dualSenseNode('hold', 'neutral', 0.48, {
+      dualSenseNode('hold', 'neutral', 0.25, {
+        id: 'stance',
         dispatch: 'press',
         holdBehavior: 'channel',
         releaseBehavior: 'dispatch',
-        next: ['doubleTapHold', 'holdThenDoubleTap'],
+        next: ['kick-brace', 'vault-finisher'],
+        armedTriggerOverride: SOFTENED_FINISHER_WALL,
         tactileProfile: 'tension',
         entryTick: null,
       }),
-      dualSenseNode('doubleTapHold', 'continuation', 0.72, {
+      dualSenseNode('doubleTapHold', 'continuation', 0.5, {
+        id: 'kick-brace',
         holdBehavior: 'charge',
+        next: ['kick-strong'],
+        chargeBandOverrideId: 'brace',
+        telegraph: telegraphPulses(1),
         tactileProfile: 'gate',
-        adaptiveOverride: { startPosition: 0.72, endPosition: 0.82, force: 0.65 },
+        adaptiveOverride: { startPosition: 0.5, endPosition: 0.6, force: 0.5 },
       }),
-      dualSenseNode('holdThenDoubleTap', 'stance', 0.9, {
-        dispatch: 'release',
+      dualSenseNode('doubleTapHold', 'continuation', 0.75, {
+        id: 'kick-strong',
+        holdBehavior: 'charge',
+        next: ['kick-final'],
+        chargeBandOverrideId: 'kick',
+        telegraph: telegraphPulses(2),
+        tactileProfile: 'gate',
+        adaptiveOverride: { startPosition: 0.75, endPosition: 0.85, force: 0.7 },
+      }),
+      dualSenseNode('doubleTapHold', 'continuation', 0.95, {
+        id: 'kick-final',
+        holdBehavior: 'charge',
+        chargeBandOverrideId: 'kick',
+        tactileProfile: 'gate',
+        adaptiveOverride: { startPosition: 0.95, endPosition: 1, force: 0.9 },
+      }),
+      dualSenseNode('holdThenDoubleTap', 'stance', 0.95, {
+        id: 'vault-finisher',
+        dispatch: 'press',
+        entryRequiresArmed: true,
         tactileProfile: 'followUp',
-        adaptiveOverride: { startPosition: 0.9, endPosition: 0.98, force: 0.9 },
+        adaptiveOverride: { startPosition: 0.95, endPosition: 1, force: 0.9 },
       }),
     ],
     haptics: {
       baseTrigger: { startPosition: 0.14, endPosition: 0.14, resistance: 0.2 },
       gateTick: { durationMs: 25, magnitude: 0.12 },
       commitPattern: [{ delayMs: 0, durationMs: 50, magnitude: 0.4 }],
+      depthTicks: [
+        { position: 0.85, tick: { durationMs: 22, magnitude: 0.14 } },
+      ],
     },
   },
   'secondary-chain:primary': {
@@ -377,30 +497,49 @@ const ATTACK_SET_CONTROL_SEEDS: Record<string, AttackSetControlSeed> = {
       holdThenDoubleTap: mylorikActivation('strike', 'press', 'tether'),
     },
     dualsense: [
-      dualSenseNode('hold', 'neutral', 0.22, {
-        holdBehavior: 'charge',
-        next: ['doubleTap', 'holdThenDoubleTap'],
+      dualSenseNode('hold', 'neutral', 0.25, {
+        id: 'hook-near',
+        dispatch: 'press',
+        holdBehavior: 'channel',
+        releaseBehavior: 'dispatch',
+        next: ['spin', 'bind-finisher'],
+        chargeBandOverrideId: 'hook-near',
+        armedTriggerOverride: SOFTENED_FINISHER_WALL,
         tactileProfile: 'tension',
         entryTick: null,
-        adaptiveOverride: { startPosition: 0.22, endPosition: 0.22, resistance: 0.3 },
+        adaptiveOverride: { startPosition: 0.25, endPosition: 0.25, resistance: 0.3 },
       }),
-      dualSenseNode('doubleTap', 'neutral', 0.48, {
+      dualSenseNode('doubleTap', 'neutral', 0.5, {
+        id: 'spin',
         dispatch: 'press',
-        next: ['doubleTapHold'],
+        next: ['throw-wrap'],
         tactileProfile: 'gate',
-        adaptiveOverride: { startPosition: 0.48, endPosition: 0.48, resistance: 0.5 },
+        adaptiveOverride: { startPosition: 0.5, endPosition: 0.5, resistance: 0.5 },
       }),
-      dualSenseNode('doubleTapHold', 'spin', 0.72, {
+      dualSenseNode('doubleTapHold', 'spin', 0.75, {
+        id: 'throw-wrap',
         holdBehavior: 'charge',
+        next: ['throw-heave'],
+        chargeBandOverrideId: 'wrap',
         tactileProfile: 'gate',
         entryTick: { durationMs: 50, magnitude: 0.4 },
-        adaptiveOverride: { startPosition: 0.72, endPosition: 0.72, resistance: 0.7 },
+        adaptiveOverride: { startPosition: 0.75, endPosition: 0.75, resistance: 0.7 },
       }),
-      dualSenseNode('holdThenDoubleTap', 'tether', 0.9, {
+      dualSenseNode('doubleTapHold', 'spin', 0.95, {
+        id: 'throw-heave',
+        holdBehavior: 'charge',
+        chargeBandOverrideId: 'heave',
+        tactileProfile: 'gate',
+        entryTick: { durationMs: 55, magnitude: 0.48 },
+        adaptiveOverride: { startPosition: 0.95, endPosition: 0.95, resistance: 0.9 },
+      }),
+      dualSenseNode('holdThenDoubleTap', 'tether', 0.95, {
+        id: 'bind-finisher',
         dispatch: 'press',
+        entryRequiresArmed: true,
         tactileProfile: 'gate',
         entryTick: { durationMs: 50, magnitude: 0.4 },
-        adaptiveOverride: { startPosition: 0.9, endPosition: 0.9, resistance: 0.9 },
+        adaptiveOverride: { startPosition: 0.95, endPosition: 0.95, resistance: 0.9 },
       }),
     ],
     haptics: {
@@ -409,6 +548,11 @@ const ATTACK_SET_CONTROL_SEEDS: Record<string, AttackSetControlSeed> = {
       commitPattern: [
         { delayMs: 0, durationMs: 45, magnitude: 0.45 },
         { delayMs: 125, durationMs: 45, magnitude: 0.45 },
+      ],
+      depthTicks: [
+        { position: 0.35, tick: { durationMs: 16, magnitude: 0.12 } },
+        { position: 0.6, tick: { durationMs: 18, magnitude: 0.16 } },
+        { position: 0.85, tick: { durationMs: 20, magnitude: 0.2 } },
       ],
     },
   },
@@ -423,24 +567,44 @@ const ATTACK_SET_CONTROL_SEEDS: Record<string, AttackSetControlSeed> = {
       holdThenDoubleTap: mylorikActivation('strike', 'press', 'dash', 90),
     },
     dualsense: [
-      dualSenseNode('doubleTap', 'neutral', 0.22, {
-        next: ['hold'],
-        adaptiveOverride: { startPosition: 0.22, endPosition: 0.3, force: 0.3 },
+      dualSenseNode('doubleTap', 'neutral', 0.25, {
+        id: 'rend',
+        next: ['dash-short'],
+        telegraph: telegraphPulses(1, 0.34),
+        adaptiveOverride: { startPosition: 0.25, endPosition: 0.32, force: 0.3 },
       }),
-      dualSenseNode('hold', 'neutral', 0.48, {
+      dualSenseNode('hold', 'neutral', 0.5, {
+        id: 'dash-short',
         holdBehavior: 'charge',
-        next: ['doubleTapHold', 'holdThenDoubleTap'],
+        next: ['disarm', 'deep-strike-finisher'],
+        chargeBandOverrideId: 'claw-dash-short',
+        armedTriggerOverride: SOFTENED_FINISHER_WALL,
+        telegraph: telegraphPulses(1, 0.34),
         tactileProfile: 'ramp',
-        adaptiveOverride: { startPosition: 0.48, endPosition: 0.56, force: 0.55 },
+        adaptiveOverride: { startPosition: 0.5, endPosition: 0.6, force: 0.55 },
       }),
-      dualSenseNode('doubleTapHold', 'neutral', 0.72, {
+      dualSenseNode('doubleTapHold', 'neutral', 0.75, {
+        id: 'disarm',
+        next: ['dash-long', 'deep-strike-finisher'],
+        armedTriggerOverride: SOFTENED_FINISHER_WALL,
+        telegraph: telegraphPulses(1, 0.34),
         tactileProfile: 'gate',
-        adaptiveOverride: { startPosition: 0.72, endPosition: 0.8, force: 0.8 },
+        adaptiveOverride: { startPosition: 0.75, endPosition: 0.84, force: 0.8 },
       }),
-      dualSenseNode('holdThenDoubleTap', 'dash', 0.9, {
+      dualSenseNode('hold', 'neutral', 0.95, {
+        id: 'dash-long',
+        holdBehavior: 'charge',
+        chargeBandOverrideId: 'claw-dash-long',
+        telegraph: telegraphPulses(1, 0.34),
+        tactileProfile: 'ramp',
+        adaptiveOverride: { startPosition: 0.95, endPosition: 1, force: 1 },
+      }),
+      dualSenseNode('holdThenDoubleTap', 'dash', 0.95, {
+        id: 'deep-strike-finisher',
         dispatch: 'press',
+        entryRequiresArmed: true,
         tactileProfile: 'followUp',
-        adaptiveOverride: { startPosition: 0.9, endPosition: 0.98, force: 1 },
+        adaptiveOverride: { startPosition: 0.95, endPosition: 1, force: 1 },
       }),
     ],
     haptics: {
@@ -463,29 +627,43 @@ const ATTACK_SET_CONTROL_SEEDS: Record<string, AttackSetControlSeed> = {
       holdThenDoubleTap: mylorikActivation('strike', 'press', 'flurry'),
     },
     dualsense: [
-      dualSenseNode('doubleTap', 'neutral', 0.22, {
-        next: ['hold', 'doubleTapHold'],
-        adaptiveOverride: { startPosition: 0.22, endPosition: 0.28, force: 0.35 },
+      dualSenseNode('doubleTap', 'neutral', 0.25, {
+        id: 'impale',
+        next: ['flurry'],
+        adaptiveOverride: { startPosition: 0.25, endPosition: 0.32, force: 0.35 },
       }),
-      dualSenseNode('hold', 'neutral', 0.48, {
+      dualSenseNode('hold', 'neutral', 0.5, {
+        id: 'flurry',
         dispatch: 'press',
         holdBehavior: 'channel',
         releaseBehavior: 'dispatch',
-        next: ['holdThenDoubleTap'],
+        next: ['twist'],
         tactileProfile: 'tension',
         entryTick: null,
-        adaptiveOverride: { startPosition: 0.48, endPosition: 0.48, resistance: 0.45 },
+        adaptiveOverride: { startPosition: 0.5, endPosition: 0.5, resistance: 0.45 },
       }),
-      dualSenseNode('holdThenDoubleTap', 'flurry', 0.72, {
+      dualSenseNode('holdThenDoubleTap', 'flurry', 0.75, {
+        id: 'twist',
+        next: ['throw-finisher'],
+        armedCue: [
+          { delayMs: 0, durationMs: 55, magnitude: 0.68 },
+          { delayMs: 85, durationMs: 70, magnitude: 0.7 },
+          { delayMs: 190, durationMs: 85, magnitude: 0.7 },
+        ],
+        armedTriggerOverride: SOFTENED_FINISHER_WALL,
         tactileProfile: 'gate',
         entryTick: { durationMs: 30, magnitude: 0.3 },
-        adaptiveOverride: { startPosition: 0.72, endPosition: 0.78, force: 0.7 },
+        adaptiveOverride: { startPosition: 0.75, endPosition: 0.84, force: 0.7 },
       }),
-      dualSenseNode('doubleTapHold', 'neutral', 0.9, {
+      dualSenseNode('doubleTapHold', 'continuation', 0.95, {
+        id: 'throw-finisher',
+        dispatch: 'press',
         holdBehavior: 'charge',
+        entryRequiresArmed: true,
+        chargeBandOverrideId: 'spider-throw-ready',
         tactileProfile: 'gate',
         entryTick: { durationMs: 45, magnitude: 0.5 },
-        adaptiveOverride: { startPosition: 0.9, endPosition: 0.96, force: 1 },
+        adaptiveOverride: { startPosition: 0.95, endPosition: 1, force: 1 },
       }),
     ],
     haptics: {
@@ -506,6 +684,12 @@ const ATTACK_SET_CONTROL_SEEDS: Record<string, AttackSetControlSeed> = {
         pulsesPerBurst: [1, 3],
         curveExponent: 1.6,
       },
+      depthTicks: [
+        { position: 0.35, tick: { durationMs: 16, magnitude: 0.15 } },
+        { position: 0.6, tick: { durationMs: 18, magnitude: 0.2 } },
+        { position: 0.85, tick: { durationMs: 20, magnitude: 0.26 } },
+        { position: 0.9, tick: { durationMs: 22, magnitude: 0.32 } },
+      ],
     },
   },
   'twohand-axe:primary': {
@@ -517,17 +701,47 @@ const ATTACK_SET_CONTROL_SEEDS: Record<string, AttackSetControlSeed> = {
       doubleTapHold: mylorikActivation('technique', 'hold', 'grapple'),
     },
     dualsense: [
-      dualSenseNode('doubleTap', 'neutral', 0.22, {
+      dualSenseNode('doubleTap', 'neutral', 0.25, {
+        id: 'grapple',
         dispatch: 'press',
-        next: ['doubleTapHold'],
+        next: ['throw-aim'],
         tactileProfile: 'gate',
-        adaptiveOverride: { startPosition: 0.22, endPosition: 0.34, force: 0.5 },
+        adaptiveOverride: { startPosition: 0.25, endPosition: 0.36, force: 0.5 },
       }),
-      dualSenseNode('doubleTapHold', 'grapple', 0.72, {
+      dualSenseNode('doubleTapHold', 'grapple', 0.5, {
+        id: 'throw-aim',
         holdBehavior: 'charge',
+        next: ['throw-heave'],
+        chargeBandOverrideId: 'axe-aim',
+        telegraph: telegraphPulses(1, 0.32),
         tactileProfile: 'tension',
-        entryTick: null,
-        adaptiveOverride: { startPosition: 0.72, endPosition: 0.72, resistance: 0.85 },
+        adaptiveOverride: { startPosition: 0.5, endPosition: 0.6, force: 0.58 },
+      }),
+      dualSenseNode('doubleTapHold', 'grapple', 0.75, {
+        id: 'throw-heave',
+        holdBehavior: 'charge',
+        next: ['throw-final', 'throw-max-finisher'],
+        chargeBandOverrideId: 'axe-heave',
+        telegraph: telegraphPulses(2, 0.36),
+        armedTriggerOverride: SOFTENED_FINISHER_WALL,
+        tactileProfile: 'gate',
+        adaptiveOverride: { startPosition: 0.75, endPosition: 0.75, resistance: 0.85 },
+      }),
+      dualSenseNode('doubleTapHold', 'grapple', 0.95, {
+        id: 'throw-final',
+        holdBehavior: 'charge',
+        chargeBandOverrideId: 'axe-heave',
+        tactileProfile: 'gate',
+        adaptiveOverride: { startPosition: 0.95, endPosition: 0.95, resistance: 0.95 },
+      }),
+      dualSenseNode('doubleTapHold', 'grapple', 0.95, {
+        id: 'throw-max-finisher',
+        dispatch: 'press',
+        holdBehavior: 'charge',
+        entryRequiresArmed: true,
+        chargeBandOverrideId: 'axe-max',
+        tactileProfile: 'impact',
+        adaptiveOverride: { startPosition: 0.95, endPosition: 1, force: 1 },
       }),
     ],
     haptics: {
@@ -535,6 +749,9 @@ const ATTACK_SET_CONTROL_SEEDS: Record<string, AttackSetControlSeed> = {
       gateTick: { durationMs: 60, magnitude: 0.4 },
       bandTick: { pulseMs: 55, gapMs: 90, magnitude: 0.4, magnitudeStep: 0.1 },
       commitPattern: [{ delayMs: 0, durationMs: 90, magnitude: 0.7 }],
+      depthTicks: [
+        { position: 0.9, tick: { durationMs: 30, magnitude: 0.38 } },
+      ],
     },
   },
   'twohand-axe:secondary': {
@@ -546,19 +763,49 @@ const ATTACK_SET_CONTROL_SEEDS: Record<string, AttackSetControlSeed> = {
       holdThenDoubleTap: mylorikActivation('mobility', 'press', 'spin'),
     },
     dualsense: [
-      dualSenseNode('hold', 'neutral', 0.22, {
+      dualSenseNode('hold', 'neutral', 0.25, {
+        id: 'spin',
         dispatch: 'press',
         holdBehavior: 'channel',
         releaseBehavior: 'dispatch',
-        next: ['holdThenDoubleTap'],
+        next: ['leap-near', 'leap-max-finisher'],
+        armedTriggerOverride: SOFTENED_FINISHER_WALL,
         tactileProfile: 'ramp',
         entryTick: null,
-        adaptiveOverride: { startPosition: 0.22, endPosition: 0.22, resistance: 0.5 },
+        adaptiveOverride: { startPosition: 0.25, endPosition: 0.25, resistance: 0.5 },
       }),
-      dualSenseNode('holdThenDoubleTap', 'spin', 0.72, {
+      dualSenseNode('holdThenDoubleTap', 'spin', 0.5, {
+        id: 'leap-near',
         dispatch: 'release',
+        next: ['leap-far'],
+        chargeBandOverrideId: 'axe-leap-near',
+        telegraph: telegraphPulses(1, 0.3),
         tactileProfile: 'followUp',
-        adaptiveOverride: { startPosition: 0.72, endPosition: 0.82, force: 0.8 },
+        adaptiveOverride: { startPosition: 0.5, endPosition: 0.6, force: 0.58 },
+      }),
+      dualSenseNode('holdThenDoubleTap', 'spin', 0.75, {
+        id: 'leap-far',
+        dispatch: 'release',
+        next: ['leap-final'],
+        chargeBandOverrideId: 'axe-leap-far',
+        telegraph: telegraphPulses(2, 0.34),
+        tactileProfile: 'followUp',
+        adaptiveOverride: { startPosition: 0.75, endPosition: 0.85, force: 0.8 },
+      }),
+      dualSenseNode('holdThenDoubleTap', 'spin', 0.95, {
+        id: 'leap-final',
+        dispatch: 'release',
+        chargeBandOverrideId: 'axe-leap-far',
+        tactileProfile: 'followUp',
+        adaptiveOverride: { startPosition: 0.95, endPosition: 1, force: 0.95 },
+      }),
+      dualSenseNode('holdThenDoubleTap', 'spin', 0.95, {
+        id: 'leap-max-finisher',
+        dispatch: 'press',
+        entryRequiresArmed: true,
+        chargeBandOverrideId: 'axe-leap-max',
+        tactileProfile: 'impact',
+        adaptiveOverride: { startPosition: 0.95, endPosition: 1, force: 1 },
       }),
     ],
     haptics: {
@@ -566,6 +813,10 @@ const ATTACK_SET_CONTROL_SEEDS: Record<string, AttackSetControlSeed> = {
       gateTick: { durationMs: 60, magnitude: 0.4 },
       bandTick: { pulseMs: 55, gapMs: 90, magnitude: 0.4, magnitudeStep: 0.1 },
       commitPattern: [{ delayMs: 0, durationMs: 70, magnitude: 0.55 }],
+      depthTicks: [
+        { position: 0.6, tick: { durationMs: 25, magnitude: 0.24 } },
+        { position: 0.85, tick: { durationMs: 28, magnitude: 0.32 } },
+      ],
     },
   },
   'twohand-katana:primary': {
@@ -579,25 +830,45 @@ const ATTACK_SET_CONTROL_SEEDS: Record<string, AttackSetControlSeed> = {
       holdThenDoubleTap: mylorikActivation('mobility', 'press', 'continuation'),
     },
     dualsense: [
-      dualSenseNode('doubleTap', 'neutral', 0.22, {
-        next: ['hold', 'doubleTapHold'],
-        adaptiveOverride: { startPosition: 0.22, endPosition: 0.3, force: 0.2 },
+      dualSenseNode('doubleTap', 'neutral', 0.25, {
+        id: 'overhead',
+        next: ['charge'],
+        adaptiveOverride: { startPosition: 0.25, endPosition: 0.32, force: 0.2 },
       }),
-      dualSenseNode('hold', 'neutral', 0.48, {
+      dualSenseNode('hold', 'neutral', 0.5, {
+        id: 'charge',
         holdBehavior: 'charge',
-        next: ['holdThenDoubleTap'],
+        next: ['flurry', 'dance-finisher'],
+        chargeBandOverrideId: 'katana-charge',
+        telegraph: telegraphPulses(1, 0.2),
+        armedCue: [
+          { delayMs: 0, durationMs: 45, magnitude: 0.58 },
+          { delayMs: 90, durationMs: 45, magnitude: 0.58 },
+        ],
+        armedTriggerOverride: SOFTENED_FINISHER_WALL,
         tactileProfile: 'ramp',
-        adaptiveOverride: { startPosition: 0.48, endPosition: 0.56, force: 0.4 },
+        adaptiveOverride: { startPosition: 0.5, endPosition: 0.6, force: 0.4 },
       }),
-      dualSenseNode('doubleTapHold', 'continuation', 0.72, {
+      dualSenseNode('doubleTapHold', 'continuation', 0.75, {
+        id: 'flurry',
+        next: ['full-charge'],
         tactileProfile: 'gate',
-        adaptiveOverride: { startPosition: 0.72, endPosition: 0.8, force: 0.6 },
+        adaptiveOverride: { startPosition: 0.75, endPosition: 0.84, force: 0.6 },
       }),
-      dualSenseNode('holdThenDoubleTap', 'continuation', 0.9, {
+      dualSenseNode('hold', 'neutral', 0.95, {
+        id: 'full-charge',
+        holdBehavior: 'charge',
+        chargeBandOverrideId: 'katana-full',
+        tactileProfile: 'ramp',
+        adaptiveOverride: { startPosition: 0.95, endPosition: 1, force: 0.85 },
+      }),
+      dualSenseNode('holdThenDoubleTap', 'continuation', 0.95, {
+        id: 'dance-finisher',
         dispatch: 'press',
+        entryRequiresArmed: true,
         requiredChargeBandId: 'katana-charge',
         tactileProfile: 'followUp',
-        adaptiveOverride: { startPosition: 0.9, endPosition: 0.98, force: 0.85 },
+        adaptiveOverride: { startPosition: 0.95, endPosition: 1, force: 0.85 },
       }),
     ],
     haptics: {
@@ -618,25 +889,40 @@ const ATTACK_SET_CONTROL_SEEDS: Record<string, AttackSetControlSeed> = {
       holdThenDoubleTap: mylorikActivation('mobility', 'press', 'continuation'),
     },
     dualsense: [
-      dualSenseNode('doubleTap', 'neutral', 0.22, {
-        next: ['hold', 'doubleTapHold'],
-        adaptiveOverride: { startPosition: 0.22, endPosition: 0.3, force: 0.2 },
+      dualSenseNode('doubleTap', 'neutral', 0.25, {
+        id: 'hop',
+        next: ['iaido'],
+        adaptiveOverride: { startPosition: 0.25, endPosition: 0.32, force: 0.2 },
       }),
-      dualSenseNode('hold', 'neutral', 0.48, {
+      dualSenseNode('hold', 'neutral', 0.5, {
+        id: 'iaido',
         holdBehavior: 'charge',
-        next: ['holdThenDoubleTap'],
+        next: ['hop-slash', 'flash-finisher'],
+        chargeBandOverrideId: 'iaido-ready',
+        telegraph: telegraphPulses(1, 0.2),
+        armedTriggerOverride: SOFTENED_FINISHER_WALL,
         tactileProfile: 'ramp',
-        adaptiveOverride: { startPosition: 0.48, endPosition: 0.56, force: 0.4 },
+        adaptiveOverride: { startPosition: 0.5, endPosition: 0.6, force: 0.4 },
       }),
-      dualSenseNode('doubleTapHold', 'continuation', 0.72, {
+      dualSenseNode('doubleTapHold', 'continuation', 0.75, {
+        id: 'hop-slash',
+        next: ['iaido-full'],
         tactileProfile: 'gate',
-        adaptiveOverride: { startPosition: 0.72, endPosition: 0.8, force: 0.6 },
+        adaptiveOverride: { startPosition: 0.75, endPosition: 0.84, force: 0.6 },
       }),
-      dualSenseNode('holdThenDoubleTap', 'continuation', 0.9, {
+      dualSenseNode('hold', 'neutral', 0.95, {
+        id: 'iaido-full',
+        holdBehavior: 'charge',
+        chargeBandOverrideId: 'iaido-full',
+        tactileProfile: 'ramp',
+        adaptiveOverride: { startPosition: 0.95, endPosition: 1, force: 0.85 },
+      }),
+      dualSenseNode('holdThenDoubleTap', 'continuation', 0.95, {
+        id: 'flash-finisher',
         dispatch: 'press',
-        requiredChargeBandId: 'iaido-ready',
+        entryRequiresArmed: true,
         tactileProfile: 'followUp',
-        adaptiveOverride: { startPosition: 0.9, endPosition: 0.98, force: 0.85 },
+        adaptiveOverride: { startPosition: 0.95, endPosition: 1, force: 0.85 },
       }),
     ],
     haptics: {
@@ -655,25 +941,31 @@ const ATTACK_SET_CONTROL_SEEDS: Record<string, AttackSetControlSeed> = {
       doubleTapHold: mylorikActivation('technique', 'hold', undefined, 80),
     },
     dualsense: [
-      dualSenseNode('doubleTap', 'neutral', 0.22, {
+      dualSenseNode('doubleTap', 'neutral', 0.25, {
+        id: 'oberhau',
         dispatch: 'press',
         releaseBehavior: 'cancel',
-        next: ['doubleTapHold'],
+        next: ['unterhau'],
         expiryMs: 1000,
         tactileProfile: 'followUp',
-        adaptiveOverride: { startPosition: 0.22, endPosition: 0.3, force: 0.25 },
+        adaptiveOverride: { startPosition: 0.25, endPosition: 0.32, force: 0.25 },
       }),
-      dualSenseNode('doubleTapHold', 'continuation', 0.72, {
+      dualSenseNode('doubleTapHold', 'continuation', 0.75, {
+        id: 'unterhau',
         holdBehavior: 'charge',
         expiryMs: 1000,
         tactileProfile: 'gate',
         entryTick: { durationMs: 50, magnitude: 0.4 },
-        adaptiveOverride: { startPosition: 0.72, endPosition: 0.84, force: 0.9 },
+        adaptiveOverride: { startPosition: 0.75, endPosition: 0.86, force: 0.9 },
       }),
     ],
     haptics: {
       gateTick: { durationMs: 30, magnitude: 0.2 },
       commitPattern: [{ delayMs: 0, durationMs: 60, magnitude: 0.55 }],
+      depthTicks: [
+        { position: 0.6, tick: { durationMs: 24, magnitude: 0.2 } },
+        { position: 0.88, tick: { durationMs: 30, magnitude: 0.32 } },
+      ],
     },
   },
   'hybrid-sword:secondary': {
@@ -685,35 +977,55 @@ const ATTACK_SET_CONTROL_SEEDS: Record<string, AttackSetControlSeed> = {
       doubleTapHold: mylorikActivation('technique', 'hold', undefined, 80),
     },
     dualsense: [
-      dualSenseNode('doubleTap', 'neutral', 0.22, {
+      dualSenseNode('doubleTap', 'neutral', 0.25, {
+        id: 'oberhau',
         dispatch: 'press',
         releaseBehavior: 'cancel',
-        next: ['doubleTapHold'],
+        next: ['unterhau'],
         expiryMs: 1000,
         tactileProfile: 'followUp',
-        adaptiveOverride: { startPosition: 0.22, endPosition: 0.3, force: 0.25 },
+        adaptiveOverride: { startPosition: 0.25, endPosition: 0.32, force: 0.25 },
       }),
-      dualSenseNode('doubleTapHold', 'continuation', 0.72, {
+      dualSenseNode('doubleTapHold', 'continuation', 0.75, {
+        id: 'unterhau',
         holdBehavior: 'charge',
         expiryMs: 1000,
         tactileProfile: 'gate',
         entryTick: { durationMs: 50, magnitude: 0.4 },
-        adaptiveOverride: { startPosition: 0.72, endPosition: 0.84, force: 0.9 },
+        adaptiveOverride: { startPosition: 0.75, endPosition: 0.86, force: 0.9 },
       }),
     ],
     haptics: {
       gateTick: { durationMs: 30, magnitude: 0.2 },
       commitPattern: [{ delayMs: 0, durationMs: 60, magnitude: 0.55 }],
+      depthTicks: [
+        { position: 0.6, tick: { durationMs: 24, magnitude: 0.2 } },
+        { position: 0.88, tick: { durationMs: 30, magnitude: 0.32 } },
+      ],
     },
   },
   'secondary-ouroboros-fang:primary': {
     role: 'Matching hand — five-second dagger strike',
-    triggerRole: 'No trigger technique',
+    triggerRole: 'Trigger thrust with a five-second cooldown wall',
     mylorik: {
       tap: mylorikActivation('strike', 'press'),
     },
-    dualsense: [],
+    dualsense: [
+      dualSenseNode('tap', 'neutral', 0.25, {
+        id: 'fang-thrust',
+        dispatch: 'press',
+        releaseBehavior: 'cancel',
+        tactileProfile: 'click',
+        adaptiveOverride: { startPosition: 0.25, endPosition: 0.3, force: 0.32 },
+      }),
+    ],
     haptics: {
+      baseTrigger: {
+        startPosition: 0.28,
+        endPosition: 0.9,
+        resistance: 0.68,
+        force: 0.74,
+      },
       gateTick: { durationMs: 24, magnitude: 0.2 },
       commitPattern: [{ delayMs: 0, durationMs: 45, magnitude: 0.48 }],
     },
@@ -728,36 +1040,65 @@ const ATTACK_SET_CONTROL_SEEDS: Record<string, AttackSetControlSeed> = {
       hold: mylorikActivation('technique', 'hold'),
       holdThenDoubleTap: mylorikActivation('mobility', 'press', 'continuation'),
     },
-    // Same ladder as the original lance, with one deliberate difference: the follow-up gate
-    // now arms on the *early* замах pocket rather than the middle one, because v2 trades the
-    // early wide slash away from the hold and hands it to a weak «Акали» instead.
     preGateGesture: 'doubleTap',
     dualsense: [
-      dualSenseNode('hold', 'neutral', 0.48, {
+      dualSenseNode('hold', 'neutral', 0.25, {
+        id: 'hold-early',
         holdBehavior: 'charge',
-        next: ['doubleTapHold', 'holdThenDoubleTap'],
+        next: ['hold-middle'],
+        chargeBandOverrideId: 'early',
+        telegraph: telegraphPulses(1),
         tactileProfile: 'ramp',
         entryTick: { durationMs: 35, magnitude: 0.25 },
-        adaptiveOverride: { startPosition: 0.48, endPosition: 0.58, force: 0.55 },
+        adaptiveOverride: { startPosition: 0.25, endPosition: 0.34, force: 0.42 },
       }),
-      dualSenseNode('doubleTapHold', 'continuation', 0.72, {
+      dualSenseNode('hold', 'neutral', 0.5, {
+        id: 'hold-middle',
         holdBehavior: 'charge',
-        tactileProfile: 'gate',
-        entryTick: { durationMs: 45, magnitude: 0.35 },
-        adaptiveOverride: { startPosition: 0.72, endPosition: 0.82, force: 0.8 },
+        next: ['breakthrough', 'spin-finisher'],
+        chargeBandOverrideId: 'middle',
+        telegraph: telegraphPulses(2),
+        armedTriggerOverride: SOFTENED_FINISHER_WALL,
+        tactileProfile: 'ramp',
+        adaptiveOverride: { startPosition: 0.5, endPosition: 0.6, force: 0.58 },
       }),
-      dualSenseNode('holdThenDoubleTap', 'continuation', 0.9, {
+      dualSenseNode('doubleTapHold', 'continuation', 0.75, {
+        id: 'breakthrough',
         dispatch: 'press',
+        holdBehavior: 'channel',
+        releaseBehavior: 'cancel',
+        next: ['hold-late'],
+        tactileProfile: 'gate',
+        entryTick: null,
+        adaptiveOverride: { startPosition: 0.75, endPosition: 0.85, force: 0.8 },
+      }),
+      dualSenseNode('hold', 'neutral', 0.95, {
+        id: 'hold-late',
+        holdBehavior: 'charge',
+        chargeBandOverrideId: 'late',
+        tactileProfile: 'ramp',
+        entryTick: { durationMs: 45, magnitude: 0.35 },
+        adaptiveOverride: { startPosition: 0.95, endPosition: 1, force: 1 },
+      }),
+      dualSenseNode('holdThenDoubleTap', 'continuation', 0.95, {
+        id: 'spin-finisher',
+        dispatch: 'press',
+        entryRequiresArmed: true,
         requiredChargeBandId: 'early',
+        chargeBandOverrideId: 'spin-middle',
         tactileProfile: 'followUp',
         entryTick: { durationMs: 55, magnitude: 0.45 },
-        adaptiveOverride: { startPosition: 0.9, endPosition: 0.98, force: 1 },
+        adaptiveOverride: { startPosition: 0.95, endPosition: 1, force: 1 },
       }),
     ],
     haptics: {
       baseTrigger: { startPosition: 0.16, endPosition: 0.24, force: 0.35 },
       gateTick: { durationMs: 25, magnitude: 0.15 },
       commitPattern: [{ delayMs: 0, durationMs: 70, magnitude: 0.6 }],
+      depthTicks: [
+        { position: 0.85, tick: { durationMs: 18, magnitude: 0.13 } },
+        { position: 0.9, tick: { durationMs: 18, magnitude: 0.16 } },
+      ],
     },
   },
   'twohand-spear-v2:secondary': {
@@ -770,32 +1111,58 @@ const ATTACK_SET_CONTROL_SEEDS: Record<string, AttackSetControlSeed> = {
       hold: mylorikActivation('technique', 'hold'),
       holdThenDoubleTap: mylorikActivation('mobility', 'press', 'stance'),
     },
-    // Copied verbatim from the original lance — v2 only reworks the primary hand.
     preGateGesture: 'doubleTap',
     dualsense: [
-      dualSenseNode('hold', 'neutral', 0.48, {
+      dualSenseNode('hold', 'neutral', 0.25, {
+        id: 'stance',
         dispatch: 'press',
         holdBehavior: 'channel',
         releaseBehavior: 'dispatch',
-        next: ['doubleTapHold', 'holdThenDoubleTap'],
+        next: ['kick-brace', 'vault-finisher'],
+        armedTriggerOverride: SOFTENED_FINISHER_WALL,
         tactileProfile: 'tension',
         entryTick: null,
       }),
-      dualSenseNode('doubleTapHold', 'continuation', 0.72, {
+      dualSenseNode('doubleTapHold', 'continuation', 0.5, {
+        id: 'kick-brace',
         holdBehavior: 'charge',
+        next: ['kick-strong'],
+        chargeBandOverrideId: 'brace',
+        telegraph: telegraphPulses(1),
         tactileProfile: 'gate',
-        adaptiveOverride: { startPosition: 0.72, endPosition: 0.82, force: 0.65 },
+        adaptiveOverride: { startPosition: 0.5, endPosition: 0.6, force: 0.5 },
       }),
-      dualSenseNode('holdThenDoubleTap', 'stance', 0.9, {
-        dispatch: 'release',
+      dualSenseNode('doubleTapHold', 'continuation', 0.75, {
+        id: 'kick-strong',
+        holdBehavior: 'charge',
+        next: ['kick-final'],
+        chargeBandOverrideId: 'kick',
+        telegraph: telegraphPulses(2),
+        tactileProfile: 'gate',
+        adaptiveOverride: { startPosition: 0.75, endPosition: 0.85, force: 0.7 },
+      }),
+      dualSenseNode('doubleTapHold', 'continuation', 0.95, {
+        id: 'kick-final',
+        holdBehavior: 'charge',
+        chargeBandOverrideId: 'kick',
+        tactileProfile: 'gate',
+        adaptiveOverride: { startPosition: 0.95, endPosition: 1, force: 0.9 },
+      }),
+      dualSenseNode('holdThenDoubleTap', 'stance', 0.95, {
+        id: 'vault-finisher',
+        dispatch: 'press',
+        entryRequiresArmed: true,
         tactileProfile: 'followUp',
-        adaptiveOverride: { startPosition: 0.9, endPosition: 0.98, force: 0.9 },
+        adaptiveOverride: { startPosition: 0.95, endPosition: 1, force: 0.9 },
       }),
     ],
     haptics: {
       baseTrigger: { startPosition: 0.14, endPosition: 0.14, resistance: 0.2 },
       gateTick: { durationMs: 25, magnitude: 0.12 },
       commitPattern: [{ delayMs: 0, durationMs: 50, magnitude: 0.4 }],
+      depthTicks: [
+        { position: 0.85, tick: { durationMs: 22, magnitude: 0.14 } },
+      ],
     },
   },
 }
@@ -812,12 +1179,14 @@ function buildAttackSetControls(
     const activation = seed.mylorik[gesture]
     return enabledGestures.has(gesture) && activation ? [{ gesture, ...activation }] : []
   })
-  const nodes = seed.dualsense
+  const enabledNodes = seed.dualsense
     .filter(node => enabledGestures.has(node.gesture))
+  const enabledNodeIds = new Set(enabledNodes.map(node => node.id ?? node.gesture))
+  const nodes = enabledNodes
     .map(node => ({
       ...node,
-      id: node.gesture,
-      next: node.next.filter(nextId => enabledGestures.has(nextId as LastChancesGesture)),
+      id: node.id ?? node.gesture,
+      next: node.next.filter(nextId => enabledNodeIds.has(nextId)),
     }))
   return {
     role: seed.role,
@@ -925,6 +1294,43 @@ const LEGACY_SPAWN_RELOCATIONS: Record<string, Record<string, { x: number, y: nu
   },
 }
 
+/**
+ * Schema-v8 started proving every layout against guaranteed enemies as well as weighted pools.
+ * These points were safe for ordinary enemies but not for the guaranteed Colossus radius.
+ * As with the v1 repairs, a target is used only when the saved point is unsafe and the target
+ * fits the saved room geometry, so customized rooms are never blindly overwritten.
+ */
+const SCHEMA_V8_GUARANTEED_SPAWN_RELOCATIONS: Record<
+  string,
+  Record<string, { x: number, y: number }>
+> = {
+  'office-memory': {
+    '646:324': { x: 620, y: 324 },
+  },
+  'combat-hall': {
+    '469:327': { x: 469, y: 337 },
+    '646:121': { x: 650, y: 60 },
+    '651:571': { x: 570, y: 625 },
+  },
+  'chest-gallery': {
+    '730:160': { x: 700, y: 160 },
+    '790:345': { x: 815, y: 345 },
+    '820:85': { x: 850, y: 70 },
+    '825:620': { x: 1050, y: 630 },
+  },
+  'rest-conservatory': {
+    '580:120': { x: 590, y: 120 },
+  },
+  'wrong-shadow-event': {
+    '755:145': { x: 780, y: 220 },
+    '840:345': { x: 810, y: 345 },
+    '961:562': { x: 990, y: 580 },
+    '1070:346': { x: 1075, y: 346 },
+    '535:371': { x: 535, y: 385 },
+    '1082:652': { x: 1082, y: 640 },
+  },
+}
+
 export class LastChancesConfigError extends Error {
   readonly errors: string[]
 
@@ -990,6 +1396,60 @@ function repairSchemaV1(migrated: UnknownRecord): void {
     })
   }
 
+}
+
+function repairSchemaV8GuaranteedSpawns(migrated: UnknownRecord): void {
+  const { globalEnemyRadius, roomEnemyRadii } = eligibleEnemySpawnRadii(migrated, true)
+  const player = typeof migrated.player === 'object' && migrated.player !== null
+    && !Array.isArray(migrated.player) ? migrated.player as UnknownRecord : null
+  const playerRadius = player ? Math.max(0, finiteRecordNumber(player, 'radius') ?? 0) : 0
+  if (!Array.isArray(migrated.rooms)) return
+
+  migrated.rooms.forEach((roomValue) => {
+    if (typeof roomValue !== 'object' || roomValue === null || Array.isArray(roomValue)) return
+    const room = roomValue as UnknownRecord
+    if (typeof room.id !== 'string') return
+    const relocations = SCHEMA_V8_GUARANTEED_SPAWN_RELOCATIONS[room.id]
+    if (!relocations) return
+    const enemyRadius = roomEnemyRadii.get(room.id) ?? globalEnemyRadius
+    const repairCollection = (spawns: unknown[]): void => {
+      const overlapsAnotherSpawn = (point: UnknownRecord, ownIndex: number): boolean => {
+        const x = finiteRecordNumber(point, 'x')
+        const y = finiteRecordNumber(point, 'y')
+        if (x === null || y === null) return false
+        return spawns.some((otherValue, otherIndex) => {
+          if (otherIndex === ownIndex
+            || typeof otherValue !== 'object' || otherValue === null || Array.isArray(otherValue)) {
+            return false
+          }
+          const otherX = finiteRecordNumber(otherValue as UnknownRecord, 'x')
+          const otherY = finiteRecordNumber(otherValue as UnknownRecord, 'y')
+          return otherX !== null && otherY !== null
+            && Math.hypot(x - otherX, y - otherY) < enemyRadius * 2
+        })
+      }
+      spawns.forEach((spawnValue, index) => {
+        if (typeof spawnValue !== 'object' || spawnValue === null || Array.isArray(spawnValue)) return
+        const spawn = spawnValue as UnknownRecord
+        const replacement = relocations[`${spawn.x}:${spawn.y}`]
+        const currentIsSafe = spawnFitsRoomGeometry(spawn, enemyRadius, room, playerRadius)
+          && !overlapsAnotherSpawn(spawn, index)
+        if (!replacement
+          || currentIsSafe
+          || !spawnFitsRoomGeometry(replacement, enemyRadius, room, playerRadius)
+          || overlapsAnotherSpawn(replacement, index)) return
+        spawns[index] = { ...replacement }
+      })
+    }
+    if (Array.isArray(room.enemySpawns)) repairCollection(room.enemySpawns)
+    if (Array.isArray(room.spawnLayouts)) {
+      room.spawnLayouts.forEach((layoutValue) => {
+        if (typeof layoutValue !== 'object' || layoutValue === null || Array.isArray(layoutValue)) return
+        const layout = layoutValue as UnknownRecord
+        if (Array.isArray(layout.enemySpawns)) repairCollection(layout.enemySpawns)
+      })
+    }
+  })
 }
 
 function migrateSchemaV1ToV2(migrated: UnknownRecord): void {
@@ -1115,6 +1575,123 @@ function backfillStaminaFields(migrated: UnknownRecord): void {
   }
 }
 
+/**
+ * Schema v8 makes the prototype's authored six-frame acceleration and three-frame braking
+ * externally tunable. Preserve any pre-authored values and backfill the 60-Hz targets for v1-v7.
+ */
+function backfillPlayerMovementFields(migrated: UnknownRecord): void {
+  const player = asRecordOrNull(migrated.player)
+  if (!player) return
+  if (player.accelerationMs === undefined) {
+    player.accelerationMs = DEFAULT_LAST_CHANCES_ACCELERATION_MS
+  }
+  if (player.decelerationMs === undefined) {
+    player.decelerationMs = DEFAULT_LAST_CHANCES_DECELERATION_MS
+  }
+}
+
+/**
+ * Schema v9 moves the remaining run-wide combat/input/progression thresholds used by the
+ * prototype polish pass into the external definition. Older saves keep the established feel.
+ */
+function backfillRunTuningFields(migrated: UnknownRecord): void {
+  const input = asRecordOrNull(migrated.input)
+  if (input && input.actionDirectionDeadZone === undefined) {
+    input.actionDirectionDeadZone = DEFAULT_LAST_CHANCES_ACTION_DIRECTION_DEAD_ZONE
+  }
+  if (migrated.combat === undefined) {
+    migrated.combat = cloneUnknown(DEFAULT_LAST_CHANCES_COMBAT)
+  } else {
+    const combat = asRecordOrNull(migrated.combat)
+    if (combat) {
+      for (const [key, value] of Object.entries(DEFAULT_LAST_CHANCES_COMBAT)) {
+        if (combat[key] === undefined) combat[key] = value
+      }
+    }
+  }
+  const progression = asRecordOrNull(migrated.progression)
+  if (!progression) return
+  if (progression.moveQuestKillsRequired === undefined) {
+    progression.moveQuestKillsRequired = DEFAULT_LAST_CHANCES_MOVE_QUEST_KILLS_REQUIRED
+  }
+  if (progression.sameTierSacrificeRatio === undefined) {
+    progression.sameTierSacrificeRatio = DEFAULT_LAST_CHANCES_SAME_TIER_SACRIFICE_RATIO
+  }
+}
+
+/**
+ * The authored apartment/Knife-spider opening was a content correction, not merely new tuning.
+ * Whole-definition browser overrides from the shipped v1-v8 builds otherwise freeze the old
+ * randomized first tier forever. Upgrade only catalogs carrying the canonical room/enemy IDs;
+ * unrelated custom topologies remain untouched.
+ */
+function backfillAuthoredOpening(
+  migrated: UnknownRecord,
+  currentDefinition?: LastChancesConfig,
+): void {
+  const progression = asRecordOrNull(migrated.progression)
+  if (!progression || !Array.isArray(progression.tiers)) return
+  if (progression.tiers.some(tier => asRecordOrNull(tier)?.id === 'opening')) return
+  const rooms = Array.isArray(migrated.rooms) ? migrated.rooms : []
+  const enemies = Array.isArray(migrated.enemies) ? migrated.enemies : []
+  const apartment = rooms
+    .map(asRecordOrNull)
+    .find(room => room?.id === 'false-apartment')
+  const hasKnifeSpider = enemies.some(enemy => asRecordOrNull(enemy)?.id === 'spider-knife')
+  if (!apartment || !hasKnifeSpider) return
+  const sourceTierIndex = progression.tiers.findIndex((tierValue) => {
+    const tier = asRecordOrNull(tierValue)
+    return Array.isArray(tier?.roomTemplateIds)
+      && tier.roomTemplateIds.includes('false-apartment')
+  })
+  if (sourceTierIndex < 0) return
+  const sourceTier = asRecordOrNull(progression.tiers[sourceTierIndex])
+  if (!sourceTier) return
+
+  const currentOpening = currentDefinition?.progression.tiers.find(tier => tier.id === 'opening')
+  const opening = currentOpening
+    ? cloneUnknown(currentOpening)
+    : {
+        id: 'opening',
+        label: 'Пролог · Фальшивая квартира',
+        kind: 'normal',
+        nodeCount: 1,
+        enemyCount: [1, 1],
+        deathCost: 1,
+        erosion: {
+          maxHp: 1,
+          maxMentalHealth: 1,
+          maxStamina: 0,
+          attackPower: 1,
+          moveSpeed: 0,
+          armor: 0,
+        },
+        enemyPool: [{ enemyId: 'spider-knife', weight: 1 }],
+        roomTemplateIds: ['false-apartment'],
+        accent: '#a6c88b',
+      }
+  progression.tiers.splice(sourceTierIndex, 0, opening)
+  if (Array.isArray(sourceTier.roomTemplateIds) && sourceTier.roomTemplateIds.length > 1) {
+    sourceTier.roomTemplateIds = sourceTier.roomTemplateIds
+      .filter(roomId => roomId !== 'false-apartment')
+  }
+
+  if (apartment.encounter === undefined) {
+    const currentApartment = currentDefinition?.rooms.find(room => room.id === 'false-apartment')
+    apartment.encounter = cloneUnknown(
+      currentApartment?.encounter ?? { enemyIds: ['spider-knife'] },
+    )
+  }
+  const narrative = asRecordOrNull(migrated.narrative)
+  if (narrative && Array.isArray(narrative.prologue)) {
+    const finalPage = asRecordOrNull(narrative.prologue.at(-1))
+    if (finalPage?.text === 'На пороге сгибается украденный нож. Из рукояти вырастают ноги, и Нож-паук прыгает туда, где герой стоял мгновение назад.') {
+      finalPage.text = currentDefinition?.narrative?.prologue.at(-1)?.text
+        ?? 'На пороге сгибается украденный нож. Из рукояти вырастают ноги, и Нож-паук прижимается к полу, готовясь к первому прыжку.'
+    }
+  }
+}
+
 function attachCurrentControlCatalog(
   weaponsValue: unknown,
   currentWeapons?: LastChancesWeaponDefinition[],
@@ -1124,6 +1701,7 @@ function attachCurrentControlCatalog(
   weaponsValue.forEach((weaponValue) => {
     if (typeof weaponValue !== 'object' || weaponValue === null || Array.isArray(weaponValue)) return
     const weapon = weaponValue as UnknownRecord
+    appendDualSenseFinisherBands(weapon as unknown as LastChancesWeaponDefinition)
     const currentWeapon = typeof weapon.id === 'string' ? currentById.get(weapon.id) : undefined
     const controls = currentWeapon?.controls
       ?? migratedWeaponControls(weapon as unknown as LastChancesWeaponDefinition)
@@ -1176,6 +1754,7 @@ function mergeLegacyDefinitionWithCurrent(
     'graph',
     'player',
     'mentalHealth',
+    'combat',
     'stamina',
     'progression',
     'narrative',
@@ -1258,6 +1837,16 @@ export function migrateLastChancesConfig(
   // Stamina fields are validated on the legacy value itself, so backfill before any validation.
   // The schema stamp stays with the callers below, which own the version chain.
   backfillStaminaFields(migrated)
+  backfillPlayerMovementFields(migrated)
+  backfillRunTuningFields(migrated)
+  repairSchemaV8GuaranteedSpawns(migrated)
+  backfillAuthoredOpening(migrated, currentDefinition)
+  // v7/v8 already own the complete authored content/control catalog. Preserve their definitions
+  // byte-for-byte apart from the newly derived movement and run-tuning fields.
+  if (version === 7 || version === 8) {
+    migrated.schemaVersion = CURRENT_LAST_CHANCES_SCHEMA_VERSION
+    return migrated
+  }
   if (currentDefinition) return mergeLegacyDefinitionWithCurrent(migrated, currentDefinition)
 
   // Ouroboros is a schema-v6 run system. Old standalone definitions may have
@@ -1484,6 +2073,32 @@ function validateAdaptiveProfile(
 
 const MAX_FEEDBACK_PATTERN_PULSES = 8
 
+function validateFeedbackPattern(value: unknown, path: string, errors: string[]): void {
+  if (!Array.isArray(value)) {
+    errors.push(`${path} must be an array`)
+    return
+  }
+  if (value.length === 0 || value.length > MAX_FEEDBACK_PATTERN_PULSES) {
+    errors.push(`${path} must contain 1-${MAX_FEEDBACK_PATTERN_PULSES} pulses`)
+  }
+  value.forEach((pulseValue, index) => {
+    const pulsePath = `${path}[${index}]`
+    const pulse = asRecord(pulseValue, pulsePath, errors)
+    if (!pulse) return
+    requireNumber(pulse, 'delayMs', pulsePath, errors)
+    requirePositiveNumber(pulse, 'durationMs', pulsePath, errors)
+    validateUnitNumber(pulse, 'magnitude', pulsePath, errors)
+    if (typeof pulse.delayMs === 'number' && typeof pulse.durationMs === 'number'
+      && pulse.delayMs + pulse.durationMs > MAX_FEEDBACK_DURATION_MS) {
+      errors.push(`${pulsePath} must end within ${MAX_FEEDBACK_DURATION_MS}ms of pattern start`)
+    }
+    if (pulse.hand !== undefined && pulse.hand !== 'left' && pulse.hand !== 'right'
+      && pulse.hand !== 'both') {
+      errors.push(`${pulsePath}.hand must be left, right, or both`)
+    }
+  })
+}
+
 function validateGateTick(value: unknown, path: string, errors: string[]): void {
   const tick = asRecord(value, path, errors)
   if (!tick) return
@@ -1506,7 +2121,12 @@ function validateMsRange(record: UnknownRecord, key: string, path: string, error
   }
 }
 
-function validateWeaponHaptics(value: unknown, path: string, errors: string[]): void {
+function validateWeaponHaptics(
+  value: unknown,
+  path: string,
+  gatePositions: number[],
+  errors: string[],
+): void {
   const haptics = asRecord(value, path, errors)
   if (!haptics) return
   if (haptics.baseTrigger !== undefined) {
@@ -1523,28 +2143,31 @@ function validateWeaponHaptics(value: unknown, path: string, errors: string[]): 
     }
   }
   if (haptics.commitPattern !== undefined) {
-    if (!Array.isArray(haptics.commitPattern)) {
-      errors.push(`${path}.commitPattern must be an array`)
+    validateFeedbackPattern(haptics.commitPattern, `${path}.commitPattern`, errors)
+  }
+  if (haptics.depthTicks !== undefined) {
+    if (!Array.isArray(haptics.depthTicks)) {
+      errors.push(`${path}.depthTicks must be an array`)
     } else {
-      if (haptics.commitPattern.length === 0
-        || haptics.commitPattern.length > MAX_FEEDBACK_PATTERN_PULSES) {
-        errors.push(`${path}.commitPattern must contain 1-${MAX_FEEDBACK_PATTERN_PULSES} pulses`)
+      if (haptics.depthTicks.length === 0 || haptics.depthTicks.length > 8) {
+        errors.push(`${path}.depthTicks must contain 1-8 entries`)
       }
-      haptics.commitPattern.forEach((pulseValue, index) => {
-        const pulsePath = `${path}.commitPattern[${index}]`
-        const pulse = asRecord(pulseValue, pulsePath, errors)
-        if (!pulse) return
-        requireNumber(pulse, 'delayMs', pulsePath, errors)
-        requirePositiveNumber(pulse, 'durationMs', pulsePath, errors)
-        validateUnitNumber(pulse, 'magnitude', pulsePath, errors)
-        if (typeof pulse.delayMs === 'number' && typeof pulse.durationMs === 'number'
-          && pulse.delayMs + pulse.durationMs > MAX_FEEDBACK_DURATION_MS) {
-          errors.push(`${pulsePath} must end within ${MAX_FEEDBACK_DURATION_MS}ms of pattern start`)
+      let previousPosition = Number.NEGATIVE_INFINITY
+      haptics.depthTicks.forEach((depthTickValue, index) => {
+        const depthTickPath = `${path}.depthTicks[${index}]`
+        const depthTick = asRecord(depthTickValue, depthTickPath, errors)
+        if (!depthTick) return
+        validateUnitNumber(depthTick, 'position', depthTickPath, errors)
+        if (typeof depthTick.position === 'number') {
+          if (depthTick.position <= previousPosition) {
+            errors.push(`${path}.depthTicks positions must be strictly increasing`)
+          }
+          if (gatePositions.some(gate => Math.abs(gate - (depthTick.position as number)) < 0.03)) {
+            errors.push(`${depthTickPath}.position must stay at least 0.03 from every gate`)
+          }
+          previousPosition = depthTick.position
         }
-        if (pulse.hand !== undefined && pulse.hand !== 'left' && pulse.hand !== 'right'
-          && pulse.hand !== 'both') {
-          errors.push(`${pulsePath}.hand must be left, right, or both`)
-        }
+        validateGateTick(depthTick.tick, `${depthTickPath}.tick`, errors)
       })
     }
   }
@@ -1574,6 +2197,13 @@ function validateDualSenseInput(value: unknown, path: string, errors: string[]):
   if (!input) return []
   for (const key of ['activationThreshold', 'releaseThreshold', 'hysteresis'] as const) {
     validateUnitNumber(input, key, path, errors)
+  }
+  for (const key of ['armMs', 'telegraphPeriodMs'] as const) {
+    if (input[key] === undefined) continue
+    requirePositiveNumber(input, key, path, errors)
+    if (typeof input[key] === 'number' && (input[key] < 100 || input[key] > 2_000)) {
+      errors.push(`${path}.${key} must be between 100 and 2000`)
+    }
   }
   if (typeof input.releaseThreshold === 'number' && typeof input.activationThreshold === 'number'
     && input.releaseThreshold >= input.activationThreshold) {
@@ -1923,7 +2553,20 @@ function validateAttack(
   if (record.consumeAllResource !== undefined && typeof record.consumeAllResource !== 'boolean') {
     errors.push(`${path}.consumeAllResource must be a boolean`)
   }
-  validateTuning(record.tuning, `${path}.tuning`, errors)
+  const tuningPath = `${path}.tuning`
+  validateTuning(record.tuning, tuningPath, errors)
+  if (record.tuning !== undefined
+    && typeof record.tuning === 'object'
+    && record.tuning !== null
+    && !Array.isArray(record.tuning)) {
+    const tuning = record.tuning as UnknownRecord
+    if (tuning.reflectedProjectileMinimumRange !== undefined) {
+      requireNumber(tuning, 'reflectedProjectileMinimumRange', tuningPath, errors)
+    }
+    if (tuning.reflectedProjectilePierce !== undefined) {
+      requireInteger(tuning, 'reflectedProjectilePierce', tuningPath, errors)
+    }
+  }
   validateSweetSpot(record.sweetSpot, `${path}.sweetSpot`, errors)
 }
 
@@ -2174,6 +2817,9 @@ function validateRooms(value: unknown, errors: string[], requireSpawnLayouts: bo
         }
       }
     }
+    if (room.turretAlarmHoldMs !== undefined) {
+      requirePositiveNumber(room, 'turretAlarmHoldMs', path, errors)
+    }
     if (room.turrets !== undefined) {
       if (!Array.isArray(room.turrets) || room.turrets.length === 0) {
         errors.push(`${path}.turrets must be a non-empty array when provided`)
@@ -2191,6 +2837,9 @@ function validateRooms(value: unknown, errors: string[], requireSpawnLayouts: bo
           for (const key of ['visionRange', 'visionAngleDegrees', 'interactionRange',
             'fireIntervalMs', 'projectileSpeed', 'projectileRadius', 'damage'] as const) {
             requirePositiveNumber(turret, key, turretPath, errors)
+          }
+          for (const key of ['projectileSpawnOffset', 'projectileKnockback'] as const) {
+            if (turret[key] !== undefined) requireNumber(turret, key, turretPath, errors)
           }
           requireString(turret, 'color', turretPath, errors)
           if (typeof turret.id === 'string') {
@@ -2298,9 +2947,13 @@ function validateEnemies(value: unknown, errors: string[], schemaVersion: number
       )) {
       errors.push(`${path}.attackKind must be one of ${LAST_CHANCES_ENEMY_ATTACK_KINDS.join(', ')}`)
     }
-    for (const key of ['attackRadius', 'projectileSpeed', 'leapDistance', 'leapDurationMs',
+    for (const key of ['attackRadius', 'projectileSpeed', 'projectileKnockback',
+      'leapDistance', 'leapDurationMs',
       'targetLockMs', 'parryWindowMs'] as const) {
       if (enemy[key] !== undefined) requireNumber(enemy, key, path, errors)
+    }
+    if (enemy.attackKind === 'projectile') {
+      requirePositiveNumber(enemy, 'projectileSpeed', path, errors)
     }
     if (enemy.invisibleUntilAlerted !== undefined && typeof enemy.invisibleUntilAlerted !== 'boolean') {
       errors.push(`${path}.invisibleUntilAlerted must be a boolean`)
@@ -2327,9 +2980,13 @@ function validateEnemies(value: unknown, errors: string[], schemaVersion: number
             'attackWindupMs'] as const) {
             requireNumber(phase, key, phasePath, errors)
           }
-          for (const key of ['projectileSpeed', 'leapDistance', 'leapDurationMs',
+          for (const key of ['projectileSpeed', 'projectileKnockback',
+            'leapDistance', 'leapDurationMs',
             'targetLockMs', 'parryWindowMs'] as const) {
             if (phase[key] !== undefined) requireNumber(phase, key, phasePath, errors)
+          }
+          if (phase.attackKind === 'projectile') {
+            requirePositiveNumber(phase, 'projectileSpeed', phasePath, errors)
           }
         })
       }
@@ -2390,6 +3047,22 @@ function validateEnemies(value: unknown, errors: string[], schemaVersion: number
         for (const key of ['retreatSpeed', 'hideMs', 'blastRadius',
           'blastDamageMaxHpRatio'] as const) {
           requirePositiveNumber(mother, key, motherPath, errors)
+        }
+        if (mother.entranceRadiusRatio !== undefined) {
+          requirePositiveNumber(mother, 'entranceRadiusRatio', motherPath, errors)
+          if (typeof mother.entranceRadiusRatio === 'number'
+            && mother.entranceRadiusRatio > 1) {
+            errors.push(`${motherPath}.entranceRadiusRatio must be <= 1`)
+          }
+        }
+        if (mother.exitRecoveryMs !== undefined) {
+          requireNumber(mother, 'exitRecoveryMs', motherPath, errors)
+        }
+        if (mother.sameHoleChance !== undefined) {
+          requireNumber(mother, 'sameHoleChance', motherPath, errors)
+          if (typeof mother.sameHoleChance === 'number' && mother.sameHoleChance > 1) {
+            errors.push(`${motherPath}.sameHoleChance must be <= 1`)
+          }
         }
         if (typeof mother.blastDamageMaxHpRatio === 'number'
           && mother.blastDamageMaxHpRatio > 1) {
@@ -2600,6 +3273,27 @@ function validateAttackSetControls(
         ))
       : [],
   )
+  const chargeBandIdsByGesture = new Map<LastChancesGesture, Set<string>>(
+    LAST_CHANCES_GESTURES.map((gesture) => {
+      const attack = attacks && typeof attacks[gesture] === 'object'
+        && attacks[gesture] !== null && !Array.isArray(attacks[gesture])
+        ? attacks[gesture] as UnknownRecord
+        : null
+      const charge = attack && typeof attack.charge === 'object'
+        && attack.charge !== null && !Array.isArray(attack.charge)
+        ? attack.charge as UnknownRecord
+        : null
+      const bandIds = new Set<string>(Array.isArray(charge?.bands)
+        ? charge.bands.flatMap((band) => (
+            typeof band === 'object' && band !== null && !Array.isArray(band)
+              && typeof (band as UnknownRecord).id === 'string'
+              ? [(band as UnknownRecord).id as string]
+              : []
+          ))
+        : [])
+      return [gesture, bandIds]
+    }),
+  )
 
   const mylorik = asRecord(controls.mylorik, `${path}.mylorik`, errors)
   if (mylorik) {
@@ -2682,7 +3376,12 @@ function validateAttackSetControls(
     errors.push(`${path}.dualsense.instantGesture must reference an enabled action`)
   }
   if (dualsense.haptics !== undefined) {
-    validateWeaponHaptics(dualsense.haptics, `${path}.dualsense.haptics`, errors)
+    validateWeaponHaptics(
+      dualsense.haptics,
+      `${path}.dualsense.haptics`,
+      gatePositions,
+      errors,
+    )
   }
   if (!Array.isArray(dualsense.nodes)) {
     errors.push(`${path}.dualsense.nodes must be an array`)
@@ -2691,6 +3390,7 @@ function validateAttackSetControls(
 
   const nodes = new Map<string, UnknownRecord>()
   const dualSenseSlotCounts = new Map<LastChancesGesture, number>()
+  const armedThresholdCounts = new Map<number, number>()
   if (dualsense.instantGesture === 'tap') dualSenseSlotCounts.set('tap', 1)
   if (dualsense.preGateGesture !== undefined) {
     const preGate = dualsense.preGateGesture as LastChancesGesture
@@ -2756,6 +3456,41 @@ function validateAttackSetControls(
         || !holdChargeBandIds.has(node.requiredChargeBandId))) {
       errors.push(`${nodePath}.requiredChargeBandId must reference an existing hold charge band`)
     }
+    if (node.armMs !== undefined) {
+      requirePositiveNumber(node, 'armMs', nodePath, errors)
+      if (typeof node.armMs === 'number' && (node.armMs < 100 || node.armMs > 2_000)) {
+        errors.push(`${nodePath}.armMs must be between 100 and 2000`)
+      }
+    }
+    if (node.entryRequiresArmed !== undefined && typeof node.entryRequiresArmed !== 'boolean') {
+      errors.push(`${nodePath}.entryRequiresArmed must be a boolean`)
+    }
+    if (node.entryRequiresArmed === true && typeof node.activationThreshold === 'number') {
+      armedThresholdCounts.set(
+        node.activationThreshold,
+        (armedThresholdCounts.get(node.activationThreshold) ?? 0) + 1,
+      )
+    }
+    if (node.telegraph !== undefined) {
+      validateFeedbackPattern(node.telegraph, `${nodePath}.telegraph`, errors)
+    }
+    if (node.armedCue !== undefined) {
+      validateFeedbackPattern(node.armedCue, `${nodePath}.armedCue`, errors)
+    }
+    if (node.armedTriggerOverride !== undefined) {
+      validateAdaptiveProfile(
+        node.armedTriggerOverride,
+        `${nodePath}.armedTriggerOverride`,
+        MAX_FEEDBACK_DURATION_MS,
+        errors,
+        true,
+      )
+    }
+    if (node.chargeBandOverrideId !== undefined
+      && (typeof node.chargeBandOverrideId !== 'string'
+        || !chargeBandIdsByGesture.get(gesture)?.has(node.chargeBandOverrideId))) {
+      errors.push(`${nodePath}.chargeBandOverrideId must reference a charge band on ${String(gesture)}`)
+    }
     if (!Array.isArray(node.next) || node.next.some(next => typeof next !== 'string')) {
       errors.push(`${nodePath}.next must be a string array`)
     } else if (new Set(node.next).size !== node.next.length) {
@@ -2776,10 +3511,14 @@ function validateAttackSetControls(
   })
 
   LAST_CHANCES_GESTURES.forEach((gesture) => {
-    const expected = enabledGestures.has(gesture) ? 1 : 0
     const actual = dualSenseSlotCounts.get(gesture) ?? 0
-    if (actual !== expected) {
-      errors.push(`${path}.dualsense must route ${gesture} exactly ${expected} time(s); found ${actual}`)
+    if (enabledGestures.has(gesture) ? actual < 1 : actual !== 0) {
+      errors.push(`${path}.dualsense must route ${gesture} at least once when enabled and never when disabled; found ${actual}`)
+    }
+  })
+  armedThresholdCounts.forEach((count, threshold) => {
+    if (count > 1) {
+      errors.push(`${path}.dualsense has more than one armed-required node at threshold ${threshold}`)
     }
   })
 
@@ -2803,13 +3542,32 @@ function validateAttackSetControls(
       if (typeof nextId === 'string') {
         const nextNode = nodes.get(nextId)
         if (!nextNode) return
-        const branchKey = `${String(nextNode.entryContext)}|${String(nextNode.activationThreshold)}`
+        const branchKey = [
+          String(nextNode.entryContext),
+          String(nextNode.activationThreshold),
+          String(nextNode.entryRequiresArmed === true),
+        ].join('|')
         if (branchKeys.has(branchKey)) {
           errors.push(`${path}.dualsense node ${id} has ambiguous branch ${branchKey}`)
         }
         branchKeys.add(branchKey)
       }
     })
+  })
+  nodes.forEach((node, nodeId) => {
+    if (node.entryRequiresArmed !== true) return
+    if (nodeId === startNodeId) {
+      errors.push(`${path}.dualsense armed-required node ${nodeId} cannot be the start node`)
+      return
+    }
+    const hasArmingPredecessor = [...nodes.values()].some(candidate => (
+      candidate.entryRequiresArmed !== true
+      && Array.isArray(candidate.next)
+      && candidate.next.includes(nodeId)
+    ))
+    if (!hasArmingPredecessor) {
+      errors.push(`${path}.dualsense armed-required node ${nodeId} needs a predecessor that can arm`)
+    }
   })
 
   const reachable = new Set<string>()
@@ -3214,7 +3972,10 @@ function pointOverlapsObstacle(
   return Math.hypot(x - nearestX, y - nearestY) < radius
 }
 
-function eligibleEnemySpawnRadii(root: UnknownRecord): {
+function eligibleEnemySpawnRadii(
+  root: UnknownRecord,
+  includeGuaranteedEnemies = typeof root.schemaVersion === 'number' && root.schemaVersion >= 8,
+): {
   globalEnemyRadius: number
   roomEnemyRadii: Map<string, number>
 } {
@@ -3237,23 +3998,24 @@ function eligibleEnemySpawnRadii(root: UnknownRecord): {
       if (typeof tierValue !== 'object' || tierValue === null || Array.isArray(tierValue)) return
       const tier = tierValue as UnknownRecord
       if (!Array.isArray(tier.roomTemplateIds) || !Array.isArray(tier.enemyPool)) return
-      const radius = Math.max(0, ...tier.enemyPool.flatMap((poolValue) => {
+      const eligibleEnemyIds = tier.enemyPool.flatMap((poolValue) => {
         if (typeof poolValue !== 'object' || poolValue === null || Array.isArray(poolValue)) return []
         const enemyId = (poolValue as UnknownRecord).enemyId
-        if (typeof enemyId === 'string') randomlyEligibleEnemyIds.add(enemyId)
-        return typeof enemyId === 'string' && enemyRadii.has(enemyId)
-          ? [enemyRadii.get(enemyId) as number]
-          : []
-      }))
+        return typeof enemyId === 'string' ? [enemyId] : []
+      })
+      if (includeGuaranteedEnemies && Array.isArray(tier.guaranteedEnemyIds)) {
+        eligibleEnemyIds.push(...tier.guaranteedEnemyIds.filter(
+          (enemyId): enemyId is string => typeof enemyId === 'string',
+        ))
+      }
+      eligibleEnemyIds.forEach(enemyId => randomlyEligibleEnemyIds.add(enemyId))
+      const radius = Math.max(0, ...eligibleEnemyIds.flatMap(enemyId => (
+        enemyRadii.has(enemyId) ? [enemyRadii.get(enemyId) as number] : []
+      )))
       tier.roomTemplateIds.forEach((roomId) => {
         if (typeof roomId !== 'string') return
         roomEnemyRadii.set(roomId, Math.max(roomEnemyRadii.get(roomId) ?? 0, radius))
       })
-      if (Array.isArray(tier.guaranteedEnemyIds)) {
-        tier.guaranteedEnemyIds.forEach((enemyId) => {
-          if (typeof enemyId === 'string') randomlyEligibleEnemyIds.add(enemyId)
-        })
-      }
     })
   }
   if (Array.isArray(root.rooms)) {
@@ -3387,12 +4149,32 @@ function validateSpawnGeometry(root: UnknownRecord, errors: string[]): void {
       if (typeof tierValue !== 'object' || tierValue === null || Array.isArray(tierValue)) return
       const tier = tierValue as UnknownRecord
       if (!Array.isArray(tier.roomTemplateIds) || !Array.isArray(tier.enemyPool)) return
+      const guaranteedCount = Array.isArray(tier.guaranteedEnemyIds)
+        ? tier.guaranteedEnemyIds.filter(enemyId => typeof enemyId === 'string').length
+        : 0
+      const fixedEncounterRoomIds = new Set(
+        (Array.isArray(tier.guaranteedRoomTemplateIds)
+          ? tier.guaranteedRoomTemplateIds
+          : [])
+          .filter((roomId): roomId is string => typeof roomId === 'string')
+          .filter(roomId => root.rooms.some((roomValue) => {
+            const room = asRecordOrNull(roomValue)
+            return room?.id === roomId && asRecordOrNull(room.encounter) !== null
+          })),
+      )
+      const nodeCount = Number.isInteger(tier.nodeCount) ? tier.nodeCount as number : 1
+      const guaranteeEligibleNodes = Math.max(1, nodeCount - fixedEncounterRoomIds.size)
+      const maximumGuaranteesInOneNode = Math.ceil(guaranteedCount / guaranteeEligibleNodes)
       tier.roomTemplateIds.forEach((roomId) => {
         if (typeof roomId !== 'string') return
         const maximumCount = Array.isArray(tier.enemyCount) && Number.isInteger(tier.enemyCount[1])
           ? tier.enemyCount[1] as number
           : 0
-        roomEnemyCounts.set(roomId, Math.max(roomEnemyCounts.get(roomId) ?? 0, maximumCount))
+        roomEnemyCounts.set(roomId, Math.max(
+          roomEnemyCounts.get(roomId) ?? 0,
+          maximumCount,
+          maximumGuaranteesInOneNode,
+        ))
       })
     })
   }
@@ -3553,15 +4335,35 @@ function validateContentReferences(root: UnknownRecord, errors: string[]): void 
     return typeof enemy.id === 'string' ? [[enemy.id, enemy] as const] : []
   }) : [])
   const bossTierRoomIds = new Set<string>()
+  const tierEnemiesByRoom = new Map<string, UnknownRecord[]>()
   const progression = typeof root.progression === 'object' && root.progression !== null
     && !Array.isArray(root.progression) ? root.progression as UnknownRecord : null
   if (progression && Array.isArray(progression.tiers)) {
     progression.tiers.forEach((tierValue) => {
       if (typeof tierValue !== 'object' || tierValue === null || Array.isArray(tierValue)) return
       const tier = tierValue as UnknownRecord
-      if (tier.kind !== 'boss' || !Array.isArray(tier.roomTemplateIds)) return
+      if (!Array.isArray(tier.roomTemplateIds)) return
+      const eligibleEnemyIds = Array.isArray(tier.enemyPool)
+        ? tier.enemyPool.flatMap((poolValue) => {
+            if (typeof poolValue !== 'object' || poolValue === null || Array.isArray(poolValue)) return []
+            const enemyId = (poolValue as UnknownRecord).enemyId
+            return typeof enemyId === 'string' ? [enemyId] : []
+          })
+        : []
+      if (Array.isArray(tier.guaranteedEnemyIds)) {
+        eligibleEnemyIds.push(...tier.guaranteedEnemyIds.filter(
+          (enemyId): enemyId is string => typeof enemyId === 'string',
+        ))
+      }
       tier.roomTemplateIds.forEach((roomId) => {
-        if (typeof roomId === 'string') bossTierRoomIds.add(roomId)
+        if (typeof roomId !== 'string') return
+        if (tier.kind === 'boss') bossTierRoomIds.add(roomId)
+        const eligible = tierEnemiesByRoom.get(roomId) ?? []
+        eligibleEnemyIds.forEach((enemyId) => {
+          const enemy = enemies.get(enemyId)
+          if (enemy && !eligible.includes(enemy)) eligible.push(enemy)
+        })
+        tierEnemiesByRoom.set(roomId, eligible)
       })
     })
   }
@@ -3570,16 +4372,25 @@ function validateContentReferences(root: UnknownRecord, errors: string[]): void 
     const room = roomValue as UnknownRecord
     const encounter = typeof room.encounter === 'object' && room.encounter !== null
       && !Array.isArray(room.encounter) ? room.encounter as UnknownRecord : null
-    const fixedEnemies = encounter && Array.isArray(encounter.enemyIds)
-      ? encounter.enemyIds.flatMap(enemyId => (
+    const fixedEnemyIds = encounter && Array.isArray(encounter.enemyIds)
+      ? [...encounter.enemyIds]
+      : []
+    if (encounter && typeof encounter.swarmEnemyId === 'string') {
+      fixedEnemyIds.push(encounter.swarmEnemyId)
+    }
+    const fixedEnemies = fixedEnemyIds.flatMap(enemyId => (
           typeof enemyId === 'string' && enemies.has(enemyId) ? [enemies.get(enemyId)!] : []
         ))
-      : []
-    const hasFixedBoss = fixedEnemies.some(enemy => (
+    const eligibleEnemies = encounter
+      ? fixedEnemies
+      : typeof room.id === 'string'
+        ? tierEnemiesByRoom.get(room.id) ?? []
+        : []
+    const hasEligibleBoss = eligibleEnemies.some(enemy => (
       enemy.role === 'boss' || enemy.bossPhases !== undefined || enemy.cockroachMother !== undefined
     ))
-    const hasCockroachMother = fixedEnemies.some(enemy => enemy.cockroachMother !== undefined)
-    if ((hasFixedBoss || (typeof room.id === 'string' && bossTierRoomIds.has(room.id)))
+    const hasCockroachMother = eligibleEnemies.some(enemy => enemy.cockroachMother !== undefined)
+    if ((hasEligibleBoss || (typeof room.id === 'string' && bossTierRoomIds.has(room.id)))
       && (typeof room.altar !== 'object' || room.altar === null || Array.isArray(room.altar))) {
       errors.push(`rooms[${roomIndex}].altar is required for every boss room`)
     }
@@ -3635,22 +4446,27 @@ export function validateLastChancesConfig(value: unknown): LastChancesConfigVali
   if (root.schemaVersion !== 1 && root.schemaVersion !== 2
     && root.schemaVersion !== 3 && root.schemaVersion !== 4
     && root.schemaVersion !== 5 && root.schemaVersion !== 6
-    && root.schemaVersion !== 7) {
-    errors.push('schemaVersion must be 1, 2, 3, 4, 5, 6, or 7')
+    && root.schemaVersion !== 7 && root.schemaVersion !== 8
+    && root.schemaVersion !== 9) {
+    errors.push('schemaVersion must be 1, 2, 3, 4, 5, 6, 7, 8, or 9')
   }
-  const schemaVersion = root.schemaVersion === 7
-    ? 7
-    : root.schemaVersion === 6
-      ? 6
-      : root.schemaVersion === 5
-        ? 5
-        : root.schemaVersion === 4
-          ? 4
-          : root.schemaVersion === 3
-            ? 3
-            : root.schemaVersion === 2
-              ? 2
-              : 1
+  const schemaVersion = root.schemaVersion === 9
+    ? 9
+    : root.schemaVersion === 8
+      ? 8
+      : root.schemaVersion === 7
+        ? 7
+        : root.schemaVersion === 6
+          ? 6
+          : root.schemaVersion === 5
+            ? 5
+            : root.schemaVersion === 4
+              ? 4
+              : root.schemaVersion === 3
+                ? 3
+                : root.schemaVersion === 2
+                  ? 2
+                  : 1
   requireString(root, 'title', 'config', errors)
   requireString(root, 'seed', 'config', errors)
   requireInteger(root, 'chances', 'config', errors, 1)
@@ -3672,6 +4488,9 @@ export function validateLastChancesConfig(value: unknown): LastChancesConfigVali
     requirePositiveNumber(input, 'holdMaxMs', 'input', errors)
     requirePositiveNumber(input, 'holdThenDoubleTapWindowMs', 'input', errors)
     validateUnitNumber(input, 'aimDeadZone', 'input', errors)
+    if (schemaVersion >= 9 || input.actionDirectionDeadZone !== undefined) {
+      validateUnitNumber(input, 'actionDirectionDeadZone', 'input', errors)
+    }
     validateUnitNumber(input, 'gamepadDeadZone', 'input', errors)
     validateIntegerRange(input, 'gamepadLeftButton', 'input', errors, MAX_GAMEPAD_BUTTON_INDEX)
     validateIntegerRange(input, 'gamepadRightButton', 'input', errors, MAX_GAMEPAD_BUTTON_INDEX)
@@ -3703,6 +4522,12 @@ export function validateLastChancesConfig(value: unknown): LastChancesConfigVali
   if (player) {
     requirePositiveNumber(player, 'radius', 'player', errors)
     requireNumber(player, 'invulnerabilityMs', 'player', errors)
+    if (schemaVersion >= 8 || player.accelerationMs !== undefined) {
+      requirePositiveNumber(player, 'accelerationMs', 'player', errors)
+    }
+    if (schemaVersion >= 8 || player.decelerationMs !== undefined) {
+      requirePositiveNumber(player, 'decelerationMs', 'player', errors)
+    }
     validateStats(player.baseStats, 'player.baseStats', errors, false)
   }
 
@@ -3711,6 +4536,19 @@ export function validateLastChancesConfig(value: unknown): LastChancesConfigVali
     requireNumber(mentalHealth, 'calmRecoveryPerSecond', 'mentalHealth', errors)
     requireNumber(mentalHealth, 'restoreOnKill', 'mentalHealth', errors)
     requireNumber(mentalHealth, 'maxPressurePerSecond', 'mentalHealth', errors)
+  }
+
+  if (schemaVersion >= 9 || root.combat !== undefined) {
+    const combat = asRecord(root.combat, 'combat', errors)
+    if (combat) {
+      if (typeof combat.attackStopsMovement !== 'boolean') {
+        errors.push('combat.attackStopsMovement must be a boolean')
+      }
+      requirePositiveNumber(combat, 'minimumPlayerParryMs', 'combat', errors)
+      requireNumber(combat, 'enemyRevealOnParryMs', 'combat', errors)
+      requireNumber(combat, 'enemyRevealOnHitMs', 'combat', errors)
+      requireNumber(combat, 'minimumPlayerDamageTaken', 'combat', errors)
+    }
   }
 
   const stamina = asRecord(root.stamina, 'stamina', errors)
@@ -3731,6 +4569,17 @@ export function validateLastChancesConfig(value: unknown): LastChancesConfigVali
     if (progression.moveQuestsEnabled !== undefined
       && typeof progression.moveQuestsEnabled !== 'boolean') {
       errors.push('progression.moveQuestsEnabled must be a boolean')
+    }
+    if (schemaVersion >= 9 || progression.moveQuestKillsRequired !== undefined) {
+      requireInteger(progression, 'moveQuestKillsRequired', 'progression', errors, 1)
+    }
+    if (schemaVersion >= 9 || progression.sameTierSacrificeRatio !== undefined) {
+      requirePositiveNumber(progression, 'sameTierSacrificeRatio', 'progression', errors)
+      if (typeof progression.sameTierSacrificeRatio === 'number'
+        && Number.isFinite(progression.sameTierSacrificeRatio)
+        && progression.sameTierSacrificeRatio > 1) {
+        errors.push('progression.sameTierSacrificeRatio must be <= 1')
+      }
     }
     validateTiers(progression.tiers, roomIds, enemyIds, errors)
   }

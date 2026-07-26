@@ -145,7 +145,14 @@ public static class GordonFreeman
             .Where(player => !player.Passives.GordonHeadcrab.IsActive)
             .ToList();
 
-        foreach (var target in SecureRandom.Shuffle(candidates).Take(2))
+        // Most wanted: Рик — всегда одна из двух целей, если проходит обычные фильтры
+        var rickMw = RickSanchez.FindMostWantedHolder(candidates);
+        var targets = rickMw != null
+            ? new[] { rickMw }.Concat(SecureRandom.Shuffle(candidates
+                .Where(x => x.GetPlayerId() != rickMw.GetPlayerId())).Take(1))
+            : SecureRandom.Shuffle(candidates).Take(2);
+
+        foreach (var target in targets)
         {
             target.Passives.GordonHeadcrab.SourceId = gordon.GetPlayerId();
             target.Passives.GordonHeadcrab.ExpiresAfterRound = expiresAfterRound;

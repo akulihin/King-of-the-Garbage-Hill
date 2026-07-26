@@ -411,10 +411,10 @@ describe('DualSense control recognizer', () => {
     expect(events.filter(event => !event.probe && event.nodeId === 'shallow')).toHaveLength(2)
   })
 
-  it('locks a gradual Knife-spider pull to twist while a direct final pull throws', () => {
+  it('locks Knife-spider throw behind an armed twist pocket and blocks a raw full pull', () => {
     const spiderControls = defaultConfig.weapons
       .find(weapon => weapon.id === 'secondary-spider-knife')!.controls!.primary
-    const runPull = (peak: 0.72 | 0.9, gradual = true): LastChancesSemanticInputEvent[] => {
+    const runPull = (armed: boolean, direct = false): LastChancesSemanticInputEvent[] => {
       const events: LastChancesSemanticInputEvent[] = []
       let flurryActive = false
       const recognizer = new DualSenseControlRecognizer(dualSenseConfig, (event) => {
@@ -424,31 +424,44 @@ describe('DualSense control recognizer', () => {
           if (event.context === 'flurry') return flurryActive ? 'handled' : 'observe'
         }
         if (event.context === 'neutral' && flurryActive && !event.armed) return 'observe'
-        if (event.nodeId === 'hold' && event.commit) flurryActive = true
+        if (event.nodeId === 'flurry' && event.commit) flurryActive = true
         return 'handled'
       })
-      if (gradual) {
-        recognizer.updateTrigger('left', 0.22, 0, spiderControls, 'gamepad')
-        recognizer.updateTrigger('left', 0.48, 100, spiderControls, 'gamepad')
-        recognizer.updateTrigger('left', 0.72, 200, spiderControls, 'gamepad')
-        if (peak === 0.9) recognizer.updateTrigger('left', 0.9, 300, spiderControls, 'gamepad')
+      if (!direct) {
+        recognizer.updateTrigger('left', 0.25, 0, spiderControls, 'gamepad')
+        recognizer.updateTrigger('left', 0.5, 100, spiderControls, 'gamepad')
+        recognizer.updateTrigger('left', 0.75, 200, spiderControls, 'gamepad')
+        if (armed) {
+          recognizer.update(650, () => spiderControls)
+          recognizer.updateTrigger('left', 0.95, 700, spiderControls, 'gamepad')
+        }
       } else {
-        recognizer.updateTrigger('left', peak, 0, spiderControls, 'gamepad')
+        recognizer.updateTrigger('left', 0.95, 0, spiderControls, 'gamepad')
       }
-      recognizer.updateTrigger('left', 0, 400, spiderControls, 'gamepad')
+      recognizer.updateTrigger('left', 0, 750, spiderControls, 'gamepad')
       return events
     }
 
-    expect(runPull(0.72).filter(event => event.commit && event.phase === 'release')).toEqual([
-      expect.objectContaining({ nodeId: 'holdThenDoubleTap', gesture: 'holdThenDoubleTap' }),
+    expect(runPull(false).filter(event => event.commit && event.phase === 'release')).toEqual([
+      expect.objectContaining({ nodeId: 'twist', gesture: 'holdThenDoubleTap' }),
     ])
-    expect(runPull(0.9).filter(event => event.commit && event.phase === 'release')).toEqual([
-      expect.objectContaining({ nodeId: 'holdThenDoubleTap', gesture: 'holdThenDoubleTap' }),
+    expect(runPull(true).filter(event => (
+      event.commit && event.phase === 'hold' && event.nodeId === 'throw-finisher'
+    ))).toEqual([
+      expect.objectContaining({
+        nodeId: 'throw-finisher',
+        gesture: 'doubleTapHold',
+        armed: true,
+      }),
     ])
-    const directThrow = runPull(0.9, false)
-    expect(directThrow.filter(event => event.commit && event.phase === 'hold')).toHaveLength(0)
-    expect(directThrow.filter(event => event.commit && event.phase === 'release')).toEqual([
-      expect.objectContaining({ nodeId: 'doubleTapHold', gesture: 'doubleTapHold' }),
+    const rawPull = runPull(false, true)
+    expect(rawPull.filter(event => event.commit && event.phase === 'hold')).toEqual([
+      expect.objectContaining({
+        nodeId: 'throw-finisher',
+        gesture: 'doubleTapHold',
+        armed: undefined,
+      }),
     ])
+    expect(rawPull.filter(event => event.commit && event.phase === 'release')).toHaveLength(0)
   })
 })

@@ -791,6 +791,14 @@ function doomModuleStatus(module: string): { text: string; state: 'live' | 'done
       <span aria-hidden="true">🦸</span>
       <span>СУПЕР</span>
     </div>
+    <div
+      v-if="player.isTheBoysVirusTarget"
+      class="theboys-virus-target-badge"
+      :title="t('Deadly Virus toxin', 'Токсин Смертельного вируса')"
+    >
+      <span aria-hidden="true">☣️</span>
+      <span>{{ t('TOXIN', 'ТОКСИН') }}</span>
+    </div>
 
     <!-- Top grid: if not isMe, show avatar on right; if isMe, avatar lives in game-right -->
     <div class="pc-top-grid" :class="{ 'pc-top-no-avatar': isMe }">
@@ -4509,6 +4517,25 @@ function doomModuleStatus(module: string): { text: string; state: 'live' | 'done
   background: linear-gradient(135deg, rgba(104, 22, 148, 0.97), rgba(198, 42, 64, 0.97));
   color: #fff2a8;
   box-shadow: 0 0 12px rgba(255, 80, 100, 0.55), inset 0 0 8px rgba(255, 220, 90, 0.18);
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  pointer-events: none;
+}
+.theboys-virus-target-badge {
+  position: absolute;
+  top: -9px;
+  left: 12px;
+  z-index: 4;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border: 1px solid rgba(174, 213, 129, 0.82);
+  border-radius: 999px;
+  background: linear-gradient(135deg, rgba(24, 78, 37, 0.98), rgba(80, 118, 27, 0.98));
+  color: #e6ffc3;
+  box-shadow: 0 0 12px rgba(125, 210, 78, 0.5), inset 0 0 8px rgba(220, 255, 170, 0.16);
   font-size: 0.68rem;
   font-weight: 900;
   letter-spacing: 0.08em;

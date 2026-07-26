@@ -1,6 +1,6 @@
 # Balance Constants — every tunable number with its code anchor
 
-> Hand-maintained. **Update the row when you change the number** (and re-run `tools/audit-passives.sh` for name changes). Verified against the working tree of 2026-07-25 (v5.1.7). `CP` = `Game/GameLogic/CharacterPassives.cs`, `CC` = `Game/Classes/CharacterClass.cs`, `DM` = `Game/GameLogic/DoomsdayMachine.cs`, `CIR` = `Game/GameLogic/CheckIfReady.cs`, `GR` = `Game/ReactionHandling/GameReactions.cs`.
+> Hand-maintained. **Update the row when you change the number** (and re-run `tools/audit-passives.sh` for name changes). Verified against the working tree of 2026-07-25 (v5.1.9). `CP` = `Game/GameLogic/CharacterPassives.cs`, `CC` = `Game/Classes/CharacterClass.cs`, `DM` = `Game/GameLogic/DoomsdayMachine.cs`, `CIR` = `Game/GameLogic/CheckIfReady.cs`, `GR` = `Game/ReactionHandling/GameReactions.cs`.
 >
 > RNG note: `Luck(x)` ≈ x%, `Luck(a,b)` ≈ a-in-b (rounded to whole %); see `Helpers/SecureRandom.cs:35-45`.
 
@@ -204,7 +204,7 @@ Achievement progress targets and the complete 110-entry rule catalog are in [ACH
 | HardKitty | Одиночество | −30 score at start; +1 regular per attack; letters 1/2/4 by round | CP:201-210, 517-553 |
 | HardKitty | Доебаться | stacks ×2 regular on cash-in; ≥7 stacks +10 | CP:2723-2741 |
 | Sirinoks | Обучение | +1 stat/round; completion +3 Moral +10% Skill | CP:3688-3759 |
-| Sirinoks | Дракон | stats 10; bonus = Skill/10 − friends below | CP:5450-5452 |
+| Sirinoks | Дракон | stats 10; +1 live Justice; bonus = Skill/10 − friends below | CP:6209-6244 |
 | Школьник | Дерзкая школота | +100 Skill start; −20 Skill & −2 random stats/round | CP:227-233, 3807-3847 |
 | Школьник | Запах мусора | −5 bonus per double-attacker after r10 | CP:5979-6002 |
 | Школьник | Школьник | 1 forced skip in rounds 2-9; +5 next-round J | PassivesClass.cs:39, CP:4990-5006 |
@@ -248,13 +248,13 @@ Achievement progress targets and the complete 110-entry rule catalog are in [ACH
 | Кира | Тетрадь | +2 regular per kill (+4 for L); 15% glass fizzle; Гений −1 Int per kill | CP:4079-4157 |
 | Кира | Глаза | 25 Moral; not consumed on L/Монстр/Sakura/unknown_bug | `WebGameService.ShinigamiEyes`; CP:1143-1166 |
 | Кира | L | +5 Moral per round avoiding L; arrest from round 8, true −500 through floor | CP:4160-4177,5351-5388 |
-| Итачи | Вороны | −20% Speed per crow (both directions) | CP:1405-1413, 607-615 |
+| Итачи | Вороны | −20% Speed per crow (both directions); lands on blocked/skipped attack targets too (m58) | CP:768-777, 1621-1630, 3406-3431 |
 | Итачи | Изанаги | 2 uses | Itachi.cs:18 |
-| Итачи | Цукуеми | charge 2; recharge from −2 (⚠ 4 rounds, m9); steals round earnings ×multiplier | CP:3016, 4089-4125 |
+| Итачи | Цукуеми | charge 2; recharge from −2 (⚠ 4 rounds, m9); steals round earnings ×multiplier; **once per enemy per game** (caught list, refusal keeps the charge) | CP:3433-3464, 4824-4871 |
 | Продавец | Впарить | +500 Skill, 4 rounds, cd 2 | CP:1608-1631 |
 | Продавец | Закуп | level-up +10 | GR:1359-1363 |
 | Продавец | Сделка | +1 base bonus & +3 Moral per deal; round-10 debt steal = actual tactic credits/2 exactly | CP:1903-1916, 2606-2633, 4822-4832 |
-| Продавец | Куш | 20% → attacker steals 3 bonus | CP:2636-2646 |
+| Продавец | Куш | 33% → attacker steals 3 bonus | CP:2677-2688 |
 | Dopa | Взгляд | +2 regular (+4 Фарм) +50 Skill per attack **aimed** between his two Макро participants; both directions → everything ×2 (points/Skill/achievement); a target's Block/Skip is irrelevant; cd 1 | CP:4835-4872 |
 | Dopa | Законодатель меты (2nd level-up) | consumes the upgrade with no stat; Стомп +9 Str +99 Skill; Доминация +20 Skill/−1 bonus/33% −1 Psyche; Роум steal 1 bonus + 3 Moral | `GameReactions.cs:1075-1095`; `CharacterPassives.ApplyDopaChoice` |
 | Dopa | Permaban | entering round 10 at place 1 → shared Тигр ban: Skip, stats 0 Int / 10 Str / 0 Psyche | `CharacterPassives.cs:6718-6723`; `Tigr.ApplyRoundTenBan` |
@@ -284,9 +284,9 @@ Achievement progress targets and the complete 110-entry rule catalog are in [ACH
 | TheBoys | Butcher | 2 rotating sup marks + permanent heroes/Young Gleb/Challenger Gleb; hunt Skill +10/+20; +1/+2 regular per actual Drop; poker Skill/Harm ×`(1+n)` / exact SD ×`2(1+n)`; recursive any-pool breaks, 50 Drops/turn; all off after Нахер Бучера | `CharacterPassives` Butcher cases; `DoomsdayMachine` Butcher Harm path |
 | TheBoys | Kimiko | x0 ignores 1 J and can disable; x1+ never disables, blocks Harm, steals `level+1` J (2→5) before defense; x4 pays same regular points and strips non-Block/non-Skip attack targets' passives pre-fight | `CharacterPassives` Kimiko cases; `TheBoys.DisablePassivesBeforeFights` |
 | TheBoys | M.M. | ±1 team Psyche; calm immunity from x1; r8 kompromat +5 Moral each; predictions ×kompromat; x4 steals/blocks Moral | CP:3689-3732,7176-7308; GR:1021-1050; CIR:320-350 |
-| TheBoys | Смертельный вирус | −2/+2 bonus per infected at game end; disabled under СуперМудень | CIR:353-375 |
+| TheBoys | Смертельный вирус | −3/+3 bonus per infected mark at game end; infected/source death does not cancel settlement; disabled under СуперМудень | `TheBoys.VirusPointsPerInfected`; `CheckIfReady.HandleLastRound` |
 | TheBoys | СуперМудень | locks every non-Butcher card; exact ×2 Butcher Skill/Harm/drop payout; one extra Harm per applied pool break; cap 50 Drops/turn; score-0 stop | `TheBoys.LockNonButcherPassives`; `DoomsdayMachine` Butcher Harm path |
-| Salldorum | Шэн/Очко/капсула/летописец | +1 charge/lvl-up, auto-spent by next attack; dash from either direction uses the target's exact cell, holds through the next action round and redirects only that target's existing primary action (adds 0 fights); Очко = +1 regular per incoming fight only from the nearest living non-team enemy below; capsule after 3 rounds = +2 bonus +5 Speed for next fight, one natural drink + at most one history-only second drink (matching history bypasses the natural wait); rewrite −/+ historical multiplier per distinct winner, +2 Psyche +2 buffered J; ×3 Skill attacking or defending vs 3-rounds-ago win leader(s) | `Salldorum.cs` `ResolveShenDashes`/`ApplyShenPositionHolds`/`IsNearestLowerEnemy`/`TryDrinkTimeCapsule`/`RewriteHistory`; `GameReactions.cs` level-up handler; CP:481-483,1078-1084,1112-1116,1779-1807 |
+| Salldorum | Шэн/Очко/капсула/летописец | +1 charge/lvl-up, auto-spent by next attack; dash from either direction uses the target's exact cell, holds through the next action round and redirects only that target's existing primary action (adds 0 fights); Очко = +1 regular per incoming fight only from the nearest living non-team enemy below; capsule after 3 rounds = +2 bonus +5 Speed for next fight, one natural drink + at most one history-only second drink (matching history bypasses the natural wait); rewrite is usable through turn 9 and converts every chosen-round loss separately: +1 victory point at Salldorum's actual old multiplier, historical underdog Moral and any +4×class-multiplier Сильный win Skill, while every original positive-point recipient loses its own multiplied point; then +2 Psyche/+2 buffered J; ×3 Skill attacking or defending vs 3-rounds-ago win leader(s) | `Salldorum.cs` `RecordHistoricalLoss`/`ResolveShenDashes`/`ApplyShenPositionHolds`/`IsNearestLowerEnemy`/`TryDrinkTimeCapsule`/`RewriteHistory`; `GameReactions.cs` level-up handler; CP:481-483,1078-1084,1112-1116,1779-1807 |
 | Геральт | Заказы | +1 contract/round; +20 Skill per contract fight; oils T1 −1 J / T2 +2 Str / T3 ×3 Skill | CP:5719-5732, 2204-2214, 1503-1535 |
 | Геральт | Медитация | Lambert 10% once (skill 0 next round; m16); демандна экономика: advance +2 regular, смерть при Displeasure ≥ 11 (true −500 through floor) | CP:5007-5028; `WebGameService.DemandContractReward` |
 | unknown_bug | Exploit | +1 pot when a copied source win defeats the current carrier or unknown_bug defeats the carrier as attacker/defender; unknown_bug directly attacking the carrier then closes globally and pays raw pot as regular × current round multiplier; full-screen commit alarm at post-multiplier >20 | `UnknownBug.RecordResolvedFight` / `TryCommitExploit`; `GameClass.RollExploit` / `CloseExploit` |
@@ -294,7 +294,7 @@ Achievement progress targets and the complete 110-entry rule catalog are in [ACH
 | DooM Guy | base / newcomer | Int 2, Str 5, Speed 5, Psyche 5, Tier 4; exact 30% protected roll while TotalPlays < 10 | characters.json:1383-1413, StartGameLogic.cs:201-233 |
 | DooM Guy | stages / random mode | Rune r3, Shield r5, Mission r7, Gun r9; Let's Roll random pick pays +2 regular each stage | DoomGuy.cs:53-60, 170-175 |
 | DooM Guy | Rune | Вознесение +8 Int, at most 8 × −1/loss; Маневры +5 Speed, at most 5 × −1/Harm; Истребление +1 all stats + max(0, 10−round) bonus; Glory kill neighbour Skill ×2 and win +1 all stats | DoomGuy.cs `ApplySelectedModule`/`ApplyFightModules`; CP:2661-2706; CharacterClass.cs:213-221 |
-| DooM Guy | Shield | Щит-пила block penalty −3; Шоковый щит 1 auto-submitted forced skip; Адский блок +666 Skill once after 2 blocked attacks; Контр-атака next-turn fight Skill/Justice 0; Щит-акула block→1-turn Ничего не понимает stance | DM:240-249,584-613; CP:813-830,5062-5085; DoomGuy.cs `ApplyFightModules` |
+| DooM Guy | Shield | Щит-пила block penalty −3; Шоковый щит 1 player-confirmed forced skip; Адский блок +666 Skill once after 2 blocked attacks; Контр-атака next-turn fight Skill/Justice 0; Щит-акула block→1-turn Ничего не понимает stance | DM:309-314,772-800; CP:895-915,5521-5539; DoomGuy.cs `ApplyFightModules` |
 | DooM Guy | Mission | 1 new nest/setup, overflow >3 → −20 bonus + clear; only attack-win nest kill +1 regular; every resolved fight +1 regular; flawless no-block mission +20 bonus; Ближник neighbour melee bonus ×2 (Кулаки +4, Glory total Skill ×3/+2 stats, Бензопила 2 picks) | DoomGuy.cs `SpawnDemonNest`/`ApplyFightModules`; CP:2694-2759,3682-3695 |
 | DooM Guy | Gun | BFG 1 charge; primary + every wave Step-3 random auto-wins; Кулаки Str=0 and +2 regular/win; Бензопила 1 victim, up to 4 choices and 1 pick; Рельса 1 charge and whole selected side, Block/Skip bypass except Тигр ban; Приручить дракона = round-10 Дракон transform | DoomGuy.cs `ApplySelectedModule`/`CopyChainsawPassive`; DM:445-491,569-650,810-881; CP:2730-2759,5767-5797 |
 | DooM Guy | module reward | place 4/3/2/1 ceiling = Rune/Shield/Mission/Gun; fallback downward; standard chance = 0 complete, 5% last, otherwise `5 + 75×(remaining−1)/(total−1)`; Приручить дракона excluded and guaranteed only after round-10 win over Sirinoks/Дракон | DoomGuy.cs `TryAwardModule`/`TryAwardDragonTaming`; CP:2469-2479; CheckIfReady.cs:758-768 |

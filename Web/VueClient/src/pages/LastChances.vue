@@ -95,6 +95,7 @@ const copy = {
     chancePlural: 'Chances',
     nextDeath: 'Next death costs',
     tier: 'Tier',
+    prologue: 'Prologue',
     room: 'Room',
     enemies: 'Enemies',
     seed: 'Seed',
@@ -271,6 +272,7 @@ const copy = {
     chancePlural: 'Шансов',
     nextDeath: 'Следующая смерть стоит',
     tier: 'Уровень',
+    prologue: 'Пролог',
     room: 'Комната',
     enemies: 'Враги',
     seed: 'Сид',
@@ -508,6 +510,16 @@ const staminaRefused = computed(() => {
 const recentEvents = computed(() => [...(snapshot.value?.events ?? [])].reverse().slice(0, 5))
 const activeTierIndex = computed(() => snapshot.value?.currentTierIndex ?? 0)
 const activeTier = computed(() => config.value?.progression.tiers[activeTierIndex.value] ?? null)
+const hasAuthoredOpening = computed(() => config.value?.progression.tiers[0]?.id === 'opening')
+const currentTierReadout = computed(() => {
+  const total = Math.max(
+    1,
+    (config.value?.progression.tiers.length ?? 1) - (hasAuthoredOpening.value ? 1 : 0),
+  )
+  if (hasAuthoredOpening.value && activeTierIndex.value === 0) return t.value.prologue
+  const number = activeTierIndex.value + (hasAuthoredOpening.value ? 0 : 1)
+  return `${number} / ${total}`
+})
 const nextDeathCost = computed(() => activeTier.value?.deathCost ?? 1)
 const equippedLoadout = computed(() => {
   if (!config.value) return { left: null, right: null }
@@ -798,16 +810,33 @@ const runMapNodes = computed<RunMapNode[]>(() => {
     return {
       id: node.id,
       name: node.label,
-      tier: node.tierIndex + 1,
+      tier: node.tierIndex + (hasAuthoredOpening.value ? 0 : 1),
       kind: tier?.kind === 'boss' || node.altar ? 'boss' : node.roomArchetype,
       state,
     }
   })
 })
 
-const runMapEdges = computed<RunMapEdge[]>(() => plan.value?.nodes.flatMap(node => (
-  node.nextNodeIds.map(next => ({ from: node.id, to: next }))
-)) ?? [])
+const runMapEdges = computed<RunMapEdge[]>(() => {
+  if (!plan.value) return []
+  const edges = plan.value.nodes.flatMap(node => (
+    node.nextNodeIds.map(next => ({ from: node.id, to: next }))
+  ))
+  const nodes = new Map(plan.value.nodes.map(node => [node.id, node]))
+  const attempt = snapshot.value?.attemptPath ?? []
+  for (let index = 1; index < attempt.length; index += 1) {
+    const from = nodes.get(attempt[index - 1])
+    const to = nodes.get(attempt[index])
+    if (from && to && from.tierIndex === to.tierIndex) {
+      edges.push({ from: from.id, to: to.id })
+    }
+  }
+  const current = snapshot.value?.currentNodeId
+  if (current) {
+    for (const to of snapshot.value?.sacrificeNodeIds ?? []) edges.push({ from: current, to })
+  }
+  return [...new Map(edges.map(edge => [`${edge.from}:${edge.to}`, edge])).values()]
+})
 
 const phaseOverlay = computed(() => {
   const state = snapshot.value
@@ -1027,7 +1056,9 @@ function retryAttempt() {
 }
 
 function newGeneration() {
-  beginStory(config.value?.narrative?.prologue)
+  // Regeneration replaces the seeded run, not the story opening. The fixed apartment tier
+  // still restarts, while the prologue itself is reserved for a fresh engine/page load.
+  beginStory(undefined)
   engine.value?.newGeneration()
   updateRouteMapVisibility(!storyOpen.value)
   builderOpen.value = false
@@ -1289,7 +1320,7 @@ onBeforeUnmount(() => {
             </div>
 
             <div class="lc-room-readout">
-              <small>{{ t.tier }} {{ (snapshot.currentTierIndex ?? 0) + 1 }} / {{ config?.progression.tiers.length ?? 7 }}</small>
+              <small>{{ t.tier }} {{ currentTierReadout }}</small>
               <strong>{{ currentNode?.roomName ?? t.noRoom }}</strong>
               <span>{{ t.enemies }} · {{ livingEnemies.length }}</span>
             </div>
@@ -1529,7 +1560,7 @@ onBeforeUnmount(() => {
         <section class="lc-run-card">
           <header :class="{ 'is-route-ready': snapshot?.phase === 'planning' && !!snapshot.currentNodeId && !routeMapOpen }"><MapIcon :size="15" aria-hidden="true" /><span>{{ t.map }}</span><button type="button" @click="openMap">{{ t.chooseRoute }}<ChevronRight :size="12" aria-hidden="true" /></button></header>
           <dl>
-            <div><dt>{{ t.tier }}</dt><dd>{{ (snapshot?.currentTierIndex ?? 0) + 1 }} / {{ config?.progression.tiers.length ?? 7 }}</dd></div>
+            <div><dt>{{ t.tier }}</dt><dd>{{ currentTierReadout }}</dd></div>
             <div><dt>{{ t.room }}</dt><dd>{{ currentNode?.roomName ?? t.noRoom }}</dd></div>
             <div>
               <dt>{{ t.enemies }}</dt>
@@ -1719,6 +1750,7 @@ onBeforeUnmount(() => {
       :seed="plan?.seed ?? config?.seed ?? '—'"
       :allow-close="snapshot?.phase === 'playing' || (snapshot?.phase === 'planning' && !!snapshot.currentNodeId)"
       :selected-node-id="snapshot?.selectedNodeId ?? null"
+      :sacrifice-node-ids="snapshot?.sacrificeNodeIds ?? []"
       @choose="chooseNode"
       @close="closeMap"
     />

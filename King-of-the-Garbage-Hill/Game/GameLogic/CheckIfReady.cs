@@ -376,31 +376,32 @@ public class CheckIfReady : IServiceSingleton
         }
         // end TheBoys kompromat
 
-        // TheBoys — Смертельный вирус: источник (Француз) крадёт по 2 бонусных очка с каждого заражённого
+        // TheBoys — Смертельный вирус: каждая установленная метка рассчитывается даже после
+        // смерти заражённого или источника; вирус является отложенным последствием заражения.
         var virusStolen = new Dictionary<Guid, decimal>();
         foreach (var infected in game.PlayersList.Where(x =>
-                     !x.Passives.IsDead && x.Passives.TheBoysVirus
-                                        && x.Passives.TheBoysVirusSource != Guid.Empty))
+                     x.Passives.TheBoysVirus && x.Passives.TheBoysVirusSource != Guid.Empty))
         {
             var src = infected.Passives.TheBoysVirusSource;
             if (infected.GetPlayerId() == src) continue;
             var virusSource = game.PlayersList.Find(x => x.GetPlayerId() == src);
-            if (virusSource == null || virusSource.Passives.IsDead
-                                    || virusSource.Passives.TheBoysButcher.SuperDickActive) continue;
+            if (virusSource == null || virusSource.Passives.TheBoysButcher.SuperDickActive) continue;
             var scoreVictim = Naruto.ResolveScoreSuccessor(game, infected);
             if (UnknownBug.Is(scoreVictim)) continue;
 
             Homelander.RunWithoutProtection(scoreVictim, () =>
-                scoreVictim.Status.AddBonusPoints(-2, "Смертельный вирус"));
-            scoreVictim.Status.AddInGamePersonalLogs("☣️ Смертельный вирус Француза: -2 бонусных очка\n");
+                scoreVictim.Status.AddBonusPoints(
+                    -TheBoys.VirusPointsPerInfected, TheBoys.VirusUltimate));
+            scoreVictim.Status.AddInGamePersonalLogs(
+                $"☣️ Смертельный вирус Француза: -{TheBoys.VirusPointsPerInfected} бонусных очка\n");
             virusStolen.TryGetValue(src, out var cur);
-            virusStolen[src] = cur + 2;
+            virusStolen[src] = cur + TheBoys.VirusPointsPerInfected;
         }
         foreach (var (srcId, amount) in virusStolen)
         {
             var franciePlayer = game.PlayersList.Find(x => x.GetPlayerId() == srcId);
             if (franciePlayer == null || amount <= 0) continue;
-            franciePlayer.Status.AddBonusPoints(amount, "Смертельный вирус");
+            franciePlayer.Status.AddBonusPoints(amount, TheBoys.VirusUltimate);
             franciePlayer.Status.AddInGamePersonalLogs(
                 $"☣️ Смертельный вирус: украдено {amount} бонусных очков с заражённых\n");
         }
@@ -564,6 +565,9 @@ public class CheckIfReady : IServiceSingleton
             var diffGob = topScoreGob - goblinZigWinner.Status.GetScore() + 1;
             if (diffGob > 0)
                 goblinZigWinner.Status.AddBonusPoints(diffGob, "Гоблины тупые, но не идиоты");
+            // The overtake is the only path from a Ziggurat to a win — record that it actually
+            // happened so `c_goblin_summit` can tell it apart from winning on score (m57).
+            goblinZigWinner.Passives.GoblinZiggurat.EnforcedWinTriggered = true;
             game.PlayersList = Naruto.OrderLeaderboard(game.PlayersList);
             for (var k = 0; k < game.PlayersList.Count; k++)
                 game.PlayersList[k].Status.SetPlaceAtLeaderBoard(k + 1);

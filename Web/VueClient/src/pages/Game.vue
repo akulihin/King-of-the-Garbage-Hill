@@ -935,12 +935,12 @@ const salldorumState = computed(() => {
 const rewriteHistoryRounds = computed(() => {
   const game = store.gameState
   const state = salldorumState.value
-  if (!game || !state || store.myPlayer?.isDead || game.isFinished || game.roundNo >= 8 || state.historyRewritten) return []
+  if (!game || !state || store.myPlayer?.isDead || game.isFinished || game.roundNo > 9 || state.historyRewritten) return []
   return Array.from({ length: Math.max(0, game.roundNo - 1) }, (_, index) => index + 1)
 })
 
 const rewriteHistoryLastChance = computed(() =>
-  store.gameState?.roundNo === 7 && rewriteHistoryRounds.value.length > 0,
+  store.gameState?.roundNo === 9 && rewriteHistoryRounds.value.length > 0,
 )
 
 // ── Animated Previous Round Logs ─────────────────────────────────────

@@ -405,6 +405,10 @@ public class CharacterPassives : IServiceSingleton
                         .Where(x => x.GetPlayerId() != player.GetPlayerId())
                         .Select(x => x.GetPlayerId()));
                     francie.RemainingTargets = opponents;
+                    // Most wanted: Рик всегда первая цель заказа
+                    var rickMwFrancie = RickSanchez.FindMostWantedHolder(playersList, player);
+                    if (rickMwFrancie != null && francie.RemainingTargets.Remove(rickMwFrancie.GetPlayerId()))
+                        francie.RemainingTargets.Insert(0, rickMwFrancie.GetPlayerId());
                     if (francie.RemainingTargets.Count > 0)
                     {
                         francie.OrderTarget = francie.RemainingTargets[0];
@@ -2674,7 +2678,7 @@ public class CharacterPassives : IServiceSingleton
                     // p = seller, player = fight participant who attacked seller and won
                     if (attack && player.Status.IsWonThisCalculation == p.GetPlayerId())
                     {
-                        if (_rand.Luck(1, 5))
+                        if (_rand.Luck(1, 3))
                         {
                             player.Status.AddBonusPoints(3, "Большой куш");
                             p.Status.AddBonusPoints(-3, "Большой куш");
@@ -3404,10 +3408,15 @@ public class CharacterPassives : IServiceSingleton
                     if (attack && player.Passives.ItachiCrows.CrowReadyToThrow)
                     {
                         var crowsAfter = player.Passives.ItachiCrows;
-                        // Place crow on the fight target (win or lose)
+                        // Place crow on the fight target (win or lose); a blocked/skipped
+                        // attack still lands the crow even though the fight never happened
                         var crowTargetId = player.Status.IsWonThisCalculation != Guid.Empty
                             ? player.Status.IsWonThisCalculation
                             : player.Status.IsLostThisCalculation;
+                        if (crowTargetId == Guid.Empty)
+                            crowTargetId = player.Status.IsTargetBlocked != Guid.Empty
+                                ? player.Status.IsTargetBlocked
+                                : player.Status.IsTargetSkipped;
                         var crowTarget = game.PlayersList.Find(candidate =>
                             candidate.GetPlayerId() == crowTargetId);
                         if (crowTarget != null && !UnknownBug.Is(crowTarget))
@@ -3440,12 +3449,15 @@ public class CharacterPassives : IServiceSingleton
                         break;
                     }
 
+                    // One enemy never falls for the trick twice: a refused re-cast keeps the charge
                     if (attack && itachiTsuk.ChargeCounter >= 2 && itachiFoughtTarget != Guid.Empty
+                               && !itachiTsuk.CaughtPlayers.Contains(itachiFoughtTarget)
                                && (itachiFoughtPlayer == null
                                    || !UnknownBug.Is(Naruto.ResolveScoreSuccessor(game, itachiFoughtPlayer))))
                     {
                         itachiTsuk.TsukuyomiTargetThisRound = itachiFoughtTarget;
                         itachiTsuk.TsukuyomiActiveTarget = itachiFoughtTarget;
+                        itachiTsuk.CaughtPlayers.Add(itachiFoughtTarget);
                         itachiTsuk.ChargeCounter = -2; // recharges over 2 rounds
                         game.Phrases.ItachiTsukuyomiActivate.SendLog(player, false);
                     }
@@ -5523,11 +5535,16 @@ public class CharacterPassives : IServiceSingleton
                                 var shocked = game.PlayersList.Find(x => x.GetPlayerId() == doom.ShockSkipTarget);
                                 if (shocked != null && !shocked.Passives.IsDead && !UnknownBug.Is(shocked))
                                 {
+                                    // Ordinary forced-skip shape (Буль/АФКА/Школьник/Тигр ban): held ready
+                                    // but NOT confirmed, so a human must acknowledge the lost turn with the
+                                    // standard Confirm-Skip control. Do not auto-confirm it again (M29): the
+                                    // readiness floor in CheckIfReady already stops it from stalling a round,
+                                    // and bots finalize it through BotsBehavior.CompleteForcedSkip.
                                     shocked.Status.IsSkip = true;
-                                    shocked.Status.ConfirmedSkip = true;
-                                    shocked.Status.ConfirmedPredict = true;
+                                    shocked.Status.ConfirmedSkip = false;
+                                    shocked.Status.IsBlock = false;
                                     shocked.Status.IsReady = true;
-                                    shocked.Status.WhoToAttackThisTurn.Clear();
+                                    shocked.Status.WhoToAttackThisTurn = new List<Guid>();
                                     shocked.Status.AddInGamePersonalLogs("Шоковый щит: следующий ход пропущен.\n");
                                 }
                                 doom.ShockSkipTarget = Guid.Empty;
@@ -5587,6 +5604,15 @@ public class CharacterPassives : IServiceSingleton
                             .Take(3)
                             .Select(x => x.Player.GetPlayerId())
                             .ToList();
+
+                        // Most wanted: Рик всегда среди мета-меток
+                        var rickMwMeta = RickSanchez.FindMostWantedHolder(game.PlayersList, player);
+                        if (rickMwMeta != null && !metaTargets.Contains(rickMwMeta.GetPlayerId()))
+                        {
+                            if (metaTargets.Count == 3)
+                                metaTargets.RemoveAt(metaTargets.Count - 1);
+                            metaTargets.Insert(0, rickMwMeta.GetPlayerId());
+                        }
 
                         player.Passives.YongGlebMetaClass = metaTargets;
                         break;
@@ -6210,6 +6236,8 @@ public class CharacterPassives : IServiceSingleton
                                 }
 
                             player.Status.AddBonusPoints(pointsToGive, "Дракон");
+                            player.GameCharacter.Justice.AddRealJusticeNow();
+                            player.Status.AddInGamePersonalLogs("Дракон: +1 Справедливость\n");
                             game.Phrases.SirinoksDragonPhrase.SendLog(player, true);
                         }
 
@@ -6446,6 +6474,10 @@ public class CharacterPassives : IServiceSingleton
                             // Новый заказ (кроме 10-го раунда — игра заканчивается)
                             if (game.RoundNo < 10 && francieNR.RemainingTargets.Count > 0)
                             {
+                                // Most wanted: если Рик ещё в очереди — заказ на него
+                                var rickMwFrancieNR = RickSanchez.FindMostWantedHolder(game.PlayersList, player);
+                                if (rickMwFrancieNR != null && francieNR.RemainingTargets.Remove(rickMwFrancieNR.GetPlayerId()))
+                                    francieNR.RemainingTargets.Insert(0, rickMwFrancieNR.GetPlayerId());
                                 francieNR.OrderTarget = francieNR.RemainingTargets[0];
                                 francieNR.RemainingTargets.RemoveAt(0);
                                 francieNR.OrderHistory.Add(francieNR.OrderTarget);
@@ -6495,7 +6527,12 @@ public class CharacterPassives : IServiceSingleton
                             var geraltNrContracts = player.Passives.GeraltContracts;
                             // Only spawn types that have assigned enemies
                             var assignedTypes = geraltNrContracts.EnemyTypes.Values.Distinct().ToArray();
-                            var randomType = assignedTypes[_rand.Random(0, assignedTypes.Length - 1)];
+                            // Most wanted: контракт всегда падает в тип монстра Рика
+                            var rickMwGeralt = RickSanchez.FindMostWantedHolder(game.PlayersList, player);
+                            var randomType = rickMwGeralt != null && geraltNrContracts.EnemyTypes
+                                .TryGetValue(rickMwGeralt.GetPlayerId(), out var rickMwType)
+                                ? rickMwType
+                                : assignedTypes[_rand.Random(0, assignedTypes.Length - 1)];
 
                             geraltNrContracts.AddCount(randomType, 1);
                             var names = Geralt.GetNames(randomType);
@@ -6728,6 +6765,15 @@ public class CharacterPassives : IServiceSingleton
                         }
                     }
 
+                    // Most wanted: Рик всегда занимает одну из двух ротационных меток (даже будучи целью заказа Франци)
+                    var rotatingMarks = 2;
+                    var rickMwButcher = RickSanchez.FindMostWantedHolder(enemies, player);
+                    if (rickMwButcher != null && !rickMwButcher.Passives.TheBoysSupMark)
+                    {
+                        rickMwButcher.Passives.TheBoysSupMark = true;
+                        rotatingMarks--;
+                    }
+
                     // 2) ещё 2 случайные метки: приоритет — под текущую классовую Мишень, исключая Француз-цель и уже помеченных
                     var candidates = enemies
                         .Where(x => !x.Passives.TheBoysSupMark && x.GetPlayerId() != butcherOrderTarget)
@@ -6736,7 +6782,7 @@ public class CharacterPassives : IServiceSingleton
                         .Where(x => player.GameCharacter.HasSkillTargetOn(x.GameCharacter)));
                     var rest = SecureRandom.Shuffle(candidates
                         .Where(x => !player.GameCharacter.HasSkillTargetOn(x.GameCharacter)));
-                    foreach (var enemy in byTarget.Concat(rest).Take(2))
+                    foreach (var enemy in byTarget.Concat(rest).Take(rotatingMarks))
                         enemy.Passives.TheBoysSupMark = true;
                     break;
                 }

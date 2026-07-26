@@ -51,5 +51,11 @@ public class GoblinSwarm
         public bool WantsToBuild { get; set; } = false;               // Block was used this round — build pending
         public bool IsInZiggurat { get; set; } = false;              // Currently on a ziggurat position
         public int ZigguratStayRoundsLeft { get; set; } = 0;        // Rounds of position lock remaining
+
+        // True only when HandleLastRound's Ziggurat overtake actually fired (the Goblins were not 1st
+        // on score and the Ziggurat pushed them to 1st). Distinguishes an enforced win from a plain
+        // score win, which BuiltPositions.Contains(1) cannot do — it stays true for the rest of the
+        // match once a place-1 Ziggurat exists (m57).
+        public bool EnforcedWinTriggered { get; set; } = false;
     }
 }

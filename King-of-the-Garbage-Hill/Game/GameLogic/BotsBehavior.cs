@@ -2086,6 +2086,7 @@ public class BotsBehavior : IServiceSingleton
                                 target.AttackPreference += 6;
                             if (HasPlaystyle(bot, "Tsukuyomi")
                                 && itachiTsukuyomi.ChargeCounter >= 2
+                                && !itachiTsukuyomi.CaughtPlayers.Contains(target.GetPlayerId())
                                 && target.PlaceAtLeaderBoard() <= 2)
                                 target.AttackPreference += 8;
                         }
@@ -2113,8 +2114,10 @@ public class BotsBehavior : IServiceSingleton
                         if (Math.Abs(itachiPos - itachiTargetPos) == 1 &&
                             target.Player.GameCharacter.GetSpeed() < bot.GameCharacter.GetSpeed())
                             target.AttackPreference += 8;
-                        // Tsukuyomi charged: prefer leaders
-                        if (itachiTsukuyomi.ChargeCounter >= 2 && target.PlaceAtLeaderBoard() <= 2)
+                        // Tsukuyomi charged: prefer leaders (never re-target a caught enemy)
+                        if (itachiTsukuyomi.ChargeCounter >= 2
+                            && !itachiTsukuyomi.CaughtPlayers.Contains(target.GetPlayerId())
+                            && target.PlaceAtLeaderBoard() <= 2)
                             target.AttackPreference += 7;
                         // General speed advantage
                         if (target.Player.GameCharacter.GetSpeed() < bot.GameCharacter.GetSpeed())
@@ -3377,13 +3380,11 @@ public class BotsBehavior : IServiceSingleton
                     if (!salCapsule.FirstBlockUsed && game.RoundNo <= 3)
                         isBlock = yesBlock;
                     // Rewrite history through the same resolver humans use.
-                    if (!bot.Passives.SalldorumChronicler.HistoryRewritten && game.RoundNo >= 5 && game.RoundNo < 8)
+                    if (!bot.Passives.SalldorumChronicler.HistoryRewritten && game.RoundNo >= 5 && game.RoundNo <= 9)
                     {
                         var bestRound = Enumerable.Range(1, game.RoundNo - 1)
                             .OrderByDescending(round => bot.Status.WhoToLostEveryRound
                                 .Where(loss => loss.RoundNo == round)
-                                .Select(loss => loss.EnemyId)
-                                .Distinct()
                                 .Count() * (round <= 4 ? 1 : 2))
                             .First();
                         Salldorum.RewriteHistory(bot, game, bestRound);
@@ -4188,7 +4189,9 @@ public class BotsBehavior : IServiceSingleton
                 if (target.EstimatedSpeed < bot.GameCharacter.GetSpeed()) target.Score += 3;
                 if (Math.Abs(bot.Status.GetPlaceAtLeaderBoard() - target.Place) == 1
                     && target.EstimatedSpeed < bot.GameCharacter.GetSpeed()) target.Score += 8;
-                if (bot.Passives.ItachiTsukuyomi.ChargeCounter >= 2 && target.Place <= 2) target.Score += 8;
+                if (bot.Passives.ItachiTsukuyomi.ChargeCounter >= 2
+                    && !bot.Passives.ItachiTsukuyomi.CaughtPlayers.Contains(target.Id)
+                    && target.Place <= 2) target.Score += 8;
                 break;
 
             case "Вампур":
@@ -4473,7 +4476,7 @@ public class BotsBehavior : IServiceSingleton
                     && HistoricalIncoming(bot, game, targets) >= 1
                     ? FairBlockPlan.PreferBlock : FairBlockPlan.PreferAttack;
             case "Salldorum":
-                if (!bot.Passives.SalldorumChronicler.HistoryRewritten && game.RoundNo >= 5 && game.RoundNo < 8)
+                if (!bot.Passives.SalldorumChronicler.HistoryRewritten && game.RoundNo >= 5 && game.RoundNo <= 9)
                 {
                     var bestRound = Enumerable.Range(1, game.RoundNo - 1)
                         .OrderByDescending(round => bot.Status.WhoToLostEveryRound

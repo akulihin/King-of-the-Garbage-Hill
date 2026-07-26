@@ -40,12 +40,14 @@ const EXPECTED_SHIPPED_CONTROL_ROUTES: Record<string, ExpectedShippedControlRout
     ],
     dualsense: {
       instant: 'tap',
-      start: 'hold',
+      start: 'hold-early',
       preGate: 'doubleTap',
       nodes: [
-        'hold|hold|neutral|0.48|release|charge|dispatch|doubleTapHold,holdThenDoubleTap|release|480|ramp|*',
-        'doubleTapHold|doubleTapHold|continuation|0.72|release|charge|dispatch||release|480|gate|*',
-        'holdThenDoubleTap|holdThenDoubleTap|continuation|0.9|press|none|cancel||release|480|followUp|middle',
+        'hold-early|hold|neutral|0.25|release|charge|dispatch|hold-middle|release|2300|ramp|*|early|plain|*|1|0|*',
+        'hold-middle|hold|neutral|0.5|release|charge|dispatch|ram-short,spin-finisher|release|2300|ramp|*|middle|plain|*|2|0|soft',
+        'ram-short|doubleTapHold|continuation|0.75|release|charge|dispatch|ram-strong,spin-finisher|release|2300|gate|*|ram-short|plain|*|0|0|soft',
+        'ram-strong|doubleTapHold|continuation|0.95|release|charge|dispatch||release|2300|gate|*|ram-strong|plain|*|0|0|*',
+        'spin-finisher|holdThenDoubleTap|continuation|0.95|press|none|cancel||release|2300|followUp|*|spin-middle|armed|*|0|0|*',
       ],
     },
   },
@@ -59,12 +61,14 @@ const EXPECTED_SHIPPED_CONTROL_ROUTES: Record<string, ExpectedShippedControlRout
     ],
     dualsense: {
       instant: 'tap',
-      start: 'hold',
+      start: 'stance',
       preGate: 'doubleTap',
       nodes: [
-        'hold|hold|neutral|0.48|press|channel|dispatch|doubleTapHold,holdThenDoubleTap|release|480|tension|*',
-        'doubleTapHold|doubleTapHold|continuation|0.72|release|charge|dispatch||release|480|gate|*',
-        'holdThenDoubleTap|holdThenDoubleTap|stance|0.9|release|none|dispatch||release|480|followUp|*',
+        'stance|hold|neutral|0.25|press|channel|dispatch|kick-brace,vault-finisher|release|2300|tension|*|*|plain|*|0|0|soft',
+        'kick-brace|doubleTapHold|continuation|0.5|release|charge|dispatch|kick-strong|release|2300|gate|*|brace|plain|*|1|0|*',
+        'kick-strong|doubleTapHold|continuation|0.75|release|charge|dispatch|kick-final|release|2300|gate|*|kick|plain|*|2|0|*',
+        'kick-final|doubleTapHold|continuation|0.95|release|charge|dispatch||release|2300|gate|*|kick|plain|*|0|0|*',
+        'vault-finisher|holdThenDoubleTap|stance|0.95|press|none|cancel||release|2300|followUp|*|*|armed|*|0|0|*',
       ],
     },
   },
@@ -78,12 +82,13 @@ const EXPECTED_SHIPPED_CONTROL_ROUTES: Record<string, ExpectedShippedControlRout
     ],
     dualsense: {
       instant: 'tap',
-      start: 'hold',
+      start: 'hook-near',
       nodes: [
-        'hold|hold|neutral|0.22|release|charge|dispatch|doubleTap,holdThenDoubleTap|release|480|tension|*',
-        'doubleTap|doubleTap|neutral|0.48|press|none|cancel|doubleTapHold|release|480|gate|*',
-        'doubleTapHold|doubleTapHold|spin|0.72|release|charge|dispatch||release|480|gate|*',
-        'holdThenDoubleTap|holdThenDoubleTap|tether|0.9|press|none|cancel||release|480|gate|*',
+        'hook-near|hold|neutral|0.25|press|channel|dispatch|spin,bind-finisher|release|2300|tension|*|hook-near|plain|*|0|0|soft',
+        'spin|doubleTap|neutral|0.5|press|none|cancel|throw-wrap|release|2300|gate|*|*|plain|*|0|0|*',
+        'throw-wrap|doubleTapHold|spin|0.75|release|charge|dispatch|throw-heave|release|2300|gate|*|wrap|plain|*|0|0|*',
+        'throw-heave|doubleTapHold|spin|0.95|release|charge|dispatch||release|2300|gate|*|heave|plain|*|0|0|*',
+        'bind-finisher|holdThenDoubleTap|tether|0.95|press|none|cancel||release|2300|gate|*|*|armed|*|0|0|*',
       ],
     },
   },
@@ -97,12 +102,13 @@ const EXPECTED_SHIPPED_CONTROL_ROUTES: Record<string, ExpectedShippedControlRout
     ],
     dualsense: {
       instant: 'tap',
-      start: 'doubleTap',
+      start: 'rend',
       nodes: [
-        'doubleTap|doubleTap|neutral|0.22|release|none|dispatch|hold|release|480|click|*',
-        'hold|hold|neutral|0.48|release|charge|dispatch|doubleTapHold,holdThenDoubleTap|release|480|ramp|*',
-        'doubleTapHold|doubleTapHold|neutral|0.72|release|none|dispatch||release|480|gate|*',
-        'holdThenDoubleTap|holdThenDoubleTap|dash|0.9|press|none|cancel||release|480|followUp|*',
+        'rend|doubleTap|neutral|0.25|release|none|dispatch|dash-short|release|2300|click|*|*|plain|*|1|0|*',
+        'dash-short|hold|neutral|0.5|release|charge|dispatch|disarm,deep-strike-finisher|release|2300|ramp|*|claw-dash-short|plain|*|1|0|soft',
+        'disarm|doubleTapHold|neutral|0.75|release|none|dispatch|dash-long,deep-strike-finisher|release|2300|gate|*|*|plain|*|1|0|soft',
+        'dash-long|hold|neutral|0.95|release|charge|dispatch||release|2300|ramp|*|claw-dash-long|plain|*|1|0|*',
+        'deep-strike-finisher|holdThenDoubleTap|dash|0.95|press|none|cancel||release|2300|followUp|*|*|armed|*|0|0|*',
       ],
     },
   },
@@ -116,12 +122,12 @@ const EXPECTED_SHIPPED_CONTROL_ROUTES: Record<string, ExpectedShippedControlRout
     ],
     dualsense: {
       instant: 'tap',
-      start: 'doubleTap',
+      start: 'impale',
       nodes: [
-        'doubleTap|doubleTap|neutral|0.22|release|none|dispatch|hold,doubleTapHold|release|480|click|*',
-        'hold|hold|neutral|0.48|press|channel|dispatch|holdThenDoubleTap|release|480|tension|*',
-        'holdThenDoubleTap|holdThenDoubleTap|flurry|0.72|release|none|dispatch||release|480|gate|*',
-        'doubleTapHold|doubleTapHold|neutral|0.9|release|charge|dispatch||release|480|gate|*',
+        'impale|doubleTap|neutral|0.25|release|none|dispatch|flurry|release|2300|click|*|*|plain|*|0|0|*',
+        'flurry|hold|neutral|0.5|press|channel|dispatch|twist|release|2300|tension|*|*|plain|*|0|0|*',
+        'twist|holdThenDoubleTap|flurry|0.75|release|none|dispatch|throw-finisher|release|2300|gate|*|*|plain|*|0|3|soft',
+        'throw-finisher|doubleTapHold|continuation|0.95|press|charge|cancel||release|2300|gate|*|spider-throw-ready|armed|*|0|0|*',
       ],
     },
   },
@@ -133,10 +139,13 @@ const EXPECTED_SHIPPED_CONTROL_ROUTES: Record<string, ExpectedShippedControlRout
     ],
     dualsense: {
       instant: 'tap',
-      start: 'doubleTap',
+      start: 'grapple',
       nodes: [
-        'doubleTap|doubleTap|neutral|0.22|press|none|cancel|doubleTapHold|release|480|gate|*',
-        'doubleTapHold|doubleTapHold|grapple|0.72|release|charge|dispatch||release|480|tension|*',
+        'grapple|doubleTap|neutral|0.25|press|none|cancel|throw-aim|release|2300|gate|*|*|plain|*|0|0|*',
+        'throw-aim|doubleTapHold|grapple|0.5|release|charge|dispatch|throw-heave|release|2300|tension|*|axe-aim|plain|*|1|0|*',
+        'throw-heave|doubleTapHold|grapple|0.75|release|charge|dispatch|throw-final,throw-max-finisher|release|2300|gate|*|axe-heave|plain|*|2|0|soft',
+        'throw-final|doubleTapHold|grapple|0.95|release|charge|dispatch||release|2300|gate|*|axe-heave|plain|*|0|0|*',
+        'throw-max-finisher|doubleTapHold|grapple|0.95|press|charge|cancel||release|2300|impact|*|axe-max|armed|*|0|0|*',
       ],
     },
   },
@@ -148,10 +157,13 @@ const EXPECTED_SHIPPED_CONTROL_ROUTES: Record<string, ExpectedShippedControlRout
     ],
     dualsense: {
       instant: 'tap',
-      start: 'hold',
+      start: 'spin',
       nodes: [
-        'hold|hold|neutral|0.22|press|channel|dispatch|holdThenDoubleTap|release|480|ramp|*',
-        'holdThenDoubleTap|holdThenDoubleTap|spin|0.72|release|none|dispatch||release|480|followUp|*',
+        'spin|hold|neutral|0.25|press|channel|dispatch|leap-near,leap-max-finisher|release|2300|ramp|*|*|plain|*|0|0|soft',
+        'leap-near|holdThenDoubleTap|spin|0.5|release|none|dispatch|leap-far|release|2300|followUp|*|axe-leap-near|plain|*|1|0|*',
+        'leap-far|holdThenDoubleTap|spin|0.75|release|none|dispatch|leap-final|release|2300|followUp|*|axe-leap-far|plain|*|2|0|*',
+        'leap-final|holdThenDoubleTap|spin|0.95|release|none|dispatch||release|2300|followUp|*|axe-leap-far|plain|*|0|0|*',
+        'leap-max-finisher|holdThenDoubleTap|spin|0.95|press|none|cancel||release|2300|impact|*|axe-leap-max|armed|*|0|0|*',
       ],
     },
   },
@@ -165,12 +177,13 @@ const EXPECTED_SHIPPED_CONTROL_ROUTES: Record<string, ExpectedShippedControlRout
     ],
     dualsense: {
       instant: 'tap',
-      start: 'doubleTap',
+      start: 'overhead',
       nodes: [
-        'doubleTap|doubleTap|neutral|0.22|release|none|dispatch|hold,doubleTapHold|release|480|click|*',
-        'hold|hold|neutral|0.48|release|charge|dispatch|holdThenDoubleTap|release|480|ramp|*',
-        'doubleTapHold|doubleTapHold|continuation|0.72|release|none|dispatch||release|480|gate|*',
-        'holdThenDoubleTap|holdThenDoubleTap|continuation|0.9|press|none|cancel||release|480|followUp|katana-charge',
+        'overhead|doubleTap|neutral|0.25|release|none|dispatch|charge|release|2300|click|*|*|plain|*|0|0|*',
+        'charge|hold|neutral|0.5|release|charge|dispatch|flurry,dance-finisher|release|2300|ramp|*|katana-charge|plain|*|1|2|soft',
+        'flurry|doubleTapHold|continuation|0.75|release|none|dispatch|full-charge|release|2300|gate|*|*|plain|*|0|0|*',
+        'full-charge|hold|neutral|0.95|release|charge|dispatch||release|2300|ramp|*|katana-full|plain|*|0|0|*',
+        'dance-finisher|holdThenDoubleTap|continuation|0.95|press|none|cancel||release|2300|followUp|katana-charge|*|armed|*|0|0|*',
       ],
     },
   },
@@ -184,12 +197,13 @@ const EXPECTED_SHIPPED_CONTROL_ROUTES: Record<string, ExpectedShippedControlRout
     ],
     dualsense: {
       instant: 'tap',
-      start: 'doubleTap',
+      start: 'hop',
       nodes: [
-        'doubleTap|doubleTap|neutral|0.22|release|none|dispatch|hold,doubleTapHold|release|480|click|*',
-        'hold|hold|neutral|0.48|release|charge|dispatch|holdThenDoubleTap|release|480|ramp|*',
-        'doubleTapHold|doubleTapHold|continuation|0.72|release|none|dispatch||release|480|gate|*',
-        'holdThenDoubleTap|holdThenDoubleTap|continuation|0.9|press|none|cancel||release|480|followUp|iaido-ready',
+        'hop|doubleTap|neutral|0.25|release|none|dispatch|iaido|release|2300|click|*|*|plain|*|0|0|*',
+        'iaido|hold|neutral|0.5|release|charge|dispatch|hop-slash,flash-finisher|release|2300|ramp|*|iaido-ready|plain|*|1|0|soft',
+        'hop-slash|doubleTapHold|continuation|0.75|release|none|dispatch|iaido-full|release|2300|gate|*|*|plain|*|0|0|*',
+        'iaido-full|hold|neutral|0.95|release|charge|dispatch||release|2300|ramp|*|iaido-full|plain|*|0|0|*',
+        'flash-finisher|holdThenDoubleTap|continuation|0.95|press|none|cancel||release|2300|followUp|*|*|armed|*|0|0|*',
       ],
     },
   },
@@ -201,11 +215,11 @@ const EXPECTED_SHIPPED_CONTROL_ROUTES: Record<string, ExpectedShippedControlRout
     ],
     dualsense: {
       instant: 'tap',
-      start: 'doubleTap',
+      start: 'oberhau',
       preGate: undefined,
       nodes: [
-        'doubleTap|doubleTap|neutral|0.22|press|none|cancel|doubleTapHold|release|1000|followUp|*',
-        'doubleTapHold|doubleTapHold|continuation|0.72|release|charge|dispatch||release|1000|gate|*',
+        'oberhau|doubleTap|neutral|0.25|press|none|cancel|unterhau|release|1000|followUp|*|*|plain|*|0|0|*',
+        'unterhau|doubleTapHold|continuation|0.75|release|charge|dispatch||release|1000|gate|*|*|plain|*|0|0|*',
       ],
     },
   },
@@ -217,11 +231,11 @@ const EXPECTED_SHIPPED_CONTROL_ROUTES: Record<string, ExpectedShippedControlRout
     ],
     dualsense: {
       instant: 'tap',
-      start: 'doubleTap',
+      start: 'oberhau',
       preGate: undefined,
       nodes: [
-        'doubleTap|doubleTap|neutral|0.22|press|none|cancel|doubleTapHold|release|1000|followUp|*',
-        'doubleTapHold|doubleTapHold|continuation|0.72|release|charge|dispatch||release|1000|gate|*',
+        'oberhau|doubleTap|neutral|0.25|press|none|cancel|unterhau|release|1000|followUp|*|*|plain|*|0|0|*',
+        'unterhau|doubleTapHold|continuation|0.75|release|charge|dispatch||release|1000|gate|*|*|plain|*|0|0|*',
       ],
     },
   },
@@ -231,13 +245,15 @@ const EXPECTED_SHIPPED_CONTROL_ROUTES: Record<string, ExpectedShippedControlRout
     ],
     dualsense: {
       instant: 'tap',
-      start: null,
-      nodes: [],
+      start: 'fang-thrust',
+      nodes: [
+        'fang-thrust|tap|neutral|0.25|press|none|cancel||release|2300|click|*|*|plain|*|0|0|*',
+      ],
     },
   },
-  // Двуручное копьё v2 reuses the lance's ladder; the one deliberate difference is the
-  // follow-up gate, which now arms on the early замах band so «Акали» is reachable during
-  // the quick-release window.
+  // Двуручное копьё v2 keeps the lance grammar, but R3 is the press-dispatched
+  // Прорыв channel and its armed spin still combines the early-band requirement
+  // with the new middle-pocket dwell gate.
   'twohand-spear-v2:primary': {
     mylorik: [
       'tap|strike|press|*|100',
@@ -248,12 +264,14 @@ const EXPECTED_SHIPPED_CONTROL_ROUTES: Record<string, ExpectedShippedControlRout
     ],
     dualsense: {
       instant: 'tap',
-      start: 'hold',
+      start: 'hold-early',
       preGate: 'doubleTap',
       nodes: [
-        'hold|hold|neutral|0.48|release|charge|dispatch|doubleTapHold,holdThenDoubleTap|release|480|ramp|*',
-        'doubleTapHold|doubleTapHold|continuation|0.72|release|charge|dispatch||release|480|gate|*',
-        'holdThenDoubleTap|holdThenDoubleTap|continuation|0.9|press|none|cancel||release|480|followUp|early',
+        'hold-early|hold|neutral|0.25|release|charge|dispatch|hold-middle|release|2300|ramp|*|early|plain|*|1|0|*',
+        'hold-middle|hold|neutral|0.5|release|charge|dispatch|breakthrough,spin-finisher|release|2300|ramp|*|middle|plain|*|2|0|soft',
+        'breakthrough|doubleTapHold|continuation|0.75|press|channel|cancel|hold-late|release|2300|gate|*|*|plain|*|0|0|*',
+        'hold-late|hold|neutral|0.95|release|charge|dispatch||release|2300|ramp|*|late|plain|*|0|0|*',
+        'spin-finisher|holdThenDoubleTap|continuation|0.95|press|none|cancel||release|2300|followUp|early|spin-middle|armed|*|0|0|*',
       ],
     },
   },
@@ -267,12 +285,14 @@ const EXPECTED_SHIPPED_CONTROL_ROUTES: Record<string, ExpectedShippedControlRout
     ],
     dualsense: {
       instant: 'tap',
-      start: 'hold',
+      start: 'stance',
       preGate: 'doubleTap',
       nodes: [
-        'hold|hold|neutral|0.48|press|channel|dispatch|doubleTapHold,holdThenDoubleTap|release|480|tension|*',
-        'doubleTapHold|doubleTapHold|continuation|0.72|release|charge|dispatch||release|480|gate|*',
-        'holdThenDoubleTap|holdThenDoubleTap|stance|0.9|release|none|dispatch||release|480|followUp|*',
+        'stance|hold|neutral|0.25|press|channel|dispatch|kick-brace,vault-finisher|release|2300|tension|*|*|plain|*|0|0|soft',
+        'kick-brace|doubleTapHold|continuation|0.5|release|charge|dispatch|kick-strong|release|2300|gate|*|brace|plain|*|1|0|*',
+        'kick-strong|doubleTapHold|continuation|0.75|release|charge|dispatch|kick-final|release|2300|gate|*|kick|plain|*|2|0|*',
+        'kick-final|doubleTapHold|continuation|0.95|release|charge|dispatch||release|2300|gate|*|kick|plain|*|0|0|*',
+        'vault-finisher|holdThenDoubleTap|stance|0.95|press|none|cancel||release|2300|followUp|*|*|armed|*|0|0|*',
       ],
     },
   },
@@ -402,11 +422,26 @@ describe('99LC config and deterministic plan', () => {
     const result = validateLastChancesConfig(defaultConfig)
 
     expect(result.errors).toEqual([])
-    expect(defaultConfig.schemaVersion).toBe(7)
+    expect(defaultConfig.schemaVersion).toBe(9)
+    expect(defaultConfig.player).toMatchObject({
+      accelerationMs: 100,
+      decelerationMs: 50,
+    })
+    expect(defaultConfig.combat).toMatchObject({
+      attackStopsMovement: true,
+      minimumPlayerParryMs: 180,
+      enemyRevealOnParryMs: 1200,
+      enemyRevealOnHitMs: 900,
+      minimumPlayerDamageTaken: 1,
+    })
+    expect(defaultConfig.progression).toMatchObject({
+      moveQuestKillsRequired: 2,
+      sameTierSacrificeRatio: 0.5,
+    })
     expect(defaultConfig.chances).toBe(99)
     expect(defaultConfig.rooms.every(room => (room.spawnLayouts?.length ?? 0) >= 2)).toBe(true)
-    expect(defaultConfig.progression.tiers).toHaveLength(7)
-    expect(defaultConfig.progression.tiers.slice(0, 6).every(tier => tier.kind === 'normal')).toBe(true)
+    expect(defaultConfig.progression.tiers).toHaveLength(8)
+    expect(defaultConfig.progression.tiers.slice(0, 7).every(tier => tier.kind === 'normal')).toBe(true)
     expect(defaultConfig.progression.tiers[defaultConfig.progression.tiers.length - 1]?.kind).toBe('boss')
     expect(defaultConfig.progression.tiers.every(tier => tier.deathCost === 1)).toBe(true)
     const loadout = resolveLastChancesLoadout(defaultConfig)
@@ -448,6 +483,47 @@ describe('99LC config and deterministic plan', () => {
       mouseDamageBonusMax: 0.25,
       mouseMotionForMaxBonusPx: 160,
     })
+    expect(axe?.secondaryAttacks?.hold.tuning).toMatchObject({
+      assistMovementThreshold: 0.2,
+      assistFacingTurnRadians: 0.012,
+      assistMultiplier: 2,
+      reflectedProjectileMinimumRange: 260,
+      reflectedProjectilePierce: 40,
+    })
+    expect(axe?.secondaryAttacks?.holdThenDoubleTap.tuning).toMatchObject({
+      chemicalTrailDamage: 0,
+      chemicalTrailPierce: 20,
+      chemicalTrailKnockback: 0,
+    })
+    const chain = defaultConfig.weapons.find(weapon => weapon.id === 'secondary-chain')
+    expect(chain?.attacks.doubleTap.tuning).toMatchObject({
+      assistMovementThreshold: 0.2,
+      assistFacingTurnRadians: 0.012,
+      assistMultiplier: 2,
+    })
+    const claws = defaultConfig.weapons.find(weapon => weapon.id === 'either-claws')
+    expect(claws?.tuning).toMatchObject({
+      bleedEveryHits: 2,
+      parityBleedDurationMs: 5000,
+      parityBleedStacks: 1,
+      parityBleedTickDamage: 1.1,
+      parityBleedTickMs: 500,
+    })
+    expect(claws?.attacks.hold.tuning).toMatchObject({
+      chemicalTrailDamage: 0,
+      chemicalTrailPierce: 20,
+      chemicalTrailKnockback: 0,
+    })
+    const katana = defaultConfig.weapons.find(weapon => weapon.id === 'twohand-katana')
+    expect(katana?.attacks.doubleTapHold.tuning).toMatchObject({
+      dodgeThreshold: 0.25,
+      dodgeEveryHits: 2,
+    })
+    const spearV2 = defaultConfig.weapons.find(weapon => weapon.id === 'twohand-spear-v2')
+    expect(spearV2?.secondaryAttacks?.tap.tuning).toMatchObject({
+      reflectedProjectileMinimumRange: 220,
+      reflectedProjectilePierce: 0,
+    })
     expect(defaultConfig.enemies.find(enemy => enemy.id === 'spider-knife')).toMatchObject({
       maxHp: 48,
       armor: 2,
@@ -463,11 +539,30 @@ describe('99LC config and deterministic plan', () => {
       maxHp: 1,
       attackDamage: 1,
     })
-    expect(defaultConfig.rooms.find(room => room.id === 'turret-crossfire')?.turrets).toHaveLength(4)
+    const turretRoom = defaultConfig.rooms.find(room => room.id === 'turret-crossfire')
+    expect(turretRoom?.turretAlarmHoldMs).toBe(650)
+    expect(turretRoom?.turrets).toHaveLength(4)
+    expect(turretRoom?.turrets?.[0]).toMatchObject({
+      projectileSpawnOffset: 18,
+      projectileKnockback: 0,
+    })
     expect(defaultConfig.rooms.find(room => room.id === 'cockroach-mother-lair')).toMatchObject({
       encounter: { enemyIds: ['cockroach-mother'], infiniteSwarm: true },
       altar: { chanceCost: 5 },
     })
+    expect(defaultConfig.enemies.find(enemy => enemy.id === 'running-stapler')).toMatchObject({
+      projectileKnockback: 0,
+    })
+    expect(defaultConfig.enemies.find(enemy => enemy.id === 'curator-shadow')
+      ?.bossPhases?.find(phase => phase.attackKind === 'projectile')).toMatchObject({
+        projectileKnockback: 0,
+      })
+    expect(defaultConfig.enemies.find(enemy => enemy.id === 'cockroach-mother')?.cockroachMother)
+      .toMatchObject({
+        entranceRadiusRatio: 0.55,
+        exitRecoveryMs: 650,
+        sameHoleChance: 0.5,
+      })
     expect(defaultConfig.enemies.map(enemy => enemy.name)).toEqual(expect.arrayContaining([
       'Слуга',
       'Бегущий степлер',
@@ -516,6 +611,65 @@ describe('99LC config and deterministic plan', () => {
     expect(pairings.size).toBeGreaterThan(1)
   })
 
+  it('requires positive authored player acceleration and braking times', () => {
+    const invalid = cloneLastChancesConfig(defaultConfig)
+    invalid.player.accelerationMs = 0
+    invalid.player.decelerationMs = -1
+
+    expect(validateLastChancesConfig(invalid).errors).toEqual(expect.arrayContaining([
+      'player.accelerationMs must be a finite number > 0',
+      'player.decelerationMs must be a finite number > 0',
+    ]))
+  })
+
+  it('validates optional projectile, reflection, turret-alarm, and Cockroach Mother tuning', () => {
+    const invalid = cloneLastChancesConfig(defaultConfig)
+    const roomIndex = invalid.rooms.findIndex(room => room.id === 'turret-crossfire')
+    const turretRoom = invalid.rooms[roomIndex]!
+    turretRoom.turretAlarmHoldMs = 0
+    turretRoom.turrets![0]!.projectileSpawnOffset = -1
+    turretRoom.turrets![0]!.projectileKnockback = -1
+
+    const staplerIndex = invalid.enemies.findIndex(enemy => enemy.id === 'running-stapler')
+    invalid.enemies[staplerIndex]!.projectileSpeed = 0
+    invalid.enemies[staplerIndex]!.projectileKnockback = -1
+
+    const curatorIndex = invalid.enemies.findIndex(enemy => enemy.id === 'curator-shadow')
+    const projectilePhaseIndex = invalid.enemies[curatorIndex]!.bossPhases!
+      .findIndex(phase => phase.attackKind === 'projectile')
+    const projectilePhase = invalid.enemies[curatorIndex]!.bossPhases![projectilePhaseIndex]!
+    projectilePhase.projectileSpeed = 0
+    projectilePhase.projectileKnockback = -1
+
+    const spear = invalid.weapons.find(weapon => weapon.id === 'twohand-spear')!
+    spear.secondaryAttacks!.tap.tuning = {
+      ...spear.secondaryAttacks!.tap.tuning,
+      reflectedProjectileMinimumRange: -1,
+      reflectedProjectilePierce: 1.5,
+    }
+
+    const motherIndex = invalid.enemies.findIndex(enemy => enemy.id === 'cockroach-mother')
+    const mother = invalid.enemies[motherIndex]!.cockroachMother!
+    mother.entranceRadiusRatio = 1.1
+    mother.exitRecoveryMs = -1
+    mother.sameHoleChance = 1.1
+
+    expect(validateLastChancesConfig(invalid).errors).toEqual(expect.arrayContaining([
+      `rooms[${roomIndex}].turretAlarmHoldMs must be a finite number > 0`,
+      `rooms[${roomIndex}].turrets[0].projectileSpawnOffset must be a finite number >= 0`,
+      `rooms[${roomIndex}].turrets[0].projectileKnockback must be a finite number >= 0`,
+      `enemies[${staplerIndex}].projectileSpeed must be a finite number > 0`,
+      `enemies[${staplerIndex}].projectileKnockback must be a finite number >= 0`,
+      `enemies[${curatorIndex}].bossPhases[${projectilePhaseIndex}].projectileSpeed must be a finite number > 0`,
+      `enemies[${curatorIndex}].bossPhases[${projectilePhaseIndex}].projectileKnockback must be a finite number >= 0`,
+      'weapons[0].secondaryAttacks.tap.tuning.reflectedProjectileMinimumRange must be a finite number >= 0',
+      'weapons[0].secondaryAttacks.tap.tuning.reflectedProjectilePierce must be an integer >= 0',
+      `enemies[${motherIndex}].cockroachMother.entranceRadiusRatio must be <= 1`,
+      `enemies[${motherIndex}].cockroachMother.exitRecoveryMs must be a finite number >= 0`,
+      `enemies[${motherIndex}].cockroachMother.sameHoleChance must be <= 1`,
+    ]))
+  })
+
   it('rebuilds identical rooms, enemies, and links for the same generation', () => {
     const first = buildLastChancesPlan(defaultConfig, 3)
     const retry = buildLastChancesPlan(defaultConfig, 3)
@@ -545,13 +699,48 @@ describe('99LC config and deterministic plan', () => {
     }
   })
 
+  it('starts every generation with the authored apartment and solo Knife-spider encounter', () => {
+    for (let generation = 1; generation <= 12; generation += 1) {
+      const plan = buildLastChancesPlan(defaultConfig, generation)
+      const opening = plan.tiers[0]
+
+      expect(opening).toHaveLength(1)
+      expect(opening[0]).toMatchObject({
+        tierId: 'opening',
+        roomTemplateId: 'false-apartment',
+      })
+      expect(opening[0].enemies.map(enemy => enemy.definitionId)).toEqual(['spider-knife'])
+      expect(new Set(opening[0].nextNodeIds))
+        .toEqual(new Set(plan.tiers[1].map(node => node.id)))
+      expect(plan.tiers[1].every(node => node.roomTemplateId !== 'false-apartment')).toBe(true)
+    }
+  })
+
+  it('counts guaranteed enemies inside the authored room population target', () => {
+    const config = cloneLastChancesConfig(defaultConfig)
+    const tierIndex = config.progression.tiers.findIndex(tier => tier.id === 'tier-3')
+    const tier = config.progression.tiers[tierIndex]
+    tier.nodeCount = 1
+    tier.enemyCount = [6, 6]
+    tier.enemyPool = [{ enemyId: 'servant', weight: 1 }]
+    tier.guaranteedEnemyIds = ['colossus']
+    tier.guaranteedRoomTemplateIds = undefined
+    tier.roomTemplateIds = ['combat-hall']
+
+    const node = buildLastChancesPlan(config, 5).tiers[tierIndex][0]
+
+    expect(node.enemies).toHaveLength(6)
+    expect(node.enemies.filter(enemy => enemy.definitionId === 'colossus')).toHaveLength(1)
+    expect(node.enemies.filter(enemy => enemy.definitionId === 'servant')).toHaveLength(5)
+  })
+
   it('rejects a graph whose choice cap cannot cover the next tier', () => {
     const invalid = cloneLastChancesConfig(defaultConfig)
-    invalid.progression.tiers[0].nodeCount = 1
+    invalid.progression.tiers[1].nodeCount = 1
     invalid.graph.choicesPerNode = 2
 
     expect(validateLastChancesConfig(invalid).errors).toContain(
-      'graph.choicesPerNode cannot connect every progression.tiers[1] node',
+      'graph.choicesPerNode cannot connect every progression.tiers[2] node',
     )
   })
 
@@ -589,7 +778,7 @@ describe('99LC config and deterministic plan', () => {
     invalid.rooms[0].spawnLayouts![0].enemySpawns[0] = { ...invalid.rooms[0].playerSpawn }
 
     expect(validateLastChancesConfig(invalid).errors).toContain(
-      'rooms[0].spawnLayouts[0].enemySpawns[0] overlaps playerSpawn with combined radius 46',
+      'rooms[0].spawnLayouts[0].enemySpawns[0] overlaps playerSpawn with combined radius 38',
     )
   })
 
@@ -600,6 +789,30 @@ describe('99LC config and deterministic plan', () => {
 
     expect(validateLastChancesConfig(invalid).errors).toContain(
       `rooms[${roomIndex}].spawnLayouts[0].enemySpawns needs at least 7 points for eligible tiers`,
+    )
+  })
+
+  it('requires enough points when guarantees exceed the room population target', () => {
+    const invalid = cloneLastChancesConfig(defaultConfig)
+    const tier = invalid.progression.tiers.find(candidate => candidate.id === 'tier-3')!
+    tier.nodeCount = 1
+    tier.enemyCount = [2, 2]
+    tier.enemyPool = [{ enemyId: 'servant', weight: 1 }]
+    tier.guaranteedEnemyIds = ['colossus', 'guard', 'running-stapler']
+    tier.guaranteedRoomTemplateIds = undefined
+    const isolatedRoom = JSON.parse(JSON.stringify(
+      invalid.rooms.find(room => room.id === 'combat-hall'),
+    )) as LastChancesConfig['rooms'][number]
+    isolatedRoom.id = 'guarantee-capacity-test'
+    isolatedRoom.name = 'Guarantee capacity test'
+    invalid.rooms.push(isolatedRoom)
+    tier.roomTemplateIds = [isolatedRoom.id]
+    const roomIndex = invalid.rooms.length - 1
+    invalid.rooms[roomIndex].spawnLayouts![0].enemySpawns.length = 2
+    invalid.rooms[roomIndex].spawnLayouts![1].enemySpawns.length = 2
+
+    expect(validateLastChancesConfig(invalid).errors).toContain(
+      `rooms[${roomIndex}].spawnLayouts[0].enemySpawns needs at least 3 points for eligible tiers`,
     )
   })
 
@@ -681,17 +894,17 @@ describe('99LC config and deterministic plan', () => {
 
     const migrated = await loadLastChancesConfig({ url: '/99lc/schema-v4.json' })
 
-    expect(migrated.schemaVersion).toBe(7)
+    expect(migrated.schemaVersion).toBe(9)
     expect(migrated.weapons.filter(weapon => weapon.id !== 'secondary-ouroboros-fang')
       .every(weapon => weapon.attacks.tap.cooldownMs === 0)).toBe(true)
     expect(migrated.weapons.find(weapon => weapon.id === 'secondary-ouroboros-fang')
       ?.attacks.tap.cooldownMs).toBe(5000)
     expect(migrated.rooms.find(room => room.id === 'combat-hall')?.enemySpawns).toContainEqual({ x: 1020, y: 337 })
-    expect(migrated.rooms.find(room => room.id === 'wrong-shadow-event')?.enemySpawns).toContainEqual({ x: 961, y: 562 })
+    expect(migrated.rooms.find(room => room.id === 'wrong-shadow-event')?.enemySpawns).toContainEqual({ x: 990, y: 580 })
     expect(validateLastChancesConfig(migrated).errors).toEqual([])
   })
 
-  it('keeps a safe legacy spawn when customized geometry makes its replacement unsafe', async () => {
+  it('repairs guaranteed-enemy clearance without applying an unsafe legacy target', async () => {
     const previous = previousShippedSchemaV1Config()
     const chestGallery = previous.rooms.find(room => room.id === 'chest-gallery')!
     Object.assign(chestGallery.obstacles[1], { x: 765, y: 130, width: 30, height: 60 })
@@ -701,7 +914,8 @@ describe('99LC config and deterministic plan', () => {
     const migrated = await loadLastChancesConfig({ url: '/99lc/schema-v4.json' })
     const spawns = migrated.rooms.find(room => room.id === 'chest-gallery')?.enemySpawns
 
-    expect(spawns).toContainEqual({ x: 730, y: 160 })
+    expect(spawns).toContainEqual({ x: 700, y: 160 })
+    expect(spawns).not.toContainEqual({ x: 730, y: 160 })
     expect(spawns).not.toContainEqual({ x: 780, y: 160 })
     expect(spawns).toContainEqual({ x: 720, y: 550 })
     expect(spawns).toContainEqual({ x: 425, y: 345 })
@@ -753,7 +967,7 @@ describe('99LC config and deterministic plan', () => {
       signal: undefined,
     })
     expect(migrated).toMatchObject({
-      schemaVersion: 7,
+      schemaVersion: 9,
       seed: 'saved-schema-v2-run',
       player: { baseStats: { attackPower: 137 } },
       loadout: defaultConfig.loadout,
@@ -789,7 +1003,7 @@ describe('99LC config and deterministic plan', () => {
     ]))
   })
 
-  describe('schema-v7 content and schema-v4 controls migration', () => {
+  describe('schema-v9 run tuning, schema-v8 movement, and legacy content/control migration', () => {
     it('standalone-migrates an actual v1-shaped Builder definition through v2 and v3 fields', () => {
       const v1 = previousShippedSchemaV1Config()
       const before = JSON.stringify(v1)
@@ -797,7 +1011,7 @@ describe('99LC config and deterministic plan', () => {
       const migrated = migrateLastChancesConfig(v1) as LastChancesConfig
 
       expect(migrated).toMatchObject({
-        schemaVersion: 7,
+        schemaVersion: 9,
         input: {
           tapComboWindowMs: 900,
           mylorik: defaultConfig.input.mylorik,
@@ -831,7 +1045,7 @@ describe('99LC config and deterministic plan', () => {
       expect(migrateLastChancesConfig(migrated)).toEqual(migrated)
     })
 
-    it('clone-first migrates v1, v2, v3, and v4 to v7 and keeps v7 idempotent', () => {
+    it('clone-first migrates v1, v2, and v3 to v9 and keeps v9 idempotent', () => {
       const v1 = previousShippedSchemaV1Config()
       const v2 = cloneLastChancesConfig(defaultConfig)
       v2.schemaVersion = 2
@@ -847,7 +1061,7 @@ describe('99LC config and deterministic plan', () => {
       for (const legacy of [v1, v2, v3]) {
         const before = JSON.stringify(legacy)
         const migrated = migrateLastChancesConfig(legacy, defaultConfig) as LastChancesConfig
-        expect(migrated.schemaVersion).toBe(7)
+        expect(migrated.schemaVersion).toBe(9)
         expect(validateLastChancesConfig(migrated).errors).toEqual([])
         expect(JSON.stringify(legacy)).toBe(before)
         expect(migrated.input.mylorik).toEqual(defaultConfig.input.mylorik)
@@ -884,7 +1098,7 @@ describe('99LC config and deterministic plan', () => {
       const before = JSON.stringify(v6)
       const migrated = migrateLastChancesConfig(v6, defaultConfig) as LastChancesConfig
       expect(validateLastChancesConfig(migrated).errors).toEqual([])
-      expect(migrated.schemaVersion).toBe(7)
+      expect(migrated.schemaVersion).toBe(9)
       expect(migrated.seed).toBe('v6-stamina-migration')
       expect(migrated.stamina).toEqual(defaultConfig.stamina)
       expect(migrated.player.baseStats.maxStamina).toBe(100)
@@ -904,12 +1118,72 @@ describe('99LC config and deterministic plan', () => {
       expect(migrated.player.baseStats.maxStamina).toBe(250)
     })
 
+    it('backfills the authored movement ramps into a schema-v7 override', () => {
+      const v7 = cloneLastChancesConfig(defaultConfig) as LastChancesConfig & {
+        player: LastChancesConfig['player'] & {
+          accelerationMs?: number
+          decelerationMs?: number
+        }
+      }
+      v7.schemaVersion = 7
+      v7.seed = 'v7-movement-migration'
+      delete v7.player.accelerationMs
+      delete v7.player.decelerationMs
+
+      const before = JSON.stringify(v7)
+      const migrated = migrateLastChancesConfig(v7, defaultConfig) as LastChancesConfig
+
+      expect(migrated.schemaVersion).toBe(9)
+      expect(migrated.seed).toBe('v7-movement-migration')
+      expect(migrated.player).toMatchObject({
+        accelerationMs: 100,
+        decelerationMs: 50,
+      })
+      expect(validateLastChancesConfig(migrated).errors).toEqual([])
+      expect(JSON.stringify(v7)).toBe(before)
+    })
+
+    it('upgrades the real shipped-v7 topology to the fixed apartment opening', () => {
+      const v7 = cloneLastChancesConfig(defaultConfig)
+      v7.schemaVersion = 7
+      v7.seed = 'real-v7-shape'
+      v7.progression.roomHpRecovery = 17
+      v7.progression.tiers = v7.progression.tiers.filter(tier => tier.id !== 'opening')
+      v7.progression.tiers[0].roomTemplateIds.unshift('false-apartment')
+      delete v7.rooms.find(room => room.id === 'false-apartment')!.encounter
+      v7.narrative!.prologue.at(-1)!.text = 'На пороге сгибается украденный нож. Из рукояти вырастают ноги, и Нож-паук прыгает туда, где герой стоял мгновение назад.'
+      delete (v7.player as Partial<LastChancesConfig['player']>).accelerationMs
+      delete (v7.player as Partial<LastChancesConfig['player']>).decelerationMs
+      delete (v7.input as Partial<LastChancesConfig['input']>).actionDirectionDeadZone
+      delete (v7.progression as Partial<LastChancesConfig['progression']>).moveQuestKillsRequired
+      delete (v7.progression as Partial<LastChancesConfig['progression']>).sameTierSacrificeRatio
+      delete (v7 as unknown as { combat?: LastChancesConfig['combat'] }).combat
+
+      const migrated = migrateLastChancesConfig(v7, defaultConfig) as LastChancesConfig
+
+      expect(migrated.schemaVersion).toBe(9)
+      expect(migrated.seed).toBe('real-v7-shape')
+      expect(migrated.progression.roomHpRecovery).toBe(17)
+      expect(migrated.progression.tiers[0]).toMatchObject({
+        id: 'opening',
+        nodeCount: 1,
+        roomTemplateIds: ['false-apartment'],
+        enemyPool: [{ enemyId: 'spider-knife', weight: 1 }],
+      })
+      expect(migrated.progression.tiers[1].roomTemplateIds).not.toContain('false-apartment')
+      expect(migrated.rooms.find(room => room.id === 'false-apartment')?.encounter)
+        .toEqual({ enemyIds: ['spider-knife'] })
+      expect(migrated.narrative?.prologue.at(-1)?.text).toContain('готовясь к первому прыжку')
+      expect(migrated.combat).toEqual(defaultConfig.combat)
+      expect(validateLastChancesConfig(migrated).errors).toEqual([])
+    })
+
     it('fails clearly for an unknown future schema', () => {
       const future = cloneLastChancesConfig(defaultConfig) as LastChancesConfig & { schemaVersion: number }
-      future.schemaVersion = 8
+      future.schemaVersion = 10
 
       expect(() => migrateLastChancesConfig(future)).toThrow(
-        'Unsupported 99LC schemaVersion: schemaVersion 8 is newer than supported 7',
+        'Unsupported 99LC schemaVersion: schemaVersion 10 is newer than supported 9',
       )
     })
 
@@ -931,7 +1205,7 @@ describe('99LC config and deterministic plan', () => {
 
       expect(fetchMock).toHaveBeenCalledOnce()
       expect(migrated).toMatchObject({
-        schemaVersion: 7,
+        schemaVersion: 9,
         seed: 'v3-control-migration',
         input: { holdMs: 777 },
         player: { baseStats: { attackPower: 143 } },
@@ -942,7 +1216,7 @@ describe('99LC config and deterministic plan', () => {
       expect(migrated.rooms[0].name).toBe('Saved room tuning')
       expect(migrated.weapons[0].attacks.doubleTap.damage).toBe(91)
       expect(migrated.weapons[0].controls).toEqual(defaultConfig.weapons[0].controls)
-      expect(JSON.parse(window.localStorage.getItem('99lc:game-config')!).schemaVersion).toBe(7)
+      expect(JSON.parse(window.localStorage.getItem('99lc:game-config')!).schemaVersion).toBe(9)
     })
 
     it('validates bindings, hysteresis, ordered gates, and bounded feedback', () => {
@@ -992,7 +1266,7 @@ describe('99LC config and deterministic plan', () => {
       const spearControls = migrated.weapons[0].controls!.primary.dualsense
       expect(spearControls.preGateGesture).toBe('doubleTap')
       const forces = spearControls.nodes.map(node => node.adaptiveOverride?.force)
-      expect(forces).toEqual([0.55, 0.8, 1])
+      expect(forces).toEqual([0.42, 0.58, 0.8, 1, 1])
     })
 
     it('accepts controls without any haptics block or node ticks', () => {
@@ -1067,6 +1341,12 @@ describe('99LC config and deterministic plan', () => {
         node.expiryMs,
         node.tactileProfile,
         node.requiredChargeBandId ?? '*',
+        node.chargeBandOverrideId ?? '*',
+        node.entryRequiresArmed ? 'armed' : 'plain',
+        node.armMs ?? '*',
+        node.telegraph?.length ?? 0,
+        node.armedCue?.length ?? 0,
+        node.armedTriggerOverride ? 'soft' : '*',
       ].join('|')
 
       let enabledCount = 0
@@ -1091,11 +1371,11 @@ describe('99LC config and deterministic plan', () => {
         disabledCount += disabled.length
         expect(controls.mylorik.activations.map(activation => activation.gesture).sort())
           .toEqual([...enabled].sort())
-        expect([
+        expect([...new Set([
           controls.dualsense.instantGesture,
           ...(controls.dualsense.preGateGesture ? [controls.dualsense.preGateGesture] : []),
           ...controls.dualsense.nodes.map(node => node.gesture),
-        ].sort()).toEqual([...enabled].sort())
+        ])].sort()).toEqual([...enabled].sort())
         expect(disabled).not.toContain(controls.dualsense.instantGesture)
         expect(controls.mylorik.activations.filter(activation => (
           activation.gesture === 'tap'
@@ -1148,15 +1428,15 @@ describe('99LC config and deterministic plan', () => {
       )
 
       const cycle = cloneLastChancesConfig(defaultConfig)
-      cycle.weapons[0].controls!.primary.dualsense.nodes.at(-1)!.next = ['hold']
+      cycle.weapons[0].controls!.primary.dualsense.nodes.at(-1)!.next = ['hold-early']
       expect(validateLastChancesConfig(cycle).errors).toContain(
         'weapons[0].controls.primary.dualsense combo graph must be acyclic',
       )
 
       const unreachable = cloneLastChancesConfig(defaultConfig)
-      unreachable.weapons[0].controls!.primary.dualsense.nodes[0].next = ['holdThenDoubleTap']
+      unreachable.weapons[0].controls!.primary.dualsense.nodes[0].next = ['spin-finisher']
       expect(validateLastChancesConfig(unreachable).errors).toContain(
-        'weapons[0].controls.primary.dualsense combo node doubleTapHold is unreachable',
+        'weapons[0].controls.primary.dualsense combo node hold-middle is unreachable',
       )
 
       const unmatchedGate = cloneLastChancesConfig(defaultConfig)
@@ -1177,7 +1457,7 @@ describe('99LC config and deterministic plan', () => {
       const unknownBand = cloneLastChancesConfig(defaultConfig)
       unknownBand.weapons[0].controls!.primary.dualsense.nodes.at(-1)!.requiredChargeBandId = 'missing'
       expect(validateLastChancesConfig(unknownBand).errors).toContain(
-        'weapons[0].controls.primary.dualsense.nodes[2].requiredChargeBandId must reference an existing hold charge band',
+        'weapons[0].controls.primary.dualsense.nodes[4].requiredChargeBandId must reference an existing hold charge band',
       )
     })
 
@@ -1235,6 +1515,28 @@ describe('99LC config and deterministic plan', () => {
       `enemies[${colossusIndex}].zone is required when attackKind is zone`,
       `enemies[${cockroachIndex}].swarm.initialBurst must be <= total`,
       'progression.tiers[2].guaranteedEnemyIds references unknown enemy no-such-enemy',
+    ]))
+  })
+
+  it('uses guaranteed enemies for room geometry and boss-infrastructure validation', () => {
+    const invalidGeometry = cloneLastChancesConfig(defaultConfig)
+    invalidGeometry.enemies.find(enemy => enemy.id === 'colossus')!.radius = 140
+    const shadowRoomIndex = invalidGeometry.rooms.findIndex(room => room.id === 'wrong-shadow-event')
+
+    expect(validateLastChancesConfig(invalidGeometry).errors).toEqual(expect.arrayContaining([
+      expect.stringContaining(
+        `rooms[${shadowRoomIndex}].spawnLayouts[0].enemySpawns`,
+      ),
+      expect.stringContaining('must fit inside its room with radius 140'),
+    ]))
+
+    const invalidBossRoute = cloneLastChancesConfig(defaultConfig)
+    invalidBossRoute.progression.tiers[1].guaranteedEnemyIds = ['cockroach-mother']
+    const combatHallIndex = invalidBossRoute.rooms.findIndex(room => room.id === 'combat-hall')
+
+    expect(validateLastChancesConfig(invalidBossRoute).errors).toEqual(expect.arrayContaining([
+      `rooms[${combatHallIndex}].altar is required for every boss room`,
+      `rooms[${combatHallIndex}].bossHoles is required for a Cockroach Mother encounter`,
     ]))
   })
 
@@ -1420,6 +1722,9 @@ describe('99LC config and deterministic plan', () => {
       const weapon = makeWeapon('greatblade', 'twoHanded')
       weapon.secondaryAttacks = secondaryAttacks('greatblade-secondary')
       weapon.controls!.secondary = cloneLastChancesConfig(defaultConfig).weapons[0].controls!.secondary
+      weapon.controls.secondary.dualsense.nodes.forEach((node) => {
+        delete node.chargeBandOverrideId
+      })
       weapon.augmentHooks = { fire: { damageMultiplier: 1.1 } }
       const supplemental = makeWeapon('sidearm', 'secondaryOnly', 1)
       removeRoomInteractions(config)
@@ -1498,6 +1803,9 @@ describe('99LC config and deterministic plan', () => {
       const hybrid = makeWeapon('wand-blade', 'hybrid')
       hybrid.secondaryAttacks = secondaryAttacks('hybrid-secondary')
       hybrid.controls!.secondary = cloneLastChancesConfig(defaultConfig).weapons[0].controls!.secondary
+      hybrid.controls.secondary.dualsense.nodes.forEach((node) => {
+        delete node.chargeBandOverrideId
+      })
       hybrid.augmentHooks = { chemical: { damageMultiplier: 1.1 } }
       const supplemental = makeWeapon('shield', 'secondaryOnly', 1)
       supplemental.attacks.tap.name = 'shield-tap'

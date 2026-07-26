@@ -5,6 +5,7 @@ import defaultConfigJson from '../../public/99lc/game-config.json'
 const mocks = vi.hoisted(() => ({
   loadConfig: vi.fn(),
   interact: vi.fn(),
+  newGeneration: vi.fn(),
   constructorCount: 0,
   constructorOptions: [] as unknown[],
   controlSchemes: [] as string[],
@@ -46,6 +47,7 @@ vi.mock('../features/last-chances', async () => {
     }
     destroy() {}
     setPaused() {}
+    setRouteMapVisible() {}
     setTouchMove() {}
     setTouchAim() {}
     press() {}
@@ -68,6 +70,9 @@ vi.mock('../features/last-chances', async () => {
     interact() {
       mocks.interact()
       return true
+    }
+    newGeneration() {
+      mocks.newGeneration()
     }
   }
   return {
@@ -96,6 +101,7 @@ afterEach(() => {
   window.localStorage.clear()
   mocks.loadConfig.mockReset()
   mocks.interact.mockReset()
+  mocks.newGeneration.mockReset()
   mocks.constructorCount = 0
   mocks.constructorOptions = []
   mocks.controlSchemes = []
@@ -123,6 +129,7 @@ function makeSnapshot(
     currentTierIndex: 0,
     attemptPath: [],
     availableNodeIds: [],
+    sacrificeNodeIds: [],
     deathReason: null,
     player: {
       position: { x: 100, y: 100 },
@@ -317,6 +324,29 @@ describe('99LC control-scheme preference', () => {
     expect(getByText(`1 / ${config.narrative!.prologue.length}`)).not.toBeNull()
     expect(mocks.uiCommand?.('confirm')).toBe(true)
     await waitFor(() => expect(getByText(`2 / ${config.narrative!.prologue.length}`)).not.toBeNull())
+  })
+
+  it('regenerates into the fixed opening encounter without replaying the prologue', async () => {
+    const config = cloneLastChancesConfig(defaultConfig)
+    mocks.snapshot = makeSnapshot(config, {
+      phase: 'planning',
+      availableNodeIds: ['opening-1'],
+    })
+    mocks.loadConfig.mockResolvedValue(config)
+    const { getByRole, getByText, queryByText } = render(LastChances)
+
+    await waitFor(() => expect(mocks.constructorCount).toBe(1))
+    for (let index = 0; index < config.narrative!.prologue.length - 1; index += 1) {
+      await fireEvent.click(getByRole('button', { name: 'Continue' }))
+    }
+    await fireEvent.click(getByRole('button', { name: 'Enter the remembered run' }))
+    expect(queryByText(`1 / ${config.narrative!.prologue.length}`)).toBeNull()
+
+    await fireEvent.click(getByRole('button', { name: 'New generation' }))
+
+    expect(mocks.newGeneration).toHaveBeenCalledTimes(1)
+    expect(queryByText(`1 / ${config.narrative!.prologue.length}`)).toBeNull()
+    expect(getByText('New generation')).not.toBeNull()
   })
 
   it('renders the explicit DualSense post-combat controller focus', async () => {

@@ -32,6 +32,7 @@ public class TheBoys
     public const string UnstoppableCombination = "Неудержимые";
     public const string SausagePartyCombination = "Sausage Party";
     public const string TheBoysCombination = "TheBoys";
+    public const int VirusPointsPerInfected = 3;
     public const int GovernmentSalaryZbs = 69;
     public const string GovernmentSalarySource = "От самого призедента";
 
@@ -73,6 +74,13 @@ public class TheBoys
         && player.GameCharacter.Name == "TheBoys"
         && player.Status.GetPlaceAtLeaderBoard() == 1
         && player.Passives.TheBoysButcher.ActiveCombination == TheBoysCombination;
+
+    public static bool HasActiveCombination(GamePlayerBridgeClass player, string combination) =>
+        player != null
+        && player.GameCharacter.Name == "TheBoys"
+        && player.Passives.TheBoysButcher.ActiveCombination == combination
+        && player.GameCharacter.Passive.Any(passive =>
+            passive.PassiveName == combination && passive.Visible);
 
     public static void LockNonButcherPassives(GamePlayerBridgeClass player)
     {
@@ -122,11 +130,9 @@ public class TheBoys
         GamePlayerBridgeClass defender,
         CalculateRounds calculateRounds)
     {
-        var boys = attacker.GameCharacter.Passive.Any(passive =>
-            passive.PassiveName == KillingCoupleCombination)
+        var boys = HasActiveCombination(attacker, KillingCoupleCombination)
             ? attacker
-            : defender.GameCharacter.Passive.Any(passive =>
-                passive.PassiveName == KillingCoupleCombination)
+            : HasActiveCombination(defender, KillingCoupleCombination)
                 ? defender
                 : null;
         if (boys == null) return;

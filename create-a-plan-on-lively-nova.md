@@ -1,5 +1,7 @@
 # 99LC DualSense: four-gate trigger ladder, charge rumble, push-through cues
 
+> **SUPERSEDED by `dual-sense.md`** (2026-07-25). Do not implement from this file — its anchors predate stamina, the sword rhythm/fatigue rework, spear-v2 and «Клык Уробороса». Its fixed scope decisions were carried over into `dual-sense.md`.
+
 ## Context
 
 The 99 Last Chances mini-game (`Web/VueClient/src/features/last-chances/`) already has one DualSense pass: discrete gate ticks, pulse-count charge bands, per-weapon commit patterns, persistent trigger detents, spider wriggle. What it lacks is *a ladder the hand can count*. Gates sit at irregular `0.22/0.48/0.72/0.90`, most weapons fire only 2–3 distinct trigger actions, holding at a gate teaches nothing about what will fire, and there is no cue inviting a "push all the way through" finisher.

@@ -173,7 +173,7 @@ const phraseRules: Array<[RegExp, string]> = [
   [/Шэн:\s*Атака на\s+(.+?)\.\s*Цель уже позади, заряд потрачен\.\s*Осталось:\s*(\d+)/gi, 'Shen: attacked $1. The target was already behind you; charge spent. Left: $2'],
   [/Шэн:\s*Зиккурат перекрыл прыжок через\s+(.+?)\.\s*Заряд потрачен/gi, 'Shen: a Ziggurat blocked the jump over $1. Charge spent'],
   [/Временная капсула:\s*Кола найдена в переписанной истории!/gi, 'Time Capsule: cola recovered from rewritten history!'],
-  [/Великий летописец:\s*История раунда\s+(\d+)\s+переписана!\s*Украдено\s+(-?\d+)\s+(?:очков|points)/gi, 'Great Chronicler: round $1 was rewritten! Stole $2 points'],
+  [/Великий летописец:\s*История раунда\s+(\d+)\s+переписана!\s*Поражений обращено в победы:\s*(\d+)\.\s*Начислено\s+(-?[\d.,]+)\s+очков,\s+(-?[\d.,]+)\s+Морали и\s+(-?[\d.,]+)\s+Скилла;\s*отозвано\s+(-?[\d.,]+)\s+победных очков/gi, 'Great Chronicler: round $1 was rewritten! Defeats turned into wins: $2. Awarded $3 points, $4 Moral, and $5 Skill; recalled $6 victory points'],
   [/Salldorum:\s*Помните\s+(\d+)\s+ход\?\s*На самом деле в этот день пришло подкрепление из Киева и мы всех победили!/gi, 'Salldorum: Remember turn $1? Reinforcements from Kyiv actually arrived that day, and we defeated everyone!'],
   [/Salldorum:\s*А вы знали, что в\s+(\d+)\s+ход на самом деле мы подписали мирный договор и этих поражений не было/gi, 'Salldorum: Did you know that on turn $1 we actually signed a peace treaty, so those defeats never happened'],
   [/Заказ Француза:\s*Новая цель\s*[—-]\s*(.+?)\.\s*3 хода/gi, "Frenchie's contract: new target — $1. 3 turns"],

@@ -31,9 +31,11 @@ const props = withDefaults(defineProps<{
   seed: string
   allowClose?: boolean
   selectedNodeId?: string | null
+  sacrificeNodeIds?: string[]
 }>(), {
   allowClose: true,
   selectedNodeId: null,
+  sacrificeNodeIds: () => [],
 })
 
 const emit = defineEmits<{
@@ -50,12 +52,14 @@ const copy = {
     route: 'Route map',
     tier: 'Tier',
     boss: 'Boss',
+    prologue: 'Prologue',
     available: 'Available',
     current: 'Current room',
     visited: 'Visited',
     cleared: 'Cleared',
     locked: 'Unknown',
     choose: 'Enter',
+    sacrifice: 'Detour · keep half body and mind',
     empty: 'The route has not formed yet.',
   },
   ru: {
@@ -66,24 +70,30 @@ const copy = {
     route: 'Карта забега',
     tier: 'Уровень',
     boss: 'Босс',
+    prologue: 'Пролог',
     available: 'Доступно',
     current: 'Текущая комната',
     visited: 'Посещено',
     cleared: 'Зачищено',
     locked: 'Неизвестно',
     choose: 'Войти',
+    sacrifice: 'Боковой путь · оставить половину тела и рассудка',
     empty: 'Маршрут ещё не сформирован.',
   },
 } as const
 
 const t = computed(() => copy[props.locale])
 const maxTier = computed(() => Math.max(1, ...props.nodes.map(node => node.tier)))
-const minTier = computed(() => Math.min(1, ...props.nodes.map(node => node.tier)))
+const minTier = computed(() => Math.min(0, ...props.nodes.map(node => node.tier)))
+const tierRail = computed(() => Array.from(
+  { length: maxTier.value - minTier.value + 1 },
+  (_, index) => minTier.value + index,
+))
 const routeSubtitle = computed(() => {
   const normalTierCount = Math.max(0, maxTier.value - 1)
   return props.locale === 'ru'
-    ? `Обычных уровней: ${normalTierCount}, затем босс. Один путь наверх. Пройденные комнаты остаются позади; открыты только светящиеся маршруты.`
-    : `${normalTierCount} normal ${normalTierCount === 1 ? 'tier' : 'tiers'}, then the boss. One route upward. Cleared rooms stay behind you; only glowing paths are open.`
+    ? `Обычных уровней: ${normalTierCount}, затем босс. Светящийся боковой маршрут стоит половину текущего физического и ментального здоровья.`
+    : `${normalTierCount} normal ${normalTierCount === 1 ? 'tier' : 'tiers'}, then the boss. A glowing sideways detour costs half of current body and mind.`
 })
 
 const positionedNodes = computed<PositionedNode[]>(() => {
@@ -114,6 +124,16 @@ const positionedEdges = computed(() => props.edges.flatMap((edge) => {
 
 function nodeStateLabel(state: RunNodeState): string {
   return t.value[state]
+}
+
+function nodeTierLabel(node: RunMapNode): string {
+  if (node.tier === minTier.value && minTier.value === 0) return t.value.prologue
+  if (node.tier === maxTier.value) return t.value.boss
+  return `${t.value.tier} ${node.tier}`
+}
+
+function isSacrificeNode(nodeId: string): boolean {
+  return props.sacrificeNodeIds.includes(nodeId)
 }
 
 function nodeIcon(kind: string) {
@@ -167,11 +187,11 @@ function edgeState(from: PositionedNode, to: PositionedNode): string {
         <div v-if="positionedNodes.length" class="lc-route" aria-live="polite">
           <div class="lc-tier-rail" aria-hidden="true">
             <span
-              v-for="tier in maxTier"
+              v-for="tier in tierRail"
               :key="tier"
               :style="{ top: `${90 - ((tier - minTier) / Math.max(1, maxTier - minTier)) * 80}%` }"
             >
-              {{ tier === maxTier ? t.boss : `${t.tier} ${tier}` }}
+              {{ tier === 0 ? t.prologue : tier === maxTier ? t.boss : `${t.tier} ${tier}` }}
             </span>
           </div>
 
@@ -194,14 +214,17 @@ function edgeState(from: PositionedNode, to: PositionedNode): string {
             :class="[
               `is-${node.state}`,
               `is-${node.kind.toLowerCase()}`,
-              { 'is-gamepad-selected': node.id === selectedNodeId },
+              {
+                'is-gamepad-selected': node.id === selectedNodeId,
+                'is-sacrifice': isSacrificeNode(node.id),
+              },
             ]"
             :style="{ left: `${node.x}%`, top: `${node.y}%` }"
             :disabled="node.state !== 'available'"
             type="button"
             :data-node-id="node.id"
             :aria-current="node.id === selectedNodeId ? 'true' : undefined"
-            :aria-label="`${node.name}. ${t.tier} ${node.tier}. ${nodeStateLabel(node.state)}`"
+            :aria-label="`${node.name}. ${nodeTierLabel(node)}. ${nodeStateLabel(node.state)}${isSacrificeNode(node.id) ? `. ${t.sacrifice}` : ''}`"
             @click="emit('choose', node.id)"
           >
             <span class="lc-node-orbit" aria-hidden="true" />
@@ -211,9 +234,10 @@ function edgeState(from: PositionedNode, to: PositionedNode): string {
               <component :is="nodeIcon(node.kind)" v-else :size="19" aria-hidden="true" />
             </span>
             <span class="lc-node-copy">
-              <small>{{ t.tier }} {{ node.tier }} · {{ nodeStateLabel(node.state) }}</small>
+              <small>{{ nodeTierLabel(node) }} · {{ nodeStateLabel(node.state) }}</small>
               <strong>{{ node.name }}</strong>
-              <span v-if="node.state === 'available'">{{ t.choose }} <ChevronRight :size="12" aria-hidden="true" /></span>
+              <span v-if="isSacrificeNode(node.id)" class="lc-node-sacrifice">{{ t.sacrifice }}</span>
+              <span v-else-if="node.state === 'available'">{{ t.choose }} <ChevronRight :size="12" aria-hidden="true" /></span>
             </span>
           </button>
         </div>
@@ -407,6 +431,11 @@ function edgeState(from: PositionedNode, to: PositionedNode): string {
   background: linear-gradient(110deg, rgba(104, 77, 28, 0.26), rgba(12, 13, 14, 0.95) 48%);
   box-shadow: 0 0 1.7rem rgba(204, 163, 79, 0.14);
 }
+.lc-route-node.is-sacrifice {
+  border-color: rgba(196, 77, 91, 0.72);
+  background: linear-gradient(110deg, rgba(116, 29, 42, 0.34), rgba(12, 13, 14, 0.95) 52%);
+  box-shadow: 0 0 1.7rem rgba(180, 45, 64, 0.2);
+}
 
 .lc-route-node.is-available:hover,
 .lc-route-node.is-available:focus-visible,
@@ -452,6 +481,7 @@ function edgeState(from: PositionedNode, to: PositionedNode): string {
 .lc-node-copy small { overflow: hidden; color: #737775; font-size: 0.53rem; font-weight: 700; letter-spacing: 0.07em; text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; }
 .lc-node-copy strong { overflow: hidden; font-size: 0.7rem; font-weight: 700; line-height: 1.2; text-overflow: ellipsis; white-space: nowrap; }
 .lc-node-copy > span { display: inline-flex; align-items: center; color: #d6b96f; font-size: 0.56rem; font-weight: 700; text-transform: uppercase; }
+.lc-node-copy > .lc-node-sacrifice { color: #ef9ca7; line-height: 1.25; white-space: normal; }
 
 .lc-route-empty { place-self: center; color: #777b79; }
 

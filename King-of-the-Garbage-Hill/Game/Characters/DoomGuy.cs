@@ -285,7 +285,11 @@ public static class DoomGuy
         var candidates = game.PlayersList.Where(x => x.GetPlayerId() != player.GetPlayerId()
                                                      && !x.Passives.IsDead
                                                      && !state.DemonNests.Contains(x.GetPlayerId())).ToList();
-        if (candidates.Count > 0)
+        // Most wanted: гнездо всегда появляется на Рике, пока на нём нет активного
+        var rickMw = RickSanchez.FindMostWantedHolder(candidates);
+        if (rickMw != null)
+            state.DemonNests.Add(rickMw.GetPlayerId());
+        else if (candidates.Count > 0)
             state.DemonNests.Add(candidates[SecureRandom.Next(0, candidates.Count - 1)].GetPlayerId());
 
         if (state.DemonNests.Count > 3)

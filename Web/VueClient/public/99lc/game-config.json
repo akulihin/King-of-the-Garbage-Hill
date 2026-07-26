@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 7,
+  "schemaVersion": 9,
   "title": "99 Last Chances",
   "seed": "99LC-prototype",
   "chances": 99,
@@ -23,7 +23,7 @@
       },
       {
         "speaker": "Первая встреча",
-        "text": "На пороге сгибается украденный нож. Из рукояти вырастают ноги, и Нож-паук прыгает туда, где герой стоял мгновение назад."
+        "text": "На пороге сгибается украденный нож. Из рукояти вырастают ноги, и Нож-паук прижимается к полу, готовясь к первому прыжку."
       }
     ],
     "victory": [
@@ -59,6 +59,7 @@
     "holdMaxMs": 2300,
     "holdThenDoubleTapWindowMs": 480,
     "aimDeadZone": 0.12,
+    "actionDirectionDeadZone": 0.2,
     "gamepadDeadZone": 0.18,
     "gamepadLeftButton": 4,
     "gamepadRightButton": 5,
@@ -86,9 +87,11 @@
       }
     },
     "dualsense": {
-      "activationThreshold": 0.22,
+      "activationThreshold": 0.25,
       "releaseThreshold": 0.16,
       "hysteresis": 0.06,
+      "armMs": 450,
+      "telegraphPeriodMs": 900,
       "gamepad": {
         "leftBumper": 4,
         "rightBumper": 5,
@@ -99,34 +102,122 @@
         "options": 9
       },
       "keyboard": {
-        "leftTechniqueKeys": ["KeyQ"],
-        "rightTechniqueKeys": ["KeyF"],
-        "mobilityKeys": ["Space"],
-        "interactKeys": ["KeyE"],
+        "leftTechniqueKeys": [
+          "KeyQ"
+        ],
+        "rightTechniqueKeys": [
+          "KeyF"
+        ],
+        "mobilityKeys": [
+          "Space"
+        ],
+        "interactKeys": [
+          "KeyE"
+        ],
         "leftStrikeMouseButton": 0,
         "rightStrikeMouseButton": 2
       },
       "gatePositions": {
-        "shallow": 0.22,
-        "medium": 0.48,
-        "deep": 0.72,
-        "final": 0.9
+        "shallow": 0.25,
+        "medium": 0.5,
+        "deep": 0.75,
+        "final": 0.95
       },
       "feedback": {
         "maxMagnitude": 0.7,
         "maxDurationMs": 900,
         "blockedRepeatMs": 240,
         "profiles": {
-          "click": { "startPosition": 0.18, "endPosition": 0.3, "resistance": 0.24, "force": 0.28, "transitionMs": 35, "effectMs": 90, "magnitude": 0.22 },
-          "ramp": { "startPosition": 0.22, "endPosition": 0.86, "resistance": 0.3, "force": 0.55, "transitionMs": 140, "effectMs": 160, "magnitude": 0.27 },
-          "bandLight": { "startPosition": 0.2, "endPosition": 0.38, "resistance": 0.22, "force": 0.25, "transitionMs": 30, "effectMs": 80, "magnitude": 0.2 },
-          "bandMedium": { "startPosition": 0.4, "endPosition": 0.62, "resistance": 0.34, "force": 0.42, "transitionMs": 35, "effectMs": 95, "magnitude": 0.34 },
-          "bandStrong": { "startPosition": 0.64, "endPosition": 0.84, "resistance": 0.48, "force": 0.58, "transitionMs": 40, "effectMs": 110, "magnitude": 0.48 },
-          "gate": { "startPosition": 0.48, "endPosition": 0.78, "resistance": 0.52, "force": 0.62, "transitionMs": 70, "effectMs": 140, "magnitude": 0.32 },
-          "followUp": { "startPosition": 0.3, "endPosition": 0.56, "resistance": 0.3, "force": 0.36, "transitionMs": 45, "effectMs": 140, "magnitude": 0.3 },
-          "blocked": { "startPosition": 0.12, "endPosition": 0.34, "resistance": 0.46, "force": 0.42, "transitionMs": 45, "effectMs": 160, "magnitude": 0.32 },
-          "impact": { "startPosition": 0.16, "endPosition": 0.44, "resistance": 0.38, "force": 0.5, "transitionMs": 25, "effectMs": 120, "magnitude": 0.55 },
-          "tension": { "startPosition": 0.26, "endPosition": 0.82, "resistance": 0.44, "force": 0.58, "transitionMs": 100, "effectMs": 160, "magnitude": 0.28 }
+          "click": {
+            "startPosition": 0.18,
+            "endPosition": 0.3,
+            "resistance": 0.24,
+            "force": 0.28,
+            "transitionMs": 35,
+            "effectMs": 90,
+            "magnitude": 0.22
+          },
+          "ramp": {
+            "startPosition": 0.25,
+            "endPosition": 0.86,
+            "resistance": 0.3,
+            "force": 0.55,
+            "transitionMs": 140,
+            "effectMs": 160,
+            "magnitude": 0.27
+          },
+          "bandLight": {
+            "startPosition": 0.2,
+            "endPosition": 0.38,
+            "resistance": 0.22,
+            "force": 0.25,
+            "transitionMs": 30,
+            "effectMs": 80,
+            "magnitude": 0.2
+          },
+          "bandMedium": {
+            "startPosition": 0.4,
+            "endPosition": 0.62,
+            "resistance": 0.34,
+            "force": 0.42,
+            "transitionMs": 35,
+            "effectMs": 95,
+            "magnitude": 0.34
+          },
+          "bandStrong": {
+            "startPosition": 0.64,
+            "endPosition": 0.84,
+            "resistance": 0.48,
+            "force": 0.58,
+            "transitionMs": 40,
+            "effectMs": 110,
+            "magnitude": 0.48
+          },
+          "gate": {
+            "startPosition": 0.5,
+            "endPosition": 0.8,
+            "resistance": 0.52,
+            "force": 0.62,
+            "transitionMs": 70,
+            "effectMs": 140,
+            "magnitude": 0.32
+          },
+          "followUp": {
+            "startPosition": 0.3,
+            "endPosition": 0.56,
+            "resistance": 0.3,
+            "force": 0.36,
+            "transitionMs": 45,
+            "effectMs": 140,
+            "magnitude": 0.3
+          },
+          "blocked": {
+            "startPosition": 0.12,
+            "endPosition": 0.34,
+            "resistance": 0.46,
+            "force": 0.42,
+            "transitionMs": 45,
+            "effectMs": 160,
+            "magnitude": 0.32
+          },
+          "impact": {
+            "startPosition": 0.16,
+            "endPosition": 0.44,
+            "resistance": 0.38,
+            "force": 0.5,
+            "transitionMs": 25,
+            "effectMs": 120,
+            "magnitude": 0.55
+          },
+          "tension": {
+            "startPosition": 0.26,
+            "endPosition": 0.82,
+            "resistance": 0.44,
+            "force": 0.58,
+            "transitionMs": 100,
+            "effectMs": 160,
+            "magnitude": 0.28
+          }
         }
       }
     }
@@ -134,6 +225,8 @@
   "player": {
     "radius": 22,
     "invulnerabilityMs": 420,
+    "accelerationMs": 100,
+    "decelerationMs": 50,
     "baseStats": {
       "maxHp": 100,
       "maxMentalHealth": 100,
@@ -148,6 +241,13 @@
     "restoreOnKill": 7,
     "maxPressurePerSecond": 12
   },
+  "combat": {
+    "attackStopsMovement": true,
+    "minimumPlayerParryMs": 180,
+    "enemyRevealOnParryMs": 1200,
+    "enemyRevealOnHitMs": 900,
+    "minimumPlayerDamageTaken": 1
+  },
   "stamina": {
     "regenPerSecond": 5,
     "outOfCombatRegenPerSecond": 25,
@@ -160,7 +260,23 @@
     "roomHpRecovery": 8,
     "roomMentalRecovery": 12,
     "moveQuestsEnabled": true,
+    "moveQuestKillsRequired": 2,
+    "sameTierSacrificeRatio": 0.5,
     "tiers": [
+      {
+        "id": "opening",
+        "label": "Пролог · Фальшивая квартира",
+        "kind": "normal",
+        "nodeCount": 1,
+        "enemyCount": [1, 1],
+        "deathCost": 1,
+        "erosion": { "maxHp": 1, "maxMentalHealth": 1, "maxStamina": 0, "attackPower": 1, "moveSpeed": 0, "armor": 0 },
+        "enemyPool": [
+          { "enemyId": "spider-knife", "weight": 1 }
+        ],
+        "roomTemplateIds": ["false-apartment"],
+        "accent": "#a6c88b"
+      },
       {
         "id": "tier-1",
         "label": "I · Знакомые коридоры",
@@ -174,7 +290,7 @@
           { "enemyId": "running-stapler", "weight": 4 },
           { "enemyId": "spider-knife", "weight": 2 }
         ],
-        "roomTemplateIds": ["false-apartment", "combat-hall", "chest-gallery"],
+        "roomTemplateIds": ["combat-hall", "chest-gallery"],
         "accent": "#a6c88b"
       },
       {
@@ -318,6 +434,9 @@
         { "x": 330, "y": 341, "width": 183, "height": 90, "elevation": 48 },
         { "x": 574, "y": 191, "width": 98, "height": 141, "elevation": 75 }
       ],
+      "encounter": {
+        "enemyIds": ["spider-knife"]
+      },
       "interaction": {
         "title": "Ящик без ножей",
         "body": "Все кухонные ножи исчезли, кроме одного слишком маленького, чтобы принадлежать этой квартире.",
@@ -362,7 +481,7 @@
           "name": "Сетка столов",
           "enemySpawns": [
             { "x": 982, "y": 100 }, { "x": 1025, "y": 249 }, { "x": 994, "y": 473 },
-            { "x": 845, "y": 577 }, { "x": 646, "y": 324 }
+            { "x": 845, "y": 577 }, { "x": 620, "y": 324 }
           ]
         },
         {
@@ -542,7 +661,7 @@
           "name": "Восточный перекрёстный огонь",
           "enemySpawns": [
             { "x": 887, "y": 171 }, { "x": 1020, "y": 337 }, { "x": 874, "y": 523 },
-            { "x": 646, "y": 121 }, { "x": 659, "y": 563 }, { "x": 469, "y": 327 }
+            { "x": 646, "y": 121 }, { "x": 659, "y": 563 }, { "x": 469, "y": 337 }
           ]
         },
         {
@@ -709,8 +828,8 @@
           "id": "miscast-reflection",
           "name": "Неверное отражение",
           "enemySpawns": [
-            { "x": 961, "y": 145 }, { "x": 1070, "y": 346 }, { "x": 961, "y": 562 },
-            { "x": 713, "y": 105 }, { "x": 828, "y": 597 }, { "x": 535, "y": 371 },
+            { "x": 961, "y": 145 }, { "x": 1075, "y": 346 }, { "x": 961, "y": 562 },
+            { "x": 713, "y": 105 }, { "x": 828, "y": 597 }, { "x": 535, "y": 385 },
             { "x": 1114, "y": 85 }
           ]
         },
@@ -719,7 +838,7 @@
           "name": "Длинная тень",
           "enemySpawns": [
             { "x": 1095, "y": 120 }, { "x": 1146, "y": 251 }, { "x": 1121, "y": 391 },
-            { "x": 1146, "y": 542 }, { "x": 1082, "y": 652 }, { "x": 815, "y": 120 },
+            { "x": 1146, "y": 542 }, { "x": 1082, "y": 640 }, { "x": 815, "y": 120 },
             { "x": 815, "y": 501 }
           ]
         }
@@ -791,6 +910,7 @@
         { "x": 922, "y": 245, "width": 115, "height": 230, "elevation": 105 }
       ],
       "encounter": { "enemyIds": [] },
+      "turretAlarmHoldMs": 650,
       "turrets": [
         {
           "id": "turret-circle", "name": "Турель «Круг»",
@@ -798,6 +918,7 @@
           "facingDegrees": 15, "rotationDegreesPerSecond": 24,
           "visionRange": 593, "visionAngleDegrees": 56, "interactionRange": 89,
           "fireIntervalMs": 110, "projectileSpeed": 1197, "projectileRadius": 7,
+          "projectileSpawnOffset": 18, "projectileKnockback": 0,
           "damage": 38, "color": "#ff6659"
         },
         {
@@ -806,6 +927,7 @@
           "facingDegrees": 165, "rotationDegreesPerSecond": -21,
           "visionRange": 593, "visionAngleDegrees": 56, "interactionRange": 89,
           "fireIntervalMs": 110, "projectileSpeed": 1197, "projectileRadius": 7,
+          "projectileSpawnOffset": 18, "projectileKnockback": 0,
           "damage": 38, "color": "#ff6659"
         },
         {
@@ -814,6 +936,7 @@
           "facingDegrees": 195, "rotationDegreesPerSecond": 27,
           "visionRange": 593, "visionAngleDegrees": 56, "interactionRange": 89,
           "fireIntervalMs": 110, "projectileSpeed": 1197, "projectileRadius": 7,
+          "projectileSpawnOffset": 18, "projectileKnockback": 0,
           "damage": 38, "color": "#ff6659"
         },
         {
@@ -822,6 +945,7 @@
           "facingDegrees": 345, "rotationDegreesPerSecond": -18,
           "visionRange": 593, "visionAngleDegrees": 56, "interactionRange": 89,
           "fireIntervalMs": 110, "projectileSpeed": 1197, "projectileRadius": 7,
+          "projectileSpawnOffset": 18, "projectileKnockback": 0,
           "damage": 38, "color": "#ff6659"
         }
       ]
@@ -945,6 +1069,7 @@
       "attackKind": "projectile",
       "attackRadius": 7,
       "projectileSpeed": 470,
+      "projectileKnockback": 0,
       "attackDamage": 7,
       "attackCooldownMs": 1180,
       "attackWindupMs": 340,
@@ -1107,6 +1232,7 @@
           "attackCooldownMs": 880,
           "attackWindupMs": 540,
           "projectileSpeed": 520,
+          "projectileKnockback": 0,
           "parryWindowMs": 135
         },
         {
@@ -1157,7 +1283,10 @@
       "cockroachMother": {
         "retreatHealthRatios": [0.75, 0.5, 0.25],
         "retreatSpeed": 160,
+        "entranceRadiusRatio": 0.55,
         "hideMs": 5000,
+        "exitRecoveryMs": 650,
+        "sameHoleChance": 0.5,
         "blastRadius": 560,
         "blastDamageMaxHpRatio": 0.8
       }
@@ -1566,7 +1695,11 @@
           "recoveryMs": 520,
           "tuning": {
             "wallPinMs": 1800,
-            "projectileSpawnOffset": 52
+            "projectileSpawnOffset": 52,
+            "earlyInnerRange": 52,
+            "middleStunMs": 1000,
+            "middleTargetMinimumRange": 80,
+            "middleTargetMinimumRangeRatio": 0.25
           }
         },
         "holdThenDoubleTap": {
@@ -1659,6 +1792,10 @@
             "shape": "capsule",
             "width": 48,
             "traceMs": 420
+          },
+          "tuning": {
+            "reflectedProjectileMinimumRange": 220,
+            "reflectedProjectilePierce": 0
           }
         }
       ],
@@ -1681,6 +1818,10 @@
             "shape": "capsule",
             "width": 50,
             "traceMs": 440
+          },
+          "tuning": {
+            "reflectedProjectileMinimumRange": 220,
+            "reflectedProjectilePierce": 0
           }
         },
         "doubleTap": {
@@ -1747,7 +1888,9 @@
           "recoveryMs": 360,
           "tuning": {
             "minimumTargetRange": 80,
-            "targetDistancePerKnockback": 1
+            "targetDistancePerKnockback": 1,
+            "armorMultiplier": 2,
+            "armorDurationMs": 500
           }
         },
         "hold": {
@@ -1810,54 +1953,430 @@
       "controls": {
         "primary": {
           "role": "Right cluster — lance gearbox",
-          "mylorik": { "activations": [
-            { "gesture": "tap", "intent": "strike", "phase": "press", "priority": 100 },
-            { "gesture": "doubleTap", "intent": "technique", "phase": "tap", "priority": 100 },
-            { "gesture": "doubleTapHold", "intent": "strike", "phase": "press", "context": "continuation", "priority": 80 },
-            { "gesture": "hold", "intent": "technique", "phase": "hold", "priority": 100 },
-            { "gesture": "holdThenDoubleTap", "intent": "mobility", "phase": "press", "context": "continuation", "priority": 80 }
-          ] },
+          "mylorik": {
+            "activations": [
+              {
+                "gesture": "tap",
+                "intent": "strike",
+                "phase": "press",
+                "priority": 100
+              },
+              {
+                "gesture": "doubleTap",
+                "intent": "technique",
+                "phase": "tap",
+                "priority": 100
+              },
+              {
+                "gesture": "doubleTapHold",
+                "intent": "strike",
+                "phase": "press",
+                "context": "continuation",
+                "priority": 80
+              },
+              {
+                "gesture": "hold",
+                "intent": "technique",
+                "phase": "hold",
+                "priority": 100
+              },
+              {
+                "gesture": "holdThenDoubleTap",
+                "intent": "mobility",
+                "phase": "press",
+                "context": "continuation",
+                "priority": 80
+              }
+            ]
+          },
           "dualsense": {
             "instantGesture": "tap",
             "triggerRole": "R2 thrust, overhead release, ram and spin",
-            "startNodeId": "hold",
+            "startNodeId": "hold-early",
+            "nodes": [
+              {
+                "gesture": "hold",
+                "entryContext": "neutral",
+                "activationThreshold": 0.25,
+                "dispatch": "release",
+                "holdBehavior": "charge",
+                "releaseBehavior": "dispatch",
+                "next": [
+                  "hold-middle"
+                ],
+                "cancel": "release",
+                "expiryMs": 2300,
+                "tactileProfile": "ramp",
+                "id": "hold-early",
+                "chargeBandOverrideId": "early",
+                "telegraph": [
+                  {
+                    "delayMs": 0,
+                    "durationMs": 30,
+                    "magnitude": 0.24
+                  }
+                ],
+                "entryTick": {
+                  "durationMs": 35,
+                  "magnitude": 0.25
+                },
+                "adaptiveOverride": {
+                  "startPosition": 0.25,
+                  "endPosition": 0.34,
+                  "force": 0.42
+                }
+              },
+              {
+                "gesture": "hold",
+                "entryContext": "neutral",
+                "activationThreshold": 0.5,
+                "dispatch": "release",
+                "holdBehavior": "charge",
+                "releaseBehavior": "dispatch",
+                "next": [
+                  "ram-short",
+                  "spin-finisher"
+                ],
+                "cancel": "release",
+                "expiryMs": 2300,
+                "tactileProfile": "ramp",
+                "id": "hold-middle",
+                "chargeBandOverrideId": "middle",
+                "telegraph": [
+                  {
+                    "delayMs": 0,
+                    "durationMs": 30,
+                    "magnitude": 0.24
+                  },
+                  {
+                    "delayMs": 95,
+                    "durationMs": 30,
+                    "magnitude": 0.27999999999999997
+                  }
+                ],
+                "armedTriggerOverride": {
+                  "startPosition": 0.78,
+                  "endPosition": 0.95,
+                  "resistance": 0.18,
+                  "force": 0.24
+                },
+                "adaptiveOverride": {
+                  "startPosition": 0.5,
+                  "endPosition": 0.6,
+                  "force": 0.58
+                }
+              },
+              {
+                "gesture": "doubleTapHold",
+                "entryContext": "continuation",
+                "activationThreshold": 0.75,
+                "dispatch": "release",
+                "holdBehavior": "charge",
+                "releaseBehavior": "dispatch",
+                "next": [
+                  "ram-strong",
+                  "spin-finisher"
+                ],
+                "cancel": "release",
+                "expiryMs": 2300,
+                "tactileProfile": "gate",
+                "id": "ram-short",
+                "chargeBandOverrideId": "ram-short",
+                "armedTriggerOverride": {
+                  "startPosition": 0.78,
+                  "endPosition": 0.95,
+                  "resistance": 0.18,
+                  "force": 0.24
+                },
+                "entryTick": {
+                  "durationMs": 45,
+                  "magnitude": 0.35
+                },
+                "adaptiveOverride": {
+                  "startPosition": 0.75,
+                  "endPosition": 0.85,
+                  "force": 0.8
+                }
+              },
+              {
+                "gesture": "doubleTapHold",
+                "entryContext": "continuation",
+                "activationThreshold": 0.95,
+                "dispatch": "release",
+                "holdBehavior": "charge",
+                "releaseBehavior": "dispatch",
+                "next": [],
+                "cancel": "release",
+                "expiryMs": 2300,
+                "tactileProfile": "gate",
+                "id": "ram-strong",
+                "chargeBandOverrideId": "ram-strong",
+                "entryTick": {
+                  "durationMs": 55,
+                  "magnitude": 0.45
+                },
+                "adaptiveOverride": {
+                  "startPosition": 0.95,
+                  "endPosition": 1,
+                  "force": 1
+                }
+              },
+              {
+                "gesture": "holdThenDoubleTap",
+                "entryContext": "continuation",
+                "activationThreshold": 0.95,
+                "dispatch": "press",
+                "holdBehavior": "none",
+                "releaseBehavior": "cancel",
+                "next": [],
+                "cancel": "release",
+                "expiryMs": 2300,
+                "tactileProfile": "followUp",
+                "id": "spin-finisher",
+                "entryRequiresArmed": true,
+                "chargeBandOverrideId": "spin-middle",
+                "entryTick": {
+                  "durationMs": 55,
+                  "magnitude": 0.45
+                },
+                "adaptiveOverride": {
+                  "startPosition": 0.95,
+                  "endPosition": 1,
+                  "force": 1
+                }
+              }
+            ],
             "preGateGesture": "doubleTap",
             "haptics": {
-              "baseTrigger": { "startPosition": 0.16, "endPosition": 0.24, "force": 0.35 },
-              "gateTick": { "durationMs": 25, "magnitude": 0.15 },
-              "commitPattern": [{ "delayMs": 0, "durationMs": 70, "magnitude": 0.6 }]
-            },
-            "nodes": [
-              { "id": "hold", "gesture": "hold", "entryContext": "neutral", "activationThreshold": 0.48, "dispatch": "release", "holdBehavior": "charge", "releaseBehavior": "dispatch", "next": ["doubleTapHold", "holdThenDoubleTap"], "cancel": "release", "expiryMs": 480, "tactileProfile": "ramp", "entryTick": { "durationMs": 35, "magnitude": 0.25 }, "adaptiveOverride": { "startPosition": 0.48, "endPosition": 0.58, "force": 0.55 } },
-              { "id": "doubleTapHold", "gesture": "doubleTapHold", "entryContext": "continuation", "activationThreshold": 0.72, "dispatch": "release", "holdBehavior": "charge", "releaseBehavior": "dispatch", "next": [], "cancel": "release", "expiryMs": 480, "tactileProfile": "gate", "entryTick": { "durationMs": 45, "magnitude": 0.35 }, "adaptiveOverride": { "startPosition": 0.72, "endPosition": 0.82, "force": 0.8 } },
-              { "id": "holdThenDoubleTap", "gesture": "holdThenDoubleTap", "entryContext": "continuation", "activationThreshold": 0.9, "dispatch": "press", "holdBehavior": "none", "releaseBehavior": "cancel", "next": [], "cancel": "release", "expiryMs": 480, "tactileProfile": "followUp", "requiredChargeBandId": "middle", "entryTick": { "durationMs": 55, "magnitude": 0.45 }, "adaptiveOverride": { "startPosition": 0.9, "endPosition": 0.98, "force": 1 } }
-            ]
+              "baseTrigger": {
+                "startPosition": 0.16,
+                "endPosition": 0.24,
+                "force": 0.35
+              },
+              "gateTick": {
+                "durationMs": 25,
+                "magnitude": 0.15
+              },
+              "commitPattern": [
+                {
+                  "delayMs": 0,
+                  "durationMs": 70,
+                  "magnitude": 0.6
+                }
+              ],
+              "depthTicks": [
+                {
+                  "position": 0.85,
+                  "tick": {
+                    "durationMs": 18,
+                    "magnitude": 0.13
+                  }
+                },
+                {
+                  "position": 0.9,
+                  "tick": {
+                    "durationMs": 18,
+                    "magnitude": 0.16
+                  }
+                }
+              ]
+            }
           }
         },
         "secondary": {
           "role": "Left cluster — parry, brace, stance and vault",
-          "mylorik": { "activations": [
-            { "gesture": "tap", "intent": "strike", "phase": "press", "priority": 100 },
-            { "gesture": "doubleTap", "intent": "technique", "phase": "tap", "priority": 100 },
-            { "gesture": "doubleTapHold", "intent": "strike", "phase": "press", "context": "continuation", "priority": 80 },
-            { "gesture": "hold", "intent": "technique", "phase": "hold", "priority": 100 },
-            { "gesture": "holdThenDoubleTap", "intent": "mobility", "phase": "press", "context": "stance", "priority": 80 }
-          ] },
+          "mylorik": {
+            "activations": [
+              {
+                "gesture": "tap",
+                "intent": "strike",
+                "phase": "press",
+                "priority": 100
+              },
+              {
+                "gesture": "doubleTap",
+                "intent": "technique",
+                "phase": "tap",
+                "priority": 100
+              },
+              {
+                "gesture": "doubleTapHold",
+                "intent": "strike",
+                "phase": "press",
+                "context": "continuation",
+                "priority": 80
+              },
+              {
+                "gesture": "hold",
+                "intent": "technique",
+                "phase": "hold",
+                "priority": 100
+              },
+              {
+                "gesture": "holdThenDoubleTap",
+                "intent": "mobility",
+                "phase": "press",
+                "context": "stance",
+                "priority": 80
+              }
+            ]
+          },
           "dualsense": {
             "instantGesture": "tap",
             "triggerRole": "L2 shove, brace, cutting stance and pole vault",
-            "startNodeId": "hold",
+            "startNodeId": "stance",
+            "nodes": [
+              {
+                "gesture": "hold",
+                "entryContext": "neutral",
+                "activationThreshold": 0.25,
+                "dispatch": "press",
+                "holdBehavior": "channel",
+                "releaseBehavior": "dispatch",
+                "next": [
+                  "kick-brace",
+                  "vault-finisher"
+                ],
+                "cancel": "release",
+                "expiryMs": 2300,
+                "tactileProfile": "tension",
+                "id": "stance",
+                "armedTriggerOverride": {
+                  "startPosition": 0.78,
+                  "endPosition": 0.95,
+                  "resistance": 0.18,
+                  "force": 0.24
+                },
+                "entryTick": null
+              },
+              {
+                "gesture": "doubleTapHold",
+                "entryContext": "continuation",
+                "activationThreshold": 0.5,
+                "dispatch": "release",
+                "holdBehavior": "charge",
+                "releaseBehavior": "dispatch",
+                "next": [
+                  "kick-strong"
+                ],
+                "cancel": "release",
+                "expiryMs": 2300,
+                "tactileProfile": "gate",
+                "id": "kick-brace",
+                "chargeBandOverrideId": "brace",
+                "telegraph": [
+                  {
+                    "delayMs": 0,
+                    "durationMs": 30,
+                    "magnitude": 0.24
+                  }
+                ],
+                "adaptiveOverride": {
+                  "startPosition": 0.5,
+                  "endPosition": 0.6,
+                  "force": 0.5
+                }
+              },
+              {
+                "gesture": "doubleTapHold",
+                "entryContext": "continuation",
+                "activationThreshold": 0.75,
+                "dispatch": "release",
+                "holdBehavior": "charge",
+                "releaseBehavior": "dispatch",
+                "next": [
+                  "kick-final"
+                ],
+                "cancel": "release",
+                "expiryMs": 2300,
+                "tactileProfile": "gate",
+                "id": "kick-strong",
+                "chargeBandOverrideId": "kick",
+                "telegraph": [
+                  {
+                    "delayMs": 0,
+                    "durationMs": 30,
+                    "magnitude": 0.24
+                  },
+                  {
+                    "delayMs": 95,
+                    "durationMs": 30,
+                    "magnitude": 0.27999999999999997
+                  }
+                ],
+                "adaptiveOverride": {
+                  "startPosition": 0.75,
+                  "endPosition": 0.85,
+                  "force": 0.7
+                }
+              },
+              {
+                "gesture": "doubleTapHold",
+                "entryContext": "continuation",
+                "activationThreshold": 0.95,
+                "dispatch": "release",
+                "holdBehavior": "charge",
+                "releaseBehavior": "dispatch",
+                "next": [],
+                "cancel": "release",
+                "expiryMs": 2300,
+                "tactileProfile": "gate",
+                "id": "kick-final",
+                "chargeBandOverrideId": "kick",
+                "adaptiveOverride": {
+                  "startPosition": 0.95,
+                  "endPosition": 1,
+                  "force": 0.9
+                }
+              },
+              {
+                "gesture": "holdThenDoubleTap",
+                "entryContext": "stance",
+                "activationThreshold": 0.95,
+                "dispatch": "press",
+                "holdBehavior": "none",
+                "releaseBehavior": "cancel",
+                "next": [],
+                "cancel": "release",
+                "expiryMs": 2300,
+                "tactileProfile": "followUp",
+                "id": "vault-finisher",
+                "entryRequiresArmed": true,
+                "adaptiveOverride": {
+                  "startPosition": 0.95,
+                  "endPosition": 1,
+                  "force": 0.9
+                }
+              }
+            ],
             "preGateGesture": "doubleTap",
             "haptics": {
-              "baseTrigger": { "startPosition": 0.14, "endPosition": 0.14, "resistance": 0.2 },
-              "gateTick": { "durationMs": 25, "magnitude": 0.12 },
-              "commitPattern": [{ "delayMs": 0, "durationMs": 50, "magnitude": 0.4 }]
-            },
-            "nodes": [
-              { "id": "hold", "gesture": "hold", "entryContext": "neutral", "activationThreshold": 0.48, "dispatch": "press", "holdBehavior": "channel", "releaseBehavior": "dispatch", "next": ["doubleTapHold", "holdThenDoubleTap"], "cancel": "release", "expiryMs": 480, "tactileProfile": "tension", "entryTick": null },
-              { "id": "doubleTapHold", "gesture": "doubleTapHold", "entryContext": "continuation", "activationThreshold": 0.72, "dispatch": "release", "holdBehavior": "charge", "releaseBehavior": "dispatch", "next": [], "cancel": "release", "expiryMs": 480, "tactileProfile": "gate", "adaptiveOverride": { "startPosition": 0.72, "endPosition": 0.82, "force": 0.65 } },
-              { "id": "holdThenDoubleTap", "gesture": "holdThenDoubleTap", "entryContext": "stance", "activationThreshold": 0.9, "dispatch": "release", "holdBehavior": "none", "releaseBehavior": "dispatch", "next": [], "cancel": "release", "expiryMs": 480, "tactileProfile": "followUp", "adaptiveOverride": { "startPosition": 0.9, "endPosition": 0.98, "force": 0.9 } }
-            ]
+              "baseTrigger": {
+                "startPosition": 0.14,
+                "endPosition": 0.14,
+                "resistance": 0.2
+              },
+              "gateTick": {
+                "durationMs": 25,
+                "magnitude": 0.12
+              },
+              "commitPattern": [
+                {
+                  "delayMs": 0,
+                  "durationMs": 50,
+                  "magnitude": 0.4
+                }
+              ],
+              "depthTicks": [
+                {
+                  "position": 0.85,
+                  "tick": {
+                    "durationMs": 22,
+                    "magnitude": 0.14
+                  }
+                }
+              ]
+            }
           }
         }
       }
@@ -1909,7 +2428,11 @@
               "chance": 0.28,
               "refresh": "refresh"
             }
-          ]
+          ],
+          "tuning": {
+            "reflectedProjectileMinimumRange": 220,
+            "reflectedProjectilePierce": 0
+          }
         },
         {
           "name": "Завершающий круг цепью",
@@ -1931,6 +2454,10 @@
             "width": 56,
             "traceMs": 880,
             "rotationDegrees": 360
+          },
+          "tuning": {
+            "reflectedProjectileMinimumRange": 220,
+            "reflectedProjectilePierce": 0
           }
         }
       ],
@@ -1963,6 +2490,10 @@
               "refresh": "refresh"
             }
           ],
+          "tuning": {
+            "reflectedProjectileMinimumRange": 220,
+            "reflectedProjectilePierce": 0
+          },
           "recoveryMs": 260
         },
         "doubleTap": {
@@ -1997,6 +2528,11 @@
           ],
           "repeatHits": 2,
           "repeatIntervalMs": 430,
+          "tuning": {
+            "assistMovementThreshold": 0.2,
+            "assistFacingTurnRadians": 0.012,
+            "assistMultiplier": 2
+          },
           "recoveryMs": 360
         },
         "doubleTapHold": {
@@ -2153,31 +2689,214 @@
       "controls": {
         "primary": {
           "role": "Matching hand — lash and tension spool",
-          "mylorik": { "activations": [
-            { "gesture": "tap", "intent": "strike", "phase": "press", "priority": 100 },
-            { "gesture": "doubleTap", "intent": "technique", "phase": "tap", "priority": 100 },
-            { "gesture": "doubleTapHold", "intent": "mobility", "phase": "press", "context": "spin", "priority": 80 },
-            { "gesture": "hold", "intent": "technique", "phase": "hold", "priority": 100 },
-            { "gesture": "holdThenDoubleTap", "intent": "strike", "phase": "press", "context": "tether", "priority": 80 }
-          ] },
+          "mylorik": {
+            "activations": [
+              {
+                "gesture": "tap",
+                "intent": "strike",
+                "phase": "press",
+                "priority": 100
+              },
+              {
+                "gesture": "doubleTap",
+                "intent": "technique",
+                "phase": "tap",
+                "priority": 100
+              },
+              {
+                "gesture": "doubleTapHold",
+                "intent": "mobility",
+                "phase": "press",
+                "context": "spin",
+                "priority": 80
+              },
+              {
+                "gesture": "hold",
+                "intent": "technique",
+                "phase": "hold",
+                "priority": 100
+              },
+              {
+                "gesture": "holdThenDoubleTap",
+                "intent": "strike",
+                "phase": "press",
+                "context": "tether",
+                "priority": 80
+              }
+            ]
+          },
           "dualsense": {
             "instantGesture": "tap",
             "triggerRole": "Trigger cast, spin, drag, throw and bind",
-            "startNodeId": "hold",
-            "haptics": {
-              "baseTrigger": { "startPosition": 0.1, "endPosition": 0.1, "resistance": 0.28 },
-              "gateTick": { "durationMs": 40, "magnitude": 0.3 },
-              "commitPattern": [
-                { "delayMs": 0, "durationMs": 45, "magnitude": 0.45 },
-                { "delayMs": 125, "durationMs": 45, "magnitude": 0.45 }
-              ]
-            },
+            "startNodeId": "hook-near",
             "nodes": [
-              { "id": "hold", "gesture": "hold", "entryContext": "neutral", "activationThreshold": 0.22, "dispatch": "release", "holdBehavior": "charge", "releaseBehavior": "dispatch", "next": ["doubleTap", "holdThenDoubleTap"], "cancel": "release", "expiryMs": 480, "tactileProfile": "tension", "entryTick": null, "adaptiveOverride": { "startPosition": 0.22, "endPosition": 0.22, "resistance": 0.3 } },
-              { "id": "doubleTap", "gesture": "doubleTap", "entryContext": "neutral", "activationThreshold": 0.48, "dispatch": "press", "holdBehavior": "none", "releaseBehavior": "cancel", "next": ["doubleTapHold"], "cancel": "release", "expiryMs": 480, "tactileProfile": "gate", "adaptiveOverride": { "startPosition": 0.48, "endPosition": 0.48, "resistance": 0.5 } },
-              { "id": "doubleTapHold", "gesture": "doubleTapHold", "entryContext": "spin", "activationThreshold": 0.72, "dispatch": "release", "holdBehavior": "charge", "releaseBehavior": "dispatch", "next": [], "cancel": "release", "expiryMs": 480, "tactileProfile": "gate", "entryTick": { "durationMs": 50, "magnitude": 0.4 }, "adaptiveOverride": { "startPosition": 0.72, "endPosition": 0.72, "resistance": 0.7 } },
-              { "id": "holdThenDoubleTap", "gesture": "holdThenDoubleTap", "entryContext": "tether", "activationThreshold": 0.9, "dispatch": "press", "holdBehavior": "none", "releaseBehavior": "cancel", "next": [], "cancel": "release", "expiryMs": 480, "tactileProfile": "gate", "entryTick": { "durationMs": 50, "magnitude": 0.4 }, "adaptiveOverride": { "startPosition": 0.9, "endPosition": 0.9, "resistance": 0.9 } }
-            ]
+              {
+                "gesture": "hold",
+                "entryContext": "neutral",
+                "activationThreshold": 0.25,
+                "dispatch": "press",
+                "holdBehavior": "channel",
+                "releaseBehavior": "dispatch",
+                "next": [
+                  "spin",
+                  "bind-finisher"
+                ],
+                "cancel": "release",
+                "expiryMs": 2300,
+                "tactileProfile": "tension",
+                "id": "hook-near",
+                "chargeBandOverrideId": "hook-near",
+                "armedTriggerOverride": {
+                  "startPosition": 0.78,
+                  "endPosition": 0.95,
+                  "resistance": 0.18,
+                  "force": 0.24
+                },
+                "entryTick": null,
+                "adaptiveOverride": {
+                  "startPosition": 0.25,
+                  "endPosition": 0.25,
+                  "resistance": 0.3
+                }
+              },
+              {
+                "gesture": "doubleTap",
+                "entryContext": "neutral",
+                "activationThreshold": 0.5,
+                "dispatch": "press",
+                "holdBehavior": "none",
+                "releaseBehavior": "cancel",
+                "next": [
+                  "throw-wrap"
+                ],
+                "cancel": "release",
+                "expiryMs": 2300,
+                "tactileProfile": "gate",
+                "id": "spin",
+                "adaptiveOverride": {
+                  "startPosition": 0.5,
+                  "endPosition": 0.5,
+                  "resistance": 0.5
+                }
+              },
+              {
+                "gesture": "doubleTapHold",
+                "entryContext": "spin",
+                "activationThreshold": 0.75,
+                "dispatch": "release",
+                "holdBehavior": "charge",
+                "releaseBehavior": "dispatch",
+                "next": [
+                  "throw-heave"
+                ],
+                "cancel": "release",
+                "expiryMs": 2300,
+                "tactileProfile": "gate",
+                "id": "throw-wrap",
+                "chargeBandOverrideId": "wrap",
+                "entryTick": {
+                  "durationMs": 50,
+                  "magnitude": 0.4
+                },
+                "adaptiveOverride": {
+                  "startPosition": 0.75,
+                  "endPosition": 0.75,
+                  "resistance": 0.7
+                }
+              },
+              {
+                "gesture": "doubleTapHold",
+                "entryContext": "spin",
+                "activationThreshold": 0.95,
+                "dispatch": "release",
+                "holdBehavior": "charge",
+                "releaseBehavior": "dispatch",
+                "next": [],
+                "cancel": "release",
+                "expiryMs": 2300,
+                "tactileProfile": "gate",
+                "id": "throw-heave",
+                "chargeBandOverrideId": "heave",
+                "entryTick": {
+                  "durationMs": 55,
+                  "magnitude": 0.48
+                },
+                "adaptiveOverride": {
+                  "startPosition": 0.95,
+                  "endPosition": 0.95,
+                  "resistance": 0.9
+                }
+              },
+              {
+                "gesture": "holdThenDoubleTap",
+                "entryContext": "tether",
+                "activationThreshold": 0.95,
+                "dispatch": "press",
+                "holdBehavior": "none",
+                "releaseBehavior": "cancel",
+                "next": [],
+                "cancel": "release",
+                "expiryMs": 2300,
+                "tactileProfile": "gate",
+                "id": "bind-finisher",
+                "entryRequiresArmed": true,
+                "entryTick": {
+                  "durationMs": 50,
+                  "magnitude": 0.4
+                },
+                "adaptiveOverride": {
+                  "startPosition": 0.95,
+                  "endPosition": 0.95,
+                  "resistance": 0.9
+                }
+              }
+            ],
+            "haptics": {
+              "baseTrigger": {
+                "startPosition": 0.1,
+                "endPosition": 0.1,
+                "resistance": 0.28
+              },
+              "gateTick": {
+                "durationMs": 40,
+                "magnitude": 0.3
+              },
+              "commitPattern": [
+                {
+                  "delayMs": 0,
+                  "durationMs": 45,
+                  "magnitude": 0.45
+                },
+                {
+                  "delayMs": 125,
+                  "durationMs": 45,
+                  "magnitude": 0.45
+                }
+              ],
+              "depthTicks": [
+                {
+                  "position": 0.35,
+                  "tick": {
+                    "durationMs": 16,
+                    "magnitude": 0.12
+                  }
+                },
+                {
+                  "position": 0.6,
+                  "tick": {
+                    "durationMs": 18,
+                    "magnitude": 0.16
+                  }
+                },
+                {
+                  "position": 0.85,
+                  "tick": {
+                    "durationMs": 20,
+                    "magnitude": 0.2
+                  }
+                }
+              ]
+            }
           }
         }
       }
@@ -2191,6 +2910,10 @@
       "trait": "clawParity",
       "tuning": {
         "bleedEveryHits": 2,
+        "parityBleedDurationMs": 5000,
+        "parityBleedStacks": 1,
+        "parityBleedTickDamage": 1.1,
+        "parityBleedTickMs": 500,
         "alternatingHitWindowMs": 360,
         "alternatingMicrostunMs": 90
       },
@@ -2399,6 +3122,9 @@
             "chemicalTrailColliderRadius": 8,
             "chemicalTrailDurationMs": 900,
             "chemicalTrailLingerMs": 500,
+            "chemicalTrailDamage": 0,
+            "chemicalTrailPierce": 20,
+            "chemicalTrailKnockback": 0,
             "landingRange": 82,
             "landingColliderRadius": 12,
             "landingArcDegrees": 110,
@@ -2445,31 +3171,212 @@
       "controls": {
         "primary": {
           "role": "Matching hand — slash and predator spring",
-          "mylorik": { "activations": [
-            { "gesture": "tap", "intent": "strike", "phase": "press", "priority": 100 },
-            { "gesture": "doubleTap", "intent": "technique", "phase": "tap", "priority": 100 },
-            { "gesture": "doubleTapHold", "intent": "strike", "phase": "press", "context": "continuation", "priority": 80 },
-            { "gesture": "hold", "intent": "mobility", "phase": "hold", "priority": 100 },
-            { "gesture": "holdThenDoubleTap", "intent": "strike", "phase": "press", "context": "dash", "priority": 90 }
-          ] },
+          "mylorik": {
+            "activations": [
+              {
+                "gesture": "tap",
+                "intent": "strike",
+                "phase": "press",
+                "priority": 100
+              },
+              {
+                "gesture": "doubleTap",
+                "intent": "technique",
+                "phase": "tap",
+                "priority": 100
+              },
+              {
+                "gesture": "doubleTapHold",
+                "intent": "strike",
+                "phase": "press",
+                "context": "continuation",
+                "priority": 80
+              },
+              {
+                "gesture": "hold",
+                "intent": "mobility",
+                "phase": "hold",
+                "priority": 100
+              },
+              {
+                "gesture": "holdThenDoubleTap",
+                "intent": "strike",
+                "phase": "press",
+                "context": "dash",
+                "priority": 90
+              }
+            ]
+          },
           "dualsense": {
             "instantGesture": "tap",
             "triggerRole": "Trigger rend, traversal, disarm and deep critical",
-            "startNodeId": "doubleTap",
-            "haptics": {
-              "baseTrigger": { "startPosition": 0.2, "endPosition": 0.3, "force": 0.5 },
-              "gateTick": { "durationMs": 18, "magnitude": 0.3 },
-              "commitPattern": [
-                { "delayMs": 0, "durationMs": 30, "magnitude": 0.5 },
-                { "delayMs": 80, "durationMs": 30, "magnitude": 0.5 }
-              ]
-            },
+            "startNodeId": "rend",
             "nodes": [
-              { "id": "doubleTap", "gesture": "doubleTap", "entryContext": "neutral", "activationThreshold": 0.22, "dispatch": "release", "holdBehavior": "none", "releaseBehavior": "dispatch", "next": ["hold"], "cancel": "release", "expiryMs": 480, "tactileProfile": "click", "adaptiveOverride": { "startPosition": 0.22, "endPosition": 0.3, "force": 0.3 } },
-              { "id": "hold", "gesture": "hold", "entryContext": "neutral", "activationThreshold": 0.48, "dispatch": "release", "holdBehavior": "charge", "releaseBehavior": "dispatch", "next": ["doubleTapHold", "holdThenDoubleTap"], "cancel": "release", "expiryMs": 480, "tactileProfile": "ramp", "adaptiveOverride": { "startPosition": 0.48, "endPosition": 0.56, "force": 0.55 } },
-              { "id": "doubleTapHold", "gesture": "doubleTapHold", "entryContext": "neutral", "activationThreshold": 0.72, "dispatch": "release", "holdBehavior": "none", "releaseBehavior": "dispatch", "next": [], "cancel": "release", "expiryMs": 480, "tactileProfile": "gate", "adaptiveOverride": { "startPosition": 0.72, "endPosition": 0.8, "force": 0.8 } },
-              { "id": "holdThenDoubleTap", "gesture": "holdThenDoubleTap", "entryContext": "dash", "activationThreshold": 0.9, "dispatch": "press", "holdBehavior": "none", "releaseBehavior": "cancel", "next": [], "cancel": "release", "expiryMs": 480, "tactileProfile": "followUp", "adaptiveOverride": { "startPosition": 0.9, "endPosition": 0.98, "force": 1 } }
-            ]
+              {
+                "gesture": "doubleTap",
+                "entryContext": "neutral",
+                "activationThreshold": 0.25,
+                "dispatch": "release",
+                "holdBehavior": "none",
+                "releaseBehavior": "dispatch",
+                "next": [
+                  "dash-short"
+                ],
+                "cancel": "release",
+                "expiryMs": 2300,
+                "tactileProfile": "click",
+                "id": "rend",
+                "telegraph": [
+                  {
+                    "delayMs": 0,
+                    "durationMs": 30,
+                    "magnitude": 0.34
+                  }
+                ],
+                "adaptiveOverride": {
+                  "startPosition": 0.25,
+                  "endPosition": 0.32,
+                  "force": 0.3
+                }
+              },
+              {
+                "gesture": "hold",
+                "entryContext": "neutral",
+                "activationThreshold": 0.5,
+                "dispatch": "release",
+                "holdBehavior": "charge",
+                "releaseBehavior": "dispatch",
+                "next": [
+                  "disarm",
+                  "deep-strike-finisher"
+                ],
+                "cancel": "release",
+                "expiryMs": 2300,
+                "tactileProfile": "ramp",
+                "id": "dash-short",
+                "chargeBandOverrideId": "claw-dash-short",
+                "armedTriggerOverride": {
+                  "startPosition": 0.78,
+                  "endPosition": 0.95,
+                  "resistance": 0.18,
+                  "force": 0.24
+                },
+                "telegraph": [
+                  {
+                    "delayMs": 0,
+                    "durationMs": 30,
+                    "magnitude": 0.34
+                  }
+                ],
+                "adaptiveOverride": {
+                  "startPosition": 0.5,
+                  "endPosition": 0.6,
+                  "force": 0.55
+                }
+              },
+              {
+                "gesture": "doubleTapHold",
+                "entryContext": "neutral",
+                "activationThreshold": 0.75,
+                "dispatch": "release",
+                "holdBehavior": "none",
+                "releaseBehavior": "dispatch",
+                "next": [
+                  "dash-long",
+                  "deep-strike-finisher"
+                ],
+                "cancel": "release",
+                "expiryMs": 2300,
+                "tactileProfile": "gate",
+                "id": "disarm",
+                "armedTriggerOverride": {
+                  "startPosition": 0.78,
+                  "endPosition": 0.95,
+                  "resistance": 0.18,
+                  "force": 0.24
+                },
+                "telegraph": [
+                  {
+                    "delayMs": 0,
+                    "durationMs": 30,
+                    "magnitude": 0.34
+                  }
+                ],
+                "adaptiveOverride": {
+                  "startPosition": 0.75,
+                  "endPosition": 0.84,
+                  "force": 0.8
+                }
+              },
+              {
+                "gesture": "hold",
+                "entryContext": "neutral",
+                "activationThreshold": 0.95,
+                "dispatch": "release",
+                "holdBehavior": "charge",
+                "releaseBehavior": "dispatch",
+                "next": [],
+                "cancel": "release",
+                "expiryMs": 2300,
+                "tactileProfile": "ramp",
+                "id": "dash-long",
+                "chargeBandOverrideId": "claw-dash-long",
+                "telegraph": [
+                  {
+                    "delayMs": 0,
+                    "durationMs": 30,
+                    "magnitude": 0.34
+                  }
+                ],
+                "adaptiveOverride": {
+                  "startPosition": 0.95,
+                  "endPosition": 1,
+                  "force": 1
+                }
+              },
+              {
+                "gesture": "holdThenDoubleTap",
+                "entryContext": "dash",
+                "activationThreshold": 0.95,
+                "dispatch": "press",
+                "holdBehavior": "none",
+                "releaseBehavior": "cancel",
+                "next": [],
+                "cancel": "release",
+                "expiryMs": 2300,
+                "tactileProfile": "followUp",
+                "id": "deep-strike-finisher",
+                "entryRequiresArmed": true,
+                "adaptiveOverride": {
+                  "startPosition": 0.95,
+                  "endPosition": 1,
+                  "force": 1
+                }
+              }
+            ],
+            "haptics": {
+              "baseTrigger": {
+                "startPosition": 0.2,
+                "endPosition": 0.3,
+                "force": 0.5
+              },
+              "gateTick": {
+                "durationMs": 18,
+                "magnitude": 0.3
+              },
+              "commitPattern": [
+                {
+                  "delayMs": 0,
+                  "durationMs": 30,
+                  "magnitude": 0.5
+                },
+                {
+                  "delayMs": 80,
+                  "durationMs": 30,
+                  "magnitude": 0.5
+                }
+              ]
+            }
           }
         }
       }
@@ -2709,42 +3616,242 @@
       "controls": {
         "primary": {
           "role": "Matching hand — slash and ratcheting impale",
-          "mylorik": { "activations": [
-            { "gesture": "tap", "intent": "strike", "phase": "press", "priority": 100 },
-            { "gesture": "doubleTap", "intent": "technique", "phase": "tap", "priority": 100 },
-            { "gesture": "doubleTapHold", "intent": "mobility", "phase": "release", "context": "continuation", "priority": 80 },
-            { "gesture": "hold", "intent": "technique", "phase": "hold", "priority": 100 },
-            { "gesture": "holdThenDoubleTap", "intent": "strike", "phase": "press", "context": "flurry", "priority": 80 }
-          ] },
+          "mylorik": {
+            "activations": [
+              {
+                "gesture": "tap",
+                "intent": "strike",
+                "phase": "press",
+                "priority": 100
+              },
+              {
+                "gesture": "doubleTap",
+                "intent": "technique",
+                "phase": "tap",
+                "priority": 100
+              },
+              {
+                "gesture": "doubleTapHold",
+                "intent": "mobility",
+                "phase": "release",
+                "context": "continuation",
+                "priority": 80
+              },
+              {
+                "gesture": "hold",
+                "intent": "technique",
+                "phase": "hold",
+                "priority": 100
+              },
+              {
+                "gesture": "holdThenDoubleTap",
+                "intent": "strike",
+                "phase": "press",
+                "context": "flurry",
+                "priority": 80
+              }
+            ]
+          },
           "dualsense": {
             "instantGesture": "tap",
             "triggerRole": "Trigger impale, flurry, twist and committed throw",
-            "startNodeId": "doubleTap",
+            "startNodeId": "impale",
+            "nodes": [
+              {
+                "gesture": "doubleTap",
+                "entryContext": "neutral",
+                "activationThreshold": 0.25,
+                "dispatch": "release",
+                "holdBehavior": "none",
+                "releaseBehavior": "dispatch",
+                "next": [
+                  "flurry"
+                ],
+                "cancel": "release",
+                "expiryMs": 2300,
+                "tactileProfile": "click",
+                "id": "impale",
+                "adaptiveOverride": {
+                  "startPosition": 0.25,
+                  "endPosition": 0.32,
+                  "force": 0.35
+                }
+              },
+              {
+                "gesture": "hold",
+                "entryContext": "neutral",
+                "activationThreshold": 0.5,
+                "dispatch": "press",
+                "holdBehavior": "channel",
+                "releaseBehavior": "dispatch",
+                "next": [
+                  "twist"
+                ],
+                "cancel": "release",
+                "expiryMs": 2300,
+                "tactileProfile": "tension",
+                "id": "flurry",
+                "entryTick": null,
+                "adaptiveOverride": {
+                  "startPosition": 0.5,
+                  "endPosition": 0.5,
+                  "resistance": 0.45
+                }
+              },
+              {
+                "gesture": "holdThenDoubleTap",
+                "entryContext": "flurry",
+                "activationThreshold": 0.75,
+                "dispatch": "release",
+                "holdBehavior": "none",
+                "releaseBehavior": "dispatch",
+                "next": [
+                  "throw-finisher"
+                ],
+                "cancel": "release",
+                "expiryMs": 2300,
+                "tactileProfile": "gate",
+                "id": "twist",
+                "armedCue": [
+                  {
+                    "delayMs": 0,
+                    "durationMs": 55,
+                    "magnitude": 0.68
+                  },
+                  {
+                    "delayMs": 85,
+                    "durationMs": 70,
+                    "magnitude": 0.7
+                  },
+                  {
+                    "delayMs": 190,
+                    "durationMs": 85,
+                    "magnitude": 0.7
+                  }
+                ],
+                "armedTriggerOverride": {
+                  "startPosition": 0.78,
+                  "endPosition": 0.95,
+                  "resistance": 0.18,
+                  "force": 0.24
+                },
+                "entryTick": {
+                  "durationMs": 30,
+                  "magnitude": 0.3
+                },
+                "adaptiveOverride": {
+                  "startPosition": 0.75,
+                  "endPosition": 0.84,
+                  "force": 0.7
+                }
+              },
+              {
+                "gesture": "doubleTapHold",
+                "entryContext": "continuation",
+                "activationThreshold": 0.95,
+                "dispatch": "press",
+                "holdBehavior": "charge",
+                "releaseBehavior": "cancel",
+                "next": [],
+                "cancel": "release",
+                "expiryMs": 2300,
+                "tactileProfile": "gate",
+                "id": "throw-finisher",
+                "entryRequiresArmed": true,
+                "chargeBandOverrideId": "spider-throw-ready",
+                "entryTick": {
+                  "durationMs": 45,
+                  "magnitude": 0.5
+                },
+                "adaptiveOverride": {
+                  "startPosition": 0.95,
+                  "endPosition": 1,
+                  "force": 1
+                }
+              }
+            ],
             "haptics": {
-              "baseTrigger": { "startPosition": 0.12, "endPosition": 0.12, "resistance": 0.22 },
-              "gateTick": { "durationMs": 20, "magnitude": 0.2 },
-              "bandTick": { "pulseMs": 30, "gapMs": 60, "magnitude": 0.28, "magnitudeStep": 0.1 },
+              "baseTrigger": {
+                "startPosition": 0.12,
+                "endPosition": 0.12,
+                "resistance": 0.22
+              },
+              "gateTick": {
+                "durationMs": 20,
+                "magnitude": 0.2
+              },
+              "bandTick": {
+                "pulseMs": 30,
+                "gapMs": 60,
+                "magnitude": 0.28,
+                "magnitudeStep": 0.1
+              },
               "commitPattern": [
-                { "delayMs": 0, "durationMs": 30, "magnitude": 0.3 },
-                { "delayMs": 90, "durationMs": 30, "magnitude": 0.45 },
-                { "delayMs": 180, "durationMs": 30, "magnitude": 0.6 }
+                {
+                  "delayMs": 0,
+                  "durationMs": 30,
+                  "magnitude": 0.3
+                },
+                {
+                  "delayMs": 90,
+                  "durationMs": 30,
+                  "magnitude": 0.45
+                },
+                {
+                  "delayMs": 180,
+                  "durationMs": 30,
+                  "magnitude": 0.6
+                }
               ],
               "wriggle": {
-                "calmIntervalMs": [2800, 4600],
-                "panicIntervalMs": [320, 720],
+                "calmIntervalMs": [
+                  2800,
+                  4600
+                ],
+                "panicIntervalMs": [
+                  320,
+                  720
+                ],
                 "calmMagnitude": 0.1,
                 "panicMagnitude": 0.45,
                 "pulseMs": 60,
-                "pulsesPerBurst": [1, 3],
+                "pulsesPerBurst": [
+                  1,
+                  3
+                ],
                 "curveExponent": 1.6
-              }
-            },
-            "nodes": [
-              { "id": "doubleTap", "gesture": "doubleTap", "entryContext": "neutral", "activationThreshold": 0.22, "dispatch": "release", "holdBehavior": "none", "releaseBehavior": "dispatch", "next": ["hold", "doubleTapHold"], "cancel": "release", "expiryMs": 480, "tactileProfile": "click", "adaptiveOverride": { "startPosition": 0.22, "endPosition": 0.28, "force": 0.35 } },
-              { "id": "hold", "gesture": "hold", "entryContext": "neutral", "activationThreshold": 0.48, "dispatch": "press", "holdBehavior": "channel", "releaseBehavior": "dispatch", "next": ["holdThenDoubleTap"], "cancel": "release", "expiryMs": 480, "tactileProfile": "tension", "entryTick": null, "adaptiveOverride": { "startPosition": 0.48, "endPosition": 0.48, "resistance": 0.45 } },
-              { "id": "holdThenDoubleTap", "gesture": "holdThenDoubleTap", "entryContext": "flurry", "activationThreshold": 0.72, "dispatch": "release", "holdBehavior": "none", "releaseBehavior": "dispatch", "next": [], "cancel": "release", "expiryMs": 480, "tactileProfile": "gate", "entryTick": { "durationMs": 30, "magnitude": 0.3 }, "adaptiveOverride": { "startPosition": 0.72, "endPosition": 0.78, "force": 0.7 } },
-              { "id": "doubleTapHold", "gesture": "doubleTapHold", "entryContext": "neutral", "activationThreshold": 0.9, "dispatch": "release", "holdBehavior": "charge", "releaseBehavior": "dispatch", "next": [], "cancel": "release", "expiryMs": 480, "tactileProfile": "gate", "entryTick": { "durationMs": 45, "magnitude": 0.5 }, "adaptiveOverride": { "startPosition": 0.9, "endPosition": 0.96, "force": 1 } }
-            ]
+              },
+              "depthTicks": [
+                {
+                  "position": 0.35,
+                  "tick": {
+                    "durationMs": 16,
+                    "magnitude": 0.15
+                  }
+                },
+                {
+                  "position": 0.6,
+                  "tick": {
+                    "durationMs": 18,
+                    "magnitude": 0.2
+                  }
+                },
+                {
+                  "position": 0.85,
+                  "tick": {
+                    "durationMs": 20,
+                    "magnitude": 0.26
+                  }
+                },
+                {
+                  "position": 0.9,
+                  "tick": {
+                    "durationMs": 22,
+                    "magnitude": 0.32
+                  }
+                }
+              ]
+            }
           }
         }
       }
@@ -2996,6 +4103,18 @@
                 "damageMultiplier": 1.25,
                 "knockbackMultiplier": 1.4,
                 "durationMultiplier": 1.15
+              },
+              {
+                "id": "axe-max",
+                "label": "Максимальный рычаг",
+                "minMs": 1650,
+                "color": "#f2b2ff",
+                "damageMultiplier": 1.65,
+                "knockbackMultiplier": 1.8,
+                "durationMultiplier": 1.3,
+                "overrides": {
+                  "staminaCost": 3
+                }
               }
             ]
           },
@@ -3069,7 +4188,11 @@
               "stacks": 1,
               "refresh": "extend"
             }
-          ]
+          ],
+          "tuning": {
+            "reflectedProjectileMinimumRange": 220,
+            "reflectedProjectilePierce": 0
+          }
         }
       ],
       "secondaryAttacks": {
@@ -3100,6 +4223,10 @@
               "refresh": "extend"
             }
           ],
+          "tuning": {
+            "reflectedProjectileMinimumRange": 220,
+            "reflectedProjectilePierce": 0
+          },
           "recoveryMs": 280
         },
         "doubleTap": {
@@ -3172,7 +4299,12 @@
           "repeatHits": 8,
           "repeatIntervalMs": 190,
           "tuning": {
-            "channelDegreesPerMs": 0.42
+            "channelDegreesPerMs": 0.42,
+            "assistMovementThreshold": 0.2,
+            "assistFacingTurnRadians": 0.012,
+            "assistMultiplier": 2,
+            "reflectedProjectileMinimumRange": 260,
+            "reflectedProjectilePierce": 40
           },
           "recoveryMs": 720
         },
@@ -3216,6 +4348,19 @@
                 "damageMultiplier": 1.3,
                 "knockbackMultiplier": 1.35,
                 "durationMultiplier": 1.2
+              },
+              {
+                "id": "axe-leap-max",
+                "label": "Предельный мах",
+                "minMs": 1700,
+                "color": "#c8ffe4",
+                "rangeMultiplier": 1.85,
+                "damageMultiplier": 1.7,
+                "knockbackMultiplier": 1.75,
+                "durationMultiplier": 1.35,
+                "overrides": {
+                  "staminaCost": 3
+                }
               }
             ]
           },
@@ -3238,7 +4383,10 @@
             "chemicalTrailRadiusMultiplier": 1.8,
             "chemicalTrailColliderRadius": 8,
             "chemicalTrailDurationMs": 900,
-            "chemicalTrailLingerMs": 500
+            "chemicalTrailLingerMs": 500,
+            "chemicalTrailDamage": 0,
+            "chemicalTrailPierce": 20,
+            "chemicalTrailKnockback": 0
           },
           "invulnerabilityMs": 900,
           "recoveryMs": 900
@@ -3247,48 +4395,396 @@
       "controls": {
         "primary": {
           "role": "Right cluster — chop and grapple lever",
-          "mylorik": { "activations": [
-            { "gesture": "tap", "intent": "strike", "phase": "press", "priority": 100 },
-            { "gesture": "doubleTap", "intent": "technique", "phase": "tap", "priority": 100 },
-            { "gesture": "doubleTapHold", "intent": "technique", "phase": "hold", "context": "grapple", "priority": 80 }
-          ] },
+          "mylorik": {
+            "activations": [
+              {
+                "gesture": "tap",
+                "intent": "strike",
+                "phase": "press",
+                "priority": 100
+              },
+              {
+                "gesture": "doubleTap",
+                "intent": "technique",
+                "phase": "tap",
+                "priority": 100
+              },
+              {
+                "gesture": "doubleTapHold",
+                "intent": "technique",
+                "phase": "hold",
+                "context": "grapple",
+                "priority": 80
+              }
+            ]
+          },
           "dualsense": {
             "instantGesture": "tap",
             "triggerRole": "R2 grapple, maintain, aim and throw",
-            "startNodeId": "doubleTap",
-            "haptics": {
-              "baseTrigger": { "startPosition": 0.12, "endPosition": 0.12, "resistance": 0.4 },
-              "gateTick": { "durationMs": 60, "magnitude": 0.4 },
-              "bandTick": { "pulseMs": 55, "gapMs": 90, "magnitude": 0.4, "magnitudeStep": 0.1 },
-              "commitPattern": [{ "delayMs": 0, "durationMs": 90, "magnitude": 0.7 }]
-            },
+            "startNodeId": "grapple",
             "nodes": [
-              { "id": "doubleTap", "gesture": "doubleTap", "entryContext": "neutral", "activationThreshold": 0.22, "dispatch": "press", "holdBehavior": "none", "releaseBehavior": "cancel", "next": ["doubleTapHold"], "cancel": "release", "expiryMs": 480, "tactileProfile": "gate", "adaptiveOverride": { "startPosition": 0.22, "endPosition": 0.34, "force": 0.5 } },
-              { "id": "doubleTapHold", "gesture": "doubleTapHold", "entryContext": "grapple", "activationThreshold": 0.72, "dispatch": "release", "holdBehavior": "charge", "releaseBehavior": "dispatch", "next": [], "cancel": "release", "expiryMs": 480, "tactileProfile": "tension", "entryTick": null, "adaptiveOverride": { "startPosition": 0.72, "endPosition": 0.72, "resistance": 0.85 } }
-            ]
+              {
+                "gesture": "doubleTap",
+                "entryContext": "neutral",
+                "activationThreshold": 0.25,
+                "dispatch": "press",
+                "holdBehavior": "none",
+                "releaseBehavior": "cancel",
+                "next": [
+                  "throw-aim"
+                ],
+                "cancel": "release",
+                "expiryMs": 2300,
+                "tactileProfile": "gate",
+                "id": "grapple",
+                "adaptiveOverride": {
+                  "startPosition": 0.25,
+                  "endPosition": 0.36,
+                  "force": 0.5
+                }
+              },
+              {
+                "gesture": "doubleTapHold",
+                "entryContext": "grapple",
+                "activationThreshold": 0.5,
+                "dispatch": "release",
+                "holdBehavior": "charge",
+                "releaseBehavior": "dispatch",
+                "next": [
+                  "throw-heave"
+                ],
+                "cancel": "release",
+                "expiryMs": 2300,
+                "tactileProfile": "tension",
+                "id": "throw-aim",
+                "chargeBandOverrideId": "axe-aim",
+                "telegraph": [
+                  {
+                    "delayMs": 0,
+                    "durationMs": 30,
+                    "magnitude": 0.32
+                  }
+                ],
+                "adaptiveOverride": {
+                  "startPosition": 0.5,
+                  "endPosition": 0.6,
+                  "force": 0.58
+                }
+              },
+              {
+                "gesture": "doubleTapHold",
+                "entryContext": "grapple",
+                "activationThreshold": 0.75,
+                "dispatch": "release",
+                "holdBehavior": "charge",
+                "releaseBehavior": "dispatch",
+                "next": [
+                  "throw-final",
+                  "throw-max-finisher"
+                ],
+                "cancel": "release",
+                "expiryMs": 2300,
+                "tactileProfile": "gate",
+                "id": "throw-heave",
+                "chargeBandOverrideId": "axe-heave",
+                "telegraph": [
+                  {
+                    "delayMs": 0,
+                    "durationMs": 30,
+                    "magnitude": 0.36
+                  },
+                  {
+                    "delayMs": 95,
+                    "durationMs": 30,
+                    "magnitude": 0.39999999999999997
+                  }
+                ],
+                "armedTriggerOverride": {
+                  "startPosition": 0.78,
+                  "endPosition": 0.95,
+                  "resistance": 0.18,
+                  "force": 0.24
+                },
+                "adaptiveOverride": {
+                  "startPosition": 0.75,
+                  "endPosition": 0.75,
+                  "resistance": 0.85
+                }
+              },
+              {
+                "gesture": "doubleTapHold",
+                "entryContext": "grapple",
+                "activationThreshold": 0.95,
+                "dispatch": "release",
+                "holdBehavior": "charge",
+                "releaseBehavior": "dispatch",
+                "next": [],
+                "cancel": "release",
+                "expiryMs": 2300,
+                "tactileProfile": "gate",
+                "id": "throw-final",
+                "chargeBandOverrideId": "axe-heave",
+                "adaptiveOverride": {
+                  "startPosition": 0.95,
+                  "endPosition": 0.95,
+                  "resistance": 0.95
+                }
+              },
+              {
+                "gesture": "doubleTapHold",
+                "entryContext": "grapple",
+                "activationThreshold": 0.95,
+                "dispatch": "press",
+                "holdBehavior": "charge",
+                "releaseBehavior": "cancel",
+                "next": [],
+                "cancel": "release",
+                "expiryMs": 2300,
+                "tactileProfile": "impact",
+                "id": "throw-max-finisher",
+                "entryRequiresArmed": true,
+                "chargeBandOverrideId": "axe-max",
+                "adaptiveOverride": {
+                  "startPosition": 0.95,
+                  "endPosition": 1,
+                  "force": 1
+                }
+              }
+            ],
+            "haptics": {
+              "baseTrigger": {
+                "startPosition": 0.12,
+                "endPosition": 0.12,
+                "resistance": 0.4
+              },
+              "gateTick": {
+                "durationMs": 60,
+                "magnitude": 0.4
+              },
+              "bandTick": {
+                "pulseMs": 55,
+                "gapMs": 90,
+                "magnitude": 0.4,
+                "magnitudeStep": 0.1
+              },
+              "commitPattern": [
+                {
+                  "delayMs": 0,
+                  "durationMs": 90,
+                  "magnitude": 0.7
+                }
+              ],
+              "depthTicks": [
+                {
+                  "position": 0.9,
+                  "tick": {
+                    "durationMs": 30,
+                    "magnitude": 0.38
+                  }
+                }
+              ]
+            }
           }
         },
         "secondary": {
           "role": "Left cluster — long parry and flywheel",
-          "mylorik": { "activations": [
-            { "gesture": "tap", "intent": "strike", "phase": "press", "priority": 100 },
-            { "gesture": "hold", "intent": "technique", "phase": "hold", "priority": 100 },
-            { "gesture": "holdThenDoubleTap", "intent": "mobility", "phase": "press", "context": "spin", "priority": 80 }
-          ] },
+          "mylorik": {
+            "activations": [
+              {
+                "gesture": "tap",
+                "intent": "strike",
+                "phase": "press",
+                "priority": 100
+              },
+              {
+                "gesture": "hold",
+                "intent": "technique",
+                "phase": "hold",
+                "priority": 100
+              },
+              {
+                "gesture": "holdThenDoubleTap",
+                "intent": "mobility",
+                "phase": "press",
+                "context": "spin",
+                "priority": 80
+              }
+            ]
+          },
           "dualsense": {
             "instantGesture": "tap",
             "triggerRole": "L2 reflecting spin and momentum leap",
-            "startNodeId": "hold",
-            "haptics": {
-              "baseTrigger": { "startPosition": 0.12, "endPosition": 0.12, "resistance": 0.4 },
-              "gateTick": { "durationMs": 60, "magnitude": 0.4 },
-              "bandTick": { "pulseMs": 55, "gapMs": 90, "magnitude": 0.4, "magnitudeStep": 0.1 },
-              "commitPattern": [{ "delayMs": 0, "durationMs": 70, "magnitude": 0.55 }]
-            },
+            "startNodeId": "spin",
             "nodes": [
-              { "id": "hold", "gesture": "hold", "entryContext": "neutral", "activationThreshold": 0.22, "dispatch": "press", "holdBehavior": "channel", "releaseBehavior": "dispatch", "next": ["holdThenDoubleTap"], "cancel": "release", "expiryMs": 480, "tactileProfile": "ramp", "entryTick": null, "adaptiveOverride": { "startPosition": 0.22, "endPosition": 0.22, "resistance": 0.5 } },
-              { "id": "holdThenDoubleTap", "gesture": "holdThenDoubleTap", "entryContext": "spin", "activationThreshold": 0.72, "dispatch": "release", "holdBehavior": "none", "releaseBehavior": "dispatch", "next": [], "cancel": "release", "expiryMs": 480, "tactileProfile": "followUp", "adaptiveOverride": { "startPosition": 0.72, "endPosition": 0.82, "force": 0.8 } }
-            ]
+              {
+                "gesture": "hold",
+                "entryContext": "neutral",
+                "activationThreshold": 0.25,
+                "dispatch": "press",
+                "holdBehavior": "channel",
+                "releaseBehavior": "dispatch",
+                "next": [
+                  "leap-near",
+                  "leap-max-finisher"
+                ],
+                "cancel": "release",
+                "expiryMs": 2300,
+                "tactileProfile": "ramp",
+                "id": "spin",
+                "armedTriggerOverride": {
+                  "startPosition": 0.78,
+                  "endPosition": 0.95,
+                  "resistance": 0.18,
+                  "force": 0.24
+                },
+                "entryTick": null,
+                "adaptiveOverride": {
+                  "startPosition": 0.25,
+                  "endPosition": 0.25,
+                  "resistance": 0.5
+                }
+              },
+              {
+                "gesture": "holdThenDoubleTap",
+                "entryContext": "spin",
+                "activationThreshold": 0.5,
+                "dispatch": "release",
+                "holdBehavior": "none",
+                "releaseBehavior": "dispatch",
+                "next": [
+                  "leap-far"
+                ],
+                "cancel": "release",
+                "expiryMs": 2300,
+                "tactileProfile": "followUp",
+                "id": "leap-near",
+                "chargeBandOverrideId": "axe-leap-near",
+                "telegraph": [
+                  {
+                    "delayMs": 0,
+                    "durationMs": 30,
+                    "magnitude": 0.3
+                  }
+                ],
+                "adaptiveOverride": {
+                  "startPosition": 0.5,
+                  "endPosition": 0.6,
+                  "force": 0.58
+                }
+              },
+              {
+                "gesture": "holdThenDoubleTap",
+                "entryContext": "spin",
+                "activationThreshold": 0.75,
+                "dispatch": "release",
+                "holdBehavior": "none",
+                "releaseBehavior": "dispatch",
+                "next": [
+                  "leap-final"
+                ],
+                "cancel": "release",
+                "expiryMs": 2300,
+                "tactileProfile": "followUp",
+                "id": "leap-far",
+                "chargeBandOverrideId": "axe-leap-far",
+                "telegraph": [
+                  {
+                    "delayMs": 0,
+                    "durationMs": 30,
+                    "magnitude": 0.34
+                  },
+                  {
+                    "delayMs": 95,
+                    "durationMs": 30,
+                    "magnitude": 0.38
+                  }
+                ],
+                "adaptiveOverride": {
+                  "startPosition": 0.75,
+                  "endPosition": 0.85,
+                  "force": 0.8
+                }
+              },
+              {
+                "gesture": "holdThenDoubleTap",
+                "entryContext": "spin",
+                "activationThreshold": 0.95,
+                "dispatch": "release",
+                "holdBehavior": "none",
+                "releaseBehavior": "dispatch",
+                "next": [],
+                "cancel": "release",
+                "expiryMs": 2300,
+                "tactileProfile": "followUp",
+                "id": "leap-final",
+                "chargeBandOverrideId": "axe-leap-far",
+                "adaptiveOverride": {
+                  "startPosition": 0.95,
+                  "endPosition": 1,
+                  "force": 0.95
+                }
+              },
+              {
+                "gesture": "holdThenDoubleTap",
+                "entryContext": "spin",
+                "activationThreshold": 0.95,
+                "dispatch": "press",
+                "holdBehavior": "none",
+                "releaseBehavior": "cancel",
+                "next": [],
+                "cancel": "release",
+                "expiryMs": 2300,
+                "tactileProfile": "impact",
+                "id": "leap-max-finisher",
+                "entryRequiresArmed": true,
+                "chargeBandOverrideId": "axe-leap-max",
+                "adaptiveOverride": {
+                  "startPosition": 0.95,
+                  "endPosition": 1,
+                  "force": 1
+                }
+              }
+            ],
+            "haptics": {
+              "baseTrigger": {
+                "startPosition": 0.12,
+                "endPosition": 0.12,
+                "resistance": 0.4
+              },
+              "gateTick": {
+                "durationMs": 60,
+                "magnitude": 0.4
+              },
+              "bandTick": {
+                "pulseMs": 55,
+                "gapMs": 90,
+                "magnitude": 0.4,
+                "magnitudeStep": 0.1
+              },
+              "commitPattern": [
+                {
+                  "delayMs": 0,
+                  "durationMs": 70,
+                  "magnitude": 0.55
+                }
+              ],
+              "depthTicks": [
+                {
+                  "position": 0.6,
+                  "tick": {
+                    "durationMs": 25,
+                    "magnitude": 0.24
+                  }
+                },
+                {
+                  "position": 0.85,
+                  "tick": {
+                    "durationMs": 28,
+                    "magnitude": 0.32
+                  }
+                }
+              ]
+            }
           }
         }
       }
@@ -3432,6 +4928,7 @@
           "repeatIntervalMs": 125,
           "tuning": {
             "dodgeThreshold": 0.25,
+            "dodgeEveryHits": 2,
             "dashStartDelayMs": 720,
             "stationaryColliderLength": 110,
             "dashColliderLength": 90,
@@ -3551,7 +5048,11 @@
               "durationMs": 480,
               "refresh": "replace"
             }
-          ]
+          ],
+          "tuning": {
+            "reflectedProjectileMinimumRange": 220,
+            "reflectedProjectilePierce": 0
+          }
         }
       ],
       "secondaryAttacks": {
@@ -3580,7 +5081,11 @@
               "durationMs": 520,
               "refresh": "replace"
             }
-          ]
+          ],
+          "tuning": {
+            "reflectedProjectileMinimumRange": 220,
+            "reflectedProjectilePierce": 0
+          }
         },
         "doubleTap": {
           "name": "Боксерский прыжок",
@@ -3730,56 +5235,381 @@
       "controls": {
         "primary": {
           "role": "Right cluster — cut and draw-and-flow rail",
-          "mylorik": { "activations": [
-            { "gesture": "tap", "intent": "strike", "phase": "press", "priority": 100 },
-            { "gesture": "doubleTap", "intent": "technique", "phase": "tap", "priority": 100 },
-            { "gesture": "doubleTapHold", "intent": "strike", "phase": "press", "context": "continuation", "priority": 80 },
-            { "gesture": "hold", "intent": "technique", "phase": "hold", "priority": 100 },
-            { "gesture": "holdThenDoubleTap", "intent": "mobility", "phase": "press", "context": "continuation", "priority": 80 }
-          ] },
+          "mylorik": {
+            "activations": [
+              {
+                "gesture": "tap",
+                "intent": "strike",
+                "phase": "press",
+                "priority": 100
+              },
+              {
+                "gesture": "doubleTap",
+                "intent": "technique",
+                "phase": "tap",
+                "priority": 100
+              },
+              {
+                "gesture": "doubleTapHold",
+                "intent": "strike",
+                "phase": "press",
+                "context": "continuation",
+                "priority": 80
+              },
+              {
+                "gesture": "hold",
+                "intent": "technique",
+                "phase": "hold",
+                "priority": 100
+              },
+              {
+                "gesture": "holdThenDoubleTap",
+                "intent": "mobility",
+                "phase": "press",
+                "context": "continuation",
+                "priority": 80
+              }
+            ]
+          },
           "dualsense": {
             "instantGesture": "tap",
             "triggerRole": "R2 overhead, charge, flurry and dance",
-            "startNodeId": "doubleTap",
-            "haptics": {
-              "baseTrigger": { "startPosition": 0.18, "endPosition": 0.26, "force": 0.22 },
-              "gateTick": { "durationMs": 15, "magnitude": 0.12 },
-              "bandTick": { "pulseMs": 25, "gapMs": 60, "magnitude": 0.2, "magnitudeStep": 0.06 },
-              "commitPattern": [{ "delayMs": 0, "durationMs": 40, "magnitude": 0.5 }]
-            },
+            "startNodeId": "overhead",
             "nodes": [
-              { "id": "doubleTap", "gesture": "doubleTap", "entryContext": "neutral", "activationThreshold": 0.22, "dispatch": "release", "holdBehavior": "none", "releaseBehavior": "dispatch", "next": ["hold", "doubleTapHold"], "cancel": "release", "expiryMs": 480, "tactileProfile": "click", "adaptiveOverride": { "startPosition": 0.22, "endPosition": 0.3, "force": 0.2 } },
-              { "id": "hold", "gesture": "hold", "entryContext": "neutral", "activationThreshold": 0.48, "dispatch": "release", "holdBehavior": "charge", "releaseBehavior": "dispatch", "next": ["holdThenDoubleTap"], "cancel": "release", "expiryMs": 480, "tactileProfile": "ramp", "adaptiveOverride": { "startPosition": 0.48, "endPosition": 0.56, "force": 0.4 } },
-              { "id": "doubleTapHold", "gesture": "doubleTapHold", "entryContext": "continuation", "activationThreshold": 0.72, "dispatch": "release", "holdBehavior": "none", "releaseBehavior": "dispatch", "next": [], "cancel": "release", "expiryMs": 480, "tactileProfile": "gate", "adaptiveOverride": { "startPosition": 0.72, "endPosition": 0.8, "force": 0.6 } },
-              { "id": "holdThenDoubleTap", "gesture": "holdThenDoubleTap", "entryContext": "continuation", "activationThreshold": 0.9, "dispatch": "press", "holdBehavior": "none", "releaseBehavior": "cancel", "next": [], "cancel": "release", "expiryMs": 480, "tactileProfile": "followUp", "requiredChargeBandId": "katana-charge", "adaptiveOverride": { "startPosition": 0.9, "endPosition": 0.98, "force": 0.85 } }
-            ]
+              {
+                "gesture": "doubleTap",
+                "entryContext": "neutral",
+                "activationThreshold": 0.25,
+                "dispatch": "release",
+                "holdBehavior": "none",
+                "releaseBehavior": "dispatch",
+                "next": [
+                  "charge"
+                ],
+                "cancel": "release",
+                "expiryMs": 2300,
+                "tactileProfile": "click",
+                "id": "overhead",
+                "adaptiveOverride": {
+                  "startPosition": 0.25,
+                  "endPosition": 0.32,
+                  "force": 0.2
+                }
+              },
+              {
+                "gesture": "hold",
+                "entryContext": "neutral",
+                "activationThreshold": 0.5,
+                "dispatch": "release",
+                "holdBehavior": "charge",
+                "releaseBehavior": "dispatch",
+                "next": [
+                  "flurry",
+                  "dance-finisher"
+                ],
+                "cancel": "release",
+                "expiryMs": 2300,
+                "tactileProfile": "ramp",
+                "id": "charge",
+                "chargeBandOverrideId": "katana-charge",
+                "telegraph": [
+                  {
+                    "delayMs": 0,
+                    "durationMs": 30,
+                    "magnitude": 0.2
+                  }
+                ],
+                "armedCue": [
+                  {
+                    "delayMs": 0,
+                    "durationMs": 45,
+                    "magnitude": 0.58
+                  },
+                  {
+                    "delayMs": 90,
+                    "durationMs": 45,
+                    "magnitude": 0.58
+                  }
+                ],
+                "armedTriggerOverride": {
+                  "startPosition": 0.78,
+                  "endPosition": 0.95,
+                  "resistance": 0.18,
+                  "force": 0.24
+                },
+                "adaptiveOverride": {
+                  "startPosition": 0.5,
+                  "endPosition": 0.6,
+                  "force": 0.4
+                }
+              },
+              {
+                "gesture": "doubleTapHold",
+                "entryContext": "continuation",
+                "activationThreshold": 0.75,
+                "dispatch": "release",
+                "holdBehavior": "none",
+                "releaseBehavior": "dispatch",
+                "next": [
+                  "full-charge"
+                ],
+                "cancel": "release",
+                "expiryMs": 2300,
+                "tactileProfile": "gate",
+                "id": "flurry",
+                "adaptiveOverride": {
+                  "startPosition": 0.75,
+                  "endPosition": 0.84,
+                  "force": 0.6
+                }
+              },
+              {
+                "gesture": "hold",
+                "entryContext": "neutral",
+                "activationThreshold": 0.95,
+                "dispatch": "release",
+                "holdBehavior": "charge",
+                "releaseBehavior": "dispatch",
+                "next": [],
+                "cancel": "release",
+                "expiryMs": 2300,
+                "tactileProfile": "ramp",
+                "id": "full-charge",
+                "chargeBandOverrideId": "katana-full",
+                "adaptiveOverride": {
+                  "startPosition": 0.95,
+                  "endPosition": 1,
+                  "force": 0.85
+                }
+              },
+              {
+                "gesture": "holdThenDoubleTap",
+                "entryContext": "continuation",
+                "activationThreshold": 0.95,
+                "dispatch": "press",
+                "holdBehavior": "none",
+                "releaseBehavior": "cancel",
+                "next": [],
+                "cancel": "release",
+                "expiryMs": 2300,
+                "tactileProfile": "followUp",
+                "id": "dance-finisher",
+                "entryRequiresArmed": true,
+                "requiredChargeBandId": "katana-charge",
+                "adaptiveOverride": {
+                  "startPosition": 0.95,
+                  "endPosition": 1,
+                  "force": 0.85
+                }
+              }
+            ],
+            "haptics": {
+              "baseTrigger": {
+                "startPosition": 0.18,
+                "endPosition": 0.26,
+                "force": 0.22
+              },
+              "gateTick": {
+                "durationMs": 15,
+                "magnitude": 0.12
+              },
+              "bandTick": {
+                "pulseMs": 25,
+                "gapMs": 60,
+                "magnitude": 0.2,
+                "magnitudeStep": 0.06
+              },
+              "commitPattern": [
+                {
+                  "delayMs": 0,
+                  "durationMs": 40,
+                  "magnitude": 0.5
+                }
+              ]
+            }
           }
         },
         "secondary": {
           "role": "Left cluster — parry and movement/sheath rail",
-          "mylorik": { "activations": [
-            { "gesture": "tap", "intent": "strike", "phase": "press", "priority": 100 },
-            { "gesture": "doubleTap", "intent": "technique", "phase": "tap", "priority": 100 },
-            { "gesture": "doubleTapHold", "intent": "strike", "phase": "press", "context": "continuation", "priority": 80 },
-            { "gesture": "hold", "intent": "technique", "phase": "hold", "priority": 100 },
-            { "gesture": "holdThenDoubleTap", "intent": "mobility", "phase": "press", "context": "continuation", "priority": 80 }
-          ] },
+          "mylorik": {
+            "activations": [
+              {
+                "gesture": "tap",
+                "intent": "strike",
+                "phase": "press",
+                "priority": 100
+              },
+              {
+                "gesture": "doubleTap",
+                "intent": "technique",
+                "phase": "tap",
+                "priority": 100
+              },
+              {
+                "gesture": "doubleTapHold",
+                "intent": "strike",
+                "phase": "press",
+                "context": "continuation",
+                "priority": 80
+              },
+              {
+                "gesture": "hold",
+                "intent": "technique",
+                "phase": "hold",
+                "priority": 100
+              },
+              {
+                "gesture": "holdThenDoubleTap",
+                "intent": "mobility",
+                "phase": "press",
+                "context": "continuation",
+                "priority": 80
+              }
+            ]
+          },
           "dualsense": {
             "instantGesture": "tap",
             "triggerRole": "L2 hop, hop-slash, Iaido and Flash",
-            "startNodeId": "doubleTap",
-            "haptics": {
-              "baseTrigger": { "startPosition": 0.18, "endPosition": 0.26, "force": 0.22 },
-              "gateTick": { "durationMs": 15, "magnitude": 0.12 },
-              "bandTick": { "pulseMs": 25, "gapMs": 60, "magnitude": 0.2, "magnitudeStep": 0.06 },
-              "commitPattern": [{ "delayMs": 0, "durationMs": 40, "magnitude": 0.5 }]
-            },
+            "startNodeId": "hop",
             "nodes": [
-              { "id": "doubleTap", "gesture": "doubleTap", "entryContext": "neutral", "activationThreshold": 0.22, "dispatch": "release", "holdBehavior": "none", "releaseBehavior": "dispatch", "next": ["hold", "doubleTapHold"], "cancel": "release", "expiryMs": 480, "tactileProfile": "click", "adaptiveOverride": { "startPosition": 0.22, "endPosition": 0.3, "force": 0.2 } },
-              { "id": "hold", "gesture": "hold", "entryContext": "neutral", "activationThreshold": 0.48, "dispatch": "release", "holdBehavior": "charge", "releaseBehavior": "dispatch", "next": ["holdThenDoubleTap"], "cancel": "release", "expiryMs": 480, "tactileProfile": "ramp", "adaptiveOverride": { "startPosition": 0.48, "endPosition": 0.56, "force": 0.4 } },
-              { "id": "doubleTapHold", "gesture": "doubleTapHold", "entryContext": "continuation", "activationThreshold": 0.72, "dispatch": "release", "holdBehavior": "none", "releaseBehavior": "dispatch", "next": [], "cancel": "release", "expiryMs": 480, "tactileProfile": "gate", "adaptiveOverride": { "startPosition": 0.72, "endPosition": 0.8, "force": 0.6 } },
-              { "id": "holdThenDoubleTap", "gesture": "holdThenDoubleTap", "entryContext": "continuation", "activationThreshold": 0.9, "dispatch": "press", "holdBehavior": "none", "releaseBehavior": "cancel", "next": [], "cancel": "release", "expiryMs": 480, "tactileProfile": "followUp", "requiredChargeBandId": "iaido-ready", "adaptiveOverride": { "startPosition": 0.9, "endPosition": 0.98, "force": 0.85 } }
-            ]
+              {
+                "gesture": "doubleTap",
+                "entryContext": "neutral",
+                "activationThreshold": 0.25,
+                "dispatch": "release",
+                "holdBehavior": "none",
+                "releaseBehavior": "dispatch",
+                "next": [
+                  "iaido"
+                ],
+                "cancel": "release",
+                "expiryMs": 2300,
+                "tactileProfile": "click",
+                "id": "hop",
+                "adaptiveOverride": {
+                  "startPosition": 0.25,
+                  "endPosition": 0.32,
+                  "force": 0.2
+                }
+              },
+              {
+                "gesture": "hold",
+                "entryContext": "neutral",
+                "activationThreshold": 0.5,
+                "dispatch": "release",
+                "holdBehavior": "charge",
+                "releaseBehavior": "dispatch",
+                "next": [
+                  "hop-slash",
+                  "flash-finisher"
+                ],
+                "cancel": "release",
+                "expiryMs": 2300,
+                "tactileProfile": "ramp",
+                "id": "iaido",
+                "chargeBandOverrideId": "iaido-ready",
+                "telegraph": [
+                  {
+                    "delayMs": 0,
+                    "durationMs": 30,
+                    "magnitude": 0.2
+                  }
+                ],
+                "armedTriggerOverride": {
+                  "startPosition": 0.78,
+                  "endPosition": 0.95,
+                  "resistance": 0.18,
+                  "force": 0.24
+                },
+                "adaptiveOverride": {
+                  "startPosition": 0.5,
+                  "endPosition": 0.6,
+                  "force": 0.4
+                }
+              },
+              {
+                "gesture": "doubleTapHold",
+                "entryContext": "continuation",
+                "activationThreshold": 0.75,
+                "dispatch": "release",
+                "holdBehavior": "none",
+                "releaseBehavior": "dispatch",
+                "next": [
+                  "iaido-full"
+                ],
+                "cancel": "release",
+                "expiryMs": 2300,
+                "tactileProfile": "gate",
+                "id": "hop-slash",
+                "adaptiveOverride": {
+                  "startPosition": 0.75,
+                  "endPosition": 0.84,
+                  "force": 0.6
+                }
+              },
+              {
+                "gesture": "hold",
+                "entryContext": "neutral",
+                "activationThreshold": 0.95,
+                "dispatch": "release",
+                "holdBehavior": "charge",
+                "releaseBehavior": "dispatch",
+                "next": [],
+                "cancel": "release",
+                "expiryMs": 2300,
+                "tactileProfile": "ramp",
+                "id": "iaido-full",
+                "chargeBandOverrideId": "iaido-full",
+                "adaptiveOverride": {
+                  "startPosition": 0.95,
+                  "endPosition": 1,
+                  "force": 0.85
+                }
+              },
+              {
+                "gesture": "holdThenDoubleTap",
+                "entryContext": "continuation",
+                "activationThreshold": 0.95,
+                "dispatch": "press",
+                "holdBehavior": "none",
+                "releaseBehavior": "cancel",
+                "next": [],
+                "cancel": "release",
+                "expiryMs": 2300,
+                "tactileProfile": "followUp",
+                "id": "flash-finisher",
+                "entryRequiresArmed": true,
+                "adaptiveOverride": {
+                  "startPosition": 0.95,
+                  "endPosition": 1,
+                  "force": 0.85
+                }
+              }
+            ],
+            "haptics": {
+              "baseTrigger": {
+                "startPosition": 0.18,
+                "endPosition": 0.26,
+                "force": 0.22
+              },
+              "gateTick": {
+                "durationMs": 15,
+                "magnitude": 0.12
+              },
+              "bandTick": {
+                "pulseMs": 25,
+                "gapMs": 60,
+                "magnitude": 0.2,
+                "magnitudeStep": 0.06
+              },
+              "commitPattern": [
+                {
+                  "delayMs": 0,
+                  "durationMs": 40,
+                  "magnitude": 0.5
+                }
+              ]
+            }
           }
         }
       }
@@ -3900,7 +5730,8 @@
             "traceMs": 720
           },
           "tuning": {
-            "executionDamageMultiplier": 3.25
+            "executionDamageMultiplier": 3.25,
+            "unmarkedDamageMultiplier": 0.55
           },
           "recoveryMs": 500
         },
@@ -4073,6 +5904,10 @@
             "width": 24,
             "traceMs": 720
           },
+          "tuning": {
+            "executionDamageMultiplier": 3.25,
+            "unmarkedDamageMultiplier": 0.55
+          },
           "recoveryMs": 500
         },
         "doubleTapHold": {
@@ -4138,44 +5973,208 @@
       "controls": {
         "primary": {
           "role": "Left hand — instant Zornhaw, Oberhaw morph and held Unterhaw",
-          "mylorik": { "activations": [
-            { "gesture": "tap", "intent": "strike", "phase": "press", "priority": 100 },
-            { "gesture": "doubleTap", "intent": "technique", "phase": "tap", "priority": 80 },
-            { "gesture": "doubleTapHold", "intent": "technique", "phase": "hold", "priority": 80 }
-          ] },
+          "mylorik": {
+            "activations": [
+              {
+                "gesture": "tap",
+                "intent": "strike",
+                "phase": "press",
+                "priority": 100
+              },
+              {
+                "gesture": "doubleTap",
+                "intent": "technique",
+                "phase": "tap",
+                "priority": 80
+              },
+              {
+                "gesture": "doubleTapHold",
+                "intent": "technique",
+                "phase": "hold",
+                "priority": 80
+              }
+            ]
+          },
           "dualsense": {
             "instantGesture": "tap",
             "triggerRole": "Trigger Oberhaw immediately; hold through the Unterhaw gate",
-            "startNodeId": "doubleTap",
-            "haptics": {
-              "gateTick": { "durationMs": 30, "magnitude": 0.2 },
-              "commitPattern": [{ "delayMs": 0, "durationMs": 60, "magnitude": 0.55 }]
-            },
+            "startNodeId": "oberhau",
             "nodes": [
-              { "id": "doubleTap", "gesture": "doubleTap", "entryContext": "neutral", "activationThreshold": 0.22, "dispatch": "press", "holdBehavior": "none", "releaseBehavior": "cancel", "next": ["doubleTapHold"], "cancel": "release", "expiryMs": 1000, "tactileProfile": "followUp", "adaptiveOverride": { "startPosition": 0.22, "endPosition": 0.3, "force": 0.25 } },
-              { "id": "doubleTapHold", "gesture": "doubleTapHold", "entryContext": "continuation", "activationThreshold": 0.72, "dispatch": "release", "holdBehavior": "charge", "releaseBehavior": "dispatch", "next": [], "cancel": "release", "expiryMs": 1000, "tactileProfile": "gate", "entryTick": { "durationMs": 50, "magnitude": 0.4 }, "adaptiveOverride": { "startPosition": 0.72, "endPosition": 0.84, "force": 0.9 } }
-            ]
+              {
+                "gesture": "doubleTap",
+                "entryContext": "neutral",
+                "activationThreshold": 0.25,
+                "dispatch": "press",
+                "holdBehavior": "none",
+                "releaseBehavior": "cancel",
+                "next": [
+                  "unterhau"
+                ],
+                "cancel": "release",
+                "expiryMs": 1000,
+                "tactileProfile": "followUp",
+                "id": "oberhau",
+                "adaptiveOverride": {
+                  "startPosition": 0.25,
+                  "endPosition": 0.32,
+                  "force": 0.25
+                }
+              },
+              {
+                "gesture": "doubleTapHold",
+                "entryContext": "continuation",
+                "activationThreshold": 0.75,
+                "dispatch": "release",
+                "holdBehavior": "charge",
+                "releaseBehavior": "dispatch",
+                "next": [],
+                "cancel": "release",
+                "expiryMs": 1000,
+                "tactileProfile": "gate",
+                "id": "unterhau",
+                "entryTick": {
+                  "durationMs": 50,
+                  "magnitude": 0.4
+                },
+                "adaptiveOverride": {
+                  "startPosition": 0.75,
+                  "endPosition": 0.86,
+                  "force": 0.9
+                }
+              }
+            ],
+            "haptics": {
+              "gateTick": {
+                "durationMs": 30,
+                "magnitude": 0.2
+              },
+              "commitPattern": [
+                {
+                  "delayMs": 0,
+                  "durationMs": 60,
+                  "magnitude": 0.55
+                }
+              ],
+              "depthTicks": [
+                {
+                  "position": 0.6,
+                  "tick": {
+                    "durationMs": 24,
+                    "magnitude": 0.2
+                  }
+                },
+                {
+                  "position": 0.88,
+                  "tick": {
+                    "durationMs": 30,
+                    "magnitude": 0.32
+                  }
+                }
+              ]
+            }
           }
         },
         "secondary": {
           "role": "Legacy Sword secondary route",
-          "mylorik": { "activations": [
-            { "gesture": "tap", "intent": "strike", "phase": "press", "priority": 100 },
-            { "gesture": "doubleTap", "intent": "technique", "phase": "tap", "priority": 80 },
-            { "gesture": "doubleTapHold", "intent": "technique", "phase": "hold", "priority": 80 }
-          ] },
+          "mylorik": {
+            "activations": [
+              {
+                "gesture": "tap",
+                "intent": "strike",
+                "phase": "press",
+                "priority": 100
+              },
+              {
+                "gesture": "doubleTap",
+                "intent": "technique",
+                "phase": "tap",
+                "priority": 80
+              },
+              {
+                "gesture": "doubleTapHold",
+                "intent": "technique",
+                "phase": "hold",
+                "priority": 80
+              }
+            ]
+          },
           "dualsense": {
             "instantGesture": "tap",
             "triggerRole": "Legacy Sword secondary trigger route",
-            "startNodeId": "doubleTap",
-            "haptics": {
-              "gateTick": { "durationMs": 30, "magnitude": 0.2 },
-              "commitPattern": [{ "delayMs": 0, "durationMs": 60, "magnitude": 0.55 }]
-            },
+            "startNodeId": "oberhau",
             "nodes": [
-              { "id": "doubleTap", "gesture": "doubleTap", "entryContext": "neutral", "activationThreshold": 0.22, "dispatch": "press", "holdBehavior": "none", "releaseBehavior": "cancel", "next": ["doubleTapHold"], "cancel": "release", "expiryMs": 1000, "tactileProfile": "followUp", "adaptiveOverride": { "startPosition": 0.22, "endPosition": 0.3, "force": 0.25 } },
-              { "id": "doubleTapHold", "gesture": "doubleTapHold", "entryContext": "continuation", "activationThreshold": 0.72, "dispatch": "release", "holdBehavior": "charge", "releaseBehavior": "dispatch", "next": [], "cancel": "release", "expiryMs": 1000, "tactileProfile": "gate", "entryTick": { "durationMs": 50, "magnitude": 0.4 }, "adaptiveOverride": { "startPosition": 0.72, "endPosition": 0.84, "force": 0.9 } }
-            ]
+              {
+                "gesture": "doubleTap",
+                "entryContext": "neutral",
+                "activationThreshold": 0.25,
+                "dispatch": "press",
+                "holdBehavior": "none",
+                "releaseBehavior": "cancel",
+                "next": [
+                  "unterhau"
+                ],
+                "cancel": "release",
+                "expiryMs": 1000,
+                "tactileProfile": "followUp",
+                "id": "oberhau",
+                "adaptiveOverride": {
+                  "startPosition": 0.25,
+                  "endPosition": 0.32,
+                  "force": 0.25
+                }
+              },
+              {
+                "gesture": "doubleTapHold",
+                "entryContext": "continuation",
+                "activationThreshold": 0.75,
+                "dispatch": "release",
+                "holdBehavior": "charge",
+                "releaseBehavior": "dispatch",
+                "next": [],
+                "cancel": "release",
+                "expiryMs": 1000,
+                "tactileProfile": "gate",
+                "id": "unterhau",
+                "entryTick": {
+                  "durationMs": 50,
+                  "magnitude": 0.4
+                },
+                "adaptiveOverride": {
+                  "startPosition": 0.75,
+                  "endPosition": 0.86,
+                  "force": 0.9
+                }
+              }
+            ],
+            "haptics": {
+              "gateTick": {
+                "durationMs": 30,
+                "magnitude": 0.2
+              },
+              "commitPattern": [
+                {
+                  "delayMs": 0,
+                  "durationMs": 60,
+                  "magnitude": 0.55
+                }
+              ],
+              "depthTicks": [
+                {
+                  "position": 0.6,
+                  "tick": {
+                    "durationMs": 24,
+                    "magnitude": 0.2
+                  }
+                },
+                {
+                  "position": 0.88,
+                  "tick": {
+                    "durationMs": 30,
+                    "magnitude": 0.32
+                  }
+                }
+              ]
+            }
           }
         }
       }
@@ -4251,17 +6250,56 @@
           "role": "Matching hand — five-second dagger strike",
           "mylorik": {
             "activations": [
-              { "gesture": "tap", "intent": "strike", "phase": "press", "priority": 100 }
+              {
+                "gesture": "tap",
+                "intent": "strike",
+                "phase": "press",
+                "priority": 100
+              }
             ]
           },
           "dualsense": {
             "instantGesture": "tap",
-            "triggerRole": "No trigger technique",
-            "startNodeId": null,
-            "nodes": [],
+            "triggerRole": "Trigger thrust with a five-second cooldown wall",
+            "startNodeId": "fang-thrust",
+            "nodes": [
+              {
+                "gesture": "tap",
+                "entryContext": "neutral",
+                "activationThreshold": 0.25,
+                "dispatch": "press",
+                "holdBehavior": "none",
+                "releaseBehavior": "cancel",
+                "next": [],
+                "cancel": "release",
+                "expiryMs": 2300,
+                "tactileProfile": "click",
+                "id": "fang-thrust",
+                "adaptiveOverride": {
+                  "startPosition": 0.25,
+                  "endPosition": 0.3,
+                  "force": 0.32
+                }
+              }
+            ],
             "haptics": {
-              "gateTick": { "durationMs": 24, "magnitude": 0.2 },
-              "commitPattern": [{ "delayMs": 0, "durationMs": 45, "magnitude": 0.48 }]
+              "baseTrigger": {
+                "startPosition": 0.28,
+                "endPosition": 0.9,
+                "resistance": 0.68,
+                "force": 0.74
+              },
+              "gateTick": {
+                "durationMs": 24,
+                "magnitude": 0.2
+              },
+              "commitPattern": [
+                {
+                  "delayMs": 0,
+                  "durationMs": 45,
+                  "magnitude": 0.48
+                }
+              ]
             }
           }
         }
@@ -4436,6 +6474,7 @@
             "decelerationMs": 300,
             "staminaPerTickMs": 100,
             "staminaPerTick": 1,
+            "stopSpeed": 8,
             "shoveDistance": 46,
             "dashColliderOffset": 44,
             "dashColliderLength": 118
@@ -4515,7 +6554,11 @@
           "recoveryMs": 520,
           "tuning": {
             "wallPinMs": 1800,
-            "projectileSpawnOffset": 52
+            "projectileSpawnOffset": 52,
+            "earlyInnerRange": 0,
+            "middleStunMs": 1000,
+            "middleTargetMinimumRange": 80,
+            "middleTargetMinimumRangeRatio": 0.25
           },
           "staminaCost": 10
         },
@@ -4606,7 +6649,8 @@
             "headshotOffsetRatio": 0.55,
             "headshotRadiusRatio": 0.32,
             "headshotDamageMultiplier": 1.65,
-            "headshotCueMs": 650
+            "headshotCueMs": 650,
+            "spinEarlyInnerRange": 52
           },
           "staminaCost": 15
         }
@@ -4630,6 +6674,10 @@
             "shape": "capsule",
             "width": 48,
             "traceMs": 420
+          },
+          "tuning": {
+            "reflectedProjectileMinimumRange": 220,
+            "reflectedProjectilePierce": 0
           }
         }
       ],
@@ -4652,6 +6700,10 @@
             "shape": "capsule",
             "width": 50,
             "traceMs": 440
+          },
+          "tuning": {
+            "reflectedProjectileMinimumRange": 220,
+            "reflectedProjectilePierce": 0
           }
         },
         "doubleTap": {
@@ -4718,7 +6770,9 @@
           "recoveryMs": 360,
           "tuning": {
             "minimumTargetRange": 80,
-            "targetDistancePerKnockback": 1
+            "targetDistancePerKnockback": 1,
+            "armorMultiplier": 2,
+            "armorDurationMs": 500
           }
         },
         "hold": {
@@ -4820,7 +6874,150 @@
           "dualsense": {
             "instantGesture": "tap",
             "triggerRole": "R2 hunt, pierce mash, breakthrough and overhead Акали",
-            "startNodeId": "hold",
+            "startNodeId": "hold-early",
+            "nodes": [
+              {
+                "gesture": "hold",
+                "entryContext": "neutral",
+                "activationThreshold": 0.25,
+                "dispatch": "release",
+                "holdBehavior": "charge",
+                "releaseBehavior": "dispatch",
+                "next": [
+                  "hold-middle"
+                ],
+                "cancel": "release",
+                "expiryMs": 2300,
+                "tactileProfile": "ramp",
+                "id": "hold-early",
+                "chargeBandOverrideId": "early",
+                "telegraph": [
+                  {
+                    "delayMs": 0,
+                    "durationMs": 30,
+                    "magnitude": 0.24
+                  }
+                ],
+                "entryTick": {
+                  "durationMs": 35,
+                  "magnitude": 0.25
+                },
+                "adaptiveOverride": {
+                  "startPosition": 0.25,
+                  "endPosition": 0.34,
+                  "force": 0.42
+                }
+              },
+              {
+                "gesture": "hold",
+                "entryContext": "neutral",
+                "activationThreshold": 0.5,
+                "dispatch": "release",
+                "holdBehavior": "charge",
+                "releaseBehavior": "dispatch",
+                "next": [
+                  "breakthrough",
+                  "spin-finisher"
+                ],
+                "cancel": "release",
+                "expiryMs": 2300,
+                "tactileProfile": "ramp",
+                "id": "hold-middle",
+                "chargeBandOverrideId": "middle",
+                "telegraph": [
+                  {
+                    "delayMs": 0,
+                    "durationMs": 30,
+                    "magnitude": 0.24
+                  },
+                  {
+                    "delayMs": 95,
+                    "durationMs": 30,
+                    "magnitude": 0.27999999999999997
+                  }
+                ],
+                "armedTriggerOverride": {
+                  "startPosition": 0.78,
+                  "endPosition": 0.95,
+                  "resistance": 0.18,
+                  "force": 0.24
+                },
+                "adaptiveOverride": {
+                  "startPosition": 0.5,
+                  "endPosition": 0.6,
+                  "force": 0.58
+                }
+              },
+              {
+                "gesture": "doubleTapHold",
+                "entryContext": "continuation",
+                "activationThreshold": 0.75,
+                "dispatch": "press",
+                "holdBehavior": "channel",
+                "releaseBehavior": "cancel",
+                "next": [
+                  "hold-late"
+                ],
+                "cancel": "release",
+                "expiryMs": 2300,
+                "tactileProfile": "gate",
+                "id": "breakthrough",
+                "entryTick": null,
+                "adaptiveOverride": {
+                  "startPosition": 0.75,
+                  "endPosition": 0.85,
+                  "force": 0.8
+                }
+              },
+              {
+                "gesture": "hold",
+                "entryContext": "neutral",
+                "activationThreshold": 0.95,
+                "dispatch": "release",
+                "holdBehavior": "charge",
+                "releaseBehavior": "dispatch",
+                "next": [],
+                "cancel": "release",
+                "expiryMs": 2300,
+                "tactileProfile": "ramp",
+                "id": "hold-late",
+                "chargeBandOverrideId": "late",
+                "entryTick": {
+                  "durationMs": 45,
+                  "magnitude": 0.35
+                },
+                "adaptiveOverride": {
+                  "startPosition": 0.95,
+                  "endPosition": 1,
+                  "force": 1
+                }
+              },
+              {
+                "gesture": "holdThenDoubleTap",
+                "entryContext": "continuation",
+                "activationThreshold": 0.95,
+                "dispatch": "press",
+                "holdBehavior": "none",
+                "releaseBehavior": "cancel",
+                "next": [],
+                "cancel": "release",
+                "expiryMs": 2300,
+                "tactileProfile": "followUp",
+                "id": "spin-finisher",
+                "entryRequiresArmed": true,
+                "requiredChargeBandId": "early",
+                "chargeBandOverrideId": "spin-middle",
+                "entryTick": {
+                  "durationMs": 55,
+                  "magnitude": 0.45
+                },
+                "adaptiveOverride": {
+                  "startPosition": 0.95,
+                  "endPosition": 1,
+                  "force": 1
+                }
+              }
+            ],
             "preGateGesture": "doubleTap",
             "haptics": {
               "baseTrigger": {
@@ -4838,80 +7035,24 @@
                   "durationMs": 70,
                   "magnitude": 0.6
                 }
+              ],
+              "depthTicks": [
+                {
+                  "position": 0.85,
+                  "tick": {
+                    "durationMs": 18,
+                    "magnitude": 0.13
+                  }
+                },
+                {
+                  "position": 0.9,
+                  "tick": {
+                    "durationMs": 18,
+                    "magnitude": 0.16
+                  }
+                }
               ]
-            },
-            "nodes": [
-              {
-                "id": "hold",
-                "gesture": "hold",
-                "entryContext": "neutral",
-                "activationThreshold": 0.48,
-                "dispatch": "release",
-                "holdBehavior": "charge",
-                "releaseBehavior": "dispatch",
-                "next": [
-                  "doubleTapHold",
-                  "holdThenDoubleTap"
-                ],
-                "cancel": "release",
-                "expiryMs": 480,
-                "tactileProfile": "ramp",
-                "entryTick": {
-                  "durationMs": 35,
-                  "magnitude": 0.25
-                },
-                "adaptiveOverride": {
-                  "startPosition": 0.48,
-                  "endPosition": 0.58,
-                  "force": 0.55
-                }
-              },
-              {
-                "id": "doubleTapHold",
-                "gesture": "doubleTapHold",
-                "entryContext": "continuation",
-                "activationThreshold": 0.72,
-                "dispatch": "release",
-                "holdBehavior": "charge",
-                "releaseBehavior": "dispatch",
-                "next": [],
-                "cancel": "release",
-                "expiryMs": 480,
-                "tactileProfile": "gate",
-                "entryTick": {
-                  "durationMs": 45,
-                  "magnitude": 0.35
-                },
-                "adaptiveOverride": {
-                  "startPosition": 0.72,
-                  "endPosition": 0.82,
-                  "force": 0.8
-                }
-              },
-              {
-                "id": "holdThenDoubleTap",
-                "gesture": "holdThenDoubleTap",
-                "entryContext": "continuation",
-                "activationThreshold": 0.9,
-                "dispatch": "press",
-                "holdBehavior": "none",
-                "releaseBehavior": "cancel",
-                "next": [],
-                "cancel": "release",
-                "expiryMs": 480,
-                "tactileProfile": "followUp",
-                "requiredChargeBandId": "early",
-                "entryTick": {
-                  "durationMs": 55,
-                  "magnitude": 0.45
-                },
-                "adaptiveOverride": {
-                  "startPosition": 0.9,
-                  "endPosition": 0.98,
-                  "force": 1
-                }
-              }
-            ]
+            }
           }
         },
         "secondary": {
@@ -4955,7 +7096,131 @@
           "dualsense": {
             "instantGesture": "tap",
             "triggerRole": "L2 shove, brace, cutting stance and pole vault",
-            "startNodeId": "hold",
+            "startNodeId": "stance",
+            "nodes": [
+              {
+                "gesture": "hold",
+                "entryContext": "neutral",
+                "activationThreshold": 0.25,
+                "dispatch": "press",
+                "holdBehavior": "channel",
+                "releaseBehavior": "dispatch",
+                "next": [
+                  "kick-brace",
+                  "vault-finisher"
+                ],
+                "cancel": "release",
+                "expiryMs": 2300,
+                "tactileProfile": "tension",
+                "id": "stance",
+                "armedTriggerOverride": {
+                  "startPosition": 0.78,
+                  "endPosition": 0.95,
+                  "resistance": 0.18,
+                  "force": 0.24
+                },
+                "entryTick": null
+              },
+              {
+                "gesture": "doubleTapHold",
+                "entryContext": "continuation",
+                "activationThreshold": 0.5,
+                "dispatch": "release",
+                "holdBehavior": "charge",
+                "releaseBehavior": "dispatch",
+                "next": [
+                  "kick-strong"
+                ],
+                "cancel": "release",
+                "expiryMs": 2300,
+                "tactileProfile": "gate",
+                "id": "kick-brace",
+                "chargeBandOverrideId": "brace",
+                "telegraph": [
+                  {
+                    "delayMs": 0,
+                    "durationMs": 30,
+                    "magnitude": 0.24
+                  }
+                ],
+                "adaptiveOverride": {
+                  "startPosition": 0.5,
+                  "endPosition": 0.6,
+                  "force": 0.5
+                }
+              },
+              {
+                "gesture": "doubleTapHold",
+                "entryContext": "continuation",
+                "activationThreshold": 0.75,
+                "dispatch": "release",
+                "holdBehavior": "charge",
+                "releaseBehavior": "dispatch",
+                "next": [
+                  "kick-final"
+                ],
+                "cancel": "release",
+                "expiryMs": 2300,
+                "tactileProfile": "gate",
+                "id": "kick-strong",
+                "chargeBandOverrideId": "kick",
+                "telegraph": [
+                  {
+                    "delayMs": 0,
+                    "durationMs": 30,
+                    "magnitude": 0.24
+                  },
+                  {
+                    "delayMs": 95,
+                    "durationMs": 30,
+                    "magnitude": 0.27999999999999997
+                  }
+                ],
+                "adaptiveOverride": {
+                  "startPosition": 0.75,
+                  "endPosition": 0.85,
+                  "force": 0.7
+                }
+              },
+              {
+                "gesture": "doubleTapHold",
+                "entryContext": "continuation",
+                "activationThreshold": 0.95,
+                "dispatch": "release",
+                "holdBehavior": "charge",
+                "releaseBehavior": "dispatch",
+                "next": [],
+                "cancel": "release",
+                "expiryMs": 2300,
+                "tactileProfile": "gate",
+                "id": "kick-final",
+                "chargeBandOverrideId": "kick",
+                "adaptiveOverride": {
+                  "startPosition": 0.95,
+                  "endPosition": 1,
+                  "force": 0.9
+                }
+              },
+              {
+                "gesture": "holdThenDoubleTap",
+                "entryContext": "stance",
+                "activationThreshold": 0.95,
+                "dispatch": "press",
+                "holdBehavior": "none",
+                "releaseBehavior": "cancel",
+                "next": [],
+                "cancel": "release",
+                "expiryMs": 2300,
+                "tactileProfile": "followUp",
+                "id": "vault-finisher",
+                "entryRequiresArmed": true,
+                "adaptiveOverride": {
+                  "startPosition": 0.95,
+                  "endPosition": 1,
+                  "force": 0.9
+                }
+              }
+            ],
             "preGateGesture": "doubleTap",
             "haptics": {
               "baseTrigger": {
@@ -4973,63 +7238,17 @@
                   "durationMs": 50,
                   "magnitude": 0.4
                 }
+              ],
+              "depthTicks": [
+                {
+                  "position": 0.85,
+                  "tick": {
+                    "durationMs": 22,
+                    "magnitude": 0.14
+                  }
+                }
               ]
-            },
-            "nodes": [
-              {
-                "id": "hold",
-                "gesture": "hold",
-                "entryContext": "neutral",
-                "activationThreshold": 0.48,
-                "dispatch": "press",
-                "holdBehavior": "channel",
-                "releaseBehavior": "dispatch",
-                "next": [
-                  "doubleTapHold",
-                  "holdThenDoubleTap"
-                ],
-                "cancel": "release",
-                "expiryMs": 480,
-                "tactileProfile": "tension",
-                "entryTick": null
-              },
-              {
-                "id": "doubleTapHold",
-                "gesture": "doubleTapHold",
-                "entryContext": "continuation",
-                "activationThreshold": 0.72,
-                "dispatch": "release",
-                "holdBehavior": "charge",
-                "releaseBehavior": "dispatch",
-                "next": [],
-                "cancel": "release",
-                "expiryMs": 480,
-                "tactileProfile": "gate",
-                "adaptiveOverride": {
-                  "startPosition": 0.72,
-                  "endPosition": 0.82,
-                  "force": 0.65
-                }
-              },
-              {
-                "id": "holdThenDoubleTap",
-                "gesture": "holdThenDoubleTap",
-                "entryContext": "stance",
-                "activationThreshold": 0.9,
-                "dispatch": "release",
-                "holdBehavior": "none",
-                "releaseBehavior": "dispatch",
-                "next": [],
-                "cancel": "release",
-                "expiryMs": 480,
-                "tactileProfile": "followUp",
-                "adaptiveOverride": {
-                  "startPosition": 0.9,
-                  "endPosition": 0.98,
-                  "force": 0.9
-                }
-              }
-            ]
+            }
           }
         }
       }

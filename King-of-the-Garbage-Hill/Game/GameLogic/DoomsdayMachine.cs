@@ -1225,11 +1225,12 @@ public class DoomsdayMachine : IServiceSingleton
                         }
                     }
 
-                    Salldorum.RecordWinPointRecipients(
+                    Salldorum.RecordHistoricalLoss(
                         playerIamAttacking,
-                        game.RoundNo,
-                        player.GetPlayerId(),
-                        winPointRecipients);
+                        player,
+                        game,
+                        winPointRecipients,
+                        teamMate);
 
 
                     if (!teamMate)
@@ -1432,11 +1433,12 @@ public class DoomsdayMachine : IServiceSingleton
                         }
                     }
 
-                    Salldorum.RecordWinPointRecipients(
+                    Salldorum.RecordHistoricalLoss(
                         player,
-                        game.RoundNo,
-                        playerIamAttacking.GetPlayerId(),
-                        defenderWinPointRecipients);
+                        playerIamAttacking,
+                        game,
+                        defenderWinPointRecipients,
+                        teamMate);
 
 
 

@@ -115,7 +115,7 @@ export const LAST_CHANCES_EQUIP_MODES = [
 ] as const
 export const LAST_CHANCES_CONTROL_SCHEMES = ['legacy', 'mylorik', 'dualsense'] as const
 export const LAST_CHANCES_CONTROL_INTENTS = ['strike', 'technique', 'mobility'] as const
-export const LAST_CHANCES_CONTROL_PHASES = ['press', 'tap', 'hold', 'release'] as const
+export const LAST_CHANCES_CONTROL_PHASES = ['press', 'tap', 'hold', 'arm', 'release'] as const
 export const LAST_CHANCES_CONTROL_CONTEXTS = [
   'neutral',
   'continuation',
@@ -147,6 +147,7 @@ export const LAST_CHANCES_FEEDBACK_STATES = [
   'tension',
   'blocked',
   'impact',
+  'telegraph',
   'wriggle',
 ] as const
 
@@ -393,6 +394,18 @@ export interface LastChancesDualSenseComboNodeDefinition {
   tactileProfile: LastChancesTactileProfile
   /** Existing hold-charge band that must be armed before this branch becomes legal. */
   requiredChargeBandId?: string
+  /** Dwell time in this pocket before its release outcome is telegraphed. */
+  armMs?: number
+  /** This branch is legal only while the current pocket is armed. */
+  entryRequiresArmed?: boolean
+  /** Armed-loop rumble; omitted nodes fall back to their commit or charge-band signature. */
+  telegraph?: LastChancesFeedbackPulseDefinition[]
+  /** One-shot push-through invitation; omitted push branches use the default double knock. */
+  armedCue?: LastChancesFeedbackPulseDefinition[]
+  /** Softer persistent detent applied after the pocket arms. */
+  armedTriggerOverride?: Partial<LastChancesAdaptiveTriggerProfileDefinition>
+  /** Minimum charge band selected for this node's gesture regardless of elapsed hold time. */
+  chargeBandOverrideId?: string
   adaptiveOverride?: Partial<LastChancesAdaptiveTriggerProfileDefinition>
   /**
    * Motor tick on entering this node; explicit null makes the entry
@@ -435,6 +448,11 @@ export interface LastChancesWeaponHapticsDefinition {
   bandTick?: LastChancesBandTickDefinition
   /** Rumble signature played when a committed action fires. */
   commitPattern?: LastChancesFeedbackPulseDefinition[]
+  /** Feedback-only rising-edge ruler marks between gameplay gates. */
+  depthTicks?: Array<{
+    position: number
+    tick: LastChancesGateTickDefinition
+  }>
   wriggle?: LastChancesWeaponWriggleDefinition
 }
 
@@ -580,6 +598,7 @@ export interface LastChancesEnemyBossPhaseDefinition {
   attackCooldownMs: number
   attackWindupMs: number
   projectileSpeed?: number
+  projectileKnockback?: number
   leapDistance?: number
   leapDurationMs?: number
   targetLockMs?: number
@@ -609,7 +628,13 @@ export interface LastChancesCockroachMotherDefinition {
   /** Remaining-health gates that force a retreat through the linked boss holes. */
   retreatHealthRatios: number[]
   retreatSpeed: number
+  /** Distance from the entrance hole, as a fraction of body radius, at which she vanishes. */
+  entranceRadiusRatio?: number
   hideMs: number
+  /** Attack recovery applied after she emerges from the striking hole. */
+  exitRecoveryMs?: number
+  /** Chance that the strike returns through the entrance rather than its linked partner. */
+  sameHoleChance?: number
   blastRadius: number
   /** Pure blast damage as a fraction of the player's maximum HP. */
   blastDamageMaxHpRatio: number
@@ -637,6 +662,7 @@ export interface LastChancesEnemyDefinition {
   attackKind?: LastChancesEnemyAttackKind
   attackRadius?: number
   projectileSpeed?: number
+  projectileKnockback?: number
   leapDistance?: number
   leapDurationMs?: number
   targetLockMs?: number
@@ -672,7 +698,7 @@ export interface LastChancesTierDefinition {
   deathCost: number
   erosion: LastChancesStatErosion
   enemyPool: LastChancesEnemyPoolEntry[]
-  /** Each ID is assigned to one route node in this tier before the random enemyCount roll. */
+  /** Each ID is assigned to one route node and reserves one slot inside that room's enemyCount. */
   guaranteedEnemyIds?: string[]
   roomTemplateIds: string[]
   /** Each room ID is assigned to one route node, so a special room exists but remains bypassable. */
@@ -749,6 +775,8 @@ export interface LastChancesTurretDefinition {
   fireIntervalMs: number
   projectileSpeed: number
   projectileRadius: number
+  projectileSpawnOffset?: number
+  projectileKnockback?: number
   damage: number
   color: string
 }
@@ -787,6 +815,8 @@ export interface LastChancesRoomTemplate {
   hazards?: LastChancesHazardDefinition[]
   interaction?: LastChancesRoomInteractionDefinition
   encounter?: LastChancesFixedEncounterDefinition
+  /** Shared alarm memory after any linked turret sees the player. */
+  turretAlarmHoldMs?: number
   turrets?: LastChancesTurretDefinition[]
   bossHoles?: LastChancesBossHoleDefinition[]
   altar?: LastChancesBossAltarDefinition
@@ -850,6 +880,10 @@ export interface LastChancesDualSenseInputDefinition {
   activationThreshold: number
   releaseThreshold: number
   hysteresis: number
+  /** Default dwell time before the active trigger pocket arms. */
+  armMs?: number
+  /** Repeat interval for an armed pocket's discrete telegraph pattern. */
+  telegraphPeriodMs?: number
   gamepad: {
     leftBumper: number
     rightBumper: number
@@ -883,6 +917,8 @@ export interface LastChancesInputDefinition {
   holdMaxMs: number
   holdThenDoubleTapWindowMs: number
   aimDeadZone: number
+  /** Minimum movement-stick magnitude used when an action redirects itself from movement. */
+  actionDirectionDeadZone: number
   gamepadDeadZone: number
   gamepadLeftButton: number
   gamepadRightButton: number
@@ -893,8 +929,18 @@ export interface LastChancesInputDefinition {
   dualsense?: LastChancesDualSenseInputDefinition
 }
 
+export interface LastChancesCombatDefinition {
+  /** Every committed attack removes residual walking velocity before its first frame. */
+  attackStopsMovement: boolean
+  minimumPlayerParryMs: number
+  enemyRevealOnParryMs: number
+  enemyRevealOnHitMs: number
+  /** Damage remaining after armor can never fall below this value. */
+  minimumPlayerDamageTaken: number
+}
+
 export interface LastChancesConfig {
-  schemaVersion: 1 | 2 | 3 | 4 | 5 | 6 | 7
+  schemaVersion: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9
   title: string
   seed: string
   chances: number
@@ -906,6 +952,10 @@ export interface LastChancesConfig {
   player: {
     radius: number
     invulnerabilityMs: number
+    /** Time to accelerate from rest to the current maximum movement speed. */
+    accelerationMs: number
+    /** Time to brake from the current maximum movement speed to rest after releasing input. */
+    decelerationMs: number
     baseStats: LastChancesStats
   }
   mentalHealth: {
@@ -913,12 +963,17 @@ export interface LastChancesConfig {
     restoreOnKill: number
     maxPressurePerSecond: number
   }
+  combat: LastChancesCombatDefinition
   stamina: LastChancesStaminaDefinition
   progression: {
     roomHpRecovery: number
     roomMentalRecovery: number
     /** Defaults to true for older definitions. False unlocks every move and hides move quests. */
     moveQuestsEnabled?: boolean
+    /** Kills with tap/hold required to queue that move quest's next-room unlock. */
+    moveQuestKillsRequired: number
+    /** Current HP and mind retained when entering an unvisited neighboring room in the same tier. */
+    sameTierSacrificeRatio: number
     tiers: LastChancesTierDefinition[]
   }
   rooms: LastChancesRoomTemplate[]
@@ -972,6 +1027,7 @@ export interface LastChancesPlanNode {
     hazards: LastChancesHazardDefinition[]
   }
   interaction: LastChancesRoomInteractionDefinition | null
+  turretAlarmHoldMs: number
   turrets: LastChancesTurretDefinition[]
   bossHoles: LastChancesBossHoleDefinition[]
   altar: LastChancesBossAltarDefinition | null
@@ -1100,6 +1156,8 @@ export interface LastChancesGestureResolution {
   heldMs: number
   /** Duration of the first press; differs from heldMs for multi-press gestures. */
   firstHoldMs: number
+  /** DualSense-only depth floor; absent for DeepList and mylorik. */
+  minChargeBandId?: string
 }
 
 export interface LastChancesChargeBandSnapshot {
@@ -1268,6 +1326,8 @@ export interface LastChancesSnapshot {
   currentTierIndex: number | null
   attemptPath: string[]
   availableNodeIds: string[]
+  /** Available same-tier nodes whose entry consumes the configured body/mind sacrifice. */
+  sacrificeNodeIds: string[]
   deathReason: string | null
   player: LastChancesPlayerSnapshot
   enemies: LastChancesEnemySnapshot[]

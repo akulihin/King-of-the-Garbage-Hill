@@ -33,10 +33,14 @@ export interface LastChancesSemanticInputEvent {
   commit: boolean
   /** Availability probe used to choose among authored graph branches; it has no side effects. */
   probe?: boolean
-  /** A node that was accepted earlier in this same trigger pull. */
+  /** True only when an armed-only branch is entered from its dwelled pocket. */
   armed?: boolean
   /** Quick release before any combo node was reached: dispatch the set's preGateGesture. */
   preGate?: boolean
+  /** Rising-edge-only feedback ruler mark inside the current weapon's haptics block. */
+  depthTickIndex?: number
+  /** A fast pull already crossed another gameplay gate in the same 200 ms sweep. */
+  coalesced?: boolean
 }
 
 export type LastChancesSemanticInputHandler = (
@@ -357,8 +361,12 @@ interface DualSenseTriggerState {
   value: number
   maxValue: number
   activeNodeId: string | null
+  armedNodeId: string | null
+  nodeEnteredAt: number
   routeLocked: boolean
   entryLegalNodeIds: Set<string>
+  emittedDepthTickIndexes: Set<number>
+  gateAdvanceCount: number
   source: LastChancesControlSource
 }
 
@@ -370,8 +378,12 @@ function dualSenseTriggerState(needsRelease = false): DualSenseTriggerState {
     value: 0,
     maxValue: 0,
     activeNodeId: null,
+    armedNodeId: null,
+    nodeEnteredAt: 0,
     routeLocked: false,
     entryLegalNodeIds: new Set<string>(),
+    emittedDepthTickIndexes: new Set<number>(),
+    gateAdvanceCount: 0,
     source: 'gamepad',
   }
 }
@@ -384,6 +396,7 @@ export interface DualSenseTriggerSnapshot {
   maxValue: number
   heldMs: number
   nodeId: string | null
+  armedNodeId: string | null
 }
 
 function clampTrigger(value: number): number {
@@ -434,16 +447,21 @@ export class DualSenseControlRecognizer {
   ): void {
     const state = this.states[physicalHand]
     const normalized = clampTrigger(value)
+    const previous = state.value
     state.value = normalized
     const releaseGate = this.config.releaseThreshold
     const neutralRearmGate = Math.max(0, releaseGate - this.config.hysteresis)
+    const pullStartGate = Math.min(
+      this.config.activationThreshold,
+      releaseGate + this.config.hysteresis,
+    )
     if (state.needsRelease) {
       if (normalized <= neutralRearmGate) this.states[physicalHand] = dualSenseTriggerState()
       return
     }
     const nodes = [...(controls?.dualsense.nodes ?? [])]
       .sort((left, right) => left.activationThreshold - right.activationThreshold)
-    if (!state.active && normalized >= this.config.activationThreshold) {
+    if (!state.active && normalized >= pullStartGate) {
       state.active = true
       state.startedAt = atMs
       state.maxValue = normalized
@@ -472,6 +490,26 @@ export class DualSenseControlRecognizer {
     if (!state.active) return
 
     state.maxValue = Math.max(state.maxValue, normalized)
+    const depthTicks = controls?.dualsense.haptics?.depthTicks ?? []
+    depthTicks.forEach((depthTick, depthTickIndex) => {
+      if (state.emittedDepthTickIndexes.has(depthTickIndex)
+        || previous >= depthTick.position
+        || normalized < depthTick.position) return
+      state.emittedDepthTickIndexes.add(depthTickIndex)
+      this.emit({
+        scheme: 'dualsense',
+        physicalHand,
+        hand: physicalClusterToRuntimeHand(physicalHand),
+        intent: 'technique',
+        phase: 'hold',
+        source,
+        atMs,
+        heldMs: Math.max(0, atMs - state.startedAt),
+        value: normalized,
+        depthTickIndex,
+        commit: false,
+      })
+    })
     if (normalized > releaseGate) {
       const byId = new Map(nodes.map(node => [node.id, node]))
       const reachable: typeof nodes = []
@@ -490,9 +528,21 @@ export class DualSenseControlRecognizer {
         : (controls?.dualsense.startNodeId ? [controls.dualsense.startNodeId] : [])
       routeHeads.forEach(visit)
 
-      const eligible = reachable.filter((node) => node.entryContext === 'neutral'
-        ? state.entryLegalNodeIds.has(node.id)
-        : this.emit({
+      const armedPocket = state.armedNodeId !== null
+        && state.armedNodeId === state.activeNodeId
+      const activeArmedBranches = armedPocket && activeNode
+        ? activeNode.next
+          .map(nodeId => byId.get(nodeId))
+          .filter((node): node is typeof nodes[number] => node?.entryRequiresArmed === true)
+        : []
+      const eligible = reachable.filter((node) => {
+        if (node.entryRequiresArmed && !armedPocket) return false
+        if (armedPocket && activeArmedBranches.length > 0
+          && node.id !== activeNode?.id
+          && !node.entryRequiresArmed) return false
+        return node.entryContext === 'neutral'
+          ? state.entryLegalNodeIds.has(node.id)
+          : this.emit({
             scheme: 'dualsense',
             physicalHand,
             hand: physicalClusterToRuntimeHand(physicalHand),
@@ -508,9 +558,47 @@ export class DualSenseControlRecognizer {
             tactileProfile: node.tactileProfile,
             commit: false,
             probe: true,
-          }) === 'handled')
-        .sort((left, right) => right.activationThreshold - left.activationThreshold)
+            armed: node.entryRequiresArmed ? armedPocket : undefined,
+          }) === 'handled'
+      }).sort((left, right) => (
+        right.activationThreshold - left.activationThreshold
+        || Number(right.entryRequiresArmed === true) - Number(left.entryRequiresArmed === true)
+      ))
       const selected = eligible[0]
+      const deepestReachableThreshold = reachable.reduce(
+        (deepest, node) => Math.max(deepest, node.activationThreshold),
+        Number.NEGATIVE_INFINITY,
+      )
+      const deepestEligibleThreshold = selected?.activationThreshold ?? Number.NEGATIVE_INFINITY
+      const deepestReachableNodes = reachable
+        .filter(node => node.activationThreshold === deepestReachableThreshold)
+      const rawPullHitsArmedOnlyGate = !armedPocket
+        && deepestReachableThreshold > deepestEligibleThreshold
+        && deepestReachableNodes.length > 0
+        && deepestReachableNodes.every(node => node.entryRequiresArmed === true)
+      if (rawPullHitsArmedOnlyGate) {
+        const blockedNode = deepestReachableNodes[0]
+        if (blockedNode) {
+          this.emit({
+            scheme: 'dualsense',
+            physicalHand,
+            hand: physicalClusterToRuntimeHand(physicalHand),
+            intent: 'technique',
+            phase: 'hold',
+            context: blockedNode.entryContext,
+            source,
+            atMs,
+            heldMs: Math.max(0, atMs - state.startedAt),
+            value: normalized,
+            gesture: blockedNode.gesture,
+            nodeId: blockedNode.id,
+            tactileProfile: blockedNode.tactileProfile,
+            commit: true,
+          })
+        }
+        this.states[physicalHand] = dualSenseTriggerState(true)
+        return
+      }
       const advances = selected && selected.id !== activeNode?.id
         && (!activeNode || selected.activationThreshold >= activeNode.activationThreshold)
       if (selected && advances) {
@@ -529,10 +617,17 @@ export class DualSenseControlRecognizer {
           nodeId: selected.id,
           tactileProfile: selected.tactileProfile,
           commit: selected.dispatch === 'press',
-          armed: state.entryLegalNodeIds.has(selected.id),
+          armed: selected.entryRequiresArmed
+            ? armedPocket
+            : undefined,
+          coalesced: state.gateAdvanceCount > 0
+            && atMs - state.startedAt <= 200,
         })
         if (result === 'handled') {
           state.activeNodeId = selected.id
+          state.armedNodeId = null
+          state.nodeEnteredAt = atMs
+          state.gateAdvanceCount += 1
           if (selected.dispatch === 'press') state.routeLocked = true
         }
         if (result === 'blocked') {
@@ -591,7 +686,7 @@ export class DualSenseControlRecognizer {
         nodeId: node.id,
         tactileProfile: node.tactileProfile,
         commit: true,
-        armed: true,
+        armed: state.armedNodeId === node.id,
       })
     } else if (!state.activeNodeId && controls?.dualsense.preGateGesture) {
       // The pull never reached a combo node: the "click before the gate"
@@ -623,7 +718,29 @@ export class DualSenseControlRecognizer {
       if (!state.active || !state.activeNodeId) continue
       const node = controls(physicalHand)?.dualsense.nodes
         .find(candidate => candidate.id === state.activeNodeId)
-      if (!node || node.cancel !== 'expiry' || atMs - state.startedAt < node.expiryMs) continue
+      if (node && state.armedNodeId !== state.activeNodeId
+        && state.value > this.config.releaseThreshold
+        && atMs - state.nodeEnteredAt >= (node.armMs ?? this.config.armMs ?? 450)) {
+        state.armedNodeId = state.activeNodeId
+        this.emit({
+          scheme: 'dualsense',
+          physicalHand,
+          hand: physicalClusterToRuntimeHand(physicalHand),
+          intent: 'technique',
+          phase: 'arm',
+          context: node.entryContext,
+          source: state.source,
+          atMs,
+          heldMs: Math.max(0, atMs - state.startedAt),
+          value: state.value,
+          gesture: node.gesture,
+          nodeId: node.id,
+          tactileProfile: node.tactileProfile,
+          commit: false,
+          armed: true,
+        })
+      }
+      if (!node || node.cancel !== 'expiry' || atMs - state.nodeEnteredAt < node.expiryMs) continue
       this.states[physicalHand] = dualSenseTriggerState(true)
     }
   }
@@ -638,6 +755,7 @@ export class DualSenseControlRecognizer {
       maxValue: state.maxValue,
       heldMs: state.active ? Math.max(0, atMs - state.startedAt) : 0,
       nodeId: state.activeNodeId,
+      armedNodeId: state.armedNodeId,
     }
   }
 

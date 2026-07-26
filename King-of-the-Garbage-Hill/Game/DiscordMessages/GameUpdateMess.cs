@@ -517,6 +517,16 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                     }
                     break;
 
+                case "Глаза Итачи":
+                    if (other.GetPlayerId() == me.GetPlayerId()) break;
+                    var tsukuyomiMarks = me.Passives.ItachiTsukuyomi;
+                    if (tsukuyomiMarks.TsukuyomiActiveTarget == other.GetPlayerId()
+                        || tsukuyomiMarks.TsukuyomiTargetThisRound == other.GetPlayerId())
+                        customString += " 👁️";
+                    else if (tsukuyomiMarks.CaughtPlayers.Contains(other.GetPlayerId()))
+                        customString += " 🛑";
+                    break;
+
                 case "Неприметность":
                     if (other.GetPlayerId() == me.GetPlayerId()) break;
                     var saitamaTargets = me.Passives.SaitamaUnnoticed.SeriousTargets;
@@ -825,9 +835,13 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                 else if (tbKimiko.IsDisabled) customString += " | ❌Kimiko";
                 if (tbMM.IsCalm && !tbButcher.SuperDickActive) customString += " | 🧘Спокоен";
             }
-            else if (other.Passives.TheBoysSupMark)
+            else
             {
-                customString += " 🦸";
+                if (other.Passives.TheBoysSupMark)
+                    customString += " 🦸";
+                if (other.Passives.TheBoysVirus
+                    && other.Passives.TheBoysVirusSource == me.GetPlayerId())
+                    customString += " ☣️";
             }
         }
 

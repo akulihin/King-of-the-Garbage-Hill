@@ -2644,8 +2644,8 @@
     "passiveNameEnglish": "Itachi's Eyes",
     "phrases": [
       {
-        "russian": "Всё это было в глазах у Итачи...",
-        "english": "It was all there in Itachi's eyes..."
+        "russian": "Итачи: Всё это время ты был внутри моей иллюзии.",
+        "english": "Itachi: All this time you were inside my illusion."
       }
     ]
   },
@@ -3694,12 +3694,8 @@
     "passiveNameEnglish": "Deadly Virus",
     "phrases": [
       {
-        "russian": "Francie: Вирус против Суперов... А что если он не сработает не цели?",
-        "english": "Frenchie: A virus for Supes... But what if it fails on the target?"
-      },
-      {
-        "russian": "Butcher: Тогда нам всем пиздец. Ну что, поехали?",
-        "english": "Butcher: Then we're all fucked. Ready? Let's go."
+        "russian": "Francie: Вирус против Суперов... А что если он не сработает не цели?\nButcher: Тогда нам всем пиздец. Ну что, поехали?",
+        "english": "Frenchie: A virus for Supes... But what if it fails on the target?\nButcher: Then we're all fucked. Ready? Let's go."
       }
     ]
   },

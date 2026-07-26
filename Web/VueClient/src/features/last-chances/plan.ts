@@ -90,7 +90,10 @@ function makeEnemyPlan(
     diversity.usedSpecialEnemyIds.add(definitionId)
   }
   let swarmDefinitionId: string | null = null
-  for (let index = 0; index < count; index += 1) {
+  // `enemyCount` is the room's total population target. Guaranteed entries reserve slots inside
+  // that target instead of silently overflowing a validated spawn layout.
+  const randomCount = Math.max(0, count - enemies.length)
+  for (let index = 0; index < randomCount; index += 1) {
     const diversePool = tier.enemyPool.filter((entry) => {
       const definition = config.enemies.find(candidate => candidate.id === entry.enemyId)
       if (definition?.swarm) return !diversity.usedSwarmEnemyIds.has(entry.enemyId)
@@ -231,6 +234,7 @@ function makeNode(
     interaction: room.interaction
       ? JSON.parse(JSON.stringify(room.interaction)) as LastChancesPlanNode['interaction']
       : null,
+    turretAlarmHoldMs: room.turretAlarmHoldMs ?? 650,
     turrets: (room.turrets ?? []).map(turret => JSON.parse(JSON.stringify(turret))),
     bossHoles: linkBossHoles(room.bossHoles ?? [], createLastChancesRng(`${seed}:boss-holes`)),
     altar: room.altar ? JSON.parse(JSON.stringify(room.altar)) : null,
