@@ -478,11 +478,26 @@ public static class Naruto
         foreach (var clone in playerList.Where(IsDispersedClone))
             clone.Status.DiscardScoreAfterDeath();
 
-        var ordered = playerList.OrderBy(player => player.Passives.IsDead)
-            .ThenBy(IsDispersedClone)
-            .ThenByDescending(player => player.Status.GetScore())
-            .ToList();
-        return JonSnow.ApplyLeaderboardRules(ordered);
+        List<GamePlayerBridgeClass> OrderByCurrentScore() =>
+            JonSnow.ApplyLeaderboardRules(playerList
+                .OrderBy(player => player.Passives.IsDead)
+                .ThenBy(IsDispersedClone)
+                .ThenByDescending(player => player.Status.GetScore())
+                .ToList());
+
+        var ordered = OrderByCurrentScore();
+        var homelander = ordered.FirstOrDefault(Homelander.Is);
+        var sevenWasActive = homelander?.Status.HomelanderSevenPointsActive == true;
+        Homelander.UpdateSevenPointsAvailability(ordered);
+
+        // Праведность is intentionally hysteretic: an active Seven helps Homelander retain first
+        // place, but after that effective score loses the lead the seven points freeze immediately
+        // and the remaining rows must be ranked again without them. A frozen Seven reactivates only
+        // after Homelander reaches first place on his underlying score.
+        if (sevenWasActive && homelander?.Status.HomelanderSevenPointsActive == false)
+            ordered = OrderByCurrentScore();
+
+        return ordered;
     }
 
     public static void MoveDispersedClonesToBottom(List<GamePlayerBridgeClass> players)

@@ -374,6 +374,14 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                         customString += " 🤡";
                     break;
 
+                case OmniMan.GuardiansOfTheGlobe:
+                    if (!isWeb
+                        && other.GetPlayerId() != me.GetPlayerId()
+                        && !me.IsTeamMember(game, other.GetPlayerId())
+                        && OmniMan.IsSleepingFromGuardians(me, other, game))
+                        customString += " 😴";
+                    break;
+
                 case Homelander.Righteousness:
                     if (!isWeb
                         && other.GetPlayerId() != me.GetPlayerId()
@@ -384,6 +392,14 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                             ? $" 🔥{rage}% (использовано)"
                             : $" 🔥{rage}%";
                     }
+                    break;
+
+                case Homelander.Modesty:
+                    if (!isWeb
+                        && other.GetPlayerId() != me.GetPlayerId()
+                        && !me.IsTeamMember(game, other.GetPlayerId())
+                        && Homelander.WasRevealedBy(me, other.GetPlayerId()))
+                        customString += " 👁️";
                     break;
 
                 case "AdminPlayerType":
@@ -1614,7 +1630,8 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                 attackMenu.AddOption("Напасть на " + playerToAttack.DiscordUsername, playerToAttack.GetPlayerId().ToString(), emote: _playerChoiceAttackList[i]);
         }
 
-        if (Cthulhu.IsNechtoActive(game) && game.RoundNo <= 10)
+        if (Cthulhu.IsNechtoActive(game) && game.RoundNo <= 10
+            && !(Madara.IsMadara(player) && game.RoundNo == 8))
             attackMenu.AddOption("Напасть на Нечто", Cthulhu.NechtoAttackOption);
 
         if (attackMenu.Options.Count == 0) attackMenu.AddOption("ТЫ ВСЕХ УБИЛ", "kratos-death");
@@ -1865,6 +1882,14 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                     ButtonStyle.Secondary, isDisabled: true));
             }
 
+            return components;
+        }
+
+        if (Cthulhu.CanChooseAdept(game, player))
+        {
+            components.WithButton(new ButtonBuilder(
+                "Выбрать адепта", "cthulhu-choose-adept", ButtonStyle.Primary));
+            components.WithButton(GetEndGameButton(player, game));
             return components;
         }
 

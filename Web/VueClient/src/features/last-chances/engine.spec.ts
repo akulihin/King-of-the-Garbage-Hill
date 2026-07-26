@@ -302,12 +302,14 @@ type EngineTestAccess = {
   killPlayer: (reason: string) => void
   cssWidth: number
   entityScale: (node: LastChancesPlanNode) => number
-  layout: (arenaWidth?: number, arenaHeight?: number) => {
-    originX: number
-    originY: number
-    scale: number
+  layout: () => {
+    centerX: number
+    top: number
+    diamondWidth: number
+    diamondHeight: number
   }
   worldToScreen: (point: LastChancesVector, node: LastChancesPlanNode) => LastChancesVector
+  screenToWorld: (point: LastChancesVector, node: LastChancesPlanNode) => LastChancesVector
   moveCircle: (
     position: LastChancesVector,
     delta: LastChancesVector,
@@ -1022,29 +1024,35 @@ describe('99LC engine attempt lifecycle', () => {
 })
 
 describe('99LC eight-weapon mechanics', () => {
-  it('projects the arena top-down at one uniform scale on both axes', () => {
+  it('projects the arena as an invertible full-window isometric diamond', () => {
     const { engine, access } = startCombat(combatConfig('twohand-spear', null, 'guard', 1))
 
     try {
       const node = access.currentNode!
       const arena = node.arena
-      // The room is authored 16:9 and fitted whole, corner to corner.
-      expect(arena.width / arena.height).toBeCloseTo(16 / 9, 2)
-      const topLeft = access.worldToScreen({ x: 0, y: 0 }, node)
-      const topRight = access.worldToScreen({ x: arena.width, y: 0 }, node)
-      const bottomLeft = access.worldToScreen({ x: 0, y: arena.height }, node)
+      const layout = access.layout()
+      const top = access.worldToScreen({ x: 0, y: 0 }, node)
+      const right = access.worldToScreen({ x: arena.width, y: 0 }, node)
+      const bottom = access.worldToScreen({ x: arena.width, y: arena.height }, node)
+      const left = access.worldToScreen({ x: 0, y: arena.height }, node)
 
-      // Axis-aligned: no isometric shear.
-      expect(topRight.y).toBeCloseTo(topLeft.y, 6)
-      expect(bottomLeft.x).toBeCloseTo(topLeft.x, 6)
+      expect(top.x).toBeCloseTo(bottom.x, 6)
+      expect(right.y).toBeCloseTo(left.y, 6)
+      expect(right.x - left.x).toBeCloseTo(layout.diamondWidth, 6)
+      expect(bottom.y - top.y).toBeCloseTo(layout.diamondHeight, 6)
+      expect(right.x).toBeGreaterThan(top.x)
+      expect(left.x).toBeLessThan(top.x)
+      expect(top.y).toBeLessThan(right.y)
+      expect(right.y).toBeLessThan(bottom.y)
 
-      // Isotropic: one world unit is the same number of pixels in x and in y, so screen
-      // speed cannot depend on the direction of travel.
-      const scaleX = (topRight.x - topLeft.x) / arena.width
-      const scaleY = (bottomLeft.y - topLeft.y) / arena.height
-      expect(scaleX).toBeCloseTo(scaleY, 6)
-      expect(scaleX).toBeCloseTo(access.entityScale(node), 6)
-      expect(arena.width * scaleX).toBeGreaterThanOrEqual(access.cssWidth * 0.6)
+      const worldPoint = { x: arena.width * 0.37, y: arena.height * 0.61 }
+      const roundTrip = access.screenToWorld(access.worldToScreen(worldPoint, node), node)
+      expect(roundTrip.x).toBeCloseTo(worldPoint.x, 6)
+      expect(roundTrip.y).toBeCloseTo(worldPoint.y, 6)
+      expect(access.entityScale(node)).toBeCloseTo(
+        layout.diamondWidth / (arena.width + arena.height),
+        6,
+      )
     } finally {
       engine.destroy()
     }

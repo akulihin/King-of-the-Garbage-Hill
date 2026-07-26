@@ -771,12 +771,16 @@ public class BattleshipService
         BattleshipPlayer shooter,
         ShotResult result)
     {
+        // A reset delay is only ever produced by a ship deck kill on the opponent's board: every
+        // own-board and summon-kill path ends the turn, so `defender` is exactly the owner of the
+        // field that lost the deck. Whether that owner will actually answer is deliberately NOT
+        // predicted here — the window's length must not depend on guessing the answer's legality.
         var defender = game.GetOpponent(shooter.DiscordId);
         var delay = !game.IsFinished && result is { Hit: true, TurnContinues: true }
-            ? defender is { IsBot: false } && CanDeployAnySummon(game, defender)
-                ? ComboHitDelay
-                : FastComboHitDelay
-            : TimeSpan.Zero;
+            ? defender is { IsBot: false }
+                ? ComboHitDelay        // 8 s — a human owns the board that lost the deck
+                : FastComboHitDelay    // 2 s — bot board, no answer window is owed
+            : TimeSpan.Zero;           // miss / turn ends / game over
         result.ShotDelayMs = (int)delay.TotalMilliseconds;
         shooter.CurrentShotDelayMs = result.ShotDelayMs;
         shooter.NextShotAllowedAtUtc = delay > TimeSpan.Zero
@@ -796,8 +800,10 @@ public class BattleshipService
         game.GetPlayers().Any(p => p.PendingSummons.Any(s => s.IsBoarding));
 
     /// <summary>
-    /// Whether this player can legally place at least one summon right now. This is the
-    /// sole reason to keep the long reset window; it deliberately works outside their turn.
+    /// Whether this player can legally place at least one summon right now. Its only consumer is
+    /// the caller-only <c>CanDeployAnySummon</c> DTO field (see <see cref="MapPlayer"/>), which
+    /// drives the client's summon controls. The reset window length no longer depends on it —
+    /// a human-owned defending board always earns the long window.
     /// </summary>
     private static bool CanDeployAnySummon(BattleshipGame game, BattleshipPlayer player)
     {
@@ -1074,6 +1080,11 @@ public class BattleshipService
 
         lock (game)
         {
+            // INVARIANT: deployment is never gated on turn ownership or on the shooter's reset
+            // reload. A defender must be able to answer at any moment of an enemy turn, including
+            // while an enemy shot is still resolving or animating. Do NOT add a
+            // `game.CurrentTurnPlayerId` or `GetShotDelayError` check here or in DeployPendingSummon
+            // — that is the entire reason the long reset window exists.
             if (game.Phase != BsGamePhase.Combat && game.Phase != BsGamePhase.Boarding)
                 return (false, "Сейчас не фаза боя.");
             if (HasPendingBoardingDeployments(game))

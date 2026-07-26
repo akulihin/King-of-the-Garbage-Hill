@@ -1,6 +1,6 @@
 # Balance Constants — every tunable number with its code anchor
 
-> Hand-maintained. **Update the row when you change the number** (and re-run `tools/audit-passives.sh` for name changes). Verified against the working tree of 2026-07-25 (v5.1.9). `CP` = `Game/GameLogic/CharacterPassives.cs`, `CC` = `Game/Classes/CharacterClass.cs`, `DM` = `Game/GameLogic/DoomsdayMachine.cs`, `CIR` = `Game/GameLogic/CheckIfReady.cs`, `GR` = `Game/ReactionHandling/GameReactions.cs`.
+> Hand-maintained. **Update the row when you change the number** (and re-run `tools/audit-passives.sh` for name changes). Verified against the working tree of 2026-07-26 (v5.1.14). `CP` = `Game/GameLogic/CharacterPassives.cs`, `CC` = `Game/Classes/CharacterClass.cs`, `DM` = `Game/GameLogic/DoomsdayMachine.cs`, `CIR` = `Game/GameLogic/CheckIfReady.cs`, `GR` = `Game/ReactionHandling/GameReactions.cs`.
 >
 > RNG note: `Luck(x)` ≈ x%, `Luck(a,b)` ≈ a-in-b (rounded to whole %); see `Helpers/SecureRandom.cs:35-45`.
 
@@ -126,7 +126,7 @@ The full 12-contract catalog, selection, privacy and migration rules are in [DAI
 | Constant | Value | Anchor |
 |---|---|---|
 | Battleship first win of the UTC day | 10 ZBS; once per account/day after combat starts | BattleshipService.cs:15-16,75-95 |
-| Battleship combo-hit response window | 8 seconds only when the defending human can legally deploy a summon; otherwise 2 seconds after a hit that preserves the shooter's turn; 0 after a miss | `BattleshipService.ComboHitDelay`/`FastComboHitDelay`/`ApplyComboShotDelay`; `GameHub.RunBattleshipBotPump` |
+| Battleship combo-hit response window | After a hit that preserves the shooter's turn: 8 seconds whenever the board that lost the deck belongs to a human, 2 seconds when it belongs to a bot. 0 after a miss, a turn-ending shot or a finished game. Not conditioned on whether the defender can actually deploy a summon | `BattleshipService.ComboHitDelay`/`FastComboHitDelay`/`ApplyComboShotDelay`; `GameHub.RunBattleshipBotPump` |
 
 ## Achievement & loot-box rewards
 
@@ -177,18 +177,19 @@ Achievement progress targets and the complete 110-entry rule catalog are in [ACH
 | Character | Constant | Value | Anchor |
 |---|---|---|---|
 | Homelander | base stats / Tier | Int 5, Str 10, Speed 9, Psyche 1; Tier 5 | `characters.json` Homelander |
-| Homelander | Праведность leader payout / rage trigger / cap | +5 Moral per turn at place 1; otherwise +20% rage on the leader; +20% per enemy attacking win; cap 100% | `Homelander.ApplyRighteousness`/`RecordAttackingWin`; `RagePerTrigger`/`MaximumRage` |
-| Homelander | Праведность laser | next attack at 100% auto-wins and adds 2 guaranteed Drops; once per enemy | `Homelander.ArmLaser`/`ApplyLaserDrops` |
-| Homelander | Башня Vought | unique enemy positive-income leader −1 regular; unique Homelander leader receives one extra copy of every positive score entry earned that turn | `Homelander.ApplyVoughtTower` |
+| Homelander | Праведность leader payout / Seven score / rage trigger / cap | place 1: +7 Moral per turn and virtual +7 score; otherwise +20% rage on the leader; any enemy victory over Homelander +10%, or +20% when that enemy was charged as leader in the same turn (total +40%); cap 100% | `Homelander.ApplyRighteousness`/`RecordEnemyVictory`/`UpdateSevenPointsAvailability`; `InGameStatusClass.GetScore`; `LeaderMoral`/`SevenPoints`/`LeaderRage`/`VictoryRage`/`LeaderVictoryRage`/`MaximumRage` |
+| Homelander | Праведность laser | next attack at 100% auto-wins, grants Homelander +10 Moral and adds 2 guaranteed Drops; once per enemy | `Homelander.ArmLaser`/`ApplyLaserDrops`; `LaserMoral` |
+| Homelander | Башня Vought | unique enemy positive-income leader −1 bonus; unique Homelander leader receives one extra copy of every positive score entry earned that turn | `Homelander.ApplyVoughtTower` |
 | Homelander | Молоко | +1 regular after first attack on HardKitty | `Homelander.TryMilk` |
 | Omni-man | base stats / Tier | Int 1, Str 10, Speed 10, Psyche 6; Tier 3 | `characters.json` Omni-man |
 | Omni-man | Подумай, Марк! check / payout | target resists at Omni-man Int +2; first failure per enemy pays +3 bonus | `OmniMan.IntelligenceAdvantageToResist`/`IntelligenceBattlePoints`; `HandleIntelligenceWin` |
 | Omni-man | invasion delay / deadline | triggers after 1 further full turn; scheduling disabled from turn 10, so turn 9 → end of turn 10 is the latest path | `OmniMan.EvaluateInvasion`/`TryTriggerInvasion` |
-| Omni-man | Стражи Земли | one unique positive-income enemy maximum sleeps for 1 following turn; turns 1–9 only | `OmniMan.ApplyGuardiansOfTheGlobe` |
+| Omni-man | Стражи Земли | one unique strictly-positive net-delta enemy maximum sleeps for 1 following turn; turns 1–9 only | `OmniMan.ApplyGuardiansOfTheGlobe` |
 | Omni-man | Частица нашей силы | each incoming enemy attack grants its attacker +10 Skill | `OmniMan.SkillPerIncomingAttack`; `HandleEnemyAttack` |
+| Omni-man | Подземный Поезд | once per match; 4 Drops; each crossed enemy loses ceil(10% current score), min 1, and Omni-man gains the nominal amount | `OmniMan.UndergroundTrainDrops`/`UndergroundTrainStealPercent`; `HandleUndergroundTrainWin` |
 | Ктулху | Морок bonus steal | victim −1 / Вестник +1 immediate bonus point; unknown_bug exempt | `Cthulhu.HandleResolvedFight` |
 | Ктулху | Нечто isolated fight stats / Justice | 10 / 10 / 10 / 10; Justice 0 | `Cthulhu.ResolveNechtoAttacks` |
-| Ктулху | Нечто victory reward | +2 regular points (then ×1/×2/×4 by round) | `Cthulhu.ResolveNechtoAttacks` |
+| Ктулху | Нечто victory reward | +2 regular points (then ×1/×2/×4 by round); round-8 waiting Мадара cannot submit the event attack | `Cthulhu.SubmitNechtoAttack`/`ResolveNechtoAttacks` |
 | Ктулху | Космический ужас idle trigger | 2 complete consecutive rounds with no Нечто attack | `Cthulhu.HandleEndOfRound` |
 | DeepList | Безумие schedule / skill mult / stats | 2(+≤1) rounds in 4-7; ×4 multipliers; stats random 0-10 | PassivesClass.cs:21, CP:5387-5450 |
 | DeepList | Сверхразум discoveries | 1(+≤2) in rounds 1-5 | PassivesClass.cs:16 |

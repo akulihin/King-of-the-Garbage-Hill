@@ -1798,6 +1798,12 @@ public class DoomsdayMachine : IServiceSingleton
         Naruto.SettleShadowClones(game);
         Cthulhu.ResolveNechtoAttacks(game, _calculateRounds, _charactersPull);
         Cthulhu.HandleEndOfRound(game);
+        if (game.CthulhuState.HorrorFired)
+        {
+            SettleCosmicHorrorRound(game);
+            watch.Stop();
+            return true;
+        }
 
 
 
@@ -1868,6 +1874,26 @@ public class DoomsdayMachine : IServiceSingleton
 
         await CompleteRoundAsync(game, replayRound, watch);
         return true;
+    }
+
+    private static void SettleCosmicHorrorRound(GameClass game)
+    {
+        foreach (var player in game.PlayersList)
+        {
+            if (player.Passives.IsDead && !UnknownBug.Is(player))
+            {
+                player.Status.SetScoresToGiveAtEndOfRound(0, "", false);
+                player.GameCharacter.SetBonusPointsFromMoral(0);
+                continue;
+            }
+
+            player.Status.CombineRoundScoreAndGameScore(game);
+        }
+
+        game.PlayersList = Naruto.OrderLeaderboard(game.PlayersList);
+        for (var index = 0; index < game.PlayersList.Count; index++)
+            game.PlayersList[index].Status.SetPlaceAtLeaderBoard(index + 1);
+        game.TimePassed.Stop();
     }
 
     private async Task CompleteRoundAsync(
@@ -2224,6 +2250,7 @@ public class DoomsdayMachine : IServiceSingleton
         SortGameLogs(game);
         _characterPassives.HandleNextRoundAfterSorting(game);
         Naruto.MoveDispersedClonesToBottom(game.PlayersList);
+        Homelander.UpdateSevenPointsAvailability(game);
         if (game.RoundNo == 10)
         {
             var roundTenLast = game.PlayersList.Find(x => x.Status.GetPlaceAtLeaderBoard() == 6);

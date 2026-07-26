@@ -544,6 +544,8 @@ Implemented 2026-07-17 as finding M112. The implementation follows the checked d
 
 The live rule description is [BattleshipGDD.md](../BattleshipGDD.md); hub/DTO and client contracts are in [WEB-BACKEND.md](WEB-BACKEND.md) §4/§10 and [WEB-CLIENT.md](WEB-CLIENT.md) §12.
 
+Designer follow-up implemented 2026-07-26 settles summon *timing* (the part of D14 that D14's rejected accounting recommendation left open). Summon deployment is intentionally turn-agnostic: if a summon is available, the player must be able to place it at any moment of an enemy turn, including while an enemy shot is still resolving or animating. `DeploySummon`/`DeployPendingSummon` therefore carry no turn-ownership and no reload check, and the reset window exists solely to make that answer reachable — which is why its length is now selected by the defending board's owner (human 8 s, bot 2 s) rather than by a server-side prediction of whether that defender can legally deploy. Use accounting under D14 stays rejected and unchanged.
+
 Designer follow-up implemented 2026-07-21 (finding M126) supersedes the earlier symmetric-conversion/shared-weapon assumptions: only the side without Mid deploys Close ships, mandatory deployment is a global barrier, Ballista is one shared UI/server action with cyclic Mid origins (Close joins only in Boarding), and dual Desiccators defer only their auto-win until one dies. The same follow-up adds the 8-second hit-only combo window, direct summon selection, placement deck/zone visualization and CAPTURE-death reveal credit. The exact live rules remain in the linked GDD.
 
 ## Implementation order after approval

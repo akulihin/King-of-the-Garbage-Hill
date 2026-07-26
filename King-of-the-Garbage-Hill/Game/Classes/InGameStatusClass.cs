@@ -86,6 +86,8 @@ public class InGameStatus
     /// <summary>Temporary bypass for Homelander's defenses while TheBoys affect or fight him.</summary>
     public bool IsFightingTheBoys { get; set; }
     public List<int> HomelanderProtectionPhrasePool { get; set; } = new();
+    /// <summary>Whether Праведность's hidden Семерка score is currently counted.</summary>
+    public bool HomelanderSevenPointsActive { get; set; }
 
     private int PlaceAtLeaderBoard { get; set; }
     public List<Guid> WhoToAttackThisTurn { get; set; }
@@ -435,7 +437,7 @@ public class InGameStatus
 
     public decimal GetScore()
     {
-        return Score;
+        return Score + (HomelanderSevenPointsActive ? Homelander.SevenPoints : 0);
     }
 
     public int GetPlaceAtLeaderBoard()

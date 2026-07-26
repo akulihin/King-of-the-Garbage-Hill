@@ -73,7 +73,7 @@ public static class Cthulhu
     public static bool RequiresPreGameStage(IEnumerable<GamePlayerBridgeClass> players)
     {
         var list = players?.ToList() ?? new List<GamePlayerBridgeClass>();
-        return list.Any(IsUntransformed) || AllFourAdeptsPresent(list);
+        return AllFourAdeptsPresent(list);
     }
 
     public static bool CanNaturallyRoll(
@@ -100,12 +100,34 @@ public static class Cthulhu
             .Where(character => AdeptNames.Contains(character.Name)
                                 && !occupied.Contains(character.Name))
             .ToList();
-        return available.Count > 0
-            ? available
-            : pull.GetAllCharactersNoFilter()
-                .Where(character => AdeptNames.Contains(character.Name))
-                .ToList();
+        return available;
     }
+
+    public static bool CanChooseAdept(
+        GameClass game,
+        GamePlayerBridgeClass player) =>
+        game != null
+        && player != null
+        && game.RoundNo == 1
+        && !game.IsFinished
+        && game.PlayersList.Contains(player)
+        && IsUntransformed(player)
+        && !game.CthulhuState.AdeptStageActive
+        && !game.CthulhuState.DepthsCallStageActive
+        && AdeptNames.Any(name => game.PlayersList.All(candidate =>
+            IsUntransformed(candidate) || candidate.GameCharacter.Name != name));
+
+    public static bool MustChooseAdept(
+        GameClass game,
+        GamePlayerBridgeClass player) =>
+        game != null
+        && player != null
+        && game.RoundNo == 1
+        && !game.IsFinished
+        && game.PlayersList.Contains(player)
+        && IsUntransformed(player)
+        && AdeptNames.Any(name => game.PlayersList.All(candidate =>
+            IsUntransformed(candidate) || candidate.GameCharacter.Name != name));
 
     public static void InjectMorok(CharacterClass adeptTemplate, CharactersPull pull)
     {
@@ -130,7 +152,8 @@ public static class Cthulhu
         GamePlayerBridgeClass player,
         string adeptName,
         UserAccounts accounts,
-        CharactersPull pull)
+        CharactersPull pull,
+        SecureRandom random)
     {
         if (!IsUntransformed(player) || !AdeptNames.Contains(adeptName))
             return null;
@@ -145,7 +168,7 @@ public static class Cthulhu
 
         var newBridge = new GamePlayerBridgeClass(
             template,
-            new InGameStatus(),
+            player.Status,
             player.DiscordId,
             player.GameId,
             player.DiscordUsername,
@@ -161,10 +184,19 @@ public static class Cthulhu
             AiDifficulty = player.AiDifficulty,
             AiPlaystyle = player.AiPlaystyle,
             ConsecutiveBotBlocks = player.ConsecutiveBotBlocks,
-            AiKnowledge = player.AiKnowledge
+            AiKnowledge = player.AiKnowledge,
+            DeleteMessages = player.DeleteMessages,
+            WebMessages = player.WebMessages,
+            WebMediaMessages = player.WebMediaMessages,
+            CharacterMasteryPoints = player.CharacterMasteryPoints
         };
         newBridge.Status.IsDraftPickConfirmed = true;
-        newBridge.Status.MoveListPage = 6;
+        newBridge.Status.MoveListPage = 1;
+        newBridge.Status.IsAutoMove = false;
+        newBridge.Status.IsBlock = false;
+        newBridge.Status.IsSkip = false;
+        newBridge.Status.IsReady = false;
+        newBridge.Status.WhoToAttackThisTurn = new List<Guid>();
 
         var account = accounts.GetAccount(player.DiscordId);
         if (account != null)
@@ -179,9 +211,11 @@ public static class Cthulhu
         }
 
         game.PlayersList[playerIndex] = newBridge;
-        var exploitIndex = game.ExploitPlayersList.IndexOf(player);
-        if (exploitIndex >= 0)
-            game.ExploitPlayersList[exploitIndex] = newBridge;
+        game.ExploitPlayersList = game.PlayersList
+            .Where(candidate => !UnknownBug.Is(candidate) && !candidate.Passives.IsDead)
+            .ToList();
+        game.NanobotsList.Clear();
+        game.NanobotsList.Add(new BotsBehavior.NanobotClass(game.PlayersList));
 
         var state = game.CthulhuState;
         state.HeraldPlayerId = newBridge.GetPlayerId();
@@ -196,7 +230,48 @@ public static class Cthulhu
             state.MadPlayerIds.Add(deepList.GetPlayerId());
         newBridge.Status.AddInGamePersonalLogs(
             "Долго он в Р'льехе спит и видит сны...\n");
+        InitializeFirstRoundAdeptEffects(newBridge, game, random);
         return newBridge;
+    }
+
+    private static void InitializeFirstRoundAdeptEffects(
+        GamePlayerBridgeClass player,
+        GameClass game,
+        SecureRandom random)
+    {
+        if (player.GameCharacter.Passive.Any(passive =>
+                passive.PassiveName == "Искусство"))
+            player.Status.AddInGamePersonalLogs(
+                "*Какая честь - умереть на поле боя... Начнем прямо сейчас!*\n");
+
+        if (player.GameCharacter.Passive.Any(passive =>
+                passive.PassiveName == "Повторяет за myloran"))
+            player.GameCharacter.AddIntelligence(
+                -player.GameCharacter.GetIntelligence(),
+                "Повторяет за myloran");
+
+        if (!player.GameCharacter.Passive.Any(passive =>
+                passive.PassiveName == "Буль"))
+            return;
+
+        if (player.GameCharacter.GetPsyche() < 7
+            && random.Luck(1, 10 + player.GameCharacter.GetPsyche() * 5))
+        {
+            player.Status.IsSkip = true;
+            player.Status.ConfirmedSkip = false;
+            player.Status.IsBlock = false;
+            player.Status.IsReady = true;
+            player.Status.WhoToAttackThisTurn = new List<Guid>();
+            game.Phrases.MylorikBoolePhrase.SendLog(player, false);
+        }
+
+        var boole = player.Passives.MylorikBoole;
+        if (!boole.IsBoole && player.GameCharacter.GetPsyche() <= 0)
+        {
+            player.GameCharacter.AddStrength(2, "Буль");
+            player.GameCharacter.AddExtraSkill(22, "Буль");
+            boole.IsBoole = true;
+        }
     }
 
     public static void EnsureBotAdeptAutoPick(
@@ -212,19 +287,37 @@ public static class Cthulhu
             var options = AvailableAdepts(game, pull);
             if (options.Count == 0) continue;
             var selected = options[random.Random(0, options.Count - 1)];
-            ApplyAdeptChoice(game, bot, selected.Name, accounts, pull);
+            ApplyAdeptChoice(game, bot, selected.Name, accounts, pull, random);
         }
     }
 
-    public static bool TryBeginAdeptStage(GameClass game, CharactersPull pull)
+    public static void EnsureUnchosenAdeptAutoPick(
+        GameClass game,
+        CharactersPull pull,
+        SecureRandom random,
+        UserAccounts accounts)
     {
-        var player = game.PlayersList.FirstOrDefault(candidate =>
-            IsUntransformed(candidate)
-            && !candidate.IsBot()
-            && !game.DraftOptions.ContainsKey(candidate.GetPlayerId()));
-        if (player == null) return false;
+        foreach (var player in game.PlayersList
+                     .Where(IsUntransformed)
+                     .ToList())
+        {
+            var options = AvailableAdepts(game, pull);
+            if (options.Count == 0) continue;
+            var selected = options[random.Random(0, options.Count - 1)];
+            ApplyAdeptChoice(game, player, selected.Name, accounts, pull, random);
+        }
+    }
 
-        game.DraftOptions[player.GetPlayerId()] = AvailableAdepts(game, pull);
+    public static bool TryBeginAdeptStage(
+        GameClass game,
+        GamePlayerBridgeClass player,
+        CharactersPull pull)
+    {
+        if (!CanChooseAdept(game, player)) return false;
+        var options = AvailableAdepts(game, pull);
+        if (options.Count == 0) return false;
+
+        game.DraftOptions[player.GetPlayerId()] = options;
         player.Status.IsDraftPickConfirmed = false;
         player.Status.MoveListPage = 6;
         game.CthulhuState.AdeptStageActive = true;
@@ -235,7 +328,6 @@ public static class Cthulhu
     {
         var state = game.CthulhuState;
         if (!AllFourAdeptsPresent(game.PlayersList)
-            || state.RosterHadCthulhu
             || state.DepthsCallResolved
             || state.DepthsCallStageActive)
             return false;
@@ -285,7 +377,8 @@ public static class Cthulhu
         if (!IsNechtoActive(game)
             || game.RoundNo > 10
             || player.Passives.IsDead
-            || Madara.IsSealed(player))
+            || Madara.IsSealed(player)
+            || (Madara.IsMadara(player) && game.RoundNo == 8))
             return false;
 
         player.Status.WhoToAttackThisTurn = new List<Guid>();
@@ -407,7 +500,8 @@ public static class Cthulhu
         if (!UnknownBug.Is(loser) && !Madara.HasReanimatedBody(loser.GameCharacter))
             loser.GameCharacter.PsycheCappedAtZero = true;
 
-        if (!UnknownBug.Is(loser))
+        if (!UnknownBug.Is(loser)
+            && Homelander.CanTransferFrom(loser, Morok))
         {
             loser.Status.AddBonusPoints(-1, "Неизвестно");
             winner.Status.AddBonusPoints(1, Morok);

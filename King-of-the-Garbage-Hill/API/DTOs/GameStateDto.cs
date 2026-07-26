@@ -28,6 +28,10 @@ public class GameStateDto
     public int HalfLifeReleaseSerial { get; set; }
     public int AbyssSerial { get; set; }
     public int OmniManInvasionSerial { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public int OmniManUndergroundTrainSerial { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string OmniManUndergroundTrainPhrase { get; set; }
     public string GlobalLogs { get; set; }
 
     /// <summary>Full history of all global logs across all rounds.</summary>
@@ -82,6 +86,8 @@ public class PlayerDto
     public bool IsDeepSession { get; set; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public bool DepthsCallPromptActive { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool AdeptChoiceAvailable { get; set; }
 
     /// <summary>Whether this player is another member of the viewing Naruto's initialized trio.</summary>
     public bool IsNarutoAlly { get; set; }
@@ -136,10 +142,17 @@ public class PlayerDto
     public int? HomelanderRagePercent { get; set; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public bool HomelanderLaserUsed { get; set; }
+    /// <summary>Owner-scoped marker for an opponent who revealed Homelander's identity.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool HomelanderIdentityRevealer { get; set; }
 
     /// <summary>Owner-scoped Подумай, Марк! marker for an opponent who failed the check.</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public bool OmniManIdiot { get; set; }
+
+    /// <summary>Owner-scoped marker for the enemy currently sleeping because of Стражи Земли.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool OmniManGuardiansAsleep { get; set; }
 
     /// <summary>Tsukuyomi state (only populated for the Itachi player viewing their own state).</summary>
     public TsukuyomiStateDto TsukuyomiState { get; set; }

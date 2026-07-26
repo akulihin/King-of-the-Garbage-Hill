@@ -424,6 +424,18 @@ public class GameHub : Hub
 
     // ── Draft Pick ──────────────────────────────────────────────────
 
+    public async Task BeginAdeptChoice(ulong gameId)
+    {
+        var discordId = GetDiscordId();
+        if (discordId == 0) { await SendNotAuthenticated(); return; }
+
+        var (success, error) = await _gameService.BeginAdeptChoice(gameId, discordId);
+        await Clients.Caller.SendAsync("ActionResult",
+            new { action = "beginAdeptChoice", success, error });
+
+        if (success) await PushStateToPlayer(gameId, discordId);
+    }
+
     public async Task DraftSelect(ulong gameId, string characterName)
     {
         var discordId = GetDiscordId();

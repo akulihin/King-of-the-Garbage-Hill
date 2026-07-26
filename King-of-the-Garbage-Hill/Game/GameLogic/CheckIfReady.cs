@@ -280,11 +280,12 @@ public class CheckIfReady : IServiceSingleton
         game.IsCheckIfReady = false;
         var questSettlementNow = DateTimeOffset.UtcNow;
         var omniManInvasionWinner = OmniMan.GetInvasionWinner(game);
+        var cosmicHorrorEnding = game.CthulhuState.HorrorFired;
         GamePlayerBridgeClass top3Player = null;
         foreach (var player in game.PlayersList)
             player.Status.ConfirmedSkip = true;
 
-        if (omniManInvasionWinner == null)
+        if (omniManInvasionWinner == null && !cosmicHorrorEnding)
         {
             // Чернильная завеса normally settles while round 11 opens. A Kratos extension can create
             // fresh ledger entries afterwards, so settle any remainder before final-game effects.
@@ -574,8 +575,8 @@ public class CheckIfReady : IServiceSingleton
             game.AddGlobalLogs($"Гоблины построили Зиккурат на вершине! {goblinZigWinner.DiscordUsername} побеждает!");
         }
 
-        Cthulhu.ApplyHeraldFinalPlacement(game);
         JonSnow.HandleFinalPosition(game);
+        Homelander.UpdateSevenPointsAvailability(game);
 
         // Одна из трех: solo-only and only across an uncontested top-three cutoff. If a fourth
         // living player has Sakura's score, she did not earn a complete top-three place.
@@ -590,16 +591,20 @@ public class CheckIfReady : IServiceSingleton
                 game.AddGlobalLogs("**Sakura:** Я одна из легендарной тройки. И этого вполне достаточно!");
             }
         }
-        else
+        else if (omniManInvasionWinner != null)
         {
             OmniMan.ForceFirstPlace(game, omniManInvasionWinner);
+        }
+        else
+        {
+            Cthulhu.ApplyHeraldFinalPlacement(game);
         }
 
         var playerWhoWon = omniManInvasionWinner
                            ?? top3Player
                            ?? game.PlayersList.Where(x => !x.Passives.IsDead).FirstOrDefault()
                            ?? game.PlayersList.First();
-        if (omniManInvasionWinner == null)
+        if (omniManInvasionWinner == null && !cosmicHorrorEnding)
             HandlePostGameEvents(game, playerWhoWon);
 
 
@@ -616,7 +621,7 @@ public class CheckIfReady : IServiceSingleton
         decimal team3Score = 0;
         var wonTeam = 0;
         game.WinnerPlayerIds.Clear();
-        if (game.Teams.Count > 0 && omniManInvasionWinner == null)
+        if (game.Teams.Count > 0 && omniManInvasionWinner == null && !cosmicHorrorEnding)
         {
             isTeam = true;
             foreach (var player in game.PlayersList)
@@ -1106,7 +1111,8 @@ public class CheckIfReady : IServiceSingleton
                         player.Status.ConfirmedPredict = false;
                         extraText = "Это последний раунд, когда можно сделать **предложение**!";
                         if (player.GameCharacter.Passive.Any(passive =>
-                                passive.PassiveName == "Тетрадь смерти"))
+                                passive.PassiveName == "Тетрадь смерти"
+                                || passive.PassiveName == "Булькает"))
                             player.Status.ConfirmedPredict = true;
                     }
                 }
@@ -1248,17 +1254,8 @@ public class CheckIfReady : IServiceSingleton
                         game.DraftOptions.Remove(lockedPlayer.GetPlayerId());
                     }
 
-                    Cthulhu.EnsureBotAdeptAutoPick(
-                        game, _charactersPull, _secureRandom, _accounts);
                     if (game.PlayersList.All(x => x.Status.IsDraftPickConfirmed))
                     {
-                        if (Cthulhu.TryBeginAdeptStage(game, _charactersPull))
-                        {
-                            foreach (var player in game.PlayersList.Where(p => p.PlayerType != 404))
-                                await _upd.UpdateMessage(player);
-                            continue;
-                        }
-
                         if (Cthulhu.TryBeginDepthsCallStage(game))
                         {
                             foreach (var player in game.PlayersList.Where(p => p.PlayerType != 404))
@@ -1306,6 +1303,10 @@ public class CheckIfReady : IServiceSingleton
                     continue; // Don't process turns while in draft phase
                 }
                 //end Draft Pick
+
+                if (game.RoundNo == 1)
+                    Cthulhu.EnsureBotAdeptAutoPick(
+                        game, _charactersPull, _secureRandom, _accounts);
 
                 //Возвращение из мертвых
                 if (game.IsKratosEvent)
@@ -1382,6 +1383,11 @@ public class CheckIfReady : IServiceSingleton
                 if (readyCount != readyTargetCount &&
                     !(game.TimePassed.Elapsed.TotalSeconds >= game.TurnLengthInSecond))
                     continue;
+
+                if (game.RoundNo == 1
+                    && game.TimePassed.Elapsed.TotalSeconds >= game.TurnLengthInSecond)
+                    Cthulhu.EnsureUnchosenAdeptAutoPick(
+                        game, _charactersPull, _secureRandom, _accounts);
 
                 //Calculating the game
                 game.IsCheckIfReady = false;
@@ -1597,6 +1603,7 @@ public class CheckIfReady : IServiceSingleton
                              t.Status.WhoToAttackThisTurn.Count == 0 && t.Status.IsBlock == false &&
                              t.Status.IsSkip == false
                              && !t.Passives.Gordon.HalfLife.ActionSubmittedThisRound
+                             && !game.CthulhuState.PendingNechtoAttackers.Contains(t.GetPlayerId())
                              && !(Madara.IsMadara(t) && (game.RoundNo == 8 || t.Passives.Madara.Sealed))))
                 {
                     t.Status.IsReady = true;
@@ -1743,6 +1750,12 @@ public class CheckIfReady : IServiceSingleton
                     game.IsCheckIfReady = true;
                     foreach (var human in players.Where(player => !player.IsBot()))
                         await _upd.UpdateMessage(human);
+                    continue;
+                }
+
+                if (game.IsFinished)
+                {
+                    await HandleLastRound(game);
                     continue;
                 }
 

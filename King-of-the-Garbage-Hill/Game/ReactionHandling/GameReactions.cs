@@ -194,9 +194,24 @@ public sealed class GameReaction : IServiceSingleton
                     return;
                 }
 
+                if (Cthulhu.MustChooseAdept(game, player)
+                    && button.Data.CustomId is not "cthulhu-choose-adept" and not "end"
+                    && !(game.CthulhuState.AdeptStageActive
+                         && button.Data.CustomId.StartsWith(
+                             "draft_pick_", StringComparison.Ordinal)))
+                {
+                    await button.FollowupAsync("Сначала выбери адепта.", ephemeral: true);
+                    return;
+                }
 
                 switch (button.Data.CustomId)
                 {
+                    case "cthulhu-choose-adept":
+                        lock (game)
+                            Cthulhu.TryBeginAdeptStage(game, player, _charactersPull);
+                        await _upd.UpdateMessage(player);
+                        break;
+
                     case "gordon-hl3-announce":
                         if (GordonFreeman.AnnounceHalfLife3(player, game))
                             await _upd.UpdateMessage(player);
@@ -587,6 +602,24 @@ public sealed class GameReaction : IServiceSingleton
         GamePlayerBridgeClass newBridge = null;
         string persistenceError = null;
 
+        if (game.CthulhuState.AdeptStageActive && Cthulhu.IsUntransformed(player))
+        {
+            lock (game)
+            {
+                if (!game.PlayersList.Contains(player)) return;
+                if (!game.DraftOptions.TryGetValue(player.GetPlayerId(), out var adeptOptions)) return;
+                if (optionIndex < 0 || optionIndex >= adeptOptions.Count) return;
+                newBridge = Cthulhu.ApplyAdeptChoice(
+                    game, player, adeptOptions[optionIndex].Name,
+                    _accounts, _charactersPull, _random);
+            }
+
+            if (newBridge == null) return;
+            await _upd.UpdateCharacterMessage(newBridge);
+            await _upd.UpdateMessage(newBridge);
+            return;
+        }
+
         // Serialize Discord picks with web picks. In particular, a duplicate rejection must happen
         // before the optional account debit.
         lock (game)
@@ -598,12 +631,6 @@ public sealed class GameReaction : IServiceSingleton
             if (optionIndex < 0 || optionIndex >= options.Count) return;
 
             var selected = options[optionIndex];
-            if (game.CthulhuState.AdeptStageActive && Cthulhu.IsUntransformed(player))
-            {
-                newBridge = Cthulhu.ApplyAdeptChoice(
-                    game, player, selected.Name, _accounts, _charactersPull);
-                return;
-            }
             if (UnknownBug.Is(selected)) return;
             if (game.PlayersList.Any(p => p != player
                                           && (p.GameCharacter.Name == selected.Name
@@ -725,6 +752,8 @@ public sealed class GameReaction : IServiceSingleton
     public async Task HandlePredic2(GamePlayerBridgeClass player, SocketMessageComponent button)
     {
         if (player.GameCharacter.DoomRollMode) return;
+        // Булькает: the menu is already disabled in GetPredictMenu; reject forged interactions too.
+        if (player.GameCharacter.Passive.Any(x => x.PassiveName == "Булькает")) return;
         var game = _global.GamesList.Find(x => x.GameId == player.GameId);
         if (game == null) return;
 
@@ -777,6 +806,8 @@ public sealed class GameReaction : IServiceSingleton
     {
         var status = player.Status;
         var game = _global.GamesList.Find(x => x.GameId == player.GameId);
+        if (Cthulhu.MustChooseAdept(game, player))
+            return false;
 
         if (botChoice == -10)
         {

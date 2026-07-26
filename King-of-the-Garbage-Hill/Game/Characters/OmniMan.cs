@@ -13,12 +13,15 @@ public static class OmniMan
     public const string ThinkMark = "Подумай, Марк!";
     public const string GuardiansOfTheGlobe = "Стражи Земли";
     public const string ParticleOfOurPower = "Частица нашей силы";
+    public const string UndergroundTrain = "Подземный Поезд";
     public const string IntelligenceBattle = "Битва интеллекта";
     public const string ThinkMarkPhraseSource = "Подумай, Марк:";
     public const string InvasionMessage = "Земля единогласно присоединилась к Вилтрумайтской империи!";
     public const int IntelligenceAdvantageToResist = 2;
     public const int IntelligenceBattlePoints = 3;
     public const int SkillPerIncomingAttack = 10;
+    public const int UndergroundTrainDrops = 4;
+    public const decimal UndergroundTrainStealPercent = 0.10m;
 
     private static IReadOnlyList<string> IntelligenceCheckPhrases =>
         CharactersUniquePhrase.OmniManIntelligenceCheckPhrases;
@@ -33,6 +36,9 @@ public static class OmniMan
     private static IReadOnlyList<string> ParticlePhrases =>
         CharactersUniquePhrase.OmniManParticlePhrases;
 
+    private static IReadOnlyList<string> UndergroundTrainPhrases =>
+        CharactersUniquePhrase.OmniManUndergroundTrainPhrases;
+
     public sealed class State
     {
         public HashSet<Guid> IdiotPlayerIds { get; set; } = new();
@@ -41,6 +47,12 @@ public static class OmniMan
         public List<int> ParticlePhrasePool { get; set; } = new();
         public int GuardiansPhraseIndex { get; set; }
         public int LastGuardiansRound { get; set; }
+        public Guid GuardiansSleepingPlayerId { get; set; } = Guid.Empty;
+        public int GuardiansSleepingRound { get; set; }
+        public bool UndergroundTrainUsed { get; set; }
+        public List<int> UndergroundTrainPhrasePool { get; set; } = new();
+        public int UndergroundTrainSerial { get; set; }
+        public string UndergroundTrainPhrase { get; set; } = "";
         public int InvasionScheduledRound { get; set; }
         public bool InvasionTriggered { get; set; }
         public int InvasionSerial { get; set; }
@@ -89,7 +101,7 @@ public static class OmniMan
         state.IntelligenceSuccessPhraseIndex++;
         omniMan.Status.AddInGamePersonalLogs(
             $"{ThinkMarkPhraseSource} \"{dialogue.Question}\"\n" +
-            $"{target.DiscordUsername}: \"{dialogue.EnemyReply}\" **(проверка не интеллект провалена!)**\n" +
+            $"**{target.DiscordUsername}**: \"{dialogue.EnemyReply}\" **(проверка не интеллект провалена!)**\n" +
             $"{CharacterName}: \"{dialogue.OmniReply}\"\n");
     }
 
@@ -108,6 +120,7 @@ public static class OmniMan
 
         attacker.GameCharacter.AddExtraSkill(SkillPerIncomingAttack, ParticleOfOurPower);
         omniMan.Status.AddInGamePersonalLogs(
+            $"{ParticleOfOurPower}: " +
             Take(ParticlePhrases, omniMan.Passives.OmniMan.ParticlePhrasePool) + "\n");
     }
 
@@ -133,7 +146,6 @@ public static class OmniMan
             {
                 Player = player,
                 Points = player.Status.ScoreEntries
-                    .Where(entry => entry.Points > 0)
                     .Sum(entry => entry.IsBonus
                         ? entry.Points
                         : entry.Points * player.Status.GetRoundScoreMultiplier(game))
@@ -148,12 +160,85 @@ public static class OmniMan
         var nextRound = game.RoundNo + 1;
         if (!guardian.Passives.GlebTeaTriggeredWhen.WhenToTrigger.Contains(nextRound))
             guardian.Passives.GlebTeaTriggeredWhen.WhenToTrigger.Add(nextRound);
+        state.GuardiansSleepingPlayerId = guardian.GetPlayerId();
+        state.GuardiansSleepingRound = nextRound;
 
         var phrase = GuardiansPhrases[
                 Math.Min(state.GuardiansPhraseIndex, GuardiansPhrases.Count - 1)]
-            .Replace("(ник врага)", guardian.DiscordUsername);
+            .Replace("(ник врага)", $"**{guardian.DiscordUsername}**");
         state.GuardiansPhraseIndex++;
-        omniMan.Status.AddInGamePersonalLogs(phrase + "\n");
+        omniMan.Status.AddInGamePersonalLogs(
+            $"{GuardiansOfTheGlobe}: {phrase}\n");
+    }
+
+    public static void HandleUndergroundTrainWin(
+        GamePlayerBridgeClass omniMan,
+        GamePlayerBridgeClass target,
+        GameClass game)
+    {
+        if (!Is(omniMan)
+            || !HasPassive(omniMan, UndergroundTrain)
+            || target == null
+            || omniMan.Passives.OmniMan.UndergroundTrainUsed
+            || omniMan.Status.IsWonThisCalculation != target.GetPlayerId()
+            || omniMan.Status.GetPlaceAtLeaderBoard() != 1
+            || target.Status.GetPlaceAtLeaderBoard() != 2
+            || target.Passives.IsDead
+            || UnknownBug.Is(target)
+            || omniMan.IsTeamMember(game, target.GetPlayerId()))
+            return;
+
+        var state = omniMan.Passives.OmniMan;
+        state.UndergroundTrainUsed = true;
+
+        var path = game.PlayersList
+            .Where(player => player.Status.GetPlaceAtLeaderBoard() > 2)
+            .OrderBy(player => player.Status.GetPlaceAtLeaderBoard())
+            .Take(UndergroundTrainDrops)
+            .ToList();
+
+        var appliedDrops = 0;
+        for (var index = 0; index < UndergroundTrainDrops; index++)
+        {
+            if (target.GameCharacter.HandleDrop(
+                    target.DiscordUsername,
+                    game,
+                    allowAtLastPlace: true,
+                    allowAtZeroScore: true))
+                appliedDrops++;
+        }
+
+        foreach (var victim in path.Take(appliedDrops))
+        {
+            if (victim.Passives.IsDead
+                || UnknownBug.Is(victim)
+                || omniMan.IsTeamMember(game, victim.GetPlayerId()))
+                continue;
+            if (Homelander.IsProtected(victim.GameCharacter, victim.Status, UndergroundTrain))
+            {
+                Homelander.LogProtection(victim.Status);
+                continue;
+            }
+
+            var stolen = Math.Max(
+                1m,
+                Math.Ceiling(victim.Status.GetScore() * UndergroundTrainStealPercent));
+            var debit = JonSnow.IsKingActive(
+                victim.GameCharacter,
+                victim.Status.GetPlaceAtLeaderBoard())
+                ? -stolen / 2m
+                : -stolen;
+
+            victim.Status.AddBonusPoints(debit, UndergroundTrain);
+            omniMan.Status.AddBonusPoints(stolen, UndergroundTrain);
+        }
+
+        state.UndergroundTrainPhrase = Take(
+            UndergroundTrainPhrases,
+            state.UndergroundTrainPhrasePool);
+        state.UndergroundTrainSerial++;
+        omniMan.Status.AddInGamePersonalLogs(
+            $"{UndergroundTrain}: \"{state.UndergroundTrainPhrase}\"\n");
     }
 
     public static void EvaluateInvasion(GameClass game)
@@ -166,6 +251,11 @@ public static class OmniMan
             return;
 
         var state = omniMan.Passives.OmniMan;
+        if (game.CthulhuState.HorrorFired || game.IsFinished)
+        {
+            state.InvasionScheduledRound = 0;
+            return;
+        }
         if (state.InvasionTriggered || state.InvasionScheduledRound > 0) return;
 
         var enemies = EligibleInvasionEnemies(game, omniMan);
@@ -181,6 +271,11 @@ public static class OmniMan
 
         var state = omniMan.Passives.OmniMan;
         if (state.InvasionTriggered || state.InvasionScheduledRound != game.RoundNo) return false;
+        if (game.CthulhuState.HorrorFired || game.IsFinished)
+        {
+            state.InvasionScheduledRound = 0;
+            return false;
+        }
 
         var enemies = EligibleInvasionEnemies(game, omniMan);
         if (omniMan.Passives.IsDead
@@ -221,13 +316,46 @@ public static class OmniMan
     public static bool IsIdiot(GamePlayerBridgeClass omniMan, Guid enemyId) =>
         Is(omniMan) && omniMan.Passives.OmniMan.IdiotPlayerIds.Contains(enemyId);
 
+    public static bool IsSleepingFromGuardians(
+        GamePlayerBridgeClass omniMan,
+        GamePlayerBridgeClass enemy,
+        GameClass game)
+    {
+        if (!Is(omniMan) || enemy == null || game == null) return false;
+
+        var state = omniMan.Passives.OmniMan;
+        return state.GuardiansSleepingPlayerId == enemy.GetPlayerId()
+               && state.GuardiansSleepingRound == game.RoundNo
+               && enemy.Passives.GlebTeaTriggeredWhen.WhenToTrigger.Contains(game.RoundNo)
+               && enemy.Status.IsSkip;
+    }
+
     public static int GetInvasionSerial(GameClass game) =>
         Find(game)?.Passives.OmniMan.InvasionSerial ?? 0;
 
+    public static int GetUndergroundTrainSerial(GameClass game) =>
+        Find(game)?.Passives.OmniMan.UndergroundTrainSerial ?? 0;
+
+    public static string GetUndergroundTrainPhrase(GameClass game) =>
+        Find(game)?.Passives.OmniMan.UndergroundTrainPhrase ?? "";
+
     public static GamePlayerBridgeClass GetInvasionWinner(GameClass game)
     {
+        if (game?.CthulhuState.HorrorFired == true) return null;
         var omniMan = Find(game);
         return omniMan?.Passives.OmniMan.InvasionTriggered == true ? omniMan : null;
+    }
+
+    public static void MoveFromInitialLead(List<GamePlayerBridgeClass> players)
+    {
+        if (players == null || players.Count < 2 || !Is(players[0])) return;
+
+        var swapIndex = players.FindIndex(
+            1,
+            player => !UnknownBug.Is(player)
+                      && player.GameCharacter.Name != JonSnow.CharacterName);
+        if (swapIndex < 1) swapIndex = 1;
+        (players[0], players[swapIndex]) = (players[swapIndex], players[0]);
     }
 
     public static void ForceFirstPlace(GameClass game, GamePlayerBridgeClass omniMan)

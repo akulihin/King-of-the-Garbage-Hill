@@ -214,8 +214,8 @@ public class CharacterPassives : IServiceSingleton
                     Guid enemy2;
 
                     // Most wanted: force Rick as enemy1
-                    var rickMw1 = playersList.Find(x => x.GameCharacter.Passive.Any(y => y.PassiveName == "Most wanted"));
-                    if (rickMw1 != null && rickMw1.GetPlayerId() != player.GetPlayerId())
+                    var rickMw1 = RickSanchez.FindMostWantedHolder(playersList, player);
+                    if (rickMw1 != null)
                     {
                         enemy1 = rickMw1.GetPlayerId();
                         var mwPhrases = new[] {
@@ -349,12 +349,8 @@ public class CharacterPassives : IServiceSingleton
                     if (lCandidates.Count == 0)
                         lCandidates = playersList.Where(x => x.GetPlayerId() != player.GetPlayerId()).ToList();
 
+                    // L is the sole random-mark exception to Rick's Most wanted.
                     var lTarget = lCandidates[_rand.Random(0, lCandidates.Count - 1)].GetPlayerId();
-
-                    // Most wanted: force Rick as L target
-                    var rickMwL = playersList.Find(x => x.GameCharacter.Passive.Any(y => y.PassiveName == "Most wanted"));
-                    if (rickMwL != null && rickMwL.GetPlayerId() != player.GetPlayerId())
-                        lTarget = rickMwL.GetPlayerId();
 
                     player.Passives.KiraL.LPlayerId = lTarget;
                     player.Status.AddInGamePersonalLogs($"Эй, Лайт, это Бог Смерти. Тебе выпал интересный противник: **{playersList.Find(x => x.GetPlayerId() == lTarget)!.DiscordUsername}** - это L.\n");
@@ -498,6 +494,7 @@ public class CharacterPassives : IServiceSingleton
             GordonFreeman.HandleRoundPhrase(initialGordon, 1);
         Homelander.MoveToInitialLead(playersList);
         JonSnow.FinalizeInitialPositions(playersList);
+        OmniMan.MoveFromInitialLead(playersList);
 
         return playersList;
     }
@@ -985,7 +982,7 @@ public class CharacterPassives : IServiceSingleton
             switch (passive.PassiveName)
             {
                 case Homelander.Righteousness:
-                    Homelander.RecordAttackingWin(target, me, game);
+                    Homelander.RecordEnemyVictory(target, me, game);
                     break;
 
                 case "Я щас приду":
@@ -1359,9 +1356,11 @@ public class CharacterPassives : IServiceSingleton
                     }
 
                     // Most wanted: always sense Rick regardless of Justice
-                    var isMostWantedHunter = target.GameCharacter.Passive.Any(x => x.PassiveName == "Most wanted")
-                                             || Salldorum.FindRandomTargetMagnet(game, me)?.GetPlayerId()
-                                             == target.GetPlayerId();
+                    var isMostWantedHunter =
+                        target.GameCharacter.Passive.Any(
+                            x => x.PassiveName == RickSanchez.MostWanted)
+                        || Salldorum.FindRandomTargetMagnet(game, me)?.GetPlayerId()
+                        == target.GetPlayerId();
                     if (target.GameCharacter.Justice.GetRealJusticeNow() == 0 || isMostWantedHunter)
                     {
                         var tempSpeed = me.FightCharacter.GetSpeed() * 2;
@@ -1927,8 +1926,16 @@ public class CharacterPassives : IServiceSingleton
         foreach (var passive in me.GameCharacter.Passive.ToList())
             switch (passive.PassiveName)
             {
+                case Homelander.Righteousness:
+                    Homelander.RecordEnemyVictory(me, target, game);
+                    break;
+
                 case OmniMan.ThinkMark:
                     OmniMan.HandleIntelligenceWin(me, target, game);
+                    break;
+
+                case OmniMan.UndergroundTrain:
+                    OmniMan.HandleUndergroundTrainWin(me, target, game);
                     break;
 
                 case "Много выебывается":
@@ -1950,8 +1957,11 @@ public class CharacterPassives : IServiceSingleton
                         if (debt > 0)
                         {
                             var stolen = debt / 2;
-                            target.Status.AddBonusPoints(-stolen, "Выгодная сделка");
-                            me.Status.AddBonusPoints(stolen, "Выгодная сделка");
+                            if (Homelander.CanTransferFrom(target, "Выгодная сделка"))
+                            {
+                                target.Status.AddBonusPoints(-stolen, "Выгодная сделка");
+                                me.Status.AddBonusPoints(stolen, "Выгодная сделка");
+                            }
                         }
                     }
                     break;
@@ -2441,7 +2451,8 @@ public class CharacterPassives : IServiceSingleton
                         var targetPlace = target.Status.GetPlaceAtLeaderBoard();
                         if (Math.Abs(myPlace - targetPlace) > 1)
                         {
-                            if (!UnknownBug.Is(target))
+                            if (!UnknownBug.Is(target)
+                                && Homelander.CanTransferFrom(target, "Роум"))
                             {
                                 target.Status.AddBonusPoints(-1, "Роум");
                                 me.Status.AddBonusPoints(1, "Роум");
@@ -2680,9 +2691,12 @@ public class CharacterPassives : IServiceSingleton
                     {
                         if (_rand.Luck(1, 3))
                         {
-                            player.Status.AddBonusPoints(3, "Большой куш");
-                            p.Status.AddBonusPoints(-3, "Большой куш");
-                            game.Phrases.SellerBolshoiKushEnemy.SendLog(player, false);
+                            if (Homelander.CanTransferFrom(p, "Большой куш"))
+                            {
+                                p.Status.AddBonusPoints(-3, "Большой куш");
+                                player.Status.AddBonusPoints(3, "Большой куш");
+                                game.Phrases.SellerBolshoiKushEnemy.SendLog(player, false);
+                            }
                         }
                     }
                     break;
@@ -3629,7 +3643,10 @@ public class CharacterPassives : IServiceSingleton
                                         // (score delta since deploy), not half of their entire score (finding M9).
                                         var earnedWhileSat = fightEnemy.Status.GetScore() - ambush.StormScoreSnapshot;
                                         var stolenPoints = Math.Floor(earnedWhileSat / 2);
-                                        if (stolenPoints > 0 && !UnknownBug.Is(fightEnemy))
+                                        if (stolenPoints > 0
+                                            && !UnknownBug.Is(fightEnemy)
+                                            && Homelander.CanTransferFrom(
+                                                fightEnemy, "Кошачья засада"))
                                         {
                                             fightEnemy.Status.AddBonusPoints(-stolenPoints, "Кошачья засада");
                                             player.Status.AddBonusPoints(stolenPoints, "Кошачья засада (Штормяк)");
@@ -4209,8 +4226,8 @@ public class CharacterPassives : IServiceSingleton
                                 // A successful Shen leap temporarily overrides Most wanted for
                                 // current-round random revelations too.
                                 var shenMagnet = Salldorum.FindRandomTargetMagnet(game, player);
-                                var rickMw = game.PlayersList.Find(x =>
-                                    x.GameCharacter.Passive.Any(y => y.PassiveName == "Most wanted"));
+                                var rickMw = RickSanchez.FindMostWantedHolder(
+                                    game.PlayersList, player);
                                 if (shenMagnet != null
                                     && !tolyaTalked.PlayerHeTalkedAbout.Contains(shenMagnet.GetPlayerId()))
                                     randomPlayer = shenMagnet;
@@ -4487,8 +4504,8 @@ public class CharacterPassives : IServiceSingleton
                         } while (enemy1 == player.GetPlayerId());
 
                         // Most wanted: force Rick as enemy1
-                        var rickMw2 = game.PlayersList.Find(x => x.GameCharacter.Passive.Any(y => y.PassiveName == "Most wanted"));
-                        if (rickMw2 != null && rickMw2.GetPlayerId() != player.GetPlayerId())
+                        var rickMw2 = RickSanchez.FindMostWantedHolder(game.PlayersList, player);
+                        if (rickMw2 != null)
                             enemy1 = rickMw2.GetPlayerId();
 
                         do
@@ -4841,7 +4858,9 @@ public class CharacterPassives : IServiceSingleton
                                 : tsukuyomiVictim.Status.GetScoresToGiveAtEndOfRound() * roundMultiplier;
                             var stolenPoints = stolenRegularPoints
                                              + tsukuyomiVictim.Status.GetBonusPointsEarnedThisRound();
-                            if (stolenPoints > 0)
+                            var scoreVictim = Naruto.ResolveScoreSuccessor(game, tsukuyomiVictim);
+                            if (stolenPoints > 0
+                                && Homelander.CanTransferFrom(scoreVictim, "Глаза Итачи"))
                             {
                                 if (stolenRegularPoints > 0)
                                     GordonFreeman.MarkCurrentAttemptStolenByItachi(
@@ -5383,14 +5402,17 @@ public class CharacterPassives : IServiceSingleton
             var octopusInk = player.Passives.OctopusInkList;
             var octopusInv = player.Passives.OctopusInvulnerabilityList;
             if (octopusInk.RealScoreList.Count == 0 && octopusInv.Count == 0) continue;
-            var protectedBugScore = octopusInk.RealScoreList
+            var protectedTransferScore = octopusInk.RealScoreList
                 .Where(entry => entry.RealScore < 0)
                 .Where(entry =>
                 {
                     var affectedPlayer = game.PlayersList.Find(candidate =>
                         candidate.GetPlayerId() == entry.PlayerId);
-                    return affectedPlayer != null
-                           && UnknownBug.Is(Naruto.ResolveScoreSuccessor(game, affectedPlayer));
+                    if (affectedPlayer == null) return false;
+                    var scoreTarget = Naruto.ResolveScoreSuccessor(game, affectedPlayer);
+                    return UnknownBug.Is(scoreTarget)
+                           || Homelander.IsProtected(
+                               scoreTarget.GameCharacter, scoreTarget.Status, "Чернильная завеса");
                 })
                 .Sum(entry => -entry.RealScore);
 
@@ -5401,6 +5423,9 @@ public class CharacterPassives : IServiceSingleton
                 var scoreTarget = Naruto.ResolveScoreSuccessor(game, affectedPlayer);
                 if (scoreTarget.Passives.IsDead) continue;
                 if (inkScore.RealScore < 0 && UnknownBug.Is(scoreTarget)) continue;
+                if (inkScore.RealScore < 0
+                    && !Homelander.CanTransferFrom(scoreTarget, "Чернильная завеса"))
+                    continue;
 
                 // D11: when a living Itachi will reclaim the same earned point through Цукуеми,
                 // charge the victim only once while preserving Octopus's duplicated credit.
@@ -5419,7 +5444,7 @@ public class CharacterPassives : IServiceSingleton
 
                 var restoredScore = inkScore.RealScore;
                 if (affectedPlayer.GetPlayerId() == player.GetPlayerId() && restoredScore > 0)
-                    restoredScore = Math.Max(0, restoredScore - protectedBugScore);
+                    restoredScore = Math.Max(0, restoredScore - protectedTransferScore);
                 if (restoredScore != 0)
                     scoreTarget.Status.AddBonusPoints(restoredScore, "🐙");
             }
@@ -5677,8 +5702,11 @@ public class CharacterPassives : IServiceSingleton
                                 {
                                     var recipient = game.PlayersList.Find(candidate =>
                                         candidate.GetPlayerId() == entry.RecipientId);
-                                    return recipient != null
-                                           && !UnknownBug.Is(Naruto.ResolveScoreSuccessor(game, recipient));
+                                    if (recipient == null) return false;
+                                    var scoreRecipient = Naruto.ResolveScoreSuccessor(game, recipient);
+                                    return !UnknownBug.Is(scoreRecipient)
+                                           && Homelander.CanTransferFrom(
+                                               scoreRecipient, "Ищет достойного противника");
                                 }).ToList();
                                 var totalDeferred = reclaimableLedger.Sum(entry => entry.Points);
                                 // Record the restored amount for the "one_punch" achievement (≥20 → unlock).
@@ -5964,7 +5992,7 @@ public class CharacterPassives : IServiceSingleton
                             luck = _rand.Luck(1, 7);
 
                         // Most wanted: bigger chance for tea when Rick is in the game
-                        if (!luck && game.PlayersList.Any(x => x.GameCharacter.Passive.Any(y => y.PassiveName == "Most wanted") && x.GetPlayerId() != player.GetPlayerId()))
+                        if (!luck && RickSanchez.FindMostWantedHolder(game.PlayersList, player) != null)
                             luck = _rand.Luck(1, 4);
 
 
@@ -6103,8 +6131,9 @@ public class CharacterPassives : IServiceSingleton
                                 GamePlayerBridgeClass randPlayer;
 
                                 // Most wanted: force discover Rick first
-                                var rickMwSm = game.PlayersList.Find(x => x.GameCharacter.Passive.Any(y => y.PassiveName == "Most wanted"));
-                                if (rickMwSm != null && rickMwSm.GetPlayerId() != player.GetPlayerId()
+                                var rickMwSm = RickSanchez.FindMostWantedHolder(
+                                    game.PlayersList, player);
+                                if (rickMwSm != null
                                     && !player.Passives.DeepListSupermindKnown.KnownPlayers.Contains(rickMwSm.GetPlayerId()))
                                 {
                                     randPlayer = rickMwSm;
@@ -7693,6 +7722,14 @@ public class CharacterPassives : IServiceSingleton
                 if (Madara.IsMadara(player))
                 {
                     player.Predict.Clear();
+                    player.Status.ConfirmedPredict = true;
+                    continue;
+                }
+
+                // Булькает: no predictions at all. Existing entries are kept on purpose — a Goblin whose
+                // Ziggurat learned the passive made them legitimately before it had the passive.
+                if (player.GameCharacter.Passive.Any(x => x.PassiveName == "Булькает"))
+                {
                     player.Status.ConfirmedPredict = true;
                     continue;
                 }

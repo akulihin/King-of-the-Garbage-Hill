@@ -290,7 +290,7 @@ public static class Madara
             || game.GameMode == "Aram" || IsMadara(bot)
             || bot.GameCharacter.DoomRollMode
             || bot.GameCharacter.Passive.Any(passive =>
-                passive.PassiveName is "Тетрадь смерти" or "AdminPlayerType")) return;
+                passive.PassiveName is "Тетрадь смерти" or "AdminPlayerType" or "Булькает")) return;
 
         var madara = Find(game);
         if (madara == null || madara.Passives.Madara.Sealed) return;

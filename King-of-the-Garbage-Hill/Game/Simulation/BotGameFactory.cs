@@ -133,6 +133,9 @@ public class BotGameFactory : IServiceSingleton
                     : game.AiDifficulty;
                 if (player.PlayerType != 404 || effectiveDifficulty != 1)
                     continue;
+                // Булькает never predicts, so the frozen L1 baseline must not hand it a free sheet.
+                if (player.GameCharacter.Passive.Any(x => x.PassiveName == "Булькает"))
+                    continue;
 
                 foreach (var enemy in game.PlayersList.Where(x =>
                              x.GetPlayerId() != player.GetPlayerId() && !Sakura.Is(x)))

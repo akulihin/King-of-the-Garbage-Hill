@@ -94,7 +94,7 @@ public static class GameStateMapper
         var isAdeptChooser = game.CthulhuState.AdeptStageActive
                              && Cthulhu.IsUntransformed(requestingPlayer);
         List<DraftOptionDto> scopedDraftOptions = null;
-        if (game.IsDraftPickPhase && requestingPlayer != null
+        if ((game.IsDraftPickPhase || isAdeptChooser) && requestingPlayer != null
             && game.DraftOptions.TryGetValue(requestingPlayer.GetPlayerId(), out var draftOpts))
         {
             scopedDraftOptions = draftOpts
@@ -134,7 +134,7 @@ public static class GameStateMapper
             GameMode = game.GameMode,
             IsFinished = game.IsFinished,
             IsAramPickPhase = game.IsAramPickPhase,
-            IsDraftPickPhase = game.IsDraftPickPhase,
+            IsDraftPickPhase = game.IsDraftPickPhase || isAdeptChooser,
             DraftOptions = scopedDraftOptions,
             DraftPickHeading = isAdeptChooser ? "Выбери адепта" : null,
             IsKratosEvent = game.IsKratosEvent,
@@ -145,6 +145,12 @@ public static class GameStateMapper
             HalfLifeReleaseSerial = game.HalfLifeReleaseSerial,
             AbyssSerial = game.CthulhuState.AbyssSerial,
             OmniManInvasionSerial = OmniMan.GetInvasionSerial(game),
+            OmniManUndergroundTrainSerial = OmniMan.Is(requestingPlayer)
+                ? OmniMan.GetUndergroundTrainSerial(game)
+                : 0,
+            OmniManUndergroundTrainPhrase = OmniMan.Is(requestingPlayer)
+                ? OmniMan.GetUndergroundTrainPhrase(game)
+                : null,
             GlobalLogs = requestingPlayer == null
                 ? (isAdmin ? game.GetGlobalLogs() : StripHiddenLogs(game.GetGlobalLogs(), game.HiddenGlobalLogSnippets, requestingPlayer, game))
                 : GameLocalization.TextForClient(requestingPlayer.DiscordId,
@@ -315,16 +321,25 @@ public static class GameStateMapper
             && !isMe
             && !requestingPlayer.IsTeamMember(game, player.GetPlayerId()))
         {
-            dto.HomelanderRagePercent =
-                Homelander.RagePercentFor(requestingPlayer, player.GetPlayerId());
-            dto.HomelanderLaserUsed =
-                Homelander.LaserUsedFor(requestingPlayer, player.GetPlayerId());
+            if (Homelander.HasPassive(requestingPlayer, Homelander.Righteousness))
+            {
+                dto.HomelanderRagePercent =
+                    Homelander.RagePercentFor(requestingPlayer, player.GetPlayerId());
+                dto.HomelanderLaserUsed =
+                    Homelander.LaserUsedFor(requestingPlayer, player.GetPlayerId());
+            }
+            dto.HomelanderIdentityRevealer =
+                Homelander.WasRevealedBy(requestingPlayer, player.GetPlayerId());
         }
         if (viewerIsOmniMan
             && requestingPlayer != null
             && !isMe
             && !requestingPlayer.IsTeamMember(game, player.GetPlayerId()))
+        {
             dto.OmniManIdiot = OmniMan.IsIdiot(requestingPlayer, player.GetPlayerId());
+            dto.OmniManGuardiansAsleep =
+                OmniMan.IsSleepingFromGuardians(requestingPlayer, player, game);
+        }
         if (isMe && game != null)
         {
             dto.IsDeepSession = Cthulhu.IsUntransformed(player)
@@ -334,6 +349,8 @@ public static class GameStateMapper
                 && game.CthulhuState.DepthsCallAnswers.TryGetValue(
                     player.GetPlayerId(), out var depthsAnswer)
                 && depthsAnswer == null;
+            dto.AdeptChoiceAvailable =
+                Cthulhu.CanChooseAdept(game, player);
             if (Cthulhu.IsUntransformed(player))
                 dto.Character.StatDisplayOverride = "∞";
             if (Cthulhu.IsHerald(game, player))

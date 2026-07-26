@@ -9,7 +9,9 @@ public class RickSanchez
 {
     public const string MostWanted = "Most wanted";
 
-    // Most wanted: every "random mark" passive force-targets the living holder (see docs/INTERACTION-MATRIX.md "Rick Most wanted")
+    // Most wanted: every random enemy bonus/mark force-targets the living holder.
+    // Kira's L is the sole exception and must keep its ordinary random draw.
+    // See docs/INTERACTION-MATRIX.md "Rick Most wanted".
     public static GamePlayerBridgeClass FindMostWantedHolder(
         IEnumerable<GamePlayerBridgeClass> players,
         GamePlayerBridgeClass effectOwner = null)

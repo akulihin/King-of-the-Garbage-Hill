@@ -17,6 +17,7 @@ const props = defineProps<{
   confirmedPredict?: boolean
   fightLog?: FightEntry[]
   isKira?: boolean
+  hasBulkaet?: boolean
   deathNote?: DeathNote
   terminalMode?: boolean
   pinkWardRevealedPlayerIds?: string[]
@@ -40,9 +41,10 @@ const sorted = computed(() =>
     .sort((a, b) => a.status.place - b.status.place),
 )
 
-// Kira doesn't predict. Hide after confirmed (round 8+) or when no character names.
+// Kira doesn't predict, Булькает can't predict at all. Hide after confirmed (round 8+) or when no character names.
 const canPredict = computed(() => {
   if (props.isKira) return false
+  if (props.hasBulkaet) return false
   if (!props.characterNames || props.characterNames.length === 0) return false
   if ((props.roundNo ?? 0) >= 8 && props.confirmedPredict) return false
   return true
@@ -408,10 +410,20 @@ const { tipText, tipVisible, tipPos, showTip, moveTip, hideTip } = useTip()
               <span class="homelander-rage-label">{{ player.homelanderRagePercent }}%</span>
             </span>
             <span
+              v-if="player.homelanderIdentityRevealer"
+              class="homelander-identity-revealer"
+              title="Скромность: этот игрок разоблачил Homelander"
+            >👁️</span>
+            <span
               v-if="player.omniManIdiot"
               class="omni-man-idiot"
               title="Подумай, Марк!: идиот"
             >🤡</span>
+            <span
+              v-if="player.omniManGuardiansAsleep"
+              class="omni-man-guardians-asleep"
+              title="Стражи Земли: пропускает текущий ход"
+            >😴</span>
             <span
               v-if="player.isMadaraRedTiger"
               class="madara-red-tiger"
@@ -548,6 +560,17 @@ const { tipText, tipVisible, tipPos, showTip, moveTip, hideTip } = useTip()
             <template v-else>
               ✏️
             </template>
+          </button>
+        </div>
+
+        <!-- Булькает: no predictions, ever. Mirrors Discord's disabled «Бууууууль» predict menu. -->
+        <div
+          v-else-if="hasBulkaet && !player.isBoardEntity && player.playerId !== myPlayerId && !isFinished"
+          class="lb-predict"
+          @click.stop
+        >
+          <button class="predict-btn predict-btn-bulkaet" disabled title="Ничего не понимает, но булькает!">
+            Бууууууль
           </button>
         </div>
 
@@ -1042,6 +1065,20 @@ const { tipText, tipVisible, tipPos, showTip, moveTip, hideTip } = useTip()
   opacity: 0.58;
 }
 
+.homelander-identity-revealer {
+  display: inline-grid;
+  width: 19px;
+  height: 19px;
+  flex: 0 0 19px;
+  place-items: center;
+  border: 1px solid rgba(255, 102, 84, 0.86);
+  border-radius: 50%;
+  background: rgba(82, 15, 18, 0.94);
+  box-shadow: 0 0 10px rgba(255, 64, 54, 0.58);
+  font-size: 12px;
+  line-height: 1;
+}
+
 .omni-man-idiot {
   display: inline-grid;
   width: 19px;
@@ -1052,6 +1089,20 @@ const { tipText, tipVisible, tipPos, showTip, moveTip, hideTip } = useTip()
   border-radius: 50%;
   background: rgba(10, 46, 105, 0.88);
   box-shadow: 0 0 8px rgba(255, 224, 31, 0.42);
+  font-size: 12px;
+  line-height: 1;
+}
+
+.omni-man-guardians-asleep {
+  display: inline-grid;
+  width: 19px;
+  height: 19px;
+  flex: 0 0 19px;
+  place-items: center;
+  border: 1px solid rgba(120, 211, 255, 0.82);
+  border-radius: 50%;
+  background: rgba(12, 38, 74, 0.92);
+  box-shadow: 0 0 9px rgba(74, 190, 255, 0.52);
   font-size: 12px;
   line-height: 1;
 }
@@ -1220,6 +1271,15 @@ const { tipText, tipVisible, tipPos, showTip, moveTip, hideTip } = useTip()
 .predict-btn:hover {
   border-color: var(--accent-purple);
   color: var(--text-primary);
+}
+
+.predict-btn-bulkaet,
+.predict-btn-bulkaet:hover {
+  cursor: default;
+  opacity: 0.55;
+  color: var(--text-muted);
+  border-color: var(--border-subtle);
+  background: var(--bg-inset);
 }
 
 .predict-btn.has-prediction {

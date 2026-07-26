@@ -126,6 +126,7 @@ export const useGameStore = defineStore('game', () => {
   const isMyTurn = computed(() => {
     if (!myPlayer.value) return false
     if (gameState.value?.isRoundTransitionPaused) return false
+    if (myPlayer.value.adeptChoiceAvailable) return false
     if (gameState.value?.roundNo === 8 && myPlayer.value.character.name === 'Мадара') return false
     return !myPlayer.value.status.isReady && !myPlayer.value.status.isSkip
   })
@@ -695,6 +696,11 @@ export const useGameStore = defineStore('game', () => {
     await signalrService.draftSelect(gameState.value.gameId, characterName)
   }
 
+  async function beginAdeptChoice() {
+    if (!gameState.value) return
+    await signalrService.beginAdeptChoice(gameState.value.gameId)
+  }
+
   async function depthsCallChoice(agree: boolean) {
     if (!gameState.value) return
     await signalrService.depthsCallChoice(gameState.value.gameId, agree)
@@ -1128,6 +1134,7 @@ export const useGameStore = defineStore('game', () => {
     moralToSkill,
     demandContractReward,
     predict,
+    beginAdeptChoice,
     draftSelect,
     depthsCallChoice,
     aramReroll,

@@ -19,6 +19,7 @@ import HalfLife3Transition from 'src/components/HalfLife3Transition.vue'
 import HalfLife3Release from 'src/components/HalfLife3Release.vue'
 import DeepVeil from 'src/components/DeepVeil.vue'
 import OmniManInvasion from 'src/components/OmniManInvasion.vue'
+import OmniManUndergroundTrain from 'src/components/OmniManUndergroundTrain.vue'
 import type { Player } from 'src/services/signalr'
 import {
   playAttackSelection,
@@ -78,12 +79,15 @@ let terminalCommitTimer: ReturnType<typeof setTimeout> | null = null
 let halfLifeReleaseTimer: ReturnType<typeof setTimeout> | null = null
 let deepVeilTimer: ReturnType<typeof setTimeout> | null = null
 let omniManInvasionTimer: ReturnType<typeof setTimeout> | null = null
+let omniManUndergroundTrainTimer: ReturnType<typeof setTimeout> | null = null
 
 const terminalCommitVisible = ref(false)
 const terminalCommitPoints = ref(0)
 const halfLifeReleaseVisible = ref(false)
 const deepVeilVisible = ref(false)
 const omniManInvasionVisible = ref(false)
+const omniManUndergroundTrainVisible = ref(false)
+const omniManUndergroundTrainPhrase = ref('')
 
 watch(() => store.gameState?.halfLifeReleaseSerial, (serial, previousSerial) => {
   if (serial == null || previousSerial == null || serial <= previousSerial) return
@@ -113,6 +117,19 @@ watch(() => store.gameState?.omniManInvasionSerial, (serial, previousSerial) => 
     omniManInvasionVisible.value = false
     omniManInvasionTimer = null
   }, 6500)
+})
+
+watch(() => store.gameState?.omniManUndergroundTrainSerial, (serial, previousSerial) => {
+  if (serial == null || previousSerial == null || serial <= previousSerial) return
+  const phrase = store.gameState?.omniManUndergroundTrainPhrase
+  if (!phrase) return
+  omniManUndergroundTrainPhrase.value = phrase
+  omniManUndergroundTrainVisible.value = true
+  if (omniManUndergroundTrainTimer) clearTimeout(omniManUndergroundTrainTimer)
+  omniManUndergroundTrainTimer = setTimeout(() => {
+    omniManUndergroundTrainVisible.value = false
+    omniManUndergroundTrainTimer = null
+  }, 5400)
 })
 
 watch(() => store.myTerminalState?.commitSerial, (serial, previousSerial) => {
@@ -250,6 +267,7 @@ onUnmounted(() => {
   if (halfLifeReleaseTimer) clearTimeout(halfLifeReleaseTimer)
   if (deepVeilTimer) clearTimeout(deepVeilTimer)
   if (omniManInvasionTimer) clearTimeout(omniManInvasionTimer)
+  if (omniManUndergroundTrainTimer) clearTimeout(omniManUndergroundTrainTimer)
   if (store.isConnected && gameIdNum.value) {
     store.leaveGame(gameIdNum.value)
   }
@@ -529,6 +547,10 @@ function handleOwnerAvatarError(event: Event): void {
   if (image.src !== missingAvatarUrl) image.src = missingAvatarUrl
 }
 const isMadara = computed(() => me.value?.character.name === 'Мадара')
+// Булькает: no predictions at all (same passive gate as Discord's GetPredictMenu).
+const hasBulkaet = computed(
+  () => me.value?.character.passives?.some((p: { name: string }) => p.name === 'Булькает') ?? false,
+)
 const isMadaraRoundEight = computed(() => isMadara.value && store.gameState?.roundNo === 8)
 const isGordon = computed(() => me.value?.character.name === 'Гордон Фримен')
 const gordonState = computed(() => me.value?.passiveAbilityStates?.gordon ?? null)
@@ -1273,6 +1295,10 @@ const rumblingEmbers = Array.from({ length: 36 }, (_, index) => ({
     <HalfLife3Release v-if="halfLifeReleaseVisible" />
     <DeepVeil v-if="deepVeilVisible" />
     <OmniManInvasion v-if="omniManInvasionVisible" />
+    <OmniManUndergroundTrain
+      v-if="omniManUndergroundTrainVisible"
+      :phrase="omniManUndergroundTrainPhrase"
+    />
     <HalfLife3Transition
       v-if="transitionPaused"
       :is-gordon="isGordon"
@@ -1508,7 +1534,17 @@ const rumblingEmbers = Array.from({ length: 36 }, (_, index) => ({
           <div v-if="store.mustSpendLevelUp" class="lvlup-gate-hint">
             ⚠ Остались очки прокачки — потрать их!
           </div>
-          <div v-if="!isMadaraRoundEight" class="act-group">
+          <div v-if="me?.adeptChoiceAvailable" class="act-group">
+            <button
+              class="act-btn cthulhu-adept"
+              :disabled="transitionPaused"
+              title="Открыть выбор адепта"
+              @click="store.beginAdeptChoice()"
+            >
+              Выбрать адепта
+            </button>
+          </div>
+          <div v-if="!me?.adeptChoiceAvailable && !isMadaraRoundEight" class="act-group">
             <button v-if="!isGordon" class="act-btn shield" :disabled="!store.isMyTurn || store.mustSpendLevelUp || transitionPaused" title="Block" @click="store.block()">
               <span class="gi gi-lg gi-def">DEF</span> Block
             </button>
@@ -1562,7 +1598,7 @@ const rumblingEmbers = Array.from({ length: 36 }, (_, index) => ({
             </button>
           </div>
 
-          <div v-if="(store.gameState.roundNo ?? 0) >= 8 && !store.isKira && !isMadara && !me?.status.confirmedPredict" class="act-group">
+          <div v-if="(store.gameState.roundNo ?? 0) >= 8 && !store.isKira && !isMadara && !hasBulkaet && !me?.status.confirmedPredict" class="act-group">
             <button class="act-btn predict-confirm" :disabled="transitionPaused" title="Confirm Predictions" @click="store.confirmPredict()">
               Confirm Prediction
             </button>
@@ -1666,6 +1702,7 @@ const rumblingEmbers = Array.from({ length: 36 }, (_, index) => ({
             :confirmed-predict="store.myPlayer?.status.confirmedPredict"
             :fight-log="store.gameState.fightLog || []"
             :is-kira="store.isKira"
+            :has-bulkaet="hasBulkaet"
             :death-note="store.myPlayer?.deathNote"
             :terminal-mode="store.isTerminalMode"
             :pink-ward-revealed-player-ids="store.gameState.pinkWardRevealedPlayerIds"
@@ -2393,6 +2430,19 @@ const rumblingEmbers = Array.from({ length: 36 }, (_, index) => ({
 .act-btn.auto { border-left: 3px solid var(--accent-green); }
 .act-btn.undo { border-left: 3px solid var(--accent-orange); }
 .act-btn.skip { border-left: 3px solid var(--text-dim); }
+.act-btn.cthulhu-adept {
+  width: 100%;
+  min-height: 36px;
+  border-color: rgba(35, 196, 188, 0.48);
+  background: linear-gradient(135deg, rgba(4, 41, 56, 0.96), rgba(7, 91, 95, 0.72));
+  color: #a7fff4;
+  letter-spacing: 0.04em;
+  box-shadow: inset 0 0 18px rgba(29, 188, 179, 0.12), 0 0 12px rgba(13, 105, 111, 0.2);
+}
+.act-btn.cthulhu-adept:hover:not(:disabled) {
+  border-color: #52e4d6;
+  box-shadow: inset 0 0 22px rgba(29, 188, 179, 0.18), 0 0 16px rgba(32, 190, 185, 0.32);
+}
 .act-btn.half-life {
   border-left: 3px solid #e78124;
   border-color: rgba(231, 129, 36, 0.42);

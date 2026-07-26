@@ -531,18 +531,13 @@ interface RuntimeEnemyCombatProfile {
   parryWindowMs: number
 }
 
-// Straight top-down arena layout: the room rectangle is fitted into the canvas with a single
-// uniform scale for both axes. A per-axis scale would make screen speed depend on the direction
-// of travel (the old isometric projection normalised x by arena.width and y by arena.height,
-// which made two of the four diagonals ~1.4x faster on screen than the other two).
-interface ArenaLayout {
-  originX: number
-  originY: number
-  scale: number
+interface IsometricLayout {
+  centerX: number
+  top: number
+  diamondWidth: number
+  diamondHeight: number
 }
 
-const ARENA_FALLBACK_WIDTH = 1280
-const ARENA_FALLBACK_HEIGHT = 720
 const LAST_CHANCES_EVENT_LOG_LIMIT = 8
 
 const MOVEMENT_KEYS = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowLeft', 'ArrowDown', 'ArrowRight'])
@@ -7174,7 +7169,7 @@ export class LastChancesEngine {
    * Head-on contact leaves no wall tangent to slide along, so walking straight at an obstacle
    * would stick. When the blocked point is near an edge of what is blocking it, nudge sideways
    * and continue forward — the classic corner cut. Dead-centre on a long wall finds no free
-   * side and still stops, which is the correct top-down behaviour.
+   * side and still stops, which is the correct world-space collision behaviour.
    */
   private applyCornerCorrection(
     position: LastChancesVector,
@@ -7935,43 +7930,38 @@ export class LastChancesEngine {
     this.render()
   }
 
-  private layout(
-    arenaWidth = ARENA_FALLBACK_WIDTH,
-    arenaHeight = ARENA_FALLBACK_HEIGHT,
-  ): ArenaLayout {
+  private layout(): IsometricLayout {
     const sidePadding = clamp(this.cssWidth * 0.018, 12, 24)
-    // Headroom for the DOM vitals bar that sits over the top of the stage.
     const top = clamp(this.cssHeight * 0.12, 64, 84)
     const bottomPadding = clamp(this.cssHeight * 0.035, 16, 28)
-    const availableWidth = Math.max(1, this.cssWidth - sidePadding * 2)
+    const diamondWidth = Math.max(1, this.cssWidth - sidePadding * 2)
     const availableHeight = Math.max(1, this.cssHeight - top - bottomPadding)
-    const width = Math.max(1, arenaWidth)
-    const height = Math.max(1, arenaHeight)
-    const scale = Math.min(availableWidth / width, availableHeight / height)
+    const diamondHeight = Math.max(1, Math.min(availableHeight, diamondWidth / 1.55))
     return {
-      originX: (this.cssWidth - width * scale) / 2,
-      originY: top + (availableHeight - height * scale) / 2,
-      scale,
+      centerX: this.cssWidth / 2,
+      top,
+      diamondWidth,
+      diamondHeight,
     }
   }
 
-  private arenaLayout(node: LastChancesPlanNode): ArenaLayout {
-    return this.layout(node.arena.width, node.arena.height)
-  }
-
   private worldToScreen(point: LastChancesVector, node: LastChancesPlanNode): LastChancesVector {
-    const layout = this.arenaLayout(node)
+    const layout = this.layout()
+    const u = point.x / node.arena.width
+    const v = point.y / node.arena.height
     return {
-      x: layout.originX + point.x * layout.scale,
-      y: layout.originY + point.y * layout.scale,
+      x: layout.centerX + (u - v) * layout.diamondWidth / 2,
+      y: layout.top + (u + v) * layout.diamondHeight / 2,
     }
   }
 
   private screenToWorld(point: LastChancesVector, node: LastChancesPlanNode): LastChancesVector {
-    const layout = this.arenaLayout(node)
+    const layout = this.layout()
+    const difference = (point.x - layout.centerX) / (layout.diamondWidth / 2)
+    const sum = (point.y - layout.top) / (layout.diamondHeight / 2)
     return {
-      x: clamp((point.x - layout.originX) / layout.scale, 0, node.arena.width),
-      y: clamp((point.y - layout.originY) / layout.scale, 0, node.arena.height),
+      x: clamp((difference + sum) / 2, 0, 1) * node.arena.width,
+      y: clamp((sum - difference) / 2, 0, 1) * node.arena.height,
     }
   }
 
@@ -8466,11 +8456,11 @@ export class LastChancesEngine {
     const context = this.context
     const playerPoint = this.worldToScreen(this.player.position, this.currentNode)
     const playerRadius = Math.max(
-      6,
-      this.config.player.radius * this.entityScale(this.currentNode),
+      8,
+      this.config.player.radius * this.entityScale(this.currentNode) * 1.55,
     )
     const centerX = playerPoint.x
-    const centerY = playerPoint.y
+    const centerY = playerPoint.y - playerRadius
     const circleRadius = clamp(this.cssWidth * 0.022, 18, 28) * 0.9
     const halfSpan = clamp(this.cssWidth * 0.23, 110, 240) * 0.9
     const progress = clamp(interval / perfectStartMs, 0, 1)
@@ -8663,6 +8653,7 @@ export class LastChancesEngine {
     const radius = Math.max(10, 34 * this.entityScale(node))
     context.save()
     context.translate(point.x, point.y)
+    context.scale(1, 0.48)
     context.beginPath()
     if (hole.shape === 'circle') context.arc(0, 0, radius, 0, Math.PI * 2)
     else if (hole.shape === 'square') context.rect(-radius, -radius, radius * 2, radius * 2)
@@ -8719,8 +8710,6 @@ export class LastChancesEngine {
       y: turret.definition.position.y + turret.facing.y * 48,
     }, node)
     const scale = Math.max(8, 20 * this.entityScale(node))
-    point.y += scale * 0.65
-    aim.y += scale * 0.65
     context.save()
     context.beginPath()
     context.arc(point.x, point.y - scale * 0.65, scale, 0, Math.PI * 2)
@@ -8755,7 +8744,7 @@ export class LastChancesEngine {
     const point = this.worldToScreen(altar.position, node)
     const scale = Math.max(9, 26 * this.entityScale(node))
     context.save()
-    context.translate(point.x, point.y)
+    context.translate(point.x, point.y - scale)
     context.shadowColor = '#d89b66'
     context.shadowBlur = 14
     context.fillStyle = '#34241f'
@@ -8872,42 +8861,29 @@ export class LastChancesEngine {
     }
   }
 
-  // Top-down: an obstacle is exactly the rectangle that blocks movement. `elevation` no longer
-  // extrudes a fake-3D side face, it only drives how heavy the drop shadow reads.
   private renderObstacle(obstacle: LastChancesObstacleDefinition, node: LastChancesPlanNode): void {
     const context = this.context
-    const origin = this.worldToScreen({ x: obstacle.x, y: obstacle.y }, node)
-    const scale = this.entityScale(node)
-    const width = obstacle.width * scale
-    const height = obstacle.height * scale
-    const depth = clamp(obstacle.elevation / 120, 0.25, 1)
-    context.save()
-    context.shadowColor = `rgba(0, 0, 0, ${0.35 + depth * 0.35})`
-    context.shadowBlur = 6 + depth * 18
-    context.shadowOffsetY = 2 + depth * 5
-    context.fillStyle = this.config.renderer.obstacleTop
-    context.beginPath()
-    context.rect(origin.x, origin.y, width, height)
-    context.fill()
-    context.restore()
-    context.save()
-    context.fillStyle = this.config.renderer.obstacleSide
-    context.beginPath()
-    context.rect(
-      origin.x + width * 0.11,
-      origin.y + height * 0.11,
-      width * 0.78,
-      height * 0.78,
-    )
-    context.fill()
+    const base = [
+      this.worldToScreen({ x: obstacle.x, y: obstacle.y }, node),
+      this.worldToScreen({ x: obstacle.x + obstacle.width, y: obstacle.y }, node),
+      this.worldToScreen({ x: obstacle.x + obstacle.width, y: obstacle.y + obstacle.height }, node),
+      this.worldToScreen({ x: obstacle.x, y: obstacle.y + obstacle.height }, node),
+    ]
+    const elevation = obstacle.elevation * this.layout().diamondHeight / node.arena.height * 0.72
+    const top = base.map(point => ({ x: point.x, y: point.y - elevation }))
+    const polygon = (points: LastChancesVector[], fill: string): void => {
+      context.beginPath()
+      points.forEach((point, index) => index === 0
+        ? context.moveTo(point.x, point.y)
+        : context.lineTo(point.x, point.y))
+      context.closePath()
+      context.fillStyle = fill
+      context.fill()
+    }
+    polygon([top[1], base[1], base[2], top[2]], this.config.renderer.obstacleSide)
+    polygon([top[2], base[2], base[3], top[3]], 'rgba(25, 22, 32, .96)')
+    polygon(top, this.config.renderer.obstacleTop)
     context.strokeStyle = 'rgba(255,255,255,.08)'
-    context.lineWidth = 1
-    context.stroke()
-    context.restore()
-    context.strokeStyle = `rgba(255,255,255,${0.09 + depth * 0.09})`
-    context.lineWidth = 1.5
-    context.beginPath()
-    context.rect(origin.x, origin.y, width, height)
     context.stroke()
   }
 
@@ -8917,7 +8893,7 @@ export class LastChancesEngine {
     const scale = Math.max(8, 24 * this.entityScale(node))
     const glow = 0.55 + Math.sin(this.elapsedMs / 180) * 0.15
     context.save()
-    context.translate(point.x, point.y)
+    context.translate(point.x, point.y - scale * 0.55)
     context.shadowColor = '#f0c96d'
     context.shadowBlur = chest.opened ? 8 : 14 + glow * 8
     context.fillStyle = chest.opened ? '#65513a' : '#8b6838'
@@ -8966,10 +8942,8 @@ export class LastChancesEngine {
     context.fill()
   }
 
-  // Pixels per world unit. Identical on both axes, so a world circle stays a screen circle and
-  // rendered bodies line up with their collision radius.
   private entityScale(node: LastChancesPlanNode): number {
-    return this.arenaLayout(node).scale
+    return this.layout().diamondWidth / (node.arena.width + node.arena.height)
   }
 
   private renderEnemy(enemy: RuntimeEnemy, node: LastChancesPlanNode): void {
@@ -8977,11 +8951,10 @@ export class LastChancesEngine {
     const point = this.worldToScreen(enemy.position, node)
     const profile = this.enemyCombatProfile(enemy)
     const radius = isCockroachDefinition(enemy.definition)
-      ? Math.max(2.33, enemy.definition.radius * this.entityScale(node) * 0.48)
-      : Math.max(5, enemy.definition.radius * this.entityScale(node))
-    // The body art is authored above its anchor (it grows upwards from `point`), so push the
-    // anchor down by one radius to sit the drawn body on the world position.
-    point.y += radius
+      ? Math.max(2.33, enemy.definition.radius * this.entityScale(node) * 1.45 / 3)
+      : profile.role === 'creep'
+        ? Math.max(8, enemy.definition.radius * this.entityScale(node) * 1.62)
+        : Math.max(7, enemy.definition.radius * this.entityScale(node) * 1.45)
     const visible = this.enemyVisible(enemy)
     context.save()
     // Walking to a hole makes her untouchable (see damageEnemy); rendering her half-phased is
@@ -9196,9 +9169,7 @@ export class LastChancesEngine {
   private renderPlayer(node: LastChancesPlanNode): void {
     const context = this.context
     const point = this.worldToScreen(this.player.position, node)
-    const radius = Math.max(6, this.config.player.radius * this.entityScale(node))
-    // Same anchor shift as renderEnemy: the body is drawn at `point.y - radius`.
-    point.y += radius
+    const radius = Math.max(8, this.config.player.radius * this.entityScale(node) * 1.55)
     context.save()
     context.translate(point.x, point.y)
     context.scale(1, 0.44)
@@ -9374,7 +9345,6 @@ export class LastChancesEngine {
     const point = this.worldToScreen(pickup.position, node)
     const nearby = this.nearestGroundOuroboros()?.id === pickup.id
     const radius = nearby ? 16 : 13
-    point.y += radius
     const context = this.context
     context.save()
     context.shadowColor = nearby ? '#a7df71' : '#6f8f50'
@@ -9399,8 +9369,7 @@ export class LastChancesEngine {
 
   private renderProjectile(projectile: RuntimeProjectile, node: LastChancesPlanNode): void {
     const point = this.worldToScreen(projectile.position, node)
-    const radius = Math.max(3, projectile.radius * this.entityScale(node))
-    point.y += radius
+    const radius = Math.max(3, projectile.radius * this.entityScale(node) * 1.6)
     if (projectile.source === 'player'
       && projectile.weaponId === this.primarySpearWeapon()?.id
       && isSpearReleaseBehavior(projectile.attack?.behavior)) {
@@ -9409,7 +9378,7 @@ export class LastChancesEngine {
         node,
         { x: point.x, y: point.y - radius * 0.7 },
         direction,
-        Math.max(6, this.config.player.radius * this.entityScale(node)),
+        Math.max(8, this.config.player.radius * this.entityScale(node) * 1.55),
       )
       const context = this.context
       context.save()
@@ -10009,6 +9978,26 @@ export class LastChancesEngine {
     }
   }
 
+  private traceProjectedCircle(
+    center: LastChancesVector,
+    radius: number,
+    node: LastChancesPlanNode,
+    steps = 40,
+  ): void {
+    const context = this.context
+    context.beginPath()
+    for (let index = 0; index < steps; index += 1) {
+      const angle = index / steps * Math.PI * 2
+      const point = this.worldToScreen({
+        x: center.x + Math.cos(angle) * radius,
+        y: center.y + Math.sin(angle) * radius,
+      }, node)
+      if (index === 0) context.moveTo(point.x, point.y)
+      else context.lineTo(point.x, point.y)
+    }
+    context.closePath()
+  }
+
   private renderEffect(effect: RuntimeEffect, node: LastChancesPlanNode): void {
     const context = this.context
     const progress = 1 - effect.remainingMs / effect.totalMs
@@ -10054,15 +10043,13 @@ export class LastChancesEngine {
         context.stroke()
       }
     } else if (effect.kind === 'shock') {
-      const scale = this.entityScale(node)
       const eased = 1 - (1 - progress) ** 3
-      const screenRadius = Math.max(2, effect.range * eased * scale)
+      const worldRadius = effect.range * eased
       // Opening flash: a filled disc that collapses over the first quarter of the effect.
       if (progress < 0.25) {
         context.save()
         context.globalAlpha = alpha * (1 - progress / 0.25) * 0.5
-        context.beginPath()
-        context.arc(origin.x, origin.y, effect.range * scale * (0.2 + progress), 0, Math.PI * 2)
+        this.traceProjectedCircle(effect.position, effect.range * (0.2 + progress), node)
         context.fillStyle = '#ffd9c8'
         context.fill()
         context.restore()
@@ -10070,30 +10057,29 @@ export class LastChancesEngine {
       context.shadowColor = effect.color
       context.shadowBlur = 18 * alpha
       context.lineWidth = 3 + 9 * alpha
-      context.beginPath()
-      context.arc(origin.x, origin.y, screenRadius, 0, Math.PI * 2)
+      this.traceProjectedCircle(effect.position, worldRadius, node)
       context.stroke()
       const spokes = 10
       for (let index = 0; index < spokes; index += 1) {
         const angle = (index / spokes) * Math.PI * 2
+        const start = this.worldToScreen({
+          x: effect.position.x + Math.cos(angle) * worldRadius * 0.7,
+          y: effect.position.y + Math.sin(angle) * worldRadius * 0.7,
+        }, node)
+        const finish = this.worldToScreen({
+          x: effect.position.x + Math.cos(angle) * worldRadius,
+          y: effect.position.y + Math.sin(angle) * worldRadius,
+        }, node)
         context.beginPath()
-        context.moveTo(
-          origin.x + Math.cos(angle) * screenRadius * 0.7,
-          origin.y + Math.sin(angle) * screenRadius * 0.7,
-        )
-        context.lineTo(
-          origin.x + Math.cos(angle) * screenRadius,
-          origin.y + Math.sin(angle) * screenRadius,
-        )
+        context.moveTo(start.x, start.y)
+        context.lineTo(finish.x, finish.y)
         context.lineWidth = 1 + 3 * alpha
         context.stroke()
       }
     } else if (effect.kind === 'burst') {
       const worldRadius = effect.range * progress
       if (effect.arcDegrees >= 360) {
-        const screenRadius = Math.max(2, worldRadius * this.entityScale(node))
-        context.beginPath()
-        context.arc(origin.x, origin.y, screenRadius, 0, Math.PI * 2)
+        this.traceProjectedCircle(effect.position, worldRadius, node)
         context.stroke()
       } else {
         const facing = Math.atan2(effect.direction.y, effect.direction.x)
@@ -10122,13 +10108,17 @@ export class LastChancesEngine {
   private renderEmptyPlan(): void {
     const context = this.context
     const layout = this.layout()
+    const corners = [
+      { x: layout.centerX, y: layout.top },
+      { x: layout.centerX + layout.diamondWidth / 2, y: layout.top + layout.diamondHeight / 2 },
+      { x: layout.centerX, y: layout.top + layout.diamondHeight },
+      { x: layout.centerX - layout.diamondWidth / 2, y: layout.top + layout.diamondHeight / 2 },
+    ]
     context.beginPath()
-    context.rect(
-      layout.originX,
-      layout.originY,
-      ARENA_FALLBACK_WIDTH * layout.scale,
-      ARENA_FALLBACK_HEIGHT * layout.scale,
-    )
+    corners.forEach((point, index) => index === 0
+      ? context.moveTo(point.x, point.y)
+      : context.lineTo(point.x, point.y))
+    context.closePath()
     context.fillStyle = this.config.renderer.floor
     context.fill()
     context.strokeStyle = 'rgba(255,255,255,.14)'

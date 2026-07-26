@@ -25,6 +25,9 @@ export type GameState = {
   abyssSerial: number
   /** Public monotonic identity for the Viltrumite invasion ending. */
   omniManInvasionSerial: number
+  /** Omni-man-owner-only identity and phrase for the Подземный Поезд overlay. */
+  omniManUndergroundTrainSerial?: number
+  omniManUndergroundTrainPhrase?: string
   isRumblingWarningActive: boolean
   /** Persistent public Rumbling aftermath intensity, clamped to 0..4 victims. */
   rumblingKillCount: number
@@ -65,6 +68,8 @@ export type Player = {
   isDeepSession?: boolean
   /** Owner-only pre-game binary prompt. */
   depthsCallPromptActive?: boolean
+  /** Owner-only round-one action that opens the Cthulhu adept ritual. */
+  adeptChoiceAvailable?: boolean
   /** Whether this player is another member of the viewing Naruto's initialized trio. */
   isNarutoAlly: boolean
   /** Public recognition awarded by Madara after the Red Tiger phrase. */
@@ -97,8 +102,12 @@ export type Player = {
   homelanderRagePercent?: number
   /** The charged laser was already spent on this opponent. */
   homelanderLaserUsed?: boolean
+  /** Homelander-owner-only marker for an opponent who revealed his identity. */
+  homelanderIdentityRevealer?: boolean
   /** Omni-man-owner-only marker for an opponent who failed Подумай, Марк!. */
   omniManIdiot?: boolean
+  /** Omni-man-owner-only marker for the opponent currently sleeping from Стражи Земли. */
+  omniManGuardiansAsleep?: boolean
   /** True when Darksci needs to choose stable/unstable (round 1). */
   darksciChoiceNeeded?: boolean
   /** True when Gleb can transform to Young Gleb (round 1). */
@@ -1746,6 +1755,10 @@ class SignalRService {
   }
 
   // ── Draft Pick ──────────────────────────────────────────────────
+
+  async beginAdeptChoice(gameId: number): Promise<void> {
+    await this.connection?.invoke('BeginAdeptChoice', gameId)
+  }
 
   async draftSelect(gameId: number, characterName: string): Promise<void> {
     await this.connection?.invoke('DraftSelect', gameId, characterName)

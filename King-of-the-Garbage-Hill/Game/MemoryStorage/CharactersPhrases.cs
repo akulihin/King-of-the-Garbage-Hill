@@ -91,6 +91,15 @@ public class CharactersUniquePhrase
         "\"Жалкие 10 Скилла? Даже мой сын этого не заметит.\""
     };
 
+    public static readonly IReadOnlyList<string> OmniManUndergroundTrainPhrases = new List<string>
+    {
+        "Ты вынуждаешь меня, Марк!",
+        "Это ты вынудил меня!",
+        "Ты сам это сделал!",
+        "Мужики не плачут!",
+        "В этом - твоя вина!"
+    };
+
     public static readonly IReadOnlyList<string> HomelanderDropPhrases = new List<string>
     {
         "\"Вы все мне должны. Каждый из вас.\"",

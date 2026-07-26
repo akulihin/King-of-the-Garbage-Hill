@@ -118,6 +118,7 @@ public class TheBoys
                 target.FightCharacter.Passive.Clear();
             });
             target.Passives.PassiveAbilitiesDisabledByKimiko = true;
+            Homelander.OnPassivesDisabled(target);
             boys.Status.AddInGamePersonalLogs(
                 $"Живое Оружие: способности {target.DiscordUsername} отключены до конца игры.\n");
             target.Status.AddInGamePersonalLogs(

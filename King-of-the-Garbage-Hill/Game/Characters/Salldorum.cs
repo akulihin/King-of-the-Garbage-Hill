@@ -293,7 +293,8 @@ public class Salldorum
         var targets = originalTargets.Distinct().ToList();
         var replacedTarget = targets.FirstOrDefault(targetId => game.PlayersList.Any(player =>
             player.GetPlayerId() == targetId
-            && player.GameCharacter.Passive.Any(passive => passive.PassiveName == "Most wanted")));
+            && player.GameCharacter.Passive.Any(
+                passive => passive.PassiveName == RickSanchez.MostWanted)));
         if (replacedTarget == Guid.Empty && targets.Count > 0)
             replacedTarget = targets[0];
 
@@ -371,15 +372,10 @@ public class Salldorum
         decimal totalSkillAwarded = 0;
         foreach (var historicalLoss in historicalLosses)
         {
-            if (historicalLoss.RewrittenWinPoints > 0)
-            {
-                player.Status.AddBonusPoints(historicalLoss.RewrittenWinPoints, "Великий летописец");
-                totalPointsAwarded += historicalLoss.RewrittenWinPoints;
-            }
-
             totalMoralAwarded += historicalLoss.RewrittenWinMoral;
             totalSkillAwarded += historicalLoss.RewrittenWinSkill;
 
+            var recalledAnyPoint = false;
             foreach (var pointRecipient in historicalLoss.PointRecipients
                          .GroupBy(recipient => recipient.PlayerId)
                          .Select(group => group.First()))
@@ -388,9 +384,19 @@ public class Salldorum
                     candidate.GetPlayerId() == pointRecipient.PlayerId);
                 if (holder == null || UnknownBug.Is(holder))
                     continue;
+                if (!Homelander.CanTransferFrom(holder, "Великий летописец"))
+                    continue;
 
                 holder.Status.AddBonusPoints(-pointRecipient.Points, "Великий летописец");
                 totalPointsRecalled += pointRecipient.Points;
+                recalledAnyPoint = true;
+            }
+
+            if (historicalLoss.RewrittenWinPoints > 0
+                && (historicalLoss.PointRecipients.Count == 0 || recalledAnyPoint))
+            {
+                player.Status.AddBonusPoints(historicalLoss.RewrittenWinPoints, "Великий летописец");
+                totalPointsAwarded += historicalLoss.RewrittenWinPoints;
             }
         }
 

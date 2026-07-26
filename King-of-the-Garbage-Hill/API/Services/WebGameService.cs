@@ -37,10 +37,12 @@ public class WebGameService
     private readonly StartGameLogic _startGameLogic;
     private readonly UserAccounts _userAccounts;
     private readonly IServiceProvider _serviceProvider;
+    private readonly SecureRandom _secureRandom;
 
     public WebGameService(Global global, GameReaction gameReaction, GameUpdateMess gameUpdateMess,
         HelperFunctions helper, CharactersPull charactersPull, CharacterPassives characterPassives,
-        StartGameLogic startGameLogic, UserAccounts userAccounts, IServiceProvider serviceProvider)
+        StartGameLogic startGameLogic, UserAccounts userAccounts, IServiceProvider serviceProvider,
+        SecureRandom secureRandom)
     {
         _global = global;
         _gameReaction = gameReaction;
@@ -51,6 +53,7 @@ public class WebGameService
         _startGameLogic = startGameLogic;
         _userAccounts = userAccounts;
         _serviceProvider = serviceProvider;
+        _secureRandom = secureRandom;
     }
 
     private AdminLobbyService AdminLobbies =>
@@ -647,6 +650,23 @@ public class WebGameService
 
     // ── Draft Pick ──────────────────────────────────────────────────
 
+    public Task<(bool success, string error)> BeginAdeptChoice(
+        ulong gameId,
+        ulong discordId)
+    {
+        var (game, player) = FindGameAndPlayer(gameId, discordId);
+        if (game == null) return Task.FromResult((false, "Game not found"));
+        if (player == null) return Task.FromResult((false, "Player not in this game"));
+
+        lock (game)
+        {
+            return Task.FromResult(Cthulhu.TryBeginAdeptStage(
+                    game, player, _charactersPull)
+                ? (true, (string)null)
+                : (false, "Adept choice is not available"));
+        }
+    }
+
     public Task<(bool success, string error)> DraftSelect(ulong gameId, ulong discordId, string characterName)
     {
         var (game, player) = FindGameAndPlayer(gameId, discordId);
@@ -657,10 +677,7 @@ public class WebGameService
         // the bridge replacement form one serialized decision.
         lock (game)
         {
-            if (!game.IsDraftPickPhase) return Task.FromResult((false, "Not in draft pick phase"));
             if (!game.PlayersList.Contains(player)) return Task.FromResult((false, "Player not in this game"));
-            if (player.Status.IsDraftPickConfirmed) return Task.FromResult((false, "Already confirmed"));
-
             if (!game.DraftOptions.TryGetValue(player.GetPlayerId(), out var options))
                 return Task.FromResult((false, "No draft options found"));
 
@@ -669,11 +686,14 @@ public class WebGameService
             if (game.CthulhuState.AdeptStageActive && Cthulhu.IsUntransformed(player))
             {
                 var herald = Cthulhu.ApplyAdeptChoice(
-                    game, player, selected.Name, _userAccounts, _charactersPull);
+                    game, player, selected.Name, _userAccounts, _charactersPull,
+                    _secureRandom);
                 return Task.FromResult(herald != null
                     ? (true, (string)null)
                     : (false, "Adept choice is no longer available"));
             }
+            if (!game.IsDraftPickPhase) return Task.FromResult((false, "Not in draft pick phase"));
+            if (player.Status.IsDraftPickConfirmed) return Task.FromResult((false, "Already confirmed"));
             if (UnknownBug.Is(selected))
                 return Task.FromResult((false, "Character is not available as a draft choice"));
 
@@ -786,6 +806,8 @@ public class WebGameService
         var (game, player) = FindGameAndPlayer(gameId, discordId);
         if (game == null) return (false, "Game not found");
         if (player == null) return (false, "Player not in this game");
+        if (Cthulhu.MustChooseAdept(game, player))
+            return (false, "Сначала выбери адепта");
         // Pickle Rick is "ready" (IsReady=true) during the pickle turn, so CanAct is false — but he
         // is still allowed to fire a charged Portal Gun, which auto-confirms his pickle skip.
         var picklePortalReady = player.Passives.RickPickle.PickleTurnsRemaining > 0
@@ -818,6 +840,8 @@ public class WebGameService
         var (game, player) = FindGameAndPlayer(gameId, discordId);
         if (game == null) return Task.FromResult((false, "Game not found"));
         if (player == null) return Task.FromResult((false, "Player not in this game"));
+        if (Cthulhu.MustChooseAdept(game, player))
+            return Task.FromResult((false, "Сначала выбери адепта"));
         var madaraError = MadaraActionError(game, player);
         if (madaraError != null) return Task.FromResult((false, madaraError));
         if (!CanAct(player)) return Task.FromResult((false, "Cannot act right now"));
@@ -913,6 +937,8 @@ public class WebGameService
         var (game, player) = FindGameAndPlayer(gameId, discordId);
         if (game == null) return Task.FromResult((false, "Game not found"));
         if (player == null) return Task.FromResult((false, "Player not in this game"));
+        if (Cthulhu.MustChooseAdept(game, player))
+            return Task.FromResult((false, "Сначала выбери адепта"));
         var madaraError = MadaraActionError(game, player);
         if (madaraError != null) return Task.FromResult((false, madaraError));
         var (lvlBlocked, lvlError) = LevelUpGate(player);
@@ -934,6 +960,8 @@ public class WebGameService
         var (game, player) = FindGameAndPlayer(gameId, discordId);
         if (game == null) return Task.FromResult((false, "Game not found"));
         if (player == null) return Task.FromResult((false, "Player not in this game"));
+        if (Cthulhu.MustChooseAdept(game, player))
+            return Task.FromResult((false, "Сначала выбери адепта"));
         var madaraError = MadaraActionError(game, player);
         if (madaraError != null) return Task.FromResult((false, madaraError));
         if (player.Status.IsSkip || !player.Status.IsReady)
@@ -966,6 +994,8 @@ public class WebGameService
         var (game, player) = FindGameAndPlayer(gameId, discordId);
         if (game == null) return Task.FromResult((false, "Game not found"));
         if (player == null) return Task.FromResult((false, "Player not in this game"));
+        if (Cthulhu.MustChooseAdept(game, player))
+            return Task.FromResult((false, "Сначала выбери адепта"));
         var madaraError = MadaraActionError(game, player);
         if (madaraError != null) return Task.FromResult((false, madaraError));
         var (lvlBlocked, lvlError) = LevelUpGate(player);
@@ -1126,6 +1156,8 @@ public class WebGameService
         if (player == null) return Task.FromResult((false, "Player not in this game"));
         if (Madara.IsMadara(player))
             return Task.FromResult((false, "У Мадары нет предположений"));
+        if (player.GameCharacter.Passive.Any(x => x.PassiveName == "Булькает"))
+            return Task.FromResult((false, "Бууууууль"));
         if (player.GameCharacter.DoomRollMode)
             return Task.FromResult((false, "Predictions are disabled by Let's Roll!"));
         if (!_charactersPull.GetVisibleCharacters().Any(character => character.Name == characterName))
