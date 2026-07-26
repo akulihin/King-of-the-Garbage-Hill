@@ -502,6 +502,8 @@ public class CharacterPassives : IServiceSingleton
     //handle during fight
     public void HandleDefenseBeforeFight(GamePlayerBridgeClass target, GamePlayerBridgeClass me, GameClass game)
     {
+        OmniMan.HandleEnemyAttack(target, me, game);
+
         // Salldorum — Временная капсула: apply pending speed bonus (after DeepCopy)
         var capsuleDef = target.Passives.SalldorumTimeCapsule;
         if (capsuleDef.SpeedBonusPending > 0)
@@ -1921,6 +1923,10 @@ public class CharacterPassives : IServiceSingleton
         foreach (var passive in me.GameCharacter.Passive.ToList())
             switch (passive.PassiveName)
             {
+                case OmniMan.ThinkMark:
+                    OmniMan.HandleIntelligenceWin(me, target, game);
+                    break;
+
                 case "Много выебывается":
                     if (me.Status.IsWonThisCalculation == target.GetPlayerId())
                     {

@@ -109,6 +109,7 @@ x_doom_dragon
 x_eren_goblins
 x_goblin_bad_architecture
 x_gordon_theboys
+x_homelander_omniman
 x_itachi_madara
 x_kira_kratos
 x_monster_witness
@@ -205,8 +206,8 @@ done <<< "$expected"
 global_count=$(printf '%s\n' "$definitions" | rg -c '^g_' || true)
 character_count=$(printf '%s\n' "$definitions" | rg -c '^c_' || true)
 interaction_count=$(printf '%s\n' "$definitions" | rg -c '^x_' || true)
-if [ "$global_count" -ne 12 ] || [ "$character_count" -ne 83 ] || [ "$interaction_count" -ne 15 ]; then
-  echo "BAD category counts: global=$global_count character=$character_count interaction=$interaction_count (expected 12/83/15)"
+if [ "$global_count" -ne 12 ] || [ "$character_count" -ne 83 ] || [ "$interaction_count" -ne 16 ]; then
+  echo "BAD category counts: global=$global_count character=$character_count interaction=$interaction_count (expected 12/83/16)"
   fail=1
 fi
 
@@ -216,7 +217,10 @@ paired_ids=$(printf '%s\n' "$character_pairs" | awk -F'|' '{ print $2; print $3 
 # otherwise strict one-normal/one-hard roster pairing.
 defined_character_ids=$(printf '%s\n' "$definitions" | rg '^c_' | rg -v '^c_dopa_permaban$' | sort)
 pair_names=$(printf '%s\n' "$character_pairs" | cut -d'|' -f1 | sort)
-roster_names=$(jq -r '.[] | select(.Name != "unknown_bug" and .Name != "Баг") | .Name' King-of-the-Garbage-Hill/DataBase/characters.json | sort)
+roster_names=$(jq -r '.[] | select(.Name != "unknown_bug" and .Name != "Баг"
+    and .Name != "Ктулху" and .Name != "Нечто"
+    and .Name != "Homelander" and .Name != "Omni-man") | .Name' \
+    King-of-the-Garbage-Hill/DataBase/characters.json | sort)
 duplicate_pair_ids=$(printf '%s\n' "$paired_ids" | uniq -d)
 unpaired_character_ids=$(comm -23 <(printf '%s\n' "$defined_character_ids") <(printf '%s\n' "$paired_ids"))
 unknown_pair_ids=$(comm -13 <(printf '%s\n' "$defined_character_ids") <(printf '%s\n' "$paired_ids"))
@@ -245,4 +249,4 @@ if [ "$fail" -ne 0 ]; then
   exit 1
 fi
 
-echo "audit-achievements: 110 definitions (12 global / 83 character / 15 interaction), 41 normal/hard character pairs plus Dopa's Permaban bonus card, all unique and evaluated."
+echo "audit-achievements: 111 definitions (12 global / 83 character / 16 interaction), 41 normal/hard character pairs plus Dopa's Permaban bonus card and special-purpose interaction-only roster entries, all unique and evaluated."

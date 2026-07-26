@@ -1015,6 +1015,7 @@ public class DoomsdayMachine : IServiceSingleton
                 //round 2 (Justice)
                 var justiceMe = player.GameCharacter.Justice.GetRealJusticeNow();
                 var justiceTarget = playerIamAttacking.GameCharacter.Justice.GetRealJusticeNow();
+                OmniMan.RecordEqualJusticeFight(player, playerIamAttacking, justiceMe, justiceTarget);
                 var step2Points = _calculateRounds.CalculateStep2(player, playerIamAttacking, true);
                 pointsWined += step2Points;
                 //end round 2
@@ -1852,7 +1853,9 @@ public class DoomsdayMachine : IServiceSingleton
         }
 
         await _characterPassives.HandleEndOfRound(game);
+        OmniMan.ApplyGuardiansOfTheGlobe(game);
         Homelander.ApplyVoughtTower(game);
+        OmniMan.EvaluateInvasion(game);
 
         if (GordonFreeman.PrepareHalfLifeSettlement(game))
         {
@@ -1939,7 +1942,16 @@ public class DoomsdayMachine : IServiceSingleton
 
         // Freeze the same round's results before RoundNo++ and HandleNextRound can apply a ban,
         // tilt, score mutation or any other next-turn state to this replay entry (finding M24).
+        var omniManInvasionTriggered = OmniMan.TryTriggerInvasion(game);
         ReplayService.CaptureRoundResult(replayRound, game, _gameUpdateMess);
+        if (omniManInvasionTriggered)
+        {
+            SortGameLogs(game);
+            ReplayService.FinalizeRound(replayRound, game, _gameUpdateMess);
+            game.TimePassed.Reset();
+            watch.Stop();
+            return;
+        }
 
         game.SkipPlayersThisRound = 0;
         game.RoundNo++;

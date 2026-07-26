@@ -52,7 +52,7 @@ public class TheBoys
 
     // Супергерои, которых Бучер помечает всегда (см. решение по спеке).
     public static readonly string[] Superheroes =
-        { "Сайтама", "Кратос", "Загадочный Спартанец в маске", "Кира", Homelander.CharacterName };
+        { "Сайтама", "Кратос", "Загадочный Спартанец в маске", "Кира", Homelander.CharacterName, OmniMan.CharacterName };
 
     public static bool IsPermanentSup(GamePlayerBridgeClass enemy, int roundNo)
     {

@@ -257,6 +257,9 @@ public class PassivesClass
     // Homelander
     public Homelander.State Homelander { get; set; } = new();
 
+    // Omni-man
+    public OmniMan.State OmniMan { get; set; } = new();
+
     // Salldorum
     public Salldorum.ShenClass SalldorumShen { get; set; } = new();
     public Salldorum.TimeCapsuleClass SalldorumTimeCapsule { get; set; } = new();

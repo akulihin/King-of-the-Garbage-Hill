@@ -24,7 +24,7 @@ public class GameClass
         GlobalLogs = "";
         IsCheckIfReady = true;
         SkipPlayersThisRound = 0;
-        GameVersion = "Версия: 5.1.6";
+        GameVersion = "Версия: 5.1.7";
         GameMode = gameMode;
         CreatorId = creatorId;
         Teams = new List<TeamPlay>();

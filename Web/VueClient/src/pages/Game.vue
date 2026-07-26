@@ -18,6 +18,7 @@ import TerminalCommitOverlay from 'src/components/TerminalCommitOverlay.vue'
 import HalfLife3Transition from 'src/components/HalfLife3Transition.vue'
 import HalfLife3Release from 'src/components/HalfLife3Release.vue'
 import DeepVeil from 'src/components/DeepVeil.vue'
+import OmniManInvasion from 'src/components/OmniManInvasion.vue'
 import type { Player } from 'src/services/signalr'
 import {
   playAttackSelection,
@@ -76,11 +77,13 @@ let finishPresentationFallbackTimer: ReturnType<typeof setTimeout> | null = null
 let terminalCommitTimer: ReturnType<typeof setTimeout> | null = null
 let halfLifeReleaseTimer: ReturnType<typeof setTimeout> | null = null
 let deepVeilTimer: ReturnType<typeof setTimeout> | null = null
+let omniManInvasionTimer: ReturnType<typeof setTimeout> | null = null
 
 const terminalCommitVisible = ref(false)
 const terminalCommitPoints = ref(0)
 const halfLifeReleaseVisible = ref(false)
 const deepVeilVisible = ref(false)
+const omniManInvasionVisible = ref(false)
 
 watch(() => store.gameState?.halfLifeReleaseSerial, (serial, previousSerial) => {
   if (serial == null || previousSerial == null || serial <= previousSerial) return
@@ -100,6 +103,16 @@ watch(() => store.gameState?.abyssSerial, (serial, previousSerial) => {
     deepVeilVisible.value = false
     deepVeilTimer = null
   }, 6000)
+})
+
+watch(() => store.gameState?.omniManInvasionSerial, (serial, previousSerial) => {
+  if (serial == null || previousSerial == null || serial <= previousSerial) return
+  omniManInvasionVisible.value = true
+  if (omniManInvasionTimer) clearTimeout(omniManInvasionTimer)
+  omniManInvasionTimer = setTimeout(() => {
+    omniManInvasionVisible.value = false
+    omniManInvasionTimer = null
+  }, 6500)
 })
 
 watch(() => store.myTerminalState?.commitSerial, (serial, previousSerial) => {
@@ -236,6 +249,7 @@ onUnmounted(() => {
   if (terminalCommitTimer) clearTimeout(terminalCommitTimer)
   if (halfLifeReleaseTimer) clearTimeout(halfLifeReleaseTimer)
   if (deepVeilTimer) clearTimeout(deepVeilTimer)
+  if (omniManInvasionTimer) clearTimeout(omniManInvasionTimer)
   if (store.isConnected && gameIdNum.value) {
     store.leaveGame(gameIdNum.value)
   }
@@ -1258,6 +1272,7 @@ const rumblingEmbers = Array.from({ length: 36 }, (_, index) => ({
     <TerminalCommitOverlay v-if="terminalCommitVisible" :points="terminalCommitPoints" />
     <HalfLife3Release v-if="halfLifeReleaseVisible" />
     <DeepVeil v-if="deepVeilVisible" />
+    <OmniManInvasion v-if="omniManInvasionVisible" />
     <HalfLife3Transition
       v-if="transitionPaused"
       :is-gordon="isGordon"

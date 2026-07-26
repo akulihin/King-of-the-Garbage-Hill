@@ -366,6 +366,14 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         foreach (var passive in me.GameCharacter.Passive)
             switch (passive.PassiveName)
             {
+                case OmniMan.ThinkMark:
+                    if (!isWeb
+                        && other.GetPlayerId() != me.GetPlayerId()
+                        && !me.IsTeamMember(game, other.GetPlayerId())
+                        && OmniMan.IsIdiot(me, other.GetPlayerId()))
+                        customString += " 🤡";
+                    break;
+
                 case Homelander.Righteousness:
                     if (!isWeb
                         && other.GetPlayerId() != me.GetPlayerId()

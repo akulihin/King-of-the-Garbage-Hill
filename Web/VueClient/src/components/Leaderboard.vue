@@ -408,6 +408,11 @@ const { tipText, tipVisible, tipPos, showTip, moveTip, hideTip } = useTip()
               <span class="homelander-rage-label">{{ player.homelanderRagePercent }}%</span>
             </span>
             <span
+              v-if="player.omniManIdiot"
+              class="omni-man-idiot"
+              title="Подумай, Марк!: идиот"
+            >🤡</span>
+            <span
               v-if="player.isMadaraRedTiger"
               class="madara-red-tiger"
               title="Красный Тигр — признан Мадарой сильнейшим человеком на земле"
@@ -1035,6 +1040,20 @@ const { tipText, tipVisible, tipPos, showTip, moveTip, hideTip } = useTip()
 .homelander-rage.spent {
   filter: grayscale(0.82);
   opacity: 0.58;
+}
+
+.omni-man-idiot {
+  display: inline-grid;
+  width: 19px;
+  height: 19px;
+  flex: 0 0 19px;
+  place-items: center;
+  border: 1px solid rgba(255, 224, 31, 0.78);
+  border-radius: 50%;
+  background: rgba(10, 46, 105, 0.88);
+  box-shadow: 0 0 8px rgba(255, 224, 31, 0.42);
+  font-size: 12px;
+  line-height: 1;
 }
 
 .badge {

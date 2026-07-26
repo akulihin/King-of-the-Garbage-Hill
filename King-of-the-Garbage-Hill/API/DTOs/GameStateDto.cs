@@ -27,6 +27,7 @@ public class GameStateDto
     public string TransitionDeadlineUtc { get; set; }
     public int HalfLifeReleaseSerial { get; set; }
     public int AbyssSerial { get; set; }
+    public int OmniManInvasionSerial { get; set; }
     public string GlobalLogs { get; set; }
 
     /// <summary>Full history of all global logs across all rounds.</summary>
@@ -132,6 +133,10 @@ public class PlayerDto
     public int? HomelanderRagePercent { get; set; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public bool HomelanderLaserUsed { get; set; }
+
+    /// <summary>Owner-scoped Подумай, Марк! marker for an opponent who failed the check.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool OmniManIdiot { get; set; }
 
     /// <summary>Tsukuyomi state (only populated for the Itachi player viewing their own state).</summary>
     public TsukuyomiStateDto TsukuyomiState { get; set; }

@@ -278,29 +278,31 @@ public class CheckIfReady : IServiceSingleton
     private async Task HandleLastRound(GameClass game)
     {
         game.IsCheckIfReady = false;
-
-        // Чернильная завеса normally settles while round 11 opens. A Kratos extension can create
-        // fresh ledger entries afterwards, so settle any remainder before final-game effects.
-        _characterPassives.RestoreOctopusInk(game);
-
-        // Геральт — pitchfork death: if Geralt finishes last
-        var lastAlivePlayer = game.PlayersList
-            .Where(x => !x.Passives.IsDead)
-            .OrderByDescending(x => x.Status.GetPlaceAtLeaderBoard())
-            .FirstOrDefault();
-        var geraltLast = lastAlivePlayer?.GameCharacter.Name == "Геральт"
-                         && !lastAlivePlayer.Passives.PassiveAbilitiesDisabledByKimiko
-            ? lastAlivePlayer
-            : null;
-        if (geraltLast != null)
-        {
-            game.AddGlobalLogs("Крестьяне с вилами настигли Ведьмака... Работа неблагодарная.");
-        }
         var questSettlementNow = DateTimeOffset.UtcNow;
+        var omniManInvasionWinner = OmniMan.GetInvasionWinner(game);
+        GamePlayerBridgeClass top3Player = null;
         foreach (var player in game.PlayersList)
-        {
             player.Status.ConfirmedSkip = true;
-        }
+
+        if (omniManInvasionWinner == null)
+        {
+            // Чернильная завеса normally settles while round 11 opens. A Kratos extension can create
+            // fresh ledger entries afterwards, so settle any remainder before final-game effects.
+            _characterPassives.RestoreOctopusInk(game);
+
+            // Геральт — pitchfork death: if Geralt finishes last
+            var lastAlivePlayer = game.PlayersList
+                .Where(x => !x.Passives.IsDead)
+                .OrderByDescending(x => x.Status.GetPlaceAtLeaderBoard())
+                .FirstOrDefault();
+            var geraltLast = lastAlivePlayer?.GameCharacter.Name == "Геральт"
+                             && !lastAlivePlayer.Passives.PassiveAbilitiesDisabledByKimiko
+                ? lastAlivePlayer
+                : null;
+            if (geraltLast != null)
+            {
+                game.AddGlobalLogs("Крестьяне с вилами настигли Ведьмака... Работа неблагодарная.");
+            }
 
         foreach (var player in game.PlayersList)
         {
@@ -573,21 +575,28 @@ public class CheckIfReady : IServiceSingleton
 
         // Одна из трех: solo-only and only across an uncontested top-three cutoff. If a fourth
         // living player has Sakura's score, she did not earn a complete top-three place.
-        var top3Player = game.CthulhuState.HorrorFired
-            ? null
-            : game.PlayersList.FirstOrDefault(x =>
-                Sakura.HasUncontestedSoloTopThree(game, x));
-        if (top3Player != null)
+            top3Player = game.CthulhuState.HorrorFired
+                ? null
+                : game.PlayersList.FirstOrDefault(x =>
+                    Sakura.HasUncontestedSoloTopThree(game, x));
+            if (top3Player != null)
+            {
+                var oneOfThree = top3Player.GameCharacter.Passive.Find(x => x.PassiveName == Sakura.OneOfThree);
+                if (oneOfThree != null) oneOfThree.Visible = true;
+                game.AddGlobalLogs("**Sakura:** Я одна из легендарной тройки. И этого вполне достаточно!");
+            }
+        }
+        else
         {
-            var oneOfThree = top3Player.GameCharacter.Passive.Find(x => x.PassiveName == Sakura.OneOfThree);
-            if (oneOfThree != null) oneOfThree.Visible = true;
-            game.AddGlobalLogs("**Sakura:** Я одна из легендарной тройки. И этого вполне достаточно!");
+            OmniMan.ForceFirstPlace(game, omniManInvasionWinner);
         }
 
-        var playerWhoWon = top3Player
+        var playerWhoWon = omniManInvasionWinner
+                           ?? top3Player
                            ?? game.PlayersList.Where(x => !x.Passives.IsDead).FirstOrDefault()
                            ?? game.PlayersList.First();
-        HandlePostGameEvents(game, playerWhoWon);
+        if (omniManInvasionWinner == null)
+            HandlePostGameEvents(game, playerWhoWon);
 
 
         if (playerWhoWon.Status.AutoMoveTimes >= 10) playerWhoWon.DiscordUsername = "НейроБот";
@@ -603,7 +612,7 @@ public class CheckIfReady : IServiceSingleton
         decimal team3Score = 0;
         var wonTeam = 0;
         game.WinnerPlayerIds.Clear();
-        if (game.Teams.Count > 0)
+        if (game.Teams.Count > 0 && omniManInvasionWinner == null)
         {
             isTeam = true;
             foreach (var player in game.PlayersList)
@@ -666,7 +675,8 @@ public class CheckIfReady : IServiceSingleton
         }
         else
         {
-            var isTie = top3Player == null && game.PlayersList.FindAll(x => !x.Passives.IsDead
+            var isTie = omniManInvasionWinner == null
+                        && top3Player == null && game.PlayersList.FindAll(x => !x.Passives.IsDead
                 && x.Status.GetScore() == playerWhoWon.Status.GetScore()).Count > 1;
             var winnerText = UnknownBug.Is(playerWhoWon)
                 ? $"\n**{playerWhoWon.DiscordUsername}** победил. Данные персонажа повреждены."
@@ -675,7 +685,8 @@ public class CheckIfReady : IServiceSingleton
             if (!isTie)
                 game.WinnerPlayerIds.Add(playerWhoWon.GetPlayerId());
             if (!playerWhoWon.IsBot() && !playerWhoWon.IsWebPlayer && !playerWhoWon.PreferWeb)
-                if (top3Player != null || game.PlayersList.FindAll(x => !x.Passives.IsDead
+                if (omniManInvasionWinner != null
+                    || top3Player != null || game.PlayersList.FindAll(x => !x.Passives.IsDead
                         && x.Status.GetScore() == playerWhoWon.Status.GetScore())
                         .Count == 1)
                 {
@@ -745,7 +756,8 @@ public class CheckIfReady : IServiceSingleton
                     break;
             }
 
-            if (player.Status.GetScore() == playerWhoWon.Status.GetScore())
+            if (omniManInvasionWinner == null
+                && player.Status.GetScore() == playerWhoWon.Status.GetScore())
                 zbsPointsToGive = 100;
 
             if (isTeam && wonTeam > 0)
@@ -760,7 +772,9 @@ public class CheckIfReady : IServiceSingleton
                 ? wonTeam > 0 && game.Teams.Any(team =>
                     team.TeamId == wonTeam && team.TeamPlayers.Contains(player.Status.PlayerId))
                 : !player.Passives.IsDead
-                  && (rewardPlace == 1 || player.Status.GetScore() == playerWhoWon.Status.GetScore());
+                  && (rewardPlace == 1
+                      || (omniManInvasionWinner == null
+                          && player.Status.GetScore() == playerWhoWon.Status.GetScore()));
             var governmentSalaryZbs = TheBoys.ShouldAwardGovernmentSalary(
                 player, game.WinnerPlayerIds.Contains(player.GetPlayerId()))
                 ? TheBoys.GovernmentSalaryZbs

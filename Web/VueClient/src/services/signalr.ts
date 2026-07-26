@@ -23,6 +23,8 @@ export type GameState = {
   halfLifeReleaseSerial: number
   /** Public monotonic identity for the full-screen abyss transition. */
   abyssSerial: number
+  /** Public monotonic identity for the Viltrumite invasion ending. */
+  omniManInvasionSerial: number
   isRumblingWarningActive: boolean
   /** Persistent public Rumbling aftermath intensity, clamped to 0..4 victims. */
   rumblingKillCount: number
@@ -93,6 +95,8 @@ export type Player = {
   homelanderRagePercent?: number
   /** The charged laser was already spent on this opponent. */
   homelanderLaserUsed?: boolean
+  /** Omni-man-owner-only marker for an opponent who failed Подумай, Марк!. */
+  omniManIdiot?: boolean
   /** True when Darksci needs to choose stable/unstable (round 1). */
   darksciChoiceNeeded?: boolean
   /** True when Gleb can transform to Young Gleb (round 1). */

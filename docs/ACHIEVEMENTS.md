@@ -4,9 +4,9 @@
 
 ## 1. Achievement model
 
-The live catalog contains exactly **110** achievements: **12 Global**, **83 Character**, and **15 Interaction**. `AchievementDefinition` owns paired EN/RU names, descriptions and secret hints plus category, icon, rarity, target, related characters and rewards (`AchievementClass.cs` `AchievementDefinition`/`AllAchievements`). `tools/audit-achievements.sh` hard-fails unless all expected IDs are unique, present and evaluated.
+The live catalog contains exactly **111** achievements: **12 Global**, **83 Character**, and **16 Interaction**. `AchievementDefinition` owns paired EN/RU names, descriptions and secret hints plus category, icon, rarity, target, related characters and rewards (`AchievementClass.cs` `AchievementDefinition`/`AllAchievements`). `tools/audit-achievements.sh` hard-fails unless all expected IDs are unique, present and evaluated.
 
-The first 82 Character-category IDs retain two catalog slots for each of the 41 represented character definitions/forms. Dopa additionally has the bonus Permaban card `c_dopa_permaban`, suggested by the rework itself. `c_salldorum_double_cola` is the deliberate presentation exception: it is secret and has an empty `CharacterNames` list, so locked or character-filtered player surfaces do not associate it with Salldorum. Difficulty is not the reward rarity. In particular, the pre-existing hard cards `c_rick_portals`, `c_itachi_tax`, and `c_kotiki_reunion` remain Rare so their historic rewards stay unchanged; all other rows likewise show their live rarity explicitly.
+The first 82 Character-category IDs retain two catalog slots for each of the 41 represented character definitions/forms. Dopa additionally has the bonus Permaban card `c_dopa_permaban`, suggested by the rework itself. Homelander and Omni-man currently enter this catalog through their shared public Interaction card rather than receiving normal/hard Character pairs; Ктулху/Нечто remain special-purpose roster definitions outside that pairing audit. `c_salldorum_double_cola` is the deliberate presentation exception: it is secret and has an empty `CharacterNames` list, so locked or character-filtered player surfaces do not associate it with Salldorum. Difficulty is not the reward rarity. In particular, the pre-existing hard cards `c_rick_portals`, `c_itachi_tax`, and `c_kotiki_reunion` remain Rare so their historic rewards stay unchanged; all other rows likewise show their live rarity explicitly.
 
 Progress has two layers:
 
@@ -86,9 +86,9 @@ Character achievements require the named character/form even if another holder c
 
 The live definitions and every paired condition are in `AchievementClass.cs` `AllAchievements`/`TrackGameEnd`; the relevant passive state types and observation hooks are catalogued character-by-character in [CHARACTERS.md](CHARACTERS.md).
 
-## 4. Interaction achievements (15, all secret)
+## 4. Interaction achievements (16; 15 secret, 1 public)
 
-Locked interaction cards expose only a deliberately vague hint. The exact rules below are implementation documentation, not player-facing card copy.
+Locked interaction cards expose only a deliberately vague hint. `x_homelander_omniman` is the one deliberately non-secret interaction and exposes its supplied exact copy from the start. The exact rules below are implementation documentation, not player-facing card copy.
 
 | ID | Achievement (EN / RU) | Single-match interaction and recipient | Rarity / reward |
 |---|---|---|---|
@@ -107,6 +107,7 @@ Locked interaction cards expose only a deliberately vague hint. The exact rules 
 | `x_eren_goblins` | Tiny Titans / Крошечные титаны | Эрен Йегер kills Стая Гоблинов with Rumbling. Eren earns it. | Epic · 100 ZBS + 1 box |
 | `x_naruto_failed_heroes` | Heroes Don't Always Save the World / Герои не всегда спасают мир | The original Naruto earns it when a three-Naruto Расенган reaches a resolved fight against round-10 Эрен but Rumbling still triggers, or against round-8 Мадара but he remains unsealed. Its description and locked hint are deliberately empty: the card exposes only its name after unlock. | Legendary · 228 ZBS + 2 boxes |
 | `x_gordon_theboys` | There Is No Counter to a Crowbar but Another Crowbar! / Против лома нет приема, кроме другого лома! | TheBoys attacks Гордон Фримен while СуперМудень is active, but Gordon's third-fight Монтировка victory stops the attack. Gordon earns it. The locked card exposes no hint or character association. | Legendary · 228 ZBS + 2 boxes |
+| `x_homelander_omniman` | Поезд против самолета! | `Примите участие в честном сражении Homelander vs Omni-man с равной справедливостью, и выясните кто из них сильнее!` A resolved mutual fight must begin with equal Justice; both accounts earn it. This card is public. | Rare · 50 ZBS |
 
 All interaction evaluation is in `AchievementClass.cs` `TrackGameEnd`; the observation point and recipient for each relationship are indexed by subsystem in [INTERACTION-MATRIX.md](INTERACTION-MATRIX.md) §8.
 
@@ -116,11 +117,11 @@ All interaction evaluation is in `AchievementClass.cs` `TrackGameEnd`; the obser
 |---|---:|---:|
 | Common | 10 ZBS | 11 |
 | Uncommon | 25 ZBS | 27 |
-| Rare | 50 ZBS | 20 |
+| Rare | 50 ZBS | 21 |
 | Epic | 100 ZBS + 1 loot box | 36 |
 | Legendary | 228 ZBS + 2 loot boxes | 16 |
 
-The reward switch is centralized in `AchievementClass.cs` `AchievementDefinition`. Completing the current catalog awards **9,033 ZBS and 68 loot boxes** in total. `AchievementBoard` reports earned/current-catalog totals by summing live unlocked definitions; these numbers are a catalog summary, not a historical transaction ledger (`GameHub.cs` `RequestAchievements`).
+The reward switch is centralized in `AchievementClass.cs` `AchievementDefinition`. Completing the current catalog awards **9,083 ZBS and 68 loot boxes** in total. `AchievementBoard` reports earned/current-catalog totals by summing live unlocked definitions; these numbers are a catalog summary, not a historical transaction ledger (`GameHub.cs` `RequestAchievements`).
 
 ## 6. Secrets, queues, and Вечное Цукуеми
 
@@ -131,7 +132,7 @@ The reward switch is centralized in `AchievementClass.cs` `AchievementDefinition
 
 ## 7. V1 migration and compatibility
 
-V2 was introduced as an intentional fresh catalog. Its current 110 `g_…` / `c_…` / `x_…` IDs remain disjoint from the older V1 achievement IDs, so V1 unlocks do **not** grant V2 rewards or appear as V2 completions. This expansion is **not another reset**: all original 34 V2 IDs, progress rows, unlocks and issued rewards remain intact (including the original Rare rewards on Rick, Itachi and Cats), while later expansion IDs begin tracking after their deployment. Existing account JSON remains readable:
+V2 was introduced as an intentional fresh catalog. Its current 111 `g_…` / `c_…` / `x_…` IDs remain disjoint from the older V1 achievement IDs, so V1 unlocks do **not** grant V2 rewards or appear as V2 completions. This expansion is **not another reset**: all original 34 V2 IDs, progress rows, unlocks and issued rewards remain intact (including the original Rare rewards on Rick, Itachi and Cats), while later expansion IDs begin tracking after their deployment. Existing account JSON remains readable:
 
 - `EnsureInitialized` null-fills the account containers without deleting unknown legacy progress rows (`AchievementClass.cs` `EnsureInitialized`).
 - Account startup explicitly removes the two retired secret-character IDs from persisted `Progress` and `NewlyUnlocked`; already-issued rewards are not clawed back (`UserAccounts.cs` `MigrateUnknownBugAccount`).

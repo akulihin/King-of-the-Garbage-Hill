@@ -143,6 +143,7 @@ public class InGameAchievementTracker
     public int GordonHeadcrabsRemoved { get; set; }
     public bool GordonHalfLifeReleased { get; set; }
     public bool GordonCrowbarStoppedSuperDick { get; set; }
+    public bool HomelanderOmniManEqualJusticeFight { get; set; }
 
     // Legacy fields are intentionally tolerated because old server snapshots and older hooks may
     // still populate them. Achievement V2 never evaluates these counters.
@@ -748,6 +749,11 @@ public static class AchievementService
             "СуперКочергу остановил Герой с Кочергой",
             AchievementCategory.Interaction, "axe", "legendary", isSecret: true,
             characterNames: new[] { "TheBoys", "Гордон Фримен" }),
+        new("x_homelander_omniman", "Поезд против самолета!", "Поезд против самолета!",
+            "Примите участие в честном сражении Homelander vs Omni-man с равной справедливостью, и выясните кто из них сильнее!",
+            "Примите участие в честном сражении Homelander vs Omni-man с равной справедливостью, и выясните кто из них сильнее!",
+            AchievementCategory.Interaction, "balance", "rare",
+            characterNames: new[] { Homelander.CharacterName, OmniMan.CharacterName }),
     };
 
     private static readonly Dictionary<string, AchievementDefinition> ById =
@@ -1317,6 +1323,10 @@ public static class AchievementService
         if (characterName == "Гордон Фримен")
             SetBestProgress(account, "x_gordon_theboys",
                 tracker.GordonCrowbarStoppedSuperDick ? 1 : 0);
+
+        if (characterName is Homelander.CharacterName or OmniMan.CharacterName)
+            SetBestProgress(account, "x_homelander_omniman",
+                tracker.HomelanderOmniManEqualJusticeFight ? 1 : 0);
     }
 
     private static bool HasUsedAutoMoveAllGame(

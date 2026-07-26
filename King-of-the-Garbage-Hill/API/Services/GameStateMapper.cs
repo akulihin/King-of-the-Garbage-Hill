@@ -144,6 +144,7 @@ public static class GameStateMapper
             TransitionDeadlineUtc = game.TransitionDeadlineUtc?.ToString("o"),
             HalfLifeReleaseSerial = game.HalfLifeReleaseSerial,
             AbyssSerial = game.CthulhuState.AbyssSerial,
+            OmniManInvasionSerial = OmniMan.GetInvasionSerial(game),
             GlobalLogs = requestingPlayer == null
                 ? (isAdmin ? game.GetGlobalLogs() : StripHiddenLogs(game.GetGlobalLogs(), game.HiddenGlobalLogSnippets, requestingPlayer, game))
                 : GameLocalization.TextForClient(requestingPlayer.DiscordId,
@@ -187,12 +188,14 @@ public static class GameStateMapper
 
         var viewerIsTheBoys = requestingPlayer?.GameCharacter.Name == "TheBoys";
         var viewerIsHomelander = Homelander.Is(requestingPlayer);
+        var viewerIsOmniMan = OmniMan.Is(requestingPlayer);
 
         foreach (var player in game.PlayersList)
         {
             var isMe = requestingPlayer != null && player.GetPlayerId() == requestingPlayer.GetPlayerId();
             dto.Players.Add(MapPlayer(player, requestingPlayer, isMe, isAdmin, canInspectPlayers,
-                game.PlayersList, game, viewerIsTerminal, viewerIsTheBoys, viewerIsHomelander));
+                game.PlayersList, game, viewerIsTerminal, viewerIsTheBoys, viewerIsHomelander,
+                viewerIsOmniMan));
         }
 
         if (Cthulhu.IsNechtoActive(game) && !game.IsFinished)
@@ -287,7 +290,8 @@ public static class GameStateMapper
 
     private static PlayerDto MapPlayer(GamePlayerBridgeClass player, GamePlayerBridgeClass requestingPlayer,
         bool isMe, bool isAdmin, bool canInspectPlayers, List<GamePlayerBridgeClass> allPlayers, GameClass game = null,
-        bool viewerIsTerminal = false, bool viewerIsTheBoys = false, bool viewerIsHomelander = false)
+        bool viewerIsTerminal = false, bool viewerIsTheBoys = false, bool viewerIsHomelander = false,
+        bool viewerIsOmniMan = false)
     {
         var hasDeathNote = player.GameCharacter.Passive.Any(p => p.PassiveName == "Тетрадь смерти");
 
@@ -316,6 +320,11 @@ public static class GameStateMapper
             dto.HomelanderLaserUsed =
                 Homelander.LaserUsedFor(requestingPlayer, player.GetPlayerId());
         }
+        if (viewerIsOmniMan
+            && requestingPlayer != null
+            && !isMe
+            && !requestingPlayer.IsTeamMember(game, player.GetPlayerId()))
+            dto.OmniManIdiot = OmniMan.IsIdiot(requestingPlayer, player.GetPlayerId());
         if (isMe && game != null)
         {
             dto.IsDeepSession = Cthulhu.IsUntransformed(player)

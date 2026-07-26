@@ -1,6 +1,6 @@
 # Balance Constants — every tunable number with its code anchor
 
-> Hand-maintained. **Update the row when you change the number** (and re-run `tools/audit-passives.sh` for name changes). Verified against the working tree of 2026-07-25 (v5.1.6). `CP` = `Game/GameLogic/CharacterPassives.cs`, `CC` = `Game/Classes/CharacterClass.cs`, `DM` = `Game/GameLogic/DoomsdayMachine.cs`, `CIR` = `Game/GameLogic/CheckIfReady.cs`, `GR` = `Game/ReactionHandling/GameReactions.cs`.
+> Hand-maintained. **Update the row when you change the number** (and re-run `tools/audit-passives.sh` for name changes). Verified against the working tree of 2026-07-25 (v5.1.7). `CP` = `Game/GameLogic/CharacterPassives.cs`, `CC` = `Game/Classes/CharacterClass.cs`, `DM` = `Game/GameLogic/DoomsdayMachine.cs`, `CIR` = `Game/GameLogic/CheckIfReady.cs`, `GR` = `Game/ReactionHandling/GameReactions.cs`.
 >
 > RNG note: `Luck(x)` ≈ x%, `Luck(a,b)` ≈ a-in-b (rounded to whole %); see `Helpers/SecureRandom.cs:35-45`.
 
@@ -178,6 +178,11 @@ Achievement progress targets and the complete 110-entry rule catalog are in [ACH
 | Homelander | Праведность laser | next attack at 100% auto-wins and adds 2 guaranteed Drops; once per enemy | `Homelander.ArmLaser`/`ApplyLaserDrops` |
 | Homelander | Башня Vought | unique enemy positive-income leader −1 regular; unique Homelander leader receives one extra copy of every positive score entry earned that turn | `Homelander.ApplyVoughtTower` |
 | Homelander | Молоко | +1 regular after first attack on HardKitty | `Homelander.TryMilk` |
+| Omni-man | base stats / Tier | Int 1, Str 10, Speed 10, Psyche 6; Tier 3 | `characters.json` Omni-man |
+| Omni-man | Подумай, Марк! check / payout | target resists at Omni-man Int +2; first failure per enemy pays +3 bonus | `OmniMan.IntelligenceAdvantageToResist`/`IntelligenceBattlePoints`; `HandleIntelligenceWin` |
+| Omni-man | invasion delay / deadline | triggers after 1 further full turn; scheduling disabled from turn 10, so turn 9 → end of turn 10 is the latest path | `OmniMan.EvaluateInvasion`/`TryTriggerInvasion` |
+| Omni-man | Стражи Земли | one unique positive-income enemy maximum sleeps for 1 following turn; turns 1–9 only | `OmniMan.ApplyGuardiansOfTheGlobe` |
+| Omni-man | Частица нашей силы | each incoming enemy attack grants its attacker +10 Skill | `OmniMan.SkillPerIncomingAttack`; `HandleEnemyAttack` |
 | Ктулху | Морок bonus steal | victim −1 / Вестник +1 immediate bonus point; unknown_bug exempt | `Cthulhu.HandleResolvedFight` |
 | Ктулху | Нечто isolated fight stats / Justice | 10 / 10 / 10 / 10; Justice 0 | `Cthulhu.ResolveNechtoAttacks` |
 | Ктулху | Нечто victory reward | +2 regular points (then ×1/×2/×4 by round) | `Cthulhu.ResolveNechtoAttacks` |
