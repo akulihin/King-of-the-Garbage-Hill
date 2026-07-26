@@ -13,6 +13,7 @@ namespace King_of_the_Garbage_Hill.API.Services;
 public class BattleshipService
 {
     private static readonly TimeSpan ComboHitDelay = TimeSpan.FromSeconds(8);
+    private static readonly TimeSpan FastComboHitDelay = TimeSpan.FromSeconds(2);
     /// <summary>ZBS paid for the first battleship win of the (UTC) day. Anchor: a daily quest card pays 20.</summary>
     public const int BattleshipFirstWinZbs = 10;
 
@@ -521,7 +522,6 @@ public class BattleshipService
             else
                 result = BattleshipGameEngine.ProcessShot(game, shooter, row, col);
 
-            ApplyComboShotDelay(shooter, result);
             DescribeShot(game, shooter, result, ownBoard: false);
             ResetExpendedSelection(shooter);
             shooter.HasShotThisTurn = true;
@@ -529,6 +529,7 @@ public class BattleshipService
             CompleteActionResolution(game, result.TurnContinues, moveSummons: true);
             if (!game.IsFinished)
                 CheckAndApplyWin(game);
+            ApplyComboShotDelay(game, shooter, result);
             TrySettleGameEnd(game);
 
             return (result, null);
@@ -603,13 +604,13 @@ public class BattleshipService
                 result = BattleshipGameEngine.ProcessOwnBoardShot(game, shooter, row, col);
             }
 
-            ApplyComboShotDelay(shooter, result);
             DescribeShot(game, shooter, result, ownBoard: true);
             ResetExpendedSelection(shooter);
             shooter.HasShotThisTurn = true;
             game.LastActivity = DateTime.UtcNow;
             CompleteActionResolution(game, turnContinues: false, moveSummons: true);
             if (!game.IsFinished) CheckAndApplyWin(game);
+            ApplyComboShotDelay(game, shooter, result);
 
             TrySettleGameEnd(game);
 
@@ -765,10 +766,21 @@ public class BattleshipService
         return sources[index];
     }
 
-    private static void ApplyComboShotDelay(BattleshipPlayer shooter, ShotResult result)
+    private static void ApplyComboShotDelay(
+        BattleshipGame game,
+        BattleshipPlayer shooter,
+        ShotResult result)
     {
-        shooter.NextShotAllowedAtUtc = result is { Hit: true, TurnContinues: true }
-            ? DateTime.UtcNow.Add(ComboHitDelay)
+        var defender = game.GetOpponent(shooter.DiscordId);
+        var delay = !game.IsFinished && result is { Hit: true, TurnContinues: true }
+            ? defender is { IsBot: false } && CanDeployAnySummon(game, defender)
+                ? ComboHitDelay
+                : FastComboHitDelay
+            : TimeSpan.Zero;
+        result.ShotDelayMs = (int)delay.TotalMilliseconds;
+        shooter.CurrentShotDelayMs = result.ShotDelayMs;
+        shooter.NextShotAllowedAtUtc = delay > TimeSpan.Zero
+            ? DateTime.UtcNow.Add(delay)
             : DateTime.MinValue;
     }
 
@@ -782,6 +794,80 @@ public class BattleshipService
 
     private static bool HasPendingBoardingDeployments(BattleshipGame game) =>
         game.GetPlayers().Any(p => p.PendingSummons.Any(s => s.IsBoarding));
+
+    /// <summary>
+    /// Whether this player can legally place at least one summon right now. This is the
+    /// sole reason to keep the long reset window; it deliberately works outside their turn.
+    /// </summary>
+    private static bool CanDeployAnySummon(BattleshipGame game, BattleshipPlayer player)
+    {
+        if (player == null ||
+            game.Phase is not (BsGamePhase.Combat or BsGamePhase.Boarding) ||
+            HasPendingBoardingDeployments(game) ||
+            GetPendingManeuver(game, player) != null)
+            return false;
+
+        var opponent = game.GetOpponent(player.DiscordId);
+        if (opponent == null) return false;
+
+        bool EntryIsOpen(int row, int col) =>
+            opponent.Board.GetCell(row, col)?.SummonRef is not { IsAlive: true };
+
+        foreach (var pending in player.PendingSummons.Where(p => !p.IsBoarding))
+        {
+            if (!pending.IsFree && player.SummonSlotsUsed >= player.MaxSummonSlots) continue;
+            var columns = pending.AllowedColumns.Count > 0
+                ? pending.AllowedColumns
+                : Enumerable.Range(0, 10);
+            if (columns.Any(col => EntryIsOpen(0, col))) return true;
+        }
+
+        var summonCooldownReady =
+            game.Phase == BsGamePhase.Boarding ||
+            game.ShotCount - player.LastSummonDeployShotCount >= 2;
+        if (!summonCooldownReady) return false;
+
+        foreach (var waiting in player.Summons.Where(s =>
+                     s.IsAlive && s.WaitingForTurnBack && !s.IsBoardingShip && s.Type == SummonType.Ram))
+        {
+            if (waiting.MoveDirection is Direction.Left or Direction.Right)
+            {
+                var edgeCol = waiting.MoveDirection == Direction.Right ? 9 : 0;
+                if (Enumerable.Range(Math.Max(0, waiting.Row - 1), Math.Min(9, waiting.Row + 1) - Math.Max(0, waiting.Row - 1) + 1)
+                    .Any(row => EntryIsOpen(row, edgeCol)))
+                    return true;
+            }
+            else
+            {
+                var edgeRow = waiting.MoveDirection == Direction.Down ? 9 : 0;
+                if (Enumerable.Range(Math.Max(0, waiting.Col - 1), Math.Min(9, waiting.Col + 1) - Math.Max(0, waiting.Col - 1) + 1)
+                    .Any(col => EntryIsOpen(edgeRow, col)))
+                    return true;
+            }
+        }
+
+        var summonIndex = player.SummonSlotsUsed;
+        if (game.Phase != BsGamePhase.Boarding &&
+            player.RevealedCellCount < 5 * (summonIndex + 1))
+            return false;
+        if (!Enumerable.Range(0, 10).Any(col => EntryIsOpen(0, col))) return false;
+
+        var regions = player.Board.PlacedShips
+            .Where(ship => !ship.Statuses.Contains(ShipStatusType.Capture))
+            .SelectMany(ship => ship.Regions)
+            .ToHashSet();
+        var normalSlotAvailable = player.SummonSlotsUsed < player.MaxSummonSlots;
+        if (normalSlotAvailable &&
+            (regions.Contains(Region.West) ||
+             regions.Contains(Region.East) ||
+             regions.Contains(Region.South)))
+            return true;
+
+        return !player.BranderUsed && player.Board.PlacedShips.Any(ship =>
+            !ship.IsDestroyed &&
+            !ship.Statuses.Contains(ShipStatusType.Capture) &&
+            ship.Abilities.Contains("brander_summon"));
+    }
 
     private static PendingManeuverDto GetPendingManeuver(
         BattleshipGame game,
@@ -1077,6 +1163,7 @@ public class BattleshipService
                     return (false, "Клетка входа занята другим призывом.");
                 }
                 BattleshipGameEngine.RegisterSummonOnTargetBoard(game, player, waitingSummon);
+                ResolveImmediateEffectTransitions(game);
 
                 player.LastSummonDeployShotCount = game.ShotCount;
                 game.LastActivity = DateTime.UtcNow;
@@ -1146,6 +1233,7 @@ public class BattleshipService
             game.LastActivity = DateTime.UtcNow;
 
             BattleshipGameEngine.RegisterSummonOnTargetBoard(game, player, summon);
+            ResolveImmediateEffectTransitions(game);
 
             game.AddLog($"{player.Username} развернул {summonType}! ({(char)('A' + col)}1)");
 
@@ -1223,6 +1311,7 @@ public class BattleshipService
             game.LastActivity = DateTime.UtcNow;
 
             BattleshipGameEngine.RegisterSummonOnTargetBoard(game, player, summon);
+            ResolveImmediateEffectTransitions(game);
 
             game.AddLog($"{player.Username} выпустил {pending.SourceShipName ?? pending.Type.ToString()}! ({(char)('A' + col)}1)");
 
@@ -1237,6 +1326,18 @@ public class BattleshipService
             TrySettleGameEnd(game);
             return (true, null);
         }
+    }
+
+    /// <summary>
+    /// Deployment and re-entry resolve fire/freeze/collision immediately, outside the
+    /// ordinary shot pipeline. Re-run the same terminal/Boarding transitions so a summon
+    /// that destroys the last Mid cannot leave the game stranded in Combat.
+    /// </summary>
+    private void ResolveImmediateEffectTransitions(BattleshipGame game)
+    {
+        CheckAndApplyFleetDestructionWin(game);
+        TryTriggerBoarding(game);
+        CheckAndApplyWin(game);
     }
 
     public (bool success, string error) ManualMoveShip(string gameId, string discordId, string shipId, string directionStr, int distance = 1)
@@ -1659,7 +1760,6 @@ public class BattleshipService
             else
                 result = BattleshipGameEngine.ProcessShot(game, bot, targetRow, targetCol);
 
-            ApplyComboShotDelay(bot, result);
             DescribeShot(game, bot, result, ownBoard);
             bot.HasShotThisTurn = true;
             ResetExpendedSelection(bot);
@@ -1681,6 +1781,7 @@ public class BattleshipService
             }
 
             game.LastActivity = DateTime.UtcNow;
+            ApplyComboShotDelay(game, bot, result);
             TrySettleGameEnd(game);
             return new BattleshipBotStepResult { Acted = true, Shot = result };
         }
@@ -1836,7 +1937,9 @@ public class BattleshipService
             PendingManeuver = isMe ? GetPendingManeuver(game, player) : null,
             ShotDelayRemainingMs = Math.Max(0,
                 (int)Math.Ceiling((player.NextShotAllowedAtUtc - DateTime.UtcNow).TotalMilliseconds)),
+            ShotDelayDurationMs = player.CurrentShotDelayMs,
             SummonCooldownRemaining = Math.Max(0, 2 - (gameShotCount - player.LastSummonDeployShotCount)),
+            CanDeployAnySummon = isMe && CanDeployAnySummon(game, player),
             Fleet = isMe || isSpectator ? MapFleet(player.Fleet, player.RevealedCellCount) : null,
             Board = showOwnBoard ? MapBoard(player.Board, isMe || isSpectator) : MapFogBoard(player.Board),
             Summons = player.Summons.Where(s => s.IsAlive).Select(s => new SummonDto
@@ -2137,7 +2240,9 @@ public class BattleshipPlayerDto
     public bool HasPendingBoardingDeployment { get; set; }
     public PendingManeuverDto PendingManeuver { get; set; }
     public int ShotDelayRemainingMs { get; set; }
+    public int ShotDelayDurationMs { get; set; }
     public int SummonCooldownRemaining { get; set; }
+    public bool CanDeployAnySummon { get; set; }
     public List<ShipDto> Fleet { get; set; }
     public BoardDto Board { get; set; }
     public List<SummonDto> Summons { get; set; } = new();

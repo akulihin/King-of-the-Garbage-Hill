@@ -117,7 +117,8 @@ public class StartGameLogic : IServiceSingleton
     public List<GamePlayerBridgeClass> HandleCharacterRoll(List<IUser> players, ulong gameId, int team = 0,
         string mode = "normal", List<string> forcedCharacters = null,
         DiscordAccountClass accountForFirstBotSlot = null,
-        bool recordNaturalUnknownBugRoll = true)
+        bool recordNaturalUnknownBugRoll = true,
+        bool ignoreNextCharacterAssignments = false)
     {
         var allCharacters2 = _charactersPull.GetRollableCharacters();
         var allCharacters = _charactersPull.GetRollableCharacters();
@@ -171,7 +172,8 @@ public class StartGameLogic : IServiceSingleton
 
         //handle custom selected character part #1 (uses unfiltered pool so admins can force TeamModeOnly characters)
         var unfilteredCharacters = _charactersPull.GetRollableCharacters();
-        foreach (var account in participantAccounts.Where(account => account != null))
+        foreach (var account in participantAccounts.Where(account =>
+                     account != null && !ignoreNextCharacterAssignments))
         {
             var assignment = PeekNextCharacterAssignment(account);
             if (assignment.Name == null) continue;

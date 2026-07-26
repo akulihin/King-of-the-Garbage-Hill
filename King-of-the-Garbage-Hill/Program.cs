@@ -117,6 +117,7 @@ public class ProgramKingOfTheGarbageHill
             // Register web-specific services
             builder.Services.AddSingleton<WebGameService>();
             builder.Services.AddSingleton<GameNotificationService>();
+            builder.Services.AddSingleton<AdminLobbyService>();
             builder.Services.AddSingleton<GameStoryService>();
             builder.Services.AddSingleton<BlackjackService>();
             builder.Services.AddSingleton<BattleshipService>();

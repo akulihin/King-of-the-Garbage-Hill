@@ -388,7 +388,8 @@ public class CheckIfReady : IServiceSingleton
             var scoreVictim = Naruto.ResolveScoreSuccessor(game, infected);
             if (UnknownBug.Is(scoreVictim)) continue;
 
-            scoreVictim.Status.AddBonusPoints(-2, "Смертельный вирус");
+            Homelander.RunWithoutProtection(scoreVictim, () =>
+                scoreVictim.Status.AddBonusPoints(-2, "Смертельный вирус"));
             scoreVictim.Status.AddInGamePersonalLogs("☣️ Смертельный вирус Француза: -2 бонусных очка\n");
             virusStolen.TryGetValue(src, out var cur);
             virusStolen[src] = cur + 2;

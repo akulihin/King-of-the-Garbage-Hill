@@ -121,6 +121,8 @@ public class BattleshipPlayer
     public int NextBallistaAnimationIndex { get; set; }
     /// <summary>Server-authoritative end of the pause after a combo-preserving hit.</summary>
     public DateTime NextShotAllowedAtUtc { get; set; } = DateTime.MinValue;
+    /// <summary>Total duration of the current pause, used to render the same reload bar for both players.</summary>
+    public int CurrentShotDelayMs { get; set; }
 }
 
 public class Board
@@ -311,6 +313,8 @@ public class ShotResult
     public int Row { get; set; }
     public int Col { get; set; }
     public bool TurnContinues { get; set; }
+    /// <summary>Server-selected pause before the same player may fire again; 0 when the turn ends.</summary>
+    public int ShotDelayMs { get; set; }
     public string Message { get; set; }
     public string AffectedShipName { get; set; }
     /// <summary>Opaque source identity; only its owner can resolve it to a visible ship coordinate.</summary>

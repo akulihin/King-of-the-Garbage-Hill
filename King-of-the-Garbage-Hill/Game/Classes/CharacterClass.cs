@@ -107,7 +107,13 @@ public class CharacterClass
         get => _blockMoralGain;
         set
         {
-            if (value && UnknownBug.Is(this)) return;
+            if (value && (UnknownBug.Is(this)
+                          || Homelander.IsProtected(this, Status)))
+            {
+                if (Homelander.IsProtected(this, Status))
+                    Homelander.LogProtection(Status);
+                return;
+            }
             _blockMoralGain = value;
         }
     }
@@ -192,11 +198,20 @@ public class CharacterClass
         WonTimes = howMuchToSet;
     }
 
-    public bool HandleDrop(string discordUsername, GameClass game, bool allowAtLastPlace = false)
+    public bool HandleDrop(
+        string discordUsername,
+        GameClass game,
+        bool allowAtLastPlace = false,
+        bool allowAtZeroScore = false)
     {
         if (UnknownBug.Is(this)) return false;
+        if (Homelander.IsProtected(this, Status))
+        {
+            Homelander.LogProtection(Status);
+            return false;
+        }
         if (Status.GetPlaceAtLeaderBoard() == 6 && !allowAtLastPlace) return false;
-        if (allowAtLastPlace && Status.GetScore() <= 0) return false;
+        if (allowAtLastPlace && !allowAtZeroScore && Status.GetScore() <= 0) return false;
 
         StrengthQualityDropTimes++;
         Status.AddBonusPoints(-1, "DROP");
@@ -216,6 +231,7 @@ public class CharacterClass
         int maxDrops = int.MaxValue)
     {
         if (UnknownBug.Is(this)) return 0;
+        if (Homelander.IsProtected(this, Status)) return 0;
 
         var howMuch = 1;
         var resistBreaks = 0;
@@ -982,6 +998,11 @@ public class CharacterClass
     public void SetSkillForOneFight(decimal howMuchToSet, string skillName)
     {
         if (howMuchToSet < GetSkill() && UnknownBug.Is(this)) return;
+        if (howMuchToSet < GetSkill() && Homelander.IsProtected(this, Status, skillName))
+        {
+            Homelander.LogProtection(Status);
+            return;
+        }
 
         //Set Stat only for one fight, not for the whole round!
         //Only used with "GameCharacter" because this overwrites "FightCharacter" mechanics
@@ -1013,6 +1034,11 @@ public class CharacterClass
     public void SetMainSkill(decimal howMuchToSet, string skillName, bool isLog = true)
     {
         if (howMuchToSet < GetSkill() && UnknownBug.Is(this)) return;
+        if (howMuchToSet < GetSkill() && Homelander.IsProtected(this, Status, skillName))
+        {
+            Homelander.LogProtection(Status);
+            return;
+        }
 
         if (Madara.HasReanimatedBody(this))
         {
@@ -1082,6 +1108,11 @@ public class CharacterClass
     public decimal AddExtraSkill(decimal howMuchToAdd, string skillName, bool isLog = true)
     {
         if (howMuchToAdd < 0 && UnknownBug.Is(this)) return 0;
+        if (howMuchToAdd < 0 && Homelander.IsProtected(this, Status, skillName))
+        {
+            Homelander.LogProtection(Status);
+            return 0;
+        }
         if (Madara.HasReanimatedBody(this)) return 0;
         var skillText = "Cкилла";
         if (skillName != "Обмен Морали" && skillName != "Класс")
@@ -1185,6 +1216,7 @@ public class CharacterClass
     public void SetMoral(decimal howMuchToSet, string skillName, bool isLog = true)
     {
         if (howMuchToSet < GetMoral() && UnknownBug.Is(this)) return;
+        if (howMuchToSet < GetMoral() && Homelander.IsProtected(this, Status, skillName)) return;
 
         if (Madara.HasReanimatedBody(this))
         {
@@ -1212,6 +1244,8 @@ public class CharacterClass
     public void AddMoral(decimal howMuchToAdd, string skillName, bool isLog = true, bool isMoralPoints = false, bool isFightMoral = false)
     {
         if (howMuchToAdd < 0 && !isMoralPoints && UnknownBug.Is(this)) return;
+        if (howMuchToAdd < 0 && !isMoralPoints
+            && Homelander.IsProtected(this, Status, skillName)) return;
 
         if (Madara.HasReanimatedBody(this))
         {
@@ -1296,6 +1330,11 @@ public class CharacterClass
     public void AddIntelligence(int howMuchToAdd, string skillName, bool isLog = true)
     {
         if (howMuchToAdd < 0 && UnknownBug.Is(this)) return;
+        if (howMuchToAdd < 0 && Homelander.IsProtected(this, Status, skillName))
+        {
+            Homelander.LogProtection(Status);
+            return;
+        }
         if (howMuchToAdd < 0 && Madara.HasReanimatedBody(this) && skillName != GordonFreeman.SilentHero) return;
         if (IntelligenceCappedAtZero && howMuchToAdd > 0)
             howMuchToAdd = 0;
@@ -1347,6 +1386,11 @@ public class CharacterClass
     public void SetIntelligence(int howMuchToSet, string skillName, bool isLog = true)
     {
         if (howMuchToSet < GetIntelligence() && UnknownBug.Is(this)) return;
+        if (howMuchToSet < GetIntelligence() && Homelander.IsProtected(this, Status, skillName))
+        {
+            Homelander.LogProtection(Status);
+            return;
+        }
         if (howMuchToSet < GetIntelligence() && Madara.HasReanimatedBody(this) && skillName != GordonFreeman.SilentHero) return;
         if (IntelligenceCappedAtZero && howMuchToSet > 0)
             howMuchToSet = 0;
@@ -1379,6 +1423,11 @@ public class CharacterClass
     public void SetIntelligenceForOneFight(int howMuchToSet, string skillName)
     {
         if (howMuchToSet < GetIntelligence() && UnknownBug.Is(this)) return;
+        if (howMuchToSet < GetIntelligence() && Homelander.IsProtected(this, Status, skillName))
+        {
+            Homelander.LogProtection(Status);
+            return;
+        }
         if (howMuchToSet < GetIntelligence() && Madara.HasReanimatedBody(this)) return;
         if (IntelligenceCappedAtZero && howMuchToSet > 0)
             howMuchToSet = 0;
@@ -1405,6 +1454,11 @@ public class CharacterClass
     public void AddPsyche(int howMuchToAdd, string skillName, bool isLog = true)
     {
         if (howMuchToAdd < 0 && UnknownBug.Is(this)) return;
+        if (howMuchToAdd < 0 && Homelander.IsProtected(this, Status, skillName))
+        {
+            Homelander.LogProtection(Status);
+            return;
+        }
         if (howMuchToAdd < 0 && Madara.HasReanimatedBody(this)) return;
         if (PsycheCappedAtZero && howMuchToAdd > 0) howMuchToAdd = 0;
         if (skillName != "Прокачка" && skillName != "Читы")
@@ -1456,6 +1510,11 @@ public class CharacterClass
     public void SetPsyche(int howMuchToSet, string skillName, bool isLog = true)
     {
         if (howMuchToSet < GetPsyche() && UnknownBug.Is(this)) return;
+        if (howMuchToSet < GetPsyche() && Homelander.IsProtected(this, Status, skillName))
+        {
+            Homelander.LogProtection(Status);
+            return;
+        }
         if (howMuchToSet < GetPsyche() && Madara.HasReanimatedBody(this)) return;
         if (PsycheCappedAtZero && howMuchToSet > 0) howMuchToSet = 0;
         if (skillName != "Прокачка" && skillName != "Читы")
@@ -1498,6 +1557,11 @@ public class CharacterClass
     public void SetPsycheForOneFight(int howMuchToSet, string skillName)
     {
         if (howMuchToSet < GetPsyche() && UnknownBug.Is(this)) return;
+        if (howMuchToSet < GetPsyche() && Homelander.IsProtected(this, Status, skillName))
+        {
+            Homelander.LogProtection(Status);
+            return;
+        }
         if (howMuchToSet < GetPsyche() && Madara.HasReanimatedBody(this)) return;
         if (PsycheCappedAtZero && howMuchToSet > 0) howMuchToSet = 0;
         //Set Stat only for one fight, not for the whole round!
@@ -1524,6 +1588,11 @@ public class CharacterClass
     public void AddSpeed(int howMuchToAdd, string skillName, bool isLog = true)
     {
         if (howMuchToAdd < 0 && UnknownBug.Is(this)) return;
+        if (howMuchToAdd < 0 && Homelander.IsProtected(this, Status, skillName))
+        {
+            Homelander.LogProtection(Status);
+            return;
+        }
         if (howMuchToAdd < 0 && Madara.HasReanimatedBody(this)) return;
         if (skillName != "Прокачка" && skillName != "Читы")
         {
@@ -1559,6 +1628,11 @@ public class CharacterClass
     public void SetSpeed(int howMuchToSet, string skillName, bool isLog = true)
     {
         if (howMuchToSet < GetSpeed() && UnknownBug.Is(this)) return;
+        if (howMuchToSet < GetSpeed() && Homelander.IsProtected(this, Status, skillName))
+        {
+            Homelander.LogProtection(Status);
+            return;
+        }
         if (howMuchToSet < GetSpeed() && Madara.HasReanimatedBody(this)) return;
         if (skillName != "Прокачка" && skillName != "Читы")
         {
@@ -1587,6 +1661,11 @@ public class CharacterClass
     public void AddSpeedForOneFight(int howMuchToAdd, string source = "")
     {
         if (howMuchToAdd < 0 && UnknownBug.Is(this)) return;
+        if (howMuchToAdd < 0 && Homelander.IsProtected(this, Status, source))
+        {
+            Homelander.LogProtection(Status);
+            return;
+        }
         if (howMuchToAdd < 0 && Madara.HasReanimatedBody(this)) return;
         //Add delta to current speed for one fight only
         var current = GetSpeed();
@@ -1599,6 +1678,11 @@ public class CharacterClass
     public void SetSpeedForOneFight(int howMuchToSet, string skillName)
     {
         if (howMuchToSet < GetSpeed() && UnknownBug.Is(this)) return;
+        if (howMuchToSet < GetSpeed() && Homelander.IsProtected(this, Status, skillName))
+        {
+            Homelander.LogProtection(Status);
+            return;
+        }
         if (howMuchToSet < GetSpeed() && Madara.HasReanimatedBody(this)) return;
         //Set Stat only for one fight, not for the whole round!
         //Only used with "GameCharacter" because this overwrites "FightCharacter" mechanics
@@ -1623,6 +1707,11 @@ public class CharacterClass
     public void AddStrength(int howMuchToAdd, string skillName, bool isLog = true)
     {
         if (howMuchToAdd < 0 && UnknownBug.Is(this)) return;
+        if (howMuchToAdd < 0 && Homelander.IsProtected(this, Status, skillName))
+        {
+            Homelander.LogProtection(Status);
+            return;
+        }
         if (howMuchToAdd < 0 && Madara.HasReanimatedBody(this)) return;
         if (skillName != "Прокачка" && skillName != "Читы")
         {
@@ -1658,6 +1747,11 @@ public class CharacterClass
     public void SetStrength(int howMuchToSet, string skillName, bool isLog = true)
     {
         if (howMuchToSet < GetStrength() && UnknownBug.Is(this)) return;
+        if (howMuchToSet < GetStrength() && Homelander.IsProtected(this, Status, skillName))
+        {
+            Homelander.LogProtection(Status);
+            return;
+        }
         if (howMuchToSet < GetStrength() && Madara.HasReanimatedBody(this)) return;
         if (skillName != "Прокачка" && skillName != "Читы")
         {
@@ -1686,6 +1780,11 @@ public class CharacterClass
     public void SetStrengthForOneFight(int howMuchToSet, string skillName)
     {
         if (howMuchToSet < GetStrength() && UnknownBug.Is(this)) return;
+        if (howMuchToSet < GetStrength() && Homelander.IsProtected(this, Status, skillName))
+        {
+            Homelander.LogProtection(Status);
+            return;
+        }
         if (howMuchToSet < GetStrength() && Madara.HasReanimatedBody(this)) return;
         //Set Stat only for one fight, not for the whole round!
         //Only used with "GameCharacter" because this overwrites "FightCharacter" mechanics
@@ -1871,6 +1970,11 @@ public class JusticeClass
     public void AddRealJusticeNow(int howMuchToAdd = 1)
     {
         if (howMuchToAdd < 0 && UnknownBug.Is(Status?.GameCharacter)) return;
+        if (howMuchToAdd < 0 && Homelander.IsProtected(Status?.GameCharacter, Status))
+        {
+            Homelander.LogProtection(Status);
+            return;
+        }
         RealJusticeNow += howMuchToAdd;
 
         if (RealJusticeNow < MinimumRealJustice)
@@ -1882,6 +1986,12 @@ public class JusticeClass
     public void SetRealJusticeNow(int howMuchToSet, string skillName, bool isLog = true)
     {
         if (howMuchToSet < GetRealJusticeNow() && UnknownBug.Is(Status?.GameCharacter)) return;
+        if (howMuchToSet < GetRealJusticeNow()
+            && Homelander.IsProtected(Status?.GameCharacter, Status, skillName))
+        {
+            Homelander.LogProtection(Status);
+            return;
+        }
 
         if (skillName != "Прокачка" && skillName != "Читы")
         {
@@ -1895,6 +2005,12 @@ public class JusticeClass
     public void SetJusticeForOneFight(int howMuchToSet, string skillName)
     {
         if (howMuchToSet < GetRealJusticeNow() && UnknownBug.Is(Status?.GameCharacter)) return;
+        if (howMuchToSet < GetRealJusticeNow()
+            && Homelander.IsProtected(Status?.GameCharacter, Status, skillName))
+        {
+            Homelander.LogProtection(Status);
+            return;
+        }
 
         //Set Stat only for one fight, not for the whole round!
         //Only used with "GameCharacter" because this overwrites "FightCharacter" mechanics
@@ -1915,12 +2031,22 @@ public class JusticeClass
     public void AddJusticeForNextRoundFromFight(int howMuchToAdd = 1)
     {
         if (howMuchToAdd < 0 && UnknownBug.Is(Status?.GameCharacter)) return;
+        if (howMuchToAdd < 0 && Homelander.IsProtected(Status?.GameCharacter, Status))
+        {
+            Homelander.LogProtection(Status);
+            return;
+        }
         JusticeForNextRoundFromFights += howMuchToAdd;
     }
 
     public void AddJusticeForNextRoundFromSkill(int howMuchToAdd = 1)
     {
         if (howMuchToAdd < 0 && UnknownBug.Is(Status?.GameCharacter)) return;
+        if (howMuchToAdd < 0 && Homelander.IsProtected(Status?.GameCharacter, Status))
+        {
+            Homelander.LogProtection(Status);
+            return;
+        }
         JusticeForNextRoundFromSkills += howMuchToAdd;
     }
 

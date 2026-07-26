@@ -366,6 +366,18 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         foreach (var passive in me.GameCharacter.Passive)
             switch (passive.PassiveName)
             {
+                case Homelander.Righteousness:
+                    if (!isWeb
+                        && other.GetPlayerId() != me.GetPlayerId()
+                        && !me.IsTeamMember(game, other.GetPlayerId()))
+                    {
+                        var rage = Homelander.RagePercentFor(me, other.GetPlayerId());
+                        customString += Homelander.LaserUsedFor(me, other.GetPlayerId())
+                            ? $" 🔥{rage}% (использовано)"
+                            : $" 🔥{rage}%";
+                    }
+                    break;
+
                 case "AdminPlayerType":
                     if (isWeb) break; // web unmasks characters natively for admins
                     if (other.GetPlayerId() == me.GetPlayerId()) break;

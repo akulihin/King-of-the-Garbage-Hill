@@ -396,6 +396,18 @@ const { tipText, tipVisible, tipPos, showTip, moveTip, hideTip } = useTip()
           <div class="lb-name">
             <span class="player-name">{{ player.discordUsername }}</span>
             <span
+              v-if="player.homelanderRagePercent !== undefined"
+              class="homelander-rage"
+              :class="{ spent: player.homelanderLaserUsed }"
+              :title="player.homelanderLaserUsed ? 'Лазер уже использован' : `Злость: ${player.homelanderRagePercent}%`"
+            >
+              <span
+                class="homelander-rage-fill"
+                :style="{ width: `${Math.min(100, player.homelanderRagePercent)}%` }"
+              />
+              <span class="homelander-rage-label">{{ player.homelanderRagePercent }}%</span>
+            </span>
+            <span
               v-if="player.isMadaraRedTiger"
               class="madara-red-tiger"
               title="Красный Тигр — признан Мадарой сильнейшим человеком на земле"
@@ -984,6 +996,45 @@ const { tipText, tipVisible, tipPos, showTip, moveTip, hideTip } = useTip()
   overflow: hidden;
   text-overflow: ellipsis;
   color: var(--text-primary);
+}
+
+.homelander-rage {
+  position: relative;
+  display: inline-flex;
+  width: 58px;
+  height: 13px;
+  flex: 0 0 58px;
+  overflow: hidden;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 55, 55, 0.62);
+  border-radius: 3px;
+  background: rgba(45, 5, 8, 0.9);
+  box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.72);
+}
+
+.homelander-rage-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: linear-gradient(90deg, #8d050b, #ff1e25);
+  box-shadow: 0 0 8px rgba(255, 20, 30, 0.85);
+  transition: width 0.45s ease;
+}
+
+.homelander-rage-label {
+  position: relative;
+  z-index: 1;
+  color: #fff;
+  font-family: var(--font-mono);
+  font-size: 8px;
+  font-weight: 900;
+  line-height: 1;
+  text-shadow: 0 1px 2px #000;
+}
+
+.homelander-rage.spent {
+  filter: grayscale(0.82);
+  opacity: 0.58;
 }
 
 .badge {

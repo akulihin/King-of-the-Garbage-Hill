@@ -68,7 +68,13 @@ public class InGameStatus
         get => _isAbleToWin;
         set
         {
-            if (!value && UnknownBug.Is(GameCharacter)) return;
+            if (!value && (UnknownBug.Is(GameCharacter)
+                           || Homelander.IsProtected(GameCharacter, this)))
+            {
+                if (Homelander.IsProtected(GameCharacter, this))
+                    Homelander.LogProtection(this);
+                return;
+            }
             _isAbleToWin = value;
         }
     }
@@ -77,6 +83,9 @@ public class InGameStatus
     public bool HideCurrentFight { get; set; }
     /// <summary>Temporary flag: the current fight is Dopa's second, shadow action.</summary>
     public bool IsShadowAction { get; set; }
+    /// <summary>Temporary bypass for Homelander's defenses while TheBoys affect or fight him.</summary>
+    public bool IsFightingTheBoys { get; set; }
+    public List<int> HomelanderProtectionPhrasePool { get; set; } = new();
 
     private int PlaceAtLeaderBoard { get; set; }
     public List<Guid> WhoToAttackThisTurn { get; set; }
@@ -194,7 +203,13 @@ public class InGameStatus
 
     public void AddRegularPoints(int regularPoints, string reason, bool isLog = true)
     {
-        if (regularPoints < 0 && UnknownBug.Is(GameCharacter)) return;
+        if (regularPoints < 0 && (UnknownBug.Is(GameCharacter)
+                                 || Homelander.IsProtected(GameCharacter, this)))
+        {
+            if (Homelander.IsProtected(GameCharacter, this))
+                Homelander.LogProtection(this);
+            return;
+        }
 
         ScoresToGiveAtEndOfRound += regularPoints;
         ScoreEntries.Add(new ScoreEntry { Source = reason, Points = regularPoints, IsBonus = false });
@@ -216,7 +231,13 @@ public class InGameStatus
 
     public void HardKittyMinus(int scoreToAdd, string skillName)
     {
-        if (scoreToAdd < 0 && UnknownBug.Is(GameCharacter)) return;
+        if (scoreToAdd < 0 && (UnknownBug.Is(GameCharacter)
+                               || Homelander.IsProtected(GameCharacter, this)))
+        {
+            if (Homelander.IsProtected(GameCharacter, this))
+                Homelander.LogProtection(this);
+            return;
+        }
 
         Score += scoreToAdd;
         ScoreEntries.Add(new ScoreEntry { Source = skillName, Points = scoreToAdd, IsBonus = true });
@@ -232,7 +253,13 @@ public class InGameStatus
 
     private void AddBonusPointsCore(decimal bonusPoints, string skillName, bool bypassScoreFloor)
     {
-        if (bonusPoints < 0 && UnknownBug.Is(GameCharacter)) return;
+        if (bonusPoints < 0 && (UnknownBug.Is(GameCharacter)
+                               || Homelander.IsProtected(GameCharacter, this)))
+        {
+            if (Homelander.IsProtected(GameCharacter, this))
+                Homelander.LogProtection(this);
+            return;
+        }
 
         var isRoyal = JonSnow.IsKingActive(GameCharacter, PlaceAtLeaderBoard);
         if (isRoyal)

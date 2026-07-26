@@ -1185,32 +1185,9 @@ public static class BattleshipGameEngine
 
         game.Phase = BsGamePhase.Boarding;
 
-        var boardingPlayers = game.GetPlayers()
-            .Where(player => !HasLivingMidShip(player))
-            .ToHashSet();
-
         // Only the side whose Mid line is gone deploys Close ships onto the enemy board.
         // If an effect removes both Mid lines in one resolution, both sides qualify.
-        foreach (var player in boardingPlayers)
-        {
-            foreach (var ship in player.Board.PlacedShips)
-            {
-                if (ship.IsDestroyed || ship.IsSummon || ship.Statuses.Contains(ShipStatusType.Capture)) continue;
-                if (ship.Range is not (RangeClass.Close or RangeClass.CloseMelee)) continue;
-                ship.IsSummon = true;
-                player.PendingSummons.Add(new PendingSummonDeploy
-                {
-                    Type = SummonType.Ram,
-                    Speed = ship.Speed,
-                    CollisionDamage = 4,
-                    RevealRadius = ship.Space,
-                    IsBoarding = true,
-                    SourceShipName = ship.Name,
-                    SourceShipId = ship.Id,
-                });
-                game.AddLog($"{ship.Name} готов к абордажу! Разместите на первой строчке вражеского поля.");
-            }
-        }
+        QueueBoardingShipsForMidlessPlayers(game);
 
         // Triple crew: one visible spawn per player, from one surviving eligible Triple.
         foreach (var p in game.GetPlayers())
@@ -1237,6 +1214,10 @@ public static class BattleshipGameEngine
                 game.AddLog("Экипаж Тройки выпустил Пиратскую лодку!");
             }
         }
+
+        // A Boarding-entry Pirate can collide on row 1 and remove the other side's last
+        // Mid during this same transition. Queue that newly eligible side as well.
+        QueueBoardingShipsForMidlessPlayers(game);
 
         // Triple extra_ammo upgrade: +2 white stones to Tetracatapult (both players)
         foreach (var p in game.GetPlayers())
@@ -1288,6 +1269,30 @@ public static class BattleshipGameEngine
     {
         return player.Board.PlacedShips.Any(s => s.Range == RangeClass.Mid && !s.IsSummon &&
             !s.IsDestroyed && !s.Statuses.Contains(ShipStatusType.Capture));
+    }
+
+    private static void QueueBoardingShipsForMidlessPlayers(BattleshipGame game)
+    {
+        foreach (var player in game.GetPlayers().Where(player => !HasLivingMidShip(player)))
+        {
+            foreach (var ship in player.Board.PlacedShips)
+            {
+                if (ship.IsDestroyed || ship.IsSummon || ship.Statuses.Contains(ShipStatusType.Capture)) continue;
+                if (ship.Range is not (RangeClass.Close or RangeClass.CloseMelee)) continue;
+                ship.IsSummon = true;
+                player.PendingSummons.Add(new PendingSummonDeploy
+                {
+                    Type = SummonType.Ram,
+                    Speed = ship.Speed,
+                    CollisionDamage = 4,
+                    RevealRadius = ship.Space,
+                    IsBoarding = true,
+                    SourceShipName = ship.Name,
+                    SourceShipId = ship.Id,
+                });
+                game.AddLog($"{ship.Name} готов к абордажу! Разместите на первой строчке вражеского поля.");
+            }
+        }
     }
 
     private static (bool gameOver, string winnerId) CheckDesiccatorBoardingWin(BattleshipGame game)

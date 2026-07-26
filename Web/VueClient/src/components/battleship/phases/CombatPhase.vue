@@ -99,6 +99,7 @@ function canDeploySummonType(type: string): boolean {
   if (!myPlayer.value || !enemyPlayer.value) return false
   if (boardingPlacementPending.value) return false
   const p = myPlayer.value
+  if (!p.canDeployAnySummon) return false
   if (!availableSummons.value.includes(type)) return false
   const isReentry = p.summons?.some(s =>
     s.type === type && s.waitingForTurnBack) ?? false
@@ -172,27 +173,38 @@ const summonDeployAllowedCells = computed<{ row: number; col: number }[]>(() => 
 
 // ── Shot delay countdown ────────────────────────────────────
 const shotDelayRemaining = ref(0)
-const SHOT_DELAY_SECONDS = 8
+const shotDelayTotalSeconds = computed(() =>
+  Math.max(0.1, store.shotDelayDurationMs / 1000))
+const shotDelayPlayerName = computed(() => {
+  if (store.shotDelayOwnerId === myPlayer.value?.discordId)
+    return myPlayer.value?.username ?? 'Вы'
+  if (store.shotDelayOwnerId === enemyPlayer.value?.discordId)
+    return enemyPlayer.value?.username ?? 'Противник'
+  return 'Игрок'
+})
 let shotDelayTimer: ReturnType<typeof setInterval> | null = null
 
-watch(() => store.shotDelayActive, (active) => {
-  if (active) {
-    shotDelayRemaining.value = Math.min(
-      SHOT_DELAY_SECONDS,
-      Math.max(0.1, (myPlayer.value?.shotDelayRemainingMs ?? SHOT_DELAY_SECONDS * 1000) / 1000),
-    )
-    shotDelayTimer = setInterval(() => {
-      shotDelayRemaining.value = Math.max(0, +(shotDelayRemaining.value - 0.1).toFixed(1))
-      if (shotDelayRemaining.value <= 0 && shotDelayTimer) {
-        clearInterval(shotDelayTimer)
-        shotDelayTimer = null
-      }
-    }, 100)
-  } else {
-    shotDelayRemaining.value = 0
-    if (shotDelayTimer) { clearInterval(shotDelayTimer); shotDelayTimer = null }
-  }
-})
+watch(
+  [() => store.shotDelayActive, () => store.shotDelayInitialRemainingMs],
+  ([active, initialRemainingMs]) => {
+    if (shotDelayTimer) {
+      clearInterval(shotDelayTimer)
+      shotDelayTimer = null
+    }
+    if (active) {
+      shotDelayRemaining.value = Math.max(0.1, initialRemainingMs / 1000)
+      shotDelayTimer = setInterval(() => {
+        shotDelayRemaining.value = Math.max(0, +(shotDelayRemaining.value - 0.1).toFixed(1))
+        if (shotDelayRemaining.value <= 0 && shotDelayTimer) {
+          clearInterval(shotDelayTimer)
+          shotDelayTimer = null
+        }
+      }, 100)
+    } else {
+      shotDelayRemaining.value = 0
+    }
+  },
+)
 
 // ── AoE cursor previews ─────────────────────────────────────
 const isBuckshotMode = computed(() => store.selectedShotType === 'Buckshot')
@@ -563,9 +575,10 @@ onMounted(() => {
       col,
       projectileKindFor(result),
       () => {
-      fire()
-      canvas.spawnImpact(row, col, impactTypeFor(result))
+        fire()
+        canvas.spawnImpact(row, col, impactTypeFor(result))
       },
+      result?.hit ? 3200 : undefined,
     )
   })
 
@@ -638,8 +651,18 @@ onUnmounted(() => {
       Оглушение! Вы пропускаете ход.
     </div>
     <div v-if="store.shotDelayActive" class="bs-banner bs-banner--info shot-delay-banner">
-      Прицеливание... <span class="delay-countdown bs-mono">{{ shotDelayRemaining.toFixed(1) }}с</span>
-      <div class="delay-progress" :style="{ width: ((SHOT_DELAY_SECONDS - shotDelayRemaining) / SHOT_DELAY_SECONDS * 100) + '%' }"></div>
+      Перезарядка — {{ shotDelayPlayerName }}:
+      <span class="delay-countdown bs-mono">{{ shotDelayRemaining.toFixed(1) }}с</span>
+      <div
+        class="delay-progress"
+        :style="{ width: Math.min(100, Math.max(0, (shotDelayTotalSeconds - shotDelayRemaining) / shotDelayTotalSeconds * 100)) + '%' }"
+      ></div>
+    </div>
+    <div
+      v-if="!isMyTurn && store.shotDelayActive && myPlayer?.canDeployAnySummon"
+      class="bs-banner bs-banner--gold"
+    >
+      Окно ответа: можно выпустить сумона до следующего выстрела противника.
     </div>
 
     <!-- Battle Boards -->

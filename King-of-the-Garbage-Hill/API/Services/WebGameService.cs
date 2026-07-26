@@ -12,6 +12,7 @@ using King_of_the_Garbage_Hill.Game.GameLogic;
 using King_of_the_Garbage_Hill.Game.ReactionHandling;
 using King_of_the_Garbage_Hill.Helpers;
 using King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace King_of_the_Garbage_Hill.API.Services;
 
@@ -35,8 +36,11 @@ public class WebGameService
     private readonly CharacterPassives _characterPassives;
     private readonly StartGameLogic _startGameLogic;
     private readonly UserAccounts _userAccounts;
+    private readonly IServiceProvider _serviceProvider;
 
-    public WebGameService(Global global, GameReaction gameReaction, GameUpdateMess gameUpdateMess, HelperFunctions helper, CharactersPull charactersPull, CharacterPassives characterPassives, StartGameLogic startGameLogic, UserAccounts userAccounts)
+    public WebGameService(Global global, GameReaction gameReaction, GameUpdateMess gameUpdateMess,
+        HelperFunctions helper, CharactersPull charactersPull, CharacterPassives characterPassives,
+        StartGameLogic startGameLogic, UserAccounts userAccounts, IServiceProvider serviceProvider)
     {
         _global = global;
         _gameReaction = gameReaction;
@@ -46,7 +50,11 @@ public class WebGameService
         _characterPassives = characterPassives;
         _startGameLogic = startGameLogic;
         _userAccounts = userAccounts;
+        _serviceProvider = serviceProvider;
     }
+
+    private AdminLobbyService AdminLobbies =>
+        _serviceProvider.GetService<AdminLobbyService>();
 
     // ── Queries ───────────────────────────────────────────────────────
 
@@ -81,6 +89,8 @@ public class WebGameService
 
     public LobbyStateDto GetLobbyState()
     {
+        AdminLobbies?.SweepExpiredLobbies();
+
         var dto = new LobbyStateDto
         {
             ActiveGames = _global.GamesList.Count,
@@ -236,8 +246,12 @@ public class WebGameService
     public async Task<(ulong gameId, string error)> CreateGame(
         ulong creatorId,
         string creatorUsername,
-        bool recordNaturalUnknownBugRoll = true)
+        bool recordNaturalUnknownBugRoll = true,
+        bool adminLobbyMode = false)
     {
+        if (AdminLobbies?.IsReserved(creatorId) == true)
+            return (0, "Вы были избраны богом.");
+
         var creatorAccount = _userAccounts.GetAccount(creatorId);
         if (creatorAccount == null)
             return (0, "Account not found");
@@ -250,9 +264,13 @@ public class WebGameService
         lock (creatorAccount)
         {
             creatorAccount.LootBoxCharacterQueue ??= new List<string>();
-            queuedCharacterName = creatorAccount.LootBoxCharacterQueue.FirstOrDefault();
-            forcedCharacterName = creatorAccount.CharacterToGiveNextTime;
-            rollCreatorDirectly = string.IsNullOrWhiteSpace(queuedCharacterName);
+            queuedCharacterName = adminLobbyMode
+                ? null
+                : creatorAccount.LootBoxCharacterQueue.FirstOrDefault();
+            forcedCharacterName = adminLobbyMode
+                ? null
+                : creatorAccount.CharacterToGiveNextTime;
+            rollCreatorDirectly = adminLobbyMode || string.IsNullOrWhiteSpace(queuedCharacterName);
         }
 
         // A normal web creator owns one real roll seat. That direct path also lets the
@@ -265,7 +283,8 @@ public class WebGameService
             gameId,
             mode: "bot",
             accountForFirstBotSlot: rollCreatorDirectly ? creatorAccount : null,
-            recordNaturalUnknownBugRoll: recordNaturalUnknownBugRoll);
+            recordNaturalUnknownBugRoll: recordNaturalUnknownBugRoll,
+            ignoreNextCharacterAssignments: adminLobbyMode);
 
         // Shuffle and sort
         playersList = playersList.OrderBy(_ => Guid.NewGuid()).ToList();
@@ -337,7 +356,8 @@ public class WebGameService
         if (!rollCreatorDirectly)
             DoomGuy.InitializeForGame(botToReplace, creatorAccount);
         creatorAccount.IsPlaying = true;
-        DiscoverStoreCharacter(creatorAccount, botToReplace.GameCharacter.Name);
+        if (!adminLobbyMode)
+            DiscoverStoreCharacter(creatorAccount, botToReplace.GameCharacter.Name);
         if (queuedCharacter != null)
             _userAccounts.SaveAccount(creatorAccount);
 
@@ -350,7 +370,14 @@ public class WebGameService
             _global.GamesList.Add(game);
         }
 
-        if (EnableDraftPick)
+        if (adminLobbyMode)
+        {
+            foreach (var player in playersList)
+                player.Status.IsDraftPickConfirmed = true;
+            Console.WriteLine(
+                $"[WebAPI] Admin lobby game {gameId} staged by {creatorUsername} ({creatorId})");
+        }
+        else if (EnableDraftPick)
         {
             // Draft pick: a private natural roll is locked immediately and is never exposed
             // as an option that can be inspected and declined.
@@ -430,6 +457,9 @@ public class WebGameService
     /// </summary>
     public (bool success, string error) JoinWebGame(ulong gameId, ulong playerId, string playerUsername)
     {
+        if (AdminLobbies?.IsReserved(playerId) == true)
+            return (false, "Вы были избраны богом.");
+
         var game = FindGame(gameId);
         if (game == null) return (false, "Game not found");
         if (game.IsFinished) return (false, "Game is finished");
@@ -470,6 +500,149 @@ public class WebGameService
 
         Console.WriteLine($"[WebAPI] Player {playerUsername} ({playerId}) joined game {gameId}");
         return (true, null);
+    }
+
+    /// <summary>
+    /// Replaces the exact staged admin-lobby seat with a human while retaining the ordinary
+    /// bot-to-human account, DooM Fortress and discovery boundaries used by JoinWebGame.
+    /// </summary>
+    public (bool success, string error) SeatAdminLobbyHuman(
+        GameClass game,
+        int slotIndex,
+        ulong playerId,
+        string playerUsername,
+        bool hasWebConnection)
+    {
+        if (game == null || slotIndex < 0 || slotIndex >= game.PlayersList.Count)
+            return (false, "Invalid admin lobby slot");
+
+        var playerAccount = _userAccounts.GetAccount(playerId);
+        if (playerAccount == null)
+            return (false, "Account not found");
+
+        lock (game)
+        {
+            var seat = game.PlayersList[slotIndex];
+            if (seat.DiscordId != playerId && playerAccount.IsPlaying)
+                return (false, "пользователь уже играет");
+
+            if (seat.DiscordId != playerId)
+            {
+                var botAccount = _userAccounts.GetAccount(seat.DiscordId);
+                if (botAccount != null)
+                    botAccount.IsPlaying = false;
+            }
+
+            seat.DiscordId = playerId;
+            seat.DiscordUsername = playerUsername;
+            seat.PlayerType = playerAccount.PlayerType;
+            seat.IsWebPlayer = hasWebConnection
+                               || playerId >= 9_000_000_000_000_000_000;
+            seat.PreferWeb = hasWebConnection;
+            seat.DiscordStatus.SocketGameMessage = null;
+            DoomGuy.InitializeForGame(seat, playerAccount);
+            seat.CharacterMasteryPoints =
+                playerAccount.CharacterMastery.GetValueOrDefault(seat.GameCharacter.Name, 0);
+            playerAccount.IsPlaying = true;
+            playerAccount.CharacterPlayedLastTime = seat.GameCharacter.Name;
+            DiscoverStoreCharacter(playerAccount, seat.GameCharacter.Name);
+        }
+
+        return (true, null);
+    }
+
+    /// <summary>
+    /// Completes the ordinary no-draft initialization after an admin lobby has installed its
+    /// final seats and characters. The Cthulhu pre-game stage remains deferred to CheckIfReady.
+    /// </summary>
+    public async Task FinalizeAdminLobbyGame(GameClass game)
+    {
+        if (game == null) return;
+
+        foreach (var player in game.PlayersList)
+            player.Status.IsDraftPickConfirmed = true;
+
+        game.CthulhuState.RosterHadCthulhu = game.PlayersList.Any(Cthulhu.Is);
+        game.IsDraftPickPhase = Cthulhu.RequiresPreGameStage(game.PlayersList);
+        RebuildAdminLobbyRosterReferences(game);
+
+        if (!game.IsDraftPickPhase)
+        {
+            var initializedPlayers = _characterPassives.HandleEventsBeforeFirstRound(game.PlayersList);
+            game.PlayersList = initializedPlayers;
+            RebuildAdminLobbyRosterReferences(game);
+        }
+
+        foreach (var player in game.PlayersList.Where(player =>
+                     player.PlayerType != 404
+                     && !player.IsWebPlayer
+                     && !player.PreferWeb))
+        {
+            try
+            {
+                await _gameUpdateMess.WaitMess(player, game);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(
+                    $"[WebAPI] Admin lobby Discord setup failed for {player.DiscordId}: {ex.Message}");
+            }
+        }
+
+        if (!game.IsDraftPickPhase)
+        {
+            await _characterPassives.HandleNextRound(game);
+            _characterPassives.HandleBotPredict(game);
+        }
+
+        foreach (var player in game.PlayersList.Where(player =>
+                     player.PlayerType != 404
+                     && !player.IsWebPlayer
+                     && !player.PreferWeb
+                     && player.DiscordStatus.SocketGameMessage != null))
+        {
+            try
+            {
+                await _gameUpdateMess.UpdateMessage(player);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(
+                    $"[WebAPI] Admin lobby Discord refresh failed for {player.DiscordId}: {ex.Message}");
+            }
+        }
+
+        game.TimePassed.Restart();
+    }
+
+    public void AbortAdminLobbyGame(GameClass game)
+    {
+        if (game == null) return;
+
+        game.IsCheckIfReady = false;
+        game.IsFinished = true;
+        game.TimePassed.Stop();
+        lock (_global.GamesList)
+            _global.GamesList.Remove(game);
+
+        foreach (var player in game.PlayersList)
+        {
+            var account = _userAccounts.GetAccount(player.DiscordId);
+            if (account != null)
+                account.IsPlaying = false;
+        }
+    }
+
+    private static void RebuildAdminLobbyRosterReferences(GameClass game)
+    {
+        game.NanobotsList.Clear();
+        game.NanobotsList.Add(new BotsBehavior.NanobotClass(game.PlayersList));
+        game.ExploitPlayersList = game.PlayersList
+            .Where(player => !UnknownBug.Is(player) && !player.Passives.IsDead)
+            .ToList();
+        for (var i = 0; i < game.PlayersList.Count; i++)
+            game.PlayersList[i].Status.SetPlaceAtLeaderBoard(i + 1);
+        game.RollExploit();
     }
 
     // ── Draft Pick ──────────────────────────────────────────────────
@@ -1190,6 +1363,9 @@ public class WebGameService
     /// </summary>
     public async Task<(ulong gameId, string error)> CreateTestGame(ulong creatorId, string creatorUsername, string characterName)
     {
+        if (AdminLobbies?.IsReserved(creatorId) == true)
+            return (0, "Вы были избраны богом.");
+
         // Validate character exists
         var allCharacters = _charactersPull.GetAdminSelectableCharacters();
         var selectedChar = allCharacters.Find(c => c.Name == characterName);

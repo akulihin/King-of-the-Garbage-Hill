@@ -1355,13 +1355,16 @@ public sealed class GameReaction : IServiceSingleton
                             var kompromatTarget = game.PlayersList.Find(x => x.GetPlayerId() == targetId);
                             if (kompromatTarget == null || UnknownBug.Is(kompromatTarget)) continue;
                             var theirMoral = kompromatTarget.GameCharacter.GetMoral();
-                            if (theirMoral > 0)
+                            Homelander.RunWithoutProtection(kompromatTarget, () =>
                             {
-                                stolenMoral += theirMoral;
-                                kompromatTarget.GameCharacter.AddMoral(-theirMoral, "Оковы Правосудия");
-                            }
-                            kompromatTarget.GameCharacter.BlockMoralGain = true;
-                            kompromatTarget.Passives.TheBoysMoralBlockedByMM = true;
+                                if (theirMoral > 0)
+                                {
+                                    stolenMoral += theirMoral;
+                                    kompromatTarget.GameCharacter.AddMoral(-theirMoral, "Оковы Правосудия");
+                                }
+                                kompromatTarget.GameCharacter.BlockMoralGain = true;
+                                kompromatTarget.Passives.TheBoysMoralBlockedByMM = true;
+                            });
                         }
                         if (stolenMoral > 0)
                             player.GameCharacter.AddMoral(stolenMoral, "Оковы Правосудия");

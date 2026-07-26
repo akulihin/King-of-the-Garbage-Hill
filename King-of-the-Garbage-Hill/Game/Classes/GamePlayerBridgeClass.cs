@@ -122,6 +122,10 @@ public class GamePlayerBridgeClass
         {
             return;
         }
+        if (Homelander.IsProtected(playerCharacter, Status))
+        {
+            return;
+        }
         if (Madara.HasReanimatedBody(playerCharacter))
         {
             return;

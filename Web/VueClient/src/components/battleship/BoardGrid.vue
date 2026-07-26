@@ -207,7 +207,7 @@ function handlePointerUp(row: number, col: number, event: PointerEvent) {
       </div>
 
       <!-- Grid rows -->
-      <div v-for="r in 10" :key="r" class="grid-row">
+      <div v-for="r in 10" :key="r" class="grid-row" :class="{ 'grid-row--far': r >= 9 }">
         <div class="label-cell row-label">{{ rowLabels[r - 1] }}</div>
         <CellComponent
           v-for="c in 10"
@@ -273,6 +273,13 @@ function handlePointerUp(row: number, col: number, event: PointerEvent) {
 .grid-row {
   display: flex;
   gap: 1px;
+}
+
+.grid-row--far {
+  filter: brightness(0.72) saturate(0.78);
+}
+.grid-row--far .row-label {
+  color: color-mix(in srgb, var(--text-dim) 72%, #020617);
 }
 
 .corner-cell {

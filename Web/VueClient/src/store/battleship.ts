@@ -28,8 +28,6 @@ import {
   playComboStack,
 } from 'src/services/sound'
 
-const COMBO_HIT_DELAY_MS = 8000
-
 /** Weapon entry shown in the weapon bar / consumed by keyboard shortcuts. */
 export interface BattleshipWeaponOption {
   id: string
@@ -76,6 +74,9 @@ export const useBattleshipStore = defineStore('battleship', () => {
   const selectedShotType = ref('Ballista')
   const selectedWeaponType = ref('Ballista')
   const shotDelayActive = ref(false)
+  const shotDelayInitialRemainingMs = ref(0)
+  const shotDelayDurationMs = ref(0)
+  const shotDelayOwnerId = ref<string | null>(null)
   let shotDelayTimeout: ReturnType<typeof setTimeout> | null = null
   const summonDeployMode = ref<BattleshipSummonDeployMode | null>(null)
   const summonType = ref('Ram')
@@ -137,18 +138,27 @@ export const useBattleshipStore = defineStore('battleship', () => {
     cellVfxHandler = handler
   }
 
-  function activateShotDelay(durationMs: number) {
+  function activateShotDelay(remainingMs: number, durationMs = remainingMs, ownerId: string | null = null) {
     if (shotDelayTimeout) clearTimeout(shotDelayTimeout)
-    if (durationMs <= 0) {
+    if (remainingMs <= 0) {
       shotDelayActive.value = false
+      shotDelayInitialRemainingMs.value = 0
+      shotDelayDurationMs.value = 0
+      shotDelayOwnerId.value = null
       shotDelayTimeout = null
       return
     }
     shotDelayActive.value = true
+    shotDelayInitialRemainingMs.value = remainingMs
+    shotDelayDurationMs.value = Math.max(remainingMs, durationMs)
+    shotDelayOwnerId.value = ownerId
     shotDelayTimeout = setTimeout(() => {
       shotDelayActive.value = false
+      shotDelayInitialRemainingMs.value = 0
+      shotDelayDurationMs.value = 0
+      shotDelayOwnerId.value = null
       shotDelayTimeout = null
-    }, durationMs)
+    }, remainingMs)
   }
 
   // -- Derived State ----------------------------------------------
@@ -340,7 +350,16 @@ export const useBattleshipStore = defineStore('battleship', () => {
 
       // Sync selectedShotType from server (auto-reset after WhiteStone/Buckshot)
       const me = state.player1?.isMe ? state.player1 : state.player2
-      activateShotDelay(me?.shotDelayRemainingMs ?? 0)
+      const delayPlayer = state.currentTurnPlayerId === state.player1?.discordId
+        ? state.player1
+        : state.currentTurnPlayerId === state.player2?.discordId
+          ? state.player2
+          : null
+      activateShotDelay(
+        delayPlayer?.shotDelayRemainingMs ?? 0,
+        delayPlayer?.shotDelayDurationMs ?? 0,
+        delayPlayer?.discordId ?? null,
+      )
       if (me?.selectedShotType) {
         selectedShotType.value = me.selectedShotType
         selectedWeaponType.value = me.selectedShotType === 'WhiteStone' || me.selectedShotType === 'Buckshot'
@@ -389,6 +408,14 @@ export const useBattleshipStore = defineStore('battleship', () => {
         }
         lastShotResult.value = result
 
+        // Start the public reload visualization before launching the projectile. Hit
+        // flights are intentionally long, so the reload bar overlaps their animation.
+        activateShotDelay(
+          result.shotDelayMs ?? 0,
+          result.shotDelayMs ?? 0,
+          gameState.value?.currentTurnPlayerId ?? null,
+        )
+
         // Track last shot position
         const shotTarget: 'enemy' | 'my' = result.targetPlayerId
           ? (result.targetPlayerId === gameState.value?.myPlayerId ? 'my' : 'enemy')
@@ -435,10 +462,6 @@ export const useBattleshipStore = defineStore('battleship', () => {
           && (shotVfxHandler?.(result.row, result.col, shotTarget, fireShotEffects) ?? false)
         if (!handled) fireShotEffects()
 
-        // A combo-preserving hit opens the summon-response window. Misses never delay.
-        if (result.hit && result.turnContinues) {
-          activateShotDelay(COMBO_HIT_DELAY_MS)
-        }
       }
     }
 
@@ -650,6 +673,9 @@ export const useBattleshipStore = defineStore('battleship', () => {
     selectedShotType,
     selectedWeaponType,
     shotDelayActive,
+    shotDelayInitialRemainingMs,
+    shotDelayDurationMs,
+    shotDelayOwnerId,
     summonDeployMode,
     summonType,
     enemyAnimatedCells,

@@ -141,10 +141,28 @@ public class GameNotificationService
         return Array.Empty<string>();
     }
 
+    /// <summary>Returns IDs with at least one active web connection.</summary>
+    public IReadOnlyCollection<ulong> GetOnlinePlayerIds()
+    {
+        var online = new List<ulong>();
+        foreach (var (discordId, connections) in _playerConnections)
+        {
+            lock (connections)
+            {
+                if (connections.Count > 0)
+                    online.Add(discordId);
+            }
+        }
+        return online;
+    }
+
     /// <summary>Returns true if this Discord user has at least one active web connection.</summary>
     public bool HasWebConnection(ulong discordId)
     {
-        return _playerConnections.TryGetValue(discordId, out var set) && set.Count > 0;
+        if (!_playerConnections.TryGetValue(discordId, out var set))
+            return false;
+        lock (set)
+            return set.Count > 0;
     }
 
     // ── Connection tracking by game ID (for spectators) ───────────────

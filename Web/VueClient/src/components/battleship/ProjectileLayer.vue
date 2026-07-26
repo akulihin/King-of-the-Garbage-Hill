@@ -31,6 +31,7 @@ function fire(
   targetCol: number,
   kind: BattleshipProjectileKind,
   onImpact: () => void,
+  durationMs?: number,
 ): boolean {
   if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return false
   const target = cellCenter(targetStage, targetRow, targetCol)
@@ -63,7 +64,7 @@ function fire(
       { transform: `translate3d(${midX}px, ${arc}px, 0) rotate(${angle + spin * 0.5}deg) scale(1.08)`, opacity: 1, offset: 0.5 },
       { transform: `translate3d(${target.x}px, ${target.y}px, 0) rotate(${angle + spin}deg) scale(.9)`, opacity: 1 },
     ], {
-      duration: kind === 'arrow' ? 430 : 520,
+      duration: durationMs ?? (kind === 'arrow' ? 430 : 520),
       easing: 'cubic-bezier(.22,.72,.22,1)',
       fill: 'forwards',
     })

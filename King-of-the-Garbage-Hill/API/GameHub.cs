@@ -33,8 +33,12 @@ public class GameHub : Hub
     private readonly GameStoryService _storyService;
     private readonly BattleshipService _battleshipService;
     private readonly CharactersPull _charactersPull;
+    private readonly AdminLobbyService _adminLobbyService;
 
-    public GameHub(WebGameService gameService, GameNotificationService notificationService, Global global, UserAccounts userAccounts, BlackjackService blackjackService, GameStoryService storyService, BattleshipService battleshipService, CharactersPull charactersPull)
+    public GameHub(WebGameService gameService, GameNotificationService notificationService,
+        Global global, UserAccounts userAccounts, BlackjackService blackjackService,
+        GameStoryService storyService, BattleshipService battleshipService,
+        CharactersPull charactersPull, AdminLobbyService adminLobbyService)
     {
         _gameService = gameService;
         _notificationService = notificationService;
@@ -44,6 +48,7 @@ public class GameHub : Hub
         _storyService = storyService;
         _battleshipService = battleshipService;
         _charactersPull = charactersPull;
+        _adminLobbyService = adminLobbyService;
     }
 
     public override async Task OnConnectedAsync()
@@ -57,6 +62,7 @@ public class GameHub : Hub
         if (Context.Items.TryGetValue("discordId", out var discordIdObj) && discordIdObj is ulong discordId)
         {
             _notificationService.RemoveConnection(discordId, Context.ConnectionId);
+            await _adminLobbyService.HandleDisconnectedAsync(discordId);
         }
         await base.OnDisconnectedAsync(exception);
         Console.WriteLine($"[WebAPI] SignalR client disconnected: {Context.ConnectionId}");
@@ -83,7 +89,17 @@ public class GameHub : Hub
         var playerType = account?.PlayerType ?? 0;
         var lastPlayedCharacter = account?.CharacterPlayedLastTime ?? "";
         if (UnknownBug.Is(lastPlayedCharacter)) lastPlayedCharacter = "";
-        await Clients.Caller.SendAsync("Authenticated", new { success = true, discordId = discordIdStr, playerType, lastPlayedCharacter });
+        await Clients.Caller.SendAsync("Authenticated", new
+        {
+            success = true,
+            discordId = discordIdStr,
+            playerType,
+            lastPlayedCharacter,
+            isGodAdmin = AdminLobbyService.IsGodAdmin(discordId),
+        });
+        if (_adminLobbyService.IsReserved(discordId))
+            await Clients.Caller.SendAsync(
+                "AdminLobbyReserved", new { reserved = true });
         Console.WriteLine($"[WebAPI] Connection {Context.ConnectionId} authenticated as Discord user {discordId}");
     }
 
@@ -554,6 +570,167 @@ public class GameHub : Hub
         _notificationService.RegisterGameConnection(gameId, Context.ConnectionId);
 
         await Clients.Caller.SendAsync("GameCreated", new { gameId });
+    }
+
+    // ── God Admin: Curated Lobby ─────────────────────────────────────
+
+    public async Task CreateAdminLobby()
+    {
+        var discordId = GetDiscordId();
+        if (discordId == 0) { await SendNotAuthenticated(); return; }
+        if (!AdminLobbyService.IsGodAdmin(discordId))
+        {
+            await Clients.Caller.SendAsync("Error", "Admin access required.");
+            return;
+        }
+
+        var (state, error) = _adminLobbyService.CreateAdminLobby(discordId);
+        if (error != null) { await Clients.Caller.SendAsync("Error", error); return; }
+        await Clients.Caller.SendAsync("AdminLobbyState", state);
+    }
+
+    public async Task RequestAdminLobbyState()
+    {
+        var discordId = GetDiscordId();
+        if (discordId == 0) { await SendNotAuthenticated(); return; }
+        if (!AdminLobbyService.IsGodAdmin(discordId))
+        {
+            await Clients.Caller.SendAsync("Error", "Admin access required.");
+            return;
+        }
+
+        var (state, error) = _adminLobbyService.RequestState(discordId);
+        if (error != null) { await Clients.Caller.SendAsync("Error", error); return; }
+        await Clients.Caller.SendAsync("AdminLobbyState", state);
+    }
+
+    public async Task RequestAdminLobbyDirectory()
+    {
+        var discordId = GetDiscordId();
+        if (discordId == 0) { await SendNotAuthenticated(); return; }
+        if (!AdminLobbyService.IsGodAdmin(discordId))
+        {
+            await Clients.Caller.SendAsync("Error", "Admin access required.");
+            return;
+        }
+
+        var (directory, error) = await _adminLobbyService.GetDirectoryAsync(discordId);
+        if (error != null) { await Clients.Caller.SendAsync("Error", error); return; }
+        await Clients.Caller.SendAsync("AdminLobbyDirectory", directory);
+    }
+
+    public async Task RequestAdminLobbyPresence()
+    {
+        var discordId = GetDiscordId();
+        if (discordId == 0) { await SendNotAuthenticated(); return; }
+        if (!AdminLobbyService.IsGodAdmin(discordId))
+        {
+            await Clients.Caller.SendAsync("Error", "Admin access required.");
+            return;
+        }
+
+        var (presence, error) = _adminLobbyService.GetPresence(discordId);
+        if (error != null) { await Clients.Caller.SendAsync("Error", error); return; }
+        await Clients.Caller.SendAsync("AdminLobbyPresence", presence);
+    }
+
+    public async Task AdminLobbyInvitePlayer(int slotIndex, string discordIdStr)
+    {
+        var discordId = GetDiscordId();
+        if (discordId == 0) { await SendNotAuthenticated(); return; }
+        if (!AdminLobbyService.IsGodAdmin(discordId))
+        {
+            await Clients.Caller.SendAsync("Error", "Admin access required.");
+            return;
+        }
+        if (!ulong.TryParse(discordIdStr, out var inviteeId))
+        {
+            await Clients.Caller.SendAsync("Error", "Invalid Discord ID.");
+            return;
+        }
+
+        var (state, error) = await _adminLobbyService.InvitePlayerAsync(
+            discordId, slotIndex, inviteeId);
+        if (error != null) { await Clients.Caller.SendAsync("Error", error); return; }
+        await Clients.Caller.SendAsync("AdminLobbyState", state);
+    }
+
+    public async Task AdminLobbyAddBot(int slotIndex, int aiDifficulty)
+    {
+        var discordId = GetDiscordId();
+        if (discordId == 0) { await SendNotAuthenticated(); return; }
+        if (!AdminLobbyService.IsGodAdmin(discordId))
+        {
+            await Clients.Caller.SendAsync("Error", "Admin access required.");
+            return;
+        }
+
+        var (state, error) = _adminLobbyService.AddBot(
+            discordId, slotIndex, aiDifficulty);
+        if (error != null) { await Clients.Caller.SendAsync("Error", error); return; }
+        await Clients.Caller.SendAsync("AdminLobbyState", state);
+    }
+
+    public async Task AdminLobbySetCharacter(int slotIndex, string characterName)
+    {
+        var discordId = GetDiscordId();
+        if (discordId == 0) { await SendNotAuthenticated(); return; }
+        if (!AdminLobbyService.IsGodAdmin(discordId))
+        {
+            await Clients.Caller.SendAsync("Error", "Admin access required.");
+            return;
+        }
+
+        var (state, error) = _adminLobbyService.SetCharacter(
+            discordId, slotIndex, characterName);
+        if (error != null) { await Clients.Caller.SendAsync("Error", error); return; }
+        await Clients.Caller.SendAsync("AdminLobbyState", state);
+    }
+
+    public async Task AdminLobbyRemoveSlot(int slotIndex)
+    {
+        var discordId = GetDiscordId();
+        if (discordId == 0) { await SendNotAuthenticated(); return; }
+        if (!AdminLobbyService.IsGodAdmin(discordId))
+        {
+            await Clients.Caller.SendAsync("Error", "Admin access required.");
+            return;
+        }
+
+        var (state, error) = await _adminLobbyService.RemoveSlotAsync(
+            discordId, slotIndex);
+        if (error != null) { await Clients.Caller.SendAsync("Error", error); return; }
+        await Clients.Caller.SendAsync("AdminLobbyState", state);
+    }
+
+    public async Task AdminLobbyStart()
+    {
+        var discordId = GetDiscordId();
+        if (discordId == 0) { await SendNotAuthenticated(); return; }
+        if (!AdminLobbyService.IsGodAdmin(discordId))
+        {
+            await Clients.Caller.SendAsync("Error", "Admin access required.");
+            return;
+        }
+
+        var (_, error) = await _adminLobbyService.StartGameAsync(discordId);
+        if (error != null)
+            await Clients.Caller.SendAsync("Error", error);
+    }
+
+    public async Task AdminLobbyCancel()
+    {
+        var discordId = GetDiscordId();
+        if (discordId == 0) { await SendNotAuthenticated(); return; }
+        if (!AdminLobbyService.IsGodAdmin(discordId))
+        {
+            await Clients.Caller.SendAsync("Error", "Admin access required.");
+            return;
+        }
+
+        var error = await _adminLobbyService.CancelAsync(discordId);
+        if (error != null) { await Clients.Caller.SendAsync("Error", error); return; }
+        await Clients.Caller.SendAsync("AdminLobbyState", (object)null);
     }
 
     // ── Leave / Finish ────────────────────────────────────────────────
@@ -1649,13 +1826,18 @@ public class GameHub : Hub
                 result.Destroyed,
                 result.ShipSunk,
                 result.Burned,
+                result.Dodged,
                 result.Row,
                 result.Col,
                 result.TurnContinues,
+                result.ShotDelayMs,
                 result.Message,
                 result.AffectedShipName,
                 result.SourceShipId,
                 result.SourceDeckIndex,
+                result.SourceRow,
+                result.SourceCol,
+                result.SourceBoardPlayerId,
                 result.ProjectileType,
                 result.TargetPlayerId,
             }
@@ -1670,8 +1852,8 @@ public class GameHub : Hub
             var delayBeforeNextStepMs = 0;
             while (_battleshipService.IsBotTurn(gameId))
             {
-                // Misses hand control over immediately. A combo-preserving hit opens an
-                // eight-second, lock-free deployment window before the bot's next shot.
+                // Misses hand control over immediately. Reset hits wait for the exact
+                // server-selected 2/8-second interval while the game lock stays free.
                 if (delayBeforeNextStepMs > 0)
                     await Task.Delay(delayBeforeNextStepMs);
                 var step = _battleshipService.ProcessBotStep(gameId);
@@ -1679,7 +1861,7 @@ public class GameHub : Hub
                 if (step.Shot != null)
                     await SendBattleshipShotEvent(gameId, step.Shot);
                 await PushBattleshipStateToAll(gameId);
-                delayBeforeNextStepMs = step.Shot is { Hit: true, TurnContinues: true } ? 8000 : 0;
+                delayBeforeNextStepMs = step.Shot?.ShotDelayMs ?? 0;
             }
         }
         finally

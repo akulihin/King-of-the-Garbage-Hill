@@ -186,12 +186,13 @@ public static class GameStateMapper
                 .ToList();
 
         var viewerIsTheBoys = requestingPlayer?.GameCharacter.Name == "TheBoys";
+        var viewerIsHomelander = Homelander.Is(requestingPlayer);
 
         foreach (var player in game.PlayersList)
         {
             var isMe = requestingPlayer != null && player.GetPlayerId() == requestingPlayer.GetPlayerId();
             dto.Players.Add(MapPlayer(player, requestingPlayer, isMe, isAdmin, canInspectPlayers,
-                game.PlayersList, game, viewerIsTerminal, viewerIsTheBoys));
+                game.PlayersList, game, viewerIsTerminal, viewerIsTheBoys, viewerIsHomelander));
         }
 
         if (Cthulhu.IsNechtoActive(game) && !game.IsFinished)
@@ -286,7 +287,7 @@ public static class GameStateMapper
 
     private static PlayerDto MapPlayer(GamePlayerBridgeClass player, GamePlayerBridgeClass requestingPlayer,
         bool isMe, bool isAdmin, bool canInspectPlayers, List<GamePlayerBridgeClass> allPlayers, GameClass game = null,
-        bool viewerIsTerminal = false, bool viewerIsTheBoys = false)
+        bool viewerIsTerminal = false, bool viewerIsTheBoys = false, bool viewerIsHomelander = false)
     {
         var hasDeathNote = player.GameCharacter.Passive.Any(p => p.PassiveName == "Тетрадь смерти");
 
@@ -305,6 +306,16 @@ public static class GameStateMapper
             Character = MapCharacter(player.GameCharacter, isMe, canInspectPlayers, game?.IsFinished ?? false),
             Status = MapStatus(player, isMe, canInspectPlayers, game?.IsFinished ?? false),
         };
+        if (viewerIsHomelander
+            && requestingPlayer != null
+            && !isMe
+            && !requestingPlayer.IsTeamMember(game, player.GetPlayerId()))
+        {
+            dto.HomelanderRagePercent =
+                Homelander.RagePercentFor(requestingPlayer, player.GetPlayerId());
+            dto.HomelanderLaserUsed =
+                Homelander.LaserUsedFor(requestingPlayer, player.GetPlayerId());
+        }
         if (isMe && game != null)
         {
             dto.IsDeepSession = Cthulhu.IsUntransformed(player)
@@ -1467,6 +1478,7 @@ public static class GameStateMapper
             IsStatsBetterEnemy = !forceRedaction && f.IsStatsBetterEnemy,
             UsedRandomRoll = !forceRedaction && f.UsedRandomRoll,
             QualityDamageApplied = !forceRedaction && f.QualityDamageApplied,
+            HomelanderLaser = f.HomelanderLaser,
             // Keep drops (visible to all players)
             Drops = f.Drops,
             DroppedPlayerName = f.DroppedPlayerName,

@@ -51,7 +51,8 @@ public class TheBoys
     };
 
     // Супергерои, которых Бучер помечает всегда (см. решение по спеке).
-    public static readonly string[] Superheroes = { "Сайтама", "Кратос", "Загадочный Спартанец в маске", "Кира" };
+    public static readonly string[] Superheroes =
+        { "Сайтама", "Кратос", "Загадочный Спартанец в маске", "Кира", Homelander.CharacterName };
 
     public static bool IsPermanentSup(GamePlayerBridgeClass enemy, int roundNo)
     {
@@ -103,8 +104,11 @@ public class TheBoys
                                || target.GameCharacter.Passive.Count == 0)
                 continue;
 
-            target.GameCharacter.Passive.Clear();
-            target.FightCharacter.Passive.Clear();
+            Homelander.RunWithoutProtection(target, () =>
+            {
+                target.GameCharacter.Passive.Clear();
+                target.FightCharacter.Passive.Clear();
+            });
             target.Passives.PassiveAbilitiesDisabledByKimiko = true;
             boys.Status.AddInGamePersonalLogs(
                 $"Живое Оружие: способности {target.DiscordUsername} отключены до конца игры.\n");

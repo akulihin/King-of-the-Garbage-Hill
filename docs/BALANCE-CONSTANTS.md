@@ -1,6 +1,6 @@
 # Balance Constants — every tunable number with its code anchor
 
-> Hand-maintained. **Update the row when you change the number** (and re-run `tools/audit-passives.sh` for name changes). Verified against the working tree of 2026-07-16 (v5.0.1). `CP` = `Game/GameLogic/CharacterPassives.cs`, `CC` = `Game/Classes/CharacterClass.cs`, `DM` = `Game/GameLogic/DoomsdayMachine.cs`, `CIR` = `Game/GameLogic/CheckIfReady.cs`, `GR` = `Game/ReactionHandling/GameReactions.cs`.
+> Hand-maintained. **Update the row when you change the number** (and re-run `tools/audit-passives.sh` for name changes). Verified against the working tree of 2026-07-25 (v5.1.6). `CP` = `Game/GameLogic/CharacterPassives.cs`, `CC` = `Game/Classes/CharacterClass.cs`, `DM` = `Game/GameLogic/DoomsdayMachine.cs`, `CIR` = `Game/GameLogic/CheckIfReady.cs`, `GR` = `Game/ReactionHandling/GameReactions.cs`.
 >
 > RNG note: `Luck(x)` ≈ x%, `Luck(a,b)` ≈ a-in-b (rounded to whole %); see `Helpers/SecureRandom.cs:35-45`.
 
@@ -123,7 +123,7 @@ The full 12-contract catalog, selection, privacy and migration rules are in [DAI
 | Constant | Value | Anchor |
 |---|---|---|
 | Battleship first win of the UTC day | 10 ZBS; once per account/day after combat starts | BattleshipService.cs:15-16,75-95 |
-| Battleship combo-hit response window | 8 seconds after a hit that preserves the shooter's turn; 0 after a miss | `BattleshipService.ComboHitDelay`/`ApplyComboShotDelay`; `GameHub.RunBattleshipBotPump` |
+| Battleship combo-hit response window | 8 seconds only when the defending human can legally deploy a summon; otherwise 2 seconds after a hit that preserves the shooter's turn; 0 after a miss | `BattleshipService.ComboHitDelay`/`FastComboHitDelay`/`ApplyComboShotDelay`; `GameHub.RunBattleshipBotPump` |
 
 ## Achievement & loot-box rewards
 
@@ -173,6 +173,11 @@ Achievement progress targets and the complete 110-entry rule catalog are in [ACH
 
 | Character | Constant | Value | Anchor |
 |---|---|---|---|
+| Homelander | base stats / Tier | Int 5, Str 10, Speed 9, Psyche 1; Tier 5 | `characters.json` Homelander |
+| Homelander | Праведность leader payout / rage trigger / cap | +5 Moral per turn at place 1; otherwise +20% rage on the leader; +20% per enemy attacking win; cap 100% | `Homelander.ApplyRighteousness`/`RecordAttackingWin`; `RagePerTrigger`/`MaximumRage` |
+| Homelander | Праведность laser | next attack at 100% auto-wins and adds 2 guaranteed Drops; once per enemy | `Homelander.ArmLaser`/`ApplyLaserDrops` |
+| Homelander | Башня Vought | unique enemy positive-income leader −1 regular; unique Homelander leader receives one extra copy of every positive score entry earned that turn | `Homelander.ApplyVoughtTower` |
+| Homelander | Молоко | +1 regular after first attack on HardKitty | `Homelander.TryMilk` |
 | Ктулху | Морок bonus steal | victim −1 / Вестник +1 immediate bonus point; unknown_bug exempt | `Cthulhu.HandleResolvedFight` |
 | Ктулху | Нечто isolated fight stats / Justice | 10 / 10 / 10 / 10; Justice 0 | `Cthulhu.ResolveNechtoAttacks` |
 | Ктулху | Нечто victory reward | +2 regular points (then ×1/×2/×4 by round) | `Cthulhu.ResolveNechtoAttacks` |
@@ -365,13 +370,13 @@ source; the engine anchors below are the trusted consumers.
 
 ## Bot AI difficulty
 
-Per-game `AiDifficulty` is 0/1/2/3 and defaults to **3** for Discord, web and simulation. `--ai-difficulty N` overrides the simulation field; `--ai-probe N [--ai-probe-char "Name"]` and `--ab-char` provide per-seat A/B measurement through `GamePlayerBridgeClass.AiDifficulty` and `BotsBehavior.EffectiveDifficulty`.
+Per-game `AiDifficulty` is 0/1/2/3 and defaults to **3** for Discord, web and simulation. The curated god-admin web lobby may set each explicitly added bot to Legacy/V2/V3 = **1/2/3** through `GamePlayerBridgeClass.AiDifficulty`; auto-filled empty seats retain `-1` and inherit the game default. `--ai-difficulty N` overrides the simulation field; `--ai-probe N [--ai-probe-char "Name"]` and `--ab-char` provide per-seat A/B measurement through the same override and `BotsBehavior.EffectiveDifficulty`.
 
 **L2 and L3 share one hard ordinary-visibility boundary.** They may use the acting bot's own state, public leaderboard projection/markers, legal target menu, sanitized global logs, the acting player's current/last personal logs, public resolved fight outcomes and exact detail from fights in which that bot participated. They may not otherwise read an opponent's current Block/Skip/attack, real character, stats, passives, score, Justice or private histories. The explicit scripted exceptions are exact Madara prediction during round-8 Клоны Сусано, exact Monster/Eren target selection on round 10, and Naruto's live sibling-target focus. `BotInformation.CaptureVisibleRound` persists only ordinary player-visible evidence in `GamePlayerBridgeClass.AiKnowledge`. L3 differs from L2 in how it reasons over that evidence: longer horizons, confidence-weighted hypotheses, public roster/rule constraints and deterministic best-target selection. The full decision catalogue is [BOT-AI-DESIGNER-REVIEW.md](BOT-AI-DESIGNER-REVIEW.md).
 
 | Constant / rule | Value | Meaning | Anchor |
 |---|---:|---|---|
-| `AiDifficulty` | **3** | default level; 0 random, 1 legacy, 2 fair strategic, 3 fair advanced inference | `GameClass.AiDifficulty`; `BotsBehavior.EffectiveDifficulty` |
+| `AiDifficulty` | **3** | default level; 0 random, 1 legacy, 2 fair strategic, 3 fair advanced inference; curated lobby picker maps Legacy/V2/V3 to per-seat 1/2/3 | `GameClass.AiDifficulty`; `GamePlayerBridgeClass.AiDifficulty`; `AdminLobbyService.StartGameAsync`; `BotsBehavior.EffectiveDifficulty` |
 | `--ai-difficulty` / `--ai-probe` / `--ab-char` | 0-3 | whole-field override, one-seat probe and paired seeded A/B measurement | `SimulationRunner`; `BotGameFactory.CreatePlayers` |
 | L0 action policy | uniform legal choice | random legal level-up and random target/Block slot; Naruto's two living illegal siblings remain virtual attack slots only for these odds; respects cannot-block, rejected targets and Макро's second action | `BotsBehavior.HandleBotAttackRandom`; `Naruto.GetBotActionTargetSlotCount` |
 | L1 knowledge policy | legacy privileged | historical control path is intentionally frozen and is **not** covered by the L2/L3 fairness guarantee; simulation exact-prediction prefill remains L1-only | `BotsBehavior.HandleBotAttack`; `BotGameFactory.CreatePlayers` |

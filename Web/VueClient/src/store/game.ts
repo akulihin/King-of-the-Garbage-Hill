@@ -5,6 +5,9 @@ import {
   type GameState,
   type Player,
   type LobbyState,
+  type AdminLobbyState,
+  type AdminLobbyDirectory,
+  type AdminLobbyPresence,
   type ActionResult,
   type GameEvent,
   type BlackjackTableState,
@@ -94,6 +97,11 @@ export const useGameStore = defineStore('game', () => {
   const storeError = ref<string | null>(null)
   const accountPlayerType = ref(0)
   const lastPlayedCharacter = ref('')
+  const isGodAdmin = ref(false)
+  const adminLobbyState = ref<AdminLobbyState | null>(null)
+  const adminLobbyDirectory = ref<AdminLobbyDirectory | null>(null)
+  const adminLobbyPresence = ref<AdminLobbyPresence | null>(null)
+  const godReservation = ref(false)
   const characterList = ref<CharacterListEntry[]>([])
   const doomFortressState = ref<DoomFortressState | null>(null)
 
@@ -301,6 +309,22 @@ export const useGameStore = defineStore('game', () => {
         lobbyState.value = state
       }
 
+      signalrService.onAdminLobbyState = (state) => {
+        adminLobbyState.value = state
+      }
+
+      signalrService.onAdminLobbyDirectory = (directory) => {
+        adminLobbyDirectory.value = directory
+      }
+
+      signalrService.onAdminLobbyPresence = (presence) => {
+        adminLobbyPresence.value = presence
+      }
+
+      signalrService.onAdminLobbyReserved = (data) => {
+        godReservation.value = data.reserved
+      }
+
       signalrService.onActionResult = (result) => {
         lastAction.value = result
         if (!result.success && isLevelUpAction(result.action)) {
@@ -350,8 +374,11 @@ export const useGameStore = defineStore('game', () => {
           discordId.value = String(data.discordId)
           accountPlayerType.value = data.playerType ?? 0
           lastPlayedCharacter.value = data.lastPlayedCharacter ?? ''
+          isGodAdmin.value = data.isGodAdmin ?? false
           const requests = [requestAchievements(), requestQuests()]
           if (storeState.value) requests.push(requestStore())
+          if (isGodAdmin.value && adminLobbyState.value)
+            requests.push(requestAdminLobbyState())
           void Promise.allSettled(requests)
         }
       }
@@ -359,6 +386,7 @@ export const useGameStore = defineStore('game', () => {
       signalrService.onWebAccountCreated = (data) => {
         isAuthenticated.value = true
         isWebAccount.value = true
+        isGodAdmin.value = false
         discordId.value = data.discordId
         webUsername.value = data.username
         // Persist for session restoration
@@ -430,6 +458,11 @@ export const useGameStore = defineStore('game', () => {
     isConnected.value = false
     webUsername.value = ''
     isWebAccount.value = false
+    isGodAdmin.value = false
+    adminLobbyState.value = null
+    adminLobbyDirectory.value = null
+    adminLobbyPresence.value = null
+    godReservation.value = false
 
     gameState.value = null
     lobbyState.value = null
@@ -500,6 +533,46 @@ export const useGameStore = defineStore('game', () => {
 
   async function refreshLobby() {
     await signalrService.requestLobbyState()
+  }
+
+  async function createAdminLobby() {
+    await signalrService.createAdminLobby()
+  }
+
+  async function requestAdminLobbyState() {
+    await signalrService.requestAdminLobbyState()
+  }
+
+  async function requestAdminLobbyDirectory() {
+    await signalrService.requestAdminLobbyDirectory()
+  }
+
+  async function requestAdminLobbyPresence() {
+    await signalrService.requestAdminLobbyPresence()
+  }
+
+  async function adminLobbyInvitePlayer(slotIndex: number, playerId: string) {
+    await signalrService.adminLobbyInvitePlayer(slotIndex, playerId)
+  }
+
+  async function adminLobbyAddBot(slotIndex: number, aiDifficulty: number) {
+    await signalrService.adminLobbyAddBot(slotIndex, aiDifficulty)
+  }
+
+  async function adminLobbySetCharacter(slotIndex: number, characterName: string) {
+    await signalrService.adminLobbySetCharacter(slotIndex, characterName)
+  }
+
+  async function adminLobbyRemoveSlot(slotIndex: number) {
+    await signalrService.adminLobbyRemoveSlot(slotIndex)
+  }
+
+  async function adminLobbyStart() {
+    await signalrService.adminLobbyStart()
+  }
+
+  async function adminLobbyCancel() {
+    await signalrService.adminLobbyCancel()
   }
 
   async function refreshGameState(gameId: number) {
@@ -994,6 +1067,11 @@ export const useGameStore = defineStore('game', () => {
     isStoreLoading,
     storeAction,
     storeError,
+    isGodAdmin,
+    adminLobbyState,
+    adminLobbyDirectory,
+    adminLobbyPresence,
+    godReservation,
     // Computed
     myPlayer,
     opponents,
@@ -1025,6 +1103,16 @@ export const useGameStore = defineStore('game', () => {
     joinGame,
     leaveGame,
     refreshLobby,
+    createAdminLobby,
+    requestAdminLobbyState,
+    requestAdminLobbyDirectory,
+    requestAdminLobbyPresence,
+    adminLobbyInvitePlayer,
+    adminLobbyAddBot,
+    adminLobbySetCharacter,
+    adminLobbyRemoveSlot,
+    adminLobbyStart,
+    adminLobbyCancel,
     refreshGameState,
     attack,
     block,

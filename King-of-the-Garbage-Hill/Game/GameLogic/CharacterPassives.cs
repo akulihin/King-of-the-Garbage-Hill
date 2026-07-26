@@ -133,6 +133,14 @@ public class CharacterPassives : IServiceSingleton
         foreach (var passive in player.GameCharacter.Passive.ToList())
             switch (passive.PassiveName)
             {
+                case "Праведность":
+                case "Скромность":
+                case "Башня Vought":
+                case "Супер \"Человек\"":
+                case "Молоко":
+                case "Лидер Семерки":
+                    break;
+
                 case Madara.GodOfShinobi:
                     if (player.GameCharacter.Name == Madara.CharacterName)
                     {
@@ -484,6 +492,7 @@ public class CharacterPassives : IServiceSingleton
         var initialGordon = playersList.Find(GordonFreeman.Is);
         if (initialGordon != null)
             GordonFreeman.HandleRoundPhrase(initialGordon, 1);
+        Homelander.MoveToInitialLead(playersList);
         JonSnow.FinalizeInitialPositions(playersList);
 
         return playersList;
@@ -504,6 +513,10 @@ public class CharacterPassives : IServiceSingleton
         foreach (var passive in target.GameCharacter.Passive.ToList())
             switch (passive.PassiveName)
             {
+                case Homelander.Modesty:
+                    Homelander.SuppressJustice(target, me);
+                    break;
+
                 case JonSnow.IAmJonSnow:
                     JonSnow.ApplyBaseJustice(target);
                     break;
@@ -965,6 +978,10 @@ public class CharacterPassives : IServiceSingleton
         foreach (var passive in target.GameCharacter.Passive.ToList())
             switch (passive.PassiveName)
             {
+                case Homelander.Righteousness:
+                    Homelander.RecordAttackingWin(target, me, game);
+                    break;
+
                 case "Я щас приду":
                     var glebSkipFriendList = target.Passives.GlebSkipFriendList;
                     var glebSkipFriendListDone = target.Passives.GlebSkipFriendListDone;
@@ -1134,6 +1151,18 @@ public class CharacterPassives : IServiceSingleton
         foreach (var passive in me.GameCharacter.Passive.ToList())
             switch (passive.PassiveName)
             {
+                case Homelander.Righteousness:
+                    Homelander.ArmLaser(me, target);
+                    break;
+
+                case Homelander.Modesty:
+                    Homelander.SuppressJustice(me, target);
+                    break;
+
+                case Homelander.Milk:
+                    Homelander.TryMilk(me, target);
+                    break;
+
                 case JonSnow.IAmJonSnow:
                     JonSnow.ApplyBaseJustice(me);
                     break;
@@ -1213,6 +1242,7 @@ public class CharacterPassives : IServiceSingleton
                             me.Status.AddInGamePersonalLogs($"Глаза бога смерти: {target.DiscordUsername} - это **{UnknownBug.PublicName(target)}**\n");
                             if (!eyes.RevealedPlayers.Contains(target.GetPlayerId()))
                                 eyes.RevealedPlayers.Add(target.GetPlayerId());
+                            Homelander.RecordReveal(game, me, target);
                             game.Phrases.KiraShinigamiEyes.SendLog(me, false);
                         }
                     }
@@ -1255,6 +1285,7 @@ public class CharacterPassives : IServiceSingleton
                         }
                         if (!game.PinkWardRevealedPlayerIds.Contains(target.GetPlayerId()))
                             game.PinkWardRevealedPlayerIds.Add(target.GetPlayerId());
+                        Homelander.RecordReveal(game, me, target);
                     }
                     break;
 
@@ -3784,6 +3815,7 @@ public class CharacterPassives : IServiceSingleton
                             if (fightTarget != null && !mmData.KompromatTargets.Contains(fightTargetId))
                             {
                                 mmData.KompromatTargets.Add(fightTargetId);
+                                Homelander.RecordReveal(game, player, fightTarget);
                                 var hint = GetKompromatHint(fightTarget, game);
                                 mmData.KompromatHints[fightTargetId] = hint;
                                 player.Status.AddInGamePersonalLogs(
@@ -4211,6 +4243,7 @@ public class CharacterPassives : IServiceSingleton
                                     }
                                     if (!game.PinkWardRevealedPlayerIds.Contains(randomPlayer.GetPlayerId()))
                                         game.PinkWardRevealedPlayerIds.Add(randomPlayer.GetPlayerId());
+                                    Homelander.RecordReveal(game, player, randomPlayer);
                                 }
                             }
                         }
@@ -5091,6 +5124,7 @@ public class CharacterPassives : IServiceSingleton
                             player.Status.AddInGamePersonalLogs(PhrasePayload.Encode(
                                 "Чутьё", $"{hint.Russian} ({hintTarget.DiscordUsername})",
                                 "Witcher senses", $"{hint.English} ({hintTarget.DiscordUsername})") + "\n");
+                            Homelander.RecordReveal(game, player, hintTarget);
                         }
 
                         // Lambert: 10% chance, one-time per game (m16)
@@ -5431,6 +5465,11 @@ public class CharacterPassives : IServiceSingleton
 
                 switch (passive.PassiveName)
                 {
+                    case Homelander.Modesty:
+                        if (game.RoundNo == 9)
+                            Homelander.EvaluatePredictions(game);
+                        break;
+
                     case ErenYeager.Sheep:
                         if (player.GameCharacter.Name == ErenYeager.CharacterName
                             && game.RoundNo is >= 2 and <= 8)
@@ -6062,6 +6101,7 @@ public class CharacterPassives : IServiceSingleton
                                 else
                                     player.Predict.Add(new PredictClass(randPlayer.GameCharacter.Name, randPlayer.GetPlayerId()));
 
+                                Homelander.RecordReveal(game, player, randPlayer);
                                 game.Phrases.DeepListSuperMindPhrase.SendLog(player, randPlayer, true);
                             }
 

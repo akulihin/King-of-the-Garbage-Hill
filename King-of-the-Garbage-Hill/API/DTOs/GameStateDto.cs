@@ -127,6 +127,12 @@ public class PlayerDto
     /// <summary>Butcher sup marker, serialized only when the viewing player is TheBoys.</summary>
     public bool IsTheBoysSupTarget { get; set; }
 
+    /// <summary>Owner-scoped Homelander rage against this opponent.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? HomelanderRagePercent { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool HomelanderLaserUsed { get; set; }
+
     /// <summary>Tsukuyomi state (only populated for the Itachi player viewing their own state).</summary>
     public TsukuyomiStateDto TsukuyomiState { get; set; }
 
@@ -519,6 +525,9 @@ public class FightEntryDto
     public decimal StormWeighingDelta { get; set; }
     /// <summary>Whether Storm's intervention flipped the fight outcome.</summary>
     public bool StormFlipped { get; set; }
+
+    /// <summary>Whether Homelander resolved this attack with his charged eye laser.</summary>
+    public bool HomelanderLaser { get; set; }
 }
 
 // ── ForOneFight Mod DTOs ─────────────────────────────────────────────

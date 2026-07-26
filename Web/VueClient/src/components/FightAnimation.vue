@@ -1444,6 +1444,17 @@ function getDisplayCharName(orig: string, u: string): string {
 
 <template>
   <div class="fight-animation">
+    <div
+      v-if="activeTab === 'fights' && fight?.homelanderLaser && showFinalResult"
+      class="homelander-laser-overlay"
+      aria-live="assertive"
+    >
+      <span class="homelander-laser-beam beam-left" />
+      <span class="homelander-laser-beam beam-right" />
+      <span class="homelander-laser-burst" />
+      <strong class="homelander-laser-title">ЛАЗЕР ИЗ ГЛАЗ</strong>
+    </div>
+
     <!-- Tab header -->
     <div class="fa-tab-header">
       <button class="fa-tab" :class="{ active: activeTab === 'fights' }" data-sfx-fight-tab="true" @click="setTab('fights')">Бои раунда<span v-if="hasUnseenFights && activeTab !== 'fights'" class="fa-tab-dot"></span></button>
@@ -1749,6 +1760,110 @@ function getDisplayCharName(orig: string, u: string): string {
 
 <style scoped>
 .fight-animation { display: flex; flex-direction: column; gap: 3px; padding: 3px; flex: 1; min-height: 0; }
+
+.homelander-laser-overlay {
+  position: fixed;
+  z-index: 10000;
+  inset: 0;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 50% 48%, rgba(255, 245, 215, 0.32), transparent 16%),
+    radial-gradient(circle at 50% 50%, rgba(220, 0, 0, 0.42), rgba(10, 0, 0, 0.94) 72%);
+  animation: homelander-laser-screen 1.65s ease-out both;
+}
+
+.homelander-laser-beam {
+  position: absolute;
+  top: 14%;
+  width: 13px;
+  height: 82vh;
+  border-radius: 50%;
+  transform-origin: 50% 0;
+  background: #fff;
+  box-shadow:
+    0 0 7px 3px #fff,
+    0 0 18px 9px #ff3131,
+    0 0 55px 24px rgba(255, 0, 0, 0.8);
+  animation: homelander-laser-beam 1.25s cubic-bezier(.16,.84,.2,1) both;
+}
+
+.homelander-laser-beam.beam-left {
+  left: 37%;
+  transform: rotate(-23deg);
+}
+
+.homelander-laser-beam.beam-right {
+  right: 37%;
+  transform: rotate(23deg);
+}
+
+.homelander-laser-burst {
+  width: 28vmin;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(circle, #fff 0 4%, #ff2b2b 15%, rgba(255, 0, 0, 0.35) 45%, transparent 72%);
+  filter: blur(1px);
+  animation: homelander-laser-burst 1.35s ease-out both;
+}
+
+.homelander-laser-title {
+  position: absolute;
+  padding: 0.18em 0.42em;
+  color: #fff;
+  font-size: clamp(34px, 8vw, 112px);
+  font-weight: 1000;
+  line-height: 0.92;
+  letter-spacing: 0.035em;
+  text-align: center;
+  text-shadow:
+    0 3px 0 #7d0000,
+    0 0 8px #fff,
+    0 0 22px #ff0000,
+    0 0 48px #b50000;
+  transform: skew(-5deg);
+  animation: homelander-laser-title 1.65s cubic-bezier(.12,.78,.16,1) both;
+}
+
+@keyframes homelander-laser-screen {
+  0% { opacity: 0; }
+  10% { opacity: 1; }
+  72% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+@keyframes homelander-laser-beam {
+  0% { opacity: 0; clip-path: inset(0 0 100%); }
+  12% { opacity: 1; clip-path: inset(0); }
+  68% { opacity: 1; }
+  100% { opacity: 0; clip-path: inset(0); }
+}
+
+@keyframes homelander-laser-burst {
+  0% { opacity: 0; transform: scale(0.05); }
+  20% { opacity: 1; transform: scale(0.4); }
+  75% { opacity: 0.85; transform: scale(2.7); }
+  100% { opacity: 0; transform: scale(4); }
+}
+
+@keyframes homelander-laser-title {
+  0% { opacity: 0; transform: scale(2.4) skew(-5deg); filter: blur(12px); }
+  18% { opacity: 1; transform: scale(0.94) skew(-5deg); filter: blur(0); }
+  28% { transform: scale(1.04) skew(-5deg); }
+  72% { opacity: 1; }
+  100% { opacity: 0; transform: scale(1.12) skew(-5deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .homelander-laser-overlay,
+  .homelander-laser-beam,
+  .homelander-laser-burst,
+  .homelander-laser-title {
+    animation-duration: 0.35s;
+  }
+}
 .fa-empty { color: var(--text-muted); font-style: italic; padding: 12px; text-align: center; font-size: 13px; }
 
 /* ── Controls ── */

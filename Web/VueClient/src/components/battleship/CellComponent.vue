@@ -38,6 +38,7 @@ const cellClass = computed(() => {
 
   // Priority order per spec section 11
   if (props.cell.isDevastated) classes.push('cell-devastated')
+  else if (props.cell.isShipSunk) classes.push('cell-ship-sunk')
   else if (props.cell.isDestroyed) classes.push('cell-destroyed')
   else if (props.cell.isFirePermanent) classes.push('cell-fire-permanent')
   else if (props.cell.isBurning) classes.push('cell-burning')
@@ -118,6 +119,7 @@ const cellIconHtml = computed(() => {
     }
   }
   if (props.cell.isDevastated) return renderIcon('devastated', 16)
+  if (props.cell.isShipSunk) return renderIcon('destroyed', 16)
   if (props.cell.isDestroyed) return renderIcon('destroyed', 16)
   if (props.cell.isFirePermanent) return renderIcon('firePermanent', 14)
   if (props.cell.isBurning) return renderIcon('burning', 14)
@@ -178,7 +180,8 @@ const cellTooltip = computed(() => {
       base = `Штраф за убийство суммона в этой зоне (кроме убийства сразу после появления) | ${base}`
     }
   }
-  else if (props.cell.isDestroyed) base = `Уничтожено${ship}`
+  else if (props.cell.isShipSunk) base = `Корабль полностью потоплен${ship}`
+  else if (props.cell.isDestroyed) base = `Палуба уничтожена${ship}`
   else if (props.cell.isDevastated) base = `Опустошено`
   else if (props.cell.isBurning || props.cell.isFirePermanent) base = `Горит${ship}`
   else if (props.cell.isBurnResistMarked) base = `Огнеупорный корабль — устоял против огня${ship}`
@@ -197,7 +200,8 @@ const cellTooltip = computed(() => {
   const addState = (active: boolean, label: string) => {
     if (active && base !== label && !extras.includes(label)) extras.push(label)
   }
-  addState(props.cell.isDestroyed, 'Уничтожено')
+  addState(props.cell.isShipSunk ?? false, 'Корабль полностью потоплен')
+  addState((props.cell.isDestroyed ?? false) && !props.cell.isShipSunk, 'Палуба уничтожена')
   addState(props.cell.isDevastated, 'Опустошено')
   addState(props.cell.isFirePermanent || props.cell.isBurning, 'Горит')
   addState(props.cell.isFrozen, 'Заморожено')
@@ -355,6 +359,18 @@ const cellTooltip = computed(() => {
   background-image: radial-gradient(circle at 30% 30%, color-mix(in srgb, var(--bs-hit, var(--accent-red)) 22%, transparent) 0%, transparent 60%),
                      radial-gradient(circle at 70% 70%, color-mix(in srgb, var(--bs-burn, var(--accent-orange)) 14%, transparent) 0%, transparent 50%);
   color: var(--text-muted);
+}
+.cell-ship-sunk {
+  background-color: color-mix(in srgb, #020617 88%, var(--accent-blue));
+  background-image:
+    linear-gradient(45deg, transparent 43%, rgba(226, 232, 240, 0.72) 44% 48%, transparent 49%),
+    linear-gradient(-45deg, transparent 43%, rgba(226, 232, 240, 0.72) 44% 48%, transparent 49%),
+    radial-gradient(circle at 50% 50%, rgba(15, 23, 42, 0.2), rgba(2, 6, 23, 0.92));
+  color: #cbd5e1;
+  box-shadow:
+    inset 0 0 0 2px rgba(71, 85, 105, 0.72),
+    inset 0 0 10px rgba(0, 0, 0, 0.9);
+  filter: saturate(0.35) brightness(0.78);
 }
 .cell-frozen {
   background: color-mix(in srgb, var(--bs-freeze, var(--accent-blue)) 26%, var(--bg-primary));

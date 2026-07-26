@@ -11,8 +11,8 @@ public static class GodClass
     public const string ClassName = "Бог";
 
     public static bool IsGod(CharacterClass character) =>
-        character?.Name is "Кира" or Madara.CharacterName;
+        character?.Name is "Кира" or Madara.CharacterName or Homelander.CharacterName;
 
     public static bool IsGodDeathSource(string deathSource) =>
-        deathSource is "Kira" or Madara.CharacterName or "Madara";
+        deathSource is "Kira" or Madara.CharacterName or "Madara" or Homelander.CharacterName;
 }

@@ -89,6 +89,10 @@ export type Player = {
   hasTerminalMarker?: boolean
   /** Butcher's secret sup marker; only supplied to the TheBoys viewer. */
   isTheBoysSupTarget?: boolean
+  /** Homelander-owner-only rage accumulated against this opponent. */
+  homelanderRagePercent?: number
+  /** The charged laser was already spent on this opponent. */
+  homelanderLaserUsed?: boolean
   /** True when Darksci needs to choose stable/unstable (round 1). */
   darksciChoiceNeeded?: boolean
   /** True when Gleb can transform to Young Gleb (round 1). */
@@ -559,6 +563,54 @@ export type LobbyState = {
   availableCharacters: CharacterInfo[]
 }
 
+export type AdminLobbySlot = {
+  kind: 'empty' | 'human' | 'bot'
+  discordId: string
+  username: string
+  aiDifficulty: number
+  characterName: string
+  notifiedByDm: boolean
+  isUnreachable: boolean
+}
+
+export type AdminLobbyCharacter = {
+  name: string
+  avatar: string
+  tier: number
+}
+
+export type AdminLobbyState = {
+  ownerId: string
+  slots: AdminLobbySlot[]
+  characters: AdminLobbyCharacter[]
+}
+
+export type AdminLobbyUser = {
+  discordId: string
+  username: string
+  hasDiscord: boolean
+  discordOnline: boolean
+  browserOnline: boolean
+  isBusy: boolean
+  isReserved: boolean
+}
+
+export type AdminLobbyGuild = {
+  guildId: string
+  guildName: string
+  members: AdminLobbyUser[]
+}
+
+export type AdminLobbyDirectory = {
+  guilds: AdminLobbyGuild[]
+}
+
+export type AdminLobbyPresence = {
+  onlineIds: string[]
+  busyIds: string[]
+  reservedIds: string[]
+}
+
 export type ActiveGame = {
   gameId: number
   roundNo: number
@@ -721,6 +773,8 @@ export type FightEntry = {
   stormWeighingDelta: number
   /** Whether Storm's intervention flipped the fight outcome. */
   stormFlipped: boolean
+  /** Whether Homelander resolved this attack with his charged eye laser. */
+  homelanderLaser: boolean
 }
 
 export type ForOneFightMod = {
@@ -994,7 +1048,9 @@ export type BattleshipPlayerState = {
   hasPendingBoardingDeployment: boolean
   pendingManeuver: BattleshipPendingManeuver | null
   shotDelayRemainingMs: number
+  shotDelayDurationMs: number
   summonCooldownRemaining: number
+  canDeployAnySummon: boolean
   fleet: BattleshipShip[] | null
   board: BattleshipBoard | null
   summons: BattleshipSummon[]
@@ -1168,6 +1224,7 @@ export type BattleshipShotResult = {
   row: number
   col: number
   turnContinues: boolean
+  shotDelayMs: number
   message: string
   affectedShipName: string | null
   sourceShipId: string | null
@@ -1283,10 +1340,15 @@ class SignalRService {
   // Event callbacks
   onGameState: ((state: GameState) => void) | null = null
   onLobbyState: ((state: LobbyState) => void) | null = null
+  onAdminLobbyState: ((state: AdminLobbyState | null) => void) | null = null
+  onAdminLobbyDirectory: ((directory: AdminLobbyDirectory) => void) | null = null
+  onAdminLobbyPresence: ((presence: AdminLobbyPresence) => void) | null = null
+  onAdminLobbyReserved: ((data: { reserved: boolean }) => void) | null = null
+  onAdminLobbyGameStarted: ((data: { gameId: number }) => void) | null = null
   onActionResult: ((result: ActionResult) => void) | null = null
   onGameEvent: ((event: GameEvent) => void) | null = null
   onError: ((error: string) => void) | null = null
-  onAuthenticated: ((data: { success: boolean; discordId: string; playerType: number; lastPlayedCharacter: string }) => void) | null = null
+  onAuthenticated: ((data: { success: boolean; discordId: string; playerType: number; lastPlayedCharacter: string; isGodAdmin: boolean }) => void) | null = null
   onConnectionChanged: ((connected: boolean) => void) | null = null
   onWebAccountCreated: ((data: { discordId: string; username: string }) => void) | null = null
   onGameCreated: ((data: { gameId: number }) => void) | null = null
@@ -1357,6 +1419,26 @@ class SignalRService {
       this.onLobbyState?.(state)
     })
 
+    this.connection.on('AdminLobbyState', (state: AdminLobbyState | null) => {
+      this.onAdminLobbyState?.(state)
+    })
+
+    this.connection.on('AdminLobbyDirectory', (directory: AdminLobbyDirectory) => {
+      this.onAdminLobbyDirectory?.(directory)
+    })
+
+    this.connection.on('AdminLobbyPresence', (presence: AdminLobbyPresence) => {
+      this.onAdminLobbyPresence?.(presence)
+    })
+
+    this.connection.on('AdminLobbyReserved', (data: { reserved: boolean }) => {
+      this.onAdminLobbyReserved?.(data)
+    })
+
+    this.connection.on('AdminLobbyGameStarted', (data: { gameId: number }) => {
+      this.onAdminLobbyGameStarted?.(data)
+    })
+
     this.connection.on('ActionResult', (result: ActionResult) => {
       this.onActionResult?.(result)
     })
@@ -1370,7 +1452,7 @@ class SignalRService {
       this.onError?.(error)
     })
 
-    this.connection.on('Authenticated', (data: { success: boolean; discordId: string; playerType: number; lastPlayedCharacter: string }) => {
+    this.connection.on('Authenticated', (data: { success: boolean; discordId: string; playerType: number; lastPlayedCharacter: string; isGodAdmin: boolean }) => {
       this._isSessionReady = data.success
       this.onAuthenticated?.(data)
     })
@@ -1545,6 +1627,46 @@ class SignalRService {
 
   async requestLobbyState(): Promise<void> {
     await this.connection?.invoke('RequestLobbyState')
+  }
+
+  async createAdminLobby(): Promise<void> {
+    await this.connection?.invoke('CreateAdminLobby')
+  }
+
+  async requestAdminLobbyState(): Promise<void> {
+    await this.connection?.invoke('RequestAdminLobbyState')
+  }
+
+  async requestAdminLobbyDirectory(): Promise<void> {
+    await this.connection?.invoke('RequestAdminLobbyDirectory')
+  }
+
+  async requestAdminLobbyPresence(): Promise<void> {
+    await this.connection?.invoke('RequestAdminLobbyPresence')
+  }
+
+  async adminLobbyInvitePlayer(slotIndex: number, discordId: string): Promise<void> {
+    await this.connection?.invoke('AdminLobbyInvitePlayer', slotIndex, discordId)
+  }
+
+  async adminLobbyAddBot(slotIndex: number, aiDifficulty: number): Promise<void> {
+    await this.connection?.invoke('AdminLobbyAddBot', slotIndex, aiDifficulty)
+  }
+
+  async adminLobbySetCharacter(slotIndex: number, characterName: string): Promise<void> {
+    await this.connection?.invoke('AdminLobbySetCharacter', slotIndex, characterName)
+  }
+
+  async adminLobbyRemoveSlot(slotIndex: number): Promise<void> {
+    await this.connection?.invoke('AdminLobbyRemoveSlot', slotIndex)
+  }
+
+  async adminLobbyStart(): Promise<void> {
+    await this.connection?.invoke('AdminLobbyStart')
+  }
+
+  async adminLobbyCancel(): Promise<void> {
+    await this.connection?.invoke('AdminLobbyCancel')
   }
 
   // ── Game Actions ────────────────────────────────────────────────

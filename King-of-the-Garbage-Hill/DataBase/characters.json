@@ -1677,5 +1677,54 @@
     "Description": "Джон Сноу",
     "StoryAgent": "",
     "Tier": 5
+  },
+  {
+    "Name": "Homelander",
+    "Intelligence": 5,
+    "Psyche": 1,
+    "Speed": 9,
+    "Strength": 10,
+    "Avatar": "https://r2.ozvmusic.com/kotgh/art/avatars/homelander.png",
+    "Passive": [
+      {
+        "PassiveName": "Праведность",
+        "PassiveDescription": "На первом месте Патриот получает +5 *Морали* каждый ход.\nКогда кто-то из врагов слишком долго находится на первом месте, еще и побеждает, нападая на Патриота... Его это немножечко... огорчает.",
+        "Visible": true,
+        "Standalone": false
+      },
+      {
+        "PassiveName": "Скромность",
+        "PassiveDescription": "Если кто-то просвечивает личность Патриота, то против них он не использует Справедливость.\nА если уже все игроки предположили истинную личность Патририота, то он... потеряет причину сдерживаться.",
+        "Visible": true,
+        "Standalone": false
+      },
+      {
+        "PassiveName": "Башня Vought",
+        "PassiveDescription": "Если один из врагов выделился наибольшим количеством очков за ход, СММ Vought начинают публично занижать его успехи на 1.\nНо если сам Патриот набрал больше всего очков, то Vought это распиарят с двойной силой!",
+        "Visible": true,
+        "Standalone": false
+      },
+      {
+        "PassiveName": "Супер \"Человек\"",
+        "PassiveDescription": "Ничто не может отнять у него очки, *Мораль*, нанести **Вред** или как-то понерфить.\nУ этого мудня есть лишь одно слабое место.",
+        "Visible": true,
+        "Standalone": false
+      },
+      {
+        "PassiveName": "Молоко",
+        "PassiveDescription": "Получает обычное очко после первого нападения на HardKitty",
+        "Visible": false,
+        "Standalone": false
+      },
+      {
+        "PassiveName": "Лидер Семерки",
+        "PassiveDescription": "Homelander начинает игру на первом месте, если в игре нет Злого Школьника.",
+        "Visible": false,
+        "Standalone": false
+      }
+    ],
+    "Description": "",
+    "StoryAgent": "",
+    "Tier": 5
   }
 ]

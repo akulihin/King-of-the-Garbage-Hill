@@ -128,12 +128,15 @@ public class DoomsdayMachine : IServiceSingleton
             player.Status.IsWonThisCalculation = Guid.Empty;
             player.Status.IsLostThisCalculation = Guid.Empty;
             player.Status.IsFighting = Guid.Empty;
+            player.Status.IsFightingTheBoys = false;
             player.Status.IsTargetSkipped = Guid.Empty;
             player.Status.IsTargetBlocked = Guid.Empty;
             player.Status.IsAbleToWin = true;
             player.Status.IsShadowAction = false;
             player.Passives.SaitamaUnnoticed.PretendedLossThisFight = false;
             player.Passives.AchievementTracker.SpartanRespectTriggeredThisFight = Guid.Empty;
+            if (Homelander.Is(player))
+                player.Passives.Homelander.LaserTargetThisFight = Guid.Empty;
         }
     }
 
@@ -224,6 +227,7 @@ public class DoomsdayMachine : IServiceSingleton
 
         game.AnyFightThisRound = false; // set true below whenever a fight resolves (Tilted / M8)
         UnknownBug.EnsureExploitMarker(game);
+        Homelander.ApplyRighteousness(game);
 
         // Clear web messages from the PREVIOUS round at the START of new processing.
         // This ensures they persist long enough for the SignalR timer to broadcast them.
@@ -662,6 +666,10 @@ public class DoomsdayMachine : IServiceSingleton
                 
                 playerIamAttacking.Status.IsFighting = player.GetPlayerId();
                 player.Status.IsFighting = playerIamAttacking.GetPlayerId();
+                player.Status.IsFightingTheBoys =
+                    playerIamAttacking.GameCharacter.Name == "TheBoys";
+                playerIamAttacking.Status.IsFightingTheBoys =
+                    player.GameCharacter.Name == "TheBoys";
 
                 Madara.RegisterIncomingAttacker(game, playerIamAttacking, player);
 
@@ -1097,6 +1105,11 @@ public class DoomsdayMachine : IServiceSingleton
                         $"{GordonFreeman.Crowbar}: третий состоявшийся бой выигран.\n");
                 }
 
+                // Homelander's charged laser is terminal except against unknown_bug,
+                // whose AutoWin invariant remains the final combat override below.
+                if (Homelander.IsLaserFight(player, playerIamAttacking))
+                    pointsWined = 1;
+
                 // AutoWin is the final combat invariant: terminal outcome replacers may not
                 // turn a resolved unknown_bug fight into a loss from either direction.
                 if (UnknownBug.Is(player))
@@ -1336,11 +1349,21 @@ public class DoomsdayMachine : IServiceSingleton
                         qualityDamageApplied = true;
                     }
 
+                    var homelanderLaser = Homelander.IsLaserFight(player, playerIamAttacking);
+                    if (homelanderLaser)
+                        Homelander.ApplyLaserDrops(player, playerIamAttacking, game);
+
                     resistIntelAfter = playerIamAttacking.GameCharacter.GetIntelligenceQualityResistInt();
                     resistStrAfter = playerIamAttacking.GameCharacter.GetStrengthQualityResistInt();
                     resistPsycheAfter = playerIamAttacking.GameCharacter.GetPsycheQualityResistInt();
                     dropsAfter = playerIamAttacking.GameCharacter.GetStrengthQualityDropTimes();
                     var achievementDrops = Math.Max(0, dropsAfter - dropsBefore);
+                    if (achievementDrops > 0 && Homelander.Is(player) && !homelanderLaser)
+                        Homelander.LogDropByHomelander(player);
+                    if (achievementDrops > 0
+                        && Homelander.Is(playerIamAttacking)
+                        && player.GameCharacter.Name == "TheBoys")
+                        Homelander.LogTheBoysDrop(playerIamAttacking);
                     player.Passives.AchievementTracker.DropsCaused += achievementDrops;
                     if (player.Passives.TheBoysButcher.SuperDickActive)
                         player.Passives.AchievementTracker.SuperDickDropsCaused += achievementDrops;
@@ -1564,6 +1587,7 @@ public class DoomsdayMachine : IServiceSingleton
                         StormAppeared = stormAppeared,
                         StormWeighingDelta = stormWeighingDelta,
                         StormFlipped = stormFlipped,
+                        HomelanderLaser = Homelander.IsLaserFight(player, playerIamAttacking),
                     });
                 }
 
@@ -1828,6 +1852,7 @@ public class DoomsdayMachine : IServiceSingleton
         }
 
         await _characterPassives.HandleEndOfRound(game);
+        Homelander.ApplyVoughtTower(game);
 
         if (GordonFreeman.PrepareHalfLifeSettlement(game))
         {

@@ -254,6 +254,9 @@ public class PassivesClass
     public bool TheBoysLastUnlockWasCombination { get; set; } = false;
     public int TheBoysUnlockSerial { get; set; } = 0;           // ++ при анлоке ультимейта/комбинации
 
+    // Homelander
+    public Homelander.State Homelander { get; set; } = new();
+
     // Salldorum
     public Salldorum.ShenClass SalldorumShen { get; set; } = new();
     public Salldorum.TimeCapsuleClass SalldorumTimeCapsule { get; set; } = new();

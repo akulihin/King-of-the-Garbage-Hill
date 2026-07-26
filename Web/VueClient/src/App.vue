@@ -1,15 +1,17 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useGameStore } from './store/game'
 import LoginProcess from 'src/components/Login/LoginProcess.vue'
 import LoginSuccess from 'src/components/Login/LoginSuccess.vue'
 import AchievementPopup from 'src/components/AchievementPopup.vue'
 import { installGlobalButtonSound } from 'src/services/sound'
+import { signalrService } from 'src/services/signalr'
 import { currentLocale, setLocale, type AppLocale } from './i18n'
 
 const store = useGameStore()
 const route = useRoute()
+const router = useRouter()
 const localPublicRouteNames = new Set(['lastChances', 'empiresEndgame', 'clash'])
 const isLocalPublicRoute = (name: unknown) => typeof name === 'string' && localPublicRouteNames.has(name)
 const isLocalPublicExperience = computed(() => isLocalPublicRoute(route.name))
@@ -64,6 +66,10 @@ function setTheme(theme: string) {
 }
 
 onMounted(async () => {
+  signalrService.onAdminLobbyGameStarted = (data) => {
+    store.godReservation = false
+    void router.push(`/game/${data.gameId}`)
+  }
   removeGlobalButtonSound = installGlobalButtonSound()
   if (currentTheme.value) {
     document.documentElement.setAttribute('data-theme', currentTheme.value)
@@ -77,6 +83,7 @@ watch(() => route.name, (name, previousName) => {
 })
 
 onUnmounted(() => {
+  signalrService.onAdminLobbyGameStarted = null
   if (removeGlobalButtonSound) {
     removeGlobalButtonSound()
     removeGlobalButtonSound = null
@@ -191,6 +198,13 @@ async function changeLocale(language: AppLocale) {
         @click="changeLocale('en')"
       >ENG</button>
     </div>
+    <Transition name="reservation-fade">
+      <div v-if="store.godReservation" class="god-reservation-overlay" role="status">
+        <span aria-hidden="true">✦</span>
+        <strong>Вы были избраны богом.</strong>
+        <small>{{ currentLocale === 'ru' ? 'Ожидайте начала админской игры.' : 'Wait for the admin match to begin.' }}</small>
+      </div>
+    </Transition>
     <!-- Login screen (designer's layout) -->
     <div v-if="showLogin && !store.isAuthenticated && !isPublicExperience" class="logins">
       <LoginProcess
@@ -908,6 +922,46 @@ html[lang='en'] .story-ru {
   z-index: 1000;
   box-shadow: var(--shadow-lg);
   border: 1px solid var(--accent-red);
+}
+
+.god-reservation-overlay {
+  position: fixed;
+  z-index: 10000;
+  top: 18px;
+  left: 50%;
+  display: grid;
+  min-width: min(420px, calc(100vw - 28px));
+  grid-template-columns: auto 1fr;
+  padding: 14px 18px;
+  align-items: center;
+  gap: 2px 12px;
+  transform: translateX(-50%);
+  border: 1px solid rgba(242, 185, 69, 0.55);
+  border-radius: 14px;
+  color: var(--text-primary);
+  background: var(--bg-primary);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.44), 0 0 30px rgba(242, 185, 69, 0.12);
+  pointer-events: none;
+}
+
+.god-reservation-overlay > span {
+  grid-row: span 2;
+  color: var(--accent-gold);
+  font-size: 1.8rem;
+}
+
+.god-reservation-overlay small {
+  color: var(--text-muted);
+}
+
+.reservation-fade-enter-active,
+.reservation-fade-leave-active {
+  transition: opacity 0.2s ease;
+}
+
+.reservation-fade-enter-from,
+.reservation-fade-leave-to {
+  opacity: 0;
 }
 
 /* ── Game version corner label ────────────────────────────────────── */

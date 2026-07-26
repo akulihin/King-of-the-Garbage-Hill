@@ -181,6 +181,7 @@ onUnmounted(() => {
 })
 
 async function createGame() {
+  if (store.godReservation) return
   isCreatingGame.value = true
   await store.createWebGame()
 }
@@ -194,13 +195,19 @@ async function openTestGamePicker() {
 }
 
 async function selectTestCharacter(name: string) {
+  if (store.godReservation) return
   showCharacterPicker.value = false
   isCreatingGame.value = true
   await store.createTestGame(name)
 }
 
 async function handleJoinGame(gameId: number) {
+  if (store.godReservation) return
   await store.joinWebGame(gameId)
+}
+
+function openAdminLobby() {
+  router.push('/admin-lobby')
 }
 
 function viewGame(gameId: number) {
@@ -418,7 +425,7 @@ function handleVisibilityChange() {
           <button
             v-if="store.isAuthenticated"
             class="btn btn-primary btn-sm"
-            :disabled="isCreatingGame"
+            :disabled="isCreatingGame || store.godReservation"
             @click="createGame"
           >
             {{ isCreatingGame ? 'Creating...' : '+ New Game' }}
@@ -426,7 +433,7 @@ function handleVisibilityChange() {
           <button
             v-if="store.isLobbyAdmin && store.lastPlayedCharacter"
             class="btn btn-sm btn-last-play"
-            :disabled="isCreatingGame"
+            :disabled="isCreatingGame || store.godReservation"
             @click="selectTestCharacter(store.lastPlayedCharacter)"
           >
             Last Play {{ store.lastPlayedCharacter }}
@@ -434,10 +441,18 @@ function handleVisibilityChange() {
           <button
             v-if="store.isLobbyAdmin"
             class="btn btn-sm btn-test-game"
-            :disabled="isCreatingGame"
+            :disabled="isCreatingGame || store.godReservation"
             @click="openTestGamePicker"
           >
             Test New Game
+          </button>
+          <button
+            v-if="store.isGodAdmin"
+            class="btn btn-sm btn-admin-game"
+            :disabled="store.godReservation"
+            @click="openAdminLobby"
+          >
+            Админская игра
           </button>
         </div>
       </div>
@@ -503,6 +518,7 @@ function handleVisibilityChange() {
             <button
               v-if="game.canJoin && store.isAuthenticated"
               class="btn btn-primary"
+              :disabled="store.godReservation"
               @click="handleJoinGame(game.gameId)"
             >
               Join
@@ -1039,6 +1055,16 @@ function handleVisibilityChange() {
 }
 .btn-test-game:hover {
   background: rgba(180, 100, 255, 0.25);
+}
+
+.btn-admin-game {
+  border: 1px solid #e89e43;
+  color: #f3b765;
+  background: rgba(232, 158, 67, 0.12);
+}
+
+.btn-admin-game:hover {
+  background: rgba(232, 158, 67, 0.25);
 }
 
 /* Character Picker Modal */
