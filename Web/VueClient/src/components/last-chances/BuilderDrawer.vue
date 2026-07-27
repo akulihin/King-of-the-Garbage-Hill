@@ -262,6 +262,20 @@ const copy = {
     evadeChance: 'Attack evade chance',
     orbitDistance: 'Orbit distance',
     leapTriggerDistance: 'Leap trigger distance',
+    wolfSettings: 'Invisible wolf hunt',
+    wolfVersion: 'Behavior version',
+    wolfV1: 'v1 · shared elite path',
+    wolfV2: 'v2 · stalks the player’s back',
+    wolfStalkRadius: 'Stalk distance',
+    wolfStalkSpeed: 'Stalk speed ×',
+    wolfStalkWobble: 'Stalk offset (rad)',
+    wolfStalkPatience: 'Patience before a run (ms)',
+    wolfRearDot: 'Rear angle needed',
+    wolfFrontDotAbort: 'Facing angle that cancels',
+    wolfCloseSpeed: 'Approach speed ×',
+    wolfRetreatSpeed: 'Retreat speed ×',
+    wolfRehideDelay: 'Delay before vanishing (ms)',
+    wolfGlintDot: 'Angle that shows the eyes',
     gestureNames: {
       tap: 'Tap',
       doubleTap: 'Double tap',
@@ -479,6 +493,20 @@ const copy = {
     evadeChance: 'Шанс уклониться от атаки',
     orbitDistance: 'Дистанция кружения',
     leapTriggerDistance: 'Дистанция начала прыжка',
+    wolfSettings: 'Охота Невидимого волка',
+    wolfVersion: 'Версия поведения',
+    wolfV1: 'v1 · общий путь элиты',
+    wolfV2: 'v2 · ходит за спиной игрока',
+    wolfStalkRadius: 'Дистанция слежки',
+    wolfStalkSpeed: 'Скорость слежки ×',
+    wolfStalkWobble: 'Смещение поста (рад)',
+    wolfStalkPatience: 'Терпение перед заходом (мс)',
+    wolfRearDot: 'Нужный угол со спины',
+    wolfFrontDotAbort: 'Угол взгляда, отменяющий заход',
+    wolfCloseSpeed: 'Скорость захода ×',
+    wolfRetreatSpeed: 'Скорость отхода ×',
+    wolfRehideDelay: 'Задержка перед исчезновением (мс)',
+    wolfGlintDot: 'Угол, при котором видно глаза',
     gestureNames: {
       tap: 'Нажатие',
       doubleTap: 'Двойное нажатие',
@@ -613,6 +641,26 @@ function loadDraft(config: LastChancesConfig) {
       leapTriggerDistance: 220,
     }
     for (const [key, value] of Object.entries(defaults)) knifeSpider.tuning[key] ??= value
+  }
+  const invisibleWolf = draft.value.enemies.find(enemy => enemy.id === 'invisible-wolf')
+  if (invisibleWolf) {
+    invisibleWolf.tuning ??= {}
+    const defaults: Record<string, number> = {
+      behaviorVersion: 2,
+      stalkRadius: 260,
+      stalkSpeedMultiplier: 0.82,
+      stalkWobbleRadians: 0.55,
+      stalkPatienceMs: 900,
+      orbitDirectionMinMs: 420,
+      orbitDirectionMaxMs: 1100,
+      rearDotMaximum: -0.15,
+      frontDotAbort: 0.25,
+      closeSpeedMultiplier: 1.35,
+      retreatSpeedMultiplier: 1.1,
+      rehideDelayMs: 1400,
+      glintDot: 0.55,
+    }
+    for (const [key, value] of Object.entries(defaults)) invisibleWolf.tuning[key] ??= value
   }
   syncingRaw = true
   rawJson.value = JSON.stringify(draft.value, null, 2)
@@ -1469,6 +1517,31 @@ function exportJson() {
                     <label>{{ t.evadeChance }}<input v-model.number="selectedEnemy.tuning.evadeChance" type="number" min="0" max="1" step="0.01" /></label>
                     <label>{{ t.orbitDistance }}<input v-model.number="selectedEnemy.tuning.orbitDistance" type="number" min="1" step="1" /></label>
                     <label>{{ t.leapTriggerDistance }}<input v-model.number="selectedEnemy.tuning.leapTriggerDistance" type="number" min="1" step="1" /></label>
+                  </div>
+                </section>
+                <section
+                  v-if="selectedEnemy?.id === 'invisible-wolf' && selectedEnemy.tuning"
+                  class="lc-control-tuning"
+                  data-testid="invisible-wolf-settings"
+                >
+                  <h3>{{ t.wolfSettings }}</h3>
+                  <div class="lc-fields-grid">
+                    <label>{{ t.wolfVersion }}
+                      <select v-model.number="selectedEnemy.tuning.behaviorVersion">
+                        <option :value="1">{{ t.wolfV1 }}</option>
+                        <option :value="2">{{ t.wolfV2 }}</option>
+                      </select>
+                    </label>
+                    <label>{{ t.wolfStalkRadius }}<input v-model.number="selectedEnemy.tuning.stalkRadius" type="number" min="1" step="10" /></label>
+                    <label>{{ t.wolfStalkSpeed }}<input v-model.number="selectedEnemy.tuning.stalkSpeedMultiplier" type="number" min="0.1" step="0.02" /></label>
+                    <label>{{ t.wolfStalkWobble }}<input v-model.number="selectedEnemy.tuning.stalkWobbleRadians" type="number" min="0" max="3.14" step="0.05" /></label>
+                    <label>{{ t.wolfStalkPatience }}<input v-model.number="selectedEnemy.tuning.stalkPatienceMs" type="number" min="1" step="50" /></label>
+                    <label>{{ t.wolfRearDot }}<input v-model.number="selectedEnemy.tuning.rearDotMaximum" type="number" min="-1" max="1" step="0.05" /></label>
+                    <label>{{ t.wolfFrontDotAbort }}<input v-model.number="selectedEnemy.tuning.frontDotAbort" type="number" min="-1" max="1" step="0.05" /></label>
+                    <label>{{ t.wolfCloseSpeed }}<input v-model.number="selectedEnemy.tuning.closeSpeedMultiplier" type="number" min="0.1" step="0.05" /></label>
+                    <label>{{ t.wolfRetreatSpeed }}<input v-model.number="selectedEnemy.tuning.retreatSpeedMultiplier" type="number" min="0.1" step="0.05" /></label>
+                    <label>{{ t.wolfRehideDelay }}<input v-model.number="selectedEnemy.tuning.rehideDelayMs" type="number" min="1" step="50" /></label>
+                    <label>{{ t.wolfGlintDot }}<input v-model.number="selectedEnemy.tuning.glintDot" type="number" min="-1" max="1" step="0.05" /></label>
                   </div>
                 </section>
               </fieldset>

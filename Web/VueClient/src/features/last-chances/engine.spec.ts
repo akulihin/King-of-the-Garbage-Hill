@@ -117,6 +117,7 @@ interface RuntimeEnemy {
     exitHoleId: string
     detonateAtMs: number
   } | null
+  revealedMs: number
   knifeSpiderV2: {
     attackMode: 'leap' | 'strike' | null
     flightVelocity: LastChancesVector | null
@@ -127,6 +128,14 @@ interface RuntimeEnemy {
     evadeMs: number
     evadeDirection: LastChancesVector
     lastReactedAttackAtMs: number
+    rng: () => number
+  } | null
+  invisibleWolf: {
+    phase: 'unaware' | 'stalking' | 'closing' | 'lunging' | 'recovering' | 'exposed'
+    orbitDirection: -1 | 1
+    decisionMs: number
+    patienceMs: number
+    rehideMs: number
     rng: () => number
   } | null
 }
@@ -451,6 +460,7 @@ type EngineTestAccess = {
   updateDelayedAttacks: (deltaMs: number) => void
   updateDelayedRecoveries: (deltaMs: number) => void
   updateEnemies: (deltaSeconds: number, deltaMs: number) => void
+  updateMentalHealth: (deltaSeconds: number) => void
   updateHeldWeaponMechanics: (deltaMs: number) => void
   updateSpiderKnifeWriggle: () => void
   updateKeyboardDualSenseTriggers: (atMs: number) => void
@@ -5653,6 +5663,176 @@ describe('99LC Двуручное копьё v2', () => {
       expect(area.attack.arcDegrees).toBe(360)
       // The spin context other weapons key off must still recognise the overhead variant.
       expect(access.controlContextActive('left', 'spin')).toBe(true)
+    } finally {
+      engine.destroy()
+    }
+  })
+})
+
+describe('99LC Невидимый волк', () => {
+  function wolfConfig(behaviorVersion = 2): LastChancesConfig {
+    const config = combatConfig('either-claws', null, 'invisible-wolf', 1)
+    const wolf = config.enemies.find(candidate => candidate.id === 'invisible-wolf')!
+    wolf.tuning = { ...wolf.tuning, behaviorVersion }
+    return config
+  }
+
+  /** 1 when the player is looking straight at the wolf, −1 when it is directly behind them. */
+  function aimDot(access: EngineTestAccess, enemy: RuntimeEnemy): number {
+    const offsetX = enemy.position.x - access.player.position.x
+    const offsetY = enemy.position.y - access.player.position.y
+    const offsetLength = Math.hypot(offsetX, offsetY) || 1
+    const aimLength = Math.hypot(access.player.aim.x, access.player.aim.y) || 1
+    return (offsetX / offsetLength) * (access.player.aim.x / aimLength)
+      + (offsetY / offsetLength) * (access.player.aim.y / aimLength)
+  }
+
+  function tickUntil(
+    access: EngineTestAccess,
+    predicate: () => boolean,
+    maxTicks = 700,
+    deltaMs = 20,
+  ): boolean {
+    for (let index = 0; index < maxTicks; index += 1) {
+      if (predicate()) return true
+      access.updateEnemies(deltaMs / 1000, deltaMs)
+    }
+    return predicate()
+  }
+
+  function startHunt(config = wolfConfig()): {
+    engine: LastChancesEngine
+    access: EngineTestAccess
+    wolf: RuntimeEnemy
+  } {
+    const { engine, access } = startCombat(config)
+    const [wolf] = access.enemies
+    placeEnemy(access, wolf, 150)
+    wolf.facing = { x: -1, y: 0 }
+    return { engine, access, wolf }
+  }
+
+  it('starts hunting without ever announcing itself', () => {
+    const { engine, access, wolf } = startHunt()
+
+    try {
+      const seenStates = new Set<LastChancesEnemyState>()
+      for (let index = 0; index < 80; index += 1) {
+        access.updateEnemies(0.02, 20)
+        seenStates.add(wolf.state)
+      }
+
+      expect(seenStates.has('alerted')).toBe(false)
+      expect(wolf.invisibleWolf?.phase).toBe('stalking')
+      expect(access.createSnapshot().enemies[0].visible).toBe(false)
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('waits behind the player before committing to a run', () => {
+    const { engine, access, wolf } = startHunt()
+
+    try {
+      expect(tickUntil(access, () => wolf.invisibleWolf?.phase === 'closing')).toBe(true)
+      expect(aimDot(access, wolf)).toBeLessThan(-0.15)
+      // Committing does not give the player a free look: the approach is still unseen.
+      expect(access.createSnapshot().enemies[0].visible).toBe(false)
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('telegraphs the pounce at full opacity with a parry window', () => {
+    const { engine, access, wolf } = startHunt()
+
+    try {
+      expect(tickUntil(access, () => wolf.state === 'attacking')).toBe(true)
+      expect(wolf.invisibleWolf?.phase).toBe('lunging')
+      expect(access.createSnapshot().enemies[0].visible).toBe(true)
+      expect(tickUntil(
+        access,
+        () => access.createSnapshot().enemies[0].parryWindowOpen,
+        60,
+      )).toBe(true)
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('calls off an approach the moment the player turns toward it', () => {
+    const { engine, access, wolf } = startHunt()
+
+    try {
+      expect(tickUntil(access, () => wolf.invisibleWolf?.phase === 'closing')).toBe(true)
+
+      const toWolfX = wolf.position.x - access.player.position.x
+      const toWolfY = wolf.position.y - access.player.position.y
+      const length = Math.hypot(toWolfX, toWolfY) || 1
+      access.player.aim = { x: toWolfX / length, y: toWolfY / length }
+      access.updateEnemies(0.02, 20)
+
+      expect(wolf.invisibleWolf?.phase).toBe('stalking')
+      expect(wolf.invisibleWolf?.patienceMs).toBe(0)
+      expect(access.createSnapshot().enemies[0].visible).toBe(false)
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('cannot vanish again while a landed hit still reveals it', () => {
+    const config = wolfConfig()
+    const { engine, access, wolf } = startHunt(config)
+    const claws = weapon(config, 'either-claws')
+
+    try {
+      expect(tickUntil(access, () => wolf.invisibleWolf?.phase === 'stalking', 60)).toBe(true)
+      access.damageEnemy(wolf, claws.attacks.tap, 0, { x: 1, y: 0 }, { hand: 'left', gesture: 'tap' })
+      expect(wolf.revealedMs).toBeGreaterThan(0)
+
+      access.updateEnemies(0.02, 20)
+      expect(wolf.invisibleWolf?.phase).toBe('exposed')
+
+      for (let index = 0; index < 20; index += 1) {
+        access.updateEnemies(0.02, 20)
+        expect(access.createSnapshot().enemies[0].visible).toBe(true)
+      }
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('presses the player’s mind only once the hunt has committed', () => {
+    const { engine, access, wolf } = startHunt()
+
+    try {
+      expect(tickUntil(access, () => wolf.invisibleWolf?.phase === 'stalking', 60)).toBe(true)
+      const stalkedFrom = access.player.mentalHealth
+      access.updateMentalHealth(1)
+      expect(access.player.mentalHealth).toBeGreaterThanOrEqual(stalkedFrom)
+
+      wolf.invisibleWolf!.phase = 'closing'
+      const closedFrom = access.player.mentalHealth
+      access.updateMentalHealth(1)
+      expect(access.player.mentalHealth).toBeCloseTo(
+        closedFrom - wolf.definition.mentalPressurePerSecond,
+        5,
+      )
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('keeps behaviorVersion 1 on the shared elite path', () => {
+    const { engine, access, wolf } = startHunt(wolfConfig(1))
+
+    try {
+      expect(wolf.invisibleWolf).toBeNull()
+      const seenStates = new Set<LastChancesEnemyState>()
+      expect(tickUntil(access, () => {
+        seenStates.add(wolf.state)
+        return seenStates.has('alerted')
+      }, 120)).toBe(true)
     } finally {
       engine.destroy()
     }

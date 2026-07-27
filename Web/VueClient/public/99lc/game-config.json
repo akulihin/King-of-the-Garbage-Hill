@@ -1218,7 +1218,22 @@
       "parryWindowMs": 145,
       "invisibleUntilAlerted": true,
       "mentalPressurePerSecond": 3.4,
-      "color": "#8fa9b6"
+      "color": "#8fa9b6",
+      "tuning": {
+        "behaviorVersion": 2,
+        "stalkRadius": 260,
+        "stalkSpeedMultiplier": 0.82,
+        "stalkWobbleRadians": 0.55,
+        "stalkPatienceMs": 900,
+        "orbitDirectionMinMs": 420,
+        "orbitDirectionMaxMs": 1100,
+        "rearDotMaximum": -0.15,
+        "frontDotAbort": 0.25,
+        "closeSpeedMultiplier": 1.35,
+        "retreatSpeedMultiplier": 1.1,
+        "rehideDelayMs": 1400,
+        "glintDot": 0.55
+      }
     },
     {
       "id": "curator-shadow",

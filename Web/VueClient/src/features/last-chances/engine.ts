@@ -163,6 +163,24 @@ interface RuntimeKnifeSpiderV2 {
   rng: () => number
 }
 
+/**
+ * The Invisible wolf hunts instead of patrolling, so unlike the Knife-spider it owns its whole
+ * lifecycle — including its own visibility. `phase` is the authority on what the wolf is doing;
+ * `RuntimeEnemy.state` is driven from it, and is deliberately held at `idle` while hidden so the
+ * shared `enemyVisible` rule keeps the wolf off the screen.
+ */
+interface RuntimeInvisibleWolf {
+  phase: 'unaware' | 'stalking' | 'closing' | 'lunging' | 'recovering' | 'exposed'
+  orbitDirection: -1 | 1
+  /** Countdown to the next orbit-direction reroll. */
+  decisionMs: number
+  /** How long the wolf has held a position behind the player's aim. */
+  patienceMs: number
+  /** Time left before a wolf that has finished a lunge may vanish again. */
+  rehideMs: number
+  rng: () => number
+}
+
 interface RuntimeEnemy {
   id: string
   definition: LastChancesEnemyDefinition
@@ -194,6 +212,8 @@ interface RuntimeEnemy {
   motherRetreat: RuntimeMotherRetreat | null
   /** Null is the complete legacy v1 path; v2 owns its locomotion and flight state here. */
   knifeSpiderV2: RuntimeKnifeSpiderV2 | null
+  /** Null is the legacy v1 wolf walking the shared elite path; v2 owns the stalk cycle here. */
+  invisibleWolf: RuntimeInvisibleWolf | null
 }
 
 interface RuntimeMotherRetreat {
@@ -709,6 +729,28 @@ function tuningValue(
 function isKnifeSpiderV2Definition(definition: LastChancesEnemyDefinition): boolean {
   return definition.id === 'spider-knife'
     && tuningValue(definition, 'behaviorVersion', 2) >= 2
+}
+
+/** `behaviorVersion: 1` restores the shared elite path the wolf used before the stalk cycle. */
+function isInvisibleWolfDefinition(definition: LastChancesEnemyDefinition): boolean {
+  return definition.id === 'invisible-wolf'
+    && tuningValue(definition, 'behaviorVersion', 2) >= 2
+}
+
+/**
+ * Mixes a `#rrggbb` definition colour toward black (negative) or white (positive). The hand-drawn
+ * enemy bodies use it for depth — far limbs, shaded undersides, lit edges — so every model stays
+ * keyed to the one colour the Builder exposes. Anything that is not a plain hex passes through.
+ */
+function shadeEnemyColor(color: string, amount: number): string {
+  if (!/^#[0-9a-f]{6}$/i.test(color)) return color
+  const target = amount < 0 ? 0 : 255
+  const weight = Math.min(1, Math.abs(amount))
+  const channel = (offset: number): number => {
+    const value = Number.parseInt(color.slice(offset, offset + 2), 16)
+    return Math.round(value + (target - value) * weight)
+  }
+  return `#${[1, 3, 5].map(offset => channel(offset).toString(16).padStart(2, '0')).join('')}`
 }
 
 function isCockroachDefinition(definition: LastChancesEnemyDefinition): boolean {
@@ -1441,6 +1483,16 @@ export class LastChancesEngine {
               evadeDirection: { x: 0, y: 0 },
               lastReactedAttackAtMs: Number.NEGATIVE_INFINITY,
               rng: createLastChancesRng(`${node.seed}:${enemy.id}:knife-spider-v2`),
+            }
+          : null,
+        invisibleWolf: isInvisibleWolfDefinition(definition)
+          ? {
+              phase: 'unaware',
+              orbitDirection: rng() < 0.5 ? -1 : 1,
+              decisionMs: 0,
+              patienceMs: 0,
+              rehideMs: 0,
+              rng: createLastChancesRng(`${node.seed}:${enemy.id}:invisible-wolf`),
             }
           : null,
       }
@@ -2771,6 +2823,7 @@ export class LastChancesEngine {
       motherRetreatsTriggered: 0,
       motherRetreat: null,
       knifeSpiderV2: null,
+      invisibleWolf: null,
     })
   }
 
@@ -2834,6 +2887,22 @@ export class LastChancesEngine {
       const distance = vectorLength(toPlayer)
       const profile = this.enemyCombatProfile(enemy)
 
+      // The wolf owns its whole lifecycle, visibility included, so it intercepts before the
+      // shared notice/alert path instead of hooking in after it the way the spider does.
+      if (enemy.invisibleWolf) {
+        const startedAttack = this.updateInvisibleWolf(
+          enemy,
+          profile,
+          toPlayer,
+          distance,
+          deltaSeconds,
+          deltaMs,
+          !queuedAttackerActive,
+        )
+        if (startedAttack) queuedAttackerActive = true
+        continue
+      }
+
       if (enemy.state === 'idle') {
         const angle = Math.atan2(enemy.facing.y, enemy.facing.x)
           + deltaSeconds * (enemy.definition.idleTurnRadiansPerSecond ?? 0.28)
@@ -2868,42 +2937,270 @@ export class LastChancesEngine {
         continue
       }
 
-      if (enemy.state === 'attacking') {
-        if (!(profile.attackKind === 'leap' && enemy.lockedAttackDirection)) {
-          enemy.facing = normalize(toPlayer, enemy.facing)
-        }
-        this.updateEnemyAttack(enemy, profile, deltaSeconds, deltaMs, distance)
-        continue
-      }
-
-      enemy.facing = normalize(toPlayer, enemy.facing)
       const mayUseQueue = profile.role === 'creep'
         || profile.role === 'cockroach'
         || !queuedAttackerActive
+      const startedAttack = this.updateStandardEnemy(
+        enemy,
+        profile,
+        toPlayer,
+        distance,
+        deltaSeconds,
+        deltaMs,
+        mayUseQueue,
+      )
+      if (startedAttack && profile.role !== 'creep' && profile.role !== 'cockroach') {
+        queuedAttackerActive = true
+      }
+    }
+  }
+
+  /**
+   * The shared standard/elite path: resolve an attack already under way, otherwise close to the
+   * preferred range and start one when the attack queue allows it. Returns whether this tick
+   * started an attack so the caller can keep the one-attacker-at-a-time queue honest.
+   */
+  private updateStandardEnemy(
+    enemy: RuntimeEnemy,
+    profile: RuntimeEnemyCombatProfile,
+    toPlayer: LastChancesVector,
+    distance: number,
+    deltaSeconds: number,
+    deltaMs: number,
+    mayUseQueue: boolean,
+  ): boolean {
+    if (enemy.state === 'attacking') {
+      if (!(profile.attackKind === 'leap' && enemy.lockedAttackDirection)) {
+        enemy.facing = normalize(toPlayer, enemy.facing)
+      }
+      this.updateEnemyAttack(enemy, profile, deltaSeconds, deltaMs, distance)
+      return false
+    }
+
+    enemy.facing = normalize(toPlayer, enemy.facing)
+    if (distance <= profile.attackRange
+      && enemy.attackCooldownMs <= 0
+      && enemy.statuses.disarmMs <= 0
+      && mayUseQueue) {
+      this.startEnemyAttack(enemy, profile)
+      return true
+    }
+    const desiredDistance = profile.attackRange
+      * (enemy.definition.preferredAttackRangeRatio ?? 0.72)
+    if (distance > desiredDistance) {
+      this.moveEnemy(enemy, {
+        x: enemy.facing.x * enemy.definition.moveSpeed * deltaSeconds,
+        y: enemy.facing.y * enemy.definition.moveSpeed * deltaSeconds,
+      })
+      if (enemy.statuses.slowMultiplier < 1) {
+        const correction = 1 - enemy.statuses.slowMultiplier
+        this.moveEnemy(enemy, {
+          x: -enemy.facing.x * enemy.definition.moveSpeed * deltaSeconds * correction,
+          y: -enemy.facing.y * enemy.definition.moveSpeed * deltaSeconds * correction,
+        })
+      }
+    }
+    return false
+  }
+
+  /**
+   * How squarely the player's aim points at the wolf: 1 is dead ahead, −1 is directly behind.
+   * The whole stalk cycle is written against this one number, so "turn around" is always the
+   * answer to the wolf no matter where it is standing.
+   */
+  private invisibleWolfAimDot(enemy: RuntimeEnemy): number {
+    const aim = normalize(this.player.aim, { x: 1, y: 0 })
+    const toWolf = normalize({
+      x: enemy.position.x - this.player.position.x,
+      y: enemy.position.y - this.player.position.y,
+    }, aim)
+    return toWolf.x * aim.x + toWolf.y * aim.y
+  }
+
+  private moveInvisibleWolf(
+    enemy: RuntimeEnemy,
+    direction: LastChancesVector,
+    deltaSeconds: number,
+    speedMultiplier: number,
+  ): void {
+    const speed = enemy.definition.moveSpeed * speedMultiplier * enemy.statuses.slowMultiplier
+    this.moveEnemy(enemy, {
+      x: direction.x * speed * deltaSeconds,
+      y: direction.y * speed * deltaSeconds,
+    })
+  }
+
+  /** Walks the wolf toward the point behind the player's aim it wants to wait at. */
+  private moveInvisibleWolfToStalkPost(
+    enemy: RuntimeEnemy,
+    wolf: RuntimeInvisibleWolf,
+    deltaSeconds: number,
+  ): void {
+    const aim = normalize(this.player.aim, { x: 1, y: 0 })
+    const angle = Math.atan2(aim.y, aim.x)
+      + Math.PI
+      + wolf.orbitDirection * tuningValue(enemy.definition, 'stalkWobbleRadians', 0.55)
+    const radius = tuningValue(enemy.definition, 'stalkRadius', 260)
+    const toPost = {
+      x: this.player.position.x + Math.cos(angle) * radius - enemy.position.x,
+      y: this.player.position.y + Math.sin(angle) * radius - enemy.position.y,
+    }
+    if (vectorLength(toPost) <= enemy.definition.radius) return
+    this.moveInvisibleWolf(
+      enemy,
+      normalize(toPost, enemy.facing),
+      deltaSeconds,
+      tuningValue(enemy.definition, 'stalkSpeedMultiplier', 0.82),
+    )
+  }
+
+  /**
+   * The Invisible wolf hunts rather than patrols. It never enters `alerted` — it simply stops
+   * being anywhere the player is looking, waits behind their aim, and commits to one telegraphed
+   * pounce. Two rules keep it fair: turning to face it cancels an approach, and any landed hit
+   * pins it on screen until the reveal expires. Returns whether it started an attack this tick.
+   */
+  private updateInvisibleWolf(
+    enemy: RuntimeEnemy,
+    profile: RuntimeEnemyCombatProfile,
+    toPlayer: LastChancesVector,
+    distance: number,
+    deltaSeconds: number,
+    deltaMs: number,
+    mayUseQueue: boolean,
+  ): boolean {
+    const wolf = enemy.invisibleWolf
+    if (!wolf) return false
+    wolf.decisionMs -= deltaMs
+    wolf.rehideMs = Math.max(0, wolf.rehideMs - deltaMs)
+    const rehideDelayMs = tuningValue(enemy.definition, 'rehideDelayMs', 1400)
+
+    // A landed hit, a parry or a pin drops the wolf out of the hunt: while the reveal lasts it
+    // fights as a plain elite and cannot vanish.
+    if (enemy.revealedMs > 0 && wolf.phase !== 'lunging') {
+      wolf.phase = 'exposed'
+      wolf.patienceMs = 0
+      if (enemy.state !== 'attacking') enemy.state = 'chasing'
+    }
+
+    if (wolf.phase === 'unaware') {
+      const angle = Math.atan2(enemy.facing.y, enemy.facing.x)
+        + deltaSeconds * (enemy.definition.idleTurnRadiansPerSecond ?? 0.28)
+      enemy.facing = { x: Math.cos(angle), y: Math.sin(angle) }
+      if (!this.enemyCanSeePlayer(enemy)) {
+        enemy.state = 'idle'
+        enemy.noticeMs = 0
+        return false
+      }
+      enemy.state = 'noticing'
+      enemy.noticeMs += deltaMs
+      enemy.facing = normalize(toPlayer, enemy.facing)
+      if (enemy.noticeMs >= enemy.definition.noticeMs) {
+        // No `alerted` beat and no `!!` marker: the wolf does not announce that it has seen you.
+        wolf.phase = 'stalking'
+        wolf.patienceMs = 0
+        enemy.state = 'idle'
+        enemy.noticeMs = 0
+      }
+      return false
+    }
+
+    if (wolf.phase === 'exposed') {
+      if (enemy.revealedMs <= 0 && enemy.state !== 'attacking') {
+        wolf.phase = 'recovering'
+        wolf.rehideMs = rehideDelayMs
+      }
+      return this.updateStandardEnemy(
+        enemy, profile, toPlayer, distance, deltaSeconds, deltaMs, mayUseQueue,
+      )
+    }
+
+    if (wolf.phase === 'lunging') {
+      if (enemy.state === 'attacking') {
+        this.updateStandardEnemy(
+          enemy, profile, toPlayer, distance, deltaSeconds, deltaMs, mayUseQueue,
+        )
+        return false
+      }
+      // `finishEnemyAttack` leaves the wolf chasing, so the pounce is followed by a window where
+      // it is visible and backing off — that window is the player's turn.
+      wolf.phase = enemy.revealedMs > 0 ? 'exposed' : 'recovering'
+      wolf.rehideMs = rehideDelayMs
+    }
+
+    if (wolf.phase === 'recovering') {
+      enemy.state = 'chasing'
+      enemy.facing = normalize(toPlayer, enemy.facing)
+      if (distance < tuningValue(enemy.definition, 'stalkRadius', 260)) {
+        this.moveInvisibleWolf(
+          enemy,
+          { x: -enemy.facing.x, y: -enemy.facing.y },
+          deltaSeconds,
+          tuningValue(enemy.definition, 'retreatSpeedMultiplier', 1.1),
+        )
+      }
+      if (wolf.rehideMs <= 0 && enemy.revealedMs <= 0) {
+        wolf.phase = 'stalking'
+        wolf.patienceMs = 0
+        enemy.state = 'idle'
+      }
+      return false
+    }
+
+    const aimDot = this.invisibleWolfAimDot(enemy)
+    const frontDotAbort = tuningValue(enemy.definition, 'frontDotAbort', 0.25)
+
+    if (wolf.phase === 'closing') {
+      enemy.state = 'idle'
+      enemy.facing = normalize(toPlayer, enemy.facing)
+      if (aimDot > frontDotAbort) {
+        // Turning toward the wolf always calls off the approach. This is the counterplay.
+        wolf.phase = 'stalking'
+        wolf.patienceMs = 0
+        return false
+      }
       if (distance <= profile.attackRange
         && enemy.attackCooldownMs <= 0
         && enemy.statuses.disarmMs <= 0
         && mayUseQueue) {
+        wolf.phase = 'lunging'
         this.startEnemyAttack(enemy, profile)
-        if (profile.role !== 'creep' && profile.role !== 'cockroach') queuedAttackerActive = true
-        continue
+        return true
       }
-      const desiredDistance = profile.attackRange
+      const holdDistance = profile.attackRange
         * (enemy.definition.preferredAttackRangeRatio ?? 0.72)
-      if (distance > desiredDistance) {
-        this.moveEnemy(enemy, {
-          x: enemy.facing.x * enemy.definition.moveSpeed * deltaSeconds,
-          y: enemy.facing.y * enemy.definition.moveSpeed * deltaSeconds,
-        })
-        if (enemy.statuses.slowMultiplier < 1) {
-          const correction = 1 - enemy.statuses.slowMultiplier
-          this.moveEnemy(enemy, {
-            x: -enemy.facing.x * enemy.definition.moveSpeed * deltaSeconds * correction,
-            y: -enemy.facing.y * enemy.definition.moveSpeed * deltaSeconds * correction,
-          })
-        }
+      if (distance > holdDistance) {
+        this.moveInvisibleWolf(
+          enemy,
+          enemy.facing,
+          deltaSeconds,
+          tuningValue(enemy.definition, 'closeSpeedMultiplier', 1.35),
+        )
       }
+      return false
     }
+
+    enemy.state = 'idle'
+    enemy.facing = normalize(toPlayer, enemy.facing)
+    if (wolf.decisionMs <= 0) {
+      const minimum = tuningValue(enemy.definition, 'orbitDirectionMinMs', 420)
+      const maximum = Math.max(minimum, tuningValue(enemy.definition, 'orbitDirectionMaxMs', 1100))
+      wolf.decisionMs = minimum + (maximum - minimum) * wolf.rng()
+      // Only reroll the side it circles from when the player is looking its way; otherwise it
+      // would abandon a good rear position for no reason.
+      if (aimDot > frontDotAbort) wolf.orbitDirection = wolf.orbitDirection === 1 ? -1 : 1
+    }
+    this.moveInvisibleWolfToStalkPost(enemy, wolf, deltaSeconds)
+    if (aimDot > frontDotAbort) {
+      wolf.patienceMs = 0
+    } else if (aimDot < tuningValue(enemy.definition, 'rearDotMaximum', -0.15)) {
+      wolf.patienceMs += deltaMs
+    }
+    if (wolf.patienceMs >= tuningValue(enemy.definition, 'stalkPatienceMs', 900)
+      && !this.attackPathBlocked(enemy.position, this.player.position)) {
+      wolf.phase = 'closing'
+    }
+    return false
   }
 
   private updateKnifeSpiderV2(
@@ -3919,12 +4216,25 @@ export class LastChancesEngine {
       this.enemies.reduce((sum, enemy) => (
         enemy.motherRetreat?.stage === 'hidden'
           ? sum
-          : enemy.state === 'noticing' || enemy.state === 'alerted'
+          : this.invisibleWolfCommitted(enemy)
+          || enemy.state === 'noticing' || enemy.state === 'alerted'
           || enemy.state === 'chasing' || enemy.state === 'attacking'
           ? sum + enemy.definition.mentalPressurePerSecond
           : sum
       ), 0),
     )
+  }
+
+  /**
+   * A wolf that has committed to a run at the player is in combat even though its `state` is held
+   * at `idle` to keep it hidden. Without this it would press the player's mind *less* than the
+   * pre-stalker wolf did, because it spends nearly all of a fight unseen. Mere `stalking` does not
+   * count: that phase is the wolf's equivalent of not having noticed you yet.
+   */
+  private invisibleWolfCommitted(enemy: RuntimeEnemy): boolean {
+    const phase = enemy.invisibleWolf?.phase
+    return phase === 'closing' || phase === 'lunging'
+      || phase === 'recovering' || phase === 'exposed'
   }
 
   private updateMentalHealth(deltaSeconds: number): void {
@@ -9926,22 +10236,11 @@ export class LastChancesEngine {
     const context = this.context
     context.beginPath()
     if (enemy.definition.cockroachMother) {
-      for (const side of [-1, 1]) {
-        for (let leg = 0; leg < 3; leg += 1) {
-          const y = point.y - radius * (1.35 - leg * 0.48)
-          context.moveTo(point.x + side * radius * 0.55, y)
-          context.lineTo(point.x + side * radius * 1.55, y + (leg - 1) * radius * 0.42)
-        }
-      }
-      context.strokeStyle = enemy.definition.color
-      context.lineWidth = Math.max(2, radius * 0.13)
-      context.stroke()
-      context.beginPath()
-      context.ellipse(point.x, point.y - radius * 0.85, radius * 0.72, radius * 1.35, 0, 0, Math.PI * 2)
-      context.moveTo(point.x - radius * 0.62, point.y - radius * 1.25)
-      context.ellipse(point.x - radius * 0.48, point.y - radius * 1.1, radius * 0.65, radius * 1.05, -0.45, 0, Math.PI * 2)
-      context.moveTo(point.x + radius * 0.62, point.y - radius * 1.25)
-      context.ellipse(point.x + radius * 0.48, point.y - radius * 1.1, radius * 0.65, radius * 1.05, 0.45, 0, Math.PI * 2)
+      this.renderCockroachMother(enemy, point, radius, node)
+      return
+    } else if (isCockroachDefinition(enemy.definition)) {
+      this.renderSwarmCockroach(enemy, point, radius, node)
+      return
     } else if (enemy.knifeSpiderV2
       && this.knifeSpiderV2Image?.complete
       && this.knifeSpiderV2Image.naturalWidth > 0) {
@@ -9996,21 +10295,26 @@ export class LastChancesEngine {
       context.lineTo(point.x - radius * 0.58, point.y - radius * 0.65)
       context.closePath()
     } else if (enemy.definition.id === 'invisible-wolf') {
-      context.moveTo(point.x - radius, point.y - radius * 0.35)
-      context.lineTo(point.x - radius * 0.45, point.y - radius * 1.85)
-      context.lineTo(point.x, point.y - radius * 1.25)
-      context.lineTo(point.x + radius * 0.45, point.y - radius * 1.85)
-      context.lineTo(point.x + radius, point.y - radius * 0.35)
-      context.lineTo(point.x, point.y + radius * 0.15)
-      context.closePath()
+      this.renderInvisibleWolf(enemy, point, radius, node)
+      return
+    } else if (enemy.definition.id === 'servant') {
+      this.renderServant(enemy, point, radius, node)
+      return
     } else if (enemy.definition.id === 'running-stapler') {
-      context.roundRect(
-        point.x - radius * 1.2,
-        point.y - radius * 1.45,
-        radius * 2.4,
-        radius * 1.25,
-        radius * 0.24,
-      )
+      this.renderRunningStapler(enemy, point, radius, node)
+      return
+    } else if (enemy.definition.id === 'guard') {
+      this.renderGuard(enemy, point, radius, node)
+      return
+    } else if (enemy.definition.id === 'chimera') {
+      this.renderChimera(enemy, point, radius, node)
+      return
+    } else if (enemy.definition.id === 'colossus') {
+      this.renderColossus(enemy, point, radius, node)
+      return
+    } else if (enemy.definition.id === 'curator-shadow') {
+      this.renderCuratorShadow(enemy, point, radius, node)
+      return
     } else if (enemy.definition.id === 'infinite-cube') {
       context.rect(point.x - radius, point.y - radius * 1.8, radius * 2, radius * 2)
     } else {
@@ -10018,6 +10322,919 @@ export class LastChancesEngine {
     }
     context.fillStyle = enemy.definition.color
     context.fill()
+  }
+
+  /** 0 → 1 across an enemy's wind-up and 0 whenever it is not winding up; drives attack poses. */
+  private enemyWindupProgress(enemy: RuntimeEnemy): number {
+    if (enemy.state !== 'attacking') return 0
+    const profile = this.enemyCombatProfile(enemy)
+    return 1 - clamp(enemy.attackWindupMs / Math.max(1, profile.attackWindupMs), 0, 1)
+  }
+
+  /** True while an enemy is closing on the player, so a model can pick a moving pose. */
+  private enemyIsMoving(enemy: RuntimeEnemy): boolean {
+    return enemy.state === 'chasing' || enemy.state === 'attacking'
+  }
+
+  /**
+   * Every hand-drawn standing enemy is a billboard: it stands on its ground point and mirrors by
+   * the sign of its screen-space facing instead of rotating, because the arena is drawn
+   * isometrically and a rotated upright body would read as falling over. Inside `draw` the origin
+   * is the ground point, +x is forward and −y is up, all in units the caller scales by `radius`.
+   * Bugs are drawn from above by `drawEnemyTopDown` instead.
+   *
+   * `draw` must finish by leaving its silhouette as the current path and neither filling nor
+   * stroking it. Path coordinates are resolved against the transform in force when each segment is
+   * added, so the silhouette survives the `restore` here and `renderEnemy` can stroke the real
+   * outline of the body — white normally, thick red through a wind-up.
+   */
+  private drawEnemyBillboard(
+    enemy: RuntimeEnemy,
+    point: LastChancesVector,
+    node: LastChancesPlanNode,
+    draw: () => void,
+  ): void {
+    const facingPoint = this.worldToScreen({
+      x: enemy.position.x + enemy.facing.x,
+      y: enemy.position.y + enemy.facing.y,
+    }, node)
+    const context = this.context
+    context.save()
+    context.translate(point.x, point.y)
+    context.scale(facingPoint.x >= point.x ? 1 : -1, 1)
+    context.lineJoin = 'round'
+    context.lineCap = 'round'
+    draw()
+    context.restore()
+  }
+
+  /**
+   * Insects are seen from above and really do rotate, the same convention the Knife-spider sprite
+   * uses. Inside `draw` the origin is the body's centre and the creature points along −y. The same
+   * "leave your silhouette as the current path" rule as `drawEnemyBillboard` applies.
+   */
+  private drawEnemyTopDown(
+    enemy: RuntimeEnemy,
+    point: LastChancesVector,
+    radius: number,
+    node: LastChancesPlanNode,
+    draw: () => void,
+  ): void {
+    const facingPoint = this.worldToScreen({
+      x: enemy.position.x + enemy.facing.x,
+      y: enemy.position.y + enemy.facing.y,
+    }, node)
+    const context = this.context
+    context.save()
+    context.translate(point.x, point.y - radius * 0.85)
+    context.rotate(Math.atan2(facingPoint.y - point.y, facingPoint.x - point.x) + Math.PI / 2)
+    context.lineJoin = 'round'
+    context.lineCap = 'round'
+    draw()
+    context.restore()
+  }
+
+  /**
+   * The wolf is an upright billboard mirrored by its screen-space facing, not a rotated top-down
+   * sprite like the Knife-spider. It draws its own body — filled while it can be seen, and while
+   * hidden replaced by a doubled refraction outline plus eye glints that only catch the light when
+   * the wolf is looking at the player. That is the whole tell budget: a player who turns around
+   * can find it, a player who never turns cannot.
+   *
+   * Leaves a torso ellipse as the current path so the caller's outline (red during a windup) still
+   * traces the animal, matching the Knife-spider branch's contract.
+   */
+  private renderInvisibleWolf(
+    enemy: RuntimeEnemy,
+    point: LastChancesVector,
+    radius: number,
+    node: LastChancesPlanNode,
+  ): void {
+    const context = this.context
+    const facingPoint = this.worldToScreen({
+      x: enemy.position.x + enemy.facing.x,
+      y: enemy.position.y + enemy.facing.y,
+    }, node)
+    const side = facingPoint.x >= point.x ? 1 : -1
+    const phase = enemy.invisibleWolf?.phase ?? null
+    const hidden = !this.enemyVisible(enemy)
+    const crouched = phase === null
+      ? enemy.state === 'idle' || enemy.state === 'noticing'
+      : phase === 'unaware' || phase === 'stalking' || phase === 'closing'
+    const windup = this.enemyWindupProgress(enemy)
+    // The haunches compress through the first three quarters of the windup, then everything
+    // unspools forward — the pounce is readable before it lands.
+    const coil = Math.min(1, windup / 0.75)
+    const spring = Math.max(0, (windup - 0.75) / 0.25)
+
+    // Everything below is in units of `radius`, measured from the wolf's ground point, with +x
+    // forward. A standing wolf is about two radii tall and three long including the head; the
+    // stalking crouch takes a quarter of that height out of the legs, not out of the body.
+    const backY = -radius * 1.82 * (crouched ? 0.78 : 1) + radius * 0.2 * coil
+    const bellyY = backY + radius * 0.78
+    const shoulderX = radius * 0.74
+    const hipX = -radius * 0.86
+    const lunge = radius * 0.55 * spring
+    const headX = shoulderX + radius * 0.66 + lunge
+    const headY = crouched || coil > 0 ? bellyY - radius * 0.1 : backY - radius * 0.34
+    const gaitPeriodMs = crouched ? 640 : 320
+    const gait = this.elapsedMs / gaitPeriodMs + enemy.position.x
+
+    const traceLeg = (
+      anchorX: number,
+      anchorY: number,
+      kneeBend: number,
+      legPhase: number,
+      alpha: number,
+    ): void => {
+      const swing = Math.sin(gait + legPhase)
+      const reach = radius * 0.42 * spring
+      context.save()
+      context.globalAlpha = context.globalAlpha * alpha
+      context.beginPath()
+      context.moveTo(anchorX, anchorY)
+      context.lineTo(
+        anchorX + kneeBend * radius + swing * radius * 0.12 + reach * 0.6,
+        anchorY * 0.44,
+      )
+      context.lineTo(
+        anchorX + swing * radius * 0.34 + reach,
+        -Math.max(0, swing) * radius * 0.13,
+      )
+      context.stroke()
+      context.restore()
+    }
+
+    const traceLegs = (): void => {
+      // Diagonal pairs; the far side is faded so the animal reads as a body with depth. Front
+      // knees fold back, rear hocks fold forward, which is what makes a canine silhouette legible.
+      traceLeg(shoulderX - radius * 0.28, bellyY - radius * 0.06, -0.08, Math.PI, 0.45)
+      traceLeg(hipX - radius * 0.04, bellyY - radius * 0.12, 0.12, 0, 0.45)
+      traceLeg(shoulderX - radius * 0.02, bellyY - radius * 0.06, -0.08, 0, 1)
+      traceLeg(hipX + radius * 0.2, bellyY - radius * 0.12, 0.12, Math.PI, 1)
+    }
+
+    const traceTail = (): void => {
+      const droop = crouched ? 1 : 0.4
+      context.beginPath()
+      context.moveTo(hipX + radius * 0.04, backY + radius * 0.22)
+      context.quadraticCurveTo(
+        hipX - radius * 0.56,
+        backY + radius * (0.18 + droop * 0.55),
+        hipX - radius * 1.02,
+        backY + radius * (0.1 + droop * 1.15),
+      )
+      context.stroke()
+    }
+
+    const traceBody = (): void => {
+      // Rump, back line dipping behind the withers, deep chest, tucked belly, heavy haunch.
+      context.moveTo(hipX, backY + radius * 0.2)
+      context.quadraticCurveTo(
+        -radius * 0.1,
+        backY - radius * 0.06,
+        shoulderX + radius * 0.06,
+        backY + radius * 0.08,
+      )
+      context.quadraticCurveTo(
+        shoulderX + radius * 0.44,
+        backY + radius * 0.4,
+        shoulderX + radius * 0.16,
+        bellyY + radius * 0.08,
+      )
+      context.quadraticCurveTo(
+        radius * 0.06,
+        bellyY - radius * 0.06,
+        hipX + radius * 0.32,
+        bellyY,
+      )
+      context.quadraticCurveTo(
+        hipX - radius * 0.2,
+        bellyY - radius * 0.16,
+        hipX,
+        backY + radius * 0.2,
+      )
+      context.closePath()
+      // Neck, slung low out of the shoulders in the stalking pose.
+      context.moveTo(shoulderX - radius * 0.06, backY + radius * 0.04)
+      context.lineTo(headX - radius * 0.22, headY - radius * 0.24)
+      context.lineTo(headX - radius * 0.16, headY + radius * 0.28)
+      context.lineTo(shoulderX - radius * 0.12, backY + radius * 0.46)
+      context.closePath()
+      // Skull tapering into the muzzle.
+      context.moveTo(headX - radius * 0.26, headY - radius * 0.3)
+      context.lineTo(headX + radius * 0.26, headY - radius * 0.16)
+      context.lineTo(headX + radius * 0.78, headY + radius * 0.1)
+      context.lineTo(headX + radius * 0.72, headY + radius * 0.26)
+      context.lineTo(headX + radius * 0.1, headY + radius * 0.34)
+      context.lineTo(headX - radius * 0.26, headY + radius * 0.22)
+      context.closePath()
+      for (const ear of [-0.18, 0.06]) {
+        context.moveTo(headX + radius * ear, headY - radius * 0.26)
+        context.lineTo(headX + radius * (ear + 0.12), headY - radius * 0.78)
+        context.lineTo(headX + radius * (ear + 0.24), headY - radius * 0.2)
+        context.closePath()
+      }
+    }
+
+    const traceEyes = (): void => {
+      for (const [offsetX, offsetY, size] of [[0.26, -0.06, 0.095], [0.12, -0.12, 0.07]]) {
+        context.beginPath()
+        context.arc(
+          headX + radius * offsetX,
+          headY + radius * offsetY,
+          Math.max(0.9, radius * size),
+          0,
+          Math.PI * 2,
+        )
+        context.fill()
+      }
+    }
+
+    const toPlayer = normalize({
+      x: this.player.position.x - enemy.position.x,
+      y: this.player.position.y - enemy.position.y,
+    }, enemy.facing)
+    const lookingAtPlayer = toPlayer.x * enemy.facing.x + toPlayer.y * enemy.facing.y
+      > tuningValue(enemy.definition, 'glintDot', 0.55)
+
+    context.save()
+    context.translate(point.x, point.y)
+    context.scale(side, 1)
+    context.lineJoin = 'round'
+    context.lineCap = 'round'
+    if (hidden) {
+      // Refraction, not fade: the caller's blanket 7% alpha is replaced by a doubled outline whose
+      // strength climbs as the wolf commits to a run.
+      context.globalAlpha = 1
+      const pulse = 0.5 + Math.sin(this.elapsedMs / 520 + enemy.position.y) * 0.5
+      const closeness = phase === 'closing'
+        ? clamp(
+            1 - vectorLength({
+              x: this.player.position.x - enemy.position.x,
+              y: this.player.position.y - enemy.position.y,
+            }) / Math.max(1, tuningValue(enemy.definition, 'stalkRadius', 260)),
+            0,
+            1,
+          )
+        : 0
+      const outlineAlpha = phase === 'closing'
+        ? 0.16 + closeness * 0.29
+        : 0.1 + pulse * 0.06
+      context.strokeStyle = '#dbeaf4'
+      context.lineWidth = Math.max(1, radius * 0.11)
+      for (const [offsetX, offsetY, alpha] of [[0, 0, 1], [radius * 0.09, -radius * 0.05, 0.55]]) {
+        context.save()
+        context.translate(offsetX, offsetY)
+        context.globalAlpha = outlineAlpha * alpha
+        context.beginPath()
+        traceBody()
+        context.stroke()
+        traceLegs()
+        traceTail()
+        context.restore()
+      }
+      if (lookingAtPlayer) {
+        context.globalAlpha = 0.34 + pulse * 0.2
+        context.fillStyle = '#f4f8ff'
+        traceEyes()
+      }
+    } else {
+      context.strokeStyle = enemy.definition.color
+      context.lineWidth = Math.max(1.4, radius * 0.13)
+      traceLegs()
+      traceTail()
+      context.beginPath()
+      traceBody()
+      context.fillStyle = enemy.definition.color
+      context.fill()
+      context.globalAlpha = context.globalAlpha * 0.85
+      context.fillStyle = '#f7d97a'
+      traceEyes()
+    }
+    // Left current so the caller's outline traces the real animal; see `drawEnemyBillboard`.
+    context.beginPath()
+    traceBody()
+    context.restore()
+  }
+
+  /**
+   * Слуга: a household drudge that never straightens up. A long apron hangs from stooped
+   * shoulders to a hem that sways with its walk, the head bows so far forward that it reads as
+   * faceless, and both arms swing loose. Winding up leans the whole body further over the player.
+   */
+  private renderServant(
+    enemy: RuntimeEnemy,
+    point: LastChancesVector,
+    radius: number,
+    node: LastChancesPlanNode,
+  ): void {
+    const context = this.context
+    const color = enemy.definition.color
+    const windup = this.enemyWindupProgress(enemy)
+    const gait = this.elapsedMs / (this.enemyIsMoving(enemy) ? 330 : 950) + enemy.position.x
+    const sway = Math.sin(gait)
+    const stoop = radius * (0.14 + windup * 0.22)
+    const shoulderY = -radius * 1.58
+    const hemY = -radius * 0.02
+
+    const traceApron = (): void => {
+      context.moveTo(stoop - radius * 0.3, shoulderY + radius * 0.06)
+      context.quadraticCurveTo(stoop, shoulderY - radius * 0.06, stoop + radius * 0.3, shoulderY + radius * 0.04)
+      context.quadraticCurveTo(radius * 0.5, hemY - radius * 0.8, radius * (0.46 + sway * 0.05), hemY)
+      context.lineTo(radius * (-0.46 + sway * 0.05), hemY)
+      context.quadraticCurveTo(
+        radius * -0.48,
+        hemY - radius * 0.84,
+        stoop - radius * 0.3,
+        shoulderY + radius * 0.06,
+      )
+      context.closePath()
+    }
+    const arm = (phase: number): void => {
+      const swing = Math.sin(gait + phase)
+      context.beginPath()
+      context.moveTo(stoop + radius * 0.18, shoulderY + radius * 0.14)
+      context.quadraticCurveTo(
+        stoop + radius * (0.4 + swing * 0.1),
+        shoulderY + radius * 0.62,
+        stoop + radius * (0.3 + swing * 0.24 + windup * 0.34),
+        shoulderY + radius * (1.06 - windup * 0.44),
+      )
+      context.stroke()
+    }
+
+    this.drawEnemyBillboard(enemy, point, node, () => {
+      context.lineWidth = Math.max(1.4, radius * 0.13)
+      // Far arm goes behind the apron, near arm in front, so the walk cycle stays legible.
+      context.strokeStyle = shadeEnemyColor(color, -0.36)
+      arm(Math.PI)
+      context.beginPath()
+      traceApron()
+      context.fillStyle = color
+      context.fill()
+      context.strokeStyle = shadeEnemyColor(color, -0.1)
+      arm(0)
+      // Short neck and a head bowed so far forward it reads as faceless.
+      context.beginPath()
+      context.moveTo(stoop - radius * 0.1, shoulderY + radius * 0.04)
+      context.lineTo(stoop + radius * 0.14, shoulderY + radius * 0.02)
+      context.lineTo(stoop + radius * 0.16, shoulderY - radius * 0.18)
+      context.lineTo(stoop - radius * 0.06, shoulderY - radius * 0.16)
+      context.closePath()
+      context.fillStyle = shadeEnemyColor(color, -0.3)
+      context.fill()
+      context.beginPath()
+      context.ellipse(
+        stoop + radius * 0.14,
+        shoulderY - radius * 0.3,
+        radius * 0.24,
+        radius * 0.2,
+        0.42,
+        0,
+        Math.PI * 2,
+      )
+      context.fillStyle = shadeEnemyColor(color, -0.22)
+      context.fill()
+      context.beginPath()
+      traceApron()
+    })
+  }
+
+  /**
+   * Бегущий степлер: the office stapler that came off the desk. Its base plate rides on six stubby
+   * legs, the hinged upper jaw gapes wider the further its shot is wound up, and a pale staple sits
+   * in the throat where the shot comes from.
+   */
+  private renderRunningStapler(
+    enemy: RuntimeEnemy,
+    point: LastChancesVector,
+    radius: number,
+    node: LastChancesPlanNode,
+  ): void {
+    const context = this.context
+    const color = enemy.definition.color
+    const windup = this.enemyWindupProgress(enemy)
+    const gait = this.elapsedMs / 190 + enemy.position.x
+    const gape = 0.12 + windup * 0.5
+    const baseY = -radius * 0.62
+    const hingeX = -radius * 0.92
+
+    this.drawEnemyBillboard(enemy, point, node, () => {
+      // Six stubby legs under the base plate, alternating in two tripods.
+      context.strokeStyle = shadeEnemyColor(color, -0.35)
+      context.lineWidth = Math.max(1.2, radius * 0.11)
+      for (let leg = 0; leg < 3; leg += 1) {
+        const legX = radius * (-0.66 + leg * 0.62)
+        const swing = Math.sin(gait + leg * 2.1)
+        context.beginPath()
+        context.moveTo(legX, baseY + radius * 0.16)
+        context.lineTo(legX + swing * radius * 0.16, -radius * 0.02)
+        context.stroke()
+      }
+      // Base plate.
+      context.beginPath()
+      context.roundRect(hingeX, baseY, radius * 1.9, radius * 0.42, radius * 0.12)
+      context.fillStyle = shadeEnemyColor(color, -0.18)
+      context.fill()
+      // Hinged upper jaw, opening toward the target.
+      context.save()
+      context.translate(hingeX + radius * 0.1, baseY - radius * 0.04)
+      context.rotate(-gape)
+      context.beginPath()
+      context.roundRect(0, -radius * 0.46, radius * 1.78, radius * 0.5, radius * 0.14)
+      context.fillStyle = color
+      context.fill()
+      // The staple waiting in the throat.
+      context.beginPath()
+      context.moveTo(radius * 1.42, -radius * 0.06)
+      context.lineTo(radius * 1.62, -radius * 0.06)
+      context.lineTo(radius * 1.62, radius * 0.16)
+      context.strokeStyle = shadeEnemyColor(color, 0.62)
+      context.lineWidth = Math.max(1, radius * 0.1)
+      context.stroke()
+      context.restore()
+      // Only the base plate is outlined: the jaw swings, so no fixed box could follow it.
+      context.beginPath()
+      context.roundRect(hingeX, baseY, radius * 1.9, radius * 0.42, radius * 0.12)
+    })
+  }
+
+  /**
+   * Стражник: the only enemy that stands up straight. Armour plating, a helmet reduced to a visor
+   * slit, and a slab shield carried between it and the player — the shield drops and the mace arm
+   * comes up over the wind-up, which is what makes its swing readable.
+   */
+  private renderGuard(
+    enemy: RuntimeEnemy,
+    point: LastChancesVector,
+    radius: number,
+    node: LastChancesPlanNode,
+  ): void {
+    const context = this.context
+    const color = enemy.definition.color
+    const windup = this.enemyWindupProgress(enemy)
+    const gait = this.elapsedMs / (this.enemyIsMoving(enemy) ? 340 : 1100) + enemy.position.x
+    const shoulderY = -radius * 1.5
+    const hipY = -radius * 0.78
+
+    const traceCuirass = (): void => {
+      context.moveTo(-radius * 0.42, shoulderY + radius * 0.08)
+      context.quadraticCurveTo(0, shoulderY - radius * 0.16, radius * 0.42, shoulderY + radius * 0.08)
+      context.lineTo(radius * 0.3, hipY)
+      context.lineTo(-radius * 0.3, hipY)
+      context.closePath()
+    }
+
+    this.drawEnemyBillboard(enemy, point, node, () => {
+      // Legs.
+      context.strokeStyle = shadeEnemyColor(color, -0.3)
+      context.lineWidth = Math.max(2, radius * 0.18)
+      for (const [legX, phase] of [[-0.2, 0], [0.18, Math.PI]] as const) {
+        const swing = Math.sin(gait + phase)
+        context.beginPath()
+        context.moveTo(radius * legX, hipY)
+        context.lineTo(radius * (legX + swing * 0.18), -radius * 0.04)
+        context.stroke()
+      }
+      // Mace arm, raised behind the head through the wind-up.
+      const maceX = radius * (-0.44 - windup * 0.12)
+      const maceY = shoulderY + radius * (0.5 - windup * 1.02)
+      context.strokeStyle = shadeEnemyColor(color, -0.16)
+      context.lineWidth = Math.max(1.6, radius * 0.15)
+      context.beginPath()
+      context.moveTo(-radius * 0.2, shoulderY + radius * 0.16)
+      context.lineTo(maceX, maceY)
+      context.stroke()
+      context.beginPath()
+      context.arc(maceX, maceY, Math.max(1.5, radius * 0.17), 0, Math.PI * 2)
+      context.fillStyle = shadeEnemyColor(color, -0.36)
+      context.fill()
+      // Cuirass: broad shoulders tapering to the belt.
+      context.beginPath()
+      traceCuirass()
+      context.fillStyle = color
+      context.fill()
+      // Helmet, clear of the shoulder line, with a single lit visor slit.
+      context.beginPath()
+      context.roundRect(
+        -radius * 0.24,
+        shoulderY - radius * 0.66,
+        radius * 0.52,
+        radius * 0.58,
+        radius * 0.15,
+      )
+      context.fillStyle = shadeEnemyColor(color, -0.28)
+      context.fill()
+      context.beginPath()
+      context.rect(-radius * 0.12, shoulderY - radius * 0.46, radius * 0.36, radius * 0.09)
+      context.fillStyle = shadeEnemyColor(color, 0.6)
+      context.fill()
+      // Slab shield on the near arm, dropping out of the way as the swing is loaded.
+      context.save()
+      context.translate(radius * (0.46 + windup * 0.14), shoulderY + radius * (0.62 + windup * 0.44))
+      context.rotate(windup * 0.75)
+      context.beginPath()
+      context.roundRect(-radius * 0.2, -radius * 0.52, radius * 0.4, radius * 1.04, radius * 0.13)
+      context.fillStyle = shadeEnemyColor(color, 0.14)
+      context.fill()
+      context.strokeStyle = shadeEnemyColor(color, -0.42)
+      context.lineWidth = Math.max(1, radius * 0.07)
+      context.stroke()
+      context.restore()
+      context.beginPath()
+      traceCuirass()
+    })
+  }
+
+  /**
+   * Химера: a body assembled out of parts that never belonged together. Nothing about it is
+   * symmetrical — the forelegs are long and the hind legs stunted, a ridge of spines runs the
+   * wrong way down the back, and it carries two heads on two necks. Both heads snap forward
+   * together on a wind-up, which is the only moment the thing looks like it has one intent.
+   */
+  private renderChimera(
+    enemy: RuntimeEnemy,
+    point: LastChancesVector,
+    radius: number,
+    node: LastChancesPlanNode,
+  ): void {
+    const context = this.context
+    const color = enemy.definition.color
+    const windup = this.enemyWindupProgress(enemy)
+    const gait = this.elapsedMs / (this.enemyIsMoving(enemy) ? 380 : 900) + enemy.position.x
+    const backY = -radius * 1.32
+    const bellyY = backY + radius * 0.64
+    const snap = radius * 0.42 * windup
+
+    const traceTorso = (): void => {
+      context.moveTo(-radius * 0.82, backY + radius * 0.3)
+      context.quadraticCurveTo(-radius * 0.1, backY - radius * 0.1, radius * 0.78, backY + radius * 0.04)
+      context.quadraticCurveTo(radius * 1.06, bellyY - radius * 0.1, radius * 0.6, bellyY + radius * 0.06)
+      context.quadraticCurveTo(0, bellyY + radius * 0.12, -radius * 0.62, bellyY - radius * 0.06)
+      context.quadraticCurveTo(-radius * 0.98, bellyY - radius * 0.3, -radius * 0.82, backY + radius * 0.3)
+      context.closePath()
+    }
+
+    this.drawEnemyBillboard(enemy, point, node, () => {
+      // Mismatched legs: long thin forelegs, short heavy hind legs.
+      for (const [legX, length, thickness, phase, shade] of [
+        [0.46, 1, 0.13, Math.PI, -0.34],
+        [-0.5, 0.74, 0.2, 0, -0.34],
+        [0.58, 1, 0.15, 0, -0.06],
+        [-0.62, 0.74, 0.23, Math.PI, -0.06],
+      ] as const) {
+        const swing = Math.sin(gait + phase)
+        context.strokeStyle = shadeEnemyColor(color, shade)
+        context.lineWidth = Math.max(1.4, radius * thickness)
+        context.beginPath()
+        context.moveTo(radius * legX, bellyY - radius * 0.08)
+        context.lineTo(radius * (legX + swing * 0.12), bellyY * (1 - length) - radius * 0.02)
+        context.stroke()
+      }
+      // Lumpy torso, heavier at the shoulders than at the hips.
+      context.beginPath()
+      traceTorso()
+      context.fillStyle = color
+      context.fill()
+      // Spines, growing the wrong way along the back.
+      context.strokeStyle = shadeEnemyColor(color, -0.42)
+      context.lineWidth = Math.max(1, radius * 0.08)
+      for (let spine = 0; spine < 5; spine += 1) {
+        const spineX = radius * (-0.62 + spine * 0.3)
+        context.beginPath()
+        context.moveTo(spineX, backY + radius * 0.12)
+        context.lineTo(spineX - radius * 0.16, backY - radius * (0.16 + spine * 0.04))
+        context.stroke()
+      }
+      // Lower head: round, drooping off a slack neck.
+      context.strokeStyle = shadeEnemyColor(color, -0.2)
+      context.lineWidth = Math.max(1.6, radius * 0.19)
+      context.beginPath()
+      context.moveTo(radius * 0.6, backY + radius * 0.2)
+      context.lineTo(radius * 0.98 + snap, backY + radius * 0.56)
+      context.stroke()
+      context.beginPath()
+      context.arc(radius * 1.1 + snap, backY + radius * 0.62, radius * 0.24, 0, Math.PI * 2)
+      context.fillStyle = shadeEnemyColor(color, -0.2)
+      context.fill()
+      // Upper head: a long wedge on a raised neck.
+      context.strokeStyle = shadeEnemyColor(color, 0.06)
+      context.lineWidth = Math.max(1.6, radius * 0.22)
+      context.beginPath()
+      context.moveTo(radius * 0.66, backY + radius * 0.12)
+      context.lineTo(radius * 0.94 + snap, backY - radius * 0.34)
+      context.stroke()
+      context.beginPath()
+      context.moveTo(radius * 0.74 + snap, backY - radius * 0.52)
+      context.lineTo(radius * 1.5 + snap, backY - radius * 0.26)
+      context.lineTo(radius * 1.42 + snap, backY - radius * 0.08)
+      context.lineTo(radius * 0.78 + snap, backY - radius * 0.14)
+      context.closePath()
+      context.fillStyle = shadeEnemyColor(color, 0.06)
+      context.fill()
+      // One eye each, deliberately different sizes.
+      context.fillStyle = '#f2d46d'
+      for (const [eyeX, eyeY, eyeR] of [
+        [1.0, -0.38, 0.09],
+        [1.16, 0.58, 0.06],
+      ] as const) {
+        context.beginPath()
+        context.arc(radius * eyeX + snap, backY + radius * eyeY, Math.max(0.9, radius * eyeR), 0, Math.PI * 2)
+        context.fill()
+      }
+      context.beginPath()
+      traceTorso()
+    })
+  }
+
+  /**
+   * Исполин: a slab of a creature whose arms reach the floor and whose head is buried between its
+   * shoulders. It deals no contact damage at all, so the model exists to telegraph the one thing
+   * it does — over the wind-up both arms come up over the head, and they are what falls on the
+   * ground zone.
+   */
+  private renderColossus(
+    enemy: RuntimeEnemy,
+    point: LastChancesVector,
+    radius: number,
+    node: LastChancesPlanNode,
+  ): void {
+    const context = this.context
+    const color = enemy.definition.color
+    const windup = this.enemyWindupProgress(enemy)
+    const breath = Math.sin(this.elapsedMs / 900 + enemy.position.x) * 0.02
+    const shoulderY = -radius * (1.34 + breath)
+    const hipY = -radius * 0.5
+
+    const traceTorso = (): void => {
+      context.moveTo(-radius * 0.72, shoulderY + radius * 0.24)
+      context.quadraticCurveTo(0, shoulderY - radius * 0.28, radius * 0.72, shoulderY + radius * 0.24)
+      context.quadraticCurveTo(radius * 0.66, hipY - radius * 0.1, radius * 0.4, hipY)
+      context.lineTo(-radius * 0.44, hipY)
+      context.quadraticCurveTo(-radius * 0.7, hipY - radius * 0.1, -radius * 0.72, shoulderY + radius * 0.24)
+      context.closePath()
+    }
+
+    this.drawEnemyBillboard(enemy, point, node, () => {
+      // Two short, very thick legs.
+      context.strokeStyle = shadeEnemyColor(color, -0.34)
+      context.lineWidth = Math.max(3, radius * 0.34)
+      for (const legX of [-0.3, 0.26]) {
+        context.beginPath()
+        context.moveTo(radius * legX, hipY)
+        context.lineTo(radius * legX, -radius * 0.06)
+        context.stroke()
+      }
+      // Arms: hanging past the knees at rest, swung over the head at the top of the wind-up.
+      context.lineWidth = Math.max(3, radius * 0.28)
+      for (const [armX, shade] of [[-0.52, -0.28], [0.5, -0.05]] as const) {
+        const elbowY = shoulderY + radius * (0.62 - windup * 1.3)
+        const handY = shoulderY + radius * (1.2 - windup * 2.1)
+        context.strokeStyle = shadeEnemyColor(color, shade)
+        context.beginPath()
+        context.moveTo(radius * armX, shoulderY + radius * 0.16)
+        context.quadraticCurveTo(
+          radius * (armX * 1.5 - windup * 0.2),
+          elbowY,
+          radius * (armX * 1.1 + windup * 0.3),
+          handY,
+        )
+        context.stroke()
+      }
+      // Torso: a boulder wider at the shoulders than anywhere else.
+      context.beginPath()
+      traceTorso()
+      context.fillStyle = color
+      context.fill()
+      // Head, sunk so deep between the shoulders it is nearly swallowed.
+      context.beginPath()
+      context.ellipse(
+        radius * 0.16,
+        shoulderY - radius * 0.16,
+        radius * 0.26,
+        radius * 0.22,
+        0,
+        0,
+        Math.PI * 2,
+      )
+      context.fillStyle = shadeEnemyColor(color, -0.4)
+      context.fill()
+      context.beginPath()
+      context.arc(radius * 0.24, shoulderY - radius * 0.18, Math.max(0.9, radius * 0.06), 0, Math.PI * 2)
+      context.fillStyle = '#f2d46d'
+      context.fill()
+      context.beginPath()
+      traceTorso()
+    })
+  }
+
+  /**
+   * Тень Куратора: a tall figure that is mostly absence. The robe never resolves into legs — its
+   * hem frays into smoke that moves on its own — and the head is a blank dome with one pale slit.
+   * Its arms are posed from the live boss phase, so the silhouette changes with the fight: down
+   * while it watches the door, one arm raised while it reads the archive, both thrown wide before
+   * the leap.
+   */
+  private renderCuratorShadow(
+    enemy: RuntimeEnemy,
+    point: LastChancesVector,
+    radius: number,
+    node: LastChancesPlanNode,
+  ): void {
+    const context = this.context
+    const color = enemy.definition.color
+    const windup = this.enemyWindupProgress(enemy)
+    const profile = this.enemyCombatProfile(enemy)
+    const drift = this.elapsedMs / 620 + enemy.position.x
+    const shoulderY = -radius * 1.78
+    const hemY = -radius * 0.04
+    // The three shipped phases read as three postures; anything else falls back to the first.
+    const stance = profile.attackKind === 'leap' ? 2 : profile.attackKind === 'projectile' ? 1 : 0
+
+    const traceRobe = (): void => {
+      context.moveTo(-radius * 0.36, shoulderY)
+      context.quadraticCurveTo(radius * 0.66, shoulderY + radius * 0.9, radius * 0.94, hemY - radius * 0.3)
+      for (let step = 0; step <= 8; step += 1) {
+        const frayX = radius * (0.94 - step * 0.24)
+        const fray = Math.sin(drift + step * 1.3) * radius * 0.13
+        context.lineTo(frayX, hemY + fray * (step % 2 === 0 ? 1 : 0.4))
+      }
+      context.quadraticCurveTo(-radius * 0.8, shoulderY + radius * 0.9, -radius * 0.36, shoulderY)
+      context.closePath()
+    }
+
+    this.drawEnemyBillboard(enemy, point, node, () => {
+      // Robe, from narrow shoulders down to a hem that never touches the floor cleanly.
+      context.beginPath()
+      traceRobe()
+      context.fillStyle = color
+      context.fill()
+      // Arms, posed from the phase.
+      context.strokeStyle = shadeEnemyColor(color, 0.14)
+      context.lineWidth = Math.max(1.8, radius * 0.13)
+      const arms: Array<[number, number, number, number]> = stance === 0
+        ? [[-0.3, 0.2, -0.42, 1], [0.32, 0.2, 0.46, 1]]
+        : stance === 1
+          ? [[-0.3, 0.2, -0.34, 0.9], [0.32, 0.1, 0.86, -0.5 - windup * 0.3]]
+          : [[-0.3, 0.1, -1.06, -0.1 - windup * 0.4], [0.32, 0.1, 1.1, -0.1 - windup * 0.4]]
+      for (const [fromX, fromY, toX, toY] of arms) {
+        context.beginPath()
+        context.moveTo(radius * fromX, shoulderY + radius * fromY)
+        context.quadraticCurveTo(
+          radius * (fromX + toX) * 0.9,
+          shoulderY + radius * (fromY + toY) * 0.5,
+          radius * toX,
+          shoulderY + radius * toY,
+        )
+        context.stroke()
+      }
+      // Blank dome of a head with a single lit slit where a face should be.
+      context.beginPath()
+      context.ellipse(0, shoulderY - radius * 0.22, radius * 0.27, radius * 0.34, 0, 0, Math.PI * 2)
+      context.fillStyle = shadeEnemyColor(color, -0.4)
+      context.fill()
+      context.beginPath()
+      context.roundRect(-radius * 0.17, shoulderY - radius * 0.28, radius * 0.36, radius * 0.07, radius * 0.035)
+      context.fillStyle = shadeEnemyColor(color, 0.72)
+      context.fill()
+      context.beginPath()
+      traceRobe()
+    })
+  }
+
+  /**
+   * Мать тараканов: the same insect as her brood, at twenty times the size and seen from the same
+   * overhead angle. Head with working mandibles and antennae, a pronotum shield over the thorax,
+   * seamed wing cases, and a banded abdomen heavy with the next hundred. Her six legs run a real
+   * alternating-tripod gait rather than sitting still.
+   */
+  private renderCockroachMother(
+    enemy: RuntimeEnemy,
+    point: LastChancesVector,
+    radius: number,
+    node: LastChancesPlanNode,
+  ): void {
+    const context = this.context
+    const color = enemy.definition.color
+    const gait = this.elapsedMs / (this.enemyIsMoving(enemy) ? 190 : 620) + enemy.position.x
+    const bite = Math.max(0, Math.sin(this.elapsedMs / 240)) * this.enemyWindupProgress(enemy)
+
+    this.drawEnemyTopDown(enemy, point, radius, node, () => {
+      // Six legs, three per side, in two alternating tripods.
+      context.strokeStyle = shadeEnemyColor(color, -0.34)
+      context.lineWidth = Math.max(1.6, radius * 0.09)
+      for (const side of [-1, 1]) {
+        for (let leg = 0; leg < 3; leg += 1) {
+          const swing = Math.sin(gait + (leg + (side > 0 ? 1 : 0)) * Math.PI) * 0.2
+          const rootY = radius * (-0.72 + leg * 0.44)
+          context.beginPath()
+          context.moveTo(side * radius * 0.42, rootY)
+          context.lineTo(side * radius * 0.94, rootY + radius * (0.2 + swing))
+          context.lineTo(side * radius * 1.36, rootY - radius * (0.24 - swing))
+          context.stroke()
+        }
+      }
+      // Two antennae sweeping ahead of her.
+      context.lineWidth = Math.max(1.2, radius * 0.05)
+      for (const side of [-1, 1]) {
+        const sweep = Math.sin(gait * 0.5 + (side > 0 ? 1.7 : 0)) * 0.3
+        context.beginPath()
+        context.moveTo(side * radius * 0.16, -radius * 1.08)
+        context.quadraticCurveTo(
+          side * radius * (0.7 + sweep),
+          -radius * 1.7,
+          side * radius * (0.4 + sweep * 1.6),
+          -radius * 2.16,
+        )
+        context.stroke()
+      }
+      // Abdomen under the wing cases, then the broad pronotum shield over the thorax.
+      context.beginPath()
+      context.ellipse(0, radius * 0.32, radius * 0.8, radius * 1.12, 0, 0, Math.PI * 2)
+      context.fillStyle = color
+      context.fill()
+      context.beginPath()
+      context.ellipse(0, -radius * 0.62, radius * 0.82, radius * 0.6, 0, 0, Math.PI * 2)
+      context.fillStyle = shadeEnemyColor(color, -0.2)
+      context.fill()
+      // Wing-case seam down the back and the abdominal bands showing past it.
+      context.strokeStyle = shadeEnemyColor(color, -0.44)
+      context.lineWidth = Math.max(1, radius * 0.05)
+      context.beginPath()
+      context.moveTo(0, -radius * 0.4)
+      context.lineTo(0, radius * 1.24)
+      context.stroke()
+      for (let band = 0; band < 3; band += 1) {
+        const bandY = radius * (0.62 + band * 0.26)
+        context.beginPath()
+        context.moveTo(-radius * 0.6, bandY)
+        context.quadraticCurveTo(0, bandY + radius * 0.16, radius * 0.6, bandY)
+        context.stroke()
+      }
+      // Head and mandibles, which open while she winds up.
+      context.beginPath()
+      context.ellipse(0, -radius * 1.16, radius * 0.42, radius * 0.32, 0, 0, Math.PI * 2)
+      context.fillStyle = shadeEnemyColor(color, -0.34)
+      context.fill()
+      context.strokeStyle = shadeEnemyColor(color, -0.52)
+      context.lineWidth = Math.max(1.2, radius * 0.07)
+      for (const side of [-1, 1]) {
+        context.beginPath()
+        context.moveTo(side * radius * 0.22, -radius * 1.26)
+        context.lineTo(side * radius * (0.26 + bite * 0.36), -radius * 1.62)
+        context.stroke()
+      }
+      context.beginPath()
+      context.ellipse(0, -radius * 0.06, radius * 0.84, radius * 1.5, 0, 0, Math.PI * 2)
+    })
+  }
+
+  /**
+   * Таракан: the brood, drawn from above like their mother but reduced to what still reads at a
+   * few pixels — a seamed body, two antennae and six legs on one alternating gait. Everything is
+   * clamped to a minimum stroke so a hundred of them stay countable instead of turning to mush.
+   */
+  private renderSwarmCockroach(
+    enemy: RuntimeEnemy,
+    point: LastChancesVector,
+    radius: number,
+    node: LastChancesPlanNode,
+  ): void {
+    const context = this.context
+    const color = enemy.definition.color
+    const gait = this.elapsedMs / 110 + enemy.position.x
+
+    this.drawEnemyTopDown(enemy, point, radius, node, () => {
+      context.strokeStyle = shadeEnemyColor(color, -0.3)
+      context.lineWidth = Math.max(0.7, radius * 0.16)
+      for (const side of [-1, 1]) {
+        for (let leg = 0; leg < 3; leg += 1) {
+          const swing = Math.sin(gait + (leg + (side > 0 ? 1 : 0)) * Math.PI) * 0.3
+          const rootY = radius * (-0.5 + leg * 0.5)
+          context.beginPath()
+          context.moveTo(side * radius * 0.4, rootY)
+          context.lineTo(side * radius * 1.15, rootY + radius * (0.3 + swing))
+          context.stroke()
+        }
+        context.beginPath()
+        context.moveTo(side * radius * 0.2, -radius * 0.9)
+        context.lineTo(side * radius * 0.62, -radius * 1.75)
+        context.stroke()
+      }
+      context.beginPath()
+      context.ellipse(0, 0, radius * 0.72, radius * 1.15, 0, 0, Math.PI * 2)
+      context.fillStyle = color
+      context.fill()
+      context.beginPath()
+      context.moveTo(0, -radius * 0.5)
+      context.lineTo(0, radius * 1)
+      context.strokeStyle = shadeEnemyColor(color, -0.45)
+      context.lineWidth = Math.max(0.6, radius * 0.12)
+      context.stroke()
+      context.beginPath()
+      context.ellipse(0, 0, radius * 0.72, radius * 1.15, 0, 0, Math.PI * 2)
+    })
   }
 
   private renderPlayer(node: LastChancesPlanNode): void {

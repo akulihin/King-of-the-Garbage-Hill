@@ -536,6 +536,17 @@ describe('99LC config and deterministic plan', () => {
         impactSelfDamageRatio: 0.1,
       },
     })
+    expect(defaultConfig.enemies.find(enemy => enemy.id === 'invisible-wolf')).toMatchObject({
+      invisibleUntilAlerted: true,
+      tuning: {
+        behaviorVersion: 2,
+        stalkRadius: 260,
+        stalkPatienceMs: 900,
+        rearDotMaximum: -0.15,
+        frontDotAbort: 0.25,
+        rehideDelayMs: 1400,
+      },
+    })
     expect(defaultConfig.progression.moveQuestsEnabled).toBe(true)
     expect(defaultConfig.artifacts).toHaveLength(5)
     expect(defaultConfig.outfits).toHaveLength(4)
@@ -662,6 +673,14 @@ describe('99LC config and deterministic plan', () => {
     mother.exitRecoveryMs = -1
     mother.sameHoleChance = 1.1
 
+    const wolfIndex = invalid.enemies.findIndex(enemy => enemy.id === 'invisible-wolf')
+    invalid.enemies[wolfIndex]!.tuning = {
+      ...invalid.enemies[wolfIndex]!.tuning,
+      behaviorVersion: 3,
+      frontDotAbort: 1.4,
+      stalkRadius: 0,
+    }
+
     expect(validateLastChancesConfig(invalid).errors).toEqual(expect.arrayContaining([
       `rooms[${roomIndex}].turretAlarmHoldMs must be a finite number > 0`,
       `rooms[${roomIndex}].turrets[0].projectileSpawnOffset must be a finite number >= 0`,
@@ -675,6 +694,9 @@ describe('99LC config and deterministic plan', () => {
       `enemies[${motherIndex}].cockroachMother.entranceRadiusRatio must be <= 1`,
       `enemies[${motherIndex}].cockroachMother.exitRecoveryMs must be a finite number >= 0`,
       `enemies[${motherIndex}].cockroachMother.sameHoleChance must be <= 1`,
+      `enemies[${wolfIndex}].tuning.behaviorVersion must be 1 or 2`,
+      `enemies[${wolfIndex}].tuning.frontDotAbort must be between -1 and 1`,
+      `enemies[${wolfIndex}].tuning.stalkRadius must be > 0`,
     ]))
   })
 

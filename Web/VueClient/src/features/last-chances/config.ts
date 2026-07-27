@@ -3097,6 +3097,30 @@ function validateEnemies(value: unknown, errors: string[], schemaVersion: number
         }
       }
     }
+    if (enemy.id === 'invisible-wolf') {
+      const tuning = asRecordOrNull(enemy.tuning)
+      if (tuning?.behaviorVersion !== undefined
+        && tuning.behaviorVersion !== 1
+        && tuning.behaviorVersion !== 2) {
+        errors.push(`${path}.tuning.behaviorVersion must be 1 or 2`)
+      }
+      // Both thresholds are dot products against the player's aim, so anything outside [-1, 1]
+      // would silently make the stalk cycle unreachable in one direction or the other.
+      for (const key of ['rearDotMaximum', 'frontDotAbort', 'glintDot'] as const) {
+        const value = tuning?.[key]
+        if (typeof value === 'number' && (value < -1 || value > 1)) {
+          errors.push(`${path}.tuning.${key} must be between -1 and 1`)
+        }
+      }
+      for (const key of ['stalkRadius', 'stalkSpeedMultiplier', 'stalkPatienceMs',
+        'orbitDirectionMinMs', 'orbitDirectionMaxMs', 'closeSpeedMultiplier',
+        'retreatSpeedMultiplier', 'rehideDelayMs'] as const) {
+        const value = tuning?.[key]
+        if (typeof value === 'number' && value <= 0) {
+          errors.push(`${path}.tuning.${key} must be > 0`)
+        }
+      }
+    }
     if (typeof enemy.id === 'string') {
       if (ids.has(enemy.id)) errors.push(`${path}.id duplicates ${enemy.id}`)
       ids.add(enemy.id)
