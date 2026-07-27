@@ -357,6 +357,11 @@ interface RuntimeProjectile {
   color: string
   source: 'player' | 'enemy'
   sourceName: string
+  /**
+   * Definition id of whatever fired this, or `player`. The renderer picks the shot's model from
+   * it — `sourceName` is a display name and must not be matched on.
+   */
+  sourceId: string
   attack?: LastChancesAttackDefinition
   weaponId?: string
   hand?: LastChancesHand
@@ -2762,6 +2767,7 @@ export class LastChancesEngine {
         color: turret.definition.color,
         source: 'enemy',
         sourceName: turret.definition.name,
+        sourceId: turret.definition.id,
       })
       turret.fireCooldownMs = turret.definition.fireIntervalMs
     }
@@ -4001,6 +4007,7 @@ export class LastChancesEngine {
       color: enemy.definition.color,
       source: 'enemy',
       sourceName: enemy.definition.name,
+      sourceId: enemy.definition.id,
     })
     this.nextProjectileId += 1
   }
@@ -5400,6 +5407,7 @@ export class LastChancesEngine {
       color: attack.color,
       source: 'player',
       sourceName: 'Player',
+      sourceId: 'player',
       attack: { ...attack },
       weaponId: context.weapon.id,
       hand: context.hand,
@@ -9789,12 +9797,32 @@ export class LastChancesEngine {
       context.lineTo(-radius * 1.15, 0)
       context.closePath()
     }
+    // Ragged lip of torn floor, then the dark, then a rim that breathes. The authored shape stays
+    // exact — the player is expected to learn which shape answers which, so it cannot wobble.
+    context.save()
+    context.scale(1.16, 1.16)
+    context.fillStyle = 'rgba(38, 30, 34, .9)'
+    context.fill()
+    context.restore()
     context.fillStyle = '#050405'
     context.shadowColor = hole.color
     context.shadowBlur = 10
     context.fill()
+    // Throat: a few strands crossing the dark so the hole reads as a passage, not a decal.
+    context.save()
+    context.clip()
+    context.strokeStyle = 'rgba(120, 80, 92, .5)'
+    context.lineWidth = 1.2
+    for (let strand = 0; strand < 3; strand += 1) {
+      const offset = radius * (-0.5 + strand * 0.5)
+      context.beginPath()
+      context.moveTo(offset, -radius * 1.4)
+      context.quadraticCurveTo(offset + radius * 0.3, 0, offset, radius * 1.4)
+      context.stroke()
+    }
+    context.restore()
     context.strokeStyle = hole.color
-    context.lineWidth = 2.5
+    context.lineWidth = 2.5 + Math.sin(this.elapsedMs / 620 + hole.position.x) * 0.6
     context.stroke()
     context.restore()
   }
@@ -9830,20 +9858,66 @@ export class LastChancesEngine {
       y: turret.definition.position.y + turret.facing.y * 48,
     }, node)
     const scale = Math.max(8, 20 * this.entityScale(node))
+    const headY = point.y - scale * 0.65
+    const barrelAngle = Math.atan2(aim.y - point.y, aim.x - point.x)
     context.save()
+    // Squat plinth under the housing, so a turret reads as bolted down rather than floating.
     context.beginPath()
-    context.arc(point.x, point.y - scale * 0.65, scale, 0, Math.PI * 2)
+    context.ellipse(point.x, point.y, scale * 0.92, scale * 0.4, 0, 0, Math.PI * 2)
+    context.fillStyle = turret.disabled ? '#2b2d2f' : '#3c4245'
+    context.fill()
+    // Barrel first, so the housing sits over its root.
+    context.save()
+    context.translate(point.x, headY)
+    context.rotate(barrelAngle)
+    context.beginPath()
+    context.roundRect(0, -scale * 0.24, scale * 2.1, scale * 0.48, scale * 0.1)
+    context.fillStyle = turret.disabled ? '#4a4e50' : shadeEnemyColor(turret.definition.color, -0.45)
+    context.fill()
+    context.beginPath()
+    context.roundRect(scale * 1.85, -scale * 0.34, scale * 0.36, scale * 0.68, scale * 0.1)
+    context.fillStyle = turret.disabled ? '#5c6062' : turret.definition.color
+    context.fill()
+    context.restore()
+    // Housing carrying the turret's own shape — the same four shapes the boss holes use, and the
+    // only thing that tells «Круг» from «Ромб» at a glance.
+    context.beginPath()
+    if (turret.definition.id === 'turret-square') {
+      context.rect(point.x - scale * 0.82, headY - scale * 0.82, scale * 1.64, scale * 1.64)
+    } else if (turret.definition.id === 'turret-triangle') {
+      context.moveTo(point.x, headY - scale)
+      context.lineTo(point.x + scale * 0.92, headY + scale * 0.72)
+      context.lineTo(point.x - scale * 0.92, headY + scale * 0.72)
+      context.closePath()
+    } else if (turret.definition.id === 'turret-diamond') {
+      context.moveTo(point.x, headY - scale * 1.08)
+      context.lineTo(point.x + scale * 0.94, headY)
+      context.lineTo(point.x, headY + scale * 1.08)
+      context.lineTo(point.x - scale * 0.94, headY)
+      context.closePath()
+    } else {
+      context.arc(point.x, headY, scale, 0, Math.PI * 2)
+    }
     context.fillStyle = turret.disabled ? '#343638' : '#555d61'
     context.strokeStyle = turret.disabled ? '#72787a' : turret.definition.color
     context.lineWidth = 2.5
     context.fill()
     context.stroke()
+    // Lens, lit only while the turret is still watching.
     context.beginPath()
-    context.moveTo(point.x, point.y - scale * 0.65)
-    context.lineTo(aim.x, aim.y - scale * 0.65)
-    context.strokeStyle = turret.disabled ? '#606466' : turret.definition.color
-    context.lineWidth = scale * 0.48
-    context.stroke()
+    context.arc(
+      point.x + Math.cos(barrelAngle) * scale * 0.34,
+      headY + Math.sin(barrelAngle) * scale * 0.34,
+      scale * 0.3,
+      0,
+      Math.PI * 2,
+    )
+    context.fillStyle = turret.disabled
+      ? '#42474a'
+      : turret.seesPlayer
+        ? '#ffe9c4'
+        : shadeEnemyColor(turret.definition.color, -0.2)
+    context.fill()
     if (turret.disabled) {
       context.font = `900 ${scale * 1.45}px system-ui`
       context.textAlign = 'center'
@@ -9885,25 +9959,92 @@ export class LastChancesEngine {
     context.restore()
   }
 
+  /**
+   * The two hazard kinds now look like what they do instead of sharing one coloured rectangle:
+   * spikes are a bed of blades that rise out of the floor on their active beat and sit nearly
+   * flush between beats, and mental fog is a drift of soft shapes that thickens when it bites.
+   * Both are clipped to the authored footprint, which is what the damage test actually uses, so
+   * the drawing can never promise a safe pixel that is not safe.
+   */
   private renderHazard(hazard: LastChancesHazardDefinition, node: LastChancesPlanNode): void {
     const context = this.context
+    const active = this.hazardActive(hazard)
     const points = [
       this.worldToScreen({ x: hazard.x, y: hazard.y }, node),
       this.worldToScreen({ x: hazard.x + hazard.width, y: hazard.y }, node),
       this.worldToScreen({ x: hazard.x + hazard.width, y: hazard.y + hazard.height }, node),
       this.worldToScreen({ x: hazard.x, y: hazard.y + hazard.height }, node),
     ]
+    const trace = (): void => {
+      context.beginPath()
+      points.forEach((point, index) => index === 0
+        ? context.moveTo(point.x, point.y)
+        : context.lineTo(point.x, point.y))
+      context.closePath()
+    }
+    const spanX = Math.abs(points[1].x - points[0].x) + Math.abs(points[3].x - points[0].x)
+    const spanY = Math.abs(points[1].y - points[0].y) + Math.abs(points[3].y - points[0].y)
+    const size = Math.max(6, Math.min(spanX, spanY) * 0.16)
+
     context.save()
-    context.globalAlpha = this.hazardActive(hazard) ? 0.48 : 0.12
-    context.beginPath()
-    points.forEach((point, index) => index === 0
-      ? context.moveTo(point.x, point.y)
-      : context.lineTo(point.x, point.y))
-    context.closePath()
+    context.globalAlpha = active ? 0.48 : 0.12
+    trace()
     context.fillStyle = hazard.color
     context.fill()
+
+    trace()
+    context.clip()
+    if (hazard.kind === 'spikes') {
+      // Blades on a grid, tall while the row is live and barely proud of the floor between beats.
+      const height = size * (active ? 1.5 : 0.32)
+      context.globalAlpha = active ? 0.95 : 0.4
+      context.fillStyle = shadeEnemyColor(hazard.color, active ? 0.35 : -0.1)
+      for (let row = 0; row < 4; row += 1) {
+        for (let column = 0; column < 6; column += 1) {
+          const alongX = (column + 0.5) / 6
+          const alongY = (row + 0.5) / 4
+          const spikeX = points[0].x
+            + (points[1].x - points[0].x) * alongX
+            + (points[3].x - points[0].x) * alongY
+          const spikeY = points[0].y
+            + (points[1].y - points[0].y) * alongX
+            + (points[3].y - points[0].y) * alongY
+          context.beginPath()
+          context.moveTo(spikeX - size * 0.28, spikeY)
+          context.lineTo(spikeX, spikeY - height)
+          context.lineTo(spikeX + size * 0.28, spikeY)
+          context.closePath()
+          context.fill()
+        }
+      }
+    } else {
+      // Fog: overlapping soft shapes drifting along the field, denser while it is biting.
+      context.globalAlpha = active ? 0.42 : 0.16
+      context.fillStyle = shadeEnemyColor(hazard.color, 0.28)
+      for (let blob = 0; blob < 7; blob += 1) {
+        const drift = this.elapsedMs / (2600 + blob * 340) + blob * 1.7
+        const alongX = (Math.sin(drift) * 0.5 + 0.5) * 0.86 + 0.07
+        const alongY = (Math.cos(drift * 0.7 + blob) * 0.5 + 0.5) * 0.8 + 0.1
+        context.beginPath()
+        context.ellipse(
+          points[0].x + (points[1].x - points[0].x) * alongX + (points[3].x - points[0].x) * alongY,
+          points[0].y + (points[1].y - points[0].y) * alongX + (points[3].y - points[0].y) * alongY,
+          size * (1.1 + Math.sin(drift * 1.3) * 0.25),
+          size * 0.5,
+          0,
+          0,
+          Math.PI * 2,
+        )
+        context.fill()
+      }
+    }
+    context.restore()
+
+    context.save()
+    context.globalAlpha = active ? 0.48 : 0.12
+    trace()
     context.strokeStyle = hazard.color
-    context.lineWidth = this.hazardActive(hazard) ? 2.5 : 1
+    context.lineWidth = active ? 2.5 : 1
     context.stroke()
     context.restore()
   }
@@ -9981,6 +10122,14 @@ export class LastChancesEngine {
     }
   }
 
+  /**
+   * The walls are alive, and this is the only place that says so. Their footprint is load-bearing
+   * — movement, line of sight and every collider test use the authored rectangle — so nothing here
+   * moves the silhouette by a pixel. The life is entirely inside it: a slow breath that swells the
+   * lit face, veins that creep across the top, and ribs banding the front. Vein layout is hashed
+   * from the obstacle's own coordinates, so a wall looks the same every frame and every run
+   * instead of crawling.
+   */
   private renderObstacle(obstacle: LastChancesObstacleDefinition, node: LastChancesPlanNode): void {
     const context = this.context
     const base = [
@@ -9991,19 +10140,98 @@ export class LastChancesEngine {
     ]
     const elevation = obstacle.elevation * this.layout().diamondHeight / node.arena.height * 0.72
     const top = base.map(point => ({ x: point.x, y: point.y - elevation }))
-    const polygon = (points: LastChancesVector[], fill: string): void => {
+    const tracePolygon = (points: LastChancesVector[]): void => {
       context.beginPath()
       points.forEach((point, index) => index === 0
         ? context.moveTo(point.x, point.y)
         : context.lineTo(point.x, point.y))
       context.closePath()
+    }
+    const polygon = (points: LastChancesVector[], fill: string): void => {
+      tracePolygon(points)
       context.fillStyle = fill
       context.fill()
     }
-    polygon([top[1], base[1], base[2], top[2]], this.config.renderer.obstacleSide)
-    polygon([top[2], base[2], base[3], top[3]], 'rgba(25, 22, 32, .96)')
+    /** Stable per-wall noise in 0..1, so veins never crawl between frames. */
+    const hash = (index: number): number => {
+      const value = Math.sin(
+        (obstacle.x + 1) * 12.9898 + (obstacle.y + 1) * 78.233 + index * 37.719,
+      ) * 43758.5453
+      return value - Math.floor(value)
+    }
+    const breath = 0.5 + Math.sin(this.elapsedMs / 1500 + obstacle.x * 0.01 + obstacle.y * 0.013) * 0.5
+    const lit = [top[1], base[1], base[2], top[2]]
+    const dark = [top[2], base[2], base[3], top[3]]
+
+    polygon(lit, this.config.renderer.obstacleSide)
+    polygon(dark, 'rgba(25, 22, 32, .96)')
+
+    // Ribs across the lit face, banding it like something with a ribcage.
+    if (elevation > 4) {
+      context.save()
+      tracePolygon(lit)
+      context.clip()
+      context.strokeStyle = `rgba(12, 10, 16, ${0.2 + breath * 0.12})`
+      context.lineWidth = Math.max(1, elevation * 0.055)
+      for (let rib = 1; rib < 5; rib += 1) {
+        const ribShare = rib / 5
+        context.beginPath()
+        context.moveTo(top[1].x, top[1].y + elevation * ribShare)
+        context.lineTo(top[2].x, top[2].y + elevation * ribShare)
+        context.stroke()
+      }
+      context.restore()
+    }
+
     polygon(top, this.config.renderer.obstacleTop)
-    context.strokeStyle = 'rgba(255,255,255,.08)'
+
+    // Veins on the top face: each creeps from the centre to a hashed point on the rim, kinked
+    // once on the way, and brightens with the breath.
+    context.save()
+    tracePolygon(top)
+    context.clip()
+    const centre = {
+      x: (top[0].x + top[2].x) / 2,
+      y: (top[0].y + top[2].y) / 2,
+    }
+    context.strokeStyle = `rgba(196, 122, 132, ${0.16 + breath * 0.24})`
+    context.lineWidth = Math.max(1, elevation * 0.05)
+    for (let vein = 0; vein < 5; vein += 1) {
+      const corner = top[Math.floor(hash(vein) * 4) % 4]
+      const along = 0.25 + hash(vein + 20) * 0.7
+      const kink = 0.35 + hash(vein + 40) * 0.3
+      const tip = {
+        x: centre.x + (corner.x - centre.x) * along,
+        y: centre.y + (corner.y - centre.y) * along,
+      }
+      context.beginPath()
+      context.moveTo(centre.x, centre.y)
+      context.quadraticCurveTo(
+        centre.x + (tip.x - centre.x) * kink + (hash(vein + 60) - 0.5) * elevation * 0.5,
+        centre.y + (tip.y - centre.y) * kink + (hash(vein + 80) - 0.5) * elevation * 0.5,
+        tip.x,
+        tip.y,
+      )
+      context.stroke()
+    }
+    // A wet swell of light that rises and falls with the breath.
+    context.globalAlpha = 0.06 + breath * 0.1
+    context.beginPath()
+    context.ellipse(
+      centre.x,
+      centre.y,
+      Math.abs(top[2].x - top[0].x) * 0.34,
+      Math.abs(top[2].y - top[0].y) * 0.34,
+      0,
+      0,
+      Math.PI * 2,
+    )
+    context.fillStyle = '#e8d5cf'
+    context.fill()
+    context.restore()
+
+    tracePolygon(top)
+    context.strokeStyle = `rgba(255,255,255,${0.08 + breath * 0.06})`
     context.stroke()
   }
 
@@ -11389,23 +11617,114 @@ export class LastChancesEngine {
     context.restore()
   }
 
+  /**
+   * A weapon lying on the floor is drawn as itself, so the player can tell a dropped Axe from a
+   * dropped Katana without walking onto it. Everything is laid along one tilted axis and lit
+   * brighter when it is the pickup the interact key would actually take.
+   */
   private renderGroundWeapon(weapon: RuntimeGroundWeapon, node: LastChancesPlanNode): void {
     const context = this.context
     const point = this.worldToScreen(weapon.position, node)
     const nearby = this.nearestGroundWeapon()?.id === weapon.id
+    const metal = nearby ? '#f4d98d' : '#b9c4c8'
+    const grip = nearby ? '#8a6b3f' : '#66533b'
+    const scale = nearby ? 1.12 : 1
     context.save()
     context.translate(point.x, point.y - 5)
     context.rotate(-0.38)
+    context.scale(scale, scale)
+    context.lineJoin = 'round'
+    context.lineCap = 'round'
     context.shadowColor = nearby ? '#f0cf79' : '#8da1ad'
     context.shadowBlur = nearby ? 18 : 8
-    context.strokeStyle = nearby ? '#f4d98d' : '#b9c4c8'
+    context.strokeStyle = metal
+    context.fillStyle = metal
     context.lineWidth = nearby ? 4 : 3
-    context.beginPath()
-    context.moveTo(-12, 5)
-    context.lineTo(13, -6)
-    context.stroke()
-    context.fillStyle = '#66533b'
-    context.fillRect(-15, 2, 7, 5)
+
+    if (weapon.weaponId === 'twohand-spear' || weapon.weaponId === 'twohand-spear-v2') {
+      context.beginPath()
+      context.moveTo(-19, 4)
+      context.lineTo(14, -6)
+      context.stroke()
+      context.beginPath()
+      context.moveTo(14, -6)
+      context.lineTo(23, -9)
+      context.lineTo(15, -1)
+      context.closePath()
+      context.fill()
+    } else if (weapon.weaponId === 'secondary-chain') {
+      context.lineWidth = nearby ? 3 : 2.2
+      for (let link = 0; link < 5; link += 1) {
+        context.beginPath()
+        context.ellipse(-16 + link * 8, 3 - link * 2.4, 4.4, 2.8, -0.38, 0, Math.PI * 2)
+        context.stroke()
+      }
+    } else if (weapon.weaponId === 'either-claws') {
+      for (const offset of [-4, 0, 4]) {
+        context.beginPath()
+        context.moveTo(-10 + offset, 7)
+        context.quadraticCurveTo(4 + offset, 2, 13 + offset, -7)
+        context.stroke()
+      }
+    } else if (weapon.weaponId === 'secondary-spider-knife') {
+      context.beginPath()
+      context.moveTo(-12, 6)
+      context.lineTo(12, -5)
+      context.lineTo(6, 2)
+      context.closePath()
+      context.fill()
+      context.lineWidth = 1.6
+      for (const side of [-1, 1]) {
+        context.beginPath()
+        context.moveTo(-6, 3)
+        context.lineTo(-11, 3 + side * 8)
+        context.stroke()
+      }
+    } else if (weapon.weaponId === 'twohand-axe') {
+      context.beginPath()
+      context.moveTo(-17, 6)
+      context.lineTo(12, -5)
+      context.stroke()
+      context.beginPath()
+      context.moveTo(4, -1)
+      context.quadraticCurveTo(16, -14, 20, -2)
+      context.quadraticCurveTo(12, 1, 6, 3)
+      context.closePath()
+      context.fill()
+    } else if (weapon.weaponId === 'twohand-katana') {
+      context.beginPath()
+      context.moveTo(-14, 7)
+      context.quadraticCurveTo(2, -1, 19, -10)
+      context.stroke()
+      context.lineWidth = 2
+      context.strokeStyle = grip
+      context.beginPath()
+      context.moveTo(-14, 7)
+      context.lineTo(-20, 9)
+      context.stroke()
+    } else if (weapon.weaponId === 'secondary-ouroboros-fang') {
+      context.beginPath()
+      context.moveTo(-11, 8)
+      context.quadraticCurveTo(6, 4, 14, -9)
+      context.quadraticCurveTo(4, -1, -8, 3)
+      context.closePath()
+      context.fill()
+    } else {
+      // Меч наемника and anything the Builder adds: a straight blade with a crossguard.
+      context.beginPath()
+      context.moveTo(-12, 5)
+      context.lineTo(15, -7)
+      context.stroke()
+      context.lineWidth = 2.4
+      context.beginPath()
+      context.moveTo(-11, 0)
+      context.lineTo(-7, 9)
+      context.stroke()
+    }
+
+    context.shadowBlur = 0
+    context.fillStyle = grip
+    context.fillRect(-19, 2, 7, 5)
     context.restore()
   }
 
@@ -11472,18 +11791,94 @@ export class LastChancesEngine {
       this.drawSpearSprite(layout)
       return
     }
-    this.context.beginPath()
-    this.context.arc(point.x, point.y - radius, radius, 0, Math.PI * 2)
-    this.context.fillStyle = projectile.color
-    this.context.shadowColor = projectile.color
-    this.context.shadowBlur = 12
-    this.context.fill()
-    if (projectile.source === 'enemy') {
-      this.context.strokeStyle = '#ff5964'
-      this.context.lineWidth = 2
-      this.context.stroke()
+    // Everything else is drawn as the thing that was actually fired, laid along its screen-space
+    // travel direction. An incoming shot is marked by a red halo rather than a red outline: the
+    // modelled shapes are line work, and outlining them would erase the shape itself.
+    const context = this.context
+    const ahead = this.worldToScreen({
+      x: projectile.position.x + projectile.velocity.x,
+      y: projectile.position.y + projectile.velocity.y,
+    }, node)
+    const travel = Math.atan2(ahead.y - point.y, ahead.x - point.x)
+    const spin = this.elapsedMs / 70 + projectile.id
+    context.save()
+    context.translate(point.x, point.y - radius)
+    context.rotate(travel)
+    context.lineJoin = 'round'
+    context.lineCap = 'round'
+    context.shadowColor = projectile.source === 'enemy' ? '#ff5964' : projectile.color
+    context.shadowBlur = projectile.source === 'enemy' ? 14 : 12
+    context.fillStyle = projectile.color
+    context.strokeStyle = projectile.color
+
+    if (projectile.sourceId === 'running-stapler') {
+      // A staple, tumbling end over end.
+      context.rotate(spin)
+      context.lineWidth = Math.max(1.4, radius * 0.5)
+      context.beginPath()
+      context.moveTo(-radius * 0.8, radius * 0.95)
+      context.lineTo(-radius * 0.8, -radius * 0.75)
+      context.lineTo(radius * 0.8, -radius * 0.75)
+      context.lineTo(radius * 0.8, radius * 0.95)
+      context.stroke()
+    } else if (projectile.sourceId === 'curator-shadow') {
+      // A page out of the archive, fluttering edge-on as it flies.
+      const flutter = 0.28 + Math.abs(Math.sin(this.elapsedMs / 90 + projectile.id)) * 0.72
+      context.save()
+      context.scale(1, flutter)
+      context.beginPath()
+      context.roundRect(-radius * 1.1, -radius * 1.3, radius * 2.2, radius * 2.6, radius * 0.2)
+      context.fill()
+      context.strokeStyle = shadeEnemyColor(projectile.color, -0.45)
+      context.lineWidth = Math.max(0.8, radius * 0.16)
+      for (let line = 0; line < 3; line += 1) {
+        const lineY = radius * (-0.6 + line * 0.6)
+        context.beginPath()
+        context.moveTo(-radius * 0.7, lineY)
+        context.lineTo(radius * (line === 2 ? 0.2 : 0.7), lineY)
+        context.stroke()
+      }
+      context.restore()
+    } else if (projectile.sourceId.startsWith('turret-')) {
+      // A turret bolt: head, shaft and two fins.
+      context.beginPath()
+      context.moveTo(radius * 1.6, 0)
+      context.lineTo(radius * 0.2, -radius * 0.6)
+      context.lineTo(-radius * 1.2, -radius * 0.28)
+      context.lineTo(-radius * 1.2, radius * 0.28)
+      context.lineTo(radius * 0.2, radius * 0.6)
+      context.closePath()
+      context.fill()
+      context.lineWidth = Math.max(1, radius * 0.22)
+      for (const side of [-1, 1]) {
+        context.beginPath()
+        context.moveTo(-radius * 0.9, side * radius * 0.24)
+        context.lineTo(-radius * 1.7, side * radius * 0.9)
+        context.stroke()
+      }
+    } else if (projectile.source === 'player') {
+      // A thrown shard, longer than it is wide so its heading is unmistakable.
+      context.beginPath()
+      context.moveTo(radius * 1.9, 0)
+      context.lineTo(0, -radius * 0.8)
+      context.lineTo(-radius * 1.1, 0)
+      context.lineTo(0, radius * 0.8)
+      context.closePath()
+      context.fill()
+    } else {
+      // Anything the Builder invents keeps the original ball-and-red-ring presentation.
+      context.beginPath()
+      context.arc(0, 0, radius, 0, Math.PI * 2)
+      context.fill()
+      if (projectile.source === 'enemy') {
+        context.shadowBlur = 0
+        context.strokeStyle = '#ff5964'
+        context.lineWidth = 2
+        context.stroke()
+      }
     }
-    this.context.shadowBlur = 0
+    context.restore()
+    context.shadowBlur = 0
   }
 
   private primarySpearWeapon(): LastChancesResolvedWeapon | null {
