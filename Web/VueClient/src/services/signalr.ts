@@ -186,6 +186,7 @@ export type PassiveAbilityStates = {
   saitama?: SaitamaState
   shinigamiEyes?: ShinigamiEyesWidgetState
   seller?: SellerState
+  scamRat?: ScamRatState
   dopa?: DopaState
   goblinSwarm?: GoblinSwarmState
   kotiki?: KotikiState
@@ -228,6 +229,15 @@ export type WeedState = { totalWeedAvailable: number; lastHarvestRound: number }
 export type SaitamaState = { deferredPoints: number; deferredMoral: number }
 export type ShinigamiEyesWidgetState = { isActive: boolean }
 export type SellerState = { cooldown: number; markedCount: number; secretBuildSkill: number }
+export type ScamRatState = {
+  activeGpuCount: number
+  soldGpuCount: number
+  maximumJustice: number
+  lastIntelligenceRoll: number
+  lastExplosionPoints: number
+  totalExplosionPoints: number
+  activeGpuOwners: string[]
+}
 export type DopaState = {
   visionReady: boolean
   visionCooldown: number
@@ -537,6 +547,8 @@ export type PlayerStatus = {
   isReady: boolean
   isBlock: boolean
   isSkip: boolean
+  /** Owner-only visual classification for why the current action is unavailable. */
+  turnInterference: 'none' | 'self' | 'enemy'
   isAutoMove: boolean
   confirmedPredict: boolean
   confirmedSkip: boolean

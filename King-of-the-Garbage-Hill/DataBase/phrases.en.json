@@ -4633,6 +4633,26 @@
       }
     ]
   },
+  "ScamRatSale": {
+    "passiveNameRussian": "Взрывной майнинг!",
+    "passiveNameEnglish": "Explosive Mining!",
+    "phrases": [
+      {
+        "russian": "Подсовывает побежденным врагам консервные банки, раскрашенные под топовые видеокарты.",
+        "english": "Slips defeated enemies tin cans painted to look like top-tier graphics cards."
+      }
+    ]
+  },
+  "ScamRatExplosion": {
+    "passiveNameRussian": "Взрывной майнинг!",
+    "passiveNameEnglish": "Explosive Mining!",
+    "phrases": [
+      {
+        "russian": "Нажимая на блок, Крыса прячется в укрытие, потому-что инициируется взрыв видеокарт!",
+        "english": "By Blocking, the Rat hides in cover and detonates the graphics cards!"
+      }
+    ]
+  },
   "JusticePhrase": {
     "passiveNameRussian": "Справедливость",
     "passiveNameEnglish": "Justice",

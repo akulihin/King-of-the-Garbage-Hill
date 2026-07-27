@@ -527,6 +527,14 @@ describe('99LC config and deterministic plan', () => {
     expect(defaultConfig.enemies.find(enemy => enemy.id === 'spider-knife')).toMatchObject({
       maxHp: 48,
       armor: 2,
+      tuning: {
+        behaviorVersion: 2,
+        reflectedDamageMultiplier: 4,
+        quickCaptureWindowMs: 170,
+        embeddedCaptureWindowMs: 2200,
+        reflectionSelfDamageRatio: 0.1,
+        impactSelfDamageRatio: 0.1,
+      },
     })
     expect(defaultConfig.progression.moveQuestsEnabled).toBe(true)
     expect(defaultConfig.artifacts).toHaveLength(5)

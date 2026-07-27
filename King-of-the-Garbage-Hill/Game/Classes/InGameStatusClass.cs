@@ -6,6 +6,13 @@ using King_of_the_Garbage_Hill.Helpers;
 
 namespace King_of_the_Garbage_Hill.Game.Classes;
 
+public enum TurnInterferenceKind
+{
+    None,
+    Self,
+    Enemy,
+}
+
 public class InGameStatus
 {
     public InGameStatus()
@@ -57,7 +64,26 @@ public class InGameStatus
     private decimal Score { get; set; }
     public Guid PlayerId { get; set; }
     public bool IsBlock { get; set; }
-    public bool IsSkip { get; set; }
+    private bool _isSkip;
+    public bool IsSkip
+    {
+        get => _isSkip;
+        set
+        {
+            _isSkip = value;
+            if (!value)
+            {
+                TurnInterference = TurnInterferenceKind.None;
+                return;
+            }
+
+            // Existing/self-authored skip paths remain safe by default. Enemy mechanics
+            // explicitly overwrite this classification at the point where they apply.
+            if (TurnInterference == TurnInterferenceKind.None)
+                TurnInterference = TurnInterferenceKind.Self;
+        }
+    }
+    public TurnInterferenceKind TurnInterference { get; set; }
     public bool IsArmorBreak { get; set; }
     public bool IsSkipBreak { get; set; }
     public bool IsAutoMove { get; set; }
@@ -200,10 +226,14 @@ public class InGameStatus
             return;
         }
 
-        AddRegularPoints(regularPoints, reason, isLog);
+        AddRegularPoints(regularPoints, reason, isLog, isNaturalWin: true);
     }
 
-    public void AddRegularPoints(int regularPoints, string reason, bool isLog = true)
+    public void AddRegularPoints(
+        int regularPoints,
+        string reason,
+        bool isLog = true,
+        bool isNaturalWin = false)
     {
         if (regularPoints < 0 && (UnknownBug.Is(GameCharacter)
                                  || Homelander.IsProtected(GameCharacter, this)))
@@ -214,7 +244,13 @@ public class InGameStatus
         }
 
         ScoresToGiveAtEndOfRound += regularPoints;
-        ScoreEntries.Add(new ScoreEntry { Source = reason, Points = regularPoints, IsBonus = false });
+        ScoreEntries.Add(new ScoreEntry
+        {
+            Source = reason,
+            Points = regularPoints,
+            IsBonus = false,
+            IsNaturalWin = isNaturalWin,
+        });
         if (!isLog) return;
 
         if (regularPoints >= 0)
@@ -289,6 +325,20 @@ public class InGameStatus
     public decimal GetBonusPointsEarnedThisRound()
     {
         return BonusPointsEarnedThisRound;
+    }
+
+    public decimal GetPreviousRoundAbilityPoints()
+    {
+        var bonusPoints = PreviousRoundScoreEntries
+            .Where(entry => entry.IsBonus && !entry.IsNaturalWin && entry.Points > 0)
+            .Sum(entry => entry.Points);
+        var regularPoints = PreviousRoundScoreEntries
+            .Where(entry => !entry.IsBonus
+                            && !entry.IsNaturalWin
+                            && (entry.Points > 0 || entry.Source == GordonFreeman.HalfLife3))
+            .Sum(entry => entry.Points);
+
+        return bonusPoints + Math.Max(0, regularPoints) * ActualRoundMultiplier;
     }
 
     public int GetRoundScoreMultiplier(GameClass game)
@@ -537,4 +587,5 @@ public class ScoreEntry
     public string Source { get; set; }
     public decimal Points { get; set; }
     public bool IsBonus { get; set; }
+    public bool IsNaturalWin { get; set; }
 }

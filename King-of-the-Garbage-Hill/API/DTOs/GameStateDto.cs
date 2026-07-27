@@ -240,6 +240,11 @@ public class PlayerStatusDto
     public bool IsReady { get; set; }
     public bool IsBlock { get; set; }
     public bool IsSkip { get; set; }
+    /// <summary>
+    /// Owner-only visual classification for a lost action: "none", "self", or "enemy".
+    /// It never identifies the passive or source player.
+    /// </summary>
+    public string TurnInterference { get; set; } = "none";
     public bool IsAutoMove { get; set; }
     public bool ConfirmedPredict { get; set; }
     public bool ConfirmedSkip { get; set; }
@@ -644,6 +649,7 @@ public class PassiveAbilityStatesDto
     public SaitamaStateDto Saitama { get; set; }
     public ShinigamiEyesWidgetDto ShinigamiEyes { get; set; }
     public SellerStateDto Seller { get; set; }
+    public ScamRatStateDto ScamRat { get; set; }
     public DopaStateDto Dopa { get; set; }
     public GoblinSwarmStateDto GoblinSwarm { get; set; }
     public KotikiStateDto Kotiki { get; set; }
@@ -828,6 +834,17 @@ public class SellerStateDto
     public int Cooldown { get; set; }
     public int MarkedCount { get; set; }
     public decimal SecretBuildSkill { get; set; }
+}
+
+public class ScamRatStateDto
+{
+    public int ActiveGpuCount { get; set; }
+    public int SoldGpuCount { get; set; }
+    public int MaximumJustice { get; set; }
+    public int LastIntelligenceRoll { get; set; }
+    public decimal LastExplosionPoints { get; set; }
+    public decimal TotalExplosionPoints { get; set; }
+    public List<string> ActiveGpuOwners { get; set; } = new();
 }
 
 public class DopaStateDto

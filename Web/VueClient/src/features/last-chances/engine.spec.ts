@@ -117,6 +117,18 @@ interface RuntimeEnemy {
     exitHoleId: string
     detonateAtMs: number
   } | null
+  knifeSpiderV2: {
+    attackMode: 'leap' | 'strike' | null
+    flightVelocity: LastChancesVector | null
+    reflected: boolean
+    embedded: boolean
+    orbitDirection: -1 | 1
+    decisionMs: number
+    evadeMs: number
+    evadeDirection: LastChancesVector
+    lastReactedAttackAtMs: number
+    rng: () => number
+  } | null
 }
 
 interface RuntimeAttackContext {
@@ -219,6 +231,8 @@ type EngineTestAccess = {
   canExploreRoom: () => boolean
   controlContextActive: (hand: LastChancesHand, context: LastChancesControlContext) => boolean
   currentNode: LastChancesPlanNode | null
+  completeRoom: () => void
+  knifeSpiderTutorialPhase: 'pending' | 'slowing' | 'frozen' | 'resuming' | 'complete'
   plan: LastChancesGamePlan
   applyGamepadReading: (reading: LastChancesGamepadReading | null) => void
   pollGamepad: () => void
@@ -314,6 +328,7 @@ type EngineTestAccess = {
     position: LastChancesVector,
     delta: LastChancesVector,
     radius: number,
+    options?: { wallSlide?: boolean },
   ) => void
   movementVelocity: LastChancesVector
   pressedPointerButtons: Set<number>
@@ -1024,7 +1039,7 @@ describe('99LC engine attempt lifecycle', () => {
 })
 
 describe('99LC eight-weapon mechanics', () => {
-  it('projects the arena as an invertible full-window isometric diamond', () => {
+  it('projects the arena as an invertible full-window isometric rhombus', () => {
     const { engine, access } = startCombat(combatConfig('twohand-spear', null, 'guard', 1))
 
     try {
@@ -1036,10 +1051,12 @@ describe('99LC eight-weapon mechanics', () => {
       const bottom = access.worldToScreen({ x: arena.width, y: arena.height }, node)
       const left = access.worldToScreen({ x: 0, y: arena.height }, node)
 
-      expect(top.x).toBeCloseTo(bottom.x, 6)
-      expect(right.y).toBeCloseTo(left.y, 6)
+      // The room is drawn to scale, so a 16:9 arena is a rhombus rather than a symmetric
+      // diamond — but it still occupies exactly the fitted diamond box.
       expect(right.x - left.x).toBeCloseTo(layout.diamondWidth, 6)
       expect(bottom.y - top.y).toBeCloseTo(layout.diamondHeight, 6)
+      expect((left.x + right.x) / 2).toBeCloseTo(layout.centerX, 6)
+      expect(top.y).toBeCloseTo(layout.top, 6)
       expect(right.x).toBeGreaterThan(top.x)
       expect(left.x).toBeLessThan(top.x)
       expect(top.y).toBeLessThan(right.y)
@@ -1053,6 +1070,37 @@ describe('99LC eight-weapon mechanics', () => {
         layout.diamondWidth / (arena.width + arena.height),
         6,
       )
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('gives both world axes the same screen scale so no direction moves faster', () => {
+    const { engine, access } = startCombat(combatConfig('twohand-spear', null, 'guard', 1))
+
+    try {
+      const node = access.currentNode!
+      // The regression only shows on a non-square room: normalizing each axis against its own
+      // dimension made a 16:9 arena's Y axis cover width/height more screen distance than X.
+      expect(node.arena.width).not.toBeCloseTo(node.arena.height, 6)
+
+      const origin = { x: node.arena.width / 2, y: node.arena.height / 2 }
+      const projectedOrigin = access.worldToScreen(origin, node)
+      const travel = 60
+      const lengthOf = (point: LastChancesVector): number => {
+        const projected = access.worldToScreen(point, node)
+        return Math.hypot(projected.x - projectedOrigin.x, projected.y - projectedOrigin.y)
+      }
+      const alongX = lengthOf({ x: origin.x + travel, y: origin.y })
+      const alongY = lengthOf({ x: origin.x, y: origin.y + travel })
+
+      expect(alongX).toBeCloseTo(alongY, 6)
+      expect(lengthOf({ x: origin.x - travel, y: origin.y })).toBeCloseTo(alongX, 6)
+      expect(lengthOf({ x: origin.x, y: origin.y - travel })).toBeCloseTo(alongX, 6)
+      expect(alongX).toBeCloseTo(travel * access.entityScale(node) * Math.hypot(
+        1,
+        access.layout().diamondHeight / access.layout().diamondWidth,
+      ), 6)
     } finally {
       engine.destroy()
     }
@@ -1315,7 +1363,7 @@ describe('99LC eight-weapon mechanics', () => {
     }
   })
 
-  it('cuts the corner when walking straight into the edge of an obstacle', () => {
+  it('cuts the corner for non-walking movement pressed into the edge of an obstacle', () => {
     const config = combatConfig('twohand-spear', null, 'guard', 1)
     const { engine, access } = startCombat(config)
     const obstacle = access.currentNode!.arena.obstacles[0]
@@ -1336,7 +1384,46 @@ describe('99LC eight-weapon mechanics', () => {
     }
   })
 
-  it('stops dead centre against a long wall instead of drifting sideways', () => {
+  it('walks along a long wall toward its nearest end instead of stopping head-on', () => {
+    const config = combatConfig('twohand-spear', null, 'guard', 1)
+    const { engine, access } = startCombat(config)
+    const obstacle = access.currentNode!.arena.obstacles[0]
+    const radius = config.player.radius
+    // Flat against the face, above its midpoint, so the top edge is the nearer end.
+    const position = { x: obstacle.x - radius, y: obstacle.y + obstacle.height * 0.35 }
+    const start = { ...position }
+
+    try {
+      access.moveCircle(position, { x: 12, y: 0 }, radius, { wallSlide: true })
+
+      // Every blocked unit is spent along the wall, so the walk keeps its full speed.
+      expect(start.y - position.y).toBeCloseTo(12, 2)
+      expect(Math.abs(position.x - start.x)).toBeLessThan(0.01)
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('walks along the arena boundary toward the nearest corner instead of stopping head-on', () => {
+    const config = combatConfig('twohand-spear', null, 'guard', 1)
+    const { engine, access } = startCombat(config)
+    const arena = access.currentNode!.arena
+    const radius = config.player.radius
+    // Flat against the top edge, left of its midpoint, so the left corner is the nearer end.
+    const position = { x: arena.width * 0.32, y: radius }
+    const start = { ...position }
+
+    try {
+      access.moveCircle(position, { x: 0, y: -12 }, radius, { wallSlide: true })
+
+      expect(start.x - position.x).toBeCloseTo(12, 2)
+      expect(Math.abs(position.y - start.y)).toBeLessThan(0.01)
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('keeps dashes, knockback and enemies stopping dead centre against a long wall', () => {
     const config = combatConfig('twohand-spear', null, 'guard', 1)
     const { engine, access } = startCombat(config)
     const obstacle = access.currentNode!.arena.obstacles[0]
@@ -1345,6 +1432,7 @@ describe('99LC eight-weapon mechanics', () => {
     const start = { ...position }
 
     try {
+      // No `wallSlide`: forced movement must land against the wall it hit, not slide off it.
       access.moveCircle(position, { x: 12, y: 0 }, radius)
 
       expect(position.y).toBeCloseTo(start.y, 6)
@@ -1909,6 +1997,11 @@ describe('99LC eight-weapon mechanics', () => {
 
   it('preserves the Knife-spider locked leap facing so a miss exposes its rear', () => {
     const config = combatConfig('either-claws', null, 'spider-knife', 1)
+    const spiderDefinition = config.enemies.find(candidate => candidate.id === 'spider-knife')!
+    spiderDefinition.tuning = {
+      ...spiderDefinition.tuning,
+      behaviorVersion: 1,
+    }
     const { engine, access } = startCombat(config)
     const spider = access.enemies[0]
 
@@ -1928,6 +2021,142 @@ describe('99LC eight-weapon mechanics', () => {
       expect(spider.captureWindowMs).toBeGreaterThan(0)
       expect(spider.facing).toEqual({ x: 1, y: 0 })
       expect(access.createSnapshot().interactionPrompt).toContain('Нож-паука')
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('reflects Knife-spider v2 away from the attack and amplifies its collision damage', () => {
+    const config = combatConfig('hybrid-sword', null, 'spider-knife', 2)
+    const { engine, access } = startCombat(config)
+    const [spider, target] = access.enemies
+    const spiderState = spider.knifeSpiderV2!
+    const targetDefinition = config.enemies.find(candidate => candidate.id === 'guard')!
+    const sword = weapon(config, 'hybrid-sword')
+
+    try {
+      spider.position = {
+        x: access.player.position.x + 62,
+        y: access.player.position.y,
+      }
+      spider.facing = { x: -1, y: 0 }
+      spider.state = 'attacking'
+      spider.leapRemainingDistance = 500
+      spiderState.attackMode = 'leap'
+      spiderState.flightVelocity = { x: -900, y: 0 }
+
+      target.definition = targetDefinition
+      target.hp = targetDefinition.maxHp
+      target.position = {
+        x: spider.position.x + 48,
+        y: spider.position.y,
+      }
+      target.statuses.stunMs = 1_000
+
+      access.damageEnemy(
+        spider,
+        sword.attacks.tap,
+        0,
+        { x: 1, y: 0 },
+        { hand: 'left', gesture: 'tap' },
+      )
+
+      expect(spiderState.reflected).toBe(true)
+      expect(spiderState.flightVelocity!.x).toBeGreaterThan(0)
+      expect(spider.hp).toBeCloseTo(spider.definition.maxHp * 0.9, 5)
+
+      const targetHpBefore = target.hp
+      access.updateEnemies(0.08, 80)
+
+      const expectedDamage = Math.max(
+        0,
+        spider.definition.attackDamage * 4 - (targetDefinition.armor ?? 0),
+      )
+      expect(target.hp).toBeCloseTo(targetHpBefore - expectedDamage, 5)
+      expect(spider.hp).toBeCloseTo(spider.definition.maxHp * 0.8, 5)
+      expect(spider.captureWindowMs).toBeGreaterThanOrEqual(2_100)
+      expect(spiderState.embedded).toBe(true)
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('embeds Knife-spider v2 in arena bounds for the long pickup window', () => {
+    const config = combatConfig('hybrid-sword', null, 'spider-knife', 1)
+    const { engine, access } = startCombat(config)
+    const spider = access.enemies[0]
+    const spiderState = spider.knifeSpiderV2!
+
+    try {
+      spider.position = {
+        x: spider.definition.radius + 1,
+        y: access.currentNode!.arena.height / 2,
+      }
+      spider.facing = { x: -1, y: 0 }
+      spider.state = 'attacking'
+      spider.leapRemainingDistance = 100
+      spiderState.attackMode = 'leap'
+      spiderState.flightVelocity = { x: -1_000, y: 0 }
+
+      access.updateEnemies(0.02, 20)
+
+      expect(spiderState.embedded).toBe(true)
+      expect(spider.captureWindowMs).toBe(2_200)
+      expect(spider.statuses.stunMs).toBe(2_200)
+      expect(spider.hp).toBeCloseTo(spider.definition.maxHp * 0.9, 5)
+      access.player.position = {
+        x: spider.position.x + 50,
+        y: spider.position.y,
+      }
+      expect(access.createSnapshot().interactionPrompt).toContain('обездвиженного Нож-паука')
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('forces the Mercenary Sword in the prologue, teaches reflection, then restores the loadout', () => {
+    const config = cloneLastChancesConfig(defaultConfig)
+    config.loadout = {
+      primaryWeaponId: 'twohand-spear',
+      secondaryWeaponId: null,
+      primaryAugment: 'none',
+      secondaryAugment: 'none',
+    }
+    const engine = new LastChancesEngine(makeCanvas(), config)
+    const access = engine as unknown as EngineTestAccess
+    const opening = access.createSnapshot().availableNodeIds[0]
+
+    try {
+      expect(engine.chooseNode(opening)).toBe(true)
+      expect(access.createSnapshot().loadout?.primaryWeaponId).toBe('hybrid-sword')
+
+      const spider = access.enemies[0]
+      const spiderState = spider.knifeSpiderV2!
+      spider.position = {
+        x: access.player.position.x + 100,
+        y: access.player.position.y,
+      }
+      spider.facing = { x: -1, y: 0 }
+      spider.state = 'attacking'
+      spider.leapRemainingDistance = 500
+      spiderState.attackMode = 'leap'
+      spiderState.flightVelocity = { x: -900, y: 0 }
+      access.knifeSpiderTutorialPhase = 'slowing'
+
+      access.updateEnemies(0.001, 1)
+
+      expect(access.knifeSpiderTutorialPhase).toBe('frozen')
+      expect(access.createSnapshot().knifeSpiderTutorial).toMatchObject({
+        phase: 'frozen',
+        timeScale: 0,
+      })
+      expect(engine.performKnifeSpiderTutorialParry()).toBe(true)
+      expect(access.knifeSpiderTutorialPhase).toBe('resuming')
+      expect(spiderState.reflected).toBe(true)
+
+      spider.state = 'dead'
+      access.completeRoom()
+      expect(access.createSnapshot().loadout?.primaryWeaponId).toBe('twohand-spear')
     } finally {
       engine.destroy()
     }

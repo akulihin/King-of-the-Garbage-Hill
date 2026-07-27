@@ -3075,6 +3075,28 @@ function validateEnemies(value: unknown, errors: string[], schemaVersion: number
     requireNumber(enemy, 'mentalPressurePerSecond', path, errors)
     requireString(enemy, 'color', path, errors)
     validateTuning(enemy.tuning, `${path}.tuning`, errors)
+    if (enemy.id === 'spider-knife') {
+      const tuning = asRecordOrNull(enemy.tuning)
+      if (tuning?.behaviorVersion !== undefined
+        && tuning.behaviorVersion !== 1
+        && tuning.behaviorVersion !== 2) {
+        errors.push(`${path}.tuning.behaviorVersion must be 1 or 2`)
+      }
+      for (const key of ['reflectionSelfDamageRatio', 'impactSelfDamageRatio', 'evadeChance'] as const) {
+        const value = tuning?.[key]
+        if (typeof value === 'number' && (value < 0 || value > 1)) {
+          errors.push(`${path}.tuning.${key} must be between 0 and 1`)
+        }
+      }
+      for (const key of ['reflectedDamageMultiplier', 'reflectedSpeedMultiplier',
+        'quickCaptureWindowMs', 'embeddedCaptureWindowMs', 'orbitDistance',
+        'leapTriggerDistance'] as const) {
+        const value = tuning?.[key]
+        if (typeof value === 'number' && value <= 0) {
+          errors.push(`${path}.tuning.${key} must be > 0`)
+        }
+      }
+    }
     if (typeof enemy.id === 'string') {
       if (ids.has(enemy.id)) errors.push(`${path}.id duplicates ${enemy.id}`)
       ids.add(enemy.id)

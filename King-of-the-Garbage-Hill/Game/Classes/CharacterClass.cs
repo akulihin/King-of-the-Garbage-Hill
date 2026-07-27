@@ -1876,6 +1876,7 @@ public class JusticeClass
     public bool IsWonThisRound { get; set; }
     private InGameStatus Status { get; set; }
     private int MinimumRealJustice { get; set; }
+    private int MaximumRealJustice { get; set; } = 5;
 
 
     public void SetStatus(InGameStatus status)
@@ -1885,12 +1886,31 @@ public class JusticeClass
 
     public void SetMinimumRealJustice(int minimum)
     {
-        MinimumRealJustice = Math.Clamp(minimum, 0, 5);
-        RealJusticeNow = Math.Max(RealJusticeNow, MinimumRealJustice);
+        MinimumRealJustice = Math.Clamp(minimum, 0, MaximumRealJustice);
+        RealJusticeNow = Math.Clamp(RealJusticeNow, MinimumRealJustice, MaximumRealJustice);
         if (JusticeForOneFight != -228)
-            JusticeForOneFight = Math.Max(JusticeForOneFight, MinimumRealJustice);
+            JusticeForOneFight = Math.Clamp(JusticeForOneFight, MinimumRealJustice, MaximumRealJustice);
     }
 
+    public int GetMaximumRealJustice()
+    {
+        return MaximumRealJustice;
+    }
+
+    public void ReduceMaximumRealJustice(int howMuchToReduce, string skillName)
+    {
+        if (howMuchToReduce <= 0) return;
+
+        var previousMaximum = MaximumRealJustice;
+        MaximumRealJustice = Math.Max(0, MaximumRealJustice - howMuchToReduce);
+        MinimumRealJustice = Math.Min(MinimumRealJustice, MaximumRealJustice);
+        RealJusticeNow = Math.Clamp(RealJusticeNow, MinimumRealJustice, MaximumRealJustice);
+        if (JusticeForOneFight != -228)
+            JusticeForOneFight = Math.Clamp(JusticeForOneFight, MinimumRealJustice, MaximumRealJustice);
+
+        Status?.AddInGamePersonalLogs(
+            $"{skillName}: максимальная Справедливость {previousMaximum} → {MaximumRealJustice}\n");
+    }
 
     public bool HandleEndOfRoundJustice()
     {
@@ -1943,8 +1963,8 @@ public class JusticeClass
         RealJusticeNow += howMuchToAdd;
         if (RealJusticeNow < MinimumRealJustice)
             RealJusticeNow = MinimumRealJustice;
-        if (RealJusticeNow > 5)
-            RealJusticeNow = 5;
+        if (RealJusticeNow > MaximumRealJustice)
+            RealJusticeNow = MaximumRealJustice;
 
         if (howMuchToAdd > 0) {
             var justicePhrase = justricePhrases[SecureRandom.Next(0, justricePhrases.Count - 1)];
@@ -1979,8 +1999,8 @@ public class JusticeClass
 
         if (RealJusticeNow < MinimumRealJustice)
             RealJusticeNow = MinimumRealJustice;
-        if (RealJusticeNow > 5)
-            RealJusticeNow = 5;
+        if (RealJusticeNow > MaximumRealJustice)
+            RealJusticeNow = MaximumRealJustice;
     }
 
     public void SetRealJusticeNow(int howMuchToSet, string skillName, bool isLog = true)
@@ -1999,7 +2019,7 @@ public class JusticeClass
         }
         if (isLog)
             Status.AddInGamePersonalLogs($"{skillName}={howMuchToSet} Справедливости\n");
-        RealJusticeNow = Math.Max(howMuchToSet, MinimumRealJustice);
+        RealJusticeNow = Math.Clamp(howMuchToSet, MinimumRealJustice, MaximumRealJustice);
     }
 
     public void SetJusticeForOneFight(int howMuchToSet, string skillName)
@@ -2015,7 +2035,7 @@ public class JusticeClass
         //Set Stat only for one fight, not for the whole round!
         //Only used with "GameCharacter" because this overwrites "FightCharacter" mechanics
 
-        howMuchToSet = Math.Max(howMuchToSet, MinimumRealJustice);
+        howMuchToSet = Math.Clamp(howMuchToSet, MinimumRealJustice, MaximumRealJustice);
         Status.ForOneFightMods.Add(new ForOneFightMod { Source = skillName, Stat = "Justice", OriginalValue = GetRealJusticeNow(), NewValue = howMuchToSet });
         Status.IsJusticeForOneFight = true;
         JusticeForOneFight = howMuchToSet;

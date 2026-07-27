@@ -3939,6 +3939,13 @@ public class BotsBehavior : IServiceSingleton
         var skillTarget = bot.GameCharacter.GetSkillClassTargetType();
         switch (bot.GameCharacter.Name)
         {
+            case ScamRat.CharacterName:
+                if (bot.Passives.ScamRat.EverGpuOwnerIds.Contains(target.Id))
+                    target.Score -= 7;
+                else
+                    target.Score += target.FightEdge >= 0 ? 8 : 2;
+                break;
+
             case "Weedwick":
                 target.Score += MarkerNumber(target.Markers, "<:weed:");
                 target.Score += MarkerNumber(target.Markers, "<:bong:") * 2;
@@ -4414,6 +4421,12 @@ public class BotsBehavior : IServiceSingleton
             case "TheBoys":
             case JonSnow.CharacterName:
                 return FairBlockPlan.ForceAttack;
+            case ScamRat.CharacterName:
+                var activeGpuCount = bot.Passives.ScamRat.ActiveGpuOwnerIds.Count;
+                if (activeGpuCount == 0) return FairBlockPlan.ForceAttack;
+                return activeGpuCount >= 2 || game.RoundNo >= 7
+                    ? FairBlockPlan.ForceBlock
+                    : FairBlockPlan.ForceAttack;
             case "Сайтама":
                 if (game.RoundNo == 10) return FairBlockPlan.ForceAttack;
                 return game.RoundNo <= 3 ? FairBlockPlan.PreferBlock

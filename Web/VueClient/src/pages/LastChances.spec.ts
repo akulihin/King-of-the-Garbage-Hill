@@ -839,4 +839,22 @@ describe('99LC builder weapon controls', () => {
       collider: { shape: 'sector', traceMs: 600, passesThroughWalls: false },
     })
   })
+
+  it('switches Knife-spider behavior between v1 and v2 in the builder', async () => {
+    const config = cloneLastChancesConfig(defaultConfig)
+    const spiderIndex = config.enemies.findIndex(enemy => enemy.id === 'spider-knife')
+    const { emitted, getByLabelText, getByRole, getByText } = render(BuilderDrawer, {
+      props: { open: true, locale: 'en', config },
+    })
+
+    await fireEvent.update(getByLabelText('Enemy'), String(spiderIndex))
+    const version = getByLabelText('Behavior version') as HTMLSelectElement
+    expect(version.value).toBe('2')
+    await fireEvent.update(version, '1')
+
+    expect(getByText('Definition valid')).not.toBeNull()
+    await fireEvent.click(getByRole('button', { name: 'Apply & start fresh generation' }))
+    const applied = emitted().apply?.[0]?.[0] as LastChancesConfig
+    expect(applied.enemies[spiderIndex].tuning?.behaviorVersion).toBe(1)
+  })
 })

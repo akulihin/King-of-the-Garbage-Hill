@@ -203,6 +203,7 @@ const widgetHelpCopy = {
   saitama: ['Score and Moral stored by ONE PUNCH are waiting for the final payout.', 'Очки и Мораль отложены способностью ONE PUNCH и ждут финального возврата.'],
   shinigamiEyes: ['Once activated, the next eligible attack reveals the target’s true name.', 'После активации следующая подходящая атака раскроет настоящее имя цели.'],
   seller: ['Cooldown, marked customers, and the hidden Skill reserve from Procurement.', 'Откат, количество отмеченных клиентов и скрытый запас Скилла от Закупа.'],
+  scamRat: ['GPUs are sold after failed Intelligence checks. Blocking detonates every active card and steals the owners’ previous-turn ability score.', 'Видеокарты продаются после проваленной проверки Интеллекта. Блок взрывает все активные карты и крадёт очки способностей владельцев за прошлый ход.'],
   dopa: ['Shows the current tactic, Vision readiness, and whether a second attack is required.', 'Текущая тактика, готовность обзора и напоминание о необходимой второй атаке.'],
   goblinSwarm: ['The bar splits the swarm by type; 1/N is the current spawn rate for each type. Badges show built Ziggurats.', 'Полоса делит стаю по типам; 1/N — текущий шанс появления типа. Значки внизу — построенные Зиккураты.'],
   kotiki: ['Tracks taunts, current Minka and Storm carriers, and both cat cooldowns.', 'Здесь видны провокации, текущие носители Миньки и Штормяка и оставшиеся откаты котиков.'],
@@ -1595,6 +1596,35 @@ function doomModuleStatus(module: string): { text: string; state: 'live' | 'done
           <span class="pw-value">{{ Math.round(passiveStates.seller.secretBuildSkill) }}</span>
           <span class="pw-label">{{ t('hidden Skill', 'скрытый Скилл') }}</span>
         </div>
+      </div>
+    </div>
+
+    <!-- 18. ScamRat -->
+    <div v-if="passiveStates?.scamRat" class="pc-passive-widget scamrat-widget" :data-widget-help="widgetHelp('scamRat')" :aria-description="widgetHelp('scamRat')" tabindex="0">
+      <div class="pw-header">
+        <span class="pw-title scamrat-title">{{ t('EXPLOSIVE MINING', 'ВЗРЫВНОЙ МАЙНИНГ') }}</span>
+        <span class="pw-status scamrat-roll">🎲 {{ passiveStates.scamRat.lastIntelligenceRoll || '—' }}</span>
+      </div>
+      <div class="pw-body">
+        <div class="pw-stat-pair">
+          <span class="pw-value">{{ passiveStates.scamRat.activeGpuCount }}</span>
+          <span class="pw-label">{{ t('active GPUs', 'активных карт') }}</span>
+        </div>
+        <div class="pw-stat-pair">
+          <span class="pw-value">{{ passiveStates.scamRat.soldGpuCount }}/5</span>
+          <span class="pw-label">{{ t('sold', 'продано') }}</span>
+        </div>
+        <div class="pw-stat-pair">
+          <span class="pw-value">{{ passiveStates.scamRat.maximumJustice }}</span>
+          <span class="pw-label">{{ t('max Justice', 'макс. Справедливость') }}</span>
+        </div>
+        <div class="pw-stat-pair">
+          <span class="pw-value">{{ Number(passiveStates.scamRat.lastExplosionPoints).toFixed(1) }}</span>
+          <span class="pw-label">{{ t('last blast', 'последний взрыв') }}</span>
+        </div>
+      </div>
+      <div v-if="passiveStates.scamRat.activeGpuOwners.length" class="pw-subline">
+        🖥️ {{ passiveStates.scamRat.activeGpuOwners.join(', ') }}
       </div>
     </div>
 
@@ -3614,6 +3644,22 @@ function doomModuleStatus(module: string): { text: string; state: 'live' | 'done
 .seller-title { color: #daa520; text-shadow: 0 0 4px rgba(218, 165, 32, 0.4); }
 .seller-widget .pw-value { color: #daa520; text-shadow: 0 0 8px rgba(218, 165, 32, 0.4); }
 .seller-widget .pw-label { color: rgba(218, 165, 32, 0.5); }
+
+/* 18. ScamRat */
+.scamrat-widget {
+  background: linear-gradient(135deg, rgba(78, 205, 196, 0.1), rgba(255, 99, 71, 0.04));
+  border-color: rgba(78, 205, 196, 0.3);
+}
+.scamrat-title { color: #4ecdc4; text-shadow: 0 0 5px rgba(78, 205, 196, 0.45); }
+.scamrat-widget .pw-value { color: #ffb347; text-shadow: 0 0 7px rgba(255, 179, 71, 0.35); }
+.scamrat-widget .pw-label { color: rgba(78, 205, 196, 0.62); }
+.scamrat-roll { color: #ffb347; }
+.scamrat-widget .pw-subline {
+  margin-top: 7px;
+  color: rgba(230, 255, 252, 0.76);
+  font-size: 10px;
+  overflow-wrap: anywhere;
+}
 
 /* 19. Dopa */
 .dopa-widget {

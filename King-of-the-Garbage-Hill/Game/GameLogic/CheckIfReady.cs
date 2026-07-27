@@ -1317,6 +1317,7 @@ public class CheckIfReady : IServiceSingleton
                         player.Status.IsReady = true;
                         player.Status.IsBlock = true;
                         player.Status.IsSkip = false;
+                        player.Status.TurnInterference = TurnInterferenceKind.Enemy;
                         player.Status.ConfirmedPredict = true;
                     }
 

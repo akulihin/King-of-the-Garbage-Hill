@@ -1453,7 +1453,8 @@
     "Гордон Фримен": "",
     "Джон Сноу": "Jon Snow",
     "Ктулху": "Является богом",
-    "Нечто": ""
+    "Нечто": "",
+    "ScamRat": ""
   },
   "passives": {
     "Сомнительная тактика": "Loses the first fight against each new opponent (<:yo_filled:902361411840266310>), then gains +1 point for every later victory against that opponent.",
@@ -1640,7 +1641,7 @@
     "Бог шиноби": "Madara is FAR TOO STRONG. Whoever summoned him into this world made a mistake, and now nothing can stop him. To avoid boredom he fights weak opponents with his __eyes closed__, but if several enemies arrive, he may show them “a couple of techniques.”",
     "Воскрешенное тело": "Madara is dead; only the thrill of battle can make his heart beat. Nothing else in life interests him.",
     "Второй метеорит": "If Madara's attack is Blocked, he loses nothing. He sends a second meteor, worth 2 points.",
-    "Клоны Сусано": "On turn 8, creates clones and fights everyone who dared Predict him. If there are more than two enemies, that is “unfair,” so the clones activate Susanoo and gain +1 Justice.",
+    "Клоны Сусано": "Madara wins every fight of turn seven with ease, and it bores him. On turn 8 he creates clones and fights everyone who dared Predict him. If there are more than two enemies, that is “unfair,” so the clones activate Susanoo and gain +1 Justice.",
     "Вечное Цукуеми": "",
     "Монтировка": "The crowbar solves every problem and turns every **3**rd fight into a victory.",
     "Молчаливый Герой": "Every **3** turns, a headcrab latches onto two random enemies. Any resolved attack by Gordon knocks the headcrab off the enemy and saves them from becoming a zombie. The Hero gains **3** **bonus** points for it. If the crab is not removed within **3** turns, the enemy loses all their Intelligence. But is it worth it...",
@@ -1655,6 +1656,7 @@
     "Культ": "В начале игры предстоит выбрать одного из адептов и сделать его Вестником конца.",
     "Морок": "Победа Вестника над врагами сводит их с ума.\nТак же **крадет** 1 __бонусное__ очко.",
     "Нечто": "Когда весь мир сойдет с ума, с морских глубин придет Ң̷є̵ҫ̸т̶һ̴о̷",
-    "Космический ужас": "Рядом с вечностью и смерть порою умирает.\nИ тогда придҀⷶ꜇ⷩⷬⷩⷴ҆ ꙁⷫⷩꚍⷬⷱ҆ꜿ ꚙ҆ꝕⷴꜽꝁⷫ҆ꚜꞇꝁⷴ ҩⷫ ꙉ҆ꚍ. Ҁⷱ꜇ⷴ ҏⷴꜽꚁꚛ҆ꙉ ꜽ ꚍⷱ꜇҆ꚃ҆ꚙꞇꝁ҆҆ Ꚋ ꜙꙉⷱꚍꞇꝁ҆ ꝕꚙꚍꚙ҆҆ ꙋꙉ҆ꚍꚍⷫⷱꚜꞇ."
+    "Космический ужас": "Рядом с вечностью и смерть порою умирает.\nИ тогда придҀⷶ꜇ⷩⷬⷩⷴ҆ ꙁⷫⷩꚍⷬⷱ҆ꜿ ꚙ҆ꝕⷴꜽꝁⷫ҆ꚜꞇꝁⷴ ҩⷫ ꙉ҆ꚍ. Ҁⷱ꜇ⷴ ҏⷴꜽꚁꚛ҆ꙉ ꜽ ꚍⷱ꜇҆ꚃ҆ꚙꞇꝁ҆҆ Ꚋ ꜙꙉⷱꚍꞇꝁ҆ ꝕꚙꚍꚙ҆҆ ꙋꙉ҆ꚍꚍⷫⷱꚜꞇ.",
+    "Взрывной майнинг!": "Slips defeated enemies tin cans painted to look like top-tier graphics cards. If a unique enemy fails a random Intelligence check, they take a card once to render their abilities and pay 1 **bonus** point for it. The Rat's maximum Justice falls by 1 for every sale.\nBy Blocking, the Rat hides in cover and detonates the graphics cards.\nExploded cards **steal** every point their owners earned on the previous turn through abilities, except natural victory points."
   }
 }

@@ -17,6 +17,7 @@ function status(tag: string, overrides: Partial<PlayerStatus> = {}): PlayerStatu
     isReady: false,
     isBlock: false,
     isSkip: false,
+    turnInterference: 'none',
     isAutoMove: false,
     confirmedPredict: false,
     confirmedSkip: false,

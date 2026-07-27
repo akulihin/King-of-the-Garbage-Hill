@@ -876,6 +876,27 @@ public static class GameStateMapper
                         };
                         anySet = true;
                         break;
+                    case ScamRat.PassiveName:
+                        if (pas.ScamRat == null)
+                        {
+                            var scamRat = player.Passives.ScamRat;
+                            pas.ScamRat = new ScamRatStateDto
+                            {
+                                ActiveGpuCount = scamRat.ActiveGpuOwnerIds.Count,
+                                SoldGpuCount = scamRat.EverGpuOwnerIds.Count,
+                                MaximumJustice = player.GameCharacter.Justice.GetMaximumRealJustice(),
+                                LastIntelligenceRoll = scamRat.LastIntelligenceRoll,
+                                LastExplosionPoints = scamRat.LastExplosionPoints,
+                                TotalExplosionPoints = scamRat.TotalExplosionPoints,
+                                ActiveGpuOwners = game.PlayersList
+                                    .Where(candidate =>
+                                        scamRat.ActiveGpuOwnerIds.Contains(candidate.GetPlayerId()))
+                                    .Select(candidate => candidate.DiscordUsername)
+                                    .ToList(),
+                            };
+                            anySet = true;
+                        }
+                        break;
                     case "Монстр":
                         pas.Monster = new MonsterStateDto
                         {
@@ -1355,6 +1376,14 @@ public static class GameStateMapper
             IsReady = status.IsReady,
             IsBlock = canSeePrivateAction && status.IsBlock,
             IsSkip = canSeePrivateAction && status.IsSkip,
+            TurnInterference = isMe
+                ? status.TurnInterference switch
+                {
+                    TurnInterferenceKind.Self => "self",
+                    TurnInterferenceKind.Enemy => "enemy",
+                    _ => "none",
+                }
+                : "none",
             IsAutoMove = status.IsAutoMove,
             ConfirmedPredict = status.ConfirmedPredict,
             ConfirmedSkip = canSeePrivateAction && status.ConfirmedSkip,

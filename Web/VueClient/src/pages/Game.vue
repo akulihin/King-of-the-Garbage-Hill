@@ -20,6 +20,7 @@ import HalfLife3Release from 'src/components/HalfLife3Release.vue'
 import DeepVeil from 'src/components/DeepVeil.vue'
 import OmniManInvasion from 'src/components/OmniManInvasion.vue'
 import OmniManUndergroundTrain from 'src/components/OmniManUndergroundTrain.vue'
+import TurnGuidanceOverlay from 'src/components/TurnGuidanceOverlay.vue'
 import type { Player } from 'src/services/signalr'
 import {
   playAttackSelection,
@@ -557,6 +558,51 @@ const gordonState = computed(() => me.value?.passiveAbilityStates?.gordon ?? nul
 const gordonHalfLife = computed(() => gordonState.value?.halfLife ?? null)
 const transitionPaused = computed(() => store.gameState?.isRoundTransitionPaused ?? false)
 const gordonActionPending = ref(false)
+
+type TurnGuidanceTarget = 'levelup' | 'skip' | 'predict' | 'darksci' | 'adept'
+
+const turnFeedbackAvailable = computed(() => Boolean(
+  store.gameState
+  && !store.gameState.isFinished
+  && !store.gameState.isDraftPickPhase
+  && !transitionPaused.value
+  && me.value
+  && !me.value.isDead,
+))
+
+const turnInterference = computed<'none' | 'self' | 'enemy'>(() => {
+  if (!turnFeedbackAvailable.value) return 'none'
+  return me.value?.status.turnInterference ?? 'none'
+})
+
+const turnGuidanceTarget = computed<TurnGuidanceTarget | null>(() => {
+  if (!turnFeedbackAvailable.value || !me.value) return null
+  if (store.mustSpendLevelUp) return 'levelup'
+  if (!me.value.status.confirmedSkip) return 'skip'
+  if (me.value.darksciChoiceNeeded) return 'darksci'
+  if (me.value.adeptChoiceAvailable) return 'adept'
+  if (
+    (store.gameState?.roundNo ?? 0) >= 8
+    && !store.isKira
+    && !isMadara.value
+    && !hasBulkaet.value
+    && !me.value.status.confirmedPredict
+  ) return 'predict'
+  return null
+})
+
+const enemyInterferenceEventKey = computed(() =>
+  turnInterference.value === 'enemy'
+    ? `${store.gameState?.gameId ?? 0}:${store.gameState?.roundNo ?? 0}`
+    : null,
+)
+const enemyInterferenceIntroActive = ref(Boolean(enemyInterferenceEventKey.value))
+watch(enemyInterferenceEventKey, eventKey => {
+  enemyInterferenceIntroActive.value = Boolean(eventKey)
+})
+const activeTurnGuidanceTarget = computed(() =>
+  enemyInterferenceIntroActive.value ? null : turnGuidanceTarget.value,
+)
 
 async function announceHalfLife3(): Promise<void> {
   if (gordonActionPending.value || transitionPaused.value || !gordonHalfLife.value?.canAnnounce) return
@@ -1268,12 +1314,21 @@ const rumblingEmbers = Array.from({ length: 36 }, (_, index) => ({
 <template>
   <div
     class="game-page"
-    :class="{
-      'is-terminal-game': store.isTerminalMode,
-      [`rumbling-shake-${rumblingKillCount}`]: rumblingKillCount > 0,
-    }"
+    :class="[
+      {
+        'is-terminal-game': store.isTerminalMode,
+        [`rumbling-shake-${rumblingKillCount}`]: rumblingKillCount > 0,
+      },
+      activeTurnGuidanceTarget ? `turn-guidance-${activeTurnGuidanceTarget}` : undefined,
+    ]"
     :style="charTint ? { background: charTint } : {}"
   >
+    <TurnGuidanceOverlay
+      :interference="turnInterference"
+      :dimmed="activeTurnGuidanceTarget !== null"
+      :enemy-event-key="enemyInterferenceEventKey"
+      @enemy-intro-active="enemyInterferenceIntroActive = $event"
+    />
     <Teleport to="body">
       <div
         v-if="rumblingKillCount > 0"
@@ -2565,6 +2620,33 @@ const rumblingEmbers = Array.from({ length: 36 }, (_, index) => ({
 }
 .act-btn.dopa-roam:hover { background: rgba(74, 144, 217, 0.15); }
 
+.game-page.turn-guidance-levelup :deep(.lvl-btn:not(:disabled)),
+.game-page.turn-guidance-levelup :deep(.levelup-choice:not(:disabled)),
+.game-page.turn-guidance-skip .act-btn.skip,
+.game-page.turn-guidance-predict .act-btn.predict-confirm,
+.game-page.turn-guidance-darksci .act-btn.darksci-stable,
+.game-page.turn-guidance-darksci .act-btn.darksci-unstable,
+.game-page.turn-guidance-adept .act-btn.cthulhu-adept {
+  position: relative;
+  z-index: 263;
+  filter: brightness(1.2) saturate(1.18);
+  animation: turn-guidance-target-pulse 1.35s ease-in-out infinite;
+}
+
+@keyframes turn-guidance-target-pulse {
+  0%, 100% {
+    box-shadow:
+      0 0 0 2px rgba(255, 255, 255, 0.72),
+      0 0 13px rgba(255, 221, 128, 0.55);
+  }
+  50% {
+    box-shadow:
+      0 0 0 4px rgba(255, 255, 255, 0.95),
+      0 0 25px rgba(255, 221, 128, 0.92),
+      0 0 44px rgba(139, 92, 246, 0.35);
+  }
+}
+
 .dopa-second-hint {
   font-size: 11px;
   font-weight: 700;
@@ -2575,6 +2657,22 @@ const rumblingEmbers = Array.from({ length: 36 }, (_, index) => ({
   0%, 100% { opacity: 0.6; }
   50% { opacity: 1; }
 }
+
+@media (prefers-reduced-motion: reduce) {
+  .game-page.turn-guidance-levelup :deep(.lvl-btn:not(:disabled)),
+  .game-page.turn-guidance-levelup :deep(.levelup-choice:not(:disabled)),
+  .game-page.turn-guidance-skip .act-btn.skip,
+  .game-page.turn-guidance-predict .act-btn.predict-confirm,
+  .game-page.turn-guidance-darksci .act-btn.darksci-stable,
+  .game-page.turn-guidance-darksci .act-btn.darksci-unstable,
+  .game-page.turn-guidance-adept .act-btn.cthulhu-adept {
+    animation: none;
+    box-shadow:
+      0 0 0 3px rgba(255, 255, 255, 0.92),
+      0 0 20px rgba(255, 221, 128, 0.78);
+  }
+}
+
 .lvlup-gate-hint {
   font-size: 11px;
   font-weight: 800;

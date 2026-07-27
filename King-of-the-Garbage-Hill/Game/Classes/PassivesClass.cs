@@ -260,6 +260,9 @@ public class PassivesClass
     // Omni-man
     public OmniMan.State OmniMan { get; set; } = new();
 
+    // ScamRat
+    public ScamRat.State ScamRat { get; set; } = new();
+
     // Salldorum
     public Salldorum.ShenClass SalldorumShen { get; set; } = new();
     public Salldorum.TimeCapsuleClass SalldorumTimeCapsule { get; set; } = new();

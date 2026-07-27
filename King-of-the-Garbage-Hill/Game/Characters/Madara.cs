@@ -18,12 +18,18 @@ public static class Madara
     public const string ThemeFile = "DataBase/sound/character_passives/madara/madara_tsukuemi_theme.mp3";
     public const int RoundEightBotReactionDelaySeconds = 30;
 
+    // Hidden Клоны Сусано rider: a score source, not a passive — it is deliberately absent from
+    // characters.json so no player-facing description can leak it.
+    public const string FearOfMadara = "Страх перед Мадарой";
+    public const int FearOfMadaraPenalty = -2;
+
     public sealed class State
     {
         public int IncomingUniqueAttackersThisRound { get; set; }
         public HashSet<Guid> IncomingAttackerIdsThisRound { get; set; } = new();
         public int ResolvedFights { get; set; }
         public HashSet<Guid> RoundEightAttackers { get; set; } = new();
+        public HashSet<Guid> RoundEightFightParticipants { get; set; } = new();
         public int RoundEightWins { get; set; }
         public int RoundEightLosses { get; set; }
         public bool RoundEightJusticeGranted { get; set; }
@@ -104,6 +110,9 @@ public static class Madara
             }
 
             player.Status.IsSkip = true;
+            player.Status.TurnInterference = player.GetPlayerId() == madara.GetPlayerId()
+                ? TurnInterferenceKind.Self
+                : TurnInterferenceKind.Enemy;
             player.Status.IsBlock = false;
             player.Status.IsAutoMove = false;
             player.Status.IsReady = true;
@@ -134,8 +143,24 @@ public static class Madara
     public static bool CanUseTooStronk(GamePlayerBridgeClass player) =>
         !IsMadara(player) || player.Passives.Madara.IncomingUniqueAttackersThisRound > 2;
 
-    public static bool ShouldUseHundredSkill(GamePlayerBridgeClass player) =>
-        IsMadara(player) && player.Passives.Madara.IncomingUniqueAttackersThisRound > 3;
+    // More than three unique attackers show them "a couple of techniques"; more than four — every
+    // enemy at once — doubles that override. 0 means Бог шиноби adds no fight Skill at all.
+    public static decimal GetGodOfShinobiSkill(GamePlayerBridgeClass player)
+    {
+        if (!IsMadara(player)) return 0;
+
+        var attackers = player.Passives.Madara.IncomingUniqueAttackersThisRound;
+        if (attackers > 4) return 200;
+        return attackers > 3 ? 100 : 0;
+    }
+
+    // Клоны Сусано, round seven: every fight Madara takes part in is his win, and his own attack
+    // may not be prevented by an enemy Block/Skip.
+    public static bool IsRoundSevenAutoWin(GameClass game, GamePlayerBridgeClass player) =>
+        game?.RoundNo == 7
+        && IsMadara(player)
+        && !player.Passives.Madara.Sealed
+        && player.GameCharacter.Passive.Any(passive => passive.PassiveName == SusanooClones);
 
     public static void PrepareIncomingAttackers(GameClass game)
     {
@@ -199,6 +224,18 @@ public static class Madara
         else if (state.ResolvedFights == 2)
             game.Phrases.MadaraSecondFight.SendLog(madara, false, isRandomOrder: false);
 
+        // Страх перед Мадарой counts fights that actually happened, so a Block, a Skip or a fight
+        // canceled by Наруто never spares an enemy from the penalty. Attack side included: a
+        // Геральт contract can still make round-eight Madara the attacker.
+        if (game.RoundNo == 8)
+        {
+            var opponentId = madara.Status.IsWonThisCalculation != Guid.Empty
+                ? madara.Status.IsWonThisCalculation
+                : madara.Status.IsLostThisCalculation;
+            if (opponentId != Guid.Empty)
+                state.RoundEightFightParticipants.Add(opponentId);
+        }
+
         if (!defense || game.RoundNo != 8) return;
 
         if (madara.Status.IsWonThisCalculation != Guid.Empty)
@@ -217,6 +254,21 @@ public static class Madara
         var attackers = state.RoundEightAttackers.Count;
         var wins = state.RoundEightWins;
         var losses = state.RoundEightLosses;
+
+        // Страх перед Мадарой: cowardice during the Клоны Сусано event costs bonus points.
+        // AddBonusPoints already refuses negatives for unknown_bug and a protected Homelander,
+        // logs personally and keeps the score floor — the hidden mechanic adds no global line.
+        foreach (var player in game.PlayersList)
+        {
+            if (player.GetPlayerId() == madara.GetPlayerId() || player.Passives.IsDead) continue;
+            if (state.RoundEightFightParticipants.Contains(player.GetPlayerId())) continue;
+            player.Status.AddBonusPoints(FearOfMadaraPenalty, FearOfMadara);
+        }
+
+        // A flawless Клоны Сусано event arms the hidden ending just like "all five attacked".
+        // Mutually exclusive with the sealing branch below, which requires five losses.
+        if (!state.Sealed && wins > 0 && losses == 0)
+            state.EternalTsukuyomiActive = true;
 
         if (attackers == game.PlayersList.Count - 1 && losses >= 5)
         {
@@ -275,6 +327,9 @@ public static class Madara
     public static void SetUnableToAct(GamePlayerBridgeClass madara)
     {
         madara.Status.IsSkip = false;
+        madara.Status.TurnInterference = madara.Passives.Madara.Sealed
+            ? TurnInterferenceKind.Enemy
+            : TurnInterferenceKind.Self;
         madara.Status.IsBlock = false;
         madara.Status.IsAutoMove = false;
         madara.Status.IsReady = true;

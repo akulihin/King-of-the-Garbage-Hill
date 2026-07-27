@@ -479,6 +479,7 @@ public class DoomsdayMachine : IServiceSingleton
         }
         EnforceKratosEventActions(game);
         TheBoys.DisablePassivesBeforeFights(game);
+        ScamRat.ExplodeOnBlock(game);
         HandleEventsBeforeCalculation(game);
         if (!game.IsKratosEvent)
             Madara.PrepareIncomingAttackers(game);
@@ -713,6 +714,12 @@ public class DoomsdayMachine : IServiceSingleton
                     && (!playerIamAttacking.Status.IsSkip || player.Status.IsSkipBreak
                                                             || narutoSummonAutoWin
                                                             || isRailgunFight);
+                // Клоны Сусано, round seven: Madara's victory is terminal for either side. The flags
+                // are read by the resource-consuming outcome replacers below so that no enemy charge,
+                // use or ledger entry is spent on a fight that cannot be won.
+                var madaraRoundSevenWin = Madara.IsRoundSevenAutoWin(game, player);
+                var madaraRoundSevenLoss = Madara.IsRoundSevenAutoWin(game, playerIamAttacking);
+                var madaraRoundSeven = madaraRoundSevenWin || madaraRoundSevenLoss;
                 if (fightWillResolve)
                     JonSnow.ApplyDifficultyJustice(
                         player, playerIamAttacking, _calculateRounds);
@@ -775,8 +782,10 @@ public class DoomsdayMachine : IServiceSingleton
                                        && playerIamAttacking.Passives.DoomGuy.GetActive(DoomGuy.Shield) == DoomGuy.SawShield
                         ? -3
                         : -1;
-                    if (player.GameCharacter.Name == Madara.CharacterName
-                        && player.GameCharacter.Passive.Any(x => x.PassiveName == Madara.SecondMeteorite))
+                    var madaraSecondMeteorite = player.GameCharacter.Name == Madara.CharacterName
+                                                && player.GameCharacter.Passive.Any(x =>
+                                                    x.PassiveName == Madara.SecondMeteorite);
+                    if (madaraSecondMeteorite)
                     {
                         player.Status.AddRegularPoints(2, Madara.SecondMeteorite);
                         game.Phrases.MadaraSecondMeteorite.SendLog(player, false, isRandomOrder: false);
@@ -799,7 +808,14 @@ public class DoomsdayMachine : IServiceSingleton
                         doomShield.ShockSkipRound = game.RoundNo + 1;
                     }
 
-                    if (playerIamAttacking.GameCharacter.Passive.Any(x => x.PassiveName == "Близнец"))
+                    // Второй метеорит: blocking Madara does not earn Justice, it erases it. This
+                    // outranks Близнец, which would otherwise copy the blocked attacker's Justice.
+                    if (madaraSecondMeteorite)
+                    {
+                        playerIamAttacking.GameCharacter.Justice.SetRealJusticeNow(
+                            0, Madara.SecondMeteorite);
+                    }
+                    else if (playerIamAttacking.GameCharacter.Passive.Any(x => x.PassiveName == "Близнец"))
                     {
                         var previousHighest = playerIamAttacking.Passives.MonsterTwinHighestJusticeThisRound;
                         if (attackerRealJusticeBeforeFight > previousHighest)
@@ -1044,7 +1060,7 @@ public class DoomsdayMachine : IServiceSingleton
                                          && bfgWaveDirection != 0
                                          && doomGun.GetActive(DoomGuy.Gun) == DoomGuy.Bfg
                                          && !UnknownBug.Is(playerIamAttacking);
-                    if (isBfgPrimary || isBfgWaveFight)
+                    if ((isBfgPrimary || isBfgWaveFight) && !madaraRoundSeven)
                     {
                         if (isBfgPrimary)
                         {
@@ -1076,12 +1092,12 @@ public class DoomsdayMachine : IServiceSingleton
 
 
                 //octopus  // playerIamAttacking is octopus
-                if (!gordonCrowbarWin && !narutoSummonAutoWin && pointsWined <= 0)
+                if (!gordonCrowbarWin && !narutoSummonAutoWin && !madaraRoundSeven && pointsWined <= 0)
                     pointsWined = await _characterPassives.HandleOctopus(playerIamAttacking, player, game);
                 //end octopus
 
                 //izanagi  // playerIamAttacking is Itachi (defender)
-                if (!gordonCrowbarWin && !narutoSummonAutoWin && pointsWined >= 1
+                if (!gordonCrowbarWin && !narutoSummonAutoWin && !madaraRoundSeven && pointsWined >= 1
                     && playerIamAttacking.GameCharacter.Passive.Any(p => p.PassiveName == "Изанаги")
                     && playerIamAttacking.Passives.ItachiIzanagi.UsesRemaining > 0
                     && !UnknownBug.Is(player))
@@ -1094,12 +1110,12 @@ public class DoomsdayMachine : IServiceSingleton
 
                 // A successful summon is the terminal fight result: it also overrides defensive
                 // outcome replacers such as active Pickle Rick, Octopus and Izanagi.
-                if (!gordonCrowbarWin && narutoSummonAutoWin)
+                if (!gordonCrowbarWin && !madaraRoundSeven && narutoSummonAutoWin)
                     pointsWined = 1;
 
                 // The third resolved fight is Gordon's terminal result, including against
                 // Pickle, Octopus, Izanagi and Naruto's summon.
-                if (gordonCrowbarWin)
+                if (gordonCrowbarWin && !madaraRoundSeven)
                 {
                     pointsWined = crowbarGordon.GetPlayerId() == player.GetPlayerId() ? 1 : -1;
                     crowbarGordon.Status.AddInGamePersonalLogs(
@@ -1108,7 +1124,7 @@ public class DoomsdayMachine : IServiceSingleton
 
                 // Homelander's charged laser is terminal except against unknown_bug,
                 // whose AutoWin invariant remains the final combat override below.
-                if (Homelander.IsLaserFight(player, playerIamAttacking))
+                if (!madaraRoundSeven && Homelander.IsLaserFight(player, playerIamAttacking))
                     pointsWined = 1;
 
                 // AutoWin is the final combat invariant: terminal outcome replacers may not
@@ -1116,6 +1132,13 @@ public class DoomsdayMachine : IServiceSingleton
                 if (UnknownBug.Is(player))
                     pointsWined = 1;
                 else if (UnknownBug.Is(playerIamAttacking))
+                    pointsWined = -1;
+
+                // Клоны Сусано: Madara's round-seven victory is the purest autowin and outranks every
+                // other terminal replacer. unknown_bug's invariant above is the sole exception.
+                else if (madaraRoundSevenWin)
+                    pointsWined = 1;
+                else if (madaraRoundSevenLoss)
                     pointsWined = -1;
 
                 // BFG wave: a guaranteed primary win starts two outward branches. Each branch
@@ -1199,7 +1222,10 @@ public class DoomsdayMachine : IServiceSingleton
                         if (stormFlipped && stormCarrier != null)
                         {
                             // Storm redirects the +1 regular point to Storm's carrier
-                            stormCarrier.Status.AddRegularPoints(point, "Штормяк: Запрыгнул в бой!");
+                            stormCarrier.Status.AddRegularPoints(
+                                point,
+                                "Штормяк: Запрыгнул в бой!",
+                                isNaturalWin: true);
                             if (point != 0)
                                 winPointRecipients = new List<Guid> { stormCarrier.GetPlayerId() };
                         }
@@ -1413,7 +1439,10 @@ public class DoomsdayMachine : IServiceSingleton
                     {
                         if (stormFlipped && stormCarrier != null)
                         {
-                            stormCarrier.Status.AddRegularPoints(1, "Штормяк: Запрыгнул в бой!");
+                            stormCarrier.Status.AddRegularPoints(
+                                1,
+                                "Штормяк: Запрыгнул в бой!",
+                                isNaturalWin: true);
                             defenderWinPointRecipients.Add(stormCarrier.GetPlayerId());
                         }
                         else if (playerIamAttacking.GameCharacter.Passive.Any(x => x.PassiveName == "INT"))

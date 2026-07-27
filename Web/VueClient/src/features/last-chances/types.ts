@@ -1308,6 +1308,13 @@ export interface LastChancesFeedbackSnapshot {
   message: string | null
 }
 
+export interface LastChancesKnifeSpiderTutorialSnapshot {
+  phase: 'slowing' | 'frozen' | 'resuming'
+  timeScale: number
+  /** Human-readable binding for the forced Mercenary Sword left tap. */
+  parryBinding: string
+}
+
 /** One line in the run feed. `atMs` is engine time, used to fade older lines out. */
 export interface LastChancesEventLogEntry {
   id: string
@@ -1351,6 +1358,7 @@ export interface LastChancesSnapshot {
   altarPrompt: LastChancesAltarPromptSnapshot | null
   cockroachesExtinct: boolean
   interactionPrompt: string | null
+  knifeSpiderTutorial: LastChancesKnifeSpiderTutorialSnapshot | null
   controlScheme: LastChancesControlScheme
   controlCue: LastChancesSemanticControlCue | null
   controlRoles: LastChancesControlRoleSnapshot[]

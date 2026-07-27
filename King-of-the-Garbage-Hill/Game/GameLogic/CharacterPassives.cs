@@ -525,8 +525,10 @@ public class CharacterPassives : IServiceSingleton
                     break;
 
                 case Madara.GodOfShinobi:
-                    if (Madara.ShouldUseHundredSkill(target))
-                        target.FightCharacter.SetSkillForOneFight(100, Madara.GodOfShinobi);
+                    var shinobiDefenseSkill = Madara.GetGodOfShinobiSkill(target);
+                    if (shinobiDefenseSkill > 0)
+                        target.FightCharacter.SetSkillForOneFight(
+                            shinobiDefenseSkill, Madara.GodOfShinobi);
                     break;
 
                 case "Великий летописец":
@@ -1208,8 +1210,20 @@ public class CharacterPassives : IServiceSingleton
                     break;
 
                 case Madara.GodOfShinobi:
-                    if (Madara.ShouldUseHundredSkill(me))
-                        me.FightCharacter.SetSkillForOneFight(100, Madara.GodOfShinobi);
+                    var shinobiAttackSkill = Madara.GetGodOfShinobiSkill(me);
+                    if (shinobiAttackSkill > 0)
+                        me.FightCharacter.SetSkillForOneFight(shinobiAttackSkill, Madara.GodOfShinobi);
+                    break;
+
+                case Madara.SusanooClones:
+                    // A round-seven fight is mandatory, so an enemy Block/Skip cannot prevent it.
+                    // unknown_bug's isolation holds: its submitted action is never broken through.
+                    if (Madara.IsRoundSevenAutoWin(game, me) && !UnknownBug.Is(target))
+                    {
+                        me.Status.IsArmorBreak = true;
+                        me.Status.IsSkipBreak = true;
+                    }
+
                     break;
 
                 case ErenYeager.AttackTitan:
@@ -2768,6 +2782,10 @@ public class CharacterPassives : IServiceSingleton
         foreach (var passive in player.GameCharacter.Passive.ToList())
             switch (passive.PassiveName)
             {
+                case ScamRat.PassiveName:
+                    ScamRat.TrySellGpu(player, game);
+                    break;
+
                 case Naruto.Summon:
                     if (player.GameCharacter.Name == Naruto.CharacterName && attack)
                         player.Passives.Naruto.SummonAutoWinTarget = Guid.Empty;
@@ -5566,6 +5584,7 @@ public class CharacterPassives : IServiceSingleton
                                     // readiness floor in CheckIfReady already stops it from stalling a round,
                                     // and bots finalize it through BotsBehavior.CompleteForcedSkip.
                                     shocked.Status.IsSkip = true;
+                                    shocked.Status.TurnInterference = TurnInterferenceKind.Enemy;
                                     shocked.Status.ConfirmedSkip = false;
                                     shocked.Status.IsBlock = false;
                                     shocked.Status.IsReady = true;
@@ -6290,6 +6309,7 @@ public class CharacterPassives : IServiceSingleton
                         {
                             player.Status.WhoToAttackThisTurn = new List<Guid>();
                             player.Status.IsReady = true;
+                            player.Status.TurnInterference = TurnInterferenceKind.Self;
                             // Show the Skip button and hold readiness so the human controls the
                             // pickle turn instead of the bot (auto-move is also disabled for pickle
                             // Rick in CheckIfReady). We deliberately do NOT set IsSkip — pickle must
@@ -6656,6 +6676,7 @@ public class CharacterPassives : IServiceSingleton
             if (isSkip.WhenToTrigger.Contains(game.RoundNo) && !hasPortalGun && !UnknownBug.Is(player))
             {
                 player.Status.IsSkip = true;
+                player.Status.TurnInterference = TurnInterferenceKind.Enemy;
                 player.Status.ConfirmedSkip = false;
                 player.Status.IsBlock = false;
                 player.Status.IsReady = true;
@@ -6936,6 +6957,18 @@ public class CharacterPassives : IServiceSingleton
                         game.Phrases.DarksciDysmoral.SendLog(player, true);
                         game.AddGlobalLogs($"{player.DiscordUsername}: Всё, у меня горит!");
                         //end Дизмораль Part #2
+
+                        // The −5 lands when the mandatory level-up is spent, and bots/auto-move spend it at
+                        // the very END of the round (readiness pipeline), so a marker written at that moment
+                        // is never readable: CalculateAllFights replaces GlobalLogs right after. When the
+                        // freeze is already unavoidable, announce it here — this block is what everyone reads
+                        // while choosing round-9 actions. Not a prediction: during the action phase only his
+                        // own pending level-up can move Psyche, and it adds at most +1 (M162).
+                        var dysmoralMaxPsycheGain =
+                            player.GameCharacter.PsycheCappedAtZero || Cthulhu.IsHerald(game, player) ? 0 : 1;
+                        if (player.GameCharacter.GetPsyche() + dysmoralMaxPsycheGain - 5 <= 0
+                            && !game.GetGlobalLogs().Contains("Нахуй эту игру"))
+                            game.AddGlobalLogs($"{player.DiscordUsername}: Нахуй эту игру..");
                     }
 
 
@@ -6973,7 +7006,10 @@ public class CharacterPassives : IServiceSingleton
                             player.Status.WhoToAttackThisTurn = new List<Guid>();
                             game.Phrases.DarksciFuckThisGame.SendLog(player, true);
 
-                            if (game.RoundNo == 10 && !game.GetAllGlobalLogs().Contains("Нахуй эту игру"))
+                            // Per-ROUND guard (not per-game): the marker has to be present in every round it
+                            // describes, so a round-9 write must not silence round 10 while he is still
+                            // frozen — that is the round where players need it most (M162).
+                            if (game.RoundNo == 10 && !game.GetGlobalLogs().Contains("Нахуй эту игру"))
                                 game.AddGlobalLogs(
                                     $"{player.DiscordUsername}: Нахуй эту игру..");
                         }
@@ -8113,7 +8149,7 @@ public class CharacterPassives : IServiceSingleton
                         continue;
                     }
 
-                    jew.Status.AddRegularPoints(1, "Еврей");
+                    jew.Status.AddRegularPoints(1, "Еврей", isNaturalWin: true);
                     creditedRecipients.Add(jew.GetPlayerId());
                     switch (jew.GameCharacter.Name)
                     {

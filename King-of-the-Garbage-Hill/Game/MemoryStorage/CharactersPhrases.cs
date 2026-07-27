@@ -477,6 +477,10 @@ public class CharactersUniquePhrase
     public PhraseClass JonSnowFinalCastleLow;
     public PhraseClass JonSnowFinalCastleHigh;
 
+    // ScamRat
+    public PhraseClass ScamRatSale;
+    public PhraseClass ScamRatExplosion;
+
     // Монстр без имени
     public PhraseClass MonsterDeath;
     public PhraseClass MonsterDrop;
@@ -1827,6 +1831,15 @@ public class CharactersUniquePhrase
 
         JonSnowFinalCastleHigh = new PhraseClass(JonSnow.BlackCastle);
         JonSnowFinalCastleHigh.PassiveLogRus.Add("Ну ладно, в замке хотя бы перезимовать можно.");
+
+        // ScamRat — supplied description lines remain verbatim.
+        ScamRatSale = new PhraseClass(ScamRat.PassiveName);
+        ScamRatSale.PassiveLogRus.Add(
+            "Подсовывает побежденным врагам консервные банки, раскрашенные под топовые видеокарты.");
+
+        ScamRatExplosion = new PhraseClass(ScamRat.PassiveName);
+        ScamRatExplosion.PassiveLogRus.Add(
+            "Нажимая на блок, Крыса прячется в укрытие, потому-что инициируется взрыв видеокарт!");
 
         //not in the game
 

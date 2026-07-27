@@ -150,6 +150,19 @@ interface RuntimePlayer {
   armorMultiplierMs: number
 }
 
+interface RuntimeKnifeSpiderV2 {
+  attackMode: 'leap' | 'strike' | null
+  flightVelocity: LastChancesVector | null
+  reflected: boolean
+  embedded: boolean
+  orbitDirection: -1 | 1
+  decisionMs: number
+  evadeMs: number
+  evadeDirection: LastChancesVector
+  lastReactedAttackAtMs: number
+  rng: () => number
+}
+
 interface RuntimeEnemy {
   id: string
   definition: LastChancesEnemyDefinition
@@ -179,6 +192,8 @@ interface RuntimeEnemy {
   entering: boolean
   motherRetreatsTriggered: number
   motherRetreat: RuntimeMotherRetreat | null
+  /** Null is the complete legacy v1 path; v2 owns its locomotion and flight state here. */
+  knifeSpiderV2: RuntimeKnifeSpiderV2 | null
 }
 
 interface RuntimeMotherRetreat {
@@ -538,6 +553,14 @@ interface IsometricLayout {
   diamondHeight: number
 }
 
+/** One room's world→screen basis. `scaleX`/`scaleY` apply to both world axes alike. */
+interface IsometricProjection {
+  originX: number
+  top: number
+  scaleX: number
+  scaleY: number
+}
+
 const LAST_CHANCES_EVENT_LOG_LIMIT = 8
 
 const MOVEMENT_KEYS = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowLeft', 'ArrowDown', 'ArrowRight'])
@@ -681,6 +704,11 @@ function tuningValue(
 ): number {
   const value = source?.tuning?.[key]
   return typeof value === 'number' && Number.isFinite(value) ? value : fallback
+}
+
+function isKnifeSpiderV2Definition(definition: LastChancesEnemyDefinition): boolean {
+  return definition.id === 'spider-knife'
+    && tuningValue(definition, 'behaviorVersion', 2) >= 2
 }
 
 function isCockroachDefinition(definition: LastChancesEnemyDefinition): boolean {
@@ -845,6 +873,14 @@ export class LastChancesEngine {
   private readonly hazardHitCycles = new Map<string, number>()
   private readonly hazardSuppressedUntil = new Map<string, number>()
   private interactionResolved = false
+  /**
+   * The apartment always lends the Mercenary Sword for the reflection lesson. The authored
+   * Builder loadout is parked here and restored as soon as the opening room is cleared.
+   */
+  private postPrologueLoadout: LastChancesLoadoutDefinition | null = null
+  private prologueLoadoutForced = false
+  private knifeSpiderTutorialPhase: 'pending' | 'slowing' | 'frozen' | 'resuming' | 'complete' = 'pending'
+  private knifeSpiderTutorialResumeMs = 0
   private activeDash: RuntimeDash | null = null
   private activeSwordAdvance: RuntimeSwordAdvance | null = null
   private nextProjectileId = 1
@@ -852,6 +888,8 @@ export class LastChancesEngine {
   private player: RuntimePlayer
   /** Ordinary walking velocity; dashes/forced movement remain separate authored actions. */
   private movementVelocity: LastChancesVector = { x: 0, y: 0 }
+  /** Head-on wall slide already committed to, so abutting obstacles cannot make it oscillate. */
+  private wallSlideMemo: { axis: 'x' | 'y', sign: number } | null = null
   private touchMove: LastChancesVector = { x: 0, y: 0 }
   private touchAim: LastChancesVector = { x: 0, y: 0 }
   private gamepadMove: LastChancesVector = { x: 0, y: 0 }
@@ -956,6 +994,7 @@ export class LastChancesEngine {
   private dpr = 1
   private frameNowMs = 0
   private spearImage: HTMLImageElement | null = null
+  private knifeSpiderV2Image: HTMLImageElement | null = null
   private readonly resizeObserver: ResizeObserver | null
 
   constructor(
@@ -979,6 +1018,12 @@ export class LastChancesEngine {
         if (!this.destroyed) this.render()
       }
       this.spearImage.src = '/99lc/twohand-spear.png'
+      this.knifeSpiderV2Image = new Image()
+      this.knifeSpiderV2Image.decoding = 'async'
+      this.knifeSpiderV2Image.onload = () => {
+        if (!this.destroyed) this.render()
+      }
+      this.knifeSpiderV2Image.src = '/99lc/spider-knife-v2.png'
     }
     this.callbacks = callbacks
     this.config = cloneLastChancesConfig(migratedConfig)
@@ -1260,6 +1305,7 @@ export class LastChancesEngine {
       )
     }
     this.currentNode = node
+    if (node.roomTemplateId === 'false-apartment') this.forcePrologueSwordLoadout()
     this.routeMapVisible = false
     this.attemptPath.push(node.id)
     this.availableNodeIds = []
@@ -1383,6 +1429,20 @@ export class LastChancesEngine {
         entering: false,
         motherRetreatsTriggered: 0,
         motherRetreat: null,
+        knifeSpiderV2: isKnifeSpiderV2Definition(definition)
+          ? {
+              attackMode: null,
+              flightVelocity: null,
+              reflected: false,
+              embedded: false,
+              orbitDirection: rng() < 0.5 ? -1 : 1,
+              decisionMs: 0,
+              evadeMs: 0,
+              evadeDirection: { x: 0, y: 0 },
+              lastReactedAttackAtMs: Number.NEGATIVE_INFINITY,
+              rng: createLastChancesRng(`${node.seed}:${enemy.id}:knife-spider-v2`),
+            }
+          : null,
       }
     })
     this.phase = 'playing'
@@ -1478,6 +1538,31 @@ export class LastChancesEngine {
     }
     this.emitSnapshot(true)
     return true
+  }
+
+  performKnifeSpiderTutorialParry(): boolean {
+    if (this.knifeSpiderTutorialPhase !== 'frozen'
+      || this.phase !== 'playing'
+      || this.paused
+      || this.weapons.get('left')?.id !== 'hybrid-sword') return false
+    this.performAttack({
+      hand: 'left',
+      gesture: 'tap',
+      atMs: this.elapsedMs,
+      heldMs: 0,
+      firstHoldMs: 0,
+    })
+    // Mercenary Sword sweeps are traced over time in normal combat. The frozen
+    // tutorial frame cannot advance that trace, so resolve its opening sample now.
+    this.updateActiveAreas(0)
+    if (this.knifeSpiderTutorialPhase === 'frozen') {
+      const spider = this.enemies.find(enemy => (
+        enemy.knifeSpiderV2?.attackMode === 'leap'
+        && enemy.knifeSpiderV2.flightVelocity
+      ))
+      if (spider) this.reflectKnifeSpiderV2(spider, this.player.aim)
+    }
+    return this.knifeSpiderTutorialPhase === 'resuming'
   }
 
   retryAttempt(): boolean {
@@ -1686,7 +1771,7 @@ export class LastChancesEngine {
 
   private readonly tick = (frameMs: number): void => {
     if (!this.started || this.destroyed) return
-    const deltaMs = clamp(frameMs - this.lastFrameMs, 0, 50)
+    const unscaledDeltaMs = clamp(frameMs - this.lastFrameMs, 0, 50)
     this.lastFrameMs = frameMs
     this.frameNowMs = frameMs
     this.pollGamepad()
@@ -1698,6 +1783,8 @@ export class LastChancesEngine {
     ))
     this.updateImmediateSwordInputs(frameMs)
     if (!this.paused) {
+      this.advanceKnifeSpiderTutorial(unscaledDeltaMs)
+      const deltaMs = unscaledDeltaMs * this.knifeSpiderTutorialTimeScale()
       this.elapsedMs += deltaMs
       if (this.phase === 'playing') this.update(deltaMs / 1000, deltaMs)
       else if (this.canExploreRoom()) this.updateClearedRoom(deltaMs / 1000, deltaMs)
@@ -1705,6 +1792,41 @@ export class LastChancesEngine {
     this.render()
     this.emitSnapshot(false)
     this.frameId = requestAnimationFrame(this.tick)
+  }
+
+  private advanceKnifeSpiderTutorial(deltaMs: number): void {
+    if (this.knifeSpiderTutorialPhase !== 'resuming') return
+    this.knifeSpiderTutorialResumeMs += deltaMs
+    const durationMs = tuningValue(
+      this.enemyDefinitions.get('spider-knife'),
+      'tutorialResumeMs',
+      900,
+    )
+    if (this.knifeSpiderTutorialResumeMs < durationMs) return
+    this.knifeSpiderTutorialPhase = 'complete'
+    this.knifeSpiderTutorialResumeMs = durationMs
+  }
+
+  private knifeSpiderTutorialTimeScale(): number {
+    const definition = this.enemyDefinitions.get('spider-knife')
+    if (!definition || !isKnifeSpiderV2Definition(definition)) return 1
+    if (this.knifeSpiderTutorialPhase === 'frozen') return 0
+    if (this.knifeSpiderTutorialPhase === 'resuming') {
+      const durationMs = Math.max(1, tuningValue(definition, 'tutorialResumeMs', 900))
+      const progress = clamp(this.knifeSpiderTutorialResumeMs / durationMs, 0, 1)
+      return 0.08 + (1 - Math.cos(progress * Math.PI)) * 0.46
+    }
+    if (this.knifeSpiderTutorialPhase !== 'slowing') return 1
+    const spider = this.enemies.find(enemy => enemy.knifeSpiderV2?.attackMode === 'leap')
+    if (!spider) return 1
+    const distance = Math.sqrt(distanceSquared(spider.position, this.player.position))
+    const freezeDistance = tuningValue(definition, 'tutorialFreezeDistance', 112)
+    const slowDistance = Math.max(
+      freezeDistance + 1,
+      tuningValue(definition, 'tutorialSlowDistance', 330),
+    )
+    const progress = clamp((slowDistance - distance) / (slowDistance - freezeDistance), 0, 1)
+    return 1 - progress * 0.9
   }
 
   private update(deltaSeconds: number, deltaMs: number): void {
@@ -1869,6 +1991,11 @@ export class LastChancesEngine {
   private updatePlayer(deltaSeconds: number): void {
     const aim = this.resolveAim()
     if (vectorLength(aim) > this.config.input.aimDeadZone) this.player.aim = normalize(aim, this.player.aim)
+    if (this.knifeSpiderTutorialPhase === 'slowing'
+      || this.knifeSpiderTutorialPhase === 'frozen') {
+      this.movementVelocity = { x: 0, y: 0 }
+      return
+    }
     if (this.activeDash) {
       // A dash owns the body completely. Do not resume a stale pre-dash walking vector when it
       // ends, especially if its input was released while the dash branch was active.
@@ -2093,7 +2220,7 @@ export class LastChancesEngine {
     this.moveCircle(this.player.position, {
       x: this.movementVelocity.x * deltaSeconds,
       y: this.movementVelocity.y * deltaSeconds,
-    }, this.config.player.radius)
+    }, this.config.player.radius, { wallSlide: true })
   }
 
   /**
@@ -2643,6 +2770,7 @@ export class LastChancesEngine {
       entering: true,
       motherRetreatsTriggered: 0,
       motherRetreat: null,
+      knifeSpiderV2: null,
     })
   }
 
@@ -2735,6 +2863,11 @@ export class LastChancesEngine {
         continue
       }
 
+      if (enemy.knifeSpiderV2) {
+        this.updateKnifeSpiderV2(enemy, profile, toPlayer, distance, deltaSeconds, deltaMs)
+        continue
+      }
+
       if (enemy.state === 'attacking') {
         if (!(profile.attackKind === 'leap' && enemy.lockedAttackDirection)) {
           enemy.facing = normalize(toPlayer, enemy.facing)
@@ -2771,6 +2904,507 @@ export class LastChancesEngine {
         }
       }
     }
+  }
+
+  private updateKnifeSpiderV2(
+    enemy: RuntimeEnemy,
+    profile: RuntimeEnemyCombatProfile,
+    toPlayer: LastChancesVector,
+    distance: number,
+    deltaSeconds: number,
+    deltaMs: number,
+  ): void {
+    const spider = enemy.knifeSpiderV2
+    if (!spider) return
+    if (spider.embedded) spider.embedded = false
+
+    if (enemy.state === 'attacking' && spider.attackMode === 'leap') {
+      this.updateKnifeSpiderV2Leap(enemy, profile, deltaSeconds, deltaMs)
+      return
+    }
+    if (enemy.state === 'attacking' && spider.attackMode === 'strike') {
+      this.moveKnifeSpiderOrbit(enemy, toPlayer, distance, deltaSeconds, deltaMs)
+      enemy.attackWindupMs = Math.max(0, enemy.attackWindupMs - deltaMs)
+      if (enemy.attackWindupMs > 0) return
+      const strikeReach = tuningValue(enemy.definition, 'orbitStrikeRange', 76)
+        + this.config.player.radius
+      if (distance <= strikeReach) {
+        if (this.playerParryCovers(enemy.position, enemy.definition.radius)) {
+          this.consumeActiveParry()
+          enemy.revealedMs = Math.max(
+            enemy.revealedMs,
+            this.config.combat.enemyRevealOnParryMs,
+          )
+        } else {
+          this.damagePlayer(
+            tuningValue(enemy.definition, 'orbitStrikeDamage', profile.attackDamage * 0.72),
+            `${enemy.definition.name}: удар с орбиты`,
+          )
+        }
+      }
+      this.finishKnifeSpiderV2Strike(enemy)
+      return
+    }
+
+    enemy.state = 'chasing'
+    enemy.facing = normalize(toPlayer, enemy.facing)
+    this.tryStartKnifeSpiderV2Evade(enemy, distance)
+    if (spider.evadeMs > 0) {
+      spider.evadeMs = Math.max(0, spider.evadeMs - deltaMs)
+      const behindPlayer = {
+        x: this.player.position.x
+          - this.player.aim.x * tuningValue(enemy.definition, 'orbitDistance', 82)
+          - enemy.position.x,
+        y: this.player.position.y
+          - this.player.aim.y * tuningValue(enemy.definition, 'orbitDistance', 82)
+          - enemy.position.y,
+      }
+      const direction = normalize({
+        x: spider.evadeDirection.x * 1.35 + normalize(behindPlayer).x * 0.42,
+        y: spider.evadeDirection.y * 1.35 + normalize(behindPlayer).y * 0.42,
+      }, spider.evadeDirection)
+      enemy.facing = direction
+      this.moveKnifeSpider(
+        enemy,
+        direction,
+        deltaSeconds,
+        tuningValue(enemy.definition, 'evadeSpeedMultiplier', 1.42),
+      )
+      return
+    }
+
+    const leapTriggerDistance = tuningValue(enemy.definition, 'leapTriggerDistance', 220)
+    if (distance >= leapTriggerDistance
+      && enemy.attackCooldownMs <= 0
+      && this.knifeSpiderLeapPathClear(enemy)) {
+      this.startKnifeSpiderV2Leap(enemy, profile)
+      return
+    }
+
+    const orbitDistance = tuningValue(enemy.definition, 'orbitDistance', 82)
+    if (distance > orbitDistance * 1.28) {
+      const perpendicular = { x: -enemy.facing.y, y: enemy.facing.x }
+      const zigzag = Math.sin(
+        this.roomElapsedMs / Math.max(80, tuningValue(enemy.definition, 'zigzagPeriodMs', 260))
+          + enemy.position.x * 0.019
+          + enemy.position.y * 0.013,
+      ) * tuningValue(enemy.definition, 'zigzagAmplitude', 0.92)
+      const direction = normalize({
+        x: enemy.facing.x + perpendicular.x * zigzag,
+        y: enemy.facing.y + perpendicular.y * zigzag,
+      }, enemy.facing)
+      enemy.facing = direction
+      this.moveKnifeSpider(enemy, direction, deltaSeconds, 1)
+      return
+    }
+
+    this.moveKnifeSpiderOrbit(enemy, toPlayer, distance, deltaSeconds, deltaMs)
+    if (enemy.attackCooldownMs <= 0) this.startKnifeSpiderV2Strike(enemy)
+  }
+
+  private moveKnifeSpider(
+    enemy: RuntimeEnemy,
+    direction: LastChancesVector,
+    deltaSeconds: number,
+    speedMultiplier: number,
+  ): void {
+    const slowMultiplier = enemy.statuses.slowMultiplier
+    const speed = enemy.definition.moveSpeed
+      * tuningValue(enemy.definition, 'v2MoveSpeedMultiplier', 1.65)
+      * speedMultiplier
+      * slowMultiplier
+    this.moveEnemy(enemy, {
+      x: direction.x * speed * deltaSeconds,
+      y: direction.y * speed * deltaSeconds,
+    })
+  }
+
+  private moveKnifeSpiderOrbit(
+    enemy: RuntimeEnemy,
+    toPlayer: LastChancesVector,
+    distance: number,
+    deltaSeconds: number,
+    deltaMs: number,
+  ): void {
+    const spider = enemy.knifeSpiderV2
+    if (!spider) return
+    spider.decisionMs -= deltaMs
+    if (spider.decisionMs <= 0) {
+      if (spider.rng() < tuningValue(enemy.definition, 'orbitDirectionChangeChance', 0.72)) {
+        spider.orbitDirection = spider.orbitDirection === 1 ? -1 : 1
+      }
+      const minimum = tuningValue(enemy.definition, 'orbitDirectionMinMs', 220)
+      const maximum = Math.max(
+        minimum,
+        tuningValue(enemy.definition, 'orbitDirectionMaxMs', 680),
+      )
+      spider.decisionMs = minimum + (maximum - minimum) * spider.rng()
+    }
+    const radial = normalize(toPlayer, enemy.facing)
+    const tangent = {
+      x: -radial.y * spider.orbitDirection,
+      y: radial.x * spider.orbitDirection,
+    }
+    const desiredDistance = tuningValue(enemy.definition, 'orbitDistance', 82)
+    const radialCorrection = clamp(
+      (distance - desiredDistance) / Math.max(1, desiredDistance),
+      -0.78,
+      0.78,
+    )
+    const direction = normalize({
+      x: tangent.x + radial.x * radialCorrection * 1.35,
+      y: tangent.y + radial.y * radialCorrection * 1.35,
+    }, tangent)
+    enemy.facing = radial
+    this.moveKnifeSpider(
+      enemy,
+      direction,
+      deltaSeconds,
+      tuningValue(enemy.definition, 'orbitSpeedMultiplier', 1.08),
+    )
+  }
+
+  private tryStartKnifeSpiderV2Evade(enemy: RuntimeEnemy, distance: number): void {
+    const spider = enemy.knifeSpiderV2
+    const attack = this.lastGesture
+    if (!spider || !attack || attack.atMs <= spider.lastReactedAttackAtMs) return
+    spider.lastReactedAttackAtMs = attack.atMs
+    if (distance > tuningValue(enemy.definition, 'evadeDetectionRange', 330)
+      || spider.rng() > tuningValue(enemy.definition, 'evadeChance', 0.68)) return
+    const trajectory = normalize(this.player.aim)
+    const offset = {
+      x: enemy.position.x - this.player.position.x,
+      y: enemy.position.y - this.player.position.y,
+    }
+    const side = trajectory.x * offset.y - trajectory.y * offset.x >= 0 ? 1 : -1
+    const lateral = {
+      x: -trajectory.y * side,
+      y: trajectory.x * side,
+    }
+    const away = normalize(offset, lateral)
+    spider.evadeDirection = normalize({
+      x: lateral.x * 1.2 + away.x * 0.38,
+      y: lateral.y * 1.2 + away.y * 0.38,
+    }, lateral)
+    spider.evadeMs = tuningValue(enemy.definition, 'evadeDurationMs', 245)
+  }
+
+  private knifeSpiderLeapPathClear(enemy: RuntimeEnemy): boolean {
+    const clearance = tuningValue(enemy.definition, 'leapMobClearance', 12)
+    return !this.enemies.some((candidate) => {
+      if (candidate === enemy || candidate.state === 'dead' || candidate.motherRetreat) return false
+      const radius = enemy.definition.radius + candidate.definition.radius + clearance
+      return pointToSegmentDistanceSquared(
+        candidate.position,
+        enemy.position,
+        this.player.position,
+      ) <= radius * radius
+    })
+  }
+
+  private startKnifeSpiderV2Strike(enemy: RuntimeEnemy): void {
+    const spider = enemy.knifeSpiderV2
+    if (!spider) return
+    spider.attackMode = 'strike'
+    enemy.state = 'attacking'
+    enemy.attackWindupMs = tuningValue(enemy.definition, 'orbitStrikeWindupMs', 175)
+  }
+
+  private finishKnifeSpiderV2Strike(enemy: RuntimeEnemy): void {
+    const spider = enemy.knifeSpiderV2
+    if (!spider) return
+    spider.attackMode = null
+    enemy.attackWindupMs = 0
+    enemy.attackCooldownMs = tuningValue(
+      enemy.definition,
+      'orbitStrikeCooldownMs',
+      760,
+    )
+    if (enemy.state !== 'dead') enemy.state = 'chasing'
+  }
+
+  private startKnifeSpiderV2Leap(
+    enemy: RuntimeEnemy,
+    profile: RuntimeEnemyCombatProfile,
+  ): void {
+    const spider = enemy.knifeSpiderV2
+    if (!spider) return
+    spider.attackMode = 'leap'
+    spider.flightVelocity = null
+    spider.reflected = false
+    spider.embedded = false
+    enemy.state = 'attacking'
+    enemy.attackWindupMs = profile.attackWindupMs
+    enemy.lockedAttackDirection = null
+    enemy.leapRemainingDistance = 0
+    enemy.leapSpeed = 0
+    enemy.leapHit = false
+  }
+
+  private updateKnifeSpiderV2Leap(
+    enemy: RuntimeEnemy,
+    profile: RuntimeEnemyCombatProfile,
+    deltaSeconds: number,
+    deltaMs: number,
+  ): void {
+    const spider = enemy.knifeSpiderV2
+    if (!spider) return
+    if (spider.flightVelocity) {
+      this.updateKnifeSpiderV2Flight(enemy, profile, deltaSeconds)
+      return
+    }
+    enemy.attackWindupMs = Math.max(0, enemy.attackWindupMs - deltaMs)
+    if (enemy.attackWindupMs <= profile.targetLockMs && !enemy.lockedAttackDirection) {
+      enemy.lockedAttackDirection = normalize({
+        x: this.player.position.x - enemy.position.x,
+        y: this.player.position.y - enemy.position.y,
+      }, enemy.facing)
+    }
+    if (enemy.attackWindupMs > 0) return
+    const direction = enemy.lockedAttackDirection ?? normalize({
+      x: this.player.position.x - enemy.position.x,
+      y: this.player.position.y - enemy.position.y,
+    }, enemy.facing)
+    const leapDistance = tuningValue(enemy.definition, 'v2LeapDistance', 520)
+    const leapDurationMs = tuningValue(enemy.definition, 'v2LeapDurationMs', 290)
+    const durationSeconds = Math.max(0.08, leapDurationMs / 1000)
+    enemy.lockedAttackDirection = direction
+    enemy.facing = direction
+    enemy.leapRemainingDistance = leapDistance
+    enemy.leapSpeed = leapDistance / durationSeconds
+    spider.flightVelocity = {
+      x: direction.x * enemy.leapSpeed,
+      y: direction.y * enemy.leapSpeed,
+    }
+    if (this.currentNode?.roomTemplateId === 'false-apartment'
+      && this.knifeSpiderTutorialPhase === 'pending') {
+      this.knifeSpiderTutorialPhase = 'slowing'
+    }
+  }
+
+  private updateKnifeSpiderV2Flight(
+    enemy: RuntimeEnemy,
+    profile: RuntimeEnemyCombatProfile,
+    deltaSeconds: number,
+  ): void {
+    const spider = enemy.knifeSpiderV2
+    if (!spider?.flightVelocity || this.knifeSpiderTutorialPhase === 'frozen') return
+    const speed = vectorLength(spider.flightVelocity)
+    let travel = Math.min(enemy.leapRemainingDistance, speed * deltaSeconds)
+    const maximumStep = Math.max(2, enemy.definition.radius * 0.24)
+    while (travel > EPSILON && enemy.state !== 'dead') {
+      const stepDistance = Math.min(travel, maximumStep)
+      const direction = normalize(spider.flightVelocity, enemy.facing)
+      const candidate = {
+        x: enemy.position.x + direction.x * stepDistance,
+        y: enemy.position.y + direction.y * stepDistance,
+      }
+      if (!this.circleCanOccupy(candidate, enemy.definition.radius)) {
+        this.embedKnifeSpiderV2(enemy, profile, 'препятствие')
+        return
+      }
+      const collidedEnemy = this.enemies.find((target) => {
+        if (target === enemy || target.state === 'dead' || target.motherRetreat) return false
+        const radii = enemy.definition.radius + target.definition.radius
+        return distanceSquared(candidate, target.position) <= radii * radii
+      })
+      if (collidedEnemy) {
+        enemy.position = candidate
+        this.damageEnemyFromKnifeSpiderFlight(enemy, collidedEnemy, profile)
+        this.embedKnifeSpiderV2(enemy, profile, collidedEnemy.definition.name)
+        return
+      }
+
+      enemy.position = candidate
+      enemy.facing = direction
+      enemy.leapRemainingDistance = Math.max(0, enemy.leapRemainingDistance - stepDistance)
+      travel -= stepDistance
+
+      const playerHitRange = enemy.definition.radius + this.config.player.radius
+      if (!enemy.leapHit
+        && distanceSquared(enemy.position, this.player.position) <= playerHitRange * playerHitRange) {
+        if (this.playerParryCovers(enemy.position, enemy.definition.radius)) {
+          this.consumeActiveParry()
+          this.reflectKnifeSpiderV2(enemy, this.player.aim)
+          return
+        }
+        enemy.leapHit = true
+        this.damagePlayer(profile.attackDamage, enemy.definition.name)
+        this.damageKnifeSpiderV2OnImpact(enemy)
+        this.finishKnifeSpiderV2Flight(
+          enemy,
+          profile,
+          tuningValue(enemy.definition, 'quickCaptureWindowMs', 170),
+          false,
+        )
+        return
+      }
+
+      if (this.knifeSpiderTutorialPhase === 'slowing'
+        && Math.sqrt(distanceSquared(enemy.position, this.player.position))
+          <= tuningValue(enemy.definition, 'tutorialFreezeDistance', 112)) {
+        this.knifeSpiderTutorialPhase = 'frozen'
+        this.emitSnapshot(true)
+        return
+      }
+    }
+    if (enemy.leapRemainingDistance <= EPSILON) {
+      this.finishKnifeSpiderV2Flight(
+        enemy,
+        profile,
+        tuningValue(enemy.definition, 'quickCaptureWindowMs', 170),
+        false,
+      )
+    }
+  }
+
+  private damageEnemyFromKnifeSpiderFlight(
+    spiderEnemy: RuntimeEnemy,
+    target: RuntimeEnemy,
+    profile: RuntimeEnemyCombatProfile,
+  ): void {
+    const reflected = spiderEnemy.knifeSpiderV2?.reflected === true
+    const multiplier = reflected
+      ? tuningValue(spiderEnemy.definition, 'reflectedDamageMultiplier', 4)
+      : 1
+    const armor = Math.max(0, target.definition.armor ?? 0) - target.statuses.armorBreak
+    const damage = Math.max(0, profile.attackDamage * multiplier - Math.max(0, armor))
+    target.hp = Math.max(0, target.hp - damage)
+    target.revealedMs = Math.max(target.revealedMs, this.config.combat.enemyRevealOnHitMs)
+    if (target.state === 'idle') target.state = 'chasing'
+    if (target.hp <= 0) this.finishEnemyDeath(target)
+  }
+
+  private damageKnifeSpiderV2OnImpact(enemy: RuntimeEnemy): void {
+    enemy.hp = Math.max(
+      0,
+      enemy.hp - enemy.definition.maxHp
+        * tuningValue(enemy.definition, 'impactSelfDamageRatio', 0.1),
+    )
+    if (enemy.hp <= 0) this.finishEnemyDeath(enemy)
+  }
+
+  private embedKnifeSpiderV2(
+    enemy: RuntimeEnemy,
+    profile: RuntimeEnemyCombatProfile,
+    impactName: string,
+  ): void {
+    this.damageKnifeSpiderV2OnImpact(enemy)
+    this.effects.push({
+      kind: 'hit',
+      position: { ...enemy.position },
+      direction: normalize(enemy.knifeSpiderV2?.flightVelocity ?? enemy.facing),
+      range: 62,
+      radius: enemy.definition.radius * 1.7,
+      arcDegrees: 360,
+      color: enemy.knifeSpiderV2?.reflected ? '#ff5a47' : '#d3b765',
+      remainingMs: 360,
+      totalMs: 360,
+      intensity: enemy.knifeSpiderV2?.reflected ? 1 : 0.7,
+    })
+    this.addEventLog(`Нож-паук вонзился: ${impactName}`)
+    this.finishKnifeSpiderV2Flight(
+      enemy,
+      profile,
+      tuningValue(enemy.definition, 'embeddedCaptureWindowMs', 2200),
+      true,
+    )
+  }
+
+  private finishKnifeSpiderV2Flight(
+    enemy: RuntimeEnemy,
+    profile: RuntimeEnemyCombatProfile,
+    captureWindowMs: number,
+    embedded: boolean,
+  ): void {
+    const spider = enemy.knifeSpiderV2
+    if (!spider) return
+    spider.attackMode = null
+    spider.flightVelocity = null
+    spider.reflected = false
+    spider.embedded = embedded
+    enemy.attackCooldownMs = profile.attackCooldownMs
+    enemy.attackWindupMs = 0
+    enemy.lockedAttackDirection = null
+    enemy.leapRemainingDistance = 0
+    enemy.leapSpeed = 0
+    enemy.leapHit = false
+    if (enemy.state === 'dead') return
+    enemy.state = 'chasing'
+    enemy.captureWindowMs = captureWindowMs
+    enemy.statuses.stunMs = Math.max(enemy.statuses.stunMs, captureWindowMs)
+  }
+
+  private reflectKnifeSpiderV2(
+    enemy: RuntimeEnemy,
+    attackDirection: LastChancesVector,
+  ): boolean {
+    const spider = enemy.knifeSpiderV2
+    if (!spider?.flightVelocity || enemy.state === 'dead') return false
+    const incoming = normalize(spider.flightVelocity, enemy.facing)
+    const contactNormal = normalize({
+      x: enemy.position.x - this.player.position.x,
+      y: enemy.position.y - this.player.position.y,
+    }, { x: -incoming.x, y: -incoming.y })
+    const normalDot = incoming.x * contactNormal.x + incoming.y * contactNormal.y
+    const reflected = normalize({
+      x: incoming.x - 2 * normalDot * contactNormal.x,
+      y: incoming.y - 2 * normalDot * contactNormal.y,
+    }, contactNormal)
+    const swing = normalize(attackDirection, contactNormal)
+    let outgoing = normalize({
+      x: reflected.x * 0.78 + contactNormal.x * 0.95 + swing.x * 0.55,
+      y: reflected.y * 0.78 + contactNormal.y * 0.95 + swing.y * 0.55,
+    }, contactNormal)
+    if (outgoing.x * contactNormal.x + outgoing.y * contactNormal.y < 0.25) {
+      outgoing = normalize({
+        x: outgoing.x + contactNormal.x,
+        y: outgoing.y + contactNormal.y,
+      }, contactNormal)
+    }
+    const reflectedSpeed = Math.max(
+      tuningValue(enemy.definition, 'reflectedMinimumSpeed', 1250),
+      vectorLength(spider.flightVelocity)
+        * tuningValue(enemy.definition, 'reflectedSpeedMultiplier', 1.45),
+    )
+    spider.flightVelocity = {
+      x: outgoing.x * reflectedSpeed,
+      y: outgoing.y * reflectedSpeed,
+    }
+    spider.reflected = true
+    spider.embedded = false
+    enemy.facing = outgoing
+    enemy.lockedAttackDirection = outgoing
+    enemy.leapSpeed = reflectedSpeed
+    enemy.leapRemainingDistance = Math.max(
+      enemy.leapRemainingDistance,
+      tuningValue(enemy.definition, 'reflectedFlightDistance', 620),
+    )
+    enemy.hp = Math.max(
+      0,
+      enemy.hp - enemy.definition.maxHp
+        * tuningValue(enemy.definition, 'reflectionSelfDamageRatio', 0.1),
+    )
+    this.effects.push({
+      kind: 'shock',
+      position: { ...enemy.position },
+      direction: outgoing,
+      range: 96,
+      radius: enemy.definition.radius * 2,
+      arcDegrees: 115,
+      color: '#fff0b3',
+      remainingMs: 420,
+      totalMs: 420,
+      intensity: 1,
+    })
+    this.addEventLog('Нож-паук отбит и сменил траекторию')
+    if (this.knifeSpiderTutorialPhase === 'frozen'
+      || this.knifeSpiderTutorialPhase === 'slowing') {
+      this.knifeSpiderTutorialPhase = 'resuming'
+      this.knifeSpiderTutorialResumeMs = 0
+    }
+    if (enemy.hp <= 0) this.finishEnemyDeath(enemy)
+    return true
   }
 
   private updateCockroachMotherRetreat(enemy: RuntimeEnemy, deltaSeconds: number): boolean {
@@ -3010,6 +3644,19 @@ export class LastChancesEngine {
   }
 
   private finishEnemyAttack(enemy: RuntimeEnemy, profile: RuntimeEnemyCombatProfile): void {
+    if (enemy.knifeSpiderV2) {
+      enemy.knifeSpiderV2.attackMode = null
+      enemy.knifeSpiderV2.flightVelocity = null
+      enemy.knifeSpiderV2.reflected = false
+      enemy.attackCooldownMs = profile.attackCooldownMs
+      enemy.attackWindupMs = 0
+      enemy.lockedAttackDirection = null
+      enemy.leapRemainingDistance = 0
+      enemy.leapSpeed = 0
+      enemy.leapHit = false
+      if (enemy.state !== 'dead') enemy.state = 'chasing'
+      return
+    }
     const missedKnifeSpiderLeap = enemy.definition.id === 'spider-knife'
       && profile.attackKind === 'leap'
       && enemy.leapRemainingDistance <= EPSILON
@@ -5780,6 +6427,21 @@ export class LastChancesEngine {
     options: DamageEnemyOptions = {},
   ): void {
     if (enemy.state === 'dead' || enemy.motherRetreat) return
+    if (options.hand
+      && enemy.knifeSpiderV2?.attackMode === 'leap'
+      && enemy.knifeSpiderV2.flightVelocity
+      && this.reflectKnifeSpiderV2(enemy, direction)) {
+      this.markSuccessfulHitFeedbackWindow(options.hand)
+      if (this.controlSchemeValue === 'dualsense') {
+        this.feedbackController.emit({
+          state: 'impact',
+          profile: 'impact',
+          hand: runtimeHandToPhysicalCluster(options.hand),
+          strength: 1,
+        })
+      }
+      return
+    }
     enemy.revealedMs = this.config.combat.enemyRevealOnHitMs
     if (options.hand && options.gesture) {
       enemy.lastPlayerHit = { hand: options.hand, gesture: options.gesture }
@@ -6421,6 +7083,7 @@ export class LastChancesEngine {
 
   private completeRoom(): void {
     if (!this.currentNode || this.phase !== 'playing') return
+    if (this.currentNode.roomTemplateId === 'false-apartment') this.restorePostPrologueLoadout()
     this.clearCombatTransients()
     if (this.currentNode.interaction && !this.interactionResolved) {
       this.phase = 'planning'
@@ -6603,6 +7266,36 @@ export class LastChancesEngine {
     this.pushTriggerBaseline()
   }
 
+  private forcePrologueSwordLoadout(): void {
+    if (this.prologueLoadoutForced
+      || !this.config.weapons.some(weapon => weapon.id === 'hybrid-sword')) return
+    this.postPrologueLoadout = this.activeLoadout ? { ...this.activeLoadout } : null
+    this.prologueLoadoutForced = true
+    this.activeLoadout = this.normalizeLoadoutAugments({
+      primaryWeaponId: 'hybrid-sword',
+      secondaryWeaponId: null,
+      primaryAugment: 'none',
+      secondaryAugment: 'none',
+      artifactId: this.activeLoadout?.artifactId ?? null,
+      outfitId: this.activeLoadout?.outfitId ?? null,
+    })
+    this.weaponStates.clear()
+    this.rebuildWeapons()
+  }
+
+  private restorePostPrologueLoadout(): void {
+    if (!this.prologueLoadoutForced) return
+    this.activeLoadout = this.postPrologueLoadout
+      ? this.normalizeLoadoutAugments({ ...this.postPrologueLoadout })
+      : null
+    this.postPrologueLoadout = null
+    this.prologueLoadoutForced = false
+    this.weaponStates.clear()
+    this.rebuildWeapons()
+    this.cooldownEnds.clear()
+    this.resetTapCombos()
+  }
+
   private normalizeLoadoutAugments(
     loadout: LastChancesLoadoutDefinition,
   ): LastChancesLoadoutDefinition {
@@ -6649,6 +7342,12 @@ export class LastChancesEngine {
     this.attemptPath = []
     this.deathReason = null
     this.lastGesture = null
+    this.postPrologueLoadout = null
+    this.prologueLoadoutForced = false
+    if (this.knifeSpiderTutorialPhase !== 'complete') {
+      this.knifeSpiderTutorialPhase = 'pending'
+      this.knifeSpiderTutorialResumeMs = 0
+    }
     this.activeLoadout = this.config.loadout ? { ...this.config.loadout } : null
     if (this.activeLoadout && this.corpseBoundPrimaryWeaponId) {
       this.activeLoadout = {
@@ -7053,12 +7752,13 @@ export class LastChancesEngine {
         const distance = vectorLength(toPlayer)
         const behind = normalize(toPlayer, { x: -enemy.facing.x, y: -enemy.facing.y })
         const facingDot = behind.x * enemy.facing.x + behind.y * enemy.facing.y
-        return { enemy, distance, facingDot }
+        return { enemy, distance, facingDot, v2: enemy.knifeSpiderV2 !== null }
       })
       .filter(candidate => (
         candidate.distance <= tuningValue(candidate.enemy.definition, 'captureDistance', 105)
-        && candidate.facingDot
-          < tuningValue(candidate.enemy.definition, 'captureRearDotMaximum', -0.2)
+        && (candidate.v2
+          || candidate.facingDot
+            < tuningValue(candidate.enemy.definition, 'captureRearDotMaximum', -0.2))
       ))
       .sort((left, right) => left.distance - right.distance)
     return candidates[0]?.enemy ?? null
@@ -7121,8 +7821,18 @@ export class LastChancesEngine {
    * Advances a circle in short continuous steps. At contact, the unresolved
    * distance is projected onto a free wall tangent and keeps its full length,
    * matching the no-slowdown wall sliding used by character controllers.
+   *
+   * `wallSlide` additionally resolves a head-on step — one that leaves no tangent at all — by
+   * sliding along the blocking surface toward its nearest end. It is opt-in because only
+   * ordinary walking wants it: a dash, a knockback or a steered enemy must land against the
+   * wall it hit rather than drift sideways off it.
    */
-  private moveCircle(position: LastChancesVector, delta: LastChancesVector, radius: number): void {
+  private moveCircle(
+    position: LastChancesVector,
+    delta: LastChancesVector,
+    radius: number,
+    options: { wallSlide?: boolean } = {},
+  ): void {
     if (!this.currentNode) return
     const distance = vectorLength(delta)
     if (distance <= EPSILON) return
@@ -7135,7 +7845,11 @@ export class LastChancesEngine {
       const safeFraction = this.maximumSafeMovementFraction(position, step, radius)
       position.x += step.x * safeFraction
       position.y += step.y * safeFraction
-      if (safeFraction >= 1 - EPSILON) continue
+      if (safeFraction >= 1 - EPSILON) {
+        // Only the walking path owns the memo; an enemy stepping freely must not clear it.
+        if (options.wallSlide) this.wallSlideMemo = null
+        continue
+      }
 
       const slideDistance = stepDistance * (1 - safeFraction)
       const slides: Array<{ delta: LastChancesVector, distance: number, alignment: number }> = []
@@ -7161,8 +7875,68 @@ export class LastChancesEngine {
         position.y += best.delta.y
         continue
       }
+      if (options.wallSlide && this.slideAlongBlockingWall(position, step, radius, slideDistance)) continue
       this.applyCornerCorrection(position, step, radius, slideDistance)
     }
+  }
+
+  /**
+   * Walking straight at a wall leaves no tangential input to preserve, so the axis search above
+   * finds nothing and the body would stop. Instead, slide along the blocking surface toward
+   * whichever of its two ends is nearer, at the full unresolved step length — the character
+   * rounds the obstacle by itself rather than freezing until the player steers away. The arena
+   * boundary counts as a wall whose ends are the arena's corners.
+   */
+  private slideAlongBlockingWall(
+    position: LastChancesVector,
+    step: LastChancesVector,
+    radius: number,
+    slideDistance: number,
+  ): boolean {
+    const arena = this.currentNode?.arena
+    if (!arena || slideDistance <= EPSILON) return false
+    const forward = normalize(step)
+    const normalAxis = Math.abs(step.x) >= Math.abs(step.y) ? 'x' : 'y'
+    const tangentAxis = normalAxis === 'x' ? 'y' : 'x'
+    // The body rests a binary-search residue short of true contact, so the probe needs a real
+    // margin to reach inside what stopped it. A step is at most 4 units, far thinner than any
+    // authored obstacle, so it cannot skip through one.
+    const reach = Math.max(slideDistance, radius * 0.05)
+    const probe = { x: position.x + forward.x * reach, y: position.y + forward.y * reach }
+
+    // The wall's reachable extent along the tangent, inflated by the radius so both ends are
+    // centre positions the body can actually occupy.
+    let ends: { low: number, high: number } | null = null
+    const obstacle = arena.obstacles.find(candidate => pointHitsObstacle(probe, radius, candidate))
+    if (obstacle) {
+      const length = tangentAxis === 'x' ? obstacle.width : obstacle.height
+      ends = { low: obstacle[tangentAxis] - radius, high: obstacle[tangentAxis] + length + radius }
+    } else {
+      const extent = normalAxis === 'x' ? arena.width : arena.height
+      if (probe[normalAxis] < radius || probe[normalAxis] > extent - radius) {
+        const span = tangentAxis === 'x' ? arena.width : arena.height
+        ends = { low: radius, high: span - radius }
+      }
+    }
+    if (!ends) return false
+
+    // Nearest end wins, but a direction already committed to keeps priority while it stays
+    // free: abutting obstacles can disagree about which end is closer from one step to the next.
+    const nearestSign = position[tangentAxis] - ends.low <= ends.high - position[tangentAxis] ? -1 : 1
+    const remembered = this.wallSlideMemo?.axis === tangentAxis ? this.wallSlideMemo.sign : null
+    for (const sign of remembered !== null ? [remembered, -remembered] : [nearestSign, -nearestSign]) {
+      const slide = {
+        x: tangentAxis === 'x' ? sign * slideDistance : 0,
+        y: tangentAxis === 'y' ? sign * slideDistance : 0,
+      }
+      const fraction = this.maximumSafeMovementFraction(position, slide, radius)
+      if (fraction <= EPSILON) continue
+      position.x += slide.x * fraction
+      position.y += slide.y * fraction
+      this.wallSlideMemo = { axis: tangentAxis, sign }
+      return true
+    }
+    return false
   }
 
   /**
@@ -7763,6 +8537,7 @@ export class LastChancesEngine {
     }
     this.pressedKeys.clear()
     this.movementVelocity = { x: 0, y: 0 }
+    this.wallSlideMemo = null
     this.touchMove = { x: 0, y: 0 }
     this.gamepadMove = { x: 0, y: 0 }
     this.gamepadAim = { x: 0, y: 0 }
@@ -7945,23 +8720,42 @@ export class LastChancesEngine {
     }
   }
 
-  private worldToScreen(point: LastChancesVector, node: LastChancesPlanNode): LastChancesVector {
+  /**
+   * The world→screen basis, shared by every projected drawing call and by `entityScale`.
+   * Both world axes use the SAME scale, so one world unit covers the same screen distance
+   * whichever way the body walks — normalizing X and Y against their own room dimension made
+   * movement along Y of a 16:9 room 1.78x faster on screen than movement along X. The room is
+   * therefore drawn to scale as an elongated rhombus rather than a symmetric diamond, while
+   * still spanning exactly the fitted `diamondWidth` x `diamondHeight` box.
+   */
+  private projection(node: LastChancesPlanNode): IsometricProjection {
     const layout = this.layout()
-    const u = point.x / node.arena.width
-    const v = point.y / node.arena.height
+    const span = node.arena.width + node.arena.height
+    const scaleX = layout.diamondWidth / span
     return {
-      x: layout.centerX + (u - v) * layout.diamondWidth / 2,
-      y: layout.top + (u + v) * layout.diamondHeight / 2,
+      // World (0,0) sits left of centre exactly as far as the room is wider than it is tall.
+      originX: layout.centerX - (node.arena.width - node.arena.height) * scaleX / 2,
+      top: layout.top,
+      scaleX,
+      scaleY: layout.diamondHeight / span,
+    }
+  }
+
+  private worldToScreen(point: LastChancesVector, node: LastChancesPlanNode): LastChancesVector {
+    const projection = this.projection(node)
+    return {
+      x: projection.originX + (point.x - point.y) * projection.scaleX,
+      y: projection.top + (point.x + point.y) * projection.scaleY,
     }
   }
 
   private screenToWorld(point: LastChancesVector, node: LastChancesPlanNode): LastChancesVector {
-    const layout = this.layout()
-    const difference = (point.x - layout.centerX) / (layout.diamondWidth / 2)
-    const sum = (point.y - layout.top) / (layout.diamondHeight / 2)
+    const projection = this.projection(node)
+    const difference = (point.x - projection.originX) / projection.scaleX
+    const sum = (point.y - projection.top) / projection.scaleY
     return {
-      x: clamp((difference + sum) / 2, 0, 1) * node.arena.width,
-      y: clamp((sum - difference) / 2, 0, 1) * node.arena.height,
+      x: clamp((difference + sum) / 2, 0, node.arena.width),
+      y: clamp((sum - difference) / 2, 0, node.arena.height),
     }
   }
 
@@ -8261,6 +9055,7 @@ export class LastChancesEngine {
     const groundOuroboros = this.nearestGroundOuroboros()
     const rewardChest = this.nearbyRewardChest()
     const nearbyTurret = this.nearestActiveTurret()
+    const capturableSpider = this.capturableKnifeSpider()
     const groundWeaponName = groundWeapon
       ? this.config.weapons.find(weapon => weapon.id === groundWeapon.weaponId)?.name
       : null
@@ -8385,12 +9180,27 @@ export class LastChancesEngine {
         ? `${this.controlSchemeValue === 'dualsense' ? 'E / Cross' : 'E'}: подобрать ${ouroborosNames} (−${ouroborosCost} Шансов)${this.chances < ouroborosCost ? ' · недостаточно Шансов' : ''}`
         : rewardChest
         ? `${this.controlSchemeValue === 'dualsense' ? 'E / Cross' : 'E'}: открыть сундук с наградой`
-        : this.capturableKnifeSpider()
+        : capturableSpider
         ? this.controlSchemeValue === 'legacy'
-          ? 'E / обе кнопки: схватить Нож-паука со спины'
+          ? capturableSpider.knifeSpiderV2
+            ? 'E / обе кнопки: схватить обездвиженного Нож-паука'
+            : 'E / обе кнопки: схватить Нож-паука со спины'
           : this.controlSchemeValue === 'mylorik'
-            ? 'E / Cross: схватить Нож-паука со спины'
-            : 'E / Cross: схватить Нож-паука со спины'
+            ? `E / Cross: схватить ${capturableSpider.knifeSpiderV2 ? 'обездвиженного Нож-паука' : 'Нож-паука со спины'}`
+            : `E / Cross: схватить ${capturableSpider.knifeSpiderV2 ? 'обездвиженного Нож-паука' : 'Нож-паука со спины'}`
+        : null,
+      knifeSpiderTutorial: ['slowing', 'frozen', 'resuming'].includes(
+        this.knifeSpiderTutorialPhase,
+      )
+        ? {
+            phase: this.knifeSpiderTutorialPhase as 'slowing' | 'frozen' | 'resuming',
+            timeScale: this.knifeSpiderTutorialTimeScale(),
+            parryBinding: this.controlSchemeValue === 'dualsense'
+              ? 'L1'
+              : this.controlSchemeValue === 'mylorik'
+                ? 'ЛКМ / L1'
+                : `ЛКМ / ${this.config.input.leftKeys[0]?.replace(/^Key/, '') ?? 'J'} / L1`,
+          }
         : null,
       controlScheme: this.controlSchemeValue,
       controlCue: this.controlCue ? { ...this.controlCue } : null,
@@ -8943,7 +9753,7 @@ export class LastChancesEngine {
   }
 
   private entityScale(node: LastChancesPlanNode): number {
-    return this.layout().diamondWidth / (node.arena.width + node.arena.height)
+    return this.projection(node).scaleX
   }
 
   private renderEnemy(enemy: RuntimeEnemy, node: LastChancesPlanNode): void {
@@ -8970,7 +9780,7 @@ export class LastChancesEngine {
     context.fillStyle = 'rgba(0,0,0,.38)'
     context.fill()
     context.restore()
-    this.renderEnemyBody(enemy, point, radius)
+    this.renderEnemyBody(enemy, point, radius, node)
     context.strokeStyle = enemy.state === 'attacking' ? '#ff4b4b' : 'rgba(255,255,255,.3)'
     context.lineWidth = enemy.state === 'attacking' ? 3 : 1
     context.stroke()
@@ -8985,9 +9795,12 @@ export class LastChancesEngine {
       context.lineWidth = 1.5 + windup * 2
       context.stroke()
       if (profile.attackKind === 'leap' && enemy.lockedAttackDirection) {
+        const leapDistance = enemy.knifeSpiderV2
+          ? tuningValue(enemy.definition, 'v2LeapDistance', 520)
+          : profile.leapDistance
         const target = this.worldToScreen({
-          x: enemy.position.x + enemy.lockedAttackDirection.x * profile.leapDistance,
-          y: enemy.position.y + enemy.lockedAttackDirection.y * profile.leapDistance,
+          x: enemy.position.x + enemy.lockedAttackDirection.x * leapDistance,
+          y: enemy.position.y + enemy.lockedAttackDirection.y * leapDistance,
         }, node)
         context.beginPath()
         context.moveTo(point.x, point.y - radius)
@@ -9104,7 +9917,12 @@ export class LastChancesEngine {
     context.restore()
   }
 
-  private renderEnemyBody(enemy: RuntimeEnemy, point: LastChancesVector, radius: number): void {
+  private renderEnemyBody(
+    enemy: RuntimeEnemy,
+    point: LastChancesVector,
+    radius: number,
+    node: LastChancesPlanNode,
+  ): void {
     const context = this.context
     context.beginPath()
     if (enemy.definition.cockroachMother) {
@@ -9124,6 +9942,42 @@ export class LastChancesEngine {
       context.ellipse(point.x - radius * 0.48, point.y - radius * 1.1, radius * 0.65, radius * 1.05, -0.45, 0, Math.PI * 2)
       context.moveTo(point.x + radius * 0.62, point.y - radius * 1.25)
       context.ellipse(point.x + radius * 0.48, point.y - radius * 1.1, radius * 0.65, radius * 1.05, 0.45, 0, Math.PI * 2)
+    } else if (enemy.knifeSpiderV2
+      && this.knifeSpiderV2Image?.complete
+      && this.knifeSpiderV2Image.naturalWidth > 0) {
+      const facingPoint = this.worldToScreen({
+        x: enemy.position.x + enemy.facing.x,
+        y: enemy.position.y + enemy.facing.y,
+      }, node)
+      const screenAngle = Math.atan2(
+        facingPoint.y - point.y,
+        facingPoint.x - point.x,
+      )
+      const pulse = enemy.knifeSpiderV2.flightVelocity
+        ? 1.08
+        : 1 + Math.sin(this.elapsedMs / 82 + enemy.position.x) * 0.025
+      const size = radius * 4.7
+      context.save()
+      context.translate(point.x, point.y - radius * 0.9)
+      context.rotate(screenAngle + Math.PI / 2)
+      context.scale(pulse, pulse)
+      if (enemy.knifeSpiderV2.reflected) {
+        context.shadowColor = '#ff3f35'
+        context.shadowBlur = radius * 1.4
+      }
+      context.drawImage(this.knifeSpiderV2Image, -size / 2, -size / 2, size, size)
+      context.restore()
+      context.beginPath()
+      context.ellipse(
+        point.x,
+        point.y - radius * 0.82,
+        radius * 0.72,
+        radius * 1.2,
+        screenAngle + Math.PI / 2,
+        0,
+        Math.PI * 2,
+      )
+      return
     } else if (enemy.definition.id === 'spider-knife') {
       for (const side of [-1, 1]) {
         for (let leg = 0; leg < 3; leg += 1) {

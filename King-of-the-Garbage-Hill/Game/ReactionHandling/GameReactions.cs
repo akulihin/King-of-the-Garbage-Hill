@@ -1665,7 +1665,11 @@ public sealed class GameReaction : IServiceSingleton
                     player.Status.WhoToAttackThisTurn = new List<Guid>();
                     game.Phrases.DarksciFuckThisGame.SendLog(player, true);
 
-                    if (game.RoundNo == 9 && !game.GetAllGlobalLogs().Contains("Нахуй эту игру"))
+                    // Per-ROUND guard (not per-game): this covers a player who spends the point early
+                    // enough for the marker to be read live, and the Psyche-5 case that the start-of-round
+                    // announcement in HandleNextRoundAfterSorting could not call yet. It must not silence round-10's
+                    // announcement while he is still frozen (M162).
+                    if (game.RoundNo == 9 && !game.GetGlobalLogs().Contains("Нахуй эту игру"))
                         game.AddGlobalLogs($"{player.DiscordUsername}: Нахуй эту игру..");
                 }
             //end Да всё нахуй эту игру: Part #2

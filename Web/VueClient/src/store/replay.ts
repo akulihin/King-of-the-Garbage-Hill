@@ -85,6 +85,7 @@ export function buildShiftedPlayer(
       isReady: preFight.status.isReady,
       isBlock: preFight.status.isBlock,
       isSkip: preFight.status.isSkip,
+      turnInterference: preFight.status.turnInterference ?? 'none',
       isAutoMove: preFight.status.isAutoMove,
       confirmedPredict: preFight.status.confirmedPredict,
       confirmedSkip: preFight.status.confirmedSkip,

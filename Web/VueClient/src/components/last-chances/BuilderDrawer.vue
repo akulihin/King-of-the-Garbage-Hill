@@ -249,6 +249,19 @@ const copy = {
     enemyCooldown: 'Attack cooldown (ms)',
     windup: 'Attack wind-up (ms)',
     mentalPressure: 'Mental pressure / sec',
+    knifeSpiderSettings: 'Knife-spider generation',
+    knifeSpiderVersion: 'Behavior version',
+    knifeSpiderV1: 'v1 · legacy leap',
+    knifeSpiderV2: 'v2 · zigzag, orbit and reflection',
+    reflectedDamage: 'Reflected damage ×',
+    reflectedSpeed: 'Reflected speed ×',
+    quickCapture: 'Normal pickup window (ms)',
+    embeddedCapture: 'Embedded pickup window (ms)',
+    reflectionSelfDamage: 'HP lost on reflection',
+    impactSelfDamage: 'HP lost on impact',
+    evadeChance: 'Attack evade chance',
+    orbitDistance: 'Orbit distance',
+    leapTriggerDistance: 'Leap trigger distance',
     gestureNames: {
       tap: 'Tap',
       doubleTap: 'Double tap',
@@ -453,6 +466,19 @@ const copy = {
     enemyCooldown: 'Откат атаки (мс)',
     windup: 'Подготовка атаки (мс)',
     mentalPressure: 'Давление на рассудок / сек',
+    knifeSpiderSettings: 'Поколение Ножа-паука',
+    knifeSpiderVersion: 'Версия поведения',
+    knifeSpiderV1: 'v1 · старый прыжок',
+    knifeSpiderV2: 'v2 · зигзаги, орбита и отбивание',
+    reflectedDamage: 'Урон отбитого ножа ×',
+    reflectedSpeed: 'Скорость отбитого ножа ×',
+    quickCapture: 'Обычное окно подбора (мс)',
+    embeddedCapture: 'Окно подбора в препятствии (мс)',
+    reflectionSelfDamage: 'Потеря HP при отбивании',
+    impactSelfDamage: 'Потеря HP при столкновении',
+    evadeChance: 'Шанс уклониться от атаки',
+    orbitDistance: 'Дистанция кружения',
+    leapTriggerDistance: 'Дистанция начала прыжка',
     gestureNames: {
       tap: 'Нажатие',
       doubleTap: 'Двойное нажатие',
@@ -495,11 +521,17 @@ function updateDualSenseGate(gate: DualSenseGateName, event: Event) {
   if (!config || !dualSense || !Number.isFinite(value)) return
 
   const previous = dualSense.gatePositions[gate]
+  const delta = value - previous
   for (const weapon of config.weapons) {
     const records = [weapon.controls?.primary, weapon.controls?.secondary]
     for (const record of records) {
       for (const node of record?.dualsense.nodes ?? []) {
         if (node.activationThreshold === previous) node.activationThreshold = value
+      }
+      for (const tick of record?.dualsense.haptics?.depthTicks ?? []) {
+        if (Math.abs(tick.position - value) < 0.03) {
+          tick.position = Math.min(1, Math.max(0, tick.position + delta))
+        }
       }
     }
   }
@@ -565,6 +597,23 @@ const secondaryAugmentInherited = computed(() => {
 function loadDraft(config: LastChancesConfig) {
   draft.value = cloneLastChancesConfig(config)
   draft.value.progression.moveQuestsEnabled ??= true
+  const knifeSpider = draft.value.enemies.find(enemy => enemy.id === 'spider-knife')
+  if (knifeSpider) {
+    knifeSpider.tuning ??= {}
+    const defaults: Record<string, number> = {
+      behaviorVersion: 2,
+      reflectedDamageMultiplier: 4,
+      reflectedSpeedMultiplier: 1.45,
+      quickCaptureWindowMs: 170,
+      embeddedCaptureWindowMs: 2200,
+      reflectionSelfDamageRatio: 0.1,
+      impactSelfDamageRatio: 0.1,
+      evadeChance: 0.68,
+      orbitDistance: 82,
+      leapTriggerDistance: 220,
+    }
+    for (const [key, value] of Object.entries(defaults)) knifeSpider.tuning[key] ??= value
+  }
   syncingRaw = true
   rawJson.value = JSON.stringify(draft.value, null, 2)
   rawError.value = ''
@@ -757,11 +806,24 @@ function restoreSelectedControlBinding(attack: LastChancesAttackDefinition) {
   controls.mylorik.activations.push(...activations)
 
   if (stored?.nodes.length) {
+    const chargeBands = attack.charge?.bands ?? []
+    const chargeBandIds = new Set(chargeBands.map(band => band.id))
+    let fallbackBandIndex = 0
     for (const entry of [...stored.nodes].sort((left, right) => left.index - right.index)) {
+      const restoredNode = JSON.parse(
+        JSON.stringify(entry.node),
+      ) as LastChancesDualSenseComboNodeDefinition
+      if (restoredNode.chargeBandOverrideId
+        && !chargeBandIds.has(restoredNode.chargeBandOverrideId)) {
+        const fallback = chargeBands[Math.min(fallbackBandIndex, chargeBands.length - 1)]
+        if (fallback) restoredNode.chargeBandOverrideId = fallback.id
+        else delete restoredNode.chargeBandOverrideId
+      }
+      if (restoredNode.chargeBandOverrideId) fallbackBandIndex += 1
       controls.dualsense.nodes.splice(
         Math.min(entry.index, controls.dualsense.nodes.length),
         0,
-        JSON.parse(JSON.stringify(entry.node)) as LastChancesDualSenseComboNodeDefinition,
+        restoredNode,
       )
     }
     const validIds = new Set(controls.dualsense.nodes.map(node => node.id))
@@ -1385,6 +1447,30 @@ function exportJson() {
                   <label>{{ t.windup }}<input v-model.number="selectedEnemy.attackWindupMs" type="number" min="1" step="25" /></label>
                   <label>{{ t.mentalPressure }}<input v-model.number="selectedEnemy.mentalPressurePerSecond" type="number" min="0" step="0.1" /></label>
                 </div>
+                <section
+                  v-if="selectedEnemy?.id === 'spider-knife' && selectedEnemy.tuning"
+                  class="lc-control-tuning"
+                  data-testid="knife-spider-version-settings"
+                >
+                  <h3>{{ t.knifeSpiderSettings }}</h3>
+                  <div class="lc-fields-grid">
+                    <label>{{ t.knifeSpiderVersion }}
+                      <select v-model.number="selectedEnemy.tuning.behaviorVersion">
+                        <option :value="1">{{ t.knifeSpiderV1 }}</option>
+                        <option :value="2">{{ t.knifeSpiderV2 }}</option>
+                      </select>
+                    </label>
+                    <label>{{ t.reflectedDamage }}<input v-model.number="selectedEnemy.tuning.reflectedDamageMultiplier" type="number" min="1" step="0.25" /></label>
+                    <label>{{ t.reflectedSpeed }}<input v-model.number="selectedEnemy.tuning.reflectedSpeedMultiplier" type="number" min="0.1" step="0.05" /></label>
+                    <label>{{ t.quickCapture }}<input v-model.number="selectedEnemy.tuning.quickCaptureWindowMs" type="number" min="1" step="10" /></label>
+                    <label>{{ t.embeddedCapture }}<input v-model.number="selectedEnemy.tuning.embeddedCaptureWindowMs" type="number" min="1" step="50" /></label>
+                    <label>{{ t.reflectionSelfDamage }}<input v-model.number="selectedEnemy.tuning.reflectionSelfDamageRatio" type="number" min="0" max="1" step="0.01" /></label>
+                    <label>{{ t.impactSelfDamage }}<input v-model.number="selectedEnemy.tuning.impactSelfDamageRatio" type="number" min="0" max="1" step="0.01" /></label>
+                    <label>{{ t.evadeChance }}<input v-model.number="selectedEnemy.tuning.evadeChance" type="number" min="0" max="1" step="0.01" /></label>
+                    <label>{{ t.orbitDistance }}<input v-model.number="selectedEnemy.tuning.orbitDistance" type="number" min="1" step="1" /></label>
+                    <label>{{ t.leapTriggerDistance }}<input v-model.number="selectedEnemy.tuning.leapTriggerDistance" type="number" min="1" step="1" /></label>
+                  </div>
+                </section>
               </fieldset>
             </div>
 

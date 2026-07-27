@@ -218,6 +218,7 @@ public static class Naruto
             var attackers = game.PlayersList.Where(attacker =>
                 attacker.GetPlayerId() != harem.GetPlayerId()
                 && !UnknownBug.Is(attacker)
+                && !Madara.IsRoundSevenAutoWin(game, attacker)
                 && queues[attacker.GetPlayerId()].Contains(harem.GetPlayerId())).ToList();
 
             foreach (var _ in attackers)
@@ -235,6 +236,7 @@ public static class Naruto
             attacker.Status.WhoToAttackThisTurn.Clear();
             attacker.Status.IsBlock = false;
             attacker.Status.IsSkip = true;
+            attacker.Status.TurnInterference = TurnInterferenceKind.Enemy;
         }
     }
 
@@ -244,6 +246,8 @@ public static class Naruto
         IEnumerable<Guid> queuedTargetIds)
     {
         if (UnknownBug.Is(attacker)) return false;
+        // Клоны Сусано: a round-seven Madara attack must resolve, so the harem cannot cancel it.
+        if (Madara.IsRoundSevenAutoWin(game, attacker)) return false;
 
         var validTargets = ValidFightTargets(game, attacker, queuedTargetIds).ToList();
         var haremTargets = validTargets
@@ -260,6 +264,7 @@ public static class Naruto
         attacker.Status.WhoToAttackThisTurn.Clear();
         attacker.Status.IsBlock = false;
         attacker.Status.IsSkip = true;
+        attacker.Status.TurnInterference = TurnInterferenceKind.Enemy;
         return true;
     }
 

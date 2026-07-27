@@ -224,6 +224,10 @@ const copy = {
     storyContinue: 'Continue',
     storyBegin: 'Enter the remembered run',
     storyClose: 'Close the memory',
+    spiderTutorialEyebrow: 'First reflection',
+    spiderTutorialTitle: 'The Knife-spider is inside your strike',
+    spiderTutorialBody: 'Time is stopped. Use the Mercenary Sword’s left tap to bat the leap away.',
+    spiderTutorialParry: 'Bat it away',
     deaths: 'Deaths remembered',
     beginAgain: 'Begin a new generation',
     chooseRoute: 'Choose the next room',
@@ -401,6 +405,10 @@ const copy = {
     storyContinue: 'Продолжить',
     storyBegin: 'Войти в запомненный забег',
     storyClose: 'Закрыть воспоминание',
+    spiderTutorialEyebrow: 'Первое отбивание',
+    spiderTutorialTitle: 'Нож-паук вошёл в траекторию удара',
+    spiderTutorialBody: 'Время остановлено. Совершите левый тап Мечом наемника, чтобы отбить прыжок.',
+    spiderTutorialParry: 'Отбить',
     deaths: 'Запомнено смертей',
     beginAgain: 'Начать новую генерацию',
     chooseRoute: 'Выбрать следующую комнату',
@@ -1160,6 +1168,11 @@ function interact() {
   void nextTick(() => canvas.value?.focus())
 }
 
+function parryKnifeSpiderTutorial() {
+  if (!engine.value?.performKnifeSpiderTutorialParry()) return
+  void nextTick(() => canvas.value?.focus())
+}
+
 function updateRouteMapVisibility(visible: boolean) {
   routeMapOpen.value = visible
   engine.value?.setRouteMapVisible(visible)
@@ -1386,6 +1399,26 @@ onBeforeUnmount(() => {
               <span>{{ t.interact }}</span>
               <strong>{{ snapshot.interactionPrompt }}</strong>
             </button>
+          </Transition>
+
+          <Transition name="lc-phase-fade">
+            <div
+              v-if="snapshot?.knifeSpiderTutorial?.phase === 'frozen'"
+              class="lc-spider-tutorial-overlay"
+              role="dialog"
+              aria-modal="true"
+              data-testid="knife-spider-tutorial"
+            >
+              <article>
+                <small>{{ t.spiderTutorialEyebrow }}</small>
+                <h2>{{ t.spiderTutorialTitle }}</h2>
+                <p>{{ t.spiderTutorialBody }}</p>
+                <button type="button" @click="parryKnifeSpiderTutorial">
+                  <Swords :size="18" aria-hidden="true" />
+                  {{ t.spiderTutorialParry }} ({{ snapshot.knifeSpiderTutorial.parryBinding }})
+                </button>
+              </article>
+            </div>
           </Transition>
 
           <Transition name="lc-phase-fade">
@@ -1922,9 +1955,16 @@ onBeforeUnmount(() => {
 
 .lc-phase-overlay,
 .lc-interaction-overlay,
+.lc-spider-tutorial-overlay,
 .lc-story-overlay,
 .lc-loading-overlay { position: absolute; z-index: 30; inset: 0; display: grid; place-items: center; padding: 1rem; background: rgba(4, 5, 6, 0.78); backdrop-filter: blur(5px); }
 .lc-interaction-overlay { z-index: 31; background: rgba(4, 5, 6, 0.84); }
+.lc-spider-tutorial-overlay { z-index: 36; background: radial-gradient(circle at 50% 48%, rgba(130, 29, 35, 0.14), transparent 38%), rgba(2, 3, 4, 0.72); }
+.lc-spider-tutorial-overlay article { width: min(34rem, 100%); padding: clamp(1.2rem, 4vw, 2rem); border: 1px solid rgba(211, 63, 70, 0.42); border-radius: 0.9rem; text-align: center; background: rgba(8, 8, 9, 0.95); box-shadow: 0 0 4rem rgba(175, 33, 39, 0.2); }
+.lc-spider-tutorial-overlay small { color: #bb4f55; font-size: 0.55rem; font-weight: 850; letter-spacing: 0.16em; text-transform: uppercase; }
+.lc-spider-tutorial-overlay h2 { margin: 0.4rem 0; color: #f0e7de; font: 600 clamp(1.25rem, 3vw, 1.9rem)/1.1 Georgia, serif; }
+.lc-spider-tutorial-overlay p { margin: 0.65rem auto 1.15rem; max-width: 27rem; color: #99938c; font-size: 0.72rem; line-height: 1.55; }
+.lc-spider-tutorial-overlay button { min-height: 3rem; display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1rem; border: 1px solid #d0aa55; border-radius: 0.48rem; color: #17130d; background: linear-gradient(135deg, #e1c06f, #9e732d); font-size: 0.7rem; font-weight: 850; }
 .lc-story-overlay { z-index: 34; background: radial-gradient(circle at 50% 28%, rgba(88, 58, 71, 0.2), transparent 45%), rgba(3, 4, 5, 0.93); }
 .lc-interaction-card { width: min(42rem, 100%); padding: clamp(1rem, 3vw, 1.8rem); border: 1px solid rgba(201, 167, 94, 0.18); border-radius: 0.9rem; background: #0d1011; box-shadow: 0 1.5rem 4rem rgba(0, 0, 0, 0.58); }
 .lc-interaction-card > p { margin: 0; color: #b08d4f; font-size: 0.55rem; font-weight: 800; letter-spacing: 0.15em; text-transform: uppercase; }

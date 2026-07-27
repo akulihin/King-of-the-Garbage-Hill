@@ -366,6 +366,13 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         foreach (var passive in me.GameCharacter.Passive)
             switch (passive.PassiveName)
             {
+                case ScamRat.PassiveName:
+                    if (!isWeb
+                        && other.GetPlayerId() != me.GetPlayerId()
+                        && ScamRat.HasActiveGpu(me, other.GetPlayerId()))
+                        customString += " 🖥️";
+                    break;
+
                 case OmniMan.ThinkMark:
                     if (!isWeb
                         && other.GetPlayerId() != me.GetPlayerId()
