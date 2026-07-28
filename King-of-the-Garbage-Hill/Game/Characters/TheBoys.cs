@@ -18,6 +18,10 @@ public class TheBoys
     public const string MMUpgradeLine =
         "\n\n✦ **Компромат**: Теперь M.M. занят делом и он __спокоен__! Следующая атака после прокачки позволяет M.M. добыть компромат на цель. Если на 8м ходу весь компромат сработал, М.М. доволен и получает +5 **Морали** за каждый.\nВ конце игры очки за верные предположения увеличиваются за каждый собранный компромат.";
 
+    // The roster character itself. Deliberately separate from TheBoysCombination below, which
+    // happens to share the text but names the four-member combination, not the character.
+    public const string CharacterName = "TheBoys";
+
     // Имена членов, их ультимейтов и текста прокачки — единая таблица для UI/анлока.
     public const string FrancieName = "Francie";
     public const string ButcherName = "Butcher";

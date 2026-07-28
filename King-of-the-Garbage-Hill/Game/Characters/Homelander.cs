@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using King_of_the_Garbage_Hill.API.DTOs;
+using King_of_the_Garbage_Hill.API.Services;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.MemoryStorage;
 using King_of_the_Garbage_Hill.Helpers;
@@ -18,12 +20,21 @@ public static class Homelander
     public const string Milk = "Молоко";
     public const string LeaderOfTheSeven = "Лидер Семерки";
     public const int LeaderMoral = 7;
-    public const int LeaderRage = 20;
+    public const int LeaderRage = 25;
     public const int VictoryRage = 10;
-    public const int LeaderVictoryRage = 20;
+    public const int LeaderVictoryRage = 50;
     public const int MaximumRage = 100;
     public const int LaserMoral = 10;
     public const int SevenPoints = 7;
+
+    // Stan Edgar is a hidden mechanic and deliberately NOT a characters.json passive: it must
+    // survive Kimiko's Живое Оружие (which HasPassive rejects), must not be copyable by Ziggurat
+    // or transforms, and must stay out of the ARAM passive pool. It is gated on Is() alone.
+    public const string StanEdgar = "Stan Edgar";
+    public const int StanEdgarScoreThreshold = 70;
+    public const int StanEdgarPenalty = 33;
+
+    public const string StanEdgarAvatar = "https://r2.ozvmusic.com/kotgh/art/avatars/stan_edgar.png";
 
     private static IReadOnlyList<string> DropPhrases => CharactersUniquePhrase.HomelanderDropPhrases;
     private static IReadOnlyList<string> RevealPhrases => CharactersUniquePhrase.HomelanderRevealPhrases;
@@ -35,7 +46,6 @@ public static class Homelander
     public sealed class RageMark
     {
         public int Percent { get; set; }
-        public bool LaserUsed { get; set; }
         public int LastLeaderChargeRound { get; set; }
     }
 
@@ -46,6 +56,7 @@ public static class Homelander
         public bool EveryoneGuessed { get; set; }
         public Guid LaserTargetThisFight { get; set; } = Guid.Empty;
         public bool MilkTriggered { get; set; }
+        public bool StanEdgarResolved { get; set; }
         public bool SevenPointsHaveBeenFrozen { get; set; }
         public int LastRighteousnessRound { get; set; }
         public int LastVoughtRound { get; set; }
@@ -238,7 +249,6 @@ public static class Homelander
             state.RageByPlayer[enemy.GetPlayerId()] = mark;
         }
 
-        if (mark.LaserUsed) return;
         mark.Percent = Math.Min(MaximumRage, mark.Percent + amount);
         if (leaderCharge)
             mark.LastLeaderChargeRound = game.RoundNo;
@@ -255,7 +265,6 @@ public static class Homelander
 
         var state = homelander.Passives.Homelander;
         if (!state.RageByPlayer.TryGetValue(target.GetPlayerId(), out var mark)
-            || mark.LaserUsed
             || mark.Percent < MaximumRage)
             return false;
 
@@ -282,8 +291,9 @@ public static class Homelander
 
         var state = homelander.Passives.Homelander;
         var mark = state.RageByPlayer[target.GetPlayerId()];
-        mark.LaserUsed = true;
-        mark.Percent = MaximumRage;
+        // The laser is repeatable against the same enemy: spending it only empties the bar,
+        // so the enemy can charge Homelander up again and be lasered any number of times.
+        mark.Percent = 0;
         homelander.GameCharacter.AddMoral(LaserMoral, Righteousness);
 
         var drops = 0;
@@ -437,6 +447,58 @@ public static class Homelander
             $"{VoughtTower}: {Take(OwnVoughtPhrases, state.OwnVoughtPhrasePool)}\n");
     }
 
+    // Vought writes off an unreliable asset. Hidden from players and permanently active: unlike every
+    // other part of the kit this ignores Живое Оружие, Супер "Человек" and even death. It is cancelled
+    // only by an early game end (Космический ужас / Вилтрумайты both return before the call site) or
+    // by Вечное Цукуеми. Runs once, right after turn 10 has settled.
+    public static void ApplyStanEdgar(GameClass game)
+    {
+        var homelander = Find(game);
+        if (homelander == null) return;
+
+        var state = homelander.Passives.Homelander;
+        if (state.StanEdgarResolved) return;
+        state.StanEdgarResolved = true;
+
+        if (Madara.IsEternalTsukuyomiActive(game)) return;
+        if (homelander.Status.GetScore() >= StanEdgarScoreThreshold) return;
+
+        // Public fight row. The :war: marker is what keeps SortGameLogs from pushing the line
+        // out of the round's fight table and into the trailing extra-log block.
+        game.AddGlobalLogs($"{StanEdgar} <:war:561287719838547981> {homelander.DiscordUsername}", "");
+        game.AddGlobalLogs($" ⟶ {StanEdgar}");
+
+        game.WebFightLog.Add(new FightEntryDto
+        {
+            AttackerName = StanEdgar,
+            AttackerCharName = StanEdgar,
+            AttackerAvatar = StanEdgarAvatar,
+            DefenderName = homelander.DiscordUsername,
+            DefenderCharName = homelander.GameCharacter.Name,
+            DefenderAvatar = GameStateMapper.GetLocalAvatarUrl(
+                homelander.GameCharacter.AvatarCurrent ?? homelander.GameCharacter.Avatar),
+            Outcome = "win",
+            WinnerName = StanEdgar,
+        });
+
+        game.AddGlobalLogs(
+            $"{StanEdgar}: \"Ты не набрал даже {StanEdgarScoreThreshold} очков? Боюсь, Vought не может позволить себе столь ненадежный актив.\"");
+        game.AddGlobalLogs($"{CharacterName}: \"Но ведь я сверхчеловек!\"");
+        game.AddGlobalLogs($"{StanEdgar}: \"Для нашей компании ты не больше чем бракованный продукт.\"");
+        game.AddGlobalLogs("Залп V-наводящихся ракет...");
+
+        homelander.Status.AddInGamePersonalLogs(PhrasePayload.Encode(
+            StanEdgar,
+            "\"У нас есть десятки способов тебя устранить, Нуар был лишь одним из них.\"",
+            StanEdgar,
+            "\"We have dozens of ways to get rid of you. Noir was only one of them.\"") + "\n");
+
+        // Супер "Человек" would reject the debit outright, so it is spent through the same
+        // protection bypass TheBoys uses. AddBonusPoints writes its own personal line.
+        RunWithoutProtection(homelander, () =>
+            homelander.Status.AddBonusPoints(-StanEdgarPenalty, StanEdgar));
+    }
+
     public static int RagePercentFor(
         GamePlayerBridgeClass homelander,
         Guid enemyId)
@@ -446,13 +508,6 @@ public static class Homelander
             ? mark.Percent
             : 0;
     }
-
-    public static bool LaserUsedFor(
-        GamePlayerBridgeClass homelander,
-        Guid enemyId) =>
-        HasPassive(homelander, Righteousness)
-        && homelander.Passives.Homelander.RageByPlayer.TryGetValue(enemyId, out var mark)
-        && mark.LaserUsed;
 
     public static bool WasRevealedBy(
         GamePlayerBridgeClass homelander,

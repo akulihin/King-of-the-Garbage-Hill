@@ -400,8 +400,7 @@ const { tipText, tipVisible, tipPos, showTip, moveTip, hideTip } = useTip()
             <span
               v-if="player.homelanderRagePercent !== undefined"
               class="homelander-rage"
-              :class="{ spent: player.homelanderLaserUsed }"
-              :title="player.homelanderLaserUsed ? 'Лазер уже использован' : `Злость: ${player.homelanderRagePercent}%`"
+              :title="`Злость: ${player.homelanderRagePercent}%`"
             >
               <span
                 class="homelander-rage-fill"
@@ -1058,11 +1057,6 @@ const { tipText, tipVisible, tipPos, showTip, moveTip, hideTip } = useTip()
   font-weight: 900;
   line-height: 1;
   text-shadow: 0 1px 2px #000;
-}
-
-.homelander-rage.spent {
-  filter: grayscale(0.82);
-  opacity: 0.58;
 }
 
 .homelander-identity-revealer {

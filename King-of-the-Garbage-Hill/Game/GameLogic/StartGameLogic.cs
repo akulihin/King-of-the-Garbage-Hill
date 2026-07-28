@@ -101,6 +101,12 @@ public class StartGameLogic : IServiceSingleton
     }
 
 
+    /// <summary>
+    /// Homelander's hidden roster pull: while he is already in the game, TheBoys' roll weight is
+    /// multiplied by this on every remaining natural roll and draft alternative.
+    /// </summary>
+    public const int HomelanderTheBoysRollMultiplier = 6;
+
     public int GetRangeFromTier(int tier)
     {
         return tier switch
@@ -294,6 +300,13 @@ public class StartGameLogic : IServiceSingleton
                                       && account.CharacterPlayedLastTime != DoomGuy.CharacterName
                                       && newcomerDoom != null;
             var newcomerDoomWon = newcomerDoomEligible && _secureRandom.Luck(30);
+            // Homelander's hidden roster pull. Seats are filled in order, so this can only affect
+            // seats rolled after Homelander was actually committed: a Homelander who lands on the
+            // last seat never boosts anyone.
+            var homelanderInRoster =
+                reservedCharacters.Any(x => x.Name == Homelander.CharacterName)
+                || playersList.Any(x => x.GameCharacter.Name == Homelander.CharacterName)
+                || (forcedCharacters?.Contains(Homelander.CharacterName) ?? false);
 
             foreach (var character in allCharacters.Where(x => x.Name != account.CharacterPlayedLastTime).ToList())
             {
@@ -315,6 +328,8 @@ public class StartGameLogic : IServiceSingleton
                 if (character.Tier < 4 && account.IsBot()
                     && character.Name != "Кира" && !Cthulhu.Is(character)) continue;
                 if (character.Name == "Кира" && account.IsBot()) range = GetRangeFromTier(1) / 2;
+                if (homelanderInRoster && character.Name == TheBoys.CharacterName)
+                    range *= HomelanderTheBoysRollMultiplier;
                 if (character.Passive.Any(x => x.PassiveName == "Top Laner")) range = (int)(range * topLaner);
                 var pityBonus = account.TierPity.GetValueOrDefault(rollTier, 0);
                 range = (int)(range * (1.0 + pityBonus * 0.03));
@@ -437,6 +452,10 @@ public class StartGameLogic : IServiceSingleton
 
         var result = new List<CharacterClass>();
 
+        // Same hidden roster pull as the natural roll: a Homelander already seated makes TheBoys
+        // six times as likely to appear among this player's draft alternatives.
+        var homelanderInRoster = excludedCharacters.Any(x => x.Name == Homelander.CharacterName);
+
         // Newcomer protection: DooM Guy occupies the first alternative with an exact 30% roll.
         var newcomerDoom = allCharacters.Find(x => x.Name == DoomGuy.CharacterName);
         if (account.TotalPlays < 10 && newcomerDoom != null && _secureRandom.Luck(30))
@@ -455,6 +474,8 @@ public class StartGameLogic : IServiceSingleton
             foreach (var character in allCharacters)
             {
                 var range = GetRangeFromTier(character.Tier);
+                if (homelanderInRoster && character.Name == TheBoys.CharacterName)
+                    range *= HomelanderTheBoysRollMultiplier;
                 var pityBonus = account.TierPity.GetValueOrDefault(character.Tier, 0);
                 range = (int)(range * (1.0 + pityBonus * 0.03));
                 var chanceEntry = account.CharacterChance.Find(x => x.CharacterName == character.Name);

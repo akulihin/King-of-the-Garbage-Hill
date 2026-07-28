@@ -41,7 +41,6 @@ const props = defineProps<{
   // R3 (Needle)
   r3OurChance: number
   r3DisplayChance: number
-  r3RollPct: number
   r3WeWon: boolean
   r3Overflow: boolean
   r3Underflow: boolean
@@ -364,7 +363,7 @@ const justiceUseBlocks = false
                      :class="{ 'zone-overflow': r3Overflow }"></div>
                 <!-- Roll needle animates in -->
                 <div class="fa-roll-needle" :style="{ left: r3NeedlePos + '%' }" :class="[r3WeWon ? 'needle-win' : 'needle-lose', { 'needle-settled': r3NeedleSettled }]">
-                  <span class="fa-roll-needle-val">{{ r3RollPct.toFixed(1) }}%</span>
+                  <span class="fa-roll-needle-val">{{ r3NeedlePos.toFixed(1) }}%</span>
                 </div>
               </div>
             </div>

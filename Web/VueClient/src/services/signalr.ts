@@ -100,8 +100,6 @@ export type Player = {
   isTheBoysVirusTarget?: boolean
   /** Homelander-owner-only rage accumulated against this opponent. */
   homelanderRagePercent?: number
-  /** The charged laser was already spent on this opponent. */
-  homelanderLaserUsed?: boolean
   /** Homelander-owner-only marker for an opponent who revealed his identity. */
   homelanderIdentityRevealer?: boolean
   /** Omni-man-owner-only marker for an opponent who failed Подумай, Марк!. */

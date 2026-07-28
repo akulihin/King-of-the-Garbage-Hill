@@ -324,12 +324,8 @@ public static class GameStateMapper
             && !requestingPlayer.IsTeamMember(game, player.GetPlayerId()))
         {
             if (Homelander.HasPassive(requestingPlayer, Homelander.Righteousness))
-            {
                 dto.HomelanderRagePercent =
                     Homelander.RagePercentFor(requestingPlayer, player.GetPlayerId());
-                dto.HomelanderLaserUsed =
-                    Homelander.LaserUsedFor(requestingPlayer, player.GetPlayerId());
-            }
             dto.HomelanderIdentityRevealer =
                 Homelander.WasRevealedBy(requestingPlayer, player.GetPlayerId());
         }

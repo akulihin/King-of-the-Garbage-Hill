@@ -42,7 +42,6 @@ const props = defineProps<{
   // R3 (Needle)
   r3OurChance: number
   r3DisplayChance: number
-  r3RollPct: number
   r3WeWon: boolean
   r3Overflow: boolean
   r3Underflow: boolean
@@ -482,7 +481,7 @@ const hasEnemyBadges = computed(() => enemyDebuffBadges.value.length > 0)
                    :style="{ width: props.r3DisplayChance + '%' }"
                    :class="{ 'zone-overflow': props.r3Overflow }"></div>
               <div class="fa-roll-needle" :style="{ left: props.r3NeedlePos + '%' }" :class="[props.r3WeWon ? 'needle-win' : 'needle-lose', { 'needle-settled': props.r3NeedleSettled }]">
-                <span class="fa-roll-needle-val">{{ props.r3RollPct.toFixed(1) }}%</span>
+                <span class="fa-roll-needle-val">{{ props.r3NeedlePos.toFixed(1) }}%</span>
               </div>
             </div>
           </div>

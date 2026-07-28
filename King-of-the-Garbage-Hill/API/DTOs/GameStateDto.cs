@@ -140,8 +140,6 @@ public class PlayerDto
     /// <summary>Owner-scoped Homelander rage against this opponent.</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public int? HomelanderRagePercent { get; set; }
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
-    public bool HomelanderLaserUsed { get; set; }
     /// <summary>Owner-scoped marker for an opponent who revealed Homelander's identity.</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public bool HomelanderIdentityRevealer { get; set; }

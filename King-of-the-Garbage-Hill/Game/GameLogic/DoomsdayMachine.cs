@@ -2087,6 +2087,13 @@ public class DoomsdayMachine : IServiceSingleton
 
         await _characterPassives.HandleNextRound(game);
 
+        // Vought's audit of turn 10. Deliberately here: round-10 score is fully settled (including
+        // Сайтама's round-11 moral reclaim inside HandleNextRound), the fight line still reaches
+        // SortGameLogs below so it lands inside the round's fight table, and the point loss happens
+        // before the leaderboard sort so it decides the final standing. Both early endings
+        // (Космический ужас, Вилтрумайты) return before this point and therefore cancel it.
+        if (game.RoundNo == 11)
+            Homelander.ApplyStanEdgar(game);
 
         // Save Storm bite lock positions BEFORE score sort
         var stormBiteLocks = new Dictionary<Guid, int>();

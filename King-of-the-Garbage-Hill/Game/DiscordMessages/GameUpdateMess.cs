@@ -397,9 +397,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                         && !me.IsTeamMember(game, other.GetPlayerId()))
                     {
                         var rage = Homelander.RagePercentFor(me, other.GetPlayerId());
-                        customString += Homelander.LaserUsedFor(me, other.GetPlayerId())
-                            ? $" 🔥{rage}% (использовано)"
-                            : $" 🔥{rage}%";
+                        customString += $" 🔥{rage}%";
                     }
                     break;
 

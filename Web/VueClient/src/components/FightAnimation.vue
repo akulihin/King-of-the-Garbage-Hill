@@ -1296,11 +1296,20 @@ function animateNeedleBounce(target: number) {
   needleAnimFrame = requestAnimationFrame(tick)
 }
 
-watch(showR3Roll, (show: boolean) => {
+watch([showR3Roll, skippedToEnd, fight], ([show, skipped]) => {
   if (show) {
+    if (needleAnimFrame) {
+      cancelAnimationFrame(needleAnimFrame)
+      needleAnimFrame = null
+    }
+    const target = r3NeedleTarget()
+    if (skipped || !isMyFight.value || !isR3RollStep()) {
+      r3NeedlePos.value = target
+      r3NeedleSettled.value = true
+      return
+    }
     r3NeedlePos.value = 0
     r3NeedleSettled.value = false
-    const target = r3NeedleTarget()
     nextTick(() => {
       if (showR3Roll.value && !skippedToEnd.value) animateNeedleBounce(target)
     })
@@ -1620,7 +1629,6 @@ function getDisplayCharName(orig: string, u: string): string {
         :justice-winner="justiceWinner"
         :r3-our-chance="r3OurChance"
         :r3-display-chance="r3DisplayChance"
-        :r3-roll-pct="r3RollPct"
         :r3-we-won="r3WeWon"
         :r3-overflow="r3Overflow"
         :r3-underflow="r3Underflow"
@@ -1681,7 +1689,6 @@ function getDisplayCharName(orig: string, u: string): string {
         :justice-winner="justiceWinner"
         :r3-our-chance="r3OurChance"
         :r3-display-chance="r3DisplayChance"
-        :r3-roll-pct="r3RollPct"
         :r3-we-won="r3WeWon"
         :r3-overflow="r3Overflow"
         :r3-underflow="r3Underflow"
@@ -1741,7 +1748,6 @@ function getDisplayCharName(orig: string, u: string): string {
         :justice-winner="justiceWinner"
         :r3-our-chance="r3OurChance"
         :r3-display-chance="r3DisplayChance"
-        :r3-roll-pct="r3RollPct"
         :r3-we-won="r3WeWon"
         :r3-overflow="r3Overflow"
         :r3-underflow="r3Underflow"
