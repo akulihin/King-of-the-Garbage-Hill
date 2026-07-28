@@ -5,6 +5,7 @@
     "Морской Бой": "Naval Battle",
     "Бои раунда": "Round fights",
     "Все бои": "All fights",
+    "Вас обсчитали": "You were shortchanged",
     "Летопись": "Chronicle",
     "История": "Story",
     "Ключевые моменты по персонажам": "Character Highlights",
@@ -1485,10 +1486,10 @@
     "Доебаться": "Failed attacks leave unanswered-message stacks (<:393:563063205811847188>) on enemies. When HardKitty defeats one, he cashes every message for 2 points. An enemy who successfully attacks him answers every message and clears their stacks.",
     "Никому не нужен": "Remains at the bottom of the leaderboard until the end. Whenever he upgrades a stat, he announces it to the whole server and puts an unread-message stack (<:393:563063205811847188>) on everyone.",
     "Mute": "The first offensive win AGAINST HardKitty gives each unique attacker +1 point. HardKitty loses 1 point whenever he attacks and wins.",
-    "Обучение": "Each round, gains +1 to the key stat that caused her last offensive loss. When it catches up with the opponent's stat, Siri gains +3 *Moral* and 10% *Skill*. Her study target (<:edu:1003751490290204753>) cannot change until the lesson is complete.",
+    "Обучение": "Each round, gains +1 to the key stat that caused her last offensive loss. When it catches up with the opponent's stat, Siri gains +3 *Moral* and 70 *Skill*. Her study target (<:edu:1003751490290204753>) cannot change until the lesson is complete.",
     "Заводить друзей": "Her first attack against each unique player (<:fr:563063244097585162>) makes them a friend and grants 1 point.",
     "Го играть": "Invites everyone to play by pinging the server. If a friend created by Making Friends blocks or skips, Sirinoks ignores it and fights them anyway.",
-    "Дракон": "On the final turn, becomes a dragon, sets every stat to 10, and converts one tenth of stored *Skill* into __bonus__ points, minus 1 for each friend below her on the leaderboard.",
+    "Дракон": "On the final turn, becomes a dragon, sets every stat to 10, and converts one tenth of stored *Skill* into __bonus__ points, minus 1 for each friend below her on the leaderboard.\n228 *Skill* helps the dragon even against terrifying auto-wins.",
     "Дерзкая школота": "Starts with every stat at 9 and 100 *Skill*, but loses 2 random stat points and 20 *Skill* after every turn.",
     "Много выебывается": "Gains 1 point for every turn spent in first place and every round nobody dares attack him. Target victories grant 40 *Skill*, but a genuinely *Skilled* enemy who deals **Harm** knocks him off the top.",
     "Запах мусора": "At game end, dumps −5 __bonus__ points on everyone who attacked him at least twice.",
@@ -1634,7 +1635,7 @@
     "Дрочун": "Every Eren defeat adds a Hatred mark to that enemy; attackers receive two immediately. Defeating them clears the marks and grants __bonus__ points per mark. If Eren and an enemy attack one another simultaneously, he gains +2 beatings. And a point.",
     "Атакующий Титан": "Instead of Blocking, Eren **ATTACKS**. He becomes a raging Titan with +5 to every stat for one turn and attacks those closest to him. Anyone who comes for him gets a fight; if nobody does, Eren rampages through his own allies and loses 2 Confidence.",
     "Rumbling": "Eren tries to push as far as possible. If he suffered fewer than two losses on turn 10, hundreds of Colossal Titans destroy the world and kill everyone standing BETWEEN Eren and Eldia.",
-    "Гарем но джутсу": "Instead of Blocking, Naruto transforms into fan service. Enemies who attacked him this turn will skip all their fights. Naruto gains one point for each skipped fight.",
+    "Гарем но джутсу": "Instead of Blocking, Naruto transforms into fan service. Enemies who attack him this turn donate 20% of all points they have earned from abilities.",
     "Теневые": "Two Naruto clones disguised themselves as bots and act independently. The Narutos cannot attack one another. At the end of the game, the clones disperse, transferring their accumulated points to the original.",
     "Расенган": "If two Narutos attack the same target simultaneously, their combined Rasengan adds together their Justice and grants each +2 Strength in that fight.\nIf all three unite, the Rasen-Shuriken adds together their Justice and grants each +3 to every stat.",
     "Призыв": "If Naruto attacks alone, he summons a powerful ally to help.",
@@ -1657,6 +1658,7 @@
     "Морок": "Победа Вестника над врагами сводит их с ума.\nТак же **крадет** 1 __бонусное__ очко.",
     "Нечто": "Когда весь мир сойдет с ума, с морских глубин придет Ң̷є̵ҫ̸т̶һ̴о̷",
     "Космический ужас": "Рядом с вечностью и смерть порою умирает.\nИ тогда придҀⷶ꜇ⷩⷬⷩⷴ҆ ꙁⷫⷩꚍⷬⷱ҆ꜿ ꚙ҆ꝕⷴꜽꝁⷫ҆ꚜꞇꝁⷴ ҩⷫ ꙉ҆ꚍ. Ҁⷱ꜇ⷴ ҏⷴꜽꚁꚛ҆ꙉ ꜽ ꚍⷱ꜇҆ꚃ҆ꚙꞇꝁ҆҆ Ꚋ ꜙꙉⷱꚍꞇꝁ҆ ꝕꚙꚍꚙ҆҆ ꙋꙉ҆ꚍꚍⷫⷱꚜꞇ.",
-    "Взрывной майнинг!": "Slips defeated enemies tin cans painted to look like top-tier graphics cards. If a unique enemy fails a random Intelligence check, they take a card once to render their abilities and pay 1 **bonus** point for it. The Rat's maximum Justice falls by 1 for every sale.\nBy Blocking, the Rat hides in cover and detonates the graphics cards.\nExploded cards **steal** every point their owners earned on the previous turn through abilities, except natural victory points."
+    "Взрывной майнинг!": "Slips defeated enemies tin cans painted to look like top-tier graphics cards. If a unique enemy fails a random Intelligence check, they take a card once to render their abilities and pay 1 **bonus** point for it. The Rat's maximum Justice falls by 1 for every sale.\nBy Blocking, the Rat hides in cover and detonates the graphics cards.\nExploded cards **steal** every point their owners earned on the previous turn through abilities, except natural victory points.",
+    "Sharing is CARRYING!": "Sharing is CARRYING!\nWhen attacking the same target together with some weakling, takes all victory points for himself. The \"earned\" points can be spent on buying stats."
   }
 }

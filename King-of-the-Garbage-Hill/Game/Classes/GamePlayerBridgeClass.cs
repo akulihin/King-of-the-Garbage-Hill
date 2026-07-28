@@ -15,6 +15,7 @@ public class GamePlayerBridgeClass
         GameCharacter = gameCharacter;
         Status.GameCharacter = GameCharacter;
         FightCharacter = GameCharacter.DeepCopy();
+        RoundFightCharacter = FightCharacter.DeepCopy();
 
         DiscordId = discordId;
         GameId = gameId;
@@ -29,6 +30,11 @@ public class GamePlayerBridgeClass
     }
 
     public CharacterClass FightCharacter { get; set; }
+    /// <summary>
+    /// Immutable template captured once after round-wide pre-fight preparation. Every actual
+    /// fight receives a fresh clone so one fight's temporary mutations cannot leak to another.
+    /// </summary>
+    public CharacterClass RoundFightCharacter { get; set; }
     public CharacterClass GameCharacter { get; set; }
 
     public PassivesClass Passives { get; set; }
@@ -116,31 +122,51 @@ public class GamePlayerBridgeClass
         return PlayerType == 404 || DiscordStatus.SocketGameMessage == null;
     }
 
-    public void MinusPsycheLog(CharacterClass playerCharacter, GameClass game, int howMuchToRemove, string skillName)
+    /// <summary>
+    /// Applies a real Psyche-loss event through the shared immunity funnel. The ordinary
+    /// "психанул" record is emitted by default; a caller with its own authored public record
+    /// may suppress only that text without accidentally bypassing the immunities.
+    /// Structural stat rewrites and rollback of temporary Psyche are not loss events and stay
+    /// on the low-level CharacterClass mutators.
+    /// </summary>
+    public bool MinusPsyche(
+        GameClass game,
+        int howMuchToRemove,
+        string skillName,
+        bool suppressDefaultGlobalLog = false)
     {
+        if (game == null || howMuchToRemove >= 0)
+        {
+            return false;
+        }
+
+        var playerCharacter = GameCharacter;
         if (UnknownBug.Is(playerCharacter))
         {
-            return;
+            return false;
         }
         if (Homelander.IsProtected(playerCharacter, Status))
         {
-            return;
+            return false;
         }
         if (Madara.HasReanimatedBody(playerCharacter))
         {
-            return;
+            return false;
         }
         if (playerCharacter.Passive.Any(x => x.PassiveName == "Спокойствие"))
         {
-            return;
+            return false;
         }
         // TheBoys — after M.M.'s first upgrade he is calm; СуперМудень disables M.M. entirely.
         if (Passives.TheBoysMM.IsCalm && !Passives.TheBoysButcher.SuperDickActive)
         {
-            return;
+            return false;
         }
-        game.AddGlobalLogs($"\n{DiscordUsername} психанул");
+
+        if (!suppressDefaultGlobalLog)
+            game.AddGlobalLogs($"\n{DiscordUsername} психанул");
         playerCharacter.AddPsyche(howMuchToRemove, skillName);
+        return true;
     }
 
     public Guid GetPlayerId()

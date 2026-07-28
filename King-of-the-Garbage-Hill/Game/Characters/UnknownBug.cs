@@ -10,6 +10,7 @@ public static class UnknownBug
     public const string LegacyCharacterName = "Баг";
     public const string AdminPlayerType = "AdminPlayerType";
     public const string AutoWin = "AutoWin";
+    public const int AutoWinPriority = 666;
     public const string PointFunnel = "PointFunnel";
     public const string Exploit = "Exploit";
     public const string MissingAvatar =

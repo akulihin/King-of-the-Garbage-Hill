@@ -2136,6 +2136,8 @@ public static class BattleshipGameEngine
     {
         var summon = player.Summons.FirstOrDefault(s => s.Id == summonId && s.IsAlive && s.WaitingForDirectionChoice);
         if (summon == null) return false;
+        var (nextRow, nextCol) = GetNextPosition(summon.Row, summon.Col, direction);
+        if (nextRow is < 0 or >= 10 || nextCol is < 0 or >= 10) return false;
 
         summon.MoveDirection = direction;
         summon.WaitingForDirectionChoice = false;

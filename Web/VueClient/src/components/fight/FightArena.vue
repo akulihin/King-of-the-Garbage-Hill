@@ -201,6 +201,7 @@ const hasEnemyBadges = computed(() => enemyDebuffBadges.value.length > 0)
     'arena-shake': props.fightShake,
     'arena-result-win': props.fightResult === 'win',
     'arena-result-loss': props.fightResult === 'loss',
+    'storm-result-hit': props.fight.stormAppeared && props.showR1Result && !props.skippedToEnd,
   }">
     <!-- ═══ BLOCK/SKIP ═══ -->
     <div v-if="isSpecialOutcome" class="arena-special">
@@ -512,11 +513,34 @@ const hasEnemyBadges = computed(() => enemyDebuffBadges.value.length > 0)
         <div class="portal-ring portal-ring-right"></div>
       </div>
 
-      <!-- Storm cat overlay -->
-      <div v-if="props.fight.stormAppeared && props.showR1Result" class="storm-overlay">
-        <div class="storm-cat">🐱</div>
-        <div class="storm-label">
-          Штормяк {{ props.fight.stormWeighingDelta > 0 ? '+' : '' }}{{ props.fight.stormWeighingDelta }}
+      <!-- Storm cat: a brief hit on the machine, followed by a compact receipt. -->
+      <div
+        v-if="props.fight.stormAppeared && props.showR1Result"
+        class="storm-intervention"
+        :class="{
+          'storm-helped-us': props.fight.stormWeighingDelta * props.sign > 0,
+          'storm-hurt-us': props.fight.stormWeighingDelta * props.sign < 0,
+          'storm-instant': props.skippedToEnd,
+        }"
+        title="Штормяк тронул Doomsday Machine"
+      >
+        <div class="storm-machine-hit" aria-hidden="true">
+          <span class="storm-machine">
+            <span class="storm-machine-name">DOOMSDAY<br>MACHINE</span>
+            <span class="storm-machine-gear">⚙</span>
+          </span>
+          <span class="storm-paw">🐾</span>
+          <i class="storm-spark storm-spark-a">✦</i>
+          <i class="storm-spark storm-spark-b">✦</i>
+          <i class="storm-spark storm-spark-c">✦</i>
+        </div>
+        <div class="storm-receipt">
+          <span aria-hidden="true">🐱</span>
+          <span class="storm-receipt-text">Штормяк × Doomsday Machine</span>
+          <strong v-if="props.fight.stormWeighingDelta !== 0" class="storm-delta">
+            {{ props.fight.stormWeighingDelta * props.sign > 0 ? '+' : '' }}{{ props.fight.stormWeighingDelta * props.sign }}
+          </strong>
+          <strong v-else class="storm-chaos">ХАОС!</strong>
           <span v-if="props.fight.stormFlipped" class="storm-flipped">ПЕРЕВЕРНУЛ!</span>
         </div>
       </div>
@@ -1207,40 +1231,167 @@ const hasEnemyBadges = computed(() => enemyDebuffBadges.value.length > 0)
   100% { opacity: 1; transform: scale(1); }
 }
 
-/* ── Storm Cat Overlay ── */
-.storm-overlay {
-  position: absolute; inset: 0;
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  pointer-events: none; z-index: 20;
-  animation: storm-bounce 0.5s ease-out;
-  background: radial-gradient(ellipse at center, rgba(255,165,0,0.12) 0%, transparent 70%);
+/* ── Storm Cat × Doomsday Machine ── */
+.arena.storm-result-hit { animation: storm-arena-jolt 0.45s ease-out; }
+.storm-intervention {
+  position: absolute;
+  inset: 0;
+  z-index: 24;
+  pointer-events: none;
 }
-.storm-cat {
-  font-size: 48px;
-  filter: drop-shadow(0 0 12px rgba(255,165,0,0.6));
-  animation: storm-wiggle 0.6s ease-in-out infinite alternate;
+.storm-machine-hit {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 150px;
+  height: 76px;
+  transform: translate(-50%, -50%);
+  animation: storm-impact-fade 0.76s ease-out forwards;
 }
-.storm-label {
-  font-size: 13px; font-weight: 700; color: #ffa500;
-  text-shadow: 0 0 8px rgba(255,165,0,0.5);
-  margin-top: 2px;
+.storm-machine-hit::before {
+  content: '';
+  position: absolute;
+  inset: -24px;
+  background: radial-gradient(circle, rgba(255, 190, 54, 0.46) 0%, rgba(255, 126, 32, 0.16) 38%, transparent 70%);
+  animation: storm-impact-flash 0.62s ease-out forwards;
 }
+.storm-machine {
+  position: absolute;
+  left: 27px;
+  top: 17px;
+  width: 96px;
+  height: 43px;
+  display: flex;
+  align-items: center;
+  padding: 5px 27px 5px 8px;
+  border: 2px solid #d38a2c;
+  border-radius: 7px;
+  background: linear-gradient(145deg, #332518, #16110c);
+  box-shadow: 0 0 14px rgba(255, 159, 38, 0.7), inset 0 0 8px rgba(255, 185, 79, 0.16);
+  animation: storm-machine-rattle 0.62s cubic-bezier(0.36, 0.07, 0.19, 0.97);
+}
+.storm-machine-name {
+  color: #ffd078;
+  font: 900 8px/1.05 var(--font-mono);
+  letter-spacing: 0.08em;
+  text-shadow: 0 0 5px rgba(255, 166, 48, 0.8);
+}
+.storm-machine-gear {
+  position: absolute;
+  right: 6px;
+  font-size: 22px;
+  color: #f0a43b;
+  line-height: 1;
+}
+.storm-paw {
+  position: absolute;
+  z-index: 2;
+  right: 12px;
+  top: -7px;
+  font-size: 34px;
+  filter: drop-shadow(0 3px 4px rgba(0, 0, 0, 0.6));
+  animation: storm-paw-slap 0.58s ease-out forwards;
+}
+.storm-spark {
+  position: absolute;
+  z-index: 3;
+  left: 71%;
+  top: 45%;
+  color: #fff3a3;
+  font-style: normal;
+  text-shadow: 0 0 7px #ff8a00;
+  animation: storm-spark-fly 0.58s ease-out forwards;
+}
+.storm-spark-a { --storm-x: 34px; --storm-y: -27px; }
+.storm-spark-b { --storm-x: 42px; --storm-y: 7px; animation-delay: 0.04s; }
+.storm-spark-c { --storm-x: 19px; --storm-y: 31px; animation-delay: 0.08s; }
+.storm-receipt {
+  position: absolute;
+  top: 5px;
+  right: 6px;
+  max-width: calc(100% - 12px);
+  min-height: 22px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 6px;
+  border: 1px solid rgba(255, 166, 48, 0.5);
+  border-radius: 5px;
+  background: rgba(25, 17, 10, 0.94);
+  box-shadow: 0 2px 9px rgba(0, 0, 0, 0.5);
+  color: #ffd078;
+  font: 800 9px/1.1 var(--font-mono);
+  white-space: nowrap;
+  opacity: 0;
+  animation: storm-receipt-in 0.22s ease-out 0.42s forwards;
+}
+.storm-receipt-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.storm-delta { color: #f0a43b; font-size: 11px; }
+.storm-helped-us .storm-receipt { border-color: rgba(88, 209, 130, 0.55); }
+.storm-helped-us .storm-delta { color: #6ee79b; }
+.storm-hurt-us .storm-receipt { border-color: rgba(255, 102, 84, 0.55); }
+.storm-hurt-us .storm-delta { color: #ff7667; }
+.storm-chaos { color: #ffb347; font-size: 9px; }
 .storm-flipped {
-  color: #ff4444; font-weight: 900; margin-left: 4px;
-  animation: storm-flash 0.4s ease-in-out infinite alternate;
+  color: #ff655d;
+  font-size: 8px;
+  font-weight: 900;
+  animation: storm-stamp-in 0.2s ease-out 0.55s both;
 }
-@keyframes storm-bounce {
-  0% { opacity: 0; transform: translateY(-30px) scale(0.5); }
-  60% { transform: translateY(5px) scale(1.05); }
-  100% { opacity: 1; transform: translateY(0) scale(1); }
+.storm-instant .storm-machine-hit { display: none; }
+.storm-instant .storm-receipt { opacity: 1; animation: none; }
+@keyframes storm-arena-jolt {
+  0%, 100% { transform: translate(0, 0); }
+  18% { transform: translate(-4px, 1px) rotate(-0.25deg); }
+  36% { transform: translate(5px, -1px) rotate(0.2deg); }
+  55% { transform: translate(-3px, 0); }
+  74% { transform: translate(2px, 0); }
 }
-@keyframes storm-wiggle {
-  0% { transform: rotate(-8deg); }
-  100% { transform: rotate(8deg); }
+@keyframes storm-impact-fade {
+  0% { opacity: 0; transform: translate(-50%, -68%) scale(0.7); }
+  14%, 72% { opacity: 1; }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(1.05); }
 }
-@keyframes storm-flash {
-  0% { opacity: 0.6; }
-  100% { opacity: 1; }
+@keyframes storm-impact-flash {
+  0% { opacity: 0; transform: scale(0.35); }
+  24% { opacity: 1; }
+  100% { opacity: 0; transform: scale(1.2); }
+}
+@keyframes storm-machine-rattle {
+  0%, 100% { transform: translate(0, 0) rotate(0); }
+  28% { transform: translate(-5px, 2px) rotate(-3deg); }
+  42% { transform: translate(6px, -2px) rotate(3deg); }
+  58% { transform: translate(-4px, 1px) rotate(-2deg); }
+  75% { transform: translate(3px, 0) rotate(1deg); }
+}
+@keyframes storm-paw-slap {
+  0% { opacity: 0; transform: translate(24px, -20px) rotate(28deg) scale(0.55); }
+  34% { opacity: 1; transform: translate(-5px, 8px) rotate(-18deg) scale(1.18); }
+  62% { transform: translate(0, 3px) rotate(-8deg) scale(1); }
+  100% { opacity: 0; transform: translate(10px, -5px) rotate(8deg) scale(0.9); }
+}
+@keyframes storm-spark-fly {
+  0% { opacity: 0; transform: translate(0, 0) scale(0.25) rotate(0); }
+  22% { opacity: 1; }
+  100% { opacity: 0; transform: translate(var(--storm-x), var(--storm-y)) scale(1.1) rotate(100deg); }
+}
+@keyframes storm-receipt-in {
+  from { opacity: 0; transform: translateY(-7px) scale(0.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes storm-stamp-in {
+  from { opacity: 0; transform: scale(1.5) rotate(-7deg); }
+  to { opacity: 1; transform: scale(1) rotate(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .arena.storm-result-hit { animation: none; }
+  .storm-machine-hit { display: none; }
+  .storm-receipt { opacity: 1; animation: none; }
+  .storm-flipped { animation: none; }
 }
 
 /* ── Tug-of-War Bar (vertical, inside phase tracker) ── */

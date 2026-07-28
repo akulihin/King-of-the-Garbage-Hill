@@ -10,14 +10,8 @@ interface ManeuverableShip {
   orientation: string
 }
 
-interface CursedBoatSummon {
-  id: string
-  waitingForDirectionChoice: boolean
-}
-
 defineProps<{
   maneuverableShips: ManeuverableShip[]
-  cursedBoatSummons: CursedBoatSummon[]
   shotResult: { message: string } | null
   shotResultClass: Record<string, boolean>
   isMyTurn: boolean
@@ -26,7 +20,6 @@ defineProps<{
 
 const emit = defineEmits<{
   (e: 'manualMove', shipId: string, direction: string, distance: number): void
-  (e: 'setCursedDirection', summonId: string, direction: string): void
   (e: 'passBoarding'): void
 }>()
 
@@ -109,44 +102,6 @@ function emitManualMove(shipId: string, direction: string) {
     </div>
   </template>
 
-  <!-- Cursed Boat Direction Choice -->
-  <div
-    v-if="cursedBoatSummons.some(s => s.waitingForDirectionChoice)"
-    class="cursed-bar bs-bar"
-  >
-    <span class="action-label">Проклятый корабль — выберите направление:</span>
-    <template v-for="s in cursedBoatSummons.filter(s => s.waitingForDirectionChoice)" :key="s.id">
-      <button
-        class="dir-btn"
-        @mouseenter="showTip($event, 'Направление: вверх')"
-        @mousemove="moveTip"
-        @mouseleave="hideTip"
-        @click="emit('setCursedDirection', s.id, 'Up')"
-      >&#x2191;</button>
-      <button
-        class="dir-btn"
-        @mouseenter="showTip($event, 'Направление: вниз')"
-        @mousemove="moveTip"
-        @mouseleave="hideTip"
-        @click="emit('setCursedDirection', s.id, 'Down')"
-      >&#x2193;</button>
-      <button
-        class="dir-btn"
-        @mouseenter="showTip($event, 'Направление: влево')"
-        @mousemove="moveTip"
-        @mouseleave="hideTip"
-        @click="emit('setCursedDirection', s.id, 'Left')"
-      >&#x2190;</button>
-      <button
-        class="dir-btn"
-        @mouseenter="showTip($event, 'Направление: вправо')"
-        @mousemove="moveTip"
-        @mouseleave="hideTip"
-        @click="emit('setCursedDirection', s.id, 'Right')"
-      >&#x2192;</button>
-    </template>
-  </div>
-
   <!-- Shot Result -->
   <div v-if="shotResult" class="shot-result" :class="shotResultClass">
     {{ shotResult.message }}
@@ -161,9 +116,8 @@ function emitManualMove(shipId: string, direction: string) {
 </template>
 
 <style scoped>
-/* ── Action bars (maneuver, cursed) ──────────────────────── */
+/* ── Action bars ─────────────────────────────────────────── */
 .maneuver-bar,
-.cursed-bar,
 .pass-bar {
   margin-top: 0.5rem;
 }

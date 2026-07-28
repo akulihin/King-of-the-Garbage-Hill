@@ -24,6 +24,11 @@ function phraseText(msg: MediaMessage): string {
 const volume = ref(0.5)
 const audioObjects = new Map<string, HTMLAudioElement>() // keyed by fileUrl
 const playingUrl = ref<string | null>(null)
+const MADARA_ROUND_EIGHT_THEME = 'madara_tsukuemi_theme.mp3'
+
+function shouldLoop(url: string, roundsToPlay: number): boolean {
+  return roundsToPlay > 1 || url.toLowerCase().endsWith(MADARA_ROUND_EIGHT_THEME)
+}
 
 function getOrCreateAudio(url: string, loop: boolean): HTMLAudioElement {
   let audio = audioObjects.get(url)
@@ -53,7 +58,7 @@ function getOrCreateAudio(url: string, loop: boolean): HTMLAudioElement {
 
 function togglePlay(url: string, roundsToPlay: number) {
   if (!url) return
-  const loop = roundsToPlay > 1
+  const loop = shouldLoop(url, roundsToPlay)
   const audio = getOrCreateAudio(url, loop)
 
   if (playingUrl.value === url && !audio.paused) {
@@ -98,13 +103,16 @@ watch(
       if (msg.fileType === 'audio' && msg.fileUrl) {
         const url = resolveSoundUrl(msg.fileUrl)
         activeAudioUrls.add(url)
-        const loop = (msg.roundsToPlay ?? 1) > 1
+        const loop = shouldLoop(url, msg.roundsToPlay ?? 1)
 
         // Auto-start audio that we haven't started yet
         if (!autoStartedUrls.has(url)) {
           autoStartedUrls.add(url)
           // Small delay to let the component mount on first render
           setTimeout(() => {
+            // The message may have expired (or the fight replay may have ended) during
+            // the mount delay. The watcher/unmount cleanup removes it from this set.
+            if (!autoStartedUrls.has(url)) return
             const audio = getOrCreateAudio(url, loop)
             audio.volume = volume.value
             audio.play().catch((err) => {

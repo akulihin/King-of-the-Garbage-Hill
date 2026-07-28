@@ -7,6 +7,12 @@ import SpecialLevelUpPanel from 'src/components/SpecialLevelUpPanel.vue'
 import { useGameStore } from 'src/store/game'
 import { currentLocale } from 'src/i18n'
 import {
+  buildScoreAnimHits,
+  buildScoreGroups,
+  isScoreComboHit,
+  type ScoreAnimHit,
+} from 'src/features/score-combo'
+import {
   playComboHype,
   playComboPluck,
   playPointsIncreaseSound,
@@ -22,6 +28,7 @@ const props = withDefaults(defineProps<{
   justiceUp?: boolean
   scoreBreakdown?: ScoreBreakdown | null
   scoreAnimReady?: boolean
+  scoreAnimKey?: string | number
   fightBonuses?: { label: string; value: string; cssClass: string }[]
 }>(), {
   resistFlash: () => [],
@@ -29,6 +36,7 @@ const props = withDefaults(defineProps<{
   justiceUp: false,
   scoreBreakdown: null,
   scoreAnimReady: false,
+  scoreAnimKey: '',
   fightBonuses: () => [],
 })
 
@@ -183,15 +191,15 @@ const widgetHelpCopy = {
   pickleRick: ['Shows the turns left as Pickle Rick and the length of the penalty that follows.', 'Показывает, сколько ходов осталось в форме Огурчика и сколько длится последующий штраф.'],
   giantBeans: ['Stacks empower the Beans. COOKING means ingredients are already assigned to the shown number of targets.', 'Заряды усиливают Бобы. ГОТОВЯТСЯ означает, что ингредиенты уже разложены на указанных целях.'],
   eren: ['Rumbling only checks losses in round 10. The left counter shows Attack Titan readiness; fire marks show accumulated hatred.', 'RUMBLING проверяет только поражения в 10-м раунде. Счётчик слева показывает готовность Атакующего Титана, а метки 🔥 — накопленную ненависть.'],
-  naruto: ['A ready Harem replaces Block. After use it recharges for two turns; Block remains ordinary while cooling down.', 'Готовый Гарем заменяет Блок. После использования он перезаряжается два хода; во время отката Блок остаётся обычным.'],
+  naruto: ['A ready Harem replaces Block with Skip. Each attacker donates 20% of lifetime ability points; after use it recharges for two turns.', 'Готовый Гарем заменяет Блок на Скип. Каждый атакующий донатит 20% очков, заработанных способностями за матч; после использования Гарем перезаряжается два хода.'],
   gordon: ['Crowbar tracks every resolved fight; every third one is a win. Headcrabs show their remaining incubation time, and zombies can never raise Intelligence above zero.', 'Монтировка считает состоявшиеся бои: каждый третий становится победой. Для хэдкрабов показано время до превращения, а зомби больше не могут поднять Интеллект выше нуля.'],
   jonSnow: ['Skill unlocks Server King. Wolves mark the two weakest players; Castle Black shows the remaining position lock and counts only other same-side winners.', 'Скилл открывает Короля Сервера. Волки отмечают двух слабейших игроков, а Черный Замок показывает оставшееся удержание позиции и считает только победы других соратников.'],
   bulk: ['The current chance for Boole to lose his turn. BUFFED means his zero-Psyche stat boost is active.', 'Текущий шанс Буля пропустить ход. BUFFED означает усиление характеристик при нулевой Психике.'],
   tea: ['When tea is ready, the next attack spends it for one point and makes the target skip their next turn.', 'Когда чай готов, следующая атака потратит его: даст очко и заставит цель пропустить следующий ход.'],
   jew: ['Tracks the Psyche accumulated by the PROFIT mechanic.', 'Счётчик показывает, сколько Психики уже накоплено механикой PROFIT.'],
   hardKitty: ['Tracks accumulated friends. A full bar represents five friends.', 'Количество накопленных друзей. Полная шкала соответствует пяти друзьям.'],
-  training: ['After losing an attack, Sirinoks trains the shown stat until she reaches the target value.', 'После атакующего поражения Sirinoks тренирует указанную характеристику до показанной цели.'],
-  dragon: ['Countdown to the round-10 awakening and the Dragon final recalculation.', 'Отсчёт до пробуждения в 10-м раунде, когда Дракон получает финальный перерасчёт.'],
+  training: ['After losing an attack, Sirinoks trains the shown stat until she reaches the target value, then gains 3 Moral and 70 Skill.', 'После атакующего поражения Sirinoks тренирует указанную характеристику до показанной цели, затем получает 3 Морали и 70 Скилла.'],
+  dragon: ['Countdown to the round-10 awakening and the Dragon final recalculation. At 228 Skill, enemy auto-wins are suppressed except unknown_bug.', 'Отсчёт до пробуждения в 10-м раунде, когда Дракон получает финальный перерасчёт. При 228 Скилла чужие автопобеды не работают, кроме unknown_bug.'],
   garbage: ['Shows how many enemies carry the smell after attacking Harry.', 'Сколько соперников уже оставили на себе запах, атаковав Гарри.'],
   copycat: ['Shows the currently copied stat and the total number of copies made.', 'Показывает скопированную характеристику и общее число сделанных копий.'],
   inkScreen: ['Fake defeats temporarily reverse winners. Deferred score is restored during the finale.', 'Ложные поражения временно меняют победителя. Отложенные очки будут восстановлены в финале.'],
@@ -305,6 +313,13 @@ const doomGuy = computed(() => passiveStates.value?.doomGuy ?? null)
 
 const hasPassive = (name: string) => props.player?.character.passives.some((passive: { name: string }) => passive.name === name) ?? false
 
+const carryPoints = computed(() => passiveStates.value?.scamRat?.carryPoints ?? 0)
+const canPurchaseCarryStats = computed(() =>
+  props.isMe
+  && hasPassive('Sharing is CARRYING!')
+  && carryPoints.value > 0,
+)
+
 // These mechanics replace the ordinary +1 stat choice entirely. Keeping this list explicit
 // prevents a new special branch from accidentally exposing misleading + buttons.
 const usesSpecialLevelUpPanel = computed(() => {
@@ -333,7 +348,7 @@ const levelUpConsequences = computed(() => {
   if (name === 'Darksci' && roundNo.value === 9) notes.push('Дизмораль после выбора отнимет 5 Психики. Если она упадёт до 0, этот ход сразу станет пропуском.')
   if (name === 'Darksci' && roundNo.value !== 9 && props.player.character.psyche <= 0) notes.push('После обязательной прокачки Дизмораль подтвердит пропуск этого хода.')
   const training = passiveStates.value?.training
-  if (name === 'Sirinoks' && training?.currentStatIndex) notes.push(`Обучение: цель — ${training.statName} ${training.targetStatValue}. Достижение цели даст +3 Морали и +10% Скилла.`)
+  if (name === 'Sirinoks' && training?.currentStatIndex) notes.push(`Обучение: цель — ${training.statName} ${training.targetStatValue}. Достижение цели даст +3 Морали и +70 Скилла.`)
   return notes
 })
 
@@ -437,79 +452,9 @@ const moralToSkillRate = computed(() => {
 
 // ── Score combo animation ──────────────────────────────────────────
 
-/** A single source entry (one row in the combo feed) */
-interface SourceEntry {
-  name: string
-  basePts: number       // pre-multiplied point value to display
-  pointsEarned: number  // actual points earned (basePts × multiplier for regular)
-}
-
-/** A group of score sources (regular or bonus) */
-interface ScoreGroup {
-  type: 'regular' | 'bonus'
-  multiplier: number
-  entries: SourceEntry[]
-  totalPoints: number
-}
-
-/** A flattened animation hit for staggered reveal */
-interface AnimHit {
-  name: string
-  basePts: number
-  pointsEarned: number
-  comboIndex: number    // running index within the group (0-based)
-  groupType: 'regular' | 'bonus'
-  groupMultiplier: number
-}
-
-/** Build Regular and Bonus groups directly from structured ScoreBreakdown data */
-const scoreGroups = computed<ScoreGroup[]>(() => {
-  if (!props.scoreBreakdown) return []
-
-  const mult = roundMultiplier.value
-  const regularEntries: SourceEntry[] = []
-  const bonusEntries: SourceEntry[] = []
-  let bonusTotal = 0
-
-  for (const entry of props.scoreBreakdown.entries) {
-    if (entry.isBonus) {
-      bonusEntries.push({ name: entry.source || 'Бонус', basePts: entry.points, pointsEarned: entry.points })
-      bonusTotal += entry.points
-    } else {
-      regularEntries.push({ name: entry.source || 'Очки', basePts: entry.points, pointsEarned: Math.round(entry.points * mult) })
-    }
-  }
-
-  const regularTotal = Math.round(regularEntries.reduce((sum, e) => sum + e.basePts, 0) * mult)
-
-  const groups: ScoreGroup[] = []
-  if (regularEntries.length > 0) {
-    groups.push({ type: 'regular', multiplier: mult, entries: regularEntries, totalPoints: regularTotal })
-  }
-  if (bonusEntries.length > 0) {
-    groups.push({ type: 'bonus', multiplier: 1, entries: bonusEntries, totalPoints: bonusTotal })
-  }
-  return groups
-})
-
-/** Flat list of all animation hits across groups (each source = separate hit) */
-const allAnimHits = computed<AnimHit[]>(() => {
-  const hits: AnimHit[] = []
-  for (const group of scoreGroups.value) {
-    let comboIdx = 0
-    for (const entry of group.entries) {
-      hits.push({
-        name: entry.name,
-        basePts: entry.basePts,
-        pointsEarned: entry.pointsEarned,
-        comboIndex: comboIdx++,
-        groupType: group.type,
-        groupMultiplier: group.multiplier,
-      })
-    }
-  }
-  return hits
-})
+const scoreGroups = computed(() => buildScoreGroups(props.scoreBreakdown))
+const allAnimHits = computed(() => buildScoreAnimHits(scoreGroups.value))
+const comboHitCount = computed(() => allAnimHits.value.filter(isScoreComboHit).length)
 
 function comboHeatStyle(combo: number) {
   const hue = Math.max(0, 52 - Math.max(0, combo - 2) * 7)
@@ -547,32 +492,38 @@ function startComboAnimation() {
   setTimeout(() => {
     let i = 0
     let pluckSeq = 0
-    let lastGroupType: string | null = null
+    let comboStackIndex = 0
+    let lastComboGroupType: string | null = null
     const hits = allAnimHits.value
+    const comboHits = hits.filter(isScoreComboHit)
     comboTimer = setInterval(() => {
       if (i >= hits.length) {
         clearComboTimer()
-        const totalEarned = hits.reduce((sum: number, h: AnimHit) => sum + h.pointsEarned, 0)
+        const totalEarned = comboHits.reduce(
+          (sum: number, hit: ScoreAnimHit) => sum + hit.pointsEarned,
+          0,
+        )
         playPointsSummary(totalEarned)
         setTimeout(() => { hitActiveIdx.value = -1 }, 600)
         return
       }
       hitActiveIdx.value = i
       const hit = hits[i]
-      if (hit.pointsEarned > 0) {
+      if (isScoreComboHit(hit)) {
         playPointsIncreaseSound(hit.pointsEarned, hit.name)
         pluckSeq++
         playComboPluck(Math.min(7, pluckSeq))
         // Play hype sound when first hit of a new group type appears
-        if (hit.groupType !== lastGroupType) {
-          const groupHits = hits.filter((h: AnimHit) => h.groupType === hit.groupType)
+        if (hit.groupType !== lastComboGroupType) {
+          const groupHits = comboHits.filter(h => h.groupType === hit.groupType)
           playComboHype(groupHits.length)
         }
-      }
-      lastGroupType = hit.groupType
-      // Combo stack sounds for large combos
-      if (hits.length > 7) {
-        playComboStack(i + 1)
+        lastComboGroupType = hit.groupType
+        // Combo stack sounds for large positive combos
+        if (comboHits.length > 7) {
+          comboStackIndex++
+          playComboStack(comboStackIndex)
+        }
       }
       animatedScoreDelta.value += hit.pointsEarned
       i++
@@ -581,9 +532,9 @@ function startComboAnimation() {
   }, 100)
 }
 
-// Reset when score breakdown changes (new round)
-watch(() => props.scoreBreakdown, (breakdown) => {
-  const snap = breakdown ? JSON.stringify(breakdown) : ''
+// Reset on the round boundary even when two consecutive score breakdowns are byte-identical.
+watch([() => props.scoreBreakdown, () => props.scoreAnimKey], ([breakdown, animationKey]) => {
+  const snap = `${String(animationKey)}:${breakdown ? JSON.stringify(breakdown) : ''}`
   if (snap === lastScoreSnapshot) return
   lastScoreSnapshot = snap
   comboAnimStarted = false
@@ -825,6 +776,10 @@ function doomModuleStatus(module: string): { text: string; state: 'live' | 'done
         {{ usesSpecialLevelUpPanel ? `${lvlUpPoints} особый выбор` : `+${lvlUpPoints} очков` }}
         <span v-if="levelUpQuip" class="lvl-up-quip">{{ levelUpQuip }}</span>
       </div>
+      <div v-if="canPurchaseCarryStats" class="carry-points-badge" aria-live="polite">
+        <span class="carry-dollar">$</span>
+        {{ carryPoints }} {{ t('stat purchases', 'покупок статов') }}
+      </div>
 
       <SpecialLevelUpPanel
         v-if="hasLvlUpPoints && usesSpecialLevelUpPanel"
@@ -840,7 +795,7 @@ function doomModuleStatus(module: string): { text: string; state: 'live' | 'done
       </div>
 
       <!-- Intelligence -->
-      <div v-if="!isDopaMetaChoice" class="stat-block" :class="{ 'resist-hit': resistFlash.includes('intelligence'), 'lvl-up-available': hasLvlUpPoints, 'stat-pulse': pulsingStats.has('intelligence') }">
+      <div v-if="!isDopaMetaChoice" class="stat-block" :class="{ 'resist-hit': resistFlash.includes('intelligence'), 'lvl-up-available': hasLvlUpPoints, 'carry-buy-available': canPurchaseCarryStats, 'stat-pulse': pulsingStats.has('intelligence') }">
         <div class="stat-row">
           <span class="gi gi-lg gi-int">{{ isEren ? 'Злость' : isDopa ? 'IQ' : 'INT' }}</span>
           <div class="stat-bar-bg">
@@ -849,6 +804,15 @@ function doomModuleStatus(module: string): { text: string; state: 'live' | 'done
           </div>
           <span class="stat-val stat-intelligence">{{ isDopa ? dopaIq : player.character.intelligence }}</span>
           <button v-if="hasLvlUpPoints && !usesSpecialLevelUpPanel" class="lvl-btn" data-sfx-skip-default="true" :disabled="store.isLevelingUp" :title="isEren ? '+1 Злость' : isDopa ? '+IQ' : '+1 Intelligence'" @click="handleLevelUp(1)">+</button>
+          <button
+            v-if="canPurchaseCarryStats"
+            class="lvl-btn carry-buy-btn"
+            data-sfx-skip-default="true"
+            :disabled="store.isLevelingUp || player.character.intelligence >= 10"
+            :title="t('Buy +1 Intelligence for $1', 'Купить +1 Интеллект за $1')"
+            :aria-label="t('Buy Intelligence', 'Купить Интеллект')"
+            @click="handleLevelUp(1)"
+          ><span class="carry-dollar">$</span><span>+</span></button>
         </div>
         <div v-if="isMe && !isMadara" class="resist-row">
           <span class="resist-badge"><span class="gi gi-def">DEF</span> {{ player.character.intelligenceResist }}</span>
@@ -856,7 +820,7 @@ function doomModuleStatus(module: string): { text: string; state: 'live' | 'done
         </div>
       </div>
       <!-- Strength -->
-      <div v-if="!isDopaMetaChoice" class="stat-block" :class="{ 'resist-hit': resistFlash.includes('strength'), 'lvl-up-available': hasLvlUpPoints, 'stat-pulse': pulsingStats.has('strength') }">
+      <div v-if="!isDopaMetaChoice" class="stat-block" :class="{ 'resist-hit': resistFlash.includes('strength'), 'lvl-up-available': hasLvlUpPoints, 'carry-buy-available': canPurchaseCarryStats, 'stat-pulse': pulsingStats.has('strength') }">
         <div class="stat-row">
           <span class="gi gi-lg gi-str">STR</span>
           <div class="stat-bar-bg">
@@ -865,6 +829,15 @@ function doomModuleStatus(module: string): { text: string; state: 'live' | 'done
           </div>
           <span class="stat-val stat-strength">{{ player.character.strength }}</span>
           <button v-if="hasLvlUpPoints && !usesSpecialLevelUpPanel" class="lvl-btn" data-sfx-skip-default="true" :disabled="store.isLevelingUp" title="+1 Strength" @click="handleLevelUp(2)">+</button>
+          <button
+            v-if="canPurchaseCarryStats"
+            class="lvl-btn carry-buy-btn"
+            data-sfx-skip-default="true"
+            :disabled="store.isLevelingUp || player.character.strength >= 10"
+            :title="t('Buy +1 Strength for $1', 'Купить +1 Силу за $1')"
+            :aria-label="t('Buy Strength', 'Купить Силу')"
+            @click="handleLevelUp(2)"
+          ><span class="carry-dollar">$</span><span>+</span></button>
         </div>
         <div v-if="isMe && !isMadara" class="resist-row">
           <span class="resist-badge"><span class="gi gi-def">DEF</span> {{ player.character.strengthResist }}</span>
@@ -872,7 +845,7 @@ function doomModuleStatus(module: string): { text: string; state: 'live' | 'done
         </div>
       </div>
       <!-- Speed -->
-      <div v-if="!isDopaMetaChoice" class="stat-block" :class="{ 'lvl-up-available': hasLvlUpPoints, 'stat-pulse': pulsingStats.has('speed') }">
+      <div v-if="!isDopaMetaChoice" class="stat-block" :class="{ 'lvl-up-available': hasLvlUpPoints, 'carry-buy-available': canPurchaseCarryStats, 'stat-pulse': pulsingStats.has('speed') }">
         <div class="stat-row">
           <span class="gi gi-lg gi-spd">SPD</span>
           <div class="stat-bar-bg">
@@ -881,6 +854,15 @@ function doomModuleStatus(module: string): { text: string; state: 'live' | 'done
           </div>
           <span class="stat-val stat-speed">{{ player.character.speed }}</span>
           <button v-if="hasLvlUpPoints && !usesSpecialLevelUpPanel" class="lvl-btn" data-sfx-skip-default="true" :disabled="store.isLevelingUp" title="+1 Speed" @click="handleLevelUp(3)">+</button>
+          <button
+            v-if="canPurchaseCarryStats"
+            class="lvl-btn carry-buy-btn"
+            data-sfx-skip-default="true"
+            :disabled="store.isLevelingUp || player.character.speed >= 10"
+            :title="t('Buy +1 Speed for $1', 'Купить +1 Скорость за $1')"
+            :aria-label="t('Buy Speed', 'Купить Скорость')"
+            @click="handleLevelUp(3)"
+          ><span class="carry-dollar">$</span><span>+</span></button>
         </div>
         <div v-if="isMe && !isMadara" class="resist-row">
           <span class="resist-badge"><span class="gi gi-def">DEF</span> {{ player.character.speedResist }}</span>
@@ -924,7 +906,7 @@ function doomModuleStatus(module: string): { text: string; state: 'live' | 'done
 
     <!-- Psyche (separated — different stat type, hidden during kotiki lvl-up) -->
     <div v-if="!isTerminalMode && !isDopaMetaChoice" class="pc-psyche-box">
-      <div class="stat-block" :class="{ 'resist-hit': resistFlash.includes('psyche'), 'lvl-up-available': hasLvlUpPoints, 'stat-pulse': pulsingStats.has('psyche') }">
+      <div class="stat-block" :class="{ 'resist-hit': resistFlash.includes('psyche'), 'lvl-up-available': hasLvlUpPoints, 'carry-buy-available': canPurchaseCarryStats, 'stat-pulse': pulsingStats.has('psyche') }">
         <div class="stat-row">
           <span class="gi gi-lg gi-psy">{{ isEren ? 'Самоуверенность' : 'PSY' }}</span>
           <div class="stat-bar-bg">
@@ -933,6 +915,15 @@ function doomModuleStatus(module: string): { text: string; state: 'live' | 'done
           </div>
           <span class="stat-val stat-psyche">{{ player.character.psyche }}</span>
           <button v-if="hasLvlUpPoints && !usesSpecialLevelUpPanel" class="lvl-btn" data-sfx-skip-default="true" :disabled="store.isLevelingUp" :title="isEren ? '+1 Самоуверенность' : '+1 Psyche'" @click="handleLevelUp(4)">+</button>
+          <button
+            v-if="canPurchaseCarryStats"
+            class="lvl-btn carry-buy-btn"
+            data-sfx-skip-default="true"
+            :disabled="store.isLevelingUp || player.character.psyche >= 10"
+            :title="t('Buy +1 Psyche for $1', 'Купить +1 Психику за $1')"
+            :aria-label="t('Buy Psyche', 'Купить Психику')"
+            @click="handleLevelUp(4)"
+          ><span class="carry-dollar">$</span><span>+</span></button>
         </div>
         <div v-if="isMe && !isMadara" class="resist-row">
           <span class="resist-badge"><span class="gi gi-def">DEF</span> {{ player.character.psycheResist }}</span>
@@ -1615,6 +1606,10 @@ function doomModuleStatus(module: string): { text: string; state: 'live' | 'done
           <span class="pw-label">{{ t('sold', 'продано') }}</span>
         </div>
         <div class="pw-stat-pair">
+          <span class="pw-value">${{ passiveStates.scamRat.carryPoints }}</span>
+          <span class="pw-label">{{ t('carry points', 'очки Carry') }}</span>
+        </div>
+        <div class="pw-stat-pair">
           <span class="pw-value">{{ passiveStates.scamRat.maximumJustice }}</span>
           <span class="pw-label">{{ t('max Justice', 'макс. Справедливость') }}</span>
         </div>
@@ -1989,7 +1984,7 @@ function doomModuleStatus(module: string): { text: string; state: 'live' | 'done
     <div class="pc-score-row" :class="{ 'confetti-burst': showConfetti }">
       <ScoreOdometer :value="player.status.score" size="lg" :flash-color="animatedScoreDelta > 0 ? '#5ba85b' : animatedScoreDelta < 0 ? '#e05545' : null" class="pc-score" />
       <span class="pc-score-label" :class="{ 'pc-score-label-geralt': isGeralt }">{{ isGeralt ? t('minted\ncoins', 'чеканные\nмонеты') : 'pts' }}</span>
-      <span v-if="animatedScoreDelta !== 0" class="pc-score-delta" :class="{ 'delta-big': allAnimHits.length >= 4, 'delta-huge': allAnimHits.length >= 6, 'delta-negative': animatedScoreDelta < 0 }" :key="animatedScoreDelta">
+      <span v-if="animatedScoreDelta !== 0" class="pc-score-delta" :class="{ 'delta-big': comboHitCount >= 4, 'delta-huge': comboHitCount >= 6, 'delta-negative': animatedScoreDelta < 0 }" :key="animatedScoreDelta">
         {{ animatedScoreDelta > 0 ? '+' : '' }}{{ animatedScoreDelta }}
       </span>
       <span v-if="hitActiveIdx >= 0 && allAnimHits[hitActiveIdx]?.comboIndex > 0" class="combo-multiplier" :key="hitActiveIdx"
@@ -2008,12 +2003,16 @@ function doomModuleStatus(module: string): { text: string; state: 'live' | 'done
         <div
           class="combo-section"
           :class="[
-            group.type === 'regular' ? 'combo-section-regular' : 'combo-section-bonus',
+            group.type === 'negative'
+              ? 'combo-section-negative'
+              : group.type === 'regular'
+                ? 'combo-section-regular'
+                : 'combo-section-bonus',
             { 'combo-visible': hitVisibleCount > allAnimHits.findIndex(h => h.groupType === group.type) }
           ]"
         >
           <!-- Section header -->
-          <div class="combo-section-header">
+          <div v-if="group.type !== 'negative'" class="combo-section-header">
             <span class="combo-section-label">{{ group.type === 'regular' ? 'Regular' : 'Bonus' }}</span>
             <span v-if="group.type === 'regular' && (group.multiplier > 1 || isMultiplierModified)" class="combo-mult-badge" :class="{ 'combo-mult-modified': isMultiplierModified }">
               <span v-if="isMultiplierModified" class="combo-mult-expected">x{{ expectedMultiplier }}</span>
@@ -2027,18 +2026,22 @@ function doomModuleStatus(module: string): { text: string; state: 'live' | 'done
             :key="hIdx"
             class="combo-entry"
             :class="[
-              group.type === 'regular' ? 'combo-type-regular' : 'combo-type-bonus',
+              group.type === 'negative'
+                ? 'combo-type-negative'
+                : group.type === 'regular'
+                  ? 'combo-type-regular'
+                  : 'combo-type-bonus',
               {
                 'combo-visible': (() => {
                   const globalIdx = allAnimHits.indexOf(hit)
                   return globalIdx >= 0 && globalIdx < hitVisibleCount
                 })(),
                 'combo-active': allAnimHits.indexOf(hit) === hitActiveIdx,
-                'combo-negative': hit.pointsEarned < 0,
+                'combo-negative': group.type === 'negative',
               }
             ]"
           >
-            <span class="combo-hit-pts" :class="{ 'combo-hit-negative': hit.pointsEarned < 0 }">
+            <span v-if="!hit.hidePoints" class="combo-hit-pts" :class="{ 'combo-hit-negative': group.type === 'negative' }">
               {{ hit.pointsEarned > 0 ? '+' : '' }}{{ hit.pointsEarned }}
             </span>
             <span class="combo-hit-label">{{ hit.name }}</span>
@@ -2047,7 +2050,7 @@ function doomModuleStatus(module: string): { text: string; state: 'live' | 'done
 
           <!-- Section total -->
           <div
-            v-if="(() => {
+            v-if="group.type !== 'negative' && (() => {
               const groupHits = allAnimHits.filter(h => h.groupType === group.type)
               const lastGlobalIdx = allAnimHits.indexOf(groupHits[groupHits.length - 1])
               return lastGlobalIdx >= 0 && lastGlobalIdx < hitVisibleCount
@@ -2562,6 +2565,44 @@ function doomModuleStatus(module: string): { text: string; state: 'live' | 'done
   animation: badge-pulse 1.5s ease-in-out infinite;
 }
 
+.carry-points-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  margin-bottom: 3px;
+  padding: 3px 8px;
+  border: 1px solid rgba(255, 214, 64, 0.38);
+  border-radius: var(--radius);
+  color: #ffe36e;
+  background: linear-gradient(90deg, rgba(255, 193, 7, 0.08), rgba(117, 255, 92, 0.04));
+  box-shadow: 0 0 10px rgba(255, 205, 50, 0.16);
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.3px;
+}
+
+.carry-dollar {
+  color: #ffe85c;
+  font-weight: 1000;
+  text-shadow:
+    0 0 3px #fff5a3,
+    0 0 8px rgba(255, 213, 0, 0.9),
+    0 0 14px rgba(110, 255, 90, 0.45);
+  animation: carry-dollar-glow 1.15s ease-in-out infinite alternate;
+}
+
+@keyframes carry-dollar-glow {
+  from { filter: brightness(0.95); transform: scale(1); }
+  to { filter: brightness(1.35); transform: scale(1.12); }
+}
+
+.stat-block.carry-buy-available {
+  border: 1px solid rgba(255, 210, 45, 0.2);
+  border-radius: 6px;
+  box-shadow: inset 0 0 9px rgba(255, 210, 45, 0.04);
+}
+
 @keyframes badge-pulse {
   0%, 100% { transform: scale(1); }
   50% { transform: scale(1.05); }
@@ -2632,6 +2673,45 @@ function doomModuleStatus(module: string): { text: string; state: 'live' | 'done
 }
 .lvl-btn:active {
   box-shadow: 0 0 20px rgba(63, 167, 61, 0.6);
+}
+
+.lvl-btn.carry-buy-btn {
+  width: 34px;
+  gap: 1px;
+  border-color: #f2d044;
+  color: #fff078;
+  background: radial-gradient(circle at 30% 25%, rgba(255, 236, 112, 0.22), rgba(62, 92, 30, 0.12));
+  box-shadow:
+    0 0 7px rgba(255, 210, 45, 0.45),
+    inset 0 0 6px rgba(158, 255, 94, 0.12);
+  font-size: 13px;
+}
+
+.lvl-btn.carry-buy-btn::before {
+  border-color: rgba(255, 221, 75, 0.62);
+  animation: carry-buy-ring 1.15s ease-in-out infinite;
+}
+
+@keyframes carry-buy-ring {
+  0%, 100% { transform: scale(1); opacity: 0.72; }
+  50% { transform: scale(1.18); opacity: 0; }
+}
+
+.lvl-btn.carry-buy-btn:hover:not(:disabled) {
+  color: #172008;
+  background: #f6dc55;
+  box-shadow: 0 0 18px rgba(255, 220, 65, 0.72);
+}
+
+.lvl-btn.carry-buy-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.34;
+  filter: grayscale(0.65);
+}
+
+.lvl-btn.carry-buy-btn:disabled::before {
+  animation: none;
+  opacity: 0;
 }
 
 /* Irelia nerf variant — red instead of green */
@@ -2981,6 +3061,10 @@ function doomModuleStatus(module: string): { text: string; state: 'live' | 'done
   background: rgba(96, 165, 250, 0.04);
   border: 1px solid rgba(96, 165, 250, 0.12);
 }
+.combo-section-negative {
+  background: rgba(239, 128, 128, 0.04);
+  border: 1px solid rgba(239, 128, 128, 0.12);
+}
 
 .combo-section-header {
   display: flex;
@@ -3056,6 +3140,9 @@ function doomModuleStatus(module: string): { text: string; state: 'live' | 'done
 }
 .combo-type-bonus.combo-active {
   background: rgba(96, 165, 250, 0.1);
+}
+.combo-type-negative {
+  color: var(--accent-red);
 }
 
 .combo-entry.combo-negative {
@@ -4403,7 +4490,10 @@ function doomModuleStatus(module: string): { text: string; state: 'live' | 'done
   .pc-terminal-state,
   .pc-terminal-state *,
   .pc-terminal-stats *,
-  .pc-tsukuyomi-state {
+  .pc-tsukuyomi-state,
+  .carry-buy-btn,
+  .carry-points-badge,
+  .carry-dollar {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     scroll-behavior: auto !important;

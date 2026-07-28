@@ -582,8 +582,9 @@ public class SimulationRunner : IServiceSingleton
         if (names.Distinct().Count() != 6) return "duplicate names";
         foreach (var name in names.Where(name => pool.All(x => x.Name != name)))
             return $"unknown or team-only character: {name}";
-        if (names.Contains("LeCrisp") && names.Contains("Толя"))
-            return "LeCrisp and Толя cannot be in the same game";
+        if (names.Any(first => names.Any(second =>
+                StartGameLogic.AreMutuallyExclusiveCharacters(first, second))))
+            return "mutually exclusive characters cannot be in the same game";
         if (names.Count(n => pool.First(x => x.Name == n).Tier == 4) > 1
             && !Cthulhu.AdeptNames.All(names.Contains))
             return "at most one Tier-4 character per game";
@@ -592,7 +593,7 @@ public class SimulationRunner : IServiceSingleton
 
     /// <summary>
     /// One coverage pass: every pool character exactly once, chunked into games of 6
-    /// (LeCrisp/Толя apart, ≤1 Tier-4 per game), last chunk padded with random fillers.
+    /// (LeCrisp/Толя/ScamRat apart, ≤1 Tier-4 per game), last chunk padded with random fillers.
     /// </summary>
     private List<List<string>> BuildCoveragePass(List<CharacterClass> pool)
     {
@@ -637,8 +638,9 @@ public class SimulationRunner : IServiceSingleton
     private static bool Fits(List<CharacterClass> lineup, CharacterClass candidate)
     {
         if (lineup.Any(x => x.Name == candidate.Name)) return false;
-        if (candidate.Name == "LeCrisp" && lineup.Any(x => x.Name == "Толя")) return false;
-        if (candidate.Name == "Толя" && lineup.Any(x => x.Name == "LeCrisp")) return false;
+        if (lineup.Any(existing =>
+                StartGameLogic.AreMutuallyExclusiveCharacters(candidate.Name, existing.Name)))
+            return false;
         if (candidate.Tier == 4 && lineup.Any(x => x.Tier == 4)) return false;
         return true;
     }

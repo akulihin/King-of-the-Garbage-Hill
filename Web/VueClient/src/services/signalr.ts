@@ -232,6 +232,7 @@ export type SellerState = { cooldown: number; markedCount: number; secretBuildSk
 export type ScamRatState = {
   activeGpuCount: number
   soldGpuCount: number
+  carryPoints: number
   maximumJustice: number
   lastIntelligenceRoll: number
   lastExplosionPoints: number
@@ -533,6 +534,10 @@ export type ScoreBreakdownEntry = {
   source: string
   points: number
   isBonus: boolean
+  /** Explicit penalty classification; absent in legacy replay snapshots. */
+  isNegative?: boolean
+  /** Text-only source such as Tolya's hidden multiplier penalty. */
+  hidePoints?: boolean
 }
 
 export type ScoreBreakdown = {
@@ -1074,6 +1079,7 @@ export type BattleshipPlayerState = {
   hasShotThisTurn: boolean
   hasPendingBoardingDeployment: boolean
   pendingManeuver: BattleshipPendingManeuver | null
+  pendingCursedBoatDirection: BattleshipPendingCursedBoatDirection | null
   shotDelayRemainingMs: number
   shotDelayDurationMs: number
   summonCooldownRemaining: number
@@ -1114,6 +1120,19 @@ export type BattleshipPendingManeuver = {
 export type BattleshipManeuverOption = {
   direction: string
   distance: number
+  row: number
+  col: number
+}
+
+export type BattleshipPendingCursedBoatDirection = {
+  summonId: string
+  row: number
+  col: number
+  options: BattleshipCursedBoatDirectionOption[]
+}
+
+export type BattleshipCursedBoatDirectionOption = {
+  direction: string
   row: number
   col: number
 }

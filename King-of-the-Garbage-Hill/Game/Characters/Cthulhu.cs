@@ -421,7 +421,8 @@ public static class Cthulhu
                 player.GetPlayerId() == playerId);
             if (attacker == null || attacker.Passives.IsDead) continue;
 
-            attacker.FightCharacter = attacker.GameCharacter.DeepCopy();
+            attacker.FightCharacter =
+                (attacker.RoundFightCharacter ?? attacker.GameCharacter).DeepCopy();
             state.NechtoBridge.FightCharacter =
                 state.NechtoBridge.GameCharacter.DeepCopy();
             var step1 = calculateRounds.CalculateStep1(
@@ -497,7 +498,7 @@ public static class Cthulhu
 
         var newlyMad = state.MadPlayerIds.Add(loser.GetPlayerId());
         loser.GameCharacter.SetPsyche(0, Morok, false);
-        if (!UnknownBug.Is(loser) && !Madara.HasReanimatedBody(loser.GameCharacter))
+        if (!UnknownBug.Is(loser))
             loser.GameCharacter.PsycheCappedAtZero = true;
 
         if (!UnknownBug.Is(loser)

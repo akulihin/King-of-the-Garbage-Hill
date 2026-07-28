@@ -279,6 +279,8 @@ public class ScoreEntryDto
     public string Source { get; set; }
     public decimal Points { get; set; }
     public bool IsBonus { get; set; }
+    public bool IsNegative { get; set; }
+    public bool HidePoints { get; set; }
 }
 
 public class ScoreBreakdownDto
@@ -840,6 +842,7 @@ public class ScamRatStateDto
 {
     public int ActiveGpuCount { get; set; }
     public int SoldGpuCount { get; set; }
+    public int CarryPoints { get; set; }
     public int MaximumJustice { get; set; }
     public int LastIntelligenceRoll { get; set; }
     public decimal LastExplosionPoints { get; set; }

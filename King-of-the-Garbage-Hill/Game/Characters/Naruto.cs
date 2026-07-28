@@ -14,6 +14,8 @@ public static class Naruto
     public const string Rasengan = "Расенган";
     public const string Summon = "Призыв";
     public const int HaremCooldownTurns = 2;
+    public const decimal HaremDonationRate = 0.20m;
+    public const int MinimumHaremDonation = 1;
 
     public sealed class State
     {
@@ -22,7 +24,8 @@ public static class Naruto
         public List<Guid> NarutoPlayerIds { get; set; } = new();
         public bool HaremActiveThisRound { get; set; }
         public int HaremCooldown { get; set; }
-        public int HaremProvokedSkips { get; set; }
+        public HashSet<Guid> HaremDonorIdsThisRound { get; set; } = new();
+        public int HaremDonationsReceived { get; set; }
         public int JusticeSnapshot { get; set; }
         public Guid SummonAutoWinTarget { get; set; }
         public bool ShadowSettlementResolved { get; set; }
@@ -205,92 +208,47 @@ public static class Naruto
         foreach (var harem in harems)
         {
             harem.Status.IsBlock = false;
+            harem.Status.IsSkip = true;
+            harem.Status.ConfirmedSkip = true;
+            harem.Status.WhoToAttackThisTurn.Clear();
             harem.Passives.Naruto.HaremActiveThisRound = true;
-        }
-
-        var queues = game.PlayersList.ToDictionary(
-            player => player.GetPlayerId(),
-            player => ValidFightTargets(game, player, player.Status.WhoToAttackThisTurn).ToList());
-        var canceledAttackers = new HashSet<Guid>();
-
-        foreach (var harem in harems)
-        {
-            var attackers = game.PlayersList.Where(attacker =>
-                attacker.GetPlayerId() != harem.GetPlayerId()
-                && !UnknownBug.Is(attacker)
-                && !Madara.IsRoundSevenAutoWin(game, attacker)
-                && queues[attacker.GetPlayerId()].Contains(harem.GetPlayerId())).ToList();
-
-            foreach (var _ in attackers)
-                RewardHaremSkip(harem);
-
-            foreach (var attacker in attackers)
-                canceledAttackers.Add(attacker.GetPlayerId());
-        }
-
-        game.SkipPlayersThisRound += canceledAttackers.Count;
-        foreach (var attackerId in canceledAttackers)
-        {
-            var attacker = game.PlayersList.Find(player => player.GetPlayerId() == attackerId);
-            if (attacker == null) continue;
-            attacker.Status.WhoToAttackThisTurn.Clear();
-            attacker.Status.IsBlock = false;
-            attacker.Status.IsSkip = true;
-            attacker.Status.TurnInterference = TurnInterferenceKind.Enemy;
+            harem.Passives.Naruto.HaremDonorIdsThisRound.Clear();
         }
     }
 
-    public static bool TryCancelHaremFights(
+    public static bool HaremSkipAppliesTo(
+        GamePlayerBridgeClass attacker,
+        GamePlayerBridgeClass harem) =>
+        attacker != null
+        && harem?.Passives?.Naruto?.HaremActiveThisRound == true
+        && !UnknownBug.Is(attacker);
+
+    public static void RewardHaremDonation(
         GameClass game,
         GamePlayerBridgeClass attacker,
-        IEnumerable<Guid> queuedTargetIds)
+        GamePlayerBridgeClass harem)
     {
-        if (UnknownBug.Is(attacker)) return false;
-        // Клоны Сусано: a round-seven Madara attack must resolve, so the harem cannot cancel it.
-        if (Madara.IsRoundSevenAutoWin(game, attacker)) return false;
+        if (!HaremSkipAppliesTo(attacker, harem)
+            || !harem.Passives.Naruto.HaremDonorIdsThisRound.Add(attacker.GetPlayerId()))
+            return;
 
-        var validTargets = ValidFightTargets(game, attacker, queuedTargetIds).ToList();
-        var haremTargets = validTargets
-            .Select(id => game.PlayersList.Find(player => player.GetPlayerId() == id))
-            .Where(player => player != null && player.Passives.Naruto.HaremActiveThisRound)
-            .Distinct()
-            .ToList();
-        if (haremTargets.Count == 0) return false;
+        var scoreVictim = ResolveScoreSuccessor(game, attacker);
+        if (scoreVictim == null
+            || UnknownBug.Is(scoreVictim)
+            || !Homelander.CanTransferFrom(scoreVictim, HaremJutsu))
+            return;
 
-        foreach (var harem in haremTargets)
-            RewardHaremSkip(harem);
-
-        game.SkipPlayersThisRound++;
-        attacker.Status.WhoToAttackThisTurn.Clear();
-        attacker.Status.IsBlock = false;
-        attacker.Status.IsSkip = true;
-        attacker.Status.TurnInterference = TurnInterferenceKind.Enemy;
-        return true;
-    }
-
-    private static void RewardHaremSkip(GamePlayerBridgeClass harem)
-    {
-        harem.Status.AddRegularPoints(1, HaremJutsu);
-        harem.Passives.Naruto.HaremProvokedSkips++;
+        var earnedAbilityPoints = scoreVictim.Status.GetLifetimeAbilityPoints(game);
+        var donation = Math.Max(
+            MinimumHaremDonation,
+            Math.Ceiling(earnedAbilityPoints * HaremDonationRate));
+        ScamRat.TransferExactBonusPoints(scoreVictim, harem, donation, HaremJutsu);
+        harem.Passives.Naruto.HaremDonationsReceived++;
         harem.Status.AddInGamePersonalLogs(PhrasePayload.Encode(
             HaremJutsu,
             "Техника соблазнения!",
             "Harem Jutsu",
             "Seduction Technique!") + "\n");
-    }
-
-    private static IEnumerable<Guid> ValidFightTargets(
-        GameClass game,
-        GamePlayerBridgeClass attacker,
-        IEnumerable<Guid> targetIds)
-    {
-        foreach (var targetId in targetIds)
-        {
-            if (targetId == attacker.GetPlayerId()) continue;
-            var target = game.PlayersList.Find(player => player.GetPlayerId() == targetId);
-            if (target == null || target.Passives.IsDead || IsNarutoPair(attacker, target)) continue;
-            yield return targetId;
-        }
     }
 
     public static void SnapshotJustice(GameClass game)

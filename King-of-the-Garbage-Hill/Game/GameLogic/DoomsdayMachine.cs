@@ -16,6 +16,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic;
 
 public class DoomsdayMachine : IServiceSingleton
 {
+    private const int StandardForcedOutcomePriority = 50;
     private readonly CharacterPassives _characterPassives;
     private readonly LoginFromConsole _logs;
     private readonly CalculateRounds _calculateRounds;
@@ -46,7 +47,7 @@ public class DoomsdayMachine : IServiceSingleton
     // Called when attacker (me) has nemesis advantage over target
     public string GetLostNemesisText(GamePlayerBridgeClass me, GamePlayerBridgeClass target)
     {
-        var (knownClass, flavorText) = me.GameCharacter.GetSkillClassType() switch
+        var (knownClass, flavorText) = me.FightCharacter.GetSkillClassType() switch
         {
             SkillClassType.Intelligence => ("(**Умный** ?) ", "вас обманул"),
             SkillClassType.Strength => ("(**Сильный** ?) ", "вас пресанул"),
@@ -171,7 +172,23 @@ public class DoomsdayMachine : IServiceSingleton
         foreach (var player in game.PlayersList)
         {
             player.FightCharacter = player.GameCharacter.DeepCopy();
+            player.RoundFightCharacter = null;
+            player.Status.IsFightBatchActive = true;
         }
+    }
+
+    private static void FreezeRoundFightCharacters(GameClass game)
+    {
+        foreach (var player in game.PlayersList)
+            player.RoundFightCharacter = player.FightCharacter.DeepCopy();
+    }
+
+    private static void PrepareIndependentFightCharacters(
+        GamePlayerBridgeClass attacker,
+        GamePlayerBridgeClass defender)
+    {
+        attacker.FightCharacter = attacker.RoundFightCharacter.DeepCopy();
+        defender.FightCharacter = defender.RoundFightCharacter.DeepCopy();
     }
 
     public void HandleEventsBeforeCalculation(GameClass game)
@@ -240,7 +257,8 @@ public class DoomsdayMachine : IServiceSingleton
             {
                 var entry = p.WebMediaMessages[mi];
                 // Madara's round-eight theme starts while players choose actions and must survive this
-                // cleanup until the fights finish. It is removed explicitly after the fight loop below.
+                // cleanup so the client can keep it through the ensuing fight replay. Round 9 cleanup
+                // removes the server entry; the client stops its local loop when the replay finishes.
                 if (game.RoundNo == 8 && entry.PassiveName == Madara.SusanooClones
                     && entry.FileUrl?.EndsWith("madara_tsukuemi_theme.mp3", StringComparison.OrdinalIgnoreCase) == true)
                     continue;
@@ -291,9 +309,14 @@ public class DoomsdayMachine : IServiceSingleton
         // Also mark the round boundary in the cumulative log (SetGlobalLogs only sets per-round GlobalLogs)
         game.AddGlobalLogsRaw($"\n__**Раунд #{roundNumber-1}**__:\n");
 
-        //FightCharacter == READ ONLY
-        //GameCharacter == WRITE ONLY
-        //FightCharacter writes cans happens only "for one fight" not for the whole round!
+        // AI/MAINTAINER INVARIANT — fights in one calculation are simultaneous.
+        // No resolved fight may mutate state read by another fight in this batch:
+        //   * read class, stats, passives and Justice from that fight's frozen FightCharacter;
+        //   * legitimate ForOneFight overrides (for example Геральт) belong only to that clone;
+        //   * write lasting consequences to GameCharacter, or aggregate them after the batch.
+        // If a new passive cannot follow this rule, ask the designer to choose snapshot,
+        // explicit priority, or aggregation semantics before implementing it.
+        // Known legacy result-ledger exceptions are catalogued in M171; do not add another.
         var isEternalTsukuyomiRound = Madara.PrepareEternalTsukuyomiRound(game);
         if (isEternalTsukuyomiRound)
         {
@@ -459,30 +482,23 @@ public class DoomsdayMachine : IServiceSingleton
             }
         }
 
-        // Naruto's block replacement operates on the finalized action queues, including every
-        // readiness-stage forced action and Geralt contract expansion. Canceled queues must be gone
-        // before PointFunnel and Madara snapshot their targets.
+        // Naruto's ready block replacement becomes a real Skip after every readiness-stage forced
+        // action and Geralt contract expansion. Naruto loses his own queue, while incoming queues
+        // remain intact so only their fight against Harem is skipped.
         if (!isEternalTsukuyomiRound && !game.IsKratosEvent)
         {
-            var unknownBug = UnknownBug.FindOwner(game);
-            var queuedExploitTarget = unknownBug == null
-                ? null
-                : game.PlayersList.FirstOrDefault(target =>
-                    target.Passives.IsExploitable
-                    && unknownBug.Status.WhoToAttackThisTurn.Contains(target.GetPlayerId()));
-
             Naruto.SanitizeMutualTargets(game);
             Naruto.ResolveHaremQueues(game);
-            if (queuedExploitTarget != null
-                && !unknownBug.Status.WhoToAttackThisTurn.Contains(queuedExploitTarget.GetPlayerId()))
-                UnknownBug.TryCommitExploit(game, unknownBug, queuedExploitTarget, false);
         }
         EnforceKratosEventActions(game);
         TheBoys.DisablePassivesBeforeFights(game);
         ScamRat.ExplodeOnBlock(game);
         HandleEventsBeforeCalculation(game);
         if (!game.IsKratosEvent)
+        {
             Madara.PrepareIncomingAttackers(game);
+            Madara.ApplyLateTurnFear(game);
+        }
         if (!isEternalTsukuyomiRound && !game.IsKratosEvent)
             Naruto.SnapshotJustice(game);
 
@@ -531,6 +547,10 @@ public class DoomsdayMachine : IServiceSingleton
             }
         }
 
+        // Round-wide preparation above may deliberately alter the initial fight snapshot
+        // (for example Живое Оружие). Freeze it only now, then clone it per actual fight.
+        FreezeRoundFightCharacters(game);
+
         // Gordon's submitted attacks resolve before any incoming fights can spend a charged
         // Монтировка. Every other attacker keeps the existing leaderboard order.
         var fightCalculationOrder = game.PlayersList.ToList();
@@ -556,7 +576,13 @@ public class DoomsdayMachine : IServiceSingleton
                 player.Status.AddFightingData($"IsBlock: {player.Status.IsBlock}");
                 player.Status.AddFightingData($"IsSkip: {player.Status.IsSkip}");
 
-                // Allow forced attacks (e.g. Котики Штормяк taunt) even when blocking/skipping
+                // AI/MAINTAINER: before adding another forced-fight source or no-fight state,
+                // ask the designer to choose its precedence and offer explicit options:
+                // A) ordinary queue respects Block/Skip; B) source pierces only named states;
+                // C) state suppresses the source completely. Then decide Dead, the shared
+                // round-10 Тигр ban, Kratos/Цукуеми isolation, sealed Мадара and unknown_bug,
+                // and add the row to docs/INTERACTION-MATRIX.md §1.
+                // Штормяк is an approved forced attack that can run while its holder blocks/skips.
                 if (player.Status.WhoToAttackThisTurn.Count == 0)
                 {
                     //fight Reset — only when truly blocking/skipping with no forced fights
@@ -609,15 +635,6 @@ public class DoomsdayMachine : IServiceSingleton
                 }
             }
 
-            if (Naruto.TryCancelHaremFights(
-                    game, player, targetsToFight.Select(entry => entry.Target.GetPlayerId())))
-            {
-                var exploitTarget = targetsToFight.Select(entry => entry.Target)
-                    .FirstOrDefault(target => target.Passives.IsExploitable);
-                UnknownBug.TryCommitExploit(game, player, exploitTarget, false);
-                continue;
-            }
-
             var bfgWaveVisited = new HashSet<Guid> { player.GetPlayerId() };
             foreach (var initialTarget in targetsToFight) bfgWaveVisited.Add(initialTarget.Target.GetPlayerId());
 
@@ -639,16 +656,7 @@ public class DoomsdayMachine : IServiceSingleton
                     continue;
                 }
 
-                if (playerIamAttacking.Passives.Naruto.HaremActiveThisRound
-                    && Naruto.TryCancelHaremFights(game, player,
-                        targetsToFight.Skip(fightTargetIndex).Select(entry => entry.Target.GetPlayerId())))
-                {
-                    var exploitTarget = targetsToFight.Skip(fightTargetIndex)
-                        .Select(entry => entry.Target)
-                        .FirstOrDefault(target => target.Passives.IsExploitable);
-                    UnknownBug.TryCommitExploit(game, player, exploitTarget, false);
-                    break;
-                }
+                PrepareIndependentFightCharacters(player, playerIamAttacking);
 
                 // Snapshot GlobalLogs length before this fight (for hidden-fight mechanism)
                 var globalLogsLenBefore = game.GetGlobalLogs().Length;
@@ -682,7 +690,8 @@ public class DoomsdayMachine : IServiceSingleton
                 // Snapshot original class before ForOneFight overrides
                 var attackerOriginalClass = player.FightCharacter.GetSkillClass();
                 var defenderOriginalClass = playerIamAttacking.FightCharacter.GetSkillClass();
-                var attackerRealJusticeBeforeFight = player.GameCharacter.Justice.GetRealJusticeNow();
+                var attackerRealJusticeBeforeFight =
+                    player.FightCharacter.Justice.GetRealJusticeNow();
 
                 _characterPassives.HandleDefenseBeforeFight(playerIamAttacking, player, game);
 
@@ -700,24 +709,41 @@ public class DoomsdayMachine : IServiceSingleton
                 // These module overrides are authoritative for this one fight and therefore run
                 // after both ordinary before-fight passive dispatchers.
                 DoomGuy.ApplyFightModules(player, playerIamAttacking, game);
+                var attackerBlocksOpponentAutowin =
+                    Sirinoks.BlocksAutowinFrom(player, playerIamAttacking, game);
+                var defenderBlocksOpponentAutowin =
+                    Sirinoks.BlocksAutowinFrom(playerIamAttacking, player, game);
+                // Defense in depth for every IsAbleToWin-based autowin, including future/copied
+                // sources. Known charge/use mechanics are also gated at their source below.
+                if (attackerBlocksOpponentAutowin)
+                    player.Status.IsAbleToWin = true;
+                if (defenderBlocksOpponentAutowin)
+                    playerIamAttacking.Status.IsAbleToWin = true;
+
                 var narutoSummonAutoWin = !UnknownBug.Is(playerIamAttacking)
+                                          && !defenderBlocksOpponentAutowin
                                           && Naruto.IsSummonAutoWin(player, playerIamAttacking);
+                var madaraRoundSevenWin = Madara.IsRoundSevenAutoWin(game, player);
                 var isTauntBypass = playerIamAttacking.Status.IsBlock
                                     && playerIamAttacking.GameCharacter.Passive.Any(x =>
                                         x.PassiveName == "Штормяк")
                                     && playerIamAttacking.Passives.KotikiStorm.CurrentTauntTarget
                                     == player.GetPlayerId();
+                var haremSkipApplies = Naruto.HaremSkipAppliesTo(player, playerIamAttacking);
+                var defenderSkipApplies = playerIamAttacking.Status.IsSkip
+                                          && (!playerIamAttacking.Passives.Naruto.HaremActiveThisRound
+                                              || haremSkipApplies);
                 var fightWillResolve =
                     (!playerIamAttacking.Status.IsBlock || player.Status.IsArmorBreak
                                                           || isTauntBypass || narutoSummonAutoWin
-                                                          || isRailgunFight)
-                    && (!playerIamAttacking.Status.IsSkip || player.Status.IsSkipBreak
-                                                            || narutoSummonAutoWin
-                                                            || isRailgunFight);
+                                                          || isRailgunFight || madaraRoundSevenWin)
+                    && (!defenderSkipApplies || player.Status.IsSkipBreak
+                                                   || narutoSummonAutoWin
+                                                   || isRailgunFight
+                                                   || madaraRoundSevenWin);
                 // Клоны Сусано, round seven: Madara's victory is terminal for either side. The flags
                 // are read by the resource-consuming outcome replacers below so that no enemy charge,
                 // use or ledger entry is spent on a fight that cannot be won.
-                var madaraRoundSevenWin = Madara.IsRoundSevenAutoWin(game, player);
                 var madaraRoundSevenLoss = Madara.IsRoundSevenAutoWin(game, playerIamAttacking);
                 var madaraRoundSeven = madaraRoundSevenWin || madaraRoundSevenLoss;
                 if (fightWillResolve)
@@ -728,8 +754,9 @@ public class DoomsdayMachine : IServiceSingleton
                         player, playerIamAttacking, _calculateRounds);
 
                 // This is the authoritative Pickle Rick outcome, applied after both before-fight
-                // dispatchers: the active pickle always accepts the fight and always wins it, even
-                // when a later attacker passive tried to restore block/skip or disable his victory.
+                // dispatchers: the active pickle always accepts the fight and ordinarily wins it,
+                // even when a later attacker passive tried to restore block/skip or disable his victory.
+                // A protected Sirinoks Dragon still converts that forced result to ordinary fight math.
                 if (playerIamAttacking.GameCharacter.Passive.Any(x => x.PassiveName == "Огурчик Рик")
                     && playerIamAttacking.Passives.RickPickle.PickleTurnsRemaining > 0
                     && !UnknownBug.Is(player))
@@ -737,8 +764,11 @@ public class DoomsdayMachine : IServiceSingleton
                     playerIamAttacking.Passives.RickPickle.WasAttackedAsPickle = true;
                     playerIamAttacking.Status.IsBlock = false;
                     playerIamAttacking.Status.IsSkip = false;
-                    player.Status.IsAbleToWin = false;
-                    playerIamAttacking.Status.IsAbleToWin = true;
+                    if (!attackerBlocksOpponentAutowin)
+                    {
+                        player.Status.IsAbleToWin = false;
+                        playerIamAttacking.Status.IsAbleToWin = true;
+                    }
                 }
 
                 // Snapshot: mods from attack passives belong to attacker
@@ -761,7 +791,8 @@ public class DoomsdayMachine : IServiceSingleton
                 // Штормяк taunt bypass: provoked player fights the taunter normally (not as block)
                 if (playerIamAttacking.Status.IsBlock && !player.Status.IsArmorBreak && !isTauntBypass
                     && !narutoSummonAutoWin
-                    && !isRailgunFight)
+                    && !isRailgunFight
+                    && !madaraRoundSevenWin)
                 {
                     player.Status.IsTargetBlocked = playerIamAttacking.GetPlayerId();
                     // var logMess =  await _characterPassives.HandleBlock(player, playerIamAttacking, game);
@@ -871,11 +902,14 @@ public class DoomsdayMachine : IServiceSingleton
                 playerIamAttacking.Status.AddFightingData($"IsSkipBreakEnemy: {player.Status.IsSkipBreak}");
 
                 // if skip => something
-                if (playerIamAttacking.Status.IsSkip && !player.Status.IsSkipBreak
-                    && !narutoSummonAutoWin && !isRailgunFight)
+                if (defenderSkipApplies && !player.Status.IsSkipBreak
+                    && !narutoSummonAutoWin && !isRailgunFight
+                    && !madaraRoundSevenWin)
                 {
                     player.Status.IsTargetSkipped = playerIamAttacking.GetPlayerId();
                     game.SkipPlayersThisRound++;
+                    if (haremSkipApplies)
+                        Naruto.RewardHaremDonation(game, player, playerIamAttacking);
 
                     var logMess = " ⟶ *Бой не состоялся...*";
                     if (game.PlayersList.Any(x => x.PlayerType == 1))
@@ -914,13 +948,18 @@ public class DoomsdayMachine : IServiceSingleton
                 // Монтировка counts only fights that survived every Block/Skip gate.
                 var gordonCrowbarWin = GordonFreeman.BeginResolvedFight(
                     player, playerIamAttacking, out var crowbarGordon);
-                if (UnknownBug.Is(player) || UnknownBug.Is(playerIamAttacking))
+                var crowbarTargetsProtectedDragon = gordonCrowbarWin
+                    && (crowbarGordon.GetPlayerId() == player.GetPlayerId()
+                        ? defenderBlocksOpponentAutowin
+                        : attackerBlocksOpponentAutowin);
+                if (UnknownBug.Is(player) || UnknownBug.Is(playerIamAttacking)
+                    || crowbarTargetsProtectedDragon)
                     gordonCrowbarWin = false;
 
                 //round 1 (nemesis)
 
                 // Skill target gain (moved after block/skip checks so blocked/skipped targets don't give free skill)
-                if (player.GameCharacter.HasSkillTargetOn(playerIamAttacking.GameCharacter))
+                if (player.FightCharacter.HasSkillTargetOn(playerIamAttacking.FightCharacter))
                 {
                     var (text1, text2) = CharacterClass.ClassToFlavorText(playerIamAttacking.FightCharacter.GetSkillClassType());
 
@@ -935,9 +974,10 @@ public class DoomsdayMachine : IServiceSingleton
                 }
 
                 //check skill text — remove stale known-class info when target doesn't match
-                if (!player.GameCharacter.HasSkillTargetOn(playerIamAttacking.GameCharacter))
+                if (!player.FightCharacter.HasSkillTargetOn(playerIamAttacking.FightCharacter))
                 {
-                    var keyword = CharacterClass.ClassToKnownKeyword(player.GameCharacter.GetSkillClassTargetType());
+                    var keyword = CharacterClass.ClassToKnownKeyword(
+                        player.FightCharacter.GetSkillClassTargetType());
                     if (keyword != "")
                     {
                         var knownEnemy = player.Status.KnownPlayerClass.Find(
@@ -948,17 +988,21 @@ public class DoomsdayMachine : IServiceSingleton
                 }
 
                 //умный (moved after block/skip checks)
-                if (player.FightCharacter.GetSkillClass() == "Интеллект" && playerIamAttacking.GameCharacter.Justice.GetRealJusticeNow() == 0)
+                if (player.FightCharacter.GetSkillClass() == "Интеллект"
+                    && playerIamAttacking.FightCharacter.Justice.GetRealJusticeNow() == 0)
                 {
-                    skillGainedFromClassAttacker = player.GameCharacter.AddExtraSkill(6 * player.GameCharacter.GetClassSkillMultiplier(), "Класс");
+                    skillGainedFromClassAttacker = player.GameCharacter.AddExtraSkill(
+                        6 * player.FightCharacter.GetClassSkillMultiplier(), "Класс");
                 }
 
                 //быстрый
                 if (playerIamAttacking.FightCharacter.GetSkillClass() == "Скорость")
-                    skillGainedFromClassDefender = playerIamAttacking.GameCharacter.AddExtraSkill(2 * playerIamAttacking.GameCharacter.GetClassSkillMultiplier(), "Класс");
+                    skillGainedFromClassDefender = playerIamAttacking.GameCharacter.AddExtraSkill(
+                        2 * playerIamAttacking.FightCharacter.GetClassSkillMultiplier(), "Класс");
 
                 if (player.FightCharacter.GetSkillClass() == "Скорость")
-                    skillGainedFromClassAttacker = player.GameCharacter.AddExtraSkill(2 * player.GameCharacter.GetClassSkillMultiplier(), "Класс");
+                    skillGainedFromClassAttacker = player.GameCharacter.AddExtraSkill(
+                        2 * player.FightCharacter.GetClassSkillMultiplier(), "Класс");
 
 
                 //main formula:
@@ -980,14 +1024,18 @@ public class DoomsdayMachine : IServiceSingleton
                 //end round 1
 
 
+                // AI/MAINTAINER: a new forced outcome needs a designer-selected collision rule.
+                // Offer: (A) the ordinary ±50 priority, where two equal forces cancel into normal
+                // fight math; (B) a named numeric priority; or (C) a terminal post-replacer
+                // override such as unknown_bug. Also ask whether charges are consumed on collision.
                 if (!player.Status.IsAbleToWin)
                 {
-                    pointsWined += -50;
+                    pointsWined += -StandardForcedOutcomePriority;
                 }
 
                 if (!playerIamAttacking.Status.IsAbleToWin)
                 {
-                    pointsWined += 50;
+                    pointsWined += StandardForcedOutcomePriority;
 
                 }
 
@@ -1029,8 +1077,8 @@ public class DoomsdayMachine : IServiceSingleton
                 }
 
                 //round 2 (Justice)
-                var justiceMe = player.GameCharacter.Justice.GetRealJusticeNow();
-                var justiceTarget = playerIamAttacking.GameCharacter.Justice.GetRealJusticeNow();
+                var justiceMe = player.FightCharacter.Justice.GetRealJusticeNow();
+                var justiceTarget = playerIamAttacking.FightCharacter.Justice.GetRealJusticeNow();
                 OmniMan.RecordEqualJusticeFight(player, playerIamAttacking, justiceMe, justiceTarget);
                 var step2Points = _calculateRounds.CalculateStep2(player, playerIamAttacking, true);
                 pointsWined += step2Points;
@@ -1053,13 +1101,15 @@ public class DoomsdayMachine : IServiceSingleton
                                        && bfgWaveDirection == 0
                                        && doomGun.GetActive(DoomGuy.Gun) == DoomGuy.Bfg
                                        && doomGun.BfgCharged
-                                       && !UnknownBug.Is(playerIamAttacking);
+                                       && !UnknownBug.Is(playerIamAttacking)
+                                       && !defenderBlocksOpponentAutowin;
                     var isBfgWaveFight = player.GameCharacter.Name == DoomGuy.CharacterName
                                          && player.GameCharacter.Passive.Any(passive =>
                                              passive.PassiveName == DoomGuy.Gun)
                                          && bfgWaveDirection != 0
                                          && doomGun.GetActive(DoomGuy.Gun) == DoomGuy.Bfg
-                                         && !UnknownBug.Is(playerIamAttacking);
+                                         && !UnknownBug.Is(playerIamAttacking)
+                                         && !defenderBlocksOpponentAutowin;
                     if ((isBfgPrimary || isBfgWaveFight) && !madaraRoundSeven)
                     {
                         if (isBfgPrimary)
@@ -1100,7 +1150,8 @@ public class DoomsdayMachine : IServiceSingleton
                 if (!gordonCrowbarWin && !narutoSummonAutoWin && !madaraRoundSeven && pointsWined >= 1
                     && playerIamAttacking.GameCharacter.Passive.Any(p => p.PassiveName == "Изанаги")
                     && playerIamAttacking.Passives.ItachiIzanagi.UsesRemaining > 0
-                    && !UnknownBug.Is(player))
+                    && !UnknownBug.Is(player)
+                    && !attackerBlocksOpponentAutowin)
                 {
                     playerIamAttacking.Passives.ItachiIzanagi.UsesRemaining--;
                     pointsWined = -1;
@@ -1110,7 +1161,8 @@ public class DoomsdayMachine : IServiceSingleton
 
                 // A successful summon is the terminal fight result: it also overrides defensive
                 // outcome replacers such as active Pickle Rick, Octopus and Izanagi.
-                if (!gordonCrowbarWin && !madaraRoundSeven && narutoSummonAutoWin)
+                if (!gordonCrowbarWin && !madaraRoundSeven && narutoSummonAutoWin
+                    && !defenderBlocksOpponentAutowin)
                     pointsWined = 1;
 
                 // The third resolved fight is Gordon's terminal result, including against
@@ -1122,23 +1174,24 @@ public class DoomsdayMachine : IServiceSingleton
                         $"{GordonFreeman.Crowbar}: третий состоявшийся бой выигран.\n");
                 }
 
-                // Homelander's charged laser is terminal except against unknown_bug,
-                // whose AutoWin invariant remains the final combat override below.
-                if (!madaraRoundSeven && Homelander.IsLaserFight(player, playerIamAttacking))
+                // Homelander's charged laser is terminal except against unknown_bug and a protected
+                // Sirinoks Dragon; unknown_bug's AutoWin invariant remains the final override below.
+                if (!madaraRoundSeven && !defenderBlocksOpponentAutowin
+                    && Homelander.IsLaserFight(player, playerIamAttacking))
                     pointsWined = 1;
 
                 // AutoWin is the final combat invariant: terminal outcome replacers may not
                 // turn a resolved unknown_bug fight into a loss from either direction.
                 if (UnknownBug.Is(player))
-                    pointsWined = 1;
+                    pointsWined = UnknownBug.AutoWinPriority;
                 else if (UnknownBug.Is(playerIamAttacking))
-                    pointsWined = -1;
+                    pointsWined = -UnknownBug.AutoWinPriority;
 
-                // Клоны Сусано: Madara's round-seven victory is the purest autowin and outranks every
-                // other terminal replacer. unknown_bug's invariant above is the sole exception.
-                else if (madaraRoundSevenWin)
+                // Клоны Сусано remains terminal except against a 228-Skill awakened Sirinoks dragon.
+                // unknown_bug is resolved above and is the only autowin that bypasses that protection.
+                else if (madaraRoundSevenWin && !defenderBlocksOpponentAutowin)
                     pointsWined = 1;
-                else if (madaraRoundSevenLoss)
+                else if (madaraRoundSevenLoss && !attackerBlocksOpponentAutowin)
                     pointsWined = -1;
 
                 // BFG wave: a guaranteed primary win starts two outward branches. Each branch
@@ -1172,6 +1225,16 @@ public class DoomsdayMachine : IServiceSingleton
                     }
                 }
 
+                if (!teamMate)
+                {
+                    if (pointsWined >= 1)
+                        Madara.RewardBattleTaste(
+                            player, playerIamAttacking, game, weighingMachine);
+                    else
+                        Madara.RewardBattleTaste(
+                            playerIamAttacking, player, game, -weighingMachine);
+                }
+
                 // Quality resist snapshot (declared before if/else so accessible in FightEntryDto creation)
                 var resistIntelBefore = 0;
                 var resistStrBefore = 0;
@@ -1194,13 +1257,13 @@ public class DoomsdayMachine : IServiceSingleton
                 {
                     // Минька: winner never deals harm — skip quality damage and moral loss on opponent
                     var isHarmless = player.GameCharacter.Passive.Any(x => x.PassiveName == "Минька");
-                    var dealsHarm = player.GameCharacter.Name != Madara.CharacterName;
 
                     var point = 1;
                     var winPointRecipients = new List<Guid>();
                     //сильный
                     if (player.FightCharacter.GetSkillClass() == "Сила")
-                        skillGainedFromClassAttacker = player.GameCharacter.AddExtraSkill(4 * player.GameCharacter.GetClassSkillMultiplier(), "Класс");
+                        skillGainedFromClassAttacker = player.GameCharacter.AddExtraSkill(
+                            4 * player.FightCharacter.GetClassSkillMultiplier(), "Класс");
 
                     isNemesisLost -= 1;
                     game.AddGlobalLogs($" ⟶ {player.DiscordUsername}");
@@ -1297,8 +1360,8 @@ public class DoomsdayMachine : IServiceSingleton
                             player.Status.GetPlaceAtLeaderBoard()));
 
                     //Quality — snapshot resist values before damage
-                    var range = player.GameCharacter.GetSpeedQualityResistInt();
-                    range -= playerIamAttacking.GameCharacter.GetSpeedQualityKiteBonus();
+                    var range = player.FightCharacter.GetSpeedQualityResistInt();
+                    range -= playerIamAttacking.FightCharacter.GetSpeedQualityKiteBonus();
 
                     var placeDiff = player.Status.GetPlaceAtLeaderBoard() - playerIamAttacking.Status.GetPlaceAtLeaderBoard();
                     if (placeDiff < 0)
@@ -1309,7 +1372,7 @@ public class DoomsdayMachine : IServiceSingleton
                     resistPsycheBefore = playerIamAttacking.GameCharacter.GetPsycheQualityResistInt();
                     dropsBefore = playerIamAttacking.GameCharacter.GetStrengthQualityDropTimes();
 
-                    if (placeDiff <= range && !isHarmless && dealsHarm)
+                    if (placeDiff <= range && !isHarmless)
                     {
                         // TheBoys Butcher — normal Кочерга is (1 + poker) Harm; СуперМудень doubles
                         // the complete result, not only the poker bonus: Кочерга #4 = 5 → 10 Harm.
@@ -1422,7 +1485,8 @@ public class DoomsdayMachine : IServiceSingleton
                 {
                     //сильный
                     if (playerIamAttacking.FightCharacter.GetSkillClass() == "Сила")
-                        skillGainedFromClassDefender = playerIamAttacking.GameCharacter.AddExtraSkill(4 * playerIamAttacking.GameCharacter.GetClassSkillMultiplier(), "Класс");
+                        skillGainedFromClassDefender = playerIamAttacking.GameCharacter.AddExtraSkill(
+                            4 * playerIamAttacking.FightCharacter.GetClassSkillMultiplier(), "Класс");
 
                     if (isTooGoodEnemy && !isTooStronkEnemy)
                         player.Status.AddInGamePersonalLogs($"{playerIamAttacking.DiscordUsername} is __TOO GOOD__ for you\n");
@@ -1814,18 +1878,19 @@ public class DoomsdayMachine : IServiceSingleton
             }
         }
 
-        if (game.RoundNo == 8)
-        {
-            foreach (var participant in game.PlayersList)
-                participant.WebMediaMessages.RemoveAll(entry =>
-                    entry.PassiveName == Madara.SusanooClones
-                    && entry.FileUrl?.EndsWith("madara_tsukuemi_theme.mp3", StringComparison.OrdinalIgnoreCase) == true);
-        }
-
         // Rumbling is deliberately the first post-fight passive settlement on round 10.
         _characterPassives.HandleRumblingAfterFights(game);
         Naruto.SettleShadowClones(game);
         Cthulhu.ResolveNechtoAttacks(game, _calculateRounds, _charactersPull);
+
+        // Skill gained by Джон Сноу inside one fight must not transform him early enough
+        // to double rewards from another simultaneous fight (including Нечто resolution).
+        // Commit the transformation once every combat result in the batch is already fixed.
+        foreach (var player in game.PlayersList)
+            player.Status.IsFightBatchActive = false;
+        foreach (var player in game.PlayersList)
+            JonSnow.TryBecomeKing(player.GameCharacter);
+
         Cthulhu.HandleEndOfRound(game);
         if (game.CthulhuState.HorrorFired)
         {
@@ -1975,7 +2040,7 @@ public class DoomsdayMachine : IServiceSingleton
             var scoreBeforeRoundSettlement = player.Status.GetScore();
             if (!player.Passives.IsDead || UnknownBug.Is(player))
                 player.Status.CombineRoundScoreAndGameScore(
-                    game, GordonFreeman.ConsumeSettlementOverride(player));
+                    game, GordonFreeman.ConsumeSettlementAdjustment(player));
             if (game.RoundNo == 10)
                 player.Passives.AchievementTracker.RoundTenRegularPoints =
                     player.Status.GetScore() - scoreBeforeRoundSettlement;
@@ -2141,7 +2206,8 @@ public class DoomsdayMachine : IServiceSingleton
         for (var i = 0; i < game.PlayersList.Count; i++)
         {
             if (game.RoundNo is 3 or 5 or 7 or 9
-                && game.PlayersList[i].GameCharacter.Name != Madara.CharacterName)
+                && game.PlayersList[i].GameCharacter.Name != Madara.CharacterName
+                && !ScamRat.Is(game.PlayersList[i]))
             {
                 game.PlayersList[i].Status.LvlUpPoints++;
                 game.PlayersList[i].Status.MoveListPage = 3;
@@ -2235,7 +2301,12 @@ public class DoomsdayMachine : IServiceSingleton
         }
 
         //Quality Drop
-        var droppedPlayers = game.PlayersList.Where(x => x.GameCharacter.GetStrengthQualityDropTimes() != 0 && x.Status.GetPlaceAtLeaderBoard() != 6).OrderByDescending(x => x.Status.GetPlaceAtLeaderBoard()).ToList();
+        var droppedPlayers = game.PlayersList
+            .Where(x => !x.Passives.IsDead
+                        && x.GameCharacter.GetStrengthQualityDropTimes() != 0
+                        && x.Status.GetPlaceAtLeaderBoard() != 6)
+            .OrderByDescending(x => x.Status.GetPlaceAtLeaderBoard())
+            .ToList();
         
         foreach (var player in droppedPlayers)
         {

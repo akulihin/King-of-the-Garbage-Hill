@@ -145,14 +145,26 @@ public class TheBoys
         var quality = calculateRounds.CalculateStep1(boys, enemy);
         if (!quality.IsTooGoodEnemy && !quality.IsTooStronkEnemy) return;
 
-        var justiceBefore = enemy.FightCharacter.Justice.GetRealJusticeNow();
-        if (justiceBefore <= 0) return;
+        var fightJusticeBefore = enemy.FightCharacter.Justice.GetRealJusticeNow();
+        if (fightJusticeBefore <= 0) return;
 
-        enemy.FightCharacter.Justice.SetRealJusticeNow(0, KillingCoupleCombination);
-        var stolenJustice = justiceBefore - enemy.FightCharacter.Justice.GetRealJusticeNow();
+        // Combat uses the frozen per-fight clone. The lasting transfer is settled separately
+        // so it cannot change Justice read by another simultaneous fight.
+        enemy.FightCharacter.Justice.SetJusticeForOneFight(0, KillingCoupleCombination);
+        var fightJusticeStolen =
+            fightJusticeBefore - enemy.FightCharacter.Justice.GetRealJusticeNow();
+        if (fightJusticeStolen <= 0) return;
+        var boysFightJustice = boys.FightCharacter.Justice.GetRealJusticeNow();
+        boys.FightCharacter.Justice.SetJusticeForOneFight(
+            boysFightJustice + fightJusticeStolen,
+            KillingCoupleCombination);
+
+        var persistentJusticeBefore = enemy.GameCharacter.Justice.GetRealJusticeNow();
+        enemy.GameCharacter.Justice.SetRealJusticeNow(0, KillingCoupleCombination);
+        var stolenJustice =
+            persistentJusticeBefore - enemy.GameCharacter.Justice.GetRealJusticeNow();
         if (stolenJustice <= 0) return;
-
-        boys.FightCharacter.Justice.AddRealJusticeNow(stolenJustice);
+        boys.GameCharacter.Justice.AddRealJusticeNow(stolenJustice);
         boys.Status.AddInGamePersonalLogs(
             $"{KillingCoupleCombination}: похищено {stolenJustice} Справедливости у {enemy.DiscordUsername}.\n");
     }

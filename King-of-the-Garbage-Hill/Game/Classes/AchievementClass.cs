@@ -615,8 +615,8 @@ public static class AchievementService
             AchievementCategory.Character, "falling", "epic", 2, characterNames: new[] { "Эрен Йегер" }),
 
         new("c_naruto_harem", "Believe in the Harem", "Поверь в гарем",
-            "As the original Наруто, provoke 3 enemy skips with Гарем но джутсу.",
-            "Играя за оригинального Наруто, спровоцируйте 3 вражеских Скипа с помощью Гарем но джутсу.",
+            "As the original Наруто, receive 3 donations with Гарем но джутсу.",
+            "Играя за оригинального Наруто, получите 3 доната с помощью Гарем но джутсу.",
             AchievementCategory.Character, "heart", "rare", 3, characterNames: new[] { "Наруто" }),
         new("c_naruto_rasengan", "Shadow Hokage Dividend", "Дивиденды теневого Хокаге",
             "As the original Наруто, receive 30 points from Теневые and finish alive in 1st place.",
@@ -1222,7 +1222,7 @@ public static class AchievementService
 
         if (characterName == Naruto.CharacterName && !player.Passives.Naruto.IsClone)
         {
-            SetBestProgress(account, "c_naruto_harem", player.Passives.Naruto.HaremProvokedSkips);
+            SetBestProgress(account, "c_naruto_harem", player.Passives.Naruto.HaremDonationsReceived);
             SetBestProgress(account, "c_naruto_rasengan",
                 ToProgress(player.Passives.Naruto.ShadowPointsTransferred),
                 alive && actualPlace == 1);

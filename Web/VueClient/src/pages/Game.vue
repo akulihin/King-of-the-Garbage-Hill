@@ -218,11 +218,38 @@ function onJusticeTransfer() {
   })
 }
 
-/** Fight replay ended — trigger score combo animation */
-const fightReplayEnded = ref(false)
+/** Fight replay ended for this exact round — trigger score combo animation. */
+const presentationRoundKey = computed(() =>
+  `${store.gameState?.gameId ?? ''}-${store.gameState?.roundNo ?? 0}-${store.gameState?.isFinished ? 'finished' : 'live'}`,
+)
+const scorePresentationKey = computed(() =>
+  `${store.gameState?.gameId ?? ''}-${store.gameState?.roundNo ?? 0}`,
+)
+const completedFightReplayKey = ref('')
+const fightReplayEnded = computed({
+  get: () => completedFightReplayKey.value === presentationRoundKey.value,
+  set: (ended: boolean) => {
+    completedFightReplayKey.value = ended ? presentationRoundKey.value : ''
+  },
+})
 function onReplayEnded() {
   fightReplayEnded.value = true
 }
+
+const MADARA_ROUND_EIGHT_THEME = 'madara_tsukuemi_theme.mp3'
+const madaraRoundEightFightThemeActive = computed(() =>
+  (store.myPlayer?.status.mediaMessages ?? []).some(message =>
+    message.fileType === 'audio'
+    && message.fileUrl?.toLowerCase().endsWith(MADARA_ROUND_EIGHT_THEME),
+  )
+  && ((store.gameState?.roundNo ?? 0) <= 8 || !fightReplayEnded.value),
+)
+const visibleMediaMessages = computed(() =>
+  (store.myPlayer?.status.mediaMessages ?? []).filter(message =>
+    !message.fileUrl?.toLowerCase().endsWith(MADARA_ROUND_EIGHT_THEME)
+    || madaraRoundEightFightThemeActive.value,
+  ),
+)
 
 function onAttack(place: number) {
   if (store.gameState?.isRoundTransitionPaused) return
@@ -603,6 +630,33 @@ watch(enemyInterferenceEventKey, eventKey => {
 const activeTurnGuidanceTarget = computed(() =>
   enemyInterferenceIntroActive.value ? null : turnGuidanceTarget.value,
 )
+
+const gamePageRef = ref<HTMLElement | null>(null)
+const lowerTurnGuidanceSelectors: Record<Exclude<TurnGuidanceTarget, 'levelup'>, string> = {
+  skip: '.act-btn.skip',
+  predict: '.act-btn.predict-confirm',
+  darksci: '.act-btn.darksci-stable',
+  adept: '.act-btn.cthulhu-adept',
+}
+
+watch(activeTurnGuidanceTarget, async target => {
+  if (!target || target === 'levelup') return
+
+  await nextTick()
+  if (activeTurnGuidanceTarget.value !== target) return
+
+  const control = gamePageRef.value?.querySelector<HTMLElement>(lowerTurnGuidanceSelectors[target])
+  if (!control) return
+
+  const viewportBottom = window.innerHeight || document.documentElement.clientHeight
+  if (control.getBoundingClientRect().bottom <= viewportBottom - 16) return
+
+  control.scrollIntoView({
+    behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+    block: 'center',
+    inline: 'nearest',
+  })
+}, { immediate: true })
 
 async function announceHalfLife3(): Promise<void> {
   if (gordonActionPending.value || transitionPaused.value || !gordonHalfLife.value?.canAnnounce) return
@@ -1100,6 +1154,10 @@ muted	(Grey)
       .replace(/~~(.*?)~~/g, '<del>$1</del>')
       .replace('Я - Учиха. Мадара.', '<span class="madara-callout">Я - Учиха. Мадара.</span>')
       .replace(
+        /(Вечное Цукуеми: Узрите идеальный мир без войн\.|Infinite Tsukuyomi: Behold the perfect world without wars\.)/g,
+        '<span class="madara-tsukuyomi-callout">$1</span>',
+      )
+      .replace(
         /<strong>(Hilfelife 3[^<]*(?:Игра Тысячилетия|Game of the Millennium)[^<]*)<\/strong>/g,
         '<strong class="halflife-win-callout">$1</strong>',
       )
@@ -1313,6 +1371,7 @@ const rumblingEmbers = Array.from({ length: 36 }, (_, index) => ({
 
 <template>
   <div
+    ref="gamePageRef"
     class="game-page"
     :class="[
       {
@@ -1578,6 +1637,7 @@ const rumblingEmbers = Array.from({ length: 36 }, (_, index) => ({
           :justice-up="justiceUpFlash"
           :score-breakdown="store.myPlayer?.status.scoreBreakdown ?? null"
           :score-anim-ready="fightReplayEnded"
+          :score-anim-key="scorePresentationKey"
           :fight-bonuses="myFightBonuses"
         />
         <!-- Action buttons -->
@@ -1785,7 +1845,7 @@ const rumblingEmbers = Array.from({ length: 36 }, (_, index) => ({
             <!-- Fight animation (all players including Kira) -->
             <FightAnimation
               :fights="store.gameState.fightLog || []"
-              :round-key="`${store.gameState.gameId}-${store.gameState.roundNo}-${store.gameState.isFinished ? 'finished' : 'live'}`"
+              :round-key="presentationRoundKey"
               :letopis="letopis"
               :game-story="store.gameStory"
               :players="store.gameState.players"
@@ -1799,6 +1859,7 @@ const rumblingEmbers = Array.from({ length: 36 }, (_, index) => ({
               :rewrite-history-rounds="rewriteHistoryRounds"
               :rewrite-history-pending-round="store.rewritingHistoryRound"
               :rewrite-history-last-chance="rewriteHistoryLastChance"
+              :suppress-dooms-day-audio="madaraRoundEightFightThemeActive"
               @resist-flash="onResistFlash"
               @justice-reset="onJusticeReset"
               @justice-transfer="onJusticeTransfer"
@@ -1936,8 +1997,8 @@ const rumblingEmbers = Array.from({ length: 36 }, (_, index) => ({
 
         <!-- Character Phrase Media Messages (text, audio, images) -->
         <MediaMessages
-          v-if="store.myPlayer?.status.mediaMessages?.length"
-          :messages="store.myPlayer.status.mediaMessages"
+          v-if="visibleMediaMessages.length"
+          :messages="visibleMediaMessages"
         />
 
       </div>
@@ -2629,8 +2690,35 @@ const rumblingEmbers = Array.from({ length: 36 }, (_, index) => ({
 .game-page.turn-guidance-adept .act-btn.cthulhu-adept {
   position: relative;
   z-index: 263;
+}
+
+.game-page.turn-guidance-levelup :deep(.lvl-btn:not(:disabled)),
+.game-page.turn-guidance-levelup :deep(.levelup-choice:not(:disabled)) {
+  filter: brightness(1.15) saturate(1.12);
+  animation: turn-guidance-levelup-pulse 1.35s ease-in-out infinite;
+}
+
+.game-page.turn-guidance-skip .act-btn.skip,
+.game-page.turn-guidance-predict .act-btn.predict-confirm,
+.game-page.turn-guidance-darksci .act-btn.darksci-stable,
+.game-page.turn-guidance-darksci .act-btn.darksci-unstable,
+.game-page.turn-guidance-adept .act-btn.cthulhu-adept {
   filter: brightness(1.2) saturate(1.18);
   animation: turn-guidance-target-pulse 1.35s ease-in-out infinite;
+}
+
+@keyframes turn-guidance-levelup-pulse {
+  0%, 100% {
+    box-shadow:
+      0 0 0 2px rgba(255, 255, 255, 0.62),
+      0 0 11px rgba(255, 221, 128, 0.48);
+  }
+  50% {
+    box-shadow:
+      0 0 0 3px rgba(255, 255, 255, 0.86),
+      0 0 21px rgba(255, 221, 128, 0.76),
+      0 0 36px rgba(139, 92, 246, 0.28);
+  }
 }
 
 @keyframes turn-guidance-target-pulse {
@@ -2660,7 +2748,13 @@ const rumblingEmbers = Array.from({ length: 36 }, (_, index) => ({
 
 @media (prefers-reduced-motion: reduce) {
   .game-page.turn-guidance-levelup :deep(.lvl-btn:not(:disabled)),
-  .game-page.turn-guidance-levelup :deep(.levelup-choice:not(:disabled)),
+  .game-page.turn-guidance-levelup :deep(.levelup-choice:not(:disabled)) {
+    animation: none;
+    box-shadow:
+      0 0 0 2px rgba(255, 255, 255, 0.78),
+      0 0 16px rgba(255, 221, 128, 0.62);
+  }
+
   .game-page.turn-guidance-skip .act-btn.skip,
   .game-page.turn-guidance-predict .act-btn.predict-confirm,
   .game-page.turn-guidance-darksci .act-btn.darksci-stable,
@@ -3653,6 +3747,14 @@ const rumblingEmbers = Array.from({ length: 36 }, (_, index) => ({
   font-weight: 900;
   text-shadow: 0 0 5px #ff1f1f, 0 0 14px rgba(255, 31, 31, 0.95), 0 0 28px rgba(255, 31, 31, 0.7);
   animation: madara-callout-pulse 0.9s ease-in-out infinite alternate;
+}
+.prev-log-text :deep(.madara-tsukuyomi-callout) {
+  color: #edf3ff;
+  font-weight: 700;
+  text-shadow:
+    0 0 3px rgba(255, 255, 255, 0.72),
+    0 0 9px rgba(164, 190, 255, 0.68),
+    0 0 16px rgba(105, 137, 226, 0.38);
 }
 .prev-log-text :deep(.halflife-win-callout) {
   color: #ffe56d;

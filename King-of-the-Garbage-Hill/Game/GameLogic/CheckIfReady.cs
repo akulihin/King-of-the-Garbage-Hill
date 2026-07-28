@@ -1739,9 +1739,11 @@ public class CheckIfReady : IServiceSingleton
                 //end moral
                 foreach (var player in game.PlayersList)
                 {
+                    // Dead seats never participate in Drop settlement, but their per-round
+                    // counters still need clearing so stale values cannot survive.
+                    player.GameCharacter.ResetStrengthQualityDropTimes();
                     if (player.Passives.IsDead) continue;
                     player.GameCharacter.ResetMoralBonus();
-                    player.GameCharacter.ResetStrengthQualityDropTimes();
                     player.Status.ResetFightingData();
                 }
 

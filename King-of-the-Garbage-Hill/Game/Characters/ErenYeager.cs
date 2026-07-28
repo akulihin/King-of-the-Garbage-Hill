@@ -32,8 +32,14 @@ public static class ErenYeager
     {
         var index = players.IndexOf(eren);
         if (index < 0 || index == players.Count - 1) return;
+
+        // Овца pins Eren himself; it must not evict an already-held Jon from Castle Black
+        // merely because Eren crossed place 4 on the way to the final cell.
+        var preserveBlackCastle = JonSnow.IsHoldingBlackCastle(players);
         players.RemoveAt(index);
         players.Add(eren);
+        if (preserveBlackCastle)
+            JonSnow.RestoreBlackCastlePosition(players);
     }
 
     public static List<GamePlayerBridgeClass> ProjectRoundEndLeaderboard(GameClass game)

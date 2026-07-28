@@ -99,7 +99,7 @@ onUnmounted(clearEnemyMessageTimer)
 
 .turn-guidance-dim {
   z-index: 261;
-  background: rgba(3, 5, 10, 0.12);
+  background: rgba(3, 5, 10, 0.14);
 }
 
 .enemy-interference-message {

@@ -90,6 +90,32 @@ public class WebGameService
         return candidates;
     }
 
+    private static void ResetBotOwnedStateForHuman(
+        GamePlayerBridgeClass seat,
+        GameClass game)
+    {
+        // A bridge represents the seat, so gameplay state legitimately survives its owner.
+        // Bot inference does not: exposing its guesses/memory to the joining human both leaks
+        // privileged implementation state and gives the new owner predictions they never made.
+        // Replace the collection before publishing the new owner identity. State projection is
+        // lock-free, so mutating the old list in place could expose one stale DTO or race its mapper.
+        seat.Predict = new List<PredictClass>();
+        seat.AiKnowledge = new BotKnowledgeState();
+        seat.AiPlaystyle = "";
+        seat.AiDifficulty = -1;
+        seat.ConsecutiveBotBlocks = 0;
+
+        seat.Status.ConfirmedPredict =
+            game.RoundNo != 8
+            || game.GameMode == "Aram"
+            || seat.Passives.IsDead
+            || Madara.IsMadara(seat)
+            || UnknownBug.Is(seat)
+            || seat.GameCharacter.DoomRollMode
+            || seat.GameCharacter.Passive.Any(passive =>
+                passive.PassiveName is "Тетрадь смерти" or "Булькает");
+    }
+
     public LobbyStateDto GetLobbyState()
     {
         AdminLobbies?.SweepExpiredLobbies();
@@ -124,7 +150,8 @@ public class WebGameService
         if (game == null) return null;
 
         var player = game.PlayersList.Find(p => p.DiscordId == discordId);
-        var dto = GameStateMapper.ToDto(game, player);
+        var dto = player == null ? GameStateMapper.ToDto(game) : GameStateMapper.ToDto(game, player,
+            _userAccounts.GetAccount(discordId) ?? new DiscordAccountClass());
         PopulateCustomLeaderboard(dto, game, player, _gameUpdateMess);
         return dto;
     }
@@ -489,8 +516,11 @@ public class WebGameService
             var botAccount = _userAccounts.GetAccount(bot.DiscordId);
             if (botAccount != null) botAccount.IsPlaying = false;
 
+            // Clear private bot inference before publishing the human identity. Notification
+            // projection is lock-free and must never observe a human-owned bridge with bot guesses.
+            ResetBotOwnedStateForHuman(bot, game);
+
             // Replace bot with the joining player
-            bot.DiscordId = playerId;
             bot.DiscordUsername = playerUsername;
             bot.PlayerType = playerAccount.PlayerType;
             bot.IsWebPlayer = true;
@@ -499,6 +529,9 @@ public class WebGameService
             DoomGuy.InitializeForGame(bot, playerAccount);
             playerAccount.IsPlaying = true;
             DiscoverStoreCharacter(playerAccount, bot.GameCharacter.Name);
+            // Viewer lookup keys on DiscordId, so publish it only after all private/identity
+            // state is ready for the new owner.
+            bot.DiscordId = playerId;
         }
 
         Console.WriteLine($"[WebAPI] Player {playerUsername} ({playerId}) joined game {gameId}");
@@ -529,14 +562,18 @@ public class WebGameService
             if (seat.DiscordId != playerId && playerAccount.IsPlaying)
                 return (false, "пользователь уже играет");
 
-            if (seat.DiscordId != playerId)
+            var isOwnershipTransfer = seat.DiscordId != playerId;
+            if (isOwnershipTransfer)
             {
                 var botAccount = _userAccounts.GetAccount(seat.DiscordId);
                 if (botAccount != null)
                     botAccount.IsPlaying = false;
+
+                // The generated seat can currently belong to a bot or to the lobby creator.
+                // Clear owner-private state before making the replacement identity observable.
+                ResetBotOwnedStateForHuman(seat, game);
             }
 
-            seat.DiscordId = playerId;
             seat.DiscordUsername = playerUsername;
             seat.PlayerType = playerAccount.PlayerType;
             seat.IsWebPlayer = hasWebConnection
@@ -549,6 +586,7 @@ public class WebGameService
             playerAccount.IsPlaying = true;
             playerAccount.CharacterPlayedLastTime = seat.GameCharacter.Name;
             DiscoverStoreCharacter(playerAccount, seat.GameCharacter.Name);
+            seat.DiscordId = playerId;
         }
 
         return (true, null);
@@ -1021,8 +1059,12 @@ public class WebGameService
         if (game == null) return (false, "Game not found");
         if (player == null) return (false, "Player not in this game");
         if (Madara.IsMadara(player)) return (false, "У Мадары нет прокачки");
-        if (player.Status.LvlUpPoints <= 0) return (false, "No level-up points available");
         if (statIndex < 1 || statIndex > 4) return (false, "Invalid stat index (1-4)");
+        if (ScamRat.Is(player))
+            return ScamRat.TryPurchaseStat(player, game, statIndex)
+                ? (true, null)
+                : (false, "Stat is maxed or no Sharing is CARRYING points are available");
+        if (player.Status.LvlUpPoints <= 0) return (false, "No level-up points available");
 
         // Use the existing HandleLvlUp with botChoice parameter
         var wasAutoMove = player.Status.IsAutoMove;
@@ -1162,6 +1204,7 @@ public class WebGameService
             return Task.FromResult((false, "Predictions are disabled by Let's Roll!"));
         if (!_charactersPull.GetVisibleCharacters().Any(character => character.Name == characterName))
             return Task.FromResult((false, "Character is not available for predictions"));
+        if (!HasUnlockedCharacter(discordId, characterName)) return Task.FromResult((false, "Character is not unlocked for predictions"));
 
         var target = game.PlayersList.Find(p => p.GetPlayerId() == targetPlayerId);
         if (target == null) return Task.FromResult((false, "Target player not found"));
@@ -1223,6 +1266,7 @@ public class WebGameService
         var submittedName = characterName?.Trim() ?? "";
         if (!_charactersPull.GetVisibleCharacters().Any(character => character.Name == submittedName))
             return Task.FromResult((false, "Invalid character name"));
+        if (!HasUnlockedCharacter(discordId, submittedName)) return Task.FromResult((false, "Character is not unlocked"));
 
         var dn = player.Passives.KiraDeathNote;
         if (dn.CurrentRoundTarget != Guid.Empty)
@@ -1744,5 +1788,16 @@ public class WebGameService
         var normalizedChanges = Math.Max(0, changes);
         return normalizedChanges * StoreBasePrice
                + normalizedChanges * (normalizedChanges - 1) / 2;
+    }
+
+    private bool HasUnlockedCharacter(ulong discordId, string characterName)
+    {
+        var account = _userAccounts.GetAccount(discordId);
+        if (account == null) return false;
+
+        lock (account)
+        {
+            return account.SeenCharacters?.Contains(characterName, StringComparer.Ordinal) == true;
+        }
     }
 }

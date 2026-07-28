@@ -25,6 +25,8 @@ const props = defineProps<{
   maneuverActive?: boolean
   maneuverShipCell?: boolean
   maneuverTarget?: boolean
+  captureFocus?: boolean
+  captureShipCell?: boolean
 }>()
 
 const cellStyle = computed(() => {
@@ -80,6 +82,8 @@ const cellClass = computed(() => {
   if (props.maneuverActive) classes.push('cell-maneuver-muted')
   if (props.maneuverShipCell) classes.push('cell-maneuver-ship')
   if (props.maneuverTarget) classes.push('cell-maneuver-target')
+  if (props.captureFocus) classes.push('cell-capture-muted')
+  if (props.captureShipCell) classes.push('cell-capture-focused')
 
   // Ship silhouette borders
   if (props.shipEdges) {
@@ -452,6 +456,20 @@ const cellTooltip = computed(() => {
   box-shadow: 0 0 16px rgba(34, 197, 94, 0.9);
   z-index: 6;
   animation: maneuver-target-pulse 0.75s ease-in-out infinite alternate;
+}
+.cell-capture-muted {
+  filter: grayscale(1) brightness(0.52);
+  opacity: 0.46;
+  pointer-events: none;
+}
+.cell-capture-focused {
+  filter: none;
+  opacity: 1;
+  pointer-events: auto;
+  z-index: 5;
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--bs-cursed, var(--accent-purple)) 62%, transparent),
+    0 0 8px color-mix(in srgb, var(--bs-cursed, var(--accent-purple)) 28%, transparent);
 }
 @keyframes maneuver-target-pulse {
   from { box-shadow: 0 0 7px rgba(34, 197, 94, 0.62); }

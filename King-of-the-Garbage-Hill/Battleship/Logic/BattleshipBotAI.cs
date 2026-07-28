@@ -823,8 +823,23 @@ public static class BattleshipBotAI
     /// </summary>
     public static Direction ChooseCursedBoatDirection(Summon cursedBoat, BattleshipPlayer opponent)
     {
-        var directions = new[] { Direction.Up, Direction.Down, Direction.Left, Direction.Right };
-        var bestDir = Direction.Down;
+        var directions = new[] { Direction.Up, Direction.Down, Direction.Left, Direction.Right }
+            .Where(direction =>
+            {
+                var (dr, dc) = direction switch
+                {
+                    Direction.Up => (-1, 0),
+                    Direction.Down => (1, 0),
+                    Direction.Left => (0, -1),
+                    Direction.Right => (0, 1),
+                    _ => (0, 0),
+                };
+                var nextRow = cursedBoat.Row + dr;
+                var nextCol = cursedBoat.Col + dc;
+                return nextRow is >= 0 and < 10 && nextCol is >= 0 and < 10;
+            })
+            .ToArray();
+        var bestDir = directions.FirstOrDefault();
         var bestScore = -1;
 
         foreach (var dir in directions)

@@ -14,20 +14,25 @@ public static class Madara
     public const string SecondMeteorite = "Второй метеорит";
     public const string SusanooClones = "Клоны Сусано";
     public const string EternalTsukuyomi = "Вечное Цукуеми";
+    public const string BattleTaste = "Вкус битвы";
     public const string EternalTsukuyomiPhrase = "Узрите идеальный мир без войн.";
     public const string ThemeFile = "DataBase/sound/character_passives/madara/madara_tsukuemi_theme.mp3";
     public const int RoundEightBotReactionDelaySeconds = 30;
+    public const int BattleTasteMaxMadaraAdvantage = 10;
 
     // Hidden Клоны Сусано rider: a score source, not a passive — it is deliberately absent from
     // characters.json so no player-facing description can leak it.
     public const string FearOfMadara = "Страх перед Мадарой";
-    public const int FearOfMadaraPenalty = -2;
+    public const int FearOfMadaraPenalty = -5;
+    public const int FearOfMadaraLateTurnPenalty = -1;
 
     public sealed class State
     {
         public int IncomingUniqueAttackersThisRound { get; set; }
         public HashSet<Guid> IncomingAttackerIdsThisRound { get; set; } = new();
         public int ResolvedFights { get; set; }
+        public int FirstFightPhraseRound { get; set; }
+        public bool SecondFightPhrasePending { get; set; }
         public HashSet<Guid> RoundEightAttackers { get; set; } = new();
         public HashSet<Guid> RoundEightFightParticipants { get; set; } = new();
         public int RoundEightWins { get; set; }
@@ -46,6 +51,9 @@ public static class Madara
     public static bool HasReanimatedBody(CharacterClass character) =>
         character?.Name == CharacterName
         && character.Passive.Any(passive => passive.PassiveName == ReanimatedBody);
+
+    public static bool BlocksStatLoss(CharacterClass character, string source) =>
+        HasReanimatedBody(character) && source != Cthulhu.Morok;
 
     public static bool IsMadara(GamePlayerBridgeClass player) =>
         player != null && HasReanimatedBody(player.GameCharacter);
@@ -220,12 +228,20 @@ public static class Madara
         var state = madara.Passives.Madara;
         state.ResolvedFights++;
         if (state.ResolvedFights == 1)
+        {
+            state.FirstFightPhraseRound = game.RoundNo;
             game.Phrases.MadaraFirstFight.SendLog(madara, false, isRandomOrder: false);
+        }
         else if (state.ResolvedFights == 2)
-            game.Phrases.MadaraSecondFight.SendLog(madara, false, isRandomOrder: false);
+        {
+            if (state.FirstFightPhraseRound != game.RoundNo)
+                game.Phrases.MadaraSecondFight.SendLog(madara, false, isRandomOrder: false);
+            else
+                state.SecondFightPhrasePending = true;
+        }
 
         // Страх перед Мадарой counts fights that actually happened, so a Block, a Skip or a fight
-        // canceled by Наруто never spares an enemy from the penalty. Attack side included: a
+        // skipped by Наруто never spares an enemy from the penalty. Attack side included: a
         // Геральт contract can still make round-eight Madara the attacker.
         if (game.RoundNo == 8)
         {
@@ -242,6 +258,33 @@ public static class Madara
             state.RoundEightWins++;
         if (madara.Status.IsLostThisCalculation != Guid.Empty)
             state.RoundEightLosses++;
+    }
+
+    public static void SendDeferredFightPhrase(GamePlayerBridgeClass madara, GameClass game)
+    {
+        if (!IsMadara(madara)) return;
+
+        var state = madara.Passives.Madara;
+        if (!state.SecondFightPhrasePending || game.RoundNo <= state.FirstFightPhraseRound) return;
+
+        state.SecondFightPhrasePending = false;
+        game.Phrases.MadaraSecondFight.SendLog(madara, false, isRandomOrder: false);
+    }
+
+    public static void RewardBattleTaste(
+        GamePlayerBridgeClass winner,
+        GamePlayerBridgeClass opponent,
+        GameClass game,
+        decimal madaraStepOneAdvantage)
+    {
+        if (!IsMadara(winner)
+            || opponent == null
+            || winner.GetPlayerId() == opponent.GetPlayerId()
+            || madaraStepOneAdvantage > BattleTasteMaxMadaraAdvantage)
+            return;
+
+        winner.Status.AddBonusPoints(1, BattleTaste);
+        game.Phrases.MadaraBattleTaste.SendLog(winner, false);
     }
 
     public static void ResolveRoundNine(GamePlayerBridgeClass madara, GameClass game)
@@ -262,7 +305,10 @@ public static class Madara
         {
             if (player.GetPlayerId() == madara.GetPlayerId() || player.Passives.IsDead) continue;
             if (state.RoundEightFightParticipants.Contains(player.GetPlayerId())) continue;
+            var scoreEntryCount = player.Status.ScoreEntries.Count;
             player.Status.AddBonusPoints(FearOfMadaraPenalty, FearOfMadara);
+            if (player.Status.ScoreEntries.Count > scoreEntryCount)
+                game.Phrases.MadaraFear.SendLog(player, false, isRandomOrder: false);
         }
 
         // A flawless Клоны Сусано event arms the hidden ending just like "all five attacked".
@@ -316,6 +362,22 @@ public static class Madara
         game.AddGlobalLogs("Мадара: Вам клонов с Сусано или без?");
     }
 
+    public static void ApplyLateTurnFear(GameClass game)
+    {
+        if (game?.RoundNo is < 9 or > 10) return;
+
+        var madara = Find(game);
+        if (madara == null || madara.Passives.IsDead || madara.Passives.Madara.Sealed) return;
+
+        var madaraId = madara.GetPlayerId();
+        foreach (var player in game.PlayersList)
+        {
+            if (player.GetPlayerId() == madaraId || player.Passives.IsDead) continue;
+            if (player.Status.WhoToAttackThisTurn.Contains(madaraId)) continue;
+            player.Status.AddBonusPoints(FearOfMadaraLateTurnPenalty, FearOfMadara);
+        }
+    }
+
     public static void Seal(GamePlayerBridgeClass madara)
     {
         var state = madara.Passives.Madara;
@@ -338,20 +400,37 @@ public static class Madara
         madara.Status.WhoToAttackThisTurn = new List<Guid>();
     }
 
-    public static void ForceRoundEightBotPrediction(
+    public static void EnforcePostRoundSevenBotPrediction(
         GamePlayerBridgeClass bot, GameClass game)
     {
-        if (game?.RoundNo != 8 || bot?.PlayerType != 404 || bot.Passives.IsDead
+        if (game?.RoundNo <= 7 || bot?.PlayerType != 404 || bot.Passives.IsDead
             || game.GameMode == "Aram" || IsMadara(bot)
             || bot.GameCharacter.DoomRollMode
             || bot.GameCharacter.Passive.Any(passive =>
                 passive.PassiveName is "Тетрадь смерти" or "AdminPlayerType" or "Булькает")) return;
 
         var madara = Find(game);
-        if (madara == null || madara.Passives.Madara.Sealed) return;
+        if (madara == null) return;
 
-        bot.Predict.RemoveAll(prediction => prediction.PlayerId == madara.GetPlayerId());
-        bot.Predict.Add(new PredictClass(CharacterName, madara.GetPlayerId()));
+        var madaraId = madara.GetPlayerId();
+        bot.AiKnowledge.PredictionEvidence[madaraId] = new BotPredictionEvidence
+        {
+            CharacterName = CharacterName,
+            Confidence = 100,
+            Evidence = "mandatory post-round-seven Madara prediction",
+            RoundUpdated = game.RoundNo,
+            IsExactReveal = true,
+        };
+
+        var currentPredictions = bot.Predict
+            .Where(prediction => prediction.PlayerId == madaraId)
+            .ToList();
+        if (currentPredictions.Count != 1
+            || currentPredictions[0].CharacterName != CharacterName)
+        {
+            bot.Predict.RemoveAll(prediction => prediction.PlayerId == madaraId);
+            bot.Predict.Add(new PredictClass(CharacterName, madaraId));
+        }
         bot.Status.ConfirmedPredict = true;
     }
 

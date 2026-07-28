@@ -41,6 +41,7 @@ const props = withDefaults(defineProps<{
   rewriteHistoryRounds?: number[]
   rewriteHistoryPendingRound?: number | null
   rewriteHistoryLastChance?: boolean
+  suppressDoomsDayAudio?: boolean
 }>(), {
   letopis: '',
   gameStory: null,
@@ -57,6 +58,7 @@ const props = withDefaults(defineProps<{
   rewriteHistoryRounds: () => [],
   rewriteHistoryPendingRound: null,
   rewriteHistoryLastChance: false,
+  suppressDoomsDayAudio: false,
 })
 
 type DisplayFight = FightEntry & {
@@ -613,7 +615,8 @@ function proceedToNextFight() {
     timer = null
     if (!isPlaying.value) return
     if (currentFightIdx.value < myFights.value.length - 1) {
-      playDoomsDayScroll()
+      if (!props.suppressDoomsDayAudio)
+        playDoomsDayScroll()
       roundResults.value = []
       folkPercussionPool.rollForFight()
       currentFightIdx.value++
@@ -686,25 +689,42 @@ function restartCurrentFight() {
 }
 
 watch([myFights, () => props.roundKey, perspectiveUsername], () => {
-  if (!myFights.value.length) return
   const fp = `${props.roundKey}|${perspectiveUsername.value}|${myFights.value
     .map((f: FightEntry) => `${f.attackerName}-${f.defenderName}-${f.outcome}`)
     .join('|')}`
-  if (fp !== lastAnimatedRound.value) {
-    // Mark unseen if user is on a different tab
-    if (activeTab.value !== 'fights') {
-      hasUnseenFights.value = true
-    }
-    lastAnimatedRound.value = fp
-    userSwitchedTab.value = false
-    activeTab.value = 'fights'
-    fightSoundPool.reset()
-    geraltFightPool.reset()
-    folkPercussionPool.rollForFight()
+  if (fp === lastAnimatedRound.value) return
+
+  lastAnimatedRound.value = fp
+  if (!myFights.value.length) {
+    clearTimer()
+    clearR3Timers()
+    isPlaying.value = false
+    skippedToEnd.value = false
+    currentFightIdx.value = 0
+    currentStep.value = 0
     roundResults.value = []
-    restart()
+    emit('update:currentFight', null)
+    // Let the parent finish processing the same state update first. An empty personal
+    // replay is still a completed replay stage, so PTS must be allowed to animate.
+    nextTick(() => {
+      if (lastAnimatedRound.value === fp && !myFights.value.length)
+        emit('replay-ended')
+    })
+    return
   }
-}, { deep: true })
+
+  // Mark unseen if user is on a different tab
+  if (activeTab.value !== 'fights') {
+    hasUnseenFights.value = true
+  }
+  userSwitchedTab.value = false
+  activeTab.value = 'fights'
+  fightSoundPool.reset()
+  geraltFightPool.reset()
+  folkPercussionPool.rollForFight()
+  roundResults.value = []
+  restart()
+}, { deep: true, immediate: true })
 
 // ── One-time initial fight index (for replay deep links) ────────────
 {
@@ -747,7 +767,7 @@ preloadDoomsDayTimingSounds()
 // Watch currentStep to trigger dooms_day sounds during MY fight animation
 watch(currentStep, (step: number) => {
   if (!fight.value || !isMyFight.value || isSpecialOutcome.value) return
-  if (skippedToEnd.value) return
+  if (skippedToEnd.value || props.suppressDoomsDayAudio) return
 
   const f = fight.value
   const factorCount = round1Factors.value.length
@@ -886,7 +906,7 @@ watch(() => props.fights.length, (cur) => {
   lastSeenFightsLength = cur
   // Play character victory themes (owner-only: only for the player playing that character)
   playWinSpecialsForAll(props.fights, myCharacterName.value)
-  if (myFights.value.length === 0) {
+  if (myFights.value.length === 0 && !props.suppressDoomsDayAudio) {
     playDoomsDayNoFights()
   }
 })
@@ -1026,6 +1046,7 @@ watch(r3NeedleSettled, (settled: boolean) => {
 // ── Final result sound trigger ───────────────────────────────────────
 watch(showFinalResult, (show) => {
   if (!show || skippedToEnd.value) return
+  if (props.suppressDoomsDayAudio) return
   if (!fight.value || !isMyFight.value || isSpecialOutcome.value) return
   if (currentStep.value <= round1Factors.value.length + 2) return
   const isLastFight = currentFightIdx.value === myFights.value.length - 1
@@ -1519,6 +1540,12 @@ function getDisplayCharName(orig: string, u: string): string {
             <img :src="getDisplayAvatar(allFightRight(f).avatar, allFightRight(f).name)"
               class="fa-all-ava" :class="{ 'ava-winner': allFightRight(f).isWinner, 'ava-perfect': allFightRight(f).isWinner && perfectRoundPlayers.has(allFightRight(f).name) }"
               @error="(event: Event) => handleAvatarError(event, allFightRight(f).name)">
+            <span
+              v-if="f.stormAppeared"
+              class="fa-storm-badge"
+              title="Штормяк тронул Doomsday Machine"
+              aria-label="Штормяк тронул Doomsday Machine"
+            >🐾<span v-if="f.stormFlipped">↻</span></span>
           </div>
           <!-- Right name (winner / attacker for block-skip) -->
           <span class="fa-all-name fa-all-name-right" :class="{ 'name-winner': allFightRight(f).isWinner }" :title="allFightRight(f).name">
@@ -1967,6 +1994,17 @@ function getDisplayCharName(orig: string, u: string): string {
   background: rgba(0, 255, 136, 0.1);
   border: 1px solid rgba(0, 255, 136, 0.3);
   padding: 1px 4px; border-radius: 3px;
+}
+.fa-storm-badge {
+  font-size: 8px;
+  font-weight: 900;
+  color: #ffc05a;
+  background: rgba(255, 153, 31, 0.11);
+  border: 1px solid rgba(255, 168, 55, 0.38);
+  padding: 1px 4px;
+  border-radius: 3px;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 .fa-all-mid { display: flex; align-items: center; gap: 6px; justify-content: center; flex-shrink: 0; }
 .fa-all-ava { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; border: 2px solid var(--border-subtle); transition: all 0.3s; flex-shrink: 0; }

@@ -1525,6 +1525,46 @@
       }
     ]
   },
+  "MadaraBattleTaste": {
+    "passiveNameRussian": "Воскрешенное тело",
+    "passiveNameEnglish": "Reanimated Body",
+    "phrases": [
+      {
+        "russian": "Ты почти заставил мое сердце стучать.",
+        "english": "You almost made my heart beat."
+      },
+      {
+        "russian": "Достойный противник.",
+        "english": "A worthy opponent."
+      },
+      {
+        "russian": "Это... вкус битвы? Я уже и забыл его.",
+        "english": "Is this... the taste of battle? I had almost forgotten it."
+      },
+      {
+        "russian": "Давно... я так не сражался...",
+        "english": "It has been so long... since I fought like this..."
+      },
+      {
+        "russian": "Тебе удалось меня развлечь.",
+        "english": "You managed to entertain me."
+      },
+      {
+        "russian": "Ну же! Покажите всё что у вас есть!",
+        "english": "Come! Show me everything you have!"
+      }
+    ]
+  },
+  "MadaraFear": {
+    "passiveNameRussian": "Страх перед Мадарой",
+    "passiveNameEnglish": "Fear of Madara",
+    "phrases": [
+      {
+        "russian": "Пять великих наций объединилась, но не мы...",
+        "english": "The Five Great Nations united, but we did not..."
+      }
+    ]
+  },
   "TolyaCountPhrase": {
     "passiveNameRussian": "Подсчет",
     "passiveNameEnglish": "Number Crunching",
@@ -4633,23 +4673,75 @@
       }
     ]
   },
-  "ScamRatSale": {
-    "passiveNameRussian": "Взрывной майнинг!",
-    "passiveNameEnglish": "Explosive Mining!",
+  "ScamRatSharingSteal": {
+    "passiveNameRussian": "Sharing is CARRYING",
+    "passiveNameEnglish": "Sharing is CARRYING",
     "phrases": [
       {
-        "russian": "Подсовывает побежденным врагам консервные банки, раскрашенные под топовые видеокарты.",
-        "english": "Slips defeated enemies tin cans painted to look like top-tier graphics cards."
+        "russian": "Ты бы сам не добил!",
+        "english": "You couldn't have finished them yourself!"
+      },
+      {
+        "russian": "Ты бы без меня не справился!",
+        "english": "You couldn't have done it without me!"
+      },
+      {
+        "russian": "Не благодари! Хотя неплохо было бы.",
+        "english": "Don't thank me! Though it would be nice."
+      },
+      {
+        "russian": "KS! Report!",
+        "english": "KS! Report!"
+      },
+      {
+        "russian": "Yonk!",
+        "english": "Yonk!"
+      },
+      {
+        "russian": "Мне это пригодится!",
+        "english": "I'll make use of that!"
+      },
+      {
+        "russian": "Иди найди себе СВОЕГО лоха!",
+        "english": "Go find a sucker of YOUR OWN!"
       }
     ]
   },
-  "ScamRatExplosion": {
-    "passiveNameRussian": "Взрывной майнинг!",
-    "passiveNameEnglish": "Explosive Mining!",
+  "ScamRatSharingPurchase": {
+    "passiveNameRussian": "Sharing is CARRYING",
+    "passiveNameEnglish": "Sharing is CARRYING",
     "phrases": [
       {
-        "russian": "Нажимая на блок, Крыса прячется в укрытие, потому-что инициируется взрыв видеокарт!",
-        "english": "By Blocking, the Rat hides in cover and detonates the graphics cards!"
+        "russian": "Куплю себе инфинити эдж!",
+        "english": "I'll buy myself an Infinity Edge!"
+      },
+      {
+        "russian": "Это мне нужно!",
+        "english": "I need this!"
+      },
+      {
+        "russian": "ВКЛАДЫВАЕМ ВСЁ В ТВИЧ-КОИНЫ!",
+        "english": "INVEST EVERYTHING IN TWITCH COINS!"
+      },
+      {
+        "russian": "Выгодная инвестиция!",
+        "english": "A profitable investment!"
+      },
+      {
+        "russian": "Акции растут!",
+        "english": "The shares are going up!"
+      },
+      {
+        "russian": "Стоимость акций растет каждый раз, когда вырастает их стоимость!",
+        "english": "Share prices rise every time their value goes up!"
+      },
+      {
+        "russian": "Бизнес империя стала сильнее!",
+        "english": "The business empire has grown stronger!"
+      },
+      {
+        "russian": "Carry!",
+        "english": "Carry!"
       }
     ]
   },

@@ -723,6 +723,7 @@ public sealed class GameReaction : IServiceSingleton
     {
         if (player.GameCharacter.DoomRollMode) return;
         var account = _accounts.GetAccount(player.DiscordId);
+        if (account == null) return;
         var game = _global.GamesList.Find(x => x.GameId == player.GameId);
 
 
@@ -732,7 +733,7 @@ public sealed class GameReaction : IServiceSingleton
             .WithCustomId("predict-2")
             .WithPlaceholder(string.Join("", button.Data.Values) + " это...");
 
-        var allCharacters = _charactersPull.GetVisibleCharacters().Select(x => x.Name).ToList();
+        var allCharacters = GetUnlockedPredictionCharacters(account);
 
         predictMenu.AddOption("Предыдущие меню", "prev-page");
         //predictMenu.AddOption("Очистить", "empty");
@@ -773,6 +774,8 @@ public sealed class GameReaction : IServiceSingleton
         var predictedCharacterName = splitted[1];
         if (!_charactersPull.GetVisibleCharacters().Any(character => character.Name == predictedCharacterName))
             return;
+        var account = _accounts.GetAccount(player.DiscordId);
+        if (!HasUnlockedCharacter(account, predictedCharacterName)) return;
         var predictedPlayer = game!.PlayersList.Find(x => x.DiscordUsername == predictedPlayerUsername);
         if (predictedPlayer == null) return;
         if (Sakura.Is(predictedPlayer)) return;
@@ -793,12 +796,23 @@ public sealed class GameReaction : IServiceSingleton
 
     public async Task HandleLvlUp(GamePlayerBridgeClass player, SocketMessageComponent button, int botChoice = -1)
     {
+        var emoteNum = !player.IsBot() && !player.Status.IsAutoMove
+            ? Convert.ToInt32(string.Join("", button.Data.Values))
+            : botChoice;
+        var game = _global.GamesList.Find(x => x.GameId == player.GameId);
+        if (ScamRat.Is(player))
+        {
+            if (ScamRat.TryPurchaseStat(player, game, emoteNum))
+                return;
+            await _upd.UpdateMessage(player);
+            return;
+        }
+
         if (player.Status.LvlUpPoints <= 0)
         {
             await _upd.UpdateMessage(player);
             return;
         }
-        var emoteNum = !player.IsBot() && !player.Status.IsAutoMove  ? Convert.ToInt32(string.Join("", button.Data.Values)) : botChoice;
         await GetLvlUp(player, emoteNum);
     }
 
@@ -1652,7 +1666,11 @@ public sealed class GameReaction : IServiceSingleton
         {
             if (game!.RoundNo == 9)
                 //Дизмораль Part #2
-                player.GameCharacter.AddPsyche(-5, "Дизмораль");
+                player.MinusPsyche(
+                    game,
+                    -5,
+                    "Дизмораль",
+                    suppressDefaultGlobalLog: true);
             //end Дизмораль Part #2
 
             //Да всё нахуй эту игру: Part #2
@@ -1682,53 +1700,35 @@ public sealed class GameReaction : IServiceSingleton
         {
             var siriTraining = player.Passives.SirinoksTraining;
             if (siriTraining != null)
-            {
-                if (siriTraining.Training.Count > 0)
-                {
-                    var training = siriTraining.Training.First();
-
-                    switch (training.StatIndex)
-                    {
-                        case 1:
-                            if (player.GameCharacter.GetIntelligence() >= training.StatNumber)
-                            {
-                                player.GameCharacter.AddMoral(3, "Обучение");
-                                player.GameCharacter.AddIntelligenceQualitySkillBonus(1, "Обучение");
-                                siriTraining.Training.Clear();
-                            }
-                            break;
-                        case 2:
-                            if (player.GameCharacter.GetStrength() >= training.StatNumber)
-                            {
-                                player.GameCharacter.AddMoral(3, "Обучение");
-                                player.GameCharacter.AddIntelligenceQualitySkillBonus(1, "Обучение");
-                                siriTraining.Training.Clear();
-                            }
-                            break;
-                        case 3:
-                            if (player.GameCharacter.GetSpeed() >= training.StatNumber)
-                            {
-                                player.GameCharacter.AddMoral(3, "Обучение");
-                                player.GameCharacter.AddIntelligenceQualitySkillBonus(1, "Обучение");
-                                siriTraining.Training.Clear();
-                            }
-                            break;
-                        case 4:
-                            if (player.GameCharacter.GetPsyche() >= training.StatNumber)
-                            {
-                                player.GameCharacter.AddMoral(3, "Обучение");
-                                player.GameCharacter.AddIntelligenceQualitySkillBonus(1, "Обучение");
-                                siriTraining.Training.Clear();
-                            }
-                            break;
-                    }
-
-
-                }
-            }
+                Sirinoks.TryCompleteTraining(player);
         }
         //end Обучение
 
         await _upd.UpdateMessage(player);
+    }
+
+    private List<string> GetUnlockedPredictionCharacters(DiscordAccountClass account)
+    {
+        HashSet<string> unlockedCharacters;
+        lock (account)
+        {
+            unlockedCharacters = new HashSet<string>(
+                account.SeenCharacters ?? new List<string>(),
+                StringComparer.Ordinal);
+        }
+
+        return _charactersPull.GetVisibleCharacters()
+            .Where(character => unlockedCharacters.Contains(character.Name))
+            .Select(character => character.Name)
+            .ToList();
+    }
+
+    private static bool HasUnlockedCharacter(DiscordAccountClass account, string characterName)
+    {
+        if (account == null) return false;
+        lock (account)
+        {
+            return account.SeenCharacters?.Contains(characterName, StringComparer.Ordinal) == true;
+        }
     }
 }

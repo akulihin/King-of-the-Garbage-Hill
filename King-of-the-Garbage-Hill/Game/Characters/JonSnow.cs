@@ -370,6 +370,28 @@ public static class JonSnow
         return ordered;
     }
 
+    public static bool IsHoldingBlackCastle(
+        List<GamePlayerBridgeClass> players)
+    {
+        var jon = Find(players);
+        return jon != null
+               && !jon.Passives.IsDead
+               && jon.Passives.JonSnow.BlackCastleActive
+               && players.IndexOf(jon) == BlackCastlePlace - 1;
+    }
+
+    public static void RestoreBlackCastlePosition(
+        List<GamePlayerBridgeClass> players)
+    {
+        var jon = Find(players);
+        if (jon == null
+            || jon.Passives.IsDead
+            || !jon.Passives.JonSnow.BlackCastleActive)
+            return;
+
+        MoveExactlyToIndex(players, jon, BlackCastlePlace - 1);
+    }
+
     private static void MoveExactlyToIndex(
         List<GamePlayerBridgeClass> players,
         GamePlayerBridgeClass player,

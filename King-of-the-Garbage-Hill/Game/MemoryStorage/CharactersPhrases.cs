@@ -26,9 +26,9 @@ public class CharactersUniquePhrase
         "Один человек - не куча. Добавь еще одного - всё еще не куча. Тогда сколько надо убить, чтобы была куча?",
         "Что тяжелее, килограмм ваты или **Подземный Поезд?**",
         "Вилтромайта нельзя __убить__. И Вилтромайты __могут всё__. Но __сможет ли__ тогда один Вилтромайт __убить__ другого? ... проверим?",
-        "Ты заходишь в комнату. На кровати лежат 2 собаки, 4 кошки, жираф, 5 бегемотов и 1 курица. Ещё 3 курицы летают над кроватью. Сколько НОГ в комнате?",
         "Электричка едет на восток со скоростью 80 км/ч. Ветер дует на запад со скоростью 20 км/. Сколько людей убьет эта электричка?",
         "Что тяжелее, килограмм ваты или груз ответственности Вилтрумайтов?",
+        "Ты заходишь в комнату. На кровати лежат 2 собаки, 4 кошки, жираф, 5 бегемотов и 1 курица. Ещё 3 курицы летают над кроватью. Сколько НОГ в комнате?",
         "Когда птицы летают, шевелят ли она лапами?"
     };
 
@@ -88,7 +88,7 @@ public class CharactersUniquePhrase
         "\"Мне жаль тратить на себя и секунду из десятков тысяч лет.\"",
         "\"Я могу сжечь этот город дотла.\"",
         "\"Через тысячи лет от вас не останется даже имени.\"",
-        "\"Жалкие 10 Скилла? Даже мой сын этого не заметит.\""
+        "\"Жалкие 20 Скилла? Даже мой сын этого не заметит.\""
     };
 
     public static readonly IReadOnlyList<string> OmniManUndergroundTrainPhrases = new List<string>
@@ -267,6 +267,8 @@ public class CharactersUniquePhrase
     public PhraseClass MadaraItachiStole;
     public PhraseClass MadaraItachiPrediction;
     public PhraseClass MadaraRoundEightTheme;
+    public PhraseClass MadaraBattleTaste;
+    public PhraseClass MadaraFear;
 
     public PhraseClass TolyaCountPhrase;
     public PhraseClass TolyaCountReadyPhrase;
@@ -478,8 +480,8 @@ public class CharactersUniquePhrase
     public PhraseClass JonSnowFinalCastleHigh;
 
     // ScamRat
-    public PhraseClass ScamRatSale;
-    public PhraseClass ScamRatExplosion;
+    public PhraseClass ScamRatSharingSteal;
+    public PhraseClass ScamRatSharingPurchase;
 
     // Монстр без имени
     public PhraseClass MonsterDeath;
@@ -531,6 +533,8 @@ public class CharactersUniquePhrase
         MadaraItachiStole = new PhraseClass(Madara.GodOfShinobi);
         MadaraItachiPrediction = new PhraseClass(Madara.SusanooClones);
         MadaraRoundEightTheme = new PhraseClass(Madara.SusanooClones);
+        MadaraBattleTaste = new PhraseClass(Madara.ReanimatedBody);
+        MadaraFear = new PhraseClass(Madara.FearOfMadara);
 
         DeepListMadnessPhrase = new PhraseClass("Безумие");
 
@@ -1193,6 +1197,13 @@ public class CharactersUniquePhrase
         MadaraItachiStole.PassiveLogRus.Add("Итачи? Твои глаза далеки от завершения. Тебе никогда не познать силу Бога.");
         MadaraItachiPrediction.PassiveLogRus.Add("Я думал, Мадара - это другой человек... Кем же тогда он был?");
         MadaraRoundEightTheme.PassiveLogRus.Add("Мадара: Oi - oi, чего ждать! Кто из этого мусорного мира осмелится бросить мне вызов?! Я - Учиха. Мадара.");
+        MadaraBattleTaste.PassiveLogRus.Add("Ты почти заставил мое сердце стучать.");
+        MadaraBattleTaste.PassiveLogRus.Add("Достойный противник.");
+        MadaraBattleTaste.PassiveLogRus.Add("Это... вкус битвы? Я уже и забыл его.");
+        MadaraBattleTaste.PassiveLogRus.Add("Давно... я так не сражался...");
+        MadaraBattleTaste.PassiveLogRus.Add("Тебе удалось меня развлечь.");
+        MadaraBattleTaste.PassiveLogRus.Add("Ну же! Покажите всё что у вас есть!");
+        MadaraFear.PassiveLogRus.Add("Пять великих наций объединилась, но не мы...");
 
         // ── Рик Санчез ──
 
@@ -1832,14 +1843,25 @@ public class CharactersUniquePhrase
         JonSnowFinalCastleHigh = new PhraseClass(JonSnow.BlackCastle);
         JonSnowFinalCastleHigh.PassiveLogRus.Add("Ну ладно, в замке хотя бы перезимовать можно.");
 
-        // ScamRat — supplied description lines remain verbatim.
-        ScamRatSale = new PhraseClass(ScamRat.PassiveName);
-        ScamRatSale.PassiveLogRus.Add(
-            "Подсовывает побежденным врагам консервные банки, раскрашенные под топовые видеокарты.");
+        // ScamRat
+        ScamRatSharingSteal = new PhraseClass(ScamRat.SharingPhraseSource);
+        ScamRatSharingSteal.PassiveLogRus.Add("Ты бы сам не добил!");
+        ScamRatSharingSteal.PassiveLogRus.Add("Ты бы без меня не справился!");
+        ScamRatSharingSteal.PassiveLogRus.Add("Не благодари! Хотя неплохо было бы.");
+        ScamRatSharingSteal.PassiveLogRus.Add("KS! Report!");
+        ScamRatSharingSteal.PassiveLogRus.Add("Yonk!");
+        ScamRatSharingSteal.PassiveLogRus.Add("Мне это пригодится!");
+        ScamRatSharingSteal.PassiveLogRus.Add("Иди найди себе СВОЕГО лоха!");
 
-        ScamRatExplosion = new PhraseClass(ScamRat.PassiveName);
-        ScamRatExplosion.PassiveLogRus.Add(
-            "Нажимая на блок, Крыса прячется в укрытие, потому-что инициируется взрыв видеокарт!");
+        ScamRatSharingPurchase = new PhraseClass(ScamRat.SharingPhraseSource);
+        ScamRatSharingPurchase.PassiveLogRus.Add("Куплю себе инфинити эдж!");
+        ScamRatSharingPurchase.PassiveLogRus.Add("Это мне нужно!");
+        ScamRatSharingPurchase.PassiveLogRus.Add("ВКЛАДЫВАЕМ ВСЁ В ТВИЧ-КОИНЫ!");
+        ScamRatSharingPurchase.PassiveLogRus.Add("Выгодная инвестиция!");
+        ScamRatSharingPurchase.PassiveLogRus.Add("Акции растут!");
+        ScamRatSharingPurchase.PassiveLogRus.Add("Стоимость акций растет каждый раз, когда вырастает их стоимость!");
+        ScamRatSharingPurchase.PassiveLogRus.Add("Бизнес империя стала сильнее!");
+        ScamRatSharingPurchase.PassiveLogRus.Add("Carry!");
 
         //not in the game
 

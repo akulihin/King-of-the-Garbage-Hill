@@ -18,10 +18,11 @@ public static class OmniMan
     public const string ThinkMarkPhraseSource = "Подумай, Марк:";
     public const string InvasionMessage = "Земля единогласно присоединилась к Вилтрумайтской империи!";
     public const int IntelligenceAdvantageToResist = 2;
-    public const int IntelligenceBattlePoints = 3;
-    public const int SkillPerIncomingAttack = 10;
+    public const int IntelligenceBattleInitialPoints = 5;
+    public const int IntelligenceBattleMinimumPoints = 1;
+    public const int SkillPerIncomingAttack = 20;
     public const int UndergroundTrainDrops = 4;
-    public const decimal UndergroundTrainStealPercent = 0.10m;
+    public const decimal UndergroundTrainStealPercent = 0.20m;
 
     private static IReadOnlyList<string> IntelligenceCheckPhrases =>
         CharactersUniquePhrase.OmniManIntelligenceCheckPhrases;
@@ -93,9 +94,13 @@ public static class OmniMan
             return;
         }
 
+        var alreadyConvertedIdiots = state.IdiotPlayerIds.Count;
         if (!state.IdiotPlayerIds.Add(target.GetPlayerId())) return;
 
-        omniMan.Status.AddBonusPoints(IntelligenceBattlePoints, IntelligenceBattle);
+        var intelligenceBattlePoints = Math.Max(
+            IntelligenceBattleMinimumPoints,
+            IntelligenceBattleInitialPoints - alreadyConvertedIdiots);
+        omniMan.Status.AddBonusPoints(intelligenceBattlePoints, IntelligenceBattle);
         var dialogue = IntelligenceSuccessDialogues[
             Math.Min(state.IntelligenceSuccessPhraseIndex, IntelligenceSuccessDialogues.Count - 1)];
         state.IntelligenceSuccessPhraseIndex++;
@@ -220,9 +225,7 @@ public static class OmniMan
                 continue;
             }
 
-            var stolen = Math.Max(
-                1m,
-                Math.Ceiling(victim.Status.GetScore() * UndergroundTrainStealPercent));
+            var stolen = CalculateUndergroundTrainSteal(victim.Status.GetScore());
             var debit = JonSnow.IsKingActive(
                 victim.GameCharacter,
                 victim.Status.GetPlaceAtLeaderBoard())
@@ -231,6 +234,11 @@ public static class OmniMan
 
             victim.Status.AddBonusPoints(debit, UndergroundTrain);
             omniMan.Status.AddBonusPoints(stolen, UndergroundTrain);
+
+            var stolenMoral = CalculateUndergroundTrainSteal(
+                victim.GameCharacter.GetMoral());
+            ApplyExactMoralChange(victim, -stolenMoral);
+            ApplyExactMoralChange(omniMan, stolenMoral);
         }
 
         state.UndergroundTrainPhrase = Take(
@@ -392,5 +400,31 @@ public static class OmniMan
         var phraseIndex = remaining[poolIndex];
         remaining.RemoveAt(poolIndex);
         return phrases[phraseIndex];
+    }
+
+    private static decimal CalculateUndergroundTrainSteal(decimal currentValue) =>
+        Math.Max(
+            1m,
+            Math.Ceiling(currentValue * UndergroundTrainStealPercent));
+
+    private static void ApplyExactMoralChange(
+        GamePlayerBridgeClass player,
+        decimal displayedChange)
+    {
+        var moralBefore = player.GameCharacter.GetMoral();
+
+        // AddMoral stores ordinary gains/losses at twice the supplied value.
+        // Halving here makes the visible mutation equal the percentage-based steal.
+        player.GameCharacter.AddMoral(
+            displayedChange / 2m,
+            UndergroundTrain,
+            isLog: false);
+
+        var actualChange = player.GameCharacter.GetMoral() - moralBefore;
+        if (actualChange == 0) return;
+
+        player.Status.AddInGamePersonalLogs(
+            $"|>Stat<|{UndergroundTrain}: " +
+            $"{(actualChange > 0 ? "+" : "")}{actualChange} *Морали*\n");
     }
 }

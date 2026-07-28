@@ -42,6 +42,7 @@
 | Rumbling | Эрен Йегер | 0 | 2 | ok |
 | Rune | DooM Guy | 2 | 4 | ok |
 | Sausage Party | TheBoys | 0 | 1 | ok |
+| Sharing is CARRYING! | ScamRat | 0 | 1 | ok |
 | Shield | DooM Guy | 3 | 2 | ok |
 | Skill 228 | Загадочный Спартанец в маске, Weedwick | 0 | 1 | ok |
 | Stakes! | Таинственный Суппорт | 1 | 1 | ok |
@@ -99,7 +100,7 @@
 | Дизмораль | Darksci | 1 | 3 | ok |
 | Доебаться | HardKitty | 3 | 2 | ok |
 | Доминация | Dopa | 1 | 4 | ok |
-| Дракон | Sirinoks | 1 | 6 | ok |
+| Дракон | Sirinoks | 1 | 7 | ok |
 | Дрочун | Эрен Йегер | 0 | 1 | ok |
 | Еврей | LeCrisp, Толя | 1 | 5 | ok |
 | Еще один бастард | Джон Сноу | 0 | 1 | ok |
@@ -152,7 +153,7 @@
 | Никому не нужен | HardKitty | 2 | 4 | ok |
 | Ничего не понимает | Братишка | 1 | 2 | ok |
 | Оборотень | Weedwick | 2 | 2 | ok |
-| Обучение | Sirinoks | 2 | 4 | ok |
+| Обучение | Sirinoks | 2 | 5 | ok |
 | Овца в загоне | Эрен Йегер | 0 | 1 | ok |
 | Огурчик Рик | Рик Санчез | 5 | 3 | ok |
 | Одиночество | HardKitty | 2 | 3 | ok |

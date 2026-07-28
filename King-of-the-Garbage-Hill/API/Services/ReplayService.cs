@@ -353,6 +353,7 @@ public class ReplayService : IServiceSingleton
                             Source = entry.Source,
                             Points = entry.Points,
                             IsBonus = entry.IsBonus,
+                            IsNegative = entry.Points < 0,
                         }));
             }
 
@@ -469,6 +470,9 @@ public class ReplayService : IServiceSingleton
             NemesisMultiplierSkillDifference = f.NemesisMultiplierSkillDifference,
             HiddenFromNonAdmin = f.HiddenFromNonAdmin,
             PortalGunSwap = f.PortalGunSwap,
+            StormAppeared = f.StormAppeared,
+            StormWeighingDelta = f.StormWeighingDelta,
+            StormFlipped = f.StormFlipped,
         };
     }
 }

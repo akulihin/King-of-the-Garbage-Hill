@@ -46,11 +46,15 @@ public class StartGameLogic : IServiceSingleton
 
     public static bool AreMutuallyExclusiveCharacters(string firstName, string secondName)
     {
-        return firstName == "LeCrisp" && secondName == "Толя"
-               || firstName == "Толя" && secondName == "LeCrisp"
+        return firstName != secondName
+               && IsCarryRedirectCharacter(firstName)
+               && IsCarryRedirectCharacter(secondName)
                || firstName == "HardKitty" && secondName == ErenYeager.CharacterName
                || firstName == ErenYeager.CharacterName && secondName == "HardKitty";
     }
+
+    private static bool IsCarryRedirectCharacter(string characterName) =>
+        characterName is "LeCrisp" or "Толя" or ScamRat.CharacterName;
 
     private static void RemoveMutuallyExclusiveCharacters(
         List<CharacterClass> characters,

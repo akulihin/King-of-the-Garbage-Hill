@@ -15,7 +15,7 @@ public static class GordonFreeman
     public const string WakeUp = "Просыпайтесь, мистер Фримен";
     public const string HalfLife3 = "Halflife 3";
 
-    public const string HalfLifeAnnouncement = "Внимание! Halflife 3 был анонсирован!!!";
+    public const string HalfLifeAnnouncement = "ВНИМАНИЕ! HilfLife3 был анонсирован!!!";
     public const string HalfLifeFailure = "Недостаточно профита, нельзя  выпускать игру.";
     public const string HalfLifeReleaseDecision =
         "Игра готова к релизу. Гейб предлагает зафиксировать текущий профит или перенести релиз ещё раз.";
@@ -75,6 +75,7 @@ public static class GordonFreeman
     public sealed class HalfLifeState
     {
         public bool Announced { get; set; }
+        public bool AnnouncementLogPending { get; set; }
         public bool Finished { get; set; }
         public bool Released { get; set; }
         public int ReleaseRound { get; set; }
@@ -94,7 +95,7 @@ public static class GordonFreeman
         public decimal ReleaseBonusPoints { get; set; }
         public HashSet<Guid> AttemptItachiThiefIds { get; set; } = new();
         public HashSet<Guid> ReleaseItachiThiefIds { get; set; } = new();
-        public decimal? SettlementOverride { get; set; }
+        public decimal SettlementAdjustment { get; set; }
     }
 
     public static bool Is(GamePlayerBridgeClass player) =>
@@ -169,12 +170,15 @@ public static class GordonFreeman
                      && player.Passives.GordonHeadcrab.SourceId == gordon.GetPlayerId()
                      && player.Passives.GordonHeadcrab.ExpiresAfterRound <= game.RoundNo))
         {
-            var lost = target.GameCharacter.GetIntelligence();
+            var intelligenceBefore = target.GameCharacter.GetIntelligence();
             target.Passives.GordonHeadcrab.ClearActive();
             target.Passives.GordonHeadcrab.IsZombie = true;
-            target.GameCharacter.IntelligenceCappedAtZero = true;
-            target.GameCharacter.AddIntelligence(-lost, SilentHero, isLog: false);
-            target.Status.AddInGamePersonalLogs($"Вы стали крабом. -{lost} Интеллекта\n");
+            if (!Madara.HasReanimatedBody(target.GameCharacter))
+                target.GameCharacter.IntelligenceCappedAtZero = true;
+            target.GameCharacter.AddIntelligence(-intelligenceBefore, SilentHero, isLog: false);
+            var intelligenceLost = intelligenceBefore - target.GameCharacter.GetIntelligence();
+            target.Status.AddInGamePersonalLogs(
+                $"Вы стали крабом. -{intelligenceLost} Интеллекта\n");
         }
 
         ApplyAllZombiesPenalty(game, gordon);
@@ -288,6 +292,7 @@ public static class GordonFreeman
 
         var halfLife = player.Passives.Gordon.HalfLife;
         halfLife.Announced = true;
+        halfLife.AnnouncementLogPending = true;
         halfLife.ReleaseRound = game.RoundNo + 1;
         halfLife.ActionSubmittedThisRound = true;
         halfLife.AttemptItachiThiefIds.Clear();
@@ -297,9 +302,21 @@ public static class GordonFreeman
         player.Status.WhoToAttackThisTurn.Clear();
         player.Status.IsReady = true;
         player.Status.IsAbleToChangeMind = false;
-        game.AddGlobalLogs(HalfLifeAnnouncement);
         game.StateRevision++;
         return true;
+    }
+
+    public static void PublishHalfLifeAnnouncementAtTurnStart(
+        GamePlayerBridgeClass player,
+        GameClass game)
+    {
+        if (player?.GameCharacter?.Name != CharacterName || game == null) return;
+
+        var halfLife = player.Passives.Gordon.HalfLife;
+        if (!halfLife.AnnouncementLogPending) return;
+
+        halfLife.AnnouncementLogPending = false;
+        game.AddGlobalLogs(HalfLifeAnnouncement);
     }
 
     public static bool PrepareHalfLifeSettlement(GameClass game)
@@ -322,7 +339,9 @@ public static class GordonFreeman
             : halfLife.SuperMultiplierDisabled
                 ? halfLife.OrdinarySettlement
                 : CalculateHalfLifePoints(halfLife.RawPoints);
-        halfLife.SettlementOverride = halfLife.FinalPoints;
+        // Ordinary round points always keep the normal ×1/×2/×4 settlement. HL3 contributes
+        // only a flat release profit or postponement cost after that multiplication.
+        halfLife.SettlementAdjustment = 0;
 
         if (halfLife.Exponent >= 3)
         {
@@ -343,11 +362,11 @@ public static class GordonFreeman
         }
 
         var failureCalculation = halfLife.SuperMultiplierDisabled
-            ? $"Подсчет отключил расчет степени: начислено {halfLife.FinalPoints} обычных очков."
-            : $"{halfLife.RawPoints}^{halfLife.Exponent} = {halfLife.FinalPoints} обычных очков.";
+            ? "Подсчет отключил расчет степени: профит релиза = 0; обычные очки начисляются отдельно с ×1."
+            : $"{halfLife.RawPoints}^{halfLife.Exponent} = {halfLife.FinalPoints} — потенциальный итог при релизе.";
         var failureCalculationEnglish = halfLife.SuperMultiplierDisabled
-            ? $"Counting disabled the power calculation: {halfLife.FinalPoints} regular points awarded."
-            : $"{halfLife.RawPoints}^{halfLife.Exponent} = {halfLife.FinalPoints} regular points.";
+            ? "Counting disabled the power calculation: release profit is 0; regular points settle separately at ×1."
+            : $"{halfLife.RawPoints}^{halfLife.Exponent} = {halfLife.FinalPoints}, the potential release total.";
         game.AddGlobalLogs(PhrasePayload.Encode(
             HalfLife3,
             $"{HalfLifeFailure}\n{failureCalculation}",
@@ -393,17 +412,19 @@ public static class GordonFreeman
         halfLife.PendingReleaseConfirmation = false;
         gordon.Passives.AchievementTracker.GordonHalfLifeReleased = true;
         halfLife.ReleaseBonusPoints = Math.Max(0, halfLife.FinalPoints - halfLife.OrdinarySettlement);
+        halfLife.SettlementAdjustment = halfLife.ReleaseBonusPoints;
         halfLife.ReleaseItachiThiefIds = new HashSet<Guid>(halfLife.AttemptItachiThiefIds);
+        CreditReleaseProfitToItachi(gordon, game, halfLife.ReleaseBonusPoints);
         var releaseCalculation = halfLife.SuperMultiplierDisabled
-            ? $"Подсчет отключил расчет степени: начислено {halfLife.FinalPoints} обычных очков."
-            : $"{halfLife.RawPoints}^{halfLife.Exponent} = {halfLife.FinalPoints} обычных очков.";
+            ? "Подсчет отключил расчет степени: профит релиза = 0; обычные очки начисляются с ×1."
+            : $"{halfLife.RawPoints}^{halfLife.Exponent} = {halfLife.FinalPoints} — итог очков при релизе.";
         game.AddGlobalLogs(PhrasePayload.Encode(
             HalfLife3,
             releaseCalculation,
             "Half-Life 3",
             halfLife.SuperMultiplierDisabled
-                ? $"Counting disabled the power calculation: {halfLife.FinalPoints} regular points awarded."
-                : $"{halfLife.RawPoints}^{halfLife.Exponent} = {halfLife.FinalPoints} regular points."));
+                ? "Counting disabled the power calculation: release profit is 0; regular points settle at ×1."
+                : $"{halfLife.RawPoints}^{halfLife.Exponent} = {halfLife.FinalPoints}, the release total."));
         game.HalfLifeReleaseSerial++;
         game.StateRevision++;
     }
@@ -424,17 +445,9 @@ public static class GordonFreeman
     public static decimal ProjectRegularSettlement(GamePlayerBridgeClass player, GameClass game)
     {
         var raw = player.Status.GetScoresToGiveAtEndOfRound();
-        if (!Is(player)) return raw * player.Status.GetRoundScoreMultiplier(game);
-
-        var state = player.Passives.Gordon;
-        var halfLife = state.HalfLife;
-        if (!halfLife.Announced || halfLife.Finished || halfLife.ReleaseRound != game.RoundNo)
-            return raw * player.Status.GetRoundScoreMultiplier(game);
-        if (state.AllZombiesPenaltyRound == game.RoundNo)
+        if (Is(player) && player.Passives.Gordon.AllZombiesPenaltyRound == game.RoundNo)
             return 0;
-        if (player.Status.IsRoundScoreMultiplierDisabledByTolya(game))
-            return raw * player.Status.GetRoundScoreMultiplier(game);
-        return CalculateHalfLifePoints(raw);
+        return raw * player.Status.GetRoundScoreMultiplier(game);
     }
 
     public static void MarkCurrentAttemptStolenByItachi(
@@ -484,7 +497,7 @@ public static class GordonFreeman
                 }
                 else
                 {
-                    halfLife.SettlementOverride = halfLife.FinalPoints - cost;
+                    halfLife.SettlementAdjustment = -cost;
                     halfLife.Postponements++;
                     halfLife.ReleaseRound = game.RoundNo + 1;
                     halfLife.AttemptItachiThiefIds.Clear();
@@ -530,13 +543,39 @@ public static class GordonFreeman
             halfLife.PendingReleaseConfirmation ? "release" : "freeze");
     }
 
-    public static decimal? ConsumeSettlementOverride(GamePlayerBridgeClass player)
+    public static decimal ConsumeSettlementAdjustment(GamePlayerBridgeClass player)
     {
-        if (!Is(player)) return null;
+        if (!Is(player)) return 0;
         var halfLife = player.Passives.Gordon.HalfLife;
-        var value = halfLife.SettlementOverride;
-        halfLife.SettlementOverride = null;
+        var value = halfLife.SettlementAdjustment;
+        halfLife.SettlementAdjustment = 0;
         return value;
+    }
+
+    private static void CreditReleaseProfitToItachi(
+        GamePlayerBridgeClass gordon,
+        GameClass game,
+        decimal releaseProfit)
+    {
+        if (releaseProfit <= 0) return;
+
+        foreach (var thiefId in gordon.Passives.Gordon.HalfLife.AttemptItachiThiefIds)
+        {
+            var itachi = game.PlayersList.Find(player =>
+                player.GetPlayerId() == thiefId
+                && !player.Passives.IsDead
+                && player.GameCharacter.Passive.Any(passive =>
+                    passive.PassiveName == "Глаза Итачи"));
+            if (itachi == null) continue;
+
+            var tsukuyomi = itachi.Passives.ItachiTsukuyomi;
+            itachi.Status.AddBonusPoints(releaseProfit, "Глаза Итачи");
+            tsukuyomi.TotalStolenPoints += releaseProfit;
+            tsukuyomi.StolenFromPlayers.TryGetValue(
+                gordon.GetPlayerId(), out var alreadyStolen);
+            tsukuyomi.StolenFromPlayers[gordon.GetPlayerId()] =
+                alreadyStolen + releaseProfit;
+        }
     }
 
     public static string GetFreezeLabel(State state) =>

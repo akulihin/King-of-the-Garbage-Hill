@@ -127,6 +127,8 @@ public class InGameStatus
     public List<ScoreEntry> PreviousRoundScoreEntries { get; set; } = new();
     public int ActualRoundMultiplier { get; set; } = 1;
     public int ExpectedRoundMultiplier { get; set; } = 1;
+    public bool WasRoundScoreMultiplierReducedByTolya { get; set; }
+    public decimal LifetimeAbilityPointsEarned { get; private set; }
     public Guid IsFighting { get; set; }
     private decimal ScoresToGiveAtEndOfRound { get; set; }
     private decimal BonusPointsEarnedThisRound { get; set; }
@@ -143,6 +145,11 @@ public class InGameStatus
     public CharacterClass GameCharacter { get; set; }
     public int TimesUpdated { get; set; }
     public int RoundNumber { get; set; }
+    /// <summary>
+    /// True from the round snapshot until every fight in that calculation has resolved.
+    /// Result-driven transformations must wait until this simultaneous batch is complete.
+    /// </summary>
+    public bool IsFightBatchActive { get; set; }
 
     //Real and Temp stats are used only for Round Mechanics (Fighting). They are used mostly to "ignore" or "swap" characteristics during one fight!
     public bool IsIntelligenceForOneFight { get; set; } = false;
@@ -328,17 +335,27 @@ public class InGameStatus
     }
 
     public decimal GetPreviousRoundAbilityPoints()
+        => GetAbilityPoints(PreviousRoundScoreEntries, ActualRoundMultiplier);
+
+    public decimal GetLifetimeAbilityPoints(GameClass game)
+        => LifetimeAbilityPointsEarned
+           + GetAbilityPoints(ScoreEntries, GetRoundScoreMultiplier(game));
+
+    private static decimal GetAbilityPoints(
+        IEnumerable<ScoreEntry> entries,
+        int regularMultiplier)
     {
-        var bonusPoints = PreviousRoundScoreEntries
+        var entryList = entries.ToList();
+        var bonusPoints = entryList
             .Where(entry => entry.IsBonus && !entry.IsNaturalWin && entry.Points > 0)
             .Sum(entry => entry.Points);
-        var regularPoints = PreviousRoundScoreEntries
+        var regularPoints = entryList
             .Where(entry => !entry.IsBonus
                             && !entry.IsNaturalWin
                             && (entry.Points > 0 || entry.Source == GordonFreeman.HalfLife3))
             .Sum(entry => entry.Points);
 
-        return bonusPoints + Math.Max(0, regularPoints) * ActualRoundMultiplier;
+        return bonusPoints + Math.Max(0, regularPoints) * regularMultiplier;
     }
 
     public int GetRoundScoreMultiplier(GameClass game)
@@ -398,6 +415,7 @@ public class InGameStatus
         ScoreSource = "";
         ScoreEntries.Clear();
         PreviousRoundScoreEntries.Clear();
+        WasRoundScoreMultiplierReducedByTolya = false;
     }
 
     public void AddSettledScore(decimal score, string reason)
@@ -411,7 +429,9 @@ public class InGameStatus
             $"+{score} points added to the final score.") + "\n");
     }
 
-    public void CombineRoundScoreAndGameScore(GameClass game, decimal? regularScoreOverride = null)
+    public void CombineRoundScoreAndGameScore(
+        GameClass game,
+        decimal halfLifeSettlementAdjustment = 0)
     {
         // Expected multiplier (before any passive overrides)
         ExpectedRoundMultiplier = game.RoundNo switch
@@ -422,28 +442,46 @@ public class InGameStatus
         };
 
         // Actual multiplier (after passive overrides) + snapshot
-        ActualRoundMultiplier = regularScoreOverride.HasValue ? 1 : GetRoundScoreMultiplier(game);
+        var multiplierDisabledByTolya = IsRoundScoreMultiplierDisabledByTolya(game);
+        var ordinaryRoundMultiplier = GetRoundScoreMultiplier(game);
+        WasRoundScoreMultiplierReducedByTolya =
+            multiplierDisabledByTolya && ordinaryRoundMultiplier < ExpectedRoundMultiplier;
+        ActualRoundMultiplier = ordinaryRoundMultiplier;
         PreviousRoundScoreEntries = new List<ScoreEntry>(ScoreEntries);
         ScoreEntries.Clear();
 
         var rawScore = GetScoresToGiveAtEndOfRound();
-        if (regularScoreOverride.HasValue)
+        if (halfLifeSettlementAdjustment != 0)
         {
             PreviousRoundScoreEntries.Add(new ScoreEntry
             {
                 Source = GordonFreeman.HalfLife3,
-                Points = regularScoreOverride.Value - rawScore,
-                IsBonus = false,
+                Points = halfLifeSettlementAdjustment,
+                IsBonus = true,
             });
-            AddScoreWithMultiplier(regularScoreOverride.Value, 1);
         }
-        else
-        {
-            AddScoreWithMultiplier(rawScore, ActualRoundMultiplier);
-        }
+
+        LifetimeAbilityPointsEarned += GetAbilityPoints(
+            PreviousRoundScoreEntries,
+            ActualRoundMultiplier);
+        AddScoreWithMultiplier(rawScore, ActualRoundMultiplier);
+        ApplyFlatSettlementAdjustment(
+            halfLifeSettlementAdjustment,
+            GordonFreeman.HalfLife3);
         SetScoresToGiveAtEndOfRound(0, "", false);
         BonusPointsEarnedThisRound = 0;
         ScoreSource = "";
+    }
+
+    private void ApplyFlatSettlementAdjustment(decimal score, string source)
+    {
+        if (score == 0 || score < 0 && UnknownBug.Is(GameCharacter)) return;
+
+        var sign = score > 0 ? "+" : "";
+        AddInGamePersonalLogs($"{source}: {sign}{score} **очков**\n");
+        Score += score;
+        if (Score < 0 && GameCharacter.Passive.All(x => x.PassiveName != "Никому не нужен"))
+            Score = 0;
     }
 
     private void AddScoreWithMultiplier(decimal score, int multiplier)

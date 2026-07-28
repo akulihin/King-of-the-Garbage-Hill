@@ -1,6 +1,6 @@
 # Balance Constants — every tunable number with its code anchor
 
-> Hand-maintained. **Update the row when you change the number** (and re-run `tools/audit-passives.sh` for name changes). Verified against the working tree of 2026-07-26 (v5.1.21). `CP` = `Game/GameLogic/CharacterPassives.cs`, `CC` = `Game/Classes/CharacterClass.cs`, `DM` = `Game/GameLogic/DoomsdayMachine.cs`, `CIR` = `Game/GameLogic/CheckIfReady.cs`, `GR` = `Game/ReactionHandling/GameReactions.cs`.
+> Hand-maintained. **Update the row when you change the number** (and re-run `tools/audit-passives.sh` for name changes). Verified against the working tree of 2026-07-27 (v5.1.36). `CP` = `Game/GameLogic/CharacterPassives.cs`, `CC` = `Game/Classes/CharacterClass.cs`, `DM` = `Game/GameLogic/DoomsdayMachine.cs`, `CIR` = `Game/GameLogic/CheckIfReady.cs`, `GR` = `Game/ReactionHandling/GameReactions.cs`.
 >
 > RNG note: `Luck(x)` ≈ x%, `Luck(a,b)` ≈ a-in-b (rounded to whole %); see `Helpers/SecureRandom.cs:35-45`.
 
@@ -11,7 +11,7 @@
 | Nemesis weighing bonus | ±2 | :83, :90 |
 | Nemesis skill multiplier (attacker side) | ×1.5 | :79 |
 | Scale: skill contribution divisor | /60 | :130-131 |
-| Versatility bonus (majority of Int/Str/Speed) | ±5 | :171, :181 |
+| Versatility bonus | ±5 to the player winning more Int/Str/Speed comparisons; at 1–1 with the third tied, ±5 follows the won-stat RPS Int>Speed>Str>Int | `CalculateRounds.CalculateStep1` versatility block |
 | Psyche-diff weighing | 1–3→±1, 4–5→±2, ≥6→±4 | :200-220 |
 | TooGOOD threshold / effect | \|weighing\| ≥ 13 → randomForPoint = 70 / 30 | :228-251 |
 | Skill-difference divisor | /650 | :268-272 |
@@ -20,7 +20,8 @@
 | Step-3 random base | roll 1..100 vs 50 base | :63, :446 |
 | Step-3 justice window shrink | (myJ×nemesis − targetJ) × 5, when either J > 1 | :447-452 |
 | Skill random modifier | (mySkill − targetSkill)/60, uncapped | :370-374 |
-| IsAbleToWin override | ±50 pointsWined | DM:623-632 |
+| Ordinary `IsAbleToWin` override / collision | ±50 `pointsWined`; equal opposite forces cancel into normal fight math | `DoomsdayMachine` forced-outcome block |
+| unknown_bug terminal AutoWin priority | ±666 from the Bug's perspective, after ordinary result replacers | `UnknownBug.AutoWinPriority`; `DoomsdayMachine` terminal outcome |
 
 ## Score, rounds, game flow
 
@@ -29,7 +30,7 @@
 | Rounds / game end | 10 normal fight rounds; a human-Kratos r10 fight loss or fatal Kira note with his revive available starts exactly six event actions on r11-16; ends early when Kratos/all enemies die; hard safety cap 20 | `CharacterPassives.StartKratosEvent`; `CheckIfReady.TickAsync`; CP «Возвращение из мертвых» |
 | Regular-point round multiplier | r1-4 ×1, r5-9 ×2, r10 ×4 | `InGameStatusClass.cs` `GetRoundScoreMultiplier` |
 | Score floor / exceptions | regular + bonus floor at 0; HardKitty may go negative; Kira arrest and Geralt pitchfork explicitly apply true −500 through the floor | `InGameStatusClass` `AddBonusPointsCore`/`AddScoreWithMultiplier`/`AddBonusPointsIgnoringFloor` |
-| Джон Сноу royal bonus multiplier / score floor | Король Сервера doubles every positive or negative bonus mutation ×2 before the ordinary floor; blocked at place 4 | `InGameStatusClass.AddBonusPointsCore`; `JonSnow.IsKingActive` |
+| Джон Сноу royal bonus multiplier / score floor | Король Сервера doubles every positive or negative bonus mutation ×2 before the ordinary floor; blocked at place 4; a 228-Skill transition during combat is deferred until all main/Нечто results are fixed | `InGameStatusClass.AddBonusPointsCore`; `JonSnow.IsKingActive`; `DoomsdayMachine.CalculateAllFights` |
 | Level-up rounds | 3, 5, 7, 9 (+1 point each) | DM:1375-1379 |
 | Turn length | 300 s default; ARAM round 2+ = 300 s | GameClass.cs:13, DM:1260-1263 |
 | Block: attacker cost / defender gain | −1 bonus point / +1 next-round justice | DM:489-491 |
@@ -129,7 +130,7 @@ The full 12-contract catalog, selection, privacy and migration rules are in [DAI
 | Constant | Value | Anchor |
 |---|---|---|
 | Battleship first win of the UTC day | 10 ZBS; once per account/day after combat starts | BattleshipService.cs:15-16,75-95 |
-| Battleship combo-hit response window | After a hit that preserves the shooter's turn: 8 seconds whenever the board that lost the deck belongs to a human, 2 seconds when it belongs to a bot. 0 after a miss, a turn-ending shot or a finished game. Not conditioned on whether the defender can actually deploy a summon | `BattleshipService.ComboHitDelay`/`FastComboHitDelay`/`ApplyComboShotDelay`; `GameHub.RunBattleshipBotPump` |
+| Battleship combo-hit response window | After a hit that preserves the shooter's turn: 8 seconds only when the defending board belongs to a human who can legally deploy at least one summon at that state boundary; otherwise 2 seconds. 0 after a miss, a turn-ending shot or a finished game | `BattleshipService.ComboHitDelay`/`FastComboHitDelay`/`CanDeployAnySummon`/`ApplyComboShotDelay`; `GameHub.RunBattleshipBotPump` |
 
 ## Achievement & loot-box rewards
 
@@ -157,7 +158,7 @@ Achievement progress targets and the complete 110-entry rule catalog are in [ACH
 | Resist pool by stat | 0-3→1, 4-7→2, ≥8→3 (Speed ≥8→**5**) | CC:459-509 |
 | Stat-10 bonus flags | +10% skill / +1 drop pierce / +1 kite / +20% moral | CC:469, 482, 495, 508 |
 | Harm effects | −1 Int/Psyche/Str pools; Str 10 attacker pierces Str −2 | CC:232-284 |
-| Pool break penalties | Int −10% Skill; Psyche −20% Moral; Str → Drop | CC:287-323 |
+| Pool break penalties / multiplier floors | Int −10% Skill; Psyche −20% Moral; Str → Drop. Skill-quality and Moral-quality multipliers floor at 0 and never invert | `CharacterClass.GetIntelligenceQualitySkillBonus`/`GetPsycheQualityMoralBonus`; `LowerQualityResist` |
 | Drop cost | −1 bonus point + 1 slot down (place 6 immune) | CC:179-193, DM:1452-1485 |
 | Harm range | attacker Speed-resist − defender kite bonus ≥ place gap; round 1 Harm-free | DM:824-837, CC:198 |
 
@@ -172,7 +173,7 @@ Achievement progress targets and the complete 110-entry rule catalog are in [ACH
 | Tier pity | +3% per game without that tier; reset round 2 | StartGameLogic.cs:181-182, CIR:1317-1324 |
 | Bot rules | tier 4 ×3; no tier <4 except Кира at ½ tier-1 range | StartGameLogic.cs:177-179 |
 | Top Laner decay | ×1.0 → −0.2 per Top Laner rolled (floor 0) | StartGameLogic.cs:180, 172-177 |
-| Exclusivity | LeCrisp ⊕ Толя and HardKitty ⊕ Эрен Йегер across natural, guaranteed, draft and admin-test roster assignments; single Tier-4 per game; no repeat of last character | StartGameLogic.cs:47-60; WebGameService.cs:298-316,490-494,1194-1213 |
+| Exclusivity | LeCrisp ⊕ Толя ⊕ ScamRat pairwise, and HardKitty ⊕ Эрен Йегер, across natural, guaranteed, draft and admin-test roster assignments; single Tier-4 per game; no repeat of last character | `StartGameLogic.AreMutuallyExclusiveCharacters`; `WebGameService` guaranteed/draft/test assignment paths |
 | Naruto roster eligibility | FFA only; human original requires ≥2 strict bots, bot original requires ≥3 strict bots total; exactly 2 become clones | `StartGameLogic.cs` `CanNaturallyRollNaruto`; `Naruto.cs` `CanUseRoster`, `InitializeTeam` |
 
 ## Per-character numbers
@@ -184,15 +185,17 @@ Achievement progress targets and the complete 110-entry rule catalog are in [ACH
 | Homelander | Праведность laser | next attack at 100% auto-wins, grants Homelander +10 Moral and adds 2 guaranteed Drops; once per enemy | `Homelander.ArmLaser`/`ApplyLaserDrops`; `LaserMoral` |
 | Homelander | Башня Vought | unique enemy positive-income leader −1 bonus; unique Homelander leader receives one extra copy of every positive score entry earned that turn | `Homelander.ApplyVoughtTower` |
 | Homelander | Молоко | +1 regular after first attack on HardKitty | `Homelander.TryMilk` |
-| Omni-man | base stats / Tier | Int 1, Str 10, Speed 10, Psyche 6; Tier 3 | `characters.json` Omni-man |
-| Omni-man | Подумай, Марк! check / payout | target resists at Omni-man Int +2; first failure per enemy pays +3 bonus | `OmniMan.IntelligenceAdvantageToResist`/`IntelligenceBattlePoints`; `HandleIntelligenceWin` |
+| Omni-man | base stats / Tier | Int 2, Str 10, Speed 10, Psyche 6; Tier 2 | `characters.json` Omni-man |
+| Omni-man | Подумай, Марк! check / payout | target resists at Omni-man Int +2; unique failures pay 5/4/3/2/1 bonus in conversion order, minimum 1 | `OmniMan.IntelligenceAdvantageToResist`/`IntelligenceBattleInitialPoints`/`IntelligenceBattleMinimumPoints`; `HandleIntelligenceWin` |
 | Omni-man | invasion delay / deadline | triggers after 1 further full turn; scheduling disabled from turn 10, so turn 9 → end of turn 10 is the latest path | `OmniMan.EvaluateInvasion`/`TryTriggerInvasion` |
 | Omni-man | Стражи Земли | one unique strictly-positive net-delta enemy maximum sleeps for 1 following turn; turns 1–9 only | `OmniMan.ApplyGuardiansOfTheGlobe` |
-| Omni-man | Частица нашей силы | each incoming enemy attack grants its attacker +10 Skill | `OmniMan.SkillPerIncomingAttack`; `HandleEnemyAttack` |
-| Omni-man | Подземный Поезд | once per match; 4 Drops; each crossed enemy loses ceil(10% current score), min 1, and Omni-man gains the nominal amount | `OmniMan.UndergroundTrainDrops`/`UndergroundTrainStealPercent`; `HandleUndergroundTrainWin` |
+| Omni-man | Частица нашей силы | each incoming enemy attack grants its attacker +20 Skill | `OmniMan.SkillPerIncomingAttack`; `HandleEnemyAttack` |
+| Omni-man | Подземный Поезд | once per match; 4 Drops; each crossed enemy loses ceil(20% current score) and ceil(20% current Moral), each min 1; Omni-man gains both nominal amounts | `OmniMan.UndergroundTrainDrops`/`UndergroundTrainStealPercent`; `HandleUndergroundTrainWin` |
 | ScamRat | base stats / Tier | Int 4, Str 2, Speed 8, Psyche 8; Tier 6 | `characters.json` ScamRat |
 | ScamRat | Взрывной майнинг! sale | inclusive roll 3–10; succeeds when roll > defeated enemy fight Int; exact 1 bonus transferred; −1 maximum Justice; once per enemy | `ScamRat.IntelligenceCheckMinimum`/`IntelligenceCheckMaximum`/`SaleBonusPoints`/`JusticeCapLossPerSale`; `TrySellGpu` |
 | ScamRat | Взрывной майнинг! explosion | Block detonates every active card; steals previous settled round's positive non-natural-win ability income at the victim's actual previous multiplier | `ScamRat.ExplodeOnBlock`; `InGameStatus.GetPreviousRoundAbilityPoints`; `ScoreEntry.IsNaturalWin` |
+| ScamRat | Sharing is CARRYING! redirect / currency | redirect each co-attacker's 1 raw natural win point when at least one other enemy attacks the target and every other enemy attacker's persistent four-stat total is strictly below ScamRat's; +1 Carry token per redirected point | `ScamRat.CarryPointsPerStolenWin`/`CanCarryJointWin`/`RecordCarryStolenWin`; `CharacterPassives.HandleJews` |
+| ScamRat | Sharing is CARRYING! stat shop | no scheduled round 3/5/7/9 level-up points; 1 Carry token buys +1 Int/Str/Speed/Psyche up to 10; purchases do not consume or block the turn | `ScamRat.CarryStatCost`/`TryPurchaseStat`; `DoomsdayMachine` scheduled level-ups; `WebGameService.LevelUp`; `GameReactions.HandleLvlUp` |
 | Ктулху | Морок bonus steal | victim −1 / Вестник +1 immediate bonus point; unknown_bug exempt | `Cthulhu.HandleResolvedFight` |
 | Ктулху | Нечто isolated fight stats / Justice | 10 / 10 / 10 / 10; Justice 0 | `Cthulhu.ResolveNechtoAttacks` |
 | Ктулху | Нечто victory reward | +2 regular points (then ×1/×2/×4 by round); round-8 waiting Мадара cannot submit the event attack | `Cthulhu.SubmitNechtoAttack`/`ResolveNechtoAttacks` |
@@ -207,14 +210,14 @@ Achievement progress targets and the complete 110-entry rule catalog are in [ACH
 | Глеб | Сон / Претендент | 2(+≤2) sleeps (−30 Skill); Претендент: stats 9, +99 Skill, Мишень ×3, points ×3; round-10 pity 1/(40−place×4) | PassivesClass.cs:44-61, CP:5217-5301, 3422-3453 |
 | Глеб | Чай | ready 1/8 (1/7 chall., 1/4 Rick), guaranteed r9; +1 regular, target skips | CP:5145-5215, 1166-1177 |
 | LeCrisp | Ассассины | surrender at Str diff ≥ 3; +1 Psyche/next-round per non-assassin | CP:527-546, 776-784 |
-| LeCrisp | Импакт | +1 bonus +1 J per clean round; wins +(streak+1) Moral; Speed-resist 6 / kite 2 | CP:3560-3576, 2619-2628, CC:396-442 |
+| LeCrisp | Импакт | +1 bonus +1 J per clean round; wins +(streak+1) Moral; Speed-resist 6; kite **+2 additive** with Speed-10/other sources | CP:3560-3576, 2619-2628; `CharacterClass.GetSpeedQualityResistInt`/`GetSpeedQualityKiteBonus` |
 | Толя | Раммус | +1 J, Moral = attackers² | CP:3642-3679 |
 | Толя | Подсчет | initial cd 2-3; recharge 4-5 (⚠ m8); +2 regular +2 J per target loss; target ×1 multiplier | PassivesClass.cs:31, CP:1123-1131, 2298-2312 |
 | Толя | Комментатор | rounds 3-6, 20%/round, max 2 reveals | CP:3578-3640 |
 | HardKitty | Одиночество | −30 score at start; +1 regular per attack; letters 1/2/4 by round | CP:201-210, 517-553 |
 | HardKitty | Доебаться | stacks ×2 regular on cash-in; ≥7 stacks +10 | CP:2723-2741 |
-| Sirinoks | Обучение | +1 stat/round; completion +3 Moral +10% Skill | CP:3688-3759 |
-| Sirinoks | Дракон | stats 10; +1 live Justice; bonus = Skill/10 − friends below | CP:6209-6244 |
+| Sirinoks | Обучение | +1 stat/round; completion +3 Moral +70 flat Skill | `Sirinoks.TrainingSkillReward`; CP:4376-4403 |
+| Sirinoks | Дракон | stats 10; no Justice grant; bonus = Skill/10 − friends below; at Skill ≥ 228 blocks every non-Bug opponent autowin | `Sirinoks.DragonAutowinProtectionSkill`; CP:6254-6287; DM:673-686,1035-1142 |
 | Школьник | Дерзкая школота | +100 Skill start; −20 Skill & −2 random stats/round | CP:227-233, 3807-3847 |
 | Школьник | Запах мусора | −5 bonus per double-attacker after r10 | CP:5979-6002 |
 | Школьник | Школьник | 1 forced skip in rounds 2-9; +5 next-round J | PassivesClass.cs:39, CP:4990-5006 |
@@ -249,10 +252,11 @@ Achievement progress targets and the complete 110-entry rule catalog are in [ACH
 | Сайтама | Неприметность | serious = top-2 by Skill (recomputed each round); off at r10 | CP:284-293, 3933-3942 |
 | Мадара | base / rarity | Int 7, Str 9, Speed 10, Psyche 9; Tier 2 | characters.json:1557-1595 |
 | Мадара | Бог шиноби thresholds | >1 unique attacker: TooGOOD; >2: TooSTONK; >3: fight Skill = 100; >4: fight Skill = 200 | `Madara.GetGodOfShinobiSkill`; CP:527-532,1212-1216 |
+| Мадара | Воскрешенное тело / Вкус битвы | may deal ordinary attacker Harm; rejects every negative persistent/one-fight stat mutation except Морок; each non-team Madara win at Madara-oriented Step-1 weighting ≤10 gives +1 immediate bonus point | `Madara.BattleTasteMaxMadaraAdvantage`/`BlocksStatLoss`/`RewardBattleTaste`; DM `CalculateAllFights` |
 | Мадара | Второй метеорит | blocked attack: no −1 bonus; +2 regular; blocker's real Justice set to 0 instead of the ordinary +1 block grant (outranks Близнец) | DM `CalculateAllFights` block path; `JusticeClass.SetRealJusticeNow` |
-| Мадара | Клоны Сусано r7 autowin | round 7: every Madara fight is his win, applied last in the terminal outcome chain (unknown_bug's invariant is the sole exception); his attack gets Block/Skip-break and cannot be canceled by Гарем но джутсу; his own Block/Skip still prevents a fight | `Madara.IsRoundSevenAutoWin`; DM terminal outcome chain; `Naruto.ResolveHaremQueues`/`TryCancelHaremFights` |
-| Мадара | Клоны Сусано r8 | round 8; live strict-bot reaction delay 30 s; every strict bot with an ordinary prediction sheet fills exact Madara; strict-bot Наруто/Sakura/Итачи also attack at every level; +1 live Justice at >2 unique attackers; seal at all 5 unique + ≥5 losses | `Madara.RoundEightBotReactionDelaySeconds`; `Madara.ForceRoundEightBotPrediction`; `Madara.MustAcceptRoundEightBotChallenge`; `Madara.RefreshIncomingEffects` |
-| Мадара | Страх перед Мадарой | −2 bonus points on round 9 to every living enemy with zero resolved round-8 fights against Madara (hidden; a score source, not a passive) | `Madara.FearOfMadaraPenalty`; `Madara.ResolveRoundNine`; `Madara.RecordResolvedFight` |
+| Мадара | Клоны Сусано r7 autowin | round 7: every Madara fight is his win, applied last in the terminal outcome chain (unknown_bug's invariant is the sole exception); his attack gets Block/Skip-break and resolves through Гарем но джутсу without donating; his own Block/Skip still prevents a fight | `Madara.IsRoundSevenAutoWin`; DM terminal outcome/Skip chain; `Naruto.HaremSkipAppliesTo` |
+| Мадара | Клоны Сусано r8 | round 8; live strict-bot reaction delay 30 s; from r8 onward every strict bot at every AI level with an ordinary prediction sheet is forced to keep exact Madara over every other prediction path; strict-bot Наруто/Sakura/Итачи also attack at every level; +1 live Justice at >2 unique attackers; seal at all 5 unique + ≥5 losses | `Madara.RoundEightBotReactionDelaySeconds`; `Madara.EnforcePostRoundSevenBotPrediction`; `Madara.MustAcceptRoundEightBotChallenge`; `Madara.RefreshIncomingEffects` |
+| Мадара | Страх перед Мадарой | −5 bonus points on round 9 to every living enemy with zero resolved round-8 fights against Madara; −1 on each round 9–10 calculation to every living enemy whose final queue does not attack Madara (hidden score source; late penalty off while Madara is sealed/dead) | `Madara.FearOfMadaraPenalty`/`FearOfMadaraLateTurnPenalty`; `Madara.ResolveRoundNine`/`ApplyLateTurnFear` |
 | Мадара | Вечное Цукуеми | arm at all 5 unique attackers in one turn, an unbeaten round-8 event (≥1 win, 0 losses) or place 1 entering r10; authoritative r10 skips every ordinary player, while unknown_bug and reserved-Wake Gordon retain real actions; fooled-viewer bonus = max living score − viewer score + 1 (0 if sole winner) | `Madara.PrepareEternalTsukuyomiRound`; `Madara.ResolveRoundNine`; `Madara.GetIllusoryBonus`; `UnknownBug.Is` |
 | Рик | Пушка | invention Int ≥ 30; +1 charge/lvl-up; fired round ×2 regular points | GR:1155-1165, CP:4042-4066 |
 | Рик | Бобы | stack: −1 Str/Speed/Psyche, Int = base×stacks; ≤3 ingredients per lvl-up | CP:2100-2116, GR:1174-1202 |
@@ -317,22 +321,22 @@ Achievement progress targets and the complete 110-entry rule catalog are in [ACH
 | Эрен Йегер | Атакующий Титан | off-cooldown block removed; +5 each stat per fight for the turn; no incoming target → −2 Psyche; cooldown 1 full next turn | DM:282-294; CP:62-72,517-521,1119-1123,3739-3758 |
 | Эрен Йегер | Titan audio roll | `use_most` 50%; files 1–3 split the other 50% uniformly | sound.ts:1002-1006 |
 | Эрен Йегер | Rumbling gate / reach | round 10; only if no Monster exists, every acting bot below Eren (including place 6) must attack selectable Eren; fewer than 2 losses **during round 10 only**; kills projected places strictly between Eren and place 6 | `BotsBehavior.TryForceRoundTenBossAttack`; CP:2662-2667,3672-3718; ErenYeager.cs:38-53 |
-| Наруто | base / rarity | Int 3, Str 3, Speed 4, Psyche 5; Tier 5 | characters.json:1449-1483 |
-| Наруто | Гарем но джутсу | original-only Block replacement while ready; +1 regular and «Техника соблазнения!» per enemy converted into Skip (not per canceled queued fight); cooldown 2 full following turns after every use | `Naruto.cs` `ResolveHaremQueues`, `RewardHaremSkip`, `TryCancelHaremFights`; CP `HandleEndOfRound` |
+| Наруто | base / rarity | Int 3, Str 3, Speed 4, Psyche 5; Tier 5 | characters.json:1521-1555 |
+| Наруто | Гарем но джутсу | original-only Block→Skip replacement while ready; clears Naruto's own action, not attackers' other fights; each ordinary attacker donates once per use: `ceil(lifetime ability points × 20%)`, minimum 1 bonus point; cooldown 2 full following turns | `Naruto.cs` `ResolveHaremQueues`, `HaremSkipAppliesTo`, `RewardHaremDonation`; `InGameStatus.GetLifetimeAbilityPoints`; CP `HandleEndOfRound` |
 | Наруто | Теневые / bot focus | 2 independent strict-bot clones; clones cannot Block and attack at every AI level (no legal target → Skip); sibling attacks illegal; living siblings are virtual L0/L1 action slots only for the original; target already queued by another living Naruto gets `+3` L1 interest or L2/L3 score; r10 settlement immediately after Rumbling; sibling prediction value 0; correct enemy predictions +1 projected once; clone score/death seats end at 0 / bottom two | `Naruto.cs:40-67`; `BotsBehavior.OtherNarutoTargets`; `GameReactions.cs:913-936` |
 | Наруто | Расенган | 2 joint attackers: summed Justice, +2 Str each, «РАСЕНГАН!»; 3: summed Justice, +3 Int/Str/Speed/Psyche each, «РАСЕНШУРИКЕН!!!!!!!!111» | CP:85-121; `Naruto.cs` `SnapshotJustice`, `GetJointAttackers` |
 | Наруто | Призыв | exactly 1 Naruto on target; prior-round loss to that target with target TooGOOD or TooSTONK → terminal auto-win, otherwise refusal only | `Naruto.cs` `IsSoloAttack`, `WonPoweredFightLastRound`; DM:880-899 |
 | Гордон Фримен | base / rarity / copy exclusions | Int 7, Str 2, Speed 3, Psyche 9; Tier 5; all 4 passives non-Standalone; complete kit excluded from ARAM and Бензопила | `characters.json` Гордон Фримен; `CharactersPull.GetAramPassives`; CP:2790-2793 |
 | Гордон Фримен | Монтировка | every 3rd resolved attack-or-defense fight is a terminal Gordon win; Gordon's submitted attacks calculate before incoming defences can spend the charge; no H.E.V. Justice-to-stat conversion | `GordonFreeman.BeginResolvedFight`; DM Gordon-first order/crowbar outcome override |
 | Гордон Фримен | headcrab schedule / rescue | 2 unique eligible targets before r1 and at starts r4/r7/r10; maturity after 3 turns (after r3/r6/r9 for batches that can mature); resolved Gordon attack rescue +3 bonus | `GordonFreeman.PlantInitialHeadcrabs`/`PlantHeadcrabs`/`MatureHeadcrabs`/`RescueHeadcrab` |
-| Гордон Фримен | zombie penalty | mature target loses all current persistent Int and persistent/one-fight Int stays capped at 0 for the game; only when all 5 other roster players are zombies, Gordon settled score = 0 and pending regular = 0; dead seats still count and any Краборак prevents the condition | `GordonFreeman.MatureHeadcrabs`/`ApplyAllZombiesPenalty`; `CharacterClass.IntelligenceCappedAtZero` |
+| Гордон Фримен | zombie penalty | mature target loses all current persistent Int and persistent/one-fight Int stays capped at 0 for the game; reanimated Madara becomes a zombie but loses 0 Int and receives no cap; only when all 5 other roster players are zombies, Gordon settled score = 0 and pending regular = 0; dead seats still count and any Краборак prevents the condition | `GordonFreeman.MatureHeadcrabs`/`ApplyAllZombiesPenalty`; `Madara.BlocksStatLoss`; `CharacterClass.IntelligenceCappedAtZero` |
 | Гордон Фримен | Просыпайтесь, мистер Фримен | 1 use/game; any living non-Kratos-event Skip or active Глаза Итачи target (wake cancels that target); optional r9 reserve only while Вечное Цукуеми is already armed preserves Gordon's real r10 action | `GordonFreeman.CanWake`/`Wake`/`CancelItachiEyes`; `Madara.IsEternalTsukuyomiActive`/`PrepareEternalTsukuyomiRound` |
-| Гордон Фримен | Halflife 3 | 1 announcement r3–r7 inclusive; attempt settlement `P^P` (3→27, 4→256); Подсчет disables it to ordinary ×1; success at `P ≥ 3`; first human success with transfers left offers one release/wait decision, then success auto-releases; Itachi steals transformed value, Octopus/Saitama ledgers retain ordinary value; failure timeout 20 s, bot auto-postpones; 3 flat-cost postponements at 1/2/3 points, unaffordable/next failure cancels | `GordonFreeman.AnnounceHalfLife3`/`PrepareHalfLifeSettlement`/`ProjectRegularSettlement`/`ResolveHalfLifeDecision` |
+| Гордон Фримен | Halflife 3 | 1 announcement r3–r7 inclusive; next turn opens with exact global `ВНИМАНИЕ! HilfLife3 был анонсирован!!!`; ordinary `P` always settles at ×1/×2/×4; actual release adds flat profit to reach `P^P` (3→27, 4→256), while waiting/failure awards no power profit; Подсчет leaves ordinary ×1/profit 0; success at `P ≥ 3`; first human success with transfers left offers one release/wait decision, then success auto-releases; Itachi steals ordinary value plus profit only on release; failure timeout 20 s, bot auto-postpones; postponements apply flat −1/−2/−3 after ordinary multiplication, unaffordable/next failure cancels | `GordonFreeman.AnnounceHalfLife3`/`PublishHalfLifeAnnouncementAtTurnStart`/`PrepareHalfLifeSettlement`/`ResolveHalfLifeDecision`; `InGameStatus.CombineRoundScoreAndGameScore` |
 | Джон Сноу | base / rarity / copy exclusions | Int 1, Str 4, Speed 5, Psyche 8; Tier 5; all 6 passives non-Standalone; complete kit excluded from ARAM and Бензопила | `characters.json` Джон Сноу; `CharactersPull.GetAramPassives`; CP Бензопила choice filter |
-| Джон Сноу | Тупой бастард / Король Сервера | Skill gains ×2; transformation at 228 effective Skill replaces the Bastard's list slot; toogood/toostronk wins +1/+2 Int until transformation; King bonus mutations ×2; score-sort floor at place 3 | `JonSnow.Initialize`/`TryBecomeKing`/`HandleResolvedFight`/`ApplyLeaderboardRules`; `InGameStatus.AddBonusPointsCore` |
+| Джон Сноу | Тупой бастард / Король Сервера | Skill gains ×2; transformation at 228 effective Skill replaces the Bastard's list slot, deferred across the main+Нечто combat batch; toogood/toostronk wins +1/+2 Int until transformation; King bonus mutations ×2; score-sort floor at place 3 | `JonSnow.Initialize`/`TryBecomeKing`/`HandleResolvedFight`/`ApplyLeaderboardRules`; `DoomsdayMachine.CalculateAllFights`; `InGameStatus.AddBonusPointsCore` |
 | Джон Сноу | Я Джон Сноу | current Justice added to all 4 fight stats; toogood +1 Justice/stats, toostronk +2 Justice/stats | `JonSnow.ApplyBaseJustice`/`ApplyDifficultyJustice` |
 | Джон Сноу | Еще один бастард | 2 lowest-Skill non-Jon players marked by the inverse of Сайтама's formula; first matching queued weak target redirects to Jon; redirected defence +1 Justice and +1 all stats | `JonSnow.RefreshWeakestPlayers`/`RedirectBastardAttacks`/`ApplyDifficultyJustice`; CP `Неприметность` |
-| Джон Сноу | Черный Замок | starts at marked place 4; exact hold for action rounds 1–3 and 3 action rounds on every re-entry; +1 bonus per **other** same-side player's resolved win, never Jon's own win and none while at place 4; King turns an eligible award into 2 royal points and logs 2 phrases | `JonSnow.BlackCastlePlace`/`BlackCastleTurns`; `FinalizeInitialPositions`/`AwardBlackCastleLoyalty`/`FinalizePositionEffects` |
+| Джон Сноу | Черный Замок | starts at marked place 4; exact hold for action rounds 1–3 and 3 action rounds on every re-entry; Eren crossing the cell to his forced place 6 preserves the hold; +1 bonus per **other** same-side player's resolved win, never Jon's own win and none while at place 4; King turns an eligible award into 2 royal points and logs 2 phrases | `JonSnow.BlackCastlePlace`/`BlackCastleTurns`; `FinalizeInitialPositions`/`IsHoldingBlackCastle`/`RestoreBlackCastlePosition`/`AwardBlackCastleLoyalty`/`FinalizePositionEffects`; `ErenYeager.MoveToLast` |
 | Джон Сноу | Мой дозор окончен | 1 death overcome; current Int →0 and capped at 0 permanently; ordinary Gordon zombie flag applied; 2 trigger lines at 50% each | `JonSnow.TryEndWatch`; `CharacterClass.IntelligenceCappedAtZero` |
 
 ## Empire's Endgame executable-ledger defaults
@@ -414,7 +418,7 @@ Per-game `AiDifficulty` is 0/1/2/3 and defaults to **3** for Discord, web and si
 | prediction tier prior | 18/14/12/9/8/7/6 | public-catalogue weight for tiers ≥6/5/4/3/2/1/other | `CharacterPassives.FairPredictionPrior` |
 | L2 inferred prediction | 25% prior; 40-85% evidence | stable catalogue prior when evidence score <45, otherwise earned class/own-fight/log evidence; stronger old evidence is retained | `CharacterPassives.HandleFairBotPredict` |
 | L3 inferred prediction | 35-92% | same legal evidence plus public natural-roll and incompatibility rules, longer history and an all-different assignment; it never reads the real roster | `CharacterPassives.HandleFairBotPredict`; `ApplyFairRosterConstraints` |
-| exact prediction confidence | 100% | public Толя/Коммуникация, owner-only Сверхразум/Naruto reveal, or exact Madara for every strict bot with an ordinary prediction sheet during round-8 Клоны Сусано | `CharacterPassives.SeedFairExactPredictions`; `Madara.ForceRoundEightBotPrediction` |
+| exact prediction confidence | 100% | public Толя/Коммуникация, owner-only Сверхразум/Naruto reveal, or the mandatory exact Madara row kept by every prediction-capable strict bot from r8 onward | `CharacterPassives.SeedFairExactPredictions`; `Madara.EnforcePostRoundSevenBotPrediction` |
 | Monster hypothesis | abstain | the bot may infer `Монстр без имени`, but leaves the submitted prediction blank because it cannot score and can punish a guess | `CharacterPassives.RecordFairPredictionChoice` |
 | L2 generic Block odds | 1/4 neutral | PreferBlock 1/2; PreferAttack 1/5; 0 Justice + best score <7 gives 1/2; top two + historical incoming ≥1.5 + best <10 gives 2/3 | `BotsBehavior.ShouldFairBotBlock` |
 | L3 generic Block rules | deterministic | PreferBlock if best <15; top two with incoming ≥1.5 and best <12; bottom three with own Justice ≤1 and best <7; otherwise only if best <5 | `BotsBehavior.ShouldFairBotBlock` |

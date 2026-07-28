@@ -23,10 +23,10 @@ public static class GameStateMapper
     // Cache of locally available avatar filenames (lowercase → actual filename)
     private static readonly HashSet<string> _localAvatars;
 
-    // Cache of all visible character names (for prediction dropdowns)
+    // Cache of all public character names; live prediction catalogs are scoped to account unlocks.
     private static readonly List<string> _allCharacterNames;
 
-    // Full character catalog with base stats (for prediction avatar/stat lookup by non-admins)
+    // Full public catalog with base stats; live prediction catalogs are scoped to account unlocks.
     private static readonly List<DTOs.CharacterInfoDto> _allCharacters;
 
     public static List<string> GetAllCharacterNames() => _allCharacterNames;
@@ -85,10 +85,12 @@ public static class GameStateMapper
     /// <summary>
     /// Map a GameClass to a GameStateDto, scoped to the requesting player.
     /// </summary>
-    public static GameStateDto ToDto(GameClass game, GamePlayerBridgeClass requestingPlayer = null)
+    public static GameStateDto ToDto(GameClass game, GamePlayerBridgeClass requestingPlayer = null,
+        DiscordAccountClass requestingAccount = null)
     {
         var isAdmin = requestingPlayer != null && requestingPlayer.PlayerType == 2;
         var viewerIsTerminal = UnknownBug.Is(requestingPlayer);
+        var (assumptionCharacterNames, assumptionCharacters) = GetAssumptionCatalog(requestingAccount);
         var canInspectPlayers = isAdmin || requestingPlayer?.GameCharacter.Passive.Any(
             passive => passive.PassiveName == UnknownBug.AdminPlayerType) == true;
         var isAdeptChooser = game.CthulhuState.AdeptStageActive
@@ -163,9 +165,9 @@ public static class GameStateMapper
             MyPlayerType = requestingPlayer?.PlayerType ?? 0,
             PreferWeb = requestingPlayer?.PreferWeb ?? false,
             AllCharacterNames = viewerIsTerminal || requestingPlayer?.GameCharacter.DoomRollMode == true || Madara.IsMadara(requestingPlayer)
-                ? new List<string>() : _allCharacterNames,
+                ? new List<string>() : assumptionCharacterNames,
             AllCharacters = viewerIsTerminal || requestingPlayer?.GameCharacter.DoomRollMode == true || Madara.IsMadara(requestingPlayer)
-                ? new List<CharacterInfoDto>() : _allCharacters,
+                ? new List<CharacterInfoDto>() : assumptionCharacters,
         };
 
         if (!viewerIsTerminal)
@@ -884,6 +886,7 @@ public static class GameStateMapper
                             {
                                 ActiveGpuCount = scamRat.ActiveGpuOwnerIds.Count,
                                 SoldGpuCount = scamRat.EverGpuOwnerIds.Count,
+                                CarryPoints = scamRat.CarryPoints,
                                 MaximumJustice = player.GameCharacter.Justice.GetMaximumRealJustice(),
                                 LastIntelligenceRoll = scamRat.LastIntelligenceRoll,
                                 LastExplosionPoints = scamRat.LastExplosionPoints,
@@ -1422,16 +1425,31 @@ public static class GameStateMapper
             if (isFinished && status.ScoreEntries.Count > 0)
                 entries = entries.Concat(status.ScoreEntries.Where(entry => entry.IsBonus));
 
+            var mappedEntries = entries.Select(entry => new ScoreEntryDto
+            {
+                Source = entry.Source,
+                Points = entry.Points,
+                IsBonus = entry.IsBonus,
+                IsNegative = entry.Points < 0,
+            }).ToList();
+
+            if (status.WasRoundScoreMultiplierReducedByTolya)
+            {
+                mappedEntries.Insert(0, new ScoreEntryDto
+                {
+                    Source = Tolya.RoundMultiplierPenaltySource,
+                    Points = 0,
+                    IsBonus = false,
+                    IsNegative = true,
+                    HidePoints = true,
+                });
+            }
+
             dto.ScoreBreakdown = new ScoreBreakdownDto
             {
                 RoundMultiplier = status.ActualRoundMultiplier,
                 ExpectedRoundMultiplier = status.ExpectedRoundMultiplier,
-                Entries = entries.Select(e => new ScoreEntryDto
-                {
-                    Source = e.Source,
-                    Points = e.Points,
-                    IsBonus = e.IsBonus,
-                }).ToList(),
+                Entries = mappedEntries,
             };
         }
 
@@ -1573,6 +1591,9 @@ public static class GameStateMapper
             // Portal swaps are visible on ordinary scoped fights, but the terminal
             // opponent projection exposes no mechanic-derived flags at all.
             PortalGunSwap = !forceRedaction && f.PortalGunSwap,
+            // The intervention itself is public so the All Fights receipt survives
+            // scoping. Its side, numeric delta, and flip result remain participant-only.
+            StormAppeared = !forceRedaction && f.StormAppeared,
         };
     }
 
@@ -1682,6 +1703,25 @@ public static class GameStateMapper
 
         var chronicle = sb.ToString().Trim();
         return canRevealPrivateCharacter ? chronicle : SanitizePrivateCharacterText(chronicle);
+    }
+
+    private static (List<string> Names, List<CharacterInfoDto> Characters) GetAssumptionCatalog(
+        DiscordAccountClass account)
+    {
+        if (account == null) return (_allCharacterNames, _allCharacters);
+
+        HashSet<string> unlockedCharacterNames;
+        lock (account)
+        {
+            unlockedCharacterNames = new HashSet<string>(
+                account.SeenCharacters ?? new List<string>(),
+                StringComparer.Ordinal);
+        }
+
+        var characters = _allCharacters
+            .Where(character => unlockedCharacterNames.Contains(character.Name))
+            .ToList();
+        return (characters.Select(character => character.Name).ToList(), characters);
     }
 
     private static string SanitizePrivateCharacterText(string text)

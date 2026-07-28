@@ -5,6 +5,8 @@ namespace King_of_the_Garbage_Hill.Game.Characters;
 
 public class Tolya
 {
+    public const string RoundMultiplierPenaltySource = "Вас обсчитали";
+
     public class TolyaCountClass
     {
         public int Cooldown;

@@ -367,10 +367,12 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
             switch (passive.PassiveName)
             {
                 case ScamRat.PassiveName:
-                    if (!isWeb
-                        && other.GetPlayerId() != me.GetPlayerId()
+                    if (other.GetPlayerId() != me.GetPlayerId()
                         && ScamRat.HasActiveGpu(me, other.GetPlayerId()))
                         customString += " 🖥️";
+                    else if (other.GetPlayerId() != me.GetPlayerId()
+                             && ScamRat.HasExplodedGpu(me, other.GetPlayerId()))
+                        customString += " 💥";
                     break;
 
                 case OmniMan.ThinkMark:
@@ -1966,6 +1968,31 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                         components.WithButton(new ButtonBuilder("Let's Roll!", "doom-roll", ButtonStyle.Danger), 4);
                     break;
             }
+
+        if (ScamRat.UsesCarryShop(player)
+            && player.Passives.ScamRat.CarryPoints > 0)
+        {
+            var carryMenu = new SelectMenuBuilder()
+                .WithMinValues(1)
+                .WithMaxValues(1)
+                .WithCustomId("lvl-up")
+                .WithPlaceholder(
+                    $"$ {player.Passives.ScamRat.CarryPoints}: купить стат");
+            if (player.GameCharacter.GetIntelligence() < 10)
+                carryMenu.AddOption("Интеллект", "1", "Потратить 1 заработанное очко");
+            if (player.GameCharacter.GetStrength() < 10)
+                carryMenu.AddOption("Сила", "2", "Потратить 1 заработанное очко");
+            if (player.GameCharacter.GetSpeed() < 10)
+                carryMenu.AddOption("Скорость", "3", "Потратить 1 заработанное очко");
+            if (player.GameCharacter.GetPsyche() < 10)
+                carryMenu.AddOption("Психика", "4", "Потратить 1 заработанное очко");
+            if (carryMenu.Options.Count == 0)
+            {
+                carryMenu.AddOption("Все статы максимальны", "0");
+                carryMenu.WithDisabled(true);
+            }
+            components.WithSelectMenu(carryMenu, 4);
+        }
 
         if (player.GameCharacter.Name == DoomGuy.CharacterName
             && player.Passives.DoomGuy.ChainsawChoices.Count > 0)

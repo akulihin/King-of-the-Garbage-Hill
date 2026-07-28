@@ -95,11 +95,12 @@ public class BotsBehavior : IServiceSingleton
         EnsureBotPlaystyle(player, game);
         if (player.Status.LvlUpPoints > 0)
             await HandleLvlUpBot(player, game);
+        ScamRat.SpendCarryPointsForBot(player, game);
 
-        // Every strict bot with an ordinary prediction sheet identifies Madara during Клоны Сусано.
+        // The post-round-seven Madara prediction is authoritative over every ordinary bot inference.
         // Naruto, Sakura and Itachi additionally have to submit their ordinary attack against him.
         var mustAcceptMadaraChallenge = Madara.MustAcceptRoundEightBotChallenge(player, game);
-        Madara.ForceRoundEightBotPrediction(player, game);
+        Madara.EnforcePostRoundSevenBotPrediction(player, game);
 
         // Forced skips are already complete actions. In particular, Шоковый щит must not let a
         // bot immediately replace the skip with its ordinary attack decision.

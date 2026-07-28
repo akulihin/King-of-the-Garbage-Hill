@@ -157,11 +157,29 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
             r.VersatilitySpeed = me.GetSpeed() > target.GetSpeed() ? 1 : me.GetSpeed() < target.GetSpeed() ? -1 : 0;
 
             // Derive winner: whoever wins more individual stats gets the bonus.
-            // wins > losses → me (+5). losses > wins → enemy (-5). Equal → draw.
+            // A 1-1 split with the third stat tied is resolved by the RPS relation
+            // between the two stat categories each side won.
             var wins = (r.VersatilityIntel > 0 ? 1 : 0) + (r.VersatilityStr > 0 ? 1 : 0) + (r.VersatilitySpeed > 0 ? 1 : 0);
             var losses = (r.VersatilityIntel < 0 ? 1 : 0) + (r.VersatilityStr < 0 ? 1 : 0) + (r.VersatilitySpeed < 0 ? 1 : 0);
 
-            if (wins > losses)
+            var versatilityWinner = wins.CompareTo(losses);
+            if (versatilityWinner == 0 && wins == 1)
+            {
+                var myWinningStat = r.VersatilityIntel > 0
+                    ? SkillClassType.Intelligence
+                    : r.VersatilityStr > 0
+                        ? SkillClassType.Strength
+                        : SkillClassType.Speed;
+                var enemyWinningStat = r.VersatilityIntel < 0
+                    ? SkillClassType.Intelligence
+                    : r.VersatilityStr < 0
+                        ? SkillClassType.Strength
+                        : SkillClassType.Speed;
+
+                versatilityWinner = CharacterClass.NemesisOf(myWinningStat) == enemyWinningStat ? 1 : -1;
+            }
+
+            if (versatilityWinner > 0)
             {
                 if (isLog)
                 {
@@ -171,7 +189,7 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
 
                 weighingMachine += 5;
             }
-            else if (losses > wins)
+            else if (versatilityWinner < 0)
             {
                 if (isLog)
                 {

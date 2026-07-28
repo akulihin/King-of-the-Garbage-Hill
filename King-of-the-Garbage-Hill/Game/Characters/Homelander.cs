@@ -246,9 +246,12 @@ public static class Homelander
 
     public static bool ArmLaser(
         GamePlayerBridgeClass homelander,
-        GamePlayerBridgeClass target)
+        GamePlayerBridgeClass target,
+        GameClass game)
     {
-        if (!HasPassive(homelander, Righteousness) || target == null) return false;
+        if (!HasPassive(homelander, Righteousness) || target == null
+            || Sirinoks.BlocksAutowinFrom(target, homelander, game))
+            return false;
 
         var state = homelander.Passives.Homelander;
         if (!state.RageByPlayer.TryGetValue(target.GetPlayerId(), out var mark)

@@ -192,7 +192,8 @@ public class GameNotificationService
         var connections = GetConnections(player.DiscordId);
         if (connections.Count == 0) return;
 
-        var dto = GameStateMapper.ToDto(game, player);
+        var dto = GameStateMapper.ToDto(game, player,
+            _userAccounts.GetAccount(player.DiscordId) ?? new DiscordAccountClass());
         WebGameService.PopulateCustomLeaderboard(dto, game, player, _gameUpdateMess);
         await _hubContext.Clients.Clients(connections.ToList()).SendAsync("GameState", dto);
     }
@@ -212,7 +213,8 @@ public class GameNotificationService
             var connections = GetConnections(player.DiscordId);
             if (connections.Count == 0) continue;
 
-            var dto = GameStateMapper.ToDto(game, player);
+            var dto = GameStateMapper.ToDto(game, player,
+                _userAccounts.GetAccount(player.DiscordId) ?? new DiscordAccountClass());
             WebGameService.PopulateCustomLeaderboard(dto, game, player, _gameUpdateMess);
             var connList = connections.ToList();
             await _hubContext.Clients.Clients(connList).SendAsync("GameState", dto);

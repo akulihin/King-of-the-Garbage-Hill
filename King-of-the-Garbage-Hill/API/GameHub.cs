@@ -1746,6 +1746,7 @@ public class GameHub : Hub
         }
 
         await PushBattleshipStateToAll(gameId);
+        await RunBattleshipBotPump(gameId);
     }
 
     public async Task BattleshipForfeit(string gameId)
@@ -1858,10 +1859,26 @@ public class GameHub : Hub
 
     private async Task RunBattleshipBotPump(string gameId)
     {
-        if (!BattleshipBotPumps.TryAdd(gameId, 0)) return;
+        if (!BattleshipBotPumps.TryAdd(gameId, 0))
+        {
+            // A state-changing human response can arrive while the existing pump is between
+            // its final IsBotTurn check and removal. Mark a continuation request without
+            // starting a second concurrent pump; if removal won the race, start one ourselves.
+            while (BattleshipBotPumps.TryGetValue(gameId, out var currentRequest))
+            {
+                if (currentRequest != 0 ||
+                    BattleshipBotPumps.TryUpdate(gameId, 1, currentRequest))
+                    return;
+            }
+            await RunBattleshipBotPump(gameId);
+            return;
+        }
+
+        byte continuationRequested = 0;
         try
         {
-            var delayBeforeNextStepMs = 0;
+            var delayBeforeNextStepMs =
+                _battleshipService.GetCurrentBotShotDelayRemainingMs(gameId);
             while (_battleshipService.IsBotTurn(gameId))
             {
                 // Misses hand control over immediately. Reset hits wait for the exact
@@ -1878,8 +1895,10 @@ public class GameHub : Hub
         }
         finally
         {
-            BattleshipBotPumps.TryRemove(gameId, out _);
+            BattleshipBotPumps.TryRemove(gameId, out continuationRequested);
         }
+        if (continuationRequested != 0 && _battleshipService.IsBotTurn(gameId))
+            await RunBattleshipBotPump(gameId);
     }
 
     // ── Private helpers ───────────────────────────────────────────────

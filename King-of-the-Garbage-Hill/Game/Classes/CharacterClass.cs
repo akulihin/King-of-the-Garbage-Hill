@@ -31,7 +31,9 @@ public class CharacterClass
     /// Creates a copy of this character for use during fights.
     /// MemberwiseClone handles all value types (int, decimal, bool) and strings automatically.
     /// Only mutable reference-type fields need explicit handling below.
-    /// Status and Justice are intentionally SHARED — both copies point to the same instance.
+    /// Status is intentionally shared for logging and per-fight flags.
+    /// Justice is copied so every fight reads the same round-start value; persistent Justice
+    /// consequences must be written explicitly to GameCharacter after the fight.
     /// If you add a new List, Dictionary, or other mutable reference-type field to this class,
     /// you MUST add a deep-copy line for it here.
     /// </summary>
@@ -39,12 +41,12 @@ public class CharacterClass
     {
         var other = (CharacterClass)MemberwiseClone();
 
-        // SHARED links (same instance on purpose — Status is for logging, Justice is read-only during fights)
+        // SHARED link (same instance on purpose — Status is for logging)
         // other.Status = Status;   — already the same ref via MemberwiseClone
-        // other.Justice = Justice;  — already the same ref via MemberwiseClone
 
         // Deep-copy mutable reference types
         other.Passive = Passive.Select(x => x.DeepCopy()).ToList();
+        other.Justice = Justice.DeepCopy();
 
         return other;
     }
@@ -457,8 +459,8 @@ public class CharacterClass
             toReturn++;
 
         //Импакт
-        if (Status.GameCharacter.Passive.Any(x => x.PassiveName == "Импакт"))
-            toReturn = 2;
+        if (Passive.Any(x => x.PassiveName == "Импакт"))
+            toReturn += 2;
         //end Импакт
 
         return toReturn;
@@ -498,7 +500,7 @@ public class CharacterClass
     public int GetSpeedQualityResistInt()
     {
         //Импакт
-        if (Status.GameCharacter.Passive.Any(x => x.PassiveName == "Импакт"))
+        if (Passive.Any(x => x.PassiveName == "Импакт"))
             return 6;
         //end Импакт
 
@@ -744,7 +746,9 @@ public class CharacterClass
             }
         }
 
-        return toReturn;
+        // Broken quality pools may remove the whole contribution, but never invert its sign:
+        // earned Skill cannot become combat debt.
+        return Math.Max(0m, toReturn);
     }
 
     public bool GetStrengthQualityDropBonus()
@@ -1004,8 +1008,8 @@ public class CharacterClass
             return;
         }
 
-        //Set Stat only for one fight, not for the whole round!
-        //Only used with "GameCharacter" because this overwrites "FightCharacter" mechanics
+        // Set only on the current FightCharacter clone. Persistent Justice belongs to
+        // GameCharacter and is settled separately.
         Status.ForOneFightMods.Add(new ForOneFightMod { Source = skillName, Stat = "Skill", OriginalValue = GetSkill(), NewValue = howMuchToSet });
         Status.IsSkillForOneFight = true;
         SkillForOneFight = howMuchToSet;
@@ -1013,8 +1017,7 @@ public class CharacterClass
 
     public void ResetSkillForOneFight()
     {
-        //Set Stat only for one fight, not for the whole round!
-        //Only used with "GameCharacter" because this overwrites "FightCharacter" mechanics
+        // Reset the current FightCharacter override after its isolated fight.
         SkillForOneFight = -228;
     }
 
@@ -1057,7 +1060,7 @@ public class CharacterClass
 
         SkillMain = 0;
         SkillExtra = howMuchToSet;
-        if (ReferenceEquals(Status?.GameCharacter, this))
+        if (ReferenceEquals(Status?.GameCharacter, this) && !Status.IsFightBatchActive)
             JonSnow.TryBecomeKing(this);
     }
 
@@ -1100,7 +1103,7 @@ public class CharacterClass
 
         if (isLog)
             Status.AddInGamePersonalLogs($"Мишень: +{total} *Cкилла* (за {skillName} врага)\n");
-        if (ReferenceEquals(Status?.GameCharacter, this))
+        if (ReferenceEquals(Status?.GameCharacter, this) && !Status.IsFightBatchActive)
             JonSnow.TryBecomeKing(this);
         return total;
     }
@@ -1138,7 +1141,7 @@ public class CharacterClass
         if (SkillSiphonBox.HasValue && howMuchToAdd > 0)
             SkillSiphonBox += howMuchToAdd;
 
-        if (ReferenceEquals(Status?.GameCharacter, this))
+        if (ReferenceEquals(Status?.GameCharacter, this) && !Status.IsFightBatchActive)
             JonSnow.TryBecomeKing(this);
         return howMuchToAdd;
     }
@@ -1176,7 +1179,9 @@ public class CharacterClass
             }
         }
 
-        return toReturn;
+        // Broken quality pools may remove the whole contribution, but never turn positive
+        // Moral into negative Moral.
+        return Math.Max(0m, toReturn);
     }
 
 
@@ -1335,7 +1340,7 @@ public class CharacterClass
             Homelander.LogProtection(Status);
             return;
         }
-        if (howMuchToAdd < 0 && Madara.HasReanimatedBody(this) && skillName != GordonFreeman.SilentHero) return;
+        if (howMuchToAdd < 0 && Madara.BlocksStatLoss(this, skillName)) return;
         if (IntelligenceCappedAtZero && howMuchToAdd > 0)
             howMuchToAdd = 0;
         if (skillName != "Прокачка" && skillName != "Читы")
@@ -1391,7 +1396,7 @@ public class CharacterClass
             Homelander.LogProtection(Status);
             return;
         }
-        if (howMuchToSet < GetIntelligence() && Madara.HasReanimatedBody(this) && skillName != GordonFreeman.SilentHero) return;
+        if (howMuchToSet < GetIntelligence() && Madara.BlocksStatLoss(this, skillName)) return;
         if (IntelligenceCappedAtZero && howMuchToSet > 0)
             howMuchToSet = 0;
         if (skillName != "Прокачка" && skillName != "Читы")
@@ -1428,7 +1433,7 @@ public class CharacterClass
             Homelander.LogProtection(Status);
             return;
         }
-        if (howMuchToSet < GetIntelligence() && Madara.HasReanimatedBody(this)) return;
+        if (howMuchToSet < GetIntelligence() && Madara.BlocksStatLoss(this, skillName)) return;
         if (IntelligenceCappedAtZero && howMuchToSet > 0)
             howMuchToSet = 0;
         //Set Stat only for one fight, not for the whole round!
@@ -1459,7 +1464,7 @@ public class CharacterClass
             Homelander.LogProtection(Status);
             return;
         }
-        if (howMuchToAdd < 0 && Madara.HasReanimatedBody(this)) return;
+        if (howMuchToAdd < 0 && Madara.BlocksStatLoss(this, skillName)) return;
         if (PsycheCappedAtZero && howMuchToAdd > 0) howMuchToAdd = 0;
         if (skillName != "Прокачка" && skillName != "Читы")
         {
@@ -1515,7 +1520,7 @@ public class CharacterClass
             Homelander.LogProtection(Status);
             return;
         }
-        if (howMuchToSet < GetPsyche() && Madara.HasReanimatedBody(this)) return;
+        if (howMuchToSet < GetPsyche() && Madara.BlocksStatLoss(this, skillName)) return;
         if (PsycheCappedAtZero && howMuchToSet > 0) howMuchToSet = 0;
         if (skillName != "Прокачка" && skillName != "Читы")
         {
@@ -1562,7 +1567,7 @@ public class CharacterClass
             Homelander.LogProtection(Status);
             return;
         }
-        if (howMuchToSet < GetPsyche() && Madara.HasReanimatedBody(this)) return;
+        if (howMuchToSet < GetPsyche() && Madara.BlocksStatLoss(this, skillName)) return;
         if (PsycheCappedAtZero && howMuchToSet > 0) howMuchToSet = 0;
         //Set Stat only for one fight, not for the whole round!
         //Only used with "GameCharacter" because this overwrites "FightCharacter" mechanics
@@ -1593,7 +1598,7 @@ public class CharacterClass
             Homelander.LogProtection(Status);
             return;
         }
-        if (howMuchToAdd < 0 && Madara.HasReanimatedBody(this)) return;
+        if (howMuchToAdd < 0 && Madara.BlocksStatLoss(this, skillName)) return;
         if (skillName != "Прокачка" && skillName != "Читы")
         {
             skillName = $"|>Stat<|{skillName}";
@@ -1633,7 +1638,7 @@ public class CharacterClass
             Homelander.LogProtection(Status);
             return;
         }
-        if (howMuchToSet < GetSpeed() && Madara.HasReanimatedBody(this)) return;
+        if (howMuchToSet < GetSpeed() && Madara.BlocksStatLoss(this, skillName)) return;
         if (skillName != "Прокачка" && skillName != "Читы")
         {
             skillName = $"|>Stat<|{skillName}";
@@ -1666,7 +1671,7 @@ public class CharacterClass
             Homelander.LogProtection(Status);
             return;
         }
-        if (howMuchToAdd < 0 && Madara.HasReanimatedBody(this)) return;
+        if (howMuchToAdd < 0 && Madara.BlocksStatLoss(this, source)) return;
         //Add delta to current speed for one fight only
         var current = GetSpeed();
         var newVal = Math.Max(0, current + howMuchToAdd);
@@ -1683,7 +1688,7 @@ public class CharacterClass
             Homelander.LogProtection(Status);
             return;
         }
-        if (howMuchToSet < GetSpeed() && Madara.HasReanimatedBody(this)) return;
+        if (howMuchToSet < GetSpeed() && Madara.BlocksStatLoss(this, skillName)) return;
         //Set Stat only for one fight, not for the whole round!
         //Only used with "GameCharacter" because this overwrites "FightCharacter" mechanics
 
@@ -1712,7 +1717,7 @@ public class CharacterClass
             Homelander.LogProtection(Status);
             return;
         }
-        if (howMuchToAdd < 0 && Madara.HasReanimatedBody(this)) return;
+        if (howMuchToAdd < 0 && Madara.BlocksStatLoss(this, skillName)) return;
         if (skillName != "Прокачка" && skillName != "Читы")
         {
             skillName = $"|>Stat<|{skillName}";
@@ -1752,7 +1757,7 @@ public class CharacterClass
             Homelander.LogProtection(Status);
             return;
         }
-        if (howMuchToSet < GetStrength() && Madara.HasReanimatedBody(this)) return;
+        if (howMuchToSet < GetStrength() && Madara.BlocksStatLoss(this, skillName)) return;
         if (skillName != "Прокачка" && skillName != "Читы")
         {
             skillName = $"|>Stat<|{skillName}";
@@ -1785,7 +1790,7 @@ public class CharacterClass
             Homelander.LogProtection(Status);
             return;
         }
-        if (howMuchToSet < GetStrength() && Madara.HasReanimatedBody(this)) return;
+        if (howMuchToSet < GetStrength() && Madara.BlocksStatLoss(this, skillName)) return;
         //Set Stat only for one fight, not for the whole round!
         //Only used with "GameCharacter" because this overwrites "FightCharacter" mechanics
 

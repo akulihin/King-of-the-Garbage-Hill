@@ -486,6 +486,8 @@ public class BattleshipService
             var shooter = game.GetPlayer(discordId);
             if (shooter == null)
                 return (null, "Вы не в этой игре.");
+            var cursedDirectionError = GetCursedBoatDirectionLockError(game);
+            if (cursedDirectionError != null) return (null, cursedDirectionError);
 
             if (row < 0 || row >= 10 || col < 0 || col >= 10)
                 return (null, "Клетка за пределами поля.");
@@ -552,6 +554,8 @@ public class BattleshipService
             var shooter = game.GetPlayer(discordId);
             if (shooter == null)
                 return (null, "Вы не в этой игре.");
+            var cursedDirectionError = GetCursedBoatDirectionLockError(game);
+            if (cursedDirectionError != null) return (null, cursedDirectionError);
 
             if (row < 0 || row >= 10 || col < 0 || col >= 10)
                 return (null, "Клетка за пределами поля.");
@@ -773,13 +777,13 @@ public class BattleshipService
     {
         // A reset delay is only ever produced by a ship deck kill on the opponent's board: every
         // own-board and summon-kill path ends the turn, so `defender` is exactly the owner of the
-        // field that lost the deck. Whether that owner will actually answer is deliberately NOT
-        // predicted here — the window's length must not depend on guessing the answer's legality.
+        // field that lost the deck. The long window exists only when a human defender has at least
+        // one summon that the server would accept for placement at this exact state boundary.
         var defender = game.GetOpponent(shooter.DiscordId);
         var delay = !game.IsFinished && result is { Hit: true, TurnContinues: true }
-            ? defender is { IsBot: false }
-                ? ComboHitDelay        // 8 s — a human owns the board that lost the deck
-                : FastComboHitDelay    // 2 s — bot board, no answer window is owed
+            ? defender is { IsBot: false } && CanDeployAnySummon(game, defender)
+                ? ComboHitDelay        // 8 s — a human defender can answer with a summon
+                : FastComboHitDelay    // 2 s — no summon response is currently available
             : TimeSpan.Zero;           // miss / turn ends / game over
         result.ShotDelayMs = (int)delay.TotalMilliseconds;
         shooter.CurrentShotDelayMs = result.ShotDelayMs;
@@ -800,16 +804,16 @@ public class BattleshipService
         game.GetPlayers().Any(p => p.PendingSummons.Any(s => s.IsBoarding));
 
     /// <summary>
-    /// Whether this player can legally place at least one summon right now. Its only consumer is
-    /// the caller-only <c>CanDeployAnySummon</c> DTO field (see <see cref="MapPlayer"/>), which
-    /// drives the client's summon controls. The reset window length no longer depends on it —
-    /// a human-owned defending board always earns the long window.
+    /// Whether this player can legally place at least one summon right now. The caller-only
+    /// <c>CanDeployAnySummon</c> DTO field drives the client controls, and the same authoritative
+    /// predicate decides whether a human defender receives the long combo-response window.
     /// </summary>
     private static bool CanDeployAnySummon(BattleshipGame game, BattleshipPlayer player)
     {
         if (player == null ||
             game.Phase is not (BsGamePhase.Combat or BsGamePhase.Boarding) ||
             HasPendingBoardingDeployments(game) ||
+            HasPendingCursedBoatDirection(game) ||
             GetPendingManeuver(game, player) != null)
             return false;
 
@@ -881,6 +885,7 @@ public class BattleshipService
     {
         if (player == null ||
             game.Phase is not (BsGamePhase.Combat or BsGamePhase.Boarding) ||
+            HasPendingCursedBoatDirection(game) ||
             game.CurrentTurnPlayerId != player.DiscordId ||
             player.HasShotThisTurn ||
             player.HasPenalty ||
@@ -919,6 +924,47 @@ public class BattleshipService
         GetPendingManeuver(game, player) == null
             ? null
             : "Сначала выполните обязательный манёвр по подсвеченной клетке.";
+
+    private static PendingCursedBoatDirectionDto GetPendingCursedBoatDirection(BattleshipPlayer player)
+    {
+        var summon = player?.Summons
+            .Where(value => value.IsAlive && value.Type == SummonType.CursedBoat &&
+                            value.WaitingForDirectionChoice)
+            .OrderBy(value => value.Id, StringComparer.Ordinal)
+            .FirstOrDefault();
+        if (summon == null) return null;
+
+        var directions = new[]
+        {
+            (Direction.Up, -1, 0),
+            (Direction.Down, 1, 0),
+            (Direction.Left, 0, -1),
+            (Direction.Right, 0, 1),
+        };
+        return new PendingCursedBoatDirectionDto
+        {
+            SummonId = summon.Id,
+            Row = summon.Row,
+            Col = summon.Col,
+            Options = directions
+                .Select(value => new CursedBoatDirectionOptionDto
+                {
+                    Direction = value.Item1.ToString(),
+                    Row = summon.Row + value.Item2,
+                    Col = summon.Col + value.Item3,
+                })
+                .Where(value => value.Row is >= 0 and < 10 && value.Col is >= 0 and < 10)
+                .ToList(),
+        };
+    }
+
+    private static bool HasPendingCursedBoatDirection(BattleshipGame game) =>
+        game.GetPlayers().Any(player => GetPendingCursedBoatDirection(player) != null);
+
+    private static string GetCursedBoatDirectionLockError(BattleshipGame game) =>
+        HasPendingCursedBoatDirection(game)
+            ? "Сначала выберите подсвеченную клетку для нового курса Проклятой лодки."
+            : null;
 
     private void CompleteActionResolution(BattleshipGame game, bool turnContinues, bool moveSummons)
     {
@@ -990,6 +1036,8 @@ public class BattleshipService
             var player = game.GetPlayer(discordId);
             if (player == null) return (false, "Вы не в этой игре.");
             if (HasPendingBoardingDeployments(game)) return (false, "Разместите все абордажные корабли!");
+            var cursedDirectionError = GetCursedBoatDirectionLockError(game);
+            if (cursedDirectionError != null) return (false, cursedDirectionError);
             var maneuverError = GetManeuverLockError(game, player);
             if (maneuverError != null) return (false, maneuverError);
             if (BattleshipGameEngine.HasAnyLegalShot(game, player)) return (false, "У вас есть доступный выстрел.");
@@ -1034,6 +1082,8 @@ public class BattleshipService
                 return (false, "Вы не в этой игре.");
             if (game.Phase is not (BsGamePhase.Combat or BsGamePhase.Boarding))
                 return (false, "Сейчас нельзя выбирать оружие.");
+            var cursedDirectionError = GetCursedBoatDirectionLockError(game);
+            if (cursedDirectionError != null) return (false, cursedDirectionError);
             var maneuverError = GetManeuverLockError(game, player);
             if (maneuverError != null) return (false, maneuverError);
 
@@ -1093,6 +1143,8 @@ public class BattleshipService
             var player = game.GetPlayer(discordId);
             if (player == null)
                 return (false, "Вы не в этой игре.");
+            var cursedDirectionError = GetCursedBoatDirectionLockError(game);
+            if (cursedDirectionError != null) return (false, cursedDirectionError);
             var maneuverError = GetManeuverLockError(game, player);
             if (maneuverError != null) return (false, maneuverError);
 
@@ -1283,6 +1335,8 @@ public class BattleshipService
                 return (false, "Нет такого ожидающего призыва.");
             if (HasPendingBoardingDeployments(game) && !pending.IsBoarding)
                 return (false, "Сначала разместите все абордажные корабли.");
+            var cursedDirectionError = GetCursedBoatDirectionLockError(game);
+            if (cursedDirectionError != null) return (false, cursedDirectionError);
             var maneuverError = GetManeuverLockError(game, player);
             if (maneuverError != null && !pending.IsBoarding) return (false, maneuverError);
 
@@ -1363,6 +1417,8 @@ public class BattleshipService
             var player = game.GetPlayer(discordId);
             if (player == null)
                 return (false, "Вы не в этой игре.");
+            var cursedDirectionError = GetCursedBoatDirectionLockError(game);
+            if (cursedDirectionError != null) return (false, cursedDirectionError);
 
             // Only at start of own turn, before shooting
             if (game.CurrentTurnPlayerId != discordId)
@@ -1431,11 +1487,15 @@ public class BattleshipService
             var player = game.GetPlayer(discordId);
             if (player == null)
                 return (false, "Вы не в этой игре.");
-            var maneuverError = GetManeuverLockError(game, player);
-            if (maneuverError != null) return (false, maneuverError);
 
             if (!Enum.TryParse<Direction>(directionStr, true, out var direction))
                 return (false, "Неверное направление.");
+
+            var pending = GetPendingCursedBoatDirection(player);
+            if (pending?.SummonId != summonId ||
+                pending.Options.All(option =>
+                    !option.Direction.Equals(direction.ToString(), StringComparison.OrdinalIgnoreCase)))
+                return (false, "Это направление сейчас недоступно.");
 
             var success = BattleshipGameEngine.SetCursedBoatDirection(player, summonId, direction);
             if (!success)
@@ -1648,9 +1708,29 @@ public class BattleshipService
     {
         if (!_games.TryGetValue(gameId, out var game)) return false;
         lock (game)
-            return !game.IsFinished &&
-                   (game.GetPlayer(game.CurrentTurnPlayerId)?.IsBot == true ||
-                    game.GetPlayers().Any(p => p.IsBot && p.PendingSummons.Any(s => s.IsBoarding)));
+        {
+            if (game.IsFinished) return false;
+            if (game.GetPlayers().Any(player =>
+                    !player.IsBot && GetPendingCursedBoatDirection(player) != null))
+                return false;
+            return game.GetPlayers().Any(player =>
+                       player.IsBot && GetPendingCursedBoatDirection(player) != null) ||
+                   game.GetPlayer(game.CurrentTurnPlayerId)?.IsBot == true ||
+                   game.GetPlayers().Any(player =>
+                       player.IsBot && player.PendingSummons.Any(summon => summon.IsBoarding));
+        }
+    }
+
+    public int GetCurrentBotShotDelayRemainingMs(string gameId)
+    {
+        if (!_games.TryGetValue(gameId, out var game)) return 0;
+        lock (game)
+        {
+            var current = game.GetPlayer(game.CurrentTurnPlayerId);
+            if (current?.IsBot != true) return 0;
+            return Math.Max(0,
+                (int)Math.Ceiling((current.NextShotAllowedAtUtc - DateTime.UtcNow).TotalMilliseconds));
+        }
     }
 
     /// <summary>
@@ -1662,6 +1742,19 @@ public class BattleshipService
         if (!_games.TryGetValue(gameId, out var game)) return new();
         lock (game)
         {
+            var forcedDirectionBot = game.GetPlayers()
+                .FirstOrDefault(player =>
+                    player.IsBot && GetPendingCursedBoatDirection(player) != null);
+            if (forcedDirectionBot != null)
+            {
+                var targetBoardOwner = game.GetOpponent(forcedDirectionBot.DiscordId);
+                if (targetBoardOwner == null ||
+                    !ResolveBotCursedBoatDirections(game, forcedDirectionBot, targetBoardOwner))
+                    return new();
+                game.LastActivity = DateTime.UtcNow;
+                return new BattleshipBotStepResult { Acted = true };
+            }
+
             var forcedBoardingBot = game.GetPlayers()
                 .FirstOrDefault(p => p.IsBot && p.PendingSummons.Any(s => s.IsBoarding));
             if (forcedBoardingBot != null)
@@ -1712,11 +1805,7 @@ public class BattleshipService
                 {
                     DeployPendingSummon(game.GameId, bot.DiscordId, pendingId, pendingCol);
                     if (game.IsFinished) return new BattleshipBotStepResult { Acted = true };
-                }
-                foreach (var summon in bot.Summons.Where(s => s.IsAlive && s.WaitingForDirectionChoice).ToList())
-                {
-                    var direction = BattleshipBotAI.ChooseCursedBoatDirection(summon, opponent);
-                    BattleshipGameEngine.SetCursedBoatDirection(bot, summon.Id, direction);
+                    ResolveBotCursedBoatDirections(game, bot, opponent);
                 }
                 var openingSummon = BattleshipBotAI.ChooseSummonDeploy(game, bot);
                 if (openingSummon != null)
@@ -1775,11 +1864,15 @@ public class BattleshipService
             bot.HasShotThisTurn = true;
             ResetExpendedSelection(bot);
             CompleteActionResolution(game, result.TurnContinues, moveSummons: true);
+            ResolveBotCursedBoatDirections(game, bot, opponent);
 
             if (!game.IsFinished && game.CurrentTurnPlayerId == bot.DiscordId)
             {
                 foreach (var (pendingId, pendingCol) in BattleshipBotAI.ChoosePendingSummonDeploys(bot, opponent))
+                {
                     DeployPendingSummon(game.GameId, bot.DiscordId, pendingId, pendingCol);
+                    ResolveBotCursedBoatDirections(game, bot, opponent);
+                }
                 if (result.TurnContinues)
                 {
                     var midSummon = BattleshipBotAI.ChooseSummonDeploy(game, bot);
@@ -1796,6 +1889,32 @@ public class BattleshipService
             TrySettleGameEnd(game);
             return new BattleshipBotStepResult { Acted = true, Shot = result };
         }
+    }
+
+    private static bool ResolveBotCursedBoatDirections(
+        BattleshipGame game,
+        BattleshipPlayer bot,
+        BattleshipPlayer targetBoardOwner)
+    {
+        var changed = false;
+        for (var attempt = 0; attempt < bot.Summons.Count; attempt++)
+        {
+            var pending = GetPendingCursedBoatDirection(bot);
+            if (pending == null) break;
+            var summon = bot.Summons.FirstOrDefault(value => value.Id == pending.SummonId);
+            if (summon == null) break;
+            var preferred = BattleshipBotAI.ChooseCursedBoatDirection(summon, targetBoardOwner);
+            var option = pending.Options.FirstOrDefault(value =>
+                             value.Direction.Equals(preferred.ToString(), StringComparison.OrdinalIgnoreCase))
+                         ?? pending.Options.FirstOrDefault();
+            if (option == null ||
+                !Enum.TryParse<Direction>(option.Direction, out var direction) ||
+                !BattleshipGameEngine.SetCursedBoatDirection(bot, pending.SummonId, direction))
+                break;
+            game.AddLog("Проклятый корабль меняет курс!");
+            changed = true;
+        }
+        return changed;
     }
 
     private static void TryBotManeuvers(BattleshipGame game, BattleshipPlayer bot)
@@ -1946,6 +2065,7 @@ public class BattleshipService
             HasShotThisTurn = player.HasShotThisTurn,
             HasPendingBoardingDeployment = player.PendingSummons.Any(p => p.IsBoarding),
             PendingManeuver = isMe ? GetPendingManeuver(game, player) : null,
+            PendingCursedBoatDirection = isMe ? GetPendingCursedBoatDirection(player) : null,
             ShotDelayRemainingMs = Math.Max(0,
                 (int)Math.Ceiling((player.NextShotAllowedAtUtc - DateTime.UtcNow).TotalMilliseconds)),
             ShotDelayDurationMs = player.CurrentShotDelayMs,
@@ -2250,6 +2370,7 @@ public class BattleshipPlayerDto
     public bool HasShotThisTurn { get; set; }
     public bool HasPendingBoardingDeployment { get; set; }
     public PendingManeuverDto PendingManeuver { get; set; }
+    public PendingCursedBoatDirectionDto PendingCursedBoatDirection { get; set; }
     public int ShotDelayRemainingMs { get; set; }
     public int ShotDelayDurationMs { get; set; }
     public int SummonCooldownRemaining { get; set; }
@@ -2306,6 +2427,21 @@ public class ManeuverOptionDto
 {
     public string Direction { get; set; }
     public int Distance { get; set; }
+    public int Row { get; set; }
+    public int Col { get; set; }
+}
+
+public class PendingCursedBoatDirectionDto
+{
+    public string SummonId { get; set; }
+    public int Row { get; set; }
+    public int Col { get; set; }
+    public List<CursedBoatDirectionOptionDto> Options { get; set; } = new();
+}
+
+public class CursedBoatDirectionOptionDto
+{
+    public string Direction { get; set; }
     public int Row { get; set; }
     public int Col { get; set; }
 }
