@@ -251,14 +251,9 @@ function sparkStyle(index: number): CSSProperties {
               <div v-if="result.characterName" class="character-reward">
                 <img v-if="result.characterAvatar" :src="result.characterAvatar" :alt="result.characterName">
                 <span class="character-reward-copy">
-                  <small>{{ t('Permanent roll-weight boost', 'Постоянный бонус веса выпадения') }}</small>
+                  <small>{{ t('Guaranteed next-game character', 'Гарантированный персонаж на следующую игру') }}</small>
                   <strong>{{ result.characterName }}</strong>
-                  <span>
-                    T{{ result.characterTier }} ·
-                    {{ result.rollWeightBonusPercentagePoints > 0
-                      ? `+${result.rollWeightBonusPercentagePoints}%`
-                      : t('weight cap reached', 'достигнут лимит веса') }}
-                  </span>
+                  <span>{{ result.characterTier === 0 ? 'PRO' : `T${result.characterTier}` }}</span>
                 </span>
                 <span v-if="result.guaranteedForNextGame" class="next-game-reward">
                   <Dices :size="15" aria-hidden="true" />
@@ -307,7 +302,6 @@ function sparkStyle(index: number): CSSProperties {
                     <strong>{{ chanceText(entry.chance) }}</strong>
                     <span>
                       {{ entry.minZbs === entry.maxZbs ? `${entry.minZbs} ZBS` : `${entry.minZbs}–${entry.maxZbs} ZBS` }}
-                      · +{{ entry.rollWeightBonusPercentagePoints }}%
                     </span>
                     <small v-if="entry.guaranteedCharacterMaxTier">
                       {{ t(

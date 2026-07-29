@@ -1,23 +1,76 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useBattleshipStore } from 'src/store/battleship'
-import type { BattleshipShip } from 'src/services/signalr'
+import type {
+  BattleshipOrientation,
+  BattleshipShip,
+  BattleshipWeaponLoadout,
+} from 'src/services/signalr'
 import { useTip } from 'src/composables/useTip'
 import BoardGrid from '../BoardGrid.vue'
 import BsIcon from '../BsIcon.vue'
-import { anchorForDeck, occupiedCells } from '../battleship-geometry'
+import ConfirmDialog from '../ConfirmDialog.vue'
+import {
+  anchorForDeck,
+  deckOffsetVector,
+  occupiedCells,
+  occupiedDeckCells,
+  orientationLabel,
+} from '../battleship-geometry'
 
 const store = useBattleshipStore()
 const { tipText, tipVisible, tipPos, showTip, moveTip, hideTip } = useTip()
 
 const myFleet = computed(() => store.myFleet)
+const myPlayer = computed(() => store.myPlayer)
+const enemyPlayer = computed(() => store.enemyPlayer)
+const placementLocked = computed(() => myPlayer.value?.isReady ?? false)
+const canCancelConfirmation = computed(() =>
+  placementLocked.value && !!enemyPlayer.value && !enemyPlayer.value.isReady)
+const cancelDialogVisible = ref(false)
+
+type TetracatapultChoice = 'WhiteStone' | 'Buckshot'
+const tetracatapultLoadouts = ref<Record<string, TetracatapultChoice>>({})
+const tetracatapults = computed(() => myFleet.value.flatMap(ship => {
+  if (!ship.isPlaced || ship.isDestroyed) return []
+  return ship.weapons
+    .filter(weapon => {
+      if (weapon.type !== 'Tetracatapult') return false
+      const deck = ship.decks.find(value => value.index === weapon.deckIndex)
+      return !!deck && !deck.isDestroyed && !deck.moduleDestroyed
+    })
+    .map(weapon => ({ ...weapon, shipName: ship.name }))
+}))
+const allTetracatapultsConfigured = computed(() =>
+  tetracatapults.value.every(weapon =>
+    tetracatapultLoadouts.value[weapon.id] === 'WhiteStone'
+    || tetracatapultLoadouts.value[weapon.id] === 'Buckshot'))
+
+watch(tetracatapults, weapons => {
+  const next: Record<string, TetracatapultChoice> = {}
+  for (const weapon of weapons) {
+    const selected = tetracatapultLoadouts.value[weapon.id]
+    const configured = weapon.configuredShotType
+    if (selected === 'WhiteStone' || selected === 'Buckshot') next[weapon.id] = selected
+    else if (configured === 'WhiteStone' || configured === 'Buckshot') next[weapon.id] = configured
+  }
+  tetracatapultLoadouts.value = next
+}, { immediate: true })
 
 // ── Placement hover / previews ───────────────────────────────
 const placementHoverCell = ref<{ row: number; col: number } | null>(null)
 const dragState = ref<{ shipId: string; deckOffset: number } | null>(null)
 let suppressNextClick = false
 
+watch(placementLocked, locked => {
+  if (locked) {
+    store.selectedShipId = null
+    dragState.value = null
+  }
+})
+
 function handlePlacementHover(row: number, col: number) {
+  if (placementLocked.value) return
   placementHoverCell.value = { row, col }
 }
 
@@ -98,8 +151,9 @@ function squareZone(ship: PlacementPose, radius: number): { row: number; col: nu
 function poisonCone(ship: PlacementPose): { row: number; col: number }[] {
   const bow = occupiedCells(ship)[0]
   if (!bow) return []
-  const [forwardRow, forwardCol] = ship.orientation === 'Vertical' ? [-1, 0] : [0, -1]
-  const [sideRow, sideCol] = ship.orientation === 'Vertical' ? [0, 1] : [1, 0]
+  const sternStep = deckOffsetVector(ship.orientation, ship.abilities.includes('diagonal_shape'))
+  const [forwardRow, forwardCol] = [-sternStep.row, -sternStep.col]
+  const [sideRow, sideCol] = [sternStep.col, -sternStep.row]
   const cells: { row: number; col: number }[] = []
   for (let depth = 1; depth <= 2; depth++) {
     for (let side = -depth; side <= depth; side++) {
@@ -137,20 +191,22 @@ const placementEffectZones = computed(() => {
 function shipAt(row: number, col: number): { ship: BattleshipShip; deckIndex: number } | null {
   for (const ship of myFleet.value) {
     if (!ship.isPlaced) continue
-    const deckIndex = occupiedCells(ship).findIndex(cell => cell.row === row && cell.col === col)
-    if (deckIndex >= 0) return { ship, deckIndex }
+    const deck = occupiedDeckCells(ship).find(cell => cell.row === row && cell.col === col)
+    if (deck) return { ship, deckIndex: deck.deckIndex }
   }
   return null
 }
 
 // ── Handlers ─────────────────────────────────────────────────
 function selectShipForPlacement(shipId: string) {
+  if (placementLocked.value) return
   store.selectedShipId = shipId
   const ship = myFleet.value.find(s => s.id === shipId)
-  if (ship?.isPlaced) store.placementOrientation = ship.orientation as 'Horizontal' | 'Vertical'
+  if (ship?.isPlaced) store.placementOrientation = ship.orientation
 }
 
 async function handlePlacementClick(row: number, col: number) {
+  if (placementLocked.value) return
   if (suppressNextClick) { suppressNextClick = false; return }
   if (!store.selectedShipId) return
   const anchor = previewAnchor.value ?? { row, col }
@@ -159,17 +215,18 @@ async function handlePlacementClick(row: number, col: number) {
 }
 
 function handlePlacementPointerDown(row: number, col: number, event: PointerEvent) {
+  if (placementLocked.value) return
   const hit = shipAt(row, col)
   if (!hit) return
   event.preventDefault()
   store.selectedShipId = hit.ship.id
-  store.placementOrientation = hit.ship.orientation as 'Horizontal' | 'Vertical'
+  store.placementOrientation = hit.ship.orientation
   dragState.value = { shipId: hit.ship.id, deckOffset: hit.deckIndex }
   placementHoverCell.value = { row, col }
 }
 
 async function handlePlacementPointerUp(row: number, col: number, event: PointerEvent) {
-  if (!dragState.value) return
+  if (placementLocked.value || !dragState.value) return
   event.preventDefault()
   placementHoverCell.value = { row, col }
   const shipId = dragState.value.shipId
@@ -187,11 +244,30 @@ function cancelDrag() {
 }
 
 function handlePlacementWheel(_e: WheelEvent) {
+  if (placementLocked.value) return
   store.toggleOrientation()
 }
 
 async function handleConfirmPlacement() {
-  await store.confirmPlacement()
+  if (!allTetracatapultsConfigured.value) return
+  const loadouts: BattleshipWeaponLoadout[] = tetracatapults.value.map(weapon => ({
+    weaponId: weapon.id,
+    shotType: tetracatapultLoadouts.value[weapon.id]!,
+  }))
+  await store.confirmPlacement(loadouts)
+}
+
+async function handleCancelConfirmation() {
+  cancelDialogVisible.value = false
+  await store.cancelPlacement()
+}
+
+function currentOrientationLabel(): string {
+  const ship = myFleet.value.find(value => value.id === store.selectedShipId)
+  return orientationLabel(
+    store.placementOrientation as BattleshipOrientation,
+    ship?.abilities.includes('diagonal_shape') ?? false,
+  )
 }
 
 onMounted(() => window.addEventListener('pointerup', cancelDrag))
@@ -200,6 +276,10 @@ onBeforeUnmount(() => window.removeEventListener('pointerup', cancelDrag))
 
 <template>
   <div class="phase-content">
+    <div v-if="placementLocked" class="bs-banner bs-banner--gold placement-waiting">
+      Расстановка подтверждена. Ожидаем подтверждения противника.
+    </div>
+
     <div class="placement-layout">
       <div class="placement-board">
         <h4 class="section-label">Ваше поле</h4>
@@ -207,7 +287,7 @@ onBeforeUnmount(() => window.removeEventListener('pointerup', cancelDrag))
           :board="store.myBoard"
           :ships="myFleet"
           :is-placement="true"
-          :clickable="!!store.selectedShipId"
+          :clickable="!!store.selectedShipId && !placementLocked"
           :highlight-cells="placementHighlight"
           :space-highlight-cells="placementSpaceHighlight"
           :range-overlay-cells="placementEffectZones"
@@ -224,19 +304,19 @@ onBeforeUnmount(() => window.removeEventListener('pointerup', cancelDrag))
           <span v-if="[...placementEffectZones.values()].includes('poison')" class="zone-chip zone-poison">Ядовитый конус</span>
           <span v-if="[...placementEffectZones.values()].includes('explosion')" class="zone-chip zone-explosion">Радиус взрыва</span>
         </div>
-        <p class="drag-hint">Зажмите ЛКМ на поставленном корабле, чтобы перетащить его.</p>
+        <p v-if="!placementLocked" class="drag-hint">Зажмите ЛКМ на поставленном корабле, чтобы перетащить его.</p>
       </div>
 
-      <div class="placement-controls">
+      <div class="placement-controls" :class="{ 'placement-controls--locked': placementLocked }">
         <h4 class="section-label">Расстановка кораблей</h4>
-        <button class="bs-btn bs-btn--sm orientation-btn" @click="store.toggleOrientation()">
+        <button
+          class="bs-btn bs-btn--sm orientation-btn"
+          :disabled="placementLocked"
+          @click="store.toggleOrientation()"
+        >
           <BsIcon icon="rotate" :size="13" />
           Повернуть
-          ({{
-            myFleet.find(s => s.id === store.selectedShipId)?.abilities.includes('diagonal_shape')
-              ? (store.placementOrientation === 'Horizontal' ? 'диаг. ↘' : 'диаг. ↙')
-              : (store.placementOrientation === 'Horizontal' ? 'горизонт.' : 'вертик.')
-          }})
+          ({{ currentOrientationLabel() }})
         </button>
 
         <div class="ship-list">
@@ -244,7 +324,11 @@ onBeforeUnmount(() => window.removeEventListener('pointerup', cancelDrag))
             v-for="ship in myFleet"
             :key="ship.id"
             class="bs-card ship-item"
-            :class="{ 'ship-selected': store.selectedShipId === ship.id, 'ship-placed': ship.isPlaced }"
+            :class="{
+              'ship-selected': store.selectedShipId === ship.id,
+              'ship-placed': ship.isPlaced,
+              'ship-item--locked': placementLocked,
+            }"
             @click="selectShipForPlacement(ship.id)"
           >
             <span class="ship-name">{{ ship.name }}</span>
@@ -253,17 +337,78 @@ onBeforeUnmount(() => window.removeEventListener('pointerup', cancelDrag))
           </div>
         </div>
 
+        <div v-if="tetracatapults.length" class="catapult-loadouts bs-card">
+          <div class="loadout-title">Заряды тетракамнемётов</div>
+          <div
+            v-for="(weapon, index) in tetracatapults"
+            :key="weapon.id"
+            class="loadout-row"
+          >
+            <span class="loadout-source">{{ weapon.shipName }} · №{{ index + 1 }}</span>
+            <div class="bs-seg" role="radiogroup" :aria-label="`Заряд: ${weapon.shipName}`">
+              <button
+                class="bs-seg-btn"
+                type="button"
+                role="radio"
+                :disabled="placementLocked"
+                :aria-checked="tetracatapultLoadouts[weapon.id] === 'WhiteStone'"
+                :class="{ 'loadout-selected': tetracatapultLoadouts[weapon.id] === 'WhiteStone' }"
+                @click="tetracatapultLoadouts[weapon.id] = 'WhiteStone'"
+              >Белый камень</button>
+              <button
+                class="bs-seg-btn"
+                type="button"
+                role="radio"
+                :disabled="placementLocked"
+                :aria-checked="tetracatapultLoadouts[weapon.id] === 'Buckshot'"
+                :class="{ 'loadout-selected': tetracatapultLoadouts[weapon.id] === 'Buckshot' }"
+                @click="tetracatapultLoadouts[weapon.id] = 'Buckshot'"
+              >Дробь</button>
+            </div>
+          </div>
+          <p v-if="!allTetracatapultsConfigured && !placementLocked" class="loadout-warning">
+            Выберите один заряд для каждого тетракамнемёта.
+          </p>
+        </div>
+
         <button
+          v-if="!placementLocked"
           class="bs-btn bs-btn--primary bs-btn--lg"
-          :disabled="myFleet.some(s => !s.isPlaced)"
-          @mouseenter="showTip($event, myFleet.some(s => !s.isPlaced) ? `Не размещено: ${myFleet.filter(s => !s.isPlaced).map(s => s.name).join(', ')}` : 'Подтвердить и начать бой')"
+          :disabled="myFleet.some(s => !s.isPlaced) || !allTetracatapultsConfigured"
+          @mouseenter="showTip(
+            $event,
+            myFleet.some(s => !s.isPlaced)
+              ? `Не размещено: ${myFleet.filter(s => !s.isPlaced).map(s => s.name).join(', ')}`
+              : !allTetracatapultsConfigured
+                ? 'Сначала выберите заряд каждого тетракамнемёта'
+                : 'Подтвердить и начать бой',
+          )"
           @mousemove="moveTip" @mouseleave="hideTip"
           @click="handleConfirmPlacement"
         >
           Подтвердить расстановку
         </button>
+        <button
+          v-else-if="canCancelConfirmation"
+          class="bs-btn bs-btn--lg cancel-confirmation-btn"
+          type="button"
+          @click="cancelDialogVisible = true"
+        >
+          Отменить подтверждение
+        </button>
+        <p v-else class="opponent-ready-note">Противник уже подтвердил расстановку.</p>
       </div>
     </div>
+
+    <ConfirmDialog
+      v-if="cancelDialogVisible"
+      title="Отменить подтверждение?"
+      message="Вы снова сможете перемещать корабли и выбирать заряды, пока противник не подтвердил свою расстановку."
+      confirm-label="Отменить подтверждение"
+      cancel-label="Оставить как есть"
+      @confirm="handleCancelConfirmation"
+      @cancel="cancelDialogVisible = false"
+    />
 
     <!-- Tooltip -->
     <Teleport to="body">
@@ -276,6 +421,11 @@ onBeforeUnmount(() => window.removeEventListener('pointerup', cancelDrag))
 
 <style scoped>
 .phase-content { margin-top: 0.5rem; }
+.placement-waiting {
+  margin-bottom: 0.75rem;
+  text-align: center;
+  font-weight: 800;
+}
 
 .placement-layout {
   display: flex;
@@ -296,6 +446,10 @@ onBeforeUnmount(() => window.removeEventListener('pointerup', cancelDrag))
   gap: 0.5rem;
   min-width: 220px;
 }
+.placement-controls--locked .ship-list,
+.placement-controls--locked .orientation-btn {
+  opacity: 0.5;
+}
 .orientation-btn {
   align-self: flex-start;
   margin-bottom: 0.25rem;
@@ -315,6 +469,10 @@ onBeforeUnmount(() => window.removeEventListener('pointerup', cancelDrag))
   transition: all 0.15s;
 }
 .ship-item:hover { border-color: var(--border-color); }
+.ship-item--locked {
+  cursor: default;
+  pointer-events: none;
+}
 .ship-selected {
   border-color: color-mix(in srgb, var(--accent-gold) 60%, transparent) !important;
   box-shadow: var(--glow-gold);
@@ -340,6 +498,45 @@ onBeforeUnmount(() => window.removeEventListener('pointerup', cancelDrag))
 .zone-freeze { color: var(--accent-blue); }
 .zone-poison { color: var(--accent-green); }
 .zone-explosion { color: var(--accent-orange); }
+.catapult-loadouts {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.65rem;
+  margin-top: 0.25rem;
+}
+.loadout-title {
+  color: var(--text-muted);
+  font-size: 0.64rem;
+  font-weight: 900;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+.loadout-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.loadout-source {
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+.loadout-selected {
+  color: var(--accent-gold);
+  border-color: color-mix(in srgb, var(--accent-gold) 62%, transparent);
+  background: color-mix(in srgb, var(--accent-gold) 14%, transparent);
+}
+.loadout-warning,
+.opponent-ready-note {
+  margin: 0;
+  color: var(--accent-orange);
+  font-size: 0.68rem;
+}
+.cancel-confirmation-btn {
+  color: var(--accent-orange);
+  border-color: color-mix(in srgb, var(--accent-orange) 55%, transparent);
+}
 
 @media (max-width: 768px) {
   .placement-layout {

@@ -633,8 +633,6 @@ export interface LastChancesCockroachMotherDefinition {
   hideMs: number
   /** Attack recovery applied after she emerges from the striking hole. */
   exitRecoveryMs?: number
-  /** Chance that the strike returns through the entrance rather than its linked partner. */
-  sameHoleChance?: number
   blastRadius: number
   /** Pure blast damage as a fraction of the player's maximum HP. */
   blastDamageMaxHpRatio: number
@@ -940,7 +938,7 @@ export interface LastChancesCombatDefinition {
 }
 
 export interface LastChancesConfig {
-  schemaVersion: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9
+  schemaVersion: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10
   title: string
   seed: string
   chances: number
@@ -974,6 +972,12 @@ export interface LastChancesConfig {
     moveQuestKillsRequired: number
     /** Current HP and mind retained when entering an unvisited neighboring room in the same tier. */
     sameTierSacrificeRatio: number
+    /** Multiplicative stamina-cost increase granted by every room cleared in the current attempt. */
+    staminaCostIncreasePerRoom: number
+    /** Maximum number of per-room stamina-cost increases carried by the current attempt. */
+    maxStaminaCostStacks: number
+    /** Voluntarily spent Chances required to apply one immediate current-tier stat erosion. */
+    chanceErosionStep: number
     tiers: LastChancesTierDefinition[]
   }
   rooms: LastChancesRoomTemplate[]
@@ -1058,6 +1062,10 @@ export interface LastChancesPlayerSnapshot {
   hp: number
   mentalHealth: number
   stamina: number
+  /** Rooms cleared in this attempt that currently increase stamina expenditure. */
+  staminaCostStacks: number
+  /** Current multiplier applied to every stamina expenditure. */
+  staminaCostMultiplier: number
   stats: LastChancesStats
   invulnerableForMs: number
   armorMultiplier?: number

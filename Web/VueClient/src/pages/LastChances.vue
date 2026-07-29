@@ -90,6 +90,7 @@ const copy = {
     physical: 'Physical health',
     mental: 'Mental health',
     stamina: 'Stamina',
+    staminaAttrition: 'Room strain',
     chances: 'Chances remaining',
     chanceSingular: 'Chance',
     chancePlural: 'Chances',
@@ -224,9 +225,6 @@ const copy = {
     storyContinue: 'Continue',
     storyBegin: 'Enter the remembered run',
     storyClose: 'Close the memory',
-    spiderTutorialEyebrow: 'First reflection',
-    spiderTutorialTitle: 'The Knife-spider is inside your strike',
-    spiderTutorialBody: 'Time is stopped. Use the Mercenary Sword’s left tap to bat the leap away.',
     spiderTutorialParry: 'Bat it away',
     deaths: 'Deaths remembered',
     beginAgain: 'Begin a new generation',
@@ -271,6 +269,7 @@ const copy = {
     physical: 'Физическое здоровье',
     mental: 'Ментальное здоровье',
     stamina: 'Стамина',
+    staminaAttrition: 'Истощение комнатами',
     chances: 'Осталось Шансов',
     chanceSingular: 'Шанс',
     chancePlural: 'Шансов',
@@ -405,9 +404,6 @@ const copy = {
     storyContinue: 'Продолжить',
     storyBegin: 'Войти в запомненный забег',
     storyClose: 'Закрыть воспоминание',
-    spiderTutorialEyebrow: 'Первое отбивание',
-    spiderTutorialTitle: 'Нож-паук вошёл в траекторию удара',
-    spiderTutorialBody: 'Время остановлено. Совершите левый тап Мечом наемника, чтобы отбить прыжок.',
     spiderTutorialParry: 'Отбить',
     deaths: 'Запомнено смертей',
     beginAgain: 'Начать новую генерацию',
@@ -1168,11 +1164,6 @@ function interact() {
   void nextTick(() => canvas.value?.focus())
 }
 
-function parryKnifeSpiderTutorial() {
-  if (!engine.value?.performKnifeSpiderTutorialParry()) return
-  void nextTick(() => canvas.value?.focus())
-}
-
 function updateRouteMapVisibility(visible: boolean) {
   routeMapOpen.value = visible
   engine.value?.setRouteMapVisible(visible)
@@ -1322,6 +1313,20 @@ onBeforeUnmount(() => {
               <div class="lc-vital-label is-stamina">
                 <Wind :size="13" aria-hidden="true" />
                 <span>{{ t.stamina }}</span>
+                <span
+                  v-if="snapshot.player.staminaCostStacks > 0"
+                  class="lc-stamina-attrition"
+                  :aria-label="`${t.staminaAttrition}: +${Math.round((snapshot.player.staminaCostMultiplier - 1) * 100)}%`"
+                >
+                  <i aria-hidden="true">
+                    <TriangleAlert
+                      v-for="stack in snapshot.player.staminaCostStacks"
+                      :key="stack"
+                      :size="9"
+                    />
+                  </i>
+                  <b>+{{ Math.round((snapshot.player.staminaCostMultiplier - 1) * 100) }}%</b>
+                </span>
                 <strong>{{ Math.ceil(snapshot.player.stamina) }} / {{ Math.ceil(snapshot.player.stats.maxStamina) }}</strong>
               </div>
               <span
@@ -1404,20 +1409,15 @@ onBeforeUnmount(() => {
           <Transition name="lc-phase-fade">
             <div
               v-if="snapshot?.knifeSpiderTutorial?.phase === 'frozen'"
-              class="lc-spider-tutorial-overlay"
-              role="dialog"
-              aria-modal="true"
+              class="lc-spider-tutorial-hint"
+              role="status"
+              aria-live="assertive"
               data-testid="knife-spider-tutorial"
             >
-              <article>
-                <small>{{ t.spiderTutorialEyebrow }}</small>
-                <h2>{{ t.spiderTutorialTitle }}</h2>
-                <p>{{ t.spiderTutorialBody }}</p>
-                <button type="button" @click="parryKnifeSpiderTutorial">
-                  <Swords :size="18" aria-hidden="true" />
-                  {{ t.spiderTutorialParry }} ({{ snapshot.knifeSpiderTutorial.parryBinding }})
-                </button>
-              </article>
+              <Swords :size="18" aria-hidden="true" />
+              <strong>
+                {{ t.spiderTutorialParry }} ({{ snapshot.knifeSpiderTutorial.parryBinding }})
+              </strong>
             </div>
           </Transition>
 
@@ -1908,7 +1908,10 @@ onBeforeUnmount(() => {
 .is-mental { color: #9b86ae; }
 .is-mental .lc-vital-track i { margin-left: auto; background: linear-gradient(90deg, #7d6791, #b3a0c5); box-shadow: 0 0 0.65rem rgba(142, 112, 169, 0.42); }
 /* Stamina rides under physical health inside the same column, so it outranks the red ramp. */
-.lc-vital-label.is-stamina { color: #d0a64c; margin-top: 0.12rem; }
+.lc-vital-label.is-stamina { grid-template-columns: auto minmax(0, 1fr) auto auto; color: #d0a64c; margin-top: 0.12rem; }
+.lc-stamina-attrition { min-width: 0; display: inline-flex; align-items: center; justify-content: flex-end; gap: 0.25rem; color: #d18d4e; }
+.lc-stamina-attrition i { max-width: 5.2rem; display: inline-flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 0.05rem; }
+.lc-stamina-attrition b { color: #dc9a56; font: 800 0.5rem/1 var(--font-mono, monospace); }
 .is-physical .lc-vital-track.is-stamina i { background: linear-gradient(90deg, #6a5320, #e0b64a); box-shadow: 0 0 0.65rem rgba(216, 176, 71, 0.42); }
 .lc-vital-track.is-refused { animation: lc-stamina-refused 0.62s ease-out 1; }
 .lc-room-readout { min-width: 9rem; display: grid; justify-items: center; text-align: center; }
@@ -1955,16 +1958,11 @@ onBeforeUnmount(() => {
 
 .lc-phase-overlay,
 .lc-interaction-overlay,
-.lc-spider-tutorial-overlay,
 .lc-story-overlay,
 .lc-loading-overlay { position: absolute; z-index: 30; inset: 0; display: grid; place-items: center; padding: 1rem; background: rgba(4, 5, 6, 0.78); backdrop-filter: blur(5px); }
 .lc-interaction-overlay { z-index: 31; background: rgba(4, 5, 6, 0.84); }
-.lc-spider-tutorial-overlay { z-index: 36; background: radial-gradient(circle at 50% 48%, rgba(130, 29, 35, 0.14), transparent 38%), rgba(2, 3, 4, 0.72); }
-.lc-spider-tutorial-overlay article { width: min(34rem, 100%); padding: clamp(1.2rem, 4vw, 2rem); border: 1px solid rgba(211, 63, 70, 0.42); border-radius: 0.9rem; text-align: center; background: rgba(8, 8, 9, 0.95); box-shadow: 0 0 4rem rgba(175, 33, 39, 0.2); }
-.lc-spider-tutorial-overlay small { color: #bb4f55; font-size: 0.55rem; font-weight: 850; letter-spacing: 0.16em; text-transform: uppercase; }
-.lc-spider-tutorial-overlay h2 { margin: 0.4rem 0; color: #f0e7de; font: 600 clamp(1.25rem, 3vw, 1.9rem)/1.1 Georgia, serif; }
-.lc-spider-tutorial-overlay p { margin: 0.65rem auto 1.15rem; max-width: 27rem; color: #99938c; font-size: 0.72rem; line-height: 1.55; }
-.lc-spider-tutorial-overlay button { min-height: 3rem; display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1rem; border: 1px solid #d0aa55; border-radius: 0.48rem; color: #17130d; background: linear-gradient(135deg, #e1c06f, #9e732d); font-size: 0.7rem; font-weight: 850; }
+.lc-spider-tutorial-hint { position: absolute; z-index: 36; right: clamp(1.25rem, 13%, 9rem); top: 56%; display: inline-flex; align-items: center; gap: 0.5rem; transform: translateY(-50%); color: #f1cf79; text-shadow: 0 0.1rem 0.45rem #050505, 0 0 1.4rem rgba(198, 57, 64, 0.72); pointer-events: none; }
+.lc-spider-tutorial-hint strong { font: 850 clamp(0.72rem, 1.7vw, 1.05rem)/1.2 var(--font-sans, sans-serif); letter-spacing: 0.035em; }
 .lc-story-overlay { z-index: 34; background: radial-gradient(circle at 50% 28%, rgba(88, 58, 71, 0.2), transparent 45%), rgba(3, 4, 5, 0.93); }
 .lc-interaction-card { width: min(42rem, 100%); padding: clamp(1rem, 3vw, 1.8rem); border: 1px solid rgba(201, 167, 94, 0.18); border-radius: 0.9rem; background: #0d1011; box-shadow: 0 1.5rem 4rem rgba(0, 0, 0, 0.58); }
 .lc-interaction-card > p { margin: 0; color: #b08d4f; font-size: 0.55rem; font-weight: 800; letter-spacing: 0.15em; text-transform: uppercase; }

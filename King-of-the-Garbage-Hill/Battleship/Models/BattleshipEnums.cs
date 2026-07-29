@@ -26,7 +26,9 @@ public enum ShotType
     WhiteStone,     // 4x damage (=8), destroys module, stuns
     Buckshot,       // 0.5x damage (=1), 4-cell AoE
     Incendiary,     // burns entire ship
-    GreekFire       // Котельная upgrade: one-shot, kills summon without penalty, creates permanent burning cell
+    GreekFire,      // Котельная upgrade: one-shot, kills summon without penalty, creates permanent burning cell
+    EvilIncendiary, // Горючая баржа upgrade: also destroys the rest of a ship when aimed at its dead deck
+    EvilGreekFire   // Котельная upgrade: Greek Fire that can be fired during the opponent's shot pause
 }
 
 public enum WeaponType
@@ -36,7 +38,9 @@ public enum WeaponType
     Mast,
     Boiler,
     Incendiary,
-    GreekFire
+    GreekFire,
+    EvilIncendiary,
+    EvilGreekFire
 }
 
 public enum SummonType
@@ -75,7 +79,9 @@ public enum Region
 public enum Orientation
 {
     Horizontal,
-    Vertical
+    Vertical,
+    HorizontalReverse,
+    VerticalReverse
 }
 
 public enum Direction

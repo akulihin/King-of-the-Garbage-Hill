@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 9,
+  "schemaVersion": 10,
   "title": "99 Last Chances",
   "seed": "99LC-prototype",
   "chances": 99,
@@ -262,6 +262,9 @@
     "moveQuestsEnabled": true,
     "moveQuestKillsRequired": 2,
     "sameTierSacrificeRatio": 0.5,
+    "staminaCostIncreasePerRoom": 0.1,
+    "maxStaminaCostStacks": 10,
+    "chanceErosionStep": 5,
     "tiers": [
       {
         "id": "opening",
@@ -954,26 +957,26 @@
       "id": "cockroach-mother-lair",
       "name": "Гнездо Матери тараканов",
       "archetype": "combat",
-      "width": 1488,
-      "height": 837,
-      "playerSpawn": { "x": 118, "y": 418 },
+      "width": 840,
+      "height": 840,
+      "playerSpawn": { "x": 95, "y": 420 },
       "spawnLayouts": [
         {
           "id": "mother-center",
           "name": "Мать в центре",
-          "enemySpawns": [{ "x": 831, "y": 418 }]
+          "enemySpawns": [{ "x": 470, "y": 420 }]
         },
         {
           "id": "mother-far-wall",
           "name": "Мать у дальней стены",
-          "enemySpawns": [{ "x": 1153, "y": 418 }]
+          "enemySpawns": [{ "x": 470, "y": 680 }]
         }
       ],
       "obstacles": [
-        { "x": 484, "y": 299, "width": 87, "height": 90, "elevation": 45 },
-        { "x": 484, "y": 448, "width": 87, "height": 90, "elevation": 45 },
-        { "x": 918, "y": 299, "width": 87, "height": 90, "elevation": 45 },
-        { "x": 918, "y": 448, "width": 87, "height": 90, "elevation": 45 }
+        { "x": 240, "y": 300, "width": 70, "height": 90, "elevation": 45 },
+        { "x": 240, "y": 450, "width": 70, "height": 90, "elevation": 45 },
+        { "x": 600, "y": 300, "width": 70, "height": 90, "elevation": 45 },
+        { "x": 600, "y": 450, "width": 70, "height": 90, "elevation": 45 }
       ],
       "encounter": {
         "enemyIds": ["cockroach-mother"],
@@ -981,13 +984,13 @@
         "infiniteSwarm": true
       },
       "bossHoles": [
-        { "id": "circle-hole", "shape": "circle", "position": { "x": 105, "y": 85 }, "linkedHoleId": "triangle-hole", "color": "#b87954" },
-        { "id": "square-hole", "shape": "square", "position": { "x": 1383, "y": 85 }, "linkedHoleId": "diamond-hole", "color": "#8f694f" },
-        { "id": "triangle-hole", "shape": "triangle", "position": { "x": 1383, "y": 752 }, "linkedHoleId": "circle-hole", "color": "#9f5d45" },
-        { "id": "diamond-hole", "shape": "diamond", "position": { "x": 105, "y": 752 }, "linkedHoleId": "square-hole", "color": "#765947" }
+        { "id": "circle-hole", "shape": "circle", "position": { "x": 85, "y": 85 }, "linkedHoleId": "triangle-hole", "color": "#e45b52" },
+        { "id": "square-hole", "shape": "square", "position": { "x": 755, "y": 85 }, "linkedHoleId": "diamond-hole", "color": "#4f83d6" },
+        { "id": "triangle-hole", "shape": "triangle", "position": { "x": 755, "y": 755 }, "linkedHoleId": "circle-hole", "color": "#55ad70" },
+        { "id": "diamond-hole", "shape": "diamond", "position": { "x": 85, "y": 755 }, "linkedHoleId": "square-hole", "color": "#e0aa43" }
       ],
       "altar": {
-        "position": { "x": 186, "y": 418 },
+        "position": { "x": 150, "y": 420 },
         "chanceCost": 5,
         "prompt": "Хотите ли вы принести жертву 5 шансов?"
       }
@@ -1333,8 +1336,7 @@
         "entranceRadiusRatio": 0.55,
         "hideMs": 5000,
         "exitRecoveryMs": 650,
-        "sameHoleChance": 0.5,
-        "blastRadius": 560,
+        "blastRadius": 900,
         "blastDamageMaxHpRatio": 0.8
       }
     },
@@ -6498,7 +6500,7 @@
           "projectileSpeed": 0,
           "pierce": 10,
           "knockback": 34,
-          "color": "#b680ff",
+          "color": "#55c7ff",
           "staminaCost": 1,
           "collider": {
             "shape": "capsule",
@@ -6549,12 +6551,12 @@
             "traceMs": 900
           },
           "charge": {
-            "maxMs": 2200,
+            "maxMs": 1100,
             "bands": [
               {
                 "id": "early",
                 "label": "Быстрое отжатие · Заколоть",
-                "minMs": 650,
+                "minMs": 325,
                 "color": "#ffd166",
                 "damageMultiplier": 2.2,
                 "rangeMultiplier": 0.14,
@@ -6570,7 +6572,7 @@
               {
                 "id": "middle",
                 "label": "Средний релиз · метание и стан",
-                "minMs": 1125,
+                "minMs": 563,
                 "color": "#ff9f43",
                 "damageMultiplier": 1.08,
                 "rangeMultiplier": 0.62,
@@ -6584,7 +6586,7 @@
               {
                 "id": "late",
                 "label": "Поздний релиз · пробитие и стена",
-                "minMs": 1650,
+                "minMs": 825,
                 "color": "#ff5d5d",
                 "damageMultiplier": 1.38,
                 "rangeMultiplier": 1.12,
@@ -6598,7 +6600,6 @@
               }
             ]
           },
-          "recoveryMs": 520,
           "tuning": {
             "wallPinMs": 1800,
             "projectileSpawnOffset": 52,
@@ -6633,12 +6634,12 @@
             "rotationDegrees": 1080
           },
           "charge": {
-            "maxMs": 2200,
+            "maxMs": 1100,
             "bands": [
               {
                 "id": "spin-early",
                 "label": "Быстрая Акали · широкий рассекатель",
-                "minMs": 650,
+                "minMs": 325,
                 "color": "#a8f0d0",
                 "damageMultiplier": 1.25,
                 "rangeMultiplier": 1.28,
@@ -6656,7 +6657,7 @@
               {
                 "id": "spin-middle",
                 "label": "Средняя раскрутка",
-                "minMs": 1125,
+                "minMs": 563,
                 "color": "#54e6b0",
                 "damageMultiplier": 1.05,
                 "knockbackMultiplier": 1.1,
@@ -6669,7 +6670,7 @@
               {
                 "id": "spin-late",
                 "label": "Поздняя раскрутка",
-                "minMs": 1650,
+                "minMs": 825,
                 "color": "#98ffd0",
                 "damageMultiplier": 1.3,
                 "knockbackMultiplier": 1.45,
@@ -6704,23 +6705,23 @@
       },
       "secondaryTapCombo": [
         {
-          "name": "Повторный перехват древком",
+          "name": "Парирование",
           "behavior": "parry",
           "kind": "melee",
-          "damage": 5,
+          "damage": 4,
           "cooldownMs": 0,
-          "range": 96,
-          "radius": 24,
-          "arcDegrees": 165,
-          "durationMs": 210,
+          "range": 88,
+          "radius": 28,
+          "arcDegrees": 180,
+          "durationMs": 180,
           "projectileSpeed": 0,
           "pierce": 8,
-          "knockback": 20,
+          "knockback": 0,
           "color": "#f6c85f",
           "collider": {
             "shape": "capsule",
-            "width": 48,
-            "traceMs": 420
+            "width": 112,
+            "traceMs": 360
           },
           "tuning": {
             "reflectedProjectileMinimumRange": 220,
@@ -6730,23 +6731,23 @@
       ],
       "secondaryAttacks": {
         "tap": {
-          "name": "Быстрое парирование",
+          "name": "Парирование",
           "behavior": "parry",
           "kind": "melee",
           "damage": 4,
           "cooldownMs": 0,
-          "range": 98,
-          "radius": 24,
-          "arcDegrees": 170,
-          "durationMs": 230,
+          "range": 88,
+          "radius": 28,
+          "arcDegrees": 180,
+          "durationMs": 180,
           "projectileSpeed": 0,
           "pierce": 8,
-          "knockback": 18,
+          "knockback": 0,
           "color": "#f6c85f",
           "collider": {
             "shape": "capsule",
-            "width": 50,
-            "traceMs": 440
+            "width": 112,
+            "traceMs": 360
           },
           "tuning": {
             "reflectedProjectileMinimumRange": 220,
@@ -6754,7 +6755,7 @@
           }
         },
         "doubleTap": {
-          "name": "Широкий толчок древком",
+          "name": "Отталкивание",
           "behavior": "spearShove",
           "kind": "burst",
           "damage": 7,
@@ -6769,13 +6770,25 @@
           "color": "#55c7ff",
           "collider": {
             "shape": "sector",
-            "width": 60,
+            "width": 92,
             "traceMs": 620
           },
-          "recoveryMs": 180
+          "hitEffects": [
+            {
+              "status": "stun",
+              "durationMs": 1000,
+              "refresh": "refresh"
+            }
+          ],
+          "recoveryMs": 120,
+          "tuning": {
+            "windupMs": 250,
+            "minimumTargetRange": 88,
+            "targetRangeRatio": 0.72
+          }
         },
         "doubleTapHold": {
-          "name": "Бронированный пинок",
+          "name": "Пинок",
           "behavior": "spearKick",
           "kind": "melee",
           "damage": 17,
@@ -6797,74 +6810,113 @@
             "maxMs": 1400,
             "bands": [
               {
-                "id": "brace",
-                "label": "Удвоенная броня",
-                "minMs": 650,
-                "color": "#9b73e8",
-                "damageMultiplier": 0.85,
-                "knockbackMultiplier": 0.8
+                "id": "shove",
+                "label": "Ранний релиз · Отталкивание",
+                "minMs": 550,
+                "color": "#55c7ff",
+                "damageMultiplier": 0.4,
+                "rangeMultiplier": 1.23,
+                "knockbackMultiplier": 0.67,
+                "overrides": {
+                  "radius": 30,
+                  "arcDegrees": 155,
+                  "durationMs": 260,
+                  "pierce": 12,
+                  "staminaCost": 8
+                }
               },
               {
                 "id": "kick",
-                "label": "Критовая дистанция",
-                "minMs": 1050,
+                "label": "Средний релиз · Пинок",
+                "minMs": 850,
                 "color": "#d1a1ff",
                 "damageMultiplier": 1.25,
-                "knockbackMultiplier": 1.55
+                "knockbackMultiplier": 1.35,
+                "overrides": {
+                  "staminaCost": 12
+                }
+              },
+              {
+                "id": "strong-kick",
+                "label": "Поздний релиз · Сильный Пинок",
+                "minMs": 1200,
+                "color": "#f09cff",
+                "damageMultiplier": 1.55,
+                "rangeMultiplier": 1.55,
+                "knockbackMultiplier": 1.8,
+                "overrides": {
+                  "radius": 20,
+                  "arcDegrees": 28,
+                  "durationMs": 430,
+                  "staminaCost": 16
+                }
               }
             ]
           },
+          "hitEffects": [
+            {
+              "status": "stun",
+              "durationMs": 1000,
+              "refresh": "refresh"
+            }
+          ],
           "recoveryMs": 360,
           "tuning": {
             "minimumTargetRange": 80,
             "targetDistancePerKnockback": 1,
             "armorMultiplier": 2,
-            "armorDurationMs": 500
+            "shoveTargetDistance": 94,
+            "kickTargetDistance": 144,
+            "strongKickTargetDistance": 176,
+            "strongKickImmobilizeMs": 1500
           }
         },
         "hold": {
-          "name": "Режущая стойка",
+          "name": "Строй",
           "behavior": "spearStance",
           "kind": "melee",
           "damage": 8,
           "cooldownMs": 2600,
           "range": 206,
-          "radius": 16,
-          "arcDegrees": 42,
+          "radius": 15,
+          "arcDegrees": 18,
           "durationMs": 1500,
           "projectileSpeed": 0,
           "pierce": 30,
           "knockback": 14,
           "color": "#ff9f43",
           "collider": {
-            "shape": "sweep",
-            "innerRange": 44,
+            "shape": "capsule",
+            "innerRange": 158,
             "strictInnerRange": true,
-            "width": 32,
-            "traceMs": 980,
+            "width": 30,
+            "traceMs": 320,
             "followsPlayer": true,
-            "tickMs": 115,
-            "rotationDegrees": 78
+            "tickMs": 90
           },
-          "repeatHits": 11,
-          "repeatIntervalMs": 120,
+          "repeatHits": 64,
+          "repeatIntervalMs": 90,
           "tuning": {
-            "turnDotThreshold": 0.995,
-            "turnDamageMultiplier": 2.2,
-            "contactDamageMultiplier": 0.38
+            "staminaPerTickMs": 100,
+            "staminaPerTick": 5,
+            "stationaryDamageMultiplier": 0.3,
+            "pierceReferenceSpeed": 420,
+            "pierceSpeedDamageMultiplier": 1.8,
+            "cutReferenceSpeed": 900,
+            "cutSpeedDamageMultiplier": 0.95
           },
-          "recoveryMs": 320
+          "recoveryMs": 120
         },
         "holdThenDoubleTap": {
-          "name": "Олимпийский прыжок с шестом",
+          "name": "Олимпийский прыжок",
           "behavior": "poleVault",
           "kind": "dash",
           "damage": 0,
           "cooldownMs": 6200,
-          "range": 330,
+          "range": 360,
           "radius": 22,
           "arcDegrees": 36,
-          "durationMs": 720,
+          "durationMs": 1050,
           "projectileSpeed": 0,
           "pierce": 0,
           "knockback": 0,
@@ -6875,8 +6927,17 @@
             "traceMs": 980,
             "followsPlayer": true
           },
-          "invulnerabilityMs": 720,
-          "recoveryMs": 460
+          "recoveryMs": 180,
+          "tuning": {
+            "runMs": 180,
+            "plantMs": 120,
+            "riseMs": 180,
+            "flightMs": 420,
+            "landMs": 150,
+            "runDistanceRatio": 0.18,
+            "trajectoryHeightRadii": 4.2,
+            "trajectoryFlashMs": 180
+          }
         }
       },
       "controls": {
@@ -7103,7 +7164,7 @@
           }
         },
         "secondary": {
-          "role": "Left cluster — parry, brace, stance and vault",
+          "role": "Left cluster — instant parry, shove/kick charge, formation and vault",
           "mylorik": {
             "activations": [
               {
@@ -7142,7 +7203,7 @@
           },
           "dualsense": {
             "instantGesture": "tap",
-            "triggerRole": "L2 shove, brace, cutting stance and pole vault",
+            "triggerRole": "L2 shove, charged kick, formation and Olympic vault",
             "startNodeId": "stance",
             "nodes": [
               {
@@ -7182,7 +7243,7 @@
                 "expiryMs": 2300,
                 "tactileProfile": "gate",
                 "id": "kick-brace",
-                "chargeBandOverrideId": "brace",
+                "chargeBandOverrideId": "shove",
                 "telegraph": [
                   {
                     "delayMs": 0,
@@ -7241,7 +7302,7 @@
                 "expiryMs": 2300,
                 "tactileProfile": "gate",
                 "id": "kick-final",
-                "chargeBandOverrideId": "kick",
+                "chargeBandOverrideId": "strong-kick",
                 "adaptiveOverride": {
                   "startPosition": 0.95,
                   "endPosition": 1,

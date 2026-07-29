@@ -11,6 +11,8 @@ import {
   type BattleshipShotResult,
   type BattleshipStats,
   type BattleshipCell,
+  type BattleshipOrientation,
+  type BattleshipWeaponLoadout,
 } from 'src/services/signalr'
 import {
   playBattleshipShot,
@@ -68,7 +70,7 @@ export const useBattleshipStore = defineStore('battleship', () => {
 
   // Placement mode state
   const selectedShipId = ref<string | null>(null)
-  const placementOrientation = ref<'Horizontal' | 'Vertical'>('Horizontal')
+  const placementOrientation = ref<BattleshipOrientation>('Horizontal')
 
   // Combat state (shared by the page shell's keyboard handler and the phases)
   const selectedShotType = ref('Ballista')
@@ -202,19 +204,19 @@ export const useBattleshipStore = defineStore('battleship', () => {
     for (const w of myPlayer.value.availableWeapons ?? []) {
       const ship = myFleet.value.find(s => s.id === w.shipId)
       const base = {
-        id: w.id, shipId: w.shipId, type: w.type, ammo: w.ammo, hasAmmo: true,
+        id: w.id, shipId: w.shipId, type: w.type, ammo: w.ammo, hasAmmo: w.ammo !== 0,
         shipName: w.shipName, shipRange: ship?.range ?? 'Close', shipRow: ship?.row ?? 0,
         aimSpeed: w.aimRemaining, deckIndex: w.deckIndex,
       }
-      if (w.type === 'Tetracatapult') {
-        weapons.push({ ...base, shotType: 'WhiteStone', label: 'Белый камень' })
-        weapons.push({ ...base, shotType: 'Buckshot', label: 'Дробь' })
-      } else {
-        const label = w.type === 'Incendiary' ? 'Горючка'
-          : w.type === 'GreekFire' ? 'Греческий огонь'
-          : w.type === 'Ballista' ? 'Баллиста' : w.type
-        weapons.push({ ...base, shotType: w.type, label })
-      }
+      const shotType = w.shotType || weaponToShotType(w.type)
+      const label = shotType === 'WhiteStone' ? 'Белый камень'
+        : shotType === 'Buckshot' ? 'Дробь'
+          : shotType === 'Incendiary' ? 'Горючка'
+            : shotType === 'EvilIncendiary' ? 'Злая горючка'
+              : shotType === 'GreekFire' ? 'Греческий огонь'
+                : shotType === 'EvilGreekFire' ? 'Злой Греческий огонь'
+                  : shotType === 'Ballista' ? 'Баллиста' : shotType
+      weapons.push({ ...base, shotType, label })
     }
     return weapons
   })
@@ -264,9 +266,16 @@ export const useBattleshipStore = defineStore('battleship', () => {
       if (!old) continue
 
       // Detect newly changed states
-      if (cell.hasSummon && !old.hasSummon) {
+      if ((cell.frozenSummonDeathIndices?.length ?? 0) >
+          (old.frozenSummonDeathIndices?.length ?? 0)) {
+        triggerCellAnim(target, cell.row, cell.col, 'anim-freeze', 600)
+        cellVfxHandler?.(target, cell.row, cell.col, 'freeze')
+        if (!freezeSoundPlayed) { playBattleshipFreeze(); freezeSoundPlayed = true }
+      } else if (cell.hasSummon && !old.hasSummon) {
         triggerCellAnim(target, cell.row, cell.col, 'anim-summon-spawn', 1000)
         if (!summonSpawnSoundPlayed) { playComboStack(1); summonSpawnSoundPlayed = true }
+      } else if (cell.isBurnResistMarked && !old.isBurnResistMarked) {
+        triggerCellAnim(target, cell.row, cell.col, 'anim-scratch', 500)
       } else if (cell.isShipSunk && !old.isShipSunk) {
         triggerCellAnim(target, cell.row, cell.col, 'anim-sunk', 800)
       } else if (cell.isDestroyed && !old.isDestroyed) {
@@ -364,7 +373,7 @@ export const useBattleshipStore = defineStore('battleship', () => {
         selectedShotType.value = me.selectedShotType
         selectedWeaponType.value = me.selectedShotType === 'WhiteStone' || me.selectedShotType === 'Buckshot'
           ? 'Tetracatapult'
-          : me.selectedShotType
+          : me.availableWeapons?.find(w => w.id === me.selectedWeaponId)?.type ?? me.selectedShotType
       }
 
       // Phase transition detection
@@ -552,7 +561,7 @@ export const useBattleshipStore = defineStore('battleship', () => {
     await signalrService.battleshipSelectFleet(gameId.value, selections)
   }
 
-  async function placeShip(shipId: string, row: number, col: number, orientation: string) {
+  async function placeShip(shipId: string, row: number, col: number, orientation: BattleshipOrientation) {
     if (!gameId.value) return
     await signalrService.battleshipPlaceShip(gameId.value, shipId, row, col, orientation)
   }
@@ -562,9 +571,14 @@ export const useBattleshipStore = defineStore('battleship', () => {
     await signalrService.battleshipRemoveShip(gameId.value, shipId)
   }
 
-  async function confirmPlacement() {
+  async function confirmPlacement(loadouts: BattleshipWeaponLoadout[]) {
     if (!gameId.value) return
-    await signalrService.battleshipConfirmPlacement(gameId.value)
+    await signalrService.battleshipConfirmPlacement(gameId.value, loadouts)
+  }
+
+  async function cancelPlacement() {
+    if (!gameId.value) return
+    await signalrService.battleshipCancelPlacement(gameId.value)
   }
 
   async function shoot(row: number, col: number) {
@@ -574,7 +588,12 @@ export const useBattleshipStore = defineStore('battleship', () => {
   }
 
   async function shootOwnBoard(row: number, col: number) {
-    if (!gameId.value || shotDelayActive.value) return
+    if (!gameId.value) return
+    const evilGreekFireResponse = selectedShotType.value === 'EvilGreekFire'
+      && shotDelayActive.value
+      && !!shotDelayOwnerId.value
+      && shotDelayOwnerId.value !== myPlayer.value?.discordId
+    if (shotDelayActive.value && !evilGreekFireResponse) return
     pendingShotTarget = 'my'
     await signalrService.battleshipShootOwnBoard(gameId.value, row, col)
   }
@@ -584,7 +603,9 @@ export const useBattleshipStore = defineStore('battleship', () => {
     switch (weaponType) {
       case 'Tetracatapult': return 'WhiteStone'
       case 'Incendiary': return 'Incendiary'
+      case 'EvilIncendiary': return 'EvilIncendiary'
       case 'GreekFire': return 'GreekFire'
+      case 'EvilGreekFire': return 'EvilGreekFire'
       default: return 'Ballista'
     }
   }
@@ -594,8 +615,7 @@ export const useBattleshipStore = defineStore('battleship', () => {
     selectedWeaponType.value = weaponType
     summonDeployMode.value = null
     playBattleshipWeaponSelect()
-    // Tetracatapult can fire as WhiteStone or Buckshot — use client-sent shotType
-    selectedShotType.value = weaponType === 'Tetracatapult' ? shotType : weaponToShotType(weaponType)
+    selectedShotType.value = shotType || weaponToShotType(weaponType)
     await signalrService.battleshipSelectWeapon(gameId.value, weaponType, shotType, weaponId)
   }
 
@@ -626,6 +646,16 @@ export const useBattleshipStore = defineStore('battleship', () => {
     await signalrService.battleshipSetCursedBoatDirection(gameId.value, summonId, direction)
   }
 
+  async function assembleShip(
+    groupId: string,
+    row: number,
+    col: number,
+    orientation: BattleshipOrientation,
+  ) {
+    if (!gameId.value) return
+    await signalrService.battleshipAssembleShip(gameId.value, groupId, row, col, orientation)
+  }
+
   async function forfeit() {
     if (!gameId.value) return
     await signalrService.battleshipForfeit(gameId.value)
@@ -641,7 +671,12 @@ export const useBattleshipStore = defineStore('battleship', () => {
   }
 
   function toggleOrientation() {
-    placementOrientation.value = placementOrientation.value === 'Horizontal' ? 'Vertical' : 'Horizontal'
+    switch (placementOrientation.value) {
+      case 'Horizontal': placementOrientation.value = 'Vertical'; break
+      case 'Vertical': placementOrientation.value = 'HorizontalReverse'; break
+      case 'HorizontalReverse': placementOrientation.value = 'VerticalReverse'; break
+      default: placementOrientation.value = 'Horizontal'
+    }
   }
 
   function cancelSummonDeploy() {
@@ -730,6 +765,7 @@ export const useBattleshipStore = defineStore('battleship', () => {
     placeShip,
     removeShip,
     confirmPlacement,
+    cancelPlacement,
     shoot,
     shootOwnBoard,
     forfeit,
@@ -739,6 +775,7 @@ export const useBattleshipStore = defineStore('battleship', () => {
     deployPendingSummon,
     manualMove,
     setCursedBoatDirection,
+    assembleShip,
     requestState,
     requestCatalog,
     toggleOrientation,

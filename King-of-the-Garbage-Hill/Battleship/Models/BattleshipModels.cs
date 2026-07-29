@@ -161,9 +161,16 @@ public class Cell
     public HashSet<SummonType> SummonTrails { get; set; } = new();
     /// <summary>Persistent type-specific markers for summons destroyed on this physical cell.</summary>
     public List<SummonType> SummonDeaths { get; set; } = new();
-    public bool BurnResistMarked { get; set; } // BurnResist ship survived fire/explosion here — shown dark-green to both players (ТЗ #4)
+    /// <summary>
+    /// Indices in <see cref="SummonDeaths"/> whose summon was destroyed by Drakkar Freeze.
+    /// Keeping indices preserves the cause of each repeated same-type death independently.
+    /// </summary>
+    public List<int> FrozenSummonDeathIndices { get; set; } = new();
+    public bool BurnResistMarked { get; set; } // BurnResist ship survived fire/explosion here — shown black to both players (ТЗ #4)
     public bool WasDodge { get; set; } // Юркая единичка dodged a ballista shot here — static салатовый mark for both players (ТЗ #6)
     public bool WasManeuverDodge { get; set; } // Light Wood Triple moved away — persistent pink shot-history mark
+    /// <summary>Snapshot name retained after a sunk ship is later removed or transformed.</summary>
+    public string SunkShipName { get; set; }
 }
 
 public class Ship
@@ -191,10 +198,23 @@ public class Ship
     public bool IsHome { get; set; } // "Домашний" unit — used for first-turn tiebreaker
     public bool HasExploded { get; set; } // Idempotency guard: explode_on_hit fires once (death paths re-enter via HandleShipDeath)
     public bool HasManeuvered { get; set; } // ТЗ #21: manual_move_after_hit is once PER SHIP, not per player
+    /// <summary>The latest Light Wood Triple dodge marker; -1 means none.</summary>
+    public int LastManeuverDodgeRow { get; set; } = -1;
+    public int LastManeuverDodgeCol { get; set; } = -1;
     /// <summary>Coordinates vacated by hidden movement; reconciled only on final death.</summary>
     public List<(int row, int col)> ManeuverStaleHitCells { get; set; } = new();
     /// <summary>While alive, the opponent must not infer the ship's new position from an earlier reveal.</summary>
     public bool HasHiddenMovement { get; set; }
+    /// <summary>Stable identity shared by the three initial parts of an assembling ship.</summary>
+    public string AssemblyGroupId { get; set; }
+    /// <summary>Zero-based part number within an assembly group; -1 for ordinary ships.</summary>
+    public int AssemblyComponentIndex { get; set; } = -1;
+    public bool IsAssemblyComponent { get; set; }
+    /// <summary>
+    /// First turn number on which the one-survivor group may assemble. This prevents a player
+    /// from assembling immediately after destroying their own second component in the same turn.
+    /// </summary>
+    public int AssemblyEligibleTurnNumber { get; set; } = -1;
 
     public List<(int row, int col)> GetOccupiedCells()
     {
@@ -204,16 +224,42 @@ public class Ship
     public List<(int row, int col)> GetOccupiedCells(int row, int col, Orientation orientation)
     {
         var cells = new List<(int, int)>();
-        var isDiagonal = Abilities.Contains("diagonal_shape");
-        for (var i = 0; i < Decks.Count; i++)
-        {
-            var r = isDiagonal || orientation == Orientation.Vertical ? row + i : row;
-            var c = isDiagonal
-                ? col + (orientation == Orientation.Horizontal ? i : -i)
-                : orientation == Orientation.Horizontal ? col + i : col;
-            cells.Add((r, c));
-        }
+        foreach (var deck in Decks)
+            cells.Add(GetDeckCell(deck, row, col, orientation));
         return cells;
+    }
+
+    /// <summary>
+    /// Resolve one physical deck from the bow anchor. Deck.Index is deliberately used as
+    /// the offset so a deck removed by a ramming maneuver leaves a real gap in the hull.
+    /// </summary>
+    public (int row, int col) GetDeckCell(
+        Deck deck,
+        int row,
+        int col,
+        Orientation orientation)
+    {
+        var offset = deck.Index;
+        if (Abilities.Contains("diagonal_shape"))
+        {
+            return orientation switch
+            {
+                Orientation.Horizontal => (row + offset, col + offset),
+                Orientation.Vertical => (row + offset, col - offset),
+                Orientation.HorizontalReverse => (row - offset, col - offset),
+                Orientation.VerticalReverse => (row - offset, col + offset),
+                _ => (row + offset, col + offset),
+            };
+        }
+
+        return orientation switch
+        {
+            Orientation.Horizontal => (row, col + offset),
+            Orientation.HorizontalReverse => (row, col - offset),
+            Orientation.Vertical => (row + offset, col),
+            Orientation.VerticalReverse => (row - offset, col),
+            _ => (row, col + offset),
+        };
     }
 }
 
@@ -235,6 +281,8 @@ public class Weapon
     public int AimSpeed { get; set; }
     public string ShipId { get; set; }
     public int DeckIndex { get; set; }
+    /// <summary>Placement-time ammo choice for weapons such as the Tetracatapult.</summary>
+    public ShotType? ConfiguredShotType { get; set; }
 
     public bool HasAmmo => Ammo == -1 || Ammo > 0;
 
@@ -263,6 +311,7 @@ public class Summon
     public bool WaitingForDirectionChoice { get; set; } // CursedBoat waiting for owner to choose direction after collision
     public bool IsBoardingShip { get; set; } // Close ship converted during Final Boarding
     public string SourceShipId { get; set; } // Original Close ship for boarding Ballista VFX
+    public string SourceShipName { get; set; } // Player-facing identity of a converted Close ship
     public bool HasDetonated { get; set; } // Brander chain-explosion idempotency guard
 }
 

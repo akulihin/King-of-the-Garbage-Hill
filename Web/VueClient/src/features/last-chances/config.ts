@@ -48,7 +48,7 @@ export const LAST_CHANCES_CONFIG_STORAGE_KEY = '99lc:game-config'
 
 type UnknownRecord = Record<string, unknown>
 
-const CURRENT_LAST_CHANCES_SCHEMA_VERSION = 9
+const CURRENT_LAST_CHANCES_SCHEMA_VERSION = 10
 const MAX_GAMEPAD_BUTTON_INDEX = 31
 const MAX_FEEDBACK_DURATION_MS = 2_000
 const MAX_CONTROL_EXPIRY_MS = 10_000
@@ -213,6 +213,9 @@ const DEFAULT_LAST_CHANCES_DECELERATION_MS = 50
 const DEFAULT_LAST_CHANCES_ACTION_DIRECTION_DEAD_ZONE = 0.2
 const DEFAULT_LAST_CHANCES_MOVE_QUEST_KILLS_REQUIRED = 2
 const DEFAULT_LAST_CHANCES_SAME_TIER_SACRIFICE_RATIO = 0.5
+const DEFAULT_LAST_CHANCES_STAMINA_COST_INCREASE_PER_ROOM = 0.1
+const DEFAULT_LAST_CHANCES_MAX_STAMINA_COST_STACKS = 10
+const DEFAULT_LAST_CHANCES_CHANCE_EROSION_STEP = 5
 
 export const DEFAULT_LAST_CHANCES_COMBAT: LastChancesCombatDefinition = {
   attackStopsMovement: true,
@@ -1102,8 +1105,8 @@ const ATTACK_SET_CONTROL_SEEDS: Record<string, AttackSetControlSeed> = {
     },
   },
   'twohand-spear-v2:secondary': {
-    role: 'Left cluster — parry, brace, stance and vault',
-    triggerRole: 'L2 shove, brace, cutting stance and pole vault',
+    role: 'Left cluster — instant parry, shove/kick charge, formation and vault',
+    triggerRole: 'L2 shove, charged kick, formation and Olympic vault',
     mylorik: {
       tap: mylorikActivation('strike', 'press'),
       doubleTap: mylorikActivation('technique', 'tap'),
@@ -1127,7 +1130,7 @@ const ATTACK_SET_CONTROL_SEEDS: Record<string, AttackSetControlSeed> = {
         id: 'kick-brace',
         holdBehavior: 'charge',
         next: ['kick-strong'],
-        chargeBandOverrideId: 'brace',
+        chargeBandOverrideId: 'shove',
         telegraph: telegraphPulses(1),
         tactileProfile: 'gate',
         adaptiveOverride: { startPosition: 0.5, endPosition: 0.6, force: 0.5 },
@@ -1144,7 +1147,7 @@ const ATTACK_SET_CONTROL_SEEDS: Record<string, AttackSetControlSeed> = {
       dualSenseNode('doubleTapHold', 'continuation', 0.95, {
         id: 'kick-final',
         holdBehavior: 'charge',
-        chargeBandOverrideId: 'kick',
+        chargeBandOverrideId: 'strong-kick',
         tactileProfile: 'gate',
         adaptiveOverride: { startPosition: 0.95, endPosition: 1, force: 0.9 },
       }),
@@ -1620,6 +1623,32 @@ function backfillRunTuningFields(migrated: UnknownRecord): void {
 }
 
 /**
+ * Schema v10 makes the current-attempt attrition rules explicit. Older definitions keep the
+ * shipped 10%-per-room stamina ramp (capped at ten icons) and one immediate erosion for every
+ * five voluntarily spent Chances. Mother's retreat no longer accepts an entrance-hole attack
+ * probability: every strike is forced through the linked hole.
+ */
+function backfillCurrentAttemptAttritionFields(migrated: UnknownRecord): void {
+  const progression = asRecordOrNull(migrated.progression)
+  if (progression) {
+    if (progression.staminaCostIncreasePerRoom === undefined) {
+      progression.staminaCostIncreasePerRoom = DEFAULT_LAST_CHANCES_STAMINA_COST_INCREASE_PER_ROOM
+    }
+    if (progression.maxStaminaCostStacks === undefined) {
+      progression.maxStaminaCostStacks = DEFAULT_LAST_CHANCES_MAX_STAMINA_COST_STACKS
+    }
+    if (progression.chanceErosionStep === undefined) {
+      progression.chanceErosionStep = DEFAULT_LAST_CHANCES_CHANCE_EROSION_STEP
+    }
+  }
+  if (!Array.isArray(migrated.enemies)) return
+  for (const enemyValue of migrated.enemies) {
+    const mother = asRecordOrNull(asRecordOrNull(enemyValue)?.cockroachMother)
+    if (mother) delete mother.sameHoleChance
+  }
+}
+
+/**
  * The authored apartment/Knife-spider opening was a content correction, not merely new tuning.
  * Whole-definition browser overrides from the shipped v1-v8 builds otherwise freeze the old
  * randomized first tier forever. Upgrade only catalogs carrying the canonical room/enemy IDs;
@@ -1839,11 +1868,12 @@ export function migrateLastChancesConfig(
   backfillStaminaFields(migrated)
   backfillPlayerMovementFields(migrated)
   backfillRunTuningFields(migrated)
+  backfillCurrentAttemptAttritionFields(migrated)
   repairSchemaV8GuaranteedSpawns(migrated)
   backfillAuthoredOpening(migrated, currentDefinition)
-  // v7/v8 already own the complete authored content/control catalog. Preserve their definitions
+  // v7-v9 already own the complete authored content/control catalog. Preserve their definitions
   // byte-for-byte apart from the newly derived movement and run-tuning fields.
-  if (version === 7 || version === 8) {
+  if (version === 7 || version === 8 || version === 9) {
     migrated.schemaVersion = CURRENT_LAST_CHANCES_SCHEMA_VERSION
     return migrated
   }
@@ -2855,6 +2885,7 @@ function validateRooms(value: unknown, errors: string[], requireSpawnLayouts: bo
       } else {
         const holes = new Map<string, UnknownRecord>()
         const shapes = new Set<string>()
+        const colors = new Set<string>()
         room.bossHoles.forEach((holeValue, holeIndex) => {
           const holePath = `${path}.bossHoles[${holeIndex}]`
           const hole = asRecord(holeValue, holePath, errors)
@@ -2863,6 +2894,7 @@ function validateRooms(value: unknown, errors: string[], requireSpawnLayouts: bo
           requireString(hole, 'linkedHoleId', holePath, errors)
           validateVector(hole.position, `${holePath}.position`, errors)
           requireString(hole, 'color', holePath, errors)
+          if (typeof hole.color === 'string') colors.add(hole.color.toLowerCase())
           if (!LAST_CHANCES_BOSS_HOLE_SHAPES.includes(
             hole.shape as typeof LAST_CHANCES_BOSS_HOLE_SHAPES[number],
           )) {
@@ -2876,6 +2908,9 @@ function validateRooms(value: unknown, errors: string[], requireSpawnLayouts: bo
         })
         if (shapes.size !== room.bossHoles.length) {
           errors.push(`${path}.bossHoles must use four different shapes`)
+        }
+        if (colors.size !== room.bossHoles.length) {
+          errors.push(`${path}.bossHoles must use four different colors`)
         }
         for (const [holeId, hole] of holes) {
           const linkedId = hole.linkedHoleId
@@ -3057,12 +3092,6 @@ function validateEnemies(value: unknown, errors: string[], schemaVersion: number
         }
         if (mother.exitRecoveryMs !== undefined) {
           requireNumber(mother, 'exitRecoveryMs', motherPath, errors)
-        }
-        if (mother.sameHoleChance !== undefined) {
-          requireNumber(mother, 'sameHoleChance', motherPath, errors)
-          if (typeof mother.sameHoleChance === 'number' && mother.sameHoleChance > 1) {
-            errors.push(`${motherPath}.sameHoleChance must be <= 1`)
-          }
         }
         if (typeof mother.blastDamageMaxHpRatio === 'number'
           && mother.blastDamageMaxHpRatio > 1) {
@@ -4493,26 +4522,28 @@ export function validateLastChancesConfig(value: unknown): LastChancesConfigVali
     && root.schemaVersion !== 3 && root.schemaVersion !== 4
     && root.schemaVersion !== 5 && root.schemaVersion !== 6
     && root.schemaVersion !== 7 && root.schemaVersion !== 8
-    && root.schemaVersion !== 9) {
-    errors.push('schemaVersion must be 1, 2, 3, 4, 5, 6, 7, 8, or 9')
+    && root.schemaVersion !== 9 && root.schemaVersion !== 10) {
+    errors.push('schemaVersion must be 1, 2, 3, 4, 5, 6, 7, 8, 9, or 10')
   }
-  const schemaVersion = root.schemaVersion === 9
-    ? 9
-    : root.schemaVersion === 8
-      ? 8
-      : root.schemaVersion === 7
-        ? 7
-        : root.schemaVersion === 6
-          ? 6
-          : root.schemaVersion === 5
-            ? 5
-            : root.schemaVersion === 4
-              ? 4
-              : root.schemaVersion === 3
-                ? 3
-                : root.schemaVersion === 2
-                  ? 2
-                  : 1
+  const schemaVersion = root.schemaVersion === 10
+    ? 10
+    : root.schemaVersion === 9
+      ? 9
+      : root.schemaVersion === 8
+        ? 8
+        : root.schemaVersion === 7
+          ? 7
+          : root.schemaVersion === 6
+            ? 6
+            : root.schemaVersion === 5
+              ? 5
+              : root.schemaVersion === 4
+                ? 4
+                : root.schemaVersion === 3
+                  ? 3
+                  : root.schemaVersion === 2
+                    ? 2
+                    : 1
   requireString(root, 'title', 'config', errors)
   requireString(root, 'seed', 'config', errors)
   requireInteger(root, 'chances', 'config', errors, 1)
@@ -4626,6 +4657,25 @@ export function validateLastChancesConfig(value: unknown): LastChancesConfigVali
         && progression.sameTierSacrificeRatio > 1) {
         errors.push('progression.sameTierSacrificeRatio must be <= 1')
       }
+    }
+    if (schemaVersion >= 10 || progression.staminaCostIncreasePerRoom !== undefined) {
+      requirePositiveNumber(
+        progression,
+        'staminaCostIncreasePerRoom',
+        'progression',
+        errors,
+      )
+    }
+    if (schemaVersion >= 10 || progression.maxStaminaCostStacks !== undefined) {
+      requireInteger(progression, 'maxStaminaCostStacks', 'progression', errors, 1)
+      if (typeof progression.maxStaminaCostStacks === 'number'
+        && Number.isFinite(progression.maxStaminaCostStacks)
+        && progression.maxStaminaCostStacks > 10) {
+        errors.push('progression.maxStaminaCostStacks must be <= 10')
+      }
+    }
+    if (schemaVersion >= 10 || progression.chanceErosionStep !== undefined) {
+      requireInteger(progression, 'chanceErosionStep', 'progression', errors, 1)
     }
     validateTiers(progression.tiers, roomIds, enemyIds, errors)
   }

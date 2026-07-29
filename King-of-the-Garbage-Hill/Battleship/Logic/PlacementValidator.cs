@@ -78,9 +78,14 @@ public static class PlacementValidator
         var cells = new List<(int, int)>();
         for (var i = 0; i < deckCount; i++)
         {
-            var r = orientation == Orientation.Vertical ? row + i : row;
-            var c = orientation == Orientation.Horizontal ? col + i : col;
-            cells.Add((r, c));
+            cells.Add(orientation switch
+            {
+                Orientation.Horizontal => (row, col + i),
+                Orientation.HorizontalReverse => (row, col - i),
+                Orientation.Vertical => (row + i, col),
+                Orientation.VerticalReverse => (row - i, col),
+                _ => (row, col + i),
+            });
         }
         return cells;
     }

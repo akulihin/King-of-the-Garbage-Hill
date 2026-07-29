@@ -52,9 +52,12 @@ public static class FleetValidator
             if (sel.Upgrades?.Contains("tetra_discus") == true)
                 return (false, "Дискобол пока не реализован и недоступен для покупки.");
 
-            if (sel.Upgrades?.Contains("tetra_boiler_fire") == true &&
-                sel.Upgrades.Contains("tetra_boiler_brander"))
-                return (false, "Греческий огонь и Брандер взаимоисключающие апгрейды.");
+            var boilerUpgradeCount = sel.Upgrades?.Count(upgradeId =>
+                upgradeId is "tetra_boiler_fire" or
+                    "tetra_boiler_evil_fire" or
+                    "tetra_boiler_brander") ?? 0;
+            if (boilerUpgradeCount > 1)
+                return (false, "Греческий огонь, Злой Греческий огонь и Брандер взаимоисключающие апгрейды.");
 
             if (def.IsFree)
             {

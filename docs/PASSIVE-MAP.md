@@ -9,7 +9,7 @@
 
 | Passive | Owner(s) | CP case | Other refs | Status |
 |---|---|---:|---:|---|
-| 2kxaoc | Загадочный Спартанец в маске | 0 | 1 | NAME-KEYED (D4) |
+| 2kxaoc | Загадочный Спартанец в маске | 0 | 2 | NAME-KEYED (D4) |
 | 3-0 обоссан | Тигр | 2 | 2 | ok |
 | AdminPlayerType | unknown_bug | 0 | 5 | ok |
 | Aggress | Toxic Mate | 2 | 6 | ok |

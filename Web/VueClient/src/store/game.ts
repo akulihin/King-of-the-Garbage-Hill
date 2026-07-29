@@ -96,6 +96,8 @@ export const useGameStore = defineStore('game', () => {
   const storeAction = ref<string | null>(null)
   const storeError = ref<string | null>(null)
   const accountPlayerType = ref(0)
+  const accountGameplayMode = ref<'Casual' | 'Pro'>('Casual')
+  const eloRating = ref(1000)
   const lastPlayedCharacter = ref('')
   const isGodAdmin = ref(false)
   const adminLobbyState = ref<AdminLobbyState | null>(null)
@@ -146,6 +148,9 @@ export const useGameStore = defineStore('game', () => {
   const isAdmin = computed(() => (gameState.value?.myPlayerType ?? 0) === 2)
 
   const isLobbyAdmin = computed(() => accountPlayerType.value === 2)
+  const isProMode = computed(
+    () => gameState.value?.isProMode ?? accountGameplayMode.value === 'Pro',
+  )
 
   const isKira = computed(() => myPlayer.value?.isKira ?? false)
 
@@ -267,6 +272,8 @@ export const useGameStore = defineStore('game', () => {
         const refreshAgain = questsRefreshPending
         questsRefreshPending = false
         questState.value = state
+        accountGameplayMode.value = state.gameplayMode ?? accountGameplayMode.value
+        eloRating.value = state.eloRating ?? eloRating.value
         isQuestsLoading.value = false
         questsError.value = null
         rerollingQuestId.value = null
@@ -374,6 +381,8 @@ export const useGameStore = defineStore('game', () => {
           // Keep as string to preserve precision on large snowflake IDs
           discordId.value = String(data.discordId)
           accountPlayerType.value = data.playerType ?? 0
+          accountGameplayMode.value = data.gameplayMode ?? 'Casual'
+          eloRating.value = data.eloRating ?? 1000
           lastPlayedCharacter.value = data.lastPlayedCharacter ?? ''
           isGodAdmin.value = data.isGodAdmin ?? false
           const requests = [requestAchievements(), requestQuests()]
@@ -382,6 +391,11 @@ export const useGameStore = defineStore('game', () => {
             requests.push(requestAdminLobbyState())
           void Promise.allSettled(requests)
         }
+      }
+
+      signalrService.onGameplayModeChanged = (data) => {
+        accountGameplayMode.value = data.gameplayMode
+        eloRating.value = data.eloRating
       }
 
       signalrService.onWebAccountCreated = (data) => {
@@ -497,6 +511,8 @@ export const useGameStore = defineStore('game', () => {
     storeAction.value = null
     storeError.value = null
     accountPlayerType.value = 0
+    accountGameplayMode.value = 'Casual'
+    eloRating.value = 1000
     lastPlayedCharacter.value = ''
     doomFortressState.value = null
   }
@@ -518,6 +534,10 @@ export const useGameStore = defineStore('game', () => {
 
   async function setLanguage(language: 'ru' | 'en') {
     await signalrService.setLanguage(language)
+  }
+
+  async function setGameplayMode(mode: 'Casual' | 'Pro') {
+    await signalrService.setGameplayMode(mode)
   }
 
   async function joinGame(gameId: number) {
@@ -818,6 +838,10 @@ export const useGameStore = defineStore('game', () => {
     await signalrService.createWebGame()
   }
 
+  async function createRankedGame() {
+    await signalrService.createRankedGame()
+  }
+
   async function joinWebGame(gameId: number) {
     await signalrService.joinWebGame(gameId)
   }
@@ -1089,6 +1113,9 @@ export const useGameStore = defineStore('game', () => {
     isAdmin,
     isLobbyAdmin,
     accountPlayerType,
+    accountGameplayMode,
+    eloRating,
+    isProMode,
     lastPlayedCharacter,
     characterList,
     doomFortressState,
@@ -1106,6 +1133,7 @@ export const useGameStore = defineStore('game', () => {
     authenticate,
     logout,
     setLanguage,
+    setGameplayMode,
     joinGame,
     leaveGame,
     refreshLobby,
@@ -1155,6 +1183,7 @@ export const useGameStore = defineStore('game', () => {
     finishGame,
     registerWebAccount,
     createWebGame,
+    createRankedGame,
     joinWebGame,
     fetchCharacterList,
     createTestGame,

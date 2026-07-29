@@ -411,7 +411,7 @@ describe('99 Last Chances controller flow', () => {
 
     // L1 is the immediate support-hand move: it resolves before button-up.
     setGamepadButton(4, true)
-    cy.get('.lc-gesture-toast').should('contain.text', 'Быстрое парирование')
+    cy.get('.lc-gesture-toast').should('contain.text', 'Парирование')
     setGamepadButton(4, false)
     cy.wait(280)
 
@@ -420,16 +420,16 @@ describe('99 Last Chances controller flow', () => {
     cy.wait(60)
     setGamepadButton(6, false)
     cy.get('[data-testid="semantic-control-cue"]')
-      .should('contain.text', 'Широкий толчок древком')
+      .should('contain.text', 'Отталкивание')
       .and('not.have.class', 'is-blocked')
-    cy.get('.lc-gesture-toast').should('contain.text', 'Широкий толчок древком')
+    cy.get('.lc-gesture-toast').should('contain.text', 'Отталкивание')
     cy.wait(1_500)
 
     // Hold L2 to enter the authored support stance, then release to commit it.
     setGamepadButton(6, true)
     cy.wait(700)
     setGamepadButton(6, false)
-    cy.get('.lc-gesture-toast').should('contain.text', 'Режущая стойка')
+    cy.get('.lc-gesture-toast').should('contain.text', 'Строй')
     cy.wait(700)
 
     // An armed primary technique makes Circle select that physical hand's Mobility route.
@@ -487,15 +487,15 @@ describe('99 Last Chances controller flow', () => {
     cy.wait(1_900)
     setAnalogTrigger(6, 0.3)
     cy.get('[data-testid="semantic-control-cue"]')
-      .should('contain.text', 'Широкий толчок древком')
+      .should('contain.text', 'Строй')
     setAnalogTrigger(6, 0.55)
     cy.get('[data-testid="semantic-control-cue"]')
-      .should('contain.text', 'Режущая стойка')
+      .should('contain.text', 'Пинок')
     setAnalogTrigger(6, 0.92)
     cy.get('[data-testid="semantic-control-cue"]')
-      .should('contain.text', 'Олимпийский прыжок с шестом')
+      .should('contain.text', 'Олимпийский прыжок')
     setAnalogTrigger(6, 0)
-    cy.get('.lc-gesture-toast').should('contain.text', 'Олимпийский прыжок с шестом')
+    cy.get('.lc-gesture-toast').should('contain.text', 'Олимпийский прыжок')
 
     // Circle and Cross remain outside DualSense combat grammar.
     cy.wait(950)

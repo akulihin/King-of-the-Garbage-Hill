@@ -101,6 +101,7 @@ const placeTier = computed(() => {
 const charTier = computed(() => myPlayer.value?.character.tier ?? 0)
 const rarityLabel = computed(() => {
   switch (charTier.value) {
+    case 0: return 'PRO'
     case 1: return 'Legendary'
     case 2: return 'Epic'
     case 3: return 'Rare'
@@ -111,6 +112,7 @@ const rarityLabel = computed(() => {
 })
 const rarityClass = computed(() => {
   switch (charTier.value) {
+    case 0: return 'rarity-pro'
     case 1: return 'rarity-legendary'
     case 2: return 'rarity-epic'
     case 3: return 'rarity-rare'
@@ -417,7 +419,7 @@ onUnmounted(() => {
           <div class="gr-identity">
             <div class="gr-name">
               {{ myPlayer.character.name }}
-              <span v-if="charTier > 0" class="rarity-badge" :class="rarityClass">{{ rarityLabel }}</span>
+              <span v-if="charTier >= 0" class="rarity-badge" :class="rarityClass">{{ rarityLabel }}</span>
             </div>
             <div v-if="masteryLevel > 0" class="mastery-badge" :class="'mastery-' + masteryTier">
               <span class="mastery-level">{{ masteryLevel }}</span>
@@ -1079,6 +1081,7 @@ onUnmounted(() => {
   text-shadow: none;
 }
 .rarity-legendary { color: #f0c850; border-color: rgba(240,200,80,0.4); background: rgba(240,200,80,0.1); box-shadow: 0 0 8px rgba(240,200,80,0.15); }
+.rarity-pro { color: #f4a5ff; border-color: rgba(239,125,255,0.45); background: rgba(239,125,255,0.12); box-shadow: 0 0 9px rgba(239,125,255,0.18); }
 .rarity-epic { color: #c084fc; border-color: rgba(192,132,252,0.4); background: rgba(192,132,252,0.1); box-shadow: 0 0 8px rgba(192,132,252,0.15); }
 .rarity-rare { color: #60a5fa; border-color: rgba(96,165,250,0.4); background: rgba(96,165,250,0.1); }
 .rarity-uncommon { color: #4ade80; border-color: rgba(74,222,128,0.3); background: rgba(74,222,128,0.08); }

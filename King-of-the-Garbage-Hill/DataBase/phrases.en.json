@@ -1330,6 +1330,10 @@
       {
         "russian": "Invite",
         "english": "Invite."
+      },
+      {
+        "russian": "Ты буль?",
+        "english": "boole?"
       }
     ]
   },
@@ -4650,6 +4654,26 @@
       {
         "russian": "Помогите! Я застрял!",
         "english": "Help! I'm stuck!"
+      }
+    ]
+  },
+  "JonSnowLowerSide": {
+    "passiveNameRussian": "Черный Замок",
+    "passiveNameEnglish": "Castle Black",
+    "phrases": [
+      {
+        "russian": "Вперед дикари! Я всегда был за вас!",
+        "english": "Onward, wildlings! I've always been on your side!"
+      }
+    ]
+  },
+  "JonSnowUpperSide": {
+    "passiveNameRussian": "Черный Замок",
+    "passiveNameEnglish": "Castle Black",
+    "phrases": [
+      {
+        "russian": "Ура! Я среди королей!",
+        "english": "Hooray! I'm among kings!"
       }
     ]
   },

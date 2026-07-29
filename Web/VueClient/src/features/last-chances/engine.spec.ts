@@ -193,6 +193,8 @@ type EngineTestAccess = {
     authoredRepeatHits: number
     motionDamageBonus: number
     matchingAimMotionPx: number
+    channelStaminaAccumulatorMs: number
+    stanceCutSpeed: number
   }>
   activeDash: {
     attack: LastChancesAttackDefinition
@@ -206,6 +208,14 @@ type EngineTestAccess = {
       staminaAccumulatorMs: number
       streakAccumulatorMs: number
       tierCued: number
+    }
+    poleVault?: {
+      runMs: number
+      plantMs: number
+      riseMs: number
+      flightMs: number
+      landMs: number
+      runDistanceRatio: number
     }
   } | null
   activeParryAttack: LastChancesAttackDefinition | null
@@ -234,6 +244,15 @@ type EngineTestAccess = {
     effect: {
       primaryWeaponId?: string
       secondaryWeaponId?: string | null
+      chanceCost?: number
+      stats?: Partial<{
+        maxHp: number
+        maxMentalHealth: number
+        maxStamina: number
+        attackPower: number
+        moveSpeed: number
+        armor: number
+      }>
     }
   }) => void
   cooldownEnds: Map<string, number>
@@ -241,7 +260,9 @@ type EngineTestAccess = {
   controlContextActive: (hand: LastChancesHand, context: LastChancesControlContext) => boolean
   currentNode: LastChancesPlanNode | null
   completeRoom: () => void
+  finishRoomTransition: () => void
   knifeSpiderTutorialPhase: 'pending' | 'slowing' | 'frozen' | 'resuming' | 'complete'
+  knifeSpiderLeapPathClear: (enemy: RuntimeEnemy) => boolean
   plan: LastChancesGamePlan
   applyGamepadReading: (reading: LastChancesGamepadReading | null) => void
   pollGamepad: () => void
@@ -272,7 +293,7 @@ type EngineTestAccess = {
   effects: unknown[]
   feedbackController: DualSenseFeedbackController
   finishEnemyDeath: (enemy: RuntimeEnemy) => void
-  bossCheckpoint: { nodeId: string } | null
+  bossCheckpoint: { nodeId: string, staminaCostStacks: number } | null
   cockroachesExtinct: boolean
   damagePlayerMental: (damage: number) => void
   damagePlayer: (damage: number, source: string) => void
@@ -323,6 +344,7 @@ type EngineTestAccess = {
   }>
   heldChannels: Map<LastChancesHand, EngineTestAccess['activeAreas'][number]>
   killPlayer: (reason: string) => void
+  staminaCostStacks: number
   cssWidth: number
   entityScale: (node: LastChancesPlanNode) => number
   layout: () => {
@@ -378,6 +400,7 @@ type EngineTestAccess = {
       maxHp: number
       maxMentalHealth: number
       maxStamina: number
+      attackPower: number
       moveSpeed: number
       armor: number
     }
@@ -395,6 +418,10 @@ type EngineTestAccess = {
     direction: LastChancesVector,
     requestedTravel: number,
     radius: number,
+  ) => number
+  spearStanceDamageMultiplier: (
+    area: EngineTestAccess['activeAreas'][number],
+    enemy: RuntimeEnemy,
   ) => number
   tapCombos: Record<LastChancesHand, { step: number, expiresAtMs: number }>
   pierceMash: Record<LastChancesHand, { expiresAtMs: number, hits: number }>
@@ -992,8 +1019,9 @@ describe('99LC engine attempt lifecycle', () => {
         hand: 'right',
         gesture: 'tap',
       })
-      expect(secondTarget.hp).toBeCloseTo(79)
-      expect(access.player.hp).toBeCloseTo(51.05)
+      const expectedDamage = 20 * 1.05 * access.player.stats.attackPower / 100
+      expect(secondTarget.hp).toBeCloseTo(100 - expectedDamage)
+      expect(access.player.hp).toBeCloseTo(50 + expectedDamage * 0.05)
 
       access.player.invulnerableMs = 0
       access.player.hp = 100
@@ -2036,6 +2064,28 @@ describe('99LC eight-weapon mechanics', () => {
     }
   })
 
+  it('does not start a Knife-spider v2 leap through an obstacle', () => {
+    const config = combatConfig('hybrid-sword', null, 'spider-knife', 1)
+    const { engine, access } = startCombat(config)
+    const spider = access.enemies[0]
+    const obstacle = access.currentNode!.arena.obstacles[0]
+
+    try {
+      spider.position = {
+        x: obstacle.x - spider.definition.radius - 12,
+        y: obstacle.y + obstacle.height / 2,
+      }
+      access.player.position = {
+        x: obstacle.x + obstacle.width + spider.definition.radius + 12,
+        y: obstacle.y + obstacle.height / 2,
+      }
+
+      expect(access.knifeSpiderLeapPathClear(spider)).toBe(false)
+    } finally {
+      engine.destroy()
+    }
+  })
+
   it('reflects Knife-spider v2 away from the attack and amplifies its collision damage', () => {
     const config = combatConfig('hybrid-sword', null, 'spider-knife', 2)
     const { engine, access } = startCombat(config)
@@ -2142,27 +2192,28 @@ describe('99LC eight-weapon mechanics', () => {
 
       const spider = access.enemies[0]
       const spiderState = spider.knifeSpiderV2!
-      spider.position = {
-        x: access.player.position.x + 100,
-        y: access.player.position.y,
-      }
-      spider.facing = { x: -1, y: 0 }
-      spider.state = 'attacking'
-      spider.leapRemainingDistance = 500
-      spiderState.attackMode = 'leap'
-      spiderState.flightVelocity = { x: -900, y: 0 }
-      access.knifeSpiderTutorialPhase = 'slowing'
+      expect(access.knifeSpiderTutorialPhase).toBe('slowing')
+      expect(spiderState.attackMode).toBe('leap')
+      expect(spiderState.flightVelocity).not.toBeNull()
 
-      access.updateEnemies(0.001, 1)
+      const playerAtOpening = { ...access.player.position }
+      access.pressedKeys.add('KeyD')
+      access.updatePlayer(1)
+      expect(access.player.position).toEqual(playerAtOpening)
+
+      for (let frame = 0; frame < 100 && access.knifeSpiderTutorialPhase !== 'frozen'; frame += 1) {
+        access.updateEnemies(0.01, 10)
+      }
 
       expect(access.knifeSpiderTutorialPhase).toBe('frozen')
       expect(access.createSnapshot().knifeSpiderTutorial).toMatchObject({
         phase: 'frozen',
         timeScale: 0,
       })
-      expect(engine.performKnifeSpiderTutorialParry()).toBe(true)
+      engine.press('left')
       expect(access.knifeSpiderTutorialPhase).toBe('resuming')
       expect(spiderState.reflected).toBe(true)
+      engine.release('left')
 
       spider.state = 'dead'
       access.completeRoom()
@@ -2978,6 +3029,67 @@ describe('99LC eight-weapon mechanics', () => {
     }
   })
 
+  it('adds one visible 10% stamina-cost stack per cleared room and caps it at ten', () => {
+    const config = combatConfig('hybrid-sword', null, 'guard', 1)
+    const { engine, access } = startCombat(config)
+    const sword = access.weapons.get('left')!
+    const baseCost = access.staminaCostFor(sword, 'left', 'tap')
+
+    try {
+      access.enemies[0].state = 'dead'
+      access.completeRoom()
+      expect(access.createSnapshot().player).toMatchObject({
+        staminaCostStacks: 1,
+        staminaCostMultiplier: 1.1,
+      })
+      expect(access.staminaCostFor(sword, 'left', 'tap')).toBeCloseTo(baseCost * 1.1)
+
+      for (let room = 1; room < 15; room += 1) access.finishRoomTransition()
+      expect(access.createSnapshot().player).toMatchObject({
+        staminaCostStacks: 10,
+        staminaCostMultiplier: 2,
+      })
+      expect(access.staminaCostFor(sword, 'left', 'tap')).toBeCloseTo(baseCost * 2)
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('erodes the current body as soon as voluntary Chance costs total five', () => {
+    const config = combatConfig('hybrid-sword', null, 'guard', 1)
+    const { engine, access } = startCombat(config)
+    const before = access.createSnapshot()
+
+    try {
+      access.applyInteractionChoice({
+        id: 'first-cost',
+        title: 'First cost',
+        description: 'Spend two',
+        effect: { chanceCost: 2 },
+      })
+      expect(access.createSnapshot().player.stats).toEqual(before.player.stats)
+
+      access.applyInteractionChoice({
+        id: 'second-cost',
+        title: 'Second cost',
+        description: 'Spend three',
+        effect: { chanceCost: 3 },
+      })
+      const after = access.createSnapshot()
+      const erosion = config.progression.tiers[0].erosion
+      expect(after.chances).toBe(before.chances - 5)
+      expect(after.player.stats.maxHp).toBe(before.player.stats.maxHp - erosion.maxHp)
+      expect(after.player.stats.maxMentalHealth)
+        .toBe(before.player.stats.maxMentalHealth - erosion.maxMentalHealth)
+      expect(after.player.stats.attackPower)
+        .toBe(before.player.stats.attackPower - erosion.attackPower)
+      expect(after.player.hp).toBe(after.player.stats.maxHp)
+      expect(after.player.mentalHealth).toBe(after.player.stats.maxMentalHealth)
+    } finally {
+      engine.destroy()
+    }
+  })
+
   it('refuses an action it cannot pay for without touching combo, cooldown or rhythm state', () => {
     const config = combatConfig('hybrid-sword', null, 'guard', 1)
     config.weapons.find(weaponDefinition => weaponDefinition.id === 'hybrid-sword')!
@@ -3388,9 +3500,13 @@ describe('99LC authored turret, altar, and Cockroach Mother rooms', () => {
       })
       access.moveQuests.left.tapQuestDone = true
       access.moveQuests.left.unlocked.doubleTap = true
+      access.staminaCostStacks = 4
       expect(engine.resolveAltar(true)).toBe(true)
       expect(access.createSnapshot()).toMatchObject({ paused: false, chances: config.chances - 5 })
       expect(access.bossCheckpoint?.nodeId).toBe(access.currentNode?.id)
+      expect(access.bossCheckpoint?.staminaCostStacks).toBe(4)
+      expect(access.createSnapshot().player.stats.maxHp)
+        .toBe(entered.player.stats.maxHp - config.progression.tiers[0].erosion.maxHp)
 
       access.killPlayer('Поражение у босса')
       const afterDeath = access.createSnapshot().chances
@@ -3400,6 +3516,7 @@ describe('99LC authored turret, altar, and Cockroach Mother rooms', () => {
         paused: true,
         currentNodeId: access.currentNode?.id,
       })
+      expect(access.createSnapshot().player.staminaCostStacks).toBe(4)
       expect(access.createSnapshot().altarPrompt?.chanceCost).toBe(5)
       expect(access.bossCheckpoint).toBeNull()
       expect(access.moveQuests.left.tapQuestDone).toBe(true)
@@ -3421,7 +3538,6 @@ describe('99LC authored turret, altar, and Cockroach Mother rooms', () => {
     )!.cockroachMother!
     motherTuning.entranceRadiusRatio = 0.1
     motherTuning.exitRecoveryMs = 321
-    motherTuning.sameHoleChance = 1
     const { engine, access } = startCombat(config)
 
     try {
@@ -3448,12 +3564,11 @@ describe('99LC authored turret, altar, and Cockroach Mother rooms', () => {
         const entrance = access.currentNode!.bossHoles.find(
           hole => hole.id === mother.motherRetreat!.entranceHoleId,
         )!
-        // The authored probability is forced to 1 for this fixture, so every strike must
-        // answer from the entrance rather than its linked partner.
         const exit = access.currentNode!.bossHoles.find(
           hole => hole.id === mother.motherRetreat!.exitHoleId,
         )!
-        expect(exit.id).toBe(entrance.id)
+        expect(exit.id).toBe(entrance.linkedHoleId)
+        expect(exit.id).not.toBe(entrance.id)
         exitHoleIds.push(exit.id === entrance.id ? 'entrance' : 'linked')
 
         mother.position = {
@@ -3488,7 +3603,7 @@ describe('99LC authored turret, altar, and Cockroach Mother rooms', () => {
         expect(mother.position).toEqual(exit.position)
         expect(mother.attackCooldownMs).toBe(321)
       }
-      expect(exitHoleIds).toEqual(Array(thresholds.length).fill('entrance'))
+      expect(exitHoleIds).toEqual(Array(thresholds.length).fill('linked'))
 
       access.damageEnemy(mother, lethalAttack, 0, { x: 1, y: 0 })
       expect(mother.state).toBe('dead')
@@ -5579,9 +5694,9 @@ describe('99LC Двуручное копьё v2', () => {
 
     try {
       const left = access.weapons.get('left')!
-      expect([650, 1125, 1650].map(held => access.staminaCostFor(left, 'left', 'hold', held)))
+      expect([325, 563, 825].map(held => access.staminaCostFor(left, 'left', 'hold', held)))
         .toEqual([10, 15, 20])
-      expect([650, 1125, 1650]
+      expect([325, 563, 825]
         .map(held => access.staminaCostFor(left, 'left', 'holdThenDoubleTap', held)))
         .toEqual([15, 20, 25])
       expect(access.staminaCostFor(left, 'left', 'tap')).toBe(2)
@@ -5625,7 +5740,7 @@ describe('99LC Двуручное копьё v2', () => {
 
     try {
       // Quick release: a close, small, hard-hitting plant with the shaft guard lifted.
-      access.performAttack(resolution('left', 'hold', 700))
+      access.performAttack(resolution('left', 'hold', 350))
       const stab = access.activeAreas.at(-1)!
       expect(stab.attack.behavior).toBe('spearReleaseV2')
       expect(stab.attack.collider?.innerRange).toBe(0)
@@ -5640,7 +5755,7 @@ describe('99LC Двуручное копьё v2', () => {
       // that used to be the early замах.
       access.activeAreas.length = 0
       access.elapsedMs += 2000
-      access.performAttack(resolution('left', 'holdThenDoubleTap', 0, 700))
+      access.performAttack(resolution('left', 'holdThenDoubleTap', 0, 350))
       const slash = access.activeAreas.at(-1)!
       expect(slash.attack.behavior).toBe('spearOverheadSpin')
       expect(slash.attack.collider?.shape).toBe('sector')
@@ -5657,12 +5772,166 @@ describe('99LC Двуручное копьё v2', () => {
     const { engine, access } = startCombat(config)
 
     try {
-      access.performAttack(resolution('left', 'holdThenDoubleTap', 0, 1700))
+      access.performAttack(resolution('left', 'holdThenDoubleTap', 0, 900))
       const area = access.activeAreas.at(-1)!
       expect(area.attack.collider?.shape).toBe('sweep')
       expect(area.attack.arcDegrees).toBe(360)
       // The spin context other weapons key off must still recognise the overhead variant.
       expect(access.controlContextActive('left', 'spin')).toBe(true)
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('opens «Парирование» on press and morphs the second tap into a delayed «Отталкивание»', () => {
+    const config = combatConfig(V2, null, 'guard', 1)
+    const { engine, access } = startCombat(config)
+    let now = 1000
+    vi.spyOn(performance, 'now').mockImplementation(() => now)
+
+    try {
+      engine.press('right')
+      expect(access.player.parryMs).toBeGreaterThan(0)
+      expect(access.activeParryAttack?.name).toBe('Парирование')
+
+      now += 60
+      engine.release('right')
+      now += 80
+      engine.press('right')
+      now += 60
+      engine.release('right')
+
+      expect(access.createSnapshot().lastGesture?.attackName).toBe('Отталкивание')
+      expect(access.delayedAttacks).toEqual([
+        expect.objectContaining({
+          remainingMs: 250,
+          attack: expect.objectContaining({ behavior: 'spearShove' }),
+        }),
+      ])
+      expect(access.activeAreas.some(area => area.attack.behavior === 'spearShove')).toBe(false)
+
+      access.update(0.251, 251)
+      expect(access.activeAreas.some(area => area.attack.behavior === 'spearShove')).toBe(true)
+    } finally {
+      engine.destroy()
+      vi.restoreAllMocks()
+    }
+  })
+
+  it.each([
+    { heldMs: 600, name: 'Отталкивание', behavior: 'spearShove', distance: 94, stunMs: 1000 },
+    { heldMs: 900, name: 'Пинок', behavior: 'spearKick', distance: 144, stunMs: 1000 },
+    { heldMs: 1250, name: 'Сильный Пинок', behavior: 'spearKick', distance: 176, stunMs: 1500 },
+  ])('resolves the $name charge band with its own reach and immobilize', ({
+    heldMs,
+    name,
+    behavior,
+    distance,
+    stunMs,
+  }) => {
+    const config = combatConfig(V2, null, 'guard', 1)
+    const { engine, access } = startCombat(config)
+
+    try {
+      const target = access.enemies[0]
+      placeEnemy(access, target, 84)
+      access.performAttack(resolution('right', 'doubleTapHold', heldMs))
+
+      expect(access.createSnapshot().lastGesture?.attackName).toBe(name)
+      expect(access.activeAreas.at(-1)?.attack.behavior).toBe(behavior)
+      expect(Math.hypot(
+        target.position.x - access.player.position.x,
+        target.position.y - access.player.position.y,
+      )).toBeCloseTo(distance)
+      expect(target.statuses.stunMs).toBe(stunMs)
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('keeps ×2 armor only while the second tap is held', () => {
+    const config = combatConfig(V2, null, 'guard', 1)
+    const { engine, access } = startCombat(config)
+    let now = 1000
+    vi.spyOn(performance, 'now').mockImplementation(() => now)
+
+    try {
+      engine.press('right')
+      now += 50
+      engine.release('right')
+      now += 80
+      engine.press('right')
+      now += 20
+      access.frameNowMs = now
+      access.update(0.016, 16)
+
+      expect(access.player.armorMultiplier).toBe(2)
+      expect(access.player.armorMultiplierMs).toBeGreaterThan(0)
+
+      engine.release('right')
+      access.frameNowMs = now
+      access.update(0.1, 100)
+      expect(access.player.armorMultiplier).toBe(1)
+    } finally {
+      engine.destroy()
+      vi.restoreAllMocks()
+    }
+  })
+
+  it('drains «Строй» stamina and rewards piercing closing speed above a cutting contact', () => {
+    const config = combatConfig(V2, null, 'guard', 1)
+    const { engine, access } = startCombat(config)
+    let now = 1000
+    vi.spyOn(performance, 'now').mockImplementation(() => now)
+
+    try {
+      access.player.stamina = 100
+      engine.press('right')
+      now += 700
+      access.frameNowMs = now
+      access.update(0.1, 100)
+      const stance = access.heldChannels.get('right')!
+      expect(stance.attack.behavior).toBe('spearStance')
+      expect(access.player.stamina).toBeLessThan(100)
+
+      const target = access.enemies[0]
+      target.state = 'chasing'
+      target.facing = { x: -1, y: 0 }
+      stance.direction = { x: 1, y: 0 }
+      stance.stanceCutSpeed = 900
+      access.movementVelocity = { x: 0, y: 0 }
+      const cutting = access.spearStanceDamageMultiplier(stance, target)
+      access.movementVelocity = { x: 420, y: 0 }
+      const piercing = access.spearStanceDamageMultiplier(stance, target)
+      expect(piercing).toBeGreaterThan(cutting)
+    } finally {
+      engine.destroy()
+      vi.restoreAllMocks()
+    }
+  })
+
+  it('runs, plants, becomes invulnerable in the air and lands the Olympic vault', () => {
+    const config = combatConfig(V2, null, 'guard', 1)
+    const { engine, access } = startCombat(config)
+
+    try {
+      access.performAttack(resolution('right', 'holdThenDoubleTap', 80, 700))
+      expect(access.activeDash?.poleVault).toMatchObject({
+        runMs: 180,
+        plantMs: 120,
+        riseMs: 180,
+        flightMs: 420,
+        landMs: 150,
+      })
+
+      access.updatePlayer(0.18)
+      expect(access.player.invulnerableMs).toBe(0)
+      access.updatePlayer(0.11)
+      expect(access.player.invulnerableMs).toBe(0)
+      access.updatePlayer(0.02)
+      expect(access.player.invulnerableMs).toBeGreaterThan(0)
+      access.updatePlayer(0.74)
+      expect(access.activeDash).toBeNull()
     } finally {
       engine.destroy()
     }

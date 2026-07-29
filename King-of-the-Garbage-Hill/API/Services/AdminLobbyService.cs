@@ -687,7 +687,8 @@ public sealed class AdminLobbyService
             source.DiscordId,
             source.GameId,
             source.DiscordUsername,
-            source.PlayerType)
+            source.PlayerType,
+            source.AccountGameplayMode)
         {
             IsWebPlayer = source.IsWebPlayer,
             PreferWeb = source.PreferWeb,

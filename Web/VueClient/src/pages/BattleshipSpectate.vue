@@ -38,6 +38,12 @@ const phaseAccentClass = computed(() => {
   }
 })
 
+function factionLabel(faction: string | undefined): string {
+  if (faction === 'Alliance') return 'Альянс'
+  if (faction === 'Empire') return 'Империя'
+  return faction ?? ''
+}
+
 onMounted(async () => {
   store.initCallbacks()
   await signalrService.joinBattleshipGame(props.gameId)
@@ -65,6 +71,7 @@ onUnmounted(async () => {
       <div class="board-section">
         <div class="board-nameplate">
           <span class="player-label">{{ p1?.username ?? 'Игрок 1' }}</span>
+          <span v-if="p1" class="faction-label">{{ factionLabel(p1.faction) }}</span>
           <span v-if="p1" class="indicator-badges">
             <span v-if="p1.stunShotExpiry >= store.shotCount" class="bs-badge bs-badge--stun" @mouseenter="showTip($event, 'Оглушён')" @mousemove="moveTip" @mouseleave="hideTip" v-html="renderIcon('stun', 12)"></span>
             <span v-if="p1.hasPenalty" class="bs-badge bs-badge--penalty" @mouseenter="showTip($event, 'Штраф')" @mousemove="moveTip" @mouseleave="hideTip" v-html="renderIcon('penalty', 12)"></span>
@@ -81,6 +88,7 @@ onUnmounted(async () => {
       <div class="board-section">
         <div class="board-nameplate">
           <span class="player-label">{{ p2?.username ?? 'Игрок 2' }}</span>
+          <span v-if="p2" class="faction-label">{{ factionLabel(p2.faction) }}</span>
           <span v-if="p2" class="indicator-badges">
             <span v-if="p2.stunShotExpiry >= store.shotCount" class="bs-badge bs-badge--stun" @mouseenter="showTip($event, 'Оглушён')" @mousemove="moveTip" @mouseleave="hideTip" v-html="renderIcon('stun', 12)"></span>
             <span v-if="p2.hasPenalty" class="bs-badge bs-badge--penalty" @mouseenter="showTip($event, 'Штраф')" @mousemove="moveTip" @mouseleave="hideTip" v-html="renderIcon('penalty', 12)"></span>
@@ -147,6 +155,15 @@ onUnmounted(async () => {
   font-size: 0.85rem;
   font-weight: 700;
   color: var(--text-primary);
+}
+.faction-label {
+  padding: 1px 7px;
+  border: 1px solid color-mix(in srgb, var(--accent-gold) 42%, transparent);
+  border-radius: 999px;
+  color: var(--accent-gold);
+  background: color-mix(in srgb, var(--accent-gold) 9%, transparent);
+  font-size: 0.62rem;
+  font-weight: 800;
 }
 
 .indicator-badges {

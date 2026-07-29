@@ -25,6 +25,7 @@ public static class DoomGuy
     public const string SharkShield = "Щит-акула";
     public const string DemonNests = "Адеские гнезда";
     public const string MakeAMess = "Навести беспорядок";
+    public const string InfernalEnergy = "Инфернальная энергия";
     public const string BecomeGod = "Стань богом";
     public const string Melee = "Ближник";
     public const string Bfg = "BFG";
@@ -34,6 +35,8 @@ public static class DoomGuy
     public const string TameDragon = "Приручить дракона";
     public const string DragonPassive = "Дракон";
     public const string SharkPassive = "Ничего не понимает";
+    public const decimal InfernalEnergyStealRate = 0.20m;
+    public const int InfernalEnergySourceLimit = 3;
 
     public static readonly string[] StageOrder = { Rune, Shield, Mission, Gun };
 
@@ -60,6 +63,7 @@ public static class DoomGuy
 
         new(DemonNests, Mission, "На таблице каждый ход появляются гнезда демонов. +1 очко за уничтожение гнезда, но если гнезд стало больше трех — −20 очков.", false),
         new(MakeAMess, Mission, "Каждая битва дополнительно приносит очко, независимо от исхода.", false),
+        new(InfernalEnergy, Mission, "Найдите 3 уникальных источника демонической энергии (кто заработал аномально много очков со способностей, а не с побед). Уничтожение **похищает** 20% заработанных способностями очков.", true),
         new(BecomeGod, Mission, "Не используя блок, продержись до конца без единого проигрыша. Награда: 20 бонусных очков.", true),
         new(Melee, Mission, "Удваивает бонуcы от melee модулей против ближайших по таблице врагов.", true),
 
@@ -245,6 +249,9 @@ public static class DoomGuy
             case DemonNests:
                 SpawnDemonNest(player, game);
                 break;
+            case InfernalEnergy:
+                RefreshInfernalEnergySources(player, game);
+                break;
             case Bfg:
                 state.BfgCharged = true;
                 break;
@@ -298,6 +305,79 @@ public static class DoomGuy
             player.Status.AddInGamePersonalLogs("Адеские гнезда: демоны вырвались наружу! −20 очков.\n");
             state.DemonNests.Clear();
         }
+    }
+
+    public static void RefreshInfernalEnergySources(GameClass game)
+    {
+        if (game == null) return;
+
+        foreach (var player in game.PlayersList.Where(candidate =>
+                     candidate.GameCharacter.Name == CharacterName
+                     && candidate.GameCharacter.Passive.Any(passive => passive.PassiveName == Mission)
+                     && !candidate.Passives.IsDead))
+            RefreshInfernalEnergySources(player, game);
+    }
+
+    private static void RefreshInfernalEnergySources(
+        GamePlayerBridgeClass player,
+        GameClass game)
+    {
+        var state = player?.Passives?.DoomGuy;
+        if (state == null || game == null) return;
+
+        state.InfernalEnergySourcesThisRound.Clear();
+        if (state.GetActive(Mission) != InfernalEnergy) return;
+
+        var sources = game.PlayersList
+            .Where(enemy => enemy.GetPlayerId() != player.GetPlayerId()
+                            && !enemy.Passives.IsDead
+                            && !player.IsTeamMember(game, enemy.GetPlayerId()))
+            .Select(enemy => new
+            {
+                Player = enemy,
+                AbilityPoints = enemy.Status.GetLifetimeAbilityPoints(game),
+            })
+            .Where(source => source.AbilityPoints > 0)
+            .OrderByDescending(source => source.AbilityPoints)
+            .ThenBy(source => source.Player.Status.GetPlaceAtLeaderBoard())
+            .Take(InfernalEnergySourceLimit)
+            .Select(source => source.Player.GetPlayerId());
+
+        state.InfernalEnergySourcesThisRound.AddRange(sources);
+    }
+
+    public static bool TryStealInfernalEnergy(
+        GamePlayerBridgeClass player,
+        GameClass game,
+        Guid defeatedPlayerId)
+    {
+        var state = player?.Passives?.DoomGuy;
+        if (state == null
+            || game == null
+            || state.GetActive(Mission) != InfernalEnergy
+            || state.InfernalEnergyVictims.Count >= InfernalEnergySourceLimit
+            || !state.InfernalEnergySourcesThisRound.Contains(defeatedPlayerId)
+            || state.InfernalEnergyVictims.Contains(defeatedPlayerId))
+            return false;
+
+        var victim = game.PlayersList.Find(candidate =>
+            candidate.GetPlayerId() == defeatedPlayerId);
+        if (victim == null
+            || victim.Passives.IsDead
+            || UnknownBug.Is(victim)
+            || !Homelander.CanTransferFrom(victim, InfernalEnergy))
+            return false;
+
+        var abilityPoints = victim.Status.GetLifetimeAbilityPoints(game);
+        if (abilityPoints <= 0) return false;
+
+        ScamRat.TransferExactBonusPoints(
+            victim,
+            player,
+            abilityPoints * InfernalEnergyStealRate,
+            InfernalEnergy);
+        state.InfernalEnergyVictims.Add(defeatedPlayerId);
+        return true;
     }
 
     public static CopiedPassiveResult CopyChainsawPassive(GamePlayerBridgeClass player, string passiveName)
@@ -402,6 +482,8 @@ public class DoomGuyState
     public Dictionary<string, List<string>> LoadoutSlots { get; set; } = new();
     public Dictionary<string, string> ActiveModules { get; set; } = new();
     public List<Guid> DemonNests { get; set; } = new();
+    public List<Guid> InfernalEnergySourcesThisRound { get; set; } = new();
+    public List<Guid> InfernalEnergyVictims { get; set; } = new();
     public List<Guid> ExterminationVictories { get; set; } = new();
     public List<Passive> ChainsawChoices { get; set; } = new();
     public bool RollMode { get; set; }

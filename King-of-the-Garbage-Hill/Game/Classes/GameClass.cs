@@ -24,7 +24,7 @@ public class GameClass
         GlobalLogs = "";
         IsCheckIfReady = true;
         SkipPlayersThisRound = 0;
-        GameVersion = "Версия: 5.1.37";
+        GameVersion = "Версия: 5.1.48";
         GameMode = gameMode;
         CreatorId = creatorId;
         Teams = new List<TeamPlay>();
@@ -69,6 +69,8 @@ public class GameClass
 
     private string GlobalLogs { get; set; }
     public string GameMode { get; set; }
+    /// <summary>Solo Pro account versus five strict level-3 bots with ELO settlement.</summary>
+    public bool IsRanked { get; set; }
     public ulong CreatorId { get; set; }
     public List<TeamPlay> Teams { get; set; }
     public uint TestFightNumber { get; set; }

@@ -986,11 +986,13 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                 passive.PassiveName != "Еврей" && passive.PassiveName != "2kxaoc")
             .Select(passive => passive.PassiveName)
             .ToHashSet(StringComparer.Ordinal);
-        var text = hiddenPassiveNames.Aggregate(textOriginal, (current, passiveName) =>
-            current.Replace(passiveName,
-                player.PlayerType == 0 ? "Неизвестно" : $"❓ {passiveName}",
-                StringComparison.Ordinal));
-        text = PhrasePayload.MaskPassiveNames(text, hiddenPassiveNames, player.PlayerType == 0);
+        var shouldMaskProSources = player.IsProMode && player.PlayerType != 2;
+        var text = shouldMaskProSources
+            ? PhrasePayload.MaskPassiveNames(textOriginal, hiddenPassiveNames, hidePhraseBody: true)
+            : textOriginal;
+        if (shouldMaskProSources)
+            text = hiddenPassiveNames.Aggregate(text, (current, passiveName) =>
+                current.Replace(passiveName, "❓", StringComparison.Ordinal));
         text = PhrasePayload.Resolve(text, GameLocalization.GetUserLanguage(player.DiscordId));
 
         var separationLine = false;

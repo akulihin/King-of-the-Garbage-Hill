@@ -6,6 +6,9 @@ namespace King_of_the_Garbage_Hill.Game.Classes;
 
 public class DiscordAccountClass
 {
+    public const string CasualMode = "Casual";
+    public const string ProMode = "Pro";
+
     public List<CharacterChances> CharacterChance = new();
     public List<CharacterStatisticsClass> CharacterStatistics = new();
     public List<MatchHistoryClass> MatchHistory = new();
@@ -47,10 +50,14 @@ public class DiscordAccountClass
     public List<string> ReplayHashes { get; set; } = new();
     public int PendingLootBoxes { get; set; }
     public DoomFortressData DoomFortress { get; set; } = new();
+    /// <summary>Persistent player-selected ruleset. Old accounts deserialize to Casual.</summary>
+    public string GameplayMode { get; set; } = CasualMode;
+    /// <summary>Ranked solo rating. Ranked games are available only in Pro mode.</summary>
+    public int EloRating { get; set; } = 1000;
 
     /*
-    0 == Normal
-    1 == Casual
+    0 == Human
+    1 == Legacy human
     2 == Admin
     404 == Bot
     */
@@ -69,19 +76,15 @@ public class DiscordAccountClass
         public string CharacterName;
         /// <summary>Paid store adjustment around the 1.00 baseline.</summary>
         public double Multiplier;
-        /// <summary>Permanent, non-refundable percentage points awarded by loot boxes.</summary>
-        public int LootBoxBonusPercentagePoints;
 
         public CharacterChances(string characterName, double multiplier = 1.0)
         {
             CharacterName = characterName;
             Multiplier = multiplier;
             Changes = 0;
-            LootBoxBonusPercentagePoints = 0;
         }
 
-        public double GetEffectiveMultiplier() =>
-            Math.Round(Multiplier + LootBoxBonusPercentagePoints / 100d, 2);
+        public double GetEffectiveMultiplier() => Math.Round(Multiplier, 2);
     }
 
     public class CharacterStatisticsClass

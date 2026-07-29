@@ -350,8 +350,10 @@ public class BattleshipService
                 var def = ShipCatalog.GetById(sel.DefinitionId);
                 if (def != null)
                 {
-                    var ship = ShipCatalog.CreateShip(def, sel.Upgrades);
-                    player.Fleet.Add(ship);
+                    if (def.Id == "famous_assembling_ship")
+                        player.Fleet.AddRange(ShipCatalog.CreateAssemblyComponents(def, sel.Upgrades));
+                    else
+                        player.Fleet.Add(ShipCatalog.CreateShip(def, sel.Upgrades));
                 }
             }
             NumberDuplicateShips(player.Fleet);
@@ -441,7 +443,10 @@ public class BattleshipService
         }
     }
 
-    public (bool success, string error) ConfirmPlacement(string gameId, string discordId)
+    public (bool success, string error) ConfirmPlacement(
+        string gameId,
+        string discordId,
+        List<TetracatapultLoadoutDto> loadouts = null)
     {
         if (!_games.TryGetValue(gameId, out var game))
             return (false, "Игра не найдена.");
@@ -454,16 +459,60 @@ public class BattleshipService
             var player = game.GetPlayer(discordId);
             if (player == null)
                 return (false, "Вы не в этой игре.");
+            if (player.IsReady)
+                return (false, "Расстановка уже подтверждена.");
 
             // Validate all ships placed
             var (valid, error) = PlacementValidator.ValidateAllPlaced(player.Fleet, player.Board);
             if (!valid) return (false, error);
+
+            var tetracatapults = player.Fleet
+                .Where(ship => !ship.IsDestroyed)
+                .SelectMany(ship => ship.Weapons)
+                .Where(weapon => weapon.Type == WeaponType.Tetracatapult)
+                .ToList();
+            loadouts ??= new List<TetracatapultLoadoutDto>();
+            if (loadouts.Count != tetracatapults.Count ||
+                loadouts.Select(value => value.WeaponId).Distinct(StringComparer.Ordinal).Count() != loadouts.Count)
+                return (false, "Выберите Белый камень или Дробь отдельно для каждого Тетракамнемёта.");
+
+            foreach (var weapon in tetracatapults)
+            {
+                var selected = loadouts.FirstOrDefault(value => value.WeaponId == weapon.Id);
+                if (selected == null ||
+                    !Enum.TryParse<ShotType>(selected.ShotType, true, out var shotType) ||
+                    shotType is not (ShotType.WhiteStone or ShotType.Buckshot))
+                    return (false, "Для каждого Тетракамнемёта нужно выбрать Белый камень или Дробь.");
+                weapon.ConfiguredShotType = shotType;
+            }
 
             player.IsReady = true;
             game.LastActivity = DateTime.UtcNow;
 
             CheckPhaseTransition(game);
             TrySettleGameEnd(game);
+            return (true, null);
+        }
+    }
+
+    public (bool success, string error) CancelPlacement(string gameId, string discordId)
+    {
+        if (!_games.TryGetValue(gameId, out var game))
+            return (false, "Игра не найдена.");
+
+        lock (game)
+        {
+            if (game.Phase != BsGamePhase.ShipPlacement)
+                return (false, "Расстановку уже нельзя изменить.");
+            var player = game.GetPlayer(discordId);
+            if (player == null) return (false, "Вы не в этой игре.");
+            var opponent = game.GetOpponent(discordId);
+            if (!player.IsReady) return (false, "Расстановка ещё не подтверждена.");
+            if (opponent?.IsReady == true)
+                return (false, "Противник уже подтвердил расстановку.");
+
+            player.IsReady = false;
+            game.LastActivity = DateTime.UtcNow;
             return (true, null);
         }
     }
@@ -509,6 +558,8 @@ public class BattleshipService
                 return (new ShotResult { WasSkipped = true, TurnContinues = false, Message = "Ход пропущен!" }, null);
             }
 
+            var assemblyError = GetAssemblyLockError(game, shooter);
+            if (assemblyError != null) return (null, assemblyError);
             var maneuverError = GetManeuverLockError(game, shooter);
             if (maneuverError != null) return (null, maneuverError);
 
@@ -548,12 +599,17 @@ public class BattleshipService
             if (game.Phase != BsGamePhase.Combat && game.Phase != BsGamePhase.Boarding)
                 return (null, "Сейчас не фаза боя.");
 
-            if (game.CurrentTurnPlayerId != discordId)
-                return (null, "Сейчас не ваш ход.");
-
             var shooter = game.GetPlayer(discordId);
             if (shooter == null)
                 return (null, "Вы не в этой игре.");
+            var activeShooter = game.GetPlayer(game.CurrentTurnPlayerId);
+            var isEvilGreekFireReaction =
+                game.CurrentTurnPlayerId != discordId &&
+                shooter.SelectedShotType == ShotType.EvilGreekFire &&
+                activeShooter != null &&
+                activeShooter.NextShotAllowedAtUtc > DateTime.UtcNow;
+            if (game.CurrentTurnPlayerId != discordId && !isEvilGreekFireReaction)
+                return (null, "Сейчас не ваш ход.");
             var cursedDirectionError = GetCursedBoatDirectionLockError(game);
             if (cursedDirectionError != null) return (null, cursedDirectionError);
 
@@ -563,10 +619,13 @@ public class BattleshipService
             if (HasPendingBoardingDeployments(game))
                 return (null, "Разместите все абордажные корабли!");
 
-            var delayError = GetShotDelayError(shooter);
-            if (delayError != null) return (null, delayError);
+            if (!isEvilGreekFireReaction)
+            {
+                var delayError = GetShotDelayError(shooter);
+                if (delayError != null) return (null, delayError);
+            }
 
-            if (BattleshipGameEngine.ProcessTurnStart(game, shooter))
+            if (!isEvilGreekFireReaction && BattleshipGameEngine.ProcessTurnStart(game, shooter))
             {
                 SwitchTurn(game);
                 game.TurnNumber++;
@@ -577,12 +636,14 @@ public class BattleshipService
                 return (new ShotResult { WasSkipped = true, TurnContinues = false, Message = "Ход пропущен!" }, null);
             }
 
+            var assemblyError = GetAssemblyLockError(game, shooter);
+            if (assemblyError != null) return (null, assemblyError);
             var maneuverError = GetManeuverLockError(game, shooter);
             if (maneuverError != null) return (null, maneuverError);
 
             var captured = shooter.Board.PlacedShips.Any(s =>
                 !s.IsDestroyed && s.Statuses.Contains(ShipStatusType.Capture));
-            if (!captured && shooter.SelectedShotType != ShotType.GreekFire)
+            if (!captured && shooter.SelectedShotType is not (ShotType.GreekFire or ShotType.EvilGreekFire))
             {
                 var cell = shooter.Board.GetCell(row, col);
                 if (cell?.SummonRef is not { IsAlive: true } enemySummon || enemySummon.OwnerId == shooter.DiscordId)
@@ -592,7 +653,7 @@ public class BattleshipService
             var weaponError = ValidateSelectedWeapon(game, shooter, ownBoard: true);
             if (weaponError != null) return (null, weaponError);
 
-            var isGreekFire = shooter.SelectedShotType == ShotType.GreekFire;
+            var isGreekFire = shooter.SelectedShotType is ShotType.GreekFire or ShotType.EvilGreekFire;
             ShotResult result;
             if (captured)
             {
@@ -610,8 +671,15 @@ public class BattleshipService
 
             DescribeShot(game, shooter, result, ownBoard: true);
             ResetExpendedSelection(shooter);
-            shooter.HasShotThisTurn = true;
             game.LastActivity = DateTime.UtcNow;
+            if (isEvilGreekFireReaction)
+            {
+                ResolveImmediateEffectTransitions(game);
+                TrySettleGameEnd(game);
+                return (result, null);
+            }
+
+            shooter.HasShotThisTurn = true;
             CompleteActionResolution(game, turnContinues: false, moveSummons: true);
             if (!game.IsFinished) CheckAndApplyWin(game);
             ApplyComboShotDelay(game, shooter, result);
@@ -663,19 +731,16 @@ public class BattleshipService
 
     private static string ValidateSelectedWeapon(BattleshipGame game, BattleshipPlayer player, bool ownBoard)
     {
-        if (player.SelectedShotType == ShotType.GreekFire && !ownBoard)
+        if (player.SelectedShotType is ShotType.GreekFire or ShotType.EvilGreekFire && !ownBoard)
             return "Греческий огонь стреляет только по своему полю.";
-
-        var captured = player.Board.PlacedShips.Any(s =>
-            !s.IsDestroyed && s.Statuses.Contains(ShipStatusType.Capture));
-        if (captured && player.SelectedShotType != ShotType.Ballista)
-            return "Сначала уничтожьте захваченный корабль Баллистой.";
 
         var requiredType = player.SelectedShotType switch
         {
             ShotType.WhiteStone or ShotType.Buckshot => WeaponType.Tetracatapult,
             ShotType.Incendiary => WeaponType.Incendiary,
+            ShotType.EvilIncendiary => WeaponType.EvilIncendiary,
             ShotType.GreekFire => WeaponType.GreekFire,
+            ShotType.EvilGreekFire => WeaponType.EvilGreekFire,
             _ => WeaponType.Ballista,
         };
         var usable = BattleshipGameEngine.GetUsableWeapons(game, player, requiredType).ToList();
@@ -691,7 +756,8 @@ public class BattleshipService
 
     private static void ResetExpendedSelection(BattleshipPlayer player)
     {
-        if (player.SelectedShotType is ShotType.WhiteStone or ShotType.Buckshot or ShotType.GreekFire ||
+        if (player.SelectedShotType is ShotType.WhiteStone or ShotType.Buckshot or
+                ShotType.GreekFire or ShotType.EvilGreekFire ||
             player.SelectedWeapon is { HasAmmo: false })
         {
             player.SelectedShotType = ShotType.Ballista;
@@ -719,7 +785,8 @@ public class BattleshipService
         {
             ShotType.WhiteStone => "Stone",
             ShotType.Buckshot => "Buckshot",
-            ShotType.Incendiary or ShotType.GreekFire => "Fire",
+            ShotType.Incendiary or ShotType.EvilIncendiary or
+                ShotType.GreekFire or ShotType.EvilGreekFire => "Fire",
             _ => "Arrow",
         };
         result.TargetPlayerId = ownBoard
@@ -803,6 +870,80 @@ public class BattleshipService
     private static bool HasPendingBoardingDeployments(BattleshipGame game) =>
         game.GetPlayers().Any(p => p.PendingSummons.Any(s => s.IsBoarding));
 
+    private static PendingAssemblyDto GetPendingAssembly(
+        BattleshipGame game,
+        BattleshipPlayer player)
+    {
+        if (player == null ||
+            game.Phase is not (BsGamePhase.Combat or BsGamePhase.Boarding) ||
+            game.CurrentTurnPlayerId != player.DiscordId ||
+            player.HasShotThisTurn ||
+            player.HasPenalty ||
+            player.StunShotExpiry >= game.ShotCount ||
+            HasPendingBoardingDeployments(game) ||
+            HasPendingCursedBoatDirection(game))
+            return null;
+
+        var group = player.Board.PlacedShips
+            .Where(ship => ship.IsAssemblyComponent && !string.IsNullOrWhiteSpace(ship.AssemblyGroupId))
+            .GroupBy(ship => ship.AssemblyGroupId)
+            .OrderBy(value => value.Key, StringComparer.Ordinal)
+            .FirstOrDefault(value =>
+                value.Count() == 3 &&
+                value.Count(ship => !ship.IsDestroyed) == 1 &&
+                value.All(ship =>
+                    ship.AssemblyEligibleTurnNumber >= 0 &&
+                    ship.AssemblyEligibleTurnNumber <= game.TurnNumber));
+        if (group == null) return null;
+
+        var definition = ShipCatalog.GetById("famous_assembling_ship");
+        if (definition == null) return null;
+        var preview = ShipCatalog.CreateAssembledShip(definition);
+        var componentIds = group.Select(ship => ship.Id).ToHashSet();
+        var options = new List<AssemblyPlacementOptionDto>();
+        foreach (var orientation in Enum.GetValues<Orientation>())
+        for (var row = 0; row < 10; row++)
+        for (var col = 0; col < 10; col++)
+        {
+            var cells = preview.GetOccupiedCells(row, col, orientation);
+            if (cells.Any(cell => cell.row is < 0 or >= 10 || cell.col is < 0 or >= 10))
+                continue;
+            if (cells.Any(cell => cell.row >= 8))
+                continue;
+            if (cells.Any(cell =>
+                player.Board.GetCell(cell.row, cell.col) is
+                    { ShipRef: not null } or { SummonRef: { IsAlive: true } }))
+                continue;
+
+            var tooClose = player.Board.PlacedShips
+                .Where(ship => !componentIds.Contains(ship.Id) && !ship.IsDestroyed)
+                .Any(ship =>
+                {
+                    var spacing = Math.Max(preview.Space, ship.Space);
+                    return ship.GetOccupiedCells().Any(existing =>
+                        cells.Any(candidate =>
+                            Math.Abs(existing.row - candidate.row) <= spacing &&
+                            Math.Abs(existing.col - candidate.col) <= spacing));
+                });
+            if (tooClose) continue;
+            options.Add(new AssemblyPlacementOptionDto
+            {
+                Row = row,
+                Col = col,
+                Orientation = orientation.ToString(),
+            });
+        }
+
+        return options.Count == 0
+            ? null
+            : new PendingAssemblyDto { GroupId = group.Key, Options = options };
+    }
+
+    private static string GetAssemblyLockError(BattleshipGame game, BattleshipPlayer player) =>
+        GetPendingAssembly(game, player) == null
+            ? null
+            : "Сначала соберите Знаменитый собирающийся корабль на подсвеченном месте.";
+
     /// <summary>
     /// Whether this player can legally place at least one summon right now. The caller-only
     /// <c>CanDeployAnySummon</c> DTO field drives the client controls, and the same authoritative
@@ -814,6 +955,7 @@ public class BattleshipService
             game.Phase is not (BsGamePhase.Combat or BsGamePhase.Boarding) ||
             HasPendingBoardingDeployments(game) ||
             HasPendingCursedBoatDirection(game) ||
+            GetPendingAssembly(game, player) != null ||
             GetPendingManeuver(game, player) != null)
             return false;
 
@@ -890,6 +1032,7 @@ public class BattleshipService
             player.HasShotThisTurn ||
             player.HasPenalty ||
             player.StunShotExpiry >= game.ShotCount ||
+            GetPendingAssembly(game, player) != null ||
             HasPendingBoardingDeployments(game))
             return null;
 
@@ -924,6 +1067,76 @@ public class BattleshipService
         GetPendingManeuver(game, player) == null
             ? null
             : "Сначала выполните обязательный манёвр по подсвеченной клетке.";
+
+    public (bool success, string error) AssembleShip(
+        string gameId,
+        string discordId,
+        string groupId,
+        int row,
+        int col,
+        string orientationStr)
+    {
+        if (!_games.TryGetValue(gameId, out var game))
+            return (false, "Игра не найдена.");
+
+        lock (game)
+        {
+            var player = game.GetPlayer(discordId);
+            if (player == null) return (false, "Вы не в этой игре.");
+            var pending = GetPendingAssembly(game, player);
+            if (pending == null || pending.GroupId != groupId)
+                return (false, "Этот корабль сейчас нельзя собрать.");
+            if (!Enum.TryParse<Orientation>(orientationStr, true, out var orientation) ||
+                pending.Options.All(option =>
+                    option.Row != row || option.Col != col ||
+                    !option.Orientation.Equals(orientation.ToString(), StringComparison.Ordinal)))
+                return (false, "Выберите подсвеченное свободное место.");
+
+            var components = player.Board.PlacedShips
+                .Where(ship => ship.IsAssemblyComponent && ship.AssemblyGroupId == groupId)
+                .ToList();
+            if (components.Count != 3)
+                return (false, "Компоненты собирающегося корабля не найдены.");
+
+            var survivingComponentCells = components
+                .Where(component => !component.IsDestroyed)
+                .SelectMany(component => component.GetOccupiedCells())
+                .Distinct()
+                .ToList();
+            foreach (var component in components)
+            {
+                foreach (var cell in player.Board.Grid.Cast<Cell>())
+                {
+                    if (cell.ShipRef != component) continue;
+                    if (cell.IsRevealed && !cell.WasShipHit)
+                        cell.WasRevealedShip = true;
+                    cell.ShipRef = null;
+                }
+                player.Board.PlacedShips.Remove(component);
+                player.Fleet.Remove(component);
+            }
+
+            var definition = ShipCatalog.GetById("famous_assembling_ship");
+            var assembled = ShipCatalog.CreateAssembledShip(definition);
+            assembled.HasHiddenMovement = true;
+            assembled.ManeuverStaleHitCells.AddRange(survivingComponentCells);
+            player.Fleet.Add(assembled);
+            PlaceShipOnBoard(player, assembled, row, col, orientation);
+
+            var opponent = game.GetOpponent(discordId);
+            if (opponent != null && opponent.Board.PlacedShips.Any(ship =>
+                    !ship.IsDestroyed &&
+                    ship.Decks.Any(deck =>
+                        deck.Module == "mast" && !deck.ModuleDestroyed && !deck.IsDestroyed)))
+            {
+                game.AddLogFor(opponent.DiscordId,
+                    "[Мачта] “Капитан, невиданное диво, корабли собрались в один…”");
+            }
+
+            game.LastActivity = DateTime.UtcNow;
+            return (true, null);
+        }
+    }
 
     private static PendingCursedBoatDirectionDto GetPendingCursedBoatDirection(BattleshipPlayer player)
     {
@@ -983,6 +1196,13 @@ public class BattleshipService
         CheckAndApplyFleetDestructionWin(game);
         TryTriggerBoarding(game);
         CheckAndApplyWin(game);
+        if (!game.IsFinished && HasPendingBoardingDeployments(game))
+        {
+            game.BoardingResolutionPaused = true;
+            game.PausedTurnContinues = turnContinues;
+            game.PausedMoveSummons = false;
+            return;
+        }
         if (!game.IsFinished && !turnContinues)
         {
             SwitchTurn(game);
@@ -1002,7 +1222,15 @@ public class BattleshipService
         if (moveSummons)
             BattleshipGameEngine.MoveSummons(game);
         CheckAndApplyFleetDestructionWin(game);
+        TryTriggerBoarding(game);
         CheckAndApplyWin(game);
+        if (!game.IsFinished && HasPendingBoardingDeployments(game))
+        {
+            game.BoardingResolutionPaused = true;
+            game.PausedTurnContinues = turnContinues;
+            game.PausedMoveSummons = false;
+            return;
+        }
         if (!game.IsFinished && !turnContinues)
         {
             SwitchTurn(game);
@@ -1024,6 +1252,8 @@ public class BattleshipService
     {
         if (!game.IsFinished && BattleshipGameEngine.CheckBoardingTrigger(game))
             BattleshipGameEngine.TriggerBoarding(game);
+        if (!game.IsFinished && game.Phase == BsGamePhase.Boarding)
+            BattleshipGameEngine.QueueBoardingShipsForMidlessPlayers(game);
     }
 
     public (bool success, string error) PassBoardingTurn(string gameId, string discordId)
@@ -1038,6 +1268,8 @@ public class BattleshipService
             if (HasPendingBoardingDeployments(game)) return (false, "Разместите все абордажные корабли!");
             var cursedDirectionError = GetCursedBoatDirectionLockError(game);
             if (cursedDirectionError != null) return (false, cursedDirectionError);
+            var assemblyError = GetAssemblyLockError(game, player);
+            if (assemblyError != null) return (false, assemblyError);
             var maneuverError = GetManeuverLockError(game, player);
             if (maneuverError != null) return (false, maneuverError);
             if (BattleshipGameEngine.HasAnyLegalShot(game, player)) return (false, "У вас есть доступный выстрел.");
@@ -1060,7 +1292,9 @@ public class BattleshipService
         {
             WeaponType.Tetracatapult => ShotType.WhiteStone,
             WeaponType.Incendiary => ShotType.Incendiary,
+            WeaponType.EvilIncendiary => ShotType.EvilIncendiary,
             WeaponType.GreekFire => ShotType.GreekFire,
+            WeaponType.EvilGreekFire => ShotType.EvilGreekFire,
             _ => ShotType.Ballista,
         };
     }
@@ -1084,6 +1318,8 @@ public class BattleshipService
                 return (false, "Сейчас нельзя выбирать оружие.");
             var cursedDirectionError = GetCursedBoatDirectionLockError(game);
             if (cursedDirectionError != null) return (false, cursedDirectionError);
+            var assemblyError = GetAssemblyLockError(game, player);
+            if (assemblyError != null) return (false, assemblyError);
             var maneuverError = GetManeuverLockError(game, player);
             if (maneuverError != null) return (false, maneuverError);
 
@@ -1100,20 +1336,24 @@ public class BattleshipService
                 selectedShotType = requested;
             }
 
-            if (player.Board.PlacedShips.Any(s =>
-                    !s.IsDestroyed && s.Statuses.Contains(ShipStatusType.Capture)) && wt != WeaponType.Ballista)
-                return (false, "Сначала уничтожьте захваченный корабль Баллистой.");
-
             // Ballista remains the baseline action; every special must resolve to a real,
             // living, loaded weapon. This closes forged Greek Fire/Incendiary selections.
             var usable = BattleshipGameEngine.GetUsableWeapons(game, player, wt).ToList();
             // Ballista is a shared baseline action; an exact source id is meaningful only
             // for special weapons. The visual source is selected when the shot resolves.
-            var selectedWeapon = wt == WeaponType.Ballista || weaponId == null
+            var selectedWeapon = wt == WeaponType.Ballista
                 ? usable.Select(x => x.weapon).FirstOrDefault()
-                : usable.Select(x => x.weapon).FirstOrDefault(w => w.Id == weaponId);
+                : weaponId != null
+                    ? usable.Select(x => x.weapon).FirstOrDefault(w => w.Id == weaponId)
+                    : wt == WeaponType.Tetracatapult
+                        ? usable.Select(x => x.weapon)
+                            .FirstOrDefault(w => w.ConfiguredShotType == selectedShotType)
+                        : usable.Select(x => x.weapon).FirstOrDefault();
             if (selectedWeapon == null)
                 return (false, "Это оружие уничтожено или у него закончились боеприпасы.");
+            if (wt == WeaponType.Tetracatapult &&
+                selectedWeapon.ConfiguredShotType != selectedShotType)
+                return (false, "Этот Тетракамнемёт заряжен другим типом снаряда.");
             if (selectedWeapon.AimSpeed > player.RevealedCellCount)
                 return (false, $"Оружие ещё заряжается! Нужно разведать {selectedWeapon.AimSpeed - player.RevealedCellCount} клеток.");
 
@@ -1145,6 +1385,8 @@ public class BattleshipService
                 return (false, "Вы не в этой игре.");
             var cursedDirectionError = GetCursedBoatDirectionLockError(game);
             if (cursedDirectionError != null) return (false, cursedDirectionError);
+            var assemblyError = GetAssemblyLockError(game, player);
+            if (assemblyError != null) return (false, assemblyError);
             var maneuverError = GetManeuverLockError(game, player);
             if (maneuverError != null) return (false, maneuverError);
 
@@ -1336,7 +1578,10 @@ public class BattleshipService
             if (HasPendingBoardingDeployments(game) && !pending.IsBoarding)
                 return (false, "Сначала разместите все абордажные корабли.");
             var cursedDirectionError = GetCursedBoatDirectionLockError(game);
-            if (cursedDirectionError != null) return (false, cursedDirectionError);
+            if (cursedDirectionError != null && !pending.IsBoarding)
+                return (false, cursedDirectionError);
+            var assemblyError = GetAssemblyLockError(game, player);
+            if (assemblyError != null && !pending.IsBoarding) return (false, assemblyError);
             var maneuverError = GetManeuverLockError(game, player);
             if (maneuverError != null && !pending.IsBoarding) return (false, maneuverError);
 
@@ -1367,6 +1612,7 @@ public class BattleshipService
                 SpawnedAtShot = game.ShotCount,
                 IsBoardingShip = pending.IsBoarding,
                 SourceShipId = pending.SourceShipId,
+                SourceShipName = pending.SourceShipName,
             };
 
             player.Summons.Add(summon);
@@ -1419,6 +1665,8 @@ public class BattleshipService
                 return (false, "Вы не в этой игре.");
             var cursedDirectionError = GetCursedBoatDirectionLockError(game);
             if (cursedDirectionError != null) return (false, cursedDirectionError);
+            var assemblyError = GetAssemblyLockError(game, player);
+            if (assemblyError != null) return (false, assemblyError);
 
             // Only at start of own turn, before shooting
             if (game.CurrentTurnPlayerId != discordId)
@@ -1679,7 +1927,12 @@ public class BattleshipService
         {
             var def = ShipCatalog.GetById(sel.DefinitionId);
             if (def != null)
-                game.Player2.Fleet.Add(ShipCatalog.CreateShip(def, sel.Upgrades));
+            {
+                if (def.Id == "famous_assembling_ship")
+                    game.Player2.Fleet.AddRange(ShipCatalog.CreateAssemblyComponents(def, sel.Upgrades));
+                else
+                    game.Player2.Fleet.Add(ShipCatalog.CreateShip(def, sel.Upgrades));
+            }
         }
         NumberDuplicateShips(game.Player2.Fleet);
 
@@ -1688,7 +1941,10 @@ public class BattleshipService
 
     private static void NumberDuplicateShips(List<Ship> fleet)
     {
-        foreach (var group in fleet.GroupBy(s => s.DefinitionId).Where(g => g.Count() > 1))
+        foreach (var group in fleet
+                     .Where(ship => !ship.IsAssemblyComponent)
+                     .GroupBy(s => s.DefinitionId)
+                     .Where(g => g.Count() > 1))
         {
             var index = 1;
             foreach (var ship in group)
@@ -1701,6 +1957,13 @@ public class BattleshipService
         if (game.Player2?.IsBot != true) return;
 
         BattleshipBotAI.PlaceFleet(game.Player2);
+        foreach (var weapon in game.Player2.Fleet.SelectMany(ship => ship.Weapons)
+                     .Where(weapon => weapon.Type == WeaponType.Tetracatapult))
+        {
+            weapon.ConfiguredShotType = Rng.Next(2) == 0
+                ? ShotType.WhiteStone
+                : ShotType.Buckshot;
+        }
         game.Player2.IsReady = true;
     }
 
@@ -1710,14 +1973,15 @@ public class BattleshipService
         lock (game)
         {
             if (game.IsFinished) return false;
+            if (HasPendingBoardingDeployments(game))
+                return game.GetPlayers().Any(player =>
+                    player.IsBot && player.PendingSummons.Any(summon => summon.IsBoarding));
             if (game.GetPlayers().Any(player =>
                     !player.IsBot && GetPendingCursedBoatDirection(player) != null))
                 return false;
             return game.GetPlayers().Any(player =>
                        player.IsBot && GetPendingCursedBoatDirection(player) != null) ||
-                   game.GetPlayer(game.CurrentTurnPlayerId)?.IsBot == true ||
-                   game.GetPlayers().Any(player =>
-                       player.IsBot && player.PendingSummons.Any(summon => summon.IsBoarding));
+                   game.GetPlayer(game.CurrentTurnPlayerId)?.IsBot == true;
         }
     }
 
@@ -1742,6 +2006,31 @@ public class BattleshipService
         if (!_games.TryGetValue(gameId, out var game)) return new();
         lock (game)
         {
+            // Mandatory Boarding placement has priority over a Cursed Boat course choice.
+            var priorityBoardingBot = game.GetPlayers()
+                .FirstOrDefault(player =>
+                    player.IsBot && player.PendingSummons.Any(summon => summon.IsBoarding));
+            if (priorityBoardingBot != null)
+            {
+                var opponentForPlacement = game.GetOpponent(priorityBoardingBot.DiscordId);
+                if (opponentForPlacement == null) return new();
+                var boardingIds = priorityBoardingBot.PendingSummons
+                    .Where(summon => summon.IsBoarding)
+                    .Select(summon => summon.Id)
+                    .ToHashSet();
+                var before = boardingIds.Count;
+                foreach (var (pendingId, pendingCol) in
+                         BattleshipBotAI.ChoosePendingSummonDeploys(priorityBoardingBot, opponentForPlacement)
+                             .Where(value => boardingIds.Contains(value.pendingId)))
+                    DeployPendingSummon(game.GameId, priorityBoardingBot.DiscordId, pendingId, pendingCol);
+                var after = priorityBoardingBot.PendingSummons.Count(summon => summon.IsBoarding);
+                game.LastActivity = DateTime.UtcNow;
+                return new BattleshipBotStepResult { Acted = after < before };
+            }
+
+            // A human mandatory deployment freezes bot course choices and ordinary turns too.
+            if (HasPendingBoardingDeployments(game)) return new();
+
             var forcedDirectionBot = game.GetPlayers()
                 .FirstOrDefault(player =>
                     player.IsBot && GetPendingCursedBoatDirection(player) != null);
@@ -1754,30 +2043,6 @@ public class BattleshipService
                 game.LastActivity = DateTime.UtcNow;
                 return new BattleshipBotStepResult { Acted = true };
             }
-
-            var forcedBoardingBot = game.GetPlayers()
-                .FirstOrDefault(p => p.IsBot && p.PendingSummons.Any(s => s.IsBoarding));
-            if (forcedBoardingBot != null)
-            {
-                var opponentForPlacement = game.GetOpponent(forcedBoardingBot.DiscordId);
-                if (opponentForPlacement == null) return new();
-                var boardingIds = forcedBoardingBot.PendingSummons
-                    .Where(s => s.IsBoarding)
-                    .Select(s => s.Id)
-                    .ToHashSet();
-                var before = boardingIds.Count;
-                foreach (var (pendingId, pendingCol) in
-                         BattleshipBotAI.ChoosePendingSummonDeploys(forcedBoardingBot, opponentForPlacement)
-                             .Where(x => boardingIds.Contains(x.pendingId)))
-                    DeployPendingSummon(game.GameId, forcedBoardingBot.DiscordId, pendingId, pendingCol);
-                var after = forcedBoardingBot.PendingSummons.Count(s => s.IsBoarding);
-                game.LastActivity = DateTime.UtcNow;
-                return new BattleshipBotStepResult { Acted = after < before };
-            }
-
-            // A human mandatory deployment freezes the bot too. The hub will restart the
-            // pump after the human places the final boarding ship.
-            if (HasPendingBoardingDeployments(game)) return new();
 
             var bot = game.GetPlayer(game.CurrentTurnPlayerId);
             if (bot == null || !bot.IsBot || game.IsFinished) return new();
@@ -1823,12 +2088,13 @@ public class BattleshipService
                 return new BattleshipBotStepResult { Acted = true };
             }
 
-            var (weaponType, shotType) = BattleshipBotAI.ChooseWeapon(bot, opponent, game.Phase);
+            var (weaponType, shotType) = BattleshipBotAI.ChooseWeapon(game, bot, opponent, game.Phase);
             var captured = bot.Board.PlacedShips.Any(s =>
                 !s.IsDestroyed && s.Statuses.Contains(ShipStatusType.Capture));
             var enemySummon = captured ? null : opponent.Summons.FirstOrDefault(s =>
                 s.IsAlive && bot.Board.GetCell(s.Row, s.Col)?.SummonRef == s);
-            if (enemySummon != null && weaponType != WeaponType.GreekFire.ToString())
+            if (enemySummon != null &&
+                weaponType is not (nameof(WeaponType.GreekFire) or nameof(WeaponType.EvilGreekFire)))
                 (weaponType, shotType) = ("Ballista", "Ballista");
 
             var (selected, _) = SelectWeapon(game.GameId, bot.DiscordId, weaponType, shotType);
@@ -1848,7 +2114,10 @@ public class BattleshipService
             var ownBoard = captured || enemySummon != null;
 
             ShotResult result;
-            if (enemySummon != null && bot.SelectedShotType == ShotType.GreekFire)
+            if (captured)
+                result = BattleshipGameEngine.ProcessShot(game, bot, targetRow, targetCol);
+            else if (enemySummon != null &&
+                bot.SelectedShotType is ShotType.GreekFire or ShotType.EvilGreekFire)
             {
                 bot.SelectedWeapon.UseAmmo();
                 result = BattleshipGameEngine.ProcessOwnBoardGreekFireShot(game, bot, targetRow, targetCol);
@@ -2064,8 +2333,11 @@ public class BattleshipService
             HasPenalty = player.HasPenalty,
             HasShotThisTurn = player.HasShotThisTurn,
             HasPendingBoardingDeployment = player.PendingSummons.Any(p => p.IsBoarding),
+            PendingAssembly = isMe ? GetPendingAssembly(game, player) : null,
             PendingManeuver = isMe ? GetPendingManeuver(game, player) : null,
-            PendingCursedBoatDirection = isMe ? GetPendingCursedBoatDirection(player) : null,
+            PendingCursedBoatDirection = isMe && !HasPendingBoardingDeployments(game)
+                ? GetPendingCursedBoatDirection(player)
+                : null,
             ShotDelayRemainingMs = Math.Max(0,
                 (int)Math.Ceiling((player.NextShotAllowedAtUtc - DateTime.UtcNow).TotalMilliseconds)),
             ShotDelayDurationMs = player.CurrentShotDelayMs,
@@ -2085,6 +2357,7 @@ public class BattleshipService
                 WaitingForTurnBack = s.WaitingForTurnBack,
                 WaitingForDirectionChoice = s.WaitingForDirectionChoice,
                 IsBoardingShip = s.IsBoardingShip,
+                SourceShipName = s.SourceShipName,
             }).ToList(),
             PendingSummons = isMe ? player.PendingSummons.Select(p => new PendingSummonDto
             {
@@ -2105,6 +2378,9 @@ public class BattleshipService
             CanPassBoarding = isMe && game.Phase == BsGamePhase.Boarding &&
                 game.CurrentTurnPlayerId == player.DiscordId &&
                 !HasPendingBoardingDeployments(game) &&
+                GetPendingAssembly(game, player) == null &&
+                GetPendingCursedBoatDirection(player) == null &&
+                GetPendingManeuver(game, player) == null &&
                 !BattleshipGameEngine.HasAnyLegalShot(game, player),
         };
     }
@@ -2113,10 +2389,7 @@ public class BattleshipService
         BattleshipGame game,
         BattleshipPlayer player)
     {
-        var captureForcesBallista = player.Board.PlacedShips.Any(s =>
-            !s.IsDestroyed && s.Statuses.Contains(ShipStatusType.Capture));
         var usable = BattleshipGameEngine.GetUsableWeapons(game, player)
-            .Where(x => !captureForcesBallista || x.weapon.Type == WeaponType.Ballista)
             .ToList();
 
         // Ballista is one shared baseline action. Its real projectile source is selected
@@ -2131,6 +2404,9 @@ public class BattleshipService
             ShipId = x.ship.Id,
             ShipName = x.weapon.Type == WeaponType.Ballista ? "Общий выстрел" : x.ship.Name,
             Type = x.weapon.Type.ToString(),
+            ShotType = x.weapon.Type == WeaponType.Tetracatapult
+                ? x.weapon.ConfiguredShotType?.ToString()
+                : WeaponTypeToShotType(x.weapon.Type).ToString(),
             Ammo = x.weapon.Ammo,
             DeckIndex = x.weapon.DeckIndex,
             AimRemaining = Math.Max(0, x.weapon.AimSpeed - player.RevealedCellCount),
@@ -2178,6 +2454,7 @@ public class BattleshipService
                 DeckIndex = w.DeckIndex,
                 HasAmmo = w.HasAmmo,
                 AimSpeed = w.AimSpeed > 0 ? Math.Max(0, w.AimSpeed - opponentRevealedCount) : 0,
+                ConfiguredShotType = w.ConfiguredShotType?.ToString(),
             }).ToList(),
         }).ToList() ?? new();
     }
@@ -2204,9 +2481,14 @@ public class BattleshipService
                 HasSummon = cell.SummonRef != null && cell.SummonRef.IsAlive,
                 SummonOwnerId = cell.SummonRef is { IsAlive: true } ? cell.SummonRef.OwnerId : null,
                 SummonType = cell.SummonRef is { IsAlive: true } ? cell.SummonRef.Type.ToString() : null,
-                IsScratched = IsCellScratched(cell),
+                SummonName = cell.SummonRef is { IsAlive: true }
+                    ? cell.SummonRef.SourceShipName
+                    : null,
+                IsBoardingSummon = cell.SummonRef is { IsAlive: true, IsBoardingShip: true },
+                IsScratched = cell.BurnResistMarked || IsCellScratched(cell),
                 SummonTrails = cell.SummonTrails.Select(t => t.ToString()).OrderBy(t => t).ToList(),
-                SummonDeaths = cell.SummonDeaths.Select(t => t.ToString()).OrderBy(t => t).ToList(),
+                SummonDeaths = cell.SummonDeaths.Select(t => t.ToString()).ToList(),
+                FrozenSummonDeathIndices = cell.FrozenSummonDeathIndices.ToList(),
                 IsBurnResistMarked = cell.BurnResistMarked,
                 IsDodgeMarked = cell.WasDodge,
                 IsManeuverDodgeMarked = cell.WasManeuverDodge,
@@ -2216,6 +2498,7 @@ public class BattleshipService
                 IsDevastated = cell.ShipRef?.Statuses.Contains(ShipStatusType.Devastated) == true,
                 IsCaptured = cell.ShipRef?.Statuses.Contains(ShipStatusType.Capture) == true,
                 IsFirePermanent = cell.IsBurning,
+                SunkShipName = cell.SunkShipName,
             });
         }
         return new BoardDto { Cells = cells };
@@ -2246,9 +2529,14 @@ public class BattleshipService
                 HasSummon = cell.SummonRef != null && cell.SummonRef.IsAlive,
                 SummonOwnerId = cell.SummonRef is { IsAlive: true } ? cell.SummonRef.OwnerId : null,
                 SummonType = cell.SummonRef is { IsAlive: true } ? cell.SummonRef.Type.ToString() : null,
+                SummonName = cell.SummonRef is { IsAlive: true }
+                    ? cell.SummonRef.SourceShipName
+                    : null,
+                IsBoardingSummon = cell.SummonRef is { IsAlive: true, IsBoardingShip: true },
                 IsScratched = cell.WasScratched, // Snapshot: scratched state persists after ship moves
                 SummonTrails = cell.SummonTrails.Select(t => t.ToString()).OrderBy(t => t).ToList(),
-                SummonDeaths = cell.SummonDeaths.Select(t => t.ToString()).OrderBy(t => t).ToList(),
+                SummonDeaths = cell.SummonDeaths.Select(t => t.ToString()).ToList(),
+                FrozenSummonDeathIndices = cell.FrozenSummonDeathIndices.ToList(),
                 IsBurnResistMarked = cell.BurnResistMarked,
                 IsDodgeMarked = cell.WasDodge,
                 IsManeuverDodgeMarked = cell.WasManeuverDodge,
@@ -2262,6 +2550,7 @@ public class BattleshipService
                 IsCaptured = !hiddenMovedShip &&
                              cell.ShipRef?.Statuses.Contains(ShipStatusType.Capture) == true,
                 IsFirePermanent = cell.IsBurning,
+                SunkShipName = cell.SunkShipName,
             });
         }
         return new BoardDto { Cells = cells };
@@ -2272,11 +2561,11 @@ public class BattleshipService
     {
         if (cell.ShipRef == null) return false;
         var ship = cell.ShipRef;
-        var cells = ship.GetOccupiedCells();
-        for (var i = 0; i < cells.Count; i++)
+        foreach (var deck in ship.Decks)
         {
-            if (cells[i].row == cell.Row && cells[i].col == cell.Col)
-                return i < ship.Decks.Count && ship.Decks[i].IsDestroyed;
+            var position = ship.GetDeckCell(deck, ship.Row, ship.Col, ship.Orientation);
+            if (position.row == cell.Row && position.col == cell.Col)
+                return deck.IsDestroyed;
         }
         return false;
     }
@@ -2286,11 +2575,11 @@ public class BattleshipService
     {
         if (!cell.IsHit || cell.ShipRef == null) return false;
         var ship = cell.ShipRef;
-        var cells = ship.GetOccupiedCells();
-        for (var i = 0; i < cells.Count; i++)
+        foreach (var deck in ship.Decks)
         {
-            if (cells[i].row == cell.Row && cells[i].col == cell.Col)
-                return i < ship.Decks.Count && ship.Decks[i].CurrentHp > 0;
+            var position = ship.GetDeckCell(deck, ship.Row, ship.Col, ship.Orientation);
+            if (position.row == cell.Row && position.col == cell.Col)
+                return deck.CurrentHp > 0;
         }
         return false;
     }
@@ -2369,6 +2658,7 @@ public class BattleshipPlayerDto
     public bool HasPenalty { get; set; }
     public bool HasShotThisTurn { get; set; }
     public bool HasPendingBoardingDeployment { get; set; }
+    public PendingAssemblyDto PendingAssembly { get; set; }
     public PendingManeuverDto PendingManeuver { get; set; }
     public PendingCursedBoatDirectionDto PendingCursedBoatDirection { get; set; }
     public int ShotDelayRemainingMs { get; set; }
@@ -2402,9 +2692,12 @@ public class CellDto
     public bool HasSummon { get; set; }
     public string SummonOwnerId { get; set; }
     public string SummonType { get; set; }
+    public string SummonName { get; set; }
+    public bool IsBoardingSummon { get; set; }
     public bool IsScratched { get; set; }
     public List<string> SummonTrails { get; set; } = new();
     public List<string> SummonDeaths { get; set; } = new();
+    public List<int> FrozenSummonDeathIndices { get; set; } = new();
     public bool IsBurnResistMarked { get; set; }
     public bool IsDodgeMarked { get; set; }
     public bool IsManeuverDodgeMarked { get; set; }
@@ -2414,6 +2707,20 @@ public class CellDto
     public bool IsDevastated { get; set; }
     public bool IsCaptured { get; set; }
     public bool IsFirePermanent { get; set; }
+    public string SunkShipName { get; set; }
+}
+
+public class PendingAssemblyDto
+{
+    public string GroupId { get; set; }
+    public List<AssemblyPlacementOptionDto> Options { get; set; } = new();
+}
+
+public class AssemblyPlacementOptionDto
+{
+    public int Row { get; set; }
+    public int Col { get; set; }
+    public string Orientation { get; set; }
 }
 
 public class PendingManeuverDto
@@ -2452,6 +2759,7 @@ public class AvailableWeaponDto
     public string ShipId { get; set; }
     public string ShipName { get; set; }
     public string Type { get; set; }
+    public string ShotType { get; set; }
     public int Ammo { get; set; }
     public int DeckIndex { get; set; }
     public int AimRemaining { get; set; }
@@ -2501,6 +2809,7 @@ public class WeaponDto
     public int DeckIndex { get; set; }
     public bool HasAmmo { get; set; }
     public int AimSpeed { get; set; }
+    public string ConfiguredShotType { get; set; }
 }
 
 public class SummonDto
@@ -2515,6 +2824,7 @@ public class SummonDto
     public bool WaitingForTurnBack { get; set; }
     public bool WaitingForDirectionChoice { get; set; }
     public bool IsBoardingShip { get; set; }
+    public string SourceShipName { get; set; }
 }
 
 public class PendingSummonDto
@@ -2532,6 +2842,12 @@ public class FleetSelectionDto
     public string ShipName { get; set; }
     public int Cost { get; set; }
     public List<string> Upgrades { get; set; } = new();
+}
+
+public class TetracatapultLoadoutDto
+{
+    public string WeaponId { get; set; }
+    public string ShotType { get; set; }
 }
 
 public class ShipCatalogDto

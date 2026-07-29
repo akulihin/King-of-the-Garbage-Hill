@@ -106,19 +106,35 @@ public class General : ModuleBaseCustom
     public async Task DifficultyChange()
     {
         var account = _accounts.GetAccount(Context.User);
-
-        if (account.PlayerType == 0)
+        var newMode = account.GameplayMode == DiscordAccountClass.CasualMode
+            ? DiscordAccountClass.ProMode
+            : DiscordAccountClass.CasualMode;
+        var saved = false;
+        lock (account)
         {
-            account.PlayerType = 1;
-            await SendMessageAsync("Готово. Ваша сложность теперь \"**Казуальная**\".\n" +
-                                   "Эта сложность показывает больше информации, чем в обычноый сложности. Она упрощает механику **предположений**.\n" +
+            var previousMode = account.GameplayMode;
+            account.GameplayMode = newMode;
+            saved = _accounts.SaveAccount(account);
+            if (!saved)
+                account.GameplayMode = previousMode;
+        }
+
+        if (!saved)
+        {
+            await SendMessageAsync("Не удалось сохранить режим аккаунта. Попробуйте ещё раз.");
+            return;
+        }
+
+        if (newMode == DiscordAccountClass.ProMode)
+        {
+            await SendMessageAsync("Готово. Ваш режим теперь \"**Pro**\".\n" +
+                                   "В этом режиме часть чужих источников и действий скрыта, а просветы требуют внимания к событиям.\n" +
                                    "Для смены сложности, просто напишите `*Сложность`");
         }
-        else if (account.PlayerType == 1)
+        else
         {
-            account.PlayerType = 0;
-            await SendMessageAsync("Готово. Ваша сложность теперь \"**Обычная**\".\n" +
-                                   "Эта сложность показывает столько информации, сколько было задумано разработчиками.\n" +
+            await SendMessageAsync("Готово. Ваш режим теперь \"**Casual**\".\n" +
+                                   "Это режим аккаунта по умолчанию.\n" +
                                    "Для смены сложности, просто напишите `*Сложность`");
         }
     }

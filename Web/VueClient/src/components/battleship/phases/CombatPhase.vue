@@ -1,9 +1,14 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useBattleshipStore, type BattleshipImpactType } from 'src/store/battleship'
-import type { BattleshipPendingSummon, BattleshipShotResult } from 'src/services/signalr'
+import type {
+  BattleshipOrientation,
+  BattleshipPendingSummon,
+  BattleshipShotResult,
+} from 'src/services/signalr'
 import { useTip } from 'src/composables/useTip'
 import BoardGrid from '../BoardGrid.vue'
+import BsIcon from '../BsIcon.vue'
 import WeaponBar from '../WeaponBar.vue'
 import FleetPanel from '../FleetPanel.vue'
 import BattleLogPanel from '../BattleLogPanel.vue'
@@ -12,7 +17,13 @@ import ActionBar from '../ActionBar.vue'
 import VfxCanvas from '../VfxCanvas.vue'
 import ProjectileLayer, { type BattleshipProjectileKind } from '../ProjectileLayer.vue'
 import { renderIcon } from '../battleship-icons'
-import { occupiedCells as occupiedCellPositions } from '../battleship-geometry'
+import {
+  BATTLESHIP_ORIENTATIONS,
+  deckOffsetVector,
+  occupiedCells as occupiedCellPositions,
+  occupiedDeckCells,
+  orientationLabel,
+} from '../battleship-geometry'
 
 const store = useBattleshipStore()
 const { tipText, tipVisible, tipPos, showTip, moveTip, hideTip } = useTip()
@@ -32,13 +43,33 @@ const maneuverTargetCells = computed(() =>
   pendingManeuver.value?.options.map(option => ({ row: option.row, col: option.col })) ?? [])
 const pendingCursedBoatDirection = computed(() =>
   myPlayer.value?.pendingCursedBoatDirection ?? null)
+const pendingAssembly = computed(() => myPlayer.value?.pendingAssembly ?? null)
+const assemblyOrientation = ref<BattleshipOrientation>('Horizontal')
+const assemblyOrientations = computed(() => BATTLESHIP_ORIENTATIONS.filter(orientation =>
+  pendingAssembly.value?.options.some(option => option.orientation === orientation)))
+const assemblyTargetCells = computed(() =>
+  pendingAssembly.value?.options
+    .filter(option => option.orientation === assemblyOrientation.value)
+    .map(option => ({ row: option.row, col: option.col })) ?? [])
+
+watch(() => pendingAssembly.value?.groupId, () => {
+  assemblyOrientation.value = pendingAssembly.value?.options[0]?.orientation ?? 'Horizontal'
+}, { immediate: true })
+
+function cycleAssemblyOrientation() {
+  const orientations = assemblyOrientations.value
+  if (orientations.length < 2) return
+  const current = orientations.indexOf(assemblyOrientation.value)
+  assemblyOrientation.value = orientations[(current + 1) % orientations.length]!
+}
+
 const cursedBoatShipCells = computed(() => pendingCursedBoatDirection.value
   ? [{ row: pendingCursedBoatDirection.value.row, col: pendingCursedBoatDirection.value.col }]
   : [])
 const cursedBoatTargetCells = computed(() =>
   pendingCursedBoatDirection.value?.options.map(option => ({ row: option.row, col: option.col })) ?? [])
 const mandatoryInteractionActive = computed(() =>
-  !!pendingManeuver.value || !!pendingCursedBoatDirection.value)
+  !!pendingManeuver.value || !!pendingCursedBoatDirection.value || !!pendingAssembly.value)
 
 watch(mandatoryInteractionActive, (active) => {
   if (active) store.cancelSummonDeploy()
@@ -229,8 +260,17 @@ watch(
 
 // ── AoE cursor previews ─────────────────────────────────────
 const isBuckshotMode = computed(() => store.selectedShotType === 'Buckshot')
-const isIncendiaryMode = computed(() => store.selectedShotType === 'Incendiary')
-const isGreekFireMode = computed(() => store.selectedShotType === 'GreekFire')
+const isIncendiaryMode = computed(() =>
+  store.selectedShotType === 'Incendiary' || store.selectedShotType === 'EvilIncendiary')
+const isGreekFireMode = computed(() =>
+  store.selectedShotType === 'GreekFire' || store.selectedShotType === 'EvilGreekFire')
+const isEvilGreekFireResponse = computed(() =>
+  store.selectedShotType === 'EvilGreekFire'
+  && !isMyTurn.value
+  && store.shotDelayActive
+  && store.shotDelayOwnerId === enemyPlayer.value?.discordId)
+const canUseOwnBoardWeapon = computed(() =>
+  (isMyTurn.value && !store.shotDelayActive) || isEvilGreekFireResponse.value)
 const catapultReady = computed(() => isMyTurn.value && !store.shotDelayActive &&
   !boardingPlacementPending.value && !hasCapturedShip.value &&
   store.availableWeapons.some(w => w.type === 'Tetracatapult' && w.aimSpeed <= 0 && w.hasAmmo))
@@ -260,7 +300,7 @@ const enemyHighlight = computed(() => {
 
 // ── Handlers ─────────────────────────────────────────────────
 async function handleEnemyCellClick(row: number, col: number) {
-  if (pendingManeuver.value) return
+  if (pendingManeuver.value || pendingAssembly.value) return
   if (pendingCursedBoatDirection.value) {
     const option = pendingCursedBoatDirection.value.options
       .find(value => value.row === row && value.col === col)
@@ -293,17 +333,38 @@ async function handleEnemyCellClick(row: number, col: number) {
 }
 
 async function handleMyBoardCellClick(row: number, col: number) {
-  if (!isMyTurn.value || (phase.value !== 'Combat' && phase.value !== 'Boarding')) return
+  if (phase.value !== 'Combat' && phase.value !== 'Boarding') return
+  if (pendingAssembly.value) {
+    const option = pendingAssembly.value.options.find(value =>
+      value.row === row
+      && value.col === col
+      && value.orientation === assemblyOrientation.value)
+    if (option) {
+      await store.assembleShip(
+        pendingAssembly.value.groupId,
+        option.row,
+        option.col,
+        option.orientation,
+      )
+    }
+    return
+  }
   if (pendingCursedBoatDirection.value) return
   if (pendingManeuver.value) {
+    if (!isMyTurn.value) return
     const option = pendingManeuver.value.options.find(value => value.row === row && value.col === col)
     if (option)
       await store.manualMove(pendingManeuver.value.shipId, option.direction, option.distance)
     return
   }
-  if (store.shotDelayActive) return
+  if (!isMyTurn.value && !isEvilGreekFireResponse.value) return
+  if (store.shotDelayActive && !isEvilGreekFireResponse.value) return
   if (myPlayer.value?.pendingSummons?.some(p => p.isBoarding)) return
   const cell = store.myBoard?.cells.find(c => c.row === row && c.col === col)
+  if (isEvilGreekFireResponse.value) {
+    await store.shootOwnBoard(row, col)
+    return
+  }
   if (hasCapturedShip.value) {
     if (cell?.isCaptured && !cell.isDestroyed) await store.shootOwnBoard(row, col)
     return
@@ -330,6 +391,12 @@ async function handleWeaponSelect(weaponType: string, shotType: string, weaponId
 
 function handleEnemyRightClick(row: number, col: number) {
   store.toggleMarkedCell(row, col)
+}
+
+function factionLabel(faction: string | undefined): string {
+  if (faction === 'Alliance') return 'Альянс'
+  if (faction === 'Empire') return 'Империя'
+  return faction ?? ''
 }
 
 // ── Banners / result presentation ────────────────────────────
@@ -406,8 +473,12 @@ const myBoardRangeOverlays = computed(() => {
 
     if (abilities.includes('poison_cone')) {
       const [firstRow, firstCol] = getOccupiedCells(ship)[0] ?? [ship.row, ship.col]
-      const [forwardRow, forwardCol] = ship.orientation === 'Vertical' ? [-1, 0] : [0, -1]
-      const [sideRow, sideCol] = ship.orientation === 'Vertical' ? [0, 1] : [1, 0]
+      const sternStep = deckOffsetVector(
+        ship.orientation,
+        ship.abilities.includes('diagonal_shape'),
+      )
+      const [forwardRow, forwardCol] = [-sternStep.row, -sternStep.col]
+      const [sideRow, sideCol] = [sternStep.col, -sternStep.row]
       for (let depth = 1; depth <= 2; depth++) {
         for (let side = -depth; side <= depth; side++) {
           addCell(map,
@@ -512,8 +583,9 @@ function getOccupiedCells(ship: {
   row: number
   col: number
   deckCount: number
-  orientation: string
+  orientation: BattleshipOrientation
   abilities?: string[]
+  decks?: Array<{ index: number }>
 }): [number, number][] {
   return occupiedCellPositions(ship).map(cell => [cell.row, cell.col])
 }
@@ -525,7 +597,9 @@ const weaponCursorClass = computed(() => {
     case 'Buckshot': return 'cursor-buckshot'
     case 'WhiteStone': return 'cursor-whitestone'
     case 'Incendiary': return 'cursor-incendiary'
+    case 'EvilIncendiary': return 'cursor-incendiary'
     case 'GreekFire': return 'cursor-greekfire'
+    case 'EvilGreekFire': return 'cursor-greekfire'
     default: return 'cursor-ballista'
   }
 })
@@ -576,11 +650,12 @@ onMounted(() => {
     if (!canvas || !targetStage || !projectileLayerRef.value) return false
 
     const sourceShip = myFleet.value.find(ship => ship.id === result?.sourceShipId)
-    const sourceCells = sourceShip ? getOccupiedCells(sourceShip) : []
-    const sourceIndex = Math.max(0, Math.min(result?.sourceDeckIndex ?? 0, sourceCells.length - 1))
-    const fallback = sourceCells[sourceIndex] ?? [0, 0]
-    const sourceRow = (result?.sourceRow ?? -1) >= 0 ? result!.sourceRow : fallback[0]
-    const sourceCol = (result?.sourceCol ?? -1) >= 0 ? result!.sourceCol : fallback[1]
+    const sourceCells = sourceShip ? occupiedDeckCells(sourceShip) : []
+    const fallback = sourceCells.find(cell => cell.deckIndex === result?.sourceDeckIndex)
+      ?? sourceCells[0]
+      ?? { row: 0, col: 0 }
+    const sourceRow = (result?.sourceRow ?? -1) >= 0 ? result!.sourceRow : fallback.row
+    const sourceCol = (result?.sourceCol ?? -1) >= 0 ? result!.sourceCol : fallback.col
     const myId = store.gameState?.myPlayerId
     const enemyId = enemyPlayer.value?.discordId
     const sourceStage = result?.sourceBoardPlayerId === myId
@@ -630,7 +705,19 @@ onUnmounted(() => {
       'capture-attention': captureFocusActive,
     }"
   >
-    <div v-if="pendingManeuver" class="bs-banner bs-banner--warning maneuver-banner">
+    <div v-if="pendingAssembly" class="bs-banner bs-banner--warning maneuver-banner assembly-banner">
+      Обязательная сборка: выберите положение трёхпалубного корабля.
+      <button
+        class="bs-btn bs-btn--sm assembly-rotate"
+        type="button"
+        :disabled="assemblyOrientations.length < 2"
+        @click="cycleAssemblyOrientation"
+      >
+        <BsIcon icon="rotate" :size="13" />
+        {{ orientationLabel(assemblyOrientation, false) }}
+      </button>
+    </div>
+    <div v-else-if="pendingManeuver" class="bs-banner bs-banner--warning maneuver-banner">
       Обязательный манёвр: выберите ярко-зелёную клетку для корабля
       «{{ pendingManeuver.shipName }}».
     </div>
@@ -691,7 +778,13 @@ onUnmounted(() => {
       ></div>
     </div>
     <div
-      v-if="!isMyTurn && store.shotDelayActive && myPlayer?.canDeployAnySummon"
+      v-if="isEvilGreekFireResponse"
+      class="bs-banner bs-banner--gold"
+    >
+      Окно ответа: Злой Греческий огонь можно применить на своей доске.
+    </div>
+    <div
+      v-else-if="!isMyTurn && store.shotDelayActive && myPlayer?.canDeployAnySummon"
       class="bs-banner bs-banner--gold"
     >
       Окно ответа: можно выпустить сумона до следующего выстрела противника.
@@ -703,7 +796,8 @@ onUnmounted(() => {
       :class="{
         'board-shake': store.screenShake,
         'boarding-zoom': boardingZoomActive,
-        'maneuver-focus': !!pendingManeuver,
+        'maneuver-focus': !!pendingManeuver || !!pendingAssembly,
+        'assembly-focus': !!pendingAssembly,
         'cursed-focus': !!pendingCursedBoatDirection,
         'capture-focus': captureFocusActive,
       }"
@@ -712,6 +806,7 @@ onUnmounted(() => {
       <div class="board-section board-enemy" :class="[{ 'board-active': !isMyTurn }, weaponCursorClass]">
         <div class="board-label">
           <span class="player-label">{{ enemyPlayer?.username ?? 'Противник' }}</span>
+          <span v-if="enemyPlayer" class="faction-label">{{ factionLabel(enemyPlayer.faction) }}</span>
           <span v-if="enemyPlayer" class="indicator-badges">
             <span v-if="enemyPlayer.stunShotExpiry >= store.shotCount" class="bs-badge bs-badge--stun" @mouseenter="showTip($event, 'Оглушён')" @mousemove="moveTip" @mouseleave="hideTip" v-html="renderIcon('stun', 12)"></span>
             <span v-if="enemyPlayer.hasPenalty" class="bs-badge bs-badge--penalty" @mouseenter="showTip($event, 'Штраф')" @mousemove="moveTip" @mouseleave="hideTip" v-html="renderIcon('penalty', 12)"></span>
@@ -725,7 +820,7 @@ onUnmounted(() => {
             :is-enemy="true"
             :cell-size="42"
             :shot-type="store.selectedShotType"
-            :clickable="!!pendingCursedBoatDirection || (!pendingManeuver && ((isMyTurn && !store.shotDelayActive && !boardingPlacementPending && !isGreekFireMode && !hasCapturedShip) || !!store.summonDeployMode))"
+            :clickable="!!pendingCursedBoatDirection || (!pendingManeuver && !pendingAssembly && ((isMyTurn && !store.shotDelayActive && !boardingPlacementPending && !isGreekFireMode && !hasCapturedShip) || !!store.summonDeployMode))"
             :highlight-cells="enemyHighlight"
             :blocked-rows="activeBlockedRows"
             :animated-cells="store.enemyAnimatedCells"
@@ -762,6 +857,7 @@ onUnmounted(() => {
       <div class="board-section board-mine" :class="{ 'board-active': isMyTurn }">
         <div class="board-label">
           <span class="player-label">{{ myPlayer?.username ?? 'Вы' }}</span>
+          <span v-if="myPlayer" class="faction-label">{{ factionLabel(myPlayer.faction) }}</span>
           <span v-if="myPlayer" class="indicator-badges">
             <span v-if="myPlayer.stunShotExpiry >= store.shotCount" class="bs-badge bs-badge--stun" @mouseenter="showTip($event, 'Оглушён')" @mousemove="moveTip" @mouseleave="hideTip" v-html="renderIcon('stun', 12)"></span>
             <span v-if="myPlayer.hasPenalty" class="bs-badge bs-badge--penalty" @mouseenter="showTip($event, 'Штраф')" @mousemove="moveTip" @mouseleave="hideTip" v-html="renderIcon('penalty', 12)"></span>
@@ -778,10 +874,10 @@ onUnmounted(() => {
             :summon-trail-cells="mySummonTrails"
             :ship-name-map="myShipNameMap"
             :range-overlay-cells="myBoardRangeOverlays"
-            :clickable="!!pendingManeuver || ((hasCapturedShip || hasEnemySummonOnMyBoard || isGreekFireMode) && isMyTurn && !store.shotDelayActive && !boardingPlacementPending)"
-            :maneuver-active="!!pendingManeuver"
+            :clickable="!!pendingAssembly || !!pendingManeuver || ((hasCapturedShip || hasEnemySummonOnMyBoard || isGreekFireMode) && canUseOwnBoardWeapon && !boardingPlacementPending)"
+            :maneuver-active="!!pendingManeuver || !!pendingAssembly"
             :maneuver-ship-cells="maneuverShipCells"
-            :maneuver-target-cells="maneuverTargetCells"
+            :maneuver-target-cells="pendingAssembly ? assemblyTargetCells : maneuverTargetCells"
             :capture-focus="captureFocusActive"
             :capture-ship-cells="capturedShipCells"
             @cell-click="handleMyBoardCellClick"
@@ -860,6 +956,18 @@ onUnmounted(() => {
   box-shadow: 0 0 24px rgba(34, 197, 94, 0.45);
   text-align: center;
   font-weight: 900;
+}
+.assembly-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+}
+.assembly-rotate {
+  color: #0f172a;
+  border-color: #86efac;
+  background: #bbf7d0;
 }
 .mandatory-lock > :not(.combat-layout):not(.maneuver-banner):not(.pc-tooltip) {
   filter: grayscale(1) brightness(0.48);
@@ -995,6 +1103,16 @@ onUnmounted(() => {
   font-size: 0.85rem;
   font-weight: 700;
   color: var(--text-primary);
+}
+.faction-label {
+  padding: 1px 7px;
+  border: 1px solid color-mix(in srgb, var(--accent-gold) 42%, transparent);
+  border-radius: 999px;
+  color: var(--accent-gold);
+  background: color-mix(in srgb, var(--accent-gold) 9%, transparent);
+  font-size: 0.62rem;
+  font-weight: 800;
+  white-space: nowrap;
 }
 .revealed-count {
   font-size: 0.68rem;

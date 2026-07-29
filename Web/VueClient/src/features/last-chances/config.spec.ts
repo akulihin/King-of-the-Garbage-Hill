@@ -289,9 +289,9 @@ const EXPECTED_SHIPPED_CONTROL_ROUTES: Record<string, ExpectedShippedControlRout
       preGate: 'doubleTap',
       nodes: [
         'stance|hold|neutral|0.25|press|channel|dispatch|kick-brace,vault-finisher|release|2300|tension|*|*|plain|*|0|0|soft',
-        'kick-brace|doubleTapHold|continuation|0.5|release|charge|dispatch|kick-strong|release|2300|gate|*|brace|plain|*|1|0|*',
+        'kick-brace|doubleTapHold|continuation|0.5|release|charge|dispatch|kick-strong|release|2300|gate|*|shove|plain|*|1|0|*',
         'kick-strong|doubleTapHold|continuation|0.75|release|charge|dispatch|kick-final|release|2300|gate|*|kick|plain|*|2|0|*',
-        'kick-final|doubleTapHold|continuation|0.95|release|charge|dispatch||release|2300|gate|*|kick|plain|*|0|0|*',
+        'kick-final|doubleTapHold|continuation|0.95|release|charge|dispatch||release|2300|gate|*|strong-kick|plain|*|0|0|*',
         'vault-finisher|holdThenDoubleTap|stance|0.95|press|none|cancel||release|2300|followUp|*|*|armed|*|0|0|*',
       ],
     },
@@ -422,7 +422,7 @@ describe('99LC config and deterministic plan', () => {
     const result = validateLastChancesConfig(defaultConfig)
 
     expect(result.errors).toEqual([])
-    expect(defaultConfig.schemaVersion).toBe(9)
+    expect(defaultConfig.schemaVersion).toBe(10)
     expect(defaultConfig.player).toMatchObject({
       accelerationMs: 100,
       decelerationMs: 50,
@@ -437,6 +437,9 @@ describe('99LC config and deterministic plan', () => {
     expect(defaultConfig.progression).toMatchObject({
       moveQuestKillsRequired: 2,
       sameTierSacrificeRatio: 0.5,
+      staminaCostIncreasePerRoom: 0.1,
+      maxStaminaCostStacks: 10,
+      chanceErosionStep: 5,
     })
     expect(defaultConfig.chances).toBe(99)
     expect(defaultConfig.rooms.every(room => (room.spawnLayouts?.length ?? 0) >= 2)).toBe(true)
@@ -520,9 +523,71 @@ describe('99LC config and deterministic plan', () => {
       dodgeEveryHits: 2,
     })
     const spearV2 = defaultConfig.weapons.find(weapon => weapon.id === 'twohand-spear-v2')
+    expect(spearV2?.attacks.hold).toMatchObject({
+      charge: {
+        maxMs: 1100,
+        bands: [
+          { id: 'early', minMs: 325 },
+          { id: 'middle', minMs: 563 },
+          { id: 'late', minMs: 825 },
+        ],
+      },
+    })
+    expect(spearV2?.attacks.hold.recoveryMs).toBeUndefined()
+    expect(spearV2?.attacks.doubleTapHold.color).toBe('#55c7ff')
+    expect(spearV2?.secondaryAttacks?.tap).toMatchObject({
+      name: 'Парирование',
+      behavior: 'parry',
+      range: 88,
+      collider: { shape: 'capsule', width: 112 },
+    })
     expect(spearV2?.secondaryAttacks?.tap.tuning).toMatchObject({
       reflectedProjectileMinimumRange: 220,
       reflectedProjectilePierce: 0,
+    })
+    expect(spearV2?.secondaryAttacks?.doubleTap).toMatchObject({
+      name: 'Отталкивание',
+      hitEffects: [{ status: 'stun', durationMs: 1000 }],
+      tuning: { windupMs: 250 },
+    })
+    expect(spearV2?.secondaryAttacks?.doubleTapHold).toMatchObject({
+      name: 'Пинок',
+      charge: {
+        bands: [
+          { id: 'shove', minMs: 550 },
+          { id: 'kick', minMs: 850 },
+          { id: 'strong-kick', minMs: 1200 },
+        ],
+      },
+      tuning: {
+        armorMultiplier: 2,
+        shoveTargetDistance: 94,
+        kickTargetDistance: 144,
+        strongKickTargetDistance: 176,
+        strongKickImmobilizeMs: 1500,
+      },
+    })
+    expect(spearV2?.secondaryAttacks?.hold).toMatchObject({
+      name: 'Строй',
+      behavior: 'spearStance',
+      tuning: {
+        staminaPerTickMs: 100,
+        staminaPerTick: 5,
+        pierceReferenceSpeed: 420,
+        cutReferenceSpeed: 900,
+      },
+    })
+    expect(spearV2?.secondaryAttacks?.holdThenDoubleTap).toMatchObject({
+      name: 'Олимпийский прыжок',
+      behavior: 'poleVault',
+      tuning: {
+        runMs: 180,
+        plantMs: 120,
+        riseMs: 180,
+        flightMs: 420,
+        landMs: 150,
+        trajectoryFlashMs: 180,
+      },
     })
     expect(defaultConfig.enemies.find(enemy => enemy.id === 'spider-knife')).toMatchObject({
       maxHp: 48,
@@ -565,10 +630,26 @@ describe('99LC config and deterministic plan', () => {
       projectileSpawnOffset: 18,
       projectileKnockback: 0,
     })
-    expect(defaultConfig.rooms.find(room => room.id === 'cockroach-mother-lair')).toMatchObject({
+    const motherRoom = defaultConfig.rooms.find(room => room.id === 'cockroach-mother-lair')!
+    expect(motherRoom).toMatchObject({
+      width: 840,
+      height: 840,
       encounter: { enemyIds: ['cockroach-mother'], infiniteSwarm: true },
       altar: { chanceCost: 5 },
     })
+    expect(new Set(motherRoom.bossHoles?.map(hole => hole.shape)).size).toBe(4)
+    expect(new Set(motherRoom.bossHoles?.map(hole => hole.color.toLowerCase())).size).toBe(4)
+    for (const source of motherRoom.bossHoles ?? []) {
+      const distances = (motherRoom.bossHoles ?? [])
+        .filter(hole => hole.id !== source.id)
+        .map(hole => Math.hypot(
+          hole.position.x - source.position.x,
+          hole.position.y - source.position.y,
+        ))
+        .sort((left, right) => left - right)
+      expect(distances.slice(0, 2).every(distance => distance < 900)).toBe(true)
+      expect(distances[2]).toBeGreaterThan(900 + defaultConfig.player.radius)
+    }
     expect(defaultConfig.enemies.find(enemy => enemy.id === 'running-stapler')).toMatchObject({
       projectileKnockback: 0,
     })
@@ -580,7 +661,7 @@ describe('99LC config and deterministic plan', () => {
       .toMatchObject({
         entranceRadiusRatio: 0.55,
         exitRecoveryMs: 650,
-        sameHoleChance: 0.5,
+        blastRadius: 900,
       })
     expect(defaultConfig.enemies.map(enemy => enemy.name)).toEqual(expect.arrayContaining([
       'Слуга',
@@ -671,7 +752,6 @@ describe('99LC config and deterministic plan', () => {
     const mother = invalid.enemies[motherIndex]!.cockroachMother!
     mother.entranceRadiusRatio = 1.1
     mother.exitRecoveryMs = -1
-    mother.sameHoleChance = 1.1
 
     const wolfIndex = invalid.enemies.findIndex(enemy => enemy.id === 'invisible-wolf')
     invalid.enemies[wolfIndex]!.tuning = {
@@ -693,7 +773,6 @@ describe('99LC config and deterministic plan', () => {
       'weapons[0].secondaryAttacks.tap.tuning.reflectedProjectilePierce must be an integer >= 0',
       `enemies[${motherIndex}].cockroachMother.entranceRadiusRatio must be <= 1`,
       `enemies[${motherIndex}].cockroachMother.exitRecoveryMs must be a finite number >= 0`,
-      `enemies[${motherIndex}].cockroachMother.sameHoleChance must be <= 1`,
       `enemies[${wolfIndex}].tuning.behaviorVersion must be 1 or 2`,
       `enemies[${wolfIndex}].tuning.frontDotAbort must be between -1 and 1`,
       `enemies[${wolfIndex}].tuning.stalkRadius must be > 0`,
@@ -869,6 +948,15 @@ describe('99LC config and deterministic plan', () => {
     )
   })
 
+  it('rejects more than ten accumulated stamina-cost icons', () => {
+    const invalid = cloneLastChancesConfig(defaultConfig)
+    invalid.progression.maxStaminaCostStacks = 11
+
+    expect(validateLastChancesConfig(invalid).errors).toContain(
+      'progression.maxStaminaCostStacks must be <= 10',
+    )
+  })
+
   it('fetches runtime JSON without using the HTTP cache', async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
@@ -924,7 +1012,7 @@ describe('99LC config and deterministic plan', () => {
 
     const migrated = await loadLastChancesConfig({ url: '/99lc/schema-v4.json' })
 
-    expect(migrated.schemaVersion).toBe(9)
+    expect(migrated.schemaVersion).toBe(10)
     expect(migrated.weapons.filter(weapon => weapon.id !== 'secondary-ouroboros-fang')
       .every(weapon => weapon.attacks.tap.cooldownMs === 0)).toBe(true)
     expect(migrated.weapons.find(weapon => weapon.id === 'secondary-ouroboros-fang')
@@ -997,7 +1085,7 @@ describe('99LC config and deterministic plan', () => {
       signal: undefined,
     })
     expect(migrated).toMatchObject({
-      schemaVersion: 9,
+      schemaVersion: 10,
       seed: 'saved-schema-v2-run',
       player: { baseStats: { attackPower: 137 } },
       loadout: defaultConfig.loadout,
@@ -1033,7 +1121,36 @@ describe('99LC config and deterministic plan', () => {
     ]))
   })
 
-  describe('schema-v9 run tuning, schema-v8 movement, and legacy content/control migration', () => {
+  describe('schema-v10 attrition, schema-v9 run tuning, and legacy migration', () => {
+    it('backfills current-attempt attrition and removes entrance-hole attacks from schema v9', () => {
+      const v9 = cloneLastChancesConfig(defaultConfig) as LastChancesConfig & {
+        progression: LastChancesConfig['progression'] & {
+          staminaCostIncreasePerRoom?: number
+          maxStaminaCostStacks?: number
+          chanceErosionStep?: number
+        }
+      }
+      v9.schemaVersion = 9
+      delete v9.progression.staminaCostIncreasePerRoom
+      delete v9.progression.maxStaminaCostStacks
+      delete v9.progression.chanceErosionStep
+      const mother = v9.enemies.find(enemy => enemy.id === 'cockroach-mother')!
+        .cockroachMother as unknown as Record<string, unknown>
+      mother.sameHoleChance = 1
+
+      const migrated = migrateLastChancesConfig(v9, defaultConfig) as LastChancesConfig
+
+      expect(migrated.schemaVersion).toBe(10)
+      expect(migrated.progression).toMatchObject({
+        staminaCostIncreasePerRoom: 0.1,
+        maxStaminaCostStacks: 10,
+        chanceErosionStep: 5,
+      })
+      expect(migrated.enemies.find(enemy => enemy.id === 'cockroach-mother')?.cockroachMother)
+        .not.toHaveProperty('sameHoleChance')
+      expect(validateLastChancesConfig(migrated).errors).toEqual([])
+    })
+
     it('standalone-migrates an actual v1-shaped Builder definition through v2 and v3 fields', () => {
       const v1 = previousShippedSchemaV1Config()
       const before = JSON.stringify(v1)
@@ -1041,7 +1158,7 @@ describe('99LC config and deterministic plan', () => {
       const migrated = migrateLastChancesConfig(v1) as LastChancesConfig
 
       expect(migrated).toMatchObject({
-        schemaVersion: 9,
+        schemaVersion: 10,
         input: {
           tapComboWindowMs: 900,
           mylorik: defaultConfig.input.mylorik,
@@ -1075,7 +1192,7 @@ describe('99LC config and deterministic plan', () => {
       expect(migrateLastChancesConfig(migrated)).toEqual(migrated)
     })
 
-    it('clone-first migrates v1, v2, and v3 to v9 and keeps v9 idempotent', () => {
+    it('clone-first migrates v1, v2, and v3 to v10 and keeps v10 idempotent', () => {
       const v1 = previousShippedSchemaV1Config()
       const v2 = cloneLastChancesConfig(defaultConfig)
       v2.schemaVersion = 2
@@ -1091,7 +1208,7 @@ describe('99LC config and deterministic plan', () => {
       for (const legacy of [v1, v2, v3]) {
         const before = JSON.stringify(legacy)
         const migrated = migrateLastChancesConfig(legacy, defaultConfig) as LastChancesConfig
-        expect(migrated.schemaVersion).toBe(9)
+        expect(migrated.schemaVersion).toBe(10)
         expect(validateLastChancesConfig(migrated).errors).toEqual([])
         expect(JSON.stringify(legacy)).toBe(before)
         expect(migrated.input.mylorik).toEqual(defaultConfig.input.mylorik)
@@ -1128,7 +1245,7 @@ describe('99LC config and deterministic plan', () => {
       const before = JSON.stringify(v6)
       const migrated = migrateLastChancesConfig(v6, defaultConfig) as LastChancesConfig
       expect(validateLastChancesConfig(migrated).errors).toEqual([])
-      expect(migrated.schemaVersion).toBe(9)
+      expect(migrated.schemaVersion).toBe(10)
       expect(migrated.seed).toBe('v6-stamina-migration')
       expect(migrated.stamina).toEqual(defaultConfig.stamina)
       expect(migrated.player.baseStats.maxStamina).toBe(100)
@@ -1163,7 +1280,7 @@ describe('99LC config and deterministic plan', () => {
       const before = JSON.stringify(v7)
       const migrated = migrateLastChancesConfig(v7, defaultConfig) as LastChancesConfig
 
-      expect(migrated.schemaVersion).toBe(9)
+      expect(migrated.schemaVersion).toBe(10)
       expect(migrated.seed).toBe('v7-movement-migration')
       expect(migrated.player).toMatchObject({
         accelerationMs: 100,
@@ -1191,7 +1308,7 @@ describe('99LC config and deterministic plan', () => {
 
       const migrated = migrateLastChancesConfig(v7, defaultConfig) as LastChancesConfig
 
-      expect(migrated.schemaVersion).toBe(9)
+      expect(migrated.schemaVersion).toBe(10)
       expect(migrated.seed).toBe('real-v7-shape')
       expect(migrated.progression.roomHpRecovery).toBe(17)
       expect(migrated.progression.tiers[0]).toMatchObject({
@@ -1210,10 +1327,10 @@ describe('99LC config and deterministic plan', () => {
 
     it('fails clearly for an unknown future schema', () => {
       const future = cloneLastChancesConfig(defaultConfig) as LastChancesConfig & { schemaVersion: number }
-      future.schemaVersion = 10
+      future.schemaVersion = 11
 
       expect(() => migrateLastChancesConfig(future)).toThrow(
-        'Unsupported 99LC schemaVersion: schemaVersion 10 is newer than supported 9',
+        'Unsupported 99LC schemaVersion: schemaVersion 11 is newer than supported 10',
       )
     })
 
@@ -1235,7 +1352,7 @@ describe('99LC config and deterministic plan', () => {
 
       expect(fetchMock).toHaveBeenCalledOnce()
       expect(migrated).toMatchObject({
-        schemaVersion: 9,
+        schemaVersion: 10,
         seed: 'v3-control-migration',
         input: { holdMs: 777 },
         player: { baseStats: { attackPower: 143 } },
@@ -1246,7 +1363,7 @@ describe('99LC config and deterministic plan', () => {
       expect(migrated.rooms[0].name).toBe('Saved room tuning')
       expect(migrated.weapons[0].attacks.doubleTap.damage).toBe(91)
       expect(migrated.weapons[0].controls).toEqual(defaultConfig.weapons[0].controls)
-      expect(JSON.parse(window.localStorage.getItem('99lc:game-config')!).schemaVersion).toBe(9)
+      expect(JSON.parse(window.localStorage.getItem('99lc:game-config')!).schemaVersion).toBe(10)
     })
 
     it('validates bindings, hysteresis, ordered gates, and bounded feedback', () => {
@@ -1585,6 +1702,17 @@ describe('99LC config and deterministic plan', () => {
       `rooms[${motherRoomIndex}].bossHoles is required for a Cockroach Mother encounter`,
       `rooms[${curatorRoomIndex}].altar is required for every boss room`,
     ]))
+  })
+
+  it('requires every Cockroach Mother hole to have a memorable color', () => {
+    const invalid = cloneLastChancesConfig(defaultConfig)
+    const motherRoom = invalid.rooms.find(room => room.id === 'cockroach-mother-lair')!
+    const motherRoomIndex = invalid.rooms.indexOf(motherRoom)
+    motherRoom.bossHoles![1].color = motherRoom.bossHoles![0].color
+
+    expect(validateLastChancesConfig(invalid).errors).toContain(
+      `rooms[${motherRoomIndex}].bossHoles must use four different colors`,
+    )
   })
 
   it('rejects unknown zone shapes', () => {

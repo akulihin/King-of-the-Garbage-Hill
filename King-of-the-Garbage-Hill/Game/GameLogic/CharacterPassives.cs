@@ -1328,6 +1328,7 @@ public class CharacterPassives : IServiceSingleton
                         {
                             if (p.Passives.IsDead) continue;
                             if (p.GetPlayerId() == target.GetPlayerId()) continue;
+                            if (p.IsProMode && p.GetPlayerId() != me.GetPlayerId()) continue;
                             var existingPred = p.Predict.Find(pr => pr.PlayerId == target.GetPlayerId());
                             if (existingPred == null)
                                 p.Predict.Add(new PredictClass(target.GameCharacter.Name, target.GetPlayerId()));
@@ -2959,6 +2960,14 @@ public class CharacterPassives : IServiceSingleton
                         player.Status.AddRegularPoints(1, DoomGuy.DemonNests);
                         player.Status.AddInGamePersonalLogs("Адеские гнезда: гнездо уничтожено! +1 очко.\n");
                     }
+
+                    if (attack
+                        && player.Status.IsFighting != Guid.Empty
+                        && player.Status.IsWonThisCalculation == player.Status.IsFighting)
+                        DoomGuy.TryStealInfernalEnergy(
+                            player,
+                            game,
+                            player.Status.IsFighting);
                     break;
                 }
 
@@ -3453,23 +3462,27 @@ public class CharacterPassives : IServiceSingleton
 
                     if (player.Status.IsLostThisCalculation != Guid.Empty)
                     {
-                        var target = vampyr.HematophagiaCurrent.Find(x => x.EnemyId == player.Status.IsLostThisCalculation);
+                        var queuedBiteIds = vampyr.HematophagiaRemoveEndofRound
+                            .Select(x => x.EnemyId)
+                            .ToHashSet();
+                        var target = vampyr.HematophagiaCurrent.Find(x =>
+                            x.EnemyId == player.Status.IsLostThisCalculation
+                            && !queuedBiteIds.Contains(x.EnemyId));
 
-                        if (target != null)
+                        if (target == null)
                         {
-                            if (vampyr.HematophagiaRemoveEndofRound.All(x => x.EnemyId != player.Status.IsLostThisCalculation)) 
-                                vampyr.HematophagiaRemoveEndofRound.Add(target);
-                        }
-                        else
-                        {
-                            if (vampyr.HematophagiaCurrent.Count > 0)
+                            var removableBites = vampyr.HematophagiaCurrent
+                                .Where(x => !queuedBiteIds.Contains(x.EnemyId))
+                                .ToList();
+                            if (removableBites.Count > 0)
                             {
-                                var randomIndex = _rand.Random(0, vampyr.HematophagiaCurrent.Count - 1);
-                                target = vampyr.HematophagiaCurrent[randomIndex];
-                                if (vampyr.HematophagiaRemoveEndofRound.All(x => x.EnemyId != player.Status.IsLostThisCalculation))
-                                    vampyr.HematophagiaRemoveEndofRound.Add(target);
+                                var randomIndex = _rand.Random(0, removableBites.Count - 1);
+                                target = removableBites[randomIndex];
                             }
                         }
+
+                        if (target != null)
+                            vampyr.HematophagiaRemoveEndofRound.Add(target);
                     }
 
                     break;
@@ -4338,6 +4351,7 @@ public class CharacterPassives : IServiceSingleton
                                     {
                                         if (p.Passives.IsDead) continue;
                                         if (p.GetPlayerId() == randomPlayer.GetPlayerId()) continue;
+                                        if (p.IsProMode && p.GetPlayerId() != player.GetPlayerId()) continue;
                                         var existingPred = p.Predict.Find(pr => pr.PlayerId == randomPlayer.GetPlayerId());
                                         if (existingPred == null)
                                             p.Predict.Add(new PredictClass(randomPlayer.GameCharacter.Name, randomPlayer.GetPlayerId()));
@@ -4669,29 +4683,32 @@ public class CharacterPassives : IServiceSingleton
                     for (var i = vampyr.HematophagiaRemoveEndofRound.Count - 1; i >= 0; i--)
                     {
                         var hematophagia = vampyr.HematophagiaRemoveEndofRound[i];
+                        var activeBite = vampyr.HematophagiaCurrent.Find(x =>
+                            x.EnemyId == hematophagia.EnemyId);
 
-                        switch (hematophagia.StatIndex)
+                        if (activeBite != null)
                         {
-                            case 1:
-                                player.GameCharacter.AddIntelligence(-2, "СОсиновый кол");
-                                player.Status.AddRegularPoints(-1, "СОсиновый кол");
-                                break;
-                            case 2:
-                                player.GameCharacter.AddStrength(-2, "СОсиновый кол");
-                                player.Status.AddRegularPoints(-1, "СОсиновый кол");
-                                break;
-                            case 3:
-                                player.GameCharacter.AddSpeed(-2, "СОсиновый кол");
-                                player.Status.AddRegularPoints(-1, "СОсиновый кол");
-                                break;
-                            case 4:
-                                player.GameCharacter.AddPsyche(-2, "СОсиновый кол");
-                                player.Status.AddRegularPoints(-1, "СОсиновый кол");
-                                break;
+                            vampyr.HematophagiaCurrent.Remove(activeBite);
+
+                            switch (activeBite.StatIndex)
+                            {
+                                case 1:
+                                    player.GameCharacter.AddIntelligence(-2, "СОсиновый кол");
+                                    break;
+                                case 2:
+                                    player.GameCharacter.AddStrength(-2, "СОсиновый кол");
+                                    break;
+                                case 3:
+                                    player.GameCharacter.AddSpeed(-2, "СОсиновый кол");
+                                    break;
+                                case 4:
+                                    player.GameCharacter.AddPsyche(-2, "СОсиновый кол");
+                                    break;
+                            }
+
+                            player.Status.AddRegularPoints(-1, "СОсиновый кол");
                         }
 
-                        var enemy = vampyr.HematophagiaCurrent.Find(x => x.EnemyId == hematophagia.EnemyId);
-                        vampyr.HematophagiaCurrent.Remove(enemy);
                         vampyr.HematophagiaRemoveEndofRound.RemoveAt(i);
                     }
 

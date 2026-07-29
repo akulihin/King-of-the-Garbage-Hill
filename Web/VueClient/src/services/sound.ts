@@ -441,7 +441,7 @@ export function installGlobalButtonSound(): () => void {
     if (button.disabled) return
     if (button.getAttribute(DEFAULT_BUTTON_SKIP_ATTR) === 'true') return
 
-    // Fight tabs (Бои раунда, Все бои, Летопись) → random everything_1/2/3.mp3
+    // Fight tabs (Мои сражения, Итоги, Летопись) → random everything_1/2/3.mp3
     if (button.getAttribute(FIGHT_TAB_ATTR) === 'true') {
       playFightTabSound()
       return
@@ -702,7 +702,7 @@ export function playDoomsDayNoFights(): void {
 
 // ── New sound functions (sound pack 3) ──────────────────────────────
 
-/** Fight tabs (Бои раунда, Все бои, Летопись) */
+/** Fight tabs (Мои сражения, Итоги, Летопись) */
 export function playFightTabSound(): void {
   void playClip(randomButtonSound(), { group: 'buttons' })
 }

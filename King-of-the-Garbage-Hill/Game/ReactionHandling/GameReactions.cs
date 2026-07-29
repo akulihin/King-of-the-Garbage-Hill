@@ -651,7 +651,8 @@ public sealed class GameReaction : IServiceSingleton
                 player.DiscordId,
                 player.GameId,
                 player.DiscordUsername,
-                player.PlayerType
+                player.PlayerType,
+                player.AccountGameplayMode
             );
             newBridge.IsWebPlayer = player.IsWebPlayer;
             newBridge.PreferWeb = player.PreferWeb;

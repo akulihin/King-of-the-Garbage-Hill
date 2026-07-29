@@ -34,11 +34,13 @@ public class GameHub : Hub
     private readonly BattleshipService _battleshipService;
     private readonly CharactersPull _charactersPull;
     private readonly AdminLobbyService _adminLobbyService;
+    private readonly IHubContext<GameHub> _hubContext;
 
     public GameHub(WebGameService gameService, GameNotificationService notificationService,
         Global global, UserAccounts userAccounts, BlackjackService blackjackService,
         GameStoryService storyService, BattleshipService battleshipService,
-        CharactersPull charactersPull, AdminLobbyService adminLobbyService)
+        CharactersPull charactersPull, AdminLobbyService adminLobbyService,
+        IHubContext<GameHub> hubContext)
     {
         _gameService = gameService;
         _notificationService = notificationService;
@@ -49,6 +51,7 @@ public class GameHub : Hub
         _battleshipService = battleshipService;
         _charactersPull = charactersPull;
         _adminLobbyService = adminLobbyService;
+        _hubContext = hubContext;
     }
 
     public override async Task OnConnectedAsync()
@@ -95,6 +98,8 @@ public class GameHub : Hub
             discordId = discordIdStr,
             playerType,
             lastPlayedCharacter,
+            gameplayMode = GamePlayerBridgeClass.NormalizeGameplayMode(account?.GameplayMode),
+            eloRating = account?.EloRating ?? 1000,
             isGodAdmin = AdminLobbyService.IsGodAdmin(discordId),
         });
         await Clients.Caller.SendAsync(
@@ -116,6 +121,62 @@ public class GameHub : Hub
         await Clients.Caller.SendAsync("LanguageChanged", new { language = normalized });
         if (Context.Items.TryGetValue("gameId", out var gameIdValue) && gameIdValue is ulong gameId)
             await PushStateToPlayer(gameId, discordId);
+    }
+
+    /// <summary>Changes the account ruleset for future matches. Active matches keep their snapshot.</summary>
+    public async Task SetGameplayMode(string mode)
+    {
+        var discordId = GetDiscordId();
+        if (discordId == 0) { await SendNotAuthenticated(); return; }
+        if (!string.Equals(mode, DiscordAccountClass.CasualMode, StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(mode, DiscordAccountClass.ProMode, StringComparison.OrdinalIgnoreCase))
+        {
+            await Clients.Caller.SendAsync("Error", "Gameplay mode must be Casual or Pro.");
+            return;
+        }
+
+        var account = _userAccounts.GetAccount(discordId);
+        if (account == null)
+        {
+            await Clients.Caller.SendAsync("Error", "Account not found.");
+            return;
+        }
+
+        string normalized;
+        lock (account)
+        {
+            if (account.IsPlaying)
+            {
+                normalized = null;
+            }
+            else
+            {
+                normalized = GamePlayerBridgeClass.NormalizeGameplayMode(mode);
+                var previous = account.GameplayMode;
+                account.GameplayMode = normalized;
+                if (!_userAccounts.SaveAccount(account))
+                {
+                    account.GameplayMode = previous;
+                    normalized = null;
+                }
+            }
+        }
+
+        if (normalized == null)
+        {
+            await Clients.Caller.SendAsync(
+                "Error",
+                account.IsPlaying
+                    ? "Gameplay mode cannot be changed during a game."
+                    : "Could not save gameplay mode.");
+            return;
+        }
+
+        await Clients.Caller.SendAsync("GameplayModeChanged", new
+        {
+            gameplayMode = normalized,
+            eloRating = account.EloRating,
+        });
     }
 
     // ── Game Room Management ──────────────────────────────────────────
@@ -214,6 +275,30 @@ public class GameHub : Hub
         Context.Items["gameId"] = gameId;
         _notificationService.RegisterGameConnection(gameId, Context.ConnectionId);
 
+        await Clients.Caller.SendAsync("GameCreated", new { gameId });
+    }
+
+    /// <summary>Create an unjoinable ranked game: one Pro player versus five hard bots.</summary>
+    public async Task CreateRankedGame()
+    {
+        var discordId = GetDiscordId();
+        if (discordId == 0) { await SendNotAuthenticated(); return; }
+
+        var account = _userAccounts.GetAccount(discordId);
+        var username = account?.DiscordUserName ?? "WebPlayer";
+        var (gameId, error) = await _gameService.CreateGame(
+            discordId,
+            username,
+            ranked: true);
+        if (error != null)
+        {
+            await Clients.Caller.SendAsync("Error", error);
+            return;
+        }
+
+        await Groups.AddToGroupAsync(Context.ConnectionId, $"game-{gameId}");
+        Context.Items["gameId"] = gameId;
+        _notificationService.RegisterGameConnection(gameId, Context.ConnectionId);
         await Clients.Caller.SendAsync("GameCreated", new { gameId });
     }
 
@@ -986,6 +1071,8 @@ public class GameHub : Hub
 
         return new DTOs.QuestStateDto
         {
+            GameplayMode = GamePlayerBridgeClass.NormalizeGameplayMode(account.GameplayMode),
+            EloRating = account.EloRating,
             ActiveDate = active.Date,
             ServerNow = now.ToUniversalTime().ToString("o"),
             ResetsAt = Game.Classes.QuestService.GetResetAt(now).ToString("o"),
@@ -1530,7 +1617,7 @@ public class GameHub : Hub
         }
 
         await PushBattleshipStateToAll(gameId);
-        await RunBattleshipBotPump(gameId);
+        QueueBattleshipBotPump(gameId);
     }
 
     public async Task BattleshipSelectArmy(string gameId, string faction)
@@ -1601,12 +1688,15 @@ public class GameHub : Hub
         await PushBattleshipStateToPlayer(gameId, discordId.ToString());
     }
 
-    public async Task BattleshipConfirmPlacement(string gameId)
+    public async Task BattleshipConfirmPlacement(
+        string gameId,
+        List<TetracatapultLoadoutDto> loadouts)
     {
         var discordId = GetDiscordId();
         if (discordId == 0) { await SendNotAuthenticated(); return; }
 
-        var (success, error) = _battleshipService.ConfirmPlacement(gameId, discordId.ToString());
+        var (success, error) = _battleshipService.ConfirmPlacement(
+            gameId, discordId.ToString(), loadouts);
         if (!success)
         {
             await Clients.Caller.SendAsync("ActionResult", new { action = "battleshipConfirmPlacement", success = false, error });
@@ -1614,7 +1704,23 @@ public class GameHub : Hub
         }
 
         await PushBattleshipStateToAll(gameId);
-        await RunBattleshipBotPump(gameId);
+        QueueBattleshipBotPump(gameId);
+    }
+
+    public async Task BattleshipCancelPlacement(string gameId)
+    {
+        var discordId = GetDiscordId();
+        if (discordId == 0) { await SendNotAuthenticated(); return; }
+
+        var (success, error) = _battleshipService.CancelPlacement(gameId, discordId.ToString());
+        if (!success)
+        {
+            await Clients.Caller.SendAsync("ActionResult",
+                new { action = "battleshipCancelPlacement", success = false, error });
+            return;
+        }
+
+        await PushBattleshipStateToAll(gameId);
     }
 
     public async Task BattleshipShoot(string gameId, int row, int col)
@@ -1634,7 +1740,7 @@ public class GameHub : Hub
         await SendBattleshipShotEvent(gameId, result);
 
         await PushBattleshipStateToAll(gameId);
-        await RunBattleshipBotPump(gameId);
+        QueueBattleshipBotPump(gameId);
     }
 
     public async Task BattleshipShootOwnBoard(string gameId, int row, int col)
@@ -1654,7 +1760,7 @@ public class GameHub : Hub
         await SendBattleshipShotEvent(gameId, result);
 
         await PushBattleshipStateToAll(gameId);
-        await RunBattleshipBotPump(gameId);
+        QueueBattleshipBotPump(gameId);
     }
 
     public async Task BattleshipSelectWeapon(string gameId, string weaponType, string shotType, string weaponId = null)
@@ -1684,7 +1790,7 @@ public class GameHub : Hub
             return;
         }
         await PushBattleshipStateToAll(gameId);
-        await RunBattleshipBotPump(gameId);
+        QueueBattleshipBotPump(gameId);
     }
 
     public async Task BattleshipDeploySummon(string gameId, string summonType, int col)
@@ -1700,6 +1806,7 @@ public class GameHub : Hub
         }
 
         await PushBattleshipStateToAll(gameId);
+        QueueBattleshipBotPump(gameId);
     }
 
     public async Task BattleshipDeployPendingSummon(string gameId, string pendingId, int col)
@@ -1715,7 +1822,7 @@ public class GameHub : Hub
         }
 
         await PushBattleshipStateToAll(gameId);
-        await RunBattleshipBotPump(gameId);
+        QueueBattleshipBotPump(gameId);
     }
 
     public async Task BattleshipManualMove(string gameId, string shipId, string direction, int distance = 1)
@@ -1733,6 +1840,29 @@ public class GameHub : Hub
         await PushBattleshipStateToAll(gameId);
     }
 
+    public async Task BattleshipAssembleShip(
+        string gameId,
+        string groupId,
+        int row,
+        int col,
+        string orientation)
+    {
+        var discordId = GetDiscordId();
+        if (discordId == 0) { await SendNotAuthenticated(); return; }
+
+        var (success, error) = _battleshipService.AssembleShip(
+            gameId, discordId.ToString(), groupId, row, col, orientation);
+        if (!success)
+        {
+            await Clients.Caller.SendAsync("ActionResult",
+                new { action = "battleshipAssembleShip", success = false, error });
+            return;
+        }
+
+        await PushBattleshipStateToAll(gameId);
+        QueueBattleshipBotPump(gameId);
+    }
+
     public async Task BattleshipSetCursedBoatDirection(string gameId, string summonId, string direction)
     {
         var discordId = GetDiscordId();
@@ -1746,7 +1876,7 @@ public class GameHub : Hub
         }
 
         await PushBattleshipStateToAll(gameId);
-        await RunBattleshipBotPump(gameId);
+        QueueBattleshipBotPump(gameId);
     }
 
     public async Task BattleshipForfeit(string gameId)
@@ -1798,7 +1928,7 @@ public class GameHub : Hub
             {
                 var connList = connections.ToList();
                 playerConnectionIds.AddRange(connList);
-                await Clients.Clients(connList).SendAsync("BattleshipState", personalState);
+                await _hubContext.Clients.Clients(connList).SendAsync("BattleshipState", personalState);
             }
         }
 
@@ -1807,9 +1937,9 @@ public class GameHub : Hub
         if (spectatorState != null)
         {
             if (playerConnectionIds.Count > 0)
-                await Clients.GroupExcept($"bs-{gameId}", playerConnectionIds).SendAsync("BattleshipState", spectatorState);
+                await _hubContext.Clients.GroupExcept($"bs-{gameId}", playerConnectionIds).SendAsync("BattleshipState", spectatorState);
             else
-                await Clients.Group($"bs-{gameId}").SendAsync("BattleshipState", spectatorState);
+                await _hubContext.Clients.Group($"bs-{gameId}").SendAsync("BattleshipState", spectatorState);
         }
     }
 
@@ -1821,13 +1951,13 @@ public class GameHub : Hub
 
         var connections = _notificationService.GetConnections(did);
         if (connections.Count > 0)
-            await Clients.Clients(connections.ToList()).SendAsync("BattleshipState", state);
+            await _hubContext.Clients.Clients(connections.ToList()).SendAsync("BattleshipState", state);
     }
 
     private async Task SendBattleshipShotEvent(string gameId, Battleship.Models.ShotResult result)
     {
         if (result == null) return;
-        await Clients.Group($"bs-{gameId}").SendAsync("BattleshipEvent", new
+        await _hubContext.Clients.Group($"bs-{gameId}").SendAsync("BattleshipEvent", new
         {
             eventType = "ShotResult",
             data = new
@@ -1853,6 +1983,27 @@ public class GameHub : Hub
                 result.SourceBoardPlayerId,
                 result.ProjectileType,
                 result.TargetPlayerId,
+            }
+        });
+    }
+
+    /// <summary>
+    /// Start bot continuation outside the caller's SignalR invocation. Awaiting the whole pump
+    /// would serialize that same connection's response-window deployment behind the bot barrage.
+    /// IHubContext is used by the pump's push helpers because Hub instances are invocation-scoped.
+    /// </summary>
+    private void QueueBattleshipBotPump(string gameId)
+    {
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await RunBattleshipBotPump(gameId);
+            }
+            catch (Exception exception)
+            {
+                Console.Error.WriteLine(
+                    $"[Battleship] Bot pump failed for {gameId}: {exception}");
             }
         });
     }
@@ -1911,7 +2062,6 @@ public class GameHub : Hub
             Chance = tier.Chance,
             MinZbs = tier.MinZbs,
             MaxZbs = tier.MaxZbs,
-            RollWeightBonusPercentagePoints = tier.RollWeightBonusPercentagePoints,
             GuaranteedCharacterMaxTier = tier.GuaranteedCharacterMaxTier,
         }).ToList();
     }
@@ -1937,7 +2087,6 @@ public class GameHub : Hub
             CharacterName = result.CharacterName,
             CharacterAvatar = result.CharacterAvatar,
             CharacterTier = result.CharacterTier,
-            RollWeightBonusPercentagePoints = result.RollWeightBonusPercentagePoints,
             GuaranteedForNextGame = result.GuaranteedForNextGame,
             PendingGuaranteedCharacters = result.PendingGuaranteedCharacters,
         };
@@ -1977,7 +2126,6 @@ public class GameHub : Hub
                     chance.Multiplier)
                 {
                     Changes = chance.Changes,
-                    LootBoxBonusPercentagePoints = chance.LootBoxBonusPercentagePoints,
                 };
                 return copy;
             }).ToList(),

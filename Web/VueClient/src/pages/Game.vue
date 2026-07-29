@@ -704,6 +704,7 @@ const placeTier = computed(() => {
 const charTier = computed(() => me.value?.character.tier ?? 0)
 const rarityLabel = computed(() => {
   switch (charTier.value) {
+    case 0: return 'PRO'
     case 1: return 'Legendary'
     case 2: return 'Epic'
     case 3: return 'Rare'
@@ -714,6 +715,7 @@ const rarityLabel = computed(() => {
 })
 const rarityClass = computed(() => {
   switch (charTier.value) {
+    case 0: return 'rarity-pro'
     case 1: return 'rarity-legendary'
     case 2: return 'rarity-epic'
     case 3: return 'rarity-rare'
@@ -1572,7 +1574,7 @@ const rumblingEmbers = Array.from({ length: 36 }, (_, index) => ({
             </div>
             <div class="draft-center-info">
               <h2 class="draft-center-name">{{ store.gameState.draftOptions[0].name }}</h2>
-              <div class="draft-center-tier">Tier {{ store.gameState.draftOptions[0].tier }}</div>
+              <div class="draft-center-tier">{{ store.gameState.draftOptions[0].tier === 0 ? 'PRO' : `Tier ${store.gameState.draftOptions[0].tier}` }}</div>
               <div class="draft-center-stats">
                 <span class="draft-stat" :title="store.gameState.draftOptions[0].name === 'Dopa' ? 'IQ' : 'Intelligence'">🧠 {{ displayCharacterIntelligence(store.gameState.draftOptions[0].name, store.gameState.draftOptions[0].intelligence) }}</span>
                 <span class="draft-stat" title="Strength">💪 {{ store.gameState.draftOptions[0].strength }}</span>
@@ -1852,6 +1854,7 @@ const rumblingEmbers = Array.from({ length: 36 }, (_, index) => ({
               :my-player-id="store.myPlayer?.playerId"
               :predictions="store.myPlayer?.predictions"
               :is-admin="store.isAdmin && !store.isTerminalMode"
+              :pro-mode="store.isProMode && !store.isAdmin"
               :terminal-mode="store.isTerminalMode"
               :show-detailed-factors="store.isAdmin || store.isTerminalMode"
               :character-catalog="store.gameState.allCharacters || []"
@@ -2017,7 +2020,7 @@ const rumblingEmbers = Array.from({ length: 36 }, (_, index) => ({
           <div class="gr-identity">
             <div class="gr-name">
               {{ store.isTerminalMode ? `Name: ${me.character.name}` : me.character.name }}
-              <span v-if="!store.isTerminalMode && charTier > 0" class="rarity-badge" :class="rarityClass">{{ rarityLabel }}</span>
+              <span v-if="!store.isTerminalMode && charTier >= 0" class="rarity-badge" :class="rarityClass">{{ rarityLabel }}</span>
             </div>
             <div v-if="!store.isTerminalMode && masteryLevel > 0" class="mastery-badge" :class="'mastery-' + masteryTier">
               <span class="mastery-level">{{ masteryLevel }}</span>
@@ -3566,6 +3569,7 @@ const rumblingEmbers = Array.from({ length: 36 }, (_, index) => ({
   text-shadow: none;
 }
 .rarity-legendary { color: #f0c850; border-color: rgba(240,200,80,0.4); background: rgba(240,200,80,0.1); box-shadow: 0 0 8px rgba(240,200,80,0.15); }
+.rarity-pro { color: #f4a5ff; border-color: rgba(239,125,255,0.45); background: rgba(239,125,255,0.12); box-shadow: 0 0 9px rgba(239,125,255,0.18); }
 .rarity-epic { color: #c084fc; border-color: rgba(192,132,252,0.4); background: rgba(192,132,252,0.1); box-shadow: 0 0 8px rgba(192,132,252,0.15); }
 .rarity-rare { color: #60a5fa; border-color: rgba(96,165,250,0.4); background: rgba(96,165,250,0.1); }
 .rarity-uncommon { color: #4ade80; border-color: rgba(74,222,128,0.3); background: rgba(74,222,128,0.08); }

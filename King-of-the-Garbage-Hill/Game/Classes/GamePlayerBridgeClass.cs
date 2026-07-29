@@ -8,7 +8,14 @@ namespace King_of_the_Garbage_Hill.Game.Classes;
 public class GamePlayerBridgeClass
 {
 
-    public GamePlayerBridgeClass(CharacterClass gameCharacter, InGameStatus status, ulong discordId, ulong gameId, string discordUsername, int playerType)
+    public GamePlayerBridgeClass(
+        CharacterClass gameCharacter,
+        InGameStatus status,
+        ulong discordId,
+        ulong gameId,
+        string discordUsername,
+        int playerType,
+        string accountGameplayMode = DiscordAccountClass.CasualMode)
     {
         Status = status;
         gameCharacter.SetStatus(Status);
@@ -21,6 +28,9 @@ public class GamePlayerBridgeClass
         GameId = gameId;
         DiscordUsername = discordUsername;
         PlayerType = playerType;
+        AccountGameplayMode = gameCharacter.Tier == 0
+            ? DiscordAccountClass.ProMode
+            : NormalizeGameplayMode(accountGameplayMode);
         DiscordStatus = new InGameDiscordStatus();
         GameCharacter.SetIntelligenceResist();
         GameCharacter.SetStrengthResist(this);
@@ -55,6 +65,18 @@ public class GamePlayerBridgeClass
 404 == Bot
 */
     public int PlayerType { get; set; }
+
+    /// <summary>The effective mode captured for this match, including a durable PRO-tier roll override.</summary>
+    public string AccountGameplayMode { get; set; } = DiscordAccountClass.CasualMode;
+
+    /// <summary>PRO-tier characters force Pro rules and the captured mode survives match-side replacements.</summary>
+    public bool IsProMode =>
+        AccountGameplayMode == DiscordAccountClass.ProMode || GameCharacter?.Tier == 0;
+
+    public static string NormalizeGameplayMode(string mode) =>
+        string.Equals(mode, DiscordAccountClass.ProMode, StringComparison.OrdinalIgnoreCase)
+            ? DiscordAccountClass.ProMode
+            : DiscordAccountClass.CasualMode;
 
     /// <summary>Per-player bot AI difficulty override (sim measurement probe only). -1 = inherit the game's
     /// AiDifficulty. Set by the sim's --ai-probe to run one bot at a different level than the rest of the

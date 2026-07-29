@@ -172,7 +172,8 @@ public static class Cthulhu
             player.DiscordId,
             player.GameId,
             player.DiscordUsername,
-            player.PlayerType)
+            player.PlayerType,
+            player.AccountGameplayMode)
         {
             IsWebPlayer = player.IsWebPlayer,
             PreferWeb = player.PreferWeb,

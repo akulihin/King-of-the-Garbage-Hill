@@ -789,6 +789,8 @@ public class CheckIfReady : IServiceSingleton
                 ? TheBoys.GovernmentSalaryZbs
                 : 0;
             zbsPointsToGive += governmentSalaryZbs;
+            if (player.IsProMode)
+                zbsPointsToGive *= 2;
 
             var tracker = player.Passives.AchievementTracker;
             tracker.FinishedWithZeroPsyche = player.GameCharacter.GetPsyche() <= 0;
@@ -822,12 +824,28 @@ public class CheckIfReady : IServiceSingleton
 
                 account.ZbsPoints += zbsPointsToGive;
 
+                if (game.IsRanked
+                    && player.DiscordId == game.CreatorId
+                    && !account.IsBot())
+                {
+                    account.EloRating += player.Status.GetPlaceAtLeaderBoard() switch
+                    {
+                        1 => 10,
+                        2 => 5,
+                        3 => 1,
+                        4 => 0,
+                        5 => -1,
+                        6 => -5,
+                        _ => 0,
+                    };
+                }
+
                 // Quest progress tracking
                 QuestService.TrackGameEnd(account, player, game, isMatchWinner, questSettlementNow);
 
                 // Loot box for top 2 (alive players only) — deferred to lobby
                 if (rewardPlace <= 2 && !player.Passives.IsDead)
-                    account.PendingLootBoxes++;
+                    account.PendingLootBoxes += player.IsProMode ? 2 : 1;
 
                 // Achievement tracking (SetBestProgress re-enters this monitor).
                 account.Achievements ??= new AchievementData();

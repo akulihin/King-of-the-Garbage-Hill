@@ -43,6 +43,9 @@ public class GameStateDto
     /// <summary>PlayerType of the requesting player (0/1 = normal, 2 = admin, 404 = bot).</summary>
     public int MyPlayerType { get; set; }
 
+    /// <summary>Whether Pro visibility/reward rules apply to the requesting seat in this match.</summary>
+    public bool IsProMode { get; set; }
+
     /// <summary>Whether the requesting player has "Prefer Web" enabled (suppresses Discord messages).</summary>
     public bool PreferWeb { get; set; }
 
@@ -1228,7 +1231,6 @@ public class StoreCharacterDto
     public string Avatar { get; set; }
     public int Tier { get; set; }
     public double Multiplier { get; set; }
-    public int LootBoxBonusPercentagePoints { get; set; }
     public int Changes { get; set; }
     public int CostOne { get; set; }
     public int CostTen { get; set; }
@@ -1239,6 +1241,8 @@ public class StoreCharacterDto
 
 public class QuestStateDto
 {
+    public string GameplayMode { get; set; }
+    public int EloRating { get; set; }
     public List<QuestProgressDto> Quests { get; set; } = new();
     public string ActiveDate { get; set; }
     public string ServerNow { get; set; }
@@ -1303,7 +1307,6 @@ public class LootBoxResultDto
     public string CharacterName { get; set; }
     public string CharacterAvatar { get; set; }
     public int CharacterTier { get; set; }
-    public int RollWeightBonusPercentagePoints { get; set; }
     public bool GuaranteedForNextGame { get; set; }
     public int PendingGuaranteedCharacters { get; set; }
 }
@@ -1314,7 +1317,6 @@ public class LootBoxOddsDto
     public double Chance { get; set; }
     public int MinZbs { get; set; }
     public int MaxZbs { get; set; }
-    public int RollWeightBonusPercentagePoints { get; set; }
     public int? GuaranteedCharacterMaxTier { get; set; }
 }
 

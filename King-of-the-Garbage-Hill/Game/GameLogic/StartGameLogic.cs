@@ -101,11 +101,28 @@ public class StartGameLogic : IServiceSingleton
     }
 
 
-    /// <summary>
-    /// Homelander's hidden roster pull: while he is already in the game, TheBoys' roll weight is
-    /// multiplied by this on every remaining natural roll and draft alternative.
-    /// </summary>
+    /// <summary>Every canonical roster Super doubles TheBoys' roll weight.</summary>
+    public const int TheBoysRollMultiplierPerSuper = 2;
+
+    /// <summary>Homelander adds another +500% (×6) after his ordinary Super doubling.</summary>
     public const int HomelanderTheBoysRollMultiplier = 6;
+
+    private static int GetTheBoysRosterRollMultiplier(IEnumerable<string> rosterCharacterNames)
+    {
+        var rosterNames = rosterCharacterNames
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .ToHashSet(StringComparer.Ordinal);
+        var multiplier = 1;
+
+        foreach (var superhero in TheBoys.Superheroes)
+            if (rosterNames.Contains(superhero))
+                multiplier *= TheBoysRollMultiplierPerSuper;
+
+        if (rosterNames.Contains(Homelander.CharacterName))
+            multiplier *= HomelanderTheBoysRollMultiplier;
+
+        return multiplier;
+    }
 
     public int GetRangeFromTier(int tier)
     {
@@ -255,7 +272,8 @@ public class StartGameLogic : IServiceSingleton
                     account.DiscordId,
                     gameId,
                     account.DiscordUserName,
-                    account.PlayerType));
+                    account.PlayerType,
+                    account.GameplayMode));
                 playersList.Last().CharacterMasteryPoints =
                     account.CharacterMastery.GetValueOrDefault(forcedName, 0);
                 DoomGuy.InitializeForGame(playersList.Last(), account);
@@ -276,7 +294,8 @@ public class StartGameLogic : IServiceSingleton
                         account.DiscordId,
                         gameId,
                         account.DiscordUserName,
-                        account.PlayerType)
+                        account.PlayerType,
+                        account.GameplayMode)
                 );
                 playersList.Last().CharacterMasteryPoints =
                     account.CharacterMastery.GetValueOrDefault(reservedAssignment.Name, 0);
@@ -300,13 +319,12 @@ public class StartGameLogic : IServiceSingleton
                                       && account.CharacterPlayedLastTime != DoomGuy.CharacterName
                                       && newcomerDoom != null;
             var newcomerDoomWon = newcomerDoomEligible && _secureRandom.Luck(30);
-            // Homelander's hidden roster pull. Seats are filled in order, so this can only affect
-            // seats rolled after Homelander was actually committed: a Homelander who lands on the
-            // last seat never boosts anyone.
-            var homelanderInRoster =
-                reservedCharacters.Any(x => x.Name == Homelander.CharacterName)
-                || playersList.Any(x => x.GameCharacter.Name == Homelander.CharacterName)
-                || (forcedCharacters?.Contains(Homelander.CharacterName) ?? false);
+            // Guaranteed reservations/forced line-ups are known up front. Random Supers begin
+            // boosting only after their seat is committed, so a Super rolled last boosts nobody.
+            var theBoysRosterRollMultiplier = GetTheBoysRosterRollMultiplier(
+                reservedCharacters.Select(character => character.Name)
+                    .Concat(playersList.Select(player => player.GameCharacter.Name))
+                    .Concat(forcedCharacters ?? Enumerable.Empty<string>()));
 
             foreach (var character in allCharacters.Where(x => x.Name != account.CharacterPlayedLastTime).ToList())
             {
@@ -328,8 +346,8 @@ public class StartGameLogic : IServiceSingleton
                 if (character.Tier < 4 && account.IsBot()
                     && character.Name != "Кира" && !Cthulhu.Is(character)) continue;
                 if (character.Name == "Кира" && account.IsBot()) range = GetRangeFromTier(1) / 2;
-                if (homelanderInRoster && character.Name == TheBoys.CharacterName)
-                    range *= HomelanderTheBoysRollMultiplier;
+                if (character.Name == TheBoys.CharacterName)
+                    range *= theBoysRosterRollMultiplier;
                 if (character.Passive.Any(x => x.PassiveName == "Top Laner")) range = (int)(range * topLaner);
                 var pityBonus = account.TierPity.GetValueOrDefault(rollTier, 0);
                 range = (int)(range * (1.0 + pityBonus * 0.03));
@@ -384,7 +402,8 @@ public class StartGameLogic : IServiceSingleton
                 account.DiscordId,
                 gameId,
                 account.DiscordUserName,
-                account.PlayerType
+                account.PlayerType,
+                account.GameplayMode
             ));
             playersList.Last().CharacterMasteryPoints = account.CharacterMastery.GetValueOrDefault(characterToAssign.Name, 0);
             DoomGuy.InitializeForGame(playersList.Last(), account);
@@ -452,9 +471,10 @@ public class StartGameLogic : IServiceSingleton
 
         var result = new List<CharacterClass>();
 
-        // Same hidden roster pull as the natural roll: a Homelander already seated makes TheBoys
-        // six times as likely to appear among this player's draft alternatives.
-        var homelanderInRoster = excludedCharacters.Any(x => x.Name == Homelander.CharacterName);
+        // Same hidden roster pull as the natural roll. The excluded set is the already-assigned
+        // lobby roster, so every canonical Super in it contributes to every draft alternative.
+        var theBoysRosterRollMultiplier =
+            GetTheBoysRosterRollMultiplier(excludedCharacters.Select(character => character.Name));
 
         // Newcomer protection: DooM Guy occupies the first alternative with an exact 30% roll.
         var newcomerDoom = allCharacters.Find(x => x.Name == DoomGuy.CharacterName);
@@ -474,8 +494,8 @@ public class StartGameLogic : IServiceSingleton
             foreach (var character in allCharacters)
             {
                 var range = GetRangeFromTier(character.Tier);
-                if (homelanderInRoster && character.Name == TheBoys.CharacterName)
-                    range *= HomelanderTheBoysRollMultiplier;
+                if (character.Name == TheBoys.CharacterName)
+                    range *= theBoysRosterRollMultiplier;
                 var pityBonus = account.TierPity.GetValueOrDefault(character.Tier, 0);
                 range = (int)(range * (1.0 + pityBonus * 0.03));
                 var chanceEntry = account.CharacterChance.Find(x => x.CharacterName == character.Name);
@@ -549,7 +569,8 @@ public class StartGameLogic : IServiceSingleton
                 account.DiscordId,
                 gameId,
                 account.DiscordUserName,
-                account.PlayerType
+                account.PlayerType,
+                account.GameplayMode
             ));
         }
 
@@ -591,7 +612,8 @@ public class StartGameLogic : IServiceSingleton
         // embed.WithDescription("буль-буль");
 
         embed.AddField("ZBS Points", $"{account.ZbsPoints}", true);
-        embed.AddField("Тип Пользователя", $"{account.PlayerType}", true);
+        embed.AddField("Режим аккаунта", $"{account.GameplayMode}", true);
+        embed.AddField("Рейтинг ELO", $"{account.EloRating}", true);
         embed.AddField("Всего Игр", $"{account.TotalPlays}", true);
         embed.AddField("Всего Топ 1", $"{account.TotalWins}", true);
 

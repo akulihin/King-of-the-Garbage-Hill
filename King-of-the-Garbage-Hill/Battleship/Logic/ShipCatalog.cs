@@ -36,7 +36,8 @@ public static class ShipCatalog
         {
             Id = "triple", Name = "Triple", NameRu = "Тройка",
             DeckCount = 3, Range = RangeClass.Tetra, Cost = 0, IsFree = true,
-            DefaultArmor = 2, Speed = 1, Space = 1, Regions = new() { Region.Tetracor },
+            DefaultArmor = 2, DeckHpOverrides = new() { 2, 4, 2 },
+            Speed = 1, Space = 1, Regions = new() { Region.Tetracor },
             Factions = new() { Faction.Empire, Faction.Alliance },
             Description = "Базовый трёхпалубный артиллерийский корабль с Тетракамнемётом.",
             DefaultWeapons = new()
@@ -46,7 +47,7 @@ public static class ShipCatalog
             AvailableUpgrades = new()
             {
                 new UpgradeDefinition { Id = "triple_crew", Name = "Crew", NameRu = "Экипаж", Cost = 2, Description = "Если Трёшка дожила до абордажа, выпускает одну Пиратскую лодку.", Effect = "spawn_pirate_boat" },
-                new UpgradeDefinition { Id = "triple_ammo", Name = "Extra Ammo", NameRu = "Второй боезапас", Cost = 4, Description = "При начале абордажа Тетракамнемёт получает 2 дополнительных Белых камня.", Effect = "extra_ammo" },
+                new UpgradeDefinition { Id = "triple_ammo", Name = "Extra Ammo", NameRu = "Второй боезапас", Cost = 4, Description = "При начале абордажа Тетракамнемёт получает 2 дополнительных выбранных снаряда.", Effect = "extra_ammo" },
                 new UpgradeDefinition { Id = "triple_armor_1", Name = "Armor Deck 1", NameRu = "Броня палубы 1", Cost = 4, Description = "Увеличивает прочность первой палубы на 4, но не выше 9.", Effect = "armor_deck_0" },
                 new UpgradeDefinition { Id = "triple_armor_2", Name = "Armor Deck 2", NameRu = "Броня палубы 2", Cost = 4, Description = "Увеличивает прочность второй палубы на 4, но не выше 9.", Effect = "armor_deck_1" },
                 new UpgradeDefinition { Id = "triple_armor_3", Name = "Armor Deck 3", NameRu = "Броня палубы 3", Cost = 4, Description = "Увеличивает прочность третьей палубы на 4, но не выше 9.", Effect = "armor_deck_2" },
@@ -69,6 +70,7 @@ public static class ShipCatalog
             {
                 new UpgradeDefinition { Id = "tetra_discus", Name = "Discus Thrower", NameRu = "Дискобол", Cost = 1, Description = "Дополнительный дисковый снаряд. Пока не реализован.", Effect = "discus" },
                 new UpgradeDefinition { Id = "tetra_boiler_fire", Name = "Greek Fire", NameRu = "Греческий огонь", Cost = 4, Description = "Котельная даёт один выстрел Греческим огнём по своему полю.", Effect = "greek_fire" },
+                new UpgradeDefinition { Id = "tetra_boiler_evil_fire", Name = "Evil Greek Fire", NameRu = "Злой Греческий огонь", Cost = 6, Description = "Котельная даёт один выстрел Злым Греческим огнём, доступный в паузу между выстрелами противника.", Effect = "evil_greek_fire" },
                 new UpgradeDefinition { Id = "tetra_boiler_brander", Name = "Brander", NameRu = "Брандер", Cost = 4, Description = "Котельная позволяет один раз за матч призвать Брандер.", Effect = "brander" },
             }
         },
@@ -90,6 +92,7 @@ public static class ShipCatalog
             AvailableUpgrades = new()
             {
                 new UpgradeDefinition { Id = "tetra_boiler_fire", Name = "Greek Fire", NameRu = "Греческий огонь", Cost = 4, Description = "Котельная даёт один выстрел Греческим огнём по своему полю.", Effect = "greek_fire" },
+                new UpgradeDefinition { Id = "tetra_boiler_evil_fire", Name = "Evil Greek Fire", NameRu = "Злой Греческий огонь", Cost = 6, Description = "Котельная даёт один выстрел Злым Греческим огнём, доступный в паузу между выстрелами противника.", Effect = "evil_greek_fire" },
                 new UpgradeDefinition { Id = "tetra_boiler_brander", Name = "Brander", NameRu = "Брандер", Cost = 4, Description = "Котельная позволяет один раз за матч призвать Брандер.", Effect = "brander" },
             }
         },
@@ -151,6 +154,20 @@ public static class ShipCatalog
         },
         new ShipDefinition
         {
+            Id = "famous_assembling_ship", Name = "Знаменитый собирающийся корабль", NameRu = "Знаменитый собирающийся корабль",
+            DeckCount = 3, Range = RangeClass.Mid, Cost = 20,
+            DeckHpOverrides = new() { 1, 1, 1 }, Speed = 1, Space = 1,
+            Regions = new() { Region.Tetracor }, Factions = new() { Faction.Alliance },
+            Description = "Начинает бой тремя отдельными палубами и собирается в новый трёхпалубный корабль после гибели двух из них.",
+            DefaultWeapons = new()
+            {
+                new WeaponTemplate { Type = WeaponType.Ballista, DeckIndex = 0 },
+                new WeaponTemplate { Type = WeaponType.Ballista, DeckIndex = 1 },
+                new WeaponTemplate { Type = WeaponType.Ballista, DeckIndex = 2 },
+            }
+        },
+        new ShipDefinition
+        {
             Id = "toros", Name = "Toros", NameRu = "Торос",
             DeckCount = 1, Range = RangeClass.Mid, Cost = 12,
             DeckHpOverrides = new() { 6 }, Speed = 0, Space = 1, IsHome = true, Regions = new() { Region.North },
@@ -172,12 +189,16 @@ public static class ShipCatalog
             Id = "incendiary_barge", Name = "Incendiary Barge", NameRu = "Горючая баржа",
             DeckCount = 2, Range = RangeClass.Far, Cost = 10,
             DeckHpOverrides = new() { 1, 1 }, Speed = 1, Space = 1, ExplosionRadius = 2, Regions = new() { Region.East },
-            Factions = new() { Faction.Alliance },
+            Factions = new() { Faction.Empire, Faction.Alliance },
             Abilities = new() { "explode_on_hit" },
             Description = "Взрывается при любом уроне, поражая зону радиусом 2; вооружена Горючкой.",
             DefaultWeapons = new()
             {
-                new WeaponTemplate { Type = WeaponType.Incendiary, Ammo = 2, DeckIndex = 0, AimSpeed = 20 } // Горючка
+                new WeaponTemplate { Type = WeaponType.Incendiary, Ammo = 2, DeckIndex = 0, AimSpeed = 0 } // Горючка
+            },
+            AvailableUpgrades = new()
+            {
+                new UpgradeDefinition { Id = "barge_evil_incendiary", Name = "Evil Incendiary", NameRu = "Злая горючка", Cost = 2, Description = "Добавляет отдельную Злую горючку, уничтожающую остаток корабля при попадании в уже разрушенную палубу.", Effect = "evil_incendiary" },
             }
         },
         new ShipDefinition
@@ -185,7 +206,7 @@ public static class ShipCatalog
             Id = "maneuvering_double", Name = "Maneuvering Double", NameRu = "Маневрирующая двойка",
             DeckCount = 2, Range = RangeClass.Mid, Cost = 5,
             DeckHpOverrides = new() { 1, 1 }, Speed = 2, Space = 1, Regions = new() { Region.West },
-            Factions = new() { Faction.Alliance },
+            Factions = new() { Faction.Empire, Faction.Alliance },
             Abilities = new() { "manual_move_after_hit" },
             Description = "После потери палубы один раз может вручную сместиться на 1–2 клетки.",
             DefaultWeapons = new() { new WeaponTemplate { Type = WeaponType.Ballista } }
@@ -205,7 +226,7 @@ public static class ShipCatalog
             Id = "pirates", Name = "Pirates", NameRu = "Пираты",
             DeckCount = 2, Range = RangeClass.Mid, Cost = 4,
             DeckHpOverrides = new() { 2, 2 }, Space = 1, Regions = new() { Region.South },
-            Factions = new() { Faction.Alliance },
+            Factions = new() { Faction.Empire, Faction.Alliance },
             Abilities = new() { "spawn_pirate_boat" },
             Description = "После обычной гибели позволяет выпустить Пиратскую лодку из колонки своей гибели.",
             DefaultWeapons = new() { new WeaponTemplate { Type = WeaponType.Ballista } }
@@ -310,6 +331,69 @@ public static class ShipCatalog
         return ship;
     }
 
+    /// <summary>
+    /// Expand one assembling-ship fleet slot into three independently placed one-deck ships.
+    /// Cost stays on the first part so unit-count and first-turn accounting see one purchase.
+    /// </summary>
+    public static List<Ship> CreateAssemblyComponents(
+        ShipDefinition def,
+        List<string> upgradeIds = null)
+    {
+        var groupId = Guid.NewGuid().ToString("N")[..8];
+        var components = new List<Ship>();
+        for (var componentIndex = 0; componentIndex < 3; componentIndex++)
+        {
+            var ship = new Ship
+            {
+                DefinitionId = def.Id,
+                Name = $"Собирающаяся палуба {componentIndex + 1}",
+                Range = def.Range,
+                Cost = componentIndex == 0 ? def.Cost : 0,
+                Space = def.Space,
+                ExplosionRadius = def.ExplosionRadius,
+                Speed = def.Speed,
+                Regions = new List<Region>(def.Regions),
+                Abilities = new List<string>(def.Abilities),
+                IsHome = def.IsHome,
+                AssemblyGroupId = groupId,
+                AssemblyComponentIndex = componentIndex,
+                IsAssemblyComponent = true,
+                Upgrades = componentIndex == 0 && upgradeIds != null
+                    ? new List<string>(upgradeIds)
+                    : new List<string>(),
+            };
+            ship.Abilities.Add("assembly_component");
+            ship.Decks.Add(new Deck
+            {
+                Index = 0,
+                MaxHp = 1,
+                CurrentHp = 1,
+                Module = "ballista",
+            });
+            ship.Weapons.Add(new Weapon
+            {
+                Type = WeaponType.Ballista,
+                ShipId = ship.Id,
+                DeckIndex = 0,
+            });
+            components.Add(ship);
+        }
+
+        return components;
+    }
+
+    /// <summary>Create the fresh intact hull placed after two assembly parts are destroyed.</summary>
+    public static Ship CreateAssembledShip(ShipDefinition def)
+    {
+        var ship = CreateShip(def);
+        ship.Name = "Знаменитый собирающийся корабль";
+        ship.AssemblyGroupId = null;
+        ship.AssemblyComponentIndex = -1;
+        ship.IsAssemblyComponent = false;
+        ship.Abilities.Remove("assembly_component");
+        return ship;
+    }
+
     private static void ApplyUpgrade(Ship ship, ShipDefinition def, string upgradeId)
     {
         var upgradeDef = def.AvailableUpgrades?.Find(u => u.Id == upgradeId);
@@ -350,6 +434,29 @@ public static class ShipCatalog
                 });
                 break;
 
+            case "evil_greek_fire":
+                ship.Abilities.Add("evil_greek_fire_weapon");
+                ship.Weapons.Add(new Weapon
+                {
+                    Type = WeaponType.EvilGreekFire,
+                    Ammo = 1,
+                    ShipId = ship.Id,
+                    DeckIndex = 0,
+                });
+                break;
+
+            case "evil_incendiary":
+                ship.Abilities.Add("evil_incendiary_weapon");
+                ship.Weapons.Add(new Weapon
+                {
+                    Type = WeaponType.EvilIncendiary,
+                    Ammo = 2,
+                    AimSpeed = 0,
+                    ShipId = ship.Id,
+                    DeckIndex = 0,
+                });
+                break;
+
             case "brander":
                 ship.Abilities.Add("brander_summon");
                 break;
@@ -366,6 +473,8 @@ public static class ShipCatalog
             WeaponType.Boiler => "boiler",
             WeaponType.Incendiary => "incendiary",
             WeaponType.GreekFire => "boiler",
+            WeaponType.EvilIncendiary => "incendiary",
+            WeaponType.EvilGreekFire => "boiler",
             _ => null,
         };
     }

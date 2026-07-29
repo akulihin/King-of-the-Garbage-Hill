@@ -14,6 +14,7 @@ const store = useGameStore()
 const router = useRouter()
 
 const isCreatingGame = ref(false)
+const isChangingMode = ref(false)
 const showCharacterPicker = ref(false)
 const characterSearch = ref('')
 const recentReplays = ref<ReplayListEntry[]>([])
@@ -186,6 +187,23 @@ async function createGame() {
   await store.createWebGame()
 }
 
+async function createRankedGame() {
+  if (store.godReservation || store.accountGameplayMode !== 'Pro') return
+  isCreatingGame.value = true
+  await store.createRankedGame()
+}
+
+async function changeGameplayMode(mode: 'Casual' | 'Pro') {
+  if (isChangingMode.value || store.accountGameplayMode === mode) return
+  isChangingMode.value = true
+  try {
+    await store.setGameplayMode(mode)
+  }
+  finally {
+    isChangingMode.value = false
+  }
+}
+
 async function openTestGamePicker() {
   if (store.characterList.length === 0) {
     await store.fetchCharacterList()
@@ -253,6 +271,39 @@ function handleVisibilityChange() {
         Create a new game, join an existing one, or spectate ongoing games.
       </p>
     </div>
+
+    <section v-if="store.isAuthenticated" class="section account-mode-section">
+      <div class="account-mode-copy">
+        <span class="rewards-kicker">{{ t('Account mode', 'Режим аккаунта') }}</span>
+        <h2>{{ store.accountGameplayMode }}</h2>
+        <p>
+          {{ store.accountGameplayMode === 'Pro'
+            ? t('Less enemy information, double match rewards, and ranked access.', 'Меньше информации о врагах, двойные награды матча и доступ к рейтингу.')
+            : t('The default full-information interface.', 'Интерфейс с полной информацией по умолчанию.') }}
+        </p>
+      </div>
+      <div class="account-mode-controls">
+        <span class="elo-pill">ELO <strong>{{ store.eloRating }}</strong></span>
+        <div class="mode-switch" role="group" :aria-label="t('Account mode', 'Режим аккаунта')">
+          <button
+            type="button"
+            :class="{ active: store.accountGameplayMode === 'Casual' }"
+            :disabled="isChangingMode"
+            @click="changeGameplayMode('Casual')"
+          >
+            Casual
+          </button>
+          <button
+            type="button"
+            :class="{ active: store.accountGameplayMode === 'Pro' }"
+            :disabled="isChangingMode"
+            @click="changeGameplayMode('Pro')"
+          >
+            Pro
+          </button>
+        </div>
+      </div>
+    </section>
 
     <!-- Rewards hub -->
     <section v-if="store.isAuthenticated" class="section rewards-section" aria-labelledby="rewards-title">
@@ -431,6 +482,14 @@ function handleVisibilityChange() {
             {{ isCreatingGame ? 'Creating...' : '+ New Game' }}
           </button>
           <button
+            v-if="store.isAuthenticated && store.accountGameplayMode === 'Pro'"
+            class="btn btn-ranked btn-sm"
+            :disabled="isCreatingGame || store.godReservation"
+            @click="createRankedGame"
+          >
+            {{ isCreatingGame ? t('Creating…', 'Создаём…') : t('Ranked', 'Ранговая') }}
+          </button>
+          <button
             v-if="store.isLobbyAdmin && store.lastPlayedCharacter"
             class="btn btn-sm btn-last-play"
             :disabled="isCreatingGame || store.godReservation"
@@ -510,7 +569,7 @@ function handleVisibilityChange() {
               :title="char.name"
             >
               <img :src="char.avatar" :alt="char.name" class="avatar-fan-img" />
-              <span v-if="char.tier" class="avatar-fan-tier">T{{ char.tier }}</span>
+              <span class="avatar-fan-tier">{{ char.tier === 0 ? 'PRO' : `T${char.tier}` }}</span>
             </div>
           </div>
 
@@ -604,7 +663,7 @@ function handleVisibilityChange() {
           >
             <img :src="char.avatar" :alt="char.name" class="character-avatar" />
             <span class="character-name">{{ char.name }}</span>
-            <span class="character-tier">T{{ char.tier }}</span>
+            <span class="character-tier">{{ char.tier === 0 ? 'PRO' : `T${char.tier}` }}</span>
           </div>
         </div>
       </div>
@@ -873,6 +932,62 @@ function handleVisibilityChange() {
 }
 
 /* Rewards hub */
+.account-mode-section {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 20px;
+  padding: 18px 20px;
+  border: 1px solid rgba(180, 100, 255, 0.26);
+  border-radius: 16px;
+  background: linear-gradient(120deg, rgba(44, 24, 72, 0.72), rgba(18, 21, 31, 0.9));
+}
+.account-mode-copy h2 {
+  margin: 3px 0;
+  font-size: 24px;
+}
+.account-mode-copy p {
+  margin: 0;
+  color: var(--text-secondary);
+}
+.account-mode-controls {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.elo-pill {
+  padding: 8px 12px;
+  border: 1px solid rgba(255, 204, 92, 0.35);
+  border-radius: 999px;
+  color: var(--accent-gold);
+  white-space: nowrap;
+}
+.mode-switch {
+  display: flex;
+  padding: 3px;
+  border: 1px solid var(--border-color);
+  border-radius: 11px;
+  background: rgba(0, 0, 0, 0.24);
+}
+.mode-switch button {
+  padding: 8px 14px;
+  border: 0;
+  border-radius: 8px;
+  color: var(--text-secondary);
+  background: transparent;
+  cursor: pointer;
+}
+.mode-switch button.active {
+  color: #fff;
+  background: linear-gradient(135deg, #8c3fff, #c454ff);
+}
+.btn-ranked {
+  color: #fff;
+  border-color: rgba(255, 204, 92, 0.5);
+  background: linear-gradient(135deg, #7d3d00, #c17700);
+}
+
 .rewards-section { margin-bottom: 36px; }
 .rewards-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 11px; }
 .rewards-heading h2 { margin-top: 1px; color: var(--text-primary); font-size: 20px; font-weight: 900; letter-spacing: -0.3px; }
@@ -1166,6 +1281,11 @@ function handleVisibilityChange() {
 
 /* ── Mobile responsive ─────────────────────────────────────────── */
 @media (max-width: 768px) {
+  .account-mode-section,
+  .account-mode-controls {
+    align-items: stretch;
+    flex-direction: column;
+  }
   .rewards-grid {
     grid-template-columns: 1fr;
   }

@@ -26,7 +26,9 @@ const shotTypeToIconKey: Record<string, string> = {
   WhiteStone: 'whiteStone',
   Buckshot: 'buckshot',
   Incendiary: 'incendiary',
+  EvilIncendiary: 'incendiary',
   GreekFire: 'greekFire',
+  EvilGreekFire: 'greekFire',
 }
 
 function weaponTooltip(shotType: string): string {
@@ -35,7 +37,9 @@ function weaponTooltip(shotType: string): string {
     case 'WhiteStone': return 'Белый камень — урон 8, оглушает (2 выстрела), разрушает модуль палубы'
     case 'Buckshot': return 'Дробь — урон 1, область 2x2 клетки'
     case 'Incendiary': return 'Горючка — сжигает весь корабль, можно по подбитым клеткам'
+    case 'EvilIncendiary': return 'Злая горючка — взрывает весь корабль при попадании в уже уничтоженную палубу'
     case 'GreekFire': return 'Греческий огонь — стреляет только по своей доске и оставляет перманентный огонь'
+    case 'EvilGreekFire': return 'Злой Греческий огонь — можно применить на своей доске во время паузы между выстрелами противника'
     default: return ''
   }
 }
@@ -57,7 +61,8 @@ function handleSelect(weaponType: string, shotType: string, weaponId: string) {
         type="button"
         :class="[
           !w.hasAmmo ? 'wb-weapon--used' : '',
-          w.aimSpeed > 0 ? 'wb-weapon--charging' : ''
+          w.aimSpeed > 0 ? 'wb-weapon--charging' : '',
+          shotDelayActive && w.shotType === 'EvilGreekFire' ? 'wb-weapon--response' : '',
         ]"
         :aria-pressed="selectedShotType === w.shotType && (w.shotType === 'Ballista' || selectedWeaponId === w.id)"
         :disabled="!w.hasAmmo || w.aimSpeed > 0"
@@ -113,6 +118,10 @@ function handleSelect(weaponType: string, shotType: string, weaponId: string) {
 .wb-weapon--charging {
   cursor: wait;
   animation: wb-charge-pulse 1.5s ease-in-out infinite;
+}
+.wb-weapon--response {
+  border-color: color-mix(in srgb, var(--accent-orange) 72%, transparent);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--accent-orange) 32%, transparent);
 }
 
 @keyframes wb-charge-pulse {

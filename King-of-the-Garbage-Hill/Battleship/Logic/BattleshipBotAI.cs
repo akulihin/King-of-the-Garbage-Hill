@@ -30,7 +30,7 @@ public static class BattleshipBotAI
 
         // Shuffle non-free candidates
         var candidates = ShipCatalog.AllShips
-            .Where(s => !s.IsFree && s.Factions.Contains(faction))
+            .Where(s => !s.IsFree && s.Id != "desiccator" && s.Factions.Contains(faction))
             .OrderBy(_ => Rng.Next())
             .ToList();
 
@@ -145,9 +145,11 @@ public static class BattleshipBotAI
     /// </summary>
     public static void PlaceFleet(BattleshipPlayer bot)
     {
-        // Sort: largest ships first (harder to place), Far/Tetra to back rows
+        // Place poison sources before the ships that must avoid their cones, then keep the
+        // existing largest/Far-first strategy for the rest of the fleet.
         var sortedFleet = bot.Fleet
-            .OrderByDescending(s => s.Range is RangeClass.Far or RangeClass.Tetra ? 100 : 0)
+            .OrderByDescending(s => s.Abilities.Contains("poison_cone") ? 1000 : 0)
+            .ThenByDescending(s => s.Range is RangeClass.Far or RangeClass.Tetra ? 100 : 0)
             .ThenByDescending(s => s.Decks.Count)
             .ToList();
 
@@ -160,10 +162,10 @@ public static class BattleshipBotAI
 
             for (var r = 0; r < 10; r++)
             for (var c = 0; c < 10; c++)
-            foreach (var o in new[] { Orientation.Horizontal, Orientation.Vertical })
+            foreach (var o in Enum.GetValues<Orientation>())
             {
                 var (valid, _) = PlacementValidator.ValidatePlacement(bot.Board, ship, r, c, o);
-                if (!valid) continue;
+                if (!valid || !IsPoisonSafePlacement(bot.Board, ship, r, c, o)) continue;
 
                 var score = ScorePlacement(bot, ship, r, c, o);
                 candidates.Add((r, c, o, score));
@@ -184,10 +186,10 @@ public static class BattleshipBotAI
                 // Fallback: first valid position
                 for (var r = 0; r < 10 && !placed; r++)
                 for (var c = 0; c < 10 && !placed; c++)
-                foreach (var o in new[] { Orientation.Horizontal, Orientation.Vertical })
+                foreach (var o in Enum.GetValues<Orientation>())
                 {
                     var (valid, _) = PlacementValidator.ValidatePlacement(bot.Board, ship, r, c, o);
-                    if (valid)
+                    if (valid && IsPoisonSafePlacement(bot.Board, ship, r, c, o))
                     {
                         PlaceShipOnBoard(bot, ship, r, c, o);
                         placed = true;
@@ -195,6 +197,36 @@ public static class BattleshipBotAI
                 }
             }
         }
+    }
+
+    private static bool IsPoisonSafePlacement(
+        Board board,
+        Ship candidate,
+        int row,
+        int col,
+        Orientation orientation)
+    {
+        var candidateCells = candidate.GetOccupiedCells(row, col, orientation).ToHashSet();
+
+        // A newly placed allied ship may not occupy any cell in an existing poison cone.
+        foreach (var poisonShip in board.PlacedShips.Where(s =>
+                     !s.IsDestroyed && s.Abilities.Contains("poison_cone")))
+        {
+            if (BattleshipGameEngine
+                .GetPoisonConeCells(poisonShip, poisonShip.Row, poisonShip.Col, poisonShip.Orientation)
+                .Any(candidateCells.Contains))
+                return false;
+        }
+
+        if (!candidate.Abilities.Contains("poison_cone")) return true;
+
+        // Conversely, the new poison source may not aim its cone through an already placed deck.
+        var candidateCone = BattleshipGameEngine
+            .GetPoisonConeCells(candidate, row, col, orientation)
+            .ToHashSet();
+        return board.PlacedShips
+            .SelectMany(ship => ship.GetOccupiedCells())
+            .All(cell => !candidateCone.Contains(cell));
     }
 
     private static int ScorePlacement(BattleshipPlayer bot, Ship ship, int row, int col, Orientation orient)
@@ -263,47 +295,83 @@ public static class BattleshipBotAI
     /// Returns (weaponType, shotType) strings matching the SelectWeapon API.
     /// </summary>
     public static (string weaponType, string shotType) ChooseWeapon(
-        BattleshipPlayer bot, BattleshipPlayer opponent, BsGamePhase phase)
+        BattleshipGame game, BattleshipPlayer bot, BattleshipPlayer opponent, BsGamePhase phase)
     {
         var hasTarget = FindTargetCells(opponent.Board).Count > 0;
 
-        // Check for captured ships on own board — must use Ballista to destroy them
+        // CAPTURE fixes the target, not the ammunition. Prefer a decisive operational
+        // projectile, but fall back through every server-legal source rather than passing
+        // merely because Ballista is unavailable.
         var hasCaptured = bot.Board.PlacedShips
             .Any(s => s.Statuses.Contains(ShipStatusType.Capture) && !s.IsDestroyed);
         if (hasCaptured)
-            return ("Ballista", "Ballista");
+        {
+            var captureWeapon = BattleshipGameEngine.GetUsableWeapons(game, bot)
+                .Where(value => value.weapon.AimSpeed <= bot.RevealedCellCount)
+                .OrderBy(value => value.weapon.Type switch
+                {
+                    WeaponType.EvilIncendiary => 0,
+                    WeaponType.Incendiary => 1,
+                    WeaponType.Tetracatapult => 2,
+                    WeaponType.Ballista => 3,
+                    WeaponType.EvilGreekFire => 4,
+                    WeaponType.GreekFire => 5,
+                    _ => 6,
+                })
+                .Select(value => value.weapon)
+                .FirstOrDefault();
+            if (captureWeapon != null)
+            {
+                var captureShot = captureWeapon.Type == WeaponType.Tetracatapult
+                    ? captureWeapon.ConfiguredShotType ?? ShotType.WhiteStone
+                    : captureWeapon.Type switch
+                    {
+                        WeaponType.EvilIncendiary => ShotType.EvilIncendiary,
+                        WeaponType.Incendiary => ShotType.Incendiary,
+                        WeaponType.EvilGreekFire => ShotType.EvilGreekFire,
+                        WeaponType.GreekFire => ShotType.GreekFire,
+                        _ => ShotType.Ballista,
+                    };
+                return (captureWeapon.Type.ToString(), captureShot.ToString());
+            }
+        }
 
         var revealedByBot = bot.RevealedCellCount;
 
-        // Greek Fire is own-board-only, so only select it for a summon physically on that board.
-        var greekFireWeapon = FindWeapon(bot, WeaponType.GreekFire, revealedByBot);
-        if (greekFireWeapon != null)
+        // Greek Fire variants are own-board-only, so select one only for a summon physically
+        // present there.
+        var hasEnemySummonOnOwnBoard = bot.Board.Grid.Cast<Cell>().Any(c =>
+            c.SummonRef is { IsAlive: true } summon && summon.OwnerId != bot.DiscordId);
+        if (hasEnemySummonOnOwnBoard)
         {
-            var hasEnemySummonOnOwnBoard = bot.Board.Grid.Cast<Cell>().Any(c =>
-                c.SummonRef is { IsAlive: true } summon && summon.OwnerId != bot.DiscordId);
-            if (hasEnemySummonOnOwnBoard)
-                return ("GreekFire", "GreekFire");
+            foreach (var type in new[] { WeaponType.EvilGreekFire, WeaponType.GreekFire })
+            {
+                if (FindWeapon(bot, type, revealedByBot) != null)
+                    return (type.ToString(), type.ToString());
+            }
         }
 
-        // Incendiary: burn a ship if we know where one is (have hit but not sunk)
-        var incendiaryWeapon = FindWeapon(bot, WeaponType.Incendiary, revealedByBot);
-        if (incendiaryWeapon != null && hasTarget)
+        // Incendiary variants: burn a ship if we know where one is (have hit but not sunk).
+        if (hasTarget)
         {
-            // High value: can burn entire ship with one shot
-            if (Rng.Next(3) > 0)
-                return ("Incendiary", "Incendiary");
+            foreach (var type in new[] { WeaponType.EvilIncendiary, WeaponType.Incendiary })
+            {
+                if (FindWeapon(bot, type, revealedByBot) != null && Rng.Next(3) > 0)
+                    return (type.ToString(), type.ToString());
+            }
         }
 
         // Tetracatapult: White Stone or Buckshot
-        var tetraWeapon = FindWeapon(bot, WeaponType.Tetracatapult, revealedByBot);
-        if (tetraWeapon != null)
+        var tetraWeapons = FindWeapons(bot, WeaponType.Tetracatapult, revealedByBot).ToList();
+        if (tetraWeapons.Count > 0)
         {
-            // White Stone: great against known targets (8 dmg + stun + module destroy)
-            if (hasTarget && Rng.Next(3) > 0)
+            var configuredTypes = tetraWeapons
+                .Where(weapon => weapon.ConfiguredShotType.HasValue)
+                .Select(weapon => weapon.ConfiguredShotType.Value)
+                .ToHashSet();
+            if (configuredTypes.Contains(ShotType.WhiteStone) && hasTarget && Rng.Next(3) > 0)
                 return ("Tetracatapult", "WhiteStone");
-
-            // Buckshot: good for hunting (2x2 AoE)
-            if (!hasTarget && Rng.Next(2) == 0)
+            if (configuredTypes.Contains(ShotType.Buckshot) && !hasTarget && Rng.Next(2) == 0)
                 return ("Tetracatapult", "Buckshot");
         }
 
@@ -313,20 +381,27 @@ public static class BattleshipBotAI
 
     private static Weapon FindWeapon(BattleshipPlayer player, WeaponType type, int opponentRevealedCount = 0)
     {
+        return FindWeapons(player, type, opponentRevealedCount).FirstOrDefault();
+    }
+
+    private static IEnumerable<Weapon> FindWeapons(
+        BattleshipPlayer player,
+        WeaponType type,
+        int opponentRevealedCount = 0)
+    {
         foreach (var ship in player.Board.PlacedShips)
         {
             if (ship.IsDestroyed) continue;
-            var w = ship.Weapons.Find(w =>
-                w.Type == type && w.HasAmmo && BattleshipGameEngine.IsWeaponOperational(ship, w));
-            if (w != null)
+            foreach (var weapon in ship.Weapons.Where(weapon =>
+                         weapon.Type == type && weapon.HasAmmo &&
+                         BattleshipGameEngine.IsWeaponOperational(ship, weapon)))
             {
                 // AimSpeed: weapon locked until enough enemy cells revealed
-                if (w.AimSpeed > 0 && opponentRevealedCount < w.AimSpeed)
-                    return null;
-                return w;
+                if (weapon.AimSpeed > 0 && opponentRevealedCount < weapon.AimSpeed)
+                    continue;
+                yield return weapon;
             }
         }
-        return null;
     }
 
     // ── Combat AI (Probability-based Hunt/Target) ─────────────────────
@@ -338,18 +413,20 @@ public static class BattleshipBotAI
     public static (int row, int col) ChooseTarget(
         BattleshipPlayer bot, BattleshipPlayer opponent, ShotType shotType = ShotType.Ballista)
     {
-        // Handle captured ships on own board — must target those
+        // Captured ships on the own board remain mandatory targets for any selected ammunition.
         var capturedShips = bot.Board.PlacedShips
             .Where(s => s.Statuses.Contains(ShipStatusType.Capture) && !s.IsDestroyed).ToList();
         if (capturedShips.Count > 0)
         {
             var capturedCells = capturedShips
-                .SelectMany(s => s.GetOccupiedCells())
-                .Where(c =>
-                {
-                    var cell = bot.Board.GetCell(c.row, c.col);
-                    return cell != null && (!cell.IsHit || cell.WasScratched);
-                })
+                .SelectMany(ship =>
+                    ship.Decks
+                        .Where(deck => deck.CurrentHp > 0)
+                        .Select(deck => ship.GetDeckCell(
+                            deck,
+                            ship.Row,
+                            ship.Col,
+                            ship.Orientation)))
                 .ToList();
             if (capturedCells.Count > 0)
                 return capturedCells[Rng.Next(capturedCells.Count)];
@@ -380,7 +457,7 @@ public static class BattleshipBotAI
         var targetCells = FindTargetCells(opponent.Board);
 
         // Incendiary special: can re-target already-hit cells with ships still alive
-        if (shotType == ShotType.Incendiary)
+        if (shotType is ShotType.Incendiary or ShotType.EvilIncendiary)
         {
             var incendiaryTargets = FindIncendiaryTargets(opponent.Board);
             incendiaryTargets.RemoveAll(c => ownSummonCells.Contains((c.row, c.col)));
@@ -390,6 +467,9 @@ public static class BattleshipBotAI
 
         // Exclude own summons and blocked rows
         targetCells.RemoveAll(c => ownSummonCells.Contains((c.row, c.col)));
+        var avoidDodgeCells = shotType == ShotType.Ballista;
+        if (avoidDodgeCells)
+            targetCells.RemoveAll(c => opponent.Board.GetCell(c.row, c.col)?.WasDodge == true);
         if (blockedRows.Count > 0)
             targetCells.RemoveAll(c => blockedRows.Contains(c.row));
 
@@ -403,7 +483,7 @@ public static class BattleshipBotAI
         }
 
         // Hunt mode: probability density map
-        return ChooseHuntTarget(opponent.Board, blockedRows, ownSummonCells);
+        return ChooseHuntTarget(opponent.Board, blockedRows, ownSummonCells, avoidDodgeCells);
     }
 
     /// <summary>
@@ -534,7 +614,11 @@ public static class BattleshipBotAI
     /// Hunt mode: calculates probability density for each cell based on remaining ship sizes.
     /// Uses checkerboard parity for efficiency and avoids impossible placements.
     /// </summary>
-    private static (int row, int col) ChooseHuntTarget(Board board, HashSet<int> blockedRows, HashSet<(int, int)> excludeCells = null)
+    private static (int row, int col) ChooseHuntTarget(
+        Board board,
+        HashSet<int> blockedRows,
+        HashSet<(int, int)> excludeCells = null,
+        bool avoidDodgeCells = false)
     {
         var density = new int[10, 10];
 
@@ -555,7 +639,11 @@ public static class BattleshipBotAI
                 for (var i = 0; i < size; i++)
                 {
                     var cell = board.Grid[r, c + i];
-                    if (cell.IsHit || cell.IsMiss) { valid = false; break; }
+                    if (cell.IsHit || cell.IsMiss || (avoidDodgeCells && cell.WasDodge))
+                    {
+                        valid = false;
+                        break;
+                    }
                 }
                 if (valid)
                 {
@@ -572,7 +660,11 @@ public static class BattleshipBotAI
                 for (var i = 0; i < size; i++)
                 {
                     var cell = board.Grid[r + i, c];
-                    if (cell.IsHit || cell.IsMiss) { valid = false; break; }
+                    if (cell.IsHit || cell.IsMiss || (avoidDodgeCells && cell.WasDodge))
+                    {
+                        valid = false;
+                        break;
+                    }
                 }
                 if (valid)
                 {
@@ -596,7 +688,8 @@ public static class BattleshipBotAI
         for (var c = 0; c < 10; c++)
         {
             var cell = board.Grid[r, c];
-            if (cell.IsHit || cell.IsMiss || blockedRows.Contains(r) || (excludeCells != null && excludeCells.Contains((r, c))))
+            if (cell.IsHit || cell.IsMiss || (avoidDodgeCells && cell.WasDodge) ||
+                blockedRows.Contains(r) || (excludeCells != null && excludeCells.Contains((r, c))))
                 density[r, c] = 0;
         }
 
@@ -614,10 +707,33 @@ public static class BattleshipBotAI
             for (var c = 0; c < 10; c++)
             {
                 var cell = board.Grid[r, c];
-                if (!cell.IsHit && !cell.IsMiss && !blockedRows.Contains(r) && !(excludeCells != null && excludeCells.Contains((r, c))))
+                if (!cell.IsHit && !cell.IsMiss && (!avoidDodgeCells || !cell.WasDodge) &&
+                    !blockedRows.Contains(r) && !(excludeCells != null && excludeCells.Contains((r, c))))
                     fallback.Add((r, c));
             }
-            return fallback.Count > 0 ? fallback[Rng.Next(fallback.Count)] : (Rng.Next(10), Rng.Next(10));
+            if (fallback.Count > 0) return fallback[Rng.Next(fallback.Count)];
+
+            // A late-game board can have no untouched cells. Relax only the prior-shot
+            // constraint first; a Ballista must still never return to a nimble-dodge mark.
+            for (var r = 0; r < 10; r++)
+            for (var c = 0; c < 10; c++)
+            {
+                var cell = board.Grid[r, c];
+                if ((!avoidDodgeCells || !cell.WasDodge) && !blockedRows.Contains(r) &&
+                    !(excludeCells != null && excludeCells.Contains((r, c))))
+                    fallback.Add((r, c));
+            }
+            if (fallback.Count > 0) return fallback[Rng.Next(fallback.Count)];
+
+            // Preserve the absolute dodge exclusion even if every other targeting constraint
+            // has become impossible (for example, all remaining cells are in Far-blocked rows).
+            for (var r = 0; r < 10; r++)
+            for (var c = 0; c < 10; c++)
+                if (!avoidDodgeCells || !board.Grid[r, c].WasDodge)
+                    fallback.Add((r, c));
+            if (fallback.Count > 0) return fallback[Rng.Next(fallback.Count)];
+
+            throw new InvalidOperationException("No Ballista target exists outside nimble-dodge cells.");
         }
 
         var best = new List<(int, int)>();

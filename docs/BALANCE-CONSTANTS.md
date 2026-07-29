@@ -43,9 +43,10 @@
 | Psyche clamp / moral bonus | 0–10; ≥10 → +20%/tier moral | CC:1292-1302, 1035-1065 |
 | Мишень main-skill gains | 10,9,8,…,1 (added twice: Main+Extra) ×(1+TargetSkillMultiplier) | CC:961-1000 |
 | Class perks | Умный +6 (vs 0-J), Быстрый +2, Сильный +4 — ×ClassSkillMultiplier | DM:591-601, 754-755 |
-| ZBS payout | 100/50/40/30/20/10 by place (ties with winner = 100; team 100/50) | CIR:632-667 |
+| ZBS payout | 100/50/40/30/20/10 by place (ties with winner = 100; team 100/50); ×2 for an effective Pro seat | `CheckIfReady.HandleLastRound`; `GamePlayerBridgeClass.IsProMode` |
 | Mastery payout | 10/7/5/3/2/1 by place (alive only) | CIR:618-624 |
-| Loot-box inventory award | reward-place top-2 and alive (Sakura top-3 soft win uses reward place 1) | CIR:648-651,730-732 |
+| Loot-box inventory award | reward-place top-2 and alive (Sakura top-3 soft win uses reward place 1); 1 box Casual, 2 boxes effective Pro | `CheckIfReady.HandleLastRound` |
+| Ranked ELO | new accounts start at 1000; actual places 1/2/3/4/5/6 → +10/+5/+1/0/−1/−5 | `DiscordAccountClass.EloRating`; `CheckIfReady.HandleLastRound`; `GameClass.IsRanked` |
 
 ## Character store economy
 
@@ -55,8 +56,8 @@ The multiplier changes a character's relative roll weight, not a standalone fina
 |---|---|---|
 | Roll-weight bounds / step | ×0.50–×2.00; ±0.01 per purchased percentage point | `WebGameService.cs` `StoreMinMultiplier`/`StoreMaxMultiplier`/`AdjustStoreCharacter`; Discord guards `StoreReactions.cs:217-340` |
 | Step price | step N costs 10 + all prior purchased steps ZBS; 10-step action sums ten sequential prices | `WebGameService.cs` `CalculateStoreCost`; Discord `_basePrice` `StoreReactions.cs:20` |
-| Refund | free; returns the exact arithmetic-series cost of every purchased step and restores the paid component to ×1.00; permanent loot-box points remain | `WebGameService.cs` `ResetStoreCharacter`/`ResetStoreAllCharacters`/`CalculateStoreRefund`; Discord `StoreReactions.cs:416-515` |
-| Loot-box roll-weight bonus | Common/Uncommon/Rare/Epic/Legendary add +1/+2/+3/+5/+10 percentage points to one public character, non-refundable; effective weight remains capped at ×2.00 | `QuestService.LootBoxOdds`/`GenerateLootBox`; `CharacterChances.GetEffectiveMultiplier` |
+| Refund | free; returns the exact arithmetic-series cost of every purchased step and restores the character to ×1.00 | `WebGameService.cs` `ResetStoreCharacter`/`ResetStoreAllCharacters`/`CalculateStoreRefund`; Discord `StoreReactions.cs:416-515` |
+| Loot-box roll-weight bonus | none; only Store purchases can change a character's roll weight | `QuestService.GenerateLootBox`; `CharacterChances.GetEffectiveMultiplier` |
 | unknown_bug shop weight | fixed at the untouched ×1.00 baseline; never listed, discovered or adjustable. Legacy investments are refunded during account migration | `StartGameLogic.cs` roll weighting; `UserAccounts.MigrateUnknownBugAccount`; web/Discord store filters |
 
 ## Generated story
@@ -132,6 +133,16 @@ The full 12-contract catalog, selection, privacy and migration rules are in [DAI
 | Battleship first win of the UTC day | 10 ZBS; once per account/day after combat starts | BattleshipService.cs:15-16,75-95 |
 | Battleship combo-hit response window | After a hit that preserves the shooter's turn: 8 seconds only when the defending board belongs to a human who can legally deploy at least one summon at that state boundary; otherwise 2 seconds. 0 after a miss, a turn-ending shot or a finished game | `BattleshipService.ComboHitDelay`/`FastComboHitDelay`/`CanDeployAnySummon`/`ApplyComboShotDelay`; `GameHub.RunBattleshipBotPump` |
 
+## Battleship balance
+
+| Constant | Value | Anchor |
+|---|---|---|
+| Горючка / Злая горючка Aim | 0 revealed cells; both are available from the first combat turn | `ShipCatalog.Definitions` `incendiary_barge`; `ShipCatalog.ApplyUpgrade` `evil_incendiary` |
+| Злая горючка upgrade | +2 coins; separate weapon with 2 shots | `ShipCatalog.Definitions` `barge_evil_incendiary`; `ShipCatalog.ApplyUpgrade` |
+| Злой Греческий огонь upgrade | +6 coins; 1 shot; mutually exclusive with ordinary Greek Fire and Brander boiler upgrades | `ShipCatalog.Definitions` `tetra_boiler_evil_fire`; `FleetValidator.ValidateUpgradeSelection` |
+| Знаменитый собирающийся корабль | Alliance only; 20 coins; three 1-HP component decks become a fresh 1/1/1 Mid ship; Speed 1, Space 1 | `ShipCatalog.Definitions` `famous_assembling_ship`; `ShipCatalog.CreateAssemblyComponents`/`CreateAssembledShip` |
+| Triple deck HP | 2/4/2 before upgrades; each deck-armor upgrade remains +4 with a cap of 9 | `ShipCatalog.Definitions` `triple`; `ShipCatalog.ApplyUpgrade` |
+
 ## Achievement & loot-box rewards
 
 Achievement progress targets and the complete 110-entry rule catalog are in [ACHIEVEMENTS.md](ACHIEVEMENTS.md). Reward values are centralized by rarity; the live catalog contains 11 Common, 27 Uncommon, 20 Rare, 36 Epic and 16 Legendary cards, totalling **9,033 ZBS + 68 boxes** (`AchievementClass.cs` `AchievementDefinition`/`AllAchievements`).
@@ -143,11 +154,11 @@ Achievement progress targets and the complete 110-entry rule catalog are in [ACH
 | Rare achievement reward | 50 ZBS | AchievementClass.cs:65-76 |
 | Epic achievement reward | 100 ZBS + 1 loot box | AchievementClass.cs:65-76 |
 | Legendary achievement reward | 228 ZBS + 2 loot boxes | AchievementClass.cs:65-76 |
-| Loot Common | 60%; 15–30 ZBS inclusive; random public character +1 roll-weight point | `QuestService.LootBoxOdds` |
-| Loot Uncommon | 25%; 40–75 ZBS inclusive; random public character +2 roll-weight points | `QuestService.LootBoxOdds` |
-| Loot Rare | 12%; 100–175 ZBS inclusive; random public character +3 roll-weight points | `QuestService.LootBoxOdds` |
-| Loot Epic | 2.5%; 300–450 ZBS inclusive; Tier 1–2 character +5 roll-weight points and queued for next new game | `QuestService.LootBoxOdds` |
-| Loot Legendary | 0.5%; 750 ZBS; Tier 1 character +10 roll-weight points and queued for next new game | `QuestService.LootBoxOdds` |
+| Loot Common | 60%; 15–30 ZBS inclusive; no character-chance reward | `QuestService.LootBoxOdds` |
+| Loot Uncommon | 25%; 40–75 ZBS inclusive; no character-chance reward | `QuestService.LootBoxOdds` |
+| Loot Rare | 12%; 100–175 ZBS inclusive; no character-chance reward | `QuestService.LootBoxOdds` |
+| Loot Epic | 2.5%; 300–450 ZBS inclusive; Tier 1–2 character queued for next new game | `QuestService.LootBoxOdds` |
+| Loot Legendary | 0.5%; 750 ZBS; Tier 1 character queued for next new game | `QuestService.LootBoxOdds` |
 | Loot rarity RNG | `SecureRandom.Next(1,10000)` inclusive; exact cumulative cutoffs 50/300/1500/4000 | `QuestService.RollLootBoxTier` |
 | Rare+ pity | after 9 consecutive below-Rare results, box 10 preserves natural Rare+ or upgrades Common/Uncommon to Rare; Rare+ resets counter | `QuestService.OpenLootBox`/`GenerateLootBox`/`NormalizeLootBoxPity` |
 
@@ -168,11 +179,11 @@ Achievement progress targets and the complete 110-entry rule catalog are in [ACH
 |---|---|---|
 | Tier ranges | 6→150, 5→100, 4→90, 3→80, 2→70, 1→60, 0→50, −1→40 | StartGameLogic.cs:47-61 |
 | Ктулху natural weight | 40 (Tier −1); bot carve-out keeps this range, while team/all-four-adept guards can remove it | `StartGameLogic.GetRangeFromTier`; `Cthulhu.CanNaturallyRoll` |
-| Tier semantics | −1 secret-rollable, −2 transform-only. unknown_bug is additionally excluded from every public/draft/store/achievement surface and its roll ignores store/loot multipliers | `CharactersPull.cs` `GetRollableCharacters`; `StartGameLogic.cs` roll weighting; `UnknownBug` guards |
+| Tier semantics | 0 = **PRO** (Кира, Монстр без имени, Dopa; forces Pro for that seat's match), −1 secret-rollable, −2 transform-only. unknown_bug is additionally excluded from every public/draft/store/achievement surface and its roll ignores Store multipliers | `GamePlayerBridgeClass`; `CharactersPull.cs` `GetRollableCharacters`; `StartGameLogic.cs` roll weighting; `UnknownBug` guards |
 | unknown_bug all-rolled boost | ×100 natural weight (Tier −1 baseline 40 → 4000) once unknown_bug has naturally rolled at least once for every human participant; the private bit is persisted at natural assignment, forced/admin/test-preliminary selection does not count, bot seats are ignored and ordinary eligibility/no-repeat gates still apply; ambiguous legacy statistics do not backfill it | `DiscordAccountClass.HasNaturallyRolledUnknownBug`; `StartGameLogic.HandleCharacterRoll`; `WebGameService.CreateTestGame` |
 | Tier pity | +3% per game without that tier; reset round 2 | StartGameLogic.cs:181-182, CIR:1317-1324 |
 | Bot rules | tier 4 ×3; no tier <4 except Кира at ½ tier-1 range | StartGameLogic.cs:177-179 |
-| Homelander ⇒ TheBoys pull | ×6 TheBoys roll weight (Tier-3 baseline 80 → 480) while Homelander already holds a seat; applied to natural rolls and draft alternatives alike, before tier pity. Seats resolve in order, so it never affects a seat rolled before Homelander was committed | `StartGameLogic.HomelanderTheBoysRollMultiplier`; `HandleCharacterRoll`/`RollDraftOptions` |
+| СУПЕРЫ ⇒ TheBoys pull | ×2 TheBoys roll weight per canonical roster Super (Сайтама, Кратос, Загадочный Спартанец в маске, Кира, Homelander, Omni-man); Homelander then adds a separate ×6 (`+500%`), so alone he gives combined ×12 (Tier-3 baseline 80 → 960). Guaranteed reservations/forced line-ups count up front; random Supers affect only later seats. Applied to natural rolls and draft alternatives before tier pity and Store multipliers | `StartGameLogic.GetTheBoysRosterRollMultiplier`/`TheBoysRollMultiplierPerSuper`/`HomelanderTheBoysRollMultiplier`; `HandleCharacterRoll`/`RollDraftOptions`; M186 |
 | Top Laner decay | ×1.0 → −0.2 per Top Laner rolled (floor 0) | StartGameLogic.cs:180, 172-177 |
 | Exclusivity | LeCrisp ⊕ Толя ⊕ ScamRat pairwise, and HardKitty ⊕ Эрен Йегер, across natural, guaranteed, draft and admin-test roster assignments; single Tier-4 per game; no repeat of last character | `StartGameLogic.AreMutuallyExclusiveCharacters`; `WebGameService` guaranteed/draft/test assignment paths |
 | Naruto roster eligibility | FFA only; human original requires ≥2 strict bots, bot original requires ≥3 strict bots total; exactly 2 become clones | `StartGameLogic.cs` `CanNaturallyRollNaruto`; `Naruto.cs` `CanUseRoster`, `InitializeTeam` |
@@ -238,7 +249,7 @@ Achievement progress targets and the complete 110-entry rule catalog are in [ACH
 | Спартанец | Первая кровь | ×2 skill all game; ±1 Speed on first-attack outcome | CP:147-149, 2759-2778 |
 | Спартанец | Позорят | −1 Str −1 Speed per unique first attack (mylorik/Кратос spared: +1 Psyche both) | CP:1204-1229 |
 | Вампур | Гематофагия | +2 stat per unique win; Psyche-priority ≤8 (max 2) | CP:2880-2941 |
-| Вампур | СОсиновый кол | loss: −2 stat −1 regular | CP:3985-4012 |
+| Вампур | СОсиновый кол | loss: remove 1 active bite, reverse that bite's recorded +2 stat, −1 regular | `CharacterPassives` `Гематофагия` after-fight/end-of-round cases |
 | Вампур | Вампуризм | +victim J (copy) next round; even rounds +Moral/bite | CP:1909-1913, 3926-3931 |
 | Краборак | Панцирь | first attack per enemy: auto-block +3 Moral +33 Skill | CP:469-481 |
 | Краборак | Болевой порог | 50% per J point → +1 regular instead | CC:1654-1672 |
@@ -313,7 +324,7 @@ Achievement progress targets and the complete 110-entry rule catalog are in [ACH
 | DooM Guy | stages / random mode | Rune r3, Shield r5, Mission r7, Gun r9; Let's Roll random pick pays +2 regular each stage | DoomGuy.cs:53-60, 170-175 |
 | DooM Guy | Rune | Вознесение +8 Int, at most 8 × −1/loss; Маневры +5 Speed, at most 5 × −1/Harm; Истребление +1 all stats + max(0, 10−round) bonus; Glory kill neighbour Skill ×2 and win +1 all stats | DoomGuy.cs `ApplySelectedModule`/`ApplyFightModules`; CP:2661-2706; CharacterClass.cs:213-221 |
 | DooM Guy | Shield | Щит-пила block penalty −3; Шоковый щит 1 player-confirmed forced skip; Адский блок +666 Skill once after 2 blocked attacks; Контр-атака next-turn fight Skill/Justice 0; Щит-акула block→1-turn Ничего не понимает stance | DM:309-314,772-800; CP:895-915,5521-5539; DoomGuy.cs `ApplyFightModules` |
-| DooM Guy | Mission | 1 new nest/setup, overflow >3 → −20 bonus + clear; only attack-win nest kill +1 regular; every resolved fight +1 regular; flawless no-block mission +20 bonus; Ближник neighbour melee bonus ×2 (Кулаки +4, Glory total Skill ×3/+2 stats, Бензопила 2 picks) | DoomGuy.cs `SpawnDemonNest`/`ApplyFightModules`; CP:2694-2759,3682-3695 |
+| DooM Guy | Mission | 1 new nest/setup, overflow >3 → −20 bonus + clear; only attack-win nest kill +1 regular; every resolved fight +1 regular; Инфернальная энергия = hidden top 3 positive non-win ability-income enemies/turn, exact 20% bonus steal on attack-win, once/enemy and 3 unique max; flawless no-block mission +20 bonus; Ближник neighbour melee bonus ×2 (Кулаки +4, Glory total Skill ×3/+2 stats, Бензопила 2 picks) | DoomGuy.cs `SpawnDemonNest`/`RefreshInfernalEnergySources`/`TryStealInfernalEnergy`/`ApplyFightModules`; CP case `Mission` |
 | DooM Guy | Gun | BFG 1 charge; primary + every wave Step-3 random auto-wins; Кулаки Str=0 and +2 regular/win; Бензопила 1 victim, up to 4 choices and 1 pick; Рельса 1 charge and whole selected side, Block/Skip bypass except Тигр ban; Приручить дракона = round-10 Дракон transform | DoomGuy.cs `ApplySelectedModule`/`CopyChainsawPassive`; DM:445-491,569-650,810-881; CP:2730-2759,5767-5797 |
 | DooM Guy | module reward | place 4/3/2/1 ceiling = Rune/Shield/Mission/Gun; fallback downward; standard chance = 0 complete, 5% last, otherwise `5 + 75×(remaining−1)/(total−1)`; Приручить дракона excluded and guaranteed only after round-10 win over Sirinoks/Дракон | DoomGuy.cs `TryAwardModule`/`TryAwardDragonTaming`; CP:2469-2479; CheckIfReady.cs:758-768 |
 | Эрен Йегер | base / rarity / exclusion | Злость(Int) 0, Str 4, Speed 4, Самоуверенность(Psyche) 10; Tier 6; cannot coexist with HardKitty through a normal roster assignment | characters.json:1416-1446; StartGameLogic.cs:47-60 |

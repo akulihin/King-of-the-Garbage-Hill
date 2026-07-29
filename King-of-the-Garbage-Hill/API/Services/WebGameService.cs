@@ -137,7 +137,9 @@ public class WebGameService
                 GameMode = game.GameMode,
                 IsFinished = game.IsFinished,
                 BotCount = botCount,
-                CanJoin = GetJoinableStrictBots(game).Count > 0 && !game.IsFinished,
+                CanJoin = !game.IsRanked
+                          && GetJoinableStrictBots(game).Count > 0
+                          && !game.IsFinished,
             });
         }
 
@@ -277,7 +279,8 @@ public class WebGameService
         ulong creatorId,
         string creatorUsername,
         bool recordNaturalUnknownBugRoll = true,
-        bool adminLobbyMode = false)
+        bool adminLobbyMode = false,
+        bool ranked = false)
     {
         if (AdminLobbies?.IsReserved(creatorId) == true)
             return (0, "Вы были избраны богом.");
@@ -287,6 +290,8 @@ public class WebGameService
             return (0, "Account not found");
         if (creatorAccount.IsPlaying)
             return (0, "Already in a game");
+        if (ranked && creatorAccount.GameplayMode != DiscordAccountClass.ProMode)
+            return (0, "Ranked games require Pro mode.");
 
         string queuedCharacterName;
         string forcedCharacterName;
@@ -361,7 +366,8 @@ public class WebGameService
                 botToReplace.DiscordId,
                 gameId,
                 botToReplace.DiscordUsername,
-                botToReplace.PlayerType);
+                botToReplace.PlayerType,
+                botToReplace.AccountGameplayMode);
             playersList[replacementIndex] = botToReplace;
         }
 
@@ -378,6 +384,9 @@ public class WebGameService
         botToReplace.DiscordId = creatorId;
         botToReplace.DiscordUsername = creatorUsername;
         botToReplace.PlayerType = creatorAccount.PlayerType;
+        botToReplace.AccountGameplayMode = botToReplace.GameCharacter.Tier == 0
+            ? DiscordAccountClass.ProMode
+            : GamePlayerBridgeClass.NormalizeGameplayMode(creatorAccount.GameplayMode);
         botToReplace.IsWebPlayer = true;
         botToReplace.PreferWeb = true;
         if (queuedCharacter != null)
@@ -392,7 +401,16 @@ public class WebGameService
             _userAccounts.SaveAccount(creatorAccount);
 
         // Create game
-        var game = new GameClass(playersList, gameId, creatorId) { IsCheckIfReady = false };
+        var game = new GameClass(
+            playersList,
+            gameId,
+            creatorId,
+            gameMode: ranked ? "Ranked" : "Normal")
+        {
+            IsCheckIfReady = false,
+            IsRanked = ranked,
+            AiDifficulty = 3,
+        };
         game.NanobotsList.Add(new BotsBehavior.NanobotClass(playersList));
         game.TimePassed.Start();
         lock (_global.GamesList)
@@ -493,6 +511,7 @@ public class WebGameService
         var game = FindGame(gameId);
         if (game == null) return (false, "Game not found");
         if (game.IsFinished) return (false, "Game is finished");
+        if (game.IsRanked) return (false, "Ranked games cannot be joined.");
         if (game.PlayersList.Any(p => p.DiscordId == playerId)) return (true, null);
 
         var playerAccount = _userAccounts.GetAccount(playerId);
@@ -523,6 +542,9 @@ public class WebGameService
             // Replace bot with the joining player
             bot.DiscordUsername = playerUsername;
             bot.PlayerType = playerAccount.PlayerType;
+            bot.AccountGameplayMode = bot.GameCharacter.Tier == 0
+                ? DiscordAccountClass.ProMode
+                : GamePlayerBridgeClass.NormalizeGameplayMode(playerAccount.GameplayMode);
             bot.IsWebPlayer = true;
             bot.PreferWeb = true;
             bot.DiscordStatus.SocketGameMessage = null;
@@ -576,6 +598,9 @@ public class WebGameService
 
             seat.DiscordUsername = playerUsername;
             seat.PlayerType = playerAccount.PlayerType;
+            seat.AccountGameplayMode = seat.GameCharacter.Tier == 0
+                ? DiscordAccountClass.ProMode
+                : GamePlayerBridgeClass.NormalizeGameplayMode(playerAccount.GameplayMode);
             seat.IsWebPlayer = hasWebConnection
                                || playerId >= 9_000_000_000_000_000_000;
             seat.PreferWeb = hasWebConnection;
@@ -760,7 +785,8 @@ public class WebGameService
                 player.DiscordId,
                 player.GameId,
                 player.DiscordUsername,
-                player.PlayerType
+                player.PlayerType,
+                player.AccountGameplayMode
             );
             newBridge.IsWebPlayer = player.IsWebPlayer;
             newBridge.PreferWeb = player.PreferWeb;
@@ -1493,7 +1519,8 @@ public class WebGameService
             player.DiscordId,
             player.GameId,
             player.DiscordUsername,
-            player.PlayerType
+            player.PlayerType,
+            player.AccountGameplayMode
         );
         newBridge.IsWebPlayer = player.IsWebPlayer;
         newBridge.PreferWeb = player.PreferWeb;
@@ -1619,11 +1646,8 @@ public class WebGameService
             }
 
             var targetMultiplier = Math.Round(chance.Multiplier + percentagePoints / 100d, 2);
-            var targetEffectiveMultiplier = Math.Round(
-                targetMultiplier + chance.LootBoxBonusPercentagePoints / 100d,
-                2);
-            if (targetEffectiveMultiplier < StoreMinMultiplier
-                || targetEffectiveMultiplier > StoreMaxMultiplier)
+            if (targetMultiplier < StoreMinMultiplier
+                || targetMultiplier > StoreMaxMultiplier)
             {
                 if (createdChance) account.CharacterChance.Remove(chance);
                 return (null,
@@ -1765,7 +1789,6 @@ public class WebGameService
                 Avatar = character.Avatar,
                 Tier = character.Tier,
                 Multiplier = chance?.GetEffectiveMultiplier() ?? 1.0,
-                LootBoxBonusPercentagePoints = chance?.LootBoxBonusPercentagePoints ?? 0,
                 Changes = changes,
                 CostOne = CalculateStoreCost(changes, 1),
                 CostTen = CalculateStoreCost(changes, 10),

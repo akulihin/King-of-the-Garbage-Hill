@@ -67,7 +67,7 @@ function emitManualMove(shipId: string, direction: string) {
           @click="manualMoveDistance = 2"
         >2 клетки</button>
       </div>
-      <template v-if="ship.orientation === 'Horizontal'">
+      <template v-if="ship.orientation === 'Horizontal' || ship.orientation === 'HorizontalReverse'">
         <button
           class="dir-btn"
           @mouseenter="showTip($event, 'Передвинуть корабль влево')"

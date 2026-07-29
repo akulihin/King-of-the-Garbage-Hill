@@ -7,6 +7,7 @@ withDefaults(defineProps<{
 })
 
 function logEntryClass(entry: string): string {
+  if (entry.includes('Призванное существо погибло в ядовитом конусе!')) return 'log-poison'
   if (entry.startsWith('[Мачта]')) return 'log-mast'
   if (entry.includes('потопил') || entry.includes('потоплен') || entry.includes('сгорел') || entry.includes('сгорел!')) return 'log-sunk'
   if (entry.includes('уничтожил палубу') || entry.includes('разрушил модуль')) return 'log-destroy'
@@ -81,6 +82,11 @@ function logEntryClass(entry: string): string {
 .log-mast {
   --log-color: var(--accent-gold);
   font-style: italic;
+}
+
+.log-poison {
+  --log-color: #15803d;
+  font-weight: 700;
 }
 
 .log-sunk {

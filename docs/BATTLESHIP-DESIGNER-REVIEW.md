@@ -374,7 +374,7 @@ Approving an `I` item means “make code and UI match the behavior stated here.�
 ### Approval checklist for Part C
 
 - [x] I01
-- [Reject] I02
+- [x] I02 — superseded by the direct 2026-07-28 designer report
 - [x] I03
 - [x] I04
 - [x] I05
@@ -537,7 +537,7 @@ Currently unused or redundant: `CellState`; `ShotType.Catapult/Tetracatapult`; s
 
 Implemented 2026-07-17 as finding M112. The implementation follows the checked decision on each item, with the item-level choices taking precedence over the broad Part F checkbox:
 
-- I02 remains rejected: converted Close/Close melee source ships stay on their original board, retain active behavior and remain in victory accounting; the one-time conversion guard prevents duplicates.
+- The direct 2026-07-28 designer report supersedes the earlier I02 rejection: converted Close/Close melee ships now leave their original cells and board inventory, exist only as pending/deployed Boarding units, and die permanently with those units. Their retained fleet record is identity/weapon metadata only, not a second active hull.
 - I16 remains rejected: shot events still omit physical-board/AoE metadata; the client tracks its own-board action locally for presentation.
 - D14 remains rejected except for the independently approved I11–I13 corrections.
 - Part E uses the designer exception: Greek Fire targets only the shooter's own board.
@@ -545,6 +545,8 @@ Implemented 2026-07-17 as finding M112. The implementation follows the checked d
 The live rule description is [BattleshipGDD.md](../BattleshipGDD.md); hub/DTO and client contracts are in [WEB-BACKEND.md](WEB-BACKEND.md) §4/§10 and [WEB-CLIENT.md](WEB-CLIENT.md) §12.
 
 Designer follow-up implemented 2026-07-27 supersedes the 2026-07-26 reset-window selector while retaining turn-agnostic summon deployment. If a summon is available, the player can still place it at any moment of an enemy turn, including while an enemy shot resolves or animates; `DeploySummon`/`DeployPendingSummon` therefore carry no turn-ownership or shooter-reload check. The eight-second reset window now exists only when the defending human passes the same authoritative `CanDeployAnySummon` predicate; every other retained-shot pause is two seconds. The same follow-up replaces Cursed Boat direction buttons with the mandatory highlighted-cell interaction used by Maneuvering Double and adds subdued CAPTURE focus on the owner's screen. Use accounting under D14 stays rejected and unchanged.
+
+Designer follow-up implemented 2026-07-28 (M182–M185) makes the bot continuation background work rather than part of the initiating SignalR invocation, so the defender's next deployment reaches the server during the reset window. CAPTURE continues to constrain the target to the captured own-board ship but no longer constrains the selected otherwise-legal ammunition. Drakkar-frozen summon deaths carry cause metadata for a freeze animation and persistent snowflake badge.
 
 Designer follow-up implemented 2026-07-21 (finding M126) supersedes the earlier symmetric-conversion/shared-weapon assumptions: only the side without Mid deploys Close ships, mandatory deployment is a global barrier, Ballista is one shared UI/server action with cyclic Mid origins (Close joins only in Boarding), and dual Desiccators defer only their auto-win until one dies. The same follow-up adds the 8-second hit-only combo window, direct summon selection, placement deck/zone visualization and CAPTURE-death reveal credit. The exact live rules remain in the linked GDD.
 

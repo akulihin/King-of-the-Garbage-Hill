@@ -19,7 +19,7 @@ import { useGameStore } from 'src/store/game'
 
 const store = useGameStore()
 const searchQuery = ref('')
-const selectedTier = ref(0)
+const selectedTier = ref<number | 'all'>('all')
 const adjustedOnly = ref(false)
 const confirmResetAll = ref(false)
 
@@ -29,10 +29,8 @@ const availableTiers = computed(() => [...new Set(characters.value.map(character
 const filteredCharacters = computed(() => {
   const query = searchQuery.value.trim().toLocaleLowerCase()
   return characters.value
-    .filter(character => selectedTier.value === 0 || character.tier === selectedTier.value)
-    .filter(character => !adjustedOnly.value
-      || character.changes > 0
-      || character.lootBoxBonusPercentagePoints > 0)
+    .filter(character => selectedTier.value === 'all' || character.tier === selectedTier.value)
+    .filter(character => !adjustedOnly.value || character.changes > 0)
     .filter(character => !query || character.name.toLocaleLowerCase().includes(query))
     .sort((a, b) => a.tier - b.tier || a.name.localeCompare(b.name, 'ru'))
 })
@@ -96,7 +94,7 @@ async function resetAll(): Promise<void> {
 
 function clearFilters(): void {
   searchQuery.value = ''
-  selectedTier.value = 0
+  selectedTier.value = 'all'
   adjustedOnly.value = false
 }
 </script>
@@ -163,8 +161,8 @@ function clearFilters(): void {
         <p>
           <strong>{{ t('This changes roll weight, not an exact probability.', 'Это вес выпадения, а не точная вероятность.') }}</strong>
           {{ t(
-            `A 1-point change starts at ${state.basePrice} ZBS. Loot-box bonuses are permanent and non-refundable. Pity, tier rules, and the other characters in a game still affect the final roll.`,
-            `Изменение на 1 пункт начинается с ${state.basePrice} ZBS. Бонусы из лутбоксов постоянны и не возвращаются. На итог всё ещё влияют pity, тир и остальные персонажи в игре.`,
+            `A 1-point change starts at ${state.basePrice} ZBS. Character roll weights can be changed only here. Pity, tier rules, and the other characters in a game still affect the final roll.`,
+            `Изменение на 1 пункт начинается с ${state.basePrice} ZBS. Вес персонажей меняется только здесь. На итог всё ещё влияют pity, тир и остальные персонажи в игре.`,
           ) }}
         </p>
       </div>
@@ -180,7 +178,7 @@ function clearFilters(): void {
           >
         </label>
         <div class="tier-tabs" role="group" :aria-label="t('Character tier', 'Тир персонажа')">
-          <button type="button" :class="{ active: selectedTier === 0 }" @click="selectedTier = 0">
+          <button type="button" :class="{ active: selectedTier === 'all' }" @click="selectedTier = 'all'">
             {{ t('All tiers', 'Все тиры') }}
           </button>
           <button
@@ -190,7 +188,7 @@ function clearFilters(): void {
             :class="{ active: selectedTier === tier }"
             @click="selectedTier = tier"
           >
-            T{{ tier }}
+            {{ tier === 0 ? 'PRO' : `T${tier}` }}
           </button>
         </div>
         <label class="adjusted-toggle">
@@ -236,14 +234,14 @@ function clearFilters(): void {
           v-for="character in filteredCharacters"
           :key="character.name"
           class="character-card"
-          :class="[`tier-${character.tier}`, { adjusted: character.changes > 0 || character.lootBoxBonusPercentagePoints > 0, busy: isCharacterBusy(character) }]"
+          :class="[`tier-${character.tier}`, { adjusted: character.changes > 0, busy: isCharacterBusy(character) }]"
           role="listitem"
         >
           <div class="card-accent" aria-hidden="true" />
           <header class="character-header">
             <div class="avatar-wrap">
               <img :src="character.avatar" :alt="character.name">
-              <span class="tier-badge">T{{ character.tier }}</span>
+              <span class="tier-badge">{{ character.tier === 0 ? 'PRO' : `T${character.tier}` }}</span>
             </div>
             <div class="character-heading">
               <span>{{ t('Roll weight', 'Вес выпадения') }}</span>
@@ -306,12 +304,6 @@ function clearFilters(): void {
           <footer class="character-footer">
             <span>
               {{ t(`${character.changes} purchased steps`, `Куплено шагов: ${character.changes}`) }}
-              <strong v-if="character.lootBoxBonusPercentagePoints > 0" class="loot-weight-bonus">
-                {{ t(
-                  ` · +${character.lootBoxBonusPercentagePoints}% from loot`,
-                  ` · +${character.lootBoxBonusPercentagePoints}% из лутбоксов`,
-                ) }}
-              </strong>
             </span>
             <button
               class="reset-character"
@@ -337,8 +329,8 @@ function clearFilters(): void {
           <span class="section-kicker">{{ t('Fresh start', 'Начать заново') }}</span>
           <h2 id="refund-all-title">{{ t('Reset every character', 'Сбросить всех персонажей') }}</h2>
           <p>{{ t(
-            `Refund every purchased adjustment for ${state.totalInvestedZbs} ZBS. Permanent loot-box bonuses stay.`,
-            `Вернуть ${state.totalInvestedZbs} ZBS за все купленные изменения. Постоянные бонусы из лутбоксов останутся.`,
+            `Refund every purchased adjustment for ${state.totalInvestedZbs} ZBS.`,
+            `Вернуть ${state.totalInvestedZbs} ZBS за все купленные изменения.`,
           ) }}</p>
         </div>
         <div v-if="!confirmResetAll" class="refund-actions">
@@ -365,7 +357,7 @@ function clearFilters(): void {
 .store-page { width: 100%; }
 .back-link { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; margin-bottom: 10px; padding: 4px 9px; color: var(--text-muted); border-radius: 7px; text-decoration: none; font-size: 11px; font-weight: 750; }
 .back-link:hover { color: var(--text-primary); background: rgba(255, 255, 255, 0.04); }
-.store-center { --tier-1: #83d7a3; --tier-2: #73b8ff; --tier-3: #c18cff; --tier-4: #f1c35e; width: 100%; max-width: 1180px; margin: 0 auto; }
+.store-center { --tier-0: #ef7dff; --tier-1: #83d7a3; --tier-2: #73b8ff; --tier-3: #c18cff; --tier-4: #f1c35e; width: 100%; max-width: 1180px; margin: 0 auto; }
 .store-hero { position: relative; min-height: 184px; display: grid; grid-template-columns: auto minmax(0, 1fr) minmax(190px, 300px); gap: 22px; align-items: center; overflow: hidden; padding: 28px 32px; border: 1px solid rgba(184, 135, 255, .2); border-radius: 20px; background: radial-gradient(circle at 85% 30%, rgba(168, 106, 255, .15), transparent 32%), linear-gradient(135deg, rgba(42, 31, 57, .94), rgba(21, 20, 26, .97)); box-shadow: 0 18px 55px rgba(0, 0, 0, .24), inset 0 1px 0 rgba(255, 255, 255, .06); }
 .merchant-aura { position: absolute; width: 330px; height: 330px; top: -210px; right: 3%; border: 1px solid rgba(216, 186, 255, .12); border-radius: 50%; box-shadow: 0 0 90px rgba(157, 96, 255, .13); }
 .hero-icon { position: relative; width: 74px; height: 74px; display: grid; place-items: center; color: #e0c8ff; border: 1px solid rgba(206, 169, 255, .34); border-radius: 21px; background: linear-gradient(145deg, rgba(197, 151, 255, .18), rgba(90, 55, 126, .12)); box-shadow: 0 0 32px rgba(168, 105, 255, .15); }
@@ -401,6 +393,7 @@ function clearFilters(): void {
 .adjusted-toggle input { accent-color: #b87cf4; }
 .character-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
 .character-card { --tier-color: var(--tier-1); position: relative; min-width: 0; overflow: hidden; border: 1px solid var(--glass-border); border-radius: 16px; background: linear-gradient(155deg, color-mix(in srgb, var(--tier-color) 4%, var(--bg-panel)), var(--bg-panel)); box-shadow: 0 10px 30px rgba(0, 0, 0, .15); }
+.character-card.tier-0 { --tier-color: var(--tier-0); }
 .character-card.tier-2 { --tier-color: var(--tier-2); }
 .character-card.tier-3 { --tier-color: var(--tier-3); }
 .character-card.tier-4 { --tier-color: var(--tier-4); }

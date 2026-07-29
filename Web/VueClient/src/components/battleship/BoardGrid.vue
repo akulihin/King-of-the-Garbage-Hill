@@ -3,7 +3,11 @@ import { computed } from 'vue'
 import type { BattleshipBoard, BattleshipShip } from 'src/services/signalr'
 import CellComponent from './CellComponent.vue'
 import { renderIcon } from './battleship-icons'
-import { occupiedCells } from './battleship-geometry'
+import {
+  bowDirectionForOrientation,
+  occupiedDeckCells,
+  type BattleshipBowDirection,
+} from './battleship-geometry'
 
 const props = withDefaults(
   defineProps<{
@@ -102,15 +106,14 @@ const shipEdgeMap = computed(() => {
   return map
 })
 
-type BowDirection = 'up' | 'left' | 'up-left' | 'up-right'
 const deckVisualMap = computed(() => {
-  const map = new Map<string, { symbols: string[]; bowDirection?: BowDirection }>()
+  const map = new Map<string, { symbols: string[]; bowDirection?: BattleshipBowDirection }>()
   for (const ship of props.ships ?? []) {
     if (!ship.isPlaced) continue
-    const shipCells = occupiedCells(ship)
+    const shipCells = occupiedDeckCells(ship)
     for (let i = 0; i < shipCells.length; i++) {
-      const { row, col } = shipCells[i]
-      const deck = ship.decks[i]
+      const { row, col, deckIndex } = shipCells[i]
+      const deck = ship.decks.find(value => value.index === deckIndex)
       const symbols: string[] = []
       if (deck?.module && !deck.moduleDestroyed) {
         const moduleKey: Record<string, string> = {
@@ -127,9 +130,10 @@ const deckVisualMap = computed(() => {
       map.set(`${row},${col}`, {
         symbols,
         bowDirection: i === 0
-          ? (ship.abilities.includes('diagonal_shape')
-              ? (ship.orientation === 'Vertical' ? 'up-right' : 'up-left')
-              : (ship.orientation === 'Vertical' ? 'up' : 'left'))
+          ? bowDirectionForOrientation(
+              ship.orientation,
+              ship.abilities.includes('diagonal_shape'),
+            )
           : undefined,
       })
     }
@@ -155,6 +159,7 @@ function getShipEdges(row: number, col: number) {
 
 function getShipName(row: number, col: number): string | undefined {
   const cell = getCell(row, col)
+  if (cell?.sunkShipName) return cell.sunkShipName
   if (!cell?.shipId) return undefined
   return props.shipNameMap?.get(cell.shipId)
 }

@@ -137,6 +137,8 @@ function makeSnapshot(
       hp: config.player.baseStats.maxHp,
       mentalHealth: config.player.baseStats.maxMentalHealth,
       stamina: config.player.baseStats.maxStamina,
+      staminaCostStacks: 0,
+      staminaCostMultiplier: 1,
       stats: { ...config.player.baseStats },
       invulnerableForMs: 0,
       staminaRefusedAtMs: null,
@@ -406,6 +408,44 @@ describe('99LC page vitals HUD', () => {
     expect(stamina.closest('.lc-vitals')?.classList.contains('is-physical')).toBe(true)
     expect(stamina.querySelector('i')?.getAttribute('style')).toContain('width: 37%')
     expect(stamina.classList.contains('is-refused')).toBe(false)
+  })
+
+  it('renders one room-strain icon per stamina-cost stack', async () => {
+    const config = cloneLastChancesConfig(defaultConfig)
+    const base = makeSnapshot(config)
+    mocks.snapshot = {
+      ...base,
+      player: {
+        ...base.player,
+        staminaCostStacks: 3,
+        staminaCostMultiplier: 1.3,
+      },
+    }
+    mocks.loadConfig.mockResolvedValue(config)
+    const { getByLabelText } = render(LastChances)
+
+    await waitFor(() => expect(mocks.constructorCount).toBe(1))
+    const indicator = getByLabelText('Room strain: +30%')
+    expect(indicator.querySelectorAll('svg')).toHaveLength(3)
+  })
+
+  it('shows the frozen Knife-spider parry as a non-button arena instruction', async () => {
+    const config = cloneLastChancesConfig(defaultConfig)
+    mocks.snapshot = makeSnapshot(config, {
+      knifeSpiderTutorial: {
+        phase: 'frozen',
+        timeScale: 0,
+        parryBinding: 'LMB / J / L1',
+      },
+    })
+    mocks.loadConfig.mockResolvedValue(config)
+    const { getByTestId, queryByRole } = render(LastChances)
+
+    await waitFor(() => expect(mocks.constructorCount).toBe(1))
+    const hint = getByTestId('knife-spider-tutorial')
+    expect(hint.getAttribute('role')).toBe('status')
+    expect(hint.textContent).toContain('Bat it away (LMB / J / L1)')
+    expect(queryByRole('button', { name: /Bat it away/ })).toBeNull()
   })
 
   it('blinks the stamina bar only just after an action was refused', async () => {

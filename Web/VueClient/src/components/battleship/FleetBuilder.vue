@@ -46,9 +46,6 @@ function createDefaultSlots(): FleetSlot[] {
 
 const slots = ref<FleetSlot[]>(createDefaultSlots())
 
-// Boiler weapon choice: 'GreekFire' or 'Brander'
-const boilerWeaponChoice = ref<'GreekFire' | 'Brander'>('GreekFire')
-
 const catalog = computed(() => store.shipCatalog)
 
 // Slots grouped by deck count
@@ -162,7 +159,14 @@ function upgradeDescription(upgrade: { name: string; description: string; cost: 
     : `${description} Цена: ${upgrade.cost} монет.`
 }
 
-const BOILER_UPGRADE_IDS = ['tetra_boiler_fire', 'tetra_boiler_brander']
+type BoilerChoice = 'GreekFire' | 'Brander' | 'EvilGreekFire'
+
+const BOILER_UPGRADE_BY_CHOICE: Record<BoilerChoice, string> = {
+  GreekFire: 'tetra_boiler_fire',
+  Brander: 'tetra_boiler_brander',
+  EvilGreekFire: 'tetra_boiler_evil_fire',
+}
+const BOILER_UPGRADE_IDS = Object.values(BOILER_UPGRADE_BY_CHOICE)
 
 function isBoilerUpgrade(upgradeId: string): boolean {
   return BOILER_UPGRADE_IDS.includes(upgradeId)
@@ -174,19 +178,26 @@ function hasBoilerUpgrade(globalIndex: number): boolean {
   return slot.upgrades.some(u => isBoilerUpgrade(u))
 }
 
-function setBoilerChoice(globalIndex: number, choice: 'GreekFire' | 'Brander') {
+function selectedBoilerChoice(globalIndex: number): BoilerChoice | null {
+  const slot = slots.value[globalIndex]
+  if (!slot) return null
+  const entry = Object.entries(BOILER_UPGRADE_BY_CHOICE)
+    .find(([, upgradeId]) => slot.upgrades.includes(upgradeId))
+  return entry ? entry[0] as BoilerChoice : null
+}
+
+function setBoilerChoice(globalIndex: number, choice: BoilerChoice) {
   const slot = slots.value[globalIndex]
   if (!slot) return
   if (!canSetBoilerChoice(globalIndex, choice)) return
-  boilerWeaponChoice.value = choice
   slot.upgrades = slot.upgrades.filter(u => !isBoilerUpgrade(u))
-  slot.upgrades.push(choice === 'GreekFire' ? 'tetra_boiler_fire' : 'tetra_boiler_brander')
+  slot.upgrades.push(BOILER_UPGRADE_BY_CHOICE[choice])
 }
 
-function canSetBoilerChoice(globalIndex: number, choice: 'GreekFire' | 'Brander'): boolean {
+function canSetBoilerChoice(globalIndex: number, choice: BoilerChoice): boolean {
   const slot = slots.value[globalIndex]
   if (!slot) return false
-  const targetId = choice === 'GreekFire' ? 'tetra_boiler_fire' : 'tetra_boiler_brander'
+  const targetId = BOILER_UPGRADE_BY_CHOICE[choice]
   if (slot.upgrades.includes(targetId)) return true
   const definition = getShipDef(slot.definitionId)
   const targetCost = definition?.availableUpgrades.find(u => u.id === targetId)?.cost ?? Number.POSITIVE_INFINITY
@@ -353,10 +364,20 @@ function catalogForDeck(dc: number) {
 
             <!-- Boiler weapon choice -->
             <div v-if="getShipDef(slot.definitionId)!.availableUpgrades.some(u => isBoilerUpgrade(u.id))" class="boiler-choice">
-              <span class="boiler-label bs-mono">Котельная ({{ getShipDef(slot.definitionId)!.availableUpgrades.find(u => isBoilerUpgrade(u.id))?.cost ?? 0 }}c):</span>
+              <span class="boiler-label bs-mono">Котельная:</span>
               <button class="upgrade-btn" :class="{ 'upgrade-inactive': hasBoilerUpgrade(globalIndex) }" @click="slot.upgrades = slot.upgrades.filter(u => !isBoilerUpgrade(u))" :disabled="!hasBoilerUpgrade(globalIndex)">Нет</button>
-              <button class="upgrade-btn" :class="[hasBoilerUpgrade(globalIndex) && boilerWeaponChoice === 'GreekFire' ? 'upgrade-active' : 'upgrade-inactive', !canSetBoilerChoice(globalIndex, 'GreekFire') ? 'upgrade-unavailable' : '']" :disabled="!canSetBoilerChoice(globalIndex, 'GreekFire')" @mouseenter="showTip($event, upgradeDescription(getShipDef(slot.definitionId)!.availableUpgrades.find(u => u.id === 'tetra_boiler_fire')!))" @mousemove="moveTip" @mouseleave="hideTip" @click="setBoilerChoice(globalIndex, 'GreekFire')">Греческий огонь</button>
-              <button class="upgrade-btn" :class="[hasBoilerUpgrade(globalIndex) && boilerWeaponChoice === 'Brander' ? 'upgrade-active' : 'upgrade-inactive', !canSetBoilerChoice(globalIndex, 'Brander') ? 'upgrade-unavailable' : '']" :disabled="!canSetBoilerChoice(globalIndex, 'Brander')" @mouseenter="showTip($event, upgradeDescription(getShipDef(slot.definitionId)!.availableUpgrades.find(u => u.id === 'tetra_boiler_brander')!))" @mousemove="moveTip" @mouseleave="hideTip" @click="setBoilerChoice(globalIndex, 'Brander')">Брандер</button>
+              <button class="upgrade-btn" :class="[selectedBoilerChoice(globalIndex) === 'GreekFire' ? 'upgrade-active' : 'upgrade-inactive', !canSetBoilerChoice(globalIndex, 'GreekFire') ? 'upgrade-unavailable' : '']" :disabled="!canSetBoilerChoice(globalIndex, 'GreekFire')" @mouseenter="showTip($event, upgradeDescription(getShipDef(slot.definitionId)!.availableUpgrades.find(u => u.id === 'tetra_boiler_fire')!))" @mousemove="moveTip" @mouseleave="hideTip" @click="setBoilerChoice(globalIndex, 'GreekFire')">Греческий огонь (4c)</button>
+              <button class="upgrade-btn" :class="[selectedBoilerChoice(globalIndex) === 'Brander' ? 'upgrade-active' : 'upgrade-inactive', !canSetBoilerChoice(globalIndex, 'Brander') ? 'upgrade-unavailable' : '']" :disabled="!canSetBoilerChoice(globalIndex, 'Brander')" @mouseenter="showTip($event, upgradeDescription(getShipDef(slot.definitionId)!.availableUpgrades.find(u => u.id === 'tetra_boiler_brander')!))" @mousemove="moveTip" @mouseleave="hideTip" @click="setBoilerChoice(globalIndex, 'Brander')">Брандер (4c)</button>
+              <button
+                v-if="getShipDef(slot.definitionId)!.availableUpgrades.some(u => u.id === 'tetra_boiler_evil_fire')"
+                class="upgrade-btn"
+                :class="[selectedBoilerChoice(globalIndex) === 'EvilGreekFire' ? 'upgrade-active' : 'upgrade-inactive', !canSetBoilerChoice(globalIndex, 'EvilGreekFire') ? 'upgrade-unavailable' : '']"
+                :disabled="!canSetBoilerChoice(globalIndex, 'EvilGreekFire')"
+                @mouseenter="showTip($event, upgradeDescription(getShipDef(slot.definitionId)!.availableUpgrades.find(u => u.id === 'tetra_boiler_evil_fire')!))"
+                @mousemove="moveTip"
+                @mouseleave="hideTip"
+                @click="setBoilerChoice(globalIndex, 'EvilGreekFire')"
+              >Злой Греческий огонь (6c)</button>
             </div>
           </div>
         </div>

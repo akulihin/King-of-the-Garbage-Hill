@@ -98,11 +98,6 @@ public class StoreReactions : IServiceSingleton
 
         embed.AddField("Персонаж:", $"{characterChance.CharacterName}", true);
         embed.AddField("Бонусный шанс:", $"{characterChance.GetEffectiveMultiplier()}", true);
-        if (characterChance.LootBoxBonusPercentagePoints > 0)
-            embed.AddField(
-                "Бонус из лутбоксов:",
-                $"+{characterChance.LootBoxBonusPercentagePoints}% (не возвращается)",
-                true);
         embed.AddField("ZBS Points:", $"{account.ZbsPoints}");
         embed.AddField("Стоимость", $"Уменьшить шанс на 1% - {cost} ZP\n" +
                                     $"Уменьшить шанс на 10% - {cost10} ZP\n\n" +

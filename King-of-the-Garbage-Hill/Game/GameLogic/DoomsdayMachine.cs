@@ -802,8 +802,6 @@ public class DoomsdayMachine : IServiceSingleton
                         game.Phrases.SirinoksBlockNoPhrase.SendLog(playerIamAttacking, false);
 
                     var logMess = " ⟶ *Бой не состоялся...*";
-                    if (game.PlayersList.Any(x => x.PlayerType == 1))
-                        logMess = " ⟶ *Бой не состоялся (Блок)...*";
                     game.AddGlobalLogs(logMess);
 
 
@@ -912,8 +910,6 @@ public class DoomsdayMachine : IServiceSingleton
                         Naruto.RewardHaremDonation(game, player, playerIamAttacking);
 
                     var logMess = " ⟶ *Бой не состоялся...*";
-                    if (game.PlayersList.Any(x => x.PlayerType == 1))
-                        logMess = " ⟶ *Бой не состоялся (Скип)...*";
                     game.AddGlobalLogs(logMess);
 
                     // Web fight entry for skip
@@ -2358,6 +2354,7 @@ public class DoomsdayMachine : IServiceSingleton
         _characterPassives.HandleNextRoundAfterSorting(game);
         Naruto.MoveDispersedClonesToBottom(game.PlayersList);
         Homelander.UpdateSevenPointsAvailability(game);
+        DoomGuy.RefreshInfernalEnergySources(game);
         if (game.RoundNo == 10)
         {
             var roundTenLast = game.PlayersList.Find(x => x.Status.GetPlaceAtLeaderBoard() == 6);

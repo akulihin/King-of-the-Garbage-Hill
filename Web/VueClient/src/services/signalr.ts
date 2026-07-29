@@ -40,6 +40,8 @@ export type GameState = {
   myPlayerId: string | null
   /** PlayerType: 0/1 = normal, 2 = admin, 404 = bot */
   myPlayerType: number
+  /** Match-scoped Pro rules, including a temporary PRO-tier character override. */
+  isProMode: boolean
   /** Whether this player has "Prefer Web" enabled (suppresses Discord messages) */
   preferWeb: boolean
   /** All character names for prediction dropdowns */
@@ -818,6 +820,8 @@ export type ForOneFightMod = {
 // ── Quest & Loot Box Types ──────────────────────────────────────────
 
 export type QuestState = {
+  gameplayMode: 'Casual' | 'Pro'
+  eloRating: number
   activeDate: string
   serverNow: string
   resetsAt: string
@@ -880,7 +884,6 @@ export type LootBoxResult = {
   characterName: string | null
   characterAvatar: string | null
   characterTier: number
-  rollWeightBonusPercentagePoints: number
   guaranteedForNextGame: boolean
   pendingGuaranteedCharacters: number
 }
@@ -890,7 +893,6 @@ export type LootBoxOdds = {
   chance: number
   minZbs: number
   maxZbs: number
-  rollWeightBonusPercentagePoints: number
   guaranteedCharacterMaxTier: number | null
 }
 
@@ -956,7 +958,6 @@ export type StoreCharacter = {
   avatar: string
   tier: number
   multiplier: number
-  lootBoxBonusPercentagePoints: number
   changes: number
   costOne: number
   costTen: number
@@ -1004,6 +1005,12 @@ export type ActionResult = {
 }
 
 // ── Battleship Types ──────────────────────────────────────────────
+
+export type BattleshipOrientation =
+  | 'Horizontal'
+  | 'Vertical'
+  | 'HorizontalReverse'
+  | 'VerticalReverse'
 
 export type BattleshipLobbyState = {
   games: BattleshipLobbyGame[]
@@ -1078,6 +1085,7 @@ export type BattleshipPlayerState = {
   hasPendingBoardingDeployment: boolean
   pendingManeuver: BattleshipPendingManeuver | null
   pendingCursedBoatDirection: BattleshipPendingCursedBoatDirection | null
+  pendingAssembly: BattleshipPendingAssembly | null
   shotDelayRemainingMs: number
   shotDelayDurationMs: number
   summonCooldownRemaining: number
@@ -1099,6 +1107,12 @@ export type BattleshipAvailableWeapon = {
   ammo: number
   deckIndex: number
   aimRemaining: number
+  shotType: string
+}
+
+export type BattleshipWeaponLoadout = {
+  weaponId: string
+  shotType: 'WhiteStone' | 'Buckshot'
 }
 
 export type BattleshipPendingSummon = {
@@ -1135,6 +1149,17 @@ export type BattleshipCursedBoatDirectionOption = {
   col: number
 }
 
+export type BattleshipPendingAssembly = {
+  groupId: string
+  options: BattleshipAssemblyOption[]
+}
+
+export type BattleshipAssemblyOption = {
+  row: number
+  col: number
+  orientation: BattleshipOrientation
+}
+
 export type BattleshipBoard = {
   cells: BattleshipCell[]
 }
@@ -1151,9 +1176,12 @@ export type BattleshipCell = {
   hasSummon: boolean
   summonOwnerId: string | null
   summonType: string | null
+  summonName?: string | null
+  isBoardingSummon?: boolean
   isScratched: boolean
   summonTrails?: string[]
   summonDeaths?: string[]
+  frozenSummonDeathIndices?: number[]
   isBurnResistMarked?: boolean
   isDodgeMarked?: boolean
   isManeuverDodgeMarked?: boolean
@@ -1163,6 +1191,7 @@ export type BattleshipCell = {
   isDevastated?: boolean
   isCaptured?: boolean
   isFirePermanent?: boolean
+  sunkShipName?: string | null
 }
 
 export type BattleshipShip = {
@@ -1172,7 +1201,7 @@ export type BattleshipShip = {
   deckCount: number
   row: number
   col: number
-  orientation: string
+  orientation: BattleshipOrientation
   isDestroyed: boolean
   isPlaced: boolean
   isSummon: boolean
@@ -1207,6 +1236,7 @@ export type BattleshipWeapon = {
   deckIndex: number
   hasAmmo: boolean
   aimSpeed: number
+  configuredShotType: string | null
 }
 
 export type BattleshipSummon = {
@@ -1220,6 +1250,7 @@ export type BattleshipSummon = {
   waitingForTurnBack: boolean
   waitingForDirectionChoice: boolean
   isBoardingShip: boolean
+  sourceShipName?: string | null
 }
 
 export type BattleshipFleetSelection = {
@@ -1392,7 +1423,8 @@ class SignalRService {
   onActionResult: ((result: ActionResult) => void) | null = null
   onGameEvent: ((event: GameEvent) => void) | null = null
   onError: ((error: string) => void) | null = null
-  onAuthenticated: ((data: { success: boolean; discordId: string; playerType: number; lastPlayedCharacter: string; isGodAdmin: boolean }) => void) | null = null
+  onAuthenticated: ((data: { success: boolean; discordId: string; playerType: number; lastPlayedCharacter: string; gameplayMode: 'Casual' | 'Pro'; eloRating: number; isGodAdmin: boolean }) => void) | null = null
+  onGameplayModeChanged: ((data: { gameplayMode: 'Casual' | 'Pro'; eloRating: number }) => void) | null = null
   onConnectionChanged: ((connected: boolean) => void) | null = null
   onWebAccountCreated: ((data: { discordId: string; username: string }) => void) | null = null
   onGameCreated: ((data: { gameId: number }) => void) | null = null
@@ -1496,9 +1528,13 @@ class SignalRService {
       this.onError?.(error)
     })
 
-    this.connection.on('Authenticated', (data: { success: boolean; discordId: string; playerType: number; lastPlayedCharacter: string; isGodAdmin: boolean }) => {
+    this.connection.on('Authenticated', (data: { success: boolean; discordId: string; playerType: number; lastPlayedCharacter: string; gameplayMode: 'Casual' | 'Pro'; eloRating: number; isGodAdmin: boolean }) => {
       this._isSessionReady = data.success
       this.onAuthenticated?.(data)
+    })
+
+    this.connection.on('GameplayModeChanged', (data: { gameplayMode: 'Casual' | 'Pro'; eloRating: number }) => {
+      this.onGameplayModeChanged?.(data)
     })
 
     this.connection.on('WebAccountCreated', (data: { discordId: string; username: string }) => {
@@ -1875,6 +1911,14 @@ class SignalRService {
     await this.connection?.invoke('CreateWebGame')
   }
 
+  async createRankedGame(): Promise<void> {
+    await this.connection?.invoke('CreateRankedGame')
+  }
+
+  async setGameplayMode(mode: 'Casual' | 'Pro'): Promise<void> {
+    await this.connection?.invoke('SetGameplayMode', mode)
+  }
+
   async joinWebGame(gameId: number): Promise<void> {
     await this.connection?.invoke('JoinWebGame', gameId)
   }
@@ -1977,7 +2021,7 @@ class SignalRService {
     await this.connection?.invoke('BattleshipSelectFleet', gameId, selections)
   }
 
-  async battleshipPlaceShip(gameId: string, shipId: string, row: number, col: number, orientation: string): Promise<void> {
+  async battleshipPlaceShip(gameId: string, shipId: string, row: number, col: number, orientation: BattleshipOrientation): Promise<void> {
     await this.connection?.invoke('BattleshipPlaceShip', gameId, shipId, row, col, orientation)
   }
 
@@ -1985,8 +2029,12 @@ class SignalRService {
     await this.connection?.invoke('BattleshipRemoveShip', gameId, shipId)
   }
 
-  async battleshipConfirmPlacement(gameId: string): Promise<void> {
-    await this.connection?.invoke('BattleshipConfirmPlacement', gameId)
+  async battleshipConfirmPlacement(gameId: string, loadouts: BattleshipWeaponLoadout[]): Promise<void> {
+    await this.connection?.invoke('BattleshipConfirmPlacement', gameId, loadouts)
+  }
+
+  async battleshipCancelPlacement(gameId: string): Promise<void> {
+    await this.connection?.invoke('BattleshipCancelPlacement', gameId)
   }
 
   async battleshipShoot(gameId: string, row: number, col: number): Promise<void> {
@@ -2019,6 +2067,16 @@ class SignalRService {
 
   async battleshipSetCursedBoatDirection(gameId: string, summonId: string, direction: string): Promise<void> {
     await this.connection?.invoke('BattleshipSetCursedBoatDirection', gameId, summonId, direction)
+  }
+
+  async battleshipAssembleShip(
+    gameId: string,
+    groupId: string,
+    row: number,
+    col: number,
+    orientation: BattleshipOrientation,
+  ): Promise<void> {
+    await this.connection?.invoke('BattleshipAssembleShip', gameId, groupId, row, col, orientation)
   }
 
   async battleshipForfeit(gameId: string): Promise<void> {

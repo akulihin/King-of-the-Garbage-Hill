@@ -32,6 +32,7 @@ const props = withDefaults(defineProps<{
   myPlayerId?: string
   predictions?: Prediction[]
   isAdmin?: boolean
+  proMode?: boolean
   terminalMode?: boolean
   showDetailedFactors?: boolean
   characterCatalog?: CharacterInfo[]
@@ -49,6 +50,7 @@ const props = withDefaults(defineProps<{
   myPlayerId: '',
   predictions: () => [],
   isAdmin: false,
+  proMode: false,
   terminalMode: false,
   showDetailedFactors: false,
   characterCatalog: () => [],
@@ -82,7 +84,7 @@ const emit = defineEmits<{
 }>()
 
 /** Active tab: 'fights' = replay, 'all' = compact results list, 'letopis' = full text log, 'story' = AI story */
-const activeTab = ref<'fights' | 'all' | 'letopis' | 'story'>('fights')
+const activeTab = ref<'fights' | 'all' | 'letopis' | 'story'>(props.proMode ? 'all' : 'fights')
 /** Tracks whether user manually switched tabs this round (prevents auto-transition) */
 const userSwitchedTab = ref(false)
 /** True when new fights arrived while user was on a non-fights tab */
@@ -93,6 +95,7 @@ const showStoryPopup = ref(false)
 const storyPopupShown = ref(false)
 
 function setTab(tab: 'fights' | 'all' | 'letopis' | 'story') {
+  if (props.proMode && (tab === 'fights' || tab === 'letopis')) return
   activeTab.value = tab
   userSwitchedTab.value = true
   if (tab === 'fights') hasUnseenFights.value = false
@@ -104,7 +107,7 @@ watch([() => props.rewriteHistoryLastChance, () => props.roundKey], ([isLastChan
   if (!isLastChance || !rewriteKey || lastAutoOpenedRewriteKey.value === rewriteKey) return
 
   lastAutoOpenedRewriteKey.value = rewriteKey
-  activeTab.value = 'letopis'
+  activeTab.value = props.proMode ? 'all' : 'letopis'
   userSwitchedTab.value = true
 }, { immediate: true })
 
@@ -191,6 +194,7 @@ function isReplayFight(f: FightEntry): boolean {
 
 /** Find the index of a fight from the full list within myFights and jump to its replay */
 function jumpToFightReplay(f: FightEntry) {
+  if (props.proMode) return
   if (!isReplayFight(f) || isInjectedFight(f)) return
   const idx = myFights.value.indexOf(f)
   if (idx === -1) return
@@ -718,7 +722,14 @@ watch([myFights, () => props.roundKey, perspectiveUsername], () => {
     hasUnseenFights.value = true
   }
   userSwitchedTab.value = false
-  activeTab.value = 'fights'
+  activeTab.value = props.proMode ? 'all' : 'fights'
+  if (props.proMode) {
+    clearTimer()
+    clearR3Timers()
+    isPlaying.value = false
+    nextTick(() => emit('replay-ended'))
+    return
+  }
   fightSoundPool.reset()
   geraltFightPool.reset()
   folkPercussionPool.rollForFight()
@@ -1332,7 +1343,7 @@ const r3WeWon = computed(() => {
 
 /** All-fights row: loser on left, winner on right */
 function allFightLeft(f: FightEntry) {
-  if (f.outcome === 'block' || f.outcome === 'skip') {
+  if (f.outcome === 'block' || f.outcome === 'skip' || f.outcome === 'unknown') {
     return { name: f.defenderName, avatar: f.defenderAvatar, isWinner: false }
   }
   const loserIsAttacker = f.winnerName !== f.attackerName
@@ -1343,7 +1354,7 @@ function allFightLeft(f: FightEntry) {
   }
 }
 function allFightRight(f: FightEntry) {
-  if (f.outcome === 'block' || f.outcome === 'skip') {
+  if (f.outcome === 'block' || f.outcome === 'skip' || f.outcome === 'unknown') {
     return { name: f.attackerName, avatar: f.attackerAvatar, isWinner: false }
   }
   const winnerIsAttacker = f.winnerName === f.attackerName
@@ -1356,6 +1367,7 @@ function allFightRight(f: FightEntry) {
 function allFightCenterLabel(f: FightEntry): string {
   if (f.outcome === 'block') return 'БЛОК'
   if (f.outcome === 'skip') return 'СКИП'
+  if (f.outcome === 'unknown') return '?'
   if (f.drops > 0) return 'DROP'
   return '→'
 }
@@ -1403,8 +1415,8 @@ function fightRowKey(f: FightEntry, index: number): string {
 
 const sortedFights = computed<DisplayFight[]>(() => {
   const regular = [...props.fights].sort((a, b) => {
-    const aN = a.outcome === 'block' || a.outcome === 'skip'
-    const bN = b.outcome === 'block' || b.outcome === 'skip'
+    const aN = a.outcome === 'block' || a.outcome === 'skip' || a.outcome === 'unknown'
+    const bN = b.outcome === 'block' || b.outcome === 'skip' || b.outcome === 'unknown'
     if (aN !== bN) return aN ? 1 : -1
     return (a.winnerName ?? '').localeCompare(b.winnerName ?? '')
   })
@@ -1415,7 +1427,7 @@ const perfectRoundPlayers = computed(() => {
   const wins = new Set<string>()
   const losses = new Set<string>()
   for (const f of props.fights) {
-    if (f.outcome === 'block' || f.outcome === 'skip' || !f.winnerName) continue
+    if (f.outcome === 'block' || f.outcome === 'skip' || f.outcome === 'unknown' || !f.winnerName) continue
     wins.add(f.winnerName)
     losses.add(f.winnerName === f.attackerName ? f.defenderName : f.attackerName)
   }
@@ -1487,9 +1499,9 @@ function getDisplayCharName(orig: string, u: string): string {
 
     <!-- Tab header -->
     <div class="fa-tab-header">
-      <button class="fa-tab" :class="{ active: activeTab === 'fights' }" data-sfx-fight-tab="true" @click="setTab('fights')">Бои раунда<span v-if="hasUnseenFights && activeTab !== 'fights'" class="fa-tab-dot"></span></button>
-      <button class="fa-tab" :class="{ active: activeTab === 'all' }" data-sfx-fight-tab="true" @click="setTab('all')">Все бои</button>
-      <button class="fa-tab" :class="{ active: activeTab === 'letopis' }" data-sfx-fight-tab="true" @click="setTab('letopis')">Летопись</button>
+      <button v-if="!proMode" class="fa-tab" :class="{ active: activeTab === 'fights' }" data-sfx-fight-tab="true" @click="setTab('fights')">Мои сражения<span v-if="hasUnseenFights && activeTab !== 'fights'" class="fa-tab-dot"></span></button>
+      <button class="fa-tab" :class="{ active: activeTab === 'all' }" data-sfx-fight-tab="true" @click="setTab('all')">Итоги</button>
+      <button v-if="!proMode" class="fa-tab" :class="{ active: activeTab === 'letopis' }" data-sfx-fight-tab="true" @click="setTab('letopis')">Летопись</button>
       <button v-if="gameStory" class="fa-tab fa-tab-story" :class="{ active: activeTab === 'story' }" data-sfx-fight-tab="true" @click="setTab('story')">История</button>
     </div>
 
@@ -1527,10 +1539,31 @@ function getDisplayCharName(orig: string, u: string): string {
 
     <!-- All Fights (compact results list) -->
     <div v-else-if="activeTab === 'all'" class="fa-all-fights">
+      <div
+        v-if="proMode && rewriteHistoryRounds.length"
+        class="fa-rewrite-history"
+        :class="{ 'is-last-chance': rewriteHistoryLastChance }"
+      >
+        <div v-for="roundNumber in rewriteHistoryRounds" :key="roundNumber" class="fa-rewrite-row">
+          <span class="fa-rewrite-round">{{ chronicleText(`Round #${roundNumber}`, `Раунд #${roundNumber}`) }}</span>
+          <button
+            type="button"
+            class="fa-rewrite-button"
+            :class="{ 'is-last-chance': rewriteHistoryLastChance }"
+            data-sfx-utility="true"
+            :disabled="rewriteHistoryPendingRound !== null"
+            @click="emit('rewrite-history', roundNumber)"
+          >
+            {{ rewriteHistoryPendingRound === roundNumber
+              ? chronicleText('REWRITING…', 'ПЕРЕПИСЫВАЕМ…')
+              : chronicleText('REWRITE HISTORY', 'ПЕРЕПИСАТЬ ИСТОРИЮ') }}
+          </button>
+        </div>
+      </div>
       <div v-if="!sortedFights.length" class="fa-empty">Бои еще не начались</div>
       <div v-else class="fa-all-list">
         <div v-for="(f, idx) in sortedFights" :key="fightRowKey(f, idx)"
-          class="fa-all-row" :class="{ 'my-attack': isMyAttack(f), 'clickable': isReplayFight(f) && !isInjectedFight(f), 'is-injected': isInjectedFight(f), 'is-shadow-action': f.shadowAction }"
+          class="fa-all-row" :class="{ 'my-attack': isMyAttack(f), 'clickable': !proMode && isReplayFight(f) && !isInjectedFight(f), 'is-injected': isInjectedFight(f), 'is-shadow-action': f.shadowAction }"
           @click="jumpToFightReplay(f)">
           <!-- Left name (loser / defender for block-skip) -->
           <span class="fa-all-name fa-all-name-left" :class="{ 'name-winner': allFightLeft(f).isWinner }" :title="allFightLeft(f).name">
@@ -1542,9 +1575,9 @@ function getDisplayCharName(orig: string, u: string): string {
               class="fa-all-ava" :class="{ 'ava-winner': allFightLeft(f).isWinner, 'ava-perfect': allFightLeft(f).isWinner && perfectRoundPlayers.has(allFightLeft(f).name) }"
               @error="(event: Event) => handleAvatarError(event, allFightLeft(f).name)">
             <span class="fa-all-center" :class="{
-              'center-neutral': f.outcome === 'block' || f.outcome === 'skip',
-              'center-drop': f.drops > 0 && f.outcome !== 'block' && f.outcome !== 'skip',
-              'center-arrow': f.outcome !== 'block' && f.outcome !== 'skip' && f.drops === 0
+              'center-neutral': f.outcome === 'block' || f.outcome === 'skip' || f.outcome === 'unknown',
+              'center-drop': f.drops > 0 && f.outcome !== 'block' && f.outcome !== 'skip' && f.outcome !== 'unknown',
+              'center-arrow': f.outcome !== 'block' && f.outcome !== 'skip' && f.outcome !== 'unknown' && f.drops === 0
             }">{{ allFightCenterLabel(f) }}</span>
             <img :src="getDisplayAvatar(allFightRight(f).avatar, allFightRight(f).name)"
               class="fa-all-ava" :class="{ 'ava-winner': allFightRight(f).isWinner, 'ava-perfect': allFightRight(f).isWinner && perfectRoundPlayers.has(allFightRight(f).name) }"
@@ -1565,7 +1598,7 @@ function getDisplayCharName(orig: string, u: string): string {
           <span v-if="f.shadowAction" class="fa-shadow-badge">ТЕНЬ</span>
           <span v-if="isInjectedFight(f)" class="fa-injected-badge">INJECTED</span>
           <!-- Play button for own fights -->
-          <span v-if="isReplayFight(f) && !isInjectedFight(f)" class="fa-all-play" title="Смотреть бой">▶</span>
+          <span v-if="!proMode && isReplayFight(f) && !isInjectedFight(f)" class="fa-all-play" title="Смотреть бой">▶</span>
         </div>
       </div>
     </div>

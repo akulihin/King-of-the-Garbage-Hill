@@ -33,6 +33,7 @@ public static class JonSnow
         public string WatchDeathSource { get; set; } = "";
         public int WatchDeathRound { get; set; }
         public int LoyaltyVictories { get; set; }
+        public int PreviousTableSide { get; set; }
     }
 
     public static bool Is(CharacterClass character) =>
@@ -429,6 +430,7 @@ public static class JonSnow
 
         var state = jon.Passives.JonSnow;
         var place = jon.Status.GetPlaceAtLeaderBoard();
+        LogTableSideTransition(game, jon, place);
 
         if (state.BlackCastleActive && place != BlackCastlePlace)
         {
@@ -454,6 +456,35 @@ public static class JonSnow
         RefreshWeakestPlayers(game.PlayersList);
     }
 
+    private static void LogTableSideTransition(
+        GameClass game,
+        GamePlayerBridgeClass jon,
+        int place)
+    {
+        var state = jon.Passives.JonSnow;
+        var tableSide = place is >= 1 and <= 3
+            ? 1
+            : place is >= 5 and <= 6
+                ? -1
+                : 0;
+
+        if (tableSide != 0
+            && tableSide != state.PreviousTableSide
+            && !jon.Passives.IsDead
+            && HasPassive(jon, BlackCastle))
+        {
+            if (state.WatchEnded)
+                LogAfterWatch(jon, positive: true);
+            else if (tableSide < 0)
+                game.Phrases.JonSnowLowerSide.SendLog(
+                    jon, false, isRandomOrder: false);
+            else
+                game.Phrases.JonSnowUpperSide.SendLog(
+                    jon, false, isRandomOrder: false);
+        }
+        state.PreviousTableSide = tableSide;
+    }
+
     public static void FinalizeInitialPositions(
         List<GamePlayerBridgeClass> players)
     {
@@ -467,6 +498,7 @@ public static class JonSnow
             var state = jon.Passives.JonSnow;
             state.BlackCastleActive = true;
             state.BlackCastleReleaseAfterRound = BlackCastleTurns;
+            state.PreviousTableSide = 0;
             LogEffect(
                 jon,
                 positive: false,
@@ -481,8 +513,14 @@ public static class JonSnow
     public static void HandleFinalPosition(GameClass game)
     {
         var jon = Find(game?.PlayersList);
-        if (jon == null
-            || jon.Passives.IsDead
+        if (jon == null) return;
+
+        LogTableSideTransition(
+            game,
+            jon,
+            jon.Status.GetPlaceAtLeaderBoard());
+
+        if (jon.Passives.IsDead
             || !jon.Passives.JonSnow.BlackCastleActive
             || jon.Status.GetPlaceAtLeaderBoard() != BlackCastlePlace)
             return;

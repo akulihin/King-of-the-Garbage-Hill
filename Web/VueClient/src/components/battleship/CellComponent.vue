@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { BattleshipCell } from 'src/services/signalr'
+import type { BattleshipBowDirection } from './battleship-geometry'
 import { renderIcon } from './battleship-icons'
 
 const props = defineProps<{
@@ -21,7 +22,7 @@ const props = defineProps<{
   summonTrails?: string[]
   rangeOverlay?: string
   deckSymbols?: string[]
-  bowDirection?: 'up' | 'left' | 'up-left' | 'up-right'
+  bowDirection?: BattleshipBowDirection
   maneuverActive?: boolean
   maneuverShipCell?: boolean
   maneuverTarget?: boolean
@@ -39,15 +40,15 @@ const cellClass = computed(() => {
   const classes = ['cell']
 
   // Priority order per spec section 11
-  if (props.cell.isDevastated) classes.push('cell-devastated')
+  if (props.cell.isBurnResistMarked) classes.push('cell-burn-resist')
+  else if (props.cell.isScratched) classes.push('cell-scratched')
+  else if (props.cell.isDevastated) classes.push('cell-devastated')
   else if (props.cell.isShipSunk) classes.push('cell-ship-sunk')
   else if (props.cell.isDestroyed) classes.push('cell-destroyed')
   else if (props.cell.isFirePermanent) classes.push('cell-fire-permanent')
   else if (props.cell.isBurning) classes.push('cell-burning')
   else if (props.cell.isFrozen) classes.push('cell-frozen')
-  else if (props.cell.isBurnResistMarked) classes.push('cell-burn-resist')
   else if (props.cell.isManeuverDodgeMarked) classes.push('cell-maneuver-dodge')
-  else if (props.cell.isScratched) classes.push('cell-scratched')
   else if (props.cell.isHit && props.cell.hasShip) classes.push('cell-hit')
   else if (props.cell.isHit) classes.push('cell-hit-empty')
   else if (props.cell.isCaptured) classes.push('cell-captured')
@@ -113,6 +114,7 @@ const cellIconHtml = computed(() => {
   if (!props.cell) return ''
   // ТЗ #17: the creature icon always wins — the cell status shows through the background
   if (props.cell.hasSummon) {
+    if (props.cell.isBoardingSummon) return renderIcon('ship1', 14)
     switch (props.cell.summonType) {
       case 'Ram': return renderIcon('ram', 14)
       case 'Scout': return renderIcon('scout', 14)
@@ -122,13 +124,14 @@ const cellIconHtml = computed(() => {
       default: return renderIcon('anchor', 14)
     }
   }
+  if (props.cell.isBurnResistMarked) return renderIcon('scratched', 14)
+  if (props.cell.isScratched) return renderIcon('scratched', 14)
   if (props.cell.isDevastated) return renderIcon('devastated', 16)
   if (props.cell.isShipSunk) return renderIcon('destroyed', 16)
   if (props.cell.isDestroyed) return renderIcon('destroyed', 16)
   if (props.cell.isFirePermanent) return renderIcon('firePermanent', 14)
   if (props.cell.isBurning) return renderIcon('burning', 14)
   if (props.cell.isFrozen) return renderIcon('frozen', 14)
-  if (props.cell.isScratched) return renderIcon('scratched', 14)
   if (props.cell.isHit && props.cell.hasShip) return renderIcon('hit', 14)
   if (props.cell.isCaptured) return renderIcon('captured', 14)
   if (props.cell.isMiss) return renderIcon('miss', 10)
@@ -156,14 +159,16 @@ const deckSymbolNames: Record<string, string> = {
 const deckSymbolHtml = computed(() => (props.deckSymbols ?? [])
   .map(symbol => ({ symbol, html: renderIcon(symbol, 10) })))
 const bowHtml = computed(() => props.bowDirection ? renderIcon('bow', 10) : '')
-const summonDeathHtml = computed(() => (props.cell?.summonDeaths ?? []).map(type => ({
+const summonDeathHtml = computed(() => (props.cell?.summonDeaths ?? []).map((type, index) => ({
   type,
+  frozen: props.cell?.frozenSummonDeathIndices?.includes(index) ?? false,
   html: renderIcon(type === 'CursedBoat'
     ? 'cursedBoat'
     : type === 'PirateBoat'
       ? 'pirateBoat'
       : type.toLowerCase(), 9),
 })))
+const frozenDeathBadgeHtml = renderIcon('frozen', 7)
 
 defineEmits<{
   (e: 'tipShow', ev: MouseEvent, text: string): void
@@ -175,24 +180,28 @@ const cellTooltip = computed(() => {
   if (!props.cell) return ''
   const coord = ` (${colLabels[props.cell.col] ?? props.cell.col}${props.cell.row + 1})`
   const ship = props.shipName ? ` — ${props.shipName}` : ''
+  const sunkShip = props.cell.sunkShipName ?? props.shipName
+  const sunkShipSuffix = sunkShip ? ` - ${sunkShip}` : ''
 
   let base = ''
   if (props.cell.hasSummon) {
-    base = (props.cell.summonType && summonNames[props.cell.summonType]) ?? 'Призыв'
+    base = props.cell.summonName
+      ?? (props.cell.summonType && summonNames[props.cell.summonType])
+      ?? 'Призыв'
     // ТЗ #1: enemy creature in the penalty zone (rows 1-3 of the own board)
     if (!props.isEnemy && props.cell.row <= 2) {
       base = `Штраф за убийство суммона в этой зоне (кроме убийства сразу после появления) | ${base}`
     }
   }
-  else if (props.cell.isShipSunk) base = `Корабль полностью потоплен${ship}`
+  else if (props.cell.isBurnResistMarked) base = `Корабль устоял против огня`
+  else if (props.cell.isScratched) base = `Поцарапано`
+  else if (props.cell.isShipSunk) base = `Корабль полностью потоплен${sunkShipSuffix}`
   else if (props.cell.isDestroyed) base = `Палуба уничтожена${ship}`
   else if (props.cell.isDevastated) base = `Опустошено`
   else if (props.cell.isBurning || props.cell.isFirePermanent) base = `Горит${ship}`
-  else if (props.cell.isBurnResistMarked) base = `Огнеупорный корабль — устоял против огня${ship}`
   else if (props.cell.isFrozen) base = `Заморожено`
   else if (props.cell.isCaptured) base = `Захвачено`
   else if (props.cell.isManeuverDodgeMarked) base = `Лёгкая тройка увернулась — прежняя клетка`
-  else if (props.cell.isScratched) base = `Поцарапано — можно стрелять повторно`
   else if (props.cell.isHit && props.cell.hasShip) base = `Попадание${ship}`
   else if (props.cell.isDodgeMarked) base = `Юркая единичка увернулась — баллиста бессильна`
   else if (props.cell.isMiss) base = `Промах`
@@ -202,22 +211,24 @@ const cellTooltip = computed(() => {
 
   const extras: string[] = []
   const addState = (active: boolean, label: string) => {
-    if (active && base !== label && !extras.includes(label)) extras.push(label)
+    if (active && !base.startsWith(label) && !extras.includes(label)) extras.push(label)
   }
   addState(props.cell.isShipSunk ?? false, 'Корабль полностью потоплен')
   addState((props.cell.isDestroyed ?? false) && !props.cell.isShipSunk, 'Палуба уничтожена')
   addState(props.cell.isDevastated, 'Опустошено')
   addState(props.cell.isFirePermanent || props.cell.isBurning, 'Горит')
   addState(props.cell.isFrozen, 'Заморожено')
-  addState(props.cell.isBurnResistMarked, 'Огнеупорность')
+  addState(props.cell.isBurnResistMarked, 'Корабль устоял против огня')
   addState(props.cell.isScratched, 'Поцарапано')
   addState(props.cell.isCaptured, 'Захвачено')
   addState(props.cell.isDodgeMarked, 'Уклонение')
   addState(props.cell.isManeuverDodgeMarked, 'Манёвренное уклонение')
   for (const type of props.summonTrails ?? [])
     extras.push(`След: ${summonNames[type] ?? type}`)
-  for (const type of props.cell.summonDeaths ?? [])
-    extras.push(`Погиб: ${summonNames[type] ?? type}`)
+  for (const [index, type] of (props.cell.summonDeaths ?? []).entries()) {
+    const frozen = props.cell.frozenSummonDeathIndices?.includes(index) ?? false
+    extras.push(`${frozen ? 'Заморожен' : 'Погиб'}: ${summonNames[type] ?? type}`)
+  }
   if (props.lastShot) extras.push('Последний выстрел')
   if (props.marked) extras.push('Метка')
   if (props.bowDirection) extras.push('Нос корабля')
@@ -246,9 +257,18 @@ const cellTooltip = computed(() => {
         v-for="(death, deathIndex) in summonDeathHtml"
         :key="`${death.type}-${deathIndex}`"
         class="summon-death"
-        :class="'summon-death--' + death.type.toLowerCase()"
-        v-html="death.html"
-      ></span>
+        :class="[
+          'summon-death--' + death.type.toLowerCase(),
+          { 'summon-death--frozen': death.frozen },
+        ]"
+      >
+        <span class="summon-death-icon" v-html="death.html"></span>
+        <span
+          v-if="death.frozen"
+          class="summon-death-freeze-badge"
+          v-html="frozenDeathBadgeHtml"
+        ></span>
+      </span>
     </span>
   </div>
 </template>
@@ -351,7 +371,7 @@ const cellTooltip = computed(() => {
   color: var(--bs-poison, var(--accent-green));
 }
 
-/* Light Wood Triple auto-maneuver: persistent pink origin marker. */
+/* Light Wood Triple auto-maneuver: server-projected latest origin for that ship. */
 .cell-maneuver-dodge {
   background: color-mix(in srgb, #ec4899 32%, var(--bg-primary));
   box-shadow: inset 0 0 0 2px color-mix(in srgb, #f472b6 72%, transparent);
@@ -381,11 +401,13 @@ const cellTooltip = computed(() => {
   color: color-mix(in srgb, var(--bs-freeze, var(--accent-blue)) 75%, white);
   box-shadow: inset 0 0 6px color-mix(in srgb, var(--bs-freeze, var(--accent-blue)) 35%, transparent);
 }
-/* BurnResist ship survived fire/explosion — dark green */
+/* BurnResist survived fire/explosion — black for both players, ahead of red hit states. */
 .cell-burn-resist {
-  background: color-mix(in srgb, var(--bs-poison, var(--accent-green)) 28%, var(--bg-primary));
-  color: color-mix(in srgb, var(--bs-poison, var(--accent-green)) 75%, white);
-  box-shadow: inset 0 0 6px color-mix(in srgb, var(--bs-poison, var(--accent-green)) 35%, transparent);
+  background: #020204 !important;
+  color: #e2e8f0;
+  box-shadow:
+    inset 0 0 0 2px rgba(15, 23, 42, 0.95),
+    inset 0 0 9px rgba(0, 0, 0, 0.98);
 }
 .cell-devastated {
   background: color-mix(in srgb, #02040a 92%, var(--accent-blue));
@@ -519,8 +541,12 @@ const cellTooltip = computed(() => {
   pointer-events: none;
 }
 .deck-bow--left { transform: rotate(-90deg); }
+.deck-bow--right { transform: rotate(90deg); }
+.deck-bow--down { transform: rotate(180deg); }
 .deck-bow--up-left { transform: rotate(-45deg); }
 .deck-bow--up-right { transform: rotate(45deg); }
+.deck-bow--down-right { transform: rotate(135deg); }
+.deck-bow--down-left { transform: rotate(-135deg); }
 .deck-symbols {
   position: absolute;
   right: 1px;
@@ -580,6 +606,34 @@ const cellTooltip = computed(() => {
   font-size: 9px;
   font-weight: 900;
   text-shadow: 0 0 2px #000;
+}
+.summon-death--frozen {
+  color: #bae6fd;
+  border-color: #7dd3fc;
+  background: rgba(7, 45, 74, 0.94);
+  box-shadow: 0 0 5px rgba(125, 211, 252, 0.9);
+  filter: none;
+}
+.summon-death-icon {
+  width: 9px;
+  height: 9px;
+  display: inline-flex;
+}
+.summon-death-freeze-badge {
+  position: absolute;
+  right: -4px;
+  top: -5px;
+  width: 8px;
+  height: 8px;
+  display: inline-flex;
+  color: #e0f2fe;
+  filter: drop-shadow(0 0 2px #0284c7);
+  z-index: 2;
+}
+.summon-death-icon :deep(svg),
+.summon-death-freeze-badge :deep(svg) {
+  width: 100%;
+  height: 100%;
 }
 
 /* -- Shot impact animations --------------------------------------- */

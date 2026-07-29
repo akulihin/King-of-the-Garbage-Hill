@@ -476,6 +476,8 @@ public class CharactersUniquePhrase
     public PhraseClass JonSnowDefeat;
     public PhraseClass JonSnowServerKing;
     public PhraseClass JonSnowCastleEnter;
+    public PhraseClass JonSnowLowerSide;
+    public PhraseClass JonSnowUpperSide;
     public PhraseClass JonSnowFinalCastleLow;
     public PhraseClass JonSnowFinalCastleHigh;
 
@@ -1054,15 +1056,16 @@ public class CharactersUniquePhrase
 
 
         SirinoksFriendsPhrase.PassiveLogRus.Add("Го в пати");
-        //SirinoksFriendsPhrase.PassiveLogRus.Add("М/Ж?");
+        SirinoksFriendsPhrase.PassiveLogRus.Add("М/Ж?");
         SirinoksFriendsPhrase.PassiveLogRus.Add("Я проиграл");
         SirinoksFriendsPhrase.PassiveLogRus.Add("Пепега");
         SirinoksFriendsPhrase.PassiveLogRus.Add("Invite");
+        SirinoksFriendsPhrase.PassiveLogRus.Add("Ты буль?");
 
 
         SirinoksDragonPhrase.PassiveLogRus.Add("ROAR!");
         SirinoksDragonPhrase.PassiveLogRus.Add("А НУ, МОРДА. ROAR");
-        //SirinoksDragonPhrase.PassiveLogRus.Add("НИКАКОГО NSFW НА СТРИМЕ! ROAR");
+        SirinoksDragonPhrase.PassiveLogRus.Add("НИКАКОГО NSFW НА СТРИМЕ! ROAR");
         SirinoksDragonPhrase.PassiveLogRus.Add("ГДЕ БЛЯТЬ ГЛЕБ!?!?! ROAR");
         SirinoksDragonPhrase.PassiveLogRus.Add("ОПЯТЬ ЛИСТ ХУЙНЮ ГОВОРИТ! ROAR");
         SirinoksDragonPhrase.PassiveLogRus.Add("ЛОРИК НИЧЕГО НЕ ПОНИМАЕТ! ROAR");
@@ -1836,6 +1839,12 @@ public class CharactersUniquePhrase
 
         JonSnowCastleEnter = new PhraseClass(JonSnow.BlackCastle);
         JonSnowCastleEnter.PassiveLogRus.Add("Помогите! Я застрял!");
+
+        JonSnowLowerSide = new PhraseClass(JonSnow.BlackCastle);
+        JonSnowLowerSide.PassiveLogRus.Add("Вперед дикари! Я всегда был за вас!");
+
+        JonSnowUpperSide = new PhraseClass(JonSnow.BlackCastle);
+        JonSnowUpperSide.PassiveLogRus.Add("Ура! Я среди королей!");
 
         JonSnowFinalCastleLow = new PhraseClass(JonSnow.BlackCastle);
         JonSnowFinalCastleLow.PassiveLogRus.Add("Выпустите меня!!! Я хочу быть королем!");

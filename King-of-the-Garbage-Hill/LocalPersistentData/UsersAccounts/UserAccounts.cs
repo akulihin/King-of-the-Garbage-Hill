@@ -165,7 +165,6 @@ public sealed class UserAccounts : IServiceSingleton
                 if (secretChances.Count > 1
                     || mergedChance.CharacterName != UnknownBug.CharacterName
                     || mergedChance.Multiplier != 1.0
-                    || mergedChance.LootBoxBonusPercentagePoints != 0
                     || mergedChance.Changes != 0)
                     changed = true;
 
@@ -173,7 +172,6 @@ public sealed class UserAccounts : IServiceSingleton
                     UnknownBug.Is(chance.CharacterName) && !ReferenceEquals(chance, mergedChance));
                 mergedChance.CharacterName = UnknownBug.CharacterName;
                 mergedChance.Multiplier = 1.0;
-                mergedChance.LootBoxBonusPercentagePoints = 0;
                 mergedChance.Changes = 0;
             }
         }

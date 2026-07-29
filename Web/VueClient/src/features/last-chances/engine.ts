@@ -106,6 +106,7 @@ import type {
   LastChancesResolvedWeapon,
   LastChancesSnapshot,
   LastChancesSemanticControlCue,
+  LastChancesStatErosion,
   LastChancesStats,
   LastChancesTactileProfile,
   LastChancesTurretDefinition,
@@ -288,6 +289,7 @@ interface RuntimeBossCheckpoint {
   attemptPath: string[]
   loadout: LastChancesLoadoutDefinition | null
   moveQuests: Record<LastChancesHand, HandMoveQuestState>
+  staminaCostStacks: number
 }
 
 interface HandMoveQuestState {
@@ -394,8 +396,19 @@ interface RuntimeDash {
    * «Прорыв» only. A breakthrough is *held*, not charged: it is time-budgeted instead of
    * distance-budgeted, steers with the cursor, ramps its speed and coasts to a stop when the
    * button comes up. Every other dash leaves this undefined and keeps the constant-speed path.
-   */
+  */
   ram?: RuntimeBreakthrough
+  /** Five authored phases of the spear-v2 Olympic pole vault. */
+  poleVault?: RuntimePoleVault
+}
+
+interface RuntimePoleVault {
+  runMs: number
+  plantMs: number
+  riseMs: number
+  flightMs: number
+  landMs: number
+  runDistanceRatio: number
 }
 
 interface RuntimeBreakthrough {
@@ -435,6 +448,10 @@ interface RuntimeActiveArea {
   matchingAimMotionPx: number
   /** Current nonlinear direction-assisted damage bonus. */
   motionDamageBonus: number
+  /** Stance channels pay recurring stamina without touching the global combo clock. */
+  channelStaminaAccumulatorMs: number
+  /** Current tip speed created by turning the held spear, in world units per second. */
+  stanceCutSpeed: number
 }
 
 interface RuntimeEffect {
@@ -615,6 +632,12 @@ function isSpearSpinBehavior(behavior: LastChancesAttackBehavior | undefined): b
  */
 function isSpearV2Primary(weapon: LastChancesResolvedWeapon | undefined | null): boolean {
   return weapon?.attacks.tap.behavior === 'spearHunt'
+}
+
+function isSpearV2Secondary(weapon: LastChancesResolvedWeapon | undefined | null): boolean {
+  return weapon?.id === 'twohand-spear-v2'
+    && weapon.attacks.tap.behavior === 'parry'
+    && weapon.attacks.hold.behavior === 'spearStance'
 }
 
 function clamp(value: number, minimum: number, maximum: number): number {
@@ -859,6 +882,8 @@ export class LastChancesEngine {
   private chances: number
   private totalDeaths = 0
   private generationBaseStats: LastChancesStats
+  private staminaCostStacks = 0
+  private voluntaryChanceSpendProgress = 0
   private activeLoadout: LastChancesLoadoutDefinition | null
   private corpseBoundPrimaryWeaponId: string | null = null
   private groundWeapons: RuntimeGroundWeapon[] = []
@@ -928,6 +953,7 @@ export class LastChancesEngine {
   private prologueLoadoutForced = false
   private knifeSpiderTutorialPhase: 'pending' | 'slowing' | 'frozen' | 'resuming' | 'complete' = 'pending'
   private knifeSpiderTutorialResumeMs = 0
+  private resolvingKnifeSpiderTutorialParry = false
   private activeDash: RuntimeDash | null = null
   private activeSwordAdvance: RuntimeSwordAdvance | null = null
   private nextProjectileId = 1
@@ -1131,6 +1157,10 @@ export class LastChancesEngine {
     }
     this.gestures = new LastChancesGestureRecognizer(this.config.input, (resolution) => {
       this.handleLegacyGestureResolution(resolution)
+    }, (hand) => {
+      const weapon = this.weapons.get(hand)
+      if (!isSpearV2Primary(weapon)) return this.config.input.holdMs
+      return weapon.attacks.hold.charge?.bands[0]?.minMs ?? this.config.input.holdMs
     })
     this.mylorikControls = new MylorikControlRecognizer(
       this.config.input.mylorik,
@@ -1502,6 +1532,7 @@ export class LastChancesEngine {
           : null,
       }
     })
+    if (node.roomTemplateId === 'false-apartment') this.startKnifeSpiderPrologue()
     this.phase = 'playing'
     this.deathReason = null
     this.altarPromptActive = node.altar !== null
@@ -1531,12 +1562,13 @@ export class LastChancesEngine {
     if (!this.altarPromptActive || !altar || this.phase !== 'playing') return false
     if (accept) {
       if (this.chances < altar.chanceCost) return false
-      this.chances -= altar.chanceCost
+      this.spendVoluntaryChances(altar.chanceCost)
       this.bossCheckpoint = {
         nodeId: this.currentNode!.id,
         attemptPath: [...this.attemptPath],
         loadout: this.activeLoadout ? { ...this.activeLoadout } : null,
         moveQuests: copyMoveQuests(this.moveQuests),
+        staminaCostStacks: this.staminaCostStacks,
       }
     }
     this.altarPromptActive = false
@@ -1602,13 +1634,18 @@ export class LastChancesEngine {
       || this.phase !== 'playing'
       || this.paused
       || this.weapons.get('left')?.id !== 'hybrid-sword') return false
-    this.performAttack({
-      hand: 'left',
-      gesture: 'tap',
-      atMs: this.elapsedMs,
-      heldMs: 0,
-      firstHoldMs: 0,
-    })
+    this.resolvingKnifeSpiderTutorialParry = true
+    try {
+      this.performAttack({
+        hand: 'left',
+        gesture: 'tap',
+        atMs: this.elapsedMs,
+        heldMs: 0,
+        firstHoldMs: 0,
+      })
+    } finally {
+      this.resolvingKnifeSpiderTutorialParry = false
+    }
     // Mercenary Sword sweeps are traced over time in normal combat. The frozen
     // tutorial frame cannot advance that trace, so resolve its opening sample now.
     this.updateActiveAreas(0)
@@ -1630,6 +1667,7 @@ export class LastChancesEngine {
     if (checkpoint) {
       this.activeLoadout = checkpoint.loadout ? { ...checkpoint.loadout } : null
       this.moveQuests = copyMoveQuests(checkpoint.moveQuests)
+      this.staminaCostStacks = checkpoint.staminaCostStacks
       this.rebuildWeapons()
       this.attemptPath = checkpoint.attemptPath.slice(0, -1)
       this.availableNodeIds = [checkpoint.nodeId]
@@ -1658,6 +1696,7 @@ export class LastChancesEngine {
     this.ouroborosEquipped = { fang: false, acid: false, scale: false }
     this.ouroborosFangKillStacks = 0
     this.ouroborosAcidChancesSpent = 0
+    this.voluntaryChanceSpendProgress = 0
     this.ouroborosScaleRoomStacks.clear()
     this.nextGroundOuroborosId = 1
     this.elapsedMs = 0
@@ -1699,6 +1738,10 @@ export class LastChancesEngine {
     const now = performance.now()
     this.gestures.press(hand, now)
     const weapon = this.weapons.get(hand)
+    // Spear-v2 support input is a real press-edge parry. The same provisional guard is
+    // deliberately allowed to morph into the second-press shove/kick instead of waiting for
+    // DeepList's tap classifier.
+    if (isSpearV2Secondary(weapon)) this.beginProvisionalTapParry(hand)
     const instant = weapon?.trait === 'swordRhythm' || isSpearV2Primary(weapon)
     if (!instant) return
     const input = this.gestures.snapshot(hand, now)
@@ -1733,7 +1776,8 @@ export class LastChancesEngine {
       && !this.paused
       && input.pressed
       && input.sequence === 'first'
-      && input.heldMs < this.config.input.holdMs) {
+      && input.heldMs < this.config.input.holdMs
+      && this.provisionalParry?.hand !== hand) {
       this.beginProvisionalTapParry(hand)
     }
     this.gestures.release(hand, now)
@@ -2045,6 +2089,64 @@ export class LastChancesEngine {
     if (advance.remainingDistance <= EPSILON) this.activeSwordAdvance = null
   }
 
+  private poleVaultDistanceAt(dash: RuntimeDash, elapsedMs: number): number {
+    const vault = dash.poleVault
+    if (!vault) return 0
+    const runEnd = vault.runMs
+    const plantEnd = runEnd + vault.plantMs
+    const totalMs = Math.max(
+      1,
+      runEnd + vault.plantMs + vault.riseMs + vault.flightMs + vault.landMs,
+    )
+    const clampedMs = clamp(elapsedMs, 0, totalMs)
+    const runDistance = dash.attack.range * vault.runDistanceRatio
+    const smooth = (progress: number): number => {
+      const value = clamp(progress, 0, 1)
+      return value * value * (3 - 2 * value)
+    }
+    if (clampedMs <= runEnd) {
+      return runDistance * smooth(clampedMs / Math.max(1, runEnd))
+    }
+    if (clampedMs <= plantEnd) return runDistance
+    const flightProgress = (clampedMs - plantEnd) / Math.max(1, totalMs - plantEnd)
+    return runDistance + (dash.attack.range - runDistance) * smooth(flightProgress)
+  }
+
+  private poleVaultLiftRadii(dash: RuntimeDash): number {
+    const vault = dash.poleVault
+    if (!vault) return 0
+    const airStart = vault.runMs + vault.plantMs
+    const riseEnd = airStart + vault.riseMs
+    const flightEnd = riseEnd + vault.flightMs
+    const total = flightEnd + vault.landMs
+    const elapsed = clamp(dash.elapsedMs, 0, total)
+    const height = Math.max(0, tuningValue(dash.attack, 'trajectoryHeightRadii', 4.2))
+    if (elapsed <= airStart) return 0
+    if (elapsed <= riseEnd) {
+      return height * Math.sin((elapsed - airStart) / Math.max(1, vault.riseMs) * Math.PI / 2)
+    }
+    if (elapsed <= flightEnd) {
+      const progress = (elapsed - riseEnd) / Math.max(1, vault.flightMs)
+      return height * (1 - progress * progress * 0.7)
+    }
+    return height * 0.3 * (
+      1 - (elapsed - flightEnd) / Math.max(1, vault.landMs)
+    )
+  }
+
+  private updatePoleVault(dash: RuntimeDash, deltaMs: number): number {
+    const vault = dash.poleVault
+    if (!vault) return 0
+    const previousDistance = this.poleVaultDistanceAt(dash, dash.elapsedMs - deltaMs)
+    const currentDistance = this.poleVaultDistanceAt(dash, dash.elapsedMs)
+    const airStart = vault.runMs + vault.plantMs
+    const totalMs = airStart + vault.riseMs + vault.flightMs + vault.landMs
+    if (dash.elapsedMs > airStart && dash.elapsedMs < totalMs) {
+      this.player.invulnerableMs = Math.max(this.player.invulnerableMs, deltaMs + 80)
+    }
+    return Math.max(0, currentDistance - previousDistance)
+  }
+
   private updatePlayer(deltaSeconds: number): void {
     const aim = this.resolveAim()
     if (vectorLength(aim) > this.config.input.aimDeadZone) this.player.aim = normalize(aim, this.player.aim)
@@ -2065,7 +2167,9 @@ export class LastChancesEngine {
       // A breakthrough spends time, not a distance budget, so it is never clamped by one.
       const travel = this.activeDash.ram
         ? this.activeDash.speed * deltaSeconds
-        : this.activeDash.elapsedMs > dashStartDelayMs
+        : this.activeDash.poleVault
+          ? this.updatePoleVault(this.activeDash, deltaMs)
+          : this.activeDash.elapsedMs > dashStartDelayMs
           ? Math.min(this.activeDash.remainingDistance, this.activeDash.speed * deltaSeconds)
           : 0
       const dashStart = { ...this.player.position }
@@ -2311,6 +2415,7 @@ export class LastChancesEngine {
       // would refund combo/hand-alternation stamina on every tick and reset the chain stamps.
       const tickMs = Math.max(1, tuningValue(attack, 'staminaPerTickMs', 100))
       const tickCost = Math.max(0, tuningValue(attack, 'staminaPerTick', 1))
+        * this.staminaCostMultiplier()
       ram.staminaAccumulatorMs += deltaMs
       while (ram.staminaAccumulatorMs >= tickMs) {
         ram.staminaAccumulatorMs -= tickMs
@@ -2389,7 +2494,16 @@ export class LastChancesEngine {
       'breakthroughHoldMs',
       200,
     )
-    if (input.heldMs < gateMs) return
+    if (input.heldMs < gateMs) {
+      // Freeze the interrupted thrust at maximum extension. Its hitbox and blue trace therefore
+      // remain the same object right up to the frame in which the run takes ownership.
+      for (const area of this.activeAreas) {
+        if (area.hand === hand && area.attack.behavior === 'spearPierce') {
+          area.remainingMs = Math.max(area.remainingMs, area.totalMs / 2)
+        }
+      }
+      return
+    }
     immediate.breakthroughStarted = this.startBreakthrough(hand)
   }
 
@@ -3392,8 +3506,71 @@ export class LastChancesEngine {
     spider.evadeMs = tuningValue(enemy.definition, 'evadeDurationMs', 245)
   }
 
+  /**
+   * The authored opening begins on an already-airborne Knife-spider. Put it at the start of the
+   * slow-motion band on the nearest clear ray around the player, then launch immediately without
+   * notice, chase or wind-up frames.
+   */
+  private startKnifeSpiderPrologue(): void {
+    if (this.knifeSpiderTutorialPhase !== 'pending') return
+    const enemy = this.enemies.find(candidate => candidate.knifeSpiderV2 !== null)
+    if (!enemy || !this.currentNode) return
+    const launchDistance = tuningValue(enemy.definition, 'tutorialSlowDistance', 330)
+    const baseDirection = normalize({
+      x: enemy.position.x - this.player.position.x,
+      y: enemy.position.y - this.player.position.y,
+    })
+    const offsets = [
+      0,
+      -Math.PI / 8,
+      Math.PI / 8,
+      -Math.PI / 4,
+      Math.PI / 4,
+      -Math.PI * 3 / 8,
+      Math.PI * 3 / 8,
+      -Math.PI / 2,
+      Math.PI / 2,
+      Math.PI,
+    ]
+    const launchPosition = offsets
+      .map(offset => rotateVector(baseDirection, offset))
+      .map(direction => ({
+        x: this.player.position.x + direction.x * launchDistance,
+        y: this.player.position.y + direction.y * launchDistance,
+      }))
+      .find(position => (
+        this.circleCanOccupy(position, enemy.definition.radius)
+        && !this.currentNode!.arena.obstacles.some(obstacle => (
+          segmentHitsObstacle(
+            position,
+            this.player.position,
+            obstacle,
+            enemy.definition.radius,
+          )
+        ))
+      ))
+    if (!launchPosition) return
+    enemy.position = launchPosition
+    const profile = this.enemyCombatProfile(enemy)
+    this.startKnifeSpiderV2Leap(enemy, profile)
+    enemy.lockedAttackDirection = normalize({
+      x: this.player.position.x - enemy.position.x,
+      y: this.player.position.y - enemy.position.y,
+    }, enemy.facing)
+    enemy.attackWindupMs = 0
+    this.launchKnifeSpiderV2(enemy)
+  }
+
   private knifeSpiderLeapPathClear(enemy: RuntimeEnemy): boolean {
     const clearance = tuningValue(enemy.definition, 'leapMobClearance', 12)
+    if (this.currentNode?.arena.obstacles.some(obstacle => (
+      segmentHitsObstacle(
+        enemy.position,
+        this.player.position,
+        obstacle,
+        enemy.definition.radius,
+      )
+    ))) return false
     return !this.enemies.some((candidate) => {
       if (candidate === enemy || candidate.state === 'dead' || candidate.motherRetreat) return false
       const radius = enemy.definition.radius + candidate.definition.radius + clearance
@@ -3444,6 +3621,30 @@ export class LastChancesEngine {
     enemy.leapHit = false
   }
 
+  private launchKnifeSpiderV2(enemy: RuntimeEnemy): void {
+    const spider = enemy.knifeSpiderV2
+    if (!spider) return
+    const direction = enemy.lockedAttackDirection ?? normalize({
+      x: this.player.position.x - enemy.position.x,
+      y: this.player.position.y - enemy.position.y,
+    }, enemy.facing)
+    const leapDistance = tuningValue(enemy.definition, 'v2LeapDistance', 520)
+    const leapDurationMs = tuningValue(enemy.definition, 'v2LeapDurationMs', 290)
+    const durationSeconds = Math.max(0.08, leapDurationMs / 1000)
+    enemy.lockedAttackDirection = direction
+    enemy.facing = direction
+    enemy.leapRemainingDistance = leapDistance
+    enemy.leapSpeed = leapDistance / durationSeconds
+    spider.flightVelocity = {
+      x: direction.x * enemy.leapSpeed,
+      y: direction.y * enemy.leapSpeed,
+    }
+    if (this.currentNode?.roomTemplateId === 'false-apartment'
+      && this.knifeSpiderTutorialPhase === 'pending') {
+      this.knifeSpiderTutorialPhase = 'slowing'
+    }
+  }
+
   private updateKnifeSpiderV2Leap(
     enemy: RuntimeEnemy,
     profile: RuntimeEnemyCombatProfile,
@@ -3464,25 +3665,7 @@ export class LastChancesEngine {
       }, enemy.facing)
     }
     if (enemy.attackWindupMs > 0) return
-    const direction = enemy.lockedAttackDirection ?? normalize({
-      x: this.player.position.x - enemy.position.x,
-      y: this.player.position.y - enemy.position.y,
-    }, enemy.facing)
-    const leapDistance = tuningValue(enemy.definition, 'v2LeapDistance', 520)
-    const leapDurationMs = tuningValue(enemy.definition, 'v2LeapDurationMs', 290)
-    const durationSeconds = Math.max(0.08, leapDurationMs / 1000)
-    enemy.lockedAttackDirection = direction
-    enemy.facing = direction
-    enemy.leapRemainingDistance = leapDistance
-    enemy.leapSpeed = leapDistance / durationSeconds
-    spider.flightVelocity = {
-      x: direction.x * enemy.leapSpeed,
-      y: direction.y * enemy.leapSpeed,
-    }
-    if (this.currentNode?.roomTemplateId === 'false-apartment'
-      && this.knifeSpiderTutorialPhase === 'pending') {
-      this.knifeSpiderTutorialPhase = 'slowing'
-    }
+    this.launchKnifeSpiderV2(enemy)
   }
 
   private updateKnifeSpiderV2Flight(
@@ -3772,12 +3955,9 @@ export class LastChancesEngine {
     ))[0]
     const linked = holes.find(hole => hole.id === entrance.linkedHoleId)
     if (!linked) return
-    // She may answer from the hole she went into or from its pair — the player cannot infer the
-    // strike point from watching her enter, which is the whole reason the telegraph is gone.
-    const rng = createLastChancesRng(
-      `${node.seed}:mother-strike:${enemy.id}:${enemy.motherRetreatsTriggered}`,
-    )
-    const exit = rng() < (mother.sameHoleChance ?? 0.5) ? entrance : linked
+    // The entry hole is only transit. Her untelegraphed strike always comes from its memorized
+    // linked partner, so watching the shape/color pairing is the player's reliable counterplay.
+    const exit = linked
     enemy.motherRetreatsTriggered += 1
     enemy.motherRetreat = {
       stage: 'approaching',
@@ -4967,20 +5147,79 @@ export class LastChancesEngine {
     return true
   }
 
+  /**
+   * One held second tap has three release outcomes. The early band is the same broad shove as a
+   * plain double tap; only the two deeper bands become the narrow kick collider. A numeric stage
+   * is stamped into runtime tuning so knockback placement can distinguish the ordinary and
+   * strong kicks without adding schema-only fields.
+   */
+  private resolveSpearKickOutcome(
+    attack: LastChancesAttackDefinition,
+    chargeBandId: string | undefined,
+  ): LastChancesAttackDefinition {
+    if (attack.behavior !== 'spearKick') return attack
+    const stage = chargeBandId === 'strong-kick' ? 2 : chargeBandId === 'kick' ? 1 : 0
+    const hitEffects = (attack.hitEffects ?? []).map(effect => effect.status === 'stun'
+      ? {
+          ...effect,
+          durationMs: stage === 2
+            ? tuningValue(attack, 'strongKickImmobilizeMs', 1500)
+            : 1000,
+        }
+      : { ...effect })
+    if (stage === 0) {
+      return {
+        ...attack,
+        name: 'Отталкивание',
+        behavior: 'spearShove',
+        kind: 'burst',
+        collider: {
+          ...(attack.collider ?? { traceMs: 620 }),
+          shape: 'sector',
+          width: Math.max(92, attack.collider?.width ?? 0),
+          strictInnerRange: false,
+        },
+        hitEffects,
+        tuning: { ...attack.tuning, chargeStage: stage },
+      }
+    }
+    return {
+      ...attack,
+      name: stage === 2 ? 'Сильный Пинок' : 'Пинок',
+      hitEffects,
+      tuning: { ...attack.tuning, chargeStage: stage },
+    }
+  }
+
   private performAttack(resolution: LastChancesGestureResolution): void {
     if (!this.canUseRoomActions() || this.paused || !this.currentNode) return
     const { hand, gesture } = resolution
+    if (this.knifeSpiderTutorialPhase === 'frozen'
+      && !this.resolvingKnifeSpiderTutorialParry) {
+      if (hand === 'left' && gesture === 'tap') this.performKnifeSpiderTutorialParry()
+      return
+    }
     const weapon = this.weapons.get(hand)
     if (!weapon) return
     const provisional = this.provisionalParry?.hand === hand
       ? this.provisionalParry
       : null
     if (provisional && gesture !== 'tap') {
-      if (provisional.consumed) {
+      if (isSpearV2Secondary(weapon)
+        && (gesture === 'doubleTap' || gesture === 'doubleTapHold')) {
+        // This is the authored morph: keep the shaft raised and discard only provisional
+        // bookkeeping. Even a successful reflection may continue into the committed follow-up.
+        this.provisionalParry = null
+        if (gesture === 'doubleTap') {
+          this.player.parryMs = Math.max(
+            this.player.parryMs,
+            tuningValue(weapon.attacks.doubleTap, 'windupMs', 250),
+          )
+        }
+      } else if (provisional.consumed) {
         this.commitOrCancelProvisionalParry()
         return
-      }
-      this.cancelProvisionalParry()
+      } else this.cancelProvisionalParry()
     }
     // Ahead of gestureReady/stamina/combo handling, and downstream of all three control schemes,
     // so a tap inside the «Прокол» window becomes another «Прокол» no matter how it was produced.
@@ -5036,7 +5275,9 @@ export class LastChancesEngine {
       resolution.minChargeBandId,
     )
     if (sourceAttack.charge && !charged.band) return
-    const attack = charged.attack
+    const attack = isSpearV2Secondary(weapon)
+      ? this.resolveSpearKickOutcome(charged.attack, charged.band?.id)
+      : charged.attack
     if (weapon.trait === 'axeHookRecovery' && gesture === 'tap') {
       state.lastMotionDamageBonus = 0
     }
@@ -5122,13 +5363,6 @@ export class LastChancesEngine {
       this.provisionalParry = null
       this.activatePlayerParry(attack)
     }
-    if (attack.behavior === 'spearKick') {
-      this.player.armorMultiplier = tuningValue(attack, 'armorMultiplier', 2)
-      this.player.armorMultiplierMs = Math.max(
-        this.player.armorMultiplierMs,
-        tuningValue(attack, 'armorDurationMs', 500),
-      )
-    }
     if (attack.behavior === 'spearPierce') {
       if (!this.pierceMashActive(hand)) {
         this.pierceMash[hand].expiresAtMs = this.elapsedMs
@@ -5187,7 +5421,10 @@ export class LastChancesEngine {
       this.prepareSwordOberhau(weapon, state, hand, attack, direction)
     }
 
-    const actionDurationMs = attack.durationMs + (attack.lingerMs ?? 0)
+    const windupMs = attack.behavior === 'spearShove'
+      ? Math.max(0, tuningValue(attack, 'windupMs', 0))
+      : 0
+    const actionDurationMs = windupMs + attack.durationMs + (attack.lingerMs ?? 0)
     const commitsTapParry = gesture === 'tap'
       && PLAYER_PARRY_BEHAVIORS.has(attack.behavior ?? 'standard')
     if (gesture !== 'tap' || commitsTapParry) {
@@ -5201,7 +5438,17 @@ export class LastChancesEngine {
           + (this.config.input.tapComboWindowMs ?? 900),
       )
     }
-    this.executeAttack(attack, direction, context)
+    if (windupMs > 0) {
+      const parry = attackWithLastChancesAugment(weapon.attacks.tap, weapon)
+      this.activatePlayerParry(parry, windupMs)
+      if (this.activeParryCollider) this.addColliderTrace(this.activeParryCollider, parry)
+      this.delayedAttacks.push({
+        remainingMs: windupMs,
+        attack,
+        direction: { ...direction },
+        context,
+      })
+    } else this.executeAttack(attack, direction, context)
     if (weapon.trait === 'spiderDurability') {
       const useCost = attack.consumeAllResource
         ? state.maxResource
@@ -5247,9 +5494,14 @@ export class LastChancesEngine {
       : peeked
     const base = Math.max(0, attack.staminaCost ?? this.config.stamina.attackCost)
     const fatigued = this.weaponState(weapon).fatigueMs > 0
-    return fatigued
+    const fatigueAdjusted = fatigued
       ? base * Math.max(1, tuningValue(weapon, 'fatigueStaminaMultiplier', 10))
       : base
+    return fatigueAdjusted * this.staminaCostMultiplier()
+  }
+
+  private staminaCostMultiplier(): number {
+    return 1 + this.staminaCostStacks * this.config.progression.staminaCostIncreasePerRoom
   }
 
   private canAffordStamina(cost: number): boolean {
@@ -5471,6 +5723,16 @@ export class LastChancesEngine {
       }
       this.activeDash.speed = this.activeDash.ram.speed
     }
+    if (attack.behavior === 'poleVault' && isSpearV2Secondary(context.weapon)) {
+      this.activeDash.poleVault = {
+        runMs: Math.max(0, tuningValue(attack, 'runMs', 180)),
+        plantMs: Math.max(0, tuningValue(attack, 'plantMs', 120)),
+        riseMs: Math.max(1, tuningValue(attack, 'riseMs', 180)),
+        flightMs: Math.max(1, tuningValue(attack, 'flightMs', 420)),
+        landMs: Math.max(1, tuningValue(attack, 'landMs', 150)),
+        runDistanceRatio: clamp(tuningValue(attack, 'runDistanceRatio', 0.18), 0, 0.8),
+      }
+    }
     this.syncContinuationFeedback()
     this.addEffect('dash', attack, direction)
   }
@@ -5549,8 +5811,10 @@ export class LastChancesEngine {
     const completed: RuntimeActiveArea[] = []
     for (const area of this.activeAreas) {
       const previousSweepDegrees = area.sweepDegrees
+      let stanceSweepColliders: LastChancesRuntimeCollider[] = []
       let facingTurnRadians = 0
       if (area.attack.collider?.followsPlayer) {
+        const previousOrigin = { ...area.origin }
         const previousDirection = normalize(area.direction)
         const nextDirection = normalize(this.player.aim, previousDirection)
         facingTurnRadians = Math.atan2(
@@ -5560,12 +5824,30 @@ export class LastChancesEngine {
         area.origin = { ...this.player.position }
         area.direction = nextDirection
         if (area.attack.behavior === 'spearStance') {
-          const facingChange = previousDirection.x * nextDirection.x + previousDirection.y * nextDirection.y
-          area.attack.damage = area.baseDamage * (
-            facingChange < tuningValue(area.attack, 'turnDotThreshold', 0.995)
-              ? tuningValue(area.attack, 'turnDamageMultiplier', 2.2)
-              : tuningValue(area.attack, 'contactDamageMultiplier', 0.38)
+          area.stanceCutSpeed = Math.abs(facingTurnRadians) * area.attack.range
+            / Math.max(EPSILON, deltaMs / 1000)
+          stanceSweepColliders = this.spearStanceSweepColliders(
+            previousOrigin,
+            previousDirection,
+            area.origin,
+            nextDirection,
+            area.attack,
           )
+        }
+      }
+      if (area.channel && area.attack.behavior === 'spearStance') {
+        const tickMs = Math.max(1, tuningValue(area.attack, 'staminaPerTickMs', 100))
+        const tickCost = Math.max(0, tuningValue(area.attack, 'staminaPerTick', 2))
+          * this.staminaCostMultiplier()
+        area.channelStaminaAccumulatorMs += deltaMs
+        while (area.channelStaminaAccumulatorMs >= tickMs && this.player.stamina > 0) {
+          area.channelStaminaAccumulatorMs -= tickMs
+          this.player.stamina = Math.max(0, this.player.stamina - tickCost)
+        }
+        if (tickCost > 0 && this.player.stamina <= 0) {
+          area.remainingMs = 0
+          if (this.heldChannels.get(area.hand) === area) this.heldChannels.delete(area.hand)
+          this.refuseForStamina(area.hand)
         }
       }
       if ((area.attack.behavior === 'axeGrapple' || area.attack.behavior === 'axeThrow')
@@ -5666,11 +5948,19 @@ export class LastChancesEngine {
         }
         area.traceAccumulatorMs = 0
       } else {
-        if (area.traceAccumulatorMs >= 45) {
+        if (stanceSweepColliders.length > 0) {
+          for (const collider of stanceSweepColliders) {
+            this.addColliderTrace(collider, area.attack)
+            this.applyActiveAreaHits(area, collider)
+          }
+          area.traceAccumulatorMs = 0
+        } else if (area.traceAccumulatorMs >= 45) {
           area.traceAccumulatorMs = 0
           this.addColliderTrace(this.activeAreaCollider(area), area.attack)
+          this.applyActiveAreaHits(area)
+        } else {
+          this.applyActiveAreaHits(area)
         }
-        this.applyActiveAreaHits(area)
       }
       if (area.remainingMs <= 0 || area.remainingHits <= 0) completed.push(area)
     }
@@ -5749,16 +6039,81 @@ export class LastChancesEngine {
       const knockbackDirection = area.kind === 'burst' || area.attack.collider?.shape === 'circle'
         ? normalize(toEnemy, area.direction)
         : area.direction
+      const stanceDamageMultiplier = area.attack.behavior === 'spearStance'
+        ? this.spearStanceDamageMultiplier(area, enemy)
+        : 1
       this.damageEnemy(enemy, resolvedAttack, area.attack.knockback, knockbackDirection, {
         weaponId: area.weaponId,
         hand: area.hand,
         gesture: area.gesture,
         storedDot: area.storedDot,
         distance: vectorLength(toEnemy),
-        damageMultiplier: 1 + area.motionDamageBonus,
+        damageMultiplier: (1 + area.motionDamageBonus) * stanceDamageMultiplier,
         impactIntensity: area.attack.behavior === 'swordRhythm' ? 0 : undefined,
       })
     }
+  }
+
+  private spearStanceDamageMultiplier(
+    area: RuntimeActiveArea,
+    enemy: RuntimeEnemy,
+  ): number {
+    const direction = normalize(area.direction)
+    const enemyCanMove = enemy.state !== 'dead'
+      && enemy.statuses.stunMs <= 0
+      && enemy.statuses.boundMs <= 0
+    const enemySpeed = enemyCanMove
+      ? enemy.definition.moveSpeed * Math.max(0, enemy.statuses.slowMultiplier)
+      : 0
+    const enemyVelocity = {
+      x: enemy.facing.x * enemySpeed,
+      y: enemy.facing.y * enemySpeed,
+    }
+    const closingSpeed = Math.max(
+      0,
+      (this.movementVelocity.x - enemyVelocity.x) * direction.x
+        + (this.movementVelocity.y - enemyVelocity.y) * direction.y,
+    )
+    const stationary = Math.max(0, tuningValue(area.attack, 'stationaryDamageMultiplier', 0.3))
+    const piercing = stationary + closingSpeed
+      / Math.max(1, tuningValue(area.attack, 'pierceReferenceSpeed', 420))
+      * Math.max(0, tuningValue(area.attack, 'pierceSpeedDamageMultiplier', 1.8))
+    const cutting = stationary + area.stanceCutSpeed
+      / Math.max(1, tuningValue(area.attack, 'cutReferenceSpeed', 900))
+      * Math.max(0, tuningValue(area.attack, 'cutSpeedDamageMultiplier', 0.95))
+    return Math.max(stationary, piercing, cutting)
+  }
+
+  /**
+   * The stance tip may cross a target between rendered aim samples. Sweep both ends of the
+   * short tip capsule so collision and the visible trace cover that complete cutting motion.
+   */
+  private spearStanceSweepColliders(
+    previousOrigin: LastChancesVector,
+    previousDirection: LastChancesVector,
+    currentOrigin: LastChancesVector,
+    currentDirection: LastChancesVector,
+    attack: LastChancesAttackDefinition,
+  ): LastChancesRuntimeCollider[] {
+    const previous = resolveAttackCollider(previousOrigin, previousDirection, attack)
+    const current = resolveAttackCollider(currentOrigin, currentDirection, attack)
+    if (previous.shape !== 'capsule' || current.shape !== 'capsule') return [current]
+    return [
+      previous,
+      {
+        shape: 'capsule',
+        start: previous.start,
+        end: current.start,
+        radius: Math.max(previous.radius, current.radius),
+      },
+      {
+        shape: 'capsule',
+        start: previous.end,
+        end: current.end,
+        radius: Math.max(previous.radius, current.radius),
+      },
+      current,
+    ]
   }
 
   private activeAreaCollider(
@@ -6220,11 +6575,14 @@ export class LastChancesEngine {
       }
       const holdAttack = weapon.attacks.hold
       if (input.pressed
-        && input.sequence === 'secondTap'
-        && input.heldMs >= this.config.input.holdMs
+        && (input.sequence === 'secondTap' || input.candidateGesture === 'doubleTapHold')
         && this.gestureReady(hand, 'doubleTapHold')
         && weapon.attacks.doubleTapHold.behavior === 'spearKick') {
-        this.player.armorMultiplier = 2
+        this.player.armorMultiplier = tuningValue(
+          weapon.attacks.doubleTapHold,
+          'armorMultiplier',
+          2,
+        )
         this.player.armorMultiplierMs = Math.max(this.player.armorMultiplierMs, deltaMs + 80)
       }
       if (weapon.attacks.doubleTapHold.behavior === 'spearBreakthrough') {
@@ -6243,6 +6601,7 @@ export class LastChancesEngine {
         && classifiedAsHold
         && this.gestureReady(hand, 'hold')
         && ['spearStance', 'axeSpin', 'spiderFlurry'].includes(channelBehavior ?? '')
+        && (channelBehavior !== 'spearStance' || this.player.stamina > 0)
       if (channelEligible && channelBehavior === 'axeSpin') {
         this.player.parryMs = Math.max(this.player.parryMs, deltaMs + 80)
       }
@@ -6680,6 +7039,8 @@ export class LastChancesEngine {
       latchedIds: new Set(),
       matchingAimMotionPx: 0,
       motionDamageBonus: 0,
+      channelStaminaAccumulatorMs: 0,
+      stanceCutSpeed: 0,
     }
   }
 
@@ -7027,17 +7388,24 @@ export class LastChancesEngine {
         y: pullDirection.y * Math.max(tuningValue(attack, 'minimumPullDistance', 40), knockback),
       }, enemy.definition.radius)
     } else if (attack.behavior === 'spearShove' || attack.behavior === 'spearKick') {
+      const chargeStage = Math.round(tuningValue(attack, 'chargeStage', -1))
       const baseTargetDistance = Math.max(
         attack.sweetSpot?.minRange
           ?? attack.range * tuningValue(attack, 'targetRangeRatio', 0.72),
         tuningValue(attack, 'minimumTargetRange', 80),
       )
       const targetDistance = attack.behavior === 'spearKick'
-        ? Math.max(
-            baseTargetDistance,
-            attack.knockback * tuningValue(attack, 'targetDistancePerKnockback', 1),
-          )
-        : baseTargetDistance
+        ? chargeStage >= 2
+          ? tuningValue(attack, 'strongKickTargetDistance', 176)
+          : chargeStage === 1
+            ? tuningValue(attack, 'kickTargetDistance', 144)
+            : Math.max(
+                baseTargetDistance,
+                attack.knockback * tuningValue(attack, 'targetDistancePerKnockback', 1),
+              )
+        : chargeStage === 0
+          ? tuningValue(attack, 'shoveTargetDistance', 94)
+          : baseTargetDistance
       const target = {
         x: clamp(
           this.player.position.x + direction.x * targetDistance,
@@ -7372,6 +7740,47 @@ export class LastChancesEngine {
     return circleOverlapsConvexPolygon(local, radius, vertices)
   }
 
+  /**
+   * Voluntary Chance costs hurt the current body as soon as their running total crosses a
+   * configured erosion step. The remainder persists across deaths because Chances themselves do.
+   */
+  private spendVoluntaryChances(amount: number): void {
+    const spent = Math.min(this.chances, Math.max(0, amount))
+    if (spent <= 0) return
+    this.chances -= spent
+    this.voluntaryChanceSpendProgress += spent
+    const step = this.config.progression.chanceErosionStep
+    const tierIndex = this.currentNode?.tierIndex ?? 0
+    const erosion = this.config.progression.tiers[tierIndex]?.erosion
+    if (!erosion) return
+    while (this.voluntaryChanceSpendProgress >= step) {
+      this.voluntaryChanceSpendProgress -= step
+      this.applyStatErosion(erosion, false)
+    }
+  }
+
+  private applyStatErosion(erosion: LastChancesStatErosion, resetCurrentStats: boolean): void {
+    const erode = (stats: LastChancesStats): LastChancesStats => ({
+      maxHp: Math.max(1, stats.maxHp - erosion.maxHp),
+      maxMentalHealth: Math.max(1, stats.maxMentalHealth - erosion.maxMentalHealth),
+      maxStamina: Math.max(1, stats.maxStamina - erosion.maxStamina),
+      attackPower: Math.max(1, stats.attackPower - erosion.attackPower),
+      moveSpeed: Math.max(1, stats.moveSpeed - erosion.moveSpeed),
+      armor: Math.max(0, stats.armor - erosion.armor),
+    })
+    this.generationBaseStats = erode(this.generationBaseStats)
+    this.player.stats = resetCurrentStats
+      ? copyStats(this.generationBaseStats)
+      : erode(this.player.stats)
+    const effectiveStats = this.effectivePlayerStats()
+    this.player.hp = Math.min(this.player.hp, effectiveStats.maxHp)
+    this.player.mentalHealth = Math.min(
+      this.player.mentalHealth,
+      effectiveStats.maxMentalHealth,
+    )
+    this.player.stamina = Math.min(this.player.stamina, effectiveStats.maxStamina)
+  }
+
   private killPlayer(reason: string): void {
     if (this.phase !== 'playing') return
     this.dropEquippedOuroborosOnDeath()
@@ -7383,16 +7792,7 @@ export class LastChancesEngine {
     const tier = this.config.progression.tiers[tierIndex]
     this.chances = Math.max(0, this.chances - tier.deathCost)
     this.totalDeaths += 1
-    const erosion = tier.erosion
-    this.generationBaseStats = {
-      maxHp: Math.max(1, this.generationBaseStats.maxHp - erosion.maxHp),
-      maxMentalHealth: Math.max(1, this.generationBaseStats.maxMentalHealth - erosion.maxMentalHealth),
-      maxStamina: Math.max(1, this.generationBaseStats.maxStamina - erosion.maxStamina),
-      attackPower: Math.max(1, this.generationBaseStats.attackPower - erosion.attackPower),
-      moveSpeed: Math.max(1, this.generationBaseStats.moveSpeed - erosion.moveSpeed),
-      armor: Math.max(0, this.generationBaseStats.armor - erosion.armor),
-    }
-    this.player.stats = copyStats(this.generationBaseStats)
+    this.applyStatErosion(tier.erosion, true)
     this.clearCombatTransients()
     this.deathReason = reason
     this.phase = this.chances > 0 ? 'dead' : 'outOfChances'
@@ -7451,6 +7851,10 @@ export class LastChancesEngine {
 
   private finishRoomTransition(): void {
     if (!this.currentNode) return
+    this.staminaCostStacks = Math.min(
+      this.config.progression.maxStaminaCostStacks,
+      this.staminaCostStacks + 1,
+    )
     this.rewardChest = null
     if (this.currentNode.tierIndex >= this.plan.tiers.length - 1) {
       this.phase = 'won'
@@ -7513,7 +7917,7 @@ export class LastChancesEngine {
 
   private applyInteractionChoice(choice: LastChancesInteractionChoice): void {
     const effect = choice.effect
-    this.chances = Math.max(0, this.chances - (effect.chanceCost ?? 0))
+    this.spendVoluntaryChances(effect.chanceCost ?? 0)
     if (effect.stats) {
       this.player.stats = {
         maxHp: Math.max(1, this.player.stats.maxHp + (effect.stats.maxHp ?? 0)),
@@ -7662,6 +8066,7 @@ export class LastChancesEngine {
     this.lastGesture = null
     this.postPrologueLoadout = null
     this.prologueLoadoutForced = false
+    this.staminaCostStacks = 0
     if (this.knifeSpiderTutorialPhase !== 'complete') {
       this.knifeSpiderTutorialPhase = 'pending'
       this.knifeSpiderTutorialResumeMs = 0
@@ -7855,7 +8260,7 @@ export class LastChancesEngine {
     if (this.chances < cost) return false
 
     const hadFullSet = LAST_CHANCES_OUROBOROS_ITEMS.every(item => this.ouroborosEquipped[item])
-    this.chances -= cost
+    this.spendVoluntaryChances(cost)
     for (const item of pickup.items) {
       // One feed line per piece; the set's own name is withheld until the set is whole.
       // Phrased impersonally so the item names keep their own grammatical gender.
@@ -9406,6 +9811,8 @@ export class LastChancesEngine {
         hp: this.player.hp,
         mentalHealth: this.player.mentalHealth,
         stamina: this.player.stamina,
+        staminaCostStacks: this.staminaCostStacks,
+        staminaCostMultiplier: this.staminaCostMultiplier(),
         stats: copyStats(effectiveStats),
         invulnerableForMs: this.player.invulnerableMs,
         armorMultiplier: this.player.armorMultiplier,
@@ -9514,9 +9921,9 @@ export class LastChancesEngine {
             phase: this.knifeSpiderTutorialPhase as 'slowing' | 'frozen' | 'resuming',
             timeScale: this.knifeSpiderTutorialTimeScale(),
             parryBinding: this.controlSchemeValue === 'dualsense'
-              ? 'L1'
+              ? 'R1'
               : this.controlSchemeValue === 'mylorik'
-                ? 'ЛКМ / L1'
+                ? 'ПКМ / R1'
                 : `ЛКМ / ${this.config.input.leftKeys[0]?.replace(/^Key/, '') ?? 'J'} / L1`,
           }
         : null,
@@ -9661,6 +10068,7 @@ export class LastChancesEngine {
     for (const enemy of this.enemies) this.renderVision(enemy, node)
     this.renderSpearChargePreview(node)
     this.renderSpearFollowUpPreview(node)
+    this.renderPoleVaultTrajectoryPreview(node)
     const items: Array<{ depth: number, draw: () => void }> = []
     for (const obstacle of node.arena.obstacles) {
       items.push({
@@ -11467,10 +11875,17 @@ export class LastChancesEngine {
 
   private renderPlayer(node: LastChancesPlanNode): void {
     const context = this.context
-    const point = this.worldToScreen(this.player.position, node)
+    const groundPoint = this.worldToScreen(this.player.position, node)
     const radius = Math.max(8, this.config.player.radius * this.entityScale(node) * 1.55)
+    const vaultLiftRadii = this.activeDash?.poleVault
+      ? this.poleVaultLiftRadii(this.activeDash)
+      : 0
+    const point = {
+      x: groundPoint.x,
+      y: groundPoint.y - vaultLiftRadii * radius,
+    }
     context.save()
-    context.translate(point.x, point.y)
+    context.translate(groundPoint.x, groundPoint.y)
     context.scale(1, 0.44)
     context.beginPath()
     context.arc(0, 4, radius * 1.2, 0, Math.PI * 2)
@@ -11982,6 +12397,67 @@ export class LastChancesEngine {
     this.strokeSpearPreview(node, collider, charged.band.color, true, 9)
   }
 
+  private renderPoleVaultTrajectoryPreview(node: LastChancesPlanNode): void {
+    if (this.paused || !this.canUseRoomActions()) return
+    const secondary = this.weapons.get('right')
+    if (!isSpearV2Secondary(secondary)) return
+    const stance = this.heldChannels.get('right')
+    const activeVault = this.activeDash?.weaponId === secondary.id
+      && this.activeDash.poleVault
+      ? this.activeDash
+      : null
+    const selected = activeVault !== null
+      && activeVault.elapsedMs <= tuningValue(
+        activeVault.attack,
+        'trajectoryFlashMs',
+        180,
+      )
+    if (!selected && stance?.attack.behavior !== 'spearStance') return
+    if (!selected && !this.gestureReady('right', 'holdThenDoubleTap')) return
+
+    const attack = activeVault?.attack ?? secondary.attacks.holdThenDoubleTap
+    const direction = activeVault?.direction ?? normalize(this.player.aim)
+    const originWorld = activeVault?.origin ?? this.player.position
+    const travel = activeVault
+      ? activeVault.attack.range
+      : this.spearPreviewTravelDistance(
+          node,
+          originWorld,
+          direction,
+          attack.range,
+          this.config.player.radius,
+        )
+    const renderedRadius = Math.max(
+      8,
+      this.config.player.radius * this.entityScale(node) * 1.55,
+    )
+    const height = tuningValue(attack, 'trajectoryHeightRadii', 4.2) * renderedRadius
+    const context = this.context
+    context.save()
+    context.globalAlpha = selected ? 0.96 : 0.34
+    context.strokeStyle = selected ? '#dcfff0' : '#6ee7a8'
+    context.shadowColor = '#6ee7a8'
+    context.shadowBlur = selected ? 20 : 7
+    context.lineWidth = selected ? 3.6 : 2
+    context.lineCap = 'round'
+    context.setLineDash(selected ? [5, 4] : [3, 9])
+    context.beginPath()
+    const points = 28
+    for (let index = 0; index <= points; index += 1) {
+      const progress = index / points
+      const world = {
+        x: originWorld.x + direction.x * travel * progress,
+        y: originWorld.y + direction.y * travel * progress,
+      }
+      const point = this.worldToScreen(world, node)
+      point.y -= Math.sin(progress * Math.PI) * height
+      if (index === 0) context.moveTo(point.x, point.y)
+      else context.lineTo(point.x, point.y)
+    }
+    context.stroke()
+    context.restore()
+  }
+
   /**
    * The volume a spear release would occupy. Melee bands preview the sector they will swing;
    * everything else previews the projectile's ray, cut short by whatever wall would stop it.
@@ -12206,6 +12682,7 @@ export class LastChancesEngine {
     ))) return
 
     let direction = normalize(this.player.aim)
+    let forwardDirection = direction
     let forwardWorld = 0
     let liftRadii = 0
     let forwardRadii = 0
@@ -12218,6 +12695,7 @@ export class LastChancesEngine {
       // «Прорыв» holds the «Прокол» pose it morphed out of for the whole run, and drives the
       // spear further forward as the charge builds — the taran silhouette.
       direction = normalize(activeDash.direction)
+      forwardDirection = direction
       const intensity = this.breakthroughIntensity(activeDash)
       forwardRadii = 0.3 + 0.7 * intensity
       liftRadii = 0.05 * Math.sin(this.elapsedMs / 70) * intensity
@@ -12229,7 +12707,23 @@ export class LastChancesEngine {
       )
       const shape = activeArea.attack.collider?.shape
         ?? (activeArea.kind === 'burst' ? 'circle' : 'sector')
-      if (shape === 'sweep' && activeArea.attack.behavior === 'spearOverheadSpin') {
+      if (activeArea.attack.behavior === 'parry') {
+        forwardDirection = normalize(activeArea.direction)
+        direction = rotateVector(forwardDirection, Math.PI / 2)
+        forwardRadii = 0.2
+      } else if (activeArea.attack.behavior === 'spearShove') {
+        forwardDirection = normalize(activeArea.direction)
+        direction = rotateVector(forwardDirection, Math.PI / 2)
+        forwardWorld = Math.sin(progress * Math.PI) * Math.min(58, activeArea.attack.range * 0.5)
+      } else if (activeArea.attack.behavior === 'spearKick') {
+        forwardDirection = normalize(activeArea.direction)
+        direction = rotateVector(forwardDirection, Math.PI / 2)
+        forwardRadii = 0.28
+      } else if (activeArea.attack.behavior === 'spearStance') {
+        direction = normalize(activeArea.direction)
+        forwardDirection = direction
+        forwardRadii = 0.48
+      } else if (shape === 'sweep' && activeArea.attack.behavior === 'spearOverheadSpin') {
         // v1 yaws the shaft around the body like a lawnmower. «Акали» instead holds it up and
         // spins it overhead, so the pose lifts clear of the grip and stops tilting.
         direction = rotateVector(activeArea.direction, activeArea.sweepDegrees * Math.PI / 180)
@@ -12262,17 +12756,56 @@ export class LastChancesEngine {
       }
     } else if (activeDash) {
       direction = normalize(activeDash.direction)
-      const progress = clamp(activeDash.elapsedMs / Math.max(1, activeDash.attack.durationMs), 0, 1)
-      if (activeDash.attack.behavior === 'poleVault') {
-        liftRadii = Math.sin(progress * Math.PI) * 2.25
-        direction = rotateVector(direction, -Math.sin(progress * Math.PI) * Math.PI * 0.46)
+      forwardDirection = direction
+      if (activeDash.poleVault) {
+        const vault = activeDash.poleVault
+        const plantStart = vault.runMs
+        const airStart = plantStart + vault.plantMs
+        if (activeDash.elapsedMs < plantStart) {
+          forwardRadii = 0.28
+        } else if (activeDash.elapsedMs < airStart) {
+          forwardRadii = 0.72
+          verticalTilt = 1.55
+        } else {
+          const airProgress = clamp(
+            (activeDash.elapsedMs - airStart)
+              / Math.max(1, vault.riseMs + vault.flightMs + vault.landMs),
+            0,
+            1,
+          )
+          forwardRadii = 0.35 - airProgress * 0.45
+          verticalTilt = 1.1 - airProgress * 1.65
+        }
       }
     } else {
-      const charge = this.spearChargePresentation(this.frameNowMs || performance.now())
-      if (charge) {
-        liftRadii = charge.visual.liftRadii
-        forwardRadii = charge.visual.forwardRadii
-        verticalTilt = charge.visual.verticalTilt
+      const now = this.frameNowMs || performance.now()
+      const secondary = this.weapons.get('right')
+      const secondaryInput = isSpearV2Secondary(secondary)
+        ? this.controlInputSnapshot('right', now)
+        : null
+      const delayedShove = this.delayedAttacks.some(delayed => (
+        delayed.context.hand === 'right'
+        && delayed.context.weapon.id === spear.id
+        && delayed.attack.behavior === 'spearShove'
+      ))
+      const chargingKick = secondaryInput?.pressed === true
+        && (secondaryInput.sequence === 'secondTap'
+          || secondaryInput.candidateGesture === 'doubleTapHold')
+        && secondaryInput.heldMs >= this.config.input.holdMs
+      if (isSpearV2Secondary(secondary)
+        && (this.activeParryAttack?.behavior === 'parry' || delayedShove || chargingKick)) {
+        forwardDirection = normalize(this.player.aim)
+        direction = rotateVector(forwardDirection, Math.PI / 2)
+        forwardRadii = delayedShove ? 0.38 : 0.22
+      } else {
+        const charge = this.spearChargePresentation(now)
+        if (!charge) {
+          forwardDirection = direction
+        } else {
+          liftRadii = charge.visual.liftRadii
+          forwardRadii = charge.visual.forwardRadii
+          verticalTilt = charge.visual.verticalTilt
+        }
       }
     }
 
@@ -12286,8 +12819,8 @@ export class LastChancesEngine {
     if (forwardWorld > 0) {
       const origin = this.worldToScreen(this.player.position, node)
       const forward = this.worldToScreen({
-        x: this.player.position.x + direction.x * forwardWorld,
-        y: this.player.position.y + direction.y * forwardWorld,
+        x: this.player.position.x + forwardDirection.x * forwardWorld,
+        y: this.player.position.y + forwardDirection.y * forwardWorld,
       }, node)
       center.x += forward.x - origin.x
       center.y += forward.y - origin.y
