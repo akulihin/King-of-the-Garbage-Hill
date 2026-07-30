@@ -145,6 +145,7 @@ describe('mylorik control recognizer', () => {
   it('dispatches strike on down and technique tap on release without a classifier wait', () => {
     const events: LastChancesSemanticInputEvent[] = []
     const recognizer = new MylorikControlRecognizer(mylorikConfig, (event) => {
+      if (event.probe) return 'observe'
       events.push(event)
       return 'handled'
     })
@@ -163,6 +164,7 @@ describe('mylorik control recognizer', () => {
   it('arms at the inclusive hold threshold and resolves immediately on release', () => {
     const events: LastChancesSemanticInputEvent[] = []
     const recognizer = new MylorikControlRecognizer(mylorikConfig, (event) => {
+      if (event.probe) return 'observe'
       events.push(event)
       return 'handled'
     })
@@ -176,18 +178,18 @@ describe('mylorik control recognizer', () => {
     expect(events[0]).toMatchObject({ phase: 'hold', heldMs: 650, atMs: 750 })
   })
 
-  it('routes a bumper during an armed technique as its held continuation', () => {
+  it('keeps legacy strike continuations deferred until technique release', () => {
     const events: LastChancesSemanticInputEvent[] = []
     const recognizer = new MylorikControlRecognizer(mylorikConfig, (event) => {
       events.push(event)
-      return 'handled'
+      return event.commit ? 'handled' : 'observe'
     })
 
     recognizer.pressTechnique('right', 100, 'gamepad')
     recognizer.pressStrike('right', 750, 'gamepad')
     recognizer.releaseTechnique('right', 900, 'gamepad')
 
-    expect(events).toEqual([
+    expect(events.filter(event => !event.probe)).toEqual([
       expect.objectContaining({
         intent: 'strike',
         phase: 'press',
@@ -201,6 +203,97 @@ describe('mylorik control recognizer', () => {
         context: 'continuation',
         heldMs: 800,
         commit: true,
+      }),
+    ])
+  })
+
+  it('commits an explicitly press-dispatched Longbow continuation while technique stays held', () => {
+    const events: LastChancesSemanticInputEvent[] = []
+    const committedGestures: string[] = []
+    const activations = defaultConfig.weapons
+      .find(weapon => weapon.id === 'twohand-bow')!
+      .controls!.primary.mylorik.activations
+    const recognizer = new MylorikControlRecognizer(mylorikConfig, (event) => {
+      events.push(event)
+      const activation = activations.find(candidate => (
+        candidate.intent === event.intent
+        && candidate.phase === event.phase
+        && candidate.context === event.context
+      ))
+      if (!activation) return 'observe'
+      if (!event.commit) {
+        return activation.continuationDispatch === 'press' ? 'handled' : 'observe'
+      }
+      committedGestures.push(activation.gesture)
+      return 'handled'
+    })
+
+    recognizer.pressTechnique('right', 100, 'gamepad')
+    recognizer.pressStrike('right', 750, 'gamepad')
+
+    expect(committedGestures).toEqual(['doubleTapHold'])
+    expect(events.filter(event => event.commit)).toEqual([
+      expect.objectContaining({
+        intent: 'strike',
+        phase: 'press',
+        context: 'continuation',
+        heldMs: 650,
+      }),
+    ])
+    expect(recognizer.snapshot('right', 850)).toMatchObject({
+      techniquePressed: true,
+      techniqueContinuationPressed: true,
+      techniqueContinuationHeldMs: 100,
+      techniqueHeldMs: 750,
+    })
+
+    recognizer.releaseTechnique('right', 900, 'gamepad')
+    expect(committedGestures).toEqual(['doubleTapHold'])
+    expect(recognizer.snapshot('right', 900).techniqueContinuationPressed).toBe(false)
+  })
+
+  it('press-commits Longbow Прыжок and times Ответ from that same held technique input', () => {
+    const events: LastChancesSemanticInputEvent[] = []
+    const committedGestures: string[] = []
+    const activations = defaultConfig.weapons
+      .find(weapon => weapon.id === 'twohand-bow')!
+      .controls!.secondary!.mylorik.activations
+    const recognizer = new MylorikControlRecognizer(mylorikConfig, (event) => {
+      events.push(event)
+      const activation = activations.find(candidate => (
+        candidate.intent === event.intent
+        && candidate.phase === event.phase
+        && candidate.context === event.context
+      ))
+      if (!activation) return 'observe'
+      if (event.probe) return 'handled'
+      if (event.commit) committedGestures.push(activation.gesture)
+      return 'handled'
+    })
+
+    recognizer.pressTechnique('left', 0, 'keyboard')
+    expect(committedGestures).toEqual(['doubleTap'])
+    expect(recognizer.snapshot('left', 510)).toMatchObject({
+      techniquePressed: true,
+      techniqueContinuationPressed: false,
+      techniqueHeldMs: 510,
+    })
+    recognizer.releaseTechnique('left', 510, 'keyboard')
+
+    expect(committedGestures).toEqual(['doubleTap', 'doubleTapHold'])
+    expect(events.filter(event => event.commit)).toEqual([
+      expect.objectContaining({
+        intent: 'technique',
+        phase: 'press',
+        source: 'keyboard',
+        heldMs: 0,
+      }),
+      expect.objectContaining({
+        intent: 'strike',
+        phase: 'release',
+        context: 'continuation',
+        source: 'keyboard',
+        heldMs: 510,
       }),
     ])
   })
@@ -251,7 +344,7 @@ describe('mylorik control recognizer', () => {
     recognizer.releaseMobility('left', 700, 'gamepad')
     recognizer.releaseTechnique('left', 900, 'gamepad')
 
-    expect(events.filter(event => event.probe)).toEqual([
+    expect(events.filter(event => event.probe && event.intent === 'mobility')).toEqual([
       expect.objectContaining({
         intent: 'mobility',
         phase: 'release',
@@ -296,6 +389,126 @@ describe('mylorik control recognizer', () => {
 })
 
 describe('DualSense control recognizer', () => {
+  it('continues to the independent Longbow Draw root when double-shot is unavailable', () => {
+    const bowControls = defaultConfig.weapons
+      .find(weapon => weapon.id === 'twohand-bow')!
+      .controls!.primary
+    const committed: LastChancesSemanticInputEvent[] = []
+    const recognizer = new DualSenseControlRecognizer(dualSenseConfig, (event) => {
+      if (event.probe) {
+        return event.nodeId === 'draw' ? 'handled' : 'observe'
+      }
+      if (!event.commit) return 'handled'
+      committed.push(event)
+      return 'handled'
+    })
+
+    recognizer.updateTrigger('right', 0.25, 0, bowControls, 'gamepad')
+    expect(committed).toEqual([])
+    recognizer.updateTrigger('right', 0.5, 100, bowControls, 'gamepad')
+    recognizer.updateTrigger('right', 0.1, 700, bowControls, 'gamepad')
+
+    expect(committed).toEqual([
+      expect.objectContaining({
+        nodeId: 'draw',
+        gesture: 'hold',
+        phase: 'release',
+        heldMs: 700,
+      }),
+    ])
+  })
+
+  it('arms Longbow Scatter from the physical pull clock during a gradual R2 draw', () => {
+    const bowControls = defaultConfig.weapons
+      .find(weapon => weapon.id === 'twohand-bow')!
+      .controls!.primary
+    const events: LastChancesSemanticInputEvent[] = []
+    const recognizer = new DualSenseControlRecognizer(dualSenseConfig, (event) => {
+      events.push(event)
+      if (event.probe) {
+        if (event.nodeId === 'draw' || event.context === 'continuation') return 'handled'
+        return 'observe'
+      }
+      return 'handled'
+    })
+
+    recognizer.updateTrigger('right', 0.22, 0, bowControls, 'gamepad')
+    recognizer.updateTrigger('right', 0.5, 100, bowControls, 'gamepad')
+    recognizer.update(670, () => bowControls)
+    recognizer.updateTrigger('right', 0.95, 700, bowControls, 'gamepad')
+
+    expect(events).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        nodeId: 'draw',
+        phase: 'arm',
+        heldMs: 670,
+        armed: true,
+      }),
+      expect.objectContaining({
+        nodeId: 'scatter-finisher',
+        gesture: 'holdThenDoubleTap',
+        phase: 'hold',
+        heldMs: 700,
+        commit: true,
+        armed: true,
+      }),
+    ]))
+  })
+
+  it('selects independent Longbow Jump→Ответ and Rain→Огонь roots by live context', () => {
+    const bowControls = defaultConfig.weapons
+      .find(weapon => weapon.id === 'twohand-bow')!
+      .controls!.secondary!
+
+    const runRoute = (startsInDash: boolean): LastChancesSemanticInputEvent[] => {
+      let dashActive = startsInDash
+      let rainActive = false
+      const committed: LastChancesSemanticInputEvent[] = []
+      const recognizer = new DualSenseControlRecognizer(dualSenseConfig, (event) => {
+        if (event.probe) {
+          if (event.context === 'neutral') return dashActive ? 'observe' : 'handled'
+          if (event.context === 'dash') return dashActive ? 'handled' : 'observe'
+          if (event.context === 'continuation') return rainActive ? 'handled' : 'observe'
+          return 'observe'
+        }
+        if (!event.commit) return 'handled'
+        committed.push(event)
+        if (event.nodeId === 'jump') dashActive = true
+        if (event.nodeId === 'rain') rainActive = true
+        return 'handled'
+      })
+
+      if (startsInDash) {
+        recognizer.updateTrigger('left', 0.25, 0, bowControls, 'gamepad')
+        recognizer.updateTrigger('left', 0.75, 510, bowControls, 'gamepad')
+        recognizer.updateTrigger('left', 0.1, 520, bowControls, 'gamepad')
+      } else {
+        recognizer.updateTrigger('left', 0.25, 0, bowControls, 'gamepad')
+        recognizer.updateTrigger('left', 0.5, 100, bowControls, 'gamepad')
+        recognizer.updateTrigger('left', 0.95, 200, bowControls, 'gamepad')
+      }
+      return committed
+    }
+
+    expect(runRoute(true)).toEqual([
+      expect.objectContaining({ nodeId: 'jump', gesture: 'doubleTap', phase: 'hold' }),
+      expect.objectContaining({
+        nodeId: 'riposte',
+        gesture: 'doubleTapHold',
+        phase: 'release',
+        heldMs: 520,
+      }),
+    ])
+    expect(runRoute(false)).toEqual([
+      expect.objectContaining({ nodeId: 'rain', gesture: 'hold', phase: 'hold' }),
+      expect.objectContaining({
+        nodeId: 'ignite-finisher',
+        gesture: 'holdThenDoubleTap',
+        phase: 'hold',
+      }),
+    ])
+  })
+
   it('emits each threshold transition once and commits the deepest node on release', () => {
     const events: LastChancesSemanticInputEvent[] = []
     const recognizer = new DualSenseControlRecognizer(dualSenseConfig, (event) => {
@@ -340,7 +553,7 @@ describe('DualSense control recognizer', () => {
       expect.objectContaining({ physicalHand: 'left', atMs: 25, commit: true }),
       expect.objectContaining({ physicalHand: 'right', atMs: 25, commit: true }),
     ])
-    expect(events.filter(event => event.phase === 'release')).toEqual([
+    expect(events.filter(event => event.phase === 'release' && event.commit)).toEqual([
       expect.objectContaining({ atMs: 20, value: 0.14 }),
     ])
   })

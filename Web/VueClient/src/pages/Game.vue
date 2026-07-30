@@ -9,6 +9,10 @@ import PlayerCard from 'src/components/PlayerCard.vue'
 import SkillsPanel from 'src/components/SkillsPanel.vue'
 import { formatPassiveDescription } from 'src/services/textFormatting'
 import { translateText } from 'src/i18n'
+import {
+  isStanEdgarThresholdDialogue,
+  orderStanEdgarDismissalLogs,
+} from 'src/features/log-presentation'
 import FightAnimation from 'src/components/FightAnimation.vue'
 import MediaMessages from 'src/components/MediaMessages.vue'
 import RoundTimer from 'src/components/RoundTimer.vue'
@@ -1125,7 +1129,7 @@ function parsePrevLogs(raw: string): PrevLogEntry[] {
       type = 'gold'
     } else if (clean.includes('Я - Учиха. Мадара.')) {
       type = 'red'
-    } else if (isPhrase) {
+    } else if (isPhrase || isStanEdgarThresholdDialogue(clean)) {
       type = 'purple'
     } else if (/[Сс]килла/i.test(clean) || /Справедливость/i.test(clean) || /Cкилла/i.test(clean) || /Морали/i.test(clean)) {
       type = 'green'
@@ -1168,8 +1172,10 @@ muted	(Grey)
   })
 }
 
-const prevLogEntriesAll = computed(() => parsePrevLogs(store.myPlayer?.status.previousRoundLogs || ''))
-const currentLogEntriesAll = computed(() => parsePrevLogs(mergeEvents() || ''))
+const prevLogEntriesAll = computed(() =>
+  orderStanEdgarDismissalLogs(parsePrevLogs(store.myPlayer?.status.previousRoundLogs || '')))
+const currentLogEntriesAll = computed(() =>
+  orderStanEdgarDismissalLogs(parsePrevLogs(mergeEvents() || '')))
 
 // Split: "очков" entries go to PlayerCard, rest stay in log panels
 const prevLogEntries = computed(() => prevLogEntriesAll.value.filter((e: PrevLogEntry) => e.type !== 'gold'))
@@ -1831,19 +1837,6 @@ const rumblingEmbers = Array.from({ length: 36 }, (_, index) => ({
         <!-- Fight Panel + Blackjack -->
         <div class="center-section fight-section" :class="{ 'fight-section-fixed': fightPanelFixed || fightStyle !== 'v3' }" :style="{ order: panelOrder.fight }">
           <div ref="fightPanelRef" class="log-panel card fight-panel" :class="{ 'fight-panel-fixed': fightPanelFixed }" :data-style="fightStyle">
-            <!-- Kira: Death Note above fight animation -->
-            <DeathNote
-              v-if="store.isKira && store.myPlayer?.deathNote && !store.gameState.isFinished"
-              :death-note="store.myPlayer.deathNote"
-              :players="store.gameState.players"
-              :my-player-id="store.myPlayer.playerId"
-              :character-names="store.gameState.allCharacterNames || []"
-              :character-catalog="store.gameState.allCharacters || []"
-              :is-finished="store.gameState.isFinished"
-              :moral="store.myPlayer.character.moralDisplay"
-              @write="store.deathNoteWrite($event.targetPlayerId, $event.characterName)"
-              @shinigami-eyes="store.shinigamiEyes()"
-            />
             <!-- Fight animation (all players including Kira) -->
             <FightAnimation
               :fights="store.gameState.fightLog || []"
@@ -2003,6 +1996,24 @@ const rumblingEmbers = Array.from({ length: 36 }, (_, index) => ({
           v-if="visibleMediaMessages.length"
           :messages="visibleMediaMessages"
         />
+
+        <!-- Kira: keep the Death Note as the bottom-most center block -->
+        <div
+          v-if="store.isKira && store.myPlayer?.deathNote && !store.gameState.isFinished"
+          class="kira-death-note-section"
+        >
+          <DeathNote
+            :death-note="store.myPlayer.deathNote"
+            :players="store.gameState.players"
+            :my-player-id="store.myPlayer.playerId"
+            :character-names="store.gameState.allCharacterNames || []"
+            :character-catalog="store.gameState.allCharacters || []"
+            :is-finished="store.gameState.isFinished"
+            :moral="store.myPlayer.character.moralDisplay"
+            @write="store.deathNoteWrite($event.targetPlayerId, $event.characterName)"
+            @shinigami-eyes="store.shinigamiEyes()"
+          />
+        </div>
 
       </div>
 
@@ -2475,6 +2486,10 @@ const rumblingEmbers = Array.from({ length: 36 }, (_, index) => ({
   flex-direction: column;
   align-self: stretch;
   min-height: 0;
+}
+
+.kira-death-note-section {
+  order: 1000;
 }
 
 /* v1/v2: always fit content (no wasted space, no cutoff) */

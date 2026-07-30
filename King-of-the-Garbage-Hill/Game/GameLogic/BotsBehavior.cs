@@ -1009,7 +1009,7 @@ public class BotsBehavior : IServiceSingleton
             }
 
             // Round-10 event targets are explicit designer-scripted exceptions at every AI level.
-            // Monster has roster-wide priority; only a roster without Monster falls through to Eren.
+            // A selectable Eren above this bot is absolute priority; Monster is the fallback.
             if (await TryForceRoundTenBossAttack(bot, game, allTargets)) return;
             if (await TryForceNechtoAttack(bot, game)) return;
 
@@ -5040,13 +5040,11 @@ public class BotsBehavior : IServiceSingleton
         if (game.RoundNo != 10)
             return false;
 
-        var monsterExists = game.PlayersList.Any(player =>
-            player.GameCharacter.Name == "Монстр без имени");
-        var mandatoryTarget = monsterExists
-            ? allTargets.Find(target => target.Player.GameCharacter.Name == "Монстр без имени")
-            : allTargets.Find(target =>
-                target.Player.GameCharacter.Name == ErenYeager.CharacterName
-                && bot.Status.GetPlaceAtLeaderBoard() > target.PlaceAtLeaderBoard());
+        var mandatoryTarget = allTargets.Find(target =>
+            target.Player.GameCharacter.Name == ErenYeager.CharacterName
+            && bot.Status.GetPlaceAtLeaderBoard() > target.PlaceAtLeaderBoard());
+        mandatoryTarget ??= allTargets.Find(target =>
+            target.Player.GameCharacter.Name == "Монстр без имени");
         if (mandatoryTarget == null)
             return false;
 

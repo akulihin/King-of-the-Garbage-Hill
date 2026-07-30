@@ -18,6 +18,7 @@ public static class ScamRat
     public const int JusticeCapLossPerSale = 1;
     public const int CarryPointsPerStolenWin = 1;
     public const int CarryStatCost = 1;
+    public const int CarryBonusPointCost = 1;
 
     public sealed class State
     {
@@ -82,6 +83,7 @@ public static class ScamRat
             $"{PassiveName}: {target.DiscordUsername} купил видеокарту за {SaleBonusPoints} бонусное очко.\n");
         target.Status.AddInGamePersonalLogs(
             $"{PassiveName}: вы купили видеокарту у {holder.DiscordUsername}.\n");
+        game.Phrases.ScamRatGpuSale.SendLog(holder, false, isRandomOrder: false);
     }
 
     public static void ExplodeOnBlock(GameClass game)
@@ -143,7 +145,8 @@ public static class ScamRat
     {
         if (!UsesCarryShop(holder)
             || game == null
-            || holder.Passives.ScamRat.CarryPoints < CarryStatCost)
+            || holder.Passives.ScamRat.CarryPoints < CarryStatCost
+            || holder.Status.GetScore() < CarryBonusPointCost)
             return false;
 
         var before = statIndex switch
@@ -183,6 +186,7 @@ public static class ScamRat
         if (after <= before) return false;
 
         holder.Passives.ScamRat.CarryPoints -= CarryStatCost;
+        holder.Status.AddBonusPoints(-CarryBonusPointCost, SharingPhraseSource);
         game.Phrases.ScamRatSharingPurchase.SendLog(holder, false);
         return true;
     }
@@ -191,7 +195,8 @@ public static class ScamRat
     {
         if (!holder.IsBot() || !UsesCarryShop(holder)) return;
 
-        while (holder.Passives.ScamRat.CarryPoints >= CarryStatCost)
+        while (holder.Passives.ScamRat.CarryPoints >= CarryStatCost
+               && holder.Status.GetScore() >= CarryBonusPointCost)
         {
             var availableStats = new List<(int Index, int Value)>
             {

@@ -398,7 +398,12 @@ function catalogForDeck(dc: number) {
                   :style="{ color: getRegionColor(region) }"
                 >{{ region }}</span>
               </div>
-              <span class="ship-stats bs-mono">HP {{ def.deckHpOverrides ? def.deckHpOverrides.join('/') : def.defaultArmor }} | Скор. {{ def.speed }} | Зона {{ def.space }} | {{ def.range }} | {{ def.cost }}м</span>
+              <span class="ship-stats bs-mono">
+                HP {{ def.deckHpOverrides ? def.deckHpOverrides.join('/') : def.defaultArmor }}
+                | Скор. {{ def.speed }} | Зона {{ def.space }} |
+                <span class="range-class" lang="en" translate="no">{{ def.range }}</span>
+                | {{ def.cost }}м
+              </span>
             </div>
             <div v-if="def.description" class="ship-desc">{{ def.description }}</div>
             <div v-if="def.abilities.length" class="ship-abilities">

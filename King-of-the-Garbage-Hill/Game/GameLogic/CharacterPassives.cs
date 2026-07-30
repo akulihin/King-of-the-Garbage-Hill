@@ -1099,20 +1099,10 @@ public class CharacterPassives : IServiceSingleton
                     break;
 
                 case "Близнец":
-                    // Justice copying intentionally does not happen in this hook.
-                    // HandleDefenseAfterFight runs only for resolved fights.
-                    // A successful Block exits before reaching it.
-                    // Conversely, block-bypassing attacks reach this hook while
-                    // the defender may still have IsBlock == true.
-                    //
-                    // The authoritative block branch in DoomsdayMachine:
-                    //   * confirms the fight was stopped;
-                    //   * reads the attacker's persistent pre-fight Justice;
-                    //   * tracks the per-round maximum;
-                    //   * grants only incremental bonus points;
-                    //   * suppresses generic block Justice.
-                    //
-                    // Keep this explicit no-op so copied/transferred holders cannot regain fight-side dispatch here.
+                    // Близнец resolves only in DoomsdayMachine's authoritative successful-Block
+                    // branch. Each stopped attacker contributes frozen Justice plus the ordinary
+                    // +1 Block grant and queues one highest-stat copy; bypassed Blocks contribute
+                    // nothing. Keep this no-op so transferred holders cannot double-dispatch it.
                     break;
 
                 // TheBoys — Kimiko: выведение из строя при поражении в обороне (Живое Оружие даёт иммунитет)
@@ -2033,6 +2023,7 @@ public class CharacterPassives : IServiceSingleton
                             if (target.GameCharacter.Name == "Стая Гоблинов"
                                 || Madara.IsMadara(target)
                                 || UnknownBug.Is(target)) break;
+                            if (Itachi.TryPreventDeath(target, game)) break;
                             game.AddGlobalLogs($"{UnknownBug.PublicName(me)} **УБИЛ** {UnknownBug.PublicName(target)}!");
                             game.AddGlobalLogs($"Они скинули **{target.DiscordUsername}**! Сволочи!");
                             game.Phrases.KratosEventKill.SendLog(me, true, isRandomOrder:false);
@@ -3019,6 +3010,8 @@ public class CharacterPassives : IServiceSingleton
                     //failed
                     if (game.RoundNo > 10 && game.IsKratosEvent && player.Status.IsLostThisCalculation != Guid.Empty)
                     {
+                        if (Itachi.TryPreventDeath(player, game))
+                            break;
                         player.Passives.IsDead = true;
                         player.Passives.DeathSource = "Kratos";
                         player.Passives.AchievementTracker.WasKilledByKratos = true;
@@ -3968,34 +3961,41 @@ public class CharacterPassives : IServiceSingleton
                              && !UnknownBug.Is(player))
             .ToList();
 
-        // Public aftermath intensity is server-authoritative and persists with the finished game state.
-        // End-of-Watch interceptions still count as Rumbling kills, matching source rewards/counters.
-        eren.Passives.Eren.RumblingKillCount = Math.Min(4, victims.Count);
-
+        var actualVictims = new List<GamePlayerBridgeClass>();
         foreach (var victim in victims)
         {
+            if (Itachi.TryPreventDeath(victim, game))
+                continue;
             if (!JonSnow.TryEndWatch(victim, game, "Rumbling"))
             {
                 victim.Passives.IsDead = true;
                 victim.Passives.DeathSource = "Rumbling";
             }
+            actualVictims.Add(victim);
             eren.Passives.AchievementTracker.RumblingVictimIds.Add(victim.GetPlayerId());
         }
 
-        if (victims.Count == 0)
+        // Public aftermath intensity and every death-derived reward count only lethal events.
+        // End-of-Watch still counts as a death; Izanagi does not.
+        eren.Passives.Eren.RumblingKillCount = Math.Min(4, actualVictims.Count);
+
+        if (actualVictims.Count == 0)
         {
-            game.AddGlobalLogs($"Rumbling: Эрен остался на {erenIndex + 1} месте. Между ним и Элдией никого нет.");
+            game.AddGlobalLogs(
+                victims.Count == 0
+                    ? $"Rumbling: Эрен остался на {erenIndex + 1} месте. Между ним и Элдией никого нет."
+                    : $"Rumbling: Эрен остался на {erenIndex + 1} месте, но никто не погиб.");
             return;
         }
 
         game.AddGlobalLogs(
-            $"Rumbling: Колоссальные титаны уничтожили {string.Join(", ", victims.Select(x => x.DiscordUsername))}!");
+            $"Rumbling: Колоссальные титаны уничтожили {string.Join(", ", actualVictims.Select(x => x.DiscordUsername))}!");
 
         foreach (var monster in game.PlayersList.Where(x =>
                      !x.Passives.IsDead
                      && x.GameCharacter.Passive.Any(passive => passive.PassiveName == "Монстр")))
         {
-            monster.Status.AddRegularPoints(victims.Count, "Монстр");
+            monster.Status.AddRegularPoints(actualVictims.Count, "Монстр");
             game.Phrases.MonsterDeath.SendLog(monster, false);
         }
     }
@@ -4714,13 +4714,6 @@ public class CharacterPassives : IServiceSingleton
 
                     break;
 
-                case "Вампуризм":
-                    vampyr = player.Passives.VampyrHematophagiaList;
-                    if (vampyr.HematophagiaCurrent.Count > 0)
-                        if (game.RoundNo is 2 or 4 or 6 or 8 or 10)
-                            player.GameCharacter.AddMoral(vampyr.HematophagiaCurrent.Count, "Вампуризм");
-                    break;
-
                 case "Неприметность":
                     // Recalculate top 2 serious targets every round based on current combat power
                     var saitamaEndUnnoticed = player.Passives.SaitamaUnnoticed;
@@ -4783,6 +4776,11 @@ public class CharacterPassives : IServiceSingleton
                         var dnTarget = game.PlayersList.Find(x => x.GetPlayerId() == deathNote.CurrentRoundTarget);
                         if (dnTarget != null)
                         {
+                            // A notebook target can be used only once. This lock is independent of the
+                            // outcome: an earlier death, Jon's rebirth or Itachi's Izanagi cannot reopen it.
+                            if (!deathNote.FailedTargets.Contains(dnTarget.GetPlayerId()))
+                                deathNote.FailedTargets.Add(dnTarget.GetPlayerId());
+
                             if (dnTarget.Passives.IsDead)
                             {
                                 player.Status.AddInGamePersonalLogs(PhrasePayload.Encode(
@@ -4819,58 +4817,74 @@ public class CharacterPassives : IServiceSingleton
                                 && string.Equals(writtenName, actualName, StringComparison.OrdinalIgnoreCase))
                             {
                                 // Goblins and Madara are immune to kill effects.
-                                if (dnTarget.GameCharacter.Name == "Стая Гоблинов" || Madara.IsMadara(dnTarget)) break;
-                                // Correct — target dies
-                                if (!JonSnow.TryEndWatch(dnTarget, game, "Kira"))
-                                {
-                                    dnTarget.Passives.IsDead = true;
-                                    dnTarget.Passives.DeathSource = "Kira";
-                                }
-                                dnTarget.Passives.AchievementTracker.WasKilledByKira = true;
-                                if (dnTarget.GameCharacter.Name == "Кира")
-                                    player.Passives.AchievementTracker.SurvivedKiraAttempt = false; // killer gets "kill_a_god" tracked at game end
-                                // Монстр без имени: +1 regular point per death
-                                foreach (var mp in game.PlayersList.Where(x => !x.Passives.IsDead
-                                             && x.GameCharacter.Passive.Any(y => y.PassiveName == "Монстр")))
-                                {
-                                    mp.Status.AddRegularPoints(1, "Монстр");
-                                    game.Phrases.MonsterDeath.SendLog(mp, false);
-                                }
-                                var isL = dnTarget.GetPlayerId() == Salldorum.ResolveRandomTargetId(
-                                    game, player, player.Passives.KiraL.LPlayerId);
-                                var pts = isL ? 4 : 2;
-                                player.Status.AddRegularPoints(pts, "Тетрадь смерти");
-                                player.GameCharacter.AddIntelligence(-1, "Гений");
+                                var targetIsKillImmune =
+                                    dnTarget.GameCharacter.Name == "Стая Гоблинов" || Madara.IsMadara(dnTarget);
+                                var deathPreventedByIzanagi =
+                                    !targetIsKillImmune && Itachi.TryPreventDeath(dnTarget, game);
+                                var causedDeath = !targetIsKillImmune && !deathPreventedByIzanagi;
                                 deathNote.Entries.Add(new Characters.Kira.DeathNoteEntry
                                 {
                                     TargetPlayerId = dnTarget.GetPlayerId(),
                                     WrittenName = writtenName,
                                     RoundWritten = game.RoundNo,
-                                    WasCorrect = true
+                                    WasCorrect = true,
+                                    CausedDeath = causedDeath,
                                 });
-                                var deathLog = $"{dnTarget.DiscordUsername} умер от сердечного приступа...";
-                                game.AddGlobalLogs(deathLog);
-                                game.Phrases.KiraDeathNoteKill.SendLog(player, true);
 
-                                // Kira killed L — special dialogue
-                                if (isL)
+                                if (causedDeath)
                                 {
-                                    game.AddGlobalLogs(
-                                        $"В связи с загадочными обстоятельствами, известный детектив по кличке **L** мертв. Его настоящее имя было {dnTarget.DiscordUsername}\n" +
-                                        "**Kira:** Ну и что LLLLLLL???!?! КТО ТЕПЕРЬ... КТО ТЕПЕРЬ... эм... КТО ИЗ НАС ПОБЕДИЛ???!?! ХАХХХАХАХАХ! ГАВ ГАВ ГАВ");
+                                    if (!JonSnow.TryEndWatch(dnTarget, game, "Kira"))
+                                    {
+                                        dnTarget.Passives.IsDead = true;
+                                        dnTarget.Passives.DeathSource = "Kira";
+                                    }
+                                    dnTarget.Passives.AchievementTracker.WasKilledByKira = true;
+                                    if (dnTarget.GameCharacter.Name == "Кира")
+                                        player.Passives.AchievementTracker.SurvivedKiraAttempt = false; // killer gets "kill_a_god" tracked at game end
+                                    // Монстр без имени: +1 regular point per real death
+                                    foreach (var mp in game.PlayersList.Where(x => !x.Passives.IsDead
+                                                 && x.GameCharacter.Passive.Any(y => y.PassiveName == "Монстр")))
+                                    {
+                                        mp.Status.AddRegularPoints(1, "Монстр");
+                                        game.Phrases.MonsterDeath.SendLog(mp, false);
+                                    }
+                                    var isL = dnTarget.GetPlayerId() == Salldorum.ResolveRandomTargetId(
+                                        game, player, player.Passives.KiraL.LPlayerId);
+                                    var pts = isL ? 4 : 2;
+                                    player.Status.AddRegularPoints(pts, "Тетрадь смерти");
+                                    player.GameCharacter.AddIntelligence(-1, "Гений");
+                                    var deathLog = $"{dnTarget.DiscordUsername} умер от сердечного приступа...";
+                                    game.AddGlobalLogs(deathLog);
+                                    game.Phrases.KiraDeathNoteKill.SendLog(player, true);
+
+                                    // Kira killed L — special dialogue
+                                    if (isL)
+                                    {
+                                        game.AddGlobalLogs(
+                                            $"В связи с загадочными обстоятельствами, известный детектив по кличке **L** мертв. Его настоящее имя было {dnTarget.DiscordUsername}\n" +
+                                            "**Kira:** Ну и что LLLLLLL???!?! КТО ТЕПЕРЬ... КТО ТЕПЕРЬ... эм... КТО ИЗ НАС ПОБЕДИЛ???!?! ХАХХХАХАХАХ! ГАВ ГАВ ГАВ");
+                                    }
+                                }
+                                else if (deathPreventedByIzanagi)
+                                {
+                                    player.Status.AddInGamePersonalLogs(
+                                        "Тетрадь смерти: имя было верным, но Изанаги предотвратил смерть. Очки за убийство не начислены.\n");
+                                }
+                                else
+                                {
+                                    player.Status.AddInGamePersonalLogs(
+                                        "Тетрадь смерти: имя было верным, но цель невосприимчива к убийству.\n");
                                 }
                             }
                             else
                             {
-                                // Wrong name — lock target in failed list
-                                if (!deathNote.FailedTargets.Contains(dnTarget.GetPlayerId()))
-                                    deathNote.FailedTargets.Add(dnTarget.GetPlayerId());
                                 deathNote.Entries.Add(new Characters.Kira.DeathNoteEntry
                                 {
                                     TargetPlayerId = dnTarget.GetPlayerId(),
                                     WrittenName = writtenName,
                                     RoundWritten = game.RoundNo,
-                                    WasCorrect = false
+                                    WasCorrect = false,
+                                    CausedDeath = false,
                                 });
                                 game.Phrases.KiraDeathNoteFailed.SendLog(player, false);
                             }
@@ -5079,9 +5093,20 @@ public class CharacterPassives : IServiceSingleton
                     break;
 
                 case "Гоблины тупые, но не идиоты":
-                    // Save block intent for ziggurat build (IsBlock is still true here, gets reset before HandleNextRoundAfterSorting)
+                    var gobZigIntent = player.Passives.GoblinZiggurat;
                     if (player.Status.IsBlock)
-                        player.Passives.GoblinZiggurat.WantsToBuild = true;
+                    {
+                        // Forced/legacy block paths may not have captured the button position.
+                        if (!gobZigIntent.WantsToBuild || gobZigIntent.PendingBuildPosition <= 0)
+                        {
+                            gobZigIntent.WantsToBuild = true;
+                            gobZigIntent.PendingBuildPosition = player.Status.GetPlaceAtLeaderBoard();
+                        }
+                        ResolveGoblinZigguratBuild(
+                            player, game, gobZigIntent.PendingBuildPosition);
+                    }
+                    gobZigIntent.WantsToBuild = false;
+                    gobZigIntent.PendingBuildPosition = 0;
                     break;
 
                 // Котики — Штормяк: reset taunt target at end of round
@@ -5100,6 +5125,20 @@ public class CharacterPassives : IServiceSingleton
                         ambushEor.MinkaCooldown--;
                     if (ambushEor.StormCooldown > 0)
                         ambushEor.StormCooldown--;
+                    break;
+
+                case "Francie":
+                    if (player.Passives.TheBoysButcher.SuperDickActive) break;
+                    var francieEor = player.Passives.TheBoysFrancie;
+                    if (game.RoundNo is 3 or 6 or 9
+                        && francieEor.OrderTarget != Guid.Empty)
+                    {
+                        francieEor.OrdersFailed++;
+                        player.Status.AddRegularPoints(-1, "Заказ Француза");
+                        game.Phrases.TheBoysOrderFailed.SendLog(player, false);
+                        francieEor.OrderTarget = Guid.Empty;
+                        francieEor.OrderRoundsLeft = 0;
+                    }
                     break;
 
                 // Котики — Рандомное поведение: per-round cleanup
@@ -5130,6 +5169,7 @@ public class CharacterPassives : IServiceSingleton
                         {
                             // Pawns who blocked or skipped survive
                             if (pawn.Status.IsBlock || pawn.Status.IsSkip || Madara.IsMadara(pawn)) continue;
+                            if (Itachi.TryPreventDeath(pawn, game)) continue;
                             if (!JonSnow.TryEndWatch(pawn, game, "Monster"))
                             {
                                 pawn.Passives.IsDead = true;
@@ -5317,11 +5357,14 @@ public class CharacterPassives : IServiceSingleton
                             // Death by pitchforks
                             if (demand.Displeasure >= 11)
                             {
-                                player.Passives.IsDead = true;
-                                player.Passives.DeathSource = "Pitchforks";
-                                player.Status.AddBonusPointsIgnoringFloor(-500, "Вилы разъяренной толпы");
-                                game.AddGlobalLogs($"Жители деревни подняли {player.DiscordUsername} на вилы за жадность! Ведьмак мёртв.");
-                                player.Status.AddInGamePersonalLogs("Чеканная монета: Толпа с вилами! Вы мертвы. -500 очков.\n");
+                                if (!Itachi.TryPreventDeath(player, game))
+                                {
+                                    player.Passives.IsDead = true;
+                                    player.Passives.DeathSource = "Pitchforks";
+                                    player.Status.AddBonusPointsIgnoringFloor(-500, "Вилы разъяренной толпы");
+                                    game.AddGlobalLogs($"Жители деревни подняли {player.DiscordUsername} на вилы за жадность! Ведьмак мёртв.");
+                                    player.Status.AddInGamePersonalLogs("Чеканная монета: Толпа с вилами! Вы мертвы. -500 очков.\n");
+                                }
                             }
                         }
 
@@ -5728,6 +5771,7 @@ public class CharacterPassives : IServiceSingleton
                                     {
                                         // Goblins are immune to kill effects
                                         if (player.GameCharacter.Name == "Стая Гоблинов") break;
+                                        if (Itachi.TryPreventDeath(player, game)) break;
                                         kiraLNext.IsArrested = true;
                                         player.Passives.IsDead = true;
                                         player.Passives.DeathSource = "Kira";
@@ -6351,6 +6395,16 @@ public class CharacterPassives : IServiceSingleton
 
                         break;
 
+                    case "Вампуризм":
+                        if (game.RoundNo is 2 or 4 or 6 or 8 or 10)
+                        {
+                            var vampirismState = player.Passives.VampyrHematophagiaList;
+                            if (vampirismState.HematophagiaCurrent.Count > 0)
+                                player.GameCharacter.AddMoral(
+                                    vampirismState.HematophagiaCurrent.Count, "Вампуризм");
+                        }
+                        break;
+
                     case "Огурчик Рик":
                         var pickleNext = player.Passives.RickPickle;
                         if (pickleNext.PickleTurnsRemaining > 0)
@@ -6385,18 +6439,11 @@ public class CharacterPassives : IServiceSingleton
                         }
                         break;
 
-                    // Глаз Шусуи: resurrect once if killed
+                    // Compatibility fallback for a stale/in-flight death created before the lethal
+                    // source could call the immediate Izanagi interceptor.
                     case "Глаз Шусуи":
                         if (!player.Passives.ItachiShisuiUsed && player.Passives.IsDead)
-                        {
-                            player.Passives.IsDead = false;
-                            player.Passives.DeathSource = "";
-                            player.Passives.ItachiShisuiUsed = true;
-                            var shisui = player.GameCharacter.Passive.Find(x => x.PassiveName == "Глаз Шусуи");
-                            if (shisui != null) shisui.Visible = true;
-                            player.Passives.AchievementTracker.WasRevived = true;
-                            game.AddGlobalLogs($"**Изанаги!**\n**{UnknownBug.PublicName(player)}** вернулся к жизни\n\"Я планировал приберечь глаз Шисуи для кое-чего другого... но ладно.\"");
-                        }
+                            Itachi.TryPreventDeath(player, game);
                         break;
 
                     // Боги мне не указ: resurrect once if killed by a member of the Бог lore class.
@@ -6482,6 +6529,7 @@ public class CharacterPassives : IServiceSingleton
                     case "Макро":
                         player.Passives.DopaMacro.FightsProcessed = 0;
                         player.Passives.DopaMacro.FightsResolved = 0;
+                        player.Passives.DopaMacro.DuplicateTargetSkipRound = 0;
                         break;
 
                     case "Get cancer":
@@ -6550,26 +6598,16 @@ public class CharacterPassives : IServiceSingleton
                         break;
 
                     case "Близнец":
-                        player.Passives.MonsterTwinHighestJusticeThisRound = -1;
+                        MonsterWithoutName.ApplyPendingStatCopies(player);
                         break;
 
                     // TheBoys — Francie: заказы, окно 3 хода (новый заказ на раундах 4, 7)
                     case "Francie":
                         if (player.Passives.TheBoysButcher.SuperDickActive) break; // СуперМудень отключает Француза
                         var francieNR = player.Passives.TheBoysFrancie;
-                        if (game.RoundNo is 4 or 7 or 10)
+                        if (game.RoundNo is 4 or 7)
                         {
-                            // Провалить текущий заказ, если ещё активен
-                            if (francieNR.OrderTarget != Guid.Empty)
-                            {
-                                francieNR.OrdersFailed++;
-                                player.Status.AddRegularPoints(-1, "Заказ Француза");
-                                game.Phrases.TheBoysOrderFailed.SendLog(player, false);
-                                francieNR.OrderTarget = Guid.Empty;
-                                francieNR.OrderRoundsLeft = 0;
-                            }
-                            // Новый заказ (кроме 10-го раунда — игра заканчивается)
-                            if (game.RoundNo < 10 && francieNR.RemainingTargets.Count > 0)
+                            if (francieNR.RemainingTargets.Count > 0)
                             {
                                 // Most wanted: если Рик ещё в очереди — заказ на него
                                 var rickMwFrancieNR = RickSanchez.FindMostWantedHolder(game.PlayersList, player);
@@ -7142,56 +7180,6 @@ public class CharacterPassives : IServiceSingleton
                 case "Гоблины тупые, но не идиоты":
                     var gobZigEnd = player.Passives.GoblinZiggurat;
                     var placeEnd = player.Status.GetPlaceAtLeaderBoard();
-
-                    // Build ziggurat on block (WantsToBuild is set in HandleEndOfRound where IsBlock is still true)
-                    if (gobZigEnd.WantsToBuild)
-                    {
-                        var zigPop = player.Passives.GoblinPopulation;
-
-                        if (zigPop.Warriors < 1 || zigPop.Hobs < 1 || zigPop.Workers < 1)
-                        {
-                            game.Phrases.GoblinZigguratNoMoney.SendLog(player, false);
-                        }
-                        else if (player.Status.GetScore() <= 3) // m11: needs strictly MORE than 3 points
-                        {
-                            game.Phrases.GoblinZigguratNoMoney.SendLog(player, false);
-                        }
-                        else if (gobZigEnd.BuiltPositions.Contains(placeEnd))
-                        {
-                            player.Status.AddInGamePersonalLogs("Зиккурат уже построен на этом месте!\n");
-                        }
-                        else
-                        {
-                            player.Status.AddBonusPoints(-3, "Гоблины тупые, но не идиоты");
-                            zigPop.ZigguratWorkerDeductions++;
-                            game.Phrases.GoblinZigguratWorkerDeath.SendLog(player, false);
-                            player.Status.AddInGamePersonalLogs($"Зиккурат: -1 трудяга. Трудяг осталось: {zigPop.Workers}\n");
-
-                            gobZigEnd.BuiltPositions.Add(placeEnd);
-                            gobZigEnd.IsInZiggurat = true;
-                            gobZigEnd.ZigguratStayRoundsLeft = 1;
-
-                            var lastAttacked = game.PlayersList.Find(x => x.GetPlayerId() == player.Passives.GoblinLastAttackedPlayer);
-                            var enemyPassives = lastAttacked?.GameCharacter.Passive ?? new List<Passive>();
-                            var standalonePassives = enemyPassives
-                                .Where(p => p.Standalone && p.PassiveName != "Еврей" // D2: Goblins may not learn "Еврей" (would make a second Jew)
-                                    && !gobZigEnd.LearnedPassives.Contains(p.PassiveName)
-                                    && player.GameCharacter.Passive.All(x => x.PassiveName != p.PassiveName))
-                                .ToList();
-
-                            if (standalonePassives.Count > 0)
-                            {
-                                var learnedPassive = standalonePassives[_rand.Random(0, standalonePassives.Count - 1)];
-                                gobZigEnd.LearnedPassives.Add(learnedPassive.PassiveName);
-                                player.GameCharacter.Passive.Add(learnedPassive.DeepCopy());
-                                player.Status.AddInGamePersonalLogs($"Отлично! Гоблины постарались как следует и научились производить: {learnedPassive.PassiveName}\n");
-                            }
-
-                            game.Phrases.GoblinZigguratBuild.SendLog(player, false);
-                            player.Status.AddInGamePersonalLogs($"Зиккурат построен на месте {placeEnd}! Позиция защищена.\n");
-                        }
-                    }
-                    gobZigEnd.WantsToBuild = false;
 
                     // Check if current position has a built ziggurat
                     if (gobZigEnd.BuiltPositions.Contains(placeEnd))
@@ -8135,11 +8123,53 @@ public class CharacterPassives : IServiceSingleton
                 }
                 finally
                 {
+                    Dopa.ReassertMacroPrediction(player);
+                    EnforceMonsterWrongPrediction(player, game);
                     Madara.EnforcePostRoundSevenBotPrediction(player, game);
                 }
             }
     }
     //end predict bot
+
+    private void EnforceMonsterWrongPrediction(
+        GamePlayerBridgeClass bot,
+        GameClass game)
+    {
+        if (bot?.PlayerType != 404
+            || bot.Passives.IsDead
+            || bot.GameCharacter.DoomRollMode
+            || Madara.IsMadara(bot)
+            || bot.GameCharacter.Passive.Any(passive =>
+                passive.PassiveName is "Тетрадь смерти" or "AdminPlayerType" or "Булькает"))
+            return;
+
+        var monster = game.PlayersList.FirstOrDefault(player =>
+            player.GetPlayerId() != bot.GetPlayerId()
+            && !player.Passives.IsDead
+            && player.GameCharacter.Name == MonsterWithoutName.CharacterName
+            && player.GameCharacter.Passive.Any(passive =>
+                passive.PassiveName == "Выдуманный персонаж"));
+        if (monster == null) return;
+
+        var wrongCandidates = GetFairPredictionCatalog()
+            .Where(character =>
+                character.Name != MonsterWithoutName.CharacterName
+                && character.Name != "Sakura"
+                && (!character.TeamModeOnly || game.Teams.Count > 0))
+            .Select(character => character.Name)
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+        if (wrongCandidates.Count == 0) return;
+
+        var wrongPrediction = wrongCandidates[
+            _rand.Random(0, wrongCandidates.Count - 1)];
+        bot.Predict.RemoveAll(prediction =>
+            prediction.PlayerId == monster.GetPlayerId());
+        bot.Predict.Add(new PredictClass(
+            wrongPrediction,
+            monster.GetPlayerId()));
+        bot.Status.ConfirmedPredict = true;
+    }
 
 
     //unique
@@ -8457,6 +8487,68 @@ public class CharacterPassives : IServiceSingleton
         return generic[_rand.Random(0, generic.Count - 1)];
     }
     //end unique
+
+    private void ResolveGoblinZigguratBuild(
+        GamePlayerBridgeClass player,
+        GameClass game,
+        int buildPosition)
+    {
+        var ziggurat = player.Passives.GoblinZiggurat;
+        var population = player.Passives.GoblinPopulation;
+
+        if (population.Warriors < 1 || population.Hobs < 1 || population.Workers < 1)
+        {
+            game.Phrases.GoblinZigguratNoMoney.SendLog(player, false);
+            return;
+        }
+        if (player.Status.GetScore() <= 3)
+        {
+            game.Phrases.GoblinZigguratNoMoney.SendLog(player, false);
+            return;
+        }
+        if (ziggurat.BuiltPositions.Contains(buildPosition))
+        {
+            player.Status.AddInGamePersonalLogs("Зиккурат уже построен на этом месте!\n");
+            return;
+        }
+
+        player.Status.AddBonusPoints(-3, GoblinSwarm.ZigguratPassive);
+        population.ZigguratWorkerDeductions++;
+        game.Phrases.GoblinZigguratWorkerDeath.SendLog(player, false);
+        player.Status.AddInGamePersonalLogs(
+            $"Зиккурат: -1 трудяга. Трудяг осталось: {population.Workers}\n");
+
+        ziggurat.BuiltPositions.Add(buildPosition);
+        var stillOnBuiltPosition =
+            player.Status.GetPlaceAtLeaderBoard() == buildPosition;
+        ziggurat.IsInZiggurat = stillOnBuiltPosition;
+        ziggurat.ZigguratStayRoundsLeft = stillOnBuiltPosition ? 1 : 0;
+
+        var lastAttacked = game.PlayersList.Find(x =>
+            x.GetPlayerId() == player.Passives.GoblinLastAttackedPlayer);
+        var enemyPassives = lastAttacked?.GameCharacter.Passive ?? new List<Passive>();
+        var standalonePassives = enemyPassives
+            .Where(passive => passive.Standalone
+                              && passive.PassiveName != "Еврей"
+                              && !ziggurat.LearnedPassives.Contains(passive.PassiveName)
+                              && player.GameCharacter.Passive.All(existing =>
+                                  existing.PassiveName != passive.PassiveName))
+            .ToList();
+
+        if (standalonePassives.Count > 0)
+        {
+            var learnedPassive =
+                standalonePassives[_rand.Random(0, standalonePassives.Count - 1)];
+            ziggurat.LearnedPassives.Add(learnedPassive.PassiveName);
+            player.GameCharacter.Passive.Add(learnedPassive.DeepCopy());
+            player.Status.AddInGamePersonalLogs(
+                $"Отлично! Гоблины постарались как следует и научились производить: {learnedPassive.PassiveName}\n");
+        }
+
+        game.Phrases.GoblinZigguratBuild.SendLog(player, false);
+        player.Status.AddInGamePersonalLogs(
+            $"Зиккурат построен на месте {buildPosition}! Позиция защищена.\n");
+    }
 
     // Стая Гоблинов: recompute Str/Int/Psyche from population size, but PRESERVE any external stat
     // change (e.g. Спартанец's −1 Сила) on top of the population base rather than overwriting it (finding D7).

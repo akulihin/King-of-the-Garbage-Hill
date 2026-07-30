@@ -198,7 +198,7 @@ const widgetHelpCopy = {
   tea: ['When tea is ready, the next attack spends it for one point and makes the target skip their next turn.', 'Когда чай готов, следующая атака потратит его: даст очко и заставит цель пропустить следующий ход.'],
   jew: ['Tracks the Psyche accumulated by the PROFIT mechanic.', 'Счётчик показывает, сколько Психики уже накоплено механикой PROFIT.'],
   hardKitty: ['Tracks accumulated friends. A full bar represents five friends.', 'Количество накопленных друзей. Полная шкала соответствует пяти друзьям.'],
-  training: ['After losing an attack, Sirinoks trains the shown stat until she reaches the target value, then gains 3 Moral and 70 Skill.', 'После атакующего поражения Sirinoks тренирует указанную характеристику до показанной цели, затем получает 3 Морали и 70 Скилла.'],
+  training: ['After losing an attack, Sirinoks trains the shown stat until she reaches the target value, then gains 3 Moral and 42 Skill.', 'После атакующего поражения Sirinoks тренирует указанную характеристику до показанной цели, затем получает 3 Морали и 42 Скилла.'],
   dragon: ['Countdown to the round-10 awakening and the Dragon final recalculation. At 228 Skill, enemy auto-wins are suppressed except unknown_bug.', 'Отсчёт до пробуждения в 10-м раунде, когда Дракон получает финальный перерасчёт. При 228 Скилла чужие автопобеды не работают, кроме unknown_bug.'],
   garbage: ['Shows how many enemies carry the smell after attacking Harry.', 'Сколько соперников уже оставили на себе запах, атаковав Гарри.'],
   copycat: ['Shows the currently copied stat and the total number of copies made.', 'Показывает скопированную характеристику и общее число сделанных копий.'],
@@ -317,7 +317,8 @@ const carryPoints = computed(() => passiveStates.value?.scamRat?.carryPoints ?? 
 const canPurchaseCarryStats = computed(() =>
   props.isMe
   && hasPassive('Sharing is CARRYING!')
-  && carryPoints.value > 0,
+  && carryPoints.value > 0
+  && (props.player?.status.score ?? 0) >= 1,
 )
 
 // These mechanics replace the ordinary +1 stat choice entirely. Keeping this list explicit
@@ -348,7 +349,7 @@ const levelUpConsequences = computed(() => {
   if (name === 'Darksci' && roundNo.value === 9) notes.push('Дизмораль после выбора отнимет 5 Психики. Если она упадёт до 0, этот ход сразу станет пропуском.')
   if (name === 'Darksci' && roundNo.value !== 9 && props.player.character.psyche <= 0) notes.push('После обязательной прокачки Дизмораль подтвердит пропуск этого хода.')
   const training = passiveStates.value?.training
-  if (name === 'Sirinoks' && training?.currentStatIndex) notes.push(`Обучение: цель — ${training.statName} ${training.targetStatValue}. Достижение цели даст +3 Морали и +70 Скилла.`)
+  if (name === 'Sirinoks' && training?.currentStatIndex) notes.push(`Обучение: цель — ${training.statName} ${training.targetStatValue}. Достижение цели даст +3 Морали и +42 Скилла.`)
   return notes
 })
 
@@ -809,7 +810,7 @@ function doomModuleStatus(module: string): { text: string; state: 'live' | 'done
             class="lvl-btn carry-buy-btn"
             data-sfx-skip-default="true"
             :disabled="store.isLevelingUp || player.character.intelligence >= 10"
-            :title="t('Buy +1 Intelligence for $1', 'Купить +1 Интеллект за $1')"
+            :title="t('Buy +1 Intelligence for $1 and 1 bonus point', 'Купить +1 Интеллект за $1 и 1 бонусное очко')"
             :aria-label="t('Buy Intelligence', 'Купить Интеллект')"
             @click="handleLevelUp(1)"
           ><span class="carry-dollar">$</span><span>+</span></button>
@@ -834,7 +835,7 @@ function doomModuleStatus(module: string): { text: string; state: 'live' | 'done
             class="lvl-btn carry-buy-btn"
             data-sfx-skip-default="true"
             :disabled="store.isLevelingUp || player.character.strength >= 10"
-            :title="t('Buy +1 Strength for $1', 'Купить +1 Силу за $1')"
+            :title="t('Buy +1 Strength for $1 and 1 bonus point', 'Купить +1 Силу за $1 и 1 бонусное очко')"
             :aria-label="t('Buy Strength', 'Купить Силу')"
             @click="handleLevelUp(2)"
           ><span class="carry-dollar">$</span><span>+</span></button>
@@ -859,7 +860,7 @@ function doomModuleStatus(module: string): { text: string; state: 'live' | 'done
             class="lvl-btn carry-buy-btn"
             data-sfx-skip-default="true"
             :disabled="store.isLevelingUp || player.character.speed >= 10"
-            :title="t('Buy +1 Speed for $1', 'Купить +1 Скорость за $1')"
+            :title="t('Buy +1 Speed for $1 and 1 bonus point', 'Купить +1 Скорость за $1 и 1 бонусное очко')"
             :aria-label="t('Buy Speed', 'Купить Скорость')"
             @click="handleLevelUp(3)"
           ><span class="carry-dollar">$</span><span>+</span></button>
@@ -920,7 +921,7 @@ function doomModuleStatus(module: string): { text: string; state: 'live' | 'done
             class="lvl-btn carry-buy-btn"
             data-sfx-skip-default="true"
             :disabled="store.isLevelingUp || player.character.psyche >= 10"
-            :title="t('Buy +1 Psyche for $1', 'Купить +1 Психику за $1')"
+            :title="t('Buy +1 Psyche for $1 and 1 bonus point', 'Купить +1 Психику за $1 и 1 бонусное очко')"
             :aria-label="t('Buy Psyche', 'Купить Психику')"
             @click="handleLevelUp(4)"
           ><span class="carry-dollar">$</span><span>+</span></button>

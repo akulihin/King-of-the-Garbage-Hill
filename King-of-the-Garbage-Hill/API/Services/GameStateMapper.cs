@@ -1293,8 +1293,8 @@ public static class GameStateMapper
             || UnknownBug.Is(requestingPlayer)
             || GordonFreeman.SeesEternalTsukuyomiReality(requestingPlayer, game))
         {
-            // Madara/Gordon see the authoritative ending; immune unknown_bug also keeps its
-            // submitted action and therefore receives its real fight log and standings.
+            // Madara, reserved Gordon and immune unknown_bug see the captured authoritative
+            // ending. No one receives or executes a round-10 action at this terminal boundary.
             if (!UnknownBug.Is(requestingPlayer))
                 dto.FightLog.Clear();
             return;

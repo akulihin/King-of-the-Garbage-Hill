@@ -451,6 +451,7 @@ public sealed class GameReaction : IServiceSingleton
 
                         status.IsBlock = true;
                         status.IsReady = true;
+                        GoblinSwarm.RecordZigguratBuildIntent(player);
 
                         var text = "Вы поставили блок\n";
                         status.AddInGamePersonalLogs(text);
@@ -844,6 +845,7 @@ public sealed class GameReaction : IServiceSingleton
             status.ChangeMindWhat = blockText;
             status.IsBlock = true;
             status.IsReady = true;
+            GoblinSwarm.RecordZigguratBuildIntent(player);
             return true;
         }
 
@@ -894,12 +896,17 @@ public sealed class GameReaction : IServiceSingleton
                 return false;
             }
 
-            if (player.GameCharacter.Passive.Any(x => x.PassiveName == Dopa.Macro)
-                && status.WhoToAttackThisTurn.Contains(whoToAttack.GetPlayerId()))
+            if (Dopa.HasMacro(player)
+                && status.WhoToAttackThisTurn.Count == 1
+                && status.WhoToAttackThisTurn[0] == whoToAttack.GetPlayerId())
             {
-                await _help.SendMsgAndDeleteItAfterRound(player,
-                    "Макро: второе действие должно выбрать другую цель", 0);
-                return false;
+                Dopa.ActivateDuplicateTargetSkip(
+                    player,
+                    whoToAttack,
+                    game,
+                    _charactersPull.GetVisibleCharacters());
+                await _upd.UpdateMessage(player);
+                return true;
             }
 
             status.WhoToAttackThisTurn.Add(whoToAttack.GetPlayerId());

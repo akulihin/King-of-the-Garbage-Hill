@@ -5,6 +5,7 @@ import type {
   BattleshipOrientation,
   BattleshipPendingSummon,
   BattleshipShotResult,
+  BattleshipSummon,
 } from 'src/services/signalr'
 import { useTip } from 'src/composables/useTip'
 import BoardGrid from '../BoardGrid.vue'
@@ -13,10 +14,16 @@ import WeaponBar from '../WeaponBar.vue'
 import FleetPanel from '../FleetPanel.vue'
 import BattleLogPanel from '../BattleLogPanel.vue'
 import SummonBar from '../SummonBar.vue'
+import SummonTrailLegend from '../SummonTrailLegend.vue'
 import ActionBar from '../ActionBar.vue'
 import VfxCanvas from '../VfxCanvas.vue'
 import ProjectileLayer, { type BattleshipProjectileKind } from '../ProjectileLayer.vue'
 import { renderIcon } from '../battleship-icons'
+import { activeSummonName } from '../battleship-summon-presentation'
+import {
+  pirateRestoreCells as getPirateRestoreCells,
+  pirateRestoreShipIds as getPirateRestoreShipIds,
+} from '../battleship-pirate-restore'
 import {
   BATTLESHIP_ORIENTATIONS,
   deckOffsetVector,
@@ -32,9 +39,17 @@ const phase = computed(() => store.phase)
 const isMyTurn = computed(() => store.isMyTurn)
 const myPlayer = computed(() => store.myPlayer)
 const enemyPlayer = computed(() => store.enemyPlayer)
+const boardingPlacementPending = computed(() =>
+  !!myPlayer.value?.hasPendingBoardingDeployment || !!enemyPlayer.value?.hasPendingBoardingDeployment)
+const waitingRamReturnActive = computed(() =>
+  myPlayer.value?.summons?.some(summon =>
+    summon.isAlive && summon.type === 'Ram' && summon.waitingForTurnBack) ?? false)
+const summonPriorityLockActive = computed(() =>
+  boardingPlacementPending.value || waitingRamReturnActive.value)
 const myFleet = computed(() => store.myFleet)
 const gameLog = computed(() => store.gameLog)
-const pendingManeuver = computed(() => myPlayer.value?.pendingManeuver ?? null)
+const pendingManeuver = computed(() =>
+  summonPriorityLockActive.value ? null : (myPlayer.value?.pendingManeuver ?? null))
 const pendingManeuverShip = computed(() =>
   myFleet.value.find(ship => ship.id === pendingManeuver.value?.shipId) ?? null)
 const maneuverShipCells = computed(() =>
@@ -42,8 +57,9 @@ const maneuverShipCells = computed(() =>
 const maneuverTargetCells = computed(() =>
   pendingManeuver.value?.options.map(option => ({ row: option.row, col: option.col })) ?? [])
 const pendingCursedBoatDirection = computed(() =>
-  myPlayer.value?.pendingCursedBoatDirection ?? null)
-const pendingAssembly = computed(() => myPlayer.value?.pendingAssembly ?? null)
+  summonPriorityLockActive.value ? null : (myPlayer.value?.pendingCursedBoatDirection ?? null))
+const pendingAssembly = computed(() =>
+  summonPriorityLockActive.value ? null : (myPlayer.value?.pendingAssembly ?? null))
 const assemblyOrientation = ref<BattleshipOrientation>('Horizontal')
 const assemblyOrientations = computed(() => BATTLESHIP_ORIENTATIONS.filter(orientation =>
   pendingAssembly.value?.options.some(option => option.orientation === orientation)))
@@ -73,6 +89,11 @@ const mandatoryInteractionActive = computed(() =>
 
 watch(mandatoryInteractionActive, (active) => {
   if (active) store.cancelSummonDeploy()
+}, { immediate: true })
+
+watch(waitingRamReturnActive, (active) => {
+  if (active && store.summonDeployMode && !store.summonDeployMode.summonId)
+    store.cancelSummonDeploy()
 }, { immediate: true })
 
 // ── Weapon selection (state lives in the store) ───────────────
@@ -105,7 +126,10 @@ const capturedShipCells = computed(() =>
 const hasCapturedShip = computed(() =>
   store.myBoard?.cells.some(cell => cell.isCaptured && !cell.isDestroyed) ?? false)
 const captureFocusActive = computed(() =>
-  hasCapturedShip.value && !mandatoryInteractionActive.value)
+  hasCapturedShip.value
+  && !mandatoryInteractionActive.value
+  && !summonPriorityLockActive.value
+  && !store.summonDeployMode)
 
 const hasBranderUpgrade = computed(() => {
   return myPlayer.value?.fleet?.some(s => !s.isDestroyed && !capturedShipIds.value.has(s.id) &&
@@ -122,7 +146,10 @@ const availableSummons = computed<string[]>(() => {
   if (regions.has('East')) list.push('Scout')
   if (regions.has('South')) list.push('PirateBoat')
   const hasWaitingBrander = myPlayer.value?.summons?.some(s => s.type === 'Brander' && s.waitingForTurnBack) ?? false
-  if (hasBranderUpgrade.value && (!myPlayer.value?.branderUsed || hasWaitingBrander)) list.push('Brander')
+  if (
+    myPlayer.value?.mandatoryBoardingBrander
+    || (hasBranderUpgrade.value && (!myPlayer.value?.branderUsed || hasWaitingBrander))
+  ) list.push('Brander')
   for (const waiting of myPlayer.value?.summons?.filter(s => s.waitingForTurnBack) ?? []) {
     if (!list.includes(waiting.type)) list.push(waiting.type)
   }
@@ -134,8 +161,19 @@ const hasEnemySummonOnMyBoard = computed(() => {
   return store.myBoard?.cells.some(c => c.hasSummon && c.summonOwnerId && c.summonOwnerId !== myId) ?? false
 })
 
-const boardingPlacementPending = computed(() =>
-  !!myPlayer.value?.hasPendingBoardingDeployment || !!enemyPlayer.value?.hasPendingBoardingDeployment)
+const mandatoryBoardingRemaining = computed(() =>
+  (myPlayer.value?.mandatoryBoardingSummonSlots ?? 0)
+  + (myPlayer.value?.mandatoryBoardingBrander ? 1 : 0)
+  + (myPlayer.value?.pendingSummons?.filter(s => s.isMandatoryBoarding).length ?? 0))
+
+const pirateRestoreShipIds = computed(() =>
+  getPirateRestoreShipIds(store.myBoard?.cells ?? []))
+const pirateRestoreCells = computed(() =>
+  getPirateRestoreCells(store.myBoard?.cells ?? []))
+const pirateRestoreActive = computed(() =>
+  store.summonDeployMode?.type === 'PirateBoat'
+  && !store.summonDeployMode.pendingId
+  && pirateRestoreCells.value.length > 0)
 
 // Penalty zone: rows 0-2 highlighted when enemy summons present (#3)
 const penaltyZoneRows = computed<number[]>(() => {
@@ -149,16 +187,26 @@ const penaltyZoneRows = computed<number[]>(() => {
 
 function canDeploySummonType(type: string): boolean {
   if (!myPlayer.value || !enemyPlayer.value) return false
-  if (boardingPlacementPending.value) return false
   const p = myPlayer.value
+  if (waitingRamReturnActive.value) return false
   if (!p.canDeployAnySummon) return false
   if (!availableSummons.value.includes(type)) return false
-  const isReentry = p.summons?.some(s =>
-    s.type === type && s.waitingForTurnBack) ?? false
+
+  if (boardingPlacementPending.value) {
+    if (
+      phase.value !== 'Boarding'
+      || !p.hasPendingBoardingDeployment
+      || p.boardingDeploymentCapacity <= 0
+    ) return false
+    if (type === 'Brander') return p.mandatoryBoardingBrander
+    return p.mandatoryBoardingSummonSlots > 0
+      && (type === 'Ram' || type === 'Scout' || type === 'PirateBoat')
+  }
+
   // ТЗ #10: Brander is outside the four normal per-match uses
-  if (!isReentry && type !== 'Brander' && p.summonSlotsUsed >= p.maxSummonSlots) return false
+  if (type !== 'Brander' && p.summonSlotsUsed >= p.maxSummonSlots) return false
   const threshold = 5 * (p.summonSlotsUsed + 1)
-  if (!isReentry && phase.value !== 'Boarding' && p.revealedCellCount < threshold) return false
+  if (phase.value !== 'Boarding' && p.revealedCellCount < threshold) return false
   if (phase.value !== 'Boarding' && p.summonCooldownRemaining > 0) return false
   return true
 }
@@ -168,20 +216,28 @@ const deployableSummons = computed(() => availableSummons.value.filter(canDeploy
 
 function enterSummonDeployMode() {
   if (!canDeploySummon.value) return
-  const waiting = myPlayer.value?.summons?.find(s =>
-    s.type === store.summonType && s.waitingForTurnBack)
-  store.summonDeployMode = waiting
-    ? {
-        type: waiting.type,
-        reentryDirection: waiting.moveDirection,
-        reentryRow: waiting.row,
-        reentryCol: waiting.col,
-      }
-    : { type: store.summonType }
+  store.summonDeployMode = { type: store.summonType }
+}
+
+function enterReentrySummonDeployMode(summon: BattleshipSummon) {
+  if (
+    !summon.isAlive
+    || summon.type !== 'Ram'
+    || !summon.waitingForTurnBack
+  ) return
+  store.summonDeployMode = {
+    type: summon.type,
+    summonId: summon.id,
+    displayName: activeSummonName(summon),
+    reentryDirection: summon.moveDirection,
+    reentryRow: summon.row,
+    reentryCol: summon.col,
+  }
 }
 
 function enterPendingSummonDeployMode(ps: BattleshipPendingSummon) {
-  if (boardingPlacementPending.value && !ps.isBoarding) return
+  if (waitingRamReturnActive.value) return
+  if (boardingPlacementPending.value && !ps.isMandatoryBoarding) return
   store.summonDeployMode = {
     type: ps.type,
     pendingId: ps.id,
@@ -270,9 +326,10 @@ const isEvilGreekFireResponse = computed(() =>
   && store.shotDelayActive
   && store.shotDelayOwnerId === enemyPlayer.value?.discordId)
 const canUseOwnBoardWeapon = computed(() =>
-  (isMyTurn.value && !store.shotDelayActive) || isEvilGreekFireResponse.value)
+  !summonPriorityLockActive.value
+  && ((isMyTurn.value && !store.shotDelayActive) || isEvilGreekFireResponse.value))
 const catapultReady = computed(() => isMyTurn.value && !store.shotDelayActive &&
-  !boardingPlacementPending.value && !hasCapturedShip.value &&
+  !summonPriorityLockActive.value && !hasCapturedShip.value &&
   store.availableWeapons.some(w => w.type === 'Tetracatapult' && w.aimSpeed <= 0 && w.hasAmmo))
 const aoeHighlight = ref<{ row: number; col: number }[]>([])
 
@@ -319,13 +376,13 @@ async function handleEnemyCellClick(row: number, col: number) {
       const reentryLane = mode.reentryDirection === 'Left' || mode.reentryDirection === 'Right'
         ? row
         : col
-      await store.deploySummon(mode.type, reentryLane)
+      await store.deploySummon(mode.type, reentryLane, mode.summonId)
     }
     store.summonDeployMode = null
     return
   }
   if (!isMyTurn.value || (phase.value !== 'Combat' && phase.value !== 'Boarding')) return
-  if (myPlayer.value?.pendingSummons?.some(p => p.isBoarding)) return
+  if (boardingPlacementPending.value || waitingRamReturnActive.value) return
   if (store.shotDelayActive) return
   if (isGreekFireMode.value || hasCapturedShip.value) return
   if (farBlockedRows.value.has(row)) return
@@ -334,6 +391,16 @@ async function handleEnemyCellClick(row: number, col: number) {
 
 async function handleMyBoardCellClick(row: number, col: number) {
   if (phase.value !== 'Combat' && phase.value !== 'Boarding') return
+  const cell = store.myBoard?.cells.find(c => c.row === row && c.col === col)
+  if (
+    pirateRestoreActive.value
+    && cell?.shipId
+    && pirateRestoreShipIds.value.has(cell.shipId)
+  ) {
+    await store.restoreShipWithPirateBoat(cell.shipId)
+    store.cancelSummonDeploy()
+    return
+  }
   if (pendingAssembly.value) {
     const option = pendingAssembly.value.options.find(value =>
       value.row === row
@@ -359,8 +426,7 @@ async function handleMyBoardCellClick(row: number, col: number) {
   }
   if (!isMyTurn.value && !isEvilGreekFireResponse.value) return
   if (store.shotDelayActive && !isEvilGreekFireResponse.value) return
-  if (myPlayer.value?.pendingSummons?.some(p => p.isBoarding)) return
-  const cell = store.myBoard?.cells.find(c => c.row === row && c.col === col)
+  if (boardingPlacementPending.value || waitingRamReturnActive.value) return
   if (isEvilGreekFireResponse.value) {
     await store.shootOwnBoard(row, col)
     return
@@ -386,6 +452,7 @@ function handleEnemyHover(row: number, col: number) {
 }
 
 async function handleWeaponSelect(weaponType: string, shotType: string, weaponId: string) {
+  if (boardingPlacementPending.value || waitingRamReturnActive.value) return
   await store.selectWeapon(weaponType, shotType, weaponId)
 }
 
@@ -441,25 +508,6 @@ const myLastShot = computed(() => {
   const c = store.lastShotCell
   if (!c || c.target !== 'my') return null
   return { row: c.row, col: c.col }
-})
-
-// ТЗ #2: trails are viewer-relative. MY summons sail on the ENEMY board — their trail renders
-// there; ENEMY summons sail on MY board — their trail (incl. spawn cell) renders there.
-const enemySummonTrails = computed(() => {
-  const trails = new Map<string, string[]>()
-  for (const cell of store.enemyBoard?.cells ?? []) {
-    if (cell.summonTrails?.length)
-      trails.set(`${cell.row},${cell.col}`, [...new Set(cell.summonTrails)])
-  }
-  return trails
-})
-const mySummonTrails = computed(() => {
-  const trails = new Map<string, string[]>()
-  for (const cell of store.myBoard?.cells ?? []) {
-    if (cell.summonTrails?.length)
-      trails.set(`${cell.row},${cell.col}`, [...new Set(cell.summonTrails)])
-  }
-  return trails
 })
 
 // ── Range overlays ───────────────────────────────────────────
@@ -574,11 +622,6 @@ function hasOverlayType(map: Map<string, string>, type: string): boolean {
   return false
 }
 
-function hasTrailType(map: Map<string, string[]>, type: string): boolean {
-  for (const values of map.values()) { if (values.includes(type)) return true }
-  return false
-}
-
 function getOccupiedCells(ship: {
   row: number
   col: number
@@ -592,7 +635,12 @@ function getOccupiedCells(ship: {
 
 // ── Weapon cursor ────────────────────────────────────────────
 const weaponCursorClass = computed(() => {
-  if (!isMyTurn.value || mandatoryInteractionActive.value || hasCapturedShip.value) return ''
+  if (
+    !isMyTurn.value
+    || mandatoryInteractionActive.value
+    || summonPriorityLockActive.value
+    || hasCapturedShip.value
+  ) return ''
   switch (store.selectedShotType) {
     case 'Buckshot': return 'cursor-buckshot'
     case 'WhiteStone': return 'cursor-whitestone'
@@ -735,6 +783,7 @@ onUnmounted(() => {
       :shot-delay-active="store.shotDelayActive"
       :shot-delay-remaining="shotDelayRemaining"
       :phase="phase"
+      :disabled="boardingPlacementPending || waitingRamReturnActive"
       @select-weapon="handleWeaponSelect"
     />
 
@@ -745,10 +794,12 @@ onUnmounted(() => {
       :shot-count="store.shotCount"
       :can-deploy-summon="canDeploySummon"
       :boarding-placement-pending="boardingPlacementPending"
+      :waiting-ram-return-active="waitingRamReturnActive"
       :deployable-summons="deployableSummons"
       :available-summons="availableSummons"
       :summon-deploy-mode="store.summonDeployMode"
       @enter-deploy="enterSummonDeployMode"
+      @enter-reentry-deploy="enterReentrySummonDeployMode"
       @enter-pending-deploy="enterPendingSummonDeployMode"
       @cancel-deploy="store.cancelSummonDeploy()"
       @set-summon-type="(t: string) => store.summonType = t"
@@ -758,10 +809,15 @@ onUnmounted(() => {
 
     <!-- Status Banners -->
     <div v-if="myPlayer?.hasPendingBoardingDeployment" class="bs-banner bs-banner--warning">
-      Разместите все абордажные корабли перед выстрелом!
+      Обязательная высадка: осталось {{ mandatoryBoardingRemaining }} ед.;
+      доступно мест {{ myPlayer.boardingDeploymentCapacity }}.
+      Разместите их перед продолжением боя.
     </div>
     <div v-else-if="enemyPlayer?.hasPendingBoardingDeployment" class="bs-banner bs-banner--warning">
-      Противник расставляет абордажные корабли. Бой продолжится после завершения расстановки.
+      Противник размещает обязательные единицы абордажа. Бой продолжится после завершения расстановки.
+    </div>
+    <div v-if="waitingRamReturnActive" class="bs-banner bs-banner--warning">
+      Сначала верните на карту все ожидающие Тараны.
     </div>
     <div v-if="myPlayer?.hasPenalty" class="bs-banner bs-banner--warning">
       Штраф: следующий ход будет пропущен!
@@ -778,13 +834,13 @@ onUnmounted(() => {
       ></div>
     </div>
     <div
-      v-if="isEvilGreekFireResponse"
+      v-if="isEvilGreekFireResponse && !summonPriorityLockActive"
       class="bs-banner bs-banner--gold"
     >
       Окно ответа: Злой Греческий огонь можно применить на своей доске.
     </div>
     <div
-      v-else-if="!isMyTurn && store.shotDelayActive && myPlayer?.canDeployAnySummon"
+      v-else-if="!isMyTurn && store.shotDelayActive && myPlayer?.canDeployAnySummon && !summonPriorityLockActive"
       class="bs-banner bs-banner--gold"
     >
       Окно ответа: можно выпустить сумона до следующего выстрела противника.
@@ -820,13 +876,12 @@ onUnmounted(() => {
             :is-enemy="true"
             :cell-size="42"
             :shot-type="store.selectedShotType"
-            :clickable="!!pendingCursedBoatDirection || (!pendingManeuver && !pendingAssembly && ((isMyTurn && !store.shotDelayActive && !boardingPlacementPending && !isGreekFireMode && !hasCapturedShip) || !!store.summonDeployMode))"
+            :clickable="!!pendingCursedBoatDirection || (!pendingManeuver && !pendingAssembly && ((isMyTurn && !store.shotDelayActive && !summonPriorityLockActive && !isGreekFireMode && !hasCapturedShip) || !!store.summonDeployMode))"
             :highlight-cells="enemyHighlight"
             :blocked-rows="activeBlockedRows"
             :animated-cells="store.enemyAnimatedCells"
             :last-shot-cell="enemyLastShot"
             :marked-cells="store.markedCells"
-            :summon-trail-cells="enemySummonTrails"
             :ship-name-map="enemyShipNameMap"
             :range-overlay-cells="enemyBoardRangeOverlays"
             :maneuver-active="!!pendingCursedBoatDirection"
@@ -844,13 +899,7 @@ onUnmounted(() => {
             <span v-html="renderIcon('brander', 12)"></span> Подрыв Брандера
           </span>
         </div>
-        <div v-if="enemySummonTrails.size > 0" class="range-legend">
-          <span v-if="hasTrailType(enemySummonTrails, 'Ram')" class="legend-item legend-trail-ram"><span v-html="renderIcon('ram', 12)"></span> След: Таран</span>
-          <span v-if="hasTrailType(enemySummonTrails, 'Scout')" class="legend-item legend-trail-scout"><span v-html="renderIcon('scout', 12)"></span> След: Разведчик</span>
-          <span v-if="hasTrailType(enemySummonTrails, 'Brander')" class="legend-item legend-trail-brander"><span v-html="renderIcon('brander', 12)"></span> След: Брандер</span>
-          <span v-if="hasTrailType(enemySummonTrails, 'CursedBoat')" class="legend-item legend-trail-cursed"><span v-html="renderIcon('cursedBoat', 12)"></span> След: Проклятая лодка</span>
-          <span v-if="hasTrailType(enemySummonTrails, 'PirateBoat')" class="legend-item legend-trail-pirate"><span v-html="renderIcon('pirateBoat', 12)"></span> След: Пиратская лодка</span>
-        </div>
+        <SummonTrailLegend :cells="store.enemyBoard?.cells" />
       </div>
 
       <!-- My Board (overview) -->
@@ -871,13 +920,12 @@ onUnmounted(() => {
             :cell-size="34"
             :animated-cells="store.myAnimatedCells"
             :last-shot-cell="myLastShot"
-            :summon-trail-cells="mySummonTrails"
             :ship-name-map="myShipNameMap"
             :range-overlay-cells="myBoardRangeOverlays"
-            :clickable="!!pendingAssembly || !!pendingManeuver || ((hasCapturedShip || hasEnemySummonOnMyBoard || isGreekFireMode) && canUseOwnBoardWeapon && !boardingPlacementPending)"
-            :maneuver-active="!!pendingManeuver || !!pendingAssembly"
+            :clickable="pirateRestoreActive || !!pendingAssembly || !!pendingManeuver || ((hasCapturedShip || hasEnemySummonOnMyBoard || isGreekFireMode) && canUseOwnBoardWeapon && !summonPriorityLockActive)"
+            :maneuver-active="pirateRestoreActive || !!pendingManeuver || !!pendingAssembly"
             :maneuver-ship-cells="maneuverShipCells"
-            :maneuver-target-cells="pendingAssembly ? assemblyTargetCells : maneuverTargetCells"
+            :maneuver-target-cells="pirateRestoreActive ? pirateRestoreCells : pendingAssembly ? assemblyTargetCells : maneuverTargetCells"
             :capture-focus="captureFocusActive"
             :capture-ship-cells="capturedShipCells"
             @cell-click="handleMyBoardCellClick"
@@ -902,13 +950,7 @@ onUnmounted(() => {
             <span v-html="renderIcon('penalty', 12)"></span> Штрафная зона
           </span>
         </div>
-        <div v-if="mySummonTrails.size > 0" class="range-legend">
-          <span v-if="hasTrailType(mySummonTrails, 'Ram')" class="legend-item legend-trail-ram"><span v-html="renderIcon('ram', 12)"></span> След: Таран</span>
-          <span v-if="hasTrailType(mySummonTrails, 'Scout')" class="legend-item legend-trail-scout"><span v-html="renderIcon('scout', 12)"></span> След: Разведчик</span>
-          <span v-if="hasTrailType(mySummonTrails, 'Brander')" class="legend-item legend-trail-brander"><span v-html="renderIcon('brander', 12)"></span> След: Брандер</span>
-          <span v-if="hasTrailType(mySummonTrails, 'CursedBoat')" class="legend-item legend-trail-cursed"><span v-html="renderIcon('cursedBoat', 12)"></span> След: Проклятая лодка</span>
-          <span v-if="hasTrailType(mySummonTrails, 'PirateBoat')" class="legend-item legend-trail-pirate"><span v-html="renderIcon('pirateBoat', 12)"></span> След: Пиратская лодка</span>
-        </div>
+        <SummonTrailLegend :cells="store.myBoard?.cells" />
       </div>
     </div>
     <ProjectileLayer v-if="store.vfxEnabled" ref="projectileLayerRef" />
@@ -931,7 +973,7 @@ onUnmounted(() => {
       :shot-result="store.lastShotResult"
       :shot-result-class="shotResultClass"
       :is-my-turn="isMyTurn"
-      :can-pass-boarding="myPlayer?.canPassBoarding ?? false"
+      :can-pass-boarding="!summonPriorityLockActive && (myPlayer?.canPassBoarding ?? false)"
       @pass-boarding="store.passBoardingTurn()"
     />
 

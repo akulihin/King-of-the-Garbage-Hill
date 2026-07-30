@@ -12,7 +12,7 @@ import { currentLocale, setLocale, type AppLocale } from './i18n'
 const store = useGameStore()
 const route = useRoute()
 const router = useRouter()
-const localPublicRouteNames = new Set(['lastChances', 'empiresEndgame', 'clash'])
+const localPublicRouteNames = new Set(['lastChances', 'empiresEndgame', 'clashLab'])
 const isLocalPublicRoute = (name: unknown) => typeof name === 'string' && localPublicRouteNames.has(name)
 const isLocalPublicExperience = computed(() => isLocalPublicRoute(route.name))
 const isPublicExperience = computed(() => route.name === 'replay' || isLocalPublicExperience.value)

@@ -1,4 +1,10 @@
 import * as signalR from '@microsoft/signalr'
+import type {
+  ClashCatalog,
+  ClashGameState,
+  ClashLobbyState,
+  ClashResolution,
+} from 'src/features/clash/types'
 
 const HUB_URL = import.meta.env.VITE_SIGNALR_HUB || '/gamehub'
 
@@ -1083,6 +1089,9 @@ export type BattleshipPlayerState = {
   hasPenalty: boolean
   hasShotThisTurn: boolean
   hasPendingBoardingDeployment: boolean
+  mandatoryBoardingSummonSlots: number
+  mandatoryBoardingBrander: boolean
+  boardingDeploymentCapacity: number
   pendingManeuver: BattleshipPendingManeuver | null
   pendingCursedBoatDirection: BattleshipPendingCursedBoatDirection | null
   pendingAssembly: BattleshipPendingAssembly | null
@@ -1120,6 +1129,7 @@ export type BattleshipPendingSummon = {
   type: string
   allowedColumns: number[]
   isBoarding: boolean
+  isMandatoryBoarding: boolean
   sourceShipName: string
 }
 
@@ -1164,6 +1174,13 @@ export type BattleshipBoard = {
   cells: BattleshipCell[]
 }
 
+export type BattleshipSummonMarker = {
+  summonId: string
+  type: string
+  isBoardingShip: boolean
+  sourceShipName: string | null
+}
+
 export type BattleshipCell = {
   row: number
   col: number
@@ -1179,8 +1196,8 @@ export type BattleshipCell = {
   summonName?: string | null
   isBoardingSummon?: boolean
   isScratched: boolean
-  summonTrails?: string[]
-  summonDeaths?: string[]
+  summonTrails?: BattleshipSummonMarker[]
+  summonDeaths?: BattleshipSummonMarker[]
   frozenSummonDeathIndices?: number[]
   isBurnResistMarked?: boolean
   isDodgeMarked?: boolean
@@ -1411,6 +1428,7 @@ class SignalRService {
   private _isSessionReady = false
   private _lastDiscordId: string | null = null
   private _currentGameId: number | null = null
+  private _currentClashGameId: string | null = null
 
   // Event callbacks
   onGameState: ((state: GameState) => void) | null = null
@@ -1443,6 +1461,15 @@ class SignalRService {
   onBattleshipEvent: ((event: BattleshipEvent) => void) | null = null
   onShipCatalog: ((catalog: BattleshipShipCatalogEntry[]) => void) | null = null
   onBattleshipStats: ((stats: BattleshipStats) => void) | null = null
+  onClashLobby: ((state: ClashLobbyState) => void) | null = null
+  onClashState: ((state: ClashGameState) => void) | null = null
+  onClashGameCreated: ((data: { gameId: string }) => void) | null = null
+  onClashGameJoined: ((data: { gameId: string }) => void) | null = null
+  onClashResolution: ((resolution: ClashResolution) => void) | null = null
+  onClashCatalog: ((catalog: ClashCatalog) => void) | null = null
+  onClashActionResult: ((result: ActionResult) => void) | null = null
+  onClashError: ((error: string) => void) | null = null
+  onClashMyActiveGame: ((data: { gameId: string | null }) => void) | null = null
 
   get isConnected() {
     return this._isConnected
@@ -1517,6 +1544,7 @@ class SignalRService {
 
     this.connection.on('ActionResult', (result: ActionResult) => {
       this.onActionResult?.(result)
+      if (result.action.startsWith('clash')) this.onClashActionResult?.(result)
     })
 
     this.connection.on('GameEvent', (event: GameEvent) => {
@@ -1526,6 +1554,7 @@ class SignalRService {
     this.connection.on('Error', (error: string) => {
       console.error('[SignalR] Server error:', error)
       this.onError?.(error)
+      this.onClashError?.(error)
     })
 
     this.connection.on('Authenticated', (data: { success: boolean; discordId: string; playerType: number; lastPlayedCharacter: string; gameplayMode: 'Casual' | 'Pro'; eloRating: number; isGodAdmin: boolean }) => {
@@ -1606,6 +1635,38 @@ class SignalRService {
       this.onBattleshipStats?.(stats)
     })
 
+    this.connection.on('ClashLobby', (state: ClashLobbyState) => {
+      this.onClashLobby?.(state)
+    })
+
+    this.connection.on('ClashState', (state: ClashGameState) => {
+      // Only an authoritative participant state establishes a resumable
+      // Clash session. A rejected JoinClashGame reports through `Error` while
+      // the hub invocation itself still completes normally.
+      this._currentClashGameId = state.gameId
+      this.onClashState?.(state)
+    })
+
+    this.connection.on('ClashGameCreated', (data: { gameId: string }) => {
+      this.onClashGameCreated?.(data)
+    })
+
+    this.connection.on('ClashGameJoined', (data: { gameId: string }) => {
+      this.onClashGameJoined?.(data)
+    })
+
+    this.connection.on('ClashResolution', (resolution: ClashResolution) => {
+      this.onClashResolution?.(resolution)
+    })
+
+    this.connection.on('ClashCatalog', (catalog: ClashCatalog) => {
+      this.onClashCatalog?.(catalog)
+    })
+
+    this.connection.on('ClashMyActiveGame', (data: { gameId: string | null }) => {
+      this.onClashMyActiveGame?.(data)
+    })
+
     this.connection.onreconnecting(() => {
       console.log('[SignalR] Reconnecting...')
       this._isConnected = false
@@ -1621,6 +1682,10 @@ class SignalRService {
       // Re-authenticate and re-join game group after reconnect
       if (this._lastDiscordId) await this.authenticate(this._lastDiscordId)
       if (this._currentGameId) await this.joinGame(this._currentGameId)
+      if (this._currentClashGameId) {
+        await this.joinClashGame(this._currentClashGameId)
+        await this.requestClashState(this._currentClashGameId)
+      }
     })
 
     const startedConnection = this.connection
@@ -1662,6 +1727,7 @@ class SignalRService {
     this.connection = null
     this._lastDiscordId = null
     this._currentGameId = null
+    this._currentClashGameId = null
     this._isConnected = false
     this._isSessionReady = false
     this.onConnectionChanged?.(false)
@@ -2053,8 +2119,23 @@ class SignalRService {
     await this.connection?.invoke('BattleshipPassBoardingTurn', gameId)
   }
 
-  async battleshipDeploySummon(gameId: string, summonType: string, col: number): Promise<void> {
-    await this.connection?.invoke('BattleshipDeploySummon', gameId, summonType, col)
+  async battleshipDeploySummon(
+    gameId: string,
+    summonType: string,
+    col: number,
+    summonId?: string,
+  ): Promise<void> {
+    await this.connection?.invoke(
+      'BattleshipDeploySummon',
+      gameId,
+      summonType,
+      col,
+      summonId ?? null,
+    )
+  }
+
+  async battleshipRestoreShipWithPirateBoat(gameId: string, shipId: string): Promise<void> {
+    await this.connection?.invoke('BattleshipRestoreShipWithPirateBoat', gameId, shipId)
   }
 
   async battleshipDeployPendingSummon(gameId: string, pendingId: string, col: number): Promise<void> {
@@ -2093,6 +2174,195 @@ class SignalRService {
 
   async requestBattleshipStats(): Promise<void> {
     await this.requireConnected().invoke('RequestBattleshipStats')
+  }
+
+  // ── Clash ─────────────────────────────────────────────────────────
+
+  async requestClashLobby(): Promise<void> {
+    await this.requireConnected().invoke('RequestClashLobby')
+  }
+
+  async createClashGame(vsBot: boolean, width = 5, length = 5): Promise<void> {
+    await this.requireConnected().invoke('CreateClashGame', vsBot, width, length)
+  }
+
+  async joinClashWebGame(gameId: string): Promise<void> {
+    await this.requireConnected().invoke('JoinClashWebGame', gameId)
+  }
+
+  async leaveClashWebGame(gameId: string): Promise<void> {
+    await this.requireConnected().invoke('LeaveClashWebGame', gameId)
+  }
+
+  async joinClashGame(gameId: string): Promise<void> {
+    await this.requireConnected().invoke('JoinClashGame', gameId)
+  }
+
+  async leaveClashGame(gameId: string): Promise<void> {
+    try {
+      await this.requireConnected().invoke('LeaveClashGame', gameId)
+    }
+    finally {
+      if (this._currentClashGameId === gameId) this._currentClashGameId = null
+    }
+  }
+
+  async requestClashState(gameId: string): Promise<void> {
+    await this.requireConnected().invoke('RequestClashState', gameId)
+  }
+
+  async requestClashCatalog(): Promise<void> {
+    await this.requireConnected().invoke('RequestClashCatalog')
+  }
+
+  async clashSetConfiguration(
+    gameId: string,
+    width: number,
+    length: number,
+    expectedRevision: number | null,
+    commandId: string,
+  ): Promise<void> {
+    await this.requireConnected().invoke(
+      'ClashSetConfiguration',
+      gameId,
+      width,
+      length,
+      expectedRevision,
+      commandId,
+    )
+  }
+
+  async clashSetArmy(
+    gameId: string,
+    unitDefinitionIds: string[],
+    expectedRevision: number | null,
+    commandId: string,
+  ): Promise<void> {
+    await this.requireConnected().invoke(
+      'ClashSetArmy',
+      gameId,
+      unitDefinitionIds,
+      expectedRevision,
+      commandId,
+    )
+  }
+
+  async clashConfirmLobbyReady(
+    gameId: string,
+    expectedRevision: number | null,
+    commandId: string,
+  ): Promise<void> {
+    await this.requireConnected().invoke(
+      'ClashConfirmLobbyReady',
+      gameId,
+      expectedRevision,
+      commandId,
+    )
+  }
+
+  async clashPlaceUnit(
+    gameId: string,
+    unitInstanceId: string,
+    row: number,
+    column: number,
+    expectedRevision: number | null,
+    commandId: string,
+  ): Promise<void> {
+    await this.requireConnected().invoke(
+      'ClashPlaceUnit',
+      gameId,
+      unitInstanceId,
+      row,
+      column,
+      expectedRevision,
+      commandId,
+    )
+  }
+
+  async clashRemoveUnit(
+    gameId: string,
+    unitInstanceId: string,
+    expectedRevision: number | null,
+    commandId: string,
+  ): Promise<void> {
+    await this.requireConnected().invoke(
+      'ClashRemoveUnit',
+      gameId,
+      unitInstanceId,
+      expectedRevision,
+      commandId,
+    )
+  }
+
+  async clashConfirmPlacement(
+    gameId: string,
+    expectedRevision: number | null,
+    commandId: string,
+  ): Promise<void> {
+    await this.requireConnected().invoke(
+      'ClashConfirmPlacement',
+      gameId,
+      expectedRevision,
+      commandId,
+    )
+  }
+
+  async clashPlaceReinforcement(
+    gameId: string,
+    unitInstanceId: string,
+    row: number,
+    column: number,
+    expectedRevision: number | null,
+    commandId: string,
+  ): Promise<void> {
+    await this.requireConnected().invoke(
+      'ClashPlaceReinforcement',
+      gameId,
+      unitInstanceId,
+      row,
+      column,
+      expectedRevision,
+      commandId,
+    )
+  }
+
+  async clashUseActive(
+    gameId: string,
+    sourceUnitInstanceId: string,
+    abilityId: string,
+    targetUnitInstanceId: string | null,
+    targetRow: number | null,
+    targetColumn: number | null,
+    expectedRevision: number | null,
+    commandId: string,
+  ): Promise<void> {
+    await this.requireConnected().invoke(
+      'ClashUseActive',
+      gameId,
+      sourceUnitInstanceId,
+      abilityId,
+      targetUnitInstanceId,
+      targetRow,
+      targetColumn,
+      expectedRevision,
+      commandId,
+    )
+  }
+
+  async clashContinue(
+    gameId: string,
+    expectedRevision: number | null,
+    commandId: string,
+  ): Promise<void> {
+    await this.requireConnected().invoke('ClashContinue', gameId, expectedRevision, commandId)
+  }
+
+  async clashForfeit(
+    gameId: string,
+    expectedRevision: number | null,
+    commandId: string,
+  ): Promise<void> {
+    await this.requireConnected().invoke('ClashForfeit', gameId, expectedRevision, commandId)
   }
 }
 

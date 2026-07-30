@@ -41,6 +41,8 @@ export interface LastChancesSemanticInputEvent {
   depthTickIndex?: number
   /** A fast pull already crossed another gameplay gate in the same 200 ms sweep. */
   coalesced?: boolean
+  /** Observation-only physical release edge used to settle real-time held mechanics exactly. */
+  inputReleased?: boolean
 }
 
 export type LastChancesSemanticInputHandler = (
@@ -64,6 +66,11 @@ interface MylorikHandState {
   techniqueStartedAt: number
   techniqueArmed: boolean
   techniqueCommitted: boolean
+  /** An authored technique press already committed (for example Longbow Прыжок). */
+  techniquePressCommitted: boolean
+  techniquePressSource: LastChancesControlSource | null
+  techniqueContinuationPressed: boolean
+  techniqueContinuationStartedAt: number
   techniqueContinuationSource: LastChancesControlSource | null
   pendingMobilityContinuationSource: LastChancesControlSource | null
   mobilityDown: boolean
@@ -82,6 +89,10 @@ function mylorikHandState(): MylorikHandState {
     techniqueStartedAt: 0,
     techniqueArmed: false,
     techniqueCommitted: false,
+    techniquePressCommitted: false,
+    techniquePressSource: null,
+    techniqueContinuationPressed: false,
+    techniqueContinuationStartedAt: -1,
     techniqueContinuationSource: null,
     pendingMobilityContinuationSource: null,
     mobilityDown: false,
@@ -95,6 +106,12 @@ export interface MylorikControlSnapshot {
   hand: LastChancesHand
   techniquePressed: boolean
   techniqueArmed: boolean
+  /** A press-edge technique committed and is waiting for its same-button release continuation. */
+  techniquePressCommitted: boolean
+  /** A physical strike continuation is active and remains held by the technique button. */
+  techniqueContinuationPressed: boolean
+  /** Time since the continuation press, independent from the technique button's arming dwell. */
+  techniqueContinuationHeldMs: number
   techniqueHeldMs: number
   mobilityPressed: boolean
   mobilityHeldMs: number
@@ -126,6 +143,7 @@ export class MylorikControlRecognizer {
     if (state.techniqueDown) this.armTechnique(state, atMs)
     if (state.techniqueDown && state.techniqueArmed && !state.techniqueCommitted) {
       state.techniqueCommitted = true
+      state.techniqueContinuationStartedAt = atMs
       const continuation = this.event(
         physicalHand,
         'strike',
@@ -137,7 +155,15 @@ export class MylorikControlRecognizer {
       )
       continuation.commit = false
       const result = this.dispatch(continuation)
-      state.techniqueContinuationSource = result === 'blocked' ? null : source
+      state.techniqueContinuationPressed = result !== 'blocked'
+      if (result === 'handled') {
+        const committed = { ...continuation, commit: true }
+        const committedResult = this.dispatch(committed)
+        state.techniqueContinuationPressed = committedResult === 'handled'
+        state.techniqueContinuationSource = null
+      } else {
+        state.techniqueContinuationSource = result === 'blocked' ? null : source
+      }
       return
     }
     this.dispatch(this.event(physicalHand, 'strike', 'press', source, atMs, 0))
@@ -146,7 +172,7 @@ export class MylorikControlRecognizer {
   pressTechnique(
     physicalHand: LastChancesHand,
     atMs: number,
-    _source: LastChancesControlSource,
+    source: LastChancesControlSource,
   ): void {
     const state = this.states[physicalHand]
     if (state.techniqueDown) return
@@ -154,8 +180,24 @@ export class MylorikControlRecognizer {
     state.techniqueStartedAt = atMs
     state.techniqueArmed = false
     state.techniqueCommitted = false
+    state.techniquePressCommitted = false
+    state.techniquePressSource = null
+    state.techniqueContinuationPressed = false
+    state.techniqueContinuationStartedAt = -1
     state.techniqueContinuationSource = null
     state.pendingMobilityContinuationSource = null
+
+    // Most techniques still classify tap/hold on release. An action set may additionally
+    // author a press-edge technique (Longbow Прыжок after Уворот); probe first so an
+    // unavailable branch stays silent and the same input can continue into its normal hold.
+    const press = this.event(physicalHand, 'technique', 'press', source, atMs, 0)
+    press.commit = false
+    press.probe = true
+    if (this.emit(press) !== 'handled') return
+    const result = this.dispatch({ ...press, commit: true, probe: false })
+    state.techniqueCommitted = result === 'handled'
+    state.techniquePressCommitted = result === 'handled'
+    state.techniquePressSource = result === 'handled' ? source : null
   }
 
   releaseTechnique(
@@ -167,7 +209,18 @@ export class MylorikControlRecognizer {
     if (!state.techniqueDown) return
     this.armTechnique(state, atMs)
     const heldMs = Math.max(0, atMs - state.techniqueStartedAt)
+    const continuationHeldMs = state.techniqueContinuationStartedAt >= 0
+      ? Math.max(0, atMs - state.techniqueContinuationStartedAt)
+      : 0
+    this.emit({
+      ...this.event(physicalHand, 'technique', 'release', source, atMs, heldMs),
+      commit: false,
+      probe: true,
+      inputReleased: true,
+    })
     const committed = state.techniqueCommitted
+    const techniquePressCommitted = state.techniquePressCommitted
+    const techniquePressSource = state.techniquePressSource
     const continuationSource = state.techniqueContinuationSource
     const pendingMobilityContinuationSource = state.pendingMobilityContinuationSource
     const armed = state.techniqueArmed
@@ -175,8 +228,29 @@ export class MylorikControlRecognizer {
     state.techniqueStartedAt = 0
     state.techniqueArmed = false
     state.techniqueCommitted = false
+    state.techniquePressCommitted = false
+    state.techniquePressSource = null
+    state.techniqueContinuationPressed = false
+    state.techniqueContinuationStartedAt = -1
     state.techniqueContinuationSource = null
     state.pendingMobilityContinuationSource = null
+    if (techniquePressCommitted && techniquePressSource) {
+      const release = this.event(
+        physicalHand,
+        'strike',
+        'release',
+        techniquePressSource,
+        atMs,
+        heldMs,
+        'continuation',
+      )
+      release.commit = false
+      release.probe = true
+      if (this.emit(release) === 'handled') {
+        this.dispatch({ ...release, commit: true, probe: false })
+      }
+      return
+    }
     if (pendingMobilityContinuationSource) {
       this.dispatch(this.event(
         physicalHand,
@@ -190,6 +264,29 @@ export class MylorikControlRecognizer {
       return
     }
     if (continuationSource) {
+      const release = this.event(
+        physicalHand,
+        'strike',
+        'release',
+        continuationSource,
+        atMs,
+        continuationHeldMs,
+        'continuation',
+      )
+      release.commit = false
+      release.probe = true
+      const releaseResult = this.emit(release)
+      if (releaseResult === 'handled') {
+        this.dispatch({
+          ...release,
+          commit: true,
+          probe: false,
+        })
+        return
+      }
+      if (releaseResult === 'blocked') return
+      // Definitions authored before continuationDispatch used a `press` phase but committed
+      // on technique release. Keep that route intact when no explicit release edge matches.
       this.dispatch(this.event(
         physicalHand,
         'strike',
@@ -298,6 +395,11 @@ export class MylorikControlRecognizer {
       hand: physicalClusterToRuntimeHand(physicalHand),
       techniquePressed: state.techniqueDown,
       techniqueArmed: state.techniqueArmed,
+      techniquePressCommitted: state.techniquePressCommitted,
+      techniqueContinuationPressed: state.techniqueContinuationPressed,
+      techniqueContinuationHeldMs: state.techniqueContinuationPressed
+        ? Math.max(0, atMs - state.techniqueContinuationStartedAt)
+        : 0,
       techniqueHeldMs: state.techniqueDown ? Math.max(0, atMs - state.techniqueStartedAt) : 0,
       mobilityPressed: state.mobilityDown,
       mobilityHeldMs: state.mobilityDown ? Math.max(0, atMs - state.mobilityStartedAt) : 0,
@@ -523,9 +625,12 @@ export class DualSenseControlRecognizer {
         node.next.forEach(visit)
       }
       const activeNode = state.activeNodeId ? byId.get(state.activeNodeId) : undefined
+      const configuredRouteHeads = controls?.dualsense.startNodeIds?.length
+        ? controls.dualsense.startNodeIds
+        : controls?.dualsense.startNodeId ? [controls.dualsense.startNodeId] : []
       const routeHeads = state.routeLocked && activeNode
         ? activeNode.next
-        : (controls?.dualsense.startNodeId ? [controls.dualsense.startNodeId] : [])
+        : configuredRouteHeads
       routeHeads.forEach(visit)
 
       const armedPocket = state.armedNodeId !== null
@@ -635,6 +740,11 @@ export class DualSenseControlRecognizer {
           return
         }
       } else if (!selected && !activeNode && reachable.length > 0) {
+        const waitingForAlternativeRoot = !state.routeLocked
+          && configuredRouteHeads.some((nodeId) => (
+            (byId.get(nodeId)?.activationThreshold ?? Number.NEGATIVE_INFINITY) > state.maxValue
+          ))
+        if (waitingForAlternativeRoot) return
         // Reachable nodes exist but none is eligible: an illegal pull. A pull
         // still below every authored gate (reachable empty — the pre-gate
         // zone) instead stays active, waiting to reach the first pocket or to
@@ -669,6 +779,20 @@ export class DualSenseControlRecognizer {
     }
 
     if (normalized > releaseGate) return
+    this.emit({
+      scheme: 'dualsense',
+      physicalHand,
+      hand: physicalClusterToRuntimeHand(physicalHand),
+      intent: 'technique',
+      phase: 'release',
+      source: state.source,
+      atMs,
+      heldMs: Math.max(0, atMs - state.startedAt),
+      value: normalized,
+      commit: false,
+      probe: true,
+      inputReleased: true,
+    })
     const node = nodes.find(candidate => candidate.id === state.activeNodeId)
     if (node && node.releaseBehavior === 'dispatch') {
       this.emit({
@@ -718,9 +842,12 @@ export class DualSenseControlRecognizer {
       if (!state.active || !state.activeNodeId) continue
       const node = controls(physicalHand)?.dualsense.nodes
         .find(candidate => candidate.id === state.activeNodeId)
+      const armStartedAt = node?.armClock === 'input'
+        ? state.startedAt
+        : state.nodeEnteredAt
       if (node && state.armedNodeId !== state.activeNodeId
         && state.value > this.config.releaseThreshold
-        && atMs - state.nodeEnteredAt >= (node.armMs ?? this.config.armMs ?? 450)) {
+        && atMs - armStartedAt >= (node.armMs ?? this.config.armMs ?? 450)) {
         state.armedNodeId = state.activeNodeId
         this.emit({
           scheme: 'dualsense',

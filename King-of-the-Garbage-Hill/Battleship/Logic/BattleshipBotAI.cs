@@ -803,6 +803,32 @@ public static class BattleshipBotAI
         var opponent = game.GetOpponent(bot.DiscordId);
         if (opponent == null) return null;
 
+        var waitingRam = bot.Summons.FirstOrDefault(summon =>
+            summon.IsAlive &&
+            summon.Type == SummonType.Ram &&
+            summon.WaitingForTurnBack);
+        if (waitingRam != null)
+        {
+            if (waitingRam.MoveDirection is Direction.Left or Direction.Right)
+            {
+                var entryCol = waitingRam.MoveDirection == Direction.Right ? 9 : 0;
+                var rows = Enumerable.Range(
+                        Math.Max(0, waitingRam.Row - 1),
+                        Math.Min(9, waitingRam.Row + 1) - Math.Max(0, waitingRam.Row - 1) + 1)
+                    .Where(row => opponent.Board.GetCell(row, entryCol)?.SummonRef is not { IsAlive: true })
+                    .ToList();
+                return rows.Count == 0 ? null : (SummonType.Ram, rows[Rng.Next(rows.Count)]);
+            }
+
+            var entryRow = waitingRam.MoveDirection == Direction.Down ? 9 : 0;
+            var cols = Enumerable.Range(
+                    Math.Max(0, waitingRam.Col - 1),
+                    Math.Min(9, waitingRam.Col + 1) - Math.Max(0, waitingRam.Col - 1) + 1)
+                .Where(col => opponent.Board.GetCell(entryRow, col)?.SummonRef is not { IsAlive: true })
+                .ToList();
+            return cols.Count == 0 ? null : (SummonType.Ram, cols[Rng.Next(cols.Count)]);
+        }
+
         // Check reveal threshold
         var threshold = 5 * (bot.SummonSlotsUsed + 1);
         if (bot.RevealedCellCount < threshold && game.Phase != BsGamePhase.Boarding) return null;
@@ -904,8 +930,8 @@ public static class BattleshipBotAI
                 .ToList();
             if (allowedColumns.Count == 0) continue;
 
-            // Boarding ships MUST be deployed immediately
-            if (pending.IsBoarding)
+            // Every mandatory Boarding unit MUST be deployed immediately.
+            if (pending.IsMandatoryBoarding)
             {
                 var preferred = ChooseSummonColumn(opponent);
                 var col = allowedColumns.Contains(preferred)

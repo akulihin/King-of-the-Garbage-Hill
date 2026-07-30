@@ -343,8 +343,8 @@ public class StartGameLogic : IServiceSingleton
                     : character.Tier;
                 var range = GetRangeFromTier(rollTier);
                 if (mode != "bot" && character.Tier == 4 && account.IsBot()) range *= 3;
-                if (character.Tier < 4 && account.IsBot()
-                    && character.Name != "Кира" && !Cthulhu.Is(character)) continue;
+                if (character.Tier < 3 && account.IsBot()
+                    && character.Name != "Кира") continue;
                 if (character.Name == "Кира" && account.IsBot()) range = GetRangeFromTier(1) / 2;
                 if (character.Name == TheBoys.CharacterName)
                     range *= theBoysRosterRollMultiplier;

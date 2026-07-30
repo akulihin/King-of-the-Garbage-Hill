@@ -3,6 +3,13 @@ import { computed } from 'vue'
 import type { BattleshipCell } from 'src/services/signalr'
 import type { BattleshipBowDirection } from './battleship-geometry'
 import { renderIcon } from './battleship-icons'
+import {
+  boardingShipName,
+  summonIconKey,
+  summonMarkerClass,
+  summonMarkerName,
+  summonTypeName,
+} from './battleship-summon-presentation'
 
 const props = defineProps<{
   cell: BattleshipCell | undefined
@@ -19,7 +26,6 @@ const props = defineProps<{
   lastShot?: boolean
   marked?: boolean
   shipEdges?: { top: boolean; right: boolean; bottom: boolean; left: boolean }
-  summonTrails?: string[]
   rangeOverlay?: string
   deckSymbols?: string[]
   bowDirection?: BattleshipBowDirection
@@ -34,6 +40,9 @@ const cellStyle = computed(() => {
   if (!props.cell) return {}
   return { '--cell-row': props.cell.row, '--cell-col': props.cell.col } as Record<string, string | number>
 })
+
+const hasVisibleCurrentShip = computed(() =>
+  props.cell?.hasShip === true && (!props.isEnemy || props.cell.isRevealed))
 
 const cellClass = computed(() => {
   if (!props.cell) return ['cell', 'cell-unknown']
@@ -53,9 +62,10 @@ const cellClass = computed(() => {
   else if (props.cell.isHit) classes.push('cell-hit-empty')
   else if (props.cell.isCaptured) classes.push('cell-captured')
   else if (props.cell.isDodgeMarked) classes.push('cell-dodge-mark')
+  else if (hasVisibleCurrentShip.value) {
+    classes.push(props.isEnemy ? 'cell-revealed-ship' : 'cell-ship')
+  }
   else if (props.cell.isMiss) classes.push('cell-miss')
-  else if (props.cell.hasShip && !props.isEnemy) classes.push('cell-ship')
-  else if (props.cell.hasShip && props.cell.isRevealed) classes.push('cell-revealed-ship')
   else if (!props.cell.isRevealed && props.isEnemy) classes.push('cell-fog')
   else classes.push('cell-empty')
 
@@ -96,10 +106,11 @@ const cellClass = computed(() => {
   }
 
   // Summon trail (type-specific)
-  if (props.summonTrails?.length) {
+  if (props.cell.summonTrails?.length) {
     classes.push('cell-summon-trail')
-    for (const type of props.summonTrails) classes.push('trail-' + type.toLowerCase())
-    if (props.summonTrails.length > 1) classes.push('trail-multiple')
+    for (const marker of props.cell.summonTrails)
+      classes.push('trail-' + summonMarkerClass(marker))
+    if (props.cell.summonTrails.length > 1) classes.push('trail-multiple')
   }
 
   // Range overlay (poison, explosion, freeze, brander)
@@ -114,15 +125,10 @@ const cellIconHtml = computed(() => {
   if (!props.cell) return ''
   // ТЗ #17: the creature icon always wins — the cell status shows through the background
   if (props.cell.hasSummon) {
-    if (props.cell.isBoardingSummon) return renderIcon('ship1', 14)
-    switch (props.cell.summonType) {
-      case 'Ram': return renderIcon('ram', 14)
-      case 'Scout': return renderIcon('scout', 14)
-      case 'Brander': return renderIcon('brander', 14)
-      case 'CursedBoat': return renderIcon('cursedBoat', 14)
-      case 'PirateBoat': return renderIcon('pirateBoat', 14)
-      default: return renderIcon('anchor', 14)
-    }
+    return renderIcon(
+      summonIconKey(props.cell.summonType ?? '', props.cell.isBoardingSummon),
+      14,
+    )
   }
   if (props.cell.isBurnResistMarked) return renderIcon('scratched', 14)
   if (props.cell.isScratched) return renderIcon('scratched', 14)
@@ -134,18 +140,14 @@ const cellIconHtml = computed(() => {
   if (props.cell.isFrozen) return renderIcon('frozen', 14)
   if (props.cell.isHit && props.cell.hasShip) return renderIcon('hit', 14)
   if (props.cell.isCaptured) return renderIcon('captured', 14)
+  if (hasVisibleCurrentShip.value)
+    return props.isEnemy ? renderIcon('ship1', 13) : ''
   if (props.cell.isMiss) return renderIcon('miss', 10)
-  if (props.cell.hasShip && props.cell.isRevealed && props.isEnemy) return renderIcon('ship1', 13)
   if (props.blocked) return ''
   return ''
 })
 
 const colLabels = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J']
-
-const summonNames: Record<string, string> = {
-  Ram: 'Таран', Scout: 'Разведчик', Brander: 'Брандер',
-  CursedBoat: 'Проклятый корабль', PirateBoat: 'Пиратская лодка',
-}
 
 const deckSymbolNames: Record<string, string> = {
   ballista: 'Баллиста',
@@ -159,14 +161,11 @@ const deckSymbolNames: Record<string, string> = {
 const deckSymbolHtml = computed(() => (props.deckSymbols ?? [])
   .map(symbol => ({ symbol, html: renderIcon(symbol, 10) })))
 const bowHtml = computed(() => props.bowDirection ? renderIcon('bow', 10) : '')
-const summonDeathHtml = computed(() => (props.cell?.summonDeaths ?? []).map((type, index) => ({
-  type,
+const summonDeathHtml = computed(() => (props.cell?.summonDeaths ?? []).map((marker, index) => ({
+  marker,
+  markerClass: summonMarkerClass(marker),
   frozen: props.cell?.frozenSummonDeathIndices?.includes(index) ?? false,
-  html: renderIcon(type === 'CursedBoat'
-    ? 'cursedBoat'
-    : type === 'PirateBoat'
-      ? 'pirateBoat'
-      : type.toLowerCase(), 9),
+  html: renderIcon(summonIconKey(marker.type, marker.isBoardingShip), 9),
 })))
 const frozenDeathBadgeHtml = renderIcon('frozen', 7)
 
@@ -185,9 +184,10 @@ const cellTooltip = computed(() => {
 
   let base = ''
   if (props.cell.hasSummon) {
-    base = props.cell.summonName
-      ?? (props.cell.summonType && summonNames[props.cell.summonType])
-      ?? 'Призыв'
+    base = props.cell.isBoardingSummon
+      ? boardingShipName(props.cell.summonName)
+      : props.cell.summonName
+        ?? (props.cell.summonType ? summonTypeName(props.cell.summonType) : 'Призыв')
     // ТЗ #1: enemy creature in the penalty zone (rows 1-3 of the own board)
     if (!props.isEnemy && props.cell.row <= 2) {
       base = `Штраф за убийство суммона в этой зоне (кроме убийства сразу после появления) | ${base}`
@@ -204,9 +204,9 @@ const cellTooltip = computed(() => {
   else if (props.cell.isManeuverDodgeMarked) base = `Лёгкая тройка увернулась — прежняя клетка`
   else if (props.cell.isHit && props.cell.hasShip) base = `Попадание${ship}`
   else if (props.cell.isDodgeMarked) base = `Юркая единичка увернулась — баллиста бессильна`
+  else if (hasVisibleCurrentShip.value)
+    base = props.isEnemy ? `Обнаружен корабль` : `Корабль${ship}`
   else if (props.cell.isMiss) base = `Промах`
-  else if (props.cell.hasShip && !props.isEnemy) base = `Корабль${ship}`
-  else if (props.cell.hasShip && props.cell.isRevealed) base = `Обнаружен корабль`
   else if (props.isEnemy && !props.cell.isRevealed) base = `Неизведано`
 
   const extras: string[] = []
@@ -223,11 +223,11 @@ const cellTooltip = computed(() => {
   addState(props.cell.isCaptured, 'Захвачено')
   addState(props.cell.isDodgeMarked, 'Уклонение')
   addState(props.cell.isManeuverDodgeMarked, 'Манёвренное уклонение')
-  for (const type of props.summonTrails ?? [])
-    extras.push(`След: ${summonNames[type] ?? type}`)
-  for (const [index, type] of (props.cell.summonDeaths ?? []).entries()) {
+  for (const marker of props.cell.summonTrails ?? [])
+    extras.push(`След: ${summonMarkerName(marker)}`)
+  for (const [index, marker] of (props.cell.summonDeaths ?? []).entries()) {
     const frozen = props.cell.frozenSummonDeathIndices?.includes(index) ?? false
-    extras.push(`${frozen ? 'Заморожен' : 'Погиб'}: ${summonNames[type] ?? type}`)
+    extras.push(`${frozen ? 'Заморожен' : 'Погиб'}: ${summonMarkerName(marker)}`)
   }
   if (props.lastShot) extras.push('Последний выстрел')
   if (props.marked) extras.push('Метка')
@@ -255,10 +255,10 @@ const cellTooltip = computed(() => {
     <span v-if="summonDeathHtml.length" class="summon-deaths">
       <span
         v-for="(death, deathIndex) in summonDeathHtml"
-        :key="`${death.type}-${deathIndex}`"
+        :key="`${death.marker.summonId}-${deathIndex}`"
         class="summon-death"
         :class="[
-          'summon-death--' + death.type.toLowerCase(),
+          'summon-death--' + death.markerClass,
           { 'summon-death--frozen': death.frozen },
         ]"
       >
@@ -854,6 +854,14 @@ const cellTooltip = computed(() => {
 .trail-pirateboat::before {
   background: var(--accent-gold);
   opacity: 0.2;
+}
+.trail-boarding::before {
+  width: 8px;
+  height: 5px;
+  border-radius: 2px;
+  background: #86efac;
+  opacity: 0.35;
+  box-shadow: 0 0 5px rgba(134, 239, 172, 0.55);
 }
 .trail-multiple::before {
   width: 9px;

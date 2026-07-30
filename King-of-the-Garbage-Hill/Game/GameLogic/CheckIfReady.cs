@@ -279,13 +279,19 @@ public class CheckIfReady : IServiceSingleton
     {
         game.IsCheckIfReady = false;
         var questSettlementNow = DateTimeOffset.UtcNow;
-        var omniManInvasionWinner = OmniMan.GetInvasionWinner(game);
+        var eternalTsukuyomiEnding =
+            Madara.IsEternalTsukuyomiEndingCaptured(game);
+        var omniManInvasionWinner = eternalTsukuyomiEnding
+            ? null
+            : OmniMan.GetInvasionWinner(game);
         var cosmicHorrorEnding = game.CthulhuState.HorrorFired;
         GamePlayerBridgeClass top3Player = null;
         foreach (var player in game.PlayersList)
             player.Status.ConfirmedSkip = true;
 
-        if (omniManInvasionWinner == null && !cosmicHorrorEnding)
+        if (!eternalTsukuyomiEnding
+            && omniManInvasionWinner == null
+            && !cosmicHorrorEnding)
         {
             // Чернильная завеса normally settles while round 11 opens. A Kratos extension can create
             // fresh ledger entries afterwards, so settle any remainder before final-game effects.
@@ -311,7 +317,7 @@ public class CheckIfReady : IServiceSingleton
             if (player.GameCharacter.Passive.Any(x => x.PassiveName == "AdminPlayerType"))
             {
                 foreach (var enemy in game.PlayersList.Where(x =>
-                             !x.Passives.IsDead && x.GetPlayerId() != player.GetPlayerId()
+                             x.GetPlayerId() != player.GetPlayerId()
                              && !UnknownBug.Is(x) && !Sakura.Is(x)))
                 {
                     player.Predict.Add(new PredictClass(enemy.GameCharacter.Name, enemy.GetPlayerId()));
@@ -328,7 +334,7 @@ public class CheckIfReady : IServiceSingleton
                      where !Naruto.IsDispersedClone(player)
                      from predict in player.Predict
                      let enemy = game.PlayersList.Find(x => x.GetPlayerId() == predict.PlayerId)
-                     where enemy != null && !enemy.Passives.IsDead
+                     where enemy != null
                      where !UnknownBug.Is(enemy)
                      where !Sakura.Is(enemy)
                      where enemy.GameCharacter.Name == predict.CharacterName
@@ -355,7 +361,7 @@ public class CheckIfReady : IServiceSingleton
                 foreach (var predict in boysPlayer.Predict)
                 {
                     var enemy = game.PlayersList.Find(x => x.GetPlayerId() == predict.PlayerId);
-                    if (enemy != null && !enemy.Passives.IsDead && !Sakura.Is(enemy)
+                    if (enemy != null && !Sakura.Is(enemy)
                         && enemy.GameCharacter.Name == predict.CharacterName
                         && !enemy.GameCharacter.Passive.Any(p => p.PassiveName == "Выдуманный персонаж")
                         && Naruto.PredictionAwardsPoints(boysPlayer, enemy))
@@ -494,7 +500,6 @@ public class CheckIfReady : IServiceSingleton
                     {
                         var found = game.PlayersList.Find(x =>
                             predict.PlayerId == x.GetPlayerId() && predict.CharacterName == x.GameCharacter.Name
-                            && !x.Passives.IsDead
                             && !Sakura.Is(x)
                             && !x.GameCharacter.Passive.Any(p => p.PassiveName == "Выдуманный персонаж"));
                         if (found != null) bonusTrolling += 1;
@@ -591,6 +596,10 @@ public class CheckIfReady : IServiceSingleton
                 game.AddGlobalLogs("**Sakura:** Я одна из легендарной тройки. И этого вполне достаточно!");
             }
         }
+        else if (eternalTsukuyomiEnding)
+        {
+            // The authoritative order and scores were frozen before any round-10 setup.
+        }
         else if (omniManInvasionWinner != null)
         {
             OmniMan.ForceFirstPlace(game, omniManInvasionWinner);
@@ -600,11 +609,20 @@ public class CheckIfReady : IServiceSingleton
             Cthulhu.ApplyHeraldFinalPlacement(game);
         }
 
-        var playerWhoWon = omniManInvasionWinner
-                           ?? top3Player
-                           ?? game.PlayersList.Where(x => !x.Passives.IsDead).FirstOrDefault()
-                           ?? game.PlayersList.First();
-        if (omniManInvasionWinner == null && !cosmicHorrorEnding)
+        var capturedWinnerId = Madara.Find(game)?.Passives.Madara
+            .EternalTsukuyomiWinnerPlayerId ?? Guid.Empty;
+        var playerWhoWon = eternalTsukuyomiEnding
+            ? game.PlayersList.Find(player =>
+                  player.GetPlayerId() == capturedWinnerId)
+              ?? game.PlayersList.Where(player => !player.Passives.IsDead).FirstOrDefault()
+              ?? game.PlayersList.First()
+            : omniManInvasionWinner
+              ?? top3Player
+              ?? game.PlayersList.Where(x => !x.Passives.IsDead).FirstOrDefault()
+              ?? game.PlayersList.First();
+        if (!eternalTsukuyomiEnding
+            && omniManInvasionWinner == null
+            && !cosmicHorrorEnding)
             HandlePostGameEvents(game, playerWhoWon);
 
 
@@ -711,7 +729,9 @@ public class CheckIfReady : IServiceSingleton
         var winningGordon = game.PlayersList.FirstOrDefault(player =>
             player.GameCharacter.Name == GordonFreeman.CharacterName
             && game.WinnerPlayerIds.Contains(player.GetPlayerId()));
-        if (winningGordon != null && GordonFreeman.WonThanksToHalfLife(game, winningGordon))
+        if (!eternalTsukuyomiEnding
+            && winningGordon != null
+            && GordonFreeman.WonThanksToHalfLife(game, winningGordon))
             game.AddGlobalLogs(GordonFreeman.BuildWinningReleaseLog(winningGordon));
 
         //todo: need to redo this system    
@@ -1652,25 +1672,30 @@ public class CheckIfReady : IServiceSingleton
                     !UnknownBug.Is(v) &&
                     !Tigr.IsRoundTenBanned(v, game.RoundNo)))
                 {
-                    if (victim.Status.IsBlock || victim.Status.IsSkip)
+                    var targets = players.Where(p =>
+                        p.GetPlayerId() != victim.GetPlayerId()
+                        && !p.Passives.IsDead
+                        && !Madara.IsSealed(p)
+                        && !Tigr.IsRoundTenBanned(p, game.RoundNo)
+                        && !victim.IsTeamMember(game, p.GetPlayerId())
+                        && !Naruto.IsNarutoPair(victim, p)).ToList();
+                    if (targets.Count == 0)
+                        continue;
+
+                    var legalTargetIds = targets.Select(target => target.GetPlayerId()).ToHashSet();
+                    victim.Status.WhoToAttackThisTurn.RemoveAll(targetId =>
+                        targetId != victim.GetPlayerId() && !legalTargetIds.Contains(targetId));
+                    if (!victim.Status.WhoToAttackThisTurn.Any(legalTargetIds.Contains))
                     {
-                        victim.Status.IsBlock = false;
-                        victim.Status.IsSkip = false;
-                        if (victim.Status.WhoToAttackThisTurn.Count == 0)
-                        {
-                            var targets = players.Where(p =>
-                                p.GetPlayerId() != victim.GetPlayerId()
-                                && !p.Passives.IsDead
-                                && !Tigr.IsRoundTenBanned(p, game.RoundNo)
-                                && !Naruto.IsNarutoPair(victim, p)).ToList();
-                            if (targets.Count > 0)
-                                victim.Status.WhoToAttackThisTurn.Add(
-                                    targets[Random.Shared.Next(targets.Count)].GetPlayerId());
-                        }
-                        victim.Status.IsReady = true;
-                        victim.Status.AddInGamePersonalLogs(
-                            "Монстр: Ты не можешь сбежать от того, кто уже внутри.\n");
+                        var forcedTarget = targets[_secureRandom.Random(0, targets.Count - 1)];
+                        victim.Status.WhoToAttackThisTurn.Add(forcedTarget.GetPlayerId());
                     }
+
+                    victim.Status.IsBlock = false;
+                    victim.Status.IsSkip = false;
+                    victim.Status.IsReady = true;
+                    victim.Status.AddInGamePersonalLogs(
+                        "Монстр: Ты не можешь сбежать от того, кто уже внутри.\n");
                 }
 
                 // Клоны Сусано: every locked, correct round-eight Madara prediction becomes a

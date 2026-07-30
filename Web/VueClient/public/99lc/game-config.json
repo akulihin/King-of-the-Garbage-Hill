@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 10,
+  "schemaVersion": 11,
   "title": "99 Last Chances",
   "seed": "99LC-prototype",
   "chances": 99,
@@ -6364,7 +6364,7 @@
       "defaultAugment": "none",
       "tapCombo": [
         {
-          "name": "Шаг и косой выпад",
+          "name": "Охота",
           "behavior": "spearHunt",
           "kind": "melee",
           "damage": 21,
@@ -6394,7 +6394,7 @@
           "staminaCost": 2
         },
         {
-          "name": "Обратный рассекатель",
+          "name": "Охота",
           "behavior": "standard",
           "kind": "melee",
           "damage": 18,
@@ -6530,7 +6530,7 @@
           }
         },
         "hold": {
-          "name": "Замах и три исхода",
+          "name": "Замах",
           "behavior": "spearReleaseV2",
           "kind": "projectile",
           "damage": 34,
@@ -6710,8 +6710,8 @@
           "kind": "melee",
           "damage": 4,
           "cooldownMs": 0,
-          "range": 88,
-          "radius": 28,
+          "range": 90,
+          "radius": 14,
           "arcDegrees": 180,
           "durationMs": 180,
           "projectileSpeed": 0,
@@ -6720,12 +6720,14 @@
           "color": "#f6c85f",
           "collider": {
             "shape": "capsule",
-            "width": 112,
+            "width": 28,
             "traceMs": 360
           },
           "tuning": {
             "reflectedProjectileMinimumRange": 220,
-            "reflectedProjectilePierce": 0
+            "reflectedProjectilePierce": 0,
+            "sidewaysForwardOffset": 36,
+            "sidewaysHalfWidth": 90
           }
         }
       ],
@@ -6736,8 +6738,8 @@
           "kind": "melee",
           "damage": 4,
           "cooldownMs": 0,
-          "range": 88,
-          "radius": 28,
+          "range": 90,
+          "radius": 14,
           "arcDegrees": 180,
           "durationMs": 180,
           "projectileSpeed": 0,
@@ -6746,16 +6748,18 @@
           "color": "#f6c85f",
           "collider": {
             "shape": "capsule",
-            "width": 112,
+            "width": 28,
             "traceMs": 360
           },
           "tuning": {
             "reflectedProjectileMinimumRange": 220,
-            "reflectedProjectilePierce": 0
+            "reflectedProjectilePierce": 0,
+            "sidewaysForwardOffset": 36,
+            "sidewaysHalfWidth": 90
           }
         },
         "doubleTap": {
-          "name": "Отталкивание",
+          "name": "Толчок",
           "behavior": "spearShove",
           "kind": "burst",
           "damage": 7,
@@ -6784,7 +6788,8 @@
           "tuning": {
             "windupMs": 250,
             "minimumTargetRange": 88,
-            "targetRangeRatio": 0.72
+            "targetRangeRatio": 0.72,
+            "shoveTargetDistance": 176
           }
         },
         "doubleTapHold": {
@@ -6811,7 +6816,7 @@
             "bands": [
               {
                 "id": "shove",
-                "label": "Ранний релиз · Отталкивание",
+                "label": "Ранний релиз · Толчок",
                 "minMs": 550,
                 "color": "#55c7ff",
                 "damageMultiplier": 0.4,
@@ -6838,7 +6843,7 @@
               },
               {
                 "id": "strong-kick",
-                "label": "Поздний релиз · Сильный Пинок",
+                "label": "Поздний релиз · Пинок",
                 "minMs": 1200,
                 "color": "#f09cff",
                 "damageMultiplier": 1.55,
@@ -6865,9 +6870,9 @@
             "minimumTargetRange": 80,
             "targetDistancePerKnockback": 1,
             "armorMultiplier": 2,
-            "shoveTargetDistance": 94,
-            "kickTargetDistance": 144,
-            "strongKickTargetDistance": 176,
+            "shoveTargetDistance": 188,
+            "kickTargetDistance": 432,
+            "strongKickTargetDistance": 528,
             "strongKickImmobilizeMs": 1500
           }
         },
@@ -7353,6 +7358,839 @@
                   "tick": {
                     "durationMs": 22,
                     "magnitude": 0.14
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "twohand-bow",
+      "name": "Длинный лук",
+      "equipMode": "twoHanded",
+      "description": "Двуручный лук сочетает точные выстрелы, натяг тетивы, уклонения и сохраняющиеся в мире стрелы.",
+      "chanceCost": 3,
+      "trait": "longbowPersistence",
+      "defaultAugment": "none",
+      "augmentHooks": {
+        "bleed": {
+          "behaviors": [
+            "bowShot",
+            "bowDoubleShot",
+            "bowRapidFire",
+            "bowDraw",
+            "bowScatter",
+            "bowRiposte",
+            "bowRain"
+          ],
+          "hitEffects": [
+            {
+              "status": "bleed",
+              "durationMs": 5200,
+              "stacks": 1,
+              "refresh": "extend"
+            }
+          ]
+        },
+        "poison": {
+          "behaviors": [
+            "bowShot",
+            "bowDoubleShot",
+            "bowRapidFire",
+            "bowDraw",
+            "bowScatter",
+            "bowRiposte",
+            "bowRain"
+          ],
+          "hitEffects": [
+            {
+              "status": "poison",
+              "durationMs": 5600,
+              "tickDamage": 2.4,
+              "tickMs": 500,
+              "refresh": "stack"
+            }
+          ]
+        },
+        "fire": {
+          "behaviors": [
+            "bowShot",
+            "bowDoubleShot",
+            "bowRapidFire",
+            "bowDraw",
+            "bowScatter",
+            "bowRiposte",
+            "bowRain"
+          ],
+          "hitEffects": [
+            {
+              "status": "burn",
+              "durationMs": 4500,
+              "tickDamage": 2.4,
+              "tickMs": 500,
+              "refresh": "refresh"
+            }
+          ]
+        },
+        "chemical": {
+          "behaviors": [
+            "bowShot",
+            "bowDoubleShot",
+            "bowRapidFire",
+            "bowDraw",
+            "bowScatter",
+            "bowRiposte",
+            "bowRain"
+          ],
+          "hitEffects": [
+            {
+              "status": "chemical",
+              "durationMs": 6000,
+              "tickDamage": 2,
+              "tickMs": 500,
+              "refresh": "extend"
+            }
+          ]
+        }
+      },
+      "tapCombo": [
+        {
+          "name": "Шот",
+          "behavior": "bowShot",
+          "kind": "projectile",
+          "damage": 15,
+          "cooldownMs": 320,
+          "range": 520,
+          "radius": 6,
+          "arcDegrees": 4,
+          "durationMs": 850,
+          "projectileSpeed": 720,
+          "pierce": 0,
+          "knockback": 6,
+          "color": "#d7b86a",
+          "collider": {
+            "shape": "capsule",
+            "width": 12,
+            "traceMs": 75
+          },
+          "rootMs": 75,
+          "staminaCost": 3
+        }
+      ],
+      "attacks": {
+        "tap": {
+          "name": "Шот",
+          "behavior": "bowShot",
+          "kind": "projectile",
+          "damage": 15,
+          "cooldownMs": 320,
+          "range": 520,
+          "radius": 6,
+          "arcDegrees": 4,
+          "durationMs": 850,
+          "projectileSpeed": 720,
+          "pierce": 0,
+          "knockback": 6,
+          "color": "#d7b86a",
+          "collider": {
+            "shape": "capsule",
+            "width": 12,
+            "traceMs": 75
+          },
+          "rootMs": 75,
+          "staminaCost": 3
+        },
+        "doubleTap": {
+          "name": "Шот-шот",
+          "behavior": "bowDoubleShot",
+          "kind": "projectile",
+          "damage": 15,
+          "cooldownMs": 900,
+          "range": 520,
+          "radius": 6,
+          "arcDegrees": 4,
+          "durationMs": 850,
+          "projectileSpeed": 720,
+          "pierce": 0,
+          "knockback": 6,
+          "color": "#ead080",
+          "collider": {
+            "shape": "capsule",
+            "width": 12,
+            "traceMs": 75
+          },
+          "rootMs": 75,
+          "staminaCost": 4
+        },
+        "doubleTapHold": {
+          "name": "Чреда",
+          "behavior": "bowRapidFire",
+          "kind": "projectile",
+          "damage": 15,
+          "cooldownMs": 2400,
+          "range": 520,
+          "radius": 6,
+          "arcDegrees": 4,
+          "durationMs": 2000,
+          "projectileSpeed": 720,
+          "pierce": 0,
+          "knockback": 5,
+          "color": "#efc75f",
+          "collider": {
+            "shape": "capsule",
+            "width": 12,
+            "traceMs": 75
+          },
+      "staminaCost": 0,
+      "tuning": {
+        "channelStartMs": 220,
+        "channelMaxMs": 2000,
+        "shotIntervalMs": 120,
+            "staminaTickMs": 100,
+            "staminaPerTick": 5
+          }
+        },
+        "hold": {
+          "name": "Натяг",
+          "behavior": "bowDraw",
+          "kind": "projectile",
+          "damage": 18,
+          "cooldownMs": 2600,
+          "range": 420,
+          "radius": 7,
+          "arcDegrees": 3,
+          "durationMs": 2000,
+          "projectileSpeed": 660,
+          "pierce": 0,
+          "knockback": 10,
+          "color": "#f1d775",
+          "collider": {
+            "shape": "capsule",
+            "width": 14,
+            "traceMs": 90
+          },
+          "charge": {
+            "maxMs": 1000,
+            "bands": [
+              {
+                "id": "draw-early",
+                "label": "Короткий натяг",
+                "minMs": 325,
+                "color": "#9bc8df",
+                "damageMultiplier": 1.25,
+                "rangeMultiplier": 1.15,
+                "speedMultiplier": 1.08
+              },
+              {
+                "id": "draw-middle",
+                "label": "Полный натяг",
+                "minMs": 650,
+                "color": "#e8cf72",
+                "damageMultiplier": 1.6,
+                "rangeMultiplier": 1.4,
+                "speedMultiplier": 1.15
+              },
+              {
+                "id": "draw-max",
+                "label": "Предельный натяг",
+                "minMs": 1000,
+                "color": "#fff0a0",
+                "damageMultiplier": 2.2,
+                "rangeMultiplier": 1.75,
+                "speedMultiplier": 1.25
+              }
+            ]
+          },
+          "staminaCost": 0,
+          "tuning": {
+            "goldStartMs": 670,
+            "goldEndMs": 760,
+            "drawMaxHoldMs": 2000,
+            "staminaPerMs": 0.04
+          }
+        },
+        "holdThenDoubleTap": {
+          "name": "Множественный залп",
+          "behavior": "bowScatter",
+          "kind": "projectile",
+          "damage": 18,
+          "cooldownMs": 7600,
+          "range": 735,
+          "radius": 7,
+          "arcDegrees": 52,
+          "durationMs": 1600,
+          "projectileSpeed": 825,
+          "pierce": 0,
+          "knockback": 10,
+          "color": "#ffd45d",
+          "collider": {
+            "shape": "capsule",
+            "width": 14,
+            "traceMs": 90
+          },
+          "rootMs": 75,
+          "staminaCost": 14,
+          "tuning": {
+            "scatterCount": 7,
+            "fanDegrees": 52,
+            "ricochets": 1
+          }
+        }
+      },
+      "secondaryTapCombo": [
+        {
+          "name": "Уворот",
+          "behavior": "bowDodge",
+          "kind": "dash",
+          "damage": 0,
+          "cooldownMs": 500,
+          "range": 110,
+          "radius": 18,
+          "arcDegrees": 30,
+          "durationMs": 180,
+          "projectileSpeed": 0,
+          "pierce": 0,
+          "knockback": 0,
+          "color": "#8ed7c2",
+          "collider": {
+            "shape": "capsule",
+            "width": 36,
+            "traceMs": 180
+          },
+          "invulnerabilityMs": 220,
+          "staminaCost": 3
+        }
+      ],
+      "secondaryAttacks": {
+        "tap": {
+          "name": "Уворот",
+          "behavior": "bowDodge",
+          "kind": "dash",
+          "damage": 0,
+          "cooldownMs": 500,
+          "range": 110,
+          "radius": 18,
+          "arcDegrees": 30,
+          "durationMs": 180,
+          "projectileSpeed": 0,
+          "pierce": 0,
+          "knockback": 0,
+          "color": "#8ed7c2",
+          "collider": {
+            "shape": "capsule",
+            "width": 36,
+            "traceMs": 180
+          },
+          "invulnerabilityMs": 220,
+          "staminaCost": 3
+        },
+        "doubleTap": {
+          "name": "Прыжок",
+          "behavior": "bowJump",
+          "kind": "dash",
+          "damage": 0,
+          "cooldownMs": 4200,
+          "range": 230,
+          "radius": 18,
+          "arcDegrees": 30,
+          "durationMs": 520,
+          "projectileSpeed": 0,
+          "pierce": 0,
+          "knockback": 0,
+          "color": "#9de8d1",
+          "collider": {
+            "shape": "capsule",
+            "width": 36,
+            "traceMs": 520
+          },
+          "invulnerabilityMs": 620,
+          "staminaCost": 7
+        },
+        "doubleTapHold": {
+          "name": "Ответ",
+          "behavior": "bowRiposte",
+          "kind": "dash",
+          "damage": 0,
+          "cooldownMs": 6200,
+          "range": 230,
+          "radius": 18,
+          "arcDegrees": 30,
+          "durationMs": 1000,
+          "projectileSpeed": 0,
+          "pierce": 0,
+          "knockback": 0,
+          "color": "#f0d86e",
+          "collider": {
+            "shape": "capsule",
+            "width": 36,
+            "traceMs": 520
+          },
+          "charge": {
+            "maxMs": 1000,
+            "bands": [
+              {
+                "id": "riposte-early",
+                "label": "Рано",
+                "minMs": 1,
+                "color": "#72838f"
+              },
+              {
+                "id": "riposte-golden",
+                "label": "Золотой ответ",
+                "minMs": 470,
+                "color": "#ffd75f"
+              },
+              {
+                "id": "riposte-late",
+                "label": "Поздний шот",
+                "minMs": 530,
+                "color": "#c49b74"
+              }
+            ]
+          },
+          "invulnerabilityMs": 620,
+          "staminaCost": 8,
+          "tuning": {
+        "goldStartMs": 470,
+        "goldEndMs": 530,
+        "lateShotMs": 530,
+        "goldDamageMultiplier": 1.22,
+        "goldRangeMultiplier": 1.12
+          }
+        },
+        "hold": {
+          "name": "Обстрел",
+          "behavior": "bowRain",
+          "kind": "burst",
+          "damage": 15,
+          "cooldownMs": 4200,
+          "range": 520,
+          "radius": 105,
+          "arcDegrees": 360,
+          "durationMs": 2000,
+          "projectileSpeed": 720,
+          "pierce": 0,
+          "knockback": 4,
+          "color": "#d5c277",
+          "collider": {
+            "shape": "circle",
+            "traceMs": 2000
+          },
+          "staminaCost": 0,
+          "tuning": {
+          "channelMaxMs": 2000,
+          "zoneRadius": 105,
+          "arrowImpactRadius": 10,
+          "arrowIntervalMs": 145,
+            "staminaTickMs": 100,
+            "staminaPerTick": 6
+          }
+        },
+        "holdThenDoubleTap": {
+          "name": "Огонь!",
+          "behavior": "bowIgnite",
+          "kind": "burst",
+          "damage": 18,
+          "cooldownMs": 6800,
+          "range": 520,
+          "radius": 54,
+          "arcDegrees": 360,
+          "durationMs": 320,
+          "projectileSpeed": 0,
+          "pierce": 99,
+          "knockback": 12,
+          "color": "#ff8f48",
+          "collider": {
+            "shape": "circle",
+            "traceMs": 320
+          },
+          "staminaCost": 10,
+          "tuning": {
+            "ordinaryRadius": 54,
+            "ordinaryDamage": 18,
+            "chemicalRadius": 126,
+            "chemicalDamage": 48,
+            "chemicalSelfDamage": 34
+          }
+        }
+      },
+      "controls": {
+        "primary": {
+          "role": "Left hand — bowstring, draw pocket and arrow channels",
+          "mylorik": {
+            "activations": [
+              {
+                "gesture": "tap",
+                "intent": "strike",
+                "phase": "press",
+                "priority": 100
+              },
+              {
+                "gesture": "doubleTap",
+                "intent": "technique",
+                "phase": "tap",
+                "priority": 100
+              },
+              {
+                "gesture": "doubleTapHold",
+                "intent": "strike",
+                "phase": "press",
+                "context": "continuation",
+                "continuationDispatch": "press",
+                "priority": 80
+              },
+              {
+                "gesture": "hold",
+                "intent": "technique",
+                "phase": "hold",
+                "priority": 100
+              },
+              {
+                "gesture": "holdThenDoubleTap",
+                "intent": "mobility",
+                "phase": "press",
+                "context": "continuation",
+                "priority": 80
+              }
+            ]
+          },
+          "dualsense": {
+            "instantGesture": "tap",
+            "triggerRole": "R2 shot, double shot, rapid fire, draw and golden scatter",
+            "startNodeId": "double-shot",
+            "startNodeIds": [
+              "double-shot",
+              "draw"
+            ],
+            "nodes": [
+              {
+                "gesture": "doubleTap",
+                "entryContext": "neutral",
+                "activationThreshold": 0.25,
+                "dispatch": "release",
+                "holdBehavior": "none",
+                "releaseBehavior": "dispatch",
+                "next": [
+                  "draw"
+                ],
+                "cancel": "release",
+                "expiryMs": 2300,
+                "tactileProfile": "click",
+                "id": "double-shot",
+                "adaptiveOverride": {
+                  "startPosition": 0.25,
+                  "endPosition": 0.32,
+                  "force": 0.28
+                }
+              },
+              {
+                "gesture": "hold",
+                "entryContext": "neutral",
+                "activationThreshold": 0.5,
+                "dispatch": "release",
+                "holdBehavior": "charge",
+                "releaseBehavior": "dispatch",
+                "next": [
+                  "rapid-fire",
+                  "scatter-finisher"
+                ],
+                "cancel": "release",
+                "expiryMs": 2300,
+                "tactileProfile": "tension",
+                "id": "draw",
+                "armMs": 670,
+                "armClock": "input",
+                "armedCue": [
+                  {
+                    "delayMs": 0,
+                    "durationMs": 45,
+                    "magnitude": 0.58
+                  },
+                  {
+                    "delayMs": 85,
+                    "durationMs": 55,
+                    "magnitude": 0.68
+                  }
+                ],
+                "armedTriggerOverride": {
+                  "startPosition": 0.78,
+                  "endPosition": 0.95,
+                  "resistance": 0.18,
+                  "force": 0.24
+                },
+                "entryTick": null,
+                "adaptiveOverride": {
+                  "startPosition": 0.5,
+                  "endPosition": 0.7,
+                  "force": 0.64
+                }
+              },
+              {
+                "gesture": "doubleTapHold",
+                "entryContext": "continuation",
+                "activationThreshold": 0.75,
+                "dispatch": "press",
+                "holdBehavior": "channel",
+                "releaseBehavior": "cancel",
+                "next": [],
+                "cancel": "release",
+                "expiryMs": 2300,
+                "tactileProfile": "ramp",
+                "id": "rapid-fire",
+                "entryTick": null,
+                "adaptiveOverride": {
+                  "startPosition": 0.75,
+                  "endPosition": 0.84,
+                  "force": 0.76
+                }
+              },
+              {
+                "gesture": "holdThenDoubleTap",
+                "entryContext": "continuation",
+                "activationThreshold": 0.95,
+                "dispatch": "press",
+                "holdBehavior": "none",
+                "releaseBehavior": "cancel",
+                "next": [],
+                "cancel": "release",
+                "expiryMs": 2300,
+                "tactileProfile": "followUp",
+                "id": "scatter-finisher",
+                "entryRequiresArmed": true,
+                "requiredChargeBandId": "draw-middle",
+                "adaptiveOverride": {
+                  "startPosition": 0.95,
+                  "endPosition": 1,
+                  "force": 1
+                }
+              }
+            ],
+            "haptics": {
+              "baseTrigger": {
+                "startPosition": 0.14,
+                "endPosition": 0.24,
+                "resistance": 0.22,
+                "force": 0.3
+              },
+              "gateTick": {
+                "durationMs": 20,
+                "magnitude": 0.18
+              },
+              "bandTick": {
+                "pulseMs": 28,
+                "gapMs": 58,
+                "magnitude": 0.24,
+                "magnitudeStep": 0.08
+              },
+              "commitPattern": [
+                {
+                  "delayMs": 0,
+                  "durationMs": 28,
+                  "magnitude": 0.32
+                },
+                {
+                  "delayMs": 48,
+                  "durationMs": 48,
+                  "magnitude": 0.56
+                }
+              ],
+              "depthTicks": [
+                {
+                  "position": 0.67,
+                  "tick": {
+                    "durationMs": 20,
+                    "magnitude": 0.24
+                  }
+                },
+                {
+                  "position": 0.79,
+                  "tick": {
+                    "durationMs": 24,
+                    "magnitude": 0.34
+                  }
+                }
+              ]
+            }
+          }
+        },
+        "secondary": {
+          "role": "Right hand — evasive footwork, answer pocket and arrow rain",
+          "mylorik": {
+            "activations": [
+              {
+                "gesture": "tap",
+                "intent": "strike",
+                "phase": "press",
+                "priority": 100
+              },
+              {
+                "gesture": "doubleTap",
+                "intent": "technique",
+                "phase": "press",
+                "priority": 100
+              },
+              {
+                "gesture": "doubleTapHold",
+                "intent": "strike",
+                "phase": "release",
+                "context": "continuation",
+                "continuationDispatch": "release",
+                "priority": 80
+              },
+              {
+                "gesture": "hold",
+                "intent": "technique",
+                "phase": "hold",
+                "priority": 100
+              },
+              {
+                "gesture": "holdThenDoubleTap",
+                "intent": "mobility",
+                "phase": "press",
+                "context": "continuation",
+                "priority": 80
+              }
+            ]
+          },
+          "dualsense": {
+            "instantGesture": "tap",
+            "triggerRole": "L2 dodge, jump, timed answer, rain and ignition",
+            "startNodeId": "jump",
+            "startNodeIds": [
+              "jump",
+              "rain"
+            ],
+            "nodes": [
+              {
+                "gesture": "doubleTap",
+                "entryContext": "dash",
+                "activationThreshold": 0.25,
+                "dispatch": "press",
+                "holdBehavior": "none",
+                "releaseBehavior": "cancel",
+                "next": [
+                  "riposte"
+                ],
+                "cancel": "release",
+                "expiryMs": 2300,
+                "tactileProfile": "click",
+                "id": "jump",
+                "adaptiveOverride": {
+                  "startPosition": 0.25,
+                  "endPosition": 0.32,
+                  "force": 0.3
+                }
+              },
+              {
+                "gesture": "hold",
+                "entryContext": "neutral",
+                "activationThreshold": 0.5,
+                "dispatch": "press",
+                "holdBehavior": "channel",
+                "releaseBehavior": "cancel",
+                "next": [
+                  "ignite-finisher"
+                ],
+                "cancel": "release",
+                "expiryMs": 2300,
+                "tactileProfile": "tension",
+                "id": "rain",
+                "entryTick": null,
+                "adaptiveOverride": {
+                  "startPosition": 0.5,
+                  "endPosition": 0.64,
+                  "force": 0.58
+                }
+              },
+              {
+                "gesture": "doubleTapHold",
+                "entryContext": "dash",
+                "activationThreshold": 0.75,
+                "dispatch": "release",
+                "holdBehavior": "charge",
+                "releaseBehavior": "dispatch",
+                "next": [],
+                "cancel": "release",
+                "expiryMs": 2300,
+                "tactileProfile": "gate",
+                "id": "riposte",
+                "armMs": 470,
+                "telegraph": [
+                  {
+                    "delayMs": 0,
+                    "durationMs": 30,
+                    "magnitude": 0.3
+                  },
+                  {
+                    "delayMs": 95,
+                    "durationMs": 30,
+                    "magnitude": 0.33999999999999997
+                  }
+                ],
+                "adaptiveOverride": {
+                  "startPosition": 0.75,
+                  "endPosition": 0.84,
+                  "force": 0.78
+                }
+              },
+              {
+                "gesture": "holdThenDoubleTap",
+                "entryContext": "continuation",
+                "activationThreshold": 0.95,
+                "dispatch": "press",
+                "holdBehavior": "none",
+                "releaseBehavior": "cancel",
+                "next": [],
+                "cancel": "release",
+                "expiryMs": 2300,
+                "tactileProfile": "impact",
+                "id": "ignite-finisher",
+                "adaptiveOverride": {
+                  "startPosition": 0.95,
+                  "endPosition": 1,
+                  "force": 1
+                }
+              }
+            ],
+            "haptics": {
+              "baseTrigger": {
+                "startPosition": 0.12,
+                "endPosition": 0.2,
+                "resistance": 0.18,
+                "force": 0.24
+              },
+              "gateTick": {
+                "durationMs": 22,
+                "magnitude": 0.2
+              },
+              "bandTick": {
+                "pulseMs": 26,
+                "gapMs": 54,
+                "magnitude": 0.22,
+                "magnitudeStep": 0.08
+              },
+              "commitPattern": [
+                {
+                  "delayMs": 0,
+                  "durationMs": 62,
+                  "magnitude": 0.58
+                }
+              ],
+              "depthTicks": [
+                {
+                  "position": 0.47,
+                  "tick": {
+                    "durationMs": 18,
+                    "magnitude": 0.24
+                  }
+                },
+                {
+                  "position": 0.53,
+                  "tick": {
+                    "durationMs": 22,
+                    "magnitude": 0.34
                   }
                 }
               ]

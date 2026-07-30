@@ -1479,6 +1479,46 @@
       }
     ]
   },
+  "MadaraTwoFights": {
+    "passiveNameRussian": "Бог шиноби",
+    "passiveNameEnglish": "God of Shinobi",
+    "phrases": [
+      {
+        "russian": "Шаринган!",
+        "english": "Sharingan!"
+      }
+    ]
+  },
+  "MadaraThreeFights": {
+    "passiveNameRussian": "Бог шиноби",
+    "passiveNameEnglish": "God of Shinobi",
+    "phrases": [
+      {
+        "russian": "Шаринган!\nОгненный шторм!",
+        "english": "Sharingan!\nFirestorm!"
+      }
+    ]
+  },
+  "MadaraFourFights": {
+    "passiveNameRussian": "Бог шиноби",
+    "passiveNameEnglish": "God of Shinobi",
+    "phrases": [
+      {
+        "russian": "Шаринган!\nОгненный шторм!\nЧастичное Сусано!",
+        "english": "Sharingan!\nFirestorm!\nPartial Susanoo!"
+      }
+    ]
+  },
+  "MadaraFiveFights": {
+    "passiveNameRussian": "Бог шиноби",
+    "passiveNameEnglish": "God of Shinobi",
+    "phrases": [
+      {
+        "russian": "Шаринган!\nОгненный шторм!\nЧастичное Сусано!\nРиннеган!",
+        "english": "Sharingan!\nFirestorm!\nPartial Susanoo!\nRinnegan!"
+      }
+    ]
+  },
   "MadaraTopOne": {
     "passiveNameRussian": "Бог шиноби",
     "passiveNameEnglish": "God of Shinobi",
@@ -2444,8 +2484,8 @@
     "passiveNameEnglish": "Death Note",
     "phrases": [
       {
-        "russian": "Удалить... Удалить... Удалить!",
-        "english": "Delete... Delete... DELETE!"
+        "russian": "Стереть... Стереть... Стереть!",
+        "english": "Erase... Erase... ERASE!"
       },
       {
         "russian": "Я - бог нового мира!",
@@ -4694,6 +4734,16 @@
       {
         "russian": "Ну ладно, в замке хотя бы перезимовать можно.",
         "english": "Fine. At least I can spend the winter in the castle."
+      }
+    ]
+  },
+  "ScamRatGpuSale": {
+    "passiveNameRussian": "Сделка",
+    "passiveNameEnglish": "Deal",
+    "phrases": [
+      {
+        "russian": "Вероятность взрыва всего лишь один процент. Но не волнуйтесь, я уже 99 продал - ни одна не взорвалась. Это сотая. Берите, очень рекомендую!",
+        "english": "The chance of an explosion is only one percent. Do not worry: I have already sold 99 and not one has exploded. This is the hundredth. Take it; I highly recommend it!"
       }
     ]
   },

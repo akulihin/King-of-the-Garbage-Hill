@@ -15,6 +15,7 @@ defineProps<{
   shotDelayActive: boolean
   shotDelayRemaining: number
   phase: string
+  disabled?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -65,7 +66,7 @@ function handleSelect(weaponType: string, shotType: string, weaponId: string) {
           shotDelayActive && w.shotType === 'EvilGreekFire' ? 'wb-weapon--response' : '',
         ]"
         :aria-pressed="selectedShotType === w.shotType && (w.shotType === 'Ballista' || selectedWeaponId === w.id)"
-        :disabled="!w.hasAmmo || w.aimSpeed > 0"
+        :disabled="disabled || !w.hasAmmo || w.aimSpeed > 0"
         @mouseenter="showTip($event, weaponTooltip(w.shotType) + (w.aimSpeed > 0 ? ` (Прицел: ${w.aimSpeed} клет.)` : '') + ` [${wi + 1}]`)"
         @mousemove="moveTip"
         @mouseleave="hideTip"

@@ -12,6 +12,10 @@ import FightAnimation from 'src/components/FightAnimation.vue'
 import MediaMessages from 'src/components/MediaMessages.vue'
 import DeathNote from 'src/components/DeathNote.vue'
 import { translateText } from 'src/i18n'
+import {
+  isStanEdgarThresholdDialogue,
+  orderStanEdgarDismissalLogs,
+} from 'src/features/log-presentation'
 
 const props = defineProps<{ gameId: string }>()
 const store = useGameStore()
@@ -268,7 +272,7 @@ function parsePrevLogs(raw: string): PrevLogEntry[] {
 
     if (isHalfLifeWin) {
       type = 'gold'
-    } else if (isPhrase) {
+    } else if (isPhrase || isStanEdgarThresholdDialogue(clean)) {
       type = 'purple'
     } else if (/[Сс]килла/i.test(clean) || /Справедливость/i.test(clean) || /Cкилла/i.test(clean) || /Морали/i.test(clean)) {
       type = 'green'
@@ -312,8 +316,10 @@ function mergeEvents(): string {
   return parts.join('\n')
 }
 
-const currentLogEntriesAll = computed(() => parsePrevLogs(mergeEvents() || ''))
-const prevLogEntriesAll = computed(() => parsePrevLogs(myPlayer.value?.status.previousRoundLogs || ''))
+const currentLogEntriesAll = computed(() =>
+  orderStanEdgarDismissalLogs(parsePrevLogs(mergeEvents() || '')))
+const prevLogEntriesAll = computed(() =>
+  orderStanEdgarDismissalLogs(parsePrevLogs(myPlayer.value?.status.previousRoundLogs || '')))
 
 const currentLogEntries = computed(() => currentLogEntriesAll.value.filter((e: PrevLogEntry) => e.type !== 'gold'))
 const prevLogEntries = computed(() => prevLogEntriesAll.value.filter((e: PrevLogEntry) => e.type !== 'gold'))
@@ -486,20 +492,9 @@ onUnmounted(() => {
           </div>
         </div>
 
-        <!-- Fight Panel / Death Note -->
+        <!-- Fight Panel -->
         <div class="log-panel card fight-panel">
-          <DeathNote
-            v-if="isViewingKira && myPlayer?.deathNote"
-            :death-note="myPlayer.deathNote"
-            :players="store.gameState.players"
-            :my-player-id="myPlayer.playerId"
-            :character-names="store.gameState.allCharacterNames || []"
-            :character-catalog="store.gameState.allCharacters || []"
-            :is-finished="true"
-            :moral="myPlayer.character.moralDisplay"
-          />
           <FightAnimation
-            v-else
             :fights="store.gameState.fightLog || []"
             :letopis="letopis"
             :game-story="store.gameStory"
@@ -590,6 +585,22 @@ onUnmounted(() => {
             Back to Lobby
           </button>
         </div>
+
+        <!-- Kira: read-only Death Note remains below every replay block -->
+        <div
+          v-if="isViewingKira && myPlayer?.deathNote"
+          class="kira-death-note-section"
+        >
+          <DeathNote
+            :death-note="myPlayer.deathNote"
+            :players="store.gameState.players"
+            :my-player-id="myPlayer.playerId"
+            :character-names="store.gameState.allCharacterNames || []"
+            :character-catalog="store.gameState.allCharacters || []"
+            :is-finished="true"
+            :moral="myPlayer.character.moralDisplay"
+          />
+        </div>
       </div>
 
       <!-- Right: Fighting character avatar + Enemy PlayerCard or Skills fallback -->
@@ -657,6 +668,10 @@ onUnmounted(() => {
   flex-direction: column;
   gap: 8px;
   min-width: 0;
+}
+
+.kira-death-note-section {
+  order: 1000;
 }
 
 /* Header */

@@ -31,12 +31,16 @@ public static class Madara
         public int IncomingUniqueAttackersThisRound { get; set; }
         public HashSet<Guid> IncomingAttackerIdsThisRound { get; set; } = new();
         public int ResolvedFights { get; set; }
+        public int RoundFightCountRound { get; set; }
+        public int RoundFightCount { get; set; }
+        public int RoundFightPhraseSentRound { get; set; }
         public int FirstFightPhraseRound { get; set; }
         public bool SecondFightPhrasePending { get; set; }
         public HashSet<Guid> RoundEightAttackers { get; set; } = new();
         public HashSet<Guid> RoundEightFightParticipants { get; set; } = new();
         public int RoundEightWins { get; set; }
         public int RoundEightLosses { get; set; }
+        public bool RoundEightWasDefeated { get; set; }
         public bool RoundEightJusticeGranted { get; set; }
         public bool RoundNineResolved { get; set; }
         public Guid RedTigerPlayerId { get; set; }
@@ -45,6 +49,8 @@ public static class Madara
         public bool Sealed { get; set; }
         public bool EternalTsukuyomiActive { get; set; }
         public bool EternalTsukuyomiRoundPrepared { get; set; }
+        public bool EternalTsukuyomiWinnerCaptured { get; set; }
+        public Guid EternalTsukuyomiWinnerPlayerId { get; set; } = Guid.Empty;
         public Dictionary<Guid, List<Guid>> EternalTsukuyomiIllusoryTargets { get; set; } = new();
     }
 
@@ -80,6 +86,43 @@ public static class Madara
     public static bool IsEternalTsukuyomiRound(GameClass game) =>
         game?.RoundNo == 10 && IsEternalTsukuyomiActive(game);
 
+    public static bool IsEternalTsukuyomiEndingCaptured(GameClass game) =>
+        Find(game)?.Passives.Madara.EternalTsukuyomiWinnerCaptured == true;
+
+    public static bool TryCaptureEternalTsukuyomiEnding(GameClass game)
+    {
+        if (game?.RoundNo != 10) return false;
+
+        var ordered = Naruto.OrderLeaderboard(game.PlayersList);
+        var madara = ordered.FirstOrDefault(IsMadara);
+        if (madara == null || madara.Passives.IsDead || madara.Passives.Madara.Sealed)
+            return false;
+
+        var state = madara.Passives.Madara;
+        if (!state.EternalTsukuyomiActive
+            && ordered.FirstOrDefault()?.GetPlayerId() != madara.GetPlayerId())
+            return false;
+
+        game.PlayersList = ordered;
+        for (var index = 0; index < game.PlayersList.Count; index++)
+        {
+            game.PlayersList[index].Status.SetPlaceAtLeaderBoard(index + 1);
+            game.PlayersList[index].Status.PlaceAtLeaderBoardHistory.Add(
+                new InGameStatus.PlaceAtLeaderBoardHistoryClass(
+                    game.RoundNo,
+                    index + 1));
+        }
+
+        state.EternalTsukuyomiActive = true;
+        state.EternalTsukuyomiWinnerCaptured = true;
+        state.EternalTsukuyomiWinnerPlayerId =
+            game.PlayersList.FirstOrDefault(player => !player.Passives.IsDead)?.GetPlayerId()
+            ?? game.PlayersList.First().GetPlayerId();
+        PrepareEternalTsukuyomiRound(game);
+        game.IsFinished = true;
+        return true;
+    }
+
     public static bool PrepareEternalTsukuyomiRound(GameClass game)
     {
         if (!IsEternalTsukuyomiRound(game)) return false;
@@ -98,14 +141,17 @@ public static class Madara
                 .Where(player => player.GetPlayerId() != madara.GetPlayerId())
                 .ToDictionary(
                     player => player.GetPlayerId(),
-                    player => player.Status.WhoToAttackThisTurn
-                        .Where(targetId => targetId != player.GetPlayerId())
-                        .ToList());
+                    player => state.EternalTsukuyomiWinnerCaptured
+                        ? new List<Guid>()
+                        : player.Status.WhoToAttackThisTurn
+                            .Where(targetId => targetId != player.GetPlayerId())
+                            .ToList());
         }
 
         foreach (var player in game.PlayersList)
         {
-            // Terminal isolation: the world-wide skip cannot rewrite Bug's submitted action.
+            // The terminal capture opens no action window. Bug and a reserved Gordon keep their
+            // presentation state only so the final projection can select the authoritative view.
             if (UnknownBug.Is(player))
                 continue;
 
@@ -226,6 +272,49 @@ public static class Madara
             && madara.Status.IsLostThisCalculation == Guid.Empty) return;
 
         var state = madara.Passives.Madara;
+        RecordFightAppearance(madara, game, state);
+
+        // Страх перед Мадарой counts fights that actually happened, so a Block, a Skip or a fight
+        // skipped by Наруто never spares an enemy from the penalty. Attack side included: a
+        // Геральт contract can still make round-eight Madara the attacker.
+        if (game.RoundNo == 8)
+        {
+            var opponentId = madara.Status.IsWonThisCalculation != Guid.Empty
+                ? madara.Status.IsWonThisCalculation
+                : madara.Status.IsLostThisCalculation;
+            if (opponentId != Guid.Empty)
+                state.RoundEightFightParticipants.Add(opponentId);
+            if (madara.Status.IsLostThisCalculation != Guid.Empty)
+                state.RoundEightWasDefeated = true;
+        }
+
+        if (!defense || game.RoundNo != 8) return;
+
+        if (madara.Status.IsWonThisCalculation != Guid.Empty)
+            state.RoundEightWins++;
+        if (madara.Status.IsLostThisCalculation != Guid.Empty)
+            state.RoundEightLosses++;
+    }
+
+    public static void RecordSpecialResolvedFight(
+        GamePlayerBridgeClass madara,
+        GameClass game)
+    {
+        if (!IsMadara(madara) || game == null) return;
+        RecordFightAppearance(madara, game, madara.Passives.Madara);
+    }
+
+    private static void RecordFightAppearance(
+        GamePlayerBridgeClass madara,
+        GameClass game,
+        State state)
+    {
+        if (state.RoundFightCountRound != game.RoundNo)
+        {
+            state.RoundFightCountRound = game.RoundNo;
+            state.RoundFightCount = 0;
+        }
+        state.RoundFightCount++;
         state.ResolvedFights++;
         if (state.ResolvedFights == 1)
         {
@@ -239,25 +328,27 @@ public static class Madara
             else
                 state.SecondFightPhrasePending = true;
         }
+    }
 
-        // Страх перед Мадарой counts fights that actually happened, so a Block, a Skip or a fight
-        // skipped by Наруто never spares an enemy from the penalty. Attack side included: a
-        // Геральт contract can still make round-eight Madara the attacker.
-        if (game.RoundNo == 8)
+    public static void SendRoundTechniquePhrases(GamePlayerBridgeClass madara, GameClass game)
+    {
+        if (!IsMadara(madara)) return;
+
+        var state = madara.Passives.Madara;
+        if (state.RoundFightCountRound != game.RoundNo
+            || state.RoundFightCount < 2
+            || state.RoundFightPhraseSentRound == game.RoundNo)
+            return;
+
+        state.RoundFightPhraseSentRound = game.RoundNo;
+        var phrase = Math.Min(state.RoundFightCount, 5) switch
         {
-            var opponentId = madara.Status.IsWonThisCalculation != Guid.Empty
-                ? madara.Status.IsWonThisCalculation
-                : madara.Status.IsLostThisCalculation;
-            if (opponentId != Guid.Empty)
-                state.RoundEightFightParticipants.Add(opponentId);
-        }
-
-        if (!defense || game.RoundNo != 8) return;
-
-        if (madara.Status.IsWonThisCalculation != Guid.Empty)
-            state.RoundEightWins++;
-        if (madara.Status.IsLostThisCalculation != Guid.Empty)
-            state.RoundEightLosses++;
+            2 => game.Phrases.MadaraTwoFights,
+            3 => game.Phrases.MadaraThreeFights,
+            4 => game.Phrases.MadaraFourFights,
+            _ => game.Phrases.MadaraFiveFights,
+        };
+        phrase.SendLog(madara, false, isRandomOrder: false);
     }
 
     public static void SendDeferredFightPhrase(GamePlayerBridgeClass madara, GameClass game)
@@ -313,7 +404,7 @@ public static class Madara
 
         // A flawless Клоны Сусано event arms the hidden ending just like "all five attacked".
         // Mutually exclusive with the sealing branch below, which requires five losses.
-        if (!state.Sealed && wins > 0 && losses == 0)
+        if (!state.Sealed && !state.RoundEightWasDefeated)
             state.EternalTsukuyomiActive = true;
 
         if (attackers == game.PlayersList.Count - 1 && losses >= 5)
@@ -384,6 +475,24 @@ public static class Madara
         state.Sealed = true;
         state.EternalTsukuyomiActive = false;
         SetUnableToAct(madara);
+    }
+
+    public static decimal ApplySecondMeteoriteMoral(
+        GamePlayerBridgeClass madara,
+        GamePlayerBridgeClass target,
+        GameClass game)
+    {
+        if (!IsMadara(madara)
+            || target == null
+            || madara.IsTeamMember(game, target.GetPlayerId())
+            || madara.GameCharacter.Passive.All(passive =>
+                passive.PassiveName != SecondMeteorite))
+            return 0;
+
+        var before = target.GameCharacter.GetMoral();
+        if (before <= 0) return 0;
+        target.GameCharacter.AddMoral(-before, SecondMeteorite);
+        return target.GameCharacter.GetMoral() - before;
     }
 
     public static void SetUnableToAct(GamePlayerBridgeClass madara)

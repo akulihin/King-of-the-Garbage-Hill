@@ -1,6 +1,6 @@
 # Design-vs-Code Audit — Findings
 
-> Original audit of `DataBase/characters.json` (+ `Game/GameDesign.txt` intent notes, root-level update notes) against the 2026-07-01 working tree (v4.1.8); statuses and fix notes re-verified through 2026-07-16 (v4.6.9). Historical “Code” bullets describe the pre-fix implementation when a later **Fixed** note is present. `CP` = `Game/GameLogic/CharacterPassives.cs`.
+> Original audit of `DataBase/characters.json` (+ `Game/GameDesign.txt` intent notes, root-level update notes) against the 2026-07-01 working tree (v4.1.8); statuses and fix notes re-verified through 2026-07-29 (v5.1.53). Historical “Code” bullets describe the pre-fix implementation when a later **Fixed** note is present. `CP` = `Game/GameLogic/CharacterPassives.cs`.
 >
 > Severity: **Critical** = player-visible wrong outcome / broken kit promise; **Major** = mechanic silently missing/misfiring or balance-relevant hidden behavior; **Minor** = cosmetic, flavor, dead code, small numeric drift; **Design question** = code self-consistent but intent ambiguous.
 
@@ -350,6 +350,7 @@ Worth stating because they're easy to suspect: Francie's final-turn contract win
 - **Intended:** Monster gets no ordinary +1 Justice from blocks. He copies, without draining, the highest Justice among enemies attacking that block and receives bonus points equal to that maximum.
 - **Actual before the fix:** every blocked attacker was zeroed and their full Justice was added to Monster immediately; several attackers therefore summed, and the generic block path also buffered +1 Justice.
 - **Fixed:** 2026-07-11 — the block path suppresses generic Justice for a Близнец holder. A per-round maximum now sets Monster's live Justice without touching the attacker and awards only the incremental difference, so total bonus equals the maximum rather than the sum (current implementation `DoomsdayMachine.cs:604,658-716`; reset `CP:6186-6188`; state `PassivesClass.cs:283`). M44 later moved the copy itself into that authoritative branch so successful blocks actually trigger it and bypassed blocks cannot.
+- **Designer-rework follow-up, 2026-07-29:** the preceding maximum/no-generic-Justice contract is superseded. Every attacker actually stopped by Monster's Block now contributes its immutable pre-hook Justice **plus one ordinary Block Justice** to the next-round buffer; contributions sum and the normal cap applies. Only the copied enemy-Justice portions sum into immediate bonus points, attackers keep their own Justice, and each also queues its pre-hook highest stat for the next turn (`DoomsdayMachine` successful-block branch; `MonsterWithoutName.CaptureHighestStat`/`QueueHighestStatCopy`/`ApplyPendingStatCopies`).
 
 ### M27. Round-8 bot games could wait out the turn gate before challenging Мадара
 - **Intended:** strict bots immediately accept the Клоны Сусано challenge on round 8; a game where Madara is the only human must not sit on the ordinary readiness delay.
@@ -588,6 +589,7 @@ Worth stating because they're easy to suspect: Francie's final-turn contract win
 - **Intended:** only attackers actually stopped by Monster's Block contribute to Близнец's per-round maximum and bonus payout; an ArmorBreak, Штормяк-taunt, summon or railgun bypass resolves as a fight and must not count.
 - **Actual before the fix:** the copy lived in `HandleDefenseAfterFight`, but a successful Block exits the fight loop without calling that hook. It therefore copied nothing on the outcome named by the passive. Conversely, an ArmorBreak or another bypass could resolve a real fight while the defender retained `IsBlock`, causing the after-fight case to copy Justice and pay the bonus on the inverse outcome.
 - **Fixed:** 2026-07-13 — persistent attacker Justice is snapshotted before any ForOneFight override, but the max/copy/bonus now runs only inside the successful-block branch (`DoomsdayMachine.cs:604,658-716`). The old after-fight dispatch is an explicit no-op (`CP:1001-1016`), and the same block branch continues to suppress generic block Justice for every Близнец holder.
+- **Designer-rework follow-up, 2026-07-29:** the successful-Block boundary remains authoritative, but the aggregate changed from one per-round maximum to one contribution per stopped attacker: copied Justice and ordinary +1 Block Justice sum, copied Justice alone pays bonus, and every stopped attacker offers one highest pre-hook stat. ArmorBreak, Штормяк-taunt, summon and railgun still contribute nothing (`DoomsdayMachine` block/bypass paths; `MonsterWithoutName.CaptureHighestStat`/`ApplyPendingStatCopies`).
 
 ### M45. L2/L3 bot AI read hidden identities, stats and live opponent actions
 - **Expected:** AI levels 2 and 3 must decide from the same projection as a regular player: public leaderboard rows and owner-visible marks, legal action targets, sanitized global logs, the bot's current/last personal logs, public resolved outcomes and exact detail from its own fights. Neither level may know who currently chose Block/Skip or inspect an opponent's submitted attack. L3 may know the rules and infer more from longer evidence, but may not receive privileged facts.
@@ -1589,6 +1591,68 @@ Historical fixed-lineup winrates, 30 games each, from the **pre-M45 omniscient A
 - **Failure scenario:** with Сайтама and Omni-man already in the lobby, TheBoys retained baseline weight 80 instead of 320. With Homelander alone, the weight was 480 instead of `80 × 2 × 6 = 960`.
 - **Fixed:** 2026-07-28 — one shared roster multiplier now applies ×2 for each distinct canonical roll-time Super and then Homelander's separate ×6. Natural rolls count guaranteed reservations/forced line-ups up front and newly random Supers only after assignment; draft alternatives count the complete assigned roster. Tier pity and Store multipliers remain later layers (`StartGameLogic.GetTheBoysRosterRollMultiplier`/`TheBoysRollMultiplierPerSuper`/`HomelanderTheBoysRollMultiplier`; `HandleCharacterRoll`/`RollDraftOptions`).
 
+### M187. Глаз Шусуи created a real death before reviving Итачи
+
+- **Expected (designer report, 2026-07-29):** Изанаги from **Глаз Шусуи** prevents Итачи's death. It is not a death event and must not pay or advance Кира, Монстр, Эрен, Кратос or any other death-dependent reward/counter.
+- **Actual before the fix:** every lethal source first marked Итачи dead, emitted its death log and paid all source/Монстр rewards. `Глаз Шусуи` revived him only when the next round opened, so the temporary death was indistinguishable from a real death to every earlier observer.
+- **Fixed:** 2026-07-29 — every real lethal branch calls one immediate `Itachi.TryPreventDeath` interceptor before death state, logs, rewards and trackers. The one Shisui use is consumed and revealed, but `IsDead`, `DeathSource`, `WasRevived` and all source counters remain untouched. The stale next-round branch is only a compatibility fallback for already persisted in-flight death state (`Itachi.TryPreventDeath`; `CharacterPassives` Kira/Kratos/Rumbling/Monster/pitchfork/L-arrest kill branches).
+
+### M188. Correct Death Note names could be reused after survival or resurrection
+
+- **Expected (designer report, 2026-07-29):** Кира may write each target at most once. A correct name remains spent if Джон Сноу survives through **Мой дозор окончен**, Итачи prevents death through Изанаги, or the target is otherwise immune; the notebook wording uses «стереть», not «удалить».
+- **Actual before the fix:** `FailedTargets` recorded only wrong names. Every correct target that remained alive could be selected and written again on a later round.
+- **Fixed:** 2026-07-29 — the historical DTO field now means every used target and is written before resolving the notebook outcome, including glass fizzles, immunity and death interception. Web and bot target gates already consume that set, so neither can select the target again. Entries separately record `CausedDeath`, preventing a correct-but-prevented name from advancing Kira's kill achievements. The supplied phrase is now `Стереть... Стереть... Стереть!` (`Kira.DeathNoteClass`/`DeathNoteEntry`; `CharacterPassives` `Тетрадь смерти`; `AchievementService.TrackCharacterAchievements`; `CharactersPhrases`).
+
+### M189. Monster priority overrode the mandatory round-10 bot attack on Eren
+
+- **Expected (designer report, 2026-07-29):** on round 10, every actionable bot below a selectable Эрен Йегер must attack him. This is an absolute action priority over Monster and every ordinary character plan.
+- **Actual before the fix:** `TryForceRoundTenBossAttack` always selected a roster Monster first and considered Eren only when no Monster existed.
+- **Fixed:** 2026-07-29 — the scripted selector first chooses selectable Eren above the bot and only then falls back to Monster. Existing unable-to-act, forced-Skip, sealed and round-10-ban gates remain authoritative; Dopa Macro still appends its required second action (`BotsBehavior.TryForceRoundTenBossAttack`).
+
+### M190. Вампуризм granted even-round Moral after that round's fights
+
+- **Expected (designer report, 2026-07-29):** active bites grant their Moral at the start of rounds 2/4/6/8/10 so Вампур can spend it during that turn.
+- **Actual before the fix:** the migrated dispatcher ran from `HandleEndOfRound`, after the even round's actions and fights. Вампур received the correct amount one action window too late.
+- **Fixed:** 2026-07-29 — the even-round grant runs from `HandleNextRound` when the even action round opens and reads the then-active bite list. The obsolete end-of-round branch was removed (`CharacterPassives` `Вампуризм` next-round case).
+
+### M191. An expired Francie order charged the following round
+
+- **Expected (designer report, 2026-07-29):** a completed order pays +1 in its completion round; an uncompleted three-turn order charges −1 in its final eligible round, using that same round's multiplier. Replacements open on rounds 4 and 7.
+- **Actual before the fix:** completion already paid in the correct fight hook, but failure was processed only after `RoundNo++` in `HandleNextRound`. The first two failed orders therefore entered rounds 4/7 and used the following round's ledger/multiplier; the last failed order was charged after round-10 settlement.
+- **Fixed:** 2026-07-29 — unresolved orders expire in `HandleEndOfRound` on rounds 3/6/9 before score settlement. The next-round branch now only draws replacements on rounds 4/7 (`CharacterPassives` `Francie` end-of-round/next-round cases).
+
+### M192. Ziggurat used the next-round position and charged after sorting
+
+- **Expected (designer report, 2026-07-29):** blocking captures the Goblins' current leaderboard cell. The Ziggurat is built on that cell and its −3 points/−1 Worker cost is charged in the blocked round, before settlement and the next sort.
+- **Actual before the fix:** Block stored only a boolean. Construction, affordability, payment and place lookup ran in `HandleNextRoundAfterSorting`, so the new leaderboard position selected the cell and the price landed a full transition late.
+- **Fixed:** 2026-07-29 — every web, Discord, bot and auto-move Block path captures the submission position. `HandleEndOfRound` resolves construction/payment at that captured cell before score settlement; the post-sort hook only checks whether the new position stands on an already-built Ziggurat and applies its next-round benefits (`GoblinSwarm.RecordZigguratBuildIntent`; `CharacterPassives.ResolveGoblinZigguratBuild`; `WebGameService.Block`; `GameReaction` Block paths).
+
+### M193. Monster's two-turn no-escape mark allowed empty or invalid actions
+
+- **Expected (designer report, 2026-07-29):** while the mark is active, a player with at least one legal enemy must attack. Block, Skip, an empty queue or a stale/illegal target cannot consume the turn.
+- **Actual before the fix:** the readiness rewrite ran only when `IsBlock` or `IsSkip` was already true. An empty/invalid ready action could pass through untouched, including the reported Tiger Block outcome after other action layers mutated the flags.
+- **Fixed:** 2026-07-29 — every active marked victim is revalidated after all ordinary action layers. Illegal targets are removed, one legal target is injected when necessary, Block/Skip is cleared and readiness is committed. A genuine no-legal-target state plus existing unknown_bug, sealed, round-10-ban and Kratos/Цукуеми exclusions remain authoritative (`CheckIfReady.TickAsync` Monster forced-action layer).
+
+### M194. Correct predictions stopped scoring when the guessed target died
+
+- **Expected (designer report, 2026-07-29):** correctness depends on the submitted character identity, not whether the guessed target survives. A living guesser receives the point/bonus for every correct admissible target, including a target that later died.
+- **Actual before the fix:** ordinary final scoring, M.M.'s Компромат count and AWDKA's Троллинг bonus all required `!target.Passives.IsDead`. Admin sheet completion also skipped dead seats.
+- **Fixed:** 2026-07-29 — those four paths resolve identity against dead or living admissible targets alike. The source guesser must still be eligible/living, and Sakura, unknown_bug, fictional entries and Naruto sibling exclusions remain unchanged (`CheckIfReady.HandleLastRound` and prediction preparation).
+
+### M195. OPEN — Goblin level-up population bonuses refresh only at the next transition
+
+- **Audit question (designer report, 2026-07-29):** should **Контрактная армия** and **Праздник** affect fights immediately after the level-up, or only after the next round boundary?
+- **Current behavior:** the action mutates Warrior/Worker/Hob rates or doubles `TotalGoblins` immediately, but the Warrior Skill delta and population-derived Str/Int/Psyche are applied only by the later `Гоблины` `HandleNextRoundAfterSorting` case. Fights in the level-up round therefore use the old Warrior multiplier and old population stat baseline.
+- **Decision needed:** choose immediate level-up recomputation or explicitly preserve next-transition activation. No silent change was made because the desired timing changes the strength of every Goblin upgrade (`GameReactions` Goblin custom level-ups; `CharacterPassives.ApplyGoblinPopulationStats`; `GoblinPopulation.AppliedWarriorSkillBonus`).
+- **Related transition audit:** fixed in this batch: M190 Vampur Moral, M191 Francie expiry and M192 Ziggurat cell/payment. Verified already current-round/immediate: Francie completion and Sirinoks training completion. Verified intentionally available on the following action round: a Vampur bite's stat/Justice consequences settle after the winning fight batch. The broader unresolved same-batch output/resource families remain catalogued under M171.
+
+### M196. Battleship Boarding, moved-deck reconnaissance and summon recovery diverged from the reported rules
+
+- **Expected (designer report, 2026-07-29):** converted ships retain source-specific identity and Scout-style deferred Space; every available summon/Brander and each living Crew Triple's manually column-restricted Pirate Boat is an immediate mandatory Boarding action, capped at ten, while bowless ships stay home and boarding Rams can turn back. Incendiary variants return to a surviving Ballista, the Evil upgrade replaces normal Incendiary, assembly removes dead-component marks, and reconnaissance relocates exact moved-deck markers. Captured Incendiary Barges explode on first contact; waiting Rams block other summon actions; Pirate Boats capture Devastated enemies or fully repair an allied Devastated ship; direct Incendiary Scout kills suppress its payload. Intact moved decks outrank old miss paint and fleet range `Close` remains literal.
+- **Actual before the fix:** converted units collapsed to generic Ram labels in the active/trail/death projections, revealed continuously, died at the far edge and were the only mandatory Boarding deployments. Crew auto-picked a column, unused summon/Brander entitlements remained optional, no ten-unit overflow/bow gate existed, and marker records discarded source identity. Fire selection and the Evil upgrade retained the wrong weapons; assembly/moved-hull fog retained stale or suppressed marks. CAPTURE disabled the Barge explosion, Devastated hulls could not collide with Pirates, own-board Incendiary Scout kills were free and leaked reconnaissance, and the client painted stale misses/translated `Close`.
+- **Failure scenario:** enter Boarding with two living Singles, unused regional summons, a purchased Brander and a Crew Triple; the pause required only two generic Rams, auto-spawned one Pirate in an unrelated column and allowed combat before the remaining units were committed. A converted Single revealed every step immediately, could not return at the far edge and left only `Таран` history.
+- **Fixed:** 2026-07-29 — identity-preserving summon markers, deferred reveal payloads and exact-ID Ram return now cover converted hulls; one generalized mandatory-deployment state machine snapshots ordinary/Brander entitlements, Crew columns and a ten-placement capacity, discarding overflow sources permanently and excluding a missing/dead deck index 0. Weapon lifecycle, assembly cleanup and cell-scoped known-deck relocation implement the fire/assembly/Scout/ramming rules. Explicit Devastated→Capture/full-repair transitions, ammo capacities and the captured-Barge exception complete Pirate/fire behavior. SignalR/Vue expose the new actions and markers, preserve frozen-death identity, prioritize intact moved decks and opt the range enum out of DOM localization (`BattleshipGameEngine`; `BattleshipService`; `ShipCatalog`; `GameHub`; `BattleshipModels`; `BattleshipBotAI`; Battleship Vue components/store/SignalR contracts).
+
 ### D15. Does every cleared 99LC room require a mandatory player upgrade and per-clear enemy multiplier?
 
 - **Evidence:** one late Discord design reply says progression happens inside the run and that “after every room the player becomes stronger, and enemies do too” (`DiscordExports/99LC/99LC - Game design - ideas [1155769571064676373].json`, message `1158429080383930388`).
@@ -1680,11 +1744,51 @@ Historical fixed-lineup winrates, 30 games each, from the **pre-M45 omniscient A
 - **Actual before the fix:** all three arenas positioned the needle with animated `r3NeedlePos` but printed final `r3RollPct` from the first frame. If final-only navigation interrupted the 850 ms roll, it also canceled the authoritative settlement timer without snapping the active animation, so a final `93.0%` label could remain near 69% on the bar (`FightAnimation.vue` pre-fix R3 watcher/navigation; `FightArena.vue`/`FightArenaCards.vue`/`FightArenaClassic.vue` pre-fix roll labels).
 - **Failure scenario:** open a fight whose final roll is 93%, then press skip while the needle is crossing 69% → the final result renders a red needle at 69% labelled `93.0%`.
 - **Fixed:** 2026-07-27 — each arena prints the animated needle position, and the shared watcher also observes forced-final state plus selected-fight changes. It cancels the animation frame and marks the authoritative target settled before the final render, covering skip, thumbnail, `Все бои` row jump and replay deep link without changing R3 timing or outcome math (`FightAnimation.vue` R3 needle watcher; `FightArena.vue`/`FightArenaCards.vue`/`FightArenaClassic.vue` roll labels).
+- **Live-update follow-up fixed:** 2026-07-29 — live SignalR projections replace `FightEntry` DTO objects even when their fight data is unchanged. The watcher observed the computed fight object by reference, so every projection reset the needle and queued another bounce; replay snapshots remained stable, and «Промотать» only masked the loop by forcing the final state. The watcher now uses a stable presentation fingerprint over the round, selected fight, perspective, participants, outcome and R3 values, plus a next-tick key guard. Identical DTO replacements therefore cannot restart the animation, while a real navigation or result change still can (`FightAnimation.vue` `r3PresentationKey` watcher; `r3-presentation-key.ts` `createR3PresentationKey`; `r3-presentation-key.spec.ts`).
+
+### m67. OrgАн carried Настоятель Святой Церкви's Discord provenance
+
+- **Expected:** OrgАн's `sourceMessageIds` points to Discord message `1369418274797781012`, whose exported text names OrgАн, describes the multi-barrel gun and says «Статы бы придумать».
+- **Actual before the fix:** both the TypeScript roster and its public generated config pointed OrgАн to message `1382288986579664916`, which is the separate `7-7-7` Настоятель Святой Церкви card.
+- **Failure scenario:** a provenance-driven roster audit follows OrgАн's source ID and attributes Настоятель's stats, passives and unfinished seven-kill sequence to the wrong unit.
+- **Fixed:** 2026-07-29 — synchronized OrgАн's source to `1369418274797781012` in `Web/VueClient/src/features/empires-endgame/clash/catalog.ts` and `Web/VueClient/public/empires-endgame/game-config.json`; Настоятель retains its correct `1382288986579664916` source.
+
+### m68. Standalone Clash could stall forever with survivors in disjoint columns
+
+- **Expected:** every non-terminal Clash position can still progress toward elimination or a home-row breach.
+- **Actual before the fix:** melee could advance only into a unit it had just killed. If the two surviving armies occupied different columns, neither side had a legal target or a fallen enemy cell to enter, so every later clash repeated only wait events.
+- **Failure scenario:** a randomized `3×3` engine sweep left 121 of 200 otherwise valid games non-terminal after 40 clashes because their survivors had separated into non-interacting lanes.
+- **Fixed:** 2026-07-29 — opposing melee fronts keep fighting across casualty-created gaps and a surviving melee occupies the fallen opposing front's cell. If the other side has no living unit anywhere in a column, its surviving front unit of any type marches exactly one adjacent empty cell; a kill claimant cannot move twice or attack again. Randomized verification completed all 200 fixed `3×3` games by clash 9 and all 200 varied `3…10 × 3…5` games by clash 13 (`ClashGameEngine.BuildIntents`/`BuildAdvancePairs`/`BuildUnopposedAdvanceClaims`/`ApplyUnopposedAdvances`).
+
+### m69. Homelander's private Noir line hid and preceded Stan Edgar's public dismissal
+
+- **Expected (designer report, 2026-07-29):** the public Stan Edgar threshold line, Homelander reply, defective-product line and missile volley appear in that order in the event log; Homelander then receives the additional private Noir line after the complete public exchange.
+- **Actual before the fix:** the threshold line had no phrase marker and contained `70 очков`, so both live and replay parsers classified it as a gold score entry and filtered it out of the log panels. The client also merged personal logs before globals, placing the private Noir line before the three remaining public lines and making it appear to replace the missing threshold dialogue.
+- **Fixed:** 2026-07-29 — the exact RU/EN threshold dialogue is classified as purple dialogue before the generic score rule. A shared presenter moves only the private Noir entry behind a complete threshold → Homelander → defective-product → volley sequence; incomplete or unrelated logs retain their original order in both live games and replays (`Game.vue` `parsePrevLogs`/`currentLogEntriesAll`; `Replay.vue` `parsePrevLogs`/`currentLogEntriesAll`; `log-presentation.ts` `isStanEdgarThresholdDialogue`/`orderStanEdgarDismissalLogs`; `log-presentation.spec.ts`).
+
+### m70. A hard-coded TooStronk diagnostic leaked into a player's personal game log
+
+- **Expected:** internal fight diagnostics stay in structured fight data and never appear in player-facing personal logs.
+- **Actual before the fix:** `CalculateStep1` checked one hard-coded Discord account and appended `DEBUG: You tooSTONK ...` whenever that player was the enemy-side TooStronk participant in a logged fight.
+- **Fixed:** 2026-07-29 — removed the player-facing debug branch. The ordinary `FightingData` diagnostics and `Step1Result` TooStronk fields remain available for fight presentation and troubleshooting (`CalculateRounds.CalculateStep1`).
+
+### m71. Монстр's no-escape could revive Dopa's duplicate Макро turn long enough for Живое Оружие to erase it
+
+- **Expected:** once Dopa selects the same target twice, Макро's absolute self-Skip remains authoritative for that round regardless of later forced-action layers or passive shutdown; no outgoing or incoming fight may execute.
+- **Actual before the fix:** Монстр's late no-escape enforcement cleared the submitted Skip and injected an attack. The first Макро reassertion ran only after `TheBoys.DisablePassivesBeforeFights` and required Dopa still to own Макро, so a simultaneous Живое Оружие attack could erase the passive while Dopa temporarily looked actionable. The later check then skipped him, leaving both the revived action and otherwise forbidden incoming fights alive.
+- **Fixed:** 2026-07-29 — `DuplicateTargetSkipRound` is the authoritative marker after activation and no longer depends on passive survival. `EnforceDuplicateTargetSkip` now runs after forced-action/contract expansion but before Живое Оружие, runs again after pre-calculation event expansion, and the fight loop treats that round marker as an unbreakable Skip (`Dopa.ActivateDuplicateTargetSkip`/`EnforceDuplicateTargetSkip`/`IsDuplicateTargetSkip`; `DoomsdayMachine.CalculateAllFights` preparation and Skip branches).
+
+### m72. Dopa's earned Макро prediction auto-confirmed his entire round-8 sheet
+
+- **Expected:** duplicate-target Макро inserts and protects only the identity row it earned. The player must still confirm the complete round-8 prediction sheet through the ordinary control.
+- **Actual before the fix:** `ReassertMacroPrediction` also set `Status.ConfirmedPredict = true`. Selecting a duplicate target on round 8 therefore confirmed every other current/stale row and could satisfy readiness or Madara's clone-injection gate without the player's explicit sheet confirmation.
+- **Fixed:** 2026-07-29 — reassertion now removes/reinserts only the earned target row and never mutates `ConfirmedPredict`; later prediction passes cannot erase the earned row, but confirmation remains an independent player action (`Dopa.ReassertMacroPrediction`; `CheckIfReady.TickAsync` prediction/readiness gates).
 
 ## Unfinished work backlog (2026-07-12)
 
 ### Still-open findings
 - **M171** — simultaneous combat inputs are isolated, but listed cross-fight result/state/resource effects still require explicit designer aggregation/priority rules.
+- **M195** — Goblin custom level-ups change population/rates immediately but refresh their fight stats and Warrior Skill multiplier only at the next transition.
 - **m12** — Сайтама's round-1 "serious targets" are effectively arbitrary (skill is 0 at game start).
 - **m19** — Итачи's Crows/Izanagi charges have no web-UI representation (only Tsukuyomi state is mapped).
 - **m24** — ARAM pick phase has no web UI (hub/REST/serialization exist, no Vue component).
@@ -1707,7 +1811,7 @@ Full team-mode ruleset (2х2х2/3х3 team-score win, forced ally predictions —
 
 ## Summary count
 
-**Current total:** **2 Critical** (C1–C2) · **186 Major** (M1–M186) · **66 Minor** (m1–m66) · **15 Design questions** (D1–D15).
+**Current total:** **2 Critical** (C1–C2) · **196 Major** (M1–M196) · **72 Minor** (m1–m72) · **15 Design questions** (D1–D15).
 
 Historical cumulative rollout through M174:
 
@@ -1722,6 +1826,16 @@ M181 closes Вампур's duplicate lost-bite settlement: every active bite can
 M186 restores the TheBoys roster pull: each canonical СУПЕР doubles the roll weight, while Homelander additionally applies his separate ×6 modifier.
 
 M182–M185 close the 2026-07-28 Battleship follow-up: the bot pump no longer serializes summon responses, converted Close/Close melee hulls physically leave their source board and die with their Boarding units, CAPTURE preserves otherwise legal ammunition choice, and Drakkar-frozen summons receive freeze VFX plus a persistent per-death badge.
+
+M187–M194 close the 2026-07-29 gameplay batch: Shisui Izanagi now prevents rather than records death, every Death Note target is single-use, Eren has absolute round-10 bot priority from below, Vampur Moral opens even rounds, Francie failure and Ziggurat construction settle in their originating rounds, Monster's no-escape mark always produces a legal attack when one exists, and correct guesses still score against dead targets. M195 records the remaining Goblin upgrade timing decision. The open set is **M171, M195, m12, m19, m24, m26**.
+
+m67–m68 close the Clash roster provenance defect and the disjoint-column permanent stall. The open set remains **M171, M195, m12, m19, m24, m26**.
+
+M196 closes the 2026-07-29 Battleship Boarding/reconnaissance/summon-recovery batch: source-specific converted units, deferred reveal, mandatory capped deployment, exact moved-deck knowledge, fire weapon lifecycle, Devastated Capture/repair and the two UI projection defects now share one server-authoritative contract. The open set remains **M171, M195, m12, m19, m24, m26**.
+
+m69–m70 restore Stan Edgar's public/private presentation order and remove the hard-coded TooStronk debug leak; m66's live-projection follow-up prevents identical DTO refreshes from restarting the R3 needle. The open set remains **M171, M195, m12, m19, m24, m26**.
+
+m71–m72 close the duplicate-target Макро ordering/confirmation follow-up: its round-keyed absolute Skip survives Монстр no-escape plus Живое Оружие ordering, while its earned identity row no longer confirms the rest of Dopa's round-8 sheet. The open set remains **M171, M195, m12, m19, m24, m26**.
 
 ## Verification addendum (second pass, 2026-07-01)
 

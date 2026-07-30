@@ -63,6 +63,10 @@ function handleKeydown(e: KeyboardEvent) {
     store.myPlayer?.pendingManeuver
     || store.myPlayer?.pendingCursedBoatDirection
     || store.myPlayer?.pendingAssembly
+    || store.myPlayer?.hasPendingBoardingDeployment
+    || store.enemyPlayer?.hasPendingBoardingDeployment
+    || store.myPlayer?.summons.some(summon =>
+      summon.isAlive && summon.type === 'Ram' && summon.waitingForTurnBack)
   ) return
   const idx = parseInt(e.key) - 1
   if (idx >= 0 && idx < store.availableWeapons.length) {

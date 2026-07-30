@@ -4,6 +4,7 @@ import { useBattleshipStore } from 'src/store/battleship'
 import { signalrService } from 'src/services/signalr'
 import 'src/components/battleship/battleship.css'
 import BoardGrid from 'src/components/battleship/BoardGrid.vue'
+import SummonTrailLegend from 'src/components/battleship/SummonTrailLegend.vue'
 import BattleLogPanel from 'src/components/battleship/BattleLogPanel.vue'
 import GameHeader from 'src/components/battleship/GameHeader.vue'
 import { renderIcon } from 'src/components/battleship/battleship-icons'
@@ -79,6 +80,7 @@ onUnmounted(async () => {
           <span v-if="p1" class="revealed-count bs-mono" @mouseenter="showTip($event, 'Разведано клеток из 100')" @mousemove="moveTip" @mouseleave="hideTip">{{ p1.revealedCellCount }}/100</span>
         </div>
         <BoardGrid :board="p1?.board ?? null" :ships="p1?.fleet" :cell-size="38" :animated-cells="store.myAnimatedCells" @tip-show="showTip" @tip-move="moveTip" @tip-hide="hideTip" />
+        <SummonTrailLegend :cells="p1?.board?.cells" />
         <div v-if="p1?.fleet" class="fleet-summary">
           <span v-for="ship in p1.fleet" :key="ship.id" class="fleet-chip" :class="{ 'chip-sunk': ship.isDestroyed }" @mouseenter="showTip($event, `${ship.name}${ship.isDestroyed ? ' — потоплен' : ''}`)" @mousemove="moveTip" @mouseleave="hideTip">
             {{ ship.name }} <span v-if="ship.isDestroyed" class="chip-x">X</span>
@@ -96,6 +98,7 @@ onUnmounted(async () => {
           <span v-if="p2" class="revealed-count bs-mono" @mouseenter="showTip($event, 'Разведано клеток из 100')" @mousemove="moveTip" @mouseleave="hideTip">{{ p2.revealedCellCount }}/100</span>
         </div>
         <BoardGrid :board="p2?.board ?? null" :ships="p2?.fleet" :cell-size="38" :animated-cells="store.enemyAnimatedCells" @tip-show="showTip" @tip-move="moveTip" @tip-hide="hideTip" />
+        <SummonTrailLegend :cells="p2?.board?.cells" />
         <div v-if="p2?.fleet" class="fleet-summary">
           <span v-for="ship in p2.fleet" :key="ship.id" class="fleet-chip" :class="{ 'chip-sunk': ship.isDestroyed }" @mouseenter="showTip($event, `${ship.name}${ship.isDestroyed ? ' — потоплен' : ''}`)" @mousemove="moveTip" @mouseleave="hideTip">
             {{ ship.name }} <span v-if="ship.isDestroyed" class="chip-x">X</span>

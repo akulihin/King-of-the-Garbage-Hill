@@ -1,8 +1,15 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import type { BattleshipPlayerState, BattleshipPendingSummon } from 'src/services/signalr'
+import type {
+  BattleshipPendingSummon,
+  BattleshipPlayerState,
+  BattleshipSummon,
+} from 'src/services/signalr'
 import { renderIcon } from './battleship-icons'
 import { useTip } from 'src/composables/useTip'
+import {
+  summonIconKey,
+} from './battleship-summon-presentation'
 
 const { tipText, tipVisible, tipPos, showTip, moveTip, hideTip } = useTip()
 
@@ -12,10 +19,13 @@ const props = defineProps<{
   shotCount: number
   canDeploySummon: boolean
   boardingPlacementPending: boolean
+  waitingRamReturnActive: boolean
   deployableSummons: string[]
   availableSummons: string[]
   summonDeployMode: {
     type: string
+    summonId?: string
+    displayName?: string
     pendingId?: string
     pendingCols?: number[]
     reentryDirection?: string
@@ -26,6 +36,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   enterDeploy: []
+  enterReentryDeploy: [summon: BattleshipSummon]
   enterPendingDeploy: [ps: BattleshipPendingSummon]
   cancelDeploy: []
   setSummonType: [type: string]
@@ -61,26 +72,23 @@ const summonTypeNameRu: Record<string, string> = {
   PirateBoat: 'Пиратская лодка',
 }
 
-const summonIconKey: Record<string, string> = {
-  Ram: 'ram',
-  Scout: 'scout',
-  Brander: 'brander',
-  CursedBoat: 'cursedBoat',
-  PirateBoat: 'pirateBoat',
-}
-
 const summonOrder = ['Ram', 'Scout', 'PirateBoat', 'Brander', 'CursedBoat']
 
-const selectedWaitingSummon = computed(() => props.myPlayer?.summons?.some(s =>
-  s.type === summonType.value && s.waitingForTurnBack) ?? false)
+const mandatoryBoardingRemaining = computed(() =>
+  (props.myPlayer?.mandatoryBoardingSummonSlots ?? 0)
+  + (props.myPlayer?.mandatoryBoardingBrander ? 1 : 0)
+  + (props.myPlayer?.pendingSummons?.filter(s => s.isMandatoryBoarding).length ?? 0))
 
 function nameRu(type: string): string {
   return summonTypeNameRu[type] ?? type
 }
 
 function iconFor(type: string): string {
-  const key = summonIconKey[type]
-  return key ? renderIcon(key, 16) : ''
+  return renderIcon(summonIconKey(type), 16)
+}
+
+function activeIcon(summon: BattleshipSummon): string {
+  return renderIcon(summonIconKey(summon.type, summon.isBoardingShip), 16)
 }
 
 function posLabel(row: number, col: number): string {
@@ -88,8 +96,14 @@ function posLabel(row: number, col: number): string {
 }
 
 function chooseSummon(type: string) {
+  if (props.waitingRamReturnActive) return
   summonType.value = type
   if (props.deployableSummons.includes(type)) emit('enterDeploy')
+}
+
+function pendingBlocked(pending: BattleshipPendingSummon): boolean {
+  if (props.waitingRamReturnActive) return true
+  return props.boardingPlacementPending && !pending.isMandatoryBoarding
 }
 </script>
 
@@ -98,6 +112,9 @@ function chooseSummon(type: string) {
     <!-- 1. Summon Deployment Bar -->
     <div class="summon-bar bs-bar">
       <span class="sb-label">Обычные призывы ({{ myPlayer?.summonSlotsUsed ?? 0 }}/{{ myPlayer?.maxSummonSlots ?? 4 }}):</span>
+      <span v-if="myPlayer?.hasPendingBoardingDeployment" class="boarding-capacity bs-mono">
+        Обязательно: {{ mandatoryBoardingRemaining }} · мест: {{ myPlayer.boardingDeploymentCapacity }}
+      </span>
       <div class="bs-seg" role="group" aria-label="Тип призыва">
         <button
           v-for="type in summonOrder.filter(t => availableSummons.includes(t))"
@@ -105,8 +122,8 @@ function chooseSummon(type: string) {
           class="bs-seg-btn"
           type="button"
           :aria-pressed="summonType === type"
-          :disabled="!deployableSummons.includes(type)"
-          :class="{ 'summon-choice-unavailable': !deployableSummons.includes(type) }"
+          :disabled="waitingRamReturnActive || !deployableSummons.includes(type)"
+          :class="{ 'summon-choice-unavailable': waitingRamReturnActive || !deployableSummons.includes(type) }"
           @mouseenter="showTip($event, summonDescriptions[type] ?? '')"
           @mousemove="moveTip"
           @mouseleave="hideTip"
@@ -117,10 +134,13 @@ function chooseSummon(type: string) {
         </button>
       </div>
       <span v-if="!canDeploySummon && myPlayer" class="sb-hint">
-        <template v-if="!selectedWaitingSummon && summonType === 'Brander' && myPlayer.branderUsed">
+        <template v-if="waitingRamReturnActive">
+          Сначала верните все ожидающие Тараны
+        </template>
+        <template v-else-if="summonType === 'Brander' && myPlayer.branderUsed">
           Брандер уже использован
         </template>
-        <template v-else-if="!selectedWaitingSummon && summonType !== 'Brander' && myPlayer.summonSlotsUsed >= (myPlayer.maxSummonSlots ?? 4)">
+        <template v-else-if="summonType !== 'Brander' && myPlayer.summonSlotsUsed >= (myPlayer.maxSummonSlots ?? 4)">
           Лимит обычных призывов исчерпан
         </template>
         <template v-else-if="myPlayer.summonCooldownRemaining > 0">
@@ -141,16 +161,18 @@ function chooseSummon(type: string) {
         class="bs-chip"
         :class="'summon-' + s.type.toLowerCase()"
       >
-        <span class="summon-chip-icon" v-html="iconFor(s.type)" />
-        {{ nameRu(s.type) }}
+        <span class="summon-chip-icon" v-html="activeIcon(s)" />
+        {{ s.isBoardingShip ? (s.sourceShipName || 'Абордажный корабль') : nameRu(s.type) }}
         <span class="summon-pos bs-mono">{{ posLabel(s.row, s.col) }}</span>
-        <span
-          v-if="s.waitingForTurnBack"
+        <button
+          v-if="s.waitingForTurnBack && s.type === 'Ram'"
+          type="button"
           class="summon-wait"
           @mouseenter="showTip($event, 'Ожидает разворота')"
           @mousemove="moveTip"
           @mouseleave="hideTip"
-        >&#x21A9;</span>
+          @click="emit('enterReentryDeploy', s)"
+        >&#x21A9; Вернуть на карту</button>
       </span>
     </div>
 
@@ -162,13 +184,14 @@ function chooseSummon(type: string) {
         :key="ps.id"
         type="button"
         class="pending-entry"
-        :class="{ 'pending-entry--blocked': boardingPlacementPending && !ps.isBoarding }"
-        :disabled="boardingPlacementPending && !ps.isBoarding"
+        :class="{ 'pending-entry--blocked': pendingBlocked(ps) }"
+        :disabled="pendingBlocked(ps)"
         @click="emit('enterPendingDeploy', ps)"
       >
         <span class="sb-seg-icon" v-html="iconFor(ps.type)" />
         <span class="pending-name">{{ ps.sourceShipName || ps.type }}</span>
         <span v-if="ps.isBoarding" class="bs-chip bs-chip--red boarding-badge">абордаж</span>
+        <span v-if="ps.isMandatoryBoarding" class="bs-chip bs-chip--gold boarding-badge">обязательно</span>
         <span v-if="ps.allowedColumns.length" class="sb-hint">
           (столбцы: {{ ps.allowedColumns.map(c => String.fromCharCode(65 + c)).join(', ') }})
         </span>
@@ -180,7 +203,11 @@ function chooseSummon(type: string) {
     <div v-if="summonDeployMode" class="bs-banner bs-banner--info deploy-banner">
       <span class="deploy-banner-text">
         <template v-if="summonDeployMode.reentryDirection">
-          Выберите подсвеченную клетку на краю поля для возвращения {{ nameRu(summonDeployMode.type) }}
+          Выберите подсвеченную клетку на краю поля для возвращения
+          {{ summonDeployMode.displayName || nameRu(summonDeployMode.type) }}
+        </template>
+        <template v-else-if="summonDeployMode.type === 'PirateBoat'">
+          Выберите первую строку вражеского поля или опустошённый корабль на своей доске
         </template>
         <template v-else>
           Выберите клетку на первой строке вражеского поля для размещения {{ nameRu(summonDeployMode.type) }}
@@ -249,6 +276,10 @@ function chooseSummon(type: string) {
   font-size: 0.7rem;
   color: var(--text-dim);
 }
+.boarding-capacity {
+  font-size: 0.7rem;
+  color: var(--accent-gold);
+}
 
 /* ── Summon chips ──────────────────────────────────────── */
 .summon-chip-icon {
@@ -271,7 +302,14 @@ function chooseSummon(type: string) {
 
 /* ── Waiting-for-turn-back indicator ───────────────────── */
 .summon-wait {
-  font-size: 0.85rem;
+  padding: 2px 5px;
+  color: var(--accent-gold);
+  background: color-mix(in srgb, var(--accent-gold) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent-gold) 42%, transparent);
+  border-radius: 5px;
+  font-size: 0.65rem;
+  font-weight: 800;
+  cursor: pointer;
   animation: sb-pulse 1.2s ease-in-out infinite;
 }
 

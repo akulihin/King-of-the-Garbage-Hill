@@ -198,7 +198,7 @@ public static class ShipCatalog
             },
             AvailableUpgrades = new()
             {
-                new UpgradeDefinition { Id = "barge_evil_incendiary", Name = "Evil Incendiary", NameRu = "Злая горючка", Cost = 2, Description = "Добавляет отдельную Злую горючку, уничтожающую остаток корабля при попадании в уже разрушенную палубу.", Effect = "evil_incendiary" },
+                new UpgradeDefinition { Id = "barge_evil_incendiary", Name = "Evil Incendiary", NameRu = "Злая горючка", Cost = 2, Description = "Заменяет Горючку на Злую горючку, уничтожающую остаток корабля при попадании в уже разрушенную палубу.", Effect = "evil_incendiary" },
             }
         },
         new ShipDefinition
@@ -274,6 +274,7 @@ public static class ShipCatalog
             {
                 Type = wt.Type,
                 Ammo = wt.Ammo,
+                MaxAmmo = wt.Ammo,
                 AimSpeed = wt.AimSpeed,
                 ShipId = ship.Id,
                 DeckIndex = wt.DeckIndex,
@@ -293,6 +294,7 @@ public static class ShipCatalog
                 ship.Weapons.Add(new Weapon
                 {
                     Type = WeaponType.Ballista,
+                    MaxAmmo = -1,
                     ShipId = ship.Id,
                     DeckIndex = deckIndex,
                 });
@@ -373,6 +375,7 @@ public static class ShipCatalog
             ship.Weapons.Add(new Weapon
             {
                 Type = WeaponType.Ballista,
+                MaxAmmo = -1,
                 ShipId = ship.Id,
                 DeckIndex = 0,
             });
@@ -429,6 +432,7 @@ public static class ShipCatalog
                 {
                     Type = WeaponType.GreekFire,
                     Ammo = 1,
+                    MaxAmmo = 1,
                     ShipId = ship.Id,
                     DeckIndex = 0,
                 });
@@ -440,6 +444,7 @@ public static class ShipCatalog
                 {
                     Type = WeaponType.EvilGreekFire,
                     Ammo = 1,
+                    MaxAmmo = 1,
                     ShipId = ship.Id,
                     DeckIndex = 0,
                 });
@@ -447,10 +452,12 @@ public static class ShipCatalog
 
             case "evil_incendiary":
                 ship.Abilities.Add("evil_incendiary_weapon");
+                ship.Weapons.RemoveAll(weapon => weapon.Type == WeaponType.Incendiary);
                 ship.Weapons.Add(new Weapon
                 {
                     Type = WeaponType.EvilIncendiary,
                     Ammo = 2,
+                    MaxAmmo = 2,
                     AimSpeed = 0,
                     ShipId = ship.Id,
                     DeckIndex = 0,

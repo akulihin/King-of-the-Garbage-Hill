@@ -5,6 +5,7 @@ import { currentLocale, translateText } from 'src/i18n'
 import FightArena from './fight/FightArena.vue'
 import FightArenaCards from './fight/FightArenaCards.vue'
 import FightArenaClassic from './fight/FightArenaClassic.vue'
+import { createR3PresentationKey } from './fight/r3-presentation-key'
 import {
   FightSoundPool,
   playDoomsDayFight,
@@ -217,6 +218,13 @@ const fight = computed<FightEntry | null>(() => {
   if (currentFightIdx.value >= myFights.value.length) return null
   return myFights.value[currentFightIdx.value]
 })
+
+const r3PresentationKey = computed(() => createR3PresentationKey({
+  roundKey: props.roundKey,
+  fightIndex: currentFightIdx.value,
+  perspectiveUsername: perspectiveUsername.value,
+  fight: fight.value,
+}))
 
 watch(fight, (f) => { emit('update:currentFight', f) }, { immediate: true })
 
@@ -619,8 +627,7 @@ function proceedToNextFight() {
     timer = null
     if (!isPlaying.value) return
     if (currentFightIdx.value < myFights.value.length - 1) {
-      if (!props.suppressDoomsDayAudio)
-        playDoomsDayScroll()
+      playDoomsDayScroll()
       roundResults.value = []
       folkPercussionPool.rollForFight()
       currentFightIdx.value++
@@ -778,7 +785,7 @@ preloadDoomsDayTimingSounds()
 // Watch currentStep to trigger dooms_day sounds during MY fight animation
 watch(currentStep, (step: number) => {
   if (!fight.value || !isMyFight.value || isSpecialOutcome.value) return
-  if (skippedToEnd.value || props.suppressDoomsDayAudio) return
+  if (skippedToEnd.value) return
 
   const f = fight.value
   const factorCount = round1Factors.value.length
@@ -804,7 +811,7 @@ watch(currentStep, (step: number) => {
     const r1pts = f.round1PointsWon * sign.value
     if (r1pts === 0) {
       // R1 draw: play draw sound, letter = opposite of next non-draw result
-      playDoomsDayDraw()
+      if (!props.suppressDoomsDayAudio) playDoomsDayDraw()
       const r2pts = f.pointsFromJustice * sign.value
       let nextResult: 'w' | 'l'
       if (r2pts !== 0) {
@@ -819,18 +826,20 @@ watch(currentStep, (step: number) => {
     } else {
       const r1result: 'w' | 'l' = r1pts > 0 ? 'w' : 'l'
       roundResults.value = [r1result]
-      const isGeralt = myCharacterName.value === 'Геральт'
-      const clips: SyncClip[] = [{ path: doomsDayWinLosePath([r1result], false, false), group: 'doomsDayWinLose' }]
-      if (r1result === 'w') {
-        const percPath = folkPercussionPool.getLayerPath()
-        if (percPath) clips.push({ path: percPath, group: 'doomsDayLayers' })
-        const vocalPath = getGeraltVocalWinLayerPath(roundResults.value, false, isGeralt)
-        if (vocalPath) clips.push({ path: vocalPath, group: 'doomsDayLayers', gainMultiplier: 0.5 })
-      } else {
-        const memePath = getMemeLoseSoundPath(roundResults.value, false)
-        if (memePath) clips.push({ path: memePath, group: 'doomsDayLayers' })
+      if (!props.suppressDoomsDayAudio) {
+        const isGeralt = myCharacterName.value === 'Геральт'
+        const clips: SyncClip[] = [{ path: doomsDayWinLosePath([r1result], false, false), group: 'doomsDayWinLose' }]
+        if (r1result === 'w') {
+          const percPath = folkPercussionPool.getLayerPath()
+          if (percPath) clips.push({ path: percPath, group: 'doomsDayLayers' })
+          const vocalPath = getGeraltVocalWinLayerPath(roundResults.value, false, isGeralt)
+          if (vocalPath) clips.push({ path: vocalPath, group: 'doomsDayLayers', gainMultiplier: 0.5 })
+        } else {
+          const memePath = getMemeLoseSoundPath(roundResults.value, false)
+          if (memePath) clips.push({ path: memePath, group: 'doomsDayLayers' })
+        }
+        void playClipsBatched(clips)
       }
-      void playClipsBatched(clips)
     }
     return
   }
@@ -840,24 +849,26 @@ watch(currentStep, (step: number) => {
     const r2pts = f.pointsFromJustice * sign.value
     if (r2pts === 0) {
       // R2 draw: letter = opposite of previous (R1) result
-      playDoomsDayDraw()
+      if (!props.suppressDoomsDayAudio) playDoomsDayDraw()
       const prev = roundResults.value[roundResults.value.length - 1]
       roundResults.value = [...roundResults.value, prev === 'w' ? 'l' : 'w']
     } else {
       const r2result: 'w' | 'l' = r2pts > 0 ? 'w' : 'l'
       roundResults.value = [...roundResults.value, r2result]
-      const isGeralt = myCharacterName.value === 'Геральт'
-      const clips: SyncClip[] = [{ path: doomsDayWinLosePath(roundResults.value, false, false), group: 'doomsDayWinLose' }]
-      if (r2result === 'w') {
-        const percPath = folkPercussionPool.getLayerPath()
-        if (percPath) clips.push({ path: percPath, group: 'doomsDayLayers' })
-        const vocalPath = getGeraltVocalWinLayerPath(roundResults.value, false, isGeralt)
-        if (vocalPath) clips.push({ path: vocalPath, group: 'doomsDayLayers', gainMultiplier: 0.5 })
-      } else {
-        const memePath = getMemeLoseSoundPath(roundResults.value, false)
-        if (memePath) clips.push({ path: memePath, group: 'doomsDayLayers' })
+      if (!props.suppressDoomsDayAudio) {
+        const isGeralt = myCharacterName.value === 'Геральт'
+        const clips: SyncClip[] = [{ path: doomsDayWinLosePath(roundResults.value, false, false), group: 'doomsDayWinLose' }]
+        if (r2result === 'w') {
+          const percPath = folkPercussionPool.getLayerPath()
+          if (percPath) clips.push({ path: percPath, group: 'doomsDayLayers' })
+          const vocalPath = getGeraltVocalWinLayerPath(roundResults.value, false, isGeralt)
+          if (vocalPath) clips.push({ path: vocalPath, group: 'doomsDayLayers', gainMultiplier: 0.5 })
+        } else {
+          const memePath = getMemeLoseSoundPath(roundResults.value, false)
+          if (memePath) clips.push({ path: memePath, group: 'doomsDayLayers' })
+        }
+        void playClipsBatched(clips)
       }
-      void playClipsBatched(clips)
     }
     if (hasR3) {
       // R3 shares the R2 visual beat. Its result sound normally lands 850 ms
@@ -869,26 +880,28 @@ watch(currentStep, (step: number) => {
       const r3result: 'w' | 'l' = weWonR3 ? 'w' : 'l'
       roundResults.value = [...roundResults.value, r3result]
 
-      const thresholdPct = f.randomForPoint / f.maxRandomNumber * 100
-      const needlePct = f.randomNumber / f.maxRandomNumber * 100
-      const distance = Math.abs(needlePct - thresholdPct)
-      const resultPath = doomsDayWinLosePath(roundResults.value, false, false)
-      const clips: SyncClip[] = [{ path: resultPath, group: 'doomsDayWinLose' }]
-      if (weWonR3 && distance < 1) {
-        clips.push({ path: 'dooms_day/round_3/round_3_win_less_1_percent.mp3', group: 'doomsDay' })
-      } else if (distance < 5) {
-        clips.push({ path: 'dooms_day/round_3/round_3_win_or_lose__less_5_percent.mp3', group: 'doomsDay' })
-      }
-
       clearR3Timers()
-      const soundDelay = resultPath.endsWith('3_lww.mp3')
-        ? R3_LWW_SOUND_DELAY_MS
-        : R3_NEEDLE_MS
-      r3SoundTimer = setTimeout(() => {
-        r3SoundTimer = null
-        if (skippedToEnd.value || !isR3RollStep()) return
-        void playClipsBatched(clips)
-      }, soundDelay / speed.value)
+      if (!props.suppressDoomsDayAudio) {
+        const thresholdPct = f.randomForPoint / f.maxRandomNumber * 100
+        const needlePct = f.randomNumber / f.maxRandomNumber * 100
+        const distance = Math.abs(needlePct - thresholdPct)
+        const resultPath = doomsDayWinLosePath(roundResults.value, false, false)
+        const clips: SyncClip[] = [{ path: resultPath, group: 'doomsDayWinLose' }]
+        if (weWonR3 && distance < 1) {
+          clips.push({ path: 'dooms_day/round_3/round_3_win_less_1_percent.mp3', group: 'doomsDay' })
+        } else if (distance < 5) {
+          clips.push({ path: 'dooms_day/round_3/round_3_win_or_lose__less_5_percent.mp3', group: 'doomsDay' })
+        }
+
+        const soundDelay = resultPath.endsWith('3_lww.mp3')
+          ? R3_LWW_SOUND_DELAY_MS
+          : R3_NEEDLE_MS
+        r3SoundTimer = setTimeout(() => {
+          r3SoundTimer = null
+          if (skippedToEnd.value || props.suppressDoomsDayAudio || !isR3RollStep()) return
+          void playClipsBatched(clips)
+        }, soundDelay / speed.value)
+      }
 
       const target = r3NeedleTarget()
       r3SettleTimer = setTimeout(() => {
@@ -917,7 +930,7 @@ watch(() => props.fights.length, (cur) => {
   lastSeenFightsLength = cur
   // Play character victory themes (owner-only: only for the player playing that character)
   playWinSpecialsForAll(props.fights, myCharacterName.value)
-  if (myFights.value.length === 0 && !props.suppressDoomsDayAudio) {
+  if (myFights.value.length === 0) {
     playDoomsDayNoFights()
   }
 })
@@ -1307,7 +1320,7 @@ function animateNeedleBounce(target: number) {
   needleAnimFrame = requestAnimationFrame(tick)
 }
 
-watch([showR3Roll, skippedToEnd, fight], ([show, skipped]) => {
+watch([showR3Roll, skippedToEnd, r3PresentationKey], ([show, skipped]) => {
   if (show) {
     if (needleAnimFrame) {
       cancelAnimationFrame(needleAnimFrame)
@@ -1321,8 +1334,13 @@ watch([showR3Roll, skippedToEnd, fight], ([show, skipped]) => {
     }
     r3NeedlePos.value = 0
     r3NeedleSettled.value = false
+    const presentationKey = r3PresentationKey.value
     nextTick(() => {
-      if (showR3Roll.value && !skippedToEnd.value) animateNeedleBounce(target)
+      if (
+        r3PresentationKey.value === presentationKey
+        && showR3Roll.value
+        && !skippedToEnd.value
+      ) animateNeedleBounce(target)
     })
   } else {
     clearR3Timers()

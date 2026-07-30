@@ -1,10 +1,25 @@
 using System;
 using System.Collections.Generic;
+using King_of_the_Garbage_Hill.Game.Classes;
 
 namespace King_of_the_Garbage_Hill.Game.Characters;
 
 public class GoblinSwarm
 {
+    public const string ZigguratPassive = "Гоблины тупые, но не идиоты";
+
+    public static void RecordZigguratBuildIntent(GamePlayerBridgeClass player)
+    {
+        if (player == null
+            || !player.GameCharacter.Passive.Exists(passive =>
+                passive.PassiveName == ZigguratPassive))
+            return;
+
+        var state = player.Passives.GoblinZiggurat;
+        state.WantsToBuild = true;
+        state.PendingBuildPosition = player.Status.GetPlaceAtLeaderBoard();
+    }
+
     public class GoblinPopulationClass
     {
         public int TotalGoblins { get; set; } = 20;
@@ -48,7 +63,8 @@ public class GoblinSwarm
     {
         public List<int> BuiltPositions { get; set; } = new();       // Leaderboard places with ziggurats
         public List<string> LearnedPassives { get; set; } = new();   // Passive names learned
-        public bool WantsToBuild { get; set; } = false;               // Block was used this round — build pending
+        public bool WantsToBuild { get; set; } = false;              // Block was used this round — build pending
+        public int PendingBuildPosition { get; set; } = 0;           // Position at Block submission
         public bool IsInZiggurat { get; set; } = false;              // Currently on a ziggurat position
         public int ZigguratStayRoundsLeft { get; set; } = 0;        // Rounds of position lock remaining
 

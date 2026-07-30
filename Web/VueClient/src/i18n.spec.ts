@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 
 import { beforeEach, describe, expect, it } from 'vitest'
-import { setLocale, translateText } from './i18n'
+import { installDomLocalization, setLocale, translateText } from './i18n'
 import phrases from '../../../King-of-the-Garbage-Hill/DataBase/phrases.en.json'
 
 function phrasePayload(values: [string, string, string, string], textOnly = false): string {
@@ -13,6 +13,23 @@ function phrasePayload(values: [string, string, string, string], textOnly = fals
 
 describe('English presentation localization', () => {
   beforeEach(() => setLocale('en'))
+
+  it('honors scoped translate=no content without disabling surrounding localization', () => {
+    setLocale('ru')
+    const root = document.createElement('div')
+    root.innerHTML = [
+      '<span data-testid="verbatim" translate="no">Close</span>',
+      '<span data-testid="localized">Close</span>',
+    ].join('')
+    document.body.append(root)
+
+    const stopLocalization = installDomLocalization(root)
+    expect(root.querySelector('[data-testid="verbatim"]')?.textContent).toBe('Close')
+    expect(root.querySelector('[data-testid="localized"]')?.textContent).toBe('Закрыть')
+
+    stopLocalization()
+    root.remove()
+  })
 
   it('translates the reported system and level-up log templates', () => {
     expect(translateText('Вы не походили. Использовался Авто Ход'))

@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import defaultConfigJson from '../../../public/99lc/game-config.json'
 import { cloneLastChancesConfig } from './config'
+import type { LastChancesRuntimeCollider } from './colliders'
 import { LastChancesEngine } from './engine'
 import {
   DualSenseFeedbackController,
@@ -23,6 +24,7 @@ import type {
   LastChancesEnemyState,
   LastChancesGamePlan,
   LastChancesGesture,
+  LastChancesGestureInputSnapshot,
   LastChancesGestureResolution,
   LastChancesHand,
   LastChancesPlanNode,
@@ -38,6 +40,7 @@ function makeCanvas(): HTMLCanvasElement {
   const noop = () => undefined
   const gradient = { addColorStop: noop }
   const context = new Proxy({
+    createLinearGradient: () => gradient,
     createRadialGradient: () => gradient,
   } as Record<PropertyKey, unknown>, {
     get(target, property) {
@@ -94,6 +97,7 @@ interface RuntimeEnemy {
   id: string
   definition: LastChancesEnemyDefinition & { armor?: number }
   position: LastChancesVector
+  velocity: LastChancesVector
   facing: LastChancesVector
   hp: number
   state: LastChancesEnemyState
@@ -174,10 +178,31 @@ interface RuntimeProjectile {
   color: string
   source: 'player' | 'enemy'
   sourceName: string
+  sourceId?: string
   attack?: LastChancesAttackDefinition
   weaponId?: string
   hand?: LastChancesHand
+  gesture?: LastChancesGesture
   carriedIds?: Set<string>
+  storedDot?: LastChancesStoredDot | null
+  persistentArrow?: boolean
+  chemicalArrow?: boolean
+  ricochetsRemaining?: number
+}
+
+interface RuntimeEmbeddedArrow {
+  id: number
+  position: LastChancesVector
+  direction: LastChancesVector
+  attachment: 'enemy' | 'obstacle' | 'boundary' | 'floor'
+  enemyId: string | null
+  enemyOffset: LastChancesVector | null
+  color: string
+  chemical: boolean
+  exploded: boolean
+  embeddedAtMs: number
+  nextChemicalTickAtMs: number
+  planted?: boolean
 }
 
 type EngineTestAccess = {
@@ -195,11 +220,15 @@ type EngineTestAccess = {
     matchingAimMotionPx: number
     channelStaminaAccumulatorMs: number
     stanceCutSpeed: number
+    stanceTipVelocity: LastChancesVector
   }>
   activeDash: {
     attack: LastChancesAttackDefinition
     direction: LastChancesVector
     speed: number
+    remainingDistance: number
+    elapsedMs: number
+    weaponId: string
     hand: LastChancesHand
     ram?: {
       runMs: number
@@ -218,6 +247,7 @@ type EngineTestAccess = {
       runDistanceRatio: number
     }
   } | null
+  activeParryCollider: LastChancesRuntimeCollider | null
   activeParryAttack: LastChancesAttackDefinition | null
   activatePlayerParry: (attack: LastChancesAttackDefinition, minimumDurationMs?: number) => void
   activeLoadout: {
@@ -288,6 +318,7 @@ type EngineTestAccess = {
     },
   ) => void
   elapsedMs: number
+  phase: string
   frameNowMs: number
   enemies: RuntimeEnemy[]
   effects: unknown[]
@@ -469,6 +500,46 @@ type EngineTestAccess = {
     detonateAtMs: number
   }>
   projectiles: RuntimeProjectile[]
+  embeddedArrows: RuntimeEmbeddedArrow[]
+  fallingArrows: Array<{
+    id: number
+    remainingMs: number
+  }>
+  bowDrawDebits: Record<LastChancesHand, {
+    active: boolean
+    accruedMs: number
+    spent: number
+    exhausted: boolean
+  }>
+  bowChannels: Map<LastChancesHand, {
+    behavior: 'bowRapidFire' | 'bowRain'
+    elapsedMs: number
+    shotAccumulatorMs: number
+  }>
+  bowLastShotTargets: Record<LastChancesHand, LastChancesVector | null>
+  bowResponseWindows: Record<LastChancesHand, {
+    weaponId: string
+    startedAtInputMs: number
+  } | null>
+  bowRainTarget: LastChancesVector | null
+  bowShotPresentation: {
+    atMs: number
+    direction: LastChancesVector
+    goldenUntilMs: number
+  }
+  bowDashLiftRadii: (dash: {
+    attack: LastChancesAttackDefinition
+    elapsedMs: number
+  }) => number
+  pointerWorldTarget: LastChancesVector | null
+  controlInputSnapshot: (
+    hand: LastChancesHand,
+    atMs: number,
+  ) => LastChancesGestureInputSnapshot
+  bowDrawInputActive: (
+    hand: LastChancesHand,
+    input: LastChancesGestureInputSnapshot,
+  ) => boolean
   enemyCombatProfile: (enemy: RuntimeEnemy) => RuntimeEnemyCombatProfile
   spawnEnemyProjectile: (enemy: RuntimeEnemy, profile: RuntimeEnemyCombatProfile) => void
   startActiveArea: (
@@ -489,6 +560,10 @@ type EngineTestAccess = {
   updateEnemies: (deltaSeconds: number, deltaMs: number) => void
   updateMentalHealth: (deltaSeconds: number) => void
   updateHeldWeaponMechanics: (deltaMs: number) => void
+  updateBowChannels: (deltaMs: number) => void
+  updateFallingArrows: (deltaMs: number) => void
+  updateWonBowArrows: (deltaSeconds: number, deltaMs: number) => void
+  flushBowLandingAttacks: () => void
   updateSpiderKnifeWriggle: () => void
   updateKeyboardDualSenseTriggers: (atMs: number) => void
   updatePlayer: (deltaSeconds: number) => void
@@ -5521,7 +5596,7 @@ describe('99LC Двуручное копьё v2', () => {
     }
   })
 
-  it('walks the tap chain thrust, thrust, then slash', () => {
+  it('keeps every basic-chain strike under the authored «Охота» action name', () => {
     const config = combatConfig(V2, null, 'guard', 1)
     const { engine, access } = startCombat(config)
 
@@ -5531,7 +5606,7 @@ describe('99LC Двуручное копьё v2', () => {
         access.performAttack(resolution('left', 'tap'))
         names.push(access.createSnapshot().lastGesture!.attackName)
       }
-      expect(names).toEqual(['Охота', 'Шаг и косой выпад', 'Обратный рассекатель'])
+      expect(names).toEqual(['Охота', 'Охота', 'Охота'])
       const left = access.weapons.get('left')!
       expect(left.tapCombo.map(attack => attack.collider?.shape))
         .toEqual(['capsule', 'capsule', 'sector'])
@@ -5706,7 +5781,7 @@ describe('99LC Двуручное копьё v2', () => {
     }
   })
 
-  it('keeps global stamina costs except the authored Axe max bands', () => {
+  it('keeps global stamina costs except explicitly authored move and charge-band costs', () => {
     for (const shipped of defaultConfig.weapons) {
       if (shipped.id === V2) continue
       const secondaryOnly = shipped.equipMode === 'secondaryOnly'
@@ -5724,7 +5799,11 @@ describe('99LC Двуручное копьё v2', () => {
                 .filter(band => held >= band.minMs)
                 .at(-1)?.overrides?.staminaCost
               expect(access.staminaCostFor(equipped, hand, gesture, held))
-                .toBe(authoredBandCost ?? config.stamina.attackCost)
+                .toBe(
+                  authoredBandCost
+                    ?? equipped.attacks[gesture].staminaCost
+                    ?? config.stamina.attackCost,
+                )
             }
           }
         }
@@ -5783,7 +5862,7 @@ describe('99LC Двуручное копьё v2', () => {
     }
   })
 
-  it('opens «Парирование» on press and morphs the second tap into a delayed «Отталкивание»', () => {
+  it('opens a sideways «Парирование» bar and morphs the second tap into «Толчок»', () => {
     const config = combatConfig(V2, null, 'guard', 1)
     const { engine, access } = startCombat(config)
     let now = 1000
@@ -5793,6 +5872,19 @@ describe('99LC Двуручное копьё v2', () => {
       engine.press('right')
       expect(access.player.parryMs).toBeGreaterThan(0)
       expect(access.activeParryAttack?.name).toBe('Парирование')
+      expect(access.activeParryCollider).toMatchObject({
+        shape: 'capsule',
+        radius: 14,
+      })
+      if (access.activeParryCollider?.shape !== 'capsule') {
+        throw new Error('Expected the spear-v2 parry bar')
+      }
+      expect(Math.abs(
+        access.activeParryCollider.end.y - access.activeParryCollider.start.y,
+      )).toBeCloseTo(180)
+      expect(Math.abs(
+        access.activeParryCollider.end.x - access.activeParryCollider.start.x,
+      )).toBeCloseTo(0)
 
       now += 60
       engine.release('right')
@@ -5801,7 +5893,7 @@ describe('99LC Двуручное копьё v2', () => {
       now += 60
       engine.release('right')
 
-      expect(access.createSnapshot().lastGesture?.attackName).toBe('Отталкивание')
+      expect(access.createSnapshot().lastGesture?.attackName).toBe('Толчок')
       expect(access.delayedAttacks).toEqual([
         expect.objectContaining({
           remainingMs: 250,
@@ -5819,9 +5911,9 @@ describe('99LC Двуручное копьё v2', () => {
   })
 
   it.each([
-    { heldMs: 600, name: 'Отталкивание', behavior: 'spearShove', distance: 94, stunMs: 1000 },
-    { heldMs: 900, name: 'Пинок', behavior: 'spearKick', distance: 144, stunMs: 1000 },
-    { heldMs: 1250, name: 'Сильный Пинок', behavior: 'spearKick', distance: 176, stunMs: 1500 },
+    { heldMs: 600, name: 'Толчок', behavior: 'spearShove', distance: 188, stunMs: 1000 },
+    { heldMs: 900, name: 'Пинок', behavior: 'spearKick', distance: 432, stunMs: 1000 },
+    { heldMs: 1250, name: 'Пинок', behavior: 'spearKick', distance: 528, stunMs: 1500 },
   ])('resolves the $name charge band with its own reach and immobilize', ({
     heldMs,
     name,
@@ -5898,12 +5990,17 @@ describe('99LC Двуручное копьё v2', () => {
       target.state = 'chasing'
       target.facing = { x: -1, y: 0 }
       stance.direction = { x: 1, y: 0 }
+      stance.stanceTipVelocity = { x: 0, y: 900 }
       stance.stanceCutSpeed = 900
-      access.movementVelocity = { x: 0, y: 0 }
+      target.velocity = { x: 0, y: 0 }
       const cutting = access.spearStanceDamageMultiplier(stance, target)
-      access.movementVelocity = { x: 420, y: 0 }
+      stance.stanceTipVelocity = { x: 420, y: 0 }
       const piercing = access.spearStanceDamageMultiplier(stance, target)
       expect(piercing).toBeGreaterThan(cutting)
+      const heldDirection = { ...stance.direction }
+      access.update(0.25, 250)
+      expect(stance.direction).toEqual(heldDirection)
+      expect(stance.sweepDegrees).toBe(0)
     } finally {
       engine.destroy()
       vi.restoreAllMocks()
@@ -5932,6 +6029,1195 @@ describe('99LC Двуручное копьё v2', () => {
       expect(access.player.invulnerableMs).toBeGreaterThan(0)
       access.updatePlayer(0.74)
       expect(access.activeDash).toBeNull()
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('passes directly over an intervening obstacle and lands beyond it', () => {
+    const config = combatConfig(V2, null, 'guard', 1)
+    const combatHall = config.rooms.find(room => room.id === 'combat-hall')!
+    combatHall.obstacles.push({
+      x: 250,
+      y: 310,
+      width: 45,
+      height: 64,
+      elevation: 70,
+    })
+    const { engine, access } = startCombat(config)
+
+    try {
+      const start = { ...access.player.position }
+      access.performAttack(resolution('right', 'holdThenDoubleTap', 80, 700))
+      access.updatePlayer(0.75)
+      expect(access.player.position.x).toBeGreaterThan(295 + config.player.radius)
+      expect(access.player.position.y).toBeCloseTo(start.y)
+      access.updatePlayer(0.3)
+      expect(access.activeDash).toBeNull()
+      expect(access.player.position.x).toBeCloseTo(start.x + 360)
+      expect(access.player.position.y).toBeCloseTo(start.y)
+    } finally {
+      engine.destroy()
+    }
+  })
+})
+
+describe('99LC Длинный лук', () => {
+  const BOW = 'twohand-bow'
+
+  function embedArrowInOpenFloor(access: EngineTestAccess): void {
+    for (const enemy of access.enemies) {
+      enemy.position = {
+        x: access.player.position.x + 300,
+        y: access.player.position.y + 180,
+      }
+    }
+    access.performAttack(resolution('left', 'tap'))
+    expect(access.projectiles).toHaveLength(1)
+    access.updateProjectiles(1, 1000)
+    expect(access.projectiles).toHaveLength(0)
+    expect(access.embeddedArrows).toEqual([
+      expect.objectContaining({ attachment: 'floor', enemyId: null }),
+    ])
+  }
+
+  it('honors the authored tap-combo cooldown for both Шот and Уворот', () => {
+    const config = combatConfig(BOW, null, 'guard', 1)
+    const authored = weapon(config, BOW)
+    authored.tapCombo[0]!.cooldownMs = 337
+    authored.secondaryTapCombo![0]!.cooldownMs = 547
+    const { engine, access } = startCombat(config)
+
+    try {
+      const leftStartedAt = access.elapsedMs
+      access.performAttack(resolution('left', 'tap'))
+      expect(access.projectiles).toHaveLength(1)
+      expect(access.cooldownEnds.get('left:tap')).toBe(
+        leftStartedAt + authored.attacks.tap.cooldownMs,
+      )
+
+      access.performAttack(resolution('left', 'tap'))
+      expect(access.projectiles).toHaveLength(1)
+      access.elapsedMs = leftStartedAt + authored.attacks.tap.cooldownMs
+      access.performAttack(resolution('left', 'tap'))
+      expect(access.projectiles).toHaveLength(2)
+      expect(access.cooldownEnds.get('left:tap')).toBe(access.elapsedMs + 337)
+
+      const rightStartedAt = access.elapsedMs
+      access.performAttack(resolution('right', 'tap'))
+      const firstDodge = access.activeDash
+      expect(firstDodge?.attack.name).toBe('Уворот')
+      expect(access.cooldownEnds.get('right:tap')).toBe(
+        rightStartedAt + authored.secondaryAttacks!.tap.cooldownMs,
+      )
+
+      access.performAttack(resolution('right', 'tap'))
+      expect(access.activeDash).toBe(firstDodge)
+      access.elapsedMs = rightStartedAt + authored.secondaryAttacks!.tap.cooldownMs
+      access.performAttack(resolution('right', 'tap'))
+      expect(access.activeDash).not.toBe(firstDodge)
+      expect(access.cooldownEnds.get('right:tap')).toBe(access.elapsedMs + 547)
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('sweeps a fast Шот to its first enemy and leaves one permanent embedded arrow', () => {
+    const config = combatConfig(BOW, null, 'guard', 2)
+    const { engine, access } = startCombat(config)
+
+    try {
+      const [near, far] = access.enemies
+      near.definition.dodge = 0
+      near.definition.armor = 0
+      far.definition.dodge = 0
+      far.definition.armor = 0
+      placeEnemy(access, near, 120)
+      placeEnemy(access, far, 260)
+      const nearHp = near.hp
+      const farHp = far.hp
+
+      access.performAttack(resolution('left', 'tap'))
+      expect(access.projectiles[0]).toMatchObject({
+        persistentArrow: true,
+        ricochetsRemaining: 0,
+      })
+      // 360 world units in one frame crosses both targets. Continuous impact selection must
+      // still stop at the nearer body instead of damaging every circle intersected by the frame.
+      access.updateProjectiles(0.5, 500)
+
+      expect(near.hp).toBeLessThan(nearHp)
+      expect(far.hp).toBe(farHp)
+      expect(access.projectiles).toHaveLength(0)
+      expect(access.embeddedArrows).toEqual([
+        expect.objectContaining({
+          attachment: 'enemy',
+          enemyId: near.id,
+        }),
+      ])
+
+      access.updateProjectiles(1, 1000)
+      expect(access.embeddedArrows).toHaveLength(1)
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('clips a point-blank Шот muzzle to the valid side of the nearest obstacle', () => {
+    const config = combatConfig(BOW, null, 'guard', 1)
+    const combatHall = config.rooms.find(room => room.id === 'combat-hall')!
+    const wallX = combatHall.playerSpawn.x + config.player.radius + 4
+    combatHall.obstacles.push({
+      x: wallX,
+      y: combatHall.playerSpawn.y - 80,
+      width: 30,
+      height: 160,
+      elevation: 50,
+    })
+    const { engine, access } = startCombat(config)
+
+    try {
+      access.enemies[0].position = {
+        x: access.player.position.x + 300,
+        y: access.player.position.y + 180,
+      }
+      const attack = weapon(config, BOW).attacks.tap
+      access.performAttack(resolution('left', 'tap'))
+
+      const arrow = access.projectiles[0]!
+      const expectedContactX = wallX - attack.radius
+      expect(arrow.position.x).toBeCloseTo(expectedContactX)
+      expect(arrow.position.x + arrow.radius).toBeCloseTo(wallX)
+
+      access.updateProjectiles(0.01, 10)
+      expect(access.projectiles).toHaveLength(0)
+      expect(access.embeddedArrows).toEqual([
+        expect.objectContaining({
+          attachment: 'obstacle',
+          position: expect.objectContaining({ x: expectedContactX }),
+        }),
+      ])
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('reflects a point-blank scatter muzzle into the arena and continues its flight', () => {
+    const config = combatConfig(BOW, null, 'guard', 1)
+    const { engine, access } = startCombat(config)
+
+    try {
+      const arena = access.currentNode!.arena
+      access.player.position = {
+        x: arena.width - config.player.radius,
+        y: arena.height / 2,
+      }
+      access.player.aim = { x: 1, y: 0 }
+      access.enemies[0].position = {
+        x: arena.width / 2,
+        y: config.player.radius * 2,
+      }
+      access.bowDrawDebits.left = {
+        active: true,
+        accruedMs: 700,
+        spent: 28,
+        exhausted: false,
+      }
+      access.performAttack(resolution('left', 'holdThenDoubleTap', 700, 700))
+
+      const centerScatter = access.projectiles
+        .filter(projectile => projectile.attack?.behavior === 'bowScatter')
+        .reduce((nearest, projectile) => (
+          Math.abs(projectile.velocity.y) < Math.abs(nearest.velocity.y)
+            ? projectile
+            : nearest
+        ))
+      const contactX = arena.width - centerScatter.radius
+      expect(centerScatter.position.x).toBeCloseTo(contactX)
+      expect(centerScatter.position.x + centerScatter.radius).toBeCloseTo(arena.width)
+
+      const id = centerScatter.id
+      access.updateProjectiles(0.001, 1)
+      const reflected = access.projectiles.find(projectile => projectile.id === id)!
+      expect(reflected.ricochetsRemaining).toBe(0)
+      expect(reflected.velocity.x).toBeLessThan(0)
+      expect(reflected.position.x).toBeLessThan(contactX)
+      expect(access.embeddedArrows.some(arrow => arrow.id === id)).toBe(false)
+
+      const reflectedX = reflected.position.x
+      access.updateProjectiles(0.05, 50)
+      const continued = access.projectiles.find(projectile => projectile.id === id)!
+      expect(continued.position.x).toBeLessThan(reflectedX)
+      expect(access.embeddedArrows.some(arrow => arrow.id === id)).toBe(false)
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('ricochets a scatter arrow from one wall exactly once, then embeds at the boundary', () => {
+    const config = combatConfig(BOW, null, 'guard', 1)
+    const combatHall = config.rooms.find(room => room.id === 'combat-hall')!
+    combatHall.obstacles.push({
+      x: 280,
+      y: 250,
+      width: 30,
+      height: 180,
+      elevation: 60,
+    })
+    const { engine, access } = startCombat(config)
+
+    try {
+      access.enemies[0].position = {
+        x: access.player.position.x + 300,
+        y: access.player.position.y - 180,
+      }
+      const attack = weapon(config, BOW).attacks.holdThenDoubleTap
+      access.projectiles.push({
+        id: 99_001,
+        position: { x: 200, y: access.player.position.y },
+        velocity: { x: 1000, y: 0 },
+        radius: attack.radius,
+        damage: attack.damage,
+        knockback: attack.knockback,
+        remainingDistance: 1000,
+        remainingMs: 2000,
+        remainingHits: 1,
+        hitIds: new Set(),
+        color: attack.color,
+        source: 'player',
+        sourceName: 'Player',
+        sourceId: 'player',
+        attack: { ...attack },
+        weaponId: BOW,
+        hand: 'left',
+        gesture: 'holdThenDoubleTap',
+        storedDot: null,
+        persistentArrow: true,
+        chemicalArrow: false,
+        ricochetsRemaining: 1,
+      })
+
+      access.updateProjectiles(0.2, 200)
+      expect(access.projectiles).toHaveLength(1)
+      expect(access.projectiles[0]).toMatchObject({
+        ricochetsRemaining: 0,
+      })
+      expect(access.projectiles[0]!.velocity.x).toBeLessThan(0)
+      expect(access.embeddedArrows).toHaveLength(0)
+
+      access.updateProjectiles(0.4, 400)
+      expect(access.projectiles).toHaveLength(0)
+      expect(access.embeddedArrows).toEqual([
+        expect.objectContaining({
+          id: 99_001,
+          attachment: 'boundary',
+        }),
+      ])
+      expect(access.embeddedArrows[0]!.position.x).toBeCloseTo(attack.radius, 3)
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it.each([
+    {
+      exhaustedBudget: 'lifetime',
+      remainingDistance: 1000,
+      remainingMs: 73,
+    },
+    {
+      exhaustedBudget: 'range',
+      remainingDistance: 73,
+      remainingMs: 2000,
+    },
+  ])(
+    'embeds a scatter arrow whose $exhaustedBudget expires exactly at its ricochet',
+    ({ remainingDistance, remainingMs }) => {
+      const config = combatConfig(BOW, null, 'guard', 1)
+      const combatHall = config.rooms.find(room => room.id === 'combat-hall')!
+      combatHall.obstacles.push({
+        x: 280,
+        y: 250,
+        width: 30,
+        height: 180,
+        elevation: 60,
+      })
+      const { engine, access } = startCombat(config)
+
+      try {
+        access.enemies[0].position = {
+          x: access.player.position.x + 300,
+          y: access.player.position.y - 180,
+        }
+        const attack = weapon(config, BOW).attacks.holdThenDoubleTap
+        const arrowId = 99_002
+        access.projectiles.push({
+          id: arrowId,
+          position: { x: 200, y: access.player.position.y },
+          velocity: { x: 1000, y: 0 },
+          radius: attack.radius,
+          damage: attack.damage,
+          knockback: attack.knockback,
+          remainingDistance,
+          remainingMs,
+          remainingHits: 1,
+          hitIds: new Set(),
+          color: attack.color,
+          source: 'player',
+          sourceName: 'Player',
+          sourceId: 'player',
+          attack: { ...attack },
+          weaponId: BOW,
+          hand: 'left',
+          gesture: 'holdThenDoubleTap',
+          storedDot: null,
+          persistentArrow: true,
+          chemicalArrow: false,
+          ricochetsRemaining: 1,
+        })
+
+        // The obstacle's exact contact is 73 units away (x=280 minus radius 7).
+        access.updateProjectiles(0.2, 200)
+        expect(access.projectiles).toHaveLength(0)
+        expect(access.embeddedArrows).toEqual([
+          expect.objectContaining({
+            id: arrowId,
+            attachment: 'obstacle',
+            position: expect.objectContaining({ x: 273 }),
+          }),
+        ])
+
+        access.updateProjectiles(0.5, 500)
+        expect(access.embeddedArrows).toHaveLength(1)
+      } finally {
+        engine.destroy()
+      }
+    },
+  )
+
+  it('keeps the unused partial-lifetime budget after a scatter ricochet', () => {
+    const config = combatConfig(BOW, null, 'guard', 1)
+    const combatHall = config.rooms.find(room => room.id === 'combat-hall')!
+    combatHall.obstacles.push({
+      x: 280,
+      y: 250,
+      width: 30,
+      height: 180,
+      elevation: 60,
+    })
+    const { engine, access } = startCombat(config)
+
+    try {
+      access.enemies[0].position = {
+        x: access.player.position.x + 300,
+        y: access.player.position.y - 180,
+      }
+      const attack = weapon(config, BOW).attacks.holdThenDoubleTap
+      const arrowId = 99_003
+      access.projectiles.push({
+        id: arrowId,
+        position: { x: 200, y: access.player.position.y },
+        velocity: { x: 1000, y: 0 },
+        radius: attack.radius,
+        damage: attack.damage,
+        knockback: attack.knockback,
+        remainingDistance: 1000,
+        remainingMs: 100,
+        remainingHits: 1,
+        hitIds: new Set(),
+        color: attack.color,
+        source: 'player',
+        sourceName: 'Player',
+        sourceId: 'player',
+        attack: { ...attack },
+        weaponId: BOW,
+        hand: 'left',
+        gesture: 'holdThenDoubleTap',
+        storedDot: null,
+        persistentArrow: true,
+        chemicalArrow: false,
+        ricochetsRemaining: 1,
+      })
+
+      // Only 100 ms of this 200 ms frame are active. Reaching the obstacle takes 73 ms,
+      // so the reflected arrow must retain the other 27 ms instead of being filtered away.
+      access.updateProjectiles(0.2, 200)
+      const reflected = access.projectiles.find(projectile => projectile.id === arrowId)!
+      expect(reflected.velocity.x).toBeLessThan(0)
+      expect(reflected.remainingMs).toBeCloseTo(27)
+      expect(access.embeddedArrows).toHaveLength(0)
+
+      access.updateProjectiles(0.05, 50)
+      expect(access.projectiles).toHaveLength(0)
+      expect(access.embeddedArrows).toEqual([
+        expect.objectContaining({
+          id: arrowId,
+          attachment: 'floor',
+        }),
+      ])
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('fully refunds a golden Натяг and leaves its cooldown immediately ready', () => {
+    const config = combatConfig(BOW, null, 'guard', 1)
+    const { engine, access } = startCombat(config)
+    let now = 1000
+    vi.spyOn(performance, 'now').mockImplementation(() => now)
+
+    try {
+      access.player.stamina = access.player.stats.maxStamina
+      engine.press('left')
+      now += 700
+      access.frameNowMs = now
+      access.update(0.7, 700)
+
+      expect(access.bowDrawDebits.left.spent).toBeCloseTo(28, 5)
+      expect(access.player.stamina).toBeLessThan(access.player.stats.maxStamina)
+
+      engine.release('left')
+      expect(access.player.stamina).toBe(access.player.stats.maxStamina)
+      expect(access.bowDrawDebits.left).toEqual({
+        active: false,
+        accruedMs: 0,
+        spent: 0,
+        exhausted: false,
+      })
+      expect(access.cooldownEnds.get('left:hold')).toBe(access.elapsedMs)
+      expect(access.createSnapshot().cooldowns.find(entry => (
+        entry.hand === 'left' && entry.gesture === 'hold'
+      ))?.ready).toBe(true)
+      expect(access.projectiles[0]?.attack).toMatchObject({
+        behavior: 'bowDraw',
+        damage: weapon(config, BOW).attacks.hold.damage * 2.2,
+        range: weapon(config, BOW).attacks.hold.range * 1.75,
+      })
+    } finally {
+      engine.destroy()
+      vi.restoreAllMocks()
+    }
+  })
+
+  it('cannot reach a charged Натяг band using hold time that stamina did not pay for', () => {
+    const config = combatConfig(BOW, null, 'guard', 1)
+    config.stamina.regenPerSecond = 0
+    config.stamina.outOfCombatRegenPerSecond = 0
+    const { engine, access } = startCombat(config)
+    let now = 2000
+    vi.spyOn(performance, 'now').mockImplementation(() => now)
+
+    try {
+      access.player.stamina = 5
+      engine.press('left')
+      now += 700
+      access.frameNowMs = now
+      access.update(0.7, 700)
+
+      expect(access.bowDrawDebits.left).toMatchObject({
+        exhausted: true,
+        spent: 5,
+        accruedMs: 125,
+      })
+      engine.release('left')
+      expect(access.projectiles).toHaveLength(0)
+      expect(access.bowDrawDebits.left).toEqual({
+        active: false,
+        accruedMs: 0,
+        spent: 0,
+        exhausted: false,
+      })
+    } finally {
+      engine.destroy()
+      vi.restoreAllMocks()
+    }
+  })
+
+  it('keeps embedded arrows through room completion but clears them on travel or death', () => {
+    const travelRun = startCombat(combatConfig(BOW, null, 'guard', 1))
+    try {
+      embedArrowInOpenFloor(travelRun.access)
+      travelRun.access.completeRoom()
+      expect(travelRun.access.embeddedArrows).toHaveLength(1)
+
+      const nextNode = travelRun.access.createSnapshot().availableNodeIds[0]
+      expect(nextNode).toBeTruthy()
+      expect(travelRun.engine.chooseNode(nextNode)).toBe(true)
+      expect(travelRun.access.embeddedArrows).toHaveLength(0)
+    } finally {
+      travelRun.engine.destroy()
+    }
+
+    const deathRun = startCombat(combatConfig(BOW, null, 'guard', 1))
+    try {
+      embedArrowInOpenFloor(deathRun.access)
+      deathRun.access.killPlayer('Longbow persistence test')
+      expect(deathRun.access.embeddedArrows).toHaveLength(0)
+    } finally {
+      deathRun.engine.destroy()
+    }
+  })
+
+  it('treats a 400 ms release as a continuously scaled Натяг and charges the release-frame tail', () => {
+    const config = combatConfig(BOW, null, 'guard', 1)
+    config.stamina.regenPerSecond = 0
+    config.stamina.outOfCombatRegenPerSecond = 0
+    const draw = weapon(config, BOW).attacks.hold
+    const maximum = draw.charge!.bands.at(-1)!
+    const { engine, access } = startCombat(config)
+    let now = 10_000
+    vi.spyOn(performance, 'now').mockImplementation(() => now)
+
+    try {
+      engine.press('left')
+      now += 350
+      access.frameNowMs = now
+      access.update(0.35, 350)
+      now += 50
+      engine.release('left')
+
+      const arrow = access.projectiles[0]
+      const expectedDamage = draw.damage
+        + (draw.damage * maximum.damageMultiplier! - draw.damage) * 0.4
+      const expectedRange = draw.range
+        + (draw.range * maximum.rangeMultiplier! - draw.range) * 0.4
+      expect(arrow?.attack).toMatchObject({ behavior: 'bowDraw' })
+      expect(arrow?.damage).toBeCloseTo(expectedDamage, 5)
+      expect(arrow?.remainingDistance).toBeCloseTo(expectedRange, 5)
+      expect(access.player.stamina).toBeCloseTo(
+        access.player.stats.maxStamina - 400 * 0.04,
+        5,
+      )
+    } finally {
+      engine.destroy()
+      vi.restoreAllMocks()
+    }
+  })
+
+  it('refunds tentative draw drain on a short tap before charging Шот', () => {
+    const config = combatConfig(BOW, null, 'guard', 1)
+    config.stamina.regenPerSecond = 0
+    config.stamina.outOfCombatRegenPerSecond = 0
+    const { engine, access } = startCombat(config)
+    let now = 20_000
+    vi.spyOn(performance, 'now').mockImplementation(() => now)
+
+    try {
+      engine.press('left')
+      now += 60
+      access.frameNowMs = now
+      access.update(0.06, 60)
+      expect(access.player.stamina).toBeCloseTo(access.player.stats.maxStamina - 2.4, 5)
+      now += 40
+      engine.release('left')
+
+      expect(access.projectiles[0]?.attack?.behavior).toBe('bowShot')
+      expect(access.player.stamina).toBeCloseTo(access.player.stats.maxStamina - 3, 5)
+      expect(access.bowDrawDebits.left.active).toBe(false)
+    } finally {
+      engine.destroy()
+      vi.restoreAllMocks()
+    }
+  })
+
+  it('converges Шот-шот on the first world target after the archer moves', () => {
+    const { engine, access } = startCombat(combatConfig(BOW, null, 'guard', 1))
+
+    try {
+      access.player.aim = { x: 1, y: 0 }
+      access.performAttack(resolution('left', 'tap'))
+      const target = { ...access.bowLastShotTargets.left! }
+      access.player.position.y += 90
+      access.performAttack(resolution('left', 'doubleTap'))
+
+      const second = access.projectiles[1]!
+      const toTarget = {
+        x: target.x - second.position.x,
+        y: target.y - second.position.y,
+      }
+      const cross = second.velocity.x * toTarget.y - second.velocity.y * toTarget.x
+      expect(second.attack?.behavior).toBe('bowDoubleShot')
+      expect(second.velocity.y).toBeLessThan(0)
+      expect(cross).toBeCloseTo(0, 4)
+      expect(access.bowLastShotTargets.left).toBeNull()
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('requires Шот and supplies the instant second arrow before a paid Чреда interval', () => {
+    const blocked = startCombat(combatConfig(BOW, null, 'guard', 1))
+    try {
+      blocked.access.performAttack(resolution('left', 'doubleTapHold', 700))
+      expect(blocked.access.bowChannels.size).toBe(0)
+      expect(blocked.access.projectiles).toHaveLength(0)
+    } finally {
+      blocked.engine.destroy()
+    }
+
+    const config = combatConfig(BOW, null, 'guard', 1)
+    config.stamina.regenPerSecond = 0
+    const { engine, access } = startCombat(config)
+    try {
+      access.performAttack(resolution('left', 'tap'))
+      access.performAttack(resolution('left', 'doubleTapHold', 700))
+      expect(access.projectiles.map(projectile => projectile.attack?.behavior)).toEqual([
+        'bowShot',
+        'bowDoubleShot',
+      ])
+      expect(access.bowChannels.get('left')?.behavior).toBe('bowRapidFire')
+
+      access.updateBowChannels(119)
+      expect(access.projectiles).toHaveLength(2)
+      access.updateBowChannels(1)
+      expect(access.projectiles).toHaveLength(3)
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('starts and sustains Чреда on the Mylorik press continuation, then refunds a blocked morph', () => {
+    const config = combatConfig(BOW, null, 'guard', 1)
+    config.stamina.regenPerSecond = 0
+    const { engine, access } = startCombat(config)
+    engine.setControlScheme('mylorik')
+
+    try {
+      access.mylorikControls.pressStrike('right', 0, 'gamepad')
+      expect(access.projectiles[0]?.attack?.behavior).toBe('bowShot')
+      access.mylorikControls.pressTechnique('right', 100, 'gamepad')
+      access.elapsedMs = 750
+      access.mylorikControls.pressStrike('right', 750, 'gamepad')
+      expect(access.projectiles[1]?.attack?.behavior).toBe('bowDoubleShot')
+      expect(access.bowChannels.get('left')?.behavior).toBe('bowRapidFire')
+
+      access.frameNowMs = 800
+      access.update(0.05, 50)
+      expect(access.bowChannels.get('left')?.elapsedMs).toBeGreaterThan(0)
+      access.mylorikControls.releaseTechnique('right', 900, 'gamepad')
+      expect(access.projectiles).toHaveLength(3)
+      access.frameNowMs = 950
+      access.update(0.05, 50)
+      expect(access.bowChannels.has('left')).toBe(false)
+    } finally {
+      engine.destroy()
+    }
+
+    const blocked = startCombat(config)
+    blocked.engine.setControlScheme('mylorik')
+    try {
+      const maximum = blocked.access.player.stats.maxStamina
+      blocked.access.mylorikControls.pressTechnique('right', 0, 'gamepad')
+      blocked.access.frameNowMs = 60
+      blocked.access.update(0.06, 60)
+      expect(blocked.access.player.stamina).toBeLessThan(maximum)
+      blocked.access.mylorikControls.releaseTechnique('right', 100, 'gamepad')
+      expect(blocked.access.player.stamina).toBe(maximum)
+      expect(blocked.access.bowDrawDebits.left.active).toBe(false)
+    } finally {
+      blocked.engine.destroy()
+    }
+  })
+
+  it('refunds a paid Mylorik Натяг immediately instead of buffering it past input expiry', () => {
+    const config = combatConfig(BOW, null, 'guard', 1)
+    config.stamina.regenPerSecond = 0
+    config.stamina.outOfCombatRegenPerSecond = 0
+    const { engine, access } = startCombat(config)
+    engine.setControlScheme('mylorik')
+
+    try {
+      const maximum = access.player.stats.maxStamina
+      access.cooldownEnds.set('left:hold', access.elapsedMs + 100)
+      access.mylorikControls.pressTechnique('right', 0, 'gamepad')
+      access.frameNowMs = 700
+      access.update(0.7, 700)
+      expect(access.bowDrawDebits.left.spent).toBeCloseTo(28, 5)
+
+      access.mylorikControls.releaseTechnique('right', 700, 'gamepad')
+
+      expect(access.projectiles).toHaveLength(0)
+      expect(access.player.stamina).toBe(maximum)
+      expect(access.bowDrawDebits.left.active).toBe(false)
+      expect(access.mylorikControls.snapshot('right', 900).buffered).toBe(false)
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('retroactively settles Обстрел when its whole gate and arrow interval cross between frames', () => {
+    const config = combatConfig(BOW, null, 'guard', 1)
+    config.stamina.regenPerSecond = 0
+    config.stamina.outOfCombatRegenPerSecond = 0
+    const { engine, access } = startCombat(config)
+    let now = 30_000
+    vi.spyOn(performance, 'now').mockImplementation(() => now)
+
+    try {
+      const rain = weapon(config, BOW).secondaryAttacks!.hold
+      const intervalMs = rain.tuning!.arrowIntervalMs
+      const perMs = rain.tuning!.staminaPerTick / rain.tuning!.staminaTickMs
+      const maximum = access.player.stats.maxStamina
+      engine.press('right')
+      now += config.input.holdMs + intervalMs
+      engine.release('right')
+
+      expect(access.bowChannels.has('right')).toBe(false)
+      expect(access.fallingArrows).toHaveLength(1)
+      expect(access.player.stamina).toBeCloseTo(maximum - intervalMs * perMs, 5)
+      expect(access.cooldownEnds.get('right:hold')).toBeGreaterThan(access.elapsedMs)
+
+      access.frameNowMs = now + 1000
+      access.update(0.05, 50)
+      expect(access.bowChannels.has('right')).toBe(false)
+      expect(access.fallingArrows).toHaveLength(1)
+    } finally {
+      engine.destroy()
+      vi.restoreAllMocks()
+    }
+  })
+
+  it('settles and closes a between-frame Mylorik Обстрел on the physical release edge', () => {
+    const config = combatConfig(BOW, null, 'guard', 1)
+    config.stamina.regenPerSecond = 0
+    config.stamina.outOfCombatRegenPerSecond = 0
+    const { engine, access } = startCombat(config)
+    engine.setControlScheme('mylorik')
+
+    try {
+      const rain = weapon(config, BOW).secondaryAttacks!.hold
+      const intervalMs = rain.tuning!.arrowIntervalMs
+      const maximum = access.player.stats.maxStamina
+      access.mylorikControls.pressTechnique('left', 0, 'gamepad')
+      access.mylorikControls.releaseTechnique(
+        'left',
+        config.input.holdMs + intervalMs,
+        'gamepad',
+      )
+
+      expect(access.bowChannels.has('right')).toBe(false)
+      expect(access.fallingArrows).toHaveLength(1)
+      expect(access.player.stamina).toBeCloseTo(
+        maximum - intervalMs * rain.tuning!.staminaPerTick / rain.tuning!.staminaTickMs,
+        5,
+      )
+
+      access.frameNowMs = config.input.holdMs + intervalMs + 1000
+      access.update(0.05, 50)
+      expect(access.bowChannels.has('right')).toBe(false)
+      expect(access.fallingArrows).toHaveLength(1)
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('keeps DeepList Огонь reachable through the tap immediately following released Обстрел', () => {
+    const config = combatConfig(BOW, null, 'guard', 1)
+    const { engine, access } = startCombat(config)
+    let now = 35_000
+    vi.spyOn(performance, 'now').mockImplementation(() => now)
+
+    try {
+      access.embeddedArrows = [{
+        id: 77,
+        position: {
+          x: access.player.position.x + 180,
+          y: access.player.position.y,
+        },
+        direction: { x: 1, y: 0 },
+        attachment: 'floor',
+        enemyId: null,
+        enemyOffset: null,
+        color: '#d5c277',
+        chemical: false,
+        exploded: false,
+        embeddedAtMs: 0,
+        nextChemicalTickAtMs: Number.POSITIVE_INFINITY,
+      }]
+
+      engine.press('right')
+      now += config.input.holdMs + 145
+      engine.release('right')
+      expect(access.bowChannels.has('right')).toBe(false)
+
+      now += 50
+      engine.press('right')
+      now += 30
+      engine.release('right')
+
+      expect(access.embeddedArrows[0]?.exploded).toBe(true)
+      expect(access.cooldownEnds.get('right:holdThenDoubleTap')).toBeGreaterThan(
+        access.elapsedMs,
+      )
+    } finally {
+      engine.destroy()
+      vi.restoreAllMocks()
+    }
+  })
+
+  it('cannot restart a capped Обстрел and keeps Огонь reachable after release', () => {
+    const config = combatConfig(BOW, null, 'guard', 1)
+    const rain = weapon(config, BOW).secondaryAttacks!.hold
+    rain.tuning!.staminaPerTick = 1
+    config.stamina.regenPerSecond = 0
+    config.stamina.outOfCombatRegenPerSecond = 0
+    const { engine, access } = startCombat(config)
+    let now = 40_000
+    vi.spyOn(performance, 'now').mockImplementation(() => now)
+
+    try {
+      engine.press('right')
+      now += config.input.holdMs
+      access.frameNowMs = now
+      access.update(0.05, 50)
+
+      now += rain.tuning!.channelMaxMs
+      access.elapsedMs += rain.tuning!.channelMaxMs
+      access.frameNowMs = now
+      access.update(0.05, 50)
+      expect(access.bowChannels.has('right')).toBe(false)
+      const cappedArrowCount = access.fallingArrows.length
+      expect(cappedArrowCount).toBe(Math.floor(
+        rain.tuning!.channelMaxMs / rain.tuning!.arrowIntervalMs,
+      ))
+
+      access.player.stamina = access.player.stats.maxStamina
+      now += rain.cooldownMs + 1
+      access.elapsedMs += rain.cooldownMs + 1
+      access.frameNowMs = now
+      access.update(0.05, 50)
+
+      expect(access.bowChannels.has('right')).toBe(false)
+      expect(access.fallingArrows).toHaveLength(cappedArrowCount)
+
+      access.embeddedArrows = [{
+        id: 78,
+        position: {
+          x: access.player.position.x + 180,
+          y: access.player.position.y,
+        },
+        direction: { x: 1, y: 0 },
+        attachment: 'floor',
+        enemyId: null,
+        enemyOffset: null,
+        color: '#d5c277',
+        chemical: false,
+        exploded: false,
+        embeddedAtMs: 0,
+        nextChemicalTickAtMs: Number.POSITIVE_INFINITY,
+      }]
+      engine.release('right')
+      now += 50
+      engine.press('right')
+      expect(access.embeddedArrows[0]?.exploded).toBe(true)
+      now += 30
+      engine.release('right')
+
+      expect(access.cooldownEnds.get('right:holdThenDoubleTap')).toBeGreaterThan(
+        access.elapsedMs,
+      )
+    } finally {
+      engine.destroy()
+      vi.restoreAllMocks()
+    }
+  })
+
+  it('lets Уворот escape Чреда and keeps the extended Прыжок inside its i-frames', () => {
+    const { engine, access } = startCombat(combatConfig(BOW, null, 'guard', 1))
+
+    try {
+      access.performAttack(resolution('left', 'tap'))
+      access.performAttack(resolution('left', 'doubleTapHold', 700))
+      expect(access.bowChannels.has('left')).toBe(true)
+
+      access.performAttack(resolution('right', 'tap'))
+      expect(access.activeDash?.attack.behavior).toBe('bowDodge')
+      access.activeDash!.elapsedMs = 90
+      const dodgeLift = access.bowDashLiftRadii(access.activeDash!)
+      expect(dodgeLift).toBeCloseTo(0.38, 5)
+      access.performAttack(resolution('right', 'doubleTap'))
+      expect(access.activeDash?.attack.behavior).toBe('bowJump')
+      expect(access.bowDashLiftRadii(access.activeDash!)).toBeCloseTo(dodgeLift, 5)
+      access.activeDash!.elapsedMs = 260
+      expect(access.bowDashLiftRadii(access.activeDash!)).toBeCloseTo(1.15, 5)
+      const remainingFlightMs = access.activeDash!.remainingDistance
+        / access.activeDash!.speed * 1000
+      expect(remainingFlightMs).toBeLessThanOrEqual(access.player.invulnerableMs)
+      expect(access.bowResponseWindows.right).not.toBeNull()
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('consumes an early Ответ attempt but fires a golden arrow from the landing position', () => {
+    const early = startCombat(combatConfig(BOW, null, 'guard', 1))
+    try {
+      early.access.performAttack(resolution('right', 'tap'))
+      early.access.performAttack(resolution('right', 'doubleTap'))
+      const stamina = early.access.player.stamina
+      early.access.elapsedMs += 400
+      early.access.performAttack(resolution('right', 'doubleTapHold', 400))
+      expect(early.access.bowResponseWindows.right).toBeNull()
+      expect(early.access.player.stamina).toBe(stamina)
+      expect(early.access.cooldownEnds.has('right:doubleTapHold')).toBe(false)
+      expect(early.access.delayedAttacks).toHaveLength(0)
+    } finally {
+      early.engine.destroy()
+    }
+
+    const golden = startCombat(combatConfig(BOW, null, 'guard', 1))
+    try {
+      for (const enemy of golden.access.enemies) enemy.position.y += 250
+      golden.access.performAttack(resolution('right', 'tap'))
+      golden.access.performAttack(resolution('right', 'doubleTap'))
+      const jumpStart = { ...golden.access.player.position }
+      golden.access.elapsedMs += 500
+      golden.access.performAttack(resolution('right', 'doubleTapHold', 500))
+      expect(golden.access.delayedAttacks).toHaveLength(1)
+      golden.access.pointerAim = { x: 0, y: 1 }
+      golden.access.player.aim = { x: 0, y: 1 }
+
+      const invulnerabilityBeforeLanding = golden.access.player.invulnerableMs
+      golden.access.updatePlayer(0.6)
+      golden.access.flushBowLandingAttacks()
+      expect(golden.access.activeDash).toBeNull()
+      expect(golden.access.delayedAttacks).toHaveLength(0)
+      const arrow = golden.access.projectiles[0]!
+      expect(arrow.attack?.name).toBe('Ответ · золотой Залп')
+      expect(arrow.position.x).toBeGreaterThan(jumpStart.x + 100)
+      expect(arrow.velocity.x).toBeCloseTo(0, 5)
+      expect(arrow.velocity.y).toBeGreaterThan(0)
+      expect(golden.access.player.invulnerableMs).toBe(invulnerabilityBeforeLanding)
+    } finally {
+      golden.engine.destroy()
+    }
+  })
+
+  it('reaches the golden Ответ window from the same Mylorik press that starts Прыжок', () => {
+    const { engine, access } = startCombat(combatConfig(BOW, null, 'guard', 1))
+    engine.setControlScheme('mylorik')
+
+    try {
+      // Physical left owns the runtime right/support set.
+      access.mylorikControls.pressStrike('left', 0, 'gamepad')
+      expect(access.activeDash?.attack.behavior).toBe('bowDodge')
+      access.mylorikControls.pressTechnique('left', 10, 'gamepad')
+      expect(access.activeDash?.attack.behavior).toBe('bowJump')
+      expect(access.bowResponseWindows.right?.startedAtInputMs).toBe(10)
+
+      access.frameNowMs = 310
+      access.update(0.3, 300)
+      expect(access.bowChannels.has('right')).toBe(false)
+
+      access.mylorikControls.releaseTechnique('left', 510, 'gamepad')
+      expect(access.delayedAttacks).toHaveLength(1)
+      expect(access.delayedAttacks[0]?.attack.name).toBe('Ответ · золотой Залп')
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('keeps very late Ответ as Шот and clears an uncommitted window on input cleanup', () => {
+    const late = startCombat(combatConfig(BOW, null, 'guard', 1))
+    try {
+      late.access.performAttack(resolution('right', 'tap'))
+      late.access.performAttack(resolution('right', 'doubleTap'))
+      late.access.elapsedMs = 3000
+      late.access.performAttack(resolution('right', 'doubleTapHold', 3000))
+
+      expect(late.access.bowResponseWindows.right).toBeNull()
+      expect(late.access.delayedAttacks[0]?.attack.name).toBe('Ответ · Шот')
+    } finally {
+      late.engine.destroy()
+    }
+
+    const canceled = startCombat(combatConfig(BOW, null, 'guard', 1))
+    try {
+      canceled.access.performAttack(resolution('right', 'tap'))
+      canceled.access.performAttack(resolution('right', 'doubleTap'))
+      expect(canceled.access.bowResponseWindows.right).not.toBeNull()
+
+      canceled.engine.setPaused(true)
+      canceled.engine.setPaused(false)
+      expect(canceled.access.bowResponseWindows.right).toBeNull()
+
+      canceled.access.updatePlayer(0.6)
+      canceled.access.elapsedMs = 1000
+      canceled.access.performAttack(resolution('right', 'hold', 1000))
+      expect(canceled.access.bowChannels.get('right')?.behavior).toBe('bowRain')
+    } finally {
+      canceled.engine.destroy()
+    }
+  })
+
+  it('refunds a semantic golden draw before paying and spawning Множественный залп', () => {
+    const { engine, access } = startCombat(combatConfig(BOW, null, 'guard', 1))
+
+    try {
+      const maximum = access.player.stats.maxStamina
+      access.player.aim = { x: 0, y: 1 }
+      access.player.stamina = maximum - 28
+      access.bowDrawDebits.left = {
+        active: true,
+        accruedMs: 700,
+        spent: 28,
+        exhausted: false,
+      }
+      access.performAttack(resolution('left', 'holdThenDoubleTap', 700, 700))
+
+      expect(access.projectiles).toHaveLength(8)
+      expect(access.player.stamina).toBeCloseTo(maximum - 14, 5)
+      expect(access.bowDrawDebits.left.active).toBe(false)
+      expect(access.cooldownEnds.get('left:hold')).toBe(access.elapsedMs)
+      expect(access.bowShotPresentation.direction).toEqual({ x: 0, y: 1 })
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('does not debit the same Mylorik Натяг again after its golden scatter continuation', () => {
+    const config = combatConfig(BOW, null, 'guard', 1)
+    config.stamina.regenPerSecond = 0
+    config.stamina.outOfCombatRegenPerSecond = 0
+    const { engine, access } = startCombat(config)
+    engine.setControlScheme('mylorik')
+
+    try {
+      const maximum = access.player.stats.maxStamina
+      access.mylorikControls.pressTechnique('right', 0, 'gamepad')
+      access.frameNowMs = 700
+      access.update(0.7, 700)
+      expect(access.bowDrawDebits.left.spent).toBeCloseTo(28, 5)
+
+      access.mylorikControls.pressMobility('right', 700, 'gamepad')
+      expect(access.projectiles).toHaveLength(8)
+      expect(access.player.stamina).toBeCloseTo(maximum - 14, 5)
+      expect(access.bowDrawDebits.left.active).toBe(false)
+
+      // The physical technique control is still down in this frame. Its old 700 ms must not
+      // resurrect the draw debit after the continuation consumed it.
+      access.frameNowMs = 716
+      access.update(0.016, 16)
+      expect(access.player.stamina).toBeCloseTo(maximum - 14, 5)
+      expect(access.bowDrawDebits.left.active).toBe(false)
+      expect(access.bowDrawInputActive(
+        'left',
+        access.controlInputSnapshot('left', 716),
+      )).toBe(false)
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('updates the Обстрел zone every frame and makes chemical ignition unavoidable', () => {
+    const config = combatConfig(BOW, null, 'guard', 1)
+    config.loadout!.primaryAugment = 'chemical'
+    const { engine, access } = startCombat(config)
+
+    try {
+      access.pointerWorldTarget = { x: 300, y: 250 }
+      access.performAttack(resolution('right', 'hold', 700))
+      access.updateBowChannels(10)
+      const firstTarget = { ...access.bowRainTarget! }
+      access.pointerWorldTarget = { x: 470, y: 340 }
+      access.updateBowChannels(10)
+      expect(access.bowRainTarget).not.toEqual(firstTarget)
+      access.updateBowChannels(135)
+      expect(access.fallingArrows).toHaveLength(1)
+      access.updateFallingArrows(520)
+      expect(access.embeddedArrows).toEqual([
+        expect.objectContaining({
+          attachment: 'floor',
+          planted: true,
+        }),
+      ])
+
+      access.embeddedArrows = [1, 2].map(id => ({
+        id,
+        position: { ...access.player.position },
+        direction: { x: 1, y: 0 },
+        attachment: 'floor' as const,
+        enemyId: null,
+        enemyOffset: null,
+        color: '#8cff5d',
+        chemical: true,
+        exploded: false,
+        embeddedAtMs: 0,
+        nextChemicalTickAtMs: Number.POSITIVE_INFINITY,
+      }))
+      access.player.invulnerableMs = 1000
+      const hp = access.player.hp
+      const perBlast = Math.max(
+        config.combat.minimumPlayerDamageTaken,
+        34 - access.player.stats.armor,
+      )
+      access.performAttack(resolution('right', 'holdThenDoubleTap', 700, 700))
+
+      expect(access.player.hp).toBeCloseTo(hp - perBlast * 2, 5)
+      expect(access.embeddedArrows).toEqual([
+        expect.objectContaining({ exploded: true, chemical: false }),
+        expect.objectContaining({ exploded: true, chemical: false }),
+      ])
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('keeps chemical Огонь self-damage active in a cleared interaction room', () => {
+    const config = combatConfig(BOW, null, 'guard', 1)
+    config.loadout!.primaryAugment = 'chemical'
+    const combatHall = config.rooms.find(room => room.id === 'combat-hall')!
+    const interactionRoom = config.rooms.find(room => room.id === 'chest-gallery')!
+    combatHall.interaction = structuredClone(interactionRoom.interaction)
+    const { engine, access } = startCombat(config)
+
+    try {
+      access.embeddedArrows = [{
+        id: 79,
+        position: { ...access.player.position },
+        direction: { x: 1, y: 0 },
+        attachment: 'floor',
+        enemyId: null,
+        enemyOffset: null,
+        color: '#8cff5d',
+        chemical: true,
+        exploded: false,
+        embeddedAtMs: 0,
+        nextChemicalTickAtMs: Number.POSITIVE_INFINITY,
+      }]
+      access.enemies.forEach((enemy) => { enemy.state = 'dead' })
+      access.completeRoom()
+      expect(access.phase).toBe('planning')
+      expect(access.embeddedArrows).toHaveLength(1)
+
+      access.performAttack(resolution('right', 'hold', 700))
+      const hp = access.player.hp
+      const expectedDamage = Math.max(
+        config.combat.minimumPlayerDamageTaken,
+        34 - access.player.stats.armor,
+      )
+      access.performAttack(resolution('right', 'holdThenDoubleTap', 700, 700))
+
+      expect(access.player.hp).toBeCloseTo(hp - expectedDamage, 5)
+      expect(access.embeddedArrows[0]).toMatchObject({
+        exploded: true,
+        chemical: false,
+      })
+    } finally {
+      engine.destroy()
+    }
+  })
+
+  it('settles the last flying arrow after the final room enters won state', () => {
+    const { engine, access } = startCombat(combatConfig(BOW, null, 'guard', 1))
+
+    try {
+      for (const enemy of access.enemies) enemy.position.y += 260
+      access.performAttack(resolution('left', 'tap'))
+      access.phase = 'won'
+      access.updateWonBowArrows(1, 1000)
+      expect(access.projectiles).toHaveLength(0)
+      expect(access.embeddedArrows).toHaveLength(1)
     } finally {
       engine.destroy()
     }

@@ -59,6 +59,8 @@ public static class Homelander
         public bool StanEdgarResolved { get; set; }
         public bool SevenPointsHaveBeenFrozen { get; set; }
         public int LastRighteousnessRound { get; set; }
+        public bool WasLeaderAtRighteousnessStart { get; set; }
+        public int LastResolvedWinRound { get; set; }
         public int LastVoughtRound { get; set; }
         public List<int> DropPhrasePool { get; set; } = new();
         public List<int> RevealPhrasePool { get; set; } = new();
@@ -201,13 +203,35 @@ public static class Homelander
             .FirstOrDefault();
         if (leader == null) return;
 
-        if (leader.GetPlayerId() == homelander.GetPlayerId())
-        {
-            homelander.GameCharacter.AddMoral(LeaderMoral, Righteousness);
-            return;
-        }
+        state.WasLeaderAtRighteousnessStart =
+            leader.GetPlayerId() == homelander.GetPlayerId();
+        if (state.WasLeaderAtRighteousnessStart) return;
 
         AddRage(homelander, leader, game, LeaderRage, leaderCharge: true);
+    }
+
+    public static void SettleRighteousnessMoral(GameClass game)
+    {
+        var homelander = Find(game);
+        if (!HasPassive(homelander, Righteousness)
+            || homelander.Passives.IsDead)
+            return;
+
+        var state = homelander.Passives.Homelander;
+        if (state.LastRighteousnessRound != game.RoundNo
+            || !state.WasLeaderAtRighteousnessStart)
+            return;
+
+        if (state.LastResolvedWinRound == game.RoundNo)
+            homelander.GameCharacter.AddMoral(LeaderMoral, Righteousness);
+    }
+
+    public static void RecordResolvedWin(
+        GamePlayerBridgeClass winner,
+        GameClass game)
+    {
+        if (!Is(winner) || game == null) return;
+        winner.Passives.Homelander.LastResolvedWinRound = game.RoundNo;
     }
 
     public static void RecordEnemyVictory(
@@ -217,6 +241,8 @@ public static class Homelander
     {
         if (!HasPassive(homelander, Righteousness)
             || enemy == null
+            || (homelander.Passives.Homelander.LastRighteousnessRound == game.RoundNo
+                && homelander.Passives.Homelander.WasLeaderAtRighteousnessStart)
             || (enemy.Status.IsWonThisCalculation != homelander.GetPlayerId()
                 && homelander.Status.IsLostThisCalculation != enemy.GetPlayerId()))
             return;

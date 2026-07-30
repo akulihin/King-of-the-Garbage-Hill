@@ -346,12 +346,6 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic
                         playerIamAttacking.Status.AddFightingData($"**WhoIsTooSTONK: Me**");
                     }
 
-                    if (isLog && playerIamAttacking.DiscordId == 238337696316129280)
-                    {
-                        playerIamAttacking.Status.AddInGamePersonalLogs(
-                            $"DEBUG: You tooSTONK {(int)Math.Ceiling(skillDifference)} " +
-                            $"(vs {player.DiscordUsername}, {UnknownBug.PublicName(player)}) \n");
-                    }
                     r.IsTooStronkEnemy = true;
 
                     tooStronkAdd = weighingMachine / 2;

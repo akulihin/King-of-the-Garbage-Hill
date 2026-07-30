@@ -339,7 +339,14 @@ const originalAttributes = new WeakMap<Element, OriginalAttributes>()
 const renderedAttributes = new WeakMap<Element, Map<string, string>>()
 const localizedAttributes = ['title', 'placeholder', 'aria-label', 'alt']
 
+function isDomLocalizationDisabled(node: Node): boolean {
+  const element = node instanceof Element ? node : node.parentElement
+  return element?.closest('[translate="no"]') != null
+}
+
 function localizeTextNode(node: Text): void {
+  if (isDomLocalizationDisabled(node)) return
+
   const rendered = renderedText.get(node)
   if (rendered !== node.data || !originalText.has(node))
     originalText.set(node, node.data)
@@ -354,6 +361,8 @@ function localizeTextNode(node: Text): void {
 }
 
 function localizeElementAttributes(element: Element): void {
+  if (isDomLocalizationDisabled(element)) return
+
   let originals = originalAttributes.get(element)
   let rendered = renderedAttributes.get(element)
   if (!originals) {

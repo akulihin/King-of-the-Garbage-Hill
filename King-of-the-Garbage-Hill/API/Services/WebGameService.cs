@@ -954,6 +954,7 @@ public class WebGameService
 
         player.Status.IsBlock = true;
         player.Status.IsReady = true;
+        GoblinSwarm.RecordZigguratBuildIntent(player);
         var text = "Вы поставили блок\n";
         player.Status.AddInGamePersonalLogs(text);
         player.Status.ChangeMindWhat = text;
@@ -1089,7 +1090,7 @@ public class WebGameService
         if (ScamRat.Is(player))
             return ScamRat.TryPurchaseStat(player, game, statIndex)
                 ? (true, null)
-                : (false, "Stat is maxed or no Sharing is CARRYING points are available");
+                : (false, "Stat is maxed, or a Carry point / bonus point is unavailable");
         if (player.Status.LvlUpPoints <= 0) return (false, "No level-up points available");
 
         // Use the existing HandleLvlUp with botChoice parameter
@@ -1307,7 +1308,7 @@ public class WebGameService
         if (target.Passives.IsDead)
             return Task.FromResult((false, "Target is already dead"));
         if (dn.FailedTargets.Contains(targetPlayerId))
-            return Task.FromResult((false, "Already failed for this target"));
+            return Task.FromResult((false, "This target has already been used in the Death Note"));
 
         dn.CurrentRoundTarget = targetPlayerId;
         dn.CurrentRoundName = submittedName;

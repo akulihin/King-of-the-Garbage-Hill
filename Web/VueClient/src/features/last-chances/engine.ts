@@ -16,6 +16,14 @@ import {
 import { resolveLastChancesLoadout } from './equipment'
 import { LastChancesGestureRecognizer } from './gestures'
 import {
+  lastChancesCenteredFanOffsets,
+  reflectLastChancesVector,
+  resolveLastChancesBowCharge,
+  resolveLastChancesBowCadencePose,
+  sweepLastChancesCircleAgainstArena,
+  sweepLastChancesCircleAgainstCircle,
+} from './bow-runtime'
+import {
   DualSenseControlRecognizer,
   MylorikControlRecognizer,
   physicalClusterToRuntimeHand,
@@ -186,6 +194,8 @@ interface RuntimeEnemy {
   id: string
   definition: LastChancesEnemyDefinition
   position: LastChancesVector
+  /** Actual last-frame world velocity; stance impact math must not infer motion from facing. */
+  velocity: LastChancesVector
   facing: LastChancesVector
   hp: number
   state: LastChancesEnemyState
@@ -370,6 +380,80 @@ interface RuntimeProjectile {
   gesture?: LastChancesGesture
   carriedIds?: Set<string>
   storedDot?: LastChancesStoredDot | null
+  /** Longbow arrows survive impact; scatter arrows may reflect from one surface first. */
+  persistentArrow?: boolean
+  chemicalArrow?: boolean
+  ricochetsRemaining?: number
+}
+
+interface RuntimeEmbeddedArrow {
+  id: number
+  position: LastChancesVector
+  direction: LastChancesVector
+  attachment: 'enemy' | 'obstacle' | 'boundary' | 'floor'
+  enemyId: string | null
+  /** Offset from a living enemy's centre, kept in world coordinates because enemies do not rotate. */
+  enemyOffset: LastChancesVector | null
+  color: string
+  chemical: boolean
+  /** Ignition chars the arrow but never removes it. */
+  exploded: boolean
+  embeddedAtMs: number
+  nextChemicalTickAtMs: number
+  /** Rain arrows keep their steep screen-space planting pose after the tip reaches the floor. */
+  planted?: boolean
+}
+
+interface RuntimeFallingArrow {
+  id: number
+  target: LastChancesVector
+  direction: LastChancesVector
+  remainingMs: number
+  totalMs: number
+  attack: LastChancesAttackDefinition
+  weaponId: string
+  hand: LastChancesHand
+  gesture: LastChancesGesture
+  chemical: boolean
+}
+
+interface RuntimeBowChannel {
+  hand: LastChancesHand
+  weaponId: string
+  gesture: 'doubleTapHold' | 'hold'
+  behavior: 'bowRapidFire' | 'bowRain'
+  attack: LastChancesAttackDefinition
+  elapsedMs: number
+  shotAccumulatorMs: number
+  staminaAccumulatorMs: number
+  /** DOM/gamepad input clock through which this channel has already been charged and emitted. */
+  lastSettledAtInputMs: number
+}
+
+interface RuntimeBowDrawDebit {
+  active: boolean
+  accruedMs: number
+  spent: number
+  exhausted: boolean
+}
+
+interface RuntimeBowShotPresentation {
+  atMs: number
+  direction: LastChancesVector
+  goldenUntilMs: number
+}
+
+interface RuntimeReleasedBowDraw {
+  hand: LastChancesHand
+  heldMs: number
+  direction: LastChancesVector
+  golden: boolean
+  releasedAtMs: number
+}
+
+interface RuntimeBowResponseWindow {
+  weaponId: string
+  startedAtInputMs: number
 }
 
 interface RuntimeDash {
@@ -400,6 +484,8 @@ interface RuntimeDash {
   ram?: RuntimeBreakthrough
   /** Five authored phases of the spear-v2 Olympic pole vault. */
   poleVault?: RuntimePoleVault
+  /** Airborne height inherited when «Прыжок» extends a live «Уворот». */
+  bowLiftStartRadii?: number
 }
 
 interface RuntimePoleVault {
@@ -452,6 +538,8 @@ interface RuntimeActiveArea {
   channelStaminaAccumulatorMs: number
   /** Current tip speed created by turning the held spear, in world units per second. */
   stanceCutSpeed: number
+  /** Actual world velocity of the held spear tip, including running and cursor motion. */
+  stanceTipVelocity: LastChancesVector
 }
 
 interface RuntimeEffect {
@@ -497,6 +585,8 @@ interface RuntimeDelayedAttack {
   context: AttackExecutionContext
   targetPosition?: LastChancesVector
   targetEnemyId?: string | null
+  /** «Ответ» must loose only after its owning bow jump has actually landed. */
+  waitForBowDashWeaponId?: string
 }
 
 interface RuntimeSwordAdvance {
@@ -638,6 +728,26 @@ function isSpearV2Secondary(weapon: LastChancesResolvedWeapon | undefined | null
   return weapon?.id === 'twohand-spear-v2'
     && weapon.attacks.tap.behavior === 'parry'
     && weapon.attacks.hold.behavior === 'spearStance'
+}
+
+function isLongbowPrimary(weapon: LastChancesResolvedWeapon | undefined | null): boolean {
+  return weapon?.trait === 'longbowPersistence'
+    && weapon.attacks.tap.behavior === 'bowShot'
+}
+
+function isLongbowSecondary(weapon: LastChancesResolvedWeapon | undefined | null): boolean {
+  return weapon?.trait === 'longbowPersistence'
+    && weapon.attacks.tap.behavior === 'bowDodge'
+}
+
+function isLongbowArrowBehavior(behavior: LastChancesAttackBehavior | undefined): boolean {
+  return behavior === 'bowShot'
+    || behavior === 'bowDoubleShot'
+    || behavior === 'bowRapidFire'
+    || behavior === 'bowDraw'
+    || behavior === 'bowScatter'
+    || behavior === 'bowRiposte'
+    || behavior === 'bowRain'
 }
 
 function clamp(value: number, minimum: number, maximum: number): number {
@@ -930,6 +1040,74 @@ export class LastChancesEngine {
     right: createHandMoveQuestState(),
   }
   private projectiles: RuntimeProjectile[] = []
+  /** Arrow decals belong to the room, not to the short-lived projectile/effect pools. */
+  private embeddedArrows: RuntimeEmbeddedArrow[] = []
+  private fallingArrows: RuntimeFallingArrow[] = []
+  private readonly bowChannels = new Map<LastChancesHand, RuntimeBowChannel>()
+  /** A capped/exhausted channel cannot restart until its controlling input is released. */
+  private readonly bowChannelConsumedUntilRelease: Record<LastChancesHand, boolean> = {
+    left: false,
+    right: false,
+  }
+  /** Release edge that must not be allowed to reopen a channel through its later classifier. */
+  private readonly bowChannelReleasedAtInputMs: Record<LastChancesHand, number> = {
+    left: Number.NEGATIVE_INFINITY,
+    right: Number.NEGATIVE_INFINITY,
+  }
+  private readonly bowDrawDebits: Record<LastChancesHand, RuntimeBowDrawDebit> = {
+    left: { active: false, accruedMs: 0, spent: 0, exhausted: false },
+    right: { active: false, accruedMs: 0, spent: 0, exhausted: false },
+  }
+  /**
+   * A semantic continuation can consume/refund Натяг while its physical controls are still
+   * reported as held for the rest of the frame. Keep that completed draw closed until release,
+   * otherwise the same historical hold time is charged a second time.
+   */
+  private readonly bowDrawConsumedUntilRelease: Record<LastChancesHand, boolean> = {
+    left: false,
+    right: false,
+  }
+  private readonly bowLastShotDirections: Record<LastChancesHand, LastChancesVector> = {
+    left: { x: 1, y: 0 },
+    right: { x: 1, y: 0 },
+  }
+  /** World-space destination of the first «Шот», so «Шот-шот» converges after any displacement. */
+  private readonly bowLastShotTargets: Record<LastChancesHand, LastChancesVector | null> = {
+    left: null,
+    right: null,
+  }
+  private readonly bowLastShotAtMs: Record<LastChancesHand, number> = {
+    left: Number.NEGATIVE_INFINITY,
+    right: Number.NEGATIVE_INFINITY,
+  }
+  private readonly bowLastShotWeaponIds: Record<LastChancesHand, string | null> = {
+    left: null,
+    right: null,
+  }
+  private readonly bowDoubleShotAtMs: Record<LastChancesHand, number> = {
+    left: Number.NEGATIVE_INFINITY,
+    right: Number.NEGATIVE_INFINITY,
+  }
+  private readonly bowDoubleShotWeaponIds: Record<LastChancesHand, string | null> = {
+    left: null,
+    right: null,
+  }
+  private readonly bowResponseWindows: Record<LastChancesHand, RuntimeBowResponseWindow | null> = {
+    left: null,
+    right: null,
+  }
+  /** DeepList releases a hold before classifying its following tap; keep «Огонь!» reachable. */
+  private readonly bowRainReleasedAtInputMs: Record<LastChancesHand, number> = {
+    left: Number.NEGATIVE_INFINITY,
+    right: Number.NEGATIVE_INFINITY,
+  }
+  private bowShotPresentation: RuntimeBowShotPresentation = {
+    atMs: Number.NEGATIVE_INFINITY,
+    direction: { x: 1, y: 0 },
+    goldenUntilMs: Number.NEGATIVE_INFINITY,
+  }
+  private releasedBowDraw: RuntimeReleasedBowDraw | null = null
+  private bowRainTarget: LastChancesVector | null = null
   private activeAreas: RuntimeActiveArea[] = []
   private effects: RuntimeEffect[] = []
   private traces: RuntimeColliderTrace[] = []
@@ -970,6 +1148,8 @@ export class LastChancesEngine {
   /** Keeps a centered right stick from handing aim back to an older pointer position. */
   private retainedGamepadAim: LastChancesVector | null = null
   private pointerAim: LastChancesVector = { x: 1, y: 0 }
+  /** Exact cursor position retained for the longbow's world-space rain target. */
+  private pointerWorldTarget: LastChancesVector | null = null
   private pointerClientX: number | null = null
   private pointerDeltaX = 0
   /** Reconciled from PointerEvent.buttons so chorded LMB/RMB edges remain independent. */
@@ -987,18 +1167,27 @@ export class LastChancesEngine {
     doubleTapExecuted: boolean
     unterhauExecuted: boolean
     breakthroughStarted: boolean
+    bowChannelStarted: boolean
+    bowFollowUpExecuted: boolean
+    bowDrawExecuted: boolean
   }> = {
     left: {
       tapExecuted: false,
       doubleTapExecuted: false,
       unterhauExecuted: false,
       breakthroughStarted: false,
+      bowChannelStarted: false,
+      bowFollowUpExecuted: false,
+      bowDrawExecuted: false,
     },
     right: {
       tapExecuted: false,
       doubleTapExecuted: false,
       unterhauExecuted: false,
       breakthroughStarted: false,
+      bowChannelStarted: false,
+      bowFollowUpExecuted: false,
+      bowDrawExecuted: false,
     },
   }
   private selectedNodeId: string | null = null
@@ -1067,6 +1256,7 @@ export class LastChancesEngine {
   private dpr = 1
   private frameNowMs = 0
   private spearImage: HTMLImageElement | null = null
+  private longbowImage: HTMLImageElement | null = null
   private knifeSpiderV2Image: HTMLImageElement | null = null
   private readonly resizeObserver: ResizeObserver | null
 
@@ -1091,6 +1281,12 @@ export class LastChancesEngine {
         if (!this.destroyed) this.render()
       }
       this.spearImage.src = '/99lc/twohand-spear.png'
+      this.longbowImage = new Image()
+      this.longbowImage.decoding = 'async'
+      this.longbowImage.onload = () => {
+        if (!this.destroyed) this.render()
+      }
+      this.longbowImage.src = '/99lc/longbow.png'
       this.knifeSpiderV2Image = new Image()
       this.knifeSpiderV2Image.decoding = 'async'
       this.knifeSpiderV2Image.onload = () => {
@@ -1159,8 +1355,10 @@ export class LastChancesEngine {
       this.handleLegacyGestureResolution(resolution)
     }, (hand) => {
       const weapon = this.weapons.get(hand)
-      if (!isSpearV2Primary(weapon)) return this.config.input.holdMs
-      return weapon.attacks.hold.charge?.bands[0]?.minMs ?? this.config.input.holdMs
+      if (isSpearV2Primary(weapon) || isLongbowPrimary(weapon)) {
+        return weapon.attacks.hold.charge?.bands[0]?.minMs ?? this.config.input.holdMs
+      }
+      return this.config.input.holdMs
     })
     this.mylorikControls = new MylorikControlRecognizer(
       this.config.input.mylorik,
@@ -1391,6 +1589,7 @@ export class LastChancesEngine {
     this.selectedInteractionChoiceId = null
     this.player.position = { ...node.arena.playerSpawn }
     this.player.aim = { ...this.pointerAim }
+    this.pointerWorldTarget = null
     this.clearCombatTransients()
     this.projectiles = []
     this.activeAreas = []
@@ -1485,6 +1684,7 @@ export class LastChancesEngine {
         id: enemy.id,
         definition,
         position: { ...enemy.position },
+        velocity: { x: 0, y: 0 },
         facing: { x: Math.cos(angle), y: Math.sin(angle) },
         hp: definition.maxHp,
         state: 'idle',
@@ -1736,32 +1936,74 @@ export class LastChancesEngine {
       this.movementVelocity = { x: 0, y: 0 }
     }
     const now = performance.now()
+    this.bowChannelReleasedAtInputMs[hand] = Number.NEGATIVE_INFINITY
+    this.bowChannelConsumedUntilRelease[hand] = false
     this.gestures.press(hand, now)
     const weapon = this.weapons.get(hand)
     // Spear-v2 support input is a real press-edge parry. The same provisional guard is
     // deliberately allowed to morph into the second-press shove/kick instead of waiting for
     // DeepList's tap classifier.
     if (isSpearV2Secondary(weapon)) this.beginProvisionalTapParry(hand)
+    const longbow = isLongbowPrimary(weapon) || isLongbowSecondary(weapon)
     const instant = weapon?.trait === 'swordRhythm' || isSpearV2Primary(weapon)
-    if (!instant) return
+    if (!instant && !longbow) return
     const input = this.gestures.snapshot(hand, now)
     const immediate = this.immediateHandInput[hand]
+    const releasedRainFollowUp = isLongbowSecondary(weapon)
+      && now >= this.bowRainReleasedAtInputMs[hand]
+      && now - this.bowRainReleasedAtInputMs[hand]
+        <= this.config.input.holdThenDoubleTapWindowMs + 120
+    if (releasedRainFollowUp) {
+      // A full two-second Rain outlives the generic recognizer's holdMaxMs and therefore has
+      // no pending `afterHoldTap` sequence. Consume its physical follow-up on the press edge;
+      // the matching release is swallowed below so it cannot turn into an accidental Dodge.
+      immediate.bowFollowUpExecuted = true
+      this.performAttack({
+        hand,
+        gesture: 'holdThenDoubleTap',
+        atMs: now,
+        heldMs: 0,
+        firstHoldMs: input.pendingChargeMs,
+      })
+      this.bowRainReleasedAtInputMs[hand] = Number.NEGATIVE_INFINITY
+      return
+    }
     if (input.sequence === 'first') {
-      immediate.tapExecuted = this.gestureReady(hand, 'tap')
+      if (isLongbowPrimary(weapon)) this.bowDrawConsumedUntilRelease[hand] = false
+      immediate.tapExecuted = false
       immediate.doubleTapExecuted = false
       immediate.unterhauExecuted = false
       immediate.breakthroughStarted = false
+      immediate.bowChannelStarted = false
+      immediate.bowFollowUpExecuted = false
+      immediate.bowDrawExecuted = false
+      if (isLongbowPrimary(weapon)) this.resetBowDrawDebit(hand)
+      // A bow cannot fire on the press edge: that would make every Натяг begin with an
+      // unintended Шот. Its short first release is committed below, while the second press
+      // remains instant so Шот-шот and Прыжок feel immediate.
+      if (longbow) return
+      immediate.tapExecuted = this.gestureReady(hand, 'tap')
       if (immediate.tapExecuted) {
         this.performAttack({ hand, gesture: 'tap', atMs: this.elapsedMs, heldMs: 0, firstHoldMs: 0 })
       }
       return
     }
     if (input.sequence === 'secondTap') {
-      immediate.doubleTapExecuted = this.gestureReady(hand, 'doubleTap')
+      immediate.doubleTapExecuted = (!longbow || immediate.tapExecuted)
+        && this.gestureReady(hand, 'doubleTap')
       immediate.unterhauExecuted = false
       immediate.breakthroughStarted = false
+      immediate.bowChannelStarted = false
+      immediate.bowFollowUpExecuted = false
+      immediate.bowDrawExecuted = false
       if (immediate.doubleTapExecuted) {
-        this.performAttack({ hand, gesture: 'doubleTap', atMs: this.elapsedMs, heldMs: 0, firstHoldMs: 0 })
+        this.performAttack({
+          hand,
+          gesture: 'doubleTap',
+          atMs: longbow ? now : this.elapsedMs,
+          heldMs: 0,
+          firstHoldMs: 0,
+        })
       }
     }
     // 'afterHoldTap' is deliberately left to the recognizer: «Акали» has to resolve on release
@@ -1772,6 +2014,80 @@ export class LastChancesEngine {
     if (this.destroyed) return
     const now = performance.now()
     const input = this.gestures.snapshot(hand, now)
+    const weapon = this.weapons.get(hand)
+    const immediate = this.immediateHandInput[hand]
+    if (isLongbowSecondary(weapon) && immediate.bowFollowUpExecuted) {
+      this.bowChannelConsumedUntilRelease[hand] = false
+      this.gestures.cancel(hand)
+      this.resetImmediateHandInput(hand)
+      return
+    }
+    if (this.canUseRoomActions() && !this.paused && input.pressed) {
+      const longbow = isLongbowPrimary(weapon) || isLongbowSecondary(weapon)
+      const bowHoldThresholdMs = isLongbowPrimary(weapon)
+        ? weapon.attacks.hold.charge?.bands[0]?.minMs ?? this.config.input.holdMs
+        : this.config.input.holdMs
+      if (longbow
+        && input.sequence === 'first'
+        && input.heldMs < bowHoldThresholdMs
+        && !immediate.tapExecuted) {
+        if (isLongbowPrimary(weapon)) {
+          this.accrueBowDrawDebit(hand, weapon.attacks.hold, input.heldMs)
+        }
+        immediate.tapExecuted = this.gestureReady(hand, 'tap')
+        if (immediate.tapExecuted) {
+          this.performAttack({
+            hand,
+            gesture: 'tap',
+            atMs: now,
+            heldMs: input.heldMs,
+            firstHoldMs: 0,
+          })
+        } else if (isLongbowPrimary(weapon)) {
+          this.consumeBowDrawDebit(hand, true)
+        }
+      }
+      if (isLongbowPrimary(weapon)
+        && input.sequence === 'first'
+        && input.heldMs >= bowHoldThresholdMs
+        && !immediate.bowDrawExecuted) {
+        immediate.bowDrawExecuted = this.gestureReady(hand, 'hold')
+        if (immediate.bowDrawExecuted) {
+          // Close the time between the last animation frame and this physical release before
+          // resolving power. A backgrounded tab therefore cannot gain unpaid draw strength.
+          this.accrueBowDrawDebit(hand, weapon.attacks.hold, input.heldMs)
+          this.performAttack({
+            hand,
+            gesture: 'hold',
+            atMs: now,
+            heldMs: input.heldMs,
+            firstHoldMs: 0,
+          })
+        } else {
+          // Tentative per-ms draw drain must not survive a release the cooldown/recovery refused.
+          this.consumeBowDrawDebit(hand, true)
+        }
+      }
+      if (isLongbowSecondary(weapon)
+        && input.sequence === 'secondTap'
+        && immediate.doubleTapExecuted
+        && !immediate.bowFollowUpExecuted) {
+        const response = weapon.attacks.doubleTapHold
+        const goldStartMs = tuningValue(response, 'goldStartMs', 470)
+        if (input.heldMs >= goldStartMs) {
+          immediate.bowFollowUpExecuted = this.gestureReady(hand, 'doubleTapHold')
+          if (immediate.bowFollowUpExecuted) {
+            this.performAttack({
+              hand,
+              gesture: 'doubleTapHold',
+              atMs: now,
+              heldMs: input.heldMs,
+              firstHoldMs: 0,
+            })
+          }
+        } else this.bowResponseWindows[hand] = null
+      }
+    }
     if (this.canUseRoomActions()
       && !this.paused
       && input.pressed
@@ -1779,6 +2095,13 @@ export class LastChancesEngine {
       && input.heldMs < this.config.input.holdMs
       && this.provisionalParry?.hand !== hand) {
       this.beginProvisionalTapParry(hand)
+    }
+    // Channels own locomotion through `bowChannels`, not a residual root timer. Remove them on
+    // the release edge so Чреда/Обстрел stop firing and return movement in this same input turn.
+    if (input.pressed && weapon?.trait === 'longbowPersistence') {
+      this.settleBowChannelRelease(hand, now, input.heldMs, input.sequence)
+    } else if (this.bowChannels.has(hand)) {
+      this.stopBowChannel(hand, true)
     }
     this.gestures.release(hand, now)
   }
@@ -1820,6 +2143,23 @@ export class LastChancesEngine {
         return
       }
     }
+    if (isLongbowPrimary(weapon) || isLongbowSecondary(weapon)) {
+      const alreadyRun = resolution.gesture === 'tap'
+        ? immediate.tapExecuted
+        : resolution.gesture === 'doubleTap'
+          ? immediate.doubleTapExecuted
+          : resolution.gesture === 'doubleTapHold'
+            ? immediate.bowChannelStarted
+              || immediate.bowFollowUpExecuted
+              || (isLongbowSecondary(weapon) && immediate.doubleTapExecuted)
+            : resolution.gesture === 'hold'
+              ? immediate.bowChannelStarted || immediate.bowDrawExecuted
+              : false
+      if (alreadyRun) {
+        this.resetImmediateHandInput(resolution.hand)
+        return
+      }
+    }
     this.resetImmediateHandInput(resolution.hand)
     this.performAttack(resolution)
   }
@@ -1830,6 +2170,9 @@ export class LastChancesEngine {
       doubleTapExecuted: false,
       unterhauExecuted: false,
       breakthroughStarted: false,
+      bowChannelStarted: false,
+      bowFollowUpExecuted: false,
+      bowDrawExecuted: false,
     }
   }
 
@@ -1861,6 +2204,7 @@ export class LastChancesEngine {
       y: (clientY - bounds.top) * (this.cssHeight / Math.max(1, bounds.height)),
     }
     const world = this.screenToWorld(canvasPoint, this.currentNode)
+    this.pointerWorldTarget = { ...world }
     this.pointerAim = normalize({
       x: world.x - this.player.position.x,
       y: world.y - this.player.position.y,
@@ -1889,6 +2233,7 @@ export class LastChancesEngine {
       this.elapsedMs += deltaMs
       if (this.phase === 'playing') this.update(deltaMs / 1000, deltaMs)
       else if (this.canExploreRoom()) this.updateClearedRoom(deltaMs / 1000, deltaMs)
+      else if (this.phase === 'won') this.updateWonBowArrows(deltaMs / 1000, deltaMs)
     }
     this.render()
     this.emitSnapshot(false)
@@ -1949,16 +2294,33 @@ export class LastChancesEngine {
       this.expirePendingUnterhau(state)
     }
     this.updateHeldWeaponMechanics(deltaMs)
+    this.updateBowHeldMechanics(deltaMs)
     this.updateSpiderKnifeWriggle()
     this.updateDualSenseTelegraphs()
     this.updateDelayedAttacks(deltaMs)
     this.updateDelayedRecoveries(deltaMs)
     this.updateSwordAdvance(deltaSeconds)
     this.updatePlayer(deltaSeconds)
+    this.flushBowLandingAttacks()
     this.updateTurrets(deltaSeconds, deltaMs)
     this.updateProjectiles(deltaSeconds, deltaMs)
+    this.updateFallingArrows(deltaMs)
     this.updateSwarmSpawner()
+    const enemyPositionsBeforeMovement = new Map(
+      this.enemies.map(enemy => [enemy.id, { ...enemy.position }]),
+    )
     this.updateEnemies(deltaSeconds, deltaMs)
+    for (const enemy of this.enemies) {
+      const previous = enemyPositionsBeforeMovement.get(enemy.id)
+      enemy.velocity = previous
+        ? {
+            x: (enemy.position.x - previous.x) / Math.max(EPSILON, deltaSeconds),
+            y: (enemy.position.y - previous.y) / Math.max(EPSILON, deltaSeconds),
+          }
+        : { x: 0, y: 0 }
+    }
+    this.updateEmbeddedArrows()
+    this.updateArrowChemicalPools()
     this.updateHoleStrikes()
     this.updateZoneAttacks()
     this.updateActiveAreas(deltaMs)
@@ -1997,12 +2359,17 @@ export class LastChancesEngine {
       this.expirePendingUnterhau(state)
     }
     this.updateHeldWeaponMechanics(deltaMs)
+    this.updateBowHeldMechanics(deltaMs)
     this.updateDualSenseTelegraphs()
     this.updateDelayedAttacks(deltaMs)
     this.updateDelayedRecoveries(deltaMs)
     this.updateSwordAdvance(deltaSeconds)
     this.updatePlayer(deltaSeconds)
+    this.flushBowLandingAttacks()
     this.updateProjectiles(deltaSeconds, deltaMs)
+    this.updateFallingArrows(deltaMs)
+    this.updateEmbeddedArrows()
+    this.updateArrowChemicalPools()
     this.updateActiveAreas(deltaMs)
     this.updateStamina(deltaSeconds)
     this.syncContinuationFeedback()
@@ -2013,34 +2380,68 @@ export class LastChancesEngine {
     this.pointerDeltaX = 0
   }
 
+  /** The victory overlay freezes combat, but every already-loosed arrow still finishes its flight. */
+  private updateWonBowArrows(deltaSeconds: number, deltaMs: number): void {
+    if (this.projectiles.some(projectile => projectile.persistentArrow)) {
+      this.updateProjectiles(deltaSeconds, deltaMs)
+    }
+    if (this.fallingArrows.length > 0) this.updateFallingArrows(deltaMs)
+    if (this.embeddedArrows.length > 0) {
+      this.updateEmbeddedArrows()
+      this.updateArrowChemicalPools()
+    }
+    this.effects.forEach(effect => { effect.remainingMs -= deltaMs })
+    this.effects = this.effects.filter(effect => effect.remainingMs > 0)
+  }
+
   private updateDelayedAttacks(deltaMs: number): void {
     const ready: RuntimeDelayedAttack[] = []
     for (const delayed of this.delayedAttacks) {
+      if (delayed.waitForBowDashWeaponId
+        && this.activeDash?.weaponId === delayed.waitForBowDashWeaponId) continue
       delayed.remainingMs = Math.max(0, delayed.remainingMs - deltaMs)
       if (delayed.remainingMs <= 0) ready.push(delayed)
     }
-    this.delayedAttacks = this.delayedAttacks.filter(delayed => delayed.remainingMs > 0)
+    const readySet = new Set(ready)
+    this.delayedAttacks = this.delayedAttacks.filter(delayed => !readySet.has(delayed))
     if (!this.canUseRoomActions()) return
-    for (const delayed of ready) {
-      if (delayed.attack.behavior === 'swordFollowUp') this.executeSwordFollowUp(delayed)
-      else this.executeAttack(
-        delayed.attack,
-        this.resolveDelayedAttackDirection(delayed),
-        delayed.context,
-      )
-      if (delayed.attack.behavior === 'swordFollowUp') {
-        const state = this.weaponState(delayed.context.weapon)
-        state.unterhauDueAtMs = 0
-        state.unterhauTargetId = null
-        state.unterhauTargetPosition = null
-        state.unterhauPrimed = false
-      }
-    }
+    for (const delayed of ready) this.executeDelayedAttack(delayed)
+  }
+
+  private executeDelayedAttack(delayed: RuntimeDelayedAttack): void {
+    if (delayed.attack.behavior === 'swordFollowUp') this.executeSwordFollowUp(delayed)
+    else this.executeAttack(
+      delayed.attack,
+      this.resolveDelayedAttackDirection(delayed),
+      delayed.context,
+    )
+    if (delayed.attack.behavior !== 'swordFollowUp') return
+    const state = this.weaponState(delayed.context.weapon)
+    state.unterhauDueAtMs = 0
+    state.unterhauTargetId = null
+    state.unterhauTargetPosition = null
+    state.unterhauPrimed = false
+  }
+
+  /** Fires a queued «Ответ» from the first post-landing position, never the final airborne frame. */
+  private flushBowLandingAttacks(): void {
+    if (!this.canUseRoomActions()) return
+    const ready = this.delayedAttacks.filter(delayed => (
+      delayed.waitForBowDashWeaponId !== undefined
+      && this.activeDash?.weaponId !== delayed.waitForBowDashWeaponId
+    ))
+    if (ready.length === 0) return
+    const readySet = new Set(ready)
+    this.delayedAttacks = this.delayedAttacks.filter(delayed => !readySet.has(delayed))
+    for (const delayed of ready) this.executeDelayedAttack(delayed)
   }
 
   private resolveDelayedAttackDirection(delayed: RuntimeDelayedAttack): LastChancesVector {
-    if (delayed.attack.behavior !== 'swordFollowUp') return delayed.direction
-    return normalize(this.player.aim, delayed.direction)
+    if (delayed.attack.behavior === 'swordFollowUp'
+      || delayed.waitForBowDashWeaponId !== undefined) {
+      return normalize(this.player.aim, delayed.direction)
+    }
+    return delayed.direction
   }
 
   private updateDelayedRecoveries(deltaMs: number): void {
@@ -2134,6 +2535,23 @@ export class LastChancesEngine {
     )
   }
 
+  private bowDashLiftRadii(dash: RuntimeDash): number {
+    if (dash.attack.behavior !== 'bowDodge' && dash.attack.behavior !== 'bowJump') return 0
+    const progress = clamp(
+      dash.elapsedMs / Math.max(1, dash.attack.durationMs),
+      0,
+      1,
+    )
+    if (dash.attack.behavior === 'bowDodge') {
+      return Math.sin(progress * Math.PI) * 0.38
+    }
+    const peakRadii = 1.15
+    const inheritedLift = clamp(dash.bowLiftStartRadii ?? 0, 0, peakRadii)
+    return progress <= 0.5
+      ? inheritedLift + (peakRadii - inheritedLift) * Math.sin(progress * Math.PI)
+      : peakRadii * Math.sin(progress * Math.PI)
+  }
+
   private updatePoleVault(dash: RuntimeDash, deltaMs: number): number {
     const vault = dash.poleVault
     if (!vault) return 0
@@ -2173,10 +2591,34 @@ export class LastChancesEngine {
           ? Math.min(this.activeDash.remainingDistance, this.activeDash.speed * deltaSeconds)
           : 0
       const dashStart = { ...this.player.position }
-      this.moveCircle(this.player.position, {
-        x: this.activeDash.direction.x * travel,
-        y: this.activeDash.direction.y * travel,
-      }, this.config.player.radius)
+      const vaultAirStart = this.activeDash.poleVault
+        ? this.activeDash.poleVault.runMs + this.activeDash.poleVault.plantMs
+        : Number.POSITIVE_INFINITY
+      if (this.activeDash.poleVault && this.activeDash.elapsedMs > vaultAirStart) {
+        const distance = this.poleVaultDistanceAt(this.activeDash, this.activeDash.elapsedMs)
+        const arena = this.currentNode?.arena
+        this.player.position = {
+          x: arena
+            ? clamp(
+                this.activeDash.origin.x + this.activeDash.direction.x * distance,
+                this.config.player.radius,
+                arena.width - this.config.player.radius,
+              )
+            : this.activeDash.origin.x + this.activeDash.direction.x * distance,
+          y: arena
+            ? clamp(
+                this.activeDash.origin.y + this.activeDash.direction.y * distance,
+                this.config.player.radius,
+                arena.height - this.config.player.radius,
+              )
+            : this.activeDash.origin.y + this.activeDash.direction.y * distance,
+        }
+      } else {
+        this.moveCircle(this.player.position, {
+          x: this.activeDash.direction.x * travel,
+          y: this.activeDash.direction.y * travel,
+        }, this.config.player.radius)
+      }
       const dashColliders = this.dashStepColliders(
         this.activeDash,
         dashStart,
@@ -2336,7 +2778,7 @@ export class LastChancesEngine {
       return
     }
 
-    if (this.player.rootMs > 0 || this.player.recoveryMs > 0) {
+    if (this.player.rootMs > 0 || this.player.recoveryMs > 0 || this.bowChannels.size > 0) {
       // Root/recovery are combat locks, not released movement input: they stop immediately.
       this.movementVelocity = { x: 0, y: 0 }
     } else {
@@ -2638,6 +3080,10 @@ export class LastChancesEngine {
 
   private updateProjectiles(deltaSeconds: number, deltaMs: number): void {
     for (const projectile of this.projectiles) {
+      if (projectile.persistentArrow && projectile.source === 'player' && this.currentNode) {
+        this.updateLongbowProjectile(projectile, deltaSeconds, deltaMs)
+        continue
+      }
       const projectileStart = { ...projectile.position }
       const travel = vectorLength(projectile.velocity) * deltaSeconds
       projectile.position.x += projectile.velocity.x * deltaSeconds
@@ -2815,6 +3261,207 @@ export class LastChancesEngine {
     ))
   }
 
+  /**
+   * Longbow arrows use continuous time-of-impact instead of the generic frame-end collision.
+   * That gives the permanent decal the real first-contact point and supplies the surface normal
+   * needed by Множественный залп's single authored ricochet.
+   */
+  private updateLongbowProjectile(
+    projectile: RuntimeProjectile,
+    deltaSeconds: number,
+    deltaMs: number,
+  ): void {
+    const node = this.currentNode
+    if (!node) return
+    const start = { ...projectile.position }
+    const speed = vectorLength(projectile.velocity)
+    const lifetimeFraction = deltaMs > 0
+      ? clamp(projectile.remainingMs / deltaMs, 0, 1)
+      : 1
+    const activeFrameMs = Math.max(0, deltaMs * lifetimeFraction)
+    const requestedDistance = speed * deltaSeconds * lifetimeFraction
+    const stepDistance = Math.max(0, Math.min(projectile.remainingDistance, requestedDistance))
+    const direction = normalize(projectile.velocity)
+    const end = {
+      x: start.x + direction.x * stepDistance,
+      y: start.y + direction.y * stepDistance,
+    }
+    const sweptCollider: LastChancesRuntimeCollider = {
+      shape: 'capsule',
+      start,
+      end,
+      radius: projectile.radius,
+    }
+    if (projectile.attack) this.addColliderTrace(sweptCollider, projectile.attack)
+
+    const surfaceImpact = projectile.attack?.collider?.passesThroughWalls === true
+      ? null
+      : sweepLastChancesCircleAgainstArena(start, end, projectile.radius, node.arena)
+    let targetImpact: {
+      t: number
+      point: LastChancesVector
+      enemy: RuntimeEnemy
+    } | null = null
+    for (const enemy of this.enemies) {
+      if (enemy.state === 'dead' || projectile.hitIds.has(enemy.id)) continue
+      const impact = sweepLastChancesCircleAgainstCircle(
+        start,
+        end,
+        projectile.radius,
+        enemy.position,
+        enemy.definition.radius,
+      )
+      if (!impact || (targetImpact && impact.t >= targetImpact.t - EPSILON)) continue
+      targetImpact = {
+        t: impact.t,
+        point: impact.point,
+        enemy,
+      }
+    }
+
+    if (targetImpact
+      && (!surfaceImpact || targetImpact.t < surfaceImpact.t - EPSILON)) {
+      const traveled = vectorLength({
+        x: targetImpact.point.x - start.x,
+        y: targetImpact.point.y - start.y,
+      })
+      projectile.position = { ...targetImpact.point }
+      projectile.remainingDistance = Math.max(0, projectile.remainingDistance - traveled)
+      const elapsedAtImpactMs = requestedDistance > EPSILON
+        ? activeFrameMs * clamp(traveled / requestedDistance, 0, 1)
+        : 0
+      projectile.remainingMs = Math.max(
+        0,
+        projectile.remainingMs - elapsedAtImpactMs,
+      )
+      projectile.hitIds.add(targetImpact.enemy.id)
+      projectile.remainingHits = 0
+      const attack = projectile.attack ?? {
+        name: projectile.sourceName,
+        kind: 'projectile',
+        behavior: 'bowShot',
+        damage: projectile.damage,
+        cooldownMs: 0,
+        range: projectile.remainingDistance,
+        radius: projectile.radius,
+        arcDegrees: 0,
+        durationMs: projectile.remainingMs,
+        projectileSpeed: speed,
+        pierce: 0,
+        knockback: projectile.knockback,
+        color: projectile.color,
+      }
+      this.tryParryEnemy(targetImpact.enemy, attack)
+      this.damageEnemy(targetImpact.enemy, attack, projectile.knockback, direction, {
+        weaponId: projectile.weaponId,
+        hand: projectile.hand,
+        gesture: projectile.gesture,
+        storedDot: projectile.storedDot,
+      })
+      this.embedArrow({
+        id: projectile.id,
+        position: targetImpact.point,
+        direction,
+        attachment: 'enemy',
+        enemy: targetImpact.enemy,
+        color: projectile.color,
+        chemical: projectile.chemicalArrow === true,
+      })
+      this.effects.push({
+        kind: 'hit',
+        position: { ...targetImpact.point },
+        direction,
+        range: projectile.radius * 4,
+        radius: projectile.radius * 2,
+        arcDegrees: 32,
+        color: projectile.color,
+        remainingMs: 180,
+        totalMs: 180,
+      })
+      return
+    }
+
+    if (surfaceImpact) {
+      const traveled = vectorLength({
+        x: surfaceImpact.point.x - start.x,
+        y: surfaceImpact.point.y - start.y,
+      })
+      projectile.remainingDistance = Math.max(0, projectile.remainingDistance - traveled)
+      const elapsedAtImpactMs = requestedDistance > EPSILON
+        ? activeFrameMs * clamp(traveled / requestedDistance, 0, 1)
+        : 0
+      projectile.remainingMs = Math.max(
+        0,
+        projectile.remainingMs - elapsedAtImpactMs,
+      )
+      if ((projectile.ricochetsRemaining ?? 0) > 0) {
+        const reflected = reflectLastChancesVector(projectile.velocity, surfaceImpact.normal)
+        const reflectedDirection = normalize(reflected, {
+          x: -direction.x,
+          y: -direction.y,
+        })
+        projectile.velocity = reflected
+        projectile.ricochetsRemaining = Math.max(0, (projectile.ricochetsRemaining ?? 0) - 1)
+        projectile.position = {
+          x: surfaceImpact.point.x + reflectedDirection.x * 0.08,
+          y: surfaceImpact.point.y + reflectedDirection.y * 0.08,
+        }
+        this.effects.push({
+          kind: 'shock',
+          position: { ...surfaceImpact.point },
+          direction: reflectedDirection,
+          range: 18,
+          radius: 8,
+          arcDegrees: 54,
+          color: '#ffd76a',
+          remainingMs: 180,
+          totalMs: 180,
+        })
+        if (projectile.remainingDistance <= EPSILON || projectile.remainingMs <= EPSILON) {
+          projectile.position = { ...surfaceImpact.point }
+          projectile.remainingHits = 0
+          this.embedArrow({
+            id: projectile.id,
+            position: surfaceImpact.point,
+            direction,
+            attachment: surfaceImpact.kind,
+            enemy: null,
+            color: projectile.color,
+            chemical: projectile.chemicalArrow === true,
+          })
+        }
+        return
+      }
+      projectile.position = { ...surfaceImpact.point }
+      projectile.remainingHits = 0
+      this.embedArrow({
+        id: projectile.id,
+        position: surfaceImpact.point,
+        direction,
+        attachment: surfaceImpact.kind,
+        enemy: null,
+        color: projectile.color,
+        chemical: projectile.chemicalArrow === true,
+      })
+      return
+    }
+
+    projectile.position = end
+    projectile.remainingDistance = Math.max(0, projectile.remainingDistance - stepDistance)
+    projectile.remainingMs = Math.max(0, projectile.remainingMs - activeFrameMs)
+    if (projectile.remainingDistance > EPSILON && projectile.remainingMs > EPSILON) return
+    projectile.remainingHits = 0
+    this.embedArrow({
+      id: projectile.id,
+      position: end,
+      direction,
+      attachment: 'floor',
+      enemy: null,
+      color: projectile.color,
+      chemical: projectile.chemicalArrow === true,
+    })
+  }
+
   private updateSwarmSpawner(): void {
     const spawner = this.swarmSpawner
     const node = this.currentNode
@@ -2918,6 +3565,7 @@ export class LastChancesEngine {
       id: `${node.id}-swarm-${spawner.spawnedCount + 1}`,
       definition,
       position,
+      velocity: { x: 0, y: 0 },
       facing: normalize({
         x: this.player.position.x - position.x,
         y: this.player.position.y - position.y,
@@ -4497,6 +5145,10 @@ export class LastChancesEngine {
     if (event.scheme !== this.controlSchemeValue || !this.canUseRoomActions() || this.paused) {
       return 'blocked'
     }
+    if (event.inputReleased) {
+      this.settleBowChannelRelease(event.hand, event.atMs, event.heldMs, null)
+      return 'observe'
+    }
     const weapon = this.weapons.get(event.hand)
     const controls = weapon?.controls
     if (!weapon || !controls) return this.blockSemanticInput(event, null)
@@ -4530,6 +5182,11 @@ export class LastChancesEngine {
             this.startDualSenseTelegraph(event, weapon, controls, node)
             return 'handled'
           }
+          if (!event.probe
+            && isLongbowPrimary(weapon)
+            && (node.gesture === 'hold' || node.gesture === 'holdThenDoubleTap')) {
+            this.accrueBowDrawDebit(event.hand, weapon.attacks.hold, event.heldMs)
+          }
           const requiredBand = node.requiredChargeBandId
             ? weapon.attacks.hold.charge?.bands.find(band => band.id === node.requiredChargeBandId)
             : undefined
@@ -4551,7 +5208,7 @@ export class LastChancesEngine {
             && baseContextAvailable
             && chargeContextAvailable
             && nodeChargeAvailable
-          if (event.probe) {
+      if (event.probe) {
             return contextAvailable && this.gestureReady(event.hand, node.gesture)
               ? 'handled'
               : 'observe'
@@ -4605,6 +5262,12 @@ export class LastChancesEngine {
       return this.blockSemanticInput(event, null)
     }
     const attack = weapon.attacks[gesture]
+    if (event.atMs <= this.bowChannelReleasedAtInputMs[event.hand] + 0.5
+      && (attack.behavior === 'bowRapidFire' || attack.behavior === 'bowRain')) {
+      // The physical release edge already retroactively settled and closed this channel.
+      // Consume the recognizer's later classifier without a false blocked cue or a reopen.
+      return 'handled'
+    }
     tactileProfile = event.tactileProfile ?? (gesture === 'hold' ? 'ramp' : 'click')
     const tensionActive = tactileProfile === 'tension'
       || event.context === 'grapple'
@@ -4642,9 +5305,26 @@ export class LastChancesEngine {
           })
         }
       }
+      const immediateMylorikContinuation = event.scheme === 'mylorik'
+        && event.context === 'continuation'
+        && event.phase === 'press'
+        && controls.mylorik.activations.some(activation => (
+          activation.gesture === gesture
+          && activation.context === 'continuation'
+          && activation.continuationDispatch === 'press'
+        ))
+      if (immediateMylorikContinuation) {
+        return this.gestureReady(event.hand, gesture) ? 'handled' : 'observe'
+      }
+      if (event.scheme === 'mylorik' && event.probe) {
+        return this.gestureReady(event.hand, gesture) ? 'handled' : 'observe'
+      }
       return event.scheme === 'dualsense' || event.probe ? 'handled' : 'observe'
     }
 
+    if (isLongbowPrimary(weapon) && (gesture === 'hold' || gesture === 'holdThenDoubleTap')) {
+      this.accrueBowDrawDebit(event.hand, weapon.attacks.hold, event.heldMs)
+    }
     if (!this.gestureReady(event.hand, gesture)) {
       const cooldown = Math.max(
         0,
@@ -4658,7 +5338,9 @@ export class LastChancesEngine {
       const bufferWindow = this.config.input.mylorik?.bufferMs ?? 0
       const unlocked = this.moveQuests[event.hand].unlocked[gesture]
       const enabled = attack.enabled !== false && attack.behavior !== 'disabled'
-      if (event.scheme === 'mylorik' && enabled && unlocked
+      const paidLongbowRelease = isLongbowPrimary(weapon)
+        && (gesture === 'hold' || gesture === 'holdThenDoubleTap')
+      if (event.scheme === 'mylorik' && !paidLongbowRelease && enabled && unlocked
         && Math.max(cooldown, recovery) > 0
         && Math.max(cooldown, recovery) <= bufferWindow) return 'buffer'
       return this.blockSemanticInput(event, gesture)
@@ -4729,7 +5411,7 @@ export class LastChancesEngine {
     this.performAttack({
       hand: event.hand,
       gesture,
-      atMs: this.elapsedMs,
+      atMs: event.atMs,
       heldMs: event.heldMs,
       firstHoldMs: event.heldMs,
       ...(chargeBandOverrideId ? { minChargeBandId: chargeBandOverrideId } : {}),
@@ -4742,6 +5424,9 @@ export class LastChancesEngine {
     gesture: LastChancesGesture | null,
   ): 'blocked' {
     const weapon = this.weapons.get(event.hand)
+    if (event.commit && isLongbowPrimary(weapon) && this.bowDrawDebits[event.hand].active) {
+      this.consumeBowDrawDebit(event.hand, true)
+    }
     this.controlCue = {
       hand: event.hand,
       intent: event.intent,
@@ -4946,6 +5631,29 @@ export class LastChancesEngine {
     this.feedbackHitWindowEnds.right = Number.NEGATIVE_INFINITY
   }
 
+  private bowFirstShotReady(hand: LastChancesHand, weaponId: string): boolean {
+    return this.bowLastShotTargets[hand] !== null
+      && this.bowLastShotWeaponIds[hand] === weaponId
+      && this.elapsedMs - this.bowLastShotAtMs[hand] <= this.config.input.doubleTapMs + 120
+  }
+
+  private bowRapidPrefixReady(hand: LastChancesHand, weaponId: string): boolean {
+    return this.bowDoubleShotWeaponIds[hand] === weaponId
+      && this.elapsedMs - this.bowDoubleShotAtMs[hand]
+        <= this.config.input.doubleTapMs + this.config.input.holdMs + 120
+  }
+
+  private bowRapidFirstShotReady(hand: LastChancesHand, weaponId: string): boolean {
+    const schemeHoldMs = Math.max(
+      this.config.input.holdMs,
+      this.config.input.mylorik?.techniqueHoldMs ?? 0,
+    )
+    return this.bowLastShotTargets[hand] !== null
+      && this.bowLastShotWeaponIds[hand] === weaponId
+      && this.elapsedMs - this.bowLastShotAtMs[hand]
+        <= this.config.input.doubleTapMs + schemeHoldMs + 120
+  }
+
   private gestureReady(hand: LastChancesHand, gesture: LastChancesGesture): boolean {
     const weapon = this.weapons.get(hand)
     if (!weapon) return false
@@ -4961,11 +5669,60 @@ export class LastChancesEngine {
       && this.provisionalParry.weaponId === weapon.id
       && this.provisionalParry.hand !== hand) return false
     const behavior = attack.behavior
+    if (weapon.trait === 'longbowPersistence') {
+      if (behavior === 'bowDoubleShot') {
+        if (!this.bowFirstShotReady(hand, weapon.id)) return false
+      }
+      if (behavior === 'bowRapidFire') {
+        if (!this.bowRapidFirstShotReady(hand, weapon.id)
+          && !this.bowRapidPrefixReady(hand, weapon.id)) return false
+      }
+      if (behavior === 'bowJump') {
+        if (this.activeDash?.weaponId !== weapon.id
+          || this.activeDash.hand !== hand
+          || this.activeDash.attack.behavior !== 'bowDodge') return false
+      }
+      if (behavior === 'bowRiposte') {
+        const response = this.bowResponseWindows[hand]
+        if (!response || response.weaponId !== weapon.id) return false
+      }
+      if (behavior === 'bowScatter') {
+        const draw = weapon.attacks.hold
+        const goldStartMs = tuningValue(draw, 'goldStartMs', 670)
+        const goldEndMs = Math.max(goldStartMs, tuningValue(draw, 'goldEndMs', 760))
+        const released = this.releasedBowDraw?.hand === hand
+          && this.releasedBowDraw.golden
+          && this.elapsedMs - this.releasedBowDraw.releasedAtMs
+            <= this.config.input.holdThenDoubleTapWindowMs + 120
+        const debit = this.bowDrawDebits[hand]
+        const activeGoldenDraw = debit.active
+          && debit.accruedMs >= goldStartMs
+          && debit.accruedMs <= goldEndMs
+        if (!released && !activeGoldenDraw) return false
+      }
+    }
     const swordMorph = weapon.trait === 'swordRhythm'
       && (behavior === 'swordOpening' || behavior === 'swordFollowUp')
       && this.activeAreas.some(area => (
         area.weaponId === weapon.id && area.attack.behavior === 'swordRhythm'
       ))
+    const bowActionContinuation = weapon.trait === 'longbowPersistence'
+      && (
+        behavior === 'bowDodge'
+        || behavior === 'bowRapidFire'
+        || (behavior === 'bowJump'
+          && this.activeDash?.weaponId === weapon.id)
+        || (behavior === 'bowRiposte'
+          && this.bowResponseWindows[hand]?.weaponId === weapon.id)
+        || (behavior === 'bowScatter'
+          && (this.releasedBowDraw?.hand === hand || this.bowDrawDebits[hand].active))
+        || (behavior === 'bowIgnite'
+          && (
+            this.bowChannels.get(hand)?.behavior === 'bowRain'
+            || performance.now() - this.bowRainReleasedAtInputMs[hand]
+              <= this.config.input.holdThenDoubleTapWindowMs + 120
+          ))
+      )
     const contextualContinuation = (behavior === 'clawDeepStrike'
       && this.activeDash?.hand === hand && this.activeDash.weaponId === weapon.id)
       || (behavior === 'axeThrow' && state.boundEnemyId !== null)
@@ -4983,13 +5740,21 @@ export class LastChancesEngine {
       || (behavior === 'spearBreakthrough' && this.activeAreas.some(area => (
         area.hand === hand && area.weaponId === weapon.id && area.attack.behavior === 'spearPierce'
       )))
+      || bowActionContinuation
       || swordMorph
     if ((this.weaponActionEnds.get(weapon.id) ?? 0) > this.elapsedMs
       && !contextualContinuation) return false
     const otherHandUsesWeapon = [...this.heldChannels.entries()].some(([channelHand, area]) => (
       channelHand !== hand && area.weaponId === weapon.id
     ))
-    if (otherHandUsesWeapon) return false
+    const otherHandUsesBowChannel = [...this.bowChannels.values()].some(channel => (
+      channel.hand !== hand && channel.weaponId === weapon.id
+    ))
+    const bowMobilityDuringOtherChannel = weapon.trait === 'longbowPersistence'
+      && ['bowDodge', 'bowJump', 'bowRiposte'].includes(behavior ?? '')
+    if (otherHandUsesWeapon || (otherHandUsesBowChannel && !bowMobilityDuringOtherChannel)) {
+      return false
+    }
     const axeRecoveryCancel = weapon.trait === 'axeHookRecovery'
       && gesture === 'tap'
       && state.recoveryMs > 0
@@ -5005,11 +5770,40 @@ export class LastChancesEngine {
         <= this.elapsedMs
       return state.unterhauDueAtMs > 0 && unterhauReady
     }
-    if (gesture === 'tap' && weapon.trait === 'ouroborosFang') {
+    if (gesture === 'tap' && attack.cooldownMs > 0) {
       return (this.cooldownEnds.get(cooldownKey(hand, gesture)) ?? 0) <= this.elapsedMs
     }
     return gesture === 'tap'
       || (this.cooldownEnds.get(cooldownKey(hand, gesture)) ?? 0) <= this.elapsedMs
+  }
+
+  private sidewaysAttackCollider(
+    origin: LastChancesVector,
+    direction: LastChancesVector,
+    attack: LastChancesAttackDefinition,
+  ): LastChancesRuntimeCollider | null {
+    const aim = normalize(direction)
+    const sidewaysHalfWidth = Math.max(0, tuningValue(attack, 'sidewaysHalfWidth', 0))
+    if (sidewaysHalfWidth <= 0) return null
+    const perpendicular = { x: -aim.y, y: aim.x }
+    const center = {
+      x: origin.x + aim.x
+        * tuningValue(attack, 'sidewaysForwardOffset', this.config.player.radius),
+      y: origin.y + aim.y
+        * tuningValue(attack, 'sidewaysForwardOffset', this.config.player.radius),
+    }
+    return {
+      shape: 'capsule',
+      start: {
+        x: center.x - perpendicular.x * sidewaysHalfWidth,
+        y: center.y - perpendicular.y * sidewaysHalfWidth,
+      },
+      end: {
+        x: center.x + perpendicular.x * sidewaysHalfWidth,
+        y: center.y + perpendicular.y * sidewaysHalfWidth,
+      },
+      radius: Math.max(1, (attack.collider?.width ?? attack.radius * 2) / 2),
+    }
   }
 
   private activatePlayerParry(
@@ -5024,7 +5818,11 @@ export class LastChancesEngine {
         attack.durationMs + (attack.lingerMs ?? 0),
       ),
     )
-    this.activeParryCollider = resolveAttackCollider(
+    this.activeParryCollider = this.sidewaysAttackCollider(
+      this.player.position,
+      this.player.aim,
+      attack,
+    ) ?? resolveAttackCollider(
       this.player.position,
       normalize(this.player.aim),
       attack,
@@ -5170,7 +5968,7 @@ export class LastChancesEngine {
     if (stage === 0) {
       return {
         ...attack,
-        name: 'Отталкивание',
+        name: 'Толчок',
         behavior: 'spearShove',
         kind: 'burst',
         collider: {
@@ -5185,7 +5983,7 @@ export class LastChancesEngine {
     }
     return {
       ...attack,
-      name: stage === 2 ? 'Сильный Пинок' : 'Пинок',
+      name: 'Пинок',
       hitEffects,
       tuning: { ...attack.tuning, chargeStage: stage },
     }
@@ -5230,6 +6028,17 @@ export class LastChancesEngine {
     }
     const state = this.weaponState(weapon)
     if (!this.gestureReady(hand, gesture)) return
+    const responseWindow = this.bowResponseWindows[hand]
+    const responseHeldMs = weapon.attacks[gesture].behavior === 'bowRiposte' && responseWindow
+      ? Math.max(0, resolution.atMs - responseWindow.startedAtInputMs)
+      : resolution.heldMs
+    if (weapon.attacks[gesture].behavior === 'bowRiposte'
+      && responseHeldMs < tuningValue(weapon.attacks[gesture], 'goldStartMs', 470)) {
+      // Releasing before the response pocket is literally "nothing": no shot, cooldown,
+      // stamina debit or fresh invulnerability.
+      this.bowResponseWindows[hand] = null
+      return
+    }
     if (weapon.trait === 'swordRhythm'
       && gesture === 'doubleTapHold'
       && state.unterhauDueAtMs > 0) {
@@ -5239,18 +6048,57 @@ export class LastChancesEngine {
     }
     // Resolved up here so the stamina gate can price the charge band the release will
     // actually land in; it depends only on `resolution`, never on the combo cursor.
-    const chargeHeldMs = gesture === 'holdThenDoubleTap'
+    const rawChargeHeldMs = gesture === 'holdThenDoubleTap'
       ? resolution.firstHoldMs
       : gesture === 'hold' || gesture === 'doubleTapHold' ? resolution.heldMs : 0
+    const drawDebit = this.bowDrawDebits[hand]
+    const gestureBehavior = weapon.attacks[gesture].behavior
+    const chargeUsesPaidBowDraw = (gesture === 'hold' && gestureBehavior === 'bowDraw')
+      || (gesture === 'holdThenDoubleTap' && gestureBehavior === 'bowScatter')
+    const chargeHeldMs = chargeUsesPaidBowDraw
+      && drawDebit.exhausted
+      ? Math.min(rawChargeHeldMs, drawDebit.accruedMs)
+      : rawChargeHeldMs
+    const semanticBowScatter = gestureBehavior === 'bowScatter'
+      && this.releasedBowDraw?.hand !== hand
+    const scatterDraw = semanticBowScatter ? weapon.attacks.hold : null
+    const scatterGoldStartMs = scatterDraw ? tuningValue(scatterDraw, 'goldStartMs', 670) : 0
+    const scatterGoldEndMs = scatterDraw
+      ? Math.max(scatterGoldStartMs, tuningValue(scatterDraw, 'goldEndMs', 760))
+      : 0
+    const semanticBowScatterGolden = semanticBowScatter
+      && chargeHeldMs >= scatterGoldStartMs
+      && chargeHeldMs <= scatterGoldEndMs
+    const tentativeBowDrawRefund = drawDebit.active
+      && ['bowShot', 'bowDoubleShot', 'bowRapidFire'].includes(gestureBehavior ?? '')
+    if (gestureBehavior === 'bowScatter') {
+      const released = this.releasedBowDraw
+      const releasedHeldMs = released?.hand === hand ? released.heldMs : chargeHeldMs
+      const draw = weapon.attacks.hold
+      const goldStartMs = tuningValue(draw, 'goldStartMs', 670)
+      const goldEndMs = Math.max(goldStartMs, tuningValue(draw, 'goldEndMs', 760))
+      if (releasedHeldMs < goldStartMs || releasedHeldMs > goldEndMs) return
+    }
     // Before advanceTapCombo and every cooldown/rhythm mutation, so a refusal changes nothing.
+    const bowRapidNeedsSecondShot = gestureBehavior === 'bowRapidFire'
+      && !this.bowRapidPrefixReady(hand, weapon.id)
+    const bowRapidSecondShotCost = bowRapidNeedsSecondShot
+      ? this.staminaCostFor(weapon, hand, 'doubleTap')
+      : 0
     const staminaCost = this.staminaCostFor(
       weapon,
       hand,
       gesture,
       chargeHeldMs,
       resolution.minChargeBandId,
-    )
-    if (!this.canAffordStamina(staminaCost)) {
+    ) + bowRapidSecondShotCost
+    const staminaAvailableForAction = this.player.stamina
+      + (semanticBowScatterGolden ? drawDebit.spent : 0)
+      + (tentativeBowDrawRefund ? drawDebit.spent : 0)
+    if (staminaCost > 0 && staminaAvailableForAction + EPSILON < staminaCost) {
+      if (tentativeBowDrawRefund || semanticBowScatterGolden) {
+        this.consumeBowDrawDebit(hand, true)
+      }
       this.refuseForStamina(hand)
       return
     }
@@ -5269,12 +6117,26 @@ export class LastChancesEngine {
       this.activeDash = null
       this.weaponActionEnds.delete(weapon.id)
     }
-    const charged = resolveLastChancesChargedAttack(
-      augmented,
-      chargeHeldMs,
-      resolution.minChargeBandId,
-    )
-    if (sourceAttack.charge && !charged.band) return
+    const bowDrawGolden = sourceAttack.behavior === 'bowDraw'
+      && chargeHeldMs >= tuningValue(sourceAttack, 'goldStartMs', 670)
+      && chargeHeldMs <= tuningValue(sourceAttack, 'goldEndMs', 760)
+    const chargeFloor = bowDrawGolden
+      ? sourceAttack.charge?.bands.at(-1)?.id
+      : resolution.minChargeBandId
+    const charged = sourceAttack.behavior === 'bowDraw'
+      ? this.resolveBowDrawAttack(augmented, chargeHeldMs, bowDrawGolden)
+      : resolveLastChancesChargedAttack(
+          augmented,
+          chargeHeldMs,
+          chargeFloor,
+        )
+    if (sourceAttack.charge && !charged.band) {
+      if (sourceAttack.behavior === 'bowDraw') {
+        this.consumeBowDrawDebit(hand, false)
+        this.refuseForStamina(hand)
+      }
+      return
+    }
     const attack = isSpearV2Secondary(weapon)
       ? this.resolveSpearKickOutcome(charged.attack, charged.band?.id)
       : charged.attack
@@ -5299,7 +6161,7 @@ export class LastChancesEngine {
       && (gesture === 'doubleTap' || gesture === 'doubleTapHold')) {
       this.morphSwordAttack(weapon)
     }
-    if (gesture !== 'tap' || weapon.trait === 'ouroborosFang') {
+    if (gesture !== 'tap' || attack.cooldownMs > 0) {
       const cooldownAttack = weapon.trait === 'swordRhythm' && gesture === 'doubleTapHold'
         ? weapon.attacks.doubleTap
         : weapon.trait === 'ouroborosFang' && gesture === 'tap'
@@ -5309,13 +6171,34 @@ export class LastChancesEngine {
         weapon.trait === 'swordRhythm' && gesture === 'doubleTapHold'
           ? cooldownKey(hand, 'doubleTap')
           : key,
-        this.elapsedMs + cooldownAttack.cooldownMs,
+        bowDrawGolden && gesture === 'hold'
+          ? this.elapsedMs
+          : this.elapsedMs + cooldownAttack.cooldownMs,
       )
     }
     if (this.config.combat.attackStopsMovement) {
       this.movementVelocity = { x: 0, y: 0 }
     }
-    this.settleStaminaForAttack(hand, staminaCost)
+    if (semanticBowScatterGolden) {
+      this.consumeBowDrawDebit(hand, true)
+      this.cooldownEnds.set(cooldownKey(hand, 'hold'), this.elapsedMs)
+      this.bowShotPresentation.goldenUntilMs = this.elapsedMs + 700
+    }
+    if (tentativeBowDrawRefund) this.consumeBowDrawDebit(hand, true)
+    const directBowStaminaAction = sourceAttack.behavior === 'bowDraw'
+      || sourceAttack.behavior === 'bowRapidFire'
+      || sourceAttack.behavior === 'bowRain'
+    if (bowRapidNeedsSecondShot) {
+      this.settleStaminaForAttack(hand, bowRapidSecondShotCost)
+    } else if (!directBowStaminaAction) {
+      this.settleStaminaForAttack(hand, staminaCost)
+    }
+    if (sourceAttack.behavior === 'bowDraw') {
+      this.consumeBowDrawDebit(hand, bowDrawGolden)
+      if (bowDrawGolden) {
+        this.bowShotPresentation.goldenUntilMs = this.elapsedMs + 700
+      }
+    }
     this.lastGesture = {
       hand,
       gesture,
@@ -5324,6 +6207,9 @@ export class LastChancesEngine {
       ...(comboStep === undefined ? {} : { comboStep }),
     }
     let direction = normalize(this.player.aim)
+    if (attack.behavior === 'bowScatter' && this.releasedBowDraw?.hand === hand) {
+      direction = { ...this.releasedBowDraw.direction }
+    }
     const movement = this.resolveMovement()
     if (['katanaHop', 'katanaHopSlash'].includes(attack.behavior ?? '')
       && vectorLength(movement) > this.config.input.actionDirectionDeadZone) {
@@ -5336,6 +6222,18 @@ export class LastChancesEngine {
         : { x: direction.y, y: -direction.x }
       direction = normalize(state.spinInertiaDirection ?? fallbackInertia, fallbackInertia)
       state.spinInertiaDirection = null
+    }
+    if (sourceAttack.behavior === 'bowDraw') {
+      // Semantic controller routes do not pass through the legacy `release()` edge. Record the
+      // loosed main arrow here as the scheme-independent authority, so their golden follow-up
+      // adds only the scatter instead of duplicating the maximum-draw arrow.
+      this.releasedBowDraw = {
+        hand,
+        heldMs: chargeHeldMs,
+        direction: { ...direction },
+        golden: bowDrawGolden,
+        releasedAtMs: this.elapsedMs,
+      }
     }
     const storedDot = weapon.trait === 'chainDotCarrier' && state.storedDot
       ? { ...state.storedDot }
@@ -5352,7 +6250,7 @@ export class LastChancesEngine {
     }
 
     if (attack.rootMs) this.player.rootMs = Math.max(this.player.rootMs, attack.rootMs)
-    if (attack.invulnerabilityMs) {
+    if (attack.invulnerabilityMs && attack.behavior !== 'bowRiposte') {
       this.player.invulnerableMs = Math.max(
         this.player.invulnerableMs,
         attack.invulnerabilityMs,
@@ -5427,7 +6325,9 @@ export class LastChancesEngine {
     const actionDurationMs = windupMs + attack.durationMs + (attack.lingerMs ?? 0)
     const commitsTapParry = gesture === 'tap'
       && PLAYER_PARRY_BEHAVIORS.has(attack.behavior ?? 'standard')
-    if (gesture !== 'tap' || commitsTapParry) {
+    const bowReleaseUsesCooldownOnly = weapon.trait === 'longbowPersistence'
+      && ['bowDoubleShot', 'bowDraw', 'bowScatter'].includes(attack.behavior ?? '')
+    if ((gesture !== 'tap' || commitsTapParry) && !bowReleaseUsesCooldownOnly) {
       this.weaponActionEnds.set(weapon.id, this.elapsedMs + actionDurationMs)
     }
     this.scheduleRecovery(weapon.id, attack.recoveryMs, actionDurationMs)
@@ -5498,6 +6398,45 @@ export class LastChancesEngine {
       ? base * Math.max(1, tuningValue(weapon, 'fatigueStaminaMultiplier', 10))
       : base
     return fatigueAdjusted * this.staminaCostMultiplier()
+  }
+
+  /**
+   * Longbow power is continuous even though charge bands still gate the first legal release and
+   * label milestones. The final band's authored numbers define the 1-second maximum.
+   */
+  private resolveBowDrawAttack(
+    source: LastChancesAttackDefinition,
+    heldMs: number,
+    forceMaximum: boolean,
+  ): ReturnType<typeof resolveLastChancesChargedAttack> {
+    const charge = source.charge
+    if (!charge) return resolveLastChancesChargedAttack(source, heldMs)
+    const maximumBand = [...charge.bands].sort((left, right) => left.minMs - right.minMs).at(-1)
+    const gated = resolveLastChancesChargedAttack(
+      source,
+      forceMaximum ? charge.maxMs : heldMs,
+      forceMaximum ? maximumBand?.id : undefined,
+    )
+    if (!gated.band || !maximumBand) return gated
+    const maximum = resolveLastChancesChargedAttack(source, charge.maxMs, maximumBand.id).attack
+    const progress = forceMaximum
+      ? 1
+      : resolveLastChancesBowCharge(source, heldMs).powerProgress
+    const interpolate = (start: number, end: number): number => start + (end - start) * progress
+    return {
+      ...gated,
+      attack: {
+        ...(forceMaximum ? maximum : source),
+        damage: interpolate(source.damage, maximum.damage),
+        range: interpolate(source.range, maximum.range),
+        radius: interpolate(source.radius, maximum.radius),
+        projectileSpeed: interpolate(source.projectileSpeed, maximum.projectileSpeed),
+        knockback: interpolate(source.knockback, maximum.knockback),
+        durationMs: interpolate(source.durationMs, maximum.durationMs),
+      },
+      heldMs: Math.min(Math.max(0, heldMs), charge.maxMs),
+      chargeProgress: progress,
+    }
   }
 
   private staminaCostMultiplier(): number {
@@ -5593,6 +6532,71 @@ export class LastChancesEngine {
     direction: LastChancesVector,
     context: AttackExecutionContext,
   ): void {
+    if (attack.behavior === 'bowRapidFire' || attack.behavior === 'bowRain') {
+      if (context.resolution.atMs
+        <= this.bowChannelReleasedAtInputMs[context.hand] + 0.5) return
+      if (attack.behavior === 'bowRapidFire'
+        && !this.bowRapidPrefixReady(context.hand, context.weapon.id)) {
+        if (!this.bowRapidFirstShotReady(context.hand, context.weapon.id)) return
+        const secondShot = attackWithLastChancesAugment(
+          context.weapon.attacks.doubleTap,
+          context.weapon,
+        )
+        this.executeAttack(secondShot, direction, {
+          ...context,
+          gesture: 'doubleTap',
+        })
+      }
+      const started = this.startBowChannel(
+        context.hand,
+        context.weapon,
+        context.gesture as 'doubleTapHold' | 'hold',
+        attack,
+        context.resolution.atMs,
+      )
+      this.immediateHandInput[context.hand].bowChannelStarted = started
+      return
+    }
+    if (attack.behavior === 'bowScatter') {
+      this.performBowScatter(attack, direction, context)
+      return
+    }
+    if (attack.behavior === 'bowDodge') {
+      this.performDash(attack, this.bowMobilityDirection(direction), context)
+      return
+    }
+    if (attack.behavior === 'bowJump') {
+      this.performBowJump(attack, this.bowMobilityDirection(direction), context)
+      return
+    }
+    if (attack.behavior === 'bowRiposte') {
+      this.performBowRiposte(attack, direction, context)
+      return
+    }
+    if (attack.behavior === 'bowIgnite') {
+      this.performBowIgnition(attack, context)
+      return
+    }
+    if (attack.behavior === 'bowDoubleShot') {
+      const target = this.bowLastShotTargets[context.hand]
+      const retainedDirection = target
+        ? normalize({
+            x: target.x - this.player.position.x,
+            y: target.y - this.player.position.y,
+          }, this.bowLastShotDirections[context.hand] ?? direction)
+        : this.bowLastShotDirections[context.hand] ?? direction
+      this.performProjectile(
+        attack,
+        retainedDirection,
+        context,
+      )
+      this.bowDoubleShotWeaponIds[context.hand] = context.weapon.id
+      this.bowDoubleShotAtMs[context.hand] = this.elapsedMs
+      this.bowLastShotTargets[context.hand] = null
+      this.bowLastShotWeaponIds[context.hand] = null
+      this.bowLastShotAtMs[context.hand] = Number.NEGATIVE_INFINITY
+      return
+    }
     if (attack.behavior === 'spearRelease') {
       this.performSpearRelease(attack, direction, context)
       return
@@ -5609,6 +6613,237 @@ export class LastChancesEngine {
     if (attack.kind === 'projectile') this.performProjectile(attack, direction, context)
     if (attack.kind === 'dash') this.performDash(attack, direction, context)
     if (attack.kind === 'burst') this.performBurst(attack, direction, context)
+  }
+
+  private bowMobilityDirection(fallback: LastChancesVector): LastChancesVector {
+    const movement = this.resolveMovement()
+    return vectorLength(movement) > this.config.input.actionDirectionDeadZone
+      ? normalize(movement, fallback)
+      : normalize(fallback)
+  }
+
+  private performBowJump(
+    attack: LastChancesAttackDefinition,
+    direction: LastChancesVector,
+    context: AttackExecutionContext,
+  ): void {
+    const dash = this.activeDash
+    if (!dash
+      || dash.weaponId !== context.weapon.id
+      || dash.hand !== context.hand
+      || dash.attack.behavior !== 'bowDodge') return
+    const inheritedLift = this.bowDashLiftRadii(dash)
+    const seconds = Math.max(0.08, attack.durationMs / 1000)
+    dash.direction = normalize(direction, dash.direction)
+    dash.remainingDistance += attack.range
+    // The entire extended path must finish inside the authored jump i-frame duration.
+    dash.speed = Math.max(1, dash.remainingDistance / seconds)
+    dash.attack = { ...attack }
+    dash.bowLiftStartRadii = inheritedLift
+    dash.color = attack.color
+    dash.elapsedMs = 0
+    dash.remainingHits = 0
+    dash.hitIds.clear()
+    dash.hitRecords.clear()
+    this.bowResponseWindows[context.hand] = {
+      weaponId: context.weapon.id,
+      startedAtInputMs: context.resolution.atMs,
+    }
+    this.effects.push({
+      kind: 'dash',
+      position: { ...this.player.position },
+      direction: dash.direction,
+      range: attack.range,
+      radius: attack.radius,
+      arcDegrees: attack.arcDegrees,
+      color: attack.color,
+      remainingMs: Math.max(180, attack.durationMs),
+      totalMs: Math.max(180, attack.durationMs),
+    })
+  }
+
+  private performBowRiposte(
+    attack: LastChancesAttackDefinition,
+    direction: LastChancesVector,
+    context: AttackExecutionContext,
+  ): void {
+    const response = this.bowResponseWindows[context.hand]
+    const heldMs = response
+      ? Math.max(0, context.resolution.atMs - response.startedAtInputMs)
+      : context.resolution.heldMs
+    const goldStartMs = tuningValue(attack, 'goldStartMs', 470)
+    const goldEndMs = Math.max(goldStartMs, tuningValue(attack, 'goldEndMs', 530))
+    const lateShotMs = Math.max(goldEndMs, tuningValue(attack, 'lateShotMs', goldEndMs))
+    if (heldMs < goldStartMs) return
+    const primary = this.weapons.get('left')
+    if (!isLongbowPrimary(primary)) return
+    const golden = heldMs <= goldEndMs
+    if (!golden && heldMs < lateShotMs) return
+    let shot: LastChancesAttackDefinition
+    if (golden) {
+      const source = attackWithLastChancesAugment(primary.attacks.hold, primary)
+      shot = this.resolveBowDrawAttack(source, source.charge?.maxMs ?? heldMs, true).attack
+      shot = {
+        ...shot,
+        name: 'Ответ · золотой Залп',
+        behavior: 'bowDraw',
+        damage: shot.damage * tuningValue(attack, 'goldDamageMultiplier', 1.22),
+        range: shot.range * tuningValue(attack, 'goldRangeMultiplier', 1.12),
+        color: '#ffd76a',
+      }
+      this.bowShotPresentation.goldenUntilMs = this.elapsedMs + 700
+    } else {
+      shot = attackWithLastChancesAugment(primary.attacks.tap, primary)
+      shot = { ...shot, name: 'Ответ · Шот', behavior: 'bowShot' }
+    }
+    const delayed: RuntimeDelayedAttack = {
+      remainingMs: 0,
+      attack: shot,
+      direction: normalize(this.player.aim, direction),
+      context: {
+        weapon: primary,
+        hand: 'left',
+        gesture: 'doubleTapHold',
+        resolution: context.resolution,
+        storedDot: null,
+      },
+    }
+    this.bowResponseWindows[context.hand] = null
+    if (this.activeDash?.weaponId === context.weapon.id
+      && this.activeDash.hand === context.hand
+      && this.activeDash.attack.behavior === 'bowJump') {
+      delayed.waitForBowDashWeaponId = context.weapon.id
+      this.delayedAttacks.push(delayed)
+    } else {
+      this.executeDelayedAttack(delayed)
+    }
+  }
+
+  private performBowScatter(
+    attack: LastChancesAttackDefinition,
+    direction: LastChancesVector,
+    context: AttackExecutionContext,
+  ): void {
+    const primary = this.weapons.get('left')
+    if (!isLongbowPrimary(primary)) return
+    const released = this.releasedBowDraw?.hand === context.hand
+      && this.elapsedMs - this.releasedBowDraw.releasedAtMs
+        <= this.config.input.holdThenDoubleTapWindowMs + 120
+      ? this.releasedBowDraw
+      : null
+    const volleyDirection = normalize(released?.direction ?? direction)
+    // Mouse/legacy input already loosed the fully charged main arrow on release. Semantic
+    // dispatch can arrive without that edge, so retain one fallback main shot without ever
+    // duplicating the release arrow.
+    if (!released) {
+      const draw = attackWithLastChancesAugment(primary.attacks.hold, primary)
+      const finalBand = draw.charge?.bands.at(-1)
+      const main = resolveLastChancesChargedAttack(
+        draw,
+        draw.charge?.maxMs ?? context.resolution.firstHoldMs,
+        finalBand?.id,
+      ).attack
+      this.performProjectile({ ...main, behavior: 'bowDraw' }, volleyDirection, {
+        ...context,
+        weapon: primary,
+        hand: 'left',
+        gesture: 'holdThenDoubleTap',
+      })
+    }
+
+    const count = Math.max(1, Math.round(tuningValue(attack, 'scatterCount', 7)))
+    const offsets = lastChancesCenteredFanOffsets(
+      count,
+      Math.max(0, tuningValue(attack, 'fanDegrees', 52)),
+    )
+    for (const offset of offsets) {
+      this.performProjectile(
+        {
+          ...attack,
+          kind: 'projectile',
+          behavior: 'bowScatter',
+          pierce: 0,
+        },
+        rotateVector(volleyDirection, offset),
+        context,
+      )
+    }
+    // Seven projectile spawns all update the shared shot presentation. Restore the authored
+    // centre line so the hands and bow recoil along the volley, not along its last fan edge.
+    this.bowShotPresentation = {
+      atMs: this.elapsedMs,
+      direction: { ...volleyDirection },
+      goldenUntilMs: this.elapsedMs + 700,
+    }
+    this.releasedBowDraw = null
+  }
+
+  private performBowIgnition(
+    attack: LastChancesAttackDefinition,
+    context: AttackExecutionContext,
+  ): void {
+    this.bowRainReleasedAtInputMs[context.hand] = Number.NEGATIVE_INFINITY
+    const ordinaryRadius = Math.max(1, tuningValue(attack, 'ordinaryRadius', 54))
+    const ordinaryDamage = Math.max(0, tuningValue(attack, 'ordinaryDamage', 18))
+    const chemicalRadius = Math.max(ordinaryRadius, tuningValue(attack, 'chemicalRadius', 126))
+    const chemicalDamage = Math.max(ordinaryDamage, tuningValue(attack, 'chemicalDamage', 48))
+    const chemicalSelfDamage = Math.max(0, tuningValue(attack, 'chemicalSelfDamage', 34))
+    for (const arrow of this.embeddedArrows) {
+      if (arrow.exploded) continue
+      const chemical = arrow.chemical
+      const radius = chemical ? chemicalRadius : ordinaryRadius
+      const damage = chemical ? chemicalDamage : ordinaryDamage
+      const explosionAttack: LastChancesAttackDefinition = {
+        ...attack,
+        name: chemical ? 'Огонь! · химический взрыв' : 'Огонь! · искры',
+        behavior: 'bowIgnite',
+        kind: 'burst',
+        damage,
+        radius,
+        range: radius,
+        hitEffects: [{
+          status: 'burn',
+          durationMs: chemical ? 5200 : 3200,
+          stacks: chemical ? 2 : 1,
+          tickDamage: chemical ? 2.4 : 1.2,
+          tickMs: 600,
+          refresh: 'stack',
+        }],
+      }
+      for (const enemy of this.enemies) {
+        if (enemy.state === 'dead') continue
+        const reach = radius + enemy.definition.radius
+        if (distanceSquared(arrow.position, enemy.position) > reach * reach) continue
+        const blastDirection = normalize({
+          x: enemy.position.x - arrow.position.x,
+          y: enemy.position.y - arrow.position.y,
+        }, arrow.direction)
+        this.damageEnemy(enemy, explosionAttack, attack.knockback, blastDirection, {
+          weaponId: context.weapon.id,
+          hand: context.hand,
+          gesture: context.gesture,
+          distance: Math.sqrt(distanceSquared(this.player.position, enemy.position)),
+        })
+      }
+      if (chemical
+        && distanceSquared(arrow.position, this.player.position)
+          <= (radius + this.config.player.radius) ** 2) {
+        this.damagePlayerUnavoidable(chemicalSelfDamage, 'Химический взрыв стрелы')
+      }
+      arrow.exploded = true
+      arrow.chemical = false
+      this.effects.push({
+        kind: 'shock',
+        position: { ...arrow.position },
+        direction: arrow.direction,
+        range: radius,
+        radius,
+        arcDegrees: 360,
+        color: chemical ? '#ff8a3d' : '#ffcf66',
+        remainingMs: chemical ? 620 : 360,
+        totalMs: chemical ? 620 : 360,
+      })
+    }
   }
 
   private performMelee(
@@ -5634,20 +6869,40 @@ export class LastChancesEngine {
     direction: LastChancesVector,
     context: AttackExecutionContext,
   ): void {
+    direction = normalize(direction)
     const speed = Math.max(1, attack.projectileSpeed)
     const projectileRadius = Math.max(attack.radius, (attack.collider?.width ?? 0) / 2)
     const projectileSpawnOffset = Math.max(
       0,
       tuningValue(attack, 'projectileSpawnOffset', 0),
     )
+    const projectileId = this.nextProjectileId
+    const persistentArrow = context.weapon.trait === 'longbowPersistence'
+      && isLongbowArrowBehavior(attack.behavior)
+    const authoredSpawn = {
+      x: this.player.position.x + direction.x
+        * (this.config.player.radius + projectileRadius + 2 + projectileSpawnOffset),
+      y: this.player.position.y + direction.y
+        * (this.config.player.radius + projectileRadius + 2 + projectileSpawnOffset),
+    }
+    // A longbow muzzle can extend through a nearby wall even though the player remains on
+    // its valid side. Start the arrow at the first swept surface instead of beyond it: the
+    // first projectile update can then embed there or reflect a scatter arrow back into play.
+    // Generic projectiles retain their authored spawn position and legacy collision contract.
+    const muzzleImpact = persistentArrow
+      && attack.collider?.passesThroughWalls !== true
+      && this.currentNode
+      ? sweepLastChancesCircleAgainstArena(
+          this.player.position,
+          authoredSpawn,
+          projectileRadius,
+          this.currentNode.arena,
+        )
+      : null
+    const spawnPosition = muzzleImpact?.point ?? authoredSpawn
     this.projectiles.push({
-      id: this.nextProjectileId,
-      position: {
-        x: this.player.position.x + direction.x
-          * (this.config.player.radius + projectileRadius + 2 + projectileSpawnOffset),
-        y: this.player.position.y + direction.y
-          * (this.config.player.radius + projectileRadius + 2 + projectileSpawnOffset),
-      },
+      id: projectileId,
+      position: spawnPosition,
       velocity: { x: direction.x * speed, y: direction.y * speed },
       radius: projectileRadius,
       damage: attack.damage,
@@ -5665,11 +6920,34 @@ export class LastChancesEngine {
       hand: context.hand,
       gesture: context.gesture,
       storedDot: context.storedDot,
+      ...(persistentArrow
+        ? {
+            persistentArrow: true,
+            chemicalArrow: context.weapon.augment === 'chemical',
+            ricochetsRemaining: Math.max(
+              0,
+              Math.round(tuningValue(attack, 'ricochets', 0)),
+            ),
+          }
+        : {}),
       ...(isSpearReleaseBehavior(attack.behavior) && context.chargeBandId === 'late'
         ? { carriedIds: new Set<string>() }
         : {}),
     })
     this.nextProjectileId += 1
+    if (persistentArrow) {
+      this.bowLastShotDirections[context.hand] = { ...direction }
+      if (attack.behavior === 'bowShot') {
+        this.bowLastShotTargets[context.hand] = this.bowAimTarget(attack.range, projectileRadius)
+        this.bowLastShotWeaponIds[context.hand] = context.weapon.id
+        this.bowLastShotAtMs[context.hand] = this.elapsedMs
+      }
+      this.bowShotPresentation = {
+        atMs: this.elapsedMs,
+        direction: { ...direction },
+        goldenUntilMs: this.bowShotPresentation.goldenUntilMs,
+      }
+    }
     if (!isSpearReleaseBehavior(attack.behavior)) this.addEffect('hit', attack, direction)
   }
 
@@ -5724,6 +7002,18 @@ export class LastChancesEngine {
       this.activeDash.speed = this.activeDash.ram.speed
     }
     if (attack.behavior === 'poleVault' && isSpearV2Secondary(context.weapon)) {
+      const travelDistance = this.currentNode
+        ? this.poleVaultTravelDistance(
+            this.currentNode,
+            this.player.position,
+            direction,
+            attack.range,
+            this.config.player.radius,
+          )
+        : attack.range
+      this.activeDash.attack.range = travelDistance
+      this.activeDash.remainingDistance = travelDistance
+      this.activeDash.speed = travelDistance / durationSeconds
       this.activeDash.poleVault = {
         runMs: Math.max(0, tuningValue(attack, 'runMs', 180)),
         plantMs: Math.max(0, tuningValue(attack, 'plantMs', 120)),
@@ -5824,8 +7114,30 @@ export class LastChancesEngine {
         area.origin = { ...this.player.position }
         area.direction = nextDirection
         if (area.attack.behavior === 'spearStance') {
-          area.stanceCutSpeed = Math.abs(facingTurnRadians) * area.attack.range
-            / Math.max(EPSILON, deltaMs / 1000)
+          const previousCollider = resolveAttackCollider(
+            previousOrigin,
+            previousDirection,
+            area.attack,
+          )
+          const currentCollider = resolveAttackCollider(
+            area.origin,
+            nextDirection,
+            area.attack,
+          )
+          const previousTip = previousCollider.shape === 'capsule'
+            ? previousCollider.end
+            : previousOrigin
+          const currentTip = currentCollider.shape === 'capsule'
+            ? currentCollider.end
+            : area.origin
+          area.stanceTipVelocity = {
+            x: (currentTip.x - previousTip.x) / Math.max(EPSILON, deltaMs / 1000),
+            y: (currentTip.y - previousTip.y) / Math.max(EPSILON, deltaMs / 1000),
+          }
+          area.stanceCutSpeed = Math.abs(
+            area.stanceTipVelocity.x * -nextDirection.y
+              + area.stanceTipVelocity.y * nextDirection.x,
+          )
           stanceSweepColliders = this.spearStanceSweepColliders(
             previousOrigin,
             previousDirection,
@@ -6059,26 +7371,22 @@ export class LastChancesEngine {
     enemy: RuntimeEnemy,
   ): number {
     const direction = normalize(area.direction)
-    const enemyCanMove = enemy.state !== 'dead'
-      && enemy.statuses.stunMs <= 0
-      && enemy.statuses.boundMs <= 0
-    const enemySpeed = enemyCanMove
-      ? enemy.definition.moveSpeed * Math.max(0, enemy.statuses.slowMultiplier)
-      : 0
-    const enemyVelocity = {
-      x: enemy.facing.x * enemySpeed,
-      y: enemy.facing.y * enemySpeed,
+    const relativeVelocity = {
+      x: area.stanceTipVelocity.x - enemy.velocity.x,
+      y: area.stanceTipVelocity.y - enemy.velocity.y,
     }
     const closingSpeed = Math.max(
       0,
-      (this.movementVelocity.x - enemyVelocity.x) * direction.x
-        + (this.movementVelocity.y - enemyVelocity.y) * direction.y,
+      relativeVelocity.x * direction.x + relativeVelocity.y * direction.y,
+    )
+    const cuttingSpeed = Math.abs(
+      relativeVelocity.x * -direction.y + relativeVelocity.y * direction.x,
     )
     const stationary = Math.max(0, tuningValue(area.attack, 'stationaryDamageMultiplier', 0.3))
     const piercing = stationary + closingSpeed
       / Math.max(1, tuningValue(area.attack, 'pierceReferenceSpeed', 420))
       * Math.max(0, tuningValue(area.attack, 'pierceSpeedDamageMultiplier', 1.8))
-    const cutting = stationary + area.stanceCutSpeed
+    const cutting = stationary + Math.max(area.stanceCutSpeed, cuttingSpeed)
       / Math.max(1, tuningValue(area.attack, 'cutReferenceSpeed', 900))
       * Math.max(0, tuningValue(area.attack, 'cutSpeedDamageMultiplier', 0.95))
     return Math.max(stationary, piercing, cutting)
@@ -6120,6 +7428,8 @@ export class LastChancesEngine {
     area: RuntimeActiveArea,
     sweepDegrees = area.sweepDegrees,
   ): LastChancesRuntimeCollider {
+    const sideways = this.sidewaysAttackCollider(area.origin, area.direction, area.attack)
+    if (sideways) return sideways
     const expandsFromOrigin = area.kind === 'burst'
       && (area.attack.collider?.shape ?? 'circle') === 'circle'
     const progress = expandsFromOrigin && area.totalMs > 0
@@ -6425,13 +7735,20 @@ export class LastChancesEngine {
         )
       }
     }
+    const now = performance.now()
+    for (const channel of [...this.bowChannels.values()]) {
+      this.settleBowChannelToInputTime(channel.hand, now)
+    }
+    this.stopAllBowChannels(true)
   }
 
   private cancelHeldChannels(): void {
-    if (this.heldChannels.size === 0) return
-    const heldAreas = new Set(this.heldChannels.values())
-    this.activeAreas = this.activeAreas.filter(area => !heldAreas.has(area))
-    this.heldChannels.clear()
+    if (this.heldChannels.size > 0) {
+      const heldAreas = new Set(this.heldChannels.values())
+      this.activeAreas = this.activeAreas.filter(area => !heldAreas.has(area))
+      this.heldChannels.clear()
+    }
+    this.stopAllBowChannels(false)
   }
 
   private controlInputSnapshot(
@@ -6445,16 +7762,26 @@ export class LastChancesEngine {
     const controls = weapon?.controls
     if (this.controlSchemeValue === 'mylorik') {
       const state = this.mylorikControls.snapshot(runtimeHandToPhysicalCluster(hand), atMs)
-      const intent = state.mobilityPressed ? 'mobility' : 'technique'
-      const phase = state.mobilityPressed
+      const pressEdgeContinuation = state.techniquePressCommitted
+        && this.bowResponseWindows[hand]?.weaponId === weapon?.id
+      const continuation = state.techniqueContinuationPressed || pressEdgeContinuation
+      const intent = continuation ? 'strike' : state.mobilityPressed ? 'mobility' : 'technique'
+      const phase = continuation
+        ? 'press'
+        : state.mobilityPressed
         ? state.mobilityHeldMs >= (this.config.input.mylorik?.techniqueHoldMs ?? 0)
           ? 'hold'
           : 'press'
         : state.techniqueArmed ? 'hold' : 'tap'
       const candidate = controls?.mylorik.activations
-        .filter(activation => activation.intent === intent && activation.phase === phase)
+        .filter(activation => activation.intent === intent)
+        .filter(activation => continuation
+          ? activation.context === 'continuation'
+          : activation.phase === phase && activation.context === undefined)
         .sort((left, right) => right.priority - left.priority)[0]?.gesture ?? null
-      const heldMs = state.mobilityPressed ? state.mobilityHeldMs : state.techniqueHeldMs
+      const heldMs = continuation
+        ? pressEdgeContinuation ? state.techniqueHeldMs : state.techniqueContinuationHeldMs
+        : state.mobilityPressed ? state.mobilityHeldMs : state.techniqueHeldMs
       const pressed = state.mobilityPressed || state.techniquePressed
       return {
         hand,
@@ -6467,13 +7794,16 @@ export class LastChancesEngine {
           ? Math.max(0, (this.config.input.mylorik?.techniqueHoldMs ?? 0) - heldMs)
           : 0,
         heldMs,
-        sequence: pressed ? 'first' : null,
+        sequence: pressed ? continuation ? 'secondTap' : 'first' : null,
         candidateGesture: candidate,
         pendingChargeMs: heldMs,
       }
     }
     const state = this.dualSenseControls.snapshot(runtimeHandToPhysicalCluster(hand), atMs)
     const node = controls?.dualsense.nodes.find(candidate => candidate.id === state.nodeId)
+    const sequence = node?.gesture === 'doubleTap' || node?.gesture === 'doubleTapHold'
+      ? 'secondTap'
+      : 'first'
     return {
       hand,
       phase: state.active ? 'pressing' : 'idle',
@@ -6481,7 +7811,7 @@ export class LastChancesEngine {
       progress: state.value,
       remainingMs: 0,
       heldMs: state.heldMs,
-      sequence: state.active ? 'first' : null,
+      sequence: state.active ? sequence : null,
       candidateGesture: node?.gesture ?? null,
       pendingChargeMs: state.heldMs,
     }
@@ -6632,6 +7962,551 @@ export class LastChancesEngine {
       this.heldChannels.set(hand, area)
       this.syncContinuationFeedback()
     }
+  }
+
+  /**
+   * Longbow holds are real-time verbs rather than release-only attacks. Чреда and Обстрел emit
+   * arrows while the button is down; Натяг accrues its exact stamina debit so the golden window
+   * can refund precisely what this one draw consumed.
+   */
+  private bowDrawInputActive(
+    hand: LastChancesHand,
+    input: LastChancesGestureInputSnapshot,
+  ): boolean {
+    const schemeOwnsDrawRoute = this.controlSchemeValue !== 'dualsense'
+      || input.candidateGesture === 'hold'
+      || input.candidateGesture === 'holdThenDoubleTap'
+    return input.pressed
+      && !this.bowDrawConsumedUntilRelease[hand]
+      && input.sequence === 'first'
+      && schemeOwnsDrawRoute
+      && input.candidateGesture !== 'doubleTapHold'
+      && input.candidateGesture !== 'holdThenDoubleTap'
+  }
+
+  private updateBowHeldMechanics(_deltaMs: number): void {
+    const now = this.frameNowMs || performance.now()
+    if (this.releasedBowDraw
+      && this.elapsedMs - this.releasedBowDraw.releasedAtMs
+        > this.config.input.holdThenDoubleTapWindowMs + 120) {
+      this.releasedBowDraw = null
+    }
+    for (const hand of LAST_CHANCES_HANDS) {
+      const weapon = this.weapons.get(hand)
+      if (!weapon || weapon.trait !== 'longbowPersistence') {
+        this.stopBowChannel(hand, false)
+        this.resetBowDrawDebit(hand)
+        continue
+      }
+      const input = this.controlInputSnapshot(hand, now)
+      if (!input.pressed) {
+        this.bowDrawConsumedUntilRelease[hand] = false
+        this.bowChannelConsumedUntilRelease[hand] = false
+      }
+      let existing = this.bowChannels.get(hand)
+      if (existing) {
+        this.settleBowChannelToInputTime(hand, now)
+        existing = this.bowChannels.get(hand)
+      }
+      const stillHoldingExisting = existing
+        && input.pressed
+        && (existing.gesture === 'doubleTapHold'
+          ? input.sequence === 'secondTap'
+            || input.candidateGesture === 'doubleTapHold'
+          : input.sequence === 'first'
+            || input.candidateGesture === 'hold')
+      if (existing && !stillHoldingExisting) this.stopBowChannel(hand, true)
+
+      if (isLongbowPrimary(weapon)) {
+        const rapid = weapon.attacks.doubleTapHold
+        const rapidGateMs = Math.max(0, tuningValue(rapid, 'channelStartMs', 220))
+        const rapidHeld = input.pressed
+          && (input.sequence === 'secondTap' || input.candidateGesture === 'doubleTapHold')
+          && input.heldMs >= rapidGateMs
+        if (rapidHeld
+          && !this.bowChannels.has(hand)
+          && !this.bowChannelConsumedUntilRelease[hand]
+          && this.gestureReady(hand, 'doubleTapHold')) {
+          this.immediateHandInput[hand].bowChannelStarted = this.startBowChannel(
+            hand,
+            weapon,
+            'doubleTapHold',
+            rapid,
+            now - Math.max(0, input.heldMs - rapidGateMs),
+          )
+        }
+
+        const drawing = this.bowDrawInputActive(hand, input)
+        if (drawing) {
+          this.accrueBowDrawDebit(hand, weapon.attacks.hold, input.heldMs)
+        } else {
+          this.bowDrawDebits[hand].active = false
+        }
+      }
+
+      if (isLongbowSecondary(weapon)) {
+        const rain = weapon.attacks.hold
+        const rainHeld = input.pressed
+          && (input.sequence === 'first' || input.candidateGesture === 'hold')
+          && this.bowResponseWindows[hand] === null
+          && input.heldMs >= this.config.input.holdMs
+        if (rainHeld
+          && !this.bowChannels.has(hand)
+          && !this.bowChannelConsumedUntilRelease[hand]
+          && this.gestureReady(hand, 'hold')) {
+          this.immediateHandInput[hand].bowChannelStarted = this.startBowChannel(
+            hand,
+            weapon,
+            'hold',
+            rain,
+            now - Math.max(0, input.heldMs - this.config.input.holdMs),
+          )
+        }
+      }
+    }
+    // A hold gate may have been crossed between animation frames; settle that exact tail now.
+    for (const channel of [...this.bowChannels.values()]) {
+      this.settleBowChannelToInputTime(channel.hand, now)
+    }
+  }
+
+  private startBowChannel(
+    hand: LastChancesHand,
+    weapon: LastChancesResolvedWeapon,
+    gesture: RuntimeBowChannel['gesture'],
+    sourceAttack: LastChancesAttackDefinition,
+    startedAtInputMs = this.frameNowMs || performance.now(),
+  ): boolean {
+    if (this.bowChannels.has(hand) || this.bowChannelConsumedUntilRelease[hand]) return false
+    const attack = attackWithLastChancesAugment(sourceAttack, weapon)
+    if (attack.behavior === 'bowRain') {
+      this.bowRainReleasedAtInputMs[hand] = Number.NEGATIVE_INFINITY
+    }
+    this.bowChannels.set(hand, {
+      hand,
+      weaponId: weapon.id,
+      gesture,
+      behavior: attack.behavior === 'bowRain' ? 'bowRain' : 'bowRapidFire',
+      attack,
+      elapsedMs: 0,
+      shotAccumulatorMs: 0,
+      staminaAccumulatorMs: 0,
+      lastSettledAtInputMs: startedAtInputMs,
+    })
+    this.lastGesture = {
+      hand,
+      gesture,
+      attackName: attack.name,
+      atMs: this.elapsedMs,
+    }
+    if (attack.behavior === 'bowRapidFire') {
+      this.bowDoubleShotWeaponIds[hand] = null
+      this.bowDoubleShotAtMs[hand] = Number.NEGATIVE_INFINITY
+    }
+    return true
+  }
+
+  private updateBowChannels(deltaMs: number): void {
+    for (const channel of [...this.bowChannels.values()]) {
+      channel.lastSettledAtInputMs += Math.max(0, deltaMs)
+      this.advanceBowChannel(channel, deltaMs)
+    }
+  }
+
+  private settleBowChannelToInputTime(hand: LastChancesHand, atMs: number): void {
+    const channel = this.bowChannels.get(hand)
+    if (!channel) return
+    const deltaMs = Math.max(0, atMs - channel.lastSettledAtInputMs)
+    channel.lastSettledAtInputMs = Math.max(channel.lastSettledAtInputMs, atMs)
+    if (deltaMs > 0) this.advanceBowChannel(channel, deltaMs)
+  }
+
+  /**
+   * A hold can cross its gate and release entirely between animation frames. Materialize that
+   * paid interval before stopping, then guard the release classifier from reopening the channel.
+   */
+  private settleBowChannelRelease(
+    hand: LastChancesHand,
+    atMs: number,
+    heldMs: number,
+    sequence: LastChancesGestureInputSnapshot['sequence'],
+  ): void {
+    const weapon = this.weapons.get(hand)
+    if (weapon?.trait !== 'longbowPersistence') return
+    // A capped or stamina-exhausted Rain has already removed its live channel while the
+    // physical button is still down. Its consumed latch must preserve the same Hold + tap
+    // continuation entitlement until this release edge.
+    let releasedRain = this.bowChannels.get(hand)?.behavior === 'bowRain'
+      || (isLongbowSecondary(weapon) && this.bowChannelConsumedUntilRelease[hand])
+    this.bowChannelReleasedAtInputMs[hand] = Math.max(
+      this.bowChannelReleasedAtInputMs[hand],
+      atMs,
+    )
+    if (!this.bowChannels.has(hand)) {
+      if (isLongbowSecondary(weapon)
+        && this.bowResponseWindows[hand] === null
+        && heldMs >= this.config.input.holdMs
+        && !this.bowChannelConsumedUntilRelease[hand]
+        && this.gestureReady(hand, 'hold')) {
+        this.startBowChannel(
+          hand,
+          weapon,
+          'hold',
+          weapon.attacks.hold,
+          atMs - Math.max(0, heldMs - this.config.input.holdMs),
+        )
+        releasedRain = this.bowChannels.get(hand)?.behavior === 'bowRain'
+      } else if (isLongbowPrimary(weapon)) {
+        const rapid = weapon.attacks.doubleTapHold
+        const gateMs = Math.max(0, tuningValue(rapid, 'channelStartMs', 220))
+        if (sequence === 'secondTap'
+          && heldMs >= gateMs
+          && this.gestureReady(hand, 'doubleTapHold')) {
+          this.startBowChannel(
+            hand,
+            weapon,
+            'doubleTapHold',
+            rapid,
+            atMs - Math.max(0, heldMs - gateMs),
+          )
+        }
+      }
+    }
+    this.settleBowChannelToInputTime(hand, atMs)
+    this.stopBowChannel(hand, true)
+    if (releasedRain) this.bowRainReleasedAtInputMs[hand] = atMs
+    this.bowChannelConsumedUntilRelease[hand] = false
+  }
+
+  private advanceBowChannel(channel: RuntimeBowChannel, deltaMs: number): void {
+    const weapon = this.weapons.get(channel.hand)
+    if (!weapon || weapon.id !== channel.weaponId) {
+      this.stopBowChannel(channel.hand, false)
+      return
+    }
+    if (channel.behavior === 'bowRain') {
+      this.bowRainTarget = this.bowAimTarget(
+        channel.attack.range,
+        Math.max(1, tuningValue(channel.attack, 'zoneRadius', 105)),
+      )
+    }
+    const tickMs = Math.max(1, tuningValue(channel.attack, 'staminaTickMs', 100))
+    const tickCost = Math.max(0, tuningValue(
+      channel.attack,
+      'staminaPerTick',
+      channel.behavior === 'bowRain' ? 6 : 5,
+    )) * this.staminaCostMultiplier()
+    const maximumMs = Math.max(1, tuningValue(channel.attack, 'channelMaxMs', 2000))
+    const requestedMs = Math.min(deltaMs, Math.max(0, maximumMs - channel.elapsedMs))
+    const staminaPerMs = tickCost / tickMs
+    const affordableMs = staminaPerMs > EPSILON
+      ? this.player.stamina / staminaPerMs
+      : requestedMs
+    const activeMs = Math.min(requestedMs, affordableMs)
+    if (activeMs > 0) {
+      const spent = activeMs * staminaPerMs
+      this.player.stamina = Math.max(0, this.player.stamina - spent)
+      channel.elapsedMs += activeMs
+      channel.shotAccumulatorMs += activeMs
+      channel.staminaAccumulatorMs += activeMs
+    }
+
+    const intervalMs = Math.max(1, tuningValue(
+      channel.attack,
+      channel.behavior === 'bowRain' ? 'arrowIntervalMs' : 'shotIntervalMs',
+      channel.behavior === 'bowRain' ? 145 : 120,
+    ))
+    while (channel.shotAccumulatorMs >= intervalMs) {
+      channel.shotAccumulatorMs -= intervalMs
+      if (channel.behavior === 'bowRain') {
+        this.spawnBowRainArrow(channel, weapon)
+      } else {
+        const context: AttackExecutionContext = {
+          weapon,
+          hand: channel.hand,
+          gesture: channel.gesture,
+          resolution: {
+            hand: channel.hand,
+            gesture: channel.gesture,
+            atMs: this.elapsedMs,
+            heldMs: channel.elapsedMs,
+            firstHoldMs: 0,
+          },
+          storedDot: null,
+        }
+        this.performProjectile(channel.attack, normalize(this.player.aim), context)
+      }
+    }
+
+    const exhausted = activeMs + EPSILON < requestedMs
+    if (exhausted) {
+      this.player.stamina = 0
+      this.stopBowChannel(channel.hand, true)
+      this.refuseForStamina(channel.hand)
+    } else if (channel.elapsedMs >= maximumMs) {
+      this.stopBowChannel(channel.hand, true)
+    }
+  }
+
+  private stopBowChannel(hand: LastChancesHand, commit: boolean): void {
+    const channel = this.bowChannels.get(hand)
+    if (!channel) return
+    this.bowChannels.delete(hand)
+    if (commit) this.bowChannelConsumedUntilRelease[hand] = true
+    if (channel.behavior === 'bowRain') this.bowRainTarget = null
+    if (!commit) return
+    this.cooldownEnds.set(
+      cooldownKey(hand, channel.gesture),
+      Math.max(
+        this.cooldownEnds.get(cooldownKey(hand, channel.gesture)) ?? 0,
+        this.elapsedMs + channel.attack.cooldownMs,
+      ),
+    )
+    this.weaponActionEnds.delete(channel.weaponId)
+    this.scheduleRecovery(channel.weaponId, channel.attack.recoveryMs, 0)
+  }
+
+  private stopAllBowChannels(commit: boolean): void {
+    for (const hand of [...this.bowChannels.keys()]) this.stopBowChannel(hand, commit)
+  }
+
+  private resetBowDrawDebit(hand: LastChancesHand): void {
+    this.bowDrawDebits[hand] = {
+      active: false,
+      accruedMs: 0,
+      spent: 0,
+      exhausted: false,
+    }
+  }
+
+  /** Debits every newly observed millisecond once, including the physical release-frame tail. */
+  private accrueBowDrawDebit(
+    hand: LastChancesHand,
+    attack: LastChancesAttackDefinition,
+    heldMs: number,
+  ): void {
+    const debit = this.bowDrawDebits[hand]
+    const maximumHoldMs = Math.max(
+      attack.charge?.maxMs ?? 1000,
+      tuningValue(attack, 'drawMaxHoldMs', 2000),
+    )
+    const accruedMs = Math.min(Math.max(0, heldMs), maximumHoldMs)
+    const newMs = Math.max(0, accruedMs - debit.accruedMs)
+    const staminaPerMs = Math.max(0, tuningValue(attack, 'staminaPerMs', 0.04))
+    const effectiveRate = staminaPerMs * this.staminaCostMultiplier()
+    const requested = newMs * effectiveRate
+    const spent = Math.min(this.player.stamina, requested)
+    const paidMs = effectiveRate > EPSILON ? spent / effectiveRate : newMs
+    debit.active = true
+    debit.accruedMs = Math.min(accruedMs, debit.accruedMs + paidMs)
+    debit.spent += spent
+    debit.exhausted = debit.exhausted || spent + EPSILON < requested
+    this.player.stamina = Math.max(0, this.player.stamina - spent)
+  }
+
+  private consumeBowDrawDebit(hand: LastChancesHand, refund: boolean): number {
+    const debit = this.bowDrawDebits[hand]
+    const spent = debit.spent
+    if (refund && spent > 0) {
+      this.player.stamina = clamp(
+        this.player.stamina + spent,
+        0,
+        this.effectivePlayerStats().maxStamina,
+      )
+    }
+    this.resetBowDrawDebit(hand)
+    this.bowDrawConsumedUntilRelease[hand] = true
+    return spent
+  }
+
+  private bowAimTarget(range: number, radius = 0): LastChancesVector {
+    const arena = this.currentNode?.arena
+    const pointerOwnsAim = !this.retainedGamepadAim
+      && vectorLength(this.gamepadAim) <= this.config.input.aimDeadZone
+      && vectorLength(this.touchAim) <= this.config.input.aimDeadZone
+      && this.pointerWorldTarget !== null
+    let target = pointerOwnsAim
+      ? { ...(this.pointerWorldTarget as LastChancesVector) }
+      : {
+          x: this.player.position.x + this.player.aim.x * range,
+          y: this.player.position.y + this.player.aim.y * range,
+        }
+    const offset = {
+      x: target.x - this.player.position.x,
+      y: target.y - this.player.position.y,
+    }
+    if (vectorLength(offset) > range) {
+      const direction = normalize(offset, this.player.aim)
+      target = {
+        x: this.player.position.x + direction.x * range,
+        y: this.player.position.y + direction.y * range,
+      }
+    }
+    if (!arena) return target
+    return {
+      x: clamp(target.x, radius, arena.width - radius),
+      y: clamp(target.y, radius, arena.height - radius),
+    }
+  }
+
+  private spawnBowRainArrow(
+    channel: RuntimeBowChannel,
+    weapon: LastChancesResolvedWeapon,
+  ): void {
+    const zoneRadius = Math.max(1, tuningValue(channel.attack, 'zoneRadius', 105))
+    const center = this.bowRainTarget ?? this.bowAimTarget(channel.attack.range, zoneRadius)
+    this.bowRainTarget = center
+    const rng = createLastChancesRng(
+      `${this.currentNode?.seed ?? 0}:bow-rain:${this.nextProjectileId}:${Math.floor(channel.elapsedMs)}`,
+    )
+    const angle = rng() * Math.PI * 2
+    const distance = Math.sqrt(rng()) * zoneRadius
+    const target = this.currentNode
+      ? {
+          x: clamp(
+            center.x + Math.cos(angle) * distance,
+            2,
+            this.currentNode.arena.width - 2,
+          ),
+          y: clamp(
+            center.y + Math.sin(angle) * distance,
+            2,
+            this.currentNode.arena.height - 2,
+          ),
+        }
+      : center
+    const fallMs = Math.max(120, tuningValue(channel.attack, 'fallMs', 520))
+    this.fallingArrows.push({
+      id: this.nextProjectileId++,
+      target,
+      direction: normalize({
+        x: Math.cos(angle) * 0.18 + this.player.aim.x,
+        y: Math.sin(angle) * 0.18 + this.player.aim.y,
+      }),
+      remainingMs: fallMs,
+      totalMs: fallMs,
+      attack: { ...channel.attack },
+      weaponId: weapon.id,
+      hand: channel.hand,
+      gesture: channel.gesture,
+      chemical: weapon.augment === 'chemical',
+    })
+  }
+
+  private updateFallingArrows(deltaMs: number): void {
+    const landed: RuntimeFallingArrow[] = []
+    for (const arrow of this.fallingArrows) {
+      arrow.remainingMs = Math.max(0, arrow.remainingMs - deltaMs)
+      if (arrow.remainingMs <= 0) landed.push(arrow)
+    }
+    this.fallingArrows = this.fallingArrows.filter(arrow => arrow.remainingMs > 0)
+    for (const arrow of landed) {
+      const impactRadius = Math.max(1, tuningValue(arrow.attack, 'arrowImpactRadius', 10))
+      for (const enemy of this.enemies) {
+        if (enemy.state === 'dead') continue
+        const reach = impactRadius + enemy.definition.radius
+        if (distanceSquared(arrow.target, enemy.position) > reach * reach) continue
+        this.damageEnemy(enemy, arrow.attack, arrow.attack.knockback, arrow.direction, {
+          weaponId: arrow.weaponId,
+          hand: arrow.hand,
+          gesture: arrow.gesture,
+          distance: Math.sqrt(distanceSquared(this.player.position, enemy.position)),
+        })
+      }
+      this.embedArrow({
+        id: arrow.id,
+        position: arrow.target,
+        direction: arrow.direction,
+        attachment: 'floor',
+        enemy: null,
+        color: arrow.attack.color,
+        chemical: arrow.chemical,
+        planted: true,
+      })
+      this.effects.push({
+        kind: 'hit',
+        position: { ...arrow.target },
+        direction: arrow.direction,
+        range: impactRadius * 2,
+        radius: impactRadius,
+        arcDegrees: 360,
+        color: arrow.attack.color,
+        remainingMs: 180,
+        totalMs: 180,
+      })
+    }
+  }
+
+  private updateEmbeddedArrows(): void {
+    for (const arrow of this.embeddedArrows) {
+      if (arrow.attachment !== 'enemy' || !arrow.enemyId || !arrow.enemyOffset) continue
+      const enemy = this.enemies.find(candidate => candidate.id === arrow.enemyId)
+      if (!enemy || enemy.state === 'dead') {
+        arrow.attachment = 'floor'
+        arrow.enemyId = null
+        arrow.enemyOffset = null
+        continue
+      }
+      arrow.position = {
+        x: enemy.position.x + arrow.enemyOffset.x,
+        y: enemy.position.y + arrow.enemyOffset.y,
+      }
+    }
+  }
+
+  private updateArrowChemicalPools(): void {
+    for (const arrow of this.embeddedArrows) {
+      if (!arrow.chemical || arrow.exploded || this.elapsedMs < arrow.nextChemicalTickAtMs) continue
+      arrow.nextChemicalTickAtMs = this.elapsedMs + 650
+      const radius = 46
+      for (const enemy of this.enemies) {
+        if (enemy.state === 'dead') continue
+        const reach = radius + enemy.definition.radius
+        if (distanceSquared(arrow.position, enemy.position) > reach * reach) continue
+        applyLastChancesStatusEffects(enemy.statuses, [{
+          status: 'chemical',
+          durationMs: 2200,
+          stacks: 1,
+          tickDamage: 1.25,
+          tickMs: 500,
+          refresh: 'refresh',
+        }], () => 0)
+      }
+    }
+  }
+
+  private embedArrow(options: {
+    id: number
+    position: LastChancesVector
+    direction: LastChancesVector
+    attachment: RuntimeEmbeddedArrow['attachment']
+    enemy: RuntimeEnemy | null
+    color: string
+    chemical: boolean
+    planted?: boolean
+  }): void {
+    const direction = normalize(options.direction)
+    const position = { ...options.position }
+    const enemyOffset = options.enemy
+      ? {
+          x: position.x - options.enemy.position.x,
+          y: position.y - options.enemy.position.y,
+        }
+      : null
+    this.embeddedArrows.push({
+      id: options.id,
+      position,
+      direction,
+      attachment: options.enemy ? 'enemy' : options.attachment,
+      enemyId: options.enemy?.id ?? null,
+      enemyOffset,
+      color: options.color,
+      chemical: options.chemical,
+      exploded: false,
+      embeddedAtMs: this.elapsedMs,
+      nextChemicalTickAtMs: this.elapsedMs,
+      ...(options.planted ? { planted: true } : {}),
+    })
   }
 
   private weaponState(weapon: LastChancesResolvedWeapon): RuntimeWeaponState {
@@ -7041,6 +8916,7 @@ export class LastChancesEngine {
       motionDamageBonus: 0,
       channelStaminaAccumulatorMs: 0,
       stanceCutSpeed: 0,
+      stanceTipVelocity: { x: 0, y: 0 },
     }
   }
 
@@ -7403,9 +9279,7 @@ export class LastChancesEngine {
                 baseTargetDistance,
                 attack.knockback * tuningValue(attack, 'targetDistancePerKnockback', 1),
               )
-        : chargeStage === 0
-          ? tuningValue(attack, 'shoveTargetDistance', 94)
-          : baseTargetDistance
+        : tuningValue(attack, 'shoveTargetDistance', baseTargetDistance)
       const target = {
         x: clamp(
           this.player.position.x + direction.x * targetDistance,
@@ -7587,6 +9461,22 @@ export class LastChancesEngine {
     this.player.hp = Math.max(0, this.player.hp - damage)
     this.player.invulnerableMs = this.config.player.invulnerabilityMs
     if (this.player.hp <= 0) this.killPlayer(`Killed by ${source}`)
+    return true
+  }
+
+  /**
+   * Chemical arrows explicitly threaten their archer. They ignore dodge/jump and shared damage
+   * i-frames, and simultaneous arrows each contribute their own blast; armor still mitigates.
+   */
+  private damagePlayerUnavoidable(rawDamage: number, source: string): boolean {
+    if (!this.canExploreRoom()) return false
+    const afterArmor = Math.max(
+      this.config.combat.minimumPlayerDamageTaken,
+      rawDamage - this.effectivePlayerStats().armor * this.player.armorMultiplier,
+    )
+    const damage = afterArmor * Math.max(0, 1 - this.ouroborosRoomDamageReduction())
+    this.player.hp = Math.max(0, this.player.hp - damage)
+    if (this.player.hp <= 0) this.killPlayer(`Killed by ${source}`, true)
     return true
   }
 
@@ -7781,8 +9671,8 @@ export class LastChancesEngine {
     this.player.stamina = Math.min(this.player.stamina, effectiveStats.maxStamina)
   }
 
-  private killPlayer(reason: string): void {
-    if (this.phase !== 'playing') return
+  private killPlayer(reason: string, allowClearedRoomDeath = false): void {
+    if (this.phase !== 'playing' && !(allowClearedRoomDeath && this.canExploreRoom())) return
     this.dropEquippedOuroborosOnDeath()
     const activePrimary = this.activeLoadout
       ? this.config.weapons.find(weapon => weapon.id === this.activeLoadout?.primaryWeaponId)
@@ -7802,7 +9692,9 @@ export class LastChancesEngine {
   private completeRoom(): void {
     if (!this.currentNode || this.phase !== 'playing') return
     if (this.currentNode.roomTemplateId === 'false-apartment') this.restorePostPrologueLoadout()
-    this.clearCombatTransients()
+    // Arrow impacts are room scenery. Keep both embedded arrows and already-loosed arrows while
+    // the player walks the cleared arena; choosing the next node owns their eventual cleanup.
+    this.clearCombatTransients(true)
     if (this.currentNode.interaction && !this.interactionResolved) {
       this.phase = 'planning'
       this.routeMapVisible = false
@@ -7821,8 +9713,35 @@ export class LastChancesEngine {
     this.emitSnapshot(true)
   }
 
-  private clearCombatTransients(): void {
-    this.projectiles = []
+  private clearCombatTransients(preserveBowArrows = false): void {
+    this.stopAllBowChannels(false)
+    this.projectiles = preserveBowArrows
+      ? this.projectiles.filter(projectile => projectile.persistentArrow)
+      : []
+    if (!preserveBowArrows) {
+      this.embeddedArrows = []
+      this.fallingArrows = []
+    }
+    this.releasedBowDraw = null
+    this.bowRainTarget = null
+    this.bowShotPresentation = {
+      atMs: Number.NEGATIVE_INFINITY,
+      direction: { x: 1, y: 0 },
+      goldenUntilMs: Number.NEGATIVE_INFINITY,
+    }
+    for (const hand of LAST_CHANCES_HANDS) {
+      this.resetBowDrawDebit(hand)
+      this.bowChannelReleasedAtInputMs[hand] = Number.NEGATIVE_INFINITY
+      this.bowChannelConsumedUntilRelease[hand] = false
+      this.bowDrawConsumedUntilRelease[hand] = false
+      this.bowLastShotTargets[hand] = null
+      this.bowLastShotWeaponIds[hand] = null
+      this.bowLastShotAtMs[hand] = Number.NEGATIVE_INFINITY
+      this.bowDoubleShotWeaponIds[hand] = null
+      this.bowDoubleShotAtMs[hand] = Number.NEGATIVE_INFINITY
+      this.bowResponseWindows[hand] = null
+      this.bowRainReleasedAtInputMs[hand] = Number.NEGATIVE_INFINITY
+    }
     this.holeStrikes = []
     this.activeDash = null
     this.activeSwordAdvance = null
@@ -8104,7 +10023,18 @@ export class LastChancesEngine {
         this.qaControlsFixture || this.config.progression.moveQuestsEnabled === false,
       ),
     }
+    this.stopAllBowChannels(false)
     this.projectiles = []
+    this.embeddedArrows = []
+    this.fallingArrows = []
+    this.releasedBowDraw = null
+    this.bowRainTarget = null
+    this.bowShotPresentation = {
+      atMs: Number.NEGATIVE_INFINITY,
+      direction: { x: 1, y: 0 },
+      goldenUntilMs: Number.NEGATIVE_INFINITY,
+    }
+    for (const hand of LAST_CHANCES_HANDS) this.resetBowDrawDebit(hand)
     this.activeAreas = []
     this.effects = []
     this.traces = []
@@ -8133,6 +10063,7 @@ export class LastChancesEngine {
     this.gamepadMove = { x: 0, y: 0 }
     this.gamepadAim = { x: 0, y: 0 }
     this.retainedGamepadAim = null
+    this.pointerWorldTarget = null
     this.pointerClientX = null
     this.pointerDeltaX = 0
     this.player.position = { x: 0, y: 0 }
@@ -9291,6 +11222,15 @@ export class LastChancesEngine {
     this.resetImmediateHandInput('right')
     this.mylorikControls.reset()
     this.dualSenseControls.reset()
+    for (const hand of LAST_CHANCES_HANDS) {
+      if (this.bowDrawDebits[hand].active || this.bowDrawDebits[hand].spent > 0) {
+        this.consumeBowDrawDebit(hand, true)
+      }
+      this.bowDrawConsumedUntilRelease[hand] = false
+      this.bowResponseWindows[hand] = null
+      this.bowRainReleasedAtInputMs[hand] = Number.NEGATIVE_INFINITY
+      this.bowChannelConsumedUntilRelease[hand] = false
+    }
     this.triggerDetents.left = null
     this.triggerDetents.right = null
     this.spiderWriggle = null
@@ -9652,7 +11592,7 @@ export class LastChancesEngine {
       const weapon = this.weapons.get(hand)
       if (!weapon) continue
       for (const gesture of LAST_CHANCES_GESTURES) {
-        const tapHasCooldown = gesture === 'tap' && weapon.trait === 'ouroborosFang'
+        const tapHasCooldown = gesture === 'tap' && weapon.attacks.tap.cooldownMs > 0
         const totalMs = gesture === 'tap' && !tapHasCooldown ? 0 : weapon.attacks[gesture].cooldownMs
         const remainingMs = gesture === 'tap' && !tapHasCooldown
           ? 0
@@ -10062,6 +12002,10 @@ export class LastChancesEngine {
     for (const hole of node.bossHoles) this.renderBossHole(hole, node)
     for (const hazard of node.arena.hazards) this.renderHazard(hazard, node)
     for (const zone of this.zoneAttacks) this.renderZoneAttack(zone, node)
+    for (const arrow of this.embeddedArrows) {
+      if (arrow.chemical && !arrow.exploded) this.renderArrowChemicalPool(arrow, node)
+    }
+    this.renderBowRainZone(node)
     // Pending hole strikes are deliberately not drawn: the player must not learn which hole
     // answers before it goes off. The blast itself is shown by a 'shock' effect on detonation.
     for (const turret of this.turrets) this.renderTurretVision(turret, node)
@@ -10099,6 +12043,23 @@ export class LastChancesEngine {
         draw: () => this.renderProjectile(projectile, node),
       })
     }
+    for (const arrow of this.embeddedArrows) {
+      const attachedEnemy = arrow.enemyId
+        ? this.enemies.find(enemy => enemy.id === arrow.enemyId)
+        : null
+      items.push({
+        depth: attachedEnemy
+          ? attachedEnemy.position.x + attachedEnemy.position.y + 0.05
+          : arrow.position.x + arrow.position.y + 0.02,
+        draw: () => this.renderEmbeddedArrow(arrow, node),
+      })
+    }
+    for (const arrow of this.fallingArrows) {
+      items.push({
+        depth: arrow.target.x + arrow.target.y + 0.01,
+        draw: () => this.renderFallingArrow(arrow, node),
+      })
+    }
     for (const weapon of this.groundWeapons) {
       items.push({
         depth: weapon.position.x + weapon.position.y,
@@ -10126,6 +12087,7 @@ export class LastChancesEngine {
     for (const effect of this.effects) this.renderEffect(effect, node)
     this.renderPierceMashCue(node)
     this.renderActionCues(node)
+    this.renderBowChargeCue(node)
   }
 
   /**
@@ -11877,8 +13839,10 @@ export class LastChancesEngine {
     const context = this.context
     const groundPoint = this.worldToScreen(this.player.position, node)
     const radius = Math.max(8, this.config.player.radius * this.entityScale(node) * 1.55)
-    const vaultLiftRadii = this.activeDash?.poleVault
-      ? this.poleVaultLiftRadii(this.activeDash)
+    const vaultLiftRadii = this.activeDash
+      ? this.activeDash.poleVault
+        ? this.poleVaultLiftRadii(this.activeDash)
+        : this.bowDashLiftRadii(this.activeDash)
       : 0
     const point = {
       x: groundPoint.x,
@@ -11913,7 +13877,7 @@ export class LastChancesEngine {
       context.lineWidth = 3
       context.stroke()
     }
-    if (!this.primarySpearWeapon()) {
+    if (!this.primarySpearWeapon() && !this.primaryLongbowWeapon()) {
       const aimEnd = this.worldToScreen({
         x: this.player.position.x + this.player.aim.x * 74,
         y: this.player.position.y + this.player.aim.y * 74,
@@ -11969,6 +13933,7 @@ export class LastChancesEngine {
     }
     context.restore()
     this.renderHeldSpear(node, point, radius)
+    this.renderHeldLongbow(node, point, radius)
   }
 
   private renderOuroborosIcon(x: number, y: number, radius: number): void {
@@ -12067,6 +14032,25 @@ export class LastChancesEngine {
       context.lineTo(15, -1)
       context.closePath()
       context.fill()
+    } else if (weapon.weaponId === 'twohand-bow') {
+      if (this.longbowImage?.complete && this.longbowImage.naturalWidth > 0) {
+        context.drawImage(this.longbowImage, -25, -8, 50, 16)
+      } else {
+        context.strokeStyle = '#9a6335'
+        context.lineWidth = nearby ? 4 : 3
+        context.beginPath()
+        context.moveTo(-22, 0)
+        context.quadraticCurveTo(-10, -11, 0, 0)
+        context.quadraticCurveTo(10, 11, 22, 0)
+        context.stroke()
+        context.strokeStyle = '#d9d4c4'
+        context.lineWidth = 1
+        context.beginPath()
+        context.moveTo(-22, 0)
+        context.lineTo(0, 0)
+        context.lineTo(22, 0)
+        context.stroke()
+      }
     } else if (weapon.weaponId === 'secondary-chain') {
       context.lineWidth = nearby ? 3 : 2.2
       for (let link = 0; link < 5; link += 1) {
@@ -12175,6 +14159,19 @@ export class LastChancesEngine {
   private renderProjectile(projectile: RuntimeProjectile, node: LastChancesPlanNode): void {
     const point = this.worldToScreen(projectile.position, node)
     const radius = Math.max(3, projectile.radius * this.entityScale(node) * 1.6)
+    if (projectile.persistentArrow) {
+      this.drawBowArrow(
+        point,
+        projectile.velocity,
+        node,
+        Math.max(0.72, radius / 4),
+        projectile.color,
+        projectile.chemicalArrow === true,
+        false,
+        false,
+      )
+      return
+    }
     if (projectile.source === 'player'
       && projectile.weaponId === this.primarySpearWeapon()?.id
       && isSpearReleaseBehavior(projectile.attack?.behavior)) {
@@ -12294,6 +14291,525 @@ export class LastChancesEngine {
     }
     context.restore()
     context.shadowBlur = 0
+  }
+
+  /** Detailed persistent arrow shared by flight, enemy/wall embeds and the overhead rain. */
+  private drawBowArrow(
+    point: LastChancesVector,
+    worldDirection: LastChancesVector,
+    node: LastChancesPlanNode,
+    scale: number,
+    color: string,
+    chemical: boolean,
+    exploded: boolean,
+    tipAnchored: boolean,
+    screenDirection?: LastChancesVector,
+  ): void {
+    const projectionOrigin = this.worldToScreen({ x: 0, y: 0 }, node)
+    const projectionAhead = this.worldToScreen({
+      x: worldDirection.x * 100,
+      y: worldDirection.y * 100,
+    }, node)
+    const direction = screenDirection
+      ? normalize(screenDirection)
+      : normalize({
+          x: projectionAhead.x - projectionOrigin.x,
+          y: projectionAhead.y - projectionOrigin.y,
+        })
+    const angle = Math.atan2(direction.y, direction.x)
+    const length = 38 * scale
+    const tip = tipAnchored ? 0 : length * 0.48
+    const rear = tip - length
+    const context = this.context
+    context.save()
+    context.translate(point.x, point.y)
+    context.rotate(angle)
+    context.lineCap = 'round'
+    context.lineJoin = 'round'
+    context.shadowColor = chemical
+      ? '#83ff54'
+      : exploded ? '#ff7d32' : color
+    context.shadowBlur = chemical ? 11 * scale : exploded ? 7 * scale : 4 * scale
+
+    // Dark under-stroke keeps the ash shaft readable over both pale floor and chemical pools.
+    context.strokeStyle = exploded ? '#24150f' : '#3b2717'
+    context.lineWidth = Math.max(2, 3.2 * scale)
+    context.beginPath()
+    context.moveTo(rear, 0)
+    context.lineTo(tip - 2.5 * scale, 0)
+    context.stroke()
+    context.strokeStyle = exploded ? '#6b3020' : '#b98246'
+    context.lineWidth = Math.max(0.9, 1.35 * scale)
+    context.beginPath()
+    context.moveTo(rear, 0)
+    context.lineTo(tip - 2.2 * scale, 0)
+    context.stroke()
+
+    // Forged bodkin head.
+    context.fillStyle = exploded ? '#3b302a' : '#dbe2df'
+    context.strokeStyle = exploded ? '#17110e' : '#6e7778'
+    context.lineWidth = Math.max(0.7, scale)
+    context.beginPath()
+    context.moveTo(tip + 4.8 * scale, 0)
+    context.lineTo(tip - 3.2 * scale, -3.2 * scale)
+    context.lineTo(tip - 1.8 * scale, 0)
+    context.lineTo(tip - 3.2 * scale, 3.2 * scale)
+    context.closePath()
+    context.fill()
+    context.stroke()
+
+    // Two differently lit feathers and the cut nock make each stuck arrow remain identifiable.
+    const featherColor = chemical ? '#baff8c' : exploded ? '#6e3024' : '#e5d7c2'
+    context.fillStyle = featherColor
+    for (const side of [-1, 1]) {
+      context.beginPath()
+      context.moveTo(rear + 2 * scale, 0)
+      context.quadraticCurveTo(
+        rear + 8.5 * scale,
+        side * 4.2 * scale,
+        rear + 13.5 * scale,
+        side * 1.2 * scale,
+      )
+      context.lineTo(rear + 12 * scale, 0)
+      context.closePath()
+      context.fill()
+    }
+    context.strokeStyle = '#d2b78a'
+    context.lineWidth = Math.max(0.8, scale)
+    context.beginPath()
+    context.moveTo(rear - 1.8 * scale, -2.1 * scale)
+    context.lineTo(rear, 0)
+    context.lineTo(rear - 1.8 * scale, 2.1 * scale)
+    context.stroke()
+
+    if (chemical) {
+      context.globalAlpha = 0.8
+      context.fillStyle = '#9dff63'
+      for (let bubble = 0; bubble < 3; bubble += 1) {
+        const pulse = Math.sin(this.elapsedMs / 130 + bubble * 2.1 + point.x) * 0.8
+        context.beginPath()
+        context.arc(
+          rear + (9 + bubble * 8) * scale,
+          pulse * 2.5 * scale,
+          (1.1 + bubble * 0.25) * scale,
+          0,
+          Math.PI * 2,
+        )
+        context.fill()
+      }
+    }
+    context.restore()
+  }
+
+  private renderEmbeddedArrow(
+    arrow: RuntimeEmbeddedArrow,
+    node: LastChancesPlanNode,
+  ): void {
+    const point = this.worldToScreen(arrow.position, node)
+    point.y -= arrow.attachment === 'enemy'
+      ? Math.max(5, 9 * this.entityScale(node))
+      : Math.max(1, 2 * this.entityScale(node))
+    this.drawBowArrow(
+      point,
+      arrow.direction,
+      node,
+      arrow.attachment === 'enemy' ? 0.98 : 0.88,
+      arrow.color,
+      arrow.chemical,
+      arrow.exploded,
+      true,
+      arrow.planted ? { x: arrow.direction.x * 0.12, y: 1 } : undefined,
+    )
+  }
+
+  private renderFallingArrow(
+    arrow: RuntimeFallingArrow,
+    node: LastChancesPlanNode,
+  ): void {
+    const progress = 1 - clamp(arrow.remainingMs / Math.max(1, arrow.totalMs), 0, 1)
+    const target = this.worldToScreen(arrow.target, node)
+    const height = (1 - progress) * 155 + Math.sin(progress * Math.PI) * 22
+    const point = {
+      x: target.x - arrow.direction.x * (1 - progress) * 34,
+      y: target.y - height,
+    }
+    const context = this.context
+    context.save()
+    context.translate(target.x, target.y)
+    context.scale(1, 0.42)
+    context.beginPath()
+    context.ellipse(0, 0, 9 + progress * 7, 5 + progress * 3, 0, 0, Math.PI * 2)
+    context.fillStyle = `rgba(0,0,0,${0.12 + progress * 0.3})`
+    context.fill()
+    context.restore()
+    this.drawBowArrow(
+      point,
+      { x: arrow.direction.x * 0.18, y: 1 + Math.abs(arrow.direction.y) * 0.12 },
+      node,
+      0.86,
+      arrow.attack.color,
+      arrow.chemical,
+      false,
+      true,
+      { x: arrow.direction.x * 0.12, y: 1 },
+    )
+  }
+
+  private renderArrowChemicalPool(
+    arrow: RuntimeEmbeddedArrow,
+    node: LastChancesPlanNode,
+  ): void {
+    const context = this.context
+    const center = this.worldToScreen(arrow.position, node)
+    const pulse = 0.94 + Math.sin(this.elapsedMs / 310 + arrow.id) * 0.06
+    context.save()
+    context.globalAlpha = 0.2
+    context.fillStyle = '#55e83e'
+    context.strokeStyle = '#a7ff67'
+    context.shadowColor = '#63ff45'
+    context.shadowBlur = 13
+    context.lineWidth = 1.5
+    this.traceProjectedCircle(arrow.position, 46 * pulse, node, 32)
+    context.fill()
+    context.globalAlpha = 0.62
+    context.stroke()
+    context.fillStyle = '#c9ff83'
+    context.shadowBlur = 7
+    for (let bubble = 0; bubble < 4; bubble += 1) {
+      const angle = arrow.id * 1.71 + bubble * Math.PI / 2 + this.elapsedMs / 900
+      context.beginPath()
+      context.arc(
+        center.x + Math.cos(angle) * (10 + bubble * 3),
+        center.y + Math.sin(angle) * (4 + bubble),
+        1.5 + (bubble % 2),
+        0,
+        Math.PI * 2,
+      )
+      context.fill()
+    }
+    context.restore()
+  }
+
+  private renderBowRainZone(node: LastChancesPlanNode): void {
+    const channel = [...this.bowChannels.values()]
+      .find(candidate => candidate.behavior === 'bowRain')
+    if (!channel || !this.bowRainTarget) return
+    const radius = Math.max(1, tuningValue(channel.attack, 'zoneRadius', 105))
+    const context = this.context
+    const center = this.worldToScreen(this.bowRainTarget, node)
+    const pulse = 0.5 + Math.sin(this.elapsedMs / 105) * 0.5
+    context.save()
+    context.setLineDash([9, 7])
+    context.fillStyle = 'rgba(180, 214, 224, .055)'
+    context.strokeStyle = '#d8f2f5'
+    context.shadowColor = '#c7eef2'
+    context.shadowBlur = 8 + pulse * 8
+    context.lineWidth = 2.2
+    this.traceProjectedCircle(this.bowRainTarget, radius, node, 40)
+    context.fill()
+    context.stroke()
+    context.setLineDash([])
+    context.globalAlpha = 0.58 + pulse * 0.28
+    context.beginPath()
+    context.moveTo(center.x - 9, center.y)
+    context.lineTo(center.x + 9, center.y)
+    context.moveTo(center.x, center.y - 6)
+    context.lineTo(center.x, center.y + 6)
+    context.stroke()
+    context.restore()
+  }
+
+  private primaryLongbowWeapon(): LastChancesResolvedWeapon | null {
+    const weapon = this.weapons.get('left')
+    return isLongbowPrimary(weapon) ? weapon : null
+  }
+
+  /**
+   * The generated wood-and-leather body stays crisp at game scale; string, hands and the nocked
+   * arrow are procedural so they can follow the real input clock on every frame.
+   */
+  private renderHeldLongbow(
+    node: LastChancesPlanNode,
+    playerPoint: LastChancesVector,
+    playerRadius: number,
+  ): void {
+    const weapon = this.primaryLongbowWeapon()
+    if (!weapon) return
+    const now = this.frameNowMs || performance.now()
+    const primaryInput = this.controlInputSnapshot('left', now)
+    const responseInput = this.controlInputSnapshot('right', now)
+    const rapid = this.bowChannels.get('left')
+    const rain = this.bowChannels.get('right')
+    let drawProgress = 0.08
+    if (this.bowDrawInputActive('left', primaryInput)) {
+      const debit = this.bowDrawDebits.left
+      const visualHeldMs = debit.exhausted
+        ? Math.min(primaryInput.heldMs, debit.accruedMs)
+        : primaryInput.heldMs
+      drawProgress = resolveLastChancesBowCharge(
+        weapon.attacks.hold,
+        visualHeldMs,
+      ).powerProgress
+    } else if (rapid?.behavior === 'bowRapidFire') {
+      const interval = Math.max(1, tuningValue(rapid.attack, 'shotIntervalMs', 120))
+      drawProgress = 0.25 + 0.7 * clamp(rapid.shotAccumulatorMs / interval, 0, 1)
+    } else if (rain?.behavior === 'bowRain') {
+      const interval = Math.max(1, tuningValue(rain.attack, 'arrowIntervalMs', 145))
+      drawProgress = 0.42 + 0.52 * clamp(rain.shotAccumulatorMs / interval, 0, 1)
+    } else if (responseInput.pressed && this.bowResponseWindows.right) {
+      const responseHeldMs = Math.max(
+        0,
+        now - this.bowResponseWindows.right.startedAtInputMs,
+      )
+      drawProgress = clamp(
+        responseHeldMs / Math.max(
+          1,
+          tuningValue(weapon.secondaryAttacks?.doubleTapHold, 'goldEndMs', 530),
+        ),
+        0,
+        1,
+      )
+    }
+    const shotAge = this.elapsedMs - this.bowShotPresentation.atMs
+    const cadence = rapid?.behavior === 'bowRapidFire'
+      ? resolveLastChancesBowCadencePose(
+          rapid.shotAccumulatorMs,
+          Math.max(1, tuningValue(rapid.attack, 'shotIntervalMs', 120)),
+          shotAge,
+        )
+      : null
+    if (cadence) drawProgress = cadence.drawProgress
+    const ordinaryRecoiling = !cadence && shotAge >= 0 && shotAge <= 170
+    const recoiling = cadence
+      ? shotAge >= 0 && shotAge <= cadence.recoilDurationMs
+      : ordinaryRecoiling
+    const recoil = cadence?.recoil
+      ?? (ordinaryRecoiling ? Math.sin(clamp(shotAge / 170, 0, 1) * Math.PI) : 0)
+    if (ordinaryRecoiling) drawProgress *= 0.15
+
+    let aim = normalize(this.player.aim)
+    if (recoiling) {
+      aim = normalize(this.bowShotPresentation.direction, aim)
+    }
+    const origin = this.worldToScreen(this.player.position, node)
+    const ahead = this.worldToScreen({
+      x: this.player.position.x + aim.x * 100,
+      y: this.player.position.y + aim.y * 100,
+    }, node)
+    // Обстрел fires over the hero's head; the ground cursor is represented by its own zone.
+    const screenAim = rain
+      ? { x: 0, y: -1 }
+      : normalize({ x: ahead.x - origin.x, y: ahead.y - origin.y })
+    const aimAngle = Math.atan2(screenAim.y, screenAim.x)
+    const bowAngle = aimAngle + Math.PI / 2
+    const forward = playerRadius * (0.42 - recoil * 0.2)
+    const center = {
+      x: playerPoint.x + screenAim.x * forward,
+      y: playerPoint.y - playerRadius + screenAim.y * forward - (rain ? playerRadius * 0.55 : 0),
+    }
+    const width = playerRadius * 4.25
+    const imageAspect = this.longbowImage && this.longbowImage.naturalWidth > 0
+      ? this.longbowImage.naturalHeight / this.longbowImage.naturalWidth
+      : 0.31
+    const height = width * imageAspect
+    const pull = width * (0.015 + drawProgress * 0.23)
+    const localToScreen = (x: number, y: number): LastChancesVector => ({
+      x: center.x + Math.cos(bowAngle) * x - Math.sin(bowAngle) * y,
+      y: center.y + Math.sin(bowAngle) * x + Math.cos(bowAngle) * y,
+    })
+    const grip = localToScreen(0, 0)
+    const nock = localToScreen(0, pull)
+    const shoulder = {
+      x: playerPoint.x,
+      y: playerPoint.y - playerRadius,
+    }
+    const context = this.context
+
+    context.save()
+    context.strokeStyle = this.config.renderer.playerAccent
+    context.lineWidth = Math.max(3, playerRadius * 0.25)
+    context.lineCap = 'round'
+    context.beginPath()
+    context.moveTo(shoulder.x - screenAim.y * playerRadius * 0.2, shoulder.y)
+    context.lineTo(grip.x, grip.y)
+    context.moveTo(shoulder.x + screenAim.y * playerRadius * 0.2, shoulder.y)
+    context.lineTo(nock.x, nock.y)
+    context.stroke()
+    context.restore()
+
+    context.save()
+    context.translate(center.x, center.y)
+    context.rotate(bowAngle)
+    context.shadowColor = weapon.augment === 'chemical' ? '#78ff54' : '#ff263c'
+    context.shadowBlur = Math.max(9, height * 0.38)
+    if (this.longbowImage?.complete && this.longbowImage.naturalWidth > 0) {
+      context.drawImage(this.longbowImage, -width / 2, -height / 2, width, height)
+    } else {
+      const woodGradient = context.createLinearGradient(-width / 2, 0, width / 2, 0)
+      woodGradient.addColorStop(0, '#5d321c')
+      woodGradient.addColorStop(0.5, '#d39a54')
+      woodGradient.addColorStop(1, '#5d321c')
+      context.strokeStyle = woodGradient
+      context.lineWidth = Math.max(5, height * 0.18)
+      context.beginPath()
+      context.moveTo(-width * 0.48, 0)
+      context.quadraticCurveTo(-width * 0.28, -height * 0.72, 0, 0)
+      context.quadraticCurveTo(width * 0.28, height * 0.72, width * 0.48, 0)
+      context.stroke()
+    }
+
+    // Dynamic bowstring and nocked arrow. Local +Y is backwards along the shot axis.
+    context.shadowBlur = 0
+    context.strokeStyle = '#e7dfcb'
+    context.lineWidth = Math.max(1.1, playerRadius * 0.07)
+    context.beginPath()
+    context.moveTo(-width * 0.47, 0)
+    context.lineTo(0, pull)
+    context.lineTo(width * 0.47, 0)
+    context.stroke()
+    if (drawProgress > 0.12 || primaryInput.pressed || rapid || rain || responseInput.pressed) {
+      const arrowLength = width * 0.62
+      context.strokeStyle = '#b98246'
+      context.lineWidth = Math.max(1.6, playerRadius * 0.09)
+      context.beginPath()
+      context.moveTo(0, pull + width * 0.16)
+      context.lineTo(0, -arrowLength)
+      context.stroke()
+      context.fillStyle = this.elapsedMs < this.bowShotPresentation.goldenUntilMs
+        ? '#ffe28a'
+        : '#dfe5e2'
+      context.beginPath()
+      context.moveTo(0, -arrowLength - playerRadius * 0.32)
+      context.lineTo(-playerRadius * 0.18, -arrowLength + playerRadius * 0.08)
+      context.lineTo(playerRadius * 0.18, -arrowLength + playerRadius * 0.08)
+      context.closePath()
+      context.fill()
+    }
+    context.restore()
+
+    context.save()
+    context.fillStyle = this.config.renderer.player
+    context.strokeStyle = this.config.renderer.playerAccent
+    context.lineWidth = 1.5
+    for (const handPoint of [grip, nock]) {
+      context.beginPath()
+      context.arc(handPoint.x, handPoint.y, Math.max(2.5, playerRadius * 0.18), 0, Math.PI * 2)
+      context.fill()
+      context.stroke()
+    }
+    context.restore()
+  }
+
+  /** Linear precision cue: two golden ticks, the authored gold segment and a live arrow sigil. */
+  private renderBowChargeCue(node: LastChancesPlanNode): void {
+    const weapon = this.primaryLongbowWeapon()
+    if (!weapon || this.paused || !this.canUseRoomActions()) return
+    const now = this.frameNowMs || performance.now()
+    const drawInput = this.controlInputSnapshot('left', now)
+    const responseInput = this.controlInputSnapshot('right', now)
+    let heldMs = 0
+    let maximumMs = 0
+    let goldStartMs = 0
+    let goldEndMs = 0
+    let label = ''
+    let inGoldenWindow = false
+    if (this.bowDrawInputActive('left', drawInput)) {
+      const draw = weapon.attacks.hold
+      const debit = this.bowDrawDebits.left
+      heldMs = debit.exhausted
+        ? Math.min(drawInput.heldMs, debit.accruedMs)
+        : drawInput.heldMs
+      const charge = resolveLastChancesBowCharge(draw, heldMs)
+      maximumMs = draw.charge?.maxMs ?? 1000
+      goldStartMs = tuningValue(draw, 'goldStartMs', 670)
+      goldEndMs = tuningValue(draw, 'goldEndMs', 760)
+      inGoldenWindow = charge.inGoldenWindow
+      label = 'НАТЯГ'
+    } else if (responseInput.pressed && this.bowResponseWindows.right) {
+      const response = weapon.secondaryAttacks?.doubleTapHold
+      if (!response) return
+      heldMs = Math.max(0, now - this.bowResponseWindows.right.startedAtInputMs)
+      maximumMs = Math.max(1, response.durationMs)
+      goldStartMs = tuningValue(response, 'goldStartMs', 470)
+      goldEndMs = tuningValue(response, 'goldEndMs', 530)
+      inGoldenWindow = heldMs >= goldStartMs && heldMs <= goldEndMs
+      label = 'ОТВЕТ'
+    } else if (this.elapsedMs >= this.bowShotPresentation.goldenUntilMs) return
+
+    const playerPoint = this.worldToScreen(this.player.position, node)
+    const width = 132
+    const y = playerPoint.y - Math.max(72, this.config.player.radius * this.entityScale(node) * 4.5)
+    const progress = maximumMs > 0 ? clamp(heldMs / maximumMs, 0, 1) : 1
+    const goldStart = maximumMs > 0 ? clamp(goldStartMs / maximumMs, 0, 1) : 0.67
+    const goldEnd = maximumMs > 0 ? clamp(goldEndMs / maximumMs, 0, 1) : 0.76
+    const x = playerPoint.x - width / 2
+    const context = this.context
+    context.save()
+    context.lineCap = 'round'
+    context.strokeStyle = 'rgba(228,235,239,.28)'
+    context.lineWidth = 7
+    context.beginPath()
+    context.moveTo(x, y)
+    context.lineTo(x + width, y)
+    context.stroke()
+    context.strokeStyle = inGoldenWindow ? '#ffe07b' : '#d9edf0'
+    context.shadowColor = inGoldenWindow ? '#ffd54e' : '#b8e6ec'
+    context.shadowBlur = inGoldenWindow ? 18 : 7
+    context.lineWidth = 4
+    context.beginPath()
+    context.moveTo(x, y)
+    context.lineTo(x + width * progress, y)
+    context.stroke()
+    const revealGoldenSegment = label !== 'НАТЯГ' || progress >= 2 / 3
+    if (revealGoldenSegment) {
+      context.strokeStyle = '#ffc83f'
+      context.lineWidth = 5
+      context.beginPath()
+      context.moveTo(x + width * goldStart, y)
+      context.lineTo(x + width * goldEnd, y)
+      context.stroke()
+      context.lineWidth = 2
+      for (const marker of [goldStart, goldEnd]) {
+        context.beginPath()
+        context.moveTo(x + width * marker, y - 7)
+        context.lineTo(x + width * marker, y + 7)
+        context.stroke()
+      }
+    }
+    context.fillStyle = inGoldenWindow ? '#ffe486' : '#dbe7e4'
+    context.font = '800 10px system-ui'
+    context.textAlign = 'center'
+    context.fillText(label || 'ТОЧНО!', playerPoint.x, y - 13)
+    context.restore()
+
+    const iconPoint = { x: playerPoint.x, y: y - 30 }
+    this.drawBowArrow(
+      iconPoint,
+      { x: 0, y: -1 },
+      node,
+      0.68,
+      inGoldenWindow ? '#ffe07b' : '#e5eee9',
+      false,
+      false,
+      false,
+    )
+    const success = inGoldenWindow || this.elapsedMs < this.bowShotPresentation.goldenUntilMs
+    const fireCue = success || revealGoldenSegment
+    if (fireCue) {
+      const pulse = 0.5 + Math.sin(this.elapsedMs / 70) * 0.5
+      context.save()
+      context.globalAlpha = (success ? 0.6 : 0.34) + pulse * (success ? 0.3 : 0.16)
+      context.fillStyle = success ? '#ffcf45' : '#ff7a2f'
+      context.shadowColor = success ? '#ffd34d' : '#ff7a2f'
+      context.shadowBlur = success ? 18 : 10
+      context.beginPath()
+      context.moveTo(iconPoint.x - 5, iconPoint.y + 9)
+      context.quadraticCurveTo(iconPoint.x - 10, iconPoint.y, iconPoint.x, iconPoint.y - 12)
+      context.quadraticCurveTo(iconPoint.x + 11, iconPoint.y, iconPoint.x + 4, iconPoint.y + 10)
+      context.closePath()
+      context.fill()
+      context.restore()
+    }
   }
 
   private primarySpearWeapon(): LastChancesResolvedWeapon | null {
@@ -12420,7 +14936,7 @@ export class LastChancesEngine {
     const originWorld = activeVault?.origin ?? this.player.position
     const travel = activeVault
       ? activeVault.attack.range
-      : this.spearPreviewTravelDistance(
+      : this.poleVaultTravelDistance(
           node,
           originWorld,
           direction,
@@ -12450,7 +14966,13 @@ export class LastChancesEngine {
         y: originWorld.y + direction.y * travel * progress,
       }
       const point = this.worldToScreen(world, node)
-      point.y -= Math.sin(progress * Math.PI) * height
+      const runDistanceRatio = clamp(tuningValue(attack, 'runDistanceRatio', 0.18), 0, 0.8)
+      const flightProgress = clamp(
+        (progress - runDistanceRatio) / Math.max(EPSILON, 1 - runDistanceRatio),
+        0,
+        1,
+      )
+      point.y -= Math.sin(flightProgress * Math.PI) * height
       if (index === 0) context.moveTo(point.x, point.y)
       else context.lineTo(point.x, point.y)
     }
@@ -12602,6 +15124,52 @@ export class LastChancesEngine {
     return safe
   }
 
+  /**
+   * A pole vault is blocked by the arena edge and by its landing footprint, not by obstacles
+   * crossed while airborne. If the authored endpoint is occupied, walk the endpoint backwards
+   * until the furthest collision-free landing is found; intermediate walls remain jumpable.
+   */
+  private poleVaultTravelDistance(
+    node: LastChancesPlanNode,
+    start: LastChancesVector,
+    direction: LastChancesVector,
+    requestedTravel: number,
+    radius: number,
+  ): number {
+    const axisLimit = (
+      position: number,
+      component: number,
+      extent: number,
+    ): number => {
+      if (component > EPSILON) return (extent - radius - position) / component
+      if (component < -EPSILON) return (radius - position) / component
+      return Number.POSITIVE_INFINITY
+    }
+    const boundaryTravel = clamp(Math.min(
+      requestedTravel,
+      axisLimit(start.x, direction.x, node.arena.width),
+      axisLimit(start.y, direction.y, node.arena.height),
+    ), 0, requestedTravel)
+    const pointAt = (distance: number): LastChancesVector => ({
+      x: start.x + direction.x * distance,
+      y: start.y + direction.y * distance,
+    })
+    const canLandAt = (distance: number): boolean => {
+      const point = pointAt(distance)
+      return point.x >= radius
+        && point.x <= node.arena.width - radius
+        && point.y >= radius
+        && point.y <= node.arena.height - radius
+        && !node.arena.obstacles.some(obstacle => pointHitsObstacle(point, radius, obstacle))
+    }
+    if (canLandAt(boundaryTravel)) return boundaryTravel
+    const step = Math.max(2, radius * 0.25)
+    for (let distance = boundaryTravel - step; distance > 0; distance -= step) {
+      if (canLandAt(distance)) return distance
+    }
+    return 0
+  }
+
   private spearSpriteLayout(
     node: LastChancesPlanNode,
     center: LastChancesVector,
@@ -12671,6 +15239,136 @@ export class LastChancesEngine {
     context.restore()
   }
 
+  /**
+   * Pole-vault presentation follows the real readable phases: lower during the run, plant the
+   * tip at one fixed ground point, climb around that point, release into flight, then recover to
+   * guard on landing. The planted segment is anchored independently of the airborne player.
+   */
+  private renderPoleVaultSpear(
+    node: LastChancesPlanNode,
+    playerPoint: LastChancesVector,
+    playerRadius: number,
+    dash: RuntimeDash,
+  ): void {
+    const vault = dash.poleVault
+    if (!vault) return
+    const runEnd = vault.runMs
+    const plantEnd = runEnd + vault.plantMs
+    const riseEnd = plantEnd + vault.riseMs
+    const flightEnd = riseEnd + vault.flightMs
+    const totalMs = flightEnd + vault.landMs
+    const elapsed = clamp(dash.elapsedMs, 0, totalMs)
+    const direction = normalize(dash.direction)
+    const ordinaryCenter = { x: playerPoint.x, y: playerPoint.y - playerRadius }
+    let layout = this.spearSpriteLayout(node, ordinaryCenter, direction, playerRadius)
+    let gripSpacing = playerRadius * 0.4
+    let drawWideArms = false
+
+    if (elapsed < runEnd) {
+      const progress = elapsed / Math.max(1, runEnd)
+      const running = this.spearSpriteLayout(
+        node,
+        ordinaryCenter,
+        direction,
+        playerRadius,
+        0.12 + progress * 0.38,
+      )
+      layout = {
+        ...running,
+        center: {
+          x: running.center.x + running.axis.x * playerRadius * (0.15 + progress * 0.3),
+          y: running.center.y + running.axis.y * playerRadius * (0.15 + progress * 0.3),
+        },
+      }
+      gripSpacing = playerRadius * 0.55
+    } else if (elapsed < riseEnd) {
+      const plantWorld = {
+        x: dash.origin.x + direction.x * dash.attack.range * vault.runDistanceRatio,
+        y: dash.origin.y + direction.y * dash.attack.range * vault.runDistanceRatio,
+      }
+      const tip = this.worldToScreen(plantWorld, node)
+      const riseProgress = elapsed <= plantEnd
+        ? 0
+        : (elapsed - plantEnd) / Math.max(1, vault.riseMs)
+      const hands = {
+        x: ordinaryCenter.x,
+        y: ordinaryCenter.y - playerRadius * (0.55 + riseProgress * 0.75),
+      }
+      const axis = normalize({
+        x: tip.x - hands.x,
+        y: tip.y - hands.y,
+      }, layout.axis)
+      layout = {
+        ...layout,
+        center: {
+          x: tip.x - axis.x * layout.width * (1 - layout.pivotRatio),
+          y: tip.y - axis.y * layout.width * (1 - layout.pivotRatio),
+        },
+        axis,
+        perpendicular: { x: -axis.y, y: axis.x },
+      }
+      gripSpacing = playerRadius * 0.9
+      drawWideArms = true
+    } else {
+      const recoveryProgress = elapsed <= flightEnd
+        ? clamp((elapsed - riseEnd) / Math.max(1, vault.flightMs), 0, 1)
+        : clamp((elapsed - flightEnd) / Math.max(1, vault.landMs), 0, 1)
+      const released = this.spearSpriteLayout(
+        node,
+        ordinaryCenter,
+        direction,
+        playerRadius,
+        elapsed <= flightEnd
+          ? -0.62 + recoveryProgress * 0.32
+          : -0.3 + recoveryProgress * 0.3,
+      )
+      layout = {
+        ...released,
+        center: {
+          x: released.center.x - released.axis.x * playerRadius * (0.35 - recoveryProgress * 0.2),
+          y: released.center.y - playerRadius * (0.5 - recoveryProgress * 0.35),
+        },
+      }
+      gripSpacing = playerRadius * (0.72 - recoveryProgress * 0.32)
+      drawWideArms = true
+    }
+
+    const firstGrip = {
+      x: layout.center.x - layout.axis.x * gripSpacing,
+      y: layout.center.y - layout.axis.y * gripSpacing,
+    }
+    const secondGrip = {
+      x: layout.center.x + layout.axis.x * gripSpacing,
+      y: layout.center.y + layout.axis.y * gripSpacing,
+    }
+    const context = this.context
+    if (drawWideArms) {
+      context.save()
+      context.strokeStyle = this.config.renderer.playerAccent
+      context.lineWidth = Math.max(3, playerRadius * 0.28)
+      context.lineCap = 'round'
+      context.beginPath()
+      context.moveTo(ordinaryCenter.x - playerRadius * 0.28, ordinaryCenter.y)
+      context.lineTo(firstGrip.x, firstGrip.y)
+      context.moveTo(ordinaryCenter.x + playerRadius * 0.28, ordinaryCenter.y)
+      context.lineTo(secondGrip.x, secondGrip.y)
+      context.stroke()
+      context.restore()
+    }
+    this.drawSpearSprite(layout)
+    context.save()
+    context.fillStyle = this.config.renderer.player
+    context.strokeStyle = this.config.renderer.playerAccent
+    context.lineWidth = 1.5
+    for (const grip of [firstGrip, secondGrip]) {
+      context.beginPath()
+      context.arc(grip.x, grip.y, Math.max(2.5, playerRadius * 0.2), 0, Math.PI * 2)
+      context.fill()
+      context.stroke()
+    }
+    context.restore()
+  }
+
   private renderHeldSpear(
     node: LastChancesPlanNode,
     playerPoint: LastChancesVector,
@@ -12680,6 +15378,11 @@ export class LastChancesEngine {
     if (!spear || this.projectiles.some(projectile => (
       projectile.weaponId === spear.id && isSpearReleaseBehavior(projectile.attack?.behavior)
     ))) return
+    const spearDash = this.activeDash?.weaponId === spear.id ? this.activeDash : null
+    if (spearDash?.poleVault) {
+      this.renderPoleVaultSpear(node, playerPoint, playerRadius, spearDash)
+      return
+    }
 
     let direction = normalize(this.player.aim)
     let forwardDirection = direction
@@ -12687,6 +15390,7 @@ export class LastChancesEngine {
     let liftRadii = 0
     let forwardRadii = 0
     let verticalTilt = 0
+    let wideGripPose = false
     const activeArea = [...this.activeAreas]
       .reverse()
       .find(area => area.weaponId === spear.id)
@@ -12710,15 +15414,18 @@ export class LastChancesEngine {
       if (activeArea.attack.behavior === 'parry') {
         forwardDirection = normalize(activeArea.direction)
         direction = rotateVector(forwardDirection, Math.PI / 2)
-        forwardRadii = 0.2
+        forwardRadii = 0.42
+        wideGripPose = true
       } else if (activeArea.attack.behavior === 'spearShove') {
         forwardDirection = normalize(activeArea.direction)
         direction = rotateVector(forwardDirection, Math.PI / 2)
         forwardWorld = Math.sin(progress * Math.PI) * Math.min(58, activeArea.attack.range * 0.5)
+        wideGripPose = true
       } else if (activeArea.attack.behavior === 'spearKick') {
         forwardDirection = normalize(activeArea.direction)
         direction = rotateVector(forwardDirection, Math.PI / 2)
         forwardRadii = 0.28
+        wideGripPose = true
       } else if (activeArea.attack.behavior === 'spearStance') {
         direction = normalize(activeArea.direction)
         forwardDirection = direction
@@ -12796,7 +15503,8 @@ export class LastChancesEngine {
         && (this.activeParryAttack?.behavior === 'parry' || delayedShove || chargingKick)) {
         forwardDirection = normalize(this.player.aim)
         direction = rotateVector(forwardDirection, Math.PI / 2)
-        forwardRadii = delayedShove ? 0.38 : 0.22
+        forwardRadii = delayedShove ? 0.48 : 0.42
+        wideGripPose = true
       } else {
         const charge = this.spearChargePresentation(now)
         if (!charge) {
@@ -12827,7 +15535,7 @@ export class LastChancesEngine {
     }
     const layout = this.spearSpriteLayout(node, center, direction, playerRadius, verticalTilt)
     const context = this.context
-    const gripSpacing = playerRadius * 0.34
+    const gripSpacing = playerRadius * (wideGripPose ? 0.9 : 0.34)
     const firstGrip = {
       x: center.x - layout.axis.x * gripSpacing,
       y: center.y - layout.axis.y * gripSpacing,
@@ -12836,7 +15544,7 @@ export class LastChancesEngine {
       x: center.x + layout.axis.x * gripSpacing,
       y: center.y + layout.axis.y * gripSpacing,
     }
-    if (liftRadii > 0.08) {
+    if (liftRadii > 0.08 || wideGripPose) {
       context.save()
       context.strokeStyle = this.config.renderer.playerAccent
       context.lineWidth = Math.max(3, playerRadius * 0.28)

@@ -108,6 +108,14 @@ public class BattleshipPlayer
     public int SummonSlotsUsed { get; set; } // Normal summon uses this match; never refunded on death
     public int MaxSummonSlots { get; set; } = 4;
     public bool BranderUsed { get; set; } // ТЗ #10: separate from the four normal uses, max 1 per match
+    /// <summary>Unused ordinary summon uses that must be deployed before Boarding can resume.</summary>
+    public int MandatoryBoardingSummonSlots { get; set; }
+    /// <summary>A purchased, unused Brander that must be deployed during Boarding.</summary>
+    public bool MandatoryBoardingBrander { get; set; }
+    /// <summary>Guards the one-time conversion of unused summon entitlements into mandatory Boarding actions.</summary>
+    public bool BoardingSummonsPrepared { get; set; }
+    /// <summary>Successful mandatory Boarding deployments remaining before excess units are discarded.</summary>
+    public int BoardingDeploymentCapacity { get; set; }
     public List<Summon> Summons { get; set; } = new();
     public Weapon SelectedWeapon { get; set; }
     public ShotType SelectedShotType { get; set; } = ShotType.Ballista;
@@ -157,10 +165,10 @@ public class Cell
     public bool WasShipHit { get; set; } // Snapshot: a ship was present when this cell was hit (persists after ship moves)
     public bool WasScratched { get; set; } // Snapshot: hit damaged but didn't destroy a deck (persists after ship moves)
     public bool WasRevealedShip { get; set; } // Anonymous intact occupancy preserved while the moved ship remains alive
-    /// <summary>Every summon type that has visited this physical cell, including the spawn cell.</summary>
-    public HashSet<SummonType> SummonTrails { get; set; } = new();
-    /// <summary>Persistent type-specific markers for summons destroyed on this physical cell.</summary>
-    public List<SummonType> SummonDeaths { get; set; } = new();
+    /// <summary>Every distinct summon that has visited this physical cell, including the spawn cell.</summary>
+    public List<SummonMarker> SummonTrails { get; set; } = new();
+    /// <summary>Persistent identity-preserving markers for summons destroyed on this physical cell.</summary>
+    public List<SummonMarker> SummonDeaths { get; set; } = new();
     /// <summary>
     /// Indices in <see cref="SummonDeaths"/> whose summon was destroyed by Drakkar Freeze.
     /// Keeping indices preserves the cause of each repeated same-type death independently.
@@ -171,6 +179,20 @@ public class Cell
     public bool WasManeuverDodge { get; set; } // Light Wood Triple moved away — persistent pink shot-history mark
     /// <summary>Snapshot name retained after a sunk ship is later removed or transformed.</summary>
     public string SunkShipName { get; set; }
+    /// <summary>
+    /// Identity of the deck last authoritatively observed in this cell. It lets a later Scout
+    /// observation move only that deck's white/red marker without revealing the rest of a hidden hull.
+    /// </summary>
+    public string KnownShipId { get; set; }
+    public int KnownDeckIndex { get; set; } = -1;
+}
+
+public class SummonMarker
+{
+    public string SummonId { get; set; }
+    public SummonType Type { get; set; }
+    public bool IsBoardingShip { get; set; }
+    public string SourceShipName { get; set; }
 }
 
 public class Ship
@@ -278,6 +300,8 @@ public class Weapon
     public string Id { get; set; } = Guid.NewGuid().ToString("N")[..8];
     public WeaponType Type { get; set; }
     public int Ammo { get; set; } = -1; // -1 = unlimited
+    /// <summary>Restorable ammo capacity, including permanent Boarding ammo bonuses.</summary>
+    public int MaxAmmo { get; set; } = -1;
     public int AimSpeed { get; set; }
     public string ShipId { get; set; }
     public int DeckIndex { get; set; }
@@ -305,7 +329,7 @@ public class Summon
     public int RevealRadius { get; set; } = 1;
     public Direction MoveDirection { get; set; } = Direction.Down;
     public int SpawnedAtShot { get; set; } // Track when summon appeared
-    public List<(int row, int col)> ScoutRevealData { get; set; } = new(); // Deferred reveal for scouts
+    public List<(int row, int col)> ScoutRevealData { get; set; } = new(); // Deferred reveal for Scouts and boarding ships
     public List<int> AllowedColumns { get; set; } // Pirate/CursedPirate column restriction
     public bool WaitingForTurnBack { get; set; } // Summon at edge, waiting to be re-sent
     public bool WaitingForDirectionChoice { get; set; } // CursedBoat waiting for owner to choose direction after collision
@@ -325,6 +349,8 @@ public class PendingSummonDeploy
     public List<int> AllowedColumns { get; set; } = new(); // Columns where ship died (empty = any)
     public bool IsFree { get; set; } = true; // No slot cost / no cooldown
     public bool IsBoarding { get; set; } // Boarding ship — must deploy to first row of enemy field
+    /// <summary>Must resolve before Boarding combat resumes; does not turn an ordinary summon into a boarding ship.</summary>
+    public bool IsMandatoryBoarding { get; set; }
     public int Speed { get; set; } = 1;
     public int CollisionDamage { get; set; }
     public int RevealRadius { get; set; } = 1; // From original ship's Space

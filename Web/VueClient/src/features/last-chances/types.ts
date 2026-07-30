@@ -59,6 +59,16 @@ export const LAST_CHANCES_ATTACK_BEHAVIORS = [
   'swordRhythm',
   'swordOpening',
   'swordFollowUp',
+  'bowShot',
+  'bowDoubleShot',
+  'bowRapidFire',
+  'bowDraw',
+  'bowScatter',
+  'bowDodge',
+  'bowJump',
+  'bowRiposte',
+  'bowRain',
+  'bowIgnite',
   'disabled',
 ] as const
 export const LAST_CHANCES_COLLIDER_SHAPES = ['sector', 'capsule', 'circle', 'sweep'] as const
@@ -89,6 +99,7 @@ export const LAST_CHANCES_WEAPON_TRAITS = [
   'katanaFlow',
   'swordRhythm',
   'ouroborosFang',
+  'longbowPersistence',
 ] as const
 export const LAST_CHANCES_WEAPON_RESOURCE_KINDS = ['chain', 'durability', 'rhythm'] as const
 export const LAST_CHANCES_AUGMENTS = [
@@ -375,6 +386,11 @@ export interface LastChancesMylorikActivationDefinition {
   phase: LastChancesControlPhase
   /** Omitted means the activation is unconditional for its intent and phase. */
   context?: LastChancesControlContext
+  /**
+   * Physical edge that commits an armed strike continuation. Omitted definitions preserve
+   * the legacy release commit; channels can opt into the press edge explicitly.
+   */
+  continuationDispatch?: 'press' | 'release'
   priority: number
   /** Enabled legacy slots may opt out only with an explicit designer-facing reason. */
   legacyOnlyReason?: string
@@ -396,6 +412,8 @@ export interface LastChancesDualSenseComboNodeDefinition {
   requiredChargeBandId?: string
   /** Dwell time in this pocket before its release outcome is telegraphed. */
   armMs?: number
+  /** Clock used by armMs; `node` is the default pocket dwell, `input` starts at physical pull. */
+  armClock?: 'node' | 'input'
   /** This branch is legal only while the current pocket is armed. */
   entryRequiresArmed?: boolean
   /** Armed-loop rumble; omitted nodes fall back to their commit or charge-band signature. */
@@ -465,7 +483,12 @@ export interface LastChancesAttackSetControlDefinition {
   dualsense: {
     instantGesture: LastChancesGesture
     triggerRole: string
+    /**
+     * Backward-compatible first root. Multi-route sets additionally list every root in
+     * startNodeIds, keeping this value as their first entry for older definitions/tools.
+     */
     startNodeId: string | null
+    startNodeIds?: string[]
     nodes: LastChancesDualSenseComboNodeDefinition[]
     haptics?: LastChancesWeaponHapticsDefinition
     /**
@@ -938,7 +961,7 @@ export interface LastChancesCombatDefinition {
 }
 
 export interface LastChancesConfig {
-  schemaVersion: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10
+  schemaVersion: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11
   title: string
   seed: string
   chances: number

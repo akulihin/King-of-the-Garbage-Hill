@@ -6,6 +6,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
 using King_of_the_Garbage_Hill.API.Services;
+using King_of_the_Garbage_Hill.Clash.Models;
 using King_of_the_Garbage_Hill.Game.Characters;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.MemoryStorage;
@@ -24,7 +25,9 @@ namespace King_of_the_Garbage_Hill.API;
 /// </summary>
 public class GameHub : Hub
 {
+    private const string ClashGameContextKey = "clashGameId";
     private static readonly ConcurrentDictionary<string, byte> BattleshipBotPumps = new();
+    private static readonly ConcurrentDictionary<string, byte> ClashResolutionPumps = new();
     private readonly WebGameService _gameService;
     private readonly GameNotificationService _notificationService;
     private readonly Global _global;
@@ -32,13 +35,14 @@ public class GameHub : Hub
     private readonly BlackjackService _blackjackService;
     private readonly GameStoryService _storyService;
     private readonly BattleshipService _battleshipService;
+    private readonly ClashService _clashService;
     private readonly CharactersPull _charactersPull;
     private readonly AdminLobbyService _adminLobbyService;
     private readonly IHubContext<GameHub> _hubContext;
 
     public GameHub(WebGameService gameService, GameNotificationService notificationService,
         Global global, UserAccounts userAccounts, BlackjackService blackjackService,
-        GameStoryService storyService, BattleshipService battleshipService,
+        GameStoryService storyService, BattleshipService battleshipService, ClashService clashService,
         CharactersPull charactersPull, AdminLobbyService adminLobbyService,
         IHubContext<GameHub> hubContext)
     {
@@ -49,6 +53,7 @@ public class GameHub : Hub
         _blackjackService = blackjackService;
         _storyService = storyService;
         _battleshipService = battleshipService;
+        _clashService = clashService;
         _charactersPull = charactersPull;
         _adminLobbyService = adminLobbyService;
         _hubContext = hubContext;
@@ -85,7 +90,7 @@ public class GameHub : Hub
             return;
         }
 
-        BindConnectionToPlayer(discordId);
+        await BindConnectionToPlayer(discordId);
 
         // Return the ID as a string so JS doesn't lose precision, include playerType for admin checks
         var account = _userAccounts.GetAccount(discordId);
@@ -246,7 +251,7 @@ public class GameHub : Hub
         _userAccounts.CreateWebAccount(webId, username.Trim());
 
         // Authenticate this connection with the new web ID.
-        BindConnectionToPlayer(webId);
+        await BindConnectionToPlayer(webId);
 
         await Clients.Caller.SendAsync("WebAccountCreated", new { discordId = webId.ToString(), username = username.Trim() });
         Console.WriteLine($"[WebAPI] Web account created: {username} ({webId})");
@@ -1793,15 +1798,38 @@ public class GameHub : Hub
         QueueBattleshipBotPump(gameId);
     }
 
-    public async Task BattleshipDeploySummon(string gameId, string summonType, int col)
+    public async Task BattleshipDeploySummon(
+        string gameId,
+        string summonType,
+        int col,
+        string summonId = null)
     {
         var discordId = GetDiscordId();
         if (discordId == 0) { await SendNotAuthenticated(); return; }
 
-        var (success, error) = _battleshipService.DeploySummon(gameId, discordId.ToString(), summonType, col);
+        var (success, error) = _battleshipService.DeploySummon(
+            gameId, discordId.ToString(), summonType, col, summonId);
         if (!success)
         {
             await Clients.Caller.SendAsync("ActionResult", new { action = "battleshipDeploySummon", success = false, error });
+            return;
+        }
+
+        await PushBattleshipStateToAll(gameId);
+        QueueBattleshipBotPump(gameId);
+    }
+
+    public async Task BattleshipRestoreShipWithPirateBoat(string gameId, string shipId)
+    {
+        var discordId = GetDiscordId();
+        if (discordId == 0) { await SendNotAuthenticated(); return; }
+
+        var (success, error) = _battleshipService.RestoreShipWithPirateBoat(
+            gameId, discordId.ToString(), shipId);
+        if (!success)
+        {
+            await Clients.Caller.SendAsync("ActionResult",
+                new { action = "battleshipRestoreShipWithPirateBoat", success = false, error });
             return;
         }
 
@@ -2052,6 +2080,432 @@ public class GameHub : Hub
             await RunBattleshipBotPump(gameId);
     }
 
+    // ── Clash ─────────────────────────────────────────────────────────
+
+    public async Task RequestClashLobby()
+    {
+        await Clients.Caller.SendAsync("ClashLobby", _clashService.GetLobbyState());
+        var discordId = GetDiscordId();
+        var activeGameId = discordId == 0
+            ? null
+            : _clashService.GetActiveGameId(discordId.ToString());
+        await Clients.Caller.SendAsync(
+            "ClashMyActiveGame", new { gameId = activeGameId });
+    }
+
+    public async Task CreateClashGame(bool vsBot, int width = 5, int length = 5)
+    {
+        var discordId = GetDiscordId();
+        if (discordId == 0) { await SendNotAuthenticated(); return; }
+
+        var account = _userAccounts.GetAccount(discordId);
+        var username = account?.DiscordUserName ?? "Player";
+        var (gameId, error) = _clashService.CreateGame(
+            discordId.ToString(), username, vsBot, width, length);
+        if (error != null)
+        {
+            await Clients.Caller.SendAsync("Error", error);
+            return;
+        }
+
+        await JoinTrackedClashGroup(gameId);
+        await Clients.Caller.SendAsync("ClashGameCreated", new { gameId });
+        await Clients.Caller.SendAsync("ClashMyActiveGame", new { gameId });
+        await PushClashStateToPlayer(gameId, discordId.ToString());
+        await PushClashLobby();
+    }
+
+    public async Task JoinClashWebGame(string gameId)
+    {
+        var discordId = GetDiscordId();
+        if (discordId == 0) { await SendNotAuthenticated(); return; }
+
+        var account = _userAccounts.GetAccount(discordId);
+        var username = account?.DiscordUserName ?? "Player";
+        var result = _clashService.JoinGame(gameId, discordId.ToString(), username);
+        if (!result.Success)
+        {
+            await Clients.Caller.SendAsync("Error", result.Error);
+            return;
+        }
+
+        await JoinTrackedClashGroup(gameId);
+        await Clients.Caller.SendAsync("ClashGameJoined", new { gameId });
+        await Clients.Caller.SendAsync("ClashMyActiveGame", new { gameId });
+        await PushClashStateToAll(gameId);
+        await PushClashActiveGameToPlayers(gameId);
+        await PushClashLobby();
+    }
+
+    public async Task LeaveClashWebGame(string gameId)
+    {
+        var discordId = GetDiscordId();
+        if (discordId == 0) { await SendNotAuthenticated(); return; }
+
+        var result = _clashService.LeaveGame(gameId, discordId.ToString());
+        if (!result.Success)
+        {
+            await Clients.Caller.SendAsync("Error", result.Error);
+            return;
+        }
+
+        var clashGroup = $"clash-{gameId}";
+        var playerConnections = _notificationService.GetConnections(discordId)
+            .Append(Context.ConnectionId)
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+        foreach (var connectionId in playerConnections)
+            await Groups.RemoveFromGroupAsync(connectionId, clashGroup);
+        ClearTrackedClashGame(gameId);
+        await Clients.Caller.SendAsync("ClashMyActiveGame", new
+        {
+            gameId = _clashService.GetActiveGameId(discordId.ToString()),
+        });
+        await PushClashStateToAll(gameId);
+        await PushClashActiveGameToPlayers(gameId);
+        await PushClashLobby();
+    }
+
+    public async Task JoinClashGame(string gameId)
+    {
+        var discordId = GetDiscordId();
+        if (discordId == 0) { await SendNotAuthenticated(); return; }
+
+        var state = _clashService.GetGameState(gameId, discordId.ToString());
+        if (state == null)
+        {
+            await Clients.Caller.SendAsync("Error", "Игра не найдена или вы не являетесь её участником.");
+            return;
+        }
+
+        await JoinTrackedClashGroup(gameId);
+        await Clients.Caller.SendAsync("ClashState", state);
+        QueueClashResolutionCompletion(gameId);
+    }
+
+    public async Task LeaveClashGame(string gameId)
+    {
+        await Groups.RemoveFromGroupAsync(Context.ConnectionId, $"clash-{gameId}");
+        ClearTrackedClashGame(gameId);
+    }
+
+    public async Task RequestClashState(string gameId)
+    {
+        var discordId = GetDiscordId();
+        if (discordId == 0) { await SendNotAuthenticated(); return; }
+
+        var state = _clashService.GetGameState(gameId, discordId.ToString());
+        if (state == null)
+        {
+            await Clients.Caller.SendAsync("Error", "Игра не найдена или вы не являетесь её участником.");
+            return;
+        }
+        await Clients.Caller.SendAsync("ClashState", state);
+        QueueClashResolutionCompletion(gameId);
+    }
+
+    public async Task RequestClashCatalog()
+    {
+        await Clients.Caller.SendAsync("ClashCatalog", _clashService.GetCatalog());
+    }
+
+    public async Task ClashSetConfiguration(
+        string gameId,
+        int width,
+        int length,
+        long? expectedRevision = null,
+        string commandId = null)
+    {
+        var discordId = GetDiscordId();
+        if (discordId == 0) { await SendNotAuthenticated(); return; }
+        var result = _clashService.SetConfiguration(
+            gameId, discordId.ToString(), width, length, expectedRevision, commandId);
+        await HandleClashMutation(gameId, "clashSetConfiguration", result);
+    }
+
+    public async Task ClashSetArmy(
+        string gameId,
+        List<string> unitDefinitionIds,
+        long? expectedRevision = null,
+        string commandId = null)
+    {
+        var discordId = GetDiscordId();
+        if (discordId == 0) { await SendNotAuthenticated(); return; }
+        var result = _clashService.SetArmy(
+            gameId, discordId.ToString(), unitDefinitionIds,
+            expectedRevision, commandId);
+        await HandleClashMutation(gameId, "clashSetArmy", result);
+    }
+
+    public async Task ClashConfirmLobbyReady(
+        string gameId,
+        long? expectedRevision = null,
+        string commandId = null)
+    {
+        var discordId = GetDiscordId();
+        if (discordId == 0) { await SendNotAuthenticated(); return; }
+        var result = _clashService.ConfirmLobbyReady(
+            gameId, discordId.ToString(), expectedRevision, commandId);
+        await HandleClashMutation(gameId, "clashConfirmLobbyReady", result);
+    }
+
+    public async Task ClashPlaceUnit(
+        string gameId,
+        string unitInstanceId,
+        int row,
+        int column,
+        long? expectedRevision = null,
+        string commandId = null)
+    {
+        var discordId = GetDiscordId();
+        if (discordId == 0) { await SendNotAuthenticated(); return; }
+        var result = _clashService.PlaceUnit(
+            gameId, discordId.ToString(), unitInstanceId, row, column,
+            expectedRevision, commandId);
+        await HandlePrivateClashMutation(
+            gameId, discordId.ToString(), "clashPlaceUnit", result);
+    }
+
+    public async Task ClashRemoveUnit(
+        string gameId,
+        string unitInstanceId,
+        long? expectedRevision = null,
+        string commandId = null)
+    {
+        var discordId = GetDiscordId();
+        if (discordId == 0) { await SendNotAuthenticated(); return; }
+        var result = _clashService.RemoveUnit(
+            gameId, discordId.ToString(), unitInstanceId,
+            expectedRevision, commandId);
+        await HandlePrivateClashMutation(
+            gameId, discordId.ToString(), "clashRemoveUnit", result);
+    }
+
+    public async Task ClashConfirmPlacement(
+        string gameId,
+        long? expectedRevision = null,
+        string commandId = null)
+    {
+        var discordId = GetDiscordId();
+        if (discordId == 0) { await SendNotAuthenticated(); return; }
+        var result = _clashService.ConfirmPlacement(
+            gameId, discordId.ToString(), expectedRevision, commandId);
+        await HandleClashMutation(gameId, "clashConfirmPlacement", result);
+    }
+
+    public async Task ClashPlaceReinforcement(
+        string gameId,
+        string unitInstanceId,
+        int row,
+        int column,
+        long? expectedRevision = null,
+        string commandId = null)
+    {
+        var discordId = GetDiscordId();
+        if (discordId == 0) { await SendNotAuthenticated(); return; }
+        var result = _clashService.PlaceReinforcement(
+            gameId, discordId.ToString(), unitInstanceId, row, column,
+            expectedRevision, commandId);
+        await HandleClashMutation(gameId, "clashPlaceReinforcement", result);
+    }
+
+    public async Task ClashUseActive(
+        string gameId,
+        string sourceUnitInstanceId,
+        string abilityId,
+        string targetUnitInstanceId = null,
+        int? targetRow = null,
+        int? targetColumn = null,
+        long? expectedRevision = null,
+        string commandId = null)
+    {
+        var discordId = GetDiscordId();
+        if (discordId == 0) { await SendNotAuthenticated(); return; }
+        var result = _clashService.UseActive(
+            gameId, discordId.ToString(), sourceUnitInstanceId, abilityId,
+            targetUnitInstanceId, targetRow, targetColumn,
+            expectedRevision, commandId);
+        await HandleClashMutation(gameId, "clashUseActive", result);
+    }
+
+    public async Task ClashContinue(
+        string gameId,
+        long? expectedRevision = null,
+        string commandId = null)
+    {
+        var discordId = GetDiscordId();
+        if (discordId == 0) { await SendNotAuthenticated(); return; }
+        var result = _clashService.Continue(
+            gameId, discordId.ToString(), expectedRevision, commandId);
+        await HandleClashMutation(gameId, "clashContinue", result);
+    }
+
+    public async Task ClashForfeit(
+        string gameId,
+        long? expectedRevision = null,
+        string commandId = null)
+    {
+        var discordId = GetDiscordId();
+        if (discordId == 0) { await SendNotAuthenticated(); return; }
+        var result = _clashService.Forfeit(
+            gameId, discordId.ToString(), expectedRevision, commandId);
+        await HandleClashMutation(gameId, "clashForfeit", result);
+    }
+
+    private async Task HandleClashMutation(
+        string gameId,
+        string action,
+        ClashMutationResult result)
+    {
+        if (!result.Success)
+        {
+            await Clients.Caller.SendAsync("ActionResult",
+                new { action, success = false, error = result.Error });
+            return;
+        }
+
+        await Clients.Caller.SendAsync("ActionResult",
+            new { action, success = true, error = (string)null });
+        foreach (var resolution in result.Resolutions)
+            await PushClashResolutionToPlayers(gameId, resolution);
+        await PushClashStateToAll(gameId);
+        await PushClashActiveGameToPlayers(gameId);
+        await PushClashLobby();
+        QueueClashResolutionCompletion(gameId);
+    }
+
+    private async Task HandlePrivateClashMutation(
+        string gameId,
+        string playerId,
+        string action,
+        ClashMutationResult result)
+    {
+        if (!result.Success)
+        {
+            await Clients.Caller.SendAsync("ActionResult",
+                new { action, success = false, error = result.Error });
+            return;
+        }
+
+        await Clients.Caller.SendAsync("ActionResult",
+            new { action, success = true, error = (string)null });
+        var state = _clashService.GetGameState(gameId, playerId);
+        if (state != null)
+            await Clients.Caller.SendAsync("ClashState", state);
+    }
+
+    private async Task PushClashResolutionToPlayers(
+        string gameId,
+        ClashResolutionDto resolution)
+    {
+        foreach (var playerId in _clashService.GetPlayerIds(gameId))
+        {
+            if (!ulong.TryParse(playerId, out var discordId)) continue;
+            var connections = _notificationService.GetConnections(discordId);
+            if (connections.Count == 0) continue;
+            await _hubContext.Clients.Clients(connections.ToList())
+                .SendAsync("ClashResolution", resolution);
+        }
+    }
+
+    private async Task PushClashStateToAll(string gameId)
+    {
+        foreach (var playerId in _clashService.GetPlayerIds(gameId))
+        {
+            if (!ulong.TryParse(playerId, out var discordId)) continue;
+            var state = _clashService.GetGameState(gameId, playerId);
+            if (state == null) continue;
+            var connections = _notificationService.GetConnections(discordId);
+            if (connections.Count == 0) continue;
+            var connectionList = connections.ToList();
+            await _hubContext.Clients.Clients(connectionList)
+                .SendAsync("ClashState", state);
+        }
+    }
+
+    private async Task PushClashStateToPlayer(string gameId, string playerId)
+    {
+        if (!ulong.TryParse(playerId, out var discordId)) return;
+        var state = _clashService.GetGameState(gameId, playerId);
+        if (state == null) return;
+        var connections = _notificationService.GetConnections(discordId);
+        if (connections.Count > 0)
+            await _hubContext.Clients.Clients(connections.ToList())
+                .SendAsync("ClashState", state);
+    }
+
+    private async Task PushClashActiveGameToPlayers(string gameId)
+    {
+        foreach (var playerId in _clashService.GetPlayerIds(gameId))
+        {
+            if (!ulong.TryParse(playerId, out var discordId)) continue;
+            var connections = _notificationService.GetConnections(discordId);
+            if (connections.Count == 0) continue;
+            await _hubContext.Clients.Clients(connections.ToList())
+                .SendAsync("ClashMyActiveGame", new
+                {
+                    gameId = _clashService.GetActiveGameId(playerId),
+                });
+        }
+    }
+
+    private async Task PushClashLobby()
+    {
+        await _hubContext.Clients.All.SendAsync(
+            "ClashLobby", _clashService.GetLobbyState());
+    }
+
+    private void QueueClashResolutionCompletion(string gameId)
+    {
+        if (!_clashService.HasPendingResolution(gameId)) return;
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await RunClashResolutionCompletion(gameId);
+            }
+            catch (Exception exception)
+            {
+                Console.Error.WriteLine(
+                    $"[Clash] Resolution completion failed for {gameId}: {exception}");
+            }
+        });
+    }
+
+    private async Task RunClashResolutionCompletion(string gameId)
+    {
+        if (!ClashResolutionPumps.TryAdd(gameId, 0)) return;
+        try
+        {
+            while (true)
+            {
+                var completion = _clashService.CompleteResolution(gameId);
+                if (completion.Pending)
+                {
+                    await Task.Delay(Math.Max(1, completion.RemainingMs));
+                    continue;
+                }
+                if (!completion.Completed) return;
+
+                foreach (var resolution in completion.Resolutions)
+                    await PushClashResolutionToPlayers(gameId, resolution);
+                await PushClashStateToAll(gameId);
+                await PushClashLobby();
+                await PushClashActiveGameToPlayers(gameId);
+                if (!_clashService.HasPendingResolution(gameId)) return;
+            }
+        }
+        finally
+        {
+            ClashResolutionPumps.TryRemove(gameId, out _);
+            // A new resolution can begin while the finishing pump is sending its
+            // final state. Recheck after removing the deduplication key so that
+            // either this continuation or the mutating hub call owns the next pump.
+            if (_clashService.HasPendingResolution(gameId))
+                QueueClashResolutionCompletion(gameId);
+        }
+    }
+
     // ── Private helpers ───────────────────────────────────────────────
 
     private static List<DTOs.LootBoxOddsDto> MapLootBoxOdds()
@@ -2192,17 +2646,52 @@ public class GameHub : Hub
         return $"hidden-{Convert.ToHexString(digest.AsSpan(0, 8)).ToLowerInvariant()}";
     }
 
-    private void BindConnectionToPlayer(ulong discordId)
+    private async Task BindConnectionToPlayer(ulong discordId)
     {
         if (Context.Items.TryGetValue("discordId", out var previousDiscordIdObj)
             && previousDiscordIdObj is ulong previousDiscordId
             && previousDiscordId != discordId)
         {
             _notificationService.RemoveConnection(previousDiscordId, Context.ConnectionId);
+            await RemoveTrackedClashGroupBeforeIdentityRebind(previousDiscordId);
         }
 
         Context.Items["discordId"] = discordId;
         _notificationService.RegisterConnection(discordId, Context.ConnectionId);
+    }
+
+    private async Task RemoveTrackedClashGroupBeforeIdentityRebind(ulong previousDiscordId)
+    {
+        var gameId = Context.Items.TryGetValue(ClashGameContextKey, out var trackedGameId) &&
+                     trackedGameId is string tracked
+            ? tracked
+            : _clashService.GetActiveGameId(previousDiscordId.ToString());
+        if (!string.IsNullOrWhiteSpace(gameId))
+            await Groups.RemoveFromGroupAsync(
+                Context.ConnectionId, $"clash-{gameId}");
+        Context.Items.Remove(ClashGameContextKey);
+    }
+
+    private async Task JoinTrackedClashGroup(string gameId)
+    {
+        if (Context.Items.TryGetValue(ClashGameContextKey, out var previousGameId) &&
+            previousGameId is string previous &&
+            !string.Equals(previous, gameId, StringComparison.Ordinal))
+        {
+            await Groups.RemoveFromGroupAsync(
+                Context.ConnectionId, $"clash-{previous}");
+        }
+
+        await Groups.AddToGroupAsync(Context.ConnectionId, $"clash-{gameId}");
+        Context.Items[ClashGameContextKey] = gameId;
+    }
+
+    private void ClearTrackedClashGame(string gameId)
+    {
+        if (Context.Items.TryGetValue(ClashGameContextKey, out var trackedGameId) &&
+            trackedGameId is string tracked &&
+            string.Equals(tracked, gameId, StringComparison.Ordinal))
+            Context.Items.Remove(ClashGameContextKey);
     }
 
     private ulong GetDiscordId()

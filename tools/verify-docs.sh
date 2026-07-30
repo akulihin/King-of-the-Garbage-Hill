@@ -43,11 +43,14 @@ resolve() {
     General.cs|AdminPanel.cs|HelpModule.cs|Lore.cs|Store.cs|Tutorial.cs|DiceRoll.cs|ServerManagement.cs)
       echo "$B/GeneralCommands/$1";;
     UserAccounts.cs|UsersDataStorage.cs) echo "$B/LocalPersistentData/UsersAccounts/$1";;
-    GameStateMapper.cs|WebGameService.cs|GameNotificationService.cs|GameStoryService.cs|BlackjackService.cs|BattleshipService.cs|ReplayService.cs)
+    GameStateMapper.cs|WebGameService.cs|GameNotificationService.cs|GameStoryService.cs|BlackjackService.cs|BattleshipService.cs|ClashService.cs|ReplayService.cs)
       echo "$B/API/Services/$1";;
     BattleshipModels.cs) echo "$B/Battleship/Models/$1";;
     BattleshipGameEngine.cs|BattleshipBotAI.cs|FleetValidator.cs|PlacementValidator.cs|ShipCatalog.cs)
       echo "$B/Battleship/Logic/$1";;
+    ClashGameEngine.cs|ClashBotAI.cs|ClashCatalog.cs)
+      echo "$B/Clash/Logic/$1";;
+    ClashModels.cs|ClashEnums.cs) echo "$B/Clash/Models/$1";;
     GameStateDto.cs|ReplayDto.cs) echo "$B/API/DTOs/$1";;
     GameHub.cs) echo "$B/API/$1";;
     GameController.cs|WidgetController.cs) echo "$B/API/Controllers/$1";;
@@ -59,11 +62,11 @@ resolve() {
     characters.json|localization.en.json|phrases.en.json) echo "$B/DataBase/$1";;
     GameDesign.txt) echo "$B/Game/$1";;
     signalr.ts|sound.ts|textFormatting.ts) echo "$V/services/$1";;
-    game.ts|replay.ts|replay.spec.ts|battleship.ts) echo "$V/store/$1";;
+    game.ts|replay.ts|replay.spec.ts|battleship.ts|clash.ts) echo "$V/store/$1";;
     router.ts|main.ts|App.vue|i18n.ts|i18n.spec.ts) echo "$V/$1";;
     vite.config.ts) echo "Web/VueClient/$1";;
     useTip.ts|useVfx.ts|useFocusTrapDialog.ts) echo "$V/composables/$1";;
-    Game.vue|Lobby.vue|Spectate.vue|Replay.vue|Widget.vue|Home.vue|Store.vue|Achievements.vue|BattleshipLobby.vue|BattleshipGame.vue|BattleshipSpectate.vue)
+    Game.vue|Lobby.vue|Spectate.vue|Replay.vue|Widget.vue|Home.vue|Store.vue|Achievements.vue|BattleshipLobby.vue|BattleshipGame.vue|BattleshipSpectate.vue|ClashLobby.vue|ClashGame.vue|Clash.vue)
       echo "$V/pages/$1";;
     LoginProcess.vue|LoginSuccess.vue) echo "$V/components/Login/$1";;
     PlayerCard.vue|SkillsPanel.vue|Leaderboard.vue|FightAnimation.vue|DeathNote.vue|RoundTimer.vue|MediaMessages.vue|BattleLog.vue|ActionPanel.vue|AchievementBoard.vue|AchievementPopup.vue|LootBox.vue|DailyQuestBoard.vue|ScoreOdometer.vue)
@@ -73,8 +76,10 @@ resolve() {
       echo "$V/components/battleship/$1";;
     ArmySelectPhase.vue|CombatPhase.vue|FleetBuildPhase.vue|GameOverPhase.vue|LobbyPhase.vue|PlacementPhase.vue)
       echo "$V/components/battleship/phases/$1";;
+    ClashActionTimeline.vue|ClashArmyBuilder.vue|ClashBetweenPhase.vue|ClashBoard.vue|ClashCombatPhase.vue|ClashDeploymentPhase.vue|ClashUnit.vue)
+      echo "$V/components/clash/$1";;
     FortressOfDoom.vue) echo "$V/components/Home/$1";;
-    BOT-AI-DESIGNER-REVIEW.md|BATTLESHIP-DESIGNER-REVIEW.md|EMPIRES-ENDGAME-DESIGN-REVIEW.md) echo "docs/$1";;
+    BOT-AI-DESIGNER-REVIEW.md|BATTLESHIP-DESIGNER-REVIEW.md|EMPIRES-ENDGAME-DESIGN-REVIEW.md|CLASH-DESIGN.md) echo "docs/$1";;
     *.cs) f=$(find $B/Game/Characters -name "$1" 2>/dev/null | head -1); echo "$f";;
     *) echo "";;
   esac
@@ -95,7 +100,7 @@ DRIFTS=$(mktemp)
 trap 'rm -f "$DRIFTS"' EXIT
 export LC_ALL=C
 declare -A LINECOUNT   # file → wc -l cache (biggest win: avoid re-stat'ing the same file per anchor)
-for doc in docs/GAME-DESIGN.md docs/ARCHITECTURE.md docs/CHARACTERS.md docs/AUDIT-FINDINGS.md docs/BALANCE-CONSTANTS.md docs/BOT-AI-DESIGNER-REVIEW.md docs/BATTLESHIP-DESIGNER-REVIEW.md docs/EMPIRES-ENDGAME-DESIGN-REVIEW.md docs/INTERACTION-MATRIX.md docs/WEB-BACKEND.md docs/WEB-CLIENT.md docs/DISCORD-INTERFACE.md docs/LOCALIZATION.md docs/ACHIEVEMENTS.md docs/DAILY-QUESTS.md; do
+for doc in docs/GAME-DESIGN.md docs/ARCHITECTURE.md docs/CHARACTERS.md docs/AUDIT-FINDINGS.md docs/BALANCE-CONSTANTS.md docs/BOT-AI-DESIGNER-REVIEW.md docs/BATTLESHIP-DESIGNER-REVIEW.md docs/EMPIRES-ENDGAME-DESIGN-REVIEW.md docs/CLASH-DESIGN.md docs/INTERACTION-MATRIX.md docs/WEB-BACKEND.md docs/WEB-CLIENT.md docs/DISCORD-INTERFACE.md docs/LOCALIZATION.md docs/ACHIEVEMENTS.md docs/DAILY-QUESTS.md; do
   [ -f "$doc" ] || continue
   # Group all anchors per citing doc line so drift is judged against their COMBINED context
   while IFS='|' read -r docline anchors; do

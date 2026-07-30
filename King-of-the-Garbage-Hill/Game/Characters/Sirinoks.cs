@@ -9,7 +9,7 @@ public class Sirinoks
     public const string CharacterName = "Sirinoks";
     public const string TrainingPassive = "Обучение";
     public const string DragonPassive = "Дракон";
-    public const int TrainingSkillReward = 70;
+    public const int TrainingSkillReward = 42;
     public const decimal DragonAutowinProtectionSkill = 228m;
 
     public static bool IsAutowinProtectedDragon(GamePlayerBridgeClass player, GameClass game) =>

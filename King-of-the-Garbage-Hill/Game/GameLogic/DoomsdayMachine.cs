@@ -491,9 +491,14 @@ public class DoomsdayMachine : IServiceSingleton
             Naruto.ResolveHaremQueues(game);
         }
         EnforceKratosEventActions(game);
+        // Макро's duplicate-target choice is an absolute self-Skip. Reassert it before
+        // Живое Оружие inspects queues so a late no-escape/taunt cannot strip the passive
+        // for a fight that is not allowed to happen.
+        Dopa.EnforceDuplicateTargetSkip(game);
         TheBoys.DisablePassivesBeforeFights(game);
         ScamRat.ExplodeOnBlock(game);
         HandleEventsBeforeCalculation(game);
+        Dopa.EnforceDuplicateTargetSkip(game);
         if (!game.IsKratosEvent)
         {
             Madara.PrepareIncomingAttackers(game);
@@ -657,6 +662,14 @@ public class DoomsdayMachine : IServiceSingleton
                 }
 
                 PrepareIndependentFightCharacters(player, playerIamAttacking);
+                var jonDifficultySnapshot = JonSnow.CaptureDifficulty(
+                    player, playerIamAttacking, _calculateRounds);
+                var monsterTwinHighestStatBeforeFight =
+                    MonsterWithoutName.HasTwin(playerIamAttacking)
+                        ? MonsterWithoutName.CaptureHighestStat(player)
+                        : null;
+                var attackerRealJusticeBeforeFight =
+                    player.FightCharacter.Justice.GetRealJusticeNow();
 
                 // Snapshot GlobalLogs length before this fight (for hidden-fight mechanism)
                 var globalLogsLenBefore = game.GetGlobalLogs().Length;
@@ -690,8 +703,6 @@ public class DoomsdayMachine : IServiceSingleton
                 // Snapshot original class before ForOneFight overrides
                 var attackerOriginalClass = player.FightCharacter.GetSkillClass();
                 var defenderOriginalClass = playerIamAttacking.FightCharacter.GetSkillClass();
-                var attackerRealJusticeBeforeFight =
-                    player.FightCharacter.Justice.GetRealJusticeNow();
 
                 _characterPassives.HandleDefenseBeforeFight(playerIamAttacking, player, game);
 
@@ -730,17 +741,27 @@ public class DoomsdayMachine : IServiceSingleton
                                     && playerIamAttacking.Passives.KotikiStorm.CurrentTauntTarget
                                     == player.GetPlayerId();
                 var haremSkipApplies = Naruto.HaremSkipAppliesTo(player, playerIamAttacking);
-                var defenderSkipApplies = playerIamAttacking.Status.IsSkip
-                                          && (!playerIamAttacking.Passives.Naruto.HaremActiveThisRound
-                                              || haremSkipApplies);
+                var dopaDuplicateTargetSkip =
+                    Dopa.IsDuplicateTargetSkip(playerIamAttacking, game);
+                if (dopaDuplicateTargetSkip)
+                {
+                    playerIamAttacking.Status.IsBlock = false;
+                    playerIamAttacking.Status.IsSkip = true;
+                }
+                var defenderSkipApplies = dopaDuplicateTargetSkip
+                                          || (playerIamAttacking.Status.IsSkip
+                                              && (!playerIamAttacking.Passives.Naruto.HaremActiveThisRound
+                                                  || haremSkipApplies));
                 var fightWillResolve =
                     (!playerIamAttacking.Status.IsBlock || player.Status.IsArmorBreak
                                                           || isTauntBypass || narutoSummonAutoWin
                                                           || isRailgunFight || madaraRoundSevenWin)
-                    && (!defenderSkipApplies || player.Status.IsSkipBreak
-                                                   || narutoSummonAutoWin
-                                                   || isRailgunFight
-                                                   || madaraRoundSevenWin);
+                    && (!defenderSkipApplies
+                        || (!dopaDuplicateTargetSkip
+                            && (player.Status.IsSkipBreak
+                                || narutoSummonAutoWin
+                                || isRailgunFight
+                                || madaraRoundSevenWin)));
                 // Клоны Сусано, round seven: Madara's victory is terminal for either side. The flags
                 // are read by the resource-consuming outcome replacers below so that no enemy charge,
                 // use or ledger entry is spent on a fight that cannot be won.
@@ -748,7 +769,7 @@ public class DoomsdayMachine : IServiceSingleton
                 var madaraRoundSeven = madaraRoundSevenWin || madaraRoundSevenLoss;
                 if (fightWillResolve)
                     JonSnow.ApplyDifficultyJustice(
-                        player, playerIamAttacking, _calculateRounds);
+                        player, playerIamAttacking, jonDifficultySnapshot);
                 if (fightWillResolve)
                     TheBoys.ApplyKillingCoupleJustice(
                         player, playerIamAttacking, _calculateRounds);
@@ -844,18 +865,20 @@ public class DoomsdayMachine : IServiceSingleton
                         playerIamAttacking.GameCharacter.Justice.SetRealJusticeNow(
                             0, Madara.SecondMeteorite);
                     }
-                    else if (playerIamAttacking.GameCharacter.Passive.Any(x => x.PassiveName == "Близнец"))
+                    else if (MonsterWithoutName.HasTwin(playerIamAttacking))
                     {
-                        var previousHighest = playerIamAttacking.Passives.MonsterTwinHighestJusticeThisRound;
-                        if (attackerRealJusticeBeforeFight > previousHighest)
-                        {
-                            playerIamAttacking.Passives.MonsterTwinHighestJusticeThisRound = attackerRealJusticeBeforeFight;
-                            playerIamAttacking.GameCharacter.Justice.SetRealJusticeNow(
-                                attackerRealJusticeBeforeFight, "Близнец");
-                            playerIamAttacking.Status.AddBonusPoints(
-                                attackerRealJusticeBeforeFight - Math.Max(0, previousHighest), "Близнец");
-                            game.Phrases.MonsterTwinSteal.SendLog(playerIamAttacking, false);
-                        }
+                        playerIamAttacking.GameCharacter.Justice
+                            .AddJusticeForNextRoundFromFight(
+                                attackerRealJusticeBeforeFight + 1);
+                        playerIamAttacking.Status.AddBonusPoints(
+                            attackerRealJusticeBeforeFight,
+                            MonsterWithoutName.Twin);
+                        MonsterWithoutName.QueueHighestStatCopy(
+                            playerIamAttacking,
+                            monsterTwinHighestStatBeforeFight);
+                        game.Phrases.MonsterTwinSteal.SendLog(
+                            playerIamAttacking,
+                            false);
                     }
                     else
                     {
@@ -900,9 +923,12 @@ public class DoomsdayMachine : IServiceSingleton
                 playerIamAttacking.Status.AddFightingData($"IsSkipBreakEnemy: {player.Status.IsSkipBreak}");
 
                 // if skip => something
-                if (defenderSkipApplies && !player.Status.IsSkipBreak
-                    && !narutoSummonAutoWin && !isRailgunFight
-                    && !madaraRoundSevenWin)
+                if (defenderSkipApplies
+                    && (dopaDuplicateTargetSkip
+                        || (!player.Status.IsSkipBreak
+                            && !narutoSummonAutoWin
+                            && !isRailgunFight
+                            && !madaraRoundSevenWin)))
                 {
                     player.Status.IsTargetSkipped = playerIamAttacking.GetPlayerId();
                     game.SkipPlayersThisRound++;
@@ -1341,6 +1367,16 @@ public class DoomsdayMachine : IServiceSingleton
                         }
                     }
 
+                    if (!teamMate)
+                    {
+                        defenderMoralActual += Madara.ApplySecondMeteoriteMoral(
+                            player,
+                            playerIamAttacking,
+                            game);
+                        playerIamAttacking.Status.MoralGainedThisFight =
+                            defenderMoralActual;
+                    }
+
                     if (!teamMate && !playerIamAttacking.Passives.SaitamaUnnoticed.PretendedLossThisFight)
                         playerIamAttacking.GameCharacter.Justice.AddJusticeForNextRoundFromFight();
 
@@ -1696,6 +1732,7 @@ public class DoomsdayMachine : IServiceSingleton
                     playerIamAttacking.Passives.AchievementTracker.GordonCrowbarStoppedSuperDick = true;
 
                 UnknownBug.RecordResolvedFight(game, resolvedWinner, resolvedLoser);
+                Homelander.RecordResolvedWin(resolvedWinner, game);
                 UnknownBug.TryCommitExploit(
                     game, player, playerIamAttacking, attackerWonThisFight);
 
@@ -1878,6 +1915,8 @@ public class DoomsdayMachine : IServiceSingleton
         _characterPassives.HandleRumblingAfterFights(game);
         Naruto.SettleShadowClones(game);
         Cthulhu.ResolveNechtoAttacks(game, _calculateRounds, _charactersPull);
+        Madara.SendRoundTechniquePhrases(Madara.Find(game), game);
+        Homelander.SettleRighteousnessMoral(game);
 
         // Skill gained by Джон Сноу inside one fight must not transform him early enough
         // to double rewards from another simultaneous fight (including Нечто resolution).
@@ -2080,6 +2119,14 @@ public class DoomsdayMachine : IServiceSingleton
             game.TurnLengthInSecond = 300;
         }
 
+        if (Madara.TryCaptureEternalTsukuyomiEnding(game))
+        {
+            SortGameLogs(game);
+            ReplayService.FinalizeRound(replayRound, game, _gameUpdateMess);
+            game.TimePassed.Reset();
+            watch.Stop();
+            return;
+        }
 
         await _characterPassives.HandleNextRound(game);
 

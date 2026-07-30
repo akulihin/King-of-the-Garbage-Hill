@@ -36,6 +36,13 @@ public static class JonSnow
         public int PreviousTableSide { get; set; }
     }
 
+    public readonly record struct DifficultySnapshot(
+        Guid JonId,
+        Guid EnemyId,
+        bool EnemyTooGood,
+        bool EnemyTooStronk,
+        int DifficultyBonus);
+
     public static bool Is(CharacterClass character) =>
         character?.Name == CharacterName;
 
@@ -115,7 +122,7 @@ public static class JonSnow
             IAmJonSnow);
     }
 
-    public static void ApplyDifficultyJustice(
+    public static DifficultySnapshot CaptureDifficulty(
         GamePlayerBridgeClass attacker,
         GamePlayerBridgeClass defender,
         CalculateRounds calculateRounds)
@@ -125,7 +132,7 @@ public static class JonSnow
             : HasPassive(defender, IAmJonSnow)
                 ? defender
                 : null;
-        if (jon == null) return;
+        if (jon == null) return default;
 
         var enemy = jon.GetPlayerId() == attacker.GetPlayerId() ? defender : attacker;
         var quality = calculateRounds.CalculateStep1(attacker, defender);
@@ -133,6 +140,27 @@ public static class JonSnow
         var tooStronk = isJonAttacker ? quality.IsTooStronkEnemy : quality.IsTooStronkMe;
         var tooGood = isJonAttacker ? quality.IsTooGoodEnemy : quality.IsTooGoodMe;
         var difficultyBonus = tooStronk ? 2 : tooGood ? 1 : 0;
+        return new DifficultySnapshot(
+            jon.GetPlayerId(),
+            enemy.GetPlayerId(),
+            tooGood,
+            tooStronk,
+            difficultyBonus);
+    }
+
+    public static void ApplyDifficultyJustice(
+        GamePlayerBridgeClass attacker,
+        GamePlayerBridgeClass defender,
+        DifficultySnapshot snapshot)
+    {
+        if (snapshot.JonId == Guid.Empty) return;
+
+        var jon = attacker.GetPlayerId() == snapshot.JonId
+            ? attacker
+            : defender.GetPlayerId() == snapshot.JonId
+                ? defender
+                : null;
+        if (jon == null || !HasPassive(jon, IAmJonSnow)) return;
 
         var redirectedBonus = jon.GetPlayerId() == defender.GetPlayerId()
                               && jon.Passives.JonSnow.RedirectedAttackersThisRound.Contains(
@@ -141,30 +169,30 @@ public static class JonSnow
             : 0;
 
         var state = jon.Passives.JonSnow;
-        state.DifficultyEnemyId = enemy.GetPlayerId();
-        state.DifficultyBonusThisFight = difficultyBonus;
+        state.DifficultyEnemyId = snapshot.EnemyId;
+        state.DifficultyBonusThisFight = snapshot.DifficultyBonus;
 
-        var totalBonus = difficultyBonus + redirectedBonus;
+        var totalBonus = snapshot.DifficultyBonus + redirectedBonus;
         if (totalBonus <= 0) return;
 
         var currentJustice = jon.FightCharacter.Justice.GetRealJusticeNow();
         jon.FightCharacter.Justice.SetJusticeForOneFight(
             currentJustice + totalBonus,
-            difficultyBonus > 0 ? IAmJonSnow : AnotherBastard);
+            snapshot.DifficultyBonus > 0 ? IAmJonSnow : AnotherBastard);
         ApplyStatBonus(
             jon,
             totalBonus,
-            difficultyBonus > 0 ? IAmJonSnow : AnotherBastard);
+            snapshot.DifficultyBonus > 0 ? IAmJonSnow : AnotherBastard);
 
-        if (difficultyBonus > 0)
+        if (snapshot.DifficultyBonus > 0)
         {
-            var difficulty = tooStronk ? "toostronk" : "toogood";
+            var difficulty = snapshot.EnemyTooStronk ? "toostronk" : "toogood";
             LogEffect(
                 jon,
                 positive: true,
                 IAmJonSnow,
-                $"(Враг {difficulty}, + {difficultyBonus} справедливости): Я Джон Сноу.",
-                $"(Enemy {difficulty}, +{difficultyBonus} Justice): I am Jon Snow.");
+                $"(Враг {difficulty}, + {snapshot.DifficultyBonus} справедливости): Я Джон Сноу.",
+                $"(Enemy {difficulty}, +{snapshot.DifficultyBonus} Justice): I am Jon Snow.");
         }
     }
 

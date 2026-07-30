@@ -193,7 +193,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         var game = _global.GamesList.Find(x => x.GameId == player.GameId);
         if (game == null) return "ERROR 404";
 
-        if (game.RoundNo >= 11 && Madara.IsEternalTsukuyomiActive(game)
+        if (game.IsFinished && Madara.IsEternalTsukuyomiActive(game)
             && !UnknownBug.Is(player)
             && !GordonFreeman.SeesEternalTsukuyomiReality(player, game))
         {
@@ -1259,7 +1259,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
 
         var globalLogs = game!.GetGlobalLogs();
-        if (game.RoundNo >= 11 && Madara.IsEternalTsukuyomiActive(game)
+        if (game.IsFinished && Madara.IsEternalTsukuyomiActive(game)
             && !Madara.IsMadara(player)
             && !UnknownBug.Is(player)
             && !GordonFreeman.SeesEternalTsukuyomiReality(player, game))
@@ -1970,22 +1970,23 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
             }
 
         if (ScamRat.UsesCarryShop(player)
-            && player.Passives.ScamRat.CarryPoints > 0)
+            && player.Passives.ScamRat.CarryPoints > 0
+            && player.Status.GetScore() >= ScamRat.CarryBonusPointCost)
         {
             var carryMenu = new SelectMenuBuilder()
                 .WithMinValues(1)
                 .WithMaxValues(1)
                 .WithCustomId("lvl-up")
                 .WithPlaceholder(
-                    $"$ {player.Passives.ScamRat.CarryPoints}: купить стат");
+                    $"$ {player.Passives.ScamRat.CarryPoints}: стат + 1 бонусное очко");
             if (player.GameCharacter.GetIntelligence() < 10)
-                carryMenu.AddOption("Интеллект", "1", "Потратить 1 заработанное очко");
+                carryMenu.AddOption("Интеллект", "1", "$1 и 1 бонусное очко");
             if (player.GameCharacter.GetStrength() < 10)
-                carryMenu.AddOption("Сила", "2", "Потратить 1 заработанное очко");
+                carryMenu.AddOption("Сила", "2", "$1 и 1 бонусное очко");
             if (player.GameCharacter.GetSpeed() < 10)
-                carryMenu.AddOption("Скорость", "3", "Потратить 1 заработанное очко");
+                carryMenu.AddOption("Скорость", "3", "$1 и 1 бонусное очко");
             if (player.GameCharacter.GetPsyche() < 10)
-                carryMenu.AddOption("Психика", "4", "Потратить 1 заработанное очко");
+                carryMenu.AddOption("Психика", "4", "$1 и 1 бонусное очко");
             if (carryMenu.Options.Count == 0)
             {
                 carryMenu.AddOption("Все статы максимальны", "0");

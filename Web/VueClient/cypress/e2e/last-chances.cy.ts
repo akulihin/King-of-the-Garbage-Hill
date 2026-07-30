@@ -420,9 +420,9 @@ describe('99 Last Chances controller flow', () => {
     cy.wait(60)
     setGamepadButton(6, false)
     cy.get('[data-testid="semantic-control-cue"]')
-      .should('contain.text', 'Отталкивание')
+      .should('contain.text', 'Толчок')
       .and('not.have.class', 'is-blocked')
-    cy.get('.lc-gesture-toast').should('contain.text', 'Отталкивание')
+    cy.get('.lc-gesture-toast').should('contain.text', 'Толчок')
     cy.wait(1_500)
 
     // Hold L2 to enter the authored support stance, then release to commit it.
@@ -475,7 +475,7 @@ describe('99 Last Chances controller flow', () => {
       .should('contain.text', 'Тычок на дистанции')
     setAnalogTrigger(7, 0.55)
     cy.get('[data-testid="semantic-control-cue"]')
-      .should('contain.text', 'Замах и три исхода')
+      .should('contain.text', 'Замах')
     setAnalogTrigger(7, 0.8)
     cy.get('[data-testid="semantic-control-cue"]')
       .should('contain.text', 'Заряженный таран копьём')

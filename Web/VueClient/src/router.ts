@@ -15,6 +15,8 @@ export type AppRouteNames =
   | 'lastChances'
   | 'empiresEndgame'
   | 'clash'
+  | 'clashLab'
+  | 'clashGame'
   | 'battleship'
   | 'battleshipGame'
   | 'battleshipSpectate'
@@ -95,7 +97,18 @@ export const routes: RouteRecordRaw[] = [
   {
     name: 'clash',
     path: '/clash',
+    component: () => import('./pages/ClashLobby.vue'),
+  },
+  {
+    name: 'clashLab',
+    path: '/clash/lab',
     component: () => import('./pages/Clash.vue'),
+  },
+  {
+    name: 'clashGame',
+    path: '/clash/:gameId',
+    component: () => import('./pages/ClashGame.vue'),
+    props: true,
   },
   {
     name: 'widget',

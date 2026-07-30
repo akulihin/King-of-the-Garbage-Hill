@@ -122,6 +122,7 @@ public class ProgramKingOfTheGarbageHill
             builder.Services.AddSingleton<GameStoryService>();
             builder.Services.AddSingleton<BlackjackService>();
             builder.Services.AddSingleton<BattleshipService>();
+            builder.Services.AddSingleton<ClashService>();
             builder.Services.AddSingleton<ReplayService>();
 
             // Add SignalR for real-time communication

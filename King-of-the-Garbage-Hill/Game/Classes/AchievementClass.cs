@@ -956,7 +956,7 @@ public static class AchievementService
         if (characterName == "Кира")
         {
             var successfulVictims = player.Passives.KiraDeathNote.Entries
-                .Where(entry => entry.WasCorrect)
+                .Where(entry => entry.WasCorrect && entry.CausedDeath)
                 .Select(entry => entry.TargetPlayerId)
                 .Distinct()
                 .Count();

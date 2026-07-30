@@ -48,7 +48,7 @@ export const LAST_CHANCES_CONFIG_STORAGE_KEY = '99lc:game-config'
 
 type UnknownRecord = Record<string, unknown>
 
-const CURRENT_LAST_CHANCES_SCHEMA_VERSION = 10
+const CURRENT_LAST_CHANCES_SCHEMA_VERSION = 11
 const MAX_GAMEPAD_BUTTON_INDEX = 31
 const MAX_FEEDBACK_DURATION_MS = 2_000
 const MAX_CONTROL_EXPIRY_MS = 10_000
@@ -66,6 +66,7 @@ const LEGACY_SHIPPED_WEAPON_TRAITS: Record<
   'twohand-katana': 'katanaFlow',
   'hybrid-sword': 'swordRhythm',
   'secondary-ouroboros-fang': 'ouroborosFang',
+  'twohand-bow': 'longbowPersistence',
 }
 
 const DEFAULT_MYLORIK_INPUT: LastChancesMylorikInputDefinition = {
@@ -266,6 +267,8 @@ interface AttackSetControlSeed {
   triggerRole: string
   mylorik: Partial<Record<LastChancesGesture, MylorikActivationWithoutGesture>>
   dualsense: DualSenseNodeSeed[]
+  /** Independent graph roots for context-selectable trigger routes. */
+  startNodeIds?: string[]
   /** Quick action dispatched when a pull releases before reaching any node. */
   preGateGesture?: LastChancesGesture
   haptics?: LastChancesWeaponHapticsDefinition
@@ -276,8 +279,15 @@ function mylorikActivation(
   phase: MylorikActivationWithoutGesture['phase'],
   context?: MylorikActivationWithoutGesture['context'],
   priority = context ? 80 : 100,
+  continuationDispatch?: MylorikActivationWithoutGesture['continuationDispatch'],
 ): MylorikActivationWithoutGesture {
-  return { intent, phase, ...(context ? { context } : {}), priority }
+  return {
+    intent,
+    phase,
+    ...(context ? { context } : {}),
+    ...(continuationDispatch ? { continuationDispatch } : {}),
+    priority,
+  }
 }
 
 function dualSenseNode(
@@ -1033,6 +1043,126 @@ const ATTACK_SET_CONTROL_SEEDS: Record<string, AttackSetControlSeed> = {
       commitPattern: [{ delayMs: 0, durationMs: 45, magnitude: 0.48 }],
     },
   },
+  'twohand-bow:primary': {
+    role: 'Left hand — bowstring, draw pocket and arrow channels',
+    triggerRole: 'R2 shot, double shot, rapid fire, draw and golden scatter',
+    startNodeIds: ['double-shot', 'draw'],
+    mylorik: {
+      tap: mylorikActivation('strike', 'press'),
+      doubleTap: mylorikActivation('technique', 'tap'),
+      doubleTapHold: mylorikActivation('strike', 'press', 'continuation', 80, 'press'),
+      hold: mylorikActivation('technique', 'hold'),
+      holdThenDoubleTap: mylorikActivation('mobility', 'press', 'continuation'),
+    },
+    dualsense: [
+      dualSenseNode('doubleTap', 'neutral', 0.25, {
+        id: 'double-shot',
+        next: ['draw'],
+        tactileProfile: 'click',
+        adaptiveOverride: { startPosition: 0.25, endPosition: 0.32, force: 0.28 },
+      }),
+      dualSenseNode('hold', 'neutral', 0.5, {
+        id: 'draw',
+        holdBehavior: 'charge',
+        next: ['rapid-fire', 'scatter-finisher'],
+        armMs: 670,
+        armClock: 'input',
+        armedCue: [
+          { delayMs: 0, durationMs: 45, magnitude: 0.58 },
+          { delayMs: 85, durationMs: 55, magnitude: 0.68 },
+        ],
+        armedTriggerOverride: SOFTENED_FINISHER_WALL,
+        tactileProfile: 'tension',
+        entryTick: null,
+        adaptiveOverride: { startPosition: 0.5, endPosition: 0.7, force: 0.64 },
+      }),
+      dualSenseNode('doubleTapHold', 'continuation', 0.75, {
+        id: 'rapid-fire',
+        dispatch: 'press',
+        holdBehavior: 'channel',
+        releaseBehavior: 'cancel',
+        tactileProfile: 'ramp',
+        entryTick: null,
+        adaptiveOverride: { startPosition: 0.75, endPosition: 0.84, force: 0.76 },
+      }),
+      dualSenseNode('holdThenDoubleTap', 'continuation', 0.95, {
+        id: 'scatter-finisher',
+        dispatch: 'press',
+        entryRequiresArmed: true,
+        requiredChargeBandId: 'draw-middle',
+        tactileProfile: 'followUp',
+        adaptiveOverride: { startPosition: 0.95, endPosition: 1, force: 1 },
+      }),
+    ],
+    haptics: {
+      baseTrigger: { startPosition: 0.14, endPosition: 0.24, resistance: 0.22, force: 0.3 },
+      gateTick: { durationMs: 20, magnitude: 0.18 },
+      bandTick: { pulseMs: 28, gapMs: 58, magnitude: 0.24, magnitudeStep: 0.08 },
+      commitPattern: [
+        { delayMs: 0, durationMs: 28, magnitude: 0.32 },
+        { delayMs: 48, durationMs: 48, magnitude: 0.56 },
+      ],
+      depthTicks: [
+        { position: 0.67, tick: { durationMs: 20, magnitude: 0.24 } },
+        { position: 0.79, tick: { durationMs: 24, magnitude: 0.34 } },
+      ],
+    },
+  },
+  'twohand-bow:secondary': {
+    role: 'Right hand — evasive footwork, answer pocket and arrow rain',
+    triggerRole: 'L2 dodge, jump, timed answer, rain and ignition',
+    mylorik: {
+      tap: mylorikActivation('strike', 'press'),
+      doubleTap: mylorikActivation('technique', 'press'),
+      doubleTapHold: mylorikActivation('strike', 'release', 'continuation', 80, 'release'),
+      hold: mylorikActivation('technique', 'hold'),
+      holdThenDoubleTap: mylorikActivation('mobility', 'press', 'continuation'),
+    },
+    startNodeIds: ['jump', 'rain'],
+    dualsense: [
+      dualSenseNode('doubleTap', 'dash', 0.25, {
+        id: 'jump',
+        dispatch: 'press',
+        next: ['riposte'],
+        tactileProfile: 'click',
+        adaptiveOverride: { startPosition: 0.25, endPosition: 0.32, force: 0.3 },
+      }),
+      dualSenseNode('hold', 'neutral', 0.5, {
+        id: 'rain',
+        dispatch: 'press',
+        holdBehavior: 'channel',
+        releaseBehavior: 'cancel',
+        next: ['ignite-finisher'],
+        tactileProfile: 'tension',
+        entryTick: null,
+        adaptiveOverride: { startPosition: 0.5, endPosition: 0.64, force: 0.58 },
+      }),
+      dualSenseNode('doubleTapHold', 'dash', 0.75, {
+        id: 'riposte',
+        holdBehavior: 'charge',
+        armMs: 470,
+        telegraph: telegraphPulses(2, 0.3),
+        tactileProfile: 'gate',
+        adaptiveOverride: { startPosition: 0.75, endPosition: 0.84, force: 0.78 },
+      }),
+      dualSenseNode('holdThenDoubleTap', 'continuation', 0.95, {
+        id: 'ignite-finisher',
+        dispatch: 'press',
+        tactileProfile: 'impact',
+        adaptiveOverride: { startPosition: 0.95, endPosition: 1, force: 1 },
+      }),
+    ],
+    haptics: {
+      baseTrigger: { startPosition: 0.12, endPosition: 0.2, resistance: 0.18, force: 0.24 },
+      gateTick: { durationMs: 22, magnitude: 0.2 },
+      bandTick: { pulseMs: 26, gapMs: 54, magnitude: 0.22, magnitudeStep: 0.08 },
+      commitPattern: [{ delayMs: 0, durationMs: 62, magnitude: 0.58 }],
+      depthTicks: [
+        { position: 0.47, tick: { durationMs: 18, magnitude: 0.24 } },
+        { position: 0.53, tick: { durationMs: 22, magnitude: 0.34 } },
+      ],
+    },
+  },
   'twohand-spear-v2:primary': {
     role: 'Right cluster — v2 lance gearbox',
     triggerRole: 'R2 hunt, pierce mash, breakthrough and overhead Акали',
@@ -1191,13 +1321,19 @@ function buildAttackSetControls(
       id: node.id ?? node.gesture,
       next: node.next.filter(nextId => enabledNodeIds.has(nextId)),
     }))
+  const authoredStartNodeIds = (seed.startNodeIds ?? [])
+    .filter(nodeId => enabledNodeIds.has(nodeId))
+  const startNodeIds = authoredStartNodeIds.length > 0
+    ? authoredStartNodeIds
+    : nodes[0] ? [nodes[0].id] : []
   return {
     role: seed.role,
     mylorik: { activations },
     dualsense: {
       instantGesture: 'tap',
       triggerRole: seed.triggerRole,
-      startNodeId: nodes[0]?.id ?? null,
+      startNodeId: startNodeIds[0] ?? null,
+      ...(startNodeIds.length > 1 ? { startNodeIds } : {}),
       nodes,
       ...(seed.preGateGesture && enabledGestures.has(seed.preGateGesture)
         ? { preGateGesture: seed.preGateGesture }
@@ -1649,6 +1785,30 @@ function backfillCurrentAttemptAttritionFields(migrated: UnknownRecord): void {
 }
 
 /**
+ * Schema v11 restores the bow under its original stable catalog ID. A schema-v10 browser
+ * override may contain a hand-authored catalog or the retired `twohand-bow` definition, so
+ * replace only that one record (or append it when absent). The user's loadout, catalog order,
+ * and every unrelated weapon remain untouched.
+ */
+function upsertCurrentLongbow(
+  migrated: UnknownRecord,
+  currentDefinition?: LastChancesConfig,
+): void {
+  if (!Array.isArray(migrated.weapons)) return
+  const currentLongbow = currentDefinition?.weapons
+    .find(weapon => weapon.id === 'twohand-bow')
+  if (!currentLongbow) return
+  const existingIndex = migrated.weapons.findIndex(
+    weapon => asRecordOrNull(weapon)?.id === 'twohand-bow',
+  )
+  if (existingIndex >= 0) {
+    migrated.weapons[existingIndex] = cloneUnknown(currentLongbow)
+  } else {
+    migrated.weapons.push(cloneUnknown(currentLongbow))
+  }
+}
+
+/**
  * The authored apartment/Knife-spider opening was a content correction, not merely new tuning.
  * Whole-definition browser overrides from the shipped v1-v8 builds otherwise freeze the old
  * randomized first tier forever. Upgrade only catalogs carrying the canonical room/enemy IDs;
@@ -1871,9 +2031,15 @@ export function migrateLastChancesConfig(
   backfillCurrentAttemptAttritionFields(migrated)
   repairSchemaV8GuaranteedSpawns(migrated)
   backfillAuthoredOpening(migrated, currentDefinition)
-  // v7-v9 already own the complete authored content/control catalog. Preserve their definitions
-  // byte-for-byte apart from the newly derived movement and run-tuning fields.
+  if (version === 10) {
+    upsertCurrentLongbow(migrated, currentDefinition)
+    migrated.schemaVersion = CURRENT_LAST_CHANCES_SCHEMA_VERSION
+    return migrated
+  }
+  // v7-v9 already own a complete catalog for their schema. Preserve every existing definition
+  // while applying the same isolated v11 bow upsert used for a v10 browser override.
   if (version === 7 || version === 8 || version === 9) {
+    upsertCurrentLongbow(migrated, currentDefinition)
     migrated.schemaVersion = CURRENT_LAST_CHANCES_SCHEMA_VERSION
     return migrated
   }
@@ -2625,6 +2791,7 @@ function validateTapCombo(
   errors: string[],
   required: boolean,
   schemaVersion: number,
+  allowTapCooldown = false,
 ): void {
   if (value === undefined && !required) return
   if (!Array.isArray(value) || value.length < 1) {
@@ -2635,7 +2802,7 @@ function validateTapCombo(
     const attackPath = `${path}[${index}]`
     validateAttack(attack, attackPath, errors, schemaVersion)
     if (typeof attack === 'object' && attack !== null && !Array.isArray(attack)
-      && (attack as UnknownRecord).cooldownMs !== 0) {
+      && (attack as UnknownRecord).cooldownMs !== 0 && !allowTapCooldown) {
       errors.push(`${attackPath}.cooldownMs must be 0 because basic taps have no cooldown`)
     }
   })
@@ -3406,6 +3573,19 @@ function validateAttackSetControls(
         )) {
           errors.push(`${activationPath}.context must be one of ${LAST_CHANCES_CONTROL_CONTEXTS.join(', ')}`)
         }
+        if (activation.continuationDispatch !== undefined
+          && activation.continuationDispatch !== 'press'
+          && activation.continuationDispatch !== 'release') {
+          errors.push(`${activationPath}.continuationDispatch must be press or release`)
+        }
+        if (activation.continuationDispatch !== undefined
+          && activation.context !== 'continuation') {
+          errors.push(`${activationPath}.continuationDispatch requires continuation context`)
+        }
+        if (activation.continuationDispatch !== undefined
+          && activation.phase !== activation.continuationDispatch) {
+          errors.push(`${activationPath}.phase must match continuationDispatch`)
+        }
         requireInteger(activation, 'priority', activationPath, errors)
         if (typeof activation.priority === 'number' && activation.priority > MAX_CONTROL_EXPIRY_MS) {
           errors.push(`${activationPath}.priority must be <= ${MAX_CONTROL_EXPIRY_MS}`)
@@ -3418,6 +3598,9 @@ function validateAttackSetControls(
           String(activation.phase),
           activation.context === undefined ? '*' : String(activation.context),
           String(activation.priority),
+          ...(activation.continuationDispatch === undefined
+            ? []
+            : [String(activation.continuationDispatch)]),
         ].join('|')
         if (activationKeys.has(activationKey)) {
           errors.push(`${activationPath} duplicates activation ${activationKey}`)
@@ -3537,6 +3720,9 @@ function validateAttackSetControls(
         errors.push(`${nodePath}.armMs must be between 100 and 2000`)
       }
     }
+    if (node.armClock !== undefined && node.armClock !== 'node' && node.armClock !== 'input') {
+      errors.push(`${nodePath}.armClock must be node or input`)
+    }
     if (node.entryRequiresArmed !== undefined && typeof node.entryRequiresArmed !== 'boolean') {
       errors.push(`${nodePath}.entryRequiresArmed must be a boolean`)
     }
@@ -3598,13 +3784,41 @@ function validateAttackSetControls(
   })
 
   const startNodeId = dualsense.startNodeId
+  const authoredStartNodeIds = dualsense.startNodeIds
   if (nodes.size === 0) {
     if (startNodeId !== null) errors.push(`${path}.dualsense.startNodeId must be null when nodes is empty`)
+    if (authoredStartNodeIds !== undefined
+      && (!Array.isArray(authoredStartNodeIds) || authoredStartNodeIds.length > 0)) {
+      errors.push(`${path}.dualsense.startNodeIds must be empty when nodes is empty`)
+    }
     return
   }
   if (typeof startNodeId !== 'string' || !nodes.has(startNodeId)) {
     errors.push(`${path}.dualsense.startNodeId must reference a combo node`)
     return
+  }
+  let startNodeIds = [startNodeId]
+  if (authoredStartNodeIds !== undefined) {
+    if (!Array.isArray(authoredStartNodeIds)
+      || authoredStartNodeIds.length === 0
+      || authoredStartNodeIds.some(nodeId => typeof nodeId !== 'string')) {
+      errors.push(`${path}.dualsense.startNodeIds must be a non-empty string array`)
+    } else {
+      const candidateStartNodeIds = authoredStartNodeIds as string[]
+      if (new Set(candidateStartNodeIds).size !== candidateStartNodeIds.length) {
+        errors.push(`${path}.dualsense.startNodeIds must not contain duplicates`)
+      }
+      if (candidateStartNodeIds[0] !== startNodeId) {
+        errors.push(`${path}.dualsense.startNodeIds must begin with startNodeId`)
+      }
+      candidateStartNodeIds.forEach((nodeId) => {
+        if (!nodes.has(nodeId)) {
+          errors.push(`${path}.dualsense.startNodeIds references unknown node ${nodeId}`)
+        }
+      })
+      startNodeIds = candidateStartNodeIds.filter(nodeId => nodes.has(nodeId))
+      if (startNodeIds.length === 0) startNodeIds = [startNodeId]
+    }
   }
   nodes.forEach((node, id) => {
     if (!Array.isArray(node.next)) return
@@ -3631,7 +3845,7 @@ function validateAttackSetControls(
   })
   nodes.forEach((node, nodeId) => {
     if (node.entryRequiresArmed !== true) return
-    if (nodeId === startNodeId) {
+    if (startNodeIds.includes(nodeId)) {
       errors.push(`${path}.dualsense armed-required node ${nodeId} cannot be the start node`)
       return
     }
@@ -3664,7 +3878,7 @@ function validateAttackSetControls(
     }
     states.set(nodeId, 2)
   }
-  visit(startNodeId)
+  startNodeIds.forEach(visit)
   if (foundCycle) errors.push(`${path}.dualsense combo graph must be acyclic`)
   nodes.forEach((_node, nodeId) => {
     if (!reachable.has(nodeId)) errors.push(`${path}.dualsense combo node ${nodeId} is unreachable`)
@@ -3738,7 +3952,9 @@ function validateWeapons(
       `${path}.attacks`,
       errors,
       schemaVersion,
-      weapon.trait === 'ouroborosFang' || weapon.id === 'secondary-ouroboros-fang',
+      weapon.trait === 'ouroborosFang'
+        || weapon.trait === 'longbowPersistence'
+        || weapon.id === 'secondary-ouroboros-fang',
     )
     if (schemaVersion >= 4) {
       const controls = asRecord(weapon.controls, `${path}.controls`, errors)
@@ -3763,14 +3979,21 @@ function validateWeapons(
         }
       }
     }
-    validateTapCombo(weapon.tapCombo, `${path}.tapCombo`, errors, schemaVersion >= 2, schemaVersion)
+    validateTapCombo(
+      weapon.tapCombo,
+      `${path}.tapCombo`,
+      errors,
+      schemaVersion >= 2,
+      schemaVersion,
+      weapon.trait === 'longbowPersistence',
+    )
     if (weapon.secondaryAttacks !== undefined) {
       validateAttackSet(
         weapon.secondaryAttacks,
         `${path}.secondaryAttacks`,
         errors,
         schemaVersion,
-        weapon.trait === 'ouroborosFang',
+        weapon.trait === 'ouroborosFang' || weapon.trait === 'longbowPersistence',
       )
     }
     const equipMode = inferredEquipMode(weapon)
@@ -3786,6 +4009,7 @@ function validateWeapons(
       schemaVersion >= 2 && (equipMode === 'twoHanded'
         || (equipMode === 'hybrid' && weapon.primaryHandOnly !== true)),
       schemaVersion,
+      weapon.trait === 'longbowPersistence',
     )
     if (typeof weapon.id === 'string') {
       if (ids.has(weapon.id)) errors.push(`${path}.id duplicates ${weapon.id}`)
@@ -4522,28 +4746,31 @@ export function validateLastChancesConfig(value: unknown): LastChancesConfigVali
     && root.schemaVersion !== 3 && root.schemaVersion !== 4
     && root.schemaVersion !== 5 && root.schemaVersion !== 6
     && root.schemaVersion !== 7 && root.schemaVersion !== 8
-    && root.schemaVersion !== 9 && root.schemaVersion !== 10) {
-    errors.push('schemaVersion must be 1, 2, 3, 4, 5, 6, 7, 8, 9, or 10')
+    && root.schemaVersion !== 9 && root.schemaVersion !== 10
+    && root.schemaVersion !== 11) {
+    errors.push('schemaVersion must be 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, or 11')
   }
-  const schemaVersion = root.schemaVersion === 10
-    ? 10
-    : root.schemaVersion === 9
-      ? 9
-      : root.schemaVersion === 8
-        ? 8
-        : root.schemaVersion === 7
-          ? 7
-          : root.schemaVersion === 6
-            ? 6
-            : root.schemaVersion === 5
-              ? 5
-              : root.schemaVersion === 4
-                ? 4
-                : root.schemaVersion === 3
-                  ? 3
-                  : root.schemaVersion === 2
-                    ? 2
-                    : 1
+  const schemaVersion = root.schemaVersion === 11
+    ? 11
+    : root.schemaVersion === 10
+      ? 10
+      : root.schemaVersion === 9
+        ? 9
+        : root.schemaVersion === 8
+          ? 8
+          : root.schemaVersion === 7
+            ? 7
+            : root.schemaVersion === 6
+              ? 6
+              : root.schemaVersion === 5
+                ? 5
+                : root.schemaVersion === 4
+                  ? 4
+                  : root.schemaVersion === 3
+                    ? 3
+                    : root.schemaVersion === 2
+                      ? 2
+                      : 1
   requireString(root, 'title', 'config', errors)
   requireString(root, 'seed', 'config', errors)
   requireInteger(root, 'chances', 'config', errors, 1)

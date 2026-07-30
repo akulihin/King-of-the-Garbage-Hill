@@ -11,7 +11,7 @@
 |---|---|---:|---:|---|
 | 2kxaoc | Загадочный Спартанец в маске | 0 | 2 | NAME-KEYED (D4) |
 | 3-0 обоссан | Тигр | 2 | 2 | ok |
-| AdminPlayerType | unknown_bug | 0 | 5 | ok |
+| AdminPlayerType | unknown_bug | 0 | 6 | ok |
 | Aggress | Toxic Mate | 2 | 6 | ok |
 | AutoWin | unknown_bug | 0 | 1 | ok |
 | Boole Family | Осьминожка, Братишка, Краборак | 0 | 2 | ok |
@@ -21,7 +21,7 @@
 | DragonSlayer | Загадочный Спартанец в маске | 1 | 1 | ok |
 | Exploit | unknown_bug | 0 | 3 | ok |
 | FF 20 | Toxic Mate | 1 | 1 | ok |
-| Francie | TheBoys | 3 | 3 | ok |
+| Francie | TheBoys | 4 | 3 | ok |
 | Fuck this game, I'm done. | Toxic Mate | 1 | 1 | ok |
 | Get cancer | Toxic Mate | 3 | 2 | ok |
 | God Of War | Кратос | 1 | 1 | ok |
@@ -89,12 +89,12 @@
 | Гематофагия | Вампур | 2 | 2 | ok |
 | Гений | Кира | 1 | 3 | ok |
 | Гигантские бобы | Рик Санчез | 4 | 5 | ok |
-| Глаз Шусуи | Итачи | 1 | 1 | ok |
+| Глаз Шусуи | Итачи | 1 | 2 | ok |
 | Глаза Итачи | Итачи | 3 | 7 | ok |
 | Глаза бога смерти | Кира | 1 | 4 | ok |
 | Го играть | Sirinoks | 0 | 0 | NAME-KEYED (D4) |
 | Гоблины | Стая Гоблинов | 6 | 3 | ok |
-| Гоблины тупые, но не идиоты | Стая Гоблинов | 3 | 2 | ok |
+| Гоблины тупые, но не идиоты | Стая Гоблинов | 3 | 3 | ok |
 | Гребанные ассассины | LeCrisp | 3 | 1 | ok |
 | Дерзкая школота | Злой Школьник | 3 | 2 | ok |
 | Дизмораль | Darksci | 1 | 3 | ok |

@@ -48,6 +48,8 @@ export interface BattleshipWeaponOption {
 
 export interface BattleshipSummonDeployMode {
   type: string
+  summonId?: string
+  displayName?: string
   pendingId?: string
   pendingCols?: number[]
   reentryDirection?: string
@@ -624,16 +626,22 @@ export const useBattleshipStore = defineStore('battleship', () => {
     await signalrService.battleshipPassBoardingTurn(gameId.value)
   }
 
-  async function deploySummon(summonTypeName: string, col: number) {
+  async function deploySummon(summonTypeName: string, col: number, summonId?: string) {
     if (!gameId.value) return
     playBattleshipDeploy()
-    await signalrService.battleshipDeploySummon(gameId.value, summonTypeName, col)
+    await signalrService.battleshipDeploySummon(gameId.value, summonTypeName, col, summonId)
   }
 
   async function deployPendingSummon(pendingId: string, col: number) {
     if (!gameId.value) return
     playBattleshipDeploy()
     await signalrService.battleshipDeployPendingSummon(gameId.value, pendingId, col)
+  }
+
+  async function restoreShipWithPirateBoat(shipId: string) {
+    if (!gameId.value) return
+    playBattleshipDeploy()
+    await signalrService.battleshipRestoreShipWithPirateBoat(gameId.value, shipId)
   }
 
   async function manualMove(shipId: string, direction: string, distance: number = 1) {
@@ -773,6 +781,7 @@ export const useBattleshipStore = defineStore('battleship', () => {
     passBoardingTurn,
     deploySummon,
     deployPendingSummon,
+    restoreShipWithPirateBoat,
     manualMove,
     setCursedBoatDirection,
     assembleShip,

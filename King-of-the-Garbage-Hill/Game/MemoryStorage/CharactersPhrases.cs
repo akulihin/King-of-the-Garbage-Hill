@@ -262,6 +262,10 @@ public class CharactersUniquePhrase
     public PhraseClass MadaraIntro;
     public PhraseClass MadaraFirstFight;
     public PhraseClass MadaraSecondFight;
+    public PhraseClass MadaraTwoFights;
+    public PhraseClass MadaraThreeFights;
+    public PhraseClass MadaraFourFights;
+    public PhraseClass MadaraFiveFights;
     public PhraseClass MadaraTopOne;
     public PhraseClass MadaraSecondMeteorite;
     public PhraseClass MadaraItachiStole;
@@ -482,6 +486,7 @@ public class CharactersUniquePhrase
     public PhraseClass JonSnowFinalCastleHigh;
 
     // ScamRat
+    public PhraseClass ScamRatGpuSale;
     public PhraseClass ScamRatSharingSteal;
     public PhraseClass ScamRatSharingPurchase;
 
@@ -530,6 +535,10 @@ public class CharactersUniquePhrase
         MadaraIntro = new PhraseClass(Madara.GodOfShinobi);
         MadaraFirstFight = new PhraseClass(Madara.GodOfShinobi);
         MadaraSecondFight = new PhraseClass(Madara.GodOfShinobi);
+        MadaraTwoFights = new PhraseClass(Madara.GodOfShinobi);
+        MadaraThreeFights = new PhraseClass(Madara.GodOfShinobi);
+        MadaraFourFights = new PhraseClass(Madara.GodOfShinobi);
+        MadaraFiveFights = new PhraseClass(Madara.GodOfShinobi);
         MadaraTopOne = new PhraseClass(Madara.GodOfShinobi);
         MadaraSecondMeteorite = new PhraseClass(Madara.SecondMeteorite);
         MadaraItachiStole = new PhraseClass(Madara.GodOfShinobi);
@@ -1195,6 +1204,10 @@ public class CharactersUniquePhrase
         MadaraIntro.PassiveLogRus.Add("Ха? В каком я мире? Хм... \nЯ не знаю, кто такой этот Король Мусорной Горы, но я хочу его видеть! Смог ли этот Король достичь мира?");
         MadaraFirstFight.PassiveLogRus.Add("Похоже, ни в одной вселенной я так и не найду спокойствия и мира... Всюду война преследует меня, словно тень.");
         MadaraSecondFight.PassiveLogRus.Add("Кажется, это всего лишь еще один мир, где детишки играют в сражения. Ну что же, я покажу им, что такое война.");
+        MadaraTwoFights.PassiveLogRus.Add("Шаринган!");
+        MadaraThreeFights.PassiveLogRus.Add("Шаринган!\nОгненный шторм!");
+        MadaraFourFights.PassiveLogRus.Add("Шаринган!\nОгненный шторм!\nЧастичное Сусано!");
+        MadaraFiveFights.PassiveLogRus.Add("Шаринган!\nОгненный шторм!\nЧастичное Сусано!\nРиннеган!");
         MadaraTopOne.PassiveLogRus.Add("Это и есть вершина вашей Мусорный Горы? Чего еще ждать от отбросов, вроде вас.");
         MadaraSecondMeteorite.PassiveLogRus.Add("Остановил метеорит..? А что будешь делать со вторым?");
         MadaraItachiStole.PassiveLogRus.Add("Итачи? Твои глаза далеки от завершения. Тебе никогда не познать силу Бога.");
@@ -1252,7 +1265,7 @@ public class CharactersUniquePhrase
 
         // -- Кира --
 
-        KiraDeathNoteKill.PassiveLogRus.Add("Удалить... Удалить... Удалить!");
+        KiraDeathNoteKill.PassiveLogRus.Add("Стереть... Стереть... Стереть!");
         KiraDeathNoteKill.PassiveLogRus.Add("Я - бог нового мира!");
         KiraDeathNoteKill.PassiveLogRus.Add("Правосудие свершилось.");
         KiraDeathNoteKill.PassiveLogRus.Add("Сакудзё... Сакудзё...");
@@ -1853,6 +1866,9 @@ public class CharactersUniquePhrase
         JonSnowFinalCastleHigh.PassiveLogRus.Add("Ну ладно, в замке хотя бы перезимовать можно.");
 
         // ScamRat
+        ScamRatGpuSale = new PhraseClass("Сделка");
+        ScamRatGpuSale.PassiveLogRus.Add("Вероятность взрыва всего лишь один процент. Но не волнуйтесь, я уже 99 продал - ни одна не взорвалась. Это сотая. Берите, очень рекомендую!");
+
         ScamRatSharingSteal = new PhraseClass(ScamRat.SharingPhraseSource);
         ScamRatSharingSteal.PassiveLogRus.Add("Ты бы сам не добил!");
         ScamRatSharingSteal.PassiveLogRus.Add("Ты бы без меня не справился!");

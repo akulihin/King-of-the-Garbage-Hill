@@ -10,6 +10,8 @@ public class Kira
         public Guid CurrentRoundTarget { get; set; } = Guid.Empty;
         public string CurrentRoundName { get; set; } = "";
         public List<DeathNoteEntry> Entries { get; set; } = new();
+        // Historical DTO name retained: every target already used in the notebook is locked,
+        // regardless of whether the name was wrong, the victim revived or Izanagi prevented death.
         public List<Guid> FailedTargets { get; set; } = new();
     }
 
@@ -19,6 +21,7 @@ public class Kira
         public string WrittenName { get; set; } = "";
         public int RoundWritten { get; set; }
         public bool WasCorrect { get; set; }
+        public bool CausedDeath { get; set; } = true;
     }
 
     public class ShinigamiEyesClass

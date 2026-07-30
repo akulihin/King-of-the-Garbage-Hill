@@ -23,6 +23,7 @@ interface ExpectedShippedControlRoute {
   dualsense: {
     instant: string
     start: string | null
+    starts?: string[]
     preGate?: string
     nodes: string[]
   }
@@ -296,6 +297,46 @@ const EXPECTED_SHIPPED_CONTROL_ROUTES: Record<string, ExpectedShippedControlRout
       ],
     },
   },
+  'twohand-bow:primary': {
+    mylorik: [
+      'tap|strike|press|*|100',
+      'doubleTap|technique|tap|*|100',
+      'doubleTapHold|strike|press|continuation|80|press',
+      'hold|technique|hold|*|100',
+      'holdThenDoubleTap|mobility|press|continuation|80',
+    ],
+    dualsense: {
+      instant: 'tap',
+      start: 'double-shot',
+      starts: ['double-shot', 'draw'],
+      nodes: [
+        'double-shot|doubleTap|neutral|0.25|release|none|dispatch|draw|release|2300|click|*|*|plain|*|0|0|*',
+        'draw|hold|neutral|0.5|release|charge|dispatch|rapid-fire,scatter-finisher|release|2300|tension|*|*|plain|670|0|2|soft',
+        'rapid-fire|doubleTapHold|continuation|0.75|press|channel|cancel||release|2300|ramp|*|*|plain|*|0|0|*',
+        'scatter-finisher|holdThenDoubleTap|continuation|0.95|press|none|cancel||release|2300|followUp|draw-middle|*|armed|*|0|0|*',
+      ],
+    },
+  },
+  'twohand-bow:secondary': {
+    mylorik: [
+      'tap|strike|press|*|100',
+      'doubleTap|technique|press|*|100',
+      'doubleTapHold|strike|release|continuation|80|release',
+      'hold|technique|hold|*|100',
+      'holdThenDoubleTap|mobility|press|continuation|80',
+    ],
+    dualsense: {
+      instant: 'tap',
+      start: 'jump',
+      starts: ['jump', 'rain'],
+      nodes: [
+        'jump|doubleTap|dash|0.25|press|none|cancel|riposte|release|2300|click|*|*|plain|*|0|0|*',
+        'rain|hold|neutral|0.5|press|channel|cancel|ignite-finisher|release|2300|tension|*|*|plain|*|0|0|*',
+        'riposte|doubleTapHold|dash|0.75|release|charge|dispatch||release|2300|gate|*|*|plain|470|2|0|*',
+        'ignite-finisher|holdThenDoubleTap|continuation|0.95|press|none|cancel||release|2300|impact|*|*|plain|*|0|0|*',
+      ],
+    },
+  },
 }
 
 function makeWeapon(
@@ -422,7 +463,7 @@ describe('99LC config and deterministic plan', () => {
     const result = validateLastChancesConfig(defaultConfig)
 
     expect(result.errors).toEqual([])
-    expect(defaultConfig.schemaVersion).toBe(10)
+    expect(defaultConfig.schemaVersion).toBe(11)
     expect(defaultConfig.player).toMatchObject({
       accelerationMs: 100,
       decelerationMs: 50,
@@ -461,7 +502,8 @@ describe('99LC config and deterministic plan', () => {
       .toEqual(['spearHunt', 'spearHunt', 'standard'])
     expect(loadout.right?.id).toBe('twohand-spear-v2')
     expect(loadout.right?.attacks.hold.behavior).toBe('spearStance')
-    expect(new Set(loadout.left?.tapCombo.map(attack => attack.name)).size).toBe(loadout.left?.tapCombo.length)
+    expect(loadout.left?.tapCombo.map(attack => attack.name))
+      .toEqual(['Охота', 'Охота', 'Охота'])
     // An empty secondary slot changes nothing for a two-handed primary.
     const unsupplemented = cloneLastChancesConfig(defaultConfig)
     unsupplemented.loadout!.secondaryWeaponId = null
@@ -524,6 +566,7 @@ describe('99LC config and deterministic plan', () => {
     })
     const spearV2 = defaultConfig.weapons.find(weapon => weapon.id === 'twohand-spear-v2')
     expect(spearV2?.attacks.hold).toMatchObject({
+      name: 'Замах',
       charge: {
         maxMs: 1100,
         bands: [
@@ -538,17 +581,19 @@ describe('99LC config and deterministic plan', () => {
     expect(spearV2?.secondaryAttacks?.tap).toMatchObject({
       name: 'Парирование',
       behavior: 'parry',
-      range: 88,
-      collider: { shape: 'capsule', width: 112 },
+      range: 90,
+      collider: { shape: 'capsule', width: 28 },
     })
     expect(spearV2?.secondaryAttacks?.tap.tuning).toMatchObject({
       reflectedProjectileMinimumRange: 220,
       reflectedProjectilePierce: 0,
+      sidewaysForwardOffset: 36,
+      sidewaysHalfWidth: 90,
     })
     expect(spearV2?.secondaryAttacks?.doubleTap).toMatchObject({
-      name: 'Отталкивание',
+      name: 'Толчок',
       hitEffects: [{ status: 'stun', durationMs: 1000 }],
-      tuning: { windupMs: 250 },
+      tuning: { windupMs: 250, shoveTargetDistance: 176 },
     })
     expect(spearV2?.secondaryAttacks?.doubleTapHold).toMatchObject({
       name: 'Пинок',
@@ -561,9 +606,9 @@ describe('99LC config and deterministic plan', () => {
       },
       tuning: {
         armorMultiplier: 2,
-        shoveTargetDistance: 94,
-        kickTargetDistance: 144,
-        strongKickTargetDistance: 176,
+        shoveTargetDistance: 188,
+        kickTargetDistance: 432,
+        strongKickTargetDistance: 528,
         strongKickImmobilizeMs: 1500,
       },
     })
@@ -684,6 +729,7 @@ describe('99LC config and deterministic plan', () => {
       'hybrid-sword',
       'secondary-ouroboros-fang',
       'twohand-spear-v2',
+      'twohand-bow',
     ])
   })
 
@@ -709,6 +755,220 @@ describe('99LC config and deterministic plan', () => {
     }
     // Four holes admit exactly three perfect matchings; the roll must not be stuck on one.
     expect(pairings.size).toBeGreaterThan(1)
+  })
+
+  it('authors the persistent longbow catalog without changing the shipped spear loadout', () => {
+    const bow = defaultConfig.weapons.find(weapon => weapon.id === 'twohand-bow')!
+    const arrowBehaviors = [
+      'bowShot',
+      'bowDoubleShot',
+      'bowRapidFire',
+      'bowDraw',
+      'bowScatter',
+      'bowRiposte',
+      'bowRain',
+    ]
+
+    expect(defaultConfig.loadout).toMatchObject({
+      primaryWeaponId: 'twohand-spear-v2',
+      secondaryWeaponId: null,
+    })
+    expect(bow).toMatchObject({
+      name: 'Длинный лук',
+      equipMode: 'twoHanded',
+      chanceCost: 3,
+      trait: 'longbowPersistence',
+      defaultAugment: 'none',
+    })
+    expect(Object.values(bow.attacks).map(attack => attack.name)).toEqual([
+      'Шот',
+      'Шот-шот',
+      'Чреда',
+      'Натяг',
+      'Множественный залп',
+    ])
+    expect(Object.values(bow.secondaryAttacks!).map(attack => attack.name)).toEqual([
+      'Уворот',
+      'Прыжок',
+      'Ответ',
+      'Обстрел',
+      'Огонь!',
+    ])
+    expect(bow.attacks.tap).toMatchObject({
+      behavior: 'bowShot',
+      damage: 15,
+      range: 520,
+      projectileSpeed: 720,
+      cooldownMs: 320,
+      rootMs: 75,
+      staminaCost: 3,
+    })
+    expect(bow.tapCombo?.[0]).toMatchObject({
+      name: 'Шот',
+      behavior: 'bowShot',
+      cooldownMs: 320,
+    })
+    expect(bow.attacks.doubleTap).toMatchObject({
+      behavior: 'bowDoubleShot',
+      damage: 15,
+      cooldownMs: 900,
+      staminaCost: 4,
+    })
+    expect(bow.attacks.doubleTapHold).toMatchObject({
+      behavior: 'bowRapidFire',
+      tuning: {
+        channelStartMs: 220,
+        channelMaxMs: 2000,
+        shotIntervalMs: 120,
+        staminaTickMs: 100,
+        staminaPerTick: 5,
+      },
+    })
+    expect(bow.attacks.hold).toMatchObject({
+      behavior: 'bowDraw',
+      damage: 18,
+      range: 420,
+      projectileSpeed: 660,
+      cooldownMs: 2600,
+      staminaCost: 0,
+      charge: {
+        maxMs: 1000,
+        bands: [
+          { id: 'draw-early', minMs: 325 },
+          { id: 'draw-middle', minMs: 650 },
+          {
+            id: 'draw-max',
+            minMs: 1000,
+            damageMultiplier: 2.2,
+            rangeMultiplier: 1.75,
+          },
+        ],
+      },
+      tuning: {
+        goldStartMs: 670,
+        goldEndMs: 760,
+        drawMaxHoldMs: 2000,
+        staminaPerMs: 0.04,
+      },
+    })
+    expect(bow.attacks.holdThenDoubleTap).toMatchObject({
+      behavior: 'bowScatter',
+      cooldownMs: 7600,
+      staminaCost: 14,
+      tuning: { scatterCount: 7, fanDegrees: 52, ricochets: 1 },
+    })
+    expect(bow.secondaryAttacks?.tap).toMatchObject({
+      behavior: 'bowDodge',
+      range: 110,
+      durationMs: 180,
+      cooldownMs: 500,
+      invulnerabilityMs: 220,
+    })
+    expect(bow.secondaryTapCombo?.[0]).toMatchObject({
+      name: 'Уворот',
+      behavior: 'bowDodge',
+      cooldownMs: 500,
+    })
+    expect(bow.secondaryAttacks?.doubleTap).toMatchObject({
+      behavior: 'bowJump',
+      range: 230,
+      durationMs: 520,
+      cooldownMs: 4200,
+      invulnerabilityMs: 620,
+    })
+    expect(bow.secondaryAttacks?.doubleTapHold).toMatchObject({
+      behavior: 'bowRiposte',
+      cooldownMs: 6200,
+      tuning: {
+        goldStartMs: 470,
+        goldEndMs: 530,
+        lateShotMs: 530,
+        goldDamageMultiplier: 1.22,
+        goldRangeMultiplier: 1.12,
+      },
+    })
+    expect(bow.secondaryAttacks?.hold).toMatchObject({
+      behavior: 'bowRain',
+      range: 520,
+      tuning: {
+        channelMaxMs: 2000,
+        zoneRadius: 105,
+        arrowImpactRadius: 10,
+        arrowIntervalMs: 145,
+        staminaTickMs: 100,
+        staminaPerTick: 6,
+      },
+    })
+    expect(bow.secondaryAttacks?.holdThenDoubleTap).toMatchObject({
+      behavior: 'bowIgnite',
+      cooldownMs: 6800,
+      tuning: {
+        ordinaryRadius: 54,
+        ordinaryDamage: 18,
+        chemicalRadius: 126,
+        chemicalDamage: 48,
+        chemicalSelfDamage: 34,
+      },
+    })
+    expect(Object.keys(bow.augmentHooks ?? {}).sort()).toEqual([
+      'bleed',
+      'chemical',
+      'fire',
+      'poison',
+    ])
+    expect(Object.values(bow.augmentHooks ?? {})
+      .every(hook => arrowBehaviors.every(behavior => hook.behaviors?.includes(behavior as never))))
+      .toBe(true)
+    expect(bow.controls?.primary.dualsense.nodes).toHaveLength(4)
+    expect(bow.controls?.secondary?.dualsense.nodes).toHaveLength(4)
+    expect(bow.controls?.primary.dualsense).toMatchObject({
+      startNodeId: 'double-shot',
+      startNodeIds: ['double-shot', 'draw'],
+      nodes: expect.arrayContaining([
+        expect.objectContaining({
+          id: 'draw',
+          armMs: 670,
+          armClock: 'input',
+        }),
+      ]),
+    })
+    expect(bow.controls?.primary.mylorik.activations
+      .find(activation => activation.gesture === 'doubleTapHold'))
+      .toMatchObject({
+        phase: 'press',
+        context: 'continuation',
+        continuationDispatch: 'press',
+      })
+    expect(bow.controls?.secondary?.mylorik.activations
+      .find(activation => activation.gesture === 'doubleTapHold'))
+      .toMatchObject({
+        phase: 'release',
+        context: 'continuation',
+        continuationDispatch: 'release',
+      })
+    expect(bow.controls?.secondary?.dualsense).toMatchObject({
+      startNodeId: 'jump',
+      startNodeIds: ['jump', 'rain'],
+      nodes: expect.arrayContaining([
+        expect.objectContaining({
+          id: 'jump',
+          entryContext: 'dash',
+          dispatch: 'press',
+          next: ['riposte'],
+        }),
+        expect.objectContaining({
+          id: 'rain',
+          entryContext: 'neutral',
+          dispatch: 'press',
+          next: ['ignite-finisher'],
+        }),
+        expect.objectContaining({
+          id: 'riposte',
+          entryContext: 'dash',
+          dispatch: 'release',
+        }),
+      ]),
+    })
   })
 
   it('requires positive authored player acceleration and braking times', () => {
@@ -1012,11 +1272,15 @@ describe('99LC config and deterministic plan', () => {
 
     const migrated = await loadLastChancesConfig({ url: '/99lc/schema-v4.json' })
 
-    expect(migrated.schemaVersion).toBe(10)
-    expect(migrated.weapons.filter(weapon => weapon.id !== 'secondary-ouroboros-fang')
+    expect(migrated.schemaVersion).toBe(11)
+    expect(migrated.weapons.filter(weapon => (
+      weapon.id !== 'secondary-ouroboros-fang' && weapon.id !== 'twohand-bow'
+    ))
       .every(weapon => weapon.attacks.tap.cooldownMs === 0)).toBe(true)
     expect(migrated.weapons.find(weapon => weapon.id === 'secondary-ouroboros-fang')
       ?.attacks.tap.cooldownMs).toBe(5000)
+    expect(migrated.weapons.find(weapon => weapon.id === 'twohand-bow')
+      ?.attacks.tap.cooldownMs).toBe(320)
     expect(migrated.rooms.find(room => room.id === 'combat-hall')?.enemySpawns).toContainEqual({ x: 1020, y: 337 })
     expect(migrated.rooms.find(room => room.id === 'wrong-shadow-event')?.enemySpawns).toContainEqual({ x: 990, y: 580 })
     expect(validateLastChancesConfig(migrated).errors).toEqual([])
@@ -1043,7 +1307,9 @@ describe('99LC config and deterministic plan', () => {
   it('upgrades a saved schema-v2 override while preserving run tuning and adopting the schema-v4 arsenal', async () => {
     const legacy = cloneLastChancesConfig(defaultConfig)
     legacy.schemaVersion = 2
-    legacy.weapons = legacy.weapons.filter(weapon => weapon.id !== 'secondary-ouroboros-fang')
+    legacy.weapons = legacy.weapons.filter(weapon => (
+      weapon.id !== 'secondary-ouroboros-fang' && weapon.id !== 'twohand-bow'
+    ))
     legacy.seed = 'saved-schema-v2-run'
     legacy.player.baseStats.attackPower = 137
     legacy.enemies[0].moveSpeed = 73
@@ -1085,7 +1351,7 @@ describe('99LC config and deterministic plan', () => {
       signal: undefined,
     })
     expect(migrated).toMatchObject({
-      schemaVersion: 10,
+      schemaVersion: 11,
       seed: 'saved-schema-v2-run',
       player: { baseStats: { attackPower: 137 } },
       loadout: defaultConfig.loadout,
@@ -1121,7 +1387,65 @@ describe('99LC config and deterministic plan', () => {
     ]))
   })
 
-  describe('schema-v10 attrition, schema-v9 run tuning, and legacy migration', () => {
+  describe('schema-v11 longbow, schema-v10 attrition, schema-v9 run tuning, and legacy migration', () => {
+    it('adds the longbow to schema v10 while preserving a custom catalog and loadout', () => {
+      const v10 = cloneLastChancesConfig(defaultConfig)
+      v10.schemaVersion = 10
+      v10.weapons = v10.weapons.filter(weapon => weapon.id !== 'twohand-bow')
+      const customWeapon = cloneLastChancesConfig(defaultConfig)
+        .weapons.find(weapon => weapon.id === 'twohand-katana')!
+      customWeapon.id = 'custom-kept'
+      customWeapon.name = 'Custom kept weapon'
+      v10.weapons.push(customWeapon)
+      v10.loadout = {
+        ...v10.loadout!,
+        primaryWeaponId: customWeapon.id,
+        secondaryWeaponId: null,
+      }
+      v10.weapons[0].attacks.doubleTap.damage = 137
+      const before = JSON.stringify(v10)
+
+      const migrated = migrateLastChancesConfig(v10, defaultConfig) as LastChancesConfig
+
+      expect(migrated.schemaVersion).toBe(11)
+      expect(migrated.loadout).toEqual(v10.loadout)
+      expect(migrated.weapons.map(weapon => weapon.id)).toEqual([
+        ...v10.weapons.map(weapon => weapon.id),
+        'twohand-bow',
+      ])
+      expect(migrated.weapons.find(weapon => weapon.id === 'custom-kept'))
+        .toEqual(customWeapon)
+      expect(migrated.weapons[0].attacks.doubleTap.damage).toBe(137)
+      expect(migrated.weapons.find(weapon => weapon.id === 'twohand-bow'))
+        .toEqual(defaultConfig.weapons.find(weapon => weapon.id === 'twohand-bow'))
+      expect(validateLastChancesConfig(migrated).errors).toEqual([])
+      expect(JSON.stringify(v10)).toBe(before)
+    })
+
+    it('updates a retired twohand-bow record in place without changing its saved loadout', () => {
+      const v10 = cloneLastChancesConfig(defaultConfig)
+      v10.schemaVersion = 10
+      const bowIndex = v10.weapons.findIndex(weapon => weapon.id === 'twohand-bow')
+      v10.weapons[bowIndex].name = 'Лук памяти'
+      v10.weapons[bowIndex].attacks.tap.damage = 1
+      v10.loadout = {
+        ...v10.loadout!,
+        primaryWeaponId: 'twohand-bow',
+        secondaryWeaponId: null,
+      }
+      const before = JSON.stringify(v10)
+
+      const migrated = migrateLastChancesConfig(v10, defaultConfig) as LastChancesConfig
+
+      expect(migrated.schemaVersion).toBe(11)
+      expect(migrated.loadout).toEqual(v10.loadout)
+      expect(migrated.weapons.filter(weapon => weapon.id === 'twohand-bow')).toHaveLength(1)
+      expect(migrated.weapons[bowIndex])
+        .toEqual(defaultConfig.weapons.find(weapon => weapon.id === 'twohand-bow'))
+      expect(validateLastChancesConfig(migrated).errors).toEqual([])
+      expect(JSON.stringify(v10)).toBe(before)
+    })
+
     it('backfills current-attempt attrition and removes entrance-hole attacks from schema v9', () => {
       const v9 = cloneLastChancesConfig(defaultConfig) as LastChancesConfig & {
         progression: LastChancesConfig['progression'] & {
@@ -1140,7 +1464,7 @@ describe('99LC config and deterministic plan', () => {
 
       const migrated = migrateLastChancesConfig(v9, defaultConfig) as LastChancesConfig
 
-      expect(migrated.schemaVersion).toBe(10)
+      expect(migrated.schemaVersion).toBe(11)
       expect(migrated.progression).toMatchObject({
         staminaCostIncreasePerRoom: 0.1,
         maxStaminaCostStacks: 10,
@@ -1158,7 +1482,7 @@ describe('99LC config and deterministic plan', () => {
       const migrated = migrateLastChancesConfig(v1) as LastChancesConfig
 
       expect(migrated).toMatchObject({
-        schemaVersion: 10,
+        schemaVersion: 11,
         input: {
           tapComboWindowMs: 900,
           mylorik: defaultConfig.input.mylorik,
@@ -1192,7 +1516,7 @@ describe('99LC config and deterministic plan', () => {
       expect(migrateLastChancesConfig(migrated)).toEqual(migrated)
     })
 
-    it('clone-first migrates v1, v2, and v3 to v10 and keeps v10 idempotent', () => {
+    it('clone-first migrates v1, v2, and v3 to v11 and keeps v11 idempotent', () => {
       const v1 = previousShippedSchemaV1Config()
       const v2 = cloneLastChancesConfig(defaultConfig)
       v2.schemaVersion = 2
@@ -1208,7 +1532,7 @@ describe('99LC config and deterministic plan', () => {
       for (const legacy of [v1, v2, v3]) {
         const before = JSON.stringify(legacy)
         const migrated = migrateLastChancesConfig(legacy, defaultConfig) as LastChancesConfig
-        expect(migrated.schemaVersion).toBe(10)
+        expect(migrated.schemaVersion).toBe(11)
         expect(validateLastChancesConfig(migrated).errors).toEqual([])
         expect(JSON.stringify(legacy)).toBe(before)
         expect(migrated.input.mylorik).toEqual(defaultConfig.input.mylorik)
@@ -1245,7 +1569,7 @@ describe('99LC config and deterministic plan', () => {
       const before = JSON.stringify(v6)
       const migrated = migrateLastChancesConfig(v6, defaultConfig) as LastChancesConfig
       expect(validateLastChancesConfig(migrated).errors).toEqual([])
-      expect(migrated.schemaVersion).toBe(10)
+      expect(migrated.schemaVersion).toBe(11)
       expect(migrated.seed).toBe('v6-stamina-migration')
       expect(migrated.stamina).toEqual(defaultConfig.stamina)
       expect(migrated.player.baseStats.maxStamina).toBe(100)
@@ -1280,7 +1604,7 @@ describe('99LC config and deterministic plan', () => {
       const before = JSON.stringify(v7)
       const migrated = migrateLastChancesConfig(v7, defaultConfig) as LastChancesConfig
 
-      expect(migrated.schemaVersion).toBe(10)
+      expect(migrated.schemaVersion).toBe(11)
       expect(migrated.seed).toBe('v7-movement-migration')
       expect(migrated.player).toMatchObject({
         accelerationMs: 100,
@@ -1308,7 +1632,7 @@ describe('99LC config and deterministic plan', () => {
 
       const migrated = migrateLastChancesConfig(v7, defaultConfig) as LastChancesConfig
 
-      expect(migrated.schemaVersion).toBe(10)
+      expect(migrated.schemaVersion).toBe(11)
       expect(migrated.seed).toBe('real-v7-shape')
       expect(migrated.progression.roomHpRecovery).toBe(17)
       expect(migrated.progression.tiers[0]).toMatchObject({
@@ -1327,10 +1651,10 @@ describe('99LC config and deterministic plan', () => {
 
     it('fails clearly for an unknown future schema', () => {
       const future = cloneLastChancesConfig(defaultConfig) as LastChancesConfig & { schemaVersion: number }
-      future.schemaVersion = 11
+      future.schemaVersion = 12
 
       expect(() => migrateLastChancesConfig(future)).toThrow(
-        'Unsupported 99LC schemaVersion: schemaVersion 11 is newer than supported 10',
+        'Unsupported 99LC schemaVersion: schemaVersion 12 is newer than supported 11',
       )
     })
 
@@ -1352,7 +1676,7 @@ describe('99LC config and deterministic plan', () => {
 
       expect(fetchMock).toHaveBeenCalledOnce()
       expect(migrated).toMatchObject({
-        schemaVersion: 10,
+        schemaVersion: 11,
         seed: 'v3-control-migration',
         input: { holdMs: 777 },
         player: { baseStats: { attackPower: 143 } },
@@ -1363,7 +1687,7 @@ describe('99LC config and deterministic plan', () => {
       expect(migrated.rooms[0].name).toBe('Saved room tuning')
       expect(migrated.weapons[0].attacks.doubleTap.damage).toBe(91)
       expect(migrated.weapons[0].controls).toEqual(defaultConfig.weapons[0].controls)
-      expect(JSON.parse(window.localStorage.getItem('99lc:game-config')!).schemaVersion).toBe(10)
+      expect(JSON.parse(window.localStorage.getItem('99lc:game-config')!).schemaVersion).toBe(11)
     })
 
     it('validates bindings, hysteresis, ordered gates, and bounded feedback', () => {
@@ -1451,7 +1775,7 @@ describe('99LC config and deterministic plan', () => {
       ]))
     })
 
-    it('pins every authored request while covering all 58 enabled slots with no extras', () => {
+    it('pins every authored request while covering all 68 enabled slots with no extras', () => {
       const sets = defaultConfig.weapons.flatMap((weapon) => [
         { key: `${weapon.id}:primary`, attacks: weapon.attacks, controls: weapon.controls!.primary },
         ...(weapon.secondaryAttacks
@@ -1472,6 +1796,7 @@ describe('99LC config and deterministic plan', () => {
         activation.phase,
         activation.context ?? '*',
         activation.priority,
+        ...(activation.continuationDispatch ? [activation.continuationDispatch] : []),
       ].join('|')
       const dualSenseRequest = (
         node: (typeof sets)[number]['controls']['dualsense']['nodes'][number],
@@ -1504,6 +1829,9 @@ describe('99LC config and deterministic plan', () => {
         expect({
           instant: controls.dualsense.instantGesture,
           start: controls.dualsense.startNodeId,
+          ...(controls.dualsense.startNodeIds
+            ? { starts: controls.dualsense.startNodeIds }
+            : {}),
           preGate: controls.dualsense.preGateGesture,
           nodes: controls.dualsense.nodes.map(dualSenseRequest),
         }, key).toEqual(authored.dualsense)
@@ -1542,12 +1870,14 @@ describe('99LC config and deterministic plan', () => {
           visiting.delete(id)
           visited.add(id)
         }
-        if (controls.dualsense.startNodeId) walk(controls.dualsense.startNodeId)
+        const roots = controls.dualsense.startNodeIds
+          ?? (controls.dualsense.startNodeId ? [controls.dualsense.startNodeId] : [])
+        roots.forEach(walk)
         expect(visited.size).toBe(nodes.size)
       }
 
-      expect(sets).toHaveLength(14)
-      expect(enabledCount).toBe(58)
+      expect(sets).toHaveLength(16)
+      expect(enabledCount).toBe(68)
       expect(disabledCount).toBe(12)
 
       const migrated = cloneLastChancesConfig(defaultConfig)
@@ -1606,6 +1936,38 @@ describe('99LC config and deterministic plan', () => {
       expect(validateLastChancesConfig(unknownBand).errors).toContain(
         'weapons[0].controls.primary.dualsense.nodes[4].requiredChargeBandId must reference an existing hold charge band',
       )
+    })
+
+    it('validates explicit Mylorik continuation edges and multi-root DualSense graphs', () => {
+      const invalidContinuation = cloneLastChancesConfig(defaultConfig)
+      const bow = invalidContinuation.weapons.find(weapon => weapon.id === 'twohand-bow')!
+      const rapid = bow.controls!.primary.mylorik.activations
+        .find(activation => activation.gesture === 'doubleTapHold')!
+      ;(rapid as unknown as { continuationDispatch: string }).continuationDispatch = 'later'
+      expect(validateLastChancesConfig(invalidContinuation).errors).toEqual(expect.arrayContaining([
+        expect.stringContaining('continuationDispatch must be press or release'),
+      ]))
+
+      const mismatchedContinuation = cloneLastChancesConfig(defaultConfig)
+      const answer = mismatchedContinuation.weapons
+        .find(weapon => weapon.id === 'twohand-bow')!
+        .controls!.secondary!.mylorik.activations
+        .find(activation => activation.gesture === 'doubleTapHold')!
+      answer.phase = 'press'
+      expect(validateLastChancesConfig(mismatchedContinuation).errors).toEqual(expect.arrayContaining([
+        expect.stringContaining('phase must match continuationDispatch'),
+      ]))
+
+      const invalidRoots = cloneLastChancesConfig(defaultConfig)
+      const roots = invalidRoots.weapons
+        .find(weapon => weapon.id === 'twohand-bow')!
+        .controls!.secondary!.dualsense
+      roots.startNodeIds = ['rain', 'rain', 'missing']
+      expect(validateLastChancesConfig(invalidRoots).errors).toEqual(expect.arrayContaining([
+        expect.stringContaining('startNodeIds must not contain duplicates'),
+        expect.stringContaining('startNodeIds must begin with startNodeId'),
+        expect.stringContaining('startNodeIds references unknown node missing'),
+      ]))
     })
 
     it('carries the authored primary and secondary controls onto resolved weapons', () => {
@@ -1863,7 +2225,7 @@ describe('99LC config and deterministic plan', () => {
       }
 
       expect(validateLastChancesConfig(config).errors).toEqual(expect.arrayContaining([
-        `weapons[0].trait must be one of spearDistance, chainDotCarrier, clawParity, spiderDurability, axeHookRecovery, katanaFlow, swordRhythm, ouroborosFang`,
+        `weapons[0].trait must be one of spearDistance, chainDotCarrier, clawParity, spiderDurability, axeHookRecovery, katanaFlow, swordRhythm, ouroborosFang, longbowPersistence`,
         'weapons[0].resource.initial must be <= max',
         'weapons[0].augmentHooks.poison.behaviors[0] uses unknown behavior not-a-behavior',
         'weapons[0].augmentHooks.poison.damageMultiplier must be a finite number >= 0',

@@ -550,6 +550,15 @@ Designer follow-up implemented 2026-07-28 (M182–M185) makes the bot continuati
 
 Designer follow-up implemented 2026-07-21 (finding M126) supersedes the earlier symmetric-conversion/shared-weapon assumptions: only the side without Mid deploys Close ships, mandatory deployment is a global barrier, Ballista is one shared UI/server action with cyclic Mid origins (Close joins only in Boarding), and dual Desiccators defer only their auto-win until one dies. The same follow-up adds the 8-second hit-only combo window, direct summon selection, placement deck/zone visualization and CAPTURE-death reveal credit. The exact live rules remain in the linked GDD.
 
+The direct 2026-07-29 designer request, implemented as finding M196, supersedes every older verdict that conflicts with the following rules:
+
+- The Boarding barrier covers a one-time snapshot of all pending summons, every unused ordinary summon slot supported by the bought fleet's regions, a bought unused Brander, one manually placed Pirate Boat from **each** living Crew-upgraded Triple, and every bow-intact eligible Close on the Mid-less side. I11's former one-Crew-boat-per-player rule is obsolete. Each Triple boat is restricted to that Triple's placement columns.
+- Each player may resolve only as many mandatory units as there were enemy entry cells not occupied by a living summon at Boarding start (at most 10); the player chooses which units fill that frozen capacity, and all overflow is then removed permanently. Until both sides finish, only each owner's mandatory deployment or mandatory Pirate restoration is legal.
+- Converted Close units retain exact source identity in their active label, trail and death marker, defer Space reconnaissance until ordinary death (including a fatal collision), and may turn back like every Ram without revealing at the edge. A waiting Ram is an exclusive exact-unit action. A Close whose bow deck is destroyed never converts.
+- Direct Горючка / Злая горючка kills suppress Scout and boarding reconnaissance, and either successful fire shot returns selection to Ballista when one remains. Злая горючка replaces that barge's ordinary Горючка rather than adding a second weapon.
+- Reveal is a cell-scoped observation of the exact current deck: rescanning a moved deck relocates its white/red marker, death reveals current intact/destroyed neighbours, and assembly clears the two obsolete red component marks. The earlier live-until-death movement secrecy and persistent assembly-marker statements are obsolete.
+- D06 and Part E's ordinary Pirate size rule still governs live hulls, but a Devastated hull of any size is now capturable. Its owner may instead spend a Pirate Boat to restore all decks, modules and finite ammunition to their recorded maxima. CAPTURE still suppresses normal passives, except that a captured Incendiary Barge detonates on its original owner's first valid hit.
+
 ## Implementation order after approval
 
 1. Final Boarding and victory ordering: `D03–D05`, `I01–I02`.

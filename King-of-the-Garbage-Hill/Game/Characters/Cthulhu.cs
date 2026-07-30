@@ -450,9 +450,13 @@ public static class Cthulhu
 
             var attackerWon = pointsWon > 0;
             if (attackerWon)
+            {
                 attacker.Status.AddRegularPoints(2, Nechto);
+                Homelander.RecordResolvedWin(attacker, game);
+            }
             else
                 state.NechtoLosses.Add(playerId);
+            Madara.RecordSpecialResolvedFight(attacker, game);
             state.NechtoAttackedThisRound = true;
             game.WebFightLog.Add(new FightEntryDto
             {
