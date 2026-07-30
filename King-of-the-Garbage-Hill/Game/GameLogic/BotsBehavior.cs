@@ -4555,8 +4555,8 @@ public class BotsBehavior : IServiceSingleton
     // Макро two-attack rule (so games never freeze).
     private async Task HandleBotAttackRandom(GamePlayerBridgeClass bot, GameClass game, List<Nanobot> allTargets)
     {
-        // No valid target (all dead / round-10 banned) → ordinary bots Block; clone Block requests
-        // are authoritatively converted to Skip by GameReactions.
+        // No ordinary target (all dead / round-10 banned) → ordinary bots Block; clone Block
+        // requests are authoritatively converted to a forced sibling attack when one is available.
         if (allTargets.Count == 0)
         {
             await SubmitBotBlock(bot);
@@ -4604,7 +4604,8 @@ public class BotsBehavior : IServiceSingleton
                 await AttackPlayer(bot, second[_rand.Random(0, second.Count - 1)].PlaceAtLeaderBoard());
         }
 
-        // Nothing attackable → block (engine force-attacks anyway if the bot legitimately can't block).
+        // Nothing ordinarily attackable → submit the character-specific Block fallback. For a clone
+        // this retries ordinary targets and then forces a sibling fight instead of Block or Skip.
         if (!attacked)
             await SubmitBotBlock(bot);
     }

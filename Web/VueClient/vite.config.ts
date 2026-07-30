@@ -22,6 +22,17 @@ type CharacterSource = {
   Passive?: Array<{ PassiveName: string; PassiveDescription?: string }>
 }
 
+const localizationSections = [
+  'exact',
+  'terms',
+  'russianExact',
+  'phraseFallbacks',
+  'characters',
+  'passives',
+] as const
+
+type LocalizationSection = (typeof localizationSections)[number]
+
 type LocalizationCatalog = {
   exact: Record<string, string>
   terms: Record<string, string>
@@ -29,6 +40,7 @@ type LocalizationCatalog = {
   phraseFallbacks: Record<string, string>
   characters: Record<string, string>
   passives: Record<string, string>
+  browserPrivate?: Partial<Record<LocalizationSection, string[]>>
 }
 
 type MessageSource = {
@@ -57,9 +69,15 @@ function containsPrivateContent(value: string, privateTerms: string[]): boolean 
   })
 }
 
-function sanitizeRecord(values: Record<string, string>, privateTerms: string[]): Record<string, string> {
+function sanitizeRecord(
+  values: Record<string, string>,
+  privateTerms: string[],
+  privateKeys: string[] = [],
+): Record<string, string> {
+  const privateKeySet = new Set(privateKeys)
   return Object.fromEntries(Object.entries(values)
-    .filter(([key, value]) => !containsPrivateContent(key, privateTerms)
+    .filter(([key, value]) => !privateKeySet.has(key)
+      && !containsPrivateContent(key, privateTerms)
       && !containsPrivateContent(value, privateTerms)))
 }
 
@@ -310,16 +328,36 @@ function publicLocalizationPlugin(): Plugin {
           catalog.passives[passive.PassiveName] ?? '',
         ]),
       ]).filter(Boolean)
+      for (const section of Object.keys(catalog.browserPrivate ?? {})) {
+        if (!localizationSections.includes(section as LocalizationSection))
+          throw new Error(`Unsupported browser-private localization section "${section}".`)
+      }
+      for (const section of localizationSections) {
+        const seenKeys = new Set<string>()
+        for (const key of catalog.browserPrivate?.[section] ?? []) {
+          if (seenKeys.has(key))
+            throw new Error(`Duplicate browser-private localization key "${key}" in ${section}.`)
+          seenKeys.add(key)
+          if (!(key in catalog[section]))
+            throw new Error(`Browser-private localization key "${key}" is missing from ${section}.`)
+        }
+      }
 
       const publicCatalog: LocalizationCatalog = {
-        exact: sanitizeRecord(catalog.exact, privateTerms),
-        terms: sanitizeRecord(catalog.terms, privateTerms),
-        russianExact: sanitizeRecord(catalog.russianExact, privateTerms),
-        phraseFallbacks: sanitizeRecord(catalog.phraseFallbacks, privateTerms),
+        exact: sanitizeRecord(catalog.exact, privateTerms, catalog.browserPrivate?.exact),
+        terms: sanitizeRecord(catalog.terms, privateTerms, catalog.browserPrivate?.terms),
+        russianExact: sanitizeRecord(catalog.russianExact, privateTerms, catalog.browserPrivate?.russianExact),
+        phraseFallbacks: sanitizeRecord(
+          catalog.phraseFallbacks,
+          privateTerms,
+          catalog.browserPrivate?.phraseFallbacks,
+        ),
         characters: Object.fromEntries(Object.entries(catalog.characters)
-          .filter(([name]) => publicNames.has(name))),
+          .filter(([name]) => publicNames.has(name)
+            && !(catalog.browserPrivate?.characters ?? []).includes(name))),
         passives: Object.fromEntries(Object.entries(catalog.passives)
-          .filter(([name]) => publicPassiveNames.has(name))),
+          .filter(([name]) => publicPassiveNames.has(name)
+            && !(catalog.browserPrivate?.passives ?? []).includes(name))),
       }
       const publicPhrases = Object.fromEntries(Object.entries(phrases)
         .filter(([, group]) => !containsPrivateContent(group.passiveNameRussian, privateTerms)

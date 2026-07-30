@@ -19,6 +19,7 @@ public static class Madara
     public const string ThemeFile = "DataBase/sound/character_passives/madara/madara_tsukuemi_theme.mp3";
     public const int RoundEightBotReactionDelaySeconds = 30;
     public const int BattleTasteMaxMadaraAdvantage = 10;
+    public const int SusanooClonesJustice = 2;
 
     // Hidden Клоны Сусано rider: a score source, not a passive — it is deliberately absent from
     // characters.json so no player-facing description can leak it.
@@ -42,6 +43,7 @@ public static class Madara
         public int RoundEightLosses { get; set; }
         public bool RoundEightWasDefeated { get; set; }
         public bool RoundEightJusticeGranted { get; set; }
+        public bool RoundEightFearResolved { get; set; }
         public bool RoundNineResolved { get; set; }
         public Guid RedTigerPlayerId { get; set; }
         public bool TopOnePhraseSent { get; set; }
@@ -260,8 +262,9 @@ public static class Madara
             && !state.RoundEightJusticeGranted)
         {
             state.RoundEightJusticeGranted = true;
-            madara.GameCharacter.Justice.AddRealJusticeNow(1);
-            madara.Status.AddInGamePersonalLogs($"|>Stat<|{SusanooClones}: +1 Справедливости\n");
+            madara.GameCharacter.Justice.AddRealJusticeNow(SusanooClonesJustice);
+            madara.Status.AddInGamePersonalLogs(
+                $"|>Stat<|{SusanooClones}: +{SusanooClonesJustice} Справедливости\n");
         }
     }
 
@@ -389,19 +392,6 @@ public static class Madara
         var wins = state.RoundEightWins;
         var losses = state.RoundEightLosses;
 
-        // Страх перед Мадарой: cowardice during the Клоны Сусано event costs bonus points.
-        // AddBonusPoints already refuses negatives for unknown_bug and a protected Homelander,
-        // logs personally and keeps the score floor — the hidden mechanic adds no global line.
-        foreach (var player in game.PlayersList)
-        {
-            if (player.GetPlayerId() == madara.GetPlayerId() || player.Passives.IsDead) continue;
-            if (state.RoundEightFightParticipants.Contains(player.GetPlayerId())) continue;
-            var scoreEntryCount = player.Status.ScoreEntries.Count;
-            player.Status.AddBonusPoints(FearOfMadaraPenalty, FearOfMadara);
-            if (player.Status.ScoreEntries.Count > scoreEntryCount)
-                game.Phrases.MadaraFear.SendLog(player, false, isRandomOrder: false);
-        }
-
         // A flawless Клоны Сусано event arms the hidden ending just like "all five attacked".
         // Mutually exclusive with the sealing branch below, which requires five losses.
         if (!state.Sealed && !state.RoundEightWasDefeated)
@@ -453,6 +443,31 @@ public static class Madara
         game.AddGlobalLogs("Мадара: Вам клонов с Сусано или без?");
     }
 
+    public static void ApplyRoundEightFear(GameClass game)
+    {
+        if (game?.RoundNo != 8) return;
+
+        var madara = Find(game);
+        if (madara == null || madara.Passives.IsDead) return;
+
+        var state = madara.Passives.Madara;
+        if (state.RoundEightFearResolved) return;
+        state.RoundEightFearResolved = true;
+
+        // Settle the hidden penalty before round 8 is captured for replay/PTS presentation.
+        // AddBonusPoints already refuses negatives for unknown_bug and a protected Homelander,
+        // logs personally and keeps the score floor — the hidden mechanic adds no global line.
+        foreach (var player in game.PlayersList)
+        {
+            if (player.GetPlayerId() == madara.GetPlayerId() || player.Passives.IsDead) continue;
+            if (state.RoundEightFightParticipants.Contains(player.GetPlayerId())) continue;
+            var scoreEntryCount = player.Status.ScoreEntries.Count;
+            player.Status.AddBonusPoints(FearOfMadaraPenalty, FearOfMadara);
+            if (player.Status.ScoreEntries.Count > scoreEntryCount)
+                game.Phrases.MadaraFear.SendLog(player, false, isRandomOrder: false);
+        }
+    }
+
     public static void ApplyLateTurnFear(GameClass game)
     {
         if (game?.RoundNo is < 9 or > 10) return;
@@ -477,22 +492,44 @@ public static class Madara
         SetUnableToAct(madara);
     }
 
-    public static decimal ApplySecondMeteoriteMoral(
+    public static bool HasSecondMeteoriteAgainst(
         GamePlayerBridgeClass madara,
         GamePlayerBridgeClass target,
         GameClass game)
     {
-        if (!IsMadara(madara)
-            || target == null
-            || madara.IsTeamMember(game, target.GetPlayerId())
-            || madara.GameCharacter.Passive.All(passive =>
-                passive.PassiveName != SecondMeteorite))
-            return 0;
+        return IsMadara(madara)
+               && target != null
+               && !madara.IsTeamMember(game, target.GetPlayerId())
+               && madara.GameCharacter.Passive.Any(passive =>
+                   passive.PassiveName == SecondMeteorite);
+    }
+
+    public static decimal ApplySecondMeteorite(
+        GamePlayerBridgeClass madara,
+        GamePlayerBridgeClass target,
+        GameClass game)
+    {
+        if (!HasSecondMeteoriteAgainst(madara, target, game)) return 0;
 
         var before = target.GameCharacter.GetMoral();
-        if (before <= 0) return 0;
-        target.GameCharacter.AddMoral(-before, SecondMeteorite);
+        if (before > 0)
+            target.GameCharacter.AddMoral(-before, SecondMeteorite);
+        target.GameCharacter.Justice.SetRealJusticeNow(0, SecondMeteorite);
         return target.GameCharacter.GetMoral() - before;
+    }
+
+    public static bool ApplySecondMeteoriteOnPreventedAttack(
+        GamePlayerBridgeClass madara,
+        GamePlayerBridgeClass target,
+        GameClass game)
+    {
+        if (!HasSecondMeteoriteAgainst(madara, target, game)) return false;
+
+        ApplySecondMeteorite(madara, target, game);
+        madara.Status.AddRegularPoints(2, SecondMeteorite);
+        game.Phrases.MadaraSecondMeteorite.SendLog(
+            madara, false, isRandomOrder: false);
+        return true;
     }
 
     public static void SetUnableToAct(GamePlayerBridgeClass madara)

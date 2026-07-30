@@ -5,6 +5,11 @@
       "visibility": "public",
       "ru": "Король Мусорной Горы",
       "en": "King of the Garbage Hill"
+    },
+    "kotgh.widget.jonSnow.help": {
+      "visibility": "public",
+      "ru": "Скилл открывает Короля Сервера. Волки отмечают двух слабейших игроков, а Черный Замок показывает оставшееся удержание позиции и считает победы соратников только не над самим Джоном.",
+      "en": "Skill unlocks Server King. Wolves mark the two weakest players; Castle Black shows the remaining position lock and counts same-side winners only when they defeat someone other than Jon."
     }
   }
 }

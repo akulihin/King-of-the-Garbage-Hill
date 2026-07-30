@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useBattleshipStore } from 'src/store/battleship'
+import { message } from 'src/platform/localization'
 
 const store = useBattleshipStore()
 
@@ -11,10 +12,27 @@ const isMyTurn = computed(() => store.isMyTurn)
 const turnTransitionActive = ref(false)
 
 watch(isMyTurn, (val) => {
-  if (val && (phase.value === 'Combat' || phase.value === 'Boarding')) {
+  if (val && !store.turnSkipNotice && (phase.value === 'Combat' || phase.value === 'Boarding')) {
     turnTransitionActive.value = true
     setTimeout(() => { turnTransitionActive.value = false }, 800)
   }
+})
+
+const turnSkipTitle = computed(() => {
+  const notice = store.turnSkipNotice
+  const myPlayerId = store.gameState?.myPlayerId
+  if (!notice || !myPlayerId) return message('battleship.turnSkip.title')
+  return notice.skippedPlayerId === myPlayerId
+    ? message('battleship.turnSkip.selfTitle')
+    : message('battleship.turnSkip.enemyTitle')
+})
+
+const turnSkipReason = computed(() => {
+  if (store.turnSkipNotice?.reason === 'Penalty')
+    return message('battleship.turnSkip.penalty')
+  if (store.turnSkipNotice?.reason === 'Stun')
+    return message('battleship.turnSkip.stun')
+  return message('battleship.turnSkip.generic')
 })
 
 // ── Boarding cinematic ──────────────────────────────────
@@ -74,6 +92,25 @@ const phaseOverlayText = computed(() => {
     <div v-if="turnTransitionActive" class="turn-sweep-overlay" :key="'turn-' + store.turnNumber">
       <div class="turn-sweep-band"></div>
       <div class="turn-sweep-text">ВАШ ХОД!</div>
+    </div>
+  </Transition>
+
+  <!-- Automatic Penalty/Stun turn cancellation -->
+  <Transition name="turn-skip">
+    <div
+      v-if="store.turnSkipNotice"
+      class="turn-skip-overlay"
+      :key="store.turnSkipNotice.id"
+    >
+      <div class="turn-skip-stripes"></div>
+      <div class="turn-skip-card">
+        <div class="turn-skip-symbol" aria-hidden="true">
+          <span class="turn-skip-symbol-hand">➜</span>
+          <span class="turn-skip-symbol-slash"></span>
+        </div>
+        <div class="turn-skip-title">{{ turnSkipTitle }}</div>
+        <div class="turn-skip-reason">{{ turnSkipReason }}</div>
+      </div>
     </div>
   </Transition>
 
@@ -192,6 +229,106 @@ const phaseOverlayText = computed(() => {
 .turn-sweep-leave-active { transition: opacity 0.3s ease-out; }
 .turn-sweep-leave-to { opacity: 0; }
 
+/* ═══════ Automatic turn skip ═══════ */
+.turn-skip-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 195;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--accent-red) 18%, transparent), transparent 48%),
+    color-mix(in srgb, var(--bg-primary) 72%, transparent);
+  backdrop-filter: blur(2px) grayscale(0.35);
+}
+.turn-skip-stripes {
+  position: absolute;
+  inset: -30%;
+  background: repeating-linear-gradient(
+    -28deg,
+    transparent 0 34px,
+    color-mix(in srgb, var(--accent-red) 12%, transparent) 34px 52px
+  );
+  animation: turn-skip-stripes 1500ms linear forwards;
+}
+.turn-skip-card {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 0.5rem;
+  min-width: min(88vw, 440px);
+  padding: 1.4rem 2rem 1.25rem;
+  border: 2px solid color-mix(in srgb, var(--accent-red) 78%, white);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--bg-card) 86%, #2b070b);
+  box-shadow:
+    0 0 0 7px color-mix(in srgb, var(--accent-red) 12%, transparent),
+    0 0 54px color-mix(in srgb, var(--accent-red) 48%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.16);
+  animation: turn-skip-card 1500ms cubic-bezier(.2, .85, .25, 1) forwards;
+}
+.turn-skip-symbol {
+  position: relative;
+  width: 76px;
+  height: 56px;
+  display: grid;
+  place-items: center;
+  color: #fee2e2;
+  filter: drop-shadow(0 0 12px color-mix(in srgb, var(--accent-red) 75%, transparent));
+}
+.turn-skip-symbol-hand {
+  font-size: 3.2rem;
+  line-height: 1;
+  font-weight: 900;
+}
+.turn-skip-symbol-slash {
+  position: absolute;
+  width: 82px;
+  height: 7px;
+  border-radius: 99px;
+  background: var(--accent-red);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--accent-red) 82%, transparent);
+  transform: rotate(-38deg) scaleX(0);
+  animation: turn-skip-slash 380ms 170ms ease-out forwards;
+}
+.turn-skip-title {
+  color: #fff1f2;
+  font-size: clamp(1.55rem, 5vw, 2.45rem);
+  font-weight: 950;
+  letter-spacing: 0.07em;
+  text-align: center;
+  text-transform: uppercase;
+  text-shadow: 0 0 22px color-mix(in srgb, var(--accent-red) 75%, transparent);
+}
+.turn-skip-reason {
+  color: color-mix(in srgb, var(--accent-red) 54%, white);
+  font-size: 0.88rem;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+@keyframes turn-skip-stripes {
+  from { transform: translate3d(-5%, -2%, 0); opacity: 0; }
+  18%, 72% { opacity: 1; }
+  to { transform: translate3d(5%, 2%, 0); opacity: 0; }
+}
+@keyframes turn-skip-card {
+  0% { transform: scale(0.58) rotate(-2deg); opacity: 0; filter: blur(10px); }
+  18% { transform: scale(1.06) rotate(0); opacity: 1; filter: blur(0); }
+  28%, 72% { transform: scale(1); opacity: 1; }
+  100% { transform: scale(0.94); opacity: 0; filter: blur(3px); }
+}
+@keyframes turn-skip-slash {
+  from { transform: rotate(-38deg) scaleX(0); }
+  to { transform: rotate(-38deg) scaleX(1); }
+}
+.turn-skip-enter-active { animation: phase-overlay-in 120ms ease-out; }
+.turn-skip-leave-active { transition: opacity 120ms ease-out; }
+.turn-skip-leave-to { opacity: 0; }
+
 /* ═══════ Boarding cinematic ═══════ */
 .boarding-cine-overlay {
   position: fixed;
@@ -233,5 +370,17 @@ const phaseOverlayText = computed(() => {
 
 @media (max-width: 480px) {
   .kill-streak { font-size: 1.5rem; }
+  .turn-skip-card { min-width: calc(100vw - 28px); padding-inline: 1rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .turn-skip-stripes,
+  .turn-skip-card,
+  .turn-skip-symbol-slash {
+    animation: none;
+  }
+  .turn-skip-symbol-slash {
+    transform: rotate(-38deg) scaleX(1);
+  }
 }
 </style>

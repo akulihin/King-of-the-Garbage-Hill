@@ -3,6 +3,7 @@ import { ref, computed, watch } from 'vue'
 import type { Player, Prediction, CharacterInfo, FightEntry, DeathNote } from 'src/services/signalr'
 import { useTip } from 'src/composables/useTip'
 import ScoreOdometer from 'src/components/ScoreOdometer.vue'
+import { localizedText } from 'src/platform/localization'
 
 const props = defineProps<{
   players: Player[]
@@ -95,10 +96,19 @@ function isTerminalOwner(player: Player): boolean {
 
 /** Get display character name */
 function getDisplayCharName(player: Player): string {
-  if (!isMasked(player)) return player.character.name
+  if (!isMasked(player))
+    return player.character.displayName
+      ? localizedText(player.character.displayName)
+      : player.character.name
   const pred = getPredictedCharInfo(player.playerId)
   if (pred) return pred.name + ' (?)'
   return '???'
+}
+
+function getDisplayUsername(player: Player): string {
+  return player.displayUsername
+    ? localizedText(player.displayUsername)
+    : player.discordUsername
 }
 
 /** Get display stat value for a specific stat */
@@ -396,7 +406,7 @@ const { tipText, tipVisible, tipPos, showTip, moveTip, hideTip } = useTip()
         <!-- Player info -->
         <div class="lb-info">
           <div class="lb-name">
-            <span class="player-name">{{ player.discordUsername }}</span>
+            <span class="player-name">{{ getDisplayUsername(player) }}</span>
             <span
               v-if="player.homelanderRagePercent !== undefined"
               class="homelander-rage"

@@ -108,7 +108,8 @@ const pirateBoat = svg(
 // ---------------------------------------------------------------------------
 
 const ship1 = svgFilled(
-  '<circle cx="12" cy="12" r="4"/>'
+  '<path d="M3 12l5-5h10l3 5-3 5H8l-5-5z"/>' +
+  '<path d="M9 9h6v6H9z" fill="none" stroke="currentColor" stroke-width="1.5"/>'
 )
 
 const ship2 = svgFilled(

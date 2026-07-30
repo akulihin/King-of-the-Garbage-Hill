@@ -1,6 +1,6 @@
 # Design-vs-Code Audit — Findings
 
-> Original audit of `DataBase/characters.json` (+ `Game/GameDesign.txt` intent notes, root-level update notes) against the 2026-07-01 working tree (v4.1.8); statuses and fix notes re-verified through 2026-07-29 (v5.1.55). Historical “Code” bullets describe the pre-fix implementation when a later **Fixed** note is present. `CP` = `Game/GameLogic/CharacterPassives.cs`.
+> Original audit of `DataBase/characters.json` (+ `Game/GameDesign.txt` intent notes, root-level update notes) against the 2026-07-01 working tree (v4.1.8); statuses and fix notes re-verified through 2026-07-30 (v5.2.3). Historical “Code” bullets describe the pre-fix implementation when a later **Fixed** note is present. `CP` = `Game/GameLogic/CharacterPassives.cs`.
 > Historical references to non-Empire `*.spec.*`/`*.test.*` files describe evidence that existed when a finding was fixed; those automated-test sources were retired under the 2026-07-29 Empire-only test policy and are not current verification instructions.
 >
 > Severity: **Critical** = player-visible wrong outcome / broken kit promise; **Major** = mechanic silently missing/misfiring or balance-relevant hidden behavior; **Minor** = cosmetic, flavor, dead code, small numeric drift; **Design question** = code self-consistent but intent ambiguous.
@@ -1189,6 +1189,7 @@ Historical fixed-lineup winrates, 30 games each, from the **pre-M45 omniscient A
 - **Failure scenario:** an enemy has three valid queued fights and one target is the active Harem → the enemy becomes one Skip, but Naruto receives +3 regular points and no «Техника соблазнения!» line instead of +1 and one line.
 - **Fixed:** 2026-07-21 — both finalized-queue and dynamic cancellation paths now call the same one-enemy reward helper: +1 regular point, +1 Harem achievement progress and one «Техника соблазнения!» phrase per newly converted attacker. `SkipPlayersThisRound` likewise records one provoked Skip rather than the canceled queue length (`Naruto.RewardHaremSkip`; `ResolveHaremQueues`; `TryCancelHaremFights`).
 - **Superseded by designer rework, 2026-07-27:** Harem no longer clears an attacker's queue or pays +1 regular. It turns Naruto's own action into Skip, so only each incoming Harem fight is recorded as skipped and every other queued fight remains. Each ordinary attacker instead transfers `ceil(20% × lifetime ability income)`, minimum 1 bonus point, once per activation; the related achievement now counts three successful donations (`Naruto.ResolveHaremQueues`/`HaremSkipAppliesTo`/`RewardHaremDonation`; `InGameStatus.GetLifetimeAbilityPoints`; `AchievementClass` `c_naruto_harem`).
+- **Re-verified:** 2026-07-30 — `GetLifetimeAbilityPoints` still combines every settled round's positive non-natural bonus and multiplier-applied regular ledger with the current round's projected eligible entries; natural victory points remain excluded. An executable smoke case with 29 lifetime ability points produced `ceil(29 × 20%) = 6` and an exact −6/+6 transfer, confirming the report was not reproducible in the current working tree and required no further gameplay change.
 
 ### M128. The Phase-13 “integrated campaign” gate did not accumulate one campaign
 - **Expected:** one deterministic campaign crosses every live subsystem in order, then exports/reloads that same accumulated state; a repeated seed proves the complete final snapshot, digest and result are reproducible.
@@ -1661,11 +1662,47 @@ Historical fixed-lineup winrates, 30 games each, from the **pre-M45 omniscient A
 - **Failure scenario:** restore the checked-in authentic v17 TD fixture while the corrected current bundle is loaded; the legacy identity is accepted, but its now-stale successor pin rejects the current TD configuration before play can resume.
 - **Fixed:** 2026-07-29 — regenerated and pinned the four affected current successor digests. Historical v17/v18 input identities, Tavern's unchanged successor, custom-rule rejection and all gameplay/configuration data remain unchanged (`engine.ts` `AUTHENTIC_BUNDLED_CURRENT_RULES_DIGESTS`; `phase14.spec.ts` authentic legacy identity gate).
 
-### M198. OPEN — the legacy English catalog is incomplete for recent character batches
+### M198. The legacy English catalog was incomplete for recent character batches
 
 - **Expected:** `tools/audit-localization.sh` covers every canonical character/passive sheet and display name, and every value in `DataBase/localization.en.json` is usable English presentation.
-- **Current behavior:** the phrase catalog passes (253 groups / 834 variants), but the legacy sheet audit stops first on missing character entries for Homelander and Omni-man. A full inventory also finds 14 missing passive descriptions (the Homelander, Omni-man and later TheBoys batch), 19 missing Cyrillic display-name mappings and 14 catalog values that still contain Cyrillic, primarily the later Cthulhu surface.
+- **Actual before the fix:** the phrase catalog passed (253 groups / 834 variants), but the legacy sheet audit stopped first on missing character entries for Homelander and Omni-man. The complete inventory also found 14 missing passive descriptions, 19 missing character/passive display-name mappings, the later ScamRat `Сделка` phrase title and fallback, and 12 English-side values that still contained Cyrillic on the Cthulhu surface.
 - **Impact:** the structured `Localization/*.messages.json` path introduced in v5.1.55 is complete for new shell/product copy, but these pre-existing character sheets can still fall back to Russian while ENG is selected. Exact English player-facing adaptations are required; canonical Russian keys and the authored Russian descriptions must remain untouched (`tools/audit-localization.sh`; `DataBase/characters.json`; `DataBase/localization.en.json`; `docs/LOCALIZATION.md` §3.2).
+- **Fixed:** 2026-07-29 — added source-faithful English for all 14 missing passive descriptions, retained empty English biographies for the two empty Russian Homelander/Omni-man biographies, completed all 20 missing display/fallback mappings and replaced all 12 Russian-valued Cthulhu compatibility entries. The reversed Necronomicon clue stays reversed in English and the corrupted horror line retains Latin-base distortion. `characters.json` and `phrases.en.json` remain byte-for-byte unchanged, and every canonical Russian key/text remains verbatim; `tools/audit-localization.sh` now passes 47 characters, 216 passives and 132 phrase classes (`DataBase/localization.en.json`; `docs/LOCALIZATION.md` §3.2).
+
+### M199. Страх перед Мадарой appeared in the following turn's PTS presentation
+
+- **Expected:** an enemy who completes round 8 without a resolved fight against Madara pays the hidden −5 bonus-point penalty in the results of that same round.
+- **Actual before the fix:** `ResolveRoundNine` applied the penalty from `HandleNextRound`, after round 8 had already settled and `ReplayService.CaptureRoundResult` had frozen its score presentation. The score changed only after `RoundNo++`, so the PTS feed attributed it one turn late.
+- **Failure scenario:** ignore the round-8 Клоны Сусано challenge, then skip the fight replay → round-8 PTS contains no `Страх перед Мадарой`; the −5 appears with round 9 instead.
+- **Fixed:** 2026-07-30 — `ApplyRoundEightFear` runs once at the start of `CompleteRoundAsync`, before score settlement and replay/result capture, and carries an idempotent round-8 state latch. `ResolveRoundNine` still owns only the later dialogue, Red Tiger, sealing and ending decisions (`Madara.ApplyRoundEightFear`; `DoomsdayMachine.CompleteRoundAsync`; `Madara.ResolveRoundNine`).
+
+### M200. Forced Naruto-on-Naruto fights were sanitized and reported as impossible
+
+- **Expected:** siblings stay absent from voluntary target choices, but an authoritative forced-action rewrite such as Portal Gun, Monster no-escape, Штормяк or another queue redirect may make one Naruto fight another and must resolve normally.
+- **Actual before the fix:** `SanitizeMutualTargets` ran after the forced-action, Portal, Шэн and Jon layers, removed every sibling target and converted an emptied queue into Skip with «Наруто не могут нападать друг на друга». A second guard in the core fight loop canceled any sibling fight that survived.
+- **Failure scenario:** Portal Gun swaps remaining attackers so a Naruto now points at a sibling → readiness deletes that rewritten target or the fight loop cancels it and emits the impossible-interaction line instead of calculating the fight.
+- **Fixed:** 2026-07-30 — removed the post-rewrite sibling sanitizer and core-loop cancellation while retaining the voluntary menu, bot-pool and `HandleAttack` rejection. Forced sibling IDs now pass through the ordinary immutable fight-snapshot pipeline (`GameReactions.HandleAttack`; `CheckIfReady.TickAsync`; `CharacterPassives` Portal case; `DoomsdayMachine.CalculateAllFights`).
+
+### M201. Naruto clones could still end a turn in Skip
+
+- **Expected:** Теневые clones have no Block, Harem or Skip action and must attack every turn whenever any living Naruto/opponent target exists.
+- **Actual before the fix:** `AttackOrSkipInsteadOfBlock` excluded siblings, retried the remaining candidates and explicitly assigned Skip when all were rejected. The readiness CRIT recovery independently assigned Skip to a clone with an empty queue.
+- **Failure scenario:** a clone's ordinary candidates are dead, sealed, banned or rejected by target-specific rules while a sibling remains alive → the clone finishes in Skip despite the kit's no-Skip contract.
+- **Fixed:** 2026-07-30 — `AttackInsteadOfBlock` still retries every ordinary non-sibling target first, but its clone branch now queues a living sibling through `TryForceCloneSiblingAttack` rather than assigning Skip; the readiness CRIT recovery uses the same fallback. Ordinary sibling selection remains unavailable (`Naruto.TryForceCloneSiblingAttack`; `GameReactions.AttackInsteadOfBlock`; `CheckIfReady.TickAsync`).
+
+### M202. Francie's initial Deadly Virus infection leaked its target into global logs
+
+- **Expected:** TheBoys owner receives the supplied paired Francie/Butcher phrase and private infection marker; common logs do not announce who was infected.
+- **Actual before the fix:** the Francie after-fight hook additionally called `AddGlobalLogs` with `☣️ Француз заразил <nickname> Смертельным вирусом!`, exposing the hidden target to every player.
+- **Failure scenario:** Francie x4 lands the armed real attack → all viewers can identify the infected nickname from the common battle log despite the marker being owner-only.
+- **Fixed:** 2026-07-30 — removed only the global infection line. The owner-personal paired phrase, mark installation, later real-fight spread and final −3/+3 settlement remain unchanged (`CharacterPassives` `Francie`/`TheBoysSpreadVirus`; `GameStateMapper.MapPlayer`).
+
+### M203. Я Джон Сноу could raise all four fight stats above the cap of 10
+
+- **Expected (designer report, 2026-07-30):** stat points materialized from Justice, the TooGOOD/TooSTONK difficulty bonus and an **Еще один бастард** redirect share the ordinary cap of 10 with Jon's existing fight stats.
+- **Actual before the fix:** `ApplyStatBonus` passed `current + bonus` directly to all four `Set*ForOneFight` methods. Those low-level one-fight setters deliberately do not enforce the persistent-stat cap, so Justice 5 plus Psyche 8 produced fight Psyche 13 before difficulty/redirect bonuses could raise it further (`JonSnow.ApplyBaseJustice`/`ApplyDifficultyJustice`; `CharacterClass.Set*ForOneFight`).
+- **Failure scenario:** Jon enters a fight with base Psyche 8 and Justice 5 → **Я Джон Сноу** sets Psyche to 13, changing quality bonuses and fight math beyond the intended maximum.
+- **Fixed:** 2026-07-30 — all three Jon-specific stat-grant paths now share `ApplyJusticeStatCap`: each stat fills only the remaining space through 10. A value already above 10 because of an unrelated effect is preserved but gains no further Jon bonus, leaving the general `ForOneFight` contract unchanged (`JonSnow.JusticeStatCap`/`ApplyStatBonus`/`ApplyJusticeStatCap`).
 
 ### D15. Does every cleared 99LC room require a mandatory player upgrade and per-clear enemy multiplier?
 
@@ -1798,12 +1835,17 @@ Historical fixed-lineup winrates, 30 games each, from the **pre-M45 omniscient A
 - **Actual before the fix:** `ReassertMacroPrediction` also set `Status.ConfirmedPredict = true`. Selecting a duplicate target on round 8 therefore confirmed every other current/stale row and could satisfy readiness or Madara's clone-injection gate without the player's explicit sheet confirmation.
 - **Fixed:** 2026-07-29 — reassertion now removes/reinserts only the earned target row and never mutates `ConfirmedPredict`; later prediction passes cannot erase the earned row, but confirmation remains an independent player action (`Dopa.ReassertMacroPrediction`; `CheckIfReady.TickAsync` prediction/readiness gates).
 
+### m73. Private Cthulhu fallback text entered the public browser localization bundle
+
+- **Expected:** `BrowserCatalog: false` excludes Cthulhu's identity, passives, prompts and legacy fallback text from static Vue assets; authorized owner presentation is localized by the backend.
+- **Actual before the fix:** `publicLocalizationPlugin` removed records only when a key or value contained a private character/passive term. Five Cthulhu-only records—including the reversed Necronomicon clue—contained no such term and therefore entered the generated bootstrap chunk. The depths heading and adept-action copy were also hard-coded in `Game.vue`, while the seven plain lines were misclassified as `phraseFallbacks` even though they were not passive-title fallbacks.
+- **Fixed:** 2026-07-29 — the legacy English catalog now declares exact section/key exclusions under `browserPrivate`; Vite rejects unknown sections plus duplicate/stale exclusion keys and removes every listed record before serializing `virtual:public-localization`. All twelve Cthulhu prompt/action/tooltip/plain-log keys are `exact` backend translations and explicitly private, including the two already caught by term matching. The owner-only character/passive sheet and ritual copy now carry localized display text beside untouched canonical identifiers; the active Thing row/fight entries do the same for every player and locale-local spectator. Generated assets contain none of those private keys or values (`DataBase/localization.en.json` `browserPrivate`; `vite.config.ts` `publicLocalizationPlugin`; `GameStateMapper.ToDto`/`MapPlayer`/`ApplyPrivateCharacterDisplay`/`ApplyBoardEntityDisplay`; DTO `GameStateDto`/`PlayerDto`/`CharacterDto`/`PassiveDto`/`FightEntryDto`; `Game.vue`; `SkillsPanel.vue`; `Leaderboard.vue`; `FightAnimation.vue`; `docs/LOCALIZATION.md` §3.2).
+
 ## Unfinished work backlog (2026-07-12)
 
 ### Still-open findings
 - **M171** — simultaneous combat inputs are isolated, but listed cross-fight result/state/resource effects still require explicit designer aggregation/priority rules.
 - **M195** — Goblin custom level-ups change population/rates immediately but refresh their fight stats and Warrior Skill multiplier only at the next transition.
-- **M198** — recent Homelander, Omni-man, TheBoys and Cthulhu-era sheets are incomplete in the legacy English catalog.
 - **m12** — Сайтама's round-1 "serious targets" are effectively arbitrary (skill is 0 at game start).
 - **m19** — Итачи's Crows/Izanagi charges have no web-UI representation (only Tsukuyomi state is mapped).
 - **m24** — ARAM pick phase has no web UI (hub/REST/serialization exist, no Vue component).
@@ -1826,7 +1868,7 @@ Full team-mode ruleset (2х2х2/3х3 team-score win, forced ally predictions —
 
 ## Summary count
 
-**Current total:** **2 Critical** (C1–C2) · **198 Major** (M1–M198) · **72 Minor** (m1–m72) · **15 Design questions** (D1–D15).
+**Current total:** **2 Critical** (C1–C2) · **203 Major** (M1–M203) · **73 Minor** (m1–m73) · **15 Design questions** (D1–D15).
 
 Historical cumulative rollout through M174:
 
@@ -1850,11 +1892,15 @@ M196 closes the 2026-07-29 Battleship Boarding/reconnaissance/summon-recovery ba
 
 M197 restores Empire's Endgame v17/v18 active-minigame compatibility after OrgАн's provenance-only catalog correction changed four current successor digests. Historical identities and custom-config rejection remain unchanged.
 
-M198 records the pre-existing incomplete legacy English character/passive catalog exposed by the localization audit. The new structured product catalogs are unaffected. The open set is **M171, M195, M198, m12, m19, m24, m26**.
+M198 completes the legacy English character/passive catalog, including the later ScamRat and Cthulhu display/fallback surface, without changing canonical Russian source. The open set is **M171, M195, m12, m19, m24, m26**.
 
-m69–m70 restore Stan Edgar's public/private presentation order and remove the hard-coded TooStronk debug leak; m66's live-projection follow-up prevents identical DTO refreshes from restarting the R3 needle. The open set is **M171, M195, M198, m12, m19, m24, m26**.
+m69–m70 restore Stan Edgar's public/private presentation order and remove the hard-coded TooStronk debug leak; m66's live-projection follow-up prevents identical DTO refreshes from restarting the R3 needle. The open set is **M171, M195, m12, m19, m24, m26**.
 
-m71–m72 close the duplicate-target Макро ordering/confirmation follow-up: its round-keyed absolute Skip survives Монстр no-escape plus Живое Оружие ordering, while its earned identity row no longer confirms the rest of Dopa's round-8 sheet. The open set remains **M171, M195, M198, m12, m19, m24, m26**.
+m71–m72 close the duplicate-target Макро ordering/confirmation follow-up: its round-keyed absolute Skip survives Монстр no-escape plus Живое Оружие ordering, while its earned identity row no longer confirms the rest of Dopa's round-8 sheet. The open set remains **M171, M195, m12, m19, m24, m26**.
+
+m73 closes the legacy-browser privacy gap found while completing M198: Cthulhu-only fallback records now require explicit browser-private catalog metadata and are absent from generated Vue assets. The open set remains **M171, M195, m12, m19, m24, m26**.
+
+M199–M202 move Madara's round-8 Fear debit into its own PTS result, preserve forced Naruto sibling fights, remove the last clone Skip fallbacks and keep Francie's initial virus target out of common logs. The open set remains **M171, M195, m12, m19, m24, m26**.
 
 ## Verification addendum (second pass, 2026-07-01)
 

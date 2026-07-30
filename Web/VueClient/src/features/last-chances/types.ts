@@ -961,7 +961,7 @@ export interface LastChancesCombatDefinition {
 }
 
 export interface LastChancesConfig {
-  schemaVersion: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11
+  schemaVersion: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12
   title: string
   seed: string
   chances: number
@@ -995,9 +995,11 @@ export interface LastChancesConfig {
     moveQuestKillsRequired: number
     /** Current HP and mind retained when entering an unvisited neighboring room in the same tier. */
     sameTierSacrificeRatio: number
-    /** Multiplicative stamina-cost increase granted by every room cleared in the current attempt. */
+    /** Multiplicative stamina-cost increase granted by every room/time stack in the current attempt. */
     staminaCostIncreasePerRoom: number
-    /** Maximum number of per-room stamina-cost increases carried by the current attempt. */
+    /** Active combat time required to add one extra stamina-cost stack after a cleared room. */
+    staminaCostIncreaseIntervalMs: number
+    /** Maximum number of combined room/time stamina-cost stacks carried by the current attempt. */
     maxStaminaCostStacks: number
     /** Voluntarily spent Chances required to apply one immediate current-tier stat erosion. */
     chanceErosionStep: number
@@ -1085,7 +1087,7 @@ export interface LastChancesPlayerSnapshot {
   hp: number
   mentalHealth: number
   stamina: number
-  /** Rooms cleared in this attempt that currently increase stamina expenditure. */
+  /** Completed-room and full combat-interval stacks that currently increase stamina expenditure. */
   staminaCostStacks: number
   /** Current multiplier applied to every stamina expenditure. */
   staminaCostMultiplier: number

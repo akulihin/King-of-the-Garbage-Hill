@@ -58,8 +58,11 @@ Vite's `messageCatalogPlugin` performs matching build/dev validation and exposes
 | `terms` | Presentation-only names and safe terminology. Replacements use word boundaries for single tokens; action values are never passed through this layer. |
 | `russianExact` | English-first legacy UI copy → Russian. This completes Russian presentation on surfaces originally authored in English. |
 | `phraseFallbacks` | Passive-aware English adaptations for canonical `|>Phrase<|` flavor-log records. Shared by the backend and Vue replay renderer; every Cyrillic `PhraseClass` identifier is covered. |
-| `characters` | English biographies keyed by canonical character name. Complete coverage is the contract; Homelander and Omni-man are the currently catalogued legacy gap (M198). |
-| `passives` | English mechanics text keyed by canonical passive name. Complete coverage is the contract; 14 recent Homelander/Omni-man/TheBoys entries remain open under M198. |
+| `characters` | English biographies keyed by canonical character name. Complete key coverage is enforced; an empty canonical biography remains empty in English rather than gaining invented text. |
+| `passives` | English mechanics text keyed by canonical passive name. Complete key coverage is enforced for every canonical passive. |
+| `browserPrivate` | Section/key metadata for backend translations that must not enter the public legacy Vue catalog. Vite rejects unknown sections, duplicate/stale keys and removes every listed record before serialization. |
+
+The legacy sheet audit covers all 47 character definitions, 216 passive definitions and 132 `PhraseClass` display/fallback names. M198 completed the recent Homelander, Omni-man, TheBoys, ScamRat and Cthulhu-era gap without changing any canonical Russian source. The two empty Homelander/Omni-man biographies remain empty; Cthulhu's reversed clue remains reversed in English and its deliberately corrupted horror text uses Latin-base distortion so the presentation stays unreadable without leaking Cyrillic. Cthulhu-only prompts and old plain-log lines are ordinary `exact` records listed under `browserPrivate.exact`: the backend can localize them, but `publicLocalizationPlugin` excludes them even when their wording contains no private character/passive term. The live private sheet carries optional paired display fields beside untouched canonical character/passive identifiers; owner-only headings/actions and the public Thing board/fight labels use the same server-derived paired boundary. Vue selects those pairs through the shared locale state instead of depending on the static legacy catalog.
 
 At startup, the backend joins `characters`/`passives` to the canonical source text from `characters.json`, adding those source texts to its legacy exact catalog (`GameLocalization.cs:247-265`). The client performs the same bidirectional join while bundling (`Web/VueClient/src/i18n.ts:16-31`). The Russian player text in `characters.json` remains untouched.
 
@@ -129,7 +132,7 @@ For any player-facing change:
 1. Keep canonical gameplay identifiers unchanged.
 2. Add/adapt both languages and explicit visibility in the relevant structured product catalog. Keep placeholder names identical.
 3. Run `jq empty Localization/*.messages.json`; backend startup and `pnpm build` independently validate the structured schema, while Vite proves that browser code can see only public entries.
-4. If a legacy producer/replay form changed, also run `jq empty` for `localization.en.json` and `phrases.en.json`, then `bash tools/audit-localization.sh`. It runs `audit-phrases.sh`, which requires paired field/count parity and rejects missing Russian or empty/Cyrillic English values. The current character-sheet portion reports the known M198 backlog; do not weaken the audit to hide it.
+4. If a legacy producer/replay form changed, also run `jq empty` for `localization.en.json` and `phrases.en.json`, then `bash tools/audit-localization.sh`. It runs `audit-phrases.sh`, requires paired field/count parity, rejects missing Russian or empty/Cyrillic English values, and validates every `browserPrivate` section/key exclusion. The complete character/passive/display inventory must pass; do not weaken the audit to hide a future gap.
 5. Run `dotnet build` and `pnpm build`.
 6. Run `bash tools/audit-passives.sh` if any passive-bearing source changed.
 7. Run `bash tools/verify-docs.sh --changed`; this also runs the Empire-only automated-test policy audit. Run the standard simulation suite for gameplay-bearing KOTGH changes.

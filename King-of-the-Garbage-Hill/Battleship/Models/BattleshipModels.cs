@@ -26,6 +26,11 @@ public class BattleshipGame
     public bool BoardingResolutionPaused { get; set; }
     public bool PausedTurnContinues { get; set; }
     public bool PausedMoveSummons { get; set; }
+    /// <summary>
+    /// Transient public events produced when Penalty/Stun automatically advances past a turn.
+    /// The transport drains this queue before publishing the resulting state.
+    /// </summary>
+    public Queue<ShotResult> PendingTurnSkipEvents { get; set; } = new();
     /// <summary>Poison belongs to a physical board. Key = that board owner's DiscordId.</summary>
     public Dictionary<string, HashSet<(int row, int col)>> PoisonZonesByBoardOwner { get; set; } = new();
 
@@ -336,6 +341,7 @@ public class Summon
     public bool IsBoardingShip { get; set; } // Close ship converted during Final Boarding
     public string SourceShipId { get; set; } // Original Close ship for boarding Ballista VFX
     public string SourceShipName { get; set; } // Player-facing identity of a converted Close ship
+    public int SourceShipDeckCount { get; set; } // Preserves the converted hull silhouette for board rendering
     public bool HasDetonated { get; set; } // Brander chain-explosion idempotency guard
 }
 
@@ -356,6 +362,7 @@ public class PendingSummonDeploy
     public int RevealRadius { get; set; } = 1; // From original ship's Space
     public string SourceShipName { get; set; } // For log messages
     public string SourceShipId { get; set; } // Original Close ship for boarding Ballista VFX
+    public int SourceShipDeckCount { get; set; } // Converted hull silhouette
 }
 
 public class ManualMoveOption
@@ -378,6 +385,9 @@ public class FleetSelection
 public class ShotResult
 {
     public bool WasSkipped { get; set; }
+    public string SkippedPlayerId { get; set; }
+    /// <summary>"Penalty" or "Stun" for an automatic turn-skip presentation.</summary>
+    public string SkipReason { get; set; }
     public bool Hit { get; set; }
     public bool Miss { get; set; }
     public bool Scratched { get; set; }

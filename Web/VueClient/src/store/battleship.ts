@@ -60,6 +60,12 @@ export interface BattleshipSummonDeployMode {
 /** VFX impact vocabulary (mirrors useVfx ImpactType). */
 export type BattleshipImpactType = 'hit' | 'miss' | 'burn' | 'sunk' | 'destroy' | 'scratch' | 'freeze'
 
+export interface BattleshipTurnSkipNotice {
+  id: number
+  skippedPlayerId: string | null
+  reason: 'Penalty' | 'Stun' | 'Unknown'
+}
+
 export const useBattleshipStore = defineStore('battleship', () => {
   // -- State ------------------------------------------------------
 
@@ -107,6 +113,11 @@ export const useBattleshipStore = defineStore('battleship', () => {
 
   // Screen shake on heavy impacts
   const screenShake = ref(false)
+
+  const turnSkipNotice = ref<BattleshipTurnSkipNotice | null>(null)
+  const pendingTurnSkipNotices: BattleshipTurnSkipNotice[] = []
+  let turnSkipNoticeTimer: ReturnType<typeof setTimeout> | null = null
+  let turnSkipNoticeSerial = 0
 
   // VFX toggle
   const vfxEnabled = ref(true)
@@ -332,6 +343,36 @@ export const useBattleshipStore = defineStore('battleship', () => {
 
   // -- SignalR Callbacks ------------------------------------------
 
+  function showNextTurnSkipNotice() {
+    if (turnSkipNotice.value || pendingTurnSkipNotices.length === 0) return
+    turnSkipNotice.value = pendingTurnSkipNotices.shift() ?? null
+    turnSkipNoticeTimer = setTimeout(() => {
+      turnSkipNotice.value = null
+      turnSkipNoticeTimer = setTimeout(() => {
+        turnSkipNoticeTimer = null
+        showNextTurnSkipNotice()
+      }, 80)
+    }, 1500)
+  }
+
+  function enqueueTurnSkipNotice(result: BattleshipShotResult) {
+    pendingTurnSkipNotices.push({
+      id: ++turnSkipNoticeSerial,
+      skippedPlayerId: result.skippedPlayerId
+        ?? gameState.value?.currentTurnPlayerId
+        ?? null,
+      reason: result.skipReason ?? 'Unknown',
+    })
+    showNextTurnSkipNotice()
+  }
+
+  function clearTurnSkipNotices() {
+    if (turnSkipNoticeTimer) clearTimeout(turnSkipNoticeTimer)
+    turnSkipNoticeTimer = null
+    pendingTurnSkipNotices.length = 0
+    turnSkipNotice.value = null
+  }
+
   function initCallbacks() {
     signalrService.onBattleshipState = (state) => {
       // Snapshot old board cells before updating state (for diff animations)
@@ -352,6 +393,7 @@ export const useBattleshipStore = defineStore('battleship', () => {
         lastShotResult.value = null
         lastShotCell.value = null
         markedCells.value = new Set()
+        clearTurnSkipNotices()
         activateShotDelay(0)
       }
 
@@ -390,7 +432,8 @@ export const useBattleshipStore = defineStore('battleship', () => {
       }
 
       // Turn start — my turn just began mid-combat
-      if (!wasMyTurn && state.isMyTurn && (state.phase === 'Combat' || state.phase === 'Boarding')) {
+      if (!wasMyTurn && state.isMyTurn && !turnSkipNotice.value
+          && (state.phase === 'Combat' || state.phase === 'Boarding')) {
         playBattleshipTurnStart()
       }
 
@@ -415,6 +458,8 @@ export const useBattleshipStore = defineStore('battleship', () => {
         const result = event.data as BattleshipShotResult
         if (result.wasSkipped) {
           lastShotResult.value = null
+          pendingShotTarget = null
+          enqueueTurnSkipNotice(result)
           return
         }
         lastShotResult.value = result
@@ -501,6 +546,7 @@ export const useBattleshipStore = defineStore('battleship', () => {
     signalrService.onBattleshipEvent = null
     signalrService.onShipCatalog = null
     signalrService.onBattleshipStats = null
+    clearTurnSkipNotices()
     activateShotDelay(0)
   }
 
@@ -730,6 +776,7 @@ export const useBattleshipStore = defineStore('battleship', () => {
     previousPhase,
     phaseTransitionActive,
     screenShake,
+    turnSkipNotice,
     vfxEnabled,
     myShotsFired,
     myShotsHit,

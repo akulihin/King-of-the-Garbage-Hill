@@ -40,6 +40,7 @@ const props = withDefaults(defineProps<{
   initialFightIndex?: number
   fightStyle?: 'v3' | 'v2' | 'v1'
   roundKey?: string | number
+  roundIdentity?: string | number
   rewriteHistoryRounds?: number[]
   rewriteHistoryPendingRound?: number | null
   rewriteHistoryLastChance?: boolean
@@ -58,6 +59,7 @@ const props = withDefaults(defineProps<{
   initialFightIndex: undefined,
   fightStyle: 'v3',
   roundKey: '',
+  roundIdentity: '',
   rewriteHistoryRounds: () => [],
   rewriteHistoryPendingRound: null,
   rewriteHistoryLastChance: false,
@@ -133,6 +135,8 @@ const currentStep = ref(0)
 const isPlaying = ref(true)
 const speed = ref(1)
 const skippedToEnd = ref(false)
+/** The skip button auto-opens Results only on its first use in each round. */
+const skipOpenedResultsThisRound = ref(false)
 const lastAnimatedRound = ref<string>('')
 let timer: ReturnType<typeof setTimeout> | null = null
 const justiceUpTimers = new Set<ReturnType<typeof setTimeout>>()
@@ -257,6 +261,26 @@ const leftAvatar = computed(() => isFlipped.value ? fight.value!.defenderAvatar 
 const rightName = computed(() => isFlipped.value ? fight.value!.attackerName : fight.value!.defenderName)
 const rightCharName = computed(() => isFlipped.value ? fight.value!.attackerCharName : fight.value!.defenderCharName)
 const rightAvatar = computed(() => isFlipped.value ? fight.value!.attackerAvatar : fight.value!.defenderAvatar)
+const leftDisplayName = computed(() => {
+  const current = fight.value!
+  const localized = isFlipped.value ? current.defenderDisplayName : current.attackerDisplayName
+  return localized?.[currentLocale.value] ?? leftName.value
+})
+const leftCharDisplayName = computed(() => {
+  const current = fight.value!
+  const localized = isFlipped.value ? current.defenderCharDisplayName : current.attackerCharDisplayName
+  return localized?.[currentLocale.value] ?? leftCharName.value
+})
+const rightDisplayName = computed(() => {
+  const current = fight.value!
+  const localized = isFlipped.value ? current.attackerDisplayName : current.defenderDisplayName
+  return localized?.[currentLocale.value] ?? rightName.value
+})
+const rightCharDisplayName = computed(() => {
+  const current = fight.value!
+  const localized = isFlipped.value ? current.attackerCharDisplayName : current.defenderCharDisplayName
+  return localized?.[currentLocale.value] ?? rightCharName.value
+})
 /** Did the left (us) win? */
 const leftWon = computed(() => {
   if (!fight.value) return false
@@ -674,10 +698,13 @@ function togglePlay() {
   else { clearTimer() }
 }
 function skipToEnd() {
+  const shouldOpenResults = !skipOpenedResultsThisRound.value
+  skipOpenedResultsThisRound.value = true
   clearTimer(); clearR3Timers(); isPlaying.value = false; skippedToEnd.value = true
   currentFightIdx.value = myFights.value.length - 1
   currentStep.value = totalSteps.value - 1
   emit('replay-ended')
+  if (shouldOpenResults) activeTab.value = 'all'
 }
 function setSpeed(s: number) { speed.value = s }
 function restart() {
@@ -743,6 +770,10 @@ watch([myFights, () => props.roundKey, perspectiveUsername], () => {
   roundResults.value = []
   restart()
 }, { deep: true, immediate: true })
+
+watch(() => props.roundIdentity || props.roundKey, () => {
+  skipOpenedResultsThisRound.value = false
+})
 
 // ── One-time initial fight index (for replay deep links) ────────────
 {
@@ -1362,25 +1393,47 @@ const r3WeWon = computed(() => {
 /** All-fights row: loser on left, winner on right */
 function allFightLeft(f: FightEntry) {
   if (f.outcome === 'block' || f.outcome === 'skip' || f.outcome === 'unknown') {
-    return { name: f.defenderName, avatar: f.defenderAvatar, isWinner: false }
+    return {
+      name: f.defenderName,
+      label: f.defenderDisplayName?.[currentLocale.value] ?? f.defenderName,
+      avatar: f.defenderAvatar,
+      isWinner: false,
+    }
   }
   const loserIsAttacker = f.winnerName !== f.attackerName
   return {
     name: loserIsAttacker ? f.attackerName : f.defenderName,
+    label: loserIsAttacker
+      ? (f.attackerDisplayName?.[currentLocale.value] ?? f.attackerName)
+      : (f.defenderDisplayName?.[currentLocale.value] ?? f.defenderName),
     avatar: loserIsAttacker ? f.attackerAvatar : f.defenderAvatar,
     isWinner: false,
   }
 }
 function allFightRight(f: FightEntry) {
   if (f.outcome === 'block' || f.outcome === 'skip' || f.outcome === 'unknown') {
-    return { name: f.attackerName, avatar: f.attackerAvatar, isWinner: false }
+    return {
+      name: f.attackerName,
+      label: f.attackerDisplayName?.[currentLocale.value] ?? f.attackerName,
+      avatar: f.attackerAvatar,
+      isWinner: false,
+    }
   }
   const winnerIsAttacker = f.winnerName === f.attackerName
   return {
     name: winnerIsAttacker ? f.attackerName : f.defenderName,
+    label: winnerIsAttacker
+      ? (f.attackerDisplayName?.[currentLocale.value] ?? f.attackerName)
+      : (f.defenderDisplayName?.[currentLocale.value] ?? f.defenderName),
     avatar: winnerIsAttacker ? f.attackerAvatar : f.defenderAvatar,
     isWinner: true,
   }
+}
+
+function fightParticipantLabel(fightEntry: FightEntry, attacker: boolean): string {
+  const localized = attacker ? fightEntry.attackerDisplayName : fightEntry.defenderDisplayName
+  return localized?.[currentLocale.value]
+    ?? (attacker ? fightEntry.attackerName : fightEntry.defenderName)
 }
 function allFightCenterLabel(f: FightEntry): string {
   if (f.outcome === 'block') return 'БЛОК'
@@ -1584,8 +1637,8 @@ function getDisplayCharName(orig: string, u: string): string {
           class="fa-all-row" :class="{ 'my-attack': isMyAttack(f), 'clickable': !proMode && isReplayFight(f) && !isInjectedFight(f), 'is-injected': isInjectedFight(f), 'is-shadow-action': f.shadowAction }"
           @click="jumpToFightReplay(f)">
           <!-- Left name (loser / defender for block-skip) -->
-          <span class="fa-all-name fa-all-name-left" :class="{ 'name-winner': allFightLeft(f).isWinner }" :title="allFightLeft(f).name">
-            <span v-if="allFightLeft(f).isWinner && perfectRoundPlayers.has(allFightLeft(f).name)" class="perfect-icon">✦</span>{{ allFightLeft(f).name }}
+          <span class="fa-all-name fa-all-name-left" :class="{ 'name-winner': allFightLeft(f).isWinner }" :title="allFightLeft(f).label">
+            <span v-if="allFightLeft(f).isWinner && perfectRoundPlayers.has(allFightLeft(f).name)" class="perfect-icon">✦</span>{{ allFightLeft(f).label }}
           </span>
           <!-- Center block: avatar | label | avatar -->
           <div class="fa-all-mid">
@@ -1608,8 +1661,8 @@ function getDisplayCharName(orig: string, u: string): string {
             >🐾<span v-if="f.stormFlipped">↻</span></span>
           </div>
           <!-- Right name (winner / attacker for block-skip) -->
-          <span class="fa-all-name fa-all-name-right" :class="{ 'name-winner': allFightRight(f).isWinner }" :title="allFightRight(f).name">
-            {{ allFightRight(f).name }}<span v-if="allFightRight(f).isWinner && perfectRoundPlayers.has(allFightRight(f).name)" class="perfect-icon">✦</span>
+          <span class="fa-all-name fa-all-name-right" :class="{ 'name-winner': allFightRight(f).isWinner }" :title="allFightRight(f).label">
+            {{ allFightRight(f).label }}<span v-if="allFightRight(f).isWinner && perfectRoundPlayers.has(allFightRight(f).name)" class="perfect-icon">✦</span>
           </span>
           <!-- Portal badge -->
           <span v-if="f.portalGunSwap" class="fa-portal-badge">PORTAL</span>
@@ -1639,7 +1692,7 @@ function getDisplayCharName(orig: string, u: string): string {
             :class="{ active: idx === currentFightIdx, 'is-block': f.outcome === 'block', 'is-skip': f.outcome === 'skip' }"
             data-sfx-utility="true"
             @click="clearTimer(); clearR3Timers(); currentFightIdx = idx; currentStep = totalSteps - 1; skippedToEnd = true; isPlaying = false"
-            :title="`${f.attackerName} vs ${f.defenderName}`">
+            :title="`${fightParticipantLabel(f, true)} vs ${fightParticipantLabel(f, false)}`">
             <span class="thumb-idx">{{ (idx as number) + 1 }}</span>
           </button>
         </div>
@@ -1650,11 +1703,11 @@ function getDisplayCharName(orig: string, u: string): string {
         :fight="fight"
         :is-my-fight="isMyFight"
         :is-flipped="isFlipped"
-        :left-name="leftName"
-        :left-char-name="leftCharName"
+        :left-name="leftDisplayName"
+        :left-char-name="leftCharDisplayName"
         :left-avatar="leftAvatar"
-        :right-name="rightName"
-        :right-char-name="rightCharName"
+        :right-name="rightDisplayName"
+        :right-char-name="rightCharDisplayName"
         :right-avatar="rightAvatar"
         :left-won="leftWon"
         :attacked-right="attackedRight"
@@ -1710,11 +1763,11 @@ function getDisplayCharName(orig: string, u: string): string {
         :fight="fight"
         :is-my-fight="isMyFight"
         :is-flipped="isFlipped"
-        :left-name="leftName"
-        :left-char-name="leftCharName"
+        :left-name="leftDisplayName"
+        :left-char-name="leftCharDisplayName"
         :left-avatar="leftAvatar"
-        :right-name="rightName"
-        :right-char-name="rightCharName"
+        :right-name="rightDisplayName"
+        :right-char-name="rightCharDisplayName"
         :right-avatar="rightAvatar"
         :left-won="leftWon"
         :attacked-right="attackedRight"
@@ -1769,11 +1822,11 @@ function getDisplayCharName(orig: string, u: string): string {
         :fight="fight"
         :is-my-fight="isMyFight"
         :is-flipped="isFlipped"
-        :left-name="leftName"
-        :left-char-name="leftCharName"
+        :left-name="leftDisplayName"
+        :left-char-name="leftCharDisplayName"
         :left-avatar="leftAvatar"
-        :right-name="rightName"
-        :right-char-name="rightCharName"
+        :right-name="rightDisplayName"
+        :right-char-name="rightCharDisplayName"
         :right-avatar="rightAvatar"
         :left-won="leftWon"
         :attacked-right="attackedRight"

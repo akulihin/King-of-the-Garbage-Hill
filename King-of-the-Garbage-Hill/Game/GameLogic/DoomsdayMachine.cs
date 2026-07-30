@@ -487,7 +487,6 @@ public class DoomsdayMachine : IServiceSingleton
         // remain intact so only their fight against Harem is skipped.
         if (!isEternalTsukuyomiRound && !game.IsKratosEvent)
         {
-            Naruto.SanitizeMutualTargets(game);
             Naruto.ResolveHaremQueues(game);
         }
         EnforceKratosEventActions(game);
@@ -650,16 +649,6 @@ public class DoomsdayMachine : IServiceSingleton
                 if (playerIamAttacking.Passives.IsDead) continue;
                 var bfgWaveDirection = targetsToFight[fightTargetIndex].BfgDirection;
                 var isRailgunFight = targetsToFight[fightTargetIndex].RailgunFight;
-
-                if (Naruto.IsNarutoPair(player, playerIamAttacking))
-                {
-                    player.Status.AddInGamePersonalLogs(PhrasePayload.Encode(
-                        Naruto.ShadowClones,
-                        "Наруто не могут нападать друг на друга. Бой отменен.",
-                        "Shadow Clones",
-                        "Narutos cannot attack one another. The fight was canceled.") + "\n");
-                    continue;
-                }
 
                 PrepareIndependentFightCharacters(player, playerIamAttacking);
                 var jonDifficultySnapshot = JonSnow.CaptureDifficulty(
@@ -832,15 +821,10 @@ public class DoomsdayMachine : IServiceSingleton
                                        && playerIamAttacking.Passives.DoomGuy.GetActive(DoomGuy.Shield) == DoomGuy.SawShield
                         ? -3
                         : -1;
-                    var madaraSecondMeteorite = player.GameCharacter.Name == Madara.CharacterName
-                                                && player.GameCharacter.Passive.Any(x =>
-                                                    x.PassiveName == Madara.SecondMeteorite);
-                    if (madaraSecondMeteorite)
-                    {
-                        player.Status.AddRegularPoints(2, Madara.SecondMeteorite);
-                        game.Phrases.MadaraSecondMeteorite.SendLog(player, false, isRandomOrder: false);
-                    }
-                    else if (!UnknownBug.Is(player))
+                    var madaraSecondMeteorite =
+                        Madara.ApplySecondMeteoriteOnPreventedAttack(
+                            player, playerIamAttacking, game);
+                    if (!madaraSecondMeteorite && !UnknownBug.Is(player))
                     {
                         player.Status.AddBonusPoints(blockPenalty, "Блок");
                     }
@@ -858,14 +842,9 @@ public class DoomsdayMachine : IServiceSingleton
                         doomShield.ShockSkipRound = game.RoundNo + 1;
                     }
 
-                    // Второй метеорит: blocking Madara does not earn Justice, it erases it. This
+                    // Второй метеорит has already erased the defender's Moral/Justice. This
                     // outranks Близнец, which would otherwise copy the blocked attacker's Justice.
-                    if (madaraSecondMeteorite)
-                    {
-                        playerIamAttacking.GameCharacter.Justice.SetRealJusticeNow(
-                            0, Madara.SecondMeteorite);
-                    }
-                    else if (MonsterWithoutName.HasTwin(playerIamAttacking))
+                    if (!madaraSecondMeteorite && MonsterWithoutName.HasTwin(playerIamAttacking))
                     {
                         playerIamAttacking.GameCharacter.Justice
                             .AddJusticeForNextRoundFromFight(
@@ -880,7 +859,7 @@ public class DoomsdayMachine : IServiceSingleton
                             playerIamAttacking,
                             false);
                     }
-                    else
+                    else if (!madaraSecondMeteorite)
                     {
                         playerIamAttacking.GameCharacter.Justice.AddJusticeForNextRoundFromFight();
                     }
@@ -934,6 +913,8 @@ public class DoomsdayMachine : IServiceSingleton
                     game.SkipPlayersThisRound++;
                     if (haremSkipApplies)
                         Naruto.RewardHaremDonation(game, player, playerIamAttacking);
+                    Madara.ApplySecondMeteoriteOnPreventedAttack(
+                        player, playerIamAttacking, game);
 
                     var logMess = " ⟶ *Бой не состоялся...*";
                     game.AddGlobalLogs(logMess);
@@ -1367,9 +1348,12 @@ public class DoomsdayMachine : IServiceSingleton
                         }
                     }
 
+                    var madaraSecondMeteorite =
+                        Madara.HasSecondMeteoriteAgainst(
+                            player, playerIamAttacking, game);
                     if (!teamMate)
                     {
-                        defenderMoralActual += Madara.ApplySecondMeteoriteMoral(
+                        defenderMoralActual += Madara.ApplySecondMeteorite(
                             player,
                             playerIamAttacking,
                             game);
@@ -1377,7 +1361,9 @@ public class DoomsdayMachine : IServiceSingleton
                             defenderMoralActual;
                     }
 
-                    if (!teamMate && !playerIamAttacking.Passives.SaitamaUnnoticed.PretendedLossThisFight)
+                    if (!teamMate
+                        && !madaraSecondMeteorite
+                        && !playerIamAttacking.Passives.SaitamaUnnoticed.PretendedLossThisFight)
                         playerIamAttacking.GameCharacter.Justice.AddJusticeForNextRoundFromFight();
 
                     player.Status.IsWonThisCalculation = playerIamAttacking.GetPlayerId();
@@ -2030,6 +2016,7 @@ public class DoomsdayMachine : IServiceSingleton
         ReplayRoundDto replayRound,
         Stopwatch watch)
     {
+        Madara.ApplyRoundEightFear(game);
 
         foreach (var player in game.PlayersList)
         {

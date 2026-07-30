@@ -1645,14 +1645,17 @@ public class CheckIfReady : IServiceSingleton
                              && !game.CthulhuState.PendingNechtoAttackers.Contains(t.GetPlayerId())
                              && !(Madara.IsMadara(t) && (game.RoundNo == 8 || t.Passives.Madara.Sealed))))
                 {
-                    t.Status.IsReady = true;
                     if (Naruto.CanChooseBlock(t))
                     {
+                        t.Status.IsReady = true;
                         t.Status.IsBlock = true;
                     }
                     else
                     {
-                        t.Status.IsSkip = true;
+                        Naruto.TryForceCloneSiblingAttack(game, t);
+                        t.Status.IsReady = true;
+                        t.Status.IsBlock = false;
+                        t.Status.IsSkip = false;
                         t.Status.ConfirmedSkip = true;
                     }
                     var text =
@@ -1677,8 +1680,7 @@ public class CheckIfReady : IServiceSingleton
                         && !p.Passives.IsDead
                         && !Madara.IsSealed(p)
                         && !Tigr.IsRoundTenBanned(p, game.RoundNo)
-                        && !victim.IsTeamMember(game, p.GetPlayerId())
-                        && !Naruto.IsNarutoPair(victim, p)).ToList();
+                        && !victim.IsTeamMember(game, p.GetPlayerId())).ToList();
                     if (targets.Count == 0)
                         continue;
 
@@ -1728,7 +1730,6 @@ public class CheckIfReady : IServiceSingleton
                 if (!game.IsKratosEvent)
                 {
                     Madara.SanitizeSealedActions(game);
-                    Naruto.SanitizeMutualTargets(game);
                 }
 
                 // Шэн is spent by the next real submitted attack. The holder takes the target's exact
@@ -1743,17 +1744,15 @@ public class CheckIfReady : IServiceSingleton
                                  && !player.Passives.PassiveAbilitiesDisabledByKimiko))
                         Salldorum.TryDrinkAvailableTimeCapsule(sallo, game);
 
-                    // Shen redirects existing attacks, so apply the same sealed/mutual-target
-                    // sanitation again to the queue it just changed.
+                    // Shen redirects existing attacks, so reapply sealed-target sanitation
+                    // to the queue it just changed.
                     Madara.SanitizeSealedActions(game);
-                    Naruto.SanitizeMutualTargets(game);
                 }
 
                 JonSnow.RedirectBastardAttacks(game);
                 if (!game.IsKratosEvent)
                 {
                     Madara.SanitizeSealedActions(game);
-                    Naruto.SanitizeMutualTargets(game);
                 }
 
                 // Re-snapshot after bot choices and readiness-stage forced actions. If all five

@@ -505,6 +505,7 @@ onUnmounted(() => {
             :show-detailed-factors="true"
             :character-catalog="store.gameState.allCharacters || []"
             :initial-fight-index="replayStore.currentFightIndex"
+            :round-identity="replayStore.currentRound"
             fight-style="v1"
             @update:fight-index="replayStore.setFight"
             @update:current-fight="onCurrentFightUpdate"

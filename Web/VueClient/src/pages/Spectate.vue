@@ -67,6 +67,7 @@ onUnmounted(() => {
       <div v-if="store.gameState.fightLog?.length" class="spectate-fight card">
         <FightAnimation
           :fights="store.gameState.fightLog"
+          :round-identity="`${gameId}-${store.gameState.roundNo}`"
           :letopis="letopis"
           :game-story="store.gameStory"
           :players="store.gameState.players"

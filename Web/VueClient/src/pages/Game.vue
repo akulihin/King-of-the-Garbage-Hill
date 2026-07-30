@@ -9,6 +9,7 @@ import PlayerCard from 'src/components/PlayerCard.vue'
 import SkillsPanel from 'src/components/SkillsPanel.vue'
 import { formatPassiveDescription } from 'src/services/textFormatting'
 import { translateText } from 'src/i18n'
+import { localizedText, type LocalizedText } from 'src/platform/localization'
 import {
   isStanEdgarThresholdDialogue,
   orderStanEdgarDismissalLogs,
@@ -1375,6 +1376,10 @@ const rumblingEmbers = Array.from({ length: 36 }, (_, index) => ({
     animationDuration: `${(2.8 + (index % 7) * 0.31).toFixed(2)}s`,
   },
 }))
+
+function displayText(value: LocalizedText | undefined, fallback = ''): string {
+  return value ? localizedText(value) : fallback
+}
 </script>
 
 <template>
@@ -1511,10 +1516,14 @@ const rumblingEmbers = Array.from({ length: 36 }, (_, index) => ({
       class="draft-pick-overlay depths-call-overlay"
     >
       <div class="draft-pick-container depths-call-container">
-        <h2 class="draft-pick-title">Откликнуться на зов глубин</h2>
+        <h2 class="draft-pick-title">{{ store.gameState.draftPickHeading }}</h2>
         <div class="depths-call-actions">
-          <button class="depths-answer yes" @click="store.depthsCallChoice(true)">Да</button>
-          <button class="depths-answer no" @click="store.depthsCallChoice(false)">Нет</button>
+          <button class="depths-answer yes" @click="store.depthsCallChoice(true)">
+            {{ displayText(store.gameState.draftPickAcceptLabel) }}
+          </button>
+          <button class="depths-answer no" @click="store.depthsCallChoice(false)">
+            {{ displayText(store.gameState.draftPickDeclineLabel) }}
+          </button>
         </div>
       </div>
     </div>
@@ -1543,7 +1552,9 @@ const rumblingEmbers = Array.from({ length: 36 }, (_, index) => ({
             <div class="draft-ritual-passives">
               <span v-for="passive in option.passives" :key="passive.name">{{ passive.name }}</span>
             </div>
-            <button class="draft-play-btn" @click="store.draftSelect(option.name)">Выбрать</button>
+            <button class="draft-play-btn" @click="store.draftSelect(option.name)">
+              {{ displayText(store.gameState.draftPickSelectLabel) }}
+            </button>
           </article>
         </div>
       </div>
@@ -1661,10 +1672,10 @@ const rumblingEmbers = Array.from({ length: 36 }, (_, index) => ({
             <button
               class="act-btn cthulhu-adept"
               :disabled="transitionPaused"
-              title="Открыть выбор адепта"
+              :title="me.adeptChoiceTooltip ?? me.adeptChoiceLabel"
               @click="store.beginAdeptChoice()"
             >
-              Выбрать адепта
+              {{ me.adeptChoiceLabel }}
             </button>
           </div>
           <div v-if="!me?.adeptChoiceAvailable && !isMadaraRoundEight" class="act-group">
@@ -1841,6 +1852,7 @@ const rumblingEmbers = Array.from({ length: 36 }, (_, index) => ({
             <FightAnimation
               :fights="store.gameState.fightLog || []"
               :round-key="presentationRoundKey"
+              :round-identity="scorePresentationKey"
               :letopis="letopis"
               :game-story="store.gameStory"
               :players="store.gameState.players"
@@ -2023,14 +2035,16 @@ const rumblingEmbers = Array.from({ length: 36 }, (_, index) => ({
           <div class="gr-avatar-wrap" :class="[placeTier]">
             <img
               :src="ownerAvatar"
-              :alt="me.character.name"
+              :alt="displayText(me.character.displayName, me.character.name)"
               class="gr-avatar-img"
               @error="handleOwnerAvatarError"
             >
           </div>
           <div class="gr-identity">
             <div class="gr-name">
-              {{ store.isTerminalMode ? `Name: ${me.character.name}` : me.character.name }}
+              {{ store.isTerminalMode
+                ? `Name: ${me.character.name}`
+                : displayText(me.character.displayName, me.character.name) }}
               <span v-if="!store.isTerminalMode && charTier >= 0" class="rarity-badge" :class="rarityClass">{{ rarityLabel }}</span>
             </div>
             <div v-if="!store.isTerminalMode && masteryLevel > 0" class="mastery-badge" :class="'mastery-' + masteryTier">

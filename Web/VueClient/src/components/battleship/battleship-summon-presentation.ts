@@ -45,6 +45,11 @@ export function summonIconKey(type: string, isBoardingShip = false): string {
   return isBoardingShip ? 'ship1' : (summonIcons[type] ?? 'anchor')
 }
 
+export function boardingShipIconKey(deckCount?: number | null): string {
+  const visibleDeckCount = Math.max(1, Math.min(4, deckCount ?? 1))
+  return `ship${visibleDeckCount}`
+}
+
 export function summonMarkerClass(marker: BattleshipSummonMarker): string {
   return marker.isBoardingShip ? 'boarding' : marker.type.toLowerCase()
 }

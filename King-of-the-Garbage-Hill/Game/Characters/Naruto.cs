@@ -45,6 +45,31 @@ public static class Naruto
     public static bool CanChooseBlock(GamePlayerBridgeClass player) =>
         player?.GameCharacter?.Name != CharacterName || !player.Passives.Naruto.IsClone;
 
+    public static bool TryForceCloneSiblingAttack(
+        GameClass game,
+        GamePlayerBridgeClass clone)
+    {
+        if (game == null || !IsClone(clone)) return false;
+
+        var sibling = game.PlayersList
+            .Where(target =>
+                !target.Passives.IsDead
+                && !Madara.IsSealed(target)
+                && !Tigr.IsRoundTenBanned(target, game.RoundNo)
+                && IsNarutoPair(clone, target))
+            .OrderBy(target => target.Status.GetPlaceAtLeaderBoard())
+            .FirstOrDefault();
+        if (sibling == null) return false;
+
+        clone.Status.WhoToAttackThisTurn.Clear();
+        clone.Status.WhoToAttackThisTurn.Add(sibling.GetPlayerId());
+        clone.Status.IsBlock = false;
+        clone.Status.IsSkip = false;
+        clone.Status.ConfirmedSkip = true;
+        clone.Status.IsReady = true;
+        return true;
+    }
+
     public static bool IsDispersedClone(GamePlayerBridgeClass player) =>
         IsClone(player) && player.Passives.Naruto.HasDispersed;
 
@@ -169,28 +194,6 @@ public static class Naruto
                 naruto.Predict.Add(new PredictClass(CharacterName, sibling.GetPlayerId()));
             else
                 existing.CharacterName = CharacterName;
-        }
-    }
-
-    public static void SanitizeMutualTargets(GameClass game)
-    {
-        foreach (var naruto in game.PlayersList.Where(IsNaruto))
-        {
-            var removed = naruto.Status.WhoToAttackThisTurn.RemoveAll(targetId =>
-            {
-                var target = game.PlayersList.Find(player => player.GetPlayerId() == targetId);
-                return target != null && IsNarutoPair(naruto, target);
-            });
-            if (removed == 0 || naruto.Status.WhoToAttackThisTurn.Count > 0) continue;
-
-            naruto.Status.IsBlock = false;
-            naruto.Status.IsSkip = true;
-            naruto.Status.ConfirmedSkip = true;
-            naruto.Status.AddInGamePersonalLogs(PhrasePayload.Encode(
-                ShadowClones,
-                "Наруто не могут нападать друг на друга. Действие пропущено.",
-                "Shadow Clones",
-                "Narutos cannot attack one another. The action was skipped.") + "\n");
         }
     }
 

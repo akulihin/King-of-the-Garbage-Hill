@@ -4,6 +4,7 @@ import type { BattleshipCell } from 'src/services/signalr'
 import type { BattleshipBowDirection } from './battleship-geometry'
 import { renderIcon } from './battleship-icons'
 import {
+  boardingShipIconKey,
   boardingShipName,
   summonIconKey,
   summonMarkerClass,
@@ -72,6 +73,10 @@ const cellClass = computed(() => {
   // ТЗ #17: creatures render as an orange icon overlay — the base class above keeps
   // showing the cell's own status (hit/miss/fire/…) underneath
   if (props.cell.hasSummon) classes.push('cell-has-summon')
+  if (props.cell.isBoardingSummon) {
+    classes.push('cell-boarding-ship')
+    classes.push(`boarding-direction-${(props.cell.summonMoveDirection ?? 'Down').toLowerCase()}`)
+  }
 
   if (props.clickable) {
     classes.push('cell-clickable')
@@ -125,8 +130,14 @@ const cellIconHtml = computed(() => {
   if (!props.cell) return ''
   // ТЗ #17: the creature icon always wins — the cell status shows through the background
   if (props.cell.hasSummon) {
+    if (props.cell.isBoardingSummon) {
+      return renderIcon(
+        boardingShipIconKey(props.cell.boardingShipDeckCount),
+        26,
+      )
+    }
     return renderIcon(
-      summonIconKey(props.cell.summonType ?? '', props.cell.isBoardingSummon),
+      summonIconKey(props.cell.summonType ?? ''),
       14,
     )
   }
@@ -247,7 +258,12 @@ const cellTooltip = computed(() => {
     @mousemove="$emit('tipMove', $event)"
     @mouseleave="$emit('tipHide')"
   >
-    <span v-if="cellIconHtml" class="cell-icon" v-html="cellIconHtml"></span>
+    <span
+      v-if="cellIconHtml"
+      class="cell-icon"
+      :class="{ 'cell-icon--boarding': cell?.isBoardingSummon }"
+      v-html="cellIconHtml"
+    ></span>
     <span v-if="bowHtml" class="deck-bow" :class="'deck-bow--' + bowDirection" v-html="bowHtml"></span>
     <span v-if="deckSymbolHtml.length" class="deck-symbols">
       <span v-for="entry in deckSymbolHtml" :key="entry.symbol" class="deck-symbol" :class="'deck-symbol--' + entry.symbol" v-html="entry.html"></span>
@@ -424,6 +440,50 @@ const cellTooltip = computed(() => {
   background: color-mix(in srgb, var(--bs-burn, var(--accent-orange)) 55%, var(--bs-hit, var(--accent-red)));
   color: var(--text-primary);
   box-shadow: inset 0 0 8px color-mix(in srgb, var(--bs-burn, var(--accent-orange)) 55%, transparent);
+}
+
+/* Converted Close ships remain real hulls during Boarding: a full red enemy
+   ship tile, not the former tiny summon dot. */
+.cell-boarding-ship {
+  background:
+    linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.09) 25%,
+      transparent 25% 50%,
+      rgba(255, 255, 255, 0.09) 50% 75%,
+      transparent 75%
+    ),
+    color-mix(in srgb, var(--accent-red) 56%, var(--bg-card)) !important;
+  background-size: 8px 8px;
+  color: #fecaca !important;
+  outline: 2px solid color-mix(in srgb, var(--accent-red) 82%, white);
+  outline-offset: -2px;
+  box-shadow:
+    inset 0 0 10px color-mix(in srgb, var(--accent-red) 42%, transparent),
+    0 0 9px color-mix(in srgb, var(--accent-red) 48%, transparent);
+  opacity: 1;
+  z-index: 4;
+  animation: boarding-hull-bob 1.8s ease-in-out infinite;
+}
+.cell-boarding-ship .cell-icon--boarding {
+  width: calc(100% - 4px);
+  height: calc(100% - 4px);
+  color: #fff1f2;
+  filter:
+    drop-shadow(0 1px 1px rgba(0, 0, 0, 0.95))
+    drop-shadow(0 0 5px color-mix(in srgb, var(--accent-red) 88%, transparent));
+}
+.cell-boarding-ship .cell-icon--boarding :deep(svg) {
+  width: 100%;
+  height: 100%;
+}
+.boarding-direction-right .cell-icon--boarding { transform: rotate(0deg); }
+.boarding-direction-down .cell-icon--boarding { transform: rotate(90deg); }
+.boarding-direction-left .cell-icon--boarding { transform: rotate(180deg); }
+.boarding-direction-up .cell-icon--boarding { transform: rotate(-90deg); }
+@keyframes boarding-hull-bob {
+  0%, 100% { translate: 0 0; }
+  50% { translate: 0 -1px; }
 }
 
 /* -- Overlays ----------------------------------------------------- */

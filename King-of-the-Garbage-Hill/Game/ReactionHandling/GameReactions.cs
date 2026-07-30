@@ -832,13 +832,13 @@ public sealed class GameReaction : IServiceSingleton
                 if (GordonFreeman.AnnounceHalfLife3(player, game))
                     return true;
 
-                return await AttackOrSkipInsteadOfBlock(player, game);
+                return await AttackInsteadOfBlock(player, game, fallbackToSkip: true);
             }
 
             // Теневые clones have no Block action. This is the authoritative bot fallback in case
             // any AI policy or empty-target path still asks for Block.
             if (!Naruto.CanChooseBlock(player))
-                return await AttackOrSkipInsteadOfBlock(player, game);
+                return await AttackInsteadOfBlock(player, game, fallbackToSkip: false);
 
             var blockText = "Вы поставили блок\n";
             status.AddInGamePersonalLogs(blockText);
@@ -1001,12 +1001,13 @@ public sealed class GameReaction : IServiceSingleton
             return true;
     }
 
-    private async Task<bool> AttackOrSkipInsteadOfBlock(
+    private async Task<bool> AttackInsteadOfBlock(
         GamePlayerBridgeClass player,
-        GameClass game)
+        GameClass game,
+        bool fallbackToSkip)
     {
         // Retry every legal-looking target through the authoritative attack handler. A candidate can
-        // still be rejected by character-specific rules, so only Skip after the whole pool is exhausted.
+        // still be rejected by character-specific rules.
         var fallbackTargets = game?.PlayersList.Where(target =>
                 target.GetPlayerId() != player.GetPlayerId()
                 && !target.Passives.IsDead
@@ -1018,6 +1019,19 @@ public sealed class GameReaction : IServiceSingleton
         foreach (var fallbackTarget in fallbackTargets)
             if (await HandleAttack(player, null, fallbackTarget.Status.GetPlaceAtLeaderBoard()))
                 return true;
+
+        // A clone has neither Block nor Skip. If only its Naruto siblings remain legal for a forced
+        // action, queue one directly; voluntary target submission still rejects the same pairing.
+        if (!fallbackToSkip)
+        {
+            player.Status.WhoToAttackThisTurn.Clear();
+            Naruto.TryForceCloneSiblingAttack(game, player);
+            player.Status.IsBlock = false;
+            player.Status.IsSkip = false;
+            player.Status.ConfirmedSkip = true;
+            player.Status.IsReady = true;
+            return true;
+        }
 
         player.Status.WhoToAttackThisTurn.Clear();
         player.Status.IsBlock = false;

@@ -1606,6 +1606,7 @@ public static class BattleshipGameEngine
                     IsMandatoryBoarding = true,
                     SourceShipName = ship.Name,
                     SourceShipId = ship.Id,
+                    SourceShipDeckCount = ship.Decks.Count,
                 });
                 RemoveBoardingSourceFromOwnBoard(player, ship);
                 game.AddLog($"{ship.Name} готов к абордажу! Разместите на первой строчке вражеского поля.");

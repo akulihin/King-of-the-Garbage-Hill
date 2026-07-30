@@ -549,15 +549,6 @@ public class BattleshipService
             var delayError = GetShotDelayError(shooter);
             if (delayError != null) return (null, delayError);
 
-            if (BattleshipGameEngine.ProcessTurnStart(game, shooter))
-            {
-                SwitchTurn(game);
-                game.TurnNumber++;
-                game.LastActivity = DateTime.UtcNow;
-                TrySettleGameEnd(game);
-                return (new ShotResult { WasSkipped = true, TurnContinues = false, Message = "Ход пропущен!" }, null);
-            }
-
             var assemblyError = GetAssemblyLockError(game, shooter);
             if (assemblyError != null) return (null, assemblyError);
             var maneuverError = GetManeuverLockError(game, shooter);
@@ -623,17 +614,6 @@ public class BattleshipService
             {
                 var delayError = GetShotDelayError(shooter);
                 if (delayError != null) return (null, delayError);
-            }
-
-            if (!isEvilGreekFireReaction && BattleshipGameEngine.ProcessTurnStart(game, shooter))
-            {
-                SwitchTurn(game);
-                game.TurnNumber++;
-                game.LastActivity = DateTime.UtcNow;
-
-                TrySettleGameEnd(game);
-
-                return (new ShotResult { WasSkipped = true, TurnContinues = false, Message = "Ход пропущен!" }, null);
             }
 
             var assemblyError = GetAssemblyLockError(game, shooter);
@@ -1300,10 +1280,7 @@ public class BattleshipService
             return;
         }
         if (!game.IsFinished && !turnContinues)
-        {
-            SwitchTurn(game);
-            game.TurnNumber++;
-        }
+            AdvanceTurn(game);
     }
 
     private void ResumeBoardingResolution(BattleshipGame game)
@@ -1328,10 +1305,7 @@ public class BattleshipService
             return;
         }
         if (!game.IsFinished && !turnContinues)
-        {
-            SwitchTurn(game);
-            game.TurnNumber++;
-        }
+            AdvanceTurn(game);
     }
 
     private void CheckAndApplyFleetDestructionWin(BattleshipGame game)
@@ -1377,8 +1351,7 @@ public class BattleshipService
             if (maneuverError != null) return (false, maneuverError);
             if (BattleshipGameEngine.HasAnyLegalShot(game, player)) return (false, "У вас есть доступный выстрел.");
 
-            var skipped = BattleshipGameEngine.ProcessTurnStart(game, player);
-            CompleteActionResolution(game, turnContinues: false, moveSummons: !skipped);
+            CompleteActionResolution(game, turnContinues: false, moveSummons: true);
             game.LastActivity = DateTime.UtcNow;
             TrySettleGameEnd(game);
             return (true, null);
@@ -1765,6 +1738,7 @@ public class BattleshipService
                 IsBoardingShip = pending.IsBoarding,
                 SourceShipId = pending.SourceShipId,
                 SourceShipName = pending.SourceShipName,
+                SourceShipDeckCount = pending.SourceShipDeckCount,
             };
 
             player.Summons.Add(summon);
@@ -2051,6 +2025,17 @@ public class BattleshipService
     {
         if (!_games.TryGetValue(gameId, out var game)) return new();
         return game.GetPlayers().Where(p => !p.IsBot).Select(p => p.DiscordId).ToList();
+    }
+
+    public List<ShotResult> TakePendingTurnSkipEvents(string gameId)
+    {
+        if (!_games.TryGetValue(gameId, out var game)) return new();
+        lock (game)
+        {
+            var events = game.PendingTurnSkipEvents.ToList();
+            game.PendingTurnSkipEvents.Clear();
+            return events;
+        }
     }
 
     // ── Ship Catalog (for frontend) ──────────────────────────────────
@@ -2363,19 +2348,6 @@ public class BattleshipService
             if (game.BotPreparedTurnNumber != game.TurnNumber)
             {
                 game.BotPreparedTurnNumber = game.TurnNumber;
-                if (BattleshipGameEngine.ProcessTurnStart(game, bot))
-                {
-                    SwitchTurn(game);
-                    game.TurnNumber++;
-                    game.LastActivity = DateTime.UtcNow;
-                    TrySettleGameEnd(game);
-                    return new BattleshipBotStepResult
-                    {
-                        Acted = true,
-                        Shot = new ShotResult { WasSkipped = true, TurnContinues = false, Message = "Ход пропущен!" },
-                    };
-                }
-
                 TryBotManeuvers(game, bot);
                 foreach (var (pendingId, pendingCol) in BattleshipBotAI.ChoosePendingSummonDeploys(bot, opponent))
                 {
@@ -2530,6 +2502,41 @@ public class BattleshipService
             : game.Player1.DiscordId;
     }
 
+    private static void AdvanceTurn(BattleshipGame game)
+    {
+        SwitchTurn(game);
+        game.TurnNumber++;
+
+        // Penalty and Stun cancel a turn as soon as it starts. Each player can hold at
+        // most one of each, so four iterations cover the longest possible alternating
+        // chain while retaining the original Penalty-before-Stun order.
+        for (var skipCount = 0; skipCount < 4; skipCount++)
+        {
+            var player = game.GetPlayer(game.CurrentTurnPlayerId);
+            if (player == null) return;
+
+            var reason = player.HasPenalty
+                ? "Penalty"
+                : player.StunShotExpiry >= game.ShotCount
+                    ? "Stun"
+                    : null;
+            if (reason == null || !BattleshipGameEngine.ProcessTurnStart(game, player))
+                return;
+
+            game.PendingTurnSkipEvents.Enqueue(new ShotResult
+            {
+                WasSkipped = true,
+                TurnContinues = false,
+                Message = "Ход пропущен!",
+                SkippedPlayerId = player.DiscordId,
+                SkipReason = reason,
+            });
+
+            SwitchTurn(game);
+            game.TurnNumber++;
+        }
+    }
+
     private static void ResetReady(BattleshipGame game)
     {
         if (game.Player1 != null) game.Player1.IsReady = false;
@@ -2672,6 +2679,7 @@ public class BattleshipService
                 WaitingForDirectionChoice = s.WaitingForDirectionChoice,
                 IsBoardingShip = s.IsBoardingShip,
                 SourceShipName = s.SourceShipName,
+                SourceShipDeckCount = s.SourceShipDeckCount,
             }).ToList(),
             PendingSummons = isMe ? player.PendingSummons.Select(p => new PendingSummonDto
             {
@@ -2800,6 +2808,12 @@ public class BattleshipService
                     ? cell.SummonRef.SourceShipName
                     : null,
                 IsBoardingSummon = cell.SummonRef is { IsAlive: true, IsBoardingShip: true },
+                SummonMoveDirection = cell.SummonRef is { IsAlive: true }
+                    ? cell.SummonRef.MoveDirection.ToString()
+                    : null,
+                BoardingShipDeckCount = cell.SummonRef is { IsAlive: true, IsBoardingShip: true }
+                    ? Math.Max(1, cell.SummonRef.SourceShipDeckCount)
+                    : 0,
                 IsScratched = cell.BurnResistMarked || IsCellScratched(cell),
                 SummonTrails = cell.SummonTrails.Select(MapSummonMarker).ToList(),
                 SummonDeaths = cell.SummonDeaths.Select(MapSummonMarker).ToList(),
@@ -2848,6 +2862,12 @@ public class BattleshipService
                     ? cell.SummonRef.SourceShipName
                     : null,
                 IsBoardingSummon = cell.SummonRef is { IsAlive: true, IsBoardingShip: true },
+                SummonMoveDirection = cell.SummonRef is { IsAlive: true }
+                    ? cell.SummonRef.MoveDirection.ToString()
+                    : null,
+                BoardingShipDeckCount = cell.SummonRef is { IsAlive: true, IsBoardingShip: true }
+                    ? Math.Max(1, cell.SummonRef.SourceShipDeckCount)
+                    : 0,
                 IsScratched = cell.WasScratched, // Snapshot: scratched state persists after ship moves
                 SummonTrails = cell.SummonTrails.Select(MapSummonMarker).ToList(),
                 SummonDeaths = cell.SummonDeaths.Select(MapSummonMarker).ToList(),
@@ -3020,6 +3040,8 @@ public class CellDto
     public string SummonType { get; set; }
     public string SummonName { get; set; }
     public bool IsBoardingSummon { get; set; }
+    public string SummonMoveDirection { get; set; }
+    public int BoardingShipDeckCount { get; set; }
     public bool IsScratched { get; set; }
     public List<SummonMarkerDto> SummonTrails { get; set; } = new();
     public List<SummonMarkerDto> SummonDeaths { get; set; } = new();
@@ -3159,6 +3181,7 @@ public class SummonDto
     public bool WaitingForDirectionChoice { get; set; }
     public bool IsBoardingShip { get; set; }
     public string SourceShipName { get; set; }
+    public int SourceShipDeckCount { get; set; }
 }
 
 public class PendingSummonDto

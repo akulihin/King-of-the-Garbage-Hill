@@ -5,6 +5,36 @@
       "visibility": "public",
       "ru": "Морской Бой",
       "en": "Battleship"
+    },
+    "battleship.turnSkip.title": {
+      "visibility": "public",
+      "ru": "Ход пропущен",
+      "en": "Turn skipped"
+    },
+    "battleship.turnSkip.selfTitle": {
+      "visibility": "public",
+      "ru": "Ваш ход пропущен",
+      "en": "Your turn was skipped"
+    },
+    "battleship.turnSkip.enemyTitle": {
+      "visibility": "public",
+      "ru": "Ход противника пропущен",
+      "en": "Enemy turn skipped"
+    },
+    "battleship.turnSkip.penalty": {
+      "visibility": "public",
+      "ru": "Штраф",
+      "en": "Penalty"
+    },
+    "battleship.turnSkip.stun": {
+      "visibility": "public",
+      "ru": "Оглушение",
+      "en": "Stunned"
+    },
+    "battleship.turnSkip.generic": {
+      "visibility": "public",
+      "ru": "Ход отменён",
+      "en": "Turn cancelled"
     }
   }
 }

@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 11,
+  "schemaVersion": 12,
   "title": "99 Last Chances",
   "seed": "99LC-prototype",
   "chances": 99,
@@ -262,8 +262,9 @@
     "moveQuestsEnabled": true,
     "moveQuestKillsRequired": 2,
     "sameTierSacrificeRatio": 0.5,
-    "staminaCostIncreasePerRoom": 0.1,
-    "maxStaminaCostStacks": 10,
+    "staminaCostIncreasePerRoom": 0.01,
+    "staminaCostIncreaseIntervalMs": 10000,
+    "maxStaminaCostStacks": 100,
     "chanceErosionStep": 5,
     "tiers": [
       {

@@ -11,6 +11,25 @@ trap 'rm -rf "$tmp"' EXIT
 jq empty "$characters"
 jq empty "$catalog"
 
+if ! jq -e '
+  . as $catalog
+  | ["exact", "terms", "russianExact", "phraseFallbacks", "characters", "passives"] as $sections
+  | ($catalog.browserPrivate // {}) as $private
+  | (((($private | keys) - $sections) | length) == 0)
+    and all($private | to_entries[];
+      . as $entry
+      | ($entry.value | type) == "array"
+        and (($entry.value | length) == ($entry.value | unique | length))
+        and all($entry.value[];
+          . as $key
+          | ($key | type) == "string"
+            and ($key | length) > 0
+            and ($catalog[$entry.key] | has($key))))
+' "$catalog" >/dev/null; then
+  echo "Invalid browserPrivate localization metadata: use supported section names and unique existing keys."
+  exit 1
+fi
+
 jq -r '.[].Name' "$characters" | sort -u > "$tmp/characters-source"
 jq -r '.characters | keys[]' "$catalog" | sort -u > "$tmp/characters-catalog"
 jq -r '[.[] | .Passive[].PassiveName] | unique[]' "$characters" | sort -u > "$tmp/passives-source"

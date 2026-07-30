@@ -8,6 +8,7 @@ using King_of_the_Garbage_Hill.API.DTOs;
 using King_of_the_Garbage_Hill.Game.Characters;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Helpers;
+using King_of_the_Garbage_Hill.Localization;
 
 namespace King_of_the_Garbage_Hill.API.Services;
 
@@ -95,6 +96,12 @@ public static class GameStateMapper
             passive => passive.PassiveName == UnknownBug.AdminPlayerType) == true;
         var isAdeptChooser = game.CthulhuState.AdeptStageActive
                              && Cthulhu.IsUntransformed(requestingPlayer);
+        var depthsCallPromptActive = IsDepthsCallPromptActive(game, requestingPlayer);
+        var privateDraftHeading = isAdeptChooser
+            ? "Выбери адепта"
+            : depthsCallPromptActive
+                ? "Откликнуться на зов глубин"
+                : null;
         List<DraftOptionDto> scopedDraftOptions = null;
         if ((game.IsDraftPickPhase || isAdeptChooser) && requestingPlayer != null
             && game.DraftOptions.TryGetValue(requestingPlayer.GetPlayerId(), out var draftOpts))
@@ -136,9 +143,14 @@ public static class GameStateMapper
             GameMode = game.GameMode,
             IsFinished = game.IsFinished,
             IsAramPickPhase = game.IsAramPickPhase,
-            IsDraftPickPhase = game.IsDraftPickPhase || isAdeptChooser,
+            IsDraftPickPhase = game.IsDraftPickPhase || isAdeptChooser || depthsCallPromptActive,
             DraftOptions = scopedDraftOptions,
-            DraftPickHeading = isAdeptChooser ? "Выбери адепта" : null,
+            DraftPickHeading = requestingPlayer == null || privateDraftHeading == null
+                ? privateDraftHeading
+                : GameLocalization.TextForClient(requestingPlayer.DiscordId, privateDraftHeading),
+            DraftPickAcceptLabel = depthsCallPromptActive ? Localized("Да") : null,
+            DraftPickDeclineLabel = depthsCallPromptActive ? Localized("Нет") : null,
+            DraftPickSelectLabel = isAdeptChooser ? Localized("Выбрать") : null,
             IsKratosEvent = game.IsKratosEvent,
             IsRumblingWarningActive = ErenYeager.IsRumblingWarningActive(game),
             RumblingKillCount = ErenYeager.GetRumblingKillCount(game),
@@ -203,6 +215,8 @@ public static class GameStateMapper
                     requestingPlayer?.IsProMode == true && !fightAdmin))
                 .Select(f => MaskPrivateFightIdentity(f, viewerIsTerminal))
                 .ToList();
+        foreach (var fight in dto.FightLog)
+            ApplyBoardEntityDisplay(fight);
 
         var viewerIsTheBoys = requestingPlayer?.GameCharacter.Name == "TheBoys";
         var viewerIsHomelander = Homelander.Is(requestingPlayer);
@@ -218,15 +232,18 @@ public static class GameStateMapper
 
         if (Cthulhu.IsNechtoActive(game) && !game.IsFinished)
         {
+            var displayName = Localized(Cthulhu.Nechto);
             dto.Players.Add(new PlayerDto
             {
                 PlayerId = Cthulhu.NechtoRowId,
                 DiscordUsername = Cthulhu.Nechto,
+                DisplayUsername = displayName,
                 IsBot = true,
                 IsBoardEntity = true,
                 Character = new CharacterDto
                 {
                     Name = Cthulhu.Nechto,
+                    DisplayName = displayName,
                     Avatar = "/art/avatars/nechto.png",
                     AvatarCurrent = "/art/avatars/nechto.png",
                     Intelligence = 10,
@@ -360,13 +377,17 @@ public static class GameStateMapper
         {
             dto.IsDeepSession = Cthulhu.IsUntransformed(player)
                                 || Cthulhu.IsHerald(game, player);
-            dto.DepthsCallPromptActive =
-                game.CthulhuState.DepthsCallStageActive
-                && game.CthulhuState.DepthsCallAnswers.TryGetValue(
-                    player.GetPlayerId(), out var depthsAnswer)
-                && depthsAnswer == null;
+            dto.DepthsCallPromptActive = IsDepthsCallPromptActive(game, player);
             dto.AdeptChoiceAvailable =
                 Cthulhu.CanChooseAdept(game, player);
+            dto.AdeptChoiceLabel = dto.AdeptChoiceAvailable
+                ? GameLocalization.TextForClient(player.DiscordId, "Выбрать адепта")
+                : null;
+            dto.AdeptChoiceTooltip = dto.AdeptChoiceAvailable
+                ? GameLocalization.TextForClient(player.DiscordId, "Открыть выбор адепта")
+                : null;
+            if (dto.IsDeepSession)
+                ApplyPrivateCharacterDisplay(dto.Character);
             if (Cthulhu.IsUntransformed(player))
                 dto.Character.StatDisplayOverride = "∞";
             if (Cthulhu.IsHerald(game, player))
@@ -1594,6 +1615,49 @@ public static class GameStateMapper
             : localized
                 .Replace("Неизвестно", "❓", StringComparison.Ordinal)
                 .Replace("Unknown", "❓", StringComparison.Ordinal);
+    }
+
+    private static bool IsDepthsCallPromptActive(
+        GameClass game,
+        GamePlayerBridgeClass player) =>
+        game?.CthulhuState.DepthsCallStageActive == true
+        && player != null
+        && game.CthulhuState.DepthsCallAnswers.TryGetValue(
+            player.GetPlayerId(), out var depthsAnswer)
+        && depthsAnswer == null;
+
+    private static LocalizedText Localized(string canonicalText) =>
+        new(canonicalText, GameLocalization.Text(canonicalText, GameLocalization.English));
+
+    private static void ApplyPrivateCharacterDisplay(CharacterDto character)
+    {
+        character.DisplayName = Localized(character.Name);
+        if (!string.IsNullOrEmpty(character.Description))
+            character.DisplayDescription = Localized(character.Description);
+
+        foreach (var passive in character.Passives)
+        {
+            passive.DisplayName = Localized(passive.Name);
+            if (!string.IsNullOrEmpty(passive.Description))
+                passive.DisplayDescription = Localized(passive.Description);
+        }
+    }
+
+    private static void ApplyBoardEntityDisplay(FightEntryDto fight)
+    {
+        if (fight.AttackerCharName == Cthulhu.Nechto)
+        {
+            fight.AttackerCharDisplayName = Localized(fight.AttackerCharName);
+            if (fight.AttackerName == Cthulhu.Nechto)
+                fight.AttackerDisplayName = Localized(fight.AttackerName);
+        }
+
+        if (fight.DefenderCharName == Cthulhu.Nechto)
+        {
+            fight.DefenderCharDisplayName = Localized(fight.DefenderCharName);
+            if (fight.DefenderName == Cthulhu.Nechto)
+                fight.DefenderDisplayName = Localized(fight.DefenderName);
+        }
     }
 
     private static string MaskProScoreSource(

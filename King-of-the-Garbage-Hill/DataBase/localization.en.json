@@ -477,6 +477,18 @@
     ,"Homelander: \"Но ведь я сверхчеловек!\"": "Homelander: \"But I am a superhuman!\""
     ,"Stan Edgar: \"Для нашей компании ты не больше чем бракованный продукт.\"": "Stan Edgar: \"To this company you are nothing more than a defective product.\""
     ,"Залп V-наводящихся ракет...": "A volley of V-seeking missiles..."
+    ,"Долго он в Р'льехе спит и видит сны...": "Long has he slept in R'lyeh, dreaming..."
+    ,"ухлутк идубзар и нокимоноркен идйан": "uhluhtc nekawa dna nocimonorcen eht dnif"
+    ,"Выбери адепта": "Choose an adept"
+    ,"Выбрать адепта": "Choose an adept"
+    ,"Открыть выбор адепта": "Open adept selection"
+    ,"Откликнуться на зов глубин": "Answer the Call of the Depths"
+    ,"Напасть на Нечто": "Attack the Thing"
+    ,"Вы напали на Нечто": "You attacked the Thing"
+    ,"Выбери другой стат": "Choose another stat"
+    ,"Да": "Yes"
+    ,"Нет": "No"
+    ,"Выбрать": "Select"
   },
   "russianExact": {
     "Rick Sanchez": "Рик Санчез",
@@ -1278,7 +1290,43 @@
     "Еще один бастард": "Another Bastard",
     "Черный Замок": "Castle Black",
     "Мой дозор окончен": "My Watch Has Ended",
-    "королевских": "royal"
+    "королевских": "royal",
+    "Ктулху": "Cthulhu",
+    "Нечто": "The Thing",
+    "Культ": "Cult",
+    "Морок": "Delusion",
+    "Космический ужас": "Cosmic Horror",
+    "Взрывной майнинг!": "Explosive Mining!",
+    "Сделка": "Deal",
+    "Праведность": "Righteousness",
+    "Скромность": "Modesty",
+    "Башня Vought": "Vought Tower",
+    "Супер \"Человек\"": "Super \"Human\"",
+    "Молоко": "Milk",
+    "Лидер Семерки": "Leader of the Seven",
+    "Подумай, Марк!": "Think, Mark!",
+    "Стражи Земли": "Guardians of the Globe",
+    "Частица нашей силы": "A Fraction of Our Power",
+    "Подземный Поезд": "Underground Train",
+    "Убийственная Парочка": "Killer Couple",
+    "Нахер Бучера": "Fuck Butcher",
+    "Неудержимые": "The Unstoppables"
+  },
+  "browserPrivate": {
+    "exact": [
+      "Долго он в Р'льехе спит и видит сны...",
+      "ухлутк идубзар и нокимоноркен идйан",
+      "Выбери адепта",
+      "Выбрать адепта",
+      "Открыть выбор адепта",
+      "Откликнуться на зов глубин",
+      "Напасть на Нечто",
+      "Вы напали на Нечто",
+      "Выбери другой стат",
+      "Да",
+      "Нет",
+      "Выбрать"
+    ]
   },
   "phraseFallbacks": {
     "Авто Ход": "No hands on the keyboard? Fine. I'll do it myself.",
@@ -1406,13 +1454,7 @@
     "DooM Guy": "Rip and tear. Until it is done.",
     "Призыв": "Gamabunta might answer. Eventually.",
     "Монтировка": "The crowbar solves every problem.",
-    "Долго он в Р'льехе спит и видит сны...": "Долго он в Р'льехе спит и видит сны...",
-    "ухлутк идубзар и нокимоноркен идйан": "ухлутк идубзар и нокимоноркен идйан",
-    "Выбери адепта": "Выбери адепта",
-    "Откликнуться на зов глубин": "Откликнуться на зов глубин",
-    "Напасть на Нечто": "Напасть на Нечто",
-    "Вы напали на Нечто": "Вы напали на Нечто",
-    "Выбери другой стат": "Выбери другой стат"
+    "Сделка": "Deal."
   },
   "characters": {
     "DeepList": "At first glance, DeepList is just another madman trolling everyone he meets. He farms memes so relentlessly that he built an entire game out of them, invents deranged builds, and pulls 200-IQ high-ELO plays while pretending to be a clueless noob. But here is the catch: he never actually loses. They say he is so far ahead that everything happening in the world is merely another step in his plan — perhaps this whole game is one enormous Long Con.\n\nTop-three challenger of ZBS Gaming. 2K Elo pro. Troll.",
@@ -1457,7 +1499,9 @@
     "Мадара": "",
     "Гордон Фримен": "",
     "Джон Сноу": "Jon Snow",
-    "Ктулху": "Является богом",
+    "Homelander": "",
+    "Omni-man": "",
+    "Ктулху": "He is a god.",
     "Нечто": "",
     "ScamRat": ""
   },
@@ -1645,8 +1689,8 @@
     "Призыв": "If Naruto attacks alone, he summons a powerful ally to help.",
     "Бог шиноби": "Madara is FAR TOO STRONG. Whoever summoned him into this world made a mistake, and now nothing can stop him. To avoid boredom he fights weak opponents with his __eyes closed__, but if several enemies arrive, he may show them “a couple of techniques.”",
     "Воскрешенное тело": "Madara is dead; only the thrill of battle can make his heart beat. Nothing else in life interests him.",
-    "Второй метеорит": "Madara's attacking victories reduce the enemy's *Moral* to zero.\nIf Madara's attack is Blocked, he loses nothing. He sends a second meteor, worth 2 points.",
-    "Клоны Сусано": "Madara wins every fight of turn seven with ease, and it bores him. On turn 8 he creates clones and fights everyone who dared Predict him. If there are more than two enemies, that is “unfair,” so the clones activate Susanoo and gain +1 Justice.",
+    "Второй метеорит": "Madara's attacking victories reduce the enemy's Justice and *Moral* to zero.\nIf Madara's attack is Blocked, he loses nothing. He sends a second meteor, worth 2 points.",
+    "Клоны Сусано": "Madara wins every fight of turn seven with ease, and it bores him. On turn 8 he creates clones and fights everyone who dared Predict him. If there are more than two enemies, that is “unfair,” so the clones activate Susanoo and gain +2 Justice.",
     "Вечное Цукуеми": "",
     "Монтировка": "The crowbar solves every problem and turns every **3**rd fight into a victory.",
     "Молчаливый Герой": "Every **3** turns, a headcrab latches onto two random enemies. Any resolved attack by Gordon knocks the headcrab off the enemy and saves them from becoming a zombie. The Hero gains **3** **bonus** points for it. If the crab is not removed within **3** turns, the enemy loses all their Intelligence. But is it worth it...",
@@ -1658,12 +1702,26 @@
     "Черный Замок": "Castle Black stands at 4th place and divides the table into upper kings and lower wildlings.\nJon's loyalty depends on his own side: he gains one **bonus** point for every victory by a player on that side.\nCastle Black belongs to neither side. Upon entering it, Jon cannot leave for 3 more turns.",
     "Король Сервера": "All **bonus** points become **royal** points! (×2).\nJon no longer descends to Castle Black voluntarily.",
     "Мой дозор окончен": "",
-    "Культ": "В начале игры предстоит выбрать одного из адептов и сделать его Вестником конца.",
-    "Морок": "Победа Вестника над врагами сводит их с ума.\nТак же **крадет** 1 __бонусное__ очко.",
-    "Нечто": "Когда весь мир сойдет с ума, с морских глубин придет Ң̷є̵ҫ̸т̶һ̴о̷",
-    "Космический ужас": "Рядом с вечностью и смерть порою умирает.\nИ тогда придҀⷶ꜇ⷩⷬⷩⷴ҆ ꙁⷫⷩꚍⷬⷱ҆ꜿ ꚙ҆ꝕⷴꜽꝁⷫ҆ꚜꞇꝁⷴ ҩⷫ ꙉ҆ꚍ. Ҁⷱ꜇ⷴ ҏⷴꜽꚁꚛ҆ꙉ ꜽ ꚍⷱ꜇҆ꚃ҆ꚙꞇꝁ҆҆ Ꚋ ꜙꙉⷱꚍꞇꝁ҆ ꝕꚙꚍꚙ҆҆ ꙋꙉ҆ꚍꚍⷫⷱꚜꞇ.",
+    "Культ": "At the start of the game, choose one of the adepts and make them the Herald of the End.",
+    "Морок": "When the Herald defeats an enemy, it drives them mad.\nIt also **steals** 1 __bonus__ point.",
+    "Нечто": "When the whole world goes mad, T̷h̵e̸ T̶h̴i̷n̵g̸ will rise from the ocean depths.",
+    "Космический ужас": "Beside eternity, even death may die.\nAnd then c̷o̸m̴e̷s̵ t̶h̷e̴ u̵n̸n̵a̶m̵e̴a̶b̷l̸e̴.",
     "Взрывной майнинг!": "Slips defeated enemies tin cans painted to look like top-tier graphics cards. If a unique enemy fails a random Intelligence check, they take a card once to render their abilities and pay 1 **bonus** point for it. The Rat's maximum Justice falls by 1 for every sale.\nBy Blocking, the Rat hides in cover and detonates the graphics cards.\nExploded cards **steal** every point their owners earned on the previous turn through abilities, except natural victory points.",
     "Sharing is CARRYING!": "When attacking the same target together with some weakling, takes all victory points for himself. The \"earned\" points can be spent on buying stats.",
-    "Праведность": "While in first place, Homelander gains +7 *Moral* each turn in which he defeats at least one enemy. Only at the top of the tower does he control the **Seven** points.\nWhen an enemy remains in first place for too long and also defeats Homelander while attacking him... it makes him a little... upset."
+    "Праведность": "While in first place, Homelander gains +7 *Moral* each turn in which he defeats at least one enemy. Only at the top of the tower does he control the **Seven** points.\nWhen an enemy remains in first place for too long and also defeats Homelander while attacking him... it makes him a little... upset.",
+    "Скромность": "If someone reveals Homelander's identity, he does not use Justice against them.\nBut if every player has guessed Homelander's true identity, then he... has no reason left to hold back.",
+    "Башня Vought": "If one enemy stands out by earning the most points that turn, Vought's social media team publicly downplays their success by 1.\nBut if Homelander himself earns the most points, Vought hypes it twice as hard!",
+    "Супер \"Человек\"": "Nothing can take away his points or *Moral*, deal **Harm**, or nerf him in any way.\nThis bastard has only one weakness.",
+    "Молоко": "Gains 1 regular point after his first attack on HardKitty.",
+    "Лидер Семерки": "Homelander starts the game in first place unless Bratty Schoolkid is in the game.",
+    "Подумай, Марк!": "Nolan, like a typical dad, poses a logic puzzle to test the enemy's Intelligence. An attacking victory over a unique enemy begins a \"battle of wits.\"\nThe target needs at least 2 more Intelligence than Nolan to avoid falling for the trick. If Nolan catches the kid out, he gains +5 **bonus** points. (This decreases by 1 each time.)\nIf absolutely everyone turns out to be stupid enough, the Viltrumites conquer Earth, and that's it. The end.",
+    "Стражи Земли": "Nolan sees the enemy who earned the most points that turn as a fellow Guardian of the Globe. He pays them a visit... after which they *won't be able to move*.",
+    "Частица нашей силы": "Enemies study Nolan's body and gain +20 *Skill* for every attack on him.\nLook what they need to mimic a fraction of our power!",
+    "Подземный Поезд": "(Once per game) If Nolan is at the top of the hill and wins while attacking the enemy in second place, he drives them all the way to the bottom, underground, **stealing** 20% of the points and *Moral* from every innocent victim struck along the way.",
+    "Убийственная Парочка": "**Killer Couple**\nThey turn dangerous enemies' Justice against them.",
+    "Нахер Бучера": "**Fuck Butcher**\nButcher leaves the team. The Boys' Justice can no longer fall below 1.",
+    "Неудержимые": "**The Unstoppables**\nAll previously accumulated *Skill* is doubled.",
+    "Sausage Party": "**Sausage Party**\n+1 Intelligence, Strength, and Psyche.",
+    "TheBoys": "**The Boys**\nEach of the Boys gains an additional level.\nThey receive a salary from the government for winning the match."
   }
 }

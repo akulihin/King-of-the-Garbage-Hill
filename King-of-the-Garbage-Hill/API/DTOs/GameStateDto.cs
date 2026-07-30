@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
+using King_of_the_Garbage_Hill.Localization;
 
 namespace King_of_the_Garbage_Hill.API.DTOs;
 
@@ -20,6 +21,12 @@ public class GameStateDto
     public List<DraftOptionDto> DraftOptions { get; set; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string DraftPickHeading { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public LocalizedText DraftPickAcceptLabel { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public LocalizedText DraftPickDeclineLabel { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public LocalizedText DraftPickSelectLabel { get; set; }
     public bool IsKratosEvent { get; set; }
     public bool IsRumblingWarningActive { get; set; }
     public int RumblingKillCount { get; set; }
@@ -80,6 +87,8 @@ public class PlayerDto
 {
     public Guid PlayerId { get; set; }
     public string DiscordUsername { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public LocalizedText DisplayUsername { get; set; }
     public bool IsBot { get; set; }
     public bool IsWebPlayer { get; set; }
     public int TeamId { get; set; }
@@ -91,6 +100,10 @@ public class PlayerDto
     public bool DepthsCallPromptActive { get; set; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public bool AdeptChoiceAvailable { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string AdeptChoiceLabel { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string AdeptChoiceTooltip { get; set; }
 
     /// <summary>Whether this player is another member of the viewing Naruto's initialized trio.</summary>
     public bool IsNarutoAlly { get; set; }
@@ -184,9 +197,13 @@ public class PlayerDto
 public class CharacterDto
 {
     public string Name { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public LocalizedText DisplayName { get; set; }
     public string Avatar { get; set; }
     public string AvatarCurrent { get; set; }
     public string Description { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public LocalizedText DisplayDescription { get; set; }
     public int Tier { get; set; }
 
     // Stats
@@ -228,7 +245,11 @@ public class CharacterDto
 public class PassiveDto
 {
     public string Name { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public LocalizedText DisplayName { get; set; }
     public string Description { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public LocalizedText DisplayDescription { get; set; }
     public bool Visible { get; set; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string Theme { get; set; }
@@ -423,10 +444,18 @@ public class FightEntryDto
 
     // Participants
     public string AttackerName { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public LocalizedText AttackerDisplayName { get; set; }
     public string AttackerCharName { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public LocalizedText AttackerCharDisplayName { get; set; }
     public string AttackerAvatar { get; set; }
     public string DefenderName { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public LocalizedText DefenderDisplayName { get; set; }
     public string DefenderCharName { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public LocalizedText DefenderCharDisplayName { get; set; }
     public string DefenderAvatar { get; set; }
 
     /// <summary>"win" (attacker wins), "loss" (defender wins), "block", "skip"</summary>

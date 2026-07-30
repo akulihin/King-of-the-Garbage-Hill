@@ -48,7 +48,7 @@ export const LAST_CHANCES_CONFIG_STORAGE_KEY = '99lc:game-config'
 
 type UnknownRecord = Record<string, unknown>
 
-const CURRENT_LAST_CHANCES_SCHEMA_VERSION = 11
+const CURRENT_LAST_CHANCES_SCHEMA_VERSION = 12
 const MAX_GAMEPAD_BUTTON_INDEX = 31
 const MAX_FEEDBACK_DURATION_MS = 2_000
 const MAX_CONTROL_EXPIRY_MS = 10_000
@@ -214,8 +214,11 @@ const DEFAULT_LAST_CHANCES_DECELERATION_MS = 50
 const DEFAULT_LAST_CHANCES_ACTION_DIRECTION_DEAD_ZONE = 0.2
 const DEFAULT_LAST_CHANCES_MOVE_QUEST_KILLS_REQUIRED = 2
 const DEFAULT_LAST_CHANCES_SAME_TIER_SACRIFICE_RATIO = 0.5
-const DEFAULT_LAST_CHANCES_STAMINA_COST_INCREASE_PER_ROOM = 0.1
-const DEFAULT_LAST_CHANCES_MAX_STAMINA_COST_STACKS = 10
+const LEGACY_LAST_CHANCES_STAMINA_COST_INCREASE_PER_ROOM = 0.1
+const LEGACY_LAST_CHANCES_MAX_STAMINA_COST_STACKS = 10
+const DEFAULT_LAST_CHANCES_STAMINA_COST_INCREASE_PER_ROOM = 0.01
+const DEFAULT_LAST_CHANCES_STAMINA_COST_INCREASE_INTERVAL_MS = 10_000
+const DEFAULT_LAST_CHANCES_MAX_STAMINA_COST_STACKS = 100
 const DEFAULT_LAST_CHANCES_CHANCE_EROSION_STEP = 5
 
 export const DEFAULT_LAST_CHANCES_COMBAT: LastChancesCombatDefinition = {
@@ -1759,16 +1762,32 @@ function backfillRunTuningFields(migrated: UnknownRecord): void {
 }
 
 /**
- * Schema v10 makes the current-attempt attrition rules explicit. Older definitions keep the
- * shipped 10%-per-room stamina ramp (capped at ten icons) and one immediate erosion for every
- * five voluntarily spent Chances. Mother's retreat no longer accepts an entrance-hole attack
- * probability: every strike is forced through the linked hole.
+ * Schema v10 made current-attempt attrition explicit. Schema v12 replaces the shipped
+ * 10%-per-room ramp with at least 1% per room, rising to 1% per full ten seconds of active
+ * combat (20 seconds => 2%), while retaining the previous ×2 ceiling. An exact legacy shipped
+ * pair is migrated; custom rates remain authoritative. Mother's retreat no longer accepts an
+ * entrance-hole attack probability: every strike is forced through the linked hole.
  */
-function backfillCurrentAttemptAttritionFields(migrated: UnknownRecord): void {
+function backfillCurrentAttemptAttritionFields(
+  migrated: UnknownRecord,
+  sourceVersion: number,
+): void {
   const progression = asRecordOrNull(migrated.progression)
   if (progression) {
-    if (progression.staminaCostIncreasePerRoom === undefined) {
+    const usesLegacyShippedRamp = sourceVersion <= 11
+      && progression.staminaCostIncreasePerRoom
+        === LEGACY_LAST_CHANCES_STAMINA_COST_INCREASE_PER_ROOM
+      && progression.maxStaminaCostStacks === LEGACY_LAST_CHANCES_MAX_STAMINA_COST_STACKS
+    if (usesLegacyShippedRamp) {
+      progression.staminaCostIncreasePerRoom
+        = DEFAULT_LAST_CHANCES_STAMINA_COST_INCREASE_PER_ROOM
+      progression.maxStaminaCostStacks = DEFAULT_LAST_CHANCES_MAX_STAMINA_COST_STACKS
+    } else if (progression.staminaCostIncreasePerRoom === undefined) {
       progression.staminaCostIncreasePerRoom = DEFAULT_LAST_CHANCES_STAMINA_COST_INCREASE_PER_ROOM
+    }
+    if (progression.staminaCostIncreaseIntervalMs === undefined) {
+      progression.staminaCostIncreaseIntervalMs
+        = DEFAULT_LAST_CHANCES_STAMINA_COST_INCREASE_INTERVAL_MS
     }
     if (progression.maxStaminaCostStacks === undefined) {
       progression.maxStaminaCostStacks = DEFAULT_LAST_CHANCES_MAX_STAMINA_COST_STACKS
@@ -1879,6 +1898,27 @@ function backfillAuthoredOpening(
         ?? 'На пороге сгибается украденный нож. Из рукояти вырастают ноги, и Нож-паук прижимается к полу, готовясь к первому прыжку.'
     }
   }
+}
+
+/**
+ * Schema-v10/v11 browser overrides may already carry the corrected linked-hole attack while
+ * still freezing the former shipped 1488×837 lair and its low-contrast holes. Replace only that
+ * exact legacy room footprint with the current canonical room; custom-sized lairs stay intact.
+ */
+function backfillCockroachMotherLair(
+  migrated: UnknownRecord,
+  currentDefinition?: LastChancesConfig,
+): void {
+  if (!Array.isArray(migrated.rooms) || !currentDefinition) return
+  const legacyRoomIndex = migrated.rooms.findIndex((roomValue) => (
+    asRecordOrNull(roomValue)?.id === 'cockroach-mother-lair'
+  ))
+  if (legacyRoomIndex < 0) return
+  const legacyRoom = asRecordOrNull(migrated.rooms[legacyRoomIndex])
+  if (legacyRoom?.width !== 1488 || legacyRoom.height !== 837) return
+  const currentRoom = currentDefinition.rooms.find(room => room.id === 'cockroach-mother-lair')
+  if (!currentRoom) return
+  migrated.rooms[legacyRoomIndex] = cloneUnknown(currentRoom)
 }
 
 function attachCurrentControlCatalog(
@@ -2028,11 +2068,16 @@ export function migrateLastChancesConfig(
   backfillStaminaFields(migrated)
   backfillPlayerMovementFields(migrated)
   backfillRunTuningFields(migrated)
-  backfillCurrentAttemptAttritionFields(migrated)
+  backfillCurrentAttemptAttritionFields(migrated, version as number)
   repairSchemaV8GuaranteedSpawns(migrated)
   backfillAuthoredOpening(migrated, currentDefinition)
+  backfillCockroachMotherLair(migrated, currentDefinition)
   if (version === 10) {
     upsertCurrentLongbow(migrated, currentDefinition)
+    migrated.schemaVersion = CURRENT_LAST_CHANCES_SCHEMA_VERSION
+    return migrated
+  }
+  if (version === 11) {
     migrated.schemaVersion = CURRENT_LAST_CHANCES_SCHEMA_VERSION
     return migrated
   }
@@ -4747,30 +4792,32 @@ export function validateLastChancesConfig(value: unknown): LastChancesConfigVali
     && root.schemaVersion !== 5 && root.schemaVersion !== 6
     && root.schemaVersion !== 7 && root.schemaVersion !== 8
     && root.schemaVersion !== 9 && root.schemaVersion !== 10
-    && root.schemaVersion !== 11) {
-    errors.push('schemaVersion must be 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, or 11')
+    && root.schemaVersion !== 11 && root.schemaVersion !== 12) {
+    errors.push('schemaVersion must be 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, or 12')
   }
-  const schemaVersion = root.schemaVersion === 11
-    ? 11
-    : root.schemaVersion === 10
-      ? 10
-      : root.schemaVersion === 9
-        ? 9
-        : root.schemaVersion === 8
-          ? 8
-          : root.schemaVersion === 7
-            ? 7
-            : root.schemaVersion === 6
-              ? 6
-              : root.schemaVersion === 5
-                ? 5
-                : root.schemaVersion === 4
-                  ? 4
-                  : root.schemaVersion === 3
-                    ? 3
-                    : root.schemaVersion === 2
-                      ? 2
-                      : 1
+  const schemaVersion = root.schemaVersion === 12
+    ? 12
+    : root.schemaVersion === 11
+      ? 11
+      : root.schemaVersion === 10
+        ? 10
+        : root.schemaVersion === 9
+          ? 9
+          : root.schemaVersion === 8
+            ? 8
+            : root.schemaVersion === 7
+              ? 7
+              : root.schemaVersion === 6
+                ? 6
+                : root.schemaVersion === 5
+                  ? 5
+                  : root.schemaVersion === 4
+                    ? 4
+                    : root.schemaVersion === 3
+                      ? 3
+                      : root.schemaVersion === 2
+                        ? 2
+                        : 1
   requireString(root, 'title', 'config', errors)
   requireString(root, 'seed', 'config', errors)
   requireInteger(root, 'chances', 'config', errors, 1)
@@ -4893,12 +4940,15 @@ export function validateLastChancesConfig(value: unknown): LastChancesConfigVali
         errors,
       )
     }
+    if (schemaVersion >= 12 || progression.staminaCostIncreaseIntervalMs !== undefined) {
+      requireInteger(progression, 'staminaCostIncreaseIntervalMs', 'progression', errors, 1)
+    }
     if (schemaVersion >= 10 || progression.maxStaminaCostStacks !== undefined) {
       requireInteger(progression, 'maxStaminaCostStacks', 'progression', errors, 1)
       if (typeof progression.maxStaminaCostStacks === 'number'
         && Number.isFinite(progression.maxStaminaCostStacks)
-        && progression.maxStaminaCostStacks > 10) {
-        errors.push('progression.maxStaminaCostStacks must be <= 10')
+        && progression.maxStaminaCostStacks > 100) {
+        errors.push('progression.maxStaminaCostStacks must be <= 100')
       }
     }
     if (schemaVersion >= 10 || progression.chanceErosionStep !== undefined) {

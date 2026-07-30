@@ -1319,11 +1319,7 @@ onBeforeUnmount(() => {
                   :aria-label="`${t.staminaAttrition}: +${Math.round((snapshot.player.staminaCostMultiplier - 1) * 100)}%`"
                 >
                   <i aria-hidden="true">
-                    <TriangleAlert
-                      v-for="stack in snapshot.player.staminaCostStacks"
-                      :key="stack"
-                      :size="9"
-                    />
+                    <TriangleAlert :size="9" />
                   </i>
                   <b>+{{ Math.round((snapshot.player.staminaCostMultiplier - 1) * 100) }}%</b>
                 </span>

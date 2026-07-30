@@ -6443,6 +6443,14 @@ export class LastChancesEngine {
     return 1 + this.staminaCostStacks * this.config.progression.staminaCostIncreasePerRoom
   }
 
+  /** A cleared room adds at least one stack, rising to one per full active-combat interval. */
+  private completedRoomStaminaCostStacks(): number {
+    return Math.max(
+      1,
+      Math.floor(this.roomElapsedMs / this.config.progression.staminaCostIncreaseIntervalMs),
+    )
+  }
+
   private canAffordStamina(cost: number): boolean {
     return cost <= 0 || this.player.stamina >= cost
   }
@@ -9772,7 +9780,7 @@ export class LastChancesEngine {
     if (!this.currentNode) return
     this.staminaCostStacks = Math.min(
       this.config.progression.maxStaminaCostStacks,
-      this.staminaCostStacks + 1,
+      this.staminaCostStacks + this.completedRoomStaminaCostStacks(),
     )
     this.rewardChest = null
     if (this.currentNode.tierIndex >= this.plan.tiers.length - 1) {

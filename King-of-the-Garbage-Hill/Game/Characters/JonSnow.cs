@@ -20,6 +20,7 @@ public static class JonSnow
     public const int KingSkillThreshold = 228;
     public const int BlackCastlePlace = 4;
     public const int BlackCastleTurns = 3;
+    public const int JusticeStatCap = 10;
 
     public sealed class State
     {
@@ -204,14 +205,19 @@ public static class JonSnow
         if (bonus <= 0) return;
 
         player.FightCharacter.SetIntelligenceForOneFight(
-            player.FightCharacter.GetIntelligence() + bonus, source);
+            ApplyJusticeStatCap(player.FightCharacter.GetIntelligence(), bonus), source);
         player.FightCharacter.SetStrengthForOneFight(
-            player.FightCharacter.GetStrength() + bonus, source);
+            ApplyJusticeStatCap(player.FightCharacter.GetStrength(), bonus), source);
         player.FightCharacter.SetSpeedForOneFight(
-            player.FightCharacter.GetSpeed() + bonus, source);
+            ApplyJusticeStatCap(player.FightCharacter.GetSpeed(), bonus), source);
         player.FightCharacter.SetPsycheForOneFight(
-            player.FightCharacter.GetPsyche() + bonus, source);
+            ApplyJusticeStatCap(player.FightCharacter.GetPsyche(), bonus), source);
     }
+
+    private static int ApplyJusticeStatCap(int current, int bonus) =>
+        current >= JusticeStatCap
+            ? current
+            : Math.Min(JusticeStatCap, current + bonus);
 
     public static void HandleResolvedFight(
         GameClass game,
@@ -262,7 +268,7 @@ public static class JonSnow
                 $"{attacker.DiscordUsername}: What is this, another bastard?");
         }
 
-        AwardBlackCastleLoyalty(game, jon, winner);
+        AwardBlackCastleLoyalty(game, jon, winner, loser);
 
         if (jonWon || jonLost)
         {
@@ -274,10 +280,12 @@ public static class JonSnow
     private static void AwardBlackCastleLoyalty(
         GameClass game,
         GamePlayerBridgeClass jon,
-        GamePlayerBridgeClass winner)
+        GamePlayerBridgeClass winner,
+        GamePlayerBridgeClass loser)
     {
         if (!HasPassive(jon, BlackCastle)
-            || winner.GetPlayerId() == jon.GetPlayerId())
+            || winner.GetPlayerId() == jon.GetPlayerId()
+            || loser.GetPlayerId() == jon.GetPlayerId())
             return;
 
         var jonPlace = jon.Status.GetPlaceAtLeaderBoard();

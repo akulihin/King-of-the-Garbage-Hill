@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { ref, watch, nextTick, computed } from 'vue'
-import type { Player } from 'src/services/signalr'
+import type { Passive, Player } from 'src/services/signalr'
 import { playTheBoysReveal, playTheBoysUnlock } from 'src/services/sound'
 import { formatPassiveDescription } from 'src/services/textFormatting'
 import { translateText } from 'src/i18n'
+import { localizedText } from 'src/platform/localization'
 
 const props = defineProps<{
   player: Player
@@ -34,6 +35,16 @@ function isExpanded(idx: number): boolean {
 
 function passiveIndexByName(name: string): number {
   return props.player.character.passives.findIndex((p) => p.name === name)
+}
+
+function passiveDisplayName(passive: Passive): string {
+  return passive.displayName ? localizedText(passive.displayName) : passive.name
+}
+
+function passiveDisplayDescription(passive: Passive): string {
+  return passive.displayDescription
+    ? localizedText(passive.displayDescription)
+    : translateText(passive.description)
 }
 
 // ── Cinematic VFX state ───────────────────────────────────────────────
@@ -209,14 +220,16 @@ watch(
           <span v-if="!isTerminalMode && passive.visible" class="skill-dot dot-active" />
           <span v-else-if="!isTerminalMode" class="skill-lock" aria-label="Закрытая способность">🔒</span>
           <span v-else class="terminal-line-no">{{ String((idx * 4) + 1).padStart(2, '0') }}</span>
-          <span v-if="isTerminalMode || passive.visible" class="skill-name">{{ isTerminalMode ? `// ${passive.name}` : passive.name }}</span>
+          <span v-if="isTerminalMode || passive.visible" class="skill-name">
+            {{ isTerminalMode ? `// ${passive.name}` : passiveDisplayName(passive) }}
+          </span>
         </div>
         <div class="skill-header-right">
           <span v-if="!isTerminalMode && passive.visible" class="skill-chevron" :class="{ 'chevron-open': isExpanded(idx) }">▾</span>
         </div>
       </div>
       <Transition name="expand">
-        <div v-if="passive.visible && isExpanded(idx)" class="skill-desc" :class="{ 'terminal-code-copy': isTerminalMode }" v-html="formatPassiveDescription(translateText(passive.description))" />
+        <div v-if="passive.visible && isExpanded(idx)" class="skill-desc" :class="{ 'terminal-code-copy': isTerminalMode }" v-html="formatPassiveDescription(passiveDisplayDescription(passive))" />
       </Transition>
     </div>
 

@@ -5,6 +5,7 @@ import type {
   ClashLobbyState,
   ClashResolution,
 } from 'src/features/clash/types'
+import type { LocalizedText } from 'src/platform/localization'
 
 const HUB_URL = import.meta.env.VITE_SIGNALR_HUB || '/gamehub'
 
@@ -20,6 +21,9 @@ export type GameState = {
   isDraftPickPhase: boolean
   draftOptions: DraftOptionDto[] | null
   draftPickHeading?: string
+  draftPickAcceptLabel?: LocalizedText
+  draftPickDeclineLabel?: LocalizedText
+  draftPickSelectLabel?: LocalizedText
   isKratosEvent: boolean
   /** True while the round pipeline is waiting for an inter-round character decision. */
   isRoundTransitionPaused: boolean
@@ -67,6 +71,7 @@ export type GameState = {
 export type Player = {
   playerId: string
   discordUsername: string
+  displayUsername?: LocalizedText
   isBot: boolean
   isWebPlayer: boolean
   teamId: number
@@ -78,6 +83,10 @@ export type Player = {
   depthsCallPromptActive?: boolean
   /** Owner-only round-one action that opens the Cthulhu adept ritual. */
   adeptChoiceAvailable?: boolean
+  /** Owner-localized label for the private adept action. */
+  adeptChoiceLabel?: string
+  /** Owner-localized tooltip for the private adept action. */
+  adeptChoiceTooltip?: string
   /** Whether this player is another member of the viewing Naruto's initialized trio. */
   isNarutoAlly: boolean
   /** Public recognition awarded by Madara after the Red Tiger phrase. */
@@ -499,9 +508,11 @@ export type WordCategory = {
 
 export type Character = {
   name: string
+  displayName?: LocalizedText
   avatar: string
   avatarCurrent: string
   description: string
+  displayDescription?: LocalizedText
   tier: number
   intelligence: number
   strength: number
@@ -531,7 +542,9 @@ export type Character = {
 
 export type Passive = {
   name: string
+  displayName?: LocalizedText
   description: string
+  displayDescription?: LocalizedText
   visible: boolean
   theme?: string
 }
@@ -707,10 +720,14 @@ export type MediaMessage = {
 export type FightEntry = {
   // Participants
   attackerName: string
+  attackerDisplayName?: LocalizedText
   attackerCharName: string
+  attackerCharDisplayName?: LocalizedText
   attackerAvatar: string
   defenderName: string
+  defenderDisplayName?: LocalizedText
   defenderCharName: string
+  defenderCharDisplayName?: LocalizedText
   defenderAvatar: string
 
   // Outcome: "win" (attacker wins), "loss" (defender wins), "block", "skip"
@@ -1195,6 +1212,8 @@ export type BattleshipCell = {
   summonType: string | null
   summonName?: string | null
   isBoardingSummon?: boolean
+  summonMoveDirection?: string | null
+  boardingShipDeckCount?: number
   isScratched: boolean
   summonTrails?: BattleshipSummonMarker[]
   summonDeaths?: BattleshipSummonMarker[]
@@ -1268,6 +1287,7 @@ export type BattleshipSummon = {
   waitingForDirectionChoice: boolean
   isBoardingShip: boolean
   sourceShipName?: string | null
+  sourceShipDeckCount: number
 }
 
 export type BattleshipFleetSelection = {
@@ -1306,6 +1326,8 @@ export type BattleshipUpgrade = {
 
 export type BattleshipShotResult = {
   wasSkipped: boolean
+  skippedPlayerId: string | null
+  skipReason: 'Penalty' | 'Stun' | null
   hit: boolean
   miss: boolean
   scratched: boolean

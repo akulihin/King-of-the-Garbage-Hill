@@ -2471,8 +2471,6 @@ public class CharacterPassives : IServiceSingleton
                             game.Phrases.RickMostWantedPortalFollow.SendLog(me, false);
                         }
 
-                        Naruto.SanitizeMutualTargets(game);
-
                         game.Phrases.RickPortalGunFired.SendLog(me, false);
                     }
                     break;
@@ -3870,7 +3868,6 @@ public class CharacterPassives : IServiceSingleton
                                 virusTarget.Passives.TheBoysVirusSource = player.GetPlayerId();
                                 francieAfter.VirusArmed = false;
                                 francieAfter.VirusUsed = true;
-                                game.AddGlobalLogs($"☣️ Француз заразил **{virusTarget.DiscordUsername}** Смертельным вирусом!");
                                 game.Phrases.TheBoysVirusApply.SendLog(player, false);
                             }
                         }

@@ -6,6 +6,7 @@ import ScoreOdometer from 'src/components/ScoreOdometer.vue'
 import SpecialLevelUpPanel from 'src/components/SpecialLevelUpPanel.vue'
 import { useGameStore } from 'src/store/game'
 import { currentLocale } from 'src/i18n'
+import { localizedText, message } from 'src/platform/localization'
 import {
   buildScoreAnimHits,
   buildScoreGroups,
@@ -39,6 +40,17 @@ const props = withDefaults(defineProps<{
   scoreAnimKey: '',
   fightBonuses: () => [],
 })
+
+const displayCharacterName = computed(() => {
+  const character = props.player.character
+  return character.displayName ? localizedText(character.displayName) : character.name
+})
+
+const displayUsername = computed(() =>
+  props.player.displayUsername
+    ? localizedText(props.player.displayUsername)
+    : props.player.discordUsername,
+)
 
 const store = useGameStore()
 type LevelUpStatIndex = 1 | 2 | 3 | 4
@@ -193,7 +205,6 @@ const widgetHelpCopy = {
   eren: ['Rumbling only checks losses in round 10. The left counter shows Attack Titan readiness; fire marks show accumulated hatred.', 'RUMBLING проверяет только поражения в 10-м раунде. Счётчик слева показывает готовность Атакующего Титана, а метки 🔥 — накопленную ненависть.'],
   naruto: ['A ready Harem replaces Block with Skip. Each attacker donates 20% of lifetime ability points; after use it recharges for two turns.', 'Готовый Гарем заменяет Блок на Скип. Каждый атакующий донатит 20% очков, заработанных способностями за матч; после использования Гарем перезаряжается два хода.'],
   gordon: ['Crowbar tracks every resolved fight; every third one is a win. Headcrabs show their remaining incubation time, and zombies can never raise Intelligence above zero.', 'Монтировка считает состоявшиеся бои: каждый третий становится победой. Для хэдкрабов показано время до превращения, а зомби больше не могут поднять Интеллект выше нуля.'],
-  jonSnow: ['Skill unlocks Server King. Wolves mark the two weakest players; Castle Black shows the remaining position lock and counts only other same-side winners.', 'Скилл открывает Короля Сервера. Волки отмечают двух слабейших игроков, а Черный Замок показывает оставшееся удержание позиции и считает только победы других соратников.'],
   bulk: ['The current chance for Boole to lose his turn. BUFFED means his zero-Psyche stat boost is active.', 'Текущий шанс Буля пропустить ход. BUFFED означает усиление характеристик при нулевой Психике.'],
   tea: ['When tea is ready, the next attack spends it for one point and makes the target skip their next turn.', 'Когда чай готов, следующая атака потратит его: даст очко и заставит цель пропустить следующий ход.'],
   jew: ['Tracks the Psyche accumulated by the PROFIT mechanic.', 'Счётчик показывает, сколько Психики уже накоплено механикой PROFIT.'],
@@ -230,9 +241,11 @@ const widgetHelpCopy = {
   geralt: ['Each row shows contracts and oil tier. Fighting that monster type spends every matching contract on extra bouts.', 'Каждая строка показывает число заказов типа и уровень масла. Бой с целью тратит все её заказы на дополнительные схватки.'],
 } as const
 
-type WidgetHelpKey = keyof typeof widgetHelpCopy
+type WidgetHelpKey = keyof typeof widgetHelpCopy | 'jonSnow'
 
 function widgetHelp(key: WidgetHelpKey): string {
+  if (key === 'jonSnow')
+    return message('kotgh.widget.jonSnow.help')
   const copy = widgetHelpCopy[key]
   return t(copy[0], copy[1])
 }
@@ -991,18 +1004,18 @@ function doomModuleStatus(module: string): { text: string; state: 'live' | 'done
         <img
           v-if="player.character.avatarCurrent"
           :src="player.character.avatarCurrent"
-          :alt="player.character.name"
+          :alt="displayCharacterName"
           class="pc-avatar-img"
         >
         <div v-else class="pc-avatar-fallback">
-          {{ player.character.name.charAt(0) }}
+          {{ displayCharacterName.charAt(0) }}
         </div>
       </div>
       <div class="pc-identity">
         <div class="pc-name">
-          {{ player.character.name }}
+          {{ displayCharacterName }}
         </div>
-        <div class="pc-username">{{ player.discordUsername }}</div>
+        <div class="pc-username">{{ displayUsername }}</div>
       </div>
     </div><!-- /pc-top-right -->
 

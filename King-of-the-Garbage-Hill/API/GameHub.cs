@@ -2003,6 +2003,9 @@ public class GameHub : Hub
 
     private async Task PushBattleshipStateToAll(string gameId)
     {
+        foreach (var skipEvent in _battleshipService.TakePendingTurnSkipEvents(gameId))
+            await SendBattleshipShotEvent(gameId, skipEvent);
+
         // Send personalized state to each player, collecting their connection IDs
         var playerIds = _battleshipService.GetPlayerIds(gameId);
         var playerConnectionIds = new List<string>();
@@ -2052,6 +2055,8 @@ public class GameHub : Hub
             data = new
             {
                 result.WasSkipped,
+                result.SkippedPlayerId,
+                result.SkipReason,
                 result.Hit,
                 result.Miss,
                 result.Scratched,
