@@ -18,6 +18,13 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Remove="Battleship\**\*.cs" />
+    <Compile Remove="Clash\**\*.cs" />
+    <ProjectReference Include="Battleship\King-of-the-Garbage-Hill.Games.Battleship.csproj" />
+    <ProjectReference Include="Clash\King-of-the-Garbage-Hill.Games.Clash.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Service Include="{508349b6-6b84-4df5-91f0-309beebad82d}" />
   </ItemGroup>
 
@@ -31,6 +38,7 @@
     <None Include="DataBase\blackjack_words.json" CopyToOutputDirectory="PreserveNewest" LinkBase="DataBase" />
     <None Include="DataBase\localization.en.json" CopyToOutputDirectory="PreserveNewest" LinkBase="DataBase" />
     <None Include="DataBase\phrases.en.json" CopyToOutputDirectory="PreserveNewest" LinkBase="DataBase" />
+    <None Include="..\Localization\*.messages.json" CopyToOutputDirectory="PreserveNewest" LinkBase="Localization" />
   </ItemGroup>
 
   <ProjectExtensions><VisualStudio><UserProperties /></VisualStudio></ProjectExtensions>

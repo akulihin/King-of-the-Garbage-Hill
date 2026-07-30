@@ -15,6 +15,7 @@ using King_of_the_Garbage_Hill.Game.ReactionHandling;
 using King_of_the_Garbage_Hill.Game.Simulation;
 using King_of_the_Garbage_Hill.Helpers;
 using King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts;
+using King_of_the_Garbage_Hill.Localization;
 using Lamar;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
@@ -114,6 +115,9 @@ public class ProgramKingOfTheGarbageHill
             builder.Services.AddSingleton(_services.GetRequiredService<Game.GameLogic.StartGameLogic>());
             builder.Services.AddSingleton(_services.GetRequiredService<LocalPersistentData.UsersAccounts.UserAccounts>());
             builder.Services.AddSingleton(_services.GetRequiredService<Game.Services.DiscordWidgetService>());
+            // Validate and register the aggregate of product-scoped RU/EN catalogs
+            // used by new server-authored messages. Legacy replay text remains compatible.
+            builder.Services.AddSingleton(new MessageCatalog());
 
             // Register web-specific services
             builder.Services.AddSingleton<WebGameService>();

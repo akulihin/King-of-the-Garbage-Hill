@@ -1,0 +1,10 @@
+{
+  "product": "battleship",
+  "messages": {
+    "battleship.title": {
+      "visibility": "public",
+      "ru": "Морской Бой",
+      "en": "Battleship"
+    }
+  }
+}

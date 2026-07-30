@@ -221,11 +221,11 @@ const AUTHENTIC_BUNDLED_LEGACY_RULES_DIGESTS: Readonly<Record<
 const AUTHENTIC_BUNDLED_CURRENT_RULES_DIGESTS: Readonly<
   Record<LegacyBundledMinigameKind, string>
 > = {
-  td: '568db9aff067c217',
+  td: '66ccb65e96ec5f7a',
   tavern: 'c809dbe4efb8267e',
-  alchemy: '732dd9c02d8f349b',
-  inventory: '6c25d4369350c468',
-  clash: '521030aa5b858e36',
+  alchemy: '8eb70f1d87b7832a',
+  inventory: 'fead814b74cc5da9',
+  clash: '71d3dcb43d6e60b8',
 }
 
 function isAuthenticBundledLegacyRulesUpgrade(

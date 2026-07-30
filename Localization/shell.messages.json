@@ -1,0 +1,60 @@
+{
+  "product": "shell",
+  "messages": {
+    "shell.language.label": {
+      "visibility": "public",
+      "ru": "Язык",
+      "en": "Language"
+    },
+    "shell.nav.lobby": {
+      "visibility": "public",
+      "ru": "Лобби",
+      "en": "Lobby"
+    },
+    "shell.nav.home": {
+      "visibility": "public",
+      "ru": "Главная",
+      "en": "Home"
+    },
+    "shell.nav.fortress": {
+      "visibility": "public",
+      "ru": "Крепость Рока",
+      "en": "Fortress of Doom"
+    },
+    "shell.nav.store": {
+      "visibility": "public",
+      "ru": "Магазин",
+      "en": "Store"
+    },
+    "shell.nav.achievements": {
+      "visibility": "public",
+      "ru": "Достижения",
+      "en": "Achievements"
+    },
+    "shell.nav.fightCalculator": {
+      "visibility": "public",
+      "ru": "Калькулятор боя",
+      "en": "Fight Lab"
+    },
+    "shell.nav.logout": {
+      "visibility": "public",
+      "ru": "Выйти",
+      "en": "Logout"
+    },
+    "shell.nav.primary": {
+      "visibility": "public",
+      "ru": "Основная навигация",
+      "en": "Primary navigation"
+    },
+    "shell.reservation.title": {
+      "visibility": "public",
+      "ru": "Вы были избраны богом.",
+      "en": "You have been chosen by God."
+    },
+    "shell.reservation.wait": {
+      "visibility": "public",
+      "ru": "Ожидайте начала админской игры.",
+      "en": "Wait for the admin match to begin."
+    }
+  }
+}

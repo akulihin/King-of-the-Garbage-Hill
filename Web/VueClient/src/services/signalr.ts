@@ -1422,6 +1422,19 @@ export type GameEvent = {
 
 // ── SignalR Connection Manager ─────────────────────────────────────
 
+export type ViewerLanguage = 'ru' | 'en'
+
+export type AuthenticatedSession = {
+  success: boolean
+  discordId: string
+  playerType: number
+  lastPlayedCharacter: string
+  language?: ViewerLanguage
+  gameplayMode: 'Casual' | 'Pro'
+  eloRating: number
+  isGodAdmin: boolean
+}
+
 class SignalRService {
   private connection: signalR.HubConnection | null = null
   private _isConnected = false
@@ -1441,7 +1454,8 @@ class SignalRService {
   onActionResult: ((result: ActionResult) => void) | null = null
   onGameEvent: ((event: GameEvent) => void) | null = null
   onError: ((error: string) => void) | null = null
-  onAuthenticated: ((data: { success: boolean; discordId: string; playerType: number; lastPlayedCharacter: string; gameplayMode: 'Casual' | 'Pro'; eloRating: number; isGodAdmin: boolean }) => void) | null = null
+  onAuthenticated: ((data: AuthenticatedSession) => void) | null = null
+  onLanguageChanged: ((data: { language: ViewerLanguage }) => void) | null = null
   onGameplayModeChanged: ((data: { gameplayMode: 'Casual' | 'Pro'; eloRating: number }) => void) | null = null
   onConnectionChanged: ((connected: boolean) => void) | null = null
   onWebAccountCreated: ((data: { discordId: string; username: string }) => void) | null = null
@@ -1557,9 +1571,13 @@ class SignalRService {
       this.onClashError?.(error)
     })
 
-    this.connection.on('Authenticated', (data: { success: boolean; discordId: string; playerType: number; lastPlayedCharacter: string; gameplayMode: 'Casual' | 'Pro'; eloRating: number; isGodAdmin: boolean }) => {
+    this.connection.on('Authenticated', (data: AuthenticatedSession) => {
       this._isSessionReady = data.success
       this.onAuthenticated?.(data)
+    })
+
+    this.connection.on('LanguageChanged', (data: { language: ViewerLanguage }) => {
+      this.onLanguageChanged?.(data)
     })
 
     this.connection.on('GameplayModeChanged', (data: { gameplayMode: 'Casual' | 'Pro'; eloRating: number }) => {
@@ -1753,8 +1771,11 @@ class SignalRService {
     await this.connection.invoke('Authenticate', discordId)
   }
 
-  async setLanguage(language: 'ru' | 'en'): Promise<void> {
-    await this.connection?.invoke('SetLanguage', language)
+  async setLanguage(language: ViewerLanguage): Promise<ViewerLanguage> {
+    const saved = await this.connection?.invoke<string>('SetLanguage', language)
+    if (saved !== 'ru' && saved !== 'en')
+      throw new Error('The server could not save the selected language.')
+    return saved
   }
 
   async joinGame(gameId: number): Promise<void> {

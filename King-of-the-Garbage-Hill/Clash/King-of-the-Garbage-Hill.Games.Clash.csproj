@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>King_of_the_Garbage_Hill.Clash</RootNamespace>
+    <AssemblyName>King-of-the-Garbage-Hill.Games.Clash</AssemblyName>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="Logic\**\*.cs" />
+    <Compile Include="Models\**\*.cs" />
+  </ItemGroup>
+
+</Project>

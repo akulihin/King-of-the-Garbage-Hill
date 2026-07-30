@@ -1,4 +1,0 @@
-interface:
-  display_name: "Inspect Replay UI"
-  short_description: "Drive and diagnose rendered KOTGH replays"
-  default_prompt: "Use $inspect-replay-ui to inspect this replay in the rendered game UI and collect visual evidence."

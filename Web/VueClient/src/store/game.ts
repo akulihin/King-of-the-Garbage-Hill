@@ -29,6 +29,7 @@ import {
   playMoralForSkillSound,
   playGeraltMeditation,
 } from 'src/services/sound'
+import { setLocale } from 'src/platform/localization'
 
 type StatKey = 'intelligence' | 'strength' | 'speed' | 'psyche'
 type PendingLevelUp = { stat: StatKey; startedAt: number }
@@ -385,12 +386,18 @@ export const useGameStore = defineStore('game', () => {
           eloRating.value = data.eloRating ?? 1000
           lastPlayedCharacter.value = data.lastPlayedCharacter ?? ''
           isGodAdmin.value = data.isGodAdmin ?? false
+          if (data.language === 'ru' || data.language === 'en')
+            setLocale(data.language)
           const requests = [requestAchievements(), requestQuests()]
           if (storeState.value) requests.push(requestStore())
           if (isGodAdmin.value && adminLobbyState.value)
             requests.push(requestAdminLobbyState())
           void Promise.allSettled(requests)
         }
+      }
+
+      signalrService.onLanguageChanged = ({ language }) => {
+        setLocale(language)
       }
 
       signalrService.onGameplayModeChanged = (data) => {
@@ -533,7 +540,7 @@ export const useGameStore = defineStore('game', () => {
   }
 
   async function setLanguage(language: 'ru' | 'en') {
-    await signalrService.setLanguage(language)
+    setLocale(await signalrService.setLanguage(language))
   }
 
   async function setGameplayMode(mode: 'Casual' | 'Pro') {

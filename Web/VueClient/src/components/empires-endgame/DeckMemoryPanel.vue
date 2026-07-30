@@ -43,7 +43,13 @@ function rankLabel(rank: EmpiresDeckMemoryCard['rank']): string {
           <span>Феноменальная память Тома</span>
           <h2 id="deck-memory-title">Порядок оставшейся колоды</h2>
         </div>
-        <button ref="closeButton" type="button" aria-label="Закрыть память колоды" @click="emit('close')">
+        <button
+          ref="closeButton"
+          type="button"
+          aria-label="Закрыть память колоды"
+          data-testid="close-deck-memory"
+          @click="emit('close')"
+        >
           <X :size="18" />
         </button>
       </header>

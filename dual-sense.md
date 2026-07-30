@@ -1,6 +1,6 @@
 # 99LC DualSense pass 2: armed gates, telegraph rumble, push-through finishers
 
-> **Supersedes `create-a-plan-on-lively-nova.md`** (2026-07-19, never implemented). That plan's fixed scope decisions carry over unchanged: depth selects charge band (no invented attacks — only existing authored gestures are routed); no perfect-release timing windows (bands stay monotonic, "release correctly" = release in the band the rumble names); sub-gate ticks are pure per-weapon texture with zero gameplay meaning. Its line anchors were stale (stamina, sword rhythm/fatigue rework, spear-v2 and the Fang all landed after it); every anchor below was re-verified on 2026-07-25 against schema v7.
+> **Supersedes the removed 2026-07-19 four-gate draft** (never implemented). That draft's fixed scope decisions carry over unchanged: depth selects charge band (no invented attacks — only existing authored gestures are routed); no perfect-release timing windows (bands stay monotonic, "release correctly" = release in the band the rumble names); sub-gate ticks are pure per-weapon texture with zero gameplay meaning. Its line anchors were stale (stamina, sword rhythm/fatigue rework, spear-v2 and the Fang all landed after it); every anchor below was re-verified on 2026-07-25 against schema v7.
 
 ## Context
 

@@ -1,16 +1,13 @@
 import './assets/main.css'
-import { createApp } from 'vue'
-import { createPinia } from 'pinia'
-import App from './App.vue'
-import { router } from './router'
-import { installDomLocalization } from './i18n'
-
-const app = createApp(App)
-
-app.use(createPinia())
-app.use(router)
-
-app.mount('#app')
+import { resolveProductApplication } from './apps/registry'
 
 const appRoot = document.getElementById('app')
-if (appRoot) installDomLocalization(appRoot)
+if (!appRoot)
+  throw new Error('Application root #app is missing.')
+
+void resolveProductApplication(window.location.pathname)
+  .then(application => application.mount(appRoot))
+  .catch((error) => {
+    console.error('[app-host] Failed to mount product application:', error)
+    appRoot.textContent = 'The application could not be loaded.'
+  })

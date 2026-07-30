@@ -5,6 +5,10 @@ VisualStudioVersion = 17.0.31919.166
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "King-of-the-Garbage-Hill", "King-of-the-Garbage-Hill\King-of-the-Garbage-Hill.csproj", "{2917999C-C241-4FA9-8F92-3A5567B3FFB9}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "King-of-the-Garbage-Hill.Games.Battleship", "King-of-the-Garbage-Hill\Battleship\King-of-the-Garbage-Hill.Games.Battleship.csproj", "{22C3458D-26DD-4A58-A440-B1D64C801C2E}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "King-of-the-Garbage-Hill.Games.Clash", "King-of-the-Garbage-Hill\Clash\King-of-the-Garbage-Hill.Games.Clash.csproj", "{E51F909E-9D29-4A85-914F-410542C95399}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -15,6 +19,14 @@ Global
 		{2917999C-C241-4FA9-8F92-3A5567B3FFB9}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{2917999C-C241-4FA9-8F92-3A5567B3FFB9}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{2917999C-C241-4FA9-8F92-3A5567B3FFB9}.Release|Any CPU.Build.0 = Release|Any CPU
+		{22C3458D-26DD-4A58-A440-B1D64C801C2E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{22C3458D-26DD-4A58-A440-B1D64C801C2E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{22C3458D-26DD-4A58-A440-B1D64C801C2E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{22C3458D-26DD-4A58-A440-B1D64C801C2E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E51F909E-9D29-4A85-914F-410542C95399}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E51F909E-9D29-4A85-914F-410542C95399}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E51F909E-9D29-4A85-914F-410542C95399}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E51F909E-9D29-4A85-914F-410542C95399}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

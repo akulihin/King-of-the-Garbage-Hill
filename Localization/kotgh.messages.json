@@ -1,0 +1,10 @@
+{
+  "product": "kotgh",
+  "messages": {
+    "kotgh.title": {
+      "visibility": "public",
+      "ru": "Король Мусорной Горы",
+      "en": "King of the Garbage Hill"
+    }
+  }
+}

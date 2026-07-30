@@ -96,6 +96,19 @@ public class GameHub : Hub
         var account = _userAccounts.GetAccount(discordId);
         var playerType = account?.PlayerType ?? 0;
         var lastPlayedCharacter = account?.CharacterPlayedLastTime ?? "";
+        var language = GameLocalization.Russian;
+        if (account == null)
+        {
+            GameLocalization.SetUserLanguage(discordId, language);
+        }
+        else
+        {
+            lock (account)
+            {
+                language = GameLocalization.Normalize(account.Language);
+                GameLocalization.SetUserLanguage(discordId, language);
+            }
+        }
         if (UnknownBug.Is(lastPlayedCharacter)) lastPlayedCharacter = "";
         await Clients.Caller.SendAsync("Authenticated", new
         {
@@ -103,6 +116,7 @@ public class GameHub : Hub
             discordId = discordIdStr,
             playerType,
             lastPlayedCharacter,
+            language,
             gameplayMode = GamePlayerBridgeClass.NormalizeGameplayMode(account?.GameplayMode),
             eloRating = account?.EloRating ?? 1000,
             isGodAdmin = AdminLobbyService.IsGodAdmin(discordId),
@@ -114,18 +128,65 @@ public class GameHub : Hub
     }
 
     /// <summary>Persist the viewer locale without changing canonical gameplay strings.</summary>
-    public async Task SetLanguage(string language)
+    public async Task<string> SetLanguage(string language)
     {
         var discordId = GetDiscordId();
-        if (discordId == 0) { await SendNotAuthenticated(); return; }
+        if (discordId == 0) { await SendNotAuthenticated(); return ""; }
 
         var normalized = GameLocalization.Normalize(language);
         var account = _userAccounts.GetAccount(discordId);
-        if (account != null) account.Language = normalized;
-        GameLocalization.SetUserLanguage(discordId, normalized);
-        await Clients.Caller.SendAsync("LanguageChanged", new { language = normalized });
+        if (account == null)
+        {
+            await Clients.Caller.SendAsync("Error", "Account not found.");
+            return "";
+        }
+
+        var saved = false;
+        lock (account)
+        {
+            var previous = account.Language;
+            var previousNormalized = GameLocalization.Normalize(previous);
+            account.Language = normalized;
+            saved = _userAccounts.SaveAccount(account);
+            if (saved)
+            {
+                GameLocalization.SetUserLanguage(discordId, normalized);
+            }
+            else
+            {
+                account.Language = previous;
+                GameLocalization.SetUserLanguage(discordId, previousNormalized);
+            }
+        }
+
+        if (!saved)
+        {
+            await Clients.Caller.SendAsync("Error", "Could not save language.");
+            return "";
+        }
+
+        var playerConnections = _notificationService.GetConnections(discordId);
+        if (playerConnections.Count > 0)
+            await Clients.Clients(playerConnections.ToList())
+                .SendAsync("LanguageChanged", new { language = normalized });
+
+        ulong? gameIdToRefresh = null;
         if (Context.Items.TryGetValue("gameId", out var gameIdValue) && gameIdValue is ulong gameId)
-            await PushStateToPlayer(gameId, discordId);
+        {
+            gameIdToRefresh = gameId;
+        }
+        else
+        {
+            lock (_global.GamesList)
+            {
+                gameIdToRefresh = _global.GamesList
+                    .FirstOrDefault(game => game.PlayersList.Any(player => player.DiscordId == discordId))
+                    ?.GameId;
+            }
+        }
+        if (gameIdToRefresh.HasValue)
+            await PushStateToPlayer(gameIdToRefresh.Value, discordId);
+        return normalized;
     }
 
     /// <summary>Changes the account ruleset for future matches. Active matches keep their snapshot.</summary>

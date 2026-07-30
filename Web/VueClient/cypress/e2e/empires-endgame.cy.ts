@@ -264,7 +264,7 @@ describe('Empire\'s Endgame deterministic browser scenarios', () => {
           expect($card.text()).to.match(/Прямая|Перевёрнута/)
         })
       cy.get('[data-testid="qa-digest"]').should('have.text', beforeDigest)
-      cy.get('[aria-label="Закрыть память колоды"]').click()
+      cy.get('[data-testid="close-deck-memory"]').click()
       cy.get('[data-testid="deck-memory-panel"]').should('not.exist')
     })
   })

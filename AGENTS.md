@@ -83,7 +83,9 @@ pnpm lint         # eslint --fix
 ```
 
 - **`pnpm type-check` is broken in this environment — use `pnpm build` to verify frontend changes.**
-- No test project; verification = `dotnet build` + `pnpm build` + the audit script + `bash tools/simulate.sh` + targeted play-testing. The simulate script is the behavioral safety net: headless mass bot games (no Discord/web), ~15s for the default 106 games. Exit 0 = clean; 1 = game exceptions and/or frozen games (the report JSON in `King-of-the-Garbage-Hill/DataBase/Simulations/` names each with line-up + stack — treat as findings, triage via `/fix-finding`); 2 = harness failure. `--characters "6 names" --games 20` replays a fixed matchup (e.g. the character you just changed); details in `docs/ARCHITECTURE.md` §10.
+- **Empire's Endgame is the only project that keeps automated test source.** Its integrated gate is `bash tools/test-empires-endgame.sh` (`--unit-only` or `--e2e-only` for a targeted run). Run it when Empire code changes.
+- Never add automated test source for King of the Garbage Hill, Battleship, 99LC, network Clash, or shared/platform code. This includes `*.spec.*`, `*.test.*`, Cypress `*.cy.*`, test directories and backend test-project/file conventions. `bash tools/audit-test-policy.sh` enforces the allowed Empire-only locations and is also run by `tools/verify-docs.sh`.
+- Outside Empire, verification = the relevant `dotnet build` / `pnpm build`, repository audits, `bash tools/simulate.sh` when KOTGH behavior can change, and targeted play-testing. The simulate script is the KOTGH behavioral safety net: headless mass bot games (no Discord/web), ~15s for the default 106 games. Exit 0 = clean; 1 = game exceptions and/or frozen games (the report JSON in `King-of-the-Garbage-Hill/DataBase/Simulations/` names each with line-up + stack — treat as findings, triage via `/fix-finding`); 2 = harness failure. `--characters "6 names" --games 20` replays a fixed matchup (e.g. the character you just changed); details in `docs/ARCHITECTURE.md` §10.
 - Deploy: `deploy_to_prod` (build → tar → scp to EC2 → systemd `kotgh`).
 
 ### Git
@@ -110,4 +112,6 @@ Do NOT `git commit` or `git push`. Write the commit message to `docs/commit-mess
 
 ## Conventions
 
-Namespaces `King_of_the_Garbage_Hill.*` · JSON CamelCase · CORS: localhost:5173/:3535/:80, kotgh.ozvmusic.com · no database — flat JSON (`DataBase/UserAccounts/…`), accounts in a `ConcurrentDictionary` · static assets `DataBase/art|sound` → `/art`, `/sound` · web auth by Discord ID as string · `*st` starts a Discord game.
+Namespaces `King_of_the_Garbage_Hill.*` · JSON CamelCase · CORS: localhost:5173/:3535/:80, kotgh.ozvmusic.com · no database — flat JSON (`DataBase/UserAccounts/…`), accounts in a `ConcurrentDictionary` · static assets `DataBase/art|sound` → `/art`, `/sound` · web auth by Discord ID as string · `*st` starts a Discord game · automated test source is Empire-only and must stay inside the paths enforced by `tools/audit-test-policy.sh`.
+
+New static or reusable RU/EN copy must be authored once in the matching root `Localization/<product>.messages.json` catalog and consumed through `MessageCatalog` (server) or `message(key, args)` (Vue). Do not add component-local RU/EN ternaries, duplicate dictionaries, new arbitrary-string/regex translation rules, or new dependencies on the DOM translator. The old translator remains only for existing logs, replays and not-yet-migrated surfaces; non-template generated prose uses an explicit `LocalizedText`/paired DTO.

@@ -1,7 +1,12 @@
-import { ref, watch } from 'vue'
+import { watch } from 'vue'
 import { characters, englishCatalog, phrases } from 'virtual:public-localization'
+import {
+  currentLocale,
+  setLocale,
+  type AppLocale,
+} from './platform/localization/locale'
 
-export type AppLocale = 'ru' | 'en'
+export { currentLocale, setLocale, type AppLocale }
 
 type EnglishCatalog = {
   exact: Record<string, string>
@@ -59,11 +64,6 @@ function addUnambiguousPhrasePairs(
 
 addUnambiguousPhrasePairs(contentExact, 'russian', 'english')
 addUnambiguousPhrasePairs(contentRussianExact, 'english', 'russian')
-const localeKey = 'kotgh_locale'
-const savedLocale = localStorage.getItem(localeKey)
-
-export const currentLocale = ref<AppLocale>(savedLocale === 'ru' || savedLocale === 'en' ? savedLocale : 'en')
-
 const cyrillicPattern = /[А-Яа-яЁё]/
 const regexSpecialCharacters = /[.*+?^${}()|[\]\\]/g
 const bilingualPhrasePattern = /\|>Phrase(Text)?V2<\|([A-Za-z0-9_-]+)/g
@@ -325,12 +325,6 @@ export function translateText(value: string | null | undefined): string {
   return translate(value, true)
 }
 
-export function setLocale(nextLocale: AppLocale): void {
-  currentLocale.value = nextLocale
-  localStorage.setItem(localeKey, nextLocale)
-  document.documentElement.lang = nextLocale
-}
-
 type OriginalAttributes = Map<string, string>
 
 const originalText = new WeakMap<Text, string>()
@@ -407,8 +401,11 @@ function localizeTree(root: Node): void {
  * so select/button values and Russian passive dispatch identifiers are never modified.
  */
 export function installDomLocalization(root: Element): () => void {
+  // Vue Teleports render outside #app. Observe the owning body so legacy
+  // dialogs receive the same compatibility translation as their source root.
+  const observationRoot = root.ownerDocument.body ?? root
   document.documentElement.lang = currentLocale.value
-  localizeTree(root)
+  localizeTree(observationRoot)
 
   const observer = new MutationObserver((mutations) => {
     for (const mutation of mutations) {
@@ -420,13 +417,11 @@ export function installDomLocalization(root: Element): () => void {
         mutation.addedNodes.forEach(localizeTree)
     }
   })
-  observer.observe(root, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: localizedAttributes })
+  observer.observe(observationRoot, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: localizedAttributes })
 
-  const stopWatch = watch(currentLocale, () => localizeTree(root), { flush: 'post' })
+  const stopWatch = watch(currentLocale, () => localizeTree(observationRoot), { flush: 'post' })
   return () => {
     stopWatch()
     observer.disconnect()
   }
 }
-
-setLocale(currentLocale.value)

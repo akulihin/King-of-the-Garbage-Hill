@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useGameStore } from './store/game'
 import LoginProcess from 'src/components/Login/LoginProcess.vue'
@@ -7,15 +7,27 @@ import LoginSuccess from 'src/components/Login/LoginSuccess.vue'
 import AchievementPopup from 'src/components/AchievementPopup.vue'
 import { installGlobalButtonSound } from 'src/services/sound'
 import { signalrService } from 'src/services/signalr'
-import { currentLocale, setLocale, type AppLocale } from './i18n'
+import {
+  currentLocale,
+  message,
+  setLocale,
+  type AppLocale,
+} from './platform/localization'
+import {
+  kotghNavigation,
+  productNavigation,
+  type AuthenticatedProductId,
+} from './apps/products'
+
+const props = defineProps<{
+  productId: AuthenticatedProductId
+}>()
 
 const store = useGameStore()
 const route = useRoute()
 const router = useRouter()
-const localPublicRouteNames = new Set(['lastChances', 'empiresEndgame', 'clashLab'])
-const isLocalPublicRoute = (name: unknown) => typeof name === 'string' && localPublicRouteNames.has(name)
-const isLocalPublicExperience = computed(() => isLocalPublicRoute(route.name))
-const isPublicExperience = computed(() => route.name === 'replay' || isLocalPublicExperience.value)
+const isKotghProduct = props.productId === 'kotgh'
+const isPublicExperience = computed(() => route.name === 'replay')
 const terminalSession = computed(() => route.name === 'game' && store.isTerminalMode)
 const deepSession = computed(() => route.name === 'game' && store.isDeepSession)
 const showRecoveredAchievementCelebration = computed(() =>
@@ -47,11 +59,11 @@ async function restoreSavedSession() {
   const savedWebId = localStorage.getItem('kotgh_web_id')
   const savedWebUsername = localStorage.getItem('kotgh_web_username')
   if (savedWebId && savedWebUsername) {
-    await connectAndAuthWeb(savedWebId, savedWebUsername)
+    await connectAndAuthWeb(savedWebId, savedWebUsername, true)
     return
   }
   const stored = localStorage.getItem('discordId')
-  if (stored) await connectAndAuth(stored)
+  if (stored) await connectAndAuth(stored, true)
 }
 
 function setTheme(theme: string) {
@@ -68,18 +80,14 @@ function setTheme(theme: string) {
 onMounted(async () => {
   signalrService.onAdminLobbyGameStarted = (data) => {
     store.godReservation = false
-    void router.push(`/game/${data.gameId}`)
+    if (isKotghProduct) void router.push(`/game/${data.gameId}`)
+    else window.location.assign(`/game/${data.gameId}`)
   }
   removeGlobalButtonSound = installGlobalButtonSound()
   if (currentTheme.value) {
     document.documentElement.setAttribute('data-theme', currentTheme.value)
   }
-  if (isLocalPublicExperience.value) return
   await restoreSavedSession()
-})
-
-watch(() => route.name, (name, previousName) => {
-  if (isLocalPublicRoute(previousName) && !isLocalPublicRoute(name)) void restoreSavedSession()
 })
 
 onUnmounted(() => {
@@ -90,18 +98,17 @@ onUnmounted(() => {
   }
 })
 
-async function connectAndAuth(id: string) {
+async function connectAndAuth(id: string, silentRestore = false) {
   if (loginBusy.value || !id || !/^\d+$/.test(id)) return
   loginBusy.value = true
   loginSuccess.value = false
   try {
     await store.connect()
     await store.authenticate(id)
-    try { await store.setLanguage(currentLocale.value) }
-    catch { /* Authentication succeeded; locale sync can retry on reconnect. */ }
     localStorage.setItem('discordId', id)
     loggedInUsername.value = `ID: ${id}`
-    loginSuccess.value = true
+    if (silentRestore) showLogin.value = false
+    else loginSuccess.value = true
   }
   catch (error) {
     if (!store.errorMessage) {
@@ -113,19 +120,18 @@ async function connectAndAuth(id: string) {
   }
 }
 
-async function connectAndAuthWeb(webId: string, username: string) {
+async function connectAndAuthWeb(webId: string, username: string, silentRestore = false) {
   if (loginBusy.value) return
   loginBusy.value = true
   loginSuccess.value = false
   try {
     await store.connect()
     await store.authenticate(webId)
-    try { await store.setLanguage(currentLocale.value) }
-    catch { /* Authentication succeeded; locale sync can retry on reconnect. */ }
     store.webUsername = username
     store.isWebAccount = true
     loggedInUsername.value = username
-    loginSuccess.value = true
+    if (silentRestore) showLogin.value = false
+    else loginSuccess.value = true
   }
   catch (error) {
     if (!store.errorMessage) {
@@ -175,8 +181,16 @@ async function handleLogout() {
 }
 
 async function changeLocale(language: AppLocale) {
+  const previous = currentLocale.value
   setLocale(language)
-  if (store.isAuthenticated) await store.setLanguage(language)
+  if (!store.isAuthenticated) return
+  try {
+    await store.setLanguage(language)
+  }
+  catch (error) {
+    setLocale(previous)
+    store.errorMessage = error instanceof Error ? error.message : String(error)
+  }
 }
 </script>
 
@@ -184,7 +198,7 @@ async function changeLocale(language: AppLocale) {
   <div class="app" :class="{ 'is-terminal-session': terminalSession, 'is-deep-session': deepSession }">
     <div v-if="terminalSession" class="terminal-crt-layer" aria-hidden="true" />
     <div v-if="deepSession" class="deep-caustics-layer" aria-hidden="true" />
-    <div class="language-switcher" role="group" aria-label="Language / Язык">
+    <div class="language-switcher" role="group" :aria-label="message('shell.language.label')">
       <button
         :class="{ active: currentLocale === 'ru' }"
         :aria-pressed="currentLocale === 'ru'"
@@ -201,8 +215,8 @@ async function changeLocale(language: AppLocale) {
     <Transition name="reservation-fade">
       <div v-if="store.godReservation" class="god-reservation-overlay" role="status">
         <span aria-hidden="true">✦</span>
-        <strong>{{ currentLocale === 'ru' ? 'Вы были избраны богом.' : 'You have been chosen by God.' }}</strong>
-        <small>{{ currentLocale === 'ru' ? 'Ожидайте начала админской игры.' : 'Wait for the admin match to begin.' }}</small>
+        <strong>{{ message('shell.reservation.title') }}</strong>
+        <small>{{ message('shell.reservation.wait') }}</small>
       </div>
     </Transition>
     <!-- Login screen (designer's layout) -->
@@ -231,20 +245,24 @@ async function changeLocale(language: AppLocale) {
       <header class="top-bar">
         <div class="top-bar-left">
           <img class="logo-icon" src="https://r2.ozvmusic.com/kotgh/art/avatars/game_v2.png" alt="KOTGH" />
-          <RouterLink to="/" class="logo-text">KOTGH</RouterLink>
+          <RouterLink v-if="isKotghProduct" to="/games" class="logo-text">KOTGH</RouterLink>
+          <a v-else href="/games" class="logo-text">KOTGH</a>
         </div>
 
-        <nav class="top-nav" aria-label="Primary navigation / Основная навигация">
-          <RouterLink to="/games">Lobby</RouterLink>
-          <RouterLink to="/battleship">Морской Бой - minigame</RouterLink>
-          <RouterLink to="/home">Home</RouterLink>
-          <RouterLink to="/fortress-of-doom">Крепость Рока</RouterLink>
-          <RouterLink to="/store">{{ currentLocale === 'ru' ? 'Магазин' : 'Store' }}</RouterLink>
-          <RouterLink to="/achievements">{{ currentLocale === 'ru' ? 'Достижения' : 'Achievements' }}</RouterLink>
-          <RouterLink to="/fight-calculator">{{ currentLocale === 'ru' ? 'Калькулятор боя' : 'Fight Lab' }}</RouterLink>
-          <RouterLink to="/99lc">99 Last Chances</RouterLink>
-          <RouterLink to="/empires-endgame">Empire's Endgame</RouterLink>
-          <RouterLink to="/clash">Clash</RouterLink>
+        <nav class="top-nav" :aria-label="message('shell.nav.primary')">
+          <template v-for="item in kotghNavigation" :key="item.href">
+            <RouterLink v-if="isKotghProduct" :to="item.href">{{ message(item.labelKey) }}</RouterLink>
+            <a v-else :href="item.href">{{ message(item.labelKey) }}</a>
+          </template>
+          <template v-for="product in productNavigation" :key="product.id">
+            <RouterLink
+              v-if="product.id === props.productId"
+              :to="product.href"
+            >
+              {{ message(product.labelKey) }}
+            </RouterLink>
+            <a v-else :href="product.href">{{ message(product.labelKey) }}</a>
+          </template>
         </nav>
 
         <div class="top-bar-right">
@@ -255,7 +273,7 @@ async function changeLocale(language: AppLocale) {
           <span v-if="store.isAuthenticated" class="user-info">
             {{ store.isWebAccount ? store.webUsername : store.discordId }}
           </span>
-          <button class="top-btn" @click="handleLogout">Logout</button>
+          <button class="top-btn" @click="handleLogout">{{ message('shell.nav.logout') }}</button>
           <select class="theme-select" :value="currentTheme" @change="setTheme(($event.target as HTMLSelectElement).value)">
             <option value="">Default</option>
             <option value="blood">Blood</option>

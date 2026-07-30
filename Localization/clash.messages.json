@@ -1,0 +1,10 @@
+{
+  "product": "clash",
+  "messages": {
+    "clash.title": {
+      "visibility": "public",
+      "ru": "Клэш",
+      "en": "Clash"
+    }
+  }
+}

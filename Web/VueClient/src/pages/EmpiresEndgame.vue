@@ -2421,14 +2421,15 @@ onUnmounted(() => {
           :description="`Результат партии: ${state.performanceScore}. Чем лучше вы сыграли, тем сильнее выбор склоняется в вашу пользу — но любой дар остаётся частью сделки.`"
           @choose="chooseGift"
         />
-        <TargetResolutionDialog
-          v-else
-          :title="`${pendingGift?.name || 'Божественный дар'}: выберите город`"
-          :description="pendingGift?.description || 'Дар требует выбрать город перед переходом к управлению империей.'"
-          :prompt="targetResolutionPrompt"
-          :options="targetResolutionOptions"
-          @choose="resolvePendingTarget"
-        />
+        <Teleport v-else to="body">
+          <TargetResolutionDialog
+            :title="`${pendingGift?.name || 'Божественный дар'}: выберите город`"
+            :description="pendingGift?.description || 'Дар требует выбрать город перед переходом к управлению империей.'"
+            :prompt="targetResolutionPrompt"
+            :options="targetResolutionOptions"
+            @choose="resolvePendingTarget"
+          />
+        </Teleport>
       </section>
 
       <section v-else-if="state.phase === 'empire' || editorOpen" class="phase-content empire-phase">

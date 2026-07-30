@@ -12,12 +12,45 @@ This allows one match to contain Russian- and English-speaking players without d
 
 - `DiscordAccountClass.Language` persists `ru` or `en`; missing/unknown values normalize to Russian (`DiscordAccountClass.cs:27`, `GameLocalization.cs:45-51`). Existing account JSON needs no migration because the property initializer supplies `ru`.
 - Discord users switch with the commands **\*язык**, **\*language** or **\*lang** (`General.cs:128-149`).
-- The Vue RU/ENG selector defaults to English when there is no saved choice, persists `kotgh_locale`, and remains available on login and authenticated screens (`Web/VueClient/src/i18n.ts`, `App.vue:110-123`).
-- `GameHub.SetLanguage` persists the web choice and immediately re-pushes personalized state when the connection is in a game (`GameHub.cs:83-96`). Reconnect authentication is followed by the client setting its current locale again.
+- The shared Vue locale module defaults to English when `kotgh_locale` has not been saved, persists every browser choice under that key and updates `<html lang>`. The RU/ENG control is present in the authenticated shell and in the router-free 99LC/Empire shell (`Web/VueClient/src/platform/localization/locale.ts`; `App.vue` `changeLocale`; `StandaloneGameShell.vue`).
+- Before login, the saved browser choice owns presentation. `GameHub.Authenticate` then returns the account's normalized persisted `language`, and the store applies it instead of writing the browser default back to the account (`GameHub.Authenticate`; `signalr.ts` `AuthenticatedSession`; `store/game.ts` authentication callback).
+- `GameHub.SetLanguage` saves the normalized account value under the account monitor before changing the process locale registry. On success it emits `LanguageChanged` to every active connection for that account, returns the saved language and immediately re-pushes the player's active-game projection even when the change came from a lobby tab. On failure it restores the old account/registry values and the client restores its previous selection (`GameHub.SetLanguage`; `App.vue` `changeLocale`).
+- Router-free 99LC and Empire's Endgame have no authenticated account connection; their selector changes only the shared browser preference.
 
-## 3. Shared catalogs
+## 3. Catalog layers
 
-`DataBase/localization.en.json` is bundled into both the backend output and the Vue build. Its sections are:
+### 3.1 Structured product catalogs — required for new copy
+
+Root `Localization/*.messages.json` is the single source for new static/reusable RU/EN copy. Catalogs currently exist for `shell`, `kotgh`, `battleship`, `clash`, `last-chances` and `empires-endgame`. Each file has this shape:
+
+```json
+{
+  "product": "kotgh",
+  "messages": {
+    "kotgh.title": {
+      "visibility": "public",
+      "ru": "Король Мусорной Горы",
+      "en": "King of the Garbage Hill"
+    }
+  }
+}
+```
+
+The contract is:
+
+- the stable key must begin with `<product>.`;
+- both `ru` and `en` must be non-empty;
+- named `{placeholders}` and their occurrence counts must be identical in both languages;
+- `visibility` is explicit: `public` may ship to every browser, `owner` may be rendered only at an authenticated owner boundary, and `server` never leaves the backend as a catalog entry;
+- a key is globally unique across product files, and repeated JSON properties within one file are rejected before ordinary deserialization can collapse them.
+
+The backend project copies the catalogs to deployed `Localization/`. Constructing `MessageCatalog` during web startup first performs a duplicate-aware JSON walk, then validates file/schema/key/language/visibility/placeholder-occurrence invariants and fails startup on any error. `LocalizedMessage` carries a stable key and argument map; `MessageCatalog.Render` selects a locale and requires every argument. `LocalizedText {Ru, En}` is the paired boundary for generated or one-off prose that cannot use a reusable key (`King-of-the-Garbage-Hill/Localization/MessageCatalog.cs`; `King-of-the-Garbage-Hill/Localization/LocalizedText.cs`; `King-of-the-Garbage-Hill.csproj`; `Program.cs` `StartWebApi`).
+
+Vite's `messageCatalogPlugin` performs matching build/dev validation and exposes only explicitly `public` definitions through `virtual:message-catalogs`. It watches both the catalog directory and every loaded file, so adding or editing a product catalog invalidates the development module without restarting Vite. `platform/localization/messages.ts` provides `message(key, arguments)` and `localizedText(value)`; components supply only keys/dynamic values, never parallel RU/EN literals. Owner/server definitions are absent from the browser module rather than hidden with CSS or inferred from their wording (`Web/VueClient/vite.config.ts` `messageCatalogPlugin`; `Web/VueClient/src/platform/localization/messages.ts`).
+
+### 3.2 Legacy compatibility catalogs
+
+`DataBase/localization.en.json`, `DataBase/phrases.en.json`, `GameLocalization` and the Vue DOM/arbitrary-string translator remain supported for existing gameplay producers, stored logs and replays. They are compatibility input, not the extension point for new static UI copy. `localization.en.json` is copied into backend output and transformed into the sanitized `virtual:public-localization` browser module. Its sections are:
 
 | Section | Purpose |
 |---|---|
@@ -25,10 +58,10 @@ This allows one match to contain Russian- and English-speaking players without d
 | `terms` | Presentation-only names and safe terminology. Replacements use word boundaries for single tokens; action values are never passed through this layer. |
 | `russianExact` | English-first legacy UI copy → Russian. This completes Russian presentation on surfaces originally authored in English. |
 | `phraseFallbacks` | Passive-aware English adaptations for canonical `|>Phrase<|` flavor-log records. Shared by the backend and Vue replay renderer; every Cyrillic `PhraseClass` identifier is covered. |
-| `characters` | English biographies keyed by canonical character name. Contains every character entry. |
-| `passives` | English mechanics text keyed by canonical passive name. Contains every unique passive from `characters.json`. |
+| `characters` | English biographies keyed by canonical character name. Complete coverage is the contract; Homelander and Omni-man are the currently catalogued legacy gap (M198). |
+| `passives` | English mechanics text keyed by canonical passive name. Complete coverage is the contract; 14 recent Homelander/Omni-man/TheBoys entries remain open under M198. |
 
-At startup, the backend joins `characters`/`passives` to the canonical source text from `characters.json`, adding those source texts to its exact catalog (`GameLocalization.cs:247-265`). The client performs the same bidirectional join while bundling (`Web/VueClient/src/i18n.ts:16-31`). The Russian player text in `characters.json` remains untouched.
+At startup, the backend joins `characters`/`passives` to the canonical source text from `characters.json`, adding those source texts to its legacy exact catalog (`GameLocalization.cs:247-265`). The client performs the same bidirectional join while bundling (`Web/VueClient/src/i18n.ts:16-31`). The Russian player text in `characters.json` remains untouched.
 
 `DataBase/phrases.en.json` is the backend-owned flavor catalog. It is keyed by the stable C# `PhraseClass` field name; each group stores its canonical/English passive titles plus an ordered array of `{ russian, english }` phrase pairs. It currently covers all **253 groups** and **834 runtime variants**. `PhraseLocalization.Populate` fails startup for a missing/extra group, count mismatch, a Russian title/body that differs from the untouched C# source at the same index, an empty adaptation, or Cyrillic in English (`PhraseLocalization.cs:19-69,165-198`). The duplicated Russian fields are validation data for old replays, not a replacement source: `PassiveLogRus` and all Russian producers remain unchanged.
 
@@ -57,24 +90,30 @@ Achievements and Daily Quests use separate typed bilingual catalogs. Achievement
 
 ## 4. Backend boundaries
 
+- Reusable new server-authored copy is represented as `LocalizedMessage`, then resolved by `MessageCatalog` at a presentation boundary after viewer/visibility selection. Generated prose that cannot use a key crosses as paired `LocalizedText`. Do not render a structured owner/server definition into a public DTO.
 - All ordinary Discord command text and embeds pass through `ModuleBaseCustom` before sending (`ModuleBaseCustom.cs:14-18`, `ModuleBaseCustom.cs:61-65`).
 - In-game embeds, transient messages and Discord component labels/options are localized immediately before build/send; component identifiers and select-option values remain canonical (`HelperFunctions.cs:237-244`, `GameLocalization.cs:198-222`).
-- Personalized web logs, score sources, direct messages, media messages and the finished chronicle are projected in `GameStateMapper`; ordinary text is localized there, while bilingual phrase records and paired media fields remain language-neutral for live switching and replay capture (`GameStateMapper.cs:1095-1113`). Opponent/spectator visibility gates are unchanged.
+- Personalized legacy web logs, score sources, direct messages, media messages and the finished chronicle are projected in `GameStateMapper`; arbitrary historic text is localized there, while bilingual phrase records and paired media fields remain language-neutral for live switching and replay capture (`GameStateMapper.cs:1095-1113`). Opponent/spectator visibility gates are unchanged.
 - `PhraseClass` selects one shared RU/EN index and removes both entries together when a phrase is consumed (`CharactersPhrases.cs:1706-1755`). Personal/direct logs store a compact `|>PhraseV2<|` record containing both fully rendered variants; media DTOs carry explicit canonical/English fields. Discord resolves the record before log sorting, Vue resolves it at display time, and game-story input resolves Russian before stripping formatting (`PhraseLocalization.cs:219-309`; `GameUpdateMess.cs:834-839`; `GameStoryService.cs:571-578`). Prefixes, suffixes and target names are rendered into both variants. For old `|>Phrase<|` snapshots, the paired catalog resolves the exact authored body in passive context (including duplicate titles, ASCII-only bodies and multi-line variants) before the broad fallback is considered (`PhraseLocalization.cs:72-163`).
 
 Do not localize inside `CharacterPassives`, `GameReactions`, `DoomsdayMachine` or similar game-state code unless the text is inherently per-user generated (Geralt's hint is the deliberate exception). Store canonical logs whenever possible and localize the viewer projection.
 
 ## 5. Vue boundary
 
-The client keeps canonical state values in Pinia and localizes rendered text/accessible attributes through a DOM observer (`Web/VueClient/src/i18n.ts`). It records the original Vue-rendered value, so RU↔EN switching is reversible and later reactive updates are re-localized. Character/passive content comes from untouched `characters.json`, while the same backend-owned paired phrase JSON supplies exact legacy bodies and safe unambiguous fragments (`Web/VueClient/src/i18n.ts:1-93,207-271`). New bilingual phrase records are decoded before ordinary translation and kept opaque while the rest of a log block is processed. Old markers are matched by passive plus exact body before ordinary fragments or `phraseFallbacks`, including multi-line and ASCII-only memes (`i18n.ts:207-271,305-335`). Media cards select their paired fields directly (`MediaMessages.vue:9-22`). Passive descriptions are translated as one complete string before markdown. Input values, ids, object properties and SignalR action arguments are never translated.
+`main.ts` selects one of five lazy application roots, and `platform/bootstrap.ts` gives each a fresh Vue/Pinia instance plus its optional product router. All five consume the same `platform/localization` locale and structured-message API. KOTGH, Battleship and network Clash each own a router; 99LC and Empire are router-free roots. Cross-product navigation reloads the root, while the persisted locale remains shared (`Web/VueClient/src/apps/registry.ts`; `Web/VueClient/src/platform/bootstrap.ts`; `Web/VueClient/src/platform/localization/`).
+
+New component copy calls `message('product.stableKey', arguments)` or selects a typed `LocalizedText`; it does not embed parallel `currentLocale === ...` branches or add arbitrary text-replacement rules. `App.vue`, product navigation and `StandaloneGameShell.vue` are the migrated reference surfaces.
+
+The client still keeps canonical gameplay state values in Pinia and installs the old DOM observer from `i18n.ts` after every root mounts. The observer owns that root's document body so Vue Teleport dialogs receive the same compatibility translation. This is deliberately a legacy compatibility adapter: it records the original Vue-rendered value so old RU↔EN surfaces and later reactive updates remain reversible. Character/passive content comes from untouched `characters.json`, while the backend-owned paired phrase JSON supplies exact historic bodies and safe unambiguous fragments (`Web/VueClient/src/i18n.ts:1-93,207-271`). New bilingual phrase records are decoded before ordinary translation and kept opaque while the rest of a log block is processed. Old markers are matched by passive plus exact body before ordinary fragments or `phraseFallbacks`, including multi-line and ASCII-only memes (`i18n.ts:207-271,305-335`). Media cards select their paired fields directly (`MediaMessages.vue:9-22`). Passive descriptions are translated as one complete string before markdown. Input values, ids, object properties and SignalR action arguments are never translated.
 
 Reward components select typed Achievement/Daily Quest pairs directly from `currentLocale` rather than passing dynamic DTO strings through gameplay-state translation (`AchievementBoard.vue:114-132`; `AchievementPopup.vue:47-59`; `DailyQuestBoard.vue:98-166`). Loot rarity, pity, actions and accessibility labels are likewise explicit EN/RU component copy (`LootBox.vue:129-165`). Achievement `CharacterNames` and Daily Quest IDs stay canonical so portrait lookup and reroll actions remain stable (`AchievementClass.cs:29-35`; quest mapping `GameHub.cs:775-803`).
 
-Development builds warn in the console when an English-rendered node still contains Cyrillic (`Web/VueClient/src/i18n.ts`). When adding UI copy:
+Development builds warn in the console when an English-rendered legacy node still contains Cyrillic (`Web/VueClient/src/i18n.ts`). When adding UI copy:
 
-1. Add an exact catalog entry in both directions when the source surface is English-first.
-2. Use `terms` only for names or tokens safe to replace in arbitrary presentation strings.
-3. Test switching both ways after the component has reactively updated.
+1. Add one product-prefixed key with `ru`, `en`, explicit visibility and matching placeholders to the relevant `Localization/*.messages.json`.
+2. Resolve the key through `message()` (or use paired `LocalizedText` for genuinely generated prose); do not add another component-local RU/EN table.
+3. Use the old `exact`/`terms`/DOM path only when preserving or repairing a historic log/replay form that cannot yet be keyed.
+4. Test switching both ways after the component has reactively updated, and verify that owner/server messages are absent from browser output.
 
 The Chronicle is a special HTML-rendering boundary: `FightAnimation.formatLetopis` localizes the complete Discord-markdown string before replacing bold/emphasis markers with HTML. This ordering is required for templates that span formatted dynamic names, such as `Они скинули **Darksci**! Сволочи!` and target-class rewards (`FightAnimation.vue:1024-1039`).
 
@@ -88,11 +127,11 @@ The Chronicle is a special HTML-rendering boundary: `FightAnimation.formatLetopi
 For any player-facing change:
 
 1. Keep canonical gameplay identifiers unchanged.
-2. Add/adapt English and Russian display text in the shared catalog.
-3. Run `jq empty` for both `localization.en.json` and `phrases.en.json`.
-4. Run `bash tools/audit-localization.sh`; it also runs `audit-phrases.sh`, which requires the paired schema plus exact field/count parity and rejects missing Russian or empty/Cyrillic English values. Runtime startup additionally checks every Russian title/body against C# by index.
+2. Add/adapt both languages and explicit visibility in the relevant structured product catalog. Keep placeholder names identical.
+3. Run `jq empty Localization/*.messages.json`; backend startup and `pnpm build` independently validate the structured schema, while Vite proves that browser code can see only public entries.
+4. If a legacy producer/replay form changed, also run `jq empty` for `localization.en.json` and `phrases.en.json`, then `bash tools/audit-localization.sh`. It runs `audit-phrases.sh`, which requires paired field/count parity and rejects missing Russian or empty/Cyrillic English values. The current character-sheet portion reports the known M198 backlog; do not weaken the audit to hide it.
 5. Run `dotnet build` and `pnpm build`.
 6. Run `bash tools/audit-passives.sh` if any passive-bearing source changed.
-7. Run `bash tools/verify-docs.sh --changed` and the standard simulation suite for gameplay-bearing changes.
+7. Run `bash tools/verify-docs.sh --changed`; this also runs the Empire-only automated-test policy audit. Run the standard simulation suite for gameplay-bearing KOTGH changes.
 
-Both catalogs are copied by the project file (`King-of-the-Garbage-Hill.csproj:22-27`); forgetting either copy makes deployed localization incomplete.
+The project copies both legacy catalogs into `DataBase/` and structured catalogs into `Localization/` (`King-of-the-Garbage-Hill.csproj`); forgetting either deployment group makes its compatibility layer incomplete.

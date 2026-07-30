@@ -1,0 +1,10 @@
+{
+  "product": "last-chances",
+  "messages": {
+    "last-chances.title": {
+      "visibility": "public",
+      "ru": "99 Последних Шансов",
+      "en": "99 Last Chances"
+    }
+  }
+}

@@ -4,8 +4,9 @@ This document is the source of truth for the standalone network version of
 `Clash`/`Клэш` exposed at authenticated routes `/clash` and `/clash/:gameId`. It covers
 the authoritative multiplayer/bot match implemented by `ClashService`,
 `ClashGameEngine`, `ClashBotAI`, and the Vue Clash store/components. The older
-client-only campaign scaffold remains available only as the `/clash/lab` QA route and
-does not define production rules.
+client-only engine remains embedded inside Empire's Endgame campaign and `?qa=1`
+fixtures, where it owns campaign-local plans, turn logs and settlement. It is not this
+network game and has no standalone route; the redundant Clash lab page was removed.
 
 The normative design input is the 2026-07-29 redesign request. The unit audit in
 Appendix A is grounded in the Discord export

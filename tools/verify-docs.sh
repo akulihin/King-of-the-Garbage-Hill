@@ -23,6 +23,11 @@
 
 set -u
 cd "$(dirname "$0")/.." || exit 1
+
+# Keep the repository's Empire-only automated-test policy on the same routine
+# verification path as the other source/catalog invariants.
+bash tools/audit-test-policy.sh || exit 1
+
 B=King-of-the-Garbage-Hill
 V=Web/VueClient/src
 MODE="${1:---all}"
@@ -62,11 +67,11 @@ resolve() {
     characters.json|localization.en.json|phrases.en.json) echo "$B/DataBase/$1";;
     GameDesign.txt) echo "$B/Game/$1";;
     signalr.ts|sound.ts|textFormatting.ts) echo "$V/services/$1";;
-    game.ts|replay.ts|replay.spec.ts|battleship.ts|clash.ts) echo "$V/store/$1";;
-    router.ts|main.ts|App.vue|i18n.ts|i18n.spec.ts) echo "$V/$1";;
+    game.ts|replay.ts|battleship.ts|clash.ts) echo "$V/store/$1";;
+    router.ts|main.ts|App.vue|i18n.ts) echo "$V/$1";;
     vite.config.ts) echo "Web/VueClient/$1";;
     useTip.ts|useVfx.ts|useFocusTrapDialog.ts) echo "$V/composables/$1";;
-    Game.vue|Lobby.vue|Spectate.vue|Replay.vue|Widget.vue|Home.vue|Store.vue|Achievements.vue|BattleshipLobby.vue|BattleshipGame.vue|BattleshipSpectate.vue|ClashLobby.vue|ClashGame.vue|Clash.vue)
+    Game.vue|Lobby.vue|Spectate.vue|Replay.vue|Widget.vue|Home.vue|Store.vue|Achievements.vue|BattleshipLobby.vue|BattleshipGame.vue|BattleshipSpectate.vue|ClashLobby.vue|ClashGame.vue)
       echo "$V/pages/$1";;
     LoginProcess.vue|LoginSuccess.vue) echo "$V/components/Login/$1";;
     PlayerCard.vue|SkillsPanel.vue|Leaderboard.vue|FightAnimation.vue|DeathNote.vue|RoundTimer.vue|MediaMessages.vue|BattleLog.vue|ActionPanel.vue|AchievementBoard.vue|AchievementPopup.vue|LootBox.vue|DailyQuestBoard.vue|ScoreOdometer.vue)
@@ -198,7 +203,17 @@ while IFS= read -r route; do
     echo "CATALOG-MISSING: Vue route \`$route\` in docs/WEB-CLIENT.md"
     catalog_fail=1
   }
-done < <(grep -oP "path:\s*'\K[^']+" "$V/router.ts")
+done < <(
+  {
+    grep -hoP "path:\s*'\K[^']+" \
+      "$V/router.ts" \
+      "$V/apps/battleship/router.ts" \
+      "$V/apps/clash/router.ts"
+    grep -oP "prefix\('\K[^']+" "$V/apps/registry.ts"
+  } \
+    | sed 's/:gameId(\[0-9a-f\]{8})/:gameId/' \
+    | sort -u
+)
 
 discord_commands=0
 while IFS= read -r command; do

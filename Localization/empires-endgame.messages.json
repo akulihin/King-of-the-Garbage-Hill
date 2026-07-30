@@ -1,0 +1,10 @@
+{
+  "product": "empires-endgame",
+  "messages": {
+    "empires-endgame.title": {
+      "visibility": "public",
+      "ru": "Последняя Игра Империи",
+      "en": "Empire's Endgame"
+    }
+  }
+}
